@@ -1,21 +1,32 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
+import { defineConfig } from 'vite';
 
 export default defineConfig(() => {
+  const root = path.resolve(__dirname, '.');
+
   return {
     plugins: [react(), tailwindcss()],
     resolve: {
-      alias: {
-        '@': path.resolve(__dirname, '.'),
-      },
+      alias: [
+        { find: '@', replacement: root },
+
+        // Fix the flattened GitHub upload automatically
+        {
+          find: /^(?:\.\.\/|\.\/)(?:context|components|utils|data|services|lib)\/(.+)$/,
+          replacement: `${root}/$1`,
+        },
+
+        {
+          find: /^(?:\.\.\/|\.\/)types$/,
+          replacement: `${root}/types`,
+        },
+      ],
     },
+
     server: {
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
-      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
   };
