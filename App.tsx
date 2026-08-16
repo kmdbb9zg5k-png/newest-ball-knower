@@ -188,8 +188,4 @@ function BallKnowerApp() {
     </SoundtrackProvider>
   );
 }
-        <BallKnowerApp />
-      </BallKnowerProvider>
-   
-  );
-}
+  
