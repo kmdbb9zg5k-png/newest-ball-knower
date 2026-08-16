@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BallKnowerProvider, useBallKnower } from './BallKnowerContext';
-
+import { SoundtrackProvider } from './SoundtrackContext';
 import { Navbar } from './Navbar';
 import { HomeDashboard } from './HomeDashboard';
 import { LeagueLobby } from './LeagueLobby';
@@ -178,10 +178,16 @@ function BallKnowerApp() {
   );
 }
 
-export default function App() {
+
+        export default function App() {
   return (
-    
+    <SoundtrackProvider>
       <BallKnowerProvider>
+        <BallKnowerApp />
+      </BallKnowerProvider>
+    </SoundtrackProvider>
+  );
+}
         <BallKnowerApp />
       </BallKnowerProvider>
    
