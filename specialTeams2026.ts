@@ -1,0 +1,53 @@
+import { Player } from '../types';
+
+type Row = { name:string; team:string; position:'K'|'P'; capHit:number; ovr:number };
+const ROWS: Row[] = [
+{ name:'Harrison Butker',team:'KC',position:'K',capHit:7.305,ovr:88 },
+{ name:'Jason Myers',team:'SEA',position:'K',capHit:7.225,ovr:84 },
+{ name:"Ka'imi Fairbairn",team:'HOU',position:'K',capHit:6.998111,ovr:86 },
+{ name:'Graham Gano',team:'NYG',position:'K',capHit:5.75,ovr:80 },
+{ name:'Cameron Dicker',team:'LAC',position:'K',capHit:5.725,ovr:87 },
+{ name:'Brandon McManus',team:'GB',position:'K',capHit:5.278431,ovr:82 },
+{ name:'Evan McPherson',team:'CIN',position:'K',capHit:4.983333,ovr:84 },
+{ name:'Tyler Bass',team:'BUF',position:'K',capHit:4.97,ovr:81 },
+{ name:'Jake Elliott',team:'PHI',position:'K',capHit:4.893,ovr:85 },
+{ name:'Chris Boswell',team:'PIT',position:'K',capHit:4.72,ovr:89 },
+{ name:'Chase McLaughlin',team:'TB',position:'K',capHit:3.8,ovr:83 },
+{ name:'Cairo Santos',team:'CHI',position:'K',capHit:3.76,ovr:82 },
+{ name:'Wil Lutz',team:'DEN',position:'K',capHit:2.498666,ovr:83 },
+{ name:'Spencer Shrader',team:'IND',position:'K',capHit:1.375,ovr:76 },
+{ name:'Will Reichard',team:'MIN',position:'K',capHit:1.117655,ovr:80 },
+{ name:'Cam Little',team:'JAX',position:'K',capHit:1.109597,ovr:81 },
+{ name:'Jake Bates',team:'DET',position:'K',capHit:1.075,ovr:82 },
+{ name:'Logan Cooke',team:'JAX',position:'P',capHit:5.25,ovr:87 },
+{ name:'A.J. Cole',team:'LV',position:'P',capHit:5.0,ovr:90 },
+{ name:'Bryan Anger',team:'DAL',position:'P',capHit:4.1,ovr:86 },
+{ name:'Jack Fox',team:'DET',position:'P',capHit:3.975,ovr:89 },
+{ name:'Michael Dickson',team:'SEA',position:'P',capHit:3.8,ovr:88 },
+{ name:'JK Scott',team:'LAC',position:'P',capHit:3.8,ovr:84 },
+{ name:'Ethan Evans',team:'LAR',position:'P',capHit:3.701001,ovr:80 },
+{ name:'Jamie Gillan',team:'NYG',position:'P',capHit:3.304901,ovr:81 },
+{ name:'Riley Dixon',team:'TB',position:'P',capHit:3.0,ovr:83 },
+{ name:'Rigoberto Sanchez',team:'IND',position:'P',capHit:2.55,ovr:84 },
+{ name:'Daniel Whelan',team:'GB',position:'P',capHit:2.35,ovr:82 },
+{ name:'Tress Way',team:'WAS',position:'P',capHit:1.4875,ovr:85 },
+{ name:'Tory Taylor',team:'CHI',position:'P',capHit:1.261975,ovr:83 },
+{ name:'Bryce Baringer',team:'NE',position:'P',capHit:1.189614,ovr:82 },
+{ name:'Trenton Gill',team:'ATL',position:'P',capHit:1.145,ovr:76 },
+{ name:'Ryan Rehkow',team:'CIN',position:'P',capHit:1.075,ovr:81 },
+{ name:'Jeremy Crawshaw',team:'DEN',position:'P',capHit:1.04857,ovr:77 },
+{ name:'Kai Kroeger',team:'NO',position:'P',capHit:1.005,ovr:76 },
+{ name:'Austin McNamara',team:'NYJ',position:'P',capHit:1.005,ovr:76 },
+{ name:'Nik Constantinou',team:'CLE',position:'P',capHit:0.885,ovr:75 },
+];
+
+export const SPECIAL_TEAMS_2026: Player[] = ROWS.map(r => ({
+ id:`2026-${r.position.toLowerCase()}-${r.name.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`,
+ name:r.name, team:r.team, teamId:r.team, teamCity:r.team, position:r.position,
+ positionGroup:r.position, ovr:r.ovr, overallRating:r.ovr, overall:r.ovr,
+ ratingSource:'EA SPORTS Madden', ratingSeason:2026, ratingStatus:'RATING_REVIEW_REQUIRED',
+ salary:r.capHit, salaryType:'cap_hit', salarySeason:2026, salarySource:'Spotrac',
+ salaryLastUpdated:'2026-08-16', active:true, rosterSeason:2026, rosterLastUpdated:'2026-08-16',
+ attributes:{ kicking:r.position==='K'?r.ovr:undefined, athleticism:Math.max(60,r.ovr-8), footballIQ:r.ovr },
+ highlightStat:r.position==='K'?'2026 kicker — real cap hit':'2026 punter — real cap hit'
+}));
