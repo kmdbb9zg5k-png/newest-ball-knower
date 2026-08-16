@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BallKnowerProvider, useBallKnower } from './BallKnowerContext';
-import { SoundtrackProvider, useSoundtrack } from './SoundtrackContext';
+
 import { Navbar } from './Navbar';
 import { HomeDashboard } from './HomeDashboard';
 import { LeagueLobby } from './LeagueLobby';
@@ -18,7 +18,7 @@ import { CheckCircle2, AlertCircle, Play, Database } from 'lucide-react';
 
 function BallKnowerApp() {
   const { activeLeague, setActiveLeagueId, toastMessage, joinLeague } = useBallKnower();
-  const { setIntroActive } = useSoundtrack();
+ 
 
   const [currentTab, setCurrentTab] = useState<'home' | 'solo' | 'legacy' | 'lobby' | 'draft' | 'simulation'>('home');
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -28,10 +28,7 @@ function BallKnowerApp() {
   // Auto-play intro video every time a user opens the app
   const [isIntroOpen, setIsIntroOpen] = useState(true);
 
-  // Synchronize intro state with soundtrack engine so music begins immediately after intro finishes
-  useEffect(() => {
-    setIntroActive(isIntroOpen);
-  }, [isIntroOpen, setIntroActive]);
+ 
 
   // Check URL params for direct join links like ?join=BK-77492
   useEffect(() => {
@@ -183,10 +180,10 @@ function BallKnowerApp() {
 
 export default function App() {
   return (
-    <SoundtrackProvider>
+    
       <BallKnowerProvider>
         <BallKnowerApp />
       </BallKnowerProvider>
-    </SoundtrackProvider>
+   
   );
 }
