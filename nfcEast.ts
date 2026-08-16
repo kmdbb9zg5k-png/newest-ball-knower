@@ -1,4 +1,4 @@
-import { Player } from '../../types';
+import { Player } from './types';
 
 export const NFC_EAST_PLAYERS: Player[] = [
   // ===================== DALLAS COWBOYS (DAL) =====================
