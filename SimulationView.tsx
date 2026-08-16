@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { League, SeasonResult, TeamReportAnalysis, SimulationGame } from '../types';
-import { useBallKnower } from '../context/BallKnowerContext';
-import { generateTeamReport } from '../utils/evaluation';
+import { League, SeasonResult, TeamReportAnalysis, SimulationGame } from './types';
+import { useBallKnower } from './BallKnowerContext';
+import { generateTeamReport } from './evaluation';
 import { RosterComparisonModal } from './RosterComparisonModal';
 import {
   Trophy,
