@@ -1,4 +1,4 @@
-import { Player } from '../../types';
+import { Player } from './types';
 
 export const NFC_SOUTH_PLAYERS: Player[] = [
   // ===================== ATLANTA FALCONS (ATL) =====================
