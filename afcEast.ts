@@ -1,4 +1,4 @@
-import { Player } from '../../types';
+import { Player } from './types';
 
 export const AFC_EAST_PLAYERS: Player[] = [
   // ===================== BUFFALO BILLS (BUF) =====================
