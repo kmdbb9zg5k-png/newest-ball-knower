@@ -1,4 +1,4 @@
-import { Player } from '../../types';
+import { Player } from './types';
 
 export const AFC_WEST_PLAYERS: Player[] = [
   // ===================== DENVER BRONCOS (DEN) =====================
