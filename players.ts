@@ -83,6 +83,8 @@ export const NFL_TEAMS:NFLTeamInfo[]=[
  {code:'SEA',name:'Seahawks',city:'Seattle',conference:'NFC',division:'West',primaryColor:'#002244',secondaryColor:'#69BE28'},
 ];
 
+export function getTeamData(code:string){ return NFL_TEAMS.find(team=>team.code===String(code||'').toUpperCase()); }
+
 export function getPositionGroup(pos:Position):PositionGroup{
  const p=String(pos).toUpperCase();
  if(p==='QB')return 'QB' as PositionGroup;
