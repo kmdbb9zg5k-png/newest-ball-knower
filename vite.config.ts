@@ -5,21 +5,24 @@ import fs from 'fs';
 import { defineConfig, Plugin } from 'vite';
 
 function flattenedRepoResolver(root:string):Plugin{
+  const resolveFlat=(value:string)=>{
+    const full=path.join(root,value);
+    const leaf=path.join(root,path.basename(value));
+    for(const base of [full,leaf]){
+      for(const candidate of [base,`${base}.ts`,`${base}.tsx`,`${base}.js`,`${base}.jsx`]){
+        if(fs.existsSync(candidate)) return candidate;
+      }
+    }
+    return null;
+  };
   return {
     name:'ball-knower-flattened-repo-resolver',
     enforce:'pre',
     resolveId(source,importer){
       if(!importer || importer.includes('node_modules')) return null;
       const match=source.match(/^(?:\.\.\/|\.\/)(?:context|components|utils|data|services|lib)\/(.+)$/);
-      if(match){
-        const base=path.join(root,match[1]);
-        for(const candidate of [base,`${base}.ts`,`${base}.tsx`,`${base}.js`,`${base}.jsx`]){
-          if(fs.existsSync(candidate)) return candidate;
-        }
-      }
-      if(/^(?:\.\.\/|\.\/)types$/.test(source)){
-        for(const candidate of [path.join(root,'types.ts'),path.join(root,'types.tsx')]) if(fs.existsSync(candidate)) return candidate;
-      }
+      if(match) return resolveFlat(match[1]);
+      if(/^(?:\.\.\/|\.\/)types$/.test(source)) return resolveFlat('types');
       return null;
     },
   };
