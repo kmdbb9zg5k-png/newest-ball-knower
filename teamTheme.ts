@@ -70,11 +70,54 @@ function relativeLuminance(hex: string) {
   return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
 }
 
+function contrastRatio(first: string, second: string) {
+  const firstLuminance = relativeLuminance(first);
+  const secondLuminance = relativeLuminance(second);
+  const lighter = Math.max(firstLuminance, secondLuminance);
+  const darker = Math.min(firstLuminance, secondLuminance);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function blendTowardWhite(hex: string, amount: number) {
+  const [red, green, blue] = hexToRgb(hex).split(' ').map(Number);
+  const blend = (channel: number) => Math.round(channel + (255 - channel) * amount);
+  return `#${[blend(red), blend(green), blend(blue)]
+    .map(channel => channel.toString(16).padStart(2, '0'))
+    .join('')}`.toUpperCase();
+}
+
+function ensureSurfaceContrast(color: string, surface = '#0A0A0A', minimumRatio = 4.5) {
+  if (contrastRatio(color, surface) >= minimumRatio) return color;
+
+  for (let step = 1; step <= 20; step += 1) {
+    const candidate = blendTowardWhite(color, step / 20);
+    if (contrastRatio(candidate, surface) >= minimumRatio) return candidate;
+  }
+
+  return '#FFFFFF';
+}
+
+function deriveAccessibleAccent(team: TeamTheme) {
+  const surface = '#0A0A0A';
+  const primaryContrast = contrastRatio(team.primary, surface);
+  const secondaryContrast = contrastRatio(team.secondary, surface);
+  const preferred = secondaryContrast >= primaryContrast ? team.secondary : team.primary;
+  return ensureSurfaceContrast(preferred, surface);
+}
+
+function deriveOnAccent(accent: string) {
+  const darkForeground = '#07090D';
+  const lightForeground = '#FFFFFF';
+  return contrastRatio(accent, darkForeground) >= contrastRatio(accent, lightForeground)
+    ? darkForeground
+    : lightForeground;
+}
+
 /** Applies one accessible, reusable set of styling tokens for every NFL team. */
 export function applyTeamCssVariables(team: TeamTheme) {
   if (typeof document === 'undefined') return;
-  const accent = relativeLuminance(team.secondary) > 0.16 ? team.secondary : team.primary;
-  const onAccent = relativeLuminance(accent) > 0.42 ? '#07090D' : '#FFFFFF';
+  const accent = deriveAccessibleAccent(team);
+  const onAccent = deriveOnAccent(accent);
   const root = document.documentElement;
   root.dataset.team = team.abbr;
   root.style.setProperty('--bk-team-primary', team.primary);
