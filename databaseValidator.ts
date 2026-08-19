@@ -1,5 +1,5 @@
-import { Player } from '../types';
-import { CURRENT_2026_QB_STARTERS } from '../data/currentSeasonRoster';
+import { Player } from './types';
+import { CURRENT_2026_QB_STARTERS } from './currentSeasonRoster';
 
 export interface PositionGroupStatus {
   group: string;

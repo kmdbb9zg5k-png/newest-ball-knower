@@ -1,4 +1,4 @@
-import { Player, Position, PositionGroup } from '../../types';
+import { Player, Position, PositionGroup } from './types';
 
 export type PlayerRosterStatus = 'ACTIVE' | 'INACTIVE' | 'FREE_AGENT' | 'RETIRED';
 

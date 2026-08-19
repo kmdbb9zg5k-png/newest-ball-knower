@@ -1,5 +1,5 @@
-import { Player, RatingsValidationReport } from '../types';
-import { MADDEN_RATING_METADATA, OFFICIAL_MADDEN_RATINGS } from '../data/ratings/maddenRatings';
+import { Player, RatingsValidationReport } from './types';
+import { MADDEN_RATING_METADATA, OFFICIAL_MADDEN_RATINGS } from './maddenRatings';
 
 /**
  * Validates player ratings against the official EA SPORTS Madden ratings source of truth.

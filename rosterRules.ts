@@ -1,4 +1,4 @@
-import { Player, PositionGroup, ROSTER_REQUIREMENTS } from '../types';
+import { Player, PositionGroup, ROSTER_REQUIREMENTS } from './types';
 
 export type DraftPositionGroup = keyof typeof ROSTER_REQUIREMENTS;
 

@@ -1,4 +1,4 @@
-import { Player, ROSTER_REQUIREMENTS } from '../types';
+import { Player, ROSTER_REQUIREMENTS } from './types';
 import { countRosterGroups, getDraftPositionGroup, minimumCompletionCost } from './rosterRules';
 
 export type GmPersonality = 'balanced'|'star_hunter'|'value_hunter'|'trenches'|'defense_first'|'air_raid';

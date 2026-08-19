@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useBallKnower } from '../context/BallKnowerContext';
+import { useBallKnower } from './BallKnowerContext';
 import { X, Shield, Mail, ArrowRight, CheckCircle2, Loader2, LockKeyhole } from 'lucide-react';
-import { attachEmailToAnonymousUser, ensureOnlineSession, sendEmailMagicLink } from '../lib/supabase';
+import { attachEmailToAnonymousUser, ensureOnlineSession, sendEmailMagicLink } from './supabase';
 
 interface AuthModalProps {
   isOpen: boolean;

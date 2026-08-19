@@ -12,8 +12,8 @@ import {
   RATINGS_VALIDATION_REPORT,
   MADDEN_RATING_METADATA,
   validatePlayerRatings,
-} from '../data/players';
-import { validateDatabase, TeamRosterAudit, PositionGroupStatus, POSITION_GROUP_DEFINITIONS } from '../utils/databaseValidator';
+} from './players';
+import { validateDatabase, TeamRosterAudit, PositionGroupStatus, POSITION_GROUP_DEFINITIONS } from './databaseValidator';
 import {
   ShieldCheck,
   CheckCircle2,
@@ -37,7 +37,7 @@ import {
   TrendingDown,
   Star,
 } from 'lucide-react';
-import { Player, RosterMigrationReport, RatingsValidationReport } from '../types';
+import { Player, RosterMigrationReport, RatingsValidationReport } from './types';
 
 interface DatabaseVerificationModalProps {
   isOpen: boolean;
@@ -71,11 +71,9 @@ export const DatabaseVerificationModal: React.FC<DatabaseVerificationModalProps>
   };
 
   const searchedPlayers = useMemo(() => {
-    return searchPlayers({
-      query: searchQuery,
-      teamCode: selectedTeam !== 'ALL' ? selectedTeam : undefined,
-      sortBy: 'overall_desc',
-    });
+    return searchPlayers(searchQuery)
+      .filter(player => selectedTeam === 'ALL' || player.team === selectedTeam)
+      .sort((a, b) => b.ovr - a.ovr);
   }, [searchQuery, selectedTeam]);
 
   const filteredTeamAudits = useMemo(() => {

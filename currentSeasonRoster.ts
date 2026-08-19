@@ -1,4 +1,4 @@
-import { Player } from '../types';
+import { Player } from './types';
 import { SPECIAL_TEAMS_2026 } from './specialTeams2026';
 
 /**

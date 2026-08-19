@@ -1,4 +1,4 @@
-import { Player } from '../types';
+import { Player } from './types';
 export function audit2026Data(players:Player[]) {
  const issues:string[]=[]; const ids=new Set<string>(); const names=new Set<string>();
  for(const p of players){

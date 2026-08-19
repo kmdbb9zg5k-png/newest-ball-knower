@@ -55,8 +55,33 @@ export function getSavedTeamTheme(): TeamTheme {
   }
 }
 
+function hexToRgb(hex: string) {
+  const value = hex.replace('#', '');
+  const normalized = value.length === 3 ? value.split('').map(char => char + char).join('') : value;
+  const number = Number.parseInt(normalized, 16);
+  return `${(number >> 16) & 255} ${(number >> 8) & 255} ${number & 255}`;
+}
+
+function relativeLuminance(hex: string) {
+  const channels = hexToRgb(hex).split(' ').map(Number).map(value => {
+    const channel = value / 255;
+    return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+}
+
+/** Applies one accessible, reusable set of styling tokens for every NFL team. */
 export function applyTeamCssVariables(team: TeamTheme) {
   if (typeof document === 'undefined') return;
-  document.documentElement.style.setProperty('--bk-team-primary', team.primary);
-  document.documentElement.style.setProperty('--bk-team-secondary', team.secondary);
+  const accent = relativeLuminance(team.secondary) > 0.16 ? team.secondary : team.primary;
+  const onAccent = relativeLuminance(accent) > 0.42 ? '#07090D' : '#FFFFFF';
+  const root = document.documentElement;
+  root.dataset.team = team.abbr;
+  root.style.setProperty('--bk-team-primary', team.primary);
+  root.style.setProperty('--bk-team-secondary', team.secondary);
+  root.style.setProperty('--bk-team-primary-rgb', hexToRgb(team.primary));
+  root.style.setProperty('--bk-team-secondary-rgb', hexToRgb(team.secondary));
+  root.style.setProperty('--bk-team-accent', accent);
+  root.style.setProperty('--bk-team-accent-rgb', hexToRgb(accent));
+  root.style.setProperty('--bk-on-accent', onAccent);
 }

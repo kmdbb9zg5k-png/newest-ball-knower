@@ -1,4 +1,4 @@
-import { Player } from '../types';
+import { Player } from './types';
 
 type Row = { name:string; team:string; position:'K'|'P'; capHit:number; ovr:number };
 const ROWS: Row[] = [

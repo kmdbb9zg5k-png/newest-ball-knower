@@ -1,4 +1,4 @@
-import { LeagueMember, SimulationGame, StandingItem, DraftOrderItem, WinnerAnalysis, SeasonResult } from '../types';
+import { LeagueMember, SimulationGame, StandingItem, DraftOrderItem, WinnerAnalysis, SeasonResult } from './types';
 import { calculateTeamRatings, generateTeamReport } from './evaluation';
 
 function hashSeed(input: string): number {

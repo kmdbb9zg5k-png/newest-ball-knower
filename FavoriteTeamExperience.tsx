@@ -65,12 +65,12 @@ export function FavoriteTeamExperience({ onDone }: { onDone?: (team: TeamTheme) 
 
       <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-[760px] flex-col px-4 sm:px-5 pt-[max(20px,env(safe-area-inset-top))] pb-[max(30px,calc(env(safe-area-inset-bottom)+24px))]">
         <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-[.28em] text-zinc-400">
-          <span className="text-[#D4AF37]">BALL KNOWER</span><span>FAVORITE TEAM</span>
+          <span className="text-[var(--bk-team-accent)]">BALL KNOWER</span><span>FAVORITE TEAM</span>
         </div>
 
         <div className="mt-5 text-center">
           <p className="text-[10px] font-black uppercase tracking-[.32em] text-zinc-400">STEP 1 • PERSONALIZE YOUR EXPERIENCE</p>
-          <h1 className="mt-2 text-[clamp(2.2rem,10vw,4.2rem)] font-black uppercase leading-[.92] tracking-tight">CHOOSE <span className="text-[#D4AF37]">YOUR TEAM.</span></h1>
+          <h1 className="mt-2 text-[clamp(2.2rem,10vw,4.2rem)] font-black uppercase leading-[.92] tracking-tight">CHOOSE <span className="text-[var(--bk-team-accent)]">YOUR TEAM.</span></h1>
           <p className="mx-auto mt-3 max-w-md text-sm text-zinc-400">Spin the wheel. Lock in your squad.</p>
         </div>
 
@@ -85,7 +85,7 @@ export function FavoriteTeamExperience({ onDone }: { onDone?: (team: TeamTheme) 
           }}
         >
           <div className="absolute left-1/2 top-0 z-40 -translate-x-1/2">
-            <div className="h-0 w-0 border-l-[14px] border-r-[14px] border-t-[24px] border-l-transparent border-r-transparent border-t-[#D4AF37] drop-shadow-[0_0_12px_rgba(212,175,55,.9)]" />
+            <div className="h-0 w-0 border-l-[14px] border-r-[14px] border-t-[24px] border-l-transparent border-r-transparent border-t-[var(--bk-team-accent)] drop-shadow-[0_0_12px_rgba(212,175,55,.9)]" />
           </div>
 
           <div className="absolute left-1/2 top-[54%] h-[325px] w-[94%] max-w-[620px] -translate-x-1/2 -translate-y-1/2 rounded-[48%] border border-white/10 bg-black/25 shadow-[inset_0_0_70px_rgba(255,255,255,.04),0_30px_90px_rgba(0,0,0,.75)]" />
@@ -116,7 +116,7 @@ export function FavoriteTeamExperience({ onDone }: { onDone?: (team: TeamTheme) 
                     <img src={teamLogoUrl(t.abbr)} alt={t.name} className="max-h-[148px] max-w-[148px] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,.7)]" />
                   </div>
                   <div className="mt-3 text-center">
-                    <p className={`text-[9px] font-black uppercase tracking-[.22em] ${active?'text-[#D4AF37]':'text-zinc-500'}`}>{t.abbr}</p>
+                    <p className={`text-[9px] font-black uppercase tracking-[.22em] ${active?'text-[var(--bk-team-accent)]':'text-zinc-500'}`}>{t.abbr}</p>
                     <p className={`mt-1 px-3 font-black uppercase leading-tight ${active?'text-[20px] text-white':'text-[15px] text-zinc-400'}`}>{t.name}</p>
                   </div>
                 </button>
@@ -124,8 +124,8 @@ export function FavoriteTeamExperience({ onDone }: { onDone?: (team: TeamTheme) 
             })}
           </div>
 
-          <button onClick={() => move(-1)} aria-label="Previous team" className="absolute bottom-3 left-2 z-50 grid h-12 w-12 place-items-center rounded-full border border-[#D4AF37]/45 bg-black/70 text-2xl text-[#D4AF37] backdrop-blur active:scale-95">‹</button>
-          <button onClick={() => move(1)} aria-label="Next team" className="absolute bottom-3 right-2 z-50 grid h-12 w-12 place-items-center rounded-full border border-[#D4AF37]/45 bg-black/70 text-2xl text-[#D4AF37] backdrop-blur active:scale-95">›</button>
+          <button onClick={() => move(-1)} aria-label="Previous team" className="absolute bottom-3 left-2 z-50 grid h-12 w-12 place-items-center rounded-full border border-[var(--bk-team-accent)]/45 bg-black/70 text-2xl text-[var(--bk-team-accent)] backdrop-blur active:scale-95">‹</button>
+          <button onClick={() => move(1)} aria-label="Next team" className="absolute bottom-3 right-2 z-50 grid h-12 w-12 place-items-center rounded-full border border-[var(--bk-team-accent)]/45 bg-black/70 text-2xl text-[var(--bk-team-accent)] backdrop-blur active:scale-95">›</button>
         </div>
 
         <div className="mt-0 text-center">
@@ -135,7 +135,7 @@ export function FavoriteTeamExperience({ onDone }: { onDone?: (team: TeamTheme) 
         </div>
 
         <div className="mt-5 rounded-[28px] border border-white/10 bg-black/55 p-4 backdrop-blur-2xl" style={{boxShadow:`0 18px 70px ${preview.primary}33`}}>
-          <button onClick={confirm} className="w-full rounded-2xl py-4 text-sm font-black uppercase tracking-[.15em] text-black active:scale-[.985]" style={{background:'linear-gradient(135deg,#D4AF37,#f6d968)',boxShadow:'0 10px 30px rgba(212,175,55,.22)'}}>{confirmed ? '✓ TEAM LOCKED IN' : `CONFIRM ${team.abbr}`}</button>
+          <button onClick={confirm} className="w-full rounded-2xl py-4 text-sm font-black uppercase tracking-[.15em] text-black active:scale-[.985]" style={{background:'linear-gradient(135deg,var(--bk-team-accent),#f6d968)',boxShadow:'0 10px 30px rgba(212,175,55,.22)'}}>{confirmed ? '✓ TEAM LOCKED IN' : `CONFIRM ${team.abbr}`}</button>
           <button onClick={() => move(1)} className="mt-3 w-full rounded-2xl border border-white/10 bg-white/[.04] py-3 text-[11px] font-black uppercase tracking-[.18em] text-zinc-300">KEEP LOOKING</button>
           <button onClick={() => { localStorage.setItem('ball-knower-team-setup-v2','skipped'); onDone?.(team); }} className="mt-3 w-full py-2 text-[10px] font-black uppercase tracking-[.16em] text-zinc-500">SKIP FOR NOW</button>
         </div>

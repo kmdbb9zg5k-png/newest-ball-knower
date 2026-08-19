@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { useBallKnower } from '../context/BallKnowerContext';
-import { useSoundtrack } from '../context/SoundtrackContext';
-import { PLAYERS_DATABASE, NFL_TEAMS } from '../data/players';
-import { Player, PositionGroup, TOTAL_ROSTER_SIZE, ROSTER_REQUIREMENTS } from '../types';
+import { useBallKnower } from './BallKnowerContext';
+import { useSoundtrack } from './SoundtrackContext';
+import { PLAYERS_DATABASE, NFL_TEAMS } from './players';
+import { Player, PositionGroup, TOTAL_ROSTER_SIZE, ROSTER_REQUIREMENTS } from './types';
 import { PlayerDetailModal } from './PlayerDetailModal';
 import { StackedRosterGrid } from './StackedRosterGrid';
 import {
@@ -20,7 +20,7 @@ import {
   Eye,
   SlidersHorizontal,
 } from 'lucide-react';
-import { calculateTeamRatings } from '../utils/evaluation';
+import { calculateTeamRatings } from './evaluation';
 
 interface DraftRoomProps {
   onBackToLobby: () => void;
@@ -217,7 +217,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                 <div className="flex items-center gap-1">
                   <span
                     className={`text-sm sm:text-lg font-black font-mono tracking-tight ${
-                      remainingCap < 0 ? 'text-red-500' : 'text-[#D4AF37]'
+                      remainingCap < 0 ? 'text-red-500' : 'text-[var(--bk-team-accent)]'
                     }`}
                   >
                     ${remainingCap}M
@@ -255,7 +255,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                   onClick={() => setActiveViewMode('market')}
                   className={`flex items-center gap-1.5 rounded-xs px-2.5 py-1 text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                     activeViewMode === 'market'
-                      ? 'bg-[#D4AF37] text-black shadow-sm'
+                      ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] shadow-sm'
                       : 'text-zinc-400 hover:text-white'
                   }`}
                 >
@@ -267,7 +267,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                   onClick={() => setActiveViewMode('roster')}
                   className={`flex items-center gap-1.5 rounded-xs px-2.5 py-1 text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                     activeViewMode === 'roster'
-                      ? 'bg-[#D4AF37] text-black shadow-sm'
+                      ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] shadow-sm'
                       : 'text-zinc-400 hover:text-white'
                   }`}
                 >
@@ -280,12 +280,12 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
               <button
                 id="toggle-roster-drawer-btn"
                 onClick={() => setIsRosterDrawerOpen(!isRosterDrawerOpen)}
-                className="flex items-center gap-1.5 rounded-sm border border-white/10 bg-[#1A1A1A] px-2.5 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs font-black uppercase tracking-wider text-zinc-200 hover:bg-zinc-800 hover:border-[#D4AF37]/50 transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 rounded-sm border border-white/10 bg-[#1A1A1A] px-2.5 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs font-black uppercase tracking-wider text-zinc-200 hover:bg-zinc-800 hover:border-[var(--bk-team-accent)]/50 transition-colors cursor-pointer"
                 title="Open 20-Man Roster Drawer"
               >
-                <Layers className="h-3.5 w-3.5 text-[#D4AF37]" />
+                <Layers className="h-3.5 w-3.5 text-[var(--bk-team-accent)]" />
                 <span className="hidden xs:inline">Roster</span>
-                <span className="font-mono text-[#D4AF37] font-bold">({currentRoster.length}/20)</span>
+                <span className="font-mono text-[var(--bk-team-accent)] font-bold">({currentRoster.length}/20)</span>
               </button>
 
               {/* Submit & Lock Button / Locked Indicator */}
@@ -305,7 +305,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                   disabled={!isRosterValid}
                   className={`flex items-center gap-1.5 rounded-sm px-3 py-1.5 sm:px-5 sm:py-2 text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all ${
                     isRosterValid
-                      ? 'bg-[#D4AF37] text-black shadow-lg shadow-[#D4AF37]/20 hover:bg-amber-300 cursor-pointer'
+                      ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] shadow-lg shadow-[var(--bk-team-accent)]/20 hover:bg-amber-300 cursor-pointer'
                       : 'bg-zinc-800 text-zinc-500 border border-white/5 cursor-not-allowed'
                   }`}
                   title={!isRosterValid ? rosterValidationErrors[0] : 'Submit & Lock 20-Man Roster'}
@@ -322,7 +322,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
           <div className="mt-1.5 h-1 bg-zinc-900 rounded-full overflow-hidden w-full">
             <div
               className={`h-full transition-all duration-300 ${
-                remainingCap < 0 ? 'bg-red-500' : percentSpent >= 95 ? 'bg-amber-400' : 'bg-[#D4AF37]'
+                remainingCap < 0 ? 'bg-red-500' : percentSpent >= 95 ? 'bg-amber-400' : 'bg-[var(--bk-team-accent)]'
               }`}
               style={{ width: `${percentSpent}%` }}
             />
@@ -330,9 +330,9 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
 
           {/* Validation Notice Strip */}
           {!isRosterLocked && currentRoster.length > 0 && !isRosterValid && (
-            <div className="mt-1 flex items-center justify-between rounded-xs bg-zinc-900/90 border border-[#D4AF37]/30 px-2 py-1 text-[10px] text-[#D4AF37]">
+            <div className="mt-1 flex items-center justify-between rounded-xs bg-zinc-900/90 border border-[var(--bk-team-accent)]/30 px-2 py-1 text-[10px] text-[var(--bk-team-accent)]">
               <div className="flex items-center gap-1.5 truncate">
-                <AlertTriangle className="h-3 w-3 shrink-0 text-[#D4AF37]" />
+                <AlertTriangle className="h-3 w-3 shrink-0 text-[var(--bk-team-accent)]" />
                 <span className="font-bold uppercase tracking-wider truncate">
                   {rosterValidationErrors[0]}
                 </span>
@@ -353,7 +353,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
             onClick={() => setActiveViewMode('market')}
             className={`flex-1 py-1.5 text-center text-xs font-black uppercase tracking-wider rounded-xs transition-all ${
               activeViewMode === 'market'
-                ? 'bg-[#D4AF37] text-black shadow-sm'
+                ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] shadow-sm'
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
@@ -363,7 +363,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
             onClick={() => setActiveViewMode('roster')}
             className={`flex-1 py-1.5 text-center text-xs font-black uppercase tracking-wider rounded-xs transition-all ${
               activeViewMode === 'roster'
-                ? 'bg-[#D4AF37] text-black shadow-sm'
+                ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] shadow-sm'
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
@@ -377,7 +377,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
             <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/10">
               <div>
                 <h2 className="font-display text-xl sm:text-2xl font-black uppercase tracking-tight text-white flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-[#D4AF37]" />
+                  <Shield className="h-5 w-5 text-[var(--bk-team-accent)]" />
                   <span>20-MAN ROSTER • STACKED GRID VIEW</span>
                 </h2>
                 <p className="text-[10px] text-zinc-400 uppercase tracking-widest mt-0.5">
@@ -388,7 +388,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setActiveViewMode('market')}
-                  className="rounded-sm border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-[#D4AF37] hover:bg-[#D4AF37]/20 transition-all cursor-pointer"
+                  className="rounded-sm border border-[var(--bk-team-accent)]/40 bg-[var(--bk-team-accent)]/10 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-[var(--bk-team-accent)] hover:bg-[var(--bk-team-accent)]/20 transition-all cursor-pointer"
                 >
                   ← Return to Market
                 </button>
@@ -444,7 +444,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                   </span>
                   <button
                     onClick={() => handleAutoDraft('balanced')}
-                    className="flex items-center gap-1 rounded-sm border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-[#D4AF37] hover:bg-[#D4AF37]/20 transition-all cursor-pointer"
+                    className="flex items-center gap-1 rounded-sm border border-[var(--bk-team-accent)]/30 bg-[var(--bk-team-accent)]/10 px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-[var(--bk-team-accent)] hover:bg-[var(--bk-team-accent)]/20 transition-all cursor-pointer"
                     title="Load balanced analytics roster"
                   >
                     <Sparkles className="h-3 w-3" />
@@ -490,7 +490,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                       onClick={() => setSelectedGroup(tab.id)}
                       className={`flex items-center gap-1.5 whitespace-nowrap rounded-sm px-3 py-1.5 text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
                         isSelected
-                          ? 'bg-[#D4AF37] text-black shadow-md'
+                          ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] shadow-md'
                           : 'border border-white/5 bg-[#1A1A1A] text-zinc-300 hover:bg-zinc-800 hover:border-white/20'
                       }`}
                     >
@@ -523,7 +523,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                     placeholder="SEARCH PLAYER, TEAM, OR POSITION..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full rounded-sm border border-white/10 bg-[#121212] pl-9 pr-4 py-2 text-xs font-bold text-white placeholder-zinc-500 focus:border-[#D4AF37] focus:outline-none uppercase tracking-wider"
+                    className="w-full rounded-sm border border-white/10 bg-[#121212] pl-9 pr-4 py-2 text-xs font-bold text-white placeholder-zinc-500 focus:border-[var(--bk-team-accent)] focus:outline-none uppercase tracking-wider"
                   />
                   {searchQuery && (
                     <button
@@ -540,7 +540,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                   <select
                     value={selectedTeam}
                     onChange={e => setSelectedTeam(e.target.value)}
-                    className="w-full rounded-sm border border-white/10 bg-[#121212] px-3 py-2 text-xs font-bold uppercase tracking-wider text-zinc-200 focus:border-[#D4AF37] focus:outline-none cursor-pointer"
+                    className="w-full rounded-sm border border-white/10 bg-[#121212] px-3 py-2 text-xs font-bold uppercase tracking-wider text-zinc-200 focus:border-[var(--bk-team-accent)] focus:outline-none cursor-pointer"
                   >
                     <option value="ALL">ALL 32 NFL TEAMS</option>
                     {NFL_TEAMS.map(team => (
@@ -556,7 +556,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                   <select
                     value={sortBy}
                     onChange={e => setSortBy(e.target.value as any)}
-                    className="w-full rounded-sm border border-white/10 bg-[#121212] px-3 py-2 text-xs font-bold uppercase tracking-wider text-zinc-200 focus:border-[#D4AF37] focus:outline-none cursor-pointer"
+                    className="w-full rounded-sm border border-white/10 bg-[#121212] px-3 py-2 text-xs font-bold uppercase tracking-wider text-zinc-200 focus:border-[var(--bk-team-accent)] focus:outline-none cursor-pointer"
                   >
                     <option value="ovr_desc">OVERALL: HIGH → LOW</option>
                     <option value="ovr_asc">OVERALL: LOW → HIGH</option>
@@ -591,8 +591,8 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                       id={`player-card-${player.id}`}
                       className={`bg-[#121212] p-3 rounded-md flex items-center justify-between transition-all duration-150 group ${
                         isOnRoster
-                          ? 'border border-[#D4AF37] ring-1 ring-[#D4AF37]/30 shadow-md shadow-[#D4AF37]/5'
-                          : 'border border-white/5 hover:border-[#D4AF37]/40'
+                          ? 'border border-[var(--bk-team-accent)] ring-1 ring-[var(--bk-team-accent)]/30 shadow-md shadow-[var(--bk-team-accent)]/5'
+                          : 'border border-white/5 hover:border-[var(--bk-team-accent)]/40'
                       }`}
                     >
                       {/* Left Info */}
@@ -600,7 +600,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                         <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => setInspectingPlayer(player)}
-                            className="text-left font-display text-sm font-black tracking-tight text-white group-hover:text-[#D4AF37] transition-colors truncate block cursor-pointer"
+                            className="text-left font-display text-sm font-black tracking-tight text-white group-hover:text-[var(--bk-team-accent)] transition-colors truncate block cursor-pointer"
                           >
                             {player.name}
                           </button>
@@ -621,14 +621,14 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                         </div>
 
                         <div className="mt-1.5 flex items-center space-x-2">
-                          <span className="bg-zinc-800 text-[#D4AF37] text-[9px] px-1.5 py-0.2 font-black rounded-xs font-mono">
+                          <span className="bg-zinc-800 text-[var(--bk-team-accent)] text-[9px] px-1.5 py-0.2 font-black rounded-xs font-mono">
                             {player.overallRating ?? player.ovr} OVR
                           </span>
                           <span className="text-white text-xs font-black font-mono">
                             ${player.salary}M
                           </span>
                           {player.overallRating === 99 && (
-                            <span className="bg-[#D4AF37] text-black text-[8px] px-1 py-0.2 font-black rounded-xs font-mono uppercase">
+                            <span className="bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] text-[8px] px-1 py-0.2 font-black rounded-xs font-mono uppercase">
                               99 CLUB
                             </span>
                           )}
@@ -669,7 +669,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                             disabled={!isAffordable || currentRoster.length >= TOTAL_ROSTER_SIZE}
                             className={`px-4 py-1.5 rounded-xs text-[10px] font-black uppercase tracking-wider transition-colors ${
                               isAffordable && currentRoster.length < TOTAL_ROSTER_SIZE
-                                ? 'bg-white text-black hover:bg-[#D4AF37] cursor-pointer'
+                                ? 'bg-white text-black hover:bg-[var(--bk-team-accent)] cursor-pointer'
                                 : 'bg-zinc-800 text-zinc-600 border border-white/5 cursor-not-allowed'
                             }`}
                           >
@@ -695,7 +695,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
               <div className="flex items-center justify-between pb-3 border-b border-white/5">
                 <div>
                   <h3 className="font-display text-lg sm:text-xl font-black text-white flex items-center gap-2 tracking-tight">
-                    <Shield className="h-5 w-5 text-[#D4AF37]" />
+                    <Shield className="h-5 w-5 text-[var(--bk-team-accent)]" />
                     <span>YOUR 20-MAN ROSTER</span>
                   </h3>
                   <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold font-mono">
@@ -747,7 +747,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                   disabled={!isRosterValid}
                   className={`w-full py-3.5 font-black uppercase text-xs sm:text-sm rounded-sm transition-all ${
                     isRosterValid
-                      ? 'bg-[#D4AF37] text-black hover:bg-amber-300 shadow-md cursor-pointer'
+                      ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] hover:bg-amber-300 shadow-md cursor-pointer'
                       : 'bg-zinc-800 text-zinc-500 border border-white/5 cursor-not-allowed'
                   }`}
                 >

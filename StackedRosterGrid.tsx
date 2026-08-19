@@ -1,7 +1,7 @@
 import React from 'react';
-import { Player, PositionGroup, TOTAL_ROSTER_SIZE } from '../types';
+import { Player, PositionGroup, TOTAL_ROSTER_SIZE } from './types';
 import { Shield, Plus, Trash2, CheckCircle2, ChevronRight, Sparkles, AlertTriangle } from 'lucide-react';
-import { calculateTeamRatings } from '../utils/evaluation';
+import { calculateTeamRatings } from './evaluation';
 
 export interface StackedRosterGridProps {
   roster: Player[];

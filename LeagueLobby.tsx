@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useBallKnower } from '../context/BallKnowerContext';
+import { useBallKnower } from './BallKnowerContext';
 import {
   Trophy,
   Shield,
@@ -18,7 +18,7 @@ import {
   ArrowRight,
   RefreshCw,
 } from 'lucide-react';
-import { League } from '../types';
+import { League } from './types';
 
 interface LeagueLobbyProps {
   league: League;
@@ -87,7 +87,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="font-mono text-xs font-black text-[#D4AF37] bg-zinc-800 px-2.5 py-0.5 rounded-sm">
+              <span className="font-mono text-xs font-black text-[var(--bk-team-accent)] bg-zinc-800 px-2.5 py-0.5 rounded-sm">
                 CODE: {league.code}
               </span>
               <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">
@@ -113,7 +113,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({
             <button
               id="lobby-copy-link-btn"
               onClick={handleCopyLink}
-              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-sm bg-[#D4AF37] px-4 py-2.5 text-xs font-black uppercase tracking-wider text-black hover:bg-amber-300 transition-colors"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-sm bk-accent-button bg-[var(--bk-team-accent)] px-4 py-2.5 text-xs font-black uppercase tracking-wider text-black hover:bg-amber-300 transition-colors"
             >
               {copiedLink ? <Check className="h-3.5 w-3.5 text-black" /> : <UserPlus className="h-3.5 w-3.5" />}
               <span>{copiedLink ? 'LINK COPIED' : 'INVITE FRIENDS'}</span>
@@ -126,7 +126,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({
           <div className="rounded-sm bg-[#0A0A0A] p-3 border border-white/5">
             <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">League Progress</p>
             <p className="text-sm font-black text-white mt-0.5 font-mono">
-              <span className="text-[#D4AF37]">{readyCount}</span> / {totalCount} READY
+              <span className="text-[var(--bk-team-accent)]">{readyCount}</span> / {totalCount} READY
             </p>
           </div>
 
@@ -146,7 +146,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({
 
           <div className="rounded-sm bg-[#0A0A0A] p-3 border border-white/5">
             <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Your Status</p>
-            <p className={`text-xs font-black uppercase tracking-wider mt-0.5 flex items-center gap-1.5 ${isMyRosterReady ? 'text-[#00FF00]' : 'text-[#D4AF37]'}`}>
+            <p className={`text-xs font-black uppercase tracking-wider mt-0.5 flex items-center gap-1.5 ${isMyRosterReady ? 'text-[#00FF00]' : 'text-[var(--bk-team-accent)]'}`}>
               {isMyRosterReady ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
               <span>{isMyRosterReady ? 'ROSTER READY' : 'BUILDING ROSTER'}</span>
             </p>
@@ -156,10 +156,10 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({
 
       {/* User's Call to Action Banner if not ready */}
       {!isMyRosterReady && (
-        <div className="rounded-lg border border-[#D4AF37]/40 bg-[#1A1A1A] p-5 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="rounded-lg border border-[var(--bk-team-accent)]/40 bg-[#1A1A1A] p-5 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h3 className="font-display text-base font-black uppercase tracking-tight text-white flex items-center gap-2">
-              <Shield className="h-4 w-4 text-[#D4AF37]" />
+              <Shield className="h-4 w-4 text-[var(--bk-team-accent)]" />
               <span>YOUR ROSTER IS NOT YET SUBMITTED</span>
             </h3>
             <p className="text-xs text-zinc-400 mt-1 font-medium">
@@ -169,7 +169,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({
           <button
             id="lobby-enter-draft-btn"
             onClick={onGoToDraft}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-sm bg-[#D4AF37] px-6 py-3 text-xs font-black uppercase tracking-widest text-black hover:bg-amber-300 transition-colors shadow-md cursor-pointer"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-sm bk-accent-button bg-[var(--bk-team-accent)] px-6 py-3 text-xs font-black uppercase tracking-widest text-black hover:bg-amber-300 transition-colors shadow-md cursor-pointer"
           >
             <span>ENTER DRAFT ROOM</span>
             <ArrowRight className="h-3.5 w-3.5" />
@@ -183,7 +183,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({
         <div className="md:col-span-2 space-y-3">
           <div className="flex items-center justify-between pb-2 border-b border-white/5">
             <h2 className="font-display text-lg font-black uppercase tracking-tight text-white flex items-center gap-2">
-              <Users className="h-4 w-4 text-[#D4AF37]" />
+              <Users className="h-4 w-4 text-[var(--bk-team-accent)]" />
               <span>LEAGUE MEMBERS ({league.members.length}/{league.maxMembers})</span>
             </h2>
             <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 font-mono">
@@ -221,7 +221,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({
                           {member.userName}
                         </p>
                         {isMe && (
-                          <span className="rounded-sm bg-[#D4AF37]/20 px-1.5 py-0.2 text-[9px] font-black text-[#D4AF37] uppercase tracking-wider">
+                          <span className="rounded-sm bg-[var(--bk-team-accent)]/20 px-1.5 py-0.2 text-[9px] font-black text-[var(--bk-team-accent)] uppercase tracking-wider">
                             YOU
                           </span>
                         )}
@@ -250,7 +250,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({
                         <span>READY</span>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1 rounded-sm bg-[#1A1A1A] border border-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#D4AF37]">
+                      <div className="flex items-center gap-1 rounded-sm bg-[#1A1A1A] border border-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[var(--bk-team-accent)]">
                         <Clock className="h-3.5 w-3.5" />
                         <span>BUILDING</span>
                       </div>
@@ -274,7 +274,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({
 
           {/* Privacy Note */}
           <div className="flex items-center gap-2 rounded-sm bg-[#121212] border border-white/5 px-4 py-3 text-xs text-zinc-400">
-            <Lock className="h-3.5 w-3.5 text-[#D4AF37] shrink-0" />
+            <Lock className="h-3.5 w-3.5 text-[var(--bk-team-accent)] shrink-0" />
             <span className="font-medium">Rosters remain strictly private until the league season simulation begins.</span>
           </div>
         </div>
@@ -292,7 +292,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({
               <button
                 id="lobby-view-draft-btn"
                 onClick={onGoToDraft}
-                className="w-full flex items-center justify-center gap-2 rounded-sm bg-white text-black hover:bg-[#D4AF37] py-3 text-xs font-black uppercase tracking-widest transition-colors cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 rounded-sm bg-white text-black hover:bk-accent-button bg-[var(--bk-team-accent)] py-3 text-xs font-black uppercase tracking-widest transition-colors cursor-pointer"
               >
                 <Shield className="h-4 w-4 fill-black" />
                 <span>{isMyRosterReady ? 'VIEW YOUR LOCKED ROSTER' : 'BUILD YOUR 20-MAN ROSTER'}</span>
@@ -303,7 +303,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({
                 <button
                   id="lobby-view-results-btn"
                   onClick={onGoToSimulation}
-                  className="w-full flex items-center justify-center gap-2 rounded-sm bg-[#D4AF37] text-black hover:bg-amber-300 py-3.5 text-xs font-black uppercase tracking-widest shadow-lg transition-all cursor-pointer"
+                  className="w-full flex items-center justify-center gap-2 rounded-sm bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] hover:bg-amber-300 py-3.5 text-xs font-black uppercase tracking-widest shadow-lg transition-all cursor-pointer"
                 >
                   <Trophy className="h-4 w-4" />
                   <span>VIEW DRAFT ORDER & RESULTS</span>
@@ -319,7 +319,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({
                     disabled={!isAllReady}
                     className={`w-full flex items-center justify-center gap-2 rounded-sm py-3.5 text-xs font-black uppercase tracking-widest shadow-lg transition-all ${
                       isAllReady
-                        ? 'bg-[#D4AF37] text-black hover:bg-amber-300 cursor-pointer shadow-[#D4AF37]/20'
+                        ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] hover:bg-amber-300 cursor-pointer shadow-[var(--bk-team-accent)]/20'
                         : 'bg-[#1A1A1A] text-zinc-600 border border-white/5 cursor-not-allowed'
                     }`}
                   >
@@ -352,7 +352,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({
           {isCommissioner && (
             <div className="rounded-lg border border-white/5 bg-[#121212] p-5 shadow-xl">
               <h3 className="font-display text-sm font-black uppercase tracking-wider text-white mb-3 flex items-center gap-1.5">
-                <Settings className="h-4 w-4 text-[#D4AF37]" />
+                <Settings className="h-4 w-4 text-[var(--bk-team-accent)]" />
                 <span>Commissioner Controls</span>
               </h3>
 
@@ -364,7 +364,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({
                     onClick={() => autoFillLeagueWithAi(league.id)}
                     className="w-full flex items-center justify-center gap-2 rounded-sm border border-white/10 bg-[#1A1A1A] py-2.5 font-black uppercase tracking-wider text-zinc-300 hover:bg-zinc-800 transition-colors"
                   >
-                    <Sparkles className="h-3.5 w-3.5 text-[#D4AF37]" />
+                    <Sparkles className="h-3.5 w-3.5 text-[var(--bk-team-accent)]" />
                     <span>Auto-Fill {slotsRemaining} Empty Slots</span>
                   </button>
                 )}
@@ -373,7 +373,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({
                 <div className="rounded-sm bg-[#0A0A0A] p-3 border border-white/5">
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-zinc-500 font-bold uppercase tracking-widest text-[9px]">Salary Cap</span>
-                    <span className="font-black text-[#D4AF37] font-mono text-xs">${league.salaryCap}M</span>
+                    <span className="font-black text-[var(--bk-team-accent)] font-mono text-xs">${league.salaryCap}M</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <input

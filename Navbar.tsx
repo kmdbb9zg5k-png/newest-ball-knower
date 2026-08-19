@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useBallKnower } from '../context/BallKnowerContext';
+import { useBallKnower } from './BallKnowerContext';
 import { Trophy, Shield, User, LogOut, ChevronDown, Sparkles, Plus, Users, Award, Play, Newspaper, DollarSign, Loader2 } from 'lucide-react';
 import { SoundtrackControl } from './SoundtrackControl';
-import { isCloudConfigured, signOutOnline, supabase } from '../lib/supabase';
+import { isCloudConfigured, signOutOnline, supabase } from './supabase';
 
 type AppTab = 'home' | 'solo' | 'news' | 'fantasy' | 'sportsbook' | 'legacy' | 'lobby' | 'draft' | 'simulation';
 
@@ -112,15 +112,15 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   const tabClass = (tab: AppTab) => `relative h-full shrink-0 flex items-center gap-1.5 whitespace-nowrap border-b-2 px-0.5 text-[11px] sm:text-xs font-black uppercase tracking-[.13em] transition-colors ${
-    currentTab === tab ? 'border-[#D4AF37] text-[#D4AF37]' : 'border-transparent text-zinc-500 hover:text-white'
+    currentTab === tab ? 'border-[var(--bk-team-accent)] text-[var(--bk-team-accent)]' : 'border-transparent text-zinc-500 hover:text-white'
   }`;
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-[#D4AF37]/20 bg-[#101010]/95 backdrop-blur-xl">
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-3 px-4 sm:px-8">
+    <header className="sticky top-0 z-40 w-full border-b border-[var(--bk-team-accent)]/20 bg-[#090c12]/85 shadow-2xl shadow-black/20 backdrop-blur-xl supports-[backdrop-filter]:bg-[#090c12]/72">
+      <div className="mx-auto flex h-20 pt-[env(safe-area-inset-top)] max-w-7xl items-center justify-between gap-3 px-4 sm:px-8">
         <button id="nav-logo-btn" onClick={() => setCurrentTab('home')} className="shrink-0 text-left focus:outline-none">
           <h1 className="font-display text-[28px] font-black leading-[.85] tracking-tighter text-white sm:text-3xl">
-            BALL <span className="block text-[#D4AF37] sm:inline">KNOWER</span>
+            BALL <span className="block text-[var(--bk-team-accent)] sm:inline">KNOWER</span>
           </h1>
         </button>
 
@@ -130,9 +130,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 id="league-dropdown-btn"
                 onClick={() => setIsLeagueMenuOpen(v => !v)}
-                className="flex max-w-[180px] items-center gap-2 rounded-md border border-white/10 bg-[#1A1A1A] px-3 py-2 text-xs font-black uppercase tracking-wider text-zinc-200 hover:border-[#D4AF37]/50 sm:max-w-[260px]"
+                className="flex max-w-[180px] items-center gap-2 rounded-md border border-white/10 bg-[#1A1A1A] px-3 py-2 text-xs font-black uppercase tracking-wider text-zinc-200 hover:border-[var(--bk-team-accent)]/50 sm:max-w-[260px]"
               >
-                <Trophy className="h-4 w-4 shrink-0 text-[#D4AF37]" />
+                <Trophy className="h-4 w-4 shrink-0 text-[var(--bk-team-accent)]" />
                 <span className="truncate">{activeLeague.name}</span>
                 <ChevronDown className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
               </button>
@@ -149,7 +149,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           setCurrentTab(l.status === 'completed' ? 'simulation' : 'lobby');
                           setIsLeagueMenuOpen(false);
                         }}
-                        className={`flex w-full items-center justify-between rounded-sm px-2.5 py-2 text-left text-xs ${l.id === activeLeague.id ? 'border border-[#D4AF37]/30 bg-[#D4AF37]/10 text-[#D4AF37]' : 'text-zinc-300 hover:bg-[#1A1A1A]'}`}
+                        className={`flex w-full items-center justify-between rounded-sm px-2.5 py-2 text-left text-xs ${l.id === activeLeague.id ? 'border border-[var(--bk-team-accent)]/30 bg-[var(--bk-team-accent)]/10 text-[var(--bk-team-accent)]' : 'text-zinc-300 hover:bg-[#1A1A1A]'}`}
                       >
                         <span className="truncate font-black uppercase">{l.name}</span>
                         <span className="ml-3 font-mono text-[10px] text-zinc-500">{l.code}</span>
@@ -157,8 +157,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                     ))}
                   </div>
                   <div className="mt-1 flex gap-1 border-t border-white/10 pt-2">
-                    <button onClick={() => { setIsLeagueMenuOpen(false); onOpenCreateLeague(); }} className="flex flex-1 items-center justify-center gap-1 rounded-sm border border-white/5 bg-[#1A1A1A] py-2 text-[10px] font-black uppercase tracking-wider"><Plus className="h-3 w-3 text-[#D4AF37]" /> Create</button>
-                    <button onClick={() => { setIsLeagueMenuOpen(false); onOpenJoinLeague(); }} className="flex flex-1 items-center justify-center gap-1 rounded-sm border border-white/5 bg-[#1A1A1A] py-2 text-[10px] font-black uppercase tracking-wider"><Users className="h-3 w-3 text-[#D4AF37]" /> Join</button>
+                    <button onClick={() => { setIsLeagueMenuOpen(false); onOpenCreateLeague(); }} className="flex flex-1 items-center justify-center gap-1 rounded-sm border border-white/5 bg-[#1A1A1A] py-2 text-[10px] font-black uppercase tracking-wider"><Plus className="h-3 w-3 text-[var(--bk-team-accent)]" /> Create</button>
+                    <button onClick={() => { setIsLeagueMenuOpen(false); onOpenJoinLeague(); }} className="flex flex-1 items-center justify-center gap-1 rounded-sm border border-white/5 bg-[#1A1A1A] py-2 text-[10px] font-black uppercase tracking-wider"><Users className="h-3 w-3 text-[var(--bk-team-accent)]" /> Join</button>
                   </div>
                 </div>
               )}
@@ -166,7 +166,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
 
           {isDemoMode && (
-            <button onClick={exitDemoMode} className="hidden items-center gap-1 rounded-sm border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-2 py-1 text-[10px] font-black uppercase text-[#D4AF37] md:flex">
+            <button onClick={exitDemoMode} className="hidden items-center gap-1 rounded-sm border border-[var(--bk-team-accent)]/30 bg-[var(--bk-team-accent)]/10 px-2 py-1 text-[10px] font-black uppercase text-[var(--bk-team-accent)] md:flex">
               <Sparkles className="h-3 w-3" /> Demo
             </button>
           )}
@@ -175,7 +175,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {currentUser ? (
             <div className="relative shrink-0">
-              <button id="user-profile-btn" onClick={() => setIsUserMenuOpen(v => !v)} className="rounded-full border-2 border-[#D4AF37] p-0.5 hover:ring-2 hover:ring-[#D4AF37]/40">
+              <button id="user-profile-btn" onClick={() => setIsUserMenuOpen(v => !v)} className="rounded-full border-2 border-[var(--bk-team-accent)] p-0.5 hover:ring-2 hover:ring-[var(--bk-team-accent)]/40">
                 <div className="h-9 w-9 overflow-hidden rounded-full bg-zinc-800">
                   <img src={currentUser.avatarUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=BallKnower'} alt={currentUser.name} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
                 </div>
@@ -188,10 +188,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <p className="truncate font-mono text-[10px] text-zinc-500">{currentUser.email || 'Guest account'}</p>
                   </div>
                   <div className="py-1">
-                    <button onClick={() => { setCurrentTab('home'); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#1A1A1A]"><Trophy className="h-3.5 w-3.5 text-[#D4AF37]" /> Dashboard</button>
-                    <button onClick={() => { setCurrentTab('legacy'); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#1A1A1A]"><Award className="h-3.5 w-3.5 text-[#D4AF37]" /> Hall of Fame</button>
+                    <button onClick={() => { setCurrentTab('home'); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#1A1A1A]"><Trophy className="h-3.5 w-3.5 text-[var(--bk-team-accent)]" /> Dashboard</button>
+                    <button onClick={() => { setCurrentTab('legacy'); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#1A1A1A]"><Award className="h-3.5 w-3.5 text-[var(--bk-team-accent)]" /> Hall of Fame</button>
                     {onOpenDatabaseModal && <button onClick={() => { setIsUserMenuOpen(false); onOpenDatabaseModal(); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#1A1A1A]"><Shield className="h-3.5 w-3.5 text-emerald-400" /> 32/32 Rosters</button>}
-                    <button onClick={() => { setIsUserMenuOpen(false); onOpenAuth(); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#1A1A1A]"><User className="h-3.5 w-3.5 text-[#D4AF37]" /> Account</button>
+                    <button onClick={() => { setIsUserMenuOpen(false); onOpenAuth(); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#1A1A1A]"><User className="h-3.5 w-3.5 text-[var(--bk-team-accent)]" /> Account</button>
                   </div>
                   <div className="border-t border-white/5 pt-1">
                     <button disabled={isSigningOut} onClick={handleSignOut} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-red-500 hover:bg-red-500/10 disabled:opacity-60">
@@ -203,7 +203,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
           ) : (
-            <button id="sign-in-btn" onClick={onOpenAuth} className="shrink-0 rounded-sm bg-[#D4AF37] px-3 py-2 text-[11px] font-black uppercase tracking-wider text-black hover:bg-amber-300">Sign In</button>
+            <button id="sign-in-btn" onClick={onOpenAuth} className="shrink-0 rounded-sm bg-[var(--bk-team-accent)] px-3 py-2 text-[11px] font-black uppercase tracking-wider text-black hover:bg-amber-300">Sign In</button>
           )}
         </div>
       </div>
@@ -213,7 +213,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button id="nav-tab-home" onClick={() => setCurrentTab('home')} className={tabClass('home')}>Overview</button>
           <button id="nav-tab-solo" onClick={() => setCurrentTab('solo')} className={tabClass('solo')}><Play className="h-3.5 w-3.5" /> Solo</button>
           <button id="nav-tab-news" onClick={() => setCurrentTab('news')} className={tabClass('news')}><Newspaper className="h-3.5 w-3.5" /> News <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,.9)]" /></button>
-          <button id="nav-tab-fantasy" onClick={() => setCurrentTab('fantasy')} className={tabClass('fantasy')}>Fantasy <span className="rounded bg-[#D4AF37] px-1 py-0.5 text-[8px] font-black text-black">NEW</span></button>
+          <button id="nav-tab-fantasy" onClick={() => setCurrentTab('fantasy')} className={tabClass('fantasy')}>Fantasy <span className="rounded bg-[var(--bk-team-accent)] px-1 py-0.5 text-[8px] font-black text-black">NEW</span></button>
           <button id="nav-tab-sportsbook" onClick={() => setCurrentTab('sportsbook')} className={tabClass('sportsbook')}><DollarSign className="h-3.5 w-3.5" /> Sportsbook</button>
           <button id="nav-tab-legacy" onClick={() => setCurrentTab('legacy')} className={tabClass('legacy')}><Trophy className="h-3.5 w-3.5" /> Hall of Fame</button>
 
@@ -221,12 +221,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             <>
               <span className="my-3 w-px bg-white/10" />
               <button id="nav-tab-lobby" onClick={() => setCurrentTab('lobby')} className={tabClass('lobby')}>Lobby ({activeLeague.members.length}/{activeLeague.maxMembers})</button>
-              <button id="nav-tab-draft" onClick={() => setCurrentTab('draft')} className={tabClass('draft')}>Draft Board <span className={`rounded px-1.5 py-0.5 font-mono text-[9px] ${currentRoster.length === 20 ? 'bg-emerald-400 text-black' : 'border border-[#D4AF37]/30 bg-black text-[#D4AF37]'}`}>{currentRoster.length}/20</span></button>
+              <button id="nav-tab-draft" onClick={() => setCurrentTab('draft')} className={tabClass('draft')}>Draft Board <span className={`rounded px-1.5 py-0.5 font-mono text-[9px] ${currentRoster.length === 20 ? 'bg-emerald-400 text-black' : 'border border-[var(--bk-team-accent)]/30 bg-black text-[var(--bk-team-accent)]'}`}>{currentRoster.length}/20</span></button>
               {activeLeague.status === 'completed' && <button id="nav-tab-simulation" onClick={() => setCurrentTab('simulation')} className={tabClass('simulation')}><Award className="h-3.5 w-3.5" /> Results</button>}
             </>
           )}
 
-          {onOpenIntro && <button id="nav-play-intro-btn" onClick={onOpenIntro} className="my-2 flex shrink-0 items-center gap-1.5 rounded-sm border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-3 text-[10px] font-black uppercase tracking-widest text-[#D4AF37] hover:bg-[#D4AF37]/20"><Play className="h-3 w-3 fill-[#D4AF37]" /> Intro Video</button>}
+          {onOpenIntro && <button id="nav-play-intro-btn" onClick={onOpenIntro} className="my-2 flex shrink-0 items-center gap-1.5 rounded-sm border border-[var(--bk-team-accent)]/40 bg-[var(--bk-team-accent)]/10 px-3 text-[10px] font-black uppercase tracking-widest text-[var(--bk-team-accent)] hover:bg-[var(--bk-team-accent)]/20"><Play className="h-3 w-3 fill-[var(--bk-team-accent)]" /> Intro Video</button>}
         </div>
       </nav>
     </header>

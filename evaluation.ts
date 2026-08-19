@@ -1,4 +1,4 @@
-import { Player, TeamRatings, TeamReportAnalysis, PositionGrade } from '../types';
+import { Player, TeamRatings, TeamReportAnalysis, PositionGrade } from './types';
 
 export interface RosterPositionBreakdown {
   qb: Player;

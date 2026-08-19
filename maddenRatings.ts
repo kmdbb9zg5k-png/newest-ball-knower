@@ -1,4 +1,4 @@
-import { Position, PlayerRatingRecord } from "../../types";
+import { Position, PlayerRatingRecord } from "./types";
 
 /**
  * Official Centralized EA SPORTS Madden NFL Ratings Master Database
