@@ -171,13 +171,16 @@ main > div::before {
 main > div { animation: bk-rise .38s ease-out both; }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; }
 }
 @media (max-width: 640px) {
   body { padding-bottom: env(safe-area-inset-bottom); }
   .bk-app-shell { min-height: 100dvh; }
   .bk-app-shell::after { opacity: .5; animation: none; }
+  .bk-glass { backdrop-filter: blur(10px) saturate(106%); }
+  main :is(.bg-\[\#111\], .bg-\[\#121212\], .bg-\[\#151515\], .bg-\[\#1A1A1A\]) { backdrop-filter: blur(9px) saturate(105%); }
   main button { min-height: 46px; }
   main { overflow-x: clip; }
-  main > div::before { opacity: .7; }
+  main > div::before { opacity: .7; filter: none; }
 }
