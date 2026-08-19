@@ -1,6 +1,6 @@
 import { Player } from './types';
 import { SPECIAL_TEAMS_2026 } from './specialTeams2026';
-import { getMadden27RosterEntry, normalizeMaddenRosterName } from './madden27CurrentRoster';
+import { MADDEN_27_CURRENT_PLAYERS, normalizeMaddenRosterName } from './madden27CurrentRoster';
 
 /**
  * 2026 runtime roster corrections.
@@ -168,37 +168,57 @@ export function applyCurrent2026Roster(rawPlayers: Player[]): Player[] {
     Object.entries(CURRENT_2026_QB_STARTERS).map(([team, name]) => [name, team])
   );
 
-  const candidates = [...rawPlayers];
-  const existingNames = new Set(candidates.map(p => normalizeMaddenRosterName(p.name)));
-  for (const player of MISSING_2026_PLAYERS) {
-    if (!existingNames.has(normalizeMaddenRosterName(player.name))) candidates.push(player);
+  const legacyByName = new Map<string, Player[]>();
+  for (const player of rawPlayers) {
+    const key = normalizeMaddenRosterName(player.name);
+    legacyByName.set(key, [...(legacyByName.get(key) || []), player]);
   }
 
-  const specialistNames = new Set(SPECIAL_TEAMS_2026.map(p => p.name.toLowerCase()));
-  const withSpecialists = candidates.filter(p => !((p.position === 'K' || p.position === 'P') && specialistNames.has(p.name.toLowerCase())));
-  withSpecialists.push(...SPECIAL_TEAMS_2026);
+  return MADDEN_27_CURRENT_PLAYERS.map((official): Player => {
+    const legacyMatches = legacyByName.get(normalizeMaddenRosterName(official.name)) || [];
+    const legacy = legacyMatches.find(player => player.position === official.position) || legacyMatches[0];
+    const expectedStarterTeam = official.position === 'QB' ? expectedStarterByName.get(official.name) : undefined;
+    const baseline = official.overallRating;
+    const estimatedSalary = Math.min(60, Math.max(0.75, (baseline - 60) * (official.position === 'QB' ? 1.35 : ['WR','EDGE','CB','LT','RT'].includes(official.position) ? 1.05 : 0.8)));
 
-  return withSpecialists.flatMap((player): Player[] => {
-    const official = getMadden27RosterEntry(player);
-    if (!official) return [];
-    const expectedStarterTeam = official.position === 'QB' ? expectedStarterByName.get(player.name) : undefined;
-    return [{
-      ...player,
+    return {
+      ...(legacy || {}),
+      id: `ea-${official.eaId}`,
+      playerId: `ea-${official.eaId}`,
+      name: official.name,
       team: official.team,
       teamId: official.team,
+      teamCity: legacy?.teamCity || 'NFL',
       position: official.position,
-      ovr: official.overallRating,
-      overallRating: official.overallRating,
-      overall: official.overallRating,
+      positionGroup: undefined,
+      ovr: baseline,
+      overallRating: baseline,
+      overall: baseline,
+      salary: legacy?.salary ?? Number(estimatedSalary.toFixed(2)),
+      salaryType: legacy?.salaryType ?? 'estimated',
+      salarySource: legacy?.salarySource ?? 'legacy_estimate',
+      attributes: legacy?.attributes || {
+        passing: official.position === 'QB' ? baseline : undefined,
+        rushing: ['QB','RB','FB'].includes(official.position) ? baseline : undefined,
+        receiving: ['RB','FB','WR','TE'].includes(official.position) ? baseline : undefined,
+        passBlocking: ['LT','RT','LG','RG','C'].includes(official.position) ? baseline : undefined,
+        runBlocking: ['LT','RT','LG','RG','C','TE'].includes(official.position) ? baseline : undefined,
+        passRush: ['EDGE','DT'].includes(official.position) ? baseline : undefined,
+        runDefense: ['EDGE','DT','LB'].includes(official.position) ? baseline : undefined,
+        coverage: ['LB','CB','FS','SS'].includes(official.position) ? baseline : undefined,
+        kicking: ['K','P'].includes(official.position) ? baseline : undefined,
+        athleticism: baseline,
+        footballIQ: baseline,
+      },
       active: true,
       isFreeAgent: false,
-      starter: official.position === 'QB' ? expectedStarterTeam === official.team : player.starter,
-      projectedStarter: official.position === 'QB' ? expectedStarterTeam === official.team : player.projectedStarter,
+      starter: official.position === 'QB' ? expectedStarterTeam === official.team : legacy?.starter,
+      projectedStarter: official.position === 'QB' ? expectedStarterTeam === official.team : legacy?.projectedStarter,
       ratingSource: 'EA SPORTS Madden',
       ratingSeason: 2026,
       ratingStatus: 'VERIFIED' as const,
       rosterSeason: 2026,
       rosterLastUpdated: '2026-08-19',
-    }];
+    };
   });
 }
