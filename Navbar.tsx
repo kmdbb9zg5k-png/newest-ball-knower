@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useBallKnower } from '../context/BallKnowerContext';
-import { Trophy, Shield, User, LogOut, ChevronDown, Sparkles, Plus, Users, Award, Play } from 'lucide-react';
+import { Trophy, Shield, User, LogOut, ChevronDown, Sparkles, Plus, Users, Award, Play, Newspaper, DollarSign } from 'lucide-react';
 import { SoundtrackControl } from './SoundtrackControl';
 
+type AppTab = 'home' | 'solo' | 'news' | 'fantasy' | 'sportsbook' | 'legacy' | 'lobby' | 'draft' | 'simulation';
+
 interface NavbarProps {
-  currentTab: 'home' | 'solo' | 'legacy' | 'lobby' | 'draft' | 'simulation';
-  setCurrentTab: (tab: 'home' | 'solo' | 'legacy' | 'lobby' | 'draft' | 'simulation') => void;
+  currentTab: AppTab;
+  setCurrentTab: (tab: AppTab) => void;
   onOpenAuth: () => void;
   onOpenCreateLeague: () => void;
   onOpenJoinLeague: () => void;
@@ -28,8 +30,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     activeLeague,
     isDemoMode,
     exitDemoMode,
-    totalSpent,
-    remainingCap,
     currentRoster,
     leagues,
     setActiveLeagueId,
@@ -38,316 +38,125 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isLeagueMenuOpen, setIsLeagueMenuOpen] = useState(false);
 
-  const salaryCap = activeLeague?.salaryCap || 301.2;
+  useEffect(() => {
+    const el = document.getElementById(`nav-tab-${currentTab}`);
+    el?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }, [currentTab]);
+
+  const tabClass = (tab: AppTab) => `relative h-full shrink-0 flex items-center gap-1.5 whitespace-nowrap border-b-2 px-0.5 text-[11px] sm:text-xs font-black uppercase tracking-[.13em] transition-colors ${
+    currentTab === tab ? 'border-[#D4AF37] text-[#D4AF37]' : 'border-transparent text-zinc-500 hover:text-white'
+  }`;
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-[#D4AF37]/20 bg-[#121212]/95 backdrop-blur-md">
-      {/* Top Main Bar */}
-      <div className="mx-auto flex h-16 sm:h-20 max-w-7xl items-center justify-between px-4 sm:px-8">
-        {/* Logo */}
-        <div className="flex items-center gap-4">
-          <button
-            id="nav-logo-btn"
-            onClick={() => setCurrentTab('home')}
-            className="group flex items-baseline gap-3 text-left focus:outline-none"
-          >
-            <div className="flex items-baseline space-x-2">
-              <h1 className="font-display text-2xl sm:text-3xl font-black tracking-tighter text-white group-hover:text-zinc-200 transition-colors">
-                BALL <span className="text-[#D4AF37]">KNOWER</span>
-              </h1>
-              {activeLeague ? (
-                <span className="hidden md:inline text-[10px] uppercase tracking-widest text-zinc-500 font-bold">
-                  LEAGUE: <span className="text-zinc-300">{activeLeague.name}</span>
-                </span>
-              ) : (
-                <span className="hidden md:inline text-[10px] uppercase tracking-widest text-zinc-500 font-bold">
-                  NFL CAP SIMULATOR
-                </span>
+    <header className="sticky top-0 z-40 w-full border-b border-[#D4AF37]/20 bg-[#101010]/95 backdrop-blur-xl">
+      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-3 px-4 sm:px-8">
+        <button id="nav-logo-btn" onClick={() => setCurrentTab('home')} className="shrink-0 text-left focus:outline-none">
+          <h1 className="font-display text-[28px] font-black leading-[.85] tracking-tighter text-white sm:text-3xl">
+            BALL <span className="block text-[#D4AF37] sm:inline">KNOWER</span>
+          </h1>
+        </button>
+
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:gap-4">
+          {activeLeague && (
+            <div className="relative min-w-0">
+              <button
+                id="league-dropdown-btn"
+                onClick={() => setIsLeagueMenuOpen(v => !v)}
+                className="flex max-w-[180px] items-center gap-2 rounded-md border border-white/10 bg-[#1A1A1A] px-3 py-2 text-xs font-black uppercase tracking-wider text-zinc-200 hover:border-[#D4AF37]/50 sm:max-w-[260px]"
+              >
+                <Trophy className="h-4 w-4 shrink-0 text-[#D4AF37]" />
+                <span className="truncate">{activeLeague.name}</span>
+                <ChevronDown className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+              </button>
+
+              {isLeagueMenuOpen && (
+                <div className="absolute right-0 z-50 mt-2 w-72 max-w-[88vw] rounded-md border border-white/10 bg-[#121212] p-2 shadow-2xl">
+                  <div className="px-2 py-1 text-[10px] font-black uppercase tracking-widest text-zinc-500">Your Leagues</div>
+                  <div className="my-1 max-h-56 space-y-1 overflow-y-auto">
+                    {leagues.map(l => (
+                      <button
+                        key={l.id}
+                        onClick={() => {
+                          setActiveLeagueId(l.id);
+                          setCurrentTab(l.status === 'completed' ? 'simulation' : 'lobby');
+                          setIsLeagueMenuOpen(false);
+                        }}
+                        className={`flex w-full items-center justify-between rounded-sm px-2.5 py-2 text-left text-xs ${l.id === activeLeague.id ? 'border border-[#D4AF37]/30 bg-[#D4AF37]/10 text-[#D4AF37]' : 'text-zinc-300 hover:bg-[#1A1A1A]'}`}
+                      >
+                        <span className="truncate font-black uppercase">{l.name}</span>
+                        <span className="ml-3 font-mono text-[10px] text-zinc-500">{l.code}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-1 flex gap-1 border-t border-white/10 pt-2">
+                    <button onClick={() => { setIsLeagueMenuOpen(false); onOpenCreateLeague(); }} className="flex flex-1 items-center justify-center gap-1 rounded-sm border border-white/5 bg-[#1A1A1A] py-2 text-[10px] font-black uppercase tracking-wider"><Plus className="h-3 w-3 text-[#D4AF37]" /> Create</button>
+                    <button onClick={() => { setIsLeagueMenuOpen(false); onOpenJoinLeague(); }} className="flex flex-1 items-center justify-center gap-1 rounded-sm border border-white/5 bg-[#1A1A1A] py-2 text-[10px] font-black uppercase tracking-wider"><Users className="h-3 w-3 text-[#D4AF37]" /> Join</button>
+                  </div>
+                </div>
               )}
             </div>
-          </button>
-
-          <button
-            onClick={() => setCurrentTab('solo')}
-            className={`hidden sm:flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-[11px] font-black uppercase tracking-wider border transition-all ${
-              currentTab === 'solo'
-                ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
-                : 'bg-[#D4AF37]/10 text-[#D4AF37] border-[#D4AF37]/30 hover:bg-[#D4AF37]/20'
-            }`}
-          >
-            <Play className="h-3.5 w-3.5" />
-            Solo Road to Super Bowl
-          </button>
-
-          <button
-            onClick={() => setCurrentTab('legacy')}
-            className={`hidden md:flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-[11px] font-black uppercase tracking-wider border transition-all ${
-              currentTab === 'legacy'
-                ? 'bg-white text-black border-white'
-                : 'bg-white/5 text-zinc-300 border-white/10 hover:border-[#D4AF37]/50'
-            }`}
-          >
-            <Trophy className="h-3.5 w-3.5" />
-            Hall of Fame
-          </button>
-
-          {/* Demo Mode Badge */}
-          {isDemoMode && (
-            <div className="flex items-center gap-1.5 rounded-sm bg-[#D4AF37]/10 border border-[#D4AF37]/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#D4AF37]">
-              <Sparkles className="h-3 w-3" />
-              <span>Demo</span>
-              <button
-                onClick={exitDemoMode}
-                className="ml-1 text-zinc-400 hover:text-white underline text-[9px]"
-              >
-                Exit
-              </button>
-            </div>
           )}
 
-          {/* 32/32 Teams Database Verified Badge */}
-          {onOpenDatabaseModal && (
-            <button
-              onClick={onOpenDatabaseModal}
-              title="Click to view 2026 Master Database 20/20 Validation Report"
-              className="hidden lg:flex items-center gap-1.5 rounded-sm bg-[#00FF00]/10 border border-[#00FF00]/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#00FF00] hover:bg-[#00FF00]/20 transition-all cursor-pointer"
-            >
-              <Shield className="h-3 w-3" />
-              <span>32/32 NFL Rosters Verified</span>
+          {isDemoMode && (
+            <button onClick={exitDemoMode} className="hidden items-center gap-1 rounded-sm border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-2 py-1 text-[10px] font-black uppercase text-[#D4AF37] md:flex">
+              <Sparkles className="h-3 w-3" /> Demo
             </button>
           )}
-        </div>
 
-        {/* Right Info: Draft Code & Account */}
-        <div className="flex items-center space-x-4 sm:space-x-6">
-          {/* Active League Switcher & Draft Code */}
-          {activeLeague && (
-            <div className="flex items-center space-x-4">
-              <div className="hidden sm:block text-right">
-                <div className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Draft Code</div>
-                <div className="font-mono text-[#D4AF37] text-base sm:text-lg font-bold leading-tight">
-                  {activeLeague.code}
-                </div>
-              </div>
-
-              {/* League Selector Dropdown */}
-              <div className="relative">
-                <button
-                  id="league-dropdown-btn"
-                  onClick={() => setIsLeagueMenuOpen(!isLeagueMenuOpen)}
-                  className="flex items-center gap-1.5 rounded-sm border border-white/10 bg-[#1A1A1A] px-2.5 py-1 text-xs font-bold text-zinc-200 hover:border-[#D4AF37]/50 transition-colors uppercase tracking-wider"
-                >
-                  <Trophy className="h-3.5 w-3.5 text-[#D4AF37]" />
-                  <span className="max-w-[120px] sm:max-w-[160px] truncate">{activeLeague.name}</span>
-                  <ChevronDown className="h-3 w-3 text-zinc-400" />
-                </button>
-
-                {isLeagueMenuOpen && (
-                  <div
-                    className="absolute right-0 mt-2 w-64 rounded-sm border border-white/10 bg-[#121212] p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2"
-                    onClick={() => setIsLeagueMenuOpen(false)}
-                  >
-                    <div className="px-2 py-1 text-[10px] font-black text-zinc-500 uppercase tracking-widest">
-                      Your Leagues
-                    </div>
-                    <div className="max-h-48 overflow-y-auto space-y-1 my-1">
-                      {leagues.map(l => (
-                        <button
-                          key={l.id}
-                          onClick={() => {
-                            setActiveLeagueId(l.id);
-                            if (l.status === 'completed') {
-                              setCurrentTab('simulation');
-                            } else {
-                              setCurrentTab('lobby');
-                            }
-                          }}
-                          className={`w-full flex items-center justify-between rounded-sm px-2.5 py-2 text-left text-xs transition-colors ${
-                            l.id === activeLeague.id
-                              ? 'bg-[#D4AF37]/10 text-[#D4AF37] font-bold border border-[#D4AF37]/30'
-                              : 'text-zinc-300 hover:bg-[#1A1A1A]'
-                          }`}
-                        >
-                          <span className="truncate font-bold uppercase">{l.name}</span>
-                          <span className="font-mono text-[10px] text-zinc-500">{l.code}</span>
-                        </button>
-                      ))}
-                    </div>
-                    <div className="border-t border-white/10 pt-1.5 mt-1 flex gap-1">
-                      <button
-                        onClick={onOpenCreateLeague}
-                        className="flex-1 flex items-center justify-center gap-1 rounded-sm bg-[#1A1A1A] py-1.5 text-[10px] font-black text-zinc-200 hover:bg-zinc-800 uppercase tracking-wider border border-white/5"
-                      >
-                        <Plus className="h-3 w-3 text-[#D4AF37]" /> Create
-                      </button>
-                      <button
-                        onClick={onOpenJoinLeague}
-                        className="flex-1 flex items-center justify-center gap-1 rounded-sm bg-[#1A1A1A] py-1.5 text-[10px] font-black text-zinc-200 hover:bg-zinc-800 uppercase tracking-wider border border-white/5"
-                      >
-                        <Users className="h-3 w-3 text-[#D4AF37]" /> Join
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Soundtrack Audio Control (Top-Right) */}
           <SoundtrackControl />
 
-          {/* User Profile Avatar / Sign In */}
           {currentUser ? (
-            <div className="relative">
-              <button
-                id="user-profile-btn"
-                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="flex items-center gap-2 rounded-full border-2 border-[#D4AF37] p-0.5 hover:ring-2 hover:ring-[#D4AF37]/40 transition-all focus:outline-none"
-              >
-                <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full overflow-hidden bg-zinc-800">
-                  <img
-                    src={currentUser.avatarUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Elijah'}
-                    alt={currentUser.name}
-                    className="h-full w-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
+            <div className="relative shrink-0">
+              <button id="user-profile-btn" onClick={() => setIsUserMenuOpen(v => !v)} className="rounded-full border-2 border-[#D4AF37] p-0.5 hover:ring-2 hover:ring-[#D4AF37]/40">
+                <div className="h-9 w-9 overflow-hidden rounded-full bg-zinc-800">
+                  <img src={currentUser.avatarUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=BallKnower'} alt={currentUser.name} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
                 </div>
               </button>
 
               {isUserMenuOpen && (
-                <div
-                  className="absolute right-0 mt-2 w-56 rounded-sm border border-white/10 bg-[#121212] p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2"
-                  onClick={() => setIsUserMenuOpen(false)}
-                >
-                  <div className="px-3 py-2 border-b border-white/5">
-                    <p className="text-xs font-black uppercase text-white tracking-tight truncate">{currentUser.name}</p>
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-mono truncate">{currentUser.email}</p>
+                <div className="absolute right-0 z-50 mt-2 w-60 rounded-md border border-white/10 bg-[#121212] p-2 shadow-2xl">
+                  <div className="border-b border-white/5 px-3 py-2">
+                    <p className="truncate text-xs font-black uppercase text-white">{currentUser.name}</p>
+                    <p className="truncate font-mono text-[10px] text-zinc-500">{currentUser.email}</p>
                   </div>
-
                   <div className="py-1">
-                    <button
-                      onClick={() => setCurrentTab('home')}
-                      className="w-full flex items-center gap-2 rounded-sm px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#1A1A1A] hover:text-white"
-                    >
-                      <Trophy className="h-3.5 w-3.5 text-[#D4AF37]" />
-                      Dashboard & Leagues
-                    </button>
-                    {onOpenIntro && (
-                      <button
-                        onClick={onOpenIntro}
-                        className="w-full flex items-center gap-2 rounded-sm px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#1A1A1A] hover:text-white"
-                      >
-                        <Play className="h-3.5 w-3.5 text-[#D4AF37]" />
-                        Watch Intro Video
-                      </button>
-                    )}
-                    <button
-                      onClick={onOpenAuth}
-                      className="w-full flex items-center gap-2 rounded-sm px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#1A1A1A] hover:text-white"
-                    >
-                      <User className="h-3.5 w-3.5 text-[#D4AF37]" />
-                      Switch Account
-                    </button>
+                    <button onClick={() => { setCurrentTab('home'); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#1A1A1A]"><Trophy className="h-3.5 w-3.5 text-[#D4AF37]" /> Dashboard</button>
+                    <button onClick={() => { setCurrentTab('legacy'); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#1A1A1A]"><Award className="h-3.5 w-3.5 text-[#D4AF37]" /> Hall of Fame</button>
+                    {onOpenDatabaseModal && <button onClick={() => { setIsUserMenuOpen(false); onOpenDatabaseModal(); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#1A1A1A]"><Shield className="h-3.5 w-3.5 text-emerald-400" /> 32/32 Rosters</button>}
+                    <button onClick={() => { setIsUserMenuOpen(false); onOpenAuth(); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#1A1A1A]"><User className="h-3.5 w-3.5 text-[#D4AF37]" /> Switch Account</button>
                   </div>
-
                   <div className="border-t border-white/5 pt-1">
-                    <button
-                      onClick={logout}
-                      className="w-full flex items-center gap-2 rounded-sm px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-red-500 hover:bg-red-500/10"
-                    >
-                      <LogOut className="h-3.5 w-3.5" />
-                      Sign Out
-                    </button>
+                    <button onClick={logout} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-red-500 hover:bg-red-500/10"><LogOut className="h-3.5 w-3.5" /> Sign Out</button>
                   </div>
                 </div>
               )}
             </div>
           ) : (
-            <button
-              id="sign-in-btn"
-              onClick={onOpenAuth}
-              className="bg-[#D4AF37] text-black px-4 py-2 rounded-sm text-xs font-black uppercase tracking-wider hover:bg-amber-300 transition-colors"
-            >
-              Sign In
-            </button>
+            <button id="sign-in-btn" onClick={onOpenAuth} className="shrink-0 rounded-sm bg-[#D4AF37] px-3 py-2 text-[11px] font-black uppercase tracking-wider text-black hover:bg-amber-300">Sign In</button>
           )}
         </div>
       </div>
 
-      {/* Sub-Header Navigation Bar */}
-      <nav className="h-11 sm:h-12 bg-[#1A1A1A] flex items-center justify-between px-4 sm:px-8 border-b border-white/5 overflow-x-auto no-scrollbar">
-        <div className="flex items-center space-x-4 sm:space-x-8">
-          <button
-            id="nav-tab-home"
-            onClick={() => setCurrentTab('home')}
-            className={`text-xs font-black uppercase tracking-widest h-full flex items-center whitespace-nowrap transition-colors ${
-              currentTab === 'home'
-                ? 'text-[#D4AF37] border-b-2 border-[#D4AF37]'
-                : 'text-zinc-500 hover:text-white'
-            }`}
-          >
-            Overview
-          </button>
+      <nav className="h-12 overflow-x-auto border-t border-white/5 bg-[#181818] no-scrollbar [-webkit-overflow-scrolling:touch]">
+        <div className="mx-auto flex h-full min-w-max items-stretch gap-5 px-4 sm:gap-7 sm:px-8">
+          <button id="nav-tab-home" onClick={() => setCurrentTab('home')} className={tabClass('home')}>Overview</button>
+          <button id="nav-tab-solo" onClick={() => setCurrentTab('solo')} className={tabClass('solo')}><Play className="h-3.5 w-3.5" /> Solo</button>
+          <button id="nav-tab-news" onClick={() => setCurrentTab('news')} className={tabClass('news')}><Newspaper className="h-3.5 w-3.5" /> News <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,.9)]" /></button>
+          <button id="nav-tab-fantasy" onClick={() => setCurrentTab('fantasy')} className={tabClass('fantasy')}>Fantasy <span className="rounded bg-[#D4AF37] px-1 py-0.5 text-[8px] font-black text-black">NEW</span></button>
+          <button id="nav-tab-sportsbook" onClick={() => setCurrentTab('sportsbook')} className={tabClass('sportsbook')}><DollarSign className="h-3.5 w-3.5" /> Sportsbook</button>
+          <button id="nav-tab-legacy" onClick={() => setCurrentTab('legacy')} className={tabClass('legacy')}><Trophy className="h-3.5 w-3.5" /> Hall of Fame</button>
 
           {activeLeague && (
             <>
-              <button
-                id="tab-lobby-btn"
-                onClick={() => setCurrentTab('lobby')}
-                className={`text-xs font-black uppercase tracking-widest h-full flex items-center whitespace-nowrap transition-colors ${
-                  currentTab === 'lobby'
-                    ? 'text-[#D4AF37] border-b-2 border-[#D4AF37]'
-                    : 'text-zinc-500 hover:text-white'
-                }`}
-              >
-                Lobby ({activeLeague.members.length}/{activeLeague.maxMembers})
-              </button>
-
-              <button
-                id="tab-draft-btn"
-                onClick={() => setCurrentTab('draft')}
-                className={`text-xs font-black uppercase tracking-widest h-full flex items-center gap-2 whitespace-nowrap transition-colors ${
-                  currentTab === 'draft'
-                    ? 'text-[#D4AF37] border-b-2 border-[#D4AF37]'
-                    : 'text-zinc-500 hover:text-white'
-                }`}
-              >
-                <span>Draft Board</span>
-                <span className={`px-1.5 py-0.2 text-[10px] font-mono font-black rounded-sm ${
-                  currentRoster.length === 20 ? 'bg-[#00FF00] text-black' : 'bg-[#121212] text-[#D4AF37] border border-[#D4AF37]/30'
-                }`}>
-                  {currentRoster.length}/20
-                </span>
-              </button>
-
-              {activeLeague.status === 'completed' && (
-                <button
-                  id="tab-results-btn"
-                  onClick={() => setCurrentTab('simulation')}
-                  className={`text-xs font-black uppercase tracking-widest h-full flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-                    currentTab === 'simulation'
-                      ? 'text-[#D4AF37] border-b-2 border-[#D4AF37]'
-                      : 'text-zinc-500 hover:text-white'
-                  }`}
-                >
-                  <Award className="h-3.5 w-3.5 text-[#D4AF37]" />
-                  <span>Simulation & Draft Order</span>
-                </button>
-              )}
+              <span className="my-3 w-px bg-white/10" />
+              <button id="nav-tab-lobby" onClick={() => setCurrentTab('lobby')} className={tabClass('lobby')}>Lobby ({activeLeague.members.length}/{activeLeague.maxMembers})</button>
+              <button id="nav-tab-draft" onClick={() => setCurrentTab('draft')} className={tabClass('draft')}>Draft Board <span className={`rounded px-1.5 py-0.5 font-mono text-[9px] ${currentRoster.length === 20 ? 'bg-emerald-400 text-black' : 'border border-[#D4AF37]/30 bg-black text-[#D4AF37]'}`}>{currentRoster.length}/20</span></button>
+              {activeLeague.status === 'completed' && <button id="nav-tab-simulation" onClick={() => setCurrentTab('simulation')} className={tabClass('simulation')}><Award className="h-3.5 w-3.5" /> Results</button>}
             </>
           )}
-        </div>
 
-        {onOpenIntro && (
-          <button
-            id="nav-play-intro-btn"
-            onClick={onOpenIntro}
-            className="flex items-center gap-1.5 rounded-xs border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-[#D4AF37] hover:bg-[#D4AF37]/20 transition-all shrink-0 cursor-pointer ml-4"
-          >
-            <Play className="h-3 w-3 fill-[#D4AF37]" />
-            <span>Intro Video</span>
-          </button>
-        )}
+          {onOpenIntro && <button id="nav-play-intro-btn" onClick={onOpenIntro} className="my-2 flex shrink-0 items-center gap-1.5 rounded-sm border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-3 text-[10px] font-black uppercase tracking-widest text-[#D4AF37] hover:bg-[#D4AF37]/20"><Play className="h-3 w-3 fill-[#D4AF37]" /> Intro Video</button>}
+        </div>
       </nav>
     </header>
   );
