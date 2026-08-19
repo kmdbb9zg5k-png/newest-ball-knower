@@ -112,20 +112,21 @@ function deriveOnAccent(accent: string) {
     : lightForeground;
 }
 
-/** Applies real team brand colors while keeping a separate readable text token for dark surfaces. */
+/** Applies real team atmosphere colors plus a contrast-safe UI accent for dark surfaces. */
 export function applyTeamCssVariables(team: TeamTheme) {
   if (typeof document === 'undefined') return;
-  const accent = team.primary;
-  const readableAccent = ensureSurfaceContrast(team.primary);
-  const onAccent = deriveOnAccent(accent);
+  const rawAccent = team.primary;
+  const readableAccent = ensureSurfaceContrast(rawAccent);
+  const onAccent = deriveOnAccent(readableAccent);
   const root = document.documentElement;
   root.dataset.team = team.abbr;
   root.style.setProperty('--bk-team-primary', team.primary);
   root.style.setProperty('--bk-team-secondary', team.secondary);
   root.style.setProperty('--bk-team-primary-rgb', hexToRgb(team.primary));
   root.style.setProperty('--bk-team-secondary-rgb', hexToRgb(team.secondary));
-  root.style.setProperty('--bk-team-accent', accent);
-  root.style.setProperty('--bk-team-accent-rgb', hexToRgb(accent));
+  root.style.setProperty('--bk-team-accent-raw', rawAccent);
+  root.style.setProperty('--bk-team-accent', readableAccent);
+  root.style.setProperty('--bk-team-accent-rgb', hexToRgb(readableAccent));
   root.style.setProperty('--bk-team-accent-text', readableAccent);
   root.style.setProperty('--bk-on-accent', onAccent);
 }
