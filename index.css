@@ -29,14 +29,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   min-height: 100dvh;
   overflow: hidden;
   background:
-    linear-gradient(180deg, rgb(5 7 10 / .36), #07090d 58%),
-    radial-gradient(ellipse at 82% 2%, rgb(var(--bk-team-primary-rgb) / .31), transparent 42%),
-    radial-gradient(ellipse at 12% 32%, rgb(var(--bk-team-secondary-rgb) / .12), transparent 34%),
-    linear-gradient(118deg, #07090d 0%, #0b1018 46%, #07090d 100%);
+    radial-gradient(ellipse at 82% -4%, rgb(var(--bk-team-primary-rgb) / .38), transparent 40%),
+    radial-gradient(ellipse at 13% 27%, rgb(var(--bk-team-secondary-rgb) / .16), transparent 33%),
+    linear-gradient(180deg, rgb(6 9 14 / .10), rgb(5 7 11 / .84) 54%, #05070b 100%),
+    linear-gradient(118deg, #07090d 0%, #0b111a 46%, #07090d 100%);
   transition: background .7s ease;
 }
 
-/* Cinematic stadium bowl + floodlight atmosphere, driven by the selected NFL team tokens. */
+/* Team-driven stadium architecture. The selected NFL team's tokens power every glow. */
 .bk-app-shell::before {
   position: fixed;
   inset: 0;
@@ -44,12 +44,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   content: "";
   pointer-events: none;
   background:
-    radial-gradient(ellipse at 50% 108%, rgb(var(--bk-team-primary-rgb) / .20) 0 15%, transparent 43%),
-    radial-gradient(ellipse at 50% 104%, transparent 0 31%, rgb(255 255 255 / .045) 31.2% 31.8%, transparent 32%),
-    repeating-linear-gradient(90deg, transparent 0 8%, rgb(255 255 255 / .024) 8.2% 8.5%, transparent 8.7% 16%),
-    linear-gradient(to bottom, rgb(255 255 255 / .018), transparent 36%);
-  opacity: .82;
-  mask-image: linear-gradient(to bottom, black 0 76%, transparent 100%);
+    radial-gradient(ellipse at 50% 116%, rgb(var(--bk-team-primary-rgb) / .30) 0 12%, transparent 42%),
+    radial-gradient(ellipse at 50% 108%, transparent 0 30.2%, rgb(255 255 255 / .055) 30.5% 31%, transparent 31.4%),
+    radial-gradient(ellipse at 50% 98%, transparent 0 41%, rgb(var(--bk-team-secondary-rgb) / .055) 41.3% 41.7%, transparent 42%),
+    repeating-linear-gradient(90deg, transparent 0 7.7%, rgb(255 255 255 / .025) 7.9% 8.15%, transparent 8.35% 15.9%),
+    linear-gradient(to bottom, rgb(255 255 255 / .025), transparent 38%);
+  opacity: .9;
+  mask-image: linear-gradient(to bottom, black 0 82%, transparent 100%);
 }
 
 .bk-app-shell::after {
@@ -59,41 +60,43 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   content: "";
   pointer-events: none;
   background:
-    radial-gradient(circle at 14% 6%, rgb(255 255 255 / .15) 0 1px, transparent 2px),
-    radial-gradient(circle at 30% 4%, rgb(255 255 255 / .10) 0 1px, transparent 2px),
-    radial-gradient(circle at 70% 5%, rgb(255 255 255 / .11) 0 1px, transparent 2px),
-    radial-gradient(circle at 87% 8%, rgb(255 255 255 / .14) 0 1px, transparent 2px),
-    linear-gradient(165deg, transparent 0 38%, rgb(var(--bk-team-accent-rgb) / .05) 49%, transparent 61%),
-    linear-gradient(180deg, transparent 0 72%, rgb(0 0 0 / .44) 100%);
-  background-size: 280px 180px, 320px 210px, 300px 190px, 260px 170px, auto, auto;
-  opacity: .75;
+    radial-gradient(ellipse at 8% -4%, rgb(255 255 255 / .16), transparent 12%),
+    radial-gradient(ellipse at 92% -5%, rgb(255 255 255 / .14), transparent 12%),
+    linear-gradient(154deg, transparent 0 22%, rgb(var(--bk-team-secondary-rgb) / .055) 36%, transparent 48%),
+    linear-gradient(206deg, transparent 0 22%, rgb(var(--bk-team-primary-rgb) / .065) 36%, transparent 49%),
+    radial-gradient(circle at 14% 6%, rgb(255 255 255 / .18) 0 1px, transparent 2px),
+    radial-gradient(circle at 30% 4%, rgb(255 255 255 / .12) 0 1px, transparent 2px),
+    radial-gradient(circle at 70% 5%, rgb(255 255 255 / .13) 0 1px, transparent 2px),
+    radial-gradient(circle at 87% 8%, rgb(255 255 255 / .16) 0 1px, transparent 2px),
+    linear-gradient(180deg, transparent 0 70%, rgb(0 0 0 / .5) 100%);
+  background-size: auto, auto, auto, auto, 280px 180px, 320px 210px, 300px 190px, 260px 170px, auto;
+  opacity: .82;
   animation: bk-atmosphere-drift 18s ease-in-out infinite alternate;
 }
 
 .bk-glass {
   border: 1px solid rgb(255 255 255 / .10);
-  border-radius: 1.15rem;
-  background: linear-gradient(145deg, rgb(25 30 40 / .84), rgb(10 13 19 / .72));
-  box-shadow: inset 0 1px rgb(255 255 255 / .065), 0 22px 60px rgb(0 0 0 / .28), 0 0 55px rgb(var(--bk-team-primary-rgb) / .04);
-  backdrop-filter: blur(18px) saturate(112%);
+  border-radius: 1.25rem;
+  background: linear-gradient(145deg, rgb(25 30 40 / .82), rgb(9 12 18 / .68));
+  box-shadow: inset 0 1px rgb(255 255 255 / .07), 0 24px 70px rgb(0 0 0 / .30), 0 0 70px rgb(var(--bk-team-primary-rgb) / .055);
+  backdrop-filter: blur(18px) saturate(116%);
 }
 .bk-accent-button { color: var(--bk-on-accent); background: linear-gradient(135deg, var(--bk-team-accent), color-mix(in srgb, var(--bk-team-accent), white 14%)); box-shadow: 0 12px 30px rgb(var(--bk-team-accent-rgb) / .18); }
 .bk-accent-button:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 15px 38px rgb(var(--bk-team-accent-rgb) / .28); }
 .bk-overline { color: var(--bk-team-accent); letter-spacing: .24em; text-transform: uppercase; font-weight: 900; }
 
-/* Upgrade legacy page panels into softer premium sports surfaces without changing layout or behavior. */
 main section { position: relative; }
 main :is(.bg-\[\#111\], .bg-\[\#121212\], .bg-\[\#151515\], .bg-\[\#1A1A1A\]) {
-  border-radius: 1rem;
-  background-color: rgb(13 17 24 / .76) !important;
-  box-shadow: inset 0 1px rgb(255 255 255 / .04), 0 16px 45px rgb(0 0 0 / .20);
-  backdrop-filter: blur(15px) saturate(110%);
+  border-radius: 1.15rem;
+  background-color: rgb(12 16 23 / .72) !important;
+  box-shadow: inset 0 1px rgb(255 255 255 / .05), 0 18px 50px rgb(0 0 0 / .22), 0 0 44px rgb(var(--bk-team-primary-rgb) / .025);
+  backdrop-filter: blur(16px) saturate(112%);
 }
-main :is(.border-white\/5, .border-white\/10) { border-color: rgb(255 255 255 / .09); }
-main button { min-height: 42px; border-radius: .75rem; transition: color .2s ease, background-color .2s ease, border-color .2s ease, transform .2s ease, box-shadow .2s ease; }
+main :is(.border-white\/5, .border-white\/10) { border-color: rgb(255 255 255 / .095); }
+main button { min-height: 42px; border-radius: .8rem; transition: color .2s ease, background-color .2s ease, border-color .2s ease, transform .2s ease, box-shadow .2s ease; }
 main button:not(:disabled):active { transform: scale(.98); }
-main input, main select, main textarea { min-height: 44px; border-radius: .7rem; }
-main h1, main h2, main h3 { text-wrap: balance; text-shadow: 0 10px 35px rgb(0 0 0 / .25); }
+main input, main select, main textarea { min-height: 44px; border-radius: .75rem; }
+main h1, main h2, main h3 { text-wrap: balance; text-shadow: 0 10px 35px rgb(0 0 0 / .28); }
 main > div { position: relative; }
 main > div::before {
   content: "";
@@ -102,68 +105,125 @@ main > div::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(circle at 84% 10%, rgb(var(--bk-team-primary-rgb) / .14), transparent 26%),
-    radial-gradient(circle at 15% 28%, rgb(var(--bk-team-secondary-rgb) / .06), transparent 28%);
-  filter: blur(1px);
+    radial-gradient(circle at 84% 10%, rgb(var(--bk-team-primary-rgb) / .16), transparent 27%),
+    radial-gradient(circle at 15% 28%, rgb(var(--bk-team-secondary-rgb) / .075), transparent 29%);
 }
 
-/* Page-specific environmental direction layered on top of the selected team's colors. */
+/* HOME — stadium arrival / tunnel opening. */
 .bk-app-shell[data-tab="home"] {
   background:
-    radial-gradient(ellipse at 50% 112%, rgb(var(--bk-team-primary-rgb) / .26), transparent 42%),
-    radial-gradient(circle at 82% 4%, rgb(var(--bk-team-secondary-rgb) / .16), transparent 30%),
-    linear-gradient(180deg, rgb(5 7 10 / .26), #07090d 62%),
+    linear-gradient(108deg, rgb(0 0 0 / .38) 0 18%, transparent 34%),
+    linear-gradient(252deg, rgb(0 0 0 / .36) 0 18%, transparent 34%),
+    radial-gradient(ellipse at 50% 108%, rgb(var(--bk-team-primary-rgb) / .32), transparent 40%),
+    radial-gradient(circle at 82% 4%, rgb(var(--bk-team-secondary-rgb) / .20), transparent 31%),
+    linear-gradient(180deg, rgb(5 7 10 / .18), #07090d 64%),
     linear-gradient(118deg, #07090d, #0b1018 48%, #07090d);
 }
+.bk-app-shell[data-tab="home"]::after {
+  background:
+    radial-gradient(ellipse at 50% -4%, rgb(255 255 255 / .12), transparent 20%),
+    linear-gradient(112deg, transparent 0 19%, rgb(var(--bk-team-secondary-rgb) / .08) 28%, transparent 40%),
+    linear-gradient(248deg, transparent 0 19%, rgb(var(--bk-team-primary-rgb) / .10) 28%, transparent 40%),
+    radial-gradient(ellipse at 50% 102%, rgb(var(--bk-team-primary-rgb) / .13), transparent 46%),
+    linear-gradient(180deg, transparent 0 72%, rgb(0 0 0 / .54));
+  opacity: .82;
+}
+
+/* SOLO / DRAFT — field under lights. */
 .bk-app-shell[data-tab="solo"]::before,
 .bk-app-shell[data-tab="draft"]::before {
   background:
-    linear-gradient(90deg, transparent calc(50% - 1px), rgb(255 255 255 / .065) 50%, transparent calc(50% + 1px)),
-    repeating-linear-gradient(90deg, transparent 0 9.8%, rgb(255 255 255 / .035) 10%, transparent 10.2% 20%),
-    repeating-linear-gradient(0deg, transparent 0 54px, rgb(var(--bk-team-accent-rgb) / .055) 55px, transparent 56px 110px),
-    radial-gradient(ellipse at 50% 108%, rgb(var(--bk-team-primary-rgb) / .24), transparent 48%);
-  opacity: .76;
-  mask-image: linear-gradient(to bottom, transparent 0 12%, black 30% 84%, transparent 100%);
+    linear-gradient(90deg, transparent calc(50% - 1px), rgb(255 255 255 / .10) 50%, transparent calc(50% + 1px)),
+    repeating-linear-gradient(90deg, transparent 0 9.7%, rgb(255 255 255 / .052) 9.9% 10.1%, transparent 10.3% 20%),
+    repeating-linear-gradient(0deg, transparent 0 53px, rgb(var(--bk-team-accent-rgb) / .075) 54px, transparent 55px 108px),
+    radial-gradient(ellipse at 50% 106%, rgb(var(--bk-team-primary-rgb) / .30), transparent 48%),
+    linear-gradient(180deg, rgb(4 8 10 / .08), rgb(0 0 0 / .18));
+  opacity: .88;
+  mask-image: linear-gradient(to bottom, transparent 0 8%, black 25% 88%, transparent 100%);
+}
+.bk-app-shell[data-tab="solo"]::after,
+.bk-app-shell[data-tab="draft"]::after {
+  background:
+    radial-gradient(ellipse at 8% -3%, rgb(255 255 255 / .19), transparent 14%),
+    radial-gradient(ellipse at 92% -3%, rgb(255 255 255 / .18), transparent 14%),
+    linear-gradient(155deg, transparent 0 27%, rgb(var(--bk-team-secondary-rgb) / .075) 39%, transparent 51%),
+    linear-gradient(205deg, transparent 0 27%, rgb(var(--bk-team-primary-rgb) / .09) 39%, transparent 51%),
+    radial-gradient(ellipse at 50% 110%, rgb(var(--bk-team-primary-rgb) / .12), transparent 48%),
+    linear-gradient(180deg, transparent 0 76%, rgb(0 0 0 / .52));
+  opacity: .84;
+}
+
+/* NEWS — premium studio / broadcast wall. */
+.bk-app-shell[data-tab="news"] {
+  background:
+    radial-gradient(circle at 88% 12%, rgb(var(--bk-team-primary-rgb) / .24), transparent 32%),
+    linear-gradient(120deg, #06080d 0 43%, #0a1018 61%, #06080d 100%);
 }
 .bk-app-shell[data-tab="news"]::after {
   background:
-    linear-gradient(90deg, transparent, rgb(var(--bk-team-primary-rgb) / .08), transparent),
-    repeating-linear-gradient(0deg, transparent 0 62px, rgb(255 255 255 / .025) 63px, transparent 64px 126px),
-    radial-gradient(circle at 88% 16%, rgb(var(--bk-team-accent-rgb) / .14), transparent 28%),
-    linear-gradient(180deg, transparent 0 72%, rgb(0 0 0 / .50));
-  background-size: 42% 100%, auto, auto, auto;
+    linear-gradient(90deg, transparent, rgb(var(--bk-team-primary-rgb) / .115), transparent),
+    repeating-linear-gradient(0deg, transparent 0 60px, rgb(255 255 255 / .032) 61px, transparent 62px 122px),
+    linear-gradient(90deg, transparent 0 68%, rgb(var(--bk-team-secondary-rgb) / .055) 68.2% 68.5%, transparent 68.7%),
+    radial-gradient(circle at 88% 16%, rgb(var(--bk-team-accent-rgb) / .19), transparent 29%),
+    linear-gradient(180deg, transparent 0 72%, rgb(0 0 0 / .56));
+  background-size: 46% 100%, auto, auto, auto, auto;
+  opacity: .8;
 }
+
+/* FANTASY / LOBBY — GM war room, screens and board glow. */
 .bk-app-shell[data-tab="fantasy"]::before,
 .bk-app-shell[data-tab="lobby"]::before {
   background:
-    radial-gradient(circle at 18% 28%, rgb(var(--bk-team-secondary-rgb) / .15), transparent 24%),
-    radial-gradient(circle at 80% 18%, rgb(var(--bk-team-primary-rgb) / .18), transparent 28%),
-    repeating-linear-gradient(135deg, transparent 0 58px, rgb(255 255 255 / .018) 59px, transparent 60px 118px),
-    radial-gradient(ellipse at 50% 106%, rgb(var(--bk-team-primary-rgb) / .18), transparent 46%);
+    linear-gradient(90deg, rgb(255 255 255 / .025) 1px, transparent 1px),
+    linear-gradient(0deg, rgb(255 255 255 / .022) 1px, transparent 1px),
+    radial-gradient(circle at 18% 28%, rgb(var(--bk-team-secondary-rgb) / .19), transparent 25%),
+    radial-gradient(circle at 80% 18%, rgb(var(--bk-team-primary-rgb) / .24), transparent 29%),
+    repeating-linear-gradient(135deg, transparent 0 57px, rgb(255 255 255 / .024) 58px, transparent 59px 116px),
+    radial-gradient(ellipse at 50% 106%, rgb(var(--bk-team-primary-rgb) / .20), transparent 46%);
+  background-size: 88px 88px, 88px 88px, auto, auto, auto, auto;
+  opacity: .84;
 }
+
+/* SPORTSBOOK — illuminated odds board / analytics room. */
 .bk-app-shell[data-tab="sportsbook"]::before {
   background:
-    linear-gradient(90deg, rgb(var(--bk-team-accent-rgb) / .05) 1px, transparent 1px),
-    linear-gradient(0deg, rgb(var(--bk-team-accent-rgb) / .04) 1px, transparent 1px),
-    radial-gradient(circle at 74% 20%, rgb(var(--bk-team-primary-rgb) / .20), transparent 30%),
-    linear-gradient(180deg, transparent, rgb(0 0 0 / .42));
-  background-size: 64px 64px, 64px 64px, auto, auto;
-  opacity: .62;
-  mask-image: linear-gradient(to bottom, black 0 82%, transparent 100%);
+    linear-gradient(90deg, rgb(var(--bk-team-accent-rgb) / .07) 1px, transparent 1px),
+    linear-gradient(0deg, rgb(var(--bk-team-accent-rgb) / .055) 1px, transparent 1px),
+    repeating-linear-gradient(90deg, transparent 0 24%, rgb(255 255 255 / .025) 24.2% 24.4%, transparent 24.6% 50%),
+    radial-gradient(circle at 74% 20%, rgb(var(--bk-team-primary-rgb) / .27), transparent 31%),
+    linear-gradient(180deg, transparent, rgb(0 0 0 / .48));
+  background-size: 58px 58px, 58px 58px, auto, auto, auto;
+  opacity: .72;
+  mask-image: linear-gradient(to bottom, black 0 84%, transparent 100%);
 }
+
+/* HALL OF FAME — trophy gallery / museum spotlight. */
 .bk-app-shell[data-tab="legacy"]::before {
   background:
-    radial-gradient(circle at 50% 18%, rgb(var(--bk-team-accent-rgb) / .19), transparent 22%),
-    radial-gradient(circle at 50% 20%, transparent 0 12%, rgb(255 255 255 / .045) 12.3% 12.8%, transparent 13%),
-    linear-gradient(118deg, transparent 0 43%, rgb(var(--bk-team-secondary-rgb) / .05) 50%, transparent 57%),
-    radial-gradient(ellipse at 50% 108%, rgb(var(--bk-team-primary-rgb) / .20), transparent 48%);
+    radial-gradient(ellipse at 50% -2%, rgb(255 255 255 / .12), transparent 24%),
+    radial-gradient(circle at 50% 18%, rgb(var(--bk-team-accent-rgb) / .25), transparent 23%),
+    radial-gradient(circle at 50% 20%, transparent 0 12%, rgb(255 255 255 / .06) 12.3% 12.9%, transparent 13.2%),
+    linear-gradient(118deg, transparent 0 42%, rgb(var(--bk-team-secondary-rgb) / .075) 50%, transparent 58%),
+    radial-gradient(ellipse at 50% 108%, rgb(var(--bk-team-primary-rgb) / .22), transparent 48%);
+  opacity: .9;
+}
+
+/* SIMULATION — game-night broadcast stadium. */
+.bk-app-shell[data-tab="simulation"] {
+  background:
+    radial-gradient(ellipse at 50% 105%, rgb(var(--bk-team-primary-rgb) / .32), transparent 44%),
+    radial-gradient(circle at 50% 8%, rgb(255 255 255 / .08), transparent 24%),
+    linear-gradient(180deg, #05070c, #081018 48%, #05070b);
 }
 .bk-app-shell[data-tab="simulation"]::after {
   background:
-    radial-gradient(circle at 50% 12%, rgb(255 255 255 / .07), transparent 17%),
-    repeating-linear-gradient(90deg, transparent 0 12%, rgb(var(--bk-team-primary-rgb) / .035) 12.2% 12.5%, transparent 12.8% 24%),
-    linear-gradient(165deg, transparent 0 40%, rgb(var(--bk-team-accent-rgb) / .075) 50%, transparent 60%),
-    linear-gradient(180deg, transparent 0 70%, rgb(0 0 0 / .48));
+    radial-gradient(ellipse at 8% -3%, rgb(255 255 255 / .21), transparent 14%),
+    radial-gradient(ellipse at 92% -3%, rgb(255 255 255 / .20), transparent 14%),
+    radial-gradient(circle at 50% 12%, rgb(255 255 255 / .095), transparent 18%),
+    repeating-linear-gradient(90deg, transparent 0 12%, rgb(var(--bk-team-primary-rgb) / .05) 12.2% 12.5%, transparent 12.8% 24%),
+    linear-gradient(165deg, transparent 0 40%, rgb(var(--bk-team-accent-rgb) / .10) 50%, transparent 60%),
+    linear-gradient(180deg, transparent 0 70%, rgb(0 0 0 / .56));
+  opacity: .86;
 }
 
 @keyframes bk-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -177,10 +237,13 @@ main > div { animation: bk-rise .38s ease-out both; }
 @media (max-width: 640px) {
   body { padding-bottom: env(safe-area-inset-bottom); }
   .bk-app-shell { min-height: 100dvh; }
-  .bk-app-shell::after { opacity: .5; animation: none; }
+  .bk-app-shell::before { opacity: .68; }
+  .bk-app-shell::after { opacity: .54; animation: none; }
+  .bk-app-shell[data-tab]::before { opacity: .68; }
+  .bk-app-shell[data-tab]::after { opacity: .54; animation: none; }
   .bk-glass { backdrop-filter: blur(10px) saturate(106%); }
   main :is(.bg-\[\#111\], .bg-\[\#121212\], .bg-\[\#151515\], .bg-\[\#1A1A1A\]) { backdrop-filter: blur(9px) saturate(105%); }
   main button { min-height: 46px; }
   main { overflow-x: clip; }
-  main > div::before { opacity: .7; filter: none; }
+  main > div::before { opacity: .62; }
 }
