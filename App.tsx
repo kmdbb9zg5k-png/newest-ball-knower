@@ -3,6 +3,7 @@ import { BallKnowerProvider, useBallKnower } from './BallKnowerContext';
 import { SoundtrackProvider, useSoundtrack } from './SoundtrackContext';
 import { Navbar } from './Navbar';
 import { HomeDashboard } from './HomeDashboard';
+import { OverviewModeGrid } from './OverviewModeGrid';
 import { LeagueLobby } from './LeagueLobby';
 import { DraftRoom } from './DraftRoom';
 import { SimulationView } from './SimulationView';
@@ -30,7 +31,7 @@ const shouldAutoOpenIntro=()=>{
 };
 
 function BallKnowerApp() {
-  const { activeLeague, setActiveLeagueId, toastMessage, joinLeague } = useBallKnower();
+  const { activeLeague, leagues, setActiveLeagueId, toastMessage, joinLeague } = useBallKnower();
   const { setIntroActive } = useSoundtrack();
   const [currentTab, setCurrentTab] = useState<AppTab>('home');
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -87,7 +88,15 @@ function BallKnowerApp() {
 
       <Navbar currentTab={currentTab} setCurrentTab={setCurrentTab} onOpenAuth={() => setIsAuthOpen(true)} onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onOpenIntro={openIntro} onOpenDatabaseModal={() => setIsDatabaseModalOpen(true)} />
       <main className="relative z-[3] w-full flex-1 pb-[env(safe-area-inset-bottom)]">
-        {currentTab === 'home' && <HomeDashboard onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague} />}
+        {currentTab === 'home' && <>
+          <OverviewModeGrid
+            onNavigate={setCurrentTab}
+            onOpenCreateLeague={() => setIsCreateLeagueOpen(true)}
+            onOpenJoinLeague={() => setIsJoinLeagueOpen(true)}
+            activeLeagueCount={leagues.length}
+          />
+          <HomeDashboard onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague} />
+        </>}
         {currentTab === 'solo' && <SoloMode />}
         {currentTab === 'news' && <NewsHub />}
         {currentTab === 'fantasy' && <FantasyHub onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague} />}
