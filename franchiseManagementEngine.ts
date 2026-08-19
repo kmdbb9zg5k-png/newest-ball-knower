@@ -73,7 +73,10 @@ export function franchiseCapLeft(state: FranchiseManagementState) {
 
 export function franchiseFreeAgents(state: FranchiseManagementState) {
   const rostered = new Set<string>();
-  Object.values(state.cpuRosters).forEach(ids => ids.forEach(id => rostered.add(id)));
+  Object.entries(state.cpuRosters).forEach(([teamAbbr, ids]) => {
+    if (teamAbbr === state.teamAbbr) return;
+    ids.forEach(id => rostered.add(id));
+  });
   state.rosterIds.forEach(id => rostered.add(id));
   return PLAYERS_DATABASE
     .filter(player => !rostered.has(player.id))
@@ -178,7 +181,7 @@ export function proposeTrade(state: FranchiseManagementState, outgoingId: string
         ? `${targetTeamAbbr} wants a stronger return for ${incoming.name}. Try a higher-rated player.`
         : projectedCap > DEFAULT_SALARY_CAP
           ? 'That trade would put you over the salary cap.'
-          : `${targetTeamAbbr} rejected the offer.` ,
+          : `${targetTeamAbbr} rejected the offer.`,
     };
   }
 
