@@ -1,7 +1,14 @@
+const ESPN_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (compatible; BallKnower/1.0; +https://ballknower.app)',
+  Accept: 'application/json,text/plain,*/*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  Referer: 'https://www.espn.com/',
+};
+
 export default async function handler(_req: any, res: any) {
   try {
     const upstream = await fetch('https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=20', {
-      headers: { 'User-Agent': 'BallKnower/1.0' },
+      headers: ESPN_HEADERS,
     });
     if (!upstream.ok) throw new Error(`NFL news upstream ${upstream.status}`);
     const data: any = await upstream.json();
