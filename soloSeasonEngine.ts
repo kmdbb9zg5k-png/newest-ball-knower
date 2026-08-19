@@ -3,6 +3,7 @@ import { calculateTeamRatings } from './evaluation';
 import { simulateGame } from './simulation';
 import { chooseSmartPick, GmPersonality, gradeDraft } from './smartDraft';
 import { PLAYERS_DATABASE } from './players';
+import { TEAM_THEMES, TeamTheme } from './teamTheme';
 
 export type SoloDifficulty='rookie'|'pro'|'all_pro'|'all_madden';
 export type InjurySetting='off'|'normal'|'chaos';
@@ -26,13 +27,14 @@ export interface CareerProfile {
 }
 export interface SoloSettings { difficulty:SoloDifficulty; injuries:InjurySetting; }
 
-const NAMES=[
- 'Baltimore Blackbirds','Buffalo Blizzard','Miami Waves','Boston Minutemen','Cleveland Hounds','Cincinnati Kings',
- 'Pittsburgh Iron','Houston Outlaws','Indianapolis Racers','Jacksonville Storm','Tennessee Copperheads','Denver Peaks',
- 'Kansas City Monarchs','Las Vegas Aces','Los Angeles Bolts','New York Knights','Dallas Wranglers','Philadelphia Liberty',
- 'Washington Generals','Chicago Grizzlies','Detroit Motors','Green Bay Northmen','Minnesota Valkyries','Atlanta Flight',
- 'Carolina Reapers','New Orleans Krewe','Tampa Bay Corsairs','Arizona Scorpions','Los Angeles Gold','San Francisco Rush','Seattle Orcas'
+// Keep the original Solo schedule order while using the real NFL identities
+// already maintained by the favorite-team experience. The remaining clubs
+// rotate into later runs and playoff matchups instead of using fake franchises.
+const SOLO_TEAM_ORDER=[
+ 'BAL','BUF','MIA','NE','CLE','CIN','PIT','HOU','IND','JAX','TEN','DEN','KC','LV','LAC','NYJ','DAL',
+ 'PHI','WAS','CHI','DET','GB','MIN','ATL','CAR','NO','TB','ARI','LAR','SF','SEA','NYG'
 ];
+const SOLO_TEAMS=SOLO_TEAM_ORDER.map(abbr=>TEAM_THEMES.find(team=>team.abbr===abbr)).filter((team):team is TeamTheme=>Boolean(team));
 const PERSONALITIES:GmPersonality[]=['balanced','star_hunter','value_hunter','trenches','defense_first','air_raid'];
 
 function seeded(seed:number){ let x=seed|0; return ()=>{x=Math.imul(x^x>>>15,1|x);x^=x+Math.imul(x^x>>>7,61|x);return ((x^x>>>14)>>>0)/4294967296};}
@@ -46,7 +48,12 @@ export function buildSoloAiRoster(seed:number):Player[]{
  }
  return roster;
 }
+export function getSoloOpponentTeam(week:number):TeamTheme{
+ const safeWeek=Math.max(1,Math.trunc(Number(week)||1));
+ return SOLO_TEAMS[(safeWeek-1)%SOLO_TEAMS.length]||TEAM_THEMES[0];
+}
 export function makeSoloOpponent(week:number,difficulty:SoloDifficulty):LeagueMember{
+ const team=getSoloOpponentTeam(week);
  let roster=buildSoloAiRoster(week*11+13);
  const bias={rookie:-4,pro:0,all_pro:2,all_madden:4}[difficulty];
  let ratings=calculateTeamRatings(roster);
@@ -60,7 +67,7 @@ export function makeSoloOpponent(week:number,difficulty:SoloDifficulty):LeagueMe
   runDefense:Math.max(65,Math.min(99,ratings.runDefense+bias)),
   coverage:Math.max(65,Math.min(99,ratings.coverage+bias)),
  } as TeamRatings;
- return {id:`solo-ai-${week}`,userId:`solo-ai-${week}`,userName:NAMES[(week-1)%NAMES.length],isCommissioner:false,isAi:true,status:'ready',roster,teamRatings:ratings};
+ return {id:`solo-ai-${week}`,userId:`solo-ai-${week}`,userName:team.name,isCommissioner:false,isAi:true,status:'ready',roster,teamRatings:ratings};
 }
 export function ratingsWithInjuries(roster:Player[], active:InjuryEvent[], bench:Player[]=[]):TeamRatings{
  const base=calculateTeamRatings(roster); if(!active.length)return base;
