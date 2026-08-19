@@ -27,37 +27,98 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .bk-app-shell {
   isolation: isolate;
   min-height: 100dvh;
+  overflow: hidden;
   background:
-    linear-gradient(180deg, rgb(7 9 13 / .3), #07090d 52%),
-    radial-gradient(ellipse at 88% 4%, rgb(var(--bk-team-primary-rgb) / .27), transparent 43%),
-    radial-gradient(ellipse at 8% 42%, rgb(var(--bk-team-secondary-rgb) / .08), transparent 35%),
-    #07090d;
+    linear-gradient(180deg, rgb(5 7 10 / .36), #07090d 58%),
+    radial-gradient(ellipse at 82% 2%, rgb(var(--bk-team-primary-rgb) / .31), transparent 42%),
+    radial-gradient(ellipse at 12% 32%, rgb(var(--bk-team-secondary-rgb) / .12), transparent 34%),
+    linear-gradient(118deg, #07090d 0%, #0b1018 46%, #07090d 100%);
+  transition: background .7s ease;
 }
+
+/* Cinematic stadium bowl + floodlight atmosphere, driven by the selected NFL team tokens. */
 .bk-app-shell::before {
-  position: fixed; inset: 0; z-index: -1; content: ""; pointer-events: none; opacity: .16;
-  background-image: linear-gradient(rgb(255 255 255 / .025) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / .018) 1px, transparent 1px);
-  background-size: 64px 64px;
-  mask-image: linear-gradient(to bottom, black, transparent 76%);
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  content: "";
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 108%, rgb(var(--bk-team-primary-rgb) / .20) 0 15%, transparent 43%),
+    radial-gradient(ellipse at 50% 104%, transparent 0 31%, rgb(255 255 255 / .045) 31.2% 31.8%, transparent 32%),
+    repeating-linear-gradient(90deg, transparent 0 8%, rgb(255 255 255 / .024) 8.2% 8.5%, transparent 8.7% 16%),
+    linear-gradient(to bottom, rgb(255 255 255 / .018), transparent 36%);
+  opacity: .82;
+  mask-image: linear-gradient(to bottom, black 0 76%, transparent 100%);
 }
-.bk-glass { border: 1px solid var(--bk-line); background: linear-gradient(145deg, rgb(25 30 40 / .86), rgb(10 13 19 / .72)); box-shadow: inset 0 1px rgb(255 255 255 / .055), 0 20px 55px rgb(0 0 0 / .24); backdrop-filter: blur(18px); }
+
+.bk-app-shell::after {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  content: "";
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 14% 6%, rgb(255 255 255 / .15) 0 1px, transparent 2px),
+    radial-gradient(circle at 30% 4%, rgb(255 255 255 / .10) 0 1px, transparent 2px),
+    radial-gradient(circle at 70% 5%, rgb(255 255 255 / .11) 0 1px, transparent 2px),
+    radial-gradient(circle at 87% 8%, rgb(255 255 255 / .14) 0 1px, transparent 2px),
+    linear-gradient(165deg, transparent 0 38%, rgb(var(--bk-team-accent-rgb) / .05) 49%, transparent 61%),
+    linear-gradient(180deg, transparent 0 72%, rgb(0 0 0 / .44) 100%);
+  background-size: 280px 180px, 320px 210px, 300px 190px, 260px 170px, auto, auto;
+  opacity: .75;
+  animation: bk-atmosphere-drift 18s ease-in-out infinite alternate;
+}
+
+.bk-glass {
+  border: 1px solid rgb(255 255 255 / .10);
+  border-radius: 1.15rem;
+  background: linear-gradient(145deg, rgb(25 30 40 / .84), rgb(10 13 19 / .72));
+  box-shadow: inset 0 1px rgb(255 255 255 / .065), 0 22px 60px rgb(0 0 0 / .28), 0 0 55px rgb(var(--bk-team-primary-rgb) / .04);
+  backdrop-filter: blur(18px) saturate(112%);
+}
 .bk-accent-button { color: var(--bk-on-accent); background: linear-gradient(135deg, var(--bk-team-accent), color-mix(in srgb, var(--bk-team-accent), white 14%)); box-shadow: 0 12px 30px rgb(var(--bk-team-accent-rgb) / .18); }
 .bk-accent-button:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 15px 38px rgb(var(--bk-team-accent-rgb) / .28); }
 .bk-overline { color: var(--bk-team-accent); letter-spacing: .24em; text-transform: uppercase; font-weight: 900; }
 
-/* Consistent premium treatment for existing feature surfaces without changing their behavior. */
+/* Upgrade legacy page panels into softer premium sports surfaces without changing layout or behavior. */
 main section { position: relative; }
-main :is(.bg-\[\#111\], .bg-\[\#121212\], .bg-\[\#151515\], .bg-\[\#1A1A1A\]) { backdrop-filter: blur(14px); }
-main button { min-height: 42px; border-radius: .7rem; transition: color .2s ease, background-color .2s ease, border-color .2s ease, transform .2s ease, box-shadow .2s ease; }
+main :is(.bg-\[\#111\], .bg-\[\#121212\], .bg-\[\#151515\], .bg-\[\#1A1A1A\]) {
+  border-radius: 1rem;
+  background-color: rgb(13 17 24 / .76) !important;
+  box-shadow: inset 0 1px rgb(255 255 255 / .04), 0 16px 45px rgb(0 0 0 / .20);
+  backdrop-filter: blur(15px) saturate(110%);
+}
+main :is(.border-white\/5, .border-white\/10) { border-color: rgb(255 255 255 / .09); }
+main button { min-height: 42px; border-radius: .75rem; transition: color .2s ease, background-color .2s ease, border-color .2s ease, transform .2s ease, box-shadow .2s ease; }
 main button:not(:disabled):active { transform: scale(.98); }
-main input, main select, main textarea { min-height: 44px; border-radius: .65rem; }
-main h1, main h2, main h3 { text-wrap: balance; }
+main input, main select, main textarea { min-height: 44px; border-radius: .7rem; }
+main h1, main h2, main h3 { text-wrap: balance; text-shadow: 0 10px 35px rgb(0 0 0 / .25); }
+main > div { position: relative; }
+main > div::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 84% 10%, rgb(var(--bk-team-primary-rgb) / .14), transparent 26%),
+    radial-gradient(circle at 15% 28%, rgb(var(--bk-team-secondary-rgb) / .06), transparent 28%);
+  filter: blur(1px);
+}
 
 @keyframes bk-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes bk-atmosphere-drift { from { transform: translate3d(-.6%, 0, 0) scale(1.01); } to { transform: translate3d(.6%, -.5%, 0) scale(1.025); } }
 main > div { animation: bk-rise .38s ease-out both; }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
 @media (max-width: 640px) {
   body { padding-bottom: env(safe-area-inset-bottom); }
   .bk-app-shell { min-height: 100dvh; }
+  .bk-app-shell::after { opacity: .5; animation: none; }
   main button { min-height: 46px; }
   main { overflow-x: clip; }
+  main > div::before { opacity: .7; }
 }
