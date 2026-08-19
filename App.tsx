@@ -24,12 +24,6 @@ import { CheckCircle2, Play, Database } from 'lucide-react';
 
 export type AppTab = 'home' | 'solo' | 'news' | 'fantasy' | 'sportsbook' | 'legacy' | 'lobby' | 'draft' | 'simulation';
 
-const INTRO_SEEN_KEY='ball-knower-intro-seen-v1';
-
-const shouldAutoOpenIntro=()=>{
-  try{return !localStorage.getItem(INTRO_SEEN_KEY)}catch{return true}
-};
-
 function BallKnowerApp() {
   const { activeLeague, leagues, setActiveLeagueId, toastMessage, joinLeague } = useBallKnower();
   const { setIntroActive } = useSoundtrack();
@@ -38,7 +32,7 @@ function BallKnowerApp() {
   const [isCreateLeagueOpen, setIsCreateLeagueOpen] = useState(false);
   const [isJoinLeagueOpen, setIsJoinLeagueOpen] = useState(false);
   const [isDatabaseModalOpen, setIsDatabaseModalOpen] = useState(false);
-  const [isIntroOpen, setIsIntroOpen] = useState(shouldAutoOpenIntro);
+  const [isIntroOpen, setIsIntroOpen] = useState(true);
   const [favoriteTheme, setFavoriteTheme] = useState<TeamTheme>(() => getSavedTeamTheme());
   const [showFavoriteTeam, setShowFavoriteTeam] = useState(() => {
     try {
@@ -50,6 +44,7 @@ function BallKnowerApp() {
   });
 
   useEffect(() => {
+    setIntroActive(true);
     try {
       const savedTheme = getSavedTeamTheme();
       setFavoriteTheme(savedTheme);
@@ -62,7 +57,6 @@ function BallKnowerApp() {
 
   const openIntro = () => { setIntroActive(true); setIsIntroOpen(true); };
   const closeIntro = () => {
-    try { localStorage.setItem(INTRO_SEEN_KEY, '1'); } catch {}
     setIsIntroOpen(false);
     if (!showFavoriteTeam) setIntroActive(false);
   };
