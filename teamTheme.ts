@@ -20,7 +20,7 @@ export const TEAM_THEMES: TeamTheme[] = [
   {name:'Green Bay Packers',abbr:'GB',primary:'#203731',secondary:'#FFB612'},
   {name:'Houston Texans',abbr:'HOU',primary:'#03202F',secondary:'#A71930'},
   {name:'Indianapolis Colts',abbr:'IND',primary:'#002C5F',secondary:'#A2AAAD'},
-  {name:'Jacksonville Jaguars',abbr:'JAX',primary:'#101820',secondary:'#D7A22A'},
+  {name:'Jacksonville Jaguars',abbr:'JAX',primary:'#006778',secondary:'#D7A22A'},
   {name:'Kansas City Chiefs',abbr:'KC',primary:'#E31837',secondary:'#FFB81C'},
   {name:'Las Vegas Raiders',abbr:'LV',primary:'#000000',secondary:'#A5ACAF'},
   {name:'Los Angeles Chargers',abbr:'LAC',primary:'#0080C6',secondary:'#FFC20E'},
@@ -40,8 +40,15 @@ export const TEAM_THEMES: TeamTheme[] = [
   {name:'Washington Commanders',abbr:'WAS',primary:'#5A1414',secondary:'#FFB81C'},
 ];
 
-export const teamLogoUrl = (abbr: string) =>
-  `https://a.espncdn.com/i/teamlogos/nfl/500/${abbr.toLowerCase()}.png`;
+const ESPN_TEAM_LOGO_CODES: Record<string, string> = {
+  WAS: 'wsh',
+};
+
+export const teamLogoUrl = (abbr: string) => {
+  const normalized = String(abbr || '').toUpperCase();
+  const espnCode = ESPN_TEAM_LOGO_CODES[normalized] ?? normalized.toLowerCase();
+  return `https://a.espncdn.com/i/teamlogos/nfl/500/${espnCode}.png`;
+};
 
 export function getTeamTheme(name?: string | null): TeamTheme {
   return TEAM_THEMES.find(team => team.name === name) ?? TEAM_THEMES[25];
