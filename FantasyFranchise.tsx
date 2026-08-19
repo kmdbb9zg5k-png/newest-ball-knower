@@ -12,13 +12,15 @@ import {
   fantasyPickPlayer,
   fantasyRosterPlayers,
   fantasyTeam,
+  FANTASY_DRAFT_ROUNDS,
+  FANTASY_ROSTER_REQUIREMENTS,
   makeFantasyUserPick,
   isValidFantasyDraftState,
   SOLO_FRANCHISE_SAVE_KEYS,
 } from './soloFranchiseEngine';
 import { SoloTeamPicker } from './SoloTeamPicker';
 import { getSavedTeamTheme, TEAM_THEMES, teamLogoUrl } from './teamTheme';
-import { Player, ROSTER_REQUIREMENTS } from './types';
+import { Player } from './types';
 
 type Props = { onBack: () => void };
 type FantasySave = { version: 1; draft: FantasyDraftState; seasonStarted: boolean };
@@ -133,7 +135,7 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
           </div>
           <div className="mt-4 flex items-center gap-4 rounded-[2rem] border border-white/10 bg-[#111] p-5">
             <img src={teamLogoUrl(selectedTeam.abbr)} alt="" aria-hidden="true" className="h-16 w-16 object-contain" />
-            <div className="min-w-0 flex-1"><div className="truncate text-2xl font-black">{selectedTeam.name}</div><div className="text-xs text-zinc-500">20 ROUNDS • NO SALARY CAP • SNAKE ORDER</div></div>
+            <div className="min-w-0 flex-1"><div className="truncate text-2xl font-black">{selectedTeam.name}</div><div className="text-xs text-zinc-500">53 ROUNDS • FULL NFL ROSTER • SNAKE ORDER</div></div>
             <button type="button" onClick={startDraft} className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)]" aria-label="Start Fantasy Draft"><Play /></button>
           </div>
         </div>
@@ -142,7 +144,7 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
   }
 
   const complete = fantasyDraftComplete(draft);
-  const round = Math.min(20, Math.floor(draft.pickIndex / 32) + 1);
+  const round = Math.min(FANTASY_DRAFT_ROUNDS, Math.floor(draft.pickIndex / 32) + 1);
   const userSlot = draft.teamOrder.indexOf(draft.userTeamAbbr) + 1;
   const counts = userRoster.reduce<Record<string, number>>((result, player) => {
     const group = getDraftPositionGroup(player);
@@ -155,7 +157,7 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
       <div className="mx-auto min-w-0 max-w-7xl">
         <div className="flex min-w-0 items-center gap-3">
           <button type="button" onClick={onBack} className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Back to Solo Franchise Hub"><ArrowLeft size={19} /></button>
-          <div className="min-w-0 flex-1"><div className="text-[10px] font-black tracking-[.2em] text-[var(--bk-team-accent)]">FANTASY DRAFT • ROUND {round}/20</div><div className="truncate text-xl font-black">{fantasyTeam(draft.userTeamAbbr).name} • PICK SLOT #{userSlot}</div></div>
+          <div className="min-w-0 flex-1"><div className="text-[10px] font-black tracking-[.2em] text-[var(--bk-team-accent)]">FANTASY DRAFT • ROUND {round}/{FANTASY_DRAFT_ROUNDS}</div><div className="truncate text-xl font-black">{fantasyTeam(draft.userTeamAbbr).name} • PICK SLOT #{userSlot}</div></div>
           <button type="button" onClick={newCareer} className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Start a new Fantasy Draft"><RotateCcw size={17} /></button>
         </div>
 
@@ -165,7 +167,7 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
           <div className="mt-5 rounded-[2rem] border border-white/10 bg-[#10151d] p-6 text-center">
             <img src={teamLogoUrl(draft.userTeamAbbr)} alt="" aria-hidden="true" className="mx-auto h-24 w-24 object-contain" />
             <h2 className="mt-3 text-4xl font-black">DRAFT COMPLETE</h2>
-            <p className="mt-2 text-zinc-400">Your 20-player fantasy roster is ready for Week 1.</p>
+            <p className="mt-2 text-zinc-400">Your full 53-man fantasy roster is ready for Week 1.</p>
             <button type="button" onClick={beginSeason} className="mt-5 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)]"><Play className="mr-2 inline" /> START SEASON</button>
           </div>
         ) : (
@@ -175,14 +177,14 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
                 <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-white/10 bg-[#111] px-3"><Search size={16} className="shrink-0" /><input value={query} onChange={event => setQuery(event.target.value)} aria-label="Search fantasy draft players" placeholder="Search draft pool…" className="min-w-0 flex-1 bg-transparent py-3 outline-none" /></div>
                 <button type="button" disabled={isPicking || !available[0]} onClick={() => available[0] && selectPlayer(available[0])} className="shrink-0 rounded-2xl bg-[var(--bk-team-accent)] px-3 text-[10px] font-black text-[var(--bk-on-accent)] disabled:opacity-40 sm:px-4 sm:text-xs">AUTO PICK</button>
               </div>
-              <div className="-mx-4 mb-3 overflow-x-auto px-4 sm:mx-0 sm:px-0"><div className="flex w-max gap-2">{['ALL', ...Object.keys(ROSTER_REQUIREMENTS)].map(group => <button key={group} type="button" aria-pressed={position===group} onClick={() => setPosition(group)} className={`min-h-10 rounded-xl border px-3 text-xs font-black ${position === group ? 'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)]/10 text-[var(--bk-team-accent)]' : 'border-white/10 bg-[#111] text-zinc-400'}`}>{group}</button>)}</div></div>
+              <div className="-mx-4 mb-3 overflow-x-auto px-4 sm:mx-0 sm:px-0"><div className="flex w-max gap-2">{['ALL', ...Object.keys(FANTASY_ROSTER_REQUIREMENTS)].map(group => <button key={group} type="button" aria-pressed={position===group} onClick={() => setPosition(group)} className={`min-h-10 rounded-xl border px-3 text-xs font-black ${position === group ? 'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)]/10 text-[var(--bk-team-accent)]' : 'border-white/10 bg-[#111] text-zinc-400'}`}>{group}</button>)}</div></div>
               <div className="max-h-[65dvh] min-w-0 space-y-2 overflow-y-auto overscroll-contain">
                 {available.map(player => <DraftPlayer key={player.id} player={player} disabled={isPicking} onSelect={() => selectPlayer(player)} />)}
               </div>
             </div>
 
             <aside className="min-w-0 space-y-3">
-              <div className="rounded-2xl border border-white/10 bg-[#111] p-4"><div className="text-xs font-black tracking-widest text-[var(--bk-team-accent)]">YOUR 20</div><div className="mt-2 text-sm leading-relaxed text-zinc-400">{Object.entries(ROSTER_REQUIREMENTS).map(([group, required]) => `${group} ${counts[group] ?? 0}/${required}`).join(' • ')}</div><div className="mt-3 space-y-1">{userRoster.map(player => <div key={player.id} className="flex justify-between rounded-xl bg-white/5 px-3 py-2 text-xs"><span className="truncate"><b>{player.position}</b> {player.name}</span><b>{player.ovr}</b></div>)}</div></div>
+              <div className="rounded-2xl border border-white/10 bg-[#111] p-4"><div className="text-xs font-black tracking-widest text-[var(--bk-team-accent)]">YOUR ROSTER • {userRoster.length}/{FANTASY_DRAFT_ROUNDS}</div><div className="mt-2 text-sm leading-relaxed text-zinc-400">{Object.entries(FANTASY_ROSTER_REQUIREMENTS).map(([group, required]) => `${group} ${counts[group] ?? 0}/${required}`).join(' • ')}</div><div className="mt-3 max-h-[65dvh] space-y-1 overflow-y-auto overscroll-contain pr-1">{userRoster.map(player => <div key={player.id} className="flex justify-between rounded-xl bg-white/5 px-3 py-2 text-xs"><span className="truncate"><b>{player.position}</b> {player.name}</span><b>{player.ovr}</b></div>)}</div></div>
               <div className="rounded-2xl border border-white/10 bg-[#111] p-4"><div className="text-xs font-black tracking-widest text-[var(--bk-team-accent)]">RECENT PICKS</div><div className="mt-2 space-y-2">{draft.picks.slice(-8).reverse().map(pick => {const player = fantasyPickPlayer(pick); return <div key={pick.overall} className="text-xs"><b>#{pick.overall} {fantasyTeam(pick.teamAbbr).abbr}</b><div className="truncate text-zinc-500">{player?.name ?? 'Unknown'} • {player?.position}</div></div>;})}</div></div>
             </aside>
           </div>
