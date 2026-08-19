@@ -165,7 +165,7 @@ const MISSING_2026_PLAYERS: Player[] = [
 
 export function applyCurrent2026Roster(rawPlayers: Player[]): Player[] {
   const expectedStarterByName = new Map(
-    Object.entries(CURRENT_2026_QB_STARTERS).map(([team, name]) => [name, team])
+    Object.entries(CURRENT_2026_QB_STARTERS).map(([team, name]) => [normalizeMaddenRosterName(name), team])
   );
 
   const legacyByName = new Map<string, Player[]>();
@@ -177,7 +177,9 @@ export function applyCurrent2026Roster(rawPlayers: Player[]): Player[] {
   return MADDEN_27_CURRENT_PLAYERS.map((official): Player => {
     const legacyMatches = legacyByName.get(normalizeMaddenRosterName(official.name)) || [];
     const legacy = legacyMatches.find(player => player.position === official.position) || legacyMatches[0];
-    const expectedStarterTeam = official.position === 'QB' ? expectedStarterByName.get(official.name) : undefined;
+    const expectedStarterTeam = official.position === 'QB'
+      ? expectedStarterByName.get(normalizeMaddenRosterName(official.name))
+      : undefined;
     const baseline = official.overallRating;
     const estimatedSalary = Math.min(60, Math.max(0.75, (baseline - 60) * (official.position === 'QB' ? 1.35 : ['WR','EDGE','CB','LT','RT'].includes(official.position) ? 1.05 : 0.8)));
 
