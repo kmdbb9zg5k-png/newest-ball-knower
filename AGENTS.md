@@ -5,6 +5,24 @@ This repository powers Ball Knower. Treat the current product behavior as intent
 ## Primary role
 Act as a second engineer and QA reviewer. Find regressions, broken flows, stale data, mobile issues, and risky code before they reach production. Prefer small, targeted fixes over broad rewrites.
 
+## GitHub-visible handoff is required
+Every Codex task for this repository must leave its result in GitHub so the owner and other maintainers can inspect it without copying output from the Codex task UI.
+
+For tasks that change code:
+- Work on a dedicated branch, never directly on `main` unless the task explicitly says otherwise.
+- Push the branch to `kmdbb9zg5k-png/newest-ball-knower`.
+- Open a pull request against `main` before considering the task complete.
+- Put the task summary, files changed, tests/build results, remaining risks, and any manual steps in the PR body or a PR comment.
+- If an existing PR already owns the task, update that PR branch and leave a PR comment summarizing the new work instead of opening a duplicate PR.
+
+For audit/review tasks with no code changes:
+- Leave the findings in a GitHub-visible location tied to the repository, preferably a comment on the relevant pull request or issue.
+- If there is no relevant PR/issue and GitHub write access is available, create a focused GitHub issue containing the findings.
+
+Do not treat a commit that exists only inside a temporary Codex checkout as a completed handoff. A local-only branch, local-only commit SHA, or Codex-only final message is not sufficient.
+
+If GitHub push/PR/comment creation is blocked by missing credentials or environment limitations, state `GITHUB HANDOFF BLOCKED` clearly in the final task result and explain exactly what failed. Do not imply that the work is visible in GitHub when it is not.
+
 ## Do not remove or silently replace existing features
 Preserve all currently supported destinations and flows, including:
 - Overview / Home
