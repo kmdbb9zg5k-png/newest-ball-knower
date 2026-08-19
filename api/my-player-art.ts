@@ -45,6 +45,7 @@ export default async function handler(req: any, res: any) {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const image = String(body?.image || '');
     const edit = String(body?.prompt || '').trim().slice(0, 280);
+    const bodyDescription = String(body?.bodyDescription || '').trim().slice(0, 180);
     const position = String(body?.position || 'WR').slice(0, 8);
     const number = String(body?.number || '1').replace(/\D/g, '').slice(0, 2) || '1';
     const team = String(body?.team || 'NFL team').slice(0, 60);
@@ -58,7 +59,8 @@ export default async function handler(req: any, res: any) {
     }
     if (!withinQuota) return res.status(429).json({ error: 'You reached today’s four player renders. Try again tomorrow.' });
 
-    const prompt = `Create a polished, photorealistic full-body 3D football video-game player render using the uploaded adult person's face and preserving their recognizable facial identity. The athlete is a ${position} wearing a modern fictional pro-football uniform for ${team}, jersey number ${number}. Do not use any official league or team logos and do not add text. Stadium tunnel background, dramatic sports lighting, realistic proportions, vertical 4:5 composition. Apply this appearance request: ${edit || 'clean game-day uniform and gloves'}.`;
+    const bodyProfile = bodyDescription ? ` Body profile: ${bodyDescription}.` : '';
+    const prompt = `Create a polished, photorealistic full-body 3D football video-game player render using the uploaded adult person's face and preserving their recognizable facial identity. The athlete is a ${position} wearing a modern fictional pro-football uniform for ${team}, jersey number ${number}. Do not use any official league or team logos and do not add text. Stadium tunnel background, dramatic sports lighting, realistic proportions, vertical 4:5 composition.${bodyProfile} Apply this appearance request: ${edit || 'clean game-day uniform and gloves'}.`;
     const ai = new GoogleGenAI({ apiKey });
     const interaction = await ai.interactions.create({
       model: 'gemini-3.1-flash-image',

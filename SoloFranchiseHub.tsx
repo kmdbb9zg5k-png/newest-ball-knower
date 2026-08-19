@@ -53,7 +53,22 @@ function hasSave(key: string) {
     if (!raw) return false;
     if (key === SOLO_FRANCHISE_SAVE_KEYS.player) {
       const profile = JSON.parse(raw);
-      return profile?.stage !== 'creator' || Boolean(profile?.name || profile?.faceImage || profile?.appearancePrompt);
+      if (profile?.stage !== 'creator') return true;
+      return Boolean(
+        profile?.name ||
+        profile?.faceImage ||
+        profile?.renderImage ||
+        profile?.appearancePrompt ||
+        profile?.position !== 'WR' ||
+        profile?.number !== 17 ||
+        profile?.heightInches !== 72 ||
+        profile?.weightLbs !== 205 ||
+        profile?.bodyBuild !== 48 ||
+        profile?.shoulderWidth !== 52 ||
+        profile?.armSize !== 46 ||
+        profile?.legSize !== 50 ||
+        profile?.viewRotation !== 0
+      );
     }
     return true;
   } catch {

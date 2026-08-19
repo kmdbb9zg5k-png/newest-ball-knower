@@ -177,7 +177,22 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
 
   useEffect(() => {
     try {
-      const untouched = profile.stage === 'creator' && !profile.name && !profile.faceImage && !profile.renderImage && !profile.appearancePrompt;
+      const creatorCustomized = Boolean(
+        profile.name ||
+        profile.faceImage ||
+        profile.renderImage ||
+        profile.appearancePrompt ||
+        profile.position !== EMPTY_PROFILE.position ||
+        profile.number !== EMPTY_PROFILE.number ||
+        profile.heightInches !== EMPTY_PROFILE.heightInches ||
+        profile.weightLbs !== EMPTY_PROFILE.weightLbs ||
+        profile.bodyBuild !== EMPTY_PROFILE.bodyBuild ||
+        profile.shoulderWidth !== EMPTY_PROFILE.shoulderWidth ||
+        profile.armSize !== EMPTY_PROFILE.armSize ||
+        profile.legSize !== EMPTY_PROFILE.legSize ||
+        profile.viewRotation !== EMPTY_PROFILE.viewRotation
+      );
+      const untouched = profile.stage === 'creator' && !creatorCustomized;
       if (untouched) localStorage.removeItem(SOLO_FRANCHISE_SAVE_KEYS.player);
       else localStorage.setItem(SOLO_FRANCHISE_SAVE_KEYS.player, JSON.stringify(profile));
     } catch (error) {
@@ -223,7 +238,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
       const response = await fetch('/api/my-player-art', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ image: profile.faceImage, prompt: `${bodyDescription}. ${profile.appearancePrompt}`.trim(), position: profile.position, number: profile.number, team: 'a future pro team' }),
+        body: JSON.stringify({ image: profile.faceImage, prompt: profile.appearancePrompt, bodyDescription, position: profile.position, number: profile.number, team: 'a future pro team' }),
       });
       const result = await response.json();
       if (!response.ok || !result.image) throw new Error(result.error || 'Render unavailable');
@@ -394,14 +409,18 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
 const BodySlider = ({ label, value, min, max, display, onChange }: { label: string; value: number; min: number; max: number; display: string; onChange: (value: number) => void }) => (
   <label className="mt-3 block">
     <div className="mb-1.5 flex items-center justify-between text-[10px] font-black"><span className="text-zinc-500">{label}</span><span className="text-white">{display}</span></div>
-    <input type="range" min={min} max={max} value={value} onChange={event => onChange(Number(event.target.value))} className="h-2 w-full cursor-pointer accent-[var(--bk-team-accent)]" />
+    <div className="flex min-h-11 items-center">
+      <input aria-label={label} type="range" min={min} max={max} value={value} onChange={event => onChange(Number(event.target.value))} className="h-11 w-full cursor-pointer accent-[var(--bk-team-accent)]" />
+    </div>
   </label>
 );
 
 const ViewSlider = ({ value, onChange }: { value: number; onChange: (value: number) => void }) => (
   <label className="mt-3 block rounded-2xl border border-white/10 bg-[#111] p-3">
     <div className="mb-2 flex items-center justify-between text-[10px] font-black"><span className="text-zinc-500">ROTATE PLAYER</span><span className="text-[var(--bk-team-accent)]">{value}°</span></div>
-    <input aria-label="Rotate player view" type="range" min="-180" max="180" step="5" value={value} onChange={event => onChange(Number(event.target.value))} className="h-2 w-full cursor-grab accent-[var(--bk-team-accent)] active:cursor-grabbing" />
+    <div className="flex min-h-11 items-center">
+      <input aria-label="Rotate player view" type="range" min="-180" max="180" step="5" value={value} onChange={event => onChange(Number(event.target.value))} className="h-11 w-full cursor-grab accent-[var(--bk-team-accent)] active:cursor-grabbing" />
+    </div>
     <div className="mt-1 flex justify-between text-[8px] font-bold text-zinc-600"><span>BACK</span><span>FRONT</span><span>BACK</span></div>
   </label>
 );
