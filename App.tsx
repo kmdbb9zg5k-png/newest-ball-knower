@@ -14,14 +14,19 @@ import { DatabaseVerificationModal } from './DatabaseVerificationModal';
 import { SoloMode } from './SoloMode';
 import { HallOfFame } from './HallOfFame';
 import { FavoriteTeamExperience } from './FavoriteTeamExperience';
+import { NewsHub } from './NewsHub';
+import { FantasyHub } from './FantasyHub';
+import { SportsbookHub } from './SportsbookHub';
 import { League } from './types';
 import { TeamTheme, applyTeamCssVariables, getSavedTeamTheme, teamLogoUrl } from './teamTheme';
 import { CheckCircle2, Play, Database } from 'lucide-react';
 
+export type AppTab = 'home' | 'solo' | 'news' | 'fantasy' | 'sportsbook' | 'legacy' | 'lobby' | 'draft' | 'simulation';
+
 function BallKnowerApp() {
   const { activeLeague, setActiveLeagueId, toastMessage, joinLeague } = useBallKnower();
   const { setIntroActive } = useSoundtrack();
-  const [currentTab, setCurrentTab] = useState<'home' | 'solo' | 'legacy' | 'lobby' | 'draft' | 'simulation'>('home');
+  const [currentTab, setCurrentTab] = useState<AppTab>('home');
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isCreateLeagueOpen, setIsCreateLeagueOpen] = useState(false);
   const [isJoinLeagueOpen, setIsJoinLeagueOpen] = useState(false);
@@ -77,6 +82,9 @@ function BallKnowerApp() {
       <main className="relative z-[3] w-full flex-1">
         {currentTab === 'home' && <HomeDashboard onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague} />}
         {currentTab === 'solo' && <SoloMode />}
+        {currentTab === 'news' && <NewsHub />}
+        {currentTab === 'fantasy' && <FantasyHub onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague} />}
+        {currentTab === 'sportsbook' && <SportsbookHub />}
         {currentTab === 'legacy' && <HallOfFame />}
         {currentTab === 'lobby' && activeLeague && <LeagueLobby league={activeLeague} onGoToDraft={() => setCurrentTab('draft')} onGoToSimulation={() => setCurrentTab('simulation')} />}
         {currentTab === 'draft' && <DraftRoom onBackToLobby={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} onSubmitSuccess={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} />}
