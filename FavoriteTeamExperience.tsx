@@ -65,12 +65,12 @@ export function FavoriteTeamExperience({ onDone }: { onDone?: (team: TeamTheme) 
 
       <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-[760px] flex-col px-4 sm:px-5 pt-[max(20px,env(safe-area-inset-top))] pb-[max(30px,calc(env(safe-area-inset-bottom)+24px))]">
         <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-[.28em] text-zinc-400">
-          <span style={{color: preview.primary, textShadow: `0 0 18px ${preview.secondary}88`}}>BALL KNOWER</span><span>FAVORITE TEAM</span>
+          <span style={{color: 'var(--bk-team-accent-text)', textShadow: `0 0 18px ${preview.secondary}88`}}>BALL KNOWER</span><span>FAVORITE TEAM</span>
         </div>
 
         <div className="mt-5 text-center">
           <p className="text-[10px] font-black uppercase tracking-[.32em] text-zinc-400">STEP 1 • PERSONALIZE YOUR EXPERIENCE</p>
-          <h1 className="mt-2 text-[clamp(2.2rem,10vw,4.2rem)] font-black uppercase leading-[.92] tracking-tight">CHOOSE <span style={{color: preview.primary, textShadow: `0 0 22px ${preview.secondary}77`}}>YOUR TEAM.</span></h1>
+          <h1 className="mt-2 text-[clamp(2.2rem,10vw,4.2rem)] font-black uppercase leading-[.92] tracking-tight">CHOOSE <span style={{color: 'var(--bk-team-accent-text)', textShadow: `0 0 22px ${preview.secondary}77`}}>YOUR TEAM.</span></h1>
           <p className="mx-auto mt-3 max-w-md text-sm text-zinc-400">Spin the wheel. Lock in your squad.</p>
         </div>
 
