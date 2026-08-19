@@ -1,4 +1,5 @@
 import { Player } from './types';
+import { getMadden27RosterEntry } from './madden27CurrentRoster';
 
 // Official Madden NFL 27 launch portraits, keyed by player name so team changes do not break photos.
 export const PLAYER_PORTRAITS: Record<string, string> = {
@@ -529,7 +530,6 @@ export const PLAYER_PORTRAITS: Record<string, string> = {
   'Zion Johnson': 'https://ratings-images-prod.pulse.ea.com/madden-nfl-27/portraits/1786.png?im=FaceCrop,padding=0.7',
 };
 
-export function playerPortraitUrl(player: Pick<Player, 'name'>): string | undefined {
-  return PLAYER_PORTRAITS[player.name];
+export function playerPortraitUrl(player: Pick<Player, 'id' | 'name' | 'position'>): string | undefined {
+  return getMadden27RosterEntry(player)?.avatarUrl || PLAYER_PORTRAITS[player.name];
 }
-
