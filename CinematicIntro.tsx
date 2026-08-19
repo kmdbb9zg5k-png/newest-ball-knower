@@ -8,30 +8,29 @@ interface CinematicIntroProps {
 
 export const CinematicIntro: React.FC<CinematicIntroProps> = ({ isOpen, onClose }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [isMuted, setIsMuted] = useState(false);
-  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
 
   useEffect(() => {
     if (!isOpen) return;
     const video = videoRef.current;
     if (!video) return;
 
+    // iPhone/Safari reliably allows muted inline autoplay. Start muted immediately
+    // instead of ever showing a separate "Play Intro" gate.
     video.currentTime = 0;
-    video.muted = false;
-    setIsMuted(false);
-    setAutoplayBlocked(false);
+    video.muted = true;
+    video.defaultMuted = true;
+    setIsMuted(true);
 
     const attempt = video.play();
     if (attempt) {
       attempt.catch(() => {
-        // Browsers commonly block autoplay with sound. Fall back to muted
-        // autoplay, then let the user unmute with one click.
-        video.muted = true;
-        setIsMuted(true);
-        video.play().catch(() => setAutoplayBlocked(true));
+        // No manual launch screen. If the browser still refuses playback,
+        // continue the app rather than trapping the user on a black screen.
+        window.setTimeout(onClose, 150);
       });
     }
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -50,32 +49,21 @@ export const CinematicIntro: React.FC<CinematicIntroProps> = ({ isOpen, onClose 
     video.play().catch(() => {});
   };
 
-  const manualPlay = () => {
-    const video = videoRef.current;
-    if (!video) return;
-    video.muted = false;
-    setIsMuted(false);
-    setAutoplayBlocked(false);
-    video.play().catch(() => {
-      video.muted = true;
-      setIsMuted(true);
-      video.play().catch(() => {});
-    });
-  };
-
   return (
-    <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center overflow-hidden">
+    <div className="fixed inset-0 z-[110] bg-black flex items-center justify-center overflow-hidden" style={{paddingTop:'env(safe-area-inset-top)',paddingBottom:'env(safe-area-inset-bottom)'}}>
       <video
         ref={videoRef}
         src="/assets/ball-knower-opening.mp4"
         className="absolute inset-0 h-full w-full object-cover bg-black"
         playsInline
+        autoPlay
+        muted
         preload="auto"
         onEnded={onClose}
-        onError={() => setAutoplayBlocked(true)}
+        onError={onClose}
       />
 
-      <div className="absolute inset-x-0 bottom-0 z-10 flex items-end justify-between gap-3 p-4 sm:p-6 bg-gradient-to-t from-black/80 via-black/20 to-transparent">
+      <div className="absolute inset-x-0 bottom-0 z-10 flex items-end justify-between gap-3 p-4 sm:p-6 bg-gradient-to-t from-black/80 via-black/20 to-transparent" style={{paddingBottom:'max(1rem, env(safe-area-inset-bottom))'}}>
         <div className="flex items-center gap-2">
           <button
             onClick={toggleMute}
@@ -101,15 +89,6 @@ export const CinematicIntro: React.FC<CinematicIntroProps> = ({ isOpen, onClose 
           Skip Intro
         </button>
       </div>
-
-      {autoplayBlocked && (
-        <button
-          onClick={manualPlay}
-          className="relative z-20 rounded-md border border-[#D4AF37]/50 bg-black/80 px-7 py-4 text-sm font-black uppercase tracking-widest text-[#D4AF37]"
-        >
-          Play Ball Knower Intro
-        </button>
-      )}
     </div>
   );
 };
