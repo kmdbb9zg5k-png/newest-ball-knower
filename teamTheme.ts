@@ -104,14 +104,6 @@ function ensureSurfaceContrast(color: string, surface = '#0A0A0A', minimumRatio 
   return '#FFFFFF';
 }
 
-function deriveAccessibleAccent(team: TeamTheme) {
-  const surface = '#0A0A0A';
-  const primaryContrast = contrastRatio(team.primary, surface);
-  const secondaryContrast = contrastRatio(team.secondary, surface);
-  const preferred = secondaryContrast >= primaryContrast ? team.secondary : team.primary;
-  return ensureSurfaceContrast(preferred, surface);
-}
-
 function deriveOnAccent(accent: string) {
   const darkForeground = '#07090D';
   const lightForeground = '#FFFFFF';
@@ -120,10 +112,11 @@ function deriveOnAccent(accent: string) {
     : lightForeground;
 }
 
-/** Applies one accessible, reusable set of styling tokens for every NFL team. */
+/** Applies real team brand colors while keeping a separate readable text token for dark surfaces. */
 export function applyTeamCssVariables(team: TeamTheme) {
   if (typeof document === 'undefined') return;
-  const accent = deriveAccessibleAccent(team);
+  const accent = team.primary;
+  const readableAccent = ensureSurfaceContrast(team.primary);
   const onAccent = deriveOnAccent(accent);
   const root = document.documentElement;
   root.dataset.team = team.abbr;
@@ -133,5 +126,6 @@ export function applyTeamCssVariables(team: TeamTheme) {
   root.style.setProperty('--bk-team-secondary-rgb', hexToRgb(team.secondary));
   root.style.setProperty('--bk-team-accent', accent);
   root.style.setProperty('--bk-team-accent-rgb', hexToRgb(accent));
+  root.style.setProperty('--bk-team-accent-text', readableAccent);
   root.style.setProperty('--bk-on-accent', onAccent);
 }
