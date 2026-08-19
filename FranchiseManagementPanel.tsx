@@ -9,6 +9,7 @@ import {
   franchiseRoster,
   FranchiseManagementState,
   moveDepthPlayer,
+  playerById,
   proposeTrade,
   releasePlayer,
   signFreeAgent,
@@ -47,7 +48,7 @@ export const FranchiseManagementPanel: React.FC<Props> = ({ state, onChange, onM
   const targetPlayers = useMemo(() => {
     const ids = state.cpuRosters[tradeTeam] ?? [];
     return ids
-      .map(id => rosterPlayerById(state, id))
+      .map(id => playerById(id))
       .filter((player): player is Player => Boolean(player))
       .sort((first, second) => second.ovr - first.ovr);
   }, [state, tradeTeam]);
@@ -160,11 +161,6 @@ export const FranchiseManagementPanel: React.FC<Props> = ({ state, onChange, onM
     </div>
   );
 };
-
-function rosterPlayerById(state: FranchiseManagementState, id: string) {
-  const all = [...franchiseRoster(state), ...franchiseFreeAgents(state)];
-  return all.find(player => player.id === id) ?? null;
-}
 
 const Metric = ({ label, value }: { label: string; value: string }) => <div className="rounded-2xl border border-white/10 bg-[#10151d] p-3"><div className="text-[8px] font-black tracking-widest text-zinc-500">{label}</div><div className="mt-1 text-lg font-black">{value}</div></div>;
 
