@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { BallKnowerProvider, useBallKnower } from './BallKnowerContext';
 import { SoundtrackProvider, useSoundtrack } from './SoundtrackContext';
 import { Navbar } from './Navbar';
@@ -56,10 +56,10 @@ function BallKnowerApp() {
   }, []);
 
   const openIntro = () => { setIntroActive(true); setIsIntroOpen(true); };
-  const closeIntro = () => {
+  const closeIntro = useCallback(() => {
     setIsIntroOpen(false);
     if (!showFavoriteTeam) setIntroActive(false);
-  };
+  }, [setIntroActive, showFavoriteTeam]);
   const finishFavoriteTeamSetup = (team: TeamTheme) => {
     setFavoriteTheme(team);
     applyTeamCssVariables(team);
