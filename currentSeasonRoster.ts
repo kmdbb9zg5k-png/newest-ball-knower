@@ -100,7 +100,28 @@ const TEAM_OVERRIDES: Record<string, string> = {
   'A.J. Brown': 'NE',
   'Jaylen Waddle': 'DEN',
   'Myles Garrett': 'LAC',
+
+  // Madden NFL 27 launch roster corrections
+  'Micah Parsons': 'GB',
 };
+
+// EA's Madden NFL 27 launch database is authoritative for the Solo card OVR.
+// Keep these corrections separate from the legacy per-division card values so
+// an old `overallRating` field cannot silently win during normalization.
+export const MADDEN_27_PLAYER_OVERRIDES: Record<string, number> = {
+  'Matthew Stafford': 99,
+  'Christian McCaffrey': 97,
+  'Trent Williams': 96,
+  'Micah Parsons': 98,
+  'Justin Jefferson': 94,
+  'Fred Warner': 97,
+};
+
+// Players absent from the current EA NFL roster database must not be draftable.
+const INACTIVE_PLAYERS = new Set([
+  'Tyreek Hill',
+  'Zack Martin',
+]);
 
 const MISSING_2026_PLAYERS: Player[] = [
   {
@@ -146,9 +167,10 @@ export function applyCurrent2026Roster(rawPlayers: Player[]): Player[] {
     Object.entries(CURRENT_2026_QB_STARTERS).map(([team, name]) => [name, team])
   );
 
-  const corrected: Player[] = rawPlayers.map((player): Player => {
+  const corrected: Player[] = rawPlayers.filter(player => !INACTIVE_PLAYERS.has(player.name)).map((player): Player => {
     const nextTeam = TEAM_OVERRIDES[player.name] || player.team;
-    const officialQbOvr = player.position === 'QB' ? MADDEN_27_QB_OVERRIDES[player.name] : undefined;
+    const officialOvr = MADDEN_27_PLAYER_OVERRIDES[player.name]
+      ?? (player.position === 'QB' ? MADDEN_27_QB_OVERRIDES[player.name] : undefined);
     const expectedStarterTeam = player.position === 'QB' ? expectedStarterByName.get(player.name) : undefined;
 
     return {
@@ -157,10 +179,10 @@ export function applyCurrent2026Roster(rawPlayers: Player[]): Player[] {
       teamId: nextTeam,
       starter: player.position === 'QB' ? expectedStarterTeam === nextTeam : player.starter,
       projectedStarter: player.position === 'QB' ? expectedStarterTeam === nextTeam : player.projectedStarter,
-      ...(officialQbOvr ? {
-        ovr: officialQbOvr,
-        overallRating: officialQbOvr,
-        overall: officialQbOvr,
+      ...(officialOvr ? {
+        ovr: officialOvr,
+        overallRating: officialOvr,
+        overall: officialOvr,
         ratingSource: 'EA SPORTS Madden',
         ratingSeason: 2026,
         ratingStatus: 'VERIFIED' as const,
