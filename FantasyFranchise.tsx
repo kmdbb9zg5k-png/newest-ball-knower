@@ -152,11 +152,11 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
 
   return (
     <div className="min-h-[100dvh] bg-transparent px-4 pb-12 pt-4 text-white sm:px-8">
-      <div className="mx-auto max-w-7xl">
-        <div className="flex items-center gap-3">
-          <button type="button" onClick={onBack} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Back to Solo Franchise Hub"><ArrowLeft size={19} /></button>
+      <div className="mx-auto min-w-0 max-w-7xl">
+        <div className="flex min-w-0 items-center gap-3">
+          <button type="button" onClick={onBack} className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Back to Solo Franchise Hub"><ArrowLeft size={19} /></button>
           <div className="min-w-0 flex-1"><div className="text-[10px] font-black tracking-[.2em] text-[var(--bk-team-accent)]">FANTASY DRAFT • ROUND {round}/20</div><div className="truncate text-xl font-black">{fantasyTeam(draft.userTeamAbbr).name} • PICK SLOT #{userSlot}</div></div>
-          <button type="button" onClick={newCareer} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Start a new Fantasy Draft"><RotateCcw size={17} /></button>
+          <button type="button" onClick={newCareer} className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Start a new Fantasy Draft"><RotateCcw size={17} /></button>
         </div>
 
         {message ? <div className="mt-4 rounded-2xl border border-[var(--bk-team-accent)]/25 bg-[var(--bk-team-accent)]/10 px-4 py-3 text-sm font-bold text-[var(--bk-team-accent)]">{message}</div> : null}
@@ -169,19 +169,19 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
             <button type="button" onClick={beginSeason} className="mt-5 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)]"><Play className="mr-2 inline" /> START SEASON</button>
           </div>
         ) : (
-          <div className="mt-5 grid gap-5 lg:grid-cols-[1.45fr_.55fr]">
-            <div>
-              <div className="mb-3 flex gap-2">
-                <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-white/10 bg-[#111] px-3"><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} aria-label="Search fantasy draft players" placeholder="Search draft pool…" className="min-w-0 flex-1 bg-transparent py-3 outline-none" /></div>
-                <button type="button" disabled={isPicking || !available[0]} onClick={() => available[0] && selectPlayer(available[0])} className="rounded-2xl bg-[var(--bk-team-accent)] px-4 text-xs font-black text-[var(--bk-on-accent)] disabled:opacity-40">AUTO PICK</button>
+          <div className="mt-5 grid min-w-0 gap-5 lg:grid-cols-[1.45fr_.55fr]">
+            <div className="min-w-0">
+              <div className="mb-3 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
+                <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-white/10 bg-[#111] px-3"><Search size={16} className="shrink-0" /><input value={query} onChange={event => setQuery(event.target.value)} aria-label="Search fantasy draft players" placeholder="Search draft pool…" className="min-w-0 flex-1 bg-transparent py-3 outline-none" /></div>
+                <button type="button" disabled={isPicking || !available[0]} onClick={() => available[0] && selectPlayer(available[0])} className="shrink-0 rounded-2xl bg-[var(--bk-team-accent)] px-3 text-[10px] font-black text-[var(--bk-on-accent)] disabled:opacity-40 sm:px-4 sm:text-xs">AUTO PICK</button>
               </div>
               <div className="-mx-4 mb-3 overflow-x-auto px-4 sm:mx-0 sm:px-0"><div className="flex w-max gap-2">{['ALL', ...Object.keys(ROSTER_REQUIREMENTS)].map(group => <button key={group} type="button" aria-pressed={position===group} onClick={() => setPosition(group)} className={`min-h-10 rounded-xl border px-3 text-xs font-black ${position === group ? 'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)]/10 text-[var(--bk-team-accent)]' : 'border-white/10 bg-[#111] text-zinc-400'}`}>{group}</button>)}</div></div>
-              <div className="max-h-[65dvh] space-y-2 overflow-y-auto overscroll-contain">
+              <div className="max-h-[65dvh] min-w-0 space-y-2 overflow-y-auto overscroll-contain">
                 {available.map(player => <DraftPlayer key={player.id} player={player} disabled={isPicking} onSelect={() => selectPlayer(player)} />)}
               </div>
             </div>
 
-            <aside className="space-y-3">
+            <aside className="min-w-0 space-y-3">
               <div className="rounded-2xl border border-white/10 bg-[#111] p-4"><div className="text-xs font-black tracking-widest text-[var(--bk-team-accent)]">YOUR 20</div><div className="mt-2 text-sm leading-relaxed text-zinc-400">{Object.entries(ROSTER_REQUIREMENTS).map(([group, required]) => `${group} ${counts[group] ?? 0}/${required}`).join(' • ')}</div><div className="mt-3 space-y-1">{userRoster.map(player => <div key={player.id} className="flex justify-between rounded-xl bg-white/5 px-3 py-2 text-xs"><span className="truncate"><b>{player.position}</b> {player.name}</span><b>{player.ovr}</b></div>)}</div></div>
               <div className="rounded-2xl border border-white/10 bg-[#111] p-4"><div className="text-xs font-black tracking-widest text-[var(--bk-team-accent)]">RECENT PICKS</div><div className="mt-2 space-y-2">{draft.picks.slice(-8).reverse().map(pick => {const player = fantasyPickPlayer(pick); return <div key={pick.overall} className="text-xs"><b>#{pick.overall} {fantasyTeam(pick.teamAbbr).abbr}</b><div className="truncate text-zinc-500">{player?.name ?? 'Unknown'} • {player?.position}</div></div>;})}</div></div>
             </aside>
@@ -195,10 +195,16 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
 const DraftPlayer = ({ player, disabled, onSelect }: { key?: React.Key; player: Player; disabled: boolean; onSelect: () => void }) => {
   const portrait = playerPortraitUrl(player);
   return (
-    <div className="grid grid-cols-[48px_minmax(0,1fr)_76px] items-center gap-3 rounded-2xl border border-white/10 bg-[#111] p-3">
+    <button
+      type="button"
+      onClick={onSelect}
+      disabled={disabled}
+      aria-label={`Draft ${player.name}, ${player.position}, ${player.ovr} overall`}
+      className="grid w-full min-w-0 grid-cols-[48px_minmax(0,1fr)_72px] items-center gap-3 rounded-2xl border border-white/10 bg-[#111] p-3 text-left transition hover:border-[var(--bk-team-accent)]/45 hover:bg-white/[.06] disabled:cursor-wait disabled:opacity-50 active:scale-[.99]"
+    >
       <div className="h-12 w-12 overflow-hidden rounded-full bg-white/5">{portrait ? <img src={portrait} alt="" loading="lazy" className="h-full w-full object-cover" /> : null}</div>
-      <div className="min-w-0"><div className="truncate font-black">{player.name}</div><div className="text-xs text-zinc-500">{player.team} • {player.position}</div></div>
-      <button type="button" onClick={onSelect} disabled={disabled} className="min-h-11 rounded-xl bg-[var(--bk-team-accent)] px-3 text-xs font-black text-[var(--bk-on-accent)] disabled:opacity-40">DRAFT<br />{player.ovr}</button>
-    </div>
+      <div className="min-w-0"><div className="truncate font-black">{player.name}</div><div className="truncate text-xs text-zinc-500">{player.team} • {player.position}</div></div>
+      <span className="grid min-h-11 place-items-center rounded-xl bg-[var(--bk-team-accent)] px-2 text-center text-[10px] font-black leading-tight text-[var(--bk-on-accent)]">DRAFT<br />{player.ovr}</span>
+    </button>
   );
 };
