@@ -65,15 +65,20 @@ export const Navbar: React.FC<NavbarProps> = ({
       });
     };
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (!alive) return;
       if (session?.user) {
         syncProfile(session.user);
         return;
       }
-      setCurrentUser(null);
-      setActiveLeagueId(null);
-      setIsUserMenuOpen(false);
+      // INITIAL_SESSION may legitimately be null while the provider is still
+      // bootstrapping a guest session. Only clear visible account/league state
+      // for an actual sign-out event so persisted league navigation survives startup.
+      if (event === 'SIGNED_OUT') {
+        setCurrentUser(null);
+        setActiveLeagueId(null);
+        setIsUserMenuOpen(false);
+      }
     });
 
     return () => {
