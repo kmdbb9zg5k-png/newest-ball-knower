@@ -209,7 +209,12 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
       setProfile(current => ({ ...current, renderImage }));
       setMessage('Player render created. You can keep editing the description.');
     } catch (error: any) {
-      setMessage(error?.message?.includes('configured') ? 'Your creator is ready. Photorealistic AI rendering will activate when the image service is connected.' : 'The AI render is unavailable right now, but your in-game player preview and career still work.');
+      const detail = String(error?.message || '');
+      if (detail.includes('configured')) setMessage('Your creator is ready. Photorealistic AI rendering will activate when the image service is connected.');
+      else if (detail.includes('four player renders')) setMessage('You used today’s four AI player renders. Your career and current preview still work; try another render tomorrow.');
+      else if (detail.includes('session expired') || detail.includes('Sign in')) setMessage('Your sign-in needs to be refreshed before another AI render. Your current player is safe.');
+      else if (detail.includes('Please wait')) setMessage('The renderer needs a short breather. Wait a minute, then try again.');
+      else setMessage('The AI render is unavailable right now, but your in-game player preview and career still work.');
     } finally {
       setIsRendering(false);
     }
