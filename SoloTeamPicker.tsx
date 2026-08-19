@@ -1,5 +1,5 @@
 import React from 'react';
-import { TEAM_THEMES, teamLogoUrl } from './teamTheme';
+import { TEAM_THEMES, applyTeamCssVariables, teamLogoUrl } from './teamTheme';
 
 type Props = {
   selectedAbbr: string;
@@ -14,13 +14,24 @@ export const SoloTeamPicker: React.FC<Props> = ({ selectedAbbr, onSelect }) => (
         <button
           key={team.abbr}
           type="button"
-          onClick={() => onSelect(team.abbr)}
+          onClick={() => {
+            applyTeamCssVariables(team);
+            onSelect(team.abbr);
+          }}
           aria-pressed={selected}
           aria-label={team.name}
-          className={`min-h-20 rounded-2xl border p-2 transition ${selected ? 'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)]/15' : 'border-white/10 bg-[#111] active:bg-white/10'}`}
+          className="min-h-20 rounded-2xl border p-2 transition active:bg-white/10"
+          style={selected ? {
+            borderColor: team.secondary,
+            background: `linear-gradient(155deg, ${team.primary}44, ${team.secondary}18 72%, rgba(17,17,17,.92))`,
+            boxShadow: `0 0 0 1px ${team.primary}66 inset, 0 10px 30px ${team.primary}33`,
+          } : {
+            borderColor: 'rgba(255,255,255,.10)',
+            background: '#111',
+          }}
         >
           <img src={teamLogoUrl(team.abbr)} alt="" aria-hidden="true" className="mx-auto h-10 w-10 object-contain" />
-          <div className={`mt-1 text-[10px] font-black ${selected ? 'text-[var(--bk-team-accent)]' : 'text-zinc-400'}`}>{team.abbr}</div>
+          <div className={`mt-1 text-[10px] font-black ${selected ? 'text-white' : 'text-zinc-400'}`}>{team.abbr}</div>
         </button>
       );
     })}
