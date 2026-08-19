@@ -1,39 +1,91 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowLeft, Play, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ClipboardList, Play, RotateCcw } from 'lucide-react';
 import { FranchiseSeason } from './FranchiseSeason';
+import { FranchiseManagementPanel } from './FranchiseManagementPanel';
+import {
+  cpuRosterPlayers,
+  createFranchiseManagement,
+  franchiseCapUsed,
+  franchiseRoster,
+  FranchiseManagementState,
+  restoreFranchiseManagement,
+} from './franchiseManagementEngine';
+import { getRosterNeeds } from './rosterRules';
 import { buildRealTeamRoster, SOLO_FRANCHISE_SAVE_KEYS } from './soloFranchiseEngine';
 import { SoloTeamPicker } from './SoloTeamPicker';
 import { getSavedTeamTheme, TEAM_THEMES, teamLogoUrl } from './teamTheme';
+import { DEFAULT_SALARY_CAP } from './types';
 
 type Props = { onBack: () => void };
+type RealSave = { version: 2; teamAbbr: string; management: FranchiseManagementState };
 
-function restoreTeam() {
+function restoreSave(): RealSave | null {
   try {
     const raw = localStorage.getItem(SOLO_FRANCHISE_SAVE_KEYS.real);
     if (!raw) return null;
     const saved = JSON.parse(raw);
-    return typeof saved?.teamAbbr === 'string' && TEAM_THEMES.some(team => team.abbr === saved.teamAbbr) ? saved.teamAbbr : null;
+    if (typeof saved?.teamAbbr !== 'string' || !TEAM_THEMES.some(team => team.abbr === saved.teamAbbr)) return null;
+    if (saved.version === 2) {
+      const management = restoreFranchiseManagement(saved.management, saved.teamAbbr);
+      if (management) return { version: 2, teamAbbr: saved.teamAbbr, management };
+    }
+    if (saved.version === 1) {
+      const management = createFranchiseManagement(saved.teamAbbr);
+      return { version: 2, teamAbbr: saved.teamAbbr, management };
+    }
+    return null;
   } catch {
     return null;
   }
 }
 
+function persistReal(save: RealSave) {
+  try {
+    localStorage.setItem(SOLO_FRANCHISE_SAVE_KEYS.real, JSON.stringify(save));
+    return true;
+  } catch (error) {
+    console.warn('Unable to save Real Team Franchise', error);
+    return false;
+  }
+}
+
 export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
-  const [teamAbbr, setTeamAbbr] = useState<string | null>(restoreTeam);
-  const [selectedAbbr, setSelectedAbbr] = useState(() => teamAbbr ?? getSavedTeamTheme().abbr);
+  const restored = useMemo(restoreSave, []);
+  const [teamAbbr, setTeamAbbr] = useState<string | null>(() => restored?.teamAbbr ?? null);
+  const [selectedAbbr, setSelectedAbbr] = useState(() => restored?.teamAbbr ?? getSavedTeamTheme().abbr);
+  const [management, setManagement] = useState<FranchiseManagementState | null>(() => restored?.management ?? null);
+  const [view, setView] = useState<'gameday' | 'manage'>('gameday');
   const [message, setMessage] = useState('');
   const team = teamByAbbr(teamAbbr ?? selectedAbbr);
-  const roster = useMemo(() => teamAbbr ? buildRealTeamRoster(teamAbbr) : [], [teamAbbr]);
+  const roster = useMemo(() => management ? franchiseRoster(management) : [], [management]);
+  const opponents = useMemo(() => management ? cpuRosterPlayers(management) : undefined, [management]);
+  const canPlay = Boolean(management)
+    && roster.length >= 20
+    && getRosterNeeds(roster).length === 0
+    && franchiseCapUsed(management!) <= DEFAULT_SALARY_CAP + 0.001;
 
   const start = () => {
-    try {
-      localStorage.setItem(SOLO_FRANCHISE_SAVE_KEYS.real, JSON.stringify({ version: 1, teamAbbr: selectedAbbr }));
-      localStorage.removeItem(`${SOLO_FRANCHISE_SAVE_KEYS.real}:season`);
-    } catch (error) {
-      console.warn('Unable to save Real Team Franchise', error);
-      setMessage('Franchise started, but Safari could not save it. Keep this page open.');
-    }
+    const nextManagement = createFranchiseManagement(selectedAbbr);
+    const saved = persistReal({ version: 2, teamAbbr: selectedAbbr, management: nextManagement });
+    try { localStorage.removeItem(`${SOLO_FRANCHISE_SAVE_KEYS.real}:season`); } catch {}
     setTeamAbbr(selectedAbbr);
+    setManagement(nextManagement);
+    setView('gameday');
+    setMessage(saved ? 'Franchise ready. Manage your roster or play Week 1.' : 'Franchise started, but Safari could not save it. Keep this page open.');
+  };
+
+  const updateManagement = (next: FranchiseManagementState) => {
+    setManagement(next);
+    if (teamAbbr && !persistReal({ version: 2, teamAbbr, management: next })) setMessage('Roster move completed, but Safari could not save it. Keep this page open.');
+  };
+
+  const openGameday = () => {
+    if (!canPlay) {
+      setView('manage');
+      setMessage('Finish a legal 20+ player roster at or under the salary cap before playing.');
+      return;
+    }
+    setView('gameday');
   };
 
   const newCareer = () => {
@@ -44,15 +96,39 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
       console.warn('Unable to clear Real Team Franchise', error);
     }
     setTeamAbbr(null);
+    setManagement(null);
+    setView('gameday');
+    setMessage('');
   };
 
-  if (teamAbbr) {
+  if (teamAbbr && management) {
+    const showingManagement = view === 'manage' || !canPlay;
     return (
-      <div className="relative">
-        <button type="button" onClick={newCareer} className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-30 flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/90 px-4 text-xs font-black shadow-xl">
-          <RotateCcw size={15} /> NEW TEAM
-        </button>
-        <FranchiseSeason title="REAL TEAM FRANCHISE" userTeam={team} roster={roster} saveKey={SOLO_FRANCHISE_SAVE_KEYS.real} onBack={onBack} />
+      <div className="relative min-h-[100dvh] bg-transparent text-white">
+        <div className="px-4 pt-4 sm:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="flex items-center gap-3 rounded-[2rem] border border-white/10 bg-black/45 p-3 backdrop-blur-sm sm:p-4">
+              <button type="button" onClick={onBack} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10 bg-[#111]" aria-label="Back to Solo Franchise Hub"><ArrowLeft size={18} /></button>
+              <img src={teamLogoUrl(team.abbr)} alt="" aria-hidden="true" className="h-11 w-11 shrink-0 object-contain" />
+              <div className="min-w-0 flex-1"><div className="text-[9px] font-black tracking-[.2em] text-[var(--bk-team-accent)]">REAL TEAM FRANCHISE</div><div className="truncate text-lg font-black">{team.name}</div></div>
+              <button type="button" onClick={newCareer} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10 bg-[#111]" aria-label="Start a new franchise"><RotateCcw size={16} /></button>
+            </div>
+
+            {message ? <div className="mt-3 rounded-2xl border border-[var(--bk-team-accent)]/25 bg-[var(--bk-team-accent)]/10 px-4 py-3 text-sm font-bold text-[var(--bk-team-accent)]">{message}</div> : null}
+            {!canPlay ? <div className="mt-3 rounded-2xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-xs font-bold text-amber-200">Roster management required: get to at least 20 players, fill every required position group, and get under the salary cap to unlock Gameday.</div> : null}
+
+            <div className="mt-3 grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-[#0d1118]/90 p-2">
+              <button type="button" aria-pressed={!showingManagement} onClick={openGameday} disabled={!canPlay} className={`min-h-11 rounded-xl text-xs font-black disabled:cursor-not-allowed disabled:opacity-35 ${!showingManagement ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)]' : 'text-zinc-400'}`}><Play className="mr-2 inline" size={15}/> GAMEDAY</button>
+              <button type="button" aria-pressed={showingManagement} onClick={() => setView('manage')} className={`min-h-11 rounded-xl text-xs font-black ${showingManagement ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)]' : 'text-zinc-400'}`}><ClipboardList className="mr-2 inline" size={15}/> MANAGE TEAM</button>
+            </div>
+          </div>
+        </div>
+
+        {showingManagement ? (
+          <FranchiseManagementPanel state={management} onChange={updateManagement} onMessage={setMessage} />
+        ) : (
+          <FranchiseSeason title="REAL TEAM FRANCHISE" userTeam={team} roster={roster} opponentRosters={opponents} saveKey={SOLO_FRANCHISE_SAVE_KEYS.real} onBack={onBack} />
+        )}
       </div>
     );
   }
@@ -68,7 +144,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
         <div className="mt-5 rounded-[2rem] border border-white/10 bg-[#10151d] p-5 sm:p-8">
           <div className="text-[10px] font-black tracking-[.25em] text-[var(--bk-team-accent)]">2026 NFL ROSTERS</div>
           <h2 className="mt-2 text-4xl font-black leading-none">TAKE OVER A TEAM</h2>
-          <p className="mt-3 text-sm font-semibold text-zinc-400">Choose one of the 32 current NFL rosters and start your franchise immediately.</p>
+          <p className="mt-3 text-sm font-semibold text-zinc-400">Choose one of the 32 current NFL rosters, then control the depth chart, free agency, trades, signings and the full season.</p>
           <div className="mt-6"><SoloTeamPicker selectedAbbr={selectedAbbr} onSelect={setSelectedAbbr} /></div>
         </div>
 
@@ -81,6 +157,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
           <div className="mt-4 grid grid-cols-3 gap-2">
             {topPlayers.map(player => <div key={player.id} className="min-w-0 rounded-2xl bg-white/5 p-3"><div className="truncate text-xs font-black">{player.name}</div><div className="mt-1 text-[10px] text-zinc-500">{player.position} • {player.ovr} OVR</div></div>)}
           </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 text-center text-[10px] font-black text-zinc-400"><div className="rounded-xl bg-white/5 p-3">TRADES + CPU LOGIC</div><div className="rounded-xl bg-white/5 p-3">FREE AGENTS + SIGNINGS</div><div className="rounded-xl bg-white/5 p-3">DEPTH CHARTS</div><div className="rounded-xl bg-white/5 p-3">TRANSACTION LOG</div></div>
           <button type="button" onClick={start} className="mt-5 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)]"><Play className="mr-2 inline" /> START FRANCHISE</button>
         </div>
       </div>
