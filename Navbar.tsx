@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useBallKnower } from '../context/BallKnowerContext';
-import { Trophy, Shield, User, LogOut, ChevronDown, Sparkles, Plus, Users, Award, Play, Newspaper, DollarSign } from 'lucide-react';
+import { Trophy, Shield, User, LogOut, ChevronDown, Sparkles, Plus, Users, Award, Play, Newspaper, DollarSign, Loader2 } from 'lucide-react';
 import { SoundtrackControl } from './SoundtrackControl';
+import { ensureOnlineSession, signOutOnline, supabase } from '../lib/supabase';
 
 type AppTab = 'home' | 'solo' | 'news' | 'fantasy' | 'sportsbook' | 'legacy' | 'lobby' | 'draft' | 'simulation';
 
@@ -26,22 +27,77 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const {
     currentUser,
-    logout,
+    setCurrentUser,
     activeLeague,
     isDemoMode,
     exitDemoMode,
     currentRoster,
     leagues,
     setActiveLeagueId,
+    showToast,
   } = useBallKnower();
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isLeagueMenuOpen, setIsLeagueMenuOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
     const el = document.getElementById(`nav-tab-${currentTab}`);
     el?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   }, [currentTab]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    let alive = true;
+
+    const syncProfile = async (providedUser?: any) => {
+      try {
+        const authUser = providedUser || await ensureOnlineSession();
+        if (!alive || !authUser) return;
+        const metadata = authUser.user_metadata || {};
+        const isGuest = Boolean(authUser.is_anonymous);
+        const name = metadata.full_name || metadata.name || (isGuest ? 'Guest GM' : authUser.email?.split('@')[0]) || 'Ball Knower GM';
+        const avatarUrl = metadata.avatar_url || metadata.picture || undefined;
+        setCurrentUser({
+          id: authUser.id,
+          name,
+          email: authUser.email || '',
+          avatarUrl,
+          createdAt: authUser.created_at || new Date().toISOString(),
+        });
+      } catch {
+        // The context bootstrap surfaces cloud-auth failures globally.
+      }
+    };
+
+    void syncProfile();
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) void syncProfile(session.user);
+    });
+
+    return () => {
+      alive = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      await signOutOnline();
+      setCurrentUser(null);
+      setActiveLeagueId(null);
+      setIsUserMenuOpen(false);
+      localStorage.removeItem('ballknower_user_v1');
+      localStorage.removeItem('ballknower_active_league_id_v1');
+      showToast('Signed out. Starting a fresh guest session...');
+      window.setTimeout(() => window.location.reload(), 100);
+    } catch (err: any) {
+      showToast(err?.message || 'Could not sign out.');
+      setIsSigningOut(false);
+    }
+  };
 
   const tabClass = (tab: AppTab) => `relative h-full shrink-0 flex items-center gap-1.5 whitespace-nowrap border-b-2 px-0.5 text-[11px] sm:text-xs font-black uppercase tracking-[.13em] transition-colors ${
     currentTab === tab ? 'border-[#D4AF37] text-[#D4AF37]' : 'border-transparent text-zinc-500 hover:text-white'
@@ -117,16 +173,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <div className="absolute right-0 z-50 mt-2 w-60 rounded-md border border-white/10 bg-[#121212] p-2 shadow-2xl">
                   <div className="border-b border-white/5 px-3 py-2">
                     <p className="truncate text-xs font-black uppercase text-white">{currentUser.name}</p>
-                    <p className="truncate font-mono text-[10px] text-zinc-500">{currentUser.email}</p>
+                    <p className="truncate font-mono text-[10px] text-zinc-500">{currentUser.email || 'Guest account'}</p>
                   </div>
                   <div className="py-1">
                     <button onClick={() => { setCurrentTab('home'); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#1A1A1A]"><Trophy className="h-3.5 w-3.5 text-[#D4AF37]" /> Dashboard</button>
                     <button onClick={() => { setCurrentTab('legacy'); setIsUserMenuOpen(false); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#1A1A1A]"><Award className="h-3.5 w-3.5 text-[#D4AF37]" /> Hall of Fame</button>
                     {onOpenDatabaseModal && <button onClick={() => { setIsUserMenuOpen(false); onOpenDatabaseModal(); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#1A1A1A]"><Shield className="h-3.5 w-3.5 text-emerald-400" /> 32/32 Rosters</button>}
-                    <button onClick={() => { setIsUserMenuOpen(false); onOpenAuth(); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#1A1A1A]"><User className="h-3.5 w-3.5 text-[#D4AF37]" /> Switch Account</button>
+                    <button onClick={() => { setIsUserMenuOpen(false); onOpenAuth(); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-[#1A1A1A]"><User className="h-3.5 w-3.5 text-[#D4AF37]" /> Account</button>
                   </div>
                   <div className="border-t border-white/5 pt-1">
-                    <button onClick={logout} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-red-500 hover:bg-red-500/10"><LogOut className="h-3.5 w-3.5" /> Sign Out</button>
+                    <button disabled={isSigningOut} onClick={handleSignOut} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-red-500 hover:bg-red-500/10 disabled:opacity-60">
+                      {isSigningOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
+                      {isSigningOut ? 'Signing Out...' : 'Sign Out'}
+                    </button>
                   </div>
                 </div>
               )}
