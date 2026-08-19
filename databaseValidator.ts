@@ -1,5 +1,6 @@
 import { Player } from './types';
 import { CURRENT_2026_QB_STARTERS } from './currentSeasonRoster';
+import { normalizeMaddenRosterName } from './madden27CurrentRoster';
 
 export interface PositionGroupStatus {
   group: string;
@@ -415,7 +416,7 @@ export function validateDatabase(
     const starter = players.find(p => p.team === team && p.position === 'QB' && p.starter);
     if (!starter) {
       currentStarterMismatches.push(`${team}: no starting QB marked`);
-    } else if (starter.name !== expectedName) {
+    } else if (normalizeMaddenRosterName(starter.name) !== normalizeMaddenRosterName(expectedName)) {
       currentStarterMismatches.push(`${team}: ${starter.name} marked starter; expected ${expectedName}`);
     }
   });
