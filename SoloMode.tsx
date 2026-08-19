@@ -19,6 +19,50 @@ type PlayoffResult={round:string;opponent:string;you:number;them:number;won:bool
 
 const CAREER_KEY='ballknower_solo_career_v1';
 const RUN_KEY='ballknower_solo_run_v1';
+const INITIAL_PLAYER_BATCH=40;
+
+const isPlayer=(value:unknown):value is Player=>{
+ if(!value||typeof value!=='object')return false;
+ const player=value as Partial<Player>;
+ return typeof player.id==='string'&&typeof player.name==='string'&&Number.isFinite(Number(player.salary))&&Number.isFinite(Number(player.ovr));
+};
+
+const restoreCareer=():CareerProfile=>{
+ const fallback=defaultCareer();
+ try{
+   const raw=localStorage.getItem(CAREER_KEY);if(!raw)return fallback;
+   const saved=JSON.parse(raw);
+   if(!saved||typeof saved!=='object')return fallback;
+   return {
+     ...fallback,
+     ...saved,
+     achievements:Array.isArray(saved.achievements)?saved.achievements.filter((x:unknown)=>typeof x==='string'):[],
+   };
+ }catch{return fallback}
+};
+
+const restoreRun=()=>{
+ try{
+   const raw=localStorage.getItem(RUN_KEY);if(!raw)return null;
+   const saved=JSON.parse(raw);
+   if(!saved||!['regular','playoffs'].includes(saved.stage))throw new Error('Unsupported Solo stage');
+   if(!Array.isArray(saved.roster)||saved.roster.length!==TOTAL_ROSTER_SIZE||!saved.roster.every(isPlayer))throw new Error('Invalid Solo roster');
+   if(!Array.isArray(saved.bench)||saved.bench.length>2||!saved.bench.every(isPlayer))throw new Error('Invalid Solo bench');
+   if(!Array.isArray(saved.weeks)||saved.weeks.length>17||saved.weeks.some((week:any)=>
+     !week||typeof week!=='object'||!week.game||typeof week.game!=='object'||
+     !Number.isFinite(Number(week.game.homeScore))||!Number.isFinite(Number(week.game.awayScore))||
+     !Array.isArray(week.playerLines)
+   ))throw new Error('Incompatible Solo season history');
+   if(!Array.isArray(saved.injuries)||!Array.isArray(saved.playoffs))throw new Error('Invalid Solo season state');
+   const difficulty=['rookie','pro','all_pro','all_madden'].includes(saved.settings?.difficulty)?saved.settings.difficulty:'pro';
+   const injurySetting=['off','normal','chaos'].includes(saved.settings?.injuries)?saved.settings.injuries:'normal';
+   return {...saved,settings:{difficulty,injuries:injurySetting}};
+ }catch(error){
+   console.warn('Discarding incompatible Solo save',error);
+   try{localStorage.removeItem(RUN_KEY)}catch{}
+   return null;
+ }
+};
 
 export const SoloMode:React.FC=()=>{
  const { currentUser } = useBallKnower();
@@ -27,16 +71,18 @@ export const SoloMode:React.FC=()=>{
  const [bench,setBench]=useState<Player[]>([]);
  const [query,setQuery]=useState('');
  const [position,setPosition]=useState('ALL');
+ const [visiblePlayerCount,setVisiblePlayerCount]=useState(INITIAL_PLAYER_BATCH);
  const [weeks,setWeeks]=useState<SoloWeek[]>([]);
  const [injuries,setInjuries]=useState<InjuryEvent[]>([]);
  const [playoffs,setPlayoffs]=useState<PlayoffResult[]>([]);
  const [message,setMessage]=useState('');
  const [settings,setSettings]=useState<SoloSettings>({difficulty:'pro',injuries:'normal'});
- const [career,setCareer]=useState<CareerProfile>(()=>{try{return JSON.parse(localStorage.getItem(CAREER_KEY)||'null')||defaultCareer()}catch{return defaultCareer()}});
+ const [career,setCareer]=useState<CareerProfile>(restoreCareer);
  const [runSaved,setRunSaved]=useState(false);
 
- useEffect(()=>{try{const raw=localStorage.getItem(RUN_KEY);if(raw){const r=JSON.parse(raw);if(r?.stage&&r.stage!=='draft'){setStage(r.stage);setRoster(r.roster||[]);setBench(r.bench||[]);setWeeks(r.weeks||[]);setInjuries(r.injuries||[]);setPlayoffs(r.playoffs||[]);setSettings(r.settings||settings);setMessage('Restored your last Solo Mode run.')}}}catch{}},[]);
- useEffect(()=>{if(stage!=='draft')localStorage.setItem(RUN_KEY,JSON.stringify({stage,roster,bench,weeks,injuries,playoffs,settings}))},[stage,roster,bench,weeks,injuries,playoffs,settings]);
+ useEffect(()=>{const saved=restoreRun();if(!saved)return;setStage(saved.stage);setRoster(saved.roster);setBench(saved.bench);setWeeks(saved.weeks);setInjuries(saved.injuries);setPlayoffs(saved.playoffs);setSettings(saved.settings);setMessage('Restored your last Solo Mode run.');},[]);
+ useEffect(()=>{if(stage==='draft')return;try{localStorage.setItem(RUN_KEY,JSON.stringify({stage,roster,bench,weeks,injuries,playoffs,settings}))}catch(error){console.warn('Unable to save Solo run',error)}},[stage,roster,bench,weeks,injuries,playoffs,settings]);
+ useEffect(()=>{setVisiblePlayerCount(INITIAL_PLAYER_BATCH)},[query,position]);
 
  const spent=useMemo(()=>[...roster,...bench].reduce((n,p)=>n+p.salary,0),[roster,bench]), remaining=DEFAULT_SALARY_CAP-spent;
  const counts=countRosterGroups(roster), errors=validateRosterShape(roster);
@@ -44,7 +90,7 @@ export const SoloMode:React.FC=()=>{
  const ratings=useMemo(()=>calculateTeamRatings(roster),[roster]);
  const grade=useMemo(()=>gradeDraft(roster,DEFAULT_SALARY_CAP),[roster]);
  const wins=weeks.filter(w=>w.won).length, losses=weeks.length-wins;
- const allLines=weeks.flatMap(w=>w.playerLines), awards=buildAwards(allLines);
+ const allLines=weeks.flatMap(w=>Array.isArray(w.playerLines)?w.playerLines:[]), awards=buildAwards(allLines);
  const leaders=useMemo(()=>{
    const m=new Map<string,{name:string,pos:string,score:number}>();
    allLines.forEach(l=>{const x=m.get(l.playerId)||{name:l.name,pos:l.position,score:0};x.score+=l.fantasyScore;m.set(l.playerId,x)});
@@ -52,12 +98,13 @@ export const SoloMode:React.FC=()=>{
  },[weeks]);
  const activeInjuries=injuries.filter(i=>i.weeks>0);
 
- const available=useMemo(()=>PLAYERS_DATABASE.filter(p=>{
+ const availablePool=useMemo(()=>PLAYERS_DATABASE.filter(p=>{
    if(roster.some(r=>r.id===p.id)||bench.some(r=>r.id===p.id))return false;
    if(query&&!`${p.name} ${p.team} ${p.position}`.toLowerCase().includes(query.toLowerCase()))return false;
    if(position!=='ALL'&&getDraftPositionGroup(p)!==position&&p.position!==position)return false;
    return true;
- }).sort((a,b)=>b.ovr-a.ovr).slice(0,160),[roster,bench,query,position]);
+ }).sort((a,b)=>b.ovr-a.ovr),[roster,bench,query,position]);
+ const available=useMemo(()=>availablePool.slice(0,visiblePlayerCount),[availablePool,visiblePlayerCount]);
 
  const add=(p:Player)=>{
    const g=getDraftPositionGroup(p);
@@ -124,7 +171,7 @@ export const SoloMode:React.FC=()=>{
   {stage==='draft'&&<><div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5"><Stat label="Cap Remaining" value={`$${remaining.toFixed(1)}M`}/><Stat label="Roster" value={`${roster.length}/20 + ${bench.length}/2 BENCH`}/><Stat label="Team OVR" value={`${ratings.overall}`}/><Stat label="Draft Grade" value={grade.letter}/><Stat label="Ball Knower" value={`${grade.score}/100`}/></div>
    <div className="bg-[#111] border border-white/10 p-4 mb-5 grid sm:grid-cols-2 gap-4"><label className="text-xs font-black">DIFFICULTY<select value={settings.difficulty} onChange={e=>setSettings({...settings,difficulty:e.target.value as any})} className="mt-2 block w-full bg-[#181818] border border-white/10 p-3"><option value="rookie">Rookie</option><option value="pro">Pro</option><option value="all_pro">All-Pro</option><option value="all_madden">All-Madden</option></select></label><label className="text-xs font-black">INJURIES<select value={settings.injuries} onChange={e=>setSettings({...settings,injuries:e.target.value as any})} className="mt-2 block w-full bg-[#181818] border border-white/10 p-3"><option value="off">Off</option><option value="normal">Normal</option><option value="chaos">Chaos</option></select></label></div>
    <div className="flex flex-wrap gap-2 mb-4">{['ALL','QB','RB','WR','TE','OL','DL_EDGE','LB','CB','S','K','P'].map(x=><button key={x} onClick={()=>setPosition(x)} className={`px-3 py-2 text-xs font-black border ${position===x?'border-[var(--bk-team-accent)] text-[var(--bk-team-accent)]':'border-white/10 text-zinc-400'}`}>{x}</button>)}</div>
-   <div className="grid lg:grid-cols-[1.5fr_.8fr] gap-6"><div><div className="flex gap-2 mb-3"><div className="flex-1 flex items-center gap-2 bg-[#151515] border border-white/10 px-3"><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search players..." className="w-full bg-transparent py-3 outline-none"/></div><button onClick={autoDraft} className="px-4 bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] font-black">SMART AUTO-DRAFT</button></div><div className="space-y-2 max-h-[700px] overflow-y-auto">{available.map(p=><div key={p.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-3 items-center bg-[#121212] border border-white/5 p-3"><div><div className="font-black">{p.name}</div><div className="text-xs text-zinc-500">{p.team} • {p.position} • {p.salaryType==='cap_hit'?'VERIFIED CAP':'EST. CAP'}</div></div><b>{p.ovr}</b><span className="font-mono text-[var(--bk-team-accent)]">${p.salary.toFixed(2)}M</span><button onClick={()=>add(p)} className="p-2 border border-[var(--bk-team-accent)]/40 text-[var(--bk-team-accent)]"><Plus size={16}/></button></div>)}</div></div>
+   <div className="grid lg:grid-cols-[1.5fr_.8fr] gap-6"><div><div className="flex gap-2 mb-3"><div className="flex-1 flex items-center gap-2 bg-[#151515] border border-white/10 px-3"><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search players..." className="w-full bg-transparent py-3 outline-none"/></div><button onClick={autoDraft} className="px-4 bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] font-black">SMART AUTO-DRAFT</button></div><div className="space-y-2 max-h-[700px] overflow-y-auto">{available.map(p=><div key={p.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-3 items-center bg-[#121212] border border-white/5 p-3"><div><div className="font-black">{p.name}</div><div className="text-xs text-zinc-500">{p.team} • {p.position} • {p.salaryType==='cap_hit'?'VERIFIED CAP':'EST. CAP'}</div></div><b>{p.ovr}</b><span className="font-mono text-[var(--bk-team-accent)]">${p.salary.toFixed(2)}M</span><button onClick={()=>add(p)} className="p-2 border border-[var(--bk-team-accent)]/40 text-[var(--bk-team-accent)]"><Plus size={16}/></button></div>)}{available.length<availablePool.length&&<button onClick={()=>setVisiblePlayerCount(count=>count+INITIAL_PLAYER_BATCH)} className="w-full border border-white/10 bg-[#151515] py-3 text-xs font-black text-[var(--bk-team-accent)]">SHOW MORE PLAYERS ({availablePool.length-available.length} LEFT)</button>}</div></div>
    <div className="bg-[#111] border border-white/10 p-4 h-fit sticky top-24"><h3 className="text-xl font-black mb-2">YOUR 20</h3><div className="text-xs text-zinc-500 mb-3">QB {counts.QB}/1 • RB {counts.RB}/1 • WR {counts.WR}/2 • TE {counts.TE}/1 • OL {counts.OL}/4 • DL {counts.DL_EDGE}/3 • LB {counts.LB}/2 • CB {counts.CB}/2 • S {counts.S}/2 • K {counts.K}/1 • P {counts.P}/1</div><div className="space-y-1 max-h-[430px] overflow-y-auto">{roster.map(p=><div key={p.id} className="flex justify-between bg-[#181818] px-3 py-2"><span><b>{p.position}</b> {p.name}</span><button onClick={()=>setRoster(r=>r.filter(x=>x.id!==p.id))}><Trash2 size={15}/></button></div>)}</div>
            <div className="mt-4 pt-3 border-t border-white/10"><div className="text-[10px] text-[var(--bk-team-accent)] font-black tracking-wider mb-2">OPTIONAL FLEX BENCH — {bench.length}/2</div>{bench.length===0?<div className="text-xs text-zinc-600">After your 20 starters are complete, draft up to two backups under the same cap.</div>:bench.map(p=><div key={p.id} className="flex justify-between bg-[#151515] px-3 py-2 mb-1"><span><b>{p.position}</b> {p.name}</span><button onClick={()=>setBench(b=>b.filter(x=>x.id!==p.id))}><Trash2 size={15}/></button></div>)}</div><button disabled={!valid} onClick={start} className="mt-4 w-full py-4 bg-[var(--bk-team-accent)] disabled:bg-zinc-800 text-black font-black"><Play className="inline mr-2" size={17}/>START SEASON</button></div></div></>}
 
@@ -145,5 +192,5 @@ export const SoloMode:React.FC=()=>{
 const Stat=({label,value}:{label:string,value:string})=><div className="bg-[#121212] border border-white/10 p-4"><div className="text-[10px] text-zinc-500 font-black tracking-widest">{label}</div><div className="text-2xl font-black mt-1">{value}</div></div>;
 const Panel=({title,icon,children}:{title:string,icon:React.ReactNode,children:React.ReactNode})=><div className="bg-[#111] border border-white/10 p-4"><h4 className="flex items-center gap-2 font-black mb-3 text-[var(--bk-team-accent)]">{icon}{title}</h4>{children}</div>;
 const GameDay=({week,opponent,ratings,injuries,onPlay}:{week:number,opponent:string,ratings:any,injuries:InjuryEvent[],onPlay:()=>void})=><div className="bg-[#111] border border-[var(--bk-team-accent)]/30 p-6"><div className="text-xs text-[var(--bk-team-accent)] font-black tracking-[.25em]">WEEK {week} • GAMEDAY</div><div className="grid grid-cols-[1fr_auto_1fr] items-center gap-5 mt-6 text-center"><div><div className="text-3xl font-black">YOU</div><div className="text-zinc-500">{ratings.overall} OVR</div></div><div className="text-2xl font-black text-zinc-600">VS</div><div><div className="text-2xl font-black">{opponent}</div><div className="text-zinc-500">CPU</div></div></div><div className="mt-5 border-t border-white/5 pt-4 text-sm text-zinc-400"><b className="text-white">Key storyline:</b> {injuries.length?`${injuries.length} starter(s) are limited by injury.`:'Your roster enters healthy.'} Every result is driven by roster matchups, rating balance, and controlled variance.</div><button onClick={onPlay} className="mt-5 w-full py-4 bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] font-black text-lg"><Play className="inline mr-2"/>SIMULATE WEEK {week}</button></div>;
-const WeekList=({weeks}:{weeks:SoloWeek[]})=><div className="space-y-2">{[...weeks].reverse().map(w=>{const home=w.game.homeMemberId==='solo-user',you=home?w.game.homeScore:w.game.awayScore,them=home?w.game.awayScore:w.game.homeScore;return <details key={w.week} className="bg-[#121212] border border-white/10 p-4"><summary className="cursor-pointer grid grid-cols-[auto_1fr_auto] gap-4"><b className={w.won?'text-green-400':'text-red-400'}>{w.won?'W':'L'}</b><span><b>WEEK {w.week}</b> vs {w.opponent} <small className="text-zinc-500">• {w.record}</small></span><b>{you}-{them}</b></summary><div className="mt-3 text-xs text-zinc-400">{w.game.keyMatchupFactor}</div><div className="mt-3 grid sm:grid-cols-2 gap-2">{w.playerLines.slice(0,8).map(l=><div key={l.playerId} className="bg-[#181818] p-2"><b>{l.name}</b> <span className="text-zinc-500">{l.position}</span><div className="text-[11px]">{l.passYds!=null&&`${l.passYds} PASS YDS • ${l.passTD} TD`} {l.rushYds!=null&&`${l.rushYds} RUSH YDS`} {l.recYds!=null&&`${l.receptions} REC • ${l.recYds} YDS`} {l.sacks!=null&&`${l.tackles} TKL • ${l.sacks} SACK • ${l.picks} INT`} {l.fgMade!=null&&`${l.fgMade}/${l.fgAtt} FG`}</div></div>)}</div></details>})}</div>;
+const WeekList=({weeks}:{weeks:SoloWeek[]})=><div className="space-y-2">{[...weeks].reverse().map(w=>{const home=w.game.homeMemberId==='solo-user',you=home?w.game.homeScore:w.game.awayScore,them=home?w.game.awayScore:w.game.homeScore;return <details key={w.week} className="bg-[#121212] border border-white/10 p-4"><summary className="cursor-pointer grid grid-cols-[auto_1fr_auto] gap-4"><b className={w.won?'text-green-400':'text-red-400'}>{w.won?'W':'L'}</b><span><b>WEEK {w.week}</b> vs {w.opponent} <small className="text-zinc-500">• {w.record}</small></span><b>{you}-{them}</b></summary><div className="mt-3 text-xs text-zinc-400">{w.game.keyMatchupFactor}</div><div className="mt-3 grid sm:grid-cols-2 gap-2">{(Array.isArray(w.playerLines)?w.playerLines:[]).slice(0,8).map(l=><div key={l.playerId} className="bg-[#181818] p-2"><b>{l.name}</b> <span className="text-zinc-500">{l.position}</span><div className="text-[11px]">{l.passYds!=null&&`${l.passYds} PASS YDS • ${l.passTD} TD`} {l.rushYds!=null&&`${l.rushYds} RUSH YDS`} {l.recYds!=null&&`${l.receptions} REC • ${l.recYds} YDS`} {l.sacks!=null&&`${l.tackles} TKL • ${l.sacks} SACK • ${l.picks} INT`} {l.fgMade!=null&&`${l.fgMade}/${l.fgAtt} FG`}</div></div>)}</div></details>})}</div>;
 const PlayoffBracket=({results,current}:{results:PlayoffResult[],current:string|null})=><div className="grid md:grid-cols-4 gap-3">{['WILD CARD','DIVISIONAL','CONFERENCE CHAMPIONSHIP','SUPER BOWL'].map((r,i)=>{const x=results[i];return <div key={r} className={`p-4 border ${current===r?'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)]/10':'border-white/10 bg-[#111]'}`}><div className="text-[10px] text-[var(--bk-team-accent)] font-black">{r}</div>{x?<><div className="font-black mt-2">{x.won?'WIN':'LOSS'} {x.you}-{x.them}</div><div className="text-xs text-zinc-500">{x.opponent}</div></>:<div className="text-zinc-600 mt-3">TBD</div>}</div>})}</div>;
