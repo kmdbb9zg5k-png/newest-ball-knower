@@ -33,6 +33,7 @@ const FALLBACK_TRACK: MediaTrack = { id:'loading', title:'Ball Knower', subtitle
 
 export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const tracksLengthRef = useRef(0);
   const [tracks, setTracks] = useState<MediaTrack[]>([]);
   const [isMuted, setIsMuted] = useState<boolean>(() => { try { const v=localStorage.getItem(STORAGE_KEY_MUTED); return v!==null ? JSON.parse(v) : false; } catch { return false; } });
   const [volume, setVolumeState] = useState<number>(() => { try { const v=localStorage.getItem(STORAGE_KEY_VOLUME); return v!==null ? parseFloat(v) : .22; } catch { return .22; } });
@@ -43,21 +44,28 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   useEffect(() => {
     fetch('/api/media').then(r=>r.json()).then(data => {
       const loaded: MediaTrack[] = Array.isArray(data?.tracks) ? data.tracks : [];
+      tracksLengthRef.current = loaded.length;
       setTracks(loaded);
       if (loaded.length && currentTrackIndex >= loaded.length) setCurrentTrackIndex(0);
-    }).catch(()=>setTracks([]));
+    }).catch(()=>{ tracksLengthRef.current = 0; setTracks([]); });
   }, []);
 
   useEffect(() => {
+    tracksLengthRef.current = tracks.length;
+  }, [tracks.length]);
+
+  useEffect(() => {
     if (!audioRef.current) {
-      audioRef.current = new Audio();
-      audioRef.current.preload = 'auto';
-      audioRef.current.addEventListener('ended', () => {
-        setCurrentTrackIndex(i => tracks.length ? (i + 1) % tracks.length : 0);
+      const audio = new Audio();
+      audio.preload = 'auto';
+      audio.addEventListener('ended', () => {
+        const len = tracksLengthRef.current;
+        setCurrentTrackIndex(i => len ? (i + 1) % len : 0);
       });
+      audioRef.current = audio;
     }
     return () => { audioRef.current?.pause(); };
-  }, [tracks.length]);
+  }, []);
 
   useEffect(() => {
     const a = audioRef.current; if (!a) return;
@@ -97,7 +105,6 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setIsIntroActiveState(active);
     if (active) { audioRef.current?.pause(); setIsPlaying(false); }
     else {
-      // On iOS this may be blocked until the user's next tap; the gesture fallback below handles that.
       window.setTimeout(() => startIndex(currentTrackIndex), 0);
     }
   }, [startIndex,currentTrackIndex]);
