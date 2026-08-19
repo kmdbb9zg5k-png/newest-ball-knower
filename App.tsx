@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BallKnowerProvider, useBallKnower } from './BallKnowerContext';
-import { SoundtrackProvider } from './SoundtrackContext';
+import { SoundtrackProvider, useSoundtrack } from './SoundtrackContext';
 import { Navbar } from './Navbar';
 import { HomeDashboard } from './HomeDashboard';
 import { LeagueLobby } from './LeagueLobby';
@@ -19,6 +19,7 @@ import { CheckCircle2, Play, Database } from 'lucide-react';
 
 function BallKnowerApp() {
   const { activeLeague, setActiveLeagueId, toastMessage, joinLeague } = useBallKnower();
+  const { setIntroActive } = useSoundtrack();
   const [currentTab, setCurrentTab] = useState<'home' | 'solo' | 'legacy' | 'lobby' | 'draft' | 'simulation'>('home');
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isCreateLeagueOpen, setIsCreateLeagueOpen] = useState(false);
@@ -32,20 +33,20 @@ function BallKnowerApp() {
       const params = new URLSearchParams(window.location.search);
       const joinCode = params.get('join');
       const forceTeam = params.get('teamsetup') === '1';
-      if (joinCode) {
-        joinLeague(joinCode).then(res => { if (res.success && res.league) setCurrentTab('lobby'); });
-      }
+      if (joinCode) joinLeague(joinCode).then(res => { if (res.success && res.league) setCurrentTab('lobby'); });
       if (forceTeam || !localStorage.getItem('ball-knower-team-setup-v2')) setShowFavoriteTeam(true);
     } catch (e) { console.error(e); }
   }, []);
 
+  const openIntro = () => { setIntroActive(true); setIsIntroOpen(true); };
+  const closeIntro = () => { setIsIntroOpen(false); setIntroActive(false); };
   const handleSelectLeague = (league: League, tab: 'lobby' | 'draft' | 'simulation') => { setActiveLeagueId(league.id); setCurrentTab(tab); };
   const handleLeagueCreated = (league: League) => { setActiveLeagueId(league.id); setCurrentTab('lobby'); };
   const handleLeagueJoined = (league: League) => { setActiveLeagueId(league.id); setCurrentTab('lobby'); };
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white font-sans antialiased selection:bg-[#D4AF37]/30 selection:text-[#D4AF37] flex flex-col justify-between">
-      <Navbar currentTab={currentTab} setCurrentTab={setCurrentTab} onOpenAuth={() => setIsAuthOpen(true)} onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onOpenIntro={() => setIsIntroOpen(true)} onOpenDatabaseModal={() => setIsDatabaseModalOpen(true)} />
+      <Navbar currentTab={currentTab} setCurrentTab={setCurrentTab} onOpenAuth={() => setIsAuthOpen(true)} onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onOpenIntro={openIntro} onOpenDatabaseModal={() => setIsDatabaseModalOpen(true)} />
       <main className="w-full flex-1">
         {currentTab === 'home' && <HomeDashboard onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague} />}
         {currentTab === 'solo' && <SoloMode />}
@@ -55,10 +56,10 @@ function BallKnowerApp() {
         {currentTab === 'simulation' && activeLeague && <SimulationView league={activeLeague} onBackToLobby={() => setCurrentTab('lobby')} />}
       </main>
       <footer className="border-t border-white/5 bg-[#080808] px-6 sm:px-8 py-4 text-[10px] uppercase font-bold tracking-widest text-zinc-500 flex flex-col sm:flex-row items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-3"><span className="text-[#D4AF37]">PROVE YOU KNOW BALL.</span><span>© 2026 BALL KNOWER NFL CAP ENGINE</span><button onClick={() => setIsIntroOpen(true)} className="flex items-center gap-1 text-[#D4AF37] hover:text-white transition-colors cursor-pointer border-b border-[#D4AF37]/30"><Play className="h-2.5 w-2.5 fill-[#D4AF37]" /><span>Replay Intro Video</span></button><button onClick={() => setIsDatabaseModalOpen(true)} className="flex items-center gap-1 text-[#00FF00] hover:text-white transition-colors cursor-pointer border-b border-[#00FF00]/30"><Database className="h-2.5 w-2.5 text-[#00FF00]" /><span>32/32 Rosters Verified (2026 Season)</span></button></div>
+        <div className="flex flex-wrap items-center gap-3"><span className="text-[#D4AF37]">PROVE YOU KNOW BALL.</span><span>© 2026 BALL KNOWER NFL CAP ENGINE</span><button onClick={openIntro} className="flex items-center gap-1 text-[#D4AF37] hover:text-white transition-colors cursor-pointer border-b border-[#D4AF37]/30"><Play className="h-2.5 w-2.5 fill-[#D4AF37]" /><span>Replay Intro Video</span></button><button onClick={() => setIsDatabaseModalOpen(true)} className="flex items-center gap-1 text-[#00FF00] hover:text-white transition-colors cursor-pointer border-b border-[#00FF00]/30"><Database className="h-2.5 w-2.5 text-[#00FF00]" /><span>32/32 Rosters Verified (2026 Season)</span></button></div>
         <div className="flex items-center gap-4 text-zinc-600 font-mono-numbers"><span>NFL SEASON: <span className="text-[#D4AF37]">2026</span></span><span>STATUS: <span className="text-[#00FF00]">ACTIVE</span></span><span>17-GAME SOLO + LEAGUE SIM</span><span>V1.0 GAME BUILD</span></div>
       </footer>
-      <CinematicIntro isOpen={isIntroOpen} onClose={() => setIsIntroOpen(false)} />
+      <CinematicIntro isOpen={isIntroOpen} onClose={closeIntro} />
       {showFavoriteTeam && !isIntroOpen && <FavoriteTeamExperience onDone={() => setShowFavoriteTeam(false)} />}
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
       <CreateLeagueModal isOpen={isCreateLeagueOpen} onClose={() => setIsCreateLeagueOpen(false)} onLeagueCreated={handleLeagueCreated} />
