@@ -107,6 +107,65 @@ main > div::before {
   filter: blur(1px);
 }
 
+/* Page-specific environmental direction layered on top of the selected team's colors. */
+.bk-app-shell[data-tab="home"] {
+  background:
+    radial-gradient(ellipse at 50% 112%, rgb(var(--bk-team-primary-rgb) / .26), transparent 42%),
+    radial-gradient(circle at 82% 4%, rgb(var(--bk-team-secondary-rgb) / .16), transparent 30%),
+    linear-gradient(180deg, rgb(5 7 10 / .26), #07090d 62%),
+    linear-gradient(118deg, #07090d, #0b1018 48%, #07090d);
+}
+.bk-app-shell[data-tab="solo"]::before,
+.bk-app-shell[data-tab="draft"]::before {
+  background:
+    linear-gradient(90deg, transparent calc(50% - 1px), rgb(255 255 255 / .065) 50%, transparent calc(50% + 1px)),
+    repeating-linear-gradient(90deg, transparent 0 9.8%, rgb(255 255 255 / .035) 10%, transparent 10.2% 20%),
+    repeating-linear-gradient(0deg, transparent 0 54px, rgb(var(--bk-team-accent-rgb) / .055) 55px, transparent 56px 110px),
+    radial-gradient(ellipse at 50% 108%, rgb(var(--bk-team-primary-rgb) / .24), transparent 48%);
+  opacity: .76;
+  mask-image: linear-gradient(to bottom, transparent 0 12%, black 30% 84%, transparent 100%);
+}
+.bk-app-shell[data-tab="news"]::after {
+  background:
+    linear-gradient(90deg, transparent, rgb(var(--bk-team-primary-rgb) / .08), transparent),
+    repeating-linear-gradient(0deg, transparent 0 62px, rgb(255 255 255 / .025) 63px, transparent 64px 126px),
+    radial-gradient(circle at 88% 16%, rgb(var(--bk-team-accent-rgb) / .14), transparent 28%),
+    linear-gradient(180deg, transparent 0 72%, rgb(0 0 0 / .50));
+  background-size: 42% 100%, auto, auto, auto;
+}
+.bk-app-shell[data-tab="fantasy"]::before,
+.bk-app-shell[data-tab="lobby"]::before {
+  background:
+    radial-gradient(circle at 18% 28%, rgb(var(--bk-team-secondary-rgb) / .15), transparent 24%),
+    radial-gradient(circle at 80% 18%, rgb(var(--bk-team-primary-rgb) / .18), transparent 28%),
+    repeating-linear-gradient(135deg, transparent 0 58px, rgb(255 255 255 / .018) 59px, transparent 60px 118px),
+    radial-gradient(ellipse at 50% 106%, rgb(var(--bk-team-primary-rgb) / .18), transparent 46%);
+}
+.bk-app-shell[data-tab="sportsbook"]::before {
+  background:
+    linear-gradient(90deg, rgb(var(--bk-team-accent-rgb) / .05) 1px, transparent 1px),
+    linear-gradient(0deg, rgb(var(--bk-team-accent-rgb) / .04) 1px, transparent 1px),
+    radial-gradient(circle at 74% 20%, rgb(var(--bk-team-primary-rgb) / .20), transparent 30%),
+    linear-gradient(180deg, transparent, rgb(0 0 0 / .42));
+  background-size: 64px 64px, 64px 64px, auto, auto;
+  opacity: .62;
+  mask-image: linear-gradient(to bottom, black 0 82%, transparent 100%);
+}
+.bk-app-shell[data-tab="legacy"]::before {
+  background:
+    radial-gradient(circle at 50% 18%, rgb(var(--bk-team-accent-rgb) / .19), transparent 22%),
+    radial-gradient(circle at 50% 20%, transparent 0 12%, rgb(255 255 255 / .045) 12.3% 12.8%, transparent 13%),
+    linear-gradient(118deg, transparent 0 43%, rgb(var(--bk-team-secondary-rgb) / .05) 50%, transparent 57%),
+    radial-gradient(ellipse at 50% 108%, rgb(var(--bk-team-primary-rgb) / .20), transparent 48%);
+}
+.bk-app-shell[data-tab="simulation"]::after {
+  background:
+    radial-gradient(circle at 50% 12%, rgb(255 255 255 / .07), transparent 17%),
+    repeating-linear-gradient(90deg, transparent 0 12%, rgb(var(--bk-team-primary-rgb) / .035) 12.2% 12.5%, transparent 12.8% 24%),
+    linear-gradient(165deg, transparent 0 40%, rgb(var(--bk-team-accent-rgb) / .075) 50%, transparent 60%),
+    linear-gradient(180deg, transparent 0 70%, rgb(0 0 0 / .48));
+}
+
 @keyframes bk-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes bk-atmosphere-drift { from { transform: translate3d(-.6%, 0, 0) scale(1.01); } to { transform: translate3d(.6%, -.5%, 0) scale(1.025); } }
 main > div { animation: bk-rise .38s ease-out both; }

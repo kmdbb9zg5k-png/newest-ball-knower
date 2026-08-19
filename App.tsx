@@ -69,7 +69,7 @@ function BallKnowerApp() {
   const handleLeagueJoined = (league: League) => { setActiveLeagueId(league.id); setCurrentTab('lobby'); };
 
   return (
-    <div className="bk-app-shell relative min-h-[100dvh] text-white font-sans antialiased selection:bg-[var(--bk-team-accent)]/30 selection:text-[var(--bk-team-accent)] flex flex-col justify-between overflow-x-hidden">
+    <div data-tab={currentTab} className="bk-app-shell relative min-h-[100dvh] text-white font-sans antialiased selection:bg-[var(--bk-team-accent)]/30 selection:text-[var(--bk-team-accent)] flex flex-col justify-between overflow-x-hidden">
       <div className="fixed inset-0 z-[2] pointer-events-none overflow-hidden" aria-hidden="true">
         <div className="absolute -right-[22vw] top-[15vh] h-[72vw] w-[72vw] max-h-[900px] max-w-[900px] opacity-[.035] sm:opacity-[.045]" style={{filter:`drop-shadow(0 0 70px ${favoriteTheme.secondary}55)`}}>
           <img src={teamLogoUrl(favoriteTheme.abbr)} alt="" className="h-full w-full object-contain" />
