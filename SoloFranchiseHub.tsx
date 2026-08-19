@@ -1,5 +1,5 @@
 import React from 'react';
-import { BadgeDollarSign, ChevronRight, Crown, Shuffle, Sparkles, Users } from 'lucide-react';
+import { BadgeDollarSign, ChevronRight, Crown, Shuffle, Sparkles, Trophy, Users } from 'lucide-react';
 import { SOLO_FRANCHISE_SAVE_KEYS } from './soloFranchiseEngine';
 
 export type SoloExperience = 'hub' | 'cap' | 'fantasy' | 'real' | 'player';
@@ -55,19 +55,10 @@ function hasSave(key: string) {
       const profile = JSON.parse(raw);
       if (profile?.stage !== 'creator') return true;
       return Boolean(
-        profile?.name ||
-        profile?.faceImage ||
-        profile?.renderImage ||
-        profile?.appearancePrompt ||
-        profile?.position !== 'WR' ||
-        profile?.number !== 17 ||
-        profile?.heightInches !== 72 ||
-        profile?.weightLbs !== 205 ||
-        profile?.bodyBuild !== 48 ||
-        profile?.shoulderWidth !== 52 ||
-        profile?.armSize !== 46 ||
-        profile?.legSize !== 50 ||
-        profile?.viewRotation !== 0
+        profile?.name || profile?.faceImage || profile?.renderImage || profile?.appearancePrompt ||
+        profile?.position !== 'WR' || profile?.number !== 17 || profile?.heightInches !== 72 ||
+        profile?.weightLbs !== 205 || profile?.bodyBuild !== 48 || profile?.shoulderWidth !== 52 ||
+        profile?.armSize !== 46 || profile?.legSize !== 50 || profile?.viewRotation !== 0
       );
     }
     return true;
@@ -79,45 +70,68 @@ function hasSave(key: string) {
 export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => (
   <div className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
     <div className="mx-auto max-w-6xl">
-      <div className="mb-6 rounded-[2rem] border border-white/10 bg-[#0d1118]/95 p-5 sm:p-8">
-        <div className="flex items-center gap-3 text-[var(--bk-team-accent)]">
-          <Crown size={22} />
-          <span className="text-[10px] font-black tracking-[.3em]">SOLO FRANCHISE</span>
+      <section className="relative mb-6 min-h-[22rem] overflow-hidden rounded-[2rem] border border-[var(--bk-team-accent)]/45 bg-[#07090d] shadow-2xl sm:min-h-[27rem]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_45%,rgba(255,255,255,.08),transparent_20%),radial-gradient(circle_at_72%_38%,var(--bk-team-glow),transparent_28%),linear-gradient(115deg,#050608_0%,#0b0e14_48%,#050608_100%)]" />
+        <div className="absolute -left-16 top-20 h-px w-[80%] -rotate-12 bg-gradient-to-r from-transparent via-[var(--bk-team-accent)] to-transparent opacity-70 shadow-[0_0_24px_var(--bk-team-accent)]" />
+        <div className="absolute -right-24 bottom-24 h-px w-[75%] rotate-12 bg-gradient-to-r from-transparent via-[var(--bk-team-accent)] to-transparent opacity-60" />
+        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black via-black/60 to-transparent" />
+
+        <div className="relative z-10 flex min-h-[22rem] flex-col justify-between p-6 sm:min-h-[27rem] sm:p-9 md:w-[68%] md:ml-auto">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3 text-[var(--bk-team-accent)]">
+              <Crown size={22} />
+              <span className="text-[10px] font-black tracking-[.32em]">SOLO FRANCHISE</span>
+            </div>
+            <button type="button" onClick={() => onOpen('real')} className="min-h-11 rounded-full border border-[var(--bk-team-accent)]/70 bg-[var(--bk-team-accent)]/15 px-5 py-2.5 text-xs font-black tracking-wider shadow-[0_0_25px_var(--bk-team-glow)] transition active:scale-95">
+              START <ChevronRight className="ml-1 inline" size={16} />
+            </button>
+          </div>
+
+          <div className="py-8">
+            <div className="mb-4 flex items-center gap-4 md:hidden">
+              <div className="grid h-20 w-20 place-items-center rounded-full border border-white/15 bg-black/45 shadow-2xl">
+                <Trophy className="text-[var(--bk-team-accent)]" size={42} strokeWidth={1.5} />
+              </div>
+              <div className="h-px flex-1 bg-gradient-to-r from-[var(--bk-team-accent)]/70 to-transparent" />
+            </div>
+            <h2 className="text-5xl font-black leading-[.84] tracking-[-.045em] sm:text-7xl">CHOOSE<br />YOUR ROAD.</h2>
+            <p className="mt-5 max-w-xl text-sm font-semibold leading-relaxed text-zinc-300 sm:text-base">
+              Build your roster. Take over a real team. Create your legacy. Every decision leads to the Super Bowl.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {['REAL TEAMS', '17 GAMES', 'PLAYOFFS', 'SUPER BOWL'].map((label, index) => (
+              <div key={label} className="rounded-full border border-white/15 bg-black/45 px-3 py-2 text-center text-[9px] font-black tracking-wider text-zinc-100 backdrop-blur">
+                {index === 3 ? '🏆 ' : ''}{label}
+              </div>
+            ))}
+          </div>
         </div>
-        <h2 className="mt-3 text-4xl font-black leading-[.9] sm:text-6xl">CHOOSE YOUR ROAD</h2>
-        <p className="mt-3 max-w-2xl text-sm font-semibold leading-relaxed text-zinc-400 sm:text-base">
-          Build a roster, take over a real team, or create your own NFL story. Every road leads to the Super Bowl.
-        </p>
-      </div>
+
+        <div className="pointer-events-none absolute bottom-16 left-8 hidden md:block">
+          <div className="grid h-44 w-44 place-items-center rounded-full border border-white/10 bg-black/35 shadow-[0_0_80px_var(--bk-team-glow)] backdrop-blur-sm">
+            <Trophy className="text-[var(--bk-team-accent)] opacity-90" size={92} strokeWidth={1.1} />
+          </div>
+        </div>
+      </section>
 
       <div className="grid gap-3 sm:grid-cols-2">
         {MODES.map(mode => {
           const Icon = mode.icon;
           const saved = hasSave(mode.key);
           return (
-            <button
-              key={mode.id}
-              type="button"
-              onClick={() => onOpen(mode.id)}
-              className="group relative min-h-52 overflow-hidden rounded-[2rem] border border-white/10 bg-[#10151d] p-5 text-left transition active:scale-[.99] sm:min-h-60 sm:p-7"
-            >
+            <button key={mode.id} type="button" onClick={() => onOpen(mode.id)} className="group relative min-h-52 overflow-hidden rounded-[2rem] border border-white/10 bg-[#10151d] p-5 text-left transition active:scale-[.99] sm:min-h-60 sm:p-7">
               <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${mode.accent}`} />
               <div className="relative flex h-full flex-col">
                 <div className="flex items-start justify-between gap-4">
-                  <div className="grid h-12 w-12 place-items-center rounded-2xl border border-white/15 bg-black/25 text-[var(--bk-team-accent)]">
-                    <Icon size={24} />
-                  </div>
-                  <span className={`rounded-full border px-3 py-1 text-[9px] font-black tracking-widest ${saved ? 'border-green-400/30 bg-green-400/10 text-green-300' : 'border-white/10 text-zinc-400'}`}>
-                    {saved ? 'CONTINUE' : 'START'}
-                  </span>
+                  <div className="grid h-12 w-12 place-items-center rounded-2xl border border-white/15 bg-black/25 text-[var(--bk-team-accent)]"><Icon size={24} /></div>
+                  <span className={`rounded-full border px-3 py-1 text-[9px] font-black tracking-widest ${saved ? 'border-green-400/30 bg-green-400/10 text-green-300' : 'border-white/10 text-zinc-400'}`}>{saved ? 'CONTINUE' : 'START'}</span>
                 </div>
                 <div className="mt-6 text-[10px] font-black tracking-[.22em] text-[var(--bk-team-accent)]">{mode.eyebrow}</div>
                 <div className="mt-1 text-3xl font-black leading-none">{mode.title}</div>
                 <p className="mt-3 max-w-md text-sm font-semibold leading-relaxed text-zinc-400">{mode.description}</p>
-                <div className="mt-auto flex items-center justify-between pt-5 text-xs font-black">
-                  <span>{saved ? 'RESUME FRANCHISE' : 'CREATE FRANCHISE'}</span>
-                  <ChevronRight className="transition group-hover:translate-x-1" size={20} />
-                </div>
+                <div className="mt-auto flex items-center justify-between pt-5 text-xs font-black"><span>{saved ? 'RESUME FRANCHISE' : 'CREATE FRANCHISE'}</span><ChevronRight className="transition group-hover:translate-x-1" size={20} /></div>
               </div>
             </button>
           );
