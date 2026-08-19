@@ -1,13 +1,15 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-import { globalSoundtrackEngine, SOUNDTRACK_TRACKS, SoundtrackTrack } from '../utils/soundtrackEngine';
+import { globalSoundtrackEngine, SoundtrackTrack } from '../utils/soundtrackEngine';
+
+type MediaTrack = SoundtrackTrack & { url?: string };
 
 interface SoundtrackContextType {
   isPlaying: boolean;
   isMuted: boolean;
   volume: number;
-  currentTrack: SoundtrackTrack;
+  currentTrack: MediaTrack;
   currentTrackIndex: number;
-  allTracks: SoundtrackTrack[];
+  allTracks: MediaTrack[];
   toggleMute: () => void;
   setVolume: (vol: number) => void;
   nextTrack: () => void;
@@ -24,199 +26,100 @@ interface SoundtrackContextType {
 }
 
 const SoundtrackContext = createContext<SoundtrackContextType | undefined>(undefined);
-
 const STORAGE_KEY_MUTED = 'bk_soundtrack_muted';
 const STORAGE_KEY_VOLUME = 'bk_soundtrack_volume';
 const STORAGE_KEY_TRACK = 'bk_soundtrack_track_idx';
+const FALLBACK_TRACK: MediaTrack = { id:'loading', title:'Ball Knower', subtitle:'Loading soundtrack…', tempoBpm:0, mood:'Ball Knower', durationSec:0 };
 
 export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Load initial preferences from localStorage (defaults: volume = 0.22, muted = false, track = 0)
-  const [isMuted, setIsMuted] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_MUTED);
-      return saved !== null ? JSON.parse(saved) : false;
-    } catch {
-      return false;
-    }
-  });
-
-  const [volume, setVolumeState] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_VOLUME);
-      return saved !== null ? parseFloat(saved) : 0.22;
-    } catch {
-      return 0.22;
-    }
-  });
-
-  const [currentTrackIndex, setCurrentTrackIndex] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_TRACK);
-      return saved !== null ? parseInt(saved, 10) % SOUNDTRACK_TRACKS.length : 0;
-    } catch {
-      return 0;
-    }
-  });
-
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [isIntroActive, setIsIntroActive] = useState<boolean>(true); // Starts true while intro is active
-  const hasEverStartedRef = useRef<boolean>(false);
-
-  // Sync volume and mute state with engine
-  useEffect(() => {
-    globalSoundtrackEngine.setMuted(isMuted);
-    try {
-      localStorage.setItem(STORAGE_KEY_MUTED, JSON.stringify(isMuted));
-    } catch {}
-  }, [isMuted]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [tracks, setTracks] = useState<MediaTrack[]>([]);
+  const [isMuted, setIsMuted] = useState<boolean>(() => { try { const v=localStorage.getItem(STORAGE_KEY_MUTED); return v!==null ? JSON.parse(v) : false; } catch { return false; } });
+  const [volume, setVolumeState] = useState<number>(() => { try { const v=localStorage.getItem(STORAGE_KEY_VOLUME); return v!==null ? parseFloat(v) : .22; } catch { return .22; } });
+  const [currentTrackIndex, setCurrentTrackIndex] = useState<number>(() => { try { return parseInt(localStorage.getItem(STORAGE_KEY_TRACK)||'0',10)||0; } catch { return 0; } });
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isIntroActive, setIsIntroActiveState] = useState(true);
 
   useEffect(() => {
-    globalSoundtrackEngine.setVolume(volume);
-    try {
-      localStorage.setItem(STORAGE_KEY_VOLUME, volume.toString());
-    } catch {}
-  }, [volume]);
+    fetch('/api/media').then(r=>r.json()).then(data => {
+      const loaded: MediaTrack[] = Array.isArray(data?.tracks) ? data.tracks : [];
+      setTracks(loaded);
+      if (loaded.length && currentTrackIndex >= loaded.length) setCurrentTrackIndex(0);
+    }).catch(()=>setTracks([]));
+  }, []);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_TRACK, currentTrackIndex.toString());
-    } catch {}
-  }, [currentTrackIndex]);
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+      audioRef.current.preload = 'auto';
+      audioRef.current.addEventListener('ended', () => {
+        setCurrentTrackIndex(i => tracks.length ? (i + 1) % tracks.length : 0);
+      });
+    }
+    return () => { audioRef.current?.pause(); };
+  }, [tracks.length]);
 
-  const play = useCallback(() => {
-    if (isIntroActive) return; // Do not play over intro
-    globalSoundtrackEngine.startTrack(currentTrackIndex);
-    setIsPlaying(true);
-    hasEverStartedRef.current = true;
-  }, [currentTrackIndex, isIntroActive]);
+  useEffect(() => {
+    const a = audioRef.current; if (!a) return;
+    a.volume = Math.max(0,Math.min(1,volume));
+    a.muted = isMuted;
+    try { localStorage.setItem(STORAGE_KEY_MUTED, JSON.stringify(isMuted)); localStorage.setItem(STORAGE_KEY_VOLUME, String(volume)); localStorage.setItem(STORAGE_KEY_TRACK, String(currentTrackIndex)); } catch {}
+  }, [volume,isMuted,currentTrackIndex]);
 
-  const pause = useCallback(() => {
-    globalSoundtrackEngine.pause();
-    setIsPlaying(false);
-  }, []);
-
-  const toggleMute = useCallback(() => {
-    setIsMuted(prev => {
-      const next = !prev;
-      globalSoundtrackEngine.setMuted(next);
-      return next;
-    });
-  }, []);
-
-  const setVolume = useCallback((vol: number) => {
-    const clamped = Math.max(0, Math.min(1, vol));
-    setVolumeState(clamped);
-    globalSoundtrackEngine.setVolume(clamped);
-  }, []);
-
-  const selectTrack = useCallback((index: number) => {
-    const normalized = (index + SOUNDTRACK_TRACKS.length) % SOUNDTRACK_TRACKS.length;
+  const startIndex = useCallback((idx:number) => {
+    if (isIntroActive || !tracks.length) return;
+    const normalized = (idx + tracks.length) % tracks.length;
+    const track = tracks[normalized];
+    const a = audioRef.current;
+    if (!a || !track?.url) return;
     setCurrentTrackIndex(normalized);
-    if (isPlaying && !isIntroActive) {
-      globalSoundtrackEngine.startTrack(normalized);
-    }
-  }, [isPlaying, isIntroActive]);
+    if (a.src !== track.url) a.src = track.url;
+    a.volume = volume; a.muted = isMuted;
+    a.play().then(()=>setIsPlaying(true)).catch(()=>setIsPlaying(false));
+  }, [tracks,isIntroActive,volume,isMuted]);
 
-  const nextTrack = useCallback(() => {
-    const nextIdx = (currentTrackIndex + 1) % SOUNDTRACK_TRACKS.length;
-    selectTrack(nextIdx);
-  }, [currentTrackIndex, selectTrack]);
-
-  const prevTrack = useCallback(() => {
-    const prevIdx = (currentTrackIndex - 1 + SOUNDTRACK_TRACKS.length) % SOUNDTRACK_TRACKS.length;
-    selectTrack(prevIdx);
-  }, [currentTrackIndex, selectTrack]);
-
-  // Sound effect triggers
-  const playDraftPickSfx = useCallback(() => {
-    globalSoundtrackEngine.playDraftPickSound();
-  }, []);
-
-  const playRemoveSfx = useCallback(() => {
-    globalSoundtrackEngine.playRemovePlayerSound();
-  }, []);
-
-  const playLockSfx = useCallback(() => {
-    globalSoundtrackEngine.playRosterLockedSound();
-  }, []);
-
-  const playWarningSfx = useCallback(() => {
-    globalSoundtrackEngine.playWarningSound();
-  }, []);
-
-  // Control intro interaction: If intro finishes/closes, start the background soundtrack immediately!
-  const setIntroActive = useCallback((active: boolean) => {
-    setIsIntroActive(active);
-    if (active) {
-      // Pause background music while intro is playing
-      globalSoundtrackEngine.stop();
-      setIsPlaying(false);
-    } else {
-      // Intro ended or skipped -> start the main soundtrack seamlessly!
-      globalSoundtrackEngine.setVolume(volume);
-      globalSoundtrackEngine.setMuted(isMuted);
-      globalSoundtrackEngine.startTrack(currentTrackIndex);
-      setIsPlaying(true);
-      hasEverStartedRef.current = true;
-    }
-  }, [volume, isMuted, currentTrackIndex]);
-
-  // Browser Autoplay Fallback: Listen to first user gesture anywhere if audio context was locked
   useEffect(() => {
-    const handleFirstUserGesture = () => {
-      if (!isIntroActive && !isPlaying && !hasEverStartedRef.current) {
-        globalSoundtrackEngine.startTrack(currentTrackIndex);
-        setIsPlaying(true);
-        hasEverStartedRef.current = true;
-      }
-    };
+    const a = audioRef.current;
+    if (!a || isIntroActive || !tracks.length || !isPlaying) return;
+    const track = tracks[currentTrackIndex % tracks.length];
+    if (track?.url && a.src !== track.url) { a.src = track.url; a.play().catch(()=>{}); }
+  }, [currentTrackIndex, tracks, isIntroActive, isPlaying]);
 
-    window.addEventListener('click', handleFirstUserGesture, { once: true });
-    window.addEventListener('keydown', handleFirstUserGesture, { once: true });
-    window.addEventListener('touchstart', handleFirstUserGesture, { once: true });
+  const play = useCallback(() => startIndex(currentTrackIndex), [startIndex,currentTrackIndex]);
+  const pause = useCallback(() => { audioRef.current?.pause(); setIsPlaying(false); }, []);
+  const toggleMute = useCallback(() => setIsMuted(v=>!v), []);
+  const setVolume = useCallback((v:number) => setVolumeState(Math.max(0,Math.min(1,v))), []);
+  const selectTrack = useCallback((i:number) => startIndex(i), [startIndex]);
+  const nextTrack = useCallback(() => startIndex(currentTrackIndex+1), [startIndex,currentTrackIndex]);
+  const prevTrack = useCallback(() => startIndex(currentTrackIndex-1), [startIndex,currentTrackIndex]);
 
-    return () => {
-      window.removeEventListener('click', handleFirstUserGesture);
-      window.removeEventListener('keydown', handleFirstUserGesture);
-      window.removeEventListener('touchstart', handleFirstUserGesture);
-    };
-  }, [isIntroActive, isPlaying, currentTrackIndex]);
+  const setIntroActive = useCallback((active:boolean) => {
+    setIsIntroActiveState(active);
+    if (active) { audioRef.current?.pause(); setIsPlaying(false); }
+    else {
+      // On iOS this may be blocked until the user's next tap; the gesture fallback below handles that.
+      window.setTimeout(() => startIndex(currentTrackIndex), 0);
+    }
+  }, [startIndex,currentTrackIndex]);
 
-  const currentTrack = SOUNDTRACK_TRACKS[currentTrackIndex] || SOUNDTRACK_TRACKS[0];
+  useEffect(() => {
+    const resume = () => { if (!isIntroActive && !isPlaying && tracks.length) startIndex(currentTrackIndex); };
+    window.addEventListener('pointerdown', resume);
+    window.addEventListener('keydown', resume);
+    return () => { window.removeEventListener('pointerdown', resume); window.removeEventListener('keydown', resume); };
+  }, [isIntroActive,isPlaying,tracks.length,startIndex,currentTrackIndex]);
 
-  return (
-    <SoundtrackContext.Provider
-      value={{
-        isPlaying,
-        isMuted,
-        volume,
-        currentTrack,
-        currentTrackIndex,
-        allTracks: SOUNDTRACK_TRACKS,
-        toggleMute,
-        setVolume,
-        nextTrack,
-        prevTrack,
-        selectTrack,
-        play,
-        pause,
-        playDraftPickSfx,
-        playRemoveSfx,
-        playLockSfx,
-        playWarningSfx,
-        setIntroActive,
-        isIntroActive,
-      }}
-    >
-      {children}
-    </SoundtrackContext.Provider>
-  );
+  const playDraftPickSfx = useCallback(()=>globalSoundtrackEngine.playDraftPickSound(),[]);
+  const playRemoveSfx = useCallback(()=>globalSoundtrackEngine.playRemovePlayerSound(),[]);
+  const playLockSfx = useCallback(()=>globalSoundtrackEngine.playRosterLockedSound(),[]);
+  const playWarningSfx = useCallback(()=>globalSoundtrackEngine.playWarningSound(),[]);
+  const currentTrack = tracks[currentTrackIndex % Math.max(1,tracks.length)] || FALLBACK_TRACK;
+
+  return <SoundtrackContext.Provider value={{isPlaying,isMuted,volume,currentTrack,currentTrackIndex,allTracks:tracks,toggleMute,setVolume,nextTrack,prevTrack,selectTrack,play,pause,playDraftPickSfx,playRemoveSfx,playLockSfx,playWarningSfx,setIntroActive,isIntroActive}}>{children}</SoundtrackContext.Provider>;
 };
 
 export const useSoundtrack = () => {
   const context = useContext(SoundtrackContext);
-  if (!context) {
-    throw new Error('useSoundtrack must be used within a SoundtrackProvider');
-  }
+  if (!context) throw new Error('useSoundtrack must be used within a SoundtrackProvider');
   return context;
 };
