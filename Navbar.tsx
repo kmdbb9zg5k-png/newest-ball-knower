@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useBallKnower } from '../context/BallKnowerContext';
 import { Trophy, Shield, User, LogOut, ChevronDown, Sparkles, Plus, Users, Award, Play, Newspaper, DollarSign, Loader2 } from 'lucide-react';
 import { SoundtrackControl } from './SoundtrackControl';
-import { ensureOnlineSession, signOutOnline, supabase } from '../lib/supabase';
+import { isCloudConfigured, signOutOnline, supabase } from '../lib/supabase';
 
 type AppTab = 'home' | 'solo' | 'news' | 'fantasy' | 'sportsbook' | 'legacy' | 'lobby' | 'draft' | 'simulation';
 
@@ -50,29 +50,30 @@ export const Navbar: React.FC<NavbarProps> = ({
     if (!supabase) return;
     let alive = true;
 
-    const syncProfile = async (providedUser?: any) => {
-      try {
-        const authUser = providedUser || await ensureOnlineSession();
-        if (!alive || !authUser) return;
-        const metadata = authUser.user_metadata || {};
-        const isGuest = Boolean(authUser.is_anonymous);
-        const name = metadata.full_name || metadata.name || (isGuest ? 'Guest GM' : authUser.email?.split('@')[0]) || 'Ball Knower GM';
-        const avatarUrl = metadata.avatar_url || metadata.picture || undefined;
-        setCurrentUser({
-          id: authUser.id,
-          name,
-          email: authUser.email || '',
-          avatarUrl,
-          createdAt: authUser.created_at || new Date().toISOString(),
-        });
-      } catch {
-        // The context bootstrap surfaces cloud-auth failures globally.
-      }
+    const syncProfile = (authUser: any) => {
+      if (!alive || !authUser) return;
+      const metadata = authUser.user_metadata || {};
+      const isGuest = Boolean(authUser.is_anonymous);
+      const name = metadata.full_name || metadata.name || (isGuest ? 'Guest GM' : authUser.email?.split('@')[0]) || 'Ball Knower GM';
+      const avatarUrl = metadata.avatar_url || metadata.picture || undefined;
+      setCurrentUser({
+        id: authUser.id,
+        name,
+        email: authUser.email || '',
+        avatarUrl,
+        createdAt: authUser.created_at || new Date().toISOString(),
+      });
     };
 
-    void syncProfile();
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) void syncProfile(session.user);
+      if (!alive) return;
+      if (session?.user) {
+        syncProfile(session.user);
+        return;
+      }
+      setCurrentUser(null);
+      setActiveLeagueId(null);
+      setIsUserMenuOpen(false);
     });
 
     return () => {
@@ -91,8 +92,14 @@ export const Navbar: React.FC<NavbarProps> = ({
       setIsUserMenuOpen(false);
       localStorage.removeItem('ballknower_user_v1');
       localStorage.removeItem('ballknower_active_league_id_v1');
-      showToast('Signed out. Starting a fresh guest session...');
-      window.setTimeout(() => window.location.reload(), 100);
+
+      if (isCloudConfigured) {
+        showToast('Signed out. Starting a fresh guest session...');
+        window.setTimeout(() => window.location.reload(), 100);
+      } else {
+        showToast('Signed out successfully');
+        setIsSigningOut(false);
+      }
     } catch (err: any) {
       showToast(err?.message || 'Could not sign out.');
       setIsSigningOut(false);
