@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Crown, Trophy, Medal, Wifi, WifiOff } from 'lucide-react';
-import { fetchLeaderboard } from '../services/leaderboardCloud';
-import { isCloudConfigured } from '../lib/supabase';
-import { defaultCareer, CareerProfile } from '../utils/soloSeasonEngine';
+import { fetchLeaderboard } from './leaderboardCloud';
+import { isCloudConfigured } from './supabase';
+import { defaultCareer, CareerProfile } from './soloSeasonEngine';
 
 const CAREER_KEY='ballknower_solo_career_v1';
 

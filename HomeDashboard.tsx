@@ -1,5 +1,5 @@
 import React from 'react';
-import { useBallKnower } from '../context/BallKnowerContext';
+import { useBallKnower } from './BallKnowerContext';
 import {
   Shield,
   Trophy,
@@ -14,7 +14,7 @@ import {
   TrendingUp,
   DollarSign,
 } from 'lucide-react';
-import { League } from '../types';
+import { League } from './types';
 
 interface HomeDashboardProps {
   onOpenCreateLeague: () => void;
@@ -30,19 +30,19 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   const { leagues, currentUser, startDemoMode } = useBallKnower();
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] pb-16 bg-[#0A0A0A] text-white">
+    <div className="min-h-[calc(100dvh-4rem)] pb-16 bg-transparent text-white">
       {/* Hero Section */}
-      <section className="relative overflow-hidden border-b border-white/5 bg-[#121212] py-14 sm:py-20">
+      <section className="relative overflow-hidden border-b border-white/5 bg-gradient-to-b from-white/[.035] to-transparent py-14 sm:py-20">
         <div className="relative mx-auto max-w-5xl px-4 sm:px-8 text-center">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 rounded-sm border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-4 py-1 text-[11px] font-black uppercase tracking-widest text-[#D4AF37] mb-6">
+          <div className="inline-flex items-center gap-2 rounded-sm border border-[var(--bk-team-accent)]/30 bg-[var(--bk-team-accent)]/10 px-4 py-1 text-[11px] font-black uppercase tracking-widest text-[var(--bk-team-accent)] mb-6">
             <Trophy className="h-3.5 w-3.5" />
             <span>FANTASY DRAFT ORDER CAP SIMULATOR</span>
           </div>
 
           {/* Headline */}
           <h1 className="font-display text-5xl font-black tracking-tighter text-white sm:text-7xl lg:text-8xl uppercase">
-            PROVE YOU <span className="text-[#D4AF37]">KNOW BALL.</span>
+            PROVE YOU <span className="text-[var(--bk-team-accent)]">KNOW BALL.</span>
           </h1>
 
           {/* Subheadline */}
@@ -55,7 +55,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             <button
               id="hero-create-league-btn"
               onClick={onOpenCreateLeague}
-              className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 rounded-sm bg-[#D4AF37] px-6 py-4 text-xs font-black uppercase tracking-widest text-black shadow-lg shadow-[#D4AF37]/20 hover:bg-amber-300 transition-colors cursor-pointer"
+              className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 rounded-sm bk-accent-button bg-[var(--bk-team-accent)] px-6 py-4 text-xs font-black uppercase tracking-widest text-black shadow-lg shadow-[var(--bk-team-accent)]/20 hover:bg-amber-300 transition-colors cursor-pointer"
             >
               <Shield className="h-4 w-4 fill-black" />
               <span>CREATE LEAGUE</span>
@@ -66,7 +66,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               onClick={onOpenJoinLeague}
               className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 rounded-sm border border-white/10 bg-[#1A1A1A] px-6 py-4 text-xs font-black uppercase tracking-widest text-white hover:bg-zinc-800 hover:border-white/20 transition-colors cursor-pointer"
             >
-              <Users className="h-4 w-4 text-[#D4AF37]" />
+              <Users className="h-4 w-4 text-[var(--bk-team-accent)]" />
               <span>JOIN LEAGUE</span>
             </button>
           </div>
@@ -76,9 +76,9 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             <button
               id="hero-try-demo-btn"
               onClick={startDemoMode}
-              className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-wider text-zinc-500 hover:text-[#D4AF37] px-3 py-1.5 rounded-sm transition-colors"
+              className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-wider text-zinc-500 hover:text-[var(--bk-team-accent)] px-3 py-1.5 rounded-sm transition-colors"
             >
-              <Sparkles className="h-3.5 w-3.5 text-[#D4AF37]" />
+              <Sparkles className="h-3.5 w-3.5 text-[var(--bk-team-accent)]" />
               <span>TRY DEMO — Test drive without sign up</span>
               <ArrowRight className="h-3 w-3" />
             </button>
@@ -98,7 +98,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         <div className="flex items-center justify-between mb-6 pb-3 border-b border-white/5">
           <div>
             <h2 className="font-display text-2xl font-black uppercase tracking-tight text-white flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-[#D4AF37]" />
+              <Trophy className="h-5 w-5 text-[var(--bk-team-accent)]" />
               <span>YOUR LEAGUES</span>
             </h2>
             <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold mt-0.5">
@@ -131,7 +131,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             </p>
             <button
               onClick={onOpenCreateLeague}
-              className="inline-flex items-center gap-2 rounded-sm bg-[#D4AF37] px-5 py-2.5 text-xs font-black uppercase tracking-wider text-black hover:bg-amber-300 transition-colors"
+              className="inline-flex items-center gap-2 rounded-sm bk-accent-button bg-[var(--bk-team-accent)] px-5 py-2.5 text-xs font-black uppercase tracking-wider text-black hover:bg-amber-300 transition-colors"
             >
               Create Your First League
             </button>
@@ -151,14 +151,14 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 <div
                   key={league.id}
                   id={`league-card-${league.id}`}
-                  className="group relative flex flex-col justify-between rounded-lg border border-white/5 bg-[#121212] p-5 hover:border-[#D4AF37]/50 transition-all shadow-md"
+                  className="group relative flex flex-col justify-between rounded-lg border border-white/5 bg-[#121212] p-5 hover:border-[var(--bk-team-accent)]/50 transition-all shadow-md"
                 >
                   <div>
                     {/* Top Row */}
                     <div className="flex items-start justify-between gap-2 mb-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs font-black text-[#D4AF37] bg-zinc-800 px-2 py-0.5 rounded-sm">
+                          <span className="font-mono text-xs font-black text-[var(--bk-team-accent)] bg-zinc-800 px-2 py-0.5 rounded-sm">
                             {league.code}
                           </span>
                           {league.commissionerId === currentUser?.id && (
@@ -167,7 +167,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                             </span>
                           )}
                         </div>
-                        <h3 className="font-display text-xl font-black uppercase tracking-tight text-white mt-2 group-hover:text-[#D4AF37] transition-colors">
+                        <h3 className="font-display text-xl font-black uppercase tracking-tight text-white mt-2 group-hover:text-[var(--bk-team-accent)] transition-colors">
                           {league.name}
                         </h3>
                       </div>
@@ -179,7 +179,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                           <span>Complete</span>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-1 rounded-sm bg-[#D4AF37]/10 border border-[#D4AF37]/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#D4AF37]">
+                        <div className="flex items-center gap-1 rounded-sm bg-[var(--bk-team-accent)]/10 border border-[var(--bk-team-accent)]/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[var(--bk-team-accent)]">
                           <Clock className="h-3 w-3" />
                           <span>Drafting</span>
                         </div>
@@ -196,7 +196,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                       </div>
                       <div>
                         <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Submitted</p>
-                        <p className="text-sm font-black text-[#D4AF37] mt-0.5 font-mono">
+                        <p className="text-sm font-black text-[var(--bk-team-accent)] mt-0.5 font-mono">
                           {submittedCount}/{league.members.length}
                         </p>
                       </div>
@@ -210,17 +210,17 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
                     {/* Final Pick result if completed */}
                     {isCompleted && userDraftPick && (
-                      <div className="rounded-sm bg-[#1A1A1A] border border-[#D4AF37]/40 p-3 mb-3 flex items-center justify-between">
+                      <div className="rounded-sm bg-[#1A1A1A] border border-[var(--bk-team-accent)]/40 p-3 mb-3 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Award className="h-5 w-5 text-[#D4AF37]" />
+                          <Award className="h-5 w-5 text-[var(--bk-team-accent)]" />
                           <div>
-                            <p className="text-[9px] text-[#D4AF37] font-black uppercase tracking-wider">Your Final Result</p>
+                            <p className="text-[9px] text-[var(--bk-team-accent)] font-black uppercase tracking-wider">Your Final Result</p>
                             <p className="text-sm font-black text-white uppercase tracking-tight">
                               FANTASY PICK #{userDraftPick}
                             </p>
                           </div>
                         </div>
-                        <span className="text-xs font-black text-[#D4AF37] uppercase">
+                        <span className="text-xs font-black text-[var(--bk-team-accent)] uppercase">
                           {userDraftPick === 1 ? '👑 1st Pick' : `#${userDraftPick} Pick`}
                         </span>
                       </div>
@@ -232,7 +232,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                     {isCompleted ? (
                       <button
                         onClick={() => onSelectLeague(league, 'simulation')}
-                        className="w-full flex items-center justify-center gap-2 rounded-sm bg-[#D4AF37] py-2.5 text-xs font-black uppercase tracking-widest text-black hover:bg-amber-300 transition-all"
+                        className="w-full flex items-center justify-center gap-2 rounded-sm bk-accent-button bg-[var(--bk-team-accent)] py-2.5 text-xs font-black uppercase tracking-widest text-black hover:bg-amber-300 transition-all"
                       >
                         <Award className="h-3.5 w-3.5" />
                         <span>View Final Draft Order</span>
@@ -248,7 +248,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                         </button>
                         <button
                           onClick={() => onSelectLeague(league, 'draft')}
-                          className="flex-1 flex items-center justify-center gap-1 rounded-sm bg-white text-black hover:bg-[#D4AF37] py-2 text-xs font-black uppercase tracking-wider transition-colors"
+                          className="flex-1 flex items-center justify-center gap-1 rounded-sm bg-white text-black hover:bk-accent-button bg-[var(--bk-team-accent)] py-2 text-xs font-black uppercase tracking-wider transition-colors"
                         >
                           <Shield className="h-3 w-3" />
                           <span>{isReady ? 'Edit Roster' : 'Build Team'}</span>
@@ -272,7 +272,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
 
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="rounded-lg border border-white/5 bg-[#121212] p-5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-zinc-800 text-[#D4AF37] font-black font-mono text-sm mb-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-zinc-800 text-[var(--bk-team-accent)] font-black font-mono text-sm mb-3">
               01
             </div>
             <h3 className="font-display text-base font-black uppercase tracking-tight text-white mb-1.5">
@@ -284,7 +284,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           </div>
 
           <div className="rounded-lg border border-white/5 bg-[#121212] p-5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-zinc-800 text-[#D4AF37] font-black font-mono text-sm mb-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-zinc-800 text-[var(--bk-team-accent)] font-black font-mono text-sm mb-3">
               02
             </div>
             <h3 className="font-display text-base font-black uppercase tracking-tight text-white mb-1.5">
@@ -296,7 +296,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           </div>
 
           <div className="rounded-lg border border-white/5 bg-[#121212] p-5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-zinc-800 text-[#D4AF37] font-black font-mono text-sm mb-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-zinc-800 text-[var(--bk-team-accent)] font-black font-mono text-sm mb-3">
               03
             </div>
             <h3 className="font-display text-base font-black uppercase tracking-tight text-white mb-1.5">

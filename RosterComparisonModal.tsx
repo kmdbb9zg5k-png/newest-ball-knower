@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LeagueMember, Player } from '../types';
+import { LeagueMember, Player } from './types';
 import { X, Shield, Award, Users, CheckCircle2, ChevronDown, ChevronRight, DollarSign } from 'lucide-react';
 
 interface RosterComparisonModalProps {

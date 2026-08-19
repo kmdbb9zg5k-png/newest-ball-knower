@@ -1,8 +1,8 @@
-import { Player, LeagueMember, SimulationGame, TeamRatings, DEFAULT_SALARY_CAP } from '../types';
+import { Player, LeagueMember, SimulationGame, TeamRatings, DEFAULT_SALARY_CAP } from './types';
 import { calculateTeamRatings } from './evaluation';
 import { simulateGame } from './simulation';
 import { chooseSmartPick, GmPersonality, gradeDraft } from './smartDraft';
-import { PLAYERS_DATABASE } from '../data/players';
+import { PLAYERS_DATABASE } from './players';
 
 export type SoloDifficulty='rookie'|'pro'|'all_pro'|'all_madden';
 export type InjurySetting='off'|'normal'|'chaos';

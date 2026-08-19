@@ -1,5 +1,5 @@
-import { ensureOnlineSession, isCloudConfigured, supabase } from '../lib/supabase';
-import { CareerProfile } from '../utils/soloSeasonEngine';
+import { ensureOnlineSession, isCloudConfigured, supabase } from './supabase';
+import { CareerProfile } from './soloSeasonEngine';
 
 export async function publishCareer(displayName:string, c:CareerProfile){
  if(!isCloudConfigured||!supabase)return;

@@ -1,5 +1,5 @@
-import { League, LeagueMember, Player, TeamRatings, SeasonResult } from '../types';
-import { ensureOnlineSession, isCloudConfigured, supabase } from '../lib/supabase';
+import { League, LeagueMember, Player, TeamRatings, SeasonResult } from './types';
+import { ensureOnlineSession, isCloudConfigured, supabase } from './supabase';
 
 type UserLike = { id:string; name:string; avatarUrl?:string };
 

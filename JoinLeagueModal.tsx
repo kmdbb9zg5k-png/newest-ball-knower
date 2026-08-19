@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useBallKnower } from '../context/BallKnowerContext';
+import { useBallKnower } from './BallKnowerContext';
 import { X, Users, ArrowRight, Shield } from 'lucide-react';
-import { League } from '../types';
+import { League } from './types';
 
 interface JoinLeagueModalProps {
   isOpen: boolean;

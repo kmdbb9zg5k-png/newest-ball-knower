@@ -1,7 +1,7 @@
 import React from 'react';
-import { Player } from '../types';
+import { Player } from './types';
 import { X, Shield, Plus, Trash2, CheckCircle2, TrendingUp, Zap, Award, AlertTriangle } from 'lucide-react';
-import { getTeamData } from '../data/players';
+import { getTeamData } from './players';
 
 interface PlayerDetailModalProps {
   player: Player | null;

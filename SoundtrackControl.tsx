@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useSoundtrack } from '../context/SoundtrackContext';
+import { useSoundtrack } from './SoundtrackContext';
 import { Volume2, VolumeX, Volume1, Play, Pause, SkipForward, SkipBack, Music, Disc3 } from 'lucide-react';
 
 export const SoundtrackControl: React.FC = () => {

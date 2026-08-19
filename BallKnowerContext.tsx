@@ -7,18 +7,18 @@ import {
   ROSTER_REQUIREMENTS,
   DEFAULT_SALARY_CAP,
   TOTAL_ROSTER_SIZE,
-} from '../types';
-import { calculateTeamRatings } from '../utils/evaluation';
-import { simulateFullSeason } from '../utils/simulation';
-import { generateAiLeagueMembers, AI_ARCHETYPES, buildRosterForArchetype } from '../utils/aiOpponents';
-import { PLAYERS_DATABASE } from '../data/players';
-import { countRosterGroups, getDraftPositionGroup, minimumCompletionCost, validateRosterShape } from '../utils/rosterRules';
-import { isCloudConfigured, ensureOnlineSession } from '../lib/supabase';
+} from './types';
+import { calculateTeamRatings } from './evaluation';
+import { simulateFullSeason } from './simulation';
+import { generateAiLeagueMembers, AI_ARCHETYPES, buildRosterForArchetype } from './aiOpponents';
+import { PLAYERS_DATABASE } from './players';
+import { countRosterGroups, getDraftPositionGroup, minimumCompletionCost, validateRosterShape } from './rosterRules';
+import { isCloudConfigured, ensureOnlineSession } from './supabase';
 import {
   createCloudLeague, joinCloudLeague, loadMyCloudLeagues, fetchCloudLeague,
   saveMyCloudRoster, updateCloudLeague, upsertAiCloudMembers, deleteCloudMember,
   subscribeToCloudLeague
-} from '../services/leagueCloud';
+} from './leagueCloud';
 
 interface BallKnowerContextType {
   currentUser: UserProfile | null;
@@ -71,7 +71,7 @@ interface BallKnowerContextType {
   startSimulation: (leagueId: string) => void;
   resetLeagueSimulation: (leagueId: string) => void;
   updateSalaryCap: (leagueId: string, newCap: number) => void;
-  updateLeagueSettings: (leagueId: string, settings: import('../types').LeagueSettings) => void;
+  updateLeagueSettings: (leagueId: string, settings: import('./types').LeagueSettings) => void;
   
   // Demo Mode
   isDemoMode: boolean;
@@ -606,7 +606,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
 
-  const updateLeagueSettings = (leagueId: string, settings: import('../types').LeagueSettings) => {
+  const updateLeagueSettings = (leagueId: string, settings: import('./types').LeagueSettings) => {
     setLeagues(prev => prev.map(l => l.id === leagueId ? { ...l, settings: { ...(l.settings || {}), ...settings } } : l));
     if (isCloudConfigured) {
       const league = leagues.find(l => l.id === leagueId);

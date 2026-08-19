@@ -1,4 +1,4 @@
-import { Player, RosterMigrationReport, RosterMismatch, Position } from '../types';
+import { Player, RosterMigrationReport, RosterMismatch, Position } from './types';
 import { NFLTeamInfo, NFL_TEAMS } from './players';
 
 /**

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-import { globalSoundtrackEngine, SoundtrackTrack } from '../utils/soundtrackEngine';
+import { globalSoundtrackEngine, SoundtrackTrack } from './soundtrackEngine';
 
 type MediaTrack = SoundtrackTrack & { url?: string };
 

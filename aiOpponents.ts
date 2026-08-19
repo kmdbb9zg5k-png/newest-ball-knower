@@ -1,5 +1,5 @@
-import { Player, LeagueMember } from '../types';
-import { PLAYERS_DATABASE } from '../data/players';
+import { Player, LeagueMember } from './types';
+import { PLAYERS_DATABASE } from './players';
 import { calculateTeamRatings } from './evaluation';
 
 interface AiArchetype {
