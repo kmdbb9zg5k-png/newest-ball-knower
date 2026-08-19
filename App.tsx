@@ -11,7 +11,7 @@ import { CreateLeagueModal } from './CreateLeagueModal';
 import { JoinLeagueModal } from './JoinLeagueModal';
 import { CinematicIntro } from './CinematicIntro';
 import { DatabaseVerificationModal } from './DatabaseVerificationModal';
-import { SoloMode } from './SoloMode';
+import { SoloHub } from './SoloHub';
 import { HallOfFame } from './HallOfFame';
 import { FavoriteTeamExperience } from './FavoriteTeamExperience';
 import { NewsHub } from './NewsHub';
@@ -88,7 +88,7 @@ function BallKnowerApp() {
       <Navbar currentTab={currentTab} setCurrentTab={setCurrentTab} onOpenAuth={() => setIsAuthOpen(true)} onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onOpenIntro={openIntro} onOpenDatabaseModal={() => setIsDatabaseModalOpen(true)} />
       <main className="relative z-[3] w-full flex-1 pb-[env(safe-area-inset-bottom)]">
         {currentTab === 'home' && <HomeDashboard onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague} />}
-        {currentTab === 'solo' && <SoloMode />}
+        {currentTab === 'solo' && <SoloHub />}
         {currentTab === 'news' && <NewsHub />}
         {currentTab === 'fantasy' && <FantasyHub onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague} />}
         {currentTab === 'sportsbook' && <SportsbookHub />}
