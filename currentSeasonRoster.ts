@@ -1,5 +1,6 @@
 import { Player } from './types';
 import { SPECIAL_TEAMS_2026 } from './specialTeams2026';
+import { getMadden27RosterEntry, normalizeMaddenRosterName } from './madden27CurrentRoster';
 
 /**
  * 2026 runtime roster corrections.
@@ -167,36 +168,37 @@ export function applyCurrent2026Roster(rawPlayers: Player[]): Player[] {
     Object.entries(CURRENT_2026_QB_STARTERS).map(([team, name]) => [name, team])
   );
 
-  const corrected: Player[] = rawPlayers.filter(player => !INACTIVE_PLAYERS.has(player.name)).map((player): Player => {
-    const nextTeam = TEAM_OVERRIDES[player.name] || player.team;
-    const officialOvr = MADDEN_27_PLAYER_OVERRIDES[player.name]
-      ?? (player.position === 'QB' ? MADDEN_27_QB_OVERRIDES[player.name] : undefined);
-    const expectedStarterTeam = player.position === 'QB' ? expectedStarterByName.get(player.name) : undefined;
-
-    return {
-      ...player,
-      team: nextTeam,
-      teamId: nextTeam,
-      starter: player.position === 'QB' ? expectedStarterTeam === nextTeam : player.starter,
-      projectedStarter: player.position === 'QB' ? expectedStarterTeam === nextTeam : player.projectedStarter,
-      ...(officialOvr ? {
-        ovr: officialOvr,
-        overallRating: officialOvr,
-        overall: officialOvr,
-        ratingSource: 'EA SPORTS Madden',
-        ratingSeason: 2026,
-        ratingStatus: 'VERIFIED' as const,
-      } : {}),
-    };
-  });
-
-  const existingNames = new Set(corrected.map(p => p.name.toLowerCase()));
+  const candidates = [...rawPlayers];
+  const existingNames = new Set(candidates.map(p => normalizeMaddenRosterName(p.name)));
   for (const player of MISSING_2026_PLAYERS) {
-    if (!existingNames.has(player.name.toLowerCase())) corrected.push(player);
+    if (!existingNames.has(normalizeMaddenRosterName(player.name))) candidates.push(player);
   }
 
   const specialistNames = new Set(SPECIAL_TEAMS_2026.map(p => p.name.toLowerCase()));
-  const updated = corrected.filter(p => !((p.position === 'K' || p.position === 'P') && specialistNames.has(p.name.toLowerCase())));
-  updated.push(...SPECIAL_TEAMS_2026);
-  return updated;
+  const withSpecialists = candidates.filter(p => !((p.position === 'K' || p.position === 'P') && specialistNames.has(p.name.toLowerCase())));
+  withSpecialists.push(...SPECIAL_TEAMS_2026);
+
+  return withSpecialists.flatMap((player): Player[] => {
+    const official = getMadden27RosterEntry(player);
+    if (!official) return [];
+    const expectedStarterTeam = official.position === 'QB' ? expectedStarterByName.get(player.name) : undefined;
+    return [{
+      ...player,
+      team: official.team,
+      teamId: official.team,
+      position: official.position,
+      ovr: official.overallRating,
+      overallRating: official.overallRating,
+      overall: official.overallRating,
+      active: true,
+      isFreeAgent: false,
+      starter: official.position === 'QB' ? expectedStarterTeam === official.team : player.starter,
+      projectedStarter: official.position === 'QB' ? expectedStarterTeam === official.team : player.projectedStarter,
+      ratingSource: 'EA SPORTS Madden',
+      ratingSeason: 2026,
+      ratingStatus: 'VERIFIED' as const,
+      rosterSeason: 2026,
+      rosterLastUpdated: '2026-08-19',
+    }];
+  });
 }
