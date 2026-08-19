@@ -57,7 +57,7 @@ export const SoloMode:React.FC=()=>{
    if(query&&!`${p.name} ${p.team} ${p.position}`.toLowerCase().includes(query.toLowerCase()))return false;
    if(position!=='ALL'&&getDraftPositionGroup(p)!==position&&p.position!==position)return false;
    return true;
- }).sort((a,b)=>b.ovr-a.ovr).slice(0,160),[roster,query,position]);
+ }).sort((a,b)=>b.ovr-a.ovr).slice(0,160),[roster,bench,query,position]);
 
  const add=(p:Player)=>{
    const g=getDraftPositionGroup(p);
