@@ -239,6 +239,8 @@ main > div { animation: bk-rise .38s ease-out both; }
   .bk-app-shell { min-height: 100dvh; }
   .bk-app-shell::before { opacity: .68; }
   .bk-app-shell::after { opacity: .54; animation: none; }
+  .bk-app-shell[data-tab]::before { opacity: .68; }
+  .bk-app-shell[data-tab]::after { opacity: .54; animation: none; }
   .bk-glass { backdrop-filter: blur(10px) saturate(106%); }
   main :is(.bg-\[\#111\], .bg-\[\#121212\], .bg-\[\#151515\], .bg-\[\#1A1A1A\]) { backdrop-filter: blur(9px) saturate(105%); }
   main button { min-height: 46px; }
