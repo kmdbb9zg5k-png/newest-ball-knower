@@ -2,10 +2,26 @@ import { calculateTeamRatings } from './evaluation';
 import { PLAYERS_DATABASE } from './players';
 import { getDraftPositionGroup, validateRosterShape } from './rosterRules';
 import { TEAM_THEMES, TeamTheme } from './teamTheme';
-import { LeagueMember, Player, ROSTER_REQUIREMENTS, TeamRatings } from './types';
+import { LeagueMember, Player, ROSTER_REQUIREMENTS, RosterRequirements, TeamRatings } from './types';
 import { SoloDifficulty } from './soloSeasonEngine';
 
-export const FANTASY_DRAFT_ROUNDS = 20;
+export const FANTASY_ROSTER_REQUIREMENTS: RosterRequirements = {
+  QB: 3,
+  RB: 4,
+  WR: 6,
+  TE: 3,
+  OL: 10,
+  DL_EDGE: 9,
+  LB: 6,
+  CB: 6,
+  S: 4,
+  K: 1,
+  P: 1,
+};
+export const FANTASY_DRAFT_ROUNDS = Object.values(FANTASY_ROSTER_REQUIREMENTS)
+  .reduce((total, required) => total + required, 0);
+const LEGACY_FANTASY_DRAFT_ROUNDS = Object.values(ROSTER_REQUIREMENTS)
+  .reduce((total, required) => total + required, 0);
 export const SOLO_FRANCHISE_SAVE_KEYS = {
   cap: 'ballknower_solo_run_v1',
   fantasy: 'ballknower_solo_fantasy_v1',
@@ -15,8 +31,9 @@ export const SOLO_FRANCHISE_SAVE_KEYS = {
 
 const PLAYER_BY_ID = new Map(PLAYERS_DATABASE.map(player => [player.id, player]));
 const TEAM_BY_ABBR = new Map(TEAM_THEMES.map(team => [team.abbr, team]));
-const REQUIRED_GROUPS = Object.entries(ROSTER_REQUIREMENTS) as Array<[keyof typeof ROSTER_REQUIREMENTS, number]>;
-const PLAYERS_BY_GROUP = new Map(REQUIRED_GROUPS.map(([group]) => [
+const STANDARD_REQUIRED_GROUPS = Object.entries(ROSTER_REQUIREMENTS) as Array<[keyof RosterRequirements, number]>;
+const FANTASY_REQUIRED_GROUPS = Object.entries(FANTASY_ROSTER_REQUIREMENTS) as Array<[keyof RosterRequirements, number]>;
+const PLAYERS_BY_GROUP = new Map(FANTASY_REQUIRED_GROUPS.map(([group]) => [
   group,
   PLAYERS_DATABASE
     .filter(player => getDraftPositionGroup(player) === group)
@@ -68,7 +85,7 @@ export function buildRealTeamRoster(teamAbbr: string): Player[] {
   const selected: Player[] = [];
   const selectedIds = new Set<string>();
 
-  for (const [group, required] of REQUIRED_GROUPS) {
+  for (const [group, required] of STANDARD_REQUIRED_GROUPS) {
     const candidates = teamPlayers
       .filter(player => getDraftPositionGroup(player) === group)
       .sort((first, second) => second.ovr - first.ovr || first.name.localeCompare(second.name));
@@ -142,24 +159,28 @@ export function fantasyRosterPlayers(state: FantasyDraftState, teamAbbr: string)
   return (state.rosters[teamAbbr] ?? []).map(id => PLAYER_BY_ID.get(id)).filter((player): player is Player => Boolean(player));
 }
 
-export function isFantasyPickLegal(state: FantasyDraftState, teamAbbr: string, player: Player) {
-  if (state.draftedIds.includes(player.id)) return false;
-  const group = getDraftPositionGroup(player) as keyof typeof ROSTER_REQUIREMENTS;
-  const required = ROSTER_REQUIREMENTS[group];
+function isFantasyPickLegalForRoster(player: Player, drafted: Set<string>, counts: Record<string, number>) {
+  if (drafted.has(player.id)) return false;
+  const group = getDraftPositionGroup(player) as keyof RosterRequirements;
+  const required = FANTASY_ROSTER_REQUIREMENTS[group];
   if (!required) return false;
-  const counts = rosterCounts(fantasyRosterPlayers(state, teamAbbr));
   return (counts[group] ?? 0) < required;
 }
 
-function chooseCpuFantasyPick(state: FantasyDraftState, teamAbbr: string) {
+export function isFantasyPickLegal(state: FantasyDraftState, teamAbbr: string, player: Player) {
+  const drafted = new Set(state.draftedIds);
+  const counts = rosterCounts(fantasyRosterPlayers(state, teamAbbr));
+  return isFantasyPickLegalForRoster(player, drafted, counts);
+}
+
+function chooseCpuFantasyPick(state: FantasyDraftState, teamAbbr: string, drafted: Set<string>) {
   const roster = fantasyRosterPlayers(state, teamAbbr);
   const counts = rosterCounts(roster);
-  const drafted = new Set(state.draftedIds);
   const teamIndex = TEAM_THEMES.findIndex(team => team.abbr === teamAbbr);
   let best: Player | null = null;
   let bestScore = -Infinity;
 
-  for (const [group, required] of REQUIRED_GROUPS) {
+  for (const [group, required] of FANTASY_REQUIRED_GROUPS) {
     const current = counts[group] ?? 0;
     if (current >= required) continue;
     const player = PLAYERS_BY_GROUP.get(group)?.find(candidate => !drafted.has(candidate.id));
@@ -196,13 +217,15 @@ function appendPick(state: FantasyDraftState, teamAbbr: string, player: Player):
 
 export function advanceFantasyCpuPicks(source: FantasyDraftState): FantasyDraftState {
   let state = source;
+  const drafted = new Set(state.draftedIds);
   const totalPicks = state.teamOrder.length * FANTASY_DRAFT_ROUNDS;
   while (state.pickIndex < totalPicks) {
     const teamAbbr = fantasyDraftTeamAt(state);
     if (!teamAbbr || teamAbbr === state.userTeamAbbr) break;
-    const player = chooseCpuFantasyPick(state, teamAbbr);
+    const player = chooseCpuFantasyPick(state, teamAbbr, drafted);
     if (!player) break;
     state = appendPick(state, teamAbbr, player);
+    drafted.add(player.id);
   }
   return state;
 }
@@ -234,7 +257,9 @@ export function fantasyDraftComplete(state: FantasyDraftState) {
 }
 
 export function fantasyAvailablePlayers(state: FantasyDraftState) {
-  return PLAYERS_DATABASE.filter(player => isFantasyPickLegal(state, state.userTeamAbbr, player))
+  const drafted = new Set(state.draftedIds);
+  const counts = rosterCounts(fantasyRosterPlayers(state, state.userTeamAbbr));
+  return PLAYERS_DATABASE.filter(player => isFantasyPickLegalForRoster(player, drafted, counts))
     .sort((first, second) => second.ovr - first.ovr || first.name.localeCompare(second.name));
 }
 
@@ -251,9 +276,12 @@ export function isValidFantasyDraftState(value: unknown, requireComplete = false
   const state = value as FantasyDraftState;
   const validTeams = new Set(TEAM_THEMES.map(team => team.abbr));
   const totalPicks = TEAM_THEMES.length * FANTASY_DRAFT_ROUNDS;
+  const legacyTotalPicks = TEAM_THEMES.length * LEGACY_FANTASY_DRAFT_ROUNDS;
   if (state.version !== 1 || !validTeams.has(state.userTeamAbbr)) return false;
   if (!Array.isArray(state.teamOrder) || state.teamOrder.length !== TEAM_THEMES.length || new Set(state.teamOrder).size !== TEAM_THEMES.length || state.teamOrder.some(team => !validTeams.has(team))) return false;
-  if (!Number.isInteger(state.pickIndex) || state.pickIndex < 0 || state.pickIndex > totalPicks || (requireComplete && state.pickIndex !== totalPicks)) return false;
+  const isCompleteDraft = state.pickIndex === totalPicks;
+  const isLegacyStartedSeason = requireComplete && state.pickIndex === legacyTotalPicks;
+  if (!Number.isInteger(state.pickIndex) || state.pickIndex < 0 || state.pickIndex > totalPicks || (requireComplete && !isCompleteDraft && !isLegacyStartedSeason)) return false;
   if (!Array.isArray(state.draftedIds) || !Array.isArray(state.picks) || state.draftedIds.length !== state.pickIndex || state.picks.length !== state.pickIndex) return false;
   if (new Set(state.draftedIds).size !== state.draftedIds.length || state.draftedIds.some(id => !PLAYER_BY_ID.has(id))) return false;
   if (!state.rosters || typeof state.rosters !== 'object') return false;
@@ -271,8 +299,12 @@ export function isValidFantasyDraftState(value: unknown, requireComplete = false
     if (!Array.isArray(ids) || ids.some(id => !PLAYER_BY_ID.has(id)) || ids.join('|') !== expectedRosters[team.abbr].join('|')) return false;
     const players = ids.map(id => PLAYER_BY_ID.get(id) as Player);
     const counts = rosterCounts(players);
-    if (REQUIRED_GROUPS.some(([group, required]) => (counts[group] ?? 0) > required)) return false;
-    if (state.pickIndex === totalPicks && (players.length !== FANTASY_DRAFT_ROUNDS || validateRosterShape(players).length)) return false;
+    if (FANTASY_REQUIRED_GROUPS.some(([group, required]) => (counts[group] ?? 0) > required)) return false;
+    if (isCompleteDraft && (
+      players.length !== FANTASY_DRAFT_ROUNDS
+      || FANTASY_REQUIRED_GROUPS.some(([group, required]) => (counts[group] ?? 0) !== required)
+    )) return false;
+    if (isLegacyStartedSeason && (players.length !== LEGACY_FANTASY_DRAFT_ROUNDS || validateRosterShape(players).length)) return false;
   }
   return true;
 }
