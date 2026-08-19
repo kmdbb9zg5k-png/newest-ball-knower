@@ -44,7 +44,7 @@ const kickoffIso = (date: any, time: any) => {
 
 export default async function handler(_req: any, res: any) {
   try {
-    const signal = AbortSignal.timeout(8000);
+    const signal = AbortSignal.timeout(20000);
     const upstream = await fetch('https://api.nfldata.org/v1/games?season=2026&limit=1000', {
       headers: { Accept: 'application/json', 'User-Agent': 'BallKnower/1.0' },
       signal,
