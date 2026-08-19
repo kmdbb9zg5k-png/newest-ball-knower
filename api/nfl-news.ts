@@ -13,9 +13,10 @@ const tag = (xml: string, name: string) => {
 
 export default async function handler(_req: any, res: any) {
   try {
+    const signal = AbortSignal.timeout(8000);
     const upstream = await fetch(
       'https://news.google.com/rss/search?q=NFL%20when%3A1d&hl=en-US&gl=US&ceid=US%3Aen',
-      { headers: { 'User-Agent': 'BallKnower/1.0 (+https://vercel.app)' } },
+      { headers: { 'User-Agent': 'BallKnower/1.0 (+https://vercel.app)' }, signal },
     );
     if (!upstream.ok) throw new Error(`NFL news upstream ${upstream.status}`);
 
