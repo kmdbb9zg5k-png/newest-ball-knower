@@ -7,7 +7,7 @@ import {
   createFranchiseManagement,
   franchiseRoster,
   FranchiseManagementState,
-  isValidFranchiseManagement,
+  restoreFranchiseManagement,
 } from './franchiseManagementEngine';
 import { buildRealTeamRoster, SOLO_FRANCHISE_SAVE_KEYS } from './soloFranchiseEngine';
 import { SoloTeamPicker } from './SoloTeamPicker';
@@ -22,7 +22,10 @@ function restoreSave(): RealSave | null {
     if (!raw) return null;
     const saved = JSON.parse(raw);
     if (typeof saved?.teamAbbr !== 'string' || !TEAM_THEMES.some(team => team.abbr === saved.teamAbbr)) return null;
-    if (saved.version === 2 && isValidFranchiseManagement(saved.management, saved.teamAbbr)) return saved as RealSave;
+    if (saved.version === 2) {
+      const management = restoreFranchiseManagement(saved.management, saved.teamAbbr);
+      if (management) return { version: 2, teamAbbr: saved.teamAbbr, management };
+    }
     if (saved.version === 1) {
       const management = createFranchiseManagement(saved.teamAbbr);
       return { version: 2, teamAbbr: saved.teamAbbr, management };
