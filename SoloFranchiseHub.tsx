@@ -22,7 +22,7 @@ const MODES = [
     id: 'fantasy' as const,
     eyebrow: 'MADDEN-STYLE',
     title: 'FANTASY DRAFT',
-    description: 'Pick an NFL team and enter a 32-team, 20-round snake draft with intelligent CPU GMs.',
+    description: 'Pick an NFL team and build a full 53-man roster in a 32-team snake draft with intelligent CPU GMs.',
     icon: Shuffle,
     key: SOLO_FRANCHISE_SAVE_KEYS.fantasy,
     accent: 'from-sky-400/25 to-transparent',
