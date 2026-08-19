@@ -1,5 +1,10 @@
 import { list } from '@vercel/blob';
 
+const HIDDEN_TRACK_TITLES = new Set([
+  'After Party',
+  'On The South',
+]);
+
 function cleanTitle(pathname: string) {
   return pathname
     .split('/').pop()!
@@ -19,9 +24,12 @@ export default async function handler(_req: any, res: any) {
     const audio = blobs.filter(b => /\.(mp3|m4a|wav|aac|ogg)$/i.test(b.pathname));
 
     // Deduplicate by cleaned title. Prefer a remastered upload when both exist.
+    // Some tracks can stay safely archived in Blob while being hidden from the app playlist.
     const byTitle = new Map<string, any>();
     for (const blob of audio) {
       const title = cleanTitle(blob.pathname);
+      if (HIDDEN_TRACK_TITLES.has(title)) continue;
+
       const prev = byTitle.get(title);
       const isRemaster = /remaster/i.test(blob.pathname);
       const prevIsRemaster = prev ? /remaster/i.test(prev.pathname) : false;
