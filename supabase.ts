@@ -11,18 +11,29 @@ export const supabase: SupabaseClient | null = isCloudConfigured
     })
   : null;
 
+let pendingAnonymousSession: Promise<User> | null = null;
+
 export async function ensureOnlineSession(): Promise<User> {
   if (!supabase) throw new Error('Online multiplayer is not configured yet.');
   const { data } = await supabase.auth.getSession();
   if (data.session?.user) return data.session.user;
+  if (pendingAnonymousSession) return pendingAnonymousSession;
 
-  // Every browser gets one real Supabase identity. Anonymous users still use the
-  // authenticated role, so league ownership can safely key off this UUID.
-  const { data: signed, error } = await supabase.auth.signInAnonymously();
-  if (error || !signed.user) {
-    throw new Error(error?.message || 'Could not create online session.');
+  // Share one in-flight anonymous signup so concurrent callers cannot create
+  // competing guest UUIDs and drift league ownership from the visible profile.
+  pendingAnonymousSession = (async () => {
+    const { data: signed, error } = await supabase.auth.signInAnonymously();
+    if (error || !signed.user) {
+      throw new Error(error?.message || 'Could not create online session.');
+    }
+    return signed.user;
+  })();
+
+  try {
+    return await pendingAnonymousSession;
+  } finally {
+    pendingAnonymousSession = null;
   }
-  return signed.user;
 }
 
 export async function attachEmailToAnonymousUser(email: string, displayName?: string): Promise<User> {
