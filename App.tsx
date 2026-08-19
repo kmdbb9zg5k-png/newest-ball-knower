@@ -15,6 +15,7 @@ import { SoloMode } from './SoloMode';
 import { HallOfFame } from './HallOfFame';
 import { FavoriteTeamExperience } from './FavoriteTeamExperience';
 import { League } from './types';
+import { applyTeamCssVariables, getSavedTeamTheme } from './teamTheme';
 import { CheckCircle2, Play, Database } from 'lucide-react';
 
 function BallKnowerApp() {
@@ -26,20 +27,33 @@ function BallKnowerApp() {
   const [isJoinLeagueOpen, setIsJoinLeagueOpen] = useState(false);
   const [isDatabaseModalOpen, setIsDatabaseModalOpen] = useState(false);
   const [isIntroOpen, setIsIntroOpen] = useState(true);
-  const [showFavoriteTeam, setShowFavoriteTeam] = useState(false);
+  const [showFavoriteTeam, setShowFavoriteTeam] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('teamsetup') === '1' || !localStorage.getItem('ball-knower-team-setup-v2');
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
     try {
+      applyTeamCssVariables(getSavedTeamTheme());
       const params = new URLSearchParams(window.location.search);
       const joinCode = params.get('join');
-      const forceTeam = params.get('teamsetup') === '1';
       if (joinCode) joinLeague(joinCode).then(res => { if (res.success && res.league) setCurrentTab('lobby'); });
-      if (forceTeam || !localStorage.getItem('ball-knower-team-setup-v2')) setShowFavoriteTeam(true);
     } catch (e) { console.error(e); }
   }, []);
 
   const openIntro = () => { setIntroActive(true); setIsIntroOpen(true); };
-  const closeIntro = () => { setIsIntroOpen(false); setIntroActive(false); };
+  const closeIntro = () => {
+    setIsIntroOpen(false);
+    if (!showFavoriteTeam) setIntroActive(false);
+  };
+  const finishFavoriteTeamSetup = () => {
+    setShowFavoriteTeam(false);
+    setIntroActive(false);
+  };
   const handleSelectLeague = (league: League, tab: 'lobby' | 'draft' | 'simulation') => { setActiveLeagueId(league.id); setCurrentTab(tab); };
   const handleLeagueCreated = (league: League) => { setActiveLeagueId(league.id); setCurrentTab('lobby'); };
   const handleLeagueJoined = (league: League) => { setActiveLeagueId(league.id); setCurrentTab('lobby'); };
@@ -60,7 +74,7 @@ function BallKnowerApp() {
         <div className="flex items-center gap-4 text-zinc-600 font-mono-numbers"><span>NFL SEASON: <span className="text-[#D4AF37]">2026</span></span><span>STATUS: <span className="text-[#00FF00]">ACTIVE</span></span><span>17-GAME SOLO + LEAGUE SIM</span><span>V1.0 GAME BUILD</span></div>
       </footer>
       <CinematicIntro isOpen={isIntroOpen} onClose={closeIntro} />
-      {showFavoriteTeam && !isIntroOpen && <FavoriteTeamExperience onDone={() => setShowFavoriteTeam(false)} />}
+      {showFavoriteTeam && !isIntroOpen && <FavoriteTeamExperience onDone={finishFavoriteTeamSetup} />}
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
       <CreateLeagueModal isOpen={isCreateLeagueOpen} onClose={() => setIsCreateLeagueOpen(false)} onLeagueCreated={handleLeagueCreated} />
       <JoinLeagueModal isOpen={isJoinLeagueOpen} onClose={() => setIsJoinLeagueOpen(false)} onLeagueJoined={handleLeagueJoined} />
