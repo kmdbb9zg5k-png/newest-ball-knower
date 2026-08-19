@@ -37,17 +37,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       const authUser = await ensureOnlineSession();
 
       if (authUser.is_anonymous) {
-        const upgraded = await attachEmailToAnonymousUser(email, name);
-        setCurrentUser({
-          id: upgraded.id,
-          name: (upgraded.user_metadata?.full_name as string | undefined) || name,
-          email: upgraded.email || email,
-          avatarUrl: currentUser?.avatarUrl,
-          createdAt: upgraded.created_at || currentUser?.createdAt || new Date().toISOString(),
-        });
-        const message = 'Verification email sent. Your guest identity stays the same, so your leagues and roster ownership are preserved.';
-        setStatusMessage(message);
-        showToast('Verification email sent — your Ball Knower identity is preserved.');
+        try {
+          const upgraded = await attachEmailToAnonymousUser(email, name);
+          setCurrentUser({
+            id: upgraded.id,
+            name: (upgraded.user_metadata?.full_name as string | undefined) || name,
+            email: upgraded.email || email,
+            avatarUrl: currentUser?.avatarUrl,
+            createdAt: upgraded.created_at || currentUser?.createdAt || new Date().toISOString(),
+          });
+          const message = 'Verification email sent. Your guest identity stays the same, so your leagues and roster ownership are preserved.';
+          setStatusMessage(message);
+          showToast('Verification email sent — your Ball Knower identity is preserved.');
+        } catch (upgradeError: any) {
+          const raw = upgradeError?.message || '';
+          if (!/already|registered|exists|taken|duplicate/i.test(raw)) throw upgradeError;
+
+          await sendEmailMagicLink(email, name);
+          const message = 'That email already has a Ball Knower account. A magic sign-in link was sent for that existing account. Guest-owned leagues are not transferred automatically.';
+          setStatusMessage(message);
+          showToast('Existing account found — magic sign-in link sent.');
+        }
       } else {
         await sendEmailMagicLink(email, name);
         const message = 'Magic sign-in link sent. Open the email on this device to finish signing in.';
@@ -55,11 +65,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         showToast('Magic sign-in link sent.');
       }
     } catch (err: any) {
-      const raw = err?.message || 'Could not start email authentication.';
-      const friendly = /already|registered|exists/i.test(raw)
-        ? 'That email may already belong to a Ball Knower account. Sign out first, then use the email option again to send a magic sign-in link.'
-        : raw;
-      setErrorMessage(friendly);
+      setErrorMessage(err?.message || 'Could not start email authentication.');
     } finally {
       setIsSubmitting(false);
     }
@@ -137,7 +143,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <div className="mb-1 flex items-center gap-2 font-black uppercase tracking-wider text-zinc-300">
                 <LockKeyhole className="h-3.5 w-3.5 text-[#D4AF37]" /> Guest access stays active
               </div>
-              You can play as a guest. Adding an email upgrades that same Supabase identity so existing league ownership is not replaced.
+              You can play as a guest. Adding a new email upgrades that same Supabase identity so existing league ownership is not replaced. If the email already belongs to an account, you can sign back into that account with a magic link.
             </div>
           </div>
         ) : (
