@@ -1,29 +1,101 @@
+const TEAM_NAMES: Record<string, string> = {
+  ARI: 'Arizona Cardinals', ATL: 'Atlanta Falcons', BAL: 'Baltimore Ravens', BUF: 'Buffalo Bills',
+  CAR: 'Carolina Panthers', CHI: 'Chicago Bears', CIN: 'Cincinnati Bengals', CLE: 'Cleveland Browns',
+  DAL: 'Dallas Cowboys', DEN: 'Denver Broncos', DET: 'Detroit Lions', GB: 'Green Bay Packers',
+  HOU: 'Houston Texans', IND: 'Indianapolis Colts', JAX: 'Jacksonville Jaguars', KC: 'Kansas City Chiefs',
+  LA: 'Los Angeles Rams', LAC: 'Los Angeles Chargers', LV: 'Las Vegas Raiders', MIA: 'Miami Dolphins',
+  MIN: 'Minnesota Vikings', NE: 'New England Patriots', NO: 'New Orleans Saints', NYG: 'New York Giants',
+  NYJ: 'New York Jets', PHI: 'Philadelphia Eagles', PIT: 'Pittsburgh Steelers', SEA: 'Seattle Seahawks',
+  SF: 'San Francisco 49ers', TB: 'Tampa Bay Buccaneers', TEN: 'Tennessee Titans', WAS: 'Washington Commanders',
+};
+
+const numberOrNull = (value: any) => {
+  if (value == null || (typeof value === 'string' && value.trim() === '')) return null;
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const easternOffsetForDate = (date: string) => {
+  const parsed = new Date(`${date}T12:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return '-05:00';
+  const year = parsed.getUTCFullYear();
+  const month = parsed.getUTCMonth() + 1;
+  if (month < 3 || month > 11) return '-05:00';
+  if (month > 3 && month < 11) return '-04:00';
+
+  const nthSunday = (monthIndex: number, nth: number) => {
+    const first = new Date(Date.UTC(year, monthIndex, 1));
+    const firstSunday = 1 + ((7 - first.getUTCDay()) % 7);
+    return firstSunday + (nth - 1) * 7;
+  };
+
+  const day = parsed.getUTCDate();
+  if (month === 3) return day >= nthSunday(2, 2) ? '-04:00' : '-05:00';
+  return day < nthSunday(10, 1) ? '-04:00' : '-05:00';
+};
+
+const kickoffIso = (date: any, time: any) => {
+  if (!date) return null;
+  if (!time) return date;
+  const cleanTime = String(time).trim();
+  if (/Z$|[+-]\d{2}:?\d{2}$/.test(cleanTime)) return `${date}T${cleanTime}`;
+  return `${date}T${cleanTime}${easternOffsetForDate(String(date))}`;
+};
+
 export default async function handler(_req: any, res: any) {
   try {
-    const upstream = await fetch('https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?limit=50', {
-      headers: { 'User-Agent': 'BallKnower/1.0' },
+    const signal = AbortSignal.timeout(20000);
+    const upstream = await fetch('https://api.nfldata.org/v1/games?season=2026&limit=1000', {
+      headers: { Accept: 'application/json', 'User-Agent': 'BallKnower/1.0' },
+      signal,
     });
-    if (!upstream.ok) throw new Error(`NFL scoreboard upstream ${upstream.status}`);
-    const data: any = await upstream.json();
-    const games = (Array.isArray(data?.events) ? data.events : []).map((event: any, i: number) => {
-      const comp = event?.competitions?.[0] || {};
-      const competitors = Array.isArray(comp?.competitors) ? comp.competitors : [];
-      const home = competitors.find((c: any) => c?.homeAway === 'home') || competitors[0] || {};
-      const away = competitors.find((c: any) => c?.homeAway === 'away') || competitors[1] || {};
-      const odds = Array.isArray(comp?.odds) ? comp.odds[0] : null;
+    if (!upstream.ok) throw new Error(`NFL games upstream ${upstream.status}`);
+
+    const payload: any = await upstream.json();
+    const rows = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
+    const now = Date.now();
+    const relevant = rows
+      .filter((g: any) => {
+        const date = g?.gameday || g?.game_date || g?.date || '';
+        const when = Date.parse(kickoffIso(date, g?.gametime || g?.game_time) || date);
+        return !Number.isFinite(when) || when >= now - 7 * 24 * 60 * 60 * 1000;
+      })
+      .sort((a: any, b: any) => {
+        const aDate = a?.gameday || a?.game_date || a?.date || '';
+        const bDate = b?.gameday || b?.game_date || b?.date || '';
+        return Date.parse(kickoffIso(aDate, a?.gametime || a?.game_time) || aDate)
+          - Date.parse(kickoffIso(bDate, b?.gametime || b?.game_time) || bDate);
+      })
+      .slice(0, 50);
+
+    const games = relevant.map((g: any, i: number) => {
+      const awayAbbr = String(g?.away_team || g?.away || '').toUpperCase() || null;
+      const homeAbbr = String(g?.home_team || g?.home || '').toUpperCase() || null;
+      const date = g?.gameday || g?.game_date || g?.date || null;
+      const time = g?.gametime || g?.game_time || null;
+      const awayScore = numberOrNull(g?.away_score);
+      const homeScore = numberOrNull(g?.home_score);
+      const finished = awayScore !== null && homeScore !== null;
+      const spread = numberOrNull(g?.spread_line ?? g?.spread);
+
       return {
-        id: String(event?.id || i),
-        date: event?.date || comp?.date || null,
-        status: event?.status?.type?.shortDetail || event?.status?.type?.description || 'Scheduled',
-        away: away?.team?.displayName || away?.team?.shortDisplayName || 'Away',
-        home: home?.team?.displayName || home?.team?.shortDisplayName || 'Home',
-        awayAbbr: away?.team?.abbreviation || null,
-        homeAbbr: home?.team?.abbreviation || null,
-        details: odds?.details || null,
-        spread: typeof odds?.spread === 'number' ? odds.spread : null,
-        overUnder: typeof odds?.overUnder === 'number' ? odds.overUnder : null,
+        id: String(g?.game_id || g?.id || i),
+        date: kickoffIso(date, time),
+        status: finished ? 'Final' : 'Scheduled',
+        away: awayAbbr ? (TEAM_NAMES[awayAbbr] || awayAbbr) : 'Away',
+        home: homeAbbr ? (TEAM_NAMES[homeAbbr] || homeAbbr) : 'Home',
+        awayAbbr,
+        homeAbbr,
+        details: spread !== null
+          ? `${spread > 0 ? homeAbbr : awayAbbr} ${Math.abs(spread)}`
+          : null,
+        spread,
+        overUnder: numberOrNull(g?.total_line ?? g?.over_under ?? g?.total),
       };
     });
+
+    if (!games.length) throw new Error('NFL games upstream returned no games');
+
     res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=600');
     res.status(200).json({ games });
   } catch (error: any) {
