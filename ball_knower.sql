@@ -148,3 +148,60 @@ create policy "bk leaderboard self insert" on public.ball_knower_leaderboard for
 drop policy if exists "bk leaderboard self update" on public.ball_knower_leaderboard;
 create policy "bk leaderboard self update" on public.ball_knower_leaderboard for update to authenticated using (auth_user_id=auth.uid()) with check (auth_user_id=auth.uid());
 grant select,insert,update on public.ball_knower_leaderboard to authenticated;
+
+-- My Player AI image generation quota. The API validates the Supabase bearer
+-- token, then this auth.uid()-bound function atomically consumes one daily use.
+-- Uploaded faces and generated images are never stored in this table.
+create table if not exists public.ball_knower_ai_image_usage (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  usage_day date not null,
+  request_count smallint not null default 0 check (request_count >= 0 and request_count <= 10),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, usage_day)
+);
+
+alter table public.ball_knower_ai_image_usage enable row level security;
+revoke all on table public.ball_knower_ai_image_usage from anon, authenticated;
+
+drop policy if exists "No direct AI quota access" on public.ball_knower_ai_image_usage;
+create policy "No direct AI quota access"
+on public.ball_knower_ai_image_usage
+as restrictive
+for all
+to authenticated
+using (false)
+with check (false);
+
+create or replace function public.consume_my_player_ai_quota(p_limit integer default 4)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_user_id uuid := (select auth.uid());
+  v_count smallint;
+  v_limit integer := greatest(1, least(coalesce(p_limit, 4), 10));
+begin
+  if v_user_id is null then
+    return false;
+  end if;
+
+  insert into public.ball_knower_ai_image_usage (user_id, usage_day, request_count, updated_at)
+  values (v_user_id, (now() at time zone 'utc')::date, 1, now())
+  on conflict (user_id, usage_day) do update
+    set request_count = public.ball_knower_ai_image_usage.request_count + 1,
+        updated_at = now()
+    where public.ball_knower_ai_image_usage.request_count < v_limit
+  returning request_count into v_count;
+
+  return v_count is not null;
+end;
+$$;
+
+revoke all on function public.consume_my_player_ai_quota(integer) from public, anon;
+grant execute on function public.consume_my_player_ai_quota(integer) to authenticated;
+grant execute on function public.consume_my_player_ai_quota(integer) to service_role;
+
+comment on table public.ball_knower_ai_image_usage is
+  'Daily per-user quota counters for My Player AI renders; contains no uploaded or generated images.';
