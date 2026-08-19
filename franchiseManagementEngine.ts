@@ -1,8 +1,8 @@
 import { PLAYERS_DATABASE } from './players';
-import { getDraftPositionGroup } from './rosterRules';
+import { countRosterGroups, getDraftPositionGroup } from './rosterRules';
 import { buildRealTeamRoster } from './soloFranchiseEngine';
 import { TEAM_THEMES } from './teamTheme';
-import { DEFAULT_SALARY_CAP, Player } from './types';
+import { DEFAULT_SALARY_CAP, Player, ROSTER_REQUIREMENTS } from './types';
 
 export type FranchiseTransaction = {
   id: string;
@@ -23,6 +23,7 @@ const PLAYER_BY_ID = new Map(PLAYERS_DATABASE.map(player => [player.id, player])
 
 export const FRANCHISE_MAX_ROSTER = 24;
 export const FRANCHISE_MIN_ROSTER = 20;
+const CAP_EPSILON = 0.001;
 
 export function playerById(id: string) {
   return PLAYER_BY_ID.get(id) ?? null;
@@ -30,6 +31,23 @@ export function playerById(id: string) {
 
 export function playersFromIds(ids: string[]) {
   return ids.map(playerById).filter((player): player is Player => Boolean(player));
+}
+
+function uniqueKnownIds(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  const ids = value.filter((id): id is string => typeof id === 'string' && PLAYER_BY_ID.has(id));
+  if (ids.length !== value.length || new Set(ids).size !== ids.length) return null;
+  return ids;
+}
+
+function capUsedByIds(ids: string[]) {
+  return playersFromIds(ids).reduce((total, player) => total + Math.max(0, Number(player.salary) || 0), 0);
+}
+
+function hasRequiredPositions(ids: string[]) {
+  const counts = countRosterGroups(playersFromIds(ids));
+  return (Object.entries(ROSTER_REQUIREMENTS) as Array<[keyof typeof ROSTER_REQUIREMENTS, number]>)
+    .every(([group, required]) => counts[group] >= required);
 }
 
 export function createFranchiseManagement(teamAbbr: string): FranchiseManagementState {
@@ -50,13 +68,35 @@ export function isValidFranchiseManagement(value: unknown, expectedTeam?: string
   const state = value as FranchiseManagementState;
   if (state.version !== 1 || !TEAM_THEMES.some(team => team.abbr === state.teamAbbr)) return false;
   if (expectedTeam && state.teamAbbr !== expectedTeam) return false;
-  if (!Array.isArray(state.rosterIds) || state.rosterIds.some(id => !PLAYER_BY_ID.has(id)) || new Set(state.rosterIds).size !== state.rosterIds.length) return false;
+  if (!uniqueKnownIds(state.rosterIds)) return false;
   if (!state.cpuRosters || typeof state.cpuRosters !== 'object') return false;
   for (const team of TEAM_THEMES) {
-    const ids = state.cpuRosters[team.abbr];
-    if (!Array.isArray(ids) || ids.some(id => !PLAYER_BY_ID.has(id)) || new Set(ids).size !== ids.length) return false;
+    if (!uniqueKnownIds(state.cpuRosters[team.abbr])) return false;
   }
   return Array.isArray(state.transactions);
+}
+
+/**
+ * Restore a saved franchise without throwing away the user's depth order or transaction log
+ * when a routine 2026 roster refresh changes a player ID on a CPU-controlled team.
+ * The user's own roster remains strict; only affected CPU rosters are rebuilt from current data.
+ */
+export function restoreFranchiseManagement(value: unknown, expectedTeam?: string): FranchiseManagementState | null {
+  if (!value || typeof value !== 'object') return null;
+  const state = value as FranchiseManagementState;
+  if (state.version !== 1 || !TEAM_THEMES.some(team => team.abbr === state.teamAbbr)) return null;
+  if (expectedTeam && state.teamAbbr !== expectedTeam) return null;
+  const rosterIds = uniqueKnownIds(state.rosterIds);
+  if (!rosterIds || !Array.isArray(state.transactions)) return null;
+
+  const current = createFranchiseManagement(state.teamAbbr);
+  const savedCpu = state.cpuRosters && typeof state.cpuRosters === 'object' ? state.cpuRosters : {};
+  const cpuRosters = Object.fromEntries(TEAM_THEMES.map(team => {
+    const savedIds = uniqueKnownIds(savedCpu[team.abbr]);
+    return [team.abbr, savedIds ?? current.cpuRosters[team.abbr]];
+  })) as Record<string, string[]>;
+
+  return { ...state, rosterIds, cpuRosters, transactions: state.transactions };
 }
 
 export function franchiseRoster(state: FranchiseManagementState) {
@@ -64,7 +104,7 @@ export function franchiseRoster(state: FranchiseManagementState) {
 }
 
 export function franchiseCapUsed(state: FranchiseManagementState) {
-  return franchiseRoster(state).reduce((total, player) => total + Math.max(0, Number(player.salary) || 0), 0);
+  return capUsedByIds(state.rosterIds);
 }
 
 export function franchiseCapLeft(state: FranchiseManagementState) {
@@ -109,18 +149,35 @@ export function signFreeAgent(state: FranchiseManagementState, playerId: string)
 export function releasePlayer(state: FranchiseManagementState, playerId: string) {
   const player = PLAYER_BY_ID.get(playerId);
   if (!player || !state.rosterIds.includes(playerId)) return { state, ok: false, message: 'Player is not on your roster.' };
-  if (state.rosterIds.length <= FRANCHISE_MIN_ROSTER) return { state, ok: false, message: `Keep at least ${FRANCHISE_MIN_ROSTER} players. Sign a replacement before releasing someone.` };
-  const next = addTransaction({ ...state, rosterIds: state.rosterIds.filter(id => id !== playerId) }, 'RELEASE', `Released ${player.name} (${player.position}, ${player.ovr} OVR).`);
-  return { state: next, ok: true, message: `${player.name} released.` };
+
+  const nextRosterIds = state.rosterIds.filter(id => id !== playerId);
+  const overCap = franchiseCapUsed(state) > DEFAULT_SALARY_CAP + CAP_EPSILON;
+  const emergencyCapRelease = overCap && state.rosterIds.length <= FRANCHISE_MIN_ROSTER;
+
+  if (!emergencyCapRelease && nextRosterIds.length < FRANCHISE_MIN_ROSTER) {
+    return { state, ok: false, message: `Keep at least ${FRANCHISE_MIN_ROSTER} players. Sign a replacement before releasing someone.` };
+  }
+  if (!emergencyCapRelease && !hasRequiredPositions(nextRosterIds)) {
+    return { state, ok: false, message: `${player.name} is your last required ${getDraftPositionGroup(player) ?? player.position}. Add a replacement before releasing him.` };
+  }
+
+  const next = addTransaction({ ...state, rosterIds: nextRosterIds }, 'RELEASE', `Released ${player.name} (${player.position}, ${player.ovr} OVR).`);
+  return {
+    state: next,
+    ok: true,
+    message: emergencyCapRelease
+      ? `${player.name} released to clear cap space. Sign a legal replacement before playing.`
+      : `${player.name} released.`,
+  };
 }
 
 export function depthGroups(state: FranchiseManagementState) {
   const groups = new Map<string, Player[]>();
   for (const player of franchiseRoster(state)) {
     const group = getDraftPositionGroup(player);
-    const list = groups.get(group) ?? [];
+    const list = groups.get(group ?? player.position) ?? [];
     list.push(player);
-    groups.set(group, list);
+    groups.set(group ?? player.position, list);
   }
   return [...groups.entries()].map(([group, players]) => ({ group, players }));
 }
@@ -166,12 +223,33 @@ export function proposeTrade(state: FranchiseManagementState, outgoingId: string
     return { state, decision: 'rejected' as TradeDecision, message: 'That trade package is no longer valid.' };
   }
 
+  const nextRosterIds = state.rosterIds.map(id => id === outgoingId ? incomingId : id);
+  const nextTargetRoster = targetRoster.map(id => id === incomingId ? outgoingId : id);
+  if (!hasRequiredPositions(nextRosterIds) || !hasRequiredPositions(nextTargetRoster)) {
+    return { state, decision: 'rejected' as TradeDecision, message: 'That trade would leave one team without a required starter position.' };
+  }
+
+  const currentUserCap = capUsedByIds(state.rosterIds);
+  const currentTargetCap = capUsedByIds(targetRoster);
+  const projectedUserCap = capUsedByIds(nextRosterIds);
+  const projectedTargetCap = capUsedByIds(nextTargetRoster);
+  const userCapInvalid = projectedUserCap > DEFAULT_SALARY_CAP + CAP_EPSILON && projectedUserCap >= currentUserCap - CAP_EPSILON;
+  const targetCapInvalid = projectedTargetCap > DEFAULT_SALARY_CAP + CAP_EPSILON && projectedTargetCap >= currentTargetCap - CAP_EPSILON;
+
+  if (userCapInvalid || targetCapInvalid) {
+    return {
+      state,
+      decision: 'rejected' as TradeDecision,
+      message: userCapInvalid
+        ? 'That trade would put you over the salary cap.'
+        : `That trade would put ${targetTeamAbbr} over the salary cap.`,
+    };
+  }
+
   const outgoingValue = tradeValue(outgoing);
   const incomingValue = tradeValue(incoming);
-  const projectedCap = franchiseCapUsed(state) - (outgoing.salary || 0) + (incoming.salary || 0);
   const gap = incomingValue - outgoingValue;
-  let decision: TradeDecision = gap <= 4.5 ? 'accepted' : gap <= 11 ? 'counter' : 'rejected';
-  if (projectedCap > DEFAULT_SALARY_CAP) decision = 'rejected';
+  const decision: TradeDecision = gap <= 4.5 ? 'accepted' : gap <= 11 ? 'counter' : 'rejected';
 
   if (decision !== 'accepted') {
     return {
@@ -179,17 +257,14 @@ export function proposeTrade(state: FranchiseManagementState, outgoingId: string
       decision,
       message: decision === 'counter'
         ? `${targetTeamAbbr} wants a stronger return for ${incoming.name}. Try a higher-rated player.`
-        : projectedCap > DEFAULT_SALARY_CAP
-          ? 'That trade would put you over the salary cap.'
-          : `${targetTeamAbbr} rejected the offer.`,
+        : `${targetTeamAbbr} rejected the offer.`,
     };
   }
 
   const nextCpu = {
     ...state.cpuRosters,
-    [targetTeamAbbr]: targetRoster.map(id => id === incomingId ? outgoingId : id),
+    [targetTeamAbbr]: nextTargetRoster,
   };
-  const nextRosterIds = state.rosterIds.map(id => id === outgoingId ? incomingId : id);
   const next = addTransaction({ ...state, rosterIds: nextRosterIds, cpuRosters: nextCpu }, 'TRADE', `Traded ${outgoing.name} to ${targetTeamAbbr} for ${incoming.name}.`);
   return { state: next, decision, message: `Trade accepted: ${incoming.name} joins your team.` };
 }
