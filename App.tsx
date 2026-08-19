@@ -59,7 +59,7 @@ function BallKnowerApp() {
         <div className="flex items-center gap-4 text-zinc-600 font-mono-numbers"><span>NFL SEASON: <span className="text-[#D4AF37]">2026</span></span><span>STATUS: <span className="text-[#00FF00]">ACTIVE</span></span><span>17-GAME SOLO + LEAGUE SIM</span><span>V1.0 GAME BUILD</span></div>
       </footer>
       <CinematicIntro isOpen={isIntroOpen} onClose={() => setIsIntroOpen(false)} />
-      {showFavoriteTeam && <FavoriteTeamExperience onDone={() => setShowFavoriteTeam(false)} />}
+      {showFavoriteTeam && !isIntroOpen && <FavoriteTeamExperience onDone={() => setShowFavoriteTeam(false)} />}
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
       <CreateLeagueModal isOpen={isCreateLeagueOpen} onClose={() => setIsCreateLeagueOpen(false)} onLeagueCreated={handleLeagueCreated} />
       <JoinLeagueModal isOpen={isJoinLeagueOpen} onClose={() => setIsJoinLeagueOpen(false)} onLeagueJoined={handleLeagueJoined} />
