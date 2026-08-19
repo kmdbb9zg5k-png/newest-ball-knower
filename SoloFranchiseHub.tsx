@@ -82,7 +82,7 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => (
               <Crown size={22} />
               <span className="text-[10px] font-black tracking-[.32em]">SOLO FRANCHISE</span>
             </div>
-            <button type="button" onClick={() => onOpen('real')} className="rounded-full border border-[var(--bk-team-accent)]/70 bg-[var(--bk-team-accent)]/15 px-5 py-2 text-xs font-black tracking-wider shadow-[0_0_25px_var(--bk-team-glow)] transition active:scale-95">
+            <button type="button" onClick={() => onOpen('real')} className="min-h-11 rounded-full border border-[var(--bk-team-accent)]/70 bg-[var(--bk-team-accent)]/15 px-5 py-2.5 text-xs font-black tracking-wider shadow-[0_0_25px_var(--bk-team-glow)] transition active:scale-95">
               START <ChevronRight className="ml-1 inline" size={16} />
             </button>
           </div>
