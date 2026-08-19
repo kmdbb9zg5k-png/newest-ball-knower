@@ -10,14 +10,44 @@ const TEAM_NAMES: Record<string, string> = {
 };
 
 const numberOrNull = (value: any) => {
+  if (value == null || (typeof value === 'string' && value.trim() === '')) return null;
   const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const easternOffsetForDate = (date: string) => {
+  const parsed = new Date(`${date}T12:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return '-05:00';
+  const year = parsed.getUTCFullYear();
+  const month = parsed.getUTCMonth() + 1;
+  if (month < 3 || month > 11) return '-05:00';
+  if (month > 3 && month < 11) return '-04:00';
+
+  const nthSunday = (monthIndex: number, nth: number) => {
+    const first = new Date(Date.UTC(year, monthIndex, 1));
+    const firstSunday = 1 + ((7 - first.getUTCDay()) % 7);
+    return firstSunday + (nth - 1) * 7;
+  };
+
+  const day = parsed.getUTCDate();
+  if (month === 3) return day >= nthSunday(2, 2) ? '-04:00' : '-05:00';
+  return day < nthSunday(10, 1) ? '-04:00' : '-05:00';
+};
+
+const kickoffIso = (date: any, time: any) => {
+  if (!date) return null;
+  if (!time) return date;
+  const cleanTime = String(time).trim();
+  if (/Z$|[+-]\d{2}:?\d{2}$/.test(cleanTime)) return `${date}T${cleanTime}`;
+  return `${date}T${cleanTime}${easternOffsetForDate(String(date))}`;
+};
+
 export default async function handler(_req: any, res: any) {
   try {
-    const upstream = await fetch('https://api.nfldata.org/v1/games?season=2026&limit=100', {
+    const signal = AbortSignal.timeout(8000);
+    const upstream = await fetch('https://api.nfldata.org/v1/games?season=2026&limit=1000', {
       headers: { Accept: 'application/json', 'User-Agent': 'BallKnower/1.0' },
+      signal,
     });
     if (!upstream.ok) throw new Error(`NFL games upstream ${upstream.status}`);
 
@@ -26,10 +56,16 @@ export default async function handler(_req: any, res: any) {
     const now = Date.now();
     const relevant = rows
       .filter((g: any) => {
-        const when = Date.parse(g?.gameday || g?.game_date || g?.date || '');
+        const date = g?.gameday || g?.game_date || g?.date || '';
+        const when = Date.parse(kickoffIso(date, g?.gametime || g?.game_time) || date);
         return !Number.isFinite(when) || when >= now - 7 * 24 * 60 * 60 * 1000;
       })
-      .sort((a: any, b: any) => Date.parse(a?.gameday || a?.game_date || a?.date || '') - Date.parse(b?.gameday || b?.game_date || b?.date || ''))
+      .sort((a: any, b: any) => {
+        const aDate = a?.gameday || a?.game_date || a?.date || '';
+        const bDate = b?.gameday || b?.game_date || b?.date || '';
+        return Date.parse(kickoffIso(aDate, a?.gametime || a?.game_time) || aDate)
+          - Date.parse(kickoffIso(bDate, b?.gametime || b?.game_time) || bDate);
+      })
       .slice(0, 50);
 
     const games = relevant.map((g: any, i: number) => {
@@ -40,19 +76,20 @@ export default async function handler(_req: any, res: any) {
       const awayScore = numberOrNull(g?.away_score);
       const homeScore = numberOrNull(g?.home_score);
       const finished = awayScore !== null && homeScore !== null;
+      const spread = numberOrNull(g?.spread_line ?? g?.spread);
 
       return {
         id: String(g?.game_id || g?.id || i),
-        date: date && time ? `${date}T${time}` : date,
+        date: kickoffIso(date, time),
         status: finished ? 'Final' : 'Scheduled',
         away: awayAbbr ? (TEAM_NAMES[awayAbbr] || awayAbbr) : 'Away',
         home: homeAbbr ? (TEAM_NAMES[homeAbbr] || homeAbbr) : 'Home',
         awayAbbr,
         homeAbbr,
-        details: g?.spread_line != null
-          ? `${g?.spread_line > 0 ? homeAbbr : awayAbbr} ${Math.abs(Number(g.spread_line))}`
+        details: spread !== null
+          ? `${spread > 0 ? homeAbbr : awayAbbr} ${Math.abs(spread)}`
           : null,
-        spread: numberOrNull(g?.spread_line ?? g?.spread),
+        spread,
         overUnder: numberOrNull(g?.total_line ?? g?.over_under ?? g?.total),
       };
     });
