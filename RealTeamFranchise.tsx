@@ -5,13 +5,16 @@ import { FranchiseManagementPanel } from './FranchiseManagementPanel';
 import {
   cpuRosterPlayers,
   createFranchiseManagement,
+  franchiseCapUsed,
   franchiseRoster,
   FranchiseManagementState,
   restoreFranchiseManagement,
 } from './franchiseManagementEngine';
+import { getRosterNeeds } from './rosterRules';
 import { buildRealTeamRoster, SOLO_FRANCHISE_SAVE_KEYS } from './soloFranchiseEngine';
 import { SoloTeamPicker } from './SoloTeamPicker';
 import { getSavedTeamTheme, TEAM_THEMES, teamLogoUrl } from './teamTheme';
+import { DEFAULT_SALARY_CAP } from './types';
 
 type Props = { onBack: () => void };
 type RealSave = { version: 2; teamAbbr: string; management: FranchiseManagementState };
@@ -56,6 +59,10 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
   const team = teamByAbbr(teamAbbr ?? selectedAbbr);
   const roster = useMemo(() => management ? franchiseRoster(management) : [], [management]);
   const opponents = useMemo(() => management ? cpuRosterPlayers(management) : undefined, [management]);
+  const canPlay = Boolean(management)
+    && roster.length >= 20
+    && getRosterNeeds(roster).length === 0
+    && franchiseCapUsed(management!) <= DEFAULT_SALARY_CAP + 0.001;
 
   const start = () => {
     const nextManagement = createFranchiseManagement(selectedAbbr);
@@ -72,6 +79,15 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
     if (teamAbbr && !persistReal({ version: 2, teamAbbr, management: next })) setMessage('Roster move completed, but Safari could not save it. Keep this page open.');
   };
 
+  const openGameday = () => {
+    if (!canPlay) {
+      setView('manage');
+      setMessage('Finish a legal 20+ player roster at or under the salary cap before playing.');
+      return;
+    }
+    setView('gameday');
+  };
+
   const newCareer = () => {
     try {
       localStorage.removeItem(SOLO_FRANCHISE_SAVE_KEYS.real);
@@ -86,6 +102,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
   };
 
   if (teamAbbr && management) {
+    const showingManagement = view === 'manage' || !canPlay;
     return (
       <div className="relative min-h-[100dvh] bg-transparent text-white">
         <div className="px-4 pt-4 sm:px-8">
@@ -98,15 +115,16 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
             </div>
 
             {message ? <div className="mt-3 rounded-2xl border border-[var(--bk-team-accent)]/25 bg-[var(--bk-team-accent)]/10 px-4 py-3 text-sm font-bold text-[var(--bk-team-accent)]">{message}</div> : null}
+            {!canPlay ? <div className="mt-3 rounded-2xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-xs font-bold text-amber-200">Roster management required: get to at least 20 players, fill every required position group, and get under the salary cap to unlock Gameday.</div> : null}
 
             <div className="mt-3 grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-[#0d1118]/90 p-2">
-              <button type="button" aria-pressed={view === 'gameday'} onClick={() => setView('gameday')} className={`min-h-11 rounded-xl text-xs font-black ${view === 'gameday' ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)]' : 'text-zinc-400'}`}><Play className="mr-2 inline" size={15}/> GAMEDAY</button>
-              <button type="button" aria-pressed={view === 'manage'} onClick={() => setView('manage')} className={`min-h-11 rounded-xl text-xs font-black ${view === 'manage' ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)]' : 'text-zinc-400'}`}><ClipboardList className="mr-2 inline" size={15}/> MANAGE TEAM</button>
+              <button type="button" aria-pressed={!showingManagement} onClick={openGameday} disabled={!canPlay} className={`min-h-11 rounded-xl text-xs font-black disabled:cursor-not-allowed disabled:opacity-35 ${!showingManagement ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)]' : 'text-zinc-400'}`}><Play className="mr-2 inline" size={15}/> GAMEDAY</button>
+              <button type="button" aria-pressed={showingManagement} onClick={() => setView('manage')} className={`min-h-11 rounded-xl text-xs font-black ${showingManagement ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)]' : 'text-zinc-400'}`}><ClipboardList className="mr-2 inline" size={15}/> MANAGE TEAM</button>
             </div>
           </div>
         </div>
 
-        {view === 'manage' ? (
+        {showingManagement ? (
           <FranchiseManagementPanel state={management} onChange={updateManagement} onMessage={setMessage} />
         ) : (
           <FranchiseSeason title="REAL TEAM FRANCHISE" userTeam={team} roster={roster} opponentRosters={opponents} saveKey={SOLO_FRANCHISE_SAVE_KEYS.real} onBack={onBack} />
