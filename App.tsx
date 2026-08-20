@@ -9,6 +9,7 @@ import { CreateLeagueModal } from './CreateLeagueModal';
 import { JoinLeagueModal } from './JoinLeagueModal';
 import { CinematicIntro } from './CinematicIntro';
 import { FavoriteTeamExperience } from './FavoriteTeamExperience';
+import { AppErrorBoundary } from './AppErrorBoundary';
 import { League } from './types';
 import { TeamTheme, applyTeamCssVariables, getSavedTeamTheme, teamLogoUrl } from './teamTheme';
 import { CheckCircle2, Play, Database } from 'lucide-react';
@@ -157,4 +158,14 @@ function BallKnowerApp() {
   );
 }
 
-export default function App() { return <SoundtrackProvider><BallKnowerProvider><BallKnowerApp /></BallKnowerProvider></SoundtrackProvider>; }
+export default function App() {
+  return (
+    <AppErrorBoundary>
+      <SoundtrackProvider>
+        <BallKnowerProvider>
+          <BallKnowerApp />
+        </BallKnowerProvider>
+      </SoundtrackProvider>
+    </AppErrorBoundary>
+  );
+}
