@@ -18,13 +18,14 @@ Current branch adds a full online Fantasy League operations stack on top of the 
 - Weekly power rankings.
 - Draft grades and value analysis.
 - MVP/OPOY/DPOY/ROY plus weekly Player of the Week and All-Ball-Knower Team.
-- Owner Ball Knower Rating, career wins/titles and achievements.
+- Owner Ball Knower Rating, career wins/titles and achievements with idempotent season rollups.
 - Rivalry tracker and league records book.
 - Trade Lab with fairness, cap impact and roster OVR impact.
 - Commissioner opt-in spectator mode with sanitized public broadcast links.
+- Public spectator payloads intentionally exclude roster contents and authentication identifiers.
 
 ## Mobile architecture
-Season Universe and Intelligence are lazy-loaded from League HQ so large league systems do not inflate the initial mobile route.
+Season Universe and Intelligence are lazy-loaded from League HQ so large league systems do not inflate the initial mobile route. Public spectator links route before normal app bootstrap and do not create league membership.
 
 ## Validation
 Use `npm run check:hardening` (TypeScript + player/roster integrity). GitHub Actions runs the same check on pull requests.
