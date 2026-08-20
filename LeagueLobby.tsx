@@ -1,12 +1,12 @@
-import React, { lazy, Suspense, useState } from 'react';
+import React, { lazy, Suspense, useMemo, useState } from 'react';
 import { League } from './types';
 import { FantasyLeagueCommandCenter } from './FantasyLeagueCommandCenter';
 import { OwnerCareerSync } from './OwnerCareerSync';
 
-const FantasySeasonHub = lazy(() => import('./FantasySeasonHub').then(module => ({ default: module.FantasySeasonHub })));
-const FantasySeasonAdmin = lazy(() => import('./FantasySeasonAdmin').then(module => ({ default: module.FantasySeasonAdmin })));
-const LeagueIntelligenceHub = lazy(() => import('./LeagueIntelligenceHub').then(module => ({ default: module.LeagueIntelligenceHub })));
-const IntelligenceExtras = lazy(() => import('./IntelligenceExtras').then(module => ({ default: module.IntelligenceExtras })));
+const loadFantasySeasonHub = () => import('./FantasySeasonHub').then(module => ({ default: module.FantasySeasonHub }));
+const loadFantasySeasonAdmin = () => import('./FantasySeasonAdmin').then(module => ({ default: module.FantasySeasonAdmin }));
+const loadLeagueIntelligenceHub = () => import('./LeagueIntelligenceHub').then(module => ({ default: module.LeagueIntelligenceHub }));
+const loadIntelligenceExtras = () => import('./IntelligenceExtras').then(module => ({ default: module.IntelligenceExtras }));
 
 interface LeagueLobbyProps {
   league: League;
@@ -14,8 +14,52 @@ interface LeagueLobbyProps {
   onGoToSimulation: () => void;
 }
 
+interface ModeErrorBoundaryProps {
+  children: React.ReactNode;
+  onRetry: () => void;
+}
+
+interface ModeErrorBoundaryState {
+  error: Error | null;
+}
+
+class ModeErrorBoundary extends React.Component<ModeErrorBoundaryProps, ModeErrorBoundaryState> {
+  state: ModeErrorBoundaryState = { error: null };
+
+  static getDerivedStateFromError(error: Error): ModeErrorBoundaryState {
+    return { error };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('League mode failed to load', error);
+  }
+
+  private retry = () => {
+    this.setState({ error: null });
+    this.props.onRetry();
+  };
+
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <div className="rounded-2xl border border-amber-500/25 bg-amber-500/5 p-6 text-center">
+        <div className="text-sm font-black uppercase text-amber-300">This league view could not load.</div>
+        <p className="mt-2 text-xs leading-relaxed text-zinc-400">Your league data is still safe. Retry this view without leaving League HQ.</p>
+        <button onClick={this.retry} className="mt-4 min-h-11 rounded-xl bg-[#D4AF37] px-5 text-[10px] font-black uppercase tracking-wider text-black">Retry View</button>
+      </div>
+    );
+  }
+}
+
 export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, onGoToSimulation }) => {
   const [mode, setMode] = useState<'command' | 'season' | 'intelligence'>('command');
+  const [lazyVersion, setLazyVersion] = useState(0);
+  const FantasySeasonHub = useMemo(() => lazy(loadFantasySeasonHub), [lazyVersion]);
+  const FantasySeasonAdmin = useMemo(() => lazy(loadFantasySeasonAdmin), [lazyVersion]);
+  const LeagueIntelligenceHub = useMemo(() => lazy(loadLeagueIntelligenceHub), [lazyVersion]);
+  const IntelligenceExtras = useMemo(() => lazy(loadIntelligenceExtras), [lazyVersion]);
+  const retryMode = () => setLazyVersion(version => version + 1);
+
   return (
     <div className="min-h-[calc(100dvh-7rem)] bg-[#07090c] text-white">
       <OwnerCareerSync league={league} />
@@ -30,17 +74,21 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, o
         <FantasyLeagueCommandCenter league={league} onGoToDraft={onGoToDraft} onGoToSimulation={onGoToSimulation} />
       ) : mode === 'season' ? (
         <div className="mx-auto max-w-6xl px-3 py-5 sm:px-6">
-          <Suspense fallback={<Loading label="Loading Season Universe…" />}>
-            <FantasySeasonHub league={league} />
-            <FantasySeasonAdmin league={league} />
-          </Suspense>
+          <ModeErrorBoundary key={`season-${lazyVersion}`} onRetry={retryMode}>
+            <Suspense fallback={<Loading label="Loading Season Universe…" />}>
+              <FantasySeasonHub league={league} />
+              <FantasySeasonAdmin league={league} />
+            </Suspense>
+          </ModeErrorBoundary>
         </div>
       ) : (
         <div className="mx-auto max-w-6xl px-3 py-5 sm:px-6">
-          <Suspense fallback={<Loading label="Loading Ball Knower Intelligence…" />}>
-            <LeagueIntelligenceHub league={league} />
-            <IntelligenceExtras league={league} />
-          </Suspense>
+          <ModeErrorBoundary key={`intelligence-${lazyVersion}`} onRetry={retryMode}>
+            <Suspense fallback={<Loading label="Loading Ball Knower Intelligence…" />}>
+              <LeagueIntelligenceHub league={league} />
+              <IntelligenceExtras league={league} />
+            </Suspense>
+          </ModeErrorBoundary>
         </div>
       )}
     </div>
