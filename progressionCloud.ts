@@ -20,6 +20,8 @@ const mapProfile=(x:any):ProgressProfile=>({
 export async function fetchProgressionProfile(displayName?:string){
   if(!supabase) throw new Error('Ball Knower profile requires online services.');
   const auth=await ensureOnlineSession();
+  const championshipSync=await supabase.rpc('sync_ball_knower_league_championships');
+  if(championshipSync.error) console.warn('Verified championship progression sync failed',championshipSync.error.message);
   const ensured=await supabase.rpc('ensure_ball_knower_progress_profile',{p_display_name:displayName?.trim()||null});
   if(ensured.error) throw ensured.error;
   const profileRow=Array.isArray(ensured.data)?ensured.data[0]:ensured.data;
