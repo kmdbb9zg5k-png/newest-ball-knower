@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity, AlertTriangle, Archive, Bell, Check, CheckCircle2, ClipboardCheck,
   Copy, Crown, Eye, History, Lock, Pause, Play, QrCode, RefreshCw, RotateCcw,
@@ -46,25 +46,38 @@ export const FantasyLeagueCommandCenter: React.FC<Props> = ({league,onGoToDraft,
   const [history,setHistory]=useState<SeasonArchiveEntry[]>([]);
   const [notifications,setNotifications]=useState<LeagueNotification[]>([]);
   const [revisions,setRevisions]=useState<RosterRevision[]>([]);
+  const [auxError,setAuxError]=useState<string|null>(null);
+  const auxRequestRef=useRef(0);
   const [busy,setBusy]=useState<string|null>(null);
   const [copied,setCopied]=useState(false);
-  const [cap,setCap]=useState(league.salaryCap);
+  const [cap,setCap]=useState<number|string>(league.salaryCap);
+  const [inviteCode,setInviteCode]=useState(league.code);
   const [settingsOpen,setSettingsOpen]=useState(false);
 
   useEffect(()=>setCap(league.salaryCap),[league.salaryCap]);
+  useEffect(()=>setInviteCode(league.code),[league.id,league.code]);
 
   const refreshAux=async()=>{
+    const requestId=++auxRequestRef.current;
     try{
       const [e,h,n,r]=await Promise.all([
         fetchLeagueEvents(league.id),fetchSeasonArchive(league.id),fetchMyNotifications(),fetchRosterRevisions(league.id),
       ]);
-      setEvents(e);setHistory(h);setNotifications(n.filter(x=>!x.leagueId||x.leagueId===league.id));setRevisions(r);
-    }catch(err:any){console.warn('League command data refresh failed',err?.message||err);}
+      if(requestId!==auxRequestRef.current)return;
+      setEvents(e);setHistory(h);setNotifications(n.filter(x=>!x.leagueId||x.leagueId===league.id));setRevisions(r);setAuxError(null);
+    }catch(err:any){
+      if(requestId!==auxRequestRef.current)return;
+      const message=err?.message||'League command data could not be refreshed.';
+      console.warn('League command data refresh failed',message);
+      setAuxError(message);
+    }
   };
   useEffect(()=>{void refreshAux();},[league.id,league.members.length,league.status,readyCount]);
 
-  const inviteUrl=`${window.location.origin}?join=${league.code}`;
+  const inviteUrl=`${window.location.origin}?join=${inviteCode}`;
   const unread=notifications.filter(n=>!n.readAt).length;
+  const numericCap=typeof cap==='number'?cap:Number(cap);
+  const capValid=Number.isFinite(numericCap)&&numericCap>0;
   const preflight=useMemo(()=>league.members.map(member=>{
     const roster=member.roster||[];
     const spent=roster.reduce((sum,p)=>sum+(Number(p.salary)||0),0);
@@ -95,10 +108,22 @@ export const FantasyLeagueCommandCenter: React.FC<Props> = ({league,onGoToDraft,
     showToast(`${key==='paused'?'League pause':key==='rostersLocked'?'Roster lock':'Invites'} ${value?'enabled':'disabled'}.`);
   });
 
-  const copyInvite=async()=>{await navigator.clipboard.writeText(inviteUrl);setCopied(true);showToast('Invite link copied.');setTimeout(()=>setCopied(false),1800);};
+  const copyInvite=async()=>{
+    try{
+      if(!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(inviteUrl);
+      setCopied(true);showToast('Invite link copied.');setTimeout(()=>setCopied(false),1800);
+    }catch{
+      showToast(`Copy failed. Share this code manually: ${inviteCode}`);
+    }
+  };
   const shareInvite=async()=>{
-    if(navigator.share){await navigator.share({title:league.name,text:`Join my Ball Knower league: ${league.code}`,url:inviteUrl});}
-    else await copyInvite();
+    if(!navigator.share){await copyInvite();return;}
+    try{
+      await navigator.share({title:league.name,text:`Join my Ball Knower league: ${inviteCode}`,url:inviteUrl});
+    }catch(err:any){
+      if(err?.name!=='AbortError') await copyInvite();
+    }
   };
 
   const launchSeason=()=>run('simulate',async()=>{
@@ -130,10 +155,12 @@ export const FantasyLeagueCommandCenter: React.FC<Props> = ({league,onGoToDraft,
       <section className="relative overflow-hidden rounded-[1.75rem] border border-[#D4AF37]/25 bg-[#0b0e12] p-5 shadow-2xl sm:p-7">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_20%,rgba(212,175,55,.18),transparent_27%),linear-gradient(115deg,#090b0f,#12161d_55%,#08090c)]"/>
         <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div><div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[.22em] text-[#D4AF37]"><Crown className="h-3.5 w-3.5"/> League Command Center <span className="text-zinc-600">•</span> {league.code}</div><h1 className="mt-2 font-display text-4xl font-black uppercase tracking-tight sm:text-6xl">{league.name}</h1><p className="mt-2 text-sm font-semibold text-zinc-400">Commissioner {league.commissionerName} · {humanCount} human owner{humanCount===1?'':'s'} · {league.members.length}/{league.maxMembers} teams</p></div>
+          <div><div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[.22em] text-[#D4AF37]"><Crown className="h-3.5 w-3.5"/> League Command Center <span className="text-zinc-600">•</span> {inviteCode}</div><h1 className="mt-2 font-display text-4xl font-black uppercase tracking-tight sm:text-6xl">{league.name}</h1><p className="mt-2 text-sm font-semibold text-zinc-400">Commissioner {league.commissionerName} · {humanCount} human owner{humanCount===1?'':'s'} · {league.members.length}/{league.maxMembers} teams</p></div>
           <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[360px]"><Metric label="Ready" value={`${readyCount}/${league.members.length}`} good={allReady}/><Metric label="Cap" value={`$${league.salaryCap}M`}/><Metric label="Season" value={`${league.settings?.seasonGames||17} GAMES`}/></div>
         </div>
       </section>
+
+      {auxError&&<div className="flex flex-col gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="text-xs font-black uppercase text-amber-300">League data refresh issue</div><div className="mt-1 text-[11px] text-zinc-400">{auxError} Previously loaded activity and history are still shown.</div></div><button onClick={()=>void refreshAux()} className="min-h-11 rounded-xl border border-amber-400/25 px-4 text-[10px] font-black uppercase text-amber-200">Retry</button></div>}
 
       <div className="flex gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-[#0d1015] p-2 no-scrollbar">{tabs.filter(x=>x.show!==false).map(x=><button key={x.id} onClick={()=>setTab(x.id)} className={`flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-4 text-[11px] font-black uppercase tracking-wider transition ${tab===x.id?'bg-[#D4AF37] text-black':'text-zinc-400 hover:bg-white/5 hover:text-white'}`}>{x.icon}{x.label}</button>)}</div>
 
@@ -150,8 +177,8 @@ export const FantasyLeagueCommandCenter: React.FC<Props> = ({league,onGoToDraft,
       {tab==='commissioner'&&isCommissioner&&<div className="space-y-5">
         <PanelTitle icon={<Crown className="h-4 w-4"/>} title="Commissioner Control Center" subtitle="Every high-impact action is visible and logged"/>
         <div className="grid gap-4 md:grid-cols-3"><ControlCard icon={operational.paused?<Play/>:<Pause/>} title={operational.paused?'Resume League':'Pause League'} body="Pause blocks roster submissions and season launch without deleting anything." onClick={()=>toggleControl('paused',!operational.paused)} active={Boolean(operational.paused)}/><ControlCard icon={operational.rostersLocked?<Unlock/>:<Lock/>} title={operational.rostersLocked?'Unlock Rosters':'Lock Rosters'} body="Freeze all new roster submissions league-wide." onClick={()=>toggleControl('rostersLocked',!operational.rostersLocked)} active={Boolean(operational.rostersLocked)}/><ControlCard icon={<UserPlus/>} title={operational.inviteEnabled===false?'Enable Invites':'Disable Invites'} body="Turn the current league code on or off instantly." onClick={()=>toggleControl('inviteEnabled',operational.inviteEnabled===false)} active={operational.inviteEnabled!==false}/></div>
-        <div className="grid gap-5 lg:grid-cols-2"><section className="rounded-2xl border border-white/10 bg-[#101318] p-5"><h3 className="font-black uppercase">Invite Management</h3><div className="mt-4 flex items-center gap-2 rounded-xl bg-black/40 p-3 font-mono text-sm font-black text-[#D4AF37]"><span className="flex-1 truncate">{league.code}</span><button onClick={copyInvite}><Copy className="h-4 w-4"/></button></div><div className="mt-3 grid grid-cols-2 gap-2"><button onClick={()=>void shareInvite()} className="min-h-11 rounded-xl border border-white/10 text-[10px] font-black uppercase">Share Link</button><button onClick={()=>run('invite',async()=>{const next=await regenerateLeagueInvite(league.id,currentUser?.name||league.commissionerName);showToast(`New invite: ${next}`);})} className="min-h-11 rounded-xl bg-[#D4AF37] text-[10px] font-black uppercase text-black"><RefreshCw className="mr-1 inline h-3.5 w-3.5"/>Regenerate</button></div><div className="mt-4 flex items-center gap-4 rounded-xl border border-white/5 bg-black/25 p-3"><img alt="League invite QR code" className="h-24 w-24 rounded-lg bg-white p-1" src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(inviteUrl)}`}/><div><div className="flex items-center gap-2 text-xs font-black uppercase"><QrCode className="h-4 w-4 text-[#D4AF37]"/>Mobile QR Invite</div><p className="mt-2 text-[11px] leading-relaxed text-zinc-500">Scan to open this league directly. Regenerating the code invalidates the old QR immediately.</p></div></div></section>
-          <section className="rounded-2xl border border-white/10 bg-[#101318] p-5"><div className="flex items-center justify-between"><h3 className="font-black uppercase">League Settings</h3><button onClick={()=>setSettingsOpen(!settingsOpen)}><Settings className="h-4 w-4 text-[#D4AF37]"/></button></div><div className="mt-4 space-y-3"><label className="block text-[10px] font-black uppercase text-zinc-500">Salary Cap<div className="mt-1 flex gap-2"><input value={cap} onChange={e=>setCap(Number(e.target.value))} type="number" className="min-h-11 min-w-0 flex-1 rounded-xl border border-white/10 bg-black/40 px-3 text-white"/><button onClick={()=>{updateSalaryCap(league.id,cap);showToast(`Cap set to $${cap}M`);}} className="rounded-xl bg-[#D4AF37] px-4 text-xs font-black text-black">SAVE</button></div></label><div className="grid grid-cols-2 gap-2"><SettingSelect label="Season" value={String(league.settings?.seasonGames||17)} options={[['17','17 Games'],['16','16 Games']]} onChange={v=>updateLeagueSettings(league.id,{seasonGames:Number(v) as 16|17})}/><SettingSelect label="Sim Style" value={league.settings?.simulationStyle||'realistic'} options={[['realistic','Realistic'],['balanced','Balanced'],['chaos','Chaos']]} onChange={v=>updateLeagueSettings(league.id,{simulationStyle:v as any})}/><SettingSelect label="AI Difficulty" value={league.settings?.aiDifficulty||'all_pro'} options={[['pro','Pro'],['all_pro','All-Pro'],['all_madden','All-Madden']]} onChange={v=>updateLeagueSettings(league.id,{aiDifficulty:v as any})}/><SettingSelect label="Playoff Teams" value={String(league.settings?.playoffTeams||6)} options={[['4','4'],['6','6'],['8','8']]} onChange={v=>updateLeagueSettings(league.id,{playoffTeams:Number(v) as any})}/></div></div></section></div>
+        <div className="grid gap-5 lg:grid-cols-2"><section className="rounded-2xl border border-white/10 bg-[#101318] p-5"><h3 className="font-black uppercase">Invite Management</h3><div className="mt-4 flex items-center gap-2 rounded-xl bg-black/40 p-3 font-mono text-sm font-black text-[#D4AF37]"><span className="flex-1 truncate">{inviteCode}</span><button onClick={copyInvite}><Copy className="h-4 w-4"/></button></div><div className="mt-3 grid grid-cols-2 gap-2"><button onClick={()=>void shareInvite()} className="min-h-11 rounded-xl border border-white/10 text-[10px] font-black uppercase">Share Link</button><button onClick={()=>run('invite',async()=>{const next=await regenerateLeagueInvite(league.id,currentUser?.name||league.commissionerName);setInviteCode(next);showToast(`New invite: ${next}`);})} className="min-h-11 rounded-xl bg-[#D4AF37] text-[10px] font-black uppercase text-black"><RefreshCw className="mr-1 inline h-3.5 w-3.5"/>Regenerate</button></div><div className="mt-4 flex items-center gap-4 rounded-xl border border-white/5 bg-black/25 p-3"><img alt="League invite QR code" className="h-24 w-24 rounded-lg bg-white p-1" src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(inviteUrl)}`}/><div><div className="flex items-center gap-2 text-xs font-black uppercase"><QrCode className="h-4 w-4 text-[#D4AF37]"/>Mobile QR Invite</div><p className="mt-2 text-[11px] leading-relaxed text-zinc-500">Scan to open this league directly. Regenerating the code invalidates the old QR immediately.</p></div></div></section>
+          <section className="rounded-2xl border border-white/10 bg-[#101318] p-5"><div className="flex items-center justify-between"><h3 className="font-black uppercase">League Settings</h3><button onClick={()=>setSettingsOpen(!settingsOpen)}><Settings className="h-4 w-4 text-[#D4AF37]"/></button></div><div className="mt-4 space-y-3"><div className="block text-[10px] font-black uppercase text-zinc-500">Salary Cap<div className="mt-1 flex gap-2"><input aria-label="Salary cap in millions" value={cap} onChange={e=>{const raw=e.target.value;setCap(raw===''?'':Number(raw));}} type="number" min={1} className="min-h-11 min-w-0 flex-1 rounded-xl border border-white/10 bg-black/40 px-3 text-white"/><button disabled={!capValid} onClick={()=>{if(!capValid)return;updateSalaryCap(league.id,numericCap);showToast(`Cap set to $${numericCap}M`);}} className="min-h-11 rounded-xl bg-[#D4AF37] px-4 text-xs font-black text-black disabled:cursor-not-allowed disabled:opacity-40">SAVE</button></div></div><div className="grid grid-cols-2 gap-2"><SettingSelect label="Season" value={String(league.settings?.seasonGames||17)} options={[['17','17 Games'],['16','16 Games']]} onChange={v=>updateLeagueSettings(league.id,{seasonGames:Number(v) as 16|17})}/><SettingSelect label="Sim Style" value={league.settings?.simulationStyle||'realistic'} options={[['realistic','Realistic'],['balanced','Balanced'],['chaos','Chaos']]} onChange={v=>updateLeagueSettings(league.id,{simulationStyle:v as any})}/><SettingSelect label="AI Difficulty" value={league.settings?.aiDifficulty||'all_pro'} options={[['pro','Pro'],['all_pro','All-Pro'],['all_madden','All-Madden']]} onChange={v=>updateLeagueSettings(league.id,{aiDifficulty:v as any})}/><SettingSelect label="Playoff Teams" value={String(league.settings?.playoffTeams||6)} options={[['4','4'],['6','6'],['8','8']]} onChange={v=>updateLeagueSettings(league.id,{playoffTeams:Number(v) as any})}/></div></div></section></div>
         <section className="rounded-2xl border border-white/10 bg-[#101318] p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black uppercase">Owner Administration</h3><p className="mt-1 text-xs text-zinc-500">Reopen preserves audit history. Force-ready only works with a complete roster.</p></div>{league.members.length<league.maxMembers&&<button onClick={()=>autoFillLeagueWithAi(league.id)} className="min-h-10 rounded-xl border border-[#D4AF37]/30 px-3 text-[10px] font-black uppercase text-[#D4AF37]"><Sparkles className="mr-1 inline h-3.5 w-3.5"/>Fill Empty With AI</button>}</div><div className="mt-4 space-y-2">{league.members.filter(m=>!m.isCommissioner).map(m=><div key={m.id} className="flex flex-col gap-3 rounded-xl bg-black/30 p-3 sm:flex-row sm:items-center sm:justify-between"><div><div className="text-sm font-black uppercase">{m.userName}</div><div className="text-[10px] text-zinc-500">{(m.roster||[]).length}/20 · {m.status.toUpperCase()} · {revisionCountByMember[m.id]||0} revisions</div></div><div className="flex gap-2"><button onClick={()=>run(`status-${m.id}`,()=>setMemberRosterStatus(league.id,m.id,m.status==='ready'?'building':'ready',currentUser?.name||league.commissionerName))} className="min-h-10 flex-1 rounded-lg border border-white/10 px-3 text-[9px] font-black uppercase sm:flex-none">{m.status==='ready'?'Reopen Roster':'Force Ready'}</button><button onClick={()=>removeMemberFromLeague(league.id,m.id)} className="min-h-10 rounded-lg border border-red-500/25 px-3 text-red-400"><UserMinus className="h-4 w-4"/></button></div></div>)}</div></section>
       </div>}
 
