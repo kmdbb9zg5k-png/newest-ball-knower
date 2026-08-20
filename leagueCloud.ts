@@ -76,11 +76,16 @@ function code() {
   return out;
 }
 
-export async function logLeagueEvent(leagueId:string,eventType:string,message:string,actorName='Ball Knower',metadata:any={}) {
-  if(!supabase) return;
-  const auth=await ensureOnlineSession();
-  const {error}=await supabase.from('ball_knower_league_events').insert({league_id:leagueId,actor_auth_id:auth.id,actor_name:actorName,event_type:eventType,message,metadata});
-  if(error) console.warn('League event log failed',error.message);
+export async function logLeagueEvent(leagueId:string,eventType:string,message:string,_actorName='Ball Knower',metadata:any={}) {
+  if(!supabase) throw new Error('League activity is unavailable because online services are not configured.');
+  await ensureOnlineSession();
+  const {error}=await supabase.rpc('log_ball_knower_league_event',{
+    p_league_id:leagueId,
+    p_event_type:eventType,
+    p_message:message,
+    p_metadata:metadata,
+  });
+  if(error) throw error;
 }
 
 export async function fetchLeagueEvents(leagueId:string,limit=75):Promise<LeagueEvent[]> {
@@ -136,13 +141,15 @@ export async function markNotificationRead(id:string):Promise<void> {
 }
 
 export async function notifyLeagueMembers(league:League,title:string,body:string,kind='league'):Promise<void> {
-  if(!supabase) return;
+  if(!supabase) throw new Error('League notifications are unavailable because online services are not configured.');
   await ensureOnlineSession();
-  const humanIds=league.members.filter(m=>!m.isAi).map(m=>m.userId).filter(Boolean);
-  if(!humanIds.length) return;
-  const rows=humanIds.map(authUserId=>({league_id:league.id,auth_user_id:authUserId,title,body,kind}));
-  const {error}=await supabase.from('ball_knower_notifications').insert(rows);
-  if(error) console.warn('Notification fanout failed',error.message);
+  const {error}=await supabase.rpc('notify_ball_knower_league_members',{
+    p_league_id:league.id,
+    p_title:title,
+    p_body:body,
+    p_kind:kind,
+  });
+  if(error) throw error;
 }
 
 export async function createCloudLeague(name:string,maxMembers:number,salaryCap:number,user:UserLike):Promise<League> {
