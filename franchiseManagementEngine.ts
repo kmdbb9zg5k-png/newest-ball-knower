@@ -72,6 +72,7 @@ function hasRequiredPositions(ids: string[]) {
 
 function rosterIsLegal(ids: string[]) {
   return ids.length >= FRANCHISE_MIN_ROSTER
+    && ids.length <= FRANCHISE_MAX_ROSTER
     && hasRequiredPositions(ids)
     && capUsedByIds(ids) <= DEFAULT_SALARY_CAP + CAP_EPSILON;
 }
@@ -168,7 +169,7 @@ export function franchiseCapUsed(state: FranchiseManagementState) {
 }
 
 export function franchiseCapLeft(state: FranchiseManagementState) {
-  return Math.max(0, DEFAULT_SALARY_CAP - franchiseCapUsed(state));
+  return DEFAULT_SALARY_CAP - franchiseCapUsed(state);
 }
 
 export function franchiseFreeAgents(state: FranchiseManagementState) {
