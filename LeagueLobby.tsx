@@ -5,6 +5,7 @@ import { FantasyLeagueCommandCenter } from './FantasyLeagueCommandCenter';
 const FantasySeasonHub = lazy(() => import('./FantasySeasonHub').then(module => ({ default: module.FantasySeasonHub })));
 const FantasySeasonAdmin = lazy(() => import('./FantasySeasonAdmin').then(module => ({ default: module.FantasySeasonAdmin })));
 const LeagueIntelligenceHub = lazy(() => import('./LeagueIntelligenceHub').then(module => ({ default: module.LeagueIntelligenceHub })));
+const IntelligenceExtras = lazy(() => import('./IntelligenceExtras').then(module => ({ default: module.IntelligenceExtras })));
 
 interface LeagueLobbyProps {
   league: League;
@@ -36,6 +37,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, o
         <div className="mx-auto max-w-6xl px-3 py-5 sm:px-6">
           <Suspense fallback={<Loading label="Loading Ball Knower Intelligence…" />}>
             <LeagueIntelligenceHub league={league} />
+            <IntelligenceExtras league={league} />
           </Suspense>
         </div>
       )}
