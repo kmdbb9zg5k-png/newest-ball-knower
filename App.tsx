@@ -119,12 +119,12 @@ function BallKnowerApp() {
         <div className="absolute inset-x-0 top-0 h-px" style={{background:`linear-gradient(90deg,transparent,${favoriteTheme.secondary}88,transparent)`}} />
       </div>
 
-      <Navbar currentTab={currentTab as any} setCurrentTab={setCurrentTab as any} onOpenAuth={() => setIsAuthOpen(true)} onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onOpenIntro={openIntro} onOpenDatabaseModal={() => setIsDatabaseModalOpen(true)} />
+      <Navbar currentTab={currentTab} setCurrentTab={setCurrentTab} onOpenAuth={() => setIsAuthOpen(true)} onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onOpenIntro={openIntro} onOpenDatabaseModal={() => setIsDatabaseModalOpen(true)} />
       <main className="relative z-[3] w-full flex-1 pb-[env(safe-area-inset-bottom)]">
         {currentTab === 'home' && <>
           <HubLauncher onNavigate={setCurrentTab} />
           <OverviewModeGrid
-            onNavigate={setCurrentTab as any}
+            onNavigate={setCurrentTab}
             onOpenCreateLeague={() => setIsCreateLeagueOpen(true)}
             onOpenJoinLeague={() => setIsJoinLeagueOpen(true)}
             activeLeagueCount={leagues.length}
