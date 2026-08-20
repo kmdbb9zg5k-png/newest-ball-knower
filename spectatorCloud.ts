@@ -2,6 +2,7 @@ import { League } from './types';
 import { ensureOnlineSession, supabase } from './supabase';
 
 export type OwnerProfile={authUserId:string;displayName:string;ballKnowerRating:number;careerWins:number;careerLosses:number;careerTies:number;championships:number;leaguesPlayed:number;bestFinish?:number;badges:any[];favoriteTeam?:string;updatedAt:string};
+export type SpectatorState={enabled:boolean;publicSlug:string};
 
 export async function setSpectatorMode(leagueId:string,enabled:boolean):Promise<string>{
   if(!supabase) throw new Error('Online multiplayer is not configured.');
@@ -9,6 +10,14 @@ export async function setSpectatorMode(leagueId:string,enabled:boolean):Promise<
   const {data,error}=await supabase.rpc('set_ball_knower_spectator_mode',{p_league_id:leagueId,p_enabled:enabled});
   if(error) throw error;
   return String(data||'');
+}
+
+export async function fetchSpectatorState(leagueId:string):Promise<SpectatorState>{
+  if(!supabase) return {enabled:false,publicSlug:''};
+  await ensureOnlineSession();
+  const {data,error}=await supabase.from('ball_knower_leagues').select('spectator_enabled,public_slug').eq('id',leagueId).maybeSingle();
+  if(error) throw error;
+  return {enabled:Boolean(data?.spectator_enabled),publicSlug:String(data?.public_slug||'')};
 }
 
 export async function fetchSpectatorLeague(slug:string):Promise<(League & {spectatorEnabled?:boolean;publicSlug?:string})|null>{
