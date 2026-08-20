@@ -1,11 +1,30 @@
-# Fantasy League Operations Hardening
+# Fantasy League Hardening / Platform Expansion
 
-- Online leagues default to 17-game seasons unless the commissioner explicitly chooses 16.
-- Rejoining the same league is idempotent: the same authenticated user cannot create duplicate memberships.
-- Join operations run atomically in Postgres, serialize capacity checks, and reject over-capacity joins.
-- Roster submissions verify that the member row still exists instead of silently succeeding after removal/stale state.
-- Realtime league refresh remains the source of truth after joins, submissions, and commissioner changes.
+Current branch adds a full online Fantasy League operations stack on top of the existing Ball Knower cap draft.
 
-Database protections:
-- `UNIQUE (league_id, auth_user_id)` on human memberships.
-- `join_ball_knower_league(...)` RPC with authenticated-only execute permission, explicit auth check, league row lock, reconnect detection, capacity check, and one membership insert.
+## Command Center
+- Commissioner pause/resume, roster locks, invite controls, cap and season settings.
+- Pre-simulation roster/cap readiness gate.
+- Persistent activity, notifications, roster revisions and season archives.
+- Atomic commissioner force-ready/reopen validation in Supabase.
+
+## Season Universe
+- 17-game weekly hub, playoffs, team pages, trades, waivers/free agency, injuries/IR, chat/receipts and legacy history.
+- Accepted trades and waiver awards execute transactionally in Supabase.
+- Trade/waiver actions are server-authorized and protected against duplicate awards or stale offers.
+
+## Ball Knower Intelligence
+- League news/storylines generated from actual league data.
+- Weekly power rankings.
+- Draft grades and value analysis.
+- MVP/OPOY/DPOY/ROY plus weekly Player of the Week and All-Ball-Knower Team.
+- Owner Ball Knower Rating, career wins/titles and achievements.
+- Rivalry tracker and league records book.
+- Trade Lab with fairness, cap impact and roster OVR impact.
+- Commissioner opt-in spectator mode with sanitized public broadcast links.
+
+## Mobile architecture
+Season Universe and Intelligence are lazy-loaded from League HQ so large league systems do not inflate the initial mobile route.
+
+## Validation
+Use `npm run check:hardening` (TypeScript + player/roster integrity). GitHub Actions runs the same check on pull requests.
