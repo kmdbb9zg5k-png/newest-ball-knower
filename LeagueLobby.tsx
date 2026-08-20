@@ -3,6 +3,7 @@ import { League } from './types';
 import { FantasyLeagueCommandCenter } from './FantasyLeagueCommandCenter';
 
 const FantasySeasonHub = lazy(() => import('./FantasySeasonHub').then(module => ({ default: module.FantasySeasonHub })));
+const FantasySeasonAdmin = lazy(() => import('./FantasySeasonAdmin').then(module => ({ default: module.FantasySeasonAdmin })));
 
 interface LeagueLobbyProps {
   league: League;
@@ -26,6 +27,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, o
         <div className="mx-auto max-w-6xl px-3 py-5 sm:px-6">
           <Suspense fallback={<div className="rounded-2xl border border-white/10 bg-[#101318] p-8 text-center text-xs font-black uppercase tracking-widest text-zinc-500">Loading Season Universe…</div>}>
             <FantasySeasonHub league={league} />
+            <FantasySeasonAdmin league={league} />
           </Suspense>
         </div>
       )}
