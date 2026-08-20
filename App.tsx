@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { BallKnowerProvider, useBallKnower } from './BallKnowerContext';
 import { SoundtrackProvider, useSoundtrack } from './SoundtrackContext';
 import { Navbar } from './Navbar';
@@ -27,6 +27,7 @@ export type AppTab = 'home' | 'solo' | 'news' | 'fantasy' | 'sportsbook' | 'lega
 function BallKnowerApp() {
   const { activeLeague, leagues, setActiveLeagueId, toastMessage, joinLeague } = useBallKnower();
   const { setIntroActive } = useSoundtrack();
+  const setIntroActiveRef = useRef(setIntroActive);
   const [currentTab, setCurrentTab] = useState<AppTab>('home');
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isCreateLeagueOpen, setIsCreateLeagueOpen] = useState(false);
@@ -44,7 +45,11 @@ function BallKnowerApp() {
   });
 
   useEffect(() => {
-    setIntroActive(true);
+    setIntroActiveRef.current = setIntroActive;
+  }, [setIntroActive]);
+
+  useEffect(() => {
+    setIntroActiveRef.current(true);
     try {
       const savedTheme = getSavedTeamTheme();
       setFavoriteTheme(savedTheme);
@@ -58,8 +63,8 @@ function BallKnowerApp() {
   const openIntro = () => { setIntroActive(true); setIsIntroOpen(true); };
   const closeIntro = useCallback(() => {
     setIsIntroOpen(false);
-    if (!showFavoriteTeam) setIntroActive(false);
-  }, [setIntroActive, showFavoriteTeam]);
+    if (!showFavoriteTeam) setIntroActiveRef.current(false);
+  }, [showFavoriteTeam]);
   const finishFavoriteTeamSetup = (team: TeamTheme) => {
     setFavoriteTheme(team);
     applyTeamCssVariables(team);
@@ -115,4 +120,4 @@ function BallKnowerApp() {
   );
 }
 
-export default function App() { return <SoundtrackProvider><BallKnowerProvider><BallKnowerApp /></BallKnowerProvider></SoundtrackProvider>; }
+export default function App() { return <SoundtrackProvider><BallKnowerProvider><BallKnowerApp /></SoundtrackProvider>; }
