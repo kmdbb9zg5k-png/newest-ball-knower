@@ -1,6 +1,6 @@
-import { League, LeagueMember, Player, SeasonResult } from './types';
+import { League, Player } from './types';
 import { calculateTeamRatings, getPlayerOvr } from './evaluation';
-import { LeagueTransaction, TradeOffer } from './fantasySeasonCloud';
+import { LeagueTransaction } from './fantasySeasonCloud';
 
 export type PowerRanking={rank:number;memberId:string;memberName:string;score:number;previousRank?:number;movement:number;reason:string;record:string;teamOvr:number};
 export type DraftGrade={memberId:string;memberName:string;grade:string;score:number;bestPick?:Player;worstValue?:Player;capEfficiency:number;balance:number;summary:string};
