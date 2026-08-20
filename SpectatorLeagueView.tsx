@@ -30,7 +30,7 @@ const SpectatorContent=({league}:{league:League})=>{
  </div></Shell>;
 };
 
-const Shell=({children}:{children:React.ReactNode})=><div className="min-h-screen bg-[#07090c] px-3 text-white sm:px-6"><div className="mx-auto max-w-5xl">{children}</div></div>;
+const Shell=({children}:{children:React.ReactNode})=><div className="min-h-[100dvh] bg-[#07090c] px-3 text-white sm:px-6"><div className="mx-auto max-w-5xl">{children}</div></div>;
 const Header=({icon,title}:{icon:React.ReactNode;title:string})=><div className="flex items-center gap-2 text-xl font-black uppercase">{icon}<span>{title}</span></div>;
 const Metric=({label,value}:{label:string;value:string})=><div className="rounded-xl bg-black/30 p-3 text-center"><div className="text-[8px] font-black uppercase text-zinc-600">{label}</div><div className="mt-1 text-xs font-black sm:text-sm">{value}</div></div>;
 const Empty=({text}:{text:string})=><div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-xs text-zinc-600">{text}</div>;
