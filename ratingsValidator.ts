@@ -3,13 +3,8 @@ import { MADDEN_RATING_METADATA, OFFICIAL_MADDEN_RATINGS } from './maddenRatings
 
 /**
  * Validates player ratings against the official EA SPORTS Madden ratings source of truth.
- * Checks for:
- * 1. Missing ratings
- * 2. Duplicate player IDs/ratings
- * 3. Out-of-bounds ratings (< 0 or > 99)
- * 4. Legacy rating discrepancies
- * 5. Rating source consistency ("EA SPORTS Madden")
- * 6. Rating season alignment (2026 / CURRENT)
+ * Checks for missing/duplicate/out-of-bounds ratings, legacy discrepancies,
+ * rating source consistency, and rating-season alignment.
  */
 export function validatePlayerRatings(players: Player[]): RatingsValidationReport {
   const flaggedErrors: string[] = [];
@@ -29,52 +24,36 @@ export function validatePlayerRatings(players: Player[]): RatingsValidationRepor
   for (const player of players) {
     const pId = player.playerId || player.id;
 
-    // Check duplicate
     if (checkedPlayerIds.has(pId)) {
       flaggedErrors.push(`Duplicate player ID found in ratings validation: ${pId} (${player.name})`);
     } else {
       checkedPlayerIds.add(pId);
     }
 
-    // Check rating bounds (0 - 99)
     if (typeof player.overallRating !== 'number' || isNaN(player.overallRating) || player.overallRating < 0 || player.overallRating > 99) {
       flaggedErrors.push(`Player ${player.name} (${pId}) has invalid rating value: ${player.overallRating}`);
       missingRatingsCount++;
       continue;
     }
 
-    // Check rating source
     if (!player.ratingSource || !player.ratingSource.includes('Madden')) {
       flaggedWarnings.push(`Player ${player.name} (${pId}) has non-standard rating source: ${player.ratingSource}`);
     }
 
-    // Check review status
     if (player.ratingStatus === 'RATING_REVIEW_REQUIRED') {
       playersRequiringReviewCount++;
       flaggedWarnings.push(`Player ${player.name} (${pId}) is flagged as RATING_REVIEW_REQUIRED.`);
     }
 
-    // Check legacy ratings (e.g. Tyreek, Jefferson 99s)
-    if (player.legacyRatingRemoved) {
-      legacyRatingsRemovedCount++;
-    }
+    if (player.legacyRatingRemoved) legacyRatingsRemovedCount++;
+    if (player.overallRating === 99) club99Players.push(player);
 
-    // Check 99 club
-    if (player.overallRating === 99) {
-      club99Players.push(player);
-    }
-
-    // Check against Madden dictionary
     const dictMatch = OFFICIAL_MADDEN_RATINGS[pId];
     if (dictMatch) {
-      if (dictMatch.previousOvr && dictMatch.previousOvr !== dictMatch.overallRating) {
-        ratingsUpdatedCount++;
-      } else {
-        ratingsUnchangedCount++;
-      }
+      if (dictMatch.previousOvr && dictMatch.previousOvr !== dictMatch.overallRating) ratingsUpdatedCount++;
+      else ratingsUnchangedCount++;
       ratingsVerifiedCount++;
     } else {
-      // In master database without dictionary override -> verified with baseline
       ratingsVerifiedCount++;
       ratingsUnchangedCount++;
     }
@@ -82,12 +61,45 @@ export function validatePlayerRatings(players: Player[]): RatingsValidationRepor
     validPlayers.push(player);
   }
 
-  // Sort highest and lowest
   const sorted = [...validPlayers].sort((a, b) => (b.overallRating ?? b.ovr) - (a.overallRating ?? a.ovr));
   const highestRatedPlayers = sorted.slice(0, 10);
   const lowestRatedPlayers = [...sorted].reverse().slice(0, 10);
-
   const isValid = flaggedErrors.length === 0 && missingRatingsCount === 0 && ratingsVerifiedCount === players.length;
+
+  const notableRatingUpdates = validPlayers
+    .filter(player => typeof player.previousRating === 'number' && player.previousRating !== player.overallRating)
+    .slice(0, 6)
+    .map(player => ({
+      name: player.name,
+      team: player.team,
+      position: player.position,
+      note: player.legacyRatingRemoved ? 'Legacy rating removed and synchronized.' : 'Rating synchronized to current Madden data.',
+      legacyOvr: player.previousRating as number,
+      officialOvr: player.overallRating ?? player.ovr,
+    }));
+
+  const checks: RatingsValidationReport['checks'] = [
+    {
+      name: 'Rating coverage',
+      description: `${ratingsVerifiedCount}/${players.length} active players have a validated rating.`,
+      status: ratingsVerifiedCount === players.length ? 'PASSED' : 'FAILED',
+    },
+    {
+      name: 'Missing ratings',
+      description: missingRatingsCount === 0 ? 'No active player is missing an OVR.' : `${missingRatingsCount} players are missing ratings.`,
+      status: missingRatingsCount === 0 ? 'PASSED' : 'FAILED',
+    },
+    {
+      name: 'Duplicate IDs',
+      description: flaggedErrors.some(error => error.includes('Duplicate player ID')) ? 'Duplicate player identities detected.' : 'No duplicate rating identities detected.',
+      status: flaggedErrors.some(error => error.includes('Duplicate player ID')) ? 'FAILED' : 'PASSED',
+    },
+    {
+      name: 'Review queue',
+      description: playersRequiringReviewCount === 0 ? 'No ratings require manual review.' : `${playersRequiringReviewCount} ratings require review.`,
+      status: playersRequiringReviewCount === 0 ? 'PASSED' : 'FAILED',
+    },
+  ];
 
   return {
     totalPlayersChecked: players.length,
@@ -106,5 +118,13 @@ export function validatePlayerRatings(players: Player[]): RatingsValidationRepor
     flaggedErrors,
     flaggedWarnings,
     maddenClub99: club99Players,
+    ratingsStatus: isValid ? 'PASSED' : 'REVIEW REQUIRED',
+    lastUpdated: MADDEN_RATING_METADATA.lastUpdated,
+    updatedFromLegacyCount: ratingsUpdatedCount,
+    unchangedCount: ratingsUnchangedCount,
+    flaggedForReviewCount: playersRequiringReviewCount,
+    madden99Club: club99Players,
+    notableRatingUpdates,
+    checks,
   };
 }
