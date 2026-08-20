@@ -212,8 +212,9 @@ export async function updateCloudLeague(leagueId:string, patch:{ salaryCap?:numb
   if(patch.paused!==undefined) data.paused=patch.paused;
   if(patch.rostersLocked!==undefined) data.rosters_locked=patch.rostersLocked;
   if(patch.code!==undefined) data.code=patch.code;
-  const {error}=await supabase.from('ball_knower_leagues').update(data).eq('id',leagueId);
+  const {data:updated,error}=await supabase.from('ball_knower_leagues').update(data).eq('id',leagueId).select('id').maybeSingle();
   if(error) throw error;
+  if(!updated) throw new Error('League update did not modify a league. Confirm your commissioner access and try again.');
 }
 
 export async function updateLeagueOperations(leagueId:string,patch:{inviteEnabled?:boolean;paused?:boolean;rostersLocked?:boolean},actorName:string) {
@@ -229,7 +230,8 @@ export async function regenerateLeagueInvite(leagueId:string,actorName:string):P
     const next=code();
     const {data,error}=await supabase.from('ball_knower_leagues').update({code:next,invite_enabled:true}).eq('id',leagueId).select('code').single();
     if(!error && data){await logLeagueEvent(leagueId,'invite_regenerated','Commissioner regenerated the league invite code.',actorName);return data.code;}
-    if(error?.code!=='23505') throw error;
+    if(!error) throw new Error('Invite code update returned no league row. Confirm you are the commissioner of this league.');
+    if(error.code!=='23505') throw error;
   }
   throw new Error('Could not generate a new invite code.');
 }
