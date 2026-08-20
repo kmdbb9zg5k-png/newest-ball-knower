@@ -184,20 +184,18 @@ export async function joinCloudLeague(inviteCode:string,user:UserLike):Promise<L
 
 export async function saveMyCloudRoster(leagueId:string, roster:Player[], ratings:TeamRatings) {
   if(!supabase) return;
-  const auth=await ensureOnlineSession();
-  const {data:leagueState,error:leagueError}=await supabase.from('ball_knower_leagues').select('paused,rosters_locked').eq('id',leagueId).single();
-  if(leagueError) throw leagueError;
-  if(leagueState?.paused) throw new Error('This league is paused by the commissioner.');
-  if(leagueState?.rosters_locked) throw new Error('Roster submissions are currently locked by the commissioner.');
-  const submittedAt=new Date().toISOString();
-  const {data,error}=await supabase.from('ball_knower_league_members').update({status:'ready',roster,team_ratings:ratings,submitted_at:submittedAt}).eq('league_id',leagueId).eq('auth_user_id',auth.id).select('id,user_name').maybeSingle();
+  await ensureOnlineSession();
+  const {data,error}=await supabase.rpc('submit_ball_knower_roster',{
+    p_league_id:leagueId,
+    p_roster:roster,
+    p_team_ratings:ratings,
+  });
   if(error) throw error;
-  if(!data) throw new Error('Your league membership is no longer active. Rejoin the league before submitting again.');
-  const {count}=await supabase.from('ball_knower_roster_revisions').select('id',{count:'exact',head:true}).eq('league_id',leagueId).eq('member_id',data.id);
-  const revisionNumber=(count||0)+1;
-  const {error:revisionError}=await supabase.from('ball_knower_roster_revisions').insert({league_id:leagueId,member_id:data.id,auth_user_id:auth.id,revision_number:revisionNumber,roster,team_ratings:ratings,reason:revisionNumber===1?'submitted':'resubmitted'});
-  if(revisionError) console.warn('Roster revision snapshot failed',revisionError.message);
-  await logLeagueEvent(leagueId,'roster_submitted',`${data.user_name||'A league member'} submitted and locked a roster.`,data.user_name||'League member',{revisionNumber});
+  const result=Array.isArray(data)?data[0]:data;
+  if(!result) throw new Error('Roster submission completed without a confirmation receipt. Try again.');
+  const revisionNumber=Number(result.revision_number)||1;
+  const userName=String(result.user_name||'League member');
+  await logLeagueEvent(leagueId,'roster_submitted',`${userName} submitted and locked a roster.`,userName,{revisionNumber});
 }
 
 export async function updateCloudLeague(leagueId:string, patch:{ salaryCap?:number; status?:string; seasonResult?:SeasonResult|null; settings?:any; inviteEnabled?:boolean; paused?:boolean; rostersLocked?:boolean; code?:string; }) {
