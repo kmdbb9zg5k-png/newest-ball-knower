@@ -9,15 +9,20 @@ import { TEAM_THEMES } from '../teamTheme';
 import { TOTAL_ROSTER_SIZE } from '../types';
 
 const failures: string[] = [];
-const warnings: string[] = [];
-
 const check = (condition: unknown, message: string) => {
   if (!condition) failures.push(message);
 };
 
+const EXPECTED_TEAM_CODES = [
+  'ARI','ATL','BAL','BUF','CAR','CHI','CIN','CLE','DAL','DEN','DET','GB','HOU','IND','JAX','KC',
+  'LV','LAC','LAR','MIA','MIN','NE','NO','NYG','NYJ','PHI','PIT','SF','SEA','TB','TEN','WAS',
+] as const;
+
 const teamCodes = new Set(TEAM_THEMES.map(team => team.abbr));
 check(TEAM_THEMES.length === 32, `Expected 32 NFL teams, found ${TEAM_THEMES.length}.`);
 check(teamCodes.size === 32, 'NFL team abbreviations contain duplicates.');
+check(EXPECTED_TEAM_CODES.every(code => teamCodes.has(code)), `NFL team set does not match the canonical 32-team code list.`);
+check([...teamCodes].every(code => EXPECTED_TEAM_CODES.includes(code as typeof EXPECTED_TEAM_CODES[number])), 'Unexpected NFL team abbreviation found.');
 
 const playerIds = PLAYERS_DATABASE.map(player => player.id);
 check(new Set(playerIds).size === playerIds.length, 'Player database contains duplicate permanent player IDs.');
@@ -49,16 +54,10 @@ check(fantasyRoundSum === 53, `Fantasy roster requirements sum to ${fantasyRound
 for (const [group, requiredPerTeam] of Object.entries(FANTASY_ROSTER_REQUIREMENTS)) {
   const available = PLAYERS_DATABASE.filter(player => getDraftPositionGroup(player) === group).length;
   const leagueNeed = requiredPerTeam * 32;
-  if (available < leagueNeed) {
-    warnings.push(`${group}: player pool has ${available}; a literal 32-team x ${requiredPerTeam} requirement would need ${leagueNeed}. CPU draft fallback logic must cover this group.`);
-  }
+  check(available >= leagueNeed, `${group}: player pool has ${available}; 32 teams x ${requiredPerTeam} requires at least ${leagueNeed}.`);
 }
 
 console.log(`Ball Knower integrity check: ${PLAYERS_DATABASE.length} players, ${TEAM_THEMES.length} teams, ${FANTASY_DRAFT_ROUNDS}-round fantasy franchise.`);
-if (warnings.length) {
-  console.warn(`Warnings (${warnings.length}):`);
-  warnings.forEach(message => console.warn(`- ${message}`));
-}
 
 if (failures.length) {
   console.error(`Integrity failures (${failures.length}):`);
