@@ -13,6 +13,7 @@ import { CreateLeagueModal } from './CreateLeagueModal';
 import { JoinLeagueModal } from './JoinLeagueModal';
 import { CinematicIntro } from './CinematicIntro';
 import { DatabaseVerificationModal } from './DatabaseVerificationModal';
+import { MobileRosterBrowser } from './MobileRosterBrowser';
 import { SoloMode } from './SoloMode';
 import { HallOfFame } from './HallOfFame';
 import { FavoriteTeamExperience } from './FavoriteTeamExperience';
@@ -134,7 +135,7 @@ function BallKnowerApp() {
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
       <CreateLeagueModal isOpen={isCreateLeagueOpen} onClose={() => setIsCreateLeagueOpen(false)} onLeagueCreated={handleLeagueCreated} />
       <JoinLeagueModal isOpen={isJoinLeagueOpen} onClose={() => setIsJoinLeagueOpen(false)} onLeagueJoined={handleLeagueJoined} />
-      <DatabaseVerificationModal isOpen={isDatabaseModalOpen} onClose={() => setIsDatabaseModalOpen(false)} />
+      {isMobileDraftViewport ? <MobileRosterBrowser isOpen={isDatabaseModalOpen} onClose={() => setIsDatabaseModalOpen(false)} /> : <DatabaseVerificationModal isOpen={isDatabaseModalOpen} onClose={() => setIsDatabaseModalOpen(false)} />}
       {toastMessage && <div className="fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-4 right-4 sm:left-auto sm:right-6 z-50 flex items-center gap-2.5 rounded-md border border-[var(--bk-team-accent)]/50 bg-[#121212] px-4 py-3 text-xs font-bold text-white shadow-2xl backdrop-blur-md"><CheckCircle2 className="h-4 w-4 text-[var(--bk-team-accent)] shrink-0" /><span>{toastMessage}</span></div>}
     </div>
   );
