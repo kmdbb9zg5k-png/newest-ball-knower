@@ -5,6 +5,13 @@ export type TeamTheme = {
   secondary: string;
 };
 
+export const NEUTRAL_THEME: TeamTheme = {
+  name: 'Ball Knower',
+  abbr: 'BK',
+  primary: '#D4A72C',
+  secondary: '#E5E7EB',
+};
+
 export const TEAM_THEMES: TeamTheme[] = [
   {name:'Arizona Cardinals',abbr:'ARI',primary:'#97233F',secondary:'#FFB612'},
   {name:'Atlanta Falcons',abbr:'ATL',primary:'#A71930',secondary:'#A5ACAF'},
@@ -44,21 +51,24 @@ const ESPN_TEAM_LOGO_CODES: Record<string, string> = {
   WAS: 'wsh',
 };
 
+const TRANSPARENT_LOGO = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/%3E';
+
 export const teamLogoUrl = (abbr: string) => {
   const normalized = String(abbr || '').toUpperCase();
+  if (!normalized || normalized === NEUTRAL_THEME.abbr) return TRANSPARENT_LOGO;
   const espnCode = ESPN_TEAM_LOGO_CODES[normalized] ?? normalized.toLowerCase();
   return `https://a.espncdn.com/i/teamlogos/nfl/500/${espnCode}.png`;
 };
 
 export function getTeamTheme(name?: string | null): TeamTheme {
-  return TEAM_THEMES.find(team => team.name === name) ?? TEAM_THEMES[25];
+  return TEAM_THEMES.find(team => team.name === name) ?? NEUTRAL_THEME;
 }
 
 export function getSavedTeamTheme(): TeamTheme {
   try {
     return getTeamTheme(localStorage.getItem('ball-knower-favorite-team'));
   } catch {
-    return TEAM_THEMES[25];
+    return NEUTRAL_THEME;
   }
 }
 
