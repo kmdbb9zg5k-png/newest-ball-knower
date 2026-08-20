@@ -40,6 +40,13 @@ export const TEAM_THEMES: TeamTheme[] = [
   {name:'Washington Commanders',abbr:'WAS',primary:'#5A1414',secondary:'#FFB81C'},
 ];
 
+export const BALL_KNOWER_THEME: TeamTheme = {
+  name: 'Ball Knower',
+  abbr: 'BK',
+  primary: '#D8A93A',
+  secondary: '#D9D9D9',
+};
+
 const ESPN_TEAM_LOGO_CODES: Record<string, string> = {
   WAS: 'wsh',
 };
@@ -51,14 +58,14 @@ export const teamLogoUrl = (abbr: string) => {
 };
 
 export function getTeamTheme(name?: string | null): TeamTheme {
-  return TEAM_THEMES.find(team => team.name === name) ?? TEAM_THEMES[25];
+  return TEAM_THEMES.find(team => team.name === name) ?? BALL_KNOWER_THEME;
 }
 
 export function getSavedTeamTheme(): TeamTheme {
   try {
     return getTeamTheme(localStorage.getItem('ball-knower-favorite-team'));
   } catch {
-    return TEAM_THEMES[25];
+    return BALL_KNOWER_THEME;
   }
 }
 
