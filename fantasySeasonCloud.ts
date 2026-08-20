@@ -7,6 +7,7 @@ export type WaiverClaim={id:string;leagueId:string;memberId:string;playerId:stri
 export type LeagueTransaction={id:string;leagueId:string;memberId?:string;transactionType:string;summary:string;metadata:any;createdAt:string};
 export type LeagueInjury={id:string;leagueId:string;memberId:string;playerId:string;playerName:string;injuryType:string;severity:'minor'|'moderate'|'major'|'season_ending';weeksRemaining:number;onIr:boolean;status:'questionable'|'doubtful'|'out'|'ir'|'cleared';createdAt:string;updatedAt:string};
 export type LeagueMessage={id:string;leagueId:string;memberName:string;body:string;kind:'chat'|'announcement'|'receipt'|'reaction';replyTo?:string;createdAt:string};
+export type WeeklyInjuryRollResult={week:number;created:number;reused:boolean};
 
 const mapTrade=(x:any):TradeOffer=>({id:x.id,leagueId:x.league_id,proposerMemberId:x.proposer_member_id,recipientMemberId:x.recipient_member_id,offeredPlayerIds:x.offered_player_ids||[],requestedPlayerIds:x.requested_player_ids||[],status:x.status,note:x.note||undefined,createdAt:x.created_at,resolvedAt:x.resolved_at||undefined});
 const mapClaim=(x:any):WaiverClaim=>({id:x.id,leagueId:x.league_id,memberId:x.member_id,playerId:x.player_id,dropPlayerId:x.drop_player_id||undefined,priority:Number(x.priority)||999,status:x.status,createdAt:x.created_at,processedAt:x.processed_at||undefined});
@@ -69,6 +70,24 @@ export async function createInjury(leagueId:string,memberId:string,player:Player
   const status=severity==='season_ending'?'ir':'out';
   const {error}=await supabase.from('ball_knower_injuries').insert({league_id:leagueId,member_id:memberId,player_id:player.id,player_name:player.name,injury_type:severity==='season_ending'?'Season-ending injury':'Game injury',severity,weeks_remaining:Math.max(1,weeks),on_ir:severity==='season_ending',status});
   if(error) throw error;
+}
+
+export async function fetchNextInjuryWeek(leagueId:string):Promise<number>{
+  if(!supabase) return 1;
+  await ensureOnlineSession();
+  const {data,error}=await supabase.from('ball_knower_injury_rolls').select('week_number').eq('league_id',leagueId).order('week_number',{ascending:false}).limit(1).maybeSingle();
+  if(error) throw error;
+  return Math.min(18,Math.max(1,(Number(data?.week_number)||0)+1));
+}
+
+export async function generateWeeklyInjuries(leagueId:string,week:number):Promise<WeeklyInjuryRollResult>{
+  if(!supabase) throw new Error('Online multiplayer is not configured.');
+  await ensureOnlineSession();
+  const safeWeek=Math.max(1,Math.min(18,Math.trunc(week)));
+  const {data,error}=await supabase.rpc('generate_ball_knower_weekly_injuries',{p_league_id:leagueId,p_week_number:safeWeek});
+  if(error) throw error;
+  const result=(data||{}) as Partial<WeeklyInjuryRollResult>;
+  return {week:Number(result.week)||safeWeek,created:Number(result.created)||0,reused:Boolean(result.reused)};
 }
 
 export function getLeagueFreeAgents(league:League,playerPool:Player[]):Player[]{
