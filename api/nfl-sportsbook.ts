@@ -9,10 +9,7 @@ const TEAM_NAMES: Record<string, string> = {
   SF: 'San Francisco 49ers', TB: 'Tampa Bay Buccaneers', TEN: 'Tennessee Titans', WAS: 'Washington Commanders',
 };
 
-const TEAM_ABBR_ALIASES: Record<string, string> = {
-  LA: 'LAR',
-  WSH: 'WAS',
-};
+const TEAM_ABBR_ALIASES: Record<string, string> = { LA: 'LAR', WSH: 'WAS' };
 
 const normalizeTeamAbbr = (value: any) => {
   const raw = String(value || '').trim().toUpperCase();
@@ -52,14 +49,23 @@ const kickoffIso = (date: any, time: any) => {
   return `${date}T${cleanTime}${easternOffsetForDate(String(date))}`;
 };
 
+const sendUnavailable = (res: any, reason: string) => {
+  res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=300');
+  res.status(200).json({ games: [], available: false, warning: reason });
+};
+
 export default async function handler(_req: any, res: any) {
   try {
-    const signal = AbortSignal.timeout(20000);
+    const signal = AbortSignal.timeout(10000);
     const upstream = await fetch('https://api.nfldata.org/v1/games?season=2026&limit=1000', {
-      headers: { Accept: 'application/json', 'User-Agent': 'BallKnower/1.0' },
+      headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0 (compatible; BallKnower/1.0)' },
       signal,
     });
-    if (!upstream.ok) throw new Error(`NFL games upstream ${upstream.status}`);
+
+    if (!upstream.ok) {
+      console.warn('nfl-sportsbook-upstream-unavailable', upstream.status);
+      return sendUnavailable(res, `NFL scoreboard feed temporarily unavailable (${upstream.status})`);
+    }
 
     const payload: any = await upstream.json();
     const rows = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
@@ -96,20 +102,19 @@ export default async function handler(_req: any, res: any) {
         home: homeAbbr ? (TEAM_NAMES[homeAbbr] || homeAbbr) : 'Home',
         awayAbbr,
         homeAbbr,
-        details: spread !== null
-          ? `${spread > 0 ? homeAbbr : awayAbbr} ${Math.abs(spread)}`
-          : null,
+        details: spread !== null ? `${spread > 0 ? homeAbbr : awayAbbr} ${Math.abs(spread)}` : null,
         spread,
         overUnder: numberOrNull(g?.total_line ?? g?.over_under ?? g?.total),
       };
     });
 
-    if (!games.length) throw new Error('NFL games upstream returned no games');
+    if (!games.length) return sendUnavailable(res, 'No current NFL games or lines are available');
 
     res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=600');
-    res.status(200).json({ games });
+    res.status(200).json({ games, available: true });
   } catch (error: any) {
-    console.error('nfl-sportsbook-error', error);
-    res.status(502).json({ games: [], error: 'Unable to load NFL odds' });
+    const timeout = error?.name === 'TimeoutError' || error?.name === 'AbortError';
+    console.warn('nfl-sportsbook-feed-degraded', timeout ? 'timeout' : String(error?.message || error));
+    return sendUnavailable(res, timeout ? 'NFL scoreboard feed timed out' : 'NFL scoreboard feed temporarily unavailable');
   }
 }

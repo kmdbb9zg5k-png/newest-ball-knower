@@ -11,14 +11,23 @@ const tag = (xml: string, name: string) => {
   return match ? decodeEntities(match[1].trim()) : '';
 };
 
+const sendUnavailable = (res: any, reason: string) => {
+  res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=300');
+  res.status(200).json({ articles: [], available: false, warning: reason });
+};
+
 export default async function handler(_req: any, res: any) {
   try {
     const signal = AbortSignal.timeout(8000);
     const upstream = await fetch(
       'https://news.google.com/rss/search?q=NFL%20when%3A1d&hl=en-US&gl=US&ceid=US%3Aen',
-      { headers: { 'User-Agent': 'BallKnower/1.0 (+https://vercel.app)' }, signal },
+      { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BallKnower/1.0; +https://vercel.app)' }, signal },
     );
-    if (!upstream.ok) throw new Error(`NFL news upstream ${upstream.status}`);
+
+    if (!upstream.ok) {
+      console.warn('nfl-news-upstream-unavailable', upstream.status);
+      return sendUnavailable(res, `NFL news feed temporarily unavailable (${upstream.status})`);
+    }
 
     const xml = await upstream.text();
     const items = xml.match(/<item>[\s\S]*?<\/item>/gi) || [];
@@ -35,12 +44,13 @@ export default async function handler(_req: any, res: any) {
       };
     });
 
-    if (!articles.length) throw new Error('NFL news upstream returned no articles');
+    if (!articles.length) return sendUnavailable(res, 'NFL news feed returned no current articles');
 
     res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=600');
-    res.status(200).json({ articles });
+    res.status(200).json({ articles, available: true });
   } catch (error: any) {
-    console.error('nfl-news-error', error);
-    res.status(502).json({ articles: [], error: 'Unable to load NFL news' });
+    const timeout = error?.name === 'TimeoutError' || error?.name === 'AbortError';
+    console.warn('nfl-news-feed-degraded', timeout ? 'timeout' : String(error?.message || error));
+    return sendUnavailable(res, timeout ? 'NFL news feed timed out' : 'NFL news feed temporarily unavailable');
   }
 }

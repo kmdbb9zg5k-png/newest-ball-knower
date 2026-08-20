@@ -1,28 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { BallKnowerProvider, useBallKnower } from './BallKnowerContext';
 import { SoundtrackProvider, useSoundtrack } from './SoundtrackContext';
 import { Navbar } from './Navbar';
 import { HomeDashboard } from './HomeDashboard';
 import { OverviewModeGrid } from './OverviewModeGrid';
-import { LeagueLobby } from './LeagueLobby';
-import { DraftRoom } from './DraftRoom';
-import { MobileDraftRoom } from './MobileDraftRoom';
-import { SimulationView } from './SimulationView';
 import { AuthModal } from './AuthModal';
 import { CreateLeagueModal } from './CreateLeagueModal';
 import { JoinLeagueModal } from './JoinLeagueModal';
 import { CinematicIntro } from './CinematicIntro';
-import { DatabaseVerificationModal } from './DatabaseVerificationModal';
-import { MobileRosterBrowser } from './MobileRosterBrowser';
-import { SoloMode } from './SoloMode';
-import { HallOfFame } from './HallOfFame';
 import { FavoriteTeamExperience } from './FavoriteTeamExperience';
-import { NewsHub } from './NewsHub';
-import { FantasyHub } from './FantasyHub';
-import { SportsbookHub } from './SportsbookHub';
 import { League } from './types';
 import { TeamTheme, applyTeamCssVariables, getSavedTeamTheme, teamLogoUrl } from './teamTheme';
 import { CheckCircle2, Play, Database } from 'lucide-react';
+
+const SoloMode = lazy(() => import('./SoloMode').then(module => ({ default: module.SoloMode })));
+const NewsHub = lazy(() => import('./NewsHub').then(module => ({ default: module.NewsHub })));
+const FantasyHub = lazy(() => import('./FantasyHub').then(module => ({ default: module.FantasyHub })));
+const SportsbookHub = lazy(() => import('./SportsbookHub').then(module => ({ default: module.SportsbookHub })));
+const HallOfFame = lazy(() => import('./HallOfFame').then(module => ({ default: module.HallOfFame })));
+const LeagueLobby = lazy(() => import('./LeagueLobby').then(module => ({ default: module.LeagueLobby })));
+const DraftRoom = lazy(() => import('./DraftRoom').then(module => ({ default: module.DraftRoom })));
+const MobileDraftRoom = lazy(() => import('./MobileDraftRoom').then(module => ({ default: module.MobileDraftRoom })));
+const SimulationView = lazy(() => import('./SimulationView').then(module => ({ default: module.SimulationView })));
+const DatabaseVerificationModal = lazy(() => import('./DatabaseVerificationModal').then(module => ({ default: module.DatabaseVerificationModal })));
+const MobileRosterBrowser = lazy(() => import('./MobileRosterBrowser').then(module => ({ default: module.MobileRosterBrowser })));
 
 export type AppTab = 'home' | 'solo' | 'news' | 'fantasy' | 'sportsbook' | 'legacy' | 'lobby' | 'draft' | 'simulation';
 
@@ -35,6 +36,15 @@ const shouldAutoOpenIntro=()=>{
 const detectMobileDraftViewport = () => {
   try { return window.matchMedia('(max-width: 767px)').matches; } catch { return false; }
 };
+
+const ScreenFallback = () => (
+  <div className="mx-auto flex min-h-[45dvh] max-w-5xl items-center justify-center px-4 text-center">
+    <div>
+      <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[var(--bk-team-accent)]" />
+      <div className="mt-3 text-[10px] font-black uppercase tracking-[.22em] text-zinc-500">Loading Ball Knower</div>
+    </div>
+  </div>
+);
 
 function BallKnowerApp() {
   const { activeLeague, leagues, setActiveLeagueId, toastMessage, joinLeague } = useBallKnower();
@@ -117,14 +127,16 @@ function BallKnowerApp() {
           />
           <HomeDashboard onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague} />
         </>}
-        {currentTab === 'solo' && <SoloMode />}
-        {currentTab === 'news' && <NewsHub />}
-        {currentTab === 'fantasy' && <FantasyHub onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague} />}
-        {currentTab === 'sportsbook' && <SportsbookHub />}
-        {currentTab === 'legacy' && <HallOfFame />}
-        {currentTab === 'lobby' && activeLeague && <LeagueLobby league={activeLeague} onGoToDraft={() => setCurrentTab('draft')} onGoToSimulation={() => setCurrentTab('simulation')} />}
-        {currentTab === 'draft' && (isMobileDraftViewport ? <MobileDraftRoom onBackToLobby={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} onSubmitSuccess={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} /> : <DraftRoom onBackToLobby={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} onSubmitSuccess={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} />)}
-        {currentTab === 'simulation' && activeLeague && <SimulationView league={activeLeague} onBackToLobby={() => setCurrentTab('lobby')} />}
+        <Suspense fallback={<ScreenFallback />}>
+          {currentTab === 'solo' && <SoloMode />}
+          {currentTab === 'news' && <NewsHub />}
+          {currentTab === 'fantasy' && <FantasyHub onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague} />}
+          {currentTab === 'sportsbook' && <SportsbookHub />}
+          {currentTab === 'legacy' && <HallOfFame />}
+          {currentTab === 'lobby' && activeLeague && <LeagueLobby league={activeLeague} onGoToDraft={() => setCurrentTab('draft')} onGoToSimulation={() => setCurrentTab('simulation')} />}
+          {currentTab === 'draft' && (isMobileDraftViewport ? <MobileDraftRoom onBackToLobby={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} onSubmitSuccess={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} /> : <DraftRoom onBackToLobby={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} onSubmitSuccess={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} />)}
+          {currentTab === 'simulation' && activeLeague && <SimulationView league={activeLeague} onBackToLobby={() => setCurrentTab('lobby')} />}
+        </Suspense>
       </main>
       <footer className="relative z-[3] border-t border-white/5 bg-[#080808] px-6 sm:px-8 py-4 text-[10px] uppercase font-bold tracking-widest text-zinc-500 flex flex-col sm:flex-row items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-3"><span className="text-[var(--bk-team-accent)]">PROVE YOU KNOW BALL.</span><span>© 2026 BALL KNOWER NFL CAP ENGINE</span><button onClick={openIntro} className="flex items-center gap-1 text-[var(--bk-team-accent)] hover:text-white transition-colors cursor-pointer border-b border-[var(--bk-team-accent)]/30"><Play className="h-2.5 w-2.5 fill-[var(--bk-team-accent)]" /><span>Replay Intro Video</span></button><button onClick={() => setIsDatabaseModalOpen(true)} className="flex items-center gap-1 text-[#00FF00] hover:text-white transition-colors cursor-pointer border-b border-[#00FF00]/30"><Database className="h-2.5 w-2.5 text-[#00FF00]" /><span>32/32 Rosters Verified (2026 Season)</span></button></div>
@@ -135,7 +147,11 @@ function BallKnowerApp() {
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
       <CreateLeagueModal isOpen={isCreateLeagueOpen} onClose={() => setIsCreateLeagueOpen(false)} onLeagueCreated={handleLeagueCreated} />
       <JoinLeagueModal isOpen={isJoinLeagueOpen} onClose={() => setIsJoinLeagueOpen(false)} onLeagueJoined={handleLeagueJoined} />
-      {isMobileDraftViewport ? <MobileRosterBrowser isOpen={isDatabaseModalOpen} onClose={() => setIsDatabaseModalOpen(false)} /> : <DatabaseVerificationModal isOpen={isDatabaseModalOpen} onClose={() => setIsDatabaseModalOpen(false)} />}
+      {isDatabaseModalOpen && (
+        <Suspense fallback={null}>
+          {isMobileDraftViewport ? <MobileRosterBrowser isOpen={isDatabaseModalOpen} onClose={() => setIsDatabaseModalOpen(false)} /> : <DatabaseVerificationModal isOpen={isDatabaseModalOpen} onClose={() => setIsDatabaseModalOpen(false)} />}
+        </Suspense>
+      )}
       {toastMessage && <div className="fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-4 right-4 sm:left-auto sm:right-6 z-50 flex items-center gap-2.5 rounded-md border border-[var(--bk-team-accent)]/50 bg-[#121212] px-4 py-3 text-xs font-bold text-white shadow-2xl backdrop-blur-md"><CheckCircle2 className="h-4 w-4 text-[var(--bk-team-accent)] shrink-0" /><span>{toastMessage}</span></div>}
     </div>
   );
