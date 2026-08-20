@@ -26,7 +26,7 @@ type Props = {
   onMessage: (message: string) => void;
 };
 
-const money = (value: number) => `$${value.toFixed(1)}M`;
+const money = (value: number) => `$${(Number(value) || 0).toFixed(1)}M`;
 
 export const FranchiseManagementPanel: React.FC<Props> = ({ state, onChange, onMessage }) => {
   const [tab, setTab] = useState<ManagementTab>('depth');
@@ -114,11 +114,11 @@ export const FranchiseManagementPanel: React.FC<Props> = ({ state, onChange, onM
           <div className="mt-4">
             <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#111] px-4"><Search size={17} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search free agents…" aria-label="Search free agents" className="min-w-0 flex-1 bg-transparent py-3 outline-none" /></div>
             <div className="mt-3 space-y-2">
-              {freeAgents.map(player => (
+              {freeAgents.length ? freeAgents.map(player => (
                 <PlayerRow key={player.id} player={player} action={
                   <button type="button" onClick={() => apply(signFreeAgent(state, player.id))} className="min-h-11 rounded-xl bg-[var(--bk-team-accent)] px-3 text-[10px] font-black text-[var(--bk-on-accent)]"><UserPlus className="mr-1 inline" size={14} /> SIGN</button>
                 } />
-              ))}
+              )) : <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-sm font-bold text-zinc-500">No free agents match that search.</div>}
             </div>
             <div className="mt-6 rounded-[2rem] border border-white/10 bg-[#10151d] p-4">
               <div className="text-xs font-black tracking-widest text-zinc-500">ROSTER MOVES</div>
