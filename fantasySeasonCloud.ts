@@ -1,5 +1,6 @@
 import { ensureOnlineSession, supabase } from './supabase';
 import { League, Player } from './types';
+import { PLAYERS_DATABASE } from './players';
 
 export type TradeOffer={id:string;leagueId:string;proposerMemberId:string;recipientMemberId:string;offeredPlayerIds:string[];requestedPlayerIds:string[];status:string;note?:string;createdAt:string;resolvedAt?:string};
 export type WaiverClaim={id:string;leagueId:string;memberId:string;playerId:string;dropPlayerId?:string;priority:number;status:string;createdAt:string;processedAt?:string};
@@ -43,8 +44,10 @@ export async function resolveTrade(tradeId:string,status:'accepted'|'rejected'|'
   if(error) throw error;
 }
 
-export async function submitWaiverClaim(leagueId:string,memberId:string,player:Player,dropPlayerId?:string,priority=999){
+export async function submitWaiverClaim(leagueId:string,memberId:string,playerId:string,dropPlayerId?:string,priority=999){
   if(!supabase) return; await ensureOnlineSession();
+  const player=PLAYERS_DATABASE.find(p=>p.id===playerId);
+  if(!player) throw new Error('Player could not be found in the current NFL pool.');
   const {error}=await supabase.from('ball_knower_waiver_claims').insert({league_id:leagueId,member_id:memberId,player_id:player.id,player_snapshot:player,drop_player_id:dropPlayerId||null,priority});
   if(error) throw error;
 }
