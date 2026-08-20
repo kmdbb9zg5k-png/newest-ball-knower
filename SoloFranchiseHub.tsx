@@ -1,6 +1,7 @@
-import React from 'react';
-import { BadgeDollarSign, ChevronRight, Crown, Shuffle, Sparkles, Trophy, Users } from 'lucide-react';
+import React, { useState } from 'react';
+import { BadgeDollarSign, Building2, ChevronRight, Crown, Shuffle, Sparkles, Trophy, Users } from 'lucide-react';
 import { SOLO_FRANCHISE_SAVE_KEYS } from './soloFranchiseEngine';
+import { OwnerBusinessMode } from './OwnerBusinessMode';
 
 export type SoloExperience = 'hub' | 'cap' | 'fantasy' | 'real' | 'player';
 
@@ -67,7 +68,11 @@ function hasSave(key: string) {
   }
 }
 
-export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => (
+export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
+  const [ownerOpen, setOwnerOpen] = useState(false);
+  if (ownerOpen) return <OwnerBusinessMode onBack={() => setOwnerOpen(false)} />;
+
+  return (
   <div className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
     <div className="mx-auto max-w-6xl">
       <section className="relative mb-6 min-h-[22rem] overflow-hidden rounded-[2rem] border border-[var(--bk-team-accent)]/45 bg-[#07090d] shadow-2xl sm:min-h-[27rem]">
@@ -96,12 +101,12 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => (
             </div>
             <h2 className="text-5xl font-black leading-[.84] tracking-[-.045em] sm:text-7xl">CHOOSE<br />YOUR ROAD.</h2>
             <p className="mt-5 max-w-xl text-sm font-semibold leading-relaxed text-zinc-300 sm:text-base">
-              Build your roster. Take over a real team. Create your legacy. Every decision leads to the Super Bowl.
+              Build your roster. Take over a real team. Run the business. Create your legacy. Every decision shapes the franchise.
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {['REAL TEAMS', '17 GAMES', 'PLAYOFFS', 'SUPER BOWL'].map((label, index) => (
+            {['REAL TEAMS', '17 GAMES', 'OWNER OFFICE', 'SUPER BOWL'].map((label, index) => (
               <div key={label} className="rounded-full border border-white/15 bg-black/45 px-3 py-2 text-center text-[9px] font-black tracking-wider text-zinc-100 backdrop-blur">
                 {index === 3 ? '🏆 ' : ''}{label}
               </div>
@@ -115,6 +120,14 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => (
           </div>
         </div>
       </section>
+
+      <button type="button" onClick={() => setOwnerOpen(true)} className="group relative mb-3 w-full overflow-hidden rounded-[2rem] border border-amber-300/25 bg-[#10151d] p-5 text-left transition active:scale-[.99] sm:p-7">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-amber-400/20 via-transparent to-emerald-400/10" />
+        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-4"><div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-amber-300/30 bg-amber-300/10 text-amber-200"><Building2 size={28}/></div><div><div className="text-[10px] font-black tracking-[.22em] text-amber-300">FRONT OFFICE / BUSINESS</div><div className="mt-1 text-3xl font-black">OWNER OFFICE</div><p className="mt-2 max-w-2xl text-sm font-semibold leading-relaxed text-zinc-400">Set ticket, parking, food and merch prices. Invest in facilities and staff. Track fan satisfaction, attendance, revenue, franchise value and realistic relocation studies.</p></div></div>
+          <div className="flex shrink-0 items-center gap-2 text-xs font-black text-amber-200">ENTER OWNER OFFICE <ChevronRight className="transition group-hover:translate-x-1" size={20}/></div>
+        </div>
+      </button>
 
       <div className="grid gap-3 sm:grid-cols-2">
         {MODES.map(mode => {
@@ -139,4 +152,5 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => (
       </div>
     </div>
   </div>
-);
+  );
+};
