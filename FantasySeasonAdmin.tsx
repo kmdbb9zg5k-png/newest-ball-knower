@@ -9,15 +9,16 @@ export const FantasySeasonAdmin:React.FC<{league:League}>=({league})=>{
   const isCommissioner=currentUser?.id===league.commissionerId;
   const [claims,setClaims]=useState<WaiverClaim[]>([]); const [busy,setBusy]=useState(false);
   const pending=useMemo(()=>claims.filter(c=>c.status==='pending').sort((a,b)=>a.priority-b.priority||a.createdAt.localeCompare(b.createdAt)),[claims]);
-  const refresh=async()=>{try{const data=await fetchSeasonOperations(league.id);setClaims([...data.claims]);}catch(e:any){showToast(e?.message||'Could not load commissioner queue.');}};
-  useEffect(()=>{if(isCommissioner)void refresh();},[league.id,isCommissioner]);
+  const refresh=async(isCurrent:()=>boolean=()=>true)=>{try{const data=await fetchSeasonOperations(league.id);if(isCurrent())setClaims([...data.claims]);}catch(e:any){if(isCurrent())showToast(e?.message||'Could not load commissioner queue.');}};
+  useEffect(()=>{if(!isCommissioner)return;let active=true;void refresh(()=>active);return()=>{active=false;};},[league.id,isCommissioner]);
   if(!isCommissioner)return null;
 
   const run=async(fn:()=>Promise<void>)=>{if(busy)return;setBusy(true);try{await fn();await refresh();}catch(e:any){showToast(e?.message||'Commissioner operation failed.');}finally{setBusy(false);}};
   const processAll=()=>run(async()=>{
-    const seen=new Set<string>();
-    for(const claim of pending){if(seen.has(claim.playerId))continue;seen.add(claim.playerId);try{await processWaiverClaim(claim.id);}catch{/* keep processing the rest */}}
-    showToast('Waiver run completed. Rosters that changed were reopened for validation.');
+    const seen=new Set<string>(); const failed:string[]=[]; let processed=0;
+    for(const claim of pending){if(seen.has(claim.playerId))continue;seen.add(claim.playerId);try{await processWaiverClaim(claim.id);processed++;}catch{failed.push(claim.id);}}
+    if(failed.length){showToast(`${processed} waiver claim${processed===1?'':'s'} processed; ${failed.length} failed and remain in the queue.`);return;}
+    showToast(processed?'Waiver run completed. Rosters that changed were reopened for validation.':'No pending waiver claims were processed.');
   });
   const generateInjuries=()=>run(async()=>{
     if(league.settings?.injuriesEnabled===false)throw new Error('Injuries are disabled in league settings.');
