@@ -7,6 +7,8 @@ export type ProgressProfile={
 };
 export type ProgressEvent={id:number;eventType:string;category:string;xpAwarded:number;ratingDelta:number;occurredAt:string;metadata:Record<string,unknown>};
 export type Achievement={key:string;title:string;description:string;category:string;tier:'bronze'|'silver'|'gold'|'diamond';xpReward:number;unlockedAt?:string};
+export type TriviaQuestion={attemptId:number;questionId:number;tier:string;question:string;answers:string[]};
+export type TriviaAnswerResult={isCorrect:boolean;correctIndex:number;explanation:string;xpAwarded:number;progressionRecorded:boolean};
 
 const mapProfile=(x:any):ProgressProfile=>({
   userId:x.user_id,displayName:x.display_name,bkRating:Number(x.bk_rating)||50,xp:Number(x.xp)||0,level:Number(x.level)||1,
@@ -32,5 +34,33 @@ export async function fetchProgressionProfile(displayName?:string){
     profile:mapProfile(profileRow),
     events:(events.data||[]).map((x:any)=>({id:Number(x.id),eventType:x.event_type,category:x.category,xpAwarded:Number(x.xp_awarded)||0,ratingDelta:Number(x.rating_delta)||0,occurredAt:x.occurred_at,metadata:x.metadata||{}} as ProgressEvent)),
     achievements:(achievements.data||[]).map((x:any)=>({key:x.achievement_key,title:x.title,description:x.description,category:x.category,tier:x.tier,xpReward:Number(x.xp_reward)||0,unlockedAt:unlockedMap.get(x.achievement_key)} as Achievement)),
+  };
+}
+
+export async function fetchTriviaQuestion(tier:string):Promise<TriviaQuestion>{
+  if(!supabase) throw new Error('Trivia progression requires online services.');
+  await ensureOnlineSession();
+  const response=await supabase.rpc('get_ball_knower_trivia_question',{p_tier:tier});
+  if(response.error) throw response.error;
+  const row=Array.isArray(response.data)?response.data[0]:response.data;
+  if(!row) throw new Error('No trivia question is available right now.');
+  const answers=Array.isArray(row.answers)?row.answers.map((answer:unknown)=>String(answer)):[];
+  if(answers.length!==4) throw new Error('Trivia question data is incomplete.');
+  return {attemptId:Number(row.attempt_id),questionId:Number(row.question_id),tier:String(row.tier),question:String(row.question),answers};
+}
+
+export async function submitTriviaAnswer(attemptId:number,selectedIndex:number):Promise<TriviaAnswerResult>{
+  if(!supabase) throw new Error('Trivia progression requires online services.');
+  await ensureOnlineSession();
+  const response=await supabase.rpc('submit_ball_knower_trivia_answer',{p_attempt_id:attemptId,p_selected_index:selectedIndex});
+  if(response.error) throw response.error;
+  const row=Array.isArray(response.data)?response.data[0]:response.data;
+  if(!row) throw new Error('Could not score this trivia answer.');
+  return {
+    isCorrect:Boolean(row.is_correct),
+    correctIndex:Number(row.correct_index),
+    explanation:String(row.explanation||''),
+    xpAwarded:Number(row.xp_awarded)||0,
+    progressionRecorded:Boolean(row.progression_recorded),
   };
 }
