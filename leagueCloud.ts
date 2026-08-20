@@ -15,7 +15,7 @@ const leagueFromRows = (row:any, members:any[]):League => ({
   members: members.map(memberFromRow),
   seasonResult: row.season_result || undefined,
   createdAt: row.created_at,
-  settings: row.settings || undefined,
+  settings: { seasonGames: 17, simulationStyle: 'realistic', ...(row.settings || {}) },
 });
 
 const memberFromRow = (m:any):LeagueMember => ({
@@ -80,7 +80,8 @@ export async function createCloudLeague(name:string,maxMembers:number,salaryCap:
     const payload={
       id, code:code(), name:name.trim()||'Ball Knower League',
       max_members:maxMembers, salary_cap:salaryCap,
-      commissioner_auth_id:auth.id, commissioner_name:user.name, status:'drafting'
+      commissioner_auth_id:auth.id, commissioner_name:user.name, status:'drafting',
+      settings:{ seasonGames:17, simulationStyle:'realistic' }
     };
     const {data,error}=await supabase.from('ball_knower_leagues').insert(payload).select().single();
     if(!error){created=data;break;}
@@ -99,39 +100,36 @@ export async function createCloudLeague(name:string,maxMembers:number,salaryCap:
 
 export async function joinCloudLeague(inviteCode:string,user:UserLike):Promise<League> {
   if(!supabase) throw new Error('Online multiplayer is not configured.');
-  const auth=await ensureOnlineSession();
+  await ensureOnlineSession();
   const clean=inviteCode.trim().toUpperCase();
 
-  const {data:row,error}=await supabase.from('ball_knower_leagues').select('*').eq('code',clean).maybeSingle();
-  if(error) throw error;
-  if(!row) throw new Error('League code not found. Check the code and try again.');
-
-  const {data:existing,error:existingError}=await supabase.from('ball_knower_league_members')
-    .select('*').eq('league_id',row.id).eq('auth_user_id',auth.id).maybeSingle();
-  if(existingError) throw existingError;
-
-  if(!existing){
-    const member={
-      id:`member-${auth.id}-${Date.now()}`, league_id:row.id, auth_user_id:auth.id, app_user_id:auth.id,
-      user_name:user.name, user_avatar:user.avatarUrl||null, is_commissioner:false, is_ai:false, status:'building'
-    };
-    const {error:insertError}=await supabase.from('ball_knower_league_members').insert(member);
-    if(insertError) {
-      if(insertError.message?.toLowerCase().includes('full')) throw new Error('This league is full.');
-      throw insertError;
-    }
+  // Joining is atomic in Postgres: the function locks the league row, treats a
+  // reconnect as success, checks capacity, and inserts at most one membership.
+  const {data:leagueId,error:joinError}=await supabase.rpc('join_ball_knower_league',{
+    p_code:clean,
+    p_user_name:user.name,
+    p_user_avatar:user.avatarUrl||null,
+  });
+  if(joinError){
+    const message=String(joinError.message||'');
+    if(message.toLowerCase().includes('full')) throw new Error('This league is full.');
+    if(message.toLowerCase().includes('not found')) throw new Error('League code not found. Check the code and try again.');
+    throw joinError;
   }
-  const members=await fetchMembers([row.id]);
-  return leagueFromRows(row,members);
+
+  const league=await fetchCloudLeague(String(leagueId));
+  if(!league) throw new Error('League joined, but the latest league state could not be loaded. Try opening the invite again.');
+  return league;
 }
 
 export async function saveMyCloudRoster(leagueId:string, roster:Player[], ratings:TeamRatings) {
   if(!supabase) return;
   const auth=await ensureOnlineSession();
-  const {error}=await supabase.from('ball_knower_league_members').update({
+  const {data,error}=await supabase.from('ball_knower_league_members').update({
     status:'ready', roster, team_ratings:ratings, submitted_at:new Date().toISOString()
-  }).eq('league_id',leagueId).eq('auth_user_id',auth.id);
+  }).eq('league_id',leagueId).eq('auth_user_id',auth.id).select('id').maybeSingle();
   if(error) throw error;
+  if(!data) throw new Error('Your league membership is no longer active. Rejoin the league before submitting again.');
 }
 
 export async function updateCloudLeague(leagueId:string, patch:{
