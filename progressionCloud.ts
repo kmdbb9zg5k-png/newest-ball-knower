@@ -9,6 +9,7 @@ export type ProgressEvent={id:number;eventType:string;category:string;xpAwarded:
 export type Achievement={key:string;title:string;description:string;category:string;tier:'bronze'|'silver'|'gold'|'diamond';xpReward:number;unlockedAt?:string};
 export type TriviaQuestion={attemptId:number;questionId:number;tier:string;question:string;answers:string[]};
 export type TriviaAnswerResult={isCorrect:boolean;correctIndex:number;explanation:string;xpAwarded:number;progressionRecorded:boolean};
+export type ChampionshipClaimResult={applied:boolean;eventKey:string};
 
 const mapProfile=(x:any):ProgressProfile=>({
   userId:x.user_id,displayName:x.display_name,bkRating:Number(x.bk_rating)||50,xp:Number(x.xp)||0,level:Number(x.level)||1,
@@ -35,6 +36,16 @@ export async function fetchProgressionProfile(displayName?:string){
     events:(events.data||[]).map((x:any)=>({id:Number(x.id),eventType:x.event_type,category:x.category,xpAwarded:Number(x.xp_awarded)||0,ratingDelta:Number(x.rating_delta)||0,occurredAt:x.occurred_at,metadata:x.metadata||{}} as ProgressEvent)),
     achievements:(achievements.data||[]).map((x:any)=>({key:x.achievement_key,title:x.title,description:x.description,category:x.category,tier:x.tier,xpReward:Number(x.xp_reward)||0,unlockedAt:unlockedMap.get(x.achievement_key)} as Achievement)),
   };
+}
+
+export async function claimLeagueChampionshipProgress(leagueId:string):Promise<ChampionshipClaimResult>{
+  if(!supabase) throw new Error('League progression requires online services.');
+  await ensureOnlineSession();
+  const response=await supabase.rpc('claim_ball_knower_league_championship',{p_league_id:leagueId});
+  if(response.error) throw response.error;
+  const row=Array.isArray(response.data)?response.data[0]:response.data;
+  if(!row) throw new Error('Could not verify this championship result.');
+  return {applied:Boolean(row.applied),eventKey:String(row.event_key||'')};
 }
 
 export async function fetchTriviaQuestion(tier:string):Promise<TriviaQuestion>{
