@@ -32,19 +32,26 @@ export async function proposeTrade(league:League,proposerMemberId:string,recipie
   await ensureOnlineSession();
   if(proposerMemberId===recipientMemberId) throw new Error('Choose another owner to trade with.');
   if(!offeredPlayerIds.length&&!requestedPlayerIds.length) throw new Error('Add at least one player to the trade.');
+  if(offeredPlayerIds.length!==requestedPlayerIds.length) throw new Error('Ball Knower trades must swap the same number of players.');
   const {error}=await supabase.from('ball_knower_trades').insert({league_id:league.id,proposer_member_id:proposerMemberId,recipient_member_id:recipientMemberId,offered_player_ids:offeredPlayerIds,requested_player_ids:requestedPlayerIds,note:note||null});
   if(error) throw error;
 }
 
 export async function resolveTrade(tradeId:string,status:'accepted'|'rejected'|'cancelled'|'vetoed'){
   if(!supabase) return; await ensureOnlineSession();
-  const {data,error}=await supabase.from('ball_knower_trades').update({status,resolved_at:new Date().toISOString()}).eq('id',tradeId).eq('status','pending').select('id').maybeSingle();
-  if(error) throw error; if(!data) throw new Error('That trade is no longer pending.');
+  const {error}=await supabase.rpc('resolve_ball_knower_trade',{p_trade_id:tradeId,p_action:status});
+  if(error) throw error;
 }
 
-export async function submitWaiverClaim(leagueId:string,memberId:string,playerId:string,dropPlayerId?:string,priority=999){
+export async function submitWaiverClaim(leagueId:string,memberId:string,player:Player,dropPlayerId?:string,priority=999){
   if(!supabase) return; await ensureOnlineSession();
-  const {error}=await supabase.from('ball_knower_waiver_claims').insert({league_id:leagueId,member_id:memberId,player_id:playerId,drop_player_id:dropPlayerId||null,priority});
+  const {error}=await supabase.from('ball_knower_waiver_claims').insert({league_id:leagueId,member_id:memberId,player_id:player.id,player_snapshot:player,drop_player_id:dropPlayerId||null,priority});
+  if(error) throw error;
+}
+
+export async function processWaiverClaim(claimId:string){
+  if(!supabase) return; await ensureOnlineSession();
+  const {error}=await supabase.rpc('process_ball_knower_waiver',{p_claim_id:claimId});
   if(error) throw error;
 }
 
