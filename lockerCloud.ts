@@ -28,13 +28,10 @@ export async function fetchLockerExperience(){
 }
 
 export async function equipLockerItem(slot:keyof LockerState,sku:string|null){
-  if(!supabase) return; const auth=await ensureOnlineSession();
-  const column:Record<keyof LockerState,string>={equippedProfileFrame:'equipped_profile_frame',equippedNameplate:'equipped_nameplate',equippedLeagueTheme:'equipped_league_theme',equippedTriviaEffect:'equipped_trivia_effect',equippedMyPlayerCosmetic:'equipped_my_player_cosmetic'};
-  if(sku){
-    const {data,error}=await supabase.from('ball_knower_entitlements').select('id').eq('auth_user_id',auth.id).eq('sku',sku).limit(1);
-    if(error) throw error; if(!data?.length) throw new Error('You do not own that Locker item.');
-  }
-  const {error}=await supabase.from('ball_knower_locker').upsert({auth_user_id:auth.id,[column[slot]]:sku,updated_at:new Date().toISOString()},{onConflict:'auth_user_id'});
+  if(!supabase) return;
+  await ensureOnlineSession();
+  const rpcSlot:Record<keyof LockerState,string>={equippedProfileFrame:'profile_frame',equippedNameplate:'nameplate',equippedLeagueTheme:'league_theme',equippedTriviaEffect:'trivia_effect',equippedMyPlayerCosmetic:'my_player_cosmetic'};
+  const {error}=await supabase.rpc('equip_ball_knower_locker_item',{p_slot:rpcSlot[slot],p_sku:sku});
   if(error) throw error;
 }
 
