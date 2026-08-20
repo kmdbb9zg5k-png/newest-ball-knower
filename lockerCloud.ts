@@ -10,7 +10,7 @@ const mapItem=(x:any):StoreItem=>({sku:x.sku,title:x.title,description:x.descrip
 const mapLocker=(x:any):LockerState=>({equippedProfileFrame:x?.equipped_profile_frame||undefined,equippedNameplate:x?.equipped_nameplate||undefined,equippedLeagueTheme:x?.equipped_league_theme||undefined,equippedTriviaEffect:x?.equipped_trivia_effect||undefined,equippedMyPlayerCosmetic:x?.equipped_my_player_cosmetic||undefined});
 
 export async function fetchLockerExperience(){
-  if(!supabase) return {catalog:[],entitlements:[],locker:{},pass:null} as const;
+  if(!supabase) throw new Error('Locker is unavailable because online services are not configured.');
   const auth=await ensureOnlineSession();
   const [catalog,entitlements,locker,pass]=await Promise.all([
     supabase.from('ball_knower_store_catalog').select('*').eq('active',true).order('category').order('price_cents'),
@@ -19,16 +19,20 @@ export async function fetchLockerExperience(){
     supabase.from('ball_knower_pass_progress').select('*').eq('auth_user_id',auth.id).eq('season','2026').maybeSingle(),
   ]);
   const err=[catalog.error,entitlements.error,locker.error,pass.error].find(Boolean); if(err) throw err;
+  const now=Date.now();
+  const activeEntitlements=(entitlements.data||[])
+    .map((x:any)=>({sku:x.sku,source:x.source,grantedAt:x.granted_at,expiresAt:x.expires_at||undefined}))
+    .filter((x:Entitlement)=>!x.expiresAt || new Date(x.expiresAt).getTime()>now);
   return {
     catalog:(catalog.data||[]).map(mapItem),
-    entitlements:(entitlements.data||[]).map((x:any)=>({sku:x.sku,source:x.source,grantedAt:x.granted_at,expiresAt:x.expires_at||undefined})),
+    entitlements:activeEntitlements,
     locker:mapLocker(locker.data),
     pass:pass.data?{season:pass.data.season,xp:Number(pass.data.xp)||0,level:Number(pass.data.level)||1,premiumUnlocked:Boolean(pass.data.premium_unlocked),claimedFree:pass.data.claimed_free||[],claimedPremium:pass.data.claimed_premium||[]} as PassProgress:null,
   };
 }
 
 export async function equipLockerItem(slot:keyof LockerState,sku:string|null){
-  if(!supabase) return;
+  if(!supabase) throw new Error('Locker is unavailable because online services are not configured.');
   await ensureOnlineSession();
   const rpcSlot:Record<keyof LockerState,string>={equippedProfileFrame:'profile_frame',equippedNameplate:'nameplate',equippedLeagueTheme:'league_theme',equippedTriviaEffect:'trivia_effect',equippedMyPlayerCosmetic:'my_player_cosmetic'};
   const {error}=await supabase.rpc('equip_ball_knower_locker_item',{p_slot:rpcSlot[slot],p_sku:sku});
