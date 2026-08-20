@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useState, useEffect } from 'react';
+import React, { lazy, Suspense, useCallback, useState, useEffect, useRef } from 'react';
 import { BallKnowerProvider, useBallKnower } from './BallKnowerContext';
 import { SoundtrackProvider, useSoundtrack } from './SoundtrackContext';
 import { Navbar } from './Navbar';
@@ -28,12 +28,6 @@ const MobileRosterBrowser = lazy(() => import('./MobileRosterBrowser').then(modu
 
 export type AppTab = 'home' | 'solo' | 'news' | 'fantasy' | 'sportsbook' | 'legacy' | 'lobby' | 'draft' | 'simulation';
 
-const INTRO_SEEN_KEY='ball-knower-intro-seen-v1';
-
-const shouldAutoOpenIntro=()=>{
-  try{return !localStorage.getItem(INTRO_SEEN_KEY)}catch{return true}
-};
-
 const detectMobileDraftViewport = () => {
   try { return window.matchMedia('(max-width: 767px)').matches; } catch { return false; }
 };
@@ -50,12 +44,13 @@ const ScreenFallback = () => (
 function BallKnowerApp() {
   const { activeLeague, leagues, setActiveLeagueId, toastMessage, joinLeague } = useBallKnower();
   const { setIntroActive } = useSoundtrack();
+  const setIntroActiveRef = useRef(setIntroActive);
   const [currentTab, setCurrentTab] = useState<AppTab>('home');
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isCreateLeagueOpen, setIsCreateLeagueOpen] = useState(false);
   const [isJoinLeagueOpen, setIsJoinLeagueOpen] = useState(false);
   const [isDatabaseModalOpen, setIsDatabaseModalOpen] = useState(false);
-  const [isIntroOpen, setIsIntroOpen] = useState(shouldAutoOpenIntro);
+  const [isIntroOpen, setIsIntroOpen] = useState(true);
   const [isMobileDraftViewport, setIsMobileDraftViewport] = useState(detectMobileDraftViewport);
   const [favoriteTheme, setFavoriteTheme] = useState<TeamTheme>(() => getSavedTeamTheme());
   const [showFavoriteTeam, setShowFavoriteTeam] = useState(() => {
@@ -68,6 +63,11 @@ function BallKnowerApp() {
   });
 
   useEffect(() => {
+    setIntroActiveRef.current = setIntroActive;
+  }, [setIntroActive]);
+
+  useEffect(() => {
+    setIntroActiveRef.current(true);
     try {
       const savedTheme = getSavedTeamTheme();
       setFavoriteTheme(savedTheme);
@@ -92,11 +92,10 @@ function BallKnowerApp() {
   }, []);
 
   const openIntro = () => { setIntroActive(true); setIsIntroOpen(true); };
-  const closeIntro = () => {
-    try { localStorage.setItem(INTRO_SEEN_KEY, '1'); } catch {}
+  const closeIntro = useCallback(() => {
     setIsIntroOpen(false);
-    if (!showFavoriteTeam) setIntroActive(false);
-  };
+    if (!showFavoriteTeam) setIntroActiveRef.current(false);
+  }, [showFavoriteTeam]);
   const finishFavoriteTeamSetup = (team: TeamTheme) => {
     setFavoriteTheme(team);
     applyTeamCssVariables(team);
