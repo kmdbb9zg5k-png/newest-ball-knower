@@ -6,6 +6,7 @@ import { HomeDashboard } from './HomeDashboard';
 import { OverviewModeGrid } from './OverviewModeGrid';
 import { LeagueLobby } from './LeagueLobby';
 import { DraftRoom } from './DraftRoom';
+import { MobileDraftRoom } from './MobileDraftRoom';
 import { SimulationView } from './SimulationView';
 import { AuthModal } from './AuthModal';
 import { CreateLeagueModal } from './CreateLeagueModal';
@@ -30,6 +31,10 @@ const shouldAutoOpenIntro=()=>{
   try{return !localStorage.getItem(INTRO_SEEN_KEY)}catch{return true}
 };
 
+const detectMobileDraftViewport = () => {
+  try { return window.matchMedia('(max-width: 767px)').matches; } catch { return false; }
+};
+
 function BallKnowerApp() {
   const { activeLeague, leagues, setActiveLeagueId, toastMessage, joinLeague } = useBallKnower();
   const { setIntroActive } = useSoundtrack();
@@ -39,6 +44,7 @@ function BallKnowerApp() {
   const [isJoinLeagueOpen, setIsJoinLeagueOpen] = useState(false);
   const [isDatabaseModalOpen, setIsDatabaseModalOpen] = useState(false);
   const [isIntroOpen, setIsIntroOpen] = useState(shouldAutoOpenIntro);
+  const [isMobileDraftViewport, setIsMobileDraftViewport] = useState(detectMobileDraftViewport);
   const [favoriteTheme, setFavoriteTheme] = useState<TeamTheme>(() => getSavedTeamTheme());
   const [showFavoriteTeam, setShowFavoriteTeam] = useState(() => {
     try {
@@ -58,6 +64,19 @@ function BallKnowerApp() {
       const joinCode = params.get('join');
       if (joinCode) joinLeague(joinCode).then(res => { if (res.success && res.league) setCurrentTab('lobby'); });
     } catch (e) { console.error(e); }
+  }, []);
+
+  useEffect(() => {
+    let media: MediaQueryList | null = null;
+    try {
+      media = window.matchMedia('(max-width: 767px)');
+      const sync = () => setIsMobileDraftViewport(media?.matches ?? false);
+      sync();
+      media.addEventListener?.('change', sync);
+      return () => media?.removeEventListener?.('change', sync);
+    } catch {
+      return undefined;
+    }
   }, []);
 
   const openIntro = () => { setIntroActive(true); setIsIntroOpen(true); };
@@ -103,7 +122,7 @@ function BallKnowerApp() {
         {currentTab === 'sportsbook' && <SportsbookHub />}
         {currentTab === 'legacy' && <HallOfFame />}
         {currentTab === 'lobby' && activeLeague && <LeagueLobby league={activeLeague} onGoToDraft={() => setCurrentTab('draft')} onGoToSimulation={() => setCurrentTab('simulation')} />}
-        {currentTab === 'draft' && <DraftRoom onBackToLobby={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} onSubmitSuccess={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} />}
+        {currentTab === 'draft' && (isMobileDraftViewport ? <MobileDraftRoom onBackToLobby={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} onSubmitSuccess={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} /> : <DraftRoom onBackToLobby={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} onSubmitSuccess={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} />)}
         {currentTab === 'simulation' && activeLeague && <SimulationView league={activeLeague} onBackToLobby={() => setCurrentTab('lobby')} />}
       </main>
       <footer className="relative z-[3] border-t border-white/5 bg-[#080808] px-6 sm:px-8 py-4 text-[10px] uppercase font-bold tracking-widest text-zinc-500 flex flex-col sm:flex-row items-center justify-between gap-2">
