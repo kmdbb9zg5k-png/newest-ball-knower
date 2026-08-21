@@ -14,7 +14,7 @@ interface FantasyHubProps {
 export const FantasyHub: React.FC<FantasyHubProps> = ({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague }) => {
   const { leagues, currentUser } = useBallKnower();
   const memberCount = leagues.reduce((sum, league) => sum + league.members.length, 0);
-  const [view, setView] = useState<'leagues'|'warroom'>('leagues');
+  const [view, setView] = useState<'leagues'|'warroom'>('warroom');
   const [search, setSearch] = useState('');
   const [position, setPosition] = useState('ALL');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string|null>(null);
