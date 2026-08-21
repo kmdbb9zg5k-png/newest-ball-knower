@@ -195,10 +195,16 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
 const DraftPlayer = ({ player, disabled, onSelect }: { key?: React.Key; player: Player; disabled: boolean; onSelect: () => void }) => {
   const portrait = playerPortraitUrl(player);
   return (
-    <div className="grid grid-cols-[48px_minmax(0,1fr)_76px] items-center gap-3 rounded-2xl border border-white/10 bg-[#111] p-3">
-      <div className="h-12 w-12 overflow-hidden rounded-full bg-white/5">{portrait ? <img src={portrait} alt="" loading="lazy" className="h-full w-full object-cover" /> : null}</div>
-      <div className="min-w-0"><div className="truncate font-black">{player.name}</div><div className="text-xs text-zinc-500">{player.team} • {player.position}</div></div>
-      <button type="button" onClick={onSelect} disabled={disabled} className="min-h-11 rounded-xl bg-[var(--bk-team-accent)] px-3 text-xs font-black text-[var(--bk-on-accent)] disabled:opacity-40">DRAFT<br />{player.ovr}</button>
-    </div>
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onSelect}
+      aria-label={`Draft ${player.name}, ${player.position}, ${player.ovr} overall`}
+      className="grid min-h-12 w-full touch-manipulation grid-cols-[48px_minmax(0,1fr)_76px] items-center gap-3 rounded-2xl border border-white/10 bg-[#111] p-3 text-left disabled:opacity-40"
+    >
+      <span className="h-12 w-12 overflow-hidden rounded-full bg-white/5">{portrait ? <img src={portrait} alt="" loading="lazy" className="h-full w-full object-cover" /> : null}</span>
+      <span className="min-w-0"><span className="block truncate font-black">{player.name}</span><span className="block text-xs text-zinc-500">{player.team} • {player.position}</span></span>
+      <span className="grid min-h-11 place-items-center rounded-xl bg-[var(--bk-team-accent)] px-3 text-center text-xs font-black text-[var(--bk-on-accent)]">DRAFT<br />{player.ovr}</span>
+    </button>
   );
 };
