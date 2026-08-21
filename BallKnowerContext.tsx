@@ -13,6 +13,7 @@ import { simulateFullSeason } from './simulation';
 import { generateAiLeagueMembers, AI_ARCHETYPES, buildRosterForArchetype } from './aiOpponents';
 import { PLAYERS_DATABASE } from './players';
 import { countRosterGroups, getDraftPositionGroup, minimumCompletionCost, validateRosterShape } from './rosterRules';
+import { formatMillions, roundMillions } from './formatters';
 import { isCloudConfigured, ensureOnlineSession } from './supabase';
 import {
   createCloudLeague, joinCloudLeague, loadMyCloudLeagues, fetchCloudLeague,
@@ -287,9 +288,9 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [activeLeagueId, currentUser?.id]);
 
   // Salary calculations
-  const totalSpent = currentRoster.reduce((sum, p) => sum + p.salary, 0);
+  const totalSpent = roundMillions(currentRoster.reduce((sum, p) => sum + p.salary, 0));
   const salaryCap = activeLeague ? activeLeague.salaryCap : DEFAULT_SALARY_CAP;
-  const remainingCap = salaryCap - totalSpent;
+  const remainingCap = roundMillions(salaryCap - totalSpent);
 
   // Position counts are centralized so LT/RT/LG/RG/FS/SS/NT all count correctly.
   const rosterCounts = countRosterGroups(currentRoster);
@@ -302,13 +303,13 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // Roster validation
   const rosterValidationErrors: string[] = validateRosterShape(currentRoster);
   if (remainingCap < 0) {
-    rosterValidationErrors.unshift(`Over salary cap by $${Math.abs(remainingCap)}M.`);
+    rosterValidationErrors.unshift(`Over salary cap by $${formatMillions(Math.abs(remainingCap))}M.`);
   }
 
   const completionCost = minimumCompletionCost(currentRoster, PLAYERS_DATABASE);
   if (Number.isFinite(completionCost) && completionCost > remainingCap) {
     rosterValidationErrors.unshift(
-      `Cap trap: you need at least $${completionCost}M to legally finish the remaining roster spots, but only $${remainingCap}M remains.`
+      `Cap trap: you need at least $${formatMillions(completionCost)}M to legally finish the remaining roster spots, but only $${formatMillions(remainingCap)}M remains.`
     );
   }
 
@@ -337,21 +338,21 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return { success: false, message: `You already filled ${playerGroup} (${rosterCounts[playerGroup]}/${ROSTER_REQUIREMENTS[playerGroup]}).` };
     }
 
-    const nextSalary = totalSpent + player.salary;
+    const nextSalary = roundMillions(totalSpent + player.salary);
     if (nextSalary > salaryCap) {
       return {
         success: false,
-        message: `Adding ${player.name} ($${player.salary}M) exceeds the $${salaryCap}M salary cap by $${nextSalary - salaryCap}M.`,
+        message: `Adding ${player.name} ($${formatMillions(player.salary)}M) exceeds the $${formatMillions(salaryCap)}M salary cap by $${formatMillions(nextSalary - salaryCap)}M.`,
       };
     }
 
     const candidateRoster = [...currentRoster, player];
-    const capAfterPick = salaryCap - nextSalary;
+    const capAfterPick = roundMillions(salaryCap - nextSalary);
     const cheapestFinish = minimumCompletionCost(candidateRoster, PLAYERS_DATABASE);
     if (Number.isFinite(cheapestFinish) && cheapestFinish > capAfterPick) {
       return {
         success: false,
-        message: `${player.name} would leave only $${capAfterPick}M, but you need at least $${cheapestFinish}M to finish a legal roster.`,
+        message: `${player.name} would leave only $${formatMillions(capAfterPick)}M, but you need at least $${formatMillions(cheapestFinish)}M to finish a legal roster.`,
       };
     }
 
