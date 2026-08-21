@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -55,6 +55,7 @@ type AgencyState = {
   wins: number;
   losses: number;
   recruitCooldowns: Record<string, string>;
+  recruitLockouts: Record<string, number>;
   storyStarted: boolean;
   seasonYear: number;
   seasonWeek: number;
@@ -70,6 +71,8 @@ type RecruitState = {
   rivalPressure: number;
   message: string;
   playerReply: string;
+  choices: Pitch[];
+  scenarioIndex: number;
   failed?: boolean;
 };
 
@@ -86,6 +89,7 @@ const fallbackAgency = (): AgencyState => ({
   wins: 0,
   losses: 0,
   recruitCooldowns: {},
+  recruitLockouts: {},
   storyStarted: false,
   seasonYear: 2026,
   seasonWeek: 0,
@@ -119,6 +123,7 @@ const restore = (): AgencyState => {
           }))
         : [],
       recruitCooldowns: v?.recruitCooldowns && typeof v.recruitCooldowns === 'object' ? v.recruitCooldowns : {},
+      recruitLockouts: v?.recruitLockouts && typeof v.recruitLockouts === 'object' ? v.recruitLockouts : {},
       storyStarted: Boolean(v?.profile),
       timeline: Array.isArray(v?.timeline) ? v.timeline : fallbackAgency().timeline,
     };
@@ -161,7 +166,36 @@ const pitchLabel: Record<Pitch, string> = {
   brand: 'I can grow your name',
   opportunity: 'I see what other people miss',
 };
-const playerReplyForPitch = (pitch: Pitch) => {
+const QUESTIONS = [
+  'Why should I trust a rookie with the biggest year of my career?',
+  'My last agent disappeared when things got hard. What makes you different?',
+  'Teams see my role. Do you actually see the player I can become?',
+  'My family needs stability. What is your plan beyond one contract?',
+  'I am tired of empty promises. What can you change right now?',
+  'A bigger agency is calling. Why should I choose the underdog?',
+  'My market is quiet. How are you going to create leverage?',
+  'I want respect, not just headlines. Can you deliver both?',
+  'One bad season can erase me. How do you protect my future?',
+  'I need somebody willing to challenge a front office. Is that you?',
+];
+const STORIES = [
+  'The veteran across the table has heard every sales pitch in football.',
+  'His family and advisor are listening from the back of the room.',
+  'A rival agency has already promised a national campaign.',
+  'The player has one season to turn a limited role into a real market.',
+  'His current team likes him, but has not committed to an extension.',
+];
+const PITCH_VARIANTS: Record<Pitch,string[]> = {
+  money:['Build leverage before we name a price','Make every team bid against the market','Protect the guarantees, not just the headline'],
+  trust:['You get my number, not an assistant','Your family is part of every decision','I tell you the truth before I sell a dream'],
+  brand:['Turn your work into a story teams remember','Own your name before somebody else defines it','Make your production impossible to ignore'],
+  opportunity:['Find the scheme that unlocks your game','Use your film to prove the role is too small','Create options instead of waiting for permission'],
+};
+const hashPlayer=(id:string)=>Array.from(id).reduce((n,c)=>n+c.charCodeAt(0),0);
+const scenarioFor=(p:Player)=>{const index=hashPlayer(p.id)%50;return {index,question:QUESTIONS[index%QUESTIONS.length],story:`${STORIES[Math.floor(index/10)]} ${p.position} value, age and the final year of his deal all shape this meeting.`};};
+const playerReplyForPitch = (pitch: Pitch, scenarioIndex = 0) => {
+  const promise=PITCH_VARIANTS[pitch][scenarioIndex%PITCH_VARIANTS[pitch].length];
+  if(scenarioIndex%2===1)return `“${promise} sounds real. Give me one more reason this is not just a pitch.”`;
   if (pitch === 'money') return '“Everybody says they can get me paid. Show me why you are different.”';
   if (pitch === 'trust') return '“My last agent talked a lot. I need somebody who actually picks up the phone.”';
   if (pitch === 'brand') return '“I am not a superstar yet. If you can help people notice my game, I am listening.”';
@@ -193,6 +227,8 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({ onBack }) =>
   const [recruit, setRecruit] = useState<RecruitState | null>(null);
   const [negotiationRoom, setNegotiationRoom] = useState<NegotiationState | null>(null);
   const [filter, setFilter] = useState('ALL');
+  const [levelUp,setLevelUp]=useState<{from:number;to:number}|null>(null);
+  useEffect(()=>{if(!selectedId&&!negotiationRoom)return;const previous=document.body.style.overflow;document.body.style.overflow='hidden';window.scrollTo(0,0);return()=>{document.body.style.overflow=previous;};},[selectedId,negotiationRoom]);
 
   const clients = useMemo(
     () => agency.clients
@@ -288,37 +324,40 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({ onBack }) =>
 
   const beginRecruit = (p: Player) => {
     if (clients.length >= STARTING_CLIENT_CAP && agency.reputation < 45) return;
+    if (agency.recruitLockouts[p.id] === agency.seasonYear) {
+      const scenario=scenarioFor(p);setSelectedId(p.id);setRecruit({playerId:p.id,interest:0,round:3,used:[],rivalPressure:0,failed:true,choices:[],scenarioIndex:scenario.index,message:`${p.name} signed elsewhere. You are cooked for ${agency.seasonYear}; his camp will not reopen talks until next season.`,playerReply:'“We made our choice. See you next league year.”'});return;
+    }
     const daysLeft = cooldownDaysLeft(agency.recruitCooldowns[p.id]);
     if (daysLeft > 0) {
       setSelectedId(p.id);
-      setRecruit({ playerId:p.id, interest:0, round:1, used:[], rivalPressure:0, failed:true, message:`${p.name}'s camp is not taking another meeting yet. Try again in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`, playerReply:'“We already made our decision for now.”' });
+      setRecruit({ playerId:p.id, interest:0, round:1, used:[], rivalPressure:0, failed:true, choices:[], scenarioIndex:0, message:`${p.name}'s camp is not taking another meeting yet. Try again in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`, playerReply:'“We already made our decision for now.”' });
       return;
     }
     const difficulty = signingDifficulty(p);
     const base = clamp(22 + agency.reputation * .30 + agency.clientCare * .10 - difficulty * .19, 10, 55);
+    const scenario=scenarioFor(p);const pitches=(Object.keys(pitchLabel) as Pitch[]);const offset=scenario.index%pitches.length;
     setSelectedId(p.id);
-    setRecruit({ playerId:p.id, interest:Math.round(base), round:1, used:[], rivalPressure:Math.round(28 + difficulty * .48), message:`${p.name}'s current deal is entering its final year. This is your chance to prove you can create a better future than the last representation did.`, playerReply:'“You are new. Why should I trust my career to you?”' });
+    setRecruit({ playerId:p.id, interest:Math.round(base), round:1, used:[], rivalPressure:Math.round(28 + difficulty * .48), choices:[pitches[offset],pitches[(offset+1)%pitches.length]],scenarioIndex:scenario.index,message:scenario.story, playerReply:`“${scenario.question}”` });
   };
 
   const makePitch = (pitch: Pitch) => {
-    if (!selected || !recruit || recruit.failed || recruit.used.includes(pitch)) return;
+    if (!selected || !recruit || recruit.failed || recruit.used.includes(pitch) || recruit.used.length >= 2 || !recruit.choices.includes(pitch)) return;
     const impact = pitchImpact(pitch, selected, agency);
     const nextInterest = clamp(Math.round(recruit.interest + impact - recruit.rivalPressure / 28), 0, 100);
     const ready = nextInterest >= signingDifficulty(selected);
-    setRecruit({ ...recruit, interest:nextInterest, round:recruit.round + 1, used:[...recruit.used,pitch], message:ready ? `The room changed. ${selected.name} is seriously considering you. Ask for the signature when you are ready.` : `You made progress, but ${selected.name} still needs another reason to bet on a rookie agent.`, playerReply:playerReplyForPitch(pitch) });
+    setRecruit({ ...recruit, interest:nextInterest, round:recruit.round + 1, used:[...recruit.used,pitch], message:ready ? `The room changed. ${selected.name} is seriously considering you. One decision remains.` : `You made progress, but ${selected.name} still needs one more reason to bet on you.`, playerReply:playerReplyForPitch(pitch,recruit.scenarioIndex) });
   };
 
   const askToSign = () => {
-    if (!selected || !recruit || recruit.failed) return;
+    if (!selected || !recruit || recruit.failed || recruit.used.length < 2) return;
     const won = recruit.interest + (agency.reputation + agency.negotiation + agency.clientCare) / 34 - recruit.rivalPressure / 20 >= signingDifficulty(selected);
     if (won) {
       const cooldowns = { ...agency.recruitCooldowns }; delete cooldowns[selected.id];
       const next: AgencyState = { ...agency, reputation:clamp(agency.reputation + (selected.ovr <= 75 ? 8 : 5),0,100), negotiation:clamp(agency.negotiation+1,0,100), clients:[...agency.clients,{playerId:selected.id,trust:72,signedAt:new Date().toISOString()}], wins:agency.wins+1, recruitCooldowns:cooldowns, timeline:[`${selected.name} signed with your agency.`,...agency.timeline].slice(0,20) };
-      setAgency(next); persist(next); setRecruit(null); setSelectedId(null);
+      const before=maxUnlockedOverall(agency.reputation),after=maxUnlockedOverall(next.reputation);setAgency(next); persist(next); setRecruit(null); setSelectedId(null);if(after>before){setLevelUp({from:before,to:after});try{navigator.vibrate?.([45,40,45,40,100]);}catch{}}
     } else {
-      const until = new Date(Date.now()+RECRUIT_COOLDOWN_DAYS*86400000).toISOString();
-      const next: AgencyState = { ...agency, losses:agency.losses+1, reputation:clamp(agency.reputation-1,0,100), recruitCooldowns:{...agency.recruitCooldowns,[selected.id]:until} };
-      setAgency(next); persist(next); setRecruit({ ...recruit, failed:true, message:`${selected.name} chose another agency. You can approach again in ${RECRUIT_COOLDOWN_DAYS} days.`, playerReply:'“I respect the pitch, but I need somebody more established right now.”' });
+      const next: AgencyState = { ...agency, losses:agency.losses+1, reputation:clamp(agency.reputation-1,0,100), recruitLockouts:{...agency.recruitLockouts,[selected.id]:agency.seasonYear} };
+      setAgency(next); persist(next); setRecruit({ ...recruit, failed:true, message:`${selected.name} chose another agency. You cannot sign him again during the ${agency.seasonYear} season.`, playerReply:'“I respect the pitch, but we are going elsewhere.”' });
     }
   };
 
@@ -406,7 +445,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({ onBack }) =>
 
     <section className="rounded-[2rem] border border-violet-300/20 bg-[#0c1018] p-5 sm:p-6"><div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div><div className="flex items-center gap-2 text-violet-300"><CalendarDays size={18}/><span className="text-xs font-black tracking-[.2em]">CAREER CALENDAR</span></div><div className="mt-2 text-3xl font-black">{agency.phase === 'regular' ? `WEEK ${agency.seasonWeek}` : agency.phase.toUpperCase()} · {agency.seasonYear}</div><div className="mt-1 text-sm font-bold text-zinc-400">{prettyDate(agency.simulatedDate)} · {deadlineOpen ? `Trade deadline closes after Week ${TRADE_DEADLINE_WEEK}` : agency.phase === 'regular' ? 'Trade deadline closed' : 'Trade requests unavailable'}</div></div><button onClick={advanceWeek} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-violet-400 px-5 font-black text-black"><FastForward size={18}/> ADVANCE ONE WEEK</button></div></section>
 
-    {agency.timeline.length>0 && <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4"><div className="text-[10px] font-black tracking-[.2em] text-zinc-500">LATEST LEAGUE EVENT</div><div className="mt-2 text-sm font-bold text-zinc-200">{agency.timeline[0]}</div></div>}
+    {agency.timeline.length>0 && <details className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4"><summary className="cursor-pointer text-[10px] font-black tracking-[.2em] text-zinc-400">LATEST LEAGUE EVENT · TAP TO OPEN</summary><div className="mt-2 text-sm font-bold text-zinc-200">{agency.timeline[0]}</div></details>}
 
     <section className="mt-5 overflow-hidden rounded-[2rem] border border-violet-300/20 bg-[#0c1018] p-5 sm:p-7"><div className="grid gap-5 lg:grid-cols-[1.2fr_.8fr]"><div><div className="text-[10px] font-black tracking-[.26em] text-violet-300">YEAR {agency.seasonYear} · EARN YOUR NAME</div><h1 className="mt-2 text-4xl font-black leading-none sm:text-6xl">PROVE YOU<br/>BELONG.</h1><div className="mt-4 flex flex-wrap gap-2 text-xs font-bold text-zinc-400"><span className="rounded-full bg-white/5 px-3 py-2"><UserRound size={13} className="mr-1 inline"/>{agency.profile.age} years old</span><span className="rounded-full bg-white/5 px-3 py-2"><MapPin size={13} className="mr-1 inline"/>{agency.profile.location}</span><span className="rounded-full bg-white/5 px-3 py-2"><BriefcaseBusiness size={13} className="mr-1 inline"/>{clients.length}/{STARTING_CLIENT_CAP} starter clients</span></div></div><div className="rounded-3xl border border-white/10 bg-black/30 p-5"><div className="text-xs font-black tracking-wider text-violet-300">REPUTATION</div><div className="mt-1 text-5xl font-black">{agency.reputation}</div><div className="mt-4 grid grid-cols-2 gap-2 text-xs">{[['Negotiation',agency.negotiation],['Brand',agency.brandPower],['Client Care',agency.clientCare],['Max OVR',unlockedOvr]].map(([l,v])=><div key={String(l)} className="rounded-xl bg-white/5 p-3"><div className="text-zinc-500">{l}</div><div className="mt-1 font-black">{v}</div></div>)}</div></div></div></section>
 
@@ -418,5 +457,6 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({ onBack }) =>
 
     {selected&&recruit&&<div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 p-4 backdrop-blur-md"><div className="mx-auto mt-[max(2rem,env(safe-area-inset-top))] max-w-xl rounded-[2rem] border border-violet-300/25 bg-[#0c1018] p-5 sm:p-7"><div className="flex items-start gap-4"><img src={playerPortraitUrl(selected)} alt="" className="h-20 w-20 rounded-2xl bg-white/5 object-cover"/><div className="min-w-0 flex-1"><div className="text-[10px] font-black tracking-[.2em] text-violet-300">PRIVATE MEETING</div><h3 className="mt-1 text-2xl font-black">{selected.name}</h3><div className="text-xs text-zinc-500">{selected.team} · {selected.position} · {selected.ovr} OVR · final year</div></div><button onClick={()=>{setRecruit(null);setSelectedId(null)}} className="rounded-xl bg-white/5 px-3 py-2 text-xs font-black">CLOSE</button></div><div className="mt-5 rounded-2xl border border-white/10 bg-black/35 p-4"><div className="text-[10px] font-black text-zinc-500">PLAYER</div><p className="mt-2 text-lg font-black leading-7 text-white">{recruit.playerReply}</p></div><div className="mt-3 rounded-2xl bg-violet-400/10 p-4"><div className="text-[10px] font-black text-violet-300">STORY</div><p className="mt-2 text-sm font-semibold leading-6 text-zinc-300">{recruit.message}</p></div>{!recruit.failed&&<><div className="mt-5 grid gap-2 sm:grid-cols-2">{(Object.keys(pitchLabel) as Pitch[]).map(pitch=><button key={pitch} disabled={recruit.used.includes(pitch)} onClick={()=>makePitch(pitch)} className="min-h-12 rounded-2xl border border-white/10 bg-white/5 px-4 text-left text-xs font-black disabled:opacity-25">{pitchLabel[pitch]}</button>)}</div><button onClick={askToSign} className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-violet-400 px-5 font-black text-black"><Handshake size={18}/> ASK HIM TO SIGN WITH YOU</button></>}<div className="mt-4 flex items-center gap-2 text-[10px] font-bold text-zinc-600"><ShieldCheck size={13}/> Reputation determines which players will even take your meeting.</div></div></div>}
     {negotiationRoom&&(()=>{const p=PLAYERS_DATABASE.find(x=>x.id===negotiationRoom.playerId);if(!p)return null;const market=marketProjection(p);return <div className="fixed inset-0 z-50 overflow-y-auto bg-black/90 p-4 backdrop-blur-md"><div className="mx-auto mt-[max(1rem,env(safe-area-inset-top))] max-w-xl rounded-[2rem] border border-violet-300/25 bg-[#0c1018] p-5 sm:p-7"><div className="flex items-start justify-between gap-3"><div><div className="text-[10px] font-black tracking-[.22em] text-violet-300">NEGOTIATION ROOM · ROUND {negotiationRoom.round}</div><h3 className="mt-1 text-3xl font-black">{p.name}</h3><div className="text-xs text-zinc-500">{p.team} GM · Market estimate {moneyM(market)}/yr</div></div><button onClick={()=>setNegotiationRoom(null)} className="min-h-11 rounded-xl bg-white/5 px-3 text-xs font-black">LEAVE</button></div><div className="mt-5 rounded-2xl border border-white/10 bg-black/35 p-4"><div className="text-[10px] font-black text-zinc-500">GENERAL MANAGER</div><p className="mt-2 text-lg font-black leading-7">“{negotiationRoom.message}”</p></div><div className="mt-4 grid gap-3 sm:grid-cols-3"><label className="rounded-2xl bg-white/5 p-3 text-[10px] font-black text-zinc-400">YEARS<input type="range" min="1" max="5" value={negotiationRoom.years} onChange={e=>setNegotiationRoom({...negotiationRoom,years:Number(e.target.value)})} className="mt-3 w-full accent-violet-400"/><span className="mt-2 block text-2xl text-white">{negotiationRoom.years}</span></label><label className="rounded-2xl bg-white/5 p-3 text-[10px] font-black text-zinc-400">PER YEAR<input type="range" min={Math.max(1,market*.65)} max={market*1.3} step="0.5" value={negotiationRoom.annualM} onChange={e=>setNegotiationRoom({...negotiationRoom,annualM:Number(e.target.value)})} className="mt-3 w-full accent-violet-400"/><span className="mt-2 block text-lg text-white">{moneyM(negotiationRoom.annualM)}</span></label><label className="rounded-2xl bg-white/5 p-3 text-[10px] font-black text-zinc-400">GUARANTEED<input type="range" min="25" max="80" step="5" value={negotiationRoom.guaranteedPct} onChange={e=>setNegotiationRoom({...negotiationRoom,guaranteedPct:Number(e.target.value)})} className="mt-3 w-full accent-violet-400"/><span className="mt-2 block text-2xl text-white">{negotiationRoom.guaranteedPct}%</span></label></div><div className="mt-4 flex items-center justify-between rounded-xl bg-white/5 p-3 text-xs"><span className="text-zinc-500">GM patience</span><span className={negotiationRoom.gmPatience<30?'font-black text-red-300':'font-black text-emerald-300'}>{negotiationRoom.gmPatience}/100</span></div><button onClick={counterNegotiation} className="mt-4 min-h-12 w-full rounded-2xl bg-violet-400 px-5 font-black text-black">SEND COUNTEROFFER · {moneyM(negotiationRoom.annualM*negotiationRoom.years)} TOTAL</button></div></div>})()}
+    {levelUp&&<div className="fixed inset-0 z-[60] grid place-items-center bg-black/90 p-4 backdrop-blur"><div className="w-full max-w-sm rounded-[2rem] border border-violet-300/30 bg-[#111525] p-6 text-center shadow-2xl"><div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-violet-400 text-black"><Sparkles size={30}/></div><div className="mt-4 text-[10px] font-black tracking-[.25em] text-violet-300">REPUTATION LEVEL UP</div><h2 className="mt-2 text-4xl font-black">YOU'RE MOVING UP.</h2><p className="mt-3 text-sm font-semibold leading-6 text-zinc-400">Players up to <b className="text-white">{levelUp.to} OVR</b> will now take your call. Your old ceiling was {levelUp.from}.</p><button onClick={()=>setLevelUp(null)} className="mt-5 min-h-12 w-full rounded-2xl bg-violet-400 font-black text-black">SEE WHO UNLOCKED</button></div></div>}
   </div></div>;
 };

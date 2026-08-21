@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Camera, Dumbbell, Play, RotateCcw, Sparkles, Upload } from 'lucide-react';
+import { ArrowLeft, Dumbbell, Play, RotateCcw, Sparkles, Upload } from 'lucide-react';
 import { FranchiseSeason } from './FranchiseSeason';
 import { buildRealTeamRoster, SOLO_FRANCHISE_SAVE_KEYS } from './soloFranchiseEngine';
 import { getDraftPositionGroup } from './rosterRules';
@@ -19,6 +19,8 @@ type MyPlayerProfile = {
   position: Position;
   number: number;
   faceImage: string;
+  presetFaceId: string;
+  bodyPresetId: string;
   renderImage: string;
   appearancePrompt: string;
   teamAbbr: string;
@@ -42,6 +44,20 @@ type MyPlayerProfile = {
 
 const POSITIONS: Position[] = ['QB', 'RB', 'WR', 'TE', 'EDGE', 'LB', 'CB', 'S'];
 
+const FACE_PRESETS = [
+  { id: 'mason', name: 'Mason', skin: '#f1c6a8', shadow: '#c98f6c', hair: '#3b2418', hairStyle: 'short' },
+  { id: 'nico', name: 'Nico', skin: '#d99b72', shadow: '#aa6747', hair: '#211711', hairStyle: 'fade' },
+  { id: 'malik', name: 'Malik', skin: '#9a5c3d', shadow: '#713d28', hair: '#16100d', hairStyle: 'twists' },
+  { id: 'darius', name: 'Darius', skin: '#5d3528', shadow: '#3b211a', hair: '#100b09', hairStyle: 'waves' },
+] as const;
+
+const BODY_PRESETS = [
+  { id: 'lean', label: 'LEAN', detail: 'Speed build', heightInches: 71, weightLbs: 185, bodyBuild: 28, shoulderWidth: 40, armSize: 34, legSize: 44 },
+  { id: 'balanced', label: 'BALANCED', detail: 'All-around', heightInches: 72, weightLbs: 210, bodyBuild: 50, shoulderWidth: 54, armSize: 48, legSize: 52 },
+  { id: 'power', label: 'POWER', detail: 'Strong frame', heightInches: 73, weightLbs: 240, bodyBuild: 72, shoulderWidth: 70, armSize: 68, legSize: 66 },
+  { id: 'lineman', label: 'LINEMAN', detail: 'Trench build', heightInches: 76, weightLbs: 315, bodyBuild: 90, shoulderWidth: 88, armSize: 76, legSize: 82 },
+] as const;
+
 const EMPTY_PROFILE: MyPlayerProfile = {
   version: 1,
   stage: 'creator',
@@ -49,6 +65,8 @@ const EMPTY_PROFILE: MyPlayerProfile = {
   position: 'WR',
   number: 17,
   faceImage: '',
+  presetFaceId: 'malik',
+  bodyPresetId: 'balanced',
   renderImage: '',
   appearancePrompt: '',
   teamAbbr: '',
@@ -180,6 +198,8 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
       const creatorCustomized = Boolean(
         profile.name ||
         profile.faceImage ||
+        profile.presetFaceId !== EMPTY_PROFILE.presetFaceId ||
+        profile.bodyPresetId !== EMPTY_PROFILE.bodyPresetId ||
         profile.renderImage ||
         profile.appearancePrompt ||
         profile.position !== EMPTY_PROFILE.position ||
@@ -210,7 +230,11 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
   }, []);
 
   const updateSlider = (key: BodySliderKey, value: number) => {
-    setProfile(current => ({ ...current, [key]: value, renderImage: key === 'viewRotation' ? current.renderImage : '' }));
+    setProfile(current => ({ ...current, [key]: value, bodyPresetId: key === 'viewRotation' ? current.bodyPresetId : 'custom', renderImage: key === 'viewRotation' ? current.renderImage : '' }));
+  };
+
+  const chooseBodyPreset = (preset: typeof BODY_PRESETS[number]) => {
+    setProfile(current => ({ ...current, ...preset, bodyPresetId: preset.id, renderImage: '' }));
   };
 
   const onFace = async (file?: File) => {
@@ -259,7 +283,6 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
 
   const enterCombine = () => {
     if (!profile.name.trim()) return setMessage('Give your player a name.');
-    if (!profile.faceImage) return setMessage('Upload a selfie so the career belongs to you.');
     setProfile(current => ({ ...current, name: current.name.trim(), stage: 'combine' }));
     setMessage('You have been invited to the Ball Knower Combine.');
   };
@@ -356,8 +379,12 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
             </div>
             <div className="rounded-[2rem] border border-white/10 bg-[#10151d] p-5 sm:p-7">
               <h2 className="text-3xl font-black">BUILD YOUR PLAYER</h2>
-              <p className="mt-2 text-sm font-semibold text-zinc-400">Upload a clear selfie, choose your position, shape the body with sliders, then describe details like tattoos, visor and gloves.</p>
-              <label className="mt-5 flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-white/20 bg-white/5 font-black"><Upload size={18} /> {profile.faceImage ? 'CHANGE SELFIE' : 'UPLOAD SELFIE'}<input type="file" accept="image/jpeg,image/png,image/webp" capture="user" onChange={event => onFace(event.target.files?.[0])} className="sr-only" /></label>
+              <p className="mt-2 text-sm font-semibold leading-relaxed text-zinc-400"><strong className="text-white">What you do:</strong> pick a face and body, enter a name, then choose a position. A selfie is optional. When you are happy, enter the Combine and your career begins.</p>
+
+              <div className="mt-5"><div className="flex items-end justify-between"><div><div className="text-[10px] font-black tracking-[.18em] text-[var(--bk-team-accent)]">CHOOSE A FACE</div><div className="mt-1 text-[10px] font-bold text-zinc-500">Four original Ball Knower rookies</div></div><span className="text-[9px] font-black text-zinc-600">REQUIRED</span></div>
+                <div className="mt-3 grid grid-cols-4 gap-2">{FACE_PRESETS.map(face => <button key={face.id} type="button" aria-pressed={!profile.faceImage && profile.presetFaceId === face.id} onClick={() => setProfile(current => ({ ...current, presetFaceId: face.id, faceImage: '', renderImage: '' }))} className={`rounded-2xl border p-2 ${!profile.faceImage && profile.presetFaceId === face.id ? 'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)]/10' : 'border-white/10 bg-black/20'}`}><PresetFace face={face} small /><span className="mt-1 block text-[8px] font-black text-zinc-400">{face.name}</span></button>)}</div>
+              </div>
+              <label className="mt-3 flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[.03] text-xs font-black text-zinc-400"><Upload size={15} /> {profile.faceImage ? 'CHANGE YOUR SELFIE' : 'OPTIONAL: USE YOUR SELFIE'}<input type="file" accept="image/jpeg,image/png,image/webp" capture="user" onChange={event => onFace(event.target.files?.[0])} className="sr-only" /></label>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <label className="text-[10px] font-black text-zinc-500">PLAYER NAME<input value={profile.name} onChange={event => setProfile(current => ({ ...current, name: event.target.value }))} className="mt-1 w-full rounded-xl border border-white/10 bg-[#151515] p-3 text-sm text-white outline-none" placeholder="Your name" /></label>
                 <label className="text-[10px] font-black text-zinc-500">JERSEY NUMBER<input type="number" min="0" max="99" value={profile.number} onChange={event => setProfile(current => ({ ...current, number: Math.max(0, Math.min(99, Number(event.target.value) || 0)) }))} className="mt-1 w-full rounded-xl border border-white/10 bg-[#151515] p-3 text-sm text-white outline-none" /></label>
@@ -366,6 +393,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
 
               <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
                 <div className="mb-3 flex items-center justify-between"><span className="text-[10px] font-black tracking-[.18em] text-[var(--bk-team-accent)]">BODY BUILDER</span><span className="text-[10px] font-bold text-zinc-500">LIVE PREVIEW</span></div>
+                <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">{BODY_PRESETS.map(preset => <button type="button" key={preset.id} aria-pressed={profile.bodyPresetId === preset.id} onClick={() => chooseBodyPreset(preset)} className={`min-h-14 rounded-xl border px-2 text-left ${profile.bodyPresetId === preset.id ? 'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)]/10' : 'border-white/10 bg-[#111]'}`}><span className="block text-[9px] font-black text-white">{preset.label}</span><span className="mt-0.5 block text-[8px] font-bold text-zinc-500">{preset.detail}</span></button>)}</div>
                 <BodySlider label="HEIGHT" value={profile.heightInches} min={66} max={80} display={feetAndInches(profile.heightInches)} onChange={value => updateSlider('heightInches', value)} />
                 <BodySlider label="WEIGHT" value={profile.weightLbs} min={165} max={360} display={`${profile.weightLbs} LB`} onChange={value => updateSlider('weightLbs', value)} />
                 <BodySlider label="BODY BUILD" value={profile.bodyBuild} min={0} max={100} display={profile.bodyBuild < 34 ? 'LEAN' : profile.bodyBuild < 67 ? 'ATHLETIC' : 'POWER'} onChange={value => updateSlider('bodyBuild', value)} />
@@ -375,7 +403,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
               </div>
 
               <label className="mt-4 block text-[10px] font-black text-zinc-500">DESCRIBE YOUR LOOK<textarea value={profile.appearancePrompt} onChange={event => setProfile(current => ({ ...current, appearancePrompt: event.target.value.slice(0, 280), renderImage: '' }))} className="mt-1 min-h-24 w-full rounded-xl border border-white/10 bg-[#151515] p-3 text-sm text-white outline-none" placeholder="Add a tattoo sleeve, dark visor, white gloves…" /></label>
-              <button type="button" disabled={isRendering || !profile.faceImage || aiAvailable === false} onClick={createRender} className="mt-3 w-full rounded-2xl border border-[var(--bk-team-accent)]/40 py-3 font-black text-[var(--bk-team-accent)] disabled:opacity-40"><Sparkles className="mr-2 inline" size={18} /> {isRendering ? 'CREATING RENDER…' : aiAvailable === false ? 'AI RENDER NEEDS CONNECTION' : 'CREATE AI PLAYER RENDER'}</button>
+              <button type="button" disabled={isRendering || !profile.faceImage || aiAvailable === false} onClick={createRender} className="mt-3 w-full rounded-2xl border border-[var(--bk-team-accent)]/40 py-3 font-black text-[var(--bk-team-accent)] disabled:opacity-40"><Sparkles className="mr-2 inline" size={18} /> {isRendering ? 'CREATING RENDER…' : !profile.faceImage ? 'SELFIE RENDER (OPTIONAL)' : aiAvailable === false ? 'AI RENDER NEEDS CONNECTION' : 'CREATE AI PLAYER RENDER'}</button>
               {aiAvailable === false ? <p className="mt-2 text-center text-[10px] font-bold text-zinc-500">The built-in third-person preview and full career still work while the photorealistic image service is offline.</p> : null}
               <button type="button" onClick={enterCombine} className="mt-3 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)]"><Play className="mr-2 inline" /> ENTER THE COMBINE</button>
             </div>
@@ -425,6 +453,17 @@ const ViewSlider = ({ value, onChange }: { value: number; onChange: (value: numb
   </label>
 );
 
+const PresetFace = ({ face, small = false }: { face: typeof FACE_PRESETS[number]; small?: boolean }) => (
+  <div className={`relative mx-auto overflow-hidden rounded-[42%] bg-[#1c2531] ${small ? 'h-14 w-12' : 'h-full w-full'}`} aria-hidden="true">
+    <div className="absolute bottom-[-5%] left-1/2 h-[86%] w-[72%] -translate-x-1/2 rounded-[46%_46%_42%_42%]" style={{ background: `linear-gradient(105deg,${face.shadow},${face.skin} 52%,${face.shadow})` }}>
+      <div className="absolute left-[18%] top-[45%] h-[5%] w-[16%] rounded-full bg-[#17120f]" /><div className="absolute right-[18%] top-[45%] h-[5%] w-[16%] rounded-full bg-[#17120f]" />
+      <div className="absolute left-1/2 top-[48%] h-[20%] w-[10%] -translate-x-1/2 rounded-full border-r border-black/20" />
+      <div className="absolute bottom-[17%] left-1/2 h-[5%] w-[28%] -translate-x-1/2 rounded-b-full border-b-2 border-white/70" />
+    </div>
+    {face.hairStyle === 'twists' ? <div className="absolute left-[13%] top-[2%] h-[35%] w-[74%] rounded-t-[48%]" style={{ background: `radial-gradient(circle,${face.hair} 0 35%,transparent 40%) 0 0/12px 12px` }} /> : <div className={`absolute left-[14%] top-[3%] h-[29%] w-[72%] ${face.hairStyle === 'fade' ? 'rounded-[48%_48%_30%_30%]' : 'rounded-t-[50%]'}`} style={{ background: face.hair }} />}
+  </div>
+);
+
 const PlayerRender = ({ profile, compact = false }: { profile: MyPlayerProfile; compact?: boolean }) => {
   const prompt = profile.appearancePrompt.toLowerCase();
   const tags = [
@@ -448,6 +487,7 @@ const PlayerRender = ({ profile, compact = false }: { profile: MyPlayerProfile; 
   const legScale = 0.86 + profile.legSize / 100 * 0.32;
   const torsoRadius = 34 + Math.round(profile.bodyBuild * 0.12);
   const showingBack = Math.abs(profile.viewRotation) > 95;
+  const presetFace = FACE_PRESETS.find(face => face.id === profile.presetFaceId) ?? FACE_PRESETS[0];
 
   return (
     <div className={`relative overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_50%_20%,rgba(90,120,180,.35),transparent_32%),linear-gradient(160deg,#111827,#05070b)] ${compact ? 'min-h-[260px]' : 'min-h-[500px]'}`}>
@@ -463,16 +503,21 @@ const PlayerRender = ({ profile, compact = false }: { profile: MyPlayerProfile; 
             transition: 'transform 120ms ease-out',
           }}
         >
-          <div className="absolute left-1/2 top-0 h-[19%] w-[38%] -translate-x-1/2 overflow-hidden rounded-[46%] border-4 border-zinc-400 bg-zinc-900 shadow-xl" style={{ transform: 'translateZ(18px)' }}>
-            {profile.faceImage && !showingBack ? <img src={profile.faceImage} alt="Your uploaded face" className="h-full w-full object-cover" /> : <Camera className="m-auto mt-[28%] text-zinc-600" size={compact ? 24 : 34} />}
+          <div className="absolute left-1/2 top-0 h-[19%] w-[38%] -translate-x-1/2 overflow-hidden rounded-[42%] border-[3px] border-zinc-400 bg-zinc-900 shadow-xl" style={{ transform: 'translateZ(18px)' }}>
+            {profile.faceImage && !showingBack ? <img src={profile.faceImage} alt="Your uploaded face" className="h-full w-full object-cover" /> : !showingBack ? <PresetFace face={presetFace} /> : <div className="h-full w-full bg-gradient-to-b from-zinc-700 to-zinc-950" />}
           </div>
-          <div className="absolute left-1/2 top-[17%] h-[46%] -translate-x-1/2 bg-gradient-to-b from-zinc-500 via-zinc-800 to-black shadow-2xl" style={{ width: `${50 * shoulderScale}%`, borderRadius: `${torsoRadius}% ${torsoRadius}% 20% 20%`, transform: 'translateZ(10px)' }}>
+          <div className="absolute left-1/2 top-[16%] h-[12%] -translate-x-1/2 rounded-[50%] bg-zinc-300 shadow-lg" style={{ width: `${68 * shoulderScale}%`, transform: 'translateZ(7px)' }} />
+          <div className="absolute left-1/2 top-[17%] h-[46%] -translate-x-1/2 border-x border-white/10 bg-gradient-to-b from-[#5d6879] via-[#252d3a] to-[#0a0d12] shadow-2xl" style={{ width: `${50 * shoulderScale}%`, borderRadius: `${torsoRadius}% ${torsoRadius}% 20% 20%`, transform: 'translateZ(10px)' }}>
+            <div className="absolute left-1/2 top-0 h-[10%] w-[30%] -translate-x-1/2 rounded-b-full bg-black/65" />
             <div className="absolute inset-x-0 top-[22%] text-center font-black text-white/90" style={{ fontSize: compact ? 42 : 68 }}>{profile.number}</div>
+            <div className="absolute inset-x-[10%] bottom-[8%] h-[4%] rounded-full bg-white/15" />
           </div>
-          <div className="absolute left-[5%] top-[20%] h-[42%] rounded-full bg-zinc-700" style={{ width: `${13 * armScale}%`, transform: 'rotate(7deg) translateZ(4px)' }} />
-          <div className="absolute right-[5%] top-[20%] h-[42%] rounded-full bg-zinc-700" style={{ width: `${13 * armScale}%`, transform: 'rotate(-7deg) translateZ(4px)' }} />
-          <div className="absolute bottom-0 left-[28%] h-[43%] rounded-b-[40%] bg-zinc-800" style={{ width: `${15 * legScale}%`, transform: 'translateZ(3px)' }} />
-          <div className="absolute bottom-0 right-[28%] h-[43%] rounded-b-[40%] bg-zinc-800" style={{ width: `${15 * legScale}%`, transform: 'translateZ(3px)' }} />
+          <div className="absolute left-[5%] top-[20%] h-[42%] rounded-full border-r border-white/10 bg-gradient-to-b from-zinc-500 to-zinc-900" style={{ width: `${13 * armScale}%`, transform: 'rotate(7deg) translateZ(4px)' }} />
+          <div className="absolute right-[5%] top-[20%] h-[42%] rounded-full border-l border-white/10 bg-gradient-to-b from-zinc-500 to-zinc-900" style={{ width: `${13 * armScale}%`, transform: 'rotate(-7deg) translateZ(4px)' }} />
+          <div className="absolute bottom-[34%] left-[22%] h-[14%] w-[56%] rounded-b-[35%] border-t-2 border-white/20 bg-zinc-200" style={{ transform: 'translateZ(5px)' }} />
+          <div className="absolute bottom-[4%] left-[27%] h-[40%] rounded-b-[32%] bg-gradient-to-b from-zinc-200 via-zinc-300 to-zinc-700" style={{ width: `${16 * legScale}%`, transform: 'translateZ(3px)' }} />
+          <div className="absolute bottom-[4%] right-[27%] h-[40%] rounded-b-[32%] bg-gradient-to-b from-zinc-200 via-zinc-300 to-zinc-700" style={{ width: `${16 * legScale}%`, transform: 'translateZ(3px)' }} />
+          <div className="absolute bottom-0 left-[23%] h-[6%] w-[25%] skew-x-[-12deg] rounded bg-black shadow-lg" /><div className="absolute bottom-0 right-[23%] h-[6%] w-[25%] skew-x-[12deg] rounded bg-black shadow-lg" />
           <div className="absolute inset-x-0 bottom-[5%] flex flex-wrap justify-center gap-1" style={{ transform: 'translateZ(24px)' }}>{tags.map(tag => <span key={tag} className="rounded-full bg-black/65 px-2 py-1 text-[7px] font-black text-white/70">{tag}</span>)}</div>
         </div>
       </div>

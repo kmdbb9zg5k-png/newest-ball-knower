@@ -308,6 +308,17 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           </div>
         </div>
       </section>
+
+      <section className="mx-auto mt-14 max-w-5xl px-4 sm:px-8" aria-label="Contact Ball Knower">
+        <div className="rounded-2xl border border-white/10 bg-[#101215]/90 p-5 sm:flex sm:items-center sm:justify-between sm:gap-6 sm:p-6">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[.22em] text-[var(--bk-team-accent)]">CONTACT BALL KNOWER</div>
+            <h2 className="mt-1 text-xl font-black uppercase">Questions, partnerships or a problem?</h2>
+            <p className="mt-1 max-w-xl text-xs font-semibold leading-relaxed text-zinc-400">Email the Ball Knower team. Put “Business,” “Support,” or “Bug” in the subject so we can get it to the right place fast.</p>
+          </div>
+          <a href="mailto:BallKnowerOfficial@gmail.com?subject=Ball%20Knower%20Inquiry" className="mt-4 flex min-h-12 shrink-0 items-center justify-center rounded-xl bg-[var(--bk-team-accent)] px-5 text-xs font-black uppercase text-[var(--bk-on-accent)] sm:mt-0">BallKnowerOfficial@gmail.com</a>
+        </div>
+      </section>
     </div>
   );
 };
