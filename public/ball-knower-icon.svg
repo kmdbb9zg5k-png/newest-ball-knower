@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Ball Knower</title>
+  <desc id="desc">Ball Knower BK football app icon</desc>
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFF1AE"/>
+      <stop offset=".42" stop-color="#E4B84D"/>
+      <stop offset="1" stop-color="#8B6514"/>
+    </linearGradient>
+    <linearGradient id="silver" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset=".55" stop-color="#D7D9DE"/>
+      <stop offset="1" stop-color="#8E949D"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="72%" cy="18%" r="82%">
+      <stop offset="0" stop-color="#D8A93A" stop-opacity=".22"/>
+      <stop offset=".55" stop-color="#11151B" stop-opacity=".94"/>
+      <stop offset="1" stop-color="#050608"/>
+    </radialGradient>
+  </defs>
+  <rect x="12" y="12" width="488" height="488" rx="108" fill="url(#glow)" stroke="#D8A93A" stroke-opacity=".65" stroke-width="5"/>
+  <path d="M104 161 Q256 55 408 161" fill="none" stroke="url(#gold)" stroke-width="15" stroke-linecap="round"/>
+  <g stroke="#F7F7F7" stroke-width="8" stroke-linecap="round">
+    <path d="M219 119v30"/><path d="M238 111v34"/><path d="M257 108v34"/><path d="M276 111v34"/><path d="M295 119v30"/>
+  </g>
+  <text x="91" y="330" fill="url(#silver)" font-family="Arial Black, Impact, sans-serif" font-size="214" font-weight="900" font-style="italic" letter-spacing="-28">B</text>
+  <text x="246" y="330" fill="url(#gold)" font-family="Arial Black, Impact, sans-serif" font-size="214" font-weight="900" font-style="italic" letter-spacing="-22">K</text>
+  <path d="M87 365h338" stroke="#D8A93A" stroke-opacity=".58" stroke-width="3"/>
+  <text x="256" y="412" text-anchor="middle" fill="#FFFFFF" font-family="Arial Black, Arial, sans-serif" font-size="31" font-weight="900" letter-spacing="6">BALL KNOWER</text>
+  <text x="256" y="447" text-anchor="middle" fill="#D8A93A" font-family="Arial, sans-serif" font-size="14" font-weight="800" letter-spacing="4">DRAFT • BUILD • DOMINATE</text>
+</svg>
