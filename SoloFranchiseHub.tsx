@@ -1,7 +1,7 @@
 import React from 'react';
 import { BadgeDollarSign, ChevronRight, Crown, Shuffle, Sparkles, Users } from 'lucide-react';
 import { SOLO_FRANCHISE_SAVE_KEYS } from './soloFranchiseEngine';
-import { TEAM_THEMES } from './teamTheme';
+import { isMyPlayerProfileCustomized, parseMyPlayerSave } from './myPlayerSave';
 
 export type SoloExperience = 'hub' | 'cap' | 'fantasy' | 'real' | 'player';
 
@@ -48,56 +48,21 @@ const MODES = [
   },
 ];
 
-const PLAYER_DEFAULTS = {
-  stage: 'creator',
-  name: '',
-  position: 'WR',
-  number: 17,
-  faceImage: '',
-  renderImage: '',
-  appearancePrompt: '',
-  teamAbbr: '',
-  heightInches: 72,
-  weightLbs: 205,
-  bodyBuild: 48,
-  shoulderWidth: 52,
-  armSize: 46,
-  legSize: 50,
-  viewRotation: 0,
-} as const;
-
-const PLAYER_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'EDGE', 'LB', 'CB', 'S'];
-const PLAYER_STAGES = ['creator', 'combine', 'drafted', 'season'];
-
 function hasPlayerSave(raw: string) {
-  const saved = JSON.parse(raw);
-  if (saved?.version !== 1 || !PLAYER_POSITIONS.includes(saved?.position) || !PLAYER_STAGES.includes(saved?.stage)) return false;
-  if ((saved.stage === 'drafted' || saved.stage === 'season') && !TEAM_THEMES.some(team => team.abbr === saved.teamAbbr)) return false;
-
-  const profile = { ...PLAYER_DEFAULTS, ...saved };
-  if (profile.stage !== 'creator') return true;
-  return Boolean(
-    profile.name ||
-    profile.faceImage ||
-    profile.renderImage ||
-    profile.appearancePrompt ||
-    profile.position !== PLAYER_DEFAULTS.position ||
-    profile.number !== PLAYER_DEFAULTS.number ||
-    profile.heightInches !== PLAYER_DEFAULTS.heightInches ||
-    profile.weightLbs !== PLAYER_DEFAULTS.weightLbs ||
-    profile.bodyBuild !== PLAYER_DEFAULTS.bodyBuild ||
-    profile.shoulderWidth !== PLAYER_DEFAULTS.shoulderWidth ||
-    profile.armSize !== PLAYER_DEFAULTS.armSize ||
-    profile.legSize !== PLAYER_DEFAULTS.legSize ||
-    profile.viewRotation !== PLAYER_DEFAULTS.viewRotation
-  );
+  const profile = parseMyPlayerSave(raw);
+  if (!profile) return false;
+  return profile.stage !== 'creator' || isMyPlayerProfileCustomized(profile);
 }
 
 function hasSave(key: string) {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return false;
-    if (key === SOLO_FRANCHISE_SAVE_KEYS.player) return hasPlayerSave(raw);
+    if (key === SOLO_FRANCHISE_SAVE_KEYS.player) {
+      const valid = hasPlayerSave(raw);
+      if (!valid) localStorage.removeItem(key);
+      return valid;
+    }
     return true;
   } catch {
     return false;
