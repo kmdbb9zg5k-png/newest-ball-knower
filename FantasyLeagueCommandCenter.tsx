@@ -22,7 +22,7 @@ interface Props {
   onGoToSimulation: () => void;
 }
 
-const PUBLIC_APP_ORIGIN = 'https://newest-ball-knower.vercel.app';
+const PUBLIC_APP_ORIGIN = 'https://ballknowerofficial.com';
 
 const relativeTime = (iso:string) => {
   const seconds=Math.max(0,Math.floor((Date.now()-new Date(iso).getTime())/1000));

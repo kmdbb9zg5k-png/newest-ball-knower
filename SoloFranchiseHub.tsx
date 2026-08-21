@@ -32,8 +32,8 @@ const MODES = [
   {
     id: 'real' as const,
     eyebrow: '2026 ROSTERS',
-    title: 'REAL TEAM',
-    description: 'Take control of a current NFL roster and lead that franchise through a full season.',
+    title: 'FRANCHISE COMMAND',
+    description: 'Run football operations: shape a real roster, answer coaches, make deals and chase a championship.',
     icon: Users,
     key: SOLO_FRANCHISE_SAVE_KEYS.real,
     accent: 'from-emerald-400/25 to-transparent',
@@ -109,7 +109,7 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {['REAL TEAMS', '17 GAMES', 'OWNER OFFICE', 'PLAYER AGENT'].map((label) => (
+            {['FRANCHISE COMMAND', '17 GAMES', 'OWNER OFFICE', 'PLAYER AGENT'].map((label) => (
               <div key={label} className="rounded-full border border-white/15 bg-black/45 px-3 py-2 text-center text-[9px] font-black tracking-wider text-zinc-100 backdrop-blur">{label}</div>
             ))}
           </div>

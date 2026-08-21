@@ -5,6 +5,13 @@ const HIDDEN_TRACK_TITLES = new Set([
   'On The South',
 ]);
 
+const BUNDLED_TRACKS = [
+  ['Westbound Grind', '/audio/Westbound-Grind.mp3'],
+  ['Bloody Love', '/audio/Bloody-Love.mp3'],
+  ['G-O-A-T', '/audio/G-O-A-T.mp3'],
+  ['In My Blood', '/audio/In-My-Blood.mp3'],
+] as const;
+
 function cleanTitle(pathname: string) {
   return pathname
     .split('/').pop()!
@@ -46,6 +53,22 @@ export default async function handler(_req: any, res: any) {
       url: blob.url,
       pathname: blob.pathname,
     }));
+
+    for (const [title, url] of BUNDLED_TRACKS) {
+      const existing = tracks.findIndex(track => track.title.toLowerCase() === title.toLowerCase());
+      const bundled = {
+        id: `bundled-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+        title,
+        subtitle: 'Ball Knower Original Soundtrack',
+        tempoBpm: 0,
+        mood: 'Ball Knower',
+        durationSec: 0,
+        url,
+        pathname: url,
+      };
+      if (existing >= 0) tracks[existing] = bundled;
+      else tracks.push(bundled);
+    }
 
     res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
     res.status(200).json({

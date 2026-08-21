@@ -1,82 +1,24 @@
-import React, { useEffect, useState } from 'react';
-import { DollarSign, RefreshCw } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Calculator, RefreshCw, Search } from 'lucide-react';
+import { ModeGuide } from './ModeGuide';
 
-type Game = {
-  id: string;
-  date?: string;
-  status?: string;
-  away: string;
-  home: string;
-  awayAbbr?: string;
-  homeAbbr?: string;
-  details?: string;
-  spread?: number | null;
-  overUnder?: number | null;
-};
+type Game={id:string;date?:string;status?:string;away:string;home:string;spread?:number|null;overUnder?:number|null};
+type Leg={id:string;label:string;odds:number};
 
-export const SportsbookHub: React.FC = () => {
-  const [games, setGames] = useState<Game[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  const load = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const r = await fetch('/api/nfl-sportsbook', { cache: 'no-store' });
-      if (!r.ok) throw new Error('Odds feed unavailable');
-      const data = await r.json();
-      setGames(Array.isArray(data?.games) ? data.games : []);
-    } catch (e: any) {
-      setError(e?.message || 'Could not load NFL odds.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { void load(); }, []);
-
-  return (
-    <div className="min-h-[calc(100vh-7rem)] px-4 py-8 sm:px-8">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-7 flex items-end justify-between gap-4">
-          <div>
-            <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[.28em] text-[#D4AF37]"><DollarSign className="h-4 w-4" /> Sportsbook Odds</div>
-            <h2 className="font-display text-4xl font-black uppercase sm:text-6xl">NFL <span className="text-[#D4AF37]">Lines</span></h2>
-            <p className="mt-2 max-w-2xl text-sm text-zinc-400">Game lines and totals for football context. Informational only.</p>
-          </div>
-          <button onClick={() => void load()} className="flex shrink-0 items-center gap-2 border border-white/10 bg-[#151515] px-3 py-2 text-xs font-black uppercase tracking-wider text-zinc-300 hover:border-[#D4AF37]/50">
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
-          </button>
-        </div>
-
-        {error && <div className="mb-5 border border-red-500/30 bg-red-500/10 p-4 text-sm font-bold text-red-300">{error}</div>}
-        {loading && games.length === 0 ? (
-          <div className="space-y-3">{[0,1,2,3].map(i => <div key={i} className="h-32 animate-pulse rounded-xl border border-white/5 bg-white/[.03]" />)}</div>
-        ) : games.length === 0 ? (
-          <div className="rounded-xl border border-white/10 bg-[#111] p-10 text-center text-zinc-400">No NFL games or lines are posted right now.</div>
-        ) : (
-          <div className="space-y-3">
-            {games.map(game => (
-              <div key={game.id} className="rounded-xl border border-white/10 bg-[#111]/90 p-4 sm:p-5">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-3 text-[10px] font-black uppercase tracking-[.18em] text-zinc-500">
-                  <span>{game.date ? new Date(game.date).toLocaleString() : 'NFL'}</span><span className="text-[#D4AF37]">{game.status || 'Scheduled'}</span>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
-                  <div><div className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Away</div><div className="mt-1 text-xl font-black">{game.away}</div></div>
-                  <div className="text-center text-xs font-black uppercase tracking-widest text-zinc-600">AT</div>
-                  <div className="sm:text-right"><div className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Home</div><div className="mt-1 text-xl font-black">{game.home}</div></div>
-                </div>
-                <div className="mt-4 grid grid-cols-3 gap-2 rounded-lg bg-black/30 p-3 text-center">
-                  <div><div className="text-[9px] font-black uppercase tracking-wider text-zinc-500">Line</div><div className="mt-1 text-sm font-black text-[#D4AF37]">{game.details || 'Not posted'}</div></div>
-                  <div><div className="text-[9px] font-black uppercase tracking-wider text-zinc-500">Spread</div><div className="mt-1 text-sm font-black">{game.spread == null ? '—' : game.spread}</div></div>
-                  <div><div className="text-[9px] font-black uppercase tracking-wider text-zinc-500">O/U</div><div className="mt-1 text-sm font-black">{game.overUnder == null ? '—' : game.overUnder}</div></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+export const SportsbookHub:React.FC=()=>{
+ const [games,setGames]=useState<Game[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [query,setQuery]=useState('');const [legs,setLegs]=useState<Leg[]>([]);const [stake,setStake]=useState(10);const [updated,setUpdated]=useState<Date|null>(null);
+ const load=async()=>{setLoading(true);setError('');try{const response=await fetch('/api/nfl-sportsbook',{cache:'no-store'});if(!response.ok)throw new Error('Odds feed unavailable');const data=await response.json();setGames(Array.isArray(data?.games)?data.games:[]);setUpdated(new Date());}catch(err){setError(err instanceof Error?err.message:'Could not load NFL odds.');}finally{setLoading(false);}};
+ useEffect(()=>{void load();},[]);
+ const visible=games.filter(game=>`${game.away} ${game.home}`.toLowerCase().includes(query.toLowerCase()));
+ const decimal=useMemo(()=>legs.reduce((total,leg)=>total*(leg.odds>0?1+leg.odds/100:1+100/Math.abs(leg.odds)),1),[legs]);
+ const combined=legs.length?Math.round(decimal>=2?(decimal-1)*100:-100/(decimal-1)):0;
+ const toggle=(leg:Leg)=>setLegs(current=>current.some(item=>item.id===leg.id)?current.filter(item=>item.id!==leg.id):[...current,leg]);
+ return <div className="min-h-[calc(100dvh-7rem)] px-3 py-5 sm:px-8"><div className="mx-auto max-w-6xl">
+  <header className="flex flex-wrap items-end justify-between gap-3"><div><div className="text-[10px] font-black uppercase tracking-[.28em] text-[#D4AF37]">Informational football data</div><h1 className="mt-1 text-4xl font-black uppercase sm:text-6xl">Odds Board</h1><p className="mt-2 text-sm font-semibold text-zinc-400">Compare posted lines and build a pretend parlay. Ball Knower does not accept bets.</p></div><div className="flex gap-2"><ModeGuide storageKey="bk-guide-odds-board-v1" title="Odds Board" summary="This page shows football lines for information. You cannot place a bet here." steps={["Search for a matchup.","Tap a posted spread or total to add it to the calculator.","Use the pretend payout to understand the odds — no money is wagered."]}/><button onClick={()=>void load()} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#151515]" aria-label="Refresh odds"><RefreshCw className={`h-4 w-4 ${loading?'animate-spin':''}`}/></button></div></header>
+  <div className="sticky top-0 z-20 mt-4 grid gap-2 border-y border-white/10 bg-black/90 py-3 backdrop-blur sm:grid-cols-[1fr_auto]"><label className="flex min-h-11 items-center gap-2 rounded-xl border border-white/10 bg-[#111] px-3"><Search className="h-4 w-4 text-zinc-500"/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search team" className="w-full bg-transparent text-sm outline-none"/></label><div className="rounded-xl border border-white/10 bg-[#111] px-4 py-3 text-[10px] font-bold text-zinc-500">{updated?`Loaded ${updated.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}`:'Not loaded'} · Refresh before relying on a line</div></div>
+  {error&&<div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-bold text-red-300">{error}</div>}
+  <div className="mt-3 grid gap-4 lg:grid-cols-[1fr_20rem]"><section className="overflow-hidden rounded-2xl border border-white/10 bg-[#0d1014]">{loading&&!games.length?<div className="p-8 text-center text-zinc-500">Loading posted lines…</div>:!visible.length?<div className="p-8 text-center text-zinc-500">No posted NFL lines match that search.</div>:visible.map(game=>{const spreadLabel=game.spread==null?'Spread —':`${game.home} ${game.spread>0?'+':''}${game.spread}`;const totalLabel=game.overUnder==null?'Total —':`O/U ${game.overUnder}`;return <article key={game.id} className="grid gap-2 border-b border-white/5 p-3 last:border-0 sm:grid-cols-[minmax(0,1fr)_7rem_7rem] sm:items-center"><div className="min-w-0"><div className="truncate text-sm font-black">{game.away} <span className="text-zinc-600">@</span> {game.home}</div><div className="mt-1 text-[9px] font-bold uppercase tracking-wider text-zinc-500">{game.date?new Date(game.date).toLocaleString():'Date not posted'} · {game.status||'Scheduled'}</div></div><button disabled={game.spread==null} onClick={()=>toggle({id:`${game.id}-spread`,label:spreadLabel,odds:-110})} className={`min-h-11 rounded-xl border px-2 text-xs font-black ${legs.some(item=>item.id===`${game.id}-spread`)?'border-[#D4AF37] bg-[#D4AF37]/10 text-[#D4AF37]':'border-white/10 bg-black/25 disabled:opacity-40'}`}>{spreadLabel}</button><button disabled={game.overUnder==null} onClick={()=>toggle({id:`${game.id}-total`,label:totalLabel,odds:-110})} className={`min-h-11 rounded-xl border px-2 text-xs font-black ${legs.some(item=>item.id===`${game.id}-total`)?'border-[#D4AF37] bg-[#D4AF37]/10 text-[#D4AF37]':'border-white/10 bg-black/25 disabled:opacity-40'}`}>{totalLabel}</button></article>})}</section>
+   <aside className="h-fit rounded-2xl border border-[#D4AF37]/25 bg-[#111] p-4 lg:sticky lg:top-20"><div className="flex items-center gap-2 text-xs font-black uppercase text-[#D4AF37]"><Calculator className="h-4 w-4"/>Parlay calculator</div><p className="mt-2 text-xs leading-5 text-zinc-500">For learning only. Uses a standard -110 estimate because this feed does not provide book-specific leg prices.</p><div className="mt-3 space-y-2">{legs.length?legs.map(leg=><button key={leg.id} onClick={()=>toggle(leg)} className="flex min-h-10 w-full items-center justify-between rounded-xl bg-black/30 px-3 text-left text-xs font-bold"><span>{leg.label}</span><span className="text-red-300">×</span></button>):<div className="rounded-xl border border-dashed border-white/10 p-4 text-center text-xs text-zinc-600">Tap a line to add a leg.</div>}</div><label className="mt-4 block text-[9px] font-black uppercase tracking-wider text-zinc-500">Pretend amount<input type="number" min="1" max="10000" value={stake} onChange={event=>setStake(Math.max(1,Number(event.target.value)||1))} className="mt-1 min-h-11 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-lg font-black outline-none"/></label><div className="mt-3 grid grid-cols-2 gap-2"><div className="rounded-xl bg-black/30 p-3"><div className="text-[9px] font-black text-zinc-500">COMBINED</div><div className="mt-1 text-xl font-black">{legs.length?(combined>0?'+':'')+combined:'—'}</div></div><div className="rounded-xl bg-black/30 p-3"><div className="text-[9px] font-black text-zinc-500">EST. RETURN</div><div className="mt-1 text-xl font-black text-[#D4AF37]">{legs.length?`$${(stake*decimal).toFixed(2)}`:'—'}</div></div></div></aside>
+  </div><p className="mt-4 text-center text-[10px] font-semibold text-zinc-600">Informational only. Lines can change and may be delayed. Ball Knower does not accept or facilitate wagers.</p>
+ </div></div>;
 };

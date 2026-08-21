@@ -8,7 +8,9 @@ interface CinematicIntroProps {
 
 export const CinematicIntro: React.FC<CinematicIntroProps> = ({ isOpen, onClose }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(() => {
+    try { return localStorage.getItem('ball-knower-intro-sound-v1') !== 'on'; } catch { return true; }
+  });
   const [introUrl, setIntroUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -30,10 +32,18 @@ export const CinematicIntro: React.FC<CinematicIntroProps> = ({ isOpen, onClose 
     const video = videoRef.current;
     if (!video) return;
     video.currentTime = 0;
-    video.muted = true;
-    video.defaultMuted = true;
-    setIsMuted(true);
-    video.play().catch(() => window.setTimeout(onClose, 150));
+    const wantsSound = (() => { try { return localStorage.getItem('ball-knower-intro-sound-v1') === 'on'; } catch { return false; } })();
+    video.muted = !wantsSound;
+    video.defaultMuted = !wantsSound;
+    setIsMuted(!wantsSound);
+    video.play().catch(() => {
+      // Mobile Safari can reject autoplay with sound. Keep the intro moving and
+      // preserve the preference so the next browser-supported visit can honor it.
+      video.muted = true;
+      video.defaultMuted = true;
+      setIsMuted(true);
+      video.play().catch(() => window.setTimeout(onClose, 150));
+    });
   }, [isOpen, introUrl, onClose]);
 
   if (!isOpen) return null;
@@ -43,6 +53,7 @@ export const CinematicIntro: React.FC<CinematicIntroProps> = ({ isOpen, onClose 
     if (!video) return;
     video.muted = !video.muted;
     setIsMuted(video.muted);
+    try { localStorage.setItem('ball-knower-intro-sound-v1', video.muted ? 'off' : 'on'); } catch {}
     if (video.paused) video.play().catch(() => {});
   };
 
@@ -61,7 +72,7 @@ export const CinematicIntro: React.FC<CinematicIntroProps> = ({ isOpen, onClose 
         className="absolute inset-0 h-full w-full object-cover bg-black"
         playsInline
         autoPlay
-        muted
+        muted={isMuted}
         preload="auto"
         onEnded={onClose}
         onError={onClose}
@@ -76,8 +87,8 @@ export const CinematicIntro: React.FC<CinematicIntroProps> = ({ isOpen, onClose 
             <RotateCcw className="h-5 w-5" />
           </button>
         </div>
-        <button onClick={onClose} className="flex items-center gap-2 rounded-sm border border-[#D4AF37]/50 bg-black/70 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-[#D4AF37] hover:bg-black">
-          <SkipForward className="h-4 w-4" /> Skip Intro
+        <button onClick={onClose} className="flex items-center gap-1.5 rounded-full border border-white/15 bg-black/35 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-white/55 backdrop-blur-sm transition hover:bg-black/60 hover:text-white/85">
+          <SkipForward className="h-3 w-3" /> Skip
         </button>
       </div>
     </div>
