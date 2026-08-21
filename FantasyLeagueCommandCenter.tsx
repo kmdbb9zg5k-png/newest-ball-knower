@@ -22,6 +22,8 @@ interface Props {
   onGoToSimulation: () => void;
 }
 
+const PUBLIC_APP_ORIGIN = 'https://newest-ball-knower.vercel.app';
+
 const relativeTime = (iso:string) => {
   const seconds=Math.max(0,Math.floor((Date.now()-new Date(iso).getTime())/1000));
   if(seconds<60) return `${seconds}s ago`;
@@ -74,7 +76,8 @@ export const FantasyLeagueCommandCenter: React.FC<Props> = ({league,onGoToDraft,
   };
   useEffect(()=>{void refreshAux();},[league.id,league.members.length,league.status,readyCount]);
 
-  const inviteUrl=`${window.location.origin}?join=${inviteCode}`;
+  // Never leak a protected Vercel preview hostname into customer invite links.
+  const inviteUrl=`${PUBLIC_APP_ORIGIN}?join=${encodeURIComponent(inviteCode)}`;
   const unread=notifications.filter(n=>!n.readAt).length;
   const numericCap=typeof cap==='number'?cap:Number(cap);
   const capValid=Number.isFinite(numericCap)&&numericCap>0;
