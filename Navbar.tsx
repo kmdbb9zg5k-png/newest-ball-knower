@@ -42,7 +42,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   useEffect(() => {
     const el = document.getElementById(`nav-tab-${currentTab}`);
-    el?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    el?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
   }, [currentTab]);
 
   useEffect(() => {

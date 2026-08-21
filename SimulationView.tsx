@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { League, SeasonResult, TeamReportAnalysis, SimulationGame } from './types';
+import { League, TeamReportAnalysis } from './types';
 import { useBallKnower } from './BallKnowerContext';
 import { generateTeamReport } from './evaluation';
 import { RosterComparisonModal } from './RosterComparisonModal';
@@ -8,7 +8,6 @@ import {
   Award,
   Crown,
   Shield,
-  CheckCircle2,
   AlertTriangle,
   Flame,
   TrendingUp,
@@ -18,7 +17,6 @@ import {
   Sparkles,
   Calendar,
   Layers,
-  ArrowRight,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -77,22 +75,34 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
     ? (seasonResult.teamReports[myMember.id] || generateTeamReport(myMember.id, myMember.userName, myMember.roster))
     : null;
 
-  // Winner info
-  const winner = seasonResult.standings[0];
-  const winnerMember = league.members.find(m => m.id === winner.memberId);
-
   const handleCopyDraftOrder = () => {
+    const orderOnly=seasonResult.orderMethod==='random'||seasonResult.orderMethod==='commissioner';
     const text = `🏆 BALL KNOWER FANTASY DRAFT ORDER (${league.name})\n` +
       seasonResult.draftOrder
-        .map(d => `Pick #${d.pickNumber}: ${d.memberName} (${d.record}, ${d.teamRating} OVR)`)
+        .map(d => orderOnly?`Pick #${d.pickNumber}: ${d.memberName}`:`Pick #${d.pickNumber}: ${d.memberName} (${d.record}, ${d.teamRating} OVR)`)
         .join('\n') +
-      `\n\nSimulated via Ball Knower NFL Cap Engine`;
+      `\n\nSet with Ball Knower · ${seasonResult.orderMethod==='random'?'Random Draw':seasonResult.orderMethod==='commissioner'?'Commissioner Assignment':'Draft Order Game'}`;
 
     navigator.clipboard.writeText(text);
     setCopiedDraftOrder(true);
     showToast('Copied fantasy draft order to clipboard!');
     setTimeout(() => setCopiedDraftOrder(false), 2500);
   };
+
+  if(seasonResult.orderMethod==='random'||seasonResult.orderMethod==='commissioner'){
+    const random=seasonResult.orderMethod==='random';
+    return <div className="min-h-[calc(100dvh-7rem)] bg-[#0A0A0A] px-3 py-4 text-white sm:px-8 sm:py-8"><div className="mx-auto max-w-4xl">
+      <div className="mb-3 flex items-center justify-between gap-3"><button onClick={onBackToLobby} className="min-h-10 rounded-xl border border-white/10 px-3 text-[10px] font-black uppercase">← League HQ</button><div className="truncate text-right text-[9px] font-black uppercase tracking-wider text-[#D4AF37]">{league.name}</div></div>
+      <section className="rounded-2xl border border-[#D4AF37]/35 bg-[radial-gradient(circle_at_85%_10%,rgba(212,175,55,.18),transparent_30%),#101318] p-4 sm:p-7"><div className="flex items-start gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#D4AF37] text-black">{random?<RotateCcw className="h-5 w-5"/>:<Award className="h-5 w-5"/>}</div><div><div className="text-[9px] font-black uppercase tracking-[.2em] text-[#D4AF37]">Official Fantasy Draft Order</div><h1 className="mt-1 font-display text-3xl font-black uppercase sm:text-5xl">{random?'Random Draw Complete':'Commissioner Order Locked'}</h1><p className="mt-2 text-xs leading-5 text-zinc-400 sm:text-sm">{random?'Every league manager received one equal chance. This is the locked result of the Ball Knower random draw.':'The commissioner assigned every manager exactly one slot and locked this order for the league draft.'}</p></div></div>
+        <div className="mt-4 grid grid-cols-2 gap-2">{seasonResult.draftOrder.map(pick=>{const member=league.members.find(item=>item.id===pick.memberId);const mine=member?.userId===currentUser?.id;return <div key={pick.memberId} className={`flex min-w-0 items-center gap-2 rounded-xl border p-2.5 ${pick.pickNumber===1?'border-[#D4AF37] bg-[#D4AF37]/10':mine?'border-[#D4AF37]/40 bg-[#D4AF37]/5':'border-white/10 bg-black/30'}`}><div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg text-xs font-black ${pick.pickNumber===1?'bg-[#D4AF37] text-black':'border border-white/10 bg-[#0A0A0A]'}`}>#{pick.pickNumber}</div><div className="min-w-0"><div className="truncate text-xs font-black uppercase">{pick.memberName}</div><div className="text-[9px] font-bold uppercase text-zinc-600">{mine?'You':member?.isAi?'CPU Manager':'League Manager'}</div></div></div>})}</div>
+        <button onClick={handleCopyDraftOrder} className="mt-4 min-h-12 w-full rounded-xl bg-[#D4AF37] text-xs font-black uppercase tracking-wider text-black">{copiedDraftOrder?<Check className="mr-1 inline h-4 w-4"/>:<Share2 className="mr-1 inline h-4 w-4"/>}{copiedDraftOrder?'Order Copied':'Share Official Order'}</button>
+      </section>
+    </div></div>;
+  }
+
+  // Winner info for the Draft Order Game.
+  const winner = seasonResult.standings[0];
+  const winnerMember = league.members.find(m => m.id === winner.memberId);
 
   // Group games by week
   const weeklyGames = seasonResult.games.filter(g => g.week === selectedWeek);
@@ -114,14 +124,14 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
       </div>
 
       {/* 1. WINNER BANNER & PODIUM */}
-      <div className="relative overflow-hidden rounded-lg border border-[var(--bk-team-accent)]/40 bg-[#121212] p-6 sm:p-8 shadow-2xl mb-8">
+      <div className="relative mb-4 overflow-hidden rounded-xl border border-[var(--bk-team-accent)]/40 bg-[#121212] p-4 shadow-2xl sm:mb-8 sm:p-8">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
           <div className="text-center md:text-left">
             <div className="inline-flex items-center gap-2 rounded-sm border border-[var(--bk-team-accent)]/30 bg-[var(--bk-team-accent)]/10 px-3.5 py-1 text-[11px] font-black uppercase tracking-widest text-[var(--bk-team-accent)] mb-3">
               <Crown className="h-3.5 w-3.5" />
-              <span>16-GAME SIMULATION CHAMPION & #1 OVERALL PICK</span>
+              <span>{league.settings?.seasonGames||17}-GAME SIMULATION CHAMPION & #1 OVERALL PICK</span>
             </div>
-            <h1 className="font-display text-4xl sm:text-5xl font-black uppercase tracking-tight text-white">
+            <h1 className="font-display text-3xl sm:text-5xl font-black uppercase tracking-tight text-white">
               {winner.memberName} <span className="text-[var(--bk-team-accent)]">WINS PICK #1!</span>
             </h1>
             <p className="text-xs sm:text-sm text-zinc-400 mt-2 font-mono uppercase tracking-wider font-bold">
@@ -151,27 +161,17 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
         </div>
 
         {/* Why Winner Won Explanations */}
-        <div className="mt-6 pt-5 border-t border-white/5 grid gap-2 sm:grid-cols-3">
-          {seasonResult.winnerAnalysis.keyFactors.slice(0, 3).map((factor, idx) => (
-            <div
-              key={idx}
-              className="flex items-start gap-2 rounded-sm bg-[#1A1A1A] border border-white/5 p-3 text-xs text-zinc-300 font-medium"
-            >
-              <Sparkles className="h-4 w-4 text-[var(--bk-team-accent)] shrink-0 mt-0.5" />
-              <span>{factor}</span>
-            </div>
-          ))}
-        </div>
+        <details className="mt-4 border-t border-white/5 pt-3"><summary className="cursor-pointer text-[10px] font-black uppercase tracking-wider text-[var(--bk-team-accent)]">Why this roster won</summary><div className="mt-3 grid gap-2 sm:grid-cols-3">{seasonResult.winnerAnalysis.keyFactors.slice(0,3).map((factor,idx)=><div key={idx} className="flex items-start gap-2 rounded-lg border border-white/5 bg-[#1A1A1A] p-3 text-xs text-zinc-300"><Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[var(--bk-team-accent)]"/><span>{factor}</span></div>)}</div></details>
       </div>
 
       {/* 2. TAB CONTROLS & ACTIONS */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-6">
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-1 rounded-sm border border-white/5 bg-[#121212] p-1 w-full sm:w-auto overflow-x-auto">
+        <div className="grid w-full grid-cols-4 gap-1 rounded-xl border border-white/5 bg-[#121212] p-1 sm:flex sm:w-auto">
           <button
             id="sim-tab-draft-order"
             onClick={() => setActiveTab('draft_order')}
-            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-sm px-4 py-2 text-xs font-black uppercase tracking-wider transition-all ${
+            className={`min-w-0 flex-1 sm:flex-initial flex items-center justify-center gap-1 rounded-lg px-1 py-2 text-[9px] font-black uppercase tracking-wide transition-all sm:gap-1.5 sm:px-4 sm:text-xs sm:tracking-wider ${
               activeTab === 'draft_order'
                 ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] shadow-sm'
                 : 'text-zinc-400 hover:text-white'
@@ -184,7 +184,7 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
           <button
             id="sim-tab-standings"
             onClick={() => setActiveTab('standings')}
-            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-sm px-4 py-2 text-xs font-black uppercase tracking-wider transition-all ${
+            className={`min-w-0 flex-1 sm:flex-initial flex items-center justify-center gap-1 rounded-lg px-1 py-2 text-[9px] font-black uppercase tracking-wide transition-all sm:gap-1.5 sm:px-4 sm:text-xs sm:tracking-wider ${
               activeTab === 'standings'
                 ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] shadow-sm'
                 : 'text-zinc-400 hover:text-white'
@@ -197,27 +197,27 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
           <button
             id="sim-tab-report-card"
             onClick={() => setActiveTab('report_card')}
-            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-sm px-4 py-2 text-xs font-black uppercase tracking-wider transition-all ${
+            className={`min-w-0 flex-1 sm:flex-initial flex items-center justify-center gap-1 rounded-lg px-1 py-2 text-[9px] font-black uppercase tracking-wide transition-all sm:gap-1.5 sm:px-4 sm:text-xs sm:tracking-wider ${
               activeTab === 'report_card'
                 ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] shadow-sm'
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
             <Shield className="h-3.5 w-3.5" />
-            <span>GM Report Card</span>
+            <span className="sm:hidden">GM Card</span><span className="hidden sm:inline">GM Report Card</span>
           </button>
 
           <button
             id="sim-tab-schedule"
             onClick={() => setActiveTab('schedule')}
-            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-sm px-4 py-2 text-xs font-black uppercase tracking-wider transition-all ${
+            className={`min-w-0 flex-1 sm:flex-initial flex items-center justify-center gap-1 rounded-lg px-1 py-2 text-[9px] font-black uppercase tracking-wide transition-all sm:gap-1.5 sm:px-4 sm:text-xs sm:tracking-wider ${
               activeTab === 'schedule'
                 ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] shadow-sm'
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
             <Calendar className="h-3.5 w-3.5" />
-            <span>Game Log</span>
+            <span className="sm:hidden">Games</span><span className="hidden sm:inline">Game Log</span>
           </button>
         </div>
 
@@ -332,7 +332,7 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
           <div className="rounded-lg border border-white/5 bg-[#121212] shadow-xl overflow-hidden">
             <div className="p-5 border-b border-white/5">
               <h3 className="font-display text-2xl font-black uppercase tracking-tight text-white">
-                16-GAME REGULAR SEASON STANDINGS
+                {league.settings?.seasonGames||17}-GAME REGULAR SEASON STANDINGS
               </h3>
               <p className="text-xs text-zinc-400 font-medium">
                 Sorted by Win Percentage, Point Differential (+/-), Points For, and Team Rating
@@ -528,11 +528,11 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2 pb-3 border-b border-white/5">
               <h3 className="font-display text-lg font-black uppercase tracking-tight text-white flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-[var(--bk-team-accent)]" />
-                <span>16-WEEK SCHEDULE & MATCHUP LOGS</span>
+                <span>{league.settings?.seasonGames||17}-WEEK SCHEDULE & MATCHUP LOGS</span>
               </h3>
 
               <div className="flex items-center gap-1 overflow-x-auto max-w-full pb-1 no-scrollbar">
-                {Array.from({ length: 16 }, (_, i) => i + 1).map(wk => (
+                {Array.from({ length: league.settings?.seasonGames||17 }, (_, i) => i + 1).map(wk => (
                   <button
                     key={wk}
                     onClick={() => setSelectedWeek(wk)}

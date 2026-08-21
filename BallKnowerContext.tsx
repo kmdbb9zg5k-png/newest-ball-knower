@@ -7,6 +7,7 @@ import {
   ROSTER_REQUIREMENTS,
   DEFAULT_SALARY_CAP,
   TOTAL_ROSTER_SIZE,
+  DraftOrderMethod,
 } from './types';
 import { calculateTeamRatings } from './evaluation';
 import { simulateFullSeason } from './simulation';
@@ -72,6 +73,7 @@ interface BallKnowerContextType {
   autoFillLeagueWithAi: (leagueId: string) => Promise<boolean>;
   removeMemberFromLeague: (leagueId: string, memberId: string) => void;
   startSimulation: (leagueId: string) => Promise<boolean>;
+  finalizeDraftOrder: (leagueId: string, method: Exclude<DraftOrderMethod, 'game'>, orderedMemberIds: string[]) => Promise<boolean>;
   resetLeagueSimulation: (leagueId: string) => void;
   updateSalaryCap: (leagueId: string, newCap: number) => void;
   updateLeagueSettings: (leagueId: string, settings: import('./types').LeagueSettings) => void;
@@ -631,7 +633,10 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return false;
     }
 
-    const results = simulateFullSeason(league.members, league.settings?.seasonGames || 17, league.settings?.simulationStyle || 'realistic');
+    const results = {
+      ...simulateFullSeason(league.members, league.settings?.seasonGames || 17, league.settings?.simulationStyle || 'realistic'),
+      orderMethod: 'game' as const,
+    };
 
     if (isCloudConfigured) {
       try {
@@ -654,6 +659,99 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       simulation_style: league.settings?.simulationStyle || 'realistic',
     });
     showToast('League season simulation complete! Draft Order is set!');
+    return true;
+  };
+
+  const finalizeDraftOrder = async (
+    leagueId: string,
+    method: Exclude<DraftOrderMethod, 'game'>,
+    orderedMemberIds: string[],
+  ): Promise<boolean> => {
+    const league = leagues.find(l => l.id === leagueId);
+    if (!league) return false;
+    if (currentUser?.id !== league.commissionerId && !isDemoMode) {
+      showToast(`Only Commissioner ${league.commissionerName} can finalize the draft order.`);
+      return false;
+    }
+
+    const uniqueIds = [...new Set(orderedMemberIds)];
+    const memberIds = new Set(league.members.map(member => member.id));
+    if (uniqueIds.length !== league.members.length || uniqueIds.some(id => !memberIds.has(id))) {
+      showToast('Every league member must have exactly one draft slot.');
+      return false;
+    }
+
+    const orderedMembers = uniqueIds.map(id => league.members.find(member => member.id === id)!);
+    const label = method === 'random' ? 'Random Draw' : 'Commissioner Assignment';
+    const draftOrder = orderedMembers.map((member, index) => ({
+      pickNumber: index + 1,
+      memberId: member.id,
+      memberName: member.userName,
+      memberAvatar: member.userAvatar,
+      isAi: member.isAi,
+      record: label.toUpperCase(),
+      pointDiff: 0,
+      teamRating: member.teamRatings?.overall || 0,
+      badge: method === 'random' ? 'RANDOM DRAW' : 'COMMISSIONER PICK',
+    }));
+    const standings = orderedMembers.map((member, index) => ({
+      rank: index + 1,
+      memberId: member.id,
+      memberName: member.userName,
+      memberAvatar: member.userAvatar,
+      isAi: member.isAi,
+      wins: 0,
+      losses: 0,
+      ties: 0,
+      winPercentage: 0,
+      pointsFor: 0,
+      pointsAgainst: 0,
+      pointDifferential: 0,
+      teamRating: member.teamRatings?.overall || 0,
+      streak: '-',
+    }));
+    const result = {
+      completedAt: new Date().toISOString(),
+      orderMethod: method,
+      standings,
+      games: [],
+      draftOrder,
+      winnerAnalysis: {
+        winnerId: orderedMembers[0].id,
+        winnerName: orderedMembers[0].userName,
+        summary: method === 'random'
+          ? 'The league draft order was decided by a random Ball Knower draw.'
+          : 'The commissioner assigned and locked every league draft slot.',
+        keyFactors: [
+          method === 'random' ? 'Every manager had one equal chance in the draw.' : 'Every manager was assigned exactly one slot.',
+          'The finalized order is saved with the league.',
+          'Share this order with the league before the fantasy draft.',
+        ],
+      },
+      teamReports: {},
+    };
+    const settings = { ...(league.settings || {}), draftOrderMethod: method };
+
+    if (isCloudConfigured) {
+      try {
+        await updateCloudLeague(leagueId, { status: 'completed', seasonResult: result, settings });
+        setCloudSyncError(null);
+      } catch (err:any) {
+        const message = err?.message || 'Could not save the draft order.';
+        setCloudSyncError(message);
+        showToast(message);
+        return false;
+      }
+    }
+
+    setLeagues(prev => prev.map(item => item.id === leagueId
+      ? { ...item, status: 'completed', settings, seasonResult: result }
+      : item));
+    trackBallKnowerEvent('Draft Order Finalized', {
+      member_count: orderedMembers.length,
+      order_method: method,
+    });
+    showToast(`${label} draft order finalized.`);
     return true;
   };
 
@@ -785,6 +883,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         autoFillLeagueWithAi,
         removeMemberFromLeague,
         startSimulation,
+        finalizeDraftOrder,
         resetLeagueSimulation,
         updateSalaryCap,
         updateLeagueSettings,

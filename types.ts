@@ -257,6 +257,8 @@ export interface DraftOrderItem {
   badge?: string;
 }
 
+export type DraftOrderMethod = 'game' | 'random' | 'commissioner';
+
 export interface WinnerAnalysis {
   winnerId: string;
   winnerName: string;
@@ -266,6 +268,7 @@ export interface WinnerAnalysis {
 
 export interface SeasonResult {
   completedAt: string;
+  orderMethod?: DraftOrderMethod;
   standings: StandingItem[];
   games: SimulationGame[];
   draftOrder: DraftOrderItem[];
@@ -296,6 +299,7 @@ export interface LeagueSettings {
   leagueType?: 'private' | 'public_free';
   autoFillCpu?: boolean;
   matchmakingOpen?: boolean;
+  draftOrderMethod?: DraftOrderMethod;
 }
 
 export interface League {
