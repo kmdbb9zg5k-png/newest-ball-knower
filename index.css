@@ -280,7 +280,10 @@ main > div::before {
 
 @keyframes bk-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes bk-atmosphere-drift { from { transform: translate3d(-.6%, 0, 0) scale(1.01); } to { transform: translate3d(.6%, -.5%, 0) scale(1.025); } }
-main > div { animation: bk-rise .38s ease-out both; }
+/* Do not retain the transform after the entrance animation. A transformed
+   ancestor changes the containing block for fixed dialogs in iOS Safari,
+   which pushed first-visit ModeGuide sheets far below the visible viewport. */
+main > div { animation: bk-rise .38s ease-out; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

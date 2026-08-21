@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { AppTab } from './App';
 import { useBallKnower } from './BallKnowerContext';
-import { Trophy, Shield, User, LogOut, ChevronDown, Sparkles, Plus, Users, Award, Play, Newspaper, DollarSign, Loader2 } from 'lucide-react';
+import { Trophy, Shield, User, LogOut, ChevronDown, Sparkles, Plus, Users, Award, Play, Newspaper, DollarSign, Loader2, Brain } from 'lucide-react';
 import { SoundtrackControl } from './SoundtrackControl';
 import { isCloudConfigured, signOutOnline, supabase } from './supabase';
 
@@ -213,6 +213,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button id="nav-tab-solo" onClick={() => setCurrentTab('solo')} className={tabClass('solo')}><Play className="h-3.5 w-3.5" /> Solo</button>
           <button id="nav-tab-news" onClick={() => setCurrentTab('news')} className={tabClass('news')}><Newspaper className="h-3.5 w-3.5" /> News <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,.9)]" /></button>
           <button id="nav-tab-fantasy" onClick={() => setCurrentTab('fantasy')} className={tabClass('fantasy')}>Fantasy <span className="rounded bg-[var(--bk-team-accent)] px-1 py-0.5 text-[8px] font-black text-black">NEW</span></button>
+          <button id="nav-tab-trivia" onClick={() => setCurrentTab('challenges')} className={tabClass('challenges')}><Brain className="h-3.5 w-3.5" /> Trivia</button>
           <button id="nav-tab-sportsbook" onClick={() => setCurrentTab('sportsbook')} className={tabClass('sportsbook')}><DollarSign className="h-3.5 w-3.5" /> Sportsbook</button>
           <button id="nav-tab-legacy" onClick={() => setCurrentTab('legacy')} className={tabClass('legacy')}><Trophy className="h-3.5 w-3.5" /> Hall of Fame</button>
 

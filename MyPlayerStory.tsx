@@ -490,33 +490,34 @@ const PlayerRender = ({ profile, compact = false }: { profile: MyPlayerProfile; 
   const presetFace = FACE_PRESETS.find(face => face.id === profile.presetFaceId) ?? FACE_PRESETS[0];
 
   return (
-    <div className={`relative overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_50%_20%,rgba(90,120,180,.35),transparent_32%),linear-gradient(160deg,#111827,#05070b)] ${compact ? 'min-h-[260px]' : 'min-h-[500px]'}`}>
-      <div className="absolute inset-x-0 top-5 text-center text-[9px] font-black tracking-[.24em] text-white/35">THIRD-PERSON PLAYER VIEW</div>
+    <div className={`relative overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(ellipse_at_50%_105%,rgba(94,234,196,.18),transparent_48%),radial-gradient(circle_at_50%_15%,rgba(90,120,180,.3),transparent_30%),linear-gradient(160deg,#111827,#05070b)] ${compact ? 'min-h-[260px]' : 'min-h-[500px]'}`}>
+      <div className="absolute inset-x-[12%] bottom-[7%] h-px bg-emerald-200/20 shadow-[0_0_35px_rgba(94,234,196,.25)]" />
+      <div className="absolute inset-x-0 top-5 text-center text-[9px] font-black tracking-[.24em] text-white/35">INTERACTIVE PLAYER PREVIEW</div>
       <div className="absolute inset-x-0 bottom-4 top-12 flex items-end justify-center" style={{ perspective: '900px' }}>
         <div
           className="relative origin-bottom"
           style={{
-            width: compact ? 140 : 210,
-            height: compact ? 190 : 390,
+            width: compact ? 160 : 245,
+            height: compact ? 205 : 405,
             transform: `rotateY(${profile.viewRotation}deg) scaleY(${heightScale}) scaleX(${weightScale})`,
             transformStyle: 'preserve-3d',
             transition: 'transform 120ms ease-out',
           }}
         >
-          <div className="absolute left-1/2 top-0 h-[19%] w-[38%] -translate-x-1/2 overflow-hidden rounded-[42%] border-[3px] border-zinc-400 bg-zinc-900 shadow-xl" style={{ transform: 'translateZ(18px)' }}>
+          <div className="absolute left-1/2 top-0 z-20 h-[20%] w-[35%] -translate-x-1/2 overflow-hidden rounded-[48%_48%_42%_42%] border-[4px] border-zinc-300 bg-zinc-900 shadow-[0_10px_30px_rgba(0,0,0,.7)]" style={{ transform: 'translateZ(20px)' }}>
             {profile.faceImage && !showingBack ? <img src={profile.faceImage} alt="Your uploaded face" className="h-full w-full object-cover" /> : !showingBack ? <PresetFace face={presetFace} /> : <div className="h-full w-full bg-gradient-to-b from-zinc-700 to-zinc-950" />}
           </div>
-          <div className="absolute left-1/2 top-[16%] h-[12%] -translate-x-1/2 rounded-[50%] bg-zinc-300 shadow-lg" style={{ width: `${68 * shoulderScale}%`, transform: 'translateZ(7px)' }} />
-          <div className="absolute left-1/2 top-[17%] h-[46%] -translate-x-1/2 border-x border-white/10 bg-gradient-to-b from-[#5d6879] via-[#252d3a] to-[#0a0d12] shadow-2xl" style={{ width: `${50 * shoulderScale}%`, borderRadius: `${torsoRadius}% ${torsoRadius}% 20% 20%`, transform: 'translateZ(10px)' }}>
+          <div className="absolute left-1/2 top-[15%] h-[15%] -translate-x-1/2 rounded-[50%_50%_30%_30%] border-t border-white/40 bg-gradient-to-b from-zinc-100 to-zinc-500 shadow-lg" style={{ width: `${76 * shoulderScale}%`, transform: 'translateZ(8px)' }} />
+          <div className="absolute left-1/2 top-[18%] h-[45%] -translate-x-1/2 border-x border-white/10 bg-gradient-to-b from-[#46556a] via-[#1b2635] to-[#070a0e] shadow-2xl" style={{ width: `${52 * shoulderScale}%`, clipPath: 'polygon(12% 0,88% 0,100% 78%,82% 100%,18% 100%,0 78%)', borderRadius: `${torsoRadius}% ${torsoRadius}% 16% 16%`, transform: 'translateZ(12px)' }}>
             <div className="absolute left-1/2 top-0 h-[10%] w-[30%] -translate-x-1/2 rounded-b-full bg-black/65" />
             <div className="absolute inset-x-0 top-[22%] text-center font-black text-white/90" style={{ fontSize: compact ? 42 : 68 }}>{profile.number}</div>
             <div className="absolute inset-x-[10%] bottom-[8%] h-[4%] rounded-full bg-white/15" />
           </div>
-          <div className="absolute left-[5%] top-[20%] h-[42%] rounded-full border-r border-white/10 bg-gradient-to-b from-zinc-500 to-zinc-900" style={{ width: `${13 * armScale}%`, transform: 'rotate(7deg) translateZ(4px)' }} />
-          <div className="absolute right-[5%] top-[20%] h-[42%] rounded-full border-l border-white/10 bg-gradient-to-b from-zinc-500 to-zinc-900" style={{ width: `${13 * armScale}%`, transform: 'rotate(-7deg) translateZ(4px)' }} />
-          <div className="absolute bottom-[34%] left-[22%] h-[14%] w-[56%] rounded-b-[35%] border-t-2 border-white/20 bg-zinc-200" style={{ transform: 'translateZ(5px)' }} />
-          <div className="absolute bottom-[4%] left-[27%] h-[40%] rounded-b-[32%] bg-gradient-to-b from-zinc-200 via-zinc-300 to-zinc-700" style={{ width: `${16 * legScale}%`, transform: 'translateZ(3px)' }} />
-          <div className="absolute bottom-[4%] right-[27%] h-[40%] rounded-b-[32%] bg-gradient-to-b from-zinc-200 via-zinc-300 to-zinc-700" style={{ width: `${16 * legScale}%`, transform: 'translateZ(3px)' }} />
+          <div className="absolute left-[4%] top-[22%] h-[39%] origin-top rounded-full border-r border-white/10 bg-gradient-to-b from-zinc-400 via-zinc-600 to-zinc-950" style={{ width: `${14 * armScale}%`, transform: 'rotate(12deg) translateZ(5px)' }} />
+          <div className="absolute right-[4%] top-[22%] h-[39%] origin-top rounded-full border-l border-white/10 bg-gradient-to-b from-zinc-400 via-zinc-600 to-zinc-950" style={{ width: `${14 * armScale}%`, transform: 'rotate(-12deg) translateZ(5px)' }} />
+          <div className="absolute bottom-[35%] left-[20%] h-[13%] w-[60%] rounded-b-[38%] border-t-2 border-white/30 bg-gradient-to-b from-zinc-100 to-zinc-400" style={{ transform: 'translateZ(6px)' }} />
+          <div className="absolute bottom-[4%] left-[23%] h-[41%] rounded-[38%_28%_24%_28%] bg-gradient-to-r from-zinc-500 via-zinc-100 to-zinc-500" style={{ width: `${19 * legScale}%`, transform: 'rotate(2deg) translateZ(4px)' }} />
+          <div className="absolute bottom-[4%] right-[23%] h-[41%] rounded-[28%_38%_28%_24%] bg-gradient-to-l from-zinc-500 via-zinc-100 to-zinc-500" style={{ width: `${19 * legScale}%`, transform: 'rotate(-2deg) translateZ(4px)' }} />
           <div className="absolute bottom-0 left-[23%] h-[6%] w-[25%] skew-x-[-12deg] rounded bg-black shadow-lg" /><div className="absolute bottom-0 right-[23%] h-[6%] w-[25%] skew-x-[12deg] rounded bg-black shadow-lg" />
           <div className="absolute inset-x-0 bottom-[5%] flex flex-wrap justify-center gap-1" style={{ transform: 'translateZ(24px)' }}>{tags.map(tag => <span key={tag} className="rounded-full bg-black/65 px-2 py-1 text-[7px] font-black text-white/70">{tag}</span>)}</div>
         </div>
