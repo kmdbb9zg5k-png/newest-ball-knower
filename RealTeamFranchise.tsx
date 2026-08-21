@@ -7,7 +7,7 @@ import { getRosterNeeds } from './rosterRules';
 import { buildRealTeamRoster, SOLO_FRANCHISE_SAVE_KEYS } from './soloFranchiseEngine';
 import { SoloTeamPicker } from './SoloTeamPicker';
 import { getSavedTeamTheme, getTeamCssVariables, TEAM_THEMES, teamLogoUrl } from './teamTheme';
-import { DEFAULT_SALARY_CAP, Player } from './types';
+import { DEFAULT_SALARY_CAP, Player, TOTAL_ROSTER_SIZE } from './types';
 
 type Props = { onBack: () => void };
 type FranchiseMove = { playerId: string; toTeam: string };
@@ -19,6 +19,10 @@ const PICK_VALUES = [38, 22, 12, 7, 4, 3, 2];
 
 function validTeamAbbr(value: unknown): value is string {
   return typeof value === 'string' && TEAM_THEMES.some(team => team.abbr === value);
+}
+
+function validMoveDestination(value: unknown): value is string {
+  return value === 'FA' || validTeamAbbr(value);
 }
 
 function validPersistedPlayer(value: unknown): value is Player {
@@ -45,7 +49,7 @@ function restoreSave(): FranchiseSave | null {
       ? saved.moves.filter((move: unknown): move is FranchiseMove => {
           if (!move || typeof move !== 'object') return false;
           const item = move as Partial<FranchiseMove>;
-          return typeof item.playerId === 'string' && validTeamAbbr(item.toTeam);
+          return typeof item.playerId === 'string' && validMoveDestination(item.toTeam);
         })
       : [];
     const rookies: Player[] = Array.isArray(saved.rookies) ? saved.rookies.filter(validPersistedPlayer) : [];
@@ -84,8 +88,10 @@ function buildManagedRosters(moves: FranchiseMove[], rookies: Player[]) {
     const current = Object.values(rosters).flat().find(player => player.id === move.playerId)
       ?? PLAYERS_DATABASE.find(player => player.id === move.playerId)
       ?? rookies.find(player => player.id === move.playerId);
-    if (!current || !rosters[move.toTeam]) continue;
+    if (!current) continue;
     for (const abbr of Object.keys(rosters)) rosters[abbr] = rosters[abbr].filter(player => player.id !== move.playerId);
+    if (move.toTeam === 'FA') continue;
+    if (!rosters[move.toTeam]) continue;
     const destination = teamByAbbr(move.toTeam);
     const words = destination.name.split(' ');
     rosters[move.toTeam].push({
@@ -125,7 +131,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
   const team = teamByAbbr(teamAbbr ?? selectedAbbr);
   const managedRosters = useMemo(() => buildManagedRosters(moves, rookies), [moves, rookies]);
   const roster = teamAbbr ? managedRosters[teamAbbr] ?? [] : [];
-  const ownedDraftRounds = ALL_DRAFT_ROUNDS.filter(round => !tradedPickRounds.includes(round));
+  const ownedDraftRounds = useMemo(() => ALL_DRAFT_ROUNDS.filter(round => !tradedPickRounds.includes(round)), [tradedPickRounds]);
   const themeStyle = useMemo(() => ({
     ...getTeamCssVariables(team),
     backgroundImage: 'radial-gradient(circle at 16% 0%, rgb(var(--bk-team-primary-rgb) / .24), transparent 34%), radial-gradient(circle at 88% 12%, rgb(var(--bk-team-secondary-rgb) / .14), transparent 30%), linear-gradient(180deg, #080b10 0%, #0a0d12 45%, #050608 100%)',
@@ -133,9 +139,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
 
   useEffect(() => {
     if (!teamAbbr) return;
-    if (!persistSave({ version: 2, teamAbbr, moves, rookies, tradedPickRounds })) {
-      setMessage('Franchise changed, but Safari could not save it. Keep this page open.');
-    }
+    if (!persistSave({ version: 2, teamAbbr, moves, rookies, tradedPickRounds })) setMessage('Franchise changed, but Safari could not save it. Keep this page open.');
   }, [teamAbbr, moves, rookies, tradedPickRounds]);
 
   const saveCurrent = (next: Partial<Pick<FranchiseSave, 'moves' | 'rookies' | 'tradedPickRounds'>> = {}) => {
@@ -189,6 +193,9 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
   }
 
   if (teamAbbr) {
+    const capUsed = roster.reduce((total, player) => total + Number(player.salary || 0), 0);
+    const currentNeeds = getRosterNeeds(roster);
+    const rosterLegal = roster.length === TOTAL_ROSTER_SIZE && currentNeeds.length === 0 && capUsed <= DEFAULT_SALARY_CAP + 0.001;
     const tradeTargets = Object.entries(managedRosters)
       .filter(([ownerTeam]) => ownerTeam !== teamAbbr)
       .flatMap(([ownerTeam, players]) => players.map(player => ({ player, ownerTeam })))
@@ -199,6 +206,18 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
     const offeredValue = outgoingPlayers.reduce((sum, player) => sum + tradeValue(player), 0) + outgoingPicks.reduce((sum, round) => sum + PICK_VALUES[round - 1], 0);
     const requestedValue = tradeTarget ? tradeValue(tradeTarget.player) : 0;
 
+    const releasePlayer = (player: Player) => {
+      const nextMoves = [...moves, { playerId: player.id, toTeam: 'FA' }];
+      const proposedRoster = buildManagedRosters(nextMoves, rookies)[teamAbbr] ?? [];
+      const needs = getRosterNeeds(proposedRoster);
+      if (needs.length) {
+        setMessage(`Release blocked. You would be short ${needs.map(need => `${need.needed} ${need.group}`).join(', ')}.`);
+        return;
+      }
+      setMoves(nextMoves);
+      setMessage(saveCurrent({ moves: nextMoves }) ? `${player.name} was released. The move is saved to your franchise.` : `${player.name} was released, but Safari could not save it. Keep this page open.`);
+    };
+
     const submitOffer = () => {
       if (!tradeTarget || (!outgoingPlayers.length && !outgoingPicks.length)) return;
       if (offeredValue < requestedValue * 0.92) {
@@ -206,8 +225,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
         return;
       }
       const nextMoves: FranchiseMove[] = [...moves, ...outgoingPlayers.map(player => ({ playerId: player.id, toTeam: tradeTarget.ownerTeam })), { playerId: tradeTarget.player.id, toTeam: teamAbbr }];
-      const proposedRosters = buildManagedRosters(nextMoves, rookies);
-      const proposedRoster = proposedRosters[teamAbbr] ?? [];
+      const proposedRoster = buildManagedRosters(nextMoves, rookies)[teamAbbr] ?? [];
       const rosterNeeds = getRosterNeeds(proposedRoster);
       if (rosterNeeds.length) {
         setMessage(`Trade blocked. Your roster would be illegal: ${rosterNeeds.map(need => `needs ${need.needed} ${need.group}`).join(', ')}.`);
@@ -237,12 +255,13 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
       <section className="relative mt-4 overflow-hidden rounded-[2rem] border border-[var(--bk-team-accent)]/25 bg-[#0c1117]/90 p-5 shadow-2xl backdrop-blur sm:p-7"><div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgb(var(--bk-team-primary-rgb)/.22),transparent_38%),radial-gradient(circle_at_92%_30%,rgb(var(--bk-team-secondary-rgb)/.12),transparent_34%)]" /><div className="relative flex items-center gap-4"><img src={teamLogoUrl(team.abbr)} alt="" className="h-16 w-16 object-contain drop-shadow-2xl" /><div><div className="text-[10px] font-black uppercase tracking-[.25em] text-[var(--bk-team-accent)]">Football operations</div><h1 className="text-3xl font-black sm:text-5xl">FRANCHISE COMMAND</h1><p className="mt-1 text-sm font-semibold text-zinc-400">{team.name} · Make the calls that shape Sunday.</p></div></div></section>
       <nav className="sticky top-0 z-20 mt-3 grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-black/90 p-2 backdrop-blur">{([['week', 'THIS WEEK', ClipboardList], ['trade', 'TRADE CENTER', ArrowRightLeft], ['roster', 'ROSTER', Users]] as const).map(([id, label, Icon]) => <button key={id} type="button" onClick={() => setCommandTab(id)} className={`min-h-12 rounded-xl text-[10px] font-black ${commandTab === id ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)]' : 'bg-white/[.04] text-zinc-400'}`}><Icon className="mx-auto mb-1 h-4 w-4" />{label}</button>)}</nav>
       {message ? <div className="mt-3 rounded-2xl border border-[var(--bk-team-accent)]/25 bg-[var(--bk-team-accent)]/10 p-4 text-sm font-bold text-[var(--bk-team-accent)]">{message}</div> : null}
+      {!rosterLegal ? <div className="mt-3 rounded-2xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm font-bold text-amber-100">Roster management required before Week 1: {roster.length}/{TOTAL_ROSTER_SIZE} players · ${capUsed.toFixed(1)}M/${DEFAULT_SALARY_CAP.toFixed(1)}M cap{currentNeeds.length ? ` · ${currentNeeds.map(need => `need ${need.needed} ${need.group}`).join(', ')}` : ''}. Use the Roster tab to make cuts.</div> : null}
 
-      {commandTab === 'week' ? <section className="mt-3 rounded-[2rem] border border-white/10 bg-[#10151d]/90 p-5 backdrop-blur sm:p-7"><div className="text-[10px] font-black uppercase tracking-[.22em] text-[var(--bk-team-accent)]">Coach meeting</div><h2 className="mt-2 text-3xl font-black">WHAT'S THE PLAN?</h2><p className="mt-2 text-sm text-zinc-400">Your coaches need one clear priority. Pick it before starting the season.</p><div className="mt-5 grid gap-2 sm:grid-cols-3">{['Attack through the air', 'Control the clock', 'Balanced attack', 'Bring heavy pressure', 'Protect against big plays', 'Play aggressive'].map(plan => <button key={plan} type="button" onClick={() => setGamePlan(plan)} className={`min-h-14 rounded-2xl border px-4 text-left text-sm font-black ${gamePlan === plan ? 'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)]/10 text-[var(--bk-team-accent)]' : 'border-white/10 bg-black/20'}`}>{plan}</button>)}</div><div className="mt-5 rounded-2xl bg-black/30 p-4 text-sm"><span className="font-black text-[var(--bk-team-accent)]">LOCKED PLAN:</span> {gamePlan}</div><button type="button" onClick={() => setSeasonOpen(true)} className="mt-4 min-h-14 w-full rounded-2xl bg-[var(--bk-team-accent)] font-black text-[var(--bk-on-accent)]"><Play className="mr-2 inline h-5 w-5" />START SEASON</button></section> : null}
+      {commandTab === 'week' ? <section className="mt-3 rounded-[2rem] border border-white/10 bg-[#10151d]/90 p-5 backdrop-blur sm:p-7"><div className="text-[10px] font-black uppercase tracking-[.22em] text-[var(--bk-team-accent)]">Coach meeting</div><h2 className="mt-2 text-3xl font-black">WHAT'S THE PLAN?</h2><p className="mt-2 text-sm text-zinc-400">Your coaches need one clear priority. Pick it before starting the season.</p><div className="mt-5 grid gap-2 sm:grid-cols-3">{['Attack through the air', 'Control the clock', 'Balanced attack', 'Bring heavy pressure', 'Protect against big plays', 'Play aggressive'].map(plan => <button key={plan} type="button" onClick={() => setGamePlan(plan)} className={`min-h-14 rounded-2xl border px-4 text-left text-sm font-black ${gamePlan === plan ? 'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)]/10 text-[var(--bk-team-accent)]' : 'border-white/10 bg-black/20'}`}>{plan}</button>)}</div><div className="mt-5 rounded-2xl bg-black/30 p-4 text-sm"><span className="font-black text-[var(--bk-team-accent)]">LOCKED PLAN:</span> {gamePlan}</div><button type="button" onClick={() => rosterLegal ? setSeasonOpen(true) : setCommandTab('roster')} className="mt-4 min-h-14 w-full rounded-2xl bg-[var(--bk-team-accent)] font-black text-[var(--bk-on-accent)]">{rosterLegal ? <><Play className="mr-2 inline h-5 w-5" />START SEASON</> : 'FIX ROSTER FIRST'}</button></section> : null}
 
       {commandTab === 'trade' ? <section className="mt-3 rounded-[2rem] border border-white/10 bg-[#10151d]/90 p-4 backdrop-blur sm:p-6"><div className="text-[10px] font-black uppercase tracking-[.22em] text-[var(--bk-team-accent)]">Live 32-team ownership</div><h2 className="mt-2 text-3xl font-black">TRADE CENTER</h2><p className="mt-2 text-sm text-zinc-400">Choose a target, then build the offer yourself. Accepted players move to their new teams and traded picks stay gone through the upcoming draft.</p><input value={tradeSearch} onChange={event => setTradeSearch(event.target.value)} placeholder="Search player, team or position" className="mt-4 min-h-12 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-sm outline-none focus:border-[var(--bk-team-accent)]" /><div className="mt-3 divide-y divide-white/5">{tradeTargets.map(({ player, ownerTeam }) => <div key={player.id} className="flex items-center gap-3 py-3"><div className="min-w-0 flex-1"><div className="truncate text-sm font-black">{player.name}</div><div className="text-[10px] font-bold text-zinc-500">{ownerTeam} · {player.position} · {player.ovr} OVR · ${player.salary}M</div></div><button type="button" onClick={() => { setTradeTarget({ player, ownerTeam }); setOutgoingIds([]); setOutgoingPicks([]); setMessage(''); }} className="min-h-11 shrink-0 rounded-xl border border-[var(--bk-team-accent)]/30 px-3 text-[10px] font-black text-[var(--bk-team-accent)]">BUILD OFFER</button></div>)}</div></section> : null}
 
-      {commandTab === 'roster' ? <section className="mt-3 rounded-[2rem] border border-white/10 bg-[#10151d]/90 p-4 backdrop-blur sm:p-6"><h2 className="text-3xl font-black">YOUR ROSTER</h2><p className="mt-1 text-sm text-zinc-500">{roster.length} players · trades and rookies persist on this device</p><div className="mt-4 grid gap-2 sm:grid-cols-2">{roster.slice().sort((a, b) => b.ovr - a.ovr).map(player => <div key={player.id} className="flex items-center justify-between rounded-xl bg-black/25 p-3"><div><div className="text-sm font-black">{player.name}</div><div className="text-[10px] text-zinc-500">{player.position} · ${player.salary}M</div></div><div className="text-lg font-black text-[var(--bk-team-accent)]">{player.ovr}</div></div>)}</div><div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4 text-xs text-zinc-400"><b className="text-[var(--bk-team-accent)]">DRAFT CAPITAL:</b> {ownedDraftRounds.length ? ownedDraftRounds.map(round => `${ordinal(round)} round`).join(' · ') : 'No picks remaining'}</div></section> : null}
+      {commandTab === 'roster' ? <section className="mt-3 rounded-[2rem] border border-white/10 bg-[#10151d]/90 p-4 backdrop-blur sm:p-6"><div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-3xl font-black">YOUR ROSTER</h2><p className="mt-1 text-sm text-zinc-500">{roster.length}/{TOTAL_ROSTER_SIZE} players · ${capUsed.toFixed(1)}M/${DEFAULT_SALARY_CAP.toFixed(1)}M cap</p></div><div className={`rounded-full px-3 py-2 text-[10px] font-black ${rosterLegal ? 'bg-green-400/15 text-green-300' : 'bg-amber-300/15 text-amber-200'}`}>{rosterLegal ? 'ROSTER LEGAL' : 'CUTDOWN REQUIRED'}</div></div><div className="mt-4 grid gap-2 sm:grid-cols-2">{roster.slice().sort((a, b) => b.ovr - a.ovr).map(player => <div key={player.id} className="flex items-center gap-3 rounded-xl bg-black/25 p-3"><div className="min-w-0 flex-1"><div className="truncate text-sm font-black">{player.name}</div><div className="text-[10px] text-zinc-500">{player.position} · ${player.salary}M</div></div><div className="text-lg font-black text-[var(--bk-team-accent)]">{player.ovr}</div><button type="button" onClick={() => releasePlayer(player)} className="min-h-10 rounded-lg border border-red-400/25 px-3 text-[9px] font-black text-red-300">RELEASE</button></div>)}</div><div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4 text-xs text-zinc-400"><b className="text-[var(--bk-team-accent)]">DRAFT CAPITAL:</b> {ownedDraftRounds.length ? ownedDraftRounds.map(round => `${ordinal(round)} round`).join(' · ') : 'No picks remaining'}</div></section> : null}
 
       {tradeTarget ? <div className="fixed inset-0 z-50 flex items-end bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-5" role="dialog" aria-modal="true" aria-label="Build trade offer"><div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[2rem] border border-white/10 bg-[#0d1219] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:max-w-3xl sm:rounded-[2rem] sm:p-7"><div className="flex items-start justify-between gap-3"><div><div className="text-[10px] font-black tracking-[.22em] text-[var(--bk-team-accent)]">YOU CONTROL EVERY ASSET</div><h2 className="mt-1 text-3xl font-black">BUILD THE OFFER</h2></div><button type="button" onClick={() => setTradeTarget(null)} className="grid h-11 w-11 place-items-center rounded-full border border-white/10" aria-label="Close trade builder"><X /></button></div><div className="mt-4 rounded-2xl border border-[var(--bk-team-accent)]/20 bg-[var(--bk-team-accent)]/5 p-4"><div className="text-[9px] font-black text-zinc-500">YOU RECEIVE</div><div className="mt-1 font-black">{tradeTarget.player.name} <span className="text-[var(--bk-team-accent)]">{tradeTarget.player.ovr} OVR</span></div><div className="text-xs text-zinc-500">{tradeTarget.ownerTeam} · {tradeTarget.player.position} · Value {requestedValue}</div></div><h3 className="mt-5 text-sm font-black">YOUR PLAYERS</h3><div className="mt-2 grid gap-2 sm:grid-cols-2">{roster.slice().sort((a, b) => b.ovr - a.ovr).map(player => { const selected = outgoingIds.includes(player.id); return <button key={player.id} type="button" onClick={() => setOutgoingIds(ids => selected ? ids.filter(id => id !== player.id) : [...ids, player.id])} className={`flex min-h-14 items-center justify-between rounded-xl border px-3 text-left ${selected ? 'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)]/10' : 'border-white/10 bg-black/20'}`}><div><div className="text-xs font-black">{player.name}</div><div className="text-[9px] text-zinc-500">{player.position} · {player.ovr} OVR · Value {tradeValue(player)}</div></div>{selected ? <Check className="h-4 w-4 text-[var(--bk-team-accent)]" /> : null}</button>; })}</div><h3 className="mt-5 text-sm font-black">FUTURE DRAFT PICKS</h3><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">{ALL_DRAFT_ROUNDS.map(round => { const alreadyTraded = tradedPickRounds.includes(round); const selected = outgoingPicks.includes(round); return <button key={round} type="button" disabled={alreadyTraded} onClick={() => setOutgoingPicks(picks => selected ? picks.filter(pick => pick !== round) : [...picks, round])} className={`min-h-14 rounded-xl border text-xs font-black disabled:cursor-not-allowed disabled:opacity-30 ${selected ? 'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)]/10 text-[var(--bk-team-accent)]' : 'border-white/10 bg-black/20'}`}>{ordinal(round).toUpperCase()} ROUND<div className="text-[9px] text-zinc-500">{alreadyTraded ? 'TRADED' : `${PICK_VALUES[round - 1]} value`}</div></button>; })}</div><div className="mt-5 flex items-center justify-between gap-4 rounded-2xl bg-black/30 p-4"><div><div className="text-[9px] font-black text-zinc-500">OFFER VALUE</div><div className={`text-2xl font-black ${offeredValue >= requestedValue * 0.92 ? 'text-[var(--bk-team-accent)]' : 'text-amber-300'}`}>{offeredValue} / {Math.ceil(requestedValue * 0.92)}</div></div><button type="button" onClick={submitOffer} disabled={!outgoingIds.length && !outgoingPicks.length} className="min-h-12 rounded-xl bg-[var(--bk-team-accent)] px-5 text-xs font-black text-[var(--bk-on-accent)] disabled:opacity-30">PROPOSE TRADE</button></div></div></div> : null}
     </div></div>;
