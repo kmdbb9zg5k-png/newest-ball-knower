@@ -2,12 +2,12 @@
 
 :root {
   color-scheme: dark;
-  --bk-team-primary: #aa0000;
-  --bk-team-secondary: #b3995d;
-  --bk-team-primary-rgb: 170 0 0;
-  --bk-team-secondary-rgb: 179 153 93;
-  --bk-team-accent: #b3995d;
-  --bk-team-accent-rgb: 179 153 93;
+  --bk-team-primary: #d8a93a;
+  --bk-team-secondary: #d9d9d9;
+  --bk-team-primary-rgb: 216 169 58;
+  --bk-team-secondary-rgb: 217 217 217;
+  --bk-team-accent: #d8a93a;
+  --bk-team-accent-rgb: 216 169 58;
   --bk-on-accent: #07090d;
   --bk-surface: rgba(17, 21, 29, .78);
   --bk-line: rgba(255, 255, 255, .09);
@@ -206,6 +206,58 @@ main > div::before {
     linear-gradient(118deg, transparent 0 42%, rgb(var(--bk-team-secondary-rgb) / .075) 50%, transparent 58%),
     radial-gradient(ellipse at 50% 108%, rgb(var(--bk-team-primary-rgb) / .22), transparent 48%);
   opacity: .9;
+}
+
+/* CHALLENGES — film-room tactics board with competitive arena lighting. */
+.bk-app-shell[data-tab="challenges"] {
+  background:
+    radial-gradient(circle at 18% 9%, rgb(var(--bk-team-secondary-rgb) / .18), transparent 28%),
+    radial-gradient(circle at 83% 15%, rgb(var(--bk-team-primary-rgb) / .27), transparent 31%),
+    linear-gradient(180deg, #06090e 0%, #080d14 52%, #05070b 100%);
+}
+.bk-app-shell[data-tab="challenges"]::before {
+  background:
+    linear-gradient(32deg, transparent 0 38%, rgb(255 255 255 / .045) 38.2% 38.55%, transparent 38.8% 61%, rgb(var(--bk-team-accent-rgb) / .07) 61.2% 61.55%, transparent 61.8%),
+    radial-gradient(circle at 26% 34%, transparent 0 42px, rgb(255 255 255 / .055) 43px 45px, transparent 46px),
+    radial-gradient(circle at 73% 61%, transparent 0 54px, rgb(var(--bk-team-secondary-rgb) / .07) 55px 57px, transparent 58px),
+    repeating-linear-gradient(90deg, transparent 0 11.8%, rgb(255 255 255 / .026) 12% 12.15%, transparent 12.3% 24%),
+    radial-gradient(ellipse at 50% 108%, rgb(var(--bk-team-primary-rgb) / .24), transparent 48%);
+  opacity: .86;
+}
+.bk-app-shell[data-tab="challenges"]::after {
+  background:
+    radial-gradient(ellipse at 8% -3%, rgb(255 255 255 / .17), transparent 14%),
+    radial-gradient(ellipse at 92% -3%, rgb(255 255 255 / .16), transparent 14%),
+    linear-gradient(145deg, transparent 0 32%, rgb(var(--bk-team-secondary-rgb) / .08) 42%, transparent 52%),
+    linear-gradient(215deg, transparent 0 32%, rgb(var(--bk-team-primary-rgb) / .10) 42%, transparent 52%),
+    linear-gradient(180deg, transparent 0 72%, rgb(0 0 0 / .56));
+  opacity: .82;
+}
+
+/* LOCKER / PROFILE — premium tunnel locker room with trophy-case reflections. */
+.bk-app-shell[data-tab="locker"] {
+  background:
+    radial-gradient(ellipse at 50% -8%, rgb(var(--bk-team-secondary-rgb) / .16), transparent 31%),
+    radial-gradient(circle at 80% 21%, rgb(var(--bk-team-primary-rgb) / .26), transparent 30%),
+    linear-gradient(120deg, #06090d 0%, #0b1118 48%, #06080c 100%);
+}
+.bk-app-shell[data-tab="locker"]::before {
+  background:
+    repeating-linear-gradient(90deg, rgb(255 255 255 / .025) 0 1px, transparent 1px 16.5%),
+    linear-gradient(90deg, transparent 0 16.4%, rgb(var(--bk-team-accent-rgb) / .08) 16.5% 16.7%, transparent 16.8% 83.2%, rgb(var(--bk-team-accent-rgb) / .08) 83.3% 83.5%, transparent 83.6%),
+    linear-gradient(180deg, rgb(255 255 255 / .035), transparent 23%),
+    radial-gradient(ellipse at 50% 108%, rgb(var(--bk-team-primary-rgb) / .25), transparent 47%);
+  opacity: .88;
+  mask-image: linear-gradient(to bottom, black 0 88%, transparent 100%);
+}
+.bk-app-shell[data-tab="locker"]::after {
+  background:
+    linear-gradient(108deg, transparent 0 24%, rgb(var(--bk-team-secondary-rgb) / .08) 34%, transparent 45%),
+    linear-gradient(252deg, transparent 0 24%, rgb(var(--bk-team-primary-rgb) / .11) 34%, transparent 45%),
+    radial-gradient(circle at 50% 17%, rgb(255 255 255 / .09), transparent 18%),
+    radial-gradient(ellipse at 50% 102%, rgb(var(--bk-team-accent-rgb) / .11), transparent 44%),
+    linear-gradient(180deg, transparent 0 73%, rgb(0 0 0 / .58));
+  opacity: .84;
 }
 
 /* SIMULATION — game-night broadcast stadium. */
