@@ -16,6 +16,7 @@
 * { box-sizing: border-box; }
 html { background: #07090d; scroll-behavior: smooth; }
 body { margin: 0; min-width: 320px; min-height: 100dvh; background: #07090d; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.font-display { font-family: "Barlow Condensed", "Arial Narrow", Impact, ui-sans-serif, system-ui, sans-serif; font-stretch: condensed; }
 button, input, select, textarea { font: inherit; }
 button, [role="button"], select { touch-action: manipulation; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--bk-team-accent); outline-offset: 3px; }
@@ -34,6 +35,44 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     linear-gradient(180deg, rgb(6 9 14 / .10), rgb(5 7 11 / .84) 54%, #05070b 100%),
     linear-gradient(118deg, #07090d 0%, #0b111a 46%, #07090d 100%);
   transition: background .7s ease;
+}
+
+/* Cinematic Figma background direction. One authored scene is recolored by the
+   selected team's existing CSS tokens, so every NFL team keeps its own identity. */
+.bk-cinematic-image {
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  pointer-events: none;
+  background-image:
+    linear-gradient(180deg, rgb(3 5 8 / .14), rgb(3 5 8 / .76) 54%, #05070b 96%),
+    linear-gradient(115deg, rgb(var(--bk-team-primary-rgb) / .48), rgb(var(--bk-team-secondary-rgb) / .18) 45%, rgb(0 0 0 / .74)),
+    url('/team-cinematic/crimson-player.jpg');
+  background-position: center top, center, center 22%;
+  background-size: cover, cover, cover;
+  background-repeat: no-repeat;
+  opacity: .52;
+  filter: saturate(.92) contrast(1.06);
+  transition: background-image .35s ease, opacity .35s ease;
+}
+
+.bk-app-shell[data-tab="fantasy"] .bk-cinematic-image,
+.bk-app-shell[data-tab="sportsbook"] .bk-cinematic-image,
+.bk-app-shell[data-tab="legacy"] .bk-cinematic-image,
+.bk-app-shell[data-tab="lobby"] .bk-cinematic-image {
+  background-image:
+    linear-gradient(180deg, rgb(3 5 8 / .08), rgb(3 5 8 / .74) 48%, #05070b 94%),
+    linear-gradient(115deg, rgb(var(--bk-team-primary-rgb) / .42), rgb(var(--bk-team-secondary-rgb) / .14) 48%, rgb(0 0 0 / .76)),
+    url('/team-cinematic/gold-trophy.jpg');
+  background-position: center top, center, center 12%;
+}
+
+.bk-app-shell[data-tab="challenges"] .bk-cinematic-image {
+  background-image:
+    linear-gradient(180deg, rgb(3 5 8 / .08), rgb(3 5 8 / .70) 48%, #05070b 94%),
+    linear-gradient(115deg, rgb(126 34 206 / .46), rgb(var(--bk-team-primary-rgb) / .18) 48%, rgb(0 0 0 / .78)),
+    url('/team-cinematic/purple-receiver.jpg');
+  background-position: center top, center, center 20%;
 }
 
 /* Team-driven stadium architecture. The selected NFL team's tokens power every glow. */
