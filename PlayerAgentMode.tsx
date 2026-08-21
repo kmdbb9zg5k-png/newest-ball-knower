@@ -26,7 +26,16 @@ const REGULAR_SEASON_WEEKS = 18;
 
 type Pitch = 'money' | 'trust' | 'brand' | 'opportunity';
 type AgentProfile = { name: string; age: number; location: string };
-type FutureDeal = { totalM: number; annualM: number; years: number; negotiatedAt: string };
+type FutureDeal = { totalM: number; annualM: number; guaranteedM: number; years: number; negotiatedAt: string };
+type NegotiationState = {
+  playerId: string;
+  round: number;
+  years: number;
+  annualM: number;
+  guaranteedPct: number;
+  gmPatience: number;
+  message: string;
+};
 type TradeRequest = { requestedWeek: number; requestedAt: string; reason: string; status: 'open' | 'resolved' | 'denied' };
 type Client = {
   playerId: string;
@@ -182,6 +191,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({ onBack }) =>
   const [draftLocation, setDraftLocation] = useState(agency.profile?.location || '');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [recruit, setRecruit] = useState<RecruitState | null>(null);
+  const [negotiationRoom, setNegotiationRoom] = useState<NegotiationState | null>(null);
   const [filter, setFilter] = useState('ALL');
 
   const clients = useMemo(
@@ -312,14 +322,67 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({ onBack }) =>
     }
   };
 
-  const negotiateExtension = (p: Player, c: Client) => {
+  const openNegotiation = (p: Player, c: Client) => {
     if (c.futureDeal) return;
-    const projected = marketProjection(p);
-    const years = (p.age ?? 27) >= 30 ? 2 : 3;
-    const annualM = Number((projected * (.94 + agency.negotiation / 550)).toFixed(1));
-    const deal: FutureDeal = { totalM:Number((annualM*years).toFixed(1)), annualM, years, negotiatedAt:new Date().toISOString() };
-    const next: AgencyState = { ...agency, reputation:clamp(agency.reputation+3,0,100), negotiation:clamp(agency.negotiation+2,0,100), clients:agency.clients.map(x=>x.playerId===p.id?{...x,futureDeal:deal,trust:clamp(x.trust+5,0,100)}:x), timeline:[`You negotiated a new ${years}-year deal for ${p.name}.`,...agency.timeline].slice(0,20) };
-    setAgency(next); persist(next);
+    const market = marketProjection(p);
+    setNegotiationRoom({
+      playerId: p.id,
+      round: 1,
+      years: (p.age ?? 27) >= 30 ? 2 : 3,
+      annualM: Number((market * .78).toFixed(1)),
+      guaranteedPct: 42,
+      gmPatience: clamp(62 + Math.round(agency.negotiation / 5), 62, 82),
+      message: `The GM opens below market at ${moneyM(market * .78)} per year. Your client expects you to fight.`,
+    });
+  };
+
+  const counterNegotiation = () => {
+    if (!negotiationRoom) return;
+    const p = PLAYERS_DATABASE.find(x => x.id === negotiationRoom.playerId);
+    if (!p) return;
+    const market = marketProjection(p);
+    const askScore = (negotiationRoom.annualM / market) * 55 + negotiationRoom.guaranteedPct * .35 + negotiationRoom.years * 2;
+    const leverage = agency.negotiation * .23 + agency.reputation * .09;
+    const accepted = askScore <= 69 + leverage || negotiationRoom.round >= 3;
+    if (accepted) {
+      const totalM = Number((negotiationRoom.annualM * negotiationRoom.years).toFixed(1));
+      const deal: FutureDeal = {
+        totalM,
+        annualM: negotiationRoom.annualM,
+        guaranteedM: Number((totalM * negotiationRoom.guaranteedPct / 100).toFixed(1)),
+        years: negotiationRoom.years,
+        negotiatedAt: new Date().toISOString(),
+      };
+      const next: AgencyState = {
+        ...agency,
+        reputation: clamp(agency.reputation + 4, 0, 100),
+        negotiation: clamp(agency.negotiation + 3, 0, 100),
+        clients: agency.clients.map(x => x.playerId === p.id ? { ...x, futureDeal: deal, trust: clamp(x.trust + 7, 0, 100) } : x),
+        timeline: [`DEAL: ${p.name} signed for ${negotiationRoom.years} years, ${moneyM(totalM)} total and ${moneyM(deal.guaranteedM)} guaranteed.`, ...agency.timeline].slice(0, 20),
+      };
+      setAgency(next); persist(next); setNegotiationRoom(null);
+      return;
+    }
+    const nextPatience = negotiationRoom.gmPatience - Math.max(12, Math.round(askScore - 54));
+    if (nextPatience <= 0) {
+      const next: AgencyState = {
+        ...agency,
+        reputation: clamp(agency.reputation - 1, 0, 100),
+        clients: agency.clients.map(x => x.playerId === p.id ? { ...x, trust: clamp(x.trust - 5, 0, 100) } : x),
+        timeline: [`The ${p.team} GM walked away from extension talks with ${p.name}.`, ...agency.timeline].slice(0, 20),
+      };
+      setAgency(next); persist(next); setNegotiationRoom(null);
+      return;
+    }
+    const gmAnnual = Number((market * (.82 + negotiationRoom.round * .055 + agency.negotiation / 1400)).toFixed(1));
+    setNegotiationRoom({
+      ...negotiationRoom,
+      round: negotiationRoom.round + 1,
+      annualM: gmAnnual,
+      guaranteedPct: Math.min(62, negotiationRoom.guaranteedPct + 5),
+      gmPatience: nextPatience,
+      message: `The GM counters at ${moneyM(gmAnnual)} per year with ${Math.min(62, negotiationRoom.guaranteedPct + 5)}% guaranteed. Push again or protect the relationship.`,
+    });
   };
 
   if (!agency.profile) {
@@ -349,10 +412,11 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({ onBack }) =>
 
     {clients.length>0 && <section className="mt-5 rounded-[2rem] border border-white/10 bg-[#0d121b] p-5 sm:p-6"><div className="mb-4 flex items-center gap-2"><BriefcaseBusiness className="text-violet-300"/><h2 className="text-2xl font-black">YOUR CLIENTS</h2></div><div className="grid gap-3 md:grid-cols-2">{clients.map(({client,player})=><div key={player.id} className="rounded-2xl border border-white/10 bg-black/25 p-4"><div className="flex items-center gap-3"><img src={playerPortraitUrl(player)} alt="" className="h-14 w-14 rounded-xl bg-white/5 object-cover"/><div className="min-w-0 flex-1"><div className="font-black">{player.name}</div><div className="text-xs text-zinc-500">{player.team} · {player.position} · {player.ovr} OVR</div></div><div className="text-right"><div className="text-[9px] font-black text-zinc-500">TRUST</div><div className="font-black text-emerald-300">{client.trust}%</div></div></div>
       {client.tradeRequest?.status==='open' && <div className="mt-3 rounded-xl border border-amber-300/25 bg-amber-300/10 p-3"><div className="flex items-center gap-2 text-xs font-black text-amber-200"><AlertTriangle size={14}/> TRADE REQUEST</div><p className="mt-2 text-xs font-semibold leading-5 text-zinc-300">{client.tradeRequest.reason}</p><div className="mt-3 grid grid-cols-2 gap-2"><button onClick={()=>resolveTradeRequest(player.id,'resolved')} className="min-h-10 rounded-xl bg-violet-400 px-3 text-xs font-black text-black">WORK THE PHONES</button><button onClick={()=>resolveTradeRequest(player.id,'denied')} className="min-h-10 rounded-xl bg-white/10 px-3 text-xs font-black">TELL HIM NO</button></div></div>}
-      <div className="mt-3 rounded-xl bg-white/5 p-3 text-xs"><div className="text-zinc-500">Current deal baseline</div><div className="mt-1 font-black">{moneyM(player.salary)} · final contract year</div></div>{client.futureDeal?<div className="mt-3 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-xs"><div className="font-black text-emerald-300">YOU GOT HIM PAID</div><div className="mt-1 text-zinc-300">{client.futureDeal.years} years · {moneyM(client.futureDeal.totalM)} total · {moneyM(client.futureDeal.annualM)}/yr</div></div>:<button onClick={()=>negotiateExtension(player,client)} className="mt-3 min-h-11 w-full rounded-xl bg-violet-400 px-4 text-xs font-black text-black">NEGOTIATE HIS NEXT CONTRACT</button>}</div>)}</div></section>}
+      <div className="mt-3 rounded-xl bg-white/5 p-3 text-xs"><div className="text-zinc-500">Current deal baseline</div><div className="mt-1 font-black">{moneyM(player.salary)} · final contract year</div></div>{client.futureDeal?<div className="mt-3 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-xs"><div className="font-black text-emerald-300">YOU GOT HIM PAID</div><div className="mt-1 text-zinc-300">{client.futureDeal.years} years · {moneyM(client.futureDeal.totalM)} total · {moneyM(client.futureDeal.guaranteedM || 0)} guaranteed</div></div>:<button onClick={()=>openNegotiation(player,client)} className="mt-3 min-h-11 w-full rounded-xl bg-violet-400 px-4 text-xs font-black text-black">ENTER NEGOTIATION ROOM</button>}</div>)}</div></section>}
 
     <section className="mt-5 rounded-[2rem] border border-white/10 bg-[#0d121b] p-5 sm:p-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-[10px] font-black tracking-[.22em] text-violet-300">FIRST CLIENT BOARD</div><h2 className="mt-1 text-3xl font-black">WHO ARE YOU BETTING ON?</h2><p className="mt-2 text-xs font-semibold text-zinc-500">50 available targets · current unlock: {unlockedOvr} OVR and below</p></div><select value={filter} onChange={e=>setFilter(e.target.value)} className="rounded-xl border border-white/10 bg-black px-3 py-3 text-sm font-black">{['ALL','QB','RB','WR','TE','OT','EDGE','DT','LB','CB','S','K','P'].map(x=><option key={x}>{x}</option>)}</select></div><div className="mt-5 grid gap-3 md:grid-cols-2">{prospects.map(p=>{const [low,high]=salaryRange(p);const days=cooldownDaysLeft(agency.recruitCooldowns[p.id]);return <button key={p.id} onClick={()=>beginRecruit(p)} disabled={clients.length>=STARTING_CLIENT_CAP&&agency.reputation<45} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/25 p-3 text-left disabled:opacity-35"><img src={playerPortraitUrl(p)} alt="" className="h-16 w-16 rounded-xl bg-white/5 object-cover"/><div className="min-w-0 flex-1"><div className="truncate font-black">{p.name}</div><div className="text-xs text-zinc-500">{p.team} · {p.position} · Age {p.age??'—'} · 1 year left</div><div className="mt-1 text-[10px] text-zinc-500">Expected next deal: {moneyM(low)}–{moneyM(high)}/yr</div></div><div className="text-right"><div className="text-xl font-black text-violet-300">{p.ovr}</div><div className="text-[9px] font-black text-zinc-500">{days>0?`${days}D WAIT`:'OVR'}</div></div></button>})}</div></section>
 
     {selected&&recruit&&<div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 p-4 backdrop-blur-md"><div className="mx-auto mt-[max(2rem,env(safe-area-inset-top))] max-w-xl rounded-[2rem] border border-violet-300/25 bg-[#0c1018] p-5 sm:p-7"><div className="flex items-start gap-4"><img src={playerPortraitUrl(selected)} alt="" className="h-20 w-20 rounded-2xl bg-white/5 object-cover"/><div className="min-w-0 flex-1"><div className="text-[10px] font-black tracking-[.2em] text-violet-300">PRIVATE MEETING</div><h3 className="mt-1 text-2xl font-black">{selected.name}</h3><div className="text-xs text-zinc-500">{selected.team} · {selected.position} · {selected.ovr} OVR · final year</div></div><button onClick={()=>{setRecruit(null);setSelectedId(null)}} className="rounded-xl bg-white/5 px-3 py-2 text-xs font-black">CLOSE</button></div><div className="mt-5 rounded-2xl border border-white/10 bg-black/35 p-4"><div className="text-[10px] font-black text-zinc-500">PLAYER</div><p className="mt-2 text-lg font-black leading-7 text-white">{recruit.playerReply}</p></div><div className="mt-3 rounded-2xl bg-violet-400/10 p-4"><div className="text-[10px] font-black text-violet-300">STORY</div><p className="mt-2 text-sm font-semibold leading-6 text-zinc-300">{recruit.message}</p></div>{!recruit.failed&&<><div className="mt-5 grid gap-2 sm:grid-cols-2">{(Object.keys(pitchLabel) as Pitch[]).map(pitch=><button key={pitch} disabled={recruit.used.includes(pitch)} onClick={()=>makePitch(pitch)} className="min-h-12 rounded-2xl border border-white/10 bg-white/5 px-4 text-left text-xs font-black disabled:opacity-25">{pitchLabel[pitch]}</button>)}</div><button onClick={askToSign} className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-violet-400 px-5 font-black text-black"><Handshake size={18}/> ASK HIM TO SIGN WITH YOU</button></>}<div className="mt-4 flex items-center gap-2 text-[10px] font-bold text-zinc-600"><ShieldCheck size={13}/> Reputation determines which players will even take your meeting.</div></div></div>}
+    {negotiationRoom&&(()=>{const p=PLAYERS_DATABASE.find(x=>x.id===negotiationRoom.playerId);if(!p)return null;const market=marketProjection(p);return <div className="fixed inset-0 z-50 overflow-y-auto bg-black/90 p-4 backdrop-blur-md"><div className="mx-auto mt-[max(1rem,env(safe-area-inset-top))] max-w-xl rounded-[2rem] border border-violet-300/25 bg-[#0c1018] p-5 sm:p-7"><div className="flex items-start justify-between gap-3"><div><div className="text-[10px] font-black tracking-[.22em] text-violet-300">NEGOTIATION ROOM · ROUND {negotiationRoom.round}</div><h3 className="mt-1 text-3xl font-black">{p.name}</h3><div className="text-xs text-zinc-500">{p.team} GM · Market estimate {moneyM(market)}/yr</div></div><button onClick={()=>setNegotiationRoom(null)} className="min-h-11 rounded-xl bg-white/5 px-3 text-xs font-black">LEAVE</button></div><div className="mt-5 rounded-2xl border border-white/10 bg-black/35 p-4"><div className="text-[10px] font-black text-zinc-500">GENERAL MANAGER</div><p className="mt-2 text-lg font-black leading-7">“{negotiationRoom.message}”</p></div><div className="mt-4 grid gap-3 sm:grid-cols-3"><label className="rounded-2xl bg-white/5 p-3 text-[10px] font-black text-zinc-400">YEARS<input type="range" min="1" max="5" value={negotiationRoom.years} onChange={e=>setNegotiationRoom({...negotiationRoom,years:Number(e.target.value)})} className="mt-3 w-full accent-violet-400"/><span className="mt-2 block text-2xl text-white">{negotiationRoom.years}</span></label><label className="rounded-2xl bg-white/5 p-3 text-[10px] font-black text-zinc-400">PER YEAR<input type="range" min={Math.max(1,market*.65)} max={market*1.3} step="0.5" value={negotiationRoom.annualM} onChange={e=>setNegotiationRoom({...negotiationRoom,annualM:Number(e.target.value)})} className="mt-3 w-full accent-violet-400"/><span className="mt-2 block text-lg text-white">{moneyM(negotiationRoom.annualM)}</span></label><label className="rounded-2xl bg-white/5 p-3 text-[10px] font-black text-zinc-400">GUARANTEED<input type="range" min="25" max="80" step="5" value={negotiationRoom.guaranteedPct} onChange={e=>setNegotiationRoom({...negotiationRoom,guaranteedPct:Number(e.target.value)})} className="mt-3 w-full accent-violet-400"/><span className="mt-2 block text-2xl text-white">{negotiationRoom.guaranteedPct}%</span></label></div><div className="mt-4 flex items-center justify-between rounded-xl bg-white/5 p-3 text-xs"><span className="text-zinc-500">GM patience</span><span className={negotiationRoom.gmPatience<30?'font-black text-red-300':'font-black text-emerald-300'}>{negotiationRoom.gmPatience}/100</span></div><button onClick={counterNegotiation} className="mt-4 min-h-12 w-full rounded-2xl bg-violet-400 px-5 font-black text-black">SEND COUNTEROFFER · {moneyM(negotiationRoom.annualM*negotiationRoom.years)} TOTAL</button></div></div>})()}
   </div></div>;
 };
