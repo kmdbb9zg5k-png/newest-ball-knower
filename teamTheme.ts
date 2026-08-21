@@ -132,23 +132,32 @@ function deriveOnAccent(accent: string) {
     : lightForeground;
 }
 
-/** Applies real team atmosphere colors plus a contrast-safe UI accent for dark surfaces. */
-export function applyTeamCssVariables(team: TeamTheme) {
-  if (typeof document === 'undefined') return;
+/** Returns the complete theme variable map so team-driven surfaces can scope the selected club locally. */
+export function getTeamCssVariables(team: TeamTheme): Record<string, string> {
   const rawAccent = team.primary;
   const readableAccent = ensureSurfaceContrast(rawAccent);
   const atmospherePrimary = ensureAtmosphereVisibility(team.primary);
   const atmosphereSecondary = ensureAtmosphereVisibility(team.secondary);
   const onAccent = deriveOnAccent(readableAccent);
+  return {
+    '--bk-team-primary': team.primary,
+    '--bk-team-secondary': team.secondary,
+    '--bk-team-primary-rgb': hexToRgb(atmospherePrimary),
+    '--bk-team-secondary-rgb': hexToRgb(atmosphereSecondary),
+    '--bk-team-accent-raw': rawAccent,
+    '--bk-team-accent': readableAccent,
+    '--bk-team-accent-rgb': hexToRgb(readableAccent),
+    '--bk-team-accent-text': readableAccent,
+    '--bk-on-accent': onAccent,
+  };
+}
+
+/** Applies real team atmosphere colors plus a contrast-safe UI accent for dark surfaces. */
+export function applyTeamCssVariables(team: TeamTheme) {
+  if (typeof document === 'undefined') return;
   const root = document.documentElement;
   root.dataset.team = team.abbr;
-  root.style.setProperty('--bk-team-primary', team.primary);
-  root.style.setProperty('--bk-team-secondary', team.secondary);
-  root.style.setProperty('--bk-team-primary-rgb', hexToRgb(atmospherePrimary));
-  root.style.setProperty('--bk-team-secondary-rgb', hexToRgb(atmosphereSecondary));
-  root.style.setProperty('--bk-team-accent-raw', rawAccent);
-  root.style.setProperty('--bk-team-accent', readableAccent);
-  root.style.setProperty('--bk-team-accent-rgb', hexToRgb(readableAccent));
-  root.style.setProperty('--bk-team-accent-text', readableAccent);
-  root.style.setProperty('--bk-on-accent', onAccent);
+  for (const [name, value] of Object.entries(getTeamCssVariables(team))) {
+    root.style.setProperty(name, value);
+  }
 }
