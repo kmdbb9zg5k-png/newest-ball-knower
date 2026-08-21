@@ -1,12 +1,13 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRightLeft, Check, ClipboardList, Play, RotateCcw, Users, X } from 'lucide-react';
 import { FranchiseSeason } from './FranchiseSeason';
 import { ModeGuide } from './ModeGuide';
 import { PLAYERS_DATABASE } from './players';
+import { getRosterNeeds } from './rosterRules';
 import { buildRealTeamRoster, SOLO_FRANCHISE_SAVE_KEYS } from './soloFranchiseEngine';
 import { SoloTeamPicker } from './SoloTeamPicker';
 import { getSavedTeamTheme, getTeamCssVariables, TEAM_THEMES, teamLogoUrl } from './teamTheme';
-import { Player } from './types';
+import { DEFAULT_SALARY_CAP, Player } from './types';
 
 type Props = { onBack: () => void };
 type FranchiseMove = { playerId: string; toTeam: string };
@@ -130,6 +131,13 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
     backgroundImage: 'radial-gradient(circle at 16% 0%, rgb(var(--bk-team-primary-rgb) / .24), transparent 34%), radial-gradient(circle at 88% 12%, rgb(var(--bk-team-secondary-rgb) / .14), transparent 30%), linear-gradient(180deg, #080b10 0%, #0a0d12 45%, #050608 100%)',
   }) as React.CSSProperties, [team]);
 
+  useEffect(() => {
+    if (!teamAbbr) return;
+    if (!persistSave({ version: 2, teamAbbr, moves, rookies, tradedPickRounds })) {
+      setMessage('Franchise changed, but Safari could not save it. Keep this page open.');
+    }
+  }, [teamAbbr, moves, rookies, tradedPickRounds]);
+
   const saveCurrent = (next: Partial<Pick<FranchiseSave, 'moves' | 'rookies' | 'tradedPickRounds'>> = {}) => {
     if (!teamAbbr) return true;
     return persistSave({ version: 2, teamAbbr, moves: next.moves ?? moves, rookies: next.rookies ?? rookies, tradedPickRounds: next.tradedPickRounds ?? tradedPickRounds });
@@ -167,18 +175,16 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
   };
 
   const addDraftedRookie = (player: Player) => {
-    setRookies(previous => {
-      if (previous.some(existing => existing.id === player.id)) return previous;
-      const next = [...previous, player];
-      if (!saveCurrent({ rookies: next })) setMessage('Draft pick added, but Safari could not save the roster. Keep this page open.');
-      return next;
-    });
+    if (rookies.some(existing => existing.id === player.id)) return;
+    const next = [...rookies, player];
+    setRookies(next);
+    if (!saveCurrent({ rookies: next })) setMessage('Draft pick added, but Safari could not save the roster. Keep this page open.');
   };
 
   if (teamAbbr && seasonOpen) {
     return <div className="relative min-h-[100dvh]" style={themeStyle}>
       <button type="button" onClick={newCareer} className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-30 flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/90 px-4 text-xs font-black shadow-xl"><RotateCcw size={15} /> NEW TEAM</button>
-      <FranchiseSeason title="FRANCHISE COMMAND" userTeam={team} roster={roster} opponentRosters={managedRosters} saveKey={SOLO_FRANCHISE_SAVE_KEYS.real} ownedDraftRounds={ownedDraftRounds} onDraftProspect={addDraftedRookie} onBack={() => setSeasonOpen(false)} />
+      <FranchiseSeason title="FRANCHISE COMMAND" userTeam={team} roster={roster} opponentRosters={managedRosters} saveKey={SOLO_FRANCHISE_SAVE_KEYS.real} ownedDraftRounds={ownedDraftRounds} onDraftProspect={addDraftedRookie} onDraftComplete={() => setTradedPickRounds([])} onBack={() => setSeasonOpen(false)} />
     </div>;
   }
 
@@ -200,6 +206,18 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
         return;
       }
       const nextMoves: FranchiseMove[] = [...moves, ...outgoingPlayers.map(player => ({ playerId: player.id, toTeam: tradeTarget.ownerTeam })), { playerId: tradeTarget.player.id, toTeam: teamAbbr }];
+      const proposedRosters = buildManagedRosters(nextMoves, rookies);
+      const proposedRoster = proposedRosters[teamAbbr] ?? [];
+      const rosterNeeds = getRosterNeeds(proposedRoster);
+      if (rosterNeeds.length) {
+        setMessage(`Trade blocked. Your roster would be illegal: ${rosterNeeds.map(need => `needs ${need.needed} ${need.group}`).join(', ')}.`);
+        return;
+      }
+      const proposedCap = proposedRoster.reduce((total, player) => total + Number(player.salary || 0), 0);
+      if (proposedCap > DEFAULT_SALARY_CAP + 0.001) {
+        setMessage(`Trade blocked. The new roster would use $${proposedCap.toFixed(1)}M against the $${DEFAULT_SALARY_CAP.toFixed(1)}M cap.`);
+        return;
+      }
       const nextTradedPickRounds = Array.from(new Set<number>([...tradedPickRounds, ...outgoingPicks])).sort((a, b) => a - b);
       const outgoingNames = outgoingPlayers.map(player => player.name);
       const pickNames = outgoingPicks.map(round => `a ${ordinal(round)}-round pick`);
@@ -222,7 +240,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
 
       {commandTab === 'week' ? <section className="mt-3 rounded-[2rem] border border-white/10 bg-[#10151d]/90 p-5 backdrop-blur sm:p-7"><div className="text-[10px] font-black uppercase tracking-[.22em] text-[var(--bk-team-accent)]">Coach meeting</div><h2 className="mt-2 text-3xl font-black">WHAT'S THE PLAN?</h2><p className="mt-2 text-sm text-zinc-400">Your coaches need one clear priority. Pick it before starting the season.</p><div className="mt-5 grid gap-2 sm:grid-cols-3">{['Attack through the air', 'Control the clock', 'Balanced attack', 'Bring heavy pressure', 'Protect against big plays', 'Play aggressive'].map(plan => <button key={plan} type="button" onClick={() => setGamePlan(plan)} className={`min-h-14 rounded-2xl border px-4 text-left text-sm font-black ${gamePlan === plan ? 'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)]/10 text-[var(--bk-team-accent)]' : 'border-white/10 bg-black/20'}`}>{plan}</button>)}</div><div className="mt-5 rounded-2xl bg-black/30 p-4 text-sm"><span className="font-black text-[var(--bk-team-accent)]">LOCKED PLAN:</span> {gamePlan}</div><button type="button" onClick={() => setSeasonOpen(true)} className="mt-4 min-h-14 w-full rounded-2xl bg-[var(--bk-team-accent)] font-black text-[var(--bk-on-accent)]"><Play className="mr-2 inline h-5 w-5" />START SEASON</button></section> : null}
 
-      {commandTab === 'trade' ? <section className="mt-3 rounded-[2rem] border border-white/10 bg-[#10151d]/90 p-4 backdrop-blur sm:p-6"><div className="text-[10px] font-black uppercase tracking-[.22em] text-[var(--bk-team-accent)]">Live 32-team ownership</div><h2 className="mt-2 text-3xl font-black">TRADE CENTER</h2><p className="mt-2 text-sm text-zinc-400">Choose a target, then build the offer yourself. Accepted players move to their new teams and traded picks stay gone.</p><input value={tradeSearch} onChange={event => setTradeSearch(event.target.value)} placeholder="Search player, team or position" className="mt-4 min-h-12 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-sm outline-none focus:border-[var(--bk-team-accent)]" /><div className="mt-3 divide-y divide-white/5">{tradeTargets.map(({ player, ownerTeam }) => <div key={player.id} className="flex items-center gap-3 py-3"><div className="min-w-0 flex-1"><div className="truncate text-sm font-black">{player.name}</div><div className="text-[10px] font-bold text-zinc-500">{ownerTeam} · {player.position} · {player.ovr} OVR · ${player.salary}M</div></div><button type="button" onClick={() => { setTradeTarget({ player, ownerTeam }); setOutgoingIds([]); setOutgoingPicks([]); setMessage(''); }} className="min-h-11 shrink-0 rounded-xl border border-[var(--bk-team-accent)]/30 px-3 text-[10px] font-black text-[var(--bk-team-accent)]">BUILD OFFER</button></div>)}</div></section> : null}
+      {commandTab === 'trade' ? <section className="mt-3 rounded-[2rem] border border-white/10 bg-[#10151d]/90 p-4 backdrop-blur sm:p-6"><div className="text-[10px] font-black uppercase tracking-[.22em] text-[var(--bk-team-accent)]">Live 32-team ownership</div><h2 className="mt-2 text-3xl font-black">TRADE CENTER</h2><p className="mt-2 text-sm text-zinc-400">Choose a target, then build the offer yourself. Accepted players move to their new teams and traded picks stay gone through the upcoming draft.</p><input value={tradeSearch} onChange={event => setTradeSearch(event.target.value)} placeholder="Search player, team or position" className="mt-4 min-h-12 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-sm outline-none focus:border-[var(--bk-team-accent)]" /><div className="mt-3 divide-y divide-white/5">{tradeTargets.map(({ player, ownerTeam }) => <div key={player.id} className="flex items-center gap-3 py-3"><div className="min-w-0 flex-1"><div className="truncate text-sm font-black">{player.name}</div><div className="text-[10px] font-bold text-zinc-500">{ownerTeam} · {player.position} · {player.ovr} OVR · ${player.salary}M</div></div><button type="button" onClick={() => { setTradeTarget({ player, ownerTeam }); setOutgoingIds([]); setOutgoingPicks([]); setMessage(''); }} className="min-h-11 shrink-0 rounded-xl border border-[var(--bk-team-accent)]/30 px-3 text-[10px] font-black text-[var(--bk-team-accent)]">BUILD OFFER</button></div>)}</div></section> : null}
 
       {commandTab === 'roster' ? <section className="mt-3 rounded-[2rem] border border-white/10 bg-[#10151d]/90 p-4 backdrop-blur sm:p-6"><h2 className="text-3xl font-black">YOUR ROSTER</h2><p className="mt-1 text-sm text-zinc-500">{roster.length} players · trades and rookies persist on this device</p><div className="mt-4 grid gap-2 sm:grid-cols-2">{roster.slice().sort((a, b) => b.ovr - a.ovr).map(player => <div key={player.id} className="flex items-center justify-between rounded-xl bg-black/25 p-3"><div><div className="text-sm font-black">{player.name}</div><div className="text-[10px] text-zinc-500">{player.position} · ${player.salary}M</div></div><div className="text-lg font-black text-[var(--bk-team-accent)]">{player.ovr}</div></div>)}</div><div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4 text-xs text-zinc-400"><b className="text-[var(--bk-team-accent)]">DRAFT CAPITAL:</b> {ownedDraftRounds.length ? ownedDraftRounds.map(round => `${ordinal(round)} round`).join(' · ') : 'No picks remaining'}</div></section> : null}
 
