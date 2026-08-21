@@ -111,6 +111,19 @@ function ensureSurfaceContrast(color: string, surface = '#0A0A0A', minimumRatio 
   return '#FFFFFF';
 }
 
+function ensureAtmosphereVisibility(color: string, minimumLuminance = 0.05) {
+  if (relativeLuminance(color) >= minimumLuminance) return color;
+
+  // Some authentic NFL colors are almost black. Keep the solid brand token exact,
+  // but lift translucent lighting just enough to stay visible against the dark stadium.
+  for (let step = 1; step <= 10; step += 1) {
+    const candidate = blendTowardWhite(color, step * 0.05);
+    if (relativeLuminance(candidate) >= minimumLuminance) return candidate;
+  }
+
+  return blendTowardWhite(color, 0.5);
+}
+
 function deriveOnAccent(accent: string) {
   const darkForeground = '#07090D';
   const lightForeground = '#FFFFFF';
@@ -124,13 +137,15 @@ export function applyTeamCssVariables(team: TeamTheme) {
   if (typeof document === 'undefined') return;
   const rawAccent = team.primary;
   const readableAccent = ensureSurfaceContrast(rawAccent);
+  const atmospherePrimary = ensureAtmosphereVisibility(team.primary);
+  const atmosphereSecondary = ensureAtmosphereVisibility(team.secondary);
   const onAccent = deriveOnAccent(readableAccent);
   const root = document.documentElement;
   root.dataset.team = team.abbr;
   root.style.setProperty('--bk-team-primary', team.primary);
   root.style.setProperty('--bk-team-secondary', team.secondary);
-  root.style.setProperty('--bk-team-primary-rgb', hexToRgb(team.primary));
-  root.style.setProperty('--bk-team-secondary-rgb', hexToRgb(team.secondary));
+  root.style.setProperty('--bk-team-primary-rgb', hexToRgb(atmospherePrimary));
+  root.style.setProperty('--bk-team-secondary-rgb', hexToRgb(atmosphereSecondary));
   root.style.setProperty('--bk-team-accent-raw', rawAccent);
   root.style.setProperty('--bk-team-accent', readableAccent);
   root.style.setProperty('--bk-team-accent-rgb', hexToRgb(readableAccent));
