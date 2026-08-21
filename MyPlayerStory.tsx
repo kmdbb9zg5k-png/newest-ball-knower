@@ -4,80 +4,33 @@ import { FranchiseSeason } from './FranchiseSeason';
 import { buildRealTeamRoster, SOLO_FRANCHISE_SAVE_KEYS } from './soloFranchiseEngine';
 import { getDraftPositionGroup } from './rosterRules';
 import { TEAM_THEMES, teamLogoUrl } from './teamTheme';
-import { Player, Position } from './types';
+import { Player } from './types';
 import { ensureOnlineSession, supabase } from './supabase';
+import {
+  isMyPlayerProfileCustomized,
+  MY_PLAYER_EMPTY_PROFILE,
+  MY_PLAYER_POSITIONS,
+  MyPlayerProfile,
+  parseMyPlayerSave,
+} from './myPlayerSave';
 
 type Props = { onBack: () => void };
-type StoryStage = 'creator' | 'combine' | 'drafted' | 'season';
 type UpgradeAttribute = 'speed' | 'power' | 'awareness';
 type BodySliderKey = 'heightInches' | 'weightLbs' | 'bodyBuild' | 'shoulderWidth' | 'armSize' | 'legSize' | 'viewRotation';
 
-type MyPlayerProfile = {
-  version: 1;
-  stage: StoryStage;
-  name: string;
-  position: Position;
-  number: number;
-  faceImage: string;
-  renderImage: string;
-  appearancePrompt: string;
-  teamAbbr: string;
-  draftRound: number;
-  draftPick: number;
-  overall: number;
-  xp: number;
-  upgradePoints: number;
-  gamesPlayed: number;
-  speed: number;
-  power: number;
-  awareness: number;
-  heightInches: number;
-  weightLbs: number;
-  bodyBuild: number;
-  shoulderWidth: number;
-  armSize: number;
-  legSize: number;
-  viewRotation: number;
-};
+const POSITIONS = MY_PLAYER_POSITIONS;
+const EMPTY_PROFILE = MY_PLAYER_EMPTY_PROFILE;
 
-const POSITIONS: Position[] = ['QB', 'RB', 'WR', 'TE', 'EDGE', 'LB', 'CB', 'S'];
-
-const EMPTY_PROFILE: MyPlayerProfile = {
-  version: 1,
-  stage: 'creator',
-  name: '',
-  position: 'WR',
-  number: 17,
-  faceImage: '',
-  renderImage: '',
-  appearancePrompt: '',
-  teamAbbr: '',
-  draftRound: 0,
-  draftPick: 0,
-  overall: 68,
-  xp: 0,
-  upgradePoints: 0,
-  gamesPlayed: 0,
-  speed: 78,
-  power: 72,
-  awareness: 65,
-  heightInches: 72,
-  weightLbs: 205,
-  bodyBuild: 48,
-  shoulderWidth: 52,
-  armSize: 46,
-  legSize: 50,
-  viewRotation: 0,
-};
-
-function restoreProfile() {
+function restoreProfile(): MyPlayerProfile {
   try {
     const raw = localStorage.getItem(SOLO_FRANCHISE_SAVE_KEYS.player);
     if (!raw) return EMPTY_PROFILE;
-    const saved = JSON.parse(raw);
-    if (saved?.version !== 1 || !POSITIONS.includes(saved.position) || !['creator', 'combine', 'drafted', 'season'].includes(saved.stage)) return EMPTY_PROFILE;
-    if (['drafted', 'season'].includes(saved.stage) && !TEAM_THEMES.some(team => team.abbr === saved.teamAbbr)) return EMPTY_PROFILE;
-    return { ...EMPTY_PROFILE, ...saved } as MyPlayerProfile;
+    const saved = parseMyPlayerSave(raw);
+    if (!saved) {
+      localStorage.removeItem(SOLO_FRANCHISE_SAVE_KEYS.player);
+      return EMPTY_PROFILE;
+    }
+    return saved;
   } catch {
     return EMPTY_PROFILE;
   }
@@ -177,22 +130,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
 
   useEffect(() => {
     try {
-      const creatorCustomized = Boolean(
-        profile.name ||
-        profile.faceImage ||
-        profile.renderImage ||
-        profile.appearancePrompt ||
-        profile.position !== EMPTY_PROFILE.position ||
-        profile.number !== EMPTY_PROFILE.number ||
-        profile.heightInches !== EMPTY_PROFILE.heightInches ||
-        profile.weightLbs !== EMPTY_PROFILE.weightLbs ||
-        profile.bodyBuild !== EMPTY_PROFILE.bodyBuild ||
-        profile.shoulderWidth !== EMPTY_PROFILE.shoulderWidth ||
-        profile.armSize !== EMPTY_PROFILE.armSize ||
-        profile.legSize !== EMPTY_PROFILE.legSize ||
-        profile.viewRotation !== EMPTY_PROFILE.viewRotation
-      );
-      const untouched = profile.stage === 'creator' && !creatorCustomized;
+      const untouched = profile.stage === 'creator' && !isMyPlayerProfileCustomized(profile);
       if (untouched) localStorage.removeItem(SOLO_FRANCHISE_SAVE_KEYS.player);
       else localStorage.setItem(SOLO_FRANCHISE_SAVE_KEYS.player, JSON.stringify(profile));
     } catch (error) {
