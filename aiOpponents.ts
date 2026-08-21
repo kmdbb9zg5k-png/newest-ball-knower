@@ -217,7 +217,7 @@ export const AI_ARCHETYPES: AiArchetype[] = [
   },
 ];
 
-export function buildRosterForArchetype(archetype: AiArchetype,seed=0): Player[] {
+export function buildRosterForArchetype(archetype: AiArchetype,seed=0,salaryCap=DEFAULT_SALARY_CAP): Player[] {
   const groupWeights:Partial<Record<DraftPositionGroup,number>>={};
   if(archetype.id==='ai-tyler') Object.assign(groupWeights,{OL:1.28,DL_EDGE:1.24});
   if(archetype.id==='ai-jay') Object.assign(groupWeights,{QB:1.34,WR:1.25,TE:1.16});
@@ -231,6 +231,8 @@ export function buildRosterForArchetype(archetype: AiArchetype,seed=0): Player[]
   const capTarget:Record<string,number>={
     'ai-elijah':270,'ai-tyler':260,'ai-jay':280,'ai-mike':275,'ai-marcus':205,'ai-dave':260,'ai-chris':300,
   };
+  const activeCap=Math.max(0,Number(salaryCap)||0);
+  const upgradeBudget=Math.min(capTarget[archetype.id]||DEFAULT_SALARY_CAP,activeCap);
   const stableJitter=(id:string)=>{
     let hash=seed+17;
     for(const char of `${archetype.id}-${id}`) hash=(hash*31+char.charCodeAt(0))>>>0;
@@ -269,7 +271,7 @@ export function buildRosterForArchetype(archetype: AiArchetype,seed=0): Player[]
         if(getDraftPositionGroup(candidate)!==group||candidate.ovr>maxOvrFor(group)||(selectedIds.has(candidate.id)&&candidate.id!==current.id))continue;
         const gain=score(candidate,group)-score(current,group);
         const cost=candidate.salary-current.salary;
-        if(gain<=0||spent+cost>(capTarget[archetype.id]||DEFAULT_SALARY_CAP)+.0001)continue;
+        if(gain<=0||spent+cost>upgradeBudget+.0001)continue;
         const efficiency=gain/Math.max(.25,cost+.25);
         if(!best||efficiency>best.efficiency||(efficiency===best.efficiency&&gain>best.gain)) best={slot,player:candidate,gain,cost,efficiency};
       }
@@ -279,17 +281,17 @@ export function buildRosterForArchetype(archetype: AiArchetype,seed=0): Player[]
     spent+=best.cost;
   }
 
-  if(roster.length!==20||validateRosterShape(roster).length||spent>DEFAULT_SALARY_CAP+.0001){
+  if(roster.length!==20||validateRosterShape(roster).length||spent>activeCap+.0001){
     throw new Error(`CPU roster generation failed for ${archetype.name}.`);
   }
   return roster;
 }
 
-export function generateAiLeagueMembers(count: number, startIndex = 0): LeagueMember[] {
+export function generateAiLeagueMembers(count: number, startIndex = 0, salaryCap = DEFAULT_SALARY_CAP): LeagueMember[] {
   const members: LeagueMember[] = [];
   for (let i = 0; i < count; i++) {
     const arch = AI_ARCHETYPES[(startIndex + i) % AI_ARCHETYPES.length];
-    const roster = buildRosterForArchetype(arch,startIndex+i);
+    const roster = buildRosterForArchetype(arch,startIndex+i,salaryCap);
     const ratings = calculateTeamRatings(roster);
     members.push({
       id: `member-${arch.id}-${Date.now()}-${i}`,

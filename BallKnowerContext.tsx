@@ -17,7 +17,8 @@ import { isCloudConfigured, ensureOnlineSession } from './supabase';
 import {
   createCloudLeague, joinCloudLeague, loadMyCloudLeagues, fetchCloudLeague,
   saveMyCloudRoster, updateCloudLeague, upsertAiCloudMembers, deleteCloudMember,
-  subscribeToCloudLeague, joinOrCreatePublicCloudLeague, lockPublicLeagueForCpuFill
+  subscribeToCloudLeague, joinOrCreatePublicCloudLeague, lockPublicLeagueForCpuFill,
+  reopenPublicLeagueMatchmaking
 } from './leagueCloud';
 import { trackBallKnowerEvent } from './analytics';
 
@@ -576,7 +577,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
       }
 
-      const aiMembers = generateAiLeagueMembers(slotsNeeded, league.members.length);
+      const aiMembers = generateAiLeagueMembers(slotsNeeded, league.members.length, league.salaryCap);
       if (isCloudConfigured) {
         await upsertAiCloudMembers(leagueId, aiMembers);
         const fresh = await fetchCloudLeague(leagueId);
@@ -589,6 +590,15 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return true;
     } catch (err:any) {
       const message = err?.message || 'Could not fill the open league spots.';
+      if (isCloudConfigured && league.settings?.leagueType === 'public_free') {
+        try {
+          await reopenPublicLeagueMatchmaking(leagueId);
+          const fresh = await fetchCloudLeague(leagueId);
+          if (fresh) setLeagues(prev => [fresh, ...prev.filter(l => l.id !== fresh.id)]);
+        } catch (reopenError) {
+          console.warn('CPU fill failed and public matchmaking could not be reopened.', reopenError);
+        }
+      }
       setCloudSyncError(message);
       showToast(message);
       return false;

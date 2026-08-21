@@ -17,20 +17,19 @@ export async function loadUserStates<T = unknown>(stateKeys: string[]): Promise<
   return (data ?? []) as UserStateRow<T>[];
 }
 
-export async function saveUserStates(entries: Array<{ stateKey: string; value: unknown }>): Promise<void> {
-  if (!supabase || entries.length === 0) return;
+export async function saveUserStates(entries: Array<{ stateKey: string; value: unknown }>): Promise<UserStateRow[]> {
+  if (!supabase || entries.length === 0) return [];
   const user = await ensureOnlineSession();
-  const updatedAt = new Date().toISOString();
-  const { error } = await supabase.from('ball_knower_user_state').upsert(
+  const { data, error } = await supabase.from('ball_knower_user_state').upsert(
     entries.map(entry => ({
       user_id: user.id,
       state_key: entry.stateKey,
       value: entry.value,
-      updated_at: updatedAt,
     })),
     { onConflict: 'user_id,state_key' },
-  );
+  ).select('state_key,value,updated_at');
   if (error) throw error;
+  return (data ?? []) as UserStateRow[];
 }
 
 export async function loadUserState<T>(stateKey: string): Promise<T | null> {
@@ -53,7 +52,6 @@ export async function saveUserState(stateKey: string, value: unknown): Promise<v
     user_id: user.id,
     state_key: stateKey,
     value,
-    updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id,state_key' });
   if (error) throw error;
 }

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Cloud, CloudOff, Loader2 } from 'lucide-react';
-import { isCloudConfigured } from './supabase';
+import { ensureOnlineSession, isCloudConfigured, supabase } from './supabase';
 import { loadUserStates, saveUserStates, UserStateRow } from './userStateCloud';
 
 type CloudSyncStatus = 'connecting' | 'online' | 'error' | 'unconfigured';
@@ -8,6 +8,7 @@ type CloudEnvelope = { raw: string | null };
 type StorageEntry = { localKey: string; cloudKey: string; privateImages?: boolean };
 
 const META_KEY = 'ballknower_cloud_meta_v1';
+const OWNER_KEY = 'ballknower_cloud_owner_v1';
 const MAX_CLOUD_RAW_LENGTH = 220_000;
 const CLOUD_STORAGE: StorageEntry[] = [
   { localKey: 'ball-knower-favorite-team', cloudKey: 'favorite_team' },
@@ -25,17 +26,21 @@ const CLOUD_STORAGE: StorageEntry[] = [
 
 const CloudSyncContext = createContext<CloudSyncStatus>(isCloudConfigured ? 'connecting' : 'unconfigured');
 
-function readMeta(): Record<string, number> {
+function metaKey(userId: string) {
+  return `${META_KEY}:${userId}`;
+}
+
+function readMeta(userId: string): Record<string, number> {
   try {
-    const value = JSON.parse(localStorage.getItem(META_KEY) || '{}');
+    const value = JSON.parse(localStorage.getItem(metaKey(userId)) || '{}');
     return value && typeof value === 'object' ? value : {};
   } catch {
     return {};
   }
 }
 
-function writeMeta(meta: Record<string, number>) {
-  try { localStorage.setItem(META_KEY, JSON.stringify(meta)); } catch {}
+function writeMeta(userId: string, meta: Record<string, number>) {
+  try { localStorage.setItem(metaKey(userId), JSON.stringify(meta)); } catch {}
 }
 
 function cloudEnvelope(entry: StorageEntry, raw: string | null): CloudEnvelope | null {
@@ -61,13 +66,36 @@ function cloudEnvelope(entry: StorageEntry, raw: string | null): CloudEnvelope |
   return envelope;
 }
 
-function applyRemote(entry: StorageEntry, envelope: CloudEnvelope) {
+function applyRemote(entry: StorageEntry, envelope: CloudEnvelope): boolean {
   try {
+    const before = localStorage.getItem(entry.localKey);
     if (envelope?.raw === null) localStorage.removeItem(entry.localKey);
-    else if (typeof envelope?.raw === 'string') localStorage.setItem(entry.localKey, envelope.raw);
+    else if (typeof envelope?.raw === 'string') {
+      let restored = envelope.raw;
+      if (entry.privateImages && before) {
+        try {
+          const localProfile = JSON.parse(before);
+          const remoteProfile = JSON.parse(envelope.raw);
+          restored = JSON.stringify({
+            ...remoteProfile,
+            faceImage: typeof localProfile?.faceImage === 'string' ? localProfile.faceImage : '',
+            renderImage: typeof localProfile?.renderImage === 'string' ? localProfile.renderImage : '',
+          });
+        } catch {
+          restored = envelope.raw;
+        }
+      }
+      localStorage.setItem(entry.localKey, restored);
+    }
+    return before !== localStorage.getItem(entry.localKey);
   } catch (error) {
     console.warn(`Could not restore ${entry.localKey} from cloud`, error);
+    return false;
   }
+}
+
+function clearSyncedLocalState() {
+  for (const entry of CLOUD_STORAGE) localStorage.removeItem(entry.localKey);
 }
 
 export function useCloudSyncStatus() {
@@ -77,29 +105,63 @@ export function useCloudSyncStatus() {
 export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [status, setStatus] = useState<CloudSyncStatus>(isCloudConfigured ? 'connecting' : 'unconfigured');
   const [ready, setReady] = useState(!isCloudConfigured);
+  const [syncRevision, setSyncRevision] = useState(0);
 
   useEffect(() => {
     if (!isCloudConfigured) return;
     let stopped = false;
     let localTimer = 0;
     let remoteTimer = 0;
-    const meta = readMeta();
+    let retryTimer = 0;
+    let activeUserId = '';
+    let meta: Record<string, number> = {};
     const lastValues = new Map<string, string | null>();
-    let writeChain = Promise.resolve();
+    const dirtyKeys = new Set<string>();
+    let writeChain: Promise<void> = Promise.resolve();
+    let uploadRunning = false;
+    let authSubscription: { unsubscribe: () => void } | null = null;
 
-    const queueUpload = (changed: StorageEntry[]) => {
-      const rows = changed.flatMap(entry => {
-        const value = cloudEnvelope(entry, localStorage.getItem(entry.localKey));
+    const flushDirty = (): Promise<void> => {
+      if (uploadRunning || dirtyKeys.size === 0) return writeChain;
+      uploadRunning = true;
+      const entries = CLOUD_STORAGE.filter(entry => dirtyKeys.has(entry.localKey));
+      const snapshots = new Map(entries.map(entry => [entry.localKey, localStorage.getItem(entry.localKey)]));
+      const rows = entries.flatMap(entry => {
+        const value = cloudEnvelope(entry, snapshots.get(entry.localKey) ?? null);
         return value ? [{ stateKey: entry.cloudKey, value }] : [];
       });
-      if (!rows.length) return;
-      writeChain = writeChain
-        .then(() => saveUserStates(rows))
-        .then(() => { if (!stopped) setStatus('online'); })
+
+      writeChain = (async () => {
+        if (!rows.length) throw new Error('Cloud save could not serialize the changed state.');
+        const saved = await saveUserStates(rows);
+        const savedAt = new Map(saved.map(row => [row.state_key, Date.parse(row.updated_at) || 0]));
+        for (const entry of entries) {
+          if (!savedAt.has(entry.cloudKey)) continue;
+          if (localStorage.getItem(entry.localKey) !== snapshots.get(entry.localKey)) continue;
+          dirtyKeys.delete(entry.localKey);
+          meta[entry.localKey] = savedAt.get(entry.cloudKey) || meta[entry.localKey] || 0;
+        }
+        writeMeta(activeUserId, meta);
+        if (!stopped && dirtyKeys.size === 0) setStatus('online');
+      })()
         .catch(error => {
           console.warn('Ball Knower cloud save failed', error);
           if (!stopped) setStatus('error');
+          throw error;
+        })
+        .finally(() => {
+          uploadRunning = false;
+          if (!stopped && dirtyKeys.size > 0) {
+            window.clearTimeout(retryTimer);
+            retryTimer = window.setTimeout(() => { void flushDirty().catch(() => undefined); }, 5_000);
+          }
         });
+      return writeChain;
+    };
+
+    const queueUpload = (changed: StorageEntry[]) => {
+      for (const entry of changed) dirtyKeys.add(entry.localKey);
+      void flushDirty().catch(() => undefined);
     };
 
     const captureLocalChanges = () => {
@@ -113,8 +175,10 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         changed.push(entry);
       }
       if (changed.length) {
-        writeMeta(meta);
+        writeMeta(activeUserId, meta);
         queueUpload(changed);
+      } else if (dirtyKeys.size > 0) {
+        void flushDirty().catch(() => undefined);
       }
     };
 
@@ -122,6 +186,7 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const rows = await loadUserStates<CloudEnvelope>(CLOUD_STORAGE.map(entry => entry.cloudKey));
       const byKey = new Map(rows.map(row => [row.state_key, row]));
       const upload: StorageEntry[] = [];
+      let restoredMountedState = false;
 
       for (const entry of CLOUD_STORAGE) {
         const row = byKey.get(entry.cloudKey) as UserStateRow<CloudEnvelope> | undefined;
@@ -129,27 +194,34 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const localChangedAt = meta[entry.localKey] || 0;
         const remoteChangedAt = row ? Date.parse(row.updated_at) || 0 : 0;
 
-        if (row && remoteChangedAt >= localChangedAt) {
-          applyRemote(entry, row.value);
+        if (dirtyKeys.has(entry.localKey)) {
+          upload.push(entry);
+        } else if (initial && localRaw !== null && localChangedAt === 0) {
+          meta[entry.localKey] = Date.now();
+          upload.push(entry);
+        } else if (row && remoteChangedAt >= localChangedAt) {
+          restoredMountedState = applyRemote(entry, row.value) || restoredMountedState;
           meta[entry.localKey] = remoteChangedAt;
-        } else if (initial && localRaw !== null) {
+        } else if (localRaw !== null) {
           meta[entry.localKey] = Date.now();
           upload.push(entry);
         }
       }
 
-      writeMeta(meta);
+      writeMeta(activeUserId, meta);
       for (const entry of CLOUD_STORAGE) lastValues.set(entry.localKey, localStorage.getItem(entry.localKey));
       if (upload.length) queueUpload(upload);
+      if (!initial && restoredMountedState && !stopped) setSyncRevision(revision => revision + 1);
     };
 
     const startTimers = () => {
       if (!localTimer) localTimer = window.setInterval(captureLocalChanges, 800);
       if (!remoteTimer) remoteTimer = window.setInterval(() => {
         captureLocalChanges();
-        void writeChain
+        void flushDirty()
           .then(() => pullRemote())
-          .then(() => { if (!stopped) setStatus('online'); })
+          .then(() => flushDirty())
+          .then(() => { if (!stopped && dirtyKeys.size === 0) setStatus('online'); })
           .catch(error => {
             console.warn('Ball Knower cloud refresh failed', error);
             if (!stopped) setStatus('error');
@@ -157,10 +229,30 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }, 30_000);
     };
 
-    void pullRemote(true)
+    const bootstrap = async () => {
+      const user = await ensureOnlineSession();
+      activeUserId = user.id;
+      const previousOwner = localStorage.getItem(OWNER_KEY);
+      if (previousOwner && previousOwner !== activeUserId) clearSyncedLocalState();
+      localStorage.setItem(OWNER_KEY, activeUserId);
+      meta = readMeta(activeUserId);
+      const { data } = supabase!.auth.onAuthStateChange((_event, session) => {
+        const nextUserId = session?.user?.id || '';
+        if (!activeUserId || nextUserId === activeUserId) return;
+        clearSyncedLocalState();
+        if (nextUserId) localStorage.setItem(OWNER_KEY, nextUserId);
+        else localStorage.removeItem(OWNER_KEY);
+        window.location.reload();
+      });
+      authSubscription = data.subscription;
+      await pullRemote(true);
+      await flushDirty();
+    };
+
+    void bootstrap()
       .then(() => {
         if (stopped) return;
-        setStatus('online');
+        setStatus(dirtyKeys.size === 0 ? 'online' : 'error');
         setReady(true);
         startTimers();
       })
@@ -177,6 +269,8 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       stopped = true;
       window.clearInterval(localTimer);
       window.clearInterval(remoteTimer);
+      window.clearTimeout(retryTimer);
+      authSubscription?.unsubscribe();
     };
   }, []);
 
@@ -190,7 +284,7 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     </div>;
   }
 
-  return <CloudSyncContext.Provider value={status}>{children}</CloudSyncContext.Provider>;
+  return <CloudSyncContext.Provider value={status}><React.Fragment key={syncRevision}>{children}</React.Fragment></CloudSyncContext.Provider>;
 };
 
 export const CloudSyncBadge: React.FC = () => {

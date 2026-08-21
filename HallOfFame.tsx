@@ -40,7 +40,7 @@ export const HallOfFame:React.FC=()=>{
    .finally(()=>{if(active)setLoading(false)});
   return()=>{active=false};
  },[cloudStatus,currentUser?.id,currentUser?.name]);
- return <div className="min-h-screen bg-[#090909] text-white px-4 sm:px-8 py-10"><div className="max-w-5xl mx-auto">
+ return <div className="min-h-[100dvh] bg-[#090909] text-white px-4 sm:px-8 py-10"><div className="max-w-5xl mx-auto">
   <div className="text-center mb-8"><Crown className="mx-auto text-[#D4AF37]" size={55}/><div className="text-xs text-[#D4AF37] font-black tracking-[.3em] mt-3">BALL KNOWER LEGACY</div><h2 className="text-5xl font-black">HALL OF FAME</h2><p className="text-zinc-400 mt-2">Championships, career wins, perfect seasons, and the highest Ball Knower scores.</p></div>
   <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-8">
    <Stat l="Your Titles" v={career.championships}/><Stat l="Career W-L" v={`${career.regularWins}-${career.regularLosses}`}/><Stat l="Playoff Wins" v={career.playoffWins}/><Stat l="Best Record" v={career.bestRecord}/><Stat l="Best BK" v={career.bestScore}/><Stat l="Perfect Seasons" v={career.perfectSeasons}/>

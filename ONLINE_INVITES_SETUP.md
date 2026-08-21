@@ -4,13 +4,14 @@ The code is now cloud-ready. Cross-device invite codes become active once one Su
 
 ## One-time setup
 1. Create/open a Supabase project.
-2. In Supabase SQL Editor, run `supabase/ball_knower.sql`.
-3. In Supabase Authentication settings, enable **Anonymous Sign-Ins**.
-4. Copy your Supabase Project URL and publishable key.
-5. Add these environment variables to the deployment:
+2. In Supabase SQL Editor, run `ball_knower.sql`.
+3. Apply the tracked files in `migrations/` in timestamp order, including `20260821_add_user_state_sync.sql`, `20260821_connect_supabase_app.sql`, `20260821_public_free_matchmaking.sql`, and `20260821_harden_cloud_and_public_leagues.sql`.
+4. In Supabase Authentication settings, enable **Anonymous Sign-Ins**.
+5. Copy your Supabase Project URL and publishable key.
+6. Add these environment variables to the deployment:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_PUBLISHABLE_KEY`
-6. Redeploy/rebuild the app.
+7. Redeploy/rebuild the app.
 
 Use `.env.example` as the template. Do NOT put a Supabase service-role key in the browser app.
 

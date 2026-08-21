@@ -51,10 +51,15 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({ onOpenCreateLeague, onOp
   const enterPublicLeague=async()=>{
     if(publicMatchBusy)return;
     setPublicMatchBusy(true);setPublicMatchError(null);
-    const result=await joinPublicLeague();
-    setPublicMatchBusy(false);
-    if(result.success&&result.league){onSelectLeague(result.league,'lobby');return;}
-    setPublicMatchError(result.message);
+    try{
+      const result=await joinPublicLeague();
+      if(result.success&&result.league){onSelectLeague(result.league,'lobby');return;}
+      setPublicMatchError(result.message);
+    }catch(err:any){
+      setPublicMatchError(err?.message||'Could not enter public matchmaking.');
+    }finally{
+      setPublicMatchBusy(false);
+    }
   };
 
   return (

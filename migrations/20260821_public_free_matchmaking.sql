@@ -52,7 +52,7 @@ create or replace function public.join_ball_knower_league(
   p_user_name text,
   p_user_avatar text default null
 )
-returns uuid
+returns text
 language plpgsql
 security definer
 set search_path = ''
@@ -83,7 +83,7 @@ begin
   where league_id = v_league.id and auth_user_id = v_auth
   limit 1;
 
-  if v_existing is not null then return v_league.id::uuid; end if;
+  if v_existing is not null then return v_league.id; end if;
 
   select count(*)
   into v_member_count
@@ -101,7 +101,7 @@ begin
   )
   on conflict (league_id, auth_user_id) where auth_user_id is not null do nothing;
 
-  return v_league.id::uuid;
+  return v_league.id;
 end;
 $$;
 
