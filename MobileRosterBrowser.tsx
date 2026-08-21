@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { X, Search, Users } from 'lucide-react';
 import { NFL_TEAMS, PLAYERS_DATABASE } from './players';
+import { ModalPortal } from './ModalPortal';
 
 interface MobileRosterBrowserProps {
   isOpen: boolean;
@@ -23,14 +24,15 @@ export const MobileRosterBrowser: React.FC<MobileRosterBrowserProps> = ({ isOpen
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black text-white overflow-y-auto">
+    <ModalPortal>
+    <div role="dialog" aria-modal="true" aria-label="NFL roster browser" className="fixed inset-0 z-[9999] overflow-y-auto overscroll-contain bg-black text-white [-webkit-overflow-scrolling:touch]">
       <div className="sticky top-0 z-10 border-b border-white/10 bg-[#0b0b0b]/95 backdrop-blur px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-[10px] font-black uppercase tracking-[.2em] text-[var(--bk-team-accent)]">2026 NFL Rosters</div>
             <h2 className="text-xl font-black uppercase">32 Team Roster Browser</h2>
           </div>
-          <button onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/5" aria-label="Close roster browser">
+          <button onClick={onClose} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/5" aria-label="Close roster browser">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -87,5 +89,6 @@ export const MobileRosterBrowser: React.FC<MobileRosterBrowserProps> = ({ isOpen
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 };

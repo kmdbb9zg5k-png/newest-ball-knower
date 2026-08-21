@@ -2,6 +2,7 @@ import React from 'react';
 import { Player } from './types';
 import { X, Shield, Plus, Trash2, CheckCircle2, TrendingUp, Zap, Award, AlertTriangle } from 'lucide-react';
 import { getTeamData } from './players';
+import { ModalPortal } from './ModalPortal';
 
 interface PlayerDetailModalProps {
   player: Player | null;
@@ -43,13 +44,15 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg rounded-lg border border-white/10 bg-[#121212] p-6 sm:p-7 shadow-2xl">
+    <ModalPortal>
+    <div role="dialog" aria-modal="true" aria-label={`${player.name} player details`} className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto overscroll-contain bg-black/80 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-sm animate-in fade-in duration-200 [-webkit-overflow-scrolling:touch]">
+      <div className="relative my-auto max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg border border-white/10 bg-[#121212] p-6 sm:p-7 shadow-2xl">
         {/* Close Button */}
         <button
           id="close-player-detail-modal-btn"
           onClick={onClose}
-          className="absolute right-4 top-4 rounded-sm p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+          aria-label="Close player details"
+          className="absolute right-4 top-4 grid h-11 w-11 place-items-center rounded-sm text-zinc-400 hover:bg-zinc-800 hover:text-white"
         >
           <X className="h-5 w-5" />
         </button>
@@ -184,5 +187,6 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 };
