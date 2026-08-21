@@ -24,6 +24,7 @@ const HallOfFame = lazy(() => import('./HallOfFame').then(module => ({ default: 
 const LeagueLobby = lazy(() => import('./LeagueLobby').then(module => ({ default: module.LeagueLobby })));
 const DraftRoom = lazy(() => import('./DraftRoom').then(module => ({ default: module.DraftRoom })));
 const MobileDraftRoom = lazy(() => import('./MobileDraftRoom').then(module => ({ default: module.MobileDraftRoom })));
+const LeagueLiveDraftRoom = lazy(() => import('./LeagueLiveDraftRoom').then(module => ({ default: module.LeagueLiveDraftRoom })));
 const SimulationView = lazy(() => import('./SimulationView').then(module => ({ default: module.SimulationView })));
 const DatabaseVerificationModal = lazy(() => import('./DatabaseVerificationModal').then(module => ({ default: module.DatabaseVerificationModal })));
 const MobileRosterBrowser = lazy(() => import('./MobileRosterBrowser').then(module => ({ default: module.MobileRosterBrowser })));
@@ -150,8 +151,12 @@ function BallKnowerApp() {
           {currentTab === 'challenges' && <ChallengesHub />}
           {currentTab === 'locker' && <LockerHub />}
           {currentTab === 'lobby' && activeLeague && <LeagueLobby league={activeLeague} onGoToDraft={() => setCurrentTab('draft')} onGoToSimulation={() => setCurrentTab('simulation')} />}
-          {currentTab === 'draft' && (isMobileDraftViewport ? <MobileDraftRoom onBackToLobby={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} onSubmitSuccess={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} /> : <DraftRoom onBackToLobby={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} onSubmitSuccess={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} />)}
-          {currentTab === 'simulation' && activeLeague && <SimulationView league={activeLeague} onBackToLobby={() => setCurrentTab('lobby')} />}
+          {currentTab === 'draft' && (activeLeague?.liveDraft
+            ? <LeagueLiveDraftRoom onBackToLobby={() => setCurrentTab('lobby')} />
+            : isMobileDraftViewport
+              ? <MobileDraftRoom onBackToLobby={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} onSubmitSuccess={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} />
+              : <DraftRoom onBackToLobby={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} onSubmitSuccess={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} />)}
+          {currentTab === 'simulation' && activeLeague && <SimulationView league={activeLeague} onBackToLobby={() => setCurrentTab('lobby')} onOpenDraft={() => setCurrentTab('draft')} />}
         </Suspense>
       </main>
       <footer className="relative z-[3] border-t border-white/10 bg-[#080808] px-4 py-5 text-[10px] font-bold uppercase tracking-widest text-zinc-500 sm:px-8">
