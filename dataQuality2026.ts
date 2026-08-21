@@ -1,9 +1,13 @@
 import { Player } from './types';
 export function audit2026Data(players:Player[]) {
- const issues:string[]=[]; const ids=new Set<string>(); const names=new Set<string>();
+ const issues:string[]=[]; const ids=new Set<string>(); const identities=new Set<string>();
  for(const p of players){
   if(ids.has(p.id)) issues.push(`Duplicate ID: ${p.id}`); ids.add(p.id);
-  const nk=p.name.toLowerCase(); if(names.has(nk)) issues.push(`Duplicate player: ${p.name}`); names.add(nk);
+  // Different NFL players can legitimately share a name. Only flag the same
+  // normalized name/team/position combination as a duplicated player record.
+  const identity=`${p.name.toLowerCase().replace(/[^a-z0-9]/g,'')}|${p.team}|${p.position}`;
+  if(identities.has(identity)) issues.push(`Duplicate player record: ${p.name} (${p.team} ${p.position})`);
+  identities.add(identity);
   if(!p.team || !p.position) issues.push(`Missing team/position: ${p.name}`);
   if(p.ovr<40 || p.ovr>99) issues.push(`Invalid OVR: ${p.name}`);
   if(p.salary<0) issues.push(`Invalid cap hit: ${p.name}`);
