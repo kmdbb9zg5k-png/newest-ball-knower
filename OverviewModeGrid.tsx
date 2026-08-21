@@ -9,6 +9,7 @@ import {
   UserRound,
   Gamepad2,
   BarChart3,
+  Brain,
 } from 'lucide-react';
 import type { AppTab } from './App';
 
@@ -86,12 +87,20 @@ export const OverviewModeGrid: React.FC<Props> = ({
       onClick: () => onNavigate('news'),
     },
     {
-      title: 'Fantasy Hub',
-      eyebrow: 'LEAGUE TOOLS',
-      description: 'Jump into fantasy-focused league tools, player context, and competition views.',
-      action: 'Open Fantasy',
+      title: 'Fantasy Cheat Sheet',
+      eyebrow: 'DRAFT WAR ROOM',
+      description: 'Rank players, search by position, open player details, and save your draft targets.',
+      action: 'Open Cheat Sheet',
       icon: BarChart3,
       onClick: () => onNavigate('fantasy'),
+    },
+    {
+      title: 'Trivia & Gauntlet',
+      eyebrow: 'TEST YOUR FOOTBALL IQ',
+      description: 'Answer football questions, play quick challenges, earn XP, and build a streak.',
+      action: 'Play Trivia',
+      icon: Brain,
+      onClick: () => onNavigate('challenges'),
     },
     {
       title: 'Hall of Fame',
