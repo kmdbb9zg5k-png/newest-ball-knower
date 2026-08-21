@@ -7,7 +7,7 @@ type Leg={id:string;label:string;odds:number};
 
 export const SportsbookHub:React.FC=()=>{
  const [games,setGames]=useState<Game[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');const [query,setQuery]=useState('');const [legs,setLegs]=useState<Leg[]>([]);const [stake,setStake]=useState(10);const [updated,setUpdated]=useState<Date|null>(null);
- const load=async()=>{setLoading(true);setError('');try{const response=await fetch('/api/nfl-sportsbook',{cache:'no-store'});if(!response.ok)throw new Error('Odds feed unavailable');const data=await response.json();setGames(Array.isArray(data?.games)?data.games:[]);setUpdated(new Date());}catch(err){setError(err instanceof Error?err.message:'Could not load NFL odds.');}finally{setLoading(false);}};
+ const load=async()=>{setLoading(true);setError('');try{const response=await fetch('/api/nfl-sportsbook',{cache:'no-store'});if(!response.ok)throw new Error('Odds feed unavailable');const data=await response.json();if(data?.available===false)throw new Error(data?.warning||'NFL odds feed temporarily unavailable');setGames(Array.isArray(data?.games)?data.games:[]);setUpdated(new Date());}catch(err){setError(err instanceof Error?err.message:'Could not load NFL odds.');}finally{setLoading(false);}};
  useEffect(()=>{void load();},[]);
  const visible=games.filter(game=>`${game.away} ${game.home}`.toLowerCase().includes(query.toLowerCase()));
  const decimal=useMemo(()=>legs.reduce((total,leg)=>total*(leg.odds>0?1+leg.odds/100:1+100/Math.abs(leg.odds)),1),[legs]);
