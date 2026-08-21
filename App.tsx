@@ -14,6 +14,7 @@ import { League } from './types';
 import { TeamTheme, applyTeamCssVariables, getSavedTeamTheme, teamLogoUrl } from './teamTheme';
 import { Brain, CheckCircle2, Database, Play, Trophy, UserRound } from 'lucide-react';
 import { trackBallKnowerEvent } from './analytics';
+import { CloudSyncProvider } from './CloudSyncProvider';
 
 const SoloMode = lazy(() => import('./SoloMode').then(module => ({ default: module.SoloMode })));
 const NewsHub = lazy(() => import('./NewsHub').then(module => ({ default: module.NewsHub })));
@@ -180,11 +181,13 @@ const HubButton=({label,sub,icon,onClick}:{label:string;sub:string;icon:React.Re
 export default function App() {
   return (
     <AppErrorBoundary>
-      <SoundtrackProvider>
-        <BallKnowerProvider>
-          <BallKnowerApp />
-        </BallKnowerProvider>
-      </SoundtrackProvider>
+      <CloudSyncProvider>
+        <SoundtrackProvider>
+          <BallKnowerProvider>
+            <BallKnowerApp />
+          </BallKnowerProvider>
+        </SoundtrackProvider>
+      </CloudSyncProvider>
     </AppErrorBoundary>
   );
 }
