@@ -43,6 +43,9 @@ type MyPlayerProfile = {
 };
 
 const POSITIONS: Position[] = ['QB', 'RB', 'WR', 'TE', 'EDGE', 'LB', 'CB', 'S'];
+const MAX_PREVIEW_ANGLE = 28;
+const clampPreviewAngle = (value: number) => Math.max(-MAX_PREVIEW_ANGLE, Math.min(MAX_PREVIEW_ANGLE, Number.isFinite(value) ? value : 0));
+const previewAngleLabel = (value: number) => value < -8 ? 'LOOK LEFT' : value > 8 ? 'LOOK RIGHT' : 'FRONT';
 
 const FACE_PRESETS = [
   { id: 'mason', name: 'Mason', skin: '#f1c6a8', shadow: '#c98f6c', hair: '#3b2418', hairStyle: 'short' },
@@ -95,7 +98,7 @@ function restoreProfile() {
     const saved = JSON.parse(raw);
     if (saved?.version !== 1 || !POSITIONS.includes(saved.position) || !['creator', 'combine', 'drafted', 'season'].includes(saved.stage)) return EMPTY_PROFILE;
     if (['drafted', 'season'].includes(saved.stage) && !TEAM_THEMES.some(team => team.abbr === saved.teamAbbr)) return EMPTY_PROFILE;
-    return { ...EMPTY_PROFILE, ...saved } as MyPlayerProfile;
+    return { ...EMPTY_PROFILE, ...saved, viewRotation: clampPreviewAngle(Number(saved.viewRotation)) } as MyPlayerProfile;
   } catch {
     return EMPTY_PROFILE;
   }
@@ -230,7 +233,8 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
   }, []);
 
   const updateSlider = (key: BodySliderKey, value: number) => {
-    setProfile(current => ({ ...current, [key]: value, bodyPresetId: key === 'viewRotation' ? current.bodyPresetId : 'custom', renderImage: key === 'viewRotation' ? current.renderImage : '' }));
+    const safeValue = key === 'viewRotation' ? clampPreviewAngle(value) : value;
+    setProfile(current => ({ ...current, [key]: safeValue, bodyPresetId: key === 'viewRotation' ? current.bodyPresetId : 'custom', renderImage: key === 'viewRotation' ? current.renderImage : '' }));
   };
 
   const chooseBodyPreset = (preset: typeof BODY_PRESETS[number]) => {
@@ -445,11 +449,11 @@ const BodySlider = ({ label, value, min, max, display, onChange }: { label: stri
 
 const ViewSlider = ({ value, onChange }: { value: number; onChange: (value: number) => void }) => (
   <label className="mt-3 block rounded-2xl border border-white/10 bg-[#111] p-3">
-    <div className="mb-2 flex items-center justify-between text-[10px] font-black"><span className="text-zinc-500">ROTATE PLAYER</span><span className="text-[var(--bk-team-accent)]">{value}°</span></div>
+    <div className="mb-2 flex items-center justify-between text-[10px] font-black"><span className="text-zinc-500">PLAYER ANGLE</span><span className="text-[var(--bk-team-accent)]">{previewAngleLabel(value)}</span></div>
     <div className="flex min-h-11 items-center">
-      <input aria-label="Rotate player view" type="range" min="-180" max="180" step="5" value={value} onChange={event => onChange(Number(event.target.value))} className="h-11 w-full cursor-grab accent-[var(--bk-team-accent)] active:cursor-grabbing" />
+      <input aria-label="Change player angle" type="range" min={-MAX_PREVIEW_ANGLE} max={MAX_PREVIEW_ANGLE} step="2" value={clampPreviewAngle(value)} onChange={event => onChange(Number(event.target.value))} className="h-11 w-full cursor-grab accent-[var(--bk-team-accent)] active:cursor-grabbing" />
     </div>
-    <div className="mt-1 flex justify-between text-[8px] font-bold text-zinc-600"><span>BACK</span><span>FRONT</span><span>BACK</span></div>
+    <div className="mt-1 flex justify-between text-[8px] font-bold text-zinc-600"><span>LEFT</span><span>FRONT</span><span>RIGHT</span></div>
   </label>
 );
 
@@ -466,6 +470,7 @@ const PresetFace = ({ face, small = false }: { face: typeof FACE_PRESETS[number]
 
 const PlayerRender = ({ profile, compact = false }: { profile: MyPlayerProfile; compact?: boolean }) => {
   const prompt = profile.appearancePrompt.toLowerCase();
+  const previewAngle = clampPreviewAngle(profile.viewRotation);
   const tags = [
     /tattoo/.test(prompt) ? 'TATTOO SLEEVE' : '',
     /visor/.test(prompt) ? 'VISOR' : '',
@@ -475,7 +480,7 @@ const PlayerRender = ({ profile, compact = false }: { profile: MyPlayerProfile; 
 
   if (profile.renderImage) return (
     <div className={`relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#111] ${compact ? 'h-[260px]' : ''}`}>
-      <img src={profile.renderImage} alt={`${profile.name || 'Created player'} render`} className={`${compact ? 'h-full' : 'aspect-[4/5] h-full'} w-full object-cover`} style={{ transform: `perspective(900px) rotateY(${profile.viewRotation * 0.12}deg) scale(${compact ? 1.05 : 1})`, transition: 'transform 120ms ease-out' }} />
+      <img src={profile.renderImage} alt={`${profile.name || 'Created player'} render`} className={`${compact ? 'h-full' : 'aspect-[4/5] h-full'} w-full object-cover`} style={{ transform: `perspective(900px) rotateY(${previewAngle * 0.35}deg) scale(${compact ? 1.05 : 1})`, transition: 'transform 120ms ease-out' }} />
       <div className="absolute bottom-3 left-3 rounded-full bg-black/70 px-3 py-1 text-[9px] font-black">{feetAndInches(profile.heightInches)} • {profile.weightLbs} LB</div>
     </div>
   );
@@ -486,7 +491,6 @@ const PlayerRender = ({ profile, compact = false }: { profile: MyPlayerProfile; 
   const armScale = 0.82 + profile.armSize / 100 * 0.34;
   const legScale = 0.86 + profile.legSize / 100 * 0.32;
   const torsoRadius = 34 + Math.round(profile.bodyBuild * 0.12);
-  const showingBack = Math.abs(profile.viewRotation) > 95;
   const presetFace = FACE_PRESETS.find(face => face.id === profile.presetFaceId) ?? FACE_PRESETS[0];
 
   return (
@@ -499,13 +503,13 @@ const PlayerRender = ({ profile, compact = false }: { profile: MyPlayerProfile; 
           style={{
             width: compact ? 160 : 245,
             height: compact ? 205 : 405,
-            transform: `rotateY(${profile.viewRotation}deg) scaleY(${heightScale}) scaleX(${weightScale})`,
+            transform: `rotateY(${previewAngle}deg) scaleY(${heightScale}) scaleX(${weightScale})`,
             transformStyle: 'preserve-3d',
             transition: 'transform 120ms ease-out',
           }}
         >
           <div className="absolute left-1/2 top-0 z-20 h-[20%] w-[35%] -translate-x-1/2 overflow-hidden rounded-[48%_48%_42%_42%] border-[4px] border-zinc-300 bg-zinc-900 shadow-[0_10px_30px_rgba(0,0,0,.7)]" style={{ transform: 'translateZ(20px)' }}>
-            {profile.faceImage && !showingBack ? <img src={profile.faceImage} alt="Your uploaded face" className="h-full w-full object-cover" /> : !showingBack ? <PresetFace face={presetFace} /> : <div className="h-full w-full bg-gradient-to-b from-zinc-700 to-zinc-950" />}
+            {profile.faceImage ? <img src={profile.faceImage} alt="Your uploaded face" className="h-full w-full object-cover" /> : <PresetFace face={presetFace} />}
           </div>
           <div className="absolute left-1/2 top-[15%] h-[15%] -translate-x-1/2 rounded-[50%_50%_30%_30%] border-t border-white/40 bg-gradient-to-b from-zinc-100 to-zinc-500 shadow-lg" style={{ width: `${76 * shoulderScale}%`, transform: 'translateZ(8px)' }} />
           <div className="absolute left-1/2 top-[18%] h-[45%] -translate-x-1/2 border-x border-white/10 bg-gradient-to-b from-[#46556a] via-[#1b2635] to-[#070a0e] shadow-2xl" style={{ width: `${52 * shoulderScale}%`, clipPath: 'polygon(12% 0,88% 0,100% 78%,82% 100%,18% 100%,0 78%)', borderRadius: `${torsoRadius}% ${torsoRadius}% 16% 16%`, transform: 'translateZ(12px)' }}>
