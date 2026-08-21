@@ -40,6 +40,8 @@ const randomTrackIndex = (tracks: MediaTrack[], excludedIndex = -1) => {
   return next;
 };
 
+const absoluteTrackUrl = (url: string) => new URL(url, window.location.href).href;
+
 export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const tracksRef = useRef<MediaTrack[]>([]);
@@ -118,7 +120,8 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const a = audioRef.current;
     if (!a || !track?.url) return;
     setCurrentTrackIndex(normalized);
-    if (a.src !== track.url) a.src = track.url;
+    const nextUrl = absoluteTrackUrl(track.url);
+    if (a.src !== nextUrl) a.src = nextUrl;
     a.volume = volume; a.muted = isMuted;
     a.play().then(()=>setIsPlaying(true)).catch(()=>setIsPlaying(false));
   }, [tracks,isIntroActive,volume,isMuted]);
@@ -127,7 +130,10 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const a = audioRef.current;
     if (!a || isIntroActive || !tracks.length || !isPlaying) return;
     const track = tracks[currentTrackIndex % tracks.length];
-    if (track?.url && a.src !== track.url) { a.src = track.url; a.play().catch(()=>{}); }
+    if (track?.url) {
+      const nextUrl = absoluteTrackUrl(track.url);
+      if (a.src !== nextUrl) { a.src = nextUrl; a.play().catch(()=>{}); }
+    }
   }, [currentTrackIndex, tracks, isIntroActive, isPlaying]);
 
   const play = useCallback(() => startIndex(currentTrackIndex), [startIndex,currentTrackIndex]);
