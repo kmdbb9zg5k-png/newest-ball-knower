@@ -25,16 +25,16 @@ export const SoundtrackControl: React.FC = () => {
 
   // Close dropdown on outside click
   useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
+    const handleOutsidePress = (e: PointerEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
     };
     if (isOpen) {
-      document.addEventListener('mousedown', handleOutsideClick);
+      document.addEventListener('pointerdown', handleOutsidePress);
     }
     return () => {
-      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('pointerdown', handleOutsidePress);
     };
   }, [isOpen]);
 
@@ -69,8 +69,11 @@ export const SoundtrackControl: React.FC = () => {
         {/* Mini Waveform & Menu Trigger */}
         <button
           id="soundtrack-panel-toggle-btn"
-          onClick={() => setIsOpen(!isOpen)}
-          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 text-left hover:bg-zinc-800/60 rounded-full transition-colors cursor-pointer"
+          type="button"
+          onClick={() => setIsOpen(open => !open)}
+          aria-expanded={isOpen}
+          aria-controls="soundtrack-panel"
+          className="flex h-8 w-8 shrink-0 touch-manipulation items-center justify-center rounded-full text-left transition-colors hover:bg-zinc-800/60 sm:h-auto sm:w-auto sm:gap-1.5 sm:px-2.5 sm:py-1"
           title="Soundtrack Settings & Tracks"
         >
           {/* Animated Equalizer Bars when Playing */}
@@ -84,7 +87,7 @@ export const SoundtrackControl: React.FC = () => {
             <Disc3 className={`h-3.5 w-3.5 ${isMuted ? 'text-zinc-600' : 'text-zinc-400'}`} />
           )}
 
-          <div className="flex flex-col">
+          <div className="hidden flex-col sm:flex">
             <span className="text-[9px] font-black uppercase tracking-wider text-zinc-300 max-w-[90px] truncate leading-tight">
               {currentTrack.title}
             </span>
@@ -97,7 +100,7 @@ export const SoundtrackControl: React.FC = () => {
 
       {/* Expanded Audio Settings & Track Selection Popover */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-72 sm:w-80 rounded-lg border border-white/10 bg-[#121212] p-3.5 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2">
+        <div id="soundtrack-panel" className="absolute right-0 z-50 mt-2 w-[min(20rem,calc(100vw-1.5rem))] max-h-[calc(100dvh-6.5rem)] overflow-y-auto overscroll-contain rounded-lg border border-white/10 bg-[#121212] p-3.5 shadow-2xl animate-in fade-in slide-in-from-top-2 sm:w-80">
           {/* Popover Header */}
           <div className="flex items-center justify-between pb-2.5 border-b border-white/10">
             <div className="flex items-center gap-2">
@@ -207,12 +210,16 @@ export const SoundtrackControl: React.FC = () => {
             <div className="text-[9px] font-black uppercase tracking-widest text-zinc-500 px-1 mb-1">
               Select Soundtrack Theme:
             </div>
-            <div className="max-h-36 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+            <div className="max-h-[40dvh] overflow-y-auto space-y-1 pr-1 custom-scrollbar sm:max-h-36">
               {allTracks.map((track, idx) => (
                 <button
                   key={track.id}
-                  onClick={() => selectTrack(idx)}
-                  className={`w-full flex items-center justify-between rounded-sm px-2.5 py-1.5 text-left transition-colors cursor-pointer ${
+                  type="button"
+                  onClick={() => {
+                    selectTrack(idx);
+                    setIsOpen(false);
+                  }}
+                  className={`flex min-h-11 w-full touch-manipulation items-center justify-between rounded-sm px-2.5 py-2 text-left transition-colors ${
                     currentTrackIndex === idx
                       ? 'bg-[#D4AF37]/15 border border-[#D4AF37]/40 text-[#D4AF37]'
                       : 'text-zinc-300 hover:bg-[#1A1A1A] hover:text-white border border-transparent'
