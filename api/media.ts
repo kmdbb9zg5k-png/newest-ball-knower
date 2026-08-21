@@ -10,6 +10,11 @@ const BUNDLED_TRACKS = [
   ['Bloody Love', '/audio/Bloody-Love.mp3'],
   ['G-O-A-T', '/audio/G-O-A-T.mp3'],
   ['In My Blood', '/audio/In-My-Blood.mp3'],
+  ['Faded Pulse', '/audio/Faded-Pulse.mp3'],
+  ['Corner To Cleats', '/audio/Corner-To-Cleats.mp3'],
+  ['Low Tide Calling', '/audio/Low-Tide-Calling.mp3'],
+  ['Sahara Pulse', '/audio/Sahara-Pulse.mp3'],
+  ['Sunset on the Cut', '/audio/Sunset-on-the-Cut.mp3'],
 ] as const;
 
 function cleanTitle(pathname: string) {
