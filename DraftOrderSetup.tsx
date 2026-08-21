@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ArrowRight, CheckCircle2, Gamepad2, ListOrdered, RotateCcw, Sparkles, Users } from 'lucide-react';
 import { League, DraftOrderMethod } from './types';
 import { useBallKnower } from './BallKnowerContext';
@@ -36,6 +36,7 @@ export const DraftOrderSetup: React.FC<Props> = ({league,onGoToDraft,onGoToResul
   const method=league.settings?.draftOrderMethod;
   const [choosing,setChoosing]=useState(!method);
   const [busy,setBusy]=useState(false);
+  const randomizeLockRef=useRef(false);
   const [orderedIds,setOrderedIds]=useState<string[]>(()=>league.members.map(member=>member.id));
   const openSlots=Math.max(0,league.maxMembers-league.members.length);
   const allMembersAssigned=orderedIds.length===league.members.length&&new Set(orderedIds).size===league.members.length;
@@ -83,14 +84,20 @@ export const DraftOrderSetup: React.FC<Props> = ({league,onGoToDraft,onGoToResul
   };
 
   const randomizeAndLock=async()=>{
+    if(randomizeLockRef.current)return;
     if(openSlots>0){showToast(`Add ${openSlots} more manager${openSlots===1?'':'s'} before randomizing the order.`);return;}
+    randomizeLockRef.current=true;
     const randomizedIds=secureShuffle(league.members.map(member=>member.id));
     setOrderedIds(randomizedIds);
     setBusy(true);
+    let success=false;
     try{
-      const success=await finalizeDraftOrder(league.id,'random',randomizedIds);
+      success=await finalizeDraftOrder(league.id,'random',randomizedIds);
       if(success)onGoToResults();
-    }finally{setBusy(false);}
+    }finally{
+      if(!success)randomizeLockRef.current=false;
+      setBusy(false);
+    }
   };
 
   if(!isCommissioner&&!method){
@@ -168,10 +175,10 @@ const Step=({number,text}:{number:number;text:string})=><div className="rounded-
 
 const secureShuffle=(ids:string[])=>{
   const next=[...ids];
+  const values=new Uint32Array(1);
   for(let i=next.length-1;i>0;i--){
     const range=i+1;
     const limit=Math.floor(0x1_0000_0000/range)*range;
-    const values=new Uint32Array(1);
     let value=limit;
     while(value>=limit){
       crypto.getRandomValues(values);
