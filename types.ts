@@ -276,6 +276,27 @@ export interface SeasonResult {
   teamReports: Record<string, TeamReportAnalysis>;
 }
 
+export interface LiveFantasyDraftPick {
+  overall: number;
+  round: number;
+  memberId: string;
+  playerId: string;
+  group: keyof RosterRequirements;
+  pickedAt: string;
+}
+
+export interface LiveFantasyDraft {
+  leagueId: string;
+  status: 'active' | 'completed';
+  orderMemberIds: string[];
+  rounds: number;
+  pickIndex: number;
+  picks: LiveFantasyDraftPick[];
+  startedAt: string;
+  completedAt?: string;
+  updatedAt: string;
+}
+
 export interface LeagueMember {
   id: string;
   userId: string;
@@ -313,6 +334,7 @@ export interface League {
   status: 'drafting' | 'simulating' | 'completed';
   members: LeagueMember[];
   seasonResult?: SeasonResult;
+  liveDraft?: LiveFantasyDraft;
   createdAt: string;
   settings?: LeagueSettings;
   inviteEnabled?: boolean;
