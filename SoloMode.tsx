@@ -16,6 +16,7 @@ import {
   ratingsWithInjuries, simulateInjuries, generatePlayerLines, playoffSnapshot, buildAwards,
   achievementsForRun, updateCareer
 } from './soloSeasonEngine';
+import { trackBallKnowerEvent } from './analytics';
 
 type Stage='draft'|'regular'|'playoffs'|'finished';
 type PlayoffResult={round:string;opponent:string;you:number;them:number;won:boolean};
@@ -87,7 +88,8 @@ const restoreRun=()=>{
 
 export const SoloMode:React.FC=()=>{
  const [experience,setExperience]=useState<SoloExperience>('hub');
- if(experience==='hub')return <SoloFranchiseHub onOpen={setExperience}/>;
+ const openExperience=(next:SoloExperience)=>{trackBallKnowerEvent('Solo Experience Opened',{experience:next});setExperience(next)};
+ if(experience==='hub')return <SoloFranchiseHub onOpen={openExperience}/>;
  const back=()=>setExperience('hub');
  return <Suspense fallback={<SoloModeLoading/>}>{experience==='cap'?<CapChallenge onBack={back}/>:experience==='fantasy'?<FantasyFranchiseMode onBack={back}/>:experience==='real'?<RealTeamFranchiseMode onBack={back}/>:<MyPlayerStoryMode onBack={back}/>}</Suspense>;
 };
@@ -168,7 +170,7 @@ const CapChallenge:React.FC<{onBack:()=>void}>=({onBack})=>{
      setMessage(nextRoster.length===20?'Smart starting roster built. You can still add up to 2 optional bench players if cap allows.':'Auto-Draft could not complete a legal roster. Try again or draft manually.');
    }finally{setIsAutoDrafting(false)}
  };
- const start=()=>{if(!valid)return setMessage(errors[0]||'Finish the roster first.');setWeeks([]);setInjuries([]);setPlayoffs([]);setRunSaved(false);setStage('regular');setMessage('Week 1 is ready. Your road starts now.');};
+ const start=()=>{if(!valid)return setMessage(errors[0]||'Finish the roster first.');trackBallKnowerEvent('Solo Season Started',{difficulty:settings.difficulty,injuries:settings.injuries,team_overall:ratings.overall,draft_grade:grade.letter});setWeeks([]);setInjuries([]);setPlayoffs([]);setRunSaved(false);setStage('regular');setMessage('Week 1 is ready. Your road starts now.');};
  const unlockSimulation=()=>window.setTimeout(()=>{simulationLock.current=false;setIsSimulating(false)},400);
 
  const playWeek=()=>{
@@ -209,6 +211,7 @@ const CapChallenge:React.FC<{onBack:()=>void}>=({onBack})=>{
    }finally{unlockSimulation()}
  };
  const finish=(champ:boolean,pw:number,msg:string)=>{
+   trackBallKnowerEvent('Solo Season Completed',{champion:champ,wins,losses,playoff_wins:pw,team_overall:ratings.overall,difficulty:settings.difficulty});
    const ach=achievementsForRun(wins,losses,champ,grade.score,roster);
    const next=updateCareer(career,wins,losses,champ,pw,grade.score,ach);setCareer(next);try{localStorage.setItem(CAREER_KEY,JSON.stringify(next));localStorage.removeItem(RUN_KEY)}catch(error){console.warn('Unable to save completed Solo career',error)}void publishCareer(currentUser?.name || 'Ball Knower GM', next).catch(()=>{});setRunSaved(true);setStage('finished');setMessage(msg);
  };

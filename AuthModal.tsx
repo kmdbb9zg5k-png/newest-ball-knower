@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useBallKnower } from './BallKnowerContext';
 import { X, Shield, Mail, ArrowRight, CheckCircle2, Loader2, LockKeyhole } from 'lucide-react';
 import { attachEmailToAnonymousUser, ensureOnlineSession, sendEmailMagicLink } from './supabase';
+import { trackBallKnowerEvent } from './analytics';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -46,6 +47,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             avatarUrl: currentUser?.avatarUrl,
             createdAt: upgraded.created_at || currentUser?.createdAt || new Date().toISOString(),
           });
+          trackBallKnowerEvent('Signup Started', {
+            method: 'email',
+            flow: 'guest_upgrade',
+          });
           const message = 'Verification email sent. Your guest identity stays the same, so your leagues and roster ownership are preserved.';
           setStatusMessage(message);
           showToast('Verification email sent — your Ball Knower identity is preserved.');
@@ -54,17 +59,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           if (!/already|registered|exists|taken|duplicate/i.test(raw)) throw upgradeError;
 
           await sendEmailMagicLink(email, name);
+          trackBallKnowerEvent('Magic Link Requested', {
+            method: 'email',
+            flow: 'existing_account',
+          });
           const message = 'That email already has a Ball Knower account. A magic sign-in link was sent for that existing account. Guest-owned leagues are not transferred automatically.';
           setStatusMessage(message);
           showToast('Existing account found — magic sign-in link sent.');
         }
       } else {
         await sendEmailMagicLink(email, name);
+        trackBallKnowerEvent('Magic Link Requested', {
+          method: 'email',
+          flow: 'signed_in_account',
+        });
         const message = 'Magic sign-in link sent. Open the email on this device to finish signing in.';
         setStatusMessage(message);
         showToast('Magic sign-in link sent.');
       }
     } catch (err: any) {
+      trackBallKnowerEvent('Auth Attempt Failed', { method: 'email' });
       setErrorMessage(err?.message || 'Could not start email authentication.');
     } finally {
       setIsSubmitting(false);
