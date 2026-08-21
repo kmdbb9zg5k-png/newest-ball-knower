@@ -26,19 +26,22 @@ function consumeRateLimit(key: string) {
   for (const [storedKey, entry] of rateLimit) {
     if (entry.resetAt <= now) rateLimit.delete(storedKey);
   }
+
+  // Preserve an active caller's counter even when it is the oldest Map entry.
+  const current = rateLimit.get(key);
+  if (current) {
+    if (current.count >= REPORTS_PER_WINDOW) return false;
+    current.count += 1;
+    return true;
+  }
+
   while (rateLimit.size >= MAX_RATE_KEYS) {
     const oldestKey = rateLimit.keys().next().value as string | undefined;
     if (!oldestKey) break;
     rateLimit.delete(oldestKey);
   }
 
-  const current = rateLimit.get(key);
-  if (!current) {
-    rateLimit.set(key, { count: 1, resetAt: now + REPORT_WINDOW_MS });
-    return true;
-  }
-  if (current.count >= REPORTS_PER_WINDOW) return false;
-  current.count += 1;
+  rateLimit.set(key, { count: 1, resetAt: now + REPORT_WINDOW_MS });
   return true;
 }
 
