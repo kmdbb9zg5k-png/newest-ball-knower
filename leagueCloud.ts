@@ -1,4 +1,4 @@
-import { League, LeagueMember, Player, TeamRatings, SeasonResult } from './types';
+import { League, LeagueMember, LiveFantasyDraft, Player, TeamRatings, SeasonResult } from './types';
 import { ensureOnlineSession, isCloudConfigured, supabase } from './supabase';
 
 type UserLike = { id:string; name:string; avatarUrl?:string };
@@ -7,7 +7,19 @@ export type SeasonArchiveEntry = { id:string; leagueId:string; seasonNumber:numb
 export type RosterRevision = { id:string; leagueId:string; memberId:string; revisionNumber:number; roster:Player[]; teamRatings?:TeamRatings; reason:string; createdAt:string };
 export type LeagueNotification = { id:string; leagueId?:string; title:string; body:string; kind:string; readAt?:string; createdAt:string };
 
-const leagueFromRows = (row:any, members:any[]):League => ({
+const liveDraftFromRow = (row:any):LiveFantasyDraft|undefined => row ? ({
+  leagueId:row.league_id,
+  status:row.status,
+  orderMemberIds:row.order_member_ids||[],
+  rounds:Number(row.rounds)||20,
+  pickIndex:Number(row.pick_index)||0,
+  picks:row.picks||[],
+  startedAt:row.started_at,
+  completedAt:row.completed_at||undefined,
+  updatedAt:row.updated_at,
+}) : undefined;
+
+const leagueFromRows = (row:any, members:any[], liveDraftRow?:any):League => ({
   id: row.id,
   code: row.code,
   name: row.name,
@@ -18,6 +30,7 @@ const leagueFromRows = (row:any, members:any[]):League => ({
   status: row.status,
   members: members.map(memberFromRow),
   seasonResult: row.season_result || undefined,
+  liveDraft: liveDraftFromRow(liveDraftRow),
   createdAt: row.created_at,
   settings: { seasonGames: 17, simulationStyle: 'realistic', ...(row.settings || {}) },
   inviteEnabled: row.invite_enabled !== false,
@@ -46,6 +59,13 @@ async function fetchMembers(leagueIds:string[]) {
   return data || [];
 }
 
+async function fetchLiveDrafts(leagueIds:string[]) {
+  if (!supabase || leagueIds.length===0) return [];
+  const {data,error}=await supabase.from('ball_knower_live_drafts').select('*').in('league_id',leagueIds);
+  if(error) throw error;
+  return data||[];
+}
+
 export async function loadMyCloudLeagues():Promise<League[]> {
   if(!isCloudConfigured || !supabase) return [];
   const user=await ensureOnlineSession();
@@ -55,8 +75,8 @@ export async function loadMyCloudLeagues():Promise<League[]> {
   if(!ids.length) return [];
   const {data:rows,error}=await supabase.from('ball_knower_leagues').select('*').in('id',ids).order('created_at',{ascending:false});
   if(error) throw error;
-  const members=await fetchMembers(ids);
-  return (rows||[]).map((r:any)=>leagueFromRows(r,members.filter((m:any)=>m.league_id===r.id)));
+  const [members,liveDrafts]=await Promise.all([fetchMembers(ids),fetchLiveDrafts(ids)]);
+  return (rows||[]).map((r:any)=>leagueFromRows(r,members.filter((m:any)=>m.league_id===r.id),liveDrafts.find((draft:any)=>draft.league_id===r.id)));
 }
 
 export async function fetchCloudLeague(id:string):Promise<League|null> {
@@ -65,8 +85,8 @@ export async function fetchCloudLeague(id:string):Promise<League|null> {
   const {data:row,error}=await supabase.from('ball_knower_leagues').select('*').eq('id',id).maybeSingle();
   if(error) throw error;
   if(!row) return null;
-  const members=await fetchMembers([id]);
-  return leagueFromRows(row,members);
+  const [members,liveDrafts]=await Promise.all([fetchMembers([id]),fetchLiveDrafts([id])]);
+  return leagueFromRows(row,members,liveDrafts[0]);
 }
 
 function code() {
@@ -248,6 +268,30 @@ export async function updateCloudLeague(leagueId:string, patch:{ salaryCap?:numb
   if(!updated) throw new Error('League update did not modify a league. Confirm your commissioner access and try again.');
 }
 
+export async function startCloudLiveFantasyDraft(leagueId:string):Promise<LiveFantasyDraft> {
+  if(!supabase) throw new Error('Online fantasy drafting is unavailable.');
+  await ensureOnlineSession();
+  const {data,error}=await supabase.rpc('start_ball_knower_live_draft',{p_league_id:leagueId});
+  if(error) throw error;
+  const draft=liveDraftFromRow(data);
+  if(!draft) throw new Error('The fantasy draft started without a saved draft room.');
+  return draft;
+}
+
+export async function makeCloudLiveFantasyDraftPick(leagueId:string,playerId:string,group:string):Promise<LiveFantasyDraft> {
+  if(!supabase) throw new Error('Online fantasy drafting is unavailable.');
+  await ensureOnlineSession();
+  const {data,error}=await supabase.rpc('make_ball_knower_live_draft_pick',{
+    p_league_id:leagueId,
+    p_player_id:playerId,
+    p_group:group,
+  });
+  if(error) throw error;
+  const draft=liveDraftFromRow(data);
+  if(!draft) throw new Error('The draft pick was not saved.');
+  return draft;
+}
+
 export async function updateLeagueOperations(leagueId:string,patch:{inviteEnabled?:boolean;paused?:boolean;rostersLocked?:boolean},actorName:string) {
   await updateCloudLeague(leagueId,patch);
   const details=Object.entries(patch).map(([key,value])=>`${key}=${value}`).join(', ');
@@ -310,6 +354,7 @@ export function subscribeToCloudLeague(leagueId:string,onChange:()=>void) {
   const channel=supabase.channel(`ball-knower-${leagueId}`)
     .on('postgres_changes',{event:'*',schema:'public',table:'ball_knower_leagues',filter:`id=eq.${leagueId}`},onChange)
     .on('postgres_changes',{event:'*',schema:'public',table:'ball_knower_league_members',filter:`league_id=eq.${leagueId}`},onChange)
+    .on('postgres_changes',{event:'*',schema:'public',table:'ball_knower_live_drafts',filter:`league_id=eq.${leagueId}`},onChange)
     .on('postgres_changes',{event:'*',schema:'public',table:'ball_knower_league_events',filter:`league_id=eq.${leagueId}`},onChange)
     .subscribe();
   return ()=>{ supabase.removeChannel(channel); };

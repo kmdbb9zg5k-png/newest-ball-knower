@@ -8,6 +8,7 @@ import {
   DEFAULT_SALARY_CAP,
   TOTAL_ROSTER_SIZE,
   DraftOrderMethod,
+  LiveFantasyDraft,
 } from './types';
 import { calculateTeamRatings } from './evaluation';
 import { simulateFullSeason } from './simulation';
@@ -19,7 +20,7 @@ import {
   createCloudLeague, joinCloudLeague, loadMyCloudLeagues, fetchCloudLeague,
   saveMyCloudRoster, updateCloudLeague, upsertAiCloudMembers, deleteCloudMember,
   subscribeToCloudLeague, joinOrCreatePublicCloudLeague, lockPublicLeagueForCpuFill,
-  reopenPublicLeagueMatchmaking
+  reopenPublicLeagueMatchmaking, startCloudLiveFantasyDraft, makeCloudLiveFantasyDraftPick
 } from './leagueCloud';
 import { trackBallKnowerEvent } from './analytics';
 
@@ -74,6 +75,8 @@ interface BallKnowerContextType {
   removeMemberFromLeague: (leagueId: string, memberId: string) => void;
   startSimulation: (leagueId: string) => Promise<boolean>;
   finalizeDraftOrder: (leagueId: string, method: Exclude<DraftOrderMethod, 'game'>, orderedMemberIds: string[]) => Promise<boolean>;
+  startLiveFantasyDraft: (leagueId: string) => Promise<boolean>;
+  makeLiveFantasyDraftPick: (leagueId: string, player: Player) => Promise<boolean>;
   resetLeagueSimulation: (leagueId: string) => void;
   updateSalaryCap: (leagueId: string, newCap: number) => void;
   updateLeagueSettings: (leagueId: string, settings: import('./types').LeagueSettings) => void;
@@ -755,6 +758,77 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return true;
   };
 
+  const startLiveFantasyDraft = async (leagueId:string):Promise<boolean> => {
+    const league=leagues.find(item=>item.id===leagueId);
+    if(!league?.seasonResult?.draftOrder?.length){showToast('Lock the official draft order first.');return false;}
+    try{
+      let draft:LiveFantasyDraft;
+      if(isCloudConfigured){
+        draft=await startCloudLiveFantasyDraft(leagueId);
+      }else{
+        const now=new Date().toISOString();
+        draft={
+          leagueId,
+          status:'active',
+          orderMemberIds:league.seasonResult.draftOrder.map(pick=>pick.memberId),
+          rounds:20,
+          pickIndex:0,
+          picks:[],
+          startedAt:now,
+          updatedAt:now,
+        };
+      }
+      setLeagues(prev=>prev.map(item=>item.id===leagueId?{...item,liveDraft:draft}:item));
+      showToast(draft.pickIndex>0?'Fantasy draft reopened.':'Fantasy draft started. Pick #1 is on the clock.');
+      return true;
+    }catch(err:any){
+      const message=err?.message||'The fantasy draft could not start.';
+      setCloudSyncError(message);showToast(message);return false;
+    }
+  };
+
+  const makeLiveFantasyDraftPick = async (leagueId:string,player:Player):Promise<boolean> => {
+    const group=getDraftPositionGroup(player);
+    if(!group){showToast('That player does not fit a draftable roster position.');return false;}
+    try{
+      let draft:LiveFantasyDraft;
+      if(isCloudConfigured){
+        draft=await makeCloudLiveFantasyDraftPick(leagueId,player.id,group);
+      }else{
+        const league=leagues.find(item=>item.id===leagueId);
+        const current=league?.liveDraft;
+        if(!league||!current||current.status!=='active')throw new Error('The fantasy draft is not active.');
+        const teamCount=current.orderMemberIds.length;
+        const roundIndex=Math.floor(current.pickIndex/teamCount);
+        const slot=current.pickIndex%teamCount;
+        const orderIndex=roundIndex%2===0?slot:teamCount-1-slot;
+        const memberId=current.orderMemberIds[orderIndex];
+        const member=league.members.find(item=>item.id===memberId);
+        if(!member)throw new Error('The manager on the clock is unavailable.');
+        if(member.isAi&&currentUser?.id!==league.commissionerId)throw new Error('Waiting for the commissioner to complete the CPU pick.');
+        if(!member.isAi&&member.userId!==currentUser?.id)throw new Error(`${member.userName} is on the clock.`);
+        if(current.picks.some(pick=>pick.playerId===player.id))throw new Error('That player was already drafted.');
+        const groupCount=current.picks.filter(pick=>pick.memberId===memberId&&pick.group===group).length;
+        if(groupCount>=ROSTER_REQUIREMENTS[group])throw new Error(`${member.userName} already filled every ${group} roster slot.`);
+        const nextIndex=current.pickIndex+1;
+        const now=new Date().toISOString();
+        draft={
+          ...current,
+          status:nextIndex>=teamCount*current.rounds?'completed':'active',
+          pickIndex:nextIndex,
+          picks:[...current.picks,{overall:nextIndex,round:roundIndex+1,memberId,playerId:player.id,group,pickedAt:now}],
+          completedAt:nextIndex>=teamCount*current.rounds?now:undefined,
+          updatedAt:now,
+        };
+      }
+      setLeagues(prev=>prev.map(item=>item.id===leagueId?{...item,liveDraft:draft}:item));
+      return true;
+    }catch(err:any){
+      const message=err?.message||'That pick could not be saved.';
+      setCloudSyncError(message);showToast(message);return false;
+    }
+  };
+
   // Commissioner: Reset Simulation
   const resetLeagueSimulation = (leagueId: string) => {
     setLeagues(prev =>
@@ -884,6 +958,8 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         removeMemberFromLeague,
         startSimulation,
         finalizeDraftOrder,
+        startLiveFantasyDraft,
+        makeLiveFantasyDraftPick,
         resetLeagueSimulation,
         updateSalaryCap,
         updateLeagueSettings,
