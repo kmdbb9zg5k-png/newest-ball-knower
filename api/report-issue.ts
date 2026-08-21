@@ -4,6 +4,7 @@ const SECRET_PATTERN = /(bearer\s+[a-z0-9._-]+|access[_-]?token|refresh[_-]?toke
 const MAX_BODY_BYTES = 32_000;
 const REPORT_WINDOW_MS = 60_000;
 const REPORTS_PER_WINDOW = 3;
+const MAX_RATE_KEYS = 1_000;
 const RESEND_TIMEOUT_MS = 8_000;
 
 type RateEntry = { count: number; resetAt: number };
@@ -20,8 +21,19 @@ function requestKey(req: any) {
 
 function consumeRateLimit(key: string) {
   const now = Date.now();
+
+  // Keep the warm-instance cache bounded even when callers rotate source IPs.
+  for (const [storedKey, entry] of rateLimit) {
+    if (entry.resetAt <= now) rateLimit.delete(storedKey);
+  }
+  while (rateLimit.size >= MAX_RATE_KEYS) {
+    const oldestKey = rateLimit.keys().next().value as string | undefined;
+    if (!oldestKey) break;
+    rateLimit.delete(oldestKey);
+  }
+
   const current = rateLimit.get(key);
-  if (!current || current.resetAt <= now) {
+  if (!current) {
     rateLimit.set(key, { count: 1, resetAt: now + REPORT_WINDOW_MS });
     return true;
   }
@@ -45,14 +57,45 @@ function isCrossSiteBrowserRequest(req: any) {
   }
 }
 
+async function readJsonBody(req: any) {
+  let total = 0;
+  const chunks: Buffer[] = [];
+
+  for await (const chunk of req) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += buffer.length;
+    if (total > MAX_BODY_BYTES) {
+      const error = new Error('Report too large');
+      (error as any).statusCode = 413;
+      throw error;
+    }
+    chunks.push(buffer);
+  }
+
+  if (!chunks.length) return {};
+  const raw = Buffer.concat(chunks).toString('utf8');
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    const error = new Error('Invalid JSON body');
+    (error as any).statusCode = 400;
+    throw error;
+  }
+}
+
 export default async function handler(req: any, res: any) {
   res.setHeader('Cache-Control', 'private, no-store, max-age=0');
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (isCrossSiteBrowserRequest(req)) return res.status(403).json({ error: 'Cross-site reports are not allowed' });
 
-  const contentLength = Number(req.headers?.['content-length'] || 0);
-  if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
-    return res.status(413).json({ error: 'Report too large' });
+  const contentLengthHeader = req.headers?.['content-length'];
+  if (contentLengthHeader != null && contentLengthHeader !== '') {
+    const contentLength = Number(contentLengthHeader);
+    if (!Number.isFinite(contentLength) || contentLength < 0) {
+      return res.status(400).json({ error: 'Invalid content length' });
+    }
+    if (contentLength > MAX_BODY_BYTES) return res.status(413).json({ error: 'Report too large' });
   }
 
   if (!consumeRateLimit(requestKey(req))) {
@@ -60,7 +103,14 @@ export default async function handler(req: any, res: any) {
     return res.status(429).json({ error: 'Too many reports' });
   }
 
-  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  let body: Record<string, unknown> = {};
+  try {
+    body = await readJsonBody(req);
+  } catch (error: any) {
+    const status = Number(error?.statusCode) === 413 ? 413 : 400;
+    return res.status(status).json({ error: status === 413 ? 'Report too large' : 'Invalid JSON body' });
+  }
+
   const report = Object.fromEntries(SAFE_FIELDS.map(field => [field, clean(body[field], field === 'message' ? 1200 : 6000)]));
   if (!report.id || !report.message) return res.status(400).json({ error: 'Missing report details' });
 
