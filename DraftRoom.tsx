@@ -5,6 +5,7 @@ import { PLAYERS_DATABASE, NFL_TEAMS } from './players';
 import { Player, PositionGroup, TOTAL_ROSTER_SIZE, ROSTER_REQUIREMENTS } from './types';
 import { PlayerDetailModal } from './PlayerDetailModal';
 import { StackedRosterGrid } from './StackedRosterGrid';
+import { ModalPortal } from './ModalPortal';
 import {
   Shield,
   Search,
@@ -688,8 +689,9 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
 
       {/* 3. SLIDE-OVER 20-MAN ROSTER DRAWER (FEATURING STACKED GRID VIEW) */}
       {isRosterDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/80 backdrop-blur-xs animate-in fade-in">
-          <div className="relative w-full max-w-lg bg-[#0F0F0F] border-l border-white/10 p-4 sm:p-6 overflow-y-auto shadow-2xl flex flex-col justify-between">
+        <ModalPortal>
+        <div role="dialog" aria-modal="true" aria-label="Your roster" className="fixed inset-0 z-[9999] flex justify-end bg-black/80 backdrop-blur-xs animate-in fade-in">
+          <div className="relative flex w-full max-w-lg flex-col justify-between overflow-y-auto overscroll-contain border-l border-white/10 bg-[#0F0F0F] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] shadow-2xl sm:p-6 [-webkit-overflow-scrolling:touch]">
             <div className="space-y-4">
               {/* Drawer Header */}
               <div className="flex items-center justify-between pb-3 border-b border-white/5">
@@ -704,7 +706,8 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                 </div>
                 <button
                   onClick={() => setIsRosterDrawerOpen(false)}
-                  className="rounded-sm p-1.5 text-zinc-400 hover:bg-[#1A1A1A] hover:text-white cursor-pointer"
+                  aria-label="Close roster drawer"
+                  className="grid h-11 w-11 place-items-center rounded-sm text-zinc-400 hover:bg-[#1A1A1A] hover:text-white cursor-pointer"
                 >
                   ✕
                 </button>
@@ -757,6 +760,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* 4. PLAYER DETAIL SCOUTING MODAL */}

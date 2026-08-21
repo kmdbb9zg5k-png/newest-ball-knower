@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
 import {
   ArrowLeft,
   Brain,
@@ -9,6 +8,7 @@ import {
 } from 'lucide-react';
 import { fetchTriviaQuestion, submitTriviaAnswer, TriviaAnswerResult, TriviaQuestion } from './progressionCloud';
 import { ModeGuide } from './ModeGuide';
+import { ModalPortal } from './ModalPortal';
 
 type TriviaTier = 'ROOKIE' | 'PRO' | 'ALL-PRO' | 'HALL OF FAME';
 
@@ -80,13 +80,6 @@ export const ChallengesHub: React.FC = () => {
     return () => window.clearTimeout(timer);
   }, [result, triviaOpen, tier, loadQuestion]);
 
-  useEffect(() => {
-    if (!triviaOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = previousOverflow; };
-  }, [triviaOpen]);
-
   return (
     <div className="mx-auto max-w-7xl space-y-5 px-3 py-5 sm:px-6 sm:py-8">
       <section className="overflow-hidden rounded-[2rem] border border-fuchsia-400/25 bg-[radial-gradient(circle_at_80%_10%,rgba(168,85,247,.22),transparent_32%),#090c11] p-5 sm:p-8">
@@ -122,8 +115,8 @@ export const ChallengesHub: React.FC = () => {
           </div>
       </section>
 
-      {triviaOpen && createPortal(
-        <div className="fixed inset-0 z-[9999] overflow-y-auto bg-[#05070a] px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] text-white">
+      {triviaOpen && <ModalPortal>
+        <div role="dialog" aria-modal="true" aria-label={`${tier} Trivia`} className="fixed inset-0 z-[9999] overflow-y-auto overscroll-contain bg-[#05070a] px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] text-white [-webkit-overflow-scrolling:touch]">
           <div className="mx-auto w-full max-w-3xl">
             <header className="flex min-h-14 items-center justify-between gap-3">
               <button onClick={() => setTriviaOpen(false)} className="inline-flex min-h-11 items-center gap-2 px-2 text-[10px] font-black uppercase"><ArrowLeft className="h-4 w-4" /> Exit</button>
@@ -173,9 +166,8 @@ export const ChallengesHub: React.FC = () => {
               </div>
             )}
           </div>
-        </div>,
-        document.body,
-      )}
+        </div>
+      </ModalPortal>}
     </div>
   );
 };
