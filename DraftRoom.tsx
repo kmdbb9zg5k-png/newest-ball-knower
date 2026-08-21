@@ -717,7 +717,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
               {isRosterLocked && (
                 <div className="rounded-sm border border-[#00FF00]/40 bg-[#00FF00]/10 p-2.5 text-xs text-[#00FF00] flex items-center gap-2 font-black uppercase tracking-wider">
                   <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  <span>Roster submitted & locked for 16-game season</span>
+                  <span>Roster submitted & locked for {activeLeague?.settings?.seasonGames || 17}-game season</span>
                 </div>
               )}
 

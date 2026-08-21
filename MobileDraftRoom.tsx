@@ -113,9 +113,9 @@ export const MobileDraftRoom: React.FC<MobileDraftRoomProps> = ({ onBackToLobby,
           <div>
             <div className="text-[9px] font-black uppercase tracking-[.2em] text-zinc-500">Draft Board</div>
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-lg font-black font-mono">${totalSpent}M</span>
-              <span className="text-xs font-bold text-zinc-500">/ ${salaryCap}M</span>
-              <span className={remainingCap < 0 ? 'text-xs font-black text-red-400' : 'text-xs font-black text-[var(--bk-team-accent)]'}>${remainingCap}M left</span>
+              <span className="text-lg font-black font-mono">${totalSpent.toFixed(1)}M</span>
+              <span className="text-xs font-bold text-zinc-500">/ ${salaryCap.toFixed(1)}M</span>
+              <span className={remainingCap < 0 ? 'text-xs font-black text-red-400' : 'text-xs font-black text-[var(--bk-team-accent)]'}>${remainingCap.toFixed(1)}M left</span>
             </div>
           </div>
           <div className="text-right">
@@ -136,16 +136,15 @@ export const MobileDraftRoom: React.FC<MobileDraftRoomProps> = ({ onBackToLobby,
         </button>
       </div>
 
-      <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-        {tabs.map(tab => <button key={tab.id} onClick={() => setSelectedGroup(tab.id)} className={`min-h-10 shrink-0 rounded-lg px-3 text-[11px] font-black uppercase tracking-wider ${selectedGroup === tab.id ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)]' : 'border border-white/10 bg-[#141414] text-zinc-300'}`}>{tab.label}{tab.count !== undefined ? ` ${tab.count}` : ''}</button>)}
-      </div>
-
       <div className="mb-3 space-y-2">
         <div className="relative">
           <Search className="absolute left-3 top-3.5 h-4 w-4 text-zinc-500" />
           <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search player, team, position..." className="min-h-12 w-full rounded-xl border border-white/10 bg-[#121212] pl-10 pr-3 text-sm font-bold outline-none focus:border-[var(--bk-team-accent)]" />
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
+          <select aria-label="Position group" value={selectedGroup} onChange={e=>setSelectedGroup(e.target.value as PositionGroup|'ALL')} className="min-h-11 min-w-0 rounded-xl border border-white/10 bg-[#121212] px-2 text-xs font-bold text-white">
+            {tabs.map(tab=><option key={tab.id} value={tab.id}>{tab.label}{tab.count!==undefined?` · ${tab.count}`:''}</option>)}
+          </select>
           <select value={selectedTeam} onChange={e => setSelectedTeam(e.target.value)} className="min-h-11 rounded-xl border border-white/10 bg-[#121212] px-2 text-xs font-bold text-white">
             <option value="ALL">All 32 Teams</option>
             {NFL_TEAMS.map(team => <option key={team.code} value={team.code}>{team.code} · {team.name}</option>)}
@@ -179,7 +178,7 @@ export const MobileDraftRoom: React.FC<MobileDraftRoomProps> = ({ onBackToLobby,
               ) : onRoster ? (
                 <button onClick={() => handleRemove(player.id)} className="min-h-10 shrink-0 rounded-lg bg-red-600 px-3 text-[10px] font-black uppercase">Remove</button>
               ) : (
-                <button onClick={() => handleAdd(player)} disabled={!canAfford || currentRoster.length >= TOTAL_ROSTER_SIZE} className={`min-h-10 shrink-0 rounded-lg px-4 text-[10px] font-black uppercase ${canAfford && currentRoster.length < TOTAL_ROSTER_SIZE ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-600'}`}>Add</button>
+                <button aria-label={!canAfford?`${player.name} is over your remaining cap`:currentRoster.length>=TOTAL_ROSTER_SIZE?'Your roster is full':`Add ${player.name}`} onClick={() => handleAdd(player)} disabled={!canAfford || currentRoster.length >= TOTAL_ROSTER_SIZE} className={`min-h-10 shrink-0 rounded-lg px-3 text-[9px] font-black uppercase ${canAfford && currentRoster.length < TOTAL_ROSTER_SIZE ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-500'}`}>{!canAfford?'Over Cap':currentRoster.length>=TOTAL_ROSTER_SIZE?'Roster Full':'Add'}</button>
               )}
             </div>
           );
