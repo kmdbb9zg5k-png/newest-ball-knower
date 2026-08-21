@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useBallKnower } from './BallKnowerContext';
 import { useSoundtrack } from './SoundtrackContext';
 import { PLAYERS_DATABASE, NFL_TEAMS } from './players';
-import { Player, PositionGroup, TOTAL_ROSTER_SIZE, ROSTER_REQUIREMENTS } from './types';
+import { DEFAULT_SALARY_CAP, Player, PositionGroup, TOTAL_ROSTER_SIZE, ROSTER_REQUIREMENTS } from './types';
 import { PlayerDetailModal } from './PlayerDetailModal';
 import { StackedRosterGrid } from './StackedRosterGrid';
 import { ModalPortal } from './ModalPortal';
@@ -22,6 +22,9 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { calculateTeamRatings } from './evaluation';
+import { formatMillions } from './formatters';
+
+const INITIAL_PLAYER_BATCH = 36;
 
 interface DraftRoomProps {
   onBackToLobby: () => void;
@@ -73,7 +76,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
     playRemoveSfx();
   };
 
-  const salaryCap = activeLeague?.salaryCap || 200;
+  const salaryCap = activeLeague?.salaryCap ?? DEFAULT_SALARY_CAP;
 
   // View state: 'market' (browse/draft players) or 'roster' (full stacked 20-slot grid)
   const [activeViewMode, setActiveViewMode] = useState<'market' | 'roster'>('market');
@@ -84,6 +87,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
   const [selectedTeam, setSelectedTeam] = useState<string>('ALL');
   const [sortBy, setSortBy] = useState<'ovr_desc' | 'ovr_asc' | 'name_asc' | 'name_desc' | 'price_desc' | 'price_asc' | 'value_desc'>('ovr_desc');
   const [maxSalaryFilter, setMaxSalaryFilter] = useState<number>(70);
+  const [visiblePlayerCount, setVisiblePlayerCount] = useState(INITIAL_PLAYER_BATCH);
 
   // Selected player for detail modal
   const [inspectingPlayer, setInspectingPlayer] = useState<Player | null>(null);
@@ -154,6 +158,11 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
     });
   }, [selectedGroup, selectedTeam, searchQuery, sortBy, maxSalaryFilter]);
 
+  const visiblePlayers = useMemo(
+    () => filteredPlayers.slice(0, visiblePlayerCount),
+    [filteredPlayers, visiblePlayerCount],
+  );
+
   // Live Synergy Feedback calculations
   const teamRatings = useMemo(() => {
     return calculateTeamRatings(currentRoster);
@@ -176,11 +185,11 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
     { id: 'RB', label: 'RB', countNeeded: 1, countHave: rosterCounts.RB },
     { id: 'WR', label: 'WR', countNeeded: 2, countHave: rosterCounts.WR },
     { id: 'TE', label: 'TE', countNeeded: 1, countHave: rosterCounts.TE },
-    { id: 'OL', label: 'OL (4)', countNeeded: 4, countHave: rosterCounts.OL },
-    { id: 'DL_EDGE', label: 'DL/EDGE (3)', countNeeded: 3, countHave: rosterCounts.DL_EDGE },
-    { id: 'LB', label: 'LB (2)', countNeeded: 2, countHave: rosterCounts.LB },
-    { id: 'CB', label: 'CB (2)', countNeeded: 2, countHave: rosterCounts.CB },
-    { id: 'S', label: 'S (2)', countNeeded: 2, countHave: rosterCounts.S },
+    { id: 'OL', label: 'OL', countNeeded: 4, countHave: rosterCounts.OL },
+    { id: 'DL_EDGE', label: 'DL/EDGE', countNeeded: 3, countHave: rosterCounts.DL_EDGE },
+    { id: 'LB', label: 'LB', countNeeded: 2, countHave: rosterCounts.LB },
+    { id: 'CB', label: 'CB', countNeeded: 2, countHave: rosterCounts.CB },
+    { id: 'S', label: 'S', countNeeded: 2, countHave: rosterCounts.S },
     { id: 'K', label: 'K', countNeeded: 1, countHave: rosterCounts.K },
     { id: 'P', label: 'P', countNeeded: 1, countHave: rosterCounts.P },
   ];
@@ -188,26 +197,26 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
   const percentSpent = Math.min(Math.round((totalSpent / salaryCap) * 100), 100);
 
   return (
-    <div className="min-h-screen pb-32 bg-[#0A0A0A] text-white">
+    <div className="min-h-screen overflow-x-clip pb-32 bg-[#0A0A0A] text-white">
       {/* 1. ALWAYS-PINNED TOP SALARY CAP HEADER (MOBILE & DESKTOP VIEWPORT PINNED) */}
       <div
         id="salary-cap-pinned-header"
-        className="sticky top-16 sm:top-20 z-30 w-full border-b border-white/10 bg-[#121212]/95 backdrop-blur-md shadow-2xl transition-all"
+        className="sticky top-[calc(7rem+env(safe-area-inset-top))] sm:top-[calc(8rem+env(safe-area-inset-top))] z-30 w-full border-b border-white/10 bg-[#121212]/95 backdrop-blur-md shadow-2xl transition-all"
       >
         <div className="mx-auto max-w-7xl px-3 py-2 sm:px-8 sm:py-3">
           {/* Main Top Metrics & Action Row */}
-          <div className="flex items-center justify-between gap-2 sm:gap-4">
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             {/* Left: Financial Cap Breakdown (Ultra-Space-Efficient on Mobile) */}
-            <div className="flex items-center gap-2.5 sm:gap-6 min-w-0">
+            <div className="grid min-w-0 grid-cols-3 items-center gap-2.5 sm:flex sm:gap-6">
               {/* Cap Spent */}
               <div>
                 <span className="hidden sm:block text-[9px] font-black tracking-widest text-zinc-500 uppercase">Salary Cap</span>
                 <div className="flex items-baseline space-x-1">
                   <span className="text-lg sm:text-2xl font-black tracking-tight text-white font-mono">
-                    ${totalSpent}
+                    ${formatMillions(totalSpent)}
                   </span>
                   <span className="text-[10px] sm:text-xs font-bold text-zinc-500 font-mono">
-                    /${salaryCap}M
+                    /${formatMillions(salaryCap)}M
                   </span>
                 </div>
               </div>
@@ -221,7 +230,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                       remainingCap < 0 ? 'text-red-500' : 'text-[var(--bk-team-accent)]'
                     }`}
                   >
-                    ${remainingCap}M
+                    ${formatMillions(remainingCap)}M
                   </span>
                   <span className="hidden md:inline text-[9px] font-bold text-zinc-500 uppercase">LEFT</span>
                 </div>
@@ -248,7 +257,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
             </div>
 
             {/* Right: Actions & Roster View Switcher */}
-            <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            <div className="grid grid-cols-2 items-center gap-1.5 sm:flex sm:shrink-0 sm:gap-3">
               {/* Stacked Roster View Mode Toggle */}
               <div className="hidden sm:flex rounded-sm bg-black/40 border border-white/10 p-0.5">
                 <button
@@ -281,7 +290,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
               <button
                 id="toggle-roster-drawer-btn"
                 onClick={() => setIsRosterDrawerOpen(!isRosterDrawerOpen)}
-                className="flex items-center gap-1.5 rounded-sm border border-white/10 bg-[#1A1A1A] px-2.5 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs font-black uppercase tracking-wider text-zinc-200 hover:bg-zinc-800 hover:border-[var(--bk-team-accent)]/50 transition-colors cursor-pointer"
+                className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-sm border border-white/10 bg-[#1A1A1A] px-2.5 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs font-black uppercase tracking-wider text-zinc-200 hover:bg-zinc-800 hover:border-[var(--bk-team-accent)]/50 transition-colors cursor-pointer"
                 title="Open 20-Man Roster Drawer"
               >
                 <Layers className="h-3.5 w-3.5 text-[var(--bk-team-accent)]" />
@@ -304,7 +313,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                   id="draft-submit-roster-btn"
                   onClick={handleSubmit}
                   disabled={!isRosterValid}
-                  className={`flex items-center gap-1.5 rounded-sm px-3 py-1.5 sm:px-5 sm:py-2 text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all ${
+                  className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-sm px-3 py-1.5 sm:px-5 sm:py-2 text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all ${
                     isRosterValid
                       ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] shadow-lg shadow-[var(--bk-team-accent)]/20 hover:bg-amber-300 cursor-pointer'
                       : 'bg-zinc-800 text-zinc-500 border border-white/5 cursor-not-allowed'
@@ -382,7 +391,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                   <span>20-MAN ROSTER • STACKED GRID VIEW</span>
                 </h2>
                 <p className="text-[10px] text-zinc-400 uppercase tracking-widest mt-0.5">
-                  10 Offensive Positions + 10 Defensive Positions • Total Salary: ${totalSpent}M / ${salaryCap}M
+                  10 Offensive Positions + 10 Defensive Positions • Total Salary: ${formatMillions(totalSpent)}M / ${formatMillions(salaryCap)}M
                 </p>
               </div>
 
@@ -412,6 +421,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
               onScout={(p) => setInspectingPlayer(p)}
               onSelectPositionFilter={(group) => {
                 setSelectedGroup(group);
+                setVisiblePlayerCount(INITIAL_PLAYER_BATCH);
                 setActiveViewMode('market');
               }}
               isLocked={isRosterLocked}
@@ -433,7 +443,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                 </button>
                 <span className="text-zinc-600">|</span>
                 <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">
-                  {filteredPlayers.length} NFL Players
+                  {filteredPlayers.length.toLocaleString()} matching players
                 </span>
               </div>
 
@@ -488,7 +498,10 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => setSelectedGroup(tab.id)}
+                      onClick={() => {
+                        setSelectedGroup(tab.id);
+                        setVisiblePlayerCount(INITIAL_PLAYER_BATCH);
+                      }}
                       className={`flex items-center gap-1.5 whitespace-nowrap rounded-sm px-3 py-1.5 text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
                         isSelected
                           ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] shadow-md'
@@ -523,12 +536,18 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                     type="text"
                     placeholder="SEARCH PLAYER, TEAM, OR POSITION..."
                     value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
+                    onChange={e => {
+                      setSearchQuery(e.target.value);
+                      setVisiblePlayerCount(INITIAL_PLAYER_BATCH);
+                    }}
                     className="w-full rounded-sm border border-white/10 bg-[#121212] pl-9 pr-4 py-2 text-xs font-bold text-white placeholder-zinc-500 focus:border-[var(--bk-team-accent)] focus:outline-none uppercase tracking-wider"
                   />
                   {searchQuery && (
                     <button
-                      onClick={() => setSearchQuery('')}
+                      onClick={() => {
+                        setSearchQuery('');
+                        setVisiblePlayerCount(INITIAL_PLAYER_BATCH);
+                      }}
                       className="absolute right-2.5 top-2 text-[10px] font-black text-zinc-400 hover:text-white"
                     >
                       CLEAR
@@ -540,7 +559,10 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                 <div className="relative">
                   <select
                     value={selectedTeam}
-                    onChange={e => setSelectedTeam(e.target.value)}
+                    onChange={e => {
+                      setSelectedTeam(e.target.value);
+                      setVisiblePlayerCount(INITIAL_PLAYER_BATCH);
+                    }}
                     className="w-full rounded-sm border border-white/10 bg-[#121212] px-3 py-2 text-xs font-bold uppercase tracking-wider text-zinc-200 focus:border-[var(--bk-team-accent)] focus:outline-none cursor-pointer"
                   >
                     <option value="ALL">ALL 32 NFL TEAMS</option>
@@ -556,7 +578,10 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                 <div className="relative">
                   <select
                     value={sortBy}
-                    onChange={e => setSortBy(e.target.value as any)}
+                    onChange={e => {
+                      setSortBy(e.target.value as typeof sortBy);
+                      setVisiblePlayerCount(INITIAL_PLAYER_BATCH);
+                    }}
                     className="w-full rounded-sm border border-white/10 bg-[#121212] px-3 py-2 text-xs font-bold uppercase tracking-wider text-zinc-200 focus:border-[var(--bk-team-accent)] focus:outline-none cursor-pointer"
                   >
                     <option value="ovr_desc">OVERALL: HIGH → LOW</option>
@@ -582,7 +607,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                {filteredPlayers.map(player => {
+                {visiblePlayers.map(player => {
                   const isOnRoster = currentRoster.some(p => p.id === player.id);
                   const isAffordable = remainingCap >= player.salary;
 
@@ -626,7 +651,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                             {player.overallRating ?? player.ovr} OVR
                           </span>
                           <span className="text-white text-xs font-black font-mono">
-                            ${player.salary}M
+                            ${formatMillions(player.salary)}M
                           </span>
                           {player.overallRating === 99 && (
                             <span className="bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] text-[8px] px-1 py-0.2 font-black rounded-xs font-mono uppercase">
@@ -683,6 +708,14 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                 })}
               </div>
             )}
+            {visiblePlayers.length < filteredPlayers.length && (
+              <button
+                onClick={() => setVisiblePlayerCount(count => count + INITIAL_PLAYER_BATCH)}
+                className="mt-3 w-full border border-white/10 bg-[#151515] py-3 text-xs font-black uppercase tracking-wider text-[var(--bk-team-accent)]"
+              >
+                Show 36 more · {(filteredPlayers.length - visiblePlayers.length).toLocaleString()} remaining
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -701,7 +734,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                     <span>YOUR 20-MAN ROSTER</span>
                   </h3>
                   <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold font-mono">
-                    ${totalSpent}M Spent • ${remainingCap}M Left • {currentRoster.length}/20 Slots
+                    ${formatMillions(totalSpent)}M Spent • ${formatMillions(remainingCap)}M Left • {currentRoster.length}/20 Slots
                   </p>
                 </div>
                 <button
@@ -717,7 +750,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
               {isRosterLocked && (
                 <div className="rounded-sm border border-[#00FF00]/40 bg-[#00FF00]/10 p-2.5 text-xs text-[#00FF00] flex items-center gap-2 font-black uppercase tracking-wider">
                   <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  <span>Roster submitted & locked for 16-game season</span>
+                  <span>Roster submitted & locked for 17-game season</span>
                 </div>
               )}
 
@@ -728,6 +761,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
                 onScout={(p) => setInspectingPlayer(p)}
                 onSelectPositionFilter={(group) => {
                   setSelectedGroup(group);
+                  setVisiblePlayerCount(INITIAL_PLAYER_BATCH);
                   setActiveViewMode('market');
                   setIsRosterDrawerOpen(false);
                 }}
