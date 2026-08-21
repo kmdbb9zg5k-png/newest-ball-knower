@@ -64,6 +64,7 @@ export const MY_PLAYER_EMPTY_PROFILE: MyPlayerProfile = {
 };
 
 type NumericRule = { min: number; max: number; integer?: boolean };
+const UNBOUNDED_COUNTER_MAX = Number.MAX_SAFE_INTEGER;
 
 const NUMERIC_RULES: Record<keyof Pick<MyPlayerProfile,
   | 'number'
@@ -89,8 +90,10 @@ const NUMERIC_RULES: Record<keyof Pick<MyPlayerProfile,
   draftPick: { min: 0, max: 32, integer: true },
   overall: { min: 0, max: 99, integer: true },
   xp: { min: 0, max: 99, integer: true },
-  upgradePoints: { min: 0, max: 99, integer: true },
-  gamesPlayed: { min: 0, max: 400, integer: true },
+  // These counters are intentionally allowed to grow for the full lifetime of a career.
+  // The gameplay producer can legitimately exceed 99 banked points and 400 games.
+  upgradePoints: { min: 0, max: UNBOUNDED_COUNTER_MAX, integer: true },
+  gamesPlayed: { min: 0, max: UNBOUNDED_COUNTER_MAX, integer: true },
   speed: { min: 0, max: 99, integer: true },
   power: { min: 0, max: 99, integer: true },
   awareness: { min: 0, max: 99, integer: true },
