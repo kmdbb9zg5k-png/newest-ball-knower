@@ -1,33 +1,16 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowLeft,
   Brain,
   CheckCircle2,
-  Flame,
-  Gamepad2,
   Loader2,
-  Medal,
-  MessageSquareQuote,
-  Play,
-  ShieldQuestion,
-  Swords,
-  Target,
-  Trophy,
   XCircle,
 } from 'lucide-react';
 import { fetchTriviaQuestion, submitTriviaAnswer, TriviaAnswerResult, TriviaQuestion } from './progressionCloud';
 import { ModeGuide } from './ModeGuide';
 
-type Mode = 'trivia' | 'film' | 'picks' | 'debates' | 'gauntlet';
 type TriviaTier = 'ROOKIE' | 'PRO' | 'ALL-PRO' | 'HALL OF FAME';
-
-const modes: { id: Mode; label: string; sub: string; icon: React.ReactNode }[] = [
-  { id: 'trivia', label: 'Trivia', sub: 'Four levels in one challenge', icon: <Brain className="h-5 w-5" /> },
-  { id: 'film', label: 'Film Room', sub: 'Read coverages & situations', icon: <Gamepad2 className="h-5 w-5" /> },
-  { id: 'picks', label: 'Predictions', sub: 'Make weekly football calls', icon: <Target className="h-5 w-5" /> },
-  { id: 'debates', label: 'Debates', sub: 'Start / Bench / Cut', icon: <MessageSquareQuote className="h-5 w-5" /> },
-  { id: 'gauntlet', label: 'Survivor', sub: 'One miss ends your run', icon: <Flame className="h-5 w-5" /> },
-];
 
 const triviaTiers: { name: TriviaTier; desc: string; xp: string }[] = [
   { name: 'ROOKIE', desc: 'Stars, teams and basic records', xp: '15 XP' },
@@ -37,7 +20,6 @@ const triviaTiers: { name: TriviaTier; desc: string; xp: string }[] = [
 ];
 
 export const ChallengesHub: React.FC = () => {
-  const [mode, setMode] = useState<Mode>('trivia');
   const [tier, setTier] = useState<TriviaTier>('ROOKIE');
   const [triviaOpen, setTriviaOpen] = useState(false);
   const [questionNumber, setQuestionNumber] = useState(1);
@@ -98,6 +80,13 @@ export const ChallengesHub: React.FC = () => {
     return () => window.clearTimeout(timer);
   }, [result, triviaOpen, tier, loadQuestion]);
 
+  useEffect(() => {
+    if (!triviaOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [triviaOpen]);
+
   return (
     <div className="mx-auto max-w-7xl space-y-5 px-3 py-5 sm:px-6 sm:py-8">
       <section className="overflow-hidden rounded-[2rem] border border-fuchsia-400/25 bg-[radial-gradient(circle_at_80%_10%,rgba(168,85,247,.22),transparent_32%),#090c11] p-5 sm:p-8">
@@ -107,48 +96,34 @@ export const ChallengesHub: React.FC = () => {
             <h1 className="mt-2 font-display text-4xl font-black uppercase sm:text-6xl">The Gauntlet</h1>
             <p className="mt-3 max-w-3xl text-sm font-semibold text-zinc-400">One football challenge hub. Pick an experience, then play it full screen.</p>
           </div>
-          <ModeGuide storageKey="bk-guide-the-gauntlet-v2" title="The Gauntlet" summary="Test your football knowledge in short games." steps={["Choose Trivia or another challenge.", "Pick a Trivia level inside the single Trivia panel.", "Questions advance automatically after every answer."]} />
+          <ModeGuide storageKey="bk-guide-the-gauntlet-v3" title="Trivia" summary="Test your football knowledge across four levels." steps={["Choose a level inside the Trivia box.", "Answer the full-screen question.", "The next question loads automatically after every answer."]} />
         </div>
       </section>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-        {modes.map(item => (
-          <button key={item.id} onClick={() => setMode(item.id)} className={`rounded-2xl border p-4 text-left transition ${mode === item.id ? 'border-fuchsia-400/50 bg-fuchsia-400/10' : 'border-white/10 bg-[#101318] hover:border-white/20'}`}>
-            <div className="text-fuchsia-400">{item.icon}</div>
-            <div className="mt-3 text-xs font-black uppercase">{item.label}</div>
-            <div className="mt-1 text-[10px] leading-4 text-zinc-500">{item.sub}</div>
-          </button>
-        ))}
-      </div>
-
-      {mode === 'trivia' && (
-        <section className="overflow-hidden rounded-[2rem] border border-fuchsia-400/35 bg-[#0c1016] p-4 sm:p-6">
-          <div className="mb-4">
-            <div className="text-[10px] font-black uppercase tracking-[.22em] text-fuchsia-400">Choose your level</div>
-            <h2 className="mt-1 font-display text-3xl font-black uppercase">Ball Knower Trivia</h2>
-            <p className="mt-1 text-xs font-semibold text-zinc-500">All four difficulties live inside this one Trivia challenge.</p>
+      <section className="overflow-hidden rounded-[2rem] border border-fuchsia-400/45 bg-[radial-gradient(circle_at_10%_0%,rgba(217,70,239,.16),transparent_35%),#0c1016] p-5 sm:p-8">
+          <div className="mb-5 flex items-start gap-4">
+            <div className="rounded-2xl border border-fuchsia-400/30 bg-fuchsia-400/10 p-3 text-fuchsia-400"><Brain className="h-7 w-7" /></div>
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[.22em] text-fuchsia-400">Choose your level</div>
+              <h2 className="mt-1 font-display text-4xl font-black uppercase sm:text-5xl">Trivia</h2>
+              <p className="mt-2 max-w-2xl text-sm font-semibold text-zinc-400">One Trivia game with four difficulty levels. Pick a level below—the next question loads automatically after every answer.</p>
+            </div>
           </div>
           <div className="grid gap-2">
             {triviaTiers.map(item => (
-              <button key={item.name} onClick={() => openTrivia(item.name)} className="group flex min-h-20 items-center justify-between rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-left hover:border-fuchsia-400/45 hover:bg-fuchsia-400/[.06]">
+              <button key={item.name} onClick={() => openTrivia(item.name)} className="group flex min-h-24 items-center justify-between rounded-2xl border border-white/10 bg-black/30 px-5 py-4 text-left hover:border-fuchsia-400/45 hover:bg-fuchsia-400/[.06]">
                 <span>
-                  <span className="block font-display text-xl font-black uppercase">{item.name}</span>
-                  <span className="mt-1 block text-[10px] font-semibold text-zinc-500">{item.desc}</span>
+                  <span className="block font-display text-2xl font-black uppercase">{item.name}</span>
+                  <span className="mt-1 block text-xs font-semibold text-zinc-400">{item.desc}</span>
                 </span>
-                <span className="text-[10px] font-black text-fuchsia-400">{item.xp}</span>
+                <span className="ml-3 shrink-0 text-xs font-black text-fuchsia-400">{item.xp}</span>
               </button>
             ))}
           </div>
-        </section>
-      )}
+      </section>
 
-      {mode === 'film' && <FeaturePanel icon={<ShieldQuestion className="h-7 w-7" />} title="Film Room" text="Situational football questions covering pressure looks, coverage, route concepts and clock management." />}
-      {mode === 'picks' && <FeaturePanel icon={<Target className="h-7 w-7" />} title="Prediction Picks" text="Weekly football predictions tracked as skill stats. No wagering—accuracy feeds your Ball Knower profile." />}
-      {mode === 'debates' && <FeaturePanel icon={<Swords className="h-7 w-7" />} title="Debate Arena" text="Start / Bench / Cut, blind resumes, community polls and saved receipts." />}
-      {mode === 'gauntlet' && <FeaturePanel icon={<Flame className="h-7 w-7" />} title="Survivor" text="Keep answering until you miss one. Longer runs move you higher on the leaderboard." />}
-
-      {triviaOpen && (
-        <div className="fixed inset-0 z-[80] overflow-y-auto bg-[#05070a] px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] text-white">
+      {triviaOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] overflow-y-auto bg-[#05070a] px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] text-white">
           <div className="mx-auto w-full max-w-3xl">
             <header className="flex min-h-14 items-center justify-between gap-3">
               <button onClick={() => setTriviaOpen(false)} className="inline-flex min-h-11 items-center gap-2 px-2 text-[10px] font-black uppercase"><ArrowLeft className="h-4 w-4" /> Exit</button>
@@ -198,19 +173,9 @@ export const ChallengesHub: React.FC = () => {
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
 };
-
-const FeaturePanel = ({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) => (
-  <div className="rounded-[2rem] border border-white/10 bg-[#0d1015] p-6 sm:p-8">
-    <div className="text-fuchsia-400">{icon}</div>
-    <div className="mt-4 font-display text-3xl font-black uppercase">{title}</div>
-    <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-400">{text}</p>
-    <div className="mt-6 flex flex-wrap gap-2"><Badge icon={<Medal className="h-3.5 w-3.5" />} text="Ratings" /><Badge icon={<Trophy className="h-3.5 w-3.5" />} text="Leaderboards" /><Badge icon={<Play className="h-3.5 w-3.5" />} text="Daily Challenges" /></div>
-  </div>
-);
-
-const Badge = ({ icon, text }: { icon: React.ReactNode; text: string }) => <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[.03] px-3 py-2 text-[10px] font-black uppercase text-zinc-400">{icon}{text}</span>;
