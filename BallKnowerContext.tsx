@@ -17,7 +17,7 @@ import { isCloudConfigured, ensureOnlineSession } from './supabase';
 import {
   createCloudLeague, joinCloudLeague, loadMyCloudLeagues, fetchCloudLeague,
   saveMyCloudRoster, updateCloudLeague, upsertAiCloudMembers, deleteCloudMember,
-  subscribeToCloudLeague
+  subscribeToCloudLeague, joinOrCreatePublicCloudLeague, lockPublicLeagueForCpuFill
 } from './leagueCloud';
 import { trackBallKnowerEvent } from './analytics';
 
@@ -33,6 +33,7 @@ interface BallKnowerContextType {
   
   createLeague: (name: string, maxMembers: number, salaryCap?: number) => Promise<League>;
   joinLeague: (code: string) => Promise<{ success: boolean; message: string; league?: League }>;
+  joinPublicLeague: () => Promise<{ success: boolean; message: string; league?: League }>;
   
   // Draft Actions
   currentRoster: Player[];
@@ -67,7 +68,7 @@ interface BallKnowerContextType {
   cloudSyncError: string | null;
 
   // Commissioner Controls
-  autoFillLeagueWithAi: (leagueId: string) => void;
+  autoFillLeagueWithAi: (leagueId: string) => Promise<boolean>;
   removeMemberFromLeague: (leagueId: string, memberId: string) => void;
   startSimulation: (leagueId: string) => Promise<boolean>;
   resetLeagueSimulation: (leagueId: string) => void;
@@ -532,18 +533,66 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
-  // Commissioner: Auto-fill league with AI GMs
-  const autoFillLeagueWithAi = (leagueId: string) => {
-    const league = leagues.find(l => l.id === leagueId);
-    if (!league) return;
-    const slotsNeeded = league.maxMembers - league.members.length;
-    if (slotsNeeded <= 0) return;
-    const aiMembers = generateAiLeagueMembers(slotsNeeded, league.members.length);
-    setLeagues(prev => prev.map(l => l.id === leagueId ? { ...l, members: [...l.members, ...aiMembers] } : l));
-    if (isCloudConfigured) {
-      void upsertAiCloudMembers(leagueId, aiMembers).catch((err:any) => setCloudSyncError(err?.message || 'Could not sync AI members'));
+  const joinPublicLeague = async (): Promise<{ success: boolean; message: string; league?: League }> => {
+    const user = currentUser || DEFAULT_USER;
+    if (!isCloudConfigured) {
+      return { success: false, message: 'Public leagues need the online Ball Knower service.' };
     }
-    showToast('Auto-filled empty slots with AI football GMs');
+    try {
+      const targetLeague = await joinOrCreatePublicCloudLeague(user, 10);
+      setLeagues(prev => [targetLeague, ...prev.filter(l => l.id !== targetLeague.id)]);
+      setActiveLeagueId(targetLeague.id);
+      setCurrentRoster([]);
+      setCloudSyncError(null);
+      trackBallKnowerEvent('Public League Matched', {
+        human_members: targetLeague.members.filter(member => !member.isAi).length,
+        open_slots: Math.max(0, targetLeague.maxMembers - targetLeague.members.length),
+        league_type: 'public_free',
+      });
+      showToast(`Public league ready: ${targetLeague.name}`);
+      return { success: true, message: `Joined ${targetLeague.name}`, league: targetLeague };
+    } catch (err:any) {
+      const message = err?.message || 'Could not enter public matchmaking.';
+      setCloudSyncError(message);
+      return { success: false, message };
+    }
+  };
+
+  // Commissioner: Auto-fill league with AI GMs
+  const autoFillLeagueWithAi = async (leagueId: string): Promise<boolean> => {
+    const league = leagues.find(l => l.id === leagueId);
+    if (!league) return false;
+    let slotsNeeded = league.maxMembers - league.members.length;
+    if (slotsNeeded <= 0) return false;
+
+    try {
+      if (isCloudConfigured && league.settings?.leagueType === 'public_free') {
+        slotsNeeded = await lockPublicLeagueForCpuFill(leagueId);
+        if (slotsNeeded <= 0) {
+          const fresh = await fetchCloudLeague(leagueId);
+          if (fresh) setLeagues(prev => [fresh, ...prev.filter(l => l.id !== fresh.id)]);
+          showToast('This public league is already full.');
+          return false;
+        }
+      }
+
+      const aiMembers = generateAiLeagueMembers(slotsNeeded, league.members.length);
+      if (isCloudConfigured) {
+        await upsertAiCloudMembers(leagueId, aiMembers);
+        const fresh = await fetchCloudLeague(leagueId);
+        if (fresh) setLeagues(prev => [fresh, ...prev.filter(l => l.id !== fresh.id)]);
+      } else {
+        setLeagues(prev => prev.map(l => l.id === leagueId ? { ...l, members: [...l.members, ...aiMembers] } : l));
+      }
+      setCloudSyncError(null);
+      showToast(`Filled ${slotsNeeded} open spot${slotsNeeded===1?'':'s'} with CPU GMs`);
+      return true;
+    } catch (err:any) {
+      const message = err?.message || 'Could not fill the open league spots.';
+      setCloudSyncError(message);
+      showToast(message);
+      return false;
+    }
   };
 
   // Commissioner: Remove member
@@ -708,6 +757,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setActiveLeagueId,
         createLeague,
         joinLeague,
+        joinPublicLeague,
         onlineInvitesReady: isCloudConfigured,
         cloudSyncError,
         currentRoster,

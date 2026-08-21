@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Shield, Trophy, Users, Crown, Search, Star, X, Activity } from 'lucide-react';
+import { ArrowRight, Shield, Trophy, Users, Crown, Search, Star, X, Activity, Globe2, LoaderCircle } from 'lucide-react';
 import { League } from './types';
 import { useBallKnower } from './BallKnowerContext';
 import { PLAYERS_DATABASE } from './players';
@@ -14,13 +14,15 @@ interface FantasyHubProps {
 }
 
 export const FantasyHub: React.FC<FantasyHubProps> = ({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague }) => {
-  const { leagues, currentUser } = useBallKnower();
+  const { leagues, currentUser, joinPublicLeague } = useBallKnower();
   const memberCount = leagues.reduce((sum, league) => sum + league.members.length, 0);
   const [view, setView] = useState<'leagues'|'cheatsheet'>('cheatsheet');
   const [cheatView, setCheatView] = useState<'rankings'|'tiers'|'sleepers'|'busts'|'injuries'>('rankings');
   const [search, setSearch] = useState('');
   const [position, setPosition] = useState('ALL');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string|null>(null);
+  const [publicMatchBusy,setPublicMatchBusy]=useState(false);
+  const [publicMatchError,setPublicMatchError]=useState<string|null>(null);
   const [watchlist,setWatchlist]=useState<string[]>(()=>{try{return JSON.parse(localStorage.getItem('bk-fantasy-watchlist-v1')||'[]');}catch{return [];}});
   const fantasyPositions=['QB','RB','WR','TE','K'];
   const ranked=useMemo(()=>{
@@ -46,6 +48,14 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({ onOpenCreateLeague, onOp
     return()=>{active=false;};
   },[]);
   const toggleWatch=(id:string)=>setWatchlist(current=>{const next=current.includes(id)?current.filter(item=>item!==id):[...current,id];try{localStorage.setItem('bk-fantasy-watchlist-v1',JSON.stringify(next));}catch{}void saveUserState('fantasy_watchlist',next).catch(error=>console.warn('Fantasy watchlist cloud save failed',error));return next;});
+  const enterPublicLeague=async()=>{
+    if(publicMatchBusy)return;
+    setPublicMatchBusy(true);setPublicMatchError(null);
+    const result=await joinPublicLeague();
+    setPublicMatchBusy(false);
+    if(result.success&&result.league){onSelectLeague(result.league,'lobby');return;}
+    setPublicMatchError(result.message);
+  };
 
   return (
     <div className="min-h-[calc(100dvh-7rem)] px-4 pb-10 pt-5 text-white sm:px-8">
@@ -63,10 +73,12 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({ onOpenCreateLeague, onOp
           </div>
         </section>
 
-        <div className="mb-9 grid gap-3 sm:grid-cols-2">
+        <div className="mb-9 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <button onClick={()=>void enterPublicLeague()} disabled={publicMatchBusy} className="group flex min-h-28 items-center gap-4 rounded-2xl border border-emerald-300/45 bg-emerald-300 p-5 text-left text-[#07100c] shadow-lg shadow-emerald-300/10 transition active:scale-[.99] disabled:opacity-60"><div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-black/15 bg-black/5">{publicMatchBusy?<LoaderCircle className="h-6 w-6 animate-spin"/>:<Globe2 className="h-6 w-6"/>}</div><div><div className="text-xl font-black uppercase">Public Free League</div><div className="mt-1 text-xs font-bold text-black/65">Match with real people. CPU teams fill any open spots when you start.</div></div><ArrowRight className="ml-auto transition group-hover:translate-x-1" /></button>
           <button onClick={onOpenCreateLeague} className="group flex min-h-28 items-center gap-4 rounded-2xl border border-[#D4AF37]/50 bg-[#D4AF37] p-5 text-left text-black shadow-lg shadow-[#D4AF37]/10 transition active:scale-[.99]"><div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-black/15 bg-black/5"><Shield className="h-6 w-6" /></div><div><div className="text-xl font-black uppercase">Create League</div><div className="mt-1 text-xs font-bold text-black/65">Start a new league and invite your group.</div></div><ArrowRight className="ml-auto transition group-hover:translate-x-1" /></button>
           <button onClick={onOpenJoinLeague} className="group flex min-h-28 items-center gap-4 rounded-2xl border border-white/10 bg-[#111318]/95 p-5 text-left transition hover:border-[#D4AF37]/40 active:scale-[.99]"><div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-[#D4AF37]/20 bg-[#D4AF37]/5"><Users className="h-6 w-6 text-[#D4AF37]" /></div><div><div className="text-xl font-black uppercase">Join With Code</div><div className="mt-1 text-xs font-semibold text-zinc-400">Enter a league code to join instantly.</div></div><ArrowRight className="ml-auto text-[#D4AF37] transition group-hover:translate-x-1" /></button>
         </div>
+        {publicMatchError&&<div className="-mt-6 mb-8 rounded-xl border border-red-400/25 bg-red-400/5 p-3 text-xs font-bold text-red-300">{publicMatchError}</div>}
 
         <div className="mb-4 flex items-end justify-between border-b border-white/10 pb-4"><div><h3 className="font-display text-2xl font-black uppercase">Your Leagues</h3><p className="mt-1 text-xs font-semibold text-zinc-500">{leagues.length} active or saved league{leagues.length === 1 ? '' : 's'}</p></div><button onClick={onOpenCreateLeague} className="min-h-11 rounded-lg border border-[#D4AF37]/35 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-[#D4AF37]">+ New League</button></div>
 
@@ -74,7 +86,10 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({ onOpenCreateLeague, onOp
           const mine = league.members.find(m => m.userId === currentUser?.id);
           const submitted = league.members.filter(m => m.status === 'ready').length;
           const completed = league.status === 'completed';
-          return <article key={league.id} className="group relative overflow-hidden rounded-2xl border border-white/10 bg-[#0d1014]/95 p-5 shadow-xl sm:p-6"><div className="pointer-events-none absolute right-0 top-0 h-full w-1/2 bg-[radial-gradient(circle_at_80%_45%,rgba(212,175,55,.12),transparent_55%)]"/><div className="relative z-10"><div className="flex items-start justify-between gap-3"><div><div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#D4AF37]">{league.commissionerId === currentUser?.id && <><Crown className="h-3.5 w-3.5"/> Commissioner · </>}{league.code}</div><h4 className="mt-2 font-display text-2xl font-black uppercase sm:text-3xl">{league.name}</h4><div className="mt-1 text-xs font-bold uppercase tracking-wider text-zinc-500">{league.members.length}/{league.maxMembers} members · {completed ? 'Complete' : 'Private league'}</div></div></div>
+          const isPublic=league.settings?.leagueType==='public_free';
+          const humans=league.members.filter(member=>!member.isAi).length;
+          const cpu=league.members.length-humans;
+          return <article key={league.id} className="group relative overflow-hidden rounded-2xl border border-white/10 bg-[#0d1014]/95 p-5 shadow-xl sm:p-6"><div className="pointer-events-none absolute right-0 top-0 h-full w-1/2 bg-[radial-gradient(circle_at_80%_45%,rgba(212,175,55,.12),transparent_55%)]"/><div className="relative z-10"><div className="flex items-start justify-between gap-3"><div><div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#D4AF37]">{league.commissionerId === currentUser?.id && <><Crown className="h-3.5 w-3.5"/> Commissioner · </>}{isPublic&&<>Public Free · </>}{league.code}</div><h4 className="mt-2 font-display text-2xl font-black uppercase sm:text-3xl">{league.name}</h4><div className="mt-1 text-xs font-bold uppercase tracking-wider text-zinc-500">{league.members.length}/{league.maxMembers} teams · {completed?'Complete':isPublic?`${humans} human${humans===1?'':'s'} · ${cpu} CPU`:'Private league'}</div></div></div>
           <div className="mt-5 grid grid-cols-2 gap-2 border-y border-white/5 py-4 sm:grid-cols-4"><div><div className="text-[9px] font-black uppercase tracking-widest text-zinc-600">Current Phase</div><div className="mt-1 text-sm font-black text-[#D4AF37]">{completed ? 'FINAL' : league.status === 'simulating' ? 'SIMULATING' : submitted === league.members.length && submitted > 1 ? 'READY' : 'DRAFT'}</div></div><div><div className="text-[9px] font-black uppercase tracking-widest text-zinc-600">Owners Ready</div><div className="mt-1 text-sm font-black">{submitted}/{league.members.length}</div></div><div><div className="text-[9px] font-black uppercase tracking-widest text-zinc-600">Your Roster</div><div className="mt-1 text-sm font-black">{mine?.status === 'ready' ? 'LOCKED' : 'BUILD'}</div></div><div><div className="text-[9px] font-black uppercase tracking-widest text-zinc-600">Cap</div><div className="mt-1 text-sm font-black">${league.salaryCap}M</div></div></div>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center"><button onClick={() => onSelectLeague(league, completed ? 'simulation' : 'lobby')} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[.04] px-4 py-3 text-xs font-black uppercase tracking-wider hover:border-[#D4AF37]/35">{completed ? <Trophy className="h-4 w-4"/> : <Users className="h-4 w-4"/>}{completed ? 'View Results' : 'League Lobby'}</button>{!completed && <button onClick={() => onSelectLeague(league, 'draft')} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#D4AF37] px-4 py-3 text-xs font-black uppercase tracking-wider text-black">{mine?.status === 'ready' ? 'View Draft Board' : 'Build Your Team'}<ArrowRight className="h-4 w-4"/></button>}</div></div></article>;
         })}</div>}

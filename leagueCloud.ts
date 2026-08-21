@@ -189,6 +189,28 @@ export async function joinCloudLeague(inviteCode:string,user:UserLike):Promise<L
   return league;
 }
 
+export async function joinOrCreatePublicCloudLeague(user:UserLike,maxMembers=10):Promise<League> {
+  if(!supabase) throw new Error('Public matchmaking is unavailable because online services are not configured.');
+  const auth=await ensureOnlineSession();
+  const {data:leagueId,error}=await supabase.rpc('join_or_create_ball_knower_public_league',{
+    p_user_name:user.name,
+    p_user_avatar:user.avatarUrl||null,
+    p_max_members:maxMembers,
+  });
+  if(error) throw error;
+  const league=await fetchCloudLeague(String(leagueId));
+  if(!league) throw new Error('Your public league was found, but its lobby could not be loaded. Try again.');
+  const created=league.commissionerId===auth.id && league.members.filter(member=>!member.isAi).length===1;
+  await logLeagueEvent(
+    league.id,
+    created?'public_league_created':'public_member_joined',
+    created?`${user.name} opened a free public league.`:`${user.name} joined through public matchmaking.`,
+    user.name,
+    {leagueType:'public_free'},
+  );
+  return league;
+}
+
 export async function saveMyCloudRoster(leagueId:string, roster:Player[], ratings:TeamRatings) {
   if(!supabase) return;
   await ensureOnlineSession();
@@ -247,7 +269,15 @@ export async function upsertAiCloudMembers(leagueId:string, members:LeagueMember
   const rows=members.map(m=>({id:m.id,league_id:leagueId,auth_user_id:null,app_user_id:m.userId,user_name:m.userName,user_avatar:m.userAvatar||null,is_commissioner:false,is_ai:true,ai_archetype:m.aiArchetype||null,status:m.status,roster:m.roster||null,team_ratings:m.teamRatings||null,submitted_at:m.submittedAt||null}));
   const {error}=await supabase.from('ball_knower_league_members').upsert(rows,{onConflict:'id'});
   if(error) throw error;
-  await logLeagueEvent(leagueId,'ai_fill',`${members.length} AI GM${members.length===1?'':'s'} added to the league.`,'Commissioner',{count:members.length});
+  await logLeagueEvent(leagueId,'cpu_fill',`${members.length} CPU GM${members.length===1?'':'s'} added to the league.`,'Commissioner',{count:members.length});
+}
+
+export async function lockPublicLeagueForCpuFill(leagueId:string):Promise<number> {
+  if(!supabase) return 0;
+  await ensureOnlineSession();
+  const {data,error}=await supabase.rpc('lock_ball_knower_public_league_for_cpu_fill',{p_league_id:leagueId});
+  if(error) throw error;
+  return Math.max(0,Number(data)||0);
 }
 
 export async function deleteCloudMember(leagueId:string,memberId:string) {
