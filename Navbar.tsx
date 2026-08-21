@@ -42,7 +42,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   useEffect(() => {
     const el = document.getElementById(`nav-tab-${currentTab}`);
-    el?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    el?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
   }, [currentTab]);
 
   useEffect(() => {
@@ -110,26 +110,26 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   };
 
-  const tabClass = (tab: AppTab) => `relative h-full shrink-0 flex items-center gap-1.5 whitespace-nowrap border-b-2 px-0.5 text-[11px] sm:text-xs font-black uppercase tracking-[.13em] transition-colors ${
+  const tabClass = (tab: AppTab) => `relative h-full shrink-0 snap-center flex items-center gap-1.5 whitespace-nowrap border-b-2 px-0.5 text-[11px] sm:text-xs font-black uppercase tracking-[.13em] transition-colors ${
     currentTab === tab ? 'border-[var(--bk-team-accent)] text-[var(--bk-team-accent)]' : 'border-transparent text-zinc-500 hover:text-white'
   }`;
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-[var(--bk-team-accent)]/20 bg-[#090c12]/85 shadow-2xl shadow-black/20 backdrop-blur-xl supports-[backdrop-filter]:bg-[#090c12]/72">
-      <div className="mx-auto flex h-20 pt-[env(safe-area-inset-top)] max-w-7xl items-center justify-between gap-3 px-4 sm:px-8">
+      <div className="mx-auto flex h-[calc(4rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] max-w-7xl items-center justify-between gap-1.5 px-2 sm:h-[calc(5rem+env(safe-area-inset-top))] sm:gap-3 sm:px-8">
         <button id="nav-logo-btn" onClick={() => setCurrentTab('home')} className="shrink-0 text-left focus:outline-none">
-          <h1 className="font-display text-[28px] font-black leading-[.85] tracking-tighter text-white sm:text-3xl">
+          <h1 className="font-display text-[20px] font-black leading-[.85] tracking-tighter text-white sm:text-3xl">
             BALL <span className="block text-[var(--bk-team-accent)] sm:inline">KNOWER</span>
           </h1>
         </button>
 
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:gap-4">
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 sm:gap-4">
           {activeLeague && (
             <div className="relative min-w-0">
               <button
                 id="league-dropdown-btn"
                 onClick={() => setIsLeagueMenuOpen(v => !v)}
-                className="flex max-w-[180px] items-center gap-2 rounded-md border border-white/10 bg-[#1A1A1A] px-3 py-2 text-xs font-black uppercase tracking-wider text-zinc-200 hover:border-[var(--bk-team-accent)]/50 sm:max-w-[260px]"
+                className="flex max-w-[96px] items-center gap-1.5 rounded-md border border-white/10 bg-[#1A1A1A] px-2 py-2 text-[10px] font-black uppercase tracking-wider text-zinc-200 hover:border-[var(--bk-team-accent)]/50 sm:max-w-[260px] sm:gap-2 sm:px-3 sm:text-xs"
               >
                 <Trophy className="h-4 w-4 shrink-0 text-[var(--bk-team-accent)]" />
                 <span className="truncate">{activeLeague.name}</span>
@@ -175,7 +175,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {currentUser ? (
             <div className="relative shrink-0">
               <button id="user-profile-btn" onClick={() => setIsUserMenuOpen(v => !v)} className="rounded-full border-2 border-[var(--bk-team-accent)] p-0.5 hover:ring-2 hover:ring-[var(--bk-team-accent)]/40">
-                <div className="h-9 w-9 overflow-hidden rounded-full bg-zinc-800">
+                <div className="h-8 w-8 overflow-hidden rounded-full bg-zinc-800 sm:h-9 sm:w-9">
                   <img src={currentUser.avatarUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=BallKnower'} alt={currentUser.name} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
                 </div>
               </button>
@@ -207,7 +207,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      <nav className="h-12 overflow-x-auto border-t border-white/5 bg-[#181818] no-scrollbar [-webkit-overflow-scrolling:touch]">
+      <nav aria-label="Primary navigation" className="h-12 snap-x snap-proximity scroll-px-4 overflow-x-auto overscroll-x-contain border-t border-white/5 bg-[#181818] no-scrollbar [-webkit-overflow-scrolling:touch]">
         <div className="mx-auto flex h-full min-w-max items-stretch gap-5 px-4 sm:gap-7 sm:px-8">
           <button id="nav-tab-home" onClick={() => setCurrentTab('home')} className={tabClass('home')}>Overview</button>
           <button id="nav-tab-solo" onClick={() => setCurrentTab('solo')} className={tabClass('solo')}><Play className="h-3.5 w-3.5" /> Solo</button>
