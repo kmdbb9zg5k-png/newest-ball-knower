@@ -26,14 +26,19 @@ function validMoveDestination(value: unknown): value is string {
 }
 
 function validPersistedPlayer(value: unknown): value is Player {
-  if (!value || typeof value !== 'object') return false;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const player = value as Partial<Player>;
-  return typeof player.id === 'string'
-    && typeof player.name === 'string'
+  const attributes = player.attributes as Partial<Player['attributes']> | undefined;
+  return typeof player.id === 'string' && player.id.trim().length > 0
+    && typeof player.name === 'string' && player.name.trim().length > 0
     && validTeamAbbr(player.team)
-    && typeof player.position === 'string'
-    && Number.isFinite(Number(player.ovr))
-    && Number.isFinite(Number(player.salary));
+    && typeof player.teamCity === 'string' && player.teamCity.trim().length > 0
+    && typeof player.position === 'string' && player.position.trim().length > 0
+    && typeof player.ovr === 'number' && Number.isFinite(player.ovr)
+    && typeof player.salary === 'number' && Number.isFinite(player.salary)
+    && !!attributes && typeof attributes === 'object' && !Array.isArray(attributes)
+    && typeof attributes.athleticism === 'number' && Number.isFinite(attributes.athleticism)
+    && typeof attributes.footballIQ === 'number' && Number.isFinite(attributes.footballIQ);
 }
 
 function restoreSave(): FranchiseSave | null {
