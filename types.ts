@@ -293,6 +293,9 @@ export interface LeagueSettings {
   playoffTeams?: 4 | 6 | 8;
   injuriesEnabled?: boolean;
   aiDifficulty?: 'pro' | 'all_pro' | 'all_madden';
+  leagueType?: 'private' | 'public_free';
+  autoFillCpu?: boolean;
+  matchmakingOpen?: boolean;
 }
 
 export interface League {
@@ -308,6 +311,9 @@ export interface League {
   seasonResult?: SeasonResult;
   createdAt: string;
   settings?: LeagueSettings;
+  inviteEnabled?: boolean;
+  paused?: boolean;
+  rostersLocked?: boolean;
 }
 
 export interface RosterMismatch {

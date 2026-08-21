@@ -1,6 +1,7 @@
-import { Player, LeagueMember } from './types';
+import { DEFAULT_SALARY_CAP, LeagueMember, Player, ROSTER_REQUIREMENTS } from './types';
 import { PLAYERS_DATABASE } from './players';
 import { calculateTeamRatings } from './evaluation';
+import { DraftPositionGroup, getDraftPositionGroup, validateRosterShape } from './rosterRules';
 
 interface AiArchetype {
   id: string;
@@ -216,27 +217,86 @@ export const AI_ARCHETYPES: AiArchetype[] = [
   },
 ];
 
-export function buildRosterForArchetype(archetype: AiArchetype): Player[] {
-  const roster: Player[] = [];
-  archetype.playerIds.forEach(id => {
-    const player = PLAYERS_DATABASE.find(p => p.id === id);
-    if (player) {
-      roster.push(player);
-    }
-  });
+export function buildRosterForArchetype(archetype: AiArchetype,seed=0,salaryCap=DEFAULT_SALARY_CAP): Player[] {
+  const groupWeights:Partial<Record<DraftPositionGroup,number>>={};
+  if(archetype.id==='ai-tyler') Object.assign(groupWeights,{OL:1.28,DL_EDGE:1.24});
+  if(archetype.id==='ai-jay') Object.assign(groupWeights,{QB:1.34,WR:1.25,TE:1.16});
+  if(archetype.id==='ai-mike') Object.assign(groupWeights,{DL_EDGE:1.26,LB:1.2,CB:1.24,S:1.22});
+  if(archetype.id==='ai-dave') Object.assign(groupWeights,{RB:1.3,OL:1.2,DL_EDGE:1.12,LB:1.1});
+  if(archetype.id==='ai-chris') Object.assign(groupWeights,{QB:1.22,WR:1.22,DL_EDGE:1.18,CB:1.12});
+
+  const archetypeTarget:Record<string,number>={
+    'ai-elijah':89,'ai-tyler':88,'ai-jay':90,'ai-mike':90,'ai-marcus':87,'ai-dave':88,'ai-chris':86,
+  };
+  const capTarget:Record<string,number>={
+    'ai-elijah':270,'ai-tyler':260,'ai-jay':280,'ai-mike':275,'ai-marcus':205,'ai-dave':260,'ai-chris':300,
+  };
+  const activeCap=Math.max(0,Number(salaryCap)||0);
+  const upgradeBudget=Math.min(capTarget[archetype.id]||DEFAULT_SALARY_CAP,activeCap);
+  const stableJitter=(id:string)=>{
+    let hash=seed+17;
+    for(const char of `${archetype.id}-${id}`) hash=(hash*31+char.charCodeAt(0))>>>0;
+    return (hash%31)/20;
+  };
+  const maxOvrFor=(group:DraftPositionGroup)=>{
+    if(archetype.id==='ai-chris') return ['QB','WR','DL_EDGE'].includes(group)?99:83;
+    return Math.min(96,(archetypeTarget[archetype.id]||88)+Math.round(((groupWeights[group]||1)-1)*22));
+  };
+  const score=(player:Player,group:DraftPositionGroup)=>{
+    const weight=groupWeights[group]||1;
+    const iq=Number(player.attributes?.footballIQ)||player.ovr;
+    const athletic=Number(player.attributes?.athleticism)||player.ovr;
+    const moneyballPenalty=archetype.id==='ai-marcus'?player.salary*.32:player.salary*.04;
+    return (player.ovr*.84+iq*.1+athletic*.06)*weight-moneyballPenalty+stableJitter(player.id);
+  };
+
+  const pool=PLAYERS_DATABASE.filter(player=>player.active!==false&&!player.isFreeAgent&&getDraftPositionGroup(player));
+  const roster:Player[]=[];
+  for(const [group,required] of Object.entries(ROSTER_REQUIREMENTS) as [DraftPositionGroup,number][]){
+    const cheapest=pool
+      .filter(player=>getDraftPositionGroup(player)===group)
+      .sort((a,b)=>a.salary-b.salary||b.ovr-a.ovr)
+      .slice(0,required);
+    roster.push(...cheapest);
+  }
+
+  let spent=roster.reduce((sum,player)=>sum+player.salary,0);
+  for(let pass=0;pass<180;pass++){
+    const selectedIds=new Set(roster.map(player=>player.id));
+    let best:{slot:number;player:Player;gain:number;cost:number;efficiency:number}|null=null;
+    roster.forEach((current,slot)=>{
+      const group=getDraftPositionGroup(current);
+      if(!group)return;
+      for(const candidate of pool){
+        if(getDraftPositionGroup(candidate)!==group||candidate.ovr>maxOvrFor(group)||(selectedIds.has(candidate.id)&&candidate.id!==current.id))continue;
+        const gain=score(candidate,group)-score(current,group);
+        const cost=candidate.salary-current.salary;
+        if(gain<=0||spent+cost>upgradeBudget+.0001)continue;
+        const efficiency=gain/Math.max(.25,cost+.25);
+        if(!best||efficiency>best.efficiency||(efficiency===best.efficiency&&gain>best.gain)) best={slot,player:candidate,gain,cost,efficiency};
+      }
+    });
+    if(!best)break;
+    roster[best.slot]=best.player;
+    spent+=best.cost;
+  }
+
+  if(roster.length!==20||validateRosterShape(roster).length||spent>activeCap+.0001){
+    throw new Error(`CPU roster generation failed for ${archetype.name}.`);
+  }
   return roster;
 }
 
-export function generateAiLeagueMembers(count: number, startIndex = 0): LeagueMember[] {
+export function generateAiLeagueMembers(count: number, startIndex = 0, salaryCap = DEFAULT_SALARY_CAP): LeagueMember[] {
   const members: LeagueMember[] = [];
   for (let i = 0; i < count; i++) {
     const arch = AI_ARCHETYPES[(startIndex + i) % AI_ARCHETYPES.length];
-    const roster = buildRosterForArchetype(arch);
+    const roster = buildRosterForArchetype(arch,startIndex+i,salaryCap);
     const ratings = calculateTeamRatings(roster);
     members.push({
       id: `member-${arch.id}-${Date.now()}-${i}`,
-      userId: arch.id,
-      userName: arch.name.split(' (')[0], // clean display name
+      userId: `${arch.id}-${startIndex+i}`,
+      userName: `${arch.name.split(' (')[0]} CPU${Math.floor((startIndex+i)/AI_ARCHETYPES.length)>0?` ${Math.floor((startIndex+i)/AI_ARCHETYPES.length)+1}`:''}`,
       userAvatar: arch.avatar,
       isCommissioner: false,
       isAi: true,

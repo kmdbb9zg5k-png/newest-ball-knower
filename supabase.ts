@@ -1,7 +1,13 @@
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
+import {
+  BALL_KNOWER_SUPABASE_PUBLISHABLE_KEY,
+  BALL_KNOWER_SUPABASE_URL,
+} from './supabaseDefaults';
 
-const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || BALL_KNOWER_SUPABASE_URL;
+const key = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined)
+  || (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)
+  || BALL_KNOWER_SUPABASE_PUBLISHABLE_KEY;
 
 export const isCloudConfigured = Boolean(url && key && !url.includes('YOUR_PROJECT'));
 
