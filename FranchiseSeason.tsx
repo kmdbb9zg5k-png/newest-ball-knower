@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ChevronRight, Play, RotateCcw, Trophy } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Play, RotateCcw, Trophy, Users } from 'lucide-react';
 import { calculateTeamRatings } from './evaluation';
 import { simulateGame } from './simulation';
 import {
@@ -17,7 +17,8 @@ import { TeamTheme, TEAM_THEMES, teamLogoUrl } from './teamTheme';
 import { LeagueMember, Player } from './types';
 
 type PlayoffResult = { round: string; opponent: string; you: number; them: number; won: boolean };
-type SeasonStage = 'regular' | 'playoffs' | 'finished';
+type SeasonStage = 'regular' | 'playoffs' | 'finished' | 'draft';
+type RookieProspect = { id: string; name: string; position: string; school: string; grade: number };
 
 type Props = {
   title: string;
@@ -36,7 +37,7 @@ function restoreSeason(key: string) {
     const raw = localStorage.getItem(key);
     if (!raw) return null;
     const saved = JSON.parse(raw);
-    if (!saved || saved.version !== 1 || !['regular', 'playoffs', 'finished'].includes(saved.stage)) return null;
+    if (!saved || saved.version !== 1 || !['regular', 'playoffs', 'finished', 'draft'].includes(saved.stage)) return null;
     if (!Array.isArray(saved.weeks) || saved.weeks.length > 17 || saved.weeks.some((week: any) => !week?.game || !Number.isFinite(Number(week.game.homeScore)) || !Number.isFinite(Number(week.game.awayScore)) || !Array.isArray(week.playerLines))) return null;
     if (!Array.isArray(saved.playoffs) || saved.playoffs.length > 4 || !Array.isArray(saved.injuries)) return null;
     return saved;
@@ -63,6 +64,8 @@ export const FranchiseSeason: React.FC<Props> = ({
   const [playoffs, setPlayoffs] = useState<PlayoffResult[]>(() => restored?.playoffs ?? []);
   const [injuries, setInjuries] = useState<InjuryEvent[]>(() => restored?.injuries ?? []);
   const [message, setMessage] = useState(() => restored?.message ?? 'Week 1 is ready.');
+  const [draftRound, setDraftRound] = useState<number>(() => restored?.draftRound ?? 1);
+  const [draftedProspects, setDraftedProspects] = useState<RookieProspect[]>(() => restored?.draftedProspects ?? []);
   const [isSimulating, setIsSimulating] = useState(false);
   const simulationLock = useRef(false);
   const schedule = useMemo(() => franchiseSchedule(userTeam.abbr), [userTeam.abbr]);
@@ -76,11 +79,11 @@ export const FranchiseSeason: React.FC<Props> = ({
 
   useEffect(() => {
     try {
-      localStorage.setItem(seasonKey, JSON.stringify({ version: 1, stage, weeks, playoffs, injuries, message }));
+      localStorage.setItem(seasonKey, JSON.stringify({ version: 1, stage, weeks, playoffs, injuries, message, draftRound, draftedProspects }));
     } catch (error) {
       console.warn('Unable to save franchise season', error);
     }
-  }, [seasonKey, stage, weeks, playoffs, injuries, message]);
+  }, [seasonKey, stage, weeks, playoffs, injuries, message, draftRound, draftedProspects]);
 
   const rosterFor = (team: TeamTheme) => opponentRosters?.[team.abbr] ?? buildRealTeamRoster(team.abbr);
   const unlockSimulation = () => window.setTimeout(() => {
@@ -213,6 +216,29 @@ export const FranchiseSeason: React.FC<Props> = ({
     try { localStorage.removeItem(seasonKey); } catch (error) { console.warn('Unable to clear franchise season', error); }
   };
 
+  const startDraft = () => {
+    setDraftRound(1);
+    setDraftedProspects([]);
+    setStage('draft');
+    setMessage('Your scouts are ready. You make every one of your seven picks.');
+  };
+
+  const selectProspect = (prospect: RookieProspect) => {
+    const next = [...draftedProspects, prospect];
+    setDraftedProspects(next);
+    if (draftRound === 7) {
+      setWeeks([]);
+      setPlayoffs([]);
+      setInjuries([]);
+      setStage('regular');
+      setDraftRound(1);
+      setMessage(`Draft complete — ${next.map(player => player.name).join(', ')} join your franchise. Week 1 is ready.`);
+      return;
+    }
+    setDraftRound(round => round + 1);
+    setMessage(`${prospect.name} is the pick. CPU teams simulated forward to your next selection.`);
+  };
+
   return (
     <div className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
       <div className="mx-auto max-w-6xl">
@@ -319,9 +345,11 @@ export const FranchiseSeason: React.FC<Props> = ({
             <Trophy className="mx-auto text-[var(--bk-team-accent)]" size={64} />
             <h3 className="mt-4 text-4xl font-black">{message.includes('WORLD CHAMPION') ? 'SUPER BOWL CHAMPION' : 'SEASON COMPLETE'}</h3>
             <p className="mx-auto mt-3 max-w-xl text-zinc-400">{message}</p>
-            <button type="button" onClick={resetSeason} className="mt-6 rounded-2xl bg-[var(--bk-team-accent)] px-6 py-4 font-black text-[var(--bk-on-accent)]">PLAY ANOTHER SEASON</button>
+            <button type="button" onClick={startDraft} className="mt-6 rounded-2xl bg-[var(--bk-team-accent)] px-6 py-4 font-black text-[var(--bk-on-accent)]">ENTER OFFSEASON DRAFT</button>
           </div>
         ) : null}
+
+        {stage === 'draft' ? <OffseasonDraft round={draftRound} wins={wins} selected={draftedProspects} onSelect={selectProspect} /> : null}
       </div>
     </div>
   );
@@ -348,3 +376,25 @@ const SeasonPanel = ({ title, children }: { title: string; children: React.React
     {children}
   </div>
 );
+
+const PROSPECTS: RookieProspect[] = [
+  { id: 'r-qb-wade', name: 'Cam Wade', position: 'QB', school: 'Texas', grade: 94 },
+  { id: 'r-edge-cross', name: 'Malik Cross', position: 'EDGE', school: 'Georgia', grade: 93 },
+  { id: 'r-wr-porter', name: 'Jalen Porter', position: 'WR', school: 'Ohio State', grade: 92 },
+  { id: 'r-cb-stokes', name: 'Devin Stokes', position: 'CB', school: 'Alabama', grade: 91 },
+  { id: 'r-ot-king', name: 'Trey King', position: 'OT', school: 'Notre Dame', grade: 90 },
+  { id: 'r-dt-hayes', name: 'Darius Hayes', position: 'DT', school: 'Michigan', grade: 89 },
+  { id: 'r-rb-foster', name: 'Micah Foster', position: 'RB', school: 'Oregon', grade: 88 },
+  { id: 'r-s-reed', name: 'Kenny Reed', position: 'S', school: 'LSU', grade: 87 },
+  { id: 'r-lb-wells', name: 'Jordan Wells', position: 'LB', school: 'Penn State', grade: 86 },
+  { id: 'r-te-banks', name: 'Andre Banks', position: 'TE', school: 'Miami', grade: 85 },
+  { id: 'r-og-fields', name: 'Noah Fields', position: 'OG', school: 'Iowa', grade: 84 },
+  { id: 'r-wr-davis', name: 'Troy Davis', position: 'WR', school: 'USC', grade: 83 },
+];
+
+const OffseasonDraft = ({ round, wins, selected, onSelect }: { round: number; wins: number; selected: RookieProspect[]; onSelect: (prospect: RookieProspect) => void }) => {
+  const draftSlot = Math.max(1, Math.min(32, 4 + wins * 2));
+  const available = PROSPECTS.filter(prospect => !selected.some(player => player.id === prospect.id));
+  const cpuBefore = Math.max(0, draftSlot - 1);
+  return <div className="grid gap-4 lg:grid-cols-[1fr_19rem]"><section className="rounded-[2rem] border border-[var(--bk-team-accent)]/25 bg-[#10151d] p-5 sm:p-7"><div className="flex items-center gap-3 text-[var(--bk-team-accent)]"><Users/><span className="text-[10px] font-black tracking-[.24em]">LIVE 32-TEAM ROOKIE DRAFT</span></div><h2 className="mt-2 text-4xl font-black">YOU'RE ON THE CLOCK</h2><p className="mt-2 text-sm text-zinc-400">Round {round}, Pick {draftSlot}. The {cpuBefore} teams ahead of you have already simulated their selections. Nobody picks for you.</p><div className="mt-5 grid gap-2 sm:grid-cols-2">{available.map(prospect => <button key={prospect.id} onClick={() => onSelect(prospect)} className="flex min-h-20 items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-4 text-left hover:border-[var(--bk-team-accent)]/50"><div><div className="text-base font-black">{prospect.name}</div><div className="text-[10px] font-bold text-zinc-500">{prospect.position} · {prospect.school}</div></div><div className="text-right"><div className="text-xl font-black text-[var(--bk-team-accent)]">{prospect.grade}</div><div className="text-[8px] font-black text-zinc-600">SCOUT GRADE</div></div></button>)}</div></section><aside className="space-y-3"><SeasonPanel title="YOUR DRAFT CLASS">{selected.length ? selected.map((prospect, index) => <div key={prospect.id} className="border-b border-white/5 py-2 text-sm"><b>R{index + 1}: {prospect.name}</b><div className="text-xs text-zinc-500">{prospect.position} · {prospect.school}</div></div>) : <p className="text-sm text-zinc-500">No picks yet.</p>}</SeasonPanel><SeasonPanel title="CPU PICK SIMULATION"><p className="text-sm text-zinc-400">After your selection, the other 31 CPU front offices draft by roster need and prospect grade. The board then advances automatically to your next pick.</p></SeasonPanel></aside></div>;
+};
