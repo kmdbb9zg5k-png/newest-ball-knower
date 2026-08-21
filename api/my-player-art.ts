@@ -1,5 +1,9 @@
 import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
+import {
+  BALL_KNOWER_SUPABASE_PUBLISHABLE_KEY,
+  BALL_KNOWER_SUPABASE_URL,
+} from '../supabaseDefaults';
 
 const recentRequests = new Map<string, number[]>();
 
@@ -20,8 +24,11 @@ function allowed(ip: string) {
 export default async function handler(req: any, res: any) {
   res.setHeader('Cache-Control', 'no-store');
   const apiKey = process.env.GEMINI_API_KEY;
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || BALL_KNOWER_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_PUBLISHABLE_KEY
+    || process.env.VITE_SUPABASE_PUBLISHABLE_KEY
+    || process.env.VITE_SUPABASE_ANON_KEY
+    || BALL_KNOWER_SUPABASE_PUBLISHABLE_KEY;
   const configured = Boolean(apiKey && supabaseUrl && supabaseKey);
   if (req.method === 'GET') return res.status(200).json({ available: configured });
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
