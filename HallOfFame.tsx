@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Bot, Crown, Trophy, Wifi, WifiOff } from 'lucide-react';
-import { fetchLeaderboard } from './leaderboardCloud';
-import { isCloudConfigured } from './supabase';
+import { Bot, Crown, Trophy } from 'lucide-react';
+import { fetchLeaderboard, publishCareer } from './leaderboardCloud';
 import { defaultCareer, CareerProfile } from './soloSeasonEngine';
+import { useBallKnower } from './BallKnowerContext';
+import { CloudSyncBadge, useCloudSyncStatus } from './CloudSyncProvider';
 
 const CAREER_KEY='ballknower_solo_career_v1';
 const RIVAL_POOL = [
@@ -22,21 +23,30 @@ function simulatedRivals(){
 }
 
 export const HallOfFame:React.FC=()=>{
+ const {currentUser}=useBallKnower();
+ const cloudStatus=useCloudSyncStatus();
  const [rows,setRows]=useState<any[]>([]);
  const [career]=useState<CareerProfile>(()=>{try{return JSON.parse(localStorage.getItem(CAREER_KEY)||'null')||defaultCareer()}catch{return defaultCareer()}});
- const [loading,setLoading]=useState(isCloudConfigured);
+ const [loading,setLoading]=useState(cloudStatus==='connecting');
  useEffect(()=>{
+  let active=true;
   const rivals=simulatedRivals();
-  if(!isCloudConfigured){setRows(rivals);setLoading(false);return;}
-  fetchLeaderboard().then(real=>setRows([...real,...rivals].sort((a,b)=>b.championships-a.championships||b.best_ball_knower_score-a.best_ball_knower_score).slice(0,50))).catch(()=>setRows(rivals)).finally(()=>setLoading(false));
- },[]);
+  if(cloudStatus!=='online'){setRows(rivals);setLoading(false);return()=>{active=false};}
+  setLoading(true);
+  publishCareer(currentUser?.name||'Ball Knower GM',career)
+   .then(()=>fetchLeaderboard())
+   .then(real=>{if(active)setRows([...real,...rivals].sort((a,b)=>b.championships-a.championships||b.best_ball_knower_score-a.best_ball_knower_score).slice(0,50))})
+   .catch(()=>{if(active)setRows(rivals)})
+   .finally(()=>{if(active)setLoading(false)});
+  return()=>{active=false};
+ },[cloudStatus,currentUser?.id,currentUser?.name]);
  return <div className="min-h-screen bg-[#090909] text-white px-4 sm:px-8 py-10"><div className="max-w-5xl mx-auto">
   <div className="text-center mb-8"><Crown className="mx-auto text-[#D4AF37]" size={55}/><div className="text-xs text-[#D4AF37] font-black tracking-[.3em] mt-3">BALL KNOWER LEGACY</div><h2 className="text-5xl font-black">HALL OF FAME</h2><p className="text-zinc-400 mt-2">Championships, career wins, perfect seasons, and the highest Ball Knower scores.</p></div>
   <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-8">
    <Stat l="Your Titles" v={career.championships}/><Stat l="Career W-L" v={`${career.regularWins}-${career.regularLosses}`}/><Stat l="Playoff Wins" v={career.playoffWins}/><Stat l="Best Record" v={career.bestRecord}/><Stat l="Best BK" v={career.bestScore}/><Stat l="Perfect Seasons" v={career.perfectSeasons}/>
   </div>
   <div className="bg-[#111] border border-white/10">
-   <div className="p-4 border-b border-white/10 flex justify-between items-center"><h3 className="font-black text-xl flex gap-2 items-center"><Trophy className="text-[#D4AF37]"/>GLOBAL LEADERBOARD</h3><span className={`text-xs font-black flex gap-1 items-center ${isCloudConfigured?'text-green-400':'text-amber-300'}`}>{isCloudConfigured?<><Wifi size={14}/> ONLINE</>:<><WifiOff size={14}/> CONNECT SUPABASE</>}</span></div>
+   <div className="p-4 border-b border-white/10 flex flex-wrap justify-between items-center gap-3"><h3 className="font-black text-xl flex gap-2 items-center"><Trophy className="text-[#D4AF37]"/>GLOBAL LEADERBOARD</h3><CloudSyncBadge/></div>
    {loading?<div className="p-10 text-center text-zinc-500">Loading legends...</div>:rows.length===0?<div className="p-10 text-center text-zinc-500">No published runs yet. Be the first.</div>:
    <div className="divide-y divide-white/5">{rows.map((r,i)=><div key={r.auth_user_id} className="grid grid-cols-[42px_1fr_repeat(3,auto)] gap-2 sm:gap-4 items-center p-3 sm:p-4"><div className="text-lg sm:text-xl font-black text-[#D4AF37]">{i===0?'👑':i===1?'🥈':i===2?'🥉':`#${i+1}`}</div><div className="min-w-0"><div className="truncate font-black">{r.display_name} {r.is_ai_rival&&<span className="ml-1 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-1.5 py-0.5 text-[8px] text-cyan-300">AI RIVAL</span>}</div><div className="text-xs text-zinc-500">{r.best_record} best record</div></div><Cell l="RINGS" v={r.championships}/><Cell l="WINS" v={r.career_wins}/><Cell l="BK" v={r.best_ball_knower_score}/></div>)}</div>}
    <div className="border-t border-white/10 px-4 py-3 text-[10px] font-bold text-zinc-500"><Bot className="mr-1 inline h-3 w-3"/> AI RIVALS are simulated opponents—not human accounts. Verified players publish through Supabase.</div>
