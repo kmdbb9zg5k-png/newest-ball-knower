@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import type { AppTab } from './App';
 import { useBallKnower } from './BallKnowerContext';
 import { Trophy, Shield, User, LogOut, ChevronDown, Sparkles, Plus, Users, Award, Play, Newspaper, DollarSign, Loader2 } from 'lucide-react';
 import { SoundtrackControl } from './SoundtrackControl';
 import { isCloudConfigured, signOutOnline, supabase } from './supabase';
-
-type AppTab = 'home' | 'solo' | 'news' | 'fantasy' | 'sportsbook' | 'legacy' | 'lobby' | 'draft' | 'simulation';
 
 interface NavbarProps {
   currentTab: AppTab;

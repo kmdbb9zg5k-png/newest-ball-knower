@@ -68,7 +68,7 @@ interface BallKnowerContextType {
   // Commissioner Controls
   autoFillLeagueWithAi: (leagueId: string) => void;
   removeMemberFromLeague: (leagueId: string, memberId: string) => void;
-  startSimulation: (leagueId: string) => void;
+  startSimulation: (leagueId: string) => Promise<boolean>;
   resetLeagueSimulation: (leagueId: string) => void;
   updateSalaryCap: (leagueId: string, newCap: number) => void;
   updateLeagueSettings: (leagueId: string, settings: import('./types').LeagueSettings) => void;
@@ -91,12 +91,11 @@ const STORAGE_KEYS = {
 
 const BallKnowerContext = createContext<BallKnowerContextType | undefined>(undefined);
 
-// Initial demo user
 const DEFAULT_USER: UserProfile = {
   id: 'user-default-1',
-  name: 'Elijah Davis',
-  email: 'emoneyhunny1@gmail.com',
-  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+  name: 'Ball Knower Guest',
+  email: 'guest@ballknower.local',
+  avatarUrl: '',
   createdAt: new Date().toISOString(),
 };
 
@@ -104,7 +103,9 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [currentUser, setCurrentUserState] = useState<UserProfile | null>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.USER);
-      return saved ? JSON.parse(saved) : DEFAULT_USER;
+      if (!saved) return DEFAULT_USER;
+      const parsed = JSON.parse(saved) as UserProfile;
+      return parsed?.id === DEFAULT_USER.id ? { ...DEFAULT_USER, createdAt: parsed.createdAt || DEFAULT_USER.createdAt } : parsed;
     } catch {
       return DEFAULT_USER;
     }
@@ -140,6 +141,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       commissionerId: DEFAULT_USER.id,
       commissionerName: DEFAULT_USER.name,
       status: 'drafting',
+      settings: { seasonGames: 17 },
       members: [commissionerMember, ...aiMembers],
       createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
     };
@@ -248,25 +250,14 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const loginWithProvider = (provider: 'google' | 'apple' | 'email', customName?: string, customEmail?: string) => {
-    let name = customName || 'Fantasy GM';
-    let email = customEmail || `gm_${Date.now()}@ballknower.com`;
-    let avatarUrl = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80';
-
-    if (provider === 'google') {
-      name = customName || 'Alex Rivers (Google)';
-      email = customEmail || 'alex.rivers@gmail.com';
-      avatarUrl = 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=120&auto=format&fit=crop&q=80';
-    } else if (provider === 'apple') {
-      name = customName || 'Jordan Vance (Apple)';
-      email = customEmail || 'jordan.vance@icloud.com';
-      avatarUrl = 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=120&auto=format&fit=crop&q=80';
-    }
+    const name = customName?.trim() || (provider === 'google' ? 'Google User' : provider === 'apple' ? 'Apple User' : 'Fantasy GM');
+    const email = customEmail?.trim() || `${provider}@ballknower.local`;
 
     const newUser: UserProfile = {
       id: `user-${Date.now()}`,
       name,
       email,
-      avatarUrl,
+      avatarUrl: '',
       createdAt: new Date().toISOString(),
     };
 
@@ -472,7 +463,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const newLeague: League = {
         id: leagueId, code: randomCode, name: name.trim() || 'Ball Knower League',
         maxMembers, salaryCap: customCap, commissionerId: user.id, commissionerName: user.name,
-        status: 'drafting', members: [commissionerMember], createdAt: new Date().toISOString(),
+        status: 'drafting', settings: { seasonGames: 17 }, members: [commissionerMember], createdAt: new Date().toISOString(),
       };
       setLeagues(prev => [newLeague, ...prev]);
       setActiveLeagueId(newLeague.id);
@@ -535,36 +526,42 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     showToast('Removed member from league');
   };
 
-  // Commissioner: Start 16-game simulation
-  const startSimulation = (leagueId: string) => {
+  // Commissioner: Start 17-game simulation
+  const startSimulation = async (leagueId: string): Promise<boolean> => {
     const league = leagues.find(l => l.id === leagueId);
-    if (!league) return;
+    if (!league) return false;
 
-    // Strict Commissioner Check
     const isCommish = currentUser?.id === league.commissionerId || isDemoMode;
     if (!isCommish) {
-      showToast(`Only Commissioner ${league.commissionerName} can launch the 16-game simulation.`);
-      return;
+      showToast(`Only Commissioner ${league.commissionerName} can launch the 17-game simulation.`);
+      return false;
     }
 
-    // Check if any member has incomplete roster
     const unreadyMembers = league.members.filter(m => m.status !== 'ready' || !m.roster || m.roster.length < TOTAL_ROSTER_SIZE);
     if (unreadyMembers.length > 0) {
       showToast(`Cannot simulate: ${unreadyMembers.length} member(s) have not submitted their roster.`);
-      return;
+      return false;
     }
 
-    const results = simulateFullSeason(league.members, league.settings?.seasonGames || 16, league.settings?.simulationStyle || 'realistic');
+    const results = simulateFullSeason(league.members, league.settings?.seasonGames || 17, league.settings?.simulationStyle || 'realistic');
+
+    if (isCloudConfigured) {
+      try {
+        await updateCloudLeague(leagueId, { status: 'completed', seasonResult: results });
+        setCloudSyncError(null);
+      } catch (err:any) {
+        const message=err?.message || 'Could not sync season result';
+        setCloudSyncError(message);
+        showToast(message);
+        return false;
+      }
+    }
 
     setLeagues(prev =>
       prev.map(l => l.id === leagueId ? { ...l, status: 'completed', seasonResult: results } : l)
     );
-    if (isCloudConfigured) {
-      void updateCloudLeague(leagueId, { status: 'completed', seasonResult: results })
-        .catch((err:any) => setCloudSyncError(err?.message || 'Could not sync season result'));
-    }
-
     showToast('League season simulation complete! Draft Order is set!');
+    return true;
   };
 
   // Commissioner: Reset Simulation
@@ -589,6 +586,10 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Commissioner: Update salary cap
   const updateSalaryCap = (leagueId: string, newCap: number) => {
+    if (!Number.isFinite(newCap) || newCap <= 0) {
+      showToast('Enter a valid salary cap greater than zero.');
+      return;
+    }
     setLeagues(prev =>
       prev.map(l => {
         if (l.id !== leagueId) return l;
@@ -641,6 +642,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       commissionerId: user.id,
       commissionerName: user.name,
       status: 'drafting',
+      settings: { seasonGames: 17 },
       members: [demoCommissioner, ...demoAiMembers],
       createdAt: new Date().toISOString(),
     };

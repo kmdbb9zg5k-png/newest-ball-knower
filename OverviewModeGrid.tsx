@@ -4,7 +4,6 @@ import {
   Award,
   Newspaper,
   Shield,
-  Sparkles,
   Trophy,
   Users,
   UserRound,
@@ -93,14 +92,6 @@ export const OverviewModeGrid: React.FC<Props> = ({
       action: 'Open Fantasy',
       icon: BarChart3,
       onClick: () => onNavigate('fantasy'),
-    },
-    {
-      title: 'Sportsbook',
-      eyebrow: 'GAMES & ODDS',
-      description: 'See the NFL slate and sportsbook data in the same team-driven experience.',
-      action: 'View Odds',
-      icon: Sparkles,
-      onClick: () => onNavigate('sportsbook'),
     },
     {
       title: 'Hall of Fame',

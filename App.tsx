@@ -12,7 +12,7 @@ import { FavoriteTeamExperience } from './FavoriteTeamExperience';
 import { AppErrorBoundary } from './AppErrorBoundary';
 import { League } from './types';
 import { TeamTheme, applyTeamCssVariables, getSavedTeamTheme, teamLogoUrl } from './teamTheme';
-import { CheckCircle2, Play, Database } from 'lucide-react';
+import { Brain, CheckCircle2, Database, Play, Trophy, UserRound } from 'lucide-react';
 
 const SoloMode = lazy(() => import('./SoloMode').then(module => ({ default: module.SoloMode })));
 const NewsHub = lazy(() => import('./NewsHub').then(module => ({ default: module.NewsHub })));
@@ -25,8 +25,10 @@ const MobileDraftRoom = lazy(() => import('./MobileDraftRoom').then(module => ({
 const SimulationView = lazy(() => import('./SimulationView').then(module => ({ default: module.SimulationView })));
 const DatabaseVerificationModal = lazy(() => import('./DatabaseVerificationModal').then(module => ({ default: module.DatabaseVerificationModal })));
 const MobileRosterBrowser = lazy(() => import('./MobileRosterBrowser').then(module => ({ default: module.MobileRosterBrowser })));
+const ChallengesHub = lazy(() => import('./ChallengesHub').then(module => ({ default: module.ChallengesHub })));
+const LockerHub = lazy(() => import('./LockerHub').then(module => ({ default: module.LockerHub })));
 
-export type AppTab = 'home' | 'solo' | 'news' | 'fantasy' | 'sportsbook' | 'legacy' | 'lobby' | 'draft' | 'simulation';
+export type AppTab = 'home' | 'solo' | 'news' | 'fantasy' | 'sportsbook' | 'legacy' | 'challenges' | 'locker' | 'lobby' | 'draft' | 'simulation';
 
 const detectMobileDraftViewport = () => {
   try { return window.matchMedia('(max-width: 767px)').matches; } catch { return false; }
@@ -119,6 +121,7 @@ function BallKnowerApp() {
       <Navbar currentTab={currentTab} setCurrentTab={setCurrentTab} onOpenAuth={() => setIsAuthOpen(true)} onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onOpenIntro={openIntro} onOpenDatabaseModal={() => setIsDatabaseModalOpen(true)} />
       <main className="relative z-[3] w-full flex-1 pb-[env(safe-area-inset-bottom)]">
         {currentTab === 'home' && <>
+          <HubLauncher onNavigate={setCurrentTab} />
           <OverviewModeGrid
             onNavigate={setCurrentTab}
             onOpenCreateLeague={() => setIsCreateLeagueOpen(true)}
@@ -133,6 +136,8 @@ function BallKnowerApp() {
           {currentTab === 'fantasy' && <FantasyHub onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague} />}
           {currentTab === 'sportsbook' && <SportsbookHub />}
           {currentTab === 'legacy' && <HallOfFame />}
+          {currentTab === 'challenges' && <ChallengesHub />}
+          {currentTab === 'locker' && <LockerHub />}
           {currentTab === 'lobby' && activeLeague && <LeagueLobby league={activeLeague} onGoToDraft={() => setCurrentTab('draft')} onGoToSimulation={() => setCurrentTab('simulation')} />}
           {currentTab === 'draft' && (isMobileDraftViewport ? <MobileDraftRoom onBackToLobby={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} onSubmitSuccess={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} /> : <DraftRoom onBackToLobby={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} onSubmitSuccess={() => setCurrentTab(activeLeague ? 'lobby' : 'home')} />)}
           {currentTab === 'simulation' && activeLeague && <SimulationView league={activeLeague} onBackToLobby={() => setCurrentTab('lobby')} />}
@@ -156,6 +161,9 @@ function BallKnowerApp() {
     </div>
   );
 }
+
+const HubLauncher=({onNavigate}:{onNavigate:(tab:AppTab)=>void})=><section className="mx-auto max-w-7xl px-3 pt-4 sm:px-6"><div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-[#0b0e12]/90 p-2 sm:grid-cols-5"><HubButton label="Home" sub="Everything" icon={<Trophy className="h-4 w-4"/>} onClick={()=>onNavigate('home')}/><HubButton label="Solo" sub="Franchise" icon={<Play className="h-4 w-4"/>} onClick={()=>onNavigate('solo')}/><HubButton label="Leagues" sub="Fantasy HQ" icon={<Trophy className="h-4 w-4"/>} onClick={()=>onNavigate('fantasy')}/><HubButton label="Challenges" sub="Trivia + more" icon={<Brain className="h-4 w-4"/>} onClick={()=>onNavigate('challenges')}/><HubButton label="Profile" sub="Rating + Locker" icon={<UserRound className="h-4 w-4"/>} onClick={()=>onNavigate('locker')}/></div></section>;
+const HubButton=({label,sub,icon,onClick}:{label:string;sub:string;icon:React.ReactNode;onClick:()=>void})=><button onClick={onClick} className="min-h-16 rounded-xl border border-white/5 bg-white/[.025] px-3 text-left hover:border-[var(--bk-team-accent)]/30 hover:bg-[var(--bk-team-accent)]/5"><div className="flex items-center gap-2 text-[var(--bk-team-accent)]">{icon}<span className="text-[10px] font-black uppercase tracking-wider text-white">{label}</span></div><div className="mt-1 text-[9px] font-bold uppercase text-zinc-600">{sub}</div></button>;
 
 export default function App() {
   return (
