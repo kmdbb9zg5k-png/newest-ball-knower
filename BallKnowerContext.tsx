@@ -19,6 +19,7 @@ import {
   saveMyCloudRoster, updateCloudLeague, upsertAiCloudMembers, deleteCloudMember,
   subscribeToCloudLeague
 } from './leagueCloud';
+import { trackBallKnowerEvent } from './analytics';
 
 interface BallKnowerContextType {
   currentUser: UserProfile | null;
@@ -406,6 +407,11 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
 
     if (isDemoMode) {
+      trackBallKnowerEvent('Draft Submitted', {
+        player_count: currentRoster.length,
+        salary_spent: Number(totalSpent.toFixed(2)),
+        league_type: 'demo',
+      });
       showToast('Demo roster ready! Simulating season...');
       return { success: true, message: 'Demo roster submitted' };
     }
@@ -431,6 +437,11 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           };
         }));
       }
+      trackBallKnowerEvent('Draft Submitted', {
+        player_count: currentRoster.length,
+        salary_spent: Number(totalSpent.toFixed(2)),
+        league_type: isCloudConfigured ? 'online' : 'local',
+      });
       showToast('Your roster has been submitted! Ready for simulation.');
       return { success: true, message: 'Roster submitted successfully!' };
     } catch (err:any) {
@@ -450,6 +461,11 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setActiveLeagueId(newLeague.id);
         setCurrentRoster([]);
         setCloudSyncError(null);
+        trackBallKnowerEvent('League Created', {
+          max_members: maxMembers,
+          salary_cap: customCap,
+          league_type: 'online',
+        });
         showToast(`Online league created: ${newLeague.code}`);
         return newLeague;
       }
@@ -468,6 +484,11 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setLeagues(prev => [newLeague, ...prev]);
       setActiveLeagueId(newLeague.id);
       setCurrentRoster([]);
+      trackBallKnowerEvent('League Created', {
+        max_members: maxMembers,
+        salary_cap: customCap,
+        league_type: 'local',
+      });
       showToast(`Local league created. Add Supabase env vars for cross-device invites.`);
       return newLeague;
     } catch (err:any) {
@@ -486,6 +507,10 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setLeagues(prev => [targetLeague, ...prev.filter(l => l.id !== targetLeague.id)]);
         setActiveLeagueId(targetLeague.id);
         setCloudSyncError(null);
+        trackBallKnowerEvent('League Joined', {
+          member_count: targetLeague.members.length,
+          league_type: 'online',
+        });
         showToast(`Joined "${targetLeague.name}" online!`);
         return { success: true, message: `Joined ${targetLeague.name}`, league: targetLeague };
       }
@@ -495,6 +520,10 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return { success: false, message: 'League code not found locally. Online multiplayer has not been configured on this deployment.' };
       }
       setActiveLeagueId(targetLeague.id);
+      trackBallKnowerEvent('League Joined', {
+        member_count: targetLeague.members.length,
+        league_type: 'local',
+      });
       return { success: true, message: `Joined ${targetLeague.name}`, league: targetLeague };
     } catch (err:any) {
       const message = err?.message || 'Could not join league online.';
@@ -560,6 +589,11 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setLeagues(prev =>
       prev.map(l => l.id === leagueId ? { ...l, status: 'completed', seasonResult: results } : l)
     );
+    trackBallKnowerEvent('League Season Completed', {
+      member_count: league.members.length,
+      regular_season_games: league.settings?.seasonGames || 17,
+      simulation_style: league.settings?.simulationStyle || 'realistic',
+    });
     showToast('League season simulation complete! Draft Order is set!');
     return true;
   };

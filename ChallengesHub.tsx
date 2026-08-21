@@ -9,6 +9,7 @@ import {
 import { fetchTriviaQuestion, submitTriviaAnswer, TriviaAnswerResult, TriviaQuestion } from './progressionCloud';
 import { ModeGuide } from './ModeGuide';
 import { ModalPortal } from './ModalPortal';
+import { trackBallKnowerEvent } from './analytics';
 
 type TriviaTier = 'ROOKIE' | 'PRO' | 'ALL-PRO' | 'HALL OF FAME';
 
@@ -47,6 +48,7 @@ export const ChallengesHub: React.FC = () => {
   }, []);
 
   const openTrivia = (nextTier: TriviaTier) => {
+    trackBallKnowerEvent('Trivia Started', { tier: nextTier });
     setTier(nextTier);
     setQuestionNumber(1);
     setScore(0);
@@ -61,6 +63,12 @@ export const ChallengesHub: React.FC = () => {
     setError('');
     try {
       const receipt = await submitTriviaAnswer(question.attemptId, index);
+      trackBallKnowerEvent('Trivia Answered', {
+        tier,
+        correct: receipt.isCorrect,
+        question_number: questionNumber,
+        progression_recorded: receipt.progressionRecorded,
+      });
       setResult(receipt);
       if (receipt.isCorrect) setScore(current => current + 1);
     } catch (err) {

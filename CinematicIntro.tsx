@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX, SkipForward, RotateCcw } from 'lucide-react';
+import { trackBallKnowerEvent } from './analytics';
 
 interface CinematicIntroProps {
   isOpen: boolean;
@@ -12,20 +13,25 @@ export const CinematicIntro: React.FC<CinematicIntroProps> = ({ isOpen, onClose 
     try { return localStorage.getItem('ball-knower-intro-sound-v1') !== 'on'; } catch { return true; }
   });
   const [introUrl, setIntroUrl] = useState<string | null>(null);
+  const finishIntro = useCallback((outcome: 'completed' | 'skipped' | 'unavailable' | 'playback_error') => {
+    trackBallKnowerEvent('Intro Exited', { outcome });
+    onClose();
+  }, [onClose]);
 
   useEffect(() => {
     if (!isOpen) return;
+    trackBallKnowerEvent('Intro Shown');
     let cancelled = false;
     fetch('/api/media')
       .then(r => r.json())
       .then(data => {
         if (cancelled) return;
         if (data?.introUrl) setIntroUrl(data.introUrl);
-        else onClose();
+        else finishIntro('unavailable');
       })
-      .catch(() => onClose());
+      .catch(() => finishIntro('unavailable'));
     return () => { cancelled = true; };
-  }, [isOpen, onClose]);
+  }, [isOpen, finishIntro]);
 
   useEffect(() => {
     if (!isOpen || !introUrl) return;
@@ -42,9 +48,9 @@ export const CinematicIntro: React.FC<CinematicIntroProps> = ({ isOpen, onClose 
       video.muted = true;
       video.defaultMuted = true;
       setIsMuted(true);
-      video.play().catch(() => window.setTimeout(onClose, 150));
+      video.play().catch(() => window.setTimeout(() => finishIntro('playback_error'), 150));
     });
-  }, [isOpen, introUrl, onClose]);
+  }, [isOpen, introUrl, finishIntro]);
 
   if (!isOpen) return null;
 
@@ -74,8 +80,8 @@ export const CinematicIntro: React.FC<CinematicIntroProps> = ({ isOpen, onClose 
         autoPlay
         muted={isMuted}
         preload="auto"
-        onEnded={onClose}
-        onError={onClose}
+        onEnded={() => finishIntro('completed')}
+        onError={() => finishIntro('playback_error')}
       />}
 
       <div className="absolute inset-x-0 bottom-0 z-10 flex items-end justify-between gap-3 p-4 sm:p-6 bg-gradient-to-t from-black/80 via-black/20 to-transparent" style={{paddingBottom:'max(1rem, env(safe-area-inset-bottom))'}}>
@@ -87,7 +93,7 @@ export const CinematicIntro: React.FC<CinematicIntroProps> = ({ isOpen, onClose 
             <RotateCcw className="h-5 w-5" />
           </button>
         </div>
-        <button onClick={onClose} className="flex items-center gap-1.5 rounded-full border border-white/15 bg-black/35 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-white/55 backdrop-blur-sm transition hover:bg-black/60 hover:text-white/85">
+        <button onClick={() => finishIntro('skipped')} className="flex items-center gap-1.5 rounded-full border border-white/15 bg-black/35 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-white/55 backdrop-blur-sm transition hover:bg-black/60 hover:text-white/85">
           <SkipForward className="h-3 w-3" /> Skip
         </button>
       </div>

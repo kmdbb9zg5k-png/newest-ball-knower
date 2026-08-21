@@ -13,6 +13,7 @@ import { AppErrorBoundary } from './AppErrorBoundary';
 import { League } from './types';
 import { TeamTheme, applyTeamCssVariables, getSavedTeamTheme, teamLogoUrl } from './teamTheme';
 import { Brain, CheckCircle2, Database, Play, Trophy, UserRound } from 'lucide-react';
+import { trackBallKnowerEvent } from './analytics';
 
 const SoloMode = lazy(() => import('./SoloMode').then(module => ({ default: module.SoloMode })));
 const NewsHub = lazy(() => import('./NewsHub').then(module => ({ default: module.NewsHub })));
@@ -93,12 +94,20 @@ function BallKnowerApp() {
     }
   }, []);
 
+  useEffect(() => {
+    trackBallKnowerEvent('Mode Opened', {
+      mode: currentTab,
+      active_league: Boolean(activeLeague),
+    });
+  }, [currentTab]);
+
   const openIntro = () => { setIntroActive(true); setIsIntroOpen(true); };
   const closeIntro = useCallback(() => {
     setIsIntroOpen(false);
     if (!showFavoriteTeam) setIntroActiveRef.current(false);
   }, [showFavoriteTeam]);
   const finishFavoriteTeamSetup = (team: TeamTheme) => {
+    trackBallKnowerEvent('Favorite Team Selected', { team: team.abbr });
     setFavoriteTheme(team);
     applyTeamCssVariables(team);
     setShowFavoriteTeam(false);
