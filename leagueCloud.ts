@@ -1,5 +1,6 @@
 import { League, LeagueMember, LiveFantasyDraft, Player, TeamRatings, SeasonResult } from './types';
 import { ensureOnlineSession, isCloudConfigured, supabase } from './supabase';
+import type { LiveDraftRosterAssignment } from './liveDraftRosters';
 
 type UserLike = { id:string; name:string; avatarUrl?:string };
 export type LeagueEvent = { id:string; leagueId:string; actorName:string; eventType:string; message:string; metadata:any; createdAt:string };
@@ -278,18 +279,38 @@ export async function startCloudLiveFantasyDraft(leagueId:string):Promise<LiveFa
   return draft;
 }
 
-export async function makeCloudLiveFantasyDraftPick(leagueId:string,playerId:string,group:string):Promise<LiveFantasyDraft> {
+export async function makeCloudLiveFantasyDraftPick(
+  leagueId:string,
+  playerId:string,
+  group:string,
+  finalAssignments?:LiveDraftRosterAssignment[],
+):Promise<LiveFantasyDraft> {
   if(!supabase) throw new Error('Online fantasy drafting is unavailable.');
   await ensureOnlineSession();
   const {data,error}=await supabase.rpc('make_ball_knower_live_draft_pick',{
     p_league_id:leagueId,
     p_player_id:playerId,
     p_group:group,
+    p_final_assignments:finalAssignments||null,
   });
   if(error) throw error;
   const draft=liveDraftFromRow(data);
   if(!draft) throw new Error('The draft pick was not saved.');
   return draft;
+}
+
+export async function finalizeCloudLiveFantasyDraftRosters(
+  leagueId:string,
+  assignments:LiveDraftRosterAssignment[],
+):Promise<void> {
+  if(!supabase) throw new Error('Online fantasy drafting is unavailable.');
+  await ensureOnlineSession();
+  const {data,error}=await supabase.rpc('finalize_ball_knower_live_draft_rosters',{
+    p_league_id:leagueId,
+    p_assignments:assignments,
+  });
+  if(error) throw error;
+  if(data!==true) throw new Error('The completed fantasy rosters were not finalized.');
 }
 
 export async function updateLeagueOperations(leagueId:string,patch:{inviteEnabled?:boolean;paused?:boolean;rostersLocked?:boolean},actorName:string) {

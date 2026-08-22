@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Clock3, Search, Trophy } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Clock3, LoaderCircle, Play, Search, Trophy } from 'lucide-react';
 import { useBallKnower } from './BallKnowerContext';
 import { playerPortraitUrl } from './playerPortraits';
 import { PLAYERS_DATABASE } from './players';
@@ -52,17 +52,25 @@ const cpuSelection=(draft:LiveFantasyDraft,memberId:string)=>{
 };
 
 export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
-  const {activeLeague,currentUser,makeLiveFantasyDraftPick,showToast}=useBallKnower();
+  const {
+    activeLeague,currentUser,makeLiveFantasyDraftPick,
+    finalizeLiveFantasyDraftRosters,showToast,
+  }=useBallKnower();
   const draft=activeLeague?.liveDraft;
   const [query,setQuery]=useState('');
   const [group,setGroup]=useState<DraftGroup|'ALL'>('ALL');
   const [busy,setBusy]=useState(false);
   const pickLockRef=useRef(false);
+  const finalizeLockRef=useRef(false);
 
   const currentMemberId=draft?memberAtPick(draft):null;
   const currentMember=activeLeague?.members.find(member=>member.id===currentMemberId);
   const myMember=activeLeague?.members.find(member=>member.userId===currentUser?.id);
   const isCommissioner=activeLeague?.commissionerId===currentUser?.id;
+  const rostersFinalized=Boolean(activeLeague?.members.length&&activeLeague.members.every(member=>
+    member.status==='ready'&&(member.roster?.length||0)===draft?.rounds
+  ));
+  const seasonHandoffComplete=rostersFinalized&&activeLeague?.status==='drafting';
   const mySlot=draft&&myMember?draft.orderMemberIds.indexOf(myMember.id)+1:0;
   const myPicks=useMemo(()=>draft&&myMember?draft.picks.filter(pick=>pick.memberId===myMember.id):[],[draft,myMember]);
   const myRoster=useMemo(()=>myPicks.map(pick=>PLAYER_BY_ID.get(pick.playerId)).filter((player):player is Player=>Boolean(player)),[myPicks]);
@@ -89,12 +97,21 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
     return ()=>window.clearTimeout(timer);
   },[draft?.pickIndex,currentMember?.id,currentMember?.isAi,isCommissioner]);
 
+  useEffect(()=>{
+    if(!activeLeague||draft?.status!=='completed'||seasonHandoffComplete||!isCommissioner||finalizeLockRef.current)return;
+    finalizeLockRef.current=true;
+    setBusy(true);
+    void finalizeLiveFantasyDraftRosters(activeLeague.id)
+      .then(success=>{if(!success)finalizeLockRef.current=false;})
+      .finally(()=>setBusy(false));
+  },[activeLeague?.id,draft?.status,isCommissioner,seasonHandoffComplete]);
+
   if(!activeLeague||!draft){
     return <div className="min-h-[70dvh] bg-[#07090c] px-4 py-16 text-center text-white"><h2 className="text-2xl font-black uppercase">Fantasy Draft Has Not Started</h2><button onClick={onBackToLobby} className="mt-5 rounded-xl bg-[#D4AF37] px-5 py-3 text-xs font-black uppercase text-black">Return to League HQ</button></div>;
   }
 
   if(draft.status==='completed'){
-    return <div className="min-h-[100dvh] bg-[#07090c] px-3 py-4 text-white sm:px-6"><div className="mx-auto max-w-5xl"><button onClick={onBackToLobby} className="min-h-11 rounded-xl border border-white/10 px-4 text-xs font-black uppercase"><ArrowLeft className="mr-1 inline h-4 w-4"/>League HQ</button><section className="mt-4 rounded-2xl border border-[#D4AF37]/30 bg-[#101318] p-5 text-center"><Trophy className="mx-auto h-9 w-9 text-[#D4AF37]"/><h1 className="mt-2 font-display text-4xl font-black uppercase">Fantasy Draft Complete</h1><p className="mt-2 text-sm text-zinc-400">All {draft.pickIndex} picks are locked. Every manager has a complete 20-player roster.</p></section><div className="mt-4 grid gap-3 sm:grid-cols-2">{draft.orderMemberIds.map(memberId=>{const member=activeLeague.members.find(item=>item.id===memberId);const picks=draft.picks.filter(pick=>pick.memberId===memberId);return <div key={memberId} className="rounded-2xl border border-white/10 bg-[#101318] p-4"><div className="flex items-center justify-between"><div className="font-black uppercase">{member?.userName}</div><div className="text-xs font-black text-[#D4AF37]">{picks.length}/20</div></div><div className="mt-3 grid grid-cols-2 gap-1">{picks.map(pick=>{const player=PLAYER_BY_ID.get(pick.playerId);return <div key={pick.overall} className="truncate rounded-lg bg-black/30 px-2 py-1.5 text-[10px]"><b>{player?.position}</b> {player?.name}</div>})}</div></div>})}</div></div></div>;
+    return <div className="min-h-[100dvh] bg-[#07090c] px-3 py-4 text-white sm:px-6"><div className="mx-auto max-w-5xl"><button onClick={onBackToLobby} className="min-h-11 rounded-xl border border-white/10 px-4 text-xs font-black uppercase"><ArrowLeft className="mr-1 inline h-4 w-4"/>League HQ</button><section className="mt-4 rounded-2xl border border-[#D4AF37]/30 bg-[#101318] p-5 text-center"><Trophy className="mx-auto h-9 w-9 text-[#D4AF37]"/><h1 className="mt-2 font-display text-4xl font-black uppercase">Fantasy Draft Complete</h1><p className="mt-2 text-sm text-zinc-400">All {draft.pickIndex} picks are locked. Every manager has a complete 20-player roster.</p><button onClick={onBackToLobby} disabled={!seasonHandoffComplete} className="mt-4 min-h-14 w-full rounded-xl bg-[#D4AF37] text-sm font-black uppercase tracking-wider text-black disabled:cursor-wait disabled:opacity-45">{seasonHandoffComplete?<><Play className="mr-2 inline h-4 w-4"/>Go To League HQ & Start Season</>:<><LoaderCircle className="mr-2 inline h-4 w-4 animate-spin"/>{isCommissioner?'Saving All League Rosters…':'Waiting For Commissioner To Save Rosters'}</>}</button></section><div className="mt-4 grid gap-3 sm:grid-cols-2">{draft.orderMemberIds.map(memberId=>{const member=activeLeague.members.find(item=>item.id===memberId);const picks=draft.picks.filter(pick=>pick.memberId===memberId);return <div key={memberId} className="rounded-2xl border border-white/10 bg-[#101318] p-4"><div className="flex items-center justify-between"><div className="font-black uppercase">{member?.userName}</div><div className="text-xs font-black text-[#D4AF37]">{picks.length}/20</div></div><div className="mt-3 grid grid-cols-2 gap-1">{picks.map(pick=>{const player=PLAYER_BY_ID.get(pick.playerId);return <div key={pick.overall} className="truncate rounded-lg bg-black/30 px-2 py-1.5 text-[10px]"><b>{player?.position}</b> {player?.name}</div>})}</div></div>})}</div></div></div>;
   }
 
   const round=Math.floor(draft.pickIndex/draft.orderMemberIds.length)+1;
