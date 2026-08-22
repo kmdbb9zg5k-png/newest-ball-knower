@@ -51,6 +51,7 @@ function BallKnowerApp() {
   const { setIntroActive } = useSoundtrack();
   const setIntroActiveRef = useRef(setIntroActive);
   const [currentTab, setCurrentTab] = useState<AppTab>('home');
+  const [fantasyView, setFantasyView] = useState<'leagues'|'cheatsheet'>('leagues');
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isCreateLeagueOpen, setIsCreateLeagueOpen] = useState(false);
   const [isJoinLeagueOpen, setIsJoinLeagueOpen] = useState(false);
@@ -118,6 +119,10 @@ function BallKnowerApp() {
   const handleSelectLeague = (league: League, tab: 'lobby' | 'draft' | 'simulation') => { setActiveLeagueId(league.id); setCurrentTab(tab); };
   const handleLeagueCreated = (league: League) => { setActiveLeagueId(league.id); setCurrentTab('lobby'); };
   const handleLeagueJoined = (league: League) => { setActiveLeagueId(league.id); setCurrentTab('lobby'); };
+  const navigateToTab = useCallback((tab: AppTab) => {
+    if (tab === 'fantasy') setFantasyView('leagues');
+    setCurrentTab(tab);
+  }, []);
 
   return (
     <div data-tab={currentTab} className="bk-app-shell relative min-h-[100dvh] text-white font-sans antialiased selection:bg-[var(--bk-team-accent)]/30 selection:text-[var(--bk-team-accent)] flex flex-col justify-between overflow-x-hidden">
@@ -130,12 +135,12 @@ function BallKnowerApp() {
         <div className="absolute inset-x-0 top-0 h-px" style={{background:`linear-gradient(90deg,transparent,${favoriteTheme.secondary}88,transparent)`}} />
       </div>
 
-      <Navbar currentTab={currentTab} setCurrentTab={setCurrentTab} onOpenAuth={() => setIsAuthOpen(true)} onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onOpenIntro={openIntro} onOpenDatabaseModal={() => setIsDatabaseModalOpen(true)} />
+      <Navbar currentTab={currentTab} setCurrentTab={navigateToTab} onOpenAuth={() => setIsAuthOpen(true)} onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onOpenIntro={openIntro} onOpenDatabaseModal={() => setIsDatabaseModalOpen(true)} />
       <main className="relative z-[3] w-full flex-1 pb-[env(safe-area-inset-bottom)]">
         {currentTab === 'home' && <>
-          <HubLauncher onNavigate={setCurrentTab} />
+          <HubLauncher onNavigate={navigateToTab} />
           <OverviewModeGrid
-            onNavigate={setCurrentTab}
+            onNavigate={navigateToTab}
             onOpenCreateLeague={() => setIsCreateLeagueOpen(true)}
             onOpenJoinLeague={() => setIsJoinLeagueOpen(true)}
             activeLeagueCount={leagues.length}
@@ -145,7 +150,7 @@ function BallKnowerApp() {
         <Suspense fallback={<ScreenFallback />}>
           {currentTab === 'solo' && <SoloMode />}
           {currentTab === 'news' && <NewsHub />}
-          {currentTab === 'fantasy' && <FantasyHub onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague} />}
+          {currentTab === 'fantasy' && <FantasyHub view={fantasyView} onViewChange={setFantasyView} onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague} />}
           {currentTab === 'sportsbook' && <SportsbookHub />}
           {currentTab === 'legacy' && <HallOfFame />}
           {currentTab === 'challenges' && <ChallengesHub />}
