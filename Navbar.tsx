@@ -30,7 +30,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     activeLeague,
     isDemoMode,
     exitDemoMode,
-    currentRoster,
     leagues,
     setActiveLeagueId,
     showToast,
@@ -216,15 +215,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button id="nav-tab-trivia" onClick={() => setCurrentTab('challenges')} className={tabClass('challenges')}><Brain className="h-3.5 w-3.5" /> Trivia</button>
           <button id="nav-tab-sportsbook" onClick={() => setCurrentTab('sportsbook')} className={tabClass('sportsbook')}><DollarSign className="h-3.5 w-3.5" /> Sportsbook</button>
           <button id="nav-tab-legacy" onClick={() => setCurrentTab('legacy')} className={tabClass('legacy')}><Trophy className="h-3.5 w-3.5" /> Hall of Fame</button>
-
-          {activeLeague && (
-            <>
-              <span className="my-3 w-px bg-white/10" />
-              <button id="nav-tab-lobby" onClick={() => setCurrentTab('lobby')} className={tabClass('lobby')}>Lobby ({activeLeague.members.length}/{activeLeague.maxMembers})</button>
-              <button id="nav-tab-draft" onClick={() => setCurrentTab('draft')} className={tabClass('draft')}>Draft Board <span className={`rounded px-1.5 py-0.5 font-mono text-[9px] ${currentRoster.length === 20 ? 'bg-emerald-400 text-black' : 'border border-[var(--bk-team-accent)]/30 bg-black text-[var(--bk-team-accent)]'}`}>{currentRoster.length}/20</span></button>
-              {activeLeague.status === 'completed' && <button id="nav-tab-simulation" onClick={() => setCurrentTab('simulation')} className={tabClass('simulation')}><Award className="h-3.5 w-3.5" /> Results</button>}
-            </>
-          )}
 
           {onOpenIntro && <button id="nav-play-intro-btn" onClick={onOpenIntro} className="my-2 flex shrink-0 items-center gap-1.5 rounded-sm border border-[var(--bk-team-accent)]/40 bg-[var(--bk-team-accent)]/10 px-3 text-[10px] font-black uppercase tracking-widest text-[var(--bk-team-accent)] hover:bg-[var(--bk-team-accent)]/20"><Play className="h-3 w-3 fill-[var(--bk-team-accent)]" /> Intro Video</button>}
         </div>
