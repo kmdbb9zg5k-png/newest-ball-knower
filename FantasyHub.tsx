@@ -18,6 +18,13 @@ interface FantasyHubProps {
 export const FantasyHub: React.FC<FantasyHubProps> = ({ view, onViewChange, onOpenCreateLeague, onOpenJoinLeague, onSelectLeague }) => {
   const { leagues, currentUser, joinPublicLeague } = useBallKnower();
   const memberCount = leagues.reduce((sum, league) => sum + league.members.length, 0);
+  const resumablePublicLeague = leagues.find(league =>
+    league.settings?.leagueType === 'public_free' && (
+      league.status === 'drafting' ||
+      league.liveDraft?.status === 'active' ||
+      (league.status === 'completed' && !league.liveDraft)
+    )
+  );
   const [cheatView, setCheatView] = useState<'rankings'|'tiers'|'sleepers'|'busts'|'injuries'>('rankings');
   const [search, setSearch] = useState('');
   const [position, setPosition] = useState('ALL');
@@ -51,6 +58,13 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({ view, onViewChange, onOp
   const toggleWatch=(id:string)=>setWatchlist(current=>{const next=current.includes(id)?current.filter(item=>item!==id):[...current,id];try{localStorage.setItem('bk-fantasy-watchlist-v1',JSON.stringify(next));}catch{}void saveUserState('fantasy_watchlist',next).catch(error=>console.warn('Fantasy watchlist cloud save failed',error));return next;});
   const enterPublicLeague=async()=>{
     if(publicMatchBusy)return;
+    if(resumablePublicLeague){
+      onSelectLeague(
+        resumablePublicLeague,
+        resumablePublicLeague.liveDraft?.status==='active'?'draft':'lobby',
+      );
+      return;
+    }
     setPublicMatchBusy(true);setPublicMatchError(null);
     try{
       const result=await joinPublicLeague();
@@ -80,7 +94,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({ view, onViewChange, onOp
         </section>
 
         <div className="mb-5 grid gap-2 sm:mb-9 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
-          <button onClick={()=>void enterPublicLeague()} disabled={publicMatchBusy} className="group flex min-h-20 items-center gap-3 rounded-2xl border border-emerald-300/45 bg-emerald-300 p-3 text-left text-[#07100c] shadow-lg shadow-emerald-300/10 transition active:scale-[.99] disabled:opacity-60 sm:min-h-28 sm:gap-4 sm:p-5"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-black/15 bg-black/5 sm:h-12 sm:w-12">{publicMatchBusy?<LoaderCircle className="h-5 w-5 animate-spin sm:h-6 sm:w-6"/>:<Globe2 className="h-5 w-5 sm:h-6 sm:w-6"/>}</div><div><div className="text-base font-black uppercase sm:text-xl">Public Free League</div><div className="mt-0.5 text-[10px] font-bold leading-4 text-black/65 sm:mt-1 sm:text-xs">Real people first. CPU fills open spots only when you choose.</div></div><ArrowRight className="ml-auto h-4 w-4 shrink-0 transition group-hover:translate-x-1 sm:h-6 sm:w-6" /></button>
+          <button onClick={()=>void enterPublicLeague()} disabled={publicMatchBusy} className="group flex min-h-20 items-center gap-3 rounded-2xl border border-emerald-300/45 bg-emerald-300 p-3 text-left text-[#07100c] shadow-lg shadow-emerald-300/10 transition active:scale-[.99] disabled:opacity-60 sm:min-h-28 sm:gap-4 sm:p-5"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-black/15 bg-black/5 sm:h-12 sm:w-12">{publicMatchBusy?<LoaderCircle className="h-5 w-5 animate-spin sm:h-6 sm:w-6"/>:<Globe2 className="h-5 w-5 sm:h-6 sm:w-6"/>}</div><div><div className="text-base font-black uppercase sm:text-xl">{resumablePublicLeague?'Resume Public League':'Public Free League'}</div><div className="mt-0.5 text-[10px] font-bold leading-4 text-black/65 sm:mt-1 sm:text-xs">{resumablePublicLeague?`${resumablePublicLeague.code} · Continue your saved ${resumablePublicLeague.liveDraft?.status==='active'?'live draft':'league setup'}.`:'Real people first. CPU fills open spots only when you choose.'}</div></div><ArrowRight className="ml-auto h-4 w-4 shrink-0 transition group-hover:translate-x-1 sm:h-6 sm:w-6" /></button>
           <button onClick={onOpenCreateLeague} className="group flex min-h-20 items-center gap-3 rounded-2xl border border-[#D4AF37]/50 bg-[#D4AF37] p-3 text-left text-black shadow-lg shadow-[#D4AF37]/10 transition active:scale-[.99] sm:min-h-28 sm:gap-4 sm:p-5"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-black/15 bg-black/5 sm:h-12 sm:w-12"><Shield className="h-5 w-5 sm:h-6 sm:w-6" /></div><div><div className="text-base font-black uppercase sm:text-xl">Create League</div><div className="mt-0.5 text-[10px] font-bold leading-4 text-black/65 sm:mt-1 sm:text-xs">Start a league, then pick one of three draft-order methods.</div></div><ArrowRight className="ml-auto h-4 w-4 shrink-0 transition group-hover:translate-x-1 sm:h-6 sm:w-6" /></button>
           <button onClick={onOpenJoinLeague} className="group flex min-h-20 items-center gap-3 rounded-2xl border border-white/10 bg-[#111318]/95 p-3 text-left transition hover:border-[#D4AF37]/40 active:scale-[.99] sm:min-h-28 sm:gap-4 sm:p-5"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#D4AF37]/20 bg-[#D4AF37]/5 sm:h-12 sm:w-12"><Users className="h-5 w-5 text-[#D4AF37] sm:h-6 sm:w-6" /></div><div><div className="text-base font-black uppercase sm:text-xl">Join With Code</div><div className="mt-0.5 text-[10px] font-semibold leading-4 text-zinc-400 sm:mt-1 sm:text-xs">Enter the commissioner’s code and join instantly.</div></div><ArrowRight className="ml-auto h-4 w-4 shrink-0 text-[#D4AF37] transition group-hover:translate-x-1 sm:h-6 sm:w-6" /></button>
         </div>

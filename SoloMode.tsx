@@ -86,8 +86,8 @@ const restoreRun=()=>{
  }
 };
 
-export const SoloMode:React.FC=()=>{
- const [experience,setExperience]=useState<SoloExperience>('hub');
+export const SoloMode:React.FC<{initialExperience?:SoloExperience}>=({initialExperience='hub'})=>{
+ const [experience,setExperience]=useState<SoloExperience>(initialExperience);
  const openExperience=(next:SoloExperience)=>{trackBallKnowerEvent('Solo Experience Opened',{experience:next});setExperience(next)};
  if(experience==='hub')return <SoloFranchiseHub onOpen={openExperience}/>;
  const back=()=>setExperience('hub');
