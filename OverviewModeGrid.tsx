@@ -55,7 +55,7 @@ export const OverviewModeGrid: React.FC<Props> = ({
       description: 'Choose Cap Challenge, Fantasy Draft, a real NFL team, or My Player career.',
       action: 'Open Solo',
       icon: Gamepad2,
-      onClick: () => onOpenSoloExperience('fantasy'),
+      onClick: () => onNavigate('solo'),
     },
     {
       title: 'Fantasy Draft',
@@ -63,7 +63,7 @@ export const OverviewModeGrid: React.FC<Props> = ({
       description: 'Draft against CPU GMs and build your own franchise from the full NFL player pool.',
       action: 'Start Draft',
       icon: Trophy,
-      onClick: () => onOpenSoloExperience('real'),
+      onClick: () => onOpenSoloExperience('fantasy'),
     },
     {
       title: 'Real NFL Team',
@@ -71,7 +71,7 @@ export const OverviewModeGrid: React.FC<Props> = ({
       description: 'Take over any NFL roster, manage the depth chart, trades, free agency, and season.',
       action: 'Pick a Team',
       icon: Shield,
-      onClick: () => onOpenSoloExperience('player'),
+      onClick: () => onOpenSoloExperience('real'),
     },
     {
       title: 'My Player',
@@ -79,7 +79,7 @@ export const OverviewModeGrid: React.FC<Props> = ({
       description: 'Create your player, run the combine, get drafted, upgrade ratings, and build a career.',
       action: 'Create Player',
       icon: UserRound,
-      onClick: () => onNavigate('solo'),
+      onClick: () => onOpenSoloExperience('player'),
     },
     {
       title: 'NFL News',
