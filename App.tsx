@@ -15,6 +15,7 @@ import { TeamTheme, applyTeamCssVariables, getSavedTeamTheme, teamLogoUrl } from
 import { Brain, CheckCircle2, Database, Play, Trophy, UserRound } from 'lucide-react';
 import { trackBallKnowerEvent } from './analytics';
 import { CloudSyncProvider } from './CloudSyncProvider';
+import type { SoloExperience } from './SoloFranchiseHub';
 
 const SoloMode = lazy(() => import('./SoloMode').then(module => ({ default: module.SoloMode })));
 const NewsHub = lazy(() => import('./NewsHub').then(module => ({ default: module.NewsHub })));
@@ -52,6 +53,7 @@ function BallKnowerApp() {
   const setIntroActiveRef = useRef(setIntroActive);
   const [currentTab, setCurrentTab] = useState<AppTab>('home');
   const [fantasyView, setFantasyView] = useState<'leagues'|'cheatsheet'>('leagues');
+  const [soloExperience, setSoloExperience] = useState<SoloExperience>('hub');
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isCreateLeagueOpen, setIsCreateLeagueOpen] = useState(false);
   const [isJoinLeagueOpen, setIsJoinLeagueOpen] = useState(false);
@@ -121,7 +123,12 @@ function BallKnowerApp() {
   const handleLeagueJoined = (league: League) => { setActiveLeagueId(league.id); setCurrentTab('lobby'); };
   const navigateToTab = useCallback((tab: AppTab) => {
     if (tab === 'fantasy') setFantasyView('leagues');
+    if (tab === 'solo') setSoloExperience('hub');
     setCurrentTab(tab);
+  }, []);
+  const openSoloExperience = useCallback((experience: Exclude<SoloExperience, 'hub'>) => {
+    setSoloExperience(experience);
+    setCurrentTab('solo');
   }, []);
 
   return (
@@ -141,6 +148,7 @@ function BallKnowerApp() {
           <HubLauncher onNavigate={navigateToTab} />
           <OverviewModeGrid
             onNavigate={navigateToTab}
+            onOpenSoloExperience={openSoloExperience}
             onOpenCreateLeague={() => setIsCreateLeagueOpen(true)}
             onOpenJoinLeague={() => setIsJoinLeagueOpen(true)}
             activeLeagueCount={leagues.length}
@@ -148,7 +156,7 @@ function BallKnowerApp() {
           <HomeDashboard onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague} />
         </>}
         <Suspense fallback={<ScreenFallback />}>
-          {currentTab === 'solo' && <SoloMode />}
+          {currentTab === 'solo' && <SoloMode initialExperience={soloExperience} />}
           {currentTab === 'news' && <NewsHub />}
           {currentTab === 'fantasy' && <FantasyHub view={fantasyView} onViewChange={setFantasyView} onOpenCreateLeague={() => setIsCreateLeagueOpen(true)} onOpenJoinLeague={() => setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague} />}
           {currentTab === 'sportsbook' && <SportsbookHub />}

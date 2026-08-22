@@ -12,9 +12,11 @@ import {
   Brain,
 } from 'lucide-react';
 import type { AppTab } from './App';
+import type { SoloExperience } from './SoloFranchiseHub';
 
 type Props = {
   onNavigate: (tab: AppTab) => void;
+  onOpenSoloExperience: (experience: Exclude<SoloExperience, 'hub'>) => void;
   onOpenCreateLeague: () => void;
   onOpenJoinLeague: () => void;
   activeLeagueCount: number;
@@ -32,6 +34,7 @@ type ModeCard = {
 
 export const OverviewModeGrid: React.FC<Props> = ({
   onNavigate,
+  onOpenSoloExperience,
   onOpenCreateLeague,
   onOpenJoinLeague,
   activeLeagueCount,
@@ -52,7 +55,7 @@ export const OverviewModeGrid: React.FC<Props> = ({
       description: 'Choose Cap Challenge, Fantasy Draft, a real NFL team, or My Player career.',
       action: 'Open Solo',
       icon: Gamepad2,
-      onClick: () => onNavigate('solo'),
+      onClick: () => onOpenSoloExperience('fantasy'),
     },
     {
       title: 'Fantasy Draft',
@@ -60,7 +63,7 @@ export const OverviewModeGrid: React.FC<Props> = ({
       description: 'Draft against CPU GMs and build your own franchise from the full NFL player pool.',
       action: 'Start Draft',
       icon: Trophy,
-      onClick: () => onNavigate('solo'),
+      onClick: () => onOpenSoloExperience('real'),
     },
     {
       title: 'Real NFL Team',
@@ -68,7 +71,7 @@ export const OverviewModeGrid: React.FC<Props> = ({
       description: 'Take over any NFL roster, manage the depth chart, trades, free agency, and season.',
       action: 'Pick a Team',
       icon: Shield,
-      onClick: () => onNavigate('solo'),
+      onClick: () => onOpenSoloExperience('player'),
     },
     {
       title: 'My Player',
