@@ -8,15 +8,16 @@ import { loadUserState, saveUserState } from './userStateCloud';
 import { ModalPortal } from './ModalPortal';
 
 interface FantasyHubProps {
+  view: 'leagues'|'cheatsheet';
+  onViewChange: (view: 'leagues'|'cheatsheet') => void;
   onOpenCreateLeague: () => void;
   onOpenJoinLeague: () => void;
   onSelectLeague: (league: League, tab: 'lobby' | 'draft' | 'simulation') => void;
 }
 
-export const FantasyHub: React.FC<FantasyHubProps> = ({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague }) => {
+export const FantasyHub: React.FC<FantasyHubProps> = ({ view, onViewChange, onOpenCreateLeague, onOpenJoinLeague, onSelectLeague }) => {
   const { leagues, currentUser, joinPublicLeague } = useBallKnower();
   const memberCount = leagues.reduce((sum, league) => sum + league.members.length, 0);
-  const [view, setView] = useState<'leagues'|'cheatsheet'>('cheatsheet');
   const [cheatView, setCheatView] = useState<'rankings'|'tiers'|'sleepers'|'busts'|'injuries'>('rankings');
   const [search, setSearch] = useState('');
   const [position, setPosition] = useState('ALL');
@@ -65,7 +66,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({ onOpenCreateLeague, onOp
   return (
     <div className="min-h-[calc(100dvh-7rem)] px-4 pb-10 pt-5 text-white sm:px-8">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div className="grid flex-1 grid-cols-2 rounded-2xl border border-white/10 bg-[#0b0d10] p-1"><button onClick={()=>setView('leagues')} className={`min-h-11 rounded-xl text-xs font-black uppercase ${view==='leagues'?'bg-[#D4AF37] text-black':'text-zinc-400'}`}>League HQ</button><button onClick={()=>setView('cheatsheet')} className={`min-h-11 rounded-xl text-xs font-black uppercase ${view==='cheatsheet'?'bg-[#D4AF37] text-black':'text-zinc-400'}`}>Cheat Sheet</button></div><ModeGuide storageKey="bk-guide-fantasy-hq-v2" title="Fantasy" summary="Use the Cheat Sheet for fantasy rankings. League HQ is where you create, join and manage leagues." steps={["Open Cheat Sheet for rankings, tiers, sleepers and risks.","Search or filter by fantasy position.","Use League HQ only when you want to play or draft with a league."]}/></div>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div className="grid flex-1 grid-cols-2 rounded-2xl border border-white/10 bg-[#0b0d10] p-1"><button onClick={()=>onViewChange('leagues')} className={`min-h-11 rounded-xl text-xs font-black uppercase ${view==='leagues'?'bg-[#D4AF37] text-black':'text-zinc-400'}`}>League HQ</button><button onClick={()=>onViewChange('cheatsheet')} className={`min-h-11 rounded-xl text-xs font-black uppercase ${view==='cheatsheet'?'bg-[#D4AF37] text-black':'text-zinc-400'}`}>Cheat Sheet</button></div><ModeGuide storageKey="bk-guide-fantasy-hq-v2" title="Fantasy" summary="Use the Cheat Sheet for fantasy rankings. League HQ is where you create, join and manage leagues." steps={["Open Cheat Sheet for rankings, tiers, sleepers and risks.","Search or filter by fantasy position.","Use League HQ only when you want to play or draft with a league."]}/></div>
         {view==='leagues'&&<><section className="relative mb-3 overflow-hidden rounded-2xl border border-[#D4AF37]/25 bg-[#080a0d] p-4 shadow-2xl sm:mb-7 sm:rounded-[2rem] sm:p-9">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_72%_38%,rgba(212,175,55,.22),transparent_24%),radial-gradient(circle_at_15%_100%,rgba(212,175,55,.10),transparent_35%),linear-gradient(115deg,#070809,#111318_55%,#060708)]" />
           <div className="pointer-events-none absolute -right-8 top-5 hidden h-64 w-64 place-items-center rounded-full border border-[#D4AF37]/15 bg-black/30 shadow-[0_0_90px_rgba(212,175,55,.16)] sm:grid"><Trophy className="h-36 w-36 text-[#D4AF37]/80" strokeWidth={1} /></div>
