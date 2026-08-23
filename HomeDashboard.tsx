@@ -1,324 +1,68 @@
-import React from 'react';
-import { useBallKnower } from './BallKnowerContext';
-import {
-  Shield,
-  Trophy,
-  Users,
-  Play,
-  Sparkles,
-  ArrowRight,
-  Award,
-  CheckCircle2,
-  Clock,
-  ChevronRight,
-  TrendingUp,
-  DollarSign,
-} from 'lucide-react';
-import { League } from './types';
+import React,{useEffect,useMemo,useState} from 'react';
+import {ArrowRight,Brain,Plus,Target,Trophy,Users} from 'lucide-react';
+import {useBallKnower} from './BallKnowerContext';
+import {fetchProgressionProfile,ProgressProfile} from './progressionCloud';
+import {League} from './types';
+import type {AppTab} from './App';
 
-interface HomeDashboardProps {
-  onOpenCreateLeague: () => void;
-  onOpenJoinLeague: () => void;
-  onSelectLeague: (league: League, tab: 'lobby' | 'draft' | 'simulation') => void;
+interface HomeDashboardProps{
+  onOpenCreateLeague:()=>void;
+  onOpenJoinLeague:()=>void;
+  onSelectLeague:(league:League,tab:'lobby'|'draft'|'simulation')=>void;
+  onNavigate:(tab:AppTab)=>void;
 }
 
-export const HomeDashboard: React.FC<HomeDashboardProps> = ({
-  onOpenCreateLeague,
-  onOpenJoinLeague,
-  onSelectLeague,
-}) => {
-  const { leagues, currentUser, startDemoMode } = useBallKnower();
+const tierFor=(rating:number)=>rating>=90?'CERTIFIED':rating>=80?'ELITE':rating>=70?'KNOWER':rating>=60?'STUDENT':'ROOKIE';
 
-  return (
-    <div className="min-h-[calc(100dvh-4rem)] pb-16 bg-transparent text-white">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden border-b border-white/5 bg-gradient-to-b from-white/[.035] to-transparent py-14 sm:py-20">
-        <div className="relative mx-auto max-w-5xl px-4 sm:px-8 text-center">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 rounded-sm border border-[var(--bk-team-accent)]/30 bg-[var(--bk-team-accent)]/10 px-4 py-1 text-[11px] font-black uppercase tracking-widest text-[var(--bk-team-accent)] mb-6">
-            <Trophy className="h-3.5 w-3.5" />
-            <span>FANTASY DRAFT ORDER CAP SIMULATOR</span>
-          </div>
+export const HomeDashboard:React.FC<HomeDashboardProps>=({onOpenCreateLeague,onOpenJoinLeague,onSelectLeague,onNavigate})=>{
+  const {leagues,currentUser}=useBallKnower();
+  const [profile,setProfile]=useState<ProgressProfile|null>(null);
+  useEffect(()=>{let live=true;fetchProgressionProfile(currentUser?.name).then(data=>{if(live)setProfile(data.profile)}).catch(()=>{});return()=>{live=false}},[currentUser?.id,currentUser?.name]);
 
-          {/* Headline */}
-          <h1 className="font-display text-5xl font-black tracking-tighter text-white sm:text-7xl lg:text-8xl uppercase">
-            PROVE YOU <span className="text-[var(--bk-team-accent)]">KNOW BALL.</span>
-          </h1>
+  const primaryLeague=useMemo(()=>leagues.find(l=>l.status!=='completed')||leagues[0],[leagues]);
+  const myMember=primaryLeague?.members.find(member=>member.userId===currentUser?.id);
+  const myPick=primaryLeague?.seasonResult?.draftOrder?.find(item=>item.memberId===myMember?.id)?.pickNumber;
+  const rating=profile?.bkRating??50;
 
-          {/* Subheadline */}
-          <p className="mx-auto mt-4 max-w-2xl text-sm sm:text-base font-bold uppercase tracking-widest text-zinc-400 leading-relaxed">
-            Build the best 20-man roster under the $301.2M cap. Survive the league season. Earn your fantasy draft order.
-          </p>
-
-          {/* Primary Action Buttons */}
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto">
-            <button
-              id="hero-create-league-btn"
-              onClick={onOpenCreateLeague}
-              className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 rounded-sm bk-accent-button bg-[var(--bk-team-accent)] px-6 py-4 text-xs font-black uppercase tracking-widest text-black shadow-lg shadow-[var(--bk-team-accent)]/20 hover:bg-amber-300 transition-colors cursor-pointer"
-            >
-              <Shield className="h-4 w-4 fill-black" />
-              <span>CREATE LEAGUE</span>
-            </button>
-
-            <button
-              id="hero-join-league-btn"
-              onClick={onOpenJoinLeague}
-              className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 rounded-sm border border-white/10 bg-[#1A1A1A] px-6 py-4 text-xs font-black uppercase tracking-widest text-white hover:bg-zinc-800 hover:border-white/20 transition-colors cursor-pointer"
-            >
-              <Users className="h-4 w-4 text-[var(--bk-team-accent)]" />
-              <span>JOIN LEAGUE</span>
-            </button>
-          </div>
-
-          {/* Demo Button */}
-          <div className="mt-4">
-            <button
-              id="hero-try-demo-btn"
-              onClick={startDemoMode}
-              className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-wider text-zinc-500 hover:text-[var(--bk-team-accent)] px-3 py-1.5 rounded-sm transition-colors"
-            >
-              <Sparkles className="h-3.5 w-3.5 text-[var(--bk-team-accent)]" />
-              <span>TRY DEMO — Test drive without sign up</span>
-              <ArrowRight className="h-3 w-3" />
-            </button>
-          </div>
-
-          {/* Philosophy Banner */}
-          <div className="mt-10 mx-auto max-w-2xl rounded-lg border border-white/5 bg-[#0F0F0F] p-4 text-xs text-zinc-400">
-            <p className="leading-relaxed font-bold">
-              <strong className="text-white uppercase tracking-wider">The Ball Knower Principle:</strong> Everyone gets the exact same NFL players. Everyone gets the exact same $301.2M salary cap. Your positional valuation, balance, and football IQ determine who earns Pick #1.
-            </p>
-          </div>
+  return <div className="mx-auto max-w-5xl px-3 pb-8 pt-4 sm:px-6 sm:pt-6">
+    <section className="grid gap-3 lg:grid-cols-[1.2fr_.8fr]">
+      <div className="rounded-2xl border border-[var(--bk-team-accent)]/25 bg-[radial-gradient(circle_at_90%_0%,rgb(var(--bk-team-primary-rgb)/.24),transparent_38%),#0b0e12] p-4 sm:p-5">
+        <div className="text-[9px] font-black uppercase tracking-[.24em] text-[var(--bk-team-accent)]">Your Ball Knower Rating</div>
+        <div className="mt-2 flex items-end justify-between gap-4">
+          <div><div className="text-6xl font-black leading-none text-white sm:text-7xl">{rating}</div><div className="mt-2 text-xs font-black uppercase tracking-[.16em] text-[var(--bk-team-accent)]">{tierFor(rating)}</div></div>
+          <div className="text-right text-[10px] font-bold uppercase leading-5 text-zinc-600">Fantasy · Picks · Trivia<br/>all feed one profile</div>
         </div>
-      </section>
+        <button onClick={()=>onNavigate('locker')} className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[.04] px-4 text-[10px] font-black uppercase tracking-wider text-zinc-300">View profile <ArrowRight className="h-3.5 w-3.5"/></button>
+      </div>
 
-      {/* User's Leagues Section */}
-      <section className="mx-auto max-w-5xl px-4 sm:px-8 pt-10">
-        <div className="flex items-center justify-between mb-6 pb-3 border-b border-white/5">
-          <div>
-            <h2 className="font-display text-2xl font-black uppercase tracking-tight text-white flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-[var(--bk-team-accent)]" />
-              <span>YOUR LEAGUES</span>
-            </h2>
-            <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold mt-0.5">
-              Active draft-order tournaments & simulations
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onOpenCreateLeague}
-              className="rounded-sm border border-white/10 bg-[#1A1A1A] px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-zinc-200 hover:bg-zinc-800 transition-colors"
-            >
-              + Create
-            </button>
-            <button
-              onClick={onOpenJoinLeague}
-              className="rounded-sm border border-white/10 bg-[#1A1A1A] px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-zinc-200 hover:bg-zinc-800 transition-colors"
-            >
-              Join Code
-            </button>
-          </div>
+      <div className="rounded-2xl border border-white/10 bg-[#0c0f13]/95 p-4 sm:p-5">
+        <div className="text-[9px] font-black uppercase tracking-[.2em] text-zinc-600">What should I do now?</div>
+        <div className="mt-3 grid gap-2">
+          <Quick icon={<Trophy className="h-4 w-4"/>} label="Fantasy" sub={primaryLeague?`Open ${primaryLeague.name}`:'Join or create a league'} onClick={()=>primaryLeague?onSelectLeague(primaryLeague,'lobby'):onNavigate('fantasy')}/>
+          <Quick icon={<Target className="h-4 w-4"/>} label="Make Picks" sub="Call this week's NFL lines" onClick={()=>onNavigate('sportsbook')}/>
+          <Quick icon={<Brain className="h-4 w-4"/>} label="Trivia" sub="Put your football IQ on the line" onClick={()=>onNavigate('challenges')}/>
         </div>
+      </div>
+    </section>
 
-        {leagues.length === 0 ? (
-          <div className="rounded-lg border border-white/5 bg-[#121212] p-10 text-center">
-            <Shield className="mx-auto h-12 w-12 text-zinc-600 mb-3" />
-            <h3 className="text-base font-black uppercase text-white mb-1 tracking-wider">No Leagues Yet</h3>
-            <p className="text-xs text-zinc-400 max-w-sm mx-auto mb-5 font-medium">
-              Create a league for your fantasy group or enter a league code to compete for draft positions.
-            </p>
-            <button
-              onClick={onOpenCreateLeague}
-              className="inline-flex items-center gap-2 rounded-sm bk-accent-button bg-[var(--bk-team-accent)] px-5 py-2.5 text-xs font-black uppercase tracking-wider text-black hover:bg-amber-300 transition-colors"
-            >
-              Create Your First League
-            </button>
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            {leagues.map(league => {
-              const myMember = league.members.find(m => m.userId === currentUser?.id);
-              const isReady = myMember?.status === 'ready';
-              const submittedCount = league.members.filter(m => m.status === 'ready').length;
-              const isCompleted = league.status === 'completed';
-              const userDraftPick = isCompleted && league.seasonResult
-                ? league.seasonResult.draftOrder.find(d => d.memberId === myMember?.id)?.pickNumber
-                : null;
+    {primaryLeague&&<section className="mt-3 rounded-2xl border border-white/10 bg-[#0b0e12]/95 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0"><div className="text-[9px] font-black uppercase tracking-[.2em] text-zinc-600">Your Fantasy</div><div className="mt-1 truncate text-xl font-black uppercase">{primaryLeague.name}</div><div className="mt-1 text-[10px] font-bold uppercase text-zinc-600">{primaryLeague.members.length}/{primaryLeague.maxMembers} managers{myPick?` · Your pick #${myPick}`:''}</div></div>
+        <span className="shrink-0 rounded-lg border border-[var(--bk-team-accent)]/25 bg-[var(--bk-team-accent)]/10 px-2.5 py-1 text-[9px] font-black uppercase text-[var(--bk-team-accent)]">{primaryLeague.status}</span>
+      </div>
+      <button onClick={()=>onSelectLeague(primaryLeague,primaryLeague.status==='completed'?'simulation':'lobby')} className="mt-3 flex min-h-11 w-full items-center justify-between rounded-xl bg-white px-4 text-[10px] font-black uppercase tracking-wider text-black"><span>Open League</span><ArrowRight className="h-4 w-4"/></button>
+    </section>}
 
-              return (
-                <div
-                  key={league.id}
-                  id={`league-card-${league.id}`}
-                  className="group relative flex flex-col justify-between rounded-lg border border-white/5 bg-[#121212] p-5 hover:border-[var(--bk-team-accent)]/50 transition-all shadow-md"
-                >
-                  <div>
-                    {/* Top Row */}
-                    <div className="flex items-start justify-between gap-2 mb-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs font-black text-[var(--bk-team-accent)] bg-zinc-800 px-2 py-0.5 rounded-sm">
-                            {league.code}
-                          </span>
-                          {league.commissionerId === currentUser?.id && (
-                            <span className="rounded-sm bg-zinc-800 px-1.5 py-0.5 text-[9px] font-black text-zinc-300 uppercase tracking-wider border border-white/5">
-                              COMMISSIONER
-                            </span>
-                          )}
-                        </div>
-                        <h3 className="font-display text-xl font-black uppercase tracking-tight text-white mt-2 group-hover:text-[var(--bk-team-accent)] transition-colors">
-                          {league.name}
-                        </h3>
-                      </div>
+    <section className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <Action label="Create League" icon={<Plus className="h-4 w-4"/>} onClick={onOpenCreateLeague}/>
+      <Action label="Join League" icon={<Users className="h-4 w-4"/>} onClick={onOpenJoinLeague}/>
+      <Action label="Cheat Sheet" icon={<Trophy className="h-4 w-4"/>} onClick={()=>onNavigate('fantasy')}/>
+      <Action label="Solo / Labs" icon={<ArrowRight className="h-4 w-4"/>} onClick={()=>onNavigate('solo')}/>
+    </section>
 
-                      {/* Status Pill */}
-                      {isCompleted ? (
-                        <div className="flex items-center gap-1 rounded-sm bg-[#00FF00]/10 border border-[#00FF00]/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#00FF00]">
-                          <CheckCircle2 className="h-3 w-3" />
-                          <span>Complete</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 rounded-sm bg-[var(--bk-team-accent)]/10 border border-[var(--bk-team-accent)]/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[var(--bk-team-accent)]">
-                          <Clock className="h-3 w-3" />
-                          <span>Drafting</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Stats bar */}
-                    <div className="grid grid-cols-3 gap-2 rounded-sm bg-[#0A0A0A] p-3 border border-white/5 my-3 text-center">
-                      <div>
-                        <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Members</p>
-                        <p className="text-sm font-black text-zinc-200 mt-0.5 font-mono">
-                          {league.members.length}/{league.maxMembers}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Submitted</p>
-                        <p className="text-sm font-black text-[var(--bk-team-accent)] mt-0.5 font-mono">
-                          {submittedCount}/{league.members.length}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Salary Cap</p>
-                        <p className="text-sm font-black text-zinc-200 mt-0.5 font-mono">
-                          ${league.salaryCap}M
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Final Pick result if completed */}
-                    {isCompleted && userDraftPick && (
-                      <div className="rounded-sm bg-[#1A1A1A] border border-[var(--bk-team-accent)]/40 p-3 mb-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Award className="h-5 w-5 text-[var(--bk-team-accent)]" />
-                          <div>
-                            <p className="text-[9px] text-[var(--bk-team-accent)] font-black uppercase tracking-wider">Your Final Result</p>
-                            <p className="text-sm font-black text-white uppercase tracking-tight">
-                              FANTASY PICK #{userDraftPick}
-                            </p>
-                          </div>
-                        </div>
-                        <span className="text-xs font-black text-[var(--bk-team-accent)] uppercase">
-                          {userDraftPick === 1 ? '👑 1st Pick' : `#${userDraftPick} Pick`}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 pt-3 border-t border-white/5">
-                    {isCompleted ? (
-                      <button
-                        onClick={() => onSelectLeague(league, 'simulation')}
-                        className="w-full flex items-center justify-center gap-2 rounded-sm bk-accent-button bg-[var(--bk-team-accent)] py-2.5 text-xs font-black uppercase tracking-widest text-black hover:bg-amber-300 transition-all"
-                      >
-                        <Award className="h-3.5 w-3.5" />
-                        <span>View Final Draft Order</span>
-                        <ArrowRight className="h-3 w-3" />
-                      </button>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => onSelectLeague(league, 'lobby')}
-                          className="flex-1 rounded-sm border border-white/10 bg-[#1A1A1A] py-2 text-xs font-black uppercase tracking-wider text-zinc-200 hover:bg-zinc-800 transition-colors"
-                        >
-                          Lobby ({submittedCount}/{league.members.length})
-                        </button>
-                        <button
-                          onClick={() => onSelectLeague(league, 'draft')}
-                          className="flex-1 flex items-center justify-center gap-1 rounded-sm bg-white text-black hover:bk-accent-button bg-[var(--bk-team-accent)] py-2 text-xs font-black uppercase tracking-wider transition-colors"
-                        >
-                          <Shield className="h-3 w-3" />
-                          <span>{isReady ? 'Edit Roster' : 'Build Team'}</span>
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      {/* How It Works Explainer */}
-      <section className="mx-auto max-w-5xl px-4 sm:px-8 pt-16">
-        <div className="text-center mb-8">
-          <h2 className="font-display text-3xl font-black uppercase tracking-tight text-white">HOW BALL KNOWER WORKS</h2>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mt-1">Simple, transparent, and built on real football logic</p>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-lg border border-white/5 bg-[#121212] p-5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-zinc-800 text-[var(--bk-team-accent)] font-black font-mono text-sm mb-3">
-              01
-            </div>
-            <h3 className="font-display text-base font-black uppercase tracking-tight text-white mb-1.5">
-              Build Under The Cap
-            </h3>
-            <p className="text-xs text-zinc-400 font-medium leading-relaxed">
-              Every fantasy owner drafts a 20-man NFL team (10 offense, 10 defense) under the identical $301.2M salary cap from the active NFL player pool.
-            </p>
-          </div>
-
-          <div className="rounded-lg border border-white/5 bg-[#121212] p-5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-zinc-800 text-[var(--bk-team-accent)] font-black font-mono text-sm mb-3">
-              02
-            </div>
-            <h3 className="font-display text-base font-black uppercase tracking-tight text-white mb-1.5">
-              League Simulation
-            </h3>
-            <p className="text-xs text-zinc-400 font-medium leading-relaxed">
-              The engine simulates a full league head-to-head season. It rewards pass protection, trench dominance, defensive synergy, and penalizes flaws.
-            </p>
-          </div>
-
-          <div className="rounded-lg border border-white/5 bg-[#121212] p-5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-sm bg-zinc-800 text-[var(--bk-team-accent)] font-black font-mono text-sm mb-3">
-              03
-            </div>
-            <h3 className="font-display text-base font-black uppercase tracking-tight text-white mb-1.5">
-              Earn Draft Order
-            </h3>
-            <p className="text-xs text-zinc-400 font-medium leading-relaxed">
-              The #1 team in Ball Knower standings earns the #1 overall pick in your real fantasy football draft. 2nd place gets Pick #2, and so on.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto mt-14 max-w-5xl px-4 sm:px-8" aria-label="Contact Ball Knower">
-        <div className="rounded-2xl border border-white/10 bg-[#101215]/90 p-5 sm:flex sm:items-center sm:justify-between sm:gap-6 sm:p-6">
-          <div>
-            <div className="text-[10px] font-black uppercase tracking-[.22em] text-[var(--bk-team-accent)]">CONTACT BALL KNOWER</div>
-            <h2 className="mt-1 text-xl font-black uppercase">Questions, partnerships or a problem?</h2>
-            <p className="mt-1 max-w-xl text-xs font-semibold leading-relaxed text-zinc-400">Email the Ball Knower team. Put “Business,” “Support,” or “Bug” in the subject so we can get it to the right place fast.</p>
-          </div>
-          <a href="mailto:BallKnowerOfficial@gmail.com?subject=Ball%20Knower%20Inquiry" className="mt-4 flex min-h-12 shrink-0 items-center justify-center rounded-xl bg-[var(--bk-team-accent)] px-5 text-xs font-black uppercase text-[var(--bk-on-accent)] sm:mt-0">BallKnowerOfficial@gmail.com</a>
-        </div>
-      </section>
-    </div>
-  );
+    {!primaryLeague&&<section className="mt-3 rounded-2xl border border-dashed border-white/10 bg-white/[.02] p-5 text-center"><div className="text-sm font-black uppercase">No fantasy league yet</div><p className="mt-1 text-xs text-zinc-600">Start with a real league, then use Trivia and Picks to build your Ball Knower Rating between matchups.</p><div className="mt-4 flex justify-center gap-2"><button onClick={onOpenCreateLeague} className="min-h-10 rounded-xl bg-[var(--bk-team-accent)] px-4 text-[10px] font-black uppercase text-black">Create</button><button onClick={onOpenJoinLeague} className="min-h-10 rounded-xl border border-white/10 px-4 text-[10px] font-black uppercase">Join</button></div></section>}
+  </div>;
 };
+
+const Quick=({icon,label,sub,onClick}:{icon:React.ReactNode;label:string;sub:string;onClick:()=>void})=><button onClick={onClick} className="flex min-h-14 items-center gap-3 rounded-xl border border-white/5 bg-white/[.025] px-3 text-left hover:border-[var(--bk-team-accent)]/25"><span className="text-[var(--bk-team-accent)]">{icon}</span><span className="min-w-0"><span className="block text-[11px] font-black uppercase">{label}</span><span className="block truncate text-[9px] font-bold text-zinc-600">{sub}</span></span><ArrowRight className="ml-auto h-3.5 w-3.5 text-zinc-700"/></button>;
+const Action=({icon,label,onClick}:{icon:React.ReactNode;label:string;onClick:()=>void})=><button onClick={onClick} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#0c0f13]/90 px-2 text-[9px] font-black uppercase tracking-wide text-zinc-300"><span className="text-[var(--bk-team-accent)]">{icon}</span>{label}</button>;
