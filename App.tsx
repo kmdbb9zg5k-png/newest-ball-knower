@@ -53,14 +53,7 @@ function BallKnowerApp(){
   const [showFavoriteTeam,setShowFavoriteTeam]=useState(()=>{try{const params=new URLSearchParams(window.location.search);return params.get('teamsetup')==='1'||!localStorage.getItem('ball-knower-team-setup-v2')}catch{return false}});
 
   useEffect(()=>{setIntroActiveRef.current=setIntroActive},[setIntroActive]);
-  useEffect(()=>{
-    setIntroActiveRef.current(true);
-    try{
-      const savedTheme=getSavedTeamTheme();setFavoriteTheme(savedTheme);applyTeamCssVariables(savedTheme);
-      const params=new URLSearchParams(window.location.search);const joinCode=params.get('join');
-      if(joinCode)joinLeague(joinCode).then(res=>{if(res.success&&res.league)setCurrentTab('lobby')});
-    }catch(e){console.error(e)}
-  },[]);
+  useEffect(()=>{setIntroActiveRef.current(true);try{const savedTheme=getSavedTeamTheme();setFavoriteTheme(savedTheme);applyTeamCssVariables(savedTheme);const params=new URLSearchParams(window.location.search);const joinCode=params.get('join');if(joinCode)joinLeague(joinCode).then(res=>{if(res.success&&res.league)setCurrentTab('lobby')})}catch(e){console.error(e)}},[]);
   useEffect(()=>{let media:MediaQueryList|null=null;try{media=window.matchMedia('(max-width: 767px)');const sync=()=>setIsMobileDraftViewport(media?.matches??false);sync();media.addEventListener?.('change',sync);return()=>media?.removeEventListener?.('change',sync)}catch{return undefined}},[]);
   useEffect(()=>{trackBallKnowerEvent('Mode Opened',{mode:currentTab,active_league:Boolean(activeLeague)})},[currentTab]);
 
@@ -71,6 +64,7 @@ function BallKnowerApp(){
   const handleLeagueCreated=(league:League)=>{setActiveLeagueId(league.id);setCurrentTab('lobby')};
   const handleLeagueJoined=(league:League)=>{setActiveLeagueId(league.id);setCurrentTab('lobby')};
   const navigateToTab=useCallback((tab:AppTab)=>{if(tab==='fantasy')setFantasyView('leagues');if(tab==='solo')setSoloExperience('hub');setCurrentTab(tab)},[]);
+  const openCheatSheet=useCallback(()=>{setFantasyView('cheatsheet');setCurrentTab('fantasy')},[]);
 
   return <div data-tab={currentTab} className="bk-app-shell relative min-h-[100dvh] overflow-x-hidden text-white font-sans antialiased selection:bg-[var(--bk-team-accent)]/30 selection:text-[var(--bk-team-accent)]">
     <div className="bk-cinematic-image" aria-hidden="true"/>
@@ -78,7 +72,7 @@ function BallKnowerApp(){
 
     <Navbar currentTab={currentTab} setCurrentTab={navigateToTab} onOpenAuth={()=>setIsAuthOpen(true)} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onOpenIntro={openIntro} onOpenDatabaseModal={()=>setIsDatabaseModalOpen(true)}/>
     <main className="relative z-[3] w-full pb-[env(safe-area-inset-bottom)]">
-      {currentTab==='home'&&<HomeDashboard onNavigate={navigateToTab} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague}/>} 
+      {currentTab==='home'&&<HomeDashboard onNavigate={navigateToTab} onOpenCheatSheet={openCheatSheet} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague}/>} 
       <Suspense fallback={<ScreenFallback/>}>
         {currentTab==='solo'&&<SoloMode initialExperience={soloExperience}/>} 
         {currentTab==='news'&&<NewsHub/>}
