@@ -3,13 +3,13 @@ import { ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, Clock3, LoaderCircle, 
 import { useBallKnower } from './BallKnowerContext';
 import { playerPortraitUrl } from './playerPortraits';
 import { PLAYERS_DATABASE } from './players';
-import { getDraftPositionGroup } from './rosterRules';
-import { LiveFantasyDraft, Player, ROSTER_REQUIREMENTS, RosterRequirements } from './types';
+import { getLiveFantasyDraftGroup, LIVE_FANTASY_ROSTER_REQUIREMENTS, LiveFantasyDraftGroup } from './liveFantasyRules';
+import { LiveFantasyDraft, Player } from './types';
 
 type Props={onBackToLobby:()=>void};
-type DraftGroup=keyof RosterRequirements;
-const GROUPS=Object.keys(ROSTER_REQUIREMENTS) as DraftGroup[];
-const GROUP_LABELS:Record<DraftGroup,string>={QB:'QB',RB:'RB',WR:'WR',TE:'TE',OL:'OL',DL_EDGE:'DL/EDGE',LB:'LB',CB:'CB',S:'S',K:'K',P:'P'};
+type DraftGroup=LiveFantasyDraftGroup;
+const GROUPS=Object.keys(LIVE_FANTASY_ROSTER_REQUIREMENTS) as DraftGroup[];
+const GROUP_LABELS:Record<DraftGroup,string>={QB:'QB',RB:'RB',WR:'WR',TE:'TE',K:'K',DST:'D/ST'};
 const PLAYER_BY_ID=new Map(PLAYERS_DATABASE.map(player=>[player.id,player]));
 
 const memberAtPick=(draft:LiveFantasyDraft)=>{
@@ -30,8 +30,8 @@ const legalPlayersFor=(draft:LiveFantasyDraft,memberId:string)=>{
   const counts=countsFor(draft,memberId);
   return PLAYERS_DATABASE.filter(player=>{
     if(drafted.has(player.id))return false;
-    const group=getDraftPositionGroup(player);
-    return Boolean(group&&(counts[group]||0)<ROSTER_REQUIREMENTS[group]);
+    const group=getLiveFantasyDraftGroup(player);
+    return Boolean(group&&(counts[group]||0)<LIVE_FANTASY_ROSTER_REQUIREMENTS[group]);
   });
 };
 
@@ -40,10 +40,10 @@ const cpuSelection=(draft:LiveFantasyDraft,memberId:string)=>{
   let best:Player|null=null;
   let bestScore=-Infinity;
   for(const player of legalPlayersFor(draft,memberId)){
-    const group=getDraftPositionGroup(player);
+    const group=getLiveFantasyDraftGroup(player);
     if(!group)continue;
-    const remaining=ROSTER_REQUIREMENTS[group]-(counts[group]||0);
-    const urgency=remaining/ROSTER_REQUIREMENTS[group];
+    const remaining=LIVE_FANTASY_ROSTER_REQUIREMENTS[group]-(counts[group]||0);
+    const urgency=remaining/LIVE_FANTASY_ROSTER_REQUIREMENTS[group];
     const score=player.ovr*100+urgency*22-player.salary*.01;
     if(score>bestScore||(score===bestScore&&player.name.localeCompare(best?.name||'')<0)){
       best=player;bestScore=score;
@@ -64,6 +64,7 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
   const [busy,setBusy]=useState(false);
   const pickLockRef=useRef(false);
   const finalizeLockRef=useRef(false);
+  const needsScrollRef=useRef<HTMLDivElement>(null);
 
   const currentMemberId=draft?memberAtPick(draft):null;
   const currentMember=activeLeague?.members.find(member=>member.id===currentMemberId);
@@ -81,12 +82,12 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
     if(!draft||!currentMemberId)return [];
     const clean=query.trim().toLowerCase();
     return legalPlayersFor(draft,currentMemberId)
-      .filter(player=>(group==='ALL'||getDraftPositionGroup(player)===group)&&(!clean||`${player.name} ${player.team} ${player.position}`.toLowerCase().includes(clean)))
+      .filter(player=>(group==='ALL'||getLiveFantasyDraftGroup(player)===group)&&(!clean||`${player.name} ${player.team} ${player.position}`.toLowerCase().includes(clean)))
       .sort((first,second)=>{
-        const firstGroup=getDraftPositionGroup(first);
-        const secondGroup=getDraftPositionGroup(second);
-        const firstNeed=firstGroup?Math.max(0,ROSTER_REQUIREMENTS[firstGroup]-(myCounts[firstGroup]||0)):0;
-        const secondNeed=secondGroup?Math.max(0,ROSTER_REQUIREMENTS[secondGroup]-(myCounts[secondGroup]||0)):0;
+        const firstGroup=getLiveFantasyDraftGroup(first);
+        const secondGroup=getLiveFantasyDraftGroup(second);
+        const firstNeed=firstGroup?Math.max(0,LIVE_FANTASY_ROSTER_REQUIREMENTS[firstGroup]-(myCounts[firstGroup]||0))/LIVE_FANTASY_ROSTER_REQUIREMENTS[firstGroup]:0;
+        const secondNeed=secondGroup?Math.max(0,LIVE_FANTASY_ROSTER_REQUIREMENTS[secondGroup]-(myCounts[secondGroup]||0))/LIVE_FANTASY_ROSTER_REQUIREMENTS[secondGroup]:0;
         return secondNeed-firstNeed||second.ovr-first.ovr||first.name.localeCompare(second.name);
       })
       .slice(0,100);
@@ -115,6 +116,8 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
       .finally(()=>setBusy(false));
   },[activeLeague?.id,draft?.status,isCommissioner,seasonHandoffComplete]);
 
+  useEffect(()=>{needsScrollRef.current?.scrollTo({left:0,behavior:'auto'});},[draft?.leagueId]);
+
   if(!activeLeague||!draft){
     return <div className="min-h-[70dvh] bg-[#07090c] px-4 py-16 text-center text-white"><h2 className="text-2xl font-black uppercase">Fantasy Draft Has Not Started</h2><button onClick={onBackToLobby} className="mt-5 rounded-xl bg-[#D4AF37] px-5 py-3 text-xs font-black uppercase text-black">Return to League HQ</button></div>;
   }
@@ -127,22 +130,22 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
   const onClockIsMe=currentMember?.userId===currentUser?.id;
   const canPick=onClockIsMe&&!currentMember?.isAi&&!busy;
   const totalPicks=draft.orderMemberIds.length*draft.rounds;
-  const openNeeds=GROUPS.filter(item=>(myCounts[item]||0)<ROSTER_REQUIREMENTS[item]);
+  const openNeeds=GROUPS.filter(item=>(myCounts[item]||0)<LIVE_FANTASY_ROSTER_REQUIREMENTS[item]);
 
   return <div className="min-h-[100dvh] bg-[#07090c] px-3 pb-24 pt-3 text-white sm:px-6"><div className="mx-auto max-w-7xl">
     <div className="sticky top-16 z-30 rounded-2xl border border-white/10 bg-[#0d1015]/95 p-3 shadow-2xl backdrop-blur-md"><div className="flex items-center gap-3"><button onClick={onBackToLobby} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10" aria-label="Back to League HQ"><ArrowLeft className="h-5 w-5"/></button><div className="min-w-0 flex-1"><div className="text-[9px] font-black uppercase tracking-[.2em] text-[#D4AF37]">Live 20-Round Snake Draft · Round {round}/{draft.rounds}</div><div className="truncate text-lg font-black uppercase">{currentMember?.userName||'Draft Complete'} Is On The Clock</div></div><div className="text-right"><div className="text-[9px] font-black uppercase text-zinc-600">Overall</div><div className="font-mono text-lg font-black">{Math.min(draft.pickIndex+1,totalPicks)}/{totalPicks}</div></div></div><div className="mt-2 grid grid-cols-3 gap-2"><MiniStat label="Your Slot" value={mySlot?`#${mySlot}`:'—'}/><MiniStat label="Your Roster" value={`${myRoster.length}/20`}/><MiniStat label="Turn" value={onClockIsMe?'Your Pick':currentMember?.isAi?'CPU Picking':'Waiting'}/></div></div>
 
-    <section className="sticky top-[12.5rem] z-20 mt-3 rounded-2xl border border-[#D4AF37]/25 bg-[#0d1015]/95 p-3 shadow-xl backdrop-blur-md lg:static">
+    <section className="mt-3 rounded-2xl border border-[#D4AF37]/25 bg-[#0d1015] p-3 shadow-xl">
       <div className="flex items-center justify-between gap-3"><div><div className="text-[9px] font-black uppercase tracking-[.18em] text-[#D4AF37]">Your roster needs</div><div className="mt-0.5 text-[10px] font-bold text-zinc-500">Counts update after every pick</div></div><button type="button" onClick={()=>setShowMyPicks(value=>!value)} className="flex min-h-10 items-center gap-1 rounded-xl border border-white/10 px-3 text-[9px] font-black uppercase">My picks ({myPicks.length}) {showMyPicks?<ChevronUp className="h-3.5 w-3.5"/>:<ChevronDown className="h-3.5 w-3.5"/>}</button></div>
-      <div className="mt-2 flex gap-2 overflow-x-auto pb-1">{GROUPS.map(item=>{const current=myCounts[item]||0;const required=ROSTER_REQUIREMENTS[item];const filled=current>=required;return <button type="button" key={item} onClick={()=>setGroup(item)} className={`min-w-[66px] rounded-xl border px-2 py-2 text-center ${filled?'border-emerald-400/20 bg-emerald-400/[.07]':'border-amber-300/25 bg-amber-300/[.07]'}`}><div className="text-[9px] font-black text-zinc-400">{GROUP_LABELS[item]}</div><div className={`mt-0.5 text-sm font-black ${filled?'text-emerald-300':'text-amber-200'}`}>{current}/{required}</div><div className="text-[7px] font-black uppercase text-zinc-600">{filled?'Filled':`${required-current} left`}</div></button>})}</div>
+      <div ref={needsScrollRef} className="mt-2 flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1">{GROUPS.map(item=>{const current=myCounts[item]||0;const required=LIVE_FANTASY_ROSTER_REQUIREMENTS[item];const filled=current>=required;return <button type="button" key={item} onClick={()=>setGroup(item)} className={`min-w-[66px] snap-start rounded-xl border px-2 py-2 text-center ${filled?'border-emerald-400/20 bg-emerald-400/[.07]':'border-amber-300/25 bg-amber-300/[.07]'}`}><div className="text-[9px] font-black text-zinc-400">{GROUP_LABELS[item]}</div><div className={`mt-0.5 text-sm font-black ${filled?'text-emerald-300':'text-amber-200'}`}>{current}/{required}</div><div className="text-[7px] font-black uppercase text-zinc-600">{filled?'Filled':`${required-current} left`}</div></button>})}</div>
       {showMyPicks&&<div className="mt-2 grid gap-1 border-t border-white/10 pt-2 sm:grid-cols-2 lg:grid-cols-4">{myPicks.length?myPicks.slice().reverse().map(pick=>{const player=PLAYER_BY_ID.get(pick.playerId);return <div key={pick.overall} className="flex items-center justify-between rounded-lg bg-black/35 px-2.5 py-2 text-[10px]"><span className="min-w-0 truncate"><b>#{pick.overall} · {player?.position}</b> {player?.name}</span><b className="ml-2 text-[#D4AF37]">{player?.ovr}</b></div>}):<div className="py-2 text-[10px] font-bold text-zinc-600">You have not made a pick yet.</div>}</div>}
-      {!showMyPicks&&<div className="mt-2 truncate text-[9px] font-bold uppercase text-zinc-600">Still needed: {openNeeds.length?openNeeds.map(item=>`${ROSTER_REQUIREMENTS[item]-(myCounts[item]||0)} ${GROUP_LABELS[item]}`).join(' · '):'Roster complete'}</div>}
+      {!showMyPicks&&<div className="mt-2 truncate text-[9px] font-bold uppercase text-zinc-600">Still needed: {openNeeds.length?openNeeds.map(item=>`${LIVE_FANTASY_ROSTER_REQUIREMENTS[item]-(myCounts[item]||0)} ${GROUP_LABELS[item]}`).join(' · '):'Roster complete'}</div>}
     </section>
 
     <div className="mt-4 grid gap-4 lg:grid-cols-[1.5fr_.65fr]">
-      <section className="min-w-0"><div className={`rounded-xl border p-3 text-center text-xs font-black uppercase ${canPick?'border-emerald-400/30 bg-emerald-400/[.08] text-emerald-300':'border-white/10 bg-[#101318] text-zinc-400'}`}>{canPick?'You are on the clock—select one player.':currentMember?.isAi?'CPU manager is selecting automatically…':`Waiting for ${currentMember?.userName||'the next manager'} to pick.`}</div><div className="mt-3 flex gap-2"><div className="relative min-w-0 flex-1"><Search className="absolute left-3 top-3.5 h-4 w-4 text-zinc-500"/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search available players…" className="min-h-12 w-full rounded-xl border border-white/10 bg-[#101318] pl-10 pr-3 text-sm font-bold outline-none focus:border-[#D4AF37]/50"/></div><select aria-label="Position group" value={group} onChange={event=>setGroup(event.target.value as DraftGroup|'ALL')} className="min-h-12 rounded-xl border border-white/10 bg-[#101318] px-3 text-xs font-black text-white"><option value="ALL">All Positions</option>{GROUPS.map(item=><option key={item} value={item}>{GROUP_LABELS[item]}</option>)}</select></div><div className="mt-3 space-y-2">{available.map((player,index)=>{const playerGroup=getDraftPositionGroup(player);const stillNeeded=playerGroup&&((myCounts[playerGroup]||0)<ROSTER_REQUIREMENTS[playerGroup]);return <button key={player.id} onClick={()=>void makePick(player)} disabled={!canPick} className="grid w-full grid-cols-[48px_minmax(0,1fr)_72px] items-center gap-3 rounded-2xl border border-white/10 bg-[#101318] p-3 text-left disabled:cursor-not-allowed disabled:opacity-45"><div className="h-12 w-12 overflow-hidden rounded-full bg-white/5">{playerPortraitUrl(player)?<img src={playerPortraitUrl(player)} alt="" className="h-full w-full object-cover"/>:null}</div><div className="min-w-0"><div className="flex items-center gap-2"><div className="truncate font-black">{player.name}</div>{index===0&&group==='ALL'&&<span className="shrink-0 rounded-full bg-emerald-400/10 px-2 py-0.5 text-[7px] font-black uppercase text-emerald-300">Best need</span>}</div><div className="text-xs font-semibold text-zinc-500">{player.position} · {player.team}{stillNeeded?` · Need ${ROSTER_REQUIREMENTS[playerGroup!]-(myCounts[playerGroup!]||0)}`:''}</div></div><div className="rounded-xl bg-[#D4AF37] py-2 text-center text-black"><div className="text-lg font-black">{player.ovr}</div><div className="text-[8px] font-black">DRAFT</div></div></button>})}</div></section>
+      <section className="min-w-0"><div className={`rounded-xl border p-3 text-center text-xs font-black uppercase ${canPick?'border-emerald-400/30 bg-emerald-400/[.08] text-emerald-300':'border-white/10 bg-[#101318] text-zinc-400'}`}>{canPick?'You are on the clock—select one player.':currentMember?.isAi?'CPU manager is selecting automatically…':`Waiting for ${currentMember?.userName||'the next manager'} to pick.`}</div><div className="mt-3 flex gap-2"><div className="relative min-w-0 flex-1"><Search className="absolute left-3 top-3.5 h-4 w-4 text-zinc-500"/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search available players…" className="min-h-12 w-full rounded-xl border border-white/10 bg-[#101318] pl-10 pr-3 text-sm font-bold outline-none focus:border-[#D4AF37]/50"/></div><select aria-label="Position group" value={group} onChange={event=>setGroup(event.target.value as DraftGroup|'ALL')} className="min-h-12 rounded-xl border border-white/10 bg-[#101318] px-3 text-xs font-black text-white"><option value="ALL">All Positions</option>{GROUPS.map(item=><option key={item} value={item}>{GROUP_LABELS[item]}</option>)}</select></div><div className="mt-3 space-y-2">{available.map((player,index)=>{const playerGroup=getLiveFantasyDraftGroup(player);const stillNeeded=playerGroup&&((myCounts[playerGroup]||0)<LIVE_FANTASY_ROSTER_REQUIREMENTS[playerGroup]);return <button key={player.id} onClick={()=>void makePick(player)} disabled={!canPick} className="grid w-full grid-cols-[48px_minmax(0,1fr)_72px] items-center gap-3 rounded-2xl border border-white/10 bg-[#101318] p-3 text-left disabled:cursor-not-allowed disabled:opacity-45"><div className="h-12 w-12 overflow-hidden rounded-full bg-white/5">{playerPortraitUrl(player)?<img src={playerPortraitUrl(player)} alt="" className="h-full w-full object-cover"/>:null}</div><div className="min-w-0"><div className="flex items-center gap-2"><div className="truncate font-black">{player.name}</div>{index===0&&group==='ALL'&&<span className="shrink-0 rounded-full bg-emerald-400/10 px-2 py-0.5 text-[7px] font-black uppercase text-emerald-300">Best need</span>}</div><div className="text-xs font-semibold text-zinc-500">{player.position} · {player.team}{stillNeeded?` · Need ${LIVE_FANTASY_ROSTER_REQUIREMENTS[playerGroup!]-(myCounts[playerGroup!]||0)}`:''}</div></div><div className="rounded-xl bg-[#D4AF37] py-2 text-center text-black"><div className="text-lg font-black">{player.ovr}</div><div className="text-[8px] font-black">DRAFT</div></div></button>})}</div></section>
 
-      <aside className="space-y-3"><div className="rounded-2xl border border-white/10 bg-[#101318] p-4"><div className="flex items-center justify-between"><div className="text-xs font-black uppercase text-[#D4AF37]">Your Roster</div><div className="text-xs font-black">{myRoster.length}/20</div></div><div className="mt-2 text-[10px] leading-5 text-zinc-500">{GROUPS.map(item=>`${item} ${myCounts[item]||0}/${ROSTER_REQUIREMENTS[item]}`).join(' · ')}</div><div className="mt-3 space-y-1">{myPicks.map(pick=>{const player=PLAYER_BY_ID.get(pick.playerId);return <div key={pick.overall} className="flex justify-between rounded-lg bg-black/30 px-2 py-2 text-xs"><span className="truncate"><b>{player?.position}</b> {player?.name}</span><b>{player?.ovr}</b></div>})}</div></div><div className="rounded-2xl border border-white/10 bg-[#101318] p-4"><div className="flex items-center gap-2 text-xs font-black uppercase text-[#D4AF37]"><Clock3 className="h-4 w-4"/>Recent Picks</div><div className="mt-3 space-y-2">{draft.picks.slice(-10).reverse().map(pick=>{const player=PLAYER_BY_ID.get(pick.playerId);const member=activeLeague.members.find(item=>item.id===pick.memberId);return <div key={pick.overall} className="text-xs"><div className="font-black">#{pick.overall} · {member?.userName}</div><div className="truncate text-zinc-500">{player?.name} · {player?.position}</div></div>})}</div></div><div className="flex items-start gap-2 rounded-2xl border border-emerald-400/20 bg-emerald-400/[.05] p-3 text-[11px] leading-5 text-emerald-200"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0"/>The locked order controls Round 1. Every even round reverses automatically for a true snake draft.</div></aside>
+      <aside className="space-y-3"><div className="rounded-2xl border border-white/10 bg-[#101318] p-4"><div className="flex items-center justify-between"><div className="text-xs font-black uppercase text-[#D4AF37]">Your Roster</div><div className="text-xs font-black">{myRoster.length}/20</div></div><div className="mt-2 text-[10px] leading-5 text-zinc-500">{GROUPS.map(item=>`${GROUP_LABELS[item]} ${myCounts[item]||0}/${LIVE_FANTASY_ROSTER_REQUIREMENTS[item]}`).join(' · ')}</div><div className="mt-3 space-y-1">{myPicks.map(pick=>{const player=PLAYER_BY_ID.get(pick.playerId);return <div key={pick.overall} className="flex justify-between rounded-lg bg-black/30 px-2 py-2 text-xs"><span className="truncate"><b>{player?.position}</b> {player?.name}</span><b>{player?.ovr}</b></div>})}</div></div><div className="rounded-2xl border border-white/10 bg-[#101318] p-4"><div className="flex items-center gap-2 text-xs font-black uppercase text-[#D4AF37]"><Clock3 className="h-4 w-4"/>Recent Picks</div><div className="mt-3 space-y-2">{draft.picks.slice(-10).reverse().map(pick=>{const player=PLAYER_BY_ID.get(pick.playerId);const member=activeLeague.members.find(item=>item.id===pick.memberId);return <div key={pick.overall} className="text-xs"><div className="font-black">#{pick.overall} · {member?.userName}</div><div className="truncate text-zinc-500">{player?.name} · {player?.position}</div></div>})}</div></div><div className="flex items-start gap-2 rounded-2xl border border-emerald-400/20 bg-emerald-400/[.05] p-3 text-[11px] leading-5 text-emerald-200"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0"/>The locked order controls Round 1. Every even round reverses automatically for a true snake draft.</div></aside>
     </div>
   </div></div>;
 };
