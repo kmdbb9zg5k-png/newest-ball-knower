@@ -1,6 +1,6 @@
 import { calculateTeamRatings } from './evaluation';
 import { PLAYERS_DATABASE } from './players';
-import { validateRosterShape } from './rosterRules';
+import { validateLiveFantasyRoster } from './liveFantasyRules';
 import { League, LiveFantasyDraft, Player, TeamRatings, TOTAL_ROSTER_SIZE } from './types';
 
 export type LiveDraftRosterAssignment = {
@@ -54,7 +54,7 @@ export function buildLiveDraftRosterAssignments(
     if (roster.length !== TOTAL_ROSTER_SIZE) {
       throw new Error(`A completed fantasy roster has ${roster.length}/${TOTAL_ROSTER_SIZE} known players.`);
     }
-    const rosterErrors = validateRosterShape(roster);
+    const rosterErrors = validateLiveFantasyRoster(roster);
     if (rosterErrors.length > 0) {
       throw new Error(`A completed fantasy roster is invalid: ${rosterErrors[0]}`);
     }

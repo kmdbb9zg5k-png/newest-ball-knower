@@ -35,7 +35,14 @@ export function getPositionGroup(pos:Position):PositionGroup{ const p=String(pos
 const LEGACY_RAW_PLAYERS:Player[]=[...AFC_EAST_PLAYERS,...AFC_NORTH_PLAYERS,...AFC_SOUTH_PLAYERS,...AFC_WEST_PLAYERS,...NFC_EAST_PLAYERS,...NFC_NORTH_PLAYERS,...NFC_SOUTH_PLAYERS,...NFC_WEST_PLAYERS];
 const RAW_PLAYERS_COMBINED:Player[]=applyCurrent2026Roster(LEGACY_RAW_PLAYERS);
 function normalizePlayer(raw:Player):Player{ const teamData=NFL_TEAMS.find(t=>t.code===raw.team); const madden=getOfficialMaddenRating(raw.id,raw.name,raw.team,raw.position); const ovr=(raw as any).overallRating || (madden as any)?.overallRating || raw.ovr; return {...raw,playerId:(raw as any).playerId||raw.id,teamId:raw.team,teamAbbreviation:raw.team,teamCity:teamData?.city||(raw as any).teamCity||'NFL',teamName:teamData?.name||(raw as any).teamName||'',conference:teamData?.conference||(raw as any).conference||'AFC',division:teamData?.division||(raw as any).division||'East',positionGroup:(raw as any).positionGroup||getPositionGroup(raw.position),active:(raw as any).active!==false,rosterSeason:2026,overallRating:ovr,ovr,overall:ovr} as Player; }
-export const PLAYERS_DATABASE:Player[]=RAW_PLAYERS_COMBINED.map(normalizePlayer);
+const NORMALIZED_PLAYERS:Player[]=RAW_PLAYERS_COMBINED.map(normalizePlayer);
+const DEFENSIVE_POSITIONS=new Set(['EDGE','DE','DT','NT','LB','CB','S','FS','SS']);
+const TEAM_DEFENSES:Player[]=NFL_TEAMS.map(team=>{
+ const defenders=NORMALIZED_PLAYERS.filter(player=>player.team===team.code&&DEFENSIVE_POSITIONS.has(player.position)).sort((a,b)=>b.ovr-a.ovr).slice(0,11);
+ const ovr=defenders.length?Math.round(defenders.reduce((sum,player)=>sum+player.ovr,0)/defenders.length):75;
+ return {id:`dst-${team.code.toLowerCase()}`,playerId:`dst-${team.code.toLowerCase()}`,team:team.code,teamId:team.code,teamCity:team.city,teamName:team.name,name:`${team.city} ${team.name} D/ST`,position:'DST',positionGroup:'DST',ovr,overallRating:ovr,overall:ovr,salary:1,salaryType:'estimated',salarySource:'legacy_estimate',active:true,rosterSeason:2026,ratingSource:'Ball Knower Team Defense',ratingSeason:2026,ratingStatus:'VERIFIED',attributes:{runDefense:ovr,coverage:ovr,passRush:ovr,athleticism:ovr,footballIQ:ovr}} as Player;
+});
+export const PLAYERS_DATABASE:Player[]=[...NORMALIZED_PLAYERS,...TEAM_DEFENSES];
 export function searchPlayers(query:string){ const q=String(query||'').trim().toLowerCase(); if(!q)return PLAYERS_DATABASE; return PLAYERS_DATABASE.filter((p:any)=>`${p.name} ${p.team} ${p.position} ${p.teamCity||''} ${p.teamName||''}`.toLowerCase().includes(q)); }
 export function getPlayersByTeam(team:string){ const t=String(team||'').toUpperCase(); return PLAYERS_DATABASE.filter(p=>String(p.team).toUpperCase()===t); }
 export function getPlayersByPosition(position:string){ const p=String(position||'').toUpperCase(); return PLAYERS_DATABASE.filter(x=>String(x.position).toUpperCase()===p || String((x as any).positionGroup||'').toUpperCase()===p); }

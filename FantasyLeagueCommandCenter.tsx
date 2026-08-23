@@ -235,6 +235,7 @@ const ControlCard=({icon,title,body,onClick,active}:{icon:React.ReactNode;title:
 const SettingSelect=({label,value,options,onChange}:{label:string;value:string;options:[string,string][];onChange:(v:string)=>void})=><label className="text-[9px] font-black uppercase text-zinc-500">{label}<select value={value} onChange={e=>onChange(e.target.value)} className="mt-1 min-h-11 w-full rounded-xl border border-white/10 bg-black/40 px-2 text-xs font-bold text-white">{options.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>;
 
 const LockedDraftOrderSummary=({league,isCommissioner,onOpenDraft,onViewResults}:{league:League;isCommissioner:boolean;onOpenDraft:()=>void;onViewResults:()=>void})=>{
+  const {currentUser}=useBallKnower();
   const result=league.seasonResult!;
   const random=result.orderMethod==='random';
   return <div className="min-h-[calc(100dvh-7rem)] bg-[#07090c] px-3 py-3 text-white sm:px-6"><div className="mx-auto max-w-4xl">

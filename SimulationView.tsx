@@ -36,6 +36,7 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
   const [copiedDraftOrder, setCopiedDraftOrder] = useState(false);
   const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
+  const [openingDraft, setOpeningDraft] = useState(false);
 
   // Trigger celebration confetti on mount
   useEffect(() => {
@@ -50,6 +51,10 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
       console.error(e);
     }
   }, []);
+
+  useEffect(()=>{
+    if(openingDraft&&league.liveDraft)onOpenDraft();
+  },[openingDraft,league.liveDraft,onOpenDraft]);
 
   if (!seasonResult) {
     return (
@@ -94,8 +99,10 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
 
   const handleOpenDraft=async()=>{
     if(league.liveDraft){onOpenDraft();return;}
+    if(openingDraft)return;
+    setOpeningDraft(true);
     const started=await startLiveFantasyDraft(league.id);
-    if(started)onOpenDraft();
+    if(!started)setOpeningDraft(false);
   };
 
   if(seasonResult.orderMethod==='random'||seasonResult.orderMethod==='commissioner'){
@@ -107,7 +114,7 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
       <section className="rounded-2xl border border-[#D4AF37]/35 bg-[radial-gradient(circle_at_85%_10%,rgba(212,175,55,.18),transparent_30%),#101318] p-4 sm:p-7"><div className="flex items-start gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#D4AF37] text-black">{random?<RotateCcw className="h-5 w-5"/>:<Award className="h-5 w-5"/>}</div><div><div className="text-[9px] font-black uppercase tracking-[.2em] text-[#D4AF37]">Official Fantasy Draft Order</div><h1 className="mt-1 font-display text-3xl font-black uppercase sm:text-5xl">{random?'Random Draw Complete':'Commissioner Order Locked'}</h1><p className="mt-2 text-xs leading-5 text-zinc-400 sm:text-sm">{random?'Every team received one equal chance. This locked order determines where each manager drafts NFL players.':'The commissioner assigned every team exactly one slot. This locked order determines where each manager drafts NFL players.'}</p></div></div>
         <div className="mt-4 grid grid-cols-1 gap-2 min-[390px]:grid-cols-2">{seasonResult.draftOrder.map(pick=>{const member=league.members.find(item=>item.id===pick.memberId);const mine=member?.userId===currentUser?.id;const role=mine?(member?.isCommissioner?'You · Commissioner':'You'):member?.isAi?'CPU':member?.isCommissioner?'Commissioner':'Manager';return <div key={pick.memberId} className={`flex min-w-0 items-center gap-2 rounded-xl border p-2.5 ${pick.pickNumber===1?'border-[#D4AF37] bg-[#D4AF37]/10':mine?'border-[#D4AF37]/40 bg-[#D4AF37]/5':'border-white/10 bg-black/30'}`}><div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg text-xs font-black ${pick.pickNumber===1?'bg-[#D4AF37] text-black':'border border-white/10 bg-[#0A0A0A]'}`}>#{pick.pickNumber}</div><div className="min-w-0"><div className="truncate text-xs font-black uppercase">{pick.memberName}</div><div className="text-[9px] font-bold uppercase text-zinc-500">{role}</div></div></div>})}</div>
         {!league.liveDraft&&!canManageDraft&&<p className="mt-4 text-center text-[10px] font-bold text-zinc-500">Waiting for {commissionerName} to start the NFL player draft.</p>}
-        <div className="mt-2 grid grid-cols-1 gap-2 min-[390px]:grid-cols-2"><button onClick={()=>void handleOpenDraft()} disabled={!league.liveDraft&&!canManageDraft} className="min-h-12 rounded-xl bg-[#D4AF37] px-3 text-[10px] font-black uppercase tracking-wider text-black disabled:cursor-not-allowed disabled:border disabled:border-white/10 disabled:bg-white/[.04] disabled:text-zinc-500"><Play className="mr-1 inline h-4 w-4"/>{league.liveDraft?'Open NFL Player Draft':canManageDraft?'Continue to NFL Player Draft':`Waiting for ${commissionerName}`}</button><button onClick={handleCopyDraftOrder} className="min-h-12 rounded-xl border border-white/10 px-3 text-[10px] font-black uppercase tracking-wider">{copiedDraftOrder?<Check className="mr-1 inline h-4 w-4"/>:<Share2 className="mr-1 inline h-4 w-4"/>}{copiedDraftOrder?'Order Copied':'Share Order'}</button></div>
+        <div className="mt-2 grid grid-cols-1 gap-2 min-[390px]:grid-cols-2"><button onClick={()=>void handleOpenDraft()} disabled={openingDraft||(!league.liveDraft&&!canManageDraft)} className="min-h-12 rounded-xl bg-[#D4AF37] px-3 text-[10px] font-black uppercase tracking-wider text-black disabled:cursor-not-allowed disabled:border disabled:border-white/10 disabled:bg-white/[.04] disabled:text-zinc-500"><Play className="mr-1 inline h-4 w-4"/>{openingDraft?'Opening Draft…':league.liveDraft?'Open NFL Player Draft':canManageDraft?'Continue to NFL Player Draft':`Waiting for ${commissionerName}`}</button><button onClick={handleCopyDraftOrder} className="min-h-12 rounded-xl border border-white/10 px-3 text-[10px] font-black uppercase tracking-wider">{copiedDraftOrder?<Check className="mr-1 inline h-4 w-4"/>:<Share2 className="mr-1 inline h-4 w-4"/>}{copiedDraftOrder?'Order Copied':'Share Order'}</button></div>
       </section>
     </div></div>;
   }
