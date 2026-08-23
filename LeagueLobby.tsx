@@ -61,7 +61,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, o
   const IntelligenceExtras = useMemo(() => lazy(loadIntelligenceExtras), [lazyVersion]);
   const retryMode = () => setLazyVersion(version => version + 1);
   const result = league.seasonResult;
-  const lockedOrderOnly = league.status === 'completed' && (result?.orderMethod === 'random' || result?.orderMethod === 'commissioner');
+  const hasLockedDraftOrder = league.status === 'completed' && Boolean(result?.draftOrder?.length);
 
   return (
     <div className="min-h-[calc(100dvh-7rem)] bg-[#07090c] text-white">
@@ -74,7 +74,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, o
         </div>
       </div>
       {mode === 'command' ? (
-        lockedOrderOnly ? <LockedDraftOrderView league={league} onGoToDraft={onGoToDraft} onViewResults={onGoToSimulation} /> : <FantasyLeagueCommandCenter league={league} onGoToDraft={onGoToDraft} onGoToSimulation={onGoToSimulation} />
+        hasLockedDraftOrder ? <LockedDraftOrderView league={league} onGoToDraft={onGoToDraft} onViewResults={onGoToSimulation} /> : <FantasyLeagueCommandCenter league={league} onGoToDraft={onGoToDraft} onGoToSimulation={onGoToSimulation} />
       ) : mode === 'season' ? (
         <div className="mx-auto max-w-6xl px-3 py-5 sm:px-6">
           <ModeErrorBoundary key={`season-${lazyVersion}`} onRetry={retryMode}>
