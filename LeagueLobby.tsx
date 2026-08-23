@@ -3,6 +3,7 @@ import { League } from './types';
 import { FantasyLeagueCommandCenter } from './FantasyLeagueCommandCenter';
 import { LockedDraftOrderView } from './LockedDraftOrderView';
 import { OwnerCareerSync } from './OwnerCareerSync';
+import { FantasyLeagueEssentials } from './FantasyLeagueEssentials';
 
 const loadFantasySeasonHub = () => import('./FantasySeasonHub').then(module => ({ default: module.FantasySeasonHub }));
 const loadFantasySeasonAdmin = () => import('./FantasySeasonAdmin').then(module => ({ default: module.FantasySeasonAdmin }));
@@ -80,6 +81,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, o
           <ModeErrorBoundary key={`season-${lazyVersion}`} onRetry={retryMode}>
             <Suspense fallback={<Loading label="Loading Season Universe…" />}>
               <FantasySeasonHub league={league} />
+              <FantasyLeagueEssentials league={league} />
               <FantasySeasonAdmin league={league} />
             </Suspense>
           </ModeErrorBoundary>
