@@ -28,6 +28,7 @@ import {
   buildLiveDraftRosterAssignments,
 } from './liveDraftRosters';
 import { trackBallKnowerEvent } from './analytics';
+import { getLeagueCommissionerName, isLeagueCommissioner } from './leaguePermissions';
 
 interface BallKnowerContextType {
   currentUser: UserProfile | null;
@@ -630,9 +631,9 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const league = leagues.find(l => l.id === leagueId);
     if (!league) return false;
 
-    const isCommish = currentUser?.id === league.commissionerId || isDemoMode;
+    const isCommish = isLeagueCommissioner(league, currentUser?.id, isDemoMode);
     if (!isCommish) {
-      showToast(`Only Commissioner ${league.commissionerName} can launch the 17-game simulation.`);
+      showToast(`Only Commissioner ${getLeagueCommissionerName(league)} can launch the 17-game simulation.`);
       return false;
     }
 
@@ -678,8 +679,8 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   ): Promise<boolean> => {
     const league = leagues.find(l => l.id === leagueId);
     if (!league) return false;
-    if (currentUser?.id !== league.commissionerId && !isDemoMode) {
-      showToast(`Only Commissioner ${league.commissionerName} can finalize the draft order.`);
+    if (!isLeagueCommissioner(league, currentUser?.id, isDemoMode)) {
+      showToast(`Only Commissioner ${getLeagueCommissionerName(league)} can finalize the draft order.`);
       return false;
     }
 
@@ -767,6 +768,10 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const startLiveFantasyDraft = async (leagueId:string):Promise<boolean> => {
     const league=leagues.find(item=>item.id===leagueId);
     if(!league?.seasonResult?.draftOrder?.length){showToast('Lock the official draft order first.');return false;}
+    if(!league.liveDraft&&!isLeagueCommissioner(league,currentUser?.id,isDemoMode)){
+      showToast(`Waiting for ${getLeagueCommissionerName(league)} to start the NFL player draft.`);
+      return false;
+    }
     try{
       let draft:LiveFantasyDraft;
       if(isCloudConfigured){
@@ -832,7 +837,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const memberId=current.orderMemberIds[orderIndex];
         const member=league.members.find(item=>item.id===memberId);
         if(!member)throw new Error('The manager on the clock is unavailable.');
-        if(member.isAi&&currentUser?.id!==league.commissionerId)throw new Error('Waiting for the commissioner to complete the CPU pick.');
+        if(member.isAi&&!isLeagueCommissioner(league,currentUser?.id,isDemoMode))throw new Error(`Waiting for ${getLeagueCommissionerName(league)} to complete the CPU pick.`);
         if(!member.isAi&&member.userId!==currentUser?.id)throw new Error(`${member.userName} is on the clock.`);
         if(current.picks.some(pick=>pick.playerId===player.id))throw new Error('That player was already drafted.');
         const groupCount=current.picks.filter(pick=>pick.memberId===memberId&&pick.group===group).length;

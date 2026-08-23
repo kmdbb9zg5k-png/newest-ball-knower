@@ -14,6 +14,7 @@ import {
 } from './leagueCloud';
 import { setMemberRosterStatus } from './leagueAdminCloud';
 import { DraftOrderSetup } from './DraftOrderSetup';
+import { getLeagueCommissionerName, isLeagueCommissioner } from './leaguePermissions';
 
 type Tab = 'overview'|'commissioner'|'activity'|'history'|'notifications'|'results';
 
@@ -39,7 +40,7 @@ export const FantasyLeagueCommandCenter: React.FC<Props> = ({league,onGoToDraft,
     resetLeagueSimulation, updateSalaryCap, updateLeagueSettings, startLiveFantasyDraft, showToast,
   } = useBallKnower();
   const operational=league as League & {inviteEnabled?:boolean;paused?:boolean;rostersLocked?:boolean};
-  const isCommissioner=currentUser?.id===league.commissionerId;
+  const isCommissioner=isLeagueCommissioner(league,currentUser?.id);
   const myMember=league.members.find(m=>m.userId===currentUser?.id);
   const readyCount=league.members.filter(m=>m.status==='ready').length;
   const humanCount=league.members.filter(m=>!m.isAi).length;
@@ -240,9 +241,10 @@ const LockedDraftOrderSummary=({league,isCommissioner,onOpenDraft,onViewResults}
     <div className="mb-3 flex items-center justify-between gap-3"><div className="min-w-0"><div className="truncate text-[10px] font-black uppercase tracking-[.18em] text-[#D4AF37]">{league.name}</div><div className="mt-1 text-xs font-semibold text-zinc-500">{league.members.length}/{league.maxMembers} managers · {league.code}</div></div><div className="shrink-0 rounded-lg border border-emerald-400/20 bg-emerald-400/[.06] px-3 py-2 text-[9px] font-black uppercase text-emerald-300">Order Locked</div></div>
     <section className="rounded-2xl border border-[#D4AF37]/30 bg-[radial-gradient(circle_at_85%_10%,rgba(212,175,55,.16),transparent_30%),#101318] p-4 sm:p-6">
       <div className="flex items-start gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#D4AF37] text-black">{random?<Sparkles className="h-5 w-5"/>:<Crown className="h-5 w-5"/>}</div><div><div className="text-[9px] font-black uppercase tracking-[.2em] text-[#D4AF37]">Official Fantasy Draft Order</div><h1 className="mt-1 font-display text-3xl font-black uppercase">{random?'Randomized & Locked':'Commissioner Order Locked'}</h1><p className="mt-2 text-xs leading-5 text-zinc-400">{random?'The one-time randomization is complete.':'Every draft slot has been assigned and locked.'} No draft-order-game roster or season simulation is required. The commissioner can start the real fantasy draft now.</p></div></div>
-      <button onClick={onOpenDraft} disabled={!league.liveDraft&&!isCommissioner} className="mt-4 min-h-14 w-full rounded-xl bg-[#D4AF37] text-sm font-black uppercase tracking-wider text-black disabled:cursor-not-allowed disabled:opacity-40"><Play className="mr-2 inline h-4 w-4"/>{league.liveDraft?'Open Fantasy Draft':isCommissioner?'Start Fantasy Draft':'Waiting for Commissioner to Start'}</button>
+      {!league.liveDraft&&!isCommissioner&&<p className="mt-4 text-center text-[10px] font-bold text-zinc-500">Waiting for {getLeagueCommissionerName(league)} to start the NFL player draft.</p>}
+      <button onClick={onOpenDraft} disabled={!league.liveDraft&&!isCommissioner} className="mt-2 min-h-14 w-full rounded-xl bg-[#D4AF37] text-sm font-black uppercase tracking-wider text-black disabled:cursor-not-allowed disabled:border disabled:border-white/10 disabled:bg-white/[.04] disabled:text-zinc-500"><Play className="mr-2 inline h-4 w-4"/>{league.liveDraft?'Open NFL Player Draft':isCommissioner?'Continue to NFL Player Draft':`Waiting for ${getLeagueCommissionerName(league)}`}</button>
       <button onClick={onViewResults} className="mt-2 min-h-11 w-full rounded-xl border border-white/10 text-[10px] font-black uppercase tracking-wider text-zinc-300"><Trophy className="mr-2 inline h-4 w-4"/>View & Share Official Order</button>
-      <div className="mt-4 grid grid-cols-2 gap-2">{result.draftOrder.map(pick=><div key={pick.memberId} className={`flex min-w-0 items-center gap-2 rounded-xl border p-2.5 ${pick.pickNumber===1?'border-[#D4AF37] bg-[#D4AF37]/10':'border-white/10 bg-black/30'}`}><div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg text-xs font-black ${pick.pickNumber===1?'bg-[#D4AF37] text-black':'border border-white/10 bg-[#0A0A0A]'}`}>#{pick.pickNumber}</div><div className="min-w-0"><div className="truncate text-xs font-black uppercase">{pick.memberName}</div><div className="text-[9px] font-bold uppercase text-zinc-600">{pick.isAi?'CPU Manager':'League Manager'}</div></div></div>)}</div>
+      <div className="mt-4 grid grid-cols-1 gap-2 min-[390px]:grid-cols-2">{result.draftOrder.map(pick=>{const member=league.members.find(item=>item.id===pick.memberId);const mine=member?.userId===currentUser?.id;const role=mine?(member?.isCommissioner?'You · Commissioner':'You'):member?.isAi?'CPU':member?.isCommissioner?'Commissioner':'Manager';return <div key={pick.memberId} className={`flex min-w-0 items-center gap-2 rounded-xl border p-2.5 ${pick.pickNumber===1?'border-[#D4AF37] bg-[#D4AF37]/10':'border-white/10 bg-black/30'}`}><div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg text-xs font-black ${pick.pickNumber===1?'bg-[#D4AF37] text-black':'border border-white/10 bg-[#0A0A0A]'}`}>#{pick.pickNumber}</div><div className="min-w-0"><div className="truncate text-xs font-black uppercase">{pick.memberName}</div><div className="text-[9px] font-bold uppercase text-zinc-500">{role}</div></div></div>})}</div>
     </section>
   </div></div>;
 };
