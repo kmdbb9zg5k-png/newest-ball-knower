@@ -133,13 +133,16 @@ export async function counterTrade(tradeId:string,offeredPlayerIds:string[],requ
   if(error) throw error;
 }
 
+// Ball Knower's live draft produces a balanced 20-player football roster rather than
+// a conventional offense-only fantasy bench. Weekly fantasy lineups use nine IDP-aware
+// starters so every drafted 20-player roster can legally set a lineup without changing
+// the existing draft structure.
 export const LINEUP_SLOTS = [
   {id:'QB',label:'QB',accept:(p:Player)=>p.position==='QB'},
   {id:'RB',label:'RB',accept:(p:Player)=>p.position==='RB'||p.position==='FB'},
   {id:'WR1',label:'WR',accept:(p:Player)=>p.position==='WR'},
   {id:'WR2',label:'WR',accept:(p:Player)=>p.position==='WR'},
   {id:'TE',label:'TE',accept:(p:Player)=>p.position==='TE'},
-  {id:'FLEX',label:'FLEX',accept:(p:Player)=>['RB','FB','WR','TE'].includes(p.position)},
   {id:'DL',label:'DL/EDGE',accept:(p:Player)=>['EDGE','DT','DE','NT'].includes(p.position)},
   {id:'LB',label:'LB',accept:(p:Player)=>p.position==='LB'},
   {id:'DB',label:'DB',accept:(p:Player)=>['CB','S','FS','SS'].includes(p.position)},
