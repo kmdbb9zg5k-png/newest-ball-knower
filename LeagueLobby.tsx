@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useMemo, useState } from 'react';
 import { League } from './types';
 import { FantasyLeagueCommandCenter } from './FantasyLeagueCommandCenter';
+import { LockedDraftOrderView } from './LockedDraftOrderView';
 import { OwnerCareerSync } from './OwnerCareerSync';
 
 const loadFantasySeasonHub = () => import('./FantasySeasonHub').then(module => ({ default: module.FantasySeasonHub }));
@@ -59,19 +60,21 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, o
   const LeagueIntelligenceHub = useMemo(() => lazy(loadLeagueIntelligenceHub), [lazyVersion]);
   const IntelligenceExtras = useMemo(() => lazy(loadIntelligenceExtras), [lazyVersion]);
   const retryMode = () => setLazyVersion(version => version + 1);
+  const result = league.seasonResult;
+  const lockedOrderOnly = league.status === 'completed' && (result?.orderMethod === 'random' || result?.orderMethod === 'commissioner');
 
   return (
     <div className="min-h-[calc(100dvh-7rem)] bg-[#07090c] text-white">
       <OwnerCareerSync league={league} />
-      <div className="mx-auto max-w-6xl px-3 pt-4 sm:px-6">
-        <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-[#0d1015] p-2">
-          <button onClick={() => setMode('command')} className={`min-h-11 min-w-0 rounded-xl text-[10px] font-black uppercase tracking-[.08em] sm:min-h-12 sm:text-[11px] sm:tracking-[.12em] ${mode === 'command' ? 'bg-[#D4AF37] text-black' : 'text-zinc-400'}`}><span className="sm:hidden">League HQ</span><span className="hidden sm:inline">Command Center</span></button>
-          <button onClick={() => setMode('season')} className={`min-h-11 min-w-0 rounded-xl text-[10px] font-black uppercase tracking-[.08em] sm:min-h-12 sm:text-[11px] sm:tracking-[.12em] ${mode === 'season' ? 'bg-white text-black' : 'text-zinc-400'}`}><span className="sm:hidden">Season</span><span className="hidden sm:inline">Season Universe</span></button>
-          <button onClick={() => setMode('intelligence')} className={`min-h-11 min-w-0 rounded-xl text-[10px] font-black uppercase tracking-[.08em] sm:min-h-12 sm:text-[11px] sm:tracking-[.12em] ${mode === 'intelligence' ? 'bg-[#D4AF37] text-black' : 'text-zinc-400'}`}><span className="sm:hidden">Intel</span><span className="hidden sm:inline">BK Intelligence</span></button>
+      <div className="mx-auto max-w-6xl px-3 pt-3 sm:px-6 sm:pt-4">
+        <div className="grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-[#0d1015] p-1 sm:gap-2 sm:rounded-2xl sm:p-2">
+          <button onClick={() => setMode('command')} className={`min-h-10 min-w-0 rounded-lg px-1 text-[9px] font-black uppercase tracking-[.06em] sm:min-h-12 sm:rounded-xl sm:text-[11px] sm:tracking-[.12em] ${mode === 'command' ? 'bg-[#D4AF37] text-black' : 'text-zinc-400'}`}><span className="sm:hidden">League HQ</span><span className="hidden sm:inline">Command Center</span></button>
+          <button onClick={() => setMode('season')} className={`min-h-10 min-w-0 rounded-lg px-1 text-[9px] font-black uppercase tracking-[.06em] sm:min-h-12 sm:rounded-xl sm:text-[11px] sm:tracking-[.12em] ${mode === 'season' ? 'bg-white text-black' : 'text-zinc-400'}`}><span className="sm:hidden">Season</span><span className="hidden sm:inline">Season Universe</span></button>
+          <button onClick={() => setMode('intelligence')} className={`min-h-10 min-w-0 rounded-lg px-1 text-[9px] font-black uppercase tracking-[.06em] sm:min-h-12 sm:rounded-xl sm:text-[11px] sm:tracking-[.12em] ${mode === 'intelligence' ? 'bg-[#D4AF37] text-black' : 'text-zinc-400'}`}><span className="sm:hidden">Intel</span><span className="hidden sm:inline">BK Intelligence</span></button>
         </div>
       </div>
       {mode === 'command' ? (
-        <FantasyLeagueCommandCenter league={league} onGoToDraft={onGoToDraft} onGoToSimulation={onGoToSimulation} />
+        lockedOrderOnly ? <LockedDraftOrderView league={league} onGoToDraft={onGoToDraft} onViewResults={onGoToSimulation} /> : <FantasyLeagueCommandCenter league={league} onGoToDraft={onGoToDraft} onGoToSimulation={onGoToSimulation} />
       ) : mode === 'season' ? (
         <div className="mx-auto max-w-6xl px-3 py-5 sm:px-6">
           <ModeErrorBoundary key={`season-${lazyVersion}`} onRetry={retryMode}>
