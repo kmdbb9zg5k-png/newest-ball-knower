@@ -1,5 +1,6 @@
 import { PLAYERS_DATABASE } from '../players';
 import { getDraftPositionGroup, validateRosterShape } from '../rosterRules';
+import { getLiveFantasyDraftGroup } from '../liveFantasyRules';
 import {
   buildRealTeamRoster,
   FANTASY_DRAFT_ROUNDS,
@@ -33,7 +34,7 @@ for (const player of PLAYERS_DATABASE) {
   check(Number.isFinite(player.salary) && player.salary >= 0, `${player.name}: invalid salary ${player.salary}.`);
   check(teamCodes.has(player.team) || player.team === 'FA', `${player.name}: invalid team ${player.team}.`);
   if (player.teamId) check(teamCodes.has(player.teamId) || player.teamId === 'FA', `${player.name}: invalid teamId ${player.teamId}.`);
-  check(Boolean(getDraftPositionGroup(player)), `${player.name}: unsupported position ${player.position}.`);
+  check(Boolean(getDraftPositionGroup(player) || getLiveFantasyDraftGroup(player)), `${player.name}: unsupported position ${player.position}.`);
 }
 
 for (const team of TEAM_THEMES) {
