@@ -15,6 +15,7 @@ import { simulateFullSeason } from './simulation';
 import { generateAiLeagueMembers, AI_ARCHETYPES, buildRosterForArchetype } from './aiOpponents';
 import { PLAYERS_DATABASE } from './players';
 import { countRosterGroups, getDraftPositionGroup, minimumCompletionCost, validateRosterShape } from './rosterRules';
+import { getLiveFantasyDraftGroup, LIVE_FANTASY_ROSTER_REQUIREMENTS } from './liveFantasyRules';
 import { isCloudConfigured, ensureOnlineSession } from './supabase';
 import {
   createCloudLeague, joinCloudLeague, loadMyCloudLeagues, fetchCloudLeague,
@@ -799,7 +800,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const makeLiveFantasyDraftPick = async (leagueId:string,player:Player):Promise<boolean> => {
-    const group=getDraftPositionGroup(player);
+    const group=getLiveFantasyDraftGroup(player);
     if(!group){showToast('That player does not fit a draftable roster position.');return false;}
     try{
       let draft:LiveFantasyDraft;
@@ -841,7 +842,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if(!member.isAi&&member.userId!==currentUser?.id)throw new Error(`${member.userName} is on the clock.`);
         if(current.picks.some(pick=>pick.playerId===player.id))throw new Error('That player was already drafted.');
         const groupCount=current.picks.filter(pick=>pick.memberId===memberId&&pick.group===group).length;
-        if(groupCount>=ROSTER_REQUIREMENTS[group])throw new Error(`${member.userName} already filled every ${group} roster slot.`);
+        if(groupCount>=LIVE_FANTASY_ROSTER_REQUIREMENTS[group])throw new Error(`${member.userName} already filled every ${group} roster slot.`);
         const nextIndex=current.pickIndex+1;
         const now=new Date().toISOString();
         draft={
