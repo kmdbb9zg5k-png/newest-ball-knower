@@ -21,7 +21,8 @@ export type Position =
   | 'FS'
   | 'SS'
   | 'K'
-  | 'P';
+  | 'P'
+  | 'DST';
 
 export type PositionGroup =
   | 'QB'
@@ -37,6 +38,7 @@ export type PositionGroup =
   | 'S'
   | 'K'
   | 'P'
+  | 'DST'
   | 'SPECIAL_TEAMS'
   | 'OFFENSE'
   | 'DEFENSE'
@@ -281,7 +283,7 @@ export interface LiveFantasyDraftPick {
   round: number;
   memberId: string;
   playerId: string;
-  group: keyof RosterRequirements;
+  group: 'QB'|'RB'|'WR'|'TE'|'K'|'DST';
   pickedAt: string;
 }
 
