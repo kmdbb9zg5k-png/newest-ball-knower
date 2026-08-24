@@ -10,7 +10,7 @@ export const LIVE_FANTASY_ROSTER_REQUIREMENTS = {
   DST: 1,
 } as const;
 
-/** Guardrails prevent unusable rosters without forcing a position-by-position final shape. */
+/** Position caps prevent spam while still allowing managers to make bad draft choices. */
 export const LIVE_FANTASY_POSITION_LIMITS = {
   QB: 3,
   RB: 8,
@@ -29,7 +29,14 @@ export function getLiveFantasyDraftGroup(player: Player): LiveFantasyDraftGroup 
 
 export function validateLiveFantasyRoster(roster: Player[]): string[] {
   const counts: Partial<Record<LiveFantasyDraftGroup, number>> = {};
-  roster.forEach(player => { const group=getLiveFantasyDraftGroup(player); if(group)counts[group]=(counts[group]||0)+1; });
-  return (Object.entries(LIVE_FANTASY_ROSTER_REQUIREMENTS) as [LiveFantasyDraftGroup,number][])
-    .flatMap(([group,required])=>(counts[group]||0)>=required?[]:[`Needs ${required-(counts[group]||0)} more ${group}.`]);
+  const errors:string[]=[];
+  roster.forEach(player => {
+    const group=getLiveFantasyDraftGroup(player);
+    if(!group){errors.push(`${player.name} is not eligible for this fantasy draft.`);return;}
+    counts[group]=(counts[group]||0)+1;
+  });
+  for(const [group,limit] of Object.entries(LIVE_FANTASY_POSITION_LIMITS) as [LiveFantasyDraftGroup,number][]){
+    if((counts[group]||0)>limit)errors.push(`Too many ${group} players (${counts[group]}/${limit}).`);
+  }
+  return errors;
 }
