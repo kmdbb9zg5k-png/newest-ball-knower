@@ -769,6 +769,10 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const startLiveFantasyDraft = async (leagueId:string):Promise<boolean> => {
     const league=leagues.find(item=>item.id===leagueId);
     if(!league?.seasonResult?.draftOrder?.length){showToast('Lock the official draft order first.');return false;}
+    if(league.liveDraft?.status==='completed'){
+      showToast('This fantasy draft is already complete. Your league is ready for the season.');
+      return false;
+    }
     if(!league.liveDraft&&!isLeagueCommissioner(league,currentUser?.id,isDemoMode)){
       showToast(`Waiting for ${getLeagueCommissionerName(league)} to start the NFL player draft.`);
       return false;

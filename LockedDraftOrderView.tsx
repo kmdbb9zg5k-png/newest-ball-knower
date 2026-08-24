@@ -34,6 +34,7 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
   const filledSlots = picks.length;
   const inviteUrl = `${PUBLIC_APP_ORIGIN}?join=${encodeURIComponent(league.code)}`;
   const myMember = resolveMyLeagueMember(league, currentUser);
+  const draftComplete = league.liveDraft?.status === 'completed';
 
   const myPick = useMemo(() => picks.find(pick => pick.memberId === myMember?.id), [picks, myMember?.id]);
 
@@ -147,7 +148,8 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
   const openDraft = async () => {
     if (starting) return;
     if (league.liveDraft) {
-      onGoToDraft();
+      if (draftComplete) onViewResults();
+      else onGoToDraft();
       return;
     }
     if (!countdownStartedAt || countdownRemaining !== 0) return;
@@ -209,7 +211,7 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
             </div>
 
             {league.liveDraft ? (
-              <button onClick={() => void openDraft()} className="mt-3 min-h-13 w-full rounded-xl bg-[#D4AF37] px-4 py-3.5 text-sm font-black uppercase tracking-wider text-black"><Play className="mr-2 inline h-4 w-4"/>Enter Fantasy Draft</button>
+              <button onClick={() => void openDraft()} className="mt-3 min-h-13 w-full rounded-xl bg-[#D4AF37] px-4 py-3.5 text-sm font-black uppercase tracking-wider text-black"><Play className="mr-2 inline h-4 w-4"/>{draftComplete ? 'Draft Complete' : 'Resume Fantasy Draft'}</button>
             ) : countdownStartedAt ? (
               <div className="mt-3 rounded-xl border border-[#D4AF37]/35 bg-[#D4AF37]/10 px-4 py-4 text-center">
                 <div className="text-[9px] font-black uppercase tracking-[.2em] text-[#D4AF37]">Everybody Is Ready</div>

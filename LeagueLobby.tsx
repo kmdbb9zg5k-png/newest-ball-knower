@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { League } from './types';
 import { FantasyLeagueCommandCenter } from './FantasyLeagueCommandCenter';
 import { LockedDraftOrderView } from './LockedDraftOrderView';
@@ -55,7 +55,8 @@ class ModeErrorBoundary extends React.Component<ModeErrorBoundaryProps, ModeErro
 }
 
 export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, onGoToSimulation }) => {
-  const [mode, setMode] = useState<'command' | 'season' | 'intelligence'>('command');
+  const draftComplete = league.liveDraft?.status === 'completed';
+  const [mode, setMode] = useState<'command' | 'season' | 'intelligence'>(draftComplete ? 'season' : 'command');
   const [lazyVersion, setLazyVersion] = useState(0);
   const FantasySeasonHub = useMemo(() => lazy(loadFantasySeasonHub), [lazyVersion]);
   const FantasySeasonAdmin = useMemo(() => lazy(loadFantasySeasonAdmin), [lazyVersion]);
@@ -64,6 +65,10 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, o
   const retryMode = () => setLazyVersion(version => version + 1);
   const result = league.seasonResult;
   const hasLockedDraftOrder = league.status === 'completed' && Boolean(result?.draftOrder?.length);
+
+  useEffect(() => {
+    if (draftComplete) setMode('season');
+  }, [draftComplete]);
 
   return (
     <div className="min-h-[calc(100dvh-7rem)] bg-[#07090c] text-white">
