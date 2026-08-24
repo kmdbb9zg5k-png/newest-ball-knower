@@ -1,6 +1,5 @@
--- Keep a standard starting-lineup minimum in the client while allowing a flexible 20-player bench.
--- These are safety caps, not required final counts.
-+-- Canonical draftable player groups are server-owned so callers cannot spoof p_group.
+-- Keep every draft position available while enforcing only safety caps.
+-- Canonical draftable player groups are server-owned so callers cannot spoof p_group.
 create table if not exists public.ball_knower_fantasy_player_groups (
   player_id text primary key,
   draft_group text not null check (draft_group in ('QB','RB','WR','TE','K','DST'))
@@ -777,7 +776,6 @@ declare
   v_team_count integer; v_total_picks integer; v_round_index integer; v_slot integer;
   v_order_index integer; v_member_id text; v_group_limit integer; v_group_count integer;
   v_pick jsonb; v_next_index integer; v_canonical_group text;
-  v_member_pick_count integer; v_slots_after_pick integer; v_missing_starters integer;
 begin
   if v_auth is null then raise exception 'Authentication required'; end if;
   if nullif(btrim(p_player_id), '') is null then raise exception 'Player id is required'; end if;
@@ -820,22 +818,6 @@ begin
   select count(*) into v_group_count from jsonb_array_elements(v_draft.picks) pick
     where pick ->> 'memberId' = v_member_id and pick ->> 'group' = v_canonical_group;
   if v_group_count >= v_group_limit then raise exception '% reached the % roster limit', v_member.user_name, v_canonical_group; end if;
-
-  select count(*) into v_member_pick_count from jsonb_array_elements(v_draft.picks) pick
-    where pick ->> 'memberId' = v_member_id;
-  v_slots_after_pick := v_draft.rounds - v_member_pick_count - 1;
-  select coalesce(sum(greatest(requirement.minimum_count - requirement.current_count -
-    case when requirement.draft_group = v_canonical_group then 1 else 0 end, 0)), 0)
-  into v_missing_starters
-  from (
-    select minimums.draft_group, minimums.minimum_count,
-      (select count(*) from jsonb_array_elements(v_draft.picks) pick
-       where pick ->> 'memberId' = v_member_id and pick ->> 'group' = minimums.draft_group) as current_count
-    from (values ('QB',1),('RB',2),('WR',2),('TE',1),('K',1),('DST',1)) as minimums(draft_group,minimum_count)
-  ) requirement;
-  if v_missing_starters > v_slots_after_pick then
-    raise exception 'This pick would leave too few roster spots to complete the starting lineup';
-  end if;
 
   v_pick := jsonb_build_object('overall',v_draft.pick_index+1,'round',v_round_index+1,'memberId',v_member_id,'playerId',p_player_id,'group',v_canonical_group,'pickedAt',clock_timestamp());
   v_next_index := v_draft.pick_index + 1;
