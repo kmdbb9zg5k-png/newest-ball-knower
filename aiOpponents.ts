@@ -288,6 +288,7 @@ export function buildRosterForArchetype(archetype: AiArchetype,seed=0,salaryCap=
 }
 
 export function generateAiLeagueMembers(count: number, startIndex = 0, salaryCap = DEFAULT_SALARY_CAP): LeagueMember[] {
+  const uniqueNames = ['Jay','Tyler','Marcus','Mike','Dave','Chris','Andre','Darius','Malik','Jordan','Cam','Devin','Troy','Nate','Rico','Sam'];
   const members: LeagueMember[] = [];
   for (let i = 0; i < count; i++) {
     const arch = AI_ARCHETYPES[(startIndex + i) % AI_ARCHETYPES.length];
@@ -296,7 +297,7 @@ export function generateAiLeagueMembers(count: number, startIndex = 0, salaryCap
     members.push({
       id: `member-${arch.id}-${Date.now()}-${i}`,
       userId: `${arch.id}-${startIndex+i}`,
-      userName: `${arch.name.split(' (')[0]} CPU${Math.floor((startIndex+i)/AI_ARCHETYPES.length)>0?` ${Math.floor((startIndex+i)/AI_ARCHETYPES.length)+1}`:''}`,
+      userName: uniqueNames[(startIndex + i) % uniqueNames.length],
       userAvatar: arch.avatar,
       isCommissioner: false,
       isAi: true,
