@@ -10,14 +10,14 @@ export const LIVE_FANTASY_ROSTER_REQUIREMENTS = {
   DST: 1,
 } as const;
 
-/** Position caps prevent spam while still allowing managers to make bad draft choices. */
+/** Every position stays available through the final pick; roster size is the only practical cap. */
 export const LIVE_FANTASY_POSITION_LIMITS = {
-  QB: 3,
-  RB: 8,
-  WR: 8,
-  TE: 4,
-  K: 2,
-  DST: 2,
+  QB: 20,
+  RB: 20,
+  WR: 20,
+  TE: 20,
+  K: 20,
+  DST: 20,
 } as const;
 
 export type LiveFantasyDraftGroup = keyof typeof LIVE_FANTASY_ROSTER_REQUIREMENTS;
