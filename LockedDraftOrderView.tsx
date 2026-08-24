@@ -3,6 +3,7 @@ import { Check, Copy, Play, Share2, Sparkles, Timer, Trophy, UserRound } from 'l
 import { League } from './types';
 import { useBallKnower } from './BallKnowerContext';
 import { ensureOnlineSession, supabase } from './supabase';
+import { displayLeagueMemberName, resolveMyLeagueMember } from './leagueMemberDisplay';
 
 interface Props {
   league: League;
@@ -12,11 +13,6 @@ interface Props {
 
 const PUBLIC_APP_ORIGIN = 'https://ballknower.com';
 const COUNTDOWN_SECONDS = 30;
-
-const cleanCpuName = (name: string, index: number) => {
-  const cleaned = name.replace(/\s+CPU(?:\s+\d+)?$/i, '').trim();
-  return cleaned || `CPU ${index + 1}`;
-};
 
 export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onViewResults }) => {
   const { currentUser, startLiveFantasyDraft, showToast } = useBallKnower();
@@ -37,10 +33,9 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
   const cpuCount = picks.length - humanCount;
   const filledSlots = picks.length;
   const inviteUrl = `${PUBLIC_APP_ORIGIN}?join=${encodeURIComponent(league.code)}`;
+  const myMember = resolveMyLeagueMember(league, currentUser);
 
-  const myPick = useMemo(() => picks.find(pick =>
-    pick.memberId === currentUser?.id || (!pick.isAi && pick.memberName === currentUser?.name)
-  ), [picks, currentUser?.id, currentUser?.name]);
+  const myPick = useMemo(() => picks.find(pick => pick.memberId === myMember?.id), [picks, myMember?.id]);
 
   const loadReadyState = async () => {
     if (!supabase) return;
@@ -227,7 +222,7 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
               </button>
             )}
 
-            <p className="mt-2 text-center text-[9px] font-bold uppercase tracking-wider text-zinc-600">Every human manager must ready up. CPU managers are automatically ready.</p>
+            <p className="mt-2 text-center text-[9px] font-bold uppercase tracking-wider text-zinc-600">{humanTotal===1?'You are the only human manager. CPU teams are already ready.':'Each human manager readies up once. CPU teams are already ready.'}</p>
             <button onClick={onViewResults} className="mt-2 min-h-11 w-full rounded-xl border border-white/10 text-[10px] font-black uppercase tracking-wider text-zinc-400"><Trophy className="mr-2 inline h-4 w-4"/>View & Share Official Order</button>
           </div>
 
@@ -235,8 +230,9 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
             <div className="mb-2 flex items-center justify-between px-1"><div className="text-[9px] font-black uppercase tracking-[.18em] text-zinc-500">Draft Board</div><div className="text-[9px] font-bold text-zinc-600">{filledSlots} PICKS</div></div>
             <div className="overflow-hidden rounded-xl border border-white/10 bg-[#090b0e]">
               {picks.map((pick, index) => {
-                const mine = pick.memberId === currentUser?.id || (!pick.isAi && pick.memberName === currentUser?.name);
-                const displayName = pick.isAi ? cleanCpuName(pick.memberName, index) : pick.memberName;
+                const mine = pick.memberId === myMember?.id;
+                const member = league.members.find(item => item.id === pick.memberId);
+                const displayName = displayLeagueMemberName(member, mine, currentUser, index);
                 const memberReady = pick.isAi || readyMemberIds.has(pick.memberId);
                 return <div key={pick.memberId} className={`grid min-h-12 grid-cols-[2.4rem_minmax(0,1fr)_auto] items-center gap-2 border-b border-white/[.06] px-2.5 py-2 last:border-b-0 ${mine ? 'bg-[#D4AF37]/10' : ''}`}>
                   <div className={`grid h-8 w-8 place-items-center rounded-lg text-[11px] font-black ${mine ? 'bg-[#D4AF37] text-black' : 'bg-white/[.05] text-zinc-400'}`}>#{pick.pickNumber}</div>
