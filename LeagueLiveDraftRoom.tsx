@@ -40,19 +40,14 @@ const legalPlayersFor=(draft:LiveFantasyDraft,memberId:string)=>{
 };
 
 const cpuSelection=(draft:LiveFantasyDraft,memberId:string,rankings:Map<string,FantasyRanking>)=>{
-  const counts=countsFor(draft,memberId);
   let best:Player|null=null;
   let bestScore=-Infinity;
   for(const player of legalPlayersFor(draft,memberId)){
     const group=getLiveFantasyDraftGroup(player);
     if(!group)continue;
-    const current=counts[group]||0;
-    const starterNeed=Math.max(0,LIVE_FANTASY_ROSTER_REQUIREMENTS[group]-current);
     const ranking=rankings.get(rankingKey(player.name,player.team));
     const fantasyValue=ranking?1000-ranking.overall_rank:player.ovr*4;
-    const lateSpecialTeamsPenalty=(group==='K'||group==='DST')&&current>=1?500:0;
-    const starterBonus=starterNeed>0?Math.max(0,draft.rounds-draft.picks.filter(pick=>pick.memberId===memberId).length)*8:0;
-    const score=fantasyValue+starterBonus-lateSpecialTeamsPenalty;
+    const score=fantasyValue;
     if(score>bestScore||(score===bestScore&&player.name.localeCompare(best?.name||'')<0)){
       best=player;bestScore=score;
     }
