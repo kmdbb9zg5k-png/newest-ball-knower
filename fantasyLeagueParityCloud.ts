@@ -133,20 +133,18 @@ export async function counterTrade(tradeId:string,offeredPlayerIds:string[],requ
   if(error) throw error;
 }
 
-// Ball Knower's live draft produces a balanced 20-player football roster rather than
-// a conventional offense-only fantasy bench. Weekly fantasy lineups use nine IDP-aware
-// starters so every drafted 20-player roster can legally set a lineup without changing
-// the existing draft structure.
+// Standard fantasy lineup. Drafting stays unrestricted; managers must use their bench,
+// free agency, waivers, or trades to field a legal weekly lineup.
 export const LINEUP_SLOTS = [
   {id:'QB',label:'QB',accept:(p:Player)=>p.position==='QB'},
-  {id:'RB',label:'RB',accept:(p:Player)=>p.position==='RB'||p.position==='FB'},
+  {id:'RB1',label:'RB',accept:(p:Player)=>p.position==='RB'||p.position==='FB'},
+  {id:'RB2',label:'RB',accept:(p:Player)=>p.position==='RB'||p.position==='FB'},
   {id:'WR1',label:'WR',accept:(p:Player)=>p.position==='WR'},
   {id:'WR2',label:'WR',accept:(p:Player)=>p.position==='WR'},
   {id:'TE',label:'TE',accept:(p:Player)=>p.position==='TE'},
-  {id:'DL',label:'DL/EDGE',accept:(p:Player)=>['EDGE','DT','DE','NT'].includes(p.position)},
-  {id:'LB',label:'LB',accept:(p:Player)=>p.position==='LB'},
-  {id:'DB',label:'DB',accept:(p:Player)=>['CB','S','FS','SS'].includes(p.position)},
+  {id:'FLEX',label:'FLEX',accept:(p:Player)=>['RB','FB','WR','TE'].includes(p.position)},
   {id:'K',label:'K',accept:(p:Player)=>p.position==='K'},
+  {id:'DST',label:'D/ST',accept:(p:Player)=>p.position==='DST'},
 ] as const;
 
 export function optimizeWeeklyLineup(roster:Player[]):Record<string,string>{

@@ -4,10 +4,6 @@ import { FantasyLeagueCommandCenter } from './FantasyLeagueCommandCenter';
 import { LockedDraftOrderView } from './LockedDraftOrderView';
 import { OwnerCareerSync } from './OwnerCareerSync';
 import { FantasyLeagueEssentials } from './FantasyLeagueEssentials';
-import { FantasyTradeReviewPanel } from './FantasyTradeReviewPanel';
-
-const loadFantasySeasonHub = () => import('./FantasySeasonHub').then(module => ({ default: module.FantasySeasonHub }));
-const loadFantasySeasonAdmin = () => import('./FantasySeasonAdmin').then(module => ({ default: module.FantasySeasonAdmin }));
 const loadLeagueIntelligenceHub = () => import('./LeagueIntelligenceHub').then(module => ({ default: module.LeagueIntelligenceHub }));
 const loadIntelligenceExtras = () => import('./IntelligenceExtras').then(module => ({ default: module.IntelligenceExtras }));
 
@@ -58,8 +54,6 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, o
   const draftComplete = league.liveDraft?.status === 'completed';
   const [mode, setMode] = useState<'command' | 'season' | 'intelligence'>(draftComplete ? 'season' : 'command');
   const [lazyVersion, setLazyVersion] = useState(0);
-  const FantasySeasonHub = useMemo(() => lazy(loadFantasySeasonHub), [lazyVersion]);
-  const FantasySeasonAdmin = useMemo(() => lazy(loadFantasySeasonAdmin), [lazyVersion]);
   const LeagueIntelligenceHub = useMemo(() => lazy(loadLeagueIntelligenceHub), [lazyVersion]);
   const IntelligenceExtras = useMemo(() => lazy(loadIntelligenceExtras), [lazyVersion]);
   const retryMode = () => setLazyVersion(version => version + 1);
@@ -86,10 +80,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, o
         <div className="mx-auto max-w-6xl px-3 py-5 sm:px-6">
           <ModeErrorBoundary key={`season-${lazyVersion}`} onRetry={retryMode}>
             <Suspense fallback={<Loading label="Loading Season Universe…" />}>
-              <FantasySeasonHub league={league} />
               <FantasyLeagueEssentials league={league} />
-              <FantasyTradeReviewPanel league={league} />
-              <FantasySeasonAdmin league={league} />
             </Suspense>
           </ModeErrorBoundary>
         </div>
