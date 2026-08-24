@@ -175,7 +175,8 @@ export function validateWeeklyLineup(roster:Player[],starters:Record<string,stri
 }
 
 export function buildLeagueRecords(league:League,archives:ArchivedSeason[]){
-  const seasons=[...archives.map(item=>({season:item.seasonNumber,result:item.result})),...(league.seasonResult?[{season:archives.length+1,result:league.seasonResult}]:[])];
+  const currentHasGames=Boolean(league.seasonResult?.standings.some(row=>(Number(row.wins)||0)+(Number(row.losses)||0)+(Number(row.ties)||0)>0));
+  const seasons=[...archives.map(item=>({season:item.seasonNumber,result:item.result})),...(league.seasonResult&&currentHasGames?[{season:archives.length+1,result:league.seasonResult}]:[])];
   const games=seasons.flatMap(entry=>(entry.result?.games||[]).map((game:any)=>({...game,season:entry.season})));
   const standings=seasons.flatMap(entry=>(entry.result?.standings||[]).map((standing:any)=>({...standing,season:entry.season})));
   const name=(memberId:string)=>league.members.find(member=>member.id===memberId||member.userId===memberId)?.userName||memberId;
