@@ -17,16 +17,30 @@ const memberById=(league:League,id:string)=>league.members.find(m=>m.id===id||m.
 const recordOf=(league:League,id:string)=>{const s=league.seasonResult?.standings.find(x=>x.memberId===id);return s?`${s.wins}-${s.losses}${s.ties?`-${s.ties}`:''}`:'0-0';};
 const playerValue=(p:Player)=>getPlayerOvr(p)*1.15-(Number(p.salary)||0)*0.32+((p.age||27)<=25?2.5:0);
 
+const fantasyRosterStrength=(roster:Player[])=>{
+  const available=[...roster].sort((a,b)=>getPlayerOvr(b)-getPlayerOvr(a));
+  const used=new Set<string>();
+  const take=(positions:string[],count:number)=>available.filter(player=>positions.includes(player.position)&&!used.has(player.id)).slice(0,count).map(player=>{used.add(player.id);return getPlayerOvr(player);});
+  const starters=[...take(['QB'],1),...take(['RB'],2),...take(['WR'],2),...take(['TE'],1),...take(['RB','WR','TE'],1),...take(['K'],1),...take(['DST'],1)];
+  const depth=available.filter(player=>!used.has(player.id)).slice(0,5).map(getPlayerOvr);
+  if(!starters.length)return 0;
+  const starterAverage=starters.reduce((sum,value)=>sum+value,0)/starters.length;
+  const depthAverage=depth.length?depth.reduce((sum,value)=>sum+value,0)/depth.length:starterAverage;
+  return Math.round(Math.max(0,Math.min(100,starterAverage*.88+depthAverage*.12-Math.max(0,9-starters.length)*5)));
+};
+
 export function buildPowerRankings(league:League,previous?:PowerRanking[]):PowerRanking[]{
   const prior=new Map((previous||[]).map(x=>[x.memberId,x.rank]));
   return league.members.map(m=>{
-    const ratings=m.teamRatings||calculateTeamRatings(m.roster||[]);
     const s=league.seasonResult?.standings.find(x=>x.memberId===m.id);
-    const winPct=s?.winPercentage||0;
+    const games=(s?.wins||0)+(s?.losses||0)+(s?.ties||0);
+    const winPct=games?((s?.wins||0)+.5*(s?.ties||0))/games:0;
     const diff=s?.pointDifferential||0;
-    const score=Math.round(Math.max(0,Math.min(100,ratings.overall*.48+ratings.balanceScore*.14+ratings.efficiencyRating*.12+winPct*22+Math.max(-5,Math.min(5,diff/18))+8)));
-    const reason=s?`${s.wins}-${s.losses}${s.ties?`-${s.ties}`:''} with a ${ratings.overall} OVR roster and ${diff>=0?'+':''}${diff} point differential.`:`${ratings.overall} OVR roster, ${ratings.balanceScore} balance and ${ratings.efficiencyRating} cap efficiency before games begin.`;
-    return {rank:0,memberId:m.id,memberName:m.userName,score,previousRank:prior.get(m.id),movement:0,reason,record:recordOf(league,m.id),teamOvr:ratings.overall};
+    const strength=fantasyRosterStrength(m.roster||[]);
+    const pointsPerGame=games?(s?.pointsFor||0)/games:0;
+    const score=games?Math.round(Math.max(0,Math.min(100,strength*.42+winPct*35+Math.max(0,Math.min(15,7.5+diff/20))+Math.min(8,pointsPerGame/20)))):strength;
+    const reason=games?`${s?.wins}-${s?.losses}${s?.ties?`-${s.ties}`:''} · ${Math.round(pointsPerGame)} points per game · ${diff>=0?'+':''}${diff} differential · ${strength} lineup strength.`:`Preseason ranking based on starting-lineup quality and bench depth · ${strength} fantasy strength.`;
+    return {rank:0,memberId:m.id,memberName:m.userName,score,previousRank:prior.get(m.id),movement:0,reason,record:recordOf(league,m.id),teamOvr:strength};
   }).sort((a,b)=>b.score-a.score).map((x,i)=>({...x,rank:i+1,movement:x.previousRank?x.previousRank-(i+1):0}));
 }
 
@@ -42,7 +56,8 @@ export function buildDraftGrades(league:League):DraftGrade[]{
 }
 
 export function buildAwards(league:League):AwardWinner[]{
-  if(!league.members.length) return [];
+  const gamesPlayed=(league.seasonResult?.standings||[]).reduce((sum,row)=>sum+(row.wins||0)+(row.losses||0)+(row.ties||0),0);
+  if(!league.members.length||gamesPlayed===0) return [];
   const standingRank=new Map((league.seasonResult?.standings||[]).map((s,i)=>[s.memberId,i]));
   const entries=league.members.flatMap(m=>(m.roster||[]).map(p=>({m,p,boost:Math.max(0,8-(standingRank.get(m.id)??8))*0.6})));
   const pick=(name:string,test:(p:Player)=>boolean)=>{const candidates=entries.filter(x=>test(x.p)).sort((a,b)=>(getPlayerOvr(b.p)+b.boost)-(getPlayerOvr(a.p)+a.boost));const x=candidates[0];return x?{award:name,player:x.p,memberId:x.m.id,memberName:x.m.userName,reason:`${getPlayerOvr(x.p)} OVR centerpiece on ${x.m.userName}'s roster${league.seasonResult?' with winning context':''}.`}:null;};
@@ -80,13 +95,14 @@ export function analyzeTrade(league:League,proposerId:string,recipientId:string,
 export function buildLeagueRecords(league:League):LeagueRecord[]{
   const result=league.seasonResult;if(!result)return [];
   const games=result.games||[];const standings=result.standings||[];const biggest=[...games].sort((a,b)=>Math.abs((b.homeScore-b.awayScore))-Math.abs((a.homeScore-a.awayScore)))[0];const highest=[...standings].sort((a,b)=>b.pointsFor-a.pointsFor)[0];const defense=[...standings].sort((a,b)=>a.pointsAgainst-b.pointsAgainst)[0];const streak=standings.filter(s=>(s.streak||'').startsWith('W')).sort((a,b)=>Number((b.streak||'').slice(1))-Number((a.streak||'').slice(1)))[0];
+  if(!standings.some(row=>(row.wins||0)+(row.losses||0)+(row.ties||0)>0))return [];
   const out:LeagueRecord[]=[];if(biggest){const winner=memberById(league,biggest.winnerId);out.push({label:'Biggest Blowout',value:`${Math.abs(biggest.homeScore-biggest.awayScore)} pts`,holder:winner?.userName||'Unknown',detail:`Week ${biggest.week}: ${biggest.homeScore}-${biggest.awayScore}`});} if(highest)out.push({label:'Scoring Machine',value:String(highest.pointsFor),holder:highest.memberName,detail:'Most points scored in a season'});if(defense)out.push({label:'Clamp City',value:String(defense.pointsAgainst),holder:defense.memberName,detail:'Fewest points allowed'});if(streak)out.push({label:'Longest Current Streak',value:streak.streak,holder:streak.memberName,detail:'Best finishing streak'});return out;
 }
 
 export function buildStorylines(league:League,rivalries:Rivalry[],transactions:LeagueTransaction[]=[]):Storyline[]{
-  const out:Storyline[]=[];const s=league.seasonResult?.standings||[];const leader=s[0];if(leader)out.push({kind:'headline',headline:`${leader.memberName} owns the top spot`,body:`A ${leader.wins}-${leader.losses}${leader.ties?`-${leader.ties}`:''} record and ${leader.pointDifferential>=0?'+':''}${leader.pointDifferential} point differential have set the pace.`,priority:100});const hot=s.find(x=>(x.streak||'').startsWith('W')&&Number(x.streak.slice(1))>=4);if(hot)out.push({kind:'playoff',headline:`${hot.memberName} is surging`,body:`${hot.streak} has turned the playoff race into a problem for everybody else.`,priority:90});const rival=rivalries[0];if(rival)out.push({kind:'rivalry',headline:`${rival.aName} vs ${rival.bName} is becoming personal`,body:`${rival.games} meetings, ${rival.aWins}-${rival.bWins} head-to-head, rivalry heat ${rival.heat}.`,priority:80});const recentTrade=transactions.find(t=>t.transactionType==='trade');if(recentTrade)out.push({kind:'trade',headline:'Trade market is moving',body:recentTrade.summary,priority:70});const upset=(league.seasonResult?.games||[]).map(g=>{const winner=s.find(x=>x.memberId===g.winnerId);const loser=s.find(x=>x.memberId===g.loserId);return {g,gap:(loser?.teamRating||0)-(winner?.teamRating||0)};}).sort((a,b)=>b.gap-a.gap)[0];if(upset&&upset.gap>2)out.push({kind:'headline',headline:'Upset alert became a receipt',body:`${memberById(league,upset.g.winnerId)?.userName} knocked off a roster rated ${upset.gap} OVR higher.`,priority:75});return out.sort((a,b)=>b.priority-a.priority);
+  const out:Storyline[]=[];const s=league.seasonResult?.standings||[];const hasGames=s.some(row=>(row.wins||0)+(row.losses||0)+(row.ties||0)>0);const leader=hasGames?s[0]:undefined;if(leader)out.push({kind:'headline',headline:`${leader.memberName} owns the top spot`,body:`A ${leader.wins}-${leader.losses}${leader.ties?`-${leader.ties}`:''} record and ${leader.pointDifferential>=0?'+':''}${leader.pointDifferential} point differential have set the pace.`,priority:100});const hot=s.find(x=>(x.streak||'').startsWith('W')&&Number(x.streak.slice(1))>=4);if(hot)out.push({kind:'playoff',headline:`${hot.memberName} is surging`,body:`${hot.streak} has turned the playoff race into a problem for everybody else.`,priority:90});const rival=rivalries[0];if(rival)out.push({kind:'rivalry',headline:`${rival.aName} vs ${rival.bName} is becoming personal`,body:`${rival.games} meetings, ${rival.aWins}-${rival.bWins} head-to-head, rivalry heat ${rival.heat}.`,priority:80});const recentTrade=transactions.find(t=>t.transactionType==='trade');if(recentTrade)out.push({kind:'trade',headline:'Trade market is moving',body:recentTrade.summary,priority:70});const upset=hasGames?(league.seasonResult?.games||[]).map(g=>{const winner=s.find(x=>x.memberId===g.winnerId);const loser=s.find(x=>x.memberId===g.loserId);return {g,gap:(loser?.teamRating||0)-(winner?.teamRating||0)};}).sort((a,b)=>b.gap-a.gap)[0]:undefined;if(upset&&upset.gap>2)out.push({kind:'headline',headline:'Upset alert became a receipt',body:`${memberById(league,upset.g.winnerId)?.userName} knocked off a roster rated ${upset.gap} OVR higher.`,priority:75});return out.sort((a,b)=>b.priority-a.priority);
 }
 
 export function buildLeagueNews(league:League,storylines:Storyline[],awards:AwardWinner[],records:LeagueRecord[]):Storyline[]{
-  const out=[...storylines];if(awards[0])out.push({kind:'award',headline:`MVP watch: ${awards[0].player.name}`,body:`${awards[0].memberName}'s ${awards[0].player.position} is currently the Ball Knower MVP favorite.`,priority:65});records.forEach(record=>out.push({kind:'record',headline:`Record book update: ${record.holder}`,body:`${record.label}: ${record.value}.`,priority:55}));if(!league.seasonResult)out.push({kind:'headline',headline:'The league is still being built',body:'Draft grades and roster strength are live now; weekly storylines unlock when games begin.',priority:50});return out.sort((a,b)=>b.priority-a.priority);
+  const out=[...storylines];if(awards[0])out.push({kind:'award',headline:`MVP watch: ${awards[0].player.name}`,body:`${awards[0].memberName}'s ${awards[0].player.position} is currently the Ball Knower MVP favorite.`,priority:65});records.forEach(record=>out.push({kind:'record',headline:`Record book update: ${record.holder}`,body:`${record.label}: ${record.value}.`,priority:55}));if(!out.length)out.push({kind:'headline',headline:'Week 1 is ready',body:'Preseason power rankings and draft grades are live. Awards, records and weekly storylines unlock after games are played.',priority:50});return out.sort((a,b)=>b.priority-a.priority);
 }
