@@ -106,18 +106,18 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({
           </div>
         )}
 
-        {/* Official Madden Rating Source & Season Badge */}
+        {/* Ball Knower rating source and season */}
         <div className="rounded-sm border border-white/10 bg-black/50 p-2.5 mb-4 flex items-center justify-between text-[11px] font-mono">
           <div className="flex items-center gap-2">
             <Award className="h-3.5 w-3.5 text-[#D4AF37]" />
             <span className="text-zinc-400">Rating Source:</span>
-            <span className="font-bold text-white uppercase">{player.ratingSource || 'EA SPORTS Madden'}</span>
+            <span className="font-bold text-white uppercase">Ball Knower Composite</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-zinc-400">Season:</span>
             <span className="font-bold text-[#00FF00]">{player.ratingSeason || 2026}</span>
             {player.overallRating === 99 && (
-              <span className="bg-[#D4AF37] text-black px-1.5 py-0.2 rounded font-black text-[9px] uppercase">99 Club</span>
+              <span className="bg-[#D4AF37] text-black px-1.5 py-0.2 rounded font-black text-[9px] uppercase">Elite</span>
             )}
           </div>
         </div>

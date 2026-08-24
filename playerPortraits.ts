@@ -1,5 +1,4 @@
 import { Player } from './types';
-import { getMadden27RosterEntry } from './madden27CurrentRoster';
 
 // Official Madden NFL 27 launch portraits, keyed by player name so team changes do not break photos.
 export const PLAYER_PORTRAITS: Record<string, string> = {
@@ -531,5 +530,8 @@ export const PLAYER_PORTRAITS: Record<string, string> = {
 };
 
 export function playerPortraitUrl(player: Pick<Player, 'id' | 'name' | 'position'>): string | undefined {
-  return getMadden27RosterEntry(player)?.avatarUrl || PLAYER_PORTRAITS[player.name];
+  const initials=player.name.split(/\s+/).filter(Boolean).map(part=>part[0]).slice(0,2).join('').toUpperCase()||player.position.slice(0,2);
+  const safeName=player.name.replace(/[<>&"']/g,'');
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><rect width="128" height="128" rx="64" fill="#171b22"/><circle cx="64" cy="64" r="61" fill="none" stroke="#d4af37" stroke-opacity=".35" stroke-width="3"/><text x="64" y="72" text-anchor="middle" font-family="Arial,sans-serif" font-size="34" font-weight="900" fill="#f4f4f5">${initials}</text><title>${safeName}</title></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }

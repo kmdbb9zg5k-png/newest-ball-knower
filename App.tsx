@@ -15,6 +15,7 @@ import {CheckCircle2} from 'lucide-react';
 import {trackBallKnowerEvent} from './analytics';
 import {CloudSyncProvider} from './CloudSyncProvider';
 import type {SoloExperience} from './SoloFranchiseHub';
+import {LaunchCenter,LaunchFooter,type LaunchPanel} from './LaunchCenter';
 
 const SoloMode=lazy(()=>import('./SoloMode').then(module=>({default:module.SoloMode})));
 const NewsHub=lazy(()=>import('./NewsHub').then(module=>({default:module.NewsHub})));
@@ -47,6 +48,7 @@ function BallKnowerApp(){
   const [isCreateLeagueOpen,setIsCreateLeagueOpen]=useState(false);
   const [isJoinLeagueOpen,setIsJoinLeagueOpen]=useState(false);
   const [isDatabaseModalOpen,setIsDatabaseModalOpen]=useState(false);
+  const [launchPanel,setLaunchPanel]=useState<LaunchPanel|null>(null);
   const [isIntroOpen,setIsIntroOpen]=useState(true);
   const [isMobileDraftViewport,setIsMobileDraftViewport]=useState(detectMobileDraftViewport);
   const [favoriteTheme,setFavoriteTheme]=useState<TeamTheme>(()=>getSavedTeamTheme());
@@ -87,15 +89,16 @@ function BallKnowerApp(){
       </Suspense>
     </main>
 
-    {currentTab==='home'&&<div className="relative z-[3] mx-auto flex max-w-5xl items-center justify-between px-4 pb-5 pt-3 text-[9px] font-black uppercase tracking-wider text-zinc-700"><span>© 2026 Ball Knower</span><span className="text-[var(--bk-team-accent)]">Prove you know ball.</span></div>}
+    <LaunchFooter onOpen={setLaunchPanel}/>
 
     <CinematicIntro isOpen={isIntroOpen} onClose={closeIntro}/>
     {showFavoriteTeam&&!isIntroOpen&&<FavoriteTeamExperience onDone={finishFavoriteTeamSetup}/>} 
-    <AuthModal isOpen={isAuthOpen} onClose={()=>setIsAuthOpen(false)}/>
+    <AuthModal isOpen={isAuthOpen} onClose={()=>setIsAuthOpen(false)} onOpenLegal={panel=>{setIsAuthOpen(false);setLaunchPanel(panel)}}/>
     <CreateLeagueModal isOpen={isCreateLeagueOpen} onClose={()=>setIsCreateLeagueOpen(false)} onLeagueCreated={handleLeagueCreated}/>
     <JoinLeagueModal isOpen={isJoinLeagueOpen} onClose={()=>setIsJoinLeagueOpen(false)} onLeagueJoined={handleLeagueJoined}/>
     {isDatabaseModalOpen&&<Suspense fallback={null}>{isMobileDraftViewport?<MobileRosterBrowser isOpen={isDatabaseModalOpen} onClose={()=>setIsDatabaseModalOpen(false)}/>:<DatabaseVerificationModal isOpen={isDatabaseModalOpen} onClose={()=>setIsDatabaseModalOpen(false)}/>}</Suspense>}
     {toastMessage&&<div className="fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-4 right-4 z-50 flex items-center gap-2.5 rounded-xl border border-[var(--bk-team-accent)]/50 bg-[#121212] px-4 py-3 text-xs font-bold text-white shadow-2xl backdrop-blur-md sm:left-auto sm:right-6"><CheckCircle2 className="h-4 w-4 shrink-0 text-[var(--bk-team-accent)]"/><span>{toastMessage}</span></div>}
+    <LaunchCenter panel={launchPanel} onClose={()=>setLaunchPanel(null)}/>
   </div>;
 }
 
