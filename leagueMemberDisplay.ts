@@ -19,7 +19,7 @@ export function displayLeagueMemberName(member: LeagueMember | undefined, mine: 
   if (mine) return user?.name || 'You';
   if (member?.isAi) {
     const cpuName = cleanCpuDisplayName(member.userName, index);
-    if (cpuName.toLowerCase().replace(/\s+\d+$/, '') === user?.name?.toLowerCase()) return `CPU Team ${index + 1}`;
+    if (cpuName.toLowerCase().replace(/\s+\d+$/, '') === user?.name?.toLowerCase()) return `CPU ${cpuName}`;
     return cpuName;
   }
   return member?.userName || 'Manager';

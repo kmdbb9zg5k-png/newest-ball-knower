@@ -88,7 +88,11 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
     const orderOnly=seasonResult.orderMethod==='random'||seasonResult.orderMethod==='commissioner';
     const text = `🏆 BALL KNOWER FANTASY DRAFT ORDER (${league.name})\n` +
       seasonResult.draftOrder
-        .map(d => orderOnly?`Pick #${d.pickNumber}: ${d.memberName}`:`Pick #${d.pickNumber}: ${d.memberName} (${d.record}, ${d.teamRating} OVR)`)
+        .map((d,index) => {
+          const member=league.members.find(item=>item.id===d.memberId);
+          const name=displayLeagueMemberName(member,member?.id===myMember?.id,currentUser,index);
+          return orderOnly?`Pick #${d.pickNumber}: ${name}`:`Pick #${d.pickNumber}: ${name} (${d.record}, ${d.teamRating} OVR)`;
+        })
         .join('\n') +
       `\n\nSet with Ball Knower · ${seasonResult.orderMethod==='random'?'Random Draw':seasonResult.orderMethod==='commissioner'?'Commissioner Assignment':'Draft Order Game'}`;
 
@@ -288,9 +292,10 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
             </p>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              {seasonResult.draftOrder.map(pick => {
+              {seasonResult.draftOrder.map((pick,index) => {
                 const member = league.members.find(m => m.id === pick.memberId);
-                const isMe = member?.userId === currentUser?.id;
+                const isMe = member?.id === myMember?.id;
+                const displayName = displayLeagueMemberName(member, isMe, currentUser, index);
 
                 return (
                   <div
@@ -317,7 +322,7 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
 
                       <img
                         src={member?.userAvatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80&auto=format&fit=crop&q=80'}
-                        alt={pick.memberName}
+                        alt={displayName}
                         className="h-10 w-10 rounded-full object-cover border border-white/10"
                         referrerPolicy="no-referrer"
                       />
@@ -325,7 +330,7 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
                       <div>
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-black uppercase text-white">
-                            {pick.memberName}
+                            {displayName}
                           </p>
                           {isMe && (
                             <span className="rounded-sm bg-[var(--bk-team-accent)]/20 px-1.5 py-0.2 text-[9px] font-black text-[var(--bk-team-accent)] uppercase tracking-wider">
