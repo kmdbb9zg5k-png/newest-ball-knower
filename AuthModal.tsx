@@ -3,13 +3,15 @@ import { useBallKnower } from './BallKnowerContext';
 import { X, Shield, Mail, ArrowRight, CheckCircle2, Loader2, LockKeyhole } from 'lucide-react';
 import { attachEmailToAnonymousUser, ensureOnlineSession, sendEmailMagicLink } from './supabase';
 import { trackBallKnowerEvent } from './analytics';
+import type {LaunchPanel} from './LaunchCenter';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onOpenLegal?: (panel:LaunchPanel)=>void;
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onOpenLegal }) => {
   const { currentUser, setCurrentUser, showToast } = useBallKnower();
   const [emailInput, setEmailInput] = useState('');
   const [nameInput, setNameInput] = useState('');
@@ -220,9 +222,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           </form>
         )}
 
-        <p className="mt-6 text-center text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
-          By continuing, you agree to fair NFL salary-cap competition rules.
-        </p>
+        <p className="mt-6 text-center text-[10px] font-medium text-zinc-500 uppercase tracking-wider">By continuing, you agree to our <button type="button" onClick={()=>onOpenLegal?.('terms')} className="text-[#D4AF37] underline">Terms</button> and acknowledge our <button type="button" onClick={()=>onOpenLegal?.('privacy')} className="text-[#D4AF37] underline">Privacy Policy</button>.</p>
       </div>
     </div>
   );

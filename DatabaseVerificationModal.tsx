@@ -105,7 +105,7 @@ export const DatabaseVerificationModal: React.FC<DatabaseVerificationModalProps>
             <span>•</span>
             <span className="font-extrabold tracking-wider">RATINGS VERIFIED: {ratingsReport.ratingsVerifiedCount}/{ratingsReport.totalPlayersChecked}</span>
             <span>•</span>
-            <span>RATING SOURCE: EA SPORTS MADDEN</span>
+            <span>RATING SOURCE: BALL KNOWER COMPOSITE</span>
             <span>•</span>
             <span>RATING SEASON: CURRENT ({ratingsReport.ratingSeason})</span>
           </div>
@@ -123,7 +123,7 @@ export const DatabaseVerificationModal: React.FC<DatabaseVerificationModalProps>
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base sm:text-lg font-black uppercase tracking-tight text-white font-display">
-                  Official EA SPORTS Madden Ratings & Roster Database
+                  Ball Knower Ratings & Roster Database
                 </h2>
                 <span className="flex items-center gap-1 rounded-full bg-[#00FF00]/15 border border-[#00FF00]/40 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#00FF00]">
                   <CheckCircle2 className="h-3 w-3" />
@@ -131,7 +131,7 @@ export const DatabaseVerificationModal: React.FC<DatabaseVerificationModalProps>
                 </span>
               </div>
               <p className="text-[11px] sm:text-xs text-zinc-400">
-                Single Source of Truth: EA SPORTS Madden ({MADDEN_RATING_METADATA.ratingSeason}) • {PLAYERS_DATABASE.length} Active Players • All 32 Teams Synchronized
+                Ball Knower Composite ({MADDEN_RATING_METADATA.ratingSeason}) • {PLAYERS_DATABASE.length} Active Players • All 32 Teams Synchronized
               </p>
             </div>
           </div>
@@ -167,7 +167,7 @@ export const DatabaseVerificationModal: React.FC<DatabaseVerificationModalProps>
               }`}
             >
               <Award className="h-4 w-4" />
-              <span>Madden Ratings Audit ({ratingsReport.ratingsVerifiedCount}/{ratingsReport.totalPlayersChecked})</span>
+              <span>Ratings Audit ({ratingsReport.ratingsVerifiedCount}/{ratingsReport.totalPlayersChecked})</span>
             </button>
             <button
               onClick={() => setActiveTab('migration')}
@@ -217,7 +217,7 @@ export const DatabaseVerificationModal: React.FC<DatabaseVerificationModalProps>
 
           <div className="hidden md:flex items-center gap-2 text-[11px] font-mono text-zinc-500">
             <span>RATING ENGINE:</span>
-            <span className="font-black text-[#00FF00]">EA SPORTS MADDEN</span>
+            <span className="font-black text-[#00FF00]">BALL KNOWER COMPOSITE</span>
           </div>
         </div>
 
@@ -263,7 +263,7 @@ export const DatabaseVerificationModal: React.FC<DatabaseVerificationModalProps>
                 </div>
 
                 <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-                  <div className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Madden Verified</div>
+                  <div className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Ratings Checked</div>
                   <div className="text-xl font-black font-mono text-[#00FF00] mt-1">
                     {ratingsReport.ratingsVerifiedCount}
                   </div>
@@ -308,11 +308,11 @@ export const DatabaseVerificationModal: React.FC<DatabaseVerificationModalProps>
                 <div className="flex items-center gap-2 mb-3">
                   <Star className="h-5 w-5 text-[#D4AF37] fill-[#D4AF37]" />
                   <h4 className="text-sm font-black uppercase tracking-wide text-white">
-                    Official EA SPORTS Madden 99 Club ({ratingsReport.madden99Club.length} Verified Players)
+                    Ball Knower Elite 99 Tier ({ratingsReport.madden99Club.length} Players)
                   </h4>
                 </div>
                 <p className="text-xs text-zinc-400 mb-4">
-                  Only true official 99 OVR players are permitted in the 99 Club. No player receives 99 based on historical peak or reputation.
+                  The highest composite ratings in Ball Knower's current simulation model.
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
@@ -332,7 +332,7 @@ export const DatabaseVerificationModal: React.FC<DatabaseVerificationModalProps>
                           {p.name}
                         </div>
                         <div className="text-[10px] text-zinc-400 mt-0.5">
-                          EA SPORTS Madden • {ratingsReport.ratingSeason}
+                          Ball Knower Composite • {ratingsReport.ratingSeason}
                         </div>
                       </div>
                       <div className="flex flex-col items-center justify-center bg-[#D4AF37] text-black font-mono font-black text-xl h-10 w-10 rounded shadow-inner">
@@ -352,7 +352,7 @@ export const DatabaseVerificationModal: React.FC<DatabaseVerificationModalProps>
                   </h4>
                 </div>
                 <p className="text-xs text-zinc-400 mb-4">
-                  Outdated hardcoded ratings and legacy 99 assignments have been reconciled with official Madden data:
+                  Outdated hardcoded ratings and legacy 99 assignments have been reconciled with the current Ball Knower model:
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -394,7 +394,7 @@ export const DatabaseVerificationModal: React.FC<DatabaseVerificationModalProps>
                       <Award className="h-4 w-4" />
                       Top 10 Highest Rated Players
                     </h4>
-                    <span className="text-[10px] font-mono text-zinc-500">Official Madden</span>
+                    <span className="text-[10px] font-mono text-zinc-500">Ball Knower</span>
                   </div>
 
                   <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
@@ -427,7 +427,7 @@ export const DatabaseVerificationModal: React.FC<DatabaseVerificationModalProps>
                       <Users className="h-4 w-4" />
                       Lowest Rated Active Pool Players
                     </h4>
-                    <span className="text-[10px] font-mono text-zinc-500">Official Madden</span>
+                    <span className="text-[10px] font-mono text-zinc-500">Ball Knower</span>
                   </div>
 
                   <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
@@ -458,7 +458,7 @@ export const DatabaseVerificationModal: React.FC<DatabaseVerificationModalProps>
               <div className="rounded-xl border border-white/10 bg-zinc-900/60 p-4 sm:p-5">
                 <h4 className="text-xs font-black uppercase tracking-wider text-white mb-3 flex items-center gap-2">
                   <ShieldCheck className="h-4 w-4 text-[#00FF00]" />
-                  Madden Ratings Architecture Verification Checklist
+                  Ratings Architecture Verification Checklist
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">

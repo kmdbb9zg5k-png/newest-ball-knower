@@ -17,9 +17,9 @@ import { Position, PlayerRatingRecord } from "./types";
  */
 
 export const MADDEN_RATING_METADATA = {
-  ratingSource: "EA SPORTS Madden",
+  ratingSource: "Ball Knower Composite",
   ratingSeason: 2026,
-  maddenTitle: "Madden NFL Official Roster & Ratings Master Database",
+  maddenTitle: "Ball Knower 2026 Roster & Ratings Database",
   lastUpdated: "2026-08-16T08:35:00Z",
   lastUpdatedFormatted: "August 16, 2026",
   auditVersion: "2.0.0",
