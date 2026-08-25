@@ -30,3 +30,13 @@ jobs:
 
       - name: TypeScript and roster integrity
         run: npm run check:hardening
+
+      - name: Generate authoritative Draft Order Game catalog
+        run: npx tsx scripts/generate-draft-order-game-catalog.ts /tmp/20260825_secure_draft_order_game_catalog.sql
+
+      - name: Upload generated Draft Order Game catalog
+        uses: actions/upload-artifact@v4
+        with:
+          name: draft-order-game-catalog
+          path: /tmp/20260825_secure_draft_order_game_catalog.sql
+          retention-days: 1
