@@ -27,19 +27,26 @@ export const ChallengesHub: React.FC = () => {
   const [error, setError] = useState('');
   const advancingRef = useRef(false);
   const advanceTimerRef = useRef<number | null>(null);
+  const questionRequestRef = useRef(0);
 
   const loadQuestion = useCallback(async (nextTier: TriviaTier) => {
+    // A previous RPC can finish after the user exits or switches tiers. Give every
+    // request a generation token so stale responses can never replace the active tier.
+    const requestId = ++questionRequestRef.current;
     setLoading(true);
     setError('');
     setSelected(null);
     setResult(null);
     try {
-      setQuestion(await fetchTriviaQuestion(nextTier));
+      const nextQuestion = await fetchTriviaQuestion(nextTier);
+      if (requestId !== questionRequestRef.current) return;
+      setQuestion(nextQuestion);
     } catch (err) {
+      if (requestId !== questionRequestRef.current) return;
       setQuestion(null);
       setError(err instanceof Error ? err.message : 'Could not load trivia right now.');
     } finally {
-      setLoading(false);
+      if (requestId === questionRequestRef.current) setLoading(false);
     }
   }, []);
 
@@ -49,6 +56,19 @@ export const ChallengesHub: React.FC = () => {
       advanceTimerRef.current = null;
     }
   }, []);
+
+  const closeTrivia = useCallback(() => {
+    clearAdvanceTimer();
+    questionRequestRef.current += 1;
+    advancingRef.current = false;
+    setTriviaOpen(false);
+    setLoading(false);
+    setSubmitting(false);
+    setQuestion(null);
+    setSelected(null);
+    setResult(null);
+    setError('');
+  }, [clearAdvanceTimer]);
 
   const openTrivia = (nextTier: TriviaTier) => {
     clearAdvanceTimer();
@@ -107,7 +127,10 @@ export const ChallengesHub: React.FC = () => {
     return clearAdvanceTimer;
   }, [result, triviaOpen, advanceQuestion, clearAdvanceTimer]);
 
-  useEffect(() => () => clearAdvanceTimer(), [clearAdvanceTimer]);
+  useEffect(() => () => {
+    clearAdvanceTimer();
+    questionRequestRef.current += 1;
+  }, [clearAdvanceTimer]);
 
   return (
     <div className="mx-auto max-w-5xl px-3 pb-8 pt-4 sm:px-6 sm:pt-6">
@@ -139,7 +162,7 @@ export const ChallengesHub: React.FC = () => {
         <div role="dialog" aria-modal="true" aria-label={`${tier} Trivia`} className="fixed inset-0 z-[9999] overflow-y-auto overscroll-contain bg-[#05070a] px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(.75rem,env(safe-area-inset-top))] text-white [-webkit-overflow-scrolling:touch] sm:px-4">
           <div className="mx-auto w-full max-w-2xl">
             <header className="flex min-h-12 items-center justify-between gap-3">
-              <button onClick={() => { clearAdvanceTimer(); setTriviaOpen(false); }} className="inline-flex min-h-10 items-center gap-2 px-1 text-[10px] font-black uppercase"><ArrowLeft className="h-4 w-4" /> Exit</button>
+              <button onClick={closeTrivia} className="inline-flex min-h-10 items-center gap-2 px-1 text-[10px] font-black uppercase"><ArrowLeft className="h-4 w-4" /> Exit</button>
               <div className="text-center text-[10px] font-black uppercase tracking-wider text-fuchsia-400">{tier}</div>
               <div className="text-right text-[9px] font-black uppercase text-zinc-500">Score <span className="text-white">{score}</span></div>
             </header>
