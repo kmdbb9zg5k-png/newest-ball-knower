@@ -3,6 +3,11 @@
 -- Draft Order Game's `building` state. Keep the old commissioner helper for the
 -- explicit pre-live-draft roster game, but fence it off once the live draft is
 -- complete.
+--
+-- Existing completed-draft rows that were dirtied by the old control are
+-- repaired separately through an authenticated/commissioner-safe data repair;
+-- this migration itself contains no data mutation so the member-update guard
+-- remains fully enforced during DDL application.
 
 create or replace function public.commissioner_set_member_roster_status(
   p_league_id text,
@@ -79,16 +84,3 @@ $$;
 
 revoke all on function public.commissioner_set_member_roster_status(text,text,text) from public,anon;
 grant execute on function public.commissioner_set_member_roster_status(text,text,text) to authenticated,service_role;
-
--- Repair completed-draft rosters that were put back into `building` by the old
--- button. This preserves the roster itself and only restores the authoritative
--- ready status derived from the completed 20-round live draft.
-update public.ball_knower_league_members member
-set status='ready',
-    submitted_at=coalesce(member.submitted_at,draft.completed_at,draft.updated_at,now())
-from public.ball_knower_live_drafts draft
-where draft.league_id=member.league_id
-  and draft.status='completed'
-  and jsonb_typeof(member.roster)='array'
-  and jsonb_array_length(member.roster)=draft.rounds
-  and member.status<>'ready';
