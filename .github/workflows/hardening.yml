@@ -32,17 +32,17 @@ jobs:
         run: npm run check:hardening
 
       - name: Generate authoritative Draft Order Game catalog
-        run: npx tsx scripts/generate-draft-order-game-catalog.ts /tmp/20260825_secure_draft_order_game_catalog.sql
+        run: npx tsx scripts/generate-draft-order-game-catalog.ts /tmp/20260825_update_draft_order_game_salary_estimates.sql
 
       - name: Verify frozen catalog migration
         shell: bash
         run: |
           set -euo pipefail
-          if ! cmp -s /tmp/20260825_secure_draft_order_game_catalog.sql migrations/20260825_secure_draft_order_game_catalog.sql; then
+          if ! cmp -s /tmp/20260825_update_draft_order_game_salary_estimates.sql migrations/20260825_update_draft_order_game_salary_estimates.sql; then
             echo "The canonical player source no longer matches the already-applied catalog migration."
-            echo "Do not rewrite migrations/20260825_secure_draft_order_game_catalog.sql."
+            echo "Do not rewrite migrations/20260825_update_draft_order_game_salary_estimates.sql."
             echo "Create a new versioned catalog migration and apply it to production instead."
-            diff -u migrations/20260825_secure_draft_order_game_catalog.sql /tmp/20260825_secure_draft_order_game_catalog.sql | head -n 200 || true
+            diff -u migrations/20260825_update_draft_order_game_salary_estimates.sql /tmp/20260825_update_draft_order_game_salary_estimates.sql | head -n 200 || true
             exit 1
           fi
           echo "Frozen Draft Order Game catalog matches canonical source."
@@ -51,5 +51,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: draft-order-game-catalog
-          path: /tmp/20260825_secure_draft_order_game_catalog.sql
+          path: /tmp/20260825_update_draft_order_game_salary_estimates.sql
           retention-days: 1
