@@ -4,10 +4,9 @@
 -- explicit pre-live-draft roster game, but fence it off once the live draft is
 -- complete.
 --
--- Existing completed-draft rows that were dirtied by the old control are
--- repaired separately through an authenticated/commissioner-safe data repair;
--- this migration itself contains no data mutation so the member-update guard
--- remains fully enforced during DDL application.
+-- Lock the live-draft row before the member row, matching the draft finalizer's
+-- lock order. That serializes a commissioner reopen against the last draft pick
+-- and roster finalization instead of allowing `building` to race completion.
 
 create or replace function public.commissioner_set_member_roster_status(
   p_league_id text,
@@ -23,22 +22,33 @@ declare
   v_cap numeric;
   v_spent numeric:=0;
   v_live_draft_complete boolean:=false;
+  v_live_draft_status text;
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
   if not public.is_ball_knower_commissioner(p_league_id) then raise exception 'Commissioner authorization required'; end if;
   if p_status not in ('building','ready') then raise exception 'Invalid roster status'; end if;
 
-  select exists(
-    select 1
-    from public.ball_knower_live_drafts draft
-    where draft.league_id=p_league_id and draft.status='completed'
-  ) into v_live_draft_complete;
+  -- The live draft pick/finalization path also locks this row first. If a last
+  -- pick is committing, we wait; if we get here first, finalization waits and
+  -- subsequently restores authoritative ready rosters.
+  select draft.status into v_live_draft_status
+  from public.ball_knower_live_drafts draft
+  where draft.league_id=p_league_id
+  for update;
+  v_live_draft_complete:=coalesce(v_live_draft_status='completed',false);
 
   select * into v_member
   from public.ball_knower_league_members
   where league_id=p_league_id and id=p_member_id
   for update;
   if not found then raise exception 'League member not found'; end if;
+
+  -- Re-evaluate after the member lock as a defensive invariant. The live-draft
+  -- row lock above prevents its status from changing underneath this check.
+  select coalesce(draft.status='completed',false) into v_live_draft_complete
+  from public.ball_knower_live_drafts draft
+  where draft.league_id=p_league_id;
+  if not found then v_live_draft_complete:=false; end if;
 
   if v_live_draft_complete and p_status='building' then
     raise exception 'Completed fantasy draft rosters cannot be reopened. Use season trades, waivers, lineup moves, or reset the league for a new season.';
