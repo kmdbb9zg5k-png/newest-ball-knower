@@ -129,12 +129,12 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
   };
 
   useEffect(()=>{
-    if(!rankingsReady||!draft||draft.status!=='active'||!currentMember?.isAi||!myMember||pickLockRef.current)return;
+    if(!rankingsReady||!draft||draft.status!=='active'||!currentMember?.isAi||!myMember||busy||pickLockRef.current)return;
     const player=cpuSelection(draft,currentMember.id,rankings);
     if(!player){showToast(`${currentMember.userName} could not find a legal CPU pick.`);return;}
     const timer=window.setTimeout(()=>{void makePick(player);},120);
     return ()=>window.clearTimeout(timer);
-  },[draft?.pickIndex,currentMember?.id,currentMember?.isAi,myMember?.id,rankingsReady,rankings]);
+  },[draft?.pickIndex,currentMember?.id,currentMember?.isAi,myMember?.id,rankingsReady,rankings,busy]);
 
   useEffect(()=>{
     if(!activeLeague||draft?.status!=='completed'||seasonHandoffComplete||!isCommissioner||finalizeLockRef.current)return;
