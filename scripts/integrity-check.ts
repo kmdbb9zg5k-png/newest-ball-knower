@@ -1,7 +1,7 @@
 import { PLAYERS_DATABASE } from '../players';
 import { getDraftPositionGroup, validateRosterShape } from '../rosterRules';
 import { getLiveFantasyDraftGroup, validateLiveFantasyRoster } from '../liveFantasyRules';
-import { buildStandings, simulateFantasyPlayoffs, simulateFantasyWeek } from '../simulation';
+import { buildFantasyWeekPairings, buildStandings, simulateFantasyPlayoffs, simulateFantasyWeek } from '../simulation';
 import {
   buildRealTeamRoster,
   FANTASY_DRAFT_ROUNDS,
@@ -70,9 +70,12 @@ const testMembers:LeagueMember[]=Array.from({length:10},(_,index)=>({
   roster:fantasyPool,
 }));
 const weeklyGames=Array.from({length:17},(_,index)=>simulateFantasyWeek(testMembers,index+1)).flat();
+const fullSchedule=Array.from({length:17},(_,index)=>buildFantasyWeekPairings(testMembers,index+1)).flat();
 for(const member of testMembers){
   const gamesPlayed=weeklyGames.filter(game=>game.homeMemberId===member.id||game.awayMemberId===member.id).length;
   check(gamesPlayed===17,`${member.userName}: weekly fantasy schedule produced ${gamesPlayed}/17 games.`);
+  const scheduledGames=fullSchedule.filter(game=>game.homeMemberId===member.id||game.awayMemberId===member.id).length;
+  check(scheduledGames===17,`${member.userName}: preseason fantasy schedule produced ${scheduledGames}/17 matchups.`);
 }
 const fantasyStandings=buildStandings(testMembers,weeklyGames);
 check(fantasyStandings.every((standing,index)=>index===0||fantasyStandings[index-1].winPercentage>=standing.winPercentage),'Fantasy standings are not sorted by win percentage.');

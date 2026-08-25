@@ -52,7 +52,7 @@ import {
 } from './fantasyLeagueParityCloud';
 import { counterTradeV2 } from './fantasyTradeV2Cloud';
 import { FantasyRanking, loadFantasyRankings } from './fantasyRankingsCloud';
-import { buildStandings } from './simulation';
+import { buildFantasyWeekPairings, buildStandings } from './simulation';
 
 type Tab = 'team' | 'matchup' | 'players' | 'league' | 'activity' | 'intel';
 type ActivityView = 'trades' | 'moves' | 'messages';
@@ -236,6 +236,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
   const bench = roster.filter(player => !starterIds.has(player.id) && !irIds.includes(player.id));
   const waiverType = settings.waiverType || 'priority';
   const visibleGames = useMemo(() => (league.seasonResult?.games || []).filter(game => game.playoffRound || game.week <= currentWeek), [league.seasonResult?.games,currentWeek]);
+  const regularSeasonSchedule = useMemo(() => Array.from({length:maxWeek},(_,index) => buildFantasyWeekPairings(league.members,index+1)).flat(), [league.members,maxWeek]);
   const visibleStandings = useMemo(() => buildStandings(league.members,visibleGames.filter(game => !game.playoffRound)), [league.members,visibleGames]);
   const visibleLeague = useMemo(() => league.seasonResult ? {...league,seasonResult:{...league.seasonResult,games:visibleGames,standings:visibleStandings}} : league, [league,visibleGames,visibleStandings]);
   const records = useMemo(() => buildLeagueRecords(visibleLeague, archives), [visibleLeague, archives]);
@@ -343,7 +344,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
 
   const launchSeason = () => run(async () => {
     const started = await startSimulation(league.id);
-    if (!started) throw new Error('The season could not start. Check the league rosters and try again.');
+    if (!started) return;
   });
 
   const advanceSeason = () => run(async () => {
@@ -351,14 +352,22 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
     if (!advanced) throw new Error('The fantasy season could not advance.');
   });
 
-  const matchup = visibleGames.find(game => !game.playoffRound && game.week === week && (game.homeMemberId === me?.id || game.awayMemberId === me?.id));
+  const playedMatchup = visibleGames.find(game => !game.playoffRound && game.week === week && (game.homeMemberId === me?.id || game.awayMemberId === me?.id));
+  const scheduledMatchup = regularSeasonSchedule.find(game => game.week === week && (game.homeMemberId === me?.id || game.awayMemberId === me?.id));
+  const matchup = playedMatchup || scheduledMatchup;
   const opponentId = matchup ? (matchup.homeMemberId === me?.id ? matchup.awayMemberId : matchup.homeMemberId) : undefined;
   const opponent = league.members.find(member => member.id === opponentId);
   const myScore = scores.find(score => score.memberId === me?.id);
   const opponentScore = scores.find(score => score.memberId === opponentId);
-  const myPoints = matchup ? (matchup.homeMemberId === me?.id ? matchup.homeScore : matchup.awayScore) : 0;
-  const oppPoints = matchup ? (matchup.homeMemberId === me?.id ? matchup.awayScore : matchup.homeScore) : 0;
+  const myPoints = playedMatchup ? (playedMatchup.homeMemberId === me?.id ? playedMatchup.homeScore : playedMatchup.awayScore) : 0;
+  const oppPoints = playedMatchup ? (playedMatchup.homeMemberId === me?.id ? playedMatchup.awayScore : playedMatchup.homeScore) : 0;
   const seasonHasGames = currentWeek > 0 && visibleGames.length > 0;
+  const mySchedule = useMemo(() => regularSeasonSchedule.map(game => {
+    if (game.homeMemberId !== me?.id && game.awayMemberId !== me?.id) return null;
+    const opponentId = game.homeMemberId === me?.id ? game.awayMemberId : game.homeMemberId;
+    const result = visibleGames.find(played => !played.playoffRound && played.week === game.week && played.homeMemberId === game.homeMemberId && played.awayMemberId === game.awayMemberId);
+    return {game,opponent:league.members.find(member => member.id === opponentId),result};
+  }).filter(Boolean) as {game:(typeof regularSeasonSchedule)[number];opponent?:LeagueMember;result?:typeof playedMatchup}[], [regularSeasonSchedule,visibleGames,league.members,me?.id]);
 
   const findPlayer = (id:string) => league.members.flatMap(member => member.roster || []).find(player => player.id === id) || PLAYERS_DATABASE.find(player => player.id === id);
   const swapDefinition = LINEUP_SLOTS.find(slot => slot.id === swapSlot);
@@ -451,9 +460,10 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
       </div>}
 
       {tab === 'matchup' && <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3"><div><h2 className="text-xl font-black uppercase">Matchup</h2><p className="text-xs text-zinc-500">Your weekly head-to-head.</p></div><select aria-label="Fantasy week" value={week} onChange={event => setWeek(Number(event.target.value))} className="min-h-11 rounded-xl border border-white/10 bg-[#101318] px-3 text-xs">{Array.from({length:Math.max(1,currentWeek)},(_,index)=>index+1).map(value=><option key={value} value={value}>Week {value}</option>)}</select></div>
+        <div className="flex items-center justify-between gap-3"><div><h2 className="text-xl font-black uppercase">Matchup</h2><p className="text-xs text-zinc-500">Your complete {maxWeek}-week head-to-head schedule.</p></div><select aria-label="Fantasy week" value={week} onChange={event => setWeek(Number(event.target.value))} className="min-h-11 rounded-xl border border-white/10 bg-[#101318] px-3 text-xs">{Array.from({length:maxWeek},(_,index)=>index+1).map(value=><option key={value} value={value}>Week {value}</option>)}</select></div>
         {!seasonHasGames && isCommissioner && <StartSeasonCard league={league} busy={busy} onStart={launchSeason}/>} 
-        <Panel title={`Week ${week}`} sub={`${displayManagerName(me)} vs ${displayManagerName(opponent)}`} icon={<Clock3 className="h-5 w-5 text-[#D4AF37]"/>}>{matchup ? <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3"><Score name={displayManagerName(me)} points={myScore?.livePoints ?? myPoints} projection={myScore?.projectedPoints}/><b className="text-zinc-600">VS</b><Score name={displayManagerName(opponent)} points={opponentScore?.livePoints ?? oppPoints} projection={opponentScore?.projectedPoints}/></div> : <Empty text="Start the season to generate the schedule and matchups."/>}</Panel>
+        <Panel title={`Week ${week}`} sub={`${displayManagerName(me)} vs ${displayManagerName(opponent)}`} icon={<Clock3 className="h-5 w-5 text-[#D4AF37]"/>}>{matchup ? <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3"><Score name={displayManagerName(me)} points={myScore?.livePoints ?? myPoints} projection={myScore?.projectedPoints} scheduled={!playedMatchup}/><b className="text-zinc-600">VS</b><Score name={displayManagerName(opponent)} points={opponentScore?.livePoints ?? oppPoints} projection={opponentScore?.projectedPoints} scheduled={!playedMatchup}/></div> : <Empty text="This week does not have a matchup."/>}</Panel>
+        <Panel title={`Full ${maxWeek}-Week Schedule`} sub="Tap any week to open that matchup" icon={<Clock3 className="h-5 w-5 text-[#D4AF37]"/>}><div className="divide-y divide-white/5">{mySchedule.map(({game,opponent:scheduledOpponent,result}) => { const won=result&&result.winnerId===me?.id; const tied=Boolean(result?.isTie); return <button key={game.id} onClick={()=>setWeek(game.week)} className={`flex min-h-12 w-full items-center justify-between gap-3 px-1 text-left ${week===game.week?'text-[#D4AF37]':'text-white'}`}><span className="w-14 text-[9px] font-black uppercase">Week {game.week}</span><span className="min-w-0 flex-1 truncate text-xs font-black">vs {displayManagerName(scheduledOpponent)}</span><span className={`shrink-0 text-[9px] font-black uppercase ${!result?'text-zinc-600':tied?'text-zinc-300':won?'text-emerald-400':'text-red-400'}`}>{result ? tied ? 'Tie' : won ? 'Win' : 'Loss' : 'Scheduled'}</span></button>})}</div></Panel>
       </div>}
 
       {tab === 'players' && <div className="space-y-3">
@@ -530,7 +540,7 @@ const Panel = ({title,sub,icon,children}:{title:string;sub:string;icon:React.Rea
 const Empty = ({text}:{text:string}) => <div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-xs font-semibold leading-5 text-zinc-600">{text}</div>;
 const Action = ({text,label,onClick}:{text:string;label:string;onClick?:()=>void}) => <button disabled={!onClick} onClick={onClick} className="flex min-h-12 w-full items-center justify-between gap-3 border-b border-white/5 text-left text-xs disabled:cursor-default"><span>{text}</span><span className="shrink-0 text-[9px] font-black uppercase text-[#D4AF37]">{label}</span></button>;
 const Record = ({label,value}:{label:string;value:string}) => <div className="rounded-xl border border-white/10 bg-[#101318] p-3"><div className="text-[8px] font-black uppercase tracking-wider text-zinc-600">{label}</div><div className="mt-1 truncate text-xs font-black">{value}</div></div>;
-const Score = ({name,points,projection}:{name:string;points:number;projection?:number}) => <div className="min-w-0 text-center"><div className="truncate text-[10px] font-black uppercase text-zinc-400">{name}</div><div className="mt-1 text-3xl font-black">{Number(points || 0).toFixed(1)}</div>{projection !== undefined && projection > 0 && <div className="text-[9px] text-zinc-600">{Number(projection).toFixed(1)} proj</div>}</div>;
+const Score = ({name,points,projection,scheduled=false}:{name:string;points:number;projection?:number;scheduled?:boolean}) => <div className="min-w-0 text-center"><div className="truncate text-[10px] font-black uppercase text-zinc-400">{name}</div><div className="mt-1 text-3xl font-black">{scheduled ? '—' : Number(points || 0).toFixed(1)}</div>{scheduled ? <div className="text-[9px] font-black uppercase text-zinc-600">Scheduled</div> : projection !== undefined && projection > 0 && <div className="text-[9px] text-zinc-600">{Number(projection).toFixed(1)} proj</div>}</div>;
 
 const Rule = ({label,value,disabled,options,onChange}:{label:string;value:string;disabled:boolean;options:string[][];onChange:(value:string)=>void}) => <label className="rounded-xl bg-black/25 p-3"><span className="mb-1 block text-[8px] font-black uppercase text-zinc-600">{label}</span><select disabled={disabled} value={value} onChange={event => onChange(event.target.value)} className="min-h-10 w-full bg-transparent text-xs font-bold disabled:text-zinc-500">{options.map(option => <option key={option[0]} value={option[0]}>{option[1]}</option>)}</select></label>;
 
