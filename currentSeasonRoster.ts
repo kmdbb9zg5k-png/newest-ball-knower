@@ -163,6 +163,17 @@ const MISSING_2026_PLAYERS: Player[] = [
   },
 ];
 
+export function estimatePlayerSalary(position: string, overallRating: number) {
+  const ratingPremium = Math.max(0, overallRating - 60);
+  const normalizedPosition = position.toUpperCase();
+  if (normalizedPosition === 'QB') return Math.min(60, Math.max(0.75, ratingPremium * 1.35));
+  if (['WR', 'EDGE', 'CB', 'LT', 'RT'].includes(normalizedPosition)) return Math.min(35, Math.max(0.75, ratingPremium * 1.05));
+  if (['LG', 'RG', 'C', 'DT'].includes(normalizedPosition)) return Math.min(28, Math.max(0.75, ratingPremium * 0.8));
+  if (['RB', 'FB', 'TE', 'LB', 'FS', 'SS'].includes(normalizedPosition)) return Math.min(18, Math.max(0.75, ratingPremium * 0.45));
+  if (['K', 'P'].includes(normalizedPosition)) return Math.min(6, Math.max(0.75, ratingPremium * 0.12));
+  return Math.min(20, Math.max(0.75, ratingPremium * 0.55));
+}
+
 export function applyCurrent2026Roster(rawPlayers: Player[]): Player[] {
   const expectedStarterByName = new Map(
     Object.entries(CURRENT_2026_QB_STARTERS).map(([team, name]) => [normalizeMaddenRosterName(name), team])
@@ -181,7 +192,7 @@ export function applyCurrent2026Roster(rawPlayers: Player[]): Player[] {
       ? expectedStarterByName.get(normalizeMaddenRosterName(official.name))
       : undefined;
     const baseline = official.overallRating;
-    const estimatedSalary = Math.min(60, Math.max(0.75, (baseline - 60) * (official.position === 'QB' ? 1.35 : ['WR','EDGE','CB','LT','RT'].includes(official.position) ? 1.05 : 0.8)));
+    const estimatedSalary = estimatePlayerSalary(official.position, baseline);
 
     return {
       ...(legacy || {}),

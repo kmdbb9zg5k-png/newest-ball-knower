@@ -72,6 +72,14 @@ export const FranchiseSeason: React.FC<Props> = ({
   const ratings = useMemo(() => calculateTeamRatings(roster), [roster]);
   const wins = weeks.filter(week => week.won).length;
   const losses = weeks.length - wins;
+  const finalPointDifferential = weeks.reduce((total, week) => total + (
+    week.game.homeMemberId === 'franchise-user'
+      ? week.game.homeScore - week.game.awayScore
+      : week.game.awayScore - week.game.homeScore
+  ), 0);
+  const finalPlayoffOdds = weeks.length === 17
+    ? (wins > 9 || (wins === 9 && finalPointDifferential >= 0) ? 100 : 0)
+    : weeks.at(-1)?.playoffOdds ?? 50;
   const activeInjuries = injuries.filter(injury => injury.weeks > 0);
   const currentOpponent = schedule[Math.min(weeks.length, schedule.length - 1)];
   const allLines = weeks.flatMap(week => week.playerLines ?? []);
@@ -263,8 +271,8 @@ export const FranchiseSeason: React.FC<Props> = ({
               <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
                 <SeasonStat label="WEEK" value={`${Math.min(weeks.length + 1, 17)}/17`} />
                 <SeasonStat label="RECORD" value={`${wins}-${losses}`} />
-                <SeasonStat label="SEED" value={`#${weeks.at(-1)?.playoffSeed ?? '—'}`} />
-                <SeasonStat label="PLAYOFF ODDS" value={`${weeks.at(-1)?.playoffOdds ?? 50}%`} />
+                <SeasonStat label={weeks.length === 17 ? 'PLAYOFF STATUS' : 'SEED'} value={weeks.length === 17 ? (finalPlayoffOdds === 100 ? 'CLINCHED' : 'OUT') : `#${weeks.at(-1)?.playoffSeed ?? '—'}`} />
+                <SeasonStat label="PLAYOFF ODDS" value={`${finalPlayoffOdds}%`} />
                 <SeasonStat label="TEAM OVR" value={`${ratings.overall}`} />
               </div>
 
