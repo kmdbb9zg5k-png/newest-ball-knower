@@ -424,7 +424,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
               <div className="text-[10px] font-black tracking-[.25em] text-[var(--bk-team-accent)]">WITH THE #{profile.draftPick} PICK IN ROUND {profile.draftRound}</div>
               <img src={teamLogoUrl(draftedTeam.abbr)} alt="" aria-hidden="true" className="mx-auto mt-5 h-28 w-28 object-contain" />
               <h2 className="mt-4 text-4xl font-black">{draftedTeam.name}</h2>
-              <p className="mt-2 text-zinc-400">select {profile.name}, {profile.position}, {feetAndInches(profile.heightInches)}, {profile.weightLbs} lbs. Your NFL story starts now.</p>
+              <p className="mt-2 text-zinc-400">The selection is {profile.name}, {profile.position}, {feetAndInches(profile.heightInches)}, {profile.weightLbs} lbs. Your NFL story starts now.</p>
               <button type="button" onClick={beginSeason} className="mt-6 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)]"><Play className="mr-2 inline" /> BEGIN ROOKIE SEASON</button>
             </div>
           </div>

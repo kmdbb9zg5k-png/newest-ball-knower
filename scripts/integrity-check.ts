@@ -9,6 +9,7 @@ import {
 } from '../soloFranchiseEngine';
 import { TEAM_THEMES } from '../teamTheme';
 import { LeagueMember, TOTAL_ROSTER_SIZE } from '../types';
+import { estimatePlayerSalary } from '../currentSeasonRoster';
 
 const failures: string[] = [];
 const check = (condition: unknown, message: string) => {
@@ -79,6 +80,9 @@ const fantasyPlayoffs=simulateFantasyPlayoffs(testMembers,fantasyStandings,6,18)
 check(fantasyPlayoffs.games.length===5,'A six-team fantasy playoff must produce five games.');
 check(Boolean(fantasyPlayoffs.championMemberId),'Fantasy playoffs did not crown a champion.');
 check(validateLiveFantasyRoster([]).length===6,'An empty live-fantasy roster must report all six missing position groups.');
+check(estimatePlayerSalary('P', 79) <= 6, 'Estimated punter salary exceeds the position cap.');
+check(estimatePlayerSalary('LB', 79) < estimatePlayerSalary('QB', 79), 'Position-aware salary estimates are not differentiated.');
+check(PLAYERS_DATABASE.every(player => !(['K', 'P'].includes(player.position) && player.salaryType === 'estimated' && player.salary > 6)), 'An estimated kicker or punter salary exceeds $6M.');
 
 console.log(`Ball Knower integrity check: ${PLAYERS_DATABASE.length} players, ${TEAM_THEMES.length} teams, ${FANTASY_DRAFT_ROUNDS}-round fantasy franchise.`);
 
