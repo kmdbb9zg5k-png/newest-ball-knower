@@ -56,6 +56,28 @@ const localTriviaQuestion=(tier:string):TriviaQuestion=>{
   return {attemptId,questionId:Math.abs(attemptId),tier:question.tier,question:question.question,answers:question.answers,practiceOnly:true};
 };
 
+const makeTriviaSessionToken=()=>{
+  try{return crypto.randomUUID();}catch{return `bk-trivia-${Date.now()}-${Math.random().toString(36).slice(2)}`;}
+};
+
+/**
+ * Starts an explicit trivia session before any question fetch. The server records the
+ * newest token under a per-user lock, so a delayed request from an exited/older session
+ * can be rejected without touching the currently displayed attempt.
+ */
+export async function beginTriviaSession():Promise<string>{
+  const token=makeTriviaSessionToken();
+  if(!supabase)return token;
+  try{
+    await ensureOnlineSession();
+    const response=await supabase.rpc('begin_ball_knower_trivia_session',{p_session_token:token});
+    if(response.error)throw response.error;
+  }catch(error){
+    console.warn('Verified trivia session could not start; offline practice may be used.',error);
+  }
+  return token;
+}
+
 const mapProfile=(x:any):ProgressProfile=>({
   userId:x.user_id,displayName:x.display_name,bkRating:Number(x.bk_rating)||50,xp:Number(x.xp)||0,level:Number(x.level)||1,
   footballIq:Number(x.football_iq)||50,gmRating:Number(x.gm_rating)||50,predictionRating:Number(x.prediction_rating)||50,triviaRating:Number(x.trivia_rating)||50,agentRating:Number(x.agent_rating)||50,ownerRating:Number(x.owner_rating)||50,
@@ -95,11 +117,13 @@ export async function claimLeagueChampionshipProgress(leagueId:string):Promise<C
   return {applied:Boolean(row.applied),eventKey:String(row.event_key||'')};
 }
 
-export async function fetchTriviaQuestion(tier:string):Promise<TriviaQuestion>{
+export async function fetchTriviaQuestion(tier:string,sessionToken?:string):Promise<TriviaQuestion>{
   if(!supabase)return localTriviaQuestion(tier);
   try{
     await ensureOnlineSession();
-    const response=await supabase.rpc('get_ball_knower_trivia_question',{p_tier:tier});
+    const response=sessionToken
+      ?await supabase.rpc('get_ball_knower_trivia_question',{p_tier:tier,p_session_token:sessionToken})
+      :await supabase.rpc('get_ball_knower_trivia_question',{p_tier:tier});
     if(response.error)throw response.error;
     const row=Array.isArray(response.data)?response.data[0]:response.data;
     if(!row)throw new Error('No trivia question is available right now.');
