@@ -47,6 +47,9 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const tracksRef = useRef<MediaTrack[]>([]);
   const shouldPlayRef = useRef(false);
   const introActiveRef = useRef(true);
+  const currentTrackIndexRef = useRef(0);
+  const recoveredTrackUrlsRef = useRef<Map<string,string>>(new Map());
+  const recoveryInFlightRef = useRef(false);
   const [tracks, setTracks] = useState<MediaTrack[]>([]);
   const [isMuted, setIsMuted] = useState<boolean>(() => { try { const v=localStorage.getItem(STORAGE_KEY_MUTED); return v!==null ? JSON.parse(v) : false; } catch { return false; } });
   const [volume, setVolumeState] = useState<number>(() => { try { const v=localStorage.getItem(STORAGE_KEY_VOLUME); return v!==null ? parseFloat(v) : .22; } catch { return .22; } });
@@ -90,6 +93,34 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const handlePause = () => setIsPlaying(false);
       const handleEnded = () => {
         const loaded = tracksRef.current;
+        const track = loaded[currentTrackIndexRef.current % Math.max(1, loaded.length)];
+        if (track?.url && audio.currentTime < 30 && !recoveryInFlightRef.current) {
+          recoveryInFlightRef.current = true;
+          const resumeAt = audio.currentTime;
+          void (async () => {
+            try {
+              let playableUrl = recoveredTrackUrlsRef.current.get(track.url);
+              if (!playableUrl) {
+                const response = await fetch(track.url, { cache: 'reload' });
+                if (!response.ok) throw new Error(`Soundtrack recovery failed (${response.status})`);
+                playableUrl = URL.createObjectURL(await response.blob());
+                recoveredTrackUrlsRef.current.set(track.url, playableUrl);
+              }
+              audio.src = playableUrl;
+              audio.addEventListener('loadedmetadata', () => {
+                audio.currentTime = Math.min(resumeAt, Math.max(0, audio.duration - .25));
+                if (shouldPlayRef.current && !introActiveRef.current) audio.play().catch(()=>setIsPlaying(false));
+              }, { once: true });
+              audio.load();
+            } catch (error) {
+              console.warn('Soundtrack premature-end recovery failed', error);
+              setCurrentTrackIndex(i => randomTrackIndex(loaded, i));
+            } finally {
+              recoveryInFlightRef.current = false;
+            }
+          })();
+          return;
+        }
         setCurrentTrackIndex(i => randomTrackIndex(loaded, i));
       };
       audio.addEventListener('play', handlePlay);
@@ -101,6 +132,8 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         audio.removeEventListener('pause', handlePause);
         audio.removeEventListener('ended', handleEnded);
         audio.pause();
+        recoveredTrackUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+        recoveredTrackUrlsRef.current.clear();
       };
     }
   }, []);
@@ -132,6 +165,7 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const a = audioRef.current;
     if (!a || !track?.url) return;
     shouldPlayRef.current = true;
+    currentTrackIndexRef.current = normalized;
     setCurrentTrackIndex(normalized);
     const nextUrl = absoluteTrackUrl(track.url);
     if (a.src !== nextUrl) a.src = nextUrl;
@@ -148,6 +182,8 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       if (a.src !== nextUrl) { a.src = nextUrl; a.play().catch(()=>{}); }
     }
   }, [currentTrackIndex, tracks, isIntroActive, isPlaying]);
+
+  useEffect(() => { currentTrackIndexRef.current = currentTrackIndex; }, [currentTrackIndex]);
 
   const play = useCallback(() => startIndex(currentTrackIndex), [startIndex,currentTrackIndex]);
   const pause = useCallback(() => { shouldPlayRef.current = false; audioRef.current?.pause(); setIsPlaying(false); }, []);
