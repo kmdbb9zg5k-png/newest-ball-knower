@@ -1,6 +1,7 @@
--- Fantasy leagues now use a normal snake draft rather than the legacy salary-cap roster builder.
--- This migration records the already-applied production RPC definition so repository migrations
--- remain reproducible and do not reintroduce salary enforcement on roster submission.
+-- Normal league snake drafts finalize through the dedicated live-draft roster RPC and do not use
+-- salary-cap roster submission. The legacy submit_ball_knower_roster RPC remains reachable only
+-- from the explicit competitive Draft Order Game, where the salary cap is part of the rules.
+-- Keep that cap enforced server-side so a stale or modified client cannot lock an over-cap roster.
 create or replace function public.submit_ball_knower_roster(
   p_league_id text,
   p_roster jsonb,
@@ -15,6 +16,7 @@ declare
   v_user uuid := auth.uid();
   v_league public.ball_knower_leagues%rowtype;
   v_member public.ball_knower_league_members%rowtype;
+  v_spent numeric := 0;
   v_revision integer;
   v_submitted_at timestamptz := now();
 begin
@@ -39,6 +41,20 @@ begin
     and coalesce(is_ai,false) = false
   for update;
   if not found then raise exception 'Your league membership is no longer active.'; end if;
+
+  select coalesce(sum(
+    case
+      when coalesce(item->>'salary','') ~ '^[0-9]+([.][0-9]+)?$'
+        then (item->>'salary')::numeric
+      else 0
+    end
+  ),0)
+  into v_spent
+  from jsonb_array_elements(p_roster) item;
+
+  if v_spent > v_league.salary_cap then
+    raise exception 'Roster salary %M exceeds the %M salary cap', v_spent, v_league.salary_cap;
+  end if;
 
   select coalesce(max(revision.revision_number),0)+1 into v_revision
   from public.ball_knower_roster_revisions revision
