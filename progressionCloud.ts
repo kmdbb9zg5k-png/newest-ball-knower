@@ -7,7 +7,7 @@ export type ProgressProfile={
 };
 export type ProgressEvent={id:number;eventType:string;category:string;xpAwarded:number;ratingDelta:number;occurredAt:string;metadata:Record<string,unknown>};
 export type Achievement={key:string;title:string;description:string;category:string;tier:'bronze'|'silver'|'gold'|'diamond';xpReward:number;unlockedAt?:string};
-export type TriviaQuestion={attemptId:number;questionId:number;tier:string;question:string;answers:string[]};
+export type TriviaQuestion={attemptId:number;questionId:number;tier:string;question:string;answers:string[];practiceOnly?:boolean};
 export type TriviaAnswerResult={isCorrect:boolean;correctIndex:number;explanation:string;xpAwarded:number;progressionRecorded:boolean};
 export type ChampionshipClaimResult={applied:boolean;eventKey:string};
 
@@ -18,24 +18,42 @@ const LOCAL_TRIVIA:LocalTrivia[]=[
   {tier:'ROOKIE',question:'How many yards does an offense normally need for a first down?',answers:['5','8','10','15'],correctIndex:2,explanation:'An offense normally receives a new set of downs after gaining ten yards.'},
   {tier:'PRO',question:'Which defensive package uses six defensive backs?',answers:['Nickel','Dime','Goal line','46'],correctIndex:1,explanation:'A dime package puts six defensive backs on the field.'},
   {tier:'PRO',question:'What is the maximum number of players one team may have on the field during a play?',answers:['10','11','12','13'],correctIndex:1,explanation:'Each team may use eleven players during a play.'},
-  {tier:'PRO',question:'A quarterback kneel normally counts as what type of play in NFL statistics?',answers:['Incomplete pass','Sack','Team rush','Penalty'],correctIndex:2,explanation:'Quarterback kneels are recorded as rushing attempts and negative team rushing yards.'},
+  {tier:'PRO',question:'A quarterback kneel normally counts as what type of play in NFL statistics?',answers:['Incomplete pass','Sack','Rushing attempt','Penalty'],correctIndex:2,explanation:'Quarterback kneels are recorded as rushing attempts.'},
   {tier:'ALL-PRO',question:'What coverage family has each defender responsible for a specific receiver rather than an area?',answers:['Zone','Man','Prevent','Match quarters only'],correctIndex:1,explanation:'In man coverage, eligible receivers are assigned to individual defenders.'},
-  {tier:'ALL-PRO',question:'On a standard zone-read, which defender is commonly left unblocked for the quarterback to read?',answers:['Play-side edge defender','Free safety','Nose tackle','Boundary corner'],correctIndex:0,explanation:'The quarterback commonly reads the play-side edge defender to decide whether to give or keep.'},
+  {tier:'ALL-PRO',question:'On a basic inside-zone read, which defender is commonly left unblocked for the quarterback to read?',answers:['Backside/read-side edge defender','Free safety','Nose tackle','Boundary corner'],correctIndex:0,explanation:'On a basic inside-zone read, the quarterback commonly reads the backside/read-side edge defender while the line blocks zone away from him.'},
   {tier:'ALL-PRO',question:'Which route concept places receivers at different depths on the same side to stretch zone coverage vertically?',answers:['Smash','Levels','Four verticals','Mesh'],correctIndex:1,explanation:'Levels uses in-breaking routes at different depths to stress underneath zone defenders.'},
   {tier:'HALL OF FAME',question:'Who is the only player to win Super Bowl MVP three consecutive times?',answers:['Joe Montana','Tom Brady','Terry Bradshaw','No player has'],correctIndex:3,explanation:'No player has won Super Bowl MVP in three consecutive Super Bowls.'},
   {tier:'HALL OF FAME',question:'Which formation name traditionally describes a backfield with three running backs aligned behind the quarterback?',answers:['I formation','Wishbone','Pistol','Empty'],correctIndex:1,explanation:'The wishbone traditionally uses a fullback and two halfbacks behind the quarterback.'},
   {tier:'HALL OF FAME',question:'In pass protection, what does a half-slide commonly combine?',answers:['Man protection and zone slide','Two separate screen passes','Only double teams','A seven-man blitz'],correctIndex:0,explanation:'Half-slide protection combines man assignments on one side with a zone-style slide on the other.'},
 ];
 const localAttempts=new Map<number,LocalTrivia>();
+const localSeenByTier=new Map<string,Set<string>>();
+const localLastByTier=new Map<string,string>();
 let nextLocalAttempt=-1;
 
+/** Chooses an offline practice question without repeating within a tier until its tiny fallback pool is exhausted. */
 const localTriviaQuestion=(tier:string):TriviaQuestion=>{
   const normalized=tier.toUpperCase();
   const pool=LOCAL_TRIVIA.filter(item=>item.tier===normalized);
-  const question=pool[Math.floor(Math.random()*pool.length)]??LOCAL_TRIVIA[0];
+  const usablePool=pool.length?pool:[LOCAL_TRIVIA[0]];
+  let seen=localSeenByTier.get(normalized)??new Set<string>();
+  let candidates=usablePool.filter(item=>!seen.has(item.question));
+
+  if(!candidates.length){
+    const previous=localLastByTier.get(normalized);
+    seen=new Set<string>();
+    localSeenByTier.set(normalized,seen);
+    candidates=usablePool.filter(item=>usablePool.length===1||item.question!==previous);
+    if(!candidates.length)candidates=usablePool;
+  }
+
+  const question=candidates[Math.floor(Math.random()*candidates.length)]??usablePool[0];
+  seen.add(question.question);
+  localSeenByTier.set(normalized,seen);
+  localLastByTier.set(normalized,question.question);
   const attemptId=nextLocalAttempt--;
   localAttempts.set(attemptId,question);
-  return {attemptId,questionId:Math.abs(attemptId),tier:question.tier,question:question.question,answers:question.answers};
+  return {attemptId,questionId:Math.abs(attemptId),tier:question.tier,question:question.question,answers:question.answers,practiceOnly:true};
 };
 
 const mapProfile=(x:any):ProgressProfile=>({
@@ -78,18 +96,18 @@ export async function claimLeagueChampionshipProgress(leagueId:string):Promise<C
 }
 
 export async function fetchTriviaQuestion(tier:string):Promise<TriviaQuestion>{
-  if(!supabase) return localTriviaQuestion(tier);
+  if(!supabase)return localTriviaQuestion(tier);
   try{
     await ensureOnlineSession();
     const response=await supabase.rpc('get_ball_knower_trivia_question',{p_tier:tier});
-    if(response.error) throw response.error;
+    if(response.error)throw response.error;
     const row=Array.isArray(response.data)?response.data[0]:response.data;
-    if(!row) throw new Error('No trivia question is available right now.');
+    if(!row)throw new Error('No trivia question is available right now.');
     const answers=Array.isArray(row.answers)?row.answers.map((answer:unknown)=>String(answer)):[];
-    if(answers.length!==4) throw new Error('Trivia question data is incomplete.');
-    return {attemptId:Number(row.attempt_id),questionId:Number(row.question_id),tier:String(row.tier),question:String(row.question),answers};
+    if(answers.length!==4)throw new Error('Trivia question data is incomplete.');
+    return {attemptId:Number(row.attempt_id),questionId:Number(row.question_id),tier:String(row.tier),question:String(row.question),answers,practiceOnly:false};
   }catch(error){
-    console.warn('Cloud trivia unavailable; using built-in question bank.',error);
+    console.warn('Cloud trivia unavailable; using offline practice bank.',error);
     return localTriviaQuestion(tier);
   }
 }
@@ -100,12 +118,12 @@ export async function submitTriviaAnswer(attemptId:number,selectedIndex:number):
     localAttempts.delete(attemptId);
     return {isCorrect:selectedIndex===local.correctIndex,correctIndex:local.correctIndex,explanation:local.explanation,xpAwarded:0,progressionRecorded:false};
   }
-  if(!supabase) throw new Error('That trivia question expired. Load a new one.');
+  if(!supabase)throw new Error('That trivia question expired. Load a new one.');
   await ensureOnlineSession();
   const response=await supabase.rpc('submit_ball_knower_trivia_answer',{p_attempt_id:attemptId,p_selected_index:selectedIndex});
-  if(response.error) throw response.error;
+  if(response.error)throw response.error;
   const row=Array.isArray(response.data)?response.data[0]:response.data;
-  if(!row) throw new Error('Could not score this trivia answer.');
+  if(!row)throw new Error('Could not score this trivia answer.');
   return {
     isCorrect:Boolean(row.is_correct),
     correctIndex:Number(row.correct_index),
