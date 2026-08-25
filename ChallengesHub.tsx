@@ -28,6 +28,7 @@ export const ChallengesHub: React.FC = () => {
   const advancingRef = useRef(false);
   const advanceTimerRef = useRef<number | null>(null);
   const questionRequestRef = useRef(0);
+  const triviaSessionRef = useRef(0);
 
   const loadQuestion = useCallback(async (nextTier: TriviaTier) => {
     // A previous RPC can finish after the user exits or switches tiers. Give every
@@ -60,6 +61,7 @@ export const ChallengesHub: React.FC = () => {
   const closeTrivia = useCallback(() => {
     clearAdvanceTimer();
     questionRequestRef.current += 1;
+    triviaSessionRef.current += 1;
     advancingRef.current = false;
     setTriviaOpen(false);
     setLoading(false);
@@ -72,37 +74,46 @@ export const ChallengesHub: React.FC = () => {
 
   const openTrivia = (nextTier: TriviaTier) => {
     clearAdvanceTimer();
+    questionRequestRef.current += 1;
+    triviaSessionRef.current += 1;
     advancingRef.current = false;
     trackBallKnowerEvent('Trivia Started', { tier: nextTier });
     setTier(nextTier);
     setQuestionNumber(1);
     setScore(0);
     setTriviaOpen(true);
+    setSubmitting(false);
     void loadQuestion(nextTier);
   };
 
   const answer = async (index: number) => {
     if (!question || selected !== null || submitting) return;
+    const sessionId = triviaSessionRef.current;
+    const answeredQuestion = question;
+    const answeredTier = tier;
+    const answeredNumber = questionNumber;
     setSelected(index);
     setSubmitting(true);
     setError('');
     try {
-      const receipt = await submitTriviaAnswer(question.attemptId, index);
+      const receipt = await submitTriviaAnswer(answeredQuestion.attemptId, index);
+      if (sessionId !== triviaSessionRef.current) return;
       trackBallKnowerEvent('Trivia Answered', {
-        tier,
+        tier: answeredTier,
         correct: receipt.isCorrect,
-        question_number: questionNumber,
+        question_number: answeredNumber,
         progression_recorded: receipt.progressionRecorded,
-        practice_only: Boolean(question.practiceOnly),
+        practice_only: Boolean(answeredQuestion.practiceOnly),
       });
       advancingRef.current = false;
       setResult(receipt);
       if (receipt.isCorrect) setScore(current => current + 1);
     } catch (err) {
+      if (sessionId !== triviaSessionRef.current) return;
       setSelected(null);
       setError(err instanceof Error ? err.message : 'Could not score that answer.');
     } finally {
-      setSubmitting(false);
+      if (sessionId === triviaSessionRef.current) setSubmitting(false);
     }
   };
 
@@ -130,6 +141,7 @@ export const ChallengesHub: React.FC = () => {
   useEffect(() => () => {
     clearAdvanceTimer();
     questionRequestRef.current += 1;
+    triviaSessionRef.current += 1;
   }, [clearAdvanceTimer]);
 
   return (
