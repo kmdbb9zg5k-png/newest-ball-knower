@@ -45,6 +45,8 @@ const absoluteTrackUrl = (url: string) => new URL(url, window.location.href).hre
 export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const tracksRef = useRef<MediaTrack[]>([]);
+  const shouldPlayRef = useRef(false);
+  const introActiveRef = useRef(true);
   const [tracks, setTracks] = useState<MediaTrack[]>([]);
   const [isMuted, setIsMuted] = useState<boolean>(() => { try { const v=localStorage.getItem(STORAGE_KEY_MUTED); return v!==null ? JSON.parse(v) : false; } catch { return false; } });
   const [volume, setVolumeState] = useState<number>(() => { try { const v=localStorage.getItem(STORAGE_KEY_VOLUME); return v!==null ? parseFloat(v) : .22; } catch { return .22; } });
@@ -84,13 +86,23 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!audioRef.current) {
       const audio = new Audio();
       audio.preload = 'auto';
-      audio.addEventListener('ended', () => {
+      const handlePlay = () => setIsPlaying(true);
+      const handlePause = () => setIsPlaying(false);
+      const handleEnded = () => {
         const loaded = tracksRef.current;
         setCurrentTrackIndex(i => randomTrackIndex(loaded, i));
-      });
+      };
+      audio.addEventListener('play', handlePlay);
+      audio.addEventListener('pause', handlePause);
+      audio.addEventListener('ended', handleEnded);
       audioRef.current = audio;
+      return () => {
+        audio.removeEventListener('play', handlePlay);
+        audio.removeEventListener('pause', handlePause);
+        audio.removeEventListener('ended', handleEnded);
+        audio.pause();
+      };
     }
-    return () => { audioRef.current?.pause(); };
   }, []);
 
   useEffect(() => {
@@ -119,6 +131,7 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const track = tracks[normalized];
     const a = audioRef.current;
     if (!a || !track?.url) return;
+    shouldPlayRef.current = true;
     setCurrentTrackIndex(normalized);
     const nextUrl = absoluteTrackUrl(track.url);
     if (a.src !== nextUrl) a.src = nextUrl;
@@ -137,7 +150,7 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [currentTrackIndex, tracks, isIntroActive, isPlaying]);
 
   const play = useCallback(() => startIndex(currentTrackIndex), [startIndex,currentTrackIndex]);
-  const pause = useCallback(() => { audioRef.current?.pause(); setIsPlaying(false); }, []);
+  const pause = useCallback(() => { shouldPlayRef.current = false; audioRef.current?.pause(); setIsPlaying(false); }, []);
   const toggleMute = useCallback(() => setIsMuted(v=>!v), []);
   const setVolume = useCallback((v:number) => setVolumeState(Math.max(0,Math.min(1,v))), []);
   const selectTrack = useCallback((i:number) => startIndex(i), [startIndex]);
@@ -145,19 +158,33 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const prevTrack = useCallback(() => startIndex(currentTrackIndex-1), [startIndex,currentTrackIndex]);
 
   const setIntroActive = useCallback((active:boolean) => {
+    introActiveRef.current = active;
     setIsIntroActiveState(active);
-    if (active) { audioRef.current?.pause(); setIsPlaying(false); }
+    if (active) { shouldPlayRef.current = false; audioRef.current?.pause(); setIsPlaying(false); }
     else {
       window.setTimeout(() => startIndex(currentTrackIndex), 0);
     }
   }, [startIndex,currentTrackIndex]);
 
   useEffect(() => {
-    const resume = () => { if (!isIntroActive && !isPlaying && tracks.length) startIndex(currentTrackIndex); };
+    const resume = () => {
+      const audio = audioRef.current;
+      if (!introActiveRef.current && shouldPlayRef.current && audio?.paused && tracksRef.current.length) {
+        audio.play().catch(()=>setIsPlaying(false));
+      }
+    };
+    const resumeWhenVisible = () => { if (document.visibilityState === 'visible') resume(); };
     window.addEventListener('pointerdown', resume);
     window.addEventListener('keydown', resume);
-    return () => { window.removeEventListener('pointerdown', resume); window.removeEventListener('keydown', resume); };
-  }, [isIntroActive,isPlaying,tracks.length,startIndex,currentTrackIndex]);
+    window.addEventListener('pageshow', resume);
+    document.addEventListener('visibilitychange', resumeWhenVisible);
+    return () => {
+      window.removeEventListener('pointerdown', resume);
+      window.removeEventListener('keydown', resume);
+      window.removeEventListener('pageshow', resume);
+      document.removeEventListener('visibilitychange', resumeWhenVisible);
+    };
+  }, []);
 
   const playDraftPickSfx = useCallback(()=>globalSoundtrackEngine.playDraftPickSound(),[]);
   const playRemoveSfx = useCallback(()=>globalSoundtrackEngine.playRemovePlayerSound(),[]);
