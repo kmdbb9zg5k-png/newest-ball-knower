@@ -121,11 +121,12 @@ export const ChallengesHub: React.FC = () => {
     // The timeout and the manual button can fire in the same event window on mobile.
     // Claim this transition synchronously so one result creates exactly one next attempt.
     if (advancingRef.current) return;
+    const sessionId = triviaSessionRef.current;
     advancingRef.current = true;
     clearAdvanceTimer();
     setQuestionNumber(current => current + 1);
     void loadQuestion(tier).finally(() => {
-      advancingRef.current = false;
+      if (sessionId === triviaSessionRef.current) advancingRef.current = false;
     });
   }, [clearAdvanceTimer, loadQuestion, tier]);
 
