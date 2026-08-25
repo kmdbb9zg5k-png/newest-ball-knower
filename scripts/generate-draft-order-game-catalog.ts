@@ -17,14 +17,17 @@ for (const { player } of rows) {
 if (rows.length < 1500) throw new Error(`Canonical Draft Order Game pool unexpectedly small: ${rows.length}`);
 
 const values = rows.map(({ player, group }) => {
+  // Keep the complete normalized Player payload so downstream simulation can recompute
+  // ratings from trusted roster data instead of accepting client-supplied team ratings.
   const canonical = {
+    ...player,
     id: player.id,
-    name: player.name,
+    playerId: player.playerId || player.id,
     team: player.team,
     teamCity: player.teamCity || 'NFL',
     position: player.position,
-    ovr: player.ovr,
-    overallRating: player.overallRating ?? player.ovr,
+    ovr: Number(player.ovr),
+    overallRating: Number(player.overallRating ?? player.ovr),
     salary: Number(player.salary.toFixed(2)),
   };
   return `(${sql(player.id)},${sql(group)},${Number(player.salary.toFixed(2))},${Number(player.ovr)},${sql(JSON.stringify(canonical))}::jsonb,true)`;
