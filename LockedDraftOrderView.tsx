@@ -28,6 +28,8 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
   const [countdownStartedAt, setCountdownStartedAt] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const autoStartAttempted = useRef(false);
+  const startRequested = useRef(false);
+  const startWatchdog = useRef<number | null>(null);
   const picks = result.draftOrder || [];
   const humanCount = picks.filter(pick => !pick.isAi).length;
   const cpuCount = picks.length - humanCount;
@@ -77,27 +79,71 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
     return () => window.clearInterval(timer);
   }, [countdownStartedAt, league.liveDraft]);
 
+  useEffect(() => () => {
+    if (startWatchdog.current !== null) window.clearTimeout(startWatchdog.current);
+  }, []);
+
+  useEffect(() => {
+    if (!startRequested.current || !league.liveDraft) return;
+    startRequested.current = false;
+    if (startWatchdog.current !== null) {
+      window.clearTimeout(startWatchdog.current);
+      startWatchdog.current = null;
+    }
+    setStarting(false);
+    onGoToDraft();
+  }, [league.liveDraft, onGoToDraft]);
+
   const countdownRemaining = countdownStartedAt
     ? Math.max(0, Math.ceil((new Date(countdownStartedAt).getTime() + COUNTDOWN_SECONDS * 1000 - now) / 1000))
     : null;
+
+  const requestDraftStart = async () => {
+    if (league.liveDraft) {
+      onGoToDraft();
+      return true;
+    }
+
+    if (!supabase) {
+      const started = await startLiveFantasyDraft(league.id);
+      if (started) onGoToDraft();
+      return started;
+    }
+
+    await ensureOnlineSession();
+    const { error } = await supabase.rpc('start_ball_knower_live_draft', { p_league_id: league.id });
+    if (error) throw error;
+    startRequested.current = true;
+    if (startWatchdog.current !== null) window.clearTimeout(startWatchdog.current);
+    startWatchdog.current = window.setTimeout(() => {
+      if (!startRequested.current) return;
+      startRequested.current = false;
+      startWatchdog.current = null;
+      setStarting(false);
+      autoStartAttempted.current = false;
+      showToast('The draft is saved. If it does not open automatically, tap Open Draft.');
+    }, 3500);
+    return true;
+  };
 
   useEffect(() => {
     if (league.liveDraft || countdownRemaining !== 0 || autoStartAttempted.current) return;
     autoStartAttempted.current = true;
     setStarting(true);
-    void startLiveFantasyDraft(league.id)
+    void requestDraftStart()
       .then(started => {
-        if (started) onGoToDraft();
-        else {
+        if (!started) {
           autoStartAttempted.current = false;
+          setStarting(false);
           showToast('Draft start is syncing. Try again in a moment.');
         }
       })
       .catch((error: any) => {
         autoStartAttempted.current = false;
+        startRequested.current = false;
+        setStarting(false);
         showToast(error?.message || 'The fantasy draft could not start.');
-      })
-      .finally(() => setStarting(false));
+      });
   }, [countdownRemaining, league.id, league.liveDraft]);
 
   const copyCode = async () => {
@@ -155,13 +201,14 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
     if (!countdownStartedAt || countdownRemaining !== 0) return;
     setStarting(true);
     try {
-      const started = await startLiveFantasyDraft(league.id);
-      if (started) onGoToDraft();
-      else showToast('The fantasy draft could not start. Try again.');
+      const started = await requestDraftStart();
+      if (!started) {
+        setStarting(false);
+        showToast('The fantasy draft could not start. Try again.');
+      }
     } catch (error: any) {
-      showToast(error?.message || 'The fantasy draft could not start.');
-    } finally {
       setStarting(false);
+      showToast(error?.message || 'The fantasy draft could not start.');
     }
   };
 
@@ -216,7 +263,7 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
               <div className="mt-3 rounded-xl border border-[#D4AF37]/35 bg-[#D4AF37]/10 px-4 py-4 text-center">
                 <div className="text-[9px] font-black uppercase tracking-[.2em] text-[#D4AF37]">Everybody Is Ready</div>
                 <div className="mt-1 flex items-center justify-center gap-2 font-display text-4xl font-black text-white"><Timer className="h-6 w-6 text-[#D4AF37]"/>0:{String(countdownRemaining ?? 0).padStart(2, '0')}</div>
-                <div className="mt-1 text-[10px] font-black uppercase text-zinc-400">Draft room opens automatically</div>
+                <div className="mt-1 text-[10px] font-black uppercase text-zinc-400">{starting?'Opening shared draft room…':'Draft room opens automatically'}</div>
               </div>
             ) : (
               <button onClick={() => void toggleReady()} disabled={readying} className={`mt-3 min-h-14 w-full rounded-xl px-4 text-sm font-black uppercase tracking-wider transition active:scale-[.99] disabled:opacity-50 ${myReady ? 'border border-emerald-400/35 bg-emerald-400/10 text-emerald-300' : 'bg-[#D4AF37] text-black'}`}>
