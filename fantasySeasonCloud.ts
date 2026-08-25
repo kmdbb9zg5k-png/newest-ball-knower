@@ -10,6 +10,8 @@ export type LeagueInjury={id:string;leagueId:string;memberId:string;playerId:str
 export type LeagueMessage={id:string;leagueId:string;memberName:string;body:string;kind:'chat'|'announcement'|'receipt'|'reaction';replyTo?:string;createdAt:string};
 export type WeeklyInjuryRollResult={week:number;created:number;reused:boolean};
 
+type TradeAction='accepted'|'rejected'|'cancelled'|'vetoed'|'approved';
+
 const mapTrade=(x:any):TradeOffer=>({id:x.id,leagueId:x.league_id,proposerMemberId:x.proposer_member_id,recipientMemberId:x.recipient_member_id,offeredPlayerIds:x.offered_player_ids||[],requestedPlayerIds:x.requested_player_ids||[],proposerDropPlayerIds:x.proposer_drop_player_ids||[],recipientDropPlayerIds:x.recipient_drop_player_ids||[],status:x.status,note:x.note||undefined,createdAt:x.created_at,resolvedAt:x.resolved_at||undefined});
 const mapClaim=(x:any):WaiverClaim=>({id:x.id,leagueId:x.league_id,memberId:x.member_id,playerId:x.player_id,dropPlayerId:x.drop_player_id||undefined,priority:Number(x.priority)||999,status:x.status,createdAt:x.created_at,processedAt:x.processed_at||undefined});
 const mapTxn=(x:any):LeagueTransaction=>({id:x.id,leagueId:x.league_id,memberId:x.member_id||undefined,transactionType:x.transaction_type,summary:x.summary,metadata:x.metadata||{},createdAt:x.created_at});
@@ -63,22 +65,44 @@ export async function proposeTradeWithResolution(
   return {tradeId,status:'pending',reason:'Offer sent.'};
 }
 
-// Compatibility wrapper for existing league screens. Those callers only need
-// completion/error semantics and historically returned Promise<void>.
+// Existing screens call this with five arguments and expect Promise<void>.
+// The post-draft builder supplies a drop-id array and receives the CPU/human result.
+export function proposeTrade(
+  league:League,
+  proposerMemberId:string,
+  recipientMemberId:string,
+  offeredPlayerIds:string[],
+  requestedPlayerIds:string[],
+  note?:string,
+):Promise<void>;
+export function proposeTrade(
+  league:League,
+  proposerMemberId:string,
+  recipientMemberId:string,
+  offeredPlayerIds:string[],
+  requestedPlayerIds:string[],
+  proposerDropPlayerIds:string[],
+  note?:string,
+):Promise<TradeResolution>;
 export async function proposeTrade(
   league:League,
   proposerMemberId:string,
   recipientMemberId:string,
   offeredPlayerIds:string[],
   requestedPlayerIds:string[],
-  note='',
-):Promise<void>{
-  await proposeTradeWithResolution(league,proposerMemberId,recipientMemberId,offeredPlayerIds,requestedPlayerIds,[],note);
+  sixth:string|string[]=[],
+  seventh='',
+):Promise<void|TradeResolution>{
+  const wantsResult=Array.isArray(sixth);
+  const drops=wantsResult?sixth:[];
+  const note=wantsResult?seventh:sixth;
+  const result=await proposeTradeWithResolution(league,proposerMemberId,recipientMemberId,offeredPlayerIds,requestedPlayerIds,drops,note);
+  if(wantsResult) return result;
 }
 
 export async function resolveTradeWithResult(
   tradeId:string,
-  status:'accepted'|'rejected'|'cancelled'|'vetoed'|'approved',
+  status:TradeAction,
   recipientDropPlayerIds:string[]=[],
 ):Promise<TradeResolution>{
   if(!supabase) return {tradeId,status};
@@ -93,12 +117,15 @@ export async function resolveTradeWithResult(
   return {tradeId,status:result.status||status,reason:result.reason};
 }
 
-// Compatibility wrapper for existing review/season screens.
+export function resolveTrade(tradeId:string,status:TradeAction):Promise<void>;
+export function resolveTrade(tradeId:string,status:TradeAction,recipientDropPlayerIds:string[]):Promise<TradeResolution>;
 export async function resolveTrade(
   tradeId:string,
-  status:'accepted'|'rejected'|'cancelled'|'vetoed'|'approved',
-):Promise<void>{
-  await resolveTradeWithResult(tradeId,status);
+  status:TradeAction,
+  recipientDropPlayerIds?:string[],
+):Promise<void|TradeResolution>{
+  const result=await resolveTradeWithResult(tradeId,status,recipientDropPlayerIds||[]);
+  if(recipientDropPlayerIds!==undefined) return result;
 }
 
 export async function submitWaiverClaim(leagueId:string,memberId:string,playerId:string,dropPlayerId?:string,priority=999){
