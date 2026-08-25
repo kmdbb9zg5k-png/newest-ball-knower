@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRightLeft, Check, ClipboardList, Play, RotateCcw, Users
 import { FranchiseSeason } from './FranchiseSeason';
 import { buildRealTeamRoster, SOLO_FRANCHISE_SAVE_KEYS } from './soloFranchiseEngine';
 import { SoloTeamPicker } from './SoloTeamPicker';
-import { getSavedTeamTheme, TEAM_THEMES, teamLogoUrl } from './teamTheme';
+import { getSavedNflTeamTheme, TEAM_THEMES, teamLogoUrl } from './teamTheme';
 import { PLAYERS_DATABASE } from './players';
 import { Player } from './types';
 import { ModeGuide } from './ModeGuide';
@@ -24,7 +24,7 @@ function restoreTeam() {
 
 export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
   const [teamAbbr, setTeamAbbr] = useState<string | null>(restoreTeam);
-  const [selectedAbbr, setSelectedAbbr] = useState(() => teamAbbr ?? getSavedTeamTheme().abbr);
+  const [selectedAbbr, setSelectedAbbr] = useState(() => teamAbbr ?? getSavedNflTeamTheme().abbr);
   const [message, setMessage] = useState('');
   const [seasonOpen, setSeasonOpen] = useState(false);
   const [commandTab, setCommandTab] = useState<'week' | 'trade' | 'roster'>('week');
@@ -76,7 +76,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
 
   if (teamAbbr) {
     const tradeTargets = PLAYERS_DATABASE
-      .filter(player => player.team !== teamAbbr && !roster.some(item => item.id === player.id))
+      .filter(player => player.team !== team.abbr && !roster.some(item => item.id === player.id))
       .filter(player => !tradeSearch.trim() || `${player.name} ${player.team} ${player.position}`.toLowerCase().includes(tradeSearch.toLowerCase()))
       .sort((a, b) => b.ovr - a.ovr)
       .slice(0, 18);
@@ -86,13 +86,20 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
     const requestedValue = tradeTarget ? tradeValue(tradeTarget) : 0;
     const submitOffer = () => {
       if (!tradeTarget || !outgoingPlayers.length && !outgoingPicks.length) return;
+      if (tradeTarget.team === team.abbr || roster.some(player => player.id === tradeTarget.id)) {
+        setMessage('That player is already on your roster and cannot be acquired in a trade.');
+        setTradeTarget(null);
+        setOutgoingIds([]);
+        setOutgoingPicks([]);
+        return;
+      }
       if (offeredValue < requestedValue * .92) {
         setMessage(`${tradeTarget.team} declined. Your offer is short by ${Math.ceil(requestedValue * .92 - offeredValue)} value points.`);
         return;
       }
       const outgoingNames = outgoingPlayers.map(player => player.name);
       const pickNames = outgoingPicks.map(round => `a ${ordinal(round)}-round pick`);
-      setRosterOverride([...roster.filter(player => !outgoingIds.includes(player.id)), { ...tradeTarget, team: teamAbbr }]);
+      setRosterOverride([...roster.filter(player => !outgoingIds.includes(player.id)), { ...tradeTarget, team: team.abbr }]);
       setMessage(`${tradeTarget.team} accepted ${[...outgoingNames, ...pickNames].join(', ')} for ${tradeTarget.name}.`);
       setTradeTarget(null);
       setOutgoingIds([]);

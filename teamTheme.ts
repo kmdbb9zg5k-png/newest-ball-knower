@@ -69,6 +69,11 @@ export function getSavedTeamTheme(): TeamTheme {
   }
 }
 
+export function getSavedNflTeamTheme(): TeamTheme {
+  const saved = getSavedTeamTheme();
+  return TEAM_THEMES.find(team => team.abbr === saved.abbr) ?? TEAM_THEMES[0];
+}
+
 function hexToRgb(hex: string) {
   const value = hex.replace('#', '');
   const normalized = value.length === 3 ? value.split('').map(char => char + char).join('') : value;

@@ -153,7 +153,8 @@ const marketProjection = (p: Player) => {
   const age = p.age ?? 27;
   const ageFactor = age <= 24 ? 1.14 : age <= 27 ? 1.04 : age <= 30 ? .92 : .72;
   const premium = p.position === 'QB' ? 1.35 : ['WR','EDGE','OT','LT','RT','CB'].includes(p.position) ? 1.12 : 1;
-  return Math.max(1.1, p.salary * 1.08, (p.ovr - 60) * .62 * ageFactor * premium);
+  const specialistFactor = ['K','P'].includes(p.position) ? .38 : 1;
+  return Math.max(1.1, p.salary * 1.08, (p.ovr - 60) * .62 * ageFactor * premium * specialistFactor);
 };
 const salaryRange = (p: Player) => {
   const mid = marketProjection(p);
@@ -349,7 +350,8 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({ onBack }) =>
 
   const askToSign = () => {
     if (!selected || !recruit || recruit.failed || recruit.used.length < 2) return;
-    const won = recruit.interest + (agency.reputation + agency.negotiation + agency.clientCare) / 34 - recruit.rivalPressure / 20 >= signingDifficulty(selected);
+    const firstClientBoost = agency.clients.length === 0 ? 12 : 0;
+    const won = recruit.interest + firstClientBoost + (agency.reputation + agency.negotiation + agency.clientCare) / 34 - recruit.rivalPressure / 20 >= signingDifficulty(selected);
     if (won) {
       const cooldowns = { ...agency.recruitCooldowns }; delete cooldowns[selected.id];
       const next: AgencyState = { ...agency, reputation:clamp(agency.reputation + (selected.ovr <= 75 ? 8 : 5),0,100), negotiation:clamp(agency.negotiation+1,0,100), clients:[...agency.clients,{playerId:selected.id,trust:72,signedAt:new Date().toISOString()}], wins:agency.wins+1, recruitCooldowns:cooldowns, timeline:[`${selected.name} signed with your agency.`,...agency.timeline].slice(0,20) };
