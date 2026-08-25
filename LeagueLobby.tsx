@@ -4,6 +4,7 @@ import { FantasyLeagueCommandCenter } from './FantasyLeagueCommandCenter';
 import { LockedDraftOrderView } from './LockedDraftOrderView';
 import { OwnerCareerSync } from './OwnerCareerSync';
 import { FantasyLeagueEssentials } from './FantasyLeagueEssentials';
+import { FantasyLeaguePostDraft } from './FantasyLeaguePostDraft';
 const loadLeagueIntelligenceHub = () => import('./LeagueIntelligenceHub').then(module => ({ default: module.LeagueIntelligenceHub }));
 const loadIntelligenceExtras = () => import('./IntelligenceExtras').then(module => ({ default: module.IntelligenceExtras }));
 
@@ -63,6 +64,19 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, o
   useEffect(() => {
     if (draftComplete) setMode('season');
   }, [draftComplete]);
+
+  if (draftComplete) {
+    return (
+      <div className="min-h-[calc(100dvh-7rem)] overflow-x-hidden bg-[#07090c] text-white">
+        <OwnerCareerSync league={league} />
+        <div className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-5">
+          <ModeErrorBoundary key={`postdraft-${lazyVersion}`} onRetry={retryMode}>
+            <FantasyLeaguePostDraft league={league} onGoToSimulation={onGoToSimulation} />
+          </ModeErrorBoundary>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[calc(100dvh-7rem)] bg-[#07090c] text-white">
