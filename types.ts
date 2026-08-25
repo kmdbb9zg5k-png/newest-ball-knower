@@ -223,6 +223,7 @@ export interface SimulationGame {
   loserId: string;
   isTie: boolean;
   keyMatchupFactor: string;
+  playoffRound?: 'quarterfinal' | 'semifinal' | 'championship';
   quarterScores?: {
     home: [number, number, number, number];
     away: [number, number, number, number];
@@ -276,6 +277,8 @@ export interface SeasonResult {
   draftOrder: DraftOrderItem[];
   winnerAnalysis: WinnerAnalysis;
   teamReports: Record<string, TeamReportAnalysis>;
+  championMemberId?: string;
+  playoffGames?: SimulationGame[];
 }
 
 export interface LiveFantasyDraftPick {
@@ -323,6 +326,9 @@ export interface LeagueSettings {
   autoFillCpu?: boolean;
   matchmakingOpen?: boolean;
   draftOrderMethod?: DraftOrderMethod;
+  currentWeek?: number;
+  fantasySeasonStarted?: boolean;
+  fantasySeasonComplete?: boolean;
 }
 
 export interface League {

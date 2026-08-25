@@ -4,6 +4,7 @@ import { FantasyLeagueCommandCenter } from './FantasyLeagueCommandCenter';
 import { LockedDraftOrderView } from './LockedDraftOrderView';
 import { OwnerCareerSync } from './OwnerCareerSync';
 import { FantasyLeagueEssentials } from './FantasyLeagueEssentials';
+import { FantasyLeaguePostDraft } from './FantasyLeaguePostDraft';
 const loadLeagueIntelligenceHub = () => import('./LeagueIntelligenceHub').then(module => ({ default: module.LeagueIntelligenceHub }));
 const loadIntelligenceExtras = () => import('./IntelligenceExtras').then(module => ({ default: module.IntelligenceExtras }));
 
@@ -60,9 +61,31 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, o
   const result = league.seasonResult;
   const hasLockedDraftOrder = league.status === 'completed' && Boolean(result?.draftOrder?.length);
 
+  // Draft Order Game results are deliberately retained until the real fantasy
+  // season launches, but they are not fantasy-season matchups/records. Live
+  // draft finalization moves the league back to `drafting`; a fantasy season
+  // keeps its own weekly result once the commissioner starts Week 1.
+  const postDraftLeague = useMemo<League>(() => {
+    if (!draftComplete || league.status === 'completed' || league.settings?.fantasySeasonStarted) return league;
+    return { ...league, seasonResult: undefined };
+  }, [draftComplete, league]);
+
   useEffect(() => {
     if (draftComplete) setMode('season');
   }, [draftComplete]);
+
+  if (draftComplete) {
+    return (
+      <div className="min-h-[calc(100dvh-7rem)] overflow-x-hidden bg-[#07090c] text-white">
+        <OwnerCareerSync league={league} />
+        <div className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-5">
+          <ModeErrorBoundary key={`postdraft-${lazyVersion}`} onRetry={retryMode}>
+            <FantasyLeaguePostDraft league={postDraftLeague} onGoToSimulation={onGoToSimulation} />
+          </ModeErrorBoundary>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[calc(100dvh-7rem)] bg-[#07090c] text-white">

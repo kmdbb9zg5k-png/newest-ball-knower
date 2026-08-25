@@ -194,7 +194,7 @@ export function buildLeagueRecords(league:League,archives:ArchivedSeason[]){
     return !best||pct>best.pct?{...row,pct}:best;
   },null);
   const championships=new Map<string,number>();
-  for(const season of seasons){const champ=season.result?.standings?.[0]?.memberId;if(champ)championships.set(champ,(championships.get(champ)||0)+1);}
+  for(const season of seasons){const champ=season.result?.championMemberId;if(champ)championships.set(champ,(championships.get(champ)||0)+1);}
   const dynasty=[...championships.entries()].sort((a,b)=>b[1]-a[1])[0];
   return {
     highGame:highGame?{...highGame,name:name(highGame.memberId)}:null,

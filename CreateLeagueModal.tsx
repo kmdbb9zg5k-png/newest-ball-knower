@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useBallKnower } from './BallKnowerContext';
-import { X, Copy, Check, Users, Shield, DollarSign, ArrowRight } from 'lucide-react';
+import { X, Copy, Check, Users, Shield, ArrowRight } from 'lucide-react';
 import { League } from './types';
 
 interface CreateLeagueModalProps {
@@ -17,7 +17,6 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
   const { createLeague, showToast, onlineInvitesReady, cloudSyncError } = useBallKnower();
   const [leagueName, setLeagueName] = useState('');
   const [memberSize, setMemberSize] = useState<number>(10);
-  const [salaryCap, setSalaryCap] = useState<number>(301.2);
   const [createdLeague, setCreatedLeague] = useState<League | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -35,7 +34,7 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
     setIsCreating(true);
     setCreateError(null);
     try {
-      const newLeague = await createLeague(leagueName.trim(), memberSize, salaryCap);
+      const newLeague = await createLeague(leagueName.trim(), memberSize);
       setCreatedLeague(newLeague);
     } catch (err:any) {
       setCreateError(err?.message || 'Could not create league');
@@ -144,30 +143,6 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
                     </button>
                   ))}
                 </div>
-              </div>
-
-              {/* Salary Cap */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-black uppercase tracking-wider text-zinc-300">
-                    Salary Cap Per Team
-                  </label>
-                  <span className="text-xs font-mono font-black text-[#D4AF37]">
-                    ${salaryCap} MILLION
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="range"
-                    min={200}
-                    max={400}
-                    step={0.1}
-                    value={salaryCap}
-                    onChange={e => setSalaryCap(Number(e.target.value))}
-                    className="w-full h-2 bg-[#1A1A1A] rounded-sm appearance-none cursor-pointer accent-[#D4AF37]"
-                  />
-                </div>
-                <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider mt-1">Official 2026 NFL salary cap is $301.2M</p>
               </div>
 
               {/* Submit */}

@@ -38,5 +38,8 @@ export function validateLiveFantasyRoster(roster: Player[]): string[] {
   for(const [group,limit] of Object.entries(LIVE_FANTASY_POSITION_LIMITS) as [LiveFantasyDraftGroup,number][]){
     if((counts[group]||0)>limit)errors.push(`Too many ${group} players (${counts[group]}/${limit}).`);
   }
+  for(const [group,minimum] of Object.entries(LIVE_FANTASY_ROSTER_REQUIREMENTS) as [LiveFantasyDraftGroup,number][]){
+    if((counts[group]||0)<minimum) errors.push(`Need ${minimum} ${group} player${minimum === 1 ? '' : 's'} (${counts[group]||0}/${minimum}).`);
+  }
   return errors;
 }

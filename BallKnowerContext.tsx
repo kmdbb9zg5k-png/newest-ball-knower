@@ -11,11 +11,11 @@ import {
   LiveFantasyDraft,
 } from './types';
 import { calculateTeamRatings } from './evaluation';
-import { simulateFullSeason } from './simulation';
+import { buildStandings, simulateFantasyPlayoffs, simulateFantasyWeek, simulateFullSeason } from './simulation';
 import { generateAiLeagueMembers, AI_ARCHETYPES, buildRosterForArchetype } from './aiOpponents';
 import { PLAYERS_DATABASE } from './players';
 import { countRosterGroups, getDraftPositionGroup, minimumCompletionCost, validateRosterShape } from './rosterRules';
-import { getLiveFantasyDraftGroup, LIVE_FANTASY_POSITION_LIMITS } from './liveFantasyRules';
+import { getLiveFantasyDraftGroup, LIVE_FANTASY_POSITION_LIMITS, validateLiveFantasyRoster } from './liveFantasyRules';
 import { isCloudConfigured, ensureOnlineSession } from './supabase';
 import {
   createCloudLeague, joinCloudLeague, loadMyCloudLeagues, fetchCloudLeague,
@@ -82,6 +82,7 @@ interface BallKnowerContextType {
   autoFillLeagueWithAi: (leagueId: string) => Promise<boolean>;
   removeMemberFromLeague: (leagueId: string, memberId: string) => void;
   startSimulation: (leagueId: string) => Promise<boolean>;
+  advanceFantasyWeek: (leagueId: string) => Promise<boolean>;
   finalizeDraftOrder: (leagueId: string, method: Exclude<DraftOrderMethod, 'game'>, orderedMemberIds: string[]) => Promise<boolean>;
   startLiveFantasyDraft: (leagueId: string) => Promise<boolean>;
   makeLiveFantasyDraftPick: (leagueId: string, player: Player) => Promise<boolean>;
@@ -639,20 +640,27 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return false;
     }
 
-    const unreadyMembers = league.members.filter(m => m.status !== 'ready' || !m.roster || m.roster.length < TOTAL_ROSTER_SIZE);
+    const isFantasySeason = league.liveDraft?.status === 'completed';
+    const unreadyMembers = league.members.filter(m => m.status !== 'ready' || !m.roster || m.roster.length < TOTAL_ROSTER_SIZE || (isFantasySeason && validateLiveFantasyRoster(m.roster).length > 0));
     if (unreadyMembers.length > 0) {
       showToast(`Cannot simulate: ${unreadyMembers.length} member(s) have not submitted their roster.`);
       return false;
     }
 
-    const results = {
+    const fullResults = {
       ...simulateFullSeason(league.members, league.settings?.seasonGames || 17, league.settings?.simulationStyle || 'realistic'),
-      orderMethod: 'game' as const,
     };
+    const settings = isFantasySeason
+      ? {...(league.settings || {}), currentWeek:1, fantasySeasonStarted:true, fantasySeasonComplete:false}
+      : league.settings;
+    const results = isFantasySeason
+      ? {...fullResults, games:fullResults.games.filter(game => game.week === 1), standings:buildStandings(league.members, fullResults.games.filter(game => game.week === 1)), draftOrder:[], winnerAnalysis:{winnerId:'',winnerName:'',summary:'The fantasy season is underway.',keyFactors:[]}}
+      : {...fullResults, orderMethod:'game' as const};
+    const nextStatus = isFantasySeason ? 'simulating' as const : 'completed' as const;
 
     if (isCloudConfigured) {
       try {
-        await updateCloudLeague(leagueId, { status: 'completed', seasonResult: results });
+        await updateCloudLeague(leagueId, { status: nextStatus, seasonResult: results, settings });
         setCloudSyncError(null);
       } catch (err:any) {
         const message=err?.message || 'Could not sync season result';
@@ -663,14 +671,53 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
 
     setLeagues(prev =>
-      prev.map(l => l.id === leagueId ? { ...l, status: 'completed', seasonResult: results } : l)
+      prev.map(l => l.id === leagueId ? { ...l, status: nextStatus, settings, seasonResult: results } : l)
     );
-    trackBallKnowerEvent('League Season Completed', {
+    trackBallKnowerEvent(isFantasySeason ? 'League Fantasy Season Started' : 'League Season Completed', {
       member_count: league.members.length,
       regular_season_games: league.settings?.seasonGames || 17,
       simulation_style: league.settings?.simulationStyle || 'realistic',
     });
-    showToast('League season simulation complete! Draft Order is set!');
+    showToast(isFantasySeason ? 'Week 1 is final. The fantasy season is underway!' : 'League season simulation complete! Draft Order is set!');
+    return true;
+  };
+
+  const advanceFantasyWeek = async (leagueId:string):Promise<boolean> => {
+    const league = leagues.find(item => item.id === leagueId);
+    if (!league || league.liveDraft?.status !== 'completed' || !league.seasonResult) return false;
+    if (!isLeagueCommissioner(league,currentUser?.id,isDemoMode)) {
+      showToast(`Only Commissioner ${getLeagueCommissionerName(league)} can advance the season.`);
+      return false;
+    }
+    const regularWeeks = league.settings?.seasonGames || 17;
+    const currentWeek = Math.max(1,Number(league.settings?.currentWeek)||1);
+    let status:League['status']='simulating';
+    let settings = {...(league.settings||{})};
+    let result = {...league.seasonResult};
+    if (currentWeek < regularWeeks) {
+      const nextWeek=currentWeek+1;
+      const nextGames=simulateFantasyWeek(league.members,nextWeek,league.settings?.simulationStyle||'realistic');
+      const played=[...result.games.filter(game=>!game.playoffRound&&game.week<nextWeek),...nextGames];
+      result={...result,standings:buildStandings(league.members,played)};
+      settings={...settings,currentWeek:nextWeek};
+      showToast(`Week ${nextWeek} is final.`);
+    } else {
+      if (settings.fantasySeasonComplete) return false;
+      const regularGames=result.games.filter(game=>!game.playoffRound&&game.week<=regularWeeks);
+      const standings=buildStandings(league.members,regularGames);
+      const playoffs=simulateFantasyPlayoffs(league.members,standings,league.settings?.playoffTeams||6,regularWeeks+1,league.settings?.simulationStyle||'realistic');
+      const champion=league.members.find(member=>member.id===playoffs.championMemberId);
+      result={...result,completedAt:new Date().toISOString(),standings,games:[...regularGames,...playoffs.games],playoffGames:playoffs.games,championMemberId:playoffs.championMemberId,winnerAnalysis:{winnerId:playoffs.championMemberId,winnerName:champion?.userName||'Champion',summary:`${champion?.userName||'The champion'} won the fantasy playoffs.`,keyFactors:['Qualified through the regular season.','Won the championship matchup.']}};
+      settings={...settings,fantasySeasonComplete:true};
+      status='completed';
+      trackBallKnowerEvent('League Fantasy Season Completed',{member_count:league.members.length,regular_season_games:regularWeeks});
+      showToast(`${champion?.userName||'The champion'} won the league championship!`);
+    }
+    if (isCloudConfigured) {
+      try { await updateCloudLeague(leagueId,{status,settings,seasonResult:result}); setCloudSyncError(null); }
+      catch(err:any){const message=err?.message||'Could not advance the fantasy season.';setCloudSyncError(message);showToast(message);return false;}
+    }
+    setLeagues(prev=>prev.map(item=>item.id===leagueId?{...item,status,settings,seasonResult:result}:item));
     return true;
   };
 
@@ -1041,6 +1088,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         autoFillLeagueWithAi,
         removeMemberFromLeague,
         startSimulation,
+        advanceFantasyWeek,
         finalizeDraftOrder,
         startLiveFantasyDraft,
         makeLiveFantasyDraftPick,
