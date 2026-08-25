@@ -6,7 +6,7 @@ const HIDDEN_TRACK_TITLES = new Set([
 ]);
 
 const BUNDLED_TRACKS = [
-  ['From the A to South Jersey', '/audio/From-the-A-to-South-Jersey-full-v2.mp3'],
+  ['From the A to South Jersey', '/audio/From-the-A-to-South-Jersey-full-v3.mp3'],
   ['Westbound Grind', '/audio/Westbound-Grind.mp3'],
   ['Bloody Love', '/audio/Bloody-Love.mp3'],
   ['G-O-A-T', '/audio/G-O-A-T.mp3'],
