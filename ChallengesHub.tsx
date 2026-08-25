@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, Brain, CheckCircle2, Loader2, XCircle } from 'lucide-react';
+import { ArrowLeft, Brain, CheckCircle2, Loader2, WifiOff, XCircle } from 'lucide-react';
 import { fetchTriviaQuestion, submitTriviaAnswer, TriviaAnswerResult, TriviaQuestion } from './progressionCloud';
 import { ModeGuide } from './ModeGuide';
 import { ModalPortal } from './ModalPortal';
@@ -8,10 +8,10 @@ import { trackBallKnowerEvent } from './analytics';
 type TriviaTier = 'ROOKIE' | 'PRO' | 'ALL-PRO' | 'HALL OF FAME';
 
 const triviaTiers: { name: TriviaTier; desc: string; xp: string }[] = [
-  { name: 'ROOKIE', desc: 'Stars, teams and basic records', xp: '15 XP' },
-  { name: 'PRO', desc: 'Draft history and tougher stats', xp: '25 XP' },
-  { name: 'ALL-PRO', desc: 'Advanced football comparisons', xp: '40 XP' },
-  { name: 'HALL OF FAME', desc: 'Rare records and brutal history', xp: '60 XP' },
+  { name: 'ROOKIE', desc: 'Rules, teams and football basics', xp: '15 XP' },
+  { name: 'PRO', desc: 'Current NFL knowledge and concepts', xp: '25 XP' },
+  { name: 'ALL-PRO', desc: 'Multi-clue football IQ and schemes', xp: '40 XP' },
+  { name: 'HALL OF FAME', desc: 'Deep history, elimination and mastery', xp: '60 XP' },
 ];
 
 export const ChallengesHub: React.FC = () => {
@@ -62,6 +62,7 @@ export const ChallengesHub: React.FC = () => {
         correct: receipt.isCorrect,
         question_number: questionNumber,
         progression_recorded: receipt.progressionRecorded,
+        practice_only: Boolean(question.practiceOnly),
       });
       setResult(receipt);
       if (receipt.isCorrect) setScore(current => current + 1);
@@ -78,7 +79,7 @@ export const ChallengesHub: React.FC = () => {
     const timer = window.setTimeout(() => {
       setQuestionNumber(current => current + 1);
       void loadQuestion(tier);
-    }, result.isCorrect ? 1500 : 2300);
+    }, result.isCorrect ? 900 : 1400);
     return () => window.clearTimeout(timer);
   }, [result, triviaOpen, tier, loadQuestion]);
 
@@ -90,7 +91,7 @@ export const ChallengesHub: React.FC = () => {
           <h1 className="mt-1 font-display text-3xl font-black uppercase sm:text-5xl">Trivia</h1>
           <p className="mt-1 max-w-xl text-xs font-semibold text-zinc-500">Pick a level, answer fast, and build your Ball Knower profile.</p>
         </div>
-        <ModeGuide storageKey="bk-guide-the-gauntlet-v4" title="Trivia" summary="Choose a difficulty and answer football questions. Correct answers feed your Ball Knower progression." steps={["Pick a level.", "Answer the question.", "The next question loads automatically."]} />
+        <ModeGuide storageKey="bk-guide-the-gauntlet-v4" title="Trivia" summary="Choose a difficulty and answer football questions. Correct verified answers feed your Ball Knower progression." steps={["Pick a level.", "Answer the question.", "The next question loads automatically."]} />
       </header>
 
       <section className="mt-3 overflow-hidden rounded-2xl border border-fuchsia-400/25 bg-[radial-gradient(circle_at_88%_8%,rgba(168,85,247,.18),transparent_34%),#0b0e13] p-3 sm:p-4">
@@ -123,7 +124,10 @@ export const ChallengesHub: React.FC = () => {
             {!loading && error && <div className="mt-4 rounded-xl border border-red-400/20 bg-red-400/5 p-4 text-sm font-semibold text-red-200">{error}<button onClick={() => void loadQuestion(tier)} className="ml-2 underline">Retry</button></div>}
             {!loading && question && (
               <section className="mt-4 rounded-2xl border border-white/10 bg-[#0b0e13] p-4 sm:p-5">
-                <div className="text-[9px] font-black uppercase tracking-widest text-fuchsia-300">Question {questionNumber}</div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-fuchsia-300">Question {questionNumber}</div>
+                  {question.practiceOnly && <div className="inline-flex items-center gap-1 rounded-lg border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[8px] font-black uppercase tracking-wider text-amber-200"><WifiOff className="h-3 w-3"/>Offline practice · no XP</div>}
+                </div>
                 <h2 className="mt-2 text-lg font-black leading-snug sm:text-2xl">{question.question}</h2>
                 <div className="mt-4 grid gap-2">
                   {question.answers.map((choice, index) => {
@@ -145,7 +149,7 @@ export const ChallengesHub: React.FC = () => {
                   <div className="mt-3 rounded-xl border border-fuchsia-400/25 bg-fuchsia-400/[.05] p-3 text-xs leading-5 text-zinc-400">
                     <div className={`font-black uppercase ${result.isCorrect ? 'text-emerald-300' : 'text-red-300'}`}>{result.isCorrect ? 'Correct · next question' : 'Missed · next question'} {result.xpAwarded > 0 && `· +${result.xpAwarded} XP`}</div>
                     <div className="mt-1">{result.explanation}</div>
-                    {result.progressionRecorded && <div className="mt-1 text-fuchsia-300">Saved to your BK Profile.</div>}
+                    {question.practiceOnly ? <div className="mt-1 text-amber-200">Practice result only. Reconnect for verified XP and rating progress.</div> : result.progressionRecorded && <div className="mt-1 text-fuchsia-300">Saved to your BK Profile.</div>}
                   </div>
                 )}
               </section>
