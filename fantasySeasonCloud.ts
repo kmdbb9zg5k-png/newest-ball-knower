@@ -148,8 +148,16 @@ export async function resolveTrade(
   status:TradeAction,
   recipientDropPlayerIds?:string[],
 ):Promise<void|TradeResolution>{
-  const result=await resolveTradeWithResult(tradeId,status,recipientDropPlayerIds||[]);
-  if(recipientDropPlayerIds!==undefined) return result;
+  if(recipientDropPlayerIds!==undefined){
+    return resolveTradeWithResult(tradeId,status,recipientDropPlayerIds);
+  }
+  if(!supabase) throw new Error('Online multiplayer is not configured.');
+  await ensureOnlineSession();
+  const {error}=await supabase.rpc('resolve_ball_knower_trade',{
+    p_trade_id:tradeId,
+    p_action:status,
+  });
+  if(error) throw error;
 }
 
 export async function submitWaiverClaim(leagueId:string,memberId:string,playerId:string,dropPlayerId?:string,priority=999){
