@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Brain, CheckCircle2, Loader2, WifiOff, XCircle } from 'lucide-react';
-import { fetchTriviaQuestion, submitTriviaAnswer, TriviaAnswerResult, TriviaQuestion } from './progressionCloud';
+import { beginTriviaSession, fetchTriviaQuestion, submitTriviaAnswer, TriviaAnswerResult, TriviaQuestion, TriviaSession } from './progressionCloud';
 import { ModeGuide } from './ModeGuide';
 import { ModalPortal } from './ModalPortal';
 import { trackBallKnowerEvent } from './analytics';
@@ -29,8 +29,9 @@ export const ChallengesHub: React.FC = () => {
   const advanceTimerRef = useRef<number | null>(null);
   const questionRequestRef = useRef(0);
   const triviaSessionRef = useRef(0);
+  const serverSessionRef = useRef<TriviaSession | null>(null);
 
-  const loadQuestion = useCallback(async (nextTier: TriviaTier) => {
+  const loadQuestion = useCallback(async (nextTier: TriviaTier, session?: TriviaSession | null) => {
     // A previous RPC can finish after the user exits or switches tiers. Give every
     // request a generation token so stale responses can never replace the active tier.
     const requestId = ++questionRequestRef.current;
@@ -39,7 +40,7 @@ export const ChallengesHub: React.FC = () => {
     setSelected(null);
     setResult(null);
     try {
-      const nextQuestion = await fetchTriviaQuestion(nextTier);
+      const nextQuestion = await fetchTriviaQuestion(nextTier, session ?? serverSessionRef.current ?? undefined);
       if (requestId !== questionRequestRef.current) return;
       setQuestion(nextQuestion);
     } catch (err) {
@@ -62,6 +63,7 @@ export const ChallengesHub: React.FC = () => {
     clearAdvanceTimer();
     questionRequestRef.current += 1;
     triviaSessionRef.current += 1;
+    serverSessionRef.current = null;
     advancingRef.current = false;
     setTriviaOpen(false);
     setLoading(false);
@@ -75,15 +77,31 @@ export const ChallengesHub: React.FC = () => {
   const openTrivia = (nextTier: TriviaTier) => {
     clearAdvanceTimer();
     questionRequestRef.current += 1;
-    triviaSessionRef.current += 1;
+    const sessionId = triviaSessionRef.current + 1;
+    triviaSessionRef.current = sessionId;
+    serverSessionRef.current = null;
     advancingRef.current = false;
     trackBallKnowerEvent('Trivia Started', { tier: nextTier });
     setTier(nextTier);
     setQuestionNumber(1);
     setScore(0);
     setTriviaOpen(true);
+    setLoading(true);
     setSubmitting(false);
-    void loadQuestion(nextTier);
+    setQuestion(null);
+    setSelected(null);
+    setResult(null);
+    setError('');
+
+    void beginTriviaSession().then(session => {
+      if (sessionId !== triviaSessionRef.current) return;
+      serverSessionRef.current = session;
+      return loadQuestion(nextTier, session);
+    }).catch(err => {
+      if (sessionId !== triviaSessionRef.current) return;
+      setLoading(false);
+      setError(err instanceof Error ? err.message : 'Could not start trivia right now.');
+    });
   };
 
   const answer = async (index: number) => {
@@ -122,10 +140,11 @@ export const ChallengesHub: React.FC = () => {
     // Claim this transition synchronously so one result creates exactly one next attempt.
     if (advancingRef.current) return;
     const sessionId = triviaSessionRef.current;
+    const serverSession = serverSessionRef.current;
     advancingRef.current = true;
     clearAdvanceTimer();
     setQuestionNumber(current => current + 1);
-    void loadQuestion(tier).finally(() => {
+    void loadQuestion(tier, serverSession).finally(() => {
       if (sessionId === triviaSessionRef.current) advancingRef.current = false;
     });
   }, [clearAdvanceTimer, loadQuestion, tier]);
@@ -135,7 +154,8 @@ export const ChallengesHub: React.FC = () => {
       clearAdvanceTimer();
       return;
     }
-    advanceTimerRef.current = window.setTimeout(advanceQuestion, result.isCorrect ? 1800 : 2800);
+    // Keep explanations readable by default while preserving an immediate manual fast path.
+    advanceTimerRef.current = window.setTimeout(advanceQuestion, result.isCorrect ? 5000 : 7000);
     return clearAdvanceTimer;
   }, [result, triviaOpen, advanceQuestion, clearAdvanceTimer]);
 
@@ -143,6 +163,7 @@ export const ChallengesHub: React.FC = () => {
     clearAdvanceTimer();
     questionRequestRef.current += 1;
     triviaSessionRef.current += 1;
+    serverSessionRef.current = null;
   }, [clearAdvanceTimer]);
 
   return (
@@ -175,7 +196,7 @@ export const ChallengesHub: React.FC = () => {
         <div role="dialog" aria-modal="true" aria-label={`${tier} Trivia`} className="fixed inset-0 z-[9999] overflow-y-auto overscroll-contain bg-[#05070a] px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(.75rem,env(safe-area-inset-top))] text-white [-webkit-overflow-scrolling:touch] sm:px-4">
           <div className="mx-auto w-full max-w-2xl">
             <header className="flex min-h-12 items-center justify-between gap-3">
-              <button onClick={closeTrivia} className="inline-flex min-h-10 items-center gap-2 px-1 text-[10px] font-black uppercase"><ArrowLeft className="h-4 w-4" /> Exit</button>
+              <button onClick={closeTrivia} className="inline-flex min-h-11 items-center gap-2 px-1 text-[10px] font-black uppercase"><ArrowLeft className="h-4 w-4" /> Exit</button>
               <div className="text-center text-[10px] font-black uppercase tracking-wider text-fuchsia-400">{tier}</div>
               <div className="text-right text-[9px] font-black uppercase text-zinc-500">Score <span className="text-white">{score}</span></div>
             </header>
@@ -183,7 +204,7 @@ export const ChallengesHub: React.FC = () => {
             <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10"><div className="h-full bg-fuchsia-500 transition-all" style={{ width: `${Math.min(100, ((questionNumber - 1) % 10 + 1) * 10)}%` }} /></div>
 
             {loading && <div className="flex min-h-56 items-center justify-center text-zinc-500"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading challenge…</div>}
-            {!loading && error && <div className="mt-4 rounded-xl border border-red-400/20 bg-red-400/5 p-4 text-sm font-semibold text-red-200">{error}<button onClick={() => void loadQuestion(tier)} className="ml-2 underline">Retry</button></div>}
+            {!loading && error && <div className="mt-4 rounded-xl border border-red-400/20 bg-red-400/5 p-4 text-sm font-semibold text-red-200">{error}<button onClick={() => void loadQuestion(tier, serverSessionRef.current)} className="ml-2 min-h-11 underline">Retry</button></div>}
             {!loading && question && (
               <section className="mt-4 rounded-2xl border border-white/10 bg-[#0b0e13] p-4 sm:p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -211,7 +232,7 @@ export const ChallengesHub: React.FC = () => {
                   <div className="mt-3 rounded-xl border border-fuchsia-400/25 bg-fuchsia-400/[.05] p-3 text-xs leading-5 text-zinc-400">
                     <div className="flex items-start justify-between gap-3">
                       <div className={`font-black uppercase ${result.isCorrect ? 'text-emerald-300' : 'text-red-300'}`}>{result.isCorrect ? 'Correct' : 'Missed'} {result.xpAwarded > 0 && `· +${result.xpAwarded} XP`}</div>
-                      <button onClick={advanceQuestion} disabled={advancingRef.current} className="min-h-8 shrink-0 rounded-lg border border-fuchsia-400/25 px-2.5 text-[9px] font-black uppercase text-fuchsia-200 disabled:opacity-50">Next now</button>
+                      <button onClick={advanceQuestion} disabled={advancingRef.current} className="min-h-11 shrink-0 rounded-lg border border-fuchsia-400/25 px-3 text-[9px] font-black uppercase text-fuchsia-200 disabled:opacity-50">Next now</button>
                     </div>
                     <div className="mt-1">{result.explanation}</div>
                     {question.practiceOnly ? <div className="mt-1 text-amber-200">Practice result only. Reconnect for verified XP and rating progress.</div> : result.progressionRecorded && <div className="mt-1 text-fuchsia-300">Saved to your BK Profile.</div>}
