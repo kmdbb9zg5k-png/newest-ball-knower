@@ -30,3 +30,26 @@ jobs:
 
       - name: TypeScript and roster integrity
         run: npm run check:hardening
+
+      - name: Generate authoritative Draft Order Game catalog
+        run: npx tsx scripts/generate-draft-order-game-catalog.ts /tmp/20260825_secure_draft_order_game_catalog.sql
+
+      - name: Verify frozen catalog migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! cmp -s /tmp/20260825_secure_draft_order_game_catalog.sql migrations/20260825_secure_draft_order_game_catalog.sql; then
+            echo "The canonical player source no longer matches the already-applied catalog migration."
+            echo "Do not rewrite migrations/20260825_secure_draft_order_game_catalog.sql."
+            echo "Create a new versioned catalog migration and apply it to production instead."
+            diff -u migrations/20260825_secure_draft_order_game_catalog.sql /tmp/20260825_secure_draft_order_game_catalog.sql | head -n 200 || true
+            exit 1
+          fi
+          echo "Frozen Draft Order Game catalog matches canonical source."
+
+      - name: Upload generated Draft Order Game catalog for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: draft-order-game-catalog
+          path: /tmp/20260825_secure_draft_order_game_catalog.sql
+          retention-days: 1

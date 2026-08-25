@@ -527,7 +527,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           member_count: targetLeague.members.length,
           league_type: 'online',
         });
-        showToast(`Joined "${targetLeague.name}" online!`);
+        showToast(`Joined \"${targetLeague.name}\" online!`);
         return { success: true, message: `Joined ${targetLeague.name}`, league: targetLeague };
       }
 
@@ -774,7 +774,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       showToast('This fantasy draft is already complete. Your league is ready for the season.');
       return false;
     }
-    if(!league.liveDraft&&!isLeagueCommissioner(league,currentUser?.id,isDemoMode)){
+    if(!isCloudConfigured&&!league.liveDraft&&!isLeagueCommissioner(league,currentUser?.id,isDemoMode)){
       showToast(`Waiting for ${getLeagueCommissionerName(league)} to start the NFL player draft.`);
       return false;
     }
