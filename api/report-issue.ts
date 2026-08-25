@@ -1,3 +1,5 @@
+export const config = { api: { bodyParser: false } };
+
 const DESTINATION = 'BallKnowerOfficial@gmail.com';
 const SAFE_FIELDS = ['id', 'kind', 'message', 'stack', 'componentStack', 'url', 'route', 'userAgent', 'viewport', 'occurredAt', 'note'] as const;
 const SECRET_PATTERN = /(bearer\s+[a-z0-9._-]+|access[_-]?token|refresh[_-]?token|authorization|password|api[_-]?key|anon[_-]?key|secret)(\s*[:=]\s*|\s+)([^\s,;]+)/gi;
@@ -67,7 +69,7 @@ const bodyError = (message: string, statusCode: number) => {
   return error;
 };
 
-/** Reads and parses the request while enforcing the byte ceiling for both raw and pre-parsed Vercel bodies. */
+/** Reads the untouched request stream and parses JSON after enforcing the byte ceiling. */
 async function readJsonBody(req: any) {
   let total = 0;
   const chunks: Buffer[] = [];
@@ -79,18 +81,7 @@ async function readJsonBody(req: any) {
     chunks.push(buffer);
   }
 
-  if (!chunks.length) {
-    const parsedBody = req.body;
-    if (!parsedBody || typeof parsedBody !== 'object' || Array.isArray(parsedBody)) return {};
-    let serialized: string;
-    try {
-      serialized = JSON.stringify(parsedBody);
-    } catch {
-      throw bodyError('Invalid JSON body', 400);
-    }
-    if (Buffer.byteLength(serialized, 'utf8') > MAX_BODY_BYTES) throw bodyError('Report too large', 413);
-    return parsedBody;
-  }
+  if (!chunks.length) return {};
 
   const raw = Buffer.concat(chunks).toString('utf8');
   try {
