@@ -1,5 +1,11 @@
 import { LeagueMember, SimulationGame, StandingItem, DraftOrderItem, WinnerAnalysis, SeasonResult } from './types';
 import { calculateTeamRatings, generateTeamReport } from './evaluation';
+import { calculateFantasyTeamRatings, isFantasyRoster } from './fantasyEvaluation';
+
+const ratingsFor = (member: LeagueMember) => {
+  const roster=member.roster||[];
+  return isFantasyRoster(roster) ? calculateFantasyTeamRatings(roster) : (member.teamRatings || calculateTeamRatings(roster));
+};
 
 function hashSeed(input: string): number {
   let h = 2166136261;
@@ -25,8 +31,9 @@ export function simulateGame(
   awayMember: LeagueMember,
   varianceMultiplier = 1
 ): SimulationGame {
-  const homeRatings = homeMember.teamRatings || calculateTeamRatings(homeMember.roster || []);
-  const awayRatings = awayMember.teamRatings || calculateTeamRatings(awayMember.roster || []);
+  const fantasyGame=isFantasyRoster(homeMember.roster||[])&&isFantasyRoster(awayMember.roster||[]);
+  const homeRatings = ratingsFor(homeMember);
+  const awayRatings = ratingsFor(awayMember);
 
   const rosterFingerprint = (m: LeagueMember) => (m.roster || []).map(p => `${p.id}:${p.ovr}`).sort().join('|');
   const rand = mulberry32(hashSeed(`${week}:${homeMember.id}:${awayMember.id}:${rosterFingerprint(homeMember)}:${rosterFingerprint(awayMember)}`));
@@ -46,13 +53,13 @@ export function simulateGame(
     return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v) * 6.5 * varianceMultiplier;
   };
 
-  const homeBase = 22.5 + (homeRatings.offense - 82) * 0.45 - (awayRatings.defense - 82) * 0.40 + (homePassEdge * 0.25) + (homeRunEdge * 0.20) + 1.5;
-  const awayBase = 21.0 + (awayRatings.offense - 82) * 0.45 - (homeRatings.defense - 82) * 0.40 + (awayPassEdge * 0.25) + (awayRunEdge * 0.20);
+  const homeBase = fantasyGame ? 105+(homeRatings.overall-75)*1.8+(homeRatings.balanceScore-70)*.28+2.2 : 22.5 + (homeRatings.offense - 82) * 0.45 - (awayRatings.defense - 82) * 0.40 + (homePassEdge * 0.25) + (homeRunEdge * 0.20) + 1.5;
+  const awayBase = fantasyGame ? 103+(awayRatings.overall-75)*1.8+(awayRatings.balanceScore-70)*.28 : 21.0 + (awayRatings.offense - 82) * 0.45 - (homeRatings.defense - 82) * 0.40 + (awayPassEdge * 0.25) + (awayRunEdge * 0.20);
 
   let rawHomeScore = Math.round(homeBase + randomVariance());
   let rawAwayScore = Math.round(awayBase + randomVariance());
-  rawHomeScore = Math.max(7, Math.min(52, rawHomeScore));
-  rawAwayScore = Math.max(6, Math.min(52, rawAwayScore));
+  rawHomeScore = Math.max(fantasyGame?62:7, Math.min(fantasyGame?190:52, rawHomeScore));
+  rawAwayScore = Math.max(fantasyGame?60:6, Math.min(fantasyGame?190:52, rawAwayScore));
 
   if (rawHomeScore === rawAwayScore) {
     if (rand() > 0.5) rawHomeScore += rand() > 0.4 ? 3 : 6;
@@ -66,7 +73,11 @@ export function simulateGame(
   const loserScore = isHomeWinner ? rawAwayScore : rawHomeScore;
 
   let keyMatchupFactor = '';
-  if (isHomeWinner) {
+  if(fantasyGame){
+    const winnerRatings=isHomeWinner?homeRatings:awayRatings;
+    const edge=winnerRatings.passing>=winnerRatings.rushing?'quarterback and receiving ceiling':'running-back production and flex depth';
+    keyMatchupFactor=`${winner.userName}'s ${edge} produced the stronger fantasy lineup.`;
+  } else if (isHomeWinner) {
     if (homeTrenchPass > 5) keyMatchupFactor = `${homeMember.userName}'s offensive line held firm, giving zero sacks against ${awayMember.userName}'s front.`;
     else if (homeRatings.passRush - awayRatings.passProtection > 5) keyMatchupFactor = `${homeMember.userName}'s relentless pass rush overwhelmed ${awayMember.userName}'s offensive line in crucial 3rd downs.`;
     else if (homeRatings.coverage - awayRatings.passing > 5) keyMatchupFactor = `${homeMember.userName}'s lockdown secondary completely eliminated explosive plays.`;
@@ -110,7 +121,7 @@ export function simulateFullSeason(members: LeagueMember[], targetGames: 16 | 17
 
   const preparedMembers = members.map(m => ({
     ...m,
-    teamRatings: m.teamRatings || calculateTeamRatings(m.roster || []),
+    teamRatings: ratingsFor(m),
   }));
 
   const games: SimulationGame[] = [];
@@ -211,7 +222,7 @@ export function simulateFullSeason(members: LeagueMember[], targetGames: 16 | 17
       const totalGames = s.wins + s.losses + s.ties;
       const winPct = totalGames > 0 ? (s.wins + 0.5 * s.ties) / totalGames : 0;
       const diff = s.pf - s.pa;
-      const teamRatings = m.teamRatings || calculateTeamRatings(m.roster || []);
+      const teamRatings = ratingsFor(m);
       const diffPerGame = totalGames > 0 ? diff / totalGames : 0;
       const ballKnowerScore = Math.round(Math.max(0, Math.min(100,
         winPct * 38 + teamRatings.overall * 0.24 + teamRatings.balanceScore * 0.16 +

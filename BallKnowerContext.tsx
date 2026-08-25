@@ -23,6 +23,7 @@ import {
   subscribeToCloudLeague, joinOrCreatePublicCloudLeague, lockPublicLeagueForCpuFill,
   reopenPublicLeagueMatchmaking, startCloudLiveFantasyDraft, makeCloudLiveFantasyDraftPick,
   finalizeCloudLiveFantasyDraftRosters,
+  resetCloudLeagueForNextSeason,
 } from './leagueCloud';
 import {
   applyLiveDraftRosterAssignments,
@@ -85,7 +86,7 @@ interface BallKnowerContextType {
   startLiveFantasyDraft: (leagueId: string) => Promise<boolean>;
   makeLiveFantasyDraftPick: (leagueId: string, player: Player) => Promise<boolean>;
   finalizeLiveFantasyDraftRosters: (leagueId: string) => Promise<boolean>;
-  resetLeagueSimulation: (leagueId: string) => void;
+  resetLeagueSimulation: (leagueId: string) => Promise<void>;
   updateSalaryCap: (leagueId: string, newCap: number) => void;
   updateLeagueSettings: (leagueId: string, settings: import('./types').LeagueSettings) => void;
   
@@ -910,7 +911,14 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // Commissioner: Reset Simulation
-  const resetLeagueSimulation = (leagueId: string) => {
+  const resetLeagueSimulation = async (leagueId: string) => {
+    if (isCloudConfigured) {
+      await resetCloudLeagueForNextSeason(leagueId);
+      const fresh=await fetchCloudLeague(leagueId);
+      if(fresh)setLeagues(prev=>[fresh,...prev.filter(item=>item.id!==fresh.id)]);
+      showToast('New season ready. Rosters, draft state, lineups, scores, FAAB and IR were reset.');
+      return;
+    }
     setLeagues(prev =>
       prev.map(l => {
         if (l.id !== leagueId) return l;
@@ -922,10 +930,6 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         };
       })
     );
-    if (isCloudConfigured) {
-      void updateCloudLeague(leagueId, { status: 'drafting', seasonResult: null })
-        .catch((err:any) => setCloudSyncError(err?.message || 'Could not reset league online'));
-    }
     showToast('League reset. Ready for new team builds and draft competition.');
   };
 

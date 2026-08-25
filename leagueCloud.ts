@@ -269,6 +269,14 @@ export async function updateCloudLeague(leagueId:string, patch:{ salaryCap?:numb
   if(!updated) throw new Error('League update did not modify a league. Confirm your commissioner access and try again.');
 }
 
+export async function resetCloudLeagueForNextSeason(leagueId:string):Promise<void>{
+  if(!supabase) return;
+  await ensureOnlineSession();
+  const {data,error}=await supabase.rpc('reset_ball_knower_league_for_next_season',{p_league_id:leagueId});
+  if(error) throw error;
+  if(data!==true) throw new Error('The league was not reset.');
+}
+
 export async function startCloudLiveFantasyDraft(leagueId:string):Promise<LiveFantasyDraft> {
   if(!supabase) throw new Error('Online fantasy drafting is unavailable.');
   await ensureOnlineSession();
