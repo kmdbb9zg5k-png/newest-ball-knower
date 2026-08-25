@@ -60,14 +60,15 @@ export const OwnerBusinessMode:React.FC<{onBack:()=>void}>=({onBack})=>{
   Object.entries(c.effect).forEach(([k,v])=>p[k]=k==='cashM'?state.cashM+(v||0):clamp(Math.round((state as any)[k]+(v||0))));
   const footballStrength=((state.gm?.football||75)+(state.coach?.football||75))/2;
   const winChance=Math.max(.32,Math.min(.72,.47+(footballStrength-75)/220+(state.staffMorale-50)/500));
-  const won=Math.random()<winChance;
-  const completedWins=state.wins+(won?1:0);
-  const completedLosses=state.losses+(won?0:1);
-  const seasonEnded=state.week>=17;
+  const isPreseason=state.week===0;
+  const won=!isPreseason&&Math.random()<winChance;
+  const completedWins=isPreseason?state.wins:state.wins+(won?1:0);
+  const completedLosses=isPreseason?state.losses:state.losses+(won?0:1);
+  const seasonEnded=!isPreseason&&state.week>=17;
   const moment=state.week===0?'PRESEASON':`WEEK ${state.week}`;
-  const decisionEntry=`${state.season} · ${moment} · ${d.title} — ${c.label}. ${won?'The team won its next game.':'The team lost its next game.'}`;
+  const decisionEntry=`${state.season} · ${moment} · ${d.title} — ${c.label}. ${isPreseason?'No regular-season game was played.':won?'The team won its next game.':'The team lost its next game.'}`;
   const seasonEntry=seasonEnded?`SEASON ${state.season} COMPLETE · ${completedWins}-${completedLosses}. Your choices carry into ${state.season+1}.`:null;
-  Object.assign(p,{week:seasonEnded?0:state.week+1,season:seasonEnded?state.season+1:state.season,wins:seasonEnded?0:completedWins,losses:seasonEnded?0:completedLosses,careerWins:state.careerWins+(won?1:0),careerLosses:state.careerLosses+(won?0:1),seasonsCompleted:state.seasonsCompleted+(seasonEnded?1:0),usedDecisionIds:state.usedDecisionIds.includes(d.id)?state.usedDecisionIds:[...state.usedDecisionIds,d.id],lastOutcome:seasonEnded?`${c.label}. Final record: ${completedWins}-${completedLosses}. A new season begins, but your ownership history does not reset.`:`${c.label}. ${won?'The team answered with a win.':'The team took a loss, and the pressure moves forward.'}`,history:[...(seasonEntry?[seasonEntry]:[]),decisionEntry,...state.history]});
+  Object.assign(p,{week:seasonEnded?0:state.week+1,season:seasonEnded?state.season+1:state.season,wins:seasonEnded?0:completedWins,losses:seasonEnded?0:completedLosses,careerWins:state.careerWins+(isPreseason?0:won?1:0),careerLosses:state.careerLosses+(isPreseason?0:won?0:1),seasonsCompleted:state.seasonsCompleted+(seasonEnded?1:0),usedDecisionIds:state.usedDecisionIds.includes(d.id)?state.usedDecisionIds:[...state.usedDecisionIds,d.id],lastOutcome:seasonEnded?`${c.label}. Final record: ${completedWins}-${completedLosses}. A new season begins, but your ownership history does not reset.`:isPreseason?`${c.label}. The regular season is ready for Week 1.`:`${c.label}. ${won?'The team answered with a win.':'The team took a loss, and the pressure moves forward.'}`,history:[...(seasonEntry?[seasonEntry]:[]),decisionEntry,...state.history]});
   save(p);
   window.scrollTo({top:0,behavior:'smooth'});
   try{navigator.vibrate?.(won?[35,45,70]:[80]);}catch{}

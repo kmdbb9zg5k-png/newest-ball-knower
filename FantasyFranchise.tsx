@@ -19,7 +19,7 @@ import {
   SOLO_FRANCHISE_SAVE_KEYS,
 } from './soloFranchiseEngine';
 import { SoloTeamPicker } from './SoloTeamPicker';
-import { getSavedTeamTheme, TEAM_THEMES, teamLogoUrl } from './teamTheme';
+import { getSavedNflTeamTheme, TEAM_THEMES, teamLogoUrl } from './teamTheme';
 import { Player } from './types';
 
 type Props = { onBack: () => void };
@@ -54,7 +54,7 @@ function removeFantasySave(key: string) {
 
 export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
   const restored = useMemo(restoreFantasy, []);
-  const [selectedAbbr, setSelectedAbbr] = useState(() => restored?.draft.userTeamAbbr ?? getSavedTeamTheme().abbr);
+  const [selectedAbbr, setSelectedAbbr] = useState(() => restored?.draft.userTeamAbbr ?? getSavedNflTeamTheme().abbr);
   const [draft, setDraft] = useState<FantasyDraftState | null>(() => restored?.draft ?? null);
   const [seasonStarted, setSeasonStarted] = useState(() => restored?.seasonStarted ?? false);
   const [query, setQuery] = useState('');
@@ -79,7 +79,7 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
     removeFantasySave(`${SOLO_FRANCHISE_SAVE_KEYS.fantasy}:season`);
     setDraft(next);
     setSeasonStarted(false);
-    setMessage(saved ? `You have pick #${next.teamOrder.indexOf(selectedAbbr) + 1}. You are on the clock.` : 'Draft started, but Safari could not save it. Keep this page open to continue.');
+    setMessage(saved ? `You have pick #${next.teamOrder.indexOf(next.userTeamAbbr) + 1}. You are on the clock.` : 'Draft started, but Safari could not save it. Keep this page open to continue.');
   };
 
   const selectPlayer = async (player: Player) => {
