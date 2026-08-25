@@ -57,9 +57,11 @@ const sendUnavailable = (res: any, reason: string) => {
 
 /** Fetches the NFL game feed with one bounded retry for transient failures. */
 const fetchScoreboardRows = async () => {
+  // Keep the complete upstream retry budget comfortably below a 10-second
+  // serverless window, leaving time for JSON parsing and response serialization.
   const attempts = [
-    { limit: 400, timeoutMs: 9000 },
-    { limit: 400, timeoutMs: 9000 },
+    { limit: 400, timeoutMs: 5000 },
+    { limit: 400, timeoutMs: 3000 },
   ];
   let failureReason = 'NFL scoreboard feed temporarily unavailable';
 
