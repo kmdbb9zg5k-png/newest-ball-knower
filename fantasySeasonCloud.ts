@@ -35,7 +35,7 @@ export async function proposeTrade(league:League,proposerMemberId:string,recipie
   if(proposerMemberId===recipientMemberId) throw new Error('Choose another owner to trade with.');
   if(!offeredPlayerIds.length&&!requestedPlayerIds.length) throw new Error('Add at least one player to the trade.');
   if(offeredPlayerIds.length!==requestedPlayerIds.length) throw new Error('Ball Knower trades must swap the same number of players.');
-  const {error}=await supabase.from('ball_knower_trades').insert({league_id:league.id,proposer_member_id:proposerMemberId,recipient_member_id:recipientMemberId,offered_player_ids:offeredPlayerIds,requested_player_ids:requestedPlayerIds,note:note||null});
+  const {error}=await supabase.rpc('propose_ball_knower_trade',{p_league_id:league.id,p_recipient_member_id:recipientMemberId,p_offered_player_ids:offeredPlayerIds,p_requested_player_ids:requestedPlayerIds,p_note:note||null});
   if(error) throw error;
 }
 

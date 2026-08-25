@@ -153,7 +153,7 @@ export const FantasyLeagueCommandCenter: React.FC<Props> = ({league,onGoToDraft,
 
   const archiveAndReset=()=>run('reset',async()=>{
     if(league.seasonResult) await archiveSeasonResult(league);
-    resetLeagueSimulation(league.id);
+    await resetLeagueSimulation(league.id);
     showToast('Season archived and league reopened for a new competition.');
     setTab('history');
   });

@@ -1,4 +1,4 @@
-import { calculateTeamRatings } from './evaluation';
+import { calculateFantasyTeamRatings } from './fantasyEvaluation';
 import { PLAYERS_DATABASE } from './players';
 import { validateLiveFantasyRoster } from './liveFantasyRules';
 import { League, LiveFantasyDraft, Player, TeamRatings, TOTAL_ROSTER_SIZE } from './types';
@@ -62,7 +62,7 @@ export function buildLiveDraftRosterAssignments(
     return {
       memberId,
       roster,
-      teamRatings: calculateTeamRatings(roster),
+      teamRatings: calculateFantasyTeamRatings(roster),
     };
   });
 }
