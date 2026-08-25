@@ -10,7 +10,6 @@ import {
   Gavel,
   Medal,
   MessageCircle,
-  Play,
   RefreshCw,
   Save,
   Search,
@@ -21,7 +20,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { League, LeagueMember, Player, TOTAL_ROSTER_SIZE } from './types';
+import { League, LeagueMember, Player, SimulationGame, TOTAL_ROSTER_SIZE } from './types';
 import { PLAYERS_DATABASE } from './players';
 import { playerPortraitUrl } from './playerPortraits';
 import { useBallKnower } from './BallKnowerContext';
@@ -52,7 +51,7 @@ import {
 } from './fantasyLeagueParityCloud';
 import { counterTradeV2 } from './fantasyTradeV2Cloud';
 import { FantasyRanking, loadFantasyRankings } from './fantasyRankingsCloud';
-import { buildFantasyWeekPairings, buildStandings } from './simulation';
+import { buildFantasyWeekPairings, buildScoredFantasyGames, buildStandings } from './simulation';
 
 type Tab = 'team' | 'matchup' | 'players' | 'league' | 'activity' | 'intel';
 type ActivityView = 'trades' | 'moves' | 'messages';
@@ -89,18 +88,17 @@ const buildFantasyLineup = (roster:Player[], comparePlayers:(a:Player,b:Player)=
 };
 
 export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulation }) => {
-  const { currentUser, showToast, startSimulation, advanceFantasyWeek, updateLeagueSettings } = useBallKnower();
+  const { currentUser, showToast, updateLeagueSettings } = useBallKnower();
   const me = league.members.find(member => member.userId === currentUser?.id);
   const roster = me?.roster || [];
   const settings = (league.settings || {}) as any;
   const isCommissioner = currentUser?.id === league.commissionerId;
   const maxWeek = Math.max(1, Number(settings.seasonGames) || 17);
-  const currentWeek = Math.min(maxWeek, Math.max(0, Number(settings.currentWeek) || 0));
 
   const [tab, setTab] = useState<Tab>('team');
   const [activityView, setActivityView] = useState<ActivityView>('trades');
   const [intelView, setIntelView] = useState<IntelView>('allbk');
-  const [week, setWeek] = useState(Math.min(maxWeek, Math.max(1, Number(settings.currentWeek) || 1)));
+  const [week, setWeek] = useState(1);
   const [lineups, setLineups] = useState<WeeklyLineup[]>([]);
   const [scores, setScores] = useState<WeeklyScore[]>([]);
   const [memberMeta, setMemberMeta] = useState<MemberFantasyMeta[]>([]);
@@ -235,10 +233,13 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
   const starterIds = new Set(Object.values(starters).filter(Boolean));
   const bench = roster.filter(player => !starterIds.has(player.id) && !irIds.includes(player.id));
   const waiverType = settings.waiverType || 'priority';
-  const visibleGames = useMemo(() => (league.seasonResult?.games || []).filter(game => game.playoffRound || game.week <= currentWeek), [league.seasonResult?.games,currentWeek]);
   const regularSeasonSchedule = useMemo(() => Array.from({length:maxWeek},(_,index) => buildFantasyWeekPairings(league.members,index+1)).flat(), [league.members,maxWeek]);
-  const visibleStandings = useMemo(() => buildStandings(league.members,visibleGames.filter(game => !game.playoffRound)), [league.members,visibleGames]);
-  const visibleLeague = useMemo(() => league.seasonResult ? {...league,seasonResult:{...league.seasonResult,games:visibleGames,standings:visibleStandings}} : league, [league,visibleGames,visibleStandings]);
+  const scoredGames = useMemo(() => buildScoredFantasyGames(league.members,maxWeek,scores), [league.members,maxWeek,scores]);
+  const visibleStandings = useMemo(() => buildStandings(league.members,scoredGames), [league.members,scoredGames]);
+  const visibleLeague = useMemo(() => scoredGames.length ? {...league,seasonResult:{
+    completedAt:'',standings:visibleStandings,games:scoredGames,draftOrder:[],
+    winnerAnalysis:{winnerId:'',winnerName:'',summary:'',keyFactors:[]},teamReports:{},
+  }} : {...league,seasonResult:undefined}, [league,scoredGames,visibleStandings]);
   const records = useMemo(() => buildLeagueRecords(visibleLeague, archives), [visibleLeague, archives]);
 
   const freeAgents = useMemo(() => getLeagueFreeAgents(league, PLAYERS_DATABASE)
@@ -342,32 +343,24 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
     setMessage('');
   }, 'Message sent.');
 
-  const launchSeason = () => run(async () => {
-    const started = await startSimulation(league.id);
-    if (!started) return;
-  });
-
-  const advanceSeason = () => run(async () => {
-    const advanced = await advanceFantasyWeek(league.id);
-    if (!advanced) throw new Error('The fantasy season could not advance.');
-  });
-
-  const playedMatchup = visibleGames.find(game => !game.playoffRound && game.week === week && (game.homeMemberId === me?.id || game.awayMemberId === me?.id));
+  const playedMatchup = scoredGames.find(game => game.week === week && (game.homeMemberId === me?.id || game.awayMemberId === me?.id));
   const scheduledMatchup = regularSeasonSchedule.find(game => game.week === week && (game.homeMemberId === me?.id || game.awayMemberId === me?.id));
   const matchup = playedMatchup || scheduledMatchup;
   const opponentId = matchup ? (matchup.homeMemberId === me?.id ? matchup.awayMemberId : matchup.homeMemberId) : undefined;
   const opponent = league.members.find(member => member.id === opponentId);
-  const myScore = scores.find(score => score.memberId === me?.id);
-  const opponentScore = scores.find(score => score.memberId === opponentId);
+  const myScore = scores.find(score => score.week === week && score.memberId === me?.id);
+  const opponentScore = scores.find(score => score.week === week && score.memberId === opponentId);
   const myPoints = playedMatchup ? (playedMatchup.homeMemberId === me?.id ? playedMatchup.homeScore : playedMatchup.awayScore) : 0;
   const oppPoints = playedMatchup ? (playedMatchup.homeMemberId === me?.id ? playedMatchup.awayScore : playedMatchup.homeScore) : 0;
-  const seasonHasGames = currentWeek > 0 && visibleGames.length > 0;
+  const scoreStatus = myScore && opponentScore ? (myScore.isFinal && opponentScore.isFinal ? 'Final' : 'Live') : 'Scheduled';
+  const seasonHasGames = scoredGames.length > 0;
   const mySchedule = useMemo(() => regularSeasonSchedule.map(game => {
     if (game.homeMemberId !== me?.id && game.awayMemberId !== me?.id) return null;
     const opponentId = game.homeMemberId === me?.id ? game.awayMemberId : game.homeMemberId;
-    const result = visibleGames.find(played => !played.playoffRound && played.week === game.week && played.homeMemberId === game.homeMemberId && played.awayMemberId === game.awayMemberId);
-    return {game,opponent:league.members.find(member => member.id === opponentId),result};
-  }).filter(Boolean) as {game:(typeof regularSeasonSchedule)[number];opponent?:LeagueMember;result?:typeof playedMatchup}[], [regularSeasonSchedule,visibleGames,league.members,me?.id]);
+    const result = scoredGames.find(played => played.week === game.week && played.homeMemberId === game.homeMemberId && played.awayMemberId === game.awayMemberId);
+    const hasLiveScore = scores.some(score => score.week === game.week && (score.memberId === game.homeMemberId || score.memberId === game.awayMemberId));
+    return {game,opponent:league.members.find(member => member.id === opponentId),result,hasLiveScore};
+  }).filter(Boolean) as {game:(typeof regularSeasonSchedule)[number];opponent?:LeagueMember;result?:SimulationGame;hasLiveScore:boolean}[], [regularSeasonSchedule,scoredGames,scores,league.members,me?.id]);
 
   const findPlayer = (id:string) => league.members.flatMap(member => member.roster || []).find(player => player.id === id) || PLAYERS_DATABASE.find(player => player.id === id);
   const swapDefinition = LINEUP_SLOTS.find(slot => slot.id === swapSlot);
@@ -376,7 +369,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
   const swapOptions = swapDefinition ? roster.filter(player => swapDefinition.accept(player) && !otherStarterIds.has(player.id) && !irIds.includes(player.id)).sort(comparePlayers) : [];
 
   const weeklyAwards = useMemo(() => {
-    const games = visibleGames.filter(game => !game.playoffRound);
+    const games = scoredGames;
     const weeks = [...new Set<number>(games.map(game => Number(game.week)))].sort((a,b) => a-b);
     return weeks.map(awardWeek => {
       const entries = games.filter(game => game.week === awardWeek).flatMap(game => [
@@ -387,7 +380,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
       const member = league.members.find(item => item.id === best?.memberId);
       return best ? { week:awardWeek, points:best.points, member } : null;
     }).filter(Boolean) as {week:number;points:number;member?:LeagueMember}[];
-  }, [visibleGames, league.members]);
+  }, [scoredGames, league.members]);
 
   const allBkTeam = useMemo(() => {
     const pool = league.members.flatMap(member => (member.roster || [])
@@ -445,8 +438,6 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
       </div>
 
       {error && <div className="rounded-xl border border-red-500/25 bg-red-500/5 p-3 text-xs text-red-300">{error}</div>}
-      {seasonHasGames && isCommissioner && !settings.fantasySeasonComplete && <section className="flex items-center justify-between gap-3 rounded-2xl border border-[#D4AF37]/25 bg-[#D4AF37]/[.06] p-4"><div><div className="text-[9px] font-black uppercase tracking-widest text-[#D4AF37]">Commissioner</div><div className="mt-1 text-sm font-black uppercase">{currentWeek < maxWeek ? `Week ${currentWeek} final` : 'Regular season final'}</div><p className="mt-1 text-[10px] text-zinc-500">{currentWeek < maxWeek ? `Advance when every manager is ready for Week ${currentWeek+1}.` : `Run the ${settings.playoffTeams||6}-team playoff bracket and crown a champion.`}</p></div><button disabled={busy} onClick={advanceSeason} className="min-h-11 shrink-0 rounded-xl bg-[#D4AF37] px-4 text-[9px] font-black uppercase text-black disabled:opacity-35">{currentWeek < maxWeek ? `Play Week ${currentWeek+1}` : 'Run Playoffs'}</button></section>}
-      {settings.fantasySeasonComplete && league.seasonResult?.championMemberId && <section className="rounded-2xl border border-[#D4AF37]/30 bg-[#D4AF37]/[.08] p-4 text-center"><Trophy className="mx-auto h-7 w-7 text-[#D4AF37]"/><div className="mt-2 text-[9px] font-black uppercase tracking-widest text-[#D4AF37]">League Champion</div><div className="mt-1 text-xl font-black uppercase">{displayManagerName(league.members.find(member=>member.id===league.seasonResult?.championMemberId))}</div></section>}
 
       {tab === 'team' && <div className="space-y-3">
         <div className="flex items-end justify-between gap-3"><div><h2 className="text-xl font-black uppercase">My Team</h2><p className="text-xs text-zinc-500">Tap Swap to change a starter.</p></div><div className={`max-w-[45%] text-right text-[10px] font-black uppercase ${lineupErrors.length ? 'text-amber-300' : 'text-emerald-400'}`}>{lineupErrors.length ? lineupErrors[0] : 'Lineup ready'}</div></div>
@@ -461,9 +452,9 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
 
       {tab === 'matchup' && <div className="space-y-3">
         <div className="flex items-center justify-between gap-3"><div><h2 className="text-xl font-black uppercase">Matchup</h2><p className="text-xs text-zinc-500">Your complete {maxWeek}-week head-to-head schedule.</p></div><select aria-label="Fantasy week" value={week} onChange={event => setWeek(Number(event.target.value))} className="min-h-11 rounded-xl border border-white/10 bg-[#101318] px-3 text-xs">{Array.from({length:maxWeek},(_,index)=>index+1).map(value=><option key={value} value={value}>Week {value}</option>)}</select></div>
-        {!seasonHasGames && isCommissioner && <StartSeasonCard league={league} busy={busy} onStart={launchSeason}/>} 
-        <Panel title={`Week ${week}`} sub={`${displayManagerName(me)} vs ${displayManagerName(opponent)}`} icon={<Clock3 className="h-5 w-5 text-[#D4AF37]"/>}>{matchup ? <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3"><Score name={displayManagerName(me)} points={myScore?.livePoints ?? myPoints} projection={myScore?.projectedPoints} scheduled={!playedMatchup}/><b className="text-zinc-600">VS</b><Score name={displayManagerName(opponent)} points={opponentScore?.livePoints ?? oppPoints} projection={opponentScore?.projectedPoints} scheduled={!playedMatchup}/></div> : <Empty text="This week does not have a matchup."/>}</Panel>
-        <Panel title={`Full ${maxWeek}-Week Schedule`} sub="Tap any week to open that matchup" icon={<Clock3 className="h-5 w-5 text-[#D4AF37]"/>}><div className="divide-y divide-white/5">{mySchedule.map(({game,opponent:scheduledOpponent,result}) => { const won=result&&result.winnerId===me?.id; const tied=Boolean(result?.isTie); return <button key={game.id} onClick={()=>setWeek(game.week)} className={`flex min-h-12 w-full items-center justify-between gap-3 px-1 text-left ${week===game.week?'text-[#D4AF37]':'text-white'}`}><span className="w-14 text-[9px] font-black uppercase">Week {game.week}</span><span className="min-w-0 flex-1 truncate text-xs font-black">vs {displayManagerName(scheduledOpponent)}</span><span className={`shrink-0 text-[9px] font-black uppercase ${!result?'text-zinc-600':tied?'text-zinc-300':won?'text-emerald-400':'text-red-400'}`}>{result ? tied ? 'Tie' : won ? 'Win' : 'Loss' : 'Scheduled'}</span></button>})}</div></Panel>
+        <DataNotice text="Online fantasy matchups use weekly scoring records. Commissioners cannot simulate or advance games."/>
+        <Panel title={`Week ${week}`} sub={`${displayManagerName(me)} ${matchup?.homeMemberId===me?.id?'vs':'@'} ${displayManagerName(opponent)}`} icon={<Clock3 className="h-5 w-5 text-[#D4AF37]"/>}>{matchup ? <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3"><Score name={displayManagerName(me)} points={myScore?.livePoints ?? myPoints} projection={myScore?.projectedPoints} status={scoreStatus}/><b className="text-zinc-600">{matchup.homeMemberId===me?.id?'VS':'@'}</b><Score name={displayManagerName(opponent)} points={opponentScore?.livePoints ?? oppPoints} projection={opponentScore?.projectedPoints} status={scoreStatus}/></div> : <Empty text="This week does not have a matchup."/>}</Panel>
+        <Panel title={`Full ${maxWeek}-Week Schedule`} sub="Tap any week to open that matchup" icon={<Clock3 className="h-5 w-5 text-[#D4AF37]"/>}><div className="divide-y divide-white/5">{mySchedule.map(({game,opponent:scheduledOpponent,result,hasLiveScore}) => { const won=result&&result.winnerId===me?.id; const tied=Boolean(result?.isTie); const venue=game.homeMemberId===me?.id?'vs':'@'; return <button key={game.id} onClick={()=>setWeek(game.week)} className={`flex min-h-12 w-full items-center justify-between gap-3 px-1 text-left ${week===game.week?'text-[#D4AF37]':'text-white'}`}><span className="w-14 text-[9px] font-black uppercase">Week {game.week}</span><span className="min-w-0 flex-1 truncate text-xs font-black">{venue} {displayManagerName(scheduledOpponent)}</span><span className={`shrink-0 text-[9px] font-black uppercase ${!result?(hasLiveScore?'text-amber-300':'text-zinc-600'):tied?'text-zinc-300':won?'text-emerald-400':'text-red-400'}`}>{result ? tied ? 'Tie' : won ? 'Win' : 'Loss' : hasLiveScore ? 'Live' : 'Scheduled'}</span></button>})}</div></Panel>
       </div>}
 
       {tab === 'players' && <div className="space-y-3">
@@ -480,7 +471,6 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
       </div>}
 
       {tab === 'league' && <div className="space-y-3">
-        {!seasonHasGames && isCommissioner && <StartSeasonCard league={league} busy={busy} onStart={launchSeason}/>} 
         {seasonHasGames && <div className="grid grid-cols-2 gap-2 lg:grid-cols-4"><Record label="Highest Score" value={records.highGame ? `${records.highGame.name} · ${records.highGame.score}` : '—'}/><Record label="Biggest Win" value={records.biggestBlowout ? `${records.biggestBlowout.name} · +${records.biggestBlowout.margin}` : '—'}/><Record label="Best Season" value={records.bestSeason ? `${records.bestSeason.name} · ${records.bestSeason.wins}-${records.bestSeason.losses}` : '—'}/><Record label="Most Titles" value={records.dynasty ? `${records.dynasty.name} · ${records.dynasty.titles}` : '—'}/></div>}
         <Panel title="Teams & Standings" sub="Tap a team, see its full roster, then trade for a player" icon={<Users className="h-5 w-5 text-[#D4AF37]"/>}>{visibleStandings.map(standing => { const member=league.members.find(item=>item.id===standing.memberId)!; return <button key={member.id} onClick={() => setSelectedTeamId(member.id)} className="flex min-h-14 w-full items-center justify-between gap-3 border-b border-white/5 px-1 py-2 text-left"><div className="min-w-0"><div className="flex items-center gap-2"><span className="truncate text-sm font-black">{displayManagerName(member)}</span>{member.isAi && <CpuBadge/>}{member.id === me?.id && <span className="rounded-full bg-[#D4AF37]/15 px-2 py-0.5 text-[8px] font-black uppercase text-[#D4AF37]">You</span>}</div><div className="text-[10px] text-zinc-500">{rosterCount(member)} players · {standing ? `${standing.wins}-${standing.losses}${standing.ties ? `-${standing.ties}` : ''}` : '0-0'}</div></div><ChevronRight className="h-4 w-4 shrink-0 text-zinc-600"/></button>; })}</Panel>
         <Panel title="League Rules" sub={isCommissioner ? 'Tap settings to edit core fantasy rules' : 'League settings'} icon={<Settings className="h-5 w-5 text-[#D4AF37]"/>}><button onClick={() => setSettingsOpen(open => !open)} className="flex min-h-11 w-full items-center justify-between rounded-xl bg-black/25 px-3 text-xs font-black uppercase"><span>{settingsOpen ? 'Hide Settings' : 'Open Settings'}</span><ChevronRight className={`h-4 w-4 transition ${settingsOpen ? 'rotate-90' : ''}`}/></button>{settingsOpen && <div className="grid gap-2 pt-2 sm:grid-cols-3"><Rule label="Scoring" value={settings.scoringFormat || 'ppr'} disabled={!isCommissioner} options={[["ppr","Full PPR"],["half_ppr","Half PPR"],["standard","Standard"]]} onChange={value => updateLeagueSettings(league.id,{scoringFormat:value} as any)}/><Rule label="Waivers" value={waiverType} disabled={!isCommissioner} options={[["priority","Rolling Priority"],["faab","FAAB"]]} onChange={value => updateLeagueSettings(league.id,{waiverType:value} as any)}/><Rule label="IR Slots" value={String(settings.irSlots ?? 2)} disabled={!isCommissioner} options={[["0","0"],["1","1"],["2","2"],["3","3"]]} onChange={value => updateLeagueSettings(league.id,{irSlots:Number(value)} as any)}/></div>}</Panel>
@@ -540,7 +530,7 @@ const Panel = ({title,sub,icon,children}:{title:string;sub:string;icon:React.Rea
 const Empty = ({text}:{text:string}) => <div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-xs font-semibold leading-5 text-zinc-600">{text}</div>;
 const Action = ({text,label,onClick}:{text:string;label:string;onClick?:()=>void}) => <button disabled={!onClick} onClick={onClick} className="flex min-h-12 w-full items-center justify-between gap-3 border-b border-white/5 text-left text-xs disabled:cursor-default"><span>{text}</span><span className="shrink-0 text-[9px] font-black uppercase text-[#D4AF37]">{label}</span></button>;
 const Record = ({label,value}:{label:string;value:string}) => <div className="rounded-xl border border-white/10 bg-[#101318] p-3"><div className="text-[8px] font-black uppercase tracking-wider text-zinc-600">{label}</div><div className="mt-1 truncate text-xs font-black">{value}</div></div>;
-const Score = ({name,points,projection,scheduled=false}:{name:string;points:number;projection?:number;scheduled?:boolean}) => <div className="min-w-0 text-center"><div className="truncate text-[10px] font-black uppercase text-zinc-400">{name}</div><div className="mt-1 text-3xl font-black">{scheduled ? '—' : Number(points || 0).toFixed(1)}</div>{scheduled ? <div className="text-[9px] font-black uppercase text-zinc-600">Scheduled</div> : projection !== undefined && projection > 0 && <div className="text-[9px] text-zinc-600">{Number(projection).toFixed(1)} proj</div>}</div>;
+const Score = ({name,points,projection,status}:{name:string;points:number;projection?:number;status:'Scheduled'|'Live'|'Final'}) => <div className="min-w-0 text-center"><div className="truncate text-[10px] font-black uppercase text-zinc-400">{name}</div><div className="mt-1 text-3xl font-black">{status==='Scheduled' ? '—' : Number(points || 0).toFixed(1)}</div><div className={`text-[9px] font-black uppercase ${status==='Live'?'text-amber-300':'text-zinc-600'}`}>{status}</div>{status!=='Scheduled' && projection !== undefined && projection > 0 && <div className="text-[9px] text-zinc-600">{Number(projection).toFixed(1)} proj</div>}</div>;
 
 const Rule = ({label,value,disabled,options,onChange}:{label:string;value:string;disabled:boolean;options:string[][];onChange:(value:string)=>void}) => <label className="rounded-xl bg-black/25 p-3"><span className="mb-1 block text-[8px] font-black uppercase text-zinc-600">{label}</span><select disabled={disabled} value={value} onChange={event => onChange(event.target.value)} className="min-h-10 w-full bg-transparent text-xs font-bold disabled:text-zinc-500">{options.map(option => <option key={option[0]} value={option[0]}>{option[1]}</option>)}</select></label>;
 
@@ -568,8 +558,6 @@ const TeamNeedStrip = ({member}:{member?:LeagueMember}) => {
     .slice(0,3);
   return <div className="grid grid-cols-2 gap-2"><div className="rounded-xl bg-red-500/[.06] p-2"><div className="text-[8px] font-black uppercase text-red-300">Roster needs</div><div className="mt-1 text-[10px] font-bold">{needs.length ? needs.map(position=>`${position} ${counts[position]}/${targets[position]}`).join(' · ') : 'No obvious depth hole'}</div></div><div className="rounded-xl bg-emerald-500/[.06] p-2"><div className="text-[8px] font-black uppercase text-emerald-300">Deepest rooms</div><div className="mt-1 text-[10px] font-bold">{strengths.length ? strengths.map(position=>`${position} ${counts[position]}`).join(' · ') : 'Building'}</div></div></div>;
 };
-
-const StartSeasonCard = ({league,busy,onStart}:{league:League;busy:boolean;onStart:()=>void}) => <section className="rounded-2xl border border-[#D4AF37]/30 bg-[#D4AF37]/[.06] p-4"><div className="flex items-start gap-3"><Play className="mt-0.5 h-5 w-5 shrink-0 text-[#D4AF37]"/><div className="min-w-0 flex-1"><div className="text-xs font-black uppercase text-[#D4AF37]">Draft complete · ready for football</div><p className="mt-1 text-xs leading-5 text-zinc-400">All drafted rosters are saved. Start the {league.settings?.seasonGames || 17}-game season when you are ready.</p></div></div><button disabled={busy} onClick={onStart} className="mt-3 min-h-12 w-full rounded-xl bg-[#D4AF37] text-xs font-black uppercase text-black disabled:opacity-40"><Play className="mr-2 inline h-4 w-4"/>Start {league.settings?.seasonGames || 17}-Game Season</button></section>;
 
 const TeamRosterDrawer = ({member,me,comparePlayers,valueLabel,onClose,onTrade}:{member:LeagueMember;me?:LeagueMember;comparePlayers:(a:Player,b:Player)=>number;valueLabel:(player:Player)=>string;onClose:()=>void;onTrade:(playerId:string)=>void}) => {
   const roster=(member.roster||[]).filter(player=>STANDARD_POSITIONS.has(player.position)).sort(comparePlayers);

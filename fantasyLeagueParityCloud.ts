@@ -66,7 +66,9 @@ export async function fetchFantasyParityState(leagueId:string,week:number){
   await ensureOnlineSession();
   const [lineups,scores,members,archives]=await Promise.all([
     supabase.from('ball_knower_weekly_lineups').select('*').eq('league_id',leagueId).eq('week_number',week),
-    supabase.from('ball_knower_weekly_scores').select('*').eq('league_id',leagueId).eq('week_number',week),
+    // Scores power standings and the full-season matchup list, so fetch every
+    // week while keeping editable lineup data scoped to the selected week.
+    supabase.from('ball_knower_weekly_scores').select('*').eq('league_id',leagueId),
     supabase.from('ball_knower_league_members').select('id,faab_balance,ir_player_ids').eq('league_id',leagueId),
     supabase.from('ball_knower_season_archive').select('season_number,result,settings,created_at').eq('league_id',leagueId).order('season_number',{ascending:false}).limit(25),
   ]);

@@ -202,6 +202,13 @@ export function simulateFantasyWeek(
 
 export type FantasyWeekPairing = Pick<SimulationGame,'id'|'week'|'homeMemberId'|'awayMemberId'>;
 
+export type FantasyWeeklyScoreRecord = {
+  memberId:string;
+  week:number;
+  livePoints:number;
+  isFinal:boolean;
+};
+
 export function buildFantasyWeekPairings(members: LeagueMember[], week: number): FantasyWeekPairing[] {
   if (members.length < 2 || members.length % 2 !== 0) throw new Error('Fantasy weeks require an even number of teams.');
   const rotation=[...members];
@@ -218,6 +225,31 @@ export function buildFantasyWeekPairings(members: LeagueMember[], week: number):
     games.push({id:`game-w${week}-${home.id}-vs-${away.id}`,week,homeMemberId:home.id,awayMemberId:away.id});
   }
   return games;
+}
+
+export function buildScoredFantasyGames(
+  members: LeagueMember[],
+  weeks: number,
+  scores: FantasyWeeklyScoreRecord[],
+): SimulationGame[] {
+  const schedule=Array.from({length:weeks},(_,index)=>buildFantasyWeekPairings(members,index+1)).flat();
+  return schedule.flatMap(pairing=>{
+    const home=scores.find(score=>score.week===pairing.week&&score.memberId===pairing.homeMemberId);
+    const away=scores.find(score=>score.week===pairing.week&&score.memberId===pairing.awayMemberId);
+    if(!home?.isFinal||!away?.isFinal)return [];
+    const homeScore=Number(home.livePoints)||0;
+    const awayScore=Number(away.livePoints)||0;
+    const isTie=homeScore===awayScore;
+    return [{
+      ...pairing,
+      homeScore,
+      awayScore,
+      winnerId:isTie?'':homeScore>awayScore?pairing.homeMemberId:pairing.awayMemberId,
+      loserId:isTie?'':homeScore>awayScore?pairing.awayMemberId:pairing.homeMemberId,
+      isTie,
+      keyMatchupFactor:'Official weekly fantasy score.',
+    }];
+  });
 }
 
 export function simulateFullSeason(members: LeagueMember[], targetGames: 16 | 17 = 17, style: 'realistic'|'balanced'|'chaos' = 'realistic'): SeasonResult {

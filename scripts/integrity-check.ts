@@ -1,7 +1,7 @@
 import { PLAYERS_DATABASE } from '../players';
 import { getDraftPositionGroup, validateRosterShape } from '../rosterRules';
 import { getLiveFantasyDraftGroup, validateLiveFantasyRoster } from '../liveFantasyRules';
-import { buildFantasyWeekPairings, buildStandings, simulateFantasyPlayoffs, simulateFantasyWeek } from '../simulation';
+import { buildFantasyWeekPairings, buildScoredFantasyGames, buildStandings, simulateFantasyPlayoffs, simulateFantasyWeek } from '../simulation';
 import {
   buildRealTeamRoster,
   FANTASY_DRAFT_ROUNDS,
@@ -77,6 +77,15 @@ for(const member of testMembers){
   const scheduledGames=fullSchedule.filter(game=>game.homeMemberId===member.id||game.awayMemberId===member.id).length;
   check(scheduledGames===17,`${member.userName}: preseason fantasy schedule produced ${scheduledGames}/17 matchups.`);
 }
+const openingPairing=buildFantasyWeekPairings(testMembers,1)[0];
+const pendingScores=[
+  {memberId:openingPairing.homeMemberId,week:1,livePoints:112.4,isFinal:false},
+  {memberId:openingPairing.awayMemberId,week:1,livePoints:108.7,isFinal:false},
+];
+check(buildScoredFantasyGames(testMembers,17,pendingScores).length===0,'Online fantasy counted a non-final weekly score as a played matchup.');
+const finalScores=pendingScores.map(score=>({...score,isFinal:true}));
+const scoredOpening=buildScoredFantasyGames(testMembers,17,finalScores);
+check(scoredOpening.length===1&&scoredOpening[0].homeScore===112.4&&scoredOpening[0].winnerId===openingPairing.homeMemberId,'Official weekly scores did not produce the expected fantasy result.');
 const fantasyStandings=buildStandings(testMembers,weeklyGames);
 check(fantasyStandings.every((standing,index)=>index===0||fantasyStandings[index-1].winPercentage>=standing.winPercentage),'Fantasy standings are not sorted by win percentage.');
 const fantasyPlayoffs=simulateFantasyPlayoffs(testMembers,fantasyStandings,6,18);
