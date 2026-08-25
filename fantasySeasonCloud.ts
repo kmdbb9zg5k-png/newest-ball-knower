@@ -2,14 +2,15 @@ import { ensureOnlineSession, supabase } from './supabase';
 import { League, Player } from './types';
 import { PLAYERS_DATABASE } from './players';
 
-export type TradeOffer={id:string;leagueId:string;proposerMemberId:string;recipientMemberId:string;offeredPlayerIds:string[];requestedPlayerIds:string[];status:string;note?:string;createdAt:string;resolvedAt?:string};
+export type TradeOffer={id:string;leagueId:string;proposerMemberId:string;recipientMemberId:string;offeredPlayerIds:string[];requestedPlayerIds:string[];proposerDropPlayerIds:string[];recipientDropPlayerIds:string[];status:string;note?:string;createdAt:string;resolvedAt?:string};
+export type TradeResolution={tradeId?:string;status:string;reason?:string};
 export type WaiverClaim={id:string;leagueId:string;memberId:string;playerId:string;dropPlayerId?:string;priority:number;status:string;createdAt:string;processedAt?:string};
 export type LeagueTransaction={id:string;leagueId:string;memberId?:string;transactionType:string;summary:string;metadata:any;createdAt:string};
 export type LeagueInjury={id:string;leagueId:string;memberId:string;playerId:string;playerName:string;injuryType:string;severity:'minor'|'moderate'|'major'|'season_ending';weeksRemaining:number;onIr:boolean;status:'questionable'|'doubtful'|'out'|'ir'|'cleared';createdAt:string;updatedAt:string};
 export type LeagueMessage={id:string;leagueId:string;memberName:string;body:string;kind:'chat'|'announcement'|'receipt'|'reaction';replyTo?:string;createdAt:string};
 export type WeeklyInjuryRollResult={week:number;created:number;reused:boolean};
 
-const mapTrade=(x:any):TradeOffer=>({id:x.id,leagueId:x.league_id,proposerMemberId:x.proposer_member_id,recipientMemberId:x.recipient_member_id,offeredPlayerIds:x.offered_player_ids||[],requestedPlayerIds:x.requested_player_ids||[],status:x.status,note:x.note||undefined,createdAt:x.created_at,resolvedAt:x.resolved_at||undefined});
+const mapTrade=(x:any):TradeOffer=>({id:x.id,leagueId:x.league_id,proposerMemberId:x.proposer_member_id,recipientMemberId:x.recipient_member_id,offeredPlayerIds:x.offered_player_ids||[],requestedPlayerIds:x.requested_player_ids||[],proposerDropPlayerIds:x.proposer_drop_player_ids||[],recipientDropPlayerIds:x.recipient_drop_player_ids||[],status:x.status,note:x.note||undefined,createdAt:x.created_at,resolvedAt:x.resolved_at||undefined});
 const mapClaim=(x:any):WaiverClaim=>({id:x.id,leagueId:x.league_id,memberId:x.member_id,playerId:x.player_id,dropPlayerId:x.drop_player_id||undefined,priority:Number(x.priority)||999,status:x.status,createdAt:x.created_at,processedAt:x.processed_at||undefined});
 const mapTxn=(x:any):LeagueTransaction=>({id:x.id,leagueId:x.league_id,memberId:x.member_id||undefined,transactionType:x.transaction_type,summary:x.summary,metadata:x.metadata||{},createdAt:x.created_at});
 const mapInjury=(x:any):LeagueInjury=>({id:x.id,leagueId:x.league_id,memberId:x.member_id,playerId:x.player_id,playerName:x.player_name,injuryType:x.injury_type,severity:x.severity,weeksRemaining:Number(x.weeks_remaining)||0,onIr:Boolean(x.on_ir),status:x.status,createdAt:x.created_at,updatedAt:x.updated_at});
@@ -29,20 +30,54 @@ export async function fetchSeasonOperations(leagueId:string){
   return {trades:(trades.data||[]).map(mapTrade),claims:(claims.data||[]).map(mapClaim),transactions:(transactions.data||[]).map(mapTxn),injuries:(injuries.data||[]).map(mapInjury),messages:(messages.data||[]).map(mapMessage)};
 }
 
-export async function proposeTrade(league:League,proposerMemberId:string,recipientMemberId:string,offeredPlayerIds:string[],requestedPlayerIds:string[],note=''){
+export async function proposeTrade(
+  league:League,
+  proposerMemberId:string,
+  recipientMemberId:string,
+  offeredPlayerIds:string[],
+  requestedPlayerIds:string[],
+  proposerDropPlayerIds:string[]=[],
+  note='',
+):Promise<TradeResolution>{
   if(!supabase) throw new Error('Online multiplayer is not configured.');
   await ensureOnlineSession();
   if(proposerMemberId===recipientMemberId) throw new Error('Choose another owner to trade with.');
-  if(!offeredPlayerIds.length&&!requestedPlayerIds.length) throw new Error('Add at least one player to the trade.');
-  if(offeredPlayerIds.length!==requestedPlayerIds.length) throw new Error('Ball Knower trades must swap the same number of players.');
-  const {error}=await supabase.rpc('propose_ball_knower_trade',{p_league_id:league.id,p_recipient_member_id:recipientMemberId,p_offered_player_ids:offeredPlayerIds,p_requested_player_ids:requestedPlayerIds,p_note:note||null});
+  if(!offeredPlayerIds.length||!requestedPlayerIds.length) throw new Error('Choose at least one player from each team.');
+  if(offeredPlayerIds.length>3||requestedPlayerIds.length>3) throw new Error('Trade packages can include up to three players on each side.');
+  const {data,error}=await supabase.rpc('propose_ball_knower_trade_v2',{
+    p_league_id:league.id,
+    p_recipient_member_id:recipientMemberId,
+    p_offered_player_ids:offeredPlayerIds,
+    p_requested_player_ids:requestedPlayerIds,
+    p_proposer_drop_player_ids:proposerDropPlayerIds,
+    p_note:note||null,
+  });
   if(error) throw error;
+  const tradeId=String(data||'');
+  if(!tradeId) throw new Error('The trade was not created.');
+  const recipient=league.members.find(member=>member.id===recipientMemberId);
+  if(recipient?.isAi){
+    const decision=await resolveTrade(tradeId,'accepted');
+    return {...decision,tradeId};
+  }
+  return {tradeId,status:'pending',reason:'Offer sent.'};
 }
 
-export async function resolveTrade(tradeId:string,status:'accepted'|'rejected'|'cancelled'|'vetoed'){
-  if(!supabase) return; await ensureOnlineSession();
-  const {error}=await supabase.rpc('resolve_ball_knower_trade',{p_trade_id:tradeId,p_action:status});
+export async function resolveTrade(
+  tradeId:string,
+  status:'accepted'|'rejected'|'cancelled'|'vetoed'|'approved',
+  recipientDropPlayerIds:string[]=[],
+):Promise<TradeResolution>{
+  if(!supabase) return {tradeId,status};
+  await ensureOnlineSession();
+  const {data,error}=await supabase.rpc('resolve_ball_knower_trade_v2',{
+    p_trade_id:tradeId,
+    p_action:status,
+    p_recipient_drop_player_ids:recipientDropPlayerIds,
+  });
   if(error) throw error;
+  const result=(data||{}) as {status?:string;reason?:string};
+  return {tradeId,status:result.status||status,reason:result.reason};
 }
 
 export async function submitWaiverClaim(leagueId:string,memberId:string,playerId:string,dropPlayerId?:string,priority=999){
