@@ -61,6 +61,15 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, o
   const result = league.seasonResult;
   const hasLockedDraftOrder = league.status === 'completed' && Boolean(result?.draftOrder?.length);
 
+  // Draft Order Game results are deliberately retained until the real fantasy
+  // season launches, but they are not fantasy-season matchups/records. Live
+  // draft finalization moves the league back to `drafting`; startSimulation is
+  // the authoritative transition to `completed` for the actual fantasy season.
+  const postDraftLeague = useMemo<League>(() => {
+    if (!draftComplete || league.status === 'completed') return league;
+    return { ...league, seasonResult: undefined };
+  }, [draftComplete, league]);
+
   useEffect(() => {
     if (draftComplete) setMode('season');
   }, [draftComplete]);
@@ -71,7 +80,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, o
         <OwnerCareerSync league={league} />
         <div className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-5">
           <ModeErrorBoundary key={`postdraft-${lazyVersion}`} onRetry={retryMode}>
-            <FantasyLeaguePostDraft league={league} onGoToSimulation={onGoToSimulation} />
+            <FantasyLeaguePostDraft league={postDraftLeague} onGoToSimulation={onGoToSimulation} />
           </ModeErrorBoundary>
         </div>
       </div>
