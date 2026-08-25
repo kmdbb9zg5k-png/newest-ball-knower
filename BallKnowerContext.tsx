@@ -641,6 +641,10 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
 
     const isFantasySeason = league.liveDraft?.status === 'completed';
+    if (isFantasySeason) {
+      showToast('Online fantasy matchups cannot be simulated. Scores come from weekly scoring records.');
+      return false;
+    }
     const unreadyMembers = league.members.filter(m => m.status !== 'ready' || !m.roster || m.roster.length < TOTAL_ROSTER_SIZE || (isFantasySeason && validateLiveFantasyRoster(m.roster).length > 0));
     if (unreadyMembers.length > 0) {
       showToast(`Cannot simulate: ${unreadyMembers.length} member(s) have not submitted their roster.`);
@@ -684,7 +688,12 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const advanceFantasyWeek = async (leagueId:string):Promise<boolean> => {
     const league = leagues.find(item => item.id === leagueId);
-    if (!league || league.liveDraft?.status !== 'completed' || !league.seasonResult) return false;
+    if (!league) return false;
+    if (league.liveDraft?.status === 'completed') {
+      showToast('Online fantasy matchups cannot be simulated or manually advanced.');
+      return false;
+    }
+    if (!league.seasonResult) return false;
     if (!isLeagueCommissioner(league,currentUser?.id,isDemoMode)) {
       showToast(`Only Commissioner ${getLeagueCommissionerName(league)} can advance the season.`);
       return false;
