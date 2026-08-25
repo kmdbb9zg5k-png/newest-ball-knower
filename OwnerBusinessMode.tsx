@@ -62,8 +62,8 @@ export const OwnerBusinessMode:React.FC<{onBack:()=>void}>=({onBack})=>{
   const winChance=Math.max(.32,Math.min(.72,.47+(footballStrength-75)/220+(state.staffMorale-50)/500));
   const isPreseason=state.week===0;
   const won=!isPreseason&&Math.random()<winChance;
-  const completedWins=state.wins+(won?1:0);
-  const completedLosses=state.losses+(won?0:1);
+  const completedWins=isPreseason?state.wins:state.wins+(won?1:0);
+  const completedLosses=isPreseason?state.losses:state.losses+(won?0:1);
   const seasonEnded=!isPreseason&&state.week>=17;
   const moment=state.week===0?'PRESEASON':`WEEK ${state.week}`;
   const decisionEntry=`${state.season} · ${moment} · ${d.title} — ${c.label}. ${isPreseason?'No regular-season game was played.':won?'The team won its next game.':'The team lost its next game.'}`;
