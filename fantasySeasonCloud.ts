@@ -30,7 +30,7 @@ export async function fetchSeasonOperations(leagueId:string){
   return {trades:(trades.data||[]).map(mapTrade),claims:(claims.data||[]).map(mapClaim),transactions:(transactions.data||[]).map(mapTxn),injuries:(injuries.data||[]).map(mapInjury),messages:(messages.data||[]).map(mapMessage)};
 }
 
-export async function proposeTrade(
+export async function proposeTradeWithResolution(
   league:League,
   proposerMemberId:string,
   recipientMemberId:string,
@@ -57,13 +57,26 @@ export async function proposeTrade(
   if(!tradeId) throw new Error('The trade was not created.');
   const recipient=league.members.find(member=>member.id===recipientMemberId);
   if(recipient?.isAi){
-    const decision=await resolveTrade(tradeId,'accepted');
+    const decision=await resolveTradeWithResult(tradeId,'accepted');
     return {...decision,tradeId};
   }
   return {tradeId,status:'pending',reason:'Offer sent.'};
 }
 
-export async function resolveTrade(
+// Compatibility wrapper for existing league screens. Those callers only need
+// completion/error semantics and historically returned Promise<void>.
+export async function proposeTrade(
+  league:League,
+  proposerMemberId:string,
+  recipientMemberId:string,
+  offeredPlayerIds:string[],
+  requestedPlayerIds:string[],
+  note='',
+):Promise<void>{
+  await proposeTradeWithResolution(league,proposerMemberId,recipientMemberId,offeredPlayerIds,requestedPlayerIds,[],note);
+}
+
+export async function resolveTradeWithResult(
   tradeId:string,
   status:'accepted'|'rejected'|'cancelled'|'vetoed'|'approved',
   recipientDropPlayerIds:string[]=[],
@@ -78,6 +91,14 @@ export async function resolveTrade(
   if(error) throw error;
   const result=(data||{}) as {status?:string;reason?:string};
   return {tradeId,status:result.status||status,reason:result.reason};
+}
+
+// Compatibility wrapper for existing review/season screens.
+export async function resolveTrade(
+  tradeId:string,
+  status:'accepted'|'rejected'|'cancelled'|'vetoed'|'approved',
+):Promise<void>{
+  await resolveTradeWithResult(tradeId,status);
 }
 
 export async function submitWaiverClaim(leagueId:string,memberId:string,playerId:string,dropPlayerId?:string,priority=999){
