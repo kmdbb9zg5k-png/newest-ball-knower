@@ -28,8 +28,6 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
   const [countdownStartedAt, setCountdownStartedAt] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const autoStartAttempted = useRef(false);
-  const startRequested = useRef(false);
-  const startWatchdog = useRef<number | null>(null);
   const picks = result.draftOrder || [];
   const humanCount = picks.filter(pick => !pick.isAi).length;
   const cpuCount = picks.length - humanCount;
@@ -79,21 +77,6 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
     return () => window.clearInterval(timer);
   }, [countdownStartedAt, league.liveDraft]);
 
-  useEffect(() => () => {
-    if (startWatchdog.current !== null) window.clearTimeout(startWatchdog.current);
-  }, []);
-
-  useEffect(() => {
-    if (!startRequested.current || !league.liveDraft) return;
-    startRequested.current = false;
-    if (startWatchdog.current !== null) {
-      window.clearTimeout(startWatchdog.current);
-      startWatchdog.current = null;
-    }
-    setStarting(false);
-    onGoToDraft();
-  }, [league.liveDraft, onGoToDraft]);
-
   const countdownRemaining = countdownStartedAt
     ? Math.max(0, Math.ceil((new Date(countdownStartedAt).getTime() + COUNTDOWN_SECONDS * 1000 - now) / 1000))
     : null;
@@ -113,16 +96,11 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
     await ensureOnlineSession();
     const { error } = await supabase.rpc('start_ball_knower_live_draft', { p_league_id: league.id });
     if (error) throw error;
-    startRequested.current = true;
-    if (startWatchdog.current !== null) window.clearTimeout(startWatchdog.current);
-    startWatchdog.current = window.setTimeout(() => {
-      if (!startRequested.current) return;
-      startRequested.current = false;
-      startWatchdog.current = null;
-      setStarting(false);
-      autoStartAttempted.current = false;
-      showToast('The draft is saved. If it does not open automatically, tap Open Draft.');
-    }, 3500);
+
+    // The RPC is authoritative and returns only after the shared draft exists. Navigate
+    // immediately instead of depending on a realtime event that may be delayed or missed.
+    // App routing keeps this league in the live-draft flow while cloud state hydrates.
+    onGoToDraft();
     return true;
   };
 
@@ -140,7 +118,6 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
       })
       .catch((error: any) => {
         autoStartAttempted.current = false;
-        startRequested.current = false;
         setStarting(false);
         showToast(error?.message || 'The fantasy draft could not start.');
       });
