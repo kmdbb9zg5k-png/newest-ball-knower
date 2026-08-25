@@ -61,7 +61,13 @@ function isCrossSiteBrowserRequest(req: any) {
   }
 }
 
-/** Reads and parses the raw JSON request while enforcing a real byte ceiling. */
+const bodyError = (message: string, statusCode: number) => {
+  const error = new Error(message);
+  (error as any).statusCode = statusCode;
+  return error;
+};
+
+/** Reads and parses the request while enforcing the byte ceiling for both raw and pre-parsed Vercel bodies. */
 async function readJsonBody(req: any) {
   let total = 0;
   const chunks: Buffer[] = [];
@@ -69,17 +75,21 @@ async function readJsonBody(req: any) {
   for await (const chunk of req) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     total += buffer.length;
-    if (total > MAX_BODY_BYTES) {
-      const error = new Error('Report too large');
-      (error as any).statusCode = 413;
-      throw error;
-    }
+    if (total > MAX_BODY_BYTES) throw bodyError('Report too large', 413);
     chunks.push(buffer);
   }
 
   if (!chunks.length) {
     const parsedBody = req.body;
-    return parsedBody && typeof parsedBody === 'object' && !Array.isArray(parsedBody) ? parsedBody : {};
+    if (!parsedBody || typeof parsedBody !== 'object' || Array.isArray(parsedBody)) return {};
+    let serialized: string;
+    try {
+      serialized = JSON.stringify(parsedBody);
+    } catch {
+      throw bodyError('Invalid JSON body', 400);
+    }
+    if (Buffer.byteLength(serialized, 'utf8') > MAX_BODY_BYTES) throw bodyError('Report too large', 413);
+    return parsedBody;
   }
 
   const raw = Buffer.concat(chunks).toString('utf8');
@@ -87,9 +97,7 @@ async function readJsonBody(req: any) {
     const parsed = JSON.parse(raw);
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
   } catch {
-    const error = new Error('Invalid JSON body');
-    (error as any).statusCode = 400;
-    throw error;
+    throw bodyError('Invalid JSON body', 400);
   }
 }
 
