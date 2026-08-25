@@ -6,16 +6,16 @@ const HIDDEN_TRACK_TITLES = new Set([
 ]);
 
 const BUNDLED_TRACKS = [
-  ['From the A to South Jersey', '/audio/From-the-A-to-South-Jersey-full-v5.mp3'],
-  ['Westbound Grind', '/audio/Westbound-Grind.mp3'],
-  ['Bloody Love', '/audio/Bloody-Love.mp3'],
-  ['G-O-A-T', '/audio/G-O-A-T.mp3'],
-  ['In My Blood', '/audio/In-My-Blood.mp3'],
-  ['Faded Pulse', '/audio/Faded-Pulse.mp3'],
-  ['Corner To Cleats', '/audio/Corner-To-Cleats.mp3'],
-  ['Low Tide Calling', '/audio/Low-Tide-Calling.mp3'],
-  ['Sahara Pulse', '/audio/Sahara-Pulse.mp3'],
-  ['Sunset on the Cut', '/audio/Sunset-on-the-Cut.mp3'],
+  ['From the A to South Jersey', '/audio/From-the-A-to-South-Jersey-full-v5.mp3', true],
+  ['Westbound Grind', '/audio/Westbound-Grind.mp3', false],
+  ['Bloody Love', '/audio/Bloody-Love.mp3', false],
+  ['G-O-A-T', '/audio/G-O-A-T.mp3', false],
+  ['In My Blood', '/audio/In-My-Blood.mp3', false],
+  ['Faded Pulse', '/audio/Faded-Pulse.mp3', false],
+  ['Corner To Cleats', '/audio/Corner-To-Cleats.mp3', false],
+  ['Low Tide Calling', '/audio/Low-Tide-Calling.mp3', false],
+  ['Sahara Pulse', '/audio/Sahara-Pulse.mp3', false],
+  ['Sunset on the Cut', '/audio/Sunset-on-the-Cut.mp3', false],
 ] as const;
 
 function cleanTitle(pathname: string) {
@@ -60,7 +60,7 @@ export default async function handler(_req: any, res: any) {
       pathname: blob.pathname,
     }));
 
-    for (const [title, url] of BUNDLED_TRACKS) {
+    for (const [title, url, manualOnly] of BUNDLED_TRACKS) {
       const existing = tracks.findIndex(track => track.title.toLowerCase() === title.toLowerCase());
       const bundled = {
         id: `bundled-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
@@ -71,6 +71,7 @@ export default async function handler(_req: any, res: any) {
         durationSec: 0,
         url,
         pathname: url,
+        manualOnly,
       };
       if (existing >= 0) tracks[existing] = bundled;
       else tracks.push(bundled);

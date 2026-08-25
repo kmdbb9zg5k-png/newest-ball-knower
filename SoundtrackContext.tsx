@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import { globalSoundtrackEngine, SoundtrackTrack } from './soundtrackEngine';
 import { loadUserState, saveUserState } from './userStateCloud';
 
-type MediaTrack = SoundtrackTrack & { url?: string };
+type MediaTrack = SoundtrackTrack & { url?: string; manualOnly?: boolean };
 
 interface SoundtrackContextType {
   isPlaying: boolean;
@@ -33,11 +33,25 @@ const STORAGE_KEY_TRACK = 'bk_soundtrack_track_idx';
 const STORAGE_KEY_LAST_TRACK = 'bk_soundtrack_last_track_id';
 const FALLBACK_TRACK: MediaTrack = { id:'loading', title:'Ball Knower', subtitle:'Loading soundtrack…', tempoBpm:0, mood:'Ball Knower', durationSec:0 };
 
+const automaticTrackIndexes = (tracks: MediaTrack[]) => tracks
+  .map((track, index) => ({ track, index }))
+  .filter(({ track }) => !track.manualOnly)
+  .map(({ index }) => index);
+
 const randomTrackIndex = (tracks: MediaTrack[], excludedIndex = -1) => {
-  if (tracks.length <= 1) return 0;
-  let next = excludedIndex;
-  while (next === excludedIndex) next = Math.floor(Math.random() * tracks.length);
-  return next;
+  const eligible = automaticTrackIndexes(tracks).filter(index => index !== excludedIndex);
+  const fallback = automaticTrackIndexes(tracks);
+  const choices = eligible.length ? eligible : fallback;
+  return choices.length ? choices[Math.floor(Math.random() * choices.length)] : 0;
+};
+
+const adjacentTrackIndex = (tracks: MediaTrack[], currentIndex: number, direction: 1 | -1) => {
+  if (!tracks.length) return 0;
+  for (let offset = 1; offset <= tracks.length; offset += 1) {
+    const index = (currentIndex + direction * offset + tracks.length) % tracks.length;
+    if (!tracks[index]?.manualOnly) return index;
+  }
+  return currentIndex;
 };
 
 const absoluteTrackUrl = (url: string) => new URL(url, window.location.href).href;
@@ -76,7 +90,9 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         let lastTrackId = '';
         try { lastTrackId = localStorage.getItem(STORAGE_KEY_LAST_TRACK) || ''; } catch {}
         const lastIndex = loaded.findIndex(track => track.id === lastTrackId);
-        setCurrentTrackIndex(randomTrackIndex(loaded, lastIndex));
+        const nextIndex = randomTrackIndex(loaded, lastIndex);
+        currentTrackIndexRef.current = nextIndex;
+        setCurrentTrackIndex(nextIndex);
       }
     }).catch(()=>{ tracksRef.current = []; setTracks([]); });
   }, []);
@@ -159,7 +175,8 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [isMuted, volume]);
 
   const startIndex = useCallback((idx:number) => {
-    if (isIntroActive || !tracks.length) return;
+    shouldPlayRef.current = true;
+    if (introActiveRef.current || !tracks.length) return;
     const normalized = (idx + tracks.length) % tracks.length;
     const track = tracks[normalized];
     const a = audioRef.current;
@@ -171,7 +188,12 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (a.src !== nextUrl) a.src = nextUrl;
     a.volume = volume; a.muted = isMuted;
     a.play().then(()=>setIsPlaying(true)).catch(()=>setIsPlaying(false));
-  }, [tracks,isIntroActive,volume,isMuted]);
+  }, [tracks,volume,isMuted]);
+
+  useEffect(() => {
+    if (!tracks.length || introActiveRef.current || !shouldPlayRef.current) return;
+    startIndex(currentTrackIndexRef.current);
+  }, [tracks, startIndex]);
 
   useEffect(() => {
     const a = audioRef.current;
@@ -191,13 +213,14 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const setVolume = useCallback((v:number) => setVolumeState(Math.max(0,Math.min(1,v))), []);
   const selectTrack = useCallback((i:number) => startIndex(i), [startIndex]);
   const nextTrack = useCallback(() => startIndex(randomTrackIndex(tracks, currentTrackIndex)), [startIndex,tracks,currentTrackIndex]);
-  const prevTrack = useCallback(() => startIndex(currentTrackIndex-1), [startIndex,currentTrackIndex]);
+  const prevTrack = useCallback(() => startIndex(adjacentTrackIndex(tracks, currentTrackIndex, -1)), [startIndex,tracks,currentTrackIndex]);
 
   const setIntroActive = useCallback((active:boolean) => {
     introActiveRef.current = active;
     setIsIntroActiveState(active);
     if (active) { shouldPlayRef.current = false; audioRef.current?.pause(); setIsPlaying(false); }
     else {
+      shouldPlayRef.current = true;
       window.setTimeout(() => startIndex(currentTrackIndex), 0);
     }
   }, [startIndex,currentTrackIndex]);
