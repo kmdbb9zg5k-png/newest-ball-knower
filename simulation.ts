@@ -189,20 +189,33 @@ export function simulateFantasyWeek(
   week: number,
   style: 'realistic'|'balanced'|'chaos' = 'realistic',
 ): SimulationGame[] {
+  const pairings=buildFantasyWeekPairings(members,week);
+  const memberById=new Map(members.map(member=>[member.id,member]));
+  const variance=style==='chaos'?1.55:style==='balanced'?1.2:.9;
+  return pairings.map(pairing=>simulateGame(
+    week,
+    memberById.get(pairing.homeMemberId)!,
+    memberById.get(pairing.awayMemberId)!,
+    variance,
+  ));
+}
+
+export type FantasyWeekPairing = Pick<SimulationGame,'id'|'week'|'homeMemberId'|'awayMemberId'>;
+
+export function buildFantasyWeekPairings(members: LeagueMember[], week: number): FantasyWeekPairing[] {
   if (members.length < 2 || members.length % 2 !== 0) throw new Error('Fantasy weeks require an even number of teams.');
   const rotation=[...members];
   const round=(week-1)%(members.length-1);
   for(let index=0;index<round;index++) rotation.splice(1,0,rotation.pop()!);
   const reverse=Math.floor((week-1)/(members.length-1))%2===1;
-  const variance=style==='chaos'?1.55:style==='balanced'?1.2:.9;
-  const games:SimulationGame[]=[];
+  const games:FantasyWeekPairing[]=[];
   for(let index=0;index<members.length/2;index++){
     const first=rotation[index];
     const second=rotation[members.length-1-index];
     const alternate=round%2===0;
     const home=(alternate!==reverse)?first:second;
     const away=home.id===first.id?second:first;
-    games.push(simulateGame(week,home,away,variance));
+    games.push({id:`game-w${week}-${home.id}-vs-${away.id}`,week,homeMemberId:home.id,awayMemberId:away.id});
   }
   return games;
 }
