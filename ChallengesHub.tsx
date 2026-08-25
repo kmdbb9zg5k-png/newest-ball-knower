@@ -74,14 +74,18 @@ export const ChallengesHub: React.FC = () => {
     }
   };
 
+  const advanceQuestion = useCallback(() => {
+    setQuestionNumber(current => current + 1);
+    void loadQuestion(tier);
+  }, [loadQuestion, tier]);
+
   useEffect(() => {
     if (!result || !triviaOpen) return;
-    const timer = window.setTimeout(() => {
-      setQuestionNumber(current => current + 1);
-      void loadQuestion(tier);
-    }, result.isCorrect ? 900 : 1400);
+    // Leave enough time to read the explanation, while keeping a fast manual
+    // skip for competitive players who are ready immediately.
+    const timer = window.setTimeout(advanceQuestion, result.isCorrect ? 1800 : 2800);
     return () => window.clearTimeout(timer);
-  }, [result, triviaOpen, tier, loadQuestion]);
+  }, [result, triviaOpen, advanceQuestion]);
 
   return (
     <div className="mx-auto max-w-5xl px-3 pb-8 pt-4 sm:px-6 sm:pt-6">
@@ -91,7 +95,7 @@ export const ChallengesHub: React.FC = () => {
           <h1 className="mt-1 font-display text-3xl font-black uppercase sm:text-5xl">Trivia</h1>
           <p className="mt-1 max-w-xl text-xs font-semibold text-zinc-500">Pick a level, answer fast, and build your Ball Knower profile.</p>
         </div>
-        <ModeGuide storageKey="bk-guide-the-gauntlet-v4" title="Trivia" summary="Choose a difficulty and answer football questions. Correct verified answers feed your Ball Knower progression." steps={["Pick a level.", "Answer the question.", "The next question loads automatically."]} />
+        <ModeGuide storageKey="bk-guide-the-gauntlet-v4" title="Trivia" summary="Choose a difficulty and answer football questions. Correct verified answers feed your Ball Knower progression." steps={["Pick a level.", "Answer the question.", "Read the result or tap Next now to keep moving."]} />
       </header>
 
       <section className="mt-3 overflow-hidden rounded-2xl border border-fuchsia-400/25 bg-[radial-gradient(circle_at_88%_8%,rgba(168,85,247,.18),transparent_34%),#0b0e13] p-3 sm:p-4">
@@ -147,7 +151,10 @@ export const ChallengesHub: React.FC = () => {
                 {submitting && <div className="mt-3 flex items-center text-xs font-bold text-zinc-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Locking in your answer…</div>}
                 {result && (
                   <div className="mt-3 rounded-xl border border-fuchsia-400/25 bg-fuchsia-400/[.05] p-3 text-xs leading-5 text-zinc-400">
-                    <div className={`font-black uppercase ${result.isCorrect ? 'text-emerald-300' : 'text-red-300'}`}>{result.isCorrect ? 'Correct · next question' : 'Missed · next question'} {result.xpAwarded > 0 && `· +${result.xpAwarded} XP`}</div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className={`font-black uppercase ${result.isCorrect ? 'text-emerald-300' : 'text-red-300'}`}>{result.isCorrect ? 'Correct' : 'Missed'} {result.xpAwarded > 0 && `· +${result.xpAwarded} XP`}</div>
+                      <button onClick={advanceQuestion} className="min-h-8 shrink-0 rounded-lg border border-fuchsia-400/25 px-2.5 text-[9px] font-black uppercase text-fuchsia-200">Next now</button>
+                    </div>
                     <div className="mt-1">{result.explanation}</div>
                     {question.practiceOnly ? <div className="mt-1 text-amber-200">Practice result only. Reconnect for verified XP and rating progress.</div> : result.progressionRecorded && <div className="mt-1 text-fuchsia-300">Saved to your BK Profile.</div>}
                   </div>
