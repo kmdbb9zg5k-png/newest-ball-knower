@@ -15,7 +15,6 @@ import {
   Save,
   Search,
   Settings,
-  Shield,
   Star,
   Trophy,
   Users,
@@ -44,7 +43,6 @@ import {
   fetchFantasyParityState,
   LINEUP_SLOTS,
   MemberFantasyMeta,
-  optimizeWeeklyLineup,
   saveMyWeeklyLineup,
   setMyIrPlayer,
   submitFaabClaim,
@@ -74,6 +72,21 @@ const displayManagerName = (member?:LeagueMember) => {
 };
 const rosterCount = (member?:LeagueMember) => member?.roster?.length || 0;
 
+const buildFantasyLineup = (roster:Player[], comparePlayers:(a:Player,b:Player)=>number) => {
+  const chosen = new Set<string>();
+  const starters:Record<string,string> = {};
+  for (const slot of LINEUP_SLOTS) {
+    const candidate = [...roster]
+      .filter(player => !chosen.has(player.id) && slot.accept(player))
+      .sort(comparePlayers)[0];
+    if (candidate) {
+      starters[slot.id] = candidate.id;
+      chosen.add(candidate.id);
+    }
+  }
+  return starters;
+};
+
 export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulation }) => {
   const { currentUser, showToast, startSimulation, updateLeagueSettings } = useBallKnower();
   const me = league.members.find(member => member.userId === currentUser?.id);
@@ -96,6 +109,8 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
   const [messages, setMessages] = useState<LeagueMessage[]>([]);
   const [transactions, setTransactions] = useState<LeagueTransaction[]>([]);
   const [rankings, setRankings] = useState<FantasyRanking[]>([]);
+  const [rankingsBusy, setRankingsBusy] = useState(true);
+  const [rankingsError, setRankingsError] = useState<string|null>(null);
   const [starters, setStarters] = useState<Record<string,string>>({});
   const [swapSlot, setSwapSlot] = useState<string>('');
   const [selectedTeamId, setSelectedTeamId] = useState<string>('');
@@ -127,16 +142,38 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
   }, [rankings]);
 
   const rankingFor = (player?:Player) => player ? rankingsByName.get(normalizeName(player.name)) : undefined;
-  const fantasyValue = (player:Player) => {
+  const projectedPointsFor = (player:Player):number|null => {
     const ranking = rankingFor(player);
-    if (ranking) return Number(ranking.projected_points_2026) || 0;
-    const multiplier = player.position === 'QB' ? 2.3 : player.position === 'RB' ? 2.65 : player.position === 'WR' ? 2.55 : player.position === 'TE' ? 1.95 : player.position === 'K' ? 1.15 : player.position === 'DST' ? 1.2 : 1;
-    return (Number(player.ovr) || 65) * multiplier;
+    if (!ranking) return null;
+    const value = Number(ranking.projected_points_2026);
+    return Number.isFinite(value) ? value : null;
+  };
+  const comparePlayers = (a:Player,b:Player) => {
+    const aProjection = projectedPointsFor(a);
+    const bProjection = projectedPointsFor(b);
+    if (aProjection !== null && bProjection !== null && aProjection !== bProjection) return bProjection-aProjection;
+    if (aProjection !== null && bProjection === null) return -1;
+    if (aProjection === null && bProjection !== null) return 1;
+    const position = a.position.localeCompare(b.position);
+    if (position) return position;
+    return a.name.localeCompare(b.name);
+  };
+  const compareLowestKnownValue = (a:Player,b:Player) => {
+    const aProjection = projectedPointsFor(a);
+    const bProjection = projectedPointsFor(b);
+    if (aProjection !== null && bProjection !== null && aProjection !== bProjection) return aProjection-bProjection;
+    if (aProjection !== null && bProjection === null) return -1;
+    if (aProjection === null && bProjection !== null) return 1;
+    const position = a.position.localeCompare(b.position);
+    if (position) return position;
+    return a.name.localeCompare(b.name);
   };
   const valueLabel = (player:Player) => {
     const ranking = rankingFor(player);
     if (ranking) return `#${ranking.overall_rank} overall · #${ranking.position_rank} ${ranking.position} · ${Number(ranking.projected_points_2026).toFixed(1)} proj`;
-    return player.position === 'DST' ? `${player.team} D/ST · Ball Knower value` : `${player.team} · ${player.position} · projection pending`;
+    if (rankingsBusy) return `${player.team} · ${player.position} · loading 2026 projection…`;
+    if (rankingsError) return `${player.team} · ${player.position} · projection unavailable`;
+    return `${player.team} · ${player.position} · no published 2026 projection`;
   };
 
   const refresh = async () => {
@@ -163,7 +200,20 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
   useEffect(() => { void refresh(); }, [league.id, week]);
   useEffect(() => {
     let active = true;
-    void loadFantasyRankings().then(data => { if (active) setRankings(data); }).catch(() => undefined);
+    setRankingsBusy(true);
+    setRankingsError(null);
+    void loadFantasyRankings()
+      .then(data => {
+        if (!active) return;
+        setRankings(data);
+        setRankingsError(data.length ? null : 'No 2026 fantasy projections are published right now.');
+      })
+      .catch((err:any) => {
+        if (!active) return;
+        setRankings([]);
+        setRankingsError(err?.message || '2026 fantasy projections could not be loaded.');
+      })
+      .finally(() => { if (active) setRankingsBusy(false); });
     return () => { active = false; };
   }, []);
 
@@ -172,9 +222,9 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
     setStarters(
       myLineup?.starters && Object.keys(myLineup.starters).length
         ? { ...myLineup.starters }
-        : optimizeWeeklyLineup(roster),
+        : buildFantasyLineup(roster, comparePlayers),
     );
-  }, [league.id, week, myLineup?.id, myLineup?.updatedAt, roster.length]);
+  }, [league.id, week, myLineup?.id, myLineup?.updatedAt, roster.length, rankingsByName]);
 
   const myMeta = memberMeta.find(item => item.memberId === me?.id);
   const irIds = myMeta?.irPlayerIds || [];
@@ -186,7 +236,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
 
   const freeAgents = useMemo(() => getLeagueFreeAgents(league, PLAYERS_DATABASE)
     .filter(player => STANDARD_POSITIONS.has(player.position))
-    .sort((a,b) => fantasyValue(b) - fantasyValue(a)), [league.members, rankingsByName]);
+    .sort(comparePlayers), [league.members, rankingsByName]);
   const visibleFreeAgents = useMemo(() => {
     const query = freeAgentQuery.trim().toLowerCase();
     return freeAgents.filter(player => !query || `${player.name} ${player.team} ${player.position}`.toLowerCase().includes(query)).slice(0, 30);
@@ -223,7 +273,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
   const saveLineup = () => run(async () => {
     if (!me) throw new Error('League membership not found.');
     if (lineupErrors.length) throw new Error(lineupErrors[0]);
-    await saveMyWeeklyLineup(league.id, week, starters, bench.map(player => player.id));
+    await saveMyWeeklyLineup(league.id, week, starters, [...bench].sort(comparePlayers).map(player => player.id));
   }, `Week ${week} lineup saved.`);
 
   const submitClaim = () => run(async () => {
@@ -304,7 +354,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
   const swapDefinition = LINEUP_SLOTS.find(slot => slot.id === swapSlot);
   const currentSwapPlayer = roster.find(player => player.id === starters[swapSlot]);
   const otherStarterIds = new Set(Object.entries(starters).filter(([slot]) => slot !== swapSlot).map(([,id]) => id).filter(Boolean));
-  const swapOptions = swapDefinition ? roster.filter(player => swapDefinition.accept(player) && !otherStarterIds.has(player.id) && !irIds.includes(player.id)).sort((a,b) => fantasyValue(b)-fantasyValue(a)) : [];
+  const swapOptions = swapDefinition ? roster.filter(player => swapDefinition.accept(player) && !otherStarterIds.has(player.id) && !irIds.includes(player.id)).sort(comparePlayers) : [];
 
   const weeklyAwards = useMemo(() => {
     const games = league.seasonResult?.games || [];
@@ -323,14 +373,17 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
   const allBkTeam = useMemo(() => {
     const pool = league.members.flatMap(member => (member.roster || [])
       .filter(player => STANDARD_POSITIONS.has(player.position))
-      .map(player => ({ member, player, score:fantasyValue(player) })));
+      .flatMap(player => {
+        const projection = projectedPointsFor(player);
+        return projection === null ? [] : [{ member, player, score:projection }];
+      }));
     const used = new Set<string>();
     const take = (label:string, test:(player:Player) => boolean, count=1) => pool
       .filter(item => test(item.player) && !used.has(item.player.id))
-      .sort((a,b) => b.score-a.score)
+      .sort((a,b) => b.score-a.score || a.player.name.localeCompare(b.player.name))
       .slice(0,count)
       .map(item => { used.add(item.player.id); return { label, ...item }; });
-    const picks = [
+    return [
       ...take('QB', player => player.position === 'QB'),
       ...take('RB', player => player.position === 'RB', 2),
       ...take('WR', player => player.position === 'WR', 2),
@@ -339,8 +392,8 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
       ...take('K', player => player.position === 'K'),
       ...take('D/ST', player => player.position === 'DST'),
     ];
-    return picks;
   }, [league.members, rankingsByName]);
+  const allBkHasDst = allBkTeam.some(item => item.label === 'D/ST');
 
   const navItems:{id:Tab;label:string;icon:React.ReactNode}[] = [
     {id:'team',label:'My Team',icon:<Users className="h-4 w-4"/>},
@@ -381,7 +434,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
             {LINEUP_SLOTS.map(slot => <LineupRow key={slot.id} label={slot.label} player={roster.find(player => player.id === starters[slot.id])} valueLabel={valueLabel} onSwap={() => setSwapSlot(slot.id)}/>) }
           </RosterSection>
           <button onClick={saveLineup} disabled={busy || lineupErrors.length > 0} className="min-h-12 w-full rounded-xl bg-[#D4AF37] text-xs font-black uppercase text-black disabled:opacity-35"><Save className="mr-2 inline h-4 w-4"/>Save Lineup</button>
-          <RosterSection title={`Bench · ${bench.length}`}>{bench.sort((a,b)=>fantasyValue(b)-fantasyValue(a)).map(player => <PlayerRow key={player.id} label="BN" player={player} valueLabel={valueLabel}/>)}</RosterSection>
+          <RosterSection title={`Bench · ${bench.length}`}>{[...bench].sort(comparePlayers).map(player => <PlayerRow key={player.id} label="BN" player={player} valueLabel={valueLabel}/>)}</RosterSection>
         </>}
       </div>}
 
@@ -393,10 +446,12 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
 
       {tab === 'players' && <div className="space-y-3">
         <div><h2 className="text-xl font-black uppercase">Players</h2><p className="text-xs text-zinc-500">Free agents, waivers and IR without salary-cap clutter.</p></div>
+        {rankingsBusy && <DataNotice text="Loading the 2026 fantasy projection board. Player actions stay available."/>}
+        {rankingsError && <DataNotice warning text="2026 fantasy projections are temporarily unavailable. Player actions still work; unranked lists use position and name only."/>}
         <Panel title="Available Players" sub={waiverType === 'faab' ? `$${myMeta?.faabBalance ?? 100} FAAB remaining` : 'Free agents and waivers'} icon={<Search className="h-5 w-5 text-[#D4AF37]"/>}>
           <input value={freeAgentQuery} onChange={event => setFreeAgentQuery(event.target.value)} placeholder="Search name, team or position…" className="min-h-12 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-sm outline-none focus:border-[#D4AF37]/50"/>
           <div className="max-h-[44dvh] space-y-1 overflow-y-auto pr-1">{visibleFreeAgents.map(player => <button key={player.id} onClick={() => setFaabPlayer(player.id)} className={`flex min-h-14 w-full items-center justify-between gap-3 rounded-xl px-3 text-left ${faabPlayer === player.id ? 'bg-[#D4AF37] text-black' : 'bg-black/25'}`}><div className="min-w-0"><div className="truncate text-xs font-black">{player.name}</div><div className={`truncate text-[9px] ${faabPlayer === player.id ? 'text-black/60' : 'text-zinc-500'}`}>{valueLabel(player)}</div></div><span className="shrink-0 text-[9px] font-black uppercase">{faabPlayer === player.id ? 'Selected' : 'Claim'}</span></button>)}</div>
-          {faabPlayer && <div className="space-y-2 rounded-xl border border-[#D4AF37]/20 bg-[#D4AF37]/5 p-3">{waiverType === 'faab' && <input type="number" min={0} max={myMeta?.faabBalance ?? 100} value={faabBid} onChange={event => setFaabBid(Number(event.target.value))} className="min-h-11 w-full rounded-xl bg-black/40 px-3 text-xs" placeholder="FAAB bid"/>}<select value={dropPlayer} onChange={event => setDropPlayer(event.target.value)} className="min-h-11 w-full rounded-xl bg-black/40 px-3 text-xs"><option value="">{roster.length >= TOTAL_ROSTER_SIZE ? 'Choose player to drop' : 'No drop needed'}</option>{roster.filter(player => player.id !== faabPlayer).sort((a,b)=>fantasyValue(a)-fantasyValue(b)).map(player => <option key={player.id} value={player.id}>{player.name} · {player.position}</option>)}</select><button disabled={busy || (roster.length >= TOTAL_ROSTER_SIZE && !dropPlayer)} onClick={submitClaim} className="min-h-11 w-full rounded-xl bg-white text-[10px] font-black uppercase text-black disabled:opacity-30">Submit Claim</button></div>}
+          {faabPlayer && <div className="space-y-2 rounded-xl border border-[#D4AF37]/20 bg-[#D4AF37]/5 p-3">{waiverType === 'faab' && <input type="number" min={0} max={myMeta?.faabBalance ?? 100} value={faabBid} onChange={event => setFaabBid(Number(event.target.value))} className="min-h-11 w-full rounded-xl bg-black/40 px-3 text-xs" placeholder="FAAB bid"/>}<select value={dropPlayer} onChange={event => setDropPlayer(event.target.value)} className="min-h-11 w-full rounded-xl bg-black/40 px-3 text-xs"><option value="">{roster.length >= TOTAL_ROSTER_SIZE ? 'Choose player to drop' : 'No drop needed'}</option>{roster.filter(player => player.id !== faabPlayer).sort(compareLowestKnownValue).map(player => <option key={player.id} value={player.id}>{player.name} · {player.position}</option>)}</select><button disabled={busy || (roster.length >= TOTAL_ROSTER_SIZE && !dropPlayer)} onClick={submitClaim} className="min-h-11 w-full rounded-xl bg-white text-[10px] font-black uppercase text-black disabled:opacity-30">Submit Claim</button></div>}
           {claims.filter(claim => claim.memberId === me?.id && claim.status === 'pending').length > 0 && <div className="text-[10px] font-bold text-zinc-500">{claims.filter(claim => claim.memberId === me?.id && claim.status === 'pending').length} pending claim(s)</div>}
         </Panel>
         <Panel title="Injured Reserve" sub={`${irIds.length}/${Number(settings.irSlots ?? 2)} slots used`} icon={<Bandage className="h-5 w-5 text-red-400"/>}>{myInjuries.length ? myInjuries.map(injury => { const onIr = irIds.includes(injury.playerId); return <Action key={injury.id} text={`${injury.playerName} · ${injury.status}`} label={onIr ? 'Activate' : 'Move to IR'} onClick={() => run(() => setMyIrPlayer(league.id, injury.playerId, !onIr))}/>; }) : <Empty text="No IR-eligible injuries."/>}</Panel>
@@ -415,7 +470,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
           <Panel title="Trade Market" sub="Browse a team in League, or build any 1–3 player package here" icon={<ArrowRightLeft className="h-5 w-5 text-[#D4AF37]"/>}>
             <div ref={tradeBuilderRef} className="scroll-mt-36 space-y-3">
               <select value={tradeTarget} onChange={event => { setTradeTarget(event.target.value); setTradeGet([]); setTradeGive([]); setTradeDrops([]); }} className="min-h-12 w-full rounded-xl bg-black/40 px-3 text-xs"><option value="">Choose a team</option>{league.members.filter(member => member.id !== me?.id).map(member => <option key={member.id} value={member.id}>{displayManagerName(member)}{member.isAi ? ' · CPU' : ''}</option>)}</select>
-              {tradeTarget && <><TeamNeedStrip member={tradePartner} fantasyValue={fantasyValue}/><PackagePicker title="You send" players={roster} selected={tradeGive} onChange={setTradeGive} valueLabel={valueLabel}/><PackagePicker title="You receive" players={tradePartner?.roster || []} selected={tradeGet} onChange={setTradeGet} valueLabel={valueLabel}/>{requiredTradeDrops > 0 && <CutPicker title={`Your roster cut · choose ${requiredTradeDrops}`} players={roster.filter(player => !tradeGive.includes(player.id))} selected={tradeDrops} onChange={setTradeDrops} max={requiredTradeDrops} valueLabel={valueLabel}/>}<TradeSizeNote myCount={roster.length} give={tradeGive.length} get={tradeGet.length} partner={tradePartner}/><button disabled={busy || !tradeGive.length || !tradeGet.length || tradeDrops.length !== requiredTradeDrops} onClick={sendTrade} className="min-h-12 w-full rounded-xl bg-[#D4AF37] text-xs font-black uppercase text-black disabled:opacity-35">{tradePartner?.isAi ? 'Send Offer · CPU Decides Now' : 'Send Trade Offer'}</button></>}
+              {tradeTarget && <><TeamNeedStrip member={tradePartner}/><PackagePicker title="You send" players={roster} selected={tradeGive} onChange={setTradeGive} valueLabel={valueLabel}/><PackagePicker title="You receive" players={tradePartner?.roster || []} selected={tradeGet} onChange={setTradeGet} valueLabel={valueLabel}/>{requiredTradeDrops > 0 && <CutPicker title={`Your roster cut · choose ${requiredTradeDrops}`} players={roster.filter(player => !tradeGive.includes(player.id))} selected={tradeDrops} onChange={setTradeDrops} max={requiredTradeDrops} valueLabel={valueLabel}/>}<TradeSizeNote myCount={roster.length} give={tradeGive.length} get={tradeGet.length} partner={tradePartner}/><button disabled={busy || !tradeGive.length || !tradeGet.length || tradeDrops.length !== requiredTradeDrops} onClick={sendTrade} className="min-h-12 w-full rounded-xl bg-[#D4AF37] text-xs font-black uppercase text-black disabled:opacity-35">{tradePartner?.isAi ? 'Send Offer · CPU Decides Now' : 'Send Trade Offer'}</button></>}
             </div>
           </Panel>
 
@@ -437,17 +492,19 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
         <div><div className="text-[9px] font-black uppercase tracking-[.2em] text-[#D4AF37]">Fantasy Intelligence</div><h2 className="mt-1 text-xl font-black uppercase">Awards & Roster Value</h2><p className="mt-1 text-xs text-zinc-500">Trade tools live under Activity. This page stays focused on fantasy results and value.</p></div>
         <div className="grid grid-cols-2 gap-1 rounded-xl bg-[#101318] p-1"><button onClick={() => setIntelView('awards')} className={`min-h-11 rounded-lg text-[9px] font-black uppercase ${intelView === 'awards' ? 'bg-white text-black' : 'text-zinc-400'}`}>Weekly Awards</button><button onClick={() => setIntelView('allbk')} className={`min-h-11 rounded-lg text-[9px] font-black uppercase ${intelView === 'allbk' ? 'bg-white text-black' : 'text-zinc-400'}`}>All-BK Team</button></div>
         {intelView === 'awards' && <Panel title="Weekly High Scores" sub="Only results the league actually has — no fake player stat awards" icon={<Medal className="h-5 w-5 text-[#D4AF37]"/>}>{weeklyAwards.length ? weeklyAwards.map(award => <div key={award.week} className="flex items-center justify-between gap-3 border-b border-white/5 py-3"><div><div className="text-[9px] font-black uppercase text-[#D4AF37]">Week {award.week}</div><div className="text-sm font-black">{displayManagerName(award.member)}</div></div><div className="text-lg font-black">{award.points.toFixed(1)}</div></div>) : <Empty text="Weekly awards unlock after games are played."/>}</Panel>}
-        {intelView === 'allbk' && <Panel title={seasonHasGames ? 'All-BK Roster Value Team' : 'Preseason All-BK Team'} sub="QB · RB · WR · TE · FLEX · K · D/ST only, ranked by 2026 fantasy projection/value" icon={<Star className="h-5 w-5 text-[#D4AF37]"/>}>{allBkTeam.length ? <div className="divide-y divide-white/5">{allBkTeam.map((item,index) => <div key={`${item.label}-${item.player.id}-${index}`} className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-3 py-3"><span className="text-[10px] font-black uppercase text-[#D4AF37]">{item.label}</span><div className="min-w-0"><div className="truncate text-sm font-black">{item.player.name}</div><div className="flex items-center gap-1.5 truncate text-[9px] text-zinc-500"><span>{displayManagerName(item.member)}</span>{item.member.isAi && <CpuBadge/>}</div></div><div className="max-w-28 text-right text-[9px] font-black text-zinc-400">{rankingFor(item.player) ? `${Number(rankingFor(item.player)?.projected_points_2026).toFixed(1)} proj` : 'BK value'}</div></div>)}</div> : <Empty text="The All-BK Team appears when drafted rosters are available."/>}</Panel>}
+        {intelView === 'allbk' && <Panel title={seasonHasGames ? 'All-BK Roster Value Team' : 'Preseason All-BK Team'} sub="QB · RB · WR · TE · FLEX · K · D/ST only, using published 2026 fantasy projection data" icon={<Star className="h-5 w-5 text-[#D4AF37]"/>}>{rankingsBusy ? <Empty text="Loading the 2026 fantasy projection board…"/> : rankingsError ? <Empty text="The 2026 fantasy projection board is unavailable right now. No Madden rating fallback is used."/> : allBkTeam.length ? <><div className="divide-y divide-white/5">{allBkTeam.map((item,index) => <div key={`${item.label}-${item.player.id}-${index}`} className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-3 py-3"><span className="text-[10px] font-black uppercase text-[#D4AF37]">{item.label}</span><div className="min-w-0"><div className="truncate text-sm font-black">{item.player.name}</div><div className="flex items-center gap-1.5 truncate text-[9px] text-zinc-500"><span>{displayManagerName(item.member)}</span>{item.member.isAi && <CpuBadge/>}</div></div><div className="max-w-28 text-right text-[9px] font-black text-zinc-400">{item.score.toFixed(1)} proj</div></div>)}</div>{!allBkHasDst && <DataNotice text="D/ST projection data is not published in the current 2026 ranking feed, so Ball Knower will not invent a D/ST value."/>}</> : <Empty text="No drafted players currently have published 2026 fantasy projection data."/>}</Panel>}
       </div>}
 
       {swapSlot && swapDefinition && <div className="fixed inset-0 z-[80] flex items-end bg-black/70 backdrop-blur-sm sm:items-center sm:justify-center" onMouseDown={event => { if(event.target === event.currentTarget) setSwapSlot(''); }}><div className="max-h-[78dvh] w-full overflow-hidden rounded-t-3xl border border-white/10 bg-[#0d1015] shadow-2xl sm:max-w-lg sm:rounded-3xl"><div className="flex items-center justify-between border-b border-white/10 p-4"><div><div className="text-[9px] font-black uppercase text-[#D4AF37]">{swapDefinition.label} starter</div><div className="text-lg font-black">Swap {currentSwapPlayer?.name || 'player'}</div></div><button aria-label="Close lineup swap" onClick={() => setSwapSlot('')} className="grid h-10 w-10 place-items-center rounded-full border border-white/10"><X className="h-4 w-4"/></button></div><div className="max-h-[62dvh] space-y-1 overflow-y-auto p-3">{swapOptions.map(player => <button key={player.id} onClick={() => { setStarters(prev => ({...prev,[swapSlot]:player.id})); setSwapSlot(''); }} className={`flex min-h-16 w-full items-center gap-3 rounded-xl p-2 text-left ${player.id === currentSwapPlayer?.id ? 'border border-[#D4AF37]/30 bg-[#D4AF37]/5' : 'bg-black/25'}`}><Portrait player={player}/><div className="min-w-0 flex-1"><div className="text-sm font-black">{player.name}</div><div className="text-[10px] text-zinc-500">{valueLabel(player)}</div></div>{player.id === currentSwapPlayer?.id ? <span className="text-[9px] font-black uppercase text-[#D4AF37]">Current</span> : <span className="text-[9px] font-black uppercase">Start</span>}</button>)}</div></div></div>}
 
-      {selectedTeam && <TeamRosterDrawer member={selectedTeam} me={me} fantasyValue={fantasyValue} valueLabel={valueLabel} onClose={() => setSelectedTeamId('')} onTrade={(playerId) => startTrade(selectedTeam.id, playerId)}/>} 
+      {selectedTeam && <TeamRosterDrawer member={selectedTeam} me={me} comparePlayers={comparePlayers} valueLabel={valueLabel} onClose={() => setSelectedTeamId('')} onTrade={(playerId) => startTrade(selectedTeam.id, playerId)}/>} 
     </section>
   );
 };
 
 const CpuBadge = () => <span className="rounded-full border border-sky-400/20 bg-sky-400/10 px-1.5 py-0.5 text-[7px] font-black uppercase tracking-wide text-sky-300">CPU</span>;
+
+const DataNotice = ({text,warning=false}:{text:string;warning?:boolean}) => <div className={`rounded-xl border p-3 text-[10px] font-bold leading-4 ${warning ? 'border-amber-400/20 bg-amber-400/[.05] text-amber-200' : 'border-white/10 bg-white/[.03] text-zinc-400'}`}>{text}</div>;
 
 const Portrait = ({player}:{player?:Player}) => <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-white/5 bg-white/5">{player && playerPortraitUrl(player) ? <img src={playerPortraitUrl(player)} alt="" className="h-full w-full object-cover"/> : <div className="grid h-full w-full place-items-center text-xs font-black text-zinc-600">{player?.name.split(' ').map(piece=>piece[0]).slice(0,2).join('') || '—'}</div>}</div>;
 
@@ -465,29 +522,34 @@ const Score = ({name,points,projection}:{name:string;points:number;projection?:n
 
 const Rule = ({label,value,disabled,options,onChange}:{label:string;value:string;disabled:boolean;options:string[][];onChange:(value:string)=>void}) => <label className="rounded-xl bg-black/25 p-3"><span className="mb-1 block text-[8px] font-black uppercase text-zinc-600">{label}</span><select disabled={disabled} value={value} onChange={event => onChange(event.target.value)} className="min-h-10 w-full bg-transparent text-xs font-bold disabled:text-zinc-500">{options.map(option => <option key={option[0]} value={option[0]}>{option[1]}</option>)}</select></label>;
 
-const PackagePicker = ({title,players,selected,onChange,valueLabel}:{title:string;players:Player[];selected:string[];onChange:(ids:string[])=>void;valueLabel:(player:Player)=>string}) => <fieldset className="rounded-xl border border-white/10 p-2"><legend className="px-1 text-[9px] font-black uppercase text-zinc-500">{title} · {selected.length}/3</legend><div className="max-h-56 space-y-1 overflow-y-auto">{[...players].sort((a,b)=>selected.includes(a.id)===selected.includes(b.id)?0:selected.includes(a.id)?-1:1).map(player => { const active=selected.includes(player.id); return <button type="button" key={player.id} aria-pressed={active} onClick={() => onChange(active ? selected.filter(id => id !== player.id) : selected.length < 3 ? [...selected,player.id] : selected)} className={`flex min-h-13 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left ${active ? 'bg-[#D4AF37] text-black' : 'bg-black/30'}`}><div className="min-w-0"><div className="truncate text-xs font-black"><span className="mr-1 text-[9px] uppercase">{player.position}</span>{player.name}</div><div className={`truncate text-[8px] ${active ? 'text-black/60' : 'text-zinc-600'}`}>{valueLabel(player)}</div></div><b className="shrink-0 text-[9px] uppercase">{active ? '✓' : 'Select'}</b></button>; })}</div></fieldset>;
+const PackagePicker = ({title,players,selected,onChange,valueLabel}:{title:string;players:Player[];selected:string[];onChange:(ids:string[])=>void;valueLabel:(player:Player)=>string}) => <fieldset className="rounded-xl border border-white/10 p-2"><legend className="px-1 text-[9px] font-black uppercase text-zinc-500">{title} · {selected.length}/3</legend><div className="max-h-56 space-y-1 overflow-y-auto">{[...players].sort((a,b)=>selected.includes(a.id)===selected.includes(b.id)?a.name.localeCompare(b.name):selected.includes(a.id)?-1:1).map(player => { const active=selected.includes(player.id); return <button type="button" key={player.id} aria-pressed={active} onClick={() => onChange(active ? selected.filter(id => id !== player.id) : selected.length < 3 ? [...selected,player.id] : selected)} className={`flex min-h-13 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left ${active ? 'bg-[#D4AF37] text-black' : 'bg-black/30'}`}><div className="min-w-0"><div className="truncate text-xs font-black"><span className="mr-1 text-[9px] uppercase">{player.position}</span>{player.name}</div><div className={`truncate text-[8px] ${active ? 'text-black/60' : 'text-zinc-600'}`}>{valueLabel(player)}</div></div><b className="shrink-0 text-[9px] uppercase">{active ? '✓' : 'Select'}</b></button>; })}</div></fieldset>;
 
-const CutPicker = ({title,players,selected,onChange,max,valueLabel}:{title:string;players:Player[];selected:string[];onChange:(ids:string[])=>void;max:number;valueLabel:(player:Player)=>string}) => <fieldset className="rounded-xl border border-amber-400/20 bg-amber-400/[.04] p-2"><legend className="px-1 text-[9px] font-black uppercase text-amber-300">{title} · {selected.length}/{max}</legend><div className="max-h-44 space-y-1 overflow-y-auto">{[...players].sort((a,b)=>selected.includes(a.id)===selected.includes(b.id)?0:selected.includes(a.id)?-1:1).map(player => { const active=selected.includes(player.id); return <button type="button" key={player.id} aria-pressed={active} onClick={() => onChange(active ? selected.filter(id => id !== player.id) : selected.length < max ? [...selected,player.id] : selected)} className={`flex min-h-12 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left ${active ? 'bg-amber-300 text-black' : 'bg-black/30'}`}><div className="min-w-0"><div className="truncate text-xs font-black">{player.name} · {player.position}</div><div className={`truncate text-[8px] ${active ? 'text-black/60' : 'text-zinc-600'}`}>{valueLabel(player)}</div></div><b className="shrink-0 text-[9px] uppercase">{active ? 'Cut ✓' : 'Cut'}</b></button>; })}</div></fieldset>;
+const CutPicker = ({title,players,selected,onChange,max,valueLabel}:{title:string;players:Player[];selected:string[];onChange:(ids:string[])=>void;max:number;valueLabel:(player:Player)=>string}) => <fieldset className="rounded-xl border border-amber-400/20 bg-amber-400/[.04] p-2"><legend className="px-1 text-[9px] font-black uppercase text-amber-300">{title} · {selected.length}/{max}</legend><div className="max-h-44 space-y-1 overflow-y-auto">{[...players].sort((a,b)=>selected.includes(a.id)===selected.includes(b.id)?a.name.localeCompare(b.name):selected.includes(a.id)?-1:1).map(player => { const active=selected.includes(player.id); return <button type="button" key={player.id} aria-pressed={active} onClick={() => onChange(active ? selected.filter(id => id !== player.id) : selected.length < max ? [...selected,player.id] : selected)} className={`flex min-h-12 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left ${active ? 'bg-amber-300 text-black' : 'bg-black/30'}`}><div className="min-w-0"><div className="truncate text-xs font-black">{player.name} · {player.position}</div><div className={`truncate text-[8px] ${active ? 'text-black/60' : 'text-zinc-600'}`}>{valueLabel(player)}</div></div><b className="shrink-0 text-[9px] uppercase">{active ? 'Cut ✓' : 'Cut'}</b></button>; })}</div></fieldset>;
 
 const TradeSizeNote = ({myCount,give,get,partner}:{myCount:number;give:number;get:number;partner?:LeagueMember}) => <div className="grid grid-cols-2 gap-2 text-center"><div className="rounded-xl bg-black/25 p-2"><div className="text-[8px] font-black uppercase text-zinc-600">Your roster after deal</div><div className="mt-1 text-sm font-black">{myCount - give + get} before cuts</div></div><div className="rounded-xl bg-black/25 p-2"><div className="text-[8px] font-black uppercase text-zinc-600">Other team</div><div className="mt-1 text-sm font-black">{Math.max(0,rosterCount(partner) - get + give)} before cuts</div></div></div>;
 
 const TradeSummary = ({trade,proposer,recipient,findPlayer,valueLabel}:{trade:TradeOffer;proposer?:LeagueMember;recipient?:LeagueMember;findPlayer:(id:string)=>Player|undefined;valueLabel:(player:Player)=>string}) => <div><div className="mb-2 flex items-center gap-2 text-xs font-black uppercase"><span>{displayManagerName(proposer)}</span><span className="text-zinc-600">→</span><span>{displayManagerName(recipient)}</span></div><div className="grid gap-2 sm:grid-cols-2"><TradeSide label={`${displayManagerName(proposer)} sends`} ids={trade.offeredPlayerIds} findPlayer={findPlayer} valueLabel={valueLabel}/><TradeSide label={`${displayManagerName(recipient)} sends`} ids={trade.requestedPlayerIds} findPlayer={findPlayer} valueLabel={valueLabel}/></div></div>;
 const TradeSide = ({label,ids,findPlayer,valueLabel}:{label:string;ids:string[];findPlayer:(id:string)=>Player|undefined;valueLabel:(player:Player)=>string}) => <div className="rounded-xl bg-black/25 p-2"><div className="mb-1 text-[8px] font-black uppercase text-zinc-600">{label}</div>{ids.map(id => { const player=findPlayer(id); return <div key={id} className="py-1"><div className="truncate text-xs font-black">{player?.name || 'Player unavailable'}</div>{player && <div className="truncate text-[8px] text-zinc-600">{valueLabel(player)}</div>}</div>; })}</div>;
 
-const TeamNeedStrip = ({member,fantasyValue}:{member?:LeagueMember;fantasyValue:(player:Player)=>number}) => {
+const TeamNeedStrip = ({member}:{member?:LeagueMember}) => {
   if(!member) return null;
   const roster=member.roster||[];
   const targets:Record<string,number>={QB:2,RB:4,WR:5,TE:2,K:1,DST:1};
   const counts=Object.fromEntries(Object.keys(targets).map(position=>[position,roster.filter(player=>player.position===position).length]));
-  const needs=Object.keys(targets).filter(position=>counts[position]<targets[position]).slice(0,3);
-  const groups=Object.keys(targets).map(position=>({position,value:roster.filter(player=>player.position===position).sort((a,b)=>fantasyValue(b)-fantasyValue(a)).slice(0,2).reduce((sum,player)=>sum+fantasyValue(player),0)})).sort((a,b)=>b.value-a.value);
-  const strengths=groups.filter(group=>group.value>0).slice(0,3).map(group=>group.position);
-  return <div className="grid grid-cols-2 gap-2"><div className="rounded-xl bg-red-500/[.06] p-2"><div className="text-[8px] font-black uppercase text-red-300">Roster needs</div><div className="mt-1 text-[10px] font-bold">{needs.length ? needs.join(' · ') : 'No obvious depth hole'}</div></div><div className="rounded-xl bg-emerald-500/[.06] p-2"><div className="text-[8px] font-black uppercase text-emerald-300">Strongest rooms</div><div className="mt-1 text-[10px] font-bold">{strengths.join(' · ') || 'Building'}</div></div></div>;
+  const needs=Object.keys(targets)
+    .filter(position=>counts[position]<targets[position])
+    .sort((a,b)=>(counts[a]/targets[a])-(counts[b]/targets[b])||a.localeCompare(b))
+    .slice(0,3);
+  const strengths=Object.keys(targets)
+    .filter(position=>counts[position]>0)
+    .sort((a,b)=>(counts[b]/targets[b])-(counts[a]/targets[a])||(counts[b]-targets[b])-(counts[a]-targets[a])||a.localeCompare(b))
+    .slice(0,3);
+  return <div className="grid grid-cols-2 gap-2"><div className="rounded-xl bg-red-500/[.06] p-2"><div className="text-[8px] font-black uppercase text-red-300">Roster needs</div><div className="mt-1 text-[10px] font-bold">{needs.length ? needs.map(position=>`${position} ${counts[position]}/${targets[position]}`).join(' · ') : 'No obvious depth hole'}</div></div><div className="rounded-xl bg-emerald-500/[.06] p-2"><div className="text-[8px] font-black uppercase text-emerald-300">Deepest rooms</div><div className="mt-1 text-[10px] font-bold">{strengths.length ? strengths.map(position=>`${position} ${counts[position]}`).join(' · ') : 'Building'}</div></div></div>;
 };
 
 const StartSeasonCard = ({league,busy,onStart}:{league:League;busy:boolean;onStart:()=>void}) => <section className="rounded-2xl border border-[#D4AF37]/30 bg-[#D4AF37]/[.06] p-4"><div className="flex items-start gap-3"><Play className="mt-0.5 h-5 w-5 shrink-0 text-[#D4AF37]"/><div className="min-w-0 flex-1"><div className="text-xs font-black uppercase text-[#D4AF37]">Draft complete · ready for football</div><p className="mt-1 text-xs leading-5 text-zinc-400">All drafted rosters are saved. Start the {league.settings?.seasonGames || 17}-game season when you are ready.</p></div></div><button disabled={busy} onClick={onStart} className="mt-3 min-h-12 w-full rounded-xl bg-[#D4AF37] text-xs font-black uppercase text-black disabled:opacity-40"><Play className="mr-2 inline h-4 w-4"/>Start {league.settings?.seasonGames || 17}-Game Season</button></section>;
 
-const TeamRosterDrawer = ({member,me,fantasyValue,valueLabel,onClose,onTrade}:{member:LeagueMember;me?:LeagueMember;fantasyValue:(player:Player)=>number;valueLabel:(player:Player)=>string;onClose:()=>void;onTrade:(playerId:string)=>void}) => {
-  const roster=(member.roster||[]).filter(player=>STANDARD_POSITIONS.has(player.position)).sort((a,b)=>fantasyValue(b)-fantasyValue(a));
-  return <div className="fixed inset-0 z-[75] flex items-end bg-black/70 backdrop-blur-sm sm:items-center sm:justify-center" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}><div className="max-h-[88dvh] w-full overflow-hidden rounded-t-3xl border border-white/10 bg-[#0d1015] shadow-2xl sm:max-w-2xl sm:rounded-3xl"><div className="border-b border-white/10 p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex items-center gap-2"><h2 className="truncate text-xl font-black uppercase">{displayManagerName(member)}</h2>{member.isAi&&<CpuBadge/>}</div><p className="mt-1 text-xs text-zinc-500">{roster.length} fantasy players · tap any player to build a trade</p></div><button aria-label="Close roster" onClick={onClose} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10"><X className="h-4 w-4"/></button></div><div className="mt-3"><TeamNeedStrip member={member} fantasyValue={fantasyValue}/></div></div><div className="max-h-[68dvh] overflow-y-auto p-3"><div className="space-y-1">{roster.map(player=><div key={player.id} className="flex min-h-16 items-center gap-3 rounded-xl bg-black/25 p-2"><Portrait player={player}/><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className="text-[9px] font-black uppercase text-[#D4AF37]">{player.position}</span><span className="truncate text-sm font-black">{player.name}</span></div><div className="truncate text-[9px] text-zinc-500">{valueLabel(player)}</div></div>{member.id !== me?.id && <button onClick={()=>onTrade(player.id)} className="min-h-10 shrink-0 rounded-lg bg-[#D4AF37] px-3 text-[8px] font-black uppercase text-black">Trade for</button>}</div>)}</div></div></div></div>;
+const TeamRosterDrawer = ({member,me,comparePlayers,valueLabel,onClose,onTrade}:{member:LeagueMember;me?:LeagueMember;comparePlayers:(a:Player,b:Player)=>number;valueLabel:(player:Player)=>string;onClose:()=>void;onTrade:(playerId:string)=>void}) => {
+  const roster=(member.roster||[]).filter(player=>STANDARD_POSITIONS.has(player.position)).sort(comparePlayers);
+  return <div className="fixed inset-0 z-[75] flex items-end bg-black/70 backdrop-blur-sm sm:items-center sm:justify-center" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}><div className="max-h-[88dvh] w-full overflow-hidden rounded-t-3xl border border-white/10 bg-[#0d1015] shadow-2xl sm:max-w-2xl sm:rounded-3xl"><div className="border-b border-white/10 p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex items-center gap-2"><h2 className="truncate text-xl font-black uppercase">{displayManagerName(member)}</h2>{member.isAi&&<CpuBadge/>}</div><p className="mt-1 text-xs text-zinc-500">{roster.length} fantasy players · tap any player to build a trade</p></div><button aria-label="Close roster" onClick={onClose} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10"><X className="h-4 w-4"/></button></div><div className="mt-3"><TeamNeedStrip member={member}/></div></div><div className="max-h-[68dvh] overflow-y-auto p-3"><div className="space-y-1">{roster.map(player=><div key={player.id} className="flex min-h-16 items-center gap-3 rounded-xl bg-black/25 p-2"><Portrait player={player}/><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className="text-[9px] font-black uppercase text-[#D4AF37]">{player.position}</span><span className="truncate text-sm font-black">{player.name}</span></div><div className="truncate text-[9px] text-zinc-500">{valueLabel(player)}</div></div>{member.id !== me?.id && <button onClick={()=>onTrade(player.id)} className="min-h-10 shrink-0 rounded-lg bg-[#D4AF37] px-3 text-[8px] font-black uppercase text-black">Trade for</button>}</div>)}</div></div></div></div>;
 };
