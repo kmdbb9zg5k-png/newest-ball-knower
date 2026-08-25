@@ -1,13 +1,14 @@
 import { PLAYERS_DATABASE } from '../players';
 import { getDraftPositionGroup, validateRosterShape } from '../rosterRules';
-import { getLiveFantasyDraftGroup } from '../liveFantasyRules';
+import { getLiveFantasyDraftGroup, validateLiveFantasyRoster } from '../liveFantasyRules';
+import { buildStandings, simulateFantasyPlayoffs, simulateFantasyWeek } from '../simulation';
 import {
   buildRealTeamRoster,
   FANTASY_DRAFT_ROUNDS,
   FANTASY_ROSTER_REQUIREMENTS,
 } from '../soloFranchiseEngine';
 import { TEAM_THEMES } from '../teamTheme';
-import { TOTAL_ROSTER_SIZE } from '../types';
+import { LeagueMember, TOTAL_ROSTER_SIZE } from '../types';
 
 const failures: string[] = [];
 const check = (condition: unknown, message: string) => {
@@ -57,6 +58,27 @@ for (const [group, requiredPerTeam] of Object.entries(FANTASY_ROSTER_REQUIREMENT
   const leagueNeed = requiredPerTeam * 32;
   check(available >= leagueNeed, `${group}: player pool has ${available}; 32 teams x ${requiredPerTeam} requires at least ${leagueNeed}.`);
 }
+
+const fantasyPool=PLAYERS_DATABASE.filter(player=>Boolean(getLiveFantasyDraftGroup(player))).slice(0,TOTAL_ROSTER_SIZE);
+const testMembers:LeagueMember[]=Array.from({length:10},(_,index)=>({
+  id:`integrity-member-${index}`,
+  userId:`integrity-user-${index}`,
+  userName:`Integrity Team ${index+1}`,
+  isCommissioner:index===0,
+  status:'ready',
+  roster:fantasyPool,
+}));
+const weeklyGames=Array.from({length:17},(_,index)=>simulateFantasyWeek(testMembers,index+1)).flat();
+for(const member of testMembers){
+  const gamesPlayed=weeklyGames.filter(game=>game.homeMemberId===member.id||game.awayMemberId===member.id).length;
+  check(gamesPlayed===17,`${member.userName}: weekly fantasy schedule produced ${gamesPlayed}/17 games.`);
+}
+const fantasyStandings=buildStandings(testMembers,weeklyGames);
+check(fantasyStandings.every((standing,index)=>index===0||fantasyStandings[index-1].winPercentage>=standing.winPercentage),'Fantasy standings are not sorted by win percentage.');
+const fantasyPlayoffs=simulateFantasyPlayoffs(testMembers,fantasyStandings,6,18);
+check(fantasyPlayoffs.games.length===5,'A six-team fantasy playoff must produce five games.');
+check(Boolean(fantasyPlayoffs.championMemberId),'Fantasy playoffs did not crown a champion.');
+check(validateLiveFantasyRoster([]).length===6,'An empty live-fantasy roster must report all six missing position groups.');
 
 console.log(`Ball Knower integrity check: ${PLAYERS_DATABASE.length} players, ${TEAM_THEMES.length} teams, ${FANTASY_DRAFT_ROUNDS}-round fantasy franchise.`);
 

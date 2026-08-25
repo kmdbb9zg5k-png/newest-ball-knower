@@ -116,6 +116,97 @@ export function simulateGame(
   };
 }
 
+export function buildStandings(members: LeagueMember[], games: SimulationGame[]): StandingItem[] {
+  const stats = Object.fromEntries(members.map(member => [member.id, { wins:0, losses:0, ties:0, pf:0, pa:0, results:[] as boolean[] }]));
+  for (const game of games) {
+    const home = stats[game.homeMemberId];
+    const away = stats[game.awayMemberId];
+    if (!home || !away) continue;
+    home.pf += game.homeScore; home.pa += game.awayScore;
+    away.pf += game.awayScore; away.pa += game.homeScore;
+    if (game.isTie) {
+      home.ties++; away.ties++;
+    } else {
+      const homeWon = game.winnerId === game.homeMemberId;
+      home[homeWon ? 'wins' : 'losses']++;
+      away[homeWon ? 'losses' : 'wins']++;
+      home.results.push(homeWon); away.results.push(!homeWon);
+    }
+  }
+  return members.map(member => {
+    const value = stats[member.id];
+    const played = value.wins + value.losses + value.ties;
+    const winPercentage = played ? (value.wins + value.ties * .5) / played : 0;
+    const teamRatings = ratingsFor(member);
+    const last = value.results.at(-1);
+    let streakCount = 0;
+    if (last !== undefined) for (let index=value.results.length-1; index>=0 && value.results[index]===last; index--) streakCount++;
+    return {
+      rank:1, memberId:member.id, memberName:member.userName, memberAvatar:member.userAvatar, isAi:member.isAi,
+      wins:value.wins, losses:value.losses, ties:value.ties, winPercentage,
+      pointsFor:value.pf, pointsAgainst:value.pa, pointDifferential:value.pf-value.pa,
+      teamRating:teamRatings.overall, streak:last === undefined ? '-' : `${last ? 'W' : 'L'}${streakCount}`,
+    };
+  }).sort((a,b) => b.winPercentage-a.winPercentage || b.pointDifferential-a.pointDifferential || b.pointsFor-a.pointsFor || b.teamRating-a.teamRating)
+    .map((standing,index) => ({...standing,rank:index+1}));
+}
+
+export function simulateFantasyPlayoffs(
+  members: LeagueMember[],
+  standings: StandingItem[],
+  playoffTeams: 4|6|8 = 6,
+  firstWeek = 18,
+  style: 'realistic'|'balanced'|'chaos' = 'realistic',
+): { games: SimulationGame[]; championMemberId: string } {
+  const count = Math.min(playoffTeams, members.length >= 8 ? 8 : members.length >= 6 ? 6 : 4);
+  let field = standings.slice(0,count).map(row => members.find(member => member.id === row.memberId)).filter(Boolean) as LeagueMember[];
+  const games: SimulationGame[] = [];
+  let week = firstWeek;
+  let firstRound = true;
+  const variance = style === 'chaos' ? 1.55 : style === 'balanced' ? 1.2 : .9;
+  while (field.length > 1) {
+    const advancing: LeagueMember[] = [];
+    let playing = field;
+    if (firstRound && field.length === 6) {
+      advancing.push(field[0], field[1]);
+      playing = field.slice(2);
+    }
+    const round = field.length <= 2 ? 'championship' : field.length <= 4 ? 'semifinal' : 'quarterfinal';
+    for (let left=0, right=playing.length-1; left<right; left++, right--) {
+      const game = {...simulateGame(week, playing[left], playing[right], variance), playoffRound:round} as SimulationGame;
+      games.push(game);
+      advancing.push(members.find(member => member.id === game.winnerId)!);
+    }
+    field = advancing.sort((a,b) => standings.findIndex(row => row.memberId===a.id)-standings.findIndex(row => row.memberId===b.id));
+    firstRound = false;
+    week++;
+  }
+  return {games, championMemberId:field[0]?.id || standings[0]?.memberId};
+}
+
+export function simulateFantasyWeek(
+  members: LeagueMember[],
+  week: number,
+  style: 'realistic'|'balanced'|'chaos' = 'realistic',
+): SimulationGame[] {
+  if (members.length < 2 || members.length % 2 !== 0) throw new Error('Fantasy weeks require an even number of teams.');
+  const rotation=[...members];
+  const round=(week-1)%(members.length-1);
+  for(let index=0;index<round;index++) rotation.splice(1,0,rotation.pop()!);
+  const reverse=Math.floor((week-1)/(members.length-1))%2===1;
+  const variance=style==='chaos'?1.55:style==='balanced'?1.2:.9;
+  const games:SimulationGame[]=[];
+  for(let index=0;index<members.length/2;index++){
+    const first=rotation[index];
+    const second=rotation[members.length-1-index];
+    const alternate=round%2===0;
+    const home=(alternate!==reverse)?first:second;
+    const away=home.id===first.id?second:first;
+    games.push(simulateGame(week,home,away,variance));
+  }
+  return games;
+}
+
 export function simulateFullSeason(members: LeagueMember[], targetGames: 16 | 17 = 17, style: 'realistic'|'balanced'|'chaos' = 'realistic'): SeasonResult {
   if (members.length < 2) throw new Error('At least 2 members required to simulate');
 

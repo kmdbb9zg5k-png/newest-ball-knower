@@ -63,10 +63,10 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, o
 
   // Draft Order Game results are deliberately retained until the real fantasy
   // season launches, but they are not fantasy-season matchups/records. Live
-  // draft finalization moves the league back to `drafting`; startSimulation is
-  // the authoritative transition to `completed` for the actual fantasy season.
+  // draft finalization moves the league back to `drafting`; a fantasy season
+  // keeps its own weekly result once the commissioner starts Week 1.
   const postDraftLeague = useMemo<League>(() => {
-    if (!draftComplete || league.status === 'completed') return league;
+    if (!draftComplete || league.status === 'completed' || league.settings?.fantasySeasonStarted) return league;
     return { ...league, seasonResult: undefined };
   }, [draftComplete, league]);
 

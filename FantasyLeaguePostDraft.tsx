@@ -52,6 +52,7 @@ import {
 } from './fantasyLeagueParityCloud';
 import { counterTradeV2 } from './fantasyTradeV2Cloud';
 import { FantasyRanking, loadFantasyRankings } from './fantasyRankingsCloud';
+import { buildStandings } from './simulation';
 
 type Tab = 'team' | 'matchup' | 'players' | 'league' | 'activity' | 'intel';
 type ActivityView = 'trades' | 'moves' | 'messages';
@@ -88,12 +89,13 @@ const buildFantasyLineup = (roster:Player[], comparePlayers:(a:Player,b:Player)=
 };
 
 export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulation }) => {
-  const { currentUser, showToast, startSimulation, updateLeagueSettings } = useBallKnower();
+  const { currentUser, showToast, startSimulation, advanceFantasyWeek, updateLeagueSettings } = useBallKnower();
   const me = league.members.find(member => member.userId === currentUser?.id);
   const roster = me?.roster || [];
   const settings = (league.settings || {}) as any;
   const isCommissioner = currentUser?.id === league.commissionerId;
-  const maxWeek = Math.max(17, Number(settings.seasonGames) || 17);
+  const maxWeek = Math.max(1, Number(settings.seasonGames) || 17);
+  const currentWeek = Math.min(maxWeek, Math.max(0, Number(settings.currentWeek) || 0));
 
   const [tab, setTab] = useState<Tab>('team');
   const [activityView, setActivityView] = useState<ActivityView>('trades');
@@ -218,13 +220,14 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
   }, []);
 
   const myLineup = lineups.find(item => item.memberId === me?.id);
+  const rosterSignature = roster.map(player => player.id).sort().join('|');
   useEffect(() => {
     setStarters(
       myLineup?.starters && Object.keys(myLineup.starters).length
         ? { ...myLineup.starters }
         : buildFantasyLineup(roster, comparePlayers),
     );
-  }, [league.id, week, myLineup?.id, myLineup?.updatedAt, roster.length, rankingsByName]);
+  }, [league.id, week, myLineup?.id, myLineup?.updatedAt, rosterSignature, rankingsByName]);
 
   const myMeta = memberMeta.find(item => item.memberId === me?.id);
   const irIds = myMeta?.irPlayerIds || [];
@@ -232,7 +235,10 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
   const starterIds = new Set(Object.values(starters).filter(Boolean));
   const bench = roster.filter(player => !starterIds.has(player.id) && !irIds.includes(player.id));
   const waiverType = settings.waiverType || 'priority';
-  const records = useMemo(() => buildLeagueRecords(league, archives), [league, archives]);
+  const visibleGames = useMemo(() => (league.seasonResult?.games || []).filter(game => game.playoffRound || game.week <= currentWeek), [league.seasonResult?.games,currentWeek]);
+  const visibleStandings = useMemo(() => buildStandings(league.members,visibleGames.filter(game => !game.playoffRound)), [league.members,visibleGames]);
+  const visibleLeague = useMemo(() => league.seasonResult ? {...league,seasonResult:{...league.seasonResult,games:visibleGames,standings:visibleStandings}} : league, [league,visibleGames,visibleStandings]);
+  const records = useMemo(() => buildLeagueRecords(visibleLeague, archives), [visibleLeague, archives]);
 
   const freeAgents = useMemo(() => getLeagueFreeAgents(league, PLAYERS_DATABASE)
     .filter(player => STANDARD_POSITIONS.has(player.position))
@@ -288,7 +294,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
     if (!me || !tradeTarget || !tradeGive.length || !tradeGet.length) throw new Error('Choose players from both teams.');
     if (tradeGive.length > 3 || tradeGet.length > 3) throw new Error('Trade packages are limited to three players per side.');
     if (tradeDrops.length !== requiredTradeDrops) throw new Error(`Choose ${requiredTradeDrops} roster cut${requiredTradeDrops === 1 ? '' : 's'} first.`);
-    const result = await proposeTrade(league, me.id, tradeTarget, tradeGive, tradeGet, tradeDrops);
+    const result = await proposeTrade(league, me.id, tradeTarget, tradeGive, tradeGet, tradeDrops, '');
     showToast(result.reason || (result.status === 'accepted' ? 'CPU accepted the trade.' : result.status === 'rejected' ? 'CPU declined the trade.' : 'Trade offer sent.'));
     setTradeGive([]); setTradeGet([]); setTradeDrops([]);
   });
@@ -338,17 +344,21 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
   const launchSeason = () => run(async () => {
     const started = await startSimulation(league.id);
     if (!started) throw new Error('The season could not start. Check the league rosters and try again.');
-    onGoToSimulation();
   });
 
-  const matchup = league.seasonResult?.games.find(game => game.week === week && (game.homeMemberId === me?.id || game.awayMemberId === me?.id));
+  const advanceSeason = () => run(async () => {
+    const advanced = await advanceFantasyWeek(league.id);
+    if (!advanced) throw new Error('The fantasy season could not advance.');
+  });
+
+  const matchup = visibleGames.find(game => !game.playoffRound && game.week === week && (game.homeMemberId === me?.id || game.awayMemberId === me?.id));
   const opponentId = matchup ? (matchup.homeMemberId === me?.id ? matchup.awayMemberId : matchup.homeMemberId) : undefined;
   const opponent = league.members.find(member => member.id === opponentId);
   const myScore = scores.find(score => score.memberId === me?.id);
   const opponentScore = scores.find(score => score.memberId === opponentId);
   const myPoints = matchup ? (matchup.homeMemberId === me?.id ? matchup.homeScore : matchup.awayScore) : 0;
   const oppPoints = matchup ? (matchup.homeMemberId === me?.id ? matchup.awayScore : matchup.homeScore) : 0;
-  const seasonHasGames = Boolean(league.seasonResult?.games?.length);
+  const seasonHasGames = currentWeek > 0 && visibleGames.length > 0;
 
   const findPlayer = (id:string) => league.members.flatMap(member => member.roster || []).find(player => player.id === id) || PLAYERS_DATABASE.find(player => player.id === id);
   const swapDefinition = LINEUP_SLOTS.find(slot => slot.id === swapSlot);
@@ -357,8 +367,8 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
   const swapOptions = swapDefinition ? roster.filter(player => swapDefinition.accept(player) && !otherStarterIds.has(player.id) && !irIds.includes(player.id)).sort(comparePlayers) : [];
 
   const weeklyAwards = useMemo(() => {
-    const games = league.seasonResult?.games || [];
-    const weeks = [...new Set(games.map(game => game.week))].sort((a,b) => a-b);
+    const games = visibleGames.filter(game => !game.playoffRound);
+    const weeks = [...new Set<number>(games.map(game => Number(game.week)))].sort((a,b) => a-b);
     return weeks.map(awardWeek => {
       const entries = games.filter(game => game.week === awardWeek).flatMap(game => [
         { memberId:game.homeMemberId, points:Number(game.homeScore)||0 },
@@ -368,7 +378,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
       const member = league.members.find(item => item.id === best?.memberId);
       return best ? { week:awardWeek, points:best.points, member } : null;
     }).filter(Boolean) as {week:number;points:number;member?:LeagueMember}[];
-  }, [league.seasonResult?.games, league.members]);
+  }, [visibleGames, league.members]);
 
   const allBkTeam = useMemo(() => {
     const pool = league.members.flatMap(member => (member.roster || [])
@@ -426,6 +436,8 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
       </div>
 
       {error && <div className="rounded-xl border border-red-500/25 bg-red-500/5 p-3 text-xs text-red-300">{error}</div>}
+      {seasonHasGames && isCommissioner && !settings.fantasySeasonComplete && <section className="flex items-center justify-between gap-3 rounded-2xl border border-[#D4AF37]/25 bg-[#D4AF37]/[.06] p-4"><div><div className="text-[9px] font-black uppercase tracking-widest text-[#D4AF37]">Commissioner</div><div className="mt-1 text-sm font-black uppercase">{currentWeek < maxWeek ? `Week ${currentWeek} final` : 'Regular season final'}</div><p className="mt-1 text-[10px] text-zinc-500">{currentWeek < maxWeek ? `Advance when every manager is ready for Week ${currentWeek+1}.` : `Run the ${settings.playoffTeams||6}-team playoff bracket and crown a champion.`}</p></div><button disabled={busy} onClick={advanceSeason} className="min-h-11 shrink-0 rounded-xl bg-[#D4AF37] px-4 text-[9px] font-black uppercase text-black disabled:opacity-35">{currentWeek < maxWeek ? `Play Week ${currentWeek+1}` : 'Run Playoffs'}</button></section>}
+      {settings.fantasySeasonComplete && league.seasonResult?.championMemberId && <section className="rounded-2xl border border-[#D4AF37]/30 bg-[#D4AF37]/[.08] p-4 text-center"><Trophy className="mx-auto h-7 w-7 text-[#D4AF37]"/><div className="mt-2 text-[9px] font-black uppercase tracking-widest text-[#D4AF37]">League Champion</div><div className="mt-1 text-xl font-black uppercase">{displayManagerName(league.members.find(member=>member.id===league.seasonResult?.championMemberId))}</div></section>}
 
       {tab === 'team' && <div className="space-y-3">
         <div className="flex items-end justify-between gap-3"><div><h2 className="text-xl font-black uppercase">My Team</h2><p className="text-xs text-zinc-500">Tap Swap to change a starter.</p></div><div className={`max-w-[45%] text-right text-[10px] font-black uppercase ${lineupErrors.length ? 'text-amber-300' : 'text-emerald-400'}`}>{lineupErrors.length ? lineupErrors[0] : 'Lineup ready'}</div></div>
@@ -439,7 +451,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
       </div>}
 
       {tab === 'matchup' && <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3"><div><h2 className="text-xl font-black uppercase">Matchup</h2><p className="text-xs text-zinc-500">Your weekly head-to-head.</p></div><select aria-label="Fantasy week" value={week} onChange={event => setWeek(Number(event.target.value))} className="min-h-11 rounded-xl border border-white/10 bg-[#101318] px-3 text-xs">{Array.from({length:maxWeek},(_,index)=>index+1).map(value=><option key={value} value={value}>Week {value}</option>)}</select></div>
+        <div className="flex items-center justify-between gap-3"><div><h2 className="text-xl font-black uppercase">Matchup</h2><p className="text-xs text-zinc-500">Your weekly head-to-head.</p></div><select aria-label="Fantasy week" value={week} onChange={event => setWeek(Number(event.target.value))} className="min-h-11 rounded-xl border border-white/10 bg-[#101318] px-3 text-xs">{Array.from({length:Math.max(1,currentWeek)},(_,index)=>index+1).map(value=><option key={value} value={value}>Week {value}</option>)}</select></div>
         {!seasonHasGames && isCommissioner && <StartSeasonCard league={league} busy={busy} onStart={launchSeason}/>} 
         <Panel title={`Week ${week}`} sub={`${displayManagerName(me)} vs ${displayManagerName(opponent)}`} icon={<Clock3 className="h-5 w-5 text-[#D4AF37]"/>}>{matchup ? <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3"><Score name={displayManagerName(me)} points={myScore?.livePoints ?? myPoints} projection={myScore?.projectedPoints}/><b className="text-zinc-600">VS</b><Score name={displayManagerName(opponent)} points={opponentScore?.livePoints ?? oppPoints} projection={opponentScore?.projectedPoints}/></div> : <Empty text="Start the season to generate the schedule and matchups."/>}</Panel>
       </div>}
@@ -460,7 +472,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
       {tab === 'league' && <div className="space-y-3">
         {!seasonHasGames && isCommissioner && <StartSeasonCard league={league} busy={busy} onStart={launchSeason}/>} 
         {seasonHasGames && <div className="grid grid-cols-2 gap-2 lg:grid-cols-4"><Record label="Highest Score" value={records.highGame ? `${records.highGame.name} · ${records.highGame.score}` : '—'}/><Record label="Biggest Win" value={records.biggestBlowout ? `${records.biggestBlowout.name} · +${records.biggestBlowout.margin}` : '—'}/><Record label="Best Season" value={records.bestSeason ? `${records.bestSeason.name} · ${records.bestSeason.wins}-${records.bestSeason.losses}` : '—'}/><Record label="Most Titles" value={records.dynasty ? `${records.dynasty.name} · ${records.dynasty.titles}` : '—'}/></div>}
-        <Panel title="Teams & Standings" sub="Tap a team, see its full roster, then trade for a player" icon={<Users className="h-5 w-5 text-[#D4AF37]"/>}>{league.members.map(member => { const standing = league.seasonResult?.standings.find(row => row.memberId === member.id); return <button key={member.id} onClick={() => setSelectedTeamId(member.id)} className="flex min-h-14 w-full items-center justify-between gap-3 border-b border-white/5 px-1 py-2 text-left"><div className="min-w-0"><div className="flex items-center gap-2"><span className="truncate text-sm font-black">{displayManagerName(member)}</span>{member.isAi && <CpuBadge/>}{member.id === me?.id && <span className="rounded-full bg-[#D4AF37]/15 px-2 py-0.5 text-[8px] font-black uppercase text-[#D4AF37]">You</span>}</div><div className="text-[10px] text-zinc-500">{rosterCount(member)} players · {standing ? `${standing.wins}-${standing.losses}${standing.ties ? `-${standing.ties}` : ''}` : '0-0'}</div></div><ChevronRight className="h-4 w-4 shrink-0 text-zinc-600"/></button>; })}</Panel>
+        <Panel title="Teams & Standings" sub="Tap a team, see its full roster, then trade for a player" icon={<Users className="h-5 w-5 text-[#D4AF37]"/>}>{visibleStandings.map(standing => { const member=league.members.find(item=>item.id===standing.memberId)!; return <button key={member.id} onClick={() => setSelectedTeamId(member.id)} className="flex min-h-14 w-full items-center justify-between gap-3 border-b border-white/5 px-1 py-2 text-left"><div className="min-w-0"><div className="flex items-center gap-2"><span className="truncate text-sm font-black">{displayManagerName(member)}</span>{member.isAi && <CpuBadge/>}{member.id === me?.id && <span className="rounded-full bg-[#D4AF37]/15 px-2 py-0.5 text-[8px] font-black uppercase text-[#D4AF37]">You</span>}</div><div className="text-[10px] text-zinc-500">{rosterCount(member)} players · {standing ? `${standing.wins}-${standing.losses}${standing.ties ? `-${standing.ties}` : ''}` : '0-0'}</div></div><ChevronRight className="h-4 w-4 shrink-0 text-zinc-600"/></button>; })}</Panel>
         <Panel title="League Rules" sub={isCommissioner ? 'Tap settings to edit core fantasy rules' : 'League settings'} icon={<Settings className="h-5 w-5 text-[#D4AF37]"/>}><button onClick={() => setSettingsOpen(open => !open)} className="flex min-h-11 w-full items-center justify-between rounded-xl bg-black/25 px-3 text-xs font-black uppercase"><span>{settingsOpen ? 'Hide Settings' : 'Open Settings'}</span><ChevronRight className={`h-4 w-4 transition ${settingsOpen ? 'rotate-90' : ''}`}/></button>{settingsOpen && <div className="grid gap-2 pt-2 sm:grid-cols-3"><Rule label="Scoring" value={settings.scoringFormat || 'ppr'} disabled={!isCommissioner} options={[["ppr","Full PPR"],["half_ppr","Half PPR"],["standard","Standard"]]} onChange={value => updateLeagueSettings(league.id,{scoringFormat:value} as any)}/><Rule label="Waivers" value={waiverType} disabled={!isCommissioner} options={[["priority","Rolling Priority"],["faab","FAAB"]]} onChange={value => updateLeagueSettings(league.id,{waiverType:value} as any)}/><Rule label="IR Slots" value={String(settings.irSlots ?? 2)} disabled={!isCommissioner} options={[["0","0"],["1","1"],["2","2"],["3","3"]]} onChange={value => updateLeagueSettings(league.id,{irSlots:Number(value)} as any)}/></div>}</Panel>
       </div>}
 
@@ -495,7 +507,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
         {intelView === 'allbk' && <Panel title={seasonHasGames ? 'All-BK Roster Value Team' : 'Preseason All-BK Team'} sub="QB · RB · WR · TE · FLEX · K · D/ST only, using published 2026 fantasy projection data" icon={<Star className="h-5 w-5 text-[#D4AF37]"/>}>{rankingsBusy ? <Empty text="Loading the 2026 fantasy projection board…"/> : rankingsError ? <Empty text="The 2026 fantasy projection board is unavailable right now. No Madden rating fallback is used."/> : allBkTeam.length ? <><div className="divide-y divide-white/5">{allBkTeam.map((item,index) => <div key={`${item.label}-${item.player.id}-${index}`} className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-3 py-3"><span className="text-[10px] font-black uppercase text-[#D4AF37]">{item.label}</span><div className="min-w-0"><div className="truncate text-sm font-black">{item.player.name}</div><div className="flex items-center gap-1.5 truncate text-[9px] text-zinc-500"><span>{displayManagerName(item.member)}</span>{item.member.isAi && <CpuBadge/>}</div></div><div className="max-w-28 text-right text-[9px] font-black text-zinc-400">{item.score.toFixed(1)} proj</div></div>)}</div>{!allBkHasDst && <DataNotice text="D/ST projection data is not published in the current 2026 ranking feed, so Ball Knower will not invent a D/ST value."/>}</> : <Empty text="No drafted players currently have published 2026 fantasy projection data."/>}</Panel>}
       </div>}
 
-      {swapSlot && swapDefinition && <div className="fixed inset-0 z-[80] flex items-end bg-black/70 backdrop-blur-sm sm:items-center sm:justify-center" onMouseDown={event => { if(event.target === event.currentTarget) setSwapSlot(''); }}><div className="max-h-[78dvh] w-full overflow-hidden rounded-t-3xl border border-white/10 bg-[#0d1015] shadow-2xl sm:max-w-lg sm:rounded-3xl"><div className="flex items-center justify-between border-b border-white/10 p-4"><div><div className="text-[9px] font-black uppercase text-[#D4AF37]">{swapDefinition.label} starter</div><div className="text-lg font-black">Swap {currentSwapPlayer?.name || 'player'}</div></div><button aria-label="Close lineup swap" onClick={() => setSwapSlot('')} className="grid h-10 w-10 place-items-center rounded-full border border-white/10"><X className="h-4 w-4"/></button></div><div className="max-h-[62dvh] space-y-1 overflow-y-auto p-3">{swapOptions.map(player => <button key={player.id} onClick={() => { setStarters(prev => ({...prev,[swapSlot]:player.id})); setSwapSlot(''); }} className={`flex min-h-16 w-full items-center gap-3 rounded-xl p-2 text-left ${player.id === currentSwapPlayer?.id ? 'border border-[#D4AF37]/30 bg-[#D4AF37]/5' : 'bg-black/25'}`}><Portrait player={player}/><div className="min-w-0 flex-1"><div className="text-sm font-black">{player.name}</div><div className="text-[10px] text-zinc-500">{valueLabel(player)}</div></div>{player.id === currentSwapPlayer?.id ? <span className="text-[9px] font-black uppercase text-[#D4AF37]">Current</span> : <span className="text-[9px] font-black uppercase">Start</span>}</button>)}</div></div></div>}
+      {swapSlot && swapDefinition && <div className="fixed inset-0 z-[80] flex items-end bg-black/70 backdrop-blur-sm sm:items-center sm:justify-center" onMouseDown={event => { if(event.target === event.currentTarget) setSwapSlot(''); }}><div className="max-h-[78dvh] w-full overflow-hidden pb-[env(safe-area-inset-bottom)] rounded-t-3xl border border-white/10 bg-[#0d1015] shadow-2xl sm:max-w-lg sm:rounded-3xl"><div className="flex items-center justify-between border-b border-white/10 p-4"><div><div className="text-[9px] font-black uppercase text-[#D4AF37]">{swapDefinition.label} starter</div><div className="text-lg font-black">Swap {currentSwapPlayer?.name || 'player'}</div></div><button aria-label="Close lineup swap" onClick={() => setSwapSlot('')} className="grid h-10 w-10 place-items-center rounded-full border border-white/10"><X className="h-4 w-4"/></button></div><div className="max-h-[62dvh] space-y-1 overflow-y-auto p-3">{swapOptions.map(player => <button key={player.id} onClick={() => { setStarters(prev => ({...prev,[swapSlot]:player.id})); setSwapSlot(''); }} className={`flex min-h-16 w-full items-center gap-3 rounded-xl p-2 text-left ${player.id === currentSwapPlayer?.id ? 'border border-[#D4AF37]/30 bg-[#D4AF37]/5' : 'bg-black/25'}`}><Portrait player={player}/><div className="min-w-0 flex-1"><div className="text-sm font-black">{player.name}</div><div className="text-[10px] text-zinc-500">{valueLabel(player)}</div></div>{player.id === currentSwapPlayer?.id ? <span className="text-[9px] font-black uppercase text-[#D4AF37]">Current</span> : <span className="text-[9px] font-black uppercase">Start</span>}</button>)}</div></div></div>}
 
       {selectedTeam && <TeamRosterDrawer member={selectedTeam} me={me} comparePlayers={comparePlayers} valueLabel={valueLabel} onClose={() => setSelectedTeamId('')} onTrade={(playerId) => startTrade(selectedTeam.id, playerId)}/>} 
     </section>
@@ -551,5 +563,5 @@ const StartSeasonCard = ({league,busy,onStart}:{league:League;busy:boolean;onSta
 
 const TeamRosterDrawer = ({member,me,comparePlayers,valueLabel,onClose,onTrade}:{member:LeagueMember;me?:LeagueMember;comparePlayers:(a:Player,b:Player)=>number;valueLabel:(player:Player)=>string;onClose:()=>void;onTrade:(playerId:string)=>void}) => {
   const roster=(member.roster||[]).filter(player=>STANDARD_POSITIONS.has(player.position)).sort(comparePlayers);
-  return <div className="fixed inset-0 z-[75] flex items-end bg-black/70 backdrop-blur-sm sm:items-center sm:justify-center" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}><div className="max-h-[88dvh] w-full overflow-hidden rounded-t-3xl border border-white/10 bg-[#0d1015] shadow-2xl sm:max-w-2xl sm:rounded-3xl"><div className="border-b border-white/10 p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex items-center gap-2"><h2 className="truncate text-xl font-black uppercase">{displayManagerName(member)}</h2>{member.isAi&&<CpuBadge/>}</div><p className="mt-1 text-xs text-zinc-500">{roster.length} fantasy players · tap any player to build a trade</p></div><button aria-label="Close roster" onClick={onClose} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10"><X className="h-4 w-4"/></button></div><div className="mt-3"><TeamNeedStrip member={member}/></div></div><div className="max-h-[68dvh] overflow-y-auto p-3"><div className="space-y-1">{roster.map(player=><div key={player.id} className="flex min-h-16 items-center gap-3 rounded-xl bg-black/25 p-2"><Portrait player={player}/><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className="text-[9px] font-black uppercase text-[#D4AF37]">{player.position}</span><span className="truncate text-sm font-black">{player.name}</span></div><div className="truncate text-[9px] text-zinc-500">{valueLabel(player)}</div></div>{member.id !== me?.id && <button onClick={()=>onTrade(player.id)} className="min-h-10 shrink-0 rounded-lg bg-[#D4AF37] px-3 text-[8px] font-black uppercase text-black">Trade for</button>}</div>)}</div></div></div></div>;
+  return <div className="fixed inset-0 z-[75] flex items-end bg-black/70 backdrop-blur-sm sm:items-center sm:justify-center" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}><div className="max-h-[88dvh] w-full overflow-hidden pb-[env(safe-area-inset-bottom)] rounded-t-3xl border border-white/10 bg-[#0d1015] shadow-2xl sm:max-w-2xl sm:rounded-3xl"><div className="border-b border-white/10 p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex items-center gap-2"><h2 className="truncate text-xl font-black uppercase">{displayManagerName(member)}</h2>{member.isAi&&<CpuBadge/>}</div><p className="mt-1 text-xs text-zinc-500">{roster.length} fantasy players · tap any player to build a trade</p></div><button aria-label="Close roster" onClick={onClose} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10"><X className="h-4 w-4"/></button></div><div className="mt-3"><TeamNeedStrip member={member}/></div></div><div className="max-h-[68dvh] overflow-y-auto p-3"><div className="space-y-1">{roster.map(player=><div key={player.id} className="flex min-h-16 items-center gap-3 rounded-xl bg-black/25 p-2"><Portrait player={player}/><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className="text-[9px] font-black uppercase text-[#D4AF37]">{player.position}</span><span className="truncate text-sm font-black">{player.name}</span></div><div className="truncate text-[9px] text-zinc-500">{valueLabel(player)}</div></div>{member.id !== me?.id && <button onClick={()=>onTrade(player.id)} className="min-h-10 shrink-0 rounded-lg bg-[#D4AF37] px-3 text-[8px] font-black uppercase text-black">Trade for</button>}</div>)}</div></div></div></div>;
 };

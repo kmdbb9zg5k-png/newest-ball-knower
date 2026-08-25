@@ -306,8 +306,26 @@ begin
     end if;
 
     perform set_config('ball_knower.authorized_roster_operation','trade',true);
-    update public.ball_knower_league_members set roster=p_new,status=p.status,team_ratings=null where id=p.id;
-    update public.ball_knower_league_members set roster=r_new,status=r.status,team_ratings=null where id=r.id;
+    update public.ball_knower_league_members set
+      roster=p_new,
+      status=p.status,
+      team_ratings=null,
+      ir_player_ids=(
+        select coalesce(jsonb_agg(ir.player_id),'[]'::jsonb)
+        from jsonb_array_elements_text(coalesce(p.ir_player_ids,'[]'::jsonb)) ir(player_id)
+        where exists(select 1 from jsonb_array_elements(p_new) player where player->>'id'=ir.player_id)
+      )
+    where id=p.id;
+    update public.ball_knower_league_members set
+      roster=r_new,
+      status=r.status,
+      team_ratings=null,
+      ir_player_ids=(
+        select coalesce(jsonb_agg(ir.player_id),'[]'::jsonb)
+        from jsonb_array_elements_text(coalesce(r.ir_player_ids,'[]'::jsonb)) ir(player_id)
+        where exists(select 1 from jsonb_array_elements(r_new) player where player->>'id'=ir.player_id)
+      )
+    where id=r.id;
     perform set_config('ball_knower.authorized_roster_operation','',true);
 
     update public.ball_knower_trades set status='accepted',resolved_at=now() where id=t.id;
