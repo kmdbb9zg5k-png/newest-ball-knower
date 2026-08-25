@@ -23,6 +23,8 @@ const FantasyHub=lazy(()=>import('./FantasyHub').then(module=>({default:module.F
 const SportsbookHub=lazy(()=>import('./SportsbookHub').then(module=>({default:module.SportsbookHub})));
 const HallOfFame=lazy(()=>import('./HallOfFame').then(module=>({default:module.HallOfFame})));
 const LeagueLobby=lazy(()=>import('./LeagueLobby').then(module=>({default:module.LeagueLobby})));
+const DraftRoom=lazy(()=>import('./DraftRoom').then(module=>({default:module.DraftRoom})));
+const MobileDraftRoom=lazy(()=>import('./MobileDraftRoom').then(module=>({default:module.MobileDraftRoom})));
 const LeagueLiveDraftRoom=lazy(()=>import('./LeagueLiveDraftRoom').then(module=>({default:module.LeagueLiveDraftRoom})));
 const SimulationView=lazy(()=>import('./SimulationView').then(module=>({default:module.SimulationView})));
 const DatabaseVerificationModal=lazy(()=>import('./DatabaseVerificationModal').then(module=>({default:module.DatabaseVerificationModal})));
@@ -51,6 +53,7 @@ function BallKnowerApp(){
   const [isMobileDraftViewport,setIsMobileDraftViewport]=useState(detectMobileDraftViewport);
   const [favoriteTheme,setFavoriteTheme]=useState<TeamTheme>(()=>getSavedTeamTheme());
   const [showFavoriteTeam,setShowFavoriteTeam]=useState(()=>{try{const params=new URLSearchParams(window.location.search);return params.get('teamsetup')==='1'||!localStorage.getItem('ball-knower-team-setup-v2')}catch{return false}});
+  const isDraftOrderGame=Boolean(activeLeague&&activeLeague.settings?.draftOrderMethod==='game'&&!activeLeague.seasonResult?.draftOrder?.length&&!activeLeague.liveDraft);
 
   useEffect(()=>{setIntroActiveRef.current=setIntroActive},[setIntroActive]);
   useEffect(()=>{setIntroActiveRef.current(true);try{const savedTheme=getSavedTeamTheme();setFavoriteTheme(savedTheme);applyTeamCssVariables(savedTheme);const params=new URLSearchParams(window.location.search);const joinCode=params.get('join');if(joinCode)joinLeague(joinCode).then(res=>{if(res.success&&res.league)setCurrentTab('lobby')})}catch(e){console.error(e)}},[]);
@@ -82,7 +85,7 @@ function BallKnowerApp(){
         {currentTab==='challenges'&&<ChallengesHub/>}
         {currentTab==='locker'&&<LockerHub/>}
         {currentTab==='lobby'&&activeLeague&&<LeagueLobby league={activeLeague} onGoToDraft={()=>setCurrentTab('draft')} onGoToSimulation={()=>setCurrentTab('simulation')}/>} 
-        {currentTab==='draft'&&(activeLeague?<LeagueLiveDraftRoom onBackToLobby={()=>setCurrentTab('lobby')}/>:<div className="mx-auto flex min-h-[60dvh] max-w-xl items-center justify-center px-4 text-center"><div className="rounded-2xl border border-white/10 bg-[#0d1015] p-6"><h2 className="text-2xl font-black uppercase">Choose A Fantasy League First</h2><p className="mt-2 text-sm text-zinc-500">League drafts live inside League HQ. The old salary-cap roster builder is not part of the fantasy draft flow.</p><button onClick={()=>setCurrentTab('fantasy')} className="mt-5 min-h-12 w-full rounded-xl bg-[var(--bk-team-accent)] px-5 text-xs font-black uppercase text-[var(--bk-on-accent)]">Go To Fantasy</button></div></div>)}
+        {currentTab==='draft'&&(activeLeague?(isDraftOrderGame?(isMobileDraftViewport?<MobileDraftRoom onGoToSimulation={()=>setCurrentTab('simulation')}/>:<DraftRoom onGoToSimulation={()=>setCurrentTab('simulation')}/>):<LeagueLiveDraftRoom onBackToLobby={()=>setCurrentTab('lobby')}/>):<div className="mx-auto flex min-h-[60dvh] max-w-xl items-center justify-center px-4 text-center"><div className="rounded-2xl border border-white/10 bg-[#0d1015] p-6"><h2 className="text-2xl font-black uppercase">Choose A Fantasy League First</h2><p className="mt-2 text-sm text-zinc-500">League drafts live inside League HQ. Select a league before opening its draft room.</p><button onClick={()=>setCurrentTab('fantasy')} className="mt-5 min-h-12 w-full rounded-xl bg-[var(--bk-team-accent)] px-5 text-xs font-black uppercase text-[var(--bk-on-accent)]">Go To Fantasy</button></div></div>)}
         {currentTab==='simulation'&&activeLeague&&<SimulationView league={activeLeague} onBackToLobby={()=>setCurrentTab('lobby')} onOpenDraft={()=>setCurrentTab('draft')}/>} 
       </Suspense>
     </main>
