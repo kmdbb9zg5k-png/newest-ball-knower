@@ -87,21 +87,11 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
       return true;
     }
 
-    if (!supabase) {
-      const started = await startLiveFantasyDraft(league.id);
-      if (started) onGoToDraft();
-      return started;
-    }
-
-    await ensureOnlineSession();
-    const { error } = await supabase.rpc('start_ball_knower_live_draft', { p_league_id: league.id });
-    if (error) throw error;
-
-    // The RPC is authoritative and returns only after the shared draft exists. Navigate
-    // immediately instead of depending on a realtime event that may be delayed or missed.
-    // App routing keeps this league in the live-draft flow while cloud state hydrates.
-    onGoToDraft();
-    return true;
+    // Always use the context start helper. In cloud leagues it applies the authoritative
+    // RPC response to shared league state before navigation; local/demo keeps its own path.
+    const started = await startLiveFantasyDraft(league.id);
+    if (started) onGoToDraft();
+    return started;
   };
 
   useEffect(() => {
