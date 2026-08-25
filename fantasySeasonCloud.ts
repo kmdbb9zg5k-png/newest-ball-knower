@@ -18,6 +18,12 @@ const mapTxn=(x:any):LeagueTransaction=>({id:x.id,leagueId:x.league_id,memberId:
 const mapInjury=(x:any):LeagueInjury=>({id:x.id,leagueId:x.league_id,memberId:x.member_id,playerId:x.player_id,playerName:x.player_name,injuryType:x.injury_type,severity:x.severity,weeksRemaining:Number(x.weeks_remaining)||0,onIr:Boolean(x.on_ir),status:x.status,createdAt:x.created_at,updatedAt:x.updated_at});
 const mapMessage=(x:any):LeagueMessage=>({id:x.id,leagueId:x.league_id,memberName:x.member_name,body:x.body,kind:x.kind,replyTo:x.reply_to||undefined,createdAt:x.created_at});
 
+export function assertStandardFantasyTradePackage(offeredPlayerIds:string[],requestedPlayerIds:string[]){
+  if(!offeredPlayerIds.length||!requestedPlayerIds.length) throw new Error('Choose at least one player from each team.');
+  if(offeredPlayerIds.length>3||requestedPlayerIds.length>3) throw new Error('Trade packages can include up to three players on each side.');
+  if(new Set(offeredPlayerIds).size!==offeredPlayerIds.length||new Set(requestedPlayerIds).size!==requestedPlayerIds.length) throw new Error('A player can only appear once in a trade package.');
+}
+
 export async function fetchSeasonOperations(leagueId:string){
   if(!supabase) return {trades:[],claims:[],transactions:[],injuries:[],messages:[]} as const;
   await ensureOnlineSession();
@@ -44,8 +50,7 @@ export async function proposeTradeWithResolution(
   if(!supabase) throw new Error('Online multiplayer is not configured.');
   await ensureOnlineSession();
   if(proposerMemberId===recipientMemberId) throw new Error('Choose another owner to trade with.');
-  if(!offeredPlayerIds.length||!requestedPlayerIds.length) throw new Error('Choose at least one player from each team.');
-  if(offeredPlayerIds.length>3||requestedPlayerIds.length>3) throw new Error('Trade packages can include up to three players on each side.');
+  assertStandardFantasyTradePackage(offeredPlayerIds,requestedPlayerIds);
   const {data,error}=await supabase.rpc('propose_ball_knower_trade_v2',{
     p_league_id:league.id,
     p_recipient_member_id:recipientMemberId,
@@ -59,8 +64,12 @@ export async function proposeTradeWithResolution(
   if(!tradeId) throw new Error('The trade was not created.');
   const recipient=league.members.find(member=>member.id===recipientMemberId);
   if(recipient?.isAi){
-    const decision=await resolveTradeWithResult(tradeId,'accepted');
-    return {...decision,tradeId};
+    try{
+      const decision=await resolveTradeWithResult(tradeId,'accepted');
+      return {...decision,tradeId};
+    }catch{
+      return {tradeId,status:'pending',reason:'Offer saved. The CPU decision could not finish — retry it from Sent Offers.'};
+    }
   }
   return {tradeId,status:'pending',reason:'Offer sent.'};
 }
@@ -105,7 +114,7 @@ export async function resolveTradeWithResult(
   status:TradeAction,
   recipientDropPlayerIds:string[]=[],
 ):Promise<TradeResolution>{
-  if(!supabase) return {tradeId,status};
+  if(!supabase) throw new Error('Online multiplayer is not configured.');
   await ensureOnlineSession();
   const {data,error}=await supabase.rpc('resolve_ball_knower_trade_v2',{
     p_trade_id:tradeId,
