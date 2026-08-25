@@ -9,6 +9,7 @@ export type ProgressEvent={id:number;eventType:string;category:string;xpAwarded:
 export type Achievement={key:string;title:string;description:string;category:string;tier:'bronze'|'silver'|'gold'|'diamond';xpReward:number;unlockedAt?:string};
 export type TriviaQuestion={attemptId:number;questionId:number;tier:string;question:string;answers:string[];practiceOnly?:boolean};
 export type TriviaAnswerResult={isCorrect:boolean;correctIndex:number;explanation:string;xpAwarded:number;progressionRecorded:boolean};
+export type TriviaSession={token:string;order:number};
 export type ChampionshipClaimResult={applied:boolean;eventKey:string};
 
 type LocalTrivia={tier:string;question:string;answers:string[];correctIndex:number;explanation:string};
@@ -30,6 +31,7 @@ const localAttempts=new Map<number,LocalTrivia>();
 const localSeenByTier=new Map<string,Set<string>>();
 const localLastByTier=new Map<string,string>();
 let nextLocalAttempt=-1;
+let lastTriviaSessionOrder=0;
 
 /** Chooses an offline practice question without repeating within a tier until its tiny fallback pool is exhausted. */
 const localTriviaQuestion=(tier:string):TriviaQuestion=>{
@@ -60,22 +62,34 @@ const makeTriviaSessionToken=()=>{
   try{return crypto.randomUUID();}catch{return `bk-trivia-${Date.now()}-${Math.random().toString(36).slice(2)}`;}
 };
 
+const nextTriviaSessionOrder=()=>{
+  const preciseNow=typeof performance!=='undefined'&&Number.isFinite(performance.timeOrigin)
+    ?performance.timeOrigin+performance.now()
+    :Date.now();
+  const nowMicros=Math.floor(preciseNow*1000);
+  lastTriviaSessionOrder=Math.max(lastTriviaSessionOrder+1,nowMicros);
+  return lastTriviaSessionOrder;
+};
+
 /**
- * Starts an explicit trivia session before any question fetch. The server records the
- * newest token under a per-user lock, so a delayed request from an exited/older session
- * can be rejected without touching the currently displayed attempt.
+ * Registers a new user-visible trivia session before any question fetch. The order is
+ * captured when the user taps a tier (not when the network call arrives), so a delayed
+ * older request cannot supersede a newer session under the server's per-user lock.
  */
-export async function beginTriviaSession():Promise<string>{
-  const token=makeTriviaSessionToken();
-  if(!supabase)return token;
+export async function beginTriviaSession():Promise<TriviaSession>{
+  const session={token:makeTriviaSessionToken(),order:nextTriviaSessionOrder()};
+  if(!supabase)return session;
   try{
     await ensureOnlineSession();
-    const response=await supabase.rpc('begin_ball_knower_trivia_session',{p_session_token:token});
+    const response=await supabase.rpc('begin_ball_knower_trivia_session',{
+      p_session_token:session.token,
+      p_session_order:session.order,
+    });
     if(response.error)throw response.error;
   }catch(error){
     console.warn('Verified trivia session could not start; offline practice may be used.',error);
   }
-  return token;
+  return session;
 }
 
 const mapProfile=(x:any):ProgressProfile=>({
@@ -117,12 +131,12 @@ export async function claimLeagueChampionshipProgress(leagueId:string):Promise<C
   return {applied:Boolean(row.applied),eventKey:String(row.event_key||'')};
 }
 
-export async function fetchTriviaQuestion(tier:string,sessionToken?:string):Promise<TriviaQuestion>{
+export async function fetchTriviaQuestion(tier:string,session?:TriviaSession):Promise<TriviaQuestion>{
   if(!supabase)return localTriviaQuestion(tier);
   try{
     await ensureOnlineSession();
-    const response=sessionToken
-      ?await supabase.rpc('get_ball_knower_trivia_question',{p_tier:tier,p_session_token:sessionToken})
+    const response=session
+      ?await supabase.rpc('get_ball_knower_trivia_question',{p_tier:tier,p_session_token:session.token})
       :await supabase.rpc('get_ball_knower_trivia_question',{p_tier:tier});
     if(response.error)throw response.error;
     const row=Array.isArray(response.data)?response.data[0]:response.data;
