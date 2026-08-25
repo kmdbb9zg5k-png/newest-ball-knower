@@ -9,8 +9,7 @@ export type LeagueTransaction={id:string;leagueId:string;memberId?:string;transa
 export type LeagueInjury={id:string;leagueId:string;memberId:string;playerId:string;playerName:string;injuryType:string;severity:'minor'|'moderate'|'major'|'season_ending';weeksRemaining:number;onIr:boolean;status:'questionable'|'doubtful'|'out'|'ir'|'cleared';createdAt:string;updatedAt:string};
 export type LeagueMessage={id:string;leagueId:string;memberName:string;body:string;kind:'chat'|'announcement'|'receipt'|'reaction';replyTo?:string;createdAt:string};
 export type WeeklyInjuryRollResult={week:number;created:number;reused:boolean};
-
-type TradeAction='accepted'|'rejected'|'cancelled'|'vetoed'|'approved';
+export type TradeAction='accepted'|'rejected'|'cancelled'|'vetoed'|'approved';
 
 const mapTrade=(x:any):TradeOffer=>({id:x.id,leagueId:x.league_id,proposerMemberId:x.proposer_member_id,recipientMemberId:x.recipient_member_id,offeredPlayerIds:x.offered_player_ids||[],requestedPlayerIds:x.requested_player_ids||[],proposerDropPlayerIds:x.proposer_drop_player_ids||[],recipientDropPlayerIds:x.recipient_drop_player_ids||[],status:x.status,note:x.note||undefined,createdAt:x.created_at,resolvedAt:x.resolved_at||undefined});
 const mapClaim=(x:any):WaiverClaim=>({id:x.id,leagueId:x.league_id,memberId:x.member_id,playerId:x.player_id,dropPlayerId:x.drop_player_id||undefined,priority:Number(x.priority)||999,status:x.status,createdAt:x.created_at,processedAt:x.processed_at||undefined});
@@ -51,6 +50,22 @@ export async function proposeTradeWithResolution(
   await ensureOnlineSession();
   if(proposerMemberId===recipientMemberId) throw new Error('Choose another owner to trade with.');
   assertStandardFantasyTradePackage(offeredPlayerIds,requestedPlayerIds);
+
+  // Preserve the existing pre-live-draft trade contract. Flexible package cuts
+  // and immediate CPU decisions are deliberately post-draft fantasy behavior.
+  if(league.liveDraft?.status!=='completed'){
+    if(proposerDropPlayerIds.length) throw new Error('Roster-cut trade packages unlock after the fantasy draft is complete.');
+    const {data,error}=await supabase.rpc('propose_ball_knower_trade',{
+      p_league_id:league.id,
+      p_recipient_member_id:recipientMemberId,
+      p_offered_player_ids:offeredPlayerIds,
+      p_requested_player_ids:requestedPlayerIds,
+      p_note:note||null,
+    });
+    if(error) throw error;
+    return {tradeId:data?String(data):undefined,status:'pending',reason:'Offer sent.'};
+  }
+
   const {data,error}=await supabase.rpc('propose_ball_knower_trade_v2',{
     p_league_id:league.id,
     p_recipient_member_id:recipientMemberId,
