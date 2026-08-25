@@ -158,7 +158,8 @@ begin
       t.recipient_drop_player_ids:=v_drop_ids;
 
       -- Preview the CPU roster before accepting so it cannot trade itself out
-      -- of a legal weekly lineup, including the FLEX depth requirement.
+      -- of a legal weekly lineup. CPU teams also stay at 20 because they do not
+      -- have a human manager to fill an open roster spot before season launch.
       select coalesce(jsonb_agg(player),'[]'::jsonb) into r_new from (
         select player
         from jsonb_array_elements(coalesce(r.roster,'[]'::jsonb)) player
@@ -170,7 +171,7 @@ begin
       ) next_roster;
 
       select
-        jsonb_array_length(r_new)<=20
+        jsonb_array_length(r_new)=20
         and (select count(*) from jsonb_array_elements(r_new) x where x->>'position'='QB')>=1
         and (select count(*) from jsonb_array_elements(r_new) x where x->>'position'='RB')>=2
         and (select count(*) from jsonb_array_elements(r_new) x where x->>'position'='WR')>=2
@@ -182,7 +183,7 @@ begin
 
       if not coalesce(v_cpu_lineup_valid,false) then
         update public.ball_knower_trades set status='rejected',resolved_at=now() where id=t.id;
-        return jsonb_build_object('status','rejected','reason','CPU declined: the deal would leave its weekly lineup incomplete.');
+        return jsonb_build_object('status','rejected','reason','CPU declined: the deal would leave an open roster spot or incomplete weekly lineup.');
       end if;
 
       if v_review='commissioner' and not public.is_ball_knower_commissioner(t.league_id) then
@@ -289,7 +290,8 @@ begin
     -- this is a CPU recipient, re-check lineup legality at execution time too.
     if coalesce(r.is_ai,false) then
       select
-        (select count(*) from jsonb_array_elements(r_new) x where x->>'position'='QB')>=1
+        jsonb_array_length(r_new)=20
+        and (select count(*) from jsonb_array_elements(r_new) x where x->>'position'='QB')>=1
         and (select count(*) from jsonb_array_elements(r_new) x where x->>'position'='RB')>=2
         and (select count(*) from jsonb_array_elements(r_new) x where x->>'position'='WR')>=2
         and (select count(*) from jsonb_array_elements(r_new) x where x->>'position'='TE')>=1
@@ -299,7 +301,7 @@ begin
       into v_cpu_lineup_valid;
       if not coalesce(v_cpu_lineup_valid,false) then
         update public.ball_knower_trades set status='rejected',resolved_at=now() where id=t.id;
-        return jsonb_build_object('status','rejected','reason','CPU declined: its roster changed and the deal no longer leaves a legal weekly lineup.');
+        return jsonb_build_object('status','rejected','reason','CPU declined: its roster changed and the deal no longer leaves a full legal weekly lineup.');
       end if;
     end if;
 
