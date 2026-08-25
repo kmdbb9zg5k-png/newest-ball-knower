@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Brain, CheckCircle2, Loader2, WifiOff, XCircle } from 'lucide-react';
 import { fetchTriviaQuestion, submitTriviaAnswer, TriviaAnswerResult, TriviaQuestion } from './progressionCloud';
 import { ModeGuide } from './ModeGuide';
@@ -25,6 +25,8 @@ export const ChallengesHub: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const advancingRef = useRef(false);
+  const advanceTimerRef = useRef<number | null>(null);
 
   const loadQuestion = useCallback(async (nextTier: TriviaTier) => {
     setLoading(true);
@@ -41,7 +43,16 @@ export const ChallengesHub: React.FC = () => {
     }
   }, []);
 
+  const clearAdvanceTimer = useCallback(() => {
+    if (advanceTimerRef.current !== null) {
+      window.clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = null;
+    }
+  }, []);
+
   const openTrivia = (nextTier: TriviaTier) => {
+    clearAdvanceTimer();
+    advancingRef.current = false;
     trackBallKnowerEvent('Trivia Started', { tier: nextTier });
     setTier(nextTier);
     setQuestionNumber(1);
@@ -64,6 +75,7 @@ export const ChallengesHub: React.FC = () => {
         progression_recorded: receipt.progressionRecorded,
         practice_only: Boolean(question.practiceOnly),
       });
+      advancingRef.current = false;
       setResult(receipt);
       if (receipt.isCorrect) setScore(current => current + 1);
     } catch (err) {
@@ -75,17 +87,27 @@ export const ChallengesHub: React.FC = () => {
   };
 
   const advanceQuestion = useCallback(() => {
+    // The timeout and the manual button can fire in the same event window on mobile.
+    // Claim this transition synchronously so one result creates exactly one next attempt.
+    if (advancingRef.current) return;
+    advancingRef.current = true;
+    clearAdvanceTimer();
     setQuestionNumber(current => current + 1);
-    void loadQuestion(tier);
-  }, [loadQuestion, tier]);
+    void loadQuestion(tier).finally(() => {
+      advancingRef.current = false;
+    });
+  }, [clearAdvanceTimer, loadQuestion, tier]);
 
   useEffect(() => {
-    if (!result || !triviaOpen) return;
-    // Leave enough time to read the explanation, while keeping a fast manual
-    // skip for competitive players who are ready immediately.
-    const timer = window.setTimeout(advanceQuestion, result.isCorrect ? 1800 : 2800);
-    return () => window.clearTimeout(timer);
-  }, [result, triviaOpen, advanceQuestion]);
+    if (!result || !triviaOpen) {
+      clearAdvanceTimer();
+      return;
+    }
+    advanceTimerRef.current = window.setTimeout(advanceQuestion, result.isCorrect ? 1800 : 2800);
+    return clearAdvanceTimer;
+  }, [result, triviaOpen, advanceQuestion, clearAdvanceTimer]);
+
+  useEffect(() => () => clearAdvanceTimer(), [clearAdvanceTimer]);
 
   return (
     <div className="mx-auto max-w-5xl px-3 pb-8 pt-4 sm:px-6 sm:pt-6">
@@ -117,7 +139,7 @@ export const ChallengesHub: React.FC = () => {
         <div role="dialog" aria-modal="true" aria-label={`${tier} Trivia`} className="fixed inset-0 z-[9999] overflow-y-auto overscroll-contain bg-[#05070a] px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(.75rem,env(safe-area-inset-top))] text-white [-webkit-overflow-scrolling:touch] sm:px-4">
           <div className="mx-auto w-full max-w-2xl">
             <header className="flex min-h-12 items-center justify-between gap-3">
-              <button onClick={() => setTriviaOpen(false)} className="inline-flex min-h-10 items-center gap-2 px-1 text-[10px] font-black uppercase"><ArrowLeft className="h-4 w-4" /> Exit</button>
+              <button onClick={() => { clearAdvanceTimer(); setTriviaOpen(false); }} className="inline-flex min-h-10 items-center gap-2 px-1 text-[10px] font-black uppercase"><ArrowLeft className="h-4 w-4" /> Exit</button>
               <div className="text-center text-[10px] font-black uppercase tracking-wider text-fuchsia-400">{tier}</div>
               <div className="text-right text-[9px] font-black uppercase text-zinc-500">Score <span className="text-white">{score}</span></div>
             </header>
@@ -153,7 +175,7 @@ export const ChallengesHub: React.FC = () => {
                   <div className="mt-3 rounded-xl border border-fuchsia-400/25 bg-fuchsia-400/[.05] p-3 text-xs leading-5 text-zinc-400">
                     <div className="flex items-start justify-between gap-3">
                       <div className={`font-black uppercase ${result.isCorrect ? 'text-emerald-300' : 'text-red-300'}`}>{result.isCorrect ? 'Correct' : 'Missed'} {result.xpAwarded > 0 && `· +${result.xpAwarded} XP`}</div>
-                      <button onClick={advanceQuestion} className="min-h-8 shrink-0 rounded-lg border border-fuchsia-400/25 px-2.5 text-[9px] font-black uppercase text-fuchsia-200">Next now</button>
+                      <button onClick={advanceQuestion} disabled={advancingRef.current} className="min-h-8 shrink-0 rounded-lg border border-fuchsia-400/25 px-2.5 text-[9px] font-black uppercase text-fuchsia-200 disabled:opacity-50">Next now</button>
                     </div>
                     <div className="mt-1">{result.explanation}</div>
                     {question.practiceOnly ? <div className="mt-1 text-amber-200">Practice result only. Reconnect for verified XP and rating progress.</div> : result.progressionRecorded && <div className="mt-1 text-fuchsia-300">Saved to your BK Profile.</div>}
