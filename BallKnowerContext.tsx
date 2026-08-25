@@ -860,25 +860,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const league=leagues.find(item=>item.id===leagueId);
         const current=league?.liveDraft;
         if(!league||!current||current.status!=='active')throw new Error('The fantasy draft is not active.');
-        const teamCount=current.orderMemberIds.length;
-        const roundIndex=Math.floor(current.pickIndex/teamCount);
-        const slot=current.pickIndex%teamCount;
-        const orderIndex=roundIndex%2===0?slot:teamCount-1-slot;
-        const memberId=current.orderMemberIds[orderIndex];
-        const nextIndex=current.pickIndex+1;
-        const now=new Date().toISOString();
-        const finalDraft:LiveFantasyDraft={
-          ...current,
-          status:nextIndex>=teamCount*current.rounds?'completed':'active',
-          pickIndex:nextIndex,
-          picks:[...current.picks,{overall:nextIndex,round:roundIndex+1,memberId,playerId:player.id,group,pickedAt:now}],
-          completedAt:nextIndex>=teamCount*current.rounds?now:undefined,
-          updatedAt:now,
-        };
-        const finalAssignments=finalDraft.status==='completed'
-          ? buildLiveDraftRosterAssignments(league,finalDraft)
-          : undefined;
-        draft=await makeCloudLiveFantasyDraftPick(leagueId,player.id,group,finalAssignments);
+        draft=await makeCloudLiveFantasyDraftPick(leagueId,player.id,group);
       }else{
         const league=leagues.find(item=>item.id===leagueId);
         const current=league?.liveDraft;
