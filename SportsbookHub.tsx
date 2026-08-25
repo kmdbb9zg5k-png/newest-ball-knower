@@ -17,7 +17,7 @@ export const SportsbookHub:React.FC=()=>{
   const [updated,setUpdated]=useState<Date|null>(null);
   const [picks,setPicks]=useState<Pick[]>(()=>{try{const parsed=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');return Array.isArray(parsed)?parsed.filter(isValidPick):[]}catch{return []}});
 
-  const load=async()=>{setLoading(true);setError('');try{const response=await fetch('/api/nfl-sportsbook',{cache:'no-store'});if(!response.ok)throw new Error('Lines feed unavailable');const data=await response.json();setGames(Array.isArray(data?.games)?data.games:[]);setUpdated(new Date())}catch(err){setError(err instanceof Error?err.message:'Could not load NFL lines.')}finally{setLoading(false)}};
+  const load=async()=>{setLoading(true);setError('');try{const response=await fetch('/api/nfl-sportsbook',{cache:'no-store'});if(!response.ok)throw new Error('Lines feed unavailable');const data=await response.json();if(data?.available===false)throw new Error(data?.warning||'NFL lines feed temporarily unavailable');setGames(Array.isArray(data?.games)?data.games:[]);setUpdated(new Date())}catch(err){setError(err instanceof Error?err.message:'Could not load NFL lines.')}finally{setLoading(false)}};
   useEffect(()=>{void load()},[]);
   useEffect(()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(picks))}catch{}},[picks]);
 
@@ -34,7 +34,7 @@ export const SportsbookHub:React.FC=()=>{
 
     {error&&<div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs font-bold text-red-300">{error}</div>}
 
-    <section className="mt-2 overflow-hidden rounded-2xl border border-white/10 bg-[#0d1014]">{loading&&!games.length?<div className="p-6 text-center text-sm text-zinc-600">Loading NFL lines…</div>:!visible.length?<div className="p-6 text-center text-sm text-zinc-600">No NFL lines match that search.</div>:visible.map(game=>{
+    <section className="mt-2 overflow-hidden rounded-2xl border border-white/10 bg-[#0d1014]">{loading&&!games.length?<div className="p-6 text-center text-sm text-zinc-600">Loading NFL lines…</div>:error&&!games.length?<div className="p-6 text-center"><div className="text-sm font-black text-zinc-300">NFL lines are temporarily unavailable.</div><div className="mt-2 text-xs font-semibold text-zinc-600">Use Refresh to try again. An outage is never shown as a valid empty board.</div></div>:!visible.length?<div className="p-6 text-center text-sm text-zinc-600">No NFL lines match that search.</div>:visible.map(game=>{
       const spreadLine=game.spread;const totalLine=game.overUnder;
       const spreadLabel=spreadLine==null?'Spread —':`${game.home} ${spreadLine>0?'+':''}${spreadLine}`;
       const spreadId=`${game.id}-spread-home-${spreadLine}`;

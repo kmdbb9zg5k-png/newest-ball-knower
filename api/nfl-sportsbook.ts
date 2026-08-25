@@ -50,25 +50,61 @@ const kickoffIso = (date: any, time: any) => {
 };
 
 const sendUnavailable = (res: any, reason: string) => {
-  res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=300');
+  // A temporary upstream outage must not become another visitor's cached empty board.
+  res.setHeader('Cache-Control', 'private, no-store, max-age=0');
   res.status(200).json({ games: [], available: false, warning: reason });
 };
 
+/** Fetches the NFL game feed with one bounded retry for transient failures. */
+const fetchScoreboardRows = async () => {
+  // Keep the complete upstream retry budget comfortably below a 10-second
+  // serverless window, leaving time for JSON parsing and response serialization.
+  const attempts = [
+    { limit: 400, timeoutMs: 5000 },
+    { limit: 400, timeoutMs: 3000 },
+  ];
+  let failureReason = 'NFL scoreboard feed temporarily unavailable';
+
+  for (let index = 0; index < attempts.length; index += 1) {
+    const attempt = attempts[index];
+    try {
+      const upstream = await fetch(`https://api.nfldata.org/v1/games?season=2026&limit=${attempt.limit}`, {
+        headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0 (compatible; BallKnower/1.0)' },
+        signal: AbortSignal.timeout(attempt.timeoutMs),
+      });
+
+      if (!upstream.ok) {
+        failureReason = `NFL scoreboard feed temporarily unavailable (${upstream.status})`;
+        console.warn('nfl-picks-upstream-unavailable', upstream.status, `attempt-${index + 1}`);
+        continue;
+      }
+
+      const payload: any = await upstream.json();
+      const rows = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
+      if (rows.length) return { rows, failureReason: '' };
+
+      failureReason = 'NFL scoreboard feed returned no games';
+      console.warn('nfl-picks-upstream-empty', `attempt-${index + 1}`);
+    } catch (error: any) {
+      const timeout = error?.name === 'TimeoutError' || error?.name === 'AbortError';
+      failureReason = timeout ? 'NFL scoreboard feed timed out' : 'NFL scoreboard feed temporarily unavailable';
+      console.warn(
+        'nfl-picks-feed-degraded',
+        timeout ? 'timeout' : String(error?.message || error),
+        `attempt-${index + 1}`,
+      );
+    }
+  }
+
+  return { rows: [] as any[], failureReason };
+};
+
+/** Returns current NFL matchups/lines in the stable Picks API shape. */
 export default async function handler(_req: any, res: any) {
   try {
-    const signal = AbortSignal.timeout(10000);
-    const upstream = await fetch('https://api.nfldata.org/v1/games?season=2026&limit=1000', {
-      headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0 (compatible; BallKnower/1.0)' },
-      signal,
-    });
+    const { rows, failureReason } = await fetchScoreboardRows();
+    if (!rows.length) return sendUnavailable(res, failureReason);
 
-    if (!upstream.ok) {
-      console.warn('nfl-sportsbook-upstream-unavailable', upstream.status);
-      return sendUnavailable(res, `NFL scoreboard feed temporarily unavailable (${upstream.status})`);
-    }
-
-    const payload: any = await upstream.json();
-    const rows = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
     const now = Date.now();
     const relevant = rows
       .filter((g: any) => {
@@ -113,8 +149,7 @@ export default async function handler(_req: any, res: any) {
     res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=600');
     res.status(200).json({ games, available: true });
   } catch (error: any) {
-    const timeout = error?.name === 'TimeoutError' || error?.name === 'AbortError';
-    console.warn('nfl-sportsbook-feed-degraded', timeout ? 'timeout' : String(error?.message || error));
-    return sendUnavailable(res, timeout ? 'NFL scoreboard feed timed out' : 'NFL scoreboard feed temporarily unavailable');
+    console.warn('nfl-picks-handler-degraded', String(error?.message || error));
+    return sendUnavailable(res, 'NFL scoreboard feed temporarily unavailable');
   }
 }
