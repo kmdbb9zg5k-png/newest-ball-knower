@@ -1,4 +1,5 @@
 import { ensureOnlineSession, supabase } from './supabase';
+import { assertStandardFantasyTradePackage } from './fantasySeasonCloud';
 
 export async function counterTradeV2(
   tradeId:string,
@@ -9,8 +10,7 @@ export async function counterTradeV2(
 ):Promise<string>{
   if(!supabase) throw new Error('Online league services are not configured.');
   await ensureOnlineSession();
-  if(!offeredPlayerIds.length||!requestedPlayerIds.length) throw new Error('Choose at least one player from each team.');
-  if(offeredPlayerIds.length>3||requestedPlayerIds.length>3) throw new Error('Trade packages can include up to three players on each side.');
+  assertStandardFantasyTradePackage(offeredPlayerIds,requestedPlayerIds);
   const {data,error}=await supabase.rpc('counter_ball_knower_trade_v2',{
     p_trade_id:tradeId,
     p_offered_player_ids:offeredPlayerIds,
