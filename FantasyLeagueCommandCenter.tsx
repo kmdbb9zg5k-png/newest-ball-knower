@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity, AlertTriangle, Archive, Bell, Check, ClipboardCheck,
-  Copy, Crown, Eye, History, Lock, Pause, Play, QrCode, RefreshCw, RotateCcw,
+  CalendarClock, Copy, Crown, Eye, History, Lock, Pause, Play, QrCode, RefreshCw, RotateCcw,
   Settings, Shield, Sparkles, Trophy, Unlock, UserMinus, UserPlus, Users,
 } from 'lucide-react';
 import { League } from './types';
@@ -15,6 +15,7 @@ import {
 import { setMemberRosterStatus } from './leagueAdminCloud';
 import { DraftOrderSetup } from './DraftOrderSetup';
 import { getLeagueCommissionerName, isLeagueCommissioner } from './leaguePermissions';
+import { formatDraftSchedule } from './draftSchedule';
 
 type Tab = 'overview'|'commissioner'|'activity'|'history'|'notifications'|'results';
 
@@ -61,6 +62,7 @@ export const FantasyLeagueCommandCenter: React.FC<Props> = ({league,onGoToDraft,
   const [inviteCode,setInviteCode]=useState(league.code);
   const [settingsOpen,setSettingsOpen]=useState(false);
   const liveDraftComplete=league.liveDraft?.status==='completed';
+  const scheduledDraftLabel=formatDraftSchedule(league);
 
   useEffect(()=>setCap(league.salaryCap),[league.salaryCap]);
   useEffect(()=>setInviteCode(league.code),[league.id,league.code]);
@@ -193,6 +195,8 @@ export const FantasyLeagueCommandCenter: React.FC<Props> = ({league,onGoToDraft,
       </section>
 
       {auxError&&<div className="flex flex-col gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="text-xs font-black uppercase text-amber-300">League data refresh issue</div><div className="mt-1 text-[11px] text-zinc-400">{auxError} Previously loaded activity and history are still shown.</div></div><button onClick={()=>void refreshAux()} className="min-h-11 rounded-xl border border-amber-400/25 px-4 text-[10px] font-black uppercase text-amber-200">Retry</button></div>}
+
+      {scheduledDraftLabel&&<section className="flex items-center gap-3 rounded-2xl border border-[#D4AF37]/25 bg-[#D4AF37]/[.06] p-4"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#D4AF37] text-black"><CalendarClock className="h-5 w-5"/></div><div><div className="text-[9px] font-black uppercase tracking-[.18em] text-[#D4AF37]">Scheduled Fantasy Draft</div><div className="mt-1 text-sm font-black uppercase text-white">{scheduledDraftLabel}</div></div></section>}
 
       {isPublicLeague&&league.status==='drafting'&&openSlots>0&&<section className="flex flex-col gap-4 rounded-2xl border border-emerald-300/25 bg-emerald-300/[.06] p-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-300"><Users className="h-4 w-4"/>Real Public Matchmaking</div><p className="mt-1 text-xs font-semibold leading-5 text-zinc-400">{humanCount} real player{humanCount===1?' is':'s are'} here. Keep waiting for people or fill the remaining {openSlots} spot{openSlots===1?'':'s'} with clearly labeled CPU teams.</p></div>{isCommissioner?<button onClick={fillOpenSpots} disabled={busy!==null} className="min-h-12 shrink-0 rounded-xl bg-emerald-300 px-5 text-xs font-black uppercase text-[#07100c] disabled:opacity-50"><Sparkles className="mr-2 inline h-4 w-4"/>{busy==='cpu-fill'?'Filling Spots…':`Start Now · Add ${openSlots} CPU`}</button>:<div className="rounded-xl border border-white/10 px-4 py-3 text-center text-[10px] font-black uppercase text-zinc-400">Waiting for the league starter</div>}</section>}
 
