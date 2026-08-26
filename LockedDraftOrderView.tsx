@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Copy, Play, Share2, Sparkles, Timer, Trophy, UserRound } from 'lucide-react';
+import { CalendarClock, Check, Copy, Play, Share2, Sparkles, Timer, Trophy, UserRound } from 'lucide-react';
 import { League } from './types';
 import { useBallKnower } from './BallKnowerContext';
 import { ensureOnlineSession, supabase } from './supabase';
 import { displayLeagueMemberName, resolveMyLeagueMember } from './leagueMemberDisplay';
+import { formatDraftSchedule, getDraftScheduledTime } from './draftSchedule';
 
 interface Props {
   league: League;
@@ -35,6 +36,8 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
   const inviteUrl = `${PUBLIC_APP_ORIGIN}?join=${encodeURIComponent(league.code)}`;
   const myMember = resolveMyLeagueMember(league, currentUser);
   const draftComplete = league.liveDraft?.status === 'completed';
+  const scheduledTime = getDraftScheduledTime(league);
+  const scheduledLabel = formatDraftSchedule(league);
 
   const myPick = useMemo(() => picks.find(pick => pick.memberId === myMember?.id), [picks, myMember?.id]);
 
@@ -77,9 +80,17 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
     return () => window.clearInterval(timer);
   }, [countdownStartedAt, league.liveDraft]);
 
-  const countdownRemaining = countdownStartedAt
-    ? Math.max(0, Math.ceil((new Date(countdownStartedAt).getTime() + COUNTDOWN_SECONDS * 1000 - now) / 1000))
+  const countdownTarget = countdownStartedAt
+    ? Math.max(new Date(countdownStartedAt).getTime() + COUNTDOWN_SECONDS * 1000, scheduledTime || 0)
     : null;
+  const countdownRemaining = countdownTarget
+    ? Math.max(0, Math.ceil((countdownTarget - now) / 1000))
+    : null;
+  const countdownText = countdownRemaining === null
+    ? ''
+    : countdownRemaining >= 3600
+      ? `${Math.floor(countdownRemaining / 3600)}:${String(Math.floor((countdownRemaining % 3600) / 60)).padStart(2, '0')}:${String(countdownRemaining % 60).padStart(2, '0')}`
+      : `${Math.floor(countdownRemaining / 60)}:${String(countdownRemaining % 60).padStart(2, '0')}`;
 
   const requestDraftStart = async () => {
     if (league.liveDraft) {
@@ -149,7 +160,7 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
       if (error) throw error;
       setMyReady(Boolean(data?.ready));
       if (data?.countdownStartedAt) setCountdownStartedAt(data.countdownStartedAt);
-      showToast(data?.countdownStartedAt ? 'Everybody is ready. Draft starts in 30 seconds.' : (!myReady ? 'You are ready.' : 'You are no longer ready.'));
+      showToast(data?.countdownStartedAt ? (scheduledTime && scheduledTime > Date.now() ? `Everybody is ready. Draft opens ${scheduledLabel}.` : 'Everybody is ready. Draft starts in 30 seconds.') : (!myReady ? 'You are ready.' : 'You are no longer ready.'));
       await loadReadyState();
     } catch (error: any) {
       showToast(error?.message || 'Could not update your ready status.');
@@ -224,13 +235,15 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
               </div>
             </div>
 
+            {scheduledLabel&&<div className="mt-3 flex items-center gap-3 rounded-xl border border-[#D4AF37]/25 bg-black/25 p-3"><CalendarClock className="h-5 w-5 shrink-0 text-[#D4AF37]"/><div><div className="text-[8px] font-black uppercase tracking-widest text-zinc-600">Scheduled Start</div><div className="mt-1 text-xs font-black text-white">{scheduledLabel}</div></div></div>}
+
             {league.liveDraft ? (
               <button onClick={() => void openDraft()} className="mt-3 min-h-13 w-full rounded-xl bg-[#D4AF37] px-4 py-3.5 text-sm font-black uppercase tracking-wider text-black"><Play className="mr-2 inline h-4 w-4"/>{draftComplete ? 'Draft Complete' : 'Resume Fantasy Draft'}</button>
             ) : countdownStartedAt ? (
               <div className="mt-3 rounded-xl border border-[#D4AF37]/35 bg-[#D4AF37]/10 px-4 py-4 text-center">
                 <div className="text-[9px] font-black uppercase tracking-[.2em] text-[#D4AF37]">Everybody Is Ready</div>
-                <div className="mt-1 flex items-center justify-center gap-2 font-display text-4xl font-black text-white"><Timer className="h-6 w-6 text-[#D4AF37]"/>0:{String(countdownRemaining ?? 0).padStart(2, '0')}</div>
-                <div className="mt-1 text-[10px] font-black uppercase text-zinc-400">{starting?'Opening shared draft room…':'Draft room opens automatically'}</div>
+                <div className="mt-1 flex items-center justify-center gap-2 font-display text-4xl font-black text-white"><Timer className="h-6 w-6 text-[#D4AF37]"/>{countdownText}</div>
+                <div className="mt-1 text-[10px] font-black uppercase text-zinc-400">{starting?'Opening shared draft room…':scheduledTime && scheduledTime > now?'Draft room opens at the scheduled time':'Draft room opens automatically'}</div>
               </div>
             ) : (
               <button onClick={() => void toggleReady()} disabled={readying} className={`mt-3 min-h-14 w-full rounded-xl px-4 text-sm font-black uppercase tracking-wider transition active:scale-[.99] disabled:opacity-50 ${myReady ? 'border border-emerald-400/35 bg-emerald-400/10 text-emerald-300' : 'bg-[#D4AF37] text-black'}`}>
