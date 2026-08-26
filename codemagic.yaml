@@ -3,9 +3,14 @@ workflows:
     name: Ball Knower iOS App Store
     instance_type: mac_mini_m2
     max_build_duration: 60
+
+    integrations:
+      app_store_connect: BallKnowerApple
+
     environment:
       xcode: 26.6
       node: 22
+      cocoapods: default
       vars:
         BUNDLE_ID: "com.ballknower.ios"
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
@@ -13,31 +18,44 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.ballknower.ios
+
     scripts:
       - name: Install web and Capacitor dependencies
         script: |
           npm install
           npm install --no-save @capacitor/core@^8.0.0 @capacitor/cli@^8.0.0 @capacitor/ios@^8.0.0
+
       - name: Build Ball Knower web app
         script: npm run build
+
       - name: Generate and sync Capacitor iOS project
         script: |
           rm -rf ios
           npx cap add ios
           npx cap sync ios
+
       - name: Set iOS build number
         script: |
           cd ios/App
           xcrun agvtool new-version -all "$BUILD_NUMBER" || true
+
       - name: Apply App Store signing profile
         script: xcode-project use-profiles
+
       - name: Build signed IPA
         script: |
           cd ios/App
           xcode-project build-ipa \
             --workspace "$CM_BUILD_DIR/$XCODE_WORKSPACE" \
             --scheme "$XCODE_SCHEME"
+
     artifacts:
       - ios/App/build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: false
+        submit_to_app_store: false
