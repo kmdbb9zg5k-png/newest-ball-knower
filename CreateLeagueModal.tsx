@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useBallKnower } from './BallKnowerContext';
-import { X, Copy, Check, Users, Shield, ArrowRight } from 'lucide-react';
+import { X, Copy, Check, Shield, ArrowRight, CalendarClock } from 'lucide-react';
 import { League } from './types';
+import { formatDraftSchedule } from './draftSchedule';
 
 interface CreateLeagueModalProps {
   isOpen: boolean;
@@ -17,6 +18,18 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
   const { createLeague, showToast, onlineInvitesReady, cloudSyncError } = useBallKnower();
   const [leagueName, setLeagueName] = useState('');
   const [memberSize, setMemberSize] = useState<number>(10);
+  const defaultDraft = () => {
+    const date = new Date();
+    date.setDate(date.getDate() + 1);
+    date.setHours(20, 0, 0, 0);
+    return {
+      day: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
+      time: '20:00',
+    };
+  };
+  const initialDraft = defaultDraft();
+  const [draftDay, setDraftDay] = useState(initialDraft.day);
+  const [draftTime, setDraftTime] = useState(initialDraft.time);
   const [createdLeague, setCreatedLeague] = useState<League | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -31,10 +44,19 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
       showToast('Please enter a league name');
       return;
     }
+    const scheduledDate = new Date(`${draftDay}T${draftTime}`);
+    if (!draftDay || !draftTime || !Number.isFinite(scheduledDate.getTime()) || scheduledDate.getTime() <= Date.now()) {
+      showToast('Choose a draft date and time in the future');
+      return;
+    }
     setIsCreating(true);
     setCreateError(null);
     try {
-      const newLeague = await createLeague(leagueName.trim(), memberSize);
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+      const newLeague = await createLeague(leagueName.trim(), memberSize, {
+        draftScheduledAt: scheduledDate.toISOString(),
+        draftTimezone: timezone,
+      });
       setCreatedLeague(newLeague);
     } catch (err:any) {
       setCreateError(err?.message || 'Could not create league');
@@ -67,6 +89,9 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
       // Reset state for next time
       setCreatedLeague(null);
       setLeagueName('');
+      const nextDefault = defaultDraft();
+      setDraftDay(nextDefault.day);
+      setDraftTime(nextDefault.time);
     }
   };
 
@@ -74,7 +99,7 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg rounded-lg border border-white/10 bg-[#121212] p-6 sm:p-8 shadow-2xl">
+      <div className="relative max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg border border-white/10 bg-[#121212] p-6 shadow-2xl sm:p-8">
         {/* Close Button */}
         <button
           id="close-create-league-modal-btn"
@@ -93,6 +118,7 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
               <div className="flex h-10 w-10 items-center justify-center rounded-sm bg-[#D4AF37] text-black">
                 <Shield className="h-5 w-5 fill-black" />
               </div>
+
               <div>
                 <h2 className="font-display text-2xl font-black uppercase tracking-tight text-white">CREATE LEAGUE</h2>
                 <p className="text-xs text-zinc-400 uppercase tracking-wider font-bold">Set up your draft competition in 30 seconds</p>
@@ -145,6 +171,34 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-black uppercase tracking-wider text-zinc-300 mb-2">
+                  Draft Date & Time
+                </label>
+                <div className="grid grid-cols-1 gap-2 min-[390px]:grid-cols-2">
+                  <input
+                    aria-label="Draft date"
+                    type="date"
+                    required
+                    min={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`}
+                    value={draftDay}
+                    onChange={event => setDraftDay(event.target.value)}
+                    className="min-h-12 w-full rounded-sm border border-white/10 bg-[#1A1A1A] px-3 text-sm text-white [color-scheme:dark] focus:border-[#D4AF37] focus:outline-none"
+                  />
+                  <input
+                    aria-label="Draft time"
+                    type="time"
+                    required
+                    value={draftTime}
+                    onChange={event => setDraftTime(event.target.value)}
+                    className="min-h-12 w-full rounded-sm border border-white/10 bg-[#1A1A1A] px-3 text-sm text-white [color-scheme:dark] focus:border-[#D4AF37] focus:outline-none"
+                  />
+                </div>
+                <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                  Time zone: {Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'}
+                </p>
+              </div>
+
               {/* Submit */}
               <button
                 id="submit-create-league-btn"
@@ -169,6 +223,11 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
             <p className="text-sm font-black uppercase tracking-wider text-[#D4AF37] mb-6">
               {createdLeague.name}
             </p>
+
+            <div className="mb-4 flex items-center gap-3 rounded-lg border border-[#D4AF37]/25 bg-[#D4AF37]/[.06] p-3 text-left">
+              <CalendarClock className="h-5 w-5 shrink-0 text-[#D4AF37]" />
+              <div><div className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Scheduled Draft</div><div className="mt-0.5 text-xs font-black text-white">{formatDraftSchedule(createdLeague)}</div></div>
+            </div>
 
             {/* League Code Box */}
             <div className="rounded-lg border border-white/10 bg-[#1A1A1A] p-4 mb-4">
