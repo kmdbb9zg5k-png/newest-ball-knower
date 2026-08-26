@@ -326,6 +326,10 @@ export interface LeagueSettings {
   autoFillCpu?: boolean;
   matchmakingOpen?: boolean;
   draftOrderMethod?: DraftOrderMethod;
+  /** Absolute draft start instant. Legacy leagues without this value can start immediately. */
+  draftScheduledAt?: string;
+  /** IANA timezone selected when the commissioner scheduled the draft. */
+  draftTimezone?: string;
   currentWeek?: number;
   fantasySeasonStarted?: boolean;
   fantasySeasonComplete?: boolean;

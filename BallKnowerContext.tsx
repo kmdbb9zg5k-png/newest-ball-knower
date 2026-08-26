@@ -31,6 +31,7 @@ import {
 } from './liveDraftRosters';
 import { trackBallKnowerEvent } from './analytics';
 import { getLeagueCommissionerName, isLeagueCommissioner } from './leaguePermissions';
+import { canStartScheduledDraft, formatDraftSchedule } from './draftSchedule';
 
 interface BallKnowerContextType {
   currentUser: UserProfile | null;
@@ -42,7 +43,7 @@ interface BallKnowerContextType {
   activeLeague: League | null;
   setActiveLeagueId: (id: string | null) => void;
   
-  createLeague: (name: string, maxMembers: number, salaryCap?: number) => Promise<League>;
+  createLeague: (name: string, maxMembers: number, draftSchedule: { draftScheduledAt: string; draftTimezone: string }, salaryCap?: number) => Promise<League>;
   joinLeague: (code: string) => Promise<{ success: boolean; message: string; league?: League }>;
   joinPublicLeague: () => Promise<{ success: boolean; message: string; league?: League }>;
   
@@ -469,11 +470,16 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // Create League
-  const createLeague = async (name: string, maxMembers: number, customCap = DEFAULT_SALARY_CAP): Promise<League> => {
+  const createLeague = async (
+    name: string,
+    maxMembers: number,
+    draftSchedule: { draftScheduledAt: string; draftTimezone: string },
+    customCap = DEFAULT_SALARY_CAP,
+  ): Promise<League> => {
     const user = currentUser || DEFAULT_USER;
     try {
       if (isCloudConfigured) {
-        const newLeague = await createCloudLeague(name, maxMembers, customCap, user);
+        const newLeague = await createCloudLeague(name, maxMembers, customCap, user, draftSchedule);
         setLeagues(prev => [newLeague, ...prev.filter(l => l.id !== newLeague.id)]);
         setActiveLeagueId(newLeague.id);
         setCurrentRoster([]);
@@ -496,7 +502,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const newLeague: League = {
         id: leagueId, code: randomCode, name: name.trim() || 'Ball Knower League',
         maxMembers, salaryCap: customCap, commissionerId: user.id, commissionerName: user.name,
-        status: 'drafting', settings: { seasonGames: 17 }, members: [commissionerMember], createdAt: new Date().toISOString(),
+        status: 'drafting', settings: { seasonGames: 17, ...draftSchedule }, members: [commissionerMember], createdAt: new Date().toISOString(),
       };
       setLeagues(prev => [newLeague, ...prev]);
       setActiveLeagueId(newLeague.id);
@@ -826,6 +832,10 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const startLiveFantasyDraft = async (leagueId:string):Promise<boolean> => {
     const league=leagues.find(item=>item.id===leagueId);
     if(!league?.seasonResult?.draftOrder?.length){showToast('Lock the official draft order first.');return false;}
+    if(!canStartScheduledDraft(league)){
+      showToast(`Draft is scheduled for ${formatDraftSchedule(league)}.`);
+      return false;
+    }
     if(league.liveDraft?.status==='completed'){
       showToast('This fantasy draft is already complete. Your league is ready for the season.');
       return false;
