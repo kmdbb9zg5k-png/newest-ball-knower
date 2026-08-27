@@ -12,6 +12,8 @@ type Props={onBackToLobby:()=>void};
 type DraftGroup=LiveFantasyDraftGroup;
 const GROUPS=Object.keys(LIVE_FANTASY_ROSTER_REQUIREMENTS) as DraftGroup[];
 const GROUP_LABELS:Record<DraftGroup,string>={QB:'QB',RB:'RB',WR:'WR',TE:'TE',K:'K',DST:'D/ST'};
+const CPU_POSITION_TARGETS:Record<DraftGroup,number>={QB:2,RB:5,WR:7,TE:2,K:2,DST:2};
+const CPU_DEPTH_PENALTY:Record<DraftGroup,number>={QB:72,RB:18,WR:14,TE:48,K:120,DST:110};
 const PLAYER_BY_ID=new Map(PLAYERS_DATABASE.map(player=>[player.id,player]));
 const rankingKey=(name:string,team:string)=>`${name.toLowerCase().replace(/[^a-z0-9]/g,'')}|${team.toUpperCase()}`;
 
@@ -50,10 +52,14 @@ const cpuSelection=(draft:LiveFantasyDraft,memberId:string,rankings:Map<string,F
   for(const player of legalPlayersFor(draft,memberId)){
     const group=getLiveFantasyDraftGroup(player);
     if(!group)continue;
+    if((counts[group]||0)>=CPU_POSITION_TARGETS[group])continue;
     if(requiredNow&&!requiredNow.has(group))continue;
     const ranking=rankings.get(rankingKey(player.name,player.team));
-    const fantasyValue=ranking?1000-ranking.overall_rank:0;
-    const score=fantasyValue;
+    const fantasyValue=ranking?1000-ranking.overall_rank:player.ovr*2;
+    const depthPenalty=(counts[group]||0)*CPU_DEPTH_PENALTY[group];
+    const lateSpecialTeamsBoost=(group==='K'||group==='DST')&&picked<13?-180:0;
+    const starterNeedBoost=(counts[group]||0)<LIVE_FANTASY_ROSTER_REQUIREMENTS[group]?240:0;
+    const score=fantasyValue-depthPenalty+lateSpecialTeamsBoost+starterNeedBoost;
     if(score>bestScore||(score===bestScore&&player.name.localeCompare(best?.name||'')<0)){
       best=player;bestScore=score;
     }

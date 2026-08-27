@@ -19,6 +19,7 @@ const MODES = [
     icon: BadgeDollarSign,
     key: SOLO_FRANCHISE_SAVE_KEYS.cap,
     accent: 'from-amber-400/25 to-transparent',
+    image: '/team-cinematic/gold-trophy.jpg',
   },
   {
     id: 'fantasy' as const,
@@ -28,6 +29,7 @@ const MODES = [
     icon: Shuffle,
     key: SOLO_FRANCHISE_SAVE_KEYS.fantasy,
     accent: 'from-sky-400/25 to-transparent',
+    image: '/team-cinematic/crimson-player.jpg',
   },
   {
     id: 'real' as const,
@@ -37,6 +39,7 @@ const MODES = [
     icon: Users,
     key: SOLO_FRANCHISE_SAVE_KEYS.real,
     accent: 'from-emerald-400/25 to-transparent',
+    image: '/team-cinematic/gold-trophy.jpg',
   },
   {
     id: 'player' as const,
@@ -46,6 +49,7 @@ const MODES = [
     icon: Sparkles,
     key: SOLO_FRANCHISE_SAVE_KEYS.player,
     accent: 'from-violet-400/25 to-transparent',
+    image: '/team-cinematic/purple-receiver.jpg',
   },
 ];
 
@@ -79,6 +83,8 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
   <div className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
     <div className="mx-auto max-w-6xl">
       <section className="relative mb-6 min-h-[22rem] overflow-hidden rounded-[2rem] border border-[var(--bk-team-accent)]/45 bg-[#07090d] shadow-2xl sm:min-h-[27rem]">
+        <img src="/team-cinematic/crimson-player.jpg" alt="" className="absolute inset-0 h-full w-full object-cover object-left opacity-70" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/25 via-[#07090d]/75 to-[#07090d]" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_45%,rgba(255,255,255,.08),transparent_20%),radial-gradient(circle_at_72%_38%,var(--bk-team-glow),transparent_28%),linear-gradient(115deg,#050608_0%,#0b0e14_48%,#050608_100%)]" />
         <div className="absolute -left-16 top-20 h-px w-[80%] -rotate-12 bg-gradient-to-r from-transparent via-[var(--bk-team-accent)] to-transparent opacity-70 shadow-[0_0_24px_var(--bk-team-accent)]" />
         <div className="absolute -right-24 bottom-24 h-px w-[75%] rotate-12 bg-gradient-to-r from-transparent via-[var(--bk-team-accent)] to-transparent opacity-60" />
@@ -140,6 +146,8 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
           const saved = hasSave(mode.key);
           return (
             <button key={mode.id} type="button" onClick={() => onOpen(mode.id)} className="group relative min-h-52 overflow-hidden rounded-[2rem] border border-white/10 bg-[#10151d] p-5 text-left transition active:scale-[.99] sm:min-h-60 sm:p-7">
+              <img src={mode.image} alt="" className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-25 grayscale transition duration-500 group-hover:scale-105 group-hover:grayscale-0" />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#080a0e] via-[#080a0e]/90 to-[#080a0e]/35" />
               <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${mode.accent}`} />
               <div className="relative flex h-full flex-col">
                 <div className="flex items-start justify-between gap-4">

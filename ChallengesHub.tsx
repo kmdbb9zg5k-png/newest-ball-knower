@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Brain, CheckCircle2, Loader2, WifiOff, XCircle } from 'lucide-react';
+import { ArrowLeft, Brain, CheckCircle2, Eye, Film, Loader2, MessageSquare, ShieldCheck, Target, WifiOff, XCircle } from 'lucide-react';
 import { beginTriviaSession, fetchTriviaQuestion, submitTriviaAnswer, TriviaAnswerResult, TriviaQuestion, TriviaSession } from './progressionCloud';
 import { ModeGuide } from './ModeGuide';
 import { ModalPortal } from './ModalPortal';
@@ -12,6 +12,14 @@ const triviaTiers: { name: TriviaTier; desc: string; xp: string }[] = [
   { name: 'PRO', desc: 'Current NFL knowledge and concepts', xp: '25 XP' },
   { name: 'ALL-PRO', desc: 'Multi-clue football IQ and schemes', xp: '40 XP' },
   { name: 'HALL OF FAME', desc: 'Deep history, elimination and mastery', xp: '60 XP' },
+];
+
+const gauntletModes = [
+  {name:'TRIVIA',description:'Four difficulty levels with verified XP.',icon:Brain,active:true},
+  {name:'FILM ROOM',description:'Read coverages and diagnose the play.',icon:Film,active:false},
+  {name:'PREDICTIONS',description:'Call the result before kickoff.',icon:Target,active:false},
+  {name:'DEBATES',description:'Make your case and defend the take.',icon:MessageSquare,active:false},
+  {name:'SURVIVOR',description:'One wrong pick can end the run.',icon:ShieldCheck,active:false},
 ];
 
 export const ChallengesHub: React.FC = () => {
@@ -167,17 +175,30 @@ export const ChallengesHub: React.FC = () => {
   }, [clearAdvanceTimer]);
 
   return (
-    <div className="mx-auto max-w-5xl px-3 pb-8 pt-4 sm:px-6 sm:pt-6">
-      <header className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-[9px] font-black uppercase tracking-[.24em] text-fuchsia-400">Football IQ</div>
-          <h1 className="mt-1 font-display text-3xl font-black uppercase sm:text-5xl">Trivia</h1>
-          <p className="mt-1 max-w-xl text-xs font-semibold text-zinc-500">Pick a level, answer fast, and build your Ball Knower profile.</p>
+    <div className="mx-auto max-w-6xl px-3 pb-8 pt-4 sm:px-6 sm:pt-6">
+      <section className="relative min-h-[22rem] overflow-hidden rounded-[2rem] border border-fuchsia-400/30 bg-[#08070d] shadow-[0_24px_80px_rgba(88,28,135,.25)]">
+        <img src="/team-cinematic/purple-receiver.jpg" alt="" className="absolute inset-0 h-full w-full object-cover object-center opacity-75" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#08070d] via-[#08070d]/80 to-fuchsia-950/15" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#08070d] via-transparent to-black/20" />
+        <div className="relative z-10 flex min-h-[22rem] flex-col justify-between p-6 sm:p-9 md:w-2/3">
+          <header className="flex items-start justify-between gap-3">
+            <div className="inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[.3em] text-fuchsia-300"><Eye className="h-4 w-4"/>Football IQ Arena</div>
+            <ModeGuide storageKey="bk-guide-the-gauntlet-v4" title="The Gauntlet" summary="Choose a difficulty and answer football questions. Correct verified answers feed your Ball Knower progression." steps={["Choose Trivia.", "Pick a level.", "Answer and build verified XP."]} />
+          </header>
+          <div className="py-8">
+            <div className="text-[10px] font-black uppercase tracking-[.25em] text-fuchsia-300">Trivia · Decisions · Football IQ</div>
+            <h1 className="mt-3 font-display text-5xl font-black uppercase leading-[.82] tracking-[-.045em] sm:text-7xl">The<br/>Gauntlet.</h1>
+            <p className="mt-5 max-w-lg text-sm font-semibold leading-relaxed text-zinc-300">Prove you know ball under pressure. Every challenge is built to test recognition, judgment and nerve.</p>
+          </div>
+          <button onClick={()=>openTrivia('ROOKIE')} className="min-h-12 w-fit rounded-full bg-fuchsia-400 px-6 text-[10px] font-black uppercase tracking-widest text-black">Enter Trivia</button>
         </div>
-        <ModeGuide storageKey="bk-guide-the-gauntlet-v4" title="Trivia" summary="Choose a difficulty and answer football questions. Correct verified answers feed your Ball Knower progression." steps={["Pick a level.", "Answer the question.", "Read the result or tap Next now to keep moving."]} />
-      </header>
+      </section>
 
-      <section className="mt-3 overflow-hidden rounded-2xl border border-fuchsia-400/25 bg-[radial-gradient(circle_at_88%_8%,rgba(168,85,247,.18),transparent_34%),#0b0e13] p-3 sm:p-4">
+      <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        {gauntletModes.map(mode=>{const Icon=mode.icon;return <button key={mode.name} disabled={!mode.active} onClick={()=>mode.active&&openTrivia('ROOKIE')} className={`min-h-40 rounded-2xl border p-4 text-left ${mode.active?'border-fuchsia-400/40 bg-fuchsia-400/10':'border-white/10 bg-[#101318] opacity-70'}`}><Icon className={mode.active?'text-fuchsia-300':'text-zinc-600'}/><div className="mt-6 text-sm font-black uppercase">{mode.name}</div><p className="mt-2 text-[10px] leading-relaxed text-zinc-500">{mode.description}</p><div className="mt-3 text-[8px] font-black uppercase tracking-widest text-fuchsia-300">{mode.active?'Play now':'Coming soon'}</div></button>})}
+      </section>
+
+      <section className="mt-4 overflow-hidden rounded-2xl border border-fuchsia-400/25 bg-[radial-gradient(circle_at_88%_8%,rgba(168,85,247,.18),transparent_34%),#0b0e13] p-3 sm:p-4">
         <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-fuchsia-300"><Brain className="h-4 w-4"/>Choose difficulty</div>
         <div className="grid gap-2 sm:grid-cols-2">
           {triviaTiers.map(item => (

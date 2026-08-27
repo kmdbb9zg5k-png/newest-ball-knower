@@ -1,9 +1,11 @@
 import { League, Player } from './types';
 import { calculateTeamRatings, getPlayerOvr } from './evaluation';
 import { LeagueTransaction } from './fantasySeasonCloud';
+import { resolveSeasonChampion } from './simulation';
 
 export type PowerRanking={rank:number;memberId:string;memberName:string;score:number;previousRank?:number;movement:number;reason:string;record:string;teamOvr:number};
-export type DraftGrade={memberId:string;memberName:string;grade:string;score:number;bestPick?:Player;worstValue?:Player;capEfficiency:number;balance:number;summary:string};
+export type DraftGrade={memberId:string;memberName:string;grade:string;score:number;bestPick?:Player;projectionScore:number;valueScore:number;balance:number;summary:string};
+export type FantasyProjectionLike={player_name:string;team:string;overall_rank:number;projected_points_2026:number};
 export type AwardWinner={award:string;player:Player;memberId:string;memberName:string;reason:string};
 export type Rivalry={aId:string;bId:string;aName:string;bName:string;aWins:number;bWins:number;games:number;pointDiff:number;heat:number;label:string};
 export type Achievement={id:string;title:string;description:string;emoji:string;memberId:string;memberName:string};
@@ -17,41 +19,70 @@ const memberById=(league:League,id:string)=>league.members.find(m=>m.id===id||m.
 const recordOf=(league:League,id:string)=>{const s=league.seasonResult?.standings.find(x=>x.memberId===id);return s?`${s.wins}-${s.losses}${s.ties?`-${s.ties}`:''}`:'0-0';};
 const playerValue=(p:Player)=>getPlayerOvr(p)*1.15-(Number(p.salary)||0)*0.32+((p.age||27)<=25?2.5:0);
 
-const fantasyRosterStrength=(roster:Player[])=>{
-  const available=[...roster].sort((a,b)=>getPlayerOvr(b)-getPlayerOvr(a));
-  const used=new Set<string>();
-  const take=(positions:string[],count:number)=>available.filter(player=>positions.includes(player.position)&&!used.has(player.id)).slice(0,count).map(player=>{used.add(player.id);return getPlayerOvr(player);});
-  const starters=[...take(['QB'],1),...take(['RB'],2),...take(['WR'],2),...take(['TE'],1),...take(['RB','WR','TE'],1),...take(['K'],1),...take(['DST'],1)];
-  const depth=available.filter(player=>!used.has(player.id)).slice(0,5).map(getPlayerOvr);
-  if(!starters.length)return 0;
-  const starterAverage=starters.reduce((sum,value)=>sum+value,0)/starters.length;
-  const depthAverage=depth.length?depth.reduce((sum,value)=>sum+value,0)/depth.length:starterAverage;
-  return Math.round(Math.max(0,Math.min(100,starterAverage*.88+depthAverage*.12-Math.max(0,9-starters.length)*5)));
+const normalizeName=(value:string)=>value.toLowerCase().replace(/[^a-z0-9]/g,'');
+const projectionKey=(name:string,team:string)=>`${normalizeName(name)}|${team.toUpperCase()}`;
+const clamp=(value:number,min=0,max=100)=>Math.max(min,Math.min(max,value));
+const scale=(value:number,min:number,max:number,low=62,high=96)=>max<=min?(low+high)/2:low+(clamp((value-min)/(max-min),0,1)*(high-low));
+
+const rosterConstructionScore=(roster:Player[])=>{
+  const count=(position:string)=>roster.filter(player=>player.position===position).length;
+  const starters={QB:1,RB:2,WR:2,TE:1,K:1,DST:1};
+  const targets={QB:2,RB:5,WR:7,TE:2,K:2,DST:2};
+  let score=100;
+  for(const [position,minimum] of Object.entries(starters))score-=Math.max(0,minimum-count(position))*18;
+  for(const [position,target] of Object.entries(targets))score-=Math.max(0,count(position)-target)*(position==='QB'||position==='TE'?8:4);
+  if(roster.length<20)score-=(20-roster.length)*3;
+  return Math.round(clamp(score));
 };
 
-export function buildPowerRankings(league:League,previous?:PowerRanking[]):PowerRanking[]{
+const fantasyRosterProjection=(roster:Player[],projectionByPlayer:Map<string,FantasyProjectionLike>)=>{
+  const projected=(player:Player)=>projectionByPlayer.get(projectionKey(player.name,player.team))?.projected_points_2026||0;
+  const available=[...roster].sort((a,b)=>projected(b)-projected(a)||a.name.localeCompare(b.name));
+  const used=new Set<string>();
+  const take=(positions:string[],count:number)=>available.filter(player=>positions.includes(player.position)&&!used.has(player.id)).slice(0,count).map(player=>{used.add(player.id);return projected(player);});
+  const starters=[...take(['QB'],1),...take(['RB'],2),...take(['WR'],2),...take(['TE'],1),...take(['RB','WR','TE'],1),...take(['K'],1),...take(['DST'],1)];
+  const depth=available.filter(player=>!used.has(player.id)).slice(0,5).map(projected);
+  return {total:starters.reduce((sum,value)=>sum+value,0)+depth.reduce((sum,value)=>sum+value*.18,0),coverage:starters.filter(Boolean).length,construction:rosterConstructionScore(roster)};
+};
+
+export function buildPowerRankings(league:League,previous?:PowerRanking[],projections:FantasyProjectionLike[]=[]):PowerRanking[]{
   const prior=new Map((previous||[]).map(x=>[x.memberId,x.rank]));
+  const projectionByPlayer=new Map(projections.map(projection=>[projectionKey(projection.player_name,projection.team),projection]));
+  const metrics=new Map(league.members.map(member=>[member.id,fantasyRosterProjection(member.roster||[],projectionByPlayer)]));
+  const totals=[...metrics.values()].map(item=>item.total);const totalMin=totals.length?Math.min(...totals):0;const totalMax=totals.length?Math.max(...totals):0;
+  const played=league.seasonResult?.standings||[];
+  const ppgRows=played.map(s=>{const games=s.wins+s.losses+s.ties;return games?s.pointsFor/games:0;});
+  const diffRows=played.map(s=>{const games=s.wins+s.losses+s.ties;return games?s.pointDifferential/games:0;});
+  const ppgMin=ppgRows.length?Math.min(...ppgRows):0,ppgMax=ppgRows.length?Math.max(...ppgRows):0,diffMin=diffRows.length?Math.min(...diffRows):0,diffMax=diffRows.length?Math.max(...diffRows):0;
   return league.members.map(m=>{
     const s=league.seasonResult?.standings.find(x=>x.memberId===m.id);
     const games=(s?.wins||0)+(s?.losses||0)+(s?.ties||0);
     const winPct=games?((s?.wins||0)+.5*(s?.ties||0))/games:0;
-    const diff=s?.pointDifferential||0;
-    const strength=fantasyRosterStrength(m.roster||[]);
+    const diff=s?.pointDifferential||0;const diffPerGame=games?diff/games:0;
+    const metric=metrics.get(m.id)||{total:0,coverage:0,construction:0};
+    const projectionScore=projectionByPlayer.size?scale(metric.total,totalMin,totalMax):metric.construction;
     const pointsPerGame=games?(s?.pointsFor||0)/games:0;
-    const score=games?Math.round(Math.max(0,Math.min(100,strength*.42+winPct*35+Math.max(0,Math.min(15,7.5+diff/20))+Math.min(8,pointsPerGame/20)))):strength;
-    const reason=games?`${s?.wins}-${s?.losses}${s?.ties?`-${s.ties}`:''} · ${Math.round(pointsPerGame)} points per game · ${diff>=0?'+':''}${diff} differential · ${strength} lineup strength.`:`Preseason ranking based on starting-lineup quality and bench depth · ${strength} fantasy strength.`;
-    return {rank:0,memberId:m.id,memberName:m.userName,score,previousRank:prior.get(m.id),movement:0,reason,record:recordOf(league,m.id),teamOvr:strength};
+    const scoringScore=scale(pointsPerGame,ppgMin,ppgMax);const differentialScore=scale(diffPerGame,diffMin,diffMax);
+    const score=Math.round(games?winPct*35+scoringScore*.25+projectionScore*.30+differentialScore*.10:projectionScore*.80+metric.construction*.20);
+    const reason=games?`${s?.wins}-${s?.losses}${s?.ties?`-${s.ties}`:''} · ${pointsPerGame.toFixed(1)} points/game · ${diff>=0?'+':''}${diff} differential · ${Math.round(projectionScore)} projected roster strength.`:`Preseason: ${Math.round(projectionScore)} projection score · ${metric.construction} roster-construction score.`;
+    return {rank:0,memberId:m.id,memberName:m.userName,score:Math.round(clamp(score)),previousRank:prior.get(m.id),movement:0,reason,record:recordOf(league,m.id),teamOvr:Math.round(projectionScore)};
   }).sort((a,b)=>b.score-a.score).map((x,i)=>({...x,rank:i+1,movement:x.previousRank?x.previousRank-(i+1):0}));
 }
 
-export function buildDraftGrades(league:League):DraftGrade[]{
+export function buildDraftGrades(league:League,projections:FantasyProjectionLike[]=[]):DraftGrade[]{
+  const projectionByPlayer=new Map(projections.map(projection=>[projectionKey(projection.player_name,projection.team),projection]));
+  const playerById=new Map(league.members.flatMap(member=>(member.roster||[]).map(player=>[player.id,player] as const)));
+  const metrics=new Map(league.members.map(member=>[member.id,fantasyRosterProjection(member.roster||[],projectionByPlayer)]));
+  const totals=[...metrics.values()].map(item=>item.total);const totalMin=totals.length?Math.min(...totals):0;const totalMax=totals.length?Math.max(...totals):0;
   return league.members.map(m=>{
-    const roster=m.roster||[];const ratings=m.teamRatings||calculateTeamRatings(roster);const spent=roster.reduce((s,p)=>s+(Number(p.salary)||0),0);
-    const complete=roster.length===20; const capEfficiency=Math.round(Math.max(0,Math.min(100,ratings.efficiencyRating+(league.salaryCap-spent)*.12)));
-    const score=Math.round(Math.max(0,Math.min(100,ratings.overall*.48+ratings.balanceScore*.24+capEfficiency*.22+(complete?6:-12))));
-    const sorted=[...roster].sort((a,b)=>(playerValue(b)/(Math.max(1,b.salary)))-(playerValue(a)/(Math.max(1,a.salary))));
-    const costly=[...roster].sort((a,b)=>(b.salary/Math.max(1,getPlayerOvr(b)-65))-(a.salary/Math.max(1,getPlayerOvr(a)-65)));
-    return {memberId:m.id,memberName:m.userName,grade:grade(score),score,bestPick:sorted[0],worstValue:costly[0],capEfficiency,balance:ratings.balanceScore,summary:complete?`${ratings.overall} OVR, ${ratings.balanceScore} balance and ${capEfficiency} cap-efficiency score.`:'Incomplete roster prevented a full grade.'};
+    const roster=m.roster||[];const metric=metrics.get(m.id)||{total:0,coverage:0,construction:0};const complete=roster.length===20;
+    const projectionScore=Math.round(projectionByPlayer.size?scale(metric.total,totalMin,totalMax):metric.construction);
+    const picks=(league.liveDraft?.picks||[]).filter(pick=>pick.memberId===m.id).flatMap(pick=>{const player=playerById.get(pick.playerId);const projection=player&&projectionByPlayer.get(projectionKey(player.name,player.team));return player&&projection?[{player,value:pick.overall-projection.overall_rank}]:[];});
+    const averageValue=picks.length?picks.reduce((sum,pick)=>sum+pick.value,0)/picks.length:0;
+    const valueScore=Math.round(clamp(70+averageValue*.7));
+    const score=Math.round(clamp(projectionScore*.50+metric.construction*.30+valueScore*.20+(complete?0:-18)));
+    const bestPick=[...picks].sort((a,b)=>b.value-a.value)[0]?.player;
+    return {memberId:m.id,memberName:m.userName,grade:grade(score),score,bestPick,projectionScore,valueScore,balance:metric.construction,summary:complete?`${projectionScore} projection score, ${metric.construction} roster construction and ${valueScore} draft value — no salary-cap grading.`:'Incomplete roster prevented a full grade.'};
   }).sort((a,b)=>b.score-a.score);
 }
 
@@ -73,16 +104,17 @@ export function buildRivalries(league:League):Rivalry[]{
 }
 
 export function buildAchievements(league:League,transactions:LeagueTransaction[]=[]):Achievement[]{
-  const out:Achievement[]=[]; const standings=league.seasonResult?.standings||[];
-  for(const m of league.members){const s=standings.find(x=>x.memberId===m.id);const ratings=m.teamRatings||calculateTeamRatings(m.roster||[]);const spent=(m.roster||[]).reduce((sum,p)=>sum+(Number(p.salary)||0),0);const add=(id:string,title:string,description:string,emoji:string)=>out.push({id:`${m.id}-${id}`,title,description,emoji,memberId:m.id,memberName:m.userName});
-    if(s?.rank===1)add('champ','League Champion','Finished #1 in the league.','🏆'); if(s&&s.losses===0&&s.wins>0)add('perfect','Undefeated','Completed the season without a loss.','💎'); if(ratings.efficiencyRating>=85)add('cap','Cap Wizard','Built an elite-value roster under the cap.','🧙'); if(ratings.balanceScore>=90)add('balance','No Weak Links','Posted a 90+ roster balance score.','🛡️'); if(spent<=league.salaryCap*.88&&(m.roster||[]).length===20)add('value','Coupon King','Finished a legal roster with 12%+ cap room.','💰'); if((s?.streak||'').startsWith('W')&&Number((s?.streak||'W0').slice(1))>=5)add('streak','On Fire','Won five or more straight games.','🔥');
+  const out:Achievement[]=[]; const standings=league.seasonResult?.standings||[];const championId=league.seasonResult?resolveSeasonChampion(league.seasonResult)?.memberId:undefined;
+  for(const m of league.members){const s=standings.find(x=>x.memberId===m.id);const construction=rosterConstructionScore(m.roster||[]);const add=(id:string,title:string,description:string,emoji:string)=>out.push({id:`${m.id}-${id}`,title,description,emoji,memberId:m.id,memberName:m.userName});
+    if(m.id===championId)add('champ','League Champion','Won the fantasy playoff championship.','🏆'); if(s&&s.losses===0&&s.wins>0)add('perfect','Undefeated','Completed the regular season without a loss.','💎'); if(construction>=96)add('construction','Roster Architect','Built a complete fantasy roster with disciplined positional depth.','🧠'); if((s?.streak||'').startsWith('W')&&Number((s?.streak||'W0').slice(1))>=5)add('streak','On Fire','Won five or more straight games.','🔥');
     const tradeWins=transactions.filter(t=>t.transactionType==='trade'&&String(t.summary).includes(m.userName)).length;if(tradeWins>=3)add('trader','Front Office Menace','Completed at least three trades.','📞');
   }
   return out;
 }
 
 export function buildOwnerReputation(league:League,achievements:Achievement[]):OwnerReputation[]{
-  return league.members.map(m=>{const s=league.seasonResult?.standings.find(x=>x.memberId===m.id);const games=(s?.wins||0)+(s?.losses||0)+(s?.ties||0);const winPct=games?((s?.wins||0)+.5*(s?.ties||0))/games:0;const champ=s?.rank===1?1:0;const badgeCount=achievements.filter(a=>a.memberId===m.id).length;const ratings=m.teamRatings||calculateTeamRatings(m.roster||[]);const rating=Math.round(Math.max(0,Math.min(100,42+winPct*28+champ*12+badgeCount*2+ratings.efficiencyRating*.08+ratings.balanceScore*.06)));const tier=rating>=90?'ELITE BALL KNOWER':rating>=80?'CERTIFIED':rating>=70?'KNOWS BALL':rating>=60?'SOLID GM':'PROVE IT';return {memberId:m.id,memberName:m.userName,rating,tier,winPct,championships:champ,achievements:badgeCount,record:recordOf(league,m.id),reason:`${Math.round(winPct*100)}% win rate, ${badgeCount} badge${badgeCount===1?'':'s'}, ${ratings.overall} roster OVR.`};}).sort((a,b)=>b.rating-a.rating);
+  const championId=league.seasonResult?resolveSeasonChampion(league.seasonResult)?.memberId:undefined;
+  return league.members.map(m=>{const s=league.seasonResult?.standings.find(x=>x.memberId===m.id);const games=(s?.wins||0)+(s?.losses||0)+(s?.ties||0);const winPct=games?((s?.wins||0)+.5*(s?.ties||0))/games:0;const champ=m.id===championId?1:0;const badgeCount=achievements.filter(a=>a.memberId===m.id).length;const construction=rosterConstructionScore(m.roster||[]);const rating=Math.round(Math.max(0,Math.min(100,42+winPct*34+champ*14+badgeCount*2+construction*.08)));const tier=rating>=90?'ELITE BALL KNOWER':rating>=80?'CERTIFIED':rating>=70?'KNOWS BALL':rating>=60?'SOLID GM':'PROVE IT';return {memberId:m.id,memberName:m.userName,rating,tier,winPct,championships:champ,achievements:badgeCount,record:recordOf(league,m.id),reason:`${Math.round(winPct*100)}% win rate, ${badgeCount} badge${badgeCount===1?'':'s'}, ${construction} roster-construction score.`};}).sort((a,b)=>b.rating-a.rating);
 }
 
 export function analyzeTrade(league:League,proposerId:string,recipientId:string,offeredIds:string[],requestedIds:string[]):TradeAnalysis{
