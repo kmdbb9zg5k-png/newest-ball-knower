@@ -8,6 +8,8 @@ workflows:
       app_store_connect: BallKnowerApple
 
     environment:
+      groups:
+        - code-signing
       xcode: 26.6
       node: 22
       cocoapods: default
@@ -38,6 +40,7 @@ workflows:
         script: |
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
+            --certificate-key @env:CERTIFICATE_PRIVATE_KEY \
             --create
 
       - name: Install Apple distribution certificate
