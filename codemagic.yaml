@@ -15,7 +15,7 @@ workflows:
       cocoapods: default
       vars:
         BUNDLE_ID: "com.ballknower.ios"
-        XCODE_WORKSPACE: "ios/App/App.xcworkspace"
+        XCODE_PROJECT: "ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
 
     scripts:
@@ -32,6 +32,7 @@ workflows:
           rm -rf ios
           npx cap add ios
           npx cap sync ios
+          test -d "$CM_BUILD_DIR/$XCODE_PROJECT"
 
       - name: Set up iOS signing keychain
         script: keychain initialize
@@ -47,7 +48,9 @@ workflows:
         script: keychain add-certificates
 
       - name: Apply App Store provisioning profile
-        script: xcode-project use-profiles
+        script: |
+          xcode-project use-profiles \
+            --project "$CM_BUILD_DIR/$XCODE_PROJECT"
 
       - name: Set iOS build number
         script: |
@@ -56,9 +59,8 @@ workflows:
 
       - name: Build signed IPA
         script: |
-          cd ios/App
           xcode-project build-ipa \
-            --workspace "$CM_BUILD_DIR/$XCODE_WORKSPACE" \
+            --project "$CM_BUILD_DIR/$XCODE_PROJECT" \
             --scheme "$XCODE_SCHEME"
 
     artifacts:
