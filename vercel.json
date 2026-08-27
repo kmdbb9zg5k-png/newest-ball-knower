@@ -1,4 +1,10 @@
 {
+  "crons": [
+    {
+      "path": "/api/fantasy-live-scoring",
+      "schedule": "* * * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

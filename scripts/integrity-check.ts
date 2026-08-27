@@ -10,6 +10,14 @@ import {
 import { TEAM_THEMES } from '../teamTheme';
 import { LeagueMember, TOTAL_ROSTER_SIZE } from '../types';
 import { estimatePlayerSalary } from '../currentSeasonRoster';
+import {
+  allFormatScores,
+  isFinalGameStatus,
+  kickoffIsoFromTank01Game,
+  liveProjectedPoints,
+  normalizeTank01DefenseStats,
+  scoreFantasyDefense,
+} from '../fantasyLiveScoring';
 
 const failures: string[] = [];
 const check = (condition: unknown, message: string) => {
@@ -95,6 +103,33 @@ check(validateLiveFantasyRoster([]).length===6,'An empty live-fantasy roster mus
 check(estimatePlayerSalary('P', 79) <= 6, 'Estimated punter salary exceeds the position cap.');
 check(estimatePlayerSalary('LB', 79) < estimatePlayerSalary('QB', 79), 'Position-aware salary estimates are not differentiated.');
 check(PLAYERS_DATABASE.every(player => !(['K', 'P'].includes(player.position) && player.salaryType === 'estimated' && player.salary > 6)), 'An estimated kicker or punter salary exceeds $6M.');
+
+const receiverScores=allFormatScores({
+  Receiving:{recYds:'100',recTD:'1',receptions:'8'},
+  Defense:{fumblesLost:'1'},
+});
+check(receiverScores.standard===14,'Standard scoring did not calculate receiving yards, touchdown and lost fumble correctly.');
+check(receiverScores.half_ppr===18,'Half-PPR scoring did not add 0.5 points per reception.');
+check(receiverScores.ppr===22,'PPR scoring did not add one point per reception.');
+
+const kickerScores=allFormatScores({Kicking:{fgMade:'3',fgMissed:'1',xpMade:'2',xpMissed:'1'}});
+check(kickerScores.ppr===9,'Kicker scoring did not apply field goals, PATs and misses correctly.');
+
+const conversionScores=allFormatScores({
+  Passing:{passingTwoPointConversion:'1'},
+  Rushing:{rushingTwoPointConversion:'1'},
+});
+check(conversionScores.ppr===4,'Two-point conversions from multiple stat categories were not added together.');
+
+const defenseScore=scoreFantasyDefense(normalizeTank01DefenseStats({
+  sacks:'3',defensiveInterceptions:'2',fumblesRecovered:'1',defTD:'1',safeties:'1',ptsAllowed:'10',
+}));
+check(defenseScore===21,'D/ST scoring did not apply sacks, takeaways, touchdown, safety and points allowed correctly.');
+check(isFinalGameStatus('Final'),'A final NFL game status was not recognized.');
+check(!isFinalGameStatus('Halftime'),'Halftime was incorrectly treated as a final score.');
+check(liveProjectedPoints(18,20,'In Progress','3')===23,'Live projection did not blend actual production with remaining game time.');
+check(liveProjectedPoints(18,20,'Final','4')===18,'Final player projection must equal the official score.');
+check(kickoffIsoFromTank01Game({gameTime_epoch:'1788782400'})==='2026-09-07T12:00:00.000Z','Tank01 kickoff epoch was not normalized deterministically.');
 
 console.log(`Ball Knower integrity check: ${PLAYERS_DATABASE.length} players, ${TEAM_THEMES.length} teams, ${FANTASY_DRAFT_ROUNDS}-round fantasy franchise.`);
 

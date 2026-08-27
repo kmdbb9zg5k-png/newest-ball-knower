@@ -33,7 +33,7 @@ const leagueFromRows = (row:any, members:any[], liveDraftRow?:any):League => ({
   seasonResult: row.season_result || undefined,
   liveDraft: liveDraftFromRow(liveDraftRow),
   createdAt: row.created_at,
-  settings: { seasonGames: 17, simulationStyle: 'realistic', ...(row.settings || {}) },
+  settings: { seasonGames: 17, simulationStyle: 'realistic', scoringFormat:'ppr', nflSeason:2026, ...(row.settings || {}) },
   inviteEnabled: row.invite_enabled !== false,
   paused: Boolean(row.paused),
   rostersLocked: Boolean(row.rosters_locked),
@@ -185,7 +185,7 @@ export async function createCloudLeague(
   const id=crypto.randomUUID();
   let created:any=null;
   for(let tries=0;tries<5;tries++){
-    const payload={id,code:code(),name:name.trim()||'Ball Knower League',max_members:maxMembers,salary_cap:salaryCap,commissioner_auth_id:auth.id,commissioner_name:user.name,status:'drafting',settings:{seasonGames:17,simulationStyle:'realistic',...draftSchedule}};
+    const payload={id,code:code(),name:name.trim()||'Ball Knower League',max_members:maxMembers,salary_cap:salaryCap,commissioner_auth_id:auth.id,commissioner_name:user.name,status:'drafting',settings:{seasonGames:17,simulationStyle:'realistic',scoringFormat:'ppr',nflSeason:2026,...draftSchedule}};
     const {data,error}=await supabase.from('ball_knower_leagues').insert(payload).select().single();
     if(!error){created=data;break;}
     if(error.code!=='23505') throw error;

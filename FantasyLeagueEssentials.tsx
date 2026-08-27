@@ -39,6 +39,7 @@ import {
   saveMyWeeklyLineup,
   setMyIrPlayer,
   submitFaabClaim,
+  subscribeToFantasyParity,
   validateWeeklyLineup,
   WeeklyLineup,
   WeeklyScore,
@@ -94,7 +95,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
     try {
       setError("");
       const [parity, ops] = await Promise.all([
-        fetchFantasyParityState(league.id, week),
+        fetchFantasyParityState(league.id, week, Number(league.settings.nflSeason) || 2026),
         fetchSeasonOperations(league.id),
       ]);
       setLineups([...parity.lineups]);
@@ -112,6 +113,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   useEffect(() => {
     void refresh();
   }, [league.id, week]);
+  useEffect(() => subscribeToFantasyParity(league.id, () => { void refresh(); }), [league.id, week]);
   const myLineup = lineups.find((item) => item.memberId === me?.id);
   useEffect(
     () =>
@@ -252,8 +254,8 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
       : matchup.homeMemberId
     : undefined;
   const opponent = league.members.find((member) => member.id === opponentId);
-  const myScore = scores.find((score) => score.memberId === me?.id);
-  const opponentScore = scores.find((score) => score.memberId === opponentId);
+  const myScore = scores.find((score) => score.week === week && score.memberId === me?.id);
+  const opponentScore = scores.find((score) => score.week === week && score.memberId === opponentId);
   const myPoints = matchup
     ? matchup.homeMemberId === me?.id
       ? matchup.homeScore
