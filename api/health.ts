@@ -1,7 +1,7 @@
-import {
-  BALL_KNOWER_SUPABASE_PUBLISHABLE_KEY,
-  BALL_KNOWER_SUPABASE_URL,
-} from '../supabaseDefaults';
+// Kept local so this serverless function does not depend on a module outside
+// api/, which the production function packager has failed to include.
+const BALL_KNOWER_SUPABASE_URL='https://gpnboygoosrmeydwjpvk.supabase.co';
+const BALL_KNOWER_SUPABASE_PUBLISHABLE_KEY='sb_publishable_tgnOH0RUtswLI58isL5Qfw_Pq3xaV9h';
 
 export default function handler(req:any,res:any){
   if(req.method!=='GET')return res.status(405).json({ok:false,error:'Method not allowed'});
