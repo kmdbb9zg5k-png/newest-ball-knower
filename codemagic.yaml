@@ -59,11 +59,15 @@ workflows:
 
       - name: Build signed IPA
         script: |
+          cd "$CM_BUILD_DIR"
           xcode-project build-ipa \
             --project "$CM_BUILD_DIR/$XCODE_PROJECT" \
             --scheme "$XCODE_SCHEME"
+          echo "Generated IPA files:"
+          find "$CM_BUILD_DIR" -type f -name "*.ipa" -print
 
     artifacts:
+      - build/ios/ipa/*.ipa
       - ios/App/build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
