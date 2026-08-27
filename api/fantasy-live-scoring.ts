@@ -293,9 +293,11 @@ export default async function handler(req:any,res:any){
   if(!cronSecret) return res.status(503).json({ok:false,error:'CRON_SECRET is not configured'});
   if(req.headers?.authorization!==`Bearer ${cronSecret}`) return res.status(401).json({ok:false,error:'Unauthorized'});
 
-  const supabaseUrl=process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL;
+  const supabaseUrl=process.env.SUPABASE_URL
+    ||process.env.VITE_SUPABASE_URL
+    ||'https://gpnboygoosrmeydwjpvk.supabase.co';
   const serviceKey=process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if(!supabaseUrl||!serviceKey) return res.status(503).json({ok:false,error:'Server database credentials are not configured'});
+  if(!serviceKey) return res.status(503).json({ok:false,error:'SUPABASE_SERVICE_ROLE_KEY is not configured'});
   const db=createClient(supabaseUrl,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
   const now=new Date();
 
