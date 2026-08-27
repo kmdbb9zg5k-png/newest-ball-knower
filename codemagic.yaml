@@ -15,9 +15,6 @@ workflows:
         BUNDLE_ID: "com.ballknower.ios"
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.ballknower.ios
 
     scripts:
       - name: Install web and Capacitor dependencies
@@ -34,13 +31,25 @@ workflows:
           npx cap add ios
           npx cap sync ios
 
+      - name: Set up iOS signing keychain
+        script: keychain initialize
+
+      - name: Fetch or create Apple signing files
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+
+      - name: Install Apple distribution certificate
+        script: keychain add-certificates
+
+      - name: Apply App Store provisioning profile
+        script: xcode-project use-profiles
+
       - name: Set iOS build number
         script: |
           cd ios/App
           xcrun agvtool new-version -all "$BUILD_NUMBER" || true
-
-      - name: Apply App Store signing profile
-        script: xcode-project use-profiles
 
       - name: Build signed IPA
         script: |
