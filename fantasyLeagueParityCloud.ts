@@ -10,8 +10,25 @@ export type WeeklyLineup = {
   starters:Record<string,string>;
   bench:string[];
   locked:boolean;
+  lockedPlayerIds:string[];
   submittedAt:string;
   updatedAt:string;
+  finalizedAt?:string;
+};
+
+export type PlayerScoreDetail = {
+  slot:string;
+  playerId:string;
+  playerName:string;
+  team:string;
+  position:string;
+  points:number;
+  projectedPoints:number;
+  status:string;
+  kickoffAt?:string;
+  isLive:boolean;
+  isFinal:boolean;
+  locked:boolean;
 };
 
 export type WeeklyScore = {
@@ -22,7 +39,25 @@ export type WeeklyScore = {
   projectedPoints:number;
   source:string;
   isFinal:boolean;
+  scoreRevision:number;
+  players:PlayerScoreDetail[];
   updatedAt:string;
+  finalizedAt?:string;
+  lastCorrectionAt?:string;
+};
+
+export type NflWeekGame = {
+  providerGameId:string;
+  season:number;
+  week:number;
+  awayTeam:string;
+  homeTeam:string;
+  kickoffAt:string;
+  gameStatus:string;
+  gamePeriod?:string;
+  gameClock?:string;
+  isLive:boolean;
+  isFinal:boolean;
 };
 
 export type MemberFantasyMeta = {
@@ -46,8 +81,10 @@ const mapLineup=(row:any):WeeklyLineup=>({
   starters:row.starters||{},
   bench:row.bench||[],
   locked:Boolean(row.locked),
+  lockedPlayerIds:Array.isArray(row.locked_player_ids)?row.locked_player_ids:[],
   submittedAt:row.submitted_at,
   updatedAt:row.updated_at,
+  finalizedAt:row.finalized_at||undefined,
 });
 
 const mapScore=(row:any):WeeklyScore=>({
@@ -58,27 +95,71 @@ const mapScore=(row:any):WeeklyScore=>({
   projectedPoints:Number(row.projected_points)||0,
   source:row.source||'ball_knower',
   isFinal:Boolean(row.is_final),
+  scoreRevision:Number(row.score_revision)||1,
+  players:Array.isArray(row.score_details?.players)?row.score_details.players.map((player:any)=>({
+    ...player,
+    points:Number(player.points)||0,
+    projectedPoints:Number(player.projectedPoints)||0,
+    isLive:Boolean(player.isLive),
+    isFinal:Boolean(player.isFinal),
+    locked:Boolean(player.locked),
+  })):[],
   updatedAt:row.updated_at,
+  finalizedAt:row.finalized_at||undefined,
+  lastCorrectionAt:row.last_correction_at||undefined,
 });
 
-export async function fetchFantasyParityState(leagueId:string,week:number){
-  if(!supabase) return {lineups:[],scores:[],members:[],archives:[]} as const;
+const mapGame=(row:any):NflWeekGame=>({
+  providerGameId:row.provider_game_id,
+  season:Number(row.season),
+  week:Number(row.week_number),
+  awayTeam:row.away_team,
+  homeTeam:row.home_team,
+  kickoffAt:row.kickoff_at,
+  gameStatus:row.game_status||'Scheduled',
+  gamePeriod:row.game_period||undefined,
+  gameClock:row.game_clock||undefined,
+  isLive:Boolean(row.is_live),
+  isFinal:Boolean(row.is_final),
+});
+
+export async function fetchFantasyParityState(leagueId:string,week:number,season=2026){
+  if(!supabase) return {lineups:[],scores:[],members:[],archives:[],games:[]} as const;
   await ensureOnlineSession();
-  const [lineups,scores,members,archives]=await Promise.all([
+  const [lineups,scores,members,archives,games]=await Promise.all([
     supabase.from('ball_knower_weekly_lineups').select('*').eq('league_id',leagueId).eq('week_number',week),
     // Scores power standings and the full-season matchup list, so fetch every
     // week while keeping editable lineup data scoped to the selected week.
     supabase.from('ball_knower_weekly_scores').select('*').eq('league_id',leagueId),
     supabase.from('ball_knower_league_members').select('id,faab_balance,ir_player_ids').eq('league_id',leagueId),
     supabase.from('ball_knower_season_archive').select('season_number,result,settings,created_at').eq('league_id',leagueId).order('season_number',{ascending:false}).limit(25),
+    supabase.from('ball_knower_nfl_games').select('*').eq('season',season).eq('season_type','reg').eq('week_number',week).order('kickoff_at',{ascending:true}),
   ]);
-  const error=[lineups.error,scores.error,members.error,archives.error].find(Boolean);
+  const error=[lineups.error,scores.error,members.error,archives.error,games.error].find(Boolean);
   if(error) throw error;
   return {
     lineups:(lineups.data||[]).map(mapLineup),
     scores:(scores.data||[]).map(mapScore),
     members:(members.data||[]).map((row:any)=>({memberId:row.id,faabBalance:Number(row.faab_balance) || 0,irPlayerIds:Array.isArray(row.ir_player_ids)?row.ir_player_ids:[]} as MemberFantasyMeta)),
     archives:(archives.data||[]).map((row:any)=>({seasonNumber:Number(row.season_number),result:row.result||{},settings:row.settings||{},createdAt:row.created_at} as ArchivedSeason)),
+    games:(games.data||[]).map(mapGame),
+  };
+}
+
+export function subscribeToFantasyParity(leagueId:string,onChange:()=>void){
+  if(!supabase) return ()=>{};
+  let timer=0;
+  const notify=()=>{
+    window.clearTimeout(timer);
+    timer=window.setTimeout(onChange,150);
+  };
+  const channel=supabase.channel(`ball-knower-fantasy-scores-${leagueId}`)
+    .on('postgres_changes',{event:'*',schema:'public',table:'ball_knower_weekly_scores',filter:`league_id=eq.${leagueId}`},notify)
+    .on('postgres_changes',{event:'*',schema:'public',table:'ball_knower_weekly_lineups',filter:`league_id=eq.${leagueId}`},notify)
+    .subscribe();
+  return ()=>{
+    window.clearTimeout(timer);
+    void supabase.removeChannel(channel);
   };
 }
 

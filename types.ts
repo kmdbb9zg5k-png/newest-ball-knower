@@ -333,6 +333,12 @@ export interface LeagueSettings {
   currentWeek?: number;
   fantasySeasonStarted?: boolean;
   fantasySeasonComplete?: boolean;
+  scoringFormat?: 'standard' | 'half_ppr' | 'ppr';
+  nflSeason?: number;
+  waiverType?: 'priority' | 'faab';
+  waiverDays?: number;
+  tradeReview?: 'none' | 'commissioner' | 'league_vote';
+  irSlots?: number;
 }
 
 export interface League {

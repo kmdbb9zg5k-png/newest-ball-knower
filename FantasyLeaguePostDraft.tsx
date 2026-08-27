@@ -42,8 +42,11 @@ import {
   fetchFantasyParityState,
   LINEUP_SLOTS,
   MemberFantasyMeta,
+  NflWeekGame,
+  PlayerScoreDetail,
   saveMyWeeklyLineup,
   setMyIrPlayer,
+  subscribeToFantasyParity,
   submitFaabClaim,
   validateWeeklyLineup,
   WeeklyLineup,
@@ -98,11 +101,13 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
   const [tab, setTab] = useState<Tab>('team');
   const [activityView, setActivityView] = useState<ActivityView>('trades');
   const [intelView, setIntelView] = useState<IntelView>('allbk');
-  const [week, setWeek] = useState(1);
+  const [week, setWeek] = useState(() => Math.min(maxWeek, Math.max(1, Number(settings.currentWeek) || 1)));
+  const [viewedMatchupId, setViewedMatchupId] = useState('');
   const [lineups, setLineups] = useState<WeeklyLineup[]>([]);
   const [scores, setScores] = useState<WeeklyScore[]>([]);
   const [memberMeta, setMemberMeta] = useState<MemberFantasyMeta[]>([]);
   const [archives, setArchives] = useState<ArchivedSeason[]>([]);
+  const [nflGames, setNflGames] = useState<NflWeekGame[]>([]);
   const [trades, setTrades] = useState<TradeOffer[]>([]);
   const [claims, setClaims] = useState<WaiverClaim[]>([]);
   const [injuries, setInjuries] = useState<LeagueInjury[]>([]);
@@ -180,13 +185,14 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
     try {
       setError('');
       const [parity, ops] = await Promise.all([
-        fetchFantasyParityState(league.id, week),
+        fetchFantasyParityState(league.id, week, Number(settings.nflSeason) || 2026),
         fetchSeasonOperations(league.id),
       ]);
       setLineups([...parity.lineups]);
       setScores([...parity.scores]);
       setMemberMeta([...parity.members]);
       setArchives([...parity.archives]);
+      setNflGames([...parity.games]);
       setTrades([...ops.trades]);
       setClaims([...ops.claims]);
       setInjuries([...ops.injuries]);
@@ -198,6 +204,10 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
   };
 
   useEffect(() => { void refresh(); }, [league.id, week]);
+  useEffect(() => {
+    setWeek(Math.min(maxWeek,Math.max(1,Number(settings.currentWeek)||1)));
+  },[maxWeek,settings.currentWeek]);
+  useEffect(() => subscribeToFantasyParity(league.id, () => { void refresh(); }), [league.id, week]);
   useEffect(() => {
     let active = true;
     setRankingsBusy(true);
@@ -218,6 +228,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
   }, []);
 
   const myLineup = lineups.find(item => item.memberId === me?.id);
+  const lockedPlayerIds = new Set(myLineup?.lockedPlayerIds || []);
   const rosterSignature = roster.map(player => player.id).sort().join('|');
   useEffect(() => {
     setStarters(
@@ -343,22 +354,26 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
     setMessage('');
   }, 'Message sent.');
 
-  const playedMatchup = scoredGames.find(game => game.week === week && (game.homeMemberId === me?.id || game.awayMemberId === me?.id));
-  const scheduledMatchup = regularSeasonSchedule.find(game => game.week === week && (game.homeMemberId === me?.id || game.awayMemberId === me?.id));
-  const matchup = playedMatchup || scheduledMatchup;
-  const opponentId = matchup ? (matchup.homeMemberId === me?.id ? matchup.awayMemberId : matchup.homeMemberId) : undefined;
-  const opponent = league.members.find(member => member.id === opponentId);
-  const myScore = scores.find(score => score.week === week && score.memberId === me?.id);
-  const opponentScore = scores.find(score => score.week === week && score.memberId === opponentId);
-  const myPoints = playedMatchup ? (playedMatchup.homeMemberId === me?.id ? playedMatchup.homeScore : playedMatchup.awayScore) : 0;
-  const oppPoints = playedMatchup ? (playedMatchup.homeMemberId === me?.id ? playedMatchup.awayScore : playedMatchup.homeScore) : 0;
-  const scoreStatus = myScore && opponentScore ? (myScore.isFinal && opponentScore.isFinal ? 'Final' : 'Live') : 'Scheduled';
+  const weekMatchups = useMemo(() => regularSeasonSchedule.filter(game => game.week === week), [regularSeasonSchedule,week]);
+  useEffect(() => {
+    const myGame=weekMatchups.find(game=>game.homeMemberId===me?.id||game.awayMemberId===me?.id);
+    setViewedMatchupId(current=>weekMatchups.some(game=>game.id===current)?current:(myGame?.id||weekMatchups[0]?.id||''));
+  },[week,weekMatchups,me?.id]);
+  const viewedMatchup=weekMatchups.find(game=>game.id===viewedMatchupId)||weekMatchups[0];
+  const viewedHome=league.members.find(member=>member.id===viewedMatchup?.homeMemberId);
+  const viewedAway=league.members.find(member=>member.id===viewedMatchup?.awayMemberId);
+  const viewedHomeScore=scores.find(score=>score.week===week&&score.memberId===viewedHome?.id);
+  const viewedAwayScore=scores.find(score=>score.week===week&&score.memberId===viewedAway?.id);
+  const viewedScoreStatus=viewedHomeScore&&viewedAwayScore
+    ? viewedHomeScore.isFinal&&viewedAwayScore.isFinal?'Final':([...viewedHomeScore.players,...viewedAwayScore.players].some(player=>player.isLive)?'Live':'Scheduled')
+    : 'Scheduled';
+  const nextKickoff=nflGames.filter(game=>!game.isFinal).sort((a,b)=>Date.parse(a.kickoffAt)-Date.parse(b.kickoffAt))[0];
   const seasonHasGames = scoredGames.length > 0;
   const mySchedule = useMemo(() => regularSeasonSchedule.map(game => {
     if (game.homeMemberId !== me?.id && game.awayMemberId !== me?.id) return null;
     const opponentId = game.homeMemberId === me?.id ? game.awayMemberId : game.homeMemberId;
     const result = scoredGames.find(played => played.week === game.week && played.homeMemberId === game.homeMemberId && played.awayMemberId === game.awayMemberId);
-    const hasLiveScore = scores.some(score => score.week === game.week && (score.memberId === game.homeMemberId || score.memberId === game.awayMemberId));
+    const hasLiveScore = scores.some(score => score.week === game.week && (score.memberId === game.homeMemberId || score.memberId === game.awayMemberId) && score.players.some(player=>player.isLive));
     return {game,opponent:league.members.find(member => member.id === opponentId),result,hasLiveScore};
   }).filter(Boolean) as {game:(typeof regularSeasonSchedule)[number];opponent?:LeagueMember;result?:SimulationGame;hasLiveScore:boolean}[], [regularSeasonSchedule,scoredGames,scores,league.members,me?.id]);
 
@@ -443,7 +458,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
         <div className="flex items-end justify-between gap-3"><div><h2 className="text-xl font-black uppercase">My Team</h2><p className="text-xs text-zinc-500">Tap Swap to change a starter.</p></div><div className={`max-w-[45%] text-right text-[10px] font-black uppercase ${lineupErrors.length ? 'text-amber-300' : 'text-emerald-400'}`}>{lineupErrors.length ? lineupErrors[0] : 'Lineup ready'}</div></div>
         {!roster.length ? <Empty text="Your roster appears here after the draft."/> : <>
           <RosterSection title="Starters">
-            {LINEUP_SLOTS.map(slot => <LineupRow key={slot.id} label={slot.label} player={roster.find(player => player.id === starters[slot.id])} valueLabel={valueLabel} onSwap={() => setSwapSlot(slot.id)}/>) }
+            {LINEUP_SLOTS.map(slot => { const player=roster.find(item => item.id === starters[slot.id]); return <LineupRow key={slot.id} label={slot.label} player={player} valueLabel={valueLabel} locked={Boolean(player&&lockedPlayerIds.has(player.id))} onSwap={() => setSwapSlot(slot.id)}/>; }) }
           </RosterSection>
           <button onClick={saveLineup} disabled={busy || lineupErrors.length > 0} className="min-h-12 w-full rounded-xl bg-[#D4AF37] text-xs font-black uppercase text-black disabled:opacity-35"><Save className="mr-2 inline h-4 w-4"/>Save Lineup</button>
           <RosterSection title={`Bench · ${bench.length}`}>{[...bench].sort(comparePlayers).map(player => <PlayerRow key={player.id} label="BN" player={player} valueLabel={valueLabel}/>)}</RosterSection>
@@ -451,9 +466,10 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
       </div>}
 
       {tab === 'matchup' && <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3"><div><h2 className="text-xl font-black uppercase">Matchup</h2><p className="text-xs text-zinc-500">Your complete {maxWeek}-week head-to-head schedule.</p></div><select aria-label="Fantasy week" value={week} onChange={event => setWeek(Number(event.target.value))} className="min-h-11 rounded-xl border border-white/10 bg-[#101318] px-3 text-xs">{Array.from({length:maxWeek},(_,index)=>index+1).map(value=><option key={value} value={value}>Week {value}</option>)}</select></div>
-        <DataNotice text="Online fantasy matchups use weekly scoring records. Commissioners cannot simulate or advance games."/>
-        <Panel title={`Week ${week}`} sub={`${displayManagerName(me)} ${matchup?.homeMemberId===me?.id?'vs':'@'} ${displayManagerName(opponent)}`} icon={<Clock3 className="h-5 w-5 text-[#D4AF37]"/>}>{matchup ? <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3"><Score name={displayManagerName(me)} points={myScore?.livePoints ?? myPoints} projection={myScore?.projectedPoints} status={scoreStatus}/><b className="text-zinc-600">{matchup.homeMemberId===me?.id?'VS':'@'}</b><Score name={displayManagerName(opponent)} points={opponentScore?.livePoints ?? oppPoints} projection={opponentScore?.projectedPoints} status={scoreStatus}/></div> : <Empty text="This week does not have a matchup."/>}</Panel>
+        <div className="flex items-center justify-between gap-3"><div><h2 className="text-xl font-black uppercase">Week {week} Matchups</h2><p className="text-xs text-zinc-500">{nextKickoff?`${nextKickoff.awayTeam} @ ${nextKickoff.homeTeam} · ${formatKickoff(nextKickoff.kickoffAt)}`:'Every NFL game is final.'}</p></div><select aria-label="Fantasy week" value={week} onChange={event => setWeek(Number(event.target.value))} className="min-h-11 rounded-xl border border-white/10 bg-[#101318] px-3 text-xs">{Array.from({length:maxWeek},(_,index)=>index+1).map(value=><option key={value} value={value}>Week {value}</option>)}</select></div>
+        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{weekMatchups.map(game=>{const home=league.members.find(member=>member.id===game.homeMemberId);const away=league.members.find(member=>member.id===game.awayMemberId);const homeScore=scores.find(score=>score.week===week&&score.memberId===home?.id);const awayScore=scores.find(score=>score.week===week&&score.memberId===away?.id);const mine=game.homeMemberId===me?.id||game.awayMemberId===me?.id;return <button key={game.id} onClick={()=>setViewedMatchupId(game.id)} className={`min-h-16 min-w-[11.5rem] shrink-0 rounded-xl border p-3 text-left ${viewedMatchup?.id===game.id?'border-[#D4AF37]/50 bg-[#D4AF37]/10':'border-white/10 bg-[#101318]'}`}><div className="flex items-center justify-between gap-2 text-[8px] font-black uppercase"><span className={mine?'text-[#D4AF37]':'text-zinc-600'}>{mine?'Your Matchup':'League Matchup'}</span><span className={homeScore?.isFinal&&awayScore?.isFinal?'text-zinc-500':homeScore?.players.some(player=>player.isLive)||awayScore?.players.some(player=>player.isLive)?'text-amber-300':'text-zinc-600'}>{homeScore?.isFinal&&awayScore?.isFinal?'Final':homeScore?.players.some(player=>player.isLive)||awayScore?.players.some(player=>player.isLive)?'Live':'Upcoming'}</span></div><div className="mt-1 flex items-center justify-between gap-2 text-[10px] font-black"><span className="truncate">{displayManagerName(away)}</span><span>{awayScore?.isFinal||awayScore?.players.some(player=>player.isLive)?awayScore.livePoints.toFixed(1):awayScore?.projectedPoints.toFixed(1)||'—'}</span></div><div className="mt-1 flex items-center justify-between gap-2 text-[10px] font-black"><span className="truncate">{displayManagerName(home)}</span><span>{homeScore?.isFinal||homeScore?.players.some(player=>player.isLive)?homeScore.livePoints.toFixed(1):homeScore?.projectedPoints.toFixed(1)||'—'}</span></div></button>})}</div>
+        <Panel title={`Week ${week}`} sub={`${displayManagerName(viewedAway)} @ ${displayManagerName(viewedHome)}`} icon={<Clock3 className="h-5 w-5 text-[#D4AF37]"/>}>{viewedMatchup ? <><div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3"><Score name={displayManagerName(viewedAway)} points={viewedAwayScore?.livePoints||0} projection={viewedAwayScore?.projectedPoints} status={viewedScoreStatus}/><b className="text-zinc-600">@</b><Score name={displayManagerName(viewedHome)} points={viewedHomeScore?.livePoints||0} projection={viewedHomeScore?.projectedPoints} status={viewedScoreStatus}/></div>{(viewedHomeScore?.lastCorrectionAt||viewedAwayScore?.lastCorrectionAt)&&<div className="rounded-lg border border-sky-400/20 bg-sky-400/[.06] p-2 text-center text-[9px] font-black uppercase text-sky-300">Official stat correction applied automatically</div>}</> : <Empty text="This week does not have a matchup."/>}</Panel>
+        {viewedMatchup&&<div className="grid gap-3 lg:grid-cols-2"><MatchupRoster member={viewedAway} score={viewedAwayScore} injuries={injuries}/><MatchupRoster member={viewedHome} score={viewedHomeScore} injuries={injuries}/></div>}
         <Panel title={`Full ${maxWeek}-Week Schedule`} sub="Tap any week to open that matchup" icon={<Clock3 className="h-5 w-5 text-[#D4AF37]"/>}><div className="divide-y divide-white/5">{mySchedule.map(({game,opponent:scheduledOpponent,result,hasLiveScore}) => { const won=result&&result.winnerId===me?.id; const tied=Boolean(result?.isTie); const venue=game.homeMemberId===me?.id?'vs':'@'; return <button key={game.id} onClick={()=>setWeek(game.week)} className={`flex min-h-12 w-full items-center justify-between gap-3 px-1 text-left ${week===game.week?'text-[#D4AF37]':'text-white'}`}><span className="w-14 text-[9px] font-black uppercase">Week {game.week}</span><span className="min-w-0 flex-1 truncate text-xs font-black">{venue} {displayManagerName(scheduledOpponent)}</span><span className={`shrink-0 text-[9px] font-black uppercase ${!result?(hasLiveScore?'text-amber-300':'text-zinc-600'):tied?'text-zinc-300':won?'text-emerald-400':'text-red-400'}`}>{result ? tied ? 'Tie' : won ? 'Win' : 'Loss' : hasLiveScore ? 'Live' : 'Scheduled'}</span></button>})}</div></Panel>
       </div>}
 
@@ -522,7 +538,7 @@ const Portrait = ({player}:{player?:Player}) => <div className="h-12 w-12 shrink
 
 const RosterSection = ({title,children}:{title:string;children:React.ReactNode}) => <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#101318]"><div className="border-b border-white/10 px-3 py-2 text-[9px] font-black uppercase text-zinc-500">{title}</div>{children}</section>;
 
-const LineupRow = ({label,player,valueLabel,onSwap}:{label:string;player?:Player;valueLabel:(player:Player)=>string;onSwap:()=>void}) => <div className="grid grid-cols-[38px_48px_minmax(0,1fr)_64px] items-center gap-2 border-b border-white/5 p-2"><span className="grid h-9 w-9 place-items-center rounded-full bg-[#D4AF37] text-[9px] font-black text-black">{label}</span><Portrait player={player}/><div className="min-w-0"><div className="truncate text-xs font-black">{player?.name || 'Empty starter'}</div><div className="truncate text-[9px] text-zinc-500">{player ? valueLabel(player) : 'Choose an eligible player'}</div></div><button onClick={onSwap} className="min-h-10 rounded-lg border border-white/10 bg-black/30 px-2 text-[9px] font-black uppercase">Swap</button></div>;
+const LineupRow = ({label,player,valueLabel,onSwap,locked=false}:{label:string;player?:Player;valueLabel:(player:Player)=>string;onSwap:()=>void;locked?:boolean}) => <div className="grid grid-cols-[38px_48px_minmax(0,1fr)_64px] items-center gap-2 border-b border-white/5 p-2"><span className="grid h-9 w-9 place-items-center rounded-full bg-[#D4AF37] text-[9px] font-black text-black">{label}</span><Portrait player={player}/><div className="min-w-0"><div className="truncate text-xs font-black">{player?.name || 'Empty starter'}</div><div className="truncate text-[9px] text-zinc-500">{locked?'Game started · locked':player ? valueLabel(player) : 'Choose an eligible player'}</div></div><button disabled={locked} onClick={onSwap} className="min-h-10 rounded-lg border border-white/10 bg-black/30 px-2 text-[9px] font-black uppercase disabled:text-zinc-600">{locked?'Locked':'Swap'}</button></div>;
 
 const PlayerRow = ({label,player,valueLabel}:{label:string;player:Player;valueLabel:(player:Player)=>string}) => <div className="grid grid-cols-[38px_48px_minmax(0,1fr)] items-center gap-2 border-b border-white/5 p-2"><span className="grid h-9 w-9 place-items-center rounded-full border border-[#D4AF37]/30 text-[9px] font-black text-[#D4AF37]">{label}</span><Portrait player={player}/><div className="min-w-0"><div className="truncate text-xs font-black">{player.name}</div><div className="truncate text-[9px] text-zinc-500">{valueLabel(player)}</div></div></div>;
 
@@ -530,7 +546,21 @@ const Panel = ({title,sub,icon,children}:{title:string;sub:string;icon:React.Rea
 const Empty = ({text}:{text:string}) => <div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-xs font-semibold leading-5 text-zinc-600">{text}</div>;
 const Action = ({text,label,onClick}:{text:string;label:string;onClick?:()=>void}) => <button disabled={!onClick} onClick={onClick} className="flex min-h-12 w-full items-center justify-between gap-3 border-b border-white/5 text-left text-xs disabled:cursor-default"><span>{text}</span><span className="shrink-0 text-[9px] font-black uppercase text-[#D4AF37]">{label}</span></button>;
 const Record = ({label,value}:{label:string;value:string}) => <div className="rounded-xl border border-white/10 bg-[#101318] p-3"><div className="text-[8px] font-black uppercase tracking-wider text-zinc-600">{label}</div><div className="mt-1 truncate text-xs font-black">{value}</div></div>;
-const Score = ({name,points,projection,status}:{name:string;points:number;projection?:number;status:'Scheduled'|'Live'|'Final'}) => <div className="min-w-0 text-center"><div className="truncate text-[10px] font-black uppercase text-zinc-400">{name}</div><div className="mt-1 text-3xl font-black">{status==='Scheduled' ? '—' : Number(points || 0).toFixed(1)}</div><div className={`text-[9px] font-black uppercase ${status==='Live'?'text-amber-300':'text-zinc-600'}`}>{status}</div>{status!=='Scheduled' && projection !== undefined && projection > 0 && <div className="text-[9px] text-zinc-600">{Number(projection).toFixed(1)} proj</div>}</div>;
+const Score = ({name,points,projection,status}:{name:string;points:number;projection?:number;status:'Scheduled'|'Live'|'Final'}) => <div className="min-w-0 text-center"><div className="truncate text-[10px] font-black uppercase text-zinc-400">{name}</div><div className="mt-1 text-3xl font-black">{status==='Scheduled' ? '—' : Number(points || 0).toFixed(1)}</div><div className={`text-[9px] font-black uppercase ${status==='Live'?'text-amber-300':'text-zinc-600'}`}>{status}</div>{projection !== undefined && projection > 0 && <div className="text-[9px] text-zinc-600">{Number(projection).toFixed(1)} proj</div>}</div>;
+
+const formatKickoff = (value?:string) => {
+  if(!value) return 'Bye';
+  const date=new Date(value);
+  if(Number.isNaN(date.getTime())) return 'Scheduled';
+  return date.toLocaleString(undefined,{weekday:'short',hour:'numeric',minute:'2-digit'});
+};
+
+const MatchupRoster = ({member,score,injuries}:{member?:LeagueMember;score?:WeeklyScore;injuries:LeagueInjury[]}) => <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#101318]"><div className="flex items-center justify-between border-b border-white/10 p-3"><div><div className="text-[9px] font-black uppercase text-[#D4AF37]">{displayManagerName(member)}</div><div className="mt-0.5 text-[10px] text-zinc-500">{score?.isFinal?'Official final':score?.players.some(player=>player.isLive)?'Updating live':'Projected lineup'}</div></div><div className="text-right"><div className="text-lg font-black">{score?.isFinal||score?.players.some(player=>player.isLive)?Number(score?.livePoints||0).toFixed(1):Number(score?.projectedPoints||0).toFixed(1)}</div><div className="text-[8px] font-black uppercase text-zinc-600">{score?.isFinal?'Points':'Projection'}</div></div></div><div className="divide-y divide-white/5">{score?.players.length?score.players.map(player=><MatchupPlayerRow key={`${player.slot}-${player.playerId}`} player={player} injury={injuries.find(item=>item.memberId===member?.id&&item.playerId===player.playerId)}/>):<Empty text="The authoritative lineup will appear when this scoring week opens."/>}</div></section>;
+
+const MatchupPlayerRow = ({player,injury}:{player:PlayerScoreDetail;injury?:LeagueInjury}) => {
+  const gameLabel=player.isFinal?'Final':player.isLive?player.status:formatKickoff(player.kickoffAt);
+  return <div className="grid min-h-16 grid-cols-[38px_minmax(0,1fr)_62px] items-center gap-2 p-2.5"><span className="grid h-9 w-9 place-items-center rounded-full border border-[#D4AF37]/30 text-[8px] font-black text-[#D4AF37]">{player.slot.replace(/[0-9]/g,'')}</span><div className="min-w-0"><div className="flex items-center gap-1.5"><span className="truncate text-xs font-black">{player.playerName}</span>{injury&&<span className="shrink-0 rounded bg-red-500/10 px-1 py-0.5 text-[7px] font-black uppercase text-red-300">{injury.status}</span>}</div><div className={`mt-0.5 truncate text-[9px] font-bold ${player.isLive?'text-amber-300':player.isFinal?'text-zinc-600':'text-zinc-500'}`}>{player.team} · {gameLabel}{player.locked?' · Locked':''}</div></div><div className="text-right"><div className="text-sm font-black">{player.isLive||player.isFinal?player.points.toFixed(1):'—'}</div><div className="text-[8px] text-zinc-600">{player.projectedPoints.toFixed(1)} proj</div></div></div>;
+};
 
 const Rule = ({label,value,disabled,options,onChange}:{label:string;value:string;disabled:boolean;options:string[][];onChange:(value:string)=>void}) => <label className="rounded-xl bg-black/25 p-3"><span className="mb-1 block text-[8px] font-black uppercase text-zinc-600">{label}</span><select disabled={disabled} value={value} onChange={event => onChange(event.target.value)} className="min-h-10 w-full bg-transparent text-xs font-bold disabled:text-zinc-500">{options.map(option => <option key={option[0]} value={option[0]}>{option[1]}</option>)}</select></label>;
 

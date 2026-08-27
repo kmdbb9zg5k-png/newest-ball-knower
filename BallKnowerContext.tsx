@@ -160,7 +160,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       commissionerId: DEFAULT_USER.id,
       commissionerName: DEFAULT_USER.name,
       status: 'drafting',
-      settings: { seasonGames: 17 },
+      settings: { seasonGames: 17, scoringFormat:'ppr', nflSeason:2026 },
       members: [commissionerMember, ...aiMembers],
       createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
     };
@@ -502,7 +502,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const newLeague: League = {
         id: leagueId, code: randomCode, name: name.trim() || 'Ball Knower League',
         maxMembers, salaryCap: customCap, commissionerId: user.id, commissionerName: user.name,
-        status: 'drafting', settings: { seasonGames: 17, ...draftSchedule }, members: [commissionerMember], createdAt: new Date().toISOString(),
+        status: 'drafting', settings: { seasonGames: 17, scoringFormat:'ppr', nflSeason:2026, ...draftSchedule }, members: [commissionerMember], createdAt: new Date().toISOString(),
       };
       setLeagues(prev => [newLeague, ...prev]);
       setActiveLeagueId(newLeague.id);
@@ -1039,7 +1039,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       commissionerId: user.id,
       commissionerName: user.name,
       status: 'drafting',
-      settings: { seasonGames: 17 },
+      settings: { seasonGames: 17, scoringFormat:'ppr', nflSeason:2026 },
       members: [demoCommissioner, ...demoAiMembers],
       createdAt: new Date().toISOString(),
     };
