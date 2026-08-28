@@ -37,10 +37,11 @@ type NegotiationState = {
   gmPatience: number;
   message: string;
 };
-type TradeRequest = { requestedWeek: number; requestedAt: string; reason: string; status: 'open' | 'resolved' | 'denied' };
+type TradeRequest = { requestedWeek: number; requestedAt: string; reason: string; status: 'open' | 'resolved' | 'denied'; attempts?: number; outcome?: string; destination?: string };
 type Client = {
   playerId: string;
   trust: number;
+  currentTeam?: string;
   futureDeal?: FutureDeal;
   signedAt: string;
   tradeRequest?: TradeRequest;
@@ -117,11 +118,12 @@ const restore = (): AgencyState => {
       clients: Array.isArray(v?.clients)
         ? v.clients.map((c: any) => ({
             playerId: String(c.playerId),
-            trust: Number(c.trust) || 72,
+            trust: Number.isFinite(Number(c.trust)) ? clamp(Number(c.trust), 0, 100) : 72,
+            currentTeam: typeof c.currentTeam === 'string' && c.currentTeam ? c.currentTeam : undefined,
             futureDeal: c.futureDeal,
             signedAt: c.signedAt || new Date().toISOString(),
             tradeRequest: c.tradeRequest,
-          }))
+          })).slice(0, STARTING_CLIENT_CAP)
         : [],
       recruitCooldowns: v?.recruitCooldowns && typeof v.recruitCooldowns === 'object' ? v.recruitCooldowns : {},
       recruitLockouts: v?.recruitLockouts && typeof v.recruitLockouts === 'object' ? v.recruitLockouts : {},
@@ -144,9 +146,9 @@ const addDays = (iso: string, days: number) => {
   d.setDate(d.getDate() + days);
   return d.toISOString().slice(0, 10);
 };
-const cooldownDaysLeft = (until?: string) => {
+const cooldownDaysLeft = (until?: string, from = new Date().toISOString().slice(0, 10)) => {
   if (!until) return 0;
-  return Math.max(0, Math.ceil((new Date(until).getTime() - Date.now()) / 86400000));
+  return Math.max(0, Math.ceil((new Date(`${until}T12:00:00`).getTime() - new Date(`${from}T12:00:00`).getTime()) / 86400000));
 };
 
 const marketProjection = (p: Player) => {
@@ -313,21 +315,38 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({ onBack }) =>
 
   const resolveTradeRequest = (playerId: string, status: 'resolved' | 'denied') => {
     const p = PLAYERS_DATABASE.find(x => x.id === playerId);
+    const client = agency.clients.find(c => c.playerId === playerId);
+    if (!p || !client?.tradeRequest) return;
+    const currentTeam = client.currentTeam || p.team;
+    const teams = [...new Set(PLAYERS_DATABASE.map(player => player.team).filter(team => team && team !== currentTeam && team !== 'FA'))].sort();
+    const destination = teams[hashPlayer(`${p.id}:${agency.seasonYear}:${agency.seasonWeek}`) % teams.length] || 'a new team';
+    const attempts = (client.tradeRequest.attempts || 0) + 1;
+    const worked = status === 'resolved' && agency.reputation + agency.negotiation + client.trust + (hashPlayer(`${p.id}:${attempts}`) % 25) >= 130;
+    const outcome = status === 'denied'
+      ? `You refused to pursue the request. ${p.name}'s trust took a major hit.`
+      : worked
+        ? `You created a market and moved ${p.name} to ${destination}.`
+        : `No acceptable offer surfaced. The request stays open and ${p.name} expects another push.`;
     const next: AgencyState = {
       ...agency,
-      reputation: clamp(agency.reputation + (status === 'resolved' ? 2 : -1), 0, 100),
-      clients: agency.clients.map(c => c.playerId === playerId && c.tradeRequest ? { ...c, tradeRequest: { ...c.tradeRequest, status } } : c),
-      timeline: [`${p?.name || 'Your client'}'s trade request was ${status === 'resolved' ? 'handled' : 'denied'}.`, ...agency.timeline].slice(0, 20),
+      reputation: clamp(agency.reputation + (worked ? 3 : status === 'denied' ? -2 : 0), 0, 100),
+      clients: agency.clients.map(c => c.playerId === playerId && c.tradeRequest ? {
+        ...c,
+        trust: clamp(c.trust + (worked ? 9 : status === 'denied' ? -12 : -3), 0, 100),
+        currentTeam: worked ? destination : c.currentTeam,
+        tradeRequest: { ...c.tradeRequest, status: worked ? 'resolved' : status === 'denied' ? 'denied' : 'open', attempts, outcome, destination: worked ? destination : undefined },
+      } : c),
+      timeline: [outcome, ...agency.timeline].slice(0, 20),
     };
     setAgency(next); persist(next);
   };
 
   const beginRecruit = (p: Player) => {
-    if (clients.length >= STARTING_CLIENT_CAP && agency.reputation < 45) return;
+    if (clients.length >= STARTING_CLIENT_CAP) return;
     if (agency.recruitLockouts[p.id] === agency.seasonYear) {
       const scenario=scenarioFor(p);setSelectedId(p.id);setRecruit({playerId:p.id,interest:0,round:3,used:[],rivalPressure:0,failed:true,choices:[],scenarioIndex:scenario.index,message:`${p.name} signed elsewhere. You are cooked for ${agency.seasonYear}; his camp will not reopen talks until next season.`,playerReply:'“We made our choice. See you next league year.”'});return;
     }
-    const daysLeft = cooldownDaysLeft(agency.recruitCooldowns[p.id]);
+    const daysLeft = cooldownDaysLeft(agency.recruitCooldowns[p.id], agency.simulatedDate);
     if (daysLeft > 0) {
       setSelectedId(p.id);
       setRecruit({ playerId:p.id, interest:0, round:1, used:[], rivalPressure:0, failed:true, choices:[], scenarioIndex:0, message:`${p.name}'s camp is not taking another meeting yet. Try again in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`, playerReply:'“We already made our decision for now.”' });
@@ -342,6 +361,11 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({ onBack }) =>
 
   const makePitch = (pitch: Pitch) => {
     if (!selected || !recruit || recruit.failed || recruit.used.includes(pitch) || recruit.used.length >= 2 || !recruit.choices.includes(pitch)) return;
+    if (recruit.used.length === 0) {
+      const nextAgency = { ...agency, recruitCooldowns: { ...agency.recruitCooldowns, [selected.id]: addDays(agency.simulatedDate, RECRUIT_COOLDOWN_DAYS) } };
+      setAgency(nextAgency);
+      persist(nextAgency);
+    }
     const impact = pitchImpact(pitch, selected, agency);
     const nextInterest = clamp(Math.round(recruit.interest + impact - recruit.rivalPressure / 28), 0, 100);
     const ready = nextInterest >= signingDifficulty(selected);
@@ -350,6 +374,10 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({ onBack }) =>
 
   const askToSign = () => {
     if (!selected || !recruit || recruit.failed || recruit.used.length < 2) return;
+    if (agency.clients.length >= STARTING_CLIENT_CAP) {
+      setRecruit({ ...recruit, failed:true, message:`Your agency already has its ${STARTING_CLIENT_CAP} starter clients. Build those careers before recruiting anyone else.`, playerReply:'“Call me when your agency has room.”' });
+      return;
+    }
     const firstClientBoost = agency.clients.length === 0 ? 12 : 0;
     const won = recruit.interest + firstClientBoost + (agency.reputation + agency.negotiation + agency.clientCare) / 34 - recruit.rivalPressure / 20 >= signingDifficulty(selected);
     if (won) {
@@ -357,7 +385,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({ onBack }) =>
       const next: AgencyState = { ...agency, reputation:clamp(agency.reputation + (selected.ovr <= 75 ? 8 : 5),0,100), negotiation:clamp(agency.negotiation+1,0,100), clients:[...agency.clients,{playerId:selected.id,trust:72,signedAt:new Date().toISOString()}], wins:agency.wins+1, recruitCooldowns:cooldowns, timeline:[`${selected.name} signed with your agency.`,...agency.timeline].slice(0,20) };
       const before=maxUnlockedOverall(agency.reputation),after=maxUnlockedOverall(next.reputation);setAgency(next); persist(next); setRecruit(null); setSelectedId(null);if(after>before){setLevelUp({from:before,to:after});try{navigator.vibrate?.([45,40,45,40,100]);}catch{}}
     } else {
-      const next: AgencyState = { ...agency, losses:agency.losses+1, reputation:clamp(agency.reputation-1,0,100), recruitLockouts:{...agency.recruitLockouts,[selected.id]:agency.seasonYear} };
+      const next: AgencyState = { ...agency, losses:agency.losses+1, reputation:clamp(agency.reputation-1,0,100), recruitCooldowns:{...agency.recruitCooldowns,[selected.id]:addDays(agency.simulatedDate,RECRUIT_COOLDOWN_DAYS)}, recruitLockouts:{...agency.recruitLockouts,[selected.id]:agency.seasonYear} };
       setAgency(next); persist(next); setRecruit({ ...recruit, failed:true, message:`${selected.name} chose another agency. You cannot sign him again during the ${agency.seasonYear} season.`, playerReply:'“I respect the pitch, but we are going elsewhere.”' });
     }
   };
@@ -450,11 +478,12 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({ onBack }) =>
 
     <section className="mt-5 overflow-hidden rounded-[2rem] border border-violet-300/20 bg-[#0c1018] p-5 sm:p-7"><div className="grid gap-5 lg:grid-cols-[1.2fr_.8fr]"><div><div className="text-[10px] font-black tracking-[.26em] text-violet-300">YEAR {agency.seasonYear} · EARN YOUR NAME</div><h1 className="mt-2 text-4xl font-black leading-none sm:text-6xl">PROVE YOU<br/>BELONG.</h1><div className="mt-4 flex flex-wrap gap-2 text-xs font-bold text-zinc-400"><span className="rounded-full bg-white/5 px-3 py-2"><UserRound size={13} className="mr-1 inline"/>{agency.profile.age} years old</span><span className="rounded-full bg-white/5 px-3 py-2"><MapPin size={13} className="mr-1 inline"/>{agency.profile.location}</span><span className="rounded-full bg-white/5 px-3 py-2"><BriefcaseBusiness size={13} className="mr-1 inline"/>{clients.length}/{STARTING_CLIENT_CAP} starter clients</span></div></div><div className="rounded-3xl border border-white/10 bg-black/30 p-5"><div className="text-xs font-black tracking-wider text-violet-300">REPUTATION</div><div className="mt-1 text-5xl font-black">{agency.reputation}</div><div className="mt-4 grid grid-cols-2 gap-2 text-xs">{[['Negotiation',agency.negotiation],['Brand',agency.brandPower],['Client Care',agency.clientCare],['Max OVR',unlockedOvr]].map(([l,v])=><div key={String(l)} className="rounded-xl bg-white/5 p-3"><div className="text-zinc-500">{l}</div><div className="mt-1 font-black">{v}</div></div>)}</div></div></div></section>
 
-    {clients.length>0 && <section className="mt-5 rounded-[2rem] border border-white/10 bg-[#0d121b] p-5 sm:p-6"><div className="mb-4 flex items-center gap-2"><BriefcaseBusiness className="text-violet-300"/><h2 className="text-2xl font-black">YOUR CLIENTS</h2></div><div className="grid gap-3 md:grid-cols-2">{clients.map(({client,player})=><div key={player.id} className="rounded-2xl border border-white/10 bg-black/25 p-4"><div className="flex items-center gap-3"><img src={playerPortraitUrl(player)} alt="" className="h-14 w-14 rounded-xl bg-white/5 object-cover"/><div className="min-w-0 flex-1"><div className="font-black">{player.name}</div><div className="text-xs text-zinc-500">{player.team} · {player.position} · {player.ovr} OVR</div></div><div className="text-right"><div className="text-[9px] font-black text-zinc-500">TRUST</div><div className="font-black text-emerald-300">{client.trust}%</div></div></div>
-      {client.tradeRequest?.status==='open' && <div className="mt-3 rounded-xl border border-amber-300/25 bg-amber-300/10 p-3"><div className="flex items-center gap-2 text-xs font-black text-amber-200"><AlertTriangle size={14}/> TRADE REQUEST</div><p className="mt-2 text-xs font-semibold leading-5 text-zinc-300">{client.tradeRequest.reason}</p><div className="mt-3 grid grid-cols-2 gap-2"><button onClick={()=>resolveTradeRequest(player.id,'resolved')} className="min-h-10 rounded-xl bg-violet-400 px-3 text-xs font-black text-black">WORK THE PHONES</button><button onClick={()=>resolveTradeRequest(player.id,'denied')} className="min-h-10 rounded-xl bg-white/10 px-3 text-xs font-black">TELL HIM NO</button></div></div>}
+    {clients.length>0 && <section className="mt-5 rounded-[2rem] border border-white/10 bg-[#0d121b] p-5 sm:p-6"><div className="mb-4 flex items-center gap-2"><BriefcaseBusiness className="text-violet-300"/><h2 className="text-2xl font-black">YOUR CLIENTS</h2></div><div className="grid gap-3 md:grid-cols-2">{clients.map(({client,player})=><div key={player.id} className="rounded-2xl border border-white/10 bg-black/25 p-4"><div className="flex items-center gap-3"><img src={playerPortraitUrl(player)} alt="" className="h-14 w-14 rounded-xl bg-white/5 object-cover"/><div className="min-w-0 flex-1"><div className="font-black">{player.name}</div><div className="text-xs text-zinc-500">{client.currentTeam || player.team} · {player.position} · {player.ovr} OVR</div></div><div className="text-right"><div className="text-[9px] font-black text-zinc-500">TRUST</div><div className="font-black text-emerald-300">{client.trust}%</div></div></div>
+      {client.tradeRequest?.status==='open' && <div className="mt-3 rounded-xl border border-amber-300/25 bg-amber-300/10 p-3"><div className="flex items-center gap-2 text-xs font-black text-amber-200"><AlertTriangle size={14}/> TRADE REQUEST · WEEK {client.tradeRequest.requestedWeek}</div><p className="mt-2 text-xs font-semibold leading-5 text-zinc-300">{client.tradeRequest.reason}</p>{client.tradeRequest.outcome&&<p className="mt-2 text-[10px] font-bold leading-4 text-amber-100">{client.tradeRequest.outcome}</p>}<div className="mt-3 grid grid-cols-2 gap-2"><button onClick={()=>resolveTradeRequest(player.id,'resolved')} className="min-h-10 rounded-xl bg-violet-400 px-3 text-xs font-black text-black">{client.tradeRequest.attempts?'PUSH AGAIN':'WORK THE PHONES'}</button><button onClick={()=>resolveTradeRequest(player.id,'denied')} className="min-h-10 rounded-xl bg-white/10 px-3 text-xs font-black">TELL HIM NO</button></div></div>}
+      {client.tradeRequest&&client.tradeRequest.status!=='open'&&client.tradeRequest.outcome&&<div className="mt-3 rounded-xl border border-white/10 bg-white/[.03] p-3 text-[10px] font-bold leading-4 text-zinc-400">{client.tradeRequest.outcome}</div>}
       <div className="mt-3 rounded-xl bg-white/5 p-3 text-xs"><div className="text-zinc-500">Current deal baseline</div><div className="mt-1 font-black">{moneyM(player.salary)} · final contract year</div></div>{client.futureDeal?<div className="mt-3 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-xs"><div className="font-black text-emerald-300">YOU GOT HIM PAID</div><div className="mt-1 text-zinc-300">{client.futureDeal.years} years · {moneyM(client.futureDeal.totalM)} total · {moneyM(client.futureDeal.guaranteedM || 0)} guaranteed</div></div>:<button onClick={()=>openNegotiation(player,client)} className="mt-3 min-h-11 w-full rounded-xl bg-violet-400 px-4 text-xs font-black text-black">ENTER NEGOTIATION ROOM</button>}</div>)}</div></section>}
 
-    <section className="mt-5 rounded-[2rem] border border-white/10 bg-[#0d121b] p-5 sm:p-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-[10px] font-black tracking-[.22em] text-violet-300">FIRST CLIENT BOARD</div><h2 className="mt-1 text-3xl font-black">WHO ARE YOU BETTING ON?</h2><p className="mt-2 text-xs font-semibold text-zinc-500">50 available targets · current unlock: {unlockedOvr} OVR and below</p></div><select aria-label="Filter prospects by position" value={filter} onChange={e=>setFilter(e.target.value)} className="rounded-xl border border-white/10 bg-black px-3 py-3 text-sm font-black">{['ALL','QB','RB','WR','TE','OT','EDGE','DT','LB','CB','S','K','P'].map(x=><option key={x}>{x}</option>)}</select></div><div className="mt-5 grid gap-3 md:grid-cols-2">{prospects.map(p=>{const [low,high]=salaryRange(p);const days=cooldownDaysLeft(agency.recruitCooldowns[p.id]);return <button key={p.id} onClick={()=>beginRecruit(p)} disabled={clients.length>=STARTING_CLIENT_CAP&&agency.reputation<45} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/25 p-3 text-left disabled:opacity-35"><img src={playerPortraitUrl(p)} alt="" className="h-16 w-16 rounded-xl bg-white/5 object-cover"/><div className="min-w-0 flex-1"><div className="truncate font-black">{p.name}</div><div className="text-xs text-zinc-500">{p.team} · {p.position}{p.age?` · Age ${p.age}`:''} · 1 year left</div><div className="mt-1 text-[10px] text-zinc-500">Expected next deal: {moneyM(low)}–{moneyM(high)}/yr</div></div><div className="text-right"><div className="text-xl font-black text-violet-300">{p.ovr}</div><div className="text-[9px] font-black text-zinc-500">{days>0?`${days}D WAIT`:'OVR'}</div></div></button>})}</div></section>
+    <section className="mt-5 rounded-[2rem] border border-white/10 bg-[#0d121b] p-5 sm:p-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-[10px] font-black tracking-[.22em] text-violet-300">FIRST CLIENT BOARD</div><h2 className="mt-1 text-3xl font-black">WHO ARE YOU BETTING ON?</h2><p className="mt-2 text-xs font-semibold text-zinc-500">{clients.length>=STARTING_CLIENT_CAP?`Starter agency full · ${clients.length}/${STARTING_CLIENT_CAP} clients`:`50 available targets · current unlock: ${unlockedOvr} OVR and below`}</p></div><select aria-label="Filter prospects by position" value={filter} onChange={e=>setFilter(e.target.value)} className="rounded-xl border border-white/10 bg-black px-3 py-3 text-sm font-black">{['ALL','QB','RB','WR','TE','OT','EDGE','DT','LB','CB','S','K','P'].map(x=><option key={x}>{x}</option>)}</select></div><div className="mt-5 grid gap-3 md:grid-cols-2">{prospects.map(p=>{const [low,high]=salaryRange(p);const days=cooldownDaysLeft(agency.recruitCooldowns[p.id],agency.simulatedDate);return <button key={p.id} onClick={()=>beginRecruit(p)} disabled={clients.length>=STARTING_CLIENT_CAP} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/25 p-3 text-left disabled:opacity-35"><img src={playerPortraitUrl(p)} alt="" className="h-16 w-16 rounded-xl bg-white/5 object-cover"/><div className="min-w-0 flex-1"><div className="truncate font-black">{p.name}</div><div className="text-xs text-zinc-500">{p.team} · {p.position}{p.age?` · Age ${p.age}`:''} · 1 year left</div><div className="mt-1 text-[10px] text-zinc-500">Expected next deal: {moneyM(low)}–{moneyM(high)}/yr</div></div><div className="text-right"><div className="text-xl font-black text-violet-300">{p.ovr}</div><div className="text-[9px] font-black text-zinc-500">{days>0?`${days}D WAIT`:'OVR'}</div></div></button>})}</div></section>
 
     {selected&&recruit&&<ModalPortal><div role="dialog" aria-modal="true" aria-label={`Private meeting with ${selected.name}`} className="fixed inset-0 z-[9999] overflow-y-auto overscroll-contain bg-black/85 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-md [-webkit-overflow-scrolling:touch]"><div className="mx-auto my-auto max-w-xl rounded-[2rem] border border-violet-300/25 bg-[#0c1018] p-5 sm:p-7"><div className="flex items-start gap-4"><img src={playerPortraitUrl(selected)} alt="" className="h-20 w-20 rounded-2xl bg-white/5 object-cover"/><div className="min-w-0 flex-1"><div className="text-[10px] font-black tracking-[.2em] text-violet-300">PRIVATE MEETING</div><h3 className="mt-1 text-2xl font-black">{selected.name}</h3><div className="text-xs text-zinc-500">{selected.team} · {selected.position} · {selected.ovr} OVR · final year</div></div><button aria-label="Close private meeting" onClick={()=>{setRecruit(null);setSelectedId(null)}} className="min-h-11 shrink-0 rounded-xl bg-white/5 px-3 text-xs font-black">CLOSE</button></div><div className="mt-5 rounded-2xl border border-white/10 bg-black/35 p-4"><div className="text-[10px] font-black text-zinc-500">PLAYER</div><p className="mt-2 text-lg font-black leading-7 text-white">{recruit.playerReply}</p></div><div className="mt-3 rounded-2xl bg-violet-400/10 p-4"><div className="text-[10px] font-black text-violet-300">STORY</div><p className="mt-2 text-sm font-semibold leading-6 text-zinc-300">{recruit.message}</p></div>{!recruit.failed&&<><div className="mt-5 flex items-center justify-between text-[10px] font-black text-zinc-500"><span>CHOOSE BOTH PITCHES</span><span>{recruit.used.length}/2</span></div><div className="mt-2 grid gap-2 sm:grid-cols-2">{recruit.choices.map(pitch=><button key={pitch} aria-pressed={recruit.used.includes(pitch)} disabled={recruit.used.includes(pitch)} onClick={()=>makePitch(pitch)} className="min-h-12 rounded-2xl border border-white/10 bg-white/5 px-4 text-left text-xs font-black disabled:border-violet-300/30 disabled:bg-violet-400/10 disabled:text-violet-200 disabled:opacity-100">{pitchLabel[pitch]}</button>)}</div><button onClick={askToSign} disabled={recruit.used.length<2} className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-violet-400 px-5 font-black text-black disabled:cursor-not-allowed disabled:opacity-35"><Handshake size={18}/> {recruit.used.length<2?`CHOOSE ${2-recruit.used.length} MORE PITCH${2-recruit.used.length===1?'':'ES'}`:'ASK HIM TO SIGN WITH YOU'}</button></>}<div className="mt-4 flex items-center gap-2 text-[10px] font-bold text-zinc-600"><ShieldCheck size={13}/> Reputation determines which players will even take your meeting.</div></div></div></ModalPortal>}
     {negotiationRoom&&(()=>{const p=PLAYERS_DATABASE.find(x=>x.id===negotiationRoom.playerId);if(!p)return null;const market=marketProjection(p);return <ModalPortal><div role="dialog" aria-modal="true" aria-label={`Negotiation room with ${p.name}`} className="fixed inset-0 z-[9999] overflow-y-auto overscroll-contain bg-black/90 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-md [-webkit-overflow-scrolling:touch]"><div className="mx-auto my-auto max-w-xl rounded-[2rem] border border-violet-300/25 bg-[#0c1018] p-5 sm:p-7"><div className="flex items-start justify-between gap-3"><div><div className="text-[10px] font-black tracking-[.22em] text-violet-300">NEGOTIATION ROOM · ROUND {negotiationRoom.round}</div><h3 className="mt-1 text-3xl font-black">{p.name}</h3><div className="text-xs text-zinc-500">{p.team} GM · Market estimate {moneyM(market)}/yr</div></div><button onClick={()=>setNegotiationRoom(null)} className="min-h-11 rounded-xl bg-white/5 px-3 text-xs font-black">LEAVE</button></div><div className="mt-5 rounded-2xl border border-white/10 bg-black/35 p-4"><div className="text-[10px] font-black text-zinc-500">GENERAL MANAGER</div><p className="mt-2 text-lg font-black leading-7">“{negotiationRoom.message}”</p></div><div className="mt-4 grid gap-3 sm:grid-cols-3"><label className="rounded-2xl bg-white/5 p-3 text-[10px] font-black text-zinc-400">YEARS<input type="range" min="1" max="5" value={negotiationRoom.years} onChange={e=>setNegotiationRoom({...negotiationRoom,years:Number(e.target.value)})} className="mt-3 w-full accent-violet-400"/><span className="mt-2 block text-2xl text-white">{negotiationRoom.years}</span></label><label className="rounded-2xl bg-white/5 p-3 text-[10px] font-black text-zinc-400">PER YEAR<input type="range" min={Math.max(1,market*.65)} max={market*1.3} step="0.5" value={negotiationRoom.annualM} onChange={e=>setNegotiationRoom({...negotiationRoom,annualM:Number(e.target.value)})} className="mt-3 w-full accent-violet-400"/><span className="mt-2 block text-lg text-white">{moneyM(negotiationRoom.annualM)}</span></label><label className="rounded-2xl bg-white/5 p-3 text-[10px] font-black text-zinc-400">GUARANTEED<input type="range" min="25" max="80" step="5" value={negotiationRoom.guaranteedPct} onChange={e=>setNegotiationRoom({...negotiationRoom,guaranteedPct:Number(e.target.value)})} className="mt-3 w-full accent-violet-400"/><span className="mt-2 block text-2xl text-white">{negotiationRoom.guaranteedPct}%</span></label></div><div className="mt-4 flex items-center justify-between rounded-xl bg-white/5 p-3 text-xs"><span className="text-zinc-500">GM patience</span><span className={negotiationRoom.gmPatience<30?'font-black text-red-300':'font-black text-emerald-300'}>{negotiationRoom.gmPatience}/100</span></div><button onClick={counterNegotiation} className="mt-4 min-h-12 w-full rounded-2xl bg-violet-400 px-5 font-black text-black">SEND COUNTEROFFER · {moneyM(negotiationRoom.annualM*negotiationRoom.years)} TOTAL</button></div></div></ModalPortal>})()}

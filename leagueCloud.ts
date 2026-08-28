@@ -16,9 +16,30 @@ const liveDraftFromRow = (row:any):LiveFantasyDraft|undefined => row ? ({
   pickIndex:Number(row.pick_index)||0,
   picks:row.picks||[],
   startedAt:row.started_at,
+  pickSeconds:Number(row.pick_seconds)||60,
+  pickStartedAt:row.pick_started_at||undefined,
+  pickDeadlineAt:row.pick_deadline_at||undefined,
   completedAt:row.completed_at||undefined,
   updatedAt:row.updated_at,
 }) : undefined;
+
+export type DraftPreferences={queue:string[];favorites:string[];doNotDraft:string[];preRankings:string[]};
+const EMPTY_DRAFT_PREFERENCES:DraftPreferences={queue:[],favorites:[],doNotDraft:[],preRankings:[]};
+
+export async function loadMyCloudDraftPreferences(leagueId:string,memberId:string):Promise<DraftPreferences>{
+  if(!supabase)return EMPTY_DRAFT_PREFERENCES;
+  await ensureOnlineSession();
+  const {data,error}=await supabase.from('ball_knower_draft_preferences').select('queue,favorites,do_not_draft,pre_rankings').eq('league_id',leagueId).eq('member_id',memberId).maybeSingle();
+  if(error)throw error;
+  return data?{queue:data.queue||[],favorites:data.favorites||[],doNotDraft:data.do_not_draft||[],preRankings:data.pre_rankings||[]}:EMPTY_DRAFT_PREFERENCES;
+}
+
+export async function saveMyCloudDraftPreferences(leagueId:string,memberId:string,preferences:DraftPreferences):Promise<void>{
+  if(!supabase)return;
+  await ensureOnlineSession();
+  const {error}=await supabase.from('ball_knower_draft_preferences').upsert({league_id:leagueId,member_id:memberId,queue:preferences.queue,favorites:preferences.favorites,do_not_draft:preferences.doNotDraft,pre_rankings:preferences.preRankings,updated_at:new Date().toISOString()},{onConflict:'league_id,member_id'});
+  if(error)throw error;
+}
 
 const leagueFromRows = (row:any, members:any[], liveDraftRow?:any):League => ({
   id: row.id,
@@ -33,7 +54,7 @@ const leagueFromRows = (row:any, members:any[], liveDraftRow?:any):League => ({
   seasonResult: row.season_result || undefined,
   liveDraft: liveDraftFromRow(liveDraftRow),
   createdAt: row.created_at,
-  settings: { seasonGames: 17, simulationStyle: 'realistic', ...(row.settings || {}) },
+  settings: { seasonGames: 17, simulationStyle: 'realistic', scoringFormat:'ppr', nflSeason:2026, ...(row.settings || {}) },
   inviteEnabled: row.invite_enabled !== false,
   paused: Boolean(row.paused),
   rostersLocked: Boolean(row.rosters_locked),
@@ -185,7 +206,7 @@ export async function createCloudLeague(
   const id=crypto.randomUUID();
   let created:any=null;
   for(let tries=0;tries<5;tries++){
-    const payload={id,code:code(),name:name.trim()||'Ball Knower League',max_members:maxMembers,salary_cap:salaryCap,commissioner_auth_id:auth.id,commissioner_name:user.name,status:'drafting',settings:{seasonGames:17,simulationStyle:'realistic',...draftSchedule}};
+    const payload={id,code:code(),name:name.trim()||'Ball Knower League',max_members:maxMembers,salary_cap:salaryCap,commissioner_auth_id:auth.id,commissioner_name:user.name,status:'drafting',settings:{seasonGames:17,simulationStyle:'realistic',scoringFormat:'ppr',nflSeason:2026,...draftSchedule}};
     const {data,error}=await supabase.from('ball_knower_leagues').insert(payload).select().single();
     if(!error){created=data;break;}
     if(error.code!=='23505') throw error;

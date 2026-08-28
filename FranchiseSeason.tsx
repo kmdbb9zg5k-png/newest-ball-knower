@@ -12,13 +12,16 @@ import {
   SoloDifficulty,
   SoloWeek,
 } from './soloSeasonEngine';
-import { buildRealTeamRoster, franchiseSchedule, makeFranchiseOpponent } from './soloFranchiseEngine';
+import { buildFranchiseRookieClass, buildRealTeamRoster, FranchiseRookieProspect, franchiseSchedule, makeFranchiseOpponent, replaceFranchisePlayersWithRookies } from './soloFranchiseEngine';
 import { TeamTheme, TEAM_THEMES, teamLogoUrl } from './teamTheme';
-import { LeagueMember, Player } from './types';
+import { LeagueMember, Player, TeamRatings } from './types';
 
 type PlayoffResult = { round: string; opponent: string; you: number; them: number; won: boolean };
 type SeasonStage = 'regular' | 'playoffs' | 'finished' | 'draft';
-type RookieProspect = { id: string; name: string; position: string; school: string; grade: number };
+type RookieProspect = FranchiseRookieProspect;
+type Conference = 'AFC' | 'NFC';
+type PlayoffSeed = { abbr: string; name: string; conference: Conference; seed: number; wins: number; losses: number; differential: number };
+type PlayoffMatchup = { round: 'WILD CARD' | 'DIVISIONAL' | 'CONFERENCE CHAMPIONSHIP' | 'SUPER BOWL'; opponentAbbr: string; opponentSeed: number };
 
 type Props = {
   title: string;
@@ -30,7 +33,86 @@ type Props = {
   difficulty?: SoloDifficulty;
   myPlayerId?: string;
   onMyPlayerGame?: (fantasyScore: number, won: boolean) => void;
+  onRosterChange?: (roster: Player[]) => void;
+  gamePlan?: string;
 };
+
+const AFC = new Set(['BAL','BUF','CIN','CLE','DEN','HOU','IND','JAX','KC','LAC','LV','MIA','NE','NYJ','PIT','TEN']);
+const conferenceFor = (abbr: string): Conference => AFC.has(abbr) ? 'AFC' : 'NFC';
+const stableNumber = (value: string) => Array.from(value).reduce((total, character) => Math.imul(total ^ character.charCodeAt(0), 16777619), 2166136261) >>> 0;
+const pairWinner = (first: PlayoffSeed, second: PlayoffSeed, userAbbr: string) => first.abbr === userAbbr ? first : second.abbr === userAbbr ? second : first.seed < second.seed ? first : second;
+const romanNumeral = (value: number) => {
+  const numerals: Array<[number, string]> = [[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];
+  let remaining = value;
+  return numerals.map(([amount, numeral]) => {
+    const count = Math.floor(remaining / amount);
+    remaining %= amount;
+    return numeral.repeat(count);
+  }).join('');
+};
+
+export function applyFranchiseGamePlan(ratings: TeamRatings, gamePlan: string): TeamRatings {
+  const adjust = (value: number, delta: number) => Math.max(60, Math.min(99, value + delta));
+  const changes: Partial<Record<keyof TeamRatings, number>> = gamePlan === 'Attack through the air'
+    ? { offense: 2, passing: 5, passProtection: 2, rushing: -2 }
+    : gamePlan === 'Control the clock'
+      ? { offense: 1, rushing: 5, runBlocking: 3, passing: -2 }
+      : gamePlan === 'Bring heavy pressure'
+        ? { defense: 2, passRush: 5, coverage: -2 }
+        : gamePlan === 'Protect against big plays'
+          ? { defense: 2, coverage: 5, passRush: -2 }
+          : gamePlan === 'Play aggressive'
+            ? { offense: 2, defense: -1, passing: 2, passRush: 3, coverage: -1 }
+            : {};
+  if (!Object.keys(changes).length) return ratings;
+  const next = { ...ratings };
+  const numericNext = next as unknown as Record<string, number>;
+  for (const [key, delta] of Object.entries(changes) as Array<[keyof TeamRatings, number]>) {
+    const value = ratings[key];
+    if (typeof value === 'number') numericNext[key] = adjust(value, delta);
+  }
+  next.overall = Math.round((next.offense + next.defense) / 2);
+  return next;
+}
+
+export function buildFranchisePlayoffField(userTeam: TeamTheme, userWins: number, userDifferential: number, teamOverall: (team: TeamTheme) => number, year = 2026): PlayoffSeed[] {
+  const rows = TEAM_THEMES.map(team => {
+    const overall = teamOverall(team);
+    const variation = (stableNumber(`${team.abbr}:${year}-playoffs`) % 5) - 2;
+    const wins = team.abbr === userTeam.abbr ? userWins : Math.max(3, Math.min(14, Math.round(8 + (overall - 78) / 3 + variation)));
+    const differential = team.abbr === userTeam.abbr ? userDifferential : (overall - 78) * 18 + variation * 11;
+    return { abbr: team.abbr, name: team.name, conference: conferenceFor(team.abbr), wins, losses: 17 - wins, differential, seed: 0 };
+  });
+  return (['AFC', 'NFC'] as Conference[]).flatMap(conference => rows
+    .filter(team => team.conference === conference)
+    .sort((first, second) => second.wins - first.wins || second.differential - first.differential || first.abbr.localeCompare(second.abbr))
+    .slice(0, 7)
+    .map((team, index) => ({ ...team, seed: index + 1 })));
+}
+
+export function buildFranchisePlayoffPath(field: PlayoffSeed[], userAbbr: string): PlayoffMatchup[] {
+  const user = field.find(team => team.abbr === userAbbr);
+  if (!user) return [];
+  const conference = field.filter(team => team.conference === user.conference).sort((a, b) => a.seed - b.seed);
+  const seed = (number: number) => conference.find(team => team.seed === number)!;
+  const wildPairs = [[2, 7], [3, 6], [4, 5]] as const;
+  const wildWinners = wildPairs.map(([first, second]) => pairWinner(seed(first), seed(second), userAbbr));
+  const divisionalTeams = [seed(1), ...wildWinners].sort((a, b) => a.seed - b.seed);
+  const divisionalPairs = [[divisionalTeams[0], divisionalTeams[3]], [divisionalTeams[1], divisionalTeams[2]]] as const;
+  const userWildOpponent = user.seed === 1 ? null : seed(9 - user.seed);
+  const userDivisionalPair = divisionalPairs.find(pair => pair.some(team => team.abbr === userAbbr));
+  const userDivisionalOpponent = userDivisionalPair?.find(team => team.abbr !== userAbbr);
+  const divisionalWinners = divisionalPairs.map(([first, second]) => pairWinner(first, second, userAbbr));
+  const conferenceOpponent = divisionalWinners.find(team => team.abbr !== userAbbr);
+  const otherConference = field.filter(team => team.conference !== user.conference).sort((a, b) => a.seed - b.seed);
+  const otherChampion = otherConference[0];
+  return [
+    ...(userWildOpponent ? [{ round: 'WILD CARD' as const, opponentAbbr: userWildOpponent.abbr, opponentSeed: userWildOpponent.seed }] : []),
+    ...(userDivisionalOpponent ? [{ round: 'DIVISIONAL' as const, opponentAbbr: userDivisionalOpponent.abbr, opponentSeed: userDivisionalOpponent.seed }] : []),
+    ...(conferenceOpponent ? [{ round: 'CONFERENCE CHAMPIONSHIP' as const, opponentAbbr: conferenceOpponent.abbr, opponentSeed: conferenceOpponent.seed }] : []),
+    ...(otherChampion ? [{ round: 'SUPER BOWL' as const, opponentAbbr: otherChampion.abbr, opponentSeed: otherChampion.seed }] : []),
+  ];
+}
 
 function restoreSeason(key: string) {
   try {
@@ -56,20 +138,44 @@ export const FranchiseSeason: React.FC<Props> = ({
   difficulty = 'pro',
   myPlayerId,
   onMyPlayerGame,
+  onRosterChange,
+  gamePlan = 'Balanced attack',
 }) => {
   const seasonKey = `${saveKey}:season`;
   const restored = useMemo(() => restoreSeason(seasonKey), [seasonKey]);
+  const restoredYear = Number.isInteger(restored?.year) && restored.year >= 2026 ? restored.year : 2026;
+  const restoredClassIds = new Set(buildFranchiseRookieClass(restoredYear + 1).map(prospect => prospect.id));
+  const restoredDraftIsCurrent = Array.isArray(restored?.draftedProspects)
+    && restored.draftedProspects.every((prospect: RookieProspect) => restoredClassIds.has(prospect.id));
   const [stage, setStage] = useState<SeasonStage>(() => restored?.stage ?? 'regular');
   const [weeks, setWeeks] = useState<SoloWeek[]>(() => restored?.weeks ?? []);
   const [playoffs, setPlayoffs] = useState<PlayoffResult[]>(() => restored?.playoffs ?? []);
   const [injuries, setInjuries] = useState<InjuryEvent[]>(() => restored?.injuries ?? []);
   const [message, setMessage] = useState(() => restored?.message ?? 'Week 1 is ready.');
-  const [draftRound, setDraftRound] = useState<number>(() => restored?.draftRound ?? 1);
-  const [draftedProspects, setDraftedProspects] = useState<RookieProspect[]>(() => restored?.draftedProspects ?? []);
+  const [draftRound, setDraftRound] = useState<number>(() => restoredDraftIsCurrent ? restored?.draftRound ?? 1 : 1);
+  const [draftedProspects, setDraftedProspects] = useState<RookieProspect[]>(() => restoredDraftIsCurrent ? restored?.draftedProspects ?? [] : []);
+  const [seasonRoster, setSeasonRoster] = useState<Player[]>(() => Array.isArray(restored?.roster) && restored.roster.length ? restored.roster : roster);
+  const [playoffField, setPlayoffField] = useState<PlayoffSeed[]>(() => Array.isArray(restored?.playoffField) ? restored.playoffField : []);
+  const [year, setYear] = useState<number>(restoredYear);
   const [isSimulating, setIsSimulating] = useState(false);
   const simulationLock = useRef(false);
-  const schedule = useMemo(() => franchiseSchedule(userTeam.abbr), [userTeam.abbr]);
-  const ratings = useMemo(() => calculateTeamRatings(roster), [roster]);
+  const schedule = useMemo(() => {
+    const base = franchiseSchedule(userTeam.abbr);
+    const offset = ((year - 2026) * 7) % base.length;
+    return [...base.slice(offset), ...base.slice(0, offset)];
+  }, [userTeam.abbr, year]);
+  useEffect(() => {
+    setSeasonRoster(current => {
+      const rookies = current.filter(player => player.id.startsWith('franchise-rookie-'));
+      const next = [...roster, ...rookies.filter(rookie => !roster.some(player => player.id === rookie.id))];
+      return JSON.stringify(next.map(player => player.id)) === JSON.stringify(current.map(player => player.id)) ? current : next;
+    });
+  }, [roster]);
+  const activeRoster = useMemo(() => {
+    const latest = new Map(roster.map(player => [player.id, player]));
+    return seasonRoster.map(player => latest.get(player.id) ?? player);
+  }, [roster, seasonRoster]);
+  const ratings = useMemo(() => calculateTeamRatings(activeRoster), [activeRoster]);
   const wins = weeks.filter(week => week.won).length;
   const losses = weeks.length - wins;
   const finalPointDifferential = weeks.reduce((total, week) => total + (
@@ -87,11 +193,11 @@ export const FranchiseSeason: React.FC<Props> = ({
 
   useEffect(() => {
     try {
-      localStorage.setItem(seasonKey, JSON.stringify({ version: 1, stage, weeks, playoffs, injuries, message, draftRound, draftedProspects }));
+      localStorage.setItem(seasonKey, JSON.stringify({ version: 1, stage, weeks, playoffs, injuries, message, draftRound, draftedProspects, roster: seasonRoster, playoffField, year }));
     } catch (error) {
       console.warn('Unable to save franchise season', error);
     }
-  }, [seasonKey, stage, weeks, playoffs, injuries, message, draftRound, draftedProspects]);
+  }, [seasonKey, stage, weeks, playoffs, injuries, message, draftRound, draftedProspects, seasonRoster, playoffField, year]);
 
   const rosterFor = (team: TeamTheme) => opponentRosters?.[team.abbr] ?? buildRealTeamRoster(team.abbr);
   const unlockSimulation = () => window.setTimeout(() => {
@@ -107,14 +213,14 @@ export const FranchiseSeason: React.FC<Props> = ({
     try {
     const opponentTeam = schedule[weekNumber - 1];
     const opponent = makeFranchiseOpponent(opponentTeam, rosterFor(opponentTeam), difficulty as SoloDifficulty, weekNumber);
-    const myRatings = ratingsWithInjuries(roster, activeInjuries);
+    const myRatings = applyFranchiseGamePlan(ratingsWithInjuries(activeRoster, activeInjuries), gamePlan);
     const me: LeagueMember = {
       id: 'franchise-user',
       userId: 'franchise-user',
       userName: userTeam.name,
       isCommissioner: true,
       status: 'ready',
-      roster,
+      roster: activeRoster,
       teamRatings: myRatings,
     };
     const userHome = weekNumber % 2 === 1;
@@ -123,8 +229,8 @@ export const FranchiseSeason: React.FC<Props> = ({
     const nextWins = wins + (won ? 1 : 0);
     const nextLosses = losses + (won ? 0 : 1);
     const snapshot = playoffSnapshot(nextWins, nextLosses, weekNumber);
-    const newInjuries = simulateInjuries(roster, weekNumber, 'normal', activeInjuries);
-    const playerLines = generatePlayerLines(roster, game, userHome, weekNumber);
+    const newInjuries = simulateInjuries(activeRoster, weekNumber, 'normal', activeInjuries);
+    const playerLines = generatePlayerLines(activeRoster, game, userHome, weekNumber);
     setWeeks(previous => [...previous, {
       week: weekNumber,
       opponent: opponentTeam.name,
@@ -153,32 +259,29 @@ export const FranchiseSeason: React.FC<Props> = ({
         ? week.game.homeScore - week.game.awayScore
         : week.game.awayScore - week.game.homeScore
     ), 0);
-    if (wins < 9 || (wins === 9 && differential < 0)) {
+    const field = buildFranchisePlayoffField(userTeam, wins, differential, team => calculateTeamRatings(rosterFor(team)).overall, year);
+    setPlayoffField(field);
+    const userSeed = field.find(team => team.abbr === userTeam.abbr);
+    if (!userSeed) {
       setStage('finished');
       setMessage(`Season complete at ${wins}-${losses}. You missed the playoffs.`);
       return;
     }
     setStage('playoffs');
-    setMessage(`Playoff berth clinched at ${wins}-${losses}.`);
+    setMessage(userSeed.seed === 1 ? `#1 seed clinched at ${wins}-${losses}. You earned a Wild Card bye.` : `#${userSeed.seed} seed clinched at ${wins}-${losses}.`);
   };
 
-  const round = playoffs.length === 0
-    ? 'WILD CARD'
-    : playoffs.length === 1
-      ? 'DIVISIONAL'
-      : playoffs.length === 2
-        ? 'CONFERENCE CHAMPIONSHIP'
-        : playoffs.length === 3
-          ? 'SUPER BOWL'
-          : null;
+  const playoffPath = useMemo(() => buildFranchisePlayoffPath(playoffField, userTeam.abbr), [playoffField, userTeam.abbr]);
+  const nextPlayoffMatchup = playoffPath[playoffs.length] ?? null;
+  const round = nextPlayoffMatchup?.round ?? null;
 
   const playRound = () => {
     if (!round || simulationLock.current) return;
     simulationLock.current = true;
     setIsSimulating(true);
     try {
-    const candidates = TEAM_THEMES.filter(team => team.abbr !== userTeam.abbr);
-    const opponentTeam = candidates[(20 + playoffs.length) % candidates.length];
+    const opponentTeam = TEAM_THEMES.find(team => team.abbr === nextPlayoffMatchup?.opponentAbbr);
+    if (!opponentTeam) return;
     const opponent = makeFranchiseOpponent(opponentTeam, rosterFor(opponentTeam), difficulty as SoloDifficulty, `playoff-${playoffs.length}`);
     const me: LeagueMember = {
       id: 'franchise-user',
@@ -186,8 +289,8 @@ export const FranchiseSeason: React.FC<Props> = ({
       userName: userTeam.name,
       isCommissioner: true,
       status: 'ready',
-      roster,
-      teamRatings: ratingsWithInjuries(roster, activeInjuries),
+      roster: activeRoster,
+      teamRatings: applyFranchiseGamePlan(ratingsWithInjuries(activeRoster, activeInjuries), gamePlan),
     };
     const userHome = playoffs.length % 2 === 0;
     const game = userHome ? simulateGame(18 + playoffs.length, me, opponent) : simulateGame(18 + playoffs.length, opponent, me);
@@ -195,18 +298,19 @@ export const FranchiseSeason: React.FC<Props> = ({
     const them = userHome ? game.awayScore : game.homeScore;
     const won = game.winnerId === 'franchise-user';
     if (myPlayerId && onMyPlayerGame) {
-      const playerLines = generatePlayerLines(roster, game, userHome, 18 + playoffs.length);
+      const playerLines = generatePlayerLines(activeRoster, game, userHome, 18 + playoffs.length);
       const myLine = playerLines.find(line => line.playerId === myPlayerId);
       onMyPlayerGame(myLine?.fantasyScore ?? 3, won);
     }
     const next = [...playoffs, { round, opponent: opponentTeam.name, you, them, won }];
     setPlayoffs(next);
+    setInjuries(previous => previous.map(injury => ({ ...injury, weeks: Math.max(0, injury.weeks - 1) })));
     if (!won) {
       setStage('finished');
       setMessage(`${round}: ${you}-${them}. Your run ends here.`);
     } else if (round === 'SUPER BOWL') {
       setStage('finished');
-      setMessage(`WORLD CHAMPION — ${userTeam.name} won Super Bowl LXI ${you}-${them}.`);
+      setMessage(`WORLD CHAMPION — ${userTeam.name} won Super Bowl ${romanNumeral(61 + year - 2026)} ${you}-${them}.`);
     } else {
       setMessage(`${round} WIN ${you}-${them}. Keep going.`);
     }
@@ -221,6 +325,7 @@ export const FranchiseSeason: React.FC<Props> = ({
     setPlayoffs([]);
     setInjuries([]);
     setMessage('Week 1 is ready.');
+    setPlayoffField([]);
     try { localStorage.removeItem(seasonKey); } catch (error) { console.warn('Unable to clear franchise season', error); }
   };
 
@@ -235,12 +340,19 @@ export const FranchiseSeason: React.FC<Props> = ({
     const next = [...draftedProspects, prospect];
     setDraftedProspects(next);
     if (draftRound === 7) {
+      const nextYear = year + 1;
+      const rookies = next.map((player, index) => rookieToPlayer(player, userTeam, index + 1, nextYear));
+      const nextRoster = replaceFranchisePlayersWithRookies(seasonRoster, rookies);
+      setSeasonRoster(nextRoster);
+      onRosterChange?.(nextRoster);
       setWeeks([]);
       setPlayoffs([]);
       setInjuries([]);
+      setPlayoffField([]);
+      setYear(nextYear);
       setStage('regular');
       setDraftRound(1);
-      setMessage(`Draft complete — ${next.map(player => player.name).join(', ')} join your franchise. Week 1 is ready.`);
+      setMessage(`Draft complete — ${next.map(player => player.name).join(', ')} join your franchise. The ${nextYear} season is ready.`);
       return;
     }
     setDraftRound(round => round + 1);
@@ -256,7 +368,7 @@ export const FranchiseSeason: React.FC<Props> = ({
           </button>
           <div className="min-w-0 flex-1">
             <div className="truncate text-[10px] font-black tracking-[.24em] text-[var(--bk-team-accent)]">{title}</div>
-            <div className="truncate text-xl font-black">{userTeam.name}</div>
+            <div className="truncate text-xl font-black">{userTeam.name} · {year}</div>
           </div>
           <button type="button" onClick={resetSeason} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Restart season">
             <RotateCcw size={18} />
@@ -271,14 +383,15 @@ export const FranchiseSeason: React.FC<Props> = ({
               <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
                 <SeasonStat label="WEEK" value={`${Math.min(weeks.length + 1, 17)}/17`} />
                 <SeasonStat label="RECORD" value={`${wins}-${losses}`} />
-                <SeasonStat label={weeks.length === 17 ? 'PLAYOFF STATUS' : 'SEED'} value={weeks.length === 17 ? (finalPlayoffOdds === 100 ? 'CLINCHED' : 'OUT') : `#${weeks.at(-1)?.playoffSeed ?? '—'}`} />
-                <SeasonStat label="PLAYOFF ODDS" value={`${finalPlayoffOdds}%`} />
+                <SeasonStat label={weeks.length === 17 ? 'PLAYOFF STATUS' : 'SEED'} value={weeks.length === 17 ? 'SELECTION' : `#${weeks.at(-1)?.playoffSeed ?? '—'}`} />
+                <SeasonStat label="PLAYOFF ODDS" value={weeks.length === 17 ? 'PENDING' : `${finalPlayoffOdds}%`} />
                 <SeasonStat label="TEAM OVR" value={`${ratings.overall}`} />
               </div>
 
               {weeks.length < 17 ? (
                 <div className="rounded-[2rem] border border-white/10 bg-[#10151d]/95 p-5 sm:p-7">
                   <div className="text-[10px] font-black tracking-[.25em] text-[var(--bk-team-accent)]">WEEK {weeks.length + 1} • GAMEDAY</div>
+                  <div className="mt-1 text-[9px] font-black uppercase tracking-wider text-zinc-500">Game plan: {gamePlan}</div>
                   <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center">
                     <TeamMatchup team={userTeam} label={`${ratings.overall} OVR`} />
                     <div className="text-2xl font-black text-zinc-600">VS</div>
@@ -339,9 +452,12 @@ export const FranchiseSeason: React.FC<Props> = ({
             <Trophy className="mx-auto text-[var(--bk-team-accent)]" size={58} />
             <h3 className="mt-3 text-4xl font-black">NFL PLAYOFFS</h3>
             <div className="mt-6 grid gap-2 sm:grid-cols-4">
-              {['WILD CARD', 'DIVISIONAL', 'CONFERENCE', 'SUPER BOWL'].map((label, index) => {
-                const result = playoffs[index];
-                return <div key={label} className="rounded-2xl border border-white/10 bg-black/20 p-3 text-left"><div className="text-[9px] font-black text-[var(--bk-team-accent)]">{label}</div><div className="mt-2 font-black">{result ? `${result.won ? 'WIN' : 'LOSS'} ${result.you}-${result.them}` : 'TBD'}</div>{result ? <div className="truncate text-xs text-zinc-500">{result.opponent}</div> : null}</div>;
+              {['WILD CARD', 'DIVISIONAL', 'CONFERENCE CHAMPIONSHIP', 'SUPER BOWL'].map(label => {
+                const result = playoffs.find(game => game.round === label);
+                const scheduled = playoffPath.find(game => game.round === label);
+                const bye = label === 'WILD CARD' && playoffField.find(team => team.abbr === userTeam.abbr)?.seed === 1;
+                const opponent = scheduled ? TEAM_THEMES.find(team => team.abbr === scheduled.opponentAbbr) : null;
+                return <div key={label} className="rounded-2xl border border-white/10 bg-black/20 p-3 text-left"><div className="text-[9px] font-black text-[var(--bk-team-accent)]">{label === 'CONFERENCE CHAMPIONSHIP' ? 'CONFERENCE' : label}</div><div className="mt-2 font-black">{bye ? 'FIRST-ROUND BYE' : result ? `${result.won ? 'WIN' : 'LOSS'} ${result.you}-${result.them}` : scheduled ? `VS #${scheduled.opponentSeed}` : 'TBD'}</div>{result ? <div className="truncate text-xs text-zinc-500">{result.opponent}</div> : opponent ? <div className="truncate text-xs text-zinc-500">{opponent.name}</div> : null}</div>;
               })}
             </div>
             {round ? <button type="button" onClick={playRound} disabled={isSimulating} aria-busy={isSimulating} className="mt-6 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)] disabled:cursor-wait disabled:opacity-60">{isSimulating ? 'SIMULATING…' : `PLAY ${round}`}</button> : null}
@@ -357,7 +473,7 @@ export const FranchiseSeason: React.FC<Props> = ({
           </div>
         ) : null}
 
-        {stage === 'draft' ? <OffseasonDraft round={draftRound} wins={wins} selected={draftedProspects} onSelect={selectProspect} /> : null}
+        {stage === 'draft' ? <OffseasonDraft year={year + 1} round={draftRound} wins={wins} selected={draftedProspects} onSelect={selectProspect} /> : null}
       </div>
     </div>
   );
@@ -385,24 +501,38 @@ const SeasonPanel = ({ title, children }: { title: string; children: React.React
   </div>
 );
 
-const PROSPECTS: RookieProspect[] = [
-  { id: 'r-qb-wade', name: 'Cam Wade', position: 'QB', school: 'Texas', grade: 94 },
-  { id: 'r-edge-cross', name: 'Malik Cross', position: 'EDGE', school: 'Georgia', grade: 93 },
-  { id: 'r-wr-porter', name: 'Jalen Porter', position: 'WR', school: 'Ohio State', grade: 92 },
-  { id: 'r-cb-stokes', name: 'Devin Stokes', position: 'CB', school: 'Alabama', grade: 91 },
-  { id: 'r-ot-king', name: 'Trey King', position: 'OT', school: 'Notre Dame', grade: 90 },
-  { id: 'r-dt-hayes', name: 'Darius Hayes', position: 'DT', school: 'Michigan', grade: 89 },
-  { id: 'r-rb-foster', name: 'Micah Foster', position: 'RB', school: 'Oregon', grade: 88 },
-  { id: 'r-s-reed', name: 'Kenny Reed', position: 'S', school: 'LSU', grade: 87 },
-  { id: 'r-lb-wells', name: 'Jordan Wells', position: 'LB', school: 'Penn State', grade: 86 },
-  { id: 'r-te-banks', name: 'Andre Banks', position: 'TE', school: 'Miami', grade: 85 },
-  { id: 'r-og-fields', name: 'Noah Fields', position: 'OG', school: 'Iowa', grade: 84 },
-  { id: 'r-wr-davis', name: 'Troy Davis', position: 'WR', school: 'USC', grade: 83 },
-];
+const rookieToPlayer = (prospect: RookieProspect, team: TeamTheme, round: number, year: number): Player => {
+  const overall = Math.max(68, Math.min(84, prospect.grade - 10));
+  return {
+    id: `franchise-rookie-${year}-${prospect.id}`,
+    playerId: `franchise-rookie-${year}-${prospect.id}`,
+    teamId: team.abbr,
+    team: team.abbr,
+    teamAbbreviation: team.abbr,
+    teamCity: team.name.split(' ').slice(0, -1).join(' '),
+    teamName: team.name,
+    name: prospect.name,
+    fullName: prospect.name,
+    position: prospect.position as Player['position'],
+    age: 22,
+    experience: 0,
+    starter: false,
+    active: true,
+    ovr: overall,
+    overall: overall,
+    overallRating: overall,
+    ratingSource: 'Ball Knower Rookie Draft',
+    ratingSeason: year,
+    salary: Number(Math.max(.9, 5.8 - round * .7).toFixed(1)),
+    salaryType: 'estimated',
+    archetype: `${prospect.school} rookie`,
+    attributes: { athleticism: overall, footballIQ: Math.max(64, overall - 3) },
+  };
+};
 
-const OffseasonDraft = ({ round, wins, selected, onSelect }: { round: number; wins: number; selected: RookieProspect[]; onSelect: (prospect: RookieProspect) => void }) => {
+const OffseasonDraft = ({ year, round, wins, selected, onSelect }: { year: number; round: number; wins: number; selected: RookieProspect[]; onSelect: (prospect: RookieProspect) => void }) => {
   const draftSlot = Math.max(1, Math.min(32, 4 + wins * 2));
-  const available = PROSPECTS.filter(prospect => !selected.some(player => player.id === prospect.id));
+  const available = buildFranchiseRookieClass(year).filter(prospect => !selected.some(player => player.id === prospect.id));
   const cpuBefore = Math.max(0, draftSlot - 1);
   return <div className="grid gap-4 lg:grid-cols-[1fr_19rem]"><section className="rounded-[2rem] border border-[var(--bk-team-accent)]/25 bg-[#10151d] p-5 sm:p-7"><div className="flex items-center gap-3 text-[var(--bk-team-accent)]"><Users/><span className="text-[10px] font-black tracking-[.24em]">LIVE 32-TEAM ROOKIE DRAFT</span></div><h2 className="mt-2 text-4xl font-black">YOU'RE ON THE CLOCK</h2><p className="mt-2 text-sm text-zinc-400">Round {round}, Pick {draftSlot}. The {cpuBefore} teams ahead of you have already simulated their selections. Nobody picks for you.</p><div className="mt-5 grid gap-2 sm:grid-cols-2">{available.map(prospect => <button key={prospect.id} onClick={() => onSelect(prospect)} className="flex min-h-20 items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-4 text-left hover:border-[var(--bk-team-accent)]/50"><div><div className="text-base font-black">{prospect.name}</div><div className="text-[10px] font-bold text-zinc-500">{prospect.position} · {prospect.school}</div></div><div className="text-right"><div className="text-xl font-black text-[var(--bk-team-accent)]">{prospect.grade}</div><div className="text-[8px] font-black text-zinc-600">SCOUT GRADE</div></div></button>)}</div></section><aside className="space-y-3"><SeasonPanel title="YOUR DRAFT CLASS">{selected.length ? selected.map((prospect, index) => <div key={prospect.id} className="border-b border-white/5 py-2 text-sm"><b>R{index + 1}: {prospect.name}</b><div className="text-xs text-zinc-500">{prospect.position} · {prospect.school}</div></div>) : <p className="text-sm text-zinc-500">No picks yet.</p>}</SeasonPanel><SeasonPanel title="CPU PICK SIMULATION"><p className="text-sm text-zinc-400">After your selection, the other 31 CPU front offices draft by roster need and prospect grade. The board then advances automatically to your next pick.</p></SeasonPanel></aside></div>;
 };

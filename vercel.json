@@ -1,4 +1,14 @@
 {
+  "crons": [
+    {
+      "path": "/api/fantasy-live-scoring",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/fantasy-transactions",
+      "schedule": "* * * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

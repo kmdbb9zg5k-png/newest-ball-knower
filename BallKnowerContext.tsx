@@ -16,7 +16,7 @@ import { generateAiLeagueMembers, AI_ARCHETYPES, buildRosterForArchetype } from 
 import { PLAYERS_DATABASE } from './players';
 import { countRosterGroups, getDraftPositionGroup, minimumCompletionCost, validateRosterShape } from './rosterRules';
 import { getLiveFantasyDraftGroup, LIVE_FANTASY_POSITION_LIMITS, validateLiveFantasyRoster } from './liveFantasyRules';
-import { isCloudConfigured, ensureOnlineSession } from './supabase';
+import { isCloudConfigured, ensureOnlineSession, supabase } from './supabase';
 import {
   createCloudLeague, joinCloudLeague, loadMyCloudLeagues, fetchCloudLeague,
   saveMyCloudRoster, updateCloudLeague, upsertAiCloudMembers, deleteCloudMember,
@@ -160,7 +160,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       commissionerId: DEFAULT_USER.id,
       commissionerName: DEFAULT_USER.name,
       status: 'drafting',
-      settings: { seasonGames: 17 },
+      settings: { seasonGames: 17, scoringFormat:'ppr', nflSeason:2026 },
       members: [commissionerMember, ...aiMembers],
       createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
     };
@@ -267,6 +267,28 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setToastMessage(null);
     }, 3200);
   };
+
+  useEffect(() => {
+    if (!isCloudConfigured || !supabase || !currentUser?.id) return;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
+    void ensureOnlineSession().then(auth => {
+      if (cancelled) return;
+      channel = supabase.channel(`bk-live-alerts-${auth.id}`)
+        .on('postgres_changes', {
+          event: 'INSERT', schema: 'public', table: 'ball_knower_notifications',
+          filter: `auth_user_id=eq.${auth.id}`,
+        }, payload => {
+          const notification = payload.new as { title?: string; body?: string };
+          showToast([notification.title, notification.body].filter(Boolean).join(' · '));
+        })
+        .subscribe();
+    }).catch(error => console.warn('Live league alerts could not be connected', error));
+    return () => {
+      cancelled = true;
+      if (channel) void supabase.removeChannel(channel);
+    };
+  }, [currentUser?.id]);
 
   const loginWithProvider = (provider: 'google' | 'apple' | 'email', customName?: string, customEmail?: string) => {
     const name = customName?.trim() || (provider === 'google' ? 'Google User' : provider === 'apple' ? 'Apple User' : 'Fantasy GM');
@@ -502,7 +524,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const newLeague: League = {
         id: leagueId, code: randomCode, name: name.trim() || 'Ball Knower League',
         maxMembers, salaryCap: customCap, commissionerId: user.id, commissionerName: user.name,
-        status: 'drafting', settings: { seasonGames: 17, ...draftSchedule }, members: [commissionerMember], createdAt: new Date().toISOString(),
+        status: 'drafting', settings: { seasonGames: 17, scoringFormat:'ppr', nflSeason:2026, ...draftSchedule }, members: [commissionerMember], createdAt: new Date().toISOString(),
       };
       setLeagues(prev => [newLeague, ...prev]);
       setActiveLeagueId(newLeague.id);
@@ -854,10 +876,13 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           leagueId,
           status:'active',
           orderMemberIds:league.seasonResult.draftOrder.map(pick=>pick.memberId),
-          rounds:20,
+          rounds:15,
           pickIndex:0,
           picks:[],
           startedAt:now,
+          pickSeconds:60,
+          pickStartedAt:now,
+          pickDeadlineAt:new Date(Date.now()+60000).toISOString(),
           updatedAt:now,
         };
       }
@@ -1039,7 +1064,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       commissionerId: user.id,
       commissionerName: user.name,
       status: 'drafting',
-      settings: { seasonGames: 17 },
+      settings: { seasonGames: 17, scoringFormat:'ppr', nflSeason:2026 },
       members: [demoCommissioner, ...demoAiMembers],
       createdAt: new Date().toISOString(),
     };

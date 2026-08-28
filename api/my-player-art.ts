@@ -1,9 +1,10 @@
 import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
-import {
-  BALL_KNOWER_SUPABASE_PUBLISHABLE_KEY,
-  BALL_KNOWER_SUPABASE_URL,
-} from '../supabaseDefaults';
+
+// Browser-safe publishable credentials; authorization is still enforced by
+// Supabase RLS. Keep this function self-contained for Vercel packaging.
+const BALL_KNOWER_SUPABASE_URL='https://gpnboygoosrmeydwjpvk.supabase.co';
+const BALL_KNOWER_SUPABASE_PUBLISHABLE_KEY='sb_publishable_tgnOH0RUtswLI58isL5Qfw_Pq3xaV9h';
 
 const recentRequests = new Map<string, number[]>();
 

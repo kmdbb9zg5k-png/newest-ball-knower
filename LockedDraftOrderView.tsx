@@ -29,6 +29,7 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
   const [countdownStartedAt, setCountdownStartedAt] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const autoStartAttempted = useRef(false);
+  const liveDraftWasPresent = useRef(Boolean(league.liveDraft));
   const picks = result.draftOrder || [];
   const humanCount = picks.filter(pick => !pick.isAi).length;
   const cpuCount = picks.length - humanCount;
@@ -75,13 +76,13 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
   }, [league.id]);
 
   useEffect(() => {
-    if (!countdownStartedAt || league.liveDraft) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 250);
+    if ((!countdownStartedAt && !scheduledTime) || league.liveDraft) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, [countdownStartedAt, league.liveDraft]);
+  }, [countdownStartedAt, scheduledTime, league.liveDraft]);
 
-  const countdownTarget = countdownStartedAt
-    ? Math.max(new Date(countdownStartedAt).getTime() + COUNTDOWN_SECONDS * 1000, scheduledTime || 0)
+  const countdownTarget = countdownStartedAt || scheduledTime
+    ? Math.max(countdownStartedAt ? new Date(countdownStartedAt).getTime() + COUNTDOWN_SECONDS * 1000 : 0, scheduledTime || 0)
     : null;
   const countdownRemaining = countdownTarget
     ? Math.max(0, Math.ceil((countdownTarget - now) / 1000))
@@ -123,6 +124,15 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
         showToast(error?.message || 'The fantasy draft could not start.');
       });
   }, [countdownRemaining, league.id, league.liveDraft]);
+
+  useEffect(() => {
+    const becameActive = !liveDraftWasPresent.current && league.liveDraft?.status === 'active';
+    liveDraftWasPresent.current = Boolean(league.liveDraft);
+    if (becameActive) {
+      showToast('The scheduled fantasy draft is live. You are entering the draft room.');
+      onGoToDraft();
+    }
+  }, [league.liveDraft, onGoToDraft, showToast]);
 
   const copyCode = async () => {
     try {
@@ -251,7 +261,7 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
               </button>
             )}
 
-            <p className="mt-2 text-center text-[9px] font-bold uppercase tracking-wider text-zinc-600">{humanTotal===1?'You are the only human manager. CPU teams are already ready.':'Each human manager readies up once. CPU teams are already ready.'}</p>
+            <p className="mt-2 text-center text-[9px] font-bold uppercase tracking-wider text-zinc-600">{scheduledTime?'Ready confirms attendance. The draft still starts automatically on schedule; missed picks use autopick.':humanTotal===1?'You are the only human manager. CPU teams are already ready.':'Each human manager readies up once. CPU teams are already ready.'}</p>
             <button onClick={onViewResults} className="mt-2 min-h-11 w-full rounded-xl border border-white/10 text-[10px] font-black uppercase tracking-wider text-zinc-400"><Trophy className="mr-2 inline h-4 w-4"/>View & Share Official Order</button>
           </div>
 

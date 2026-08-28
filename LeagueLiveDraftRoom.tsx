@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, Clock3, LoaderCircle, Play, Search, Trophy } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Ban, CheckCircle2, ChevronDown, ChevronUp, Clock3, ListPlus, LoaderCircle, Play, Search, Star, Trophy } from 'lucide-react';
 import { useBallKnower } from './BallKnowerContext';
 import { playerPortraitUrl } from './playerPortraits';
 import { PLAYERS_DATABASE } from './players';
@@ -7,6 +7,7 @@ import { getLiveFantasyDraftGroup, LIVE_FANTASY_POSITION_LIMITS, LIVE_FANTASY_RO
 import { FantasyRanking, loadFantasyRankings } from './fantasyRankingsCloud';
 import { displayLeagueMemberName, resolveMyLeagueMember } from './leagueMemberDisplay';
 import { LiveFantasyDraft, Player } from './types';
+import { DraftPreferences, loadMyCloudDraftPreferences, saveMyCloudDraftPreferences } from './leagueCloud';
 
 type Props={onBackToLobby:()=>void};
 type DraftGroup=LiveFantasyDraftGroup;
@@ -16,6 +17,7 @@ const CPU_POSITION_TARGETS:Record<DraftGroup,number>={QB:2,RB:5,WR:7,TE:2,K:2,DS
 const CPU_DEPTH_PENALTY:Record<DraftGroup,number>={QB:72,RB:18,WR:14,TE:48,K:120,DST:110};
 const PLAYER_BY_ID=new Map(PLAYERS_DATABASE.map(player=>[player.id,player]));
 const rankingKey=(name:string,team:string)=>`${name.toLowerCase().replace(/[^a-z0-9]/g,'')}|${team.toUpperCase()}`;
+const EMPTY_PREFERENCES:DraftPreferences={queue:[],favorites:[],doNotDraft:[],preRankings:[]};
 
 const memberAtPick=(draft:LiveFantasyDraft)=>{
   const teamCount=draft.orderMemberIds.length;
@@ -90,6 +92,9 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
   const [busy,setBusy]=useState(false);
   const [rankings,setRankings]=useState<Map<string,FantasyRanking>>(new Map());
   const [rankingsReady,setRankingsReady]=useState(false);
+  const [preferences,setPreferences]=useState<DraftPreferences>(EMPTY_PREFERENCES);
+  const [preferencesReady,setPreferencesReady]=useState(false);
+  const [now,setNow]=useState(()=>Date.now());
   const pickLockRef=useRef(false);
   const finalizeLockRef=useRef(false);
   const needsScrollRef=useRef<HTMLDivElement>(null);
@@ -153,13 +158,51 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
 
   useEffect(()=>{needsScrollRef.current?.scrollTo({left:0,behavior:'auto'});},[draft?.leagueId]);
 
+  useEffect(()=>{
+    let alive=true;
+    setPreferencesReady(false);
+    if(!activeLeague?.id||!myMember?.id){setPreferences(EMPTY_PREFERENCES);return ()=>{alive=false;};}
+    void loadMyCloudDraftPreferences(activeLeague.id,myMember.id)
+      .then(value=>{if(alive){setPreferences(value);setPreferencesReady(true);}})
+      .catch(error=>{console.warn('Draft preferences could not be loaded.',error);if(alive)setPreferencesReady(true);});
+    return ()=>{alive=false;};
+  },[activeLeague?.id,myMember?.id]);
+
+  useEffect(()=>{
+    if(!preferencesReady||!activeLeague?.id||!myMember?.id)return;
+    const timer=window.setTimeout(()=>{void saveMyCloudDraftPreferences(activeLeague.id,myMember.id,preferences).catch(error=>console.warn('Draft preferences could not be saved.',error));},350);
+    return ()=>window.clearTimeout(timer);
+  },[preferences,preferencesReady,activeLeague?.id,myMember?.id]);
+
+  useEffect(()=>{
+    const timer=window.setInterval(()=>setNow(Date.now()),1000);
+    return ()=>window.clearInterval(timer);
+  },[]);
+
+  const togglePreference=(key:'favorites'|'doNotDraft'|'preRankings',playerId:string)=>setPreferences(value=>{
+    const present=value[key].includes(playerId);
+    const next={...value,[key]:present?value[key].filter(id=>id!==playerId):[...value[key],playerId]};
+    if(key==='doNotDraft'&&!present)next.queue=value.queue.filter(id=>id!==playerId);
+    return next;
+  });
+  const toggleQueue=(playerId:string)=>setPreferences(value=>({
+    ...value,
+    queue:value.queue.includes(playerId)?value.queue.filter(id=>id!==playerId):[...value.queue,playerId],
+    doNotDraft:value.doNotDraft.filter(id=>id!==playerId),
+  }));
+  const moveQueue=(playerId:string,direction:-1|1)=>setPreferences(value=>{
+    const queue=[...value.queue];const from=queue.indexOf(playerId);const to=from+direction;
+    if(from<0||to<0||to>=queue.length)return value;
+    [queue[from],queue[to]]=[queue[to],queue[from]];return {...value,queue};
+  });
+
   if(!activeLeague||!draft){
     return <div className="min-h-[70dvh] bg-[#07090c] px-4 py-16 text-center text-white"><h2 className="text-2xl font-black uppercase">Fantasy Draft Has Not Started</h2><button onClick={onBackToLobby} className="mt-5 rounded-xl bg-[#D4AF37] px-5 py-3 text-xs font-black uppercase text-black">Return to League HQ</button></div>;
   }
 
   if(draft.status==='completed'){
     const myGrade=myMember?draftGrade(draft,myMember.id,rankings):null;
-    return <div className="min-h-[100dvh] bg-[#07090c] px-3 py-4 text-white sm:px-6"><div className="mx-auto max-w-5xl"><button onClick={onBackToLobby} className="min-h-11 rounded-xl border border-white/10 px-4 text-xs font-black uppercase"><ArrowLeft className="mr-1 inline h-4 w-4"/>League HQ</button><section className="mt-4 rounded-2xl border border-[#D4AF37]/30 bg-[#101318] p-5 text-center"><Trophy className="mx-auto h-9 w-9 text-[#D4AF37]"/><h1 className="mt-2 font-display text-4xl font-black uppercase">Fantasy Draft Complete</h1><p className="mt-2 text-sm text-zinc-400">All {draft.pickIndex} picks are locked. Every manager has a complete 20-player roster.</p>{myGrade&&<div className="mx-auto mt-4 max-w-sm rounded-2xl border border-[#D4AF37]/30 bg-black/25 p-4"><div className="text-[9px] font-black uppercase tracking-widest text-[#D4AF37]">Your Draft Grade</div><div className="mt-1 text-4xl font-black">{myGrade.letter}</div><div className="text-[10px] font-bold text-zinc-500">{myGrade.score}/100 · {myGrade.detail}</div></div>}<button onClick={onBackToLobby} disabled={!seasonHandoffComplete} className="mt-4 min-h-14 w-full rounded-xl bg-[#D4AF37] text-sm font-black uppercase tracking-wider text-black disabled:cursor-wait disabled:opacity-45">{seasonHandoffComplete?<><Play className="mr-2 inline h-4 w-4"/>Continue To Season</>:<><LoaderCircle className="mr-2 inline h-4 w-4 animate-spin"/>{isCommissioner?'Saving All League Rosters…':'Waiting For Commissioner To Save Rosters'}</>}</button></section><div className="mt-4 grid gap-3 sm:grid-cols-2">{draft.orderMemberIds.map(memberId=>{const member=activeLeague.members.find(item=>item.id===memberId);const mine=member?.id===myMember?.id;const picks=draft.picks.filter(pick=>pick.memberId===memberId);return <div key={memberId} className="rounded-2xl border border-white/10 bg-[#101318] p-4"><div className="flex items-center justify-between"><div className="font-black uppercase">{displayLeagueMemberName(member,mine,currentUser,activeLeague.members.indexOf(member!))}</div><div className="text-xs font-black text-[#D4AF37]">{picks.length}/20</div></div><div className="mt-3 grid grid-cols-2 gap-1">{picks.map(pick=>{const player=PLAYER_BY_ID.get(pick.playerId);return <div key={pick.overall} className="truncate rounded-lg bg-black/30 px-2 py-1.5 text-[10px]"><b>{player?.position}</b> {player?.name}</div>})}</div></div>})}</div></div></div>;
+    return <div className="min-h-[100dvh] bg-[#07090c] px-3 py-4 text-white sm:px-6"><div className="mx-auto max-w-5xl"><button onClick={onBackToLobby} className="min-h-11 rounded-xl border border-white/10 px-4 text-xs font-black uppercase"><ArrowLeft className="mr-1 inline h-4 w-4"/>League HQ</button><section className="mt-4 rounded-2xl border border-[#D4AF37]/30 bg-[#101318] p-5 text-center"><Trophy className="mx-auto h-9 w-9 text-[#D4AF37]"/><h1 className="mt-2 font-display text-4xl font-black uppercase">Fantasy Draft Complete</h1><p className="mt-2 text-sm text-zinc-400">All {draft.pickIndex} picks are locked. Every manager has a complete {draft.rounds}-player roster.</p>{myGrade&&<div className="mx-auto mt-4 max-w-sm rounded-2xl border border-[#D4AF37]/30 bg-black/25 p-4"><div className="text-[9px] font-black uppercase tracking-widest text-[#D4AF37]">Your Draft Grade</div><div className="mt-1 text-4xl font-black">{myGrade.letter}</div><div className="text-[10px] font-bold text-zinc-500">{myGrade.score}/100 · {myGrade.detail}</div></div>}<button onClick={onBackToLobby} disabled={!seasonHandoffComplete} className="mt-4 min-h-14 w-full rounded-xl bg-[#D4AF37] text-sm font-black uppercase tracking-wider text-black disabled:cursor-wait disabled:opacity-45">{seasonHandoffComplete?<><Play className="mr-2 inline h-4 w-4"/>Continue To Season</>:<><LoaderCircle className="mr-2 inline h-4 w-4 animate-spin"/>{isCommissioner?'Saving All League Rosters…':'Waiting For Commissioner To Save Rosters'}</>}</button></section><div className="mt-4 grid gap-3 sm:grid-cols-2">{draft.orderMemberIds.map(memberId=>{const member=activeLeague.members.find(item=>item.id===memberId);const mine=member?.id===myMember?.id;const picks=draft.picks.filter(pick=>pick.memberId===memberId);return <div key={memberId} className="rounded-2xl border border-white/10 bg-[#101318] p-4"><div className="flex items-center justify-between"><div className="font-black uppercase">{displayLeagueMemberName(member,mine,currentUser,activeLeague.members.indexOf(member!))}</div><div className="text-xs font-black text-[#D4AF37]">{picks.length}/{draft.rounds}</div></div><div className="mt-3 grid grid-cols-2 gap-1">{picks.map(pick=>{const player=PLAYER_BY_ID.get(pick.playerId);return <div key={pick.overall} className="truncate rounded-lg bg-black/30 px-2 py-1.5 text-[10px]"><b>{player?.position}</b> {player?.name}</div>})}</div></div>})}</div></div></div>;
   }
 
   const round=Math.floor(draft.pickIndex/draft.orderMemberIds.length)+1;
@@ -169,9 +212,11 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
   const canPick=onClockIsMe&&!currentMember?.isAi&&!busy;
   const totalPicks=draft.orderMemberIds.length*draft.rounds;
   const openNeeds=GROUPS.filter(item=>(myCounts[item]||0)<LIVE_FANTASY_ROSTER_REQUIREMENTS[item]);
+  const secondsLeft=Math.max(0,Math.ceil(((draft.pickDeadlineAt?Date.parse(draft.pickDeadlineAt):Date.now())-now)/1000));
+  const clockLabel=currentMember?.isAi?'CPU':secondsLeft>0?`${secondsLeft}s`:'AUTO';
 
   return <div className="min-h-[100dvh] bg-[#07090c] px-3 pb-24 pt-3 text-white sm:px-6"><div className="mx-auto max-w-7xl">
-    <div className="sticky top-16 z-30 rounded-2xl border border-white/10 bg-[#0d1015]/95 p-3 shadow-2xl backdrop-blur-md"><div className="grid grid-cols-[44px_minmax(0,1fr)] gap-3 sm:grid-cols-[44px_minmax(0,1fr)_auto]"><button onClick={onBackToLobby} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10" aria-label="Back to League HQ"><ArrowLeft className="h-5 w-5"/></button><div className="min-w-0"><div className="text-[9px] font-black uppercase tracking-[.16em] text-[#D4AF37]">Round {round} of {draft.rounds} · Snake Draft</div><div className="text-base font-black uppercase leading-tight sm:text-lg">{onClockName} Is On The Clock</div></div><div className="col-span-2 flex items-center justify-between rounded-lg bg-black/25 px-3 py-2 sm:col-span-1 sm:block sm:bg-transparent sm:p-0 sm:text-right"><div className="text-[9px] font-black uppercase text-zinc-600">Current Pick</div><div className="font-mono text-sm font-black sm:text-lg">{Math.min(draft.pickIndex+1,totalPicks)} of {totalPicks}</div></div></div><div className="mt-2 grid grid-cols-3 gap-2"><MiniStat label="Your Slot" value={mySlot?`#${mySlot}`:'—'}/><MiniStat label="Your Roster" value={`${myRoster.length} Players`}/><MiniStat label="Turn" value={currentMemberIsMe?'Your Pick':currentMember?.isAi?'CPU Picking':'Waiting'}/></div></div>
+    <div className="sticky top-16 z-30 rounded-2xl border border-white/10 bg-[#0d1015]/95 p-3 shadow-2xl backdrop-blur-md"><div className="grid grid-cols-[44px_minmax(0,1fr)] gap-3 sm:grid-cols-[44px_minmax(0,1fr)_auto]"><button onClick={onBackToLobby} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10" aria-label="Back to League HQ"><ArrowLeft className="h-5 w-5"/></button><div className="min-w-0"><div className="text-[9px] font-black uppercase tracking-[.16em] text-[#D4AF37]">Round {round} of {draft.rounds} · Snake Draft</div><div className="text-base font-black uppercase leading-tight sm:text-lg">{onClockName} Is On The Clock</div></div><div className={`col-span-2 flex items-center justify-between rounded-lg px-3 py-2 sm:col-span-1 sm:block sm:p-0 sm:text-right ${secondsLeft<=10&&!currentMember?.isAi?'bg-red-500/10 text-red-300':'bg-black/25 sm:bg-transparent'}`}><div className="text-[9px] font-black uppercase opacity-60">Pick {Math.min(draft.pickIndex+1,totalPicks)} of {totalPicks}</div><div className="font-mono text-xl font-black sm:text-2xl">{clockLabel}</div></div></div><div className="mt-2 grid grid-cols-4 gap-2"><MiniStat label="Your Slot" value={mySlot?`#${mySlot}`:'—'}/><MiniStat label="Your Roster" value={`${myRoster.length} Players`}/><MiniStat label="Turn" value={currentMemberIsMe?'Your Pick':currentMember?.isAi?'CPU Picking':'Waiting'}/><MiniStat label="Auto Pick" value={preferences.queue.length?'Queue Ready':'Best Available'}/></div></div>
 
     <section className="mt-3 rounded-2xl border border-[#D4AF37]/25 bg-[#0d1015] p-3 shadow-xl">
       <div className="flex items-center justify-between gap-3"><div><div className="text-[9px] font-black uppercase tracking-[.18em] text-[#D4AF37]">Your roster needs</div><div className="mt-0.5 text-[10px] font-bold text-zinc-500">Counts update after every pick</div></div><button type="button" aria-label={`My picks (${myPicks.length})`} onClick={()=>setShowMyPicks(value=>!value)} className="flex min-h-10 items-center gap-1 rounded-xl border border-white/10 px-3 text-[9px] font-black uppercase">My picks ({myPicks.length}) {showMyPicks?<ChevronUp className="h-3.5 w-3.5"/>:<ChevronDown className="h-3.5 w-3.5"/>}</button></div>
@@ -181,11 +226,37 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
     </section>
 
     <div className="mt-4 grid gap-4 lg:grid-cols-[1.5fr_.65fr]">
-      <section className="min-w-0"><div className={`rounded-xl border p-3 text-center text-xs font-black uppercase ${canPick?'border-emerald-400/30 bg-emerald-400/[.08] text-emerald-300':'border-white/10 bg-[#101318] text-zinc-400'}`}>{canPick?'You are on the clock—select one player.':currentMember?.isAi?'CPU manager is selecting automatically…':`Waiting for ${onClockName} to pick.`}</div><div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] gap-2"><div className="relative min-w-0"><Search className="absolute left-3 top-3.5 h-4 w-4 text-zinc-500"/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search players…" className="min-h-12 w-full rounded-xl border border-white/10 bg-[#101318] pl-10 pr-3 text-sm font-bold outline-none focus:border-[#D4AF37]/50"/></div><select aria-label="Position group" value={group} onChange={event=>setGroup(event.target.value as DraftGroup|'ALL')} className="min-h-12 max-w-[8.5rem] rounded-xl border border-white/10 bg-[#101318] px-2 text-xs font-black text-white"><option value="ALL">All Positions</option>{GROUPS.map(item=><option key={item} value={item}>{GROUP_LABELS[item]}</option>)}</select></div><div className="mt-3 space-y-2">{available.map((player,index)=>{const playerGroup=getLiveFantasyDraftGroup(player);const ranking=rankings.get(rankingKey(player.name,player.team));const teamDefense=playerGroup==='DST';return <button key={player.id} onClick={()=>void makePick(player)} disabled={!canPick} className="grid w-full grid-cols-[44px_minmax(0,1fr)_76px] items-center gap-2.5 rounded-2xl border border-white/10 bg-[#101318] p-3 text-left disabled:cursor-not-allowed disabled:opacity-45 sm:grid-cols-[48px_minmax(0,1fr)_88px] sm:gap-3"><div className="h-11 w-11 overflow-hidden rounded-full bg-white/5 sm:h-12 sm:w-12">{playerPortraitUrl(player)?<img src={playerPortraitUrl(player)} alt="" className="h-full w-full object-cover"/>:null}</div><div className="min-w-0"><div className="flex min-w-0 items-center gap-2"><div className="truncate font-black">{player.name}</div>{index===0&&group==='ALL'&&<span className="hidden shrink-0 rounded-full bg-emerald-400/10 px-2 py-0.5 text-[7px] font-black uppercase text-emerald-300 min-[390px]:inline">Top Available</span>}</div><div className="truncate text-xs font-semibold text-zinc-500">{player.position} · {player.team}</div></div><div className="rounded-xl bg-[#D4AF37] px-1 py-2 text-center text-black"><div className="text-base font-black sm:text-lg">{ranking?ranking.projected_points_2026.toFixed(1):teamDefense?'DEF':'—'}</div><div className="text-[7px] font-black">{ranking?'PROJ PTS':teamDefense?'TEAM D/ST':'DRAFT'}</div></div></button>})}</div></section>
+      <section className="min-w-0">
+        <div className={`rounded-xl border p-3 text-center text-xs font-black uppercase ${canPick?'border-emerald-400/30 bg-emerald-400/[.08] text-emerald-300':'border-white/10 bg-[#101318] text-zinc-400'}`}>{canPick?'You are on the clock—select one player.':currentMember?.isAi?'CPU manager is selecting automatically…':`Waiting for ${onClockName} to pick.`}</div>
+        <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] gap-2"><div className="relative min-w-0"><Search className="absolute left-3 top-3.5 h-4 w-4 text-zinc-500"/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search players…" className="min-h-12 w-full rounded-xl border border-white/10 bg-[#101318] pl-10 pr-3 text-sm font-bold outline-none focus:border-[#D4AF37]/50"/></div><select aria-label="Position group" value={group} onChange={event=>setGroup(event.target.value as DraftGroup|'ALL')} className="min-h-12 max-w-[8.5rem] rounded-xl border border-white/10 bg-[#101318] px-2 text-xs font-black text-white"><option value="ALL">All Positions</option>{GROUPS.map(item=><option key={item} value={item}>{GROUP_LABELS[item]}</option>)}</select></div>
+        <div className="mt-3 space-y-2">{available.map((player,index)=>{
+          const playerGroup=getLiveFantasyDraftGroup(player);const ranking=rankings.get(rankingKey(player.name,player.team));const teamDefense=playerGroup==='DST';
+          const queued=preferences.queue.includes(player.id);const favorite=preferences.favorites.includes(player.id);const avoided=preferences.doNotDraft.includes(player.id);const preRanked=preferences.preRankings.includes(player.id);
+          return <div key={player.id} className={`rounded-2xl border bg-[#101318] p-3 ${avoided?'border-red-400/25 opacity-60':queued?'border-[#D4AF37]/50':'border-white/10'}`}>
+            <div className="grid grid-cols-[44px_minmax(0,1fr)_76px] items-center gap-2.5 sm:grid-cols-[48px_minmax(0,1fr)_88px] sm:gap-3">
+              <div className="h-11 w-11 overflow-hidden rounded-full bg-white/5 sm:h-12 sm:w-12">{playerPortraitUrl(player)?<img src={playerPortraitUrl(player)} alt="" className="h-full w-full object-cover"/>:null}</div>
+              <div className="min-w-0"><div className="flex min-w-0 items-center gap-2"><div className="truncate font-black">{player.name}</div>{index===0&&group==='ALL'&&<span className="hidden shrink-0 rounded-full bg-emerald-400/10 px-2 py-0.5 text-[7px] font-black uppercase text-emerald-300 min-[390px]:inline">Top Available</span>}</div><div className="truncate text-xs font-semibold text-zinc-500">{player.position} · {player.team} · ADP {ranking?ranking.adp.toFixed(1):'—'}</div></div>
+              <button onClick={()=>void makePick(player)} disabled={!canPick||avoided} className="rounded-xl bg-[#D4AF37] px-1 py-2 text-center text-black disabled:cursor-not-allowed disabled:opacity-45"><div className="text-base font-black sm:text-lg">{ranking?ranking.projected_points_2026.toFixed(1):teamDefense?'DEF':'—'}</div><div className="text-[7px] font-black">{canPick?'DRAFT':ranking?'PROJ PTS':teamDefense?'TEAM D/ST':'PLAYER'}</div></button>
+            </div>
+            <div className="mt-2 grid grid-cols-4 gap-1.5 border-t border-white/5 pt-2">
+              <PreferenceButton active={queued} label={queued?'Queued':'Queue'} onClick={()=>toggleQueue(player.id)}><ListPlus className="h-3.5 w-3.5"/></PreferenceButton>
+              <PreferenceButton active={favorite} label="Favorite" onClick={()=>togglePreference('favorites',player.id)}><Star className="h-3.5 w-3.5"/></PreferenceButton>
+              <PreferenceButton active={preRanked} label="Pre-rank" onClick={()=>togglePreference('preRankings',player.id)}><Trophy className="h-3.5 w-3.5"/></PreferenceButton>
+              <PreferenceButton active={avoided} danger label="Avoid" onClick={()=>togglePreference('doNotDraft',player.id)}><Ban className="h-3.5 w-3.5"/></PreferenceButton>
+            </div>
+          </div>;
+        })}</div>
+      </section>
 
-      <aside className="space-y-3"><div className="rounded-2xl border border-white/10 bg-[#101318] p-4"><div className="flex items-center justify-between"><div className="text-xs font-black uppercase text-[#D4AF37]">Your Roster</div><div className="text-xs font-black">{myRoster.length} players</div></div><div className="mt-2 text-[10px] leading-5 text-zinc-500">{GROUPS.map(item=>`${GROUP_LABELS[item]} ${myCounts[item]||0}`).join(' · ')}</div><div className="mt-3 space-y-1">{myPicks.map(pick=>{const player=PLAYER_BY_ID.get(pick.playerId);return <div key={pick.overall} className="flex justify-between rounded-lg bg-black/30 px-2 py-2 text-xs"><span className="truncate"><b>{player?.position}</b> {player?.name}</span><b>#{pick.overall}</b></div>})}</div></div><div className="rounded-2xl border border-white/10 bg-[#101318] p-4"><div className="flex items-center gap-2 text-xs font-black uppercase text-[#D4AF37]"><Clock3 className="h-4 w-4"/>Recent Picks</div><div className="mt-3 space-y-2">{draft.picks.slice(-10).reverse().map(pick=>{const player=PLAYER_BY_ID.get(pick.playerId);const member=activeLeague.members.find(item=>item.id===pick.memberId);const mine=member?.id===myMember?.id;return <div key={pick.overall} className="text-xs"><div className="font-black">#{pick.overall} · {displayLeagueMemberName(member,mine,currentUser,activeLeague.members.indexOf(member!))}</div><div className="truncate text-zinc-500">{player?.name} · {player?.position}</div></div>})}</div></div><div className="flex items-start gap-2 rounded-2xl border border-emerald-400/20 bg-emerald-400/[.05] p-3 text-[11px] leading-5 text-emerald-200"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0"/>The locked order controls Round 1. Every even round reverses automatically for a true snake draft.</div></aside>
+      <aside className="space-y-3">
+        <div className="rounded-2xl border border-[#D4AF37]/25 bg-[#101318] p-4"><div className="flex items-center justify-between"><div className="text-xs font-black uppercase text-[#D4AF37]">Auto-pick Queue</div><div className="text-[9px] font-black uppercase text-zinc-500">Saved</div></div><p className="mt-1 text-[10px] leading-4 text-zinc-500">If your clock expires, the first legal player here is selected. Then pre-ranks, favorites, and roster-aware best available.</p><div className="mt-3 space-y-1.5">{preferences.queue.filter(id=>!draft.picks.some(pick=>pick.playerId===id)).map((id,index)=>{const player=PLAYER_BY_ID.get(id);if(!player)return null;return <div key={id} className="grid grid-cols-[22px_minmax(0,1fr)_28px_28px] items-center gap-1 rounded-lg bg-black/30 px-2 py-2 text-xs"><b className="text-[#D4AF37]">{index+1}</b><span className="truncate"><b>{player.position}</b> {player.name}</span><button aria-label={`Move ${player.name} up`} onClick={()=>moveQueue(id,-1)} disabled={index===0} className="grid h-7 place-items-center rounded bg-white/5 disabled:opacity-25"><ArrowUp className="h-3.5 w-3.5"/></button><button aria-label={`Move ${player.name} down`} onClick={()=>moveQueue(id,1)} disabled={index===preferences.queue.length-1} className="grid h-7 place-items-center rounded bg-white/5 disabled:opacity-25"><ArrowDown className="h-3.5 w-3.5"/></button></div>} )}{!preferences.queue.length&&<div className="rounded-lg border border-dashed border-white/10 p-3 text-center text-[10px] font-bold text-zinc-600">Tap Queue on players you want next.</div>}</div></div>
+        <div className="rounded-2xl border border-white/10 bg-[#101318] p-4"><div className="flex items-center justify-between"><div className="text-xs font-black uppercase text-[#D4AF37]">Your Roster</div><div className="text-xs font-black">{myRoster.length} players</div></div><div className="mt-2 text-[10px] leading-5 text-zinc-500">{GROUPS.map(item=>`${GROUP_LABELS[item]} ${myCounts[item]||0}`).join(' · ')}</div><div className="mt-3 space-y-1">{myPicks.map(pick=>{const player=PLAYER_BY_ID.get(pick.playerId);return <div key={pick.overall} className="flex justify-between rounded-lg bg-black/30 px-2 py-2 text-xs"><span className="truncate"><b>{player?.position}</b> {player?.name}</span><b>#{pick.overall}</b></div>})}</div></div>
+        <div className="rounded-2xl border border-white/10 bg-[#101318] p-4"><div className="flex items-center gap-2 text-xs font-black uppercase text-[#D4AF37]"><Clock3 className="h-4 w-4"/>Recent Picks</div><div className="mt-3 space-y-2">{draft.picks.slice(-10).reverse().map(pick=>{const player=PLAYER_BY_ID.get(pick.playerId);const member=activeLeague.members.find(item=>item.id===pick.memberId);const mine=member?.id===myMember?.id;return <div key={pick.overall} className="text-xs"><div className="font-black">#{pick.overall} · {displayLeagueMemberName(member,mine,currentUser,activeLeague.members.indexOf(member!))}{pick.source==='autopick'?' · AUTO':''}</div><div className="truncate text-zinc-500">{player?.name} · {player?.position}</div></div>})}</div></div>
+        <div className="flex items-start gap-2 rounded-2xl border border-emerald-400/20 bg-emerald-400/[.05] p-3 text-[11px] leading-5 text-emerald-200"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0"/>The locked order controls Round 1. Every even round reverses automatically for a true snake draft.</div>
+      </aside>
     </div>
   </div></div>;
 };
 
 const MiniStat=({label,value}:{label:string;value:string})=><div className="rounded-lg bg-black/30 p-2 text-center"><div className="text-[8px] font-black uppercase tracking-wider text-zinc-600">{label}</div><div className="mt-1 truncate text-[10px] font-black uppercase">{value}</div></div>;
+const PreferenceButton=({active,danger=false,label,onClick,children}:{active:boolean;danger?:boolean;label:string;onClick:()=>void;children:React.ReactNode})=><button type="button" aria-pressed={active} onClick={onClick} className={`flex min-h-9 items-center justify-center gap-1 rounded-lg border px-1 text-[8px] font-black uppercase ${active?danger?'border-red-400/40 bg-red-400/10 text-red-300':'border-[#D4AF37]/50 bg-[#D4AF37]/10 text-[#D4AF37]':'border-white/10 text-zinc-500'}`}>{children}{label}</button>;

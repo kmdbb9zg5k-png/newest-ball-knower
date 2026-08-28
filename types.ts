@@ -288,6 +288,7 @@ export interface LiveFantasyDraftPick {
   playerId: string;
   group: 'QB'|'RB'|'WR'|'TE'|'K'|'DST';
   pickedAt: string;
+  source?: 'manual'|'cpu'|'autopick';
 }
 
 export interface LiveFantasyDraft {
@@ -298,6 +299,9 @@ export interface LiveFantasyDraft {
   pickIndex: number;
   picks: LiveFantasyDraftPick[];
   startedAt: string;
+  pickSeconds: number;
+  pickStartedAt?: string;
+  pickDeadlineAt?: string;
   completedAt?: string;
   updatedAt: string;
 }
@@ -333,6 +337,15 @@ export interface LeagueSettings {
   currentWeek?: number;
   fantasySeasonStarted?: boolean;
   fantasySeasonComplete?: boolean;
+  scoringFormat?: 'standard' | 'half_ppr' | 'ppr';
+  nflSeason?: number;
+  waiverType?: 'priority' | 'faab';
+  waiverDays?: number;
+  waiverRunDays?: number[];
+  waiverProcessHourUtc?: number;
+  freeAgentMode?: 'instant' | 'continuous';
+  tradeReview?: 'none' | 'commissioner' | 'league_vote';
+  irSlots?: number;
 }
 
 export interface League {

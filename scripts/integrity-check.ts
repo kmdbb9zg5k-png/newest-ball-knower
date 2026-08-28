@@ -3,13 +3,26 @@ import { getDraftPositionGroup, validateRosterShape } from '../rosterRules';
 import { getLiveFantasyDraftGroup, validateLiveFantasyRoster } from '../liveFantasyRules';
 import { buildFantasyWeekPairings, buildScoredFantasyGames, buildScoredFantasyPlayoffs, buildStandings, resolveSeasonChampion, simulateFantasyPlayoffs, simulateFantasyWeek } from '../simulation';
 import {
+  assignPlayerToFranchiseTeam,
+  buildFranchiseRookieClass,
+  buildFranchiseTradeResult,
   buildRealTeamRoster,
   FANTASY_DRAFT_ROUNDS,
   FANTASY_ROSTER_REQUIREMENTS,
+  replaceFranchisePlayersWithRookies,
+  validateFranchiseRoster,
 } from '../soloFranchiseEngine';
 import { TEAM_THEMES } from '../teamTheme';
 import { LeagueMember, TOTAL_ROSTER_SIZE } from '../types';
 import { estimatePlayerSalary } from '../currentSeasonRoster';
+import {
+  allFormatScores,
+  isFinalGameStatus,
+  kickoffIsoFromTank01Game,
+  liveProjectedPoints,
+  normalizeTank01DefenseStats,
+  scoreFantasyDefense,
+} from '../fantasyLiveScoring';
 
 const failures: string[] = [];
 const check = (condition: unknown, message: string) => {
@@ -49,6 +62,27 @@ for (const team of TEAM_THEMES) {
   check(standardRoster.length === TOTAL_ROSTER_SIZE, `${team.abbr}: standard franchise roster builds ${standardRoster.length}/${TOTAL_ROSTER_SIZE}.`);
   check(shapeErrors.length === 0, `${team.abbr}: standard roster shape invalid: ${shapeErrors.join(' ')}`);
 }
+
+const franchiseUserRoster = buildRealTeamRoster('PHI');
+const franchisePartnerRoster = buildRealTeamRoster('DAL');
+const userQuarterback = franchiseUserRoster.find(player => getDraftPositionGroup(player) === 'QB')!;
+const partnerQuarterback = franchisePartnerRoster.find(player => getDraftPositionGroup(player) === 'QB')!;
+const legalTrade = buildFranchiseTradeResult(franchiseUserRoster, 'PHI', franchisePartnerRoster, 'DAL', partnerQuarterback.id, [userQuarterback.id]);
+check(legalTrade.errors.length === 0, `A legal one-for-one Franchise trade failed: ${legalTrade.errors.join(' ')}`);
+check(legalTrade.userRoster.length === TOTAL_ROSTER_SIZE && legalTrade.partnerRoster.length === TOTAL_ROSTER_SIZE, 'A legal Franchise trade changed roster sizes.');
+const acquiredQuarterback = legalTrade.userRoster.find(player => player.id === partnerQuarterback.id)!;
+check(acquiredQuarterback.team === 'PHI' && acquiredQuarterback.teamId === 'PHI' && acquiredQuarterback.teamAbbreviation === 'PHI' && acquiredQuarterback.teamName === 'Philadelphia Eagles', 'A traded player retained stale team identity fields.');
+check(buildFranchiseTradeResult(franchiseUserRoster, 'PHI', franchisePartnerRoster, 'DAL', partnerQuarterback.id, []).errors.length > 0, 'A pick-only Franchise trade was accepted.');
+check(buildFranchiseTradeResult(franchiseUserRoster, 'PHI', franchisePartnerRoster, 'DAL', partnerQuarterback.id, franchiseUserRoster.slice(0, 2).map(player => player.id)).errors.length > 0, 'A two-for-one Franchise trade was accepted.');
+
+const rookieClass2027 = buildFranchiseRookieClass(2027);
+const rookieClass2028 = buildFranchiseRookieClass(2028);
+check(rookieClass2027.length >= 7 && rookieClass2028.length >= 7, 'A generated Franchise rookie class is too small for the seven-round draft.');
+check(!rookieClass2027.some(first => rookieClass2028.some(second => second.id === first.id || second.name === first.name)), 'Consecutive Franchise rookie classes repeated a prospect.');
+const testRookies = franchiseUserRoster.slice(0, 7).map((player, index) => assignPlayerToFranchiseTeam({ ...player, id: `integrity-rookie-${index}`, playerId: `integrity-rookie-${index}`, name: rookieClass2027[index].name, fullName: rookieClass2027[index].name }, 'PHI'));
+const rosterAfterDraft = replaceFranchisePlayersWithRookies(franchiseUserRoster, testRookies);
+check(rosterAfterDraft.length === TOTAL_ROSTER_SIZE, `Franchise rookie additions expanded the roster to ${rosterAfterDraft.length}/${TOTAL_ROSTER_SIZE}.`);
+check(validateFranchiseRoster(rosterAfterDraft).length === 0, `Franchise rookie replacements created an illegal roster: ${validateFranchiseRoster(rosterAfterDraft).join(' ')}`);
 
 const fantasyRoundSum = Object.values(FANTASY_ROSTER_REQUIREMENTS).reduce((sum, value) => sum + value, 0);
 check(FANTASY_DRAFT_ROUNDS === 53, `Fantasy Franchise must stay 53 rounds; found ${FANTASY_DRAFT_ROUNDS}.`);
@@ -112,6 +146,33 @@ check(validateLiveFantasyRoster([]).length===6,'An empty live-fantasy roster mus
 check(estimatePlayerSalary('P', 79) <= 6, 'Estimated punter salary exceeds the position cap.');
 check(estimatePlayerSalary('LB', 79) < estimatePlayerSalary('QB', 79), 'Position-aware salary estimates are not differentiated.');
 check(PLAYERS_DATABASE.every(player => !(['K', 'P'].includes(player.position) && player.salaryType === 'estimated' && player.salary > 6)), 'An estimated kicker or punter salary exceeds $6M.');
+
+const receiverScores=allFormatScores({
+  Receiving:{recYds:'100',recTD:'1',receptions:'8'},
+  Defense:{fumblesLost:'1'},
+});
+check(receiverScores.standard===14,'Standard scoring did not calculate receiving yards, touchdown and lost fumble correctly.');
+check(receiverScores.half_ppr===18,'Half-PPR scoring did not add 0.5 points per reception.');
+check(receiverScores.ppr===22,'PPR scoring did not add one point per reception.');
+
+const kickerScores=allFormatScores({Kicking:{fgMade:'3',fgMissed:'1',xpMade:'2',xpMissed:'1'}});
+check(kickerScores.ppr===9,'Kicker scoring did not apply field goals, PATs and misses correctly.');
+
+const conversionScores=allFormatScores({
+  Passing:{passingTwoPointConversion:'1'},
+  Rushing:{rushingTwoPointConversion:'1'},
+});
+check(conversionScores.ppr===4,'Two-point conversions from multiple stat categories were not added together.');
+
+const defenseScore=scoreFantasyDefense(normalizeTank01DefenseStats({
+  sacks:'3',defensiveInterceptions:'2',fumblesRecovered:'1',defTD:'1',safeties:'1',ptsAllowed:'10',
+}));
+check(defenseScore===21,'D/ST scoring did not apply sacks, takeaways, touchdown, safety and points allowed correctly.');
+check(isFinalGameStatus('Final'),'A final NFL game status was not recognized.');
+check(!isFinalGameStatus('Halftime'),'Halftime was incorrectly treated as a final score.');
+check(liveProjectedPoints(18,20,'In Progress','3')===23,'Live projection did not blend actual production with remaining game time.');
+check(liveProjectedPoints(18,20,'Final','4')===18,'Final player projection must equal the official score.');
+check(kickoffIsoFromTank01Game({gameTime_epoch:'1788782400'})==='2026-09-07T12:00:00.000Z','Tank01 kickoff epoch was not normalized deterministically.');
 
 console.log(`Ball Knower integrity check: ${PLAYERS_DATABASE.length} players, ${TEAM_THEMES.length} teams, ${FANTASY_DRAFT_ROUNDS}-round fantasy franchise.`);
 

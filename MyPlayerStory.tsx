@@ -26,6 +26,7 @@ type MyPlayerProfile = {
   teamAbbr: string;
   draftRound: number;
   draftPick: number;
+  combineScore: number;
   overall: number;
   xp: number;
   upgradePoints: number;
@@ -72,6 +73,7 @@ const EMPTY_PROFILE: MyPlayerProfile = {
   teamAbbr: '',
   draftRound: 0,
   draftPick: 0,
+  combineScore: 0,
   overall: 68,
   xp: 0,
   upgradePoints: 0,
@@ -288,12 +290,14 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
   };
 
   const enterDraft = () => {
-    const value = hash(`${profile.name}:${profile.position}:${profile.number}:${profile.heightInches}:${profile.weightLbs}`);
+    const combine = calculateCombineResults(profile);
+    const value = hash(`${profile.name}:${profile.position}:${profile.number}:${profile.heightInches}:${profile.weightLbs}:${combine.score}`);
     const team = TEAM_THEMES[value % TEAM_THEMES.length];
-    const draftRound = 1 + (value % 4);
+    const draftRound = combine.score >= 90 ? 1 : combine.score >= 82 ? 2 : combine.score >= 74 ? 3 : combine.score >= 66 ? 4 : combine.score >= 58 ? 5 : 6 + (value % 2);
     const draftPick = 1 + ((value >>> 5) % 32);
-    setProfile(current => ({ ...current, stage: 'drafted', teamAbbr: team.abbr, draftRound, draftPick }));
-    setMessage(`${team.name} selected you in Round ${draftRound}.`);
+    const overallChange = combine.score >= 90 ? 4 : combine.score >= 80 ? 2 : combine.score < 58 ? -2 : 0;
+    setProfile(current => ({ ...current, stage: 'drafted', teamAbbr: team.abbr, draftRound, draftPick, combineScore: combine.score, overall: Math.max(60, Math.min(99, current.overall + overallChange)) }));
+    setMessage(`${combine.label} Combine performance moved your stock to Round ${draftRound}. ${team.name} made the call.`);
   };
 
   const beginSeason = () => {
@@ -527,20 +531,31 @@ const PlayerRender = ({ profile, compact = false }: { profile: MyPlayerProfile; 
   );
 };
 
-const Combine = ({ profile, onDraft }: { profile: MyPlayerProfile; onDraft: () => void }) => {
+export const calculateCombineResults = (profile: Pick<MyPlayerProfile, 'name' | 'position' | 'heightInches' | 'weightLbs' | 'bodyBuild' | 'armSize' | 'legSize'>) => {
   const base = hash(`${profile.name}:${profile.position}:${profile.heightInches}:${profile.weightLbs}`);
   const sizePenalty = Math.max(0, profile.weightLbs - 215) / 180;
   const athleticBonus = (profile.bodyBuild < 60 ? 0.05 : 0) + (profile.legSize - 50) / 1800;
-  const forty = Math.max(4.25, 4.34 + (base % 42) / 100 + sizePenalty - athleticBonus).toFixed(2);
+  const forty = Number(Math.max(4.25, 4.34 + (base % 42) / 100 + sizePenalty - athleticBonus).toFixed(2));
   const bench = Math.max(8, 12 + ((base >>> 4) % 18) + Math.round((profile.armSize + profile.bodyBuild - 90) / 12));
   const vertical = Math.max(27, 31 + ((base >>> 7) % 10) + Math.round((profile.legSize - 50) / 18));
+  const speedValue = Math.max(0, Math.min(100, 100 - (forty - 4.25) * 105));
+  const strengthValue = Math.max(0, Math.min(100, 35 + bench * 2.15));
+  const explosionValue = Math.max(0, Math.min(100, 20 + vertical * 2));
+  const positionWeights = ['QB','K','P'].includes(profile.position) ? [.25, .25, .5] : ['OT','OG','EDGE','DT','LB'].includes(profile.position) ? [.2, .55, .25] : [.55, .15, .3];
+  const score = Math.round(speedValue * positionWeights[0] + strengthValue * positionWeights[1] + explosionValue * positionWeights[2]);
+  return { forty, bench, vertical, score, label: score >= 90 ? 'ELITE' : score >= 80 ? 'RISER' : score >= 68 ? 'SOLID' : score >= 58 ? 'MIXED' : 'SLIPPING' };
+};
+
+const Combine = ({ profile, onDraft }: { profile: MyPlayerProfile; onDraft: () => void }) => {
+  const combine = calculateCombineResults(profile);
   return (
     <div className="rounded-[2rem] border border-white/10 bg-[#10151d] p-6 sm:p-8">
       <div className="flex items-center gap-3 text-[var(--bk-team-accent)]"><Dumbbell /><span className="text-[10px] font-black tracking-[.25em]">BALL KNOWER COMBINE</span></div>
       <h2 className="mt-3 text-4xl font-black">PROVE YOU BELONG</h2>
       <div className="mt-2 text-xs font-bold text-zinc-500">{feetAndInches(profile.heightInches)} • {profile.weightLbs} LB • {profile.position}</div>
-      <div className="mt-6 grid grid-cols-3 gap-2"><CombineStat label="40-YARD" value={`${forty}s`} /><CombineStat label="BENCH" value={`${bench}`} /><CombineStat label="VERTICAL" value={`${vertical}”`} /></div>
-      <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4"><div className="text-xs font-black text-[var(--bk-team-accent)]">SCOUTING REPORT</div><p className="mt-2 text-sm leading-relaxed text-zinc-400">Explosive {profile.position} prospect with a {profile.overall} OVR foundation. At {feetAndInches(profile.heightInches)} and {profile.weightLbs} pounds, scouts see immediate upside, but every snap will determine how quickly the ratings climb.</p></div>
+      <div className="mt-6 grid grid-cols-3 gap-2"><CombineStat label="40-YARD" value={`${combine.forty.toFixed(2)}s`} /><CombineStat label="BENCH" value={`${combine.bench}`} /><CombineStat label="VERTICAL" value={`${combine.vertical}”`} /></div>
+      <div className="mt-3 rounded-2xl border border-[var(--bk-team-accent)]/25 bg-[var(--bk-team-accent)]/10 p-4"><div className="text-[10px] font-black tracking-widest text-[var(--bk-team-accent)]">DRAFT STOCK · {combine.label}</div><div className="mt-1 text-3xl font-black">{combine.score}/100</div><p className="mt-1 text-xs font-semibold text-zinc-400">These drill results now determine your draft round and can raise or lower your starting overall.</p></div>
+      <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 p-4"><div className="text-xs font-black text-[var(--bk-team-accent)]">SCOUTING REPORT</div><p className="mt-2 text-sm leading-relaxed text-zinc-400">Explosive {profile.position} prospect with a {profile.overall} OVR foundation. At {feetAndInches(profile.heightInches)} and {profile.weightLbs} pounds, scouts see immediate upside, but every snap will determine how quickly the ratings climb.</p></div>
       <button type="button" onClick={onDraft} className="mt-6 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)]"><Sparkles className="mr-2 inline" /> ENTER THE NFL DRAFT</button>
     </div>
   );
