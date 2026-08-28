@@ -337,6 +337,9 @@ export interface LeagueSettings {
   nflSeason?: number;
   waiverType?: 'priority' | 'faab';
   waiverDays?: number;
+  waiverRunDays?: number[];
+  waiverProcessHourUtc?: number;
+  freeAgentMode?: 'instant' | 'continuous';
   tradeReview?: 'none' | 'commissioner' | 'league_vote';
   irSlots?: number;
 }

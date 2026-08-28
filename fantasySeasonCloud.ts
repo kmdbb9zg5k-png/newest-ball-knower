@@ -4,7 +4,7 @@ import { PLAYERS_DATABASE } from './players';
 
 export type TradeOffer={id:string;leagueId:string;proposerMemberId:string;recipientMemberId:string;offeredPlayerIds:string[];requestedPlayerIds:string[];proposerDropPlayerIds:string[];recipientDropPlayerIds:string[];status:string;note?:string;createdAt:string;resolvedAt?:string};
 export type TradeResolution={tradeId?:string;status:string;reason?:string};
-export type WaiverClaim={id:string;leagueId:string;memberId:string;playerId:string;dropPlayerId?:string;priority:number;status:string;createdAt:string;processedAt?:string};
+export type WaiverClaim={id:string;leagueId:string;memberId:string;playerId:string;dropPlayerId?:string;priority:number;faabBid:number;claimGroupId:string;claimOrder:number;status:string;createdAt:string;processAt:string;processedAt?:string;failureReason?:string};
 export type LeagueTransaction={id:string;leagueId:string;memberId?:string;transactionType:string;summary:string;metadata:any;createdAt:string};
 export type LeagueInjury={id:string;leagueId:string;memberId:string;playerId:string;playerName:string;injuryType:string;severity:'minor'|'moderate'|'major'|'season_ending';weeksRemaining:number;onIr:boolean;status:'questionable'|'doubtful'|'out'|'ir'|'cleared';createdAt:string;updatedAt:string};
 export type LeagueMessage={id:string;leagueId:string;memberName:string;body:string;kind:'chat'|'announcement'|'receipt'|'reaction';replyTo?:string;createdAt:string};
@@ -12,7 +12,7 @@ export type WeeklyInjuryRollResult={week:number;created:number;reused:boolean};
 export type TradeAction='accepted'|'rejected'|'cancelled'|'vetoed'|'approved';
 
 const mapTrade=(x:any):TradeOffer=>({id:x.id,leagueId:x.league_id,proposerMemberId:x.proposer_member_id,recipientMemberId:x.recipient_member_id,offeredPlayerIds:x.offered_player_ids||[],requestedPlayerIds:x.requested_player_ids||[],proposerDropPlayerIds:x.proposer_drop_player_ids||[],recipientDropPlayerIds:x.recipient_drop_player_ids||[],status:x.status,note:x.note||undefined,createdAt:x.created_at,resolvedAt:x.resolved_at||undefined});
-const mapClaim=(x:any):WaiverClaim=>({id:x.id,leagueId:x.league_id,memberId:x.member_id,playerId:x.player_id,dropPlayerId:x.drop_player_id||undefined,priority:Number(x.priority)||999,status:x.status,createdAt:x.created_at,processedAt:x.processed_at||undefined});
+const mapClaim=(x:any):WaiverClaim=>({id:x.id,leagueId:x.league_id,memberId:x.member_id,playerId:x.player_id,dropPlayerId:x.drop_player_id||undefined,priority:Number(x.priority)||999,faabBid:Number(x.faab_bid)||0,claimGroupId:x.claim_group_id||x.id,claimOrder:Number(x.claim_order)||1,status:x.status,createdAt:x.created_at,processAt:x.process_at||x.created_at,processedAt:x.processed_at||undefined,failureReason:x.failure_reason||undefined});
 const mapTxn=(x:any):LeagueTransaction=>({id:x.id,leagueId:x.league_id,memberId:x.member_id||undefined,transactionType:x.transaction_type,summary:x.summary,metadata:x.metadata||{},createdAt:x.created_at});
 const mapInjury=(x:any):LeagueInjury=>({id:x.id,leagueId:x.league_id,memberId:x.member_id,playerId:x.player_id,playerName:x.player_name,injuryType:x.injury_type,severity:x.severity,weeksRemaining:Number(x.weeks_remaining)||0,onIr:Boolean(x.on_ir),status:x.status,createdAt:x.created_at,updatedAt:x.updated_at});
 const mapMessage=(x:any):LeagueMessage=>({id:x.id,leagueId:x.league_id,memberName:x.member_name,body:x.body,kind:x.kind,replyTo:x.reply_to||undefined,createdAt:x.created_at});
@@ -164,13 +164,13 @@ export async function submitWaiverClaim(leagueId:string,memberId:string,playerId
   if(!supabase) return; await ensureOnlineSession();
   const player=PLAYERS_DATABASE.find(p=>p.id===playerId);
   if(!player) throw new Error('Player could not be found in the current NFL pool.');
-  const {error}=await supabase.from('ball_knower_waiver_claims').insert({league_id:leagueId,member_id:memberId,player_id:player.id,player_snapshot:player,drop_player_id:dropPlayerId||null,priority});
+  const {error}=await supabase.rpc('submit_ball_knower_player_move',{p_league_id:leagueId,p_player_snapshot:player,p_drop_player_id:dropPlayerId||null,p_faab_bid:0,p_claim_order:Math.max(1,priority),p_claim_group_id:null});
   if(error) throw error;
 }
 
-export async function processWaiverClaim(claimId:string){
+export async function cancelWaiverClaim(claimId:string){
   if(!supabase) return; await ensureOnlineSession();
-  const {error}=await supabase.rpc('process_ball_knower_waiver',{p_claim_id:claimId});
+  const {error}=await supabase.rpc('cancel_my_ball_knower_waiver',{p_claim_id:claimId});
   if(error) throw error;
 }
 
