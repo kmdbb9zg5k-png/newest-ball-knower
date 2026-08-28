@@ -1,4 +1,5 @@
 import { ensureOnlineSession, supabase } from './supabase';
+import { GAUNTLET_CATALOG } from './gauntletEngine';
 
 export type ProgressProfile={
   userId:string;displayName:string;bkRating:number;xp:number;level:number;
@@ -12,8 +13,8 @@ export type TriviaAnswerResult={isCorrect:boolean;correctIndex:number;explanatio
 export type TriviaSession={token:string;order:number};
 export type ChampionshipClaimResult={applied:boolean;eventKey:string};
 
-type LocalTrivia={tier:string;question:string;answers:string[];correctIndex:number;explanation:string};
-const LOCAL_TRIVIA:LocalTrivia[]=[
+type LocalTrivia={tier:string;family:string;question:string;answers:string[];correctIndex:number;explanation:string};
+const BASE_LOCAL_TRIVIA:Omit<LocalTrivia,'family'>[]=[
   {tier:'ROOKIE',question:'How many points is a touchdown worth before the extra point?',answers:['3','6','7','8'],correctIndex:1,explanation:'A touchdown is worth six points. The extra-point attempt happens afterward.'},
   {tier:'ROOKIE',question:'Which position normally snaps the football to the quarterback?',answers:['Center','Tight end','Fullback','Safety'],correctIndex:0,explanation:'The center begins the play by snapping the ball.'},
   {tier:'ROOKIE',question:'How many yards does an offense normally need for a first down?',answers:['5','8','10','15'],correctIndex:2,explanation:'An offense normally receives a new set of downs after gaining ten yards.'},
@@ -27,32 +28,36 @@ const LOCAL_TRIVIA:LocalTrivia[]=[
   {tier:'HALL OF FAME',question:'Which formation name traditionally describes a backfield with three running backs aligned behind the quarterback?',answers:['I formation','Wishbone','Pistol','Empty'],correctIndex:1,explanation:'The wishbone traditionally uses a fullback and two halfbacks behind the quarterback.'},
   {tier:'HALL OF FAME',question:'In pass protection, what does a half-slide commonly combine?',answers:['Man protection and zone slide','Two separate screen passes','Only double teams','A seven-man blitz'],correctIndex:0,explanation:'Half-slide protection combines man assignments on one side with a zone-style slide on the other.'},
 ];
+const LOCAL_TRIVIA:LocalTrivia[]=[
+  ...BASE_LOCAL_TRIVIA.map((item,index)=>({...item,family:`offline-rule:${index}`})),
+  ...GAUNTLET_CATALOG.map(item=>({tier:item.tier,family:`offline-scenario:${item.mode}:${item.family}`,question:item.prompt,answers:item.options,correctIndex:item.correct,explanation:item.explanation})),
+];
 const localAttempts=new Map<number,LocalTrivia>();
 const localSeenByTier=new Map<string,Set<string>>();
 const localLastByTier=new Map<string,string>();
 let nextLocalAttempt=-1;
 let lastTriviaSessionOrder=0;
 
-/** Chooses an offline practice question without repeating within a tier until its tiny fallback pool is exhausted. */
+/** Chooses offline practice without repeating an underlying question family. */
 const localTriviaQuestion=(tier:string):TriviaQuestion=>{
   const normalized=tier.toUpperCase();
   const pool=LOCAL_TRIVIA.filter(item=>item.tier===normalized);
   const usablePool=pool.length?pool:[LOCAL_TRIVIA[0]];
   let seen=localSeenByTier.get(normalized)??new Set<string>();
-  let candidates=usablePool.filter(item=>!seen.has(item.question));
+  let candidates=usablePool.filter(item=>!seen.has(item.family));
 
   if(!candidates.length){
     const previous=localLastByTier.get(normalized);
     seen=new Set<string>();
     localSeenByTier.set(normalized,seen);
-    candidates=usablePool.filter(item=>usablePool.length===1||item.question!==previous);
+    candidates=usablePool.filter(item=>usablePool.length===1||item.family!==previous);
     if(!candidates.length)candidates=usablePool;
   }
 
   const question=candidates[Math.floor(Math.random()*candidates.length)]??usablePool[0];
-  seen.add(question.question);
+  seen.add(question.family);
   localSeenByTier.set(normalized,seen);
-  localLastByTier.set(normalized,question.question);
+  localLastByTier.set(normalized,question.family);
   const attemptId=nextLocalAttempt--;
   localAttempts.set(attemptId,question);
   return {attemptId,questionId:Math.abs(attemptId),tier:question.tier,question:question.question,answers:question.answers,practiceOnly:true};
