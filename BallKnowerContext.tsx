@@ -16,7 +16,7 @@ import { generateAiLeagueMembers, AI_ARCHETYPES, buildRosterForArchetype } from 
 import { PLAYERS_DATABASE } from './players';
 import { countRosterGroups, getDraftPositionGroup, minimumCompletionCost, validateRosterShape } from './rosterRules';
 import { getLiveFantasyDraftGroup, LIVE_FANTASY_POSITION_LIMITS, validateLiveFantasyRoster } from './liveFantasyRules';
-import { isCloudConfigured, ensureOnlineSession } from './supabase';
+import { isCloudConfigured, ensureOnlineSession, supabase } from './supabase';
 import {
   createCloudLeague, joinCloudLeague, loadMyCloudLeagues, fetchCloudLeague,
   saveMyCloudRoster, updateCloudLeague, upsertAiCloudMembers, deleteCloudMember,
@@ -267,6 +267,28 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setToastMessage(null);
     }, 3200);
   };
+
+  useEffect(() => {
+    if (!isCloudConfigured || !supabase || !currentUser?.id) return;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
+    void ensureOnlineSession().then(auth => {
+      if (cancelled) return;
+      channel = supabase.channel(`bk-live-alerts-${auth.id}`)
+        .on('postgres_changes', {
+          event: 'INSERT', schema: 'public', table: 'ball_knower_notifications',
+          filter: `auth_user_id=eq.${auth.id}`,
+        }, payload => {
+          const notification = payload.new as { title?: string; body?: string };
+          showToast([notification.title, notification.body].filter(Boolean).join(' · '));
+        })
+        .subscribe();
+    }).catch(error => console.warn('Live league alerts could not be connected', error));
+    return () => {
+      cancelled = true;
+      if (channel) void supabase.removeChannel(channel);
+    };
+  }, [currentUser?.id]);
 
   const loginWithProvider = (provider: 'google' | 'apple' | 'email', customName?: string, customEmail?: string) => {
     const name = customName?.trim() || (provider === 'google' ? 'Google User' : provider === 'apple' ? 'Apple User' : 'Fantasy GM');
