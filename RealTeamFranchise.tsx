@@ -4,18 +4,18 @@ import { FranchiseSeason } from './FranchiseSeason';
 import { buildRealTeamRoster, SOLO_FRANCHISE_SAVE_KEYS } from './soloFranchiseEngine';
 import { SoloTeamPicker } from './SoloTeamPicker';
 import { getSavedNflTeamTheme, TEAM_THEMES, teamLogoUrl } from './teamTheme';
-import { PLAYERS_DATABASE } from './players';
 import { Player } from './types';
 import { ModeGuide } from './ModeGuide';
 import { ModalPortal } from './ModalPortal';
 
 type Props = { onBack: () => void };
 type RealFranchiseSave = {
-  version: 2;
+  version: 3;
   teamAbbr: string;
   roster: Player[];
   draftPicks: number[];
   gamePlan: string;
+  opponentRosters: Record<string, Player[]>;
 };
 
 function restoreFranchise(): RealFranchiseSave | null {
@@ -26,13 +26,19 @@ function restoreFranchise(): RealFranchiseSave | null {
     if (typeof saved?.teamAbbr !== 'string' || !TEAM_THEMES.some(team => team.abbr === saved.teamAbbr)) return null;
     const baseRoster = buildRealTeamRoster(saved.teamAbbr);
     return {
-      version: 2,
+      version: 3,
       teamAbbr: saved.teamAbbr,
       roster: Array.isArray(saved.roster) && saved.roster.length ? saved.roster : baseRoster,
       draftPicks: Array.isArray(saved.draftPicks)
         ? saved.draftPicks.filter((round: unknown) => Number.isInteger(round) && Number(round) >= 1 && Number(round) <= 4)
         : [1, 2, 3, 4],
       gamePlan: typeof saved.gamePlan === 'string' && saved.gamePlan ? saved.gamePlan : 'Balanced attack',
+      opponentRosters: saved.opponentRosters && typeof saved.opponentRosters === 'object'
+        ? Object.entries(saved.opponentRosters).reduce<Record<string, Player[]>>((rosters, [abbr, value]) => {
+            if (Array.isArray(value)) rosters[abbr] = value as Player[];
+            return rosters;
+          }, {})
+        : {},
     };
   } catch {
     return null;
@@ -50,32 +56,37 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
   const [tradeSearch, setTradeSearch] = useState('');
   const [rosterOverride, setRosterOverride] = useState<Player[] | null>(restored?.roster ?? null);
   const [draftPicks, setDraftPicks] = useState<number[]>(restored?.draftPicks ?? [1, 2, 3, 4]);
+  const [opponentRosters, setOpponentRosters] = useState<Record<string, Player[]>>(restored?.opponentRosters ?? {});
   const [tradeTarget, setTradeTarget] = useState<Player | null>(null);
   const [outgoingIds, setOutgoingIds] = useState<string[]>([]);
   const [outgoingPicks, setOutgoingPicks] = useState<number[]>([]);
   const team = teamByAbbr(teamAbbr ?? selectedAbbr);
   const baseRoster = useMemo(() => teamAbbr ? buildRealTeamRoster(teamAbbr) : [], [teamAbbr]);
   const roster = rosterOverride ?? baseRoster;
+  const leagueRosters = useMemo(() => Object.fromEntries(TEAM_THEMES
+    .filter(item => item.abbr !== teamAbbr)
+    .map(item => [item.abbr, opponentRosters[item.abbr] ?? buildRealTeamRoster(item.abbr)])), [opponentRosters, teamAbbr]);
 
   useEffect(() => {
     if (!teamAbbr || !roster.length) return;
     try {
       localStorage.setItem(SOLO_FRANCHISE_SAVE_KEYS.real, JSON.stringify({
-        version: 2,
+        version: 3,
         teamAbbr,
         roster,
         draftPicks,
         gamePlan,
+        opponentRosters,
       } satisfies RealFranchiseSave));
     } catch (error) {
       console.warn('Unable to persist Franchise Command changes', error);
     }
-  }, [draftPicks, gamePlan, roster, teamAbbr]);
+  }, [draftPicks, gamePlan, opponentRosters, roster, teamAbbr]);
 
   const start = () => {
     try {
       const startingRoster = buildRealTeamRoster(selectedAbbr);
-      localStorage.setItem(SOLO_FRANCHISE_SAVE_KEYS.real, JSON.stringify({ version: 2, teamAbbr: selectedAbbr, roster: startingRoster, draftPicks: [1, 2, 3, 4], gamePlan: 'Balanced attack' } satisfies RealFranchiseSave));
+      localStorage.setItem(SOLO_FRANCHISE_SAVE_KEYS.real, JSON.stringify({ version: 3, teamAbbr: selectedAbbr, roster: startingRoster, draftPicks: [1, 2, 3, 4], gamePlan: 'Balanced attack', opponentRosters: {} } satisfies RealFranchiseSave));
       localStorage.removeItem(`${SOLO_FRANCHISE_SAVE_KEYS.real}:season`);
     } catch (error) {
       console.warn('Unable to save Real Team Franchise', error);
@@ -86,6 +97,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
     setRosterOverride(buildRealTeamRoster(selectedAbbr));
     setDraftPicks([1, 2, 3, 4]);
     setGamePlan('Balanced attack');
+    setOpponentRosters({});
   };
 
   const newCareer = () => {
@@ -100,6 +112,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
     setRosterOverride(null);
     setDraftPicks([1, 2, 3, 4]);
     setGamePlan('Balanced attack');
+    setOpponentRosters({});
   };
 
   if (teamAbbr && seasonOpen) {
@@ -108,14 +121,14 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
         <button type="button" onClick={newCareer} className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-30 flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/90 px-4 text-xs font-black shadow-xl">
           <RotateCcw size={15} /> NEW TEAM
         </button>
-        <FranchiseSeason title="FRANCHISE COMMAND" userTeam={team} roster={roster} saveKey={SOLO_FRANCHISE_SAVE_KEYS.real} onBack={() => setSeasonOpen(false)} onRosterChange={setRosterOverride} />
+        <FranchiseSeason title="FRANCHISE COMMAND" userTeam={team} roster={roster} saveKey={SOLO_FRANCHISE_SAVE_KEYS.real} onBack={() => setSeasonOpen(false)} onRosterChange={setRosterOverride} opponentRosters={leagueRosters} gamePlan={gamePlan} />
       </div>
     );
   }
 
   if (teamAbbr) {
-    const tradeTargets = PLAYERS_DATABASE
-      .filter(player => player.team !== team.abbr && !roster.some(item => item.id === player.id))
+    const tradeTargets = Object.values(leagueRosters).flat()
+      .filter(player => !roster.some(item => item.id === player.id))
       .filter(player => !tradeSearch.trim() || `${player.name} ${player.team} ${player.position}`.toLowerCase().includes(tradeSearch.toLowerCase()))
       .sort((a, b) => b.ovr - a.ovr)
       .slice(0, 18);
@@ -138,9 +151,18 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
       }
       const outgoingNames = outgoingPlayers.map(player => player.name);
       const pickNames = outgoingPicks.map(round => `a ${ordinal(round)}-round pick`);
+      const tradePartner = tradeTarget.team;
+      const partnerRoster = leagueRosters[tradePartner] ?? buildRealTeamRoster(tradePartner);
       setRosterOverride([...roster.filter(player => !outgoingIds.includes(player.id)), { ...tradeTarget, team: team.abbr }]);
+      setOpponentRosters(current => ({
+        ...current,
+        [tradePartner]: [
+          ...partnerRoster.filter(player => player.id !== tradeTarget.id),
+          ...outgoingPlayers.map(player => ({ ...player, team: tradePartner })),
+        ],
+      }));
       setDraftPicks(picks => picks.filter(round => !outgoingPicks.includes(round)));
-      setMessage(`${tradeTarget.team} accepted ${[...outgoingNames, ...pickNames].join(', ')} for ${tradeTarget.name}.`);
+      setMessage(`${tradePartner} accepted ${[...outgoingNames, ...pickNames].join(', ')} for ${tradeTarget.name}. Both rosters were updated.`);
       setTradeTarget(null);
       setOutgoingIds([]);
       setOutgoingPicks([]);
