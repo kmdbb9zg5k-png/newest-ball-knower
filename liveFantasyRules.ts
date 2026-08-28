@@ -10,14 +10,14 @@ export const LIVE_FANTASY_ROSTER_REQUIREMENTS = {
   DST: 1,
 } as const;
 
-/** Every position stays available through the final pick; roster size is the only practical cap. */
+/** Realistic 20-player roster caps prevent CPU hoarding while preserving bench flexibility. */
 export const LIVE_FANTASY_POSITION_LIMITS = {
-  QB: 20,
-  RB: 20,
-  WR: 20,
-  TE: 20,
-  K: 20,
-  DST: 20,
+  QB: 2,
+  RB: 5,
+  WR: 7,
+  TE: 2,
+  K: 2,
+  DST: 2,
 } as const;
 
 export type LiveFantasyDraftGroup = keyof typeof LIVE_FANTASY_ROSTER_REQUIREMENTS;
