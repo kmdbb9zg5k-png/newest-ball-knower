@@ -1,5 +1,5 @@
 import { ensureOnlineSession, supabase } from './supabase';
-import { League, Player } from './types';
+import { League, Player, SeasonResult } from './types';
 import { PLAYERS_DATABASE } from './players';
 
 export type WeeklyLineup = {
@@ -173,6 +173,14 @@ export async function saveMyWeeklyLineup(leagueId:string,week:number,starters:Re
     p_bench:bench,
   });
   if(error) throw error;
+}
+
+export async function finalizeFantasySeasonFromScores(leagueId:string,result:SeasonResult):Promise<SeasonResult>{
+  if(!supabase) throw new Error('Online league services are not configured.');
+  await ensureOnlineSession();
+  const {data,error}=await supabase.rpc('finalize_ball_knower_fantasy_season',{p_league_id:leagueId,p_season_result:result});
+  if(error) throw error;
+  return data as SeasonResult;
 }
 
 export async function setMyIrPlayer(leagueId:string,playerId:string,onIr:boolean){

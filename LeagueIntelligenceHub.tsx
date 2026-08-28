@@ -5,6 +5,7 @@ import {useBallKnower} from './BallKnowerContext';
 import {fetchSeasonOperations,LeagueTransaction} from './fantasySeasonCloud';
 import {fetchOwnerProfiles,OwnerProfile,setSpectatorMode} from './spectatorCloud';
 import {buildAchievements,buildAwards,buildDraftGrades,buildLeagueNews,buildLeagueRecords,buildOwnerReputation,buildPowerRankings,buildRivalries,buildStorylines} from './leagueIntelligence';
+import {FantasyRanking,loadFantasyRankings} from './fantasyRankingsCloud';
 
 type Tab='news'|'rankings'|'grades'|'awards'|'owners'|'rivalries'|'records'|'spectator';
 const tabs:{id:Tab;label:string;icon:React.ReactNode}[]=[
@@ -16,6 +17,7 @@ export const LeagueIntelligenceHub:React.FC<{league:League}>=({league})=>{
  const [tab,setTab]=useState<Tab>('news');
  const [transactions,setTransactions]=useState<LeagueTransaction[]>([]);
  const [profiles,setProfiles]=useState<OwnerProfile[]>([]);
+ const [projections,setProjections]=useState<FantasyRanking[]>([]);
  const [error,setError]=useState('');
  const [busy,setBusy]=useState(false);
  const operational=league as League & {spectatorEnabled?:boolean;publicSlug?:string};
@@ -28,10 +30,10 @@ export const LeagueIntelligenceHub:React.FC<{league:League}>=({league})=>{
   setPublicSlug(operational.publicSlug||'');
  },[league.id,operational.spectatorEnabled,operational.publicSlug]);
 
- useEffect(()=>{let alive=true;(async()=>{try{const ops=await fetchSeasonOperations(league.id);if(!alive)return;setTransactions([...ops.transactions]);const ids=league.members.filter(m=>!m.isAi&&m.userId).map(m=>m.userId);const p=await fetchOwnerProfiles(ids);if(alive)setProfiles(p);}catch(e:any){if(alive)setError(e?.message||'Could not load league intelligence.');}})();return()=>{alive=false};},[league.id,league.members.length]);
+ useEffect(()=>{let alive=true;(async()=>{try{const [ops,rankingRows]=await Promise.all([fetchSeasonOperations(league.id),loadFantasyRankings()]);if(!alive)return;setTransactions([...ops.transactions]);setProjections(rankingRows);const ids=league.members.filter(m=>!m.isAi&&m.userId).map(m=>m.userId);const p=await fetchOwnerProfiles(ids);if(alive)setProfiles(p);}catch(e:any){if(alive)setError(e?.message||'Could not load league intelligence.');}})();return()=>{alive=false};},[league.id,league.members.length]);
 
- const rankings=useMemo(()=>buildPowerRankings(league),[league]);
- const grades=useMemo(()=>buildDraftGrades(league),[league]);
+ const rankings=useMemo(()=>buildPowerRankings(league,undefined,projections),[league,projections]);
+ const grades=useMemo(()=>buildDraftGrades(league,projections),[league,projections]);
  const awards=useMemo(()=>buildAwards(league),[league]);
  const rivalries=useMemo(()=>buildRivalries(league),[league]);
  const achievements=useMemo(()=>buildAchievements(league,transactions),[league,transactions]);
@@ -56,7 +58,7 @@ export const LeagueIntelligenceHub:React.FC<{league:League}>=({league})=>{
 
   {tab==='rankings'&&<div className="space-y-3"><Header title="Weekly Power Rankings" sub="Preseason uses fantasy lineup strength; weekly results add record, scoring and point differential"/>{rankings.map(r=><div key={r.memberId} className="grid grid-cols-[52px_1fr_auto] items-center gap-3 rounded-2xl border border-white/10 bg-[#101318] p-4"><div className="text-center"><div className="text-2xl font-black text-[#D4AF37]">#{r.rank}</div><div className={`text-[9px] font-black ${r.movement>0?'text-emerald-400':r.movement<0?'text-red-400':'text-zinc-600'}`}>{r.movement>0?`▲${r.movement}`:r.movement<0?`▼${Math.abs(r.movement)}`:'—'}</div></div><div><div className="font-black uppercase">{r.memberName}</div><p className="mt-1 text-[11px] text-zinc-500">{r.reason}</p></div><div className="text-right"><div className="text-xl font-black">{r.score}</div><div className="text-[9px] text-zinc-600">POWER</div></div></div>)}</div>}
 
-  {tab==='grades'&&<div className="space-y-3"><Header title="Draft Report Cards" sub="Roster quality, balance, cap efficiency and value picks"/>{grades.map((g,i)=><div key={g.memberId} className="rounded-2xl border border-white/10 bg-[#101318] p-5"><div className="flex items-start justify-between gap-4"><div><div className="text-[9px] font-black uppercase text-zinc-600">League Rank #{i+1}</div><h3 className="text-lg font-black uppercase">{g.memberName}</h3></div><div className="text-4xl font-black text-[#D4AF37]">{g.grade}</div></div><p className="mt-3 text-xs text-zinc-400">{g.summary}</p><div className="mt-4 grid gap-2 sm:grid-cols-3"><Mini label="Score" value={String(g.score)}/><Mini label="Balance" value={String(g.balance)}/><Mini label="Cap Efficiency" value={String(g.capEfficiency)}/></div>{g.bestPick&&<p className="mt-3 text-[11px] text-emerald-400">Best value: <b>{g.bestPick.name}</b> ({g.bestPick.ovr} OVR / ${g.bestPick.salary}M)</p>}{g.worstValue&&<p className="mt-1 text-[11px] text-amber-400">Toughest spend: <b>{g.worstValue.name}</b> (${g.worstValue.salary}M)</p>}</div>)}</div>}
+  {tab==='grades'&&<div className="space-y-3"><Header title="Draft Report Cards" sub="Projected fantasy output, roster construction and draft-day value — never salary cap"/>{grades.map((g,i)=><div key={g.memberId} className="rounded-2xl border border-white/10 bg-[#101318] p-5"><div className="flex items-start justify-between gap-4"><div><div className="text-[9px] font-black uppercase text-zinc-600">League Rank #{i+1}</div><h3 className="text-lg font-black uppercase">{g.memberName}</h3></div><div className="text-4xl font-black text-[#D4AF37]">{g.grade}</div></div><p className="mt-3 text-xs text-zinc-400">{g.summary}</p><div className="mt-4 grid gap-2 sm:grid-cols-3"><Mini label="Projection" value={String(g.projectionScore)}/><Mini label="Construction" value={String(g.balance)}/><Mini label="Draft Value" value={String(g.valueScore)}/></div>{g.bestPick&&<p className="mt-3 text-[11px] text-emerald-400">Best value: <b>{g.bestPick.name}</b>, selected later than his fantasy projection.</p>}</div>)}</div>}
 
   {tab==='awards'&&<div className="space-y-4"><Header title="Ball Knower Awards" sub="Season honors use roster quality plus winning context"/><div className="grid gap-3 md:grid-cols-2">{awards.map(a=><div key={a.award} className="rounded-2xl border border-[#D4AF37]/20 bg-[#D4AF37]/5 p-5"><Trophy className="h-5 w-5 text-[#D4AF37]"/><div className="mt-3 text-[9px] font-black uppercase tracking-widest text-[#D4AF37]">{a.award}</div><div className="mt-1 text-xl font-black uppercase">{a.player.name}</div><div className="text-xs font-bold text-zinc-500">{a.memberName} · {a.player.position} · {a.player.ovr} OVR</div><p className="mt-3 text-xs text-zinc-400">{a.reason}</p></div>)}</div></div>}
 

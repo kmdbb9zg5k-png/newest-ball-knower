@@ -209,6 +209,129 @@ export type FantasyWeeklyScoreRecord = {
   isFinal:boolean;
 };
 
+export type ScoredFantasyPostseason = {
+  seeds: StandingItem[];
+  matchups: Array<FantasyWeekPairing & { playoffRound: NonNullable<SimulationGame['playoffRound']> }>;
+  games: SimulationGame[];
+  championMemberId?: string;
+  nextWeek: number;
+  complete: boolean;
+};
+
+const scoreFor = (scores: FantasyWeeklyScoreRecord[], memberId: string, week: number) =>
+  scores.find(score => score.memberId === memberId && score.week === week && score.isFinal);
+
+function scoredPlayoffGame(
+  homeMemberId: string,
+  awayMemberId: string,
+  week: number,
+  playoffRound: NonNullable<SimulationGame['playoffRound']>,
+  scores: FantasyWeeklyScoreRecord[],
+  seedByMember: Map<string, number>,
+): SimulationGame | null {
+  const home = scoreFor(scores, homeMemberId, week);
+  const away = scoreFor(scores, awayMemberId, week);
+  if (!home || !away) return null;
+  const homeScore = Number(home.livePoints) || 0;
+  const awayScore = Number(away.livePoints) || 0;
+  // Fantasy playoff ties advance the better regular-season seed. This keeps the
+  // bracket deterministic without pretending a tied playoff score was a draw.
+  const homeWins = homeScore > awayScore || (
+    homeScore === awayScore && (seedByMember.get(homeMemberId) || 999) < (seedByMember.get(awayMemberId) || 999)
+  );
+  const winnerId = homeWins ? homeMemberId : awayMemberId;
+  const loserId = homeWins ? awayMemberId : homeMemberId;
+  return {
+    id: `fantasy-playoff-w${week}-${homeMemberId}-vs-${awayMemberId}`,
+    week,
+    homeMemberId,
+    awayMemberId,
+    homeScore,
+    awayScore,
+    winnerId,
+    loserId,
+    isTie: false,
+    playoffRound,
+    keyMatchupFactor: homeScore === awayScore
+      ? 'Tied playoff score — the higher regular-season seed advanced.'
+      : 'Official fantasy playoff score.',
+  };
+}
+
+/**
+ * Builds a scored fantasy postseason without inventing results. For a six-team
+ * field, seeds 1–2 receive byes, seeds 3–6 play in Week 18, the field reseeds
+ * for the semifinals, and the two semifinal winners meet for the title.
+ */
+export function buildScoredFantasyPlayoffs(
+  standings: StandingItem[],
+  scores: FantasyWeeklyScoreRecord[],
+  playoffTeams: 4|6|8 = 6,
+  regularSeasonWeeks = 17,
+): ScoredFantasyPostseason {
+  const supportedCount = standings.length >= 8 ? 8 : standings.length >= 6 ? 6 : Math.min(4, standings.length);
+  const count = Math.min(playoffTeams, supportedCount);
+  const seeds = standings.slice(0, count);
+  const seedByMember = new Map(seeds.map((standing, index) => [standing.memberId, index + 1]));
+  const games: SimulationGame[] = [];
+  const matchups: ScoredFantasyPostseason['matchups'] = [];
+  let field = seeds.map(seed => seed.memberId);
+  let week = regularSeasonWeeks + 1;
+  let firstRound = true;
+
+  while (field.length > 1) {
+    const advancing: string[] = [];
+    let playing = field;
+    if (firstRound && field.length === 6) {
+      advancing.push(field[0], field[1]);
+      playing = field.slice(2);
+    }
+    const playoffRound: NonNullable<SimulationGame['playoffRound']> = field.length <= 2
+      ? 'championship'
+      : field.length <= 4
+        ? 'semifinal'
+        : 'quarterfinal';
+    const roundGames: SimulationGame[] = [];
+    for (let left = 0, right = playing.length - 1; left < right; left++, right--) {
+      matchups.push({
+        id: `fantasy-playoff-w${week}-${playing[left]}-vs-${playing[right]}`,
+        week,
+        homeMemberId: playing[left],
+        awayMemberId: playing[right],
+        playoffRound,
+      });
+      const game = scoredPlayoffGame(playing[left], playing[right], week, playoffRound, scores, seedByMember);
+      if (game) roundGames.push(game);
+    }
+    games.push(...roundGames);
+    if (roundGames.length !== playing.length / 2) {
+      return { seeds, matchups, games, nextWeek: week, complete: false };
+    }
+    advancing.push(...roundGames.map(game => game.winnerId));
+    field = advancing.sort((a, b) => (seedByMember.get(a) || 999) - (seedByMember.get(b) || 999));
+    firstRound = false;
+    week++;
+  }
+
+  return {
+    seeds,
+    matchups,
+    games,
+    championMemberId: field[0],
+    nextWeek: Math.max(regularSeasonWeeks + 1, week - 1),
+    complete: Boolean(field[0]),
+  };
+}
+
+export function resolveSeasonChampion(result?: Pick<SeasonResult, 'championMemberId'|'winnerAnalysis'|'standings'>): StandingItem | undefined {
+  if (!result) return undefined;
+  // Never infer a fantasy champion from the regular-season standings. Older
+  // saves without a recorded playoff winner should show no champion instead of
+  // quietly awarding the title to the #1 seed.
+  const championId = result.championMemberId;
+  return championId ? result.standings.find(standing => standing.memberId === championId) : undefined;
+}
+
 export function buildFantasyWeekPairings(members: LeagueMember[], week: number): FantasyWeekPairing[] {
   if (members.length < 2 || members.length % 2 !== 0) throw new Error('Fantasy weeks require an even number of teams.');
   const rotation=[...members];

@@ -41,6 +41,7 @@ import {
   ArchivedSeason,
   buildLeagueRecords,
   fetchFantasyParityState,
+  finalizeFantasySeasonFromScores,
   LINEUP_SLOTS,
   MemberFantasyMeta,
   NflWeekGame,
@@ -55,7 +56,7 @@ import {
 } from './fantasyLeagueParityCloud';
 import { counterTradeV2 } from './fantasyTradeV2Cloud';
 import { FantasyRanking, loadFantasyRankings } from './fantasyRankingsCloud';
-import { buildFantasyWeekPairings, buildScoredFantasyGames, buildStandings } from './simulation';
+import { buildFantasyWeekPairings, buildScoredFantasyGames, buildScoredFantasyPlayoffs, buildStandings } from './simulation';
 
 type Tab = 'team' | 'matchup' | 'players' | 'league' | 'activity' | 'intel';
 type ActivityView = 'trades' | 'moves' | 'messages';
@@ -141,6 +142,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
   const [acceptDrops, setAcceptDrops] = useState<Record<string,string[]>>({});
   const [message, setMessage] = useState('');
   const tradeBuilderRef = useRef<HTMLDivElement>(null);
+  const seasonFinalizeRef = useRef('');
 
   const rankingsByName = useMemo(() => {
     const map = new Map<string, FantasyRanking>();
@@ -249,10 +251,30 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
   const regularSeasonSchedule = useMemo(() => Array.from({length:maxWeek},(_,index) => buildFantasyWeekPairings(league.members,index+1)).flat(), [league.members,maxWeek]);
   const scoredGames = useMemo(() => buildScoredFantasyGames(league.members,maxWeek,scores), [league.members,maxWeek,scores]);
   const visibleStandings = useMemo(() => buildStandings(league.members,scoredGames), [league.members,scoredGames]);
+  const expectedRegularGames=maxWeek*league.members.length/2;
+  const regularSeasonComplete=scoredGames.length===expectedRegularGames;
+  const playoffTeamCount=(settings.playoffTeams===4||settings.playoffTeams===8?settings.playoffTeams:6) as 4|6|8;
+  const postseason = useMemo(() => regularSeasonComplete
+    ? buildScoredFantasyPlayoffs(visibleStandings,scores,playoffTeamCount,maxWeek)
+    : {seeds:[],matchups:[],games:[],nextWeek:maxWeek+1,complete:false},
+  [regularSeasonComplete,visibleStandings,scores,playoffTeamCount,maxWeek]);
+  const champion=postseason.championMemberId?league.members.find(member=>member.id===postseason.championMemberId):undefined;
   const visibleLeague = useMemo(() => scoredGames.length ? {...league,seasonResult:{
-    completedAt:'',standings:visibleStandings,games:scoredGames,draftOrder:[],
-    winnerAnalysis:{winnerId:'',winnerName:'',summary:'',keyFactors:[]},teamReports:{},
-  }} : {...league,seasonResult:undefined}, [league,scoredGames,visibleStandings]);
+    completedAt:postseason.complete?new Date().toISOString():'',standings:visibleStandings,games:[...scoredGames,...postseason.games],draftOrder:[],
+    championMemberId:postseason.championMemberId,playoffGames:postseason.games,
+    winnerAnalysis:{winnerId:postseason.championMemberId||'',winnerName:champion?.userName||'',summary:champion?`${displayManagerName(champion)} won the fantasy playoffs.`:'',keyFactors:champion?['Qualified through the regular season.','Won the championship matchup.']:[]},teamReports:{},
+  }} : {...league,seasonResult:undefined}, [league,scoredGames,visibleStandings,postseason,champion]);
+  useEffect(()=>{
+    const result=visibleLeague.seasonResult;
+    if(!postseason.complete||!result?.championMemberId||league.seasonResult?.championMemberId===result.championMemberId)return;
+    const key=`${league.id}:${result.championMemberId}`;
+    if(seasonFinalizeRef.current===key)return;
+    seasonFinalizeRef.current=key;
+    void finalizeFantasySeasonFromScores(league.id,result).then(()=>showToast(`${champion?.userName||'The playoff winner'} is the Ball Knower champion.`)).catch((err:any)=>{
+      seasonFinalizeRef.current='';
+      setError(err?.message||'The championship result could not be finalized.');
+    });
+  },[league.id,league.seasonResult?.championMemberId,visibleLeague.seasonResult,postseason.complete,champion?.userName,showToast]);
   const records = useMemo(() => buildLeagueRecords(visibleLeague, archives), [visibleLeague, archives]);
 
   const freeAgents = useMemo(() => getLeagueFreeAgents(league, PLAYERS_DATABASE)
@@ -361,7 +383,11 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
     setMessage('');
   }, 'Message sent.');
 
-  const weekMatchups = useMemo(() => regularSeasonSchedule.filter(game => game.week === week), [regularSeasonSchedule,week]);
+  const allScoredGames=[...scoredGames,...postseason.games];
+  const allScheduledMatchups=[...regularSeasonSchedule,...postseason.matchups];
+  const playoffWeeks=playoffTeamCount===4?2:3;
+  const maxSelectableWeek=maxWeek+playoffWeeks;
+  const weekMatchups = useMemo(() => allScheduledMatchups.filter(game => game.week === week), [allScheduledMatchups,week]);
   useEffect(() => {
     const myGame=weekMatchups.find(game=>game.homeMemberId===me?.id||game.awayMemberId===me?.id);
     setViewedMatchupId(current=>weekMatchups.some(game=>game.id===current)?current:(myGame?.id||weekMatchups[0]?.id||''));
@@ -376,13 +402,13 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
     : 'Scheduled';
   const nextKickoff=nflGames.filter(game=>!game.isFinal).sort((a,b)=>Date.parse(a.kickoffAt)-Date.parse(b.kickoffAt))[0];
   const seasonHasGames = scoredGames.length > 0;
-  const mySchedule = useMemo(() => regularSeasonSchedule.map(game => {
+  const mySchedule = useMemo(() => allScheduledMatchups.map(game => {
     if (game.homeMemberId !== me?.id && game.awayMemberId !== me?.id) return null;
     const opponentId = game.homeMemberId === me?.id ? game.awayMemberId : game.homeMemberId;
-    const result = scoredGames.find(played => played.week === game.week && played.homeMemberId === game.homeMemberId && played.awayMemberId === game.awayMemberId);
+    const result = allScoredGames.find(played => played.week === game.week && played.homeMemberId === game.homeMemberId && played.awayMemberId === game.awayMemberId);
     const hasLiveScore = scores.some(score => score.week === game.week && (score.memberId === game.homeMemberId || score.memberId === game.awayMemberId) && score.players.some(player=>player.isLive));
     return {game,opponent:league.members.find(member => member.id === opponentId),result,hasLiveScore};
-  }).filter(Boolean) as {game:(typeof regularSeasonSchedule)[number];opponent?:LeagueMember;result?:SimulationGame;hasLiveScore:boolean}[], [regularSeasonSchedule,scoredGames,scores,league.members,me?.id]);
+  }).filter(Boolean) as {game:(typeof regularSeasonSchedule)[number];opponent?:LeagueMember;result?:SimulationGame;hasLiveScore:boolean}[], [allScheduledMatchups,allScoredGames,scores,league.members,me?.id]);
 
   const findPlayer = (id:string) => league.members.flatMap(member => member.roster || []).find(player => player.id === id) || PLAYERS_DATABASE.find(player => player.id === id);
   const swapDefinition = LINEUP_SLOTS.find(slot => slot.id === swapSlot);
@@ -473,11 +499,12 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
       </div>}
 
       {tab === 'matchup' && <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3"><div><h2 className="text-xl font-black uppercase">Week {week} Matchups</h2><p className="text-xs text-zinc-500">{nextKickoff?`${nextKickoff.awayTeam} @ ${nextKickoff.homeTeam} · ${formatKickoff(nextKickoff.kickoffAt)}`:'Every NFL game is final.'}</p></div><select aria-label="Fantasy week" value={week} onChange={event => setWeek(Number(event.target.value))} className="min-h-11 rounded-xl border border-white/10 bg-[#101318] px-3 text-xs">{Array.from({length:maxWeek},(_,index)=>index+1).map(value=><option key={value} value={value}>Week {value}</option>)}</select></div>
+        <div className="flex items-center justify-between gap-3"><div><h2 className="text-xl font-black uppercase">{week>maxWeek?'Playoff':'Week'} {week} Matchups</h2><p className="text-xs text-zinc-500">{week>maxWeek?'Winners advance automatically after both official scores are final.':nextKickoff?`${nextKickoff.awayTeam} @ ${nextKickoff.homeTeam} · ${formatKickoff(nextKickoff.kickoffAt)}`:'Every NFL game is final.'}</p></div><select aria-label="Fantasy week" value={week} onChange={event => setWeek(Number(event.target.value))} className="min-h-11 rounded-xl border border-white/10 bg-[#101318] px-3 text-xs">{Array.from({length:maxSelectableWeek},(_,index)=>index+1).map(value=><option key={value} value={value}>{value>maxWeek?`Playoffs · Week ${value}`:`Week ${value}`}</option>)}</select></div>
+        <DataNotice text="Online fantasy matchups use official weekly scoring records. The bracket reseeds and saves the championship winner."/>
         <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{weekMatchups.map(game=>{const home=league.members.find(member=>member.id===game.homeMemberId);const away=league.members.find(member=>member.id===game.awayMemberId);const homeScore=scores.find(score=>score.week===week&&score.memberId===home?.id);const awayScore=scores.find(score=>score.week===week&&score.memberId===away?.id);const mine=game.homeMemberId===me?.id||game.awayMemberId===me?.id;return <button key={game.id} onClick={()=>setViewedMatchupId(game.id)} className={`min-h-16 min-w-[11.5rem] shrink-0 rounded-xl border p-3 text-left ${viewedMatchup?.id===game.id?'border-[#D4AF37]/50 bg-[#D4AF37]/10':'border-white/10 bg-[#101318]'}`}><div className="flex items-center justify-between gap-2 text-[8px] font-black uppercase"><span className={mine?'text-[#D4AF37]':'text-zinc-600'}>{mine?'Your Matchup':'League Matchup'}</span><span className={homeScore?.isFinal&&awayScore?.isFinal?'text-zinc-500':homeScore?.players.some(player=>player.isLive)||awayScore?.players.some(player=>player.isLive)?'text-amber-300':'text-zinc-600'}>{homeScore?.isFinal&&awayScore?.isFinal?'Final':homeScore?.players.some(player=>player.isLive)||awayScore?.players.some(player=>player.isLive)?'Live':'Upcoming'}</span></div><div className="mt-1 flex items-center justify-between gap-2 text-[10px] font-black"><span className="truncate">{displayManagerName(away)}</span><span>{awayScore?.isFinal||awayScore?.players.some(player=>player.isLive)?awayScore.livePoints.toFixed(1):awayScore?.projectedPoints.toFixed(1)||'—'}</span></div><div className="mt-1 flex items-center justify-between gap-2 text-[10px] font-black"><span className="truncate">{displayManagerName(home)}</span><span>{homeScore?.isFinal||homeScore?.players.some(player=>player.isLive)?homeScore.livePoints.toFixed(1):homeScore?.projectedPoints.toFixed(1)||'—'}</span></div></button>})}</div>
-        <Panel title={`Week ${week}`} sub={`${displayManagerName(viewedAway)} @ ${displayManagerName(viewedHome)}`} icon={<Clock3 className="h-5 w-5 text-[#D4AF37]"/>}>{viewedMatchup ? <><div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3"><Score name={displayManagerName(viewedAway)} points={viewedAwayScore?.livePoints||0} projection={viewedAwayScore?.projectedPoints} status={viewedScoreStatus}/><b className="text-zinc-600">@</b><Score name={displayManagerName(viewedHome)} points={viewedHomeScore?.livePoints||0} projection={viewedHomeScore?.projectedPoints} status={viewedScoreStatus}/></div>{(viewedHomeScore?.lastCorrectionAt||viewedAwayScore?.lastCorrectionAt)&&<div className="rounded-lg border border-sky-400/20 bg-sky-400/[.06] p-2 text-center text-[9px] font-black uppercase text-sky-300">Official stat correction applied automatically</div>}</> : <Empty text="This week does not have a matchup."/>}</Panel>
+        <Panel title={week>maxWeek?`Playoffs · Week ${week}`:`Week ${week}`} sub={viewedMatchup?`${displayManagerName(viewedAway)} @ ${displayManagerName(viewedHome)}`:'Bracket matchup pending'} icon={<Clock3 className="h-5 w-5 text-[#D4AF37]"/>}>{viewedMatchup ? <><div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3"><Score name={displayManagerName(viewedAway)} points={viewedAwayScore?.livePoints||0} projection={viewedAwayScore?.projectedPoints} status={viewedScoreStatus}/><b className="text-zinc-600">@</b><Score name={displayManagerName(viewedHome)} points={viewedHomeScore?.livePoints||0} projection={viewedHomeScore?.projectedPoints} status={viewedScoreStatus}/></div>{(viewedHomeScore?.lastCorrectionAt||viewedAwayScore?.lastCorrectionAt)&&<div className="rounded-lg border border-sky-400/20 bg-sky-400/[.06] p-2 text-center text-[9px] font-black uppercase text-sky-300">Official stat correction applied automatically</div>}</> : <Empty text={week>maxWeek&&!regularSeasonComplete?`Playoff seeding locks after every Week ${maxWeek} score is final.`:week>postseason.nextWeek?'This matchup appears after the prior playoff round is final.':'This week does not have a matchup.'}/>}</Panel>
         {viewedMatchup&&<div className="grid gap-3 lg:grid-cols-2"><MatchupRoster member={viewedAway} score={viewedAwayScore} injuries={injuries}/><MatchupRoster member={viewedHome} score={viewedHomeScore} injuries={injuries}/></div>}
-        <Panel title={`Full ${maxWeek}-Week Schedule`} sub="Tap any week to open that matchup" icon={<Clock3 className="h-5 w-5 text-[#D4AF37]"/>}><div className="divide-y divide-white/5">{mySchedule.map(({game,opponent:scheduledOpponent,result,hasLiveScore}) => { const won=result&&result.winnerId===me?.id; const tied=Boolean(result?.isTie); const venue=game.homeMemberId===me?.id?'vs':'@'; return <button key={game.id} onClick={()=>setWeek(game.week)} className={`flex min-h-12 w-full items-center justify-between gap-3 px-1 text-left ${week===game.week?'text-[#D4AF37]':'text-white'}`}><span className="w-14 text-[9px] font-black uppercase">Week {game.week}</span><span className="min-w-0 flex-1 truncate text-xs font-black">{venue} {displayManagerName(scheduledOpponent)}</span><span className={`shrink-0 text-[9px] font-black uppercase ${!result?(hasLiveScore?'text-amber-300':'text-zinc-600'):tied?'text-zinc-300':won?'text-emerald-400':'text-red-400'}`}>{result ? tied ? 'Tie' : won ? 'Win' : 'Loss' : hasLiveScore ? 'Live' : 'Scheduled'}</span></button>})}</div></Panel>
+        <Panel title="Full Season Schedule" sub="Regular season and playoffs—tap any week to open it" icon={<Clock3 className="h-5 w-5 text-[#D4AF37]"/>}><div className="divide-y divide-white/5">{mySchedule.map(({game,opponent:scheduledOpponent,result,hasLiveScore}) => { const won=result&&result.winnerId===me?.id; const tied=Boolean(result?.isTie); const venue=game.homeMemberId===me?.id?'vs':'@'; return <button key={game.id} onClick={()=>setWeek(game.week)} className={`flex min-h-12 w-full items-center justify-between gap-3 px-1 text-left ${week===game.week?'text-[#D4AF37]':'text-white'}`}><span className="w-20 text-[9px] font-black uppercase">{game.week>maxWeek?'Playoffs':'Week'} {game.week}</span><span className="min-w-0 flex-1 truncate text-xs font-black">{venue} {displayManagerName(scheduledOpponent)}</span><span className={`shrink-0 text-[9px] font-black uppercase ${!result?(hasLiveScore?'text-amber-300':'text-zinc-600'):tied?'text-zinc-300':won?'text-emerald-400':'text-red-400'}`}>{result ? tied ? 'Tie' : won ? 'Win' : 'Loss' : hasLiveScore ? 'Live' : 'Scheduled'}</span></button>})}</div></Panel>
       </div>}
 
       {tab === 'players' && <div className="space-y-3">
@@ -495,6 +522,9 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
 
       {tab === 'league' && <div className="space-y-3">
         {seasonHasGames && <div className="grid grid-cols-2 gap-2 lg:grid-cols-4"><Record label="Highest Score" value={records.highGame ? `${records.highGame.name} · ${records.highGame.score}` : '—'}/><Record label="Biggest Win" value={records.biggestBlowout ? `${records.biggestBlowout.name} · +${records.biggestBlowout.margin}` : '—'}/><Record label="Best Season" value={records.bestSeason ? `${records.bestSeason.name} · ${records.bestSeason.wins}-${records.bestSeason.losses}` : '—'}/><Record label="Most Titles" value={records.dynasty ? `${records.dynasty.name} · ${records.dynasty.titles}` : '—'}/></div>}
+        <Panel title={champion?`${displayManagerName(champion)} Is League Champion`:'Fantasy Playoffs'} sub={regularSeasonComplete?`${postseason.seeds.length}-team field · higher seed advances only on an exact scoring tie`:'Seeds lock after all regular-season scores are final'} icon={<Trophy className="h-5 w-5 text-[#D4AF37]"/>}>
+          {regularSeasonComplete?<div className="space-y-3"><div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{postseason.seeds.map((seed,index)=><div key={seed.memberId} className="rounded-xl bg-black/25 p-3"><div className="text-[8px] font-black uppercase text-[#D4AF37]">Seed #{index+1}</div><div className="mt-1 truncate text-xs font-black">{displayManagerName(league.members.find(member=>member.id===seed.memberId))}</div><div className="mt-1 text-[9px] text-zinc-600">{seed.wins}-{seed.losses}{seed.ties?`-${seed.ties}`:''}</div></div>)}</div>{postseason.matchups.map(matchup=>{const result=postseason.games.find(game=>game.id===matchup.id);return <div key={matchup.id} className="rounded-xl border border-white/10 bg-black/25 p-3"><div className="text-[8px] font-black uppercase tracking-wider text-zinc-600">{matchup.playoffRound} · Week {matchup.week}</div><div className="mt-2 flex items-center justify-between gap-2 text-xs font-black"><span className={result?.winnerId===matchup.homeMemberId?'text-emerald-300':''}>{displayManagerName(league.members.find(member=>member.id===matchup.homeMemberId))} {result?result.homeScore:''}</span><span className="text-zinc-700">VS</span><span className={`text-right ${result?.winnerId===matchup.awayMemberId?'text-emerald-300':''}`}>{displayManagerName(league.members.find(member=>member.id===matchup.awayMemberId))} {result?result.awayScore:''}</span></div></div>})}{!postseason.complete&&<DataNotice text={`Waiting for official Week ${postseason.nextWeek} playoff scores.`}/>}</div>:<Empty text="The playoff bracket appears when the regular season is complete."/>}
+        </Panel>
         <Panel title="Teams & Standings" sub="Tap a team, see its full roster, then trade for a player" icon={<Users className="h-5 w-5 text-[#D4AF37]"/>}>{visibleStandings.map(standing => { const member=league.members.find(item=>item.id===standing.memberId)!; return <button key={member.id} onClick={() => setSelectedTeamId(member.id)} className="flex min-h-14 w-full items-center justify-between gap-3 border-b border-white/5 px-1 py-2 text-left"><div className="min-w-0"><div className="flex items-center gap-2"><span className="truncate text-sm font-black">{displayManagerName(member)}</span>{member.isAi && <CpuBadge/>}{member.id === me?.id && <span className="rounded-full bg-[#D4AF37]/15 px-2 py-0.5 text-[8px] font-black uppercase text-[#D4AF37]">You</span>}</div><div className="text-[10px] text-zinc-500">{rosterCount(member)} players · {standing ? `${standing.wins}-${standing.losses}${standing.ties ? `-${standing.ties}` : ''}` : '0-0'}</div></div><ChevronRight className="h-4 w-4 shrink-0 text-zinc-600"/></button>; })}</Panel>
         <Panel title="League Rules" sub={isCommissioner ? 'Tap settings to edit core fantasy rules' : 'League settings'} icon={<Settings className="h-5 w-5 text-[#D4AF37]"/>}><button onClick={() => setSettingsOpen(open => !open)} className="flex min-h-11 w-full items-center justify-between rounded-xl bg-black/25 px-3 text-xs font-black uppercase"><span>{settingsOpen ? 'Hide Settings' : 'Open Settings'}</span><ChevronRight className={`h-4 w-4 transition ${settingsOpen ? 'rotate-90' : ''}`}/></button>{settingsOpen && <div className="grid gap-2 pt-2 sm:grid-cols-3"><Rule label="Scoring" value={settings.scoringFormat || 'ppr'} disabled={!isCommissioner} options={[["ppr","Full PPR"],["half_ppr","Half PPR"],["standard","Standard"]]} onChange={value => updateLeagueSettings(league.id,{scoringFormat:value} as any)}/><Rule label="Waivers" value={waiverType} disabled={!isCommissioner} options={[["priority","Rolling Priority"],["faab","FAAB"]]} onChange={value => updateLeagueSettings(league.id,{waiverType:value} as any)}/><Rule label="Free Agents" value={settings.freeAgentMode || 'instant'} disabled={!isCommissioner} options={[["instant","Instant Adds"],["continuous","Continuous Waivers"]]} onChange={value => updateLeagueSettings(league.id,{freeAgentMode:value} as any)}/><Rule label="Drop Waiver" value={String(settings.waiverDays ?? 2)} disabled={!isCommissioner} options={[["0","Same Day"],["1","1 Day"],["2","2 Days"],["3","3 Days"]]} onChange={value => updateLeagueSettings(league.id,{waiverDays:Number(value)} as any)}/><Rule label="Process Time" value={String(settings.waiverProcessHourUtc ?? 9)} disabled={!isCommissioner} options={[["5","5:00 UTC"],["9","9:00 UTC"],["13","13:00 UTC"],["17","17:00 UTC"]]} onChange={value => updateLeagueSettings(league.id,{waiverProcessHourUtc:Number(value)} as any)}/><Rule label="IR Slots" value={String(settings.irSlots ?? 2)} disabled={!isCommissioner} options={[["0","0"],["1","1"],["2","2"],["3","3"]]} onChange={value => updateLeagueSettings(league.id,{irSlots:Number(value)} as any)}/></div>}</Panel>
       </div>}

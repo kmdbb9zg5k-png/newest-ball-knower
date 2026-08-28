@@ -1,7 +1,7 @@
 import { PLAYERS_DATABASE } from '../players';
 import { getDraftPositionGroup, validateRosterShape } from '../rosterRules';
 import { getLiveFantasyDraftGroup, validateLiveFantasyRoster } from '../liveFantasyRules';
-import { buildFantasyWeekPairings, buildScoredFantasyGames, buildStandings, simulateFantasyPlayoffs, simulateFantasyWeek } from '../simulation';
+import { buildFantasyWeekPairings, buildScoredFantasyGames, buildScoredFantasyPlayoffs, buildStandings, resolveSeasonChampion, simulateFantasyPlayoffs, simulateFantasyWeek } from '../simulation';
 import {
   assignPlayerToFranchiseTeam,
   buildFranchiseRookieClass,
@@ -125,6 +125,23 @@ check(fantasyStandings.every((standing,index)=>index===0||fantasyStandings[index
 const fantasyPlayoffs=simulateFantasyPlayoffs(testMembers,fantasyStandings,6,18);
 check(fantasyPlayoffs.games.length===5,'A six-team fantasy playoff must produce five games.');
 check(Boolean(fantasyPlayoffs.championMemberId),'Fantasy playoffs did not crown a champion.');
+const sixSeeds=fantasyStandings.slice(0,6);
+const playoffScore=(memberId:string,week:number,livePoints:number)=>({memberId,week,livePoints,isFinal:true});
+const scoredPlayoffScores=[
+  playoffScore(sixSeeds[2].memberId,18,110),playoffScore(sixSeeds[5].memberId,18,121),
+  playoffScore(sixSeeds[3].memberId,18,118),playoffScore(sixSeeds[4].memberId,18,114),
+  playoffScore(sixSeeds[0].memberId,19,119),playoffScore(sixSeeds[5].memberId,19,126),
+  playoffScore(sixSeeds[1].memberId,19,124),playoffScore(sixSeeds[3].memberId,19,117),
+  playoffScore(sixSeeds[1].memberId,20,120),playoffScore(sixSeeds[5].memberId,20,128),
+];
+const scoredPlayoffs=buildScoredFantasyPlayoffs(fantasyStandings,scoredPlayoffScores,6,17);
+check(scoredPlayoffs.games.length===5,'Scored six-team postseason did not build two opening games, two semifinals and one championship.');
+check(scoredPlayoffs.games.filter(game=>game.playoffRound==='semifinal').length===2,'Scored fantasy postseason did not build both semifinals.');
+check(scoredPlayoffs.games.filter(game=>game.playoffRound==='championship').length===1,'Scored fantasy postseason did not build the championship.');
+check(scoredPlayoffs.championMemberId===sixSeeds[5].memberId,'Scored fantasy postseason crowned the regular-season leader instead of the playoff winner.');
+check(resolveSeasonChampion({standings:fantasyStandings,winnerAnalysis:{winnerId:sixSeeds[0].memberId,winnerName:sixSeeds[0].memberName,summary:'',keyFactors:[]}})===undefined,'Legacy regular-season winner data was incorrectly treated as a playoff championship.');
+const pendingChampionship=buildScoredFantasyPlayoffs(fantasyStandings,scoredPlayoffScores.slice(0,-1),6,17);
+check(!pendingChampionship.complete&&!pendingChampionship.championMemberId,'An incomplete fantasy championship crowned a winner early.');
 check(validateLiveFantasyRoster([]).length===6,'An empty live-fantasy roster must report all six missing position groups.');
 check(estimatePlayerSalary('P', 79) <= 6, 'Estimated punter salary exceeds the position cap.');
 check(estimatePlayerSalary('LB', 79) < estimatePlayerSalary('QB', 79), 'Position-aware salary estimates are not differentiated.');
