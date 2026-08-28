@@ -186,22 +186,25 @@ export async function setMyIrPlayer(leagueId:string,playerId:string,onIr:boolean
   if(error) throw error;
 }
 
-export async function submitFaabClaim(leagueId:string,memberId:string,playerId:string,bid:number,dropPlayerId?:string,priority=999){
+export type PlayerMoveResult={status:'added'|'pending';message:string;claimId?:string;claimGroupId?:string;processAt?:string};
+
+export async function submitFaabClaim(leagueId:string,memberId:string,playerId:string,bid:number,dropPlayerId?:string,priority=1,claimGroupId?:string):Promise<PlayerMoveResult>{
   if(!supabase) throw new Error('Online league services are not configured.');
   await ensureOnlineSession();
+  void memberId;
   const player=PLAYERS_DATABASE.find(item=>item.id===playerId);
   if(!player) throw new Error('That player is not in the active NFL pool.');
   const safeBid=Math.max(0,Math.round((Number(bid)||0)*100)/100);
-  const {error}=await supabase.from('ball_knower_waiver_claims').insert({
-    league_id:leagueId,
-    member_id:memberId,
-    player_id:player.id,
-    player_snapshot:player,
-    drop_player_id:dropPlayerId||null,
-    priority,
-    faab_bid:safeBid,
+  const {data,error}=await supabase.rpc('submit_ball_knower_player_move',{
+    p_league_id:leagueId,
+    p_player_snapshot:player,
+    p_drop_player_id:dropPlayerId||null,
+    p_faab_bid:safeBid,
+    p_claim_order:Math.max(1,priority),
+    p_claim_group_id:claimGroupId||null,
   });
   if(error) throw error;
+  return data as PlayerMoveResult;
 }
 
 export async function counterTrade(tradeId:string,offeredPlayerIds:string[],requestedPlayerIds:string[],note=''){
