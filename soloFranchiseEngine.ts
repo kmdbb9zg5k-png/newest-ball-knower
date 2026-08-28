@@ -154,15 +154,22 @@ export function buildFranchiseTradeResult(
 
 export function replaceFranchisePlayersWithRookies(roster: Player[], rookies: Player[]): Player[] {
   const next = [...roster];
+  const insertedRookieIds = new Set<string>();
+  const protectedPlayerIds = new Set(['my-player-user']);
   for (const rookie of rookies) {
     if (next.some(player => player.id === rookie.id)) continue;
     const group = getDraftPositionGroup(rookie);
     if (!group) continue;
     const replacement = next
       .map((player, index) => ({ player, index }))
-      .filter(entry => getDraftPositionGroup(entry.player) === group)
+      .filter(entry => getDraftPositionGroup(entry.player) === group
+        && !insertedRookieIds.has(entry.player.id)
+        && !protectedPlayerIds.has(entry.player.id))
       .sort((first, second) => first.player.ovr - second.player.ovr || first.player.name.localeCompare(second.player.name))[0];
-    if (replacement) next[replacement.index] = rookie;
+    if (replacement) {
+      next[replacement.index] = rookie;
+      insertedRookieIds.add(rookie.id);
+    }
   }
   return next;
 }
