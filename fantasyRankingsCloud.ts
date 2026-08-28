@@ -6,6 +6,7 @@ export type FantasyRanking = {
   team: string;
   position: 'QB' | 'RB' | 'WR' | 'TE' | 'K';
   overall_rank: number;
+  adp: number;
   position_rank: number;
   actual_points_2025: number;
   projected_points_2026: number;
@@ -31,6 +32,7 @@ export async function loadFantasyRankings(): Promise<FantasyRanking[]> {
   return (data || []).map(row => ({
     ...row,
     actual_points_2025: Number(row.actual_points_2025),
+    adp: Number(row.adp ?? row.overall_rank),
     projected_points_2026: Number(row.projected_points_2026),
     point_change: Number(row.point_change),
   })) as FantasyRanking[];
