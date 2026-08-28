@@ -858,6 +858,9 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           pickIndex:0,
           picks:[],
           startedAt:now,
+          pickSeconds:60,
+          pickStartedAt:now,
+          pickDeadlineAt:new Date(Date.now()+60000).toISOString(),
           updatedAt:now,
         };
       }
