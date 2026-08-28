@@ -5,6 +5,8 @@ type Method='game'|'random'|'commissioner';
 type Pick={overall:number;round:number;memberId:string;playerId:string;group:LiveFantasyDraftGroup;source:'cpu'|'autopick'};
 type Preferences={queue:string[];preRankings:string[];favorites:string[];doNotDraft:Set<string>};
 const GROUPS=Object.keys(LIVE_FANTASY_ROSTER_REQUIREMENTS) as LiveFantasyDraftGroup[];
+const TEAMS=10;
+const ROSTER_SIZE=15;
 
 const orders:Record<Method,string[]>={
   game:Array.from({length:10},(_,index)=>`m${index+1}`),
@@ -22,7 +24,7 @@ function selectPlayer(picks:Pick[],memberId:string,preferences:Preferences){
   const mine=picks.filter(pick=>pick.memberId===memberId);
   const counts=mine.reduce<Partial<Record<LiveFantasyDraftGroup,number>>>((all,pick)=>({...all,[pick.group]:(all[pick.group]||0)+1}),{});
   const missing=GROUPS.flatMap(group=>Array.from({length:Math.max(0,LIVE_FANTASY_ROSTER_REQUIREMENTS[group]-(counts[group]||0))},()=>group));
-  const requiredNow=20-mine.length<=missing.length?new Set(missing):null;
+  const requiredNow=ROSTER_SIZE-mine.length<=missing.length?new Set(missing):null;
   const queueOrder=new Map(preferences.queue.map((id,index)=>[id,index]));
   const preRankOrder=new Map(preferences.preRankings.map((id,index)=>[id,index]));
   const favorites=new Set(preferences.favorites);
@@ -50,19 +52,19 @@ function run(method:Method){
   const queued=ranked.find(player=>getLiveFantasyDraftGroup(player)==='RB')!;
   const avoided=ranked.find(player=>player.id!==queued.id)!;
   const preferences:Preferences={queue:[queued.id],preRankings:[ranked[2].id],favorites:[ranked[3].id],doNotDraft:new Set([avoided.id])};
-  for(let pickIndex=0;pickIndex<200;pickIndex++){
+  for(let pickIndex=0;pickIndex<TEAMS*ROSTER_SIZE;pickIndex++){
     const memberId=memberAt(order,pickIndex);const prefs:Preferences=memberId===order[0]?preferences:{queue:[],preRankings:[],favorites:[],doNotDraft:new Set<string>()};
     const player=selectPlayer(picks,memberId,prefs);const group=getLiveFantasyDraftGroup(player)!;
     picks.push({overall:pickIndex+1,round:Math.floor(pickIndex/10)+1,memberId,playerId:player.id,group,source:memberId===order[0]?'autopick':'cpu'});
   }
-  if(new Set(picks.map(pick=>pick.playerId)).size!==200)throw new Error(`${method}: duplicate player`);
+  if(new Set(picks.map(pick=>pick.playerId)).size!==TEAMS*ROSTER_SIZE)throw new Error(`${method}: duplicate player`);
   if(picks[0].playerId!==queued.id)throw new Error(`${method}: queue priority failed`);
   if(picks.some(pick=>pick.playerId===avoided.id&&pick.memberId===order[0]))throw new Error(`${method}: do-not-draft failed`);
   for(const memberId of order){
-    const roster=picks.filter(pick=>pick.memberId===memberId);if(roster.length!==20)throw new Error(`${method}: incomplete ${memberId}`);
+    const roster=picks.filter(pick=>pick.memberId===memberId);if(roster.length!==ROSTER_SIZE)throw new Error(`${method}: incomplete ${memberId}`);
     for(const group of GROUPS){const count=roster.filter(pick=>pick.group===group).length;if(count>LIVE_FANTASY_POSITION_LIMITS[group]||count<LIVE_FANTASY_ROSTER_REQUIREMENTS[group])throw new Error(`${method}: illegal ${memberId} ${group} ${count}`);}
   }
-  return {method,teams:10,picks:picks.length,uniquePlayers:new Set(picks.map(pick=>pick.playerId)).size,completeRosters:10,queuePriority:'passed',doNotDraft:'passed',snakeOrder:'passed'};
+  return {method,teams:TEAMS,rosterSize:ROSTER_SIZE,picks:picks.length,uniquePlayers:new Set(picks.map(pick=>pick.playerId)).size,completeRosters:TEAMS,queuePriority:'passed',doNotDraft:'passed',snakeOrder:'passed'};
 }
 
 console.log(JSON.stringify((['game','random','commissioner'] as Method[]).map(run),null,2));

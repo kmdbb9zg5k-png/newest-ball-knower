@@ -854,7 +854,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           leagueId,
           status:'active',
           orderMemberIds:league.seasonResult.draftOrder.map(pick=>pick.memberId),
-          rounds:20,
+          rounds:15,
           pickIndex:0,
           picks:[],
           startedAt:now,
