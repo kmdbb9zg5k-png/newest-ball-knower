@@ -217,7 +217,7 @@ begin
     end loop;
   end loop;
   select count(*) into v_lost from public.ball_knower_waiver_claims where processed_at=p_now and status='lost';
-  insert into public.ball_knower_waiver_runs(id,processed_at,won_count,lost_count,metadata) values(v_run,p_now,v_won,v_lost,jsonb_build_object('source','automatic'));
+  if v_won>0 or v_lost>0 then insert into public.ball_knower_waiver_runs(id,processed_at,won_count,lost_count,metadata) values(v_run,p_now,v_won,v_lost,jsonb_build_object('source','automatic')); else v_run:=null; end if;
   return jsonb_build_object('runId',v_run,'processedAt',p_now,'won',v_won,'lost',v_lost);
 end;$$;
 
