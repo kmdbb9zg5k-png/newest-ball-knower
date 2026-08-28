@@ -1,5 +1,6 @@
 import { ensureOnlineSession, supabase } from './supabase';
 import { GAUNTLET_CATALOG } from './gauntletEngine';
+import { parseTriviaAnswers } from './triviaValidation';
 
 export type ProgressProfile={
   userId:string;displayName:string;bkRating:number;xp:number;level:number;
@@ -146,8 +147,7 @@ export async function fetchTriviaQuestion(tier:string,session?:TriviaSession):Pr
     if(response.error)throw response.error;
     const row=Array.isArray(response.data)?response.data[0]:response.data;
     if(!row)throw new Error('No trivia question is available right now.');
-    const answers=Array.isArray(row.answers)?row.answers.map((answer:unknown)=>String(answer)):[];
-    if(answers.length!==4)throw new Error('Trivia question data is incomplete.');
+    const answers=parseTriviaAnswers(row.answers);
     return {attemptId:Number(row.attempt_id),questionId:Number(row.question_id),tier:String(row.tier),question:String(row.question),answers,practiceOnly:false};
   }catch(error){
     console.warn('Cloud trivia unavailable; using offline practice bank.',error);

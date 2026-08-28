@@ -125,6 +125,64 @@ const concepts:Record<GauntletMode,Concept[]>={'FILM ROOM':film,'PREDICTIONS':pr
 const tierLead:Record<GauntletTier,string>={ROOKIE:'Identify the clearest football clue.',PRO:'Account for assignment and situation.', 'ALL-PRO':'Separate the primary signal from the disguise.', 'HALL OF FAME':'Resolve the full chain of responsibility and game context.'};
 const tierDetail:Record<GauntletTier,string>={ROOKIE:'The picture is simplified.',PRO:'One secondary clue may be noise.','ALL-PRO':'Personnel and leverage can change the answer.','HALL OF FAME':'Assume the opponent is disguising intent until the snap confirms it.'};
 
+const multiReadPrompt:Record<GauntletMode,Record<Exclude<GauntletTier,'ROOKIE'>,string>>={
+ 'FILM ROOM':{
+  PRO:'The picture changes after the snap. Which coaching read should control the diagnosis?',
+  'ALL-PRO':'The offense and defense are countering each other. Which two-part diagnosis reconciles both assignments?',
+  'HALL OF FAME':'Resolve the complete pre-snap, post-snap, and late-down responsibility chain.',
+ },
+ 'PREDICTIONS':{
+  PRO:'A second game-state signal arrives. Which projection update should carry the most weight?',
+  'ALL-PRO':'Two predictive signals pull in different directions. Which combined forecast handles both?',
+  'HALL OF FAME':'Build the full forecast across matchup, game script, and late-breaking context.',
+ },
+ 'DEBATES':{
+  PRO:'The argument adds a second claim. Which evidence response now wins the exchange?',
+  'ALL-PRO':'Both sides cite valid but incomplete evidence. Which answer reconciles the full record?',
+  'HALL OF FAME':'Resolve all three claims without dropping team, era, role, or sample-size context.',
+ },
+ 'SURVIVOR':{
+  PRO:'A second risk report changes the board. Which update is the disciplined survivor move?',
+  'ALL-PRO':'The safest favorite and the cleanest matchup are no longer the same team. Which process handles both?',
+  'HALL OF FAME':'Set the card after reconciling baseline safety, late news, and pool-leverage risk.',
+ },
+};
+
+function combinedConcept(mode:GauntletMode,tier:Exclude<GauntletTier,'ROOKIE'>,index:number):Concept{
+  const pool=concepts[mode];
+  const first=pool[index];
+  const second=pool[(index+(tier==='PRO'?5:tier==='ALL-PRO'?9:13))%pool.length];
+  if(tier==='PRO')return{
+    family:`${first.family}__update__${second.family}`,
+    context:`INITIAL READ · ${first.context} UPDATED READ · ${second.context}`,
+    prompt:multiReadPrompt[mode][tier],
+    correct:`Update to the second read: ${second.correct}`,
+    wrong:[`Freeze the first read: ${first.correct}`,`Discard both for: ${second.wrong[0]}`,`Ignore the update and choose: ${first.wrong[1]}`],
+    explanation:`The later information changes the decision. ${second.explanation} The initial clue still matters as context: ${first.explanation}`,
+  };
+  if(tier==='ALL-PRO')return{
+    family:`${first.family}__reconcile__${second.family}`,
+    context:`PRIMARY SIGNAL · ${first.context} COUNTER-SIGNAL · ${second.context}`,
+    prompt:multiReadPrompt[mode][tier],
+    correct:`Reconcile both: ${first.correct}; then ${second.correct}`,
+    wrong:[`Use only the first signal: ${first.correct}`,`Use only the counter-signal: ${second.correct}`,`Reject both for: ${first.wrong[0]}`],
+    explanation:`The correct answer preserves both independent football clues instead of pretending one erases the other. ${first.explanation} ${second.explanation}`,
+  };
+  const third=pool[(index+19)%pool.length];
+  return{
+    family:`${first.family}__chain__${second.family}__${third.family}`,
+    context:`BASELINE · ${first.context} ADJUSTMENT · ${second.context} FINAL CONSTRAINT · ${third.context}`,
+    prompt:multiReadPrompt[mode][tier],
+    correct:`Complete chain: ${first.correct} → ${second.correct} → ${third.correct}`,
+    wrong:[`Stop after the baseline: ${first.correct}`,`Skip the adjustment: ${first.correct} → ${third.correct}`,`Abandon the chain for: ${second.wrong[1]}`],
+    explanation:`Hall of Fame decisions require the entire sequence. ${first.explanation} ${second.explanation} ${third.explanation}`,
+  };
+}
+
+function conceptsForTier(mode:GauntletMode,tier:GauntletTier){
+  return tier==='ROOKIE'?concepts[mode]:concepts[mode].map((_,index)=>combinedConcept(mode,tier,index));
+}
+
 function hash(value:string){let h=2166136261;for(const char of value){h^=char.charCodeAt(0);h=Math.imul(h,16777619);}return h>>>0;}
 export function seededRandom(seed:string){let state=hash(seed)||1;return()=>{state+=0x6D2B79F5;let t=state;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;};}
 function shuffled<T>(items:T[],seed:string){const out=[...items];const random=seededRandom(seed);for(let i=out.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[out[i],out[j]]=[out[j],out[i]];}return out;}
@@ -134,11 +192,11 @@ function scenario(mode:GauntletMode,tier:GauntletTier,concept:Concept,index:numb
   const situational=['1st & 10','2nd & medium','3rd & short','3rd & long','late-game','red zone'][hash(seed)%6];
   return {id:`${mode.toLowerCase().replaceAll(' ','-')}:${tier.toLowerCase()}:${index+1}`,mode,tier,family:concept.family,
     context:`${situational.toUpperCase()} · ${concept.context} ${tierDetail[tier]}`,
-    prompt:`${tierLead[tier]} ${concept.prompt}`,options,correct:options.indexOf(concept.correct),explanation:concept.explanation};
+    prompt:tier==='ROOKIE'?`${tierLead[tier]} ${concept.prompt}`:concept.prompt,options,correct:options.indexOf(concept.correct),explanation:concept.explanation};
 }
 
 export function buildScenarioCatalog():GauntletScenario[]{
-  return GAUNTLET_MODES.flatMap(mode=>GAUNTLET_TIERS.flatMap(tier=>concepts[mode].map((concept,index)=>scenario(mode,tier,concept,index))));
+  return GAUNTLET_MODES.flatMap(mode=>GAUNTLET_TIERS.flatMap(tier=>conceptsForTier(mode,tier).map((concept,index)=>scenario(mode,tier,concept,index))));
 }
 export const GAUNTLET_CATALOG=buildScenarioCatalog();
 export function scenariosFor(mode:GauntletMode,tier:GauntletTier){return GAUNTLET_CATALOG.filter(item=>item.mode===mode&&item.tier===tier);}
@@ -168,10 +226,33 @@ export function buildDailyGauntlet(dateKey=utcDateKey()){
   });
 }
 
+export function shouldEliminateGauntletRun(mode:GauntletMode,correct:boolean,dailyDate?:string){
+  return mode==='SURVIVOR'&&!correct&&!dailyDate;
+}
+
 export type GauntletProgress={xp:number;level:number;currentStreak:number;longestStreak:number;totalCorrect:number;totalAnswered:number;highScores:Record<string,number>;daily:Record<string,{score:number;completed:boolean}>};
 const EMPTY_PROGRESS:GauntletProgress={xp:0,level:1,currentStreak:0,longestStreak:0,totalCorrect:0,totalAnswered:0,highScores:{},daily:{}};
 const progressKey=(userId?:string)=>`ballknower_gauntlet_progress_v1:${userId||'guest'}`;
 export function loadGauntletProgress(userId?:string):GauntletProgress{try{const value=JSON.parse(localStorage.getItem(progressKey(userId))||'null');return value?{...EMPTY_PROGRESS,...value,highScores:value.highScores||{},daily:value.daily||{}}:{...EMPTY_PROGRESS};}catch{return{...EMPTY_PROGRESS};}}
 export function saveGauntletProgress(progress:GauntletProgress,userId?:string){try{localStorage.setItem(progressKey(userId),JSON.stringify(progress));}catch{}}
+export function mergeGauntletProgress(local:GauntletProgress,cloud:GauntletProgress):GauntletProgress{
+  const highScores={...local.highScores};
+  for(const[key,value]of Object.entries(cloud.highScores||{}))highScores[key]=Math.max(highScores[key]||0,value||0);
+  const daily={...local.daily};
+  for(const[date,value]of Object.entries(cloud.daily||{})){
+    const existing=daily[date];
+    daily[date]={score:Math.max(existing?.score||0,value?.score||0),completed:Boolean(existing?.completed||value?.completed)};
+  }
+  const xp=Math.max(local.xp||0,cloud.xp||0);
+  return{
+    xp,
+    level:Math.max(local.level||1,cloud.level||1,Math.floor(xp/250)+1),
+    currentStreak:Math.max(local.currentStreak||0,cloud.currentStreak||0),
+    longestStreak:Math.max(local.longestStreak||0,cloud.longestStreak||0),
+    totalCorrect:Math.max(local.totalCorrect||0,cloud.totalCorrect||0),
+    totalAnswered:Math.max(local.totalAnswered||0,cloud.totalAnswered||0),
+    highScores,daily,
+  };
+}
 export function recordGauntletAnswer(progress:GauntletProgress,correct:boolean,xp:number){const streak=correct?progress.currentStreak+1:0;const nextXp=progress.xp+(correct?xp:0);return{...progress,xp:nextXp,level:Math.floor(nextXp/250)+1,currentStreak:streak,longestStreak:Math.max(progress.longestStreak,streak),totalCorrect:progress.totalCorrect+(correct?1:0),totalAnswered:progress.totalAnswered+1};}
 export function recordGauntletRun(progress:GauntletProgress,key:string,score:number,total:number,dateKey?:string){const highScores={...progress.highScores,[key]:Math.max(progress.highScores[key]||0,score)};const daily=dateKey?{...progress.daily,[dateKey]:{score,completed:true}}:progress.daily;return{...progress,highScores,daily,xp:progress.xp+(score===total?50:0),level:Math.floor((progress.xp+(score===total?50:0))/250)+1};}

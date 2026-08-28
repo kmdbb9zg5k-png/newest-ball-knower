@@ -6,7 +6,7 @@ import { ModalPortal } from './ModalPortal';
 import { trackBallKnowerEvent } from './analytics';
 import { useBallKnower } from './BallKnowerContext';
 import { GauntletPlayModal } from './GauntletPlayModal';
-import { buildDailyGauntlet,buildGauntletRound,GauntletMode,GauntletProgress,GauntletTier,loadGauntletProgress,recordGauntletAnswer,recordGauntletRun,saveGauntletProgress,utcDateKey } from './gauntletEngine';
+import { buildDailyGauntlet,buildGauntletRound,GauntletMode,GauntletProgress,GauntletTier,loadGauntletProgress,mergeGauntletProgress,recordGauntletAnswer,recordGauntletRun,saveGauntletProgress,utcDateKey } from './gauntletEngine';
 import { loadUserState,saveUserState } from './userStateCloud';
 
 type TriviaTier = GauntletTier;
@@ -50,11 +50,22 @@ export const ChallengesHub: React.FC = () => {
   const questionRequestRef = useRef(0);
   const triviaSessionRef = useRef(0);
   const serverSessionRef = useRef<TriviaSession | null>(null);
+  const progressCloudQueueRef=useRef<Promise<void>>(Promise.resolve());
   const dailyDate=utcDateKey();
   const dailyScenarios=useMemo(()=>buildDailyGauntlet(dailyDate),[dailyDate]);
   const runScenarios=useMemo(()=>activeRun?buildGauntletRound(activeRun.mode,activeRun.tier,10,`${activeRun.nonce}:${Date.now()}`):[],[activeRun]);
-  const applyProgress=useCallback((next:GauntletProgress)=>{setProgress(next);saveGauntletProgress(next,userId);void saveUserState('gauntlet_progress_v1',next).catch(error=>console.warn('Gauntlet cloud save failed',error));},[userId]);
-  useEffect(()=>{let cancelled=false;const local=loadGauntletProgress(userId);setProgress(local);void loadUserState<GauntletProgress>('gauntlet_progress_v1').then(cloud=>{if(cancelled||!cloud)return;const preferred=(cloud.totalAnswered||0)>(local.totalAnswered||0)?cloud:local;const merged={...preferred,highScores:{...cloud.highScores,...local.highScores},daily:{...cloud.daily,...local.daily}};for(const[key,value]of Object.entries(cloud.highScores||{}))merged.highScores[key]=Math.max(value,local.highScores[key]||0);applyProgress(merged);}).catch(error=>console.warn('Gauntlet cloud load failed',error));return()=>{cancelled=true};},[applyProgress,userId]);
+  const applyProgress=useCallback((next:GauntletProgress)=>{
+    const local=mergeGauntletProgress(loadGauntletProgress(userId),next);
+    setProgress(local);saveGauntletProgress(local,userId);
+    progressCloudQueueRef.current=progressCloudQueueRef.current.then(async()=>{
+      const latestLocal=loadGauntletProgress(userId);
+      const cloud=await loadUserState<GauntletProgress>('gauntlet_progress_v1');
+      const merged=cloud?mergeGauntletProgress(latestLocal,cloud):latestLocal;
+      saveGauntletProgress(merged,userId);setProgress(merged);
+      await saveUserState('gauntlet_progress_v1',merged);
+    }).catch(error=>console.warn('Gauntlet cloud merge failed',error));
+  },[userId]);
+  useEffect(()=>{const local=loadGauntletProgress(userId);setProgress(local);applyProgress(local);},[applyProgress,userId]);
 
   const loadQuestion = useCallback(async (nextTier: TriviaTier, session?: TriviaSession | null) => {
     // A previous RPC can finish after the user exits or switches tiers. Give every

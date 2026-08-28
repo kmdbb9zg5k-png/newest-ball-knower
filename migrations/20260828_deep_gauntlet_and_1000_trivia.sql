@@ -30,8 +30,8 @@ with facts as (
       when 1 then 'The '||team_name||' represent which market?'
       when 2 then 'Match the '||team_name||' to their home market.'
       else 'Which location belongs with the '||team_name||'?' end,
-    ball_knower_private.trivia_choices4(market,(select x.market from facts x where x.abbr=other_abbrs[1]),(select x.market from facts x where x.abbr=other_abbrs[2]),(select x.market from facts x where x.abbr=other_abbrs[3]),n+1),mod(n+1,4)::smallint,
-    'The '||team_name||' are associated with '||market||'.' from facts
+    ball_knower_private.trivia_choices4(market,(select x.market from facts x where x.abbr=f.other_abbrs[1]),(select x.market from facts x where x.abbr=f.other_abbrs[2]),(select x.market from facts x where x.abbr=f.other_abbrs[3]),n+1),mod(n+1,4)::smallint,
+    'The '||team_name||' are associated with '||market||'.' from facts f
   union all select 'deep_r_conf_team_'||lower(abbr),'ROOKIE','deep:rookie:conference-team',
     case mod(n,4) when 0 then 'Which of these teams is in the '||conference||'?'
       when 1 then 'Find the '||conference||' club.' when 2 then 'Which team belongs to the '||conference||' rather than the '||other_conference||'?'
@@ -108,8 +108,8 @@ with facts as (
     case mod(n,4) when 0 then 'Which full profile is internally consistent?'
       when 1 then 'Find the only valid team-market-quarterback chain.' when 2 then 'Which three-part franchise match is correct?'
       else 'Resolve the one profile without a mismatched clue.' end,
-    ball_knower_private.trivia_choices4(team_name||' — '||market||' — '||starting_qb,mate_teams[1]||' — '||market||' — '||starting_qb,team_name||' — '||(select x.market from facts x where x.abbr=other_abbrs[1])||' — '||other_qbs[1],other_teams[2]||' — '||market||' — '||mate_qbs[2],n+1),mod(n+1,4)::smallint,
-    team_name||' — '||market||' — '||starting_qb||' is the consistent chain.' from facts
+    ball_knower_private.trivia_choices4(team_name||' — '||market||' — '||starting_qb,mate_teams[1]||' — '||market||' — '||starting_qb,team_name||' — '||(select x.market from facts x where x.abbr=f.other_abbrs[1])||' — '||other_qbs[1],other_teams[2]||' — '||market||' — '||mate_qbs[2],n+1),mod(n+1,4)::smallint,
+    team_name||' — '||market||' — '||starting_qb||' is the consistent chain.' from facts f
   union all select 'deep_h_div_qb_pair_'||lower(abbr),'HALL OF FAME','deep:hof:division-quarterback-pair',
     case mod(n,4) when 0 then starting_qb||' and '||mate_qbs[1]||' are listed in the same division. Which one?'
       when 1 then 'What division connects the listed starters '||starting_qb||' and '||mate_qbs[1]||'?'
@@ -157,6 +157,7 @@ begin
   select count(*) into v_count from ball_knower_private.trivia_questions where active;
   if v_count<1000 then raise exception 'Trivia bank expansion produced only % active questions',v_count;end if;
   select count(*) into v_bad from ball_knower_private.trivia_questions
-  where active and (jsonb_typeof(answers)<>'array' or jsonb_array_length(answers)<>4 or correct_index not between 0 and 3 or repeat_family is null or template_family is null);
+  where active and (jsonb_typeof(answers)<>'array' or jsonb_array_length(answers)<>4 or correct_index not between 0 and 3 or repeat_family is null or template_family is null
+    or exists(select 1 from jsonb_array_elements(answers) choice where jsonb_typeof(choice)<>'string' or nullif(btrim(choice#>>'{}'),'') is null));
   if v_bad>0 then raise exception 'Trivia bank contains % malformed active questions',v_bad;end if;
 end $$;
