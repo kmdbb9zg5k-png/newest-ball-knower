@@ -220,6 +220,10 @@ type GameRow = {
 };
 
 const TANK01_HOST = 'tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com';
+class Tank01Error extends Error {
+  constructor(public path:string,public status:number,public code:'auth'|'rate_limit'|'upstream'|'payload',message:string){super(message);this.name='Tank01Error';}
+  get retryable(){return this.code==='rate_limit'||this.code==='upstream';}
+}
 const TEAM_ALIASES:Record<string,string>={LA:'LAR',WSH:'WAS',JAC:'JAX'};
 const STANDARD_SLOTS = [
   {id:'QB',positions:['QB']},
@@ -256,14 +260,17 @@ const projectionScores = (projection:Json|undefined):Record<FantasyScoringFormat
 
 const tankGet = async (path:string,params:Record<string,string|boolean>={}) => {
   const key=process.env.TANK01_API_KEY||process.env.RAPIDAPI_KEY;
-  if(!key) throw new Error('Tank01 API key is not configured.');
+  if(!key) throw new Tank01Error(path,0,'auth','Tank01 API key is not configured.');
   const host=process.env.TANK01_RAPIDAPI_HOST||TANK01_HOST;
   const url=new URL(`https://${host}${path}`);
   Object.entries(params).forEach(([name,value])=>url.searchParams.set(name,String(value)));
   const response=await fetch(url,{headers:{'x-rapidapi-key':key,'x-rapidapi-host':host},signal:AbortSignal.timeout(12_000)});
-  if(!response.ok) throw new Error(`Tank01 ${path} failed (${response.status}).`);
+  if(!response.ok){
+    const code=response.status===401||response.status===403?'auth':response.status===429?'rate_limit':'upstream';
+    throw new Tank01Error(path,response.status,code,`Tank01 ${path} failed (${response.status}).`);
+  }
   const payload=await response.json() as Json;
-  if(payload?.error) throw new Error(`Tank01 ${path}: ${payload.error}`);
+  if(payload?.error) throw new Tank01Error(path,response.status,'payload',`Tank01 ${path}: ${payload.error}`);
   return payload?.body ?? payload;
 };
 
@@ -314,7 +321,10 @@ export default async function handler(req:any,res:any){
 
     const [gamesPayload,projectionsPayload,existingGamesResult,leagueResult,draftResult]=await Promise.all([
       tankGet('/getNFLGamesForWeek',{week:String(week),season:String(season),seasonType}),
-      tankGet('/getNFLProjections',{week:String(week)}).catch(()=>({playerProjections:{},teamDefenseProjections:{}})),
+      tankGet('/getNFLProjections',{week:String(week)}).catch(error=>{
+        console.warn('tank01-optional-projections-failed',{message:error instanceof Error?error.message:String(error),status:error instanceof Tank01Error?error.status:undefined,code:error instanceof Tank01Error?error.code:undefined});
+        return {playerProjections:{},teamDefenseProjections:{}};
+      }),
       db.from('ball_knower_nfl_games').select('*').eq('season',season).eq('season_type',seasonType).eq('week_number',week),
       db.from('ball_knower_leagues').select('id,status,settings'),
       db.from('ball_knower_live_drafts').select('league_id,status').eq('status','completed'),
@@ -590,7 +600,12 @@ export default async function handler(req:any,res:any){
       playerRowsWritten,leagueScoresWritten:weeklyScoreWrites.length,statCorrections:correctionCount,weekIsFinal,checkedAt:now.toISOString(),
     });
   }catch(error:any){
-    console.error('fantasy-live-scoring-failed',error?.message||error);
-    return res.status(500).json({ok:false,error:error?.message||'Live scoring update failed'});
+    if(error instanceof Tank01Error){
+      console.error('fantasy-live-scoring-provider-failed',{provider:'tank01',path:error.path,status:error.status,code:error.code,retryable:error.retryable,message:error.message});
+      if(error.retryable)res.setHeader('Retry-After',error.code==='rate_limit'?'60':'30');
+      return res.status(error.code==='auth'?503:502).json({ok:false,provider:'tank01',code:`tank01_${error.code}`,status:error.status||null,retryable:error.retryable,error:error.code==='auth'?'Live scoring provider authentication is unavailable. Existing scores are preserved.':'Live scoring provider is temporarily unavailable. Existing scores are preserved.'});
+    }
+    console.error('fantasy-live-scoring-failed',{message:error?.message||String(error)});
+    return res.status(500).json({ok:false,code:'live_scoring_internal',error:error?.message||'Live scoring update failed'});
   }
 }
