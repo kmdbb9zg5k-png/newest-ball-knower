@@ -11,7 +11,11 @@ export default async function handler(req: Request, res: Response) {
   }
   if (!serviceRoleKey) return res.status(503).json({ error: 'Transaction processor is not configured.' });
   const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { data, error } = await supabase.rpc('process_due_ball_knower_waivers', { p_now: new Date().toISOString() });
-  if (error) return res.status(500).json({ error: error.message });
-  return res.status(200).json(data);
+  const now = new Date().toISOString();
+  const [waivers, drafts] = await Promise.all([
+    supabase.rpc('process_due_ball_knower_waivers', { p_now: now }),
+    supabase.rpc('process_due_ball_knower_draft_picks', { p_now: now }),
+  ]);
+  if (waivers.error || drafts.error) return res.status(500).json({ error: waivers.error?.message || drafts.error?.message });
+  return res.status(200).json({ waivers: waivers.data, drafts: drafts.data });
 }
