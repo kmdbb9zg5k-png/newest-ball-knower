@@ -230,29 +230,90 @@ export function shouldEliminateGauntletRun(mode:GauntletMode,correct:boolean,dai
   return mode==='SURVIVOR'&&!correct&&!dailyDate;
 }
 
-export type GauntletProgress={xp:number;level:number;currentStreak:number;longestStreak:number;totalCorrect:number;totalAnswered:number;highScores:Record<string,number>;daily:Record<string,{score:number;completed:boolean}>};
+type GauntletAnswerEvent={id:string;kind:'answer';occurredAt:number;correct:boolean;xp:number};
+type GauntletRunEvent={id:string;kind:'run';occurredAt:number;key:string;score:number;total:number;dateKey?:string;bonusXp:number};
+export type GauntletProgressEvent=GauntletAnswerEvent|GauntletRunEvent;
+type GauntletProgressBaseline={
+  xp:number;level:number;currentStreak:number;currentStreakUpdatedAt:number;longestStreak:number;
+  totalCorrect:number;totalAnswered:number;highScores:Record<string,number>;daily:Record<string,{score:number;completed:boolean}>;
+};
+type GauntletProgressSync={version:2;baseline:GauntletProgressBaseline;events:Record<string,GauntletProgressEvent>};
+export type GauntletProgress={
+  xp:number;level:number;currentStreak:number;longestStreak:number;totalCorrect:number;totalAnswered:number;
+  highScores:Record<string,number>;daily:Record<string,{score:number;completed:boolean}>;
+  updatedAt?:number;sync?:GauntletProgressSync;
+};
+export type GauntletEventMeta={id?:string;occurredAt?:number};
 const EMPTY_PROGRESS:GauntletProgress={xp:0,level:1,currentStreak:0,longestStreak:0,totalCorrect:0,totalAnswered:0,highScores:{},daily:{}};
-const progressKey=(userId?:string)=>`ballknower_gauntlet_progress_v1:${userId||'guest'}`;
-export function loadGauntletProgress(userId?:string):GauntletProgress{try{const value=JSON.parse(localStorage.getItem(progressKey(userId))||'null');return value?{...EMPTY_PROGRESS,...value,highScores:value.highScores||{},daily:value.daily||{}}:{...EMPTY_PROGRESS};}catch{return{...EMPTY_PROGRESS};}}
+const progressKey=(userId?:string)=>`ballknower_gauntlet_progress_v2:${userId||'guest'}`;
+const legacyProgressKey=(userId?:string)=>`ballknower_gauntlet_progress_v1:${userId||'guest'}`;
+export function loadGauntletProgress(userId?:string):GauntletProgress{try{const value=JSON.parse(localStorage.getItem(progressKey(userId))||localStorage.getItem(legacyProgressKey(userId))||'null');return value?{...EMPTY_PROGRESS,...value,highScores:value.highScores||{},daily:value.daily||{}}:{...EMPTY_PROGRESS};}catch{return{...EMPTY_PROGRESS};}}
 export function saveGauntletProgress(progress:GauntletProgress,userId?:string){try{localStorage.setItem(progressKey(userId),JSON.stringify(progress));}catch{}}
-export function mergeGauntletProgress(local:GauntletProgress,cloud:GauntletProgress):GauntletProgress{
-  const highScores={...local.highScores};
-  for(const[key,value]of Object.entries(cloud.highScores||{}))highScores[key]=Math.max(highScores[key]||0,value||0);
-  const daily={...local.daily};
-  for(const[date,value]of Object.entries(cloud.daily||{})){
-    const existing=daily[date];
-    daily[date]={score:Math.max(existing?.score||0,value?.score||0),completed:Boolean(existing?.completed||value?.completed)};
-  }
-  const xp=Math.max(local.xp||0,cloud.xp||0);
-  return{
-    xp,
-    level:Math.max(local.level||1,cloud.level||1,Math.floor(xp/250)+1),
-    currentStreak:Math.max(local.currentStreak||0,cloud.currentStreak||0),
-    longestStreak:Math.max(local.longestStreak||0,cloud.longestStreak||0),
-    totalCorrect:Math.max(local.totalCorrect||0,cloud.totalCorrect||0),
-    totalAnswered:Math.max(local.totalAnswered||0,cloud.totalAnswered||0),
-    highScores,daily,
+
+function mergeHighScores(a:Record<string,number>={},b:Record<string,number>={}){
+  const result={...a};for(const[key,value]of Object.entries(b))result[key]=Math.max(result[key]||0,value||0);return result;
+}
+function mergeDaily(a:GauntletProgress['daily']={},b:GauntletProgress['daily']={}){
+  const result={...a};for(const[date,value]of Object.entries(b)){const existing=result[date];result[date]={score:Math.max(existing?.score||0,value?.score||0),completed:Boolean(existing?.completed||value?.completed)};}return result;
+}
+function baselineFrom(progress:GauntletProgress):GauntletProgressBaseline{
+  return progress.sync?.baseline||{
+    xp:progress.xp||0,level:progress.level||1,currentStreak:progress.currentStreak||0,
+    currentStreakUpdatedAt:progress.updatedAt||0,longestStreak:progress.longestStreak||0,
+    totalCorrect:progress.totalCorrect||0,totalAnswered:progress.totalAnswered||0,
+    highScores:{...(progress.highScores||{})},daily:{...(progress.daily||{})},
   };
 }
-export function recordGauntletAnswer(progress:GauntletProgress,correct:boolean,xp:number){const streak=correct?progress.currentStreak+1:0;const nextXp=progress.xp+(correct?xp:0);return{...progress,xp:nextXp,level:Math.floor(nextXp/250)+1,currentStreak:streak,longestStreak:Math.max(progress.longestStreak,streak),totalCorrect:progress.totalCorrect+(correct?1:0),totalAnswered:progress.totalAnswered+1};}
-export function recordGauntletRun(progress:GauntletProgress,key:string,score:number,total:number,dateKey?:string){const highScores={...progress.highScores,[key]:Math.max(progress.highScores[key]||0,score)};const daily=dateKey?{...progress.daily,[dateKey]:{score,completed:true}}:progress.daily;return{...progress,highScores,daily,xp:progress.xp+(score===total?50:0),level:Math.floor((progress.xp+(score===total?50:0))/250)+1};}
+function ledgerFrom(progress:GauntletProgress):GauntletProgressSync{
+  return progress.sync?.version===2?progress.sync:{version:2,baseline:baselineFrom(progress),events:{}};
+}
+function mergeBaselines(a:GauntletProgressBaseline,b:GauntletProgressBaseline):GauntletProgressBaseline{
+  const newerStreak=a.currentStreakUpdatedAt>b.currentStreakUpdatedAt?a:b.currentStreakUpdatedAt>a.currentStreakUpdatedAt?b:{currentStreak:Math.min(a.currentStreak,b.currentStreak),currentStreakUpdatedAt:a.currentStreakUpdatedAt};
+  return{
+    xp:Math.max(a.xp,b.xp),level:Math.max(a.level,b.level),
+    currentStreak:newerStreak.currentStreak,currentStreakUpdatedAt:newerStreak.currentStreakUpdatedAt,
+    longestStreak:Math.max(a.longestStreak,b.longestStreak),totalCorrect:Math.max(a.totalCorrect,b.totalCorrect),totalAnswered:Math.max(a.totalAnswered,b.totalAnswered),
+    highScores:mergeHighScores(a.highScores,b.highScores),daily:mergeDaily(a.daily,b.daily),
+  };
+}
+function deriveProgress(sync:GauntletProgressSync):GauntletProgress{
+  const baseline=sync.baseline;const events=Object.values(sync.events).sort((a,b)=>a.occurredAt-b.occurredAt||a.id.localeCompare(b.id));
+  let xp=baseline.xp,totalCorrect=baseline.totalCorrect,totalAnswered=baseline.totalAnswered,currentStreak=baseline.currentStreak,longestStreak=baseline.longestStreak;
+  let highScores={...baseline.highScores};let daily={...baseline.daily};let updatedAt=baseline.currentStreakUpdatedAt;
+  for(const event of events){
+    updatedAt=Math.max(updatedAt,event.occurredAt);
+    if(event.kind==='answer'){
+      totalAnswered++;if(event.correct){totalCorrect++;xp+=event.xp;currentStreak++;}else currentStreak=0;
+      longestStreak=Math.max(longestStreak,currentStreak);
+    }else{
+      xp+=event.bonusXp;highScores=mergeHighScores(highScores,{[event.key]:event.score});
+      if(event.dateKey)daily=mergeDaily(daily,{[event.dateKey]:{score:event.score,completed:true}});
+    }
+  }
+  return{xp,level:Math.max(baseline.level,Math.floor(xp/250)+1),currentStreak,longestStreak,totalCorrect,totalAnswered,highScores,daily,updatedAt,sync};
+}
+function eventMeta(progress:GauntletProgress,kind:GauntletProgressEvent['kind'],meta?:GauntletEventMeta){
+  const occurredAt=meta?.occurredAt??Math.max(Date.now(),(progress.updatedAt||0)+1);
+  const uuid=globalThis.crypto?.randomUUID?.()||`${Math.random().toString(36).slice(2)}-${occurredAt}`;
+  return{id:meta?.id||`${kind}:${uuid}`,occurredAt};
+}
+export function mergeGauntletProgress(local:GauntletProgress,cloud:GauntletProgress):GauntletProgress{
+  const a=ledgerFrom(local),b=ledgerFrom(cloud);const events:Record<string,GauntletProgressEvent>={...a.events,...b.events};
+  return deriveProgress({version:2,baseline:mergeBaselines(a.baseline,b.baseline),events:Object.fromEntries(Object.entries(events).sort(([left],[right])=>left.localeCompare(right)))});
+}
+export function mergeGauntletProgressEvents(progress:GauntletProgress,remoteEvents:GauntletProgressEvent[]){
+  const sync=ledgerFrom(progress);const events={...sync.events};
+  for(const event of remoteEvents){if(event&&typeof event.id==='string'&&(event.kind==='answer'||event.kind==='run')&&Number.isFinite(event.occurredAt))events[event.id]=event;}
+  return deriveProgress({...sync,events:Object.fromEntries(Object.entries(events).sort(([left],[right])=>left.localeCompare(right)))});
+}
+export function compactGauntletProgressForCloud(progress:GauntletProgress):GauntletProgress{
+  const sync=ledgerFrom(progress);return{...progress,sync:{...sync,events:{}}};
+}
+export function recordGauntletAnswer(progress:GauntletProgress,correct:boolean,xp:number,meta?:GauntletEventMeta){
+  const sync=ledgerFrom(progress);const details=eventMeta(progress,'answer',meta);const event:GauntletAnswerEvent={...details,kind:'answer',correct,xp:correct?Math.max(0,xp):0};
+  return deriveProgress({...sync,events:{...sync.events,[event.id]:event}});
+}
+export function recordGauntletRun(progress:GauntletProgress,key:string,score:number,total:number,dateKey?:string,meta?:GauntletEventMeta){
+  const sync=ledgerFrom(progress);const details=eventMeta(progress,'run',meta);const event:GauntletRunEvent={...details,kind:'run',key,score,total,dateKey,bonusXp:score===total?50:0};
+  return deriveProgress({...sync,events:{...sync.events,[event.id]:event}});
+}

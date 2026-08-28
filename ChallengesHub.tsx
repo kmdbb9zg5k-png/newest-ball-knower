@@ -6,8 +6,8 @@ import { ModalPortal } from './ModalPortal';
 import { trackBallKnowerEvent } from './analytics';
 import { useBallKnower } from './BallKnowerContext';
 import { GauntletPlayModal } from './GauntletPlayModal';
-import { buildDailyGauntlet,buildGauntletRound,GauntletMode,GauntletProgress,GauntletTier,loadGauntletProgress,mergeGauntletProgress,recordGauntletAnswer,recordGauntletRun,saveGauntletProgress,utcDateKey } from './gauntletEngine';
-import { loadUserState,saveUserState } from './userStateCloud';
+import { buildDailyGauntlet,buildGauntletRound,compactGauntletProgressForCloud,GauntletMode,GauntletProgress,GauntletTier,loadGauntletProgress,mergeGauntletProgress,mergeGauntletProgressEvents,recordGauntletAnswer,recordGauntletRun,saveGauntletProgress,utcDateKey } from './gauntletEngine';
+import { loadGauntletProgressEvents,loadUserState,saveGauntletProgressEvents,saveUserState } from './userStateCloud';
 
 type TriviaTier = GauntletTier;
 
@@ -59,10 +59,17 @@ export const ChallengesHub: React.FC = () => {
     setProgress(local);saveGauntletProgress(local,userId);
     progressCloudQueueRef.current=progressCloudQueueRef.current.then(async()=>{
       const latestLocal=loadGauntletProgress(userId);
-      const cloud=await loadUserState<GauntletProgress>('gauntlet_progress_v1');
-      const merged=cloud?mergeGauntletProgress(latestLocal,cloud):latestLocal;
+      const localEvents=Object.values(latestLocal.sync?.events||{});
+      await saveGauntletProgressEvents(localEvents);
+      const [v2,legacy,remoteEvents]=await Promise.all([
+        loadUserState<GauntletProgress>('gauntlet_progress_v2'),
+        loadUserState<GauntletProgress>('gauntlet_progress_v1'),
+        loadGauntletProgressEvents(),
+      ]);
+      const cloud=v2||legacy;const withCloud=cloud?mergeGauntletProgress(latestLocal,cloud):latestLocal;
+      const merged=mergeGauntletProgressEvents(withCloud,remoteEvents);
       saveGauntletProgress(merged,userId);setProgress(merged);
-      await saveUserState('gauntlet_progress_v1',merged);
+      await saveUserState('gauntlet_progress_v2',compactGauntletProgressForCloud(merged));
     }).catch(error=>console.warn('Gauntlet cloud merge failed',error));
   },[userId]);
   useEffect(()=>{const local=loadGauntletProgress(userId);setProgress(local);applyProgress(local);},[applyProgress,userId]);

@@ -1,4 +1,5 @@
 import { ensureOnlineSession, supabase } from './supabase';
+import type { GauntletProgressEvent } from './gauntletEngine';
 
 export type UserStateRow<T = unknown> = {
   state_key: string;
@@ -54,4 +55,31 @@ export async function saveUserState(stateKey: string, value: unknown): Promise<v
     value,
   }, { onConflict: 'user_id,state_key' });
   if (error) throw error;
+}
+
+export async function loadGauntletProgressEvents(): Promise<GauntletProgressEvent[]> {
+  if (!supabase) return [];
+  const user = await ensureOnlineSession();
+  const { data, error } = await supabase
+    .from('ball_knower_gauntlet_progress_events')
+    .select('payload')
+    .eq('user_id', user.id)
+    .order('occurred_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(row => row.payload as GauntletProgressEvent);
+}
+
+export async function saveGauntletProgressEvents(events: GauntletProgressEvent[]): Promise<void> {
+  if (!supabase || events.length === 0) return;
+  const user = await ensureOnlineSession();
+  for (let index = 0; index < events.length; index += 250) {
+    const rows = events.slice(index, index + 250).map(event => ({
+      user_id: user.id,
+      event_id: event.id,
+      occurred_at: new Date(event.occurredAt).toISOString(),
+      payload: event,
+    }));
+    const { error } = await supabase.from('ball_knower_gauntlet_progress_events').upsert(rows, { onConflict: 'user_id,event_id', ignoreDuplicates: true });
+    if (error) throw error;
+  }
 }
