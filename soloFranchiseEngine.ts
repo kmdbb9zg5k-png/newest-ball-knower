@@ -2,7 +2,7 @@ import { calculateTeamRatings } from './evaluation';
 import { PLAYERS_DATABASE } from './players';
 import { getDraftPositionGroup, validateRosterShape } from './rosterRules';
 import { TEAM_THEMES, TeamTheme } from './teamTheme';
-import { LeagueMember, Player, ROSTER_REQUIREMENTS, RosterRequirements, TeamRatings } from './types';
+import { LeagueMember, Player, ROSTER_REQUIREMENTS, RosterRequirements, TeamRatings, TOTAL_ROSTER_SIZE } from './types';
 import { SoloDifficulty } from './soloSeasonEngine';
 
 export const FANTASY_ROSTER_REQUIREMENTS: RosterRequirements = {
@@ -45,6 +45,14 @@ export type FantasyDraftPick = {
   round: number;
   teamAbbr: string;
   playerId: string;
+};
+
+export type FranchiseRookieProspect = {
+  id: string;
+  name: string;
+  position: string;
+  school: string;
+  grade: number;
 };
 
 export type FantasyDraftState = {
@@ -97,6 +105,87 @@ export function buildRealTeamRoster(teamAbbr: string): Player[] {
   }
 
   return selected;
+}
+
+export function assignPlayerToFranchiseTeam(player: Player, teamAbbr: string): Player {
+  const team = safeTeam(teamAbbr);
+  return {
+    ...player,
+    teamId: team.abbr,
+    team: team.abbr,
+    teamAbbreviation: team.abbr,
+    teamCity: team.name.split(' ').slice(0, -1).join(' '),
+    teamName: team.name,
+  };
+}
+
+export function validateFranchiseRoster(roster: Player[]): string[] {
+  const errors = validateRosterShape(roster);
+  if (roster.length !== TOTAL_ROSTER_SIZE) errors.unshift(`Roster must contain exactly ${TOTAL_ROSTER_SIZE} players (${roster.length}/${TOTAL_ROSTER_SIZE}).`);
+  if (new Set(roster.map(player => player.id)).size !== roster.length) errors.push('Roster contains duplicate players.');
+  return errors;
+}
+
+export function buildFranchiseTradeResult(
+  userRoster: Player[],
+  userTeamAbbr: string,
+  partnerRoster: Player[],
+  partnerTeamAbbr: string,
+  targetId: string,
+  outgoingIds: string[],
+) {
+  const target = partnerRoster.find(player => player.id === targetId);
+  const outgoing = userRoster.filter(player => outgoingIds.includes(player.id));
+  if (!target) return { userRoster, partnerRoster, errors: ['The requested player is no longer on that team.'] };
+  if (outgoing.length !== 1) return { userRoster, partnerRoster, errors: ['Player trades must exchange one player from each roster. Draft picks can be added to either side.'] };
+
+  const nextUserRoster = [
+    ...userRoster.filter(player => player.id !== outgoing[0].id),
+    assignPlayerToFranchiseTeam(target, userTeamAbbr),
+  ];
+  const nextPartnerRoster = [
+    ...partnerRoster.filter(player => player.id !== target.id),
+    assignPlayerToFranchiseTeam(outgoing[0], partnerTeamAbbr),
+  ];
+  const userErrors = validateFranchiseRoster(nextUserRoster).map(error => `Your roster: ${error}`);
+  const partnerErrors = validateFranchiseRoster(nextPartnerRoster).map(error => `${safeTeam(partnerTeamAbbr).name}: ${error}`);
+  return { userRoster: nextUserRoster, partnerRoster: nextPartnerRoster, errors: [...userErrors, ...partnerErrors] };
+}
+
+export function replaceFranchisePlayersWithRookies(roster: Player[], rookies: Player[]): Player[] {
+  const next = [...roster];
+  for (const rookie of rookies) {
+    if (next.some(player => player.id === rookie.id)) continue;
+    const group = getDraftPositionGroup(rookie);
+    if (!group) continue;
+    const replacement = next
+      .map((player, index) => ({ player, index }))
+      .filter(entry => getDraftPositionGroup(entry.player) === group)
+      .sort((first, second) => first.player.ovr - second.player.ovr || first.player.name.localeCompare(second.player.name))[0];
+    if (replacement) next[replacement.index] = rookie;
+  }
+  return next;
+}
+
+const ROOKIE_FIRST_NAMES = ['Avery','Bryce','Caleb','Cameron','Damon','Elijah','Isaiah','Jabari','Jace','Jayden','Kendrick','Khalil','Landon','Marcus','Mason','Miles','Nico','Quentin','Rashad','Roman','Silas','Tariq','Tyrese','Zion'];
+const ROOKIE_LAST_NAMES = ['Armstrong','Bennett','Booker','Calloway','Carter','Daniels','Ellis','Franklin','Gaines','Hampton','Holloway','Jefferson','Lawson','McBride','Mitchell','Owens','Prescott','Robinson','Shepherd','Simmons','Sutton','Thornton','Walker','Young'];
+const ROOKIE_SCHOOLS = ['Alabama','Arizona State','Clemson','Florida State','Georgia','Iowa','LSU','Miami','Michigan','Notre Dame','Ohio State','Oklahoma','Ole Miss','Oregon','Penn State','Tennessee','Texas','Texas A&M','UCLA','USC','Utah','Virginia Tech','Washington','Wisconsin'];
+const ROOKIE_POSITIONS = ['QB','EDGE','WR','CB','OT','DT','RB','S','LB','TE','OG','WR'];
+
+export function buildFranchiseRookieClass(year: number): FranchiseRookieProspect[] {
+  const classOffset = Math.max(0, year - 2027) * ROOKIE_POSITIONS.length;
+  return ROOKIE_POSITIONS.map((position, index) => {
+    const sequence = classOffset + index;
+    const firstName = ROOKIE_FIRST_NAMES[sequence % ROOKIE_FIRST_NAMES.length];
+    const lastName = ROOKIE_LAST_NAMES[(sequence * 5 + Math.floor(sequence / ROOKIE_FIRST_NAMES.length)) % ROOKIE_LAST_NAMES.length];
+    const school = ROOKIE_SCHOOLS[(sequence * 7 + year) % ROOKIE_SCHOOLS.length];
+    const grade = Math.max(80, 94 - index + (stableSeed(`${year}:${position}:${index}`) % 3) - 1);
+    return { id: `rookie-${year}-${index}-${firstName}-${lastName}`.toLowerCase(), name: `${firstName} ${lastName}`, position, school, grade };
+  });
+}
+
+function stableSeed(value: string) {
+  return Array.from(value).reduce((total, character) => Math.imul(total ^ character.charCodeAt(0), 16777619), 2166136261) >>> 0;
 }
 
 export function franchiseSchedule(userTeamAbbr: string): TeamTheme[] {
