@@ -13,6 +13,7 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "check:integrity": "tsx scripts/integrity-check.ts",
+    "check:draft-reliability": "node --import tsx scripts/draft-reliability-check.ts",
     "check:hardening": "npm run lint && npm run check:integrity"
   },
   "dependencies": {
