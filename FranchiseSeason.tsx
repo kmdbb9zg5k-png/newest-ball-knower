@@ -14,7 +14,7 @@ import {
 } from './soloSeasonEngine';
 import { buildRealTeamRoster, franchiseSchedule, makeFranchiseOpponent } from './soloFranchiseEngine';
 import { TeamTheme, TEAM_THEMES, teamLogoUrl } from './teamTheme';
-import { LeagueMember, Player } from './types';
+import { LeagueMember, Player, TeamRatings } from './types';
 
 type PlayoffResult = { round: string; opponent: string; you: number; them: number; won: boolean };
 type SeasonStage = 'regular' | 'playoffs' | 'finished' | 'draft';
@@ -34,17 +34,51 @@ type Props = {
   myPlayerId?: string;
   onMyPlayerGame?: (fantasyScore: number, won: boolean) => void;
   onRosterChange?: (roster: Player[]) => void;
+  gamePlan?: string;
 };
 
 const AFC = new Set(['BAL','BUF','CIN','CLE','DEN','HOU','IND','JAX','KC','LAC','LV','MIA','NE','NYJ','PIT','TEN']);
 const conferenceFor = (abbr: string): Conference => AFC.has(abbr) ? 'AFC' : 'NFC';
 const stableNumber = (value: string) => Array.from(value).reduce((total, character) => Math.imul(total ^ character.charCodeAt(0), 16777619), 2166136261) >>> 0;
 const pairWinner = (first: PlayoffSeed, second: PlayoffSeed, userAbbr: string) => first.abbr === userAbbr ? first : second.abbr === userAbbr ? second : first.seed < second.seed ? first : second;
+const romanNumeral = (value: number) => {
+  const numerals: Array<[number, string]> = [[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];
+  let remaining = value;
+  return numerals.map(([amount, numeral]) => {
+    const count = Math.floor(remaining / amount);
+    remaining %= amount;
+    return numeral.repeat(count);
+  }).join('');
+};
 
-export function buildFranchisePlayoffField(userTeam: TeamTheme, userWins: number, userDifferential: number, teamOverall: (team: TeamTheme) => number): PlayoffSeed[] {
+export function applyFranchiseGamePlan(ratings: TeamRatings, gamePlan: string): TeamRatings {
+  const adjust = (value: number, delta: number) => Math.max(60, Math.min(99, value + delta));
+  const changes: Partial<Record<keyof TeamRatings, number>> = gamePlan === 'Attack through the air'
+    ? { offense: 2, passing: 5, passProtection: 2, rushing: -2 }
+    : gamePlan === 'Control the clock'
+      ? { offense: 1, rushing: 5, runBlocking: 3, passing: -2 }
+      : gamePlan === 'Bring heavy pressure'
+        ? { defense: 2, passRush: 5, coverage: -2 }
+        : gamePlan === 'Protect against big plays'
+          ? { defense: 2, coverage: 5, passRush: -2 }
+          : gamePlan === 'Play aggressive'
+            ? { offense: 2, defense: -1, passing: 2, passRush: 3, coverage: -1 }
+            : {};
+  if (!Object.keys(changes).length) return ratings;
+  const next = { ...ratings };
+  const numericNext = next as unknown as Record<string, number>;
+  for (const [key, delta] of Object.entries(changes) as Array<[keyof TeamRatings, number]>) {
+    const value = ratings[key];
+    if (typeof value === 'number') numericNext[key] = adjust(value, delta);
+  }
+  next.overall = Math.round((next.offense + next.defense) / 2);
+  return next;
+}
+
+export function buildFranchisePlayoffField(userTeam: TeamTheme, userWins: number, userDifferential: number, teamOverall: (team: TeamTheme) => number, year = 2026): PlayoffSeed[] {
   const rows = TEAM_THEMES.map(team => {
     const overall = teamOverall(team);
-    const variation = (stableNumber(`${team.abbr}:2026-playoffs`) % 5) - 2;
+    const variation = (stableNumber(`${team.abbr}:${year}-playoffs`) % 5) - 2;
     const wins = team.abbr === userTeam.abbr ? userWins : Math.max(3, Math.min(14, Math.round(8 + (overall - 78) / 3 + variation)));
     const differential = team.abbr === userTeam.abbr ? userDifferential : (overall - 78) * 18 + variation * 11;
     return { abbr: team.abbr, name: team.name, conference: conferenceFor(team.abbr), wins, losses: 17 - wins, differential, seed: 0 };
@@ -105,6 +139,7 @@ export const FranchiseSeason: React.FC<Props> = ({
   myPlayerId,
   onMyPlayerGame,
   onRosterChange,
+  gamePlan = 'Balanced attack',
 }) => {
   const seasonKey = `${saveKey}:season`;
   const restored = useMemo(() => restoreSeason(seasonKey), [seasonKey]);
@@ -117,9 +152,14 @@ export const FranchiseSeason: React.FC<Props> = ({
   const [draftedProspects, setDraftedProspects] = useState<RookieProspect[]>(() => restored?.draftedProspects ?? []);
   const [seasonRoster, setSeasonRoster] = useState<Player[]>(() => Array.isArray(restored?.roster) && restored.roster.length ? restored.roster : roster);
   const [playoffField, setPlayoffField] = useState<PlayoffSeed[]>(() => Array.isArray(restored?.playoffField) ? restored.playoffField : []);
+  const [year, setYear] = useState<number>(() => Number.isInteger(restored?.year) && restored.year >= 2026 ? restored.year : 2026);
   const [isSimulating, setIsSimulating] = useState(false);
   const simulationLock = useRef(false);
-  const schedule = useMemo(() => franchiseSchedule(userTeam.abbr), [userTeam.abbr]);
+  const schedule = useMemo(() => {
+    const base = franchiseSchedule(userTeam.abbr);
+    const offset = ((year - 2026) * 7) % base.length;
+    return [...base.slice(offset), ...base.slice(0, offset)];
+  }, [userTeam.abbr, year]);
   useEffect(() => {
     setSeasonRoster(current => {
       const rookies = current.filter(player => player.id.startsWith('franchise-rookie-'));
@@ -149,11 +189,11 @@ export const FranchiseSeason: React.FC<Props> = ({
 
   useEffect(() => {
     try {
-      localStorage.setItem(seasonKey, JSON.stringify({ version: 1, stage, weeks, playoffs, injuries, message, draftRound, draftedProspects, roster: seasonRoster, playoffField }));
+      localStorage.setItem(seasonKey, JSON.stringify({ version: 1, stage, weeks, playoffs, injuries, message, draftRound, draftedProspects, roster: seasonRoster, playoffField, year }));
     } catch (error) {
       console.warn('Unable to save franchise season', error);
     }
-  }, [seasonKey, stage, weeks, playoffs, injuries, message, draftRound, draftedProspects, seasonRoster, playoffField]);
+  }, [seasonKey, stage, weeks, playoffs, injuries, message, draftRound, draftedProspects, seasonRoster, playoffField, year]);
 
   const rosterFor = (team: TeamTheme) => opponentRosters?.[team.abbr] ?? buildRealTeamRoster(team.abbr);
   const unlockSimulation = () => window.setTimeout(() => {
@@ -169,7 +209,7 @@ export const FranchiseSeason: React.FC<Props> = ({
     try {
     const opponentTeam = schedule[weekNumber - 1];
     const opponent = makeFranchiseOpponent(opponentTeam, rosterFor(opponentTeam), difficulty as SoloDifficulty, weekNumber);
-    const myRatings = ratingsWithInjuries(activeRoster, activeInjuries);
+    const myRatings = applyFranchiseGamePlan(ratingsWithInjuries(activeRoster, activeInjuries), gamePlan);
     const me: LeagueMember = {
       id: 'franchise-user',
       userId: 'franchise-user',
@@ -215,7 +255,7 @@ export const FranchiseSeason: React.FC<Props> = ({
         ? week.game.homeScore - week.game.awayScore
         : week.game.awayScore - week.game.homeScore
     ), 0);
-    const field = buildFranchisePlayoffField(userTeam, wins, differential, team => calculateTeamRatings(rosterFor(team)).overall);
+    const field = buildFranchisePlayoffField(userTeam, wins, differential, team => calculateTeamRatings(rosterFor(team)).overall, year);
     setPlayoffField(field);
     const userSeed = field.find(team => team.abbr === userTeam.abbr);
     if (!userSeed) {
@@ -246,7 +286,7 @@ export const FranchiseSeason: React.FC<Props> = ({
       isCommissioner: true,
       status: 'ready',
       roster: activeRoster,
-      teamRatings: ratingsWithInjuries(activeRoster, activeInjuries),
+      teamRatings: applyFranchiseGamePlan(ratingsWithInjuries(activeRoster, activeInjuries), gamePlan),
     };
     const userHome = playoffs.length % 2 === 0;
     const game = userHome ? simulateGame(18 + playoffs.length, me, opponent) : simulateGame(18 + playoffs.length, opponent, me);
@@ -260,12 +300,13 @@ export const FranchiseSeason: React.FC<Props> = ({
     }
     const next = [...playoffs, { round, opponent: opponentTeam.name, you, them, won }];
     setPlayoffs(next);
+    setInjuries(previous => previous.map(injury => ({ ...injury, weeks: Math.max(0, injury.weeks - 1) })));
     if (!won) {
       setStage('finished');
       setMessage(`${round}: ${you}-${them}. Your run ends here.`);
     } else if (round === 'SUPER BOWL') {
       setStage('finished');
-      setMessage(`WORLD CHAMPION — ${userTeam.name} won Super Bowl LXI ${you}-${them}.`);
+      setMessage(`WORLD CHAMPION — ${userTeam.name} won Super Bowl ${romanNumeral(61 + year - 2026)} ${you}-${them}.`);
     } else {
       setMessage(`${round} WIN ${you}-${them}. Keep going.`);
     }
@@ -295,7 +336,8 @@ export const FranchiseSeason: React.FC<Props> = ({
     const next = [...draftedProspects, prospect];
     setDraftedProspects(next);
     if (draftRound === 7) {
-      const rookies = next.map((player, index) => rookieToPlayer(player, userTeam, index + 1));
+      const nextYear = year + 1;
+      const rookies = next.map((player, index) => rookieToPlayer(player, userTeam, index + 1, nextYear));
       const rookieIds = new Set(rookies.map(player => player.id));
       const nextRoster = [...seasonRoster.filter(player => !rookieIds.has(player.id)), ...rookies];
       setSeasonRoster(nextRoster);
@@ -303,9 +345,11 @@ export const FranchiseSeason: React.FC<Props> = ({
       setWeeks([]);
       setPlayoffs([]);
       setInjuries([]);
+      setPlayoffField([]);
+      setYear(nextYear);
       setStage('regular');
       setDraftRound(1);
-      setMessage(`Draft complete — ${next.map(player => player.name).join(', ')} join your franchise. Week 1 is ready.`);
+      setMessage(`Draft complete — ${next.map(player => player.name).join(', ')} join your franchise. The ${nextYear} season is ready.`);
       return;
     }
     setDraftRound(round => round + 1);
@@ -321,7 +365,7 @@ export const FranchiseSeason: React.FC<Props> = ({
           </button>
           <div className="min-w-0 flex-1">
             <div className="truncate text-[10px] font-black tracking-[.24em] text-[var(--bk-team-accent)]">{title}</div>
-            <div className="truncate text-xl font-black">{userTeam.name}</div>
+            <div className="truncate text-xl font-black">{userTeam.name} · {year}</div>
           </div>
           <button type="button" onClick={resetSeason} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Restart season">
             <RotateCcw size={18} />
@@ -344,6 +388,7 @@ export const FranchiseSeason: React.FC<Props> = ({
               {weeks.length < 17 ? (
                 <div className="rounded-[2rem] border border-white/10 bg-[#10151d]/95 p-5 sm:p-7">
                   <div className="text-[10px] font-black tracking-[.25em] text-[var(--bk-team-accent)]">WEEK {weeks.length + 1} • GAMEDAY</div>
+                  <div className="mt-1 text-[9px] font-black uppercase tracking-wider text-zinc-500">Game plan: {gamePlan}</div>
                   <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center">
                     <TeamMatchup team={userTeam} label={`${ratings.overall} OVR`} />
                     <div className="text-2xl font-black text-zinc-600">VS</div>
@@ -468,11 +513,11 @@ const PROSPECTS: RookieProspect[] = [
   { id: 'r-wr-davis', name: 'Troy Davis', position: 'WR', school: 'USC', grade: 83 },
 ];
 
-const rookieToPlayer = (prospect: RookieProspect, team: TeamTheme, round: number): Player => {
+const rookieToPlayer = (prospect: RookieProspect, team: TeamTheme, round: number, year: number): Player => {
   const overall = Math.max(68, Math.min(84, prospect.grade - 10));
   return {
-    id: `franchise-rookie-${prospect.id}`,
-    playerId: `franchise-rookie-${prospect.id}`,
+    id: `franchise-rookie-${year}-${prospect.id}`,
+    playerId: `franchise-rookie-${year}-${prospect.id}`,
     teamId: team.abbr,
     team: team.abbr,
     teamAbbreviation: team.abbr,
@@ -489,7 +534,7 @@ const rookieToPlayer = (prospect: RookieProspect, team: TeamTheme, round: number
     overall: overall,
     overallRating: overall,
     ratingSource: 'Ball Knower Rookie Draft',
-    ratingSeason: 2027,
+    ratingSeason: year,
     salary: Number(Math.max(.9, 5.8 - round * .7).toFixed(1)),
     salaryType: 'estimated',
     archetype: `${prospect.school} rookie`,

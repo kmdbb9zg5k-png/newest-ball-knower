@@ -41,6 +41,7 @@ type TradeRequest = { requestedWeek: number; requestedAt: string; reason: string
 type Client = {
   playerId: string;
   trust: number;
+  currentTeam?: string;
   futureDeal?: FutureDeal;
   signedAt: string;
   tradeRequest?: TradeRequest;
@@ -118,6 +119,7 @@ const restore = (): AgencyState => {
         ? v.clients.map((c: any) => ({
             playerId: String(c.playerId),
             trust: Number.isFinite(Number(c.trust)) ? clamp(Number(c.trust), 0, 100) : 72,
+            currentTeam: typeof c.currentTeam === 'string' && c.currentTeam ? c.currentTeam : undefined,
             futureDeal: c.futureDeal,
             signedAt: c.signedAt || new Date().toISOString(),
             tradeRequest: c.tradeRequest,
@@ -315,7 +317,8 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({ onBack }) =>
     const p = PLAYERS_DATABASE.find(x => x.id === playerId);
     const client = agency.clients.find(c => c.playerId === playerId);
     if (!p || !client?.tradeRequest) return;
-    const teams = [...new Set(PLAYERS_DATABASE.map(player => player.team).filter(team => team && team !== p.team && team !== 'FA'))].sort();
+    const currentTeam = client.currentTeam || p.team;
+    const teams = [...new Set(PLAYERS_DATABASE.map(player => player.team).filter(team => team && team !== currentTeam && team !== 'FA'))].sort();
     const destination = teams[hashPlayer(`${p.id}:${agency.seasonYear}:${agency.seasonWeek}`) % teams.length] || 'a new team';
     const attempts = (client.tradeRequest.attempts || 0) + 1;
     const worked = status === 'resolved' && agency.reputation + agency.negotiation + client.trust + (hashPlayer(`${p.id}:${attempts}`) % 25) >= 130;
@@ -330,6 +333,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({ onBack }) =>
       clients: agency.clients.map(c => c.playerId === playerId && c.tradeRequest ? {
         ...c,
         trust: clamp(c.trust + (worked ? 9 : status === 'denied' ? -12 : -3), 0, 100),
+        currentTeam: worked ? destination : c.currentTeam,
         tradeRequest: { ...c.tradeRequest, status: worked ? 'resolved' : status === 'denied' ? 'denied' : 'open', attempts, outcome, destination: worked ? destination : undefined },
       } : c),
       timeline: [outcome, ...agency.timeline].slice(0, 20),
@@ -470,7 +474,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({ onBack }) =>
 
     <section className="mt-5 overflow-hidden rounded-[2rem] border border-violet-300/20 bg-[#0c1018] p-5 sm:p-7"><div className="grid gap-5 lg:grid-cols-[1.2fr_.8fr]"><div><div className="text-[10px] font-black tracking-[.26em] text-violet-300">YEAR {agency.seasonYear} · EARN YOUR NAME</div><h1 className="mt-2 text-4xl font-black leading-none sm:text-6xl">PROVE YOU<br/>BELONG.</h1><div className="mt-4 flex flex-wrap gap-2 text-xs font-bold text-zinc-400"><span className="rounded-full bg-white/5 px-3 py-2"><UserRound size={13} className="mr-1 inline"/>{agency.profile.age} years old</span><span className="rounded-full bg-white/5 px-3 py-2"><MapPin size={13} className="mr-1 inline"/>{agency.profile.location}</span><span className="rounded-full bg-white/5 px-3 py-2"><BriefcaseBusiness size={13} className="mr-1 inline"/>{clients.length}/{STARTING_CLIENT_CAP} starter clients</span></div></div><div className="rounded-3xl border border-white/10 bg-black/30 p-5"><div className="text-xs font-black tracking-wider text-violet-300">REPUTATION</div><div className="mt-1 text-5xl font-black">{agency.reputation}</div><div className="mt-4 grid grid-cols-2 gap-2 text-xs">{[['Negotiation',agency.negotiation],['Brand',agency.brandPower],['Client Care',agency.clientCare],['Max OVR',unlockedOvr]].map(([l,v])=><div key={String(l)} className="rounded-xl bg-white/5 p-3"><div className="text-zinc-500">{l}</div><div className="mt-1 font-black">{v}</div></div>)}</div></div></div></section>
 
-    {clients.length>0 && <section className="mt-5 rounded-[2rem] border border-white/10 bg-[#0d121b] p-5 sm:p-6"><div className="mb-4 flex items-center gap-2"><BriefcaseBusiness className="text-violet-300"/><h2 className="text-2xl font-black">YOUR CLIENTS</h2></div><div className="grid gap-3 md:grid-cols-2">{clients.map(({client,player})=><div key={player.id} className="rounded-2xl border border-white/10 bg-black/25 p-4"><div className="flex items-center gap-3"><img src={playerPortraitUrl(player)} alt="" className="h-14 w-14 rounded-xl bg-white/5 object-cover"/><div className="min-w-0 flex-1"><div className="font-black">{player.name}</div><div className="text-xs text-zinc-500">{player.team} · {player.position} · {player.ovr} OVR</div></div><div className="text-right"><div className="text-[9px] font-black text-zinc-500">TRUST</div><div className="font-black text-emerald-300">{client.trust}%</div></div></div>
+    {clients.length>0 && <section className="mt-5 rounded-[2rem] border border-white/10 bg-[#0d121b] p-5 sm:p-6"><div className="mb-4 flex items-center gap-2"><BriefcaseBusiness className="text-violet-300"/><h2 className="text-2xl font-black">YOUR CLIENTS</h2></div><div className="grid gap-3 md:grid-cols-2">{clients.map(({client,player})=><div key={player.id} className="rounded-2xl border border-white/10 bg-black/25 p-4"><div className="flex items-center gap-3"><img src={playerPortraitUrl(player)} alt="" className="h-14 w-14 rounded-xl bg-white/5 object-cover"/><div className="min-w-0 flex-1"><div className="font-black">{player.name}</div><div className="text-xs text-zinc-500">{client.currentTeam || player.team} · {player.position} · {player.ovr} OVR</div></div><div className="text-right"><div className="text-[9px] font-black text-zinc-500">TRUST</div><div className="font-black text-emerald-300">{client.trust}%</div></div></div>
       {client.tradeRequest?.status==='open' && <div className="mt-3 rounded-xl border border-amber-300/25 bg-amber-300/10 p-3"><div className="flex items-center gap-2 text-xs font-black text-amber-200"><AlertTriangle size={14}/> TRADE REQUEST · WEEK {client.tradeRequest.requestedWeek}</div><p className="mt-2 text-xs font-semibold leading-5 text-zinc-300">{client.tradeRequest.reason}</p>{client.tradeRequest.outcome&&<p className="mt-2 text-[10px] font-bold leading-4 text-amber-100">{client.tradeRequest.outcome}</p>}<div className="mt-3 grid grid-cols-2 gap-2"><button onClick={()=>resolveTradeRequest(player.id,'resolved')} className="min-h-10 rounded-xl bg-violet-400 px-3 text-xs font-black text-black">{client.tradeRequest.attempts?'PUSH AGAIN':'WORK THE PHONES'}</button><button onClick={()=>resolveTradeRequest(player.id,'denied')} className="min-h-10 rounded-xl bg-white/10 px-3 text-xs font-black">TELL HIM NO</button></div></div>}
       {client.tradeRequest&&client.tradeRequest.status!=='open'&&client.tradeRequest.outcome&&<div className="mt-3 rounded-xl border border-white/10 bg-white/[.03] p-3 text-[10px] font-bold leading-4 text-zinc-400">{client.tradeRequest.outcome}</div>}
       <div className="mt-3 rounded-xl bg-white/5 p-3 text-xs"><div className="text-zinc-500">Current deal baseline</div><div className="mt-1 font-black">{moneyM(player.salary)} · final contract year</div></div>{client.futureDeal?<div className="mt-3 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-xs"><div className="font-black text-emerald-300">YOU GOT HIM PAID</div><div className="mt-1 text-zinc-300">{client.futureDeal.years} years · {moneyM(client.futureDeal.totalM)} total · {moneyM(client.futureDeal.guaranteedM || 0)} guaranteed</div></div>:<button onClick={()=>openNegotiation(player,client)} className="mt-3 min-h-11 w-full rounded-xl bg-violet-400 px-4 text-xs font-black text-black">ENTER NEGOTIATION ROOM</button>}</div>)}</div></section>}
