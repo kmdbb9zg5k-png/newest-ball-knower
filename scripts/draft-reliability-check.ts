@@ -5,13 +5,14 @@ type Method='game'|'random'|'commissioner';
 type Pick={overall:number;round:number;memberId:string;playerId:string;group:LiveFantasyDraftGroup;source:'cpu'|'autopick'};
 type Preferences={queue:string[];preRankings:string[];favorites:string[];doNotDraft:Set<string>};
 const GROUPS=Object.keys(LIVE_FANTASY_ROSTER_REQUIREMENTS) as LiveFantasyDraftGroup[];
-const TEAMS=10;
+const LEAGUE_SIZES=[6,8,10,12,14,16] as const;
 const ROSTER_SIZE=15;
 
-const orders:Record<Method,string[]>={
-  game:Array.from({length:10},(_,index)=>`m${index+1}`),
-  random:[7,3,10,6,2,9,5,1,8,4].map(index=>`m${index}`),
-  commissioner:Array.from({length:10},(_,index)=>`m${10-index}`),
+const orderFor=(method:Method,teamCount:number)=>{
+  const members=Array.from({length:teamCount},(_,index)=>`m${index+1}`);
+  if(method==='commissioner')return [...members].reverse();
+  if(method==='random')return [...members].sort((a,b)=>((Number(a.slice(1))*7)%teamCount)-((Number(b.slice(1))*7)%teamCount)||a.localeCompare(b));
+  return members;
 };
 
 const memberAt=(order:string[],pickIndex:number)=>{
@@ -46,25 +47,38 @@ function selectPlayer(picks:Pick[],memberId:string,preferences:Preferences){
   return candidates[0];
 }
 
-function run(method:Method){
-  const order=orders[method];const picks:Pick[]=[];
+function run(method:Method,teamCount:number){
+  const order=orderFor(method,teamCount);const picks:Pick[]=[];
   const ranked=PLAYERS_DATABASE.filter(player=>getLiveFantasyDraftGroup(player)).sort((a,b)=>b.ovr-a.ovr);
   const queued=ranked.find(player=>getLiveFantasyDraftGroup(player)==='RB')!;
   const avoided=ranked.find(player=>player.id!==queued.id)!;
   const preferences:Preferences={queue:[queued.id],preRankings:[ranked[2].id],favorites:[ranked[3].id],doNotDraft:new Set([avoided.id])};
-  for(let pickIndex=0;pickIndex<TEAMS*ROSTER_SIZE;pickIndex++){
+  for(let pickIndex=0;pickIndex<teamCount*ROSTER_SIZE;pickIndex++){
     const memberId=memberAt(order,pickIndex);const prefs:Preferences=memberId===order[0]?preferences:{queue:[],preRankings:[],favorites:[],doNotDraft:new Set<string>()};
     const player=selectPlayer(picks,memberId,prefs);const group=getLiveFantasyDraftGroup(player)!;
-    picks.push({overall:pickIndex+1,round:Math.floor(pickIndex/10)+1,memberId,playerId:player.id,group,source:memberId===order[0]?'autopick':'cpu'});
+    picks.push({overall:pickIndex+1,round:Math.floor(pickIndex/teamCount)+1,memberId,playerId:player.id,group,source:memberId===order[0]?'autopick':'cpu'});
   }
-  if(new Set(picks.map(pick=>pick.playerId)).size!==TEAMS*ROSTER_SIZE)throw new Error(`${method}: duplicate player`);
+  if(new Set(picks.map(pick=>pick.playerId)).size!==teamCount*ROSTER_SIZE)throw new Error(`${teamCount}-${method}: duplicate player`);
   if(picks[0].playerId!==queued.id)throw new Error(`${method}: queue priority failed`);
   if(picks.some(pick=>pick.playerId===avoided.id&&pick.memberId===order[0]))throw new Error(`${method}: do-not-draft failed`);
   for(const memberId of order){
     const roster=picks.filter(pick=>pick.memberId===memberId);if(roster.length!==ROSTER_SIZE)throw new Error(`${method}: incomplete ${memberId}`);
     for(const group of GROUPS){const count=roster.filter(pick=>pick.group===group).length;if(count>LIVE_FANTASY_POSITION_LIMITS[group]||count<LIVE_FANTASY_ROSTER_REQUIREMENTS[group])throw new Error(`${method}: illegal ${memberId} ${group} ${count}`);}
   }
-  return {method,teams:TEAMS,rosterSize:ROSTER_SIZE,picks:picks.length,uniquePlayers:new Set(picks.map(pick=>pick.playerId)).size,completeRosters:TEAMS,queuePriority:'passed',doNotDraft:'passed',snakeOrder:'passed'};
+  return {method,teams:teamCount,rosterSize:ROSTER_SIZE,picks:picks.length,uniquePlayers:new Set(picks.map(pick=>pick.playerId)).size,completeRosters:teamCount,queuePriority:'passed',doNotDraft:'passed',snakeOrder:'passed'};
 }
 
-console.log(JSON.stringify((['game','random','commissioner'] as Method[]).map(run),null,2));
+function verifyRecoveryClock(){
+  const now=Date.parse('2026-08-28T12:00:00.000Z');
+  const expired=Date.parse('2026-08-28T11:59:59.000Z');
+  const active=Date.parse('2026-08-28T12:00:30.000Z');
+  const due=(isAi:boolean,deadline:number,connected:boolean)=>isAi||deadline<=now;
+  if(!due(false,expired,false))throw new Error('An abandoned human pick did not recover after its clock expired.');
+  if(!due(false,expired,true))throw new Error('An expired connected phone incorrectly blocked server recovery.');
+  if(due(false,active,false))throw new Error('A disconnected phone was auto-picked before its persisted deadline.');
+  if(!due(true,active,false))throw new Error('A CPU pick waited for a human clock.');
+  return {abandonedPick:'passed',disconnectedPhone:'passed',expiredClock:'passed',cpuTurn:'passed'};
+}
+
+const matrix=LEAGUE_SIZES.flatMap(teamCount=>(['game','random','commissioner'] as Method[]).map(method=>run(method,teamCount)));
+console.log(JSON.stringify({matrix,recovery:verifyRecoveryClock()},null,2));

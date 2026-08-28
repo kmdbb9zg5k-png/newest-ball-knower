@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Brain, CheckCircle2, Loader2, WifiOff, XCircle } from 'lucide-react';
+import { ArrowLeft, Brain, CheckCircle2, Loader2, RotateCcw, Trophy, WifiOff, XCircle } from 'lucide-react';
 import { beginTriviaSession, fetchTriviaQuestion, submitTriviaAnswer, TriviaAnswerResult, TriviaQuestion, TriviaSession } from './progressionCloud';
 import { ModeGuide } from './ModeGuide';
 import { ModalPortal } from './ModalPortal';
@@ -19,6 +19,7 @@ export const ChallengesHub: React.FC = () => {
   const [triviaOpen, setTriviaOpen] = useState(false);
   const [questionNumber, setQuestionNumber] = useState(1);
   const [score, setScore] = useState(0);
+  const [roundComplete, setRoundComplete] = useState(false);
   const [question, setQuestion] = useState<TriviaQuestion | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [result, setResult] = useState<TriviaAnswerResult | null>(null);
@@ -72,6 +73,7 @@ export const ChallengesHub: React.FC = () => {
     setSelected(null);
     setResult(null);
     setError('');
+    setRoundComplete(false);
   }, [clearAdvanceTimer]);
 
   const openTrivia = (nextTier: TriviaTier) => {
@@ -85,6 +87,7 @@ export const ChallengesHub: React.FC = () => {
     setTier(nextTier);
     setQuestionNumber(1);
     setScore(0);
+    setRoundComplete(false);
     setTriviaOpen(true);
     setLoading(true);
     setSubmitting(false);
@@ -143,11 +146,20 @@ export const ChallengesHub: React.FC = () => {
     const serverSession = serverSessionRef.current;
     advancingRef.current = true;
     clearAdvanceTimer();
+    if (questionNumber >= 10) {
+      setRoundComplete(true);
+      setQuestion(null);
+      setSelected(null);
+      setResult(null);
+      advancingRef.current = false;
+      trackBallKnowerEvent('Trivia Round Completed', { tier, score, questions: 10 });
+      return;
+    }
     setQuestionNumber(current => current + 1);
     void loadQuestion(tier, serverSession).finally(() => {
       if (sessionId === triviaSessionRef.current) advancingRef.current = false;
     });
-  }, [clearAdvanceTimer, loadQuestion, tier]);
+  }, [clearAdvanceTimer, loadQuestion, questionNumber, score, tier]);
 
   useEffect(() => {
     if (!result || !triviaOpen) {
@@ -203,7 +215,20 @@ export const ChallengesHub: React.FC = () => {
 
             <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10"><div className="h-full bg-fuchsia-500 transition-all" style={{ width: `${Math.min(100, ((questionNumber - 1) % 10 + 1) * 10)}%` }} /></div>
 
-            {loading && <div className="flex min-h-56 items-center justify-center text-zinc-500"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading challenge…</div>}
+            {roundComplete && (
+              <section className="mt-5 rounded-2xl border border-fuchsia-400/25 bg-[radial-gradient(circle_at_50%_0%,rgba(217,70,239,.18),transparent_42%),#0b0e13] p-6 text-center sm:p-8">
+                <Trophy className="mx-auto h-14 w-14 text-fuchsia-300" />
+                <div className="mt-3 text-[10px] font-black uppercase tracking-[.24em] text-fuchsia-300">Round complete</div>
+                <h2 className="mt-2 font-display text-4xl font-black uppercase">{score} / 10</h2>
+                <p className="mt-2 text-sm font-semibold text-zinc-400">{score >= 9 ? 'Hall-of-Fame level round.' : score >= 7 ? 'Strong football IQ.' : score >= 5 ? 'Solid start—run it back.' : 'Hit another round and build the streak.'}</p>
+                <div className="mt-6 grid gap-2 sm:grid-cols-2">
+                  <button onClick={() => openTrivia(tier)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-fuchsia-400 px-4 text-sm font-black text-black"><RotateCcw className="h-4 w-4" /> Play another 10</button>
+                  <button onClick={closeTrivia} className="min-h-12 rounded-xl border border-white/10 px-4 text-sm font-black">Back to Trivia</button>
+                </div>
+              </section>
+            )}
+
+            {!roundComplete && loading && <div className="flex min-h-56 items-center justify-center text-zinc-500"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading challenge…</div>}
             {!loading && error && <div className="mt-4 rounded-xl border border-red-400/20 bg-red-400/5 p-4 text-sm font-semibold text-red-200">{error}<button onClick={() => void loadQuestion(tier, serverSessionRef.current)} className="ml-2 min-h-11 underline">Retry</button></div>}
             {!loading && question && (
               <section className="mt-4 rounded-2xl border border-white/10 bg-[#0b0e13] p-4 sm:p-5">
@@ -232,7 +257,7 @@ export const ChallengesHub: React.FC = () => {
                   <div className="mt-3 rounded-xl border border-fuchsia-400/25 bg-fuchsia-400/[.05] p-3 text-xs leading-5 text-zinc-400">
                     <div className="flex items-start justify-between gap-3">
                       <div className={`font-black uppercase ${result.isCorrect ? 'text-emerald-300' : 'text-red-300'}`}>{result.isCorrect ? 'Correct' : 'Missed'} {result.xpAwarded > 0 && `· +${result.xpAwarded} XP`}</div>
-                      <button onClick={advanceQuestion} disabled={advancingRef.current} className="min-h-11 shrink-0 rounded-lg border border-fuchsia-400/25 px-3 text-[9px] font-black uppercase text-fuchsia-200 disabled:opacity-50">Next now</button>
+                      <button onClick={advanceQuestion} disabled={advancingRef.current} className="min-h-11 shrink-0 rounded-lg border border-fuchsia-400/25 px-3 text-[9px] font-black uppercase text-fuchsia-200 disabled:opacity-50">{questionNumber >= 10 ? 'See results' : 'Next now'}</button>
                     </div>
                     <div className="mt-1">{result.explanation}</div>
                     {question.practiceOnly ? <div className="mt-1 text-amber-200">Practice result only. Reconnect for verified XP and rating progress.</div> : result.progressionRecorded && <div className="mt-1 text-fuchsia-300">Saved to your BK Profile.</div>}

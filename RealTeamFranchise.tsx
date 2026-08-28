@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRightLeft, Check, ClipboardList, Play, RotateCcw, Users, X } from 'lucide-react';
 import { FranchiseSeason } from './FranchiseSeason';
 import { buildRealTeamRoster, SOLO_FRANCHISE_SAVE_KEYS } from './soloFranchiseEngine';
@@ -10,27 +10,46 @@ import { ModeGuide } from './ModeGuide';
 import { ModalPortal } from './ModalPortal';
 
 type Props = { onBack: () => void };
+type RealFranchiseSave = {
+  version: 2;
+  teamAbbr: string;
+  roster: Player[];
+  draftPicks: number[];
+  gamePlan: string;
+};
 
-function restoreTeam() {
+function restoreFranchise(): RealFranchiseSave | null {
   try {
     const raw = localStorage.getItem(SOLO_FRANCHISE_SAVE_KEYS.real);
     if (!raw) return null;
     const saved = JSON.parse(raw);
-    return typeof saved?.teamAbbr === 'string' && TEAM_THEMES.some(team => team.abbr === saved.teamAbbr) ? saved.teamAbbr : null;
+    if (typeof saved?.teamAbbr !== 'string' || !TEAM_THEMES.some(team => team.abbr === saved.teamAbbr)) return null;
+    const baseRoster = buildRealTeamRoster(saved.teamAbbr);
+    return {
+      version: 2,
+      teamAbbr: saved.teamAbbr,
+      roster: Array.isArray(saved.roster) && saved.roster.length ? saved.roster : baseRoster,
+      draftPicks: Array.isArray(saved.draftPicks)
+        ? saved.draftPicks.filter((round: unknown) => Number.isInteger(round) && Number(round) >= 1 && Number(round) <= 4)
+        : [1, 2, 3, 4],
+      gamePlan: typeof saved.gamePlan === 'string' && saved.gamePlan ? saved.gamePlan : 'Balanced attack',
+    };
   } catch {
     return null;
   }
 }
 
 export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
-  const [teamAbbr, setTeamAbbr] = useState<string | null>(restoreTeam);
+  const restored = useMemo(restoreFranchise, []);
+  const [teamAbbr, setTeamAbbr] = useState<string | null>(restored?.teamAbbr ?? null);
   const [selectedAbbr, setSelectedAbbr] = useState(() => teamAbbr ?? getSavedNflTeamTheme().abbr);
   const [message, setMessage] = useState('');
   const [seasonOpen, setSeasonOpen] = useState(false);
   const [commandTab, setCommandTab] = useState<'week' | 'trade' | 'roster'>('week');
-  const [gamePlan, setGamePlan] = useState('Balanced attack');
+  const [gamePlan, setGamePlan] = useState(restored?.gamePlan ?? 'Balanced attack');
   const [tradeSearch, setTradeSearch] = useState('');
-  const [rosterOverride, setRosterOverride] = useState<Player[] | null>(null);
+  const [rosterOverride, setRosterOverride] = useState<Player[] | null>(restored?.roster ?? null);
+  const [draftPicks, setDraftPicks] = useState<number[]>(restored?.draftPicks ?? [1, 2, 3, 4]);
   const [tradeTarget, setTradeTarget] = useState<Player | null>(null);
   const [outgoingIds, setOutgoingIds] = useState<string[]>([]);
   const [outgoingPicks, setOutgoingPicks] = useState<number[]>([]);
@@ -38,9 +57,25 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
   const baseRoster = useMemo(() => teamAbbr ? buildRealTeamRoster(teamAbbr) : [], [teamAbbr]);
   const roster = rosterOverride ?? baseRoster;
 
+  useEffect(() => {
+    if (!teamAbbr || !roster.length) return;
+    try {
+      localStorage.setItem(SOLO_FRANCHISE_SAVE_KEYS.real, JSON.stringify({
+        version: 2,
+        teamAbbr,
+        roster,
+        draftPicks,
+        gamePlan,
+      } satisfies RealFranchiseSave));
+    } catch (error) {
+      console.warn('Unable to persist Franchise Command changes', error);
+    }
+  }, [draftPicks, gamePlan, roster, teamAbbr]);
+
   const start = () => {
     try {
-      localStorage.setItem(SOLO_FRANCHISE_SAVE_KEYS.real, JSON.stringify({ version: 1, teamAbbr: selectedAbbr }));
+      const startingRoster = buildRealTeamRoster(selectedAbbr);
+      localStorage.setItem(SOLO_FRANCHISE_SAVE_KEYS.real, JSON.stringify({ version: 2, teamAbbr: selectedAbbr, roster: startingRoster, draftPicks: [1, 2, 3, 4], gamePlan: 'Balanced attack' } satisfies RealFranchiseSave));
       localStorage.removeItem(`${SOLO_FRANCHISE_SAVE_KEYS.real}:season`);
     } catch (error) {
       console.warn('Unable to save Real Team Franchise', error);
@@ -48,7 +83,9 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
     }
     setTeamAbbr(selectedAbbr);
     setSeasonOpen(false);
-    setRosterOverride(null);
+    setRosterOverride(buildRealTeamRoster(selectedAbbr));
+    setDraftPicks([1, 2, 3, 4]);
+    setGamePlan('Balanced attack');
   };
 
   const newCareer = () => {
@@ -61,6 +98,8 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
     setTeamAbbr(null);
     setSeasonOpen(false);
     setRosterOverride(null);
+    setDraftPicks([1, 2, 3, 4]);
+    setGamePlan('Balanced attack');
   };
 
   if (teamAbbr && seasonOpen) {
@@ -69,7 +108,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
         <button type="button" onClick={newCareer} className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-30 flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/90 px-4 text-xs font-black shadow-xl">
           <RotateCcw size={15} /> NEW TEAM
         </button>
-        <FranchiseSeason title="FRANCHISE COMMAND" userTeam={team} roster={roster} saveKey={SOLO_FRANCHISE_SAVE_KEYS.real} onBack={() => setSeasonOpen(false)} />
+        <FranchiseSeason title="FRANCHISE COMMAND" userTeam={team} roster={roster} saveKey={SOLO_FRANCHISE_SAVE_KEYS.real} onBack={() => setSeasonOpen(false)} onRosterChange={setRosterOverride} />
       </div>
     );
   }
@@ -100,6 +139,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
       const outgoingNames = outgoingPlayers.map(player => player.name);
       const pickNames = outgoingPicks.map(round => `a ${ordinal(round)}-round pick`);
       setRosterOverride([...roster.filter(player => !outgoingIds.includes(player.id)), { ...tradeTarget, team: team.abbr }]);
+      setDraftPicks(picks => picks.filter(round => !outgoingPicks.includes(round)));
       setMessage(`${tradeTarget.team} accepted ${[...outgoingNames, ...pickNames].join(', ')} for ${tradeTarget.name}.`);
       setTradeTarget(null);
       setOutgoingIds([]);
@@ -112,9 +152,9 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
       <nav className="sticky top-0 z-20 mt-3 grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-black/90 p-2 backdrop-blur">{([['week','THIS WEEK',ClipboardList],['trade','TRADE CENTER',ArrowRightLeft],['roster','ROSTER',Users]] as const).map(([id,label,Icon]) => <button key={id} onClick={() => setCommandTab(id)} className={`min-h-12 rounded-xl text-[10px] font-black ${commandTab===id?'bg-emerald-300 text-black':'bg-white/[.04] text-zinc-400'}`}><Icon className="mx-auto mb-1 h-4 w-4"/>{label}</button>)}</nav>
       {message && <div className="mt-3 rounded-2xl border border-emerald-400/25 bg-emerald-400/10 p-4 text-sm font-bold text-emerald-200">{message}</div>}
       {commandTab === 'week' && <section className="mt-3 rounded-[2rem] border border-white/10 bg-[#10151d] p-5 sm:p-7"><div className="text-[10px] font-black uppercase tracking-[.22em] text-emerald-300">Coach meeting</div><h2 className="mt-2 text-3xl font-black">WHAT'S THE PLAN?</h2><p className="mt-2 text-sm text-zinc-400">Your coaches need one clear priority. Pick it before starting the season.</p><div className="mt-5 grid gap-2 sm:grid-cols-3">{['Attack through the air','Control the clock','Balanced attack','Bring heavy pressure','Protect against big plays','Play aggressive'].map(plan => <button key={plan} onClick={() => setGamePlan(plan)} className={`min-h-14 rounded-2xl border px-4 text-left text-sm font-black ${gamePlan===plan?'border-emerald-300 bg-emerald-300/10 text-emerald-200':'border-white/10 bg-black/20'}`}>{plan}</button>)}</div><div className="mt-5 rounded-2xl bg-black/30 p-4 text-sm"><span className="font-black text-emerald-300">LOCKED PLAN:</span> {gamePlan}</div><button onClick={() => setSeasonOpen(true)} className="mt-4 min-h-14 w-full rounded-2xl bg-emerald-300 font-black text-black"><Play className="mr-2 inline h-5 w-5"/>START SEASON</button></section>}
-      {commandTab === 'trade' && <section className="mt-3 rounded-[2rem] border border-white/10 bg-[#10151d] p-4 sm:p-6"><div className="text-[10px] font-black uppercase tracking-[.22em] text-emerald-300">All 32 teams</div><h2 className="mt-2 text-3xl font-black">TRADE CENTER</h2><p className="mt-2 text-sm text-zinc-400">Choose a target, then build the offer yourself with your players and draft picks.</p><input aria-label="Search trade targets" value={tradeSearch} onChange={event => setTradeSearch(event.target.value)} placeholder="Search player, team or position" className="mt-4 min-h-12 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-sm outline-none"/><div className="mt-3 divide-y divide-white/5">{tradeTargets.map(player => <div key={player.id} className="flex items-center gap-3 py-3"><div className="min-w-0 flex-1"><div className="truncate text-sm font-black">{player.name}</div><div className="text-[10px] font-bold text-zinc-500">{player.team} · {player.position} · {player.ovr} OVR · ${player.salary}M{player.salaryType==='estimated'?' est.':''}</div></div><button aria-label={`Build offer for ${player.name}`} onClick={() => { setTradeTarget(player); setOutgoingIds([]); setOutgoingPicks([]); setMessage(''); }} className="min-h-11 shrink-0 rounded-xl border border-emerald-300/30 px-3 text-[10px] font-black text-emerald-300">BUILD OFFER</button></div>)}</div></section>}
+      {commandTab === 'trade' && <section className="mt-3 rounded-[2rem] border border-white/10 bg-[#10151d] p-4 sm:p-6"><div className="text-[10px] font-black uppercase tracking-[.22em] text-emerald-300">All 32 teams</div><h2 className="mt-2 text-3xl font-black">TRADE CENTER</h2><p className="mt-2 text-sm text-zinc-400">Choose a target, then build the offer yourself with your players and remaining draft picks.</p><div className="mt-3 rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-[10px] font-black text-zinc-400">PICK INVENTORY: {draftPicks.length ? draftPicks.map(round => ordinal(round).toUpperCase()).join(' · ') : 'NO PICKS REMAINING'}</div><input aria-label="Search trade targets" value={tradeSearch} onChange={event => setTradeSearch(event.target.value)} placeholder="Search player, team or position" className="mt-4 min-h-12 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-sm outline-none"/><div className="mt-3 divide-y divide-white/5">{tradeTargets.map(player => <div key={player.id} className="flex items-center gap-3 py-3"><div className="min-w-0 flex-1"><div className="truncate text-sm font-black">{player.name}</div><div className="text-[10px] font-bold text-zinc-500">{player.team} · {player.position} · {player.ovr} OVR · ${player.salary}M{player.salaryType==='estimated'?' est.':''}</div></div><button aria-label={`Build offer for ${player.name}`} onClick={() => { setTradeTarget(player); setOutgoingIds([]); setOutgoingPicks([]); setMessage(''); }} className="min-h-11 shrink-0 rounded-xl border border-emerald-300/30 px-3 text-[10px] font-black text-emerald-300">BUILD OFFER</button></div>)}</div></section>}
       {commandTab === 'roster' && <section className="mt-3 rounded-[2rem] border border-white/10 bg-[#10151d] p-4 sm:p-6"><h2 className="text-3xl font-black">YOUR ROSTER</h2><p className="mt-1 text-sm text-zinc-500">{roster.length} players · strongest ratings first</p><div className="mt-4 grid gap-2 sm:grid-cols-2">{roster.slice().sort((a,b)=>b.ovr-a.ovr).map(player => <div key={player.id} className="flex items-center justify-between rounded-xl bg-black/25 p-3"><div><div className="text-sm font-black">{player.name}</div><div className="text-[10px] text-zinc-500">{player.position} · ${player.salary}M{player.salaryType==='estimated'?' estimated':''}</div></div><div className="text-lg font-black text-emerald-300">{player.ovr}</div></div>)}</div></section>}
-      {tradeTarget && <ModalPortal><div className="fixed inset-0 z-[9999] flex items-end bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-5" role="dialog" aria-modal="true" aria-label="Build trade offer"><div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[2rem] border border-white/10 bg-[#0d1219] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:max-w-3xl sm:rounded-[2rem] sm:p-7"><div className="flex items-start justify-between gap-3"><div><div className="text-[10px] font-black tracking-[.22em] text-emerald-300">YOU CONTROL EVERY ASSET</div><h2 className="mt-1 text-3xl font-black">BUILD THE OFFER</h2></div><button onClick={() => setTradeTarget(null)} className="grid h-11 w-11 place-items-center rounded-full border border-white/10" aria-label="Close trade builder"><X /></button></div><div className="mt-4 rounded-2xl border border-emerald-300/20 bg-emerald-300/5 p-4"><div className="text-[9px] font-black text-zinc-500">YOU RECEIVE</div><div className="mt-1 font-black">{tradeTarget.name} <span className="text-emerald-300">{tradeTarget.ovr} OVR</span></div><div className="text-xs text-zinc-500">{tradeTarget.team} · {tradeTarget.position} · Value {requestedValue}</div></div><h3 className="mt-5 text-sm font-black">YOUR PLAYERS</h3><div className="mt-2 grid gap-2 sm:grid-cols-2">{roster.slice().sort((a,b) => b.ovr-a.ovr).map(player => { const selected = outgoingIds.includes(player.id); return <button key={player.id} onClick={() => setOutgoingIds(ids => selected ? ids.filter(id => id !== player.id) : [...ids, player.id])} className={`flex min-h-14 items-center justify-between rounded-xl border px-3 text-left ${selected?'border-emerald-300 bg-emerald-300/10':'border-white/10 bg-black/20'}`}><div><div className="text-xs font-black">{player.name}</div><div className="text-[9px] text-zinc-500">{player.position} · {player.ovr} OVR · Value {tradeValue(player)}</div></div>{selected && <Check className="h-4 w-4 text-emerald-300"/>}</button>})}</div><h3 className="mt-5 text-sm font-black">FUTURE DRAFT PICKS</h3><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">{[1,2,3,4].map(round => { const selected = outgoingPicks.includes(round); return <button key={round} onClick={() => setOutgoingPicks(picks => selected ? picks.filter(pick => pick !== round) : [...picks, round])} className={`min-h-14 rounded-xl border text-xs font-black ${selected?'border-emerald-300 bg-emerald-300/10 text-emerald-200':'border-white/10 bg-black/20'}`}>{ordinal(round).toUpperCase()} ROUND<div className="text-[9px] text-zinc-500">{PICK_VALUES[round-1]} value</div></button>})}</div><div className="mt-5 flex items-center justify-between rounded-2xl bg-black/30 p-4"><div><div className="text-[9px] font-black text-zinc-500">OFFER VALUE</div><div className={`text-2xl font-black ${offeredValue >= requestedValue*.92?'text-emerald-300':'text-amber-300'}`}>{offeredValue} / {Math.ceil(requestedValue*.92)}</div></div><button onClick={submitOffer} disabled={!outgoingIds.length&&!outgoingPicks.length} className="min-h-12 rounded-xl bg-emerald-300 px-5 text-xs font-black text-black disabled:opacity-30">PROPOSE TRADE</button></div></div></div></ModalPortal>}
+      {tradeTarget && <ModalPortal><div className="fixed inset-0 z-[9999] flex items-end bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-5" role="dialog" aria-modal="true" aria-label="Build trade offer"><div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[2rem] border border-white/10 bg-[#0d1219] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:max-w-3xl sm:rounded-[2rem] sm:p-7"><div className="flex items-start justify-between gap-3"><div><div className="text-[10px] font-black tracking-[.22em] text-emerald-300">YOU CONTROL EVERY ASSET</div><h2 className="mt-1 text-3xl font-black">BUILD THE OFFER</h2></div><button onClick={() => setTradeTarget(null)} className="grid h-11 w-11 place-items-center rounded-full border border-white/10" aria-label="Close trade builder"><X /></button></div><div className="mt-4 rounded-2xl border border-emerald-300/20 bg-emerald-300/5 p-4"><div className="text-[9px] font-black text-zinc-500">YOU RECEIVE</div><div className="mt-1 font-black">{tradeTarget.name} <span className="text-emerald-300">{tradeTarget.ovr} OVR</span></div><div className="text-xs text-zinc-500">{tradeTarget.team} · {tradeTarget.position} · Value {requestedValue}</div></div><h3 className="mt-5 text-sm font-black">YOUR PLAYERS</h3><div className="mt-2 grid gap-2 sm:grid-cols-2">{roster.slice().sort((a,b) => b.ovr-a.ovr).map(player => { const selected = outgoingIds.includes(player.id); return <button key={player.id} onClick={() => setOutgoingIds(ids => selected ? ids.filter(id => id !== player.id) : [...ids, player.id])} className={`flex min-h-14 items-center justify-between rounded-xl border px-3 text-left ${selected?'border-emerald-300 bg-emerald-300/10':'border-white/10 bg-black/20'}`}><div><div className="text-xs font-black">{player.name}</div><div className="text-[9px] text-zinc-500">{player.position} · {player.ovr} OVR · Value {tradeValue(player)}</div></div>{selected && <Check className="h-4 w-4 text-emerald-300"/>}</button>})}</div><h3 className="mt-5 text-sm font-black">FUTURE DRAFT PICKS</h3><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">{draftPicks.map(round => { const selected = outgoingPicks.includes(round); return <button key={round} onClick={() => setOutgoingPicks(picks => selected ? picks.filter(pick => pick !== round) : [...picks, round])} className={`min-h-14 rounded-xl border text-xs font-black ${selected?'border-emerald-300 bg-emerald-300/10 text-emerald-200':'border-white/10 bg-black/20'}`}>{ordinal(round).toUpperCase()} ROUND<div className="text-[9px] text-zinc-500">{PICK_VALUES[round-1]} value</div></button>})}</div>{!draftPicks.length && <div className="mt-2 rounded-xl border border-amber-300/20 bg-amber-300/5 p-3 text-xs text-amber-200">You traded every pick in this draft.</div>}<div className="mt-5 flex items-center justify-between rounded-2xl bg-black/30 p-4"><div><div className="text-[9px] font-black text-zinc-500">OFFER VALUE</div><div className={`text-2xl font-black ${offeredValue >= requestedValue*.92?'text-emerald-300':'text-amber-300'}`}>{offeredValue} / {Math.ceil(requestedValue*.92)}</div></div><button onClick={submitOffer} disabled={!outgoingIds.length&&!outgoingPicks.length} className="min-h-12 rounded-xl bg-emerald-300 px-5 text-xs font-black text-black disabled:opacity-30">PROPOSE TRADE</button></div></div></div></ModalPortal>}
     </div></div>;
   }
 

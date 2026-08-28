@@ -31,6 +31,13 @@ jobs:
       - name: TypeScript and roster integrity
         run: npm run check:hardening
 
+      - name: Require all six fantasy league sizes
+        run: |
+          npm run check:draft-reliability > /tmp/draft-reliability.json
+          for size in 6 8 10 12 14 16; do
+            grep -q '"teams": '"$size" /tmp/draft-reliability.json
+          done
+
       - name: Generate authoritative Draft Order Game catalog
         run: npx tsx scripts/generate-draft-order-game-catalog.ts /tmp/20260825_update_draft_order_game_salary_estimates.sql
 
