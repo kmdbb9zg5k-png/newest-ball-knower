@@ -1,11 +1,15 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Brain, CheckCircle2, Eye, Film, Loader2, MessageSquare, RotateCcw, ShieldCheck, Target, Trophy, WifiOff, XCircle } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, Brain, CalendarDays, CheckCircle2, Eye, Film, Flame, Loader2, MessageSquare, RotateCcw, ShieldCheck, Target, Trophy, WifiOff, XCircle } from 'lucide-react';
 import { beginTriviaSession, fetchTriviaQuestion, submitTriviaAnswer, TriviaAnswerResult, TriviaQuestion, TriviaSession } from './progressionCloud';
 import { ModeGuide } from './ModeGuide';
 import { ModalPortal } from './ModalPortal';
 import { trackBallKnowerEvent } from './analytics';
+import { useBallKnower } from './BallKnowerContext';
+import { GauntletPlayModal } from './GauntletPlayModal';
+import { buildDailyGauntlet,buildGauntletRound,GauntletMode,GauntletProgress,GauntletTier,loadGauntletProgress,recordGauntletAnswer,recordGauntletRun,saveGauntletProgress,utcDateKey } from './gauntletEngine';
+import { loadUserState,saveUserState } from './userStateCloud';
 
-type TriviaTier = 'ROOKIE' | 'PRO' | 'ALL-PRO' | 'HALL OF FAME';
+type TriviaTier = GauntletTier;
 
 const triviaTiers: { name: TriviaTier; desc: string; xp: string }[] = [
   { name: 'ROOKIE', desc: 'Rules, teams and football basics', xp: '15 XP' },
@@ -14,8 +18,7 @@ const triviaTiers: { name: TriviaTier; desc: string; xp: string }[] = [
   { name: 'HALL OF FAME', desc: 'Deep history, elimination and mastery', xp: '60 XP' },
 ];
 
-type GauntletModeName='TRIVIA'|'FILM ROOM'|'PREDICTIONS'|'DEBATES'|'SURVIVOR';
-type MiniChallenge={prompt:string;context:string;options:string[];correct:number;explanation:string};
+type GauntletModeName='TRIVIA'|GauntletMode;
 const gauntletModes:{name:GauntletModeName;description:string;icon:typeof Brain}[] = [
   {name:'TRIVIA',description:'Four difficulty levels with verified XP.',icon:Brain},
   {name:'FILM ROOM',description:'Read coverages and diagnose the play.',icon:Film},
@@ -23,43 +26,10 @@ const gauntletModes:{name:GauntletModeName;description:string;icon:typeof Brain}
   {name:'DEBATES',description:'Choose the evidence that wins the argument.',icon:MessageSquare},
   {name:'SURVIVOR',description:'One wrong pick ends the run.',icon:ShieldCheck},
 ];
-const miniChallenges:Record<Exclude<GauntletModeName,'TRIVIA'>,MiniChallenge[]>={
-  'FILM ROOM':[
-    {context:'3rd & 8 · Defense shows two high safeties. The nickel trails the slot and both safeties stay deep.',prompt:'What coverage did the defense most likely rotate into?',options:['Cover 0','Cover 2 Man','Cover 3 Buzz','Goal-line bracket'],correct:1,explanation:'Two deep safeties with underneath defenders playing trail technique points to Cover 2 Man.'},
-    {context:'Red zone · The edge crashes hard on the running back while the linebacker widens with the tight end.',prompt:'What should the quarterback read next on zone read?',options:['Hand it off','Keep outside the crashing edge','Throw the ball away immediately','Audible to a punt'],correct:1,explanation:'A crashing read defender gives the quarterback space to keep around the edge.'},
-    {context:'2-minute drill · Defense sends six and leaves the middle vacant.',prompt:'Which answer beats the pressure fastest?',options:['Seven-step comeback','Quick slant or hot route','Slow play-action shot','Quarterback sneak'],correct:1,explanation:'A hot slant attacks the vacated middle before the free rusher arrives.'},
-  ],
-  'PREDICTIONS':[
-    {context:'Favorite leads by 4 with 2:20 left. Opponent has no timeouts and the favorite has 1st & 10.',prompt:'What is the most likely result?',options:['Favorite closes it out','Opponent gets two more possessions','Game automatically goes to overtime','Favorite must attempt a field goal now'],correct:0,explanation:'Three productive runs can nearly drain the remaining clock, making a closeout most likely.'},
-    {context:'Underdog is +3 in turnovers but trails by 2 entering the fourth quarter.',prompt:'Which warning matters most?',options:['Turnover luck may regress','The underdog cannot score again','Possession no longer matters','The favorite must bench its quarterback'],correct:0,explanation:'A team already benefiting from three turnovers may not keep receiving short fields.'},
-    {context:'Heavy rain, 25 mph wind, two run-first teams and a low total.',prompt:'Which game script is most likely?',options:['Fast, pass-heavy shootout','Lower scoring with longer drives','Every drive ends in a turnover','No team attempts a field goal'],correct:1,explanation:'Wind and run-heavy offenses usually reduce explosive passing and keep the clock moving.'},
-  ],
-  'DEBATES':[
-    {context:'Claim: “Quarterback wins are the best way to rank quarterbacks.”',prompt:'Which response uses the strongest evidence?',options:['Wins are all that matter because football is a team sport','Compare efficiency, pressure response and supporting cast alongside wins','The quarterback with the coolest highlights is best','Ignore playoff performance completely'],correct:1,explanation:'The strongest case separates individual quarterback play from team context without ignoring results.'},
-    {context:'Claim: “A running back with more rushing yards was automatically better.”',prompt:'Which rebuttal wins the argument?',options:['Volume, efficiency, receiving and blocking context all matter','Yards never matter','Only touchdowns count','Use fan voting'],correct:0,explanation:'Total yards alone can hide workload and efficiency differences.'},
-    {context:'Claim: “The defense allowed 30 points, so it played badly.”',prompt:'What context should be checked first?',options:['Uniform color','Field position, turnovers and defensive points allowed','Ticket prices','Pregame music'],correct:1,explanation:'Short fields and opponent defensive scores can make the scoreboard misrepresent defensive performance.'},
-  ],
-  'SURVIVOR':[
-    {context:'Round 1 · PHI at home against a backup quarterback; KC travels to a division rival; BUF is on a short week.',prompt:'Pick the safest survivor choice.',options:['PHI','KC','BUF'],correct:0,explanation:'The home favorite facing a backup quarterback carries the fewest listed risk factors.'},
-    {context:'Round 2 · BAL is a large home favorite; DAL lost both starting tackles; MIA faces an elite pass rush.',prompt:'Stay alive. Who is safest?',options:['DAL','MIA','BAL'],correct:2,explanation:'BAL combines the strongest favorite profile with home field and no listed lineup warning.'},
-    {context:'Round 3 · SF is rested after a bye; GB plays its third road game; NYJ starts a rookie quarterback.',prompt:'Make the final pick.',options:['GB','NYJ','SF'],correct:2,explanation:'Rest and stability make SF the safest of these three choices.'},
-  ],
-};
-
-const MiniGauntlet:React.FC<{mode:Exclude<GauntletModeName,'TRIVIA'>;onClose:()=>void}>=({mode,onClose})=>{
-  const challenges=miniChallenges[mode];
-  const[index,setIndex]=useState(0);
-  const[score,setScore]=useState(0);
-  const[selected,setSelected]=useState<number|null>(null);
-  const[eliminated,setEliminated]=useState(false);
-  const complete=index>=challenges.length;
-  const challenge=challenges[Math.min(index,challenges.length-1)];
-  const choose=(choice:number)=>{if(selected!==null)return;setSelected(choice);if(choice===challenge.correct)setScore(value=>value+1);else if(mode==='SURVIVOR')setEliminated(true);};
-  const next=()=>{if(eliminated){setIndex(challenges.length);return;}setIndex(value=>value+1);setSelected(null);};
-  return <ModalPortal><div role="dialog" aria-modal="true" aria-label={mode} className="fixed inset-0 z-[9999] overflow-y-auto bg-[#05070a] px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(.75rem,env(safe-area-inset-top))] text-white"><div className="mx-auto max-w-2xl"><header className="flex min-h-12 items-center justify-between"><button onClick={onClose} className="inline-flex min-h-11 items-center gap-2 text-[10px] font-black"><ArrowLeft size={16}/> EXIT</button><div className="text-[10px] font-black tracking-widest text-fuchsia-300">{mode}</div><div className="text-[10px] font-black">{score} PTS</div></header>{complete?<section className="mt-5 rounded-3xl border border-fuchsia-400/25 bg-[#0b0e13] p-7 text-center"><Trophy className="mx-auto h-14 w-14 text-fuchsia-300"/><div className="mt-3 text-[10px] font-black tracking-widest text-fuchsia-300">{eliminated?'RUN ENDED':'GAUNTLET CLEARED'}</div><h2 className="mt-2 text-4xl font-black">{score} / {challenges.length}</h2><p className="mt-2 text-sm text-zinc-400">{eliminated?'One miss ends Survivor. Study the risk and run it back.':'Your result is saved for this run.'}</p><button onClick={onClose} className="mt-5 min-h-12 w-full rounded-xl bg-fuchsia-400 font-black text-black">BACK TO THE GAUNTLET</button></section>:<><div className="mt-3 h-1 overflow-hidden rounded-full bg-white/10"><div className="h-full bg-fuchsia-400" style={{width:`${((index+1)/challenges.length)*100}%`}}/></div><section className="mt-4 rounded-3xl border border-white/10 bg-[#0b0e13] p-5"><div className="text-[9px] font-black tracking-widest text-fuchsia-300">CHALLENGE {index+1} OF {challenges.length}</div><div className="mt-3 rounded-xl bg-fuchsia-400/[.06] p-3 text-xs font-bold leading-5 text-zinc-300">{challenge.context}</div><h2 className="mt-4 text-2xl font-black leading-tight">{challenge.prompt}</h2><div className="mt-4 grid gap-2">{challenge.options.map((option,choice)=>{const answered=selected!==null;const correct=answered&&choice===challenge.correct;const wrong=answered&&choice===selected&&!correct;return <button key={option} disabled={answered} onClick={()=>choose(choice)} className={`min-h-14 rounded-xl border px-4 text-left text-sm font-black ${correct?'border-emerald-400 bg-emerald-400 text-black':wrong?'border-red-400 bg-red-400/10 text-red-200':'border-white/10 bg-black/25'}`}>{option}</button>})}</div>{selected!==null&&<div className="mt-4 rounded-xl border border-fuchsia-400/20 bg-fuchsia-400/[.05] p-4 text-xs leading-5 text-zinc-300"><b className={selected===challenge.correct?'text-emerald-300':'text-red-300'}>{selected===challenge.correct?'CORRECT':'MISSED'}</b><p className="mt-1">{challenge.explanation}</p><button onClick={next} className="mt-3 min-h-11 w-full rounded-xl bg-fuchsia-400 font-black text-black">{eliminated?'SEE RESULT':index===challenges.length-1?'FINISH':'NEXT CHALLENGE'}</button></div>}</section></>}</div></div></ModalPortal>;
-};
 
 export const ChallengesHub: React.FC = () => {
+  const {currentUser}=useBallKnower();
+  const userId=currentUser?.id;
   const [tier, setTier] = useState<TriviaTier>('ROOKIE');
   const [triviaOpen, setTriviaOpen] = useState(false);
   const [questionNumber, setQuestionNumber] = useState(1);
@@ -71,12 +41,20 @@ export const ChallengesHub: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [miniMode,setMiniMode]=useState<Exclude<GauntletModeName,'TRIVIA'>|null>(null);
+  const [progress,setProgress]=useState<GauntletProgress>(()=>loadGauntletProgress(userId));
+  const [tierPickerMode,setTierPickerMode]=useState<GauntletMode|null>(null);
+  const [activeRun,setActiveRun]=useState<{mode:GauntletMode;tier:GauntletTier;nonce:number}|null>(null);
+  const [dailyRun,setDailyRun]=useState(false);
   const advancingRef = useRef(false);
   const advanceTimerRef = useRef<number | null>(null);
   const questionRequestRef = useRef(0);
   const triviaSessionRef = useRef(0);
   const serverSessionRef = useRef<TriviaSession | null>(null);
+  const dailyDate=utcDateKey();
+  const dailyScenarios=useMemo(()=>buildDailyGauntlet(dailyDate),[dailyDate]);
+  const runScenarios=useMemo(()=>activeRun?buildGauntletRound(activeRun.mode,activeRun.tier,10,`${activeRun.nonce}:${Date.now()}`):[],[activeRun]);
+  const applyProgress=useCallback((next:GauntletProgress)=>{setProgress(next);saveGauntletProgress(next,userId);void saveUserState('gauntlet_progress_v1',next).catch(error=>console.warn('Gauntlet cloud save failed',error));},[userId]);
+  useEffect(()=>{let cancelled=false;const local=loadGauntletProgress(userId);setProgress(local);void loadUserState<GauntletProgress>('gauntlet_progress_v1').then(cloud=>{if(cancelled||!cloud)return;const preferred=(cloud.totalAnswered||0)>(local.totalAnswered||0)?cloud:local;const merged={...preferred,highScores:{...cloud.highScores,...local.highScores},daily:{...cloud.daily,...local.daily}};for(const[key,value]of Object.entries(cloud.highScores||{}))merged.highScores[key]=Math.max(value,local.highScores[key]||0);applyProgress(merged);}).catch(error=>console.warn('Gauntlet cloud load failed',error));return()=>{cancelled=true};},[applyProgress,userId]);
 
   const loadQuestion = useCallback(async (nextTier: TriviaTier, session?: TriviaSession | null) => {
     // A previous RPC can finish after the user exits or switches tiers. Give every
@@ -175,6 +153,8 @@ export const ChallengesHub: React.FC = () => {
       advancingRef.current = false;
       setResult(receipt);
       if (receipt.isCorrect) setScore(current => current + 1);
+      const nextProgress=recordGauntletAnswer(loadGauntletProgress(userId),receipt.isCorrect,receipt.xpAwarded||({ROOKIE:10,PRO:20,'ALL-PRO':35,'HALL OF FAME':50}[answeredTier]));
+      applyProgress(nextProgress);
     } catch (err) {
       if (sessionId !== triviaSessionRef.current) return;
       setSelected(null);
@@ -193,6 +173,8 @@ export const ChallengesHub: React.FC = () => {
     advancingRef.current = true;
     clearAdvanceTimer();
     if (questionNumber >= 10) {
+      const nextProgress=recordGauntletRun(loadGauntletProgress(userId),`TRIVIA:${tier}`,score,10);
+      applyProgress(nextProgress);
       setRoundComplete(true);
       setQuestion(null);
       setSelected(null);
@@ -205,7 +187,7 @@ export const ChallengesHub: React.FC = () => {
     void loadQuestion(tier, serverSession).finally(() => {
       if (sessionId === triviaSessionRef.current) advancingRef.current = false;
     });
-  }, [clearAdvanceTimer, loadQuestion, questionNumber, score, tier]);
+  }, [applyProgress, clearAdvanceTimer, loadQuestion, questionNumber, score, tier, userId]);
 
   useEffect(() => {
     if (!result || !triviaOpen) {
@@ -244,12 +226,21 @@ export const ChallengesHub: React.FC = () => {
         </div>
       </section>
 
+      <section className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <ProgressStat label="Level" value={String(progress.level)}/><ProgressStat label="XP" value={String(progress.xp)}/><ProgressStat label="Current streak" value={String(progress.currentStreak)} icon={<Flame className="h-4 w-4 text-orange-400"/>}/><ProgressStat label="Longest streak" value={String(progress.longestStreak)}/><ProgressStat label="Accuracy" value={progress.totalAnswered?`${Math.round(progress.totalCorrect/progress.totalAnswered*100)}%`:'—'}/>
+      </section>
+
+      <button onClick={()=>setDailyRun(true)} disabled={Boolean(progress.daily[dailyDate]?.completed)} className="mt-4 flex min-h-28 w-full items-center justify-between gap-4 rounded-2xl border border-amber-300/30 bg-[radial-gradient(circle_at_90%_20%,rgba(251,191,36,.16),transparent_35%),#101318] p-5 text-left disabled:opacity-70">
+        <span><span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[.22em] text-amber-300"><CalendarDays className="h-4 w-4"/>Daily Gauntlet · {dailyDate}</span><span className="mt-2 block text-2xl font-black uppercase">Same five challenges. Everybody.</span><span className="mt-1 block text-xs font-semibold text-zinc-500">One shared run across Film Room, Predictions, Debates and Survivor.</span></span>
+        <span className="shrink-0 rounded-xl bg-amber-300 px-4 py-3 text-[10px] font-black uppercase text-black">{progress.daily[dailyDate]?.completed?`Complete · ${progress.daily[dailyDate].score}/5`:'Play today'}</span>
+      </button>
+
       <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {gauntletModes.map(mode=>{const Icon=mode.icon;return <button key={mode.name} onClick={()=>mode.name==='TRIVIA'?openTrivia('ROOKIE'):setMiniMode(mode.name)} className="min-h-40 rounded-2xl border border-fuchsia-400/30 bg-[#101318] p-4 text-left"><Icon className="text-fuchsia-300"/><div className="mt-6 text-sm font-black uppercase">{mode.name}</div><p className="mt-2 text-[10px] leading-relaxed text-zinc-500">{mode.description}</p><div className="mt-3 text-[8px] font-black uppercase tracking-widest text-fuchsia-300">Play now</div></button>})}
+        {gauntletModes.map(mode=>{const Icon=mode.icon;const best=mode.name==='TRIVIA'?Math.max(0,...triviaTiers.map(item=>progress.highScores[`TRIVIA:${item.name}`]||0)):Math.max(0,...triviaTiers.map(item=>progress.highScores[`${mode.name}:${item.name}`]||0));return <button key={mode.name} onClick={()=>mode.name==='TRIVIA'?openTrivia('ROOKIE'):setTierPickerMode(mode.name)} className="min-h-40 rounded-2xl border border-fuchsia-400/30 bg-[#101318] p-4 text-left"><div className="flex items-center justify-between"><Icon className="text-fuchsia-300"/><span className="text-[8px] font-black uppercase text-zinc-600">Best {best}/10</span></div><div className="mt-6 text-sm font-black uppercase">{mode.name}</div><p className="mt-2 text-[10px] leading-relaxed text-zinc-500">{mode.description}</p><div className="mt-3 text-[8px] font-black uppercase tracking-widest text-fuchsia-300">{mode.name==='TRIVIA'?'Quick start · Rookie':'Choose difficulty'}</div></button>})}
       </section>
 
       <section className="mt-4 overflow-hidden rounded-2xl border border-fuchsia-400/25 bg-[radial-gradient(circle_at_88%_8%,rgba(168,85,247,.18),transparent_34%),#0b0e13] p-3 sm:p-4">
-        <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-fuchsia-300"><Brain className="h-4 w-4"/>Choose difficulty</div>
+        <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-fuchsia-300"><Brain className="h-4 w-4"/>Trivia difficulty</div>
         <div className="grid gap-2 sm:grid-cols-2">
           {triviaTiers.map(item => (
             <button key={item.name} onClick={() => openTrivia(item.name)} className="group flex min-h-16 items-center justify-between rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-left hover:border-fuchsia-400/45 hover:bg-fuchsia-400/[.06]">
@@ -263,7 +254,9 @@ export const ChallengesHub: React.FC = () => {
         </div>
       </section>
 
-      {miniMode&&<MiniGauntlet mode={miniMode} onClose={()=>setMiniMode(null)}/>}
+      {tierPickerMode&&<ModalPortal><div role="dialog" aria-modal="true" aria-label={`${tierPickerMode} difficulty`} className="fixed inset-0 z-[9998] grid place-items-center overflow-y-auto bg-black/85 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur"><section className="w-full max-w-xl rounded-3xl border border-fuchsia-400/25 bg-[#0b0e13] p-5 text-white"><div className="flex items-start justify-between gap-3"><div><div className="text-[10px] font-black uppercase tracking-widest text-fuchsia-300">{tierPickerMode}</div><h2 className="mt-1 text-3xl font-black uppercase">Choose difficulty</h2><p className="mt-1 text-xs text-zinc-500">Each tier pulls 10 families from a 25-scenario pool.</p></div><button onClick={()=>setTierPickerMode(null)} className="min-h-11 rounded-xl border border-white/10 px-3 text-xs font-black">CLOSE</button></div><div className="mt-5 grid gap-2 sm:grid-cols-2">{triviaTiers.map(item=><button key={item.name} onClick={()=>{setActiveRun({mode:tierPickerMode,tier:item.name,nonce:Date.now()});setTierPickerMode(null)}} className="min-h-20 rounded-2xl border border-white/10 bg-black/25 p-4 text-left"><span className="block text-xl font-black">{item.name}</span><span className="mt-1 block text-[10px] text-zinc-500">High score {progress.highScores[`${tierPickerMode}:${item.name}`]||0}/10 · {item.xp.replace('XP','XP each')}</span></button>)}</div></section></div></ModalPortal>}
+      {activeRun&&<GauntletPlayModal key={activeRun.nonce} scenarios={runScenarios} title={`${activeRun.mode} · ${activeRun.tier}`} runKey={`${activeRun.mode}:${activeRun.tier}`} userId={userId} onClose={()=>setActiveRun(null)} onProgress={applyProgress} onReplay={()=>setActiveRun({...activeRun,nonce:Date.now()})}/>}
+      {dailyRun&&<GauntletPlayModal scenarios={dailyScenarios} title={`Daily Gauntlet · ${dailyDate}`} runKey={`DAILY:${dailyDate}`} dailyDate={dailyDate} userId={userId} onClose={()=>setDailyRun(false)} onProgress={applyProgress}/>}
       {triviaOpen && <ModalPortal>
         <div role="dialog" aria-modal="true" aria-label={`${tier} Trivia`} className="fixed inset-0 z-[9999] overflow-y-auto overscroll-contain bg-[#05070a] px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(.75rem,env(safe-area-inset-top))] text-white [-webkit-overflow-scrolling:touch] sm:px-4">
           <div className="mx-auto w-full max-w-2xl">
@@ -331,3 +324,5 @@ export const ChallengesHub: React.FC = () => {
     </div>
   );
 };
+
+const ProgressStat=({label,value,icon}:{label:string;value:string;icon?:React.ReactNode})=><div className="rounded-2xl border border-white/10 bg-[#101318] p-3"><div className="flex items-center justify-between text-[8px] font-black uppercase tracking-wider text-zinc-600"><span>{label}</span>{icon}</div><div className="mt-1 text-2xl font-black">{value}</div></div>;
