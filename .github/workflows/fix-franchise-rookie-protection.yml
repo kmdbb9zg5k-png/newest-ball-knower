@@ -63,7 +63,7 @@ jobs:
           path.write_text(text.replace(old, new, 1))
       - name: Validate
         run: |
-          npm ci
+          npm install --no-audit --no-fund
           npm run lint
           node --import tsx scripts/integrity-check.ts
           npm run build
