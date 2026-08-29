@@ -16,6 +16,7 @@ import { recoverTerminalGuestMerge } from '../guestMergeRecovery';
 import { buildRealTeamRoster } from '../soloFranchiseEngine';
 import { validateRosterShape } from '../rosterRules';
 import { DEFAULT_SALARY_CAP } from '../types';
+import { TEAM_THEMES } from '../teamTheme';
 
 const empty: GauntletProgress = {
   xp: 0, level: 1, currentStreak: 0, longestStreak: 0,
@@ -114,6 +115,25 @@ assert(
   migratedSoloRoster.reduce((total, player) => total + player.salary, 0) <= DEFAULT_SALARY_CAP,
   'Migrated Solo startup must retain salary-cap enforcement.',
 );
+for (const team of TEAM_THEMES) {
+  const newestRoster = buildRealTeamRoster(team.abbr);
+  const migratedTeamState = { solo_career: { roster: newestRoster.slice(0, -1) } };
+  const unregisterTeamFlush = registerFullCloudStateFlush(async () => {
+    migratedTeamState.solo_career.roster = newestRoster;
+  });
+  await flushAllCloudStateBeforeIdentityChange();
+  unregisterTeamFlush();
+  assert.deepEqual(
+    validateRosterShape(migratedTeamState.solo_career.roster),
+    [],
+    `${team.abbr} Solo roster must remain legal after account migration.`,
+  );
+  assert(
+    migratedTeamState.solo_career.roster.reduce((total, player) => total + player.salary, 0)
+      <= DEFAULT_SALARY_CAP,
+    `${team.abbr} Solo roster must remain under the salary cap after account migration.`,
+  );
+}
 
 const migration = readFileSync(new URL('../migrations/20260829_permanent_identity_guest_merge.sql', import.meta.url), 'utf8');
 assert(migration.includes('prepare_ball_knower_guest_merge'), 'Guest sign-in must prepare a one-time claim.');

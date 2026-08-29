@@ -32,4 +32,5 @@ alter table public.ball_knower_guest_account_claims
 drop constraint if exists ball_knower_guest_claim_identities_differ;
 alter table public.ball_knower_guest_account_claims
 add constraint ball_knower_guest_claim_identities_differ
-check (claimed_by is null or claimed_by<>guest_user_id);
+check (claimed_by is null or claimed_by<>guest_user_id)
+not valid;
