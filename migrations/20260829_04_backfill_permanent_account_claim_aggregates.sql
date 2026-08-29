@@ -12,4 +12,6 @@ execute function ball_knower_private.merge_guest_account_aggregates();
 
 update public.ball_knower_guest_account_claims
 set claimed_at=claimed_at
-where claimed_at is not null and claimed_by is not null;
+where claimed_at is not null
+  and claimed_by is not null
+  and claimed_by<>guest_user_id;

@@ -141,7 +141,17 @@ assert(migration.includes('claim_ball_knower_guest_merge'), 'Permanent sign-in m
 assert(migration.includes("on conflict(user_id,event_id) do nothing"), 'Gauntlet event migration must be idempotent.');
 assert(migration.includes("on conflict(user_id,event_key) do nothing"), 'Verified progression migration must be idempotent.');
 assert(migration.includes('commissioner_auth_id=v_target'), 'Guest commissioner ownership must transfer.');
-assert(migration.includes('is_anonymous'), 'Claims must enforce guest-to-permanent identity boundaries.');
+const claimFunctionBody = migration.match(
+  /create or replace function public\.claim_ball_knower_guest_merge[\s\S]*?as \$function\$([\s\S]*?)\$function\$;/,
+)?.[1] ?? '';
+assert(
+  claimFunctionBody.includes('if coalesce(v_target_is_anonymous,true)'),
+  'The claim function must reject anonymous target identities.',
+);
+assert(
+  claimFunctionBody.includes('if v_claim.guest_user_id=v_target'),
+  'The claim function must reject an identity claiming itself.',
+);
 
 const hardeningMigration = readFileSync(new URL('../migrations/20260829_02_harden_permanent_account_guest_merge.sql', import.meta.url), 'utf8');
 for (const table of ['ball_knower_leaderboard', 'ball_knower_owner_profiles']) {
@@ -149,16 +159,26 @@ for (const table of ['ball_knower_leaderboard', 'ball_knower_owner_profiles']) {
   assert(hardeningMigration.includes(`delete from public.${table}`), `${table} must not leave a stale guest row.`);
 }
 assert(hardeningMigration.includes('merge_guest_account_aggregates_on_claim'), 'Aggregate merging must be atomic with the claim transaction.');
-const backfillMigration = readFileSync(new URL('../migrations/20260829_03_backfill_permanent_account_claim_aggregates.sql', import.meta.url), 'utf8');
+const identityGuardMigration = readFileSync(new URL('../migrations/20260829_03_guard_guest_account_claim_identity.sql', import.meta.url), 'utf8');
+const guardFunctionBody = identityGuardMigration.match(
+  /create or replace function ball_knower_private\.guard_guest_account_claim_identity\(\)[\s\S]*?as \$function\$([\s\S]*?)\$function\$;/,
+)?.[1] ?? '';
+assert(
+  guardFunctionBody.includes('new.guest_user_id=new.claimed_by'),
+  'The database identity guard must reject equal guest and permanent identities.',
+);
+const backfillMigration = readFileSync(new URL('../migrations/20260829_04_backfill_permanent_account_claim_aggregates.sql', import.meta.url), 'utf8');
 assert(backfillMigration.includes('set claimed_at=claimed_at'), 'Already-completed claims must receive a one-time aggregate backfill.');
-const identityGuardMigration = readFileSync(new URL('../migrations/20260829_04_guard_guest_account_claim_identity.sql', import.meta.url), 'utf8');
-assert(identityGuardMigration.includes('new.guest_user_id=new.claimed_by'), 'Aggregate transfer must reject equal guest and permanent identities.');
+assert(
+  backfillMigration.includes('claimed_by<>guest_user_id'),
+  'Backfill must exclude invalid equal-identity claims even before constraint validation.',
+);
 const orderedIdentityMigrations = [
   '20260829_00_permanent_identity_guest_merge.sql',
   '20260829_01_index_guest_account_claim_target.sql',
   '20260829_02_harden_permanent_account_guest_merge.sql',
-  '20260829_03_backfill_permanent_account_claim_aggregates.sql',
-  '20260829_04_guard_guest_account_claim_identity.sql',
+  '20260829_03_guard_guest_account_claim_identity.sql',
+  '20260829_04_backfill_permanent_account_claim_aggregates.sql',
   '20260829_05_validate_guest_account_claim_identity.sql',
 ];
 assert.deepEqual(
