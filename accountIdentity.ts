@@ -8,9 +8,12 @@ import {
   type GauntletProgress,
 } from './gauntletEngine';
 import { ensureOnlineSession, type PermanentAuthProvider, supabase } from './supabase';
+import { flushAllCloudStateBeforeIdentityChange } from './cloudSyncCoordinator';
+import { recoverTerminalGuestMerge } from './guestMergeRecovery';
 import {
   loadGauntletProgressEvents,
   loadUserState,
+  flushPendingUserStateWrites,
   saveGauntletProgressEvents,
   saveUserState,
 } from './userStateCloud';
@@ -54,12 +57,15 @@ export function hasPendingGuestAccountMerge() {
   return Boolean(readPendingGuestMerge());
 }
 
-/** Flushes the latest local ledger before issuing the one-time guest claim. */
+/** Flushes every synced mode and the Gauntlet ledger before issuing a claim. */
 export async function prepareGuestAccountMerge(): Promise<PendingGuestMerge | null> {
   if (!supabase) return null;
   const guest = await ensureOnlineSession();
   if (!guest.is_anonymous) return null;
 
+  await flushPendingUserStateWrites();
+  await flushAllCloudStateBeforeIdentityChange();
+  await flushPendingUserStateWrites();
   const local = loadGauntletProgress(guest.id);
   await saveGauntletProgressEvents(Object.values(local.sync?.events || {}));
   await saveUserState('gauntlet_progress_v2', compactGauntletProgressForCloud(local));
@@ -95,7 +101,10 @@ export async function claimPendingGuestAccountMerge(user?: User): Promise<Claime
   if (permanent.is_anonymous || permanent.id === pending.guestUserId) return null;
 
   const response = await supabase.rpc('claim_ball_knower_guest_merge', { p_token: pending.token });
-  if (response.error) throw response.error;
+  if (response.error) {
+    recoverTerminalGuestMerge(response.error, () => writePendingGuestMerge(null));
+    throw response.error;
+  }
   const receipt = (Array.isArray(response.data) ? response.data[0] : response.data) as GuestMergeReceipt | null;
   if (!receipt) throw new Error('Guest progress claim returned no receipt.');
 

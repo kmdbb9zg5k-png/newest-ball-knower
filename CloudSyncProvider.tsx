@@ -3,11 +3,17 @@ import type { User } from '@supabase/supabase-js';
 import { Cloud, CloudOff, Loader2 } from 'lucide-react';
 import { ensureOnlineSession, isCloudConfigured, supabase } from './supabase';
 import { claimPendingGuestAccountMerge, hasPendingGuestAccountMerge } from './accountIdentity';
+import { registerFullCloudStateFlush } from './cloudSyncCoordinator';
 import { loadUserStates, saveUserStates, UserStateRow } from './userStateCloud';
 
 type CloudSyncStatus = 'connecting' | 'online' | 'error' | 'unconfigured';
 type CloudEnvelope = { raw: string | null };
-type StorageEntry = { localKey: string; cloudKey: string; privateImages?: boolean };
+type StorageEntry = {
+  localKey: string;
+  cloudKey: string;
+  privateImages?: boolean;
+  directJson?: boolean;
+};
 
 const META_KEY = 'ballknower_cloud_meta_v1';
 const OWNER_KEY = 'ballknower_cloud_owner_v1';
@@ -24,6 +30,7 @@ const CLOUD_STORAGE: StorageEntry[] = [
   { localKey: 'ballknower_solo_my_player_v1', cloudKey: 'solo_my_player', privateImages: true },
   { localKey: 'ballknower_solo_my_player_v1:season', cloudKey: 'solo_my_player_season' },
   { localKey: 'ballknower_player_agent_v4', cloudKey: 'player_agent_career' },
+  { localKey: 'ballknower_owner_career_v3', cloudKey: 'owner_business_career_v1', directJson: true },
 ];
 
 const CloudSyncContext = createContext<CloudSyncStatus>(isCloudConfigured ? 'connecting' : 'unconfigured');
@@ -45,7 +52,15 @@ function writeMeta(userId: string, meta: Record<string, number>) {
   try { localStorage.setItem(metaKey(userId), JSON.stringify(meta)); } catch {}
 }
 
-function cloudEnvelope(entry: StorageEntry, raw: string | null): CloudEnvelope | null {
+function cloudValue(entry: StorageEntry, raw: string | null): unknown {
+  if (entry.directJson) {
+    if (raw === null) return null;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return undefined;
+    }
+  }
   if (raw === null) return { raw: null };
   let safeRaw = raw;
 
@@ -56,21 +71,27 @@ function cloudEnvelope(entry: StorageEntry, raw: string | null): CloudEnvelope |
       const profile = JSON.parse(raw);
       safeRaw = JSON.stringify({ ...profile, faceImage: '', renderImage: '' });
     } catch {
-      return null;
+      return undefined;
     }
   }
 
   const envelope = { raw: safeRaw };
   if (JSON.stringify(envelope).length > MAX_CLOUD_RAW_LENGTH) {
     console.warn(`Cloud save skipped for ${entry.localKey}: state is too large.`);
-    return null;
+    return undefined;
   }
   return envelope;
 }
 
-function applyRemote(entry: StorageEntry, envelope: CloudEnvelope): boolean {
+function applyRemote(entry: StorageEntry, value: unknown): boolean {
   try {
     const before = localStorage.getItem(entry.localKey);
+    if (entry.directJson) {
+      if (value === null || value === undefined) localStorage.removeItem(entry.localKey);
+      else localStorage.setItem(entry.localKey, JSON.stringify(value));
+      return before !== localStorage.getItem(entry.localKey);
+    }
+    const envelope = value as CloudEnvelope;
     if (envelope?.raw === null) localStorage.removeItem(entry.localKey);
     else if (typeof envelope?.raw === 'string') {
       let restored = envelope.raw;
@@ -130,12 +151,12 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const entries = CLOUD_STORAGE.filter(entry => dirtyKeys.has(entry.localKey));
       const snapshots = new Map(entries.map(entry => [entry.localKey, localStorage.getItem(entry.localKey)]));
       const rows = entries.flatMap(entry => {
-        const value = cloudEnvelope(entry, snapshots.get(entry.localKey) ?? null);
-        return value ? [{ stateKey: entry.cloudKey, value }] : [];
+        const value = cloudValue(entry, snapshots.get(entry.localKey) ?? null);
+        return value !== undefined ? [{ stateKey: entry.cloudKey, value }] : [];
       });
 
       writeChain = (async () => {
-        if (!rows.length) throw new Error('Cloud save could not serialize the changed state.');
+        if (rows.length !== entries.length) throw new Error('Cloud save could not serialize every changed state.');
         const saved = await saveUserStates(rows);
         const savedAt = new Map(saved.map(row => [row.state_key, Date.parse(row.updated_at) || 0]));
         for (const entry of entries) {
@@ -185,14 +206,23 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     };
 
+    const flushAllLocalState = async () => {
+      captureLocalChanges();
+      while (dirtyKeys.size > 0) {
+        await flushDirty();
+        captureLocalChanges();
+      }
+    };
+    const unregisterFullFlush = registerFullCloudStateFlush(flushAllLocalState);
+
     const pullRemote = async (initial = false) => {
-      const rows = await loadUserStates<CloudEnvelope>(CLOUD_STORAGE.map(entry => entry.cloudKey));
+      const rows = await loadUserStates<unknown>(CLOUD_STORAGE.map(entry => entry.cloudKey));
       const byKey = new Map(rows.map(row => [row.state_key, row]));
       const upload: StorageEntry[] = [];
       let restoredMountedState = false;
 
       for (const entry of CLOUD_STORAGE) {
-        const row = byKey.get(entry.cloudKey) as UserStateRow<CloudEnvelope> | undefined;
+        const row = byKey.get(entry.cloudKey) as UserStateRow<unknown> | undefined;
         const localRaw = localStorage.getItem(entry.localKey);
         const localChangedAt = meta[entry.localKey] || 0;
         const remoteChangedAt = row ? Date.parse(row.updated_at) || 0 : 0;
@@ -232,11 +262,24 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }, 30_000);
     };
 
+    const claimGuestStateOrContinue = async (user: User) => {
+      if (!hasPendingGuestAccountMerge()) return;
+      try {
+        await claimPendingGuestAccountMerge(user);
+      } catch (error) {
+        // A terminal claim clears its pending token. Continue with the
+        // permanent account normally; retryable failures keep the token and
+        // must stop the identity switch so guest state is never discarded.
+        if (hasPendingGuestAccountMerge()) throw error;
+        console.warn('Guest progress claim can no longer be retried; continuing permanent-account sync', error);
+      }
+    };
+
     const bootstrap = async () => {
       const user = await ensureOnlineSession();
       activeUserId = user.id;
       const previousOwner = localStorage.getItem(OWNER_KEY);
-      if (!user.is_anonymous && hasPendingGuestAccountMerge()) await claimPendingGuestAccountMerge(user);
+      if (!user.is_anonymous) await claimGuestStateOrContinue(user);
       if (previousOwner && previousOwner !== activeUserId) {
         clearSyncedLocalState();
       }
@@ -246,7 +289,7 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (identitySwitchRunning) return;
         identitySwitchRunning = true;
         try {
-          if (nextUser && hasPendingGuestAccountMerge()) await claimPendingGuestAccountMerge(nextUser);
+          if (nextUser) await claimGuestStateOrContinue(nextUser);
           clearSyncedLocalState();
           if (nextUser) localStorage.setItem(OWNER_KEY, nextUser.id);
           else localStorage.removeItem(OWNER_KEY);
@@ -293,6 +336,7 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       window.clearInterval(remoteTimer);
       window.clearTimeout(retryTimer);
       authSubscription?.unsubscribe();
+      unregisterFullFlush();
     };
   }, []);
 

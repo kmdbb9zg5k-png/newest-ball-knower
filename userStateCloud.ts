@@ -7,6 +7,20 @@ export type UserStateRow<T = unknown> = {
   updated_at: string;
 };
 
+const pendingUserStateWrites = new Set<Promise<unknown>>();
+
+function trackUserStateWrite<T>(write: Promise<T>): Promise<T> {
+  pendingUserStateWrites.add(write);
+  void write.finally(() => pendingUserStateWrites.delete(write)).catch(() => undefined);
+  return write;
+}
+
+export async function flushPendingUserStateWrites(): Promise<void> {
+  while (pendingUserStateWrites.size > 0) {
+    await Promise.all([...pendingUserStateWrites]);
+  }
+}
+
 export async function loadUserStates<T = unknown>(stateKeys: string[]): Promise<UserStateRow<T>[]> {
   if (!supabase || stateKeys.length === 0) return [];
   await ensureOnlineSession();
@@ -18,19 +32,21 @@ export async function loadUserStates<T = unknown>(stateKeys: string[]): Promise<
   return (data ?? []) as UserStateRow<T>[];
 }
 
-export async function saveUserStates(entries: Array<{ stateKey: string; value: unknown }>): Promise<UserStateRow[]> {
-  if (!supabase || entries.length === 0) return [];
-  const user = await ensureOnlineSession();
-  const { data, error } = await supabase.from('ball_knower_user_state').upsert(
-    entries.map(entry => ({
-      user_id: user.id,
-      state_key: entry.stateKey,
-      value: entry.value,
-    })),
-    { onConflict: 'user_id,state_key' },
-  ).select('state_key,value,updated_at');
-  if (error) throw error;
-  return (data ?? []) as UserStateRow[];
+export function saveUserStates(entries: Array<{ stateKey: string; value: unknown }>): Promise<UserStateRow[]> {
+  if (!supabase || entries.length === 0) return Promise.resolve([]);
+  return trackUserStateWrite((async () => {
+    const user = await ensureOnlineSession();
+    const { data, error } = await supabase.from('ball_knower_user_state').upsert(
+      entries.map(entry => ({
+        user_id: user.id,
+        state_key: entry.stateKey,
+        value: entry.value,
+      })),
+      { onConflict: 'user_id,state_key' },
+    ).select('state_key,value,updated_at');
+    if (error) throw error;
+    return (data ?? []) as UserStateRow[];
+  })());
 }
 
 export async function loadUserState<T>(stateKey: string): Promise<T | null> {
@@ -46,15 +62,17 @@ export async function loadUserState<T>(stateKey: string): Promise<T | null> {
   return (data?.value as T | undefined) ?? null;
 }
 
-export async function saveUserState(stateKey: string, value: unknown): Promise<void> {
-  if (!supabase) return;
-  const user = await ensureOnlineSession();
-  const { error } = await supabase.from('ball_knower_user_state').upsert({
-    user_id: user.id,
-    state_key: stateKey,
-    value,
-  }, { onConflict: 'user_id,state_key' });
-  if (error) throw error;
+export function saveUserState(stateKey: string, value: unknown): Promise<void> {
+  if (!supabase) return Promise.resolve();
+  return trackUserStateWrite((async () => {
+    const user = await ensureOnlineSession();
+    const { error } = await supabase.from('ball_knower_user_state').upsert({
+      user_id: user.id,
+      state_key: stateKey,
+      value,
+    }, { onConflict: 'user_id,state_key' });
+    if (error) throw error;
+  })());
 }
 
 export async function loadGauntletProgressEvents(): Promise<GauntletProgressEvent[]> {
