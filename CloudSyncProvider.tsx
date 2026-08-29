@@ -52,6 +52,16 @@ function writeMeta(userId: string, meta: Record<string, number>) {
   try { localStorage.setItem(metaKey(userId), JSON.stringify(meta)); } catch {}
 }
 
+function directJsonUpdatedAt(entry: StorageEntry, value: string | unknown): number {
+  if (!entry.directJson || value === null || value === undefined) return 0;
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+    return Number((parsed as { updatedAt?: unknown })?.updatedAt) || 0;
+  } catch {
+    return 0;
+  }
+}
+
 function cloudValue(entry: StorageEntry, raw: string | null): unknown {
   if (entry.directJson) {
     if (raw === null) return null;
@@ -224,8 +234,14 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       for (const entry of CLOUD_STORAGE) {
         const row = byKey.get(entry.cloudKey) as UserStateRow<unknown> | undefined;
         const localRaw = localStorage.getItem(entry.localKey);
-        const localChangedAt = meta[entry.localKey] || 0;
-        const remoteChangedAt = row ? Date.parse(row.updated_at) || 0 : 0;
+        const localChangedAt = Math.max(
+          meta[entry.localKey] || 0,
+          directJsonUpdatedAt(entry, localRaw),
+        );
+        const remoteChangedAt = row ? Math.max(
+          Date.parse(row.updated_at) || 0,
+          directJsonUpdatedAt(entry, row.value),
+        ) : 0;
 
         if (dirtyKeys.has(entry.localKey)) {
           upload.push(entry);

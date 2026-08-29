@@ -112,6 +112,8 @@ for (const table of ['ball_knower_leaderboard', 'ball_knower_owner_profiles']) {
   assert(hardeningMigration.includes(`delete from public.${table}`), `${table} must not leave a stale guest row.`);
 }
 assert(hardeningMigration.includes('merge_guest_account_aggregates_on_claim'), 'Aggregate merging must be atomic with the claim transaction.');
+const backfillMigration = readFileSync(new URL('../migrations/20260829_backfill_permanent_account_claim_aggregates.sql', import.meta.url), 'utf8');
+assert(backfillMigration.includes('set claimed_at=claimed_at'), 'Already-completed claims must receive a one-time aggregate backfill.');
 
 const identityClient = readFileSync(new URL('../accountIdentity.ts', import.meta.url), 'utf8');
 assert(identityClient.includes("saveUserState('gauntlet_progress_v2'"), 'Latest guest snapshot must flush before sign-in.');
@@ -130,5 +132,7 @@ assert(cloudProvider.includes('claimPendingGuestAccountMerge'), 'Cloud bootstrap
 assert(cloudProvider.includes('const flushAllLocalState = async () => {\n      captureLocalChanges();'), 'Identity flush must capture all immediate local changes.');
 assert(cloudProvider.includes('if (hasPendingGuestAccountMerge()) throw error'), 'Retryable claim failures must still block identity switching.');
 assert(cloudProvider.includes("localKey: 'ballknower_owner_career_v3'"), 'Owner state must participate in the full identity flush.');
+assert(cloudProvider.includes('directJsonUpdatedAt(entry, localRaw)'), 'Owner bootstrap must compare its intrinsic local timestamp.');
+assert(cloudProvider.includes('directJsonUpdatedAt(entry, row.value)'), 'Owner bootstrap must compare its intrinsic cloud timestamp.');
 
 console.log('Account identity check passed: terminal recovery, full-mode flush, aggregate transfer, and exact Device B restore are covered.');
