@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import {
   compactGauntletProgressForCloud,
   mergeGauntletProgress,
@@ -135,7 +135,7 @@ for (const team of TEAM_THEMES) {
   );
 }
 
-const migration = readFileSync(new URL('../migrations/20260829_permanent_identity_guest_merge.sql', import.meta.url), 'utf8');
+const migration = readFileSync(new URL('../migrations/20260829_00_permanent_identity_guest_merge.sql', import.meta.url), 'utf8');
 assert(migration.includes('prepare_ball_knower_guest_merge'), 'Guest sign-in must prepare a one-time claim.');
 assert(migration.includes('claim_ball_knower_guest_merge'), 'Permanent sign-in must claim guest-owned rows.');
 assert(migration.includes("on conflict(user_id,event_id) do nothing"), 'Gauntlet event migration must be idempotent.');
@@ -143,16 +143,29 @@ assert(migration.includes("on conflict(user_id,event_key) do nothing"), 'Verifie
 assert(migration.includes('commissioner_auth_id=v_target'), 'Guest commissioner ownership must transfer.');
 assert(migration.includes('is_anonymous'), 'Claims must enforce guest-to-permanent identity boundaries.');
 
-const hardeningMigration = readFileSync(new URL('../migrations/20260829_harden_permanent_account_guest_merge.sql', import.meta.url), 'utf8');
+const hardeningMigration = readFileSync(new URL('../migrations/20260829_02_harden_permanent_account_guest_merge.sql', import.meta.url), 'utf8');
 for (const table of ['ball_knower_leaderboard', 'ball_knower_owner_profiles']) {
   assert(hardeningMigration.includes(`insert into public.${table}`), `${table} must merge into the permanent identity.`);
   assert(hardeningMigration.includes(`delete from public.${table}`), `${table} must not leave a stale guest row.`);
 }
 assert(hardeningMigration.includes('merge_guest_account_aggregates_on_claim'), 'Aggregate merging must be atomic with the claim transaction.');
-const backfillMigration = readFileSync(new URL('../migrations/20260829_backfill_permanent_account_claim_aggregates.sql', import.meta.url), 'utf8');
+const backfillMigration = readFileSync(new URL('../migrations/20260829_03_backfill_permanent_account_claim_aggregates.sql', import.meta.url), 'utf8');
 assert(backfillMigration.includes('set claimed_at=claimed_at'), 'Already-completed claims must receive a one-time aggregate backfill.');
-const identityGuardMigration = readFileSync(new URL('../migrations/20260829_guard_guest_account_claim_identity.sql', import.meta.url), 'utf8');
+const identityGuardMigration = readFileSync(new URL('../migrations/20260829_04_guard_guest_account_claim_identity.sql', import.meta.url), 'utf8');
 assert(identityGuardMigration.includes('new.guest_user_id=new.claimed_by'), 'Aggregate transfer must reject equal guest and permanent identities.');
+const orderedIdentityMigrations = [
+  '20260829_00_permanent_identity_guest_merge.sql',
+  '20260829_01_index_guest_account_claim_target.sql',
+  '20260829_02_harden_permanent_account_guest_merge.sql',
+  '20260829_03_backfill_permanent_account_claim_aggregates.sql',
+  '20260829_04_guard_guest_account_claim_identity.sql',
+  '20260829_05_validate_guest_account_claim_identity.sql',
+];
+assert.deepEqual(
+  readdirSync(new URL('../migrations/', import.meta.url)).filter(name => name.startsWith('20260829_')).sort(),
+  orderedIdentityMigrations,
+  'Permanent-account migrations must install their dependencies in filename order.',
+);
 
 const identityClient = readFileSync(new URL('../accountIdentity.ts', import.meta.url), 'utf8');
 assert(identityClient.includes("saveUserState('gauntlet_progress_v2'"), 'Latest guest snapshot must flush before sign-in.');
