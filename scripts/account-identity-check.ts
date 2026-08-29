@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import {
   compactGauntletProgressForCloud,
   mergeGauntletProgress,
@@ -8,6 +8,15 @@ import {
   recordGauntletRun,
   type GauntletProgress,
 } from '../gauntletEngine';
+import {
+  flushAllCloudStateBeforeIdentityChange,
+  registerFullCloudStateFlush,
+} from '../cloudSyncCoordinator';
+import { recoverTerminalGuestMerge } from '../guestMergeRecovery';
+import { buildRealTeamRoster } from '../soloFranchiseEngine';
+import { validateRosterShape } from '../rosterRules';
+import { DEFAULT_SALARY_CAP } from '../types';
+import { TEAM_THEMES } from '../teamTheme';
 
 const empty: GauntletProgress = {
   xp: 0, level: 1, currentStreak: 0, longestStreak: 0,
@@ -48,7 +57,85 @@ const repeatedDeviceB = mergeGauntletProgressEvents(deviceB, accountEvents);
 assert.equal(repeatedDeviceB.xp, deviceA.xp, 'Repeated account sync cannot duplicate XP.');
 assert.equal(repeatedDeviceB.totalAnswered, deviceA.totalAnswered, 'Repeated account sync cannot duplicate answers.');
 
-const migration = readFileSync(new URL('../migrations/20260829_permanent_identity_guest_merge.sql', import.meta.url), 'utf8');
+for (const [message, expected] of [
+  ['Guest merge token expired', 'expired'],
+  ['Guest merge token is invalid', 'invalid'],
+  ['Guest progress was already claimed by another account', 'already_claimed'],
+] as const) {
+  let clears = 0;
+  assert.equal(
+    recoverTerminalGuestMerge({ code: 'P0001', message }, () => { clears += 1; }),
+    expected,
+    `${expected} claims must be terminal.`,
+  );
+  assert.equal(clears, 1, `${expected} claims must clear the pending token exactly once.`);
+}
+let retryableClears = 0;
+assert.equal(
+  recoverTerminalGuestMerge({ message: 'Failed to fetch' }, () => { retryableClears += 1; }),
+  null,
+  'Network failures must remain retryable.',
+);
+assert.equal(retryableClears, 0, 'Retryable failures must preserve the pending token.');
+let stringFailureClears = 0;
+assert.equal(
+  recoverTerminalGuestMerge('GUEST MERGE TOKEN EXPIRED', () => { stringFailureClears += 1; }),
+  'expired',
+  'String terminal failures must be normalized case-insensitively.',
+);
+assert.equal(stringFailureClears, 1, 'A string terminal failure must clear the pending token.');
+
+const legalSoloRoster = buildRealTeamRoster('PHI');
+const newestGuestModes = {
+  solo_career: { season: 4, wins: 11, roster: legalSoloRoster },
+  solo_real_team: { week: 9 },
+  owner_business_career_v1: { reputation: 58 },
+  player_agent_career: { clients: 3 },
+};
+const guestCloudModes = {
+  solo_career: { season: 3, wins: 7, roster: legalSoloRoster.slice(0, -1) },
+  solo_real_team: { week: 8 },
+  owner_business_career_v1: { reputation: 45 },
+  player_agent_career: { clients: 2 },
+};
+const unregisterFlush = registerFullCloudStateFlush(async () => {
+  await Promise.resolve();
+  Object.assign(guestCloudModes, newestGuestModes);
+});
+await flushAllCloudStateBeforeIdentityChange();
+unregisterFlush();
+assert.deepEqual(
+  guestCloudModes,
+  newestGuestModes,
+  'An immediate sign-in must await the newest Franchise/Solo/Owner/Agent cloud state.',
+);
+const migratedSoloRoster = guestCloudModes.solo_career.roster;
+assert.deepEqual(validateRosterShape(migratedSoloRoster), [], 'Migrated Solo startup must retain a legal roster.');
+assert(
+  migratedSoloRoster.reduce((total, player) => total + player.salary, 0) <= DEFAULT_SALARY_CAP,
+  'Migrated Solo startup must retain salary-cap enforcement.',
+);
+for (const team of TEAM_THEMES) {
+  const newestRoster = buildRealTeamRoster(team.abbr);
+  const migratedTeamState = { solo_career: { roster: newestRoster.slice(0, -1) } };
+  const unregisterTeamFlush = registerFullCloudStateFlush(async () => {
+    migratedTeamState.solo_career.roster = newestRoster;
+  });
+  await flushAllCloudStateBeforeIdentityChange();
+  unregisterTeamFlush();
+  assert.deepEqual(
+    validateRosterShape(migratedTeamState.solo_career.roster),
+    [],
+    `${team.abbr} Solo roster must remain legal after account migration.`,
+  );
+  assert(
+    migratedTeamState.solo_career.roster.reduce((total, player) => total + player.salary, 0)
+      <= DEFAULT_SALARY_CAP,
+    `${team.abbr} Solo roster must remain under the salary cap after account migration.`,
+  );
+}
+
+const migration = readFileSync(new URL('../migrations/20260829_00_permanent_identity_guest_merge.sql', import.meta.url), 'utf8');
 assert(migration.includes('prepare_ball_knower_guest_merge'), 'Guest sign-in must prepare a one-time claim.');
 assert(migration.includes('claim_ball_knower_guest_merge'), 'Permanent sign-in must claim guest-owned rows.');
 assert(migration.includes("on conflict(user_id,event_id) do nothing"), 'Gauntlet event migration must be idempotent.');
@@ -56,12 +143,51 @@ assert(migration.includes("on conflict(user_id,event_key) do nothing"), 'Verifie
 assert(migration.includes('commissioner_auth_id=v_target'), 'Guest commissioner ownership must transfer.');
 assert(migration.includes('is_anonymous'), 'Claims must enforce guest-to-permanent identity boundaries.');
 
+const hardeningMigration = readFileSync(new URL('../migrations/20260829_02_harden_permanent_account_guest_merge.sql', import.meta.url), 'utf8');
+for (const table of ['ball_knower_leaderboard', 'ball_knower_owner_profiles']) {
+  assert(hardeningMigration.includes(`insert into public.${table}`), `${table} must merge into the permanent identity.`);
+  assert(hardeningMigration.includes(`delete from public.${table}`), `${table} must not leave a stale guest row.`);
+}
+assert(hardeningMigration.includes('merge_guest_account_aggregates_on_claim'), 'Aggregate merging must be atomic with the claim transaction.');
+const backfillMigration = readFileSync(new URL('../migrations/20260829_03_backfill_permanent_account_claim_aggregates.sql', import.meta.url), 'utf8');
+assert(backfillMigration.includes('set claimed_at=claimed_at'), 'Already-completed claims must receive a one-time aggregate backfill.');
+const identityGuardMigration = readFileSync(new URL('../migrations/20260829_04_guard_guest_account_claim_identity.sql', import.meta.url), 'utf8');
+assert(identityGuardMigration.includes('new.guest_user_id=new.claimed_by'), 'Aggregate transfer must reject equal guest and permanent identities.');
+const orderedIdentityMigrations = [
+  '20260829_00_permanent_identity_guest_merge.sql',
+  '20260829_01_index_guest_account_claim_target.sql',
+  '20260829_02_harden_permanent_account_guest_merge.sql',
+  '20260829_03_backfill_permanent_account_claim_aggregates.sql',
+  '20260829_04_guard_guest_account_claim_identity.sql',
+  '20260829_05_validate_guest_account_claim_identity.sql',
+];
+assert.deepEqual(
+  readdirSync(new URL('../migrations/', import.meta.url)).filter(name => name.startsWith('20260829_')).sort(),
+  orderedIdentityMigrations,
+  'Permanent-account migrations must install their dependencies in filename order.',
+);
+
 const identityClient = readFileSync(new URL('../accountIdentity.ts', import.meta.url), 'utf8');
 assert(identityClient.includes("saveUserState('gauntlet_progress_v2'"), 'Latest guest snapshot must flush before sign-in.');
 assert(identityClient.includes('mergeGauntletProgressEvents'), 'Permanent account hydration must use canonical events.');
 assert(identityClient.includes('signInWithOAuth'), 'Google and Apple must use real Supabase OAuth.');
+const flushIndex = identityClient.indexOf('await flushAllCloudStateBeforeIdentityChange()');
+const prepareIndex = identityClient.indexOf("supabase.rpc('prepare_ball_knower_guest_merge')");
+assert(flushIndex >= 0, 'The full guest-state flush must run before claim-token creation.');
+assert(prepareIndex >= 0, 'Claim-token creation must call prepare_ball_knower_guest_merge.');
+assert(
+  flushIndex < prepareIndex,
+  'The full guest-state flush must finish before claim-token creation.',
+);
+assert(identityClient.includes('recoverTerminalGuestMerge'), 'Terminal claim failures must clear their pending token.');
+assert(identityClient.includes('flushPendingUserStateWrites'), 'In-flight direct mode saves must finish before sign-in.');
 
 const cloudProvider = readFileSync(new URL('../CloudSyncProvider.tsx', import.meta.url), 'utf8');
 assert(cloudProvider.includes('claimPendingGuestAccountMerge'), 'Cloud bootstrap must claim guest progress before clearing local state.');
+assert(cloudProvider.includes('const flushAllLocalState = async () => {\n      captureLocalChanges();'), 'Identity flush must capture all immediate local changes.');
+assert(cloudProvider.includes('if (hasPendingGuestAccountMerge()) throw error'), 'Retryable claim failures must still block identity switching.');
+assert(cloudProvider.includes("localKey: 'ballknower_owner_career_v3'"), 'Owner state must participate in the full identity flush.');
+assert(cloudProvider.includes('directJsonUpdatedAt(entry, localRaw)'), 'Owner bootstrap must compare its intrinsic local timestamp.');
+assert(cloudProvider.includes('directJsonUpdatedAt(entry, row.value)'), 'Owner bootstrap must compare its intrinsic cloud timestamp.');
 
-console.log('Account identity check passed: guest claim is one-time/idempotent and Device B restores Device A progression exactly.');
+console.log('Account identity check passed: terminal recovery, full-mode flush, aggregate transfer, and exact Device B restore are covered.');
