@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import type { User } from '@supabase/supabase-js';
 import { Cloud, CloudOff, Loader2 } from 'lucide-react';
 import { ensureOnlineSession, isCloudConfigured, supabase } from './supabase';
+import { claimPendingGuestAccountMerge, hasPendingGuestAccountMerge } from './accountIdentity';
 import { loadUserStates, saveUserStates, UserStateRow } from './userStateCloud';
 
 type CloudSyncStatus = 'connecting' | 'online' | 'error' | 'unconfigured';
@@ -119,6 +121,7 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const dirtyKeys = new Set<string>();
     let writeChain: Promise<void> = Promise.resolve();
     let uploadRunning = false;
+    let identitySwitchRunning = false;
     let authSubscription: { unsubscribe: () => void } | null = null;
 
     const flushDirty = (): Promise<void> => {
@@ -233,16 +236,33 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const user = await ensureOnlineSession();
       activeUserId = user.id;
       const previousOwner = localStorage.getItem(OWNER_KEY);
-      if (previousOwner && previousOwner !== activeUserId) clearSyncedLocalState();
+      if (!user.is_anonymous && hasPendingGuestAccountMerge()) await claimPendingGuestAccountMerge(user);
+      if (previousOwner && previousOwner !== activeUserId) {
+        clearSyncedLocalState();
+      }
       localStorage.setItem(OWNER_KEY, activeUserId);
       meta = readMeta(activeUserId);
+      const handleIdentityChange = async (nextUser?: User) => {
+        if (identitySwitchRunning) return;
+        identitySwitchRunning = true;
+        try {
+          if (nextUser && hasPendingGuestAccountMerge()) await claimPendingGuestAccountMerge(nextUser);
+          clearSyncedLocalState();
+          if (nextUser) localStorage.setItem(OWNER_KEY, nextUser.id);
+          else localStorage.removeItem(OWNER_KEY);
+        } catch (error) {
+          console.warn('Guest progress could not be attached to the permanent account yet', error);
+          if (!stopped) setStatus('error');
+        } finally {
+          window.location.reload();
+        }
+      };
       const { data } = supabase!.auth.onAuthStateChange((_event, session) => {
         const nextUserId = session?.user?.id || '';
         if (!activeUserId || nextUserId === activeUserId) return;
-        clearSyncedLocalState();
-        if (nextUserId) localStorage.setItem(OWNER_KEY, nextUserId);
-        else localStorage.removeItem(OWNER_KEY);
-        window.location.reload();
+        // Supabase warns against awaiting client calls inside the auth callback.
+        // Defer the claim so token refresh/OAuth callbacks cannot deadlock.
+        window.setTimeout(() => { void handleIdentityChange(session?.user); }, 0);
       });
       authSubscription = data.subscription;
       await pullRemote(true);
@@ -261,7 +281,9 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (!stopped) {
           setStatus('error');
           setReady(true);
-          startTimers();
+          // Never upload guest-local state under a new permanent UUID while a
+          // prepared ownership claim is still pending. A later reload retries.
+          if (!hasPendingGuestAccountMerge()) startTimers();
         }
       });
 

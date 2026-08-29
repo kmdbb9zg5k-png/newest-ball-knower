@@ -17,6 +17,22 @@ export const supabase: SupabaseClient | null = isCloudConfigured
     })
   : null;
 
+export type PermanentAuthProvider = 'google' | 'apple';
+export type AuthProviderAvailability = Record<PermanentAuthProvider, boolean>;
+
+export async function fetchAuthProviderAvailability(): Promise<AuthProviderAvailability> {
+  if (!url || !key) return { google: false, apple: false };
+  try {
+    const response = await fetch(`${url}/auth/v1/settings`, { headers: { apikey: key } });
+    if (!response.ok) throw new Error(`Auth settings returned ${response.status}`);
+    const settings = await response.json() as { external?: Partial<Record<PermanentAuthProvider, boolean>> };
+    return { google: Boolean(settings.external?.google), apple: Boolean(settings.external?.apple) };
+  } catch (error) {
+    console.warn('Could not verify social sign-in availability', error);
+    return { google: false, apple: false };
+  }
+}
+
 let pendingAnonymousSession: Promise<User> | null = null;
 
 export async function ensureOnlineSession(): Promise<User> {

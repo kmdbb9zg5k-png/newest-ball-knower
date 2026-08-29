@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useBallKnower } from './BallKnowerContext';
 import { X, Shield, Mail, ArrowRight, CheckCircle2, Loader2, LockKeyhole } from 'lucide-react';
-import { attachEmailToAnonymousUser, ensureOnlineSession, sendEmailMagicLink } from './supabase';
+import { attachEmailToAnonymousUser, ensureOnlineSession, fetchAuthProviderAvailability, sendEmailMagicLink, type AuthProviderAvailability, type PermanentAuthProvider } from './supabase';
+import { prepareGuestAccountMerge, startOAuthSignIn } from './accountIdentity';
 import { trackBallKnowerEvent } from './analytics';
 import type {LaunchPanel} from './LaunchCenter';
 
@@ -19,6 +20,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onOpenLeg
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [providerAvailability, setProviderAvailability] = useState<AuthProviderAvailability | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+    void fetchAuthProviderAvailability().then(value => { if (active) setProviderAvailability(value); });
+    return () => { active = false; };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -60,12 +69,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onOpenLeg
           const raw = upgradeError?.message || '';
           if (!/already|registered|exists|taken|duplicate/i.test(raw)) throw upgradeError;
 
+          await prepareGuestAccountMerge();
           await sendEmailMagicLink(email, name);
           trackBallKnowerEvent('Magic Link Requested', {
             method: 'email',
             flow: 'existing_account',
           });
-          const message = 'That email already has a Ball Knower account. A magic sign-in link was sent for that existing account. Guest-owned leagues are not transferred automatically.';
+          const message = 'That email already has a Ball Knower account. Open the magic link and your guest XP, streaks and leagues will merge into it automatically.';
           setStatusMessage(message);
           showToast('Existing account found — magic sign-in link sent.');
         }
@@ -83,6 +93,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onOpenLeg
       trackBallKnowerEvent('Auth Attempt Failed', { method: 'email' });
       setErrorMessage(err?.message || 'Could not start email authentication.');
     } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleOAuth = async (provider: PermanentAuthProvider) => {
+    if (isSubmitting || !providerAvailability?.[provider]) return;
+    setIsSubmitting(true);
+    resetMessages();
+    try {
+      await startOAuthSignIn(provider);
+      trackBallKnowerEvent('Signup Started', { method: provider, flow: 'permanent_identity' });
+    } catch (err: any) {
+      trackBallKnowerEvent('Auth Attempt Failed', { method: provider });
+      setErrorMessage(err?.message || `Could not start ${provider} sign-in.`);
       setIsSubmitting(false);
     }
   };
@@ -113,9 +137,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onOpenLeg
             <button
               id="auth-google-btn"
               type="button"
-              disabled
-              aria-disabled="true"
-              className="w-full flex items-center justify-between gap-3 rounded-sm border border-white/10 bg-[#1A1A1A] px-4 py-3 text-xs font-black uppercase tracking-wider text-zinc-500 cursor-not-allowed"
+              disabled={isSubmitting || !providerAvailability?.google}
+              aria-disabled={!providerAvailability?.google}
+              onClick={() => void handleOAuth('google')}
+              className="w-full flex items-center justify-between gap-3 rounded-sm border border-white/10 bg-[#1A1A1A] px-4 py-3 text-xs font-black uppercase tracking-wider text-zinc-200 disabled:cursor-not-allowed disabled:text-zinc-500"
             >
               <span className="flex items-center gap-3">
                 <svg className="h-4 w-4 opacity-60" viewBox="0 0 24 24">
@@ -126,15 +151,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onOpenLeg
                 </svg>
                 <span>Google</span>
               </span>
-              <span className="text-[9px] text-zinc-600">COMING SOON</span>
+              <span className="text-[9px] text-zinc-600">{providerAvailability?.google ? 'SECURE SIGN-IN' : 'SETUP REQUIRED'}</span>
             </button>
 
             <button
               id="auth-apple-btn"
               type="button"
-              disabled
-              aria-disabled="true"
-              className="w-full flex items-center justify-between gap-3 rounded-sm border border-white/10 bg-[#1A1A1A] px-4 py-3 text-xs font-black uppercase tracking-wider text-zinc-500 cursor-not-allowed"
+              disabled={isSubmitting || !providerAvailability?.apple}
+              aria-disabled={!providerAvailability?.apple}
+              onClick={() => void handleOAuth('apple')}
+              className="w-full flex items-center justify-between gap-3 rounded-sm border border-white/10 bg-[#1A1A1A] px-4 py-3 text-xs font-black uppercase tracking-wider text-zinc-200 disabled:cursor-not-allowed disabled:text-zinc-500"
             >
               <span className="flex items-center gap-3">
                 <svg className="h-4 w-4 fill-current opacity-60" viewBox="0 0 170 170">
@@ -142,7 +168,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onOpenLeg
                 </svg>
                 <span>Apple</span>
               </span>
-              <span className="text-[9px] text-zinc-600">COMING SOON</span>
+              <span className="text-[9px] text-zinc-600">{providerAvailability?.apple ? 'SECURE SIGN-IN' : 'SETUP REQUIRED'}</span>
             </button>
 
             <button
