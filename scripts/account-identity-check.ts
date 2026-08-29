@@ -13,6 +13,9 @@ import {
   registerFullCloudStateFlush,
 } from '../cloudSyncCoordinator';
 import { recoverTerminalGuestMerge } from '../guestMergeRecovery';
+import { buildRealTeamRoster } from '../soloFranchiseEngine';
+import { validateRosterShape } from '../rosterRules';
+import { DEFAULT_SALARY_CAP } from '../types';
 
 const empty: GauntletProgress = {
   xp: 0, level: 1, currentStreak: 0, longestStreak: 0,
@@ -73,15 +76,23 @@ assert.equal(
   'Network failures must remain retryable.',
 );
 assert.equal(retryableClears, 0, 'Retryable failures must preserve the pending token.');
+let stringFailureClears = 0;
+assert.equal(
+  recoverTerminalGuestMerge('GUEST MERGE TOKEN EXPIRED', () => { stringFailureClears += 1; }),
+  'expired',
+  'String terminal failures must be normalized case-insensitively.',
+);
+assert.equal(stringFailureClears, 1, 'A string terminal failure must clear the pending token.');
 
+const legalSoloRoster = buildRealTeamRoster('PHI');
 const newestGuestModes = {
-  solo_career: { season: 4, wins: 11 },
+  solo_career: { season: 4, wins: 11, roster: legalSoloRoster },
   solo_real_team: { week: 9 },
   owner_business_career_v1: { reputation: 58 },
   player_agent_career: { clients: 3 },
 };
 const guestCloudModes = {
-  solo_career: { season: 3, wins: 7 },
+  solo_career: { season: 3, wins: 7, roster: legalSoloRoster.slice(0, -1) },
   solo_real_team: { week: 8 },
   owner_business_career_v1: { reputation: 45 },
   player_agent_career: { clients: 2 },
@@ -96,6 +107,12 @@ assert.deepEqual(
   guestCloudModes,
   newestGuestModes,
   'An immediate sign-in must await the newest Franchise/Solo/Owner/Agent cloud state.',
+);
+const migratedSoloRoster = guestCloudModes.solo_career.roster;
+assert.deepEqual(validateRosterShape(migratedSoloRoster), [], 'Migrated Solo startup must retain a legal roster.');
+assert(
+  migratedSoloRoster.reduce((total, player) => total + player.salary, 0) <= DEFAULT_SALARY_CAP,
+  'Migrated Solo startup must retain salary-cap enforcement.',
 );
 
 const migration = readFileSync(new URL('../migrations/20260829_permanent_identity_guest_merge.sql', import.meta.url), 'utf8');
@@ -114,14 +131,19 @@ for (const table of ['ball_knower_leaderboard', 'ball_knower_owner_profiles']) {
 assert(hardeningMigration.includes('merge_guest_account_aggregates_on_claim'), 'Aggregate merging must be atomic with the claim transaction.');
 const backfillMigration = readFileSync(new URL('../migrations/20260829_backfill_permanent_account_claim_aggregates.sql', import.meta.url), 'utf8');
 assert(backfillMigration.includes('set claimed_at=claimed_at'), 'Already-completed claims must receive a one-time aggregate backfill.');
+const identityGuardMigration = readFileSync(new URL('../migrations/20260829_guard_guest_account_claim_identity.sql', import.meta.url), 'utf8');
+assert(identityGuardMigration.includes('new.guest_user_id=new.claimed_by'), 'Aggregate transfer must reject equal guest and permanent identities.');
 
 const identityClient = readFileSync(new URL('../accountIdentity.ts', import.meta.url), 'utf8');
 assert(identityClient.includes("saveUserState('gauntlet_progress_v2'"), 'Latest guest snapshot must flush before sign-in.');
 assert(identityClient.includes('mergeGauntletProgressEvents'), 'Permanent account hydration must use canonical events.');
 assert(identityClient.includes('signInWithOAuth'), 'Google and Apple must use real Supabase OAuth.');
+const flushIndex = identityClient.indexOf('await flushAllCloudStateBeforeIdentityChange()');
+const prepareIndex = identityClient.indexOf("supabase.rpc('prepare_ball_knower_guest_merge')");
+assert(flushIndex >= 0, 'The full guest-state flush must run before claim-token creation.');
+assert(prepareIndex >= 0, 'Claim-token creation must call prepare_ball_knower_guest_merge.');
 assert(
-  identityClient.indexOf('await flushAllCloudStateBeforeIdentityChange()')
-    < identityClient.indexOf("supabase.rpc('prepare_ball_knower_guest_merge')"),
+  flushIndex < prepareIndex,
   'The full guest-state flush must finish before claim-token creation.',
 );
 assert(identityClient.includes('recoverTerminalGuestMerge'), 'Terminal claim failures must clear their pending token.');

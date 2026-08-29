@@ -1,7 +1,7 @@
 export type TerminalGuestMergeFailure = 'expired' | 'invalid' | 'already_claimed';
 
 function errorText(error: unknown): string {
-  if (!error || typeof error !== 'object') return String(error || '');
+  if (!error || typeof error !== 'object') return String(error || '').toLowerCase();
   const candidate = error as { code?: unknown; message?: unknown; details?: unknown; hint?: unknown };
   return [candidate.code, candidate.message, candidate.details, candidate.hint]
     .filter(value => typeof value === 'string')
