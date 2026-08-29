@@ -15,7 +15,8 @@
     "check:integrity": "node --import tsx scripts/integrity-check.ts",
     "check:draft-reliability": "node --import tsx scripts/draft-reliability-check.ts",
     "check:trivia": "node --import tsx scripts/gauntlet-trivia-check.ts",
-    "check:hardening": "npm run lint && npm run check:integrity && npm run check:draft-reliability && npm run check:trivia"
+    "check:identity": "node --import tsx scripts/account-identity-check.ts",
+    "check:hardening": "npm run lint && npm run check:integrity && npm run check:draft-reliability && npm run check:trivia && npm run check:identity"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
