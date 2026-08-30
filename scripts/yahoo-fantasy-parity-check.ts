@@ -60,7 +60,9 @@ assert.ok(settingsValidator.includes('Scoring settings are locked after scoring 
 assert.ok(settingsValidator.includes("nullif(old.settings->>'seasonGames','')")&&settingsValidator.includes("nullif(s->>'seasonGames','')"),'schedule locks must compare the effective legacy season length');
 assert.ok(settingsValidator.includes('Regular season and playoffs must finish by NFL Week 18'),'the authoritative settings validator must reject unscorable playoff calendars');
 assert.ok(migration.includes("v_review=''league_vote'' and coalesce(current_setting(''ball_knower.authorized_trade_vote'',true),'''')<>''approved''")&&migration.includes("v_review<>''league_vote'' and not public.is_ball_knower_commissioner"),'league-vote approval must require the internal majority flag even for commissioners');
-assert.ok(migration.indexOf('Normalize legacy fantasy calendars')<migration.indexOf('create trigger validate_fantasy_league_settings'),'legacy 17-week calendars must be normalized before the schedule lock is installed');
+const calendarNormalizationIndex=migration.indexOf('Normalize legacy fantasy calendars');
+const settingsTriggerIndex=migration.indexOf('create trigger validate_fantasy_league_settings');
+assert.ok(calendarNormalizationIndex>=0&&settingsTriggerIndex>=0&&calendarNormalizationIndex<settingsTriggerIndex,'legacy 17-week calendars must be normalized before the schedule lock is installed');
 assert.ok(migration.includes('public_matchmaking_calendar_patch')&&migration.includes("'regularSeasonWeeks'', 15"),'public matchmaking must create validator-safe 15-week fantasy calendars');
 assert.ok(migration.includes('roster_guard_contract_patch')&&migration.includes("'trade'', ''waiver'', ''system'")&&migration.includes('public.ball_knower_fantasy_roster_size(new.league_id)'),'system draft finalization must use the configured fantasy roster size');
 assert.ok(migration.includes("'{draftOrderGameGames}'")&&migration.includes("jsonb_array_length(coalesce(l.season_result->'games','[]'::jsonb))<>ready.weeks*ready.member_count/2"),'legacy Draft Order Game receipts must be preserved while their fantasy schedule is normalized');
