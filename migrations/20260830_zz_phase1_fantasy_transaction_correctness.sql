@@ -52,7 +52,7 @@ grant execute on function public.set_my_ball_knower_ir(text,text,boolean) to aut
 
 create or replace function public.apply_ball_knower_player_move(p_league_id text,p_member_id text,p_player_snapshot jsonb,p_drop_player_id text,p_faab_bid numeric,p_kind text,p_claim_id uuid default null)
 returns jsonb language plpgsql security definer set search_path='' as $$
-declare v_member public.ball_knower_league_members%rowtype;v_settings jsonb;v_roster jsonb;v_new_roster jsonb;v_drop jsonb;v_player_id text;v_player_name text;v_limit integer;v_days integer;v_ir jsonb;v_active integer;v_week integer;v_season integer;v_week_limit integer;v_season_limit integer;v_week_count integer;v_season_count integer;
+declare v_member public.ball_knower_league_members%rowtype;v_settings jsonb;v_roster jsonb;v_new_roster jsonb;v_drop jsonb;v_player_id text;v_player_name text;v_limit integer;v_days integer;v_ir jsonb;v_active integer;v_week integer;v_season integer;v_week_limit integer;v_season_limit integer;v_week_count integer;v_season_count integer;v_reset_at timestamptz;
 begin
   perform set_config('ball_knower.authorized_roster_operation','waiver',true);
   v_player_id:=p_player_snapshot->>'id';v_player_name:=coalesce(p_player_snapshot->>'name',v_player_id);
@@ -76,7 +76,8 @@ begin
   end if;
   v_week:=coalesce(nullif(v_settings->>'currentWeek','')::integer,1);v_season:=coalesce(nullif(v_settings->>'nflSeason','')::integer,extract(year from now())::integer);
   v_week_limit:=coalesce(nullif(v_settings->>'maxAcquisitionsPerWeek','')::integer,0);v_season_limit:=coalesce(nullif(v_settings->>'maxAcquisitionsPerSeason','')::integer,0);
-  select count(*) filter(where coalesce((metadata->>'acquisitionWeek')::integer,-1)=v_week),count(*) into v_week_count,v_season_count from public.ball_knower_transactions where league_id=p_league_id and member_id=v_member.id and transaction_type in('free_agent','waiver') and coalesce((metadata->>'acquisitionSeason')::integer,-1)=v_season;
+  v_reset_at:=coalesce(nullif(v_settings->>'fantasySeasonResetAt','')::timestamptz,'-infinity'::timestamptz);
+  select count(*) filter(where coalesce((metadata->>'acquisitionWeek')::integer,-1)=v_week),count(*) into v_week_count,v_season_count from public.ball_knower_transactions where league_id=p_league_id and member_id=v_member.id and transaction_type in('free_agent','waiver') and coalesce((metadata->>'acquisitionSeason')::integer,-1)=v_season and created_at>=v_reset_at;
   if v_week_limit>0 and v_week_count>=v_week_limit then raise exception 'Weekly acquisition limit reached';end if;
   if v_season_limit>0 and v_season_count>=v_season_limit then raise exception 'Season acquisition limit reached';end if;
   select coalesce(jsonb_agg(e),'[]'::jsonb) into v_new_roster from jsonb_array_elements(v_roster)e where p_drop_player_id is null or e->>'id'<>p_drop_player_id;
@@ -110,7 +111,8 @@ begin
       exit when not found;
       if exists(select 1 from public.ball_knower_waiver_claims x where x.claim_group_id=c.claim_group_id and x.status='won') then update public.ball_knower_waiver_claims set status='cancelled',processed_at=p_now,failure_reason='Earlier conditional claim won' where id=c.id;continue;end if;
       begin perform public.apply_ball_knower_player_move(c.league_id,c.member_id,c.player_snapshot,c.drop_player_id,case when v_type='faab' then c.faab_bid else 0 end,'waiver',c.id);
-      exception when others then update public.ball_knower_waiver_claims set status='lost',processed_at=p_now,failure_reason=left(sqlerrm,240) where id=c.id;v_lost:=v_lost+1;continue;end;
+      exception when serialization_failure or deadlock_detected or query_canceled or admin_shutdown then raise;
+      when others then update public.ball_knower_waiver_claims set status='lost',processed_at=p_now,failure_reason=left(sqlerrm,240) where id=c.id;v_lost:=v_lost+1;continue;end;
       update public.ball_knower_waiver_claims set status='won',processed_at=p_now,failure_reason=null where id=c.id;
       update public.ball_knower_waiver_claims set status='lost',processed_at=p_now,failure_reason='Another manager won this player' where league_id=c.league_id and player_id=c.player_id and status='pending' and id<>c.id;
       update public.ball_knower_waiver_claims set status='cancelled',processed_at=p_now,failure_reason='Earlier conditional claim won' where claim_group_id=c.claim_group_id and status='pending' and id<>c.id;
@@ -132,6 +134,7 @@ do $$
 declare v_sql text;v_next text;
 begin
   select pg_get_functiondef('public.propose_ball_knower_trade_v2_phase1_base(text,text,text[],text[],text[],text)'::regprocedure) into v_sql;
+  if position('v_current_count:=jsonb_array_length(coalesce(v_proposer.roster,''[]''::jsonb));' in v_sql)=0 or position('v_current_count-array_length(p_offered_player_ids,1)+array_length(p_requested_player_ids,1)' in v_sql)=0 then raise exception 'Phase 1 proposer active-roster patch prerequisites did not match';end if;
   v_next:=replace(v_sql,
     'v_current_count:=jsonb_array_length(coalesce(v_proposer.roster,''[]''::jsonb));',
     'select count(*) into v_current_count from jsonb_array_elements(coalesce(v_proposer.roster,''[]''::jsonb)) player where not exists(select 1 from jsonb_array_elements_text(coalesce(v_proposer.ir_player_ids,''[]''::jsonb)) ir(value) where ir.value=player->>''id'');');
@@ -142,6 +145,7 @@ begin
   execute v_next;
 
   select pg_get_functiondef('public.counter_ball_knower_trade_v2(uuid,text[],text[],text[],text)'::regprocedure) into v_sql;
+  if position('v_current_count:=jsonb_array_length(coalesce(v_proposer.roster,''[]''::jsonb));' in v_sql)=0 or position('v_current_count-array_length(p_offered_player_ids,1)+array_length(p_requested_player_ids,1)' in v_sql)=0 then raise exception 'Phase 1 counteroffer active-roster patch prerequisites did not match';end if;
   v_next:=replace(v_sql,
     'v_current_count:=jsonb_array_length(coalesce(v_proposer.roster,''[]''::jsonb));',
     'select count(*) into v_current_count from jsonb_array_elements(coalesce(v_proposer.roster,''[]''::jsonb)) player where not exists(select 1 from jsonb_array_elements_text(coalesce(v_proposer.ir_player_ids,''[]''::jsonb)) ir(value) where ir.value=player->>''id'');');
@@ -171,15 +175,20 @@ begin
   select pg_get_functiondef('public.resolve_ball_knower_trade_v2_phase1_base(uuid,text,text[])'::regprocedure) into v_sql;
   raw_count:='jsonb_array_length(coalesce(r.roster,''[]''::jsonb))';
   active_count:='(select count(*) from jsonb_array_elements(coalesce(r.roster,''[]''::jsonb)) active_player where not exists(select 1 from jsonb_array_elements_text(coalesce(r.ir_player_ids,''[]''::jsonb)) ir(value) where ir.value=active_player->>''id''))';
+  if position(raw_count in v_sql)=0 then raise exception 'Phase 1 trade executor raw roster count patch prerequisite did not match';end if;
   v_next:=replace(v_sql,raw_count,active_count);
+  if position(active_count||'-array_length(t.requested_player_ids,1)+array_length(t.offered_player_ids,1)' in v_next)=0 then raise exception 'Phase 1 trade executor requested-player delta patch prerequisite did not match';end if;
   v_next:=replace(v_next,
     active_count||'-array_length(t.requested_player_ids,1)+array_length(t.offered_player_ids,1)',
     active_count||'-(select count(*) from unnest(t.requested_player_ids) requested_id where not exists(select 1 from jsonb_array_elements_text(coalesce(r.ir_player_ids,''[]''::jsonb)) ir(value) where ir.value=requested_id))+array_length(t.offered_player_ids,1)');
+  if position('where not ((candidate.player->>''id'')=any(t.requested_player_ids))' in v_next)=0 then raise exception 'Phase 1 trade executor cut-candidate patch prerequisite did not match';end if;
   v_next:=replace(v_next,
     'where not ((candidate.player->>''id'')=any(t.requested_player_ids))',
     'where not ((candidate.player->>''id'')=any(t.requested_player_ids)) and not exists(select 1 from jsonb_array_elements_text(coalesce(r.ir_player_ids,''[]''::jsonb)) ir(value) where ir.value=candidate.player->>''id'') and not public.ball_knower_started_starter(t.league_id,r.id,candidate.player->>''id'')');
+  if position('if v_execute then' in v_next)=0 then raise exception 'Phase 1 trade executor execution guard patch prerequisite did not match';end if;
   v_next:=replace(v_next,'if v_execute then',
     'if v_execute then if coalesce(array_length(t.proposer_drop_player_ids,1),0)<>greatest(0,(select count(*) from jsonb_array_elements(coalesce(p.roster,''[]''::jsonb)) active_player where not exists(select 1 from jsonb_array_elements_text(coalesce(p.ir_player_ids,''[]''::jsonb)) ir(value) where ir.value=active_player->>''id''))-(select count(*) from unnest(t.offered_player_ids) offered_id where not exists(select 1 from jsonb_array_elements_text(coalesce(p.ir_player_ids,''[]''::jsonb)) ir(value) where ir.value=offered_id))+array_length(t.requested_player_ids,1)-public.ball_knower_fantasy_roster_size(t.league_id)) then raise exception ''The proposing roster changed; send a new offer'';end if;if coalesce(array_length(t.recipient_drop_player_ids,1),0)<>greatest(0,(select count(*) from jsonb_array_elements(coalesce(r.roster,''[]''::jsonb)) active_player where not exists(select 1 from jsonb_array_elements_text(coalesce(r.ir_player_ids,''[]''::jsonb)) ir(value) where ir.value=active_player->>''id''))-(select count(*) from unnest(t.requested_player_ids) requested_id where not exists(select 1 from jsonb_array_elements_text(coalesce(r.ir_player_ids,''[]''::jsonb)) ir(value) where ir.value=requested_id))+array_length(t.offered_player_ids,1)-public.ball_knower_fantasy_roster_size(t.league_id)) then raise exception ''The receiving roster changed; accept the offer again'';end if;if exists(select 1 from unnest(t.proposer_drop_player_ids) cut_id where cut_id in(select value from jsonb_array_elements_text(coalesce(p.ir_player_ids,''[]''::jsonb)))) or exists(select 1 from unnest(t.recipient_drop_player_ids) cut_id where cut_id in(select value from jsonb_array_elements_text(coalesce(r.ir_player_ids,''[]''::jsonb)))) then raise exception ''An IR player cannot be used as an active roster cut'';end if;foreach v_player in array coalesce(t.proposer_drop_player_ids,''{}''::text[]) loop if public.ball_knower_started_starter(t.league_id,t.proposer_member_id,v_player) then raise exception ''A started player locked in this week''''s lineup cannot be dropped as a trade cut'';end if;end loop;foreach v_player in array coalesce(t.recipient_drop_player_ids,''{}''::text[]) loop if public.ball_knower_started_starter(t.league_id,t.recipient_member_id,v_player) then raise exception ''A started player locked in this week''''s lineup cannot be dropped as a trade cut'';end if;end loop;');
+  if position('jsonb_array_length(p_new)>public.ball_knower_fantasy_roster_size(t.league_id)' in v_next)=0 or position('jsonb_array_length(r_new)>public.ball_knower_fantasy_roster_size(t.league_id)' in v_next)=0 then raise exception 'Phase 1 trade executor final capacity patch prerequisites did not match';end if;
   v_next:=replace(v_next,
     'jsonb_array_length(p_new)>public.ball_knower_fantasy_roster_size(t.league_id)',
     '(select count(*) from jsonb_array_elements(p_new) active_player where not exists(select 1 from jsonb_array_elements_text(coalesce(p.ir_player_ids,''[]''::jsonb)) ir(value) where ir.value=active_player->>''id''))>public.ball_knower_fantasy_roster_size(t.league_id)');
