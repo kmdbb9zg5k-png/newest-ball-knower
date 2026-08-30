@@ -11,7 +11,8 @@ const option=(value:string,label:string)=>[value,label] as const;
 export const FantasyAdvancedLeagueSettings:React.FC<Props>=({league,disabled=false})=>{
   const {updateLeagueSettings,showToast}=useBallKnower();
   const settings=league.settings||{};
-  const effectiveRegularSeasonWeeks=Math.max(13,Math.min(17,Number(settings.regularSeasonWeeks??settings.seasonGames)||17));
+  const playoffWeeks=settings.playoffTeams===4?2:3;
+  const effectiveRegularSeasonWeeks=Math.min(Math.max(13,Math.min(17,Number(settings.regularSeasonWeeks??settings.seasonGames)||17)),18-playoffWeeks);
   const scheduleLocked=Boolean(league.seasonResult?.games?.some(game=>!game.playoffRound));
   const scoringLocked=Boolean(settings.fantasySeasonStarted)||Number(settings.currentWeek||1)>1;
   const postseasonLocked=Number(settings.currentWeek||1)>effectiveRegularSeasonWeeks||Boolean(league.seasonResult?.games?.some(game=>game.playoffRound&&(Boolean(game.winnerId)||Number(game.homeScore||0)!==0||Number(game.awayScore||0)!==0)));

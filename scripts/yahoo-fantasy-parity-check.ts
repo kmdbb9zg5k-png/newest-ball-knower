@@ -96,6 +96,7 @@ assert.ok(postDraft.includes('regularSeasonSchedule'),'commissioner schedule edi
 assert.ok(postDraft.includes('Math.min(maxSelectableWeek')&&postDraft.includes('[maxSelectableWeek,settings.currentWeek]'),'the active week selector must preserve playoff weeks instead of clamping to the regular-season endpoint');
 assert.ok(postDraft.includes('effectiveSeeding'),'division-winner seeding must be disabled when divisions are off');
 const advancedSettings=readFileSync(new URL('../FantasyAdvancedLeagueSettings.tsx',import.meta.url),'utf8');
+assert.ok(postDraft.includes('18-playoffWeeks')&&advancedSettings.includes('18-playoffWeeks'),'legacy season settings must clamp gameplay and controls to an NFL Week 18 playoff calendar');
 assert.ok(advancedSettings.includes('disabled={disabled||scheduleLocked}'),'regular-season length must lock once a persisted schedule exists');
 assert.ok(advancedSettings.includes('disabled={disabled||scheduleLocked||postseasonLocked}'),'playoff field must lock with the persisted schedule so calendar changes remain saveable');
 assert.ok(advancedSettings.includes('settings.regularSeasonWeeks??settings.seasonGames'),'legacy season length must display the same effective value used by gameplay');
@@ -120,7 +121,10 @@ assert.ok(communications.includes('requestRef.current!==requestId')&&communicati
 assert.ok(communications.includes('userIdRef.current!==requestedUserId')&&communications.includes('[league.id,currentUser?.id]'),'private communication state and in-flight responses must reset across identity changes without a remount');
 assert.ok(communications.includes('dataScope===communicationScope?data:EMPTY_COMMUNICATION_STATE'),'identity-switched renders must never expose the previous account communication state before effects run');
 assert.ok(communications.includes('pendingRef.current')&&communications.includes('pending||!tradeBody.trim()')&&communications.includes('tradeIdRef.current===sentTradeId'),'communication sends must be single-flight and clear drafts only in the original full scope');
+assert.ok(communications.includes('leagueIdRef.current!==requestedLeagueId||userIdRef.current!==requestedUserId')&&communications.includes('openFantasyDm(requestedLeagueId,target)'),'DM-open results must be discarded after a league or identity scope change');
+assert.ok(communications.includes('pending={pending}')&&communications.includes('disabled={pending||visibleData.tradingBlock.some')&&communications.includes('<button disabled={pending}'),'Trading Block actions must visibly disable while a mutation is pending');
 assert.ok(communications.includes('isCloudConfigured?<CloudFantasyLeagueCommunications'),'cloud-only DMs, trade threads, and Trading Block must not render in local leagues');
+assert.ok(postDraft.includes('onClick={sendMessage} className="min-h-11 rounded-xl'),'league chat Send must keep a practical mobile touch target');
 assert.ok(advancedSettings.includes('isCloudConfigured&&<CommissionerWaiverEditor')&&advancedSettings.includes('isCloudConfigured&&<CommissionerScheduleEditor'),'RPC-only commissioner editors must be hidden in local leagues');
 const draftFormats=readFileSync(new URL('../FantasyDraftFormatWorkspace.tsx',import.meta.url),'utf8');
 assert.ok(draftFormats.includes("await updateLeagueSettings(league.id,{draftFormat:'live_snake'})"),'mock commissioners need an awaited authoritative path into a production draft');
