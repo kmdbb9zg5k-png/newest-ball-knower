@@ -20,7 +20,8 @@
     "check:picks": "node --import tsx scripts/picks-correctness-check.ts",
     "check:phase1-correctness": "node --import tsx scripts/phase1-correctness-check.ts",
     "check:dst-rankings": "node --import tsx scripts/dst-rankings-check.ts",
-    "check:hardening": "npm run lint && npm run check:integrity && npm run check:draft-reliability && npm run check:trivia && npm run check:identity && npm run check:yahoo-parity && npm run check:picks && npm run check:phase1-correctness && npm run check:dst-rankings"
+    "check:fantasy-transactions": "node --import tsx scripts/fantasy-transaction-correctness-check.ts",
+    "check:hardening": "npm run lint && npm run check:integrity && npm run check:draft-reliability && npm run check:trivia && npm run check:identity && npm run check:yahoo-parity && npm run check:picks && npm run check:phase1-correctness && npm run check:dst-rankings && npm run check:fantasy-transactions"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
