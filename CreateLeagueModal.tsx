@@ -36,7 +36,7 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [advanced, setAdvanced] = useState<LeagueSettings>({
-    scoringFormat:'ppr', regularSeasonWeeks:17, playoffTeams:6,
+    scoringFormat:'ppr', regularSeasonWeeks:15, playoffTeams:6,
     playoffSeeding:'record_points', tradeReview:'commissioner', waiverType:'priority',
     freeAgentMode:'instant', waiverDays:2, waiverProcessHourUtc:9,
     irSlots:2, benchSlots:6, draftFormat:'live_snake',
@@ -144,8 +144,8 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
                 <div className="grid gap-3 min-[390px]:grid-cols-2">
                   <AdvancedSelect label="Scoring" value={advanced.scoringFormat||'ppr'} options={[["ppr","Full PPR"],["half_ppr","Half PPR"],["standard","Standard"]]} onChange={value=>setAdvanced(s=>({...s,scoringFormat:value as LeagueSettings['scoringFormat']}))}/>
                   <AdvancedSelect label="Draft Format" value={advanced.draftFormat||'live_snake'} options={[["live_snake","Live Snake"],["autopick","Autopick Only"],["offline","Offline Results"],["mock","Mock Draft"]]} onChange={value=>setAdvanced(s=>({...s,draftFormat:value as LeagueSettings['draftFormat']}))}/>
-                  <AdvancedSelect label="Regular Season" value={String(advanced.regularSeasonWeeks||17)} options={[["13","13 Weeks"],["14","14 Weeks"],["15","15 Weeks"],["16","16 Weeks"],["17","17 Weeks"]]} onChange={value=>setAdvanced(s=>({...s,regularSeasonWeeks:Number(value) as LeagueSettings['regularSeasonWeeks']}))}/>
-                  <AdvancedSelect label="Playoff Teams" value={String(advanced.playoffTeams||6)} options={[["4","4 Teams"],["6","6 Teams"],["8","8 Teams"]].filter(([value])=>Number(value)<=memberSize)} onChange={value=>setAdvanced(s=>({...s,playoffTeams:Number(value) as LeagueSettings['playoffTeams']}))}/>
+                  <AdvancedSelect label="Regular Season" value={String(advanced.regularSeasonWeeks||15)} options={[["13","13 Weeks"],["14","14 Weeks"],["15","15 Weeks"],["16","16 Weeks"]].filter(([value])=>Number(value)+(advanced.playoffTeams===4?2:3)<=18)} onChange={value=>setAdvanced(s=>({...s,regularSeasonWeeks:Number(value) as LeagueSettings['regularSeasonWeeks']}))}/>
+                  <AdvancedSelect label="Playoff Teams" value={String(advanced.playoffTeams||6)} options={[["4","4 Teams"],["6","6 Teams"],["8","8 Teams"]].filter(([value])=>Number(value)<=memberSize)} onChange={value=>setAdvanced(s=>{const teams=Number(value) as LeagueSettings['playoffTeams'];return{...s,playoffTeams:teams,regularSeasonWeeks:Math.min(s.regularSeasonWeeks||15,18-(teams===4?2:3)) as LeagueSettings['regularSeasonWeeks']};})}/>
                   <AdvancedSelect label="Seeding" value={advanced.playoffSeeding||'record_points'} options={[["record_points","Record, then Points"],["record_head_to_head","Record, then H2H"],["division_winners","Division Winners"]]} onChange={value=>setAdvanced(s=>({...s,playoffSeeding:value as LeagueSettings['playoffSeeding']}))}/>
                   <AdvancedSelect label="Trade Review" value={advanced.tradeReview||'commissioner'} options={[["none","None"],["commissioner","Commissioner"],["league_vote","League Vote"]]} onChange={value=>setAdvanced(s=>({...s,tradeReview:value as LeagueSettings['tradeReview']}))}/>
                   <AdvancedSelect label="Waivers" value={advanced.waiverType||'priority'} options={[["priority","Rolling Priority"],["faab","FAAB"]]} onChange={value=>setAdvanced(s=>({...s,waiverType:value as LeagueSettings['waiverType']}))}/>

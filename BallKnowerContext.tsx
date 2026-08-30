@@ -526,7 +526,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const newLeague: League = {
         id: leagueId, code: randomCode, name: name.trim() || 'Ball Knower League',
         maxMembers, salaryCap: customCap, commissionerId: user.id, commissionerName: user.name,
-        status: 'drafting', settings: { seasonGames: 17, regularSeasonWeeks:17, scoringFormat:'ppr', nflSeason:2026, playoffTeams:6, playoffSeeding:'record_points', tradeReview:'commissioner', waiverType:'priority', freeAgentMode:'instant', waiverDays:2, waiverProcessHourUtc:9, irSlots:2, benchSlots:6, rosterSize:15, draftFormat:'live_snake', ...draftSchedule, ...initialSettings }, members: [commissionerMember], createdAt: new Date().toISOString(),
+        status: 'drafting', settings: { seasonGames: 17, regularSeasonWeeks:15, scoringFormat:'ppr', nflSeason:2026, playoffTeams:6, playoffSeeding:'record_points', tradeReview:'commissioner', waiverType:'priority', freeAgentMode:'instant', waiverDays:2, waiverProcessHourUtc:9, irSlots:2, benchSlots:6, rosterSize:15, draftFormat:'live_snake', ...draftSchedule, ...initialSettings }, members: [commissionerMember], createdAt: new Date().toISOString(),
       };
       setLeagues(prev => [newLeague, ...prev]);
       setActiveLeagueId(newLeague.id);

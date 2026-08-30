@@ -208,7 +208,7 @@ export async function createCloudLeague(
   const id=crypto.randomUUID();
   let created:any=null;
   for(let tries=0;tries<5;tries++){
-    const payload={id,code:code(),name:name.trim()||'Ball Knower League',max_members:maxMembers,salary_cap:salaryCap,commissioner_auth_id:auth.id,commissioner_name:user.name,status:'drafting',settings:{seasonGames:17,regularSeasonWeeks:17,simulationStyle:'realistic',scoringFormat:'ppr',nflSeason:2026,playoffTeams:6,playoffSeeding:'record_points',tradeReview:'commissioner',waiverType:'priority',freeAgentMode:'instant',waiverDays:2,waiverProcessHourUtc:9,irSlots:2,benchSlots:6,rosterSize:15,draftFormat:'live_snake',...draftSchedule,...initialSettings}};
+    const payload={id,code:code(),name:name.trim()||'Ball Knower League',max_members:maxMembers,salary_cap:salaryCap,commissioner_auth_id:auth.id,commissioner_name:user.name,status:'drafting',settings:{seasonGames:17,regularSeasonWeeks:15,simulationStyle:'realistic',scoringFormat:'ppr',nflSeason:2026,playoffTeams:6,playoffSeeding:'record_points',tradeReview:'commissioner',waiverType:'priority',freeAgentMode:'instant',waiverDays:2,waiverProcessHourUtc:9,irSlots:2,benchSlots:6,rosterSize:15,draftFormat:'live_snake',...draftSchedule,...initialSettings}};
     const {data,error}=await supabase.from('ball_knower_leagues').insert(payload).select().single();
     if(!error){created=data;break;}
     if(error.code!=='23505') throw error;

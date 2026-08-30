@@ -11,7 +11,7 @@ alter table public.ball_knower_live_drafts
 
 create or replace function ball_knower_private.validate_fantasy_league_settings()
 returns trigger language plpgsql security definer set search_path='' as $function$
-declare s jsonb:=coalesce(new.settings,'{}'::jsonb);v integer;score record;
+declare s jsonb:=coalesce(new.settings,'{}'::jsonb);v integer;regular_weeks integer;playoff_count integer;score record;
 begin
   if coalesce(s->>'scoringFormat','ppr') not in ('ppr','half_ppr','standard') then raise exception 'Invalid scoring format'; end if;
   if coalesce(s->>'draftFormat','live_snake') not in ('live_snake','autopick','offline','mock','auction') then raise exception 'Invalid draft format'; end if;
@@ -19,8 +19,11 @@ begin
   if coalesce(s->>'waiverType','priority') not in ('priority','faab') then raise exception 'Invalid waiver type'; end if;
   if coalesce(s->>'freeAgentMode','instant') not in ('instant','continuous') then raise exception 'Invalid free-agent mode'; end if;
   if coalesce(s->>'playoffSeeding','record_points') not in ('record_points','record_head_to_head','division_winners') then raise exception 'Invalid playoff seeding'; end if;
-  v:=coalesce(nullif(s->>'regularSeasonWeeks','')::integer,nullif(s->>'seasonGames','')::integer,17);if v not between 13 and 17 then raise exception 'Regular season must be 13-17 weeks';end if;
-  v:=coalesce(nullif(s->>'playoffTeams','')::integer,6);if v not in (4,6,8) or v>new.max_members then raise exception 'Playoff field must be 4, 6 or 8 and fit the league';end if;
+  v:=coalesce(nullif(s->>'regularSeasonWeeks','')::integer,nullif(s->>'seasonGames','')::integer,17);if v not between 13 and 17 then raise exception 'Regular season must be 13-17 weeks';end if;regular_weeks:=v;
+  v:=coalesce(nullif(s->>'playoffTeams','')::integer,6);if v not in (4,6,8) or v>new.max_members then raise exception 'Playoff field must be 4, 6 or 8 and fit the league';end if;playoff_count:=v;
+  if tg_op='INSERT' or (tg_op='UPDATE' and (coalesce(nullif(old.settings->>'regularSeasonWeeks','')::integer,nullif(old.settings->>'seasonGames','')::integer,17)<>regular_weeks or old.settings->'playoffTeams' is distinct from s->'playoffTeams')) then
+    if regular_weeks+(case when playoff_count=4 then 2 else 3 end)>18 then raise exception 'Regular season and playoffs must finish by NFL Week 18';end if;
+  end if;
   v:=coalesce(nullif(s->>'benchSlots','')::integer,6);if v not between 6 and 11 then raise exception 'Bench slots must be 6-11';end if;
   if coalesce(nullif(s->>'rosterSize','')::integer,9+v)<>9+v then raise exception 'Roster size must equal nine starters plus bench slots';end if;
   v:=coalesce(nullif(s->>'irSlots','')::integer,2);if v not between 0 and 5 then raise exception 'IR slots must be 0-5';end if;
@@ -154,6 +157,10 @@ declare v_sql text;v_next text;
 begin
   select pg_get_functiondef('public.process_due_ball_knower_scheduled_drafts(timestamptz,text)'::regprocedure) into v_sql;
   v_next:=replace(v_sql,
+    E'exception when others then\n      continue;\n    end;\n\n    if p_now>=v_scheduled_at-interval ''10 minutes''',
+    E'exception when others then\n      continue;\n    end;\n\n    -- Scheduled special-format guard before reminders.\n    if coalesce(v_league.settings->>''draftFormat'',''live_snake'') in(''offline'',''mock'',''auction'') then continue;end if;\n    if p_now>=v_scheduled_at-interval ''10 minutes''');
+  if v_next=v_sql and position('Scheduled special-format guard before reminders' in v_sql)=0 then raise exception 'Early scheduled special-format guard did not match';end if;v_sql:=v_next;
+  v_next:=replace(v_sql,
     'if p_now<v_scheduled_at then continue; end if;',
     'if p_now<v_scheduled_at then continue; end if; if coalesce(v_league.settings->>''draftFormat'',''live_snake'') in(''offline'',''mock'',''auction'') then continue;end if;');
   if v_next=v_sql and position('Scheduled special-format guard' in v_sql)=0 and position('in (''offline'', ''mock'', ''auction'')' in v_sql)=0 and position('in(''offline'',''mock'',''auction'')' in v_sql)=0 then raise exception 'Scheduled special-format guard did not match';end if;v_sql:=v_next;
@@ -175,6 +182,10 @@ do $autopick_recovery_patch$
 declare v_sql text;v_next text;
 begin
   select pg_get_functiondef('public.process_due_ball_knower_draft_picks(timestamptz)'::regprocedure) into v_sql;
+  v_next:=replace(v_sql,
+    E'd.pick_deadline_at is null or d.pick_deadline_at<=p_now or exists (',
+    E'd.pick_deadline_at is null or d.pick_deadline_at<=p_now or coalesce((select l.settings->>''draftFormat'' from public.ball_knower_leagues l where l.id=d.league_id),''live_snake'')=''autopick'' or exists (');
+  if v_next=v_sql and position('l.id = d.league_id), ''live_snake'') = ''autopick''' in v_sql)=0 and position('l.id=d.league_id),''live_snake'')=''autopick''' in v_sql)=0 then raise exception 'Autopick outer recovery selection patch did not match';end if;v_sql:=v_next;
   v_next:=replace(v_sql,
     E'exit when not coalesce(v_member.is_ai,false) and coalesce(v_draft.pick_deadline_at,''infinity''::timestamptz)>p_now;',
     E'exit when not coalesce(v_member.is_ai,false) and coalesce((select settings->>''draftFormat'' from public.ball_knower_leagues where id=v_league_id),''live_snake'')<>''autopick'' and coalesce(v_draft.pick_deadline_at,''infinity''::timestamptz)>p_now;');
