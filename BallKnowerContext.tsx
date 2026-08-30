@@ -91,7 +91,7 @@ interface BallKnowerContextType {
   importOfflineFantasyDraftResults: (leagueId:string,picks:{memberId:string;playerId:string}[])=>Promise<boolean>;
   resetLeagueSimulation: (leagueId: string) => Promise<void>;
   updateSalaryCap: (leagueId: string, newCap: number) => void;
-  updateLeagueSettings: (leagueId: string, settings: import('./types').LeagueSettings) => void;
+  updateLeagueSettings: (leagueId: string, settings: import('./types').LeagueSettings) => Promise<boolean>;
   
   // Demo Mode
   isDemoMode: boolean;
@@ -1077,15 +1077,13 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
 
-  const updateLeagueSettings = (leagueId: string, settings: import('./types').LeagueSettings) => {
-    setLeagues(prev => prev.map(l => l.id === leagueId ? { ...l, settings: { ...(l.settings || {}), ...settings } } : l));
-    if (isCloudConfigured) {
-      const league = leagues.find(l => l.id === leagueId);
-      const merged = { ...(league?.settings || {}), ...settings };
-      void updateCloudLeague(leagueId, { settings: merged })
-        .catch((err:any) => setCloudSyncError(err?.message || 'Could not sync commissioner settings'));
-    }
-    showToast('Commissioner settings updated');
+  const updateLeagueSettings = async (leagueId: string, settings: import('./types').LeagueSettings):Promise<boolean> => {
+    const league=leagues.find(item=>item.id===leagueId);const merged={...(league?.settings||{}),...settings};
+    try{
+      if(isCloudConfigured)await updateCloudLeague(leagueId,{settings:merged});
+      setLeagues(prev=>prev.map(item=>item.id===leagueId?{...item,settings:{...(item.settings||{}),...settings}}:item));
+      showToast('Commissioner settings updated');return true;
+    }catch(err:any){const message=err?.message||'Could not sync commissioner settings';setCloudSyncError(message);showToast(message);return false;}
   };
 
   // Demo Mode

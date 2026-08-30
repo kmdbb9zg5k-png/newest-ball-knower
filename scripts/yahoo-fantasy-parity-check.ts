@@ -70,7 +70,7 @@ assert.match(scoringApi,/providerProjection\?liveProjectedPoints\(actual,scoreWi
 const defenseOverrideFunction=section(scoringApi,'function scoreDefenseWithLeagueOverrides','function hasDefenseProjectionStats');
 const leagueScoringLoop=section(scoringApi,'for(const league of activeLeagues)','if(lineupWrites.length)');
 assert.ok(defenseOverrideFunction.includes("weight('dstTurnover',2)")&&leagueScoringLoop.includes('usesCustomDefenseScoring?scoreDefenseWithLeagueOverrides')&&leagueScoringLoop.includes('hasDefenseProjectionStats(providerDefenseProjection)?liveProjectedPoints'),'custom D/ST scoring must drive actual totals and compatible projections');
-assert.ok(leagueScoringLoop.includes('hasDefenseProjectionStats(providerDefenseProjection)?liveProjectedPoints')&&leagueScoringLoop.includes('game?.game_period):actual'),'custom D/ST projections must omit incompatible provider-default projections');
+assert.ok(leagueScoringLoop.includes('hasDefenseProjectionStats(providerDefenseProjection)?liveProjectedPoints')&&leagueScoringLoop.match(/game\?\.game_period\):actual/g)?.length===2,'custom projections must preserve actual points when compatible projection inputs are unavailable');
 assert.ok(!create.includes("['autopick','offline'].includes"),'local Offline Results creation must remain available');
 const postDraft=readFileSync(new URL('../FantasyLeaguePostDraft.tsx',import.meta.url),'utf8');
 assert.ok(postDraft.includes('fantasyRosterSize'),'post-draft moves and trades must use the fantasy roster size');
@@ -94,12 +94,13 @@ const essentialsRefresh=essentials.slice(essentials.indexOf('const refresh = asy
 const coreRefreshPromise=essentialsRefresh.match(/const \[parity, ops\] = await Promise\.all\(\[([\s\S]*?)\]\);/)?.[1]||'';
 assert.ok(/void fetchFantasyCommunications\(requestedLeagueId\)\.then/.test(essentialsRefresh)&&!/await\s+fetchFantasyCommunications/.test(essentialsRefresh)&&!coreRefreshPromise.includes('fetchFantasyCommunications'),'communication failures must not block core league refresh state');
 assert.ok(essentialsRefresh.includes('communicationRequestRef.current!==communicationRequestId'),'only the newest communication request may update the legacy trade-thread state');
+assert.ok(essentials.includes('communicationUserIdRef.current!==requestedUserId')&&essentials.includes('tradeMessagesScope===communicationScope?tradeMessages:[]'),'legacy private trade messages must reset and render-gate across identity changes');
 const communications=readFileSync(new URL('../FantasyLeagueCommunications.tsx',import.meta.url),'utf8');
 assert.ok(communications.includes('requestRef.current!==requestId')&&communications.includes('requestRef.current+=1'),'the primary communication surface must ignore stale same-league and cross-league refreshes');
 assert.ok(communications.includes('userIdRef.current!==requestedUserId')&&communications.includes('[league.id,currentUser?.id]'),'private communication state and in-flight responses must reset across identity changes without a remount');
 assert.ok(communications.includes('dataScope===communicationScope?data:EMPTY_COMMUNICATION_STATE'),'identity-switched renders must never expose the previous account communication state before effects run');
 const draftFormats=readFileSync(new URL('../FantasyDraftFormatWorkspace.tsx',import.meta.url),'utf8');
-assert.ok(draftFormats.includes("updateLeagueSettings(league.id,{draftFormat:'live_snake'})"),'mock commissioners need a path into a production draft');
+assert.ok(draftFormats.includes("await updateLeagueSettings(league.id,{draftFormat:'live_snake'})"),'mock commissioners need an awaited authoritative path into a production draft');
 assert.ok(draftFormats.includes('{picks.map(')&&!draftFormats.includes('picks.slice(0'),'mock results must render every round');
 const parityCloud=readFileSync(new URL('../fantasyLeagueParityCloud.ts',import.meta.url),'utf8');
 assert.ok(parityCloud.includes("!Number.isFinite(priority)||priority<1"),'blank or invalid waiver priorities must be rejected rather than promoted to first');

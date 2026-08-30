@@ -605,7 +605,7 @@ export default async function handler(req:any,res:any){
           const projected=player.position==='DST'&&usesCustomDefenseScoring
             ? (hasDefenseProjectionStats(providerDefenseProjection)?liveProjectedPoints(actual,scoreDefenseWithLeagueOverrides(providerDefenseProjection,customScoring),game?.game_status,game?.game_period):actual)
             : usesCustomScoring&&player.position!=='DST'
-            ? (providerProjection?liveProjectedPoints(actual,scoreWithLeagueOverrides(providerProjection,format,customScoring),game?.game_status,game?.game_period):0)
+            ? (providerProjection?liveProjectedPoints(actual,scoreWithLeagueOverrides(providerProjection,format,customScoring),game?.game_status,game?.game_period):actual)
             : playerScore
               ? scoreForFormat(playerScore.projected_points,format)
               : projectionByAppPlayer.get(player.id)?.[format]||0;
