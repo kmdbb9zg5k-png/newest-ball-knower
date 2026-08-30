@@ -279,6 +279,8 @@ export interface SeasonResult {
   teamReports: Record<string, TeamReportAnalysis>;
   championMemberId?: string;
   playoffGames?: SimulationGame[];
+  /** Scored Draft Order Game receipts, kept separate from the fantasy matchup schedule. */
+  draftOrderGameGames?: SimulationGame[];
 }
 
 export interface LiveFantasyDraftPick {

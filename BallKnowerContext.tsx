@@ -684,12 +684,14 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const fullResults = {
       ...simulateFullSeason(league.members, league.settings?.seasonGames || 17, league.settings?.simulationStyle || 'realistic'),
     };
+    const fantasyWeeks=Math.max(13,Math.min(17,Number(league.settings?.regularSeasonWeeks)||15));
+    const fantasySchedule=Array.from({length:fantasyWeeks},(_,index)=>buildFantasyWeekPairings(league.members,index+1)).flat().map(game=>({...game,homeScore:0,awayScore:0,winnerId:'',loserId:'',isTie:false,keyMatchupFactor:'Scheduled fantasy matchup.'}));
     const settings = isFantasySeason
       ? {...(league.settings || {}), currentWeek:1, fantasySeasonStarted:true, fantasySeasonComplete:false}
       : league.settings;
     const results = isFantasySeason
       ? {...fullResults, games:fullResults.games.filter(game => game.week === 1), standings:buildStandings(league.members, fullResults.games.filter(game => game.week === 1)), draftOrder:[], winnerAnalysis:{winnerId:'',winnerName:'',summary:'The fantasy season is underway.',keyFactors:[]}}
-      : {...fullResults, orderMethod:'game' as const};
+      : {...fullResults, games:fantasySchedule, draftOrderGameGames:fullResults.games, orderMethod:'game' as const};
     const nextStatus = isFantasySeason ? 'simulating' as const : 'completed' as const;
 
     if (isCloudConfigured) {

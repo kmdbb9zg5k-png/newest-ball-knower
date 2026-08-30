@@ -53,6 +53,8 @@ const settingsValidator=section(migration,'create or replace function ball_knowe
 assert.ok(settingsValidator.includes('Scoring settings are locked after scoring begins')&&settingsValidator.includes('Playoff field and seeding are locked after postseason scoring begins')&&settingsValidator.includes("old.settings->'playoffSeeding'")&&settingsValidator.includes("old.settings->'divisionsEnabled'"),'database validation must prevent mixed scoring eras and bracket rewrites');
 assert.ok(settingsValidator.includes("nullif(old.settings->>'seasonGames','')")&&settingsValidator.includes("nullif(s->>'seasonGames','')"),'schedule locks must compare the effective legacy season length');
 assert.ok(settingsValidator.includes('Regular season and playoffs must finish by NFL Week 18'),'the authoritative settings validator must reject unscorable playoff calendars');
+assert.ok(migration.indexOf('Normalize legacy fantasy calendars')<migration.indexOf('create trigger validate_fantasy_league_settings'),'legacy 17-week calendars must be normalized before the schedule lock is installed');
+assert.ok(migration.includes("'{draftOrderGameGames}'")&&migration.includes("jsonb_array_length(coalesce(l.season_result->'games','[]'::jsonb))<>ready.weeks*ready.member_count/2"),'legacy Draft Order Game receipts must be preserved while their fantasy schedule is normalized');
 const scheduledFormatPatch=section(migration,'do $scheduled_format_patch$','end;$scheduled_format_patch$;');
 assert.ok(scheduledFormatPatch.includes('Scheduled special-format guard before reminders'),'special draft formats must be excluded before scheduled reminder branches');
 const autopickRecoveryPatch=section(migration,'do $autopick_recovery_patch$','end;$autopick_recovery_patch$;');
@@ -64,6 +66,7 @@ assert.ok(createAdvanced.includes('<summary')&&!createAdvanced.includes('<detail
 for(const format of ['live_snake','autopick','offline','mock'])assert.ok(createAdvanced.includes(`["${format}"`),`creation is missing selectable ${format}`);
 assert.ok(create.includes("regularSeasonWeeks:15")&&createAdvanced.includes("Number(value)+(advanced.playoffTeams===4?2:3)<=18"),'new league defaults and controls must keep playoffs inside NFL Week 18');
 const contextSource=readFileSync(new URL('../BallKnowerContext.tsx',import.meta.url),'utf8');
+assert.ok(contextSource.includes('draftOrderGameGames:fullResults.games')&&contextSource.includes('games:fantasySchedule'),'Draft Order Game results must retain scored receipts separately from the canonical fantasy schedule');
 const localOfflineImport=section(contextSource,'const importOfflineFantasyDraftResults','const resetLeagueSimulation');
 assert.ok(localOfflineImport.includes('applyLiveDraftRosterAssignments')&&localOfflineImport.includes('importCloudOfflineFantasyDraft'),'Offline Results must finalize both local and cloud league rosters');
 assert.ok(localOfflineImport.includes("league.liveDraft?.status==='completed'")&&localOfflineImport.includes('fantasySeasonStarted'),'local Offline Results must reject re-import after finalization or season activity');
@@ -107,6 +110,7 @@ assert.ok(communications.includes('requestRef.current!==requestId')&&communicati
 assert.ok(communications.includes('userIdRef.current!==requestedUserId')&&communications.includes('[league.id,currentUser?.id]'),'private communication state and in-flight responses must reset across identity changes without a remount');
 assert.ok(communications.includes('dataScope===communicationScope?data:EMPTY_COMMUNICATION_STATE'),'identity-switched renders must never expose the previous account communication state before effects run');
 assert.ok(communications.includes('pendingRef.current')&&communications.includes('pending||!tradeBody.trim()')&&communications.includes('tradeIdRef.current===sentTradeId'),'communication sends must be single-flight and clear drafts only in the original full scope');
+assert.ok(advancedSettings.includes('isCloudConfigured&&<CommissionerWaiverEditor')&&advancedSettings.includes('isCloudConfigured&&<CommissionerScheduleEditor'),'RPC-only commissioner editors must be hidden in local leagues');
 const draftFormats=readFileSync(new URL('../FantasyDraftFormatWorkspace.tsx',import.meta.url),'utf8');
 assert.ok(draftFormats.includes("await updateLeagueSettings(league.id,{draftFormat:'live_snake'})"),'mock commissioners need an awaited authoritative path into a production draft');
 assert.ok(draftFormats.includes('{picks.map(')&&!draftFormats.includes('picks.slice(0'),'mock results must render every round');

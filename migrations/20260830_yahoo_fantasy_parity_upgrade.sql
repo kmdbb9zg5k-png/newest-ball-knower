@@ -9,6 +9,16 @@ alter table public.ball_knower_live_drafts
 alter table public.ball_knower_live_drafts
   validate constraint ball_knower_live_drafts_rounds_check;
 
+-- Normalize legacy fantasy calendars before installing the schedule lock.
+-- seasonGames remains the 17-game Draft Order Game input; regularSeasonWeeks
+-- is the distinct fantasy calendar that must leave room for every playoff round.
+drop trigger if exists validate_fantasy_league_settings on public.ball_knower_leagues;
+update public.ball_knower_leagues
+set settings=coalesce(settings,'{}'::jsonb)||jsonb_build_object(
+  'regularSeasonWeeks',case when coalesce(nullif(settings->>'playoffTeams','')::integer,6)=4 then 16 else 15 end
+),updated_at=now()
+where coalesce(nullif(settings->>'regularSeasonWeeks','')::integer,nullif(settings->>'seasonGames','')::integer,17)=17;
+
 create or replace function ball_knower_private.validate_fantasy_league_settings()
 returns trigger language plpgsql security definer set search_path='' as $function$
 declare s jsonb:=coalesce(new.settings,'{}'::jsonb);v integer;regular_weeks integer;playoff_count integer;score record;
@@ -437,16 +447,21 @@ begin
 end;$function$;
 revoke all on function ball_knower_private.build_fantasy_regular_schedule(jsonb,integer) from public,anon,authenticated;
 
--- Older Random/Commissioner-order leagues stored an empty games array. Give
--- them the same canonical editable schedule as newly finalized leagues.
+-- Give every unstarted legacy league a canonical editable fantasy schedule.
+-- Draft Order Game receipts remain available to its results screen without
+-- masquerading as the schedule used by fantasy scoring and commissioner edits.
 with ready as(
   select l.id,coalesce(nullif(l.settings->>'regularSeasonWeeks','')::integer,nullif(l.settings->>'seasonGames','')::integer,17) weeks,
     (select jsonb_agg(to_jsonb(pick->>'memberId') order by (pick->>'pickNumber')::integer) from jsonb_array_elements(coalesce(l.season_result->'draftOrder','[]'::jsonb)) pick) member_ids,
     (select count(*) from public.ball_knower_league_members m where m.league_id=l.id) member_count
-  from public.ball_knower_leagues l where l.season_result is not null and jsonb_array_length(coalesce(l.season_result->'games','[]'::jsonb))=0
+  from public.ball_knower_leagues l where l.season_result is not null
+    and not exists(select 1 from public.ball_knower_weekly_scores s where s.league_id=l.id and (s.is_final or s.live_points<>0))
 )
-update public.ball_knower_leagues l set season_result=jsonb_set(l.season_result,'{games}',ball_knower_private.build_fantasy_regular_schedule(ready.member_ids,ready.weeks),true),updated_at=now()
-from ready where l.id=ready.id and ready.member_count>=2 and mod(ready.member_count,2)=0 and jsonb_array_length(ready.member_ids)=ready.member_count;
+update public.ball_knower_leagues l set season_result=(case when coalesce(l.season_result->>'orderMethod','')='game' and jsonb_array_length(coalesce(l.season_result->'games','[]'::jsonb))>0
+  then jsonb_set(jsonb_set(l.season_result,'{draftOrderGameGames}',l.season_result->'games',true),'{games}',ball_knower_private.build_fantasy_regular_schedule(ready.member_ids,ready.weeks),true)
+  else jsonb_set(l.season_result,'{games}',ball_knower_private.build_fantasy_regular_schedule(ready.member_ids,ready.weeks),true) end),updated_at=now()
+from ready where l.id=ready.id and ready.member_count>=2 and mod(ready.member_count,2)=0 and jsonb_array_length(ready.member_ids)=ready.member_count
+  and jsonb_array_length(coalesce(l.season_result->'games','[]'::jsonb))<>ready.weeks*ready.member_count/2;
 
 create or replace function public.commissioner_set_ball_knower_waiver_priority(p_league_id text,p_member_id text,p_priority integer)
 returns void language plpgsql security definer set search_path='' as $function$

@@ -3,6 +3,7 @@ import { ChevronDown, SlidersHorizontal } from 'lucide-react';
 import { useBallKnower } from './BallKnowerContext';
 import { League, LeagueSettings } from './types';
 import { commissionerEditMatchup, commissionerSetWaiverPriority } from './fantasyLeagueParityCloud';
+import { isCloudConfigured } from './supabase';
 
 type Props={league:League;disabled?:boolean};
 const option=(value:string,label:string)=>[value,label] as const;
@@ -38,8 +39,8 @@ export const FantasyAdvancedLeagueSettings:React.FC<Props>=({league,disabled=fal
         <Select label="Divisions" value={settings.divisionsEnabled?String(settings.divisionCount||2):'off'} disabled={disabled||postseasonLocked} options={[option('off','Off'),option('2','2 Divisions'),option('4','4 Divisions')]} onChange={value=>update(value==='off'?{divisionsEnabled:false}:{divisionsEnabled:true,divisionCount:Number(value) as 2|4})}/>
       </div>
       <div className="rounded-xl border border-white/10 p-3"><div className="text-[9px] font-black uppercase tracking-wider text-zinc-500">Custom scoring values</div><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4"><ScoreInput label="Reception" value={settings.customScoring?.reception??(settings.scoringFormat==='standard'?0:settings.scoringFormat==='half_ppr'?0.5:1)} disabled={disabled||scoringLocked} onCommit={value=>update({customScoring:{...settings.customScoring,reception:value}})}/><ScoreInput label="Pass TD" value={settings.customScoring?.passTd??4} disabled={disabled||scoringLocked} onCommit={value=>update({customScoring:{...settings.customScoring,passTd:value}})}/><ScoreInput label="Rush TD" value={settings.customScoring?.rushTd??6} disabled={disabled||scoringLocked} onCommit={value=>update({customScoring:{...settings.customScoring,rushTd:value}})}/><ScoreInput label="Rec TD" value={settings.customScoring?.recTd??6} disabled={disabled||scoringLocked} onCommit={value=>update({customScoring:{...settings.customScoring,recTd:value}})}/></div></div>
-      <CommissionerWaiverEditor league={league} disabled={disabled} onSaved={()=>showToast('Waiver priority updated.')}/>
-      <CommissionerScheduleEditor league={league} disabled={disabled} onSaved={()=>showToast('Matchup updated.')}/>
+      {isCloudConfigured&&<CommissionerWaiverEditor league={league} disabled={disabled} onSaved={()=>showToast('Waiver priority updated.')}/>}
+      {isCloudConfigured&&<CommissionerScheduleEditor league={league} disabled={disabled} onSaved={()=>showToast('Matchup updated.')}/>}
       {!disabled&&<p className="text-[9px] leading-4 text-zinc-600">Co-commissioner assignment stays disabled until every privileged fantasy RPC uses the same staff authorization contract. Native iOS/Android push still requires device-token registration in the app shells; notification events are saved now.</p>}
     </div>}
   </div>;

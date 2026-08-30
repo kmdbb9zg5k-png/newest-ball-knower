@@ -138,7 +138,8 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
   const winnerMember = league.members.find(m => m.id === winner.memberId);
 
   // Group games by week
-  const weeklyGames = seasonResult.games.filter(g => g.week === selectedWeek);
+  const displayGames=seasonResult.orderMethod==='game'&&seasonResult.draftOrderGameGames?.length?seasonResult.draftOrderGameGames:seasonResult.games;
+  const weeklyGames = displayGames.filter(g => g.week === selectedWeek);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 sm:py-8 sm:px-8 bg-[#0A0A0A] text-white">
