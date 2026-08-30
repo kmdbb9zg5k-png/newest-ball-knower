@@ -9,6 +9,7 @@ const future = { id: 'future', away: 'Away', home: 'Home', date: '2099-01-01T00:
 const started = { ...future, id: 'started', date: '2020-01-01T00:00:00Z' };
 assert.equal(isPicksGameLocked(future, Date.parse('2026-08-30T00:00:00Z')), false);
 assert.equal(isPicksGameLocked(started, Date.parse('2026-08-30T00:00:00Z')), true);
+assert.equal(isPicksGameLocked({ ...future, date: '2026-08-30' }, Date.parse('2026-08-30T23:59:00Z')), false, 'date-only games must wait for an explicit kickoff time');
 assert.equal(isPicksGameLocked({ ...future, status: 'Final' }, 0), true);
 
 const base: SavedPick = { id: 'p', gameId: 'g', label: 'Home -3', market: 'spread', selection: 'Home', lockedLine: -3, lockedAt: '2026-01-01T00:00:00Z' };
@@ -19,5 +20,8 @@ assert.equal(gradePick({ ...base, lockedLine: -5 }, final).result, 'loss');
 const once = gradePick(base, final, '2026-01-02T00:00:00Z');
 assert.deepEqual(gradePick(once, { ...final, awayScore: 0, homeScore: 99 }, '2026-01-03T00:00:00Z'), once, 'repeat jobs/stat changes must not rewrite an already graded pick');
 assert.equal(gradePick({ ...base, market: 'total', selection: 'over', lockedLine: 44 }, final).result, 'push');
+
+const apiSource = await import('node:fs').then(({ readFileSync }) => readFileSync(new URL('../api/nfl-sportsbook.ts', import.meta.url), 'utf8'));
+assert.match(apiSource, /requestedRows[\s\S]*currentRows/, 'saved ungraded game IDs must bypass the rolling display window so they can be graded');
 
 console.log('Picks correctness checks passed: spread semantics, kickoff locks, W/L/push grading, and idempotent history.');

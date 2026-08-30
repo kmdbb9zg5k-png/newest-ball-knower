@@ -40,7 +40,9 @@ export function spreadLabel(team: string, line: number) {
 
 export function isPicksGameLocked(game: PicksGame, now = Date.now()) {
   if (/final/i.test(game.status || '')) return true;
-  const kickoff = Date.parse(game.date || '');
+  const date = game.date || '';
+  if (!/T\d{2}:\d{2}/.test(date)) return false;
+  const kickoff = Date.parse(date);
   return Number.isFinite(kickoff) && kickoff <= now;
 }
 
