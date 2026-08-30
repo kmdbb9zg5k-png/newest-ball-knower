@@ -383,16 +383,26 @@ export function buildFantasyWeekPairings(members: LeagueMember[], week: number):
   return games;
 }
 
+export function isCompleteFantasySchedule(members:LeagueMember[],weeks:number,schedule:FantasyWeekPairing[]):boolean{
+  if(members.length<2||members.length%2!==0||schedule.length!==weeks*members.length/2)return false;
+  const memberIds=new Set(members.map(member=>member.id));const gameIds=new Set<string>();
+  for(let week=1;week<=weeks;week++){
+    const games=schedule.filter(game=>game.week===week);const seen=new Set<string>();
+    if(games.length!==members.length/2)return false;
+    for(const game of games){if(gameIds.has(game.id)||game.homeMemberId===game.awayMemberId||!memberIds.has(game.homeMemberId)||!memberIds.has(game.awayMemberId)||seen.has(game.homeMemberId)||seen.has(game.awayMemberId))return false;gameIds.add(game.id);seen.add(game.homeMemberId);seen.add(game.awayMemberId);}
+    if(seen.size!==members.length)return false;
+  }
+  return schedule.every(game=>game.week>=1&&game.week<=weeks);
+}
+
 export function buildScoredFantasyGames(
   members: LeagueMember[],
   weeks: number,
   scores: FantasyWeeklyScoreRecord[],
   persistedSchedule?: FantasyWeekPairing[],
 ): SimulationGame[] {
-  const expectedGames=weeks*members.length/2;
-  const memberIds=new Set(members.map(member=>member.id));
-  const saved=(persistedSchedule||[]).filter(pairing=>pairing.week>=1&&pairing.week<=weeks&&pairing.homeMemberId!==pairing.awayMemberId&&memberIds.has(pairing.homeMemberId)&&memberIds.has(pairing.awayMemberId));
-  const schedule=saved.length===expectedGames?saved:Array.from({length:weeks},(_,index)=>buildFantasyWeekPairings(members,index+1)).flat();
+  const saved=persistedSchedule||[];
+  const schedule=isCompleteFantasySchedule(members,weeks,saved)?saved:Array.from({length:weeks},(_,index)=>buildFantasyWeekPairings(members,index+1)).flat();
   return schedule.flatMap(pairing=>{
     const home=scores.find(score=>score.week===pairing.week&&score.memberId===pairing.homeMemberId);
     const away=scores.find(score=>score.week===pairing.week&&score.memberId===pairing.awayMemberId);

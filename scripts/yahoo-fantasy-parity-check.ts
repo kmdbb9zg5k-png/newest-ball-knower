@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {PLAYERS_DATABASE} from '../players';
 import {validateLiveFantasyRoster,CPU_LIVE_FANTASY_POSITION_LIMITS} from '../liveFantasyRules';
-import {seedFantasyStandings} from '../simulation';
+import {buildFantasyWeekPairings,isCompleteFantasySchedule,seedFantasyStandings} from '../simulation';
 import type {Player} from '../types';
 
 const eligible=PLAYERS_DATABASE.filter(player=>['QB','RB','WR','TE','K','DST'].includes(player.position));
@@ -61,5 +61,10 @@ const seeded=seedFantasyStandings(tiedRows,cyclicGames,'record_head_to_head').ma
 const reversed=seedFantasyStandings([...tiedRows].reverse(),cyclicGames,'record_head_to_head').map(row=>row.memberId);
 assert.deepEqual(seeded,['a','b','c'],'cyclic head-to-head ties must use the deterministic base fallback');
 assert.deepEqual(reversed,seeded,'head-to-head seeding must not depend on input order');
+const scheduleMembers=[{id:'a'},{id:'b'},{id:'c'},{id:'d'}] as any[];
+const validSchedule=[...buildFantasyWeekPairings(scheduleMembers,1),...buildFantasyWeekPairings(scheduleMembers,2),...buildFantasyWeekPairings(scheduleMembers,3)];
+assert.equal(isCompleteFantasySchedule(scheduleMembers,3,validSchedule),true,'complete schedules should be accepted');
+const duplicateMemberSchedule=validSchedule.map(game=>({...game}));duplicateMemberSchedule[1]={...duplicateMemberSchedule[1],homeMemberId:duplicateMemberSchedule[0].homeMemberId};
+assert.equal(isCompleteFantasySchedule(scheduleMembers,3,duplicateMemberSchedule),false,'a member repeated within a week must invalidate persisted schedule edits');
 
 console.log('Yahoo fantasy parity checks passed: ugly human roster, strict weekly lineup, private communications, commissioner rules, event notifications, and safe draft formats.');
