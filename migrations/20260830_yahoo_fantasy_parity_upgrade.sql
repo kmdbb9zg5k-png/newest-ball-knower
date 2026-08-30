@@ -456,7 +456,7 @@ begin
   for member_row in select id from public.ball_knower_league_members where league_id=p_league_id loop if (select count(*) from jsonb_array_elements(p_picks)x where x->>'memberId'=member_row.id)<>roster_size then raise exception 'Every member needs % picks',roster_size;end if;end loop;
   for item,ord in select value,ordinality from jsonb_array_elements(p_picks) with ordinality loop
     if not exists(select 1 from public.ball_knower_league_members where league_id=p_league_id and id=item->>'memberId') then raise exception 'Unknown member in offline results';end if;
-    select draft_group into grp from public.ball_knower_fantasy_player_groups where player_id=item->>'playerId';if grp not in('QB','RB','WR','TE','K','DST') then raise exception 'Invalid fantasy player %',item->>'playerId';end if;
+    select draft_group into grp from public.ball_knower_fantasy_player_groups where player_id=item->>'playerId';if grp is null or grp not in('QB','RB','WR','TE','K','DST') then raise exception 'Invalid fantasy player %',item->>'playerId';end if;
     draft_picks:=draft_picks||jsonb_build_array(jsonb_build_object('overall',ord,'round',ceil(ord::numeric/member_count),'memberId',item->>'memberId','playerId',item->>'playerId','group',grp,'pickedAt',clock_timestamp(),'source','offline'));
   end loop;
   for member_row in select id from public.ball_knower_league_members where league_id=p_league_id and is_ai loop

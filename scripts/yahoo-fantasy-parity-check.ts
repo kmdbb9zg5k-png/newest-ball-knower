@@ -32,6 +32,7 @@ assert.match(migration,/participant_a,participant_b[\s\S]*auth\.uid\(\)/,'DM pol
 assert.match(migration,/Trade participants cannot vote|Trade participants cannot vote on their own deal/,'trade voting must exclude deal participants');
 assert.match(migration,/rounds between 15 and 20/,'custom bench depth must remain bounded to 15–20 players');
 assert.ok(migration.includes('Offline draft results are locked after season activity begins'),'offline draft re-imports must lock before live season state can be invalidated');
+assert.ok(migration.includes("if grp is null or grp not in('QB','RB','WR','TE','K','DST')"),'offline results must reject unknown player IDs before persisting picks');
 assert.ok(migration.includes("player->>'id'=player_id")&&migration.includes('remove_stale_trading_block_entries'),'Trading Block writes must prove roster ownership and stale entries must be removed');
 assert.ok(migration.includes('Regular-season length is locked after the schedule is created'),'the database must reject schedule-length drift after schedule creation');
 assert.ok(migration.includes('not is_ai and auth_user_id is not null'),'league-vote quorum must count only authenticated neutral voters');
