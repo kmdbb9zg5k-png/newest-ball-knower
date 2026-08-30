@@ -995,6 +995,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const league=leagues.find(item=>item.id===leagueId);
     try{
       if(!league||league.settings?.draftFormat!=='offline')throw new Error('League is not configured for Offline Results.');
+      if(league.liveDraft?.status==='completed'||league.settings?.fantasySeasonStarted||league.settings?.fantasySeasonComplete)throw new Error('Offline draft results can only be imported before the draft is finalized.');
       if(!isLeagueCommissioner(league,currentUser?.id,isDemoMode))throw new Error('Commissioner authorization required.');
       const rosterSize=Math.max(15,Math.min(20,Number(league.settings?.rosterSize)||15));
       if(picks.length!==league.members.length*rosterSize)throw new Error(`Offline draft requires exactly ${league.members.length*rosterSize} picks.`);
@@ -1042,7 +1043,11 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           ...l,
           status: 'drafting',
           seasonResult: undefined,
-          members: l.members.map(m => (m.isAi ? m : { ...m, status: 'building' })),
+          liveDraft: undefined,
+          rostersLocked: false,
+          draftCountdownStartedAt: undefined,
+          settings: {...l.settings,fantasySeasonStarted:false,fantasySeasonComplete:false,currentWeek:1},
+          members: l.members.map(m => ({...m,status:'building',roster:undefined,teamRatings:undefined,submittedAt:undefined,liveDraftReady:false,faabBalance:100,irPlayerIds:[]})),
         };
       })
     );

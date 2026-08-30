@@ -59,6 +59,7 @@ for(const format of ['live_snake','autopick','offline','mock'])assert.ok(create.
 const contextSource=readFileSync(new URL('../BallKnowerContext.tsx',import.meta.url),'utf8');
 const localOfflineImport=section(contextSource,'const importOfflineFantasyDraftResults','const resetLeagueSimulation');
 assert.ok(localOfflineImport.includes('applyLiveDraftRosterAssignments')&&localOfflineImport.includes('importCloudOfflineFantasyDraft'),'Offline Results must finalize both local and cloud league rosters');
+assert.ok(localOfflineImport.includes("league.liveDraft?.status==='completed'")&&localOfflineImport.includes('fantasySeasonStarted'),'local Offline Results must reject re-import after finalization or season activity');
 const offlineImportRpc=section(migration,'create or replace function public.commissioner_import_ball_knower_offline_draft','revoke all on function public.commissioner_import_ball_knower_offline_draft');
 assert.ok(offlineImportRpc.includes("league_settings->>'fantasySeasonResetAt'")&&offlineImportRpc.includes('created_at>=activity_cutoff'),'offline-import activity locks must ignore retained history from archived seasons');
 
@@ -69,7 +70,7 @@ assert.match(scoringApi,/providerProjection\?liveProjectedPoints\(actual,scoreWi
 const defenseOverrideFunction=section(scoringApi,'function scoreDefenseWithLeagueOverrides','function hasDefenseProjectionStats');
 const leagueScoringLoop=section(scoringApi,'for(const league of activeLeagues)','if(lineupWrites.length)');
 assert.ok(defenseOverrideFunction.includes("weight('dstTurnover',2)")&&leagueScoringLoop.includes('usesCustomDefenseScoring?scoreDefenseWithLeagueOverrides')&&leagueScoringLoop.includes('hasDefenseProjectionStats(providerDefenseProjection)?liveProjectedPoints'),'custom D/ST scoring must drive actual totals and compatible projections');
-assert.ok(leagueScoringLoop.includes('playerScore?scoreForFormat(playerScore.projected_points,format):projectionByAppPlayer.get(player.id)?.[format]||0'),'D/ST projections must preserve the provider fallback when raw projection stats are unavailable');
+assert.ok(leagueScoringLoop.includes('hasDefenseProjectionStats(providerDefenseProjection)?liveProjectedPoints')&&leagueScoringLoop.includes('game?.game_period):actual'),'custom D/ST projections must omit incompatible provider-default projections');
 assert.ok(!create.includes("['autopick','offline'].includes"),'local Offline Results creation must remain available');
 const postDraft=readFileSync(new URL('../FantasyLeaguePostDraft.tsx',import.meta.url),'utf8');
 assert.ok(postDraft.includes('fantasyRosterSize'),'post-draft moves and trades must use the fantasy roster size');
@@ -95,6 +96,10 @@ assert.ok(/void fetchFantasyCommunications\(requestedLeagueId\)\.then/.test(esse
 assert.ok(essentialsRefresh.includes('communicationRequestRef.current!==communicationRequestId'),'only the newest communication request may update the legacy trade-thread state');
 const communications=readFileSync(new URL('../FantasyLeagueCommunications.tsx',import.meta.url),'utf8');
 assert.ok(communications.includes('requestRef.current!==requestId')&&communications.includes('requestRef.current+=1'),'the primary communication surface must ignore stale same-league and cross-league refreshes');
+assert.ok(communications.includes('userIdRef.current!==requestedUserId')&&communications.includes('[league.id,currentUser?.id]'),'private communication state and in-flight responses must reset across identity changes without a remount');
+const draftFormats=readFileSync(new URL('../FantasyDraftFormatWorkspace.tsx',import.meta.url),'utf8');
+assert.ok(draftFormats.includes("updateLeagueSettings(league.id,{draftFormat:'live_snake'})"),'mock commissioners need a path into a production draft');
+assert.ok(draftFormats.includes('{picks.map(')&&!draftFormats.includes('picks.slice(0'),'mock results must render every round');
 const parityCloud=readFileSync(new URL('../fantasyLeagueParityCloud.ts',import.meta.url),'utf8');
 assert.ok(parityCloud.includes("!Number.isFinite(priority)||priority<1"),'blank or invalid waiver priorities must be rejected rather than promoted to first');
 
