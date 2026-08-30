@@ -5,7 +5,9 @@
 alter table public.ball_knower_live_drafts
   drop constraint if exists ball_knower_live_drafts_rounds_check;
 alter table public.ball_knower_live_drafts
-  add constraint ball_knower_live_drafts_rounds_check check(rounds between 15 and 20);
+  add constraint ball_knower_live_drafts_rounds_check check(rounds between 15 and 20) not valid;
+alter table public.ball_knower_live_drafts
+  validate constraint ball_knower_live_drafts_rounds_check;
 
 create or replace function ball_knower_private.validate_fantasy_league_settings()
 returns trigger language plpgsql set search_path='' as $function$

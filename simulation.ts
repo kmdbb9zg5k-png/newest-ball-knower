@@ -193,13 +193,23 @@ export function seedFantasyStandings(
 ):StandingItem[]{
   const record=(row:StandingItem)=>Number(row.winPercentage)||((row.wins+row.ties*.5)/Math.max(1,row.wins+row.losses+row.ties));
   const base=(a:StandingItem,b:StandingItem)=>record(b)-record(a)||b.pointsFor-a.pointsFor||b.pointDifferential-a.pointDifferential||a.memberId.localeCompare(b.memberId);
-  const h2h=(a:StandingItem,b:StandingItem)=>{
-    if(record(a)!==record(b))return base(a,b);
-    let aWins=0,bWins=0;
-    for(const game of games.filter(item=>!item.playoffRound&&[item.homeMemberId,item.awayMemberId].includes(a.memberId)&&[item.homeMemberId,item.awayMemberId].includes(b.memberId))){if(game.winnerId===a.memberId)aWins++;if(game.winnerId===b.memberId)bWins++;}
-    return bWins-aWins||base(a,b);
-  };
-  if(mode!=='division_winners')return [...standings].sort(mode==='record_head_to_head'?h2h:base).map((row,index)=>({...row,rank:index+1}));
+  if(mode==='record_head_to_head'){
+    const groups=new Map<string,StandingItem[]>();
+    for(const row of standings){const key=record(row).toFixed(8);groups.set(key,[...(groups.get(key)||[]),row]);}
+    const ordered=[...groups.values()].sort((a,b)=>record(b[0])-record(a[0])).flatMap(group=>{
+      if(group.length<2)return group;
+      const ids=new Set(group.map(row=>row.memberId));
+      const headToHead=new Map(group.map(row=>[row.memberId,{wins:0,ties:0,games:0}]));
+      for(const game of games.filter(item=>!item.playoffRound&&ids.has(item.homeMemberId)&&ids.has(item.awayMemberId))){
+        const home=headToHead.get(game.homeMemberId)!;const away=headToHead.get(game.awayMemberId)!;home.games++;away.games++;
+        if(game.isTie||!game.winnerId){home.ties++;away.ties++;}else if(game.winnerId===game.homeMemberId)home.wins++;else if(game.winnerId===game.awayMemberId)away.wins++;
+      }
+      const percentage=(row:StandingItem)=>{const value=headToHead.get(row.memberId)!;return value.games?(value.wins+value.ties*.5)/value.games:0;};
+      return [...group].sort((a,b)=>percentage(b)-percentage(a)||base(a,b));
+    });
+    return ordered.map((row,index)=>({...row,rank:index+1}));
+  }
+  if(mode!=='division_winners')return [...standings].sort(base).map((row,index)=>({...row,rank:index+1}));
   const order=memberOrder.length?memberOrder:standings.map(row=>row.memberId);const divisionOf=new Map(order.map((id,index)=>[id,index%divisionCount]));
   const winners:number[]=[];
   for(let division=0;division<divisionCount;division++){const winner=[...standings].filter(row=>divisionOf.get(row.memberId)===division).sort(base)[0];if(winner)winners.push(standings.findIndex(row=>row.memberId===winner.memberId));}

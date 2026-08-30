@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {PLAYERS_DATABASE} from '../players';
 import {validateLiveFantasyRoster,CPU_LIVE_FANTASY_POSITION_LIMITS} from '../liveFantasyRules';
+import {seedFantasyStandings} from '../simulation';
 import type {Player} from '../types';
 
 const eligible=PLAYERS_DATABASE.filter(player=>['QB','RB','WR','TE','K','DST'].includes(player.position));
@@ -40,5 +41,25 @@ const postDraft=readFileSync(new URL('../FantasyLeaguePostDraft.tsx',import.meta
 assert.ok(postDraft.includes('fantasyRosterSize'),'post-draft moves and trades must use the fantasy roster size');
 assert.ok(!postDraft.includes('TOTAL_ROSTER_SIZE'),'20-player Draft Order Game constants must not leak into standard fantasy moves');
 assert.ok(postDraft.includes('regularSeasonSchedule'),'commissioner schedule edits must feed live scoring and standings');
+assert.ok(postDraft.includes('effectiveSeeding'),'division-winner seeding must be disabled when divisions are off');
+const simulationView=readFileSync(new URL('../SimulationView.tsx',import.meta.url),'utf8');
+assert.match(simulationView,/!specialDraftFormat\s*&&\s*<button\s+id="sim-open-draft-btn"/,'special formats must not expose the live snake draft action');
+const essentials=readFileSync(new URL('../FantasyLeagueEssentials.tsx',import.meta.url),'utf8');
+assert.ok(essentials.includes('fantasyRosterSize'),'legacy fantasy views must use configured roster size');
+
+const tiedRows=[
+  {memberId:'a',rank:1,wins:2,losses:1,ties:0,winPercentage:2/3,pointsFor:330,pointsAgainst:0,pointDifferential:30},
+  {memberId:'b',rank:2,wins:2,losses:1,ties:0,winPercentage:2/3,pointsFor:320,pointsAgainst:0,pointDifferential:20},
+  {memberId:'c',rank:3,wins:2,losses:1,ties:0,winPercentage:2/3,pointsFor:310,pointsAgainst:0,pointDifferential:10},
+] as any[];
+const cyclicGames=[
+  {id:'ab',week:1,homeMemberId:'a',awayMemberId:'b',winnerId:'a'},
+  {id:'bc',week:2,homeMemberId:'b',awayMemberId:'c',winnerId:'b'},
+  {id:'ca',week:3,homeMemberId:'c',awayMemberId:'a',winnerId:'c'},
+] as any[];
+const seeded=seedFantasyStandings(tiedRows,cyclicGames,'record_head_to_head').map(row=>row.memberId);
+const reversed=seedFantasyStandings([...tiedRows].reverse(),cyclicGames,'record_head_to_head').map(row=>row.memberId);
+assert.deepEqual(seeded,['a','b','c'],'cyclic head-to-head ties must use the deterministic base fallback');
+assert.deepEqual(reversed,seeded,'head-to-head seeding must not depend on input order');
 
 console.log('Yahoo fantasy parity checks passed: ugly human roster, strict weekly lineup, private communications, commissioner rules, event notifications, and safe draft formats.');

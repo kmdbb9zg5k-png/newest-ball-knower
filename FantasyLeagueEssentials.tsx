@@ -78,11 +78,13 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   const settings = (league.settings || {}) as any;
   const isCommissioner = currentUser?.id === league.commissionerId;
   const maxWeek = Math.max(13, Math.min(17, Number(settings.regularSeasonWeeks ?? settings.seasonGames) || 17));
+  const fantasyRosterSize = Math.max(15, Math.min(20, Number(settings.rosterSize || league.liveDraft?.rounds) || 15));
   const [tab, setTab] = useState<Tab>("team");
   const [activityView, setActivityView] = useState<ActivityView>("overview");
   const [week, setWeek] = useState(
     Math.min(maxWeek, Math.max(1, Number(settings.currentWeek) || 1)),
   );
+  useEffect(() => setWeek((current) => Math.min(current, maxWeek)), [maxWeek]);
   const [lineups, setLineups] = useState<WeeklyLineup[]>([]);
   const [scores, setScores] = useState<WeeklyScore[]>([]);
   const [memberMeta, setMemberMeta] = useState<MemberFantasyMeta[]>([]);
@@ -225,7 +227,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   const submitClaim = () =>
     run(async () => {
       if (!me || !faabPlayer) throw new Error("Choose a free agent.");
-      if (roster.length >= 20 && !dropPlayer)
+      if (roster.length >= fantasyRosterSize && !dropPlayer)
         throw new Error("Choose a player to drop.");
       await submitFaabClaim(
         league.id,
@@ -476,7 +478,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
               className="min-h-11 w-full rounded-xl bg-black/40 px-3 text-xs"
             >
               <option value="">
-                {roster.length >= 20
+                {roster.length >= fantasyRosterSize
                   ? "Choose player to drop"
                   : "No drop needed"}
               </option>

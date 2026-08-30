@@ -201,7 +201,7 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-6">
         {/* Navigation Tabs */}
         <div className="grid w-full grid-cols-4 gap-1 rounded-xl border border-white/5 bg-[#121212] p-1 sm:flex sm:w-auto">
-          {!specialDraftFormat&&<button
+          <button
             id="sim-tab-draft-order"
             onClick={() => setActiveTab('draft_order')}
             className={`min-w-0 flex-1 sm:flex-initial flex items-center justify-center gap-1 rounded-lg px-1 py-2 text-[9px] font-black uppercase tracking-wide transition-all sm:gap-1.5 sm:px-4 sm:text-xs sm:tracking-wider ${
@@ -212,7 +212,7 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
           >
             <Award className="h-3.5 w-3.5" />
             <span>Draft Order</span>
-          </button>}
+          </button>
 
           <button
             id="sim-tab-standings"
@@ -256,7 +256,7 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
 
         {/* Action Buttons */}
         <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto">
-          <button
+          {!specialDraftFormat && <button
             id="sim-open-draft-btn"
             onClick={() => void handleOpenDraft()}
             disabled={!league.liveDraft && !isLeagueCommissioner(league,currentUser?.id)}
@@ -264,7 +264,7 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
           >
             <Play className="h-3.5 w-3.5" />
             <span>{league.liveDraft ? 'Open Draft' : isLeagueCommissioner(league,currentUser?.id) ? 'Start Draft' : 'Waiting'}</span>
-          </button>
+          </button>}
 
           <button
             id="sim-compare-rosters-btn"
