@@ -38,6 +38,8 @@ for(const format of ['live_snake','autopick','offline','mock'])assert.ok(create.
 
 const scoringApi=readFileSync(new URL('../api/fantasy-live-scoring.ts',import.meta.url),'utf8');
 assert.ok(scoringApi.includes('scoreWithLeagueOverrides'),'custom league scoring must feed live totals');
+assert.ok(scoringApi.includes('raw.passingYards')&&scoringApi.includes('raw.fieldGoalsMade'),'custom scoring must accept persisted normalized stat lines');
+assert.ok(!create.includes("['autopick','offline'].includes"),'local Offline Results creation must remain available');
 const postDraft=readFileSync(new URL('../FantasyLeaguePostDraft.tsx',import.meta.url),'utf8');
 assert.ok(postDraft.includes('fantasyRosterSize'),'post-draft moves and trades must use the fantasy roster size');
 assert.ok(!postDraft.includes('TOTAL_ROSTER_SIZE'),'20-player Draft Order Game constants must not leak into standard fantasy moves');

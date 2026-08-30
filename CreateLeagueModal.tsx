@@ -50,8 +50,8 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
       showToast('Please enter a league name');
       return;
     }
-    if(!onlineInvitesReady&&['autopick','offline'].includes(advanced.draftFormat||'')){
-      showToast('Autopick and offline results require online league services.');
+    if(!onlineInvitesReady&&advanced.draftFormat==='autopick'){
+      showToast('Autopick-only drafts require online league services.');
       return;
     }
     const scheduledDate = new Date(`${draftDay}T${draftTime}`);

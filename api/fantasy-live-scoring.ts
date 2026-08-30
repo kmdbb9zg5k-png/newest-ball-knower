@@ -65,21 +65,21 @@ function normalizeTank01PlayerStats(rawValue:unknown):FantasyStatLine{
     receiving.receivingTwoPointConversion,
   ].reduce<number>((sum,value)=>sum+coreNumeric(value),0);
   return {
-    passingYards:firstNumber(passing.passYds,passing.passingYards,raw.passYds),
-    passingTouchdowns:firstNumber(passing.passTD,passing.passingTDs,raw.passTD),
-    interceptionsThrown:firstNumber(passing.int,passing.interceptions,raw.int),
-    rushingYards:firstNumber(rushing.rushYds,rushing.rushingYards,raw.rushYds),
-    rushingTouchdowns:firstNumber(rushing.rushTD,rushing.rushingTDs,raw.rushTD),
-    receivingYards:firstNumber(receiving.recYds,receiving.receivingYards,raw.recYds),
-    receivingTouchdowns:firstNumber(receiving.recTD,receiving.receivingTDs,raw.recTD),
+    passingYards:firstNumber(passing.passYds,passing.passingYards,raw.passYds,raw.passingYards),
+    passingTouchdowns:firstNumber(passing.passTD,passing.passingTDs,raw.passTD,raw.passingTouchdowns),
+    interceptionsThrown:firstNumber(passing.int,passing.interceptions,raw.int,raw.interceptionsThrown),
+    rushingYards:firstNumber(rushing.rushYds,rushing.rushingYards,raw.rushYds,raw.rushingYards),
+    rushingTouchdowns:firstNumber(rushing.rushTD,rushing.rushingTDs,raw.rushTD,raw.rushingTouchdowns),
+    receivingYards:firstNumber(receiving.recYds,receiving.receivingYards,raw.recYds,raw.receivingYards),
+    receivingTouchdowns:firstNumber(receiving.recTD,receiving.receivingTDs,raw.recTD,raw.receivingTouchdowns),
     receptions:firstNumber(receiving.receptions,raw.receptions),
-    twoPointConversions:categorizedTwoPointConversions||firstNumber(raw.twoPointConversion),
+    twoPointConversions:categorizedTwoPointConversions||firstNumber(raw.twoPointConversion,raw.twoPointConversions),
     fumblesLost:firstNumber(defense.fumblesLost,raw.fumblesLost),
     returnTouchdowns:firstNumber(raw.returnTD,raw.returnTouchdowns,raw.specialTeamsTD),
-    fieldGoalsMade:firstNumber(kicking.fgMade,kicking.fieldGoalsMade,raw.fgMade),
-    fieldGoalsMissed:firstNumber(kicking.fgMissed,kicking.fieldGoalsMissed,raw.fgMissed),
-    extraPointsMade:firstNumber(kicking.xpMade,kicking.extraPointsMade,raw.xpMade),
-    extraPointsMissed:firstNumber(kicking.xpMissed,kicking.extraPointsMissed,raw.xpMissed),
+    fieldGoalsMade:firstNumber(kicking.fgMade,kicking.fieldGoalsMade,raw.fgMade,raw.fieldGoalsMade),
+    fieldGoalsMissed:firstNumber(kicking.fgMissed,kicking.fieldGoalsMissed,raw.fgMissed,raw.fieldGoalsMissed),
+    extraPointsMade:firstNumber(kicking.xpMade,kicking.extraPointsMade,raw.xpMade,raw.extraPointsMade),
+    extraPointsMissed:firstNumber(kicking.xpMissed,kicking.extraPointsMissed,raw.xpMissed,raw.extraPointsMissed),
   };
 }
 
