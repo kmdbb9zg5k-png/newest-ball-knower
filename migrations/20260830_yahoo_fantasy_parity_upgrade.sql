@@ -189,7 +189,7 @@ begin
   if me is null or p_vote not in('approve','veto') then raise exception 'Invalid trade vote';end if;
   select * into t from public.ball_knower_trades where id=p_trade_id for update;if not found or t.status<>'accepted_pending_review' then raise exception 'Trade is not awaiting a league vote';end if;
   if coalesce((select settings->>'tradeReview' from public.ball_knower_leagues where id=t.league_id),'commissioner')<>'league_vote' then raise exception 'This league does not use trade voting';end if;
-  select count(*) into eligible from public.ball_knower_league_members where league_id=t.league_id and not is_ai and id not in(t.proposer_member_id,t.recipient_member_id);needed:=floor(eligible/2.0)+1;
+  select count(*) into eligible from public.ball_knower_league_members where league_id=t.league_id and not is_ai and auth_user_id is not null and id not in(t.proposer_member_id,t.recipient_member_id);needed:=floor(eligible/2.0)+1;
   if eligible=0 then
     if not public.is_ball_knower_commissioner(t.league_id) then raise exception 'No neutral voters are available; commissioner fallback required';end if;
     if p_vote='veto' then update public.ball_knower_trades set status='vetoed',resolved_at=now() where id=t.id;return jsonb_build_object('status','vetoed','approvals',0,'vetoes',1,'needed',1,'fallback','commissioner');end if;
@@ -310,7 +310,7 @@ declare me uuid:=(select auth.uid());begin update public.ball_knower_dm_threads 
 create or replace function public.send_ball_knower_trade_message(p_trade_id uuid,p_body text)
 returns uuid language plpgsql security definer set search_path='' as $function$
 declare me uuid:=(select auth.uid());t public.ball_knower_trades%rowtype;p uuid;r uuid;message_id uuid;
-begin select * into t from public.ball_knower_trades where id=p_trade_id;select auth_user_id into p from public.ball_knower_league_members where id=t.proposer_member_id;select auth_user_id into r from public.ball_knower_league_members where id=t.recipient_member_id;if me not in(p,r) then raise exception 'Trade thread access denied';end if;if length(btrim(coalesce(p_body,''))) not between 1 and 1000 then raise exception 'Message must be 1-1000 characters';end if;insert into public.ball_knower_trade_messages(trade_id,sender_auth_id,body) values(t.id,me,btrim(p_body)) returning id into message_id;perform ball_knower_private.notify_fantasy_user(t.league_id,case when me=p then r else p end,'Trade message','A manager replied in your trade thread.','trade_message');return message_id;end;$function$;
+begin if me is null then raise exception 'Authentication required';end if;select * into t from public.ball_knower_trades where id=p_trade_id;if not found then raise exception 'Trade thread access denied';end if;select auth_user_id into p from public.ball_knower_league_members where id=t.proposer_member_id;select auth_user_id into r from public.ball_knower_league_members where id=t.recipient_member_id;if p is null or r is null or(me is distinct from p and me is distinct from r) then raise exception 'Trade thread access denied';end if;if length(btrim(coalesce(p_body,''))) not between 1 and 1000 then raise exception 'Message must be 1-1000 characters';end if;insert into public.ball_knower_trade_messages(trade_id,sender_auth_id,body) values(t.id,me,btrim(p_body)) returning id into message_id;perform ball_knower_private.notify_fantasy_user(t.league_id,case when me=p then r else p end,'Trade message','A manager replied in your trade thread.','trade_message');return message_id;end;$function$;
 create or replace function public.mark_ball_knower_trade_thread_read(p_trade_id uuid)
 returns void language plpgsql security definer set search_path='' as $function$
 declare me uuid:=(select auth.uid());begin if not exists(select 1 from public.ball_knower_trades t join public.ball_knower_league_members p on p.id=t.proposer_member_id join public.ball_knower_league_members r on r.id=t.recipient_member_id where t.id=p_trade_id and me in(p.auth_user_id,r.auth_user_id)) then raise exception 'Trade thread access denied';end if;insert into public.ball_knower_trade_thread_reads(trade_id,auth_user_id,last_read_at) values(p_trade_id,me,now()) on conflict(trade_id,auth_user_id) do update set last_read_at=excluded.last_read_at;end;$function$;
@@ -330,7 +330,10 @@ begin
     select league_id,auth_user_id into league,u from public.ball_knower_league_members where id=new.member_id;perform ball_knower_private.notify_fantasy_user(league,u,'Waiver '||new.status,coalesce(new.player_snapshot->>'name',new.player_id)||' · '||coalesce(new.failure_reason,'Claim processed'),'waiver_'||new.status);
   elsif tg_table_name='ball_knower_injuries' then
     select m.league_id,m.auth_user_id into league,u from public.ball_knower_league_members m where m.id=new.member_id;perform ball_knower_private.notify_fantasy_user(league,u,'Player status update',new.player_name||' is now '||new.status||'.','player_status');
-  elsif tg_table_name='ball_knower_live_drafts' and new.status='active' and (tg_op='INSERT' or old.pick_index is distinct from new.pick_index) then
+  elsif tg_table_name='ball_knower_live_drafts' and new.status='active' then
+    if tg_op='INSERT' then null;
+    elsif tg_op='UPDATE' then if old.pick_index is not distinct from new.pick_index then return new;end if;
+    else return new;end if;
     next_member:=new.order_member_ids->>(case when mod(new.pick_index/jsonb_array_length(new.order_member_ids),2)=0 then mod(new.pick_index,jsonb_array_length(new.order_member_ids)) else jsonb_array_length(new.order_member_ids)-1-mod(new.pick_index,jsonb_array_length(new.order_member_ids)) end);
     select auth_user_id into u from public.ball_knower_league_members where league_id=new.league_id and id=next_member;perform ball_knower_private.notify_fantasy_user(new.league_id,u,'You are on the clock','Your Ball Knower fantasy pick is ready.','draft_on_clock');
     if tg_op='UPDATE' and jsonb_array_length(new.picks)>0 then pick:=new.picks->-1;if pick->>'source'='autopick' then select auth_user_id into u from public.ball_knower_league_members where league_id=new.league_id and id=pick->>'memberId';perform ball_knower_private.notify_fantasy_user(new.league_id,u,'Selection autopicked','Your queue or best available player made the pick.','draft_autopick');end if;end if;
@@ -338,7 +341,10 @@ begin
     for watcher in select auth_user_id from public.ball_knower_league_members where league_id=new.league_id and auth_user_id is not null and auth_user_id<>new.auth_user_id and not is_ai loop perform ball_knower_private.notify_fantasy_user(new.league_id,watcher.auth_user_id,'League message',new.member_name||': '||left(new.body,180),'league_message');end loop;
   elsif tg_table_name='ball_knower_trading_block' then
     for watcher in select auth_user_id from public.ball_knower_watched_players where league_id=new.league_id and player_id=new.player_id loop perform ball_knower_private.notify_fantasy_user(new.league_id,watcher.auth_user_id,'Watched player on Trading Block',new.player_id||' is marked '||replace(new.status,'_',' ')||'.','trading_block');end loop;
-  elsif tg_table_name='ball_knower_weekly_scores' and new.is_final and (tg_op='INSERT' or not coalesce(old.is_final,false)) then
+  elsif tg_table_name='ball_knower_weekly_scores' and new.is_final then
+    if tg_op='INSERT' then null;
+    elsif tg_op='UPDATE' then if coalesce(old.is_final,false) then return new;end if;
+    else return new;end if;
     select auth_user_id into u from public.ball_knower_league_members where id=new.member_id;perform ball_knower_private.notify_fantasy_user(new.league_id,u,'Final matchup result','Your Week '||new.week_number||' score is final: '||new.live_points||' points.','matchup_final');
   end if;return new;
 end;$function$;

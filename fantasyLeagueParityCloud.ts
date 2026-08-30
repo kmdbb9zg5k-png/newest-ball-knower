@@ -229,9 +229,9 @@ export async function counterTrade(tradeId:string,offeredPlayerIds:string[],requ
 
 export async function commissionerSetWaiverPriority(leagueId:string,memberId:string,priority:number){
   if(!supabase) throw new Error('Online league services are not configured.');
-  if(!Number.isFinite(priority)) throw new Error('Waiver priority must be a finite number.');
+  if(!Number.isFinite(priority)||priority<1) throw new Error('Waiver priority must be at least 1.');
   await ensureOnlineSession();
-  const {error}=await supabase.rpc('commissioner_set_ball_knower_waiver_priority',{p_league_id:leagueId,p_member_id:memberId,p_priority:Math.max(1,Math.floor(priority))});
+  const {error}=await supabase.rpc('commissioner_set_ball_knower_waiver_priority',{p_league_id:leagueId,p_member_id:memberId,p_priority:Math.floor(priority)});
   if(error) throw error;
 }
 

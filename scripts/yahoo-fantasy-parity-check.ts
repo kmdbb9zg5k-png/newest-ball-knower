@@ -34,6 +34,9 @@ assert.match(migration,/rounds between 15 and 20/,'custom bench depth must remai
 assert.ok(migration.includes('Offline draft results are locked after season activity begins'),'offline draft re-imports must lock before live season state can be invalidated');
 assert.ok(migration.includes("player->>'id'=player_id")&&migration.includes('remove_stale_trading_block_entries'),'Trading Block writes must prove roster ownership and stale entries must be removed');
 assert.ok(migration.includes('Regular-season length is locked after the schedule is created'),'the database must reject schedule-length drift after schedule creation');
+assert.ok(migration.includes('not is_ai and auth_user_id is not null'),'league-vote quorum must count only authenticated neutral voters');
+assert.ok(migration.includes('p is null or r is null or(me is distinct from p and me is distinct from r)'),'trade-thread writes must require two resolved human participants');
+assert.match(migration,/if tg_op='INSERT' then null;[\s\S]*elsif tg_op='UPDATE' then if old\.pick_index/,'draft INSERT notifications must not dereference OLD');
 
 const create=readFileSync(new URL('../CreateLeagueModal.tsx',import.meta.url),'utf8');
 assert.ok(create.includes('Advanced League Settings'),'normal creation must keep advanced settings collapsed');
@@ -51,10 +54,15 @@ assert.ok(postDraft.includes('regularSeasonSchedule'),'commissioner schedule edi
 assert.ok(postDraft.includes('effectiveSeeding'),'division-winner seeding must be disabled when divisions are off');
 const advancedSettings=readFileSync(new URL('../FantasyAdvancedLeagueSettings.tsx',import.meta.url),'utf8');
 assert.ok(advancedSettings.includes('disabled={disabled||scheduleLocked}'),'regular-season length must lock once a persisted schedule exists');
+assert.ok(advancedSettings.includes('settings.regularSeasonWeeks??settings.seasonGames'),'legacy season length must display the same effective value used by gameplay');
 const simulationView=readFileSync(new URL('../SimulationView.tsx',import.meta.url),'utf8');
 assert.match(simulationView,/!specialDraftFormat\s*&&\s*<button\s+id="sim-open-draft-btn"/,'special formats must not expose the live snake draft action');
+assert.ok(simulationView.includes("specialDraftFormat?'':'min-[390px]:grid-cols-2'"),'special formats must retain the Share Order action');
 const essentials=readFileSync(new URL('../FantasyLeagueEssentials.tsx',import.meta.url),'utf8');
 assert.ok(essentials.includes('fantasyRosterSize'),'legacy fantasy views must use configured roster size');
+assert.ok(essentials.includes('<FantasyLeagueCommunications league={league} trades={trades}/>')&&!essentials.includes('TradingBlockAddRow'),'legacy fantasy views must reuse the owner-scoped communication surface');
+const parityCloud=readFileSync(new URL('../fantasyLeagueParityCloud.ts',import.meta.url),'utf8');
+assert.ok(parityCloud.includes("!Number.isFinite(priority)||priority<1"),'blank or invalid waiver priorities must be rejected rather than promoted to first');
 
 const tiedRows=[
   {memberId:'a',rank:1,wins:2,losses:1,ties:0,winPercentage:2/3,pointsFor:330,pointsAgainst:0,pointDifferential:30},
