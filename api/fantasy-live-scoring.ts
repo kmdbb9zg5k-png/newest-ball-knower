@@ -141,6 +141,24 @@ function scoreFantasyDefense(stats:DefenseStatLine):number{
   );
 }
 
+function scoreDefenseWithLeagueOverrides(rawStats:unknown,customValue:unknown):number{
+  const custom=object(customValue);
+  const stats=normalizeTank01DefenseStats(rawStats);
+  const weight=(key:string,fallback:number)=>custom[key]===undefined?fallback:coreNumeric(custom[key]);
+  return rounded(
+    stats.sacks*weight('dstSack',1)
+    +(stats.interceptions+stats.fumbleRecoveries)*weight('dstTurnover',2)
+    +(stats.defensiveTouchdowns+stats.returnTouchdowns)*weight('dstTd',6)
+    +stats.safeties*2+stats.blockedKicks*2+defensePointsAllowed(stats.pointsAllowed),
+  );
+}
+
+function hasDefenseProjectionStats(rawValue:unknown):boolean{
+  const raw=object(rawValue);
+  return ['sacks','defensiveInterceptions','interceptions','fumblesRecovered','fumbleRecoveries','defTD','defensiveTouchdowns','returnTD','returnTouchdowns','ptsAllowed','pointsAllowed']
+    .some(key=>raw[key]!==undefined&&raw[key]!==null&&raw[key]!=='');
+}
+
 function allFormatScores(rawStats:unknown):Record<FantasyScoringFormat,number>{
   const stats=normalizeTank01PlayerStats(rawStats);
   return {
@@ -560,6 +578,7 @@ export default async function handler(req:any,res:any){
       const format=normalizeScoringFormat(league.settings?.scoringFormat);
       const customScoring=league.settings?.customScoring;
       const usesCustomScoring=Object.keys(object(customScoring)).length>0;
+      const usesCustomDefenseScoring=['dstSack','dstTurnover','dstTd'].some(key=>object(customScoring)[key]!==undefined);
       for(const member of members.filter(item=>item.league_id===league.id)){
         const roster=member.roster||[];
         let lineup=lineupMap.get(`${league.id}|${member.id}`);
@@ -579,10 +598,13 @@ export default async function handler(req:any,res:any){
           if(game&&Date.parse(game.kickoff_at)<=now.getTime()) lockedIds.add(player.id);
           const playerScore=scoreByAppPlayer.get(player.id);
           const actual=playerScore
-            ? (player.position==='DST'?scoreForFormat(playerScore.fantasy_points,format):scoreWithLeagueOverrides(playerScore.stats,format,league.settings?.customScoring))
+            ? (player.position==='DST'?(usesCustomDefenseScoring?scoreDefenseWithLeagueOverrides(playerScore.stats,customScoring):scoreForFormat(playerScore.fantasy_points,format)):scoreWithLeagueOverrides(playerScore.stats,format,customScoring))
             : 0;
           const providerProjection=player.position==='DST'?undefined:providerProjectionByKey.get(playerKey(player.name,player.team));
-          const projected=usesCustomScoring&&player.position!=='DST'
+          const providerDefenseProjection=player.position==='DST'?defenseProjectionByTeam.get(teamForPlayer(player)):undefined;
+          const projected=player.position==='DST'&&usesCustomDefenseScoring
+            ? (hasDefenseProjectionStats(providerDefenseProjection)?liveProjectedPoints(actual,scoreDefenseWithLeagueOverrides(providerDefenseProjection,customScoring),game?.game_status,game?.game_period):0)
+            : usesCustomScoring&&player.position!=='DST'
             ? (providerProjection?liveProjectedPoints(actual,scoreWithLeagueOverrides(providerProjection,format,customScoring),game?.game_status,game?.game_period):0)
             : playerScore
               ? scoreForFormat(playerScore.projected_points,format)

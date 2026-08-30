@@ -35,6 +35,7 @@ assert.ok(migration.includes('Offline draft results are locked after season acti
 assert.ok(migration.includes("if grp is null or grp not in('QB','RB','WR','TE','K','DST')"),'offline results must reject unknown player IDs before persisting picks');
 assert.ok(migration.includes("player->>'id'=player_id")&&migration.includes('remove_stale_trading_block_entries'),'Trading Block writes must prove roster ownership and stale entries must be removed');
 assert.ok(migration.includes('Regular-season length is locked after the schedule is created'),'the database must reject schedule-length drift after schedule creation');
+assert.ok(migration.includes('week_number=p_week and kickoff_at<=now()'),'commissioner matchup edits must lock at NFL kickoff even before fantasy points are scored');
 assert.ok(migration.includes('not is_ai and auth_user_id is not null'),'league-vote quorum must count only authenticated neutral voters');
 assert.ok(migration.includes('p is null or r is null or(me is distinct from p and me is distinct from r)'),'trade-thread writes must require two resolved human participants');
 assert.match(migration,/if tg_op='INSERT' then null;[\s\S]*elsif tg_op='UPDATE' then if old\.pick_index/,'draft INSERT notifications must not dereference OLD');
@@ -47,6 +48,7 @@ const scoringApi=readFileSync(new URL('../api/fantasy-live-scoring.ts',import.me
 assert.ok(scoringApi.includes('scoreWithLeagueOverrides'),'custom league scoring must feed live totals');
 assert.ok(scoringApi.includes('raw.passingYards')&&scoringApi.includes('raw.fieldGoalsMade'),'custom scoring must accept persisted normalized stat lines');
 assert.match(scoringApi,/providerProjection\?liveProjectedPoints\(actual,scoreWithLeagueOverrides\(providerProjection,format,customScoring\)/,'custom scoring must also drive compatible matchup projections');
+assert.ok(scoringApi.includes('scoreDefenseWithLeagueOverrides')&&scoringApi.includes("weight('dstTurnover',2)")&&scoringApi.includes('hasDefenseProjectionStats'),'custom D/ST scoring must drive actual totals and compatible projections');
 assert.ok(!create.includes("['autopick','offline'].includes"),'local Offline Results creation must remain available');
 const postDraft=readFileSync(new URL('../FantasyLeaguePostDraft.tsx',import.meta.url),'utf8');
 assert.ok(postDraft.includes('fantasyRosterSize'),'post-draft moves and trades must use the fantasy roster size');
