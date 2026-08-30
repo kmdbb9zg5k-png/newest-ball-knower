@@ -94,6 +94,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   const [faabPlayer, setFaabPlayer] = useState("");
   const [faabBid, setFaabBid] = useState(1);
   const [dropPlayer, setDropPlayer] = useState("");
+  const [memberMetaLoaded, setMemberMetaLoaded] = useState(false);
   const [counterTradeId, setCounterTradeId] = useState("");
   const [counterGive, setCounterGive] = useState<string[]>([]);
   const [counterGet, setCounterGet] = useState<string[]>([]);
@@ -115,6 +116,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   const refresh = async () => {
     try {
       setError("");
+      setMemberMetaLoaded(false);
       const requestedLeagueId=league.id;
       const requestedUserId=currentUser?.id||'';
       const communicationRequestId=++communicationRequestRef.current;
@@ -133,6 +135,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
       setLineups([...parity.lineups]);
       setScores([...parity.scores]);
       setMemberMeta([...parity.members]);
+      setMemberMetaLoaded(true);
       setArchives([...parity.archives]);
       setTrades([...ops.trades]);
       setInjuries([...ops.injuries]);
@@ -158,6 +161,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   );
   const myMeta = memberMeta.find((item) => item.memberId === me?.id);
   const irIds = myMeta?.irPlayerIds || [];
+  const activeRosterCount = roster.filter((player) => !irIds.includes(player.id)).length;
   const lineupErrors = validateWeeklyLineup(roster, starters);
   const starterIds = new Set(Object.values(starters).filter(Boolean));
   const bench = roster.filter(
@@ -220,7 +224,8 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   const submitClaim = () =>
     run(async () => {
       if (!me || !faabPlayer) throw new Error("Choose a free agent.");
-      if (roster.length >= fantasyRosterSize && !dropPlayer)
+      if (!memberMetaLoaded) throw new Error("Roster metadata is still loading.");
+      if (activeRosterCount >= fantasyRosterSize && !dropPlayer)
         throw new Error("Choose a player to drop.");
       await submitFaabClaim(
         league.id,
@@ -471,18 +476,18 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
               className="min-h-11 w-full rounded-xl bg-black/40 px-3 text-xs"
             >
               <option value="">
-                {roster.length >= fantasyRosterSize
+                {activeRosterCount >= fantasyRosterSize
                   ? "Choose player to drop"
-                  : "No drop needed"}
+                  : `No drop needed · ${activeRosterCount}/${fantasyRosterSize} active`}
               </option>
-              {roster.map((player) => (
+              {roster.filter((player) => !irIds.includes(player.id)).map((player) => (
                 <option key={player.id} value={player.id}>
                   {player.name}
                 </option>
               ))}
             </select>
             <button
-              disabled={busy || !faabPlayer}
+              disabled={busy || !faabPlayer || !memberMetaLoaded}
               onClick={submitClaim}
               className="min-h-11 w-full rounded-xl bg-white text-[10px] font-black uppercase text-black disabled:opacity-30"
             >
