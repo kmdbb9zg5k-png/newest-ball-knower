@@ -18,7 +18,8 @@
     "check:identity": "node --import tsx scripts/account-identity-check.ts",
     "check:yahoo-parity": "node --import tsx scripts/yahoo-fantasy-parity-check.ts",
     "check:picks": "node --import tsx scripts/picks-correctness-check.ts",
-    "check:hardening": "npm run lint && npm run check:integrity && npm run check:draft-reliability && npm run check:trivia && npm run check:identity && npm run check:yahoo-parity && npm run check:picks"
+    "check:phase1-correctness": "node --import tsx scripts/phase1-correctness-check.ts",
+    "check:hardening": "npm run lint && npm run check:integrity && npm run check:draft-reliability && npm run check:trivia && npm run check:identity && npm run check:yahoo-parity && npm run check:picks && npm run check:phase1-correctness"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

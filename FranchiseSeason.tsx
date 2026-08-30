@@ -15,6 +15,7 @@ import {
 import { buildFranchiseRookieClass, buildRealTeamRoster, FranchiseRookieProspect, franchiseSchedule, makeFranchiseOpponent, replaceFranchisePlayersWithRookies } from './soloFranchiseEngine';
 import { TeamTheme, TEAM_THEMES, teamLogoUrl } from './teamTheme';
 import { LeagueMember, Player, TeamRatings } from './types';
+import { ensureFranchiseDraftYear, FranchiseDraftPick, ownedFranchiseDraftRounds } from './franchiseDraftPicks';
 
 type PlayoffResult = { round: string; opponent: string; you: number; them: number; won: boolean };
 type SeasonStage = 'regular' | 'playoffs' | 'finished' | 'draft';
@@ -35,6 +36,9 @@ type Props = {
   onMyPlayerGame?: (fantasyScore: number, won: boolean) => void;
   onRosterChange?: (roster: Player[]) => void;
   gamePlan?: string;
+  draftPickAssets?: FranchiseDraftPick[];
+  onDraftPickAssetsChange?: (picks: FranchiseDraftPick[]) => void;
+  onSeasonYearChange?: (year: number) => void;
 };
 
 const AFC = new Set(['BAL','BUF','CIN','CLE','DEN','HOU','IND','JAX','KC','LAC','LV','MIA','NE','NYJ','PIT','TEN']);
@@ -140,6 +144,9 @@ export const FranchiseSeason: React.FC<Props> = ({
   onMyPlayerGame,
   onRosterChange,
   gamePlan = 'Balanced attack',
+  draftPickAssets,
+  onDraftPickAssetsChange,
+  onSeasonYearChange,
 }) => {
   const seasonKey = `${saveKey}:season`;
   const restored = useMemo(() => restoreSeason(seasonKey), [seasonKey]);
@@ -190,6 +197,15 @@ export const FranchiseSeason: React.FC<Props> = ({
   const currentOpponent = schedule[Math.min(weeks.length, schedule.length - 1)];
   const allLines = weeks.flatMap(week => week.playerLines ?? []);
   const awards = useMemo(() => buildAwards(allLines), [weeks]);
+  const ownedDraftRounds = useMemo(() => draftPickAssets === undefined
+    ? [1, 2, 3, 4, 5, 6, 7]
+    : ownedFranchiseDraftRounds(draftPickAssets, userTeam.abbr, year + 1), [draftPickAssets, userTeam.abbr, year]);
+
+  useEffect(() => {
+    if (!onDraftPickAssetsChange || draftPickAssets === undefined) return;
+    const next = ensureFranchiseDraftYear(draftPickAssets, year + 1, TEAM_THEMES.map(team => team.abbr));
+    if (next.length !== draftPickAssets.length) onDraftPickAssetsChange(next);
+  }, [draftPickAssets, onDraftPickAssetsChange, year]);
 
   useEffect(() => {
     try {
@@ -330,34 +346,57 @@ export const FranchiseSeason: React.FC<Props> = ({
   };
 
   const startDraft = () => {
-    setDraftRound(1);
+    if (!ownedDraftRounds.length) {
+      finishDraft([]);
+      return;
+    }
+    setDraftRound(ownedDraftRounds[0]);
     setDraftedProspects([]);
     setStage('draft');
-    setMessage('Your scouts are ready. You make every one of your seven picks.');
+    setMessage(`Your scouts are ready. You own ${ownedDraftRounds.length} pick${ownedDraftRounds.length === 1 ? '' : 's'} in this draft.`);
+  };
+
+  const finishDraft = (selected: RookieProspect[]) => {
+    const nextYear = year + 1;
+    const rookies = selected.map((player, index) => rookieToPlayer(player, userTeam, ownedDraftRounds[index] ?? index + 1, nextYear));
+    const nextRoster = replaceFranchisePlayersWithRookies(seasonRoster, rookies);
+    setSeasonRoster(nextRoster);
+    onRosterChange?.(nextRoster);
+    setWeeks([]);
+    setPlayoffs([]);
+    setInjuries([]);
+    setPlayoffField([]);
+    setYear(nextYear);
+    onSeasonYearChange?.(nextYear);
+    if (draftPickAssets !== undefined) onDraftPickAssetsChange?.(ensureFranchiseDraftYear(draftPickAssets, nextYear + 1, TEAM_THEMES.map(team => team.abbr)));
+    setStage('regular');
+    setDraftRound(1);
+    setMessage(selected.length
+      ? `Draft complete — ${selected.map(player => player.name).join(', ')} join your franchise. The ${nextYear} season is ready.`
+      : `You did not own a pick in the ${nextYear} draft. The ${nextYear} season is ready.`);
   };
 
   const selectProspect = (prospect: RookieProspect) => {
     const next = [...draftedProspects, prospect];
     setDraftedProspects(next);
-    if (draftRound === 7) {
-      const nextYear = year + 1;
-      const rookies = next.map((player, index) => rookieToPlayer(player, userTeam, index + 1, nextYear));
-      const nextRoster = replaceFranchisePlayersWithRookies(seasonRoster, rookies);
-      setSeasonRoster(nextRoster);
-      onRosterChange?.(nextRoster);
-      setWeeks([]);
-      setPlayoffs([]);
-      setInjuries([]);
-      setPlayoffField([]);
-      setYear(nextYear);
-      setStage('regular');
-      setDraftRound(1);
-      setMessage(`Draft complete — ${next.map(player => player.name).join(', ')} join your franchise. The ${nextYear} season is ready.`);
+    const pickIndex = draftedProspects.length;
+    if (pickIndex >= ownedDraftRounds.length - 1) {
+      finishDraft(next);
       return;
     }
-    setDraftRound(round => round + 1);
+    setDraftRound(ownedDraftRounds[pickIndex + 1]);
     setMessage(`${prospect.name} is the pick. CPU teams simulated forward to your next selection.`);
   };
+
+  useEffect(() => {
+    if (stage !== 'draft') return;
+    if (draftedProspects.length >= ownedDraftRounds.length) {
+      finishDraft(draftedProspects.slice(0, ownedDraftRounds.length));
+      return;
+    }
+    const nextOwnedRound = ownedDraftRounds[draftedProspects.length];
+    if (nextOwnedRound !== undefined && draftRound !== nextOwnedRound) setDraftRound(nextOwnedRound);
+  }, [stage, draftedProspects.length, ownedDraftRounds.length]);
 
   return (
     <div className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
@@ -473,7 +512,7 @@ export const FranchiseSeason: React.FC<Props> = ({
           </div>
         ) : null}
 
-        {stage === 'draft' ? <OffseasonDraft year={year + 1} round={draftRound} wins={wins} selected={draftedProspects} onSelect={selectProspect} /> : null}
+        {stage === 'draft' ? <OffseasonDraft year={year + 1} round={draftRound} wins={wins} selected={draftedProspects} ownedRounds={ownedDraftRounds} onSelect={selectProspect} /> : null}
       </div>
     </div>
   );
@@ -530,9 +569,9 @@ const rookieToPlayer = (prospect: RookieProspect, team: TeamTheme, round: number
   };
 };
 
-const OffseasonDraft = ({ year, round, wins, selected, onSelect }: { year: number; round: number; wins: number; selected: RookieProspect[]; onSelect: (prospect: RookieProspect) => void }) => {
+const OffseasonDraft = ({ year, round, wins, selected, ownedRounds, onSelect }: { year: number; round: number; wins: number; selected: RookieProspect[]; ownedRounds: number[]; onSelect: (prospect: RookieProspect) => void }) => {
   const draftSlot = Math.max(1, Math.min(32, 4 + wins * 2));
   const available = buildFranchiseRookieClass(year).filter(prospect => !selected.some(player => player.id === prospect.id));
   const cpuBefore = Math.max(0, draftSlot - 1);
-  return <div className="grid gap-4 lg:grid-cols-[1fr_19rem]"><section className="rounded-[2rem] border border-[var(--bk-team-accent)]/25 bg-[#10151d] p-5 sm:p-7"><div className="flex items-center gap-3 text-[var(--bk-team-accent)]"><Users/><span className="text-[10px] font-black tracking-[.24em]">LIVE 32-TEAM ROOKIE DRAFT</span></div><h2 className="mt-2 text-4xl font-black">YOU'RE ON THE CLOCK</h2><p className="mt-2 text-sm text-zinc-400">Round {round}, Pick {draftSlot}. The {cpuBefore} teams ahead of you have already simulated their selections. Nobody picks for you.</p><div className="mt-5 grid gap-2 sm:grid-cols-2">{available.map(prospect => <button key={prospect.id} onClick={() => onSelect(prospect)} className="flex min-h-20 items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-4 text-left hover:border-[var(--bk-team-accent)]/50"><div><div className="text-base font-black">{prospect.name}</div><div className="text-[10px] font-bold text-zinc-500">{prospect.position} · {prospect.school}</div></div><div className="text-right"><div className="text-xl font-black text-[var(--bk-team-accent)]">{prospect.grade}</div><div className="text-[8px] font-black text-zinc-600">SCOUT GRADE</div></div></button>)}</div></section><aside className="space-y-3"><SeasonPanel title="YOUR DRAFT CLASS">{selected.length ? selected.map((prospect, index) => <div key={prospect.id} className="border-b border-white/5 py-2 text-sm"><b>R{index + 1}: {prospect.name}</b><div className="text-xs text-zinc-500">{prospect.position} · {prospect.school}</div></div>) : <p className="text-sm text-zinc-500">No picks yet.</p>}</SeasonPanel><SeasonPanel title="CPU PICK SIMULATION"><p className="text-sm text-zinc-400">After your selection, the other 31 CPU front offices draft by roster need and prospect grade. The board then advances automatically to your next pick.</p></SeasonPanel></aside></div>;
+  return <div className="grid gap-4 lg:grid-cols-[1fr_19rem]"><section className="rounded-[2rem] border border-[var(--bk-team-accent)]/25 bg-[#10151d] p-5 sm:p-7"><div className="flex items-center gap-3 text-[var(--bk-team-accent)]"><Users/><span className="text-[10px] font-black tracking-[.24em]">LIVE 32-TEAM ROOKIE DRAFT</span></div><h2 className="mt-2 text-4xl font-black">YOU'RE ON THE CLOCK</h2><p className="mt-2 text-sm text-zinc-400">Round {round}, Pick {draftSlot}. The {cpuBefore} teams ahead of you have already simulated their selections. Your owned rounds: {ownedRounds.join(', ')}.</p><div className="mt-5 grid gap-2 sm:grid-cols-2">{available.map(prospect => <button key={prospect.id} onClick={() => onSelect(prospect)} className="flex min-h-20 items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-4 text-left hover:border-[var(--bk-team-accent)]/50"><div><div className="text-base font-black">{prospect.name}</div><div className="text-[10px] font-bold text-zinc-500">{prospect.position} · {prospect.school}</div></div><div className="text-right"><div className="text-xl font-black text-[var(--bk-team-accent)]">{prospect.grade}</div><div className="text-[8px] font-black text-zinc-600">SCOUT GRADE</div></div></button>)}</div></section><aside className="space-y-3"><SeasonPanel title="YOUR DRAFT CLASS">{selected.length ? selected.map((prospect, index) => <div key={prospect.id} className="border-b border-white/5 py-2 text-sm"><b>R{ownedRounds[index]}: {prospect.name}</b><div className="text-xs text-zinc-500">{prospect.position} · {prospect.school}</div></div>) : <p className="text-sm text-zinc-500">No picks yet.</p>}</SeasonPanel><SeasonPanel title="CPU PICK SIMULATION"><p className="text-sm text-zinc-400">Rounds you traded away are owned and used by the acquiring team. The board advances only to selections your franchise still owns.</p></SeasonPanel></aside></div>;
 };
