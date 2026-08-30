@@ -106,7 +106,7 @@ export default async function handler(req: any, res: any) {
     if (!rows.length) return sendUnavailable(res, failureReason);
 
     const now = Date.now();
-    const requestedIds = new Set(String(req?.query?.gameIds || '').split(',').filter(Boolean).slice(0, 100));
+    const requestedIds = new Set(String(req?.query?.gameIds || '').split(',').filter(Boolean));
     const requestedRows = rows.filter((g: any) => requestedIds.has(String(g?.game_id || g?.id || '')));
     const currentRows = rows
       .filter((g: any) => {

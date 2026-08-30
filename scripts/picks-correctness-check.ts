@@ -23,5 +23,6 @@ assert.equal(gradePick({ ...base, market: 'total', selection: 'over', lockedLine
 
 const apiSource = await import('node:fs').then(({ readFileSync }) => readFileSync(new URL('../api/nfl-sportsbook.ts', import.meta.url), 'utf8'));
 assert.match(apiSource, /requestedRows[\s\S]*currentRows/, 'saved ungraded game IDs must bypass the rolling display window so they can be graded');
+assert.doesNotMatch(apiSource, /gameIds[\s\S]{0,160}slice\(0,\s*100\)/, 'the 101st saved pick must not be silently excluded from grading');
 
 console.log('Picks correctness checks passed: spread semantics, kickoff locks, W/L/push grading, and idempotent history.');
