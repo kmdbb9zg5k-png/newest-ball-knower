@@ -26,6 +26,7 @@ import { playerPortraitUrl } from './playerPortraits';
 import { useBallKnower } from './BallKnowerContext';
 import { FantasyAdvancedLeagueSettings } from './FantasyAdvancedLeagueSettings';
 import { FantasyLeagueCommunications } from './FantasyLeagueCommunications';
+import { isCloudConfigured } from './supabase';
 import {
   fetchSeasonOperations,
   cancelWaiverClaim,
@@ -560,7 +561,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
           {!receivedTrades.length && !sentTrades.length && !selectedCounter && <Empty text="No pending offers. Open League, tap a team, then tap Trade for on any player."/>}
         </div>}
         {activityView === 'moves' && <Panel title="League Moves" sub="Adds, drops, waivers and completed trades" icon={<Activity className="h-5 w-5 text-[#D4AF37]"/>}>{transactions.length ? transactions.slice(0,40).map(item => <div key={item.id} className="border-b border-white/5 py-3 text-xs">{item.summary}</div>) : <Empty text="No league transactions yet."/>}</Panel>}
-        {activityView === 'messages' && <Panel title="Messages" sub="League chat, private DMs, trade threads and Trading Block" icon={<MessageCircle className="h-5 w-5 text-[#D4AF37]"/>}><div className="flex gap-2"><input value={message} onChange={event => setMessage(event.target.value)} onKeyDown={event => { if(event.key === 'Enter' && message.trim()) void sendMessage(); }} placeholder="Message the league…" className="min-h-12 min-w-0 flex-1 rounded-xl bg-black/40 px-3 text-sm"/><button disabled={!message.trim() || busy} onClick={sendMessage} className="rounded-xl bg-[#D4AF37] px-4 text-xs font-black text-black disabled:opacity-35">Send</button></div><div className="max-h-[35dvh] space-y-2 overflow-y-auto">{messages.length ? messages.map(item => <div key={item.id} className="rounded-xl bg-black/30 p-3"><b className="text-[10px] uppercase text-[#D4AF37]">{item.memberName}</b><p className="mt-1 text-sm">{item.body}</p></div>) : <Empty text="No messages yet."/>}</div><FantasyLeagueCommunications league={league} trades={trades}/></Panel>}
+        {activityView === 'messages' && <Panel title="Messages" sub={isCloudConfigured?'League chat, private DMs, trade threads and Trading Block':'League chat'} icon={<MessageCircle className="h-5 w-5 text-[#D4AF37]"/>}><div className="flex gap-2"><input value={message} onChange={event => setMessage(event.target.value)} onKeyDown={event => { if(event.key === 'Enter' && message.trim()) void sendMessage(); }} placeholder="Message the league…" className="min-h-12 min-w-0 flex-1 rounded-xl bg-black/40 px-3 text-sm"/><button disabled={!message.trim() || busy} onClick={sendMessage} className="rounded-xl bg-[#D4AF37] px-4 text-xs font-black text-black disabled:opacity-35">Send</button></div><div className="max-h-[35dvh] space-y-2 overflow-y-auto">{messages.length ? messages.map(item => <div key={item.id} className="rounded-xl bg-black/30 p-3"><b className="text-[10px] uppercase text-[#D4AF37]">{item.memberName}</b><p className="mt-1 text-sm">{item.body}</p></div>) : <Empty text="No messages yet."/>}</div>{isCloudConfigured&&<FantasyLeagueCommunications league={league} trades={trades}/>}</Panel>}
       </div>}
 
       {tab === 'intel' && <div className="space-y-3">

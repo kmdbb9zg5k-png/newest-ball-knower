@@ -113,6 +113,7 @@ assert.ok(communications.includes('requestRef.current!==requestId')&&communicati
 assert.ok(communications.includes('userIdRef.current!==requestedUserId')&&communications.includes('[league.id,currentUser?.id]'),'private communication state and in-flight responses must reset across identity changes without a remount');
 assert.ok(communications.includes('dataScope===communicationScope?data:EMPTY_COMMUNICATION_STATE'),'identity-switched renders must never expose the previous account communication state before effects run');
 assert.ok(communications.includes('pendingRef.current')&&communications.includes('pending||!tradeBody.trim()')&&communications.includes('tradeIdRef.current===sentTradeId'),'communication sends must be single-flight and clear drafts only in the original full scope');
+assert.ok(communications.includes('isCloudConfigured?<CloudFantasyLeagueCommunications'),'cloud-only DMs, trade threads, and Trading Block must not render in local leagues');
 assert.ok(advancedSettings.includes('isCloudConfigured&&<CommissionerWaiverEditor')&&advancedSettings.includes('isCloudConfigured&&<CommissionerScheduleEditor'),'RPC-only commissioner editors must be hidden in local leagues');
 const draftFormats=readFileSync(new URL('../FantasyDraftFormatWorkspace.tsx',import.meta.url),'utf8');
 assert.ok(draftFormats.includes("await updateLeagueSettings(league.id,{draftFormat:'live_snake'})"),'mock commissioners need an awaited authoritative path into a production draft');

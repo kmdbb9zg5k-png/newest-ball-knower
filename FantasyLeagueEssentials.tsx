@@ -20,6 +20,7 @@ import { useBallKnower } from "./BallKnowerContext";
 import { playerPortraitUrl } from "./playerPortraits";
 import { FantasyAdvancedLeagueSettings } from "./FantasyAdvancedLeagueSettings";
 import { FantasyLeagueCommunications } from "./FantasyLeagueCommunications";
+import { isCloudConfigured } from "./supabase";
 import {
   fetchSeasonOperations,
   fetchFantasyCommunications,
@@ -815,7 +816,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
               sub="League chat, owner-scoped DMs and the Trading Block"
               icon={<MessageCircle className="h-5 w-5 text-[#D4AF37]" />}
             >
-              <div className="grid grid-cols-2 gap-1 rounded-xl bg-black/35 p-1">{(['league','private'] as MessageView[]).map(view=><button key={view} onClick={()=>setMessageView(view)} className={`min-h-11 rounded-lg text-[9px] font-black uppercase ${messageView===view?'bg-white text-black':'text-zinc-400'}`}>{view==='private'?'Private + Trades':'League Chat'}</button>)}</div>
+              {isCloudConfigured&&<div className="grid grid-cols-2 gap-1 rounded-xl bg-black/35 p-1">{(['league','private'] as MessageView[]).map(view=><button key={view} onClick={()=>setMessageView(view)} className={`min-h-11 rounded-lg text-[9px] font-black uppercase ${messageView===view?'bg-white text-black':'text-zinc-400'}`}>{view==='private'?'Private + Trades':'League Chat'}</button>)}</div>}
               {messageView==='league'&&<>
               <div className="flex gap-2">
                 <input
@@ -848,7 +849,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
                 <Empty text="No messages yet." />
               )}
               </>}
-              {messageView==='private'&&<FantasyLeagueCommunications league={league} trades={trades}/>}
+              {isCloudConfigured&&messageView==='private'&&<FantasyLeagueCommunications league={league} trades={trades}/>}
             </Panel>
           )}
         </div>

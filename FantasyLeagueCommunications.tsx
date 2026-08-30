@@ -1,6 +1,7 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {LockKeyhole} from 'lucide-react';
 import {useBallKnower} from './BallKnowerContext';
+import {isCloudConfigured} from './supabase';
 import {PLAYERS_DATABASE} from './players';
 import type {League,Player} from './types';
 import {fetchFantasyCommunications,FantasyDmMessage,FantasyDmThread,markFantasyDmRead,markTradeThreadRead,openFantasyDm,removeTradingBlockEntry,sendFantasyDm,sendTradeThreadMessage,setTradingBlockEntry,setWatchedFantasyPlayer,TradeMessage,TradeOffer,TradeThreadRead,TradingBlockEntry} from './fantasySeasonCloud';
@@ -8,7 +9,9 @@ import {fetchFantasyCommunications,FantasyDmMessage,FantasyDmThread,markFantasyD
 type CommunicationState={dmThreads:FantasyDmThread[];dmMessages:FantasyDmMessage[];tradeMessages:TradeMessage[];tradeThreadReads:TradeThreadRead[];tradingBlock:TradingBlockEntry[];watchedPlayerIds:string[]};
 const EMPTY_COMMUNICATION_STATE:CommunicationState={dmThreads:[],dmMessages:[],tradeMessages:[],tradeThreadReads:[],tradingBlock:[],watchedPlayerIds:[]};
 
-export const FantasyLeagueCommunications=({league,trades}:{league:League;trades:TradeOffer[]})=>{
+export const FantasyLeagueCommunications=(props:{league:League;trades:TradeOffer[]})=>isCloudConfigured?<CloudFantasyLeagueCommunications {...props}/>:null;
+
+const CloudFantasyLeagueCommunications=({league,trades}:{league:League;trades:TradeOffer[]})=>{
   const {currentUser,showToast}=useBallKnower();const me=league.members.find(member=>member.userId===currentUser?.id&&!member.isAi);
   const leagueTrades=useMemo(()=>trades.filter(trade=>trade.leagueId===league.id),[trades,league.id]);const leagueIdRef=useRef(league.id);const userIdRef=useRef(currentUser?.id||'');const requestRef=useRef(0);
   const communicationScope=`${league.id}:${currentUser?.id||''}`;const [dataScope,setDataScope]=useState(communicationScope);const [view,setView]=useState<'dm'|'block'|'trade'>('dm');const [data,setData]=useState<CommunicationState>(EMPTY_COMMUNICATION_STATE);const visibleData=dataScope===communicationScope?data:EMPTY_COMMUNICATION_STATE;const [active,setActive]=useState('');const activeRef=useRef(active);const [target,setTarget]=useState('');const [body,setBody]=useState('');const [tradeId,setTradeId]=useState(leagueTrades[0]?.id||'');const tradeIdRef=useRef(tradeId);const [tradeBody,setTradeBody]=useState('');const [loadError,setLoadError]=useState('');const [pending,setPending]=useState(false);const pendingRef=useRef(false);
