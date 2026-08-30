@@ -83,6 +83,22 @@ begin
   execute v_next;
 end;$public_matchmaking_calendar_patch$;
 
+-- Draft finalization writes under the system flag and must use the configured
+-- fantasy roster size rather than the legacy 20-player Draft Order Game size.
+do $roster_guard_contract_patch$
+declare v_sql text;v_next text;
+begin
+  select pg_get_functiondef('public.enforce_ball_knower_member_update()'::regprocedure) into v_sql;
+  v_next:=replace(v_sql,
+    'if v_roster_count>20 then raise exception ''Roster cannot exceed 20 players''; end if;',
+    'if v_roster_count>public.ball_knower_fantasy_roster_size(new.league_id) then raise exception ''Roster cannot exceed % players'',public.ball_knower_fantasy_roster_size(new.league_id); end if;');
+  v_next:=replace(v_next,
+    'elsif v_roster_count<>20 then raise exception ''A ready roster must contain exactly 20 players''; end if;',
+    'elsif v_roster_count<>public.ball_knower_fantasy_roster_size(new.league_id) then raise exception ''A ready roster must contain exactly % players'',public.ball_knower_fantasy_roster_size(new.league_id); end if;');
+  if position('public.ball_knower_fantasy_roster_size(new.league_id)' in v_next)=0 or (position('''trade'', ''waiver'', ''system''' in v_next)=0 and position('''trade'',''waiver'',''system''' in v_next)=0) then raise exception 'Fantasy roster guard contract is not system-authorized and size-aware';end if;
+  execute v_next;
+end;$roster_guard_contract_patch$;
+
 -- Transactional limits: a failed move rolls this counter back with the roster
 -- change, so simultaneous waiver/free-agent requests cannot overspend a limit.
 create table if not exists ball_knower_private.fantasy_acquisition_counters(
