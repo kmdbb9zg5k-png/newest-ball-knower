@@ -72,6 +72,17 @@ revoke all on function ball_knower_private.validate_fantasy_league_settings() fr
 drop trigger if exists validate_fantasy_league_settings on public.ball_knower_leagues;
 create trigger validate_fantasy_league_settings before insert or update of settings,max_members on public.ball_knower_leagues for each row execute function ball_knower_private.validate_fantasy_league_settings();
 
+-- Public matchmaking predates the separate fantasy calendar. Keep its 17-game
+-- Draft Order Game input while giving new public leagues a Week-18-safe season.
+do $public_matchmaking_calendar_patch$
+declare v_sql text;v_next text;
+begin
+  select pg_get_functiondef('public.join_or_create_ball_knower_public_league(text,text,integer)'::regprocedure) into v_sql;
+  v_next:=replace(v_sql,'''seasonGames'', 17,','''seasonGames'', 17,'||chr(10)||'        ''regularSeasonWeeks'', 15,');
+  if v_next=v_sql and position('''regularSeasonWeeks'', 15' in v_sql)=0 then raise exception 'Public matchmaking calendar patch did not match';end if;
+  execute v_next;
+end;$public_matchmaking_calendar_patch$;
+
 -- Transactional limits: a failed move rolls this counter back with the roster
 -- change, so simultaneous waiver/free-agent requests cannot overspend a limit.
 create table if not exists ball_knower_private.fantasy_acquisition_counters(
