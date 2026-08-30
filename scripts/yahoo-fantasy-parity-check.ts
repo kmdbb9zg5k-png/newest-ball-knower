@@ -43,6 +43,7 @@ const matchupEditRpc=section(migration,'create or replace function public.commis
 assert.ok(matchupEditRpc.includes('week_number=p_week and kickoff_at<=now()'),'commissioner matchup edits must lock at NFL kickoff even before fantasy points are scored');
 assert.ok(migration.includes('not is_ai and auth_user_id is not null'),'league-vote quorum must count only authenticated neutral voters');
 assert.ok(migration.includes('m.auth_user_id=v.auth_user_id')&&migration.includes('m.id not in(t.proposer_member_id,t.recipient_member_id)'),'trade-vote totals must count only current neutral league members');
+assert.ok(migration.includes('m.auth_user_id=watched.auth_user_id')&&migration.includes('watched.league_id=new.league_id'),'Trading Block notifications must exclude watchers who left the league');
 assert.ok(migration.includes('p is null or r is null or(me is distinct from p and me is distinct from r)'),'trade-thread writes must require two resolved human participants');
 assert.ok(migration.includes('Both managers must remain league members')&&migration.includes('count(distinct m.auth_user_id)'),'DM sends must recheck both participants against current league membership');
 assert.ok(migration.includes('m.league_id=ball_knower_dm_threads.league_id'),'DM thread reads must require current league membership');
@@ -58,6 +59,7 @@ const settingsValidator=section(migration,'create or replace function ball_knowe
 assert.ok(settingsValidator.includes('Scoring settings are locked after scoring begins')&&settingsValidator.includes('Playoff field and seeding are locked after postseason scoring begins')&&settingsValidator.includes("old.settings->'playoffSeeding'")&&settingsValidator.includes("old.settings->'divisionsEnabled'"),'database validation must prevent mixed scoring eras and bracket rewrites');
 assert.ok(settingsValidator.includes("nullif(old.settings->>'seasonGames','')")&&settingsValidator.includes("nullif(s->>'seasonGames','')"),'schedule locks must compare the effective legacy season length');
 assert.ok(settingsValidator.includes('Regular season and playoffs must finish by NFL Week 18'),'the authoritative settings validator must reject unscorable playoff calendars');
+assert.ok(migration.includes("v_review=''league_vote'' and coalesce(current_setting(''ball_knower.authorized_trade_vote'',true),'''')<>''approved''")&&migration.includes("v_review<>''league_vote'' and not public.is_ball_knower_commissioner"),'league-vote approval must require the internal majority flag even for commissioners');
 assert.ok(migration.indexOf('Normalize legacy fantasy calendars')<migration.indexOf('create trigger validate_fantasy_league_settings'),'legacy 17-week calendars must be normalized before the schedule lock is installed');
 assert.ok(migration.includes("'{draftOrderGameGames}'")&&migration.includes("jsonb_array_length(coalesce(l.season_result->'games','[]'::jsonb))<>ready.weeks*ready.member_count/2"),'legacy Draft Order Game receipts must be preserved while their fantasy schedule is normalized');
 assert.ok(migration.includes("not coalesce((settings->>'fantasySeasonStarted')::boolean,false)")&&migration.includes('w.locked or jsonb_array_length')&&migration.includes("coalesce(l.season_result->>'orderMethod','game')='game'"),'calendar migration must exclude active leagues and preserve untagged Draft Order Game receipts');
@@ -97,6 +99,7 @@ assert.ok(postDraft.includes('Math.min(maxSelectableWeek')&&postDraft.includes('
 assert.ok(postDraft.includes('effectiveSeeding'),'division-winner seeding must be disabled when divisions are off');
 const advancedSettings=readFileSync(new URL('../FantasyAdvancedLeagueSettings.tsx',import.meta.url),'utf8');
 assert.ok(postDraft.includes('18-playoffWeeks')&&advancedSettings.includes('18-playoffWeeks'),'legacy season settings must clamp gameplay and controls to an NFL Week 18 playoff calendar');
+assert.ok(postDraft.includes('persistedRegularSeasonWeeks||')&&advancedSettings.includes('persistedRegularSeasonWeeks||'),'persisted legacy schedules must retain their existing regular-season endpoint');
 assert.ok(advancedSettings.includes('disabled={disabled||scheduleLocked}'),'regular-season length must lock once a persisted schedule exists');
 assert.ok(advancedSettings.includes('disabled={disabled||scheduleLocked||postseasonLocked}'),'playoff field must lock with the persisted schedule so calendar changes remain saveable');
 assert.ok(advancedSettings.includes('settings.regularSeasonWeeks??settings.seasonGames'),'legacy season length must display the same effective value used by gameplay');

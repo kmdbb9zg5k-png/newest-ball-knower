@@ -104,7 +104,8 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
   const fantasyRosterSize=Math.max(15,Math.min(20,Number(settings.rosterSize||league.liveDraft?.rounds)||15));
   const isCommissioner = currentUser?.id === league.commissionerId;
   const playoffWeeks=settings.playoffTeams===4?2:3;
-  const maxWeek = Math.min(Math.max(13, Math.min(17, Number(settings.regularSeasonWeeks ?? settings.seasonGames) || 17)),18-playoffWeeks);
+  const persistedRegularSeasonWeeks=Math.max(0,...(league.seasonResult?.games||[]).filter(game=>!game.playoffRound).map(game=>Number(game.week)||0));
+  const maxWeek = persistedRegularSeasonWeeks||Math.min(Math.max(13, Math.min(17, Number(settings.regularSeasonWeeks ?? settings.seasonGames) || 17)),18-playoffWeeks);
   const maxSelectableWeek=maxWeek+playoffWeeks;
 
   const [tab, setTab] = useState<Tab>('team');

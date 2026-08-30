@@ -223,7 +223,7 @@ begin
   v_sql:=v_next;
   v_next:=replace(v_next,
     'if not public.is_ball_knower_commissioner(t.league_id) then raise exception ''Commissioner authorization required''; end if;',
-    'if not public.is_ball_knower_commissioner(t.league_id) and coalesce(current_setting(''ball_knower.authorized_trade_vote'',true),'''')<>''approved'' then raise exception ''Trade review authorization required''; end if;');
+    'if (v_review=''league_vote'' and coalesce(current_setting(''ball_knower.authorized_trade_vote'',true),'''')<>''approved'') or (v_review<>''league_vote'' and not public.is_ball_knower_commissioner(t.league_id)) then raise exception ''Trade review authorization required''; end if;');
   if v_next=v_sql and position('authorized_trade_vote' in v_sql)=0 then raise exception 'League-vote approval patch did not match trade resolver';end if;
   execute v_next;
 end;$trade_vote_patch$;
@@ -402,7 +402,7 @@ begin
   elsif tg_table_name='ball_knower_league_messages' then
     for watcher in select auth_user_id from public.ball_knower_league_members where league_id=new.league_id and auth_user_id is not null and auth_user_id<>new.auth_user_id and not is_ai loop perform ball_knower_private.notify_fantasy_user(new.league_id,watcher.auth_user_id,'League message',new.member_name||': '||left(new.body,180),'league_message');end loop;
   elsif tg_table_name='ball_knower_trading_block' then
-    for watcher in select auth_user_id from public.ball_knower_watched_players where league_id=new.league_id and player_id=new.player_id loop perform ball_knower_private.notify_fantasy_user(new.league_id,watcher.auth_user_id,'Watched player on Trading Block',new.player_id||' is marked '||replace(new.status,'_',' ')||'.','trading_block');end loop;
+    for watcher in select watched.auth_user_id from public.ball_knower_watched_players watched where watched.league_id=new.league_id and watched.player_id=new.player_id and exists(select 1 from public.ball_knower_league_members m where m.league_id=new.league_id and m.auth_user_id=watched.auth_user_id and not m.is_ai) loop perform ball_knower_private.notify_fantasy_user(new.league_id,watcher.auth_user_id,'Watched player on Trading Block',new.player_id||' is marked '||replace(new.status,'_',' ')||'.','trading_block');end loop;
   elsif tg_table_name='ball_knower_weekly_scores' and new.is_final then
     if tg_op='INSERT' then null;
     elsif tg_op='UPDATE' then if coalesce(old.is_final,false) then return new;end if;

@@ -12,7 +12,8 @@ export const FantasyAdvancedLeagueSettings:React.FC<Props>=({league,disabled=fal
   const {updateLeagueSettings,showToast}=useBallKnower();
   const settings=league.settings||{};
   const playoffWeeks=settings.playoffTeams===4?2:3;
-  const effectiveRegularSeasonWeeks=Math.min(Math.max(13,Math.min(17,Number(settings.regularSeasonWeeks??settings.seasonGames)||17)),18-playoffWeeks);
+  const persistedRegularSeasonWeeks=Math.max(0,...(league.seasonResult?.games||[]).filter(game=>!game.playoffRound).map(game=>Number(game.week)||0));
+  const effectiveRegularSeasonWeeks=persistedRegularSeasonWeeks||Math.min(Math.max(13,Math.min(17,Number(settings.regularSeasonWeeks??settings.seasonGames)||17)),18-playoffWeeks);
   const scheduleLocked=Boolean(league.seasonResult?.games?.some(game=>!game.playoffRound));
   const scoringLocked=Boolean(settings.fantasySeasonStarted)||Number(settings.currentWeek||1)>1;
   const postseasonLocked=Number(settings.currentWeek||1)>effectiveRegularSeasonWeeks||Boolean(league.seasonResult?.games?.some(game=>game.playoffRound&&(Boolean(game.winnerId)||Number(game.homeScore||0)!==0||Number(game.awayScore||0)!==0)));
@@ -24,7 +25,7 @@ export const FantasyAdvancedLeagueSettings:React.FC<Props>=({league,disabled=fal
       <p className="text-[10px] leading-4 text-zinc-500">The default remains nine required starters plus six bench spots. Custom bench depth never adds OL, DL, IDP or NFL salary-cap rules.</p>
       <div className="grid gap-2 sm:grid-cols-3">
         <Select label="Scoring" value={settings.scoringFormat||'ppr'} disabled={disabled||scoringLocked} options={[option('ppr','Full PPR'),option('half_ppr','Half PPR'),option('standard','Standard')]} onChange={value=>update({scoringFormat:value as LeagueSettings['scoringFormat']})}/>
-        <Select label="Regular Season" value={String(effectiveRegularSeasonWeeks)} disabled={disabled||scheduleLocked} options={[13,14,15,16].filter(value=>value+(settings.playoffTeams===4?2:3)<=18).map(value=>option(String(value),`${value} Weeks`))} onChange={value=>update({regularSeasonWeeks:Number(value) as LeagueSettings['regularSeasonWeeks']})}/>
+        <Select label="Regular Season" value={String(effectiveRegularSeasonWeeks)} disabled={disabled||scheduleLocked} options={[...new Set([13,14,15,16,effectiveRegularSeasonWeeks])].filter(value=>value===effectiveRegularSeasonWeeks||value+playoffWeeks<=18).map(value=>option(String(value),`${value} Weeks`))} onChange={value=>update({regularSeasonWeeks:Number(value) as LeagueSettings['regularSeasonWeeks']})}/>
         <Select label="Playoffs" value={String(settings.playoffTeams||6)} disabled={disabled||scheduleLocked||postseasonLocked} options={[4,6,8].filter(value=>value<=league.maxMembers).map(value=>option(String(value),`${value} Teams`))} onChange={value=>{const teams=Number(value) as LeagueSettings['playoffTeams'];update({playoffTeams:teams,regularSeasonWeeks:Math.min(effectiveRegularSeasonWeeks,18-(teams===4?2:3)) as LeagueSettings['regularSeasonWeeks']});}}/>
         <Select label="Seeding" value={settings.playoffSeeding||'record_points'} disabled={disabled||postseasonLocked} options={[option('record_points','Record → Points'),option('record_head_to_head','Record → H2H'),option('division_winners','Division Winners')]} onChange={value=>update({playoffSeeding:value as LeagueSettings['playoffSeeding']})}/>
         <Select label="Trade Review" value={settings.tradeReview||'commissioner'} disabled={disabled} options={[option('none','None'),option('commissioner','Commissioner'),option('league_vote','League Vote')]} onChange={value=>update({tradeReview:value as LeagueSettings['tradeReview']})}/>
