@@ -35,7 +35,8 @@ assert.match(migration,/Trade participants cannot vote|Trade participants cannot
 assert.match(migration,/rounds between 15 and 20/,'custom bench depth must remain bounded to 15–20 players');
 assert.ok(migration.includes('Offline draft results are locked after season activity begins'),'offline draft re-imports must lock before live season state can be invalidated');
 assert.ok(migration.includes("if grp is null or grp not in('QB','RB','WR','TE','K','DST')"),'offline results must reject unknown player IDs before persisting picks');
-assert.ok(migration.includes("player->>'id'=player_id")&&migration.includes('remove_stale_trading_block_entries'),'Trading Block writes must prove roster ownership and stale entries must be removed');
+assert.ok(migration.includes('remove_stale_trading_block_entries'),'stale Trading Block entries must be removed when roster ownership changes');
+assert.ok(migration.includes('m.league_id=ball_knower_trading_block.league_id')&&migration.includes('m.id=ball_knower_trading_block.member_id')&&migration.includes("player->>'id'=ball_knower_trading_block.player_id"),'Trading Block RLS must bind membership and roster ownership to the outer row');
 assert.ok(migration.includes('Regular-season length is locked after the schedule is created'),'the database must reject schedule-length drift after schedule creation');
 assert.ok(migration.includes('Playoff field is locked after the schedule is created')&&migration.includes("coalesce(nullif(old.settings->>'playoffTeams','')::integer,6)<>playoff_count"),'the database must reject playoff-field drift after schedule creation');
 const matchupEditRpc=section(migration,'create or replace function public.commissioner_edit_ball_knower_matchup','revoke all on function public.commissioner_set_ball_knower_waiver_priority');

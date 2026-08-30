@@ -314,8 +314,8 @@ drop policy if exists bk_trading_block_league_read on public.ball_knower_trading
 create policy bk_trading_block_league_read on public.ball_knower_trading_block for select to authenticated using(public.can_access_ball_knower_league(league_id));
 drop policy if exists bk_trading_block_owner_write on public.ball_knower_trading_block;
 create policy bk_trading_block_owner_write on public.ball_knower_trading_block for all to authenticated
-using(exists(select 1 from public.ball_knower_league_members m where m.id=member_id and m.league_id=league_id and m.auth_user_id=(select auth.uid())))
-with check(exists(select 1 from public.ball_knower_league_members m cross join lateral jsonb_array_elements(coalesce(m.roster,'[]'::jsonb)) player where m.id=member_id and m.league_id=league_id and m.auth_user_id=(select auth.uid()) and player->>'id'=player_id));
+using(exists(select 1 from public.ball_knower_league_members m where m.id=ball_knower_trading_block.member_id and m.league_id=ball_knower_trading_block.league_id and m.auth_user_id=(select auth.uid())))
+with check(exists(select 1 from public.ball_knower_league_members m cross join lateral jsonb_array_elements(coalesce(m.roster,'[]'::jsonb)) player where m.id=ball_knower_trading_block.member_id and m.league_id=ball_knower_trading_block.league_id and m.auth_user_id=(select auth.uid()) and player->>'id'=ball_knower_trading_block.player_id));
 create or replace function ball_knower_private.remove_stale_trading_block_entries()
 returns trigger language plpgsql security definer set search_path='' as $function$
 begin
