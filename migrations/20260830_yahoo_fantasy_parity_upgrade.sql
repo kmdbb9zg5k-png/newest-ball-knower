@@ -19,7 +19,7 @@ begin
   if coalesce(s->>'waiverType','priority') not in ('priority','faab') then raise exception 'Invalid waiver type'; end if;
   if coalesce(s->>'freeAgentMode','instant') not in ('instant','continuous') then raise exception 'Invalid free-agent mode'; end if;
   if coalesce(s->>'playoffSeeding','record_points') not in ('record_points','record_head_to_head','division_winners') then raise exception 'Invalid playoff seeding'; end if;
-  v:=coalesce(nullif(s->>'regularSeasonWeeks','')::integer,17);if v not between 13 and 17 then raise exception 'Regular season must be 13-17 weeks';end if;
+  v:=coalesce(nullif(s->>'regularSeasonWeeks','')::integer,nullif(s->>'seasonGames','')::integer,17);if v not between 13 and 17 then raise exception 'Regular season must be 13-17 weeks';end if;
   v:=coalesce(nullif(s->>'playoffTeams','')::integer,6);if v not in (4,6,8) or v>new.max_members then raise exception 'Playoff field must be 4, 6 or 8 and fit the league';end if;
   v:=coalesce(nullif(s->>'benchSlots','')::integer,6);if v not between 6 and 11 then raise exception 'Bench slots must be 6-11';end if;
   if coalesce(nullif(s->>'rosterSize','')::integer,9+v)<>9+v then raise exception 'Roster size must equal nine starters plus bench slots';end if;
@@ -35,16 +35,16 @@ begin
     if score.value!~'^[-]?[0-9]+([.][0-9]+)?$' or score.value::numeric not between -100 and 100 then raise exception 'Invalid custom scoring value for %',score.key;end if;
   end loop;
   if tg_op='UPDATE' then
-    if coalesce(old.settings->>'regularSeasonWeeks','17')<>coalesce(s->>'regularSeasonWeeks','17')
+    if coalesce(nullif(old.settings->>'regularSeasonWeeks','')::integer,nullif(old.settings->>'seasonGames','')::integer,17)<>coalesce(nullif(s->>'regularSeasonWeeks','')::integer,nullif(s->>'seasonGames','')::integer,17)
       and exists(select 1 from jsonb_array_elements(coalesce(old.season_result->'games','[]'::jsonb)) game where not(game?'playoffRound'))
     then raise exception 'Regular-season length is locked after the schedule is created';end if;
     if (old.settings->'scoringFormat' is distinct from s->'scoringFormat' or old.settings->'customScoring' is distinct from s->'customScoring')
       and exists(select 1 from public.ball_knower_weekly_scores where league_id=new.id and (is_final or live_points<>0))
     then raise exception 'Scoring settings are locked after scoring begins';end if;
-    if old.settings->'playoffTeams' is distinct from s->'playoffTeams'
-      and (exists(select 1 from public.ball_knower_weekly_scores where league_id=new.id and week_number>coalesce(nullif(old.settings->>'regularSeasonWeeks','')::integer,17) and (is_final or live_points<>0))
+    if (old.settings->'playoffTeams' is distinct from s->'playoffTeams' or old.settings->'playoffSeeding' is distinct from s->'playoffSeeding' or old.settings->'divisionsEnabled' is distinct from s->'divisionsEnabled' or old.settings->'divisionCount' is distinct from s->'divisionCount')
+      and (exists(select 1 from public.ball_knower_weekly_scores where league_id=new.id and week_number>coalesce(nullif(old.settings->>'regularSeasonWeeks','')::integer,nullif(old.settings->>'seasonGames','')::integer,17) and (is_final or live_points<>0))
         or exists(select 1 from jsonb_array_elements(coalesce(old.season_result->'games','[]'::jsonb)) game where game?'playoffRound' and (coalesce(game->>'winnerId','')<>'' or coalesce(nullif(game->>'homeScore','')::numeric,0)<>0 or coalesce(nullif(game->>'awayScore','')::numeric,0)<>0)))
-    then raise exception 'Playoff field is locked after postseason scoring begins';end if;
+    then raise exception 'Playoff field and seeding are locked after postseason scoring begins';end if;
   end if;
   return new;
 end;$function$;
@@ -76,7 +76,7 @@ begin
   delete from ball_knower_private.matchup_notification_receipts where league_id=p_league_id;
   update public.ball_knower_trades set status='cancelled',resolved_at=now() where league_id=p_league_id and status in('pending','accepted_pending_review');
   update public.ball_knower_league_members set status='building',roster=null,team_ratings=null,submitted_at=null,live_draft_ready=false,faab_balance=100,ir_player_ids='[]'::jsonb where league_id=p_league_id;
-  update public.ball_knower_leagues set status='drafting',season_result=null,rosters_locked=false,draft_countdown_started_at=null,updated_at=now() where id=p_league_id;
+  update public.ball_knower_leagues set status='drafting',season_result=null,rosters_locked=false,draft_countdown_started_at=null,settings=coalesce(settings,'{}'::jsonb)-'fantasySeasonStarted'-'fantasySeasonComplete'-'currentWeek'-'nflSeason',updated_at=now() where id=p_league_id;
   return true;
 end;$function$;
 revoke all on function public.reset_ball_knower_league_for_next_season(text) from public,anon;
@@ -429,7 +429,7 @@ revoke all on function ball_knower_private.build_fantasy_regular_schedule(jsonb,
 -- Older Random/Commissioner-order leagues stored an empty games array. Give
 -- them the same canonical editable schedule as newly finalized leagues.
 with ready as(
-  select l.id,coalesce(nullif(l.settings->>'regularSeasonWeeks','')::integer,17) weeks,
+  select l.id,coalesce(nullif(l.settings->>'regularSeasonWeeks','')::integer,nullif(l.settings->>'seasonGames','')::integer,17) weeks,
     (select jsonb_agg(to_jsonb(pick->>'memberId') order by (pick->>'pickNumber')::integer) from jsonb_array_elements(coalesce(l.season_result->'draftOrder','[]'::jsonb)) pick) member_ids,
     (select count(*) from public.ball_knower_league_members m where m.league_id=l.id) member_count
   from public.ball_knower_leagues l where l.season_result is not null and jsonb_array_length(coalesce(l.season_result->'games','[]'::jsonb))=0
@@ -447,7 +447,7 @@ begin
   if not public.is_ball_knower_commissioner(p_league_id) then raise exception 'Commissioner only';end if;
   if p_week<1 or p_week>17 or p_home_member_id=p_away_member_id then raise exception 'Invalid matchup';end if;
   if(select count(*) from public.ball_knower_league_members where league_id=p_league_id and id in(p_home_member_id,p_away_member_id))<>2 then raise exception 'Both teams must belong to this league';end if;
-  select (select jsonb_agg(to_jsonb(pick->>'memberId') order by (pick->>'pickNumber')::integer) from jsonb_array_elements(coalesce(l.season_result->'draftOrder','[]'::jsonb)) pick),coalesce(nullif(l.settings->>'regularSeasonWeeks','')::integer,17),coalesce(nullif(l.settings->>'nflSeason','')::integer,(select max(season) from public.ball_knower_nfl_games)) into member_ids,weeks,nfl_season from public.ball_knower_leagues l where l.id=p_league_id for update;
+  select (select jsonb_agg(to_jsonb(pick->>'memberId') order by (pick->>'pickNumber')::integer) from jsonb_array_elements(coalesce(l.season_result->'draftOrder','[]'::jsonb)) pick),coalesce(nullif(l.settings->>'regularSeasonWeeks','')::integer,nullif(l.settings->>'seasonGames','')::integer,17),coalesce(nullif(l.settings->>'nflSeason','')::integer,(select max(season) from public.ball_knower_nfl_games)) into member_ids,weeks,nfl_season from public.ball_knower_leagues l where l.id=p_league_id for update;
   if not exists(select 1 from public.ball_knower_leagues l cross join lateral jsonb_array_elements(coalesce(l.season_result->'games','[]'::jsonb)) item where l.id=p_league_id and not(item?'playoffRound')) then update public.ball_knower_leagues set season_result=jsonb_set(season_result,'{games}',ball_knower_private.build_fantasy_regular_schedule(member_ids,weeks),true) where id=p_league_id;end if;
   select item->>'homeMemberId',item->>'awayMemberId' into old_home,old_away from public.ball_knower_leagues l cross join lateral jsonb_array_elements(coalesce(l.season_result->'games','[]'::jsonb)) item where l.id=p_league_id and item->>'id'=p_game_id and (item->>'week')::integer=p_week and not(item?'playoffRound');
   if old_home is null then raise exception 'Only an existing regular-season matchup can be edited';end if;

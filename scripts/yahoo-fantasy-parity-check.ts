@@ -47,8 +47,10 @@ assert.ok(deadlineGuard.includes("new.status in('accepted_pending_review','accep
 const seasonResetRpc=section(migration,'create or replace function public.reset_ball_knower_league_for_next_season','revoke all on function public.reset_ball_knower_league_for_next_season');
 assert.ok(seasonResetRpc.includes('delete from ball_knower_private.fantasy_acquisition_counters'),'season resets must clear acquisition-limit counters');
 assert.ok(seasonResetRpc.includes('delete from ball_knower_private.matchup_notification_receipts'),'season resets must clear matchup reminder receipts');
+assert.ok(seasonResetRpc.includes("-'fantasySeasonStarted'-'fantasySeasonComplete'-'currentWeek'-'nflSeason'"),'season resets must clear lifecycle state before the next draft');
 const settingsValidator=section(migration,'create or replace function ball_knower_private.validate_fantasy_league_settings','revoke all on function ball_knower_private.validate_fantasy_league_settings');
-assert.ok(settingsValidator.includes('Scoring settings are locked after scoring begins')&&settingsValidator.includes('Playoff field is locked after postseason scoring begins'),'database validation must prevent mixed scoring eras and bracket rewrites');
+assert.ok(settingsValidator.includes('Scoring settings are locked after scoring begins')&&settingsValidator.includes('Playoff field and seeding are locked after postseason scoring begins')&&settingsValidator.includes("old.settings->'playoffSeeding'")&&settingsValidator.includes("old.settings->'divisionsEnabled'"),'database validation must prevent mixed scoring eras and bracket rewrites');
+assert.ok(settingsValidator.includes("nullif(old.settings->>'seasonGames','')")&&settingsValidator.includes("nullif(s->>'seasonGames','')"),'schedule locks must compare the effective legacy season length');
 
 const create=readFileSync(new URL('../CreateLeagueModal.tsx',import.meta.url),'utf8');
 assert.ok(create.includes('Advanced League Settings'),'normal creation must keep advanced settings collapsed');
@@ -75,12 +77,15 @@ const advancedSettings=readFileSync(new URL('../FantasyAdvancedLeagueSettings.ts
 assert.ok(advancedSettings.includes('disabled={disabled||scheduleLocked}'),'regular-season length must lock once a persisted schedule exists');
 assert.ok(advancedSettings.includes('settings.regularSeasonWeeks??settings.seasonGames'),'legacy season length must display the same effective value used by gameplay');
 assert.ok(advancedSettings.includes('disabled={disabled||scoringLocked}')&&advancedSettings.includes('disabled={disabled||postseasonLocked}'),'scoring and playoff-field controls must lock after their respective competition starts');
+assert.ok(postDraft.includes('disabled={!isCommissioner||scoringLocked}'),'the duplicate post-draft scoring control must share the scoring lock');
 const simulationView=readFileSync(new URL('../SimulationView.tsx',import.meta.url),'utf8');
 assert.match(simulationView,/!specialDraftFormat\s*&&\s*<button\s+id="sim-open-draft-btn"/,'special formats must not expose the live snake draft action');
 assert.ok(simulationView.includes("specialDraftFormat?'':'min-[390px]:grid-cols-2'"),'special formats must retain the Share Order action');
 const essentials=readFileSync(new URL('../FantasyLeagueEssentials.tsx',import.meta.url),'utf8');
 assert.ok(essentials.includes('fantasyRosterSize'),'legacy fantasy views must use configured roster size');
 assert.ok(essentials.includes('<FantasyLeagueCommunications league={league} trades={trades}/>')&&!essentials.includes('TradingBlockAddRow'),'legacy fantasy views must reuse the owner-scoped communication surface');
+assert.ok(essentials.includes('disabled={!isCommissioner || scoringLocked}'),'the legacy league-rules scoring control must share the scoring lock');
+assert.ok(essentials.includes('current[tradeId]===sentBody'),'an in-flight trade send must preserve a newer message draft');
 const essentialsRefresh=essentials.slice(essentials.indexOf('const refresh = async'),essentials.indexOf('useEffect(() =>',essentials.indexOf('const refresh = async')));
 const coreRefreshPromise=essentialsRefresh.match(/const \[parity, ops\] = await Promise\.all\(\[([\s\S]*?)\]\);/)?.[1]||'';
 assert.ok(/void fetchFantasyCommunications\(requestedLeagueId\)\.then/.test(essentialsRefresh)&&!/await\s+fetchFantasyCommunications/.test(essentialsRefresh)&&!coreRefreshPromise.includes('fetchFantasyCommunications'),'communication failures must not block core league refresh state');

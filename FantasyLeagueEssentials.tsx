@@ -70,6 +70,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   const isCommissioner = currentUser?.id === league.commissionerId;
   const maxWeek = Math.max(13, Math.min(17, Number(settings.regularSeasonWeeks ?? settings.seasonGames) || 17));
   const fantasyRosterSize = Math.max(15, Math.min(20, Number(settings.rosterSize || league.liveDraft?.rounds) || 15));
+  const scoringLocked = Boolean(settings.fantasySeasonStarted) || Number(settings.currentWeek || 1) > 1;
   const [tab, setTab] = useState<Tab>("team");
   const [activityView, setActivityView] = useState<ActivityView>("overview");
   const [week, setWeek] = useState(
@@ -617,7 +618,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
               <Rule
                 label="Scoring"
                 value={settings.scoringFormat || "ppr"}
-                disabled={!isCommissioner}
+                disabled={!isCommissioner || scoringLocked}
                 options={[
                   ["ppr", "Full PPR"],
                   ["half_ppr", "Half PPR"],
@@ -792,7 +793,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
                         >
                           Send Counter
                         </button>
-                        <div className="rounded-xl border border-white/10 p-3"><div className="text-[9px] font-black uppercase text-[#D4AF37]">Trade Thread</div>{communicationError&&<div className="mt-2 rounded-lg border border-red-400/20 bg-red-400/5 px-3 py-2 text-[10px] text-red-300">{communicationError}</div>}<div className="mt-2 max-h-40 space-y-1 overflow-y-auto">{tradeMessages.filter(item=>item.tradeId===selectedCounter.id).map(item=><div key={item.id} className={`rounded-lg px-3 py-2 text-xs ${item.senderAuthId===currentUser?.id?'ml-6 bg-[#D4AF37] text-black':'mr-6 bg-black/35'}`}>{item.body}</div>)}{!tradeMessages.some(item=>item.tradeId===selectedCounter.id)&&<div className="text-[10px] text-zinc-600">No trade messages yet.</div>}</div><div className="mt-2 flex gap-2"><input value={tradeMessageBodies[selectedCounter.id]||''} onChange={event=>setTradeMessageBodies(value=>({...value,[selectedCounter.id]:event.target.value}))} placeholder="Message about this trade…" className="min-h-11 min-w-0 flex-1 rounded-lg bg-black/40 px-3 text-xs"/><button disabled={!(tradeMessageBodies[selectedCounter.id]||'').trim()} onClick={()=>run(async()=>{await sendTradeThreadMessage(selectedCounter.id,tradeMessageBodies[selectedCounter.id]||'');setTradeMessageBodies({...tradeMessageBodies,[selectedCounter.id]:''});},'Trade message sent.')} className="min-h-11 rounded-lg bg-[#D4AF37] px-3 text-[9px] font-black uppercase text-black">Send</button></div></div>
+<div className="rounded-xl border border-white/10 p-3"><div className="text-[9px] font-black uppercase text-[#D4AF37]">Trade Thread</div>{communicationError&&<div className="mt-2 rounded-lg border border-red-400/20 bg-red-400/5 px-3 py-2 text-[10px] text-red-300">{communicationError}</div>}<div className="mt-2 max-h-40 space-y-1 overflow-y-auto">{tradeMessages.filter(item=>item.tradeId===selectedCounter.id).map(item=><div key={item.id} className={`rounded-lg px-3 py-2 text-xs ${item.senderAuthId===currentUser?.id?'ml-6 bg-[#D4AF37] text-black':'mr-6 bg-black/35'}`}>{item.body}</div>)}{!tradeMessages.some(item=>item.tradeId===selectedCounter.id)&&<div className="text-[10px] text-zinc-600">No trade messages yet.</div>}</div><div className="mt-2 flex gap-2"><input value={tradeMessageBodies[selectedCounter.id]||''} onChange={event=>setTradeMessageBodies(value=>({...value,[selectedCounter.id]:event.target.value}))} placeholder="Message about this trade…" className="min-h-11 min-w-0 flex-1 rounded-lg bg-black/40 px-3 text-xs"/><button disabled={!(tradeMessageBodies[selectedCounter.id]||'').trim()} onClick={()=>run(async()=>{const tradeId=selectedCounter.id;const sentBody=tradeMessageBodies[tradeId]||'';await sendTradeThreadMessage(tradeId,sentBody);setTradeMessageBodies(current=>current[tradeId]===sentBody?{...current,[tradeId]:''}:current);},'Trade message sent.')} className="min-h-11 rounded-lg bg-[#D4AF37] px-3 text-[9px] font-black uppercase text-black">Send</button></div></div>
                       </>
                     )}
                   </>
