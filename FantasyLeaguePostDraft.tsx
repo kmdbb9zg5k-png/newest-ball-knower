@@ -103,11 +103,13 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
   const fantasyRosterSize=Math.max(15,Math.min(20,Number(settings.rosterSize||league.liveDraft?.rounds)||15));
   const isCommissioner = currentUser?.id === league.commissionerId;
   const maxWeek = Math.max(13, Math.min(17, Number(settings.regularSeasonWeeks ?? settings.seasonGames) || 17));
+  const playoffWeeks=settings.playoffTeams===4?2:3;
+  const maxSelectableWeek=maxWeek+playoffWeeks;
 
   const [tab, setTab] = useState<Tab>('team');
   const [activityView, setActivityView] = useState<ActivityView>('trades');
   const [intelView, setIntelView] = useState<IntelView>('allbk');
-  const [week, setWeek] = useState(() => Math.min(maxWeek, Math.max(1, Number(settings.currentWeek) || 1)));
+  const [week, setWeek] = useState(() => Math.min(maxSelectableWeek, Math.max(1, Number(settings.currentWeek) || 1)));
   const [viewedMatchupId, setViewedMatchupId] = useState('');
   const [lineups, setLineups] = useState<WeeklyLineup[]>([]);
   const [scores, setScores] = useState<WeeklyScore[]>([]);
@@ -213,8 +215,8 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
 
   useEffect(() => { void refresh(); }, [league.id, week]);
   useEffect(() => {
-    setWeek(Math.min(maxWeek,Math.max(1,Number(settings.currentWeek)||1)));
-  },[maxWeek,settings.currentWeek]);
+    setWeek(Math.min(maxSelectableWeek,Math.max(1,Number(settings.currentWeek)||1)));
+  },[maxSelectableWeek,settings.currentWeek]);
   useEffect(() => subscribeToFantasyParity(league.id, () => { void refresh(); }), [league.id, week]);
   useEffect(() => {
     let active = true;
@@ -394,8 +396,6 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
 
   const allScoredGames=[...scoredGames,...postseason.games];
   const allScheduledMatchups=[...regularSeasonSchedule,...postseason.matchups];
-  const playoffWeeks=playoffTeamCount===4?2:3;
-  const maxSelectableWeek=maxWeek+playoffWeeks;
   const weekMatchups = useMemo(() => allScheduledMatchups.filter(game => game.week === week), [allScheduledMatchups,week]);
   useEffect(() => {
     const myGame=weekMatchups.find(game=>game.homeMemberId===me?.id||game.awayMemberId===me?.id);

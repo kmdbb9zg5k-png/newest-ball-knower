@@ -88,6 +88,7 @@ const postDraft=readFileSync(new URL('../FantasyLeaguePostDraft.tsx',import.meta
 assert.ok(postDraft.includes('fantasyRosterSize'),'post-draft moves and trades must use the fantasy roster size');
 assert.ok(!postDraft.includes('TOTAL_ROSTER_SIZE'),'20-player Draft Order Game constants must not leak into standard fantasy moves');
 assert.ok(postDraft.includes('regularSeasonSchedule'),'commissioner schedule edits must feed live scoring and standings');
+assert.ok(postDraft.includes('Math.min(maxSelectableWeek')&&postDraft.includes('[maxSelectableWeek,settings.currentWeek]'),'the active week selector must preserve playoff weeks instead of clamping to the regular-season endpoint');
 assert.ok(postDraft.includes('effectiveSeeding'),'division-winner seeding must be disabled when divisions are off');
 const advancedSettings=readFileSync(new URL('../FantasyAdvancedLeagueSettings.tsx',import.meta.url),'utf8');
 assert.ok(advancedSettings.includes('disabled={disabled||scheduleLocked}'),'regular-season length must lock once a persisted schedule exists');
