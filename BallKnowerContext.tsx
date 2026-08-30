@@ -770,6 +770,10 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       showToast(`Only Commissioner ${getLeagueCommissionerName(league)} can finalize the draft order.`);
       return false;
     }
+    if (league.members.length < 2 || league.members.length % 2 !== 0) {
+      showToast('Fantasy schedules require an even league with at least two teams.');
+      return false;
+    }
 
     const uniqueIds = [...new Set(orderedMemberIds)];
     const memberIds = new Set(league.members.map(member => member.id));

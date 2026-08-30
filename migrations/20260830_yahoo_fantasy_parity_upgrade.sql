@@ -367,7 +367,7 @@ begin
     for slot in 1..member_count/2 loop
       first_id:=rotation[slot];second_id:=rotation[member_count+1-slot];
       if (mod(round_no,2)=0)<>(mod((week_no-1)/(member_count-1),2)=1) then home_id:=first_id;away_id:=second_id;else home_id:=second_id;away_id:=first_id;end if;
-      games:=games||jsonb_build_array(jsonb_build_object('id','game-w'||week_no||'-'||home_id||'-vs-'||away_id,'week',week_no,'homeMemberId',home_id,'awayMemberId',away_id));
+      games:=games||jsonb_build_array(jsonb_build_object('id','game-w'||week_no||'-'||home_id||'-vs-'||away_id,'week',week_no,'homeMemberId',home_id,'awayMemberId',away_id,'homeScore',0,'awayScore',0,'winnerId','','loserId','','isTie',false,'keyMatchupFactor','Scheduled fantasy matchup.'));
     end loop;
   end loop;return games;
 end;$function$;
