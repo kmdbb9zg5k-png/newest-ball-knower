@@ -2,18 +2,20 @@ import {
   BALL_KNOWER_SUPABASE_PUBLISHABLE_KEY,
   BALL_KNOWER_SUPABASE_URL,
 } from './supabaseDefaults';
+import { buildDstFantasyRankings } from './dstFantasyRankings';
+import { TEAM_THEMES } from './teamTheme';
 
 export type FantasyRanking = {
   player_key: string;
   player_name: string;
   team: string;
-  position: 'QB' | 'RB' | 'WR' | 'TE' | 'K';
+  position: 'QB' | 'RB' | 'WR' | 'TE' | 'K' | 'DST';
   overall_rank: number;
   adp: number;
   position_rank: number;
-  actual_points_2025: number;
+  actual_points_2025: number | null;
   projected_points_2026: number;
-  point_change: number;
+  point_change: number | null;
   projection_reason: string;
   actual_source_name: string;
   actual_source_url: string;
@@ -30,9 +32,9 @@ type FantasyRankingRow = Omit<
   overall_rank: number | string;
   adp: number | string | null;
   position_rank: number | string;
-  actual_points_2025: number | string;
+  actual_points_2025: number | string | null;
   projected_points_2026: number | string;
-  point_change: number | string;
+  point_change: number | string | null;
 };
 
 const RANKINGS_TIMEOUT_MS = 7000;
@@ -86,15 +88,24 @@ async function fetchFantasyRankings(signal: AbortSignal): Promise<FantasyRanking
   }
 
   const data = await response.json() as FantasyRankingRow[];
-  return data.map(row => ({
+  const rankings = data.map(row => ({
     ...row,
     overall_rank: Number(row.overall_rank),
     adp: Number(row.adp ?? row.overall_rank),
     position_rank: Number(row.position_rank),
-    actual_points_2025: Number(row.actual_points_2025),
+    actual_points_2025: row.actual_points_2025 == null ? null : Number(row.actual_points_2025),
     projected_points_2026: Number(row.projected_points_2026),
-    point_change: Number(row.point_change),
+    point_change: row.point_change == null ? null : Number(row.point_change),
   }));
+  const withoutDst = rankings.filter(row => row.position !== 'DST');
+  const dst = rankings.filter(row => row.position === 'DST');
+  const nflTeams = new Set(TEAM_THEMES.map(team => team.abbr));
+  const dstTeams = new Set(dst.map(row => row.team));
+  const completeCloudDst = dst.length === nflTeams.size && dstTeams.size === nflTeams.size
+    && [...dstTeams].every(team => nflTeams.has(team));
+  return [...withoutDst, ...(completeCloudDst ? dst : buildDstFantasyRankings())]
+    .sort((a, b) => a.overall_rank - b.overall_rank || a.player_name.localeCompare(b.player_name))
+    .map((row, index) => ({ ...row, overall_rank: index + 1 }));
 }
 
 export async function loadFantasyRankings(): Promise<FantasyRanking[]> {
