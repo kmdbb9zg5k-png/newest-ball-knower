@@ -2,7 +2,7 @@ import React,{useMemo,useState} from 'react';
 import {FileInput,RefreshCw,ShieldCheck} from 'lucide-react';
 import {League,Player} from './types';
 import {PLAYERS_DATABASE} from './players';
-import {importOfflineFantasyDraft} from './leagueCloud';
+import {useBallKnower} from './BallKnowerContext';
 import {CPU_LIVE_FANTASY_POSITION_LIMITS} from './liveFantasyRules';
 
 type Pick={memberId:string;playerId:string};
@@ -16,9 +16,10 @@ export const FantasyDraftFormatWorkspace=({league,onImported}:{league:League;onI
 };
 
 const OfflineWorkspace=({league,onImported}:{league:League;onImported:()=>void})=>{
+  const {importOfflineFantasyDraftResults}=useBallKnower();
   const [raw,setRaw]=useState('');const [busy,setBusy]=useState(false);const [error,setError]=useState('');
   const expected=league.members.length*(league.settings?.rosterSize||15);
-  const submit=async()=>{setBusy(true);setError('');try{const picks=parseOfflinePicks(raw);if(picks.length!==expected)throw new Error(`Enter exactly ${expected} picks.`);await importOfflineFantasyDraft(league.id,picks);onImported();}catch(cause){setError(cause instanceof Error?cause.message:'Import failed.');}finally{setBusy(false);}};
+  const submit=async()=>{setBusy(true);setError('');try{const picks=parseOfflinePicks(raw);if(picks.length!==expected)throw new Error(`Enter exactly ${expected} picks.`);if(await importOfflineFantasyDraftResults(league.id,picks))onImported();}catch(cause){setError(cause instanceof Error?cause.message:'Import failed.');}finally{setBusy(false);}};
   return <section className="mt-4 rounded-2xl border border-[#D4AF37]/30 bg-black/25 p-4"><div className="flex items-center gap-2 text-xs font-black uppercase text-[#D4AF37]"><FileInput className="h-4 w-4"/>Offline Draft Results</div><p className="mt-2 text-[10px] leading-4 text-zinc-500">Commissioner-only. Paste one pick per line as <code>memberId,playerId</code>, in overall-pick order. The server rejects duplicates, unknown players, missing teams, and non-{expected}-pick results before changing rosters.</p><textarea aria-label="Offline draft results" value={raw} onChange={event=>setRaw(event.target.value)} rows={8} placeholder={league.members.slice(0,2).map(member=>`${member.id},player-id`).join('\n')} className="mt-3 w-full rounded-xl bg-[#090b0e] p-3 font-mono text-xs"/><button disabled={busy} onClick={()=>void submit()} className="mt-2 min-h-11 w-full rounded-xl bg-[#D4AF37] text-[10px] font-black uppercase text-black disabled:opacity-40">{busy?'Validating…':'Validate & Import Results'}</button>{error&&<p className="mt-2 text-xs text-red-300">{error}</p>}</section>;
 };
 

@@ -73,6 +73,7 @@ begin
   delete from public.ball_knower_injury_rolls where league_id=p_league_id;
   delete from public.ball_knower_live_drafts where league_id=p_league_id;
   delete from ball_knower_private.fantasy_acquisition_counters where league_id=p_league_id;
+  delete from ball_knower_private.matchup_notification_receipts where league_id=p_league_id;
   update public.ball_knower_trades set status='cancelled',resolved_at=now() where league_id=p_league_id and status in('pending','accepted_pending_review');
   update public.ball_knower_league_members set status='building',roster=null,team_ratings=null,submitted_at=null,live_draft_ready=false,faab_balance=100,ir_player_ids='[]'::jsonb where league_id=p_league_id;
   update public.ball_knower_leagues set status='drafting',season_result=null,rosters_locked=false,draft_countdown_started_at=null,updated_at=now() where id=p_league_id;

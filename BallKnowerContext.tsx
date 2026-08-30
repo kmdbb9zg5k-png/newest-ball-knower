@@ -22,7 +22,7 @@ import {
   saveMyCloudRoster, updateCloudLeague, upsertAiCloudMembers, deleteCloudMember,
   subscribeToCloudLeague, joinOrCreatePublicCloudLeague, lockPublicLeagueForCpuFill,
   reopenPublicLeagueMatchmaking, startCloudLiveFantasyDraft, makeCloudLiveFantasyDraftPick,
-  finalizeCloudLiveFantasyDraftRosters,
+  finalizeCloudLiveFantasyDraftRosters, importOfflineFantasyDraft as importCloudOfflineFantasyDraft,
   resetCloudLeagueForNextSeason,
 } from './leagueCloud';
 import {
@@ -88,6 +88,7 @@ interface BallKnowerContextType {
   startLiveFantasyDraft: (leagueId: string) => Promise<boolean>;
   makeLiveFantasyDraftPick: (leagueId: string, player: Player) => Promise<boolean>;
   finalizeLiveFantasyDraftRosters: (leagueId: string) => Promise<boolean>;
+  importOfflineFantasyDraftResults: (leagueId:string,picks:{memberId:string;playerId:string}[])=>Promise<boolean>;
   resetLeagueSimulation: (leagueId: string) => Promise<void>;
   updateSalaryCap: (leagueId: string, newCap: number) => void;
   updateLeagueSettings: (leagueId: string, settings: import('./types').LeagueSettings) => void;
@@ -990,6 +991,41 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
+  const importOfflineFantasyDraftResults = async (leagueId:string,picks:{memberId:string;playerId:string}[]):Promise<boolean> => {
+    const league=leagues.find(item=>item.id===leagueId);
+    try{
+      if(!league||league.settings?.draftFormat!=='offline')throw new Error('League is not configured for Offline Results.');
+      if(!isLeagueCommissioner(league,currentUser?.id,isDemoMode))throw new Error('Commissioner authorization required.');
+      const rosterSize=Math.max(15,Math.min(20,Number(league.settings?.rosterSize)||15));
+      if(picks.length!==league.members.length*rosterSize)throw new Error(`Offline draft requires exactly ${league.members.length*rosterSize} picks.`);
+      if(new Set(picks.map(pick=>pick.playerId)).size!==picks.length)throw new Error('A player appears more than once.');
+      const playerById=new Map(PLAYERS_DATABASE.map(player=>[player.id,player]));
+      const now=new Date().toISOString();
+      const draftPicks=picks.map((pick,index)=>{
+        const member=league.members.find(item=>item.id===pick.memberId);const player=playerById.get(pick.playerId);const group=player&&getLiveFantasyDraftGroup(player);
+        if(!member)throw new Error('Offline results contain an unknown member.');
+        if(!player||!group)throw new Error(`Invalid fantasy player ${pick.playerId}.`);
+        return{overall:index+1,round:Math.ceil((index+1)/league.members.length),memberId:member.id,playerId:player.id,group,pickedAt:now,source:'manual' as const};
+      });
+      for(const member of league.members){
+        const memberPicks=draftPicks.filter(pick=>pick.memberId===member.id);
+        if(memberPicks.length!==rosterSize)throw new Error(`Every manager needs ${rosterSize} picks.`);
+        if(member.isAi){const counts=memberPicks.reduce<Record<string,number>>((sum,pick)=>({...sum,[pick.group]:(sum[pick.group]||0)+1}),{});for(const [group,minimum] of Object.entries({QB:1,RB:2,WR:2,TE:1,K:1,DST:1}))if((counts[group]||0)<minimum||(counts[group]||0)>CPU_LIVE_FANTASY_POSITION_LIMITS[group as keyof typeof CPU_LIVE_FANTASY_POSITION_LIMITS])throw new Error('CPU offline results must retain realistic roster construction.');}
+      }
+      if(isCloudConfigured){
+        await importCloudOfflineFantasyDraft(leagueId,picks);
+        const fresh=await fetchCloudLeague(leagueId);if(!fresh)throw new Error('The finalized offline rosters could not be loaded.');
+        setLeagues(prev=>[fresh,...prev.filter(item=>item.id!==fresh.id)]);
+      }else{
+        const orderMemberIds=[...(league.seasonResult?.draftOrder||[])].sort((a,b)=>a.pickNumber-b.pickNumber).map(item=>item.memberId);
+        if(orderMemberIds.length!==league.members.length)throw new Error('Locked draft order is incomplete.');
+        const draft:LiveFantasyDraft={leagueId,status:'completed',orderMemberIds,rounds:rosterSize,pickIndex:draftPicks.length,picks:draftPicks,startedAt:now,pickSeconds:60,completedAt:now,updatedAt:now};
+        setLeagues(prev=>prev.map(item=>item.id===leagueId?applyLiveDraftRosterAssignments(item,draft,now):item));
+      }
+      showToast('Offline draft imported. All fantasy rosters are saved.');return true;
+    }catch(err:any){const message=err?.message||'Offline draft results could not be imported.';setCloudSyncError(message);showToast(message);return false;}
+  };
+
   // Commissioner: Reset Simulation
   const resetLeagueSimulation = async (leagueId: string) => {
     if (isCloudConfigured) {
@@ -1126,6 +1162,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         startLiveFantasyDraft,
         makeLiveFantasyDraftPick,
         finalizeLiveFantasyDraftRosters,
+        importOfflineFantasyDraftResults,
         resetLeagueSimulation,
         updateSalaryCap,
         updateLeagueSettings,

@@ -46,12 +46,16 @@ const deadlineGuard=section(migration,'create or replace function ball_knower_pr
 assert.ok(deadlineGuard.includes("new.status in('accepted_pending_review','accepted')")&&migration.includes('before insert or update of status on public.ball_knower_trades'),'trade deadlines must be rechecked when a deal is accepted or executed');
 const seasonResetRpc=section(migration,'create or replace function public.reset_ball_knower_league_for_next_season','revoke all on function public.reset_ball_knower_league_for_next_season');
 assert.ok(seasonResetRpc.includes('delete from ball_knower_private.fantasy_acquisition_counters'),'season resets must clear acquisition-limit counters');
+assert.ok(seasonResetRpc.includes('delete from ball_knower_private.matchup_notification_receipts'),'season resets must clear matchup reminder receipts');
 const settingsValidator=section(migration,'create or replace function ball_knower_private.validate_fantasy_league_settings','revoke all on function ball_knower_private.validate_fantasy_league_settings');
 assert.ok(settingsValidator.includes('Scoring settings are locked after scoring begins')&&settingsValidator.includes('Playoff field is locked after postseason scoring begins'),'database validation must prevent mixed scoring eras and bracket rewrites');
 
 const create=readFileSync(new URL('../CreateLeagueModal.tsx',import.meta.url),'utf8');
 assert.ok(create.includes('Advanced League Settings'),'normal creation must keep advanced settings collapsed');
 for(const format of ['live_snake','autopick','offline','mock'])assert.ok(create.includes(format),`creation is missing ${format}`);
+const contextSource=readFileSync(new URL('../BallKnowerContext.tsx',import.meta.url),'utf8');
+const localOfflineImport=section(contextSource,'const importOfflineFantasyDraftResults','const resetLeagueSimulation');
+assert.ok(localOfflineImport.includes('applyLiveDraftRosterAssignments')&&localOfflineImport.includes('importCloudOfflineFantasyDraft'),'Offline Results must finalize both local and cloud league rosters');
 
 const scoringApi=readFileSync(new URL('../api/fantasy-live-scoring.ts',import.meta.url),'utf8');
 assert.ok(scoringApi.includes('scoreWithLeagueOverrides'),'custom league scoring must feed live totals');
@@ -81,6 +85,8 @@ const essentialsRefresh=essentials.slice(essentials.indexOf('const refresh = asy
 const coreRefreshPromise=essentialsRefresh.match(/const \[parity, ops\] = await Promise\.all\(\[([\s\S]*?)\]\);/)?.[1]||'';
 assert.ok(/void fetchFantasyCommunications\(requestedLeagueId\)\.then/.test(essentialsRefresh)&&!/await\s+fetchFantasyCommunications/.test(essentialsRefresh)&&!coreRefreshPromise.includes('fetchFantasyCommunications'),'communication failures must not block core league refresh state');
 assert.ok(essentialsRefresh.includes('communicationRequestRef.current!==communicationRequestId'),'only the newest communication request may update the legacy trade-thread state');
+const communications=readFileSync(new URL('../FantasyLeagueCommunications.tsx',import.meta.url),'utf8');
+assert.ok(communications.includes('requestRef.current!==requestId')&&communications.includes('requestRef.current+=1'),'the primary communication surface must ignore stale same-league and cross-league refreshes');
 const parityCloud=readFileSync(new URL('../fantasyLeagueParityCloud.ts',import.meta.url),'utf8');
 assert.ok(parityCloud.includes("!Number.isFinite(priority)||priority<1"),'blank or invalid waiver priorities must be rejected rather than promoted to first');
 
