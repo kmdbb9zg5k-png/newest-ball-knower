@@ -92,6 +92,7 @@ assert.ok(postDraft.includes('Math.min(maxSelectableWeek')&&postDraft.includes('
 assert.ok(postDraft.includes('effectiveSeeding'),'division-winner seeding must be disabled when divisions are off');
 const advancedSettings=readFileSync(new URL('../FantasyAdvancedLeagueSettings.tsx',import.meta.url),'utf8');
 assert.ok(advancedSettings.includes('disabled={disabled||scheduleLocked}'),'regular-season length must lock once a persisted schedule exists');
+assert.ok(advancedSettings.includes('disabled={disabled||scheduleLocked||postseasonLocked}'),'playoff field must lock with the persisted schedule so calendar changes remain saveable');
 assert.ok(advancedSettings.includes('settings.regularSeasonWeeks??settings.seasonGames'),'legacy season length must display the same effective value used by gameplay');
 assert.ok(advancedSettings.includes('disabled={disabled||scoringLocked}')&&advancedSettings.includes('disabled={disabled||postseasonLocked}'),'scoring and playoff-field controls must lock after their respective competition starts');
 assert.ok(postDraft.includes('disabled={!isCommissioner||scoringLocked}'),'the duplicate post-draft scoring control must share the scoring lock');
