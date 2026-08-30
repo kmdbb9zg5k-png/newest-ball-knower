@@ -1,4 +1,4 @@
-import { League, LeagueMember, LiveFantasyDraft, Player, TeamRatings, SeasonResult } from './types';
+import { League, LeagueMember, LeagueSettings, LiveFantasyDraft, Player, TeamRatings, SeasonResult } from './types';
 import { ensureOnlineSession, isCloudConfigured, supabase } from './supabase';
 import type { LiveDraftRosterAssignment } from './liveDraftRosters';
 
@@ -72,6 +72,7 @@ const memberFromRow = (m:any):LeagueMember => ({
   roster:m.roster || undefined,
   teamRatings:m.team_ratings || undefined,
   submittedAt:m.submitted_at || undefined,
+  waiverPriority:Number(m.waiver_priority)||999,
 });
 
 async function fetchMembers(leagueIds:string[]) {
@@ -200,13 +201,14 @@ export async function createCloudLeague(
   salaryCap:number,
   user:UserLike,
   draftSchedule:{draftScheduledAt:string;draftTimezone:string},
+  initialSettings:LeagueSettings={},
 ):Promise<League> {
   if(!supabase) throw new Error('Online multiplayer is not configured.');
   const auth=await ensureOnlineSession();
   const id=crypto.randomUUID();
   let created:any=null;
   for(let tries=0;tries<5;tries++){
-    const payload={id,code:code(),name:name.trim()||'Ball Knower League',max_members:maxMembers,salary_cap:salaryCap,commissioner_auth_id:auth.id,commissioner_name:user.name,status:'drafting',settings:{seasonGames:17,simulationStyle:'realistic',scoringFormat:'ppr',nflSeason:2026,...draftSchedule}};
+    const payload={id,code:code(),name:name.trim()||'Ball Knower League',max_members:maxMembers,salary_cap:salaryCap,commissioner_auth_id:auth.id,commissioner_name:user.name,status:'drafting',settings:{seasonGames:17,regularSeasonWeeks:17,simulationStyle:'realistic',scoringFormat:'ppr',nflSeason:2026,playoffTeams:6,playoffSeeding:'record_points',tradeReview:'commissioner',waiverType:'priority',freeAgentMode:'instant',waiverDays:2,waiverProcessHourUtc:9,irSlots:2,benchSlots:6,rosterSize:15,draftFormat:'live_snake',...draftSchedule,...initialSettings}};
     const {data,error}=await supabase.from('ball_knower_leagues').insert(payload).select().single();
     if(!error){created=data;break;}
     if(error.code!=='23505') throw error;
@@ -346,6 +348,14 @@ export async function finalizeCloudLiveFantasyDraftRosters(
   });
   if(error) throw error;
   if(data!==true) throw new Error('The completed fantasy rosters were not finalized.');
+}
+
+export async function importOfflineFantasyDraft(leagueId:string,picks:{memberId:string;playerId:string}[]):Promise<void>{
+  if(!supabase) throw new Error('Online fantasy drafting is unavailable.');
+  await ensureOnlineSession();
+  const {data,error}=await supabase.rpc('commissioner_import_ball_knower_offline_draft',{p_league_id:leagueId,p_picks:picks});
+  if(error) throw error;
+  if(data!==true) throw new Error('Offline draft results were not finalized.');
 }
 
 export async function updateLeagueOperations(leagueId:string,patch:{inviteEnabled?:boolean;paused?:boolean;rostersLocked?:boolean},actorName:string) {

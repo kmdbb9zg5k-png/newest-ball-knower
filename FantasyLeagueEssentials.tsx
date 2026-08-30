@@ -8,6 +8,7 @@ import {
   Clock3,
   Crown,
   MessageCircle,
+  LockKeyhole,
   RefreshCw,
   Save,
   Shield,
@@ -18,13 +19,26 @@ import { League, Player } from "./types";
 import { PLAYERS_DATABASE } from "./players";
 import { useBallKnower } from "./BallKnowerContext";
 import { playerPortraitUrl } from "./playerPortraits";
+import { FantasyAdvancedLeagueSettings } from "./FantasyAdvancedLeagueSettings";
 import {
   fetchSeasonOperations,
+  fetchFantasyCommunications,
+  FantasyDmMessage,
+  FantasyDmThread,
   getLeagueFreeAgents,
   LeagueInjury,
   LeagueMessage,
   LeagueTransaction,
   postLeagueMessage,
+  markFantasyDmRead,
+  openFantasyDm,
+  removeTradingBlockEntry,
+  sendFantasyDm,
+  setTradingBlockEntry,
+  setWatchedFantasyPlayer,
+  sendTradeThreadMessage,
+  TradeMessage,
+  TradingBlockEntry,
   proposeTrade,
   TradeOffer,
 } from "./fantasySeasonCloud";
@@ -47,6 +61,7 @@ import {
 
 type Tab = "team" | "matchup" | "players" | "league" | "activity";
 type ActivityView = "overview" | "moves" | "trades" | "messages";
+type MessageView = "league" | "direct" | "block";
 const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: "team", label: "My Team", icon: <Users className="h-4 w-4" /> },
   { id: "matchup", label: "Matchup", icon: <Activity className="h-4 w-4" /> },
@@ -62,7 +77,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   const me = league.members.find((member) => member.userId === currentUser?.id);
   const settings = (league.settings || {}) as any;
   const isCommissioner = currentUser?.id === league.commissionerId;
-  const maxWeek = Math.max(17, Number(settings.seasonGames) || 17);
+  const maxWeek = Math.max(13, Math.min(17, Number(settings.regularSeasonWeeks ?? settings.seasonGames) || 17));
   const [tab, setTab] = useState<Tab>("team");
   const [activityView, setActivityView] = useState<ActivityView>("overview");
   const [week, setWeek] = useState(
@@ -75,6 +90,11 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   const [trades, setTrades] = useState<TradeOffer[]>([]);
   const [injuries, setInjuries] = useState<LeagueInjury[]>([]);
   const [messages, setMessages] = useState<LeagueMessage[]>([]);
+  const [dmThreads,setDmThreads]=useState<FantasyDmThread[]>([]);
+  const [dmMessages,setDmMessages]=useState<FantasyDmMessage[]>([]);
+  const [tradingBlock,setTradingBlock]=useState<TradingBlockEntry[]>([]);
+  const [tradeMessages,setTradeMessages]=useState<TradeMessage[]>([]);
+  const [watchedPlayerIds,setWatchedPlayerIds]=useState<string[]>([]);
   const [transactions, setTransactions] = useState<LeagueTransaction[]>([]);
   const [starters, setStarters] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -86,6 +106,11 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   const [counterGive, setCounterGive] = useState<string[]>([]);
   const [counterGet, setCounterGet] = useState<string[]>([]);
   const [message, setMessage] = useState("");
+  const [messageView,setMessageView]=useState<MessageView>('league');
+  const [dmTarget,setDmTarget]=useState('');
+  const [activeDmThread,setActiveDmThread]=useState('');
+  const [dmBody,setDmBody]=useState('');
+  const [tradeMessageBodies,setTradeMessageBodies]=useState<Record<string,string>>({});
   const [selectedTeamId, setSelectedTeamId] = useState("");
   const [tradeTarget, setTradeTarget] = useState("");
   const [tradeGive, setTradeGive] = useState<string[]>([]);
@@ -94,9 +119,10 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   const refresh = async () => {
     try {
       setError("");
-      const [parity, ops] = await Promise.all([
+      const [parity, ops, communication] = await Promise.all([
         fetchFantasyParityState(league.id, week, Number(league.settings.nflSeason) || 2026),
         fetchSeasonOperations(league.id),
+        fetchFantasyCommunications(league.id),
       ]);
       setLineups([...parity.lineups]);
       setScores([...parity.scores]);
@@ -106,6 +132,11 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
       setInjuries([...ops.injuries]);
       setMessages([...ops.messages]);
       setTransactions([...ops.transactions]);
+      setDmThreads([...communication.dmThreads]);
+      setDmMessages([...communication.dmMessages]);
+      setTradingBlock([...communication.tradingBlock]);
+      setTradeMessages([...communication.tradeMessages]);
+      setWatchedPlayerIds([...communication.watchedPlayerIds]);
     } catch (err: any) {
       setError(err?.message || "Could not sync this league.");
     }
@@ -161,6 +192,12 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   );
   const myInjuries = injuries.filter((injury) => injury.memberId === me?.id);
   const waiverType = settings.waiverType || "priority";
+  const activeThread=dmThreads.find(thread=>thread.id===activeDmThread);
+  const activeThreadMessages=dmMessages.filter(item=>item.threadId===activeDmThread);
+  const unreadDmCount=dmThreads.reduce((count,thread)=>{
+    const readAt=thread.participantA===currentUser?.id?thread.lastReadAAt:thread.lastReadBAt;
+    return count+dmMessages.filter(item=>item.threadId===thread.id&&item.senderAuthId!==currentUser?.id&&Date.parse(item.createdAt)>Date.parse(readAt||'1970-01-01')).length;
+  },0);
   const run = async (fn: () => Promise<void>, success?: string) => {
     if (busy) return;
     setBusy(true);
@@ -634,6 +671,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
                 }
               />
             </div>
+            <FantasyAdvancedLeagueSettings league={league} disabled={!isCommissioner}/>
           </Panel>
         </div>
       )}
@@ -767,6 +805,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
                         >
                           Send Counter
                         </button>
+                        <div className="rounded-xl border border-white/10 p-3"><div className="text-[9px] font-black uppercase text-[#D4AF37]">Trade Thread</div><div className="mt-2 max-h-40 space-y-1 overflow-y-auto">{tradeMessages.filter(item=>item.tradeId===selectedCounter.id).map(item=><div key={item.id} className={`rounded-lg px-3 py-2 text-xs ${item.senderAuthId===currentUser?.id?'ml-6 bg-[#D4AF37] text-black':'mr-6 bg-black/35'}`}>{item.body}</div>)}{!tradeMessages.some(item=>item.tradeId===selectedCounter.id)&&<div className="text-[10px] text-zinc-600">No trade messages yet.</div>}</div><div className="mt-2 flex gap-2"><input value={tradeMessageBodies[selectedCounter.id]||''} onChange={event=>setTradeMessageBodies(value=>({...value,[selectedCounter.id]:event.target.value}))} placeholder="Message about this trade…" className="min-h-11 min-w-0 flex-1 rounded-lg bg-black/40 px-3 text-xs"/><button disabled={!(tradeMessageBodies[selectedCounter.id]||'').trim()} onClick={()=>run(async()=>{await sendTradeThreadMessage(selectedCounter.id,tradeMessageBodies[selectedCounter.id]||'');setTradeMessageBodies(value=>({...value,[selectedCounter.id]:''}));},'Trade message sent.')} className="rounded-lg bg-[#D4AF37] px-3 text-[9px] font-black uppercase text-black">Send</button></div></div>
                       </>
                     )}
                   </>
@@ -779,9 +818,11 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
           {activityView === "messages" && (
             <Panel
               title="Messages"
-              sub="League chat and commissioner announcements"
+              sub="League chat, owner-scoped DMs and the Trading Block"
               icon={<MessageCircle className="h-5 w-5 text-[#D4AF37]" />}
             >
+              <div className="grid grid-cols-3 gap-1 rounded-xl bg-black/35 p-1">{(['league','direct','block'] as MessageView[]).map(view=><button key={view} onClick={()=>setMessageView(view)} className={`min-h-11 rounded-lg text-[9px] font-black uppercase ${messageView===view?'bg-white text-black':'text-zinc-400'}`}>{view==='direct'?`DMs${unreadDmCount?` (${unreadDmCount})`:''}`:view==='block'?'Trading Block':'League Chat'}</button>)}</div>
+              {messageView==='league'&&<>
               <div className="flex gap-2">
                 <input
                   value={message}
@@ -812,6 +853,17 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
               ) : (
                 <Empty text="No messages yet." />
               )}
+              </>}
+              {messageView==='direct'&&<div className="space-y-3">
+                <div className="flex gap-2"><select aria-label="Manager to message" value={dmTarget} onChange={event=>setDmTarget(event.target.value)} className="min-h-11 min-w-0 flex-1 rounded-xl bg-black/40 px-3 text-xs"><option value="">Choose manager…</option>{league.members.filter(member=>!member.isAi&&member.id!==me?.id).map(member=><option key={member.id} value={member.id}>{member.userName}</option>)}</select><button disabled={!dmTarget} onClick={()=>run(async()=>{const id=await openFantasyDm(league.id,dmTarget);setActiveDmThread(id);await markFantasyDmRead(id);},'Private thread ready.')} className="rounded-xl bg-[#D4AF37] px-3 text-[9px] font-black uppercase text-black">Open DM</button></div>
+                <div className="grid gap-1 sm:grid-cols-2">{dmThreads.map(thread=>{const otherId=thread.participantA===currentUser?.id?thread.participantB:thread.participantA;const other=league.members.find(member=>member.userId===otherId);const unread=dmMessages.some(item=>item.threadId===thread.id&&item.senderAuthId!==currentUser?.id&&Date.parse(item.createdAt)>Date.parse((thread.participantA===currentUser?.id?thread.lastReadAAt:thread.lastReadBAt)||'1970-01-01'));return <button key={thread.id} onClick={()=>{setActiveDmThread(thread.id);void markFantasyDmRead(thread.id).then(refresh);}} className={`flex min-h-11 items-center justify-between rounded-xl px-3 text-left text-xs font-black ${activeDmThread===thread.id?'bg-[#D4AF37] text-black':'bg-black/30'}`}><span><LockKeyhole className="mr-2 inline h-3.5 w-3.5"/>{other?.userName||'Manager'}</span>{unread&&<span className="h-2.5 w-2.5 rounded-full bg-red-400"/>}</button>})}</div>
+                {activeThread&&<div className="rounded-xl border border-white/10 p-3"><div className="max-h-64 space-y-2 overflow-y-auto">{activeThreadMessages.map(item=><div key={item.id} className={`rounded-xl p-2 text-xs ${item.senderAuthId===currentUser?.id?'ml-8 bg-[#D4AF37] text-black':'mr-8 bg-black/40'}`}>{item.body}</div>)}{!activeThreadMessages.length&&<Empty text="No private messages yet."/>}</div><div className="mt-2 flex gap-2"><input value={dmBody} onChange={event=>setDmBody(event.target.value)} placeholder="Private message…" className="min-h-11 min-w-0 flex-1 rounded-xl bg-black/40 px-3 text-xs"/><button disabled={!dmBody.trim()} onClick={()=>run(async()=>{await sendFantasyDm(activeDmThread,dmBody);setDmBody('');},'DM sent.')} className="rounded-xl bg-[#D4AF37] px-4 text-xs font-black text-black">Send</button></div></div>}
+              </div>}
+              {messageView==='block'&&<div className="space-y-3">
+                <p className="text-[10px] leading-4 text-zinc-500">Mark your players available, identify positional needs, or make them untouchable. Watch any listed player for owner-scoped alerts.</p>
+                <div className="space-y-2">{tradingBlock.map(entry=>{const owner=league.members.find(member=>member.id===entry.memberId);const player=owner?.roster?.find(item=>item.id===entry.playerId)||PLAYERS_DATABASE.find(item=>item.id===entry.playerId);const mine=entry.memberId===me?.id;const watched=watchedPlayerIds.includes(entry.playerId);return <div key={`${entry.memberId}:${entry.playerId}`} className="rounded-xl bg-black/30 p-3"><div className="flex items-center justify-between gap-2"><div className="min-w-0"><div className="truncate text-xs font-black">{player?.position} {player?.name}</div><div className="text-[9px] font-black uppercase text-[#D4AF37]">{owner?.userName} · {entry.status.replace('_',' ')}{entry.lookingFor.length?` · wants ${entry.lookingFor.join('/')}`:''}</div></div>{mine?<button onClick={()=>run(()=>removeTradingBlockEntry(league.id,entry.memberId,entry.playerId),'Removed from block.')} className="min-h-10 rounded-lg border border-red-400/25 px-3 text-[9px] font-black uppercase text-red-300">Remove</button>:<button onClick={()=>run(async()=>{await setWatchedFantasyPlayer(league.id,entry.playerId,!watched);},watched?'Watch removed.':'Player watched.')} className={`min-h-10 rounded-lg px-3 text-[9px] font-black uppercase ${watched?'bg-[#D4AF37] text-black':'border border-white/10'}`}>{watched?'Watching':'Watch'}</button>}</div></div>})}{!tradingBlock.length&&<Empty text="The Trading Block is empty."/>}</div>
+                {me&&<div className="rounded-xl border border-white/10 p-3"><div className="text-[9px] font-black uppercase text-zinc-500">Add one of your players</div><div className="mt-2 space-y-2">{roster.map(player=><TradingBlockAddRow key={player.id} player={player} disabled={tradingBlock.some(entry=>entry.memberId===me.id&&entry.playerId===player.id)} onSave={(status,needs)=>run(()=>setTradingBlockEntry(league.id,me.id,player.id,status,needs),'Trading Block updated.')}/>)}</div></div>}
+              </div>}
             </Panel>
           )}
         </div>
@@ -821,6 +873,17 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
 };
 
 const PackagePicker=({title,players,selected,onChange,disabled=false}:{title:string;players:Player[];selected:string[];onChange:(ids:string[])=>void;disabled?:boolean})=><fieldset disabled={disabled} className="rounded-xl border border-white/10 p-2 disabled:opacity-40"><legend className="px-1 text-[9px] font-black uppercase text-zinc-500">{title} · {selected.length}/3</legend><div className="max-h-52 space-y-1 overflow-y-auto">{players.map(player=>{const active=selected.includes(player.id);return <button type="button" key={player.id} aria-pressed={active} onClick={()=>onChange(active?selected.filter(id=>id!==player.id):selected.length<3?[...selected,player.id]:selected)} className={`flex min-h-11 w-full items-center justify-between rounded-lg px-3 text-left text-xs ${active?'bg-[#D4AF37] text-black':'bg-black/30'}`}><span><b>{player.position}</b> {player.name}</span><b>{active?'✓':player.ovr}</b></button>})}</div></fieldset>;
+
+const TradingBlockAddRow=({player,disabled,onSave}:{player:Player;disabled:boolean;onSave:(status:TradingBlockEntry['status'],needs:string[])=>void})=>{
+  const [status,setStatus]=useState<TradingBlockEntry['status']>('available');
+  const [need,setNeed]=useState('RB');
+  return <div className="grid items-center gap-2 rounded-xl bg-black/30 p-2 sm:grid-cols-[1fr_120px_95px_76px]">
+    <div className="min-w-0 truncate text-xs"><b>{player.position}</b> {player.name}</div>
+    <select aria-label={`${player.name} block status`} value={status} disabled={disabled} onChange={event=>setStatus(event.target.value as TradingBlockEntry['status'])} className="min-h-10 rounded-lg bg-[#111] px-2 text-[9px] font-black uppercase"><option value="available">Available</option><option value="looking_for">Looking For</option><option value="untouchable">Untouchable</option></select>
+    <select aria-label={`${player.name} desired position`} value={need} disabled={disabled||status!=='looking_for'} onChange={event=>setNeed(event.target.value)} className="min-h-10 rounded-lg bg-[#111] px-2 text-[9px] font-black uppercase disabled:opacity-35">{['QB','RB','WR','TE','K','DST'].map(position=><option key={position}>{position}</option>)}</select>
+    <button type="button" disabled={disabled} onClick={()=>onSave(status,status==='looking_for'?[need]:[])} className="min-h-10 rounded-lg bg-[#D4AF37] px-2 text-[9px] font-black uppercase text-black disabled:opacity-35">{disabled?'Listed':'Add'}</button>
+  </div>;
+};
 
 const RosterSection = ({
   title,

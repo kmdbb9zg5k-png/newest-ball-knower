@@ -195,6 +195,21 @@ function scoreForFormat(
   return coreNumeric(scores?.[format]);
 }
 
+function scoreWithLeagueOverrides(rawStats:unknown,format:FantasyScoringFormat,customValue:unknown):number{
+  const custom=object(customValue);
+  if(!Object.keys(custom).length)return scoreFantasyPlayer(normalizeTank01PlayerStats(rawStats),format);
+  const stats=normalizeTank01PlayerStats(rawStats);
+  const receptionDefault=format==='ppr'?1:format==='half_ppr'?0.5:0;
+  const weight=(key:string,fallback:number)=>custom[key]===undefined?fallback:coreNumeric(custom[key]);
+  return rounded(
+    stats.passingYards*weight('passYards',1/25)+stats.passingTouchdowns*weight('passTd',4)+stats.interceptionsThrown*weight('interception',-2)
+    +stats.rushingYards*weight('rushYards',0.1)+stats.rushingTouchdowns*weight('rushTd',6)
+    +stats.receivingYards*weight('recYards',0.1)+stats.receivingTouchdowns*weight('recTd',6)+stats.receptions*weight('reception',receptionDefault)
+    +stats.twoPointConversions*2+stats.fumblesLost*weight('fumbleLost',-2)+stats.returnTouchdowns*6
+    +stats.fieldGoalsMade*weight('fieldGoal',3)+stats.fieldGoalsMissed*-1+stats.extraPointsMade*weight('extraPoint',1)+stats.extraPointsMissed*-1,
+  );
+}
+
 export const config = { maxDuration: 60 };
 
 type Json = Record<string, any>;
@@ -561,7 +576,9 @@ export default async function handler(req:any,res:any){
           const game=gameByTeam.get(teamForPlayer(player));
           if(game&&Date.parse(game.kickoff_at)<=now.getTime()) lockedIds.add(player.id);
           const playerScore=scoreByAppPlayer.get(player.id);
-          const actual=scoreForFormat(playerScore?.fantasy_points,format);
+          const actual=playerScore
+            ? (player.position==='DST'?scoreForFormat(playerScore.fantasy_points,format):scoreWithLeagueOverrides(playerScore.stats,format,league.settings?.customScoring))
+            : 0;
           const projected=playerScore
             ? scoreForFormat(playerScore.projected_points,format)
             : projectionByAppPlayer.get(player.id)?.[format]||0;

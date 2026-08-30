@@ -1,5 +1,5 @@
 import { PLAYERS_DATABASE } from '../players';
-import { getLiveFantasyDraftGroup, LIVE_FANTASY_POSITION_LIMITS, LIVE_FANTASY_ROSTER_REQUIREMENTS, type LiveFantasyDraftGroup } from '../liveFantasyRules';
+import { CPU_LIVE_FANTASY_POSITION_LIMITS, getLiveFantasyDraftGroup, LIVE_FANTASY_ROSTER_REQUIREMENTS, type LiveFantasyDraftGroup } from '../liveFantasyRules';
 
 type Method='game'|'random'|'commissioner';
 type Pick={overall:number;round:number;memberId:string;playerId:string;group:LiveFantasyDraftGroup;source:'cpu'|'autopick'};
@@ -31,7 +31,7 @@ function selectPlayer(picks:Pick[],memberId:string,preferences:Preferences){
   const favorites=new Set(preferences.favorites);
   const candidates=PLAYERS_DATABASE.filter(player=>{
     const group=getLiveFantasyDraftGroup(player);
-    return group&&!drafted.has(player.id)&&!preferences.doNotDraft.has(player.id)&&(counts[group]||0)<LIVE_FANTASY_POSITION_LIMITS[group]&&(!requiredNow||requiredNow.has(group));
+    return group&&!drafted.has(player.id)&&!preferences.doNotDraft.has(player.id)&&(counts[group]||0)<CPU_LIVE_FANTASY_POSITION_LIMITS[group]&&(!requiredNow||requiredNow.has(group));
   });
   candidates.sort((a,b)=>{
     const ag=getLiveFantasyDraftGroup(a)!;const bg=getLiveFantasyDraftGroup(b)!;
@@ -63,7 +63,7 @@ function run(method:Method,teamCount:number){
   if(picks.some(pick=>pick.playerId===avoided.id&&pick.memberId===order[0]))throw new Error(`${method}: do-not-draft failed`);
   for(const memberId of order){
     const roster=picks.filter(pick=>pick.memberId===memberId);if(roster.length!==ROSTER_SIZE)throw new Error(`${method}: incomplete ${memberId}`);
-    for(const group of GROUPS){const count=roster.filter(pick=>pick.group===group).length;if(count>LIVE_FANTASY_POSITION_LIMITS[group]||count<LIVE_FANTASY_ROSTER_REQUIREMENTS[group])throw new Error(`${method}: illegal ${memberId} ${group} ${count}`);}
+    for(const group of GROUPS){const count=roster.filter(pick=>pick.group===group).length;if(count>CPU_LIVE_FANTASY_POSITION_LIMITS[group]||count<LIVE_FANTASY_ROSTER_REQUIREMENTS[group])throw new Error(`${method}: illegal ${memberId} ${group} ${count}`);}
   }
   return {method,teams:teamCount,rosterSize:ROSTER_SIZE,picks:picks.length,uniquePlayers:new Set(picks.map(pick=>pick.playerId)).size,completeRosters:teamCount,queuePriority:'passed',doNotDraft:'passed',snakeOrder:'passed'};
 }

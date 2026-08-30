@@ -16,7 +16,8 @@
     "check:draft-reliability": "node --import tsx scripts/draft-reliability-check.ts",
     "check:trivia": "node --import tsx scripts/gauntlet-trivia-check.ts",
     "check:identity": "node --import tsx scripts/account-identity-check.ts",
-    "check:hardening": "npm run lint && npm run check:integrity && npm run check:draft-reliability && npm run check:trivia && npm run check:identity"
+    "check:yahoo-parity": "node --import tsx scripts/yahoo-fantasy-parity-check.ts",
+    "check:hardening": "npm run lint && npm run check:integrity && npm run check:draft-reliability && npm run check:trivia && npm run check:identity && npm run check:yahoo-parity"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

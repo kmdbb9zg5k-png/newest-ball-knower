@@ -318,6 +318,7 @@ export interface LeagueMember {
   roster?: Player[];
   teamRatings?: TeamRatings;
   submittedAt?: string;
+  waiverPriority?: number;
 }
 
 export interface LeagueSettings {
@@ -346,6 +347,22 @@ export interface LeagueSettings {
   freeAgentMode?: 'instant' | 'continuous';
   tradeReview?: 'none' | 'commissioner' | 'league_vote';
   irSlots?: number;
+  /** Advanced Yahoo-style controls. The default still produces a 15-player league. */
+  benchSlots?: number;
+  rosterSize?: number;
+  regularSeasonWeeks?: 13 | 14 | 15 | 16 | 17;
+  playoffSeeding?: 'record_points' | 'record_head_to_head' | 'division_winners';
+  divisionsEnabled?: boolean;
+  divisionCount?: 2 | 4;
+  tradeDeadlineWeek?: number;
+  maxAcquisitionsPerWeek?: number | null;
+  maxAcquisitionsPerSeason?: number | null;
+  acquisitionBudget?: number;
+  customScoring?: Partial<Record<'passYards'|'passTd'|'interception'|'rushYards'|'rushTd'|'reception'|'recYards'|'recTd'|'fumbleLost'|'fieldGoal'|'extraPoint'|'dstSack'|'dstTurnover'|'dstTd',number>>;
+  draftFormat?: 'live_snake' | 'autopick' | 'offline' | 'mock' | 'auction';
+  auctionBudget?: number;
+  waiverPriorityEditable?: boolean;
+  scheduleEditingEnabled?: boolean;
 }
 
 export interface League {

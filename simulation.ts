@@ -184,6 +184,29 @@ export function simulateFantasyPlayoffs(
   return {games, championMemberId:field[0]?.id || standings[0]?.memberId};
 }
 
+export function seedFantasyStandings(
+  standings:StandingItem[],
+  games:SimulationGame[],
+  mode:'record_points'|'record_head_to_head'|'division_winners'='record_points',
+  memberOrder:string[]=[],
+  divisionCount:2|4=2,
+):StandingItem[]{
+  const record=(row:StandingItem)=>Number(row.winPercentage)||((row.wins+row.ties*.5)/Math.max(1,row.wins+row.losses+row.ties));
+  const base=(a:StandingItem,b:StandingItem)=>record(b)-record(a)||b.pointsFor-a.pointsFor||b.pointDifferential-a.pointDifferential||a.memberId.localeCompare(b.memberId);
+  const h2h=(a:StandingItem,b:StandingItem)=>{
+    if(record(a)!==record(b))return base(a,b);
+    let aWins=0,bWins=0;
+    for(const game of games.filter(item=>!item.playoffRound&&[item.homeMemberId,item.awayMemberId].includes(a.memberId)&&[item.homeMemberId,item.awayMemberId].includes(b.memberId))){if(game.winnerId===a.memberId)aWins++;if(game.winnerId===b.memberId)bWins++;}
+    return bWins-aWins||base(a,b);
+  };
+  if(mode!=='division_winners')return [...standings].sort(mode==='record_head_to_head'?h2h:base).map((row,index)=>({...row,rank:index+1}));
+  const order=memberOrder.length?memberOrder:standings.map(row=>row.memberId);const divisionOf=new Map(order.map((id,index)=>[id,index%divisionCount]));
+  const winners:number[]=[];
+  for(let division=0;division<divisionCount;division++){const winner=[...standings].filter(row=>divisionOf.get(row.memberId)===division).sort(base)[0];if(winner)winners.push(standings.findIndex(row=>row.memberId===winner.memberId));}
+  const winnerIds=new Set(winners.filter(index=>index>=0).map(index=>standings[index].memberId));
+  return [...standings.filter(row=>winnerIds.has(row.memberId)).sort(base),...standings.filter(row=>!winnerIds.has(row.memberId)).sort(base)].map((row,index)=>({...row,rank:index+1}));
+}
+
 export function simulateFantasyWeek(
   members: LeagueMember[],
   week: number,

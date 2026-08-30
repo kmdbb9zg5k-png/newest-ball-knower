@@ -15,7 +15,7 @@ import { buildStandings, simulateFantasyPlayoffs, simulateFantasyWeek, simulateF
 import { generateAiLeagueMembers, AI_ARCHETYPES, buildRosterForArchetype } from './aiOpponents';
 import { PLAYERS_DATABASE } from './players';
 import { countRosterGroups, getDraftPositionGroup, minimumCompletionCost, validateRosterShape } from './rosterRules';
-import { getLiveFantasyDraftGroup, LIVE_FANTASY_POSITION_LIMITS, validateLiveFantasyRoster } from './liveFantasyRules';
+import { CPU_LIVE_FANTASY_POSITION_LIMITS, getLiveFantasyDraftGroup, validateLiveFantasyRoster } from './liveFantasyRules';
 import { isCloudConfigured, ensureOnlineSession, supabase } from './supabase';
 import {
   createCloudLeague, joinCloudLeague, loadMyCloudLeagues, fetchCloudLeague,
@@ -43,7 +43,7 @@ interface BallKnowerContextType {
   activeLeague: League | null;
   setActiveLeagueId: (id: string | null) => void;
   
-  createLeague: (name: string, maxMembers: number, draftSchedule: { draftScheduledAt: string; draftTimezone: string }, salaryCap?: number) => Promise<League>;
+  createLeague: (name: string, maxMembers: number, draftSchedule: { draftScheduledAt: string; draftTimezone: string }, salaryCap?: number, initialSettings?: import('./types').LeagueSettings) => Promise<League>;
   joinLeague: (code: string) => Promise<{ success: boolean; message: string; league?: League }>;
   joinPublicLeague: () => Promise<{ success: boolean; message: string; league?: League }>;
   
@@ -497,11 +497,12 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     maxMembers: number,
     draftSchedule: { draftScheduledAt: string; draftTimezone: string },
     customCap = DEFAULT_SALARY_CAP,
+    initialSettings: import('./types').LeagueSettings = {},
   ): Promise<League> => {
     const user = currentUser || DEFAULT_USER;
     try {
       if (isCloudConfigured) {
-        const newLeague = await createCloudLeague(name, maxMembers, customCap, user, draftSchedule);
+        const newLeague = await createCloudLeague(name, maxMembers, customCap, user, draftSchedule, initialSettings);
         setLeagues(prev => [newLeague, ...prev.filter(l => l.id !== newLeague.id)]);
         setActiveLeagueId(newLeague.id);
         setCurrentRoster([]);
@@ -524,7 +525,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const newLeague: League = {
         id: leagueId, code: randomCode, name: name.trim() || 'Ball Knower League',
         maxMembers, salaryCap: customCap, commissionerId: user.id, commissionerName: user.name,
-        status: 'drafting', settings: { seasonGames: 17, scoringFormat:'ppr', nflSeason:2026, ...draftSchedule }, members: [commissionerMember], createdAt: new Date().toISOString(),
+        status: 'drafting', settings: { seasonGames: 17, regularSeasonWeeks:17, scoringFormat:'ppr', nflSeason:2026, playoffTeams:6, playoffSeeding:'record_points', tradeReview:'commissioner', waiverType:'priority', freeAgentMode:'instant', waiverDays:2, waiverProcessHourUtc:9, irSlots:2, benchSlots:6, rosterSize:15, draftFormat:'live_snake', ...draftSchedule, ...initialSettings }, members: [commissionerMember], createdAt: new Date().toISOString(),
       };
       setLeagues(prev => [newLeague, ...prev]);
       setActiveLeagueId(newLeague.id);
@@ -876,7 +877,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           leagueId,
           status:'active',
           orderMemberIds:league.seasonResult.draftOrder.map(pick=>pick.memberId),
-          rounds:15,
+          rounds:league.settings?.rosterSize||15,
           pickIndex:0,
           picks:[],
           startedAt:now,
@@ -920,7 +921,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if(!member.isAi&&member.userId!==currentUser?.id)throw new Error(`${member.userName} is on the clock.`);
         if(current.picks.some(pick=>pick.playerId===player.id))throw new Error('That player was already drafted.');
         const groupCount=current.picks.filter(pick=>pick.memberId===memberId&&pick.group===group).length;
-        if(groupCount>=LIVE_FANTASY_POSITION_LIMITS[group])throw new Error(`${member.userName} reached the ${group} roster limit.`);
+        if(member.isAi&&groupCount>=CPU_LIVE_FANTASY_POSITION_LIMITS[group])throw new Error(`${member.userName} reached the ${group} CPU roster limit.`);
         const nextIndex=current.pickIndex+1;
         const now=new Date().toISOString();
         draft={

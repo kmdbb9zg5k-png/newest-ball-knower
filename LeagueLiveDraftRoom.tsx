@@ -3,7 +3,7 @@ import { ArrowDown, ArrowLeft, ArrowUp, Ban, CheckCircle2, ChevronDown, ChevronU
 import { useBallKnower } from './BallKnowerContext';
 import { playerPortraitUrl } from './playerPortraits';
 import { PLAYERS_DATABASE } from './players';
-import { getLiveFantasyDraftGroup, LIVE_FANTASY_POSITION_LIMITS, LIVE_FANTASY_ROSTER_REQUIREMENTS, LiveFantasyDraftGroup } from './liveFantasyRules';
+import { CPU_LIVE_FANTASY_POSITION_LIMITS, getLiveFantasyDraftGroup, LIVE_FANTASY_ROSTER_REQUIREMENTS, LiveFantasyDraftGroup } from './liveFantasyRules';
 import { FantasyRanking, loadFantasyRankings } from './fantasyRankingsCloud';
 import { displayLeagueMemberName, resolveMyLeagueMember } from './leagueMemberDisplay';
 import { LiveFantasyDraft, Player } from './types';
@@ -32,13 +32,14 @@ const countsFor=(draft:LiveFantasyDraft,memberId:string)=>draft.picks.reduce<Par
   return counts;
 },{});
 
-const legalPlayersFor=(draft:LiveFantasyDraft,memberId:string)=>{
+export const legalPlayersFor=(draft:LiveFantasyDraft,memberId:string,enforceCpuLimits=false)=>{
   const drafted=new Set(draft.picks.map(pick=>pick.playerId));
   const counts=countsFor(draft,memberId);
   return PLAYERS_DATABASE.filter(player=>{
     if(drafted.has(player.id))return false;
     const group=getLiveFantasyDraftGroup(player);
-    if(!group||(counts[group]||0)>=LIVE_FANTASY_POSITION_LIMITS[group])return false;
+    if(!group)return false;
+    if(enforceCpuLimits&&(counts[group]||0)>=CPU_LIVE_FANTASY_POSITION_LIMITS[group])return false;
     return true;
   });
 };
@@ -51,7 +52,7 @@ const cpuSelection=(draft:LiveFantasyDraft,memberId:string,rankings:Map<string,F
   const requiredNow=picksRemaining<=missing.length?new Set(missing):null;
   let best:Player|null=null;
   let bestScore=-Infinity;
-  for(const player of legalPlayersFor(draft,memberId)){
+  for(const player of legalPlayersFor(draft,memberId,true)){
     const group=getLiveFantasyDraftGroup(player);
     if(!group)continue;
     if((counts[group]||0)>=CPU_POSITION_TARGETS[group])continue;
@@ -114,7 +115,7 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
   const available=useMemo(()=>{
     if(!draft||!currentMemberId)return [];
     const clean=query.trim().toLowerCase();
-    return legalPlayersFor(draft,currentMemberId)
+    return legalPlayersFor(draft,currentMemberId,Boolean(currentMember?.isAi))
       .filter(player=>(group==='ALL'||getLiveFantasyDraftGroup(player)===group)&&(!clean||`${player.name} ${player.team} ${player.position}`.toLowerCase().includes(clean)))
       .sort((first,second)=>{
         const firstRank=rankings.get(rankingKey(first.name,first.team))?.overall_rank??9999;
@@ -122,7 +123,7 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
         return firstRank-secondRank||second.ovr-first.ovr||first.name.localeCompare(second.name);
       })
       .slice(0,100);
-  },[draft,currentMemberId,group,query,myCounts,rankings]);
+  },[draft,currentMemberId,currentMember?.isAi,group,query,myCounts,rankings]);
 
   useEffect(()=>{
     let alive=true;

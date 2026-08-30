@@ -23,6 +23,7 @@ import confetti from 'canvas-confetti';
 import { getLeagueCommissionerName, isLeagueCommissioner } from './leaguePermissions';
 import { displayLeagueMemberName, resolveMyLeagueMember } from './leagueMemberDisplay';
 import { canStartScheduledDraft, formatDraftSchedule } from './draftSchedule';
+import { FantasyDraftFormatWorkspace } from './FantasyDraftFormatWorkspace';
 
 interface SimulationViewProps {
   league: League;
@@ -41,6 +42,7 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
   const [openingDraft, setOpeningDraft] = useState(false);
   const scheduledDraftLabel = formatDraftSchedule(league);
   const draftStartOpen = canStartScheduledDraft(league);
+  const specialDraftFormat=['offline','mock','auction'].includes(league.settings?.draftFormat||'');
 
   // Trigger celebration confetti on mount
   useEffect(() => {
@@ -125,7 +127,8 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
         <div className="mt-4 grid grid-cols-1 gap-2 min-[390px]:grid-cols-2">{seasonResult.draftOrder.map((pick,index)=>{const member=league.members.find(item=>item.id===pick.memberId);const mine=member?.id===myMember?.id;const role=mine?(member?.isCommissioner?'You · Commissioner':'You'):member?.isAi?'CPU':member?.isCommissioner?'Commissioner':'Manager';const displayName=displayLeagueMemberName(member,mine,currentUser,index);return <div key={pick.memberId} className={`flex min-w-0 items-center gap-2 rounded-xl border p-2.5 ${pick.pickNumber===1?'border-[#D4AF37] bg-[#D4AF37]/10':mine?'border-[#D4AF37]/40 bg-[#D4AF37]/5':'border-white/10 bg-black/30'}`}><div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg text-xs font-black ${pick.pickNumber===1?'bg-[#D4AF37] text-black':'border border-white/10 bg-[#0A0A0A]'}`}>#{pick.pickNumber}</div><div className="min-w-0"><div className="truncate text-xs font-black uppercase">{displayName}</div><div className="text-[9px] font-bold uppercase text-zinc-500">{role}</div></div></div>})}</div>
         {scheduledDraftLabel&&<div className="mt-4 flex items-center gap-3 rounded-xl border border-[#D4AF37]/25 bg-[#D4AF37]/[.06] p-3"><Calendar className="h-5 w-5 shrink-0 text-[#D4AF37]"/><div><div className="text-[8px] font-black uppercase tracking-widest text-zinc-500">Scheduled Draft</div><div className="mt-1 text-xs font-black text-white">{scheduledDraftLabel}</div></div></div>}
         {!league.liveDraft&&!canManageDraft&&<p className="mt-4 text-center text-[10px] font-bold text-zinc-500">Waiting for {commissionerName} to start the NFL player draft.</p>}
-        <div className="mt-2 grid grid-cols-1 gap-2 min-[390px]:grid-cols-2"><button onClick={()=>void handleOpenDraft()} disabled={openingDraft||(!league.liveDraft&&!canManageDraft)} className="min-h-12 rounded-xl bg-[#D4AF37] px-3 text-[10px] font-black uppercase tracking-wider text-black disabled:cursor-not-allowed disabled:border disabled:border-white/10 disabled:bg-white/[.04] disabled:text-zinc-500"><Play className="mr-1 inline h-4 w-4"/>{openingDraft?'Opening Draft…':league.liveDraft?.status==='completed'?'Continue to Season':league.liveDraft?'Resume NFL Player Draft':canManageDraft?(draftStartOpen?'Continue to NFL Player Draft':'Draft Scheduled'):`Waiting for ${commissionerName}`}</button><button onClick={handleCopyDraftOrder} className="min-h-12 rounded-xl border border-white/10 px-3 text-[10px] font-black uppercase tracking-wider">{copiedDraftOrder?<Check className="mr-1 inline h-4 w-4"/>:<Share2 className="mr-1 inline h-4 w-4"/>}{copiedDraftOrder?'Order Copied':'Share Order'}</button></div>
+        {!specialDraftFormat&&<div className="mt-2 grid grid-cols-1 gap-2 min-[390px]:grid-cols-2"><button onClick={()=>void handleOpenDraft()} disabled={openingDraft||(!league.liveDraft&&!canManageDraft)} className="min-h-12 rounded-xl bg-[#D4AF37] px-3 text-[10px] font-black uppercase tracking-wider text-black disabled:cursor-not-allowed disabled:border disabled:border-white/10 disabled:bg-white/[.04] disabled:text-zinc-500"><Play className="mr-1 inline h-4 w-4"/>{openingDraft?'Opening Draft…':league.liveDraft?.status==='completed'?'Continue to Season':league.liveDraft?'Resume NFL Player Draft':canManageDraft?(draftStartOpen?'Continue to NFL Player Draft':'Draft Scheduled'):`Waiting for ${commissionerName}`}</button><button onClick={handleCopyDraftOrder} className="min-h-12 rounded-xl border border-white/10 px-3 text-[10px] font-black uppercase tracking-wider">{copiedDraftOrder?<Check className="mr-1 inline h-4 w-4"/>:<Share2 className="mr-1 inline h-4 w-4"/>}{copiedDraftOrder?'Order Copied':'Share Order'}</button></div>}
+        {specialDraftFormat&&(league.settings?.draftFormat==='mock'||canManageDraft)&&<FantasyDraftFormatWorkspace league={league} onImported={onBackToLobby}/>}
       </section>
     </div></div>;
   }
@@ -198,7 +201,7 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-6">
         {/* Navigation Tabs */}
         <div className="grid w-full grid-cols-4 gap-1 rounded-xl border border-white/5 bg-[#121212] p-1 sm:flex sm:w-auto">
-          <button
+          {!specialDraftFormat&&<button
             id="sim-tab-draft-order"
             onClick={() => setActiveTab('draft_order')}
             className={`min-w-0 flex-1 sm:flex-initial flex items-center justify-center gap-1 rounded-lg px-1 py-2 text-[9px] font-black uppercase tracking-wide transition-all sm:gap-1.5 sm:px-4 sm:text-xs sm:tracking-wider ${
@@ -209,7 +212,7 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
           >
             <Award className="h-3.5 w-3.5" />
             <span>Draft Order</span>
-          </button>
+          </button>}
 
           <button
             id="sim-tab-standings"
@@ -282,6 +285,8 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
           </button>
         </div>
       </div>
+
+      {specialDraftFormat&&(league.settings?.draftFormat==='mock'||isLeagueCommissioner(league,currentUser?.id))&&<FantasyDraftFormatWorkspace league={league} onImported={onBackToLobby}/>}
 
       {/* 3. TAB CONTENT */}
 

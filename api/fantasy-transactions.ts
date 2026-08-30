@@ -14,10 +14,11 @@ export default async function handler(req: Request, res: Response) {
   const now = new Date().toISOString();
   const scheduled = await supabase.rpc('process_due_ball_knower_scheduled_drafts', { p_now: now });
   if (scheduled.error) return res.status(500).json({ error: scheduled.error.message });
-  const [waivers, drafts] = await Promise.all([
+  const [waivers, drafts, matchups] = await Promise.all([
     supabase.rpc('process_due_ball_knower_waivers', { p_now: now }),
     supabase.rpc('process_due_ball_knower_draft_picks', { p_now: now }),
+    supabase.rpc('process_due_ball_knower_matchup_notifications', { p_now: now }),
   ]);
-  if (waivers.error || drafts.error) return res.status(500).json({ error: waivers.error?.message || drafts.error?.message });
-  return res.status(200).json({ scheduledDrafts: scheduled.data, waivers: waivers.data, drafts: drafts.data });
+  if (waivers.error || drafts.error || matchups.error) return res.status(500).json({ error: waivers.error?.message || drafts.error?.message || matchups.error?.message });
+  return res.status(200).json({ scheduledDrafts: scheduled.data, waivers: waivers.data, drafts: drafts.data, matchupNotifications: matchups.data });
 }
