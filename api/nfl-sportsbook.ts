@@ -140,7 +140,11 @@ export default async function handler(_req: any, res: any) {
         homeAbbr,
         details: spread !== null ? `${spread > 0 ? homeAbbr : awayAbbr} ${Math.abs(spread)}` : null,
         spread,
+        homeSpread: spread === null ? null : spread > 0 ? -spread : spread < 0 ? Math.abs(spread) : 0,
+        awaySpread: spread === null ? null : spread > 0 ? spread : spread < 0 ? -Math.abs(spread) : 0,
         overUnder: numberOrNull(g?.total_line ?? g?.over_under ?? g?.total),
+        awayScore,
+        homeScore,
       };
     });
 
