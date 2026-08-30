@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   ArrowRightLeft,
@@ -18,13 +18,19 @@ import { League, Player } from "./types";
 import { PLAYERS_DATABASE } from "./players";
 import { useBallKnower } from "./BallKnowerContext";
 import { playerPortraitUrl } from "./playerPortraits";
+import { FantasyAdvancedLeagueSettings } from "./FantasyAdvancedLeagueSettings";
+import { FantasyLeagueCommunications } from "./FantasyLeagueCommunications";
+import { isCloudConfigured } from "./supabase";
 import {
   fetchSeasonOperations,
+  fetchFantasyCommunications,
   getLeagueFreeAgents,
   LeagueInjury,
   LeagueMessage,
   LeagueTransaction,
   postLeagueMessage,
+  sendTradeThreadMessage,
+  TradeMessage,
   proposeTrade,
   TradeOffer,
 } from "./fantasySeasonCloud";
@@ -47,6 +53,7 @@ import {
 
 type Tab = "team" | "matchup" | "players" | "league" | "activity";
 type ActivityView = "overview" | "moves" | "trades" | "messages";
+type MessageView = "league" | "private";
 const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: "team", label: "My Team", icon: <Users className="h-4 w-4" /> },
   { id: "matchup", label: "Matchup", icon: <Activity className="h-4 w-4" /> },
@@ -62,12 +69,15 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   const me = league.members.find((member) => member.userId === currentUser?.id);
   const settings = (league.settings || {}) as any;
   const isCommissioner = currentUser?.id === league.commissionerId;
-  const maxWeek = Math.max(17, Number(settings.seasonGames) || 17);
+  const maxWeek = Math.max(13, Math.min(17, Number(settings.regularSeasonWeeks ?? settings.seasonGames) || 17));
+  const fantasyRosterSize = Math.max(15, Math.min(20, Number(settings.rosterSize || league.liveDraft?.rounds) || 15));
+  const scoringLocked = Boolean(settings.fantasySeasonStarted) || Number(settings.currentWeek || 1) > 1;
   const [tab, setTab] = useState<Tab>("team");
   const [activityView, setActivityView] = useState<ActivityView>("overview");
   const [week, setWeek] = useState(
     Math.min(maxWeek, Math.max(1, Number(settings.currentWeek) || 1)),
   );
+  useEffect(() => setWeek((current) => Math.min(current, maxWeek)), [maxWeek]);
   const [lineups, setLineups] = useState<WeeklyLineup[]>([]);
   const [scores, setScores] = useState<WeeklyScore[]>([]);
   const [memberMeta, setMemberMeta] = useState<MemberFantasyMeta[]>([]);
@@ -75,6 +85,8 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   const [trades, setTrades] = useState<TradeOffer[]>([]);
   const [injuries, setInjuries] = useState<LeagueInjury[]>([]);
   const [messages, setMessages] = useState<LeagueMessage[]>([]);
+  const [tradeMessages,setTradeMessages]=useState<TradeMessage[]>([]);
+  const [communicationError,setCommunicationError]=useState('');
   const [transactions, setTransactions] = useState<LeagueTransaction[]>([]);
   const [starters, setStarters] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -86,14 +98,34 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   const [counterGive, setCounterGive] = useState<string[]>([]);
   const [counterGet, setCounterGet] = useState<string[]>([]);
   const [message, setMessage] = useState("");
+  const [messageView,setMessageView]=useState<MessageView>('league');
+  const [tradeMessageBodies,setTradeMessageBodies]=useState<Record<string,string>>({});
   const [selectedTeamId, setSelectedTeamId] = useState("");
   const [tradeTarget, setTradeTarget] = useState("");
   const [tradeGive, setTradeGive] = useState<string[]>([]);
   const [tradeGet, setTradeGet] = useState<string[]>([]);
+  const leagueIdRef=useRef(league.id);
+  const communicationUserIdRef=useRef(currentUser?.id||'');
+  const communicationRequestRef=useRef(0);
+  const communicationScope=`${league.id}:${currentUser?.id||''}`;
+  const [tradeMessagesScope,setTradeMessagesScope]=useState(communicationScope);
+  const visibleTradeMessages=tradeMessagesScope===communicationScope?tradeMessages:[];
+  useEffect(()=>{leagueIdRef.current=league.id;communicationUserIdRef.current=currentUser?.id||'';communicationRequestRef.current+=1;setTradeMessages([]);setTradeMessagesScope(communicationScope);setTradeMessageBodies({});setCommunicationError('');},[league.id,currentUser?.id]);
   const roster = me?.roster || [];
   const refresh = async () => {
     try {
       setError("");
+      const requestedLeagueId=league.id;
+      const requestedUserId=currentUser?.id||'';
+      const communicationRequestId=++communicationRequestRef.current;
+      if(isCloudConfigured)void fetchFantasyCommunications(requestedLeagueId).then(communication=>{
+        if(leagueIdRef.current!==requestedLeagueId||communicationUserIdRef.current!==requestedUserId||communicationRequestRef.current!==communicationRequestId)return;
+        setTradeMessages([...communication.tradeMessages]);
+        setTradeMessagesScope(`${requestedLeagueId}:${requestedUserId}`);
+        setCommunicationError('');
+      }).catch(err=>{
+        if(leagueIdRef.current===requestedLeagueId&&communicationUserIdRef.current===requestedUserId&&communicationRequestRef.current===communicationRequestId)setCommunicationError(err instanceof Error?err.message:'Trade messages could not be loaded.');
+      });
       const [parity, ops] = await Promise.all([
         fetchFantasyParityState(league.id, week, Number(league.settings.nflSeason) || 2026),
         fetchSeasonOperations(league.id),
@@ -112,8 +144,8 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   };
   useEffect(() => {
     void refresh();
-  }, [league.id, week]);
-  useEffect(() => subscribeToFantasyParity(league.id, () => { void refresh(); }), [league.id, week]);
+  }, [league.id, week, currentUser?.id]);
+  useEffect(() => subscribeToFantasyParity(league.id, () => { void refresh(); }), [league.id, week, currentUser?.id]);
   const myLineup = lineups.find((item) => item.memberId === me?.id);
   useEffect(
     () =>
@@ -188,7 +220,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   const submitClaim = () =>
     run(async () => {
       if (!me || !faabPlayer) throw new Error("Choose a free agent.");
-      if (roster.length >= 20 && !dropPlayer)
+      if (roster.length >= fantasyRosterSize && !dropPlayer)
         throw new Error("Choose a player to drop.");
       await submitFaabClaim(
         league.id,
@@ -439,7 +471,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
               className="min-h-11 w-full rounded-xl bg-black/40 px-3 text-xs"
             >
               <option value="">
-                {roster.length >= 20
+                {roster.length >= fantasyRosterSize
                   ? "Choose player to drop"
                   : "No drop needed"}
               </option>
@@ -593,7 +625,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
               <Rule
                 label="Scoring"
                 value={settings.scoringFormat || "ppr"}
-                disabled={!isCommissioner}
+                disabled={!isCommissioner || scoringLocked}
                 options={[
                   ["ppr", "Full PPR"],
                   ["half_ppr", "Half PPR"],
@@ -634,6 +666,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
                 }
               />
             </div>
+            <FantasyAdvancedLeagueSettings league={league} disabled={!isCommissioner}/>
           </Panel>
         </div>
       )}
@@ -767,6 +800,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
                         >
                           Send Counter
                         </button>
+{isCloudConfigured&&<div className="rounded-xl border border-white/10 p-3"><div className="text-[9px] font-black uppercase text-[#D4AF37]">Trade Thread</div>{communicationError&&<div className="mt-2 rounded-lg border border-red-400/20 bg-red-400/5 px-3 py-2 text-[10px] text-red-300">{communicationError}</div>}<div className="mt-2 max-h-40 space-y-1 overflow-y-auto">{visibleTradeMessages.filter(item=>item.tradeId===selectedCounter.id).map(item=><div key={item.id} className={`rounded-lg px-3 py-2 text-xs ${item.senderAuthId===currentUser?.id?'ml-6 bg-[#D4AF37] text-black':'mr-6 bg-black/35'}`}>{item.body}</div>)}{!visibleTradeMessages.some(item=>item.tradeId===selectedCounter.id)&&<div className="text-[10px] text-zinc-600">No trade messages yet.</div>}</div><div className="mt-2 flex gap-2"><input value={tradeMessageBodies[selectedCounter.id]||''} onChange={event=>setTradeMessageBodies(value=>({...value,[selectedCounter.id]:event.target.value}))} placeholder="Message about this trade…" className="min-h-11 min-w-0 flex-1 rounded-lg bg-black/40 px-3 text-xs"/><button disabled={!(tradeMessageBodies[selectedCounter.id]||'').trim()} onClick={()=>run(async()=>{const tradeId=selectedCounter.id;const sentBody=tradeMessageBodies[tradeId]||'';await sendTradeThreadMessage(tradeId,sentBody);setTradeMessageBodies(current=>current[tradeId]===sentBody?{...current,[tradeId]:''}:current);},'Trade message sent.')} className="min-h-11 rounded-lg bg-[#D4AF37] px-3 text-[9px] font-black uppercase text-black">Send</button></div></div>}
                       </>
                     )}
                   </>
@@ -779,9 +813,11 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
           {activityView === "messages" && (
             <Panel
               title="Messages"
-              sub="League chat and commissioner announcements"
+              sub="League chat, owner-scoped DMs and the Trading Block"
               icon={<MessageCircle className="h-5 w-5 text-[#D4AF37]" />}
             >
+              {isCloudConfigured&&<div className="grid grid-cols-2 gap-1 rounded-xl bg-black/35 p-1">{(['league','private'] as MessageView[]).map(view=><button key={view} onClick={()=>setMessageView(view)} className={`min-h-11 rounded-lg text-[9px] font-black uppercase ${messageView===view?'bg-white text-black':'text-zinc-400'}`}>{view==='private'?'Private + Trades':'League Chat'}</button>)}</div>}
+              {messageView==='league'&&<>
               <div className="flex gap-2">
                 <input
                   value={message}
@@ -812,6 +848,8 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
               ) : (
                 <Empty text="No messages yet." />
               )}
+              </>}
+              {isCloudConfigured&&messageView==='private'&&<FantasyLeagueCommunications league={league} trades={trades}/>}
             </Panel>
           )}
         </div>

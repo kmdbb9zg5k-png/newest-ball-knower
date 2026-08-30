@@ -8,6 +8,11 @@ export type WaiverClaim={id:string;leagueId:string;memberId:string;playerId:stri
 export type LeagueTransaction={id:string;leagueId:string;memberId?:string;transactionType:string;summary:string;metadata:any;createdAt:string};
 export type LeagueInjury={id:string;leagueId:string;memberId:string;playerId:string;playerName:string;injuryType:string;severity:'minor'|'moderate'|'major'|'season_ending';weeksRemaining:number;onIr:boolean;status:'questionable'|'doubtful'|'out'|'ir'|'cleared';createdAt:string;updatedAt:string};
 export type LeagueMessage={id:string;leagueId:string;memberName:string;body:string;kind:'chat'|'announcement'|'receipt'|'reaction';replyTo?:string;createdAt:string};
+export type FantasyDmThread={id:string;leagueId:string;participantA:string;participantB:string;lastReadAAt?:string;lastReadBAt?:string;updatedAt:string};
+export type FantasyDmMessage={id:string;threadId:string;senderAuthId:string;body:string;createdAt:string};
+export type TradeMessage={id:string;tradeId:string;senderAuthId:string;body:string;createdAt:string};
+export type TradeThreadRead={tradeId:string;lastReadAt:string};
+export type TradingBlockEntry={leagueId:string;memberId:string;playerId:string;status:'available'|'looking_for'|'untouchable';lookingFor:string[];note?:string;updatedAt:string};
 export type WeeklyInjuryRollResult={week:number;created:number;reused:boolean};
 export type TradeAction='accepted'|'rejected'|'cancelled'|'vetoed'|'approved';
 
@@ -16,6 +21,37 @@ const mapClaim=(x:any):WaiverClaim=>({id:x.id,leagueId:x.league_id,memberId:x.me
 const mapTxn=(x:any):LeagueTransaction=>({id:x.id,leagueId:x.league_id,memberId:x.member_id||undefined,transactionType:x.transaction_type,summary:x.summary,metadata:x.metadata||{},createdAt:x.created_at});
 const mapInjury=(x:any):LeagueInjury=>({id:x.id,leagueId:x.league_id,memberId:x.member_id,playerId:x.player_id,playerName:x.player_name,injuryType:x.injury_type,severity:x.severity,weeksRemaining:Number(x.weeks_remaining)||0,onIr:Boolean(x.on_ir),status:x.status,createdAt:x.created_at,updatedAt:x.updated_at});
 const mapMessage=(x:any):LeagueMessage=>({id:x.id,leagueId:x.league_id,memberName:x.member_name,body:x.body,kind:x.kind,replyTo:x.reply_to||undefined,createdAt:x.created_at});
+const mapDmThread=(x:any):FantasyDmThread=>({id:x.id,leagueId:x.league_id,participantA:x.participant_a,participantB:x.participant_b,lastReadAAt:x.last_read_a_at||undefined,lastReadBAt:x.last_read_b_at||undefined,updatedAt:x.updated_at});
+const mapDmMessage=(x:any):FantasyDmMessage=>({id:x.id,threadId:x.thread_id,senderAuthId:x.sender_auth_id,body:x.body,createdAt:x.created_at});
+const mapTradeMessage=(x:any):TradeMessage=>({id:x.id,tradeId:x.trade_id,senderAuthId:x.sender_auth_id,body:x.body,createdAt:x.created_at});
+const mapBlock=(x:any):TradingBlockEntry=>({leagueId:x.league_id,memberId:x.member_id,playerId:x.player_id,status:x.status,lookingFor:x.looking_for||[],note:x.note||undefined,updatedAt:x.updated_at});
+
+export async function fetchFantasyCommunications(leagueId:string){
+  if(!supabase)return {dmThreads:[] as FantasyDmThread[],dmMessages:[] as FantasyDmMessage[],tradeMessages:[] as TradeMessage[],tradeThreadReads:[] as TradeThreadRead[],tradingBlock:[] as TradingBlockEntry[],watchedPlayerIds:[] as string[]};
+  const auth=await ensureOnlineSession();
+  const [threads,tradeMessages,tradeThreadReads,tradingBlock,watched]=await Promise.all([
+    supabase.from('ball_knower_dm_threads').select('*').eq('league_id',leagueId).order('updated_at',{ascending:false}),
+    supabase.from('ball_knower_trade_messages').select('*,ball_knower_trades!inner(league_id)').eq('ball_knower_trades.league_id',leagueId).order('created_at',{ascending:true}),
+    supabase.from('ball_knower_trade_thread_reads').select('trade_id,last_read_at').eq('auth_user_id',auth.id),
+    supabase.from('ball_knower_trading_block').select('*').eq('league_id',leagueId).order('updated_at',{ascending:false}),
+    supabase.from('ball_knower_watched_players').select('player_id').eq('league_id',leagueId).eq('auth_user_id',auth.id),
+  ]);
+  const firstError=[threads.error,tradeMessages.error,tradeThreadReads.error,tradingBlock.error,watched.error].find(Boolean);if(firstError)throw firstError;
+  const threadIds=(threads.data||[]).map((row:any)=>row.id);
+  const messages=threadIds.length?await supabase.from('ball_knower_dm_messages').select('*').in('thread_id',threadIds).order('created_at',{ascending:true}):{data:[],error:null};
+  if(messages.error)throw messages.error;
+  return {dmThreads:(threads.data||[]).map(mapDmThread),dmMessages:(messages.data||[]).map(mapDmMessage),tradeMessages:(tradeMessages.data||[]).map(mapTradeMessage),tradeThreadReads:(tradeThreadReads.data||[]).map((row:any)=>({tradeId:String(row.trade_id),lastReadAt:String(row.last_read_at)})),tradingBlock:(tradingBlock.data||[]).map(mapBlock),watchedPlayerIds:(watched.data||[]).map((row:any)=>String(row.player_id))};
+}
+
+export async function openFantasyDm(leagueId:string,otherMemberId:string):Promise<string>{if(!supabase)throw new Error('Private messages require online services.');await ensureOnlineSession();const {data,error}=await supabase.rpc('open_ball_knower_dm',{p_league_id:leagueId,p_other_member_id:otherMemberId});if(error)throw error;return String(data);}
+export async function sendFantasyDm(threadId:string,body:string){if(!supabase)throw new Error('Private messages require online services.');await ensureOnlineSession();const {error}=await supabase.rpc('send_ball_knower_dm',{p_thread_id:threadId,p_body:body});if(error)throw error;}
+export async function markFantasyDmRead(threadId:string){if(!supabase)throw new Error('Private messages require online services.');await ensureOnlineSession();const {error}=await supabase.rpc('mark_ball_knower_dm_read',{p_thread_id:threadId});if(error)throw error;}
+export async function sendTradeThreadMessage(tradeId:string,body:string){if(!supabase)throw new Error('Trade messages require online services.');await ensureOnlineSession();const {error}=await supabase.rpc('send_ball_knower_trade_message',{p_trade_id:tradeId,p_body:body});if(error)throw error;}
+export async function markTradeThreadRead(tradeId:string){if(!supabase)throw new Error('Trade messages require online services.');await ensureOnlineSession();const {error}=await supabase.rpc('mark_ball_knower_trade_thread_read',{p_trade_id:tradeId});if(error)throw error;}
+export async function voteOnFantasyTrade(tradeId:string,vote:'approve'|'veto'){if(!supabase)throw new Error('Trade voting requires online services.');await ensureOnlineSession();const {data,error}=await supabase.rpc('vote_on_ball_knower_trade',{p_trade_id:tradeId,p_vote:vote});if(error)throw error;return data as {status:string;approvals:number;vetoes:number;needed:number};}
+export async function setTradingBlockEntry(leagueId:string,memberId:string,playerId:string,status:TradingBlockEntry['status'],lookingFor:string[]=[],note=''){if(!supabase)throw new Error('Trading Block requires online services.');await ensureOnlineSession();const {error}=await supabase.from('ball_knower_trading_block').upsert({league_id:leagueId,member_id:memberId,player_id:playerId,status,looking_for:lookingFor,note:note||null,updated_at:new Date().toISOString()},{onConflict:'league_id,member_id,player_id'});if(error)throw error;}
+export async function removeTradingBlockEntry(leagueId:string,memberId:string,playerId:string){if(!supabase)throw new Error('Trading Block requires online services.');await ensureOnlineSession();const {error}=await supabase.from('ball_knower_trading_block').delete().eq('league_id',leagueId).eq('member_id',memberId).eq('player_id',playerId);if(error)throw error;}
+export async function setWatchedFantasyPlayer(leagueId:string,playerId:string,watched:boolean){if(!supabase)throw new Error('Watched players require online services.');const auth=await ensureOnlineSession();const query=supabase.from('ball_knower_watched_players');const {error}=watched?await query.upsert({league_id:leagueId,auth_user_id:auth.id,player_id:playerId},{onConflict:'league_id,auth_user_id,player_id'}):await query.delete().eq('league_id',leagueId).eq('auth_user_id',auth.id).eq('player_id',playerId);if(error)throw error;}
 
 export function assertStandardFantasyTradePackage(offeredPlayerIds:string[],requestedPlayerIds:string[]){
   if(!offeredPlayerIds.length||!requestedPlayerIds.length) throw new Error('Choose at least one player from each team.');

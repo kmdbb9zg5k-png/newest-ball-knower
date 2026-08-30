@@ -227,6 +227,21 @@ export async function counterTrade(tradeId:string,offeredPlayerIds:string[],requ
   if(error) throw error;
 }
 
+export async function commissionerSetWaiverPriority(leagueId:string,memberId:string,priority:number){
+  if(!supabase) throw new Error('Online league services are not configured.');
+  if(!Number.isFinite(priority)||priority<1) throw new Error('Waiver priority must be at least 1.');
+  await ensureOnlineSession();
+  const {error}=await supabase.rpc('commissioner_set_ball_knower_waiver_priority',{p_league_id:leagueId,p_member_id:memberId,p_priority:Math.floor(priority)});
+  if(error) throw error;
+}
+
+export async function commissionerEditMatchup(leagueId:string,week:number,gameId:string,homeMemberId:string,awayMemberId:string){
+  if(!supabase) throw new Error('Online league services are not configured.');
+  await ensureOnlineSession();
+  const {error}=await supabase.rpc('commissioner_edit_ball_knower_matchup',{p_league_id:leagueId,p_week:week,p_game_id:gameId,p_home_member_id:homeMemberId,p_away_member_id:awayMemberId});
+  if(error) throw error;
+}
+
 // Standard fantasy lineup. Drafting stays unrestricted; managers must use their bench,
 // free agency, waivers, or trades to field a legal weekly lineup.
 export const LINEUP_SLOTS = [

@@ -142,7 +142,7 @@ check(scoredPlayoffs.championMemberId===sixSeeds[5].memberId,'Scored fantasy pos
 check(resolveSeasonChampion({standings:fantasyStandings,winnerAnalysis:{winnerId:sixSeeds[0].memberId,winnerName:sixSeeds[0].memberName,summary:'',keyFactors:[]}})===undefined,'Legacy regular-season winner data was incorrectly treated as a playoff championship.');
 const pendingChampionship=buildScoredFantasyPlayoffs(fantasyStandings,scoredPlayoffScores.slice(0,-1),6,17);
 check(!pendingChampionship.complete&&!pendingChampionship.championMemberId,'An incomplete fantasy championship crowned a winner early.');
-check(validateLiveFantasyRoster([]).length===6,'An empty live-fantasy roster must report all six missing position groups.');
+check(validateLiveFantasyRoster([]).length===0,'Draft roster validation must not impose starter minimums on human managers.');
 check(estimatePlayerSalary('P', 79) <= 6, 'Estimated punter salary exceeds the position cap.');
 check(estimatePlayerSalary('LB', 79) < estimatePlayerSalary('QB', 79), 'Position-aware salary estimates are not differentiated.');
 check(PLAYERS_DATABASE.every(player => !(['K', 'P'].includes(player.position) && player.salaryType === 'estimated' && player.salary > 6)), 'An estimated kicker or punter salary exceeds $6M.');

@@ -184,6 +184,39 @@ export function simulateFantasyPlayoffs(
   return {games, championMemberId:field[0]?.id || standings[0]?.memberId};
 }
 
+export function seedFantasyStandings(
+  standings:StandingItem[],
+  games:SimulationGame[],
+  mode:'record_points'|'record_head_to_head'|'division_winners'='record_points',
+  memberOrder:string[]=[],
+  divisionCount:2|4=2,
+):StandingItem[]{
+  const record=(row:StandingItem)=>Number(row.winPercentage)||((row.wins+row.ties*.5)/Math.max(1,row.wins+row.losses+row.ties));
+  const base=(a:StandingItem,b:StandingItem)=>record(b)-record(a)||b.pointsFor-a.pointsFor||b.pointDifferential-a.pointDifferential||a.memberId.localeCompare(b.memberId);
+  if(mode==='record_head_to_head'){
+    const groups=new Map<string,StandingItem[]>();
+    for(const row of standings){const key=record(row).toFixed(8);groups.set(key,[...(groups.get(key)||[]),row]);}
+    const ordered=[...groups.values()].sort((a,b)=>record(b[0])-record(a[0])).flatMap(group=>{
+      if(group.length<2)return group;
+      const ids=new Set(group.map(row=>row.memberId));
+      const headToHead=new Map(group.map(row=>[row.memberId,{wins:0,ties:0,games:0}]));
+      for(const game of games.filter(item=>!item.playoffRound&&ids.has(item.homeMemberId)&&ids.has(item.awayMemberId))){
+        const home=headToHead.get(game.homeMemberId)!;const away=headToHead.get(game.awayMemberId)!;home.games++;away.games++;
+        if(game.isTie||!game.winnerId){home.ties++;away.ties++;}else if(game.winnerId===game.homeMemberId)home.wins++;else if(game.winnerId===game.awayMemberId)away.wins++;
+      }
+      const percentage=(row:StandingItem)=>{const value=headToHead.get(row.memberId)!;return value.games?(value.wins+value.ties*.5)/value.games:0;};
+      return [...group].sort((a,b)=>percentage(b)-percentage(a)||base(a,b));
+    });
+    return ordered.map((row,index)=>({...row,rank:index+1}));
+  }
+  if(mode!=='division_winners')return [...standings].sort(base).map((row,index)=>({...row,rank:index+1}));
+  const order=memberOrder.length?memberOrder:standings.map(row=>row.memberId);const divisionOf=new Map(order.map((id,index)=>[id,index%divisionCount]));
+  const winners:number[]=[];
+  for(let division=0;division<divisionCount;division++){const winner=[...standings].filter(row=>divisionOf.get(row.memberId)===division).sort(base)[0];if(winner)winners.push(standings.findIndex(row=>row.memberId===winner.memberId));}
+  const winnerIds=new Set(winners.filter(index=>index>=0).map(index=>standings[index].memberId));
+  return [...standings.filter(row=>winnerIds.has(row.memberId)).sort(base),...standings.filter(row=>!winnerIds.has(row.memberId)).sort(base)].map((row,index)=>({...row,rank:index+1}));
+}
+
 export function simulateFantasyWeek(
   members: LeagueMember[],
   week: number,
@@ -350,12 +383,26 @@ export function buildFantasyWeekPairings(members: LeagueMember[], week: number):
   return games;
 }
 
+export function isCompleteFantasySchedule(members:LeagueMember[],weeks:number,schedule:FantasyWeekPairing[]):boolean{
+  if(members.length<2||members.length%2!==0||schedule.length!==weeks*members.length/2)return false;
+  const memberIds=new Set(members.map(member=>member.id));const gameIds=new Set<string>();
+  for(let week=1;week<=weeks;week++){
+    const games=schedule.filter(game=>game.week===week);const seen=new Set<string>();
+    if(games.length!==members.length/2)return false;
+    for(const game of games){if(gameIds.has(game.id)||game.homeMemberId===game.awayMemberId||!memberIds.has(game.homeMemberId)||!memberIds.has(game.awayMemberId)||seen.has(game.homeMemberId)||seen.has(game.awayMemberId))return false;gameIds.add(game.id);seen.add(game.homeMemberId);seen.add(game.awayMemberId);}
+    if(seen.size!==members.length)return false;
+  }
+  return schedule.every(game=>game.week>=1&&game.week<=weeks);
+}
+
 export function buildScoredFantasyGames(
   members: LeagueMember[],
   weeks: number,
   scores: FantasyWeeklyScoreRecord[],
+  persistedSchedule?: FantasyWeekPairing[],
 ): SimulationGame[] {
-  const schedule=Array.from({length:weeks},(_,index)=>buildFantasyWeekPairings(members,index+1)).flat();
+  const saved=persistedSchedule||[];
+  const schedule=isCompleteFantasySchedule(members,weeks,saved)?saved:Array.from({length:weeks},(_,index)=>buildFantasyWeekPairings(members,index+1)).flat();
   return schedule.flatMap(pairing=>{
     const home=scores.find(score=>score.week===pairing.week&&score.memberId===pairing.homeMemberId);
     const away=scores.find(score=>score.week===pairing.week&&score.memberId===pairing.awayMemberId);

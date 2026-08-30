@@ -9,20 +9,21 @@ import {
   TOTAL_ROSTER_SIZE,
   DraftOrderMethod,
   LiveFantasyDraft,
+  LeagueSettings,
 } from './types';
 import { calculateTeamRatings } from './evaluation';
-import { buildStandings, simulateFantasyPlayoffs, simulateFantasyWeek, simulateFullSeason } from './simulation';
+import { buildFantasyWeekPairings, buildStandings, simulateFantasyPlayoffs, simulateFantasyWeek, simulateFullSeason } from './simulation';
 import { generateAiLeagueMembers, AI_ARCHETYPES, buildRosterForArchetype } from './aiOpponents';
 import { PLAYERS_DATABASE } from './players';
 import { countRosterGroups, getDraftPositionGroup, minimumCompletionCost, validateRosterShape } from './rosterRules';
-import { getLiveFantasyDraftGroup, LIVE_FANTASY_POSITION_LIMITS, validateLiveFantasyRoster } from './liveFantasyRules';
+import { CPU_LIVE_FANTASY_POSITION_LIMITS, getLiveFantasyDraftGroup, validateLiveFantasyRoster } from './liveFantasyRules';
 import { isCloudConfigured, ensureOnlineSession, supabase } from './supabase';
 import {
   createCloudLeague, joinCloudLeague, loadMyCloudLeagues, fetchCloudLeague,
   saveMyCloudRoster, updateCloudLeague, upsertAiCloudMembers, deleteCloudMember,
   subscribeToCloudLeague, joinOrCreatePublicCloudLeague, lockPublicLeagueForCpuFill,
   reopenPublicLeagueMatchmaking, startCloudLiveFantasyDraft, makeCloudLiveFantasyDraftPick,
-  finalizeCloudLiveFantasyDraftRosters,
+  finalizeCloudLiveFantasyDraftRosters, importOfflineFantasyDraft as importCloudOfflineFantasyDraft,
   resetCloudLeagueForNextSeason,
 } from './leagueCloud';
 import {
@@ -43,7 +44,7 @@ interface BallKnowerContextType {
   activeLeague: League | null;
   setActiveLeagueId: (id: string | null) => void;
   
-  createLeague: (name: string, maxMembers: number, draftSchedule: { draftScheduledAt: string; draftTimezone: string }, salaryCap?: number) => Promise<League>;
+  createLeague: (name: string, maxMembers: number, draftSchedule: { draftScheduledAt: string; draftTimezone: string }, salaryCap?: number, initialSettings?: import('./types').LeagueSettings) => Promise<League>;
   joinLeague: (code: string) => Promise<{ success: boolean; message: string; league?: League }>;
   joinPublicLeague: () => Promise<{ success: boolean; message: string; league?: League }>;
   
@@ -88,9 +89,10 @@ interface BallKnowerContextType {
   startLiveFantasyDraft: (leagueId: string) => Promise<boolean>;
   makeLiveFantasyDraftPick: (leagueId: string, player: Player) => Promise<boolean>;
   finalizeLiveFantasyDraftRosters: (leagueId: string) => Promise<boolean>;
+  importOfflineFantasyDraftResults: (leagueId:string,picks:{memberId:string;playerId:string}[])=>Promise<boolean>;
   resetLeagueSimulation: (leagueId: string) => Promise<void>;
   updateSalaryCap: (leagueId: string, newCap: number) => void;
-  updateLeagueSettings: (leagueId: string, settings: import('./types').LeagueSettings) => void;
+  updateLeagueSettings: (leagueId: string, settings: import('./types').LeagueSettings) => Promise<boolean>;
   
   // Demo Mode
   isDemoMode: boolean;
@@ -106,6 +108,24 @@ const STORAGE_KEYS = {
   USER: 'ballknower_user_v1',
   LEAGUES: 'ballknower_leagues_v1',
   ACTIVE_LEAGUE_ID: 'ballknower_active_league_id_v1',
+};
+
+const calendarSafeRegularSeasonWeeks=(settings:League['settings'])=>settings?.playoffTeams===4?16:15;
+const normalizeRestoredLocalLeague=(league:League):League=>{
+  const settings=league.settings||{};
+  const effectiveWeeks=Number(settings.regularSeasonWeeks??settings.seasonGames)||17;
+  const fantasyActive=Boolean(settings.fantasySeasonStarted)||Number(settings.currentWeek||1)>1;
+  if(effectiveWeeks!==17||fantasyActive)return league;
+  const regularSeasonWeeks=calendarSafeRegularSeasonWeeks(settings);
+  const result=league.seasonResult;
+  const orderIds=[...(result?.draftOrder||[])].sort((a,b)=>a.pickNumber-b.pickNumber).map(item=>item.memberId);
+  const canBuild=Boolean(result)&&league.members.length>=2&&league.members.length%2===0&&new Set(orderIds).size===league.members.length;
+  if(!canBuild)return{...league,settings:{...settings,regularSeasonWeeks}};
+  const fantasySchedule=Array.from({length:regularSeasonWeeks},(_,index)=>buildFantasyWeekPairings(league.members,index+1)).flat().map(game=>({...game,homeScore:0,awayScore:0,winnerId:'',loserId:'',isTie:false,keyMatchupFactor:'Scheduled fantasy matchup.'}));
+  const priorGames=result?.games||[];
+  const canonical=priorGames.length===fantasySchedule.length;
+  const draftOrderGameGames=result?.orderMethod==='random'||result?.orderMethod==='commissioner'?result?.draftOrderGameGames:(result?.draftOrderGameGames?.length?result.draftOrderGameGames:priorGames);
+  return{...league,settings:{...settings,regularSeasonWeeks},seasonResult:canonical?result:{...result!,games:fantasySchedule,draftOrderGameGames}};
 };
 
 const BallKnowerContext = createContext<BallKnowerContextType | undefined>(undefined);
@@ -134,7 +154,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.LEAGUES);
       if (saved) {
-        return JSON.parse(saved);
+      return (JSON.parse(saved) as League[]).map(normalizeRestoredLocalLeague);
       }
     } catch (e) {
       console.error(e);
@@ -160,7 +180,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       commissionerId: DEFAULT_USER.id,
       commissionerName: DEFAULT_USER.name,
       status: 'drafting',
-      settings: { seasonGames: 17, scoringFormat:'ppr', nflSeason:2026 },
+      settings: { seasonGames: 17, regularSeasonWeeks:15, scoringFormat:'ppr', nflSeason:2026 },
       members: [commissionerMember, ...aiMembers],
       createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
     };
@@ -497,11 +517,12 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     maxMembers: number,
     draftSchedule: { draftScheduledAt: string; draftTimezone: string },
     customCap = DEFAULT_SALARY_CAP,
+    initialSettings: import('./types').LeagueSettings = {},
   ): Promise<League> => {
     const user = currentUser || DEFAULT_USER;
     try {
       if (isCloudConfigured) {
-        const newLeague = await createCloudLeague(name, maxMembers, customCap, user, draftSchedule);
+        const newLeague = await createCloudLeague(name, maxMembers, customCap, user, draftSchedule, initialSettings);
         setLeagues(prev => [newLeague, ...prev.filter(l => l.id !== newLeague.id)]);
         setActiveLeagueId(newLeague.id);
         setCurrentRoster([]);
@@ -524,7 +545,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const newLeague: League = {
         id: leagueId, code: randomCode, name: name.trim() || 'Ball Knower League',
         maxMembers, salaryCap: customCap, commissionerId: user.id, commissionerName: user.name,
-        status: 'drafting', settings: { seasonGames: 17, scoringFormat:'ppr', nflSeason:2026, ...draftSchedule }, members: [commissionerMember], createdAt: new Date().toISOString(),
+        status: 'drafting', settings: { seasonGames: 17, regularSeasonWeeks:15, scoringFormat:'ppr', nflSeason:2026, playoffTeams:6, playoffSeeding:'record_points', tradeReview:'commissioner', waiverType:'priority', freeAgentMode:'instant', waiverDays:2, waiverProcessHourUtc:9, irSlots:2, benchSlots:6, rosterSize:15, draftFormat:'live_snake', ...draftSchedule, ...initialSettings }, members: [commissionerMember], createdAt: new Date().toISOString(),
       };
       setLeagues(prev => [newLeague, ...prev]);
       setActiveLeagueId(newLeague.id);
@@ -682,12 +703,14 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const fullResults = {
       ...simulateFullSeason(league.members, league.settings?.seasonGames || 17, league.settings?.simulationStyle || 'realistic'),
     };
+    const fantasyWeeks=Math.max(13,Math.min(17,Number(league.settings?.regularSeasonWeeks)||15));
+    const fantasySchedule=Array.from({length:fantasyWeeks},(_,index)=>buildFantasyWeekPairings(league.members,index+1)).flat().map(game=>({...game,homeScore:0,awayScore:0,winnerId:'',loserId:'',isTie:false,keyMatchupFactor:'Scheduled fantasy matchup.'}));
     const settings = isFantasySeason
       ? {...(league.settings || {}), currentWeek:1, fantasySeasonStarted:true, fantasySeasonComplete:false}
-      : league.settings;
+      : {...(league.settings||{}),regularSeasonWeeks:fantasyWeeks as LeagueSettings['regularSeasonWeeks']};
     const results = isFantasySeason
       ? {...fullResults, games:fullResults.games.filter(game => game.week === 1), standings:buildStandings(league.members, fullResults.games.filter(game => game.week === 1)), draftOrder:[], winnerAnalysis:{winnerId:'',winnerName:'',summary:'The fantasy season is underway.',keyFactors:[]}}
-      : {...fullResults, orderMethod:'game' as const};
+      : {...fullResults, games:fantasySchedule, draftOrderGameGames:fullResults.games, orderMethod:'game' as const};
     const nextStatus = isFantasySeason ? 'simulating' as const : 'completed' as const;
 
     if (isCloudConfigured) {
@@ -769,6 +792,10 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       showToast(`Only Commissioner ${getLeagueCommissionerName(league)} can finalize the draft order.`);
       return false;
     }
+    if (league.members.length < 2 || league.members.length % 2 !== 0) {
+      showToast('Fantasy schedules require an even league with at least two teams.');
+      return false;
+    }
 
     const uniqueIds = [...new Set(orderedMemberIds)];
     const memberIds = new Set(league.members.map(member => member.id));
@@ -806,11 +833,13 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       teamRating: member.teamRatings?.overall || 0,
       streak: '-',
     }));
+    const fantasyWeeks=Math.max(13,Math.min(17,Number(league.settings?.regularSeasonWeeks)||calendarSafeRegularSeasonWeeks(league.settings)));
+    const fantasySchedule=Array.from({length:fantasyWeeks},(_,index)=>buildFantasyWeekPairings(league.members,index+1)).flat().map(game=>({...game,homeScore:0,awayScore:0,winnerId:'',loserId:'',isTie:false,keyMatchupFactor:'Scheduled fantasy matchup.'}));
     const result = {
       completedAt: new Date().toISOString(),
       orderMethod: method,
       standings,
-      games: [],
+      games: fantasySchedule,
       draftOrder,
       winnerAnalysis: {
         winnerId: orderedMembers[0].id,
@@ -826,7 +855,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       },
       teamReports: {},
     };
-    const settings = { ...(league.settings || {}), draftOrderMethod: method };
+    const settings = { ...(league.settings || {}), regularSeasonWeeks:fantasyWeeks as LeagueSettings['regularSeasonWeeks'], draftOrderMethod: method };
 
     if (isCloudConfigured) {
       try {
@@ -876,7 +905,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           leagueId,
           status:'active',
           orderMemberIds:league.seasonResult.draftOrder.map(pick=>pick.memberId),
-          rounds:15,
+          rounds:league.settings?.rosterSize||15,
           pickIndex:0,
           picks:[],
           startedAt:now,
@@ -920,7 +949,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if(!member.isAi&&member.userId!==currentUser?.id)throw new Error(`${member.userName} is on the clock.`);
         if(current.picks.some(pick=>pick.playerId===player.id))throw new Error('That player was already drafted.');
         const groupCount=current.picks.filter(pick=>pick.memberId===memberId&&pick.group===group).length;
-        if(groupCount>=LIVE_FANTASY_POSITION_LIMITS[group])throw new Error(`${member.userName} reached the ${group} roster limit.`);
+        if(member.isAi&&groupCount>=CPU_LIVE_FANTASY_POSITION_LIMITS[group])throw new Error(`${member.userName} reached the ${group} CPU roster limit.`);
         const nextIndex=current.pickIndex+1;
         const now=new Date().toISOString();
         draft={
@@ -983,6 +1012,42 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
+  const importOfflineFantasyDraftResults = async (leagueId:string,picks:{memberId:string;playerId:string}[]):Promise<boolean> => {
+    const league=leagues.find(item=>item.id===leagueId);
+    try{
+      if(!league||league.settings?.draftFormat!=='offline')throw new Error('League is not configured for Offline Results.');
+      if(league.liveDraft?.status==='completed'||league.settings?.fantasySeasonStarted||league.settings?.fantasySeasonComplete)throw new Error('Offline draft results can only be imported before the draft is finalized.');
+      if(!isLeagueCommissioner(league,currentUser?.id,isDemoMode))throw new Error('Commissioner authorization required.');
+      const rosterSize=Math.max(15,Math.min(20,Number(league.settings?.rosterSize)||15));
+      if(picks.length!==league.members.length*rosterSize)throw new Error(`Offline draft requires exactly ${league.members.length*rosterSize} picks.`);
+      if(new Set(picks.map(pick=>pick.playerId)).size!==picks.length)throw new Error('A player appears more than once.');
+      const playerById=new Map(PLAYERS_DATABASE.map(player=>[player.id,player]));
+      const now=new Date().toISOString();
+      const draftPicks=picks.map((pick,index)=>{
+        const member=league.members.find(item=>item.id===pick.memberId);const player=playerById.get(pick.playerId);const group=player&&getLiveFantasyDraftGroup(player);
+        if(!member)throw new Error('Offline results contain an unknown member.');
+        if(!player||!group)throw new Error(`Invalid fantasy player ${pick.playerId}.`);
+        return{overall:index+1,round:Math.ceil((index+1)/league.members.length),memberId:member.id,playerId:player.id,group,pickedAt:now,source:'manual' as const};
+      });
+      for(const member of league.members){
+        const memberPicks=draftPicks.filter(pick=>pick.memberId===member.id);
+        if(memberPicks.length!==rosterSize)throw new Error(`Every manager needs ${rosterSize} picks.`);
+        if(member.isAi){const counts=memberPicks.reduce<Record<string,number>>((sum,pick)=>({...sum,[pick.group]:(sum[pick.group]||0)+1}),{});for(const [group,minimum] of Object.entries({QB:1,RB:2,WR:2,TE:1,K:1,DST:1}))if((counts[group]||0)<minimum||(counts[group]||0)>CPU_LIVE_FANTASY_POSITION_LIMITS[group as keyof typeof CPU_LIVE_FANTASY_POSITION_LIMITS])throw new Error('CPU offline results must retain realistic roster construction.');}
+      }
+      if(isCloudConfigured){
+        await importCloudOfflineFantasyDraft(leagueId,picks);
+        const fresh=await fetchCloudLeague(leagueId);if(!fresh)throw new Error('The finalized offline rosters could not be loaded.');
+        setLeagues(prev=>[fresh,...prev.filter(item=>item.id!==fresh.id)]);
+      }else{
+        const orderMemberIds=[...(league.seasonResult?.draftOrder||[])].sort((a,b)=>a.pickNumber-b.pickNumber).map(item=>item.memberId);
+        if(orderMemberIds.length!==league.members.length)throw new Error('Locked draft order is incomplete.');
+        const draft:LiveFantasyDraft={leagueId,status:'completed',orderMemberIds,rounds:rosterSize,pickIndex:draftPicks.length,picks:draftPicks,startedAt:now,pickSeconds:60,completedAt:now,updatedAt:now};
+        setLeagues(prev=>prev.map(item=>item.id===leagueId?applyLiveDraftRosterAssignments(item,draft,now):item));
+      }
+      showToast('Offline draft imported. All fantasy rosters are saved.');return true;
+    }catch(err:any){const message=err?.message||'Offline draft results could not be imported.';setCloudSyncError(message);showToast(message);return false;}
+  };
+
   // Commissioner: Reset Simulation
   const resetLeagueSimulation = async (leagueId: string) => {
     if (isCloudConfigured) {
@@ -999,7 +1064,11 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           ...l,
           status: 'drafting',
           seasonResult: undefined,
-          members: l.members.map(m => (m.isAi ? m : { ...m, status: 'building' })),
+          liveDraft: undefined,
+          rostersLocked: false,
+          draftCountdownStartedAt: undefined,
+          settings: {...l.settings,fantasySeasonStarted:false,fantasySeasonComplete:false,currentWeek:1},
+          members: l.members.map(m => ({...m,status:'building',roster:undefined,teamRatings:undefined,submittedAt:undefined,liveDraftReady:false,faabBalance:100,irPlayerIds:[]})),
         };
       })
     );
@@ -1029,15 +1098,13 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
 
-  const updateLeagueSettings = (leagueId: string, settings: import('./types').LeagueSettings) => {
-    setLeagues(prev => prev.map(l => l.id === leagueId ? { ...l, settings: { ...(l.settings || {}), ...settings } } : l));
-    if (isCloudConfigured) {
-      const league = leagues.find(l => l.id === leagueId);
-      const merged = { ...(league?.settings || {}), ...settings };
-      void updateCloudLeague(leagueId, { settings: merged })
-        .catch((err:any) => setCloudSyncError(err?.message || 'Could not sync commissioner settings'));
-    }
-    showToast('Commissioner settings updated');
+  const updateLeagueSettings = async (leagueId: string, settings: import('./types').LeagueSettings):Promise<boolean> => {
+    const league=leagues.find(item=>item.id===leagueId);const merged={...(league?.settings||{}),...settings};
+    try{
+      if(isCloudConfigured)await updateCloudLeague(leagueId,{settings:merged});
+      setLeagues(prev=>prev.map(item=>item.id===leagueId?{...item,settings:{...(item.settings||{}),...settings}}:item));
+      showToast('Commissioner settings updated');return true;
+    }catch(err:any){const message=err?.message||'Could not sync commissioner settings';setCloudSyncError(message);showToast(message);return false;}
   };
 
   // Demo Mode
@@ -1119,6 +1186,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         startLiveFantasyDraft,
         makeLiveFantasyDraftPick,
         finalizeLiveFantasyDraftRosters,
+        importOfflineFantasyDraftResults,
         resetLeagueSimulation,
         updateSalaryCap,
         updateLeagueSettings,

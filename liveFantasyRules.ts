@@ -10,8 +10,8 @@ export const LIVE_FANTASY_ROSTER_REQUIREMENTS = {
   DST: 1,
 } as const;
 
-/** Realistic 20-player roster caps prevent CPU hoarding while preserving bench flexibility. */
-export const LIVE_FANTASY_POSITION_LIMITS = {
+/** CPU-only construction targets. Human managers may draft any 15 eligible players. */
+export const CPU_LIVE_FANTASY_POSITION_LIMITS = {
   QB: 2,
   RB: 5,
   WR: 7,
@@ -28,18 +28,10 @@ export function getLiveFantasyDraftGroup(player: Player): LiveFantasyDraftGroup 
 }
 
 export function validateLiveFantasyRoster(roster: Player[]): string[] {
-  const counts: Partial<Record<LiveFantasyDraftGroup, number>> = {};
   const errors:string[]=[];
   roster.forEach(player => {
     const group=getLiveFantasyDraftGroup(player);
     if(!group){errors.push(`${player.name} is not eligible for this fantasy draft.`);return;}
-    counts[group]=(counts[group]||0)+1;
   });
-  for(const [group,limit] of Object.entries(LIVE_FANTASY_POSITION_LIMITS) as [LiveFantasyDraftGroup,number][]){
-    if((counts[group]||0)>limit)errors.push(`Too many ${group} players (${counts[group]}/${limit}).`);
-  }
-  for(const [group,minimum] of Object.entries(LIVE_FANTASY_ROSTER_REQUIREMENTS) as [LiveFantasyDraftGroup,number][]){
-    if((counts[group]||0)<minimum) errors.push(`Need ${minimum} ${group} player${minimum === 1 ? '' : 's'} (${counts[group]||0}/${minimum}).`);
-  }
   return errors;
 }

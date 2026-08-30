@@ -1,7 +1,7 @@
 import { calculateFantasyTeamRatings } from './fantasyEvaluation';
 import { PLAYERS_DATABASE } from './players';
 import { validateLiveFantasyRoster } from './liveFantasyRules';
-import { League, LiveFantasyDraft, Player, TeamRatings, TOTAL_ROSTER_SIZE } from './types';
+import { League, LiveFantasyDraft, Player, TeamRatings } from './types';
 
 export type LiveDraftRosterAssignment = {
   memberId: string;
@@ -18,8 +18,8 @@ export function buildLiveDraftRosterAssignments(
   if (draft.status !== 'completed') {
     throw new Error('The fantasy draft must be complete before rosters can be finalized.');
   }
-  if (draft.rounds !== TOTAL_ROSTER_SIZE) {
-    throw new Error(`The fantasy draft must contain exactly ${TOTAL_ROSTER_SIZE} rounds.`);
+  if (draft.rounds < 15 || draft.rounds > 20) {
+    throw new Error('The fantasy draft must contain 15-20 rounds.');
   }
 
   const leagueMemberIds = new Set(league.members.map(member => member.id));
@@ -31,7 +31,7 @@ export function buildLiveDraftRosterAssignments(
     throw new Error('The completed draft order no longer matches the league members.');
   }
 
-  const expectedPickCount = league.members.length * TOTAL_ROSTER_SIZE;
+  const expectedPickCount = league.members.length * draft.rounds;
   if (draft.picks.length !== expectedPickCount || draft.pickIndex !== expectedPickCount) {
     throw new Error(`The fantasy draft is missing picks (${draft.picks.length}/${expectedPickCount}).`);
   }
@@ -51,8 +51,8 @@ export function buildLiveDraftRosterAssignments(
       .map(pick => PLAYER_BY_ID.get(pick.playerId))
       .filter((player): player is Player => Boolean(player));
 
-    if (roster.length !== TOTAL_ROSTER_SIZE) {
-      throw new Error(`A completed fantasy roster has ${roster.length}/${TOTAL_ROSTER_SIZE} known players.`);
+    if (roster.length !== draft.rounds) {
+      throw new Error(`A completed fantasy roster has ${roster.length}/${draft.rounds} known players.`);
     }
     const rosterErrors = validateLiveFantasyRoster(roster);
     if (rosterErrors.length > 0) {

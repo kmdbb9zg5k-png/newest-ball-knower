@@ -65,21 +65,21 @@ function normalizeTank01PlayerStats(rawValue:unknown):FantasyStatLine{
     receiving.receivingTwoPointConversion,
   ].reduce<number>((sum,value)=>sum+coreNumeric(value),0);
   return {
-    passingYards:firstNumber(passing.passYds,passing.passingYards,raw.passYds),
-    passingTouchdowns:firstNumber(passing.passTD,passing.passingTDs,raw.passTD),
-    interceptionsThrown:firstNumber(passing.int,passing.interceptions,raw.int),
-    rushingYards:firstNumber(rushing.rushYds,rushing.rushingYards,raw.rushYds),
-    rushingTouchdowns:firstNumber(rushing.rushTD,rushing.rushingTDs,raw.rushTD),
-    receivingYards:firstNumber(receiving.recYds,receiving.receivingYards,raw.recYds),
-    receivingTouchdowns:firstNumber(receiving.recTD,receiving.receivingTDs,raw.recTD),
+    passingYards:firstNumber(passing.passYds,passing.passingYards,raw.passYds,raw.passingYards),
+    passingTouchdowns:firstNumber(passing.passTD,passing.passingTDs,raw.passTD,raw.passingTouchdowns),
+    interceptionsThrown:firstNumber(passing.int,passing.interceptions,raw.int,raw.interceptionsThrown),
+    rushingYards:firstNumber(rushing.rushYds,rushing.rushingYards,raw.rushYds,raw.rushingYards),
+    rushingTouchdowns:firstNumber(rushing.rushTD,rushing.rushingTDs,raw.rushTD,raw.rushingTouchdowns),
+    receivingYards:firstNumber(receiving.recYds,receiving.receivingYards,raw.recYds,raw.receivingYards),
+    receivingTouchdowns:firstNumber(receiving.recTD,receiving.receivingTDs,raw.recTD,raw.receivingTouchdowns),
     receptions:firstNumber(receiving.receptions,raw.receptions),
-    twoPointConversions:categorizedTwoPointConversions||firstNumber(raw.twoPointConversion),
+    twoPointConversions:categorizedTwoPointConversions||firstNumber(raw.twoPointConversion,raw.twoPointConversions),
     fumblesLost:firstNumber(defense.fumblesLost,raw.fumblesLost),
     returnTouchdowns:firstNumber(raw.returnTD,raw.returnTouchdowns,raw.specialTeamsTD),
-    fieldGoalsMade:firstNumber(kicking.fgMade,kicking.fieldGoalsMade,raw.fgMade),
-    fieldGoalsMissed:firstNumber(kicking.fgMissed,kicking.fieldGoalsMissed,raw.fgMissed),
-    extraPointsMade:firstNumber(kicking.xpMade,kicking.extraPointsMade,raw.xpMade),
-    extraPointsMissed:firstNumber(kicking.xpMissed,kicking.extraPointsMissed,raw.xpMissed),
+    fieldGoalsMade:firstNumber(kicking.fgMade,kicking.fieldGoalsMade,raw.fgMade,raw.fieldGoalsMade),
+    fieldGoalsMissed:firstNumber(kicking.fgMissed,kicking.fieldGoalsMissed,raw.fgMissed,raw.fieldGoalsMissed),
+    extraPointsMade:firstNumber(kicking.xpMade,kicking.extraPointsMade,raw.xpMade,raw.extraPointsMade),
+    extraPointsMissed:firstNumber(kicking.xpMissed,kicking.extraPointsMissed,raw.xpMissed,raw.extraPointsMissed),
   };
 }
 
@@ -141,6 +141,24 @@ function scoreFantasyDefense(stats:DefenseStatLine):number{
   );
 }
 
+function scoreDefenseWithLeagueOverrides(rawStats:unknown,customValue:unknown):number{
+  const custom=object(customValue);
+  const stats=normalizeTank01DefenseStats(rawStats);
+  const weight=(key:string,fallback:number)=>custom[key]===undefined?fallback:coreNumeric(custom[key]);
+  return rounded(
+    stats.sacks*weight('dstSack',1)
+    +(stats.interceptions+stats.fumbleRecoveries)*weight('dstTurnover',2)
+    +(stats.defensiveTouchdowns+stats.returnTouchdowns)*weight('dstTd',6)
+    +stats.safeties*2+stats.blockedKicks*2+defensePointsAllowed(stats.pointsAllowed),
+  );
+}
+
+function hasDefenseProjectionStats(rawValue:unknown):boolean{
+  const raw=object(rawValue);
+  return ['sacks','defensiveInterceptions','interceptions','fumblesRecovered','fumbleRecoveries','defTD','defensiveTouchdowns','returnTD','returnTouchdowns','ptsAllowed','pointsAllowed']
+    .some(key=>raw[key]!==undefined&&raw[key]!==null&&raw[key]!=='');
+}
+
 function allFormatScores(rawStats:unknown):Record<FantasyScoringFormat,number>{
   const stats=normalizeTank01PlayerStats(rawStats);
   return {
@@ -193,6 +211,21 @@ function scoreForFormat(
   format:FantasyScoringFormat,
 ):number{
   return coreNumeric(scores?.[format]);
+}
+
+function scoreWithLeagueOverrides(rawStats:unknown,format:FantasyScoringFormat,customValue:unknown):number{
+  const custom=object(customValue);
+  if(!Object.keys(custom).length)return scoreFantasyPlayer(normalizeTank01PlayerStats(rawStats),format);
+  const stats=normalizeTank01PlayerStats(rawStats);
+  const receptionDefault=format==='ppr'?1:format==='half_ppr'?0.5:0;
+  const weight=(key:string,fallback:number)=>custom[key]===undefined?fallback:coreNumeric(custom[key]);
+  return rounded(
+    stats.passingYards*weight('passYards',1/25)+stats.passingTouchdowns*weight('passTd',4)+stats.interceptionsThrown*weight('interception',-2)
+    +stats.rushingYards*weight('rushYards',0.1)+stats.rushingTouchdowns*weight('rushTd',6)
+    +stats.receivingYards*weight('recYards',0.1)+stats.receivingTouchdowns*weight('recTd',6)+stats.receptions*weight('reception',receptionDefault)
+    +stats.twoPointConversions*2+stats.fumblesLost*weight('fumbleLost',-2)+stats.returnTouchdowns*6
+    +stats.fieldGoalsMade*weight('fieldGoal',3)+stats.fieldGoalsMissed*-1+stats.extraPointsMade*weight('extraPoint',1)+stats.extraPointsMissed*-1,
+  );
 }
 
 export const config = { maxDuration: 60 };
@@ -543,6 +576,9 @@ export default async function handler(req:any,res:any){
 
     for(const league of activeLeagues){
       const format=normalizeScoringFormat(league.settings?.scoringFormat);
+      const customScoring=league.settings?.customScoring;
+      const usesCustomScoring=Object.keys(object(customScoring)).length>0;
+      const usesCustomDefenseScoring=['dstSack','dstTurnover','dstTd'].some(key=>object(customScoring)[key]!==undefined);
       for(const member of members.filter(item=>item.league_id===league.id)){
         const roster=member.roster||[];
         let lineup=lineupMap.get(`${league.id}|${member.id}`);
@@ -561,10 +597,18 @@ export default async function handler(req:any,res:any){
           const game=gameByTeam.get(teamForPlayer(player));
           if(game&&Date.parse(game.kickoff_at)<=now.getTime()) lockedIds.add(player.id);
           const playerScore=scoreByAppPlayer.get(player.id);
-          const actual=scoreForFormat(playerScore?.fantasy_points,format);
-          const projected=playerScore
-            ? scoreForFormat(playerScore.projected_points,format)
-            : projectionByAppPlayer.get(player.id)?.[format]||0;
+          const actual=playerScore
+            ? (player.position==='DST'?(usesCustomDefenseScoring?scoreDefenseWithLeagueOverrides(playerScore.stats,customScoring):scoreForFormat(playerScore.fantasy_points,format)):scoreWithLeagueOverrides(playerScore.stats,format,customScoring))
+            : 0;
+          const providerProjection=player.position==='DST'?undefined:providerProjectionByKey.get(playerKey(player.name,player.team));
+          const providerDefenseProjection=player.position==='DST'?defenseProjectionByTeam.get(teamForPlayer(player)):undefined;
+          const projected=player.position==='DST'&&usesCustomDefenseScoring
+            ? (hasDefenseProjectionStats(providerDefenseProjection)?liveProjectedPoints(actual,scoreDefenseWithLeagueOverrides(providerDefenseProjection,customScoring),game?.game_status,game?.game_period):actual)
+            : usesCustomScoring&&player.position!=='DST'
+            ? (providerProjection?liveProjectedPoints(actual,scoreWithLeagueOverrides(providerProjection,format,customScoring),game?.game_status,game?.game_period):actual)
+            : playerScore
+              ? scoreForFormat(playerScore.projected_points,format)
+              : projectionByAppPlayer.get(player.id)?.[format]||0;
           livePoints+=actual;
           projectedPoints+=projected;
           details.push({slot:slot.id,playerId:player.id,playerName:player.name,team:player.team,position:player.position,
