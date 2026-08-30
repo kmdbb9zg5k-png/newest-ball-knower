@@ -100,13 +100,15 @@ const fetchScoreboardRows = async () => {
 };
 
 /** Returns current NFL matchups/lines in the stable Picks API shape. */
-export default async function handler(_req: any, res: any) {
+export default async function handler(req: any, res: any) {
   try {
     const { rows, failureReason } = await fetchScoreboardRows();
     if (!rows.length) return sendUnavailable(res, failureReason);
 
     const now = Date.now();
-    const relevant = rows
+    const requestedIds = new Set(String(req?.query?.gameIds || '').split(',').filter(Boolean));
+    const requestedRows = rows.filter((g: any) => requestedIds.has(String(g?.game_id || g?.id || '')));
+    const currentRows = rows
       .filter((g: any) => {
         const date = g?.gameday || g?.game_date || g?.date || '';
         const when = Date.parse(kickoffIso(date, g?.gametime || g?.game_time) || date);
@@ -119,6 +121,7 @@ export default async function handler(_req: any, res: any) {
           - Date.parse(kickoffIso(bDate, b?.gametime || b?.game_time) || bDate);
       })
       .slice(0, 50);
+    const relevant = [...requestedRows, ...currentRows.filter((g: any) => !requestedIds.has(String(g?.game_id || g?.id || '')))];
 
     const games = relevant.map((g: any, i: number) => {
       const awayAbbr = normalizeTeamAbbr(g?.away_team || g?.away);
@@ -140,7 +143,11 @@ export default async function handler(_req: any, res: any) {
         homeAbbr,
         details: spread !== null ? `${spread > 0 ? homeAbbr : awayAbbr} ${Math.abs(spread)}` : null,
         spread,
+        homeSpread: spread === null ? null : spread > 0 ? -spread : spread < 0 ? Math.abs(spread) : 0,
+        awaySpread: spread === null ? null : spread > 0 ? spread : spread < 0 ? -Math.abs(spread) : 0,
         overUnder: numberOrNull(g?.total_line ?? g?.over_under ?? g?.total),
+        awayScore,
+        homeScore,
       };
     });
 
