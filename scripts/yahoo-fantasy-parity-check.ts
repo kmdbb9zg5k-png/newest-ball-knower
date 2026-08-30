@@ -64,7 +64,10 @@ assert.ok(simulationView.includes("specialDraftFormat?'':'min-[390px]:grid-cols-
 const essentials=readFileSync(new URL('../FantasyLeagueEssentials.tsx',import.meta.url),'utf8');
 assert.ok(essentials.includes('fantasyRosterSize'),'legacy fantasy views must use configured roster size');
 assert.ok(essentials.includes('<FantasyLeagueCommunications league={league} trades={trades}/>')&&!essentials.includes('TradingBlockAddRow'),'legacy fantasy views must reuse the owner-scoped communication surface');
-assert.ok(essentials.includes('void fetchFantasyCommunications(requestedLeagueId).then')&&!/Promise\.all\(\[\s*fetchFantasyParityState[\s\S]{0,300}fetchFantasyCommunications/.test(essentials),'communication failures must not block core league refresh state');
+const essentialsRefresh=essentials.slice(essentials.indexOf('const refresh = async'),essentials.indexOf('useEffect(() =>',essentials.indexOf('const refresh = async')));
+const coreRefreshPromise=essentialsRefresh.match(/const \[parity, ops\] = await Promise\.all\(\[([\s\S]*?)\]\);/)?.[1]||'';
+assert.ok(/void fetchFantasyCommunications\(requestedLeagueId\)\.then/.test(essentialsRefresh)&&!/await\s+fetchFantasyCommunications/.test(essentialsRefresh)&&!coreRefreshPromise.includes('fetchFantasyCommunications'),'communication failures must not block core league refresh state');
+assert.ok(essentialsRefresh.includes('communicationRequestRef.current!==communicationRequestId'),'only the newest communication request may update the legacy trade-thread state');
 const parityCloud=readFileSync(new URL('../fantasyLeagueParityCloud.ts',import.meta.url),'utf8');
 assert.ok(parityCloud.includes("!Number.isFinite(priority)||priority<1"),'blank or invalid waiver priorities must be rejected rather than promoted to first');
 

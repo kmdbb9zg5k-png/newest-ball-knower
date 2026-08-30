@@ -103,18 +103,20 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   const [tradeGive, setTradeGive] = useState<string[]>([]);
   const [tradeGet, setTradeGet] = useState<string[]>([]);
   const leagueIdRef=useRef(league.id);
-  leagueIdRef.current=league.id;
+  const communicationRequestRef=useRef(0);
+  useEffect(()=>{leagueIdRef.current=league.id;communicationRequestRef.current+=1;},[league.id]);
   const roster = me?.roster || [];
   const refresh = async () => {
     try {
       setError("");
       const requestedLeagueId=league.id;
+      const communicationRequestId=++communicationRequestRef.current;
       void fetchFantasyCommunications(requestedLeagueId).then(communication=>{
-        if(leagueIdRef.current!==requestedLeagueId)return;
+        if(leagueIdRef.current!==requestedLeagueId||communicationRequestRef.current!==communicationRequestId)return;
         setTradeMessages([...communication.tradeMessages]);
         setCommunicationError('');
       }).catch(err=>{
-        if(leagueIdRef.current===requestedLeagueId)setCommunicationError(err instanceof Error?err.message:'Trade messages could not be loaded.');
+        if(leagueIdRef.current===requestedLeagueId&&communicationRequestRef.current===communicationRequestId)setCommunicationError(err instanceof Error?err.message:'Trade messages could not be loaded.');
       });
       const [parity, ops] = await Promise.all([
         fetchFantasyParityState(league.id, week, Number(league.settings.nflSeason) || 2026),
@@ -790,7 +792,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
                         >
                           Send Counter
                         </button>
-                        <div className="rounded-xl border border-white/10 p-3"><div className="text-[9px] font-black uppercase text-[#D4AF37]">Trade Thread</div>{communicationError&&<div className="mt-2 rounded-lg border border-red-400/20 bg-red-400/5 px-3 py-2 text-[10px] text-red-300">{communicationError}</div>}<div className="mt-2 max-h-40 space-y-1 overflow-y-auto">{tradeMessages.filter(item=>item.tradeId===selectedCounter.id).map(item=><div key={item.id} className={`rounded-lg px-3 py-2 text-xs ${item.senderAuthId===currentUser?.id?'ml-6 bg-[#D4AF37] text-black':'mr-6 bg-black/35'}`}>{item.body}</div>)}{!tradeMessages.some(item=>item.tradeId===selectedCounter.id)&&<div className="text-[10px] text-zinc-600">No trade messages yet.</div>}</div><div className="mt-2 flex gap-2"><input value={tradeMessageBodies[selectedCounter.id]||''} onChange={event=>setTradeMessageBodies(value=>({...value,[selectedCounter.id]:event.target.value}))} placeholder="Message about this trade…" className="min-h-11 min-w-0 flex-1 rounded-lg bg-black/40 px-3 text-xs"/><button disabled={!(tradeMessageBodies[selectedCounter.id]||'').trim()} onClick={()=>run(async()=>{await sendTradeThreadMessage(selectedCounter.id,tradeMessageBodies[selectedCounter.id]||'');setTradeMessageBodies(value=>({...value,[selectedCounter.id]:''}));},'Trade message sent.')} className="rounded-lg bg-[#D4AF37] px-3 text-[9px] font-black uppercase text-black">Send</button></div></div>
+                        <div className="rounded-xl border border-white/10 p-3"><div className="text-[9px] font-black uppercase text-[#D4AF37]">Trade Thread</div>{communicationError&&<div className="mt-2 rounded-lg border border-red-400/20 bg-red-400/5 px-3 py-2 text-[10px] text-red-300">{communicationError}</div>}<div className="mt-2 max-h-40 space-y-1 overflow-y-auto">{tradeMessages.filter(item=>item.tradeId===selectedCounter.id).map(item=><div key={item.id} className={`rounded-lg px-3 py-2 text-xs ${item.senderAuthId===currentUser?.id?'ml-6 bg-[#D4AF37] text-black':'mr-6 bg-black/35'}`}>{item.body}</div>)}{!tradeMessages.some(item=>item.tradeId===selectedCounter.id)&&<div className="text-[10px] text-zinc-600">No trade messages yet.</div>}</div><div className="mt-2 flex gap-2"><input value={tradeMessageBodies[selectedCounter.id]||''} onChange={event=>setTradeMessageBodies(value=>({...value,[selectedCounter.id]:event.target.value}))} placeholder="Message about this trade…" className="min-h-11 min-w-0 flex-1 rounded-lg bg-black/40 px-3 text-xs"/><button disabled={!(tradeMessageBodies[selectedCounter.id]||'').trim()} onClick={()=>run(async()=>{await sendTradeThreadMessage(selectedCounter.id,tradeMessageBodies[selectedCounter.id]||'');setTradeMessageBodies({...tradeMessageBodies,[selectedCounter.id]:''});},'Trade message sent.')} className="min-h-11 rounded-lg bg-[#D4AF37] px-3 text-[9px] font-black uppercase text-black">Send</button></div></div>
                       </>
                     )}
                   </>
