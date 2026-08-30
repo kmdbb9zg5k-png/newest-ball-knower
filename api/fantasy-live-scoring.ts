@@ -603,7 +603,7 @@ export default async function handler(req:any,res:any){
           const providerProjection=player.position==='DST'?undefined:providerProjectionByKey.get(playerKey(player.name,player.team));
           const providerDefenseProjection=player.position==='DST'?defenseProjectionByTeam.get(teamForPlayer(player)):undefined;
           const projected=player.position==='DST'&&usesCustomDefenseScoring
-            ? (hasDefenseProjectionStats(providerDefenseProjection)?liveProjectedPoints(actual,scoreDefenseWithLeagueOverrides(providerDefenseProjection,customScoring),game?.game_status,game?.game_period):0)
+            ? (hasDefenseProjectionStats(providerDefenseProjection)?liveProjectedPoints(actual,scoreDefenseWithLeagueOverrides(providerDefenseProjection,customScoring),game?.game_status,game?.game_period):(playerScore?scoreForFormat(playerScore.projected_points,format):projectionByAppPlayer.get(player.id)?.[format]||0))
             : usesCustomScoring&&player.position!=='DST'
             ? (providerProjection?liveProjectedPoints(actual,scoreWithLeagueOverrides(providerProjection,format,customScoring),game?.game_status,game?.game_period):0)
             : playerScore

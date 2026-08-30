@@ -10,7 +10,7 @@ alter table public.ball_knower_live_drafts
   validate constraint ball_knower_live_drafts_rounds_check;
 
 create or replace function ball_knower_private.validate_fantasy_league_settings()
-returns trigger language plpgsql set search_path='' as $function$
+returns trigger language plpgsql security definer set search_path='' as $function$
 declare s jsonb:=coalesce(new.settings,'{}'::jsonb);v integer;score record;
 begin
   if coalesce(s->>'scoringFormat','ppr') not in ('ppr','half_ppr','standard') then raise exception 'Invalid scoring format'; end if;
@@ -20,10 +20,6 @@ begin
   if coalesce(s->>'freeAgentMode','instant') not in ('instant','continuous') then raise exception 'Invalid free-agent mode'; end if;
   if coalesce(s->>'playoffSeeding','record_points') not in ('record_points','record_head_to_head','division_winners') then raise exception 'Invalid playoff seeding'; end if;
   v:=coalesce(nullif(s->>'regularSeasonWeeks','')::integer,17);if v not between 13 and 17 then raise exception 'Regular season must be 13-17 weeks';end if;
-  if tg_op='UPDATE'
-    and coalesce(old.settings->>'regularSeasonWeeks','17')<>coalesce(s->>'regularSeasonWeeks','17')
-    and exists(select 1 from jsonb_array_elements(coalesce(old.season_result->'games','[]'::jsonb)) game where not(game?'playoffRound'))
-  then raise exception 'Regular-season length is locked after the schedule is created';end if;
   v:=coalesce(nullif(s->>'playoffTeams','')::integer,6);if v not in (4,6,8) or v>new.max_members then raise exception 'Playoff field must be 4, 6 or 8 and fit the league';end if;
   v:=coalesce(nullif(s->>'benchSlots','')::integer,6);if v not between 6 and 11 then raise exception 'Bench slots must be 6-11';end if;
   if coalesce(nullif(s->>'rosterSize','')::integer,9+v)<>9+v then raise exception 'Roster size must equal nine starters plus bench slots';end if;
@@ -38,6 +34,18 @@ begin
     if score.key not in('passYards','passTd','interception','rushYards','rushTd','reception','recYards','recTd','fumbleLost','fieldGoal','extraPoint','dstSack','dstTurnover','dstTd') then raise exception 'Unknown custom scoring category %',score.key;end if;
     if score.value!~'^[-]?[0-9]+([.][0-9]+)?$' or score.value::numeric not between -100 and 100 then raise exception 'Invalid custom scoring value for %',score.key;end if;
   end loop;
+  if tg_op='UPDATE' then
+    if coalesce(old.settings->>'regularSeasonWeeks','17')<>coalesce(s->>'regularSeasonWeeks','17')
+      and exists(select 1 from jsonb_array_elements(coalesce(old.season_result->'games','[]'::jsonb)) game where not(game?'playoffRound'))
+    then raise exception 'Regular-season length is locked after the schedule is created';end if;
+    if (old.settings->'scoringFormat' is distinct from s->'scoringFormat' or old.settings->'customScoring' is distinct from s->'customScoring')
+      and exists(select 1 from public.ball_knower_weekly_scores where league_id=new.id and (is_final or live_points<>0))
+    then raise exception 'Scoring settings are locked after scoring begins';end if;
+    if old.settings->'playoffTeams' is distinct from s->'playoffTeams'
+      and (exists(select 1 from public.ball_knower_weekly_scores where league_id=new.id and week_number>coalesce(nullif(old.settings->>'regularSeasonWeeks','')::integer,17) and (is_final or live_points<>0))
+        or exists(select 1 from jsonb_array_elements(coalesce(old.season_result->'games','[]'::jsonb)) game where game?'playoffRound' and (coalesce(game->>'winnerId','')<>'' or coalesce(nullif(game->>'homeScore','')::numeric,0)<>0 or coalesce(nullif(game->>'awayScore','')::numeric,0)<>0)))
+    then raise exception 'Playoff field is locked after postseason scoring begins';end if;
+  end if;
   return new;
 end;$function$;
 revoke all on function ball_knower_private.validate_fantasy_league_settings() from public,anon,authenticated;
@@ -54,6 +62,24 @@ create table if not exists ball_knower_private.fantasy_acquisition_counters(
 );
 alter table ball_knower_private.fantasy_acquisition_counters enable row level security;
 revoke all on ball_knower_private.fantasy_acquisition_counters from public,anon,authenticated;
+create or replace function public.reset_ball_knower_league_for_next_season(p_league_id text)
+returns boolean language plpgsql security definer set search_path='' as $function$
+declare v_auth uuid:=(select auth.uid());
+begin
+  if v_auth is null then raise exception 'Authentication required';end if;
+  if not exists(select 1 from public.ball_knower_leagues where id=p_league_id and commissioner_auth_id=v_auth) then raise exception 'Commissioner authorization required';end if;
+  delete from public.ball_knower_weekly_scores where league_id=p_league_id;
+  delete from public.ball_knower_weekly_lineups where league_id=p_league_id;
+  delete from public.ball_knower_injury_rolls where league_id=p_league_id;
+  delete from public.ball_knower_live_drafts where league_id=p_league_id;
+  delete from ball_knower_private.fantasy_acquisition_counters where league_id=p_league_id;
+  update public.ball_knower_trades set status='cancelled',resolved_at=now() where league_id=p_league_id and status in('pending','accepted_pending_review');
+  update public.ball_knower_league_members set status='building',roster=null,team_ratings=null,submitted_at=null,live_draft_ready=false,faab_balance=100,ir_player_ids='[]'::jsonb where league_id=p_league_id;
+  update public.ball_knower_leagues set status='drafting',season_result=null,rosters_locked=false,draft_countdown_started_at=null,updated_at=now() where id=p_league_id;
+  return true;
+end;$function$;
+revoke all on function public.reset_ball_knower_league_for_next_season(text) from public,anon;
+grant execute on function public.reset_ball_knower_league_for_next_season(text) to authenticated,service_role;
 create or replace function ball_knower_private.enforce_fantasy_acquisition_limit()
 returns trigger language plpgsql security definer set search_path='' as $function$
 declare s jsonb;season_no integer;week_no integer;weekly_limit integer;season_limit integer;weekly_used integer;season_used integer;
@@ -82,12 +108,15 @@ declare s jsonb;week_no integer;deadline integer;
 begin
   select settings into s from public.ball_knower_leagues where id=new.league_id;
   week_no:=greatest(1,coalesce(nullif(s->>'currentWeek','')::integer,1));deadline:=coalesce(nullif(s->>'tradeDeadlineWeek','')::integer,11);
-  if week_no>deadline then raise exception 'The Week % trade deadline has passed',deadline;end if;
+  if week_no>deadline then
+    if tg_op='INSERT' then raise exception 'The Week % trade deadline has passed',deadline;
+    elsif tg_op='UPDATE' and old.status is distinct from new.status and new.status in('accepted_pending_review','accepted') then raise exception 'The Week % trade deadline has passed',deadline;end if;
+  end if;
   return new;
 end;$function$;
 revoke all on function ball_knower_private.enforce_fantasy_trade_deadline() from public,anon,authenticated;
 drop trigger if exists enforce_fantasy_trade_deadline on public.ball_knower_trades;
-create trigger enforce_fantasy_trade_deadline before insert on public.ball_knower_trades for each row execute function ball_knower_private.enforce_fantasy_trade_deadline();
+create trigger enforce_fantasy_trade_deadline before insert or update of status on public.ball_knower_trades for each row execute function ball_knower_private.enforce_fantasy_trade_deadline();
 
 -- Patch the reviewed authoritative pick function: CPU picks retain caps; human
 -- picks accept any eligible position until the 15-pick roster is full.
