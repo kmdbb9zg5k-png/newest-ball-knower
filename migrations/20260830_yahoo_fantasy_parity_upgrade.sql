@@ -76,7 +76,7 @@ begin
   delete from ball_knower_private.matchup_notification_receipts where league_id=p_league_id;
   update public.ball_knower_trades set status='cancelled',resolved_at=now() where league_id=p_league_id and status in('pending','accepted_pending_review');
   update public.ball_knower_league_members set status='building',roster=null,team_ratings=null,submitted_at=null,live_draft_ready=false,faab_balance=100,ir_player_ids='[]'::jsonb where league_id=p_league_id;
-  update public.ball_knower_leagues set status='drafting',season_result=null,rosters_locked=false,draft_countdown_started_at=null,settings=coalesce(settings,'{}'::jsonb)-'fantasySeasonStarted'-'fantasySeasonComplete'-'currentWeek'-'nflSeason',updated_at=now() where id=p_league_id;
+  update public.ball_knower_leagues set status='drafting',season_result=null,rosters_locked=false,draft_countdown_started_at=null,settings=(coalesce(settings,'{}'::jsonb)-'fantasySeasonStarted'-'fantasySeasonComplete'-'currentWeek'-'nflSeason')||jsonb_build_object('fantasySeasonResetAt',clock_timestamp()),updated_at=now() where id=p_league_id;
   return true;
 end;$function$;
 revoke all on function public.reset_ball_knower_league_for_next_season(text) from public,anon;
@@ -470,18 +470,19 @@ grant execute on function public.commissioner_set_ball_knower_waiver_priority(te
 
 create or replace function public.commissioner_import_ball_knower_offline_draft(p_league_id text,p_picks jsonb)
 returns boolean language plpgsql security definer set search_path='' as $function$
-declare member_count integer;pick_count integer;roster_size integer;member_row record;item jsonb;ord bigint;grp text;draft_picks jsonb:='[]'::jsonb;draft_order jsonb;league_settings jsonb;
+declare member_count integer;pick_count integer;roster_size integer;member_row record;item jsonb;ord bigint;grp text;draft_picks jsonb:='[]'::jsonb;draft_order jsonb;league_settings jsonb;activity_cutoff timestamptz;
 begin
   if not public.is_ball_knower_commissioner(p_league_id) then raise exception 'Commissioner only';end if;
   select settings into league_settings from public.ball_knower_leagues where id=p_league_id for update;
   if not found then raise exception 'League not found';end if;
   if coalesce(league_settings->>'draftFormat','live_snake')<>'offline' then raise exception 'League is not configured for offline results';end if;
+  activity_cutoff:=coalesce(nullif(league_settings->>'fantasySeasonResetAt','')::timestamptz,'-infinity'::timestamptz);
   if coalesce((league_settings->>'fantasySeasonStarted')::boolean,false)
     or coalesce((league_settings->>'fantasySeasonComplete')::boolean,false)
     or exists(select 1 from public.ball_knower_weekly_lineups where league_id=p_league_id)
     or exists(select 1 from public.ball_knower_weekly_scores where league_id=p_league_id)
-    or exists(select 1 from public.ball_knower_transactions where league_id=p_league_id)
-    or exists(select 1 from public.ball_knower_trades where league_id=p_league_id)
+    or exists(select 1 from public.ball_knower_transactions where league_id=p_league_id and created_at>=activity_cutoff)
+    or exists(select 1 from public.ball_knower_trades where league_id=p_league_id and created_at>=activity_cutoff)
   then raise exception 'Offline draft results are locked after season activity begins';end if;
   if jsonb_typeof(p_picks)<>'array' then raise exception 'Offline picks must be an array';end if;
   select count(*) into member_count from public.ball_knower_league_members where league_id=p_league_id;roster_size:=public.ball_knower_fantasy_roster_size(p_league_id);pick_count:=jsonb_array_length(p_picks);if member_count<2 or pick_count<>member_count*roster_size then raise exception 'Offline draft requires exactly % unique picks',member_count*roster_size;end if;

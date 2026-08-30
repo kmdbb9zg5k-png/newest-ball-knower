@@ -48,6 +48,7 @@ const seasonResetRpc=section(migration,'create or replace function public.reset_
 assert.ok(seasonResetRpc.includes('delete from ball_knower_private.fantasy_acquisition_counters'),'season resets must clear acquisition-limit counters');
 assert.ok(seasonResetRpc.includes('delete from ball_knower_private.matchup_notification_receipts'),'season resets must clear matchup reminder receipts');
 assert.ok(seasonResetRpc.includes("-'fantasySeasonStarted'-'fantasySeasonComplete'-'currentWeek'-'nflSeason'"),'season resets must clear lifecycle state before the next draft');
+assert.ok(seasonResetRpc.includes("jsonb_build_object('fantasySeasonResetAt',clock_timestamp())"),'season resets must mark the boundary for retained historical activity');
 const settingsValidator=section(migration,'create or replace function ball_knower_private.validate_fantasy_league_settings','revoke all on function ball_knower_private.validate_fantasy_league_settings');
 assert.ok(settingsValidator.includes('Scoring settings are locked after scoring begins')&&settingsValidator.includes('Playoff field and seeding are locked after postseason scoring begins')&&settingsValidator.includes("old.settings->'playoffSeeding'")&&settingsValidator.includes("old.settings->'divisionsEnabled'"),'database validation must prevent mixed scoring eras and bracket rewrites');
 assert.ok(settingsValidator.includes("nullif(old.settings->>'seasonGames','')")&&settingsValidator.includes("nullif(s->>'seasonGames','')"),'schedule locks must compare the effective legacy season length');
@@ -58,6 +59,8 @@ for(const format of ['live_snake','autopick','offline','mock'])assert.ok(create.
 const contextSource=readFileSync(new URL('../BallKnowerContext.tsx',import.meta.url),'utf8');
 const localOfflineImport=section(contextSource,'const importOfflineFantasyDraftResults','const resetLeagueSimulation');
 assert.ok(localOfflineImport.includes('applyLiveDraftRosterAssignments')&&localOfflineImport.includes('importCloudOfflineFantasyDraft'),'Offline Results must finalize both local and cloud league rosters');
+const offlineImportRpc=section(migration,'create or replace function public.commissioner_import_ball_knower_offline_draft','revoke all on function public.commissioner_import_ball_knower_offline_draft');
+assert.ok(offlineImportRpc.includes("league_settings->>'fantasySeasonResetAt'")&&offlineImportRpc.includes('created_at>=activity_cutoff'),'offline-import activity locks must ignore retained history from archived seasons');
 
 const scoringApi=readFileSync(new URL('../api/fantasy-live-scoring.ts',import.meta.url),'utf8');
 assert.ok(scoringApi.includes('scoreWithLeagueOverrides'),'custom league scoring must feed live totals');
