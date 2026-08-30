@@ -92,24 +92,24 @@ begin
   v_next:=replace(v_sql,
     E'v_group_limit:=case v_canonical_group when ''QB'' then 2 when ''RB'' then 5 when ''WR'' then 7 when ''TE'' then 2 when ''K'' then 2 when ''DST'' then 2 end;\n  if v_group_count>=v_group_limit then raise exception ''% reached the % roster limit'',v_member.user_name,v_canonical_group;end if;',
     E'if coalesce(v_member.is_ai,false) then\n    v_group_limit:=case v_canonical_group when ''QB'' then 2 when ''RB'' then 5 when ''WR'' then 7 when ''TE'' then 2 when ''K'' then 2 when ''DST'' then 2 end;\n    if v_group_count>=v_group_limit then raise exception ''% reached the % CPU roster limit'',v_member.user_name,v_canonical_group;end if;\n  end if;');
-  if v_next=v_sql then raise exception 'Human position-limit patch did not match authoritative draft function';end if;
+  if v_next=v_sql and position('CPU roster limit' in v_sql)=0 then raise exception 'Human position-limit patch did not match authoritative draft function';end if;
   v_sql:=v_next;
   v_next:=replace(v_next,
     E'else\n    if v_member.auth_user_id<>v_auth then',
     E'else\n    if coalesce((select settings->>''draftFormat'' from public.ball_knower_leagues where id=p_league_id),''live_snake'')=''autopick'' then raise exception ''This league uses an autopick-only draft'';end if;\n    if v_member.auth_user_id<>v_auth then');
-  if v_next=v_sql then raise exception 'Autopick-only manual-pick patch did not match authoritative draft function';end if;
+  if v_next=v_sql and position('This league uses an autopick-only draft' in v_sql)=0 then raise exception 'Autopick-only manual-pick patch did not match authoritative draft function';end if;
   execute v_next;
 
   select pg_get_functiondef('public.start_ball_knower_live_draft(text)'::regprocedure) into v_sql;
   v_next:=replace(v_sql,
     'if not found then raise exception ''League not found''; end if;',
     E'if not found then raise exception ''League not found''; end if;\n  if coalesce(v_league.settings->>''draftFormat'',''live_snake'') in (''offline'',''mock'',''auction'') then raise exception ''Use the selected draft format workspace instead of the live snake room'';end if;');
-  if v_next=v_sql then raise exception 'Draft-format guard did not match authoritative start function';end if;
+  if v_next=v_sql and position('Use the selected draft format workspace' in v_sql)=0 then raise exception 'Draft-format guard did not match authoritative start function';end if;
   v_sql:=v_next;
   v_next:=replace(v_next,
     E'insert into public.ball_knower_live_drafts(league_id,status,order_member_ids,rounds,pick_index,picks)\n  values(p_league_id,''active'',v_order,15,0,''[]''::jsonb)',
-    E'insert into public.ball_knower_live_drafts(league_id,status,order_member_ids,rounds,pick_index,picks,pick_seconds)\n  values(p_league_id,''active'',v_order,coalesce(nullif(v_league.settings->>''rosterSize'','''')::integer,15),0,''[]''::jsonb,case when coalesce(v_league.settings->>''draftFormat'',''live_snake'')=''autopick'' then 1 else 60 end)');
-  if v_next=v_sql then raise exception 'Draft round/clock patch did not match authoritative start function';end if;
+    E'insert into public.ball_knower_live_drafts(league_id,status,order_member_ids,rounds,pick_index,picks,pick_seconds)\n  values(p_league_id,''active'',v_order,coalesce(nullif(v_league.settings->>''rosterSize'','''')::integer,15),0,''[]''::jsonb,case when coalesce(v_league.settings->>''draftFormat'',''live_snake'')=''autopick'' then 15 else 60 end)');
+  if v_next=v_sql and position('coalesce(nullif(v_league.settings->>''rosterSize''' in v_sql)=0 then raise exception 'Draft round/clock patch did not match authoritative start function';end if;
   execute v_next;
 end;$patch$;
 
@@ -120,17 +120,31 @@ begin
   v_next:=replace(v_sql,
     'if p_now<v_scheduled_at then continue; end if;',
     'if p_now<v_scheduled_at then continue; end if; if coalesce(v_league.settings->>''draftFormat'',''live_snake'') in(''offline'',''mock'',''auction'') then continue;end if;');
-  if v_next=v_sql then raise exception 'Scheduled special-format guard did not match';end if;v_sql:=v_next;
+  if v_next=v_sql and position('Scheduled special-format guard' in v_sql)=0 and position('in (''offline'', ''mock'', ''auction'')' in v_sql)=0 and position('in(''offline'',''mock'',''auction'')' in v_sql)=0 then raise exception 'Scheduled special-format guard did not match';end if;v_sql:=v_next;
   v_next:=replace(v_next,
     'insert into public.ball_knower_live_drafts(league_id,status,order_member_ids,rounds,pick_index,picks,started_at,updated_at)',
     'insert into public.ball_knower_live_drafts(league_id,status,order_member_ids,rounds,pick_index,picks,started_at,updated_at,pick_seconds)');
-  if v_next=v_sql then raise exception 'Scheduled draft column patch did not match';end if;v_sql:=v_next;
+  if v_next=v_sql and position('updated_at, pick_seconds' in v_sql)=0 and position('updated_at,pick_seconds' in v_sql)=0 then raise exception 'Scheduled draft column patch did not match';end if;v_sql:=v_next;
   v_next:=replace(v_next,
     'values(v_league.id,''active'',v_order,15,0,''[]''::jsonb,p_now,p_now)',
-    'values(v_league.id,''active'',v_order,coalesce(nullif(v_league.settings->>''rosterSize'','''')::integer,15),0,''[]''::jsonb,p_now,p_now,case when coalesce(v_league.settings->>''draftFormat'',''live_snake'')=''autopick'' then 1 else 60 end)');
-  if v_next=v_sql then raise exception 'Scheduled draft value patch did not match';end if;
+    'values(v_league.id,''active'',v_order,coalesce(nullif(v_league.settings->>''rosterSize'','''')::integer,15),0,''[]''::jsonb,p_now,p_now,case when coalesce(v_league.settings->>''draftFormat'',''live_snake'')=''autopick'' then 15 else 60 end)');
+  if v_next=v_sql and position('coalesce(nullif(v_league.settings->>''rosterSize''' in v_sql)=0 then raise exception 'Scheduled draft value patch did not match';end if;
   execute v_next;
 end;$scheduled_format_patch$;
+
+-- Autopick-only rooms use the schema-valid 15-second clock, but the recovery
+-- worker treats every human turn as immediately due and can advance up to its
+-- existing bounded batch size per invocation.
+do $autopick_recovery_patch$
+declare v_sql text;v_next text;
+begin
+  select pg_get_functiondef('public.process_due_ball_knower_draft_picks(timestamptz)'::regprocedure) into v_sql;
+  v_next:=replace(v_sql,
+    E'exit when not coalesce(v_member.is_ai,false) and coalesce(v_draft.pick_deadline_at,''infinity''::timestamptz)>p_now;',
+    E'exit when not coalesce(v_member.is_ai,false) and coalesce((select settings->>''draftFormat'' from public.ball_knower_leagues where id=v_league_id),''live_snake'')<>''autopick'' and coalesce(v_draft.pick_deadline_at,''infinity''::timestamptz)>p_now;');
+  if v_next=v_sql and position('v_league_id), ''live_snake'') <> ''autopick''' in v_sql)=0 and position('v_league_id),''live_snake'')<>''autopick''' in v_sql)=0 then raise exception 'Autopick recovery patch did not match';end if;
+  execute v_next;
+end;$autopick_recovery_patch$;
 
 -- League-vote review reuses the existing hardened trade executor. The executor
 -- only accepts the internal flag after an idempotent majority vote RPC.
@@ -141,12 +155,12 @@ begin
   v_next:=replace(v_sql,
     'if v_review=''commissioner'' and not public.is_ball_knower_commissioner(t.league_id) then',
     'if v_review in(''commissioner'',''league_vote'') and (v_review=''league_vote'' or not public.is_ball_knower_commissioner(t.league_id)) then');
-  if v_next=v_sql then raise exception 'League-vote pending-review patch did not match trade resolver';end if;
+  if v_next=v_sql and position('v_review = ''league_vote''' in v_sql)=0 and position('v_review=''league_vote''' in v_sql)=0 then raise exception 'League-vote pending-review patch did not match trade resolver';end if;
   v_sql:=v_next;
   v_next:=replace(v_next,
     'if not public.is_ball_knower_commissioner(t.league_id) then raise exception ''Commissioner authorization required''; end if;',
     'if not public.is_ball_knower_commissioner(t.league_id) and coalesce(current_setting(''ball_knower.authorized_trade_vote'',true),'''')<>''approved'' then raise exception ''Trade review authorization required''; end if;');
-  if v_next=v_sql then raise exception 'League-vote approval patch did not match trade resolver';end if;
+  if v_next=v_sql and position('authorized_trade_vote' in v_sql)=0 then raise exception 'League-vote approval patch did not match trade resolver';end if;
   execute v_next;
 end;$trade_vote_patch$;
 
@@ -159,6 +173,7 @@ create table if not exists public.ball_knower_trade_votes(
 create index if not exists bk_trade_votes_user_idx on public.ball_knower_trade_votes(auth_user_id,updated_at desc);
 alter table public.ball_knower_trade_votes enable row level security;
 revoke all on public.ball_knower_trade_votes from public,anon,authenticated;grant select on public.ball_knower_trade_votes to authenticated;
+drop policy if exists bk_trade_votes_league_read on public.ball_knower_trade_votes;
 create policy bk_trade_votes_league_read on public.ball_knower_trade_votes for select to authenticated using(exists(select 1 from public.ball_knower_trades t where t.id=trade_id and public.can_access_ball_knower_league(t.league_id)));
 
 create or replace function public.vote_on_ball_knower_trade(p_trade_id uuid,p_vote text)
@@ -168,10 +183,15 @@ begin
   if me is null or p_vote not in('approve','veto') then raise exception 'Invalid trade vote';end if;
   select * into t from public.ball_knower_trades where id=p_trade_id for update;if not found or t.status<>'accepted_pending_review' then raise exception 'Trade is not awaiting a league vote';end if;
   if coalesce((select settings->>'tradeReview' from public.ball_knower_leagues where id=t.league_id),'commissioner')<>'league_vote' then raise exception 'This league does not use trade voting';end if;
+  select count(*) into eligible from public.ball_knower_league_members where league_id=t.league_id and not is_ai and id not in(t.proposer_member_id,t.recipient_member_id);needed:=floor(eligible/2.0)+1;
+  if eligible=0 then
+    if not public.is_ball_knower_commissioner(t.league_id) then raise exception 'No neutral voters are available; commissioner fallback required';end if;
+    if p_vote='veto' then update public.ball_knower_trades set status='vetoed',resolved_at=now() where id=t.id;return jsonb_build_object('status','vetoed','approvals',0,'vetoes',1,'needed',1,'fallback','commissioner');end if;
+    perform set_config('ball_knower.authorized_trade_vote','approved',true);result:=public.resolve_ball_knower_trade_v2_impl(t.id,'approved','{}'::text[]);perform set_config('ball_knower.authorized_trade_vote','',true);return result||jsonb_build_object('approvals',1,'vetoes',0,'needed',1,'fallback','commissioner');
+  end if;
   select id into my_member from public.ball_knower_league_members where league_id=t.league_id and auth_user_id=me and not is_ai;
   if my_member is null or my_member in(t.proposer_member_id,t.recipient_member_id) then raise exception 'Trade participants cannot vote on their own deal';end if;
   insert into public.ball_knower_trade_votes(trade_id,auth_user_id,vote) values(t.id,me,p_vote) on conflict(trade_id,auth_user_id) do update set vote=excluded.vote,updated_at=now();
-  select count(*) into eligible from public.ball_knower_league_members where league_id=t.league_id and not is_ai and id not in(t.proposer_member_id,t.recipient_member_id);needed:=floor(eligible/2.0)+1;
   select count(*) filter(where vote='approve'),count(*) filter(where vote='veto') into approvals,vetoes from public.ball_knower_trade_votes where trade_id=t.id;
   if vetoes>=needed then update public.ball_knower_trades set status='vetoed',resolved_at=now() where id=t.id;return jsonb_build_object('status','vetoed','approvals',approvals,'vetoes',vetoes,'needed',needed);end if;
   if approvals>=needed then perform set_config('ball_knower.authorized_trade_vote','approved',true);result:=public.resolve_ball_knower_trade_v2_impl(t.id,'approved','{}'::text[]);perform set_config('ball_knower.authorized_trade_vote','',true);return result||jsonb_build_object('approvals',approvals,'vetoes',vetoes,'needed',needed);end if;
@@ -213,6 +233,7 @@ create index if not exists bk_trade_messages_trade_idx on public.ball_knower_tra
 alter table public.ball_knower_trade_messages enable row level security;alter table public.ball_knower_trade_thread_reads enable row level security;revoke all on public.ball_knower_trade_messages,public.ball_knower_trade_thread_reads from anon,authenticated;grant select on public.ball_knower_trade_messages,public.ball_knower_trade_thread_reads to authenticated;
 drop policy if exists bk_trade_messages_participant_read on public.ball_knower_trade_messages;
 create policy bk_trade_messages_participant_read on public.ball_knower_trade_messages for select to authenticated using(exists(select 1 from public.ball_knower_trades t join public.ball_knower_league_members p on p.id=t.proposer_member_id join public.ball_knower_league_members r on r.id=t.recipient_member_id where t.id=trade_id and (select auth.uid()) in(p.auth_user_id,r.auth_user_id)));
+drop policy if exists bk_trade_thread_reads_owner on public.ball_knower_trade_thread_reads;
 create policy bk_trade_thread_reads_owner on public.ball_knower_trade_thread_reads for select to authenticated using(auth_user_id=(select auth.uid()));
 
 create table if not exists public.ball_knower_trading_block(
@@ -225,8 +246,11 @@ create table if not exists public.ball_knower_watched_players(
 create index if not exists bk_trading_block_league_idx on public.ball_knower_trading_block(league_id,updated_at desc);
 alter table public.ball_knower_trading_block enable row level security;alter table public.ball_knower_watched_players enable row level security;
 grant select,insert,update,delete on public.ball_knower_trading_block,public.ball_knower_watched_players to authenticated;revoke all on public.ball_knower_trading_block,public.ball_knower_watched_players from anon;
+drop policy if exists bk_trading_block_league_read on public.ball_knower_trading_block;
 create policy bk_trading_block_league_read on public.ball_knower_trading_block for select to authenticated using(public.can_access_ball_knower_league(league_id));
+drop policy if exists bk_trading_block_owner_write on public.ball_knower_trading_block;
 create policy bk_trading_block_owner_write on public.ball_knower_trading_block for all to authenticated using(exists(select 1 from public.ball_knower_league_members m where m.id=member_id and m.league_id=league_id and m.auth_user_id=(select auth.uid()))) with check(exists(select 1 from public.ball_knower_league_members m where m.id=member_id and m.league_id=league_id and m.auth_user_id=(select auth.uid())));
+drop policy if exists bk_watched_players_owner on public.ball_knower_watched_players;
 create policy bk_watched_players_owner on public.ball_knower_watched_players for all to authenticated using(auth_user_id=(select auth.uid())) with check(auth_user_id=(select auth.uid()) and public.can_access_ball_knower_league(league_id));
 
 create or replace function ball_knower_private.notify_fantasy_user(p_league_id text,p_user uuid,p_title text,p_body text,p_kind text)

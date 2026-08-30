@@ -377,8 +377,12 @@ export function buildScoredFantasyGames(
   members: LeagueMember[],
   weeks: number,
   scores: FantasyWeeklyScoreRecord[],
+  persistedSchedule?: FantasyWeekPairing[],
 ): SimulationGame[] {
-  const schedule=Array.from({length:weeks},(_,index)=>buildFantasyWeekPairings(members,index+1)).flat();
+  const expectedGames=weeks*members.length/2;
+  const memberIds=new Set(members.map(member=>member.id));
+  const saved=(persistedSchedule||[]).filter(pairing=>pairing.week>=1&&pairing.week<=weeks&&pairing.homeMemberId!==pairing.awayMemberId&&memberIds.has(pairing.homeMemberId)&&memberIds.has(pairing.awayMemberId));
+  const schedule=saved.length===expectedGames?saved:Array.from({length:weeks},(_,index)=>buildFantasyWeekPairings(members,index+1)).flat();
   return schedule.flatMap(pairing=>{
     const home=scores.find(score=>score.week===pairing.week&&score.memberId===pairing.homeMemberId);
     const away=scores.find(score=>score.week===pairing.week&&score.memberId===pairing.awayMemberId);

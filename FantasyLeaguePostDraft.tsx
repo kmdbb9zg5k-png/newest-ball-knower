@@ -252,8 +252,13 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({ league, onGoToSimulati
   const starterIds = new Set(Object.values(starters).filter(Boolean));
   const bench = roster.filter(player => !starterIds.has(player.id) && !irIds.includes(player.id));
   const waiverType = settings.waiverType || 'priority';
-  const regularSeasonSchedule = useMemo(() => Array.from({length:maxWeek},(_,index) => buildFantasyWeekPairings(league.members,index+1)).flat(), [league.members,maxWeek]);
-  const scoredGames = useMemo(() => buildScoredFantasyGames(league.members,maxWeek,scores), [league.members,maxWeek,scores]);
+  const regularSeasonSchedule = useMemo(() => {
+    const memberIds=new Set(league.members.map(member=>member.id));
+    const persisted=(league.seasonResult?.games||[]).filter(game=>!game.playoffRound&&game.week>=1&&game.week<=maxWeek&&game.homeMemberId!==game.awayMemberId&&memberIds.has(game.homeMemberId)&&memberIds.has(game.awayMemberId)).map(game=>({id:game.id,week:game.week,homeMemberId:game.homeMemberId,awayMemberId:game.awayMemberId}));
+    const expected=maxWeek*league.members.length/2;
+    return persisted.length===expected?persisted:Array.from({length:maxWeek},(_,index) => buildFantasyWeekPairings(league.members,index+1)).flat();
+  }, [league.members,league.seasonResult?.games,maxWeek]);
+  const scoredGames = useMemo(() => buildScoredFantasyGames(league.members,maxWeek,scores,regularSeasonSchedule), [league.members,maxWeek,scores,regularSeasonSchedule]);
   const visibleStandings = useMemo(() => seedFantasyStandings(buildStandings(league.members,scoredGames),scoredGames,settings.playoffSeeding||'record_points',league.seasonResult?.draftOrder?.map(item=>item.memberId)||league.members.map(item=>item.id),settings.divisionCount||2), [league.members,league.seasonResult?.draftOrder,scoredGames,settings.playoffSeeding,settings.divisionCount]);
   const expectedRegularGames=maxWeek*league.members.length/2;
   const regularSeasonComplete=scoredGames.length===expectedRegularGames;

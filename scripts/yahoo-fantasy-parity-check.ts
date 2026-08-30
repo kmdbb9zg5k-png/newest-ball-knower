@@ -23,7 +23,9 @@ for(const required of [
   'enforce_fantasy_acquisition_limit','enforce_fantasy_trade_deadline','vote_on_ball_knower_trade',
   'commissioner_set_ball_knower_waiver_priority','commissioner_edit_ball_knower_matchup',
   'commissioner_import_ball_knower_offline_draft','process_due_ball_knower_matchup_notifications',
+  "then 15 else 60 end",'Autopick recovery patch did not match','eligible=0','drop policy if exists bk_trade_votes_league_read',
 ])assert.ok(migration.includes(required),`migration is missing ${required}`);
+assert.ok(!migration.includes("then 1 else 60 end"),'autopick clock must satisfy the existing 15-second minimum');
 assert.match(migration,/participant_a,participant_b[\s\S]*auth\.uid\(\)/,'DM policy must be permanent-auth owner scoped');
 assert.match(migration,/Trade participants cannot vote|Trade participants cannot vote on their own deal/,'trade voting must exclude deal participants');
 assert.match(migration,/rounds between 15 and 20/,'custom bench depth must remain bounded to 15–20 players');
@@ -37,5 +39,6 @@ assert.ok(scoringApi.includes('scoreWithLeagueOverrides'),'custom league scoring
 const postDraft=readFileSync(new URL('../FantasyLeaguePostDraft.tsx',import.meta.url),'utf8');
 assert.ok(postDraft.includes('fantasyRosterSize'),'post-draft moves and trades must use the fantasy roster size');
 assert.ok(!postDraft.includes('TOTAL_ROSTER_SIZE'),'20-player Draft Order Game constants must not leak into standard fantasy moves');
+assert.ok(postDraft.includes('regularSeasonSchedule'),'commissioner schedule edits must feed live scoring and standings');
 
 console.log('Yahoo fantasy parity checks passed: ugly human roster, strict weekly lineup, private communications, commissioner rules, event notifications, and safe draft formats.');
