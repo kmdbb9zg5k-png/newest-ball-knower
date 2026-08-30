@@ -42,7 +42,10 @@ assert.ok(migration.includes('Playoff field is locked after the schedule is crea
 const matchupEditRpc=section(migration,'create or replace function public.commissioner_edit_ball_knower_matchup','revoke all on function public.commissioner_set_ball_knower_waiver_priority');
 assert.ok(matchupEditRpc.includes('week_number=p_week and kickoff_at<=now()'),'commissioner matchup edits must lock at NFL kickoff even before fantasy points are scored');
 assert.ok(migration.includes('not is_ai and auth_user_id is not null'),'league-vote quorum must count only authenticated neutral voters');
+assert.ok(migration.includes('m.auth_user_id=v.auth_user_id')&&migration.includes('m.id not in(t.proposer_member_id,t.recipient_member_id)'),'trade-vote totals must count only current neutral league members');
 assert.ok(migration.includes('p is null or r is null or(me is distinct from p and me is distinct from r)'),'trade-thread writes must require two resolved human participants');
+assert.ok(migration.includes('Both managers must remain league members')&&migration.includes('count(distinct m.auth_user_id)'),'DM sends must recheck both participants against current league membership');
+assert.ok(migration.includes('m.league_id=ball_knower_dm_threads.league_id'),'DM thread reads must require current league membership');
 assert.match(migration,/if tg_op='INSERT' then null;[\s\S]*elsif tg_op='UPDATE' then if old\.pick_index/,'draft INSERT notifications must not dereference OLD');
 const deadlineGuard=section(migration,'create or replace function ball_knower_private.enforce_fantasy_trade_deadline','revoke all on function ball_knower_private.enforce_fantasy_trade_deadline');
 assert.ok(deadlineGuard.includes("new.status in('accepted_pending_review','accepted')")&&migration.includes('before insert or update of status on public.ball_knower_trades'),'trade deadlines must be rechecked when a deal is accepted or executed');

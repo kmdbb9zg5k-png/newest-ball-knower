@@ -256,7 +256,10 @@ begin
   select id into my_member from public.ball_knower_league_members where league_id=t.league_id and auth_user_id=me and not is_ai;
   if my_member is null or my_member in(t.proposer_member_id,t.recipient_member_id) then raise exception 'Trade participants cannot vote on their own deal';end if;
   insert into public.ball_knower_trade_votes(trade_id,auth_user_id,vote) values(t.id,me,p_vote) on conflict(trade_id,auth_user_id) do update set vote=excluded.vote,updated_at=now();
-  select count(*) filter(where vote='approve'),count(*) filter(where vote='veto') into approvals,vetoes from public.ball_knower_trade_votes where trade_id=t.id;
+  select count(*) filter(where v.vote='approve'),count(*) filter(where v.vote='veto') into approvals,vetoes
+  from public.ball_knower_trade_votes v where v.trade_id=t.id and exists(
+    select 1 from public.ball_knower_league_members m where m.league_id=t.league_id and m.auth_user_id=v.auth_user_id and not m.is_ai and m.id not in(t.proposer_member_id,t.recipient_member_id)
+  );
   if vetoes>=needed then update public.ball_knower_trades set status='vetoed',resolved_at=now() where id=t.id;return jsonb_build_object('status','vetoed','approvals',approvals,'vetoes',vetoes,'needed',needed);end if;
   if approvals>=needed then perform set_config('ball_knower.authorized_trade_vote','approved',true);result:=public.resolve_ball_knower_trade_v2_impl(t.id,'approved','{}'::text[]);perform set_config('ball_knower.authorized_trade_vote','',true);return result||jsonb_build_object('approvals',approvals,'vetoes',vetoes,'needed',needed);end if;
   return jsonb_build_object('status','accepted_pending_review','approvals',approvals,'vetoes',vetoes,'needed',needed);
@@ -282,9 +285,9 @@ alter table public.ball_knower_dm_threads enable row level security;alter table 
 revoke all on public.ball_knower_dm_threads,public.ball_knower_dm_messages from anon,authenticated;
 grant select on public.ball_knower_dm_threads,public.ball_knower_dm_messages to authenticated;
 drop policy if exists bk_dm_threads_private_read on public.ball_knower_dm_threads;
-create policy bk_dm_threads_private_read on public.ball_knower_dm_threads for select to authenticated using((select auth.uid()) in (participant_a,participant_b));
+create policy bk_dm_threads_private_read on public.ball_knower_dm_threads for select to authenticated using((select auth.uid()) in (participant_a,participant_b) and exists(select 1 from public.ball_knower_league_members m where m.league_id=ball_knower_dm_threads.league_id and m.auth_user_id=(select auth.uid()) and not m.is_ai));
 drop policy if exists bk_dm_messages_private_read on public.ball_knower_dm_messages;
-create policy bk_dm_messages_private_read on public.ball_knower_dm_messages for select to authenticated using(exists(select 1 from public.ball_knower_dm_threads t where t.id=thread_id and (select auth.uid()) in(t.participant_a,t.participant_b)));
+create policy bk_dm_messages_private_read on public.ball_knower_dm_messages for select to authenticated using(exists(select 1 from public.ball_knower_dm_threads t join public.ball_knower_league_members m on m.league_id=t.league_id and m.auth_user_id=(select auth.uid()) and not m.is_ai where t.id=thread_id and (select auth.uid()) in(t.participant_a,t.participant_b)));
 
 create table if not exists public.ball_knower_trade_messages(
   id uuid primary key default gen_random_uuid(),trade_id uuid not null references public.ball_knower_trades(id) on delete cascade,
@@ -355,6 +358,7 @@ returns uuid language plpgsql security definer set search_path='' as $function$
 declare me uuid:=(select auth.uid());t public.ball_knower_dm_threads%rowtype;message_id uuid;recipient uuid;sender_name text;
 begin
   select * into t from public.ball_knower_dm_threads where id=p_thread_id for update;if not found or me not in(t.participant_a,t.participant_b) then raise exception 'Private thread access denied';end if;
+  if (select count(distinct m.auth_user_id) from public.ball_knower_league_members m where m.league_id=t.league_id and not m.is_ai and m.auth_user_id in(t.participant_a,t.participant_b))<>2 then raise exception 'Both managers must remain league members';end if;
   if length(btrim(coalesce(p_body,''))) not between 1 and 1000 then raise exception 'Message must be 1-1000 characters';end if;
   insert into public.ball_knower_dm_messages(thread_id,sender_auth_id,body) values(t.id,me,btrim(p_body)) returning id into message_id;
   recipient:=case when me=t.participant_a then t.participant_b else t.participant_a end;
@@ -364,7 +368,7 @@ begin
 end;$function$;
 create or replace function public.mark_ball_knower_dm_read(p_thread_id uuid)
 returns void language plpgsql security definer set search_path='' as $function$
-declare me uuid:=(select auth.uid());begin update public.ball_knower_dm_threads set last_read_a_at=case when participant_a=me then now() else last_read_a_at end,last_read_b_at=case when participant_b=me then now() else last_read_b_at end where id=p_thread_id and me in(participant_a,participant_b);if not found then raise exception 'Private thread access denied';end if;end;$function$;
+declare me uuid:=(select auth.uid());begin update public.ball_knower_dm_threads set last_read_a_at=case when participant_a=me then now() else last_read_a_at end,last_read_b_at=case when participant_b=me then now() else last_read_b_at end where id=p_thread_id and me in(participant_a,participant_b) and exists(select 1 from public.ball_knower_league_members m where m.league_id=ball_knower_dm_threads.league_id and m.auth_user_id=me and not m.is_ai);if not found then raise exception 'Private thread access denied';end if;end;$function$;
 create or replace function public.send_ball_knower_trade_message(p_trade_id uuid,p_body text)
 returns uuid language plpgsql security definer set search_path='' as $function$
 declare me uuid:=(select auth.uid());t public.ball_knower_trades%rowtype;p uuid;r uuid;message_id uuid;
