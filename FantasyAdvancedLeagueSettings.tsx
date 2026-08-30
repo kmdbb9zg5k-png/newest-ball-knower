@@ -10,6 +10,7 @@ const option=(value:string,label:string)=>[value,label] as const;
 export const FantasyAdvancedLeagueSettings:React.FC<Props>=({league,disabled=false})=>{
   const {updateLeagueSettings,showToast}=useBallKnower();
   const settings=league.settings||{};
+  const scheduleLocked=Boolean(league.seasonResult?.games?.some(game=>!game.playoffRound));
   const [open,setOpen]=useState(false);
   const update=(patch:LeagueSettings)=>{if(!disabled)updateLeagueSettings(league.id,patch);};
   return <div className="rounded-xl border border-white/10 bg-black/20 p-3">
@@ -18,7 +19,7 @@ export const FantasyAdvancedLeagueSettings:React.FC<Props>=({league,disabled=fal
       <p className="text-[10px] leading-4 text-zinc-500">The default remains nine required starters plus six bench spots. Custom bench depth never adds OL, DL, IDP or NFL salary-cap rules.</p>
       <div className="grid gap-2 sm:grid-cols-3">
         <Select label="Scoring" value={settings.scoringFormat||'ppr'} disabled={disabled} options={[option('ppr','Full PPR'),option('half_ppr','Half PPR'),option('standard','Standard')]} onChange={value=>update({scoringFormat:value as LeagueSettings['scoringFormat']})}/>
-        <Select label="Regular Season" value={String(settings.regularSeasonWeeks||17)} disabled={disabled} options={[13,14,15,16,17].map(value=>option(String(value),`${value} Weeks`))} onChange={value=>update({regularSeasonWeeks:Number(value) as LeagueSettings['regularSeasonWeeks']})}/>
+        <Select label="Regular Season" value={String(settings.regularSeasonWeeks||17)} disabled={disabled||scheduleLocked} options={[13,14,15,16,17].map(value=>option(String(value),`${value} Weeks`))} onChange={value=>update({regularSeasonWeeks:Number(value) as LeagueSettings['regularSeasonWeeks']})}/>
         <Select label="Playoffs" value={String(settings.playoffTeams||6)} disabled={disabled} options={[4,6,8].filter(value=>value<=league.maxMembers).map(value=>option(String(value),`${value} Teams`))} onChange={value=>update({playoffTeams:Number(value) as LeagueSettings['playoffTeams']})}/>
         <Select label="Seeding" value={settings.playoffSeeding||'record_points'} disabled={disabled} options={[option('record_points','Record → Points'),option('record_head_to_head','Record → H2H'),option('division_winners','Division Winners')]} onChange={value=>update({playoffSeeding:value as LeagueSettings['playoffSeeding']})}/>
         <Select label="Trade Review" value={settings.tradeReview||'commissioner'} disabled={disabled} options={[option('none','None'),option('commissioner','Commissioner'),option('league_vote','League Vote')]} onChange={value=>update({tradeReview:value as LeagueSettings['tradeReview']})}/>

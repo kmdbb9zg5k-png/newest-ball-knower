@@ -558,6 +558,8 @@ export default async function handler(req:any,res:any){
 
     for(const league of activeLeagues){
       const format=normalizeScoringFormat(league.settings?.scoringFormat);
+      const customScoring=league.settings?.customScoring;
+      const usesCustomScoring=Object.keys(object(customScoring)).length>0;
       for(const member of members.filter(item=>item.league_id===league.id)){
         const roster=member.roster||[];
         let lineup=lineupMap.get(`${league.id}|${member.id}`);
@@ -579,9 +581,12 @@ export default async function handler(req:any,res:any){
           const actual=playerScore
             ? (player.position==='DST'?scoreForFormat(playerScore.fantasy_points,format):scoreWithLeagueOverrides(playerScore.stats,format,league.settings?.customScoring))
             : 0;
-          const projected=playerScore
-            ? scoreForFormat(playerScore.projected_points,format)
-            : projectionByAppPlayer.get(player.id)?.[format]||0;
+          const providerProjection=player.position==='DST'?undefined:providerProjectionByKey.get(playerKey(player.name,player.team));
+          const projected=usesCustomScoring&&player.position!=='DST'
+            ? (providerProjection?liveProjectedPoints(actual,scoreWithLeagueOverrides(providerProjection,format,customScoring),game?.game_status,game?.game_period):0)
+            : playerScore
+              ? scoreForFormat(playerScore.projected_points,format)
+              : projectionByAppPlayer.get(player.id)?.[format]||0;
           livePoints+=actual;
           projectedPoints+=projected;
           details.push({slot:slot.id,playerId:player.id,playerName:player.name,team:player.team,position:player.position,

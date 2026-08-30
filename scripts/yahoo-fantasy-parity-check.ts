@@ -31,6 +31,9 @@ assert.ok(!migration.includes("then 1 else 60 end"),'autopick clock must satisfy
 assert.match(migration,/participant_a,participant_b[\s\S]*auth\.uid\(\)/,'DM policy must be permanent-auth owner scoped');
 assert.match(migration,/Trade participants cannot vote|Trade participants cannot vote on their own deal/,'trade voting must exclude deal participants');
 assert.match(migration,/rounds between 15 and 20/,'custom bench depth must remain bounded to 15–20 players');
+assert.ok(migration.includes('Offline draft results are locked after season activity begins'),'offline draft re-imports must lock before live season state can be invalidated');
+assert.ok(migration.includes("player->>'id'=player_id")&&migration.includes('remove_stale_trading_block_entries'),'Trading Block writes must prove roster ownership and stale entries must be removed');
+assert.ok(migration.includes('Regular-season length is locked after the schedule is created'),'the database must reject schedule-length drift after schedule creation');
 
 const create=readFileSync(new URL('../CreateLeagueModal.tsx',import.meta.url),'utf8');
 assert.ok(create.includes('Advanced League Settings'),'normal creation must keep advanced settings collapsed');
@@ -39,12 +42,15 @@ for(const format of ['live_snake','autopick','offline','mock'])assert.ok(create.
 const scoringApi=readFileSync(new URL('../api/fantasy-live-scoring.ts',import.meta.url),'utf8');
 assert.ok(scoringApi.includes('scoreWithLeagueOverrides'),'custom league scoring must feed live totals');
 assert.ok(scoringApi.includes('raw.passingYards')&&scoringApi.includes('raw.fieldGoalsMade'),'custom scoring must accept persisted normalized stat lines');
+assert.match(scoringApi,/providerProjection\?liveProjectedPoints\(actual,scoreWithLeagueOverrides\(providerProjection,format,customScoring\)/,'custom scoring must also drive compatible matchup projections');
 assert.ok(!create.includes("['autopick','offline'].includes"),'local Offline Results creation must remain available');
 const postDraft=readFileSync(new URL('../FantasyLeaguePostDraft.tsx',import.meta.url),'utf8');
 assert.ok(postDraft.includes('fantasyRosterSize'),'post-draft moves and trades must use the fantasy roster size');
 assert.ok(!postDraft.includes('TOTAL_ROSTER_SIZE'),'20-player Draft Order Game constants must not leak into standard fantasy moves');
 assert.ok(postDraft.includes('regularSeasonSchedule'),'commissioner schedule edits must feed live scoring and standings');
 assert.ok(postDraft.includes('effectiveSeeding'),'division-winner seeding must be disabled when divisions are off');
+const advancedSettings=readFileSync(new URL('../FantasyAdvancedLeagueSettings.tsx',import.meta.url),'utf8');
+assert.ok(advancedSettings.includes('disabled={disabled||scheduleLocked}'),'regular-season length must lock once a persisted schedule exists');
 const simulationView=readFileSync(new URL('../SimulationView.tsx',import.meta.url),'utf8');
 assert.match(simulationView,/!specialDraftFormat\s*&&\s*<button\s+id="sim-open-draft-btn"/,'special formats must not expose the live snake draft action');
 const essentials=readFileSync(new URL('../FantasyLeagueEssentials.tsx',import.meta.url),'utf8');

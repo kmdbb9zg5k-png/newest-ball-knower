@@ -20,6 +20,10 @@ begin
   if coalesce(s->>'freeAgentMode','instant') not in ('instant','continuous') then raise exception 'Invalid free-agent mode'; end if;
   if coalesce(s->>'playoffSeeding','record_points') not in ('record_points','record_head_to_head','division_winners') then raise exception 'Invalid playoff seeding'; end if;
   v:=coalesce(nullif(s->>'regularSeasonWeeks','')::integer,17);if v not between 13 and 17 then raise exception 'Regular season must be 13-17 weeks';end if;
+  if tg_op='UPDATE'
+    and coalesce(old.settings->>'regularSeasonWeeks','17')<>coalesce(s->>'regularSeasonWeeks','17')
+    and exists(select 1 from jsonb_array_elements(coalesce(old.season_result->'games','[]'::jsonb)) game where not(game?'playoffRound'))
+  then raise exception 'Regular-season length is locked after the schedule is created';end if;
   v:=coalesce(nullif(s->>'playoffTeams','')::integer,6);if v not in (4,6,8) or v>new.max_members then raise exception 'Playoff field must be 4, 6 or 8 and fit the league';end if;
   v:=coalesce(nullif(s->>'benchSlots','')::integer,6);if v not between 6 and 11 then raise exception 'Bench slots must be 6-11';end if;
   if coalesce(nullif(s->>'rosterSize','')::integer,9+v)<>9+v then raise exception 'Roster size must equal nine starters plus bench slots';end if;
@@ -251,7 +255,20 @@ grant select,insert,update,delete on public.ball_knower_trading_block,public.bal
 drop policy if exists bk_trading_block_league_read on public.ball_knower_trading_block;
 create policy bk_trading_block_league_read on public.ball_knower_trading_block for select to authenticated using(public.can_access_ball_knower_league(league_id));
 drop policy if exists bk_trading_block_owner_write on public.ball_knower_trading_block;
-create policy bk_trading_block_owner_write on public.ball_knower_trading_block for all to authenticated using(exists(select 1 from public.ball_knower_league_members m where m.id=member_id and m.league_id=league_id and m.auth_user_id=(select auth.uid()))) with check(exists(select 1 from public.ball_knower_league_members m where m.id=member_id and m.league_id=league_id and m.auth_user_id=(select auth.uid())));
+create policy bk_trading_block_owner_write on public.ball_knower_trading_block for all to authenticated
+using(exists(select 1 from public.ball_knower_league_members m where m.id=member_id and m.league_id=league_id and m.auth_user_id=(select auth.uid())))
+with check(exists(select 1 from public.ball_knower_league_members m cross join lateral jsonb_array_elements(coalesce(m.roster,'[]'::jsonb)) player where m.id=member_id and m.league_id=league_id and m.auth_user_id=(select auth.uid()) and player->>'id'=player_id));
+create or replace function ball_knower_private.remove_stale_trading_block_entries()
+returns trigger language plpgsql security definer set search_path='' as $function$
+begin
+  delete from public.ball_knower_trading_block block
+  where block.member_id=new.id
+    and not exists(select 1 from jsonb_array_elements(coalesce(new.roster,'[]'::jsonb)) player where player->>'id'=block.player_id);
+  return new;
+end;$function$;
+revoke all on function ball_knower_private.remove_stale_trading_block_entries() from public,anon,authenticated;
+drop trigger if exists remove_stale_trading_block_entries on public.ball_knower_league_members;
+create trigger remove_stale_trading_block_entries after update of roster on public.ball_knower_league_members for each row when(old.roster is distinct from new.roster) execute function ball_knower_private.remove_stale_trading_block_entries();
 drop policy if exists bk_watched_players_owner on public.ball_knower_watched_players;
 create policy bk_watched_players_owner on public.ball_knower_watched_players for all to authenticated using(auth_user_id=(select auth.uid())) with check(auth_user_id=(select auth.uid()) and public.can_access_ball_knower_league(league_id));
 
@@ -414,10 +431,19 @@ grant execute on function public.commissioner_set_ball_knower_waiver_priority(te
 
 create or replace function public.commissioner_import_ball_knower_offline_draft(p_league_id text,p_picks jsonb)
 returns boolean language plpgsql security definer set search_path='' as $function$
-declare member_count integer;pick_count integer;roster_size integer;member_row record;item jsonb;ord bigint;grp text;draft_picks jsonb:='[]'::jsonb;draft_order jsonb;
+declare member_count integer;pick_count integer;roster_size integer;member_row record;item jsonb;ord bigint;grp text;draft_picks jsonb:='[]'::jsonb;draft_order jsonb;league_settings jsonb;
 begin
   if not public.is_ball_knower_commissioner(p_league_id) then raise exception 'Commissioner only';end if;
-  if coalesce((select settings->>'draftFormat' from public.ball_knower_leagues where id=p_league_id),'live_snake')<>'offline' then raise exception 'League is not configured for offline results';end if;
+  select settings into league_settings from public.ball_knower_leagues where id=p_league_id for update;
+  if not found then raise exception 'League not found';end if;
+  if coalesce(league_settings->>'draftFormat','live_snake')<>'offline' then raise exception 'League is not configured for offline results';end if;
+  if coalesce((league_settings->>'fantasySeasonStarted')::boolean,false)
+    or coalesce((league_settings->>'fantasySeasonComplete')::boolean,false)
+    or exists(select 1 from public.ball_knower_weekly_lineups where league_id=p_league_id)
+    or exists(select 1 from public.ball_knower_weekly_scores where league_id=p_league_id)
+    or exists(select 1 from public.ball_knower_transactions where league_id=p_league_id)
+    or exists(select 1 from public.ball_knower_trades where league_id=p_league_id)
+  then raise exception 'Offline draft results are locked after season activity begins';end if;
   if jsonb_typeof(p_picks)<>'array' then raise exception 'Offline picks must be an array';end if;
   select count(*) into member_count from public.ball_knower_league_members where league_id=p_league_id;roster_size:=public.ball_knower_fantasy_roster_size(p_league_id);pick_count:=jsonb_array_length(p_picks);if member_count<2 or pick_count<>member_count*roster_size then raise exception 'Offline draft requires exactly % unique picks',member_count*roster_size;end if;
   if (select count(distinct x->>'playerId') from jsonb_array_elements(p_picks)x)<>pick_count then raise exception 'A player appears more than once';end if;
