@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   ArrowRightLeft,
@@ -84,6 +84,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   const [injuries, setInjuries] = useState<LeagueInjury[]>([]);
   const [messages, setMessages] = useState<LeagueMessage[]>([]);
   const [tradeMessages,setTradeMessages]=useState<TradeMessage[]>([]);
+  const [communicationError,setCommunicationError]=useState('');
   const [transactions, setTransactions] = useState<LeagueTransaction[]>([]);
   const [starters, setStarters] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -101,14 +102,23 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   const [tradeTarget, setTradeTarget] = useState("");
   const [tradeGive, setTradeGive] = useState<string[]>([]);
   const [tradeGet, setTradeGet] = useState<string[]>([]);
+  const leagueIdRef=useRef(league.id);
+  leagueIdRef.current=league.id;
   const roster = me?.roster || [];
   const refresh = async () => {
     try {
       setError("");
-      const [parity, ops, communication] = await Promise.all([
+      const requestedLeagueId=league.id;
+      void fetchFantasyCommunications(requestedLeagueId).then(communication=>{
+        if(leagueIdRef.current!==requestedLeagueId)return;
+        setTradeMessages([...communication.tradeMessages]);
+        setCommunicationError('');
+      }).catch(err=>{
+        if(leagueIdRef.current===requestedLeagueId)setCommunicationError(err instanceof Error?err.message:'Trade messages could not be loaded.');
+      });
+      const [parity, ops] = await Promise.all([
         fetchFantasyParityState(league.id, week, Number(league.settings.nflSeason) || 2026),
         fetchSeasonOperations(league.id),
-        fetchFantasyCommunications(league.id),
       ]);
       setLineups([...parity.lineups]);
       setScores([...parity.scores]);
@@ -118,7 +128,6 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
       setInjuries([...ops.injuries]);
       setMessages([...ops.messages]);
       setTransactions([...ops.transactions]);
-      setTradeMessages([...communication.tradeMessages]);
     } catch (err: any) {
       setError(err?.message || "Could not sync this league.");
     }
@@ -781,7 +790,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
                         >
                           Send Counter
                         </button>
-                        <div className="rounded-xl border border-white/10 p-3"><div className="text-[9px] font-black uppercase text-[#D4AF37]">Trade Thread</div><div className="mt-2 max-h-40 space-y-1 overflow-y-auto">{tradeMessages.filter(item=>item.tradeId===selectedCounter.id).map(item=><div key={item.id} className={`rounded-lg px-3 py-2 text-xs ${item.senderAuthId===currentUser?.id?'ml-6 bg-[#D4AF37] text-black':'mr-6 bg-black/35'}`}>{item.body}</div>)}{!tradeMessages.some(item=>item.tradeId===selectedCounter.id)&&<div className="text-[10px] text-zinc-600">No trade messages yet.</div>}</div><div className="mt-2 flex gap-2"><input value={tradeMessageBodies[selectedCounter.id]||''} onChange={event=>setTradeMessageBodies(value=>({...value,[selectedCounter.id]:event.target.value}))} placeholder="Message about this trade…" className="min-h-11 min-w-0 flex-1 rounded-lg bg-black/40 px-3 text-xs"/><button disabled={!(tradeMessageBodies[selectedCounter.id]||'').trim()} onClick={()=>run(async()=>{await sendTradeThreadMessage(selectedCounter.id,tradeMessageBodies[selectedCounter.id]||'');setTradeMessageBodies(value=>({...value,[selectedCounter.id]:''}));},'Trade message sent.')} className="rounded-lg bg-[#D4AF37] px-3 text-[9px] font-black uppercase text-black">Send</button></div></div>
+                        <div className="rounded-xl border border-white/10 p-3"><div className="text-[9px] font-black uppercase text-[#D4AF37]">Trade Thread</div>{communicationError&&<div className="mt-2 rounded-lg border border-red-400/20 bg-red-400/5 px-3 py-2 text-[10px] text-red-300">{communicationError}</div>}<div className="mt-2 max-h-40 space-y-1 overflow-y-auto">{tradeMessages.filter(item=>item.tradeId===selectedCounter.id).map(item=><div key={item.id} className={`rounded-lg px-3 py-2 text-xs ${item.senderAuthId===currentUser?.id?'ml-6 bg-[#D4AF37] text-black':'mr-6 bg-black/35'}`}>{item.body}</div>)}{!tradeMessages.some(item=>item.tradeId===selectedCounter.id)&&<div className="text-[10px] text-zinc-600">No trade messages yet.</div>}</div><div className="mt-2 flex gap-2"><input value={tradeMessageBodies[selectedCounter.id]||''} onChange={event=>setTradeMessageBodies(value=>({...value,[selectedCounter.id]:event.target.value}))} placeholder="Message about this trade…" className="min-h-11 min-w-0 flex-1 rounded-lg bg-black/40 px-3 text-xs"/><button disabled={!(tradeMessageBodies[selectedCounter.id]||'').trim()} onClick={()=>run(async()=>{await sendTradeThreadMessage(selectedCounter.id,tradeMessageBodies[selectedCounter.id]||'');setTradeMessageBodies(value=>({...value,[selectedCounter.id]:''}));},'Trade message sent.')} className="rounded-lg bg-[#D4AF37] px-3 text-[9px] font-black uppercase text-black">Send</button></div></div>
                       </>
                     )}
                   </>
