@@ -17,7 +17,11 @@ update public.ball_knower_leagues
 set settings=coalesce(settings,'{}'::jsonb)||jsonb_build_object(
   'regularSeasonWeeks',case when coalesce(nullif(settings->>'playoffTeams','')::integer,6)=4 then 16 else 15 end
 ),updated_at=now()
-where coalesce(nullif(settings->>'regularSeasonWeeks','')::integer,nullif(settings->>'seasonGames','')::integer,17)=17;
+where coalesce(nullif(settings->>'regularSeasonWeeks','')::integer,nullif(settings->>'seasonGames','')::integer,17)=17
+  and not coalesce((settings->>'fantasySeasonStarted')::boolean,false)
+  and coalesce(nullif(settings->>'currentWeek','')::integer,1)<=1
+  and not exists(select 1 from public.ball_knower_weekly_scores s where s.league_id=ball_knower_leagues.id and (s.is_final or s.live_points<>0))
+  and not exists(select 1 from public.ball_knower_weekly_lineups w where w.league_id=ball_knower_leagues.id and (w.locked or jsonb_array_length(coalesce(w.locked_player_ids,'[]'::jsonb))>0));
 
 create or replace function ball_knower_private.validate_fantasy_league_settings()
 returns trigger language plpgsql security definer set search_path='' as $function$
@@ -455,9 +459,12 @@ with ready as(
     (select jsonb_agg(to_jsonb(pick->>'memberId') order by (pick->>'pickNumber')::integer) from jsonb_array_elements(coalesce(l.season_result->'draftOrder','[]'::jsonb)) pick) member_ids,
     (select count(*) from public.ball_knower_league_members m where m.league_id=l.id) member_count
   from public.ball_knower_leagues l where l.season_result is not null
+    and not coalesce((l.settings->>'fantasySeasonStarted')::boolean,false)
+    and coalesce(nullif(l.settings->>'currentWeek','')::integer,1)<=1
     and not exists(select 1 from public.ball_knower_weekly_scores s where s.league_id=l.id and (s.is_final or s.live_points<>0))
+    and not exists(select 1 from public.ball_knower_weekly_lineups w where w.league_id=l.id and (w.locked or jsonb_array_length(coalesce(w.locked_player_ids,'[]'::jsonb))>0))
 )
-update public.ball_knower_leagues l set season_result=(case when coalesce(l.season_result->>'orderMethod','')='game' and jsonb_array_length(coalesce(l.season_result->'games','[]'::jsonb))>0
+update public.ball_knower_leagues l set season_result=(case when coalesce(l.season_result->>'orderMethod','game')='game' and jsonb_array_length(coalesce(l.season_result->'games','[]'::jsonb))>0
   then jsonb_set(jsonb_set(l.season_result,'{draftOrderGameGames}',l.season_result->'games',true),'{games}',ball_knower_private.build_fantasy_regular_schedule(ready.member_ids,ready.weeks),true)
   else jsonb_set(l.season_result,'{games}',ball_knower_private.build_fantasy_regular_schedule(ready.member_ids,ready.weeks),true) end),updated_at=now()
 from ready where l.id=ready.id and ready.member_count>=2 and mod(ready.member_count,2)=0 and jsonb_array_length(ready.member_ids)=ready.member_count

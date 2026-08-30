@@ -9,6 +9,7 @@ import {
   TOTAL_ROSTER_SIZE,
   DraftOrderMethod,
   LiveFantasyDraft,
+  LeagueSettings,
 } from './types';
 import { calculateTeamRatings } from './evaluation';
 import { buildFantasyWeekPairings, buildStandings, simulateFantasyPlayoffs, simulateFantasyWeek, simulateFullSeason } from './simulation';
@@ -109,6 +110,24 @@ const STORAGE_KEYS = {
   ACTIVE_LEAGUE_ID: 'ballknower_active_league_id_v1',
 };
 
+const calendarSafeRegularSeasonWeeks=(settings:League['settings'])=>settings?.playoffTeams===4?16:15;
+const normalizeRestoredLocalLeague=(league:League):League=>{
+  const settings=league.settings||{};
+  const effectiveWeeks=Number(settings.regularSeasonWeeks??settings.seasonGames)||17;
+  const fantasyActive=Boolean(settings.fantasySeasonStarted)||Number(settings.currentWeek||1)>1;
+  if(effectiveWeeks!==17||fantasyActive)return league;
+  const regularSeasonWeeks=calendarSafeRegularSeasonWeeks(settings);
+  const result=league.seasonResult;
+  const orderIds=[...(result?.draftOrder||[])].sort((a,b)=>a.pickNumber-b.pickNumber).map(item=>item.memberId);
+  const canBuild=Boolean(result)&&league.members.length>=2&&league.members.length%2===0&&new Set(orderIds).size===league.members.length;
+  if(!canBuild)return{...league,settings:{...settings,regularSeasonWeeks}};
+  const fantasySchedule=Array.from({length:regularSeasonWeeks},(_,index)=>buildFantasyWeekPairings(league.members,index+1)).flat().map(game=>({...game,homeScore:0,awayScore:0,winnerId:'',loserId:'',isTie:false,keyMatchupFactor:'Scheduled fantasy matchup.'}));
+  const priorGames=result?.games||[];
+  const canonical=priorGames.length===fantasySchedule.length;
+  const draftOrderGameGames=result?.orderMethod==='random'||result?.orderMethod==='commissioner'?result?.draftOrderGameGames:(result?.draftOrderGameGames?.length?result.draftOrderGameGames:priorGames);
+  return{...league,settings:{...settings,regularSeasonWeeks},seasonResult:canonical?result:{...result!,games:fantasySchedule,draftOrderGameGames}};
+};
+
 const BallKnowerContext = createContext<BallKnowerContextType | undefined>(undefined);
 
 const DEFAULT_USER: UserProfile = {
@@ -135,7 +154,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.LEAGUES);
       if (saved) {
-        return JSON.parse(saved);
+      return (JSON.parse(saved) as League[]).map(normalizeRestoredLocalLeague);
       }
     } catch (e) {
       console.error(e);
@@ -161,7 +180,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       commissionerId: DEFAULT_USER.id,
       commissionerName: DEFAULT_USER.name,
       status: 'drafting',
-      settings: { seasonGames: 17, scoringFormat:'ppr', nflSeason:2026 },
+      settings: { seasonGames: 17, regularSeasonWeeks:15, scoringFormat:'ppr', nflSeason:2026 },
       members: [commissionerMember, ...aiMembers],
       createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
     };
@@ -688,7 +707,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const fantasySchedule=Array.from({length:fantasyWeeks},(_,index)=>buildFantasyWeekPairings(league.members,index+1)).flat().map(game=>({...game,homeScore:0,awayScore:0,winnerId:'',loserId:'',isTie:false,keyMatchupFactor:'Scheduled fantasy matchup.'}));
     const settings = isFantasySeason
       ? {...(league.settings || {}), currentWeek:1, fantasySeasonStarted:true, fantasySeasonComplete:false}
-      : league.settings;
+      : {...(league.settings||{}),regularSeasonWeeks:fantasyWeeks as LeagueSettings['regularSeasonWeeks']};
     const results = isFantasySeason
       ? {...fullResults, games:fullResults.games.filter(game => game.week === 1), standings:buildStandings(league.members, fullResults.games.filter(game => game.week === 1)), draftOrder:[], winnerAnalysis:{winnerId:'',winnerName:'',summary:'The fantasy season is underway.',keyFactors:[]}}
       : {...fullResults, games:fantasySchedule, draftOrderGameGames:fullResults.games, orderMethod:'game' as const};
@@ -814,7 +833,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       teamRating: member.teamRatings?.overall || 0,
       streak: '-',
     }));
-    const fantasyWeeks=Math.max(13,Math.min(17,Number(league.settings?.regularSeasonWeeks)||17));
+    const fantasyWeeks=Math.max(13,Math.min(17,Number(league.settings?.regularSeasonWeeks)||calendarSafeRegularSeasonWeeks(league.settings)));
     const fantasySchedule=Array.from({length:fantasyWeeks},(_,index)=>buildFantasyWeekPairings(league.members,index+1)).flat().map(game=>({...game,homeScore:0,awayScore:0,winnerId:'',loserId:'',isTie:false,keyMatchupFactor:'Scheduled fantasy matchup.'}));
     const result = {
       completedAt: new Date().toISOString(),
@@ -836,7 +855,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       },
       teamReports: {},
     };
-    const settings = { ...(league.settings || {}), draftOrderMethod: method };
+    const settings = { ...(league.settings || {}), regularSeasonWeeks:fantasyWeeks as LeagueSettings['regularSeasonWeeks'], draftOrderMethod: method };
 
     if (isCloudConfigured) {
       try {

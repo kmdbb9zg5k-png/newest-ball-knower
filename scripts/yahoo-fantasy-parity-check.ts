@@ -55,6 +55,7 @@ assert.ok(settingsValidator.includes("nullif(old.settings->>'seasonGames','')")&
 assert.ok(settingsValidator.includes('Regular season and playoffs must finish by NFL Week 18'),'the authoritative settings validator must reject unscorable playoff calendars');
 assert.ok(migration.indexOf('Normalize legacy fantasy calendars')<migration.indexOf('create trigger validate_fantasy_league_settings'),'legacy 17-week calendars must be normalized before the schedule lock is installed');
 assert.ok(migration.includes("'{draftOrderGameGames}'")&&migration.includes("jsonb_array_length(coalesce(l.season_result->'games','[]'::jsonb))<>ready.weeks*ready.member_count/2"),'legacy Draft Order Game receipts must be preserved while their fantasy schedule is normalized');
+assert.ok(migration.includes("not coalesce((settings->>'fantasySeasonStarted')::boolean,false)")&&migration.includes('w.locked or jsonb_array_length')&&migration.includes("coalesce(l.season_result->>'orderMethod','game')='game'"),'calendar migration must exclude active leagues and preserve untagged Draft Order Game receipts');
 const scheduledFormatPatch=section(migration,'do $scheduled_format_patch$','end;$scheduled_format_patch$;');
 assert.ok(scheduledFormatPatch.includes('Scheduled special-format guard before reminders'),'special draft formats must be excluded before scheduled reminder branches');
 const autopickRecoveryPatch=section(migration,'do $autopick_recovery_patch$','end;$autopick_recovery_patch$;');
@@ -67,6 +68,7 @@ for(const format of ['live_snake','autopick','offline','mock'])assert.ok(createA
 assert.ok(create.includes("regularSeasonWeeks:15")&&createAdvanced.includes("Number(value)+(advanced.playoffTeams===4?2:3)<=18"),'new league defaults and controls must keep playoffs inside NFL Week 18');
 const contextSource=readFileSync(new URL('../BallKnowerContext.tsx',import.meta.url),'utf8');
 assert.ok(contextSource.includes('draftOrderGameGames:fullResults.games')&&contextSource.includes('games:fantasySchedule'),'Draft Order Game results must retain scored receipts separately from the canonical fantasy schedule');
+assert.ok(contextSource.includes('normalizeRestoredLocalLeague')&&contextSource.includes('regularSeasonWeeks:fantasyWeeks'),'restored and newly finalized local leagues must persist a calendar-safe fantasy season length');
 const localOfflineImport=section(contextSource,'const importOfflineFantasyDraftResults','const resetLeagueSimulation');
 assert.ok(localOfflineImport.includes('applyLiveDraftRosterAssignments')&&localOfflineImport.includes('importCloudOfflineFantasyDraft'),'Offline Results must finalize both local and cloud league rosters');
 assert.ok(localOfflineImport.includes("league.liveDraft?.status==='completed'")&&localOfflineImport.includes('fantasySeasonStarted'),'local Offline Results must reject re-import after finalization or season activity');
