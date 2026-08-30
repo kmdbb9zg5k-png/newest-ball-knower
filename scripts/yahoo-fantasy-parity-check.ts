@@ -24,6 +24,7 @@ for(const required of [
   'enforce_fantasy_acquisition_limit','enforce_fantasy_trade_deadline','vote_on_ball_knower_trade',
   'commissioner_set_ball_knower_waiver_priority','commissioner_edit_ball_knower_matchup',
   'commissioner_import_ball_knower_offline_draft','process_due_ball_knower_matchup_notifications',
+  'build_fantasy_regular_schedule',
   "then 15 else 60 end",'Autopick recovery patch did not match','eligible=0','drop policy if exists bk_trade_votes_league_read',
 ])assert.ok(migration.includes(required),`migration is missing ${required}`);
 assert.ok(!migration.includes("then 1 else 60 end"),'autopick clock must satisfy the existing 15-second minimum');

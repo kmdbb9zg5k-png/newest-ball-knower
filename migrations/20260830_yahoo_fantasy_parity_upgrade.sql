@@ -353,12 +353,62 @@ end;$function$;
 revoke all on function public.process_due_ball_knower_matchup_notifications(timestamptz) from public,anon,authenticated;grant execute on function public.process_due_ball_knower_matchup_notifications(timestamptz) to service_role;
 
 -- Secure commissioner utilities used by advanced settings.
+create or replace function ball_knower_private.build_fantasy_regular_schedule(p_member_ids jsonb,p_weeks integer)
+returns jsonb language plpgsql immutable set search_path='' as $function$
+declare rotation text[];member_count integer;week_no integer;round_no integer;step integer;slot integer;first_id text;second_id text;home_id text;away_id text;games jsonb:='[]'::jsonb;
+begin
+  if jsonb_typeof(p_member_ids)<>'array' then return games;end if;
+  select array_agg(value order by ordinality) into rotation from jsonb_array_elements_text(p_member_ids) with ordinality;
+  member_count:=coalesce(array_length(rotation,1),0);if member_count<2 or mod(member_count,2)<>0 then return games;end if;
+  for week_no in 1..greatest(1,p_weeks) loop
+    select array_agg(value order by ordinality) into rotation from jsonb_array_elements_text(p_member_ids) with ordinality;
+    round_no:=mod(week_no-1,member_count-1);
+    for step in 1..round_no loop rotation:=array_cat(array[rotation[1],rotation[member_count]],rotation[2:member_count-1]);end loop;
+    for slot in 1..member_count/2 loop
+      first_id:=rotation[slot];second_id:=rotation[member_count+1-slot];
+      if (mod(round_no,2)=0)<>(mod((week_no-1)/(member_count-1),2)=1) then home_id:=first_id;away_id:=second_id;else home_id:=second_id;away_id:=first_id;end if;
+      games:=games||jsonb_build_array(jsonb_build_object('id','game-w'||week_no||'-'||home_id||'-vs-'||away_id,'week',week_no,'homeMemberId',home_id,'awayMemberId',away_id));
+    end loop;
+  end loop;return games;
+end;$function$;
+revoke all on function ball_knower_private.build_fantasy_regular_schedule(jsonb,integer) from public,anon,authenticated;
+
+-- Older Random/Commissioner-order leagues stored an empty games array. Give
+-- them the same canonical editable schedule as newly finalized leagues.
+with ready as(
+  select l.id,coalesce(nullif(l.settings->>'regularSeasonWeeks','')::integer,17) weeks,
+    (select jsonb_agg(to_jsonb(pick->>'memberId') order by (pick->>'pickNumber')::integer) from jsonb_array_elements(coalesce(l.season_result->'draftOrder','[]'::jsonb)) pick) member_ids,
+    (select count(*) from public.ball_knower_league_members m where m.league_id=l.id) member_count
+  from public.ball_knower_leagues l where l.season_result is not null and jsonb_array_length(coalesce(l.season_result->'games','[]'::jsonb))=0
+)
+update public.ball_knower_leagues l set season_result=jsonb_set(l.season_result,'{games}',ball_knower_private.build_fantasy_regular_schedule(ready.member_ids,ready.weeks),true),updated_at=now()
+from ready where l.id=ready.id and ready.member_count>=2 and mod(ready.member_count,2)=0 and jsonb_array_length(ready.member_ids)=ready.member_count;
+
 create or replace function public.commissioner_set_ball_knower_waiver_priority(p_league_id text,p_member_id text,p_priority integer)
 returns void language plpgsql security definer set search_path='' as $function$
 declare old_priority integer;new_priority integer;begin if not public.is_ball_knower_commissioner(p_league_id) then raise exception 'Commissioner only';end if;new_priority:=greatest(1,least(coalesce(p_priority,1),(select count(*) from public.ball_knower_league_members where league_id=p_league_id)));select waiver_priority into old_priority from public.ball_knower_league_members where league_id=p_league_id and id=p_member_id for update;if not found then raise exception 'Member not found';end if;update public.ball_knower_league_members set waiver_priority=case when id=p_member_id then new_priority when new_priority<old_priority and waiver_priority>=new_priority and waiver_priority<old_priority then waiver_priority+1 when new_priority>old_priority and waiver_priority<=new_priority and waiver_priority>old_priority then waiver_priority-1 else waiver_priority end where league_id=p_league_id;end;$function$;
 create or replace function public.commissioner_edit_ball_knower_matchup(p_league_id text,p_week integer,p_game_id text,p_home_member_id text,p_away_member_id text)
 returns void language plpgsql security definer set search_path='' as $function$
-begin if not public.is_ball_knower_commissioner(p_league_id) then raise exception 'Commissioner only';end if;if p_week<1 or p_week>17 or p_home_member_id=p_away_member_id then raise exception 'Invalid matchup';end if;if(select count(*) from public.ball_knower_league_members where league_id=p_league_id and id in(p_home_member_id,p_away_member_id))<>2 then raise exception 'Both teams must belong to this league';end if;if not exists(select 1 from public.ball_knower_leagues l cross join lateral jsonb_array_elements(coalesce(l.season_result->'games','[]'::jsonb)) game where l.id=p_league_id and game->>'id'=p_game_id and (game->>'week')::integer=p_week and not(game?'playoffRound')) then raise exception 'Only an existing regular-season matchup can be edited';end if;if exists(select 1 from public.ball_knower_weekly_scores where league_id=p_league_id and week_number=p_week and (is_final or live_points<>0)) then raise exception 'A started or finalized matchup cannot be edited';end if;update public.ball_knower_leagues set season_result=jsonb_set(season_result,'{games}',(select jsonb_agg(case when game->>'id'=p_game_id then game||jsonb_build_object('homeMemberId',p_home_member_id,'awayMemberId',p_away_member_id) else game end) from jsonb_array_elements(season_result->'games') game),false),updated_at=now() where id=p_league_id;end;$function$;
+declare member_ids jsonb;weeks integer;old_home text;old_away text;removed text[];added text[];game jsonb;rebuilt jsonb:='[]'::jsonb;home_id text;away_id text;position integer;
+begin
+  if not public.is_ball_knower_commissioner(p_league_id) then raise exception 'Commissioner only';end if;
+  if p_week<1 or p_week>17 or p_home_member_id=p_away_member_id then raise exception 'Invalid matchup';end if;
+  if(select count(*) from public.ball_knower_league_members where league_id=p_league_id and id in(p_home_member_id,p_away_member_id))<>2 then raise exception 'Both teams must belong to this league';end if;
+  select (select jsonb_agg(to_jsonb(pick->>'memberId') order by (pick->>'pickNumber')::integer) from jsonb_array_elements(coalesce(l.season_result->'draftOrder','[]'::jsonb)) pick),coalesce(nullif(l.settings->>'regularSeasonWeeks','')::integer,17) into member_ids,weeks from public.ball_knower_leagues l where l.id=p_league_id for update;
+  if not exists(select 1 from public.ball_knower_leagues l cross join lateral jsonb_array_elements(coalesce(l.season_result->'games','[]'::jsonb)) item where l.id=p_league_id and not(item?'playoffRound')) then update public.ball_knower_leagues set season_result=jsonb_set(season_result,'{games}',ball_knower_private.build_fantasy_regular_schedule(member_ids,weeks),true) where id=p_league_id;end if;
+  select item->>'homeMemberId',item->>'awayMemberId' into old_home,old_away from public.ball_knower_leagues l cross join lateral jsonb_array_elements(coalesce(l.season_result->'games','[]'::jsonb)) item where l.id=p_league_id and item->>'id'=p_game_id and (item->>'week')::integer=p_week and not(item?'playoffRound');
+  if old_home is null then raise exception 'Only an existing regular-season matchup can be edited';end if;
+  if exists(select 1 from public.ball_knower_weekly_scores where league_id=p_league_id and week_number=p_week and (is_final or live_points<>0)) then raise exception 'A started or finalized matchup cannot be edited';end if;
+  removed:=array(select id from unnest(array[old_home,old_away]) id where id not in(p_home_member_id,p_away_member_id));
+  added:=array(select id from unnest(array[p_home_member_id,p_away_member_id]) id where id not in(old_home,old_away));
+  for game in select value from public.ball_knower_leagues l cross join lateral jsonb_array_elements(l.season_result->'games') where l.id=p_league_id loop
+    if game->>'id'=p_game_id then game:=game||jsonb_build_object('homeMemberId',p_home_member_id,'awayMemberId',p_away_member_id);
+    elsif coalesce((game->>'week')::integer,0)=p_week and not(game?'playoffRound') then
+      home_id:=game->>'homeMemberId';away_id:=game->>'awayMemberId';position:=array_position(added,home_id);if position is not null then home_id:=removed[position];end if;position:=array_position(added,away_id);if position is not null then away_id:=removed[position];end if;game:=game||jsonb_build_object('homeMemberId',home_id,'awayMemberId',away_id);
+    end if;rebuilt:=rebuilt||jsonb_build_array(game);
+  end loop;
+  update public.ball_knower_leagues set season_result=jsonb_set(season_result,'{games}',rebuilt,false),updated_at=now() where id=p_league_id;
+end;$function$;
 revoke all on function public.commissioner_set_ball_knower_waiver_priority(text,text,integer),public.commissioner_edit_ball_knower_matchup(text,integer,text,text,text) from public,anon;
 grant execute on function public.commissioner_set_ball_knower_waiver_priority(text,text,integer),public.commissioner_edit_ball_knower_matchup(text,integer,text,text,text) to authenticated;
 

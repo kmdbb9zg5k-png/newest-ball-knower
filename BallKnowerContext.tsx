@@ -11,7 +11,7 @@ import {
   LiveFantasyDraft,
 } from './types';
 import { calculateTeamRatings } from './evaluation';
-import { buildStandings, simulateFantasyPlayoffs, simulateFantasyWeek, simulateFullSeason } from './simulation';
+import { buildFantasyWeekPairings, buildStandings, simulateFantasyPlayoffs, simulateFantasyWeek, simulateFullSeason } from './simulation';
 import { generateAiLeagueMembers, AI_ARCHETYPES, buildRosterForArchetype } from './aiOpponents';
 import { PLAYERS_DATABASE } from './players';
 import { countRosterGroups, getDraftPositionGroup, minimumCompletionCost, validateRosterShape } from './rosterRules';
@@ -807,11 +807,13 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       teamRating: member.teamRatings?.overall || 0,
       streak: '-',
     }));
+    const fantasyWeeks=Math.max(13,Math.min(17,Number(league.settings?.regularSeasonWeeks)||17));
+    const fantasySchedule=Array.from({length:fantasyWeeks},(_,index)=>buildFantasyWeekPairings(league.members,index+1)).flat().map(game=>({...game,homeScore:0,awayScore:0,winnerId:'',loserId:'',isTie:false,keyMatchupFactor:'Scheduled fantasy matchup.'}));
     const result = {
       completedAt: new Date().toISOString(),
       orderMethod: method,
       standings,
-      games: [],
+      games: fantasySchedule,
       draftOrder,
       winnerAnalysis: {
         winnerId: orderedMembers[0].id,
