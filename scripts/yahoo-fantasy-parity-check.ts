@@ -37,6 +37,7 @@ assert.ok(migration.includes('Offline draft results are locked after season acti
 assert.ok(migration.includes("if grp is null or grp not in('QB','RB','WR','TE','K','DST')"),'offline results must reject unknown player IDs before persisting picks');
 assert.ok(migration.includes("player->>'id'=player_id")&&migration.includes('remove_stale_trading_block_entries'),'Trading Block writes must prove roster ownership and stale entries must be removed');
 assert.ok(migration.includes('Regular-season length is locked after the schedule is created'),'the database must reject schedule-length drift after schedule creation');
+assert.ok(migration.includes('Playoff field is locked after the schedule is created')&&migration.includes("coalesce(nullif(old.settings->>'playoffTeams','')::integer,6)<>playoff_count"),'the database must reject playoff-field drift after schedule creation');
 const matchupEditRpc=section(migration,'create or replace function public.commissioner_edit_ball_knower_matchup','revoke all on function public.commissioner_set_ball_knower_waiver_priority');
 assert.ok(matchupEditRpc.includes('week_number=p_week and kickoff_at<=now()'),'commissioner matchup edits must lock at NFL kickoff even before fantasy points are scored');
 assert.ok(migration.includes('not is_ai and auth_user_id is not null'),'league-vote quorum must count only authenticated neutral voters');

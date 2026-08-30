@@ -55,6 +55,9 @@ begin
     if coalesce(nullif(old.settings->>'regularSeasonWeeks','')::integer,nullif(old.settings->>'seasonGames','')::integer,17)<>coalesce(nullif(s->>'regularSeasonWeeks','')::integer,nullif(s->>'seasonGames','')::integer,17)
       and exists(select 1 from jsonb_array_elements(coalesce(old.season_result->'games','[]'::jsonb)) game where not(game?'playoffRound'))
     then raise exception 'Regular-season length is locked after the schedule is created';end if;
+    if coalesce(nullif(old.settings->>'playoffTeams','')::integer,6)<>playoff_count
+      and exists(select 1 from jsonb_array_elements(coalesce(old.season_result->'games','[]'::jsonb)) game where not(game?'playoffRound'))
+    then raise exception 'Playoff field is locked after the schedule is created';end if;
     if (old.settings->'scoringFormat' is distinct from s->'scoringFormat' or old.settings->'customScoring' is distinct from s->'customScoring')
       and exists(select 1 from public.ball_knower_weekly_scores where league_id=new.id and (is_final or live_points<>0))
     then raise exception 'Scoring settings are locked after scoring begins';end if;
