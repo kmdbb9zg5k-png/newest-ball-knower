@@ -16,7 +16,7 @@ import { PLAYERS_DATABASE } from "./players";
 import { Player } from "./types";
 import { playerPortraitUrl } from "./playerPortraits";
 import { ModalPortal } from "./ModalPortal";
-import { AGENT_PENDING_SIGNING_KEY, commitAgentSigningForExpectedUser, flushPendingUserStateWrites, loadUserState } from "./userStateCloud";
+import { AGENT_PENDING_RECRUIT_ACTION_KEY, AGENT_PENDING_SIGNING_KEY, commitAgentSigningForExpectedUser, flushPendingUserStateWrites, loadUserState } from "./userStateCloud";
 import { claimPendingVerifiedModeMilestones } from "./modeProgressionCloud";
 import { ensureOnlineSession } from "./supabase";
 import {
@@ -51,7 +51,8 @@ import {
 
 const SAVE_KEY = "ballknower_player_agent_v4";
 const PENDING_SIGNING_KEY = AGENT_PENDING_SIGNING_KEY;
-const PENDING_RECRUIT_ACTION_KEY = "ballknower_player_agent_recruit_action_v1";
+const PENDING_RECRUIT_ACTION_KEY = AGENT_PENDING_RECRUIT_ACTION_KEY;
+const CLOUD_OWNER_KEY = "ballknower_cloud_owner_v1";
 const AGENT_SIGNING_LOCK_NAME = "ballknower-player-agent-signing-v1";
 const AGENT_SESSION_TIMEOUT_MS = 12_000;
 const LEGACY_SAVE_KEYS = [
@@ -252,10 +253,27 @@ const fallbackAgency = (): AgencyState => ({
   promisesBroken: 0,
 });
 
+const readPendingRecruitAction = (): string | null => {
+  const raw = localStorage.getItem(PENDING_RECRUIT_ACTION_KEY);
+  if (!raw) return null;
+  try {
+    const pending = JSON.parse(raw) as { ownerId?: unknown; state?: unknown };
+    const ownerId = localStorage.getItem(CLOUD_OWNER_KEY);
+    if (pending.ownerId !== ownerId || !pending.state || typeof pending.state !== "object") {
+      localStorage.removeItem(PENDING_RECRUIT_ACTION_KEY);
+      return null;
+    }
+    return JSON.stringify(pending.state);
+  } catch {
+    localStorage.removeItem(PENDING_RECRUIT_ACTION_KEY);
+    return null;
+  }
+};
+
 const restore = (includePendingRecruitAction = true): AgencyState => {
   try {
     let raw =
-      (includePendingRecruitAction && localStorage.getItem(PENDING_RECRUIT_ACTION_KEY)) ||
+      (includePendingRecruitAction && readPendingRecruitAction()) ||
       localStorage.getItem(SAVE_KEY);
     if (!raw) {
       for (const key of LEGACY_SAVE_KEYS) {
@@ -352,7 +370,10 @@ const persist = (state: AgencyState) => {
 
 const persistRecruitAction = (state: AgencyState) => {
   try {
-    localStorage.setItem(PENDING_RECRUIT_ACTION_KEY, JSON.stringify(state));
+    localStorage.setItem(
+      PENDING_RECRUIT_ACTION_KEY,
+      JSON.stringify({ ownerId: localStorage.getItem(CLOUD_OWNER_KEY), state }),
+    );
   } catch {}
 };
 
@@ -1286,8 +1307,8 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       if (!signingBeforeState) {
         throw new Error("Pre-recruiting Agent state is unavailable.");
       }
-      const sharedAgency = restore(false);
-      if (JSON.stringify(sharedAgency) !== JSON.stringify(signingBeforeState)) {
+      const sharedAgency = restore();
+      if (JSON.stringify(sharedAgency) !== JSON.stringify(agency)) {
         throw new Error("Agent career changed in another tab before signing.");
       }
       let signingUserId: string;
@@ -1302,7 +1323,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
         console.warn("Agent signing session unavailable", error);
         return;
       }
-      if (JSON.stringify(restore(false)) !== JSON.stringify(signingBeforeState)) {
+      if (JSON.stringify(restore()) !== JSON.stringify(agency)) {
         throw new AgentSigningConflictError(
           "Another tab changed this Agent career during signing. The latest saved career was restored.",
         );
