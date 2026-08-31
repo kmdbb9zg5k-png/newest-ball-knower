@@ -21,9 +21,11 @@ assert.equal(ownerGameRevenue(base,false,false),0);
 assert.equal(ownerStageLabel('wild-card',18),'WILD CARD');
 const weeklyRevenue=[1,3,5,7,9,11,13,15,17].reduce((total,week)=>total+ownerGameRevenue({...base,week},true,false),0);
 assert.ok(weeklyRevenue>ownerGameRevenue(base,true,false),'a season receipt must be able to accumulate every home gate');
-for(const abbr of OWNER_TEAM_ABBRS){const calendar=owner2026Calendar(abbr);assert.equal(calendar.length,18);assert.equal(calendar.filter(week=>week.isBye).length,1);assert.equal(calendar.filter(week=>!week.isBye).length,17);}
+for(const abbr of OWNER_TEAM_ABBRS){const calendar=owner2026Calendar(abbr);assert.equal(calendar.length,18);assert.equal(calendar.filter(week=>week.isBye).length,1);assert.equal(calendar.filter(week=>!week.isBye).length,17);assert.ok([8,9].includes(calendar.filter(week=>week.isHome).length),`${abbr} must retain eight or nine home games`);}
 assert.equal(owner2026Calendar('WAS')[0].isHome,false,'Washington opens Week 1 away at Philadelphia');
 assert.equal(owner2026Calendar('PHI')[0].isHome,true,'Philadelphia opens Week 1 at home against Washington');
 const ownerMode=readFileSync(new URL('../OwnerBusinessMode.tsx',import.meta.url),'utf8');
 assert.ok(!ownerMode.includes('cashM:state.cashM-p.costM'),'annual staff salary must not also be charged up front');
+assert.ok(ownerMode.includes('seasonStaffCommitmentsM:state.seasonStaffCommitmentsM+p.costM'),'hired staff salary must remain obligated after a later firing');
+assert.ok(ownerMode.includes('Math.max(0,-choiceCash)'),'decision spending must be included in season expenses');
 console.log('Phase 4 Owner postseason checks passed.');
