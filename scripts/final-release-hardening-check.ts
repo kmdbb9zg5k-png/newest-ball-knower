@@ -47,16 +47,37 @@ assert.ok(migration.includes("v_new_client->'futureDeal'=v_deal"),'Agent contrac
 assert.ok(migration.includes("career,fulfilledPromises"),'Agent promise rewards require a newly fulfilled named promise');
 assert.ok(cloudSync.includes("ballknower_player_agent_v4")&&cloudSync.includes("ballknower_owner_career_v3"),'Owner and Agent careers must remain cross-device synced');
 const agentWeekGuard=agent.indexOf('if (verifyingAgentSigning) return;');
-const agentPendingSnapshot=agent.indexOf('localStorage.setItem(PENDING_SIGNING_KEY');
+const agentAccountSnapshot=agent.indexOf('JSON.stringify({ userId: user.id, state } satisfies PendingAgentSigning)');
 const agentCloudSave=agent.indexOf('await saveUserState("player_agent_career"');
-const agentPendingClear=agent.indexOf('localStorage.removeItem(PENDING_SIGNING_KEY)');
-const agentMilestoneClaim=agent.indexOf('await claimPendingVerifiedModeMilestones()');
+const agentPendingClear=agent.indexOf('localStorage.removeItem(PENDING_SIGNING_KEY)',agentCloudSave);
+const agentMilestoneClaim=agent.indexOf('await claimPendingVerifiedModeMilestones()',agentPendingClear);
 assert.ok(
   agentWeekGuard>=0&&agent.includes('if (!verifyingAgentSigning) onBack();')&&
-  agentPendingSnapshot>=0&&agentPendingSnapshot<agentCloudSave&&
+  agentAccountSnapshot>=0&&agentAccountSnapshot<agentCloudSave&&
+  agent.includes('pending.userId !== user.id')&&
+  agent.includes('localStorage.getItem(PENDING_SIGNING_KEY) !== raw')&&
+  agent.includes('while (true)')&&
   agentCloudSave<agentPendingClear&&agentPendingClear<agentMilestoneClaim&&
+  agent.includes('if (verifyingAgentSigning) {\n    return (')&&
+  agent.includes('Career actions are paused until this signing is safely stored')&&
+  agent.includes('window.addEventListener("storage", handlePendingSigningStorage)')&&
   agent.includes('RETRY CLOUD VERIFICATION'),
-  'Agent signing lock must survive navigation, persist before clearing, support retry, and claim only after save',
+  'Agent signing verification must be account-scoped, serialized, cross-tab durable, and freeze every career mutation until saved',
+);
+assert.equal(
+  (phase4bFollowup.match(/create or replace function /g)??[]).length,
+  3,
+  'Phase 4B hardening migration must contain exactly its three complete functions',
+);
+assert.equal(
+  (phase4bFollowup.match(/\n\$\$;/g)??[]).length,
+  3,
+  'Phase 4B hardening migration must close each function body exactly once',
+);
+assert.ok(
+  phase4bFollowup.includes("v_updated is null or v_updated!~'^[0-9]{1,16}$' then return 0; end if;")&&
+  !phase4bFollowup.includes('\n then return 0;'),
+  'Owner timestamp validation SQL must remain syntactically intact',
 );
 assert.ok(phase4bFollowup.includes('save_ball_knower_timestamped_user_state'),'Owner saves must use a monotonic database write');
 assert.ok(phase4bFollowup.includes('owner_state_updated_at(current_state.value)<=v_incoming_updated'),'older Owner snapshots must never overwrite newer cross-device state');
