@@ -402,6 +402,7 @@ set search_path=public,ball_knower_private,pg_temp
 as $$
 declare
   v_guest_owner_wins boolean:=false;
+  v_public_only_owner_transfer boolean:=false;
 begin
   if new.claimed_at is null or new.claimed_by is null
      or old.claimed_at is not null or new.guest_user_id=new.claimed_by then
@@ -468,6 +469,21 @@ begin
    and public_state.state_key='owner_business_career_v1'
   where guest.user_id=new.guest_user_id;
 
+  select exists (
+    select 1 from public.ball_knower_user_state guest_state
+    where guest_state.user_id=new.guest_user_id
+      and guest_state.state_key='owner_business_career_v1'
+      and jsonb_typeof(guest_state.value)='object'
+  )
+  and not exists (
+    select 1 from ball_knower_private.verified_owner_runs guest_run
+    where guest_run.user_id=new.guest_user_id
+  )
+  and not exists (
+    select 1 from ball_knower_private.verified_owner_runs target_run
+    where target_run.user_id=new.claimed_by
+  ) into v_public_only_owner_transfer;
+
   insert into ball_knower_private.verified_owner_runs(
     user_id,abbr,season,week,stage,wins,losses,playoff_seed,version,updated_at
   )
@@ -487,22 +503,7 @@ begin
   -- A guest Owner snapshot can exist before the first verified run begins.
   -- Transfer it when neither identity has a verified run; otherwise the verified
   -- run winner remains authoritative so public and private Owner state stay aligned.
-  if v_guest_owner_wins or (
-    exists (
-      select 1 from public.ball_knower_user_state guest_state
-      where guest_state.user_id=new.guest_user_id
-        and guest_state.state_key='owner_business_career_v1'
-        and jsonb_typeof(guest_state.value)='object'
-    )
-    and not exists (
-      select 1 from ball_knower_private.verified_owner_runs guest_run
-      where guest_run.user_id=new.guest_user_id
-    )
-    and not exists (
-      select 1 from ball_knower_private.verified_owner_runs target_run
-      where target_run.user_id=new.claimed_by
-    )
-  ) then
+  if v_guest_owner_wins or v_public_only_owner_transfer then
     perform set_config('ball_knower.owner_revision_write','on',true);
     insert into public.ball_knower_user_state as target(user_id,state_key,value,updated_at)
     select new.claimed_by,state_key,
@@ -510,20 +511,27 @@ begin
         'cloudRevision',
         ball_knower_private.owner_state_revision(value)+1
       ),
-      now()
+      updated_at
     from public.ball_knower_user_state
     where user_id=new.guest_user_id
       and state_key='owner_business_career_v1'
       and jsonb_typeof(value)='object'
     on conflict(user_id,state_key) do update set
-      value=excluded.value||jsonb_build_object(
-        'cloudRevision',
-        greatest(
-          ball_knower_private.owner_state_revision(target.value),
-          ball_knower_private.owner_state_revision(excluded.value)
-        )+1
-      ),
-      updated_at=now();
+      value=case
+        when v_guest_owner_wins or excluded.updated_at>target.updated_at then
+          excluded.value||jsonb_build_object(
+            'cloudRevision',
+            greatest(
+              ball_knower_private.owner_state_revision(target.value),
+              ball_knower_private.owner_state_revision(excluded.value)
+            )+1
+          )
+        else target.value
+      end,
+      updated_at=case
+        when v_guest_owner_wins or excluded.updated_at>target.updated_at then now()
+        else target.updated_at
+      end;
   end if;
   delete from ball_knower_private.verified_owner_runs where user_id=new.guest_user_id;
 
