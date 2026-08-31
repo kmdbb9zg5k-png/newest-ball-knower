@@ -157,6 +157,7 @@ function applyRemote(entry: StorageEntry, value: unknown): boolean {
 function clearSyncedLocalState() {
   for (const entry of CLOUD_STORAGE) localStorage.removeItem(entry.localKey);
   localStorage.removeItem(AGENT_PENDING_RECRUIT_ACTION_KEY);
+  localStorage.removeItem(AGENT_PENDING_SIGNING_KEY);
 }
 
 export function useCloudSyncStatus() {
@@ -331,7 +332,7 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             meta[entry.localKey] = Date.parse(row.updated_at) || 0;
           } else if (
             localRaw !== null &&
-            (!row || remoteRevision < localRevision || remoteRaw !== localRaw)
+            (!row || remoteRevision < localRevision || directJsonPayload(row.value) !== directJsonPayload(localRaw))
           ) {
             upload.push(entry);
           }
