@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { compareLineupPlayers, LINEUP_SLOTS, optimizeWeeklyLineup } from '../fantasyLineup';
+import { compareLineupPlayers, LINEUP_SLOTS, optimizeWeeklyLineup, resolveWeeklyProjection } from '../fantasyLineup';
 import type { Player } from '../types';
 
 const player=(id:string,position:Player['position'],ovr=80):Player=>({
@@ -21,6 +21,12 @@ for(const slot of LINEUP_SLOTS){
   const selected=roster.find(item=>item.id===expected[slot.id]);
   assert.ok(selected&&slot.accept(selected),`${slot.id} must contain an eligible player`);
 }
+const weekOne=[{playerId:'qb-a',projectedPoints:{standard:18,half_ppr:19,ppr:20}}];
+const weekTwo=[{playerId:'qb-a',projectedPoints:{standard:24,half_ppr:25,ppr:26}}];
+assert.equal(resolveWeeklyProjection('qb-a',weekOne,'ppr',false),20,'selected-week PPR projection must be used');
+assert.equal(resolveWeeklyProjection('qb-a',weekTwo,'standard',false),24,'selected-week standard projection must be used');
+assert.equal(resolveWeeklyProjection('qb-a',weekOne,'ppr',true),null,'custom scoring must not invent a compatible projection');
+assert.equal(resolveWeeklyProjection('missing',weekOne,'ppr',false),null,'missing weekly data must remain unavailable');
 
 const api=readFileSync(new URL('../api/fantasy-live-scoring.ts',import.meta.url),'utf8');
 assert.match(api,/\.sort\(compare\)\.map\(player=>player\.id\)/,'server bench must be deterministic');
@@ -32,9 +38,7 @@ const lineupRules=readFileSync(new URL('../fantasyLineup.ts',import.meta.url),'u
 assert.doesNotMatch(lineupRules,/localeCompare/,'shared lineup ordering must not depend on runtime locale');
 assert.match(screen,/const authoritative = scores\.find[\s\S]*if \(authoritative\?\.players\.length\) return authoritative/,'authoritative scores must take precedence');
 assert.match(screen,/saved\?\.starters[\s\S]*buildFantasyLineup/,'saved lineups must precede deterministic fallback lineups');
-assert.match(screen,/weeklyProjections\.find[\s\S]*projectedPoints\[format\]/,'fallback points must come from the selected week projection snapshot');
-assert.match(screen,/Object\.keys\(settings\.customScoring \|\| \{\}\)\.length\) return null/,'unsupported custom-scoring fallbacks must not display invented totals');
-assert.doesNotMatch(screen,/projectedPoints: projectedPointsFor\(player\)/,'full-season rankings must never be labeled as weekly matchup projections');
+assert.match(screen,/resolveWeeklyProjection\([\s\S]*weeklyProjections[\s\S]*Object\.keys\(settings\.customScoring/,'matchup fallback must use the tested weekly projection resolver');
 assert.match(screen,/const homeScore = matchupScoreFor\(home\)[\s\S]*const awayScore = matchupScoreFor\(away\)/,'every matchup card must receive projected totals without waiting for weekly score rows');
 assert.match(screen,/player\.opponent \? ` vs \$\{player\.opponent\}`/,'matchup rows must display opponents');
 
