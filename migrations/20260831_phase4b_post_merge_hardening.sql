@@ -276,12 +276,20 @@ begin
     raise exception 'Invalid verified Owner transition';
   end if;
 
+  if p_owner_state is null or jsonb_typeof(p_owner_state)<>'object' then
+    raise exception 'Valid Owner public snapshot required';
+  end if;
   select * into v_public from public.ball_knower_user_state
   where user_id=p_user_id and state_key='owner_business_career_v1'
   for update;
-  v_public_value:=case when found then v_public.value else p_owner_state end;
-  if v_public_value is null or jsonb_typeof(v_public_value)<>'object'
-     or v_public_value->>'abbr'<>v_old.abbr
+  if found and (
+    ball_knower_private.owner_state_revision(p_owner_state)<>ball_knower_private.owner_state_revision(v_public.value)
+    or (p_owner_state-'cloudRevision') is distinct from (v_public.value-'cloudRevision')
+  ) then
+    raise exception 'Owner public snapshot changed before verified step';
+  end if;
+  v_public_value:=p_owner_state;
+  if v_public_value->>'abbr'<>v_old.abbr
      or v_public_value->>'season'<>v_old.season::text
      or v_public_value->>'week'<>v_old.week::text
      or v_public_value->>'stage'<>v_old.stage
