@@ -131,6 +131,11 @@ assert.ok(
   'guest-account claims must leave Owner state out of the generic copier',
 );
 assert.ok(
+  phase4bFollowup.includes("v_claim.claimed_at is null and v_claim.expires_at<clock_timestamp()")&&
+  phase4bFollowup.indexOf("v_claim.claimed_at is null and v_claim.expires_at<clock_timestamp()")<phase4bFollowup.indexOf("if v_claim.claimed_at is null then"),
+  'completed guest claims must remain idempotently replayable after token expiry',
+);
+assert.ok(
   phase4bFollowup.includes('guard_ball_knower_owner_state_write')&&
   phase4bFollowup.includes("current_setting('ball_knower.owner_revision_write',true)")&&
   phase4bFollowup.includes("perform set_config('ball_knower.owner_revision_write','on',true);")&&
@@ -168,6 +173,10 @@ assert.ok(
   owner.includes('if(synced.cloudRevision<local.cloudRevision)return local;'),
   'accepted Owner revision bumps must hydrate the mounted mode in place instead of remounting the entire app',
 );
+assert.ok(
+  owner.includes('onClick={()=>setCloudConflict(false)}')&&owner.includes('min-h-11'),
+  'the Owner conflict notice must be dismissible with a practical touch target',
+);
 assert.ok(phase4bFollowup.includes('on conflict(user_id) do update set')&&phase4bFollowup.includes('excluded.season'),'guest claims must compare and preserve the more advanced Owner run');
 assert.ok(phase4bFollowup.indexOf('on conflict(user_id) do update set')<phase4bFollowup.indexOf('delete from ball_knower_private.verified_owner_runs'),'guest Owner state must be preserved before the guest row is deleted');
 const transferFunctionStart=phase4bFollowup.indexOf('create or replace function ball_knower_private.transfer_verified_mode_state_on_guest_claim()');
@@ -181,8 +190,17 @@ assert.ok(
   transferFunctionSql.includes('guest.abbr\n    ) > (')&&
   transferFunctionSql.includes('where v_guest_owner_wins;')&&
   transferFunctionSql.includes("ball_knower_private.owner_state_revision(excluded.value)\n        )+1")&&
-  transferFunctionSql.indexOf('if v_guest_owner_wins then')<transferFunctionSql.indexOf('delete from ball_knower_private.verified_owner_runs'),
-  'an advanced claimed Owner run must transfer its matching public snapshot with a newer server revision',
+  transferFunctionSql.includes("guest_state.state_key='owner_business_career_v1'")&&
+  transferFunctionSql.includes('guest_run.user_id=new.guest_user_id')&&
+  transferFunctionSql.includes('target_run.user_id=new.claimed_by')&&
+  transferFunctionSql.indexOf('if v_guest_owner_wins or (')<transferFunctionSql.indexOf('delete from ball_knower_private.verified_owner_runs'),
+  'advanced and pre-run claimed Owner snapshots must transfer without overriding an authoritative verified run',
+);
+assert.ok(
+  agent.includes('const signingVerified = await retryAgentSigningVerification')&&
+  agent.includes('if (signingVerified && after > before)')&&
+  agent.includes('await recoverAgentSigningConflict(error);\n        return false;'),
+  'rejected Agent signings must not trigger post-signing level-up effects',
 );
 const signingRpcStart=phase4bFollowup.indexOf('create or replace function public.commit_ball_knower_expected_agent_signing(');
 const signingRpcSql=phase4bFollowup.slice(signingRpcStart,transferFunctionStart);
