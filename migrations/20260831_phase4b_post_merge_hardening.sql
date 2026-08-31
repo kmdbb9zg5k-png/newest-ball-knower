@@ -78,36 +78,48 @@ $$;
 revoke all on function public.save_ball_knower_revisioned_user_state(text,jsonb) from public,anon;
 grant execute on function public.save_ball_knower_revisioned_user_state(text,jsonb) to authenticated;
 
-create or replace function public.save_ball_knower_expected_user_state(
+create or replace function public.commit_ball_knower_expected_agent_signing(
   p_expected_user_id uuid,
-  p_state_key text,
-  p_value jsonb
+  p_before_value jsonb,
+  p_after_value jsonb
 )
 returns void
 language plpgsql
 security definer
 set search_path=public,pg_temp
 as $$
+declare
+  v_existing jsonb;
 begin
   if auth.uid() is null or auth.uid()<>p_expected_user_id then
-    raise exception 'Authenticated account changed before state save';
+    raise exception 'Authenticated account changed before Agent signing';
   end if;
-  if p_state_key<>'player_agent_career' then
-    raise exception 'Unsupported account-bound state';
-  end if;
-  if p_value is null or jsonb_typeof(p_value)<>'object' then
-    raise exception 'Object state required';
+  if p_before_value is null or jsonb_typeof(p_before_value)<>'object'
+     or p_after_value is null or jsonb_typeof(p_after_value)<>'object' then
+    raise exception 'Object Agent states required';
   end if;
 
   insert into public.ball_knower_user_state(user_id,state_key,value,updated_at)
-  values(p_expected_user_id,p_state_key,p_value,now())
-  on conflict(user_id,state_key) do update set
-    value=excluded.value,
-    updated_at=excluded.updated_at;
+  values(p_expected_user_id,'player_agent_career',p_before_value,now())
+  on conflict(user_id,state_key) do nothing;
+
+  select value into v_existing
+  from public.ball_knower_user_state
+  where user_id=p_expected_user_id and state_key='player_agent_career'
+  for update;
+
+  if v_existing=p_after_value then return; end if;
+  if v_existing is distinct from p_before_value then
+    raise exception 'Agent career changed before signing; reload the latest career';
+  end if;
+
+  update public.ball_knower_user_state
+  set value=p_after_value,updated_at=now()
+  where user_id=p_expected_user_id and state_key='player_agent_career';
 end;
 $$;
-revoke all on function public.save_ball_knower_expected_user_state(uuid,text,jsonb) from public,anon;
-grant execute on function public.save_ball_knower_expected_user_state(uuid,text,jsonb) to authenticated;
+revoke all on function public.commit_ball_knower_expected_agent_signing(uuid,jsonb,jsonb) from public,anon;
+grant execute on function public.commit_ball_knower_expected_agent_signing(uuid,jsonb,jsonb) to authenticated;
 
 create or replace function ball_knower_private.transfer_verified_mode_state_on_guest_claim()
 returns trigger
