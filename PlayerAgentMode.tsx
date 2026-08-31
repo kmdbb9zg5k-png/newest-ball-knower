@@ -1140,6 +1140,11 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       let signingUserId: string;
       try {
         signingUserId = (await ensureOnlineSession()).id;
+        // Seed the exact pre-signing state so a first cloud write cannot be
+        // mistaken for a legacy baseline instead of a verified transition.
+        await saveUserState("player_agent_career", {
+          raw: JSON.stringify(agency),
+        });
       } catch (error) {
         setRecruit({
           ...recruit,
