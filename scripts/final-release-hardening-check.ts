@@ -172,6 +172,7 @@ assert.ok(
   modeApi.includes('p_owner_state:req?.body?.ownerState')&&
   modeApi.includes('ownerState:committed.data?.ownerState')&&
   cloud.includes('expected,ownerState,gmId')&&
+  phase4bFollowup.includes('drop function if exists public.commit_ball_knower_verified_owner_step(uuid,integer,integer,integer,text,integer,integer,integer,boolean);')&&
   atomicOwnerFunctionStart>=0&&atomicOwnerFunctionEnd>atomicOwnerFunctionStart&&
   atomicOwnerFunction.includes("where user_id=p_user_id and state_key='owner_business_career_v1'\n  for update")&&
   atomicOwnerFunction.includes("'cloudRevision',v_public_revision+1")&&
@@ -217,6 +218,9 @@ assert.ok(
   transferFunctionSql.includes("state_key='owner_business_career_v1'")&&
   transferFunctionSql.includes("public_state.value->>'abbr'=guest.abbr")&&
   transferFunctionSql.includes("public_state.value->>'abbr'=target.abbr")&&
+  transferFunctionSql.includes("guest_state.value->>'abbr'=guest.abbr")&&
+  transferFunctionSql.includes("guest_state.value->>'season'=guest.season::text")&&
+  transferFunctionSql.includes("guest_state.value->>'week'=guest.week::text")&&
   transferFunctionSql.includes('guest.abbr\n    ) > (')&&
   transferFunctionSql.includes('where v_guest_owner_wins;')&&
   transferFunctionSql.includes('ball_knower_private.owner_state_revision(excluded.value)')&&
@@ -262,6 +266,7 @@ assert.ok(
   agent.includes('throw new AgentSigningConflictError("Agent career changed in another tab before signing.")')&&
   cloudSync.includes('localStorage.removeItem(AGENT_PENDING_RECRUIT_ACTION_KEY)')&&
   cloudSync.includes('localStorage.removeItem(AGENT_PENDING_SIGNING_KEY)')&&
+  agent.includes('localStorage.removeItem(PENDING_SIGNING_KEY);')&&
   agent.includes('localStorage.removeItem(PENDING_RECRUIT_ACTION_KEY);'),
   'a consumed recruiting action must survive reloads, stay account-bound, and remain separate from the CAS baseline',
 );
