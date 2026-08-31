@@ -1,6 +1,8 @@
 import { ensureOnlineSession, supabase } from './supabase';
 import { League, Player, SeasonResult } from './types';
 import { PLAYERS_DATABASE } from './players';
+import { LINEUP_SLOTS } from './fantasyLineup';
+export { LINEUP_SLOTS, optimizeWeeklyLineup } from './fantasyLineup';
 
 export type WeeklyLineup = {
   id:string;
@@ -22,6 +24,7 @@ export type PlayerScoreDetail = {
   playerName:string;
   team:string;
   position:string;
+  opponent?:string;
   points:number;
   projectedPoints:number;
   status:string;
@@ -240,32 +243,6 @@ export async function commissionerEditMatchup(leagueId:string,week:number,gameId
   await ensureOnlineSession();
   const {error}=await supabase.rpc('commissioner_edit_ball_knower_matchup',{p_league_id:leagueId,p_week:week,p_game_id:gameId,p_home_member_id:homeMemberId,p_away_member_id:awayMemberId});
   if(error) throw error;
-}
-
-// Standard fantasy lineup. Drafting stays unrestricted; managers must use their bench,
-// free agency, waivers, or trades to field a legal weekly lineup.
-export const LINEUP_SLOTS = [
-  {id:'QB',label:'QB',accept:(p:Player)=>p.position==='QB'},
-  {id:'RB1',label:'RB',accept:(p:Player)=>p.position==='RB'||p.position==='FB'},
-  {id:'RB2',label:'RB',accept:(p:Player)=>p.position==='RB'||p.position==='FB'},
-  {id:'WR1',label:'WR',accept:(p:Player)=>p.position==='WR'},
-  {id:'WR2',label:'WR',accept:(p:Player)=>p.position==='WR'},
-  {id:'TE',label:'TE',accept:(p:Player)=>p.position==='TE'},
-  {id:'FLEX',label:'FLEX',accept:(p:Player)=>['RB','FB','WR','TE'].includes(p.position)},
-  {id:'K',label:'K',accept:(p:Player)=>p.position==='K'},
-  {id:'DST',label:'D/ST',accept:(p:Player)=>p.position==='DST'},
-] as const;
-
-export function optimizeWeeklyLineup(roster:Player[]):Record<string,string>{
-  const chosen=new Set<string>();
-  const starters:Record<string,string>={};
-  for(const slot of LINEUP_SLOTS){
-    const candidate=[...roster]
-      .filter(player=>!chosen.has(player.id)&&slot.accept(player))
-      .sort((a,b)=>(b.ovr||0)-(a.ovr||0))[0];
-    if(candidate){starters[slot.id]=candidate.id;chosen.add(candidate.id);}
-  }
-  return starters;
 }
 
 export function validateWeeklyLineup(roster:Player[],starters:Record<string,string>):string[]{
