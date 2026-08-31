@@ -53,9 +53,9 @@ export default async function handler(req:any,res:any){
     const completedWins=isRegularGame?run.wins+(won?1:0):run.wins;const completedLosses=isRegularGame?run.losses+(won?0:1):run.losses;
     const advance=advanceOwnerSeason({abbr:run.abbr,season:run.season,week:run.week,stage:run.stage,wins:run.wins,losses:run.losses,cashM:350,ticketPrice:125,parkingPrice:35,fanTrust:55,stadium:72,gmCostM:0,coachCostM:0,playoffSeed:run.playoff_seed||undefined},won);
     const nextSeason=advance.seasonEnded?run.season+1:run.season;const nextWins=advance.seasonEnded?0:completedWins;const nextLosses=advance.seasonEnded?0:completedLosses;const nextSeed=advance.seasonEnded?null:(advance.playoffSeed??run.playoff_seed??null);
-    const committed=await service.rpc('commit_ball_knower_verified_owner_step',{p_user_id:auth.data.user.id,p_expected_version:run.version,p_next_season:nextSeason,p_next_week:advance.nextWeek,p_next_stage:advance.nextStage,p_next_wins:nextWins,p_next_losses:nextLosses,p_next_playoff_seed:nextSeed,p_won:won});
+    const committed=await service.rpc('commit_ball_knower_verified_owner_step',{p_user_id:auth.data.user.id,p_expected_version:run.version,p_next_season:nextSeason,p_next_week:advance.nextWeek,p_next_stage:advance.nextStage,p_next_wins:nextWins,p_next_losses:nextLosses,p_next_playoff_seed:nextSeed,p_won:won,p_owner_state:req?.body?.ownerState});
     if(committed.error)throw committed.error;
-    return res.status(200).json({ok:true,verified:true,won,isBye,isPreseason,run:committed.data?.run||null,milestoneIds:Array.isArray(committed.data?.milestoneIds)?committed.data.milestoneIds:[]});
+    return res.status(200).json({ok:true,verified:true,won,isBye,isPreseason,run:committed.data?.run||null,ownerState:committed.data?.ownerState||null,milestoneIds:Array.isArray(committed.data?.milestoneIds)?committed.data.milestoneIds:[]});
   }catch(error:any){
     console.warn('mode-progression-owner-step-failed',String(error?.message||error));
     return res.status(500).json({error:'Could not verify Owner progression.'});
