@@ -1,7 +1,7 @@
 import React,{useEffect,useMemo,useState}from'react';
 import{ArrowLeft,Building2,CalendarDays,ChevronRight,Crown,DollarSign,Gavel,Landmark,MapPin,Trophy,Users}from'lucide-react';
 import{nextOwnerDecision,OWNER_DECISIONS,unseenOwnerStoryCount,type OwnerChoice,type OwnerDecision}from'./ownerStoryEngine';
-import{loadUserState,saveUserState}from'./userStateCloud';
+import{loadUserState}from'./userStateCloud';
 import{advanceOwnerSeason,migrateOwnerLegacyWeek,normalizeOwnerAbbr,ownerCalendarWeek,ownerStageLabel,type OwnerSeasonStage}from'./ownerSeasonEngine';
 import{advanceVerifiedOwnerStep,claimPendingVerifiedModeMilestones}from'./modeProgressionCloud';
 const SAVE_KEY='ballknower_owner_career_v3';
@@ -51,7 +51,7 @@ export const OwnerBusinessMode:React.FC<{onBack:()=>void}>=({onBack})=>{
  const save=(p:Partial<State>,trackCash=true)=>{
   const cashDelta=typeof p.cashM==='number'?p.cashM-state.cashM:0;
   const n:State={...state,...p,seasonRevenueM:trackCash&&cashDelta>0?state.seasonRevenueM+cashDelta:p.seasonRevenueM??state.seasonRevenueM,seasonExpensesM:trackCash&&cashDelta<0?state.seasonExpensesM-cashDelta:p.seasonExpensesM??state.seasonExpensesM,careerRevenueM:trackCash&&cashDelta>0?state.careerRevenueM+cashDelta:p.careerRevenueM??state.careerRevenueM,careerExpensesM:trackCash&&cashDelta<0?state.careerExpensesM-cashDelta:p.careerExpensesM??state.careerExpensesM,updatedAt:Date.now()};
-  setState(n);persist(n);void saveUserState(CLOUD_SAVE_KEY,n).catch(error=>console.warn('Owner career cloud save failed',error));
+  setState(n);persist(n);
  };
  const hire=(role:'gm'|'coach',p:Staff)=>save({[role]:p,...(role==='gm'?{gmHires:state.gmHires+1}:{coachHires:state.coachHires+1}),seasonStaffCommitmentsM:state.seasonStaffCommitmentsM+p.costM,staffMorale:clamp(Math.round(state.staffMorale+p.culture/18)),history:[`Hired ${p.name} at ${money(p.costM)}/year.`,...state.history]});
  const fire=(role:'gm'|'coach')=>{const person=state[role];if(!person)return;save({[role]:undefined,...(role==='gm'?{gmFires:state.gmFires+1}:{coachFires:state.coachFires+1}),cashM:state.cashM-person.costM*.5,staffMorale:clamp(state.staffMorale-6),history:[`Fired ${person.name}; ${money(person.costM*.5)} buyout charged.`,...state.history]});};
