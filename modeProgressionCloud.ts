@@ -22,8 +22,8 @@ async function request(path:string,init:RequestInit={}){
   const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data?.error||`Request failed (${response.status})`);return data;
 }
 
-export async function advanceVerifiedOwnerStep(expected:VerifiedOwnerExpected,ownerState:unknown,gmId?:string,coachId?:string):Promise<VerifiedOwnerStepResult>{
-  return request('/api/mode-progression',{method:'POST',body:JSON.stringify({action:'owner_step',expected,ownerState,gmId:gmId||null,coachId:coachId||null})}) as Promise<VerifiedOwnerStepResult>;
+export async function advanceVerifiedOwnerStep(expected:VerifiedOwnerExpected,ownerState:unknown,ownerOutcomes:{won:unknown;lost:unknown},gmId?:string,coachId?:string):Promise<VerifiedOwnerStepResult>{
+  return request('/api/mode-progression',{method:'POST',body:JSON.stringify({action:'owner_step',expected,ownerState,ownerOutcomes,gmId:gmId||null,coachId:coachId||null})}) as Promise<VerifiedOwnerStepResult>;
 }
 
 export async function claimPendingVerifiedModeMilestones(){
