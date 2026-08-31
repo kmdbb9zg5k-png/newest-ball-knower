@@ -78,12 +78,45 @@ $$;
 revoke all on function public.save_ball_knower_revisioned_user_state(text,jsonb) from public,anon;
 grant execute on function public.save_ball_knower_revisioned_user_state(text,jsonb) to authenticated;
 
+create or replace function public.save_ball_knower_expected_user_state(
+  p_expected_user_id uuid,
+  p_state_key text,
+  p_value jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path=public,pg_temp
+as $$
+begin
+  if auth.uid() is null or auth.uid()<>p_expected_user_id then
+    raise exception 'Authenticated account changed before state save';
+  end if;
+  if p_state_key<>'player_agent_career' then
+    raise exception 'Unsupported account-bound state';
+  end if;
+  if p_value is null or jsonb_typeof(p_value)<>'object' then
+    raise exception 'Object state required';
+  end if;
+
+  insert into public.ball_knower_user_state(user_id,state_key,value,updated_at)
+  values(p_expected_user_id,p_state_key,p_value,now())
+  on conflict(user_id,state_key) do update set
+    value=excluded.value,
+    updated_at=excluded.updated_at;
+end;
+$$;
+revoke all on function public.save_ball_knower_expected_user_state(uuid,text,jsonb) from public,anon;
+grant execute on function public.save_ball_knower_expected_user_state(uuid,text,jsonb) to authenticated;
+
 create or replace function ball_knower_private.transfer_verified_mode_state_on_guest_claim()
 returns trigger
 language plpgsql
 security definer
 set search_path=public,ball_knower_private,pg_temp
 as $$
+declare
+  v_guest_owner_wins boolean:=false;
 begin
   if new.claimed_at is null or new.claimed_by is null
      or old.claimed_at is not null or new.guest_user_id=new.claimed_by then
@@ -105,6 +138,28 @@ begin
   from ball_knower_private.verified_prediction_picks where user_id=new.guest_user_id
   on conflict(user_id,game_id) do nothing;
   delete from ball_knower_private.verified_prediction_picks where user_id=new.guest_user_id;
+
+  select target.user_id is null or (
+    guest.season,
+    case guest.stage
+      when 'preseason' then 0 when 'regular' then 1 when 'wild-card' then 2
+      when 'divisional' then 3 when 'conference' then 4 when 'super-bowl' then 5 else -1 end,
+    guest.week,
+    guest.wins,
+    -guest.losses
+  ) > (
+    target.season,
+    case target.stage
+      when 'preseason' then 0 when 'regular' then 1 when 'wild-card' then 2
+      when 'divisional' then 3 when 'conference' then 4 when 'super-bowl' then 5 else -1 end,
+    target.week,
+    target.wins,
+    -target.losses
+  )
+  into v_guest_owner_wins
+  from ball_knower_private.verified_owner_runs guest
+  left join ball_knower_private.verified_owner_runs target on target.user_id=new.claimed_by
+  where guest.user_id=new.guest_user_id;
 
   insert into ball_knower_private.verified_owner_runs(
     user_id,abbr,season,week,stage,wins,losses,playoff_seed,version,updated_at
@@ -138,6 +193,28 @@ begin
     ball_knower_private.verified_owner_runs.wins,
     -ball_knower_private.verified_owner_runs.losses
   );
+  if v_guest_owner_wins then
+    insert into public.ball_knower_user_state as target(user_id,state_key,value,updated_at)
+    select new.claimed_by,state_key,
+      value||jsonb_build_object(
+        'cloudRevision',
+        ball_knower_private.owner_state_revision(value)+1
+      ),
+      now()
+    from public.ball_knower_user_state
+    where user_id=new.guest_user_id
+      and state_key='owner_business_career_v1'
+      and jsonb_typeof(value)='object'
+    on conflict(user_id,state_key) do update set
+      value=excluded.value||jsonb_build_object(
+        'cloudRevision',
+        greatest(
+          ball_knower_private.owner_state_revision(target.value),
+          ball_knower_private.owner_state_revision(excluded.value)
+        )+1
+      ),
+      updated_at=now();
+  end if;
   delete from ball_knower_private.verified_owner_runs where user_id=new.guest_user_id;
 
   insert into ball_knower_private.verified_agent_clients(
