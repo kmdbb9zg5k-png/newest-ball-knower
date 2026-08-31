@@ -709,14 +709,16 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     try {
       await verifyPendingAgentSigning(state, signingUserId, beforeState);
       setVerifyingAgentSigning(pendingAgentSigningWrite !== null || readPendingAgentSigning() !== null);
+      return true;
     } catch (error) {
       if (error instanceof AgentSigningConflictError) {
         await recoverAgentSigningConflict(error);
-        return;
+        return false;
       }
       // Keep the lock and durable retry snapshot until cloud persistence works.
       setVerifyingAgentSigning(true);
       console.warn("Agent signing cloud verification pending retry", error);
+      return false;
     }
   };
   const handleBack = () => {
@@ -1326,8 +1328,8 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       });
       // The durable pending snapshot survives mode navigation/reloads. The
       // week and Back controls stay locked until this exact signing is saved.
-      await retryAgentSigningVerification(next, signingUserId, signingBeforeState);
-      if (after > before) {
+      const signingVerified = await retryAgentSigningVerification(next, signingUserId, signingBeforeState);
+      if (signingVerified && after > before) {
         setLevelUp({ from: before, to: after });
         try {
           navigator.vibrate?.([45, 40, 45, 40, 100]);
