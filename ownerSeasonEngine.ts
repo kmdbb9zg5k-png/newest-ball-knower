@@ -14,7 +14,11 @@ const OWNER_2026_BYE_WEEK:Record<string,number>={ARI:14,ATL:11,BAL:13,BUF:7,CAR:
 export const owner2026Calendar=(abbr:string):OwnerCalendarWeek[]=>{
   const teamIndex=Math.max(0,OWNER_TEAM_ABBRS.indexOf(abbr as typeof OWNER_TEAM_ABBRS[number]));
   const bye=OWNER_2026_BYE_WEEK[abbr]||10;
-  return Array.from({length:18},(_,index)=>{const week=index+1;const isBye=week===bye;let isHome=!isBye&&(week+teamIndex)%2===0;if(abbr==='WAS'&&week===1)isHome=false;if(abbr==='PHI'&&week===1)isHome=true;return{week,isBye,isHome};});
+  const calendar=Array.from({length:18},(_,index)=>{const week=index+1;const isBye=week===bye;let isHome=!isBye&&(week+teamIndex)%2===0;if(abbr==='WAS'&&week===1)isHome=false;if(abbr==='PHI'&&week===1)isHome=true;return{week,isBye,isHome};});
+  const homeCount=calendar.filter(entry=>entry.isHome).length;
+  if(homeCount<8){const replacement=calendar.find(entry=>!entry.isBye&&!entry.isHome&&!(abbr==='WAS'&&entry.week===1));if(replacement)replacement.isHome=true;}
+  if(homeCount>9){const replacement=[...calendar].reverse().find(entry=>entry.isHome&&!(abbr==='PHI'&&entry.week===1));if(replacement)replacement.isHome=false;}
+  return calendar;
 };
 
 export const ownerCalendarWeek=(abbr:string,week:number)=>owner2026Calendar(abbr).find(entry=>entry.week===week);
