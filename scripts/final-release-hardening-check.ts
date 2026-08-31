@@ -47,7 +47,7 @@ assert.ok(migration.includes("v_new_client->'futureDeal'=v_deal"),'Agent contrac
 assert.ok(migration.includes("career,fulfilledPromises"),'Agent promise rewards require a newly fulfilled named promise');
 assert.ok(cloudSync.includes("ballknower_player_agent_v4")&&cloudSync.includes("ballknower_owner_career_v3"),'Owner and Agent careers must remain cross-device synced');
 const agentWeekGuard=agent.indexOf('if (verifyingAgentSigning) return;');
-const agentSigningSession=agent.indexOf('signingUserId = (await ensureOnlineSession()).id;');
+const agentSigningSession=agent.indexOf('signingUserId = (await ensureAgentSigningSession()).id;');
 const agentSigningPersist=agent.indexOf('persist(next);',agentSigningSession);
 const agentSigningVerify=agent.indexOf('retryAgentSigningVerification(next, signingUserId, signingBeforeState)',agentSigningPersist);
 const agentCloudSave=agent.indexOf('await commitAgentSigningForExpectedUser(');
