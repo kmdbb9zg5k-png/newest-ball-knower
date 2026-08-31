@@ -367,12 +367,15 @@ const readPendingAgentSigning = (): PendingAgentSigning | null => {
     return null;
   }
 };
-const verifyPendingAgentSigning = async (state?: AgencyState): Promise<void> => {
+const verifyPendingAgentSigning = async (
+  state?: AgencyState,
+  signingUserId?: string,
+): Promise<void> => {
   if (state) {
-    const user = await ensureOnlineSession();
+    if (!signingUserId) throw new Error("Signing account is required.");
     localStorage.setItem(
       PENDING_SIGNING_KEY,
-      JSON.stringify({ userId: user.id, state } satisfies PendingAgentSigning),
+      JSON.stringify({ userId: signingUserId, state } satisfies PendingAgentSigning),
     );
   }
   if (pendingAgentSigningWrite) return pendingAgentSigningWrite;
@@ -616,10 +619,13 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
   const [verifyingAgentSigning, setVerifyingAgentSigning] = useState(
     () => readPendingAgentSigning() !== null,
   );
-  const retryAgentSigningVerification = async (state?: AgencyState) => {
+  const retryAgentSigningVerification = async (
+    state?: AgencyState,
+    signingUserId?: string,
+  ) => {
     setVerifyingAgentSigning(true);
     try {
-      await verifyPendingAgentSigning(state);
+      await verifyPendingAgentSigning(state, signingUserId);
       setVerifyingAgentSigning(false);
     } catch (error) {
       // Keep the lock and durable retry snapshot until cloud persistence works.
@@ -1131,6 +1137,18 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       firstClient: agency.clients.length === 0,
     });
     if (decision.signed) {
+      let signingUserId: string;
+      try {
+        signingUserId = (await ensureOnlineSession()).id;
+      } catch (error) {
+        setRecruit({
+          ...recruit,
+          message: "A secure cloud connection is required before this signing can become official. Try your final pitch again when the connection returns.",
+          playerReply: "“I am ready. Get the paperwork secured and we will make it official.”",
+        });
+        console.warn("Agent signing session unavailable", error);
+        return;
+      }
       const cooldowns = { ...agency.recruitCooldowns };
       delete cooldowns[selected.id];
       const next: AgencyState = {
@@ -1175,7 +1193,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       });
       // The durable pending snapshot survives mode navigation/reloads. The
       // week and Back controls stay locked until this exact signing is saved.
-      await retryAgentSigningVerification(next);
+      await retryAgentSigningVerification(next, signingUserId);
       if (after > before) {
         setLevelUp({ from: before, to: after });
         try {
