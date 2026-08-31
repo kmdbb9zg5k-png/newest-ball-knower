@@ -16,7 +16,7 @@ import { PLAYERS_DATABASE } from "./players";
 import { Player } from "./types";
 import { playerPortraitUrl } from "./playerPortraits";
 import { ModalPortal } from "./ModalPortal";
-import { saveUserState } from "./userStateCloud";
+import { saveUserStateForExpectedUser } from "./userStateCloud";
 import { claimPendingVerifiedModeMilestones } from "./modeProgressionCloud";
 import { ensureOnlineSession } from "./supabase";
 import {
@@ -410,9 +410,11 @@ const verifyPendingAgentSigning = async (
         continue;
       }
 
-      await saveUserState("player_agent_career", {
-        raw: JSON.stringify(pending.state),
-      });
+      await saveUserStateForExpectedUser(
+        pending.userId,
+        "player_agent_career",
+        { raw: JSON.stringify(pending.state) },
+      );
       if (localStorage.getItem(PENDING_SIGNING_KEY) !== raw) {
         continue;
       }
@@ -1177,9 +1179,11 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
         signingUserId = (await ensureOnlineSession()).id;
         // Seed the exact pre-signing state so a first cloud write cannot be
         // mistaken for a legacy baseline instead of a verified transition.
-        await saveUserState("player_agent_career", {
-          raw: JSON.stringify(agency),
-        });
+        await saveUserStateForExpectedUser(
+          signingUserId,
+          "player_agent_career",
+          { raw: JSON.stringify(agency) },
+        );
       } catch (error) {
         setRecruit({
           ...recruit,
