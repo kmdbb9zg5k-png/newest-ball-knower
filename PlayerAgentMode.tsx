@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -49,6 +49,7 @@ import {
 } from "./agentAgencyGrowth";
 
 const SAVE_KEY = "ballknower_player_agent_v4";
+const PENDING_SIGNING_KEY = "ballknower_player_agent_signing_pending_v1";
 const LEGACY_SAVE_KEYS = [
   "ballknower_player_agent_v3",
   "ballknower_player_agent_v2",
@@ -340,6 +341,35 @@ const persist = (state: AgencyState) => {
     localStorage.setItem(SAVE_KEY, JSON.stringify(state));
   } catch {}
 };
+
+let pendingAgentSigningWrite: Promise<void> | null = null;
+const readPendingAgentSigning = (): AgencyState | null => {
+  try {
+    const raw = localStorage.getItem(PENDING_SIGNING_KEY);
+    return raw ? (JSON.parse(raw) as AgencyState) : null;
+  } catch {
+    return null;
+  }
+};
+const verifyPendingAgentSigning = (state?: AgencyState): Promise<void> => {
+  if (state) localStorage.setItem(PENDING_SIGNING_KEY, JSON.stringify(state));
+  if (pendingAgentSigningWrite) return pendingAgentSigningWrite;
+  const pending = state || readPendingAgentSigning();
+  if (!pending) return Promise.resolve();
+  pendingAgentSigningWrite = (async () => {
+    await saveUserState("player_agent_career", { raw: JSON.stringify(pending) });
+    localStorage.removeItem(PENDING_SIGNING_KEY);
+    try {
+      await claimPendingVerifiedModeMilestones();
+    } catch (error) {
+      // The durable milestone remains replayable after the signing save succeeds.
+      console.warn("Agent signing milestone claim deferred", error);
+    }
+  })().finally(() => {
+    pendingAgentSigningWrite = null;
+  });
+  return pendingAgentSigningWrite;
+};
 const clamp = (n: number, min: number, max: number) =>
   Math.max(min, Math.min(max, n));
 const moneyM = (n: number) => `$${n.toFixed(1)}M`;
@@ -531,7 +561,34 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
   const [levelUp, setLevelUp] = useState<{ from: number; to: number } | null>(
     null,
   );
-  const [verifyingAgentSigning, setVerifyingAgentSigning] = useState(false);
+  const [verifyingAgentSigning, setVerifyingAgentSigning] = useState(
+    () => readPendingAgentSigning() !== null,
+  );
+  const retryAgentSigningVerification = async (state?: AgencyState) => {
+    setVerifyingAgentSigning(true);
+    try {
+      await verifyPendingAgentSigning(state);
+      setVerifyingAgentSigning(false);
+    } catch (error) {
+      // Keep the lock and durable retry snapshot until cloud persistence works.
+      setVerifyingAgentSigning(true);
+      console.warn("Agent signing cloud verification pending retry", error);
+    }
+  };
+  const handleBack = () => {
+    if (!verifyingAgentSigning) onBack();
+  };
+  useEffect(() => {
+    if (!readPendingAgentSigning()) return;
+    let cancelled = false;
+    void verifyPendingAgentSigning()
+      .then(() => { if (!cancelled) setVerifyingAgentSigning(false); })
+      .catch(error => {
+        if (!cancelled) setVerifyingAgentSigning(true);
+        console.warn("Agent signing cloud verification pending retry", error);
+      });
+    return () => { cancelled = true; };
+  }, []);
   const clients = useMemo(
     () =>
       agency.clients
@@ -1028,7 +1085,6 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       };
       const before = maxUnlockedOverall(agency.reputation),
         after = maxUnlockedOverall(next.reputation);
-      setVerifyingAgentSigning(true);
       setAgency(next);
       persist(next);
       setRecruit({
@@ -1042,17 +1098,9 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
         playerReply:
           "“You listened, you had a plan, and you did not sell me the same dream everybody else did. Let’s work.”",
       });
-      try {
-        // Persist the signing while the Agent week/action counters still
-        // describe the signing event. This keeps the server verifier from
-        // mistaking a fast sign-then-advance sequence for legacy baseline.
-        await saveUserState("player_agent_career", { raw: JSON.stringify(next) });
-        await claimPendingVerifiedModeMilestones();
-      } catch (error) {
-        console.warn("Agent signing cloud verification deferred", error);
-      } finally {
-        setVerifyingAgentSigning(false);
-      }
+      // The durable pending snapshot survives mode navigation/reloads. The
+      // week and Back controls stay locked until this exact signing is saved.
+      await retryAgentSigningVerification(next);
       if (after > before) {
         setLevelUp({ from: before, to: after });
         try {
@@ -1220,7 +1268,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       <div className="relative min-h-[100dvh] overflow-hidden bg-[#05070b] text-white">
         <div className="relative mx-auto flex min-h-[100dvh] max-w-5xl flex-col px-5 py-6 sm:px-8">
           <button
-            onClick={onBack}
+            onClick={handleBack}
             className="flex w-fit min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/30 px-4 text-xs font-black"
           >
             <ArrowLeft size={16} /> BACK
@@ -1353,7 +1401,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       <div className="mx-auto max-w-6xl">
         <div className="mb-5 flex items-center justify-between gap-4">
           <button
-            onClick={onBack}
+            onClick={handleBack}
             className="flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/30 px-4 text-xs font-black"
           >
             <ArrowLeft size={16} /> SOLO
@@ -1394,11 +1442,10 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
               </div>
             </div>
             <button
-              onClick={advanceWeek}
-              disabled={verifyingAgentSigning}
-              className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-violet-400 px-5 font-black text-black disabled:cursor-wait disabled:opacity-50"
+              onClick={verifyingAgentSigning ? () => { void retryAgentSigningVerification(); } : advanceWeek}
+              className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-violet-400 px-5 font-black text-black"
             >
-              <FastForward size={18} /> {verifyingAgentSigning ? "VERIFYING SIGNING…" : "ADVANCE ONE WEEK"}
+              <FastForward size={18} /> {verifyingAgentSigning ? "RETRY CLOUD VERIFICATION" : "ADVANCE ONE WEEK"}
             </button>
           </div>
         </section>
