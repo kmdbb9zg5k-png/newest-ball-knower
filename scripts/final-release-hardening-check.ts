@@ -90,6 +90,11 @@ assert.ok(
   phase4bFollowup.includes("jsonb_build_object('cloudRevision',v_stored_revision+1)"),
   'Owner revision validation and server-side increment SQL must remain syntactically intact',
 );
+assert.ok(
+  phase4bFollowup.includes("set value=value||jsonb_build_object('cloudRevision',1)")&&
+  phase4bFollowup.includes("not (value ? 'cloudRevision')"),
+  'legacy Owner cloud snapshots must be revisioned before rollout so stale local state cannot overwrite them',
+);
 assert.ok(phase4bFollowup.includes('save_ball_knower_revisioned_user_state'),'Owner saves must use a server-revisioned database write');
 assert.ok(phase4bFollowup.includes('v_incoming_revision=v_stored_revision'),'stale Owner snapshots must never overwrite a newer server revision');
 assert.ok(userState.includes("stateKey === OWNER_STATE_KEY")&&userState.includes("save_ball_knower_revisioned_user_state"),'all direct and batched Owner saves must use the revisioned RPC');
