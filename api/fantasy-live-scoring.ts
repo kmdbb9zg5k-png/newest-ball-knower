@@ -322,15 +322,22 @@ const projectionReason = (team:string, opponent:string, isHome:boolean) =>
   `Tank01's weekly projection for ${team} ${isHome?'at home against':'on the road at'} ${opponent}, captured before kickoff.`;
 
 function defaultLineup(roster:RosterPlayer[], projections:Map<string,Record<FantasyScoringFormat,number>>, format:FantasyScoringFormat){
+  const compare=(a:RosterPlayer,b:RosterPlayer)=>{
+    const score=(projections.get(b.id)?.[format]||0)-(projections.get(a.id)?.[format]||0)||(b.ovr||0)-(a.ovr||0);
+    if(score) return score;
+    const aKey=`${a.name.trim().toLowerCase()}|${normalizeTeam(a.team)}|${a.position}|${a.id}`;
+    const bKey=`${b.name.trim().toLowerCase()}|${normalizeTeam(b.team)}|${b.position}|${b.id}`;
+    return aKey<bKey?-1:aKey>bKey?1:0;
+  };
   const used=new Set<string>();
   const starters:Record<string,string>={};
   for(const slot of STANDARD_SLOTS){
     const player=roster
       .filter(item=>!used.has(item.id)&&slot.positions.includes(item.position as never))
-      .sort((a,b)=>(projections.get(b.id)?.[format]||0)-(projections.get(a.id)?.[format]||0)||(b.ovr||0)-(a.ovr||0))[0];
+      .sort(compare)[0];
     if(player){starters[slot.id]=player.id;used.add(player.id);}
   }
-  return {starters,bench:roster.filter(player=>!used.has(player.id)).map(player=>player.id)};
+  return {starters,bench:roster.filter(player=>!used.has(player.id)).sort(compare).map(player=>player.id)};
 }
 
 async function processHistoricalBackfill(db:any,now:Date):Promise<Json>{
@@ -758,6 +765,7 @@ export default async function handler(req:any,res:any){
           livePoints+=actual;
           projectedPoints+=projected;
           details.push({slot:slot.id,playerId:player.id,playerName:player.name,team:player.team,position:player.position,
+            opponent:game?matchupForTeam(game,player.team).opponentTeam:null,
             points:actual,projectedPoints:projected,status:game?.game_status||(game?'Scheduled':'Bye'),kickoffAt:game?.kickoff_at||null,
             isLive:Boolean(game?.is_live),isFinal:Boolean(game?.is_final)||(!game&&weekIsFinal),locked:lockedIds.has(player.id)});
         }

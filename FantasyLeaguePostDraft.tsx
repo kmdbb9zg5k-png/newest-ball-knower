@@ -56,11 +56,13 @@ import {
   submitFaabClaim,
   validateWeeklyLineup,
   WeeklyLineup,
+  WeeklyPlayerProjection,
   WeeklyScore,
 } from "./fantasyLeagueParityCloud";
 import { counterTradeV2 } from "./fantasyTradeV2Cloud";
 import { FantasyRanking, loadFantasyRankings } from "./fantasyRankingsCloud";
 import { FantasyPlayerDetail } from "./FantasyPlayerDetail";
+import { resolveWeeklyProjection } from "./fantasyLineup";
 import {
   buildFantasyWeekPairings,
   buildScoredFantasyGames,
@@ -82,6 +84,7 @@ type Props = {
 const STANDARD_POSITIONS = new Set(["QB", "RB", "WR", "TE", "K", "DST"]);
 const normalizeName = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]/g, "");
+const compareCodeUnits = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0;
 const displayManagerName = (member?: LeagueMember) => {
   if (!member) return "Team";
   if (!member.isAi) return member.userName;
@@ -155,6 +158,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const [memberMetaLoaded, setMemberMetaLoaded] = useState(false);
   const [archives, setArchives] = useState<ArchivedSeason[]>([]);
   const [nflGames, setNflGames] = useState<NflWeekGame[]>([]);
+  const [weeklyProjections, setWeeklyProjections] = useState<WeeklyPlayerProjection[]>([]);
   const [trades, setTrades] = useState<TradeOffer[]>([]);
   const [claims, setClaims] = useState<WaiverClaim[]>([]);
   const [injuries, setInjuries] = useState<LeagueInjury[]>([]);
@@ -190,6 +194,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const [message, setMessage] = useState("");
   const tradeBuilderRef = useRef<HTMLDivElement>(null);
   const seasonFinalizeRef = useRef("");
+  const parityRequestRef = useRef(0);
 
   const rankingsByName = useMemo(() => {
     const map = new Map<string, FantasyRanking>();
@@ -218,9 +223,10 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
       return bProjection - aProjection;
     if (aProjection !== null && bProjection === null) return -1;
     if (aProjection === null && bProjection !== null) return 1;
-    const position = a.position.localeCompare(b.position);
+    const position = compareCodeUnits(a.position, b.position);
     if (position) return position;
-    return a.name.localeCompare(b.name);
+    const name = compareCodeUnits(a.name, b.name);
+    return name || compareCodeUnits(a.id, b.id);
   };
   const compareLowestKnownValue = (a: Player, b: Player) => {
     const aProjection = projectedPointsFor(a);
@@ -233,9 +239,9 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
       return aProjection - bProjection;
     if (aProjection !== null && bProjection === null) return -1;
     if (aProjection === null && bProjection !== null) return 1;
-    const position = a.position.localeCompare(b.position);
+    const position = compareCodeUnits(a.position, b.position);
     if (position) return position;
-    return a.name.localeCompare(b.name);
+    return compareCodeUnits(a.name, b.name) || compareCodeUnits(a.id, b.id);
   };
   const valueLabel = (player: Player) => {
     const ranking = rankingFor(player);
@@ -249,6 +255,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   };
 
   const refresh = async () => {
+    const requestId = ++parityRequestRef.current;
     try {
       setError("");
       setMemberMetaLoaded(false);
@@ -260,18 +267,21 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
         ),
         fetchSeasonOperations(league.id),
       ]);
+      if (requestId !== parityRequestRef.current) return;
       setLineups([...parity.lineups]);
       setScores([...parity.scores]);
       setMemberMeta([...parity.members]);
       setMemberMetaLoaded(true);
       setArchives([...parity.archives]);
       setNflGames([...parity.games]);
+      setWeeklyProjections([...parity.projections]);
       setTrades([...ops.trades]);
       setClaims([...ops.claims]);
       setInjuries([...ops.injuries]);
       setMessages([...ops.messages]);
       setTransactions([...ops.transactions]);
     } catch (err: any) {
+      if (requestId !== parityRequestRef.current) return;
       setError(err?.message || "Could not sync this league.");
     }
   };
@@ -777,12 +787,86 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const viewedAway = league.members.find(
     (member) => member.id === viewedMatchup?.awayMemberId,
   );
-  const viewedHomeScore = scores.find(
-    (score) => score.week === week && score.memberId === viewedHome?.id,
-  );
-  const viewedAwayScore = scores.find(
-    (score) => score.week === week && score.memberId === viewedAway?.id,
-  );
+  const weeklyProjectionFor = (player: Player): number | null => {
+    const format = settings.scoringFormat === "standard"
+      ? "standard"
+      : settings.scoringFormat === "half_ppr"
+        ? "half_ppr"
+        : "ppr";
+    return resolveWeeklyProjection(
+      player.id,
+      weeklyProjections,
+      format,
+      Object.keys(settings.customScoring || {}).length > 0,
+    );
+  };
+  const compareWeeklyLineupPlayers = (a: Player, b: Player) => {
+    const aProjection = weeklyProjectionFor(a);
+    const bProjection = weeklyProjectionFor(b);
+    if (aProjection !== null && bProjection !== null && aProjection !== bProjection)
+      return bProjection - aProjection;
+    if (aProjection !== null) return -1;
+    if (bProjection !== null) return 1;
+    return comparePlayers(a, b);
+  };
+  const matchupScoreFor = (member?: LeagueMember): WeeklyScore | undefined => {
+    if (!member) return undefined;
+    const authoritative = scores.find(
+      (score) => score.week === week && score.memberId === member.id,
+    );
+    if (authoritative?.players.length) return authoritative;
+    const saved = lineups.find((lineup) => lineup.memberId === member.id);
+    const starters = saved?.starters && Object.keys(saved.starters).length
+      ? saved.starters
+      : buildFantasyLineup(member.roster || [], compareWeeklyLineupPlayers);
+    const players = LINEUP_SLOTS.flatMap((slot): PlayerScoreDetail[] => {
+      const player = (member.roster || []).find((item) => item.id === starters[slot.id]);
+      if (!player) return [];
+      const game = nflGames.find(
+        (item) => item.homeTeam === player.team || item.awayTeam === player.team,
+      );
+      const opponent = game
+        ? game.homeTeam === player.team
+          ? game.awayTeam
+          : game.homeTeam
+        : undefined;
+      const weeklyProjection = weeklyProjectionFor(player);
+      return [{
+        slot: slot.id,
+        playerId: player.id,
+        playerName: player.name,
+        team: player.team,
+        position: player.position,
+        opponent,
+        points: 0,
+        projectedPoints: weeklyProjection || 0,
+        projectionAvailable: weeklyProjection !== null,
+        status: game?.gameStatus || "Scheduled",
+        kickoffAt: game?.kickoffAt,
+        isLive: false,
+        isFinal: false,
+        locked: Boolean(saved?.lockedPlayerIds.includes(player.id)),
+      }];
+    });
+    const hasProjectedTotal = players.length > 0 && players.every(
+      (player) => player.projectionAvailable !== false,
+    );
+    return {
+      leagueId: league.id,
+      memberId: member.id,
+      week,
+      livePoints: 0,
+      projectedPoints: players.reduce((total, player) => total + player.projectedPoints, 0),
+      hasProjectedTotal,
+      source: "deterministic_projection",
+      isFinal: false,
+      scoreRevision: 1,
+      players,
+      updatedAt: saved?.updatedAt || new Date(0).toISOString(),
+    };
+  };
+  const viewedHomeScore = matchupScoreFor(viewedHome);
+  const viewedAwayScore = matchupScoreFor(viewedAway);
   const viewedScoreStatus =
     viewedHomeScore && viewedAwayScore
       ? viewedHomeScore.isFinal && viewedAwayScore.isFinal
@@ -1108,12 +1192,8 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
               const away = league.members.find(
                 (member) => member.id === game.awayMemberId,
               );
-              const homeScore = scores.find(
-                (score) => score.week === week && score.memberId === home?.id,
-              );
-              const awayScore = scores.find(
-                (score) => score.week === week && score.memberId === away?.id,
-              );
+              const homeScore = matchupScoreFor(home);
+              const awayScore = matchupScoreFor(away);
               const mine =
                 game.homeMemberId === me?.id || game.awayMemberId === me?.id;
               return (
@@ -1152,7 +1232,9 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                       {awayScore?.isFinal ||
                       awayScore?.players.some((player) => player.isLive)
                         ? awayScore.livePoints.toFixed(1)
-                        : awayScore?.projectedPoints.toFixed(1) || "—"}
+                        : awayScore?.hasProjectedTotal === false
+                          ? "—"
+                          : awayScore?.projectedPoints.toFixed(1) || "—"}
                     </span>
                   </div>
                   <div className="mt-1 flex items-center justify-between gap-2 text-[10px] font-black">
@@ -1161,7 +1243,9 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                       {homeScore?.isFinal ||
                       homeScore?.players.some((player) => player.isLive)
                         ? homeScore.livePoints.toFixed(1)
-                        : homeScore?.projectedPoints.toFixed(1) || "—"}
+                        : homeScore?.hasProjectedTotal === false
+                          ? "—"
+                          : homeScore?.projectedPoints.toFixed(1) || "—"}
                     </span>
                   </div>
                 </button>
@@ -1183,14 +1267,14 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                   <Score
                     name={displayManagerName(viewedAway)}
                     points={viewedAwayScore?.livePoints || 0}
-                    projection={viewedAwayScore?.projectedPoints}
+                    projection={viewedAwayScore?.hasProjectedTotal === false ? undefined : viewedAwayScore?.projectedPoints}
                     status={viewedScoreStatus}
                   />
                   <b className="text-zinc-600">@</b>
                   <Score
                     name={displayManagerName(viewedHome)}
                     points={viewedHomeScore?.livePoints || 0}
-                    projection={viewedHomeScore?.projectedPoints}
+                    projection={viewedHomeScore?.hasProjectedTotal === false ? undefined : viewedHomeScore?.projectedPoints}
                     status={viewedScoreStatus}
                   />
                 </div>
@@ -2660,7 +2744,9 @@ const MatchupRoster = ({
         <div className="text-lg font-black">
           {score?.isFinal || score?.players.some((player) => player.isLive)
             ? Number(score?.livePoints || 0).toFixed(1)
-            : Number(score?.projectedPoints || 0).toFixed(1)}
+            : score?.hasProjectedTotal === false
+              ? "—"
+              : Number(score?.projectedPoints || 0).toFixed(1)}
         </div>
         <div className="text-[8px] font-black uppercase text-zinc-600">
           {score?.isFinal ? "Points" : "Projection"}
@@ -2721,7 +2807,7 @@ const MatchupPlayerRow = ({
         <div
           className={`mt-0.5 truncate text-[9px] font-bold ${player.isLive ? "text-amber-300" : player.isFinal ? "text-zinc-600" : "text-zinc-500"}`}
         >
-          {player.team} · {gameLabel}
+          {player.team}{player.opponent ? ` vs ${player.opponent}` : ""} · {gameLabel}
           {player.locked ? " · Locked" : ""}
         </div>
       </div>
@@ -2730,7 +2816,7 @@ const MatchupPlayerRow = ({
           {player.isLive || player.isFinal ? player.points.toFixed(1) : "—"}
         </div>
         <div className="text-[8px] text-zinc-600">
-          {player.projectedPoints.toFixed(1)} proj
+          {player.projectionAvailable === false ? "— proj" : `${player.projectedPoints.toFixed(1)} proj`}
         </div>
       </div>
     </button>

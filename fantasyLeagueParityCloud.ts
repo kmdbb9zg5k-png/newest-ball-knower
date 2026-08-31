@@ -1,6 +1,8 @@
 import { ensureOnlineSession, supabase } from './supabase';
 import { League, Player, SeasonResult } from './types';
 import { PLAYERS_DATABASE } from './players';
+import { LINEUP_SLOTS } from './fantasyLineup';
+export { LINEUP_SLOTS, optimizeWeeklyLineup } from './fantasyLineup';
 
 export type WeeklyLineup = {
   id:string;
@@ -22,8 +24,10 @@ export type PlayerScoreDetail = {
   playerName:string;
   team:string;
   position:string;
+  opponent?:string;
   points:number;
   projectedPoints:number;
+  projectionAvailable?:boolean;
   status:string;
   kickoffAt?:string;
   isLive:boolean;
@@ -37,6 +41,7 @@ export type WeeklyScore = {
   week:number;
   livePoints:number;
   projectedPoints:number;
+  hasProjectedTotal?:boolean;
   source:string;
   isFinal:boolean;
   scoreRevision:number;
@@ -44,6 +49,11 @@ export type WeeklyScore = {
   updatedAt:string;
   finalizedAt?:string;
   lastCorrectionAt?:string;
+};
+
+export type WeeklyPlayerProjection = {
+  playerId:string;
+  projectedPoints:Record<string,number>;
 };
 
 export type NflWeekGame = {
@@ -124,9 +134,9 @@ const mapGame=(row:any):NflWeekGame=>({
 });
 
 export async function fetchFantasyParityState(leagueId:string,week:number,season=2026){
-  if(!supabase) return {lineups:[],scores:[],members:[],archives:[],games:[]} as const;
+  if(!supabase) return {lineups:[],scores:[],members:[],archives:[],games:[],projections:[]} as const;
   await ensureOnlineSession();
-  const [lineups,scores,members,archives,games]=await Promise.all([
+  const [lineups,scores,members,archives,games,projections]=await Promise.all([
     supabase.from('ball_knower_weekly_lineups').select('*').eq('league_id',leagueId).eq('week_number',week),
     // Scores power standings and the full-season matchup list, so fetch every
     // week while keeping editable lineup data scoped to the selected week.
@@ -134,7 +144,10 @@ export async function fetchFantasyParityState(leagueId:string,week:number,season
     supabase.from('ball_knower_league_members').select('id,faab_balance,ir_player_ids').eq('league_id',leagueId),
     supabase.from('ball_knower_season_archive').select('season_number,result,settings,created_at').eq('league_id',leagueId).order('season_number',{ascending:false}).limit(25),
     supabase.from('ball_knower_nfl_games').select('*').eq('season',season).eq('season_type','reg').eq('week_number',week).order('kickoff_at',{ascending:true}),
+    supabase.from('ball_knower_player_week_scores').select('ball_knower_player_id,projected_points').eq('season',season).eq('season_type','reg').eq('week_number',week).not('ball_knower_player_id','is',null),
   ]);
+  // Weekly projections enhance scheduled matchups but must never take core
+  // league state offline when that optional read is unavailable.
   const error=[lineups.error,scores.error,members.error,archives.error,games.error].find(Boolean);
   if(error) throw error;
   return {
@@ -143,6 +156,7 @@ export async function fetchFantasyParityState(leagueId:string,week:number,season
     members:(members.data||[]).map((row:any)=>({memberId:row.id,faabBalance:Number(row.faab_balance) || 0,irPlayerIds:Array.isArray(row.ir_player_ids)?row.ir_player_ids:[]} as MemberFantasyMeta)),
     archives:(archives.data||[]).map((row:any)=>({seasonNumber:Number(row.season_number),result:row.result||{},settings:row.settings||{},createdAt:row.created_at} as ArchivedSeason)),
     games:(games.data||[]).map(mapGame),
+    projections:projections.error?[]:(projections.data||[]).map((row:any)=>({playerId:row.ball_knower_player_id,projectedPoints:row.projected_points||{}} as WeeklyPlayerProjection)),
   };
 }
 
@@ -240,32 +254,6 @@ export async function commissionerEditMatchup(leagueId:string,week:number,gameId
   await ensureOnlineSession();
   const {error}=await supabase.rpc('commissioner_edit_ball_knower_matchup',{p_league_id:leagueId,p_week:week,p_game_id:gameId,p_home_member_id:homeMemberId,p_away_member_id:awayMemberId});
   if(error) throw error;
-}
-
-// Standard fantasy lineup. Drafting stays unrestricted; managers must use their bench,
-// free agency, waivers, or trades to field a legal weekly lineup.
-export const LINEUP_SLOTS = [
-  {id:'QB',label:'QB',accept:(p:Player)=>p.position==='QB'},
-  {id:'RB1',label:'RB',accept:(p:Player)=>p.position==='RB'||p.position==='FB'},
-  {id:'RB2',label:'RB',accept:(p:Player)=>p.position==='RB'||p.position==='FB'},
-  {id:'WR1',label:'WR',accept:(p:Player)=>p.position==='WR'},
-  {id:'WR2',label:'WR',accept:(p:Player)=>p.position==='WR'},
-  {id:'TE',label:'TE',accept:(p:Player)=>p.position==='TE'},
-  {id:'FLEX',label:'FLEX',accept:(p:Player)=>['RB','FB','WR','TE'].includes(p.position)},
-  {id:'K',label:'K',accept:(p:Player)=>p.position==='K'},
-  {id:'DST',label:'D/ST',accept:(p:Player)=>p.position==='DST'},
-] as const;
-
-export function optimizeWeeklyLineup(roster:Player[]):Record<string,string>{
-  const chosen=new Set<string>();
-  const starters:Record<string,string>={};
-  for(const slot of LINEUP_SLOTS){
-    const candidate=[...roster]
-      .filter(player=>!chosen.has(player.id)&&slot.accept(player))
-      .sort((a,b)=>(b.ovr||0)-(a.ovr||0))[0];
-    if(candidate){starters[slot.id]=candidate.id;chosen.add(candidate.id);}
-  }
-  return starters;
 }
 
 export function validateWeeklyLineup(roster:Player[],starters:Record<string,string>):string[]{
