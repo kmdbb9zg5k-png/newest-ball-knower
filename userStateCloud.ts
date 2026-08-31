@@ -8,6 +8,7 @@ export type UserStateRow<T = unknown> = {
 };
 
 const OWNER_STATE_KEY = 'owner_business_career_v1';
+export const AGENT_PENDING_SIGNING_KEY = 'ballknower_player_agent_signing_pending_v1';
 const ACCOUNT_BOUND_WRITE_TIMEOUT_MS = 12_000;
 const pendingUserStateWrites = new Set<Promise<unknown>>();
 
