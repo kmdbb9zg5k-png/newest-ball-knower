@@ -56,12 +56,16 @@ export default async function handler(req: Request, res: Response) {
     runRpc('process_due_ball_knower_matchup_notifications', { p_now: now }),
   ]);
 
-  const failures = [
+  type WorkerResult = Awaited<ReturnType<typeof runRpc>>;
+  const jobs: Array<[string, WorkerResult]> = [
     ['scheduledDrafts', scheduled],
     ['waivers', waivers],
     ['drafts', drafts],
     ['matchupNotifications', matchups],
-  ].filter(([, result]) => !result.ok).map(([job, result]: any) => ({ job, error: result.error }));
+  ];
+  const failures = jobs
+    .filter(([, result]) => !result.ok)
+    .map(([job, result]) => ({ job, error: result.ok ? null : result.error }));
 
   return res.status(failures.length ? 503 : 200).json({
     ok: failures.length === 0,
