@@ -18,6 +18,7 @@ import { playerPortraitUrl } from "./playerPortraits";
 import { ModalPortal } from "./ModalPortal";
 import { saveUserState } from "./userStateCloud";
 import { claimPendingVerifiedModeMilestones } from "./modeProgressionCloud";
+import { ensureOnlineSession } from "./supabase";
 import {
   createRecruitingProfile,
   evaluateRecruitingDecision,
@@ -342,33 +343,84 @@ const persist = (state: AgencyState) => {
   } catch {}
 };
 
+type PendingAgentSigning = {
+  userId: string;
+  state: AgencyState;
+};
+
 let pendingAgentSigningWrite: Promise<void> | null = null;
-const readPendingAgentSigning = (): AgencyState | null => {
+const readPendingAgentSigning = (): PendingAgentSigning | null => {
   try {
     const raw = localStorage.getItem(PENDING_SIGNING_KEY);
-    return raw ? (JSON.parse(raw) as AgencyState) : null;
+    if (!raw) return null;
+    const pending = JSON.parse(raw) as Partial<PendingAgentSigning>;
+    if (
+      typeof pending.userId !== "string" ||
+      !pending.userId ||
+      !pending.state ||
+      typeof pending.state !== "object"
+    ) {
+      return null;
+    }
+    return pending as PendingAgentSigning;
   } catch {
     return null;
   }
 };
-const verifyPendingAgentSigning = (state?: AgencyState): Promise<void> => {
-  if (state) localStorage.setItem(PENDING_SIGNING_KEY, JSON.stringify(state));
+const verifyPendingAgentSigning = async (state?: AgencyState): Promise<void> => {
+  if (state) {
+    const user = await ensureOnlineSession();
+    localStorage.setItem(
+      PENDING_SIGNING_KEY,
+      JSON.stringify({ userId: user.id, state } satisfies PendingAgentSigning),
+    );
+  }
   if (pendingAgentSigningWrite) return pendingAgentSigningWrite;
-  const pending = state || readPendingAgentSigning();
-  if (!pending) return Promise.resolve();
-  pendingAgentSigningWrite = (async () => {
-    await saveUserState("player_agent_career", { raw: JSON.stringify(pending) });
-    localStorage.removeItem(PENDING_SIGNING_KEY);
-    try {
-      await claimPendingVerifiedModeMilestones();
-    } catch (error) {
-      // The durable milestone remains replayable after the signing save succeeds.
-      console.warn("Agent signing milestone claim deferred", error);
+
+  const write = (async () => {
+    while (true) {
+      const raw = localStorage.getItem(PENDING_SIGNING_KEY);
+      if (!raw) return;
+      const pending = readPendingAgentSigning();
+      if (!pending) {
+        if (localStorage.getItem(PENDING_SIGNING_KEY) === raw) {
+          localStorage.removeItem(PENDING_SIGNING_KEY);
+        }
+        continue;
+      }
+
+      const user = await ensureOnlineSession();
+      if (pending.userId !== user.id) {
+        if (localStorage.getItem(PENDING_SIGNING_KEY) === raw) {
+          localStorage.removeItem(PENDING_SIGNING_KEY);
+        }
+        continue;
+      }
+
+      await saveUserState("player_agent_career", {
+        raw: JSON.stringify(pending.state),
+      });
+      if (localStorage.getItem(PENDING_SIGNING_KEY) !== raw) {
+        continue;
+      }
+
+      localStorage.removeItem(PENDING_SIGNING_KEY);
+      try {
+        await claimPendingVerifiedModeMilestones();
+      } catch (error) {
+        // The durable milestone remains replayable after the signing save succeeds.
+        console.warn("Agent signing milestone claim deferred", error);
+      }
+      // Loop once more in case a newer signing arrived while this save or
+      // milestone claim was in flight.
     }
-  })().finally(() => {
-    pendingAgentSigningWrite = null;
-  });
-  return pendingAgentSigningWrite;
+  })();
+  pendingAgentSigningWrite = write;
+  try {
+    await write;
+  } finally {
+    if (pendingAgentSigningWrite === write) pendingAgentSigningWrite = null;
+  }
 };
 const clamp = (n: number, min: number, max: number) =>
   Math.max(min, Math.min(max, n));
@@ -579,15 +631,38 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     if (!verifyingAgentSigning) onBack();
   };
   useEffect(() => {
-    if (!readPendingAgentSigning()) return;
     let cancelled = false;
-    void verifyPendingAgentSigning()
-      .then(() => { if (!cancelled) setVerifyingAgentSigning(false); })
-      .catch(error => {
-        if (!cancelled) setVerifyingAgentSigning(true);
-        console.warn("Agent signing cloud verification pending retry", error);
-      });
-    return () => { cancelled = true; };
+    const retryPendingSigning = () => {
+      if (!readPendingAgentSigning()) {
+        if (!cancelled) setVerifyingAgentSigning(false);
+        return;
+      }
+      if (!cancelled) setVerifyingAgentSigning(true);
+      void verifyPendingAgentSigning()
+        .then(() => {
+          if (!cancelled) {
+            setVerifyingAgentSigning(readPendingAgentSigning() !== null);
+          }
+        })
+        .catch((error) => {
+          if (!cancelled) setVerifyingAgentSigning(true);
+          console.warn("Agent signing cloud verification pending retry", error);
+        });
+    };
+    const handlePendingSigningStorage = (event: StorageEvent) => {
+      if (event.key !== PENDING_SIGNING_KEY) return;
+      if (!event.newValue) {
+        if (!cancelled) setVerifyingAgentSigning(false);
+        return;
+      }
+      retryPendingSigning();
+    };
+    window.addEventListener("storage", handlePendingSigningStorage);
+    retryPendingSigning();
+    return () => {
+      cancelled = true;
+      window.removeEventListener("storage", handlePendingSigningStorage);
+    };
   }, []);
   const clients = useMemo(
     () =>
@@ -1262,6 +1337,32 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       message: `The GM counters at ${moneyM(gmAnnual)} per year with ${Math.min(62, negotiationRoom.guaranteedPct + 5)}% guaranteed. Push again or protect the relationship.`,
     });
   };
+
+  if (verifyingAgentSigning) {
+    return (
+      <div className="grid min-h-[100dvh] place-items-center bg-[#05070b] p-5 text-white">
+        <div className="w-full max-w-md rounded-[2rem] border border-violet-300/25 bg-[#0d121b] p-6 text-center shadow-2xl">
+          <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-violet-400 text-black">
+            <ShieldCheck size={28} />
+          </div>
+          <div className="mt-4 text-[10px] font-black tracking-[.22em] text-violet-300">
+            SECURING YOUR SIGNING
+          </div>
+          <h2 className="mt-2 text-3xl font-black">KEEPING THIS DEAL SAFE.</h2>
+          <p className="mt-3 text-sm font-semibold leading-6 text-zinc-400">
+            Career actions are paused until this signing is safely stored on
+            your account. You can retry without losing the deal.
+          </p>
+          <button
+            onClick={() => void retryAgentSigningVerification()}
+            className="mt-5 min-h-12 w-full rounded-2xl bg-violet-400 px-5 font-black text-black"
+          >
+            RETRY CLOUD VERIFICATION
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!agency.profile) {
     return (
