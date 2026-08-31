@@ -1,0 +1,20 @@
+import assert from'node:assert/strict';
+import{advanceOwnerSeason,ownerGameRevenue,ownerStageLabel,qualifiesForOwnerPlayoffs,type OwnerSeasonSnapshot}from'../ownerSeasonEngine';
+
+const base:OwnerSeasonSnapshot={season:2026,week:17,stage:'regular',wins:9,losses:7,cashM:350,ticketPrice:125,parkingPrice:35,fanTrust:70,stadium:75,gmCostM:9,coachCostM:12};
+assert.equal(qualifiesForOwnerPlayoffs(9,8),true);
+assert.equal(qualifiesForOwnerPlayoffs(7,10),false);
+assert.equal(advanceOwnerSeason(base,false).nextStage,'wild-card','a qualified owner season must not stop after Week 17');
+assert.equal(advanceOwnerSeason({...base,wins:6,losses:10},false).seasonEnded,true,'a non-playoff season must roll over');
+assert.equal(advanceOwnerSeason({...base,stage:'wild-card',week:18},true).nextStage,'divisional');
+assert.equal(advanceOwnerSeason({...base,stage:'divisional',week:19},true).nextStage,'conference');
+assert.equal(advanceOwnerSeason({...base,stage:'conference',week:20},true).nextStage,'super-bowl');
+const champion=advanceOwnerSeason({...base,stage:'super-bowl',week:21},true);
+assert.equal(champion.seasonEnded,true);
+assert.equal(champion.wonChampionship,true);
+assert.equal(champion.expensesM,21,'annual executive salaries must hit the P&L once');
+assert.ok(champion.revenueM>=85,'a championship must include the title revenue bump');
+assert.ok(ownerGameRevenue(base,true,false)>0);
+assert.equal(ownerGameRevenue(base,false,false),0);
+assert.equal(ownerStageLabel('wild-card',18),'WILD CARD');
+console.log('Phase 4 Owner postseason checks passed.');
