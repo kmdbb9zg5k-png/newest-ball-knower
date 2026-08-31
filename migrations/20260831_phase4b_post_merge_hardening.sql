@@ -2,26 +2,27 @@
 -- Keep Owner snapshots monotonic across tabs/devices and preserve the most
 -- advanced verified Owner run when guest progress is claimed.
 
-create or replace function ball_knower_private.owner_state_updated_at(p_value jsonb)
+create or replace function ball_knower_private.owner_state_revision(p_value jsonb)
 returns bigint
 language plpgsql
 immutable
 set search_path=pg_catalog,pg_temp
 as $$
 declare
-  v_updated text;
+  v_revision text;
 begin
   if p_value is null or jsonb_typeof(p_value)<>'object' then return 0; end if;
-  v_updated:=p_value->>'updatedAt';
-  if v_updated is null or v_updated!~'^[0-9]{1,16}$' then return 0; end if;
-  return v_updated::bigint;
+  v_revision:=p_value->>'cloudRevision';
+  if v_revision is null then return 0; end if;
+  if v_revision!~'^[0-9]{1,16}$' then return 0; end if;
+  return v_revision::bigint;
 exception when others then
   return 0;
 end;
 $$;
-revoke all on function ball_knower_private.owner_state_updated_at(jsonb) from public,anon,authenticated;
+revoke all on function ball_knower_private.owner_state_revision(jsonb) from public,anon,authenticated;
 
-create or replace function public.save_ball_knower_timestamped_user_state(
+create or replace function public.save_ball_knower_revisioned_user_state(
   p_state_key text,
   p_value jsonb
 )
@@ -32,32 +33,38 @@ set search_path=public,ball_knower_private,pg_temp
 as $$
 declare
   v_user uuid:=auth.uid();
-  v_incoming_updated bigint;
+  v_incoming_revision bigint;
+  v_stored_revision bigint;
   v_row public.ball_knower_user_state%rowtype;
 begin
   if v_user is null then raise exception 'Sign in required'; end if;
-  if p_state_key<>'owner_business_career_v1' then raise exception 'Unsupported timestamped state'; end if;
-  v_incoming_updated:=ball_knower_private.owner_state_updated_at(p_value);
-  if v_incoming_updated<=0 then raise exception 'Valid updatedAt required'; end if;
+  if p_state_key<>'owner_business_career_v1' then raise exception 'Unsupported revisioned state'; end if;
+  if p_value is null or jsonb_typeof(p_value)<>'object' then raise exception 'Object state required'; end if;
 
-  insert into public.ball_knower_user_state as current_state(user_id,state_key,value,updated_at)
-  values(v_user,p_state_key,p_value,now())
-  on conflict(user_id,state_key) do update
-  set value=excluded.value,updated_at=now()
-  where ball_knower_private.owner_state_updated_at(current_state.value)<=v_incoming_updated
-  returning current_state.* into v_row;
+  insert into public.ball_knower_user_state(user_id,state_key,value,updated_at)
+  values(v_user,p_state_key,p_value||jsonb_build_object('cloudRevision',0),now())
+  on conflict(user_id,state_key) do nothing;
 
-  if not found then
-    select * into v_row
-    from public.ball_knower_user_state s
-    where s.user_id=v_user and s.state_key=p_state_key;
+  select * into v_row
+  from public.ball_knower_user_state s
+  where s.user_id=v_user and s.state_key=p_state_key
+  for update;
+
+  v_incoming_revision:=ball_knower_private.owner_state_revision(p_value);
+  v_stored_revision:=ball_knower_private.owner_state_revision(v_row.value);
+  if v_incoming_revision=v_stored_revision then
+    update public.ball_knower_user_state s
+    set value=p_value||jsonb_build_object('cloudRevision',v_stored_revision+1),
+        updated_at=now()
+    where s.user_id=v_user and s.state_key=p_state_key
+    returning s.* into v_row;
   end if;
 
   return query select v_row.state_key,v_row.value,v_row.updated_at;
 end;
 $$;
-revoke all on function public.save_ball_knower_timestamped_user_state(text,jsonb) from public,anon;
-grant execute on function public.save_ball_knower_timestamped_user_state(text,jsonb) to authenticated;
+revoke all on function public.save_ball_knower_revisioned_user_state(text,jsonb) from public,anon;
+grant execute on function public.save_ball_knower_revisioned_user_state(text,jsonb) to authenticated;
 
 create or replace function ball_knower_private.transfer_verified_mode_state_on_guest_claim()
 returns trigger
