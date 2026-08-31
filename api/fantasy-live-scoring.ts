@@ -345,17 +345,20 @@ async function processHistoricalBackfill(db:any,now:Date):Promise<Json>{
   try{
     if(!state.schedule_loaded_at){
       const payload=await tankGet('/getNFLGamesForWeek',{week:String(week),season:String(season),seasonType});
-      const games:GameRow[]=valueList(payload).flatMap(game=>{
+      const rawGames=valueList(payload);
+      const games:GameRow[]=rawGames.flatMap(game=>{
         const providerGameId=String(game.gameID||game.gameId||'');
         const kickoff=kickoffIsoFromTank01Game(game);
-        if(!providerGameId||!kickoff) return [];
+        const awayTeam=normalizeTeam(game.away||game.awayTeam);
+        const homeTeam=normalizeTeam(game.home||game.homeTeam);
+        if(!providerGameId||!kickoff||!awayTeam||!homeTeam||awayTeam===homeTeam) return [];
         const status=String(game.gameStatus||'Scheduled');
         return [{provider_game_id:providerGameId,season,season_type:seasonType,week_number:week,
-          away_team:normalizeTeam(game.away||game.awayTeam),home_team:normalizeTeam(game.home||game.homeTeam),kickoff_at:kickoff,
+          away_team:awayTeam,home_team:homeTeam,kickoff_at:kickoff,
           game_status:status,game_status_code:String(game.gameStatusCode||''),game_period:null,game_clock:null,
           is_live:false,is_final:isFinalGameStatus(status),final_at:isFinalGameStatus(status)?now.toISOString():null,last_polled_at:null}];
       });
-      if(!games.length) throw new Tank01Error('/getNFLGamesForWeek',200,'payload',`Tank01 returned no valid games for ${season} week ${week}.`);
+      if(!rawGames.length||games.length!==rawGames.length) throw new Tank01Error('/getNFLGamesForWeek',200,'payload',`Tank01 returned an incomplete schedule for ${season} week ${week}.`);
       const {error:scheduleError}=await db.from('ball_knower_nfl_games').upsert(games,{onConflict:'provider_game_id'});
       if(scheduleError) throw scheduleError;
       const {error}=await db.from('ball_knower_fantasy_history_backfill').update({schedule_loaded_at:now.toISOString(),attempts:Number(state.attempts||0)+1,last_error:null,updated_at:now.toISOString()})
@@ -377,11 +380,13 @@ async function processHistoricalBackfill(db:any,now:Date):Promise<Json>{
     const box=await tankGet('/getNFLBoxScore',{gameID:game.provider_game_id,playByPlay:false,fantasyPoints:true}) as Json;
     const status=String(box.gameStatus||game.game_status||'Final');
     const rows:Json[]=[];
-    for(const playerRaw of valueList(box.playerStats||box.players||{})){
+    const rawPlayerStats=valueList(box.playerStats||box.players||{});
+    let malformedPlayerRow=false;
+    for(const playerRaw of rawPlayerStats){
       const providerPlayerId=String(playerRaw.playerID||playerRaw.playerId||'');
-      if(!providerPlayerId) continue;
-      const name=String(playerRaw.longName||playerRaw.playerName||providerPlayerId);
       const team=normalizeTeam(playerRaw.teamAbv||playerRaw.team);
+      if(!providerPlayerId||!team||(team!==game.away_team&&team!==game.home_team)){ malformedPlayerRow=true; continue; }
+      const name=String(playerRaw.longName||playerRaw.playerName||providerPlayerId);
       const matchup=matchupForTeam(game,team);
       rows.push({provider_game_id:game.provider_game_id,provider_player_id:providerPlayerId,ball_knower_player_id:null,
         season,season_type:seasonType,week_number:week,player_name:name,team,position:String(playerRaw.pos||''),opponent_team:matchup.opponentTeam,
@@ -400,6 +405,7 @@ async function processHistoricalBackfill(db:any,now:Date):Promise<Json>{
         fantasy_points:{standard:actual,half_ppr:actual,ppr:actual},projected_points:{},history_source:'tank01_historical_boxscore',provider_updated_at:now.toISOString(),updated_at:now.toISOString()});
     }
     if(!isFinalGameStatus(status)) throw new Tank01Error('/getNFLBoxScore',200,'payload',`Historical game ${game.provider_game_id} is not final.`);
+    if(malformedPlayerRow) throw new Tank01Error('/getNFLBoxScore',200,'payload',`Historical game ${game.provider_game_id} returned malformed player scoring rows.`);
     if(!rows.length) throw new Tank01Error('/getNFLBoxScore',200,'payload',`Historical game ${game.provider_game_id} returned no usable scoring rows.`);
     if(rows.length){
       const {error}=await db.from('ball_knower_player_week_scores').upsert(rows,{onConflict:'provider_game_id,provider_player_id'});
@@ -437,11 +443,13 @@ export default async function handler(req:any,res:any){
     const season=Math.max(2026,Number(current?.season)||now.getUTCFullYear());
     const week=Math.max(1,Math.min(22,Number(current?.week)||1));
     const seasonType=String(current?.seasonType||'reg');
-    if(seasonType==='Final') return res.status(200).json({ok:true,season,week,seasonType,gamesPolled:0,message:'NFL season is final.'});
-    if(seasonType!=='reg') return res.status(200).json({
-      ok:true,season,week,seasonType,gamesPolled:0,
-      message:'Live fantasy scoring waits for the NFL regular season.',
-    });
+    if(seasonType==='Final'||seasonType!=='reg'){
+      let historyBackfill:Json={status:'retry_later'};
+      try{ historyBackfill=await processHistoricalBackfill(db,now); }
+      catch(error:any){ console.warn('fantasy-history-backfill-failed',{message:error?.message||String(error)}); }
+      return res.status(200).json({ok:true,season,week,seasonType,gamesPolled:0,historyBackfill,
+        message:seasonType==='Final'?'NFL season is final; historical backfill remains active.':'Live fantasy scoring waits for the NFL regular season; historical backfill remains active.'});
+    }
 
     const [gamesPayload,projectionsPayload,existingGamesResult,leagueResult,draftResult]=await Promise.all([
       tankGet('/getNFLGamesForWeek',{week:String(week),season:String(season),seasonType}),
