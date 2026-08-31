@@ -7,6 +7,8 @@ export type FantasyPlayerWeek = {
   week: number;
   playerName: string;
   team: string;
+  opponentTeam: string;
+  isHome: boolean | null;
   position: string;
   kickoffAt: string;
   status: string;
@@ -14,6 +16,10 @@ export type FantasyPlayerWeek = {
   stats: Record<string, unknown>;
   fantasyPoints: Record<string, number>;
   projectedPoints: Record<string, number>;
+  projectionReason: string;
+  projectionSource: string;
+  projectionCapturedAt: string | null;
+  historySource: string;
 };
 
 type WeekRow = {
@@ -24,6 +30,8 @@ type WeekRow = {
   week_number: number;
   player_name: string;
   team: string;
+  opponent_team: string | null;
+  is_home: boolean | null;
   position: string | null;
   kickoff_at: string;
   game_status: string;
@@ -31,6 +39,11 @@ type WeekRow = {
   stats: Record<string, unknown> | null;
   fantasy_points: Record<string, number> | null;
   projected_points: Record<string, number> | null;
+  pregame_projected_points: Record<string, number> | null;
+  pregame_projection_reason: string | null;
+  pregame_projection_source: string | null;
+  pregame_projection_captured_at: string | null;
+  history_source: string | null;
 };
 
 export type FantasyPlayerIdentity = {
@@ -40,7 +53,7 @@ export type FantasyPlayerIdentity = {
   position: string;
 };
 
-const weekColumns = 'id,provider_game_id,provider_player_id,season,week_number,player_name,team,position,kickoff_at,game_status,is_final,stats,fantasy_points,projected_points';
+const weekColumns = 'id,provider_game_id,provider_player_id,season,week_number,player_name,team,position,opponent_team,is_home,kickoff_at,game_status,is_final,stats,fantasy_points,projected_points,pregame_projected_points,pregame_projection_reason,pregame_projection_source,pregame_projection_captured_at,history_source';
 
 export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Promise<FantasyPlayerWeek[]> {
   if (!supabase) return [];
@@ -82,12 +95,18 @@ export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Pro
     week: Number(row.week_number),
     playerName: row.player_name,
     team: row.team,
+    opponentTeam: row.opponent_team || '',
+    isHome: row.is_home,
     position: row.position || '',
     kickoffAt: row.kickoff_at,
     status: row.game_status,
     isFinal: Boolean(row.is_final),
     stats: row.stats || {},
     fantasyPoints: row.fantasy_points || {},
-    projectedPoints: row.projected_points || {},
+    projectedPoints: row.pregame_projection_captured_at ? (row.pregame_projected_points || {}) : {},
+    projectionReason: row.pregame_projection_reason || '',
+    projectionSource: row.pregame_projection_source || '',
+    projectionCapturedAt: row.pregame_projection_captured_at,
+    historySource: row.history_source || 'tank01',
   }));
 }
