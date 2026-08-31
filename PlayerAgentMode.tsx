@@ -16,6 +16,8 @@ import { PLAYERS_DATABASE } from "./players";
 import { Player } from "./types";
 import { playerPortraitUrl } from "./playerPortraits";
 import { ModalPortal } from "./ModalPortal";
+import { saveUserState } from "./userStateCloud";
+import { claimPendingVerifiedModeMilestones } from "./modeProgressionCloud";
 import {
   createRecruitingProfile,
   evaluateRecruitingDecision,
@@ -529,6 +531,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
   const [levelUp, setLevelUp] = useState<{ from: number; to: number } | null>(
     null,
   );
+  const [verifyingAgentSigning, setVerifyingAgentSigning] = useState(false);
   const clients = useMemo(
     () =>
       agency.clients
@@ -621,6 +624,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
   };
 
   const advanceWeek = () => {
+    if (verifyingAgentSigning) return;
     let nextWeek = agency.seasonWeek + 1;
     let nextYear = agency.seasonYear;
     let nextPhase: SeasonPhase = agency.phase;
@@ -933,7 +937,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     });
   };
 
-  const makePitch = (pitch: Pitch) => {
+  const makePitch = async (pitch: Pitch) => {
     if (
       !selected ||
       !recruit ||
@@ -1024,6 +1028,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       };
       const before = maxUnlockedOverall(agency.reputation),
         after = maxUnlockedOverall(next.reputation);
+      setVerifyingAgentSigning(true);
       setAgency(next);
       persist(next);
       setRecruit({
@@ -1037,6 +1042,17 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
         playerReply:
           "“You listened, you had a plan, and you did not sell me the same dream everybody else did. Let’s work.”",
       });
+      try {
+        // Persist the signing while the Agent week/action counters still
+        // describe the signing event. This keeps the server verifier from
+        // mistaking a fast sign-then-advance sequence for legacy baseline.
+        await saveUserState("player_agent_career", { raw: JSON.stringify(next) });
+        await claimPendingVerifiedModeMilestones();
+      } catch (error) {
+        console.warn("Agent signing cloud verification deferred", error);
+      } finally {
+        setVerifyingAgentSigning(false);
+      }
       if (after > before) {
         setLevelUp({ from: before, to: after });
         try {
@@ -1379,9 +1395,10 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
             </div>
             <button
               onClick={advanceWeek}
-              className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-violet-400 px-5 font-black text-black"
+              disabled={verifyingAgentSigning}
+              className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-violet-400 px-5 font-black text-black disabled:cursor-wait disabled:opacity-50"
             >
-              <FastForward size={18} /> ADVANCE ONE WEEK
+              <FastForward size={18} /> {verifyingAgentSigning ? "VERIFYING SIGNING…" : "ADVANCE ONE WEEK"}
             </button>
           </div>
         </section>
