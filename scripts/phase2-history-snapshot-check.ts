@@ -25,9 +25,11 @@ assert.match(api, /pregame_projection_captured_at:projectionsRetrievedAt\.toISOS
 assert.match(api, /processHistoricalBackfill/);
 assert.match(api, /pollable\.length===0/);
 assert.match(api, /history_source:'tank01_historical_boxscore'/);
-assert.match(api, /if\(!games\.length\) throw new Tank01Error/);
+assert.match(api, /games\.length!==rawGames\.length/);
 assert.match(api, /if\(!isFinalGameStatus\(status\)\) throw new Tank01Error/);
+assert.match(api, /if\(malformedPlayerRow\) throw new Tank01Error/);
 assert.match(api, /if\(!rows\.length\) throw new Tank01Error/);
+assert.match(api, /historical backfill remains active/);
 assert.match(api, /req\.headers\?\.authorization!==`Bearer \$\{cronSecret\}`/);
 
 assert.match(cloud, /pregame_projected_points/);
