@@ -220,7 +220,8 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
     if (aProjection === null && bProjection !== null) return 1;
     const position = a.position.localeCompare(b.position);
     if (position) return position;
-    return a.name.localeCompare(b.name);
+    const name = a.name.localeCompare(b.name);
+    return name || a.id.localeCompare(b.id);
   };
   const compareLowestKnownValue = (a: Player, b: Player) => {
     const aProjection = projectedPointsFor(a);
@@ -777,12 +778,58 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const viewedAway = league.members.find(
     (member) => member.id === viewedMatchup?.awayMemberId,
   );
-  const viewedHomeScore = scores.find(
-    (score) => score.week === week && score.memberId === viewedHome?.id,
-  );
-  const viewedAwayScore = scores.find(
-    (score) => score.week === week && score.memberId === viewedAway?.id,
-  );
+  const matchupScoreFor = (member?: LeagueMember): WeeklyScore | undefined => {
+    if (!member) return undefined;
+    const authoritative = scores.find(
+      (score) => score.week === week && score.memberId === member.id,
+    );
+    if (authoritative?.players.length) return authoritative;
+    const saved = lineups.find((lineup) => lineup.memberId === member.id);
+    const starters = saved?.starters && Object.keys(saved.starters).length
+      ? saved.starters
+      : buildFantasyLineup(member.roster || [], comparePlayers);
+    const players = LINEUP_SLOTS.flatMap((slot): PlayerScoreDetail[] => {
+      const player = (member.roster || []).find((item) => item.id === starters[slot.id]);
+      if (!player) return [];
+      const game = nflGames.find(
+        (item) => item.homeTeam === player.team || item.awayTeam === player.team,
+      );
+      const opponent = game
+        ? game.homeTeam === player.team
+          ? game.awayTeam
+          : game.homeTeam
+        : undefined;
+      return [{
+        slot: slot.id,
+        playerId: player.id,
+        playerName: player.name,
+        team: player.team,
+        position: player.position,
+        opponent,
+        points: 0,
+        projectedPoints: projectedPointsFor(player) || 0,
+        status: game?.gameStatus || "Scheduled",
+        kickoffAt: game?.kickoffAt,
+        isLive: false,
+        isFinal: false,
+        locked: Boolean(saved?.lockedPlayerIds.includes(player.id)),
+      }];
+    });
+    return {
+      leagueId: league.id,
+      memberId: member.id,
+      week,
+      livePoints: 0,
+      projectedPoints: players.reduce((total, player) => total + player.projectedPoints, 0),
+      source: "deterministic_projection",
+      isFinal: false,
+      scoreRevision: 1,
+      players,
+      updatedAt: saved?.updatedAt || new Date(0).toISOString(),
+    };
+  };
+  const viewedHomeScore = matchupScoreFor(viewedHome);
+  const viewedAwayScore = matchupScoreFor(viewedAway);
   const viewedScoreStatus =
     viewedHomeScore && viewedAwayScore
       ? viewedHomeScore.isFinal && viewedAwayScore.isFinal
@@ -1108,12 +1155,8 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
               const away = league.members.find(
                 (member) => member.id === game.awayMemberId,
               );
-              const homeScore = scores.find(
-                (score) => score.week === week && score.memberId === home?.id,
-              );
-              const awayScore = scores.find(
-                (score) => score.week === week && score.memberId === away?.id,
-              );
+              const homeScore = matchupScoreFor(home);
+              const awayScore = matchupScoreFor(away);
               const mine =
                 game.homeMemberId === me?.id || game.awayMemberId === me?.id;
               return (
@@ -2721,7 +2764,7 @@ const MatchupPlayerRow = ({
         <div
           className={`mt-0.5 truncate text-[9px] font-bold ${player.isLive ? "text-amber-300" : player.isFinal ? "text-zinc-600" : "text-zinc-500"}`}
         >
-          {player.team} · {gameLabel}
+          {player.team}{player.opponent ? ` vs ${player.opponent}` : ""} · {gameLabel}
           {player.locked ? " · Locked" : ""}
         </div>
       </div>
