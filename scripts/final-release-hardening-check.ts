@@ -202,6 +202,32 @@ assert.ok(
   agent.includes('await recoverAgentSigningConflict(error);\n        return false;'),
   'rejected Agent signings must not trigger post-signing level-up effects',
 );
+const agentStagePending=agent.indexOf('stagePendingAgentSigning(signingUserId, signingBeforeState, next);');
+const agentPersistFinal=agent.indexOf('persist(next);',agentStagePending);
+const agentVerifyFinal=agent.indexOf('await retryAgentSigningVerification();',agentPersistFinal);
+assert.ok(
+  userState.includes("export const AGENT_PENDING_SIGNING_KEY = 'ballknower_player_agent_signing_pending_v1'")&&
+  cloudSync.includes('!isCloudUploadBlocked(entry)')&&
+  cloudSync.includes('if (isCloudUploadBlocked(entry)) continue;')&&
+  agent.includes('await flushPendingUserStateWrites();')&&
+  agentStagePending>=0&&agentStagePending<agentPersistFinal&&agentPersistFinal<agentVerifyFinal,
+  'pending Agent signings must block generic cloud writes before the watched local snapshot changes',
+);
+assert.ok(
+  agent.includes('PENDING_RECRUIT_ACTION_KEY')&&
+  agent.includes('localStorage.getItem(PENDING_RECRUIT_ACTION_KEY) || localStorage.getItem(SAVE_KEY)')&&
+  agent.includes('persistRecruitAction(actionAgency);')&&
+  agent.includes('localStorage.removeItem(PENDING_RECRUIT_ACTION_KEY);'),
+  'a consumed recruiting action must survive reloads without changing the signing verifier baseline',
+);
+const agentAuthoritativeLoad=agent.indexOf('const latest = await loadAuthoritativeAgentCareer();');
+const agentConflictHoldRelease=agent.indexOf('localStorage.removeItem(PENDING_SIGNING_KEY);',agentAuthoritativeLoad);
+const agentConflictCatch=agent.indexOf('setVerifyingAgentSigning(true);',agentConflictHoldRelease);
+assert.ok(
+  agent.includes('Keep the hold until the authoritative server winner is loaded.')&&
+  agentAuthoritativeLoad>=0&&agentAuthoritativeLoad<agentConflictHoldRelease&&agentConflictHoldRelease<agentConflictCatch,
+  'Agent conflict recovery must stay locked until authoritative cloud state is loaded',
+);
 const signingRpcStart=phase4bFollowup.indexOf('create or replace function public.commit_ball_knower_expected_agent_signing(');
 const signingRpcSql=phase4bFollowup.slice(signingRpcStart,transferFunctionStart);
 const signingClientStart=userState.indexOf('export function commitAgentSigningForExpectedUser(');
