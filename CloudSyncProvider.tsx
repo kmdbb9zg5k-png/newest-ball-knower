@@ -4,7 +4,7 @@ import { Cloud, CloudOff, Loader2 } from 'lucide-react';
 import { ensureOnlineSession, isCloudConfigured, supabase } from './supabase';
 import { claimPendingGuestAccountMerge, hasPendingGuestAccountMerge } from './accountIdentity';
 import { registerFullCloudStateFlush } from './cloudSyncCoordinator';
-import { loadUserStates, saveUserStates, UserStateRow } from './userStateCloud';
+import { AGENT_PENDING_SIGNING_KEY, loadUserStates, saveUserStates, UserStateRow } from './userStateCloud';
 
 type CloudSyncStatus = 'connecting' | 'online' | 'error' | 'unconfigured';
 type CloudEnvelope = { raw: string | null };
@@ -17,6 +17,7 @@ type StorageEntry = {
 
 const META_KEY = 'ballknower_cloud_meta_v1';
 const OWNER_KEY = 'ballknower_cloud_owner_v1';
+const AGENT_LOCAL_KEY = 'ballknower_player_agent_v4';
 export const OWNER_CLOUD_SYNC_EVENT = 'ballknower:owner-cloud-saved';
 export const OWNER_CLOUD_CONFLICT_EVENT = 'ballknower:owner-cloud-conflict';
 const MAX_CLOUD_RAW_LENGTH = 220_000;
@@ -31,7 +32,7 @@ const CLOUD_STORAGE: StorageEntry[] = [
   { localKey: 'ballknower_solo_real_team_v1:season', cloudKey: 'solo_real_team_season' },
   { localKey: 'ballknower_solo_my_player_v1', cloudKey: 'solo_my_player', privateImages: true },
   { localKey: 'ballknower_solo_my_player_v1:season', cloudKey: 'solo_my_player_season' },
-  { localKey: 'ballknower_player_agent_v4', cloudKey: 'player_agent_career' },
+  { localKey: AGENT_LOCAL_KEY, cloudKey: 'player_agent_career' },
   { localKey: 'ballknower_owner_career_v3', cloudKey: 'owner_business_career_v1', directJson: true },
 ];
 
@@ -82,6 +83,10 @@ function directJsonPayload(value: string | unknown): string {
   } catch {
     return '';
   }
+}
+
+function isCloudUploadBlocked(entry: StorageEntry): boolean {
+  return entry.localKey === AGENT_LOCAL_KEY && localStorage.getItem(AGENT_PENDING_SIGNING_KEY) !== null;
 }
 
 function cloudValue(entry: StorageEntry, raw: string | null): unknown {
@@ -179,8 +184,9 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const flushDirty = (): Promise<void> => {
       if (uploadRunning || dirtyKeys.size === 0) return writeChain;
+      const entries = CLOUD_STORAGE.filter(entry => dirtyKeys.has(entry.localKey) && !isCloudUploadBlocked(entry));
+      if (entries.length === 0) return writeChain;
       uploadRunning = true;
-      const entries = CLOUD_STORAGE.filter(entry => dirtyKeys.has(entry.localKey));
       const snapshots = new Map(entries.map(entry => [entry.localKey, localStorage.getItem(entry.localKey)]));
       const rows = entries.flatMap(entry => {
         const value = cloudValue(entry, snapshots.get(entry.localKey) ?? null);
@@ -307,6 +313,7 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       let restoredMountedState = false;
 
       for (const entry of CLOUD_STORAGE) {
+        if (isCloudUploadBlocked(entry)) continue;
         const row = byKey.get(entry.cloudKey) as UserStateRow<unknown> | undefined;
         const localRaw = localStorage.getItem(entry.localKey);
         if (entry.directJson) {
