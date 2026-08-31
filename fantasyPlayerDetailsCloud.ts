@@ -52,14 +52,13 @@ export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Pro
     .in('season', [2025, 2026])
     .order('season', { ascending: false })
     .order('week_number', { ascending: true }),
-    // Older/unrostered score rows can predate the permanent app-id link. Name,
-    // team and position form a deliberately strict fallback for those rows.
+    // Older/unrostered score rows can predate the permanent app-id link. Exact
+    // full name plus position safely retains those rows across NFL team changes.
     supabase
       .from('ball_knower_player_week_scores')
       .select(weekColumns)
       .is('ball_knower_player_id', null)
       .eq('player_name', player.name)
-      .eq('team', player.team)
       .eq('position', player.position)
       .in('season', [2025, 2026])
       .order('season', { ascending: false })

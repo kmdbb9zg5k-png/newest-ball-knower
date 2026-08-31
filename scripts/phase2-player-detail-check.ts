@@ -9,6 +9,7 @@ const communications = readFileSync(new URL('../FantasyLeagueCommunications.tsx'
 
 assert.ok(detail.includes('loadFantasyPlayerWeeks({ id: player.id'), 'Player detail must load authoritative weekly history using the selected player identity.');
 assert.ok(cloud.includes(".is('ball_knower_player_id', null)"), 'Weekly history must safely recover legacy score rows without an app player id.');
+assert.ok(!cloud.includes(".eq('team', player.team)"), 'Legacy identity fallback must retain history across NFL team changes.');
 assert.ok(detail.includes('Stored final points'), 'Partial stored history must not be labeled as a complete season total.');
 assert.ok(detail.includes('projection_source_url'), 'Shared ranking details must preserve source provenance.');
 assert.ok(detail.includes("event.key === 'Escape'"), 'Player details must close from the keyboard.');
