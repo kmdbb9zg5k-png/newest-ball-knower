@@ -98,20 +98,20 @@ export function saveUserState(stateKey: string, value: unknown): Promise<void> {
   })());
 }
 
-export function saveUserStateForExpectedUser(
+export function commitAgentSigningForExpectedUser(
   expectedUserId: string,
-  stateKey: string,
-  value: unknown,
+  beforeValue: unknown,
+  afterValue: unknown,
 ): Promise<void> {
   if (!supabase) return Promise.reject(new Error('Cloud persistence is unavailable.'));
   return trackUserStateWrite((async () => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), ACCOUNT_BOUND_WRITE_TIMEOUT_MS);
     try {
-      const { error } = await supabase.rpc('save_ball_knower_expected_user_state', {
+      const { error } = await supabase.rpc('commit_ball_knower_expected_agent_signing', {
         p_expected_user_id: expectedUserId,
-        p_state_key: stateKey,
-        p_value: value,
+        p_before_value: beforeValue,
+        p_after_value: afterValue,
       }).abortSignal(controller.signal);
       if (error) throw error;
     } finally {
