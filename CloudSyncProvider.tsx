@@ -3,7 +3,7 @@ import type { User } from '@supabase/supabase-js';
 import { Cloud, CloudOff, Loader2 } from 'lucide-react';
 import { ensureOnlineSession, isCloudConfigured, supabase } from './supabase';
 import { claimPendingGuestAccountMerge, hasPendingGuestAccountMerge } from './accountIdentity';
-import { registerFullCloudStateFlush } from './cloudSyncCoordinator';
+import { registerCloudStateCommitted, registerFullCloudStateFlush } from './cloudSyncCoordinator';
 import { AGENT_PENDING_RECRUIT_ACTION_KEY, AGENT_PENDING_SIGNING_KEY, loadUserStates, saveUserStates, UserStateRow } from './userStateCloud';
 
 type CloudSyncStatus = 'connecting' | 'online' | 'error' | 'unconfigured';
@@ -310,6 +310,13 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     };
     const unregisterFullFlush = registerFullCloudStateFlush(flushAllLocalState);
+    const unregisterCloudStateCommitted = registerCloudStateCommitted((localKey, raw) => {
+      if (localStorage.getItem(localKey) !== raw) return;
+      lastValues.set(localKey, raw);
+      dirtyKeys.delete(localKey);
+      meta[localKey] = Date.now();
+      if (activeUserId) writeMeta(activeUserId, meta);
+    });
 
     const pullRemote = async (initial = false) => {
       const rows = await loadUserStates<unknown>(CLOUD_STORAGE.map(entry => entry.cloudKey));
@@ -449,6 +456,7 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       window.clearInterval(remoteTimer);
       window.clearTimeout(retryTimer);
       authSubscription?.unsubscribe();
+      unregisterCloudStateCommitted();
       unregisterFullFlush();
     };
   }, []);
