@@ -1,4 +1,5 @@
 import assert from'node:assert/strict';
+import{readFileSync}from'node:fs';
 import{advanceOwnerSeason,OWNER_TEAM_ABBRS,owner2026Calendar,ownerGameRevenue,ownerStageLabel,qualifiesForOwnerPlayoffs,type OwnerSeasonSnapshot}from'../ownerSeasonEngine';
 
 const base:OwnerSeasonSnapshot={abbr:'PHI',season:2026,week:18,stage:'regular',wins:9,losses:7,cashM:350,ticketPrice:125,parkingPrice:35,fanTrust:70,stadium:75,gmCostM:9,coachCostM:12};
@@ -23,4 +24,6 @@ assert.ok(weeklyRevenue>ownerGameRevenue(base,true,false),'a season receipt must
 for(const abbr of OWNER_TEAM_ABBRS){const calendar=owner2026Calendar(abbr);assert.equal(calendar.length,18);assert.equal(calendar.filter(week=>week.isBye).length,1);assert.equal(calendar.filter(week=>!week.isBye).length,17);}
 assert.equal(owner2026Calendar('WAS')[0].isHome,false,'Washington opens Week 1 away at Philadelphia');
 assert.equal(owner2026Calendar('PHI')[0].isHome,true,'Philadelphia opens Week 1 at home against Washington');
+const ownerMode=readFileSync(new URL('../OwnerBusinessMode.tsx',import.meta.url),'utf8');
+assert.ok(!ownerMode.includes('cashM:state.cashM-p.costM'),'annual staff salary must not also be charged up front');
 console.log('Phase 4 Owner postseason checks passed.');
