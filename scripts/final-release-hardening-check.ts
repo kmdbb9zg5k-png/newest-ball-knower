@@ -70,7 +70,11 @@ assert.ok(
   agent.includes('if (verifyingAgentSigning) {\n    return (')&&
   agent.includes('Career actions are paused until this signing is safely stored')&&
   agent.includes('window.addEventListener("storage", handlePendingSigningStorage)')&&
-  agent.includes('setVerifyingAgentSigning(readPendingAgentSigning() !== null)')&&
+  agent.includes('const activeWrite = pendingAgentSigningWrite;')&&
+  agent.includes('pendingAgentSigningWrite !== null || readPendingAgentSigning() !== null')&&
+  agent.includes('if (signingInFlightRef.current || verifyingAgentSigning) return;')&&
+  agent.includes('signingInFlightRef.current = true;')&&
+  agent.includes('disabled={signingInFlight}')&&
   agent.includes('BACK TO SOLO · KEEP RETRYING')&&
   agent.includes('RETRY CLOUD VERIFICATION'),
   'Agent signing verification must be account-scoped, serialized, cross-tab durable, and freeze every career mutation until saved',
@@ -101,7 +105,15 @@ assert.ok(userState.includes("stateKey === OWNER_STATE_KEY")&&userState.includes
 assert.ok(owner.includes('cloudRevision:number')&&owner.includes('cloud.cloudRevision>local.cloudRevision'),'Owner careers must carry and prefer server-issued revisions');
 assert.ok(cloudSync.includes('function directJsonRevision')&&!cloudSync.includes('directJsonUpdatedAt'),'Owner conflict ordering must not depend on client wall clocks');
 assert.ok(cloudSync.includes('restoredServerWinner')&&cloudSync.includes('remoteRevision > localRevision'),'cloud sync must apply the server winner on stale Owner saves');
-assert.ok(!owner.includes('saveUserState(CLOUD_SAVE_KEY'),'Owner mutations must serialize through the cloud coordinator');
+const ownerMutationSave=owner.indexOf('save(p,false);');
+const ownerDurableFlush=owner.indexOf('await flushAllCloudState()',ownerMutationSave);
+const ownerMilestoneClaim=owner.indexOf('await claimPendingVerifiedModeMilestones()',ownerDurableFlush);
+assert.ok(
+  ownerMutationSave>=0&&ownerMutationSave<ownerDurableFlush&&ownerDurableFlush<ownerMilestoneClaim&&
+  owner.includes('const save=(p:Partial<State>,trackCash=true)=>{')&&owner.includes('setState(n);persist(n);')&&
+  cloudSync.includes("{ localKey: 'ballknower_owner_career_v3', cloudKey: 'owner_business_career_v1', directJson: true }"),
+  'Owner mutations must persist locally, flush through the registered revisioned cloud coordinator, and only then claim milestones',
+);
 assert.ok(cloudSync.includes('savedRevision === submittedRevision + 1')&&cloudSync.includes('cloudRevision: savedRevision'),'newer same-device Owner mutations must rebase onto accepted server revisions');
 assert.ok(phase4bFollowup.includes('on conflict(user_id) do update set')&&phase4bFollowup.includes('excluded.season'),'guest claims must compare and preserve the more advanced Owner run');
 assert.ok(phase4bFollowup.indexOf('on conflict(user_id) do update set')<phase4bFollowup.indexOf('delete from ball_knower_private.verified_owner_runs'),'guest Owner state must be preserved before the guest row is deleted');
