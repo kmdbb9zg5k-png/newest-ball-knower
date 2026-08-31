@@ -107,8 +107,13 @@ assert.equal(
 );
 assert.equal(
   (phase4bFollowup.match(/\n\$\$;/g)??[]).length,
-  6,
-  'Phase 4B hardening migration must close each function body exactly once',
+  5,
+  'Phase 4B hardening migration must close each standard function body exactly once',
+);
+assert.equal(
+  (phase4bFollowup.match(/\$owner_atomic\$/g)??[]).length,
+  2,
+  'the atomic Owner function must have one complete named-delimiter body',
 );
 assert.equal(
   (phase4bFollowup.match(/\n\$function\$;/g)??[]).length,
