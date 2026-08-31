@@ -1,5 +1,6 @@
 import{claimPendingVerifiedModeMilestones,gradeVerifiedPredictionPicks}from'./modeProgressionCloud';
 
+const IDLE_CLAIM_INTERVAL_MS=60_000;
 let started=false;let claiming=false;let claimTimer=0;let gradeTimer=0;
 
 async function claimVerifiedMilestones(){
@@ -11,7 +12,7 @@ async function gradePredictions(){try{if(navigator.onLine)await gradeVerifiedPre
 export function startModeProgressionBridge(){
   if(started||typeof window==='undefined')return;started=true;
   window.setTimeout(()=>void claimVerifiedMilestones(),1200);
-  claimTimer=window.setInterval(()=>void claimVerifiedMilestones(),4000);
+  claimTimer=window.setInterval(()=>void claimVerifiedMilestones(),IDLE_CLAIM_INTERVAL_MS);
   window.setTimeout(()=>void gradePredictions(),5000);
   gradeTimer=window.setInterval(()=>void gradePredictions(),5*60*1000);
   window.addEventListener('online',()=>{void claimVerifiedMilestones();void gradePredictions()});
