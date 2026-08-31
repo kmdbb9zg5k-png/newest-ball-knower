@@ -5,6 +5,13 @@ export type VerifiedPredictionPick={id:string;gameId:string;label:string;market:
 export type VerifiedOwnerExpected={abbr:string;season:number;week:number;stage:OwnerSeasonStage;wins:number;losses:number;playoffSeed?:number|null};
 export type VerifiedOwnerStepResult={ok:boolean;verified:boolean;reason?:string;won?:boolean;isBye?:boolean;isPreseason?:boolean;run?:unknown;milestoneIds?:number[]};
 
+let predictionMutationChain:Promise<void>=Promise.resolve();
+function queuePredictionMutation<T>(work:()=>Promise<T>):Promise<T>{
+  const run=predictionMutationChain.then(work,work);
+  predictionMutationChain=run.then(()=>undefined,()=>undefined);
+  return run;
+}
+
 async function accessToken(){
   if(!supabase)throw new Error('Online services are unavailable.');
   await ensureOnlineSession();const session=await supabase.auth.getSession();const token=session.data.session?.access_token;if(!token)throw new Error('Online session expired.');return token;
@@ -26,17 +33,17 @@ export async function claimPendingVerifiedModeMilestones(){
 }
 
 export async function loadVerifiedPredictionPicks():Promise<VerifiedPredictionPick[]>{
-  const data=await request('/api/prediction-picks');return Array.isArray(data?.picks)?data.picks:[];
+  await predictionMutationChain;const data=await request('/api/prediction-picks');return Array.isArray(data?.picks)?data.picks:[];
 }
 
-export async function saveVerifiedPredictionPick(pick:Omit<VerifiedPredictionPick,'lockedAt'|'result'>):Promise<VerifiedPredictionPick[]>{
-  const data=await request('/api/prediction-picks',{method:'POST',body:JSON.stringify({action:'save',pick})});return Array.isArray(data?.picks)?data.picks:[];
+export function saveVerifiedPredictionPick(pick:Omit<VerifiedPredictionPick,'lockedAt'|'result'>):Promise<VerifiedPredictionPick[]>{
+  return queuePredictionMutation(async()=>{const data=await request('/api/prediction-picks',{method:'POST',body:JSON.stringify({action:'save',pick})});return Array.isArray(data?.picks)?data.picks:[]});
 }
 
-export async function deleteVerifiedPredictionPick(gameId:string):Promise<VerifiedPredictionPick[]>{
-  const data=await request('/api/prediction-picks',{method:'POST',body:JSON.stringify({action:'delete',gameId})});return Array.isArray(data?.picks)?data.picks:[];
+export function deleteVerifiedPredictionPick(gameId:string):Promise<VerifiedPredictionPick[]>{
+  return queuePredictionMutation(async()=>{const data=await request('/api/prediction-picks',{method:'POST',body:JSON.stringify({action:'delete',gameId})});return Array.isArray(data?.picks)?data.picks:[]});
 }
 
-export async function gradeVerifiedPredictionPicks():Promise<VerifiedPredictionPick[]>{
-  const data=await request('/api/prediction-picks',{method:'POST',body:JSON.stringify({action:'grade'})});await claimPendingVerifiedModeMilestones();return Array.isArray(data?.picks)?data.picks:[];
+export function gradeVerifiedPredictionPicks():Promise<VerifiedPredictionPick[]>{
+  return queuePredictionMutation(async()=>{const data=await request('/api/prediction-picks',{method:'POST',body:JSON.stringify({action:'grade'})});await claimPendingVerifiedModeMilestones();return Array.isArray(data?.picks)?data.picks:[]});
 }
