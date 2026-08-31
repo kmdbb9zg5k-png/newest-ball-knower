@@ -87,6 +87,10 @@ assert.ok(
   agent.includes('message.includes("Agent career changed before signing")')&&
   agent.includes('throw new AgentSigningConflictError(')&&
   agent.includes('setAgentSigningError(error.message)')&&
+  agent.includes('loadAuthoritativeAgentCareer()')&&
+  agent.includes('await recoverAgentSigningConflict(error)')&&
+  agent.includes('AGENT_SESSION_TIMEOUT_MS = 12_000')&&
+  agent.includes('await ensureAgentSigningSession()')&&
   agent.includes('JSON.stringify(restore()) !== JSON.stringify(signingBeforeState)')&&
   agent.includes('BACK TO SOLO · KEEP RETRYING')&&
   agent.includes('RETRY CLOUD VERIFICATION'),
@@ -94,13 +98,18 @@ assert.ok(
 );
 assert.equal(
   (phase4bFollowup.match(/create or replace function /g)??[]).length,
-  5,
-  'Phase 4B hardening migration must contain exactly its five complete functions',
+  6,
+  'Phase 4B hardening migration must contain exactly its six complete functions',
 );
 assert.equal(
   (phase4bFollowup.match(/\n\$\$;/g)??[]).length,
   5,
   'Phase 4B hardening migration must close each function body exactly once',
+);
+assert.equal(
+  (phase4bFollowup.match(/\n\$function\$;/g)??[]).length,
+  1,
+  'the redefined guest-claim function must have one complete body',
 );
 assert.ok(
   phase4bFollowup.includes("v_revision!~'^[0-9]{1,16}$' then return 0; end if;")&&
@@ -116,6 +125,11 @@ assert.ok(
 );
 assert.ok(phase4bFollowup.includes('save_ball_knower_revisioned_user_state'),'Owner saves must use a server-revisioned database write');
 assert.ok(phase4bFollowup.includes('v_incoming_revision=v_stored_revision'),'stale Owner snapshots must never overwrite a newer server revision');
+assert.ok(
+  phase4bFollowup.includes("state_key not in ('gauntlet_progress_v1','gauntlet_progress_v2','owner_business_career_v1')")&&
+  phase4bFollowup.includes('Phase 4B redefinition: leave Owner snapshots for the revision-aware claim trigger.'),
+  'guest-account claims must leave Owner state out of the generic copier',
+);
 assert.ok(
   phase4bFollowup.includes('guard_ball_knower_owner_state_write')&&
   phase4bFollowup.includes("current_setting('ball_knower.owner_revision_write',true)")&&
@@ -139,9 +153,12 @@ assert.ok(
 assert.ok(
   cloudSync.includes('savedRevision === submittedRevision + 1')&&
   cloudSync.includes('if (current !== snapshot && current)')&&
-  !cloudSync.includes('current !== snapshot && accepted && current')&&
-  cloudSync.includes('cloudRevision: savedRevision'),
-  'newer same-device Owner mutations must rebase onto both accepted and conflicting server revisions',
+  cloudSync.includes('if (!accepted) {')&&
+  cloudSync.includes('localStorage.setItem(`${entry.localKey}:conflict-backup`, current)')&&
+  cloudSync.includes('window.dispatchEvent(new CustomEvent(OWNER_CLOUD_CONFLICT_EVENT))')&&
+  cloudSync.includes('cloudRevision: savedRevision')&&
+  owner.includes('Another device saved newer Owner progress first'),
+  'accepted Owner actions may rebase, but stale conflicts must restore the server winner and surface a local backup',
 );
 assert.ok(
   cloudSync.includes("export const OWNER_CLOUD_SYNC_EVENT = 'ballknower:owner-cloud-saved'")&&
