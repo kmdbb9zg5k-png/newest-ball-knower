@@ -15,7 +15,7 @@ assert.equal(validateLiveFantasyRoster(ugly).length,0,'human managers may finish
 assert.ok(ugly.filter(player=>player.position==='QB').length>CPU_LIVE_FANTASY_POSITION_LIMITS.QB,'fixture must exceed the CPU QB heuristic');
 assert.ok(ugly.filter(player=>player.position==='TE').length>CPU_LIVE_FANTASY_POSITION_LIMITS.TE,'fixture must exceed the CPU TE heuristic');
 
-const weeklyRules=readFileSync(new URL('../fantasyLeagueParityCloud.ts',import.meta.url),'utf8');
+const weeklyRules=readFileSync(new URL('../fantasyLineup.ts',import.meta.url),'utf8');
 for(const slot of ["id:'QB'","id:'RB1'","id:'RB2'","id:'WR1'","id:'WR2'","id:'TE'","id:'FLEX'","id:'K'","id:'DST'"])assert.ok(weeklyRules.includes(slot),`weekly lineup is missing ${slot}`);
 
 const migration=readFileSync(new URL('../migrations/20260830_yahoo_fantasy_parity_upgrade.sql',import.meta.url),'utf8');
