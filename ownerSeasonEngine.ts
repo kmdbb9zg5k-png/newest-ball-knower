@@ -1,10 +1,23 @@
 export type OwnerSeasonStage='preseason'|'regular'|'wild-card'|'divisional'|'conference'|'super-bowl';
 
 export type OwnerSeasonSnapshot={
-  season:number;week:number;stage:OwnerSeasonStage;wins:number;losses:number;
+  abbr:string;season:number;week:number;stage:OwnerSeasonStage;wins:number;losses:number;
   cashM:number;ticketPrice:number;parkingPrice:number;fanTrust:number;stadium:number;
   gmCostM:number;coachCostM:number;
 };
+
+export type OwnerCalendarWeek={week:number;isBye:boolean;isHome:boolean};
+
+export const OWNER_TEAM_ABBRS=['ARI','ATL','BAL','BUF','CAR','CHI','CIN','CLE','DAL','DEN','DET','GB','HOU','IND','JAX','KC','LV','LAC','LAR','MIA','MIN','NE','NO','NYG','NYJ','PHI','PIT','SF','SEA','TB','TEN','WAS'] as const;
+const OWNER_2026_BYE_WEEK:Record<string,number>={ARI:14,ATL:11,BAL:13,BUF:7,CAR:5,CHI:10,CIN:6,CLE:11,DAL:14,DEN:10,DET:6,GB:11,HOU:8,IND:13,JAX:7,KC:5,LV:13,LAC:7,LAR:11,MIA:6,MIN:6,NE:11,NO:8,NYG:8,NYJ:13,PHI:10,PIT:9,SF:8,SEA:11,TB:10,TEN:9,WAS:7};
+
+export const owner2026Calendar=(abbr:string):OwnerCalendarWeek[]=>{
+  const teamIndex=Math.max(0,OWNER_TEAM_ABBRS.indexOf(abbr as typeof OWNER_TEAM_ABBRS[number]));
+  const bye=OWNER_2026_BYE_WEEK[abbr]||10;
+  return Array.from({length:18},(_,index)=>{const week=index+1;const isBye=week===bye;let isHome=!isBye&&(week+teamIndex)%2===0;if(abbr==='WAS'&&week===1)isHome=false;if(abbr==='PHI'&&week===1)isHome=true;return{week,isBye,isHome};});
+};
+
+export const ownerCalendarWeek=(abbr:string,week:number)=>owner2026Calendar(abbr).find(entry=>entry.week===week);
 
 export type OwnerSeasonAdvance={
   nextStage:OwnerSeasonStage;nextWeek:number;seasonEnded:boolean;playoffQualified:boolean;
@@ -24,11 +37,12 @@ export const ownerGameRevenue=(state:OwnerSeasonSnapshot,homeGame:boolean,playof
 };
 
 export const advanceOwnerSeason=(state:OwnerSeasonSnapshot,won:boolean):OwnerSeasonAdvance=>{
-  const regularRevenue=ownerGameRevenue(state,state.week%2===1,false);
+  const calendarWeek=ownerCalendarWeek(state.abbr,state.week);
+  const regularRevenue=ownerGameRevenue(state,Boolean(calendarWeek?.isHome),false);
   const playoffRevenue=ownerGameRevenue(state,true,true);
   const base={revenueM:regularRevenue,expensesM:0,profitM:regularRevenue};
   if(state.stage==='preseason')return{...base,nextStage:'regular',nextWeek:1,seasonEnded:false,playoffQualified:false,wonChampionship:false};
-  if(state.stage==='regular'&&state.week<17)return{...base,nextStage:'regular',nextWeek:state.week+1,seasonEnded:false,playoffQualified:false,wonChampionship:false};
+  if(state.stage==='regular'&&state.week<18)return{...base,nextStage:'regular',nextWeek:state.week+1,seasonEnded:false,playoffQualified:false,wonChampionship:false};
   if(state.stage==='regular'){
     const finalWins=state.wins+(won?1:0);const finalLosses=state.losses+(won?0:1);
     const qualified=qualifiesForOwnerPlayoffs(finalWins,finalLosses);
