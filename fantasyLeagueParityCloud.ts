@@ -146,7 +146,9 @@ export async function fetchFantasyParityState(leagueId:string,week:number,season
     supabase.from('ball_knower_nfl_games').select('*').eq('season',season).eq('season_type','reg').eq('week_number',week).order('kickoff_at',{ascending:true}),
     supabase.from('ball_knower_player_week_scores').select('ball_knower_player_id,projected_points').eq('season',season).eq('season_type','reg').eq('week_number',week).not('ball_knower_player_id','is',null),
   ]);
-  const error=[lineups.error,scores.error,members.error,archives.error,games.error,projections.error].find(Boolean);
+  // Weekly projections enhance scheduled matchups but must never take core
+  // league state offline when that optional read is unavailable.
+  const error=[lineups.error,scores.error,members.error,archives.error,games.error].find(Boolean);
   if(error) throw error;
   return {
     lineups:(lineups.data||[]).map(mapLineup),
@@ -154,7 +156,7 @@ export async function fetchFantasyParityState(leagueId:string,week:number,season
     members:(members.data||[]).map((row:any)=>({memberId:row.id,faabBalance:Number(row.faab_balance) || 0,irPlayerIds:Array.isArray(row.ir_player_ids)?row.ir_player_ids:[]} as MemberFantasyMeta)),
     archives:(archives.data||[]).map((row:any)=>({seasonNumber:Number(row.season_number),result:row.result||{},settings:row.settings||{},createdAt:row.created_at} as ArchivedSeason)),
     games:(games.data||[]).map(mapGame),
-    projections:(projections.data||[]).map((row:any)=>({playerId:row.ball_knower_player_id,projectedPoints:row.projected_points||{}} as WeeklyPlayerProjection)),
+    projections:projections.error?[]:(projections.data||[]).map((row:any)=>({playerId:row.ball_knower_player_id,projectedPoints:row.projected_points||{}} as WeeklyPlayerProjection)),
   };
 }
 
