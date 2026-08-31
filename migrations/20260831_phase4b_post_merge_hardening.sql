@@ -236,6 +236,9 @@ $$;
 revoke all on function public.save_ball_knower_revisioned_user_state(text,jsonb) from public,anon;
 grant execute on function public.save_ball_knower_revisioned_user_state(text,jsonb) to authenticated;
 
+-- Remove the legacy non-atomic overload before installing the snapshot-aware contract.
+drop function if exists public.commit_ball_knower_verified_owner_step(uuid,integer,integer,integer,text,integer,integer,integer,boolean);
+
 -- Commit the verified Owner run and its public cross-device snapshot in one
 -- transaction so a concurrent device can never leave the two rows misaligned.
 create or replace function public.commit_ball_knower_verified_owner_step(
@@ -471,6 +474,16 @@ begin
   end
   into v_guest_owner_wins
   from ball_knower_private.verified_owner_runs guest
+  join public.ball_knower_user_state guest_state
+    on guest_state.user_id=new.guest_user_id
+   and guest_state.state_key='owner_business_career_v1'
+   and jsonb_typeof(guest_state.value)='object'
+   and guest_state.value->>'abbr'=guest.abbr
+   and guest_state.value->>'season'=guest.season::text
+   and guest_state.value->>'stage'=guest.stage
+   and guest_state.value->>'week'=guest.week::text
+   and guest_state.value->>'wins'=guest.wins::text
+   and guest_state.value->>'losses'=guest.losses::text
   left join ball_knower_private.verified_owner_runs target on target.user_id=new.claimed_by
   left join public.ball_knower_user_state public_state
     on public_state.user_id=new.claimed_by
