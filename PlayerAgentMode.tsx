@@ -16,8 +16,9 @@ import { PLAYERS_DATABASE } from "./players";
 import { Player } from "./types";
 import { playerPortraitUrl } from "./playerPortraits";
 import { ModalPortal } from "./ModalPortal";
-import { AGENT_PENDING_RECRUIT_ACTION_KEY, AGENT_PENDING_SIGNING_KEY, commitAgentSigningForExpectedUser, flushPendingUserStateWrites, loadUserState } from "./userStateCloud";
+import { AGENT_PENDING_RECRUIT_ACTION_KEY, AGENT_PENDING_SIGNING_KEY, commitAgentSigningForExpectedUser, loadUserState } from "./userStateCloud";
 import { claimPendingVerifiedModeMilestones } from "./modeProgressionCloud";
+import { flushAllCloudState } from "./cloudSyncCoordinator";
 import { ensureOnlineSession } from "./supabase";
 import {
   createRecruitingProfile,
@@ -394,6 +395,23 @@ const ensureAgentSigningSession = async () => {
   }
 };
 
+const flushAgentSigningBaseline = async () => {
+  let timer = 0;
+  try {
+    await Promise.race([
+      flushAllCloudState(),
+      new Promise<never>((_, reject) => {
+        timer = window.setTimeout(
+          () => reject(new Error("Agent baseline cloud save timed out. Retry when the connection is stable.")),
+          AGENT_SESSION_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    window.clearTimeout(timer);
+  }
+};
+
 const loadAuthoritativeAgentCareer = async (): Promise<AgencyState> => {
   const cloud = await loadUserState<{ raw?: unknown }>("player_agent_career");
   if (!cloud || typeof cloud.raw !== "string") {
@@ -485,9 +503,6 @@ const verifyPendingAgentSigning = async (
       }
 
       try {
-        // Let any generic Agent upload that started before the hold finish;
-        // once the hold exists CloudSync will not start another one.
-        await flushPendingUserStateWrites();
         await commitAgentSigningForExpectedUser(
           pending.userId,
           { raw: JSON.stringify(pending.beforeState) },
@@ -1309,7 +1324,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       }
       const sharedAgency = restore();
       if (JSON.stringify(sharedAgency) !== JSON.stringify(agency)) {
-        throw new Error("Agent career changed in another tab before signing.");
+        throw new AgentSigningConflictError("Agent career changed in another tab before signing.");
       }
       let signingUserId: string;
       try {
@@ -1321,6 +1336,19 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           playerReply: "“I am ready. Get the paperwork secured and we will make it official.”",
         });
         console.warn("Agent signing session unavailable", error);
+        return;
+      }
+      try {
+        // The pre-meeting SAVE_KEY is the CAS baseline. Flush it before the
+        // signing hold blocks generic Agent uploads, with a bounded wait.
+        await flushAgentSigningBaseline();
+      } catch (error) {
+        setRecruit({
+          ...recruit,
+          message: "Your current Agent career must finish syncing before this signing can become official. Try your final pitch again.",
+          playerReply: "“I am ready. Secure the existing file and bring me the final paperwork.”",
+        });
+        console.warn("Agent signing baseline save unavailable", error);
         return;
       }
       if (JSON.stringify(restore()) !== JSON.stringify(agency)) {
@@ -1384,7 +1412,9 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       }
         });
       } catch (error) {
-        const sharedAgency = restore();
+        const sharedAgency = error instanceof AgentSigningConflictError
+          ? (localStorage.removeItem(PENDING_RECRUIT_ACTION_KEY), restore(false))
+          : restore();
         setAgency(sharedAgency);
         setAgentSigningError(
           error instanceof Error ? error.message : "Agent signing was blocked to preserve newer career progress.",
