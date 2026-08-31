@@ -213,6 +213,7 @@ assert.ok(
   userState.includes("export const AGENT_PENDING_SIGNING_KEY = 'ballknower_player_agent_signing_pending_v1'")&&
   cloudSync.includes('!isCloudUploadBlocked(entry)')&&
   cloudSync.includes('if (isCloudUploadBlocked(entry)) continue;')&&
+  cloudSync.includes('while (hasFlushableDirty())')&&
   agent.includes('await flushPendingUserStateWrites();')&&
   agentStagePending>=0&&agentStagePending<agentPersistFinal&&agentPersistFinal<agentVerifyFinal,
   'pending Agent signings must block generic cloud writes before the watched local snapshot changes',
@@ -221,6 +222,8 @@ assert.ok(
   agent.includes('PENDING_RECRUIT_ACTION_KEY')&&
   agent.includes('localStorage.getItem(PENDING_RECRUIT_ACTION_KEY) || localStorage.getItem(SAVE_KEY)')&&
   agent.includes('persistRecruitAction(actionAgency);')&&
+  agent.includes('const sharedAgency = restore(false);')&&
+  agent.includes('JSON.stringify(restore(false)) !== JSON.stringify(signingBeforeState)')&&
   agent.includes('localStorage.removeItem(PENDING_RECRUIT_ACTION_KEY);'),
   'a consumed recruiting action must survive reloads without changing the signing verifier baseline',
 );
