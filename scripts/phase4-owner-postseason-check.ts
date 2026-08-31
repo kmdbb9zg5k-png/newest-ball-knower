@@ -1,6 +1,6 @@
 import assert from'node:assert/strict';
 import{readFileSync}from'node:fs';
-import{advanceOwnerSeason,migrateOwnerLegacyWeek,normalizeOwnerAbbr,OWNER_TEAM_ABBRS,owner2026Calendar,ownerGameRevenue,ownerStageLabel,qualifiesForOwnerPlayoffs,type OwnerSeasonSnapshot}from'../ownerSeasonEngine';
+import{advanceOwnerSeason,migrateOwnerLegacyWeek,normalizeOwnerAbbr,OWNER_TEAM_ABBRS,owner2026Calendar,ownerGameRevenue,ownerPlayoffHomeGame,ownerSeasonCalendar,ownerStageLabel,qualifiesForOwnerPlayoffs,type OwnerSeasonSnapshot}from'../ownerSeasonEngine';
 
 const base:OwnerSeasonSnapshot={abbr:'PHI',season:2026,week:18,stage:'regular',wins:9,losses:7,cashM:350,ticketPrice:125,parkingPrice:35,fanTrust:70,stadium:75,gmCostM:9,coachCostM:12};
 assert.equal(qualifiesForOwnerPlayoffs(9,8),true);
@@ -26,6 +26,12 @@ const calendars=OWNER_TEAM_ABBRS.map(abbr=>owner2026Calendar(abbr));
 assert.equal(calendars.flat().filter(week=>week.isHome).length,272,'the 272-game regular season must have exactly 272 designated home teams');
 for(let week=1;week<=18;week++){const entries=calendars.map(calendar=>calendar[week-1]);assert.equal(entries.filter(entry=>entry.isHome).length,entries.filter(entry=>!entry.isBye).length/2,`Week ${week} must have one home team per game`);}
 assert.equal(normalizeOwnerAbbr('NOPE'),'PHI','unsupported persisted team codes must fall back safely');
+assert.notDeepEqual(ownerSeasonCalendar('PHI',2027),ownerSeasonCalendar('PHI',2026),'later careers must not reuse the same venue slate');
+assert.equal(ownerSeasonCalendar('PHI',2026).filter(entry=>entry.isHome).length,9);
+assert.equal(ownerSeasonCalendar('PHI',2027).filter(entry=>entry.isHome).length,8,'future-year hosting must alternate conference revenue equity');
+assert.equal(ownerPlayoffHomeGame({...base,stage:'wild-card',wins:9}),false,'a low-seeded Wild Card team must not receive a home gate');
+assert.equal(ownerPlayoffHomeGame({...base,stage:'wild-card',wins:12}),true,'a top Wild Card seed may receive a home gate');
+assert.equal(ownerPlayoffHomeGame({...base,stage:'super-bowl',wins:14}),false,'the Super Bowl must remain neutral');
 assert.equal(owner2026Calendar('WAS')[0].isHome,false,'Washington opens Week 1 away at Philadelphia');
 assert.equal(owner2026Calendar('PHI')[0].isHome,true,'Philadelphia opens Week 1 at home against Washington');
 assert.equal(owner2026Calendar('ARI')[3].isHome,false,'Arizona plays Week 4 away at the Giants');
