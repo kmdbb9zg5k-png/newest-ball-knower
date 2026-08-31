@@ -16,6 +16,7 @@ import { PLAYERS_DATABASE } from "./players";
 import { Player } from "./types";
 import { playerPortraitUrl } from "./playerPortraits";
 import { ModalPortal } from "./ModalPortal";
+import { recordModeProgression } from "./progressionCloud";
 import {
   createRecruitingProfile,
   evaluateRecruitingDecision,
@@ -579,6 +580,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       };
       setAgency(next);
       persist(next);
+      void recordModeProgression(`agent:${agency.seasonYear}:client:${selected.id}:signed`,'agent_client_signed',{playerId:selected.id,season:agency.seasonYear}).catch(error=>console.warn('Agent progression receipt failed',error));
       return null;
     }
     return { ...agency, weeklyActionsUsed: agency.weeklyActionsUsed + 1 };
@@ -857,6 +859,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     };
     setAgency(next);
     persist(next);
+    if(worked)void recordModeProgression(`agent:${agency.seasonYear}:week:${agency.seasonWeek}:trade:${playerId}`,'agent_trade_resolved',{playerId,destination,season:agency.seasonYear,week:agency.seasonWeek}).catch(error=>console.warn('Agent progression receipt failed',error));
   };
 
   const beginRecruit = (p: Player) => {
@@ -1150,6 +1153,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       };
       setAgency(next);
       persist(next);
+      void recordModeProgression(`agent:${agency.seasonYear}:contract:${p.id}:${deal.negotiatedAt}`,'agent_contract_signed',{playerId:p.id,totalM,years:deal.years,season:agency.seasonYear}).catch(error=>console.warn('Agent progression receipt failed',error));
       setNegotiationRoom(null);
       return;
     }
