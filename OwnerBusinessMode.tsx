@@ -3,6 +3,7 @@ import{ArrowLeft,Building2,CalendarDays,ChevronRight,Crown,DollarSign,Gavel,Land
 import{nextOwnerDecision,OWNER_DECISIONS,unseenOwnerStoryCount,type OwnerChoice,type OwnerDecision}from'./ownerStoryEngine';
 import{loadUserState}from'./userStateCloud';
 import{flushAllCloudState}from'./cloudSyncCoordinator';
+import{OWNER_CLOUD_SYNC_EVENT}from'./CloudSyncProvider';
 import{advanceOwnerSeason,migrateOwnerLegacyWeek,normalizeOwnerAbbr,ownerCalendarWeek,ownerStageLabel,type OwnerSeasonStage}from'./ownerSeasonEngine';
 import{advanceVerifiedOwnerStep,claimPendingVerifiedModeMilestones}from'./modeProgressionCloud';
 const SAVE_KEY='ballknower_owner_career_v3';
@@ -44,6 +45,19 @@ export const OwnerBusinessMode:React.FC<{onBack:()=>void}>=({onBack})=>{
    });
   }).catch(error=>console.warn('Owner career cloud load failed',error));
   return()=>{cancelled=true;};
+ },[]);
+
+ useEffect(()=>{
+  const handleOwnerCloudSaved=(event:Event)=>{
+   const synced=normalize((event as CustomEvent<unknown>).detail);
+   setState(local=>{
+    if(synced.cloudRevision<local.cloudRevision)return local;
+    persist(synced);
+    return synced;
+   });
+  };
+  window.addEventListener(OWNER_CLOUD_SYNC_EVENT,handleOwnerCloudSaved);
+  return()=>window.removeEventListener(OWNER_CLOUD_SYNC_EVENT,handleOwnerCloudSaved);
  },[]);
 
  const team=TEAMS.find(t=>t[0]===state.abbr)||TEAMS[0];
