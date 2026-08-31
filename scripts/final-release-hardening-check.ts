@@ -47,14 +47,18 @@ assert.ok(migration.includes("v_new_client->'futureDeal'=v_deal"),'Agent contrac
 assert.ok(migration.includes("career,fulfilledPromises"),'Agent promise rewards require a newly fulfilled named promise');
 assert.ok(cloudSync.includes("ballknower_player_agent_v4")&&cloudSync.includes("ballknower_owner_career_v3"),'Owner and Agent careers must remain cross-device synced');
 const agentWeekGuard=agent.indexOf('if (verifyingAgentSigning) return;');
-const agentAccountSnapshot=agent.indexOf('JSON.stringify({ userId: user.id, state } satisfies PendingAgentSigning)');
+const agentSigningSession=agent.indexOf('signingUserId = (await ensureOnlineSession()).id;');
+const agentAccountSnapshot=agent.indexOf('JSON.stringify({ userId: signingUserId, state } satisfies PendingAgentSigning)');
 const agentCloudSave=agent.indexOf('await saveUserState("player_agent_career"');
 const agentPendingClear=agent.indexOf('localStorage.removeItem(PENDING_SIGNING_KEY)',agentCloudSave);
 const agentMilestoneClaim=agent.indexOf('await claimPendingVerifiedModeMilestones()',agentPendingClear);
 assert.ok(
   agentWeekGuard>=0&&agent.includes('if (!verifyingAgentSigning) onBack();')&&
+  agentSigningSession>=0&&agentSigningSession<agentAccountSnapshot&&
   agentAccountSnapshot>=0&&agentAccountSnapshot<agentCloudSave&&
   agent.includes('pending.userId !== user.id')&&
+  agent.includes('if (!signingUserId) throw new Error("Signing account is required.");')&&
+  agent.includes('retryAgentSigningVerification(next, signingUserId)')&&
   agent.includes('localStorage.getItem(PENDING_SIGNING_KEY) !== raw')&&
   agent.includes('while (true)')&&
   agentCloudSave<agentPendingClear&&agentPendingClear<agentMilestoneClaim&&
