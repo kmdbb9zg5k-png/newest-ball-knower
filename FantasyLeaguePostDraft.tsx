@@ -83,6 +83,7 @@ type Props = {
 const STANDARD_POSITIONS = new Set(["QB", "RB", "WR", "TE", "K", "DST"]);
 const normalizeName = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]/g, "");
+const compareCodeUnits = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0;
 const displayManagerName = (member?: LeagueMember) => {
   if (!member) return "Team";
   if (!member.isAi) return member.userName;
@@ -220,10 +221,10 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
       return bProjection - aProjection;
     if (aProjection !== null && bProjection === null) return -1;
     if (aProjection === null && bProjection !== null) return 1;
-    const position = a.position.localeCompare(b.position);
+    const position = compareCodeUnits(a.position, b.position);
     if (position) return position;
-    const name = a.name.localeCompare(b.name);
-    return name || a.id.localeCompare(b.id);
+    const name = compareCodeUnits(a.name, b.name);
+    return name || compareCodeUnits(a.id, b.id);
   };
   const compareLowestKnownValue = (a: Player, b: Player) => {
     const aProjection = projectedPointsFor(a);
@@ -236,9 +237,9 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
       return aProjection - bProjection;
     if (aProjection !== null && bProjection === null) return -1;
     if (aProjection === null && bProjection !== null) return 1;
-    const position = a.position.localeCompare(b.position);
+    const position = compareCodeUnits(a.position, b.position);
     if (position) return position;
-    return a.name.localeCompare(b.name);
+    return compareCodeUnits(a.name, b.name) || compareCodeUnits(a.id, b.id);
   };
   const valueLabel = (player: Player) => {
     const ranking = rankingFor(player);
