@@ -50,15 +50,11 @@ const kickoffIso = (date: any, time: any) => {
 };
 
 const sendUnavailable = (res: any, reason: string) => {
-  // A temporary upstream outage must not become another visitor's cached empty board.
   res.setHeader('Cache-Control', 'private, no-store, max-age=0');
   res.status(200).json({ games: [], available: false, warning: reason });
 };
 
-/** Fetches the NFL game feed with one bounded retry for transient failures. */
 const fetchScoreboardRows = async () => {
-  // Keep the complete upstream retry budget comfortably below a 10-second
-  // serverless window, leaving time for JSON parsing and response serialization.
   const attempts = [
     { limit: 400, timeoutMs: 5000 },
     { limit: 400, timeoutMs: 3000 },
@@ -99,7 +95,6 @@ const fetchScoreboardRows = async () => {
   return { rows: [] as any[], failureReason };
 };
 
-/** Returns current NFL matchups/lines in the stable Picks API shape. */
 export default async function handler(req: any, res: any) {
   try {
     const { rows, failureReason } = await fetchScoreboardRows();
@@ -128,15 +123,21 @@ export default async function handler(req: any, res: any) {
       const homeAbbr = normalizeTeamAbbr(g?.home_team || g?.home);
       const date = g?.gameday || g?.game_date || g?.date || null;
       const time = g?.gametime || g?.game_time || null;
+      const kickoff = kickoffIso(date, time);
+      const kickoffMs = Date.parse(kickoff || String(date || ''));
       const awayScore = numberOrNull(g?.away_score);
       const homeScore = numberOrNull(g?.home_score);
-      const finished = awayScore !== null && homeScore !== null;
+      const hasScores = awayScore !== null && homeScore !== null;
+      const providerStatus = String(g?.game_status ?? g?.status ?? g?.game_state ?? '').trim();
+      const providerFinal = /final|complete|closed/i.test(providerStatus);
+      const conservativeFinal = hasScores && Number.isFinite(kickoffMs) && now - kickoffMs >= 6 * 60 * 60 * 1000;
+      const finished = hasScores && (providerFinal || conservativeFinal);
       const spread = numberOrNull(g?.spread_line ?? g?.spread);
 
       return {
         id: String(g?.game_id || g?.id || i),
-        date: kickoffIso(date, time),
-        status: finished ? 'Final' : 'Scheduled',
+        date: kickoff,
+        status: finished ? 'Final' : providerStatus || (Number.isFinite(kickoffMs) && kickoffMs <= now ? 'Live' : 'Scheduled'),
         away: awayAbbr ? (TEAM_NAMES[awayAbbr] || awayAbbr) : 'Away',
         home: homeAbbr ? (TEAM_NAMES[homeAbbr] || homeAbbr) : 'Home',
         awayAbbr,
