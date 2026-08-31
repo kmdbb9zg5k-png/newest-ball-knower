@@ -1,5 +1,5 @@
 import{createClient}from'@supabase/supabase-js';
-import{fetchCanonicalPredictionGames,gradeCanonicalPrediction}from'../server/nflPredictionFeed';
+import{fetchCanonicalPredictionGames,gradeCanonicalPrediction}from'../server/nflPredictionFeed.js';
 
 const url=process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL||'https://gpnboygoosrmeydwjpvk.supabase.co';
 const serviceKey=process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY||'';
@@ -40,7 +40,7 @@ export default async function handler(req:any,res:any){
     if(action==='save'){
       const pick=req?.body?.pick||{};const gameId=String(pick.gameId||'');const market=String(pick.market||'');const selection=String(pick.selection||'');const lockedLine=Number(pick.lockedLine);
       if(!gameId||!['spread','total'].includes(market)||!Number.isFinite(lockedLine))return res.status(400).json({error:'Invalid pick'});
-      const games=await fetchCanonicalPredictionGames();const game=games.find(item=>item.id===gameId);if(!game||!game.kickoffAt)return res.status(404).json({error:'NFL game not found'});
+      const games=await fetchCanonicalPredictionGames();const game=games.find((item:any)=>item.id===gameId);if(!game||!game.kickoffAt)return res.status(404).json({error:'NFL game not found'});
       const kickoffMs=Date.parse(game.kickoffAt);if(!Number.isFinite(kickoffMs)||Date.now()>=kickoffMs)return res.status(409).json({error:'That game is already locked.'});
       let expected:number|null=null;
       if(market==='spread')expected=selection===game.away?game.awaySpread:selection===game.home?game.homeSpread:null;
@@ -55,9 +55,9 @@ export default async function handler(req:any,res:any){
 
     if(action==='grade'){
       const picks=await stored(user.id);if(!picks.length)return res.status(200).json({ok:true,picks:[],milestoneIds:[]});
-      const games=await fetchCanonicalPredictionGames();const byId=new Map(games.map(game=>[game.id,game]));const milestoneIds:number[]=[];
+      const games=await fetchCanonicalPredictionGames();const byId=new Map(games.map((game:any)=>[game.id,game]));const milestoneIds:number[]=[];
       for(const pick of picks){
-        if(pick.result)continue;const game=byId.get(pick.gameId);if(!game)continue;const result=gradeCanonicalPrediction(pick,game);if(!result||game.awayScore===null||game.homeScore===null)continue;
+        if(pick.result)continue;const game:any=byId.get(pick.gameId);if(!game)continue;const result=gradeCanonicalPrediction(pick,game);if(!result||game.awayScore===null||game.homeScore===null)continue;
         const graded=await service.rpc('grade_ball_knower_verified_prediction_pick',{p_user_id:user.id,p_game_id:pick.gameId,p_result:result,p_away_score:game.awayScore,p_home_score:game.homeScore});
         if(graded.error)throw graded.error;const id=Number(graded.data);if(Number.isFinite(id))milestoneIds.push(id);
       }
