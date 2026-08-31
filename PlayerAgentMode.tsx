@@ -1230,6 +1230,8 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       55,
     );
     const scenario = scenarioFor(p);
+    // Normalize the exact pre-meeting CAS baseline before CloudSync flushes it.
+    persist(agency);
     setAgency(actionAgency);
     // Keep the consumed action durable across reloads without exposing the
     // verifier's pre-meeting baseline to generic cloud sync.
