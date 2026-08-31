@@ -62,6 +62,7 @@ import {
 import { counterTradeV2 } from "./fantasyTradeV2Cloud";
 import { FantasyRanking, loadFantasyRankings } from "./fantasyRankingsCloud";
 import { FantasyPlayerDetail } from "./FantasyPlayerDetail";
+import { resolveWeeklyProjection } from "./fantasyLineup";
 import {
   buildFantasyWeekPairings,
   buildScoredFantasyGames,
@@ -193,6 +194,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const [message, setMessage] = useState("");
   const tradeBuilderRef = useRef<HTMLDivElement>(null);
   const seasonFinalizeRef = useRef("");
+  const parityRequestRef = useRef(0);
 
   const rankingsByName = useMemo(() => {
     const map = new Map<string, FantasyRanking>();
@@ -253,6 +255,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   };
 
   const refresh = async () => {
+    const requestId = ++parityRequestRef.current;
     try {
       setError("");
       setMemberMetaLoaded(false);
@@ -264,6 +267,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
         ),
         fetchSeasonOperations(league.id),
       ]);
+      if (requestId !== parityRequestRef.current) return;
       setLineups([...parity.lineups]);
       setScores([...parity.scores]);
       setMemberMeta([...parity.members]);
@@ -277,6 +281,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
       setMessages([...ops.messages]);
       setTransactions([...ops.transactions]);
     } catch (err: any) {
+      if (requestId !== parityRequestRef.current) return;
       setError(err?.message || "Could not sync this league.");
     }
   };
@@ -783,17 +788,17 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
     (member) => member.id === viewedMatchup?.awayMemberId,
   );
   const weeklyProjectionFor = (player: Player): number | null => {
-    if (Object.keys(settings.customScoring || {}).length) return null;
     const format = settings.scoringFormat === "standard"
       ? "standard"
       : settings.scoringFormat === "half_ppr"
         ? "half_ppr"
         : "ppr";
-    const value = Number(
-      weeklyProjections.find((projection) => projection.playerId === player.id)
-        ?.projectedPoints[format],
+    return resolveWeeklyProjection(
+      player.id,
+      weeklyProjections,
+      format,
+      Object.keys(settings.customScoring || {}).length > 0,
     );
-    return Number.isFinite(value) ? value : null;
   };
   const compareWeeklyLineupPlayers = (a: Player, b: Player) => {
     const aProjection = weeklyProjectionFor(a);
