@@ -19,11 +19,8 @@ create table if not exists ball_knower_private.verified_mode_milestones (
   claimed_at timestamptz,
   unique(user_id,mode,source_key)
 );
-
 create index if not exists verified_mode_milestones_unclaimed_idx
-  on ball_knower_private.verified_mode_milestones(user_id,verified_at)
-  where claimed_at is null;
-
+  on ball_knower_private.verified_mode_milestones(user_id,verified_at) where claimed_at is null;
 alter table ball_knower_private.verified_mode_milestones enable row level security;
 revoke all on table ball_knower_private.verified_mode_milestones from public,anon,authenticated;
 
@@ -34,7 +31,6 @@ create table if not exists ball_knower_private.verified_mode_state (
   updated_at timestamptz not null default now(),
   primary key(user_id,mode)
 );
-
 alter table ball_knower_private.verified_mode_state enable row level security;
 revoke all on table ball_knower_private.verified_mode_state from public,anon,authenticated;
 
@@ -54,28 +50,37 @@ create table if not exists ball_knower_private.verified_prediction_picks (
   graded_at timestamptz,
   primary key(user_id,game_id)
 );
-
 alter table ball_knower_private.verified_prediction_picks enable row level security;
 revoke all on table ball_knower_private.verified_prediction_picks from public,anon,authenticated;
 
+create or replace function ball_knower_private.mode_counter(p_snapshot jsonb,p_key text,p_max integer)
+returns integer
+language plpgsql immutable
+set search_path=pg_catalog,pg_temp
+as $$
+declare v text; n integer;
+begin
+  if jsonb_typeof(p_snapshot)<>'object' then return -1; end if;
+  v:=p_snapshot->>p_key;
+  if v is null or v!~'^\d+$' then return -1; end if;
+  n:=v::integer;
+  if n<0 or n>p_max then return -1; end if;
+  return n;
+end;
+$$;
+revoke all on function ball_knower_private.mode_counter(jsonb,text,integer) from public,anon,authenticated;
+
 create or replace function ball_knower_private.insert_verified_mode_milestone(
-  p_user_id uuid,
-  p_mode text,
-  p_type text,
-  p_source_key text,
-  p_payload jsonb default '{}'::jsonb,
-  p_verified_by text default 'server'
+  p_user_id uuid,p_mode text,p_type text,p_source_key text,p_payload jsonb default '{}'::jsonb,p_verified_by text default 'server'
 ) returns bigint
-language plpgsql
-security definer
+language plpgsql security definer
 set search_path=public,ball_knower_private,pg_temp
 as $$
 declare v_id bigint;
 begin
   insert into ball_knower_private.verified_mode_milestones(user_id,mode,milestone_type,source_key,payload,verified_by)
   values(p_user_id,p_mode,p_type,left(p_source_key,160),coalesce(p_payload,'{}'::jsonb),left(p_verified_by,80))
-  on conflict(user_id,mode,source_key) do nothing
-  returning id into v_id;
+  on conflict(user_id,mode,source_key) do nothing returning id into v_id;
   if v_id is null then
     select id into v_id from ball_knower_private.verified_mode_milestones
     where user_id=p_user_id and mode=p_mode and source_key=left(p_source_key,160);
@@ -87,52 +92,40 @@ revoke all on function ball_knower_private.insert_verified_mode_milestone(uuid,t
 
 create or replace function public.list_ball_knower_unclaimed_mode_milestones()
 returns table(id bigint,mode text,milestone_type text,verified_at timestamptz)
-language sql
-security definer
+language sql security definer
 set search_path=public,ball_knower_private,pg_temp
 as $$
   select m.id,m.mode,m.milestone_type,m.verified_at
   from ball_knower_private.verified_mode_milestones m
   where m.user_id=auth.uid() and m.verified_at is not null and m.claimed_at is null
-  order by m.id asc
-  limit 100;
+  order by m.id asc limit 100;
 $$;
 revoke all on function public.list_ball_knower_unclaimed_mode_milestones() from public,anon;
 grant execute on function public.list_ball_knower_unclaimed_mode_milestones() to authenticated;
 
 create or replace function public.claim_ball_knower_verified_mode_milestone(p_milestone_id bigint)
 returns table(applied boolean,milestone_id bigint,event_key text)
-language plpgsql
-security definer
+language plpgsql security definer
 set search_path=public,ball_knower_private,pg_temp
 as $$
 declare
   v_user uuid:=auth.uid();
   v_milestone ball_knower_private.verified_mode_milestones%rowtype;
-  v_xp integer;
-  v_delta integer;
-  v_category text;
-  v_event_key text;
-  v_applied boolean;
+  v_xp integer; v_delta integer; v_event_key text; v_applied boolean;
 begin
   if v_user is null then raise exception 'Sign in required'; end if;
-  select * into v_milestone
-  from ball_knower_private.verified_mode_milestones
-  where id=p_milestone_id and user_id=v_user and verified_at is not null
-  for update;
+  select * into v_milestone from ball_knower_private.verified_mode_milestones
+  where id=p_milestone_id and user_id=v_user and verified_at is not null for update;
   if not found then raise exception 'Verified milestone not found'; end if;
-
-  v_category:=v_milestone.mode;
   select x.xp,x.delta into v_xp,v_delta from (values
     ('owner_season_complete',30,1),('owner_playoff_appearance',60,1),('owner_conference_title',100,2),('owner_championship',180,3),
     ('agent_client_signed',25,1),('agent_trade_resolved',40,1),('agent_contract_signed',55,1),('agent_promise_fulfilled',45,1),
     ('prediction_correct',20,1),('prediction_wrong',2,-1),('prediction_push',5,0)
   ) as x(kind,xp,delta) where x.kind=v_milestone.milestone_type;
   if v_xp is null then raise exception 'Unsupported verified milestone'; end if;
-
   v_event_key:='mode_milestone:'||v_milestone.id;
   v_applied:=ball_knower_private.apply_progress_event(
-    v_user,v_event_key,v_milestone.milestone_type,v_category,v_xp,v_delta,
+    v_user,v_event_key,v_milestone.milestone_type,v_milestone.mode,v_xp,v_delta,
     coalesce(v_milestone.payload,'{}'::jsonb)||jsonb_build_object('verified_milestone_id',v_milestone.id,'verified_by',v_milestone.verified_by)
   );
   update ball_knower_private.verified_mode_milestones set claimed_at=coalesce(claimed_at,now()) where id=v_milestone.id;
@@ -142,28 +135,36 @@ $$;
 revoke all on function public.claim_ball_knower_verified_mode_milestone(bigint) from public,anon;
 grant execute on function public.claim_ball_knower_verified_mode_milestone(bigint) to authenticated;
 
--- Service-only transition verifier for local solo careers. The browser provides a compact
--- state snapshot; the database owns milestone types/source keys and rejects stale or
--- implausibly large jumps. The first observed snapshot is a no-reward baseline.
-create or replace function public.record_ball_knower_verified_mode_snapshot(
-  p_user_id uuid,
-  p_mode text,
-  p_snapshot jsonb
-) returns table(milestone_id bigint)
-language plpgsql
-security definer
+-- Service-only transition verifier. First valid snapshot is a no-reward baseline.
+-- Stale snapshots are ignored and jumps larger than two are baselined without rewards.
+create or replace function public.record_ball_knower_verified_mode_snapshot(p_user_id uuid,p_mode text,p_snapshot jsonb)
+returns table(milestone_id bigint)
+language plpgsql security definer
 set search_path=public,ball_knower_private,pg_temp
 as $$
 declare
-  v_old jsonb;
-  v_id bigint;
+  v_old jsonb; v_id bigint;
   a integer; b integer; c integer; d integer;
   oa integer; ob integer; oc integer; od integer;
   i integer;
 begin
   if auth.role() <> 'service_role' then raise exception 'Service role required'; end if;
-  if p_user_id is null or p_mode not in ('owner','agent') or jsonb_typeof(p_snapshot) <> 'object' then raise exception 'Invalid mode snapshot'; end if;
+  if p_user_id is null or p_mode not in ('owner','agent') or jsonb_typeof(p_snapshot)<>'object' then raise exception 'Invalid mode snapshot'; end if;
   if octet_length(p_snapshot::text)>8192 then raise exception 'Mode snapshot too large'; end if;
+
+  if p_mode='owner' then
+    a:=ball_knower_private.mode_counter(p_snapshot,'seasonsCompleted',500);
+    b:=ball_knower_private.mode_counter(p_snapshot,'playoffAppearances',500);
+    c:=ball_knower_private.mode_counter(p_snapshot,'conferenceTitles',500);
+    d:=ball_knower_private.mode_counter(p_snapshot,'championships',500);
+    if least(a,b,c,d)<0 or b>a or c>b or d>c then return; end if;
+  else
+    a:=ball_knower_private.mode_counter(p_snapshot,'signedClients',10000);
+    b:=ball_knower_private.mode_counter(p_snapshot,'resolvedTrades',10000);
+    c:=ball_knower_private.mode_counter(p_snapshot,'dealCount',10000);
+    d:=ball_knower_private.mode_counter(p_snapshot,'promisesKept',10000);
+    if least(a,b,c,d)<0 then return; end if;
+  end if;
 
   select snapshot into v_old from ball_knower_private.verified_mode_state
   where user_id=p_user_id and mode=p_mode for update;
@@ -174,39 +175,37 @@ begin
   end if;
 
   if p_mode='owner' then
-    a:=case when coalesce(p_snapshot->>'seasonsCompleted','')~'^\d+$' then (p_snapshot->>'seasonsCompleted')::int else -1 end;
-    b:=case when coalesce(p_snapshot->>'playoffAppearances','')~'^\d+$' then (p_snapshot->>'playoffAppearances')::int else -1 end;
-    c:=case when coalesce(p_snapshot->>'conferenceTitles','')~'^\d+$' then (p_snapshot->>'conferenceTitles')::int else -1 end;
-    d:=case when coalesce(p_snapshot->>'championships','')~'^\d+$' then (p_snapshot->>'championships')::int else -1 end;
-    oa:=coalesce((v_old->>'seasonsCompleted')::int,0); ob:=coalesce((v_old->>'playoffAppearances')::int,0); oc:=coalesce((v_old->>'conferenceTitles')::int,0); od:=coalesce((v_old->>'championships')::int,0);
-    if a<0 or b<0 or c<0 or d<0 or a>500 or b>a or c>b or d>c then return; end if;
-    if a<oa or b<ob or c<oc or d<od then return; end if;
-    if greatest(a-oa,b-ob,c-oc,d-od)>2 then
-      update ball_knower_private.verified_mode_state set snapshot=p_snapshot,updated_at=now() where user_id=p_user_id and mode=p_mode;
-      return;
-    end if;
-    for i in oa+1..a loop v_id:=ball_knower_private.insert_verified_mode_milestone(p_user_id,'owner','owner_season_complete','owner:season:'||i,jsonb_build_object('count',i),'mode_transition_v1'); return next v_id; end loop;
-    for i in ob+1..b loop v_id:=ball_knower_private.insert_verified_mode_milestone(p_user_id,'owner','owner_playoff_appearance','owner:playoff:'||i,jsonb_build_object('count',i),'mode_transition_v1'); return next v_id; end loop;
-    for i in oc+1..c loop v_id:=ball_knower_private.insert_verified_mode_milestone(p_user_id,'owner','owner_conference_title','owner:conference:'||i,jsonb_build_object('count',i),'mode_transition_v1'); return next v_id; end loop;
-    for i in od+1..d loop v_id:=ball_knower_private.insert_verified_mode_milestone(p_user_id,'owner','owner_championship','owner:championship:'||i,jsonb_build_object('count',i),'mode_transition_v1'); return next v_id; end loop;
+    oa:=ball_knower_private.mode_counter(v_old,'seasonsCompleted',500);
+    ob:=ball_knower_private.mode_counter(v_old,'playoffAppearances',500);
+    oc:=ball_knower_private.mode_counter(v_old,'conferenceTitles',500);
+    od:=ball_knower_private.mode_counter(v_old,'championships',500);
   else
-    a:=case when coalesce(p_snapshot->>'signedClients','')~'^\d+$' then (p_snapshot->>'signedClients')::int else -1 end;
-    b:=case when coalesce(p_snapshot->>'resolvedTrades','')~'^\d+$' then (p_snapshot->>'resolvedTrades')::int else -1 end;
-    c:=case when coalesce(p_snapshot->>'dealCount','')~'^\d+$' then (p_snapshot->>'dealCount')::int else -1 end;
-    d:=case when coalesce(p_snapshot->>'promisesKept','')~'^\d+$' then (p_snapshot->>'promisesKept')::int else -1 end;
-    oa:=coalesce((v_old->>'signedClients')::int,0); ob:=coalesce((v_old->>'resolvedTrades')::int,0); oc:=coalesce((v_old->>'dealCount')::int,0); od:=coalesce((v_old->>'promisesKept')::int,0);
-    if least(a,b,c,d)<0 or greatest(a,b,c,d)>10000 then return; end if;
-    if a<oa or b<ob or c<oc or d<od then return; end if;
-    if greatest(a-oa,b-ob,c-oc,d-od)>2 then
-      update ball_knower_private.verified_mode_state set snapshot=p_snapshot,updated_at=now() where user_id=p_user_id and mode=p_mode;
-      return;
-    end if;
-    for i in oa+1..a loop v_id:=ball_knower_private.insert_verified_mode_milestone(p_user_id,'agent','agent_client_signed','agent:client:'||i,jsonb_build_object('count',i),'mode_transition_v1'); return next v_id; end loop;
-    for i in ob+1..b loop v_id:=ball_knower_private.insert_verified_mode_milestone(p_user_id,'agent','agent_trade_resolved','agent:trade:'||i,jsonb_build_object('count',i),'mode_transition_v1'); return next v_id; end loop;
-    for i in oc+1..c loop v_id:=ball_knower_private.insert_verified_mode_milestone(p_user_id,'agent','agent_contract_signed','agent:contract:'||i,jsonb_build_object('count',i),'mode_transition_v1'); return next v_id; end loop;
-    for i in od+1..d loop v_id:=ball_knower_private.insert_verified_mode_milestone(p_user_id,'agent','agent_promise_fulfilled','agent:promise:'||i,jsonb_build_object('count',i),'mode_transition_v1'); return next v_id; end loop;
+    oa:=ball_knower_private.mode_counter(v_old,'signedClients',10000);
+    ob:=ball_knower_private.mode_counter(v_old,'resolvedTrades',10000);
+    oc:=ball_knower_private.mode_counter(v_old,'dealCount',10000);
+    od:=ball_knower_private.mode_counter(v_old,'promisesKept',10000);
+  end if;
+  if least(oa,ob,oc,od)<0 then
+    update ball_knower_private.verified_mode_state set snapshot=p_snapshot,updated_at=now() where user_id=p_user_id and mode=p_mode;
+    return;
+  end if;
+  if a<oa or b<ob or c<oc or d<od then return; end if;
+  if greatest(a-oa,b-ob,c-oc,d-od)>2 then
+    update ball_knower_private.verified_mode_state set snapshot=p_snapshot,updated_at=now() where user_id=p_user_id and mode=p_mode;
+    return;
   end if;
 
+  if p_mode='owner' then
+    for i in (oa+1)..a loop v_id:=ball_knower_private.insert_verified_mode_milestone(p_user_id,'owner','owner_season_complete','owner:season:'||i,jsonb_build_object('count',i),'mode_transition_v1'); milestone_id:=v_id; return next; end loop;
+    for i in (ob+1)..b loop v_id:=ball_knower_private.insert_verified_mode_milestone(p_user_id,'owner','owner_playoff_appearance','owner:playoff:'||i,jsonb_build_object('count',i),'mode_transition_v1'); milestone_id:=v_id; return next; end loop;
+    for i in (oc+1)..c loop v_id:=ball_knower_private.insert_verified_mode_milestone(p_user_id,'owner','owner_conference_title','owner:conference:'||i,jsonb_build_object('count',i),'mode_transition_v1'); milestone_id:=v_id; return next; end loop;
+    for i in (od+1)..d loop v_id:=ball_knower_private.insert_verified_mode_milestone(p_user_id,'owner','owner_championship','owner:championship:'||i,jsonb_build_object('count',i),'mode_transition_v1'); milestone_id:=v_id; return next; end loop;
+  else
+    for i in (oa+1)..a loop v_id:=ball_knower_private.insert_verified_mode_milestone(p_user_id,'agent','agent_client_signed','agent:client:'||i,jsonb_build_object('count',i),'mode_transition_v1'); milestone_id:=v_id; return next; end loop;
+    for i in (ob+1)..b loop v_id:=ball_knower_private.insert_verified_mode_milestone(p_user_id,'agent','agent_trade_resolved','agent:trade:'||i,jsonb_build_object('count',i),'mode_transition_v1'); milestone_id:=v_id; return next; end loop;
+    for i in (oc+1)..c loop v_id:=ball_knower_private.insert_verified_mode_milestone(p_user_id,'agent','agent_contract_signed','agent:contract:'||i,jsonb_build_object('count',i),'mode_transition_v1'); milestone_id:=v_id; return next; end loop;
+    for i in (od+1)..d loop v_id:=ball_knower_private.insert_verified_mode_milestone(p_user_id,'agent','agent_promise_fulfilled','agent:promise:'||i,jsonb_build_object('count',i),'mode_transition_v1'); milestone_id:=v_id; return next; end loop;
+  end if;
   update ball_knower_private.verified_mode_state set snapshot=p_snapshot,updated_at=now() where user_id=p_user_id and mode=p_mode;
 end;
 $$;
@@ -217,8 +216,7 @@ create or replace function public.save_ball_knower_verified_prediction_pick(
   p_user_id uuid,p_game_id text,p_pick_id text,p_market text,p_selection text,p_locked_line numeric,p_label text,
   p_kickoff_at timestamptz,p_away_team text,p_home_team text
 ) returns boolean
-language plpgsql
-security definer
+language plpgsql security definer
 set search_path=public,ball_knower_private,pg_temp
 as $$
 declare v_count integer;
@@ -240,8 +238,7 @@ grant execute on function public.save_ball_knower_verified_prediction_pick(uuid,
 
 create or replace function public.delete_ball_knower_verified_prediction_pick(p_user_id uuid,p_game_id text)
 returns boolean
-language plpgsql
-security definer
+language plpgsql security definer
 set search_path=public,ball_knower_private,pg_temp
 as $$
 declare v_count integer;
@@ -257,8 +254,7 @@ grant execute on function public.delete_ball_knower_verified_prediction_pick(uui
 
 create or replace function public.get_ball_knower_verified_prediction_picks(p_user_id uuid)
 returns table(game_id text,pick_id text,market text,selection text,locked_line numeric,label text,kickoff_at timestamptz,away_team text,home_team text,locked_at timestamptz,result text,graded_at timestamptz)
-language sql
-security definer
+language sql security definer
 set search_path=public,ball_knower_private,pg_temp
 as $$
   select p.game_id,p.pick_id,p.market,p.selection,p.locked_line,p.label,p.kickoff_at,p.away_team,p.home_team,p.locked_at,p.result,p.graded_at
@@ -267,11 +263,9 @@ $$;
 revoke all on function public.get_ball_knower_verified_prediction_picks(uuid) from public,anon,authenticated;
 grant execute on function public.get_ball_knower_verified_prediction_picks(uuid) to service_role;
 
-create or replace function public.grade_ball_knower_verified_prediction_pick(
-  p_user_id uuid,p_game_id text,p_result text,p_away_score integer,p_home_score integer
-) returns bigint
-language plpgsql
-security definer
+create or replace function public.grade_ball_knower_verified_prediction_pick(p_user_id uuid,p_game_id text,p_result text,p_away_score integer,p_home_score integer)
+returns bigint
+language plpgsql security definer
 set search_path=public,ball_knower_private,pg_temp
 as $$
 declare v_pick ball_knower_private.verified_prediction_picks%rowtype; v_id bigint; v_type text;
