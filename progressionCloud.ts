@@ -13,6 +13,7 @@ export type TriviaQuestion={attemptId:number;questionId:number;tier:string;quest
 export type TriviaAnswerResult={isCorrect:boolean;correctIndex:number;explanation:string;xpAwarded:number;progressionRecorded:boolean};
 export type TriviaSession={token:string;order:number};
 export type ChampionshipClaimResult={applied:boolean;eventKey:string};
+export type ModeProgressEvent='owner_season_complete'|'owner_playoff_appearance'|'owner_conference_title'|'owner_championship'|'agent_client_signed'|'agent_trade_resolved'|'agent_contract_signed'|'agent_promise_fulfilled'|'prediction_correct'|'prediction_wrong'|'prediction_push';
 
 type LocalTrivia={tier:string;family:string;question:string;answers:string[];correctIndex:number;explanation:string};
 const BASE_LOCAL_TRIVIA:Omit<LocalTrivia,'family'>[]=[
@@ -135,6 +136,14 @@ export async function claimLeagueChampionshipProgress(leagueId:string):Promise<C
   const row=Array.isArray(response.data)?response.data[0]:response.data;
   if(!row) throw new Error('Could not verify this championship result.');
   return {applied:Boolean(row.applied),eventKey:String(row.event_key||'')};
+}
+
+export async function recordModeProgression(eventKey:string,eventType:ModeProgressEvent,metadata:Record<string,unknown>={}):Promise<boolean>{
+  if(!supabase)return false;
+  await ensureOnlineSession();
+  const response=await supabase.rpc('record_ball_knower_mode_progress',{p_event_key:eventKey,p_event_type:eventType,p_metadata:metadata});
+  if(response.error)throw response.error;
+  return Boolean(response.data);
 }
 
 export async function fetchTriviaQuestion(tier:string,session?:TriviaSession):Promise<TriviaQuestion>{
