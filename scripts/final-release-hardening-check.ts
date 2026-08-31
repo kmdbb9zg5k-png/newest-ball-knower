@@ -160,27 +160,30 @@ assert.ok(
 );
 assert.ok(cloudSync.includes('restoredServerWinner')&&cloudSync.includes('remoteRevision > localRevision'),'cloud sync must apply the server winner on stale Owner saves');
 const ownerAtomicCall=owner.indexOf('await advanceVerifiedOwnerStep(');
-const ownerMutationSave=owner.indexOf('save(p,false);',ownerAtomicCall);
-const ownerMilestoneClaim=owner.indexOf('await claimPendingVerifiedModeMilestones()',ownerMutationSave);
+const ownerCommittedPersist=owner.indexOf('setState(nextState);persist(nextState);',ownerAtomicCall);
+const ownerMilestoneClaim=owner.indexOf('await claimPendingVerifiedModeMilestones()',ownerCommittedPersist);
 const atomicOwnerFunctionStart=phase4bFollowup.indexOf('create or replace function public.commit_ball_knower_verified_owner_step(');
 const atomicOwnerFunctionEnd=phase4bFollowup.indexOf('create or replace function public.commit_ball_knower_expected_agent_signing(',atomicOwnerFunctionStart);
 const atomicOwnerFunction=phase4bFollowup.slice(atomicOwnerFunctionStart,atomicOwnerFunctionEnd);
 assert.ok(
-  ownerAtomicCall>=0&&ownerAtomicCall<ownerMutationSave&&ownerMutationSave<ownerMilestoneClaim&&
-  owner.includes('committedRevision>state.cloudRevision')&&
-  owner.includes('cloudRevision:verified?verifiedCloudRevision:state.cloudRevision')&&
-  modeApi.includes('p_owner_state:req?.body?.ownerState')&&
+  ownerAtomicCall>=0&&ownerAtomicCall<ownerCommittedPersist&&ownerCommittedPersist<ownerMilestoneClaim&&
+  owner.includes('ownerOutcomes={won:buildDecisionState(true,true,state.cloudRevision),lost:buildDecisionState(false,true,state.cloudRevision)}')&&
+  owner.includes('committedOwnerState=normalize(committedState)')&&
+  modeApi.includes('const nextOwnerState=won?ownerOutcomes?.won:ownerOutcomes?.lost')&&
+  modeApi.includes('p_owner_state:req?.body?.ownerState,p_next_owner_state:nextOwnerState')&&
   modeApi.includes('ownerState:committed.data?.ownerState')&&
-  cloud.includes('expected,ownerState,gmId')&&
+  cloud.includes('expected,ownerState,ownerOutcomes,gmId')&&
   phase4bFollowup.includes('drop function if exists public.commit_ball_knower_verified_owner_step(uuid,integer,integer,integer,text,integer,integer,integer,boolean);')&&
+  phase4bFollowup.includes('drop function if exists public.commit_ball_knower_verified_owner_step(uuid,integer,integer,integer,text,integer,integer,integer,boolean,jsonb);')&&
   atomicOwnerFunctionStart>=0&&atomicOwnerFunctionEnd>atomicOwnerFunctionStart&&
   atomicOwnerFunction.includes("where user_id=p_user_id and state_key='owner_business_career_v1'\n  for update")&&
   atomicOwnerFunction.includes("'cloudRevision',v_public_revision+1")&&
   atomicOwnerFunction.includes("(p_owner_state-'cloudRevision') is distinct from (v_public.value-'cloudRevision')")&&
-  atomicOwnerFunction.includes('v_public_value:=p_owner_state')&&
+  atomicOwnerFunction.includes("p_next_owner_state->>'season'<>p_next_season::text")&&
+  atomicOwnerFunction.includes('v_public_value:=p_next_owner_state')&&
   atomicOwnerFunction.includes("'ownerState',v_public.value")&&
   atomicOwnerFunction.indexOf('insert into public.ball_knower_user_state')<atomicOwnerFunction.indexOf('update ball_knower_private.verified_owner_runs'),
-  'Owner verified runs and their cross-device snapshots must commit atomically before milestone claims',
+  'complete Owner decisions, verified runs, and cross-device snapshots must commit atomically before milestone claims',
 );
 assert.ok(
   cloudSync.includes('savedRevision === submittedRevision + 1')&&
