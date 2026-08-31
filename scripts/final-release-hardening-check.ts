@@ -206,8 +206,11 @@ assert.ok(
 assert.ok(phase4bFollowup.includes('on conflict(user_id) do update set')&&phase4bFollowup.includes('excluded.season'),'guest claims must compare and preserve the more advanced Owner run');
 assert.ok(phase4bFollowup.indexOf('on conflict(user_id) do update set')<phase4bFollowup.indexOf('delete from ball_knower_private.verified_owner_runs'),'guest Owner state must be preserved before the guest row is deleted');
 const transferFunctionStart=phase4bFollowup.indexOf('create or replace function ball_knower_private.transfer_verified_mode_state_on_guest_claim()');
-const transferFunctionEnd=phase4bFollowup.indexOf('\n$;',transferFunctionStart);
-const transferFunctionSql=phase4bFollowup.slice(transferFunctionStart,transferFunctionEnd+4);
+const transferFunctionEnd=phase4bFollowup.indexOf(
+  '\nrevoke all on function ball_knower_private.transfer_verified_mode_state_on_guest_claim()',
+  transferFunctionStart,
+);
+const transferFunctionSql=phase4bFollowup.slice(transferFunctionStart,transferFunctionEnd);
 assert.ok(
   transferFunctionStart>=0&&transferFunctionEnd>transferFunctionStart&&
   transferFunctionSql.includes('v_guest_owner_wins boolean:=false')&&
