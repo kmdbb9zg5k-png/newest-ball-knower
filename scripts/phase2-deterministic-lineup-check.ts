@@ -29,6 +29,9 @@ assert.match(api,/opponent:game\?matchupForTeam/,'server score details must expo
 const screen=readFileSync(new URL('../FantasyLeaguePostDraft.tsx',import.meta.url),'utf8');
 assert.match(screen,/const authoritative = scores\.find[\s\S]*if \(authoritative\?\.players\.length\) return authoritative/,'authoritative scores must take precedence');
 assert.match(screen,/saved\?\.starters[\s\S]*buildFantasyLineup/,'saved lineups must precede deterministic fallback lineups');
+assert.match(screen,/weeklyProjections\.find[\s\S]*projectedPoints\[format\]/,'fallback points must come from the selected week projection snapshot');
+assert.match(screen,/Object\.keys\(settings\.customScoring \|\| \{\}\)\.length\) return null/,'unsupported custom-scoring fallbacks must not display invented totals');
+assert.doesNotMatch(screen,/projectedPoints: projectedPointsFor\(player\)/,'full-season rankings must never be labeled as weekly matchup projections');
 assert.match(screen,/const homeScore = matchupScoreFor\(home\)[\s\S]*const awayScore = matchupScoreFor\(away\)/,'every matchup card must receive projected totals without waiting for weekly score rows');
 assert.match(screen,/player\.opponent \? ` vs \$\{player\.opponent\}`/,'matchup rows must display opponents');
 
