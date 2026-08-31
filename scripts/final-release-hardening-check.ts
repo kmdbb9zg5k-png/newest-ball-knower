@@ -154,6 +154,10 @@ assert.ok(
 assert.ok(userState.includes("stateKey === OWNER_STATE_KEY")&&userState.includes("save_ball_knower_revisioned_user_state"),'all direct and batched Owner saves must use the revisioned RPC');
 assert.ok(owner.includes('cloudRevision:number')&&owner.includes('cloud.cloudRevision>local.cloudRevision'),'Owner careers must carry and prefer server-issued revisions');
 assert.ok(cloudSync.includes('function directJsonRevision')&&!cloudSync.includes('directJsonUpdatedAt'),'Owner conflict ordering must not depend on client wall clocks');
+assert.ok(
+  cloudSync.includes('directJsonPayload(row.value) !== directJsonPayload(localRaw)')&&!cloudSync.includes('remoteRaw !== localRaw'),
+  'equal-revision Owner snapshots must compare canonical payloads instead of JSON property order',
+);
 assert.ok(cloudSync.includes('restoredServerWinner')&&cloudSync.includes('remoteRevision > localRevision'),'cloud sync must apply the server winner on stale Owner saves');
 const ownerAtomicCall=owner.indexOf('await advanceVerifiedOwnerStep(');
 const ownerMutationSave=owner.indexOf('save(p,false);',ownerAtomicCall);
@@ -171,6 +175,8 @@ assert.ok(
   atomicOwnerFunctionStart>=0&&atomicOwnerFunctionEnd>atomicOwnerFunctionStart&&
   atomicOwnerFunction.includes("where user_id=p_user_id and state_key='owner_business_career_v1'\n  for update")&&
   atomicOwnerFunction.includes("'cloudRevision',v_public_revision+1")&&
+  atomicOwnerFunction.includes("(p_owner_state-'cloudRevision') is distinct from (v_public.value-'cloudRevision')")&&
+  atomicOwnerFunction.includes('v_public_value:=p_owner_state')&&
   atomicOwnerFunction.includes("'ownerState',v_public.value")&&
   atomicOwnerFunction.indexOf('insert into public.ball_knower_user_state')<atomicOwnerFunction.indexOf('update ball_knower_private.verified_owner_runs'),
   'Owner verified runs and their cross-device snapshots must commit atomically before milestone claims',
@@ -251,6 +257,7 @@ assert.ok(
   agent.includes('localStorage.removeItem(PENDING_RECRUIT_ACTION_KEY), restore(false)')&&
   agent.includes('throw new AgentSigningConflictError("Agent career changed in another tab before signing.")')&&
   cloudSync.includes('localStorage.removeItem(AGENT_PENDING_RECRUIT_ACTION_KEY)')&&
+  cloudSync.includes('localStorage.removeItem(AGENT_PENDING_SIGNING_KEY)')&&
   agent.includes('localStorage.removeItem(PENDING_RECRUIT_ACTION_KEY);'),
   'a consumed recruiting action must survive reloads, stay account-bound, and remain separate from the CAS baseline',
 );
