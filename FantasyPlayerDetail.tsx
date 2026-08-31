@@ -40,7 +40,7 @@ export const FantasyPlayerDetail: React.FC<Props> = ({ player, ownerName, injury
       .catch(err => { if (active) setError(err instanceof Error ? err.message : 'Player history could not be loaded.'); })
       .finally(() => { if (active) setBusy(false); });
     return () => { active = false; };
-  }, [player?.id]);
+  }, [player?.id, player?.name, player?.team, player?.position]);
 
   useEffect(() => {
     if (!player) return;
