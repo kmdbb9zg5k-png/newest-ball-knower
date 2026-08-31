@@ -6,7 +6,6 @@ import {
   CalendarDays,
   ChevronRight,
   FastForward,
-  Handshake,
   MapPin,
   MessageCircle,
   ShieldCheck,
@@ -17,6 +16,14 @@ import { PLAYERS_DATABASE } from './players';
 import { Player } from './types';
 import { playerPortraitUrl } from './playerPortraits';
 import { ModalPortal } from './ModalPortal';
+import {
+  createRecruitingProfile,
+  evaluateRecruitingDecision,
+  RecruitingPitch,
+  RecruitingProfile,
+  recruitingPitchImpact,
+  recruitingRoundChoices,
+} from './agentRecruiting';
 
 const SAVE_KEY = 'ballknower_player_agent_v4';
 const LEGACY_SAVE_KEYS = ['ballknower_player_agent_v3', 'ballknower_player_agent_v2', 'ballknower_player_agent_v1'];
@@ -25,7 +32,7 @@ const STARTING_CLIENT_CAP = 3;
 const TRADE_DEADLINE_WEEK = 9;
 const REGULAR_SEASON_WEEKS = 18;
 
-type Pitch = 'money' | 'trust' | 'brand' | 'opportunity';
+type Pitch = RecruitingPitch;
 type AgentProfile = { name: string; age: number; location: string };
 type FutureDeal = { totalM: number; annualM: number; guaranteedM: number; years: number; negotiatedAt: string };
 type NegotiationState = {
@@ -67,6 +74,7 @@ type AgencyState = {
 };
 type RecruitState = {
   playerId: string;
+  baseInterest: number;
   interest: number;
   round: number;
   used: Pitch[];
@@ -75,6 +83,8 @@ type RecruitState = {
   playerReply: string;
   choices: Pitch[];
   scenarioIndex: number;
+  profile: RecruitingProfile;
+  completed?: boolean;
   failed?: boolean;
 };
 
@@ -173,12 +183,15 @@ const salaryRange = (p: Player) => {
   return [Math.max(1, mid * .82), mid * 1.18] as const;
 };
 const maxUnlockedOverall = (reputation: number) => reputation < 45 ? 75 : reputation < 60 ? 80 : reputation < 75 ? 85 : reputation < 90 ? 90 : 99;
-const signingDifficulty = (p: Player) => clamp(Math.round(36 + (p.ovr - 68) * 2.1 + Math.max(0, p.salary - 8) * .55), 34, 92);
 const pitchLabel: Record<Pitch, string> = {
   money: 'I can get you paid',
-  trust: 'I will put you first',
+  guarantees: 'I will protect your guarantees',
+  loyalty: 'I will stay when it gets hard',
+  winning: 'I will find the right contender',
+  playing_time: 'I will fight for the right role',
+  family: 'Your family has a seat at the table',
   brand: 'I can grow your name',
-  opportunity: 'I see what other people miss',
+  long_term: 'I have a plan beyond one deal',
 };
 const QUESTIONS = [
   'Why should I trust a rookie with the biggest year of my career?',
@@ -201,9 +214,13 @@ const STORIES = [
 ];
 const PITCH_VARIANTS: Record<Pitch,string[]> = {
   money:['Build leverage before we name a price','Make every team bid against the market','Protect the guarantees, not just the headline'],
-  trust:['You get my number, not an assistant','Your family is part of every decision','I tell you the truth before I sell a dream'],
+  guarantees:['Secure the money that cannot disappear','Make injury protection part of the deal','Trade headlines for real security'],
+  loyalty:['You get my number, not an assistant','I stay involved when the season turns','I tell you the truth before I sell a dream'],
+  winning:['Target teams built to play in January','Make winning part of every decision','Find a contender that truly needs you'],
+  playing_time:['Find the scheme that unlocks your game','Use your film to prove the role is too small','Create a path to meaningful snaps'],
+  family:['Put location and stability into the plan','Make every move work off the field too','Your family is part of every decision'],
   brand:['Turn your work into a story teams remember','Own your name before somebody else defines it','Make your production impossible to ignore'],
-  opportunity:['Find the scheme that unlocks your game','Use your film to prove the role is too small','Create options instead of waiting for permission'],
+  long_term:['Build the next three moves, not just one','Protect your career after the next contract','Plan for the player you will be in five years'],
 };
 const hashPlayer=(id:string)=>Array.from(id).reduce((n,c)=>n+c.charCodeAt(0),0);
 const scenarioFor=(p:Player)=>{const index=hashPlayer(p.id)%50;return {index,question:QUESTIONS[index%QUESTIONS.length],story:`${STORIES[Math.floor(index/10)]} ${p.position} value, role and the final year of his deal all shape this meeting.`};};
@@ -211,16 +228,14 @@ const playerReplyForPitch = (pitch: Pitch, scenarioIndex = 0) => {
   const promise=PITCH_VARIANTS[pitch][scenarioIndex%PITCH_VARIANTS[pitch].length];
   if(scenarioIndex%2===1)return `“${promise} sounds real. Give me one more reason this is not just a pitch.”`;
   if (pitch === 'money') return '“Everybody says they can get me paid. Show me why you are different.”';
-  if (pitch === 'trust') return '“My last agent talked a lot. I need somebody who actually picks up the phone.”';
+  if (pitch === 'loyalty') return '“My last agent talked a lot. I need somebody who actually picks up the phone.”';
+  if (pitch === 'guarantees') return '“The headline number means nothing if the team can walk away. Keep talking.”';
+  if (pitch === 'winning') return '“I want January football, but I will not disappear on somebody else’s depth chart.”';
+  if (pitch === 'playing_time') return '“Show me the team and scheme where that role is real.”';
+  if (pitch === 'family') return '“That matters more than most agents understand.”';
   if (pitch === 'brand') return '“I am not a superstar yet. If you can help people notice my game, I am listening.”';
-  return '“That is what I needed to hear. I know I can be more than what my current role says.”';
-};
-const pitchImpact = (pitch: Pitch, p: Player, agency: AgencyState) => {
-  const age = p.age ?? 27;
-  if (pitch === 'money') return 8 + agency.negotiation * .10 + (p.salary < marketProjection(p) * .72 ? 5 : 0);
-  if (pitch === 'trust') return 8 + agency.clientCare * .11 + (age <= 25 ? 3 : 0);
-  if (pitch === 'brand') return 6 + agency.brandPower * .10;
-  return 7 + agency.reputation * .09 + (p.ovr <= 72 ? 4 : 0);
+  if (pitch === 'long_term') return '“A real career plan is different. Tell me what the second contract sets up.”';
+  return '“Everybody says they can get me paid. Show me why you are different.”';
 };
 
 const tradeReasons = (p: Player) => [
@@ -360,50 +375,49 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({ onBack }) =>
 
   const beginRecruit = (p: Player) => {
     if (clients.length >= STARTING_CLIENT_CAP) return;
+    const profile=createRecruitingProfile(p);
     if (agency.recruitLockouts[p.id] === agency.seasonYear) {
-      const scenario=scenarioFor(p);setSelectedId(p.id);setRecruit({playerId:p.id,interest:0,round:3,used:[],rivalPressure:0,failed:true,choices:[],scenarioIndex:scenario.index,message:`${p.name} signed elsewhere. You are cooked for ${agency.seasonYear}; his camp will not reopen talks until next season.`,playerReply:'“We made our choice. See you next league year.”'});return;
+      const scenario=scenarioFor(p);setSelectedId(p.id);setRecruit({playerId:p.id,baseInterest:0,interest:0,round:3,used:[],rivalPressure:0,failed:true,choices:[],scenarioIndex:scenario.index,profile,message:`${p.name} signed elsewhere. You are cooked for ${agency.seasonYear}; his camp will not reopen talks until next season.`,playerReply:'“We made our choice. See you next league year.”'});return;
     }
     const daysLeft = cooldownDaysLeft(agency.recruitCooldowns[p.id], agency.simulatedDate);
     if (daysLeft > 0) {
       setSelectedId(p.id);
-      setRecruit({ playerId:p.id, interest:0, round:1, used:[], rivalPressure:0, failed:true, choices:[], scenarioIndex:0, message:`${p.name}'s camp is not taking another meeting yet. Try again in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`, playerReply:'“We already made our decision for now.”' });
+      setRecruit({ playerId:p.id, baseInterest:0, interest:0, round:1, used:[], rivalPressure:0, failed:true, choices:[], scenarioIndex:0, profile, message:`${p.name}'s camp is not taking another meeting yet. Try again in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`, playerReply:'“We already made our decision for now.”' });
       return;
     }
-    const difficulty = signingDifficulty(p);
+    const difficulty = profile.difficulty;
     const base = clamp(22 + agency.reputation * .30 + agency.clientCare * .10 - difficulty * .19, 10, 55);
-    const scenario=scenarioFor(p);const pitches=(Object.keys(pitchLabel) as Pitch[]);const offset=scenario.index%pitches.length;
+    const scenario=scenarioFor(p);
     setSelectedId(p.id);
-    setRecruit({ playerId:p.id, interest:Math.round(base), round:1, used:[], rivalPressure:Math.round(28 + difficulty * .48), choices:[pitches[offset],pitches[(offset+1)%pitches.length]],scenarioIndex:scenario.index,message:scenario.story, playerReply:`“${scenario.question}”` });
+    setRecruit({ playerId:p.id, baseInterest:Math.round(base), interest:Math.round(base), round:1, used:[], rivalPressure:Math.round(28 + difficulty * .48), choices:recruitingRoundChoices(p,profile,1),scenarioIndex:scenario.index,profile,message:scenario.story, playerReply:`“${scenario.question}”` });
   };
 
   const makePitch = (pitch: Pitch) => {
-    if (!selected || !recruit || recruit.failed || recruit.used.includes(pitch) || recruit.used.length >= 2 || !recruit.choices.includes(pitch)) return;
+    if (!selected || !recruit || recruit.failed || recruit.completed || recruit.used.includes(pitch) || recruit.used.length >= 2 || !recruit.choices.includes(pitch)) return;
     if (recruit.used.length === 0) {
       const nextAgency = { ...agency, recruitCooldowns: { ...agency.recruitCooldowns, [selected.id]: addDays(agency.simulatedDate, RECRUIT_COOLDOWN_DAYS) } };
       setAgency(nextAgency);
       persist(nextAgency);
     }
-    const impact = pitchImpact(pitch, selected, agency);
+    const impact = recruitingPitchImpact(pitch,selected,recruit.profile,agency);
     const nextInterest = clamp(Math.round(recruit.interest + impact - recruit.rivalPressure / 28), 0, 100);
-    const ready = nextInterest >= signingDifficulty(selected);
-    setRecruit({ ...recruit, interest:nextInterest, round:recruit.round + 1, used:[...recruit.used,pitch], message:ready ? `The room changed. ${selected.name} is seriously considering you. One decision remains.` : `You made progress, but ${selected.name} still needs one more reason to bet on you.`, playerReply:playerReplyForPitch(pitch,recruit.scenarioIndex) });
-  };
-
-  const askToSign = () => {
-    if (!selected || !recruit || recruit.failed || recruit.used.length < 2) return;
-    if (agency.clients.length >= STARTING_CLIENT_CAP) {
-      setRecruit({ ...recruit, failed:true, message:`Your agency already has its ${STARTING_CLIENT_CAP} starter clients. Build those careers before recruiting anyone else.`, playerReply:'“Call me when your agency has room.”' });
+    const used=[...recruit.used,pitch];
+    if(used.length===1){
+      setRecruit({...recruit,interest:nextInterest,round:2,used,choices:recruitingRoundChoices(selected,recruit.profile,2,recruit.choices),message:`${selected.name} weighs your first answer. Four new follow-ups are on the table—choose the one that fits what he actually values.`,playerReply:playerReplyForPitch(pitch,recruit.scenarioIndex)});
       return;
     }
-    const firstClientBoost = agency.clients.length === 0 ? 12 : 0;
-    const won = recruit.interest + firstClientBoost + (agency.reputation + agency.negotiation + agency.clientCare) / 34 - recruit.rivalPressure / 20 >= signingDifficulty(selected);
-    if (won) {
+    if (agency.clients.length >= STARTING_CLIENT_CAP) {
+      setRecruit({ ...recruit, used, choices:[], round:3, failed:true, message:`Your agency already has its ${STARTING_CLIENT_CAP} starter clients. Build those careers before recruiting anyone else.`, playerReply:'“Call me when your agency has room.”' });
+      return;
+    }
+    const decision=evaluateRecruitingDecision({player:selected,profile:recruit.profile,agency,pitches:used,baseInterest:recruit.baseInterest,rivalPressure:recruit.rivalPressure,firstClient:agency.clients.length===0});
+    if (decision.signed) {
       const cooldowns = { ...agency.recruitCooldowns }; delete cooldowns[selected.id];
       const next: AgencyState = { ...agency, reputation:clamp(agency.reputation + (selected.ovr <= 75 ? 8 : 5),0,100), negotiation:clamp(agency.negotiation+1,0,100), clients:[...agency.clients,{playerId:selected.id,trust:72,signedAt:new Date().toISOString()}], wins:agency.wins+1, recruitCooldowns:cooldowns, timeline:[`${selected.name} signed with your agency.`,...agency.timeline].slice(0,20) };
-      const before=maxUnlockedOverall(agency.reputation),after=maxUnlockedOverall(next.reputation);setAgency(next); persist(next); setRecruit(null); setSelectedId(null);if(after>before){setLevelUp({from:before,to:after});try{navigator.vibrate?.([45,40,45,40,100]);}catch{}}
+      const before=maxUnlockedOverall(agency.reputation),after=maxUnlockedOverall(next.reputation);setAgency(next);persist(next);setRecruit({...recruit,interest:nextInterest,round:3,used,choices:[],completed:true,message:`The meeting is over. ${selected.name} chose your agency because your plan matched what matters to him—not because there was one magic answer.`,playerReply:'“You listened, you had a plan, and you did not sell me the same dream everybody else did. Let’s work.”'});if(after>before){setLevelUp({from:before,to:after});try{navigator.vibrate?.([45,40,45,40,100]);}catch{}}
     } else {
       const next: AgencyState = { ...agency, losses:agency.losses+1, reputation:clamp(agency.reputation-1,0,100), recruitCooldowns:{...agency.recruitCooldowns,[selected.id]:addDays(agency.simulatedDate,RECRUIT_COOLDOWN_DAYS)}, recruitLockouts:{...agency.recruitLockouts,[selected.id]:agency.seasonYear} };
-      setAgency(next); persist(next); setRecruit({ ...recruit, failed:true, message:`${selected.name} chose another agency. You cannot sign him again during the ${agency.seasonYear} season.`, playerReply:'“I respect the pitch, but we are going elsewhere.”' });
+      setAgency(next); persist(next); setRecruit({ ...recruit, interest:nextInterest,round:3,used,choices:[],failed:true,message:`${selected.name} chose another agency. Your two pitches did not fit his priorities well enough, and you cannot reopen talks during the ${agency.seasonYear} season.`, playerReply:'“I respect the work, but another agency understood what I need right now.”' });
     }
   };
 
@@ -502,7 +516,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({ onBack }) =>
 
     <section className="mt-5 rounded-[2rem] border border-white/10 bg-[#0d121b] p-5 sm:p-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-[10px] font-black tracking-[.22em] text-violet-300">FIRST CLIENT BOARD</div><h2 className="mt-1 text-3xl font-black">WHO ARE YOU BETTING ON?</h2><p className="mt-2 text-xs font-semibold text-zinc-500">{clients.length>=STARTING_CLIENT_CAP?`Starter agency full · ${clients.length}/${STARTING_CLIENT_CAP} clients`:`50 available targets · current unlock: ${unlockedOvr} OVR and below`}</p></div><select aria-label="Filter prospects by position" value={filter} onChange={e=>setFilter(e.target.value)} className="rounded-xl border border-white/10 bg-black px-3 py-3 text-sm font-black">{['ALL','QB','RB','WR','TE','OT','EDGE','DT','LB','CB','S','K','P'].map(x=><option key={x}>{x}</option>)}</select></div><div className="mt-5 grid gap-3 md:grid-cols-2">{prospects.map(p=>{const [low,high]=salaryRange(p);const days=cooldownDaysLeft(agency.recruitCooldowns[p.id],agency.simulatedDate);return <button key={p.id} onClick={()=>beginRecruit(p)} disabled={clients.length>=STARTING_CLIENT_CAP} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/25 p-3 text-left disabled:opacity-35"><img src={playerPortraitUrl(p)} alt="" className="h-16 w-16 rounded-xl bg-white/5 object-cover"/><div className="min-w-0 flex-1"><div className="truncate font-black">{p.name}</div><div className="text-xs text-zinc-500">{p.team} · {p.position}{p.age?` · Age ${p.age}`:''} · 1 year left</div><div className="mt-1 text-[10px] text-zinc-500">Expected next deal: {moneyM(low)}–{moneyM(high)}/yr</div></div><div className="text-right"><div className="text-xl font-black text-violet-300">{p.ovr}</div><div className="text-[9px] font-black text-zinc-500">{days>0?`${days}D WAIT`:'OVR'}</div></div></button>})}</div></section>
 
-    {selected&&recruit&&<ModalPortal><div role="dialog" aria-modal="true" aria-label={`Private meeting with ${selected.name}`} className="fixed inset-0 z-[9999] overflow-y-auto overscroll-contain bg-black/85 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-md [-webkit-overflow-scrolling:touch]"><div className="mx-auto my-auto max-w-xl rounded-[2rem] border border-violet-300/25 bg-[#0c1018] p-5 sm:p-7"><div className="flex items-start gap-4"><img src={playerPortraitUrl(selected)} alt="" className="h-20 w-20 rounded-2xl bg-white/5 object-cover"/><div className="min-w-0 flex-1"><div className="text-[10px] font-black tracking-[.2em] text-violet-300">PRIVATE MEETING</div><h3 className="mt-1 text-2xl font-black">{selected.name}</h3><div className="text-xs text-zinc-500">{selected.team} · {selected.position} · {selected.ovr} OVR · final year</div></div><button aria-label="Close private meeting" onClick={()=>{setRecruit(null);setSelectedId(null)}} className="min-h-11 shrink-0 rounded-xl bg-white/5 px-3 text-xs font-black">CLOSE</button></div><div className="mt-5 rounded-2xl border border-white/10 bg-black/35 p-4"><div className="text-[10px] font-black text-zinc-500">PLAYER</div><p className="mt-2 text-lg font-black leading-7 text-white">{recruit.playerReply}</p></div><div className="mt-3 rounded-2xl bg-violet-400/10 p-4"><div className="text-[10px] font-black text-violet-300">STORY</div><p className="mt-2 text-sm font-semibold leading-6 text-zinc-300">{recruit.message}</p></div>{!recruit.failed&&<><div className="mt-5 flex items-center justify-between text-[10px] font-black text-zinc-500"><span>CHOOSE BOTH PITCHES</span><span>{recruit.used.length}/2</span></div><div className="mt-2 grid gap-2 sm:grid-cols-2">{recruit.choices.map(pitch=><button key={pitch} aria-pressed={recruit.used.includes(pitch)} disabled={recruit.used.includes(pitch)} onClick={()=>makePitch(pitch)} className="min-h-12 rounded-2xl border border-white/10 bg-white/5 px-4 text-left text-xs font-black disabled:border-violet-300/30 disabled:bg-violet-400/10 disabled:text-violet-200 disabled:opacity-100">{pitchLabel[pitch]}</button>)}</div><button onClick={askToSign} disabled={recruit.used.length<2} className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-violet-400 px-5 font-black text-black disabled:cursor-not-allowed disabled:opacity-35"><Handshake size={18}/> {recruit.used.length<2?`CHOOSE ${2-recruit.used.length} MORE PITCH${2-recruit.used.length===1?'':'ES'}`:'ASK HIM TO SIGN WITH YOU'}</button></>}<div className="mt-4 flex items-center gap-2 text-[10px] font-bold text-zinc-600"><ShieldCheck size={13}/> Reputation determines which players will even take your meeting.</div></div></div></ModalPortal>}
+    {selected&&recruit&&<ModalPortal><div role="dialog" aria-modal="true" aria-label={`Private meeting with ${selected.name}`} className="fixed inset-0 z-[9999] overflow-y-auto overscroll-contain bg-black/85 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-md [-webkit-overflow-scrolling:touch]"><div className="mx-auto my-auto max-w-xl rounded-[2rem] border border-violet-300/25 bg-[#0c1018] p-5 sm:p-7"><div className="flex items-start gap-4"><img src={playerPortraitUrl(selected)} alt="" className="h-20 w-20 rounded-2xl bg-white/5 object-cover"/><div className="min-w-0 flex-1"><div className="text-[10px] font-black tracking-[.2em] text-violet-300">PRIVATE MEETING · {recruit.round<=2?`ROUND ${recruit.round}`:'DECISION'}</div><h3 className="mt-1 text-2xl font-black">{selected.name}</h3><div className="text-xs text-zinc-500">{selected.team} · {selected.position} · {selected.ovr} OVR · final year</div></div><button aria-label="Close private meeting" onClick={()=>{setRecruit(null);setSelectedId(null)}} className="min-h-11 shrink-0 rounded-xl bg-white/5 px-3 text-xs font-black">CLOSE</button></div><div className="mt-5 rounded-2xl border border-white/10 bg-black/35 p-4"><div className="text-[10px] font-black text-zinc-500">PLAYER</div><p className="mt-2 text-lg font-black leading-7 text-white">{recruit.playerReply}</p></div><div className="mt-3 rounded-2xl bg-violet-400/10 p-4"><div className="text-[10px] font-black text-violet-300">STORY</div><p className="mt-2 text-sm font-semibold leading-6 text-zinc-300">{recruit.message}</p></div>{!recruit.failed&&!recruit.completed&&<><div className="mt-5 flex items-center justify-between text-[10px] font-black text-zinc-500"><span>ROUND {recruit.round} · CHOOSE ONE</span><span>{recruit.used.length}/2 PITCHES</span></div><div className="mt-2 grid gap-2 sm:grid-cols-2">{recruit.choices.map(pitch=><button key={pitch} onClick={()=>makePitch(pitch)} className="min-h-12 rounded-2xl border border-white/10 bg-white/5 px-4 text-left text-xs font-black active:border-violet-300/50 active:bg-violet-400/10">{pitchLabel[pitch]}</button>)}</div></>}<div className="mt-4 flex items-center gap-2 text-[10px] font-bold text-zinc-600"><ShieldCheck size={13}/> The player weighs both choices against his priorities, your skills and your reputation.</div></div></div></ModalPortal>}
     {negotiationRoom&&(()=>{const p=PLAYERS_DATABASE.find(x=>x.id===negotiationRoom.playerId);if(!p)return null;const market=marketProjection(p);return <ModalPortal><div role="dialog" aria-modal="true" aria-label={`Negotiation room with ${p.name}`} className="fixed inset-0 z-[9999] overflow-y-auto overscroll-contain bg-black/90 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-md [-webkit-overflow-scrolling:touch]"><div className="mx-auto my-auto max-w-xl rounded-[2rem] border border-violet-300/25 bg-[#0c1018] p-5 sm:p-7"><div className="flex items-start justify-between gap-3"><div><div className="text-[10px] font-black tracking-[.22em] text-violet-300">NEGOTIATION ROOM · ROUND {negotiationRoom.round}</div><h3 className="mt-1 text-3xl font-black">{p.name}</h3><div className="text-xs text-zinc-500">{p.team} GM · Market estimate {moneyM(market)}/yr</div></div><button onClick={()=>setNegotiationRoom(null)} className="min-h-11 rounded-xl bg-white/5 px-3 text-xs font-black">LEAVE</button></div><div className="mt-5 rounded-2xl border border-white/10 bg-black/35 p-4"><div className="text-[10px] font-black text-zinc-500">GENERAL MANAGER</div><p className="mt-2 text-lg font-black leading-7">“{negotiationRoom.message}”</p></div><div className="mt-4 grid gap-3 sm:grid-cols-3"><label className="rounded-2xl bg-white/5 p-3 text-[10px] font-black text-zinc-400">YEARS<input type="range" min="1" max="5" value={negotiationRoom.years} onChange={e=>setNegotiationRoom({...negotiationRoom,years:Number(e.target.value)})} className="mt-3 w-full accent-violet-400"/><span className="mt-2 block text-2xl text-white">{negotiationRoom.years}</span></label><label className="rounded-2xl bg-white/5 p-3 text-[10px] font-black text-zinc-400">PER YEAR<input type="range" min={Math.max(1,market*.65)} max={market*1.3} step="0.5" value={negotiationRoom.annualM} onChange={e=>setNegotiationRoom({...negotiationRoom,annualM:Number(e.target.value)})} className="mt-3 w-full accent-violet-400"/><span className="mt-2 block text-lg text-white">{moneyM(negotiationRoom.annualM)}</span></label><label className="rounded-2xl bg-white/5 p-3 text-[10px] font-black text-zinc-400">GUARANTEED<input type="range" min="25" max="80" step="5" value={negotiationRoom.guaranteedPct} onChange={e=>setNegotiationRoom({...negotiationRoom,guaranteedPct:Number(e.target.value)})} className="mt-3 w-full accent-violet-400"/><span className="mt-2 block text-2xl text-white">{negotiationRoom.guaranteedPct}%</span></label></div><div className="mt-4 flex items-center justify-between rounded-xl bg-white/5 p-3 text-xs"><span className="text-zinc-500">GM patience</span><span className={negotiationRoom.gmPatience<30?'font-black text-red-300':'font-black text-emerald-300'}>{negotiationRoom.gmPatience}/100</span></div><button onClick={counterNegotiation} className="mt-4 min-h-12 w-full rounded-2xl bg-violet-400 px-5 font-black text-black">SEND COUNTEROFFER · {moneyM(negotiationRoom.annualM*negotiationRoom.years)} TOTAL</button></div></div></ModalPortal>})()}
     {levelUp&&<ModalPortal><div role="dialog" aria-modal="true" aria-label="Reputation level up" className="fixed inset-0 z-[10000] grid place-items-center overflow-y-auto overscroll-contain bg-black/90 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur"><div className="w-full max-w-sm rounded-[2rem] border border-violet-300/30 bg-[#111525] p-6 text-center shadow-2xl"><div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-violet-400 text-black"><Sparkles size={30}/></div><div className="mt-4 text-[10px] font-black tracking-[.25em] text-violet-300">REPUTATION LEVEL UP</div><h2 className="mt-2 text-4xl font-black">YOU'RE MOVING UP.</h2><p className="mt-3 text-sm font-semibold leading-6 text-zinc-400">Players up to <b className="text-white">{levelUp.to} OVR</b> will now take your call. Your old ceiling was {levelUp.from}.</p><button onClick={()=>setLevelUp(null)} className="mt-5 min-h-12 w-full rounded-2xl bg-violet-400 font-black text-black">SEE WHO UNLOCKED</button></div></div></ModalPortal>}
   </div></div>;
