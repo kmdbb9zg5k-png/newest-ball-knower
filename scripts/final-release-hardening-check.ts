@@ -52,7 +52,7 @@ const agentAccountSnapshot=agent.indexOf('JSON.stringify({ userId: signingUserId
 const agentSigningBaseline=agent.indexOf('raw: JSON.stringify(agency)',agentSigningSession);
 const agentSigningPersist=agent.indexOf('persist(next);',agentSigningBaseline);
 const agentSigningVerify=agent.indexOf('retryAgentSigningVerification(next, signingUserId)',agentSigningPersist);
-const agentCloudSave=agent.indexOf('await saveUserState("player_agent_career"');
+const agentCloudSave=agent.indexOf('await saveUserStateForExpectedUser(');
 const agentPendingClear=agent.indexOf('localStorage.removeItem(PENDING_SIGNING_KEY)',agentCloudSave);
 const agentMilestoneClaim=agent.indexOf('await claimPendingVerifiedModeMilestones()',agentPendingClear);
 assert.ok(
@@ -63,6 +63,9 @@ assert.ok(
   agentAccountSnapshot>=0&&agentAccountSnapshot<agentCloudSave&&
   agent.includes('pending.userId !== user.id')&&
   agent.includes('if (!signingUserId) throw new Error("Signing account is required.");')&&
+  agent.includes('saveUserStateForExpectedUser(')&&
+  agent.includes('pending.userId,')&&
+  agent.includes('signingUserId,')&&
   agent.includes('retryAgentSigningVerification(next, signingUserId)')&&
   agent.includes('localStorage.getItem(PENDING_SIGNING_KEY) !== raw')&&
   agent.includes('while (true)')&&
@@ -85,12 +88,12 @@ assert.ok(
 );
 assert.equal(
   (phase4bFollowup.match(/create or replace function /g)??[]).length,
-  3,
-  'Phase 4B hardening migration must contain exactly its three complete functions',
+  4,
+  'Phase 4B hardening migration must contain exactly its four complete functions',
 );
 assert.equal(
   (phase4bFollowup.match(/\n\$\$;/g)??[]).length,
-  3,
+  4,
   'Phase 4B hardening migration must close each function body exactly once',
 );
 assert.ok(
@@ -129,6 +132,21 @@ assert.ok(
 );
 assert.ok(phase4bFollowup.includes('on conflict(user_id) do update set')&&phase4bFollowup.includes('excluded.season'),'guest claims must compare and preserve the more advanced Owner run');
 assert.ok(phase4bFollowup.indexOf('on conflict(user_id) do update set')<phase4bFollowup.indexOf('delete from ball_knower_private.verified_owner_runs'),'guest Owner state must be preserved before the guest row is deleted');
+assert.ok(
+  phase4bFollowup.includes('v_guest_owner_wins boolean:=false')&&
+  phase4bFollowup.includes("state_key='owner_business_career_v1'")&&
+  phase4bFollowup.includes('greatest(\n          ball_knower_private.owner_state_revision(target.value)')&&
+  phase4bFollowup.indexOf('if v_guest_owner_wins then')<phase4bFollowup.indexOf('delete from ball_knower_private.verified_owner_runs'),
+  'an advanced claimed Owner run must transfer its matching public snapshot with a newer server revision',
+);
+assert.ok(
+  phase4bFollowup.includes('save_ball_knower_expected_user_state')&&
+  phase4bFollowup.includes('auth.uid()<>p_expected_user_id')&&
+  userState.includes('ACCOUNT_BOUND_WRITE_TIMEOUT_MS = 12_000')&&
+  userState.includes(".rpc('save_ball_knower_expected_user_state'")&&
+  userState.includes('.abortSignal(controller.signal)'),
+  'Agent signing writes must be atomically account-bound and abort within a bounded timeout',
+);
 assert.ok(bridge.includes('IDLE_CLAIM_INTERVAL_MS=60_000')&&!bridge.includes('setInterval(()=>void claimVerifiedMilestones(),4000)'),'idle milestone replay must avoid four-second polling');
 
 assert.ok(migration.includes('verified_prediction_picks'),'verified Picks must have private pregame storage');
