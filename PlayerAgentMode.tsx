@@ -16,7 +16,7 @@ import { PLAYERS_DATABASE } from "./players";
 import { Player } from "./types";
 import { playerPortraitUrl } from "./playerPortraits";
 import { ModalPortal } from "./ModalPortal";
-import { commitAgentSigningForExpectedUser, loadUserState } from "./userStateCloud";
+import { AGENT_PENDING_SIGNING_KEY, commitAgentSigningForExpectedUser, flushPendingUserStateWrites, loadUserState } from "./userStateCloud";
 import { claimPendingVerifiedModeMilestones } from "./modeProgressionCloud";
 import { ensureOnlineSession } from "./supabase";
 import {
@@ -50,7 +50,8 @@ import {
 } from "./agentAgencyGrowth";
 
 const SAVE_KEY = "ballknower_player_agent_v4";
-const PENDING_SIGNING_KEY = "ballknower_player_agent_signing_pending_v1";
+const PENDING_SIGNING_KEY = AGENT_PENDING_SIGNING_KEY;
+const PENDING_RECRUIT_ACTION_KEY = "ballknower_player_agent_recruit_action_v1";
 const AGENT_SIGNING_LOCK_NAME = "ballknower-player-agent-signing-v1";
 const AGENT_SESSION_TIMEOUT_MS = 12_000;
 const LEGACY_SAVE_KEYS = [
@@ -253,7 +254,7 @@ const fallbackAgency = (): AgencyState => ({
 
 const restore = (): AgencyState => {
   try {
-    let raw = localStorage.getItem(SAVE_KEY);
+    let raw = localStorage.getItem(PENDING_RECRUIT_ACTION_KEY) || localStorage.getItem(SAVE_KEY);
     if (!raw) {
       for (const key of LEGACY_SAVE_KEYS) {
         raw = localStorage.getItem(key);
@@ -343,6 +344,13 @@ const restore = (): AgencyState => {
 const persist = (state: AgencyState) => {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    localStorage.removeItem(PENDING_RECRUIT_ACTION_KEY);
+  } catch {}
+};
+
+const persistRecruitAction = (state: AgencyState) => {
+  try {
+    localStorage.setItem(PENDING_RECRUIT_ACTION_KEY, JSON.stringify(state));
   } catch {}
 };
 
@@ -410,6 +418,16 @@ const readPendingAgentSigning = (): PendingAgentSigning | null => {
     return null;
   }
 };
+const stagePendingAgentSigning = (
+  userId: string,
+  beforeState: AgencyState,
+  state: AgencyState,
+) => {
+  localStorage.setItem(
+    PENDING_SIGNING_KEY,
+    JSON.stringify({ userId, beforeState, state } satisfies PendingAgentSigning),
+  );
+};
 const verifyPendingAgentSigning = async (
   state?: AgencyState,
   signingUserId?: string,
@@ -419,14 +437,7 @@ const verifyPendingAgentSigning = async (
     if (!signingUserId || !beforeState) {
       throw new Error("Signing account and pre-signing state are required.");
     }
-    localStorage.setItem(
-      PENDING_SIGNING_KEY,
-      JSON.stringify({
-        userId: signingUserId,
-        beforeState,
-        state,
-      } satisfies PendingAgentSigning),
-    );
+    stagePendingAgentSigning(signingUserId, beforeState, state);
   }
   if (pendingAgentSigningWrite) return pendingAgentSigningWrite;
 
@@ -451,6 +462,9 @@ const verifyPendingAgentSigning = async (
       }
 
       try {
+        // Let any generic Agent upload that started before the hold finish;
+        // once the hold exists CloudSync will not start another one.
+        await flushPendingUserStateWrites();
         await commitAgentSigningForExpectedUser(
           pending.userId,
           { raw: JSON.stringify(pending.beforeState) },
@@ -459,9 +473,7 @@ const verifyPendingAgentSigning = async (
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         if (message.includes("Agent career changed before signing")) {
-          if (localStorage.getItem(PENDING_SIGNING_KEY) === raw) {
-            localStorage.removeItem(PENDING_SIGNING_KEY);
-          }
+          // Keep the hold until the authoritative server winner is loaded.
           throw new AgentSigningConflictError(
             "Another tab changed this Agent career first. The latest saved career was restored.",
           );
@@ -688,17 +700,23 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     () => pendingAgentSigningWrite !== null || readPendingAgentSigning() !== null,
   );
   const recoverAgentSigningConflict = async (error: AgentSigningConflictError) => {
-    let latest = restore();
     try {
-      latest = await loadAuthoritativeAgentCareer();
+      const latest = await loadAuthoritativeAgentCareer();
+      localStorage.removeItem(PENDING_SIGNING_KEY);
+      setAgency(latest);
+      setRecruit(null);
+      setSelectedId(null);
+      setAgentSigningError(error.message);
+      setVerifyingAgentSigning(false);
+      return true;
     } catch (loadError) {
+      // Keep both the pending snapshot and the UI lock until the server winner
+      // can be loaded; unlocking stale local state could overwrite it.
+      setAgentSigningError("The latest Agent career is still loading. Retry before making another move.");
+      setVerifyingAgentSigning(true);
       console.warn("Authoritative Agent career reload deferred", loadError);
+      return false;
     }
-    setAgency(latest);
-    setRecruit(null);
-    setSelectedId(null);
-    setAgentSigningError(error.message);
-    setVerifyingAgentSigning(false);
   };
   const retryAgentSigningVerification = async (
     state?: AgencyState,
@@ -1175,6 +1193,9 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     );
     const scenario = scenarioFor(p);
     setAgency(actionAgency);
+    // Keep the consumed action durable across reloads without exposing the
+    // verifier's pre-meeting baseline to generic cloud sync.
+    persistRecruitAction(actionAgency);
     setSelectedId(p.id);
     setRecruit({
       playerId: p.id,
@@ -1313,6 +1334,9 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       };
       const before = maxUnlockedOverall(agency.reputation),
         after = maxUnlockedOverall(next.reputation);
+      // Publish the cloud hold before changing the watched Agent save key.
+      // The account-bound CAS is the only write allowed to finalize this signing.
+      stagePendingAgentSigning(signingUserId, signingBeforeState, next);
       setAgency(next);
       persist(next);
       setRecruit({
@@ -1328,7 +1352,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       });
       // The durable pending snapshot survives mode navigation/reloads. The
       // week and Back controls stay locked until this exact signing is saved.
-      const signingVerified = await retryAgentSigningVerification(next, signingUserId, signingBeforeState);
+      const signingVerified = await retryAgentSigningVerification();
       if (signingVerified && after > before) {
         setLevelUp({ from: before, to: after });
         try {
