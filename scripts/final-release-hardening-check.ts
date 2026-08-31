@@ -21,6 +21,8 @@ assert.ok(migration.includes('record_ball_knower_verified_mode_snapshot'),'Owner
 assert.ok(migration.includes("auth.role() <> 'service_role'"),'mode producers must require service role');
 assert.ok(migration.includes("'mode_milestone:'||v_milestone.id"),'progression idempotency must use immutable milestone ids');
 assert.ok(migration.includes('list_ball_knower_unclaimed_mode_milestones'),'unclaimed milestones must replay across devices');
+assert.ok(migration.includes('milestone_id:=v_id; return next'),'multi-row milestone producers must use the table output variable');
+assert.ok(migration.includes("mode_counter(p_snapshot,'seasonsCompleted'"),'Owner baselines must be validated before storage');
 assert.ok(!modeApi.includes('xpAwarded:')&&!modeApi.includes('ratingDelta:'),'mode API must not construct client-chosen rewards');
 assert.ok(modeApi.includes("forbidden=['eventType'"),'mode API must explicitly reject reward fields');
 assert.ok(bridge.includes("syncVerifiedModeSnapshot('owner'"),'Owner progression must be wired');
@@ -33,6 +35,9 @@ assert.ok(predictionApi.includes('Date.now()>=kickoffMs'),'server must reject Pi
 assert.ok(predictionApi.includes('That line moved'),'server must verify the exact posted line');
 assert.ok(predictionApi.includes('gradeCanonicalPrediction'),'server must grade from canonical finals');
 assert.ok(predictionFeed.includes('awayScore!==null&&homeScore!==null'),'prediction finality must require final scores');
+assert.ok(predictionFeed.includes('providerFinal=/final|complete|closed/i.test(status)'),'provider final status must be honored before grading');
+assert.ok(predictionFeed.includes('Date.now()-kickoffMs>=6*60*60*1000'),'status-less feeds need a conservative finality fallback');
+assert.ok(predictionFeed.includes('final:hasScores&&(providerFinal||conservativeFinal)'),'live scores alone must never settle a Pick');
 assert.ok(picks.includes('saveVerifiedPredictionPick'),'Picks UI must save through the verifier');
 assert.ok(picks.includes('gradeVerifiedPredictionPicks'),'Picks UI must request authoritative grading');
 assert.ok(cloud.includes('claim_ball_knower_verified_mode_milestone'),'browser claims only opaque milestone ids');
