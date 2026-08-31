@@ -252,9 +252,11 @@ const fallbackAgency = (): AgencyState => ({
   promisesBroken: 0,
 });
 
-const restore = (): AgencyState => {
+const restore = (includePendingRecruitAction = true): AgencyState => {
   try {
-    let raw = localStorage.getItem(PENDING_RECRUIT_ACTION_KEY) || localStorage.getItem(SAVE_KEY);
+    let raw =
+      (includePendingRecruitAction && localStorage.getItem(PENDING_RECRUIT_ACTION_KEY)) ||
+      localStorage.getItem(SAVE_KEY);
     if (!raw) {
       for (const key of LEGACY_SAVE_KEYS) {
         raw = localStorage.getItem(key);
@@ -1284,7 +1286,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       if (!signingBeforeState) {
         throw new Error("Pre-recruiting Agent state is unavailable.");
       }
-      const sharedAgency = restore();
+      const sharedAgency = restore(false);
       if (JSON.stringify(sharedAgency) !== JSON.stringify(signingBeforeState)) {
         throw new Error("Agent career changed in another tab before signing.");
       }
@@ -1300,7 +1302,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
         console.warn("Agent signing session unavailable", error);
         return;
       }
-      if (JSON.stringify(restore()) !== JSON.stringify(signingBeforeState)) {
+      if (JSON.stringify(restore(false)) !== JSON.stringify(signingBeforeState)) {
         throw new AgentSigningConflictError(
           "Another tab changed this Agent career during signing. The latest saved career was restored.",
         );
