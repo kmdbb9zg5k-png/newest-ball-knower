@@ -28,7 +28,9 @@ const RANKINGS_PAGE_SIZE = 75;
 const normalizePlayerName = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
 const fantasyPlayerFromRanking = (ranking?: FantasyRanking): Player | null => {
   if (!ranking) return null;
-  const known = PLAYERS_DATABASE.find(player => player.id === ranking.player_key || normalizePlayerName(player.name) === normalizePlayerName(ranking.player_name));
+  const exactId = PLAYERS_DATABASE.find(player => player.id === ranking.player_key);
+  const identityMatches = PLAYERS_DATABASE.filter(player => normalizePlayerName(player.name) === normalizePlayerName(ranking.player_name) && player.position === ranking.position);
+  const known = exactId || (identityMatches.length === 1 ? identityMatches[0] : undefined);
   if (known) return known;
   return {
     id: ranking.player_key,

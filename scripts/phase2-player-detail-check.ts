@@ -9,8 +9,13 @@ const communications = readFileSync(new URL('../FantasyLeagueCommunications.tsx'
 
 assert.ok(detail.includes('loadFantasyPlayerWeeks({ id: player.id'), 'Player detail must load authoritative weekly history using the selected player identity.');
 assert.ok(cloud.includes(".is('ball_knower_player_id', null)"), 'Weekly history must safely recover legacy score rows without an app player id.');
-assert.match(cloud, /\.is\('ball_knower_player_id', null\)[\s\S]*?\.eq\('player_name', player\.name\)[\s\S]*?\.eq\('position', player\.position\)/, 'The same legacy query must require null app id, exact name, and exact position.');
-assert.ok(!cloud.includes(".eq('team', player.team)"), 'Legacy identity fallback must retain history across NFL team changes.');
+const legacyQueryStart = cloud.indexOf(".is('ball_knower_player_id', null)");
+const legacyQueryEnd = cloud.indexOf('  ]);', legacyQueryStart);
+assert.ok(legacyQueryStart >= 0 && legacyQueryEnd > legacyQueryStart, 'Exactly one scoped legacy fallback query must exist.');
+const legacyQuery = cloud.slice(legacyQueryStart, legacyQueryEnd);
+assert.match(legacyQuery, /\.is\('ball_knower_player_id', null\)[\s\S]*?\.eq\('player_name', player\.name\)[\s\S]*?\.eq\('position', player\.position\)/, 'The legacy query must require null app id, exact name, and exact position.');
+assert.ok(!legacyQuery.includes(".eq('team', player.team)"), 'Legacy identity fallback must retain history across NFL team changes.');
+assert.ok(cloud.includes('legacyProviderIds.size === 1'), 'Legacy name/position rows must map to one provider identity before merging.');
 assert.ok(detail.includes("player?.name, player?.team, player?.position"), 'History must reload whenever a fallback identity field changes.');
 assert.ok(detail.includes('Stored final points'), 'Partial stored history must not be labeled as a complete season total.');
 assert.ok(detail.includes('projection_source_url'), 'Shared ranking details must preserve source provenance.');

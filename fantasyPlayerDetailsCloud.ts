@@ -19,6 +19,7 @@ export type FantasyPlayerWeek = {
 type WeekRow = {
   id: string;
   provider_game_id: string;
+  provider_player_id: string;
   season: number;
   week_number: number;
   player_name: string;
@@ -39,7 +40,7 @@ export type FantasyPlayerIdentity = {
   position: string;
 };
 
-const weekColumns = 'id,provider_game_id,season,week_number,player_name,team,position,kickoff_at,game_status,is_final,stats,fantasy_points,projected_points';
+const weekColumns = 'id,provider_game_id,provider_player_id,season,week_number,player_name,team,position,kickoff_at,game_status,is_final,stats,fantasy_points,projected_points';
 
 export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Promise<FantasyPlayerWeek[]> {
   if (!supabase) return [];
@@ -66,7 +67,11 @@ export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Pro
   ]);
   const error = identityResult.error || legacyResult.error;
   if (error) throw new Error(error.message || 'Player game history could not be loaded.');
-  const rows = [...(identityResult.data || []), ...(legacyResult.data || [])] as WeekRow[];
+  const identityRows = (identityResult.data || []) as WeekRow[];
+  const legacyRows = (legacyResult.data || []) as WeekRow[];
+  const legacyProviderIds = new Set(legacyRows.map(row => row.provider_player_id).filter(Boolean));
+  const unambiguousLegacyRows = legacyProviderIds.size === 1 ? legacyRows : [];
+  const rows = [...identityRows, ...unambiguousLegacyRows];
   const uniqueRows = [...new Map(rows.map(row => [row.id, row])).values()]
     .sort((a, b) => b.season - a.season || a.week_number - b.week_number);
   return uniqueRows.map(row => ({
