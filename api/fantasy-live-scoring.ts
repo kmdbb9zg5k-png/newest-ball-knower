@@ -322,9 +322,13 @@ const projectionReason = (team:string, opponent:string, isHome:boolean) =>
   `Tank01's weekly projection for ${team} ${isHome?'at home against':'on the road at'} ${opponent}, captured before kickoff.`;
 
 function defaultLineup(roster:RosterPlayer[], projections:Map<string,Record<FantasyScoringFormat,number>>, format:FantasyScoringFormat){
-  const compare=(a:RosterPlayer,b:RosterPlayer)=>(projections.get(b.id)?.[format]||0)-(projections.get(a.id)?.[format]||0)
-    ||(b.ovr||0)-(a.ovr||0)
-    ||`${a.name.trim().toLowerCase()}|${normalizeTeam(a.team)}|${a.position}|${a.id}`.localeCompare(`${b.name.trim().toLowerCase()}|${normalizeTeam(b.team)}|${b.position}|${b.id}`);
+  const compare=(a:RosterPlayer,b:RosterPlayer)=>{
+    const score=(projections.get(b.id)?.[format]||0)-(projections.get(a.id)?.[format]||0)||(b.ovr||0)-(a.ovr||0);
+    if(score) return score;
+    const aKey=`${a.name.trim().toLowerCase()}|${normalizeTeam(a.team)}|${a.position}|${a.id}`;
+    const bKey=`${b.name.trim().toLowerCase()}|${normalizeTeam(b.team)}|${b.position}|${b.id}`;
+    return aKey<bKey?-1:aKey>bKey?1:0;
+  };
   const used=new Set<string>();
   const starters:Record<string,string>={};
   for(const slot of STANDARD_SLOTS){
