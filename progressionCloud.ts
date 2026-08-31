@@ -176,3 +176,19 @@ export async function submitTriviaAnswer(attemptId:number,selectedIndex:number):
     progressionRecorded:Boolean(row.progression_recorded),
   };
 }
+
+export type VerifiedModeMilestoneClaim={applied:boolean;eventKey:string};
+
+/**
+ * Claims a reward only after the server has persisted and verified the mode
+ * milestone. The browser supplies an opaque milestone id, never a reward type.
+ */
+export async function claimVerifiedModeMilestone(milestoneId:number):Promise<VerifiedModeMilestoneClaim>{
+  if(!supabase)throw new Error('Verified mode progression requires online services.');
+  await ensureOnlineSession();
+  const response=await supabase.rpc('claim_ball_knower_verified_mode_milestone',{p_milestone_id:milestoneId});
+  if(response.error)throw response.error;
+  const row=Array.isArray(response.data)?response.data[0]:response.data;
+  if(!row)throw new Error('Could not claim this verified mode milestone.');
+  return{applied:Boolean(row.applied),eventKey:String(row.event_key||'')};
+}
