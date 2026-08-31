@@ -46,7 +46,18 @@ assert.ok(migration.includes("v_old_client#>>'{tradeRequest,status}'='open'")&&m
 assert.ok(migration.includes("v_new_client->'futureDeal'=v_deal"),'Agent contract rewards require a concrete deal transition');
 assert.ok(migration.includes("career,fulfilledPromises"),'Agent promise rewards require a newly fulfilled named promise');
 assert.ok(cloudSync.includes("ballknower_player_agent_v4")&&cloudSync.includes("ballknower_owner_career_v3"),'Owner and Agent careers must remain cross-device synced');
-assert.ok(agent.includes('await saveUserState("player_agent_career"')&&agent.includes('verifyingAgentSigning'),'Agent signings must reach cloud verification before week advancement');
+const agentWeekGuard=agent.indexOf('if (verifyingAgentSigning) return;');
+const agentPendingSnapshot=agent.indexOf('localStorage.setItem(PENDING_SIGNING_KEY');
+const agentCloudSave=agent.indexOf('await saveUserState("player_agent_career"');
+const agentPendingClear=agent.indexOf('localStorage.removeItem(PENDING_SIGNING_KEY)');
+const agentMilestoneClaim=agent.indexOf('await claimPendingVerifiedModeMilestones()');
+assert.ok(
+  agentWeekGuard>=0&&agent.includes('if (!verifyingAgentSigning) onBack();')&&
+  agentPendingSnapshot>=0&&agentPendingSnapshot<agentCloudSave&&
+  agentCloudSave<agentPendingClear&&agentPendingClear<agentMilestoneClaim&&
+  agent.includes('RETRY CLOUD VERIFICATION'),
+  'Agent signing lock must survive navigation, persist before clearing, support retry, and claim only after save',
+);
 assert.ok(phase4bFollowup.includes('save_ball_knower_timestamped_user_state'),'Owner saves must use a monotonic database write');
 assert.ok(phase4bFollowup.includes('owner_state_updated_at(current_state.value)<=v_incoming_updated'),'older Owner snapshots must never overwrite newer cross-device state');
 assert.ok(userState.includes("stateKey === OWNER_STATE_KEY")&&userState.includes("save_ball_knower_timestamped_user_state"),'all direct and batched Owner saves must use the monotonic RPC');
