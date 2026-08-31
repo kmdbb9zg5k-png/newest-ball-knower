@@ -51,6 +51,7 @@ import {
 
 const SAVE_KEY = "ballknower_player_agent_v4";
 const PENDING_SIGNING_KEY = "ballknower_player_agent_signing_pending_v1";
+const AGENT_SIGNING_LOCK_NAME = "ballknower-player-agent-signing-v1";
 const LEGACY_SAVE_KEYS = [
   "ballknower_player_agent_v3",
   "ballknower_player_agent_v2",
@@ -341,6 +342,15 @@ const persist = (state: AgencyState) => {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(state));
   } catch {}
+};
+
+const withAgentSigningTabLock = async <T,>(task: () => Promise<T>): Promise<T> => {
+  if (typeof navigator === "undefined" || !navigator.locks) return task();
+  return navigator.locks.request(
+    AGENT_SIGNING_LOCK_NAME,
+    { mode: "exclusive" },
+    task,
+  );
 };
 
 type PendingAgentSigning = {
@@ -1157,6 +1167,11 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       signingInFlightRef.current = true;
       setSigningInFlight(true);
       try {
+        await withAgentSigningTabLock(async () => {
+      const sharedAgency = restore();
+      if (JSON.stringify(sharedAgency) !== JSON.stringify(agency)) {
+        throw new Error("Agent career changed in another tab before signing.");
+      }
       let signingUserId: string;
       try {
         signingUserId = (await ensureOnlineSession()).id;
@@ -1225,6 +1240,18 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           navigator.vibrate?.([45, 40, 45, 40, 100]);
         } catch {}
       }
+        });
+      } catch (error) {
+        const sharedAgency = restore();
+        setAgency(sharedAgency);
+        setRecruit({
+          ...recruit,
+          choices: [],
+          failed: true,
+          message: "Another Agent tab changed this career first. Its progress was preserved; reopen the meeting from the refreshed career.",
+          playerReply: "“Refresh the room before we make anything official.”",
+        });
+        console.warn("Agent signing blocked to preserve newer cross-tab progress", error);
       } finally {
         signingInFlightRef.current = false;
         setSigningInFlight(false);
