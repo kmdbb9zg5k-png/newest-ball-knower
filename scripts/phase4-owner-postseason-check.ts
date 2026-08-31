@@ -1,6 +1,6 @@
 import assert from'node:assert/strict';
 import{readFileSync}from'node:fs';
-import{advanceOwnerSeason,OWNER_TEAM_ABBRS,owner2026Calendar,ownerGameRevenue,ownerStageLabel,qualifiesForOwnerPlayoffs,type OwnerSeasonSnapshot}from'../ownerSeasonEngine';
+import{advanceOwnerSeason,migrateOwnerLegacyWeek,OWNER_TEAM_ABBRS,owner2026Calendar,ownerGameRevenue,ownerStageLabel,qualifiesForOwnerPlayoffs,type OwnerSeasonSnapshot}from'../ownerSeasonEngine';
 
 const base:OwnerSeasonSnapshot={abbr:'PHI',season:2026,week:18,stage:'regular',wins:9,losses:7,cashM:350,ticketPrice:125,parkingPrice:35,fanTrust:70,stadium:75,gmCostM:9,coachCostM:12};
 assert.equal(qualifiesForOwnerPlayoffs(9,8),true);
@@ -25,9 +25,13 @@ for(const abbr of OWNER_TEAM_ABBRS){const calendar=owner2026Calendar(abbr);asser
 assert.equal(owner2026Calendar('WAS')[0].isHome,false,'Washington opens Week 1 away at Philadelphia');
 assert.equal(owner2026Calendar('PHI')[0].isHome,true,'Philadelphia opens Week 1 at home against Washington');
 assert.equal(owner2026Calendar('ARI')[3].isHome,false,'Arizona plays Week 4 away at the Giants');
+assert.equal(migrateOwnerLegacyWeek('WAS',7),8,'a legacy game counter must skip Washington’s Week 7 bye');
+assert.equal(migrateOwnerLegacyWeek('PHI',17),18,'a legacy Week 17 save must have one regular-season game left');
 const ownerMode=readFileSync(new URL('../OwnerBusinessMode.tsx',import.meta.url),'utf8');
 assert.ok(!ownerMode.includes('cashM:state.cashM-p.costM'),'annual staff salary must not also be charged up front');
 assert.ok(ownerMode.includes('seasonStaffCommitmentsM:state.seasonStaffCommitmentsM+p.costM'),'hired staff salary must remain obligated after a later firing');
 assert.ok(ownerMode.includes('Math.max(0,-choiceCash)'),'decision spending must be included in season expenses');
 assert.ok(ownerMode.includes('careerExpensesM:trackCash&&cashDelta<0'),'buyouts and investments must reach the career expense ledger');
+assert.ok(ownerMode.includes('seasonStaffCommitmentsM))?Number(v.seasonStaffCommitmentsM):0'),'legacy saves must not repay salaries charged before migration');
+assert.ok(ownerMode.includes('careerWins:state.careerWins+(isRegularGame&&won?1:0)'),'postseason wins must not inflate the regular-season career record');
 console.log('Phase 4 Owner postseason checks passed.');
