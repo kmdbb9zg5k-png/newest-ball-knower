@@ -2,7 +2,6 @@ import React,{useEffect,useMemo,useState}from'react';
 import{ArrowLeft,Building2,CalendarDays,ChevronRight,Crown,DollarSign,Gavel,Landmark,MapPin,Trophy,Users}from'lucide-react';
 import{nextOwnerDecision,OWNER_DECISIONS,unseenOwnerStoryCount,type OwnerChoice,type OwnerDecision}from'./ownerStoryEngine';
 import{loadUserState,saveUserState}from'./userStateCloud';
-import{recordModeProgression,type ModeProgressEvent}from'./progressionCloud';
 import{advanceOwnerSeason,migrateOwnerLegacyWeek,normalizeOwnerAbbr,ownerCalendarWeek,ownerStageLabel,type OwnerSeasonStage}from'./ownerSeasonEngine';
 const SAVE_KEY='ballknower_owner_career_v3';
 const CLOUD_SAVE_KEY='owner_business_career_v1';
@@ -73,7 +72,7 @@ export const OwnerBusinessMode:React.FC<{onBack:()=>void}>=({onBack})=>{
   const won=!isPreseason&&!isBye&&Math.random()<winChance;
   const completedWins=isRegularGame?state.wins+(won?1:0):state.wins;
   const completedLosses=isRegularGame?state.losses+(won?0:1):state.losses;
-  const advance=advanceOwnerSeason({abbr:state.abbr,season:state.season,week:state.week,stage:state.stage,wins:state.wins,losses:state.losses,cashM:state.cashM,ticketPrice:state.ticketPrice,parkingPrice:state.parkingPrice,fanTrust:state.fanTrust,stadium:state.stadium,gmCostM:state.seasonStaffCommitmentsM,coachCostM:0},won);
+  const advance=advanceOwnerSeason({abbr:state.abbr,season:state.season,week:state.week,stage:state.stage,wins:state.wins,losses:state.losses,cashM:state.cashM,ticketPrice:state.ticketPrice,parkingPrice:state.parkingPrice,fanTrust:state.fanTrust,stadium:state.stadium,gmCostM:state.seasonStaffCommitmentsM,coachCostM:0,playoffSeed:Number((state as State&{playoffSeed?:number}).playoffSeed)||undefined},won);
   const seasonEnded=advance.seasonEnded;
   const moment=ownerStageLabel(state.stage,state.week);
   const decisionEntry=`${state.season} · ${moment} · ${d.title} — ${c.label}. ${isPreseason||isBye?'No regular-season game was played.':won?'The team won its next game.':'The team lost its next game.'}`;
@@ -83,13 +82,8 @@ export const OwnerBusinessMode:React.FC<{onBack:()=>void}>=({onBack})=>{
   const seasonEntry=seasonEnded?`SEASON ${state.season} COMPLETE · ${completedWins}-${completedLosses}${advance.wonChampionship?' · SUPER BOWL CHAMPIONS':''}. Revenue ${money(completedSeasonRevenue)}, expenses ${money(completedSeasonExpenses)}, profit ${money(completedSeasonRevenue-completedSeasonExpenses)}.`:null;
   const baseCash=typeof p.cashM==='number'?p.cashM:state.cashM;
   Object.assign(p,{cashM:baseCash+advance.profitM,week:advance.nextWeek,stage:advance.nextStage,season:seasonEnded?state.season+1:state.season,wins:seasonEnded?0:completedWins,losses:seasonEnded?0:completedLosses,careerWins:state.careerWins+(isRegularGame&&won?1:0),careerLosses:state.careerLosses+(isRegularGame&&!won?1:0),seasonsCompleted:state.seasonsCompleted+(seasonEnded?1:0),playoffAppearances:state.playoffAppearances+(state.stage==='regular'&&advance.playoffQualified?1:0),conferenceTitles:state.conferenceTitles+(state.stage==='conference'&&won?1:0),championships:state.championships+(advance.wonChampionship?1:0),seasonRevenueM:seasonEnded?0:completedSeasonRevenue,seasonExpensesM:seasonEnded?0:completedSeasonExpenses,seasonStaffCommitmentsM:seasonEnded?(state.gm?.costM||0)+(state.coach?.costM||0):state.seasonStaffCommitmentsM,careerRevenueM:state.careerRevenueM+advance.revenueM+Math.max(0,choiceCash),careerExpensesM:state.careerExpensesM+advance.expensesM+Math.max(0,-choiceCash),legacy:clamp((typeof p.legacy==='number'?p.legacy:state.legacy)+(advance.wonChampionship?15:0)),usedDecisionIds:state.usedDecisionIds.includes(d.id)?state.usedDecisionIds:[...state.usedDecisionIds,d.id],lastOutcome:seasonEnded?`${c.label}. Final record: ${completedWins}-${completedLosses}${advance.wonChampionship?' and a Super Bowl championship':''}. A new season begins.`:isPreseason?`${c.label}. The regular season is ready for Week 1.`:isBye?`${c.label}. The team used its bye week to reset.`:`${c.label}. ${won?'The team answered with a win.':'The team took a loss, and the pressure moves forward.'}`,history:[...(seasonEntry?[seasonEntry]:[]),decisionEntry,...state.history]});
+  p.playoffSeed=seasonEnded?0:(advance.playoffSeed??(Number((state as State&{playoffSeed?:number}).playoffSeed)||0));
   save(p,false);
-  const receipts:Array<[string,ModeProgressEvent]> = [];
-  if(state.stage==='regular'&&advance.playoffQualified)receipts.push([`owner:${state.abbr}:${state.season}:playoffs`,'owner_playoff_appearance']);
-  if(state.stage==='conference'&&won)receipts.push([`owner:${state.abbr}:${state.season}:conference`,'owner_conference_title']);
-  if(seasonEnded)receipts.push([`owner:${state.abbr}:${state.season}:complete`,'owner_season_complete']);
-  if(advance.wonChampionship)receipts.push([`owner:${state.abbr}:${state.season}:championship`,'owner_championship']);
-  for(const[eventKey,eventType]of receipts)void recordModeProgression(eventKey,eventType,{abbr:state.abbr,season:state.season,wins:completedWins,losses:completedLosses}).catch(error=>console.warn('Owner progression receipt failed',error));
   window.scrollTo({top:0,behavior:'smooth'});
   try{navigator.vibrate?.(won?[35,45,70]:[80]);}catch{}
  };

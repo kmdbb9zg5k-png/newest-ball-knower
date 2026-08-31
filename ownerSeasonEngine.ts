@@ -3,7 +3,7 @@ export type OwnerSeasonStage='preseason'|'regular'|'wild-card'|'divisional'|'con
 export type OwnerSeasonSnapshot={
   abbr:string;season:number;week:number;stage:OwnerSeasonStage;wins:number;losses:number;
   cashM:number;ticketPrice:number;parkingPrice:number;fanTrust:number;stadium:number;
-  gmCostM:number;coachCostM:number;
+  gmCostM:number;coachCostM:number;playoffSeed?:number;
 };
 
 export type OwnerCalendarWeek={week:number;isBye:boolean;isHome:boolean};
@@ -50,17 +50,25 @@ export const migrateOwnerLegacyWeek=(abbr:string,gameNumber:number)=>{
 
 export type OwnerSeasonAdvance={
   nextStage:OwnerSeasonStage;nextWeek:number;seasonEnded:boolean;playoffQualified:boolean;
-  wonChampionship:boolean;revenueM:number;expensesM:number;profitM:number;
+  wonChampionship:boolean;revenueM:number;expensesM:number;profitM:number;playoffSeed?:number;
 };
 
 const round=(value:number)=>Math.round(value*10)/10;
 
 export const qualifiesForOwnerPlayoffs=(wins:number,losses:number)=>wins>=9||(wins===8&&losses<=9);
 
-export const ownerPlayoffSeed=(wins:number)=>wins>=13?1:wins>=12?2:wins>=11?3:wins>=10?5:7;
+export const ownerPlayoffSeed=(wins:number,abbr:string,season:number)=>{
+  if(wins>=13)return 1;
+  if(wins===12)return 2;
+  const tiebreak=[...abbr].reduce((total,char)=>total+char.charCodeAt(0),season)%2;
+  if(wins===11)return 3+tiebreak;
+  if(wins===10)return 4+tiebreak;
+  if(wins===9)return 6;
+  return 7;
+};
 
 export const ownerPlayoffHomeGame=(state:OwnerSeasonSnapshot)=>{
-  const seed=ownerPlayoffSeed(state.wins);
+  const seed=state.playoffSeed||ownerPlayoffSeed(state.wins,state.abbr,state.season);
   if(state.stage==='wild-card')return seed<=4;
   if(state.stage==='divisional')return seed===1;
   if(state.stage==='conference')return seed<=2;
@@ -85,11 +93,11 @@ export const advanceOwnerSeason=(state:OwnerSeasonSnapshot,won:boolean):OwnerSea
   if(state.stage==='regular'){
     const finalWins=state.wins+(won?1:0);const finalLosses=state.losses+(won?0:1);
     const qualified=qualifiesForOwnerPlayoffs(finalWins,finalLosses);
-    if(qualified)return{...base,nextStage:'wild-card',nextWeek:18,seasonEnded:false,playoffQualified:true,wonChampionship:false};
+    if(qualified){const playoffSeed=ownerPlayoffSeed(finalWins,state.abbr,state.season);return{...base,nextStage:playoffSeed===1?'divisional':'wild-card',nextWeek:playoffSeed===1?19:18,seasonEnded:false,playoffQualified:true,wonChampionship:false,playoffSeed};}
   }
-  if(state.stage==='wild-card'&&won)return{revenueM:playoffRevenue,expensesM:0,profitM:playoffRevenue,nextStage:'divisional',nextWeek:19,seasonEnded:false,playoffQualified:true,wonChampionship:false};
-  if(state.stage==='divisional'&&won)return{revenueM:playoffRevenue,expensesM:0,profitM:playoffRevenue,nextStage:'conference',nextWeek:20,seasonEnded:false,playoffQualified:true,wonChampionship:false};
-  if(state.stage==='conference'&&won)return{revenueM:playoffRevenue,expensesM:0,profitM:playoffRevenue,nextStage:'super-bowl',nextWeek:21,seasonEnded:false,playoffQualified:true,wonChampionship:false};
+  if(state.stage==='wild-card'&&won)return{revenueM:playoffRevenue,expensesM:0,profitM:playoffRevenue,nextStage:'divisional',nextWeek:19,seasonEnded:false,playoffQualified:true,wonChampionship:false,playoffSeed:state.playoffSeed};
+  if(state.stage==='divisional'&&won)return{revenueM:playoffRevenue,expensesM:0,profitM:playoffRevenue,nextStage:'conference',nextWeek:20,seasonEnded:false,playoffQualified:true,wonChampionship:false,playoffSeed:state.playoffSeed};
+  if(state.stage==='conference'&&won)return{revenueM:playoffRevenue,expensesM:0,profitM:playoffRevenue,nextStage:'super-bowl',nextWeek:21,seasonEnded:false,playoffQualified:true,wonChampionship:false,playoffSeed:state.playoffSeed};
   const champion=state.stage==='super-bowl'&&won;
   const expenses=round(state.gmCostM+state.coachCostM);
   const closingGameRevenue=state.stage==='regular'?base.revenueM:state.stage==='super-bowl'?0:playoffRevenue;
