@@ -68,7 +68,7 @@ function stableJson(value: unknown): string {
     const record = value as Record<string, unknown>;
     return `{${Object.keys(record).sort().map(key => `${JSON.stringify(key)}:${stableJson(record[key])}`).join(',')}}`;
   }
-  return JSON.stringify(value);
+  return JSON.stringify(value) ?? 'null';
 }
 
 function directJsonPayload(value: string | unknown): string {
