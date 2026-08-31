@@ -182,6 +182,8 @@ assert.ok(
   atomicOwnerFunction.includes("p_next_owner_state->>'season'<>p_next_season::text")&&
   atomicOwnerFunction.includes('v_public_value:=p_next_owner_state')&&
   atomicOwnerFunction.includes("'ownerState',v_public.value")&&
+  atomicOwnerFunction.indexOf('insert into public.ball_knower_user_state')>=0&&
+  atomicOwnerFunction.indexOf('update ball_knower_private.verified_owner_runs')>=0&&
   atomicOwnerFunction.indexOf('insert into public.ball_knower_user_state')<atomicOwnerFunction.indexOf('update ball_knower_private.verified_owner_runs'),
   'complete Owner decisions, verified runs, and cross-device snapshots must commit atomically before milestone claims',
 );
@@ -272,6 +274,12 @@ assert.ok(
   agent.includes('localStorage.removeItem(PENDING_SIGNING_KEY);')&&
   agent.includes('localStorage.removeItem(PENDING_RECRUIT_ACTION_KEY);'),
   'a consumed recruiting action must survive reloads, stay account-bound, and remain separate from the CAS baseline',
+);
+const agentNormalizedBaselinePersist=agent.indexOf('persist(agency);\n    setAgency(actionAgency);');
+const agentRecruitActionPersist=agent.indexOf('persistRecruitAction(actionAgency);',agentNormalizedBaselinePersist);
+assert.ok(
+  agentNormalizedBaselinePersist>=0&&agentRecruitActionPersist>agentNormalizedBaselinePersist,
+  'the normalized Agent career must be persisted as the exact CAS baseline before the consumed recruiting action is staged',
 );
 const agentAuthoritativeLoad=agent.indexOf('const latest = await loadAuthoritativeAgentCareer();');
 const agentConflictHoldRelease=agent.indexOf('localStorage.removeItem(PENDING_SIGNING_KEY);',agentAuthoritativeLoad);
