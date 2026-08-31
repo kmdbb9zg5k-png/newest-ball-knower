@@ -5,6 +5,7 @@ import{loadUserState}from'./userStateCloud';
 import{OWNER_CLOUD_CONFLICT_EVENT,OWNER_CLOUD_SYNC_EVENT}from'./CloudSyncProvider';
 import{advanceOwnerSeason,migrateOwnerLegacyWeek,normalizeOwnerAbbr,ownerCalendarWeek,ownerStageLabel,type OwnerSeasonStage}from'./ownerSeasonEngine';
 import{advanceVerifiedOwnerStep,claimPendingVerifiedModeMilestones}from'./modeProgressionCloud';
+import{markCloudStateCommitted}from'./cloudSyncCoordinator';
 const SAVE_KEY='ballknower_owner_career_v3';
 const CLOUD_SAVE_KEY='owner_business_career_v1';
 type Staff={id:string;name:string;role:string;football:number;culture:number;costM:number;tone:string};
@@ -113,6 +114,7 @@ export const OwnerBusinessMode:React.FC<{onBack:()=>void}>=({onBack})=>{
    }catch(error){console.warn('Owner verified run unavailable; continuing local career without universal reward',error);}
    const nextState=committedOwnerState??buildDecisionState(won,false,state.cloudRevision);
    setState(nextState);persist(nextState);
+   if(committedOwnerState)markCloudStateCommitted(SAVE_KEY,JSON.stringify(nextState));
    if(verified){
     try{
      await claimPendingVerifiedModeMilestones();
