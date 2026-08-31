@@ -236,6 +236,121 @@ $$;
 revoke all on function public.save_ball_knower_revisioned_user_state(text,jsonb) from public,anon;
 grant execute on function public.save_ball_knower_revisioned_user_state(text,jsonb) to authenticated;
 
+-- Commit the verified Owner run and its public cross-device snapshot in one
+-- transaction so a concurrent device can never leave the two rows misaligned.
+create or replace function public.commit_ball_knower_verified_owner_step(
+  p_user_id uuid,
+  p_expected_version integer,
+  p_next_season integer,
+  p_next_week integer,
+  p_next_stage text,
+  p_next_wins integer,
+  p_next_losses integer,
+  p_next_playoff_seed integer,
+  p_won boolean,
+  p_owner_state jsonb
+) returns jsonb
+language plpgsql
+security definer
+set search_path=public,ball_knower_private,pg_temp
+as $
+declare
+  v_old ball_knower_private.verified_owner_runs%rowtype;
+  v_new ball_knower_private.verified_owner_runs%rowtype;
+  v_public public.ball_knower_user_state%rowtype;
+  v_public_value jsonb;
+  v_public_revision bigint;
+  v_ids jsonb:='[]'::jsonb;
+  v_id bigint;
+begin
+  if auth.role()<>'service_role' then raise exception 'Service role required'; end if;
+  select * into v_old from ball_knower_private.verified_owner_runs
+  where user_id=p_user_id for update;
+  if not found then raise exception 'Verified Owner run not found'; end if;
+  if v_old.version<>p_expected_version then raise exception 'Verified Owner run changed'; end if;
+  if p_next_stage not in ('preseason','regular','wild-card','divisional','conference','super-bowl')
+     or p_next_season<v_old.season or p_next_season>v_old.season+1
+     or p_next_week<0 or p_next_week>21
+     or p_next_wins<0 or p_next_wins>20 or p_next_losses<0 or p_next_losses>20
+     or (p_next_playoff_seed is not null and (p_next_playoff_seed<1 or p_next_playoff_seed>7)) then
+    raise exception 'Invalid verified Owner transition';
+  end if;
+
+  select * into v_public from public.ball_knower_user_state
+  where user_id=p_user_id and state_key='owner_business_career_v1'
+  for update;
+  v_public_value:=case when found then v_public.value else p_owner_state end;
+  if v_public_value is null or jsonb_typeof(v_public_value)<>'object'
+     or v_public_value->>'abbr'<>v_old.abbr
+     or v_public_value->>'season'<>v_old.season::text
+     or v_public_value->>'week'<>v_old.week::text
+     or v_public_value->>'stage'<>v_old.stage
+     or v_public_value->>'wins'<>v_old.wins::text
+     or v_public_value->>'losses'<>v_old.losses::text
+     or coalesce(nullif(v_public_value->>'playoffSeed',''),'0')<>coalesce(v_old.playoff_seed,0)::text then
+    raise exception 'Owner public snapshot does not match verified run';
+  end if;
+
+  if v_old.stage='regular' and v_old.week=18 and p_next_stage in ('wild-card','divisional') then
+    v_id:=ball_knower_private.insert_verified_mode_milestone(
+      p_user_id,'owner','owner_playoff_appearance','owner:'||v_old.season||':playoffs',
+      jsonb_build_object('season',v_old.season),'owner_server_run_v1'
+    );
+    v_ids:=v_ids||jsonb_build_array(v_id);
+  end if;
+  if v_old.stage='conference' and p_next_stage='super-bowl' and p_won then
+    v_id:=ball_knower_private.insert_verified_mode_milestone(
+      p_user_id,'owner','owner_conference_title','owner:'||v_old.season||':conference',
+      jsonb_build_object('season',v_old.season),'owner_server_run_v1'
+    );
+    v_ids:=v_ids||jsonb_build_array(v_id);
+  end if;
+  if v_old.stage='super-bowl' and p_next_stage='preseason' and p_next_season=v_old.season+1 and p_won then
+    v_id:=ball_knower_private.insert_verified_mode_milestone(
+      p_user_id,'owner','owner_championship','owner:'||v_old.season||':championship',
+      jsonb_build_object('season',v_old.season),'owner_server_run_v1'
+    );
+    v_ids:=v_ids||jsonb_build_array(v_id);
+  end if;
+  if p_next_stage='preseason' and p_next_season=v_old.season+1 then
+    v_id:=ball_knower_private.insert_verified_mode_milestone(
+      p_user_id,'owner','owner_season_complete','owner:'||v_old.season||':complete',
+      jsonb_build_object('season',v_old.season,'champion',v_old.stage='super-bowl' and p_won),'owner_server_run_v1'
+    );
+    v_ids:=v_ids||jsonb_build_array(v_id);
+  end if;
+
+  v_public_revision:=ball_knower_private.owner_state_revision(v_public_value);
+  v_public_value:=v_public_value||jsonb_build_object(
+    'season',p_next_season,
+    'week',p_next_week,
+    'stage',p_next_stage,
+    'wins',p_next_wins,
+    'losses',p_next_losses,
+    'playoffSeed',coalesce(p_next_playoff_seed,0),
+    'cloudRevision',v_public_revision+1
+  );
+  perform set_config('ball_knower.owner_revision_write','on',true);
+  insert into public.ball_knower_user_state(user_id,state_key,value,updated_at)
+  values(p_user_id,'owner_business_career_v1',v_public_value,now())
+  on conflict(user_id,state_key) do update set value=excluded.value,updated_at=now()
+  returning * into v_public;
+
+  update ball_knower_private.verified_owner_runs
+  set season=p_next_season,week=p_next_week,stage=p_next_stage,wins=p_next_wins,losses=p_next_losses,
+      playoff_seed=p_next_playoff_seed,version=version+1,updated_at=now()
+  where user_id=p_user_id
+  returning * into v_new;
+  return jsonb_build_object(
+    'run',to_jsonb(v_new),
+    'ownerState',v_public.value,
+    'milestoneIds',v_ids
+  );
+end;
+$;
+revoke all on function public.commit_ball_knower_verified_owner_step(uuid,integer,integer,integer,text,integer,integer,integer,boolean,jsonb) from public,anon,authenticated;
+grant execute on function public.commit_ball_knower_verified_owner_step(uuid,integer,integer,integer,text,integer,integer,integer,boolean,jsonb) to service_role;
+
 create or replace function public.commit_ball_knower_expected_agent_signing(
   p_expected_user_id uuid,
   p_before_value jsonb,
