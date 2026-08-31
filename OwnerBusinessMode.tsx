@@ -52,7 +52,7 @@ export const OwnerBusinessMode:React.FC<{onBack:()=>void}>=({onBack})=>{
  const unseenStories=unseenOwnerStoryCount(state.usedDecisionIds);
  const save=(p:Partial<State>,trackCash=true)=>{
   const cashDelta=typeof p.cashM==='number'?p.cashM-state.cashM:0;
-  const n:State={...state,...p,seasonRevenueM:trackCash&&cashDelta>0?state.seasonRevenueM+cashDelta:p.seasonRevenueM??state.seasonRevenueM,seasonExpensesM:trackCash&&cashDelta<0?state.seasonExpensesM-cashDelta:p.seasonExpensesM??state.seasonExpensesM,updatedAt:Date.now()};
+  const n:State={...state,...p,seasonRevenueM:trackCash&&cashDelta>0?state.seasonRevenueM+cashDelta:p.seasonRevenueM??state.seasonRevenueM,seasonExpensesM:trackCash&&cashDelta<0?state.seasonExpensesM-cashDelta:p.seasonExpensesM??state.seasonExpensesM,careerRevenueM:trackCash&&cashDelta>0?state.careerRevenueM+cashDelta:p.careerRevenueM??state.careerRevenueM,careerExpensesM:trackCash&&cashDelta<0?state.careerExpensesM-cashDelta:p.careerExpensesM??state.careerExpensesM,updatedAt:Date.now()};
   setState(n);
   persist(n);
   void saveUserState(CLOUD_SAVE_KEY,n).catch(error=>console.warn('Owner career cloud save failed',error));
