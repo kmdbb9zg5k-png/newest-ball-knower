@@ -20,9 +20,10 @@ const stablePlayerKey=(player:Player)=>[
   player.position,
   player.id,
 ].join('|');
+const compareCodeUnits=(a:string,b:string)=>a<b?-1:a>b?1:0;
 
 export function compareLineupPlayers(a:Player,b:Player):number{
-  return (b.ovr||0)-(a.ovr||0)||stablePlayerKey(a).localeCompare(stablePlayerKey(b));
+  return (b.ovr||0)-(a.ovr||0)||compareCodeUnits(stablePlayerKey(a),stablePlayerKey(b));
 }
 
 export function optimizeWeeklyLineup(roster:Player[]):Record<string,string>{
