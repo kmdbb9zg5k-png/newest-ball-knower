@@ -95,7 +95,7 @@ assert.ok(
   agent.includes('await recoverAgentSigningConflict(error)')&&
   agent.includes('AGENT_SESSION_TIMEOUT_MS = 12_000')&&
   agent.includes('await ensureAgentSigningSession()')&&
-  agent.includes('JSON.stringify(restore()) !== JSON.stringify(signingBeforeState)')&&
+  agent.includes('JSON.stringify(restore(false)) !== JSON.stringify(signingBeforeState)')&&
   agent.includes('BACK TO SOLO · KEEP RETRYING')&&
   agent.includes('RETRY CLOUD VERIFICATION'),
   'Agent signing verification must be account-scoped, serialized, cross-tab durable, and freeze every career mutation until saved',
