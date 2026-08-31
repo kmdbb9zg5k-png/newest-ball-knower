@@ -84,35 +84,7 @@ assert.equal(
   'Phase 4B hardening migration must close each function body exactly once',
 );
 assert.ok(
-  phase4bFollowup.includes("v_revision!~'^[0-9]{1,16}
-assert.ok(phase4bFollowup.includes('on conflict(user_id) do update set')&&phase4bFollowup.includes('excluded.season'),'guest claims must compare and preserve the more advanced Owner run');
-assert.ok(phase4bFollowup.indexOf('on conflict(user_id) do update set')<phase4bFollowup.indexOf('delete from ball_knower_private.verified_owner_runs'),'guest Owner state must be preserved before the guest row is deleted');
-assert.ok(bridge.includes('IDLE_CLAIM_INTERVAL_MS=60_000')&&!bridge.includes('setInterval(()=>void claimVerifiedMilestones(),4000)'),'idle milestone replay must avoid four-second polling');
-
-assert.ok(migration.includes('verified_prediction_picks'),'verified Picks must have private pregame storage');
-assert.ok(predictionApi.includes('Date.now()>=kickoffMs'),'server must reject Picks at/after kickoff');
-assert.ok(predictionApi.includes('That line moved'),'server must verify the exact posted line');
-assert.ok(predictionApi.includes('gradeCanonicalPrediction'),'server must grade from canonical finals');
-assert.ok(predictionApi.includes("from'../server/nflPredictionFeed.js'"),'Prediction serverless runtime import must be explicit ESM .js');
-assert.ok(publicPicksApi.includes("from'../server/nflPredictionFeed.js'"),'Public Picks serverless runtime import must be explicit ESM .js');
-assert.ok(predictionFeed.includes("const stableId=String(g?.game_id||g?.id||'').trim()"),'Prediction rows must require stable provider IDs');
-assert.ok(predictionFeed.includes('providerFinal=/final|complete|closed/i.test(status)'),'Prediction grading must require terminal provider status');
-assert.ok(predictionFeed.includes('final:hasScores&&providerFinal'),'live scores alone must never settle a Pick');
-assert.ok(!predictionFeed.includes('conservativeFinal'),'time-after-kickoff must never masquerade as a final status');
-assert.ok(publicPicksApi.includes('fetchCanonicalPredictionGames'),'Picks UI and grading must share one canonical feed');
-assert.ok(picks.includes('saveVerifiedPredictionPick'),'Picks UI must save through the verifier');
-assert.ok(picks.includes('gradeVerifiedPredictionPicks'),'Picks UI must request authoritative grading');
-assert.ok(cloud.includes('predictionMutationChain')&&cloud.includes('queuePredictionMutation'),'Picks save/delete/grade mutations must be serialized');
-assert.ok(cloud.includes('claim_ball_knower_verified_mode_milestone'),'browser claims only opaque milestone ids');
-
-assert.ok(main.includes('startModeProgressionBridge()'),'milestone replay/Prediction grading bridge must start globally');
-assert.ok(html.includes('viewport-fit=cover'),'iOS layout must opt into safe-area insets');
-assert.ok(navbar.includes('env(safe-area-inset-top)'),'top navigation must respect iOS safe area');
-assert.ok(navbar.includes('pt-[env(safe-area-inset-top)]'),'header content must be padded below the status area');
-assert.ok(transactions.includes('RPC_TIMEOUT_MS')&&transactions.includes('AbortController'),'transaction worker fail-fast hotfix must remain present');
-
-console.log('Final release hardening contract checks passed. Physical-device-only delivery/audio/camera/touch checks remain manual by definition.');
- then return 0; end if;")&&
+  phase4bFollowup.includes("v_revision!~'^[0-9]{1,16}$' then return 0; end if;")&&
   phase4bFollowup.includes("jsonb_build_object('cloudRevision',v_stored_revision+1)"),
   'Owner revision validation and server-side increment SQL must remain syntactically intact',
 );
