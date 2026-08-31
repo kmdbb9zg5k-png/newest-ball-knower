@@ -14,15 +14,35 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
-import { League } from "./types";
+import { League, Player } from "./types";
 import { useBallKnower } from "./BallKnowerContext";
 import { ModeGuide } from "./ModeGuide";
 import { loadUserState, saveUserState } from "./userStateCloud";
 import { ModalPortal } from "./ModalPortal";
 import { loadFantasyRankings } from "./fantasyRankingsCloud";
 import type { FantasyRanking } from "./fantasyRankingsCloud";
+import { PLAYERS_DATABASE } from "./players";
+import { FantasyPlayerDetail } from "./FantasyPlayerDetail";
 
 const RANKINGS_PAGE_SIZE = 75;
+const normalizePlayerName = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+const fantasyPlayerFromRanking = (ranking?: FantasyRanking): Player | null => {
+  if (!ranking) return null;
+  const known = PLAYERS_DATABASE.find(player => player.id === ranking.player_key || normalizePlayerName(player.name) === normalizePlayerName(ranking.player_name));
+  if (known) return known;
+  return {
+    id: ranking.player_key,
+    playerId: ranking.player_key,
+    name: ranking.player_name,
+    team: ranking.team,
+    teamId: ranking.team,
+    teamCity: "",
+    position: ranking.position,
+    ovr: 0,
+    salary: 0,
+    attributes: { athleticism: 0, footballIQ: 0 },
+  };
+};
 
 interface FantasyHubProps {
   view: "leagues" | "cheatsheet";
@@ -91,6 +111,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
   const selectedPlayer = fantasyRankings.find(
     (player) => player.player_key === selectedPlayerId,
   );
+  const selectedFantasyPlayer = useMemo(() => fantasyPlayerFromRanking(selectedPlayer), [selectedPlayer]);
   useEffect(() => {
     let active = true;
     void loadUserState<string[]>("fantasy_watchlist")
@@ -670,7 +691,13 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
             </p>
           </section>
         )}
-        {selectedPlayer && (
+        {selectedPlayer && selectedFantasyPlayer ? (
+          <FantasyPlayerDetail
+            player={selectedFantasyPlayer}
+            ranking={selectedPlayer}
+            onClose={() => setSelectedPlayerId(null)}
+          />
+        ) : selectedPlayer && (
           <ModalPortal>
             <div
               role="dialog"
