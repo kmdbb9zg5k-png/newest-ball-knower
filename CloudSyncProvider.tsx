@@ -52,11 +52,11 @@ function writeMeta(userId: string, meta: Record<string, number>) {
   try { localStorage.setItem(metaKey(userId), JSON.stringify(meta)); } catch {}
 }
 
-function directJsonUpdatedAt(entry: StorageEntry, value: string | unknown): number {
+function directJsonRevision(entry: StorageEntry, value: string | unknown): number {
   if (!entry.directJson || value === null || value === undefined) return 0;
   try {
     const parsed = typeof value === 'string' ? JSON.parse(value) : value;
-    return Number((parsed as { updatedAt?: unknown })?.updatedAt) || 0;
+    return Math.max(0, Number((parsed as { cloudRevision?: unknown })?.cloudRevision) || 0);
   } catch {
     return 0;
   }
@@ -168,14 +168,24 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       writeChain = (async () => {
         if (rows.length !== entries.length) throw new Error('Cloud save could not serialize every changed state.');
         const saved = await saveUserStates(rows);
-        const savedAt = new Map(saved.map(row => [row.state_key, Date.parse(row.updated_at) || 0]));
+        const savedByKey = new Map(saved.map(row => [row.state_key, row]));
+        let restoredServerWinner = false;
         for (const entry of entries) {
-          if (!savedAt.has(entry.cloudKey)) continue;
+          const savedRow = savedByKey.get(entry.cloudKey);
+          if (!savedRow) continue;
           if (localStorage.getItem(entry.localKey) !== snapshots.get(entry.localKey)) continue;
+          if (
+            entry.directJson &&
+            JSON.stringify(savedRow.value) !== snapshots.get(entry.localKey)
+          ) {
+            restoredServerWinner = applyRemote(entry, savedRow.value) || restoredServerWinner;
+            lastValues.set(entry.localKey, localStorage.getItem(entry.localKey));
+          }
           dirtyKeys.delete(entry.localKey);
-          meta[entry.localKey] = savedAt.get(entry.cloudKey) || meta[entry.localKey] || 0;
+          meta[entry.localKey] = Date.parse(savedRow.updated_at) || meta[entry.localKey] || 0;
         }
         writeMeta(activeUserId, meta);
+        if (restoredServerWinner && !stopped) setSyncRevision(revision => revision + 1);
         if (!stopped && dirtyKeys.size === 0) setStatus('online');
       })()
         .catch(error => {
@@ -234,15 +244,26 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       for (const entry of CLOUD_STORAGE) {
         const row = byKey.get(entry.cloudKey) as UserStateRow<unknown> | undefined;
         const localRaw = localStorage.getItem(entry.localKey);
-        const localChangedAt = Math.max(
-          meta[entry.localKey] || 0,
-          directJsonUpdatedAt(entry, localRaw),
-        );
-        const remoteChangedAt = row ? Math.max(
-          Date.parse(row.updated_at) || 0,
-          directJsonUpdatedAt(entry, row.value),
-        ) : 0;
+        if (entry.directJson) {
+          const localRevision = directJsonRevision(entry, localRaw);
+          const remoteRevision = row ? directJsonRevision(entry, row.value) : 0;
+          const remoteRaw = row ? JSON.stringify(row.value) : null;
+          if (dirtyKeys.has(entry.localKey)) {
+            upload.push(entry);
+          } else if (row && (localRaw === null || remoteRevision > localRevision)) {
+            restoredMountedState = applyRemote(entry, row.value) || restoredMountedState;
+            meta[entry.localKey] = Date.parse(row.updated_at) || 0;
+          } else if (
+            localRaw !== null &&
+            (!row || remoteRevision < localRevision || remoteRaw !== localRaw)
+          ) {
+            upload.push(entry);
+          }
+          continue;
+        }
 
+        const localChangedAt = meta[entry.localKey] || 0;
+        const remoteChangedAt = row ? Date.parse(row.updated_at) || 0 : 0;
         if (dirtyKeys.has(entry.localKey)) {
           upload.push(entry);
         } else if (initial && localRaw !== null && localChangedAt === 0) {
