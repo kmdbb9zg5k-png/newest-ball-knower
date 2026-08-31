@@ -62,6 +62,26 @@ function directJsonRevision(entry: StorageEntry, value: string | unknown): numbe
   }
 }
 
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(item => stableJson(item)).join(',')}]`;
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).sort().map(key => `${JSON.stringify(key)}:${stableJson(record[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function directJsonPayload(value: string | unknown): string {
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return stableJson(parsed);
+    const { cloudRevision: _cloudRevision, ...payload } = parsed as Record<string, unknown>;
+    return stableJson(payload);
+  } catch {
+    return '';
+  }
+}
+
 function cloudValue(entry: StorageEntry, raw: string | null): unknown {
   if (entry.directJson) {
     if (raw === null) return null;
@@ -169,17 +189,34 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (rows.length !== entries.length) throw new Error('Cloud save could not serialize every changed state.');
         const saved = await saveUserStates(rows);
         const savedByKey = new Map(saved.map(row => [row.state_key, row]));
+        const submittedByKey = new Map(rows.map(row => [row.stateKey, row.value]));
         let restoredServerWinner = false;
         for (const entry of entries) {
           const savedRow = savedByKey.get(entry.cloudKey);
           if (!savedRow) continue;
-          if (localStorage.getItem(entry.localKey) !== snapshots.get(entry.localKey)) continue;
-          if (
-            entry.directJson &&
-            JSON.stringify(savedRow.value) !== snapshots.get(entry.localKey)
-          ) {
+          const snapshot = snapshots.get(entry.localKey) ?? null;
+          const current = localStorage.getItem(entry.localKey);
+          if (entry.directJson) {
+            const submitted = submittedByKey.get(entry.cloudKey);
+            const submittedRevision = directJsonRevision(entry, submitted);
+            const savedRevision = directJsonRevision(entry, savedRow.value);
+            const accepted =
+              savedRevision === submittedRevision + 1 &&
+              directJsonPayload(savedRow.value) === directJsonPayload(submitted);
+            if (current !== snapshot && accepted && current) {
+              const rebased = {
+                ...JSON.parse(current) as Record<string, unknown>,
+                cloudRevision: savedRevision,
+              };
+              localStorage.setItem(entry.localKey, JSON.stringify(rebased));
+              lastValues.set(entry.localKey, localStorage.getItem(entry.localKey));
+              meta[entry.localKey] = Date.parse(savedRow.updated_at) || meta[entry.localKey] || 0;
+              continue;
+            }
             restoredServerWinner = applyRemote(entry, savedRow.value) || restoredServerWinner;
             lastValues.set(entry.localKey, localStorage.getItem(entry.localKey));
+          } else if (current !== snapshot) {
+            continue;
           }
           dirtyKeys.delete(entry.localKey);
           meta[entry.localKey] = Date.parse(savedRow.updated_at) || meta[entry.localKey] || 0;
