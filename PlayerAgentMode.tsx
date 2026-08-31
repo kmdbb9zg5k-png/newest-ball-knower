@@ -594,7 +594,13 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
         0.03,
         Math.min(0.18, 0.13 - client.trust / 1000 + (p.ovr >= 75 ? 0.02 : 0)),
       );
-      const careerEvent = nextClientEvent(p, client.career, nextYear, nextWeek);
+      const careerEvent = nextClientEvent(
+        p,
+        client.career,
+        nextYear,
+        nextPhase,
+        nextWeek,
+      );
       const career = careerEvent
         ? { ...client.career, pendingEvent: careerEvent }
         : client.career;
@@ -751,6 +757,15 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                 0,
                 100,
               ),
+              career: {
+                ...c.career,
+                trust: clamp(
+                  c.career.trust +
+                    (worked ? 9 : status === "denied" ? -12 : -3),
+                  0,
+                  100,
+                ),
+              },
               currentTeam: worked ? destination : c.currentTeam,
               tradeRequest: {
                 ...c.tradeRequest,
@@ -1072,7 +1087,16 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
         ...agency,
         reputation: clamp(agency.reputation - 1, 0, 100),
         clients: agency.clients.map((x) =>
-          x.playerId === p.id ? { ...x, trust: clamp(x.trust - 5, 0, 100) } : x,
+          x.playerId === p.id
+            ? {
+                ...x,
+                trust: clamp(x.trust - 5, 0, 100),
+                career: {
+                  ...x.career,
+                  trust: clamp(x.career.trust - 5, 0, 100),
+                },
+              }
+            : x,
         ),
         timeline: [
           `The ${p.team} GM walked away from extension talks with ${p.name}.`,
