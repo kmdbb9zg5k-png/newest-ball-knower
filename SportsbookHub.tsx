@@ -2,6 +2,7 @@ import React,{useEffect,useMemo,useState} from 'react';
 import {Check,RefreshCw,Search,Target,X} from 'lucide-react';
 import {ModeGuide} from './ModeGuide';
 import {gradePick,isPicksGameLocked,normalizeSavedPick,normalizeSpread,PicksGame,SavedPick,spreadLabel} from './picksEngine';
+import {recordModeProgression} from './progressionCloud';
 
 type Game=PicksGame;
 type Pick=SavedPick;
@@ -21,6 +22,7 @@ export const SportsbookHub:React.FC=()=>{
   useEffect(()=>{void load()},[]);
   useEffect(()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(picks))}catch{}},[picks]);
   useEffect(()=>{if(!games.length)return;setPicks(current=>current.map(pick=>{const game=games.find(item=>item.id===pick.gameId);return game?gradePick(pick,game):pick}))},[games]);
+  useEffect(()=>{for(const pick of picks){if(!pick.result)continue;const eventType=pick.result==='win'?'prediction_correct':pick.result==='loss'?'prediction_wrong':'prediction_push';void recordModeProgression(`prediction:${pick.id}`,eventType,{gameId:pick.gameId,market:pick.market,lockedLine:pick.lockedLine,result:pick.result}).catch(error=>console.warn('Prediction progression receipt failed',error));}},[picks]);
 
   const visible=useMemo(()=>games.filter(game=>`${game.away} ${game.home}`.toLowerCase().includes(query.toLowerCase())),[games,query]);
   const choose=(game:Game,pick:Omit<Pick,'lockedAt'>)=>{if(isPicksGameLocked(game))return;setPicks(current=>current.some(item=>item.id===pick.id)?current.filter(item=>item.id!==pick.id):[...current.filter(item=>item.gameId!==pick.gameId),{...pick,lockedAt:new Date().toISOString()}])};
