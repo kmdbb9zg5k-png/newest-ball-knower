@@ -238,6 +238,7 @@ grant execute on function public.save_ball_knower_revisioned_user_state(text,jso
 
 -- Remove the legacy non-atomic overload before installing the snapshot-aware contract.
 drop function if exists public.commit_ball_knower_verified_owner_step(uuid,integer,integer,integer,text,integer,integer,integer,boolean);
+drop function if exists public.commit_ball_knower_verified_owner_step(uuid,integer,integer,integer,text,integer,integer,integer,boolean,jsonb);
 
 -- Commit the verified Owner run and its public cross-device snapshot in one
 -- transaction so a concurrent device can never leave the two rows misaligned.
@@ -251,7 +252,8 @@ create or replace function public.commit_ball_knower_verified_owner_step(
   p_next_losses integer,
   p_next_playoff_seed integer,
   p_won boolean,
-  p_owner_state jsonb
+  p_owner_state jsonb,
+  p_next_owner_state jsonb
 ) returns jsonb
 language plpgsql
 security definer
@@ -279,8 +281,9 @@ begin
     raise exception 'Invalid verified Owner transition';
   end if;
 
-  if p_owner_state is null or jsonb_typeof(p_owner_state)<>'object' then
-    raise exception 'Valid Owner public snapshot required';
+  if p_owner_state is null or jsonb_typeof(p_owner_state)<>'object'
+     or p_next_owner_state is null or jsonb_typeof(p_next_owner_state)<>'object' then
+    raise exception 'Valid current and next Owner public snapshots required';
   end if;
   select * into v_public from public.ball_knower_user_state
   where user_id=p_user_id and state_key='owner_business_career_v1'
@@ -300,6 +303,15 @@ begin
      or v_public_value->>'losses'<>v_old.losses::text
      or coalesce(nullif(v_public_value->>'playoffSeed',''),'0')<>coalesce(v_old.playoff_seed,0)::text then
     raise exception 'Owner public snapshot does not match verified run';
+  end if;
+  if p_next_owner_state->>'abbr'<>v_old.abbr
+     or p_next_owner_state->>'season'<>p_next_season::text
+     or p_next_owner_state->>'week'<>p_next_week::text
+     or p_next_owner_state->>'stage'<>p_next_stage
+     or p_next_owner_state->>'wins'<>p_next_wins::text
+     or p_next_owner_state->>'losses'<>p_next_losses::text
+     or coalesce(nullif(p_next_owner_state->>'playoffSeed',''),'0')<>coalesce(p_next_playoff_seed,0)::text then
+    raise exception 'Next Owner public snapshot does not match verified transition';
   end if;
 
   if v_old.stage='regular' and v_old.week=18 and p_next_stage in ('wild-card','divisional') then
@@ -331,8 +343,8 @@ begin
     v_ids:=v_ids||jsonb_build_array(v_id);
   end if;
 
-  v_public_revision:=ball_knower_private.owner_state_revision(v_public_value);
-  v_public_value:=v_public_value||jsonb_build_object(
+  v_public_revision:=ball_knower_private.owner_state_revision(p_owner_state);
+  v_public_value:=p_next_owner_state||jsonb_build_object(
     'season',p_next_season,
     'week',p_next_week,
     'stage',p_next_stage,
@@ -359,8 +371,8 @@ begin
   );
 end;
 $owner_atomic$;
-revoke all on function public.commit_ball_knower_verified_owner_step(uuid,integer,integer,integer,text,integer,integer,integer,boolean,jsonb) from public,anon,authenticated;
-grant execute on function public.commit_ball_knower_verified_owner_step(uuid,integer,integer,integer,text,integer,integer,integer,boolean,jsonb) to service_role;
+revoke all on function public.commit_ball_knower_verified_owner_step(uuid,integer,integer,integer,text,integer,integer,integer,boolean,jsonb,jsonb) from public,anon,authenticated;
+grant execute on function public.commit_ball_knower_verified_owner_step(uuid,integer,integer,integer,text,integer,integer,integer,boolean,jsonb,jsonb) to service_role;
 
 create or replace function public.commit_ball_knower_expected_agent_signing(
   p_expected_user_id uuid,
