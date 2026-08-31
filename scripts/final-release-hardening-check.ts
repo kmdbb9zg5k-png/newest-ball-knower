@@ -3,6 +3,7 @@ import{readFileSync}from'node:fs';
 const read=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'utf8');
 
 const migration=read('migrations/20260831_final_verified_mode_progression.sql');
+const phase4bFollowup=read('migrations/20260831_phase4b_post_merge_hardening.sql');
 const modeApi=read('api/mode-progression.ts');
 const predictionApi=read('api/prediction-picks.ts');
 const predictionFeed=read('server/nflPredictionFeed.ts');
@@ -11,6 +12,8 @@ const cloud=read('modeProgressionCloud.ts');
 const bridge=read('modeProgressionBridge.ts');
 const picks=read('SportsbookHub.tsx');
 const owner=read('OwnerBusinessMode.tsx');
+const agent=read('PlayerAgentMode.tsx');
+const userState=read('userStateCloud.ts');
 const main=read('main.tsx');
 const navbar=read('Navbar.tsx');
 const html=read('index.html');
@@ -40,6 +43,13 @@ assert.ok(migration.includes("v_old_client#>>'{tradeRequest,status}'='open'")&&m
 assert.ok(migration.includes("v_new_client->'futureDeal'=v_deal"),'Agent contract rewards require a concrete deal transition');
 assert.ok(migration.includes("career,fulfilledPromises"),'Agent promise rewards require a newly fulfilled named promise');
 assert.ok(cloudSync.includes("ballknower_player_agent_v4")&&cloudSync.includes("ballknower_owner_career_v3"),'Owner and Agent careers must remain cross-device synced');
+assert.ok(agent.includes('await saveUserState("player_agent_career"')&&agent.includes('verifyingAgentSigning'),'Agent signings must reach cloud verification before week advancement');
+assert.ok(phase4bFollowup.includes('save_ball_knower_timestamped_user_state'),'Owner saves must use a monotonic database write');
+assert.ok(phase4bFollowup.includes('owner_state_updated_at(current_state.value)<=v_incoming_updated'),'older Owner snapshots must never overwrite newer cross-device state');
+assert.ok(userState.includes("stateKey === OWNER_STATE_KEY")&&userState.includes("save_ball_knower_timestamped_user_state"),'all direct and batched Owner saves must use the monotonic RPC');
+assert.ok(phase4bFollowup.includes('on conflict(user_id) do update set')&&phase4bFollowup.includes('excluded.season'),'guest claims must compare and preserve the more advanced Owner run');
+assert.ok(phase4bFollowup.indexOf('on conflict(user_id) do update set')<phase4bFollowup.indexOf('delete from ball_knower_private.verified_owner_runs'),'guest Owner state must be preserved before the guest row is deleted');
+assert.ok(bridge.includes('IDLE_CLAIM_INTERVAL_MS=60_000')&&!bridge.includes('setInterval(()=>void claimVerifiedMilestones(),4000)'),'idle milestone replay must avoid four-second polling');
 
 assert.ok(migration.includes('verified_prediction_picks'),'verified Picks must have private pregame storage');
 assert.ok(predictionApi.includes('Date.now()>=kickoffMs'),'server must reject Picks at/after kickoff');
