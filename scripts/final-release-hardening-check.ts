@@ -49,7 +49,7 @@ assert.ok(cloudSync.includes("ballknower_player_agent_v4")&&cloudSync.includes("
 const agentWeekGuard=agent.indexOf('if (verifyingAgentSigning) return;');
 const agentSigningSession=agent.indexOf('signingUserId = (await ensureOnlineSession()).id;');
 const agentSigningPersist=agent.indexOf('persist(next);',agentSigningSession);
-const agentSigningVerify=agent.indexOf('retryAgentSigningVerification(next, signingUserId, agency)',agentSigningPersist);
+const agentSigningVerify=agent.indexOf('retryAgentSigningVerification(next, signingUserId, signingBeforeState)',agentSigningPersist);
 const agentCloudSave=agent.indexOf('await commitAgentSigningForExpectedUser(');
 const agentPendingClear=agent.indexOf('localStorage.removeItem(PENDING_SIGNING_KEY)',agentCloudSave);
 const agentMilestoneClaim=agent.indexOf('await claimPendingVerifiedModeMilestones()',agentPendingClear);
@@ -63,7 +63,10 @@ assert.ok(
   agent.includes('commitAgentSigningForExpectedUser(')&&
   agent.includes('pending.beforeState')&&
   agent.includes('beforeState,')&&
-  agent.includes('retryAgentSigningVerification(next, signingUserId, agency)')&&
+  agent.includes('beforeState: agency')&&
+  !agent.includes('setAgency(actionAgency);\n    persist(actionAgency);')&&
+  agent.includes('persist(agency);\n                      setRecruit(null);')&&
+  agent.includes('retryAgentSigningVerification(next, signingUserId, signingBeforeState)')&&
   agent.includes('localStorage.getItem(PENDING_SIGNING_KEY) !== raw')&&
   agent.includes('while (true)')&&
   agentCloudSave<agentPendingClear&&agentPendingClear<agentMilestoneClaim&&
@@ -128,6 +131,14 @@ assert.ok(
   !cloudSync.includes('current !== snapshot && accepted && current')&&
   cloudSync.includes('cloudRevision: savedRevision'),
   'newer same-device Owner mutations must rebase onto both accepted and conflicting server revisions',
+);
+assert.ok(
+  cloudSync.includes("export const OWNER_CLOUD_SYNC_EVENT = 'ballknower:owner-cloud-saved'")&&
+  cloudSync.includes('if (accepted) {')&&
+  cloudSync.includes('new CustomEvent(OWNER_CLOUD_SYNC_EVENT, { detail: savedRow.value })')&&
+  owner.includes('window.addEventListener(OWNER_CLOUD_SYNC_EVENT,handleOwnerCloudSaved)')&&
+  owner.includes('if(synced.cloudRevision<local.cloudRevision)return local;'),
+  'accepted Owner revision bumps must hydrate the mounted mode in place instead of remounting the entire app',
 );
 assert.ok(phase4bFollowup.includes('on conflict(user_id) do update set')&&phase4bFollowup.includes('excluded.season'),'guest claims must compare and preserve the more advanced Owner run');
 assert.ok(phase4bFollowup.indexOf('on conflict(user_id) do update set')<phase4bFollowup.indexOf('delete from ball_knower_private.verified_owner_runs'),'guest Owner state must be preserved before the guest row is deleted');
