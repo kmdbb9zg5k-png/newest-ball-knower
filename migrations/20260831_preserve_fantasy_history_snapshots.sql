@@ -50,6 +50,8 @@ set search_path = ''
 as $$
 begin
   if old.pregame_projection_captured_at is not null then
+    new.opponent_team := old.opponent_team;
+    new.is_home := old.is_home;
     new.pregame_projected_points := old.pregame_projected_points;
     new.pregame_projection_reason := old.pregame_projection_reason;
     new.pregame_projection_source := old.pregame_projection_source;
