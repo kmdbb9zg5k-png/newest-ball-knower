@@ -48,25 +48,22 @@ assert.ok(migration.includes("career,fulfilledPromises"),'Agent promise rewards 
 assert.ok(cloudSync.includes("ballknower_player_agent_v4")&&cloudSync.includes("ballknower_owner_career_v3"),'Owner and Agent careers must remain cross-device synced');
 const agentWeekGuard=agent.indexOf('if (verifyingAgentSigning) return;');
 const agentSigningSession=agent.indexOf('signingUserId = (await ensureOnlineSession()).id;');
-const agentAccountSnapshot=agent.indexOf('JSON.stringify({ userId: signingUserId, state } satisfies PendingAgentSigning)');
-const agentSigningBaseline=agent.indexOf('raw: JSON.stringify(agency)',agentSigningSession);
-const agentSigningPersist=agent.indexOf('persist(next);',agentSigningBaseline);
-const agentSigningVerify=agent.indexOf('retryAgentSigningVerification(next, signingUserId)',agentSigningPersist);
-const agentCloudSave=agent.indexOf('await saveUserStateForExpectedUser(');
+const agentSigningPersist=agent.indexOf('persist(next);',agentSigningSession);
+const agentSigningVerify=agent.indexOf('retryAgentSigningVerification(next, signingUserId, agency)',agentSigningPersist);
+const agentCloudSave=agent.indexOf('await commitAgentSigningForExpectedUser(');
 const agentPendingClear=agent.indexOf('localStorage.removeItem(PENDING_SIGNING_KEY)',agentCloudSave);
 const agentMilestoneClaim=agent.indexOf('await claimPendingVerifiedModeMilestones()',agentPendingClear);
 assert.ok(
   agentWeekGuard>=0&&agent.includes('const handleBack = () => {\n    onBack();')&&
-  agentSigningSession>=0&&agentSigningSession<agentSigningBaseline&&
-  agentSigningBaseline<agentSigningPersist&&
+  agentSigningSession>=0&&agentSigningSession<agentSigningPersist&&
   agentSigningPersist<agentSigningVerify&&
-  agentAccountSnapshot>=0&&agentAccountSnapshot<agentCloudSave&&
+  agentCloudSave>=0&&agentCloudSave<agentPendingClear&&
   agent.includes('pending.userId !== user.id')&&
-  agent.includes('if (!signingUserId) throw new Error("Signing account is required.");')&&
-  agent.includes('saveUserStateForExpectedUser(')&&
-  agent.includes('pending.userId,')&&
-  agent.includes('signingUserId,')&&
-  agent.includes('retryAgentSigningVerification(next, signingUserId)')&&
+  agent.includes('Signing account and pre-signing state are required.')&&
+  agent.includes('commitAgentSigningForExpectedUser(')&&
+  agent.includes('pending.beforeState')&&
+  agent.includes('beforeState,')&&
+  agent.includes('retryAgentSigningVerification(next, signingUserId, agency)')&&
   agent.includes('localStorage.getItem(PENDING_SIGNING_KEY) !== raw')&&
   agent.includes('while (true)')&&
   agentCloudSave<agentPendingClear&&agentPendingClear<agentMilestoneClaim&&
@@ -134,20 +131,35 @@ assert.ok(
 );
 assert.ok(phase4bFollowup.includes('on conflict(user_id) do update set')&&phase4bFollowup.includes('excluded.season'),'guest claims must compare and preserve the more advanced Owner run');
 assert.ok(phase4bFollowup.indexOf('on conflict(user_id) do update set')<phase4bFollowup.indexOf('delete from ball_knower_private.verified_owner_runs'),'guest Owner state must be preserved before the guest row is deleted');
+const transferFunctionStart=phase4bFollowup.indexOf('create or replace function ball_knower_private.transfer_verified_mode_state_on_guest_claim()');
+const transferFunctionSql=phase4bFollowup.slice(transferFunctionStart);
 assert.ok(
-  phase4bFollowup.includes('v_guest_owner_wins boolean:=false')&&
-  phase4bFollowup.includes("state_key='owner_business_career_v1'")&&
-  phase4bFollowup.includes('greatest(\n          ball_knower_private.owner_state_revision(target.value)')&&
-  phase4bFollowup.indexOf('if v_guest_owner_wins then')<phase4bFollowup.indexOf('delete from ball_knower_private.verified_owner_runs'),
+  transferFunctionStart>=0&&
+  transferFunctionSql.includes('v_guest_owner_wins boolean:=false')&&
+  transferFunctionSql.includes("state_key='owner_business_career_v1'")&&
+  transferFunctionSql.includes("ball_knower_private.owner_state_revision(excluded.value)\n        )+1")&&
+  transferFunctionSql.indexOf('if v_guest_owner_wins then')<transferFunctionSql.indexOf('delete from ball_knower_private.verified_owner_runs'),
   'an advanced claimed Owner run must transfer its matching public snapshot with a newer server revision',
 );
+const signingRpcStart=phase4bFollowup.indexOf('create or replace function public.commit_ball_knower_expected_agent_signing(');
+const signingRpcSql=phase4bFollowup.slice(signingRpcStart,transferFunctionStart);
+const signingClientStart=userState.indexOf('export function commitAgentSigningForExpectedUser(');
+const signingClientEnd=userState.indexOf('export async function loadGauntletProgressEvents',signingClientStart);
+const signingClient=userState.slice(signingClientStart,signingClientEnd);
 assert.ok(
-  phase4bFollowup.includes('save_ball_knower_expected_user_state')&&
-  phase4bFollowup.includes('auth.uid()<>p_expected_user_id')&&
-  userState.includes('ACCOUNT_BOUND_WRITE_TIMEOUT_MS = 12_000')&&
-  userState.includes(".rpc('save_ball_knower_expected_user_state'")&&
-  userState.includes('.abortSignal(controller.signal)'),
-  'Agent signing writes must be atomically account-bound and abort within a bounded timeout',
+  signingRpcStart>=0&&transferFunctionStart>signingRpcStart&&
+  signingRpcSql.includes('auth.uid()<>p_expected_user_id')&&
+  signingRpcSql.includes("state_key='player_agent_career'\n  for update")&&
+  signingRpcSql.includes('if v_existing=p_after_value then return; end if;')&&
+  signingRpcSql.includes('if v_existing is distinct from p_before_value then')&&
+  signingClientStart>=0&&signingClientEnd>signingClientStart&&
+  signingClient.includes('ACCOUNT_BOUND_WRITE_TIMEOUT_MS')&&
+  signingClient.includes(".rpc('commit_ball_knower_expected_agent_signing'")&&
+  signingClient.includes('p_expected_user_id: expectedUserId')&&
+  signingClient.includes('p_before_value: beforeValue')&&
+  signingClient.includes('p_after_value: afterValue')&&
+  signingClient.includes('.abortSignal(controller.signal)'),
+  'Agent signings must use a bounded, account-bound, server-serialized before-after transaction',
 );
 assert.ok(bridge.includes('IDLE_CLAIM_INTERVAL_MS=60_000')&&!bridge.includes('setInterval(()=>void claimVerifiedMilestones(),4000)'),'idle milestone replay must avoid four-second polling');
 
