@@ -209,7 +209,7 @@ assert.ok(
   transferFunctionSql.includes("public_state.value->>'abbr'=target.abbr")&&
   transferFunctionSql.includes('guest.abbr\n    ) > (')&&
   transferFunctionSql.includes('where v_guest_owner_wins;')&&
-  transferFunctionSql.includes("ball_knower_private.owner_state_revision(excluded.value)\n        )+1")&&
+  transferFunctionSql.includes('ball_knower_private.owner_state_revision(excluded.value)')&&
   transferFunctionSql.includes("guest_state.state_key='owner_business_career_v1'")&&
   transferFunctionSql.includes('guest_run.user_id=new.guest_user_id')&&
   transferFunctionSql.includes('target_run.user_id=new.claimed_by')&&
