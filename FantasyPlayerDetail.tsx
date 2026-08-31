@@ -34,7 +34,7 @@ export const FantasyPlayerDetail: React.FC<Props> = ({ player, ownerName, injury
     let active = true;
     setBusy(true);
     setError('');
-    loadFantasyPlayerWeeks(player.id)
+    loadFantasyPlayerWeeks({ id: player.id, name: player.name, team: player.team, position: player.position })
       .then(rows => { if (active) setWeeks(rows); })
       .catch(err => { if (active) setError(err instanceof Error ? err.message : 'Player history could not be loaded.'); })
       .finally(() => { if (active) setBusy(false); });
@@ -59,7 +59,7 @@ export const FantasyPlayerDetail: React.FC<Props> = ({ player, ownerName, injury
             <h2 className="truncate text-3xl font-black uppercase">{player.name}</h2>
             <div className="mt-2 flex flex-wrap gap-2 text-[9px] font-black uppercase">
               <span className="rounded-full bg-white/10 px-2 py-1">{injuryStatus || (player.injured ? 'Injured' : 'Active')}</span>
-              <span className="rounded-full bg-white/10 px-2 py-1">{ownerName || 'Free Agent'}</span>
+              <span className="rounded-full bg-white/10 px-2 py-1">{ownerName || 'Ownership unavailable'}</span>
               {ranking && <span className="rounded-full bg-[#D4AF37]/15 px-2 py-1 text-[#D4AF37]">Overall #{ranking.overall_rank}</span>}
             </div>
           </div>
@@ -68,11 +68,12 @@ export const FantasyPlayerDetail: React.FC<Props> = ({ player, ownerName, injury
 
         <div className="space-y-4 p-4 sm:p-5">
           <div className="grid grid-cols-3 gap-2">
-            <Summary label="Season points" value={finals.length ? total.toFixed(1) : '—'} />
-            <Summary label="Per game" value={finals.length ? (total / finals.length).toFixed(1) : '—'} />
-            <Summary label="Last 3" value={recentAverage === null ? '—' : recentAverage.toFixed(1)} />
+            <Summary label="Stored final points" value={finals.length ? total.toFixed(1) : '—'} />
+            <Summary label="Stored final avg" value={finals.length ? (total / finals.length).toFixed(1) : '—'} />
+            <Summary label="Last 3 stored" value={recentAverage === null ? '—' : recentAverage.toFixed(1)} />
           </div>
-          {ranking && <section className="rounded-2xl border border-[#D4AF37]/20 bg-[#D4AF37]/5 p-4"><div className="text-[9px] font-black uppercase text-[#D4AF37]">Ball Knower season outlook</div><p className="mt-2 text-xs leading-5 text-zinc-300">{ranking.projection_reason}</p><div className="mt-2 text-[9px] text-zinc-600">2026 projection: {ranking.projected_points_2026.toFixed(1)} points · {ranking.projection_source_name}</div></section>}
+          {finals.length > 0 && <p className="text-[9px] leading-4 text-zinc-600">Aggregates include only the {finals.length} stored final week{finals.length === 1 ? '' : 's'} shown below; they are not presented as complete season totals.</p>}
+          {ranking && <section className="rounded-2xl border border-[#D4AF37]/20 bg-[#D4AF37]/5 p-4"><div className="text-[9px] font-black uppercase text-[#D4AF37]">Ball Knower season outlook</div><p className="mt-2 text-xs leading-5 text-zinc-300">{ranking.projection_reason}</p><div className="mt-2 text-[9px] leading-5 text-zinc-500">2026 projection: {ranking.projected_points_2026.toFixed(1)} points · Model: {ranking.projection_model} · Updated {new Date(ranking.updated_at).toLocaleDateString()}</div><div className="mt-2 flex flex-wrap gap-3 text-[9px] font-black uppercase">{ranking.projection_source_url ? <a href={ranking.projection_source_url} target="_blank" rel="noreferrer" className="text-[#D4AF37] underline">Projection source: {ranking.projection_source_name}</a> : <span className="text-zinc-500">Projection source: {ranking.projection_source_name}</span>}{ranking.actual_source_url && <a href={ranking.actual_source_url} target="_blank" rel="noreferrer" className="text-[#D4AF37] underline">2025 actual source: {ranking.actual_source_name}</a>}</div></section>}
           <div className="grid grid-cols-2 gap-1 rounded-xl bg-black/40 p-1">{([2026, 2025] as const).map(value => <button key={value} onClick={() => setSeason(value)} className={`min-h-11 rounded-lg text-[10px] font-black uppercase ${season === value ? 'bg-[#D4AF37] text-black' : 'text-zinc-400'}`}>{value} season</button>)}</div>
           {busy ? <Notice text="Loading authoritative weekly history…" /> : error ? <Notice text={error} warning /> : visible.length ? <div className="space-y-2">{visible.map(week => <WeekCard key={week.id} week={week} />)}</div> : <Notice text={`No verified ${season} weekly rows are stored for this player yet. Ball Knower will not invent missing stats.`} />}
         </div>

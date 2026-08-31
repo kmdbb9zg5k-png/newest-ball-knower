@@ -32,18 +32,45 @@ type WeekRow = {
   projected_points: Record<string, number> | null;
 };
 
-export async function loadFantasyPlayerWeeks(playerId: string): Promise<FantasyPlayerWeek[]> {
+export type FantasyPlayerIdentity = {
+  id: string;
+  name: string;
+  team: string;
+  position: string;
+};
+
+const weekColumns = 'id,provider_game_id,season,week_number,player_name,team,position,kickoff_at,game_status,is_final,stats,fantasy_points,projected_points';
+
+export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Promise<FantasyPlayerWeek[]> {
   if (!supabase) return [];
   await ensureOnlineSession();
-  const { data, error } = await supabase
+  const [identityResult, legacyResult] = await Promise.all([
+    supabase
     .from('ball_knower_player_week_scores')
-    .select('id,provider_game_id,season,week_number,player_name,team,position,kickoff_at,game_status,is_final,stats,fantasy_points,projected_points')
-    .eq('ball_knower_player_id', playerId)
+    .select(weekColumns)
+    .eq('ball_knower_player_id', player.id)
     .in('season', [2025, 2026])
     .order('season', { ascending: false })
-    .order('week_number', { ascending: true });
+    .order('week_number', { ascending: true }),
+    // Older/unrostered score rows can predate the permanent app-id link. Name,
+    // team and position form a deliberately strict fallback for those rows.
+    supabase
+      .from('ball_knower_player_week_scores')
+      .select(weekColumns)
+      .is('ball_knower_player_id', null)
+      .eq('player_name', player.name)
+      .eq('team', player.team)
+      .eq('position', player.position)
+      .in('season', [2025, 2026])
+      .order('season', { ascending: false })
+      .order('week_number', { ascending: true }),
+  ]);
+  const error = identityResult.error || legacyResult.error;
   if (error) throw new Error(error.message || 'Player game history could not be loaded.');
-  return ((data || []) as WeekRow[]).map(row => ({
+  const rows = [...(identityResult.data || []), ...(legacyResult.data || [])] as WeekRow[];
+  const uniqueRows = [...new Map(rows.map(row => [row.id, row])).values()]
+    .sort((a, b) => b.season - a.season || a.week_number - b.week_number);
+  return uniqueRows.map(row => ({
     id: row.id,
     providerGameId: row.provider_game_id,
     season: Number(row.season),

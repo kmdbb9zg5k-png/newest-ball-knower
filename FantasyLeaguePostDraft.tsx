@@ -2955,12 +2955,14 @@ const TradeSummary = ({
     <div className="grid gap-2 sm:grid-cols-2">
       <TradeSide
         label={`${displayManagerName(proposer)} sends`}
+        ownerName={displayManagerName(proposer)}
         ids={trade.offeredPlayerIds}
         findPlayer={findPlayer}
         valueLabel={valueLabel}
       />
       <TradeSide
         label={`${displayManagerName(recipient)} sends`}
+        ownerName={displayManagerName(recipient)}
         ids={trade.requestedPlayerIds}
         findPlayer={findPlayer}
         valueLabel={valueLabel}
@@ -2970,11 +2972,13 @@ const TradeSummary = ({
 );
 const TradeSide = ({
   label,
+  ownerName,
   ids,
   findPlayer,
   valueLabel,
 }: {
   label: string;
+  ownerName: string;
   ids: string[];
   findPlayer: (id: string) => Player | undefined;
   valueLabel: (player: Player) => string;
@@ -2999,7 +3003,7 @@ const TradeSide = ({
         </button>
       );
     })}
-    <FantasyPlayerDetail player={detailPlayer} onClose={()=>setDetailPlayer(null)}/>
+    <FantasyPlayerDetail player={detailPlayer} ownerName={ownerName} onClose={()=>setDetailPlayer(null)}/>
   </div>;
 };
 
