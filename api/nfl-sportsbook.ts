@@ -10,12 +10,12 @@ export default async function handler(req:any,res:any){
     const rows=await fetchCanonicalPredictionGames();
     const now=Date.now();
     const requestedIds=new Set(String(req?.query?.gameIds||'').split(',').filter(Boolean));
-    const requested=rows.filter(game=>requestedIds.has(game.id));
-    const current=rows
+    const requestedRows=rows.filter(game=>requestedIds.has(game.id));
+    const currentRows=rows
       .filter(game=>{const when=game.kickoffAt?Date.parse(game.kickoffAt):NaN;return!Number.isFinite(when)||when>=now-7*24*60*60*1000})
       .sort((a,b)=>{const av=a.kickoffAt?Date.parse(a.kickoffAt):Number.MAX_SAFE_INTEGER;const bv=b.kickoffAt?Date.parse(b.kickoffAt):Number.MAX_SAFE_INTEGER;return av-bv})
       .slice(0,50);
-    const relevant=[...requested,...current.filter(game=>!requestedIds.has(game.id))];
+    const relevant=[...requestedRows,...currentRows.filter(game=>!requestedIds.has(game.id))];
     const games=relevant.map(game=>{
       const kickoffMs=game.kickoffAt?Date.parse(game.kickoffAt):NaN;
       return{
