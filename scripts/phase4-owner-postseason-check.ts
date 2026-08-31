@@ -24,6 +24,7 @@ assert.ok(weeklyRevenue>ownerGameRevenue(base,true,false),'a season receipt must
 for(const abbr of OWNER_TEAM_ABBRS){const calendar=owner2026Calendar(abbr);assert.equal(calendar.length,18);assert.equal(calendar.filter(week=>week.isBye).length,1);assert.equal(calendar.filter(week=>!week.isBye).length,17);assert.ok([8,9].includes(calendar.filter(week=>week.isHome).length),`${abbr} must retain eight or nine home games`);}
 assert.equal(owner2026Calendar('WAS')[0].isHome,false,'Washington opens Week 1 away at Philadelphia');
 assert.equal(owner2026Calendar('PHI')[0].isHome,true,'Philadelphia opens Week 1 at home against Washington');
+assert.equal(owner2026Calendar('ARI')[3].isHome,false,'Arizona plays Week 4 away at the Giants');
 const ownerMode=readFileSync(new URL('../OwnerBusinessMode.tsx',import.meta.url),'utf8');
 assert.ok(!ownerMode.includes('cashM:state.cashM-p.costM'),'annual staff salary must not also be charged up front');
 assert.ok(ownerMode.includes('seasonStaffCommitmentsM:state.seasonStaffCommitmentsM+p.costM'),'hired staff salary must remain obligated after a later firing');
