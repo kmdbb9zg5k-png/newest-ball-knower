@@ -1,0 +1,14 @@
+import assert from "node:assert/strict";
+import { agencyClientCapacity, buildAgencyResume, canHireStaff, contractFeeK, hireAgencyStaff } from "../agentAgencyGrowth";
+assert.equal(agencyClientCapacity([]),3);
+const hired=hireAgencyStaff("recruiter",150,[],"2026-09-01");
+assert.ok(hired.hired);
+assert.equal(hired.cashK,90);
+assert.equal(agencyClientCapacity(hired.staff),5);
+assert.equal(canHireStaff(200,hired.staff,"recruiter"),false);
+assert.equal(contractFeeK(10),300);
+const resume=buildAgencyResume({reputation:50,activeClients:2,signedClients:4,wins:4,losses:1,staff:hired.staff,deals:[{totalM:20},{totalM:35.5}],fulfilledPromises:3,brokenPromises:1});
+assert.equal(resume.tier,"RISING AGENCY");
+assert.equal(resume.contractValueM,55.5);
+assert.equal(resume.record,"4-1");
+console.log("Phase 3 Agent agency-growth and résumé checks passed.");
