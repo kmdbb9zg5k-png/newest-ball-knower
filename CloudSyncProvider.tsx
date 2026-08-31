@@ -203,7 +203,10 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             const accepted =
               savedRevision === submittedRevision + 1 &&
               directJsonPayload(savedRow.value) === directJsonPayload(submitted);
-            if (current !== snapshot && accepted && current) {
+            if (current !== snapshot && current) {
+              // A newer same-tab action arrived after this upload began. Rebase
+              // it onto whichever server revision won, even when the submitted
+              // snapshot was stale, and leave the key dirty for the next pass.
               const rebased = {
                 ...JSON.parse(current) as Record<string, unknown>,
                 cloudRevision: savedRevision,
@@ -211,6 +214,7 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               localStorage.setItem(entry.localKey, JSON.stringify(rebased));
               lastValues.set(entry.localKey, localStorage.getItem(entry.localKey));
               meta[entry.localKey] = Date.parse(savedRow.updated_at) || meta[entry.localKey] || 0;
+              if (!accepted) console.warn('Owner cloud conflict rebased a newer local action for retry.');
               continue;
             }
             restoredServerWinner = applyRemote(entry, savedRow.value) || restoredServerWinner;
