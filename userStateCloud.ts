@@ -8,6 +8,7 @@ export type UserStateRow<T = unknown> = {
 };
 
 const OWNER_STATE_KEY = 'owner_business_career_v1';
+const ACCOUNT_BOUND_WRITE_TIMEOUT_MS = 12_000;
 const pendingUserStateWrites = new Set<Promise<unknown>>();
 
 function trackUserStateWrite<T>(write: Promise<T>): Promise<T> {
@@ -94,6 +95,28 @@ export function saveUserState(stateKey: string, value: unknown): Promise<void> {
       value,
     }, { onConflict: 'user_id,state_key' });
     if (error) throw error;
+  })());
+}
+
+export function saveUserStateForExpectedUser(
+  expectedUserId: string,
+  stateKey: string,
+  value: unknown,
+): Promise<void> {
+  if (!supabase) return Promise.reject(new Error('Cloud persistence is unavailable.'));
+  return trackUserStateWrite((async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ACCOUNT_BOUND_WRITE_TIMEOUT_MS);
+    try {
+      const { error } = await supabase.rpc('save_ball_knower_expected_user_state', {
+        p_expected_user_id: expectedUserId,
+        p_state_key: stateKey,
+        p_value: value,
+      }).abortSignal(controller.signal);
+      if (error) throw error;
+    } finally {
+      clearTimeout(timer);
+    }
   })());
 }
 
