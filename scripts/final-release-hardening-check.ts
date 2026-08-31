@@ -63,8 +63,7 @@ assert.ok(
   agent.includes('commitAgentSigningForExpectedUser(')&&
   agent.includes('pending.beforeState')&&
   agent.includes('beforeState,')&&
-  agent.includes('beforeState: agency')&&
-  !agent.includes('setAgency(actionAgency);\n    persist(actionAgency);')&&
+  agent.includes('setAgency(actionAgency);\n    setSelectedId(p.id);\n    setRecruit({\n      playerId: p.id,\n      beforeState: agency,')&&
   agent.includes('persist(agency);\n                      setRecruit(null);')&&
   agent.includes('retryAgentSigningVerification(next, signingUserId, signingBeforeState)')&&
   agent.includes('localStorage.getItem(PENDING_SIGNING_KEY) !== raw')&&
@@ -82,7 +81,7 @@ assert.ok(
   agent.includes('disabled={signingInFlight}')&&
   agent.includes('AGENT_SIGNING_LOCK_NAME')&&
   agent.includes('await withAgentSigningTabLock(async () => {')&&
-  agent.includes('JSON.stringify(sharedAgency) !== JSON.stringify(agency)')&&
+  agent.includes('JSON.stringify(sharedAgency) !== JSON.stringify(signingBeforeState)')&&
   agent.includes('Another Agent tab changed this career first')&&
   agent.includes('BACK TO SOLO · KEEP RETRYING')&&
   agent.includes('RETRY CLOUD VERIFICATION'),
