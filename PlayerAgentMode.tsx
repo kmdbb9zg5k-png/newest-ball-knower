@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -616,8 +616,10 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
   const [levelUp, setLevelUp] = useState<{ from: number; to: number } | null>(
     null,
   );
+  const signingInFlightRef = useRef(false);
+  const [signingInFlight, setSigningInFlight] = useState(false);
   const [verifyingAgentSigning, setVerifyingAgentSigning] = useState(
-    () => readPendingAgentSigning() !== null,
+    () => pendingAgentSigningWrite !== null || readPendingAgentSigning() !== null,
   );
   const retryAgentSigningVerification = async (
     state?: AgencyState,
@@ -626,7 +628,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     setVerifyingAgentSigning(true);
     try {
       await verifyPendingAgentSigning(state, signingUserId);
-      setVerifyingAgentSigning(readPendingAgentSigning() !== null);
+      setVerifyingAgentSigning(pendingAgentSigningWrite !== null || readPendingAgentSigning() !== null);
     } catch (error) {
       // Keep the lock and durable retry snapshot until cloud persistence works.
       setVerifyingAgentSigning(true);
@@ -639,7 +641,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
   useEffect(() => {
     let cancelled = false;
     const retryPendingSigning = () => {
-      if (!readPendingAgentSigning()) {
+      if (!readPendingAgentSigning() && !pendingAgentSigningWrite) {
         if (!cancelled) setVerifyingAgentSigning(false);
         return;
       }
@@ -658,7 +660,21 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     const handlePendingSigningStorage = (event: StorageEvent) => {
       if (event.key !== PENDING_SIGNING_KEY) return;
       if (!event.newValue) {
-        if (!cancelled) setVerifyingAgentSigning(false);
+        const activeWrite = pendingAgentSigningWrite;
+        if (!activeWrite) {
+          if (!cancelled) setVerifyingAgentSigning(false);
+          return;
+        }
+        if (!cancelled) setVerifyingAgentSigning(true);
+        void activeWrite.finally(() => {
+          window.setTimeout(() => {
+            if (!cancelled) {
+              setVerifyingAgentSigning(
+                pendingAgentSigningWrite !== null || readPendingAgentSigning() !== null,
+              );
+            }
+          }, 0);
+        }).catch(() => undefined);
         return;
       }
       retryPendingSigning();
@@ -1076,6 +1092,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
   };
 
   const makePitch = async (pitch: Pitch) => {
+    if (signingInFlightRef.current || verifyingAgentSigning) return;
     if (
       !selected ||
       !recruit ||
@@ -1137,6 +1154,9 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       firstClient: agency.clients.length === 0,
     });
     if (decision.signed) {
+      signingInFlightRef.current = true;
+      setSigningInFlight(true);
+      try {
       let signingUserId: string;
       try {
         signingUserId = (await ensureOnlineSession()).id;
@@ -1204,6 +1224,10 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
         try {
           navigator.vibrate?.([45, 40, 45, 40, 100]);
         } catch {}
+      }
+      } finally {
+        signingInFlightRef.current = false;
+        setSigningInFlight(false);
       }
     } else {
       const next: AgencyState = {
@@ -1969,11 +1993,13 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                   </div>
                   <button
                     aria-label="Close private meeting"
+                    disabled={signingInFlight}
                     onClick={() => {
+                      if (signingInFlightRef.current) return;
                       setRecruit(null);
                       setSelectedId(null);
                     }}
-                    className="min-h-11 shrink-0 rounded-xl bg-white/5 px-3 text-xs font-black"
+                    className="min-h-11 shrink-0 rounded-xl bg-white/5 px-3 text-xs font-black disabled:opacity-40"
                   >
                     CLOSE
                   </button>
@@ -2004,8 +2030,9 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                       {recruit.choices.map((pitch) => (
                         <button
                           key={pitch}
-                          onClick={() => makePitch(pitch)}
-                          className="min-h-12 rounded-2xl border border-white/10 bg-white/5 px-4 text-left text-xs font-black active:border-violet-300/50 active:bg-violet-400/10"
+                          disabled={signingInFlight}
+                          onClick={() => void makePitch(pitch)}
+                          className="min-h-12 rounded-2xl border border-white/10 bg-white/5 px-4 text-left text-xs font-black active:border-violet-300/50 active:bg-violet-400/10 disabled:opacity-40"
                         >
                           {pitchLabel[pitch]}
                         </button>
