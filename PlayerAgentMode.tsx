@@ -18,7 +18,7 @@ import { playerPortraitUrl } from "./playerPortraits";
 import { ModalPortal } from "./ModalPortal";
 import { AGENT_PENDING_RECRUIT_ACTION_KEY, AGENT_PENDING_SIGNING_KEY, commitAgentSigningForExpectedUser, loadUserState } from "./userStateCloud";
 import { claimPendingVerifiedModeMilestones } from "./modeProgressionCloud";
-import { flushAllCloudState } from "./cloudSyncCoordinator";
+import { flushAllCloudState, markCloudStateCommitted } from "./cloudSyncCoordinator";
 import { ensureOnlineSession } from "./supabase";
 import {
   createRecruitingProfile,
@@ -436,7 +436,11 @@ type PendingAgentSigning = {
   state: AgencyState;
 };
 
-class AgentSigningConflictError extends Error {}
+class AgentSigningConflictError extends Error {
+  constructor(message: string, readonly pendingRaw: string | null = null) {
+    super(message);
+  }
+}
 
 let pendingAgentSigningWrite: Promise<void> | null = null;
 const readPendingAgentSigning = (): PendingAgentSigning | null => {
@@ -514,10 +518,12 @@ const verifyPendingAgentSigning = async (
           // Keep the hold until the authoritative server winner is loaded.
           throw new AgentSigningConflictError(
             "Another tab changed this Agent career first. The latest saved career was restored.",
+            raw,
           );
         }
         throw error;
       }
+      markCloudStateCommitted(SAVE_KEY, JSON.stringify(pending.state));
       if (localStorage.getItem(PENDING_SIGNING_KEY) !== raw) {
         continue;
       }
@@ -738,9 +744,21 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     () => pendingAgentSigningWrite !== null || readPendingAgentSigning() !== null,
   );
   const recoverAgentSigningConflict = async (error: AgentSigningConflictError) => {
+    const failedPendingRaw = error.pendingRaw ?? localStorage.getItem(PENDING_SIGNING_KEY);
     try {
       const latest = await loadAuthoritativeAgentCareer();
-      localStorage.removeItem(PENDING_SIGNING_KEY);
+      const currentPendingRaw = localStorage.getItem(PENDING_SIGNING_KEY);
+      if (currentPendingRaw && currentPendingRaw !== failedPendingRaw) {
+        const newerPending = readPendingAgentSigning();
+        if (newerPending) {
+          localStorage.setItem(SAVE_KEY, JSON.stringify(newerPending.state));
+          setAgency(newerPending.state);
+        }
+        setAgentSigningError("A newer Agent signing is still being verified.");
+        setVerifyingAgentSigning(true);
+        return false;
+      }
+      if (currentPendingRaw === failedPendingRaw) localStorage.removeItem(PENDING_SIGNING_KEY);
       setAgency(latest);
       setRecruit(null);
       setSelectedId(null);
