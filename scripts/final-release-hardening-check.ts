@@ -19,6 +19,7 @@ const main=read('main.tsx');
 const navbar=read('Navbar.tsx');
 const html=read('index.html');
 const cloudSync=read('CloudSyncProvider.tsx');
+const cloudCoordinator=read('cloudSyncCoordinator.ts');
 const transactions=read('api/fantasy-transactions.ts');
 
 assert.ok(migration.includes('ball_knower_private.verified_mode_milestones'),'verified milestones must be private');
@@ -169,6 +170,7 @@ assert.ok(
   ownerAtomicCall>=0&&ownerAtomicCall<ownerCommittedPersist&&ownerCommittedPersist<ownerMilestoneClaim&&
   owner.includes('ownerOutcomes={won:buildDecisionState(true,true,state.cloudRevision),lost:buildDecisionState(false,true,state.cloudRevision)}')&&
   owner.includes('committedOwnerState=normalize(committedState)')&&
+  owner.includes('markCloudStateCommitted(SAVE_KEY,JSON.stringify(nextState))')&&
   modeApi.includes('const nextOwnerState=won?ownerOutcomes?.won:ownerOutcomes?.lost')&&
   modeApi.includes('p_owner_state:req?.body?.ownerState,p_next_owner_state:nextOwnerState')&&
   modeApi.includes('ownerState:committed.data?.ownerState')&&
@@ -187,6 +189,17 @@ assert.ok(
   atomicOwnerFunction.indexOf('insert into public.ball_knower_user_state')<atomicOwnerFunction.indexOf('update ball_knower_private.verified_owner_runs'),
   'complete Owner decisions, verified runs, and cross-device snapshots must commit atomically before milestone claims',
 );
+assert.ok(
+  cloudCoordinator.includes('export function markCloudStateCommitted')&&
+  cloudSync.includes('registerCloudStateCommitted((localKey, raw) => {')&&
+  cloudSync.includes('if (localStorage.getItem(localKey) !== raw) return;')&&
+  cloudSync.includes('lastValues.set(localKey, raw)')&&
+  cloudSync.includes('dirtyKeys.delete(localKey)')&&
+  owner.includes('markCloudStateCommitted(SAVE_KEY,JSON.stringify(nextState))')&&
+  agent.includes('markCloudStateCommitted(SAVE_KEY, JSON.stringify(pending.state))'),
+  'server-committed Owner and Agent snapshots must be marked synchronized before generic cloud uploads resume',
+);
+
 assert.ok(
   cloudSync.includes('savedRevision === submittedRevision + 1')&&
   cloudSync.includes('if (current !== snapshot && current)')&&
@@ -286,6 +299,9 @@ const agentConflictHoldRelease=agent.indexOf('localStorage.removeItem(PENDING_SI
 const agentConflictCatch=agent.indexOf('setVerifyingAgentSigning(true);',agentConflictHoldRelease);
 assert.ok(
   agent.includes('Keep the hold until the authoritative server winner is loaded.')&&
+  agent.includes('const failedPendingRaw = error.pendingRaw ?? localStorage.getItem(PENDING_SIGNING_KEY)')&&
+  agent.includes('currentPendingRaw && currentPendingRaw !== failedPendingRaw')&&
+  agent.includes('localStorage.setItem(SAVE_KEY, JSON.stringify(newerPending.state))')&&
   agentAuthoritativeLoad>=0&&agentAuthoritativeLoad<agentConflictHoldRelease&&agentConflictHoldRelease<agentConflictCatch,
   'Agent conflict recovery must stay locked until authoritative cloud state is loaded',
 );
