@@ -674,16 +674,26 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       if (!event.newValue) {
         const activeWrite = pendingAgentSigningWrite;
         if (!activeWrite) {
-          if (!cancelled) setVerifyingAgentSigning(false);
+          if (!cancelled) {
+            setAgency(restore());
+            setRecruit(null);
+            setSelectedId(null);
+            setVerifyingAgentSigning(false);
+          }
           return;
         }
         if (!cancelled) setVerifyingAgentSigning(true);
         void activeWrite.finally(() => {
           window.setTimeout(() => {
             if (!cancelled) {
-              setVerifyingAgentSigning(
-                pendingAgentSigningWrite !== null || readPendingAgentSigning() !== null,
-              );
+              const stillPending =
+                pendingAgentSigningWrite !== null || readPendingAgentSigning() !== null;
+              if (!stillPending) {
+                setAgency(restore());
+                setRecruit(null);
+                setSelectedId(null);
+              }
+              setVerifyingAgentSigning(stillPending);
             }
           }, 0);
         }).catch(() => undefined);
