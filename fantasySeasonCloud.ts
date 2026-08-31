@@ -25,6 +25,7 @@ const mapDmThread=(x:any):FantasyDmThread=>({id:x.id,leagueId:x.league_id,partic
 const mapDmMessage=(x:any):FantasyDmMessage=>({id:x.id,threadId:x.thread_id,senderAuthId:x.sender_auth_id,body:x.body,createdAt:x.created_at});
 const mapTradeMessage=(x:any):TradeMessage=>({id:x.id,tradeId:x.trade_id,senderAuthId:x.sender_auth_id,body:x.body,createdAt:x.created_at});
 const mapBlock=(x:any):TradingBlockEntry=>({leagueId:x.league_id,memberId:x.member_id,playerId:x.player_id,status:x.status,lookingFor:x.looking_for||[],note:x.note||undefined,updatedAt:x.updated_at});
+const seasonOperationsCache=new Map<string,{trades:TradeOffer[];claims:WaiverClaim[];transactions:LeagueTransaction[];injuries:LeagueInjury[];messages:LeagueMessage[]}>();
 
 export async function fetchFantasyCommunications(leagueId:string){
   if(!supabase)return {dmThreads:[] as FantasyDmThread[],dmMessages:[] as FantasyDmMessage[],tradeMessages:[] as TradeMessage[],tradeThreadReads:[] as TradeThreadRead[],tradingBlock:[] as TradingBlockEntry[],watchedPlayerIds:[] as string[]};
@@ -61,16 +62,41 @@ export function assertStandardFantasyTradePackage(offeredPlayerIds:string[],requ
 
 export async function fetchSeasonOperations(leagueId:string){
   if(!supabase) return {trades:[],claims:[],transactions:[],injuries:[],messages:[]} as const;
-  await ensureOnlineSession();
-  const [trades,claims,transactions,injuries,messages]=await Promise.all([
+  const cached=seasonOperationsCache.get(leagueId);
+  try{
+    await ensureOnlineSession();
+  }catch(error:any){
+    if(cached) return cached;
+    throw new Error(error?.message||'Could not reconnect your Ball Knower session.');
+  }
+  const outcomes=await Promise.allSettled([
     supabase.from('ball_knower_trades').select('*').eq('league_id',leagueId).order('created_at',{ascending:false}).limit(100),
     supabase.from('ball_knower_waiver_claims').select('*').eq('league_id',leagueId).order('created_at',{ascending:false}).limit(100),
     supabase.from('ball_knower_transactions').select('*').eq('league_id',leagueId).order('created_at',{ascending:false}).limit(150),
     supabase.from('ball_knower_injuries').select('*').eq('league_id',leagueId).neq('status','cleared').order('updated_at',{ascending:false}).limit(100),
     supabase.from('ball_knower_league_messages').select('*').eq('league_id',leagueId).order('created_at',{ascending:false}).limit(100),
   ]);
-  const err=[trades.error,claims.error,transactions.error,injuries.error,messages.error].find(Boolean); if(err) throw err;
-  return {trades:(trades.data||[]).map(mapTrade),claims:(claims.data||[]).map(mapClaim),transactions:(transactions.data||[]).map(mapTxn),injuries:(injuries.data||[]).map(mapInjury),messages:(messages.data||[]).map(mapMessage)};
+  const rows=(index:number):any[]|null=>{
+    const outcome=outcomes[index] as PromiseSettledResult<any>;
+    if(outcome.status!=='fulfilled'||outcome.value?.error) return null;
+    return outcome.value?.data||[];
+  };
+  const succeeded=outcomes.some((outcome:any)=>outcome.status==='fulfilled'&&!outcome.value?.error);
+  if(!succeeded&&!cached){
+    const first=outcomes.find((outcome:any)=>outcome.status==='rejected'||outcome.value?.error) as any;
+    const reason=first?.status==='rejected'?first.reason:first?.value?.error;
+    throw new Error(reason?.message||'League activity could not sync. Check your connection and try again.');
+  }
+  const trades=rows(0); const claims=rows(1); const transactions=rows(2); const injuries=rows(3); const messages=rows(4);
+  const result={
+    trades:trades?trades.map(mapTrade):(cached?.trades||[]),
+    claims:claims?claims.map(mapClaim):(cached?.claims||[]),
+    transactions:transactions?transactions.map(mapTxn):(cached?.transactions||[]),
+    injuries:injuries?injuries.map(mapInjury):(cached?.injuries||[]),
+    messages:messages?messages.map(mapMessage):(cached?.messages||[]),
+  };
+  seasonOperationsCache.set(leagueId,result);
+  return result;
 }
 
 export async function proposeTradeWithResolution(
