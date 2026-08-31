@@ -35,6 +35,14 @@ const kept = resolveClientEvent({
 });
 assert.ok(kept.trustDelta > 0);
 assert.ok(kept.career.fulfilledPromises.includes("playing_time"));
+const replayed = resolveClientEvent({
+  career: kept.career,
+  event: event!,
+  choice: "fight",
+  agency,
+});
+assert.equal(replayed.trustDelta, 0);
+assert.equal(replayed.career.resolvedEvents, kept.career.resolvedEvents);
 const broken = resolveClientEvent({
   career: { ...career, pendingEvent: event },
   event: event!,
