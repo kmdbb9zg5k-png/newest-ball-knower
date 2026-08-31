@@ -9,9 +9,13 @@ export function registerFullCloudStateFlush(flush: FullCloudStateFlush): () => v
   };
 }
 
-export async function flushAllCloudStateBeforeIdentityChange(): Promise<void> {
+export async function flushAllCloudState(): Promise<void> {
   if (!activeFullFlush) {
-    throw new Error('Cloud save is still starting. Wait a moment and try signing in again.');
+    throw new Error('Cloud save is still starting. Wait a moment and try again.');
   }
   await activeFullFlush();
+}
+
+export async function flushAllCloudStateBeforeIdentityChange(): Promise<void> {
+  await flushAllCloudState();
 }
