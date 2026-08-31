@@ -52,7 +52,7 @@ export function saveUserStates(entries: Array<{ stateKey: string; value: unknown
       rows.push(...((data ?? []) as UserStateRow[]));
     }
     for (const entry of entries.filter(candidate => candidate.stateKey === OWNER_STATE_KEY)) {
-      const { data, error } = await supabase.rpc('save_ball_knower_timestamped_user_state', {
+      const { data, error } = await supabase.rpc('save_ball_knower_revisioned_user_state', {
         p_state_key: entry.stateKey,
         p_value: entry.value,
       });
@@ -81,7 +81,7 @@ export function saveUserState(stateKey: string, value: unknown): Promise<void> {
   return trackUserStateWrite((async () => {
     const user = await ensureOnlineSession();
     if (stateKey === OWNER_STATE_KEY) {
-      const { error } = await supabase.rpc('save_ball_knower_timestamped_user_state', {
+      const { error } = await supabase.rpc('save_ball_knower_revisioned_user_state', {
         p_state_key: stateKey,
         p_value: value,
       });
