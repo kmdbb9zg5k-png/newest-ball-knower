@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 
 const api = readFileSync(new URL('../api/fantasy-live-scoring.ts', import.meta.url), 'utf8');
 const migration = readFileSync(new URL('../migrations/20260831_preserve_fantasy_history_snapshots.sql', import.meta.url), 'utf8');
+const matchupFollowUp = readFileSync(new URL('../migrations/20260831_freeze_fantasy_matchup_snapshot.sql', import.meta.url), 'utf8');
 const cloud = readFileSync(new URL('../fantasyPlayerDetailsCloud.ts', import.meta.url), 'utf8');
 const detail = readFileSync(new URL('../FantasyPlayerDetail.tsx', import.meta.url), 'utf8');
 const vercel = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
@@ -10,6 +11,9 @@ const vercel = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url
 assert.match(migration, /pregame_projected_points jsonb not null/);
 assert.match(migration, /preserve_ball_knower_pregame_projection/);
 assert.match(migration, /old\.pregame_projection_captured_at is not null/);
+assert.match(migration, /new\.opponent_team := old\.opponent_team/);
+assert.match(migration, /new\.is_home := old\.is_home/);
+assert.match(matchupFollowUp, /new\.opponent_team := old\.opponent_team/);
 assert.match(migration, /ball_knower_fantasy_history_backfill/);
 assert.match(migration, /generate_series\(1, 18\)/);
 assert.match(migration, /enable row level security/);
