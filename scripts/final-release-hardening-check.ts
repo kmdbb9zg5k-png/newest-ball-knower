@@ -95,19 +95,19 @@ assert.ok(
   agent.includes('await recoverAgentSigningConflict(error)')&&
   agent.includes('AGENT_SESSION_TIMEOUT_MS = 12_000')&&
   agent.includes('await ensureAgentSigningSession()')&&
-  agent.includes('JSON.stringify(restore(false)) !== JSON.stringify(signingBeforeState)')&&
+  agent.includes('JSON.stringify(restore()) !== JSON.stringify(agency)')&&
   agent.includes('BACK TO SOLO · KEEP RETRYING')&&
   agent.includes('RETRY CLOUD VERIFICATION'),
   'Agent signing verification must be account-scoped, serialized, cross-tab durable, and freeze every career mutation until saved',
 );
 assert.equal(
   (phase4bFollowup.match(/create or replace function /g)??[]).length,
-  6,
-  'Phase 4B hardening migration must contain exactly its six complete functions',
+  7,
+  'Phase 4B hardening migration must contain exactly its seven complete functions',
 );
 assert.equal(
   (phase4bFollowup.match(/\n\$\$;/g)??[]).length,
-  5,
+  6,
   'Phase 4B hardening migration must close each function body exactly once',
 );
 assert.equal(
@@ -150,14 +150,25 @@ assert.ok(userState.includes("stateKey === OWNER_STATE_KEY")&&userState.includes
 assert.ok(owner.includes('cloudRevision:number')&&owner.includes('cloud.cloudRevision>local.cloudRevision'),'Owner careers must carry and prefer server-issued revisions');
 assert.ok(cloudSync.includes('function directJsonRevision')&&!cloudSync.includes('directJsonUpdatedAt'),'Owner conflict ordering must not depend on client wall clocks');
 assert.ok(cloudSync.includes('restoredServerWinner')&&cloudSync.includes('remoteRevision > localRevision'),'cloud sync must apply the server winner on stale Owner saves');
-const ownerMutationSave=owner.indexOf('save(p,false);');
-const ownerDurableFlush=owner.indexOf('await flushAllCloudState()',ownerMutationSave);
-const ownerMilestoneClaim=owner.indexOf('await claimPendingVerifiedModeMilestones()',ownerDurableFlush);
+const ownerAtomicCall=owner.indexOf('await advanceVerifiedOwnerStep(');
+const ownerMutationSave=owner.indexOf('save(p,false);',ownerAtomicCall);
+const ownerMilestoneClaim=owner.indexOf('await claimPendingVerifiedModeMilestones()',ownerMutationSave);
+const atomicOwnerFunctionStart=phase4bFollowup.indexOf('create or replace function public.commit_ball_knower_verified_owner_step(');
+const atomicOwnerFunctionEnd=phase4bFollowup.indexOf('create or replace function public.commit_ball_knower_expected_agent_signing(',atomicOwnerFunctionStart);
+const atomicOwnerFunction=phase4bFollowup.slice(atomicOwnerFunctionStart,atomicOwnerFunctionEnd);
 assert.ok(
-  ownerMutationSave>=0&&ownerMutationSave<ownerDurableFlush&&ownerDurableFlush<ownerMilestoneClaim&&
-  owner.includes('const save=(p:Partial<State>,trackCash=true)=>{')&&owner.includes('setState(n);persist(n);')&&
-  cloudSync.includes("{ localKey: 'ballknower_owner_career_v3', cloudKey: 'owner_business_career_v1', directJson: true }"),
-  'Owner mutations must persist locally, flush through the registered revisioned cloud coordinator, and only then claim milestones',
+  ownerAtomicCall>=0&&ownerAtomicCall<ownerMutationSave&&ownerMutationSave<ownerMilestoneClaim&&
+  owner.includes('committedRevision>state.cloudRevision')&&
+  owner.includes('cloudRevision:verified?verifiedCloudRevision:state.cloudRevision')&&
+  modeApi.includes('p_owner_state:req?.body?.ownerState')&&
+  modeApi.includes('ownerState:committed.data?.ownerState')&&
+  cloud.includes('expected,ownerState,gmId')&&
+  atomicOwnerFunctionStart>=0&&atomicOwnerFunctionEnd>atomicOwnerFunctionStart&&
+  atomicOwnerFunction.includes("where user_id=p_user_id and state_key='owner_business_career_v1'\n  for update")&&
+  atomicOwnerFunction.includes("'cloudRevision',v_public_revision+1")&&
+  atomicOwnerFunction.includes("'ownerState',v_public.value")&&
+  atomicOwnerFunction.indexOf('insert into public.ball_knower_user_state')<atomicOwnerFunction.indexOf('update ball_knower_private.verified_owner_runs'),
+  'Owner verified runs and their cross-device snapshots must commit atomically before milestone claims',
 );
 assert.ok(
   cloudSync.includes('savedRevision === submittedRevision + 1')&&
@@ -219,13 +230,17 @@ assert.ok(
   'pending Agent signings must block generic cloud writes before the watched local snapshot changes',
 );
 assert.ok(
-  agent.includes('PENDING_RECRUIT_ACTION_KEY')&&
-  agent.includes('includePendingRecruitAction && localStorage.getItem(PENDING_RECRUIT_ACTION_KEY)')&&
+  userState.includes("export const AGENT_PENDING_RECRUIT_ACTION_KEY = 'ballknower_player_agent_recruit_action_v1'")&&
+  agent.includes('const readPendingRecruitAction = ()')&&
+  agent.includes('pending.ownerId !== ownerId')&&
+  agent.includes('JSON.stringify({ ownerId: localStorage.getItem(CLOUD_OWNER_KEY), state })')&&
   agent.includes('persistRecruitAction(actionAgency);')&&
-  agent.includes('const sharedAgency = restore(false);')&&
-  agent.includes('JSON.stringify(restore(false)) !== JSON.stringify(signingBeforeState)')&&
+  agent.includes('const sharedAgency = restore();')&&
+  agent.includes('JSON.stringify(sharedAgency) !== JSON.stringify(agency)')&&
+  agent.includes('JSON.stringify(restore()) !== JSON.stringify(agency)')&&
+  cloudSync.includes('localStorage.removeItem(AGENT_PENDING_RECRUIT_ACTION_KEY)')&&
   agent.includes('localStorage.removeItem(PENDING_RECRUIT_ACTION_KEY);'),
-  'a consumed recruiting action must survive reloads without changing the signing verifier baseline',
+  'a consumed recruiting action must survive reloads, stay account-bound, and remain separate from the CAS baseline',
 );
 const agentAuthoritativeLoad=agent.indexOf('const latest = await loadAuthoritativeAgentCareer();');
 const agentConflictHoldRelease=agent.indexOf('localStorage.removeItem(PENDING_SIGNING_KEY);',agentAuthoritativeLoad);
