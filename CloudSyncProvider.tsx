@@ -324,7 +324,6 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (entry.directJson) {
           const localRevision = directJsonRevision(entry, localRaw);
           const remoteRevision = row ? directJsonRevision(entry, row.value) : 0;
-          const remoteRaw = row ? JSON.stringify(row.value) : null;
           if (dirtyKeys.has(entry.localKey)) {
             upload.push(entry);
           } else if (row && (localRaw === null || remoteRevision > localRevision)) {
