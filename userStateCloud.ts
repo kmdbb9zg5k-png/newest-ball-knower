@@ -7,6 +7,7 @@ export type UserStateRow<T = unknown> = {
   updated_at: string;
 };
 
+const OWNER_STATE_KEY = 'owner_business_career_v1';
 const pendingUserStateWrites = new Set<Promise<unknown>>();
 
 function trackUserStateWrite<T>(write: Promise<T>): Promise<T> {
@@ -36,16 +37,29 @@ export function saveUserStates(entries: Array<{ stateKey: string; value: unknown
   if (!supabase || entries.length === 0) return Promise.resolve([]);
   return trackUserStateWrite((async () => {
     const user = await ensureOnlineSession();
-    const { data, error } = await supabase.from('ball_knower_user_state').upsert(
-      entries.map(entry => ({
-        user_id: user.id,
-        state_key: entry.stateKey,
-        value: entry.value,
-      })),
-      { onConflict: 'user_id,state_key' },
-    ).select('state_key,value,updated_at');
-    if (error) throw error;
-    return (data ?? []) as UserStateRow[];
+    const rows: UserStateRow[] = [];
+    const regularEntries = entries.filter(entry => entry.stateKey !== OWNER_STATE_KEY);
+    if (regularEntries.length > 0) {
+      const { data, error } = await supabase.from('ball_knower_user_state').upsert(
+        regularEntries.map(entry => ({
+          user_id: user.id,
+          state_key: entry.stateKey,
+          value: entry.value,
+        })),
+        { onConflict: 'user_id,state_key' },
+      ).select('state_key,value,updated_at');
+      if (error) throw error;
+      rows.push(...((data ?? []) as UserStateRow[]));
+    }
+    for (const entry of entries.filter(candidate => candidate.stateKey === OWNER_STATE_KEY)) {
+      const { data, error } = await supabase.rpc('save_ball_knower_timestamped_user_state', {
+        p_state_key: entry.stateKey,
+        p_value: entry.value,
+      });
+      if (error) throw error;
+      rows.push(...((data ?? []) as UserStateRow[]));
+    }
+    return rows;
   })());
 }
 
@@ -66,6 +80,14 @@ export function saveUserState(stateKey: string, value: unknown): Promise<void> {
   if (!supabase) return Promise.resolve();
   return trackUserStateWrite((async () => {
     const user = await ensureOnlineSession();
+    if (stateKey === OWNER_STATE_KEY) {
+      const { error } = await supabase.rpc('save_ball_knower_timestamped_user_state', {
+        p_state_key: stateKey,
+        p_value: value,
+      });
+      if (error) throw error;
+      return;
+    }
     const { error } = await supabase.from('ball_knower_user_state').upsert({
       user_id: user.id,
       state_key: stateKey,
