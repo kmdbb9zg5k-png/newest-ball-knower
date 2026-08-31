@@ -137,6 +137,7 @@ export async function claimLeagueChampionshipProgress(leagueId:string):Promise<C
   return {applied:Boolean(row.applied),eventKey:String(row.event_key||'')};
 }
 
+
 export async function fetchTriviaQuestion(tier:string,session?:TriviaSession):Promise<TriviaQuestion>{
   if(!supabase)return localTriviaQuestion(tier);
   try{
