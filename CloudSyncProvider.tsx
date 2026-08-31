@@ -18,6 +18,7 @@ type StorageEntry = {
 const META_KEY = 'ballknower_cloud_meta_v1';
 const OWNER_KEY = 'ballknower_cloud_owner_v1';
 export const OWNER_CLOUD_SYNC_EVENT = 'ballknower:owner-cloud-saved';
+export const OWNER_CLOUD_CONFLICT_EVENT = 'ballknower:owner-cloud-conflict';
 const MAX_CLOUD_RAW_LENGTH = 220_000;
 const CLOUD_STORAGE: StorageEntry[] = [
   { localKey: 'ball-knower-favorite-team', cloudKey: 'favorite_team' },
@@ -205,9 +206,22 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               savedRevision === submittedRevision + 1 &&
               directJsonPayload(savedRow.value) === directJsonPayload(submitted);
             if (current !== snapshot && current) {
-              // A newer same-tab action arrived after this upload began. Rebase
-              // it onto whichever server revision won, even when the submitted
-              // snapshot was stale, and leave the key dirty for the next pass.
+              if (!accepted) {
+                // Preserve evidence of the local action, but never make a stale
+                // payload eligible to overwrite the newer server snapshot.
+                localStorage.setItem(`${entry.localKey}:conflict-backup`, current);
+                applyRemote(entry, savedRow.value);
+                lastValues.set(entry.localKey, localStorage.getItem(entry.localKey));
+                dirtyKeys.delete(entry.localKey);
+                meta[entry.localKey] = Date.parse(savedRow.updated_at) || meta[entry.localKey] || 0;
+                if (entry.localKey === 'ballknower_owner_career_v3') {
+                  window.dispatchEvent(new CustomEvent(OWNER_CLOUD_SYNC_EVENT, { detail: savedRow.value }));
+                  window.dispatchEvent(new CustomEvent(OWNER_CLOUD_CONFLICT_EVENT));
+                }
+                continue;
+              }
+              // The submitted snapshot was accepted, so the newer local action
+              // can safely inherit that exact server revision and retry.
               const rebased = {
                 ...JSON.parse(current) as Record<string, unknown>,
                 cloudRevision: savedRevision,
@@ -218,7 +232,6 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               if (entry.localKey === 'ballknower_owner_career_v3') {
                 window.dispatchEvent(new CustomEvent(OWNER_CLOUD_SYNC_EVENT, { detail: rebased }));
               }
-              if (!accepted) console.warn('Owner cloud conflict rebased a newer local action for retry.');
               continue;
             }
             const directJsonChanged = applyRemote(entry, savedRow.value);
