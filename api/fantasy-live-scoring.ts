@@ -355,10 +355,9 @@ async function processHistoricalBackfill(db:any,now:Date):Promise<Json>{
           game_status:status,game_status_code:String(game.gameStatusCode||''),game_period:null,game_clock:null,
           is_live:false,is_final:isFinalGameStatus(status),final_at:isFinalGameStatus(status)?now.toISOString():null,last_polled_at:null}];
       });
-      if(games.length){
-        const {error}=await db.from('ball_knower_nfl_games').upsert(games,{onConflict:'provider_game_id'});
-        if(error) throw error;
-      }
+      if(!games.length) throw new Tank01Error('/getNFLGamesForWeek',200,'payload',`Tank01 returned no valid games for ${season} week ${week}.`);
+      const {error:scheduleError}=await db.from('ball_knower_nfl_games').upsert(games,{onConflict:'provider_game_id'});
+      if(scheduleError) throw scheduleError;
       const {error}=await db.from('ball_knower_fantasy_history_backfill').update({schedule_loaded_at:now.toISOString(),attempts:Number(state.attempts||0)+1,last_error:null,updated_at:now.toISOString()})
         .eq('season',season).eq('season_type',seasonType).eq('week_number',week);
       if(error) throw error;
@@ -400,6 +399,8 @@ async function processHistoricalBackfill(db:any,now:Date):Promise<Json>{
         is_home:matchup.isHome,kickoff_at:game.kickoff_at,game_status:status,is_final:isFinalGameStatus(status),stats:normalizeTank01DefenseStats(defenseRaw),
         fantasy_points:{standard:actual,half_ppr:actual,ppr:actual},projected_points:{},history_source:'tank01_historical_boxscore',provider_updated_at:now.toISOString(),updated_at:now.toISOString()});
     }
+    if(!isFinalGameStatus(status)) throw new Tank01Error('/getNFLBoxScore',200,'payload',`Historical game ${game.provider_game_id} is not final.`);
+    if(!rows.length) throw new Tank01Error('/getNFLBoxScore',200,'payload',`Historical game ${game.provider_game_id} returned no usable scoring rows.`);
     if(rows.length){
       const {error}=await db.from('ball_knower_player_week_scores').upsert(rows,{onConflict:'provider_game_id,provider_player_id'});
       if(error) throw error;
@@ -452,6 +453,9 @@ export default async function handler(req:any,res:any){
       db.from('ball_knower_leagues').select('id,status,settings'),
       db.from('ball_knower_live_drafts').select('league_id,status').eq('status','completed'),
     ]);
+    // Taken after the provider response is available. This is conservative if
+    // a game crosses kickoff while the other parallel reads are still running.
+    const projectionsRetrievedAt=new Date();
     if(existingGamesResult.error) throw existingGamesResult.error;
     if(leagueResult.error) throw leagueResult.error;
     if(draftResult.error) throw draftResult.error;
@@ -546,7 +550,7 @@ export default async function handler(req:any,res:any){
       const team=normalizeTeam(projection.teamAbv||projection.team);
       const game=scheduleRows.find(item=>item.home_team===team||item.away_team===team);
       const snapshot=projectionScores(projection);
-      if(!providerPlayerId||!name||!game||Date.parse(game.kickoff_at)<=now.getTime()) continue;
+      if(!providerPlayerId||!name||!game||Date.parse(game.kickoff_at)<=projectionsRetrievedAt.getTime()) continue;
       const appPlayer=appPlayerByKey.get(playerKey(name,team));
       const matchup=matchupForTeam(game,team);
       scheduledProjectionRows.push({
@@ -555,12 +559,12 @@ export default async function handler(req:any,res:any){
         opponent_team:matchup.opponentTeam,is_home:matchup.isHome,kickoff_at:game.kickoff_at,game_status:game.game_status,is_final:false,
         stats:{},fantasy_points:{},projected_points:snapshot,pregame_projected_points:snapshot,
         pregame_projection_reason:projectionReason(team,matchup.opponentTeam,matchup.isHome),pregame_projection_source:'Tank01 weekly projections',
-        pregame_projection_captured_at:now.toISOString(),history_source:'tank01',provider_updated_at:now.toISOString(),updated_at:now.toISOString(),
+        pregame_projection_captured_at:projectionsRetrievedAt.toISOString(),history_source:'tank01',provider_updated_at:now.toISOString(),updated_at:now.toISOString(),
       });
     }
     for(const [team,projection] of defenseProjectionByTeam){
       const game=scheduleRows.find(item=>item.home_team===team||item.away_team===team);
-      if(!game||Date.parse(game.kickoff_at)<=now.getTime()) continue;
+      if(!game||Date.parse(game.kickoff_at)<=projectionsRetrievedAt.getTime()) continue;
       const value=numeric(projection.fantasyPointsDefault);
       const snapshot={standard:value,half_ppr:value,ppr:value};
       const matchup=matchupForTeam(game,team);
@@ -569,7 +573,7 @@ export default async function handler(req:any,res:any){
         season,season_type:seasonType,week_number:week,player_name:`${team} D/ST`,team,position:'DST',opponent_team:matchup.opponentTeam,is_home:matchup.isHome,
         kickoff_at:game.kickoff_at,game_status:game.game_status,is_final:false,stats:{},fantasy_points:{},projected_points:snapshot,
         pregame_projected_points:snapshot,pregame_projection_reason:projectionReason(team,matchup.opponentTeam,matchup.isHome),
-        pregame_projection_source:'Tank01 weekly projections',pregame_projection_captured_at:now.toISOString(),history_source:'tank01',
+        pregame_projection_source:'Tank01 weekly projections',pregame_projection_captured_at:projectionsRetrievedAt.toISOString(),history_source:'tank01',
         provider_updated_at:now.toISOString(),updated_at:now.toISOString(),
       });
     }
