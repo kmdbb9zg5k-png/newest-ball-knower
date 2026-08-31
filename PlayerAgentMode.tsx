@@ -360,6 +360,8 @@ type PendingAgentSigning = {
   state: AgencyState;
 };
 
+class AgentSigningConflictError extends Error {}
+
 let pendingAgentSigningWrite: Promise<void> | null = null;
 const readPendingAgentSigning = (): PendingAgentSigning | null => {
   try {
@@ -421,11 +423,24 @@ const verifyPendingAgentSigning = async (
         continue;
       }
 
-      await commitAgentSigningForExpectedUser(
-        pending.userId,
-        { raw: JSON.stringify(pending.beforeState) },
-        { raw: JSON.stringify(pending.state) },
-      );
+      try {
+        await commitAgentSigningForExpectedUser(
+          pending.userId,
+          { raw: JSON.stringify(pending.beforeState) },
+          { raw: JSON.stringify(pending.state) },
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.includes("Agent career changed before signing")) {
+          if (localStorage.getItem(PENDING_SIGNING_KEY) === raw) {
+            localStorage.removeItem(PENDING_SIGNING_KEY);
+          }
+          throw new AgentSigningConflictError(
+            "Another tab changed this Agent career first. The latest saved career was restored.",
+          );
+        }
+        throw error;
+      }
       if (localStorage.getItem(PENDING_SIGNING_KEY) !== raw) {
         continue;
       }
@@ -639,6 +654,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
   const [levelUp, setLevelUp] = useState<{ from: number; to: number } | null>(
     null,
   );
+  const [agentSigningError, setAgentSigningError] = useState("");
   const signingInFlightRef = useRef(false);
   const [signingInFlight, setSigningInFlight] = useState(false);
   const [verifyingAgentSigning, setVerifyingAgentSigning] = useState(
@@ -654,6 +670,14 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       await verifyPendingAgentSigning(state, signingUserId, beforeState);
       setVerifyingAgentSigning(pendingAgentSigningWrite !== null || readPendingAgentSigning() !== null);
     } catch (error) {
+      if (error instanceof AgentSigningConflictError) {
+        setAgency(restore());
+        setRecruit(null);
+        setSelectedId(null);
+        setAgentSigningError(error.message);
+        setVerifyingAgentSigning(false);
+        return;
+      }
       // Keep the lock and durable retry snapshot until cloud persistence works.
       setVerifyingAgentSigning(true);
       console.warn("Agent signing cloud verification pending retry", error);
@@ -677,6 +701,14 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           }
         })
         .catch((error) => {
+          if (!cancelled && error instanceof AgentSigningConflictError) {
+            setAgency(restore());
+            setRecruit(null);
+            setSelectedId(null);
+            setAgentSigningError(error.message);
+            setVerifyingAgentSigning(false);
+            return;
+          }
           if (!cancelled) setVerifyingAgentSigning(true);
           console.warn("Agent signing cloud verification pending retry", error);
         });
@@ -1053,6 +1085,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
 
   const beginRecruit = (p: Player) => {
     if (clients.length >= clientCapacity) return;
+    setAgentSigningError("");
     const actionAgency = spendAction("starting another recruiting meeting");
     if (!actionAgency) return;
     const profile = createRecruitingProfile(p);
@@ -1212,6 +1245,11 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
         console.warn("Agent signing session unavailable", error);
         return;
       }
+      if (JSON.stringify(restore()) !== JSON.stringify(signingBeforeState)) {
+        throw new AgentSigningConflictError(
+          "Another tab changed this Agent career during signing. The latest saved career was restored.",
+        );
+      }
       const cooldowns = { ...agency.recruitCooldowns };
       delete cooldowns[selected.id];
       const next: AgencyState = {
@@ -1267,6 +1305,9 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       } catch (error) {
         const sharedAgency = restore();
         setAgency(sharedAgency);
+        setAgentSigningError(
+          error instanceof Error ? error.message : "Agent signing was blocked to preserve newer career progress.",
+        );
         setRecruit({
           ...recruit,
           choices: [],
@@ -1617,6 +1658,12 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
             <div className="text-lg font-black">{agency.profile.name}</div>
           </div>
         </div>
+
+        {agentSigningError && (
+          <div className="mb-4 rounded-2xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm font-bold text-amber-100">
+            {agentSigningError}
+          </div>
+        )}
 
         <section className="rounded-[2rem] border border-violet-300/20 bg-[#0c1018] p-5 sm:p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
