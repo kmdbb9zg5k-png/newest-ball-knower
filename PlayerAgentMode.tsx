@@ -16,7 +16,7 @@ import { PLAYERS_DATABASE } from "./players";
 import { Player } from "./types";
 import { playerPortraitUrl } from "./playerPortraits";
 import { ModalPortal } from "./ModalPortal";
-import { saveUserStateForExpectedUser } from "./userStateCloud";
+import { commitAgentSigningForExpectedUser } from "./userStateCloud";
 import { claimPendingVerifiedModeMilestones } from "./modeProgressionCloud";
 import { ensureOnlineSession } from "./supabase";
 import {
@@ -355,6 +355,7 @@ const withAgentSigningTabLock = async <T,>(task: () => Promise<T>): Promise<T> =
 
 type PendingAgentSigning = {
   userId: string;
+  beforeState: AgencyState;
   state: AgencyState;
 };
 
@@ -367,6 +368,8 @@ const readPendingAgentSigning = (): PendingAgentSigning | null => {
     if (
       typeof pending.userId !== "string" ||
       !pending.userId ||
+      !pending.beforeState ||
+      typeof pending.beforeState !== "object" ||
       !pending.state ||
       typeof pending.state !== "object"
     ) {
@@ -380,12 +383,19 @@ const readPendingAgentSigning = (): PendingAgentSigning | null => {
 const verifyPendingAgentSigning = async (
   state?: AgencyState,
   signingUserId?: string,
+  beforeState?: AgencyState,
 ): Promise<void> => {
   if (state) {
-    if (!signingUserId) throw new Error("Signing account is required.");
+    if (!signingUserId || !beforeState) {
+      throw new Error("Signing account and pre-signing state are required.");
+    }
     localStorage.setItem(
       PENDING_SIGNING_KEY,
-      JSON.stringify({ userId: signingUserId, state } satisfies PendingAgentSigning),
+      JSON.stringify({
+        userId: signingUserId,
+        beforeState,
+        state,
+      } satisfies PendingAgentSigning),
     );
   }
   if (pendingAgentSigningWrite) return pendingAgentSigningWrite;
@@ -410,9 +420,9 @@ const verifyPendingAgentSigning = async (
         continue;
       }
 
-      await saveUserStateForExpectedUser(
+      await commitAgentSigningForExpectedUser(
         pending.userId,
-        "player_agent_career",
+        { raw: JSON.stringify(pending.beforeState) },
         { raw: JSON.stringify(pending.state) },
       );
       if (localStorage.getItem(PENDING_SIGNING_KEY) !== raw) {
@@ -636,10 +646,11 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
   const retryAgentSigningVerification = async (
     state?: AgencyState,
     signingUserId?: string,
+    beforeState?: AgencyState,
   ) => {
     setVerifyingAgentSigning(true);
     try {
-      await verifyPendingAgentSigning(state, signingUserId);
+      await verifyPendingAgentSigning(state, signingUserId, beforeState);
       setVerifyingAgentSigning(pendingAgentSigningWrite !== null || readPendingAgentSigning() !== null);
     } catch (error) {
       // Keep the lock and durable retry snapshot until cloud persistence works.
@@ -1187,13 +1198,6 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       let signingUserId: string;
       try {
         signingUserId = (await ensureOnlineSession()).id;
-        // Seed the exact pre-signing state so a first cloud write cannot be
-        // mistaken for a legacy baseline instead of a verified transition.
-        await saveUserStateForExpectedUser(
-          signingUserId,
-          "player_agent_career",
-          { raw: JSON.stringify(agency) },
-        );
       } catch (error) {
         setRecruit({
           ...recruit,
@@ -1247,7 +1251,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       });
       // The durable pending snapshot survives mode navigation/reloads. The
       // week and Back controls stay locked until this exact signing is saved.
-      await retryAgentSigningVerification(next, signingUserId);
+      await retryAgentSigningVerification(next, signingUserId, agency);
       if (after > before) {
         setLevelUp({ from: before, to: after });
         try {
