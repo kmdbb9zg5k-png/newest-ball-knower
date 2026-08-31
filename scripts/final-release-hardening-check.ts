@@ -49,14 +49,16 @@ assert.ok(cloudSync.includes("ballknower_player_agent_v4")&&cloudSync.includes("
 const agentWeekGuard=agent.indexOf('if (verifyingAgentSigning) return;');
 const agentSigningSession=agent.indexOf('signingUserId = (await ensureOnlineSession()).id;');
 const agentAccountSnapshot=agent.indexOf('JSON.stringify({ userId: signingUserId, state } satisfies PendingAgentSigning)');
-const agentSigningPersist=agent.indexOf('persist(next);',agentSigningSession);
+const agentSigningBaseline=agent.indexOf('raw: JSON.stringify(agency)',agentSigningSession);
+const agentSigningPersist=agent.indexOf('persist(next);',agentSigningBaseline);
 const agentSigningVerify=agent.indexOf('retryAgentSigningVerification(next, signingUserId)',agentSigningPersist);
 const agentCloudSave=agent.indexOf('await saveUserState("player_agent_career"');
 const agentPendingClear=agent.indexOf('localStorage.removeItem(PENDING_SIGNING_KEY)',agentCloudSave);
 const agentMilestoneClaim=agent.indexOf('await claimPendingVerifiedModeMilestones()',agentPendingClear);
 assert.ok(
   agentWeekGuard>=0&&agent.includes('const handleBack = () => {\n    onBack();')&&
-  agentSigningSession>=0&&agentSigningSession<agentSigningPersist&&
+  agentSigningSession>=0&&agentSigningSession<agentSigningBaseline&&
+  agentSigningBaseline<agentSigningPersist&&
   agentSigningPersist<agentSigningVerify&&
   agentAccountSnapshot>=0&&agentAccountSnapshot<agentCloudSave&&
   agent.includes('pending.userId !== user.id')&&
