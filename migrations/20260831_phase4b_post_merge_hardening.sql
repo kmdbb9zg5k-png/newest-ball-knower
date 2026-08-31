@@ -253,7 +253,7 @@ create or replace function public.commit_ball_knower_verified_owner_step(
 language plpgsql
 security definer
 set search_path=public,ball_knower_private,pg_temp
-as $
+as $owner_atomic$
 declare
   v_old ball_knower_private.verified_owner_runs%rowtype;
   v_new ball_knower_private.verified_owner_runs%rowtype;
@@ -347,7 +347,7 @@ begin
     'milestoneIds',v_ids
   );
 end;
-$;
+$owner_atomic$;
 revoke all on function public.commit_ball_knower_verified_owner_step(uuid,integer,integer,integer,text,integer,integer,integer,boolean,jsonb) from public,anon,authenticated;
 grant execute on function public.commit_ball_knower_verified_owner_step(uuid,integer,integer,integer,text,integer,integer,integer,boolean,jsonb) to service_role;
 
