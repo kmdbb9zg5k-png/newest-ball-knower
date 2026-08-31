@@ -26,7 +26,8 @@
     "check:phase2-lineups": "node --import tsx scripts/phase2-deterministic-lineup-check.ts",
     "check:phase3-agent": "node --import tsx scripts/phase3-agent-recruiting-check.ts",
     "check:phase3-careers": "node --import tsx scripts/phase3-agent-career-check.ts",
-    "check:hardening": "npm run lint && npm run check:integrity && npm run check:draft-reliability && npm run check:trivia && npm run check:identity && npm run check:yahoo-parity && npm run check:picks && npm run check:phase1-correctness && npm run check:dst-rankings && npm run check:fantasy-transactions && npm run check:phase2-player-details && npm run check:phase2-history && npm run check:phase2-lineups && npm run check:phase3-agent && npm run check:phase3-careers"
+    "check:phase3-growth": "node --import tsx scripts/phase3-agent-growth-check.ts",
+    "check:hardening": "npm run lint && npm run check:integrity && npm run check:draft-reliability && npm run check:trivia && npm run check:identity && npm run check:yahoo-parity && npm run check:picks && npm run check:phase1-correctness && npm run check:dst-rankings && npm run check:fantasy-transactions && npm run check:phase2-player-details && npm run check:phase2-history && npm run check:phase2-lineups && npm run check:phase3-agent && npm run check:phase3-careers && npm run check:phase3-growth"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
