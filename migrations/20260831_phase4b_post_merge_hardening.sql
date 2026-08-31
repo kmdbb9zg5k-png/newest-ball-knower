@@ -44,7 +44,9 @@ begin
   select * into v_claim from public.ball_knower_guest_account_claims
   where token_hash=extensions.digest(p_token,'sha256') for update;
   if v_claim.guest_user_id is null then raise exception 'Guest merge token is invalid'; end if;
-  if v_claim.expires_at<clock_timestamp() then raise exception 'Guest merge token expired'; end if;
+  if v_claim.claimed_at is null and v_claim.expires_at<clock_timestamp() then
+    raise exception 'Guest merge token expired';
+  end if;
   if v_claim.guest_user_id=v_target then raise exception 'Guest and permanent identities must differ'; end if;
   if v_claim.claimed_at is not null and v_claim.claimed_by is distinct from v_target then
     raise exception 'Guest progress was already claimed by another account';
@@ -367,7 +369,25 @@ begin
     version=greatest(ball_knower_private.verified_owner_runs.version,excluded.version)+1,
     updated_at=greatest(ball_knower_private.verified_owner_runs.updated_at,excluded.updated_at)
   where v_guest_owner_wins;
-  if v_guest_owner_wins then
+  -- A guest Owner snapshot can exist before the first verified run begins.
+  -- Transfer it when neither identity has a verified run; otherwise the verified
+  -- run winner remains authoritative so public and private Owner state stay aligned.
+  if v_guest_owner_wins or (
+    exists (
+      select 1 from public.ball_knower_user_state guest_state
+      where guest_state.user_id=new.guest_user_id
+        and guest_state.state_key='owner_business_career_v1'
+        and jsonb_typeof(guest_state.value)='object'
+    )
+    and not exists (
+      select 1 from ball_knower_private.verified_owner_runs guest_run
+      where guest_run.user_id=new.guest_user_id
+    )
+    and not exists (
+      select 1 from ball_knower_private.verified_owner_runs target_run
+      where target_run.user_id=new.claimed_by
+    )
+  ) then
     perform set_config('ball_knower.owner_revision_write','on',true);
     insert into public.ball_knower_user_state as target(user_id,state_key,value,updated_at)
     select new.claimed_by,state_key,
