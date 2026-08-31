@@ -17,6 +17,7 @@ type StorageEntry = {
 
 const META_KEY = 'ballknower_cloud_meta_v1';
 const OWNER_KEY = 'ballknower_cloud_owner_v1';
+export const OWNER_CLOUD_SYNC_EVENT = 'ballknower:owner-cloud-saved';
 const MAX_CLOUD_RAW_LENGTH = 220_000;
 const CLOUD_STORAGE: StorageEntry[] = [
   { localKey: 'ball-knower-favorite-team', cloudKey: 'favorite_team' },
@@ -214,10 +215,20 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               localStorage.setItem(entry.localKey, JSON.stringify(rebased));
               lastValues.set(entry.localKey, localStorage.getItem(entry.localKey));
               meta[entry.localKey] = Date.parse(savedRow.updated_at) || meta[entry.localKey] || 0;
+              if (entry.localKey === 'ballknower_owner_career_v3') {
+                window.dispatchEvent(new CustomEvent(OWNER_CLOUD_SYNC_EVENT, { detail: rebased }));
+              }
               if (!accepted) console.warn('Owner cloud conflict rebased a newer local action for retry.');
               continue;
             }
-            restoredServerWinner = applyRemote(entry, savedRow.value) || restoredServerWinner;
+            const directJsonChanged = applyRemote(entry, savedRow.value);
+            if (accepted) {
+              if (entry.localKey === 'ballknower_owner_career_v3') {
+                window.dispatchEvent(new CustomEvent(OWNER_CLOUD_SYNC_EVENT, { detail: savedRow.value }));
+              }
+            } else {
+              restoredServerWinner = directJsonChanged || restoredServerWinner;
+            }
             lastValues.set(entry.localKey, localStorage.getItem(entry.localKey));
           } else if (current !== snapshot) {
             continue;
