@@ -128,9 +128,10 @@ export function nextClientEvent(
   const id = `${player.id}:${seasonYear}:${seasonWeek}`;
   if (career.lastEventKey === id) return undefined;
   const kinds = Object.keys(EVENT_COPY) as ClientEventKind[];
-  const promised = career.promises.filter((p) =>
-    kinds.includes(p as ClientEventKind),
-  ) as ClientEventKind[];
+  const promised = kinds.filter((kind) => {
+    const promise = EVENT_COPY[kind].promise;
+    return promise !== undefined && career.promises.includes(promise);
+  });
   const kind =
     promised.length && career.resolvedEvents % 2 === 0
       ? promised[hash(id) % promised.length]
@@ -159,6 +160,19 @@ export function resolveClientEvent(args: {
   outcome: string;
 } {
   const { career, event, choice, agency } = args;
+  if (
+    career.pendingEvent?.id !== event.id ||
+    career.lastEventKey === event.id
+  ) {
+    return {
+      career,
+      trustDelta: 0,
+      reputationDelta: 0,
+      clientCareDelta: 0,
+      brandDelta: 0,
+      outcome: "This client decision is no longer active.",
+    };
+  }
   const promised = Boolean(
     event.promise && career.promises.includes(event.promise),
   );
