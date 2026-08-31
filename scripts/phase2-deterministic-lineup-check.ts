@@ -30,7 +30,10 @@ assert.equal(resolveWeeklyProjection('missing',weekOne,'ppr',false),null,'missin
 
 const api=readFileSync(new URL('../api/fantasy-live-scoring.ts',import.meta.url),'utf8');
 assert.match(api,/\.sort\(compare\)\.map\(player=>player\.id\)/,'server bench must be deterministic');
-assert.doesNotMatch(api.slice(api.indexOf('function defaultLineup'),api.indexOf('async function processHistoricalBackfill')),/localeCompare/,'server lineup ordering must not depend on runtime locale');
+const serverLineupStart=api.indexOf('function defaultLineup');
+const serverLineupEnd=api.indexOf('async function processHistoricalBackfill');
+assert.ok(serverLineupStart>=0&&serverLineupEnd>serverLineupStart,'server lineup function range must be present');
+assert.doesNotMatch(api.slice(serverLineupStart,serverLineupEnd),/localeCompare/,'server lineup ordering must not depend on runtime locale');
 assert.match(api,/if\(!lineup\)\{[\s\S]*defaultLineup/,'saved authoritative lineups must take precedence');
 assert.match(api,/opponent:game\?matchupForTeam/,'server score details must expose the opponent');
 const screen=readFileSync(new URL('../FantasyLeaguePostDraft.tsx',import.meta.url),'utf8');
