@@ -56,6 +56,7 @@ import {
   submitFaabClaim,
   validateWeeklyLineup,
   WeeklyLineup,
+  WeeklyPlayerProjection,
   WeeklyScore,
 } from "./fantasyLeagueParityCloud";
 import { counterTradeV2 } from "./fantasyTradeV2Cloud";
@@ -155,6 +156,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const [memberMetaLoaded, setMemberMetaLoaded] = useState(false);
   const [archives, setArchives] = useState<ArchivedSeason[]>([]);
   const [nflGames, setNflGames] = useState<NflWeekGame[]>([]);
+  const [weeklyProjections, setWeeklyProjections] = useState<WeeklyPlayerProjection[]>([]);
   const [trades, setTrades] = useState<TradeOffer[]>([]);
   const [claims, setClaims] = useState<WaiverClaim[]>([]);
   const [injuries, setInjuries] = useState<LeagueInjury[]>([]);
@@ -267,6 +269,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
       setMemberMetaLoaded(true);
       setArchives([...parity.archives]);
       setNflGames([...parity.games]);
+      setWeeklyProjections([...parity.projections]);
       setTrades([...ops.trades]);
       setClaims([...ops.claims]);
       setInjuries([...ops.injuries]);
@@ -778,6 +781,28 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const viewedAway = league.members.find(
     (member) => member.id === viewedMatchup?.awayMemberId,
   );
+  const weeklyProjectionFor = (player: Player): number | null => {
+    if (Object.keys(settings.customScoring || {}).length) return null;
+    const format = settings.scoringFormat === "standard"
+      ? "standard"
+      : settings.scoringFormat === "half_ppr"
+        ? "half_ppr"
+        : "ppr";
+    const value = Number(
+      weeklyProjections.find((projection) => projection.playerId === player.id)
+        ?.projectedPoints[format],
+    );
+    return Number.isFinite(value) ? value : null;
+  };
+  const compareWeeklyLineupPlayers = (a: Player, b: Player) => {
+    const aProjection = weeklyProjectionFor(a);
+    const bProjection = weeklyProjectionFor(b);
+    if (aProjection !== null && bProjection !== null && aProjection !== bProjection)
+      return bProjection - aProjection;
+    if (aProjection !== null) return -1;
+    if (bProjection !== null) return 1;
+    return comparePlayers(a, b);
+  };
   const matchupScoreFor = (member?: LeagueMember): WeeklyScore | undefined => {
     if (!member) return undefined;
     const authoritative = scores.find(
@@ -787,7 +812,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
     const saved = lineups.find((lineup) => lineup.memberId === member.id);
     const starters = saved?.starters && Object.keys(saved.starters).length
       ? saved.starters
-      : buildFantasyLineup(member.roster || [], comparePlayers);
+      : buildFantasyLineup(member.roster || [], compareWeeklyLineupPlayers);
     const players = LINEUP_SLOTS.flatMap((slot): PlayerScoreDetail[] => {
       const player = (member.roster || []).find((item) => item.id === starters[slot.id]);
       if (!player) return [];
@@ -799,6 +824,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
           ? game.awayTeam
           : game.homeTeam
         : undefined;
+      const weeklyProjection = weeklyProjectionFor(player);
       return [{
         slot: slot.id,
         playerId: player.id,
@@ -807,7 +833,8 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
         position: player.position,
         opponent,
         points: 0,
-        projectedPoints: projectedPointsFor(player) || 0,
+        projectedPoints: weeklyProjection || 0,
+        projectionAvailable: weeklyProjection !== null,
         status: game?.gameStatus || "Scheduled",
         kickoffAt: game?.kickoffAt,
         isLive: false,
@@ -815,12 +842,16 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
         locked: Boolean(saved?.lockedPlayerIds.includes(player.id)),
       }];
     });
+    const hasProjectedTotal = players.length > 0 && players.every(
+      (player) => player.projectionAvailable !== false,
+    );
     return {
       leagueId: league.id,
       memberId: member.id,
       week,
       livePoints: 0,
       projectedPoints: players.reduce((total, player) => total + player.projectedPoints, 0),
+      hasProjectedTotal,
       source: "deterministic_projection",
       isFinal: false,
       scoreRevision: 1,
@@ -1195,7 +1226,9 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                       {awayScore?.isFinal ||
                       awayScore?.players.some((player) => player.isLive)
                         ? awayScore.livePoints.toFixed(1)
-                        : awayScore?.projectedPoints.toFixed(1) || "—"}
+                        : awayScore?.hasProjectedTotal === false
+                          ? "—"
+                          : awayScore?.projectedPoints.toFixed(1) || "—"}
                     </span>
                   </div>
                   <div className="mt-1 flex items-center justify-between gap-2 text-[10px] font-black">
@@ -1204,7 +1237,9 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                       {homeScore?.isFinal ||
                       homeScore?.players.some((player) => player.isLive)
                         ? homeScore.livePoints.toFixed(1)
-                        : homeScore?.projectedPoints.toFixed(1) || "—"}
+                        : homeScore?.hasProjectedTotal === false
+                          ? "—"
+                          : homeScore?.projectedPoints.toFixed(1) || "—"}
                     </span>
                   </div>
                 </button>
@@ -1226,14 +1261,14 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                   <Score
                     name={displayManagerName(viewedAway)}
                     points={viewedAwayScore?.livePoints || 0}
-                    projection={viewedAwayScore?.projectedPoints}
+                    projection={viewedAwayScore?.hasProjectedTotal === false ? undefined : viewedAwayScore?.projectedPoints}
                     status={viewedScoreStatus}
                   />
                   <b className="text-zinc-600">@</b>
                   <Score
                     name={displayManagerName(viewedHome)}
                     points={viewedHomeScore?.livePoints || 0}
-                    projection={viewedHomeScore?.projectedPoints}
+                    projection={viewedHomeScore?.hasProjectedTotal === false ? undefined : viewedHomeScore?.projectedPoints}
                     status={viewedScoreStatus}
                   />
                 </div>
@@ -2703,7 +2738,9 @@ const MatchupRoster = ({
         <div className="text-lg font-black">
           {score?.isFinal || score?.players.some((player) => player.isLive)
             ? Number(score?.livePoints || 0).toFixed(1)
-            : Number(score?.projectedPoints || 0).toFixed(1)}
+            : score?.hasProjectedTotal === false
+              ? "—"
+              : Number(score?.projectedPoints || 0).toFixed(1)}
         </div>
         <div className="text-[8px] font-black uppercase text-zinc-600">
           {score?.isFinal ? "Points" : "Projection"}
@@ -2773,7 +2810,7 @@ const MatchupPlayerRow = ({
           {player.isLive || player.isFinal ? player.points.toFixed(1) : "—"}
         </div>
         <div className="text-[8px] text-zinc-600">
-          {player.projectedPoints.toFixed(1)} proj
+          {player.projectionAvailable === false ? "— proj" : `${player.projectedPoints.toFixed(1)} proj`}
         </div>
       </div>
     </button>
