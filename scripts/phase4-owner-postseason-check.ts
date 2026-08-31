@@ -28,4 +28,5 @@ const ownerMode=readFileSync(new URL('../OwnerBusinessMode.tsx',import.meta.url)
 assert.ok(!ownerMode.includes('cashM:state.cashM-p.costM'),'annual staff salary must not also be charged up front');
 assert.ok(ownerMode.includes('seasonStaffCommitmentsM:state.seasonStaffCommitmentsM+p.costM'),'hired staff salary must remain obligated after a later firing');
 assert.ok(ownerMode.includes('Math.max(0,-choiceCash)'),'decision spending must be included in season expenses');
+assert.ok(ownerMode.includes('careerExpensesM:trackCash&&cashDelta<0'),'buyouts and investments must reach the career expense ledger');
 console.log('Phase 4 Owner postseason checks passed.');
