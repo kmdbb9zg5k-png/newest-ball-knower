@@ -48,24 +48,28 @@ assert.ok(migration.includes("career,fulfilledPromises"),'Agent promise rewards 
 assert.ok(cloudSync.includes("ballknower_player_agent_v4")&&cloudSync.includes("ballknower_owner_career_v3"),'Owner and Agent careers must remain cross-device synced');
 const agentWeekGuard=agent.indexOf('if (verifyingAgentSigning) return;');
 const agentSigningSession=agent.indexOf('signingUserId = (await ensureAgentSigningSession()).id;');
-const agentSigningPersist=agent.indexOf('persist(next);',agentSigningSession);
-const agentSigningVerify=agent.indexOf('retryAgentSigningVerification(next, signingUserId, signingBeforeState)',agentSigningPersist);
+const agentSigningStage=agent.indexOf('stagePendingAgentSigning(signingUserId, signingBeforeState, next);',agentSigningSession);
+const agentSigningPersist=agent.indexOf('persist(next);',agentSigningStage);
+const agentSigningVerify=agent.indexOf('retryAgentSigningVerification();',agentSigningPersist);
 const agentCloudSave=agent.indexOf('await commitAgentSigningForExpectedUser(');
 const agentPendingClear=agent.indexOf('localStorage.removeItem(PENDING_SIGNING_KEY)',agentCloudSave);
 const agentMilestoneClaim=agent.indexOf('await claimPendingVerifiedModeMilestones()',agentPendingClear);
 assert.ok(
   agentWeekGuard>=0&&agent.includes('const handleBack = () => {\n    onBack();')&&
-  agentSigningSession>=0&&agentSigningSession<agentSigningPersist&&
-  agentSigningPersist<agentSigningVerify&&
+  agentSigningSession>=0&&agentSigningSession<agentSigningStage&&
+  agentSigningStage<agentSigningPersist&&agentSigningPersist<agentSigningVerify&&
   agentCloudSave>=0&&agentCloudSave<agentPendingClear&&
   agent.includes('pending.userId !== user.id')&&
   agent.includes('Signing account and pre-signing state are required.')&&
   agent.includes('commitAgentSigningForExpectedUser(')&&
   agent.includes('pending.beforeState')&&
   agent.includes('beforeState,')&&
-  agent.includes('setAgency(actionAgency);\n    setSelectedId(p.id);\n    setRecruit({\n      playerId: p.id,\n      beforeState: agency,')&&
+  agent.includes('setAgency(actionAgency);')&&
+  agent.includes('persistRecruitAction(actionAgency);')&&
+  agent.includes('playerId: p.id,\n      beforeState: agency,')&&
   agent.includes('persist(agency);\n                      setRecruit(null);')&&
-  agent.includes('retryAgentSigningVerification(next, signingUserId, signingBeforeState)')&&
+  agent.includes('stagePendingAgentSigning(signingUserId, signingBeforeState, next)')&&
+  agent.includes('retryAgentSigningVerification()')&&
   agent.includes('localStorage.getItem(PENDING_SIGNING_KEY) !== raw')&&
   agent.includes('while (true)')&&
   agentCloudSave<agentPendingClear&&agentPendingClear<agentMilestoneClaim&&
