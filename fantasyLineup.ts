@@ -1,5 +1,21 @@
 import type { Player } from './types';
 
+export type WeeklyProjectionInput = {
+  playerId:string;
+  projectedPoints:Record<string,number>;
+};
+
+export function resolveWeeklyProjection(
+  playerId:string,
+  projections:WeeklyProjectionInput[],
+  format:'standard'|'half_ppr'|'ppr',
+  hasCustomScoring:boolean,
+):number|null{
+  if(hasCustomScoring) return null;
+  const value=Number(projections.find(item=>item.playerId===playerId)?.projectedPoints[format]);
+  return Number.isFinite(value)?value:null;
+}
+
 // Standard fantasy lineup. Drafting stays unrestricted; managers must use their bench,
 // free agency, waivers, or trades to field a legal weekly lineup.
 export const LINEUP_SLOTS = [
