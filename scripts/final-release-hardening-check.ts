@@ -75,6 +75,8 @@ assert.ok(
   agent.includes('window.addEventListener("storage", handlePendingSigningStorage)')&&
   agent.includes('const activeWrite = pendingAgentSigningWrite;')&&
   agent.includes('pendingAgentSigningWrite !== null || readPendingAgentSigning() !== null')&&
+  agent.includes('setAgency(restore());')&&
+  agent.includes('setVerifyingAgentSigning(stillPending);')&&
   agent.includes('if (signingInFlightRef.current || verifyingAgentSigning) return;')&&
   agent.includes('signingInFlightRef.current = true;')&&
   agent.includes('disabled={signingInFlight}')&&
