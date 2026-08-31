@@ -27,6 +27,7 @@ export type PlayerScoreDetail = {
   opponent?:string;
   points:number;
   projectedPoints:number;
+  projectionAvailable?:boolean;
   status:string;
   kickoffAt?:string;
   isLive:boolean;
@@ -40,6 +41,7 @@ export type WeeklyScore = {
   week:number;
   livePoints:number;
   projectedPoints:number;
+  hasProjectedTotal?:boolean;
   source:string;
   isFinal:boolean;
   scoreRevision:number;
@@ -47,6 +49,11 @@ export type WeeklyScore = {
   updatedAt:string;
   finalizedAt?:string;
   lastCorrectionAt?:string;
+};
+
+export type WeeklyPlayerProjection = {
+  playerId:string;
+  projectedPoints:Record<string,number>;
 };
 
 export type NflWeekGame = {
@@ -127,9 +134,9 @@ const mapGame=(row:any):NflWeekGame=>({
 });
 
 export async function fetchFantasyParityState(leagueId:string,week:number,season=2026){
-  if(!supabase) return {lineups:[],scores:[],members:[],archives:[],games:[]} as const;
+  if(!supabase) return {lineups:[],scores:[],members:[],archives:[],games:[],projections:[]} as const;
   await ensureOnlineSession();
-  const [lineups,scores,members,archives,games]=await Promise.all([
+  const [lineups,scores,members,archives,games,projections]=await Promise.all([
     supabase.from('ball_knower_weekly_lineups').select('*').eq('league_id',leagueId).eq('week_number',week),
     // Scores power standings and the full-season matchup list, so fetch every
     // week while keeping editable lineup data scoped to the selected week.
@@ -137,8 +144,9 @@ export async function fetchFantasyParityState(leagueId:string,week:number,season
     supabase.from('ball_knower_league_members').select('id,faab_balance,ir_player_ids').eq('league_id',leagueId),
     supabase.from('ball_knower_season_archive').select('season_number,result,settings,created_at').eq('league_id',leagueId).order('season_number',{ascending:false}).limit(25),
     supabase.from('ball_knower_nfl_games').select('*').eq('season',season).eq('season_type','reg').eq('week_number',week).order('kickoff_at',{ascending:true}),
+    supabase.from('ball_knower_player_week_scores').select('ball_knower_player_id,projected_points').eq('season',season).eq('season_type','reg').eq('week_number',week).not('ball_knower_player_id','is',null),
   ]);
-  const error=[lineups.error,scores.error,members.error,archives.error,games.error].find(Boolean);
+  const error=[lineups.error,scores.error,members.error,archives.error,games.error,projections.error].find(Boolean);
   if(error) throw error;
   return {
     lineups:(lineups.data||[]).map(mapLineup),
@@ -146,6 +154,7 @@ export async function fetchFantasyParityState(leagueId:string,week:number,season
     members:(members.data||[]).map((row:any)=>({memberId:row.id,faabBalance:Number(row.faab_balance) || 0,irPlayerIds:Array.isArray(row.ir_player_ids)?row.ir_player_ids:[]} as MemberFantasyMeta)),
     archives:(archives.data||[]).map((row:any)=>({seasonNumber:Number(row.season_number),result:row.result||{},settings:row.settings||{},createdAt:row.created_at} as ArchivedSeason)),
     games:(games.data||[]).map(mapGame),
+    projections:(projections.data||[]).map((row:any)=>({playerId:row.ball_knower_player_id,projectedPoints:row.projected_points||{}} as WeeklyPlayerProjection)),
   };
 }
 
