@@ -626,7 +626,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     setVerifyingAgentSigning(true);
     try {
       await verifyPendingAgentSigning(state, signingUserId);
-      setVerifyingAgentSigning(false);
+      setVerifyingAgentSigning(readPendingAgentSigning() !== null);
     } catch (error) {
       // Keep the lock and durable retry snapshot until cloud persistence works.
       setVerifyingAgentSigning(true);
@@ -634,7 +634,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     }
   };
   const handleBack = () => {
-    if (!verifyingAgentSigning) onBack();
+    onBack();
   };
   useEffect(() => {
     let cancelled = false;
@@ -1376,6 +1376,12 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
             className="mt-5 min-h-12 w-full rounded-2xl bg-violet-400 px-5 font-black text-black"
           >
             RETRY CLOUD VERIFICATION
+          </button>
+          <button
+            onClick={handleBack}
+            className="mt-3 min-h-12 w-full rounded-2xl border border-white/10 bg-black/30 px-5 text-xs font-black"
+          >
+            BACK TO SOLO · KEEP RETRYING
           </button>
         </div>
       </div>
