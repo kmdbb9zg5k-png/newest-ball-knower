@@ -32,6 +32,12 @@ export const owner2026Calendar=(abbr:string):OwnerCalendarWeek[]=>{
 
 export const ownerCalendarWeek=(abbr:string,week:number)=>owner2026Calendar(abbr).find(entry=>entry.week===week);
 
+export const migrateOwnerLegacyWeek=(abbr:string,gameNumber:number)=>{
+  if(gameNumber<=0)return 0;
+  const gameWeeks=owner2026Calendar(abbr).filter(entry=>!entry.isBye);
+  return gameWeeks[Math.min(gameNumber-1,gameWeeks.length-1)]?.week||gameNumber;
+};
+
 export type OwnerSeasonAdvance={
   nextStage:OwnerSeasonStage;nextWeek:number;seasonEnded:boolean;playoffQualified:boolean;
   wonChampionship:boolean;revenueM:number;expensesM:number;profitM:number;
