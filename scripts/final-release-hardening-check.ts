@@ -45,6 +45,6 @@ assert.ok(cloud.includes('claim_ball_knower_verified_mode_milestone'),'browser c
 assert.ok(html.includes('viewport-fit=cover'),'iOS layout must opt into safe-area insets');
 assert.ok(navbar.includes('env(safe-area-inset-top)'),'top navigation must respect iOS safe area');
 assert.ok(navbar.includes('pt-[env(safe-area-inset-top)]'),'header content must be padded below the status area');
-assert.ok(transactions.includes('JOB_TIMEOUT_MS')&&transactions.includes('Promise.race'),'transaction worker fail-fast hotfix must remain present');
+assert.ok(transactions.includes('RPC_TIMEOUT_MS')&&transactions.includes('AbortController'),'transaction worker fail-fast hotfix must remain present');
 
 console.log('Final release hardening contract checks passed. Physical-device-only delivery/audio/camera/touch checks remain manual by definition.');
