@@ -34,6 +34,27 @@ end;
 $$;
 revoke all on function ball_knower_private.owner_state_revision(jsonb) from public,anon,authenticated;
 
+create or replace function ball_knower_private.guard_ball_knower_owner_state_write()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog,pg_temp
+as $$
+begin
+  if new.state_key='owner_business_career_v1'
+     and coalesce(current_setting('ball_knower.owner_revision_write',true),'')<>'on' then
+    raise exception 'Owner state must use the revisioned save RPC';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function ball_knower_private.guard_ball_knower_owner_state_write() from public,anon,authenticated;
+
+drop trigger if exists guard_ball_knower_owner_state_write on public.ball_knower_user_state;
+create trigger guard_ball_knower_owner_state_write
+before insert or update on public.ball_knower_user_state
+for each row execute function ball_knower_private.guard_ball_knower_owner_state_write();
+
 create or replace function public.save_ball_knower_revisioned_user_state(
   p_state_key text,
   p_value jsonb
@@ -52,6 +73,7 @@ begin
   if v_user is null then raise exception 'Sign in required'; end if;
   if p_state_key<>'owner_business_career_v1' then raise exception 'Unsupported revisioned state'; end if;
   if p_value is null or jsonb_typeof(p_value)<>'object' then raise exception 'Object state required'; end if;
+  perform set_config('ball_knower.owner_revision_write','on',true);
 
   insert into public.ball_knower_user_state(user_id,state_key,value,updated_at)
   values(v_user,p_state_key,p_value||jsonb_build_object('cloudRevision',0),now())
@@ -151,26 +173,48 @@ begin
   on conflict(user_id,game_id) do nothing;
   delete from ball_knower_private.verified_prediction_picks where user_id=new.guest_user_id;
 
-  select target.user_id is null or (
-    guest.season,
-    case guest.stage
-      when 'preseason' then 0 when 'regular' then 1 when 'wild-card' then 2
-      when 'divisional' then 3 when 'conference' then 4 when 'super-bowl' then 5 else -1 end,
-    guest.week,
-    guest.wins,
-    -guest.losses
-  ) > (
-    target.season,
-    case target.stage
-      when 'preseason' then 0 when 'regular' then 1 when 'wild-card' then 2
-      when 'divisional' then 3 when 'conference' then 4 when 'super-bowl' then 5 else -1 end,
-    target.week,
-    target.wins,
-    -target.losses
-  )
+  select case
+    when target.user_id is null then true
+    when public_state.value is not null
+      and public_state.value->>'abbr'=guest.abbr
+      and public_state.value->>'season'=guest.season::text
+      and public_state.value->>'stage'=guest.stage
+      and public_state.value->>'week'=guest.week::text
+      and public_state.value->>'wins'=guest.wins::text
+      and public_state.value->>'losses'=guest.losses::text then true
+    when public_state.value is not null
+      and public_state.value->>'abbr'=target.abbr
+      and public_state.value->>'season'=target.season::text
+      and public_state.value->>'stage'=target.stage
+      and public_state.value->>'week'=target.week::text
+      and public_state.value->>'wins'=target.wins::text
+      and public_state.value->>'losses'=target.losses::text then false
+    else (
+      guest.season,
+      case guest.stage
+        when 'preseason' then 0 when 'regular' then 1 when 'wild-card' then 2
+        when 'divisional' then 3 when 'conference' then 4 when 'super-bowl' then 5 else -1 end,
+      guest.week,
+      guest.wins,
+      -guest.losses,
+      guest.abbr
+    ) > (
+      target.season,
+      case target.stage
+        when 'preseason' then 0 when 'regular' then 1 when 'wild-card' then 2
+        when 'divisional' then 3 when 'conference' then 4 when 'super-bowl' then 5 else -1 end,
+      target.week,
+      target.wins,
+      -target.losses,
+      target.abbr
+    )
+  end
   into v_guest_owner_wins
   from ball_knower_private.verified_owner_runs guest
   left join ball_knower_private.verified_owner_runs target on target.user_id=new.claimed_by
+  left join public.ball_knower_user_state public_state
+    on public_state.user_id=new.claimed_by
+   and public_state.state_key='owner_business_career_v1'
   where guest.user_id=new.guest_user_id;
 
   insert into ball_knower_private.verified_owner_runs(
@@ -188,24 +232,9 @@ begin
     playoff_seed=excluded.playoff_seed,
     version=greatest(ball_knower_private.verified_owner_runs.version,excluded.version)+1,
     updated_at=greatest(ball_knower_private.verified_owner_runs.updated_at,excluded.updated_at)
-  where (
-    excluded.season,
-    case excluded.stage
-      when 'preseason' then 0 when 'regular' then 1 when 'wild-card' then 2
-      when 'divisional' then 3 when 'conference' then 4 when 'super-bowl' then 5 else -1 end,
-    excluded.week,
-    excluded.wins,
-    -excluded.losses
-  ) > (
-    ball_knower_private.verified_owner_runs.season,
-    case ball_knower_private.verified_owner_runs.stage
-      when 'preseason' then 0 when 'regular' then 1 when 'wild-card' then 2
-      when 'divisional' then 3 when 'conference' then 4 when 'super-bowl' then 5 else -1 end,
-    ball_knower_private.verified_owner_runs.week,
-    ball_knower_private.verified_owner_runs.wins,
-    -ball_knower_private.verified_owner_runs.losses
-  );
+  where v_guest_owner_wins;
   if v_guest_owner_wins then
+    perform set_config('ball_knower.owner_revision_write','on',true);
     insert into public.ball_knower_user_state as target(user_id,state_key,value,updated_at)
     select new.claimed_by,state_key,
       value||jsonb_build_object(
