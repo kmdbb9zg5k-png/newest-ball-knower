@@ -83,18 +83,23 @@ assert.ok(
   agent.includes('await withAgentSigningTabLock(async () => {')&&
   agent.includes('JSON.stringify(sharedAgency) !== JSON.stringify(signingBeforeState)')&&
   agent.includes('Another Agent tab changed this career first')&&
+  agent.includes('class AgentSigningConflictError extends Error')&&
+  agent.includes('message.includes("Agent career changed before signing")')&&
+  agent.includes('throw new AgentSigningConflictError(')&&
+  agent.includes('setAgentSigningError(error.message)')&&
+  agent.includes('JSON.stringify(restore()) !== JSON.stringify(signingBeforeState)')&&
   agent.includes('BACK TO SOLO · KEEP RETRYING')&&
   agent.includes('RETRY CLOUD VERIFICATION'),
   'Agent signing verification must be account-scoped, serialized, cross-tab durable, and freeze every career mutation until saved',
 );
 assert.equal(
   (phase4bFollowup.match(/create or replace function /g)??[]).length,
-  4,
-  'Phase 4B hardening migration must contain exactly its four complete functions',
+  5,
+  'Phase 4B hardening migration must contain exactly its five complete functions',
 );
 assert.equal(
   (phase4bFollowup.match(/\n\$\$;/g)??[]).length,
-  4,
+  5,
   'Phase 4B hardening migration must close each function body exactly once',
 );
 assert.ok(
@@ -111,6 +116,13 @@ assert.ok(
 );
 assert.ok(phase4bFollowup.includes('save_ball_knower_revisioned_user_state'),'Owner saves must use a server-revisioned database write');
 assert.ok(phase4bFollowup.includes('v_incoming_revision=v_stored_revision'),'stale Owner snapshots must never overwrite a newer server revision');
+assert.ok(
+  phase4bFollowup.includes('guard_ball_knower_owner_state_write')&&
+  phase4bFollowup.includes("current_setting('ball_knower.owner_revision_write',true)")&&
+  phase4bFollowup.includes("perform set_config('ball_knower.owner_revision_write','on',true);")&&
+  phase4bFollowup.includes('before insert or update on public.ball_knower_user_state'),
+  'legacy and generic clients must be blocked from bypassing the Owner revision RPC',
+);
 assert.ok(userState.includes("stateKey === OWNER_STATE_KEY")&&userState.includes("save_ball_knower_revisioned_user_state"),'all direct and batched Owner saves must use the revisioned RPC');
 assert.ok(owner.includes('cloudRevision:number')&&owner.includes('cloud.cloudRevision>local.cloudRevision'),'Owner careers must carry and prefer server-issued revisions');
 assert.ok(cloudSync.includes('function directJsonRevision')&&!cloudSync.includes('directJsonUpdatedAt'),'Owner conflict ordering must not depend on client wall clocks');
@@ -147,6 +159,10 @@ assert.ok(
   transferFunctionStart>=0&&
   transferFunctionSql.includes('v_guest_owner_wins boolean:=false')&&
   transferFunctionSql.includes("state_key='owner_business_career_v1'")&&
+  transferFunctionSql.includes("public_state.value->>'abbr'=guest.abbr")&&
+  transferFunctionSql.includes("public_state.value->>'abbr'=target.abbr")&&
+  transferFunctionSql.includes('guest.abbr\n    ) > (')&&
+  transferFunctionSql.includes('where v_guest_owner_wins;')&&
   transferFunctionSql.includes("ball_knower_private.owner_state_revision(excluded.value)\n        )+1")&&
   transferFunctionSql.indexOf('if v_guest_owner_wins then')<transferFunctionSql.indexOf('delete from ball_knower_private.verified_owner_runs'),
   'an advanced claimed Owner run must transfer its matching public snapshot with a newer server revision',
