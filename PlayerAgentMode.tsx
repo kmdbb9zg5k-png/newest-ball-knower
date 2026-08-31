@@ -394,11 +394,6 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({ onBack }) =>
 
   const makePitch = (pitch: Pitch) => {
     if (!selected || !recruit || recruit.failed || recruit.completed || recruit.used.includes(pitch) || recruit.used.length >= 2 || !recruit.choices.includes(pitch)) return;
-    if (recruit.used.length === 0) {
-      const nextAgency = { ...agency, recruitCooldowns: { ...agency.recruitCooldowns, [selected.id]: addDays(agency.simulatedDate, RECRUIT_COOLDOWN_DAYS) } };
-      setAgency(nextAgency);
-      persist(nextAgency);
-    }
     const impact = recruitingPitchImpact(pitch,selected,recruit.profile,agency);
     const nextInterest = clamp(Math.round(recruit.interest + impact - recruit.rivalPressure / 28), 0, 100);
     const used=[...recruit.used,pitch];
