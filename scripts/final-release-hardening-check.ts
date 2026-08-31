@@ -213,8 +213,10 @@ assert.ok(
   transferFunctionSql.includes("guest_state.state_key='owner_business_career_v1'")&&
   transferFunctionSql.includes('guest_run.user_id=new.guest_user_id')&&
   transferFunctionSql.includes('target_run.user_id=new.claimed_by')&&
-  transferFunctionSql.indexOf('if v_guest_owner_wins or (')<transferFunctionSql.indexOf('delete from ball_knower_private.verified_owner_runs'),
-  'advanced and pre-run claimed Owner snapshots must transfer without overriding an authoritative verified run',
+  transferFunctionSql.includes('v_public_only_owner_transfer boolean:=false')&&
+  transferFunctionSql.includes('excluded.updated_at>target.updated_at')&&
+  transferFunctionSql.indexOf('if v_guest_owner_wins or v_public_only_owner_transfer then')<transferFunctionSql.indexOf('delete from ball_knower_private.verified_owner_runs'),
+  'advanced and pre-run claimed Owner snapshots must transfer without overriding an authoritative verified run or newer public snapshot',
 );
 assert.ok(
   agent.includes('const signingVerified = await retryAgentSigningVerification')&&
@@ -222,6 +224,7 @@ assert.ok(
   agent.includes('await recoverAgentSigningConflict(error);\n        return false;'),
   'rejected Agent signings must not trigger post-signing level-up effects',
 );
+const agentBaselineFlush=agent.indexOf('await flushAgentSigningBaseline();');
 const agentStagePending=agent.indexOf('stagePendingAgentSigning(signingUserId, signingBeforeState, next);');
 const agentPersistFinal=agent.indexOf('persist(next);',agentStagePending);
 const agentVerifyFinal=agent.indexOf('await retryAgentSigningVerification();',agentPersistFinal);
@@ -230,8 +233,10 @@ assert.ok(
   cloudSync.includes('!isCloudUploadBlocked(entry)')&&
   cloudSync.includes('if (isCloudUploadBlocked(entry)) continue;')&&
   cloudSync.includes('while (hasFlushableDirty())')&&
-  agent.includes('await flushPendingUserStateWrites();')&&
-  agentStagePending>=0&&agentStagePending<agentPersistFinal&&agentPersistFinal<agentVerifyFinal,
+  agent.includes('const flushAgentSigningBaseline = async ()')&&
+  agent.includes('Agent baseline cloud save timed out.')&&
+  agentBaselineFlush>=0&&agentBaselineFlush<agentStagePending&&
+  agentStagePending<agentPersistFinal&&agentPersistFinal<agentVerifyFinal,
   'pending Agent signings must block generic cloud writes before the watched local snapshot changes',
 );
 assert.ok(
@@ -243,6 +248,8 @@ assert.ok(
   agent.includes('const sharedAgency = restore();')&&
   agent.includes('JSON.stringify(sharedAgency) !== JSON.stringify(agency)')&&
   agent.includes('JSON.stringify(restore()) !== JSON.stringify(agency)')&&
+  agent.includes('localStorage.removeItem(PENDING_RECRUIT_ACTION_KEY), restore(false)')&&
+  agent.includes('throw new AgentSigningConflictError("Agent career changed in another tab before signing.")')&&
   cloudSync.includes('localStorage.removeItem(AGENT_PENDING_RECRUIT_ACTION_KEY)')&&
   agent.includes('localStorage.removeItem(PENDING_RECRUIT_ACTION_KEY);'),
   'a consumed recruiting action must survive reloads, stay account-bound, and remain separate from the CAS baseline',
