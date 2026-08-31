@@ -16,10 +16,14 @@ assert.match(migration, /enable row level security/);
 assert.match(migration, /revoke all on public\.ball_knower_fantasy_history_backfill/);
 
 assert.match(api, /scheduledProjectionRows/);
-assert.match(api, /Date\.parse\(game\.kickoff_at\)<=now\.getTime\(\)/);
+assert.match(api, /Date\.parse\(game\.kickoff_at\)<=projectionsRetrievedAt\.getTime\(\)/);
+assert.match(api, /pregame_projection_captured_at:projectionsRetrievedAt\.toISOString\(\)/);
 assert.match(api, /processHistoricalBackfill/);
 assert.match(api, /pollable\.length===0/);
 assert.match(api, /history_source:'tank01_historical_boxscore'/);
+assert.match(api, /if\(!games\.length\) throw new Tank01Error/);
+assert.match(api, /if\(!isFinalGameStatus\(status\)\) throw new Tank01Error/);
+assert.match(api, /if\(!rows\.length\) throw new Tank01Error/);
 assert.match(api, /req\.headers\?\.authorization!==`Bearer \$\{cronSecret\}`/);
 
 assert.match(cloud, /pregame_projected_points/);
