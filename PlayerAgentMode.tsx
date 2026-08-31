@@ -137,6 +137,7 @@ type RecruitState = {
   choices: Pitch[];
   scenarioIndex: number;
   profile: RecruitingProfile;
+  beforeState?: AgencyState;
   completed?: boolean;
   failed?: boolean;
 };
@@ -1107,10 +1108,10 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     );
     const scenario = scenarioFor(p);
     setAgency(actionAgency);
-    persist(actionAgency);
     setSelectedId(p.id);
     setRecruit({
       playerId: p.id,
+      beforeState: agency,
       baseInterest: Math.round(base),
       interest: Math.round(base),
       round: 1,
@@ -1191,8 +1192,12 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       setSigningInFlight(true);
       try {
         await withAgentSigningTabLock(async () => {
+      const signingBeforeState = recruit.beforeState;
+      if (!signingBeforeState) {
+        throw new Error("Pre-recruiting Agent state is unavailable.");
+      }
       const sharedAgency = restore();
-      if (JSON.stringify(sharedAgency) !== JSON.stringify(agency)) {
+      if (JSON.stringify(sharedAgency) !== JSON.stringify(signingBeforeState)) {
         throw new Error("Agent career changed in another tab before signing.");
       }
       let signingUserId: string;
@@ -1251,7 +1256,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       });
       // The durable pending snapshot survives mode navigation/reloads. The
       // week and Back controls stay locked until this exact signing is saved.
-      await retryAgentSigningVerification(next, signingUserId, agency);
+      await retryAgentSigningVerification(next, signingUserId, signingBeforeState);
       if (after > before) {
         setLevelUp({ from: before, to: after });
         try {
@@ -2041,6 +2046,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                     disabled={signingInFlight}
                     onClick={() => {
                       if (signingInFlightRef.current) return;
+                      persist(agency);
                       setRecruit(null);
                       setSelectedId(null);
                     }}
