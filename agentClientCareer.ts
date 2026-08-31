@@ -103,6 +103,16 @@ const EVENT_COPY: Record<
     promise: "brand",
   },
 };
+const PROMISE_EVENT: Record<ClientPromise, ClientEventKind> = {
+  money: "contract",
+  guarantees: "injury",
+  loyalty: "family",
+  winning: "trade",
+  playing_time: "playing_time",
+  family: "family",
+  brand: "brand",
+  long_term: "contract",
+};
 
 export function createClientCareer(
   promises: ClientPromise[],
@@ -121,28 +131,33 @@ export function nextClientEvent(
   player: CareerPlayer,
   career: ClientCareer,
   seasonYear: number,
+  phase: string,
   seasonWeek: number,
 ): ClientCareerEvent | undefined {
-  if (seasonWeek <= 0 || seasonWeek % 3 !== 0 || career.pendingEvent)
+  if (
+    phase !== "regular" ||
+    seasonWeek <= 0 ||
+    seasonWeek % 3 !== 0 ||
+    career.pendingEvent
+  )
     return undefined;
-  const id = `${player.id}:${seasonYear}:${seasonWeek}`;
+  const id = `${player.id}:${seasonYear}:${phase}:${seasonWeek}`;
   if (career.lastEventKey === id) return undefined;
   const kinds = Object.keys(EVENT_COPY) as ClientEventKind[];
-  const promised = kinds.filter((kind) => {
-    const promise = EVENT_COPY[kind].promise;
-    return promise !== undefined && career.promises.includes(promise);
-  });
-  const kind =
-    promised.length && career.resolvedEvents % 2 === 0
-      ? promised[hash(id) % promised.length]
-      : kinds[hash(id) % kinds.length];
+  const prioritizedPromise =
+    career.promises.length && career.resolvedEvents % 2 === 0
+      ? career.promises[hash(id) % career.promises.length]
+      : undefined;
+  const kind = prioritizedPromise
+    ? PROMISE_EVENT[prioritizedPromise]
+    : kinds[hash(id) % kinds.length];
   const copy = EVENT_COPY[kind];
   return {
     id,
     kind,
     title: copy.title,
     story: copy.story(player.name),
-    promise: copy.promise,
+    promise: prioritizedPromise || copy.promise,
   };
 }
 
