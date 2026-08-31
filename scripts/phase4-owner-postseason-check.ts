@@ -17,4 +17,6 @@ assert.ok(champion.revenueM>=85,'a championship must include the title revenue b
 assert.ok(ownerGameRevenue(base,true,false)>0);
 assert.equal(ownerGameRevenue(base,false,false),0);
 assert.equal(ownerStageLabel('wild-card',18),'WILD CARD');
+const weeklyRevenue=[1,3,5,7,9,11,13,15,17].reduce((total,week)=>total+ownerGameRevenue({...base,week},true,false),0);
+assert.ok(weeklyRevenue>ownerGameRevenue(base,true,false),'a season receipt must be able to accumulate every home gate');
 console.log('Phase 4 Owner postseason checks passed.');
