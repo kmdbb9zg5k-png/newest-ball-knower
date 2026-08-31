@@ -9,7 +9,11 @@ update public.ball_knower_user_state
 set value=value||jsonb_build_object('cloudRevision',1)
 where state_key='owner_business_career_v1'
   and jsonb_typeof(value)='object'
-  and not (value ? 'cloudRevision');
+  and (
+    not (value ? 'cloudRevision')
+    or value->>'cloudRevision' is null
+    or (value->>'cloudRevision')!~'^[0-9]{1,16}$'
+  );
 create or replace function ball_knower_private.owner_state_revision(p_value jsonb)
 returns bigint
 language plpgsql
