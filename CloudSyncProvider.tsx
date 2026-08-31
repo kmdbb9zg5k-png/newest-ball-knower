@@ -297,9 +297,12 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     };
 
+    const hasFlushableDirty = () =>
+      CLOUD_STORAGE.some(entry => dirtyKeys.has(entry.localKey) && !isCloudUploadBlocked(entry));
+
     const flushAllLocalState = async () => {
       captureLocalChanges();
-      while (dirtyKeys.size > 0) {
+      while (hasFlushableDirty()) {
         await flushDirty();
         captureLocalChanges();
       }
