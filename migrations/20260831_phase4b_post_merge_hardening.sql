@@ -14,6 +14,140 @@ where state_key='owner_business_career_v1'
     or value->>'cloudRevision' is null
     or (value->>'cloudRevision')!~'^[0-9]{1,16}$'
   );
+-- Phase 4B redefinition: leave Owner snapshots for the revision-aware claim trigger.
+create or replace function public.claim_ball_knower_guest_merge(p_token text)
+returns table(
+  guest_user_id uuid,
+  guest_gauntlet_v2 jsonb,
+  guest_gauntlet_v1 jsonb,
+  gauntlet_events_copied integer,
+  verified_events_copied integer,
+  leagues_transferred integer
+)
+language plpgsql
+security definer
+set search_path='public','ball_knower_private','extensions','pg_temp'
+as $function$
+declare
+  v_target uuid:=(select auth.uid());
+  v_target_is_anonymous boolean;
+  v_claim public.ball_knower_guest_account_claims%rowtype;
+  v_gauntlet_count integer:=0;
+  v_verified_count integer:=0;
+  v_league_count integer:=0;
+begin
+  if v_target is null then raise exception 'Authentication required'; end if;
+  if nullif(btrim(coalesce(p_token,'')),'') is null then raise exception 'Guest merge token required'; end if;
+  select is_anonymous into v_target_is_anonymous from auth.users where id=v_target;
+  if coalesce(v_target_is_anonymous,true) then raise exception 'Sign in to a permanent account before claiming guest progress'; end if;
+
+  select * into v_claim from public.ball_knower_guest_account_claims
+  where token_hash=extensions.digest(p_token,'sha256') for update;
+  if v_claim.guest_user_id is null then raise exception 'Guest merge token is invalid'; end if;
+  if v_claim.expires_at<clock_timestamp() then raise exception 'Guest merge token expired'; end if;
+  if v_claim.guest_user_id=v_target then raise exception 'Guest and permanent identities must differ'; end if;
+  if v_claim.claimed_at is not null and v_claim.claimed_by is distinct from v_target then
+    raise exception 'Guest progress was already claimed by another account';
+  end if;
+
+  if v_claim.claimed_at is null then
+    insert into public.ball_knower_gauntlet_progress_events(user_id,event_id,occurred_at,payload,created_at)
+    select v_target,event_id,occurred_at,payload,created_at
+    from public.ball_knower_gauntlet_progress_events where user_id=v_claim.guest_user_id
+    on conflict(user_id,event_id) do nothing;
+    get diagnostics v_gauntlet_count=row_count;
+
+    insert into public.ball_knower_progress_events(
+      user_id,event_key,event_type,category,xp_awarded,rating_delta,metadata,occurred_at
+    )
+    select v_target,event_key,event_type,category,xp_awarded,rating_delta,metadata,occurred_at
+    from public.ball_knower_progress_events where user_id=v_claim.guest_user_id
+    on conflict(user_id,event_key) do nothing;
+    get diagnostics v_verified_count=row_count;
+
+    insert into public.ball_knower_user_achievements(user_id,achievement_key,unlocked_at,source_event_key)
+    select v_target,achievement_key,unlocked_at,source_event_key
+    from public.ball_knower_user_achievements where user_id=v_claim.guest_user_id
+    on conflict(user_id,achievement_key) do update set
+      unlocked_at=least(public.ball_knower_user_achievements.unlocked_at,excluded.unlocked_at);
+
+    perform ball_knower_private.rebuild_progress_profile(v_target);
+
+    -- Preserve the most recently saved non-Gauntlet mode state. Gauntlet v2 is
+    -- merged by the event-aware client immediately after this RPC returns.
+    insert into public.ball_knower_user_state as target(user_id,state_key,value,updated_at)
+    select v_target,state_key,value,updated_at
+    from public.ball_knower_user_state
+    where user_id=v_claim.guest_user_id and state_key not in ('gauntlet_progress_v1','gauntlet_progress_v2','owner_business_career_v1')
+    on conflict(user_id,state_key) do update set
+      value=case when excluded.updated_at>target.updated_at then excluded.value else target.value end,
+      updated_at=greatest(target.updated_at,excluded.updated_at);
+
+    -- Transfer every league that the permanent identity does not already own.
+    update public.ball_knower_league_members member set
+      auth_user_id=v_target,
+      app_user_id=v_target::text
+    where member.auth_user_id=v_claim.guest_user_id
+      and not exists (
+        select 1 from public.ball_knower_league_members existing
+        where existing.league_id=member.league_id and existing.auth_user_id=v_target
+      );
+    get diagnostics v_league_count=row_count;
+
+    -- If both identities already joined the same league, keep one human owner
+    -- and safely convert the superseded guest slot to CPU instead of deleting
+    -- its roster, scores, waiver history, or draft references.
+    update public.ball_knower_league_members guest set
+      auth_user_id=null,app_user_id=null,is_ai=true,is_commissioner=false,
+      ai_archetype=coalesce(guest.ai_archetype,'balanced')
+    where guest.auth_user_id=v_claim.guest_user_id
+      and exists (
+        select 1 from public.ball_knower_league_members existing
+        where existing.league_id=guest.league_id and existing.auth_user_id=v_target
+      );
+
+    update public.ball_knower_league_members permanent set is_commissioner=true
+    where permanent.auth_user_id=v_target and exists (
+      select 1 from public.ball_knower_leagues league
+      where league.id=permanent.league_id and league.commissioner_auth_id=v_claim.guest_user_id
+    );
+    update public.ball_knower_leagues set commissioner_auth_id=v_target
+    where commissioner_auth_id=v_claim.guest_user_id;
+
+    update public.ball_knower_league_messages set auth_user_id=v_target
+    where auth_user_id=v_claim.guest_user_id;
+    update public.ball_knower_notifications set auth_user_id=v_target
+    where auth_user_id=v_claim.guest_user_id;
+    update public.ball_knower_roster_revisions set auth_user_id=v_target
+    where auth_user_id=v_claim.guest_user_id;
+
+    -- Answered attempts are immutable history used by repeat suppression. Open
+    -- guest attempts remain with the guest so they cannot conflict with an
+    -- active attempt already open on the permanent account.
+    update ball_knower_private.trivia_attempts set user_id=v_target
+    where user_id=v_claim.guest_user_id and answered_at is not null;
+
+    update public.ball_knower_guest_account_claims set
+      claimed_at=clock_timestamp(),claimed_by=v_target,
+      gauntlet_events_copied=v_gauntlet_count,
+      verified_events_copied=v_verified_count,
+      leagues_transferred=v_league_count
+    where token_hash=v_claim.token_hash;
+  else
+    v_gauntlet_count:=v_claim.gauntlet_events_copied;
+    v_verified_count:=v_claim.verified_events_copied;
+    v_league_count:=v_claim.leagues_transferred;
+  end if;
+
+  return query select
+    v_claim.guest_user_id,v_claim.guest_gauntlet_v2,v_claim.guest_gauntlet_v1,
+    v_gauntlet_count,v_verified_count,v_league_count;
+end;
+$function$;
+
+revoke all on function public.claim_ball_knower_guest_merge(text) from public,anon;
+grant execute on function public.claim_ball_knower_guest_merge(text) to authenticated;
+
 create or replace function ball_knower_private.owner_state_revision(p_value jsonb)
 returns bigint
 language plpgsql
