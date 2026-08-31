@@ -5,7 +5,8 @@ const read=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'ut
 const migration=read('migrations/20260831_final_verified_mode_progression.sql');
 const modeApi=read('api/mode-progression.ts');
 const predictionApi=read('api/prediction-picks.ts');
-const predictionFeed=read('server/nflPredictionFeed.ts');
+const predictionFeed=read('server/nflPredictionFeed.js');
+const ownerRuntime=read('server/ownerSeasonRuntime.js');
 const publicPicksApi=read('api/nfl-sportsbook.ts');
 const cloud=read('modeProgressionCloud.ts');
 const bridge=read('modeProgressionBridge.ts');
@@ -26,6 +27,8 @@ assert.ok(migration.includes('verified_owner_runs'),'Owner progression must have
 assert.ok(migration.includes('commit_ball_knower_verified_owner_step'),'Owner transitions must be committed behind service role');
 assert.ok(migration.includes("'owner_server_run_v1'"),'Owner milestones must identify the server-run verifier');
 assert.ok(modeApi.includes("import{randomInt}from'node:crypto'"),'Owner game outcomes must be rolled on the server');
+assert.ok(modeApi.includes("from'../server/ownerSeasonRuntime.js'"),'Owner serverless runtime import must be explicit ESM .js');
+assert.ok(ownerRuntime.includes('export const advanceOwnerSeason'),'Owner runtime helper must ship as JavaScript for Vercel');
 assert.ok(modeApi.includes('commit_ball_knower_verified_owner_step'),'Owner API must commit the versioned server run');
 assert.ok(owner.includes('advanceVerifiedOwnerStep'),'Owner UI must consume the server-owned outcome');
 assert.ok(owner.includes('result.verified&&typeof result.won'),'Owner UI must use server outcomes only when verified');
@@ -45,11 +48,13 @@ assert.ok(migration.includes('verified_prediction_picks'),'verified Picks must h
 assert.ok(predictionApi.includes('Date.now()>=kickoffMs'),'server must reject Picks at/after kickoff');
 assert.ok(predictionApi.includes('That line moved'),'server must verify the exact posted line');
 assert.ok(predictionApi.includes('gradeCanonicalPrediction'),'server must grade from canonical finals');
-assert.ok(predictionFeed.includes('const stableId=String(g?.game_id||g?.id||\'\').trim()'),'Prediction rows must require stable provider IDs');
+assert.ok(predictionApi.includes("from'../server/nflPredictionFeed.js'"),'Prediction serverless runtime import must be explicit ESM .js');
+assert.ok(publicPicksApi.includes("from'../server/nflPredictionFeed.js'"),'Public Picks serverless runtime import must be explicit ESM .js');
+assert.ok(predictionFeed.includes("const stableId=String(g?.game_id||g?.id||'').trim()"),'Prediction rows must require stable provider IDs');
 assert.ok(predictionFeed.includes('providerFinal=/final|complete|closed/i.test(status)'),'Prediction grading must require terminal provider status');
 assert.ok(predictionFeed.includes('final:hasScores&&providerFinal'),'live scores alone must never settle a Pick');
 assert.ok(!predictionFeed.includes('conservativeFinal'),'time-after-kickoff must never masquerade as a final status');
-assert.ok(publicPicksApi.includes("fetchCanonicalPredictionGames"),'Picks UI and grading must share one canonical feed');
+assert.ok(publicPicksApi.includes('fetchCanonicalPredictionGames'),'Picks UI and grading must share one canonical feed');
 assert.ok(picks.includes('saveVerifiedPredictionPick'),'Picks UI must save through the verifier');
 assert.ok(picks.includes('gradeVerifiedPredictionPicks'),'Picks UI must request authoritative grading');
 assert.ok(cloud.includes('predictionMutationChain')&&cloud.includes('queuePredictionMutation'),'Picks save/delete/grade mutations must be serialized');
