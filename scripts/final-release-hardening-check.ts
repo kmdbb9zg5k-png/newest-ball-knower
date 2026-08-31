@@ -75,6 +75,10 @@ assert.ok(
   agent.includes('if (signingInFlightRef.current || verifyingAgentSigning) return;')&&
   agent.includes('signingInFlightRef.current = true;')&&
   agent.includes('disabled={signingInFlight}')&&
+  agent.includes('AGENT_SIGNING_LOCK_NAME')&&
+  agent.includes('await withAgentSigningTabLock(async () => {')&&
+  agent.includes('JSON.stringify(sharedAgency) !== JSON.stringify(agency)')&&
+  agent.includes('Another Agent tab changed this career first')&&
   agent.includes('BACK TO SOLO · KEEP RETRYING')&&
   agent.includes('RETRY CLOUD VERIFICATION'),
   'Agent signing verification must be account-scoped, serialized, cross-tab durable, and freeze every career mutation until saved',
@@ -96,7 +100,9 @@ assert.ok(
 );
 assert.ok(
   phase4bFollowup.includes("set value=value||jsonb_build_object('cloudRevision',1)")&&
-  phase4bFollowup.includes("not (value ? 'cloudRevision')"),
+  phase4bFollowup.includes("not (value ? 'cloudRevision')")&&
+  phase4bFollowup.includes("or value->>'cloudRevision' is null")&&
+  phase4bFollowup.includes("or (value->>'cloudRevision')!~'^[0-9]{1,16}$'"),
   'legacy Owner cloud snapshots must be revisioned before rollout so stale local state cannot overwrite them',
 );
 assert.ok(phase4bFollowup.includes('save_ball_knower_revisioned_user_state'),'Owner saves must use a server-revisioned database write');
@@ -114,7 +120,13 @@ assert.ok(
   cloudSync.includes("{ localKey: 'ballknower_owner_career_v3', cloudKey: 'owner_business_career_v1', directJson: true }"),
   'Owner mutations must persist locally, flush through the registered revisioned cloud coordinator, and only then claim milestones',
 );
-assert.ok(cloudSync.includes('savedRevision === submittedRevision + 1')&&cloudSync.includes('cloudRevision: savedRevision'),'newer same-device Owner mutations must rebase onto accepted server revisions');
+assert.ok(
+  cloudSync.includes('savedRevision === submittedRevision + 1')&&
+  cloudSync.includes('if (current !== snapshot && current)')&&
+  !cloudSync.includes('current !== snapshot && accepted && current')&&
+  cloudSync.includes('cloudRevision: savedRevision'),
+  'newer same-device Owner mutations must rebase onto both accepted and conflicting server revisions',
+);
 assert.ok(phase4bFollowup.includes('on conflict(user_id) do update set')&&phase4bFollowup.includes('excluded.season'),'guest claims must compare and preserve the more advanced Owner run');
 assert.ok(phase4bFollowup.indexOf('on conflict(user_id) do update set')<phase4bFollowup.indexOf('delete from ball_knower_private.verified_owner_runs'),'guest Owner state must be preserved before the guest row is deleted');
 assert.ok(bridge.includes('IDLE_CLAIM_INTERVAL_MS=60_000')&&!bridge.includes('setInterval(()=>void claimVerifiedMilestones(),4000)'),'idle milestone replay must avoid four-second polling');
