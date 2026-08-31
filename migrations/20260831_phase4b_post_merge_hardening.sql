@@ -2,6 +2,14 @@
 -- Keep Owner snapshots monotonic across tabs/devices and preserve the most
 -- advanced verified Owner run when guest progress is claimed.
 
+-- Backfill pre-revision Owner cloud snapshots before the new client can sync.
+-- This makes an old revision-zero device lose to the existing cloud copy
+-- instead of uploading stale local progress over it during rollout.
+update public.ball_knower_user_state
+set value=value||jsonb_build_object('cloudRevision',1)
+where state_key='owner_business_career_v1'
+  and jsonb_typeof(value)='object'
+  and not (value ? 'cloudRevision');
 create or replace function ball_knower_private.owner_state_revision(p_value jsonb)
 returns bigint
 language plpgsql
