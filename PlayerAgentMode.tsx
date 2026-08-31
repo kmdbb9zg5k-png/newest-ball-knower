@@ -16,7 +16,7 @@ import { PLAYERS_DATABASE } from "./players";
 import { Player } from "./types";
 import { playerPortraitUrl } from "./playerPortraits";
 import { ModalPortal } from "./ModalPortal";
-import { commitAgentSigningForExpectedUser } from "./userStateCloud";
+import { commitAgentSigningForExpectedUser, loadUserState } from "./userStateCloud";
 import { claimPendingVerifiedModeMilestones } from "./modeProgressionCloud";
 import { ensureOnlineSession } from "./supabase";
 import {
@@ -52,6 +52,7 @@ import {
 const SAVE_KEY = "ballknower_player_agent_v4";
 const PENDING_SIGNING_KEY = "ballknower_player_agent_signing_pending_v1";
 const AGENT_SIGNING_LOCK_NAME = "ballknower-player-agent-signing-v1";
+const AGENT_SESSION_TIMEOUT_MS = 12_000;
 const LEGACY_SAVE_KEYS = [
   "ballknower_player_agent_v3",
   "ballknower_player_agent_v2",
@@ -345,6 +346,32 @@ const persist = (state: AgencyState) => {
   } catch {}
 };
 
+const ensureAgentSigningSession = async () => {
+  let timer = 0;
+  try {
+    return await Promise.race([
+      ensureOnlineSession(),
+      new Promise<never>((_, reject) => {
+        timer = window.setTimeout(
+          () => reject(new Error("Secure Agent session timed out. Retry when the connection is stable.")),
+          AGENT_SESSION_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    window.clearTimeout(timer);
+  }
+};
+
+const loadAuthoritativeAgentCareer = async (): Promise<AgencyState> => {
+  const cloud = await loadUserState<{ raw?: unknown }>("player_agent_career");
+  if (!cloud || typeof cloud.raw !== "string") {
+    throw new Error("Authoritative Agent career is unavailable.");
+  }
+  localStorage.setItem(SAVE_KEY, cloud.raw);
+  return restore();
+};
+
 const withAgentSigningTabLock = async <T,>(task: () => Promise<T>): Promise<T> => {
   if (typeof navigator === "undefined" || !navigator.locks) return task();
   return navigator.locks.request(
@@ -415,7 +442,7 @@ const verifyPendingAgentSigning = async (
         continue;
       }
 
-      const user = await ensureOnlineSession();
+      const user = await ensureAgentSigningSession();
       if (pending.userId !== user.id) {
         if (localStorage.getItem(PENDING_SIGNING_KEY) === raw) {
           localStorage.removeItem(PENDING_SIGNING_KEY);
@@ -660,6 +687,19 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
   const [verifyingAgentSigning, setVerifyingAgentSigning] = useState(
     () => pendingAgentSigningWrite !== null || readPendingAgentSigning() !== null,
   );
+  const recoverAgentSigningConflict = async (error: AgentSigningConflictError) => {
+    let latest = restore();
+    try {
+      latest = await loadAuthoritativeAgentCareer();
+    } catch (loadError) {
+      console.warn("Authoritative Agent career reload deferred", loadError);
+    }
+    setAgency(latest);
+    setRecruit(null);
+    setSelectedId(null);
+    setAgentSigningError(error.message);
+    setVerifyingAgentSigning(false);
+  };
   const retryAgentSigningVerification = async (
     state?: AgencyState,
     signingUserId?: string,
@@ -671,11 +711,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       setVerifyingAgentSigning(pendingAgentSigningWrite !== null || readPendingAgentSigning() !== null);
     } catch (error) {
       if (error instanceof AgentSigningConflictError) {
-        setAgency(restore());
-        setRecruit(null);
-        setSelectedId(null);
-        setAgentSigningError(error.message);
-        setVerifyingAgentSigning(false);
+        await recoverAgentSigningConflict(error);
         return;
       }
       // Keep the lock and durable retry snapshot until cloud persistence works.
@@ -702,11 +738,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
         })
         .catch((error) => {
           if (!cancelled && error instanceof AgentSigningConflictError) {
-            setAgency(restore());
-            setRecruit(null);
-            setSelectedId(null);
-            setAgentSigningError(error.message);
-            setVerifyingAgentSigning(false);
+            void recoverAgentSigningConflict(error);
             return;
           }
           if (!cancelled) setVerifyingAgentSigning(true);
@@ -1235,7 +1267,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       }
       let signingUserId: string;
       try {
-        signingUserId = (await ensureOnlineSession()).id;
+        signingUserId = (await ensureAgentSigningSession()).id;
       } catch (error) {
         setRecruit({
           ...recruit,
