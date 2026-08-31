@@ -85,7 +85,7 @@ assert.ok(
   agent.includes('disabled={signingInFlight}')&&
   agent.includes('AGENT_SIGNING_LOCK_NAME')&&
   agent.includes('await withAgentSigningTabLock(async () => {')&&
-  agent.includes('JSON.stringify(sharedAgency) !== JSON.stringify(signingBeforeState)')&&
+  agent.includes('JSON.stringify(sharedAgency) !== JSON.stringify(agency)')&&
   agent.includes('Another Agent tab changed this career first')&&
   agent.includes('class AgentSigningConflictError extends Error')&&
   agent.includes('message.includes("Agent career changed before signing")')&&
