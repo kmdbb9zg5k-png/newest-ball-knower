@@ -36,6 +36,15 @@ import {
   nextClientEvent,
   resolveClientEvent,
 } from "./agentClientCareer";
+import {
+  AgencyStaff,
+  STAFF_OPTIONS,
+  StaffRole,
+  agencyClientCapacity,
+  buildAgencyResume,
+  contractFeeK,
+  hireAgencyStaff,
+} from "./agentAgencyGrowth";
 
 const SAVE_KEY = "ballknower_player_agent_v4";
 const LEGACY_SAVE_KEYS = [
@@ -44,7 +53,6 @@ const LEGACY_SAVE_KEYS = [
   "ballknower_player_agent_v1",
 ];
 const RECRUIT_COOLDOWN_DAYS = 7;
-const STARTING_CLIENT_CAP = 3;
 const TRADE_DEADLINE_WEEK = 9;
 const REGULAR_SEASON_WEEKS = 18;
 
@@ -105,6 +113,12 @@ type AgencyState = {
   timeline: string[];
   weeklyActionKey: string;
   weeklyActionsUsed: number;
+  cashK: number;
+  staff: AgencyStaff[];
+  signedClients: number;
+  dealHistory: FutureDeal[];
+  promisesKept: number;
+  promisesBroken: number;
 };
 type RecruitState = {
   playerId: string;
@@ -222,6 +236,12 @@ const fallbackAgency = (): AgencyState => ({
   ],
   weeklyActionKey: "2026:preseason:0",
   weeklyActionsUsed: 0,
+  cashK: 150,
+  staff: [],
+  signedClients: 0,
+  dealHistory: [],
+  promisesKept: 0,
+  promisesBroken: 0,
 });
 
 const restore = (): AgencyState => {
@@ -262,7 +282,7 @@ const restore = (): AgencyState => {
                     : 72,
                 ),
             }))
-            .slice(0, STARTING_CLIENT_CAP)
+            .slice(0, 5)
         : [],
       recruitCooldowns:
         v?.recruitCooldowns && typeof v.recruitCooldowns === "object"
@@ -287,6 +307,26 @@ const restore = (): AgencyState => {
       weeklyActionsUsed: Number.isFinite(Number(v?.weeklyActionsUsed))
         ? clamp(Number(v.weeklyActionsUsed), 0, 2)
         : 0,
+      cashK: Number.isFinite(Number(v?.cashK)) ? Math.max(0, Number(v.cashK)) : 150,
+      staff: Array.isArray(v?.staff) ? v.staff : [],
+      signedClients: Number.isFinite(Number(v?.signedClients))
+        ? Math.max(Number(v.signedClients), Array.isArray(v?.clients) ? v.clients.length : 0)
+        : Array.isArray(v?.clients) ? v.clients.length : 0,
+      dealHistory: Array.isArray(v?.dealHistory)
+        ? v.dealHistory
+        : Array.isArray(v?.clients)
+          ? v.clients.flatMap((c: Client) => c.futureDeal ? [c.futureDeal] : [])
+          : [],
+      promisesKept: Number.isFinite(Number(v?.promisesKept))
+        ? Math.max(0, Number(v.promisesKept))
+        : Array.isArray(v?.clients)
+          ? v.clients.reduce((n: number, c: Client) => n + (c.career?.fulfilledPromises?.length || 0), 0)
+          : 0,
+      promisesBroken: Number.isFinite(Number(v?.promisesBroken))
+        ? Math.max(0, Number(v.promisesBroken))
+        : Array.isArray(v?.clients)
+          ? v.clients.reduce((n: number, c: Client) => n + (c.career?.brokenPromises?.length || 0), 0)
+          : 0,
     };
   } catch {
     return fallbackAgency();
@@ -516,6 +556,18 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
 
   const selected = PLAYERS_DATABASE.find((p) => p.id === selectedId) || null;
   const actionsRemaining = agentActionsRemaining(agency.weeklyActionsUsed);
+  const clientCapacity = agencyClientCapacity(agency.staff);
+  const resume = buildAgencyResume({
+    reputation: agency.reputation,
+    activeClients: agency.clients.length,
+    signedClients: agency.signedClients,
+    wins: agency.wins,
+    losses: agency.losses,
+    staff: agency.staff,
+    deals: agency.dealHistory,
+    fulfilledPromises: agency.promisesKept,
+    brokenPromises: agency.promisesBroken,
+  });
   const spendAction = (label: string) => {
     if (actionsRemaining <= 0) {
       const next = {
@@ -550,6 +602,22 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     setAgency(next);
     persist(next);
     setIntroStep(3);
+  };
+
+  const hireStaff = (role: StaffRole) => {
+    const result = hireAgencyStaff(role, agency.cashK, agency.staff, agency.simulatedDate);
+    if (!result.hired) return;
+    const next: AgencyState = {
+      ...agency,
+      cashK: result.cashK,
+      staff: result.staff,
+      negotiation: clamp(agency.negotiation + (role === "negotiator" ? 6 : 0), 0, 100),
+      clientCare: clamp(agency.clientCare + (role === "client_manager" ? 6 : 0), 0, 100),
+      brandPower: clamp(agency.brandPower + (role === "brand_director" ? 6 : 0), 0, 100),
+      timeline: [`${result.hired.name} joined as ${STAFF_OPTIONS[role].label.toLowerCase()}.`, ...agency.timeline].slice(0, 20),
+    };
+    setAgency(next);
+    persist(next);
   };
 
   const advanceWeek = () => {
@@ -665,6 +733,8 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     });
     const status = clientRetentionStatus(result.career);
     const fired = status === "fired";
+    const newlyKept = Math.max(0, result.career.fulfilledPromises.length - client.career.fulfilledPromises.length);
+    const newlyBroken = Math.max(0, result.career.brokenPromises.length - client.career.brokenPromises.length);
     const next: AgencyState = {
       ...actionAgency,
       reputation: clamp(
@@ -679,6 +749,8 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       ),
       brandPower: clamp(actionAgency.brandPower + result.brandDelta, 0, 100),
       losses: actionAgency.losses + (fired ? 1 : 0),
+      promisesKept: actionAgency.promisesKept + newlyKept,
+      promisesBroken: actionAgency.promisesBroken + newlyBroken,
       clients: fired
         ? actionAgency.clients.filter((c) => c.playerId !== playerId)
         : actionAgency.clients.map((c) =>
@@ -788,7 +860,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
   };
 
   const beginRecruit = (p: Player) => {
-    if (clients.length >= STARTING_CLIENT_CAP) return;
+    if (clients.length >= clientCapacity) return;
     const actionAgency = spendAction("starting another recruiting meeting");
     if (!actionAgency) return;
     const profile = createRecruitingProfile(p);
@@ -901,14 +973,14 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       });
       return;
     }
-    if (agency.clients.length >= STARTING_CLIENT_CAP) {
+    if (agency.clients.length >= clientCapacity) {
       setRecruit({
         ...recruit,
         used,
         choices: [],
         round: 3,
         failed: true,
-        message: `Your agency already has its ${STARTING_CLIENT_CAP} starter clients. Build those careers before recruiting anyone else.`,
+        message: `Your agency already has its ${clientCapacity} clients. Hire recruiting staff or build those careers before adding anyone else.`,
         playerReply: "“Call me when your agency has room.”",
       });
       return;
@@ -943,6 +1015,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           },
         ],
         wins: agency.wins + 1,
+        signedClients: agency.signedClients + 1,
         recruitCooldowns: cooldowns,
         timeline: [
           `${selected.name} signed with your agency. Your two recruiting promises now follow his career.`,
@@ -1055,6 +1128,8 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
         ...agency,
         reputation: clamp(agency.reputation + 4, 0, 100),
         negotiation: clamp(agency.negotiation + 3, 0, 100),
+        cashK: agency.cashK + contractFeeK(totalM),
+        dealHistory: [...agency.dealHistory, deal],
         clients: agency.clients.map((x) =>
           x.playerId === p.id
             ? {
@@ -1344,7 +1419,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                 </span>
                 <span className="rounded-full bg-white/5 px-3 py-2">
                   <BriefcaseBusiness size={13} className="mr-1 inline" />
-                  {clients.length}/{STARTING_CLIENT_CAP} starter clients
+                  {clients.length}/{clientCapacity} clients
                 </span>
               </div>
             </div>
@@ -1369,6 +1444,51 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                 ))}
               </div>
             </div>
+          </div>
+        </section>
+
+        <section className="mt-5 rounded-[2rem] border border-white/10 bg-[#0d121b] p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-black tracking-[.22em] text-violet-300">AGENCY GROWTH</div>
+              <h2 className="mt-1 text-3xl font-black">{resume.tier}</h2>
+              <p className="mt-2 text-xs font-semibold text-zinc-500">
+                ${agency.cashK}K cash · {resume.staffCount} staff · {resume.clientCapacity} client capacity
+              </p>
+            </div>
+            <div className="rounded-2xl bg-white/5 px-4 py-3 text-right">
+              <div className="text-[9px] font-black text-zinc-500">CAREER RECORD</div>
+              <div className="text-2xl font-black text-cyan-300">{resume.record}</div>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {(Object.entries(STAFF_OPTIONS) as [StaffRole, (typeof STAFF_OPTIONS)[StaffRole]][]).map(([role, option]) => {
+              const employee = agency.staff.find((s) => s.role === role);
+              return (
+                <button
+                  key={role}
+                  disabled={Boolean(employee) || agency.cashK < option.costK}
+                  onClick={() => hireStaff(role)}
+                  className="min-h-20 rounded-2xl border border-white/10 bg-white/5 p-3 text-left disabled:opacity-40"
+                >
+                  <div className="text-[10px] font-black text-violet-200">{employee ? employee.name.toUpperCase() : option.label}</div>
+                  <div className="mt-1 text-[10px] font-semibold leading-4 text-zinc-500">{employee ? "HIRED" : `\$${option.costK}K · ${option.description}`}</div>
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              ["CLIENTS SIGNED", resume.signedClients],
+              ["DEALS", resume.careerDeals],
+              ["CONTRACT VALUE", `\$${resume.contractValueM}M`],
+              ["PROMISES KEPT", resume.fulfilledPromises],
+            ].map(([label, value]) => (
+              <div key={String(label)} className="rounded-xl bg-black/25 p-3">
+                <div className="text-[9px] font-black text-zinc-500">{label}</div>
+                <div className="mt-1 text-xl font-black">{value}</div>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -1550,8 +1670,8 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                 WHO ARE YOU BETTING ON?
               </h2>
               <p className="mt-2 text-xs font-semibold text-zinc-500">
-                {clients.length >= STARTING_CLIENT_CAP
-                  ? `Starter agency full · ${clients.length}/${STARTING_CLIENT_CAP} clients`
+                {clients.length >= clientCapacity
+                  ? `Agency full · ${clients.length}/${clientCapacity} clients`
                   : `50 available targets · current unlock: ${unlockedOvr} OVR and below`}
               </p>
             </div>
@@ -1591,7 +1711,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                 <button
                   key={p.id}
                   onClick={() => beginRecruit(p)}
-                  disabled={clients.length >= STARTING_CLIENT_CAP}
+                  disabled={clients.length >= clientCapacity}
                   className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/25 p-3 text-left disabled:opacity-35"
                 >
                   <img
