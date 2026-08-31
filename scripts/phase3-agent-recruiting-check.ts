@@ -26,7 +26,7 @@ assert.equal(evaluateRecruitingDecision({player,profile,agency,pitches:[matched[
 const screen=readFileSync(new URL('../PlayerAgentMode.tsx',import.meta.url),'utf8');
 assert.match(screen,/ROUND \{recruit\.round\} · CHOOSE ONE/,'the meeting must instruct one choice per round');
 assert.doesNotMatch(screen,/CHOOSE BOTH PITCHES|askToSign/,'the old click-every-option flow must stay removed');
-assert.match(screen,/recruitingRoundChoices\(selected,recruit\.profile,2,recruit\.choices\)/,'the second round must replace every first-round choice');
-assert.match(screen,/evaluateRecruitingDecision\(\{player:selected,profile:recruit\.profile/,'the meeting must end in the tested multi-factor decision');
+assert.match(screen,/recruitingRoundChoices\(\s*selected,\s*recruit\.profile,\s*2,\s*recruit\.choices,?\s*\)/,'the second round must replace every first-round choice');
+assert.match(screen,/evaluateRecruitingDecision\(\{\s*player:\s*selected,\s*profile:\s*recruit\.profile/,'the meeting must end in the tested multi-factor decision');
 
 console.log('Phase 3 Agent recruiting checks passed.');
