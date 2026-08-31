@@ -117,6 +117,8 @@ type AgencyState = {
   staff: AgencyStaff[];
   signedClients: number;
   dealHistory: FutureDeal[];
+  promisesKept: number;
+  promisesBroken: number;
 };
 type RecruitState = {
   playerId: string;
@@ -238,6 +240,8 @@ const fallbackAgency = (): AgencyState => ({
   staff: [],
   signedClients: 0,
   dealHistory: [],
+  promisesKept: 0,
+  promisesBroken: 0,
 });
 
 const restore = (): AgencyState => {
@@ -313,6 +317,16 @@ const restore = (): AgencyState => {
         : Array.isArray(v?.clients)
           ? v.clients.flatMap((c: Client) => c.futureDeal ? [c.futureDeal] : [])
           : [],
+      promisesKept: Number.isFinite(Number(v?.promisesKept))
+        ? Math.max(0, Number(v.promisesKept))
+        : Array.isArray(v?.clients)
+          ? v.clients.reduce((n: number, c: Client) => n + (c.career?.fulfilledPromises?.length || 0), 0)
+          : 0,
+      promisesBroken: Number.isFinite(Number(v?.promisesBroken))
+        ? Math.max(0, Number(v.promisesBroken))
+        : Array.isArray(v?.clients)
+          ? v.clients.reduce((n: number, c: Client) => n + (c.career?.brokenPromises?.length || 0), 0)
+          : 0,
     };
   } catch {
     return fallbackAgency();
@@ -551,8 +565,8 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     losses: agency.losses,
     staff: agency.staff,
     deals: agency.dealHistory,
-    fulfilledPromises: agency.clients.reduce((n, c) => n + c.career.fulfilledPromises.length, 0),
-    brokenPromises: agency.clients.reduce((n, c) => n + c.career.brokenPromises.length, 0),
+    fulfilledPromises: agency.promisesKept,
+    brokenPromises: agency.promisesBroken,
   });
   const spendAction = (label: string) => {
     if (actionsRemaining <= 0) {
@@ -719,6 +733,8 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     });
     const status = clientRetentionStatus(result.career);
     const fired = status === "fired";
+    const newlyKept = Math.max(0, result.career.fulfilledPromises.length - client.career.fulfilledPromises.length);
+    const newlyBroken = Math.max(0, result.career.brokenPromises.length - client.career.brokenPromises.length);
     const next: AgencyState = {
       ...actionAgency,
       reputation: clamp(
@@ -733,6 +749,8 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       ),
       brandPower: clamp(actionAgency.brandPower + result.brandDelta, 0, 100),
       losses: actionAgency.losses + (fired ? 1 : 0),
+      promisesKept: actionAgency.promisesKept + newlyKept,
+      promisesBroken: actionAgency.promisesBroken + newlyBroken,
       clients: fired
         ? actionAgency.clients.filter((c) => c.playerId !== playerId)
         : actionAgency.clients.map((c) =>
