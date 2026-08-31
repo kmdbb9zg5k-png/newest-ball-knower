@@ -11,6 +11,7 @@ type Props = {
   ownerName?: string;
   injuryStatus?: string;
   ranking?: FantasyRanking;
+  watchAction?: { watched: boolean; onToggle: () => void };
   onClose: () => void;
 };
 
@@ -23,7 +24,7 @@ const usefulStats = (stats: Record<string, unknown>) => Object.entries(stats)
 
 const statLabel = (key: string) => key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ').toUpperCase();
 
-export const FantasyPlayerDetail: React.FC<Props> = ({ player, ownerName, injuryStatus, ranking, onClose }) => {
+export const FantasyPlayerDetail: React.FC<Props> = ({ player, ownerName, injuryStatus, ranking, watchAction, onClose }) => {
   const [season, setSeason] = useState<2026 | 2025>(2026);
   const [weeks, setWeeks] = useState<FantasyPlayerWeek[]>([]);
   const [busy, setBusy] = useState(false);
@@ -40,6 +41,15 @@ export const FantasyPlayerDetail: React.FC<Props> = ({ player, ownerName, injury
       .finally(() => { if (active) setBusy(false); });
     return () => { active = false; };
   }, [player?.id]);
+
+  useEffect(() => {
+    if (!player) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [player, onClose]);
 
   const visible = useMemo(() => weeks.filter(row => row.season === season), [weeks, season]);
   const finals = visible.filter(row => row.isFinal);
@@ -74,6 +84,7 @@ export const FantasyPlayerDetail: React.FC<Props> = ({ player, ownerName, injury
           </div>
           {finals.length > 0 && <p className="text-[9px] leading-4 text-zinc-600">Aggregates include only the {finals.length} stored final week{finals.length === 1 ? '' : 's'} shown below; they are not presented as complete season totals.</p>}
           {ranking && <section className="rounded-2xl border border-[#D4AF37]/20 bg-[#D4AF37]/5 p-4"><div className="text-[9px] font-black uppercase text-[#D4AF37]">Ball Knower season outlook</div><p className="mt-2 text-xs leading-5 text-zinc-300">{ranking.projection_reason}</p><div className="mt-2 text-[9px] leading-5 text-zinc-500">2026 projection: {ranking.projected_points_2026.toFixed(1)} points · Model: {ranking.projection_model} · Updated {new Date(ranking.updated_at).toLocaleDateString()}</div><div className="mt-2 flex flex-wrap gap-3 text-[9px] font-black uppercase">{ranking.projection_source_url ? <a href={ranking.projection_source_url} target="_blank" rel="noreferrer" className="text-[#D4AF37] underline">Projection source: {ranking.projection_source_name}</a> : <span className="text-zinc-500">Projection source: {ranking.projection_source_name}</span>}{ranking.actual_source_url && <a href={ranking.actual_source_url} target="_blank" rel="noreferrer" className="text-[#D4AF37] underline">2025 actual source: {ranking.actual_source_name}</a>}</div></section>}
+          {watchAction && <button onClick={watchAction.onToggle} className="min-h-12 w-full rounded-xl bg-[#D4AF37] text-sm font-black text-black">{watchAction.watched ? 'REMOVE FROM MY GUYS' : 'ADD TO MY GUYS'}</button>}
           <div className="grid grid-cols-2 gap-1 rounded-xl bg-black/40 p-1">{([2026, 2025] as const).map(value => <button key={value} onClick={() => setSeason(value)} className={`min-h-11 rounded-lg text-[10px] font-black uppercase ${season === value ? 'bg-[#D4AF37] text-black' : 'text-zinc-400'}`}>{value} season</button>)}</div>
           {busy ? <Notice text="Loading authoritative weekly history…" /> : error ? <Notice text={error} warning /> : visible.length ? <div className="space-y-2">{visible.map(week => <WeekCard key={week.id} week={week} />)}</div> : <Notice text={`No verified ${season} weekly rows are stored for this player yet. Ball Knower will not invent missing stats.`} />}
         </div>

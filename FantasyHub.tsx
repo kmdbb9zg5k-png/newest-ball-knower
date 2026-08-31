@@ -695,6 +695,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
           <FantasyPlayerDetail
             player={selectedFantasyPlayer}
             ranking={selectedPlayer}
+            watchAction={{ watched: watchlist.includes(selectedPlayer.player_key), onToggle: () => toggleWatch(selectedPlayer.player_key) }}
             onClose={() => setSelectedPlayerId(null)}
           />
         ) : selectedPlayer && (

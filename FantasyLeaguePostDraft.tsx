@@ -1220,7 +1220,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                 score={viewedAwayScore}
                 injuries={injuries}
                 onOpenPlayer={(playerId) => {
-                  const player = viewedAway?.roster?.find(item => item.id === playerId);
+                  const player = findPlayer(playerId);
                   if (player) openPlayerDetail(player, viewedAway);
                 }}
               />
@@ -1229,7 +1229,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                 score={viewedHomeScore}
                 injuries={injuries}
                 onOpenPlayer={(playerId) => {
-                  const player = viewedHome?.roster?.find(item => item.id === playerId);
+                  const player = findPlayer(playerId);
                   if (player) openPlayerDetail(player, viewedHome);
                 }}
               />
