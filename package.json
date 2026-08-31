@@ -23,7 +23,8 @@
     "check:fantasy-transactions": "node --import tsx scripts/fantasy-transaction-correctness-check.ts",
     "check:phase2-player-details": "node --import tsx scripts/phase2-player-detail-check.ts",
     "check:phase2-history": "node --import tsx scripts/phase2-history-snapshot-check.ts",
-    "check:hardening": "npm run lint && npm run check:integrity && npm run check:draft-reliability && npm run check:trivia && npm run check:identity && npm run check:yahoo-parity && npm run check:picks && npm run check:phase1-correctness && npm run check:dst-rankings && npm run check:fantasy-transactions && npm run check:phase2-player-details && npm run check:phase2-history"
+    "check:phase2-lineups": "node --import tsx scripts/phase2-deterministic-lineup-check.ts",
+    "check:hardening": "npm run lint && npm run check:integrity && npm run check:draft-reliability && npm run check:trivia && npm run check:identity && npm run check:yahoo-parity && npm run check:picks && npm run check:phase1-correctness && npm run check:dst-rankings && npm run check:fantasy-transactions && npm run check:phase2-player-details && npm run check:phase2-history && npm run check:phase2-lineups"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
