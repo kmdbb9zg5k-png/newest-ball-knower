@@ -220,7 +220,7 @@ assert.ok(
 );
 assert.ok(
   agent.includes('PENDING_RECRUIT_ACTION_KEY')&&
-  agent.includes('localStorage.getItem(PENDING_RECRUIT_ACTION_KEY) || localStorage.getItem(SAVE_KEY)')&&
+  agent.includes('includePendingRecruitAction && localStorage.getItem(PENDING_RECRUIT_ACTION_KEY)')&&
   agent.includes('persistRecruitAction(actionAgency);')&&
   agent.includes('const sharedAgency = restore(false);')&&
   agent.includes('JSON.stringify(restore(false)) !== JSON.stringify(signingBeforeState)')&&
