@@ -70,7 +70,8 @@ export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Pro
   const identityRows = (identityResult.data || []) as WeekRow[];
   const legacyRows = (legacyResult.data || []) as WeekRow[];
   const legacyProviderIds = new Set(legacyRows.map(row => row.provider_player_id).filter(Boolean));
-  const unambiguousLegacyRows = legacyProviderIds.size === 1 ? legacyRows : [];
+  const allLegacyRowsHaveProviderIds = legacyRows.every(row => Boolean(row.provider_player_id));
+  const unambiguousLegacyRows = allLegacyRowsHaveProviderIds && legacyProviderIds.size === 1 ? legacyRows : [];
   const rows = [...identityRows, ...unambiguousLegacyRows];
   const uniqueRows = [...new Map(rows.map(row => [row.id, row])).values()]
     .sort((a, b) => b.season - a.season || a.week_number - b.week_number);

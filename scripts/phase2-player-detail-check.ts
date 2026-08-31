@@ -16,6 +16,7 @@ const legacyQuery = cloud.slice(legacyQueryStart, legacyQueryEnd);
 assert.match(legacyQuery, /\.is\('ball_knower_player_id', null\)[\s\S]*?\.eq\('player_name', player\.name\)[\s\S]*?\.eq\('position', player\.position\)/, 'The legacy query must require null app id, exact name, and exact position.');
 assert.ok(!legacyQuery.includes(".eq('team', player.team)"), 'Legacy identity fallback must retain history across NFL team changes.');
 assert.ok(cloud.includes('legacyProviderIds.size === 1'), 'Legacy name/position rows must map to one provider identity before merging.');
+assert.ok(cloud.includes('allLegacyRowsHaveProviderIds && legacyProviderIds.size === 1'), 'Every legacy row must carry the same non-empty provider identity before merging.');
 assert.ok(detail.includes("player?.name, player?.team, player?.position"), 'History must reload whenever a fallback identity field changes.');
 assert.ok(detail.includes('Stored final points'), 'Partial stored history must not be labeled as a complete season total.');
 assert.ok(detail.includes('projection_source_url'), 'Shared ranking details must preserve source provenance.');
