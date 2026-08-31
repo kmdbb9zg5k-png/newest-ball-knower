@@ -24,9 +24,19 @@ const agency = {
 };
 const career = createClientCareer(["playing_time", "long_term"]);
 assert.deepEqual(career.promises, ["playing_time", "long_term"]);
-assert.equal(nextClientEvent(player, career, 2026, 2), undefined);
-const event = nextClientEvent(player, career, 2026, 3);
+assert.equal(nextClientEvent(player, career, 2026, "regular", 2), undefined);
+assert.equal(nextClientEvent(player, career, 2026, "offseason", 3), undefined);
+const event = nextClientEvent(player, career, 2026, "regular", 3);
 assert.ok(event);
+const moneyEvent = nextClientEvent(
+  player,
+  createClientCareer(["money"]),
+  2026,
+  "regular",
+  3,
+);
+assert.equal(moneyEvent?.kind, "contract");
+assert.equal(moneyEvent?.promise, "money");
 const kept = resolveClientEvent({
   career: { ...career, pendingEvent: event },
   event: event!,
