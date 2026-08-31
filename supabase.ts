@@ -12,9 +12,47 @@ const key = viteEnv?.VITE_SUPABASE_PUBLISHABLE_KEY
 
 export const isCloudConfigured = Boolean(url && key && !url.includes('YOUR_PROJECT'));
 
+const RETRYABLE_STATUS_CODES=new Set([408,425,429,500,502,503,504]);
+const READ_TIMEOUT_MS=8000;
+const READ_ATTEMPTS=3;
+const sleep=(ms:number)=>new Promise(resolve=>setTimeout(resolve,ms));
+
+const resilientSupabaseFetch:typeof fetch=async(input,init={})=>{
+  const method=String(init?.method||'GET').toUpperCase();
+  const canRetry=method==='GET'||method==='HEAD';
+  const attempts=canRetry?READ_ATTEMPTS:1;
+  let lastError:unknown;
+
+  for(let attempt=1;attempt<=attempts;attempt++){
+    const controller=canRetry?new AbortController():null;
+    const upstreamSignal=init?.signal;
+    const relayAbort=()=>controller?.abort();
+    if(controller&&upstreamSignal){
+      if(upstreamSignal.aborted) controller.abort();
+      else upstreamSignal.addEventListener('abort',relayAbort,{once:true});
+    }
+    const timeout=controller?setTimeout(()=>controller.abort(),READ_TIMEOUT_MS):null;
+    try{
+      const response=await globalThis.fetch(input,{...init,signal:controller?.signal||upstreamSignal});
+      if(!canRetry||!RETRYABLE_STATUS_CODES.has(response.status)||attempt===attempts) return response;
+      lastError=new Error(`Supabase read returned ${response.status}`);
+    }catch(error){
+      lastError=error;
+      if(!canRetry||upstreamSignal?.aborted||attempt===attempts) throw error;
+    }finally{
+      if(timeout) clearTimeout(timeout);
+      if(controller&&upstreamSignal) upstreamSignal.removeEventListener('abort',relayAbort);
+    }
+    await sleep(250*attempt);
+  }
+
+  throw lastError instanceof Error?lastError:new Error('Supabase read failed.');
+};
+
 export const supabase: SupabaseClient | null = isCloudConfigured
   ? createClient(url!, key!, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+      global: { fetch: resilientSupabaseFetch },
     })
   : null;
 
