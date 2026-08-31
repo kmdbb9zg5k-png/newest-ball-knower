@@ -4,7 +4,7 @@ import { Cloud, CloudOff, Loader2 } from 'lucide-react';
 import { ensureOnlineSession, isCloudConfigured, supabase } from './supabase';
 import { claimPendingGuestAccountMerge, hasPendingGuestAccountMerge } from './accountIdentity';
 import { registerFullCloudStateFlush } from './cloudSyncCoordinator';
-import { AGENT_PENDING_SIGNING_KEY, loadUserStates, saveUserStates, UserStateRow } from './userStateCloud';
+import { AGENT_PENDING_RECRUIT_ACTION_KEY, AGENT_PENDING_SIGNING_KEY, loadUserStates, saveUserStates, UserStateRow } from './userStateCloud';
 
 type CloudSyncStatus = 'connecting' | 'online' | 'error' | 'unconfigured';
 type CloudEnvelope = { raw: string | null };
@@ -156,6 +156,7 @@ function applyRemote(entry: StorageEntry, value: unknown): boolean {
 
 function clearSyncedLocalState() {
   for (const entry of CLOUD_STORAGE) localStorage.removeItem(entry.localKey);
+  localStorage.removeItem(AGENT_PENDING_RECRUIT_ACTION_KEY);
 }
 
 export function useCloudSyncStatus() {
