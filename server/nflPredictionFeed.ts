@@ -17,10 +17,13 @@ export async function fetchCanonicalPredictionGames():Promise<CanonicalPredictio
       if(!response.ok)throw new Error(`NFL feed returned ${response.status}`);
       const payload:any=await response.json();const rows=Array.isArray(payload?.data)?payload.data:Array.isArray(payload)?payload:[];
       if(!rows.length)throw new Error('NFL feed returned no games');
-      return rows.map((g:any,i:number)=>{
-        const awayAbbr=abbr(g?.away_team||g?.away);const homeAbbr=abbr(g?.home_team||g?.home);const spread=numberOrNull(g?.spread_line??g?.spread);const awayScore=numberOrNull(g?.away_score);const homeScore=numberOrNull(g?.home_score);const date=g?.gameday||g?.game_date||g?.date||null;const time=g?.gametime||g?.game_time||null;const kickoffAt=kickoffIso(date,time);const status=String(g?.game_status??g?.status??g?.game_state??'').trim();const kickoffMs=kickoffAt?Date.parse(kickoffAt):NaN;const hasScores=awayScore!==null&&homeScore!==null;const providerFinal=/final|complete|closed/i.test(status);const conservativeFinal=hasScores&&Number.isFinite(kickoffMs)&&Date.now()-kickoffMs>=6*60*60*1000;
-        return{id:String(g?.game_id||g?.id||i),kickoffAt,away:awayAbbr?(TEAM_NAMES[awayAbbr]||awayAbbr):'Away',home:homeAbbr?(TEAM_NAMES[homeAbbr]||homeAbbr):'Home',awayAbbr,homeAbbr,awaySpread:spread===null?null:spread>0?spread:spread<0?-Math.abs(spread):0,homeSpread:spread===null?null:spread>0?-spread:spread<0?Math.abs(spread):0,total:numberOrNull(g?.total_line??g?.over_under??g?.total),awayScore,homeScore,final:hasScores&&(providerFinal||conservativeFinal),status};
+      const games=rows.flatMap((g:any)=>{
+        const stableId=String(g?.game_id||g?.id||'').trim();if(!stableId)return[];
+        const awayAbbr=abbr(g?.away_team||g?.away);const homeAbbr=abbr(g?.home_team||g?.home);const spread=numberOrNull(g?.spread_line??g?.spread);const awayScore=numberOrNull(g?.away_score);const homeScore=numberOrNull(g?.home_score);const date=g?.gameday||g?.game_date||g?.date||null;const time=g?.gametime||g?.game_time||null;const kickoffAt=kickoffIso(date,time);const status=String(g?.game_status??g?.status??g?.game_state??'').trim();const hasScores=awayScore!==null&&homeScore!==null;const providerFinal=/final|complete|closed/i.test(status);
+        return[{id:stableId,kickoffAt,away:awayAbbr?(TEAM_NAMES[awayAbbr]||awayAbbr):'Away',home:homeAbbr?(TEAM_NAMES[homeAbbr]||homeAbbr):'Home',awayAbbr,homeAbbr,awaySpread:spread===null?null:spread>0?spread:spread<0?-Math.abs(spread):0,homeSpread:spread===null?null:spread>0?-spread:spread<0?Math.abs(spread):0,total:numberOrNull(g?.total_line??g?.over_under??g?.total),awayScore,homeScore,final:hasScores&&providerFinal,status}];
       });
+      if(!games.length)throw new Error('NFL feed returned no stable game IDs');
+      return games;
     }catch(error){lastError=error;}
   }
   throw lastError instanceof Error?lastError:new Error('NFL feed unavailable');
