@@ -191,13 +191,17 @@ assert.ok(
 );
 assert.ok(
   cloudCoordinator.includes('export function markCloudStateCommitted')&&
-  cloudSync.includes('registerCloudStateCommitted((localKey, raw) => {')&&
-  cloudSync.includes('if (localStorage.getItem(localKey) !== raw) return;')&&
+  cloudCoordinator.includes("CLOUD_STATE_COMMITTED_MARKER_KEY = 'ballknower_cloud_committed_marker_v1'")&&
+  cloudCoordinator.includes("window.addEventListener('storage', onStorage)")&&
+  cloudCoordinator.includes('cloudStateFingerprint(raw)')&&
+  cloudCoordinator.includes('localStorage.setItem(')&&
+  cloudSync.includes('registerCloudStateCommitted((localKey, fingerprint) => {')&&
+  cloudSync.includes('cloudStateFingerprint(raw) !== fingerprint')&&
   cloudSync.includes('lastValues.set(localKey, raw)')&&
   cloudSync.includes('dirtyKeys.delete(localKey)')&&
   owner.includes('markCloudStateCommitted(SAVE_KEY,JSON.stringify(nextState))')&&
   agent.includes('markCloudStateCommitted(SAVE_KEY, JSON.stringify(pending.state))'),
-  'server-committed Owner and Agent snapshots must be marked synchronized before generic cloud uploads resume',
+  'server-committed Owner and Agent snapshots must be acknowledged across tabs before generic cloud uploads resume',
 );
 
 assert.ok(
