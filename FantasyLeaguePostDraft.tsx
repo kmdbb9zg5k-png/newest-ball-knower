@@ -144,20 +144,26 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
       18 - playoffWeeks,
     );
   const maxSelectableWeek = maxWeek + playoffWeeks;
+  const storedWeekKey = `ball-knower:matchup-week:${league.id}`;
+  const storedMatchupKey = `ball-knower:matchup-id:${league.id}`;
 
   const [tab, setTab] = useState<Tab>("team");
   const [activityView, setActivityView] = useState<ActivityView>("trades");
   const [intelView, setIntelView] = useState<IntelView>("allbk");
-  const [week, setWeek] = useState(() =>
-    Math.min(maxSelectableWeek, Math.max(1, Number(settings.currentWeek) || 1)),
+  const [week, setWeek] = useState(() => {
+    const saved = Number(window.sessionStorage.getItem(storedWeekKey));
+    return Math.min(maxSelectableWeek, Math.max(1, saved || Number(settings.currentWeek) || 1));
+  });
+  const [viewedMatchupId, setViewedMatchupId] = useState(
+    () => window.sessionStorage.getItem(storedMatchupKey) || "",
   );
-  const [viewedMatchupId, setViewedMatchupId] = useState("");
   const [lineups, setLineups] = useState<WeeklyLineup[]>([]);
   const [scores, setScores] = useState<WeeklyScore[]>([]);
   const [memberMeta, setMemberMeta] = useState<MemberFantasyMeta[]>([]);
   const [memberMetaLoaded, setMemberMetaLoaded] = useState(false);
   const [archives, setArchives] = useState<ArchivedSeason[]>([]);
   const [nflGames, setNflGames] = useState<NflWeekGame[]>([]);
+  const [seasonGames, setSeasonGames] = useState<NflWeekGame[]>([]);
   const [weeklyProjections, setWeeklyProjections] = useState<WeeklyPlayerProjection[]>([]);
   const [trades, setTrades] = useState<TradeOffer[]>([]);
   const [claims, setClaims] = useState<WaiverClaim[]>([]);
@@ -195,6 +201,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const tradeBuilderRef = useRef<HTMLDivElement>(null);
   const seasonFinalizeRef = useRef("");
   const parityRequestRef = useRef(0);
+  const parityViewCacheRef = useRef(new Map<string, any>());
 
   const rankingsByName = useMemo(() => {
     const map = new Map<string, FantasyRanking>();
@@ -256,47 +263,68 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
 
   const refresh = async () => {
     const requestId = ++parityRequestRef.current;
-    try {
-      setError("");
-      setMemberMetaLoaded(false);
-      const [parity, ops] = await Promise.all([
+    setError("");
+    setMemberMetaLoaded(false);
+    const [parityResult, opsResult] = await Promise.allSettled([
         fetchFantasyParityState(
           league.id,
           week,
           Number(settings.nflSeason) || 2026,
         ),
         fetchSeasonOperations(league.id),
-      ]);
-      if (requestId !== parityRequestRef.current) return;
+    ]);
+    if (requestId !== parityRequestRef.current) return;
+    if (parityResult.status === "fulfilled") {
+      const parity = parityResult.value;
       setLineups([...parity.lineups]);
       setScores([...parity.scores]);
       setMemberMeta([...parity.members]);
       setMemberMetaLoaded(true);
       setArchives([...parity.archives]);
       setNflGames([...parity.games]);
+      setSeasonGames([...parity.seasonGames]);
       setWeeklyProjections([...parity.projections]);
+      parityViewCacheRef.current.set(`${league.id}:${week}`, parity);
+    } else {
+      setError(parityResult.reason?.message || "Could not sync this matchup. Showing the last good data when available.");
+    }
+    if (opsResult.status === "fulfilled") {
+      const ops = opsResult.value;
       setTrades([...ops.trades]);
       setClaims([...ops.claims]);
       setInjuries([...ops.injuries]);
       setMessages([...ops.messages]);
       setTransactions([...ops.transactions]);
-    } catch (err: any) {
-      if (requestId !== parityRequestRef.current) return;
-      setError(err?.message || "Could not sync this league.");
+    } else if (parityResult.status === "fulfilled") {
+      setError("League activity could not sync. Matchup data is still available.");
     }
   };
 
   useEffect(() => {
+    const cached = parityViewCacheRef.current.get(`${league.id}:${week}`);
+    if (cached) {
+      setLineups([...cached.lineups]);
+      setScores([...cached.scores]);
+      setNflGames([...cached.games]);
+      setSeasonGames([...cached.seasonGames]);
+      setWeeklyProjections([...cached.projections]);
+    } else {
+      setLineups([]);
+      setNflGames([]);
+      setWeeklyProjections([]);
+    }
     void refresh();
   }, [league.id, week]);
   useEffect(() => {
-    setWeek(
-      Math.min(
-        maxSelectableWeek,
-        Math.max(1, Number(settings.currentWeek) || 1),
-      ),
-    );
-  }, [maxSelectableWeek, settings.currentWeek]);
+    const saved = Number(window.sessionStorage.getItem(storedWeekKey));
+    setWeek(Math.min(maxSelectableWeek, Math.max(1, saved || Number(settings.currentWeek) || 1)));
+  }, [league.id, maxSelectableWeek]);
+  useEffect(() => {
+    window.sessionStorage.setItem(storedWeekKey, String(week));
+  }, [storedWeekKey, week]);
+  useEffect(() => {
+    if (viewedMatchupId) window.sessionStorage.setItem(storedMatchupKey, viewedMatchupId);
+  }, [storedMatchupKey, viewedMatchupId]);
   useEffect(
     () =>
       subscribeToFantasyParity(league.id, () => {
@@ -800,6 +828,12 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
       Object.keys(settings.customScoring || {}).length > 0,
     );
   };
+  const isVerifiedBye = (team: string) => {
+    const teamGames = seasonGames.filter(
+      (game) => game.homeTeam === team || game.awayTeam === team,
+    );
+    return teamGames.length === 17 && !teamGames.some((game) => game.week === week);
+  };
   const compareWeeklyLineupPlayers = (a: Player, b: Player) => {
     const aProjection = weeklyProjectionFor(a);
     const bProjection = weeklyProjectionFor(b);
@@ -838,10 +872,12 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
         team: player.team,
         position: player.position,
         opponent,
+        isHome: game ? game.homeTeam === player.team : undefined,
+        isBye: !game && isVerifiedBye(player.team),
         points: 0,
         projectedPoints: weeklyProjection || 0,
         projectionAvailable: weeklyProjection !== null,
-        status: game?.gameStatus || "Scheduled",
+        status: game?.gameStatus || (isVerifiedBye(player.team) ? "Bye" : "Opponent unavailable"),
         kickoffAt: game?.kickoffAt,
         isLive: false,
         isFinal: false,
@@ -1262,29 +1298,30 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
             icon={<Clock3 className="h-5 w-5 text-[#D4AF37]" />}
           >
             {viewedMatchup ? (
-              <>
-                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-                  <Score
-                    name={displayManagerName(viewedAway)}
-                    points={viewedAwayScore?.livePoints || 0}
-                    projection={viewedAwayScore?.hasProjectedTotal === false ? undefined : viewedAwayScore?.projectedPoints}
-                    status={viewedScoreStatus}
-                  />
-                  <b className="text-zinc-600">@</b>
-                  <Score
-                    name={displayManagerName(viewedHome)}
-                    points={viewedHomeScore?.livePoints || 0}
-                    projection={viewedHomeScore?.hasProjectedTotal === false ? undefined : viewedHomeScore?.projectedPoints}
-                    status={viewedScoreStatus}
-                  />
-                </div>
+              <div className="space-y-3">
+                <HeadToHeadMatchup
+                  away={viewedAway}
+                  home={viewedHome}
+                  awayScore={viewedAwayScore}
+                  homeScore={viewedHomeScore}
+                  status={viewedScoreStatus}
+                  injuries={injuries}
+                  onOpenAway={(playerId) => {
+                    const player = findPlayer(playerId);
+                    if (player) openPlayerDetail(player, viewedAway);
+                  }}
+                  onOpenHome={(playerId) => {
+                    const player = findPlayer(playerId);
+                    if (player) openPlayerDetail(player, viewedHome);
+                  }}
+                />
                 {(viewedHomeScore?.lastCorrectionAt ||
                   viewedAwayScore?.lastCorrectionAt) && (
                   <div className="rounded-lg border border-sky-400/20 bg-sky-400/[.06] p-2 text-center text-[9px] font-black uppercase text-sky-300">
                     Official stat correction applied automatically
                   </div>
                 )}
-              </>
+              </div>
             ) : (
               <Empty
                 text={
@@ -1297,28 +1334,6 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
               />
             )}
           </Panel>
-          {viewedMatchup && (
-            <div className="grid gap-3 lg:grid-cols-2">
-              <MatchupRoster
-                member={viewedAway}
-                score={viewedAwayScore}
-                injuries={injuries}
-                onOpenPlayer={(playerId) => {
-                  const player = findPlayer(playerId);
-                  if (player) openPlayerDetail(player, viewedAway);
-                }}
-              />
-              <MatchupRoster
-                member={viewedHome}
-                score={viewedHomeScore}
-                injuries={injuries}
-                onOpenPlayer={(playerId) => {
-                  const player = findPlayer(playerId);
-                  if (player) openPlayerDetail(player, viewedHome);
-                }}
-              />
-            </div>
-          )}
           <Panel
             title="Full Season Schedule"
             sub="Regular season and playoffs—tap any week to open it"
@@ -2673,41 +2688,10 @@ const Record = ({ label, value }: { label: string; value: string }) => (
     <div className="mt-1 truncate text-xs font-black">{value}</div>
   </div>
 );
-const Score = ({
-  name,
-  points,
-  projection,
-  status,
-}: {
-  name: string;
-  points: number;
-  projection?: number;
-  status: "Scheduled" | "Live" | "Final";
-}) => (
-  <div className="min-w-0 text-center">
-    <div className="truncate text-[10px] font-black uppercase text-zinc-400">
-      {name}
-    </div>
-    <div className="mt-1 text-3xl font-black">
-      {status === "Scheduled" ? "—" : Number(points || 0).toFixed(1)}
-    </div>
-    <div
-      className={`text-[9px] font-black uppercase ${status === "Live" ? "text-amber-300" : "text-zinc-600"}`}
-    >
-      {status}
-    </div>
-    {projection !== undefined && projection > 0 && (
-      <div className="text-[9px] text-zinc-600">
-        {Number(projection).toFixed(1)} proj
-      </div>
-    )}
-  </div>
-);
-
 const formatKickoff = (value?: string) => {
-  if (!value) return "Bye";
+  if (!value) return "Time unavailable";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Scheduled";
+  if (Number.isNaN(date.getTime())) return "Time unavailable";
   return date.toLocaleString(undefined, {
     weekday: "short",
     hour: "numeric",
@@ -2715,87 +2699,167 @@ const formatKickoff = (value?: string) => {
   });
 };
 
-const MatchupRoster = ({
+const matchupTotal = (score: WeeklyScore | undefined, status: "Scheduled" | "Live" | "Final") => {
+  if (!score) return { value: "—", label: status === "Scheduled" ? "Projection unavailable" : status };
+  if (status === "Scheduled") {
+    return score.hasProjectedTotal === true
+      ? { value: score.projectedPoints.toFixed(1), label: "Projected" }
+      : { value: "—", label: "Projection unavailable" };
+  }
+  return {
+    value: score.livePoints.toFixed(1),
+    label: status === "Final" ? "Final" : "Live",
+  };
+};
+
+const TeamMatchupHeader = ({
   member,
   score,
-  injuries,
-  onOpenPlayer,
+  status,
+  side,
 }: {
   member?: LeagueMember;
   score?: WeeklyScore;
-  injuries: LeagueInjury[];
-  onOpenPlayer: (playerId: string) => void;
-}) => (
-  <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#101318]">
-    <div className="flex items-center justify-between border-b border-white/10 p-3">
-      <div>
-        <div className="text-[9px] font-black uppercase text-[#D4AF37]">
-          {displayManagerName(member)}
-        </div>
-        <div className="mt-0.5 text-[10px] text-zinc-500">
-          {score?.isFinal
-            ? "Official final"
-            : score?.players.some((player) => player.isLive)
-              ? "Updating live"
-              : "Projected lineup"}
-        </div>
-      </div>
-      <div className="text-right">
-        <div className="text-lg font-black">
-          {score?.isFinal || score?.players.some((player) => player.isLive)
-            ? Number(score?.livePoints || 0).toFixed(1)
-            : score?.hasProjectedTotal === false
-              ? "—"
-              : Number(score?.projectedPoints || 0).toFixed(1)}
-        </div>
-        <div className="text-[8px] font-black uppercase text-zinc-600">
-          {score?.isFinal ? "Points" : "Projection"}
-        </div>
-      </div>
-    </div>
-    <div className="divide-y divide-white/5">
-      {score?.players.length ? (
-        score.players.map((player) => (
-          <MatchupPlayerRow
-            key={`${player.slot}-${player.playerId}`}
-            player={player}
-            injury={injuries.find(
-              (item) =>
-                item.memberId === member?.id &&
-                item.playerId === player.playerId,
-            )}
-            onOpen={() => onOpenPlayer(player.playerId)}
+  status: "Scheduled" | "Live" | "Final";
+  side: "away" | "home";
+}) => {
+  const total = matchupTotal(score, status);
+  const name = displayManagerName(member);
+  return (
+    <div className={`flex min-w-0 items-center gap-2 ${side === "home" ? "flex-row-reverse text-right" : "text-left"}`}>
+      <div className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-[#D4AF37]/35 bg-[#171b22] text-xs font-black text-[#D4AF37]">
+        {name.slice(0, 2).toUpperCase()}
+        {member?.userAvatar && (
+          <img
+            src={member.userAvatar}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+            referrerPolicy="no-referrer"
+            onError={(event) => { event.currentTarget.style.display = "none"; }}
           />
-        ))
-      ) : (
-        <Empty text="The authoritative lineup will appear when this scoring week opens." />
-      )}
+        )}
+      </div>
+      <div className="min-w-0">
+        <div className="truncate text-[10px] font-black uppercase text-zinc-300">{name}</div>
+        <div className={`text-2xl font-black ${status === "Live" ? "text-amber-300" : "text-white"}`}>{total.value}</div>
+        <div className="truncate text-[8px] font-black uppercase text-zinc-600">{total.label}</div>
+      </div>
     </div>
-  </section>
-);
+  );
+};
 
-const MatchupPlayerRow = ({
+const HeadToHeadMatchup = ({
+  away,
+  home,
+  awayScore,
+  homeScore,
+  status,
+  injuries,
+  onOpenAway,
+  onOpenHome,
+}: {
+  away?: LeagueMember;
+  home?: LeagueMember;
+  awayScore?: WeeklyScore;
+  homeScore?: WeeklyScore;
+  status: "Scheduled" | "Live" | "Final";
+  injuries: LeagueInjury[];
+  onOpenAway: (playerId: string) => void;
+  onOpenHome: (playerId: string) => void;
+}) => {
+  const projectionReady = awayScore?.hasProjectedTotal === true && homeScore?.hasProjectedTotal === true;
+  const projectionSum = Number(awayScore?.projectedPoints || 0) + Number(homeScore?.projectedPoints || 0);
+  const awayShare = projectionReady && projectionSum > 0
+    ? Math.max(0, Math.min(100, Number(awayScore?.projectedPoints || 0) / projectionSum * 100))
+    : null;
+  return (
+    <section aria-label={`${displayManagerName(away)} versus ${displayManagerName(home)}`} className="overflow-hidden rounded-2xl border border-white/10 bg-[#0d1015]">
+      <div className="grid grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)] items-center gap-2 border-b border-white/10 p-3">
+        <TeamMatchupHeader member={away} score={awayScore} status={status} side="away" />
+        <div className="text-center text-[9px] font-black uppercase text-[#D4AF37]">VS</div>
+        <TeamMatchupHeader member={home} score={homeScore} status={status} side="home" />
+      </div>
+      {awayShare === null ? (
+        <div className="border-b border-white/5 px-3 py-2 text-center text-[8px] font-black uppercase text-zinc-600">
+          Matchup advantage unavailable
+        </div>
+      ) : (
+        <div className="border-b border-white/5 px-3 py-2">
+          <div className="mb-1 flex items-center justify-between text-[8px] font-black uppercase text-zinc-500">
+            <span>{awayShare.toFixed(0)}%</span>
+            <span>Projected matchup advantage</span>
+            <span>{(100 - awayShare).toFixed(0)}%</span>
+          </div>
+          <div className="flex h-1.5 overflow-hidden rounded-full bg-zinc-800">
+            <span className="bg-[#D4AF37]" style={{ width: `${awayShare}%` }} />
+            <span className="bg-zinc-500" style={{ width: `${100 - awayShare}%` }} />
+          </div>
+        </div>
+      )}
+      <div className="divide-y divide-white/5">
+        {LINEUP_SLOTS.map((slot) => {
+          const awayPlayer = awayScore?.players.find((player) => player.slot === slot.id);
+          const homePlayer = homeScore?.players.find((player) => player.slot === slot.id);
+          const awayInjury = injuries.find((item) => item.memberId === away?.id && item.playerId === awayPlayer?.playerId);
+          const homeInjury = injuries.find((item) => item.memberId === home?.id && item.playerId === homePlayer?.playerId);
+          const awayProjectedEdge = status === "Scheduled" && awayPlayer?.projectionAvailable === true && homePlayer?.projectionAvailable === true && awayPlayer.projectedPoints > homePlayer.projectedPoints;
+          const homeProjectedEdge = status === "Scheduled" && awayPlayer?.projectionAvailable === true && homePlayer?.projectionAvailable === true && homePlayer.projectedPoints > awayPlayer.projectedPoints;
+          return (
+            <div key={slot.id} className="grid grid-cols-[minmax(0,1fr)_42px_minmax(0,1fr)] items-stretch">
+              <MatchupPlayerSide player={awayPlayer} injury={awayInjury} align="left" projectedEdge={awayProjectedEdge} onOpen={onOpenAway} />
+              <div className="grid place-items-center border-x border-white/5 bg-black/20 px-1 text-center">
+                <span className="rounded-md border border-[#D4AF37]/25 bg-[#D4AF37]/[.06] px-1.5 py-1 text-[7px] font-black uppercase text-[#D4AF37]">
+                  {slot.id === "FLEX" ? "FLEX/WRT" : slot.id === "DST" ? "DST" : slot.label}
+                </span>
+              </div>
+              <MatchupPlayerSide player={homePlayer} injury={homeInjury} align="right" projectedEdge={homeProjectedEdge} onOpen={onOpenHome} />
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
+
+const MatchupPlayerSide = ({
   player,
   injury,
+  align,
+  projectedEdge,
   onOpen,
 }: {
-  player: PlayerScoreDetail;
+  player?: PlayerScoreDetail;
   injury?: LeagueInjury;
-  onOpen: () => void;
+  align: "left" | "right";
+  projectedEdge: boolean;
+  onOpen: (playerId: string) => void;
 }) => {
+  if (!player) {
+    return <div className={`grid min-h-[4.5rem] place-items-center px-2 text-[9px] font-bold text-zinc-700 ${align === "right" ? "text-right" : "text-left"}`}>No starter</div>;
+  }
   const gameLabel = player.isFinal
     ? "Final"
     : player.isLive
       ? player.status
-      : formatKickoff(player.kickoffAt);
+      : player.isBye
+        ? "Bye"
+        : formatKickoff(player.kickoffAt);
+  const opponentLabel = player.isBye
+    ? "Bye"
+    : player.opponent
+      ? `${player.isHome === false ? "@" : "vs"} ${player.opponent}`
+      : "Opponent unavailable";
+  const score = player.isLive || player.isFinal
+    ? player.points.toFixed(1)
+    : player.projectionAvailable === true
+      ? player.projectedPoints.toFixed(1)
+      : "—";
+  const scoreLabel = player.isLive ? "Live" : player.isFinal ? "Final" : player.projectionAvailable === true ? "Proj" : "N/A";
   return (
-    <button onClick={onOpen} className="grid min-h-16 w-full grid-cols-[38px_minmax(0,1fr)_62px] items-center gap-2 p-2.5 text-left">
-      <span className="grid h-9 w-9 place-items-center rounded-full border border-[#D4AF37]/30 text-[8px] font-black text-[#D4AF37]">
-        {player.slot.replace(/[0-9]/g, "")}
-      </span>
-      <div className="min-w-0">
+    <button onClick={() => onOpen(player.playerId)} className={`flex min-h-[4.5rem] min-w-0 items-center gap-1.5 px-2 py-2 ${align === "right" ? "flex-row-reverse text-right" : "text-left"}`}>
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <span className="truncate text-xs font-black">
+          <span className={`truncate text-[10px] font-black sm:text-xs ${align === "right" ? "order-2" : ""}`}>
             {player.playerName}
           </span>
           {injury && (
@@ -2805,19 +2869,15 @@ const MatchupPlayerRow = ({
           )}
         </div>
         <div
-          className={`mt-0.5 truncate text-[9px] font-bold ${player.isLive ? "text-amber-300" : player.isFinal ? "text-zinc-600" : "text-zinc-500"}`}
+          className={`mt-0.5 truncate text-[8px] font-bold sm:text-[9px] ${player.isLive ? "text-amber-300" : player.isFinal ? "text-zinc-600" : "text-zinc-500"}`}
         >
-          {player.team}{player.opponent ? ` vs ${player.opponent}` : ""} · {gameLabel}
-          {player.locked ? " · Locked" : ""}
+          {player.team} · {opponentLabel}
         </div>
+        <div className="mt-0.5 truncate text-[7px] font-black uppercase text-zinc-600 sm:text-[8px]">{gameLabel}{player.locked ? " · Locked" : ""}</div>
       </div>
-      <div className="text-right">
-        <div className="text-sm font-black">
-          {player.isLive || player.isFinal ? player.points.toFixed(1) : "—"}
-        </div>
-        <div className="text-[8px] text-zinc-600">
-          {player.projectionAvailable === false ? "— proj" : `${player.projectedPoints.toFixed(1)} proj`}
-        </div>
+      <div className={`w-8 shrink-0 ${align === "right" ? "text-left" : "text-right"}`}>
+        <div className={`text-sm font-black ${player.isLive ? "text-amber-300" : projectedEdge ? "text-[#D4AF37]" : "text-white"}`}>{score}</div>
+        <div className="text-[7px] font-black uppercase text-zinc-600">{scoreLabel}</div>
       </div>
     </button>
   );

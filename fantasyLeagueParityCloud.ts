@@ -25,6 +25,8 @@ export type PlayerScoreDetail = {
   team:string;
   position:string;
   opponent?:string;
+  isHome?:boolean;
+  isBye?:boolean;
   points:number;
   projectedPoints:number;
   projectionAvailable?:boolean;
@@ -106,10 +108,17 @@ const mapScore=(row:any):WeeklyScore=>({
   source:row.source||'ball_knower',
   isFinal:Boolean(row.is_final),
   scoreRevision:Number(row.score_revision)||1,
+  hasProjectedTotal:typeof row.score_details?.hasProjectedTotal==='boolean'
+    ? row.score_details.hasProjectedTotal
+    : Array.isArray(row.score_details?.players)&&row.score_details.players.length>0&&row.score_details.players.every((player:any)=>
+        player.projectionAvailable===true||(player.projectionAvailable===undefined&&Number(player.projectedPoints)>0)),
   players:Array.isArray(row.score_details?.players)?row.score_details.players.map((player:any)=>({
     ...player,
     points:Number(player.points)||0,
     projectedPoints:Number(player.projectedPoints)||0,
+    projectionAvailable:player.projectionAvailable===true||(player.projectionAvailable===undefined&&Number(player.projectedPoints)>0),
+    isHome:typeof player.isHome==='boolean'?player.isHome:undefined,
+    isBye:Boolean(player.isBye),
     isLive:Boolean(player.isLive),
     isFinal:Boolean(player.isFinal),
     locked:Boolean(player.locked),
@@ -134,10 +143,10 @@ const mapGame=(row:any):NflWeekGame=>({
 });
 
 const fantasyParityCache=new Map<string,any>();
-const parityLabels=['lineups','scores','member metadata','season archive','NFL games','weekly projections'];
+const parityLabels=['lineups','scores','member metadata','season archive','NFL games','weekly projections','NFL season schedule'];
 
 export async function fetchFantasyParityState(leagueId:string,week:number,season=2026){
-  if(!supabase) return {lineups:[],scores:[],members:[],archives:[],games:[],projections:[],isDegraded:false,syncIssues:[]} as const;
+  if(!supabase) return {lineups:[],scores:[],members:[],archives:[],games:[],projections:[],seasonGames:[],isDegraded:false,syncIssues:[]} as const;
   const cacheKey=`${leagueId}:${week}:${season}`;
   const cached=fantasyParityCache.get(cacheKey);
   try{
@@ -156,6 +165,7 @@ export async function fetchFantasyParityState(leagueId:string,week:number,season
     supabase.from('ball_knower_season_archive').select('season_number,result,settings,created_at').eq('league_id',leagueId).order('season_number',{ascending:false}).limit(25),
     supabase.from('ball_knower_nfl_games').select('*').eq('season',season).eq('season_type','reg').eq('week_number',week).order('kickoff_at',{ascending:true}),
     supabase.from('ball_knower_player_week_scores').select('ball_knower_player_id,projected_points').eq('season',season).eq('season_type','reg').eq('week_number',week).not('ball_knower_player_id','is',null),
+    supabase.from('ball_knower_nfl_games').select('provider_game_id,season,week_number,away_team,home_team,kickoff_at,game_status,game_period,game_clock,is_live,is_final').eq('season',season).eq('season_type','reg').order('week_number',{ascending:true}),
   ]);
 
   const rows=(index:number):any[]|null=>{
@@ -180,6 +190,7 @@ export async function fetchFantasyParityState(leagueId:string,week:number,season
   const archiveRows=rows(3);
   const gameRows=rows(4);
   const projectionRows=rows(5);
+  const seasonGameRows=rows(6);
   const result={
     lineups:lineupsRows?lineupsRows.map(mapLineup):(cached?.lineups||[]),
     scores:scoresRows?scoresRows.map(mapScore):(cached?.scores||[]),
@@ -187,6 +198,7 @@ export async function fetchFantasyParityState(leagueId:string,week:number,season
     archives:archiveRows?archiveRows.map((row:any)=>({seasonNumber:Number(row.season_number),result:row.result||{},settings:row.settings||{},createdAt:row.created_at} as ArchivedSeason)):(cached?.archives||[]),
     games:gameRows?gameRows.map(mapGame):(cached?.games||[]),
     projections:projectionRows?projectionRows.map((row:any)=>({playerId:row.ball_knower_player_id,projectedPoints:row.projected_points||{}} as WeeklyPlayerProjection)):(cached?.projections||[]),
+    seasonGames:seasonGameRows?seasonGameRows.map(mapGame):(cached?.seasonGames||[]),
     isDegraded:failed.length>0,
     syncIssues:failed,
   };

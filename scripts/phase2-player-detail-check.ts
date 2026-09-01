@@ -60,7 +60,7 @@ assert.ok(detail.includes("event.key === 'Escape'"), 'Player details must close 
 assert.ok(detail.includes("useState<2026 | 2025>"), 'Player detail must expose 2026 and 2025 season views.');
 assert.ok(cloud.includes("from('ball_knower_player_week_scores')"), 'Weekly detail must use the existing score source of truth.');
 assert.ok(postDraft.includes('<FantasyPlayerDetail'), 'Online fantasy must render the reusable player detail surface.');
-assert.ok(postDraft.includes('onOpenPlayer={(playerId)'), 'Matchup players must open the shared player detail surface.');
+assert.ok(postDraft.includes('onOpenAway={(playerId)') && postDraft.includes('onOpenHome={(playerId)'), 'Both sides of a matchup must open the shared player detail surface.');
 assert.ok(postDraft.includes('onOpenPlayer={(player) => openPlayerDetail(player, selectedTeam)}'), 'Other managers’ roster players must open the same detail surface.');
 assert.ok(postDraft.includes('onClick={() => openPlayerDetail(player)}'), 'Free agents and waiver players must be inspectable without selecting a claim.');
 assert.ok(postDraft.includes('const player = findPlayer(playerId);'), 'Historical matchup players must resolve outside current rosters.');

@@ -43,6 +43,7 @@ assert.match(screen,/const authoritative = scores\.find[\s\S]*if \(authoritative
 assert.match(screen,/saved\?\.starters[\s\S]*buildFantasyLineup/,'saved lineups must precede deterministic fallback lineups');
 assert.match(screen,/resolveWeeklyProjection\([\s\S]*weeklyProjections[\s\S]*Object\.keys\(settings\.customScoring/,'matchup fallback must use the tested weekly projection resolver');
 assert.match(screen,/const homeScore = matchupScoreFor\(home\)[\s\S]*const awayScore = matchupScoreFor\(away\)/,'every matchup card must receive projected totals without waiting for weekly score rows');
-assert.match(screen,/player\.opponent \? ` vs \$\{player\.opponent\}`/,'matchup rows must display opponents');
+assert.match(screen,/player\.opponent[\s\S]*player\.isHome === false \? "@" : "vs"/,'matchup rows must display the verified opponent and home/away designation');
+assert.ok(screen.includes('"Opponent unavailable"'),'missing opponent metadata must not be mislabeled as a bye');
 
 console.log('Phase 2 deterministic lineup checks passed.');

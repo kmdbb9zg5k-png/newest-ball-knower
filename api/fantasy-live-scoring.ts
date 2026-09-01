@@ -755,19 +755,27 @@ export default async function handler(req:any,res:any){
             : 0;
           const providerProjection=player.position==='DST'?undefined:providerProjectionByKey.get(playerKey(player.name,player.team));
           const providerDefenseProjection=player.position==='DST'?defenseProjectionByTeam.get(teamForPlayer(player)):undefined;
+          const fallbackProjection=projectionByAppPlayer.get(player.id)?.[format];
+          const projectionAvailable=player.position==='DST'&&usesCustomDefenseScoring
+            ? hasDefenseProjectionStats(providerDefenseProjection)
+            : usesCustomScoring&&player.position!=='DST'
+              ? Boolean(providerProjection)
+              : playerScore
+                ? Number.isFinite(Number(playerScore.projected_points?.[format]))
+                : Number.isFinite(Number(fallbackProjection));
           const projected=player.position==='DST'&&usesCustomDefenseScoring
             ? (hasDefenseProjectionStats(providerDefenseProjection)?liveProjectedPoints(actual,scoreDefenseWithLeagueOverrides(providerDefenseProjection,customScoring),game?.game_status,game?.game_period):actual)
             : usesCustomScoring&&player.position!=='DST'
             ? (providerProjection?liveProjectedPoints(actual,scoreWithLeagueOverrides(providerProjection,format,customScoring),game?.game_status,game?.game_period):actual)
             : playerScore
               ? scoreForFormat(playerScore.projected_points,format)
-              : projectionByAppPlayer.get(player.id)?.[format]||0;
+              : fallbackProjection||0;
           livePoints+=actual;
           projectedPoints+=projected;
           details.push({slot:slot.id,playerId:player.id,playerName:player.name,team:player.team,position:player.position,
-            opponent:game?matchupForTeam(game,player.team).opponentTeam:null,
-            points:actual,projectedPoints:projected,status:game?.game_status||(game?'Scheduled':'Bye'),kickoffAt:game?.kickoff_at||null,
-            isLive:Boolean(game?.is_live),isFinal:Boolean(game?.is_final)||(!game&&weekIsFinal),locked:lockedIds.has(player.id)});
+            opponent:game?matchupForTeam(game,player.team).opponentTeam:null,isHome:game?matchupForTeam(game,player.team).isHome:null,isBye:false,
+            points:actual,projectedPoints:projected,projectionAvailable,status:game?.game_status||'Opponent unavailable',kickoffAt:game?.kickoff_at||null,
+            isLive:Boolean(game?.is_live),isFinal:Boolean(game?.is_final),locked:lockedIds.has(player.id)});
         }
         lineupWrites.push({...lineup,locked_player_ids:[...lockedIds],locked:lockedIds.size>=STANDARD_SLOTS.length,
           finalized_at:weekIsFinal?(lineup.finalized_at||now.toISOString()):null,updated_at:now.toISOString()});
@@ -779,7 +787,7 @@ export default async function handler(req:any,res:any){
           league_id:league.id,member_id:member.id,week_number:week,live_points:Math.round(livePoints*100)/100,
           projected_points:Math.round(projectedPoints*100)/100,source:'tank01',is_final:weekIsFinal,
           score_revision:totalChanged?Number(previous?.score_revision||1)+1:Number(previous?.score_revision||1),
-          score_details:{season,seasonType,format,players:details},finalized_at:weekIsFinal?(previous?.finalized_at||now.toISOString()):null,
+          score_details:{season,seasonType,format,hasProjectedTotal:details.length===STANDARD_SLOTS.length&&details.every(player=>player.projectionAvailable===true),players:details},finalized_at:weekIsFinal?(previous?.finalized_at||now.toISOString()):null,
           last_correction_at:corrected?now.toISOString():(previous?.last_correction_at||null),updated_at:now.toISOString(),
         });
       }
