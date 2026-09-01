@@ -261,8 +261,8 @@ assert.ok(
   transferFunctionSql.includes("guest_state.value->>'week'=guest.week::text")&&
   transferFunctionSql.includes("coalesce(nullif(guest_state.value->>'playoffSeed',''),'0')=coalesce(guest.playoff_seed,0)::text")&&
   transferFunctionSql.includes("coalesce(nullif(public_state.value->>'playoffSeed',''),'0')=coalesce(guest.playoff_seed,0)::text")&&
-  transferFunctionSql.includes("coalesce(nullif(public_state.value->>'playoffSeed',''),'0')=coalesce(target.playoff_seed,0)::text")&&
-  transferFunctionSql.includes('guest.abbr\n    ) > (')&&
+  transferFunctionSql.includes("coalesce(nullif(public_state.value->>'playoffSeed',''),'0')=coalesce(target.playoff_seed,0)::text then false")&&
+  transferFunctionSql.includes('    else true\n  end\n  into v_guest_owner_wins')&&
   transferFunctionSql.includes('where user_id=new.guest_user_id\n    and v_guest_owner_wins\n  on conflict(user_id) do update set')&&
   transferFunctionSql.includes('where v_guest_owner_wins;')&&
   transferFunctionSql.includes('ball_knower_private.owner_state_revision(excluded.value)')&&
@@ -323,6 +323,9 @@ const agentConflictHoldRelease=agent.indexOf('localStorage.removeItem(PENDING_SI
 const agentConflictCatch=agent.indexOf('setVerifyingAgentSigning(true);',agentConflictHoldRelease);
 assert.ok(
   agent.includes('Keep the hold until the authoritative server winner is loaded.')&&
+  agent.includes('Authoritative Agent career load timed out. Retry when the connection is stable.')&&
+  agent.includes('loadUserState<{ raw?: unknown }>("player_agent_career")')&&
+  agent.includes('AGENT_SESSION_TIMEOUT_MS,')&&
   agent.includes('const failedPendingRaw = error.pendingRaw ?? localStorage.getItem(PENDING_SIGNING_KEY)')&&
   agent.includes('currentPendingRaw && currentPendingRaw !== failedPendingRaw')&&
   agent.includes('localStorage.setItem(SAVE_KEY, JSON.stringify(newerPending.state))')&&
