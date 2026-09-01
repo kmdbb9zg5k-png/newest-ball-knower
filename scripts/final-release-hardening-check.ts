@@ -196,7 +196,7 @@ assert.ok(
   cloudCoordinator.includes('cloudStateFingerprint(raw)')&&
   cloudCoordinator.includes('localStorage.setItem(')&&
   cloudCoordinator.includes('flushAllCloudStateBeforeIdentityChange')&&
-  cloudCoordinator.includes('if (localStorage.getItem(AGENT_PENDING_SIGNING_KEY))')&&
+  cloudCoordinator.includes("if (typeof localStorage !== 'undefined' && localStorage.getItem(AGENT_PENDING_SIGNING_KEY))")&&
   cloudCoordinator.includes('Finish verifying the pending Agent signing before changing accounts.')&&
   cloudSync.includes('registerCloudStateCommitted((localKey, fingerprint) => {')&&
   cloudSync.includes('cloudStateFingerprint(raw) !== fingerprint')&&
