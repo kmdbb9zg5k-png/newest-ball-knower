@@ -3,7 +3,7 @@ import type { User } from '@supabase/supabase-js';
 import { Cloud, CloudOff, Loader2 } from 'lucide-react';
 import { ensureOnlineSession, isCloudConfigured, supabase } from './supabase';
 import { claimPendingGuestAccountMerge, hasPendingGuestAccountMerge } from './accountIdentity';
-import { registerCloudStateCommitted, registerFullCloudStateFlush } from './cloudSyncCoordinator';
+import { cloudStateFingerprint, registerCloudStateCommitted, registerFullCloudStateFlush } from './cloudSyncCoordinator';
 import { AGENT_PENDING_RECRUIT_ACTION_KEY, AGENT_PENDING_SIGNING_KEY, loadUserStates, saveUserStates, UserStateRow } from './userStateCloud';
 
 type CloudSyncStatus = 'connecting' | 'online' | 'error' | 'unconfigured';
@@ -310,8 +310,9 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     };
     const unregisterFullFlush = registerFullCloudStateFlush(flushAllLocalState);
-    const unregisterCloudStateCommitted = registerCloudStateCommitted((localKey, raw) => {
-      if (localStorage.getItem(localKey) !== raw) return;
+    const unregisterCloudStateCommitted = registerCloudStateCommitted((localKey, fingerprint) => {
+      const raw = localStorage.getItem(localKey);
+      if (raw === null || cloudStateFingerprint(raw) !== fingerprint) return;
       lastValues.set(localKey, raw);
       dirtyKeys.delete(localKey);
       meta[localKey] = Date.now();
