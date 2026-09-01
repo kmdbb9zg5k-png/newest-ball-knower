@@ -77,7 +77,7 @@ const formatKickoff = (value: string) => {
 };
 
 const opponentLabel = (week: FantasyPlayerWeek) => {
-  if (!week.opponentTeam) return 'Bye';
+  if (!week.opponentTeam) return 'Opponent unavailable';
   if (week.isHome === null) return week.opponentTeam;
   return `${week.isHome ? 'vs' : '@'} ${week.opponentTeam}`;
 };
@@ -177,7 +177,7 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
   const seasonProjection = ranking && Number.isFinite(Number(ranking.projected_points_2026))
     ? Number(ranking.projected_points_2026)
     : null;
-  const priorSeasonPoints = ranking && Number.isFinite(Number(ranking.actual_points_2025))
+  const priorSeasonPoints = ranking && ranking.actual_points_2025 !== null && Number.isFinite(Number(ranking.actual_points_2025))
     ? Number(ranking.actual_points_2025)
     : null;
 
@@ -189,8 +189,8 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
         aria-label={`${player.name} fantasy details`}
         className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/85 pt-[max(.75rem,env(safe-area-inset-top))] backdrop-blur-sm sm:items-center sm:px-4 sm:pb-4"
       >
-        <div className="flex max-h-[92dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-[28px] border border-white/10 bg-[#171a20] text-white shadow-2xl sm:rounded-[28px]">
-          <header className="relative min-h-48 shrink-0 overflow-hidden border-b border-white/10 bg-gradient-to-br from-[#222631] via-[#181b21] to-[#0b0d11] p-5 pr-32 sm:min-h-52 sm:p-6 sm:pr-48">
+        <div className="max-h-[92dvh] w-full max-w-3xl overflow-y-auto overscroll-contain rounded-t-[28px] border border-white/10 bg-[#171a20] text-white shadow-2xl sm:rounded-[28px]">
+          <header className="relative min-h-48 overflow-hidden border-b border-white/10 bg-gradient-to-br from-[#222631] via-[#181b21] to-[#0b0d11] p-5 pr-32 sm:min-h-52 sm:p-6 sm:pr-48">
             <button
               aria-label="Close player details"
               onClick={onClose}
@@ -199,11 +199,11 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
               <X className="h-6 w-6" />
             </button>
 
-            <div className="relative z-10 flex h-full flex-col justify-end">
+            <div className="relative z-10 flex min-h-36 flex-col justify-end sm:min-h-40">
               <div className="text-xs font-black uppercase tracking-[.14em] text-zinc-300">
                 {player.position} · {player.team}{player.jerseyNumber ? ` · #${player.jerseyNumber}` : ''}
               </div>
-              <h2 className="mt-1 text-3xl font-black leading-[1.02] tracking-tight sm:text-4xl">
+              <h2 className="mt-1 break-words text-3xl font-black leading-[1.02] tracking-tight sm:text-4xl">
                 {player.name}
               </h2>
               {teamName && <div className="mt-1 text-xs font-semibold text-zinc-400">{teamName}</div>}
@@ -233,7 +233,7 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
             )}
           </header>
 
-          <div className="grid shrink-0 grid-cols-3 border-b border-white/10 bg-[#1a1d24]">
+          <div className="grid grid-cols-3 border-b border-white/10 bg-[#1a1d24]">
             <Metric
               label="2026 Projection"
               value={seasonProjection === null ? '—' : seasonProjection.toFixed(1)}
@@ -251,7 +251,11 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
             />
           </div>
 
-          <nav className="grid shrink-0 grid-cols-3 border-b border-white/10 bg-[#171a20] px-2">
+          <nav
+            role="tablist"
+            aria-label="Player detail sections"
+            className="grid grid-cols-3 border-b border-white/10 bg-[#171a20] px-2"
+          >
             {([
               ['overview', 'Overview'],
               ['gameLog', 'Game Log'],
@@ -259,6 +263,7 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
             ] as const).map(([value, label]) => (
               <button
                 key={value}
+                role="tab"
                 onClick={() => setTab(value)}
                 aria-selected={tab === value}
                 className={`min-h-12 border-b-[3px] px-2 text-sm font-black transition ${tab === value ? 'border-[#D4AF37] text-white' : 'border-transparent text-zinc-400'}`}
@@ -268,7 +273,7 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
             ))}
           </nav>
 
-          <div className="flex shrink-0 items-center gap-2 border-b border-white/10 bg-[#14171c] px-4 py-2.5">
+          <div className="flex items-center gap-2 border-b border-white/10 bg-[#14171c] px-4 py-2.5">
             {([2026, 2025] as const).map(value => (
               <button
                 key={value}
@@ -283,7 +288,7 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
             </span>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#171a20]">
+          <div className="bg-[#171a20]">
             {tab === 'overview' && (
               <OverviewTab
                 season={season}
@@ -316,7 +321,7 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
           </div>
 
           {watchAction && (
-            <footer className="shrink-0 border-t border-white/10 bg-[#101217] px-4 pb-[max(.75rem,env(safe-area-inset-bottom))] pt-3">
+            <footer className="border-t border-white/10 bg-[#101217] px-4 py-3">
               <button
                 onClick={watchAction.onToggle}
                 className="min-h-12 w-full rounded-xl bg-[#D4AF37] text-sm font-black text-black"
@@ -325,6 +330,7 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
               </button>
             </footer>
           )}
+          <div aria-hidden="true" className="h-[max(.75rem,env(safe-area-inset-bottom))] bg-[#101217] sm:h-3" />
         </div>
       </div>
     </ModalPortal>
@@ -553,7 +559,7 @@ const StatsTab = ({
   if (busy) return <div className="p-4"><Notice title="Loading stats…" /></div>;
   if (error) return <div className="p-4"><Notice title="Stats could not be loaded." text={error} warning /></div>;
 
-  const rankingTotal = season === 2025 && ranking && Number.isFinite(Number(ranking.actual_points_2025))
+  const rankingTotal = season === 2025 && ranking && ranking.actual_points_2025 !== null && Number.isFinite(Number(ranking.actual_points_2025))
     ? Number(ranking.actual_points_2025)
     : null;
 
