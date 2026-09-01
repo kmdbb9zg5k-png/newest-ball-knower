@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { canMergeHistoricalProviderRows } from '../fantasyPlayerIdentity';
+import { resolveHistoricalProviderId } from '../fantasyPlayerIdentity';
 import { PLAYER_PORTRAITS, playerPortraitFallbackUrl, playerPortraitUrl } from '../playerPortraits';
 import { PLAYERS_DATABASE } from '../players';
 
@@ -14,15 +14,14 @@ const draftRoom = readFileSync(new URL('../LeagueLiveDraftRoom.tsx', import.meta
 assert.ok(detail.includes('loadFantasyPlayerWeeks({ id: player.id'), 'Player detail must load authoritative weekly history using the selected player identity.');
 
 const discoveryNameMatches = cloud.match(/\.eq\('player_name', player\.name\)/g) || [];
-const discoveryPositionMatches = cloud.match(/\.eq\('position', player\.position\)/g) || [];
 assert.equal(discoveryNameMatches.length, 1, 'Exactly one name-based historical discovery query is allowed.');
-assert.equal(discoveryPositionMatches.length, 1, 'Exactly one position-scoped historical discovery query is allowed.');
 
-const discoveryStart = cloud.indexOf('// Older weekly rows can retain a superseded Ball Knower id.');
+const discoveryStart = cloud.indexOf('// Historical Tank01 box scores can omit position and Ball Knower id.');
 const discoveryEnd = cloud.indexOf('  ]);', discoveryStart);
 assert.ok(discoveryStart >= 0 && discoveryEnd > discoveryStart, 'The historical discovery query must be explicitly scoped.');
 const discoveryQuery = cloud.slice(discoveryStart, discoveryEnd);
-assert.match(discoveryQuery, /\.eq\('player_name', player\.name\)[\s\S]*?\.eq\('position', player\.position\)/, 'Historical discovery must require exact name and exact position.');
+assert.match(discoveryQuery, /\.eq\('player_name', player\.name\)/, 'Historical discovery must require the exact player name.');
+assert.ok(!discoveryQuery.includes(".eq('position', player.position)"), 'Historical discovery must support authoritative rows whose upstream box score omitted position.');
 assert.ok(!discoveryQuery.includes(".eq('team', player.team)"), 'Historical discovery must retain history across NFL team changes.');
 
 const anchorStart = cloud.indexOf('  const identityRows =');
@@ -30,18 +29,19 @@ const anchorEnd = cloud.indexOf('  const rows = [...identityRows', anchorStart);
 assert.ok(anchorStart >= 0 && anchorEnd > anchorStart, 'Historical identity anchoring must be isolated before row merging.');
 const anchorLogic = cloud.slice(anchorStart, anchorEnd);
 assert.ok(anchorLogic.includes('allFallbackRowsHaveProviderIds'), 'Every discovered historical row must have a provider identity.');
-assert.ok(anchorLogic.includes('canMergeHistoricalProviderRows(identityProviderIds, fallbackProviderIds)'), 'Historical rows must pass the provider identity guard.');
-assert.ok(anchorLogic.includes('const anchoredProviderId = canMergeFallback'), 'Only an accepted provider identity may be used for fallback merging.');
-assert.ok(anchorLogic.includes('const anchoredFallbackRows = anchoredProviderId'), 'Fallback rows must be gated on the accepted provider identity.');
+assert.ok(anchorLogic.includes('resolveHistoricalProviderId(identityProviderIds, fallbackProviderIds)'), 'Historical rows must pass the provider identity guard.');
+assert.ok(anchorLogic.includes('const verifiedProviderId = allFallbackRowsHaveProviderIds'), 'Only an accepted provider identity may be used for fallback merging.');
+assert.ok(anchorLogic.includes('const verifiedFallbackRows = verifiedProviderId'), 'Fallback rows must be gated on the accepted provider identity.');
 
-assert.equal(canMergeHistoricalProviderRows(['provider-a'], ['provider-a']), true, 'Matching single provider identities may merge.');
-assert.equal(canMergeHistoricalProviderRows([], ['provider-a']), false, 'No current-player identity anchor must fail closed.');
-assert.equal(canMergeHistoricalProviderRows(['provider-a'], ['provider-b']), false, 'Different provider identities must not merge.');
-assert.equal(canMergeHistoricalProviderRows(['provider-a'], ['provider-a', 'provider-b']), false, 'Ambiguous historical provider identities must not merge.');
-assert.equal(canMergeHistoricalProviderRows(['provider-a', 'provider-b'], ['provider-a']), false, 'Ambiguous current-player provider identities must not merge.');
+assert.equal(resolveHistoricalProviderId(['provider-a'], ['provider-a']), 'provider-a', 'Matching single provider identities may merge.');
+assert.equal(resolveHistoricalProviderId([], ['provider-a']), 'provider-a', 'A unique provider identity may anchor exact-name historical rows when position metadata is absent.');
+assert.equal(resolveHistoricalProviderId(['provider-a'], ['provider-b']), '', 'Different provider identities must not merge.');
+assert.equal(resolveHistoricalProviderId(['provider-a'], ['provider-a', 'provider-b']), '', 'Ambiguous historical provider identities must not merge.');
+assert.equal(resolveHistoricalProviderId(['provider-a', 'provider-b'], ['provider-a']), '', 'Ambiguous current-player provider identities must not merge.');
 
 assert.ok(cloud.includes(".eq('ball_knower_player_id', player.id)"), 'Weekly history must query the permanent Ball Knower player identity first.');
-assert.ok(cloud.includes('No current-id rows means there is no trustworthy provider identity anchor.'), 'An empty current identity must fail closed instead of guessing a player from name and position.');
+assert.ok(cloud.includes('If the exact name is'), 'Ambiguous exact-name history must fail closed instead of guessing a player.');
+assert.ok(cloud.includes('position: row.position || player.position'), 'Verified historical rows must recover missing upstream position metadata from the selected player.');
 assert.ok(detail.includes("player?.name, player?.team, player?.position"), 'History must reload whenever a fallback identity field changes.');
 assert.ok(detail.includes("type DetailTab = 'overview' | 'gameLog' | 'stats'"), 'Player details must expose Overview, Game Log, and Stats destinations.');
 assert.ok(detail.includes('2026 Projection'), 'The player header must prioritize useful season projection data.');
