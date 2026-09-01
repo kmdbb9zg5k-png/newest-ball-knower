@@ -207,10 +207,12 @@ assert.ok(
   cloudCoordinator.includes('localStorage.removeItem(AGENT_PENDING_SIGNING_KEY)')&&
   cloudCoordinator.includes('if (hasValidPendingAgentSigning())')&&
   cloudCoordinator.includes('Finish verifying the pending Agent signing before changing accounts.')&&
-  cloudCoordinator.includes('function hasValidPendingAgentRecruitAction(): boolean')&&
+  cloudCoordinator.includes('function promotePendingAgentRecruitAction(): void')&&
+  cloudCoordinator.includes("AGENT_SAVE_KEY = 'ballknower_player_agent_v4'")&&
+  cloudCoordinator.includes('pending.ownerId !== ownerId')&&
+  cloudCoordinator.includes('localStorage.setItem(AGENT_SAVE_KEY, JSON.stringify(pending.state))')&&
   cloudCoordinator.includes('localStorage.removeItem(AGENT_PENDING_RECRUIT_ACTION_KEY)')&&
-  cloudCoordinator.includes('if (hasValidPendingAgentRecruitAction())')&&
-  cloudCoordinator.includes('Finish or close the active Agent recruiting meeting before changing accounts.')&&
+  cloudCoordinator.includes('promotePendingAgentRecruitAction();')&&
   supabaseClient.includes("import { flushAllCloudStateBeforeIdentityChange } from './cloudSyncCoordinator'")&&
   supabaseClient.includes("export async function signOutOnline(): Promise<void> {\n  if (!supabase) return;\n  await flushAllCloudStateBeforeIdentityChange();")&&
   supabaseClient.includes("export async function sendEmailMagicLink(email: string, displayName?: string): Promise<void> {\n  if (!supabase) throw new Error('Online multiplayer is not configured yet.');\n  await flushAllCloudStateBeforeIdentityChange();")&&
