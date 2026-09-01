@@ -35,7 +35,7 @@ assert.match(api, /req\.headers\?\.authorization!==`Bearer \$\{cronSecret\}`/);
 assert.match(cloud, /pregame_projected_points/);
 assert.match(cloud, /row\.pregame_projection_captured_at \? \(row\.pregame_projected_points \|\| \{\}\) : \{\}/);
 assert.match(detail, /Why this projection/);
-assert.match(detail, /does not reconstruct one after the fact/);
+assert.match(detail, /Pregame projections appear only when a snapshot was captured/);
 assert.equal(vercel.crons.length, 2, 'History backfill must reuse the existing cron instead of exceeding the two-job cap.');
 
 console.log('Phase 2 history snapshot checks passed.');
