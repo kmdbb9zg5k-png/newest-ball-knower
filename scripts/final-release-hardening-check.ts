@@ -239,6 +239,9 @@ assert.ok(
   transferFunctionSql.includes("guest_state.value->>'abbr'=guest.abbr")&&
   transferFunctionSql.includes("guest_state.value->>'season'=guest.season::text")&&
   transferFunctionSql.includes("guest_state.value->>'week'=guest.week::text")&&
+  transferFunctionSql.includes("coalesce(nullif(guest_state.value->>'playoffSeed',''),'0')=coalesce(guest.playoff_seed,0)::text")&&
+  transferFunctionSql.includes("coalesce(nullif(public_state.value->>'playoffSeed',''),'0')=coalesce(guest.playoff_seed,0)::text")&&
+  transferFunctionSql.includes("coalesce(nullif(public_state.value->>'playoffSeed',''),'0')=coalesce(target.playoff_seed,0)::text")&&
   transferFunctionSql.includes('guest.abbr\n    ) > (')&&
   transferFunctionSql.includes('where v_guest_owner_wins;')&&
   transferFunctionSql.includes('ball_knower_private.owner_state_revision(excluded.value)')&&
