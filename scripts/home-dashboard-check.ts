@@ -18,6 +18,9 @@ assert.ok(home.includes('Ball Knower Rating')&&home.includes('rating points to')
 assert.ok(home.includes('Create League')&&home.includes('Join League')&&home.includes('Cheat Sheet')&&home.includes('Solo Mode'), 'all approved home quick links must remain reachable');
 
 assert.ok(navbar.includes('fixed inset-x-0 bottom-0')&&navbar.includes('pb-[env(safe-area-inset-bottom)]'), 'mobile navigation must be fixed above the iPhone home indicator');
+const headerClose=navbar.indexOf('</header>');
+const mobileNav=navbar.indexOf('<nav aria-label="Primary navigation"');
+assert.ok(headerClose>=0&&mobileNav>headerClose, 'mobile navigation must remain outside the blurred sticky header so iOS fixes it to the viewport');
 assert.ok(home.includes('env(safe-area-inset-left)')&&home.includes('env(safe-area-inset-right)')&&navbar.includes('env(safe-area-inset-left)')&&navbar.includes('env(safe-area-inset-right)'), 'home content and header must stay clear of the iPhone landscape notch');
 assert.ok(navbar.includes("mobileTabClass('home')")&&navbar.includes("mobileTabClass('fantasy')")&&navbar.includes("mobileTabClass('sportsbook')")&&navbar.includes("mobileTabClass('challenges')")&&navbar.includes("mobileTabClass('locker')"), 'mobile navigation must expose the five approved primary destinations');
 assert.ok(navbar.includes("setCurrentTab('solo')")&&navbar.includes("setCurrentTab('news')")&&navbar.includes("setCurrentTab('legacy')"), 'secondary Solo, News, and Hall of Fame destinations must remain available');
