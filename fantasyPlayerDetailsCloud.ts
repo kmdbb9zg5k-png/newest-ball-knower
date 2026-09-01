@@ -1,5 +1,5 @@
 import { ensureOnlineSession, supabase } from './supabase';
-import { resolveHistoricalProviderId } from './fantasyPlayerIdentity';
+import { historicalNameVariants, resolveHistoricalProviderId } from './fantasyPlayerIdentity';
 
 export type FantasyPlayerWeek = {
   id: string;
@@ -76,7 +76,8 @@ const normalizeTeam = (value: string) => {
 export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Promise<FantasyPlayerWeek[]> {
   if (!supabase) return [];
   await ensureOnlineSession();
-  const [identityResult, nameResult, scheduleResult] = await Promise.all([
+  const nameVariants = historicalNameVariants(player.name);
+  const [identityResult, exactNameResult, variantNameResult, scheduleResult] = await Promise.all([
     supabase
       .from('ball_knower_player_week_scores')
       .select(weekColumns)
@@ -85,12 +86,20 @@ export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Pro
       .order('season', { ascending: false })
       .order('week_number', { ascending: true }),
     // Historical Tank01 box scores can omit position and Ball Knower id. Exact
-    // name is discovery only; rows are accepted only when every result resolves
-    // to one unambiguous provider identity (and matches any current-id anchor).
+    // name is checked first so a same-name suffix collision cannot displace it.
     supabase
       .from('ball_knower_player_week_scores')
       .select(weekColumns)
       .eq('player_name', player.name)
+      .in('season', [2025, 2026])
+      .order('season', { ascending: false })
+      .order('week_number', { ascending: true }),
+    // Suffix and verified nickname variants are discovery only. They are used
+    // only when exact-name history is absent and all rows share one provider id.
+    supabase
+      .from('ball_knower_player_week_scores')
+      .select(weekColumns)
+      .in('player_name', nameVariants)
       .in('season', [2025, 2026])
       .order('season', { ascending: false })
       .order('week_number', { ascending: true }),
@@ -101,24 +110,32 @@ export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Pro
       .eq('season_type', 'reg')
       .order('week_number', { ascending: true }),
   ]);
-  const error = identityResult.error || nameResult.error;
+  const error = identityResult.error || exactNameResult.error || variantNameResult.error;
   if (error) throw new Error(error.message || 'Player game history could not be loaded.');
 
   const identityRows = (identityResult.data || []) as WeekRow[];
-  const nameRows = (nameResult.data || []) as WeekRow[];
+  const exactNameRows = (exactNameResult.data || []) as WeekRow[];
+  const variantNameRows = (variantNameResult.data || []) as WeekRow[];
   const identityProviderIds = identityRows.map(row => row.provider_player_id).filter(Boolean);
-  const fallbackProviderIds = nameRows.map(row => row.provider_player_id).filter(Boolean);
-  const allFallbackRowsHaveProviderIds = nameRows.every(row => Boolean(row.provider_player_id));
-  const verifiedProviderId = allFallbackRowsHaveProviderIds
-    ? resolveHistoricalProviderId(identityProviderIds, fallbackProviderIds)
+  const exactProviderIds = exactNameRows.map(row => row.provider_player_id).filter(Boolean);
+  const allExactRowsHaveProviderIds = exactNameRows.every(row => Boolean(row.provider_player_id));
+  const exactProviderId = allExactRowsHaveProviderIds
+    ? resolveHistoricalProviderId(identityProviderIds, exactProviderIds)
+    : '';
+  const variantProviderIds = variantNameRows.map(row => row.provider_player_id).filter(Boolean);
+  const allVariantRowsHaveProviderIds = variantNameRows.every(row => Boolean(row.provider_player_id));
+  const variantProviderId = exactNameRows.length === 0 && allVariantRowsHaveProviderIds
+    ? resolveHistoricalProviderId(identityProviderIds, variantProviderIds)
     : '';
 
-  // A unique provider identity is the historical anchor. If the exact name is
-  // ambiguous, a row lacks provider identity, or current rows disagree, fail
-  // closed instead of attaching another player's games.
-  const verifiedFallbackRows = verifiedProviderId
-    ? nameRows.filter(row => row.provider_player_id === verifiedProviderId)
-    : [];
+  // Exact-name rows always win. Only when they do not exist may a suffix or
+  // nickname variant supply the unique provider identity. Ambiguity, missing
+  // provider ids, or disagreement with current rows still fails closed.
+  const verifiedFallbackRows = exactProviderId
+    ? exactNameRows.filter(row => row.provider_player_id === exactProviderId)
+    : variantProviderId
+      ? variantNameRows.filter(row => row.provider_player_id === variantProviderId)
+      : [];
 
   const rows = [...identityRows, ...verifiedFallbackRows];
   const uniqueRows = [...new Map(rows.map(row => [row.id, row])).values()]
