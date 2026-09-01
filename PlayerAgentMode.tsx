@@ -413,12 +413,25 @@ const flushAgentSigningBaseline = async () => {
 };
 
 const loadAuthoritativeAgentCareer = async (): Promise<AgencyState> => {
-  const cloud = await loadUserState<{ raw?: unknown }>("player_agent_career");
-  if (!cloud || typeof cloud.raw !== "string") {
-    throw new Error("Authoritative Agent career is unavailable.");
+  let timer = 0;
+  try {
+    const cloud = await Promise.race([
+      loadUserState<{ raw?: unknown }>("player_agent_career"),
+      new Promise<never>((_, reject) => {
+        timer = window.setTimeout(
+          () => reject(new Error("Authoritative Agent career load timed out. Retry when the connection is stable.")),
+          AGENT_SESSION_TIMEOUT_MS,
+        );
+      }),
+    ]);
+    if (!cloud || typeof cloud.raw !== "string") {
+      throw new Error("Authoritative Agent career is unavailable.");
+    }
+    localStorage.setItem(SAVE_KEY, cloud.raw);
+    return restore();
+  } finally {
+    window.clearTimeout(timer);
   }
-  localStorage.setItem(SAVE_KEY, cloud.raw);
-  return restore();
 };
 
 const withAgentSigningTabLock = async <T,>(task: () => Promise<T>): Promise<T> => {
