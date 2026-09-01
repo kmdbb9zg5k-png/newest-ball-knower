@@ -315,6 +315,9 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (raw === null || cloudStateFingerprint(raw) !== fingerprint) return;
       lastValues.set(localKey, raw);
       dirtyKeys.delete(localKey);
+      if (localKey === 'ballknower_owner_career_v3') {
+        try { window.dispatchEvent(new CustomEvent(OWNER_CLOUD_SYNC_EVENT, { detail: JSON.parse(raw) })); } catch {}
+      }
       meta[localKey] = Date.now();
       if (activeUserId) writeMeta(activeUserId, meta);
     });
