@@ -195,13 +195,16 @@ assert.ok(
   cloudCoordinator.includes("window.addEventListener('storage', onStorage)")&&
   cloudCoordinator.includes('cloudStateFingerprint(raw)')&&
   cloudCoordinator.includes('localStorage.setItem(')&&
+  cloudCoordinator.includes('flushAllCloudStateBeforeIdentityChange')&&
+  cloudCoordinator.includes('if (localStorage.getItem(AGENT_PENDING_SIGNING_KEY))')&&
+  cloudCoordinator.includes('Finish verifying the pending Agent signing before changing accounts.')&&
   cloudSync.includes('registerCloudStateCommitted((localKey, fingerprint) => {')&&
   cloudSync.includes('cloudStateFingerprint(raw) !== fingerprint')&&
   cloudSync.includes('lastValues.set(localKey, raw)')&&
   cloudSync.includes('dirtyKeys.delete(localKey)')&&
   owner.includes('markCloudStateCommitted(SAVE_KEY,JSON.stringify(nextState))')&&
   agent.includes('markCloudStateCommitted(SAVE_KEY, JSON.stringify(pending.state))'),
-  'server-committed Owner and Agent snapshots must be acknowledged across tabs before generic cloud uploads resume',
+  'server-committed snapshots must be acknowledged across tabs, and pending Agent CAS writes must block identity changes',
 );
 
 assert.ok(
