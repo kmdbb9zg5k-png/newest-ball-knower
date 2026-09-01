@@ -2,6 +2,7 @@ type FullCloudStateFlush = () => Promise<void>;
 type CloudStateCommitted = (localKey: string, fingerprint: string) => void;
 
 const CLOUD_STATE_COMMITTED_MARKER_KEY = 'ballknower_cloud_committed_marker_v1';
+const AGENT_PENDING_SIGNING_KEY = 'ballknower_player_agent_signing_pending_v1';
 let activeFullFlush: FullCloudStateFlush | null = null;
 let activeCloudStateCommitted: CloudStateCommitted | null = null;
 
@@ -58,5 +59,8 @@ export async function flushAllCloudState(): Promise<void> {
 }
 
 export async function flushAllCloudStateBeforeIdentityChange(): Promise<void> {
+  if (localStorage.getItem(AGENT_PENDING_SIGNING_KEY)) {
+    throw new Error('Finish verifying the pending Agent signing before changing accounts.');
+  }
   await flushAllCloudState();
 }
