@@ -1,5 +1,5 @@
 import { ensureOnlineSession, supabase } from './supabase';
-import { canMergeHistoricalProviderRows } from './fantasyPlayerIdentity';
+import { resolveHistoricalProviderId } from './fantasyPlayerIdentity';
 
 export type FantasyPlayerWeek = {
   id: string;
@@ -76,7 +76,7 @@ const normalizeTeam = (value: string) => {
 export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Promise<FantasyPlayerWeek[]> {
   if (!supabase) return [];
   await ensureOnlineSession();
-  const [identityResult, namePositionResult, scheduleResult] = await Promise.all([
+  const [identityResult, nameResult, scheduleResult] = await Promise.all([
     supabase
       .from('ball_knower_player_week_scores')
       .select(weekColumns)
@@ -84,14 +84,13 @@ export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Pro
       .in('season', [2025, 2026])
       .order('season', { ascending: false })
       .order('week_number', { ascending: true }),
-    // Older weekly rows can retain a superseded Ball Knower id. Name + position
-    // is discovery only; rows are merged only after their provider identity is
-    // anchored to rows already verified under the selected permanent player id.
+    // Historical Tank01 box scores can omit position and Ball Knower id. Exact
+    // name is discovery only; rows are accepted only when every result resolves
+    // to one unambiguous provider identity (and matches any current-id anchor).
     supabase
       .from('ball_knower_player_week_scores')
       .select(weekColumns)
       .eq('player_name', player.name)
-      .eq('position', player.position)
       .in('season', [2025, 2026])
       .order('season', { ascending: false })
       .order('week_number', { ascending: true }),
@@ -102,27 +101,26 @@ export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Pro
       .eq('season_type', 'reg')
       .order('week_number', { ascending: true }),
   ]);
-  const error = identityResult.error || namePositionResult.error;
+  const error = identityResult.error || nameResult.error;
   if (error) throw new Error(error.message || 'Player game history could not be loaded.');
 
   const identityRows = (identityResult.data || []) as WeekRow[];
-  const namePositionRows = (namePositionResult.data || []) as WeekRow[];
+  const nameRows = (nameResult.data || []) as WeekRow[];
   const identityProviderIds = identityRows.map(row => row.provider_player_id).filter(Boolean);
-  const fallbackProviderIds = namePositionRows.map(row => row.provider_player_id).filter(Boolean);
-  const allFallbackRowsHaveProviderIds = namePositionRows.every(row => Boolean(row.provider_player_id));
-  const canMergeFallback =
-    allFallbackRowsHaveProviderIds &&
-    canMergeHistoricalProviderRows(identityProviderIds, fallbackProviderIds);
-  const anchoredProviderId = canMergeFallback ? [...new Set(identityProviderIds)][0] : '';
+  const fallbackProviderIds = nameRows.map(row => row.provider_player_id).filter(Boolean);
+  const allFallbackRowsHaveProviderIds = nameRows.every(row => Boolean(row.provider_player_id));
+  const verifiedProviderId = allFallbackRowsHaveProviderIds
+    ? resolveHistoricalProviderId(identityProviderIds, fallbackProviderIds)
+    : '';
 
-  // No current-id rows means there is no trustworthy provider identity anchor.
-  // In that case, prefer an honest empty/partial history over attaching a same-
-  // name player's rows to the selected player.
-  const anchoredFallbackRows = anchoredProviderId
-    ? namePositionRows.filter(row => row.provider_player_id === anchoredProviderId)
+  // A unique provider identity is the historical anchor. If the exact name is
+  // ambiguous, a row lacks provider identity, or current rows disagree, fail
+  // closed instead of attaching another player's games.
+  const verifiedFallbackRows = verifiedProviderId
+    ? nameRows.filter(row => row.provider_player_id === verifiedProviderId)
     : [];
 
-  const rows = [...identityRows, ...anchoredFallbackRows];
+  const rows = [...identityRows, ...verifiedFallbackRows];
   const uniqueRows = [...new Map(rows.map(row => [row.id, row])).values()]
     .sort((a, b) => b.season - a.season || a.week_number - b.week_number);
 
@@ -135,7 +133,7 @@ export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Pro
     team: row.team,
     opponentTeam: row.opponent_team || '',
     isHome: row.is_home,
-    position: row.position || '',
+    position: row.position || player.position,
     kickoffAt: row.kickoff_at,
     status: row.game_status,
     isFinal: Boolean(row.is_final),
