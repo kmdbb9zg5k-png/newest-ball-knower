@@ -524,7 +524,9 @@ begin
     user_id,abbr,season,week,stage,wins,losses,playoff_seed,version,updated_at
   )
   select new.claimed_by,abbr,season,week,stage,wins,losses,playoff_seed,version,updated_at
-  from ball_knower_private.verified_owner_runs where user_id=new.guest_user_id
+  from ball_knower_private.verified_owner_runs
+  where user_id=new.guest_user_id
+    and v_guest_owner_wins
   on conflict(user_id) do update set
     abbr=excluded.abbr,
     season=excluded.season,
