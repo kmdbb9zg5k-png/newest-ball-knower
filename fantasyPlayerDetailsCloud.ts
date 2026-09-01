@@ -58,36 +58,41 @@ const weekColumns = 'id,provider_game_id,provider_player_id,season,week_number,p
 export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Promise<FantasyPlayerWeek[]> {
   if (!supabase) return [];
   await ensureOnlineSession();
-  const [identityResult, legacyResult] = await Promise.all([
-    supabase
-    .from('ball_knower_player_week_scores')
-    .select(weekColumns)
-    .eq('ball_knower_player_id', player.id)
-    .in('season', [2025, 2026])
-    .order('season', { ascending: false })
-    .order('week_number', { ascending: true }),
-    // Older/unrostered score rows can predate the permanent app-id link. Exact
-    // full name plus position safely retains those rows across NFL team changes.
+  const [identityResult, namePositionResult] = await Promise.all([
     supabase
       .from('ball_knower_player_week_scores')
       .select(weekColumns)
-      .is('ball_knower_player_id', null)
+      .eq('ball_knower_player_id', player.id)
+      .in('season', [2025, 2026])
+      .order('season', { ascending: false })
+      .order('week_number', { ascending: true }),
+    // Some historical rows can carry an older non-null Ball Knower player id
+    // after identity migrations. Exact full name + position can recover them,
+    // but only when every matching row resolves to one provider identity.
+    supabase
+      .from('ball_knower_player_week_scores')
+      .select(weekColumns)
       .eq('player_name', player.name)
       .eq('position', player.position)
       .in('season', [2025, 2026])
       .order('season', { ascending: false })
       .order('week_number', { ascending: true }),
   ]);
-  const error = identityResult.error || legacyResult.error;
+  const error = identityResult.error || namePositionResult.error;
   if (error) throw new Error(error.message || 'Player game history could not be loaded.');
+
   const identityRows = (identityResult.data || []) as WeekRow[];
-  const legacyRows = (legacyResult.data || []) as WeekRow[];
-  const legacyProviderIds = new Set(legacyRows.map(row => row.provider_player_id).filter(Boolean));
-  const allLegacyRowsHaveProviderIds = legacyRows.every(row => Boolean(row.provider_player_id));
-  const unambiguousLegacyRows = allLegacyRowsHaveProviderIds && legacyProviderIds.size === 1 ? legacyRows : [];
-  const rows = [...identityRows, ...unambiguousLegacyRows];
+  const namePositionRows = (namePositionResult.data || []) as WeekRow[];
+  const providerIds = new Set(namePositionRows.map(row => row.provider_player_id).filter(Boolean));
+  const allNamePositionRowsHaveProviderIds = namePositionRows.every(row => Boolean(row.provider_player_id));
+  const unambiguousNamePositionRows = allNamePositionRowsHaveProviderIds && providerIds.size === 1
+    ? namePositionRows
+    : [];
+
+  const rows = [...identityRows, ...unambiguousNamePositionRows];
   const uniqueRows = [...new Map(rows.map(row => [row.id, row])).values()]
     .sort((a, b) => b.season - a.season || a.week_number - b.week_number);
+
   return uniqueRows.map(row => ({
     id: row.id,
     providerGameId: row.provider_game_id,
