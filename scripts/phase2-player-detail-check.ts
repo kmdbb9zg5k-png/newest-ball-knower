@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { canMergeHistoricalProviderRows } from '../fantasyPlayerIdentity';
+import { PLAYER_PORTRAITS, playerPortraitFallbackUrl, playerPortraitUrl } from '../playerPortraits';
 
 const detail = readFileSync(new URL('../FantasyPlayerDetail.tsx', import.meta.url), 'utf8');
 const cloud = readFileSync(new URL('../fantasyPlayerDetailsCloud.ts', import.meta.url), 'utf8');
 const postDraft = readFileSync(new URL('../FantasyLeaguePostDraft.tsx', import.meta.url), 'utf8');
 const hub = readFileSync(new URL('../FantasyHub.tsx', import.meta.url), 'utf8');
 const communications = readFileSync(new URL('../FantasyLeagueCommunications.tsx', import.meta.url), 'utf8');
+const draftRoom = readFileSync(new URL('../LeagueLiveDraftRoom.tsx', import.meta.url), 'utf8');
 
 assert.ok(detail.includes('loadFantasyPlayerWeeks({ id: player.id'), 'Player detail must load authoritative weekly history using the selected player identity.');
 
@@ -72,5 +74,11 @@ assert.ok(hub.includes('watchAction={{ watched: watchlist.includes'), 'Cheat She
 assert.ok(hub.includes('<FantasyPlayerDetail'), 'Cheat Sheet rankings must open the shared detail surface.');
 assert.ok(communications.includes('<FantasyPlayerDetail'), 'Trading Block entries must open the shared detail surface.');
 assert.ok(communications.includes('onOpen={setDetailPlayer}'), 'Trading Block player buttons must wire into shared details.');
+assert.ok(Object.keys(PLAYER_PORTRAITS).length > 400, 'The shared portrait catalog must retain broad NFL player coverage.');
+assert.equal(playerPortraitUrl({ id: 'bijan', name: 'Bijan Robinson', position: 'RB' }), PLAYER_PORTRAITS['Bijan Robinson'], 'Known players must resolve to their real catalog headshot instead of initials.');
+assert.ok(playerPortraitUrl({ id: 'dst-den', name: 'Denver Broncos D/ST', position: 'DST', team: 'DEN' }).includes('/nfl/500/den.png'), 'D/ST rows must use the NFL team logo instead of fake player initials.');
+assert.ok(playerPortraitFallbackUrl({ id: 'unknown', name: 'Unknown Player', position: 'WR' }).startsWith('data:image/svg+xml,'), 'Unknown players must retain a safe initials fallback.');
+assert.ok(draftRoom.includes('playerPortraitFallbackUrl(player)') && draftRoom.includes('headshot'), 'Live draft rows must render player headshots with a safe failed-image fallback.');
+assert.ok(postDraft.includes('playerPortraitFallbackUrl(player)') && postDraft.includes('headshot'), 'My Team starter and bench rows must render player headshots with a safe failed-image fallback.');
 
 console.log('Phase 2 player detail checks passed: decision-first modal, safe game log, executable identity guard, and shared entry points.');

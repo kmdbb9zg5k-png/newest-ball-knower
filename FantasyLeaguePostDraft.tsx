@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { League, LeagueMember, Player, SimulationGame } from "./types";
 import { PLAYERS_DATABASE } from "./players";
-import { playerPortraitUrl } from "./playerPortraits";
+import { playerPortraitFallbackUrl, playerPortraitUrl } from "./playerPortraits";
 import { useBallKnower } from "./BallKnowerContext";
 import { FantasyAdvancedLeagueSettings } from "./FantasyAdvancedLeagueSettings";
 import { FantasyLeagueCommunications } from "./FantasyLeagueCommunications";
@@ -2551,7 +2551,14 @@ const Portrait = ({ player }: { player?: Player }) => (
     {player && playerPortraitUrl(player) ? (
       <img
         src={playerPortraitUrl(player)}
-        alt=""
+        alt={`${player.name} headshot`}
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        onError={(event) => {
+          event.currentTarget.onerror = null;
+          event.currentTarget.src = playerPortraitFallbackUrl(player);
+        }}
         className="h-full w-full object-cover"
       />
     ) : (
