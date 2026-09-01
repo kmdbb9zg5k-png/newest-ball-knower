@@ -5,7 +5,7 @@ import{loadUserState}from'./userStateCloud';
 import{OWNER_CLOUD_CONFLICT_EVENT,OWNER_CLOUD_SYNC_EVENT}from'./CloudSyncProvider';
 import{advanceOwnerSeason,migrateOwnerLegacyWeek,normalizeOwnerAbbr,ownerCalendarWeek,ownerStageLabel,type OwnerSeasonStage}from'./ownerSeasonEngine';
 import{advanceVerifiedOwnerStep,claimPendingVerifiedModeMilestones}from'./modeProgressionCloud';
-import{markCloudStateCommitted}from'./cloudSyncCoordinator';
+import{flushAllCloudState,markCloudStateCommitted}from'./cloudSyncCoordinator';
 const SAVE_KEY='ballknower_owner_career_v3';
 const CLOUD_SAVE_KEY='owner_business_career_v1';
 type Staff={id:string;name:string;role:string;football:number;culture:number;costM:number;tone:string};
@@ -81,38 +81,51 @@ export const OwnerBusinessMode:React.FC<{onBack:()=>void}>=({onBack})=>{
  const choose=async(c:OwnerChoice)=>{
   if(verifying)return;setVerifying(true);
   try{
+   const currentState=state;
+   try{
+    await flushAllCloudState();
+   }catch(error){
+    console.warn('Owner baseline cloud save unavailable; decision paused',error);
+    setCloudConflict(true);
+    return;
+   }
+   const baseline=restore();
+   const comparableOwnerState=(value:State)=>JSON.stringify({...value,cloudRevision:0});
+   if(comparableOwnerState(baseline)!==comparableOwnerState(currentState)){
+    setState(baseline);persist(baseline);setCloudConflict(true);return;
+   }
    const buildDecisionState=(won:boolean,verified:boolean,cloudRevision:number):State=>{
-    const p:any={};Object.entries(c.effect).forEach(([k,v])=>p[k]=k==='cashM'?state.cashM+(v||0):clamp(Math.round((state as any)[k]+(v||0))));
-    const isPreseason=state.stage==='preseason';
-    const isBye=state.stage==='regular'&&Boolean(ownerCalendarWeek(state.abbr,state.week,state.season)?.isBye);
-    const isRegularGame=state.stage==='regular'&&!isBye;
-    const completedWins=isRegularGame?state.wins+(won?1:0):state.wins;
-    const completedLosses=isRegularGame?state.losses+(won?0:1):state.losses;
-    const advance=advanceOwnerSeason({abbr:state.abbr,season:state.season,week:state.week,stage:state.stage,wins:state.wins,losses:state.losses,cashM:state.cashM,ticketPrice:state.ticketPrice,parkingPrice:state.parkingPrice,fanTrust:state.fanTrust,stadium:state.stadium,gmCostM:state.seasonStaffCommitmentsM,coachCostM:0,playoffSeed:state.playoffSeed||undefined},won);
-    const seasonEnded=advance.seasonEnded;const moment=ownerStageLabel(state.stage,state.week);
+    const p:any={};Object.entries(c.effect).forEach(([k,v])=>p[k]=k==='cashM'?baseline.cashM+(v||0):clamp(Math.round((baseline as any)[k]+(v||0))));
+    const isPreseason=baseline.stage==='preseason';
+    const isBye=baseline.stage==='regular'&&Boolean(ownerCalendarWeek(baseline.abbr,baseline.week,baseline.season)?.isBye);
+    const isRegularGame=baseline.stage==='regular'&&!isBye;
+    const completedWins=isRegularGame?baseline.wins+(won?1:0):baseline.wins;
+    const completedLosses=isRegularGame?baseline.losses+(won?0:1):baseline.losses;
+    const advance=advanceOwnerSeason({abbr:baseline.abbr,season:baseline.season,week:baseline.week,stage:baseline.stage,wins:baseline.wins,losses:baseline.losses,cashM:baseline.cashM,ticketPrice:baseline.ticketPrice,parkingPrice:baseline.parkingPrice,fanTrust:baseline.fanTrust,stadium:baseline.stadium,gmCostM:baseline.seasonStaffCommitmentsM,coachCostM:0,playoffSeed:baseline.playoffSeed||undefined},won);
+    const seasonEnded=advance.seasonEnded;const moment=ownerStageLabel(baseline.stage,baseline.week);
     const verificationNote=verified?' · VERIFIED':' · LOCAL';
-    const decisionEntry=`${state.season} · ${moment} · ${d.title} — ${c.label}. ${isPreseason||isBye?'No regular-season game was played.':won?'The team won its next game.':'The team lost its next game.'}${verificationNote}`;
-    const choiceCash=Number(c.effect.cashM)||0;const completedSeasonRevenue=state.seasonRevenueM+advance.revenueM+Math.max(0,choiceCash);const completedSeasonExpenses=state.seasonExpensesM+advance.expensesM+Math.max(0,-choiceCash);
-    const seasonEntry=seasonEnded?`SEASON ${state.season} COMPLETE · ${completedWins}-${completedLosses}${advance.wonChampionship?' · SUPER BOWL CHAMPIONS':''}. Revenue ${money(completedSeasonRevenue)}, expenses ${money(completedSeasonExpenses)}, profit ${money(completedSeasonRevenue-completedSeasonExpenses)}.${verified?' Verified universal progression eligible.':' Universal progression begins at the next verified season boundary.'}`:null;
-    const baseCash=typeof p.cashM==='number'?p.cashM:state.cashM;
-    Object.assign(p,{cashM:baseCash+advance.profitM,week:advance.nextWeek,stage:advance.nextStage,season:seasonEnded?state.season+1:state.season,wins:seasonEnded?0:completedWins,losses:seasonEnded?0:completedLosses,careerWins:state.careerWins+(isRegularGame&&won?1:0),careerLosses:state.careerLosses+(isRegularGame&&!won?1:0),seasonsCompleted:state.seasonsCompleted+(seasonEnded?1:0),playoffAppearances:state.playoffAppearances+(state.stage==='regular'&&advance.playoffQualified?1:0),conferenceTitles:state.conferenceTitles+(state.stage==='conference'&&won?1:0),championships:state.championships+(advance.wonChampionship?1:0),playoffSeed:seasonEnded?0:(advance.playoffSeed??state.playoffSeed??0),seasonRevenueM:seasonEnded?0:completedSeasonRevenue,seasonExpensesM:seasonEnded?0:completedSeasonExpenses,seasonStaffCommitmentsM:seasonEnded?(state.gm?.costM||0)+(state.coach?.costM||0):state.seasonStaffCommitmentsM,careerRevenueM:state.careerRevenueM+advance.revenueM+Math.max(0,choiceCash),careerExpensesM:state.careerExpensesM+advance.expensesM+Math.max(0,-choiceCash),cloudRevision,legacy:clamp((typeof p.legacy==='number'?p.legacy:state.legacy)+(advance.wonChampionship?15:0)),usedDecisionIds:state.usedDecisionIds.includes(d.id)?state.usedDecisionIds:[...state.usedDecisionIds,d.id],lastOutcome:seasonEnded?`${c.label}. Final record: ${completedWins}-${completedLosses}${advance.wonChampionship?' and a Super Bowl championship':''}. A new season begins.`:isPreseason?`${c.label}. The regular season is ready for Week 1.`:isBye?`${c.label}. The team used its bye week to reset.`:`${c.label}. ${won?'The team answered with a win.':'The team took a loss, and the pressure moves forward.'}`,history:[...(seasonEntry?[seasonEntry]:[]),decisionEntry,...state.history]});
-    return{...state,...p,updatedAt:Date.now()};
+    const decisionEntry=`${baseline.season} · ${moment} · ${d.title} — ${c.label}. ${isPreseason||isBye?'No regular-season game was played.':won?'The team won its next game.':'The team lost its next game.'}${verificationNote}`;
+    const choiceCash=Number(c.effect.cashM)||0;const completedSeasonRevenue=baseline.seasonRevenueM+advance.revenueM+Math.max(0,choiceCash);const completedSeasonExpenses=baseline.seasonExpensesM+advance.expensesM+Math.max(0,-choiceCash);
+    const seasonEntry=seasonEnded?`SEASON ${baseline.season} COMPLETE · ${completedWins}-${completedLosses}${advance.wonChampionship?' · SUPER BOWL CHAMPIONS':''}. Revenue ${money(completedSeasonRevenue)}, expenses ${money(completedSeasonExpenses)}, profit ${money(completedSeasonRevenue-completedSeasonExpenses)}.${verified?' Verified universal progression eligible.':' Universal progression begins at the next verified season boundary.'}`:null;
+    const baseCash=typeof p.cashM==='number'?p.cashM:baseline.cashM;
+    Object.assign(p,{cashM:baseCash+advance.profitM,week:advance.nextWeek,stage:advance.nextStage,season:seasonEnded?baseline.season+1:baseline.season,wins:seasonEnded?0:completedWins,losses:seasonEnded?0:completedLosses,careerWins:baseline.careerWins+(isRegularGame&&won?1:0),careerLosses:baseline.careerLosses+(isRegularGame&&!won?1:0),seasonsCompleted:baseline.seasonsCompleted+(seasonEnded?1:0),playoffAppearances:baseline.playoffAppearances+(baseline.stage==='regular'&&advance.playoffQualified?1:0),conferenceTitles:baseline.conferenceTitles+(baseline.stage==='conference'&&won?1:0),championships:baseline.championships+(advance.wonChampionship?1:0),playoffSeed:seasonEnded?0:(advance.playoffSeed??baseline.playoffSeed??0),seasonRevenueM:seasonEnded?0:completedSeasonRevenue,seasonExpensesM:seasonEnded?0:completedSeasonExpenses,seasonStaffCommitmentsM:seasonEnded?(baseline.gm?.costM||0)+(baseline.coach?.costM||0):baseline.seasonStaffCommitmentsM,careerRevenueM:baseline.careerRevenueM+advance.revenueM+Math.max(0,choiceCash),careerExpensesM:baseline.careerExpensesM+advance.expensesM+Math.max(0,-choiceCash),cloudRevision,legacy:clamp((typeof p.legacy==='number'?p.legacy:baseline.legacy)+(advance.wonChampionship?15:0)),usedDecisionIds:baseline.usedDecisionIds.includes(d.id)?baseline.usedDecisionIds:[...baseline.usedDecisionIds,d.id],lastOutcome:seasonEnded?`${c.label}. Final record: ${completedWins}-${completedLosses}${advance.wonChampionship?' and a Super Bowl championship':''}. A new season begins.`:isPreseason?`${c.label}. The regular season is ready for Week 1.`:isBye?`${c.label}. The team used its bye week to reset.`:`${c.label}. ${won?'The team answered with a win.':'The team took a loss, and the pressure moves forward.'}`,history:[...(seasonEntry?[seasonEntry]:[]),decisionEntry,...baseline.history]});
+    return{...baseline,...p,updatedAt:Date.now()};
    };
-   const footballStrength=((state.gm?.football||75)+(state.coach?.football||75))/2;
-   const winChance=Math.max(.32,Math.min(.72,.47+(footballStrength-75)/220+(state.staffMorale-50)/500));
-   const isPreseason=state.stage==='preseason';
-   const isBye=state.stage==='regular'&&Boolean(ownerCalendarWeek(state.abbr,state.week,state.season)?.isBye);
+   const footballStrength=((baseline.gm?.football||75)+(baseline.coach?.football||75))/2;
+   const winChance=Math.max(.32,Math.min(.72,.47+(footballStrength-75)/220+(baseline.staffMorale-50)/500));
+   const isPreseason=baseline.stage==='preseason';
+   const isBye=baseline.stage==='regular'&&Boolean(ownerCalendarWeek(baseline.abbr,baseline.week,baseline.season)?.isBye);
    let won=!isPreseason&&!isBye&&Math.random()<winChance;
    let verified=false;
    let committedOwnerState:State|null=null;
-   const ownerOutcomes={won:buildDecisionState(true,true,state.cloudRevision),lost:buildDecisionState(false,true,state.cloudRevision)};
+   const ownerOutcomes={won:buildDecisionState(true,true,baseline.cloudRevision),lost:buildDecisionState(false,true,baseline.cloudRevision)};
    try{
-    const result=await advanceVerifiedOwnerStep({abbr:state.abbr,season:state.season,week:state.week,stage:state.stage,wins:state.wins,losses:state.losses,playoffSeed:state.playoffSeed||null},state,ownerOutcomes,state.gm?.id,state.coach?.id);
+    const result=await advanceVerifiedOwnerStep({abbr:baseline.abbr,season:baseline.season,week:baseline.week,stage:baseline.stage,wins:baseline.wins,losses:baseline.losses,playoffSeed:baseline.playoffSeed||null},baseline,ownerOutcomes,baseline.gm?.id,baseline.coach?.id);
     const committedState=result.ownerState&&typeof result.ownerState==='object'?result.ownerState as Record<string,unknown>:null;
     const committedRevision=Math.max(0,Number(committedState?.cloudRevision)||0);
-    if(result.verified&&typeof result.won==='boolean'&&committedRevision>state.cloudRevision){won=result.won;verified=true;committedOwnerState=normalize(committedState);}
+    if(result.verified&&typeof result.won==='boolean'&&committedRevision>baseline.cloudRevision){won=result.won;verified=true;committedOwnerState=normalize(committedState);}
    }catch(error){console.warn('Owner verified run unavailable; continuing local career without universal reward',error);}
-   const nextState=committedOwnerState??buildDecisionState(won,false,state.cloudRevision);
+   const nextState=committedOwnerState??buildDecisionState(won,false,baseline.cloudRevision);
    setState(nextState);persist(nextState);
    if(committedOwnerState)markCloudStateCommitted(SAVE_KEY,JSON.stringify(nextState));
    if(verified){
