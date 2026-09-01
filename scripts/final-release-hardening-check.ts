@@ -203,6 +203,10 @@ assert.ok(
   cloudCoordinator.includes('localStorage.removeItem(AGENT_PENDING_SIGNING_KEY)')&&
   cloudCoordinator.includes('if (hasValidPendingAgentSigning())')&&
   cloudCoordinator.includes('Finish verifying the pending Agent signing before changing accounts.')&&
+  cloudCoordinator.includes('function hasValidPendingAgentRecruitAction(): boolean')&&
+  cloudCoordinator.includes('localStorage.removeItem(AGENT_PENDING_RECRUIT_ACTION_KEY)')&&
+  cloudCoordinator.includes('if (hasValidPendingAgentRecruitAction())')&&
+  cloudCoordinator.includes('Finish or close the active Agent recruiting meeting before changing accounts.')&&
   supabaseClient.includes("import { flushAllCloudStateBeforeIdentityChange } from './cloudSyncCoordinator'")&&
   supabaseClient.includes("export async function signOutOnline(): Promise<void> {\n  if (!supabase) return;\n  await flushAllCloudStateBeforeIdentityChange();")&&
   supabaseClient.includes("export async function sendEmailMagicLink(email: string, displayName?: string): Promise<void> {\n  if (!supabase) throw new Error('Online multiplayer is not configured yet.');\n  await flushAllCloudStateBeforeIdentityChange();")&&
@@ -213,7 +217,7 @@ assert.ok(
   cloudSync.includes('dirtyKeys.delete(localKey)')&&
   owner.includes('markCloudStateCommitted(SAVE_KEY,JSON.stringify(nextState))')&&
   agent.includes('markCloudStateCommitted(SAVE_KEY, JSON.stringify(pending.state))'),
-  'server-committed snapshots must be acknowledged across tabs, and pending Agent CAS writes must block every account transition',
+  'server-committed snapshots must be acknowledged across tabs, and pending Agent signings or consumed recruiting actions must block every account transition',
 );
 
 assert.ok(
