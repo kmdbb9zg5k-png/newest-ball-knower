@@ -251,11 +251,7 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
             />
           </div>
 
-          <nav
-            role="tablist"
-            aria-label="Player detail sections"
-            className="grid grid-cols-3 border-b border-white/10 bg-[#171a20] px-2"
-          >
+          <nav aria-label="Player detail sections" className="grid grid-cols-3 border-b border-white/10 bg-[#171a20] px-2">
             {([
               ['overview', 'Overview'],
               ['gameLog', 'Game Log'],
@@ -263,9 +259,8 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
             ] as const).map(([value, label]) => (
               <button
                 key={value}
-                role="tab"
                 onClick={() => setTab(value)}
-                aria-selected={tab === value}
+                aria-pressed={tab === value}
                 className={`min-h-12 border-b-[3px] px-2 text-sm font-black transition ${tab === value ? 'border-[#D4AF37] text-white' : 'border-transparent text-zinc-400'}`}
               >
                 {label}
@@ -562,16 +557,18 @@ const StatsTab = ({
   const rankingTotal = season === 2025 && ranking && ranking.actual_points_2025 !== null && Number.isFinite(Number(ranking.actual_points_2025))
     ? Number(ranking.actual_points_2025)
     : null;
+  const displayedFantasyPoints = rankingTotal !== null
+    ? rankingTotal.toFixed(1)
+    : finals.length
+      ? total.toFixed(1)
+      : '—';
 
   return (
     <div className="space-y-4 p-4 sm:p-5">
       <div className="grid grid-cols-3 gap-2">
-        <SmallFact label="Final Games" value={String(finals.length)} />
-        <SmallFact
-          label="Fantasy Pts"
-          value={finals.length ? total.toFixed(1) : rankingTotal === null ? '—' : rankingTotal.toFixed(1)}
-        />
-        <SmallFact label="Avg / Game" value={finals.length ? (total / finals.length).toFixed(1) : '—'} />
+        <SmallFact label="Final Games Stored" value={String(finals.length)} />
+        <SmallFact label="Fantasy Pts" value={displayedFantasyPoints} />
+        <SmallFact label="Avg / Stored Game" value={finals.length ? (total / finals.length).toFixed(1) : '—'} />
       </div>
 
       {stats.length ? (
@@ -591,7 +588,7 @@ const StatsTab = ({
       )}
 
       <p className="text-[9px] leading-4 text-zinc-600">
-        Weekly aggregates reflect only available final scoring rows, so partial history is not labeled as a complete season stat line.
+        Weekly aggregates and the stored-game average reflect only available final scoring rows. When a published 2025 season total is available, Fantasy Pts uses that complete season total instead of a partial backfill sum.
       </p>
     </div>
   );
