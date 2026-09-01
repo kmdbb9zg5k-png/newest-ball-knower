@@ -63,6 +63,7 @@ assert.ok(
   agentSigningStage<agentSigningPersist&&agentSigningPersist<agentSigningVerify&&
   agentCloudSave>=0&&agentCloudSave<agentPendingClear&&
   agent.includes('pending.userId !== user.id')&&
+  (agent.match(/localStorage\.removeItem\(PENDING_SIGNING_KEY\)/g)??[]).length>=4&&
   agent.includes('Signing account and pre-signing state are required.')&&
   agent.includes('commitAgentSigningForExpectedUser(')&&
   agent.includes('pending.beforeState')&&
@@ -198,7 +199,9 @@ assert.ok(
   cloudCoordinator.includes('cloudStateFingerprint(raw)')&&
   cloudCoordinator.includes('localStorage.setItem(')&&
   cloudCoordinator.includes('flushAllCloudStateBeforeIdentityChange')&&
-  cloudCoordinator.includes("if (typeof localStorage !== 'undefined' && localStorage.getItem(AGENT_PENDING_SIGNING_KEY))")&&
+  cloudCoordinator.includes('function hasValidPendingAgentSigning(): boolean')&&
+  cloudCoordinator.includes('localStorage.removeItem(AGENT_PENDING_SIGNING_KEY)')&&
+  cloudCoordinator.includes('if (hasValidPendingAgentSigning())')&&
   cloudCoordinator.includes('Finish verifying the pending Agent signing before changing accounts.')&&
   supabaseClient.includes("import { flushAllCloudStateBeforeIdentityChange } from './cloudSyncCoordinator'")&&
   supabaseClient.includes("export async function signOutOnline(): Promise<void> {\n  if (!supabase) return;\n  await flushAllCloudStateBeforeIdentityChange();")&&
