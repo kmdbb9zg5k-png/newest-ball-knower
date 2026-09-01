@@ -59,6 +59,10 @@ assert.ok(detail.includes('projection_source_url'), 'Shared ranking details must
 assert.ok(detail.includes("event.key === 'Escape'"), 'Player details must close from the keyboard.');
 assert.ok(detail.includes("useState<2026 | 2025>"), 'Player detail must expose 2026 and 2025 season views.');
 assert.ok(cloud.includes("from('ball_knower_player_week_scores')"), 'Weekly detail must use the existing score source of truth.');
+assert.ok(cloud.includes("from('ball_knower_nfl_games')") && cloud.includes('teamGames.length !== 17'), 'Current-season game logs may use only a complete authoritative NFL schedule.');
+assert.ok(cloud.includes("historySource: 'nfl_schedule'") && cloud.includes('isBye: true'), 'Schedule-backed rows and verified byes must remain explicitly identifiable.');
+assert.ok(detail.includes("typeof value === 'number' && Number.isFinite(value) ? value : null"), 'Missing weekly points must stay unavailable instead of becoming numeric zero.');
+assert.ok(detail.includes('DEFAULT_STAT_KEYS'), 'The game-log table must retain position-relevant columns before final stat rows arrive.');
 assert.ok(postDraft.includes('<FantasyPlayerDetail'), 'Online fantasy must render the reusable player detail surface.');
 assert.ok(postDraft.includes('onOpenAway={(playerId)') && postDraft.includes('onOpenHome={(playerId)'), 'Both sides of a matchup must open the shared player detail surface.');
 assert.ok(postDraft.includes('onOpenPlayer={(player) => openPlayerDetail(player, selectedTeam)}'), 'Other managers’ roster players must open the same detail surface.');

@@ -20,6 +20,8 @@ assert.ok(comparison.includes('Opponent unavailable'), 'missing opponent metadat
 assert.ok(comparison.includes('player.isHome === false ? "@" : "vs"'), 'NFL home and away designation must be explicit');
 assert.ok(comparison.includes('player.isBye') && screen.includes('teamGames.length === 17'), 'bye labels must require a complete verified team schedule');
 assert.ok(screen.includes('ball-knower:matchup-week:') && screen.includes('ball-knower:matchup-id:'), 'selected matchup state must survive refresh and player-card close');
+assert.ok(comparison.includes('space-y-2') && screen.includes('aria-expanded={showAllMatchups}'), 'the primary matchup must remain visually separate from an on-demand league matchup picker');
+assert.ok(screen.includes('aria-label="Previous fantasy week"') && screen.includes('aria-label="Next fantasy week"'), 'mobile week navigation must expose reliable previous and next controls');
 assert.ok(screen.includes('Promise.allSettled') && screen.includes('parityViewCacheRef'), 'partial requests and week switching must preserve the last good week-specific data');
 assert.match(screen, /<FantasyPlayerDetail[\s\S]*player={detailPlayer}/, 'matchup players must use the shared fantasy player detail component');
 

@@ -17,8 +17,11 @@ type Props = {
 
 type DetailTab = 'overview' | 'gameLog' | 'stats';
 
-const points = (week: FantasyPlayerWeek, kind: 'actual' | 'projected') =>
-  Number((kind === 'actual' ? week.fantasyPoints : week.projectedPoints).ppr || 0);
+const points = (week: FantasyPlayerWeek, kind: 'actual' | 'projected') => {
+  const values = kind === 'actual' ? week.fantasyPoints : week.projectedPoints;
+  const value = values.ppr;
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+};
 
 const STAT_LABELS: Record<string, string> = {
   passYards: 'Pass Yds',
@@ -61,6 +64,15 @@ const numericStats = (stats: Record<string, unknown>) =>
     .filter(([, value]) => typeof value === 'number' && Number.isFinite(value))
     .map(([key, value]) => [key, Number(value)] as const);
 
+const DEFAULT_STAT_KEYS: Record<string, string[]> = {
+  QB: ['passYards', 'passTd', 'interceptions', 'rushAttempts', 'rushYards', 'rushTd'],
+  RB: ['rushAttempts', 'rushYards', 'rushTd', 'targets', 'receptions', 'recYards'],
+  WR: ['targets', 'receptions', 'recYards', 'recTd', 'rushAttempts', 'rushYards'],
+  TE: ['targets', 'receptions', 'recYards', 'recTd'],
+  K: ['fieldGoalsMade', 'extraPointsMade'],
+  DST: ['sacks', 'interceptions', 'fumblesRecovered', 'defensiveTouchdowns'],
+};
+
 const formatStat = (value: number) =>
   Number.isInteger(value) ? String(value) : value.toFixed(1);
 
@@ -77,6 +89,7 @@ const formatKickoff = (value: string) => {
 };
 
 const opponentLabel = (week: FantasyPlayerWeek) => {
+  if (week.isBye) return 'Bye';
   if (!week.opponentTeam) return 'Opponent unavailable';
   if (week.isHome === null) return week.opponentTeam;
   return `${week.isHome ? 'vs' : '@'} ${week.opponentTeam}`;
@@ -173,7 +186,8 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
   const portrait = playerPortraitUrl(player);
   const teamName = [player.teamCity, player.teamName].filter(Boolean).join(' ').trim();
   const status = injuryStatus || (player.injured ? 'Injured' : 'Active');
-  const total = finals.reduce((sum, row) => sum + points(row, 'actual'), 0);
+  const actualFinals = finals.filter(row => points(row, 'actual') !== null);
+  const total = actualFinals.reduce((sum, row) => sum + (points(row, 'actual') || 0), 0);
   const seasonProjection = ranking && Number.isFinite(Number(ranking.projected_points_2026))
     ? Number(ranking.projected_points_2026)
     : null;
@@ -298,6 +312,7 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
                 season={season}
                 weeks={visible}
                 statKeys={gameLogStatKeys}
+                position={player.position}
                 busy={busy}
                 error={error}
               />
@@ -306,6 +321,7 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
               <StatsTab
                 season={season}
                 finals={finals}
+                scoredFinals={actualFinals}
                 total={total}
                 stats={seasonStats}
                 ranking={ranking}
@@ -386,13 +402,13 @@ const OverviewTab = ({
         <div className="mt-4 flex items-end gap-5">
           <div>
             <div className="text-2xl font-black">
-              {week.projectionCapturedAt ? points(week, 'projected').toFixed(1) : '—'}
+              {points(week, 'projected')?.toFixed(1) || '—'}
             </div>
             <div className="text-[10px] font-bold uppercase text-zinc-500">Projected Points</div>
           </div>
           {week.isFinal && (
             <div>
-              <div className="text-2xl font-black">{points(week, 'actual').toFixed(1)}</div>
+              <div className="text-2xl font-black">{points(week, 'actual')?.toFixed(1) || '—'}</div>
               <div className="text-[10px] font-bold uppercase text-zinc-500">Fantasy Points</div>
             </div>
           )}
@@ -460,12 +476,14 @@ const GameLogTab = ({
   season,
   weeks,
   statKeys,
+  position,
   busy,
   error,
 }: {
   season: 2026 | 2025;
   weeks: FantasyPlayerWeek[];
   statKeys: string[];
+  position: string;
   busy: boolean;
   error: string;
 }) => {
@@ -482,40 +500,42 @@ const GameLogTab = ({
     );
   }
 
+  const columns = statKeys.length ? statKeys : (DEFAULT_STAT_KEYS[position] || []).slice(0, 6);
+
   return (
     <div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[680px] border-collapse text-left">
+      <div className="overflow-x-auto [scrollbar-width:thin]">
+        <table className="w-full min-w-[760px] border-collapse whitespace-nowrap text-left">
           <thead className="sticky top-0 z-10 bg-[#1b1e25]">
             <tr className="border-b border-white/10 text-[10px] font-black text-zinc-300">
               <th className="px-3 py-3">Wk</th>
               <th className="px-3 py-3">Opp</th>
               <th className="px-3 py-3 text-right">Fan Pts</th>
               <th className="px-3 py-3 text-right">Proj Pts</th>
-              {statKeys.map(key => (
+              {columns.map(key => (
                 <th key={key} className="whitespace-nowrap px-3 py-3 text-right">{statLabel(key)}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {weeks.map(week => (
-              <tr key={week.id} className="border-b border-white/10 text-xs text-zinc-300">
-                <td className="px-3 py-4 font-black text-white">{week.week}</td>
-                <td className="px-3 py-4">
+              <tr key={week.id} className="border-b border-white/10 text-xs text-zinc-300 odd:bg-white/[.012]">
+                <td className="px-3 py-3.5 font-black text-white">{week.week}</td>
+                <td className="px-3 py-3.5">
                   <div className="font-bold">{opponentLabel(week)}</div>
-                  <div className="mt-0.5 text-[9px] text-zinc-600">{formatKickoff(week.kickoffAt)}</div>
+                  {!week.isBye && <div className="mt-0.5 text-[9px] text-zinc-600">{formatKickoff(week.kickoffAt)}</div>}
                 </td>
-                <td className="px-3 py-4 text-right font-black">
-                  {week.isFinal ? points(week, 'actual').toFixed(1) : '—'}
+                <td className="px-3 py-3.5 text-right font-black">
+                  {points(week, 'actual')?.toFixed(1) || '—'}
                 </td>
-                <td className="px-3 py-4 text-right font-black text-zinc-400">
-                  {week.projectionCapturedAt ? points(week, 'projected').toFixed(1) : '—'}
+                <td className="px-3 py-3.5 text-right font-black text-zinc-400">
+                  {points(week, 'projected')?.toFixed(1) || '—'}
                 </td>
-                {statKeys.map(key => {
+                {columns.map(key => {
                   const raw = week.stats[key];
                   const value = typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
                   return (
-                    <td key={key} className="px-3 py-4 text-right">
+                    <td key={key} className="px-3 py-3.5 text-right">
                       {value === null ? '—' : formatStat(value)}
                     </td>
                   );
@@ -537,6 +557,7 @@ const GameLogTab = ({
 const StatsTab = ({
   season,
   finals,
+  scoredFinals,
   total,
   stats,
   ranking,
@@ -545,6 +566,7 @@ const StatsTab = ({
 }: {
   season: 2026 | 2025;
   finals: FantasyPlayerWeek[];
+  scoredFinals: FantasyPlayerWeek[];
   total: number;
   stats: Array<[string, number]>;
   ranking?: FantasyRanking;
@@ -559,16 +581,16 @@ const StatsTab = ({
     : null;
   const displayedFantasyPoints = rankingTotal !== null
     ? rankingTotal.toFixed(1)
-    : finals.length
+    : scoredFinals.length
       ? total.toFixed(1)
       : '—';
 
   return (
     <div className="space-y-4 p-4 sm:p-5">
       <div className="grid grid-cols-3 gap-2">
-        <SmallFact label="Final Games Stored" value={String(finals.length)} />
+        <SmallFact label="Final Games Stored" value={String(scoredFinals.length)} />
         <SmallFact label="Fantasy Pts" value={displayedFantasyPoints} />
-        <SmallFact label="Avg / Stored Game" value={finals.length ? (total / finals.length).toFixed(1) : '—'} />
+        <SmallFact label="Avg / Stored Game" value={scoredFinals.length ? (total / scoredFinals.length).toFixed(1) : '—'} />
       </div>
 
       {stats.length ? (

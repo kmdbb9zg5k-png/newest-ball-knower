@@ -157,6 +157,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const [viewedMatchupId, setViewedMatchupId] = useState(
     () => window.sessionStorage.getItem(storedMatchupKey) || "",
   );
+  const [showAllMatchups, setShowAllMatchups] = useState(false);
   const [lineups, setLineups] = useState<WeeklyLineup[]>([]);
   const [scores, setScores] = useState<WeeklyScore[]>([]);
   const [memberMeta, setMemberMeta] = useState<MemberFantasyMeta[]>([]);
@@ -1188,39 +1189,61 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
 
       {tab === "matchup" && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-black uppercase">
-                {week > maxWeek ? "Playoff" : "Week"} {week} Matchups
-              </h2>
-              <p className="text-xs text-zinc-500">
-                {week > maxWeek
-                  ? "Winners advance automatically after both official scores are final."
-                  : nextKickoff
-                    ? `${nextKickoff.awayTeam} @ ${nextKickoff.homeTeam} · ${formatKickoff(nextKickoff.kickoffAt)}`
-                    : "Every NFL game is final."}
-              </p>
-            </div>
-            <select
-              aria-label="Fantasy week"
-              value={week}
-              onChange={(event) => setWeek(Number(event.target.value))}
-              className="min-h-11 rounded-xl border border-white/10 bg-[#101318] px-3 text-xs"
-            >
-              {Array.from(
-                { length: maxSelectableWeek },
-                (_, index) => index + 1,
-              ).map((value) => (
-                <option key={value} value={value}>
-                  {value > maxWeek
-                    ? `Playoffs · Week ${value}`
-                    : `Week ${value}`}
-                </option>
-              ))}
-            </select>
+          <div>
+            <h2 className="text-xl font-black uppercase">
+              {week > maxWeek ? "Playoff" : "Week"} {week} Matchup
+            </h2>
+            <p className="mt-0.5 text-[10px] text-zinc-500">
+              {week > maxWeek
+                ? "Winners advance after both official scores are final."
+                : nextKickoff
+                  ? `${nextKickoff.awayTeam} @ ${nextKickoff.homeTeam} · ${formatKickoff(nextKickoff.kickoffAt)}`
+                  : "Every NFL game is final."}
+            </p>
           </div>
-          <DataNotice text="Online fantasy matchups use official weekly scoring records. The bracket reseeds and saves the championship winner." />
-          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex items-center gap-2">
+            <div className="flex min-h-11 items-center overflow-hidden rounded-full border border-white/15 bg-[#101318]">
+              <button
+                type="button"
+                aria-label="Previous fantasy week"
+                disabled={week <= 1}
+                onClick={() => setWeek(current => Math.max(1, current - 1))}
+                className="grid h-11 w-11 place-items-center text-lg text-zinc-300 disabled:text-zinc-700"
+              >
+                ‹
+              </button>
+              <select
+                aria-label="Fantasy week"
+                value={week}
+                onChange={(event) => setWeek(Number(event.target.value))}
+                className="h-11 min-w-20 border-x border-white/10 bg-transparent px-2 text-center text-xs font-black"
+              >
+                {Array.from({ length: maxSelectableWeek }, (_, index) => index + 1).map((value) => (
+                  <option key={value} value={value}>
+                    {value > maxWeek ? `Playoff ${value}` : `Week ${value}`}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                aria-label="Next fantasy week"
+                disabled={week >= maxSelectableWeek}
+                onClick={() => setWeek(current => Math.min(maxSelectableWeek, current + 1))}
+                className="grid h-11 w-11 place-items-center text-lg text-zinc-300 disabled:text-zinc-700"
+              >
+                ›
+              </button>
+            </div>
+            <button
+              type="button"
+              aria-expanded={showAllMatchups}
+              onClick={() => setShowAllMatchups(value => !value)}
+              className="min-h-11 rounded-full border border-white/15 bg-[#101318] px-4 text-[10px] font-black uppercase text-zinc-200"
+            >
+              All Matchups
+            </button>
+          </div>
+          {showAllMatchups && <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {weekMatchups.map((game) => {
               const home = league.members.find(
                 (member) => member.id === game.homeMemberId,
@@ -1235,7 +1258,10 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
               return (
                 <button
                   key={game.id}
-                  onClick={() => setViewedMatchupId(game.id)}
+                  onClick={() => {
+                    setViewedMatchupId(game.id);
+                    setShowAllMatchups(false);
+                  }}
                   className={`min-h-16 min-w-[11.5rem] shrink-0 rounded-xl border p-3 text-left ${viewedMatchup?.id === game.id ? "border-[#D4AF37]/50 bg-[#D4AF37]/10" : "border-white/10 bg-[#101318]"}`}
                 >
                   <div className="flex items-center justify-between gap-2 text-[8px] font-black uppercase">
@@ -1287,53 +1313,42 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                 </button>
               );
             })}
-          </div>
-          <Panel
-            title={week > maxWeek ? `Playoffs · Week ${week}` : `Week ${week}`}
-            sub={
-              viewedMatchup
-                ? `${displayManagerName(viewedAway)} @ ${displayManagerName(viewedHome)}`
-                : "Bracket matchup pending"
-            }
-            icon={<Clock3 className="h-5 w-5 text-[#D4AF37]" />}
-          >
-            {viewedMatchup ? (
-              <div className="space-y-3">
-                <HeadToHeadMatchup
-                  away={viewedAway}
-                  home={viewedHome}
-                  awayScore={viewedAwayScore}
-                  homeScore={viewedHomeScore}
-                  status={viewedScoreStatus}
-                  injuries={injuries}
-                  onOpenAway={(playerId) => {
-                    const player = findPlayer(playerId);
-                    if (player) openPlayerDetail(player, viewedAway);
-                  }}
-                  onOpenHome={(playerId) => {
-                    const player = findPlayer(playerId);
-                    if (player) openPlayerDetail(player, viewedHome);
-                  }}
-                />
-                {(viewedHomeScore?.lastCorrectionAt ||
-                  viewedAwayScore?.lastCorrectionAt) && (
-                  <div className="rounded-lg border border-sky-400/20 bg-sky-400/[.06] p-2 text-center text-[9px] font-black uppercase text-sky-300">
-                    Official stat correction applied automatically
-                  </div>
-                )}
-              </div>
-            ) : (
-              <Empty
-                text={
-                  week > maxWeek && !regularSeasonComplete
-                    ? `Playoff seeding locks after every Week ${maxWeek} score is final.`
-                    : week > postseason.nextWeek
-                      ? "This matchup appears after the prior playoff round is final."
-                      : "This week does not have a matchup."
-                }
+          </div>}
+          {viewedMatchup ? (
+            <div className="space-y-3">
+              <HeadToHeadMatchup
+                away={viewedAway}
+                home={viewedHome}
+                awayScore={viewedAwayScore}
+                homeScore={viewedHomeScore}
+                status={viewedScoreStatus}
+                injuries={injuries}
+                onOpenAway={(playerId) => {
+                  const player = findPlayer(playerId);
+                  if (player) openPlayerDetail(player, viewedAway);
+                }}
+                onOpenHome={(playerId) => {
+                  const player = findPlayer(playerId);
+                  if (player) openPlayerDetail(player, viewedHome);
+                }}
               />
-            )}
-          </Panel>
+              {(viewedHomeScore?.lastCorrectionAt || viewedAwayScore?.lastCorrectionAt) && (
+                <div className="rounded-lg border border-sky-400/20 bg-sky-400/[.06] p-2 text-center text-[9px] font-black uppercase text-sky-300">
+                  Official stat correction applied automatically
+                </div>
+              )}
+            </div>
+          ) : (
+            <Empty
+              text={
+                week > maxWeek && !regularSeasonComplete
+                  ? `Playoff seeding locks after every Week ${maxWeek} score is final.`
+                  : week > postseason.nextWeek
+                    ? "This matchup appears after the prior playoff round is final."
+                    : "This week does not have a matchup."
+              }
+            />
+          )}
           <Panel
             title="Full Season Schedule"
             sub="Regular season and playoffs—tap any week to open it"
@@ -2726,8 +2741,10 @@ const TeamMatchupHeader = ({
   const total = matchupTotal(score, status);
   const name = displayManagerName(member);
   return (
-    <div className={`flex min-w-0 items-center gap-2 ${side === "home" ? "flex-row-reverse text-right" : "text-left"}`}>
-      <div className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-[#D4AF37]/35 bg-[#171b22] text-xs font-black text-[#D4AF37]">
+    <div className={`flex min-w-0 flex-col gap-1 ${side === "home" ? "items-end text-right" : "items-start text-left"}`}>
+      <div className="max-w-full truncate text-[10px] font-black uppercase text-zinc-200">{name}</div>
+      <div className={`flex items-center gap-2 ${side === "home" ? "flex-row-reverse" : ""}`}>
+      <div className="relative grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full border border-[#D4AF37]/35 bg-[#171b22] text-xs font-black text-[#D4AF37]">
         {name.slice(0, 2).toUpperCase()}
         {member?.userAvatar && (
           <img
@@ -2740,9 +2757,9 @@ const TeamMatchupHeader = ({
         )}
       </div>
       <div className="min-w-0">
-        <div className="truncate text-[10px] font-black uppercase text-zinc-300">{name}</div>
-        <div className={`text-2xl font-black ${status === "Live" ? "text-amber-300" : "text-white"}`}>{total.value}</div>
+        <div className={`text-xl font-black ${status === "Live" ? "text-amber-300" : "text-white"}`}>{total.value}</div>
         <div className="truncate text-[8px] font-black uppercase text-zinc-600">{total.label}</div>
+      </div>
       </div>
     </div>
   );
@@ -2773,8 +2790,9 @@ const HeadToHeadMatchup = ({
     ? Math.max(0, Math.min(100, Number(awayScore?.projectedPoints || 0) / projectionSum * 100))
     : null;
   return (
-    <section aria-label={`${displayManagerName(away)} versus ${displayManagerName(home)}`} className="overflow-hidden rounded-2xl border border-white/10 bg-[#0d1015]">
-      <div className="grid grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)] items-center gap-2 border-b border-white/10 p-3">
+    <section aria-label={`${displayManagerName(away)} versus ${displayManagerName(home)}`} className="space-y-2">
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#151922] shadow-lg shadow-black/30">
+      <div className="grid grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)] items-center gap-2 p-3">
         <TeamMatchupHeader member={away} score={awayScore} status={status} side="away" />
         <div className="text-center text-[9px] font-black uppercase text-[#D4AF37]">VS</div>
         <TeamMatchupHeader member={home} score={homeScore} status={status} side="home" />
@@ -2796,7 +2814,8 @@ const HeadToHeadMatchup = ({
           </div>
         </div>
       )}
-      <div className="divide-y divide-white/5">
+      </div>
+      <div className="divide-y divide-white/[.04] overflow-hidden rounded-xl bg-[#0d1015]">
         {LINEUP_SLOTS.map((slot) => {
           const awayPlayer = awayScore?.players.find((player) => player.slot === slot.id);
           const homePlayer = homeScore?.players.find((player) => player.slot === slot.id);
@@ -2856,7 +2875,12 @@ const MatchupPlayerSide = ({
       : "—";
   const scoreLabel = player.isLive ? "Live" : player.isFinal ? "Final" : player.projectionAvailable === true ? "Proj" : "N/A";
   return (
-    <button onClick={() => onOpen(player.playerId)} className={`flex min-h-[4.5rem] min-w-0 items-center gap-1.5 px-2 py-2 ${align === "right" ? "flex-row-reverse text-right" : "text-left"}`}>
+    <button
+      type="button"
+      aria-label={`Open ${player.playerName}`}
+      onClick={() => onOpen(player.playerId)}
+      className={`flex min-h-[4.5rem] min-w-0 items-center gap-1.5 rounded-lg px-2 py-2 ${injury ? "bg-red-950/45" : ""} ${align === "right" ? "flex-row-reverse text-right" : "text-left"}`}
+    >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <span className={`truncate text-[10px] font-black sm:text-xs ${align === "right" ? "order-2" : ""}`}>
