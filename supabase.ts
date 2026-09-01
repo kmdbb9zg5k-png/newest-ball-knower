@@ -3,6 +3,7 @@ import {
   BALL_KNOWER_SUPABASE_PUBLISHABLE_KEY,
   BALL_KNOWER_SUPABASE_URL,
 } from './supabaseDefaults';
+import { flushAllCloudStateBeforeIdentityChange } from './cloudSyncCoordinator';
 
 const viteEnv=(import.meta as ImportMeta&{env?:Record<string,string|undefined>}).env;
 const url = viteEnv?.VITE_SUPABASE_URL || BALL_KNOWER_SUPABASE_URL;
@@ -120,6 +121,7 @@ export async function attachEmailToAnonymousUser(email: string, displayName?: st
 
 export async function sendEmailMagicLink(email: string, displayName?: string): Promise<void> {
   if (!supabase) throw new Error('Online multiplayer is not configured yet.');
+  await flushAllCloudStateBeforeIdentityChange();
   const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
   const { error } = await supabase.auth.signInWithOtp({
     email: email.trim().toLowerCase(),
@@ -134,6 +136,7 @@ export async function sendEmailMagicLink(email: string, displayName?: string): P
 
 export async function signOutOnline(): Promise<void> {
   if (!supabase) return;
+  await flushAllCloudStateBeforeIdentityChange();
   const { error } = await supabase.auth.signOut();
   if (error) throw new Error(error.message || 'Could not sign out.');
 }
