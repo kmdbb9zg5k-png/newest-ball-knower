@@ -66,9 +66,9 @@ export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Pro
       .in('season', [2025, 2026])
       .order('season', { ascending: false })
       .order('week_number', { ascending: true }),
-    // Some historical rows can carry an older non-null Ball Knower player id
-    // after identity migrations. Exact full name + position can recover them,
-    // but only when every matching row resolves to one provider identity.
+    // Older weekly rows can retain a superseded Ball Knower id. Name + position
+    // is discovery only; rows are merged only after their provider identity is
+    // anchored to rows already verified under the selected permanent player id.
     supabase
       .from('ball_knower_player_week_scores')
       .select(weekColumns)
@@ -83,13 +83,23 @@ export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Pro
 
   const identityRows = (identityResult.data || []) as WeekRow[];
   const namePositionRows = (namePositionResult.data || []) as WeekRow[];
-  const providerIds = new Set(namePositionRows.map(row => row.provider_player_id).filter(Boolean));
-  const allNamePositionRowsHaveProviderIds = namePositionRows.every(row => Boolean(row.provider_player_id));
-  const unambiguousNamePositionRows = allNamePositionRowsHaveProviderIds && providerIds.size === 1
-    ? namePositionRows
-    : [];
+  const identityProviderIds = new Set(identityRows.map(row => row.provider_player_id).filter(Boolean));
+  const fallbackProviderIds = new Set(namePositionRows.map(row => row.provider_player_id).filter(Boolean));
+  const allFallbackRowsHaveProviderIds = namePositionRows.every(row => Boolean(row.provider_player_id));
+  const soleIdentityProviderId = identityProviderIds.size === 1 ? [...identityProviderIds][0] : '';
+  const soleFallbackProviderId = fallbackProviderIds.size === 1 ? [...fallbackProviderIds][0] : '';
 
-  const rows = [...identityRows, ...unambiguousNamePositionRows];
+  // No current-id rows means there is no trustworthy provider identity anchor.
+  // In that case, prefer an honest empty/partial history over attaching a same-
+  // name player's rows to the selected player.
+  const anchoredFallbackRows =
+    soleIdentityProviderId &&
+    allFallbackRowsHaveProviderIds &&
+    soleFallbackProviderId === soleIdentityProviderId
+      ? namePositionRows.filter(row => row.provider_player_id === soleIdentityProviderId)
+      : [];
+
+  const rows = [...identityRows, ...anchoredFallbackRows];
   const uniqueRows = [...new Map(rows.map(row => [row.id, row])).values()]
     .sort((a, b) => b.season - a.season || a.week_number - b.week_number);
 
