@@ -1,5 +1,6 @@
 import { Player } from './types';
 import { teamLogoUrl } from './teamTheme';
+import { getMadden27RosterEntry } from './madden27CurrentRoster';
 
 type PortraitPlayer = Pick<Player, 'id' | 'name' | 'position'> & Partial<Pick<Player, 'team'>>;
 
@@ -541,5 +542,7 @@ export function playerPortraitFallbackUrl(player: PortraitPlayer): string {
 
 export function playerPortraitUrl(player: PortraitPlayer): string {
   if (player.position === 'DST' && player.team) return teamLogoUrl(player.team);
+  const official = getMadden27RosterEntry(player);
+  if (official?.avatarUrl && official.avatarUrl !== 'null') return official.avatarUrl;
   return PLAYER_PORTRAITS[player.name] || playerPortraitFallbackUrl(player);
 }
