@@ -214,6 +214,8 @@ assert.ok(
   cloudSync.includes('registerCloudStateCommitted((localKey, fingerprint) => {')&&
   cloudSync.includes('cloudStateFingerprint(raw) !== fingerprint')&&
   cloudSync.includes('lastValues.set(localKey, raw)')&&
+  cloudSync.includes("localKey === 'ballknower_owner_career_v3'")&&
+  cloudSync.includes('new CustomEvent(OWNER_CLOUD_SYNC_EVENT, { detail: JSON.parse(raw) })')&&
   cloudSync.includes('dirtyKeys.delete(localKey)')&&
   owner.includes('markCloudStateCommitted(SAVE_KEY,JSON.stringify(nextState))')&&
   agent.includes('markCloudStateCommitted(SAVE_KEY, JSON.stringify(pending.state))'),
@@ -261,8 +263,9 @@ assert.ok(
   transferFunctionSql.includes("guest_state.value->>'week'=guest.week::text")&&
   transferFunctionSql.includes("coalesce(nullif(guest_state.value->>'playoffSeed',''),'0')=coalesce(guest.playoff_seed,0)::text")&&
   transferFunctionSql.includes("coalesce(nullif(public_state.value->>'playoffSeed',''),'0')=coalesce(guest.playoff_seed,0)::text")&&
-  transferFunctionSql.includes("coalesce(nullif(public_state.value->>'playoffSeed',''),'0')=coalesce(target.playoff_seed,0)::text then false")&&
-  transferFunctionSql.includes('    else true\n  end\n  into v_guest_owner_wins')&&
+  transferFunctionSql.includes("coalesce(nullif(public_state.value->>'playoffSeed',''),'0')=coalesce(target.playoff_seed,0)::text then (")&&
+  transferFunctionSql.includes('guest.abbr\n      ) > (')&&
+  transferFunctionSql.includes('target.abbr\n      )\n    else true')&&
   transferFunctionSql.includes('where user_id=new.guest_user_id\n    and v_guest_owner_wins\n  on conflict(user_id) do update set')&&
   transferFunctionSql.includes('where v_guest_owner_wins;')&&
   transferFunctionSql.includes('ball_knower_private.owner_state_revision(excluded.value)')&&
