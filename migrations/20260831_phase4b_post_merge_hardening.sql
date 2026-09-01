@@ -456,14 +456,16 @@ begin
       and public_state.value->>'stage'=guest.stage
       and public_state.value->>'week'=guest.week::text
       and public_state.value->>'wins'=guest.wins::text
-      and public_state.value->>'losses'=guest.losses::text then true
+      and public_state.value->>'losses'=guest.losses::text
+      and coalesce(nullif(public_state.value->>'playoffSeed',''),'0')=coalesce(guest.playoff_seed,0)::text then true
     when public_state.value is not null
       and public_state.value->>'abbr'=target.abbr
       and public_state.value->>'season'=target.season::text
       and public_state.value->>'stage'=target.stage
       and public_state.value->>'week'=target.week::text
       and public_state.value->>'wins'=target.wins::text
-      and public_state.value->>'losses'=target.losses::text then false
+      and public_state.value->>'losses'=target.losses::text
+      and coalesce(nullif(public_state.value->>'playoffSeed',''),'0')=coalesce(target.playoff_seed,0)::text then false
     else (
       guest.season,
       case guest.stage
@@ -496,6 +498,7 @@ begin
    and guest_state.value->>'week'=guest.week::text
    and guest_state.value->>'wins'=guest.wins::text
    and guest_state.value->>'losses'=guest.losses::text
+   and coalesce(nullif(guest_state.value->>'playoffSeed',''),'0')=coalesce(guest.playoff_seed,0)::text
   left join ball_knower_private.verified_owner_runs target on target.user_id=new.claimed_by
   left join public.ball_knower_user_state public_state
     on public_state.user_id=new.claimed_by
