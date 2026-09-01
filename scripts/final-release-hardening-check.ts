@@ -256,6 +256,7 @@ assert.ok(
   transferFunctionSql.includes("coalesce(nullif(public_state.value->>'playoffSeed',''),'0')=coalesce(guest.playoff_seed,0)::text")&&
   transferFunctionSql.includes("coalesce(nullif(public_state.value->>'playoffSeed',''),'0')=coalesce(target.playoff_seed,0)::text")&&
   transferFunctionSql.includes('guest.abbr\n    ) > (')&&
+  transferFunctionSql.includes('where user_id=new.guest_user_id\n    and v_guest_owner_wins\n  on conflict(user_id) do update set')&&
   transferFunctionSql.includes('where v_guest_owner_wins;')&&
   transferFunctionSql.includes('ball_knower_private.owner_state_revision(excluded.value)')&&
   transferFunctionSql.includes("guest_state.state_key='owner_business_career_v1'")&&
