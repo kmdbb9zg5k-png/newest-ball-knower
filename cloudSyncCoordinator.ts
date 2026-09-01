@@ -59,7 +59,7 @@ export async function flushAllCloudState(): Promise<void> {
 }
 
 export async function flushAllCloudStateBeforeIdentityChange(): Promise<void> {
-  if (localStorage.getItem(AGENT_PENDING_SIGNING_KEY)) {
+  if (typeof localStorage !== 'undefined' && localStorage.getItem(AGENT_PENDING_SIGNING_KEY)) {
     throw new Error('Finish verifying the pending Agent signing before changing accounts.');
   }
   await flushAllCloudState();
