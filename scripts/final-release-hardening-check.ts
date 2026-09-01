@@ -21,6 +21,8 @@ const html=read('index.html');
 const cloudSync=read('CloudSyncProvider.tsx');
 const cloudCoordinator=read('cloudSyncCoordinator.ts');
 const transactions=read('api/fantasy-transactions.ts');
+const accountIdentity=read('accountIdentity.ts');
+const supabaseClient=read('supabase.ts');
 
 assert.ok(migration.includes('ball_knower_private.verified_mode_milestones'),'verified milestones must be private');
 assert.ok(migration.includes('revoke all on table ball_knower_private.verified_mode_milestones from public,anon,authenticated'),'clients must not write milestones');
@@ -198,13 +200,17 @@ assert.ok(
   cloudCoordinator.includes('flushAllCloudStateBeforeIdentityChange')&&
   cloudCoordinator.includes("if (typeof localStorage !== 'undefined' && localStorage.getItem(AGENT_PENDING_SIGNING_KEY))")&&
   cloudCoordinator.includes('Finish verifying the pending Agent signing before changing accounts.')&&
+  supabaseClient.includes("import { flushAllCloudStateBeforeIdentityChange } from './cloudSyncCoordinator'")&&
+  supabaseClient.includes("export async function signOutOnline(): Promise<void> {\n  if (!supabase) return;\n  await flushAllCloudStateBeforeIdentityChange();")&&
+  supabaseClient.includes("export async function sendEmailMagicLink(email: string, displayName?: string): Promise<void> {\n  if (!supabase) throw new Error('Online multiplayer is not configured yet.');\n  await flushAllCloudStateBeforeIdentityChange();")&&
+  accountIdentity.includes('else await flushAllCloudStateBeforeIdentityChange();')&&
   cloudSync.includes('registerCloudStateCommitted((localKey, fingerprint) => {')&&
   cloudSync.includes('cloudStateFingerprint(raw) !== fingerprint')&&
   cloudSync.includes('lastValues.set(localKey, raw)')&&
   cloudSync.includes('dirtyKeys.delete(localKey)')&&
   owner.includes('markCloudStateCommitted(SAVE_KEY,JSON.stringify(nextState))')&&
   agent.includes('markCloudStateCommitted(SAVE_KEY, JSON.stringify(pending.state))'),
-  'server-committed snapshots must be acknowledged across tabs, and pending Agent CAS writes must block identity changes',
+  'server-committed snapshots must be acknowledged across tabs, and pending Agent CAS writes must block every account transition',
 );
 
 assert.ok(
