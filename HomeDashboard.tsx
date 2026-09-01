@@ -77,7 +77,7 @@ export const HomeDashboard:React.FC<HomeDashboardProps>=({onOpenCreateLeague,onO
     return()=>{live=false};
   },[primaryLeague?.id,primaryLeague?.liveDraft?.status,primaryLeague?.settings?.draftScheduledAt,myMember?.id,scheduledDraft]);
 
-  return <div className="bk-home-dashboard mx-auto max-w-5xl px-3 pb-5 pt-3 sm:px-6 sm:pb-8 sm:pt-6">
+  return <div className="bk-home-dashboard mx-auto max-w-5xl pb-5 pl-[max(.75rem,env(safe-area-inset-left))] pr-[max(.75rem,env(safe-area-inset-right))] pt-3 sm:pb-8 sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] sm:pt-6">
     <section className="relative">
       <button onClick={()=>setLeagueMenuOpen(value=>!value)} aria-expanded={leagueMenuOpen} className="flex min-h-[70px] w-full items-center gap-3 rounded-2xl border border-[rgb(var(--bk-team-primary-rgb)/.42)] bg-[linear-gradient(105deg,rgb(var(--bk-team-primary-rgb)/.20),rgba(9,13,18,.94)_44%)] px-4 text-left shadow-[inset_0_1px_rgba(255,255,255,.06),0_18px_50px_rgba(0,0,0,.24)] sm:min-h-[78px] sm:px-5">
         <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[rgb(var(--bk-team-primary-rgb)/.36)] bg-black/35 text-[#D9B43B]"><Trophy className="h-5 w-5"/></span>
