@@ -4,6 +4,8 @@ type CloudStateCommitted = (localKey: string, fingerprint: string) => void;
 const CLOUD_STATE_COMMITTED_MARKER_KEY = 'ballknower_cloud_committed_marker_v1';
 const AGENT_PENDING_SIGNING_KEY = 'ballknower_player_agent_signing_pending_v1';
 const AGENT_PENDING_RECRUIT_ACTION_KEY = 'ballknower_player_agent_recruit_action_v1';
+const AGENT_SAVE_KEY = 'ballknower_player_agent_v4';
+const CLOUD_OWNER_KEY = 'ballknower_cloud_owner_v1';
 let activeFullFlush: FullCloudStateFlush | null = null;
 let activeCloudStateCommitted: CloudStateCommitted | null = null;
 
@@ -28,23 +30,32 @@ function hasValidPendingAgentSigning(): boolean {
   return false;
 }
 
-function hasValidPendingAgentRecruitAction(): boolean {
-  if (typeof localStorage === 'undefined') return false;
+function promotePendingAgentRecruitAction(): void {
+  if (typeof localStorage === 'undefined') return;
   const raw = localStorage.getItem(AGENT_PENDING_RECRUIT_ACTION_KEY);
-  if (!raw) return false;
+  if (!raw) return;
+  let pending: { ownerId?: unknown; state?: unknown };
   try {
-    const pending = JSON.parse(raw) as { ownerId?: unknown; state?: unknown };
-    if (
-      typeof pending.ownerId === 'string' &&
-      pending.ownerId &&
-      pending.state &&
-      typeof pending.state === 'object'
-    ) {
-      return true;
-    }
-  } catch {}
+    pending = JSON.parse(raw);
+  } catch {
+    localStorage.removeItem(AGENT_PENDING_RECRUIT_ACTION_KEY);
+    return;
+  }
+  const ownerId = localStorage.getItem(CLOUD_OWNER_KEY);
+  if (
+    typeof pending.ownerId !== 'string' ||
+    !pending.ownerId ||
+    pending.ownerId !== ownerId ||
+    !pending.state ||
+    typeof pending.state !== 'object'
+  ) {
+    localStorage.removeItem(AGENT_PENDING_RECRUIT_ACTION_KEY);
+    return;
+  }
+  // A reload cannot resume the modal, so permanently consume the already-spent
+  // recruiting action before allowing an account transition.
+  localStorage.setItem(AGENT_SAVE_KEY, JSON.stringify(pending.state));
   localStorage.removeItem(AGENT_PENDING_RECRUIT_ACTION_KEY);
-  return false;
 }
 
 export function cloudStateFingerprint(raw: string): string {
@@ -103,8 +114,6 @@ export async function flushAllCloudStateBeforeIdentityChange(): Promise<void> {
   if (hasValidPendingAgentSigning()) {
     throw new Error('Finish verifying the pending Agent signing before changing accounts.');
   }
-  if (hasValidPendingAgentRecruitAction()) {
-    throw new Error('Finish or close the active Agent recruiting meeting before changing accounts.');
-  }
+  promotePendingAgentRecruitAction();
   await flushAllCloudState();
 }
