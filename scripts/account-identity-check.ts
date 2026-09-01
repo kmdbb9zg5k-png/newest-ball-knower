@@ -207,7 +207,8 @@ assert(cloudProvider.includes('claimPendingGuestAccountMerge'), 'Cloud bootstrap
 assert(cloudProvider.includes('const flushAllLocalState = async () => {\n      captureLocalChanges();'), 'Identity flush must capture all immediate local changes.');
 assert(cloudProvider.includes('if (hasPendingGuestAccountMerge()) throw error'), 'Retryable claim failures must still block identity switching.');
 assert(cloudProvider.includes("localKey: 'ballknower_owner_career_v3'"), 'Owner state must participate in the full identity flush.');
-assert(cloudProvider.includes('directJsonUpdatedAt(entry, localRaw)'), 'Owner bootstrap must compare its intrinsic local timestamp.');
-assert(cloudProvider.includes('directJsonUpdatedAt(entry, row.value)'), 'Owner bootstrap must compare its intrinsic cloud timestamp.');
+assert(cloudProvider.includes('directJsonRevision(entry, localRaw)'), 'Owner bootstrap must compare its intrinsic local server revision.');
+assert(cloudProvider.includes('directJsonRevision(entry, row.value)'), 'Owner bootstrap must compare its intrinsic cloud server revision.');
+assert(!cloudProvider.includes('directJsonUpdatedAt'), 'Owner identity restore must not trust device wall clocks.');
 
 console.log('Account identity check passed: terminal recovery, full-mode flush, aggregate transfer, and exact Device B restore are covered.');

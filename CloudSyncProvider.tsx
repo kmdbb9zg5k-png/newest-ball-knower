@@ -3,8 +3,8 @@ import type { User } from '@supabase/supabase-js';
 import { Cloud, CloudOff, Loader2 } from 'lucide-react';
 import { ensureOnlineSession, isCloudConfigured, supabase } from './supabase';
 import { claimPendingGuestAccountMerge, hasPendingGuestAccountMerge } from './accountIdentity';
-import { registerFullCloudStateFlush } from './cloudSyncCoordinator';
-import { loadUserStates, saveUserStates, UserStateRow } from './userStateCloud';
+import { cloudStateFingerprint, registerCloudStateCommitted, registerFullCloudStateFlush } from './cloudSyncCoordinator';
+import { AGENT_PENDING_RECRUIT_ACTION_KEY, AGENT_PENDING_SIGNING_KEY, loadUserStates, saveUserStates, UserStateRow } from './userStateCloud';
 
 type CloudSyncStatus = 'connecting' | 'online' | 'error' | 'unconfigured';
 type CloudEnvelope = { raw: string | null };
@@ -17,6 +17,9 @@ type StorageEntry = {
 
 const META_KEY = 'ballknower_cloud_meta_v1';
 const OWNER_KEY = 'ballknower_cloud_owner_v1';
+const AGENT_LOCAL_KEY = 'ballknower_player_agent_v4';
+export const OWNER_CLOUD_SYNC_EVENT = 'ballknower:owner-cloud-saved';
+export const OWNER_CLOUD_CONFLICT_EVENT = 'ballknower:owner-cloud-conflict';
 const MAX_CLOUD_RAW_LENGTH = 220_000;
 const CLOUD_STORAGE: StorageEntry[] = [
   { localKey: 'ball-knower-favorite-team', cloudKey: 'favorite_team' },
@@ -29,7 +32,7 @@ const CLOUD_STORAGE: StorageEntry[] = [
   { localKey: 'ballknower_solo_real_team_v1:season', cloudKey: 'solo_real_team_season' },
   { localKey: 'ballknower_solo_my_player_v1', cloudKey: 'solo_my_player', privateImages: true },
   { localKey: 'ballknower_solo_my_player_v1:season', cloudKey: 'solo_my_player_season' },
-  { localKey: 'ballknower_player_agent_v4', cloudKey: 'player_agent_career' },
+  { localKey: AGENT_LOCAL_KEY, cloudKey: 'player_agent_career' },
   { localKey: 'ballknower_owner_career_v3', cloudKey: 'owner_business_career_v1', directJson: true },
 ];
 
@@ -52,14 +55,38 @@ function writeMeta(userId: string, meta: Record<string, number>) {
   try { localStorage.setItem(metaKey(userId), JSON.stringify(meta)); } catch {}
 }
 
-function directJsonUpdatedAt(entry: StorageEntry, value: string | unknown): number {
+function directJsonRevision(entry: StorageEntry, value: string | unknown): number {
   if (!entry.directJson || value === null || value === undefined) return 0;
   try {
     const parsed = typeof value === 'string' ? JSON.parse(value) : value;
-    return Number((parsed as { updatedAt?: unknown })?.updatedAt) || 0;
+    return Math.max(0, Number((parsed as { cloudRevision?: unknown })?.cloudRevision) || 0);
   } catch {
     return 0;
   }
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(item => stableJson(item)).join(',')}]`;
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).sort().map(key => `${JSON.stringify(key)}:${stableJson(record[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
+}
+
+function directJsonPayload(value: string | unknown): string {
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return stableJson(parsed);
+    const { cloudRevision: _cloudRevision, ...payload } = parsed as Record<string, unknown>;
+    return stableJson(payload);
+  } catch {
+    return '';
+  }
+}
+
+function isCloudUploadBlocked(entry: StorageEntry): boolean {
+  return entry.localKey === AGENT_LOCAL_KEY && localStorage.getItem(AGENT_PENDING_SIGNING_KEY) !== null;
 }
 
 function cloudValue(entry: StorageEntry, raw: string | null): unknown {
@@ -129,6 +156,8 @@ function applyRemote(entry: StorageEntry, value: unknown): boolean {
 
 function clearSyncedLocalState() {
   for (const entry of CLOUD_STORAGE) localStorage.removeItem(entry.localKey);
+  localStorage.removeItem(AGENT_PENDING_RECRUIT_ACTION_KEY);
+  localStorage.removeItem(AGENT_PENDING_SIGNING_KEY);
 }
 
 export function useCloudSyncStatus() {
@@ -157,8 +186,9 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const flushDirty = (): Promise<void> => {
       if (uploadRunning || dirtyKeys.size === 0) return writeChain;
+      const entries = CLOUD_STORAGE.filter(entry => dirtyKeys.has(entry.localKey) && !isCloudUploadBlocked(entry));
+      if (entries.length === 0) return writeChain;
       uploadRunning = true;
-      const entries = CLOUD_STORAGE.filter(entry => dirtyKeys.has(entry.localKey));
       const snapshots = new Map(entries.map(entry => [entry.localKey, localStorage.getItem(entry.localKey)]));
       const rows = entries.flatMap(entry => {
         const value = cloudValue(entry, snapshots.get(entry.localKey) ?? null);
@@ -168,14 +198,67 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       writeChain = (async () => {
         if (rows.length !== entries.length) throw new Error('Cloud save could not serialize every changed state.');
         const saved = await saveUserStates(rows);
-        const savedAt = new Map(saved.map(row => [row.state_key, Date.parse(row.updated_at) || 0]));
+        const savedByKey = new Map(saved.map(row => [row.state_key, row]));
+        const submittedByKey = new Map(rows.map(row => [row.stateKey, row.value]));
+        let restoredServerWinner = false;
         for (const entry of entries) {
-          if (!savedAt.has(entry.cloudKey)) continue;
-          if (localStorage.getItem(entry.localKey) !== snapshots.get(entry.localKey)) continue;
+          const savedRow = savedByKey.get(entry.cloudKey);
+          if (!savedRow) continue;
+          const snapshot = snapshots.get(entry.localKey) ?? null;
+          const current = localStorage.getItem(entry.localKey);
+          if (entry.directJson) {
+            const submitted = submittedByKey.get(entry.cloudKey);
+            const submittedRevision = directJsonRevision(entry, submitted);
+            const savedRevision = directJsonRevision(entry, savedRow.value);
+            const accepted =
+              savedRevision === submittedRevision + 1 &&
+              directJsonPayload(savedRow.value) === directJsonPayload(submitted);
+            if (current !== snapshot && current) {
+              if (!accepted) {
+                // Preserve evidence of the local action, but never make a stale
+                // payload eligible to overwrite the newer server snapshot.
+                localStorage.setItem(`${entry.localKey}:conflict-backup`, current);
+                applyRemote(entry, savedRow.value);
+                lastValues.set(entry.localKey, localStorage.getItem(entry.localKey));
+                dirtyKeys.delete(entry.localKey);
+                meta[entry.localKey] = Date.parse(savedRow.updated_at) || meta[entry.localKey] || 0;
+                if (entry.localKey === 'ballknower_owner_career_v3') {
+                  window.dispatchEvent(new CustomEvent(OWNER_CLOUD_SYNC_EVENT, { detail: savedRow.value }));
+                  window.dispatchEvent(new CustomEvent(OWNER_CLOUD_CONFLICT_EVENT));
+                }
+                continue;
+              }
+              // The submitted snapshot was accepted, so the newer local action
+              // can safely inherit that exact server revision and retry.
+              const rebased = {
+                ...JSON.parse(current) as Record<string, unknown>,
+                cloudRevision: savedRevision,
+              };
+              localStorage.setItem(entry.localKey, JSON.stringify(rebased));
+              lastValues.set(entry.localKey, localStorage.getItem(entry.localKey));
+              meta[entry.localKey] = Date.parse(savedRow.updated_at) || meta[entry.localKey] || 0;
+              if (entry.localKey === 'ballknower_owner_career_v3') {
+                window.dispatchEvent(new CustomEvent(OWNER_CLOUD_SYNC_EVENT, { detail: rebased }));
+              }
+              continue;
+            }
+            const directJsonChanged = applyRemote(entry, savedRow.value);
+            if (accepted) {
+              if (entry.localKey === 'ballknower_owner_career_v3') {
+                window.dispatchEvent(new CustomEvent(OWNER_CLOUD_SYNC_EVENT, { detail: savedRow.value }));
+              }
+            } else {
+              restoredServerWinner = directJsonChanged || restoredServerWinner;
+            }
+            lastValues.set(entry.localKey, localStorage.getItem(entry.localKey));
+          } else if (current !== snapshot) {
+            continue;
+          }
           dirtyKeys.delete(entry.localKey);
-          meta[entry.localKey] = savedAt.get(entry.cloudKey) || meta[entry.localKey] || 0;
+          meta[entry.localKey] = Date.parse(savedRow.updated_at) || meta[entry.localKey] || 0;
         }
         writeMeta(activeUserId, meta);
+        if (restoredServerWinner && !stopped) setSyncRevision(revision => revision + 1);
         if (!stopped && dirtyKeys.size === 0) setStatus('online');
       })()
         .catch(error => {
@@ -216,14 +299,28 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     };
 
+    const hasFlushableDirty = () =>
+      CLOUD_STORAGE.some(entry => dirtyKeys.has(entry.localKey) && !isCloudUploadBlocked(entry));
+
     const flushAllLocalState = async () => {
       captureLocalChanges();
-      while (dirtyKeys.size > 0) {
+      while (hasFlushableDirty()) {
         await flushDirty();
         captureLocalChanges();
       }
     };
     const unregisterFullFlush = registerFullCloudStateFlush(flushAllLocalState);
+    const unregisterCloudStateCommitted = registerCloudStateCommitted((localKey, fingerprint) => {
+      const raw = localStorage.getItem(localKey);
+      if (raw === null || cloudStateFingerprint(raw) !== fingerprint) return;
+      lastValues.set(localKey, raw);
+      dirtyKeys.delete(localKey);
+      if (localKey === 'ballknower_owner_career_v3') {
+        try { window.dispatchEvent(new CustomEvent(OWNER_CLOUD_SYNC_EVENT, { detail: JSON.parse(raw) })); } catch {}
+      }
+      meta[localKey] = Date.now();
+      if (activeUserId) writeMeta(activeUserId, meta);
+    });
 
     const pullRemote = async (initial = false) => {
       const rows = await loadUserStates<unknown>(CLOUD_STORAGE.map(entry => entry.cloudKey));
@@ -232,17 +329,28 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       let restoredMountedState = false;
 
       for (const entry of CLOUD_STORAGE) {
+        if (isCloudUploadBlocked(entry)) continue;
         const row = byKey.get(entry.cloudKey) as UserStateRow<unknown> | undefined;
         const localRaw = localStorage.getItem(entry.localKey);
-        const localChangedAt = Math.max(
-          meta[entry.localKey] || 0,
-          directJsonUpdatedAt(entry, localRaw),
-        );
-        const remoteChangedAt = row ? Math.max(
-          Date.parse(row.updated_at) || 0,
-          directJsonUpdatedAt(entry, row.value),
-        ) : 0;
+        if (entry.directJson) {
+          const localRevision = directJsonRevision(entry, localRaw);
+          const remoteRevision = row ? directJsonRevision(entry, row.value) : 0;
+          if (dirtyKeys.has(entry.localKey)) {
+            upload.push(entry);
+          } else if (row && (localRaw === null || remoteRevision > localRevision)) {
+            restoredMountedState = applyRemote(entry, row.value) || restoredMountedState;
+            meta[entry.localKey] = Date.parse(row.updated_at) || 0;
+          } else if (
+            localRaw !== null &&
+            (!row || remoteRevision < localRevision || directJsonPayload(row.value) !== directJsonPayload(localRaw))
+          ) {
+            upload.push(entry);
+          }
+          continue;
+        }
 
+        const localChangedAt = meta[entry.localKey] || 0;
+        const remoteChangedAt = row ? Date.parse(row.updated_at) || 0 : 0;
         if (dirtyKeys.has(entry.localKey)) {
           upload.push(entry);
         } else if (initial && localRaw !== null && localChangedAt === 0) {
@@ -352,6 +460,7 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       window.clearInterval(remoteTimer);
       window.clearTimeout(retryTimer);
       authSubscription?.unsubscribe();
+      unregisterCloudStateCommitted();
       unregisterFullFlush();
     };
   }, []);

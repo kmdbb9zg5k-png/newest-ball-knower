@@ -3,7 +3,7 @@ import type{OwnerSeasonStage}from'./ownerSeasonEngine';
 
 export type VerifiedPredictionPick={id:string;gameId:string;label:string;market:'spread'|'total';selection:string;lockedLine:number;lockedAt:string;result?:'win'|'loss'|'push';kickoffAt?:string;awayTeam?:string;homeTeam?:string;gradedAt?:string};
 export type VerifiedOwnerExpected={abbr:string;season:number;week:number;stage:OwnerSeasonStage;wins:number;losses:number;playoffSeed?:number|null};
-export type VerifiedOwnerStepResult={ok:boolean;verified:boolean;reason?:string;won?:boolean;isBye?:boolean;isPreseason?:boolean;run?:unknown;milestoneIds?:number[]};
+export type VerifiedOwnerStepResult={ok:boolean;verified:boolean;reason?:string;won?:boolean;isBye?:boolean;isPreseason?:boolean;run?:unknown;ownerState?:unknown;milestoneIds?:number[]};
 
 let predictionMutationChain:Promise<void>=Promise.resolve();
 function queuePredictionMutation<T>(work:()=>Promise<T>):Promise<T>{
@@ -22,8 +22,8 @@ async function request(path:string,init:RequestInit={}){
   const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data?.error||`Request failed (${response.status})`);return data;
 }
 
-export async function advanceVerifiedOwnerStep(expected:VerifiedOwnerExpected,gmId?:string,coachId?:string):Promise<VerifiedOwnerStepResult>{
-  return request('/api/mode-progression',{method:'POST',body:JSON.stringify({action:'owner_step',expected,gmId:gmId||null,coachId:coachId||null})}) as Promise<VerifiedOwnerStepResult>;
+export async function advanceVerifiedOwnerStep(expected:VerifiedOwnerExpected,ownerState:unknown,ownerOutcomes:{won:unknown;lost:unknown},gmId?:string,coachId?:string):Promise<VerifiedOwnerStepResult>{
+  return request('/api/mode-progression',{method:'POST',body:JSON.stringify({action:'owner_step',expected,ownerState,ownerOutcomes,gmId:gmId||null,coachId:coachId||null})}) as Promise<VerifiedOwnerStepResult>;
 }
 
 export async function claimPendingVerifiedModeMilestones(){

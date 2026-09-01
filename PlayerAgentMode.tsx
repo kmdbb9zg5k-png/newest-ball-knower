@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -16,6 +16,10 @@ import { PLAYERS_DATABASE } from "./players";
 import { Player } from "./types";
 import { playerPortraitUrl } from "./playerPortraits";
 import { ModalPortal } from "./ModalPortal";
+import { AGENT_PENDING_RECRUIT_ACTION_KEY, AGENT_PENDING_SIGNING_KEY, commitAgentSigningForExpectedUser, loadUserState } from "./userStateCloud";
+import { claimPendingVerifiedModeMilestones } from "./modeProgressionCloud";
+import { flushAllCloudState, markCloudStateCommitted } from "./cloudSyncCoordinator";
+import { ensureOnlineSession } from "./supabase";
 import {
   createRecruitingProfile,
   evaluateRecruitingDecision,
@@ -47,6 +51,11 @@ import {
 } from "./agentAgencyGrowth";
 
 const SAVE_KEY = "ballknower_player_agent_v4";
+const PENDING_SIGNING_KEY = AGENT_PENDING_SIGNING_KEY;
+const PENDING_RECRUIT_ACTION_KEY = AGENT_PENDING_RECRUIT_ACTION_KEY;
+const CLOUD_OWNER_KEY = "ballknower_cloud_owner_v1";
+const AGENT_SIGNING_LOCK_NAME = "ballknower-player-agent-signing-v1";
+const AGENT_SESSION_TIMEOUT_MS = 12_000;
 const LEGACY_SAVE_KEYS = [
   "ballknower_player_agent_v3",
   "ballknower_player_agent_v2",
@@ -132,6 +141,7 @@ type RecruitState = {
   choices: Pitch[];
   scenarioIndex: number;
   profile: RecruitingProfile;
+  beforeState?: AgencyState;
   completed?: boolean;
   failed?: boolean;
 };
@@ -244,9 +254,28 @@ const fallbackAgency = (): AgencyState => ({
   promisesBroken: 0,
 });
 
-const restore = (): AgencyState => {
+const readPendingRecruitAction = (): string | null => {
+  const raw = localStorage.getItem(PENDING_RECRUIT_ACTION_KEY);
+  if (!raw) return null;
   try {
-    let raw = localStorage.getItem(SAVE_KEY);
+    const pending = JSON.parse(raw) as { ownerId?: unknown; state?: unknown };
+    const ownerId = localStorage.getItem(CLOUD_OWNER_KEY);
+    if (pending.ownerId !== ownerId || !pending.state || typeof pending.state !== "object") {
+      localStorage.removeItem(PENDING_RECRUIT_ACTION_KEY);
+      return null;
+    }
+    return JSON.stringify(pending.state);
+  } catch {
+    localStorage.removeItem(PENDING_RECRUIT_ACTION_KEY);
+    return null;
+  }
+};
+
+const restore = (includePendingRecruitAction = true): AgencyState => {
+  try {
+    let raw =
+      (includePendingRecruitAction && readPendingRecruitAction()) ||
+      localStorage.getItem(SAVE_KEY);
     if (!raw) {
       for (const key of LEGACY_SAVE_KEYS) {
         raw = localStorage.getItem(key);
@@ -336,7 +365,201 @@ const restore = (): AgencyState => {
 const persist = (state: AgencyState) => {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    localStorage.removeItem(PENDING_RECRUIT_ACTION_KEY);
   } catch {}
+};
+
+const persistRecruitAction = (state: AgencyState) => {
+  try {
+    localStorage.setItem(
+      PENDING_RECRUIT_ACTION_KEY,
+      JSON.stringify({ ownerId: localStorage.getItem(CLOUD_OWNER_KEY), state }),
+    );
+  } catch {}
+};
+
+const ensureAgentSigningSession = async () => {
+  let timer = 0;
+  try {
+    return await Promise.race([
+      ensureOnlineSession(),
+      new Promise<never>((_, reject) => {
+        timer = window.setTimeout(
+          () => reject(new Error("Secure Agent session timed out. Retry when the connection is stable.")),
+          AGENT_SESSION_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    window.clearTimeout(timer);
+  }
+};
+
+const flushAgentSigningBaseline = async () => {
+  let timer = 0;
+  try {
+    await Promise.race([
+      flushAllCloudState(),
+      new Promise<never>((_, reject) => {
+        timer = window.setTimeout(
+          () => reject(new Error("Agent baseline cloud save timed out. Retry when the connection is stable.")),
+          AGENT_SESSION_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    window.clearTimeout(timer);
+  }
+};
+
+const loadAuthoritativeAgentCareer = async (): Promise<AgencyState> => {
+  let timer = 0;
+  try {
+    const cloud = await Promise.race([
+      loadUserState<{ raw?: unknown }>("player_agent_career"),
+      new Promise<never>((_, reject) => {
+        timer = window.setTimeout(
+          () => reject(new Error("Authoritative Agent career load timed out. Retry when the connection is stable.")),
+          AGENT_SESSION_TIMEOUT_MS,
+        );
+      }),
+    ]);
+    if (!cloud || typeof cloud.raw !== "string") {
+      throw new Error("Authoritative Agent career is unavailable.");
+    }
+    localStorage.setItem(SAVE_KEY, cloud.raw);
+    return restore(false);
+  } finally {
+    window.clearTimeout(timer);
+  }
+};
+
+const withAgentSigningTabLock = async <T,>(task: () => Promise<T>): Promise<T> => {
+  if (typeof navigator === "undefined" || !navigator.locks) return task();
+  return navigator.locks.request(
+    AGENT_SIGNING_LOCK_NAME,
+    { mode: "exclusive" },
+    task,
+  );
+};
+
+type PendingAgentSigning = {
+  userId: string;
+  beforeState: AgencyState;
+  state: AgencyState;
+};
+
+class AgentSigningConflictError extends Error {
+  constructor(message: string, readonly pendingRaw: string | null = null) {
+    super(message);
+  }
+}
+
+let pendingAgentSigningWrite: Promise<void> | null = null;
+const readPendingAgentSigning = (): PendingAgentSigning | null => {
+  try {
+    const raw = localStorage.getItem(PENDING_SIGNING_KEY);
+    if (!raw) return null;
+    const pending = JSON.parse(raw) as Partial<PendingAgentSigning>;
+    if (
+      typeof pending.userId !== "string" ||
+      !pending.userId ||
+      !pending.beforeState ||
+      typeof pending.beforeState !== "object" ||
+      !pending.state ||
+      typeof pending.state !== "object"
+    ) {
+      localStorage.removeItem(PENDING_SIGNING_KEY);
+      return null;
+    }
+    return pending as PendingAgentSigning;
+  } catch {
+    localStorage.removeItem(PENDING_SIGNING_KEY);
+    return null;
+  }
+};
+const stagePendingAgentSigning = (
+  userId: string,
+  beforeState: AgencyState,
+  state: AgencyState,
+) => {
+  localStorage.setItem(
+    PENDING_SIGNING_KEY,
+    JSON.stringify({ userId, beforeState, state } satisfies PendingAgentSigning),
+  );
+};
+const verifyPendingAgentSigning = async (
+  state?: AgencyState,
+  signingUserId?: string,
+  beforeState?: AgencyState,
+): Promise<void> => {
+  if (state) {
+    if (!signingUserId || !beforeState) {
+      throw new Error("Signing account and pre-signing state are required.");
+    }
+    stagePendingAgentSigning(signingUserId, beforeState, state);
+  }
+  if (pendingAgentSigningWrite) return pendingAgentSigningWrite;
+
+  const write = (async () => {
+    while (true) {
+      const raw = localStorage.getItem(PENDING_SIGNING_KEY);
+      if (!raw) return;
+      const pending = readPendingAgentSigning();
+      if (!pending) {
+        if (localStorage.getItem(PENDING_SIGNING_KEY) === raw) {
+          localStorage.removeItem(PENDING_SIGNING_KEY);
+        }
+        continue;
+      }
+
+      const user = await ensureAgentSigningSession();
+      if (pending.userId !== user.id) {
+        if (localStorage.getItem(PENDING_SIGNING_KEY) === raw) {
+          localStorage.removeItem(PENDING_SIGNING_KEY);
+        }
+        continue;
+      }
+
+      try {
+        await commitAgentSigningForExpectedUser(
+          pending.userId,
+          { raw: JSON.stringify(pending.beforeState) },
+          { raw: JSON.stringify(pending.state) },
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.includes("Agent career changed before signing")) {
+          // Keep the hold until the authoritative server winner is loaded.
+          throw new AgentSigningConflictError(
+            "Another tab changed this Agent career first. The latest saved career was restored.",
+            raw,
+          );
+        }
+        throw error;
+      }
+      markCloudStateCommitted(SAVE_KEY, JSON.stringify(pending.state));
+      if (localStorage.getItem(PENDING_SIGNING_KEY) !== raw) {
+        continue;
+      }
+
+      localStorage.removeItem(PENDING_SIGNING_KEY);
+      try {
+        await claimPendingVerifiedModeMilestones();
+      } catch (error) {
+        // The durable milestone remains replayable after the signing save succeeds.
+        console.warn("Agent signing milestone claim deferred", error);
+      }
+      // Loop once more in case a newer signing arrived while this save or
+      // milestone claim was in flight.
+    }
+  })();
+  pendingAgentSigningWrite = write;
+  try {
+    await write;
+  } finally {
+    if (pendingAgentSigningWrite === write) pendingAgentSigningWrite = null;
+  }
 };
 const clamp = (n: number, min: number, max: number) =>
   Math.max(min, Math.min(max, n));
@@ -529,6 +752,129 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
   const [levelUp, setLevelUp] = useState<{ from: number; to: number } | null>(
     null,
   );
+  const [agentSigningError, setAgentSigningError] = useState("");
+  const signingInFlightRef = useRef(false);
+  const [signingInFlight, setSigningInFlight] = useState(false);
+  const [verifyingAgentSigning, setVerifyingAgentSigning] = useState(
+    () => pendingAgentSigningWrite !== null || readPendingAgentSigning() !== null,
+  );
+  const recoverAgentSigningConflict = async (error: AgentSigningConflictError) => {
+    const failedPendingRaw = error.pendingRaw ?? localStorage.getItem(PENDING_SIGNING_KEY);
+    try {
+      const latest = await loadAuthoritativeAgentCareer();
+      const currentPendingRaw = localStorage.getItem(PENDING_SIGNING_KEY);
+      if (currentPendingRaw && currentPendingRaw !== failedPendingRaw) {
+        const newerPending = readPendingAgentSigning();
+        if (newerPending) {
+          localStorage.setItem(SAVE_KEY, JSON.stringify(newerPending.state));
+          setAgency(newerPending.state);
+        }
+        setAgentSigningError("A newer Agent signing is still being verified.");
+        setVerifyingAgentSigning(true);
+        return false;
+      }
+      if (currentPendingRaw === failedPendingRaw) localStorage.removeItem(PENDING_SIGNING_KEY);
+      setAgency(latest);
+      setRecruit(null);
+      setSelectedId(null);
+      setAgentSigningError(error.message);
+      setVerifyingAgentSigning(false);
+      return true;
+    } catch (loadError) {
+      // Keep both the pending snapshot and the UI lock until the server winner
+      // can be loaded; unlocking stale local state could overwrite it.
+      setAgentSigningError("The latest Agent career is still loading. Retry before making another move.");
+      setVerifyingAgentSigning(true);
+      console.warn("Authoritative Agent career reload deferred", loadError);
+      return false;
+    }
+  };
+  const retryAgentSigningVerification = async (
+    state?: AgencyState,
+    signingUserId?: string,
+    beforeState?: AgencyState,
+  ) => {
+    setVerifyingAgentSigning(true);
+    try {
+      await verifyPendingAgentSigning(state, signingUserId, beforeState);
+      setVerifyingAgentSigning(pendingAgentSigningWrite !== null || readPendingAgentSigning() !== null);
+      return true;
+    } catch (error) {
+      if (error instanceof AgentSigningConflictError) {
+        await recoverAgentSigningConflict(error);
+        return false;
+      }
+      // Keep the lock and durable retry snapshot until cloud persistence works.
+      setVerifyingAgentSigning(true);
+      console.warn("Agent signing cloud verification pending retry", error);
+      return false;
+    }
+  };
+  const handleBack = () => {
+    onBack();
+  };
+  useEffect(() => {
+    let cancelled = false;
+    const retryPendingSigning = () => {
+      if (!readPendingAgentSigning() && !pendingAgentSigningWrite) {
+        if (!cancelled) setVerifyingAgentSigning(false);
+        return;
+      }
+      if (!cancelled) setVerifyingAgentSigning(true);
+      void verifyPendingAgentSigning()
+        .then(() => {
+          if (!cancelled) {
+            setVerifyingAgentSigning(readPendingAgentSigning() !== null);
+          }
+        })
+        .catch((error) => {
+          if (!cancelled && error instanceof AgentSigningConflictError) {
+            void recoverAgentSigningConflict(error);
+            return;
+          }
+          if (!cancelled) setVerifyingAgentSigning(true);
+          console.warn("Agent signing cloud verification pending retry", error);
+        });
+    };
+    const handlePendingSigningStorage = (event: StorageEvent) => {
+      if (event.key !== PENDING_SIGNING_KEY) return;
+      if (!event.newValue) {
+        const activeWrite = pendingAgentSigningWrite;
+        if (!activeWrite) {
+          if (!cancelled) {
+            setAgency(restore());
+            setRecruit(null);
+            setSelectedId(null);
+            setVerifyingAgentSigning(false);
+          }
+          return;
+        }
+        if (!cancelled) setVerifyingAgentSigning(true);
+        void activeWrite.finally(() => {
+          window.setTimeout(() => {
+            if (!cancelled) {
+              const stillPending =
+                pendingAgentSigningWrite !== null || readPendingAgentSigning() !== null;
+              if (!stillPending) {
+                setAgency(restore());
+                setRecruit(null);
+                setSelectedId(null);
+              }
+              setVerifyingAgentSigning(stillPending);
+            }
+          }, 0);
+        }).catch(() => undefined);
+        return;
+      }
+      retryPendingSigning();
+    };
+    window.addEventListener("storage", handlePendingSigningStorage);
+    retryPendingSigning();
+    return () => {
+      cancelled = true;
+      window.removeEventListener("storage", handlePendingSigningStorage);
+    };
+  }, []);
   const clients = useMemo(
     () =>
       agency.clients
@@ -621,6 +967,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
   };
 
   const advanceWeek = () => {
+    if (verifyingAgentSigning) return;
     let nextWeek = agency.seasonWeek + 1;
     let nextYear = agency.seasonYear;
     let nextPhase: SeasonPhase = agency.phase;
@@ -861,6 +1208,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
 
   const beginRecruit = (p: Player) => {
     if (clients.length >= clientCapacity) return;
+    setAgentSigningError("");
     const actionAgency = spendAction("starting another recruiting meeting");
     if (!actionAgency) return;
     const profile = createRecruitingProfile(p);
@@ -915,11 +1263,16 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       55,
     );
     const scenario = scenarioFor(p);
+    // Normalize the exact pre-meeting CAS baseline before CloudSync flushes it.
+    persist(agency);
     setAgency(actionAgency);
-    persist(actionAgency);
+    // Keep the consumed action durable across reloads without exposing the
+    // verifier's pre-meeting baseline to generic cloud sync.
+    persistRecruitAction(actionAgency);
     setSelectedId(p.id);
     setRecruit({
       playerId: p.id,
+      beforeState: agency,
       baseInterest: Math.round(base),
       interest: Math.round(base),
       round: 1,
@@ -933,7 +1286,8 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     });
   };
 
-  const makePitch = (pitch: Pitch) => {
+  const makePitch = async (pitch: Pitch) => {
+    if (signingInFlightRef.current || verifyingAgentSigning) return;
     if (
       !selected ||
       !recruit ||
@@ -995,6 +1349,48 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       firstClient: agency.clients.length === 0,
     });
     if (decision.signed) {
+      signingInFlightRef.current = true;
+      setSigningInFlight(true);
+      try {
+        await withAgentSigningTabLock(async () => {
+      const signingBeforeState = recruit.beforeState;
+      if (!signingBeforeState) {
+        throw new Error("Pre-recruiting Agent state is unavailable.");
+      }
+      const sharedAgency = restore();
+      if (JSON.stringify(sharedAgency) !== JSON.stringify(agency)) {
+        throw new AgentSigningConflictError("Agent career changed in another tab before signing.");
+      }
+      let signingUserId: string;
+      try {
+        signingUserId = (await ensureAgentSigningSession()).id;
+      } catch (error) {
+        setRecruit({
+          ...recruit,
+          message: "A secure cloud connection is required before this signing can become official. Try your final pitch again when the connection returns.",
+          playerReply: "“I am ready. Get the paperwork secured and we will make it official.”",
+        });
+        console.warn("Agent signing session unavailable", error);
+        return;
+      }
+      try {
+        // The pre-meeting SAVE_KEY is the CAS baseline. Flush it before the
+        // signing hold blocks generic Agent uploads, with a bounded wait.
+        await flushAgentSigningBaseline();
+      } catch (error) {
+        setRecruit({
+          ...recruit,
+          message: "Your current Agent career must finish syncing before this signing can become official. Try your final pitch again.",
+          playerReply: "“I am ready. Secure the existing file and bring me the final paperwork.”",
+        });
+        console.warn("Agent signing baseline save unavailable", error);
+        return;
+      }
+      if (JSON.stringify(restore()) !== JSON.stringify(agency)) {
+        throw new AgentSigningConflictError(
+          "Another tab changed this Agent career during signing. The latest saved career was restored.",
+        );
+      }
       const cooldowns = { ...agency.recruitCooldowns };
       delete cooldowns[selected.id];
       const next: AgencyState = {
@@ -1024,6 +1420,9 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       };
       const before = maxUnlockedOverall(agency.reputation),
         after = maxUnlockedOverall(next.reputation);
+      // Publish the cloud hold before changing the watched Agent save key.
+      // The account-bound CAS is the only write allowed to finalize this signing.
+      stagePendingAgentSigning(signingUserId, signingBeforeState, next);
       setAgency(next);
       persist(next);
       setRecruit({
@@ -1037,11 +1436,35 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
         playerReply:
           "“You listened, you had a plan, and you did not sell me the same dream everybody else did. Let’s work.”",
       });
-      if (after > before) {
+      // The durable pending snapshot survives mode navigation/reloads. The
+      // week and Back controls stay locked until this exact signing is saved.
+      const signingVerified = await retryAgentSigningVerification();
+      if (signingVerified && after > before) {
         setLevelUp({ from: before, to: after });
         try {
           navigator.vibrate?.([45, 40, 45, 40, 100]);
         } catch {}
+      }
+        });
+      } catch (error) {
+        const sharedAgency = error instanceof AgentSigningConflictError
+          ? (localStorage.removeItem(PENDING_RECRUIT_ACTION_KEY), restore(false))
+          : restore();
+        setAgency(sharedAgency);
+        setAgentSigningError(
+          error instanceof Error ? error.message : "Agent signing was blocked to preserve newer career progress.",
+        );
+        setRecruit({
+          ...recruit,
+          choices: [],
+          failed: true,
+          message: "Another Agent tab changed this career first. Its progress was preserved; reopen the meeting from the refreshed career.",
+          playerReply: "“Refresh the room before we make anything official.”",
+        });
+        console.warn("Agent signing blocked to preserve newer cross-tab progress", error);
+      } finally {
+        signingInFlightRef.current = false;
+        setSigningInFlight(false);
       }
     } else {
       const next: AgencyState = {
@@ -1199,12 +1622,44 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     });
   };
 
+  if (verifyingAgentSigning) {
+    return (
+      <div className="grid min-h-[100dvh] place-items-center bg-[#05070b] p-5 text-white">
+        <div className="w-full max-w-md rounded-[2rem] border border-violet-300/25 bg-[#0d121b] p-6 text-center shadow-2xl">
+          <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-violet-400 text-black">
+            <ShieldCheck size={28} />
+          </div>
+          <div className="mt-4 text-[10px] font-black tracking-[.22em] text-violet-300">
+            SECURING YOUR SIGNING
+          </div>
+          <h2 className="mt-2 text-3xl font-black">KEEPING THIS DEAL SAFE.</h2>
+          <p className="mt-3 text-sm font-semibold leading-6 text-zinc-400">
+            Career actions are paused until this signing is safely stored on
+            your account. You can retry without losing the deal.
+          </p>
+          <button
+            onClick={() => void retryAgentSigningVerification()}
+            className="mt-5 min-h-12 w-full rounded-2xl bg-violet-400 px-5 font-black text-black"
+          >
+            RETRY CLOUD VERIFICATION
+          </button>
+          <button
+            onClick={handleBack}
+            className="mt-3 min-h-12 w-full rounded-2xl border border-white/10 bg-black/30 px-5 text-xs font-black"
+          >
+            BACK TO SOLO · KEEP RETRYING
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!agency.profile) {
     return (
       <div className="relative min-h-[100dvh] overflow-hidden bg-[#05070b] text-white">
         <div className="relative mx-auto flex min-h-[100dvh] max-w-5xl flex-col px-5 py-6 sm:px-8">
           <button
-            onClick={onBack}
+            onClick={handleBack}
             className="flex w-fit min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/30 px-4 text-xs font-black"
           >
             <ArrowLeft size={16} /> BACK
@@ -1337,7 +1792,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       <div className="mx-auto max-w-6xl">
         <div className="mb-5 flex items-center justify-between gap-4">
           <button
-            onClick={onBack}
+            onClick={handleBack}
             className="flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/30 px-4 text-xs font-black"
           >
             <ArrowLeft size={16} /> SOLO
@@ -1349,6 +1804,12 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
             <div className="text-lg font-black">{agency.profile.name}</div>
           </div>
         </div>
+
+        {agentSigningError && (
+          <div className="mb-4 rounded-2xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm font-bold text-amber-100">
+            {agentSigningError}
+          </div>
+        )}
 
         <section className="rounded-[2rem] border border-violet-300/20 bg-[#0c1018] p-5 sm:p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -1378,10 +1839,10 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
               </div>
             </div>
             <button
-              onClick={advanceWeek}
+              onClick={verifyingAgentSigning ? () => { void retryAgentSigningVerification(); } : advanceWeek}
               className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-violet-400 px-5 font-black text-black"
             >
-              <FastForward size={18} /> ADVANCE ONE WEEK
+              <FastForward size={18} /> {verifyingAgentSigning ? "RETRY CLOUD VERIFICATION" : "ADVANCE ONE WEEK"}
             </button>
           </div>
         </section>
@@ -1775,11 +2236,14 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                   </div>
                   <button
                     aria-label="Close private meeting"
+                    disabled={signingInFlight}
                     onClick={() => {
+                      if (signingInFlightRef.current) return;
+                      persist(agency);
                       setRecruit(null);
                       setSelectedId(null);
                     }}
-                    className="min-h-11 shrink-0 rounded-xl bg-white/5 px-3 text-xs font-black"
+                    className="min-h-11 shrink-0 rounded-xl bg-white/5 px-3 text-xs font-black disabled:opacity-40"
                   >
                     CLOSE
                   </button>
@@ -1810,8 +2274,9 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                       {recruit.choices.map((pitch) => (
                         <button
                           key={pitch}
-                          onClick={() => makePitch(pitch)}
-                          className="min-h-12 rounded-2xl border border-white/10 bg-white/5 px-4 text-left text-xs font-black active:border-violet-300/50 active:bg-violet-400/10"
+                          disabled={signingInFlight}
+                          onClick={() => void makePitch(pitch)}
+                          className="min-h-12 rounded-2xl border border-white/10 bg-white/5 px-4 text-left text-xs font-black active:border-violet-300/50 active:bg-violet-400/10 disabled:opacity-40"
                         >
                           {pitchLabel[pitch]}
                         </button>

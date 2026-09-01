@@ -83,6 +83,7 @@ export async function startOAuthSignIn(provider: PermanentAuthProvider): Promise
   if (!supabase) throw new Error('Online accounts are not configured.');
   const current = await ensureOnlineSession();
   if (current.is_anonymous) await prepareGuestAccountMerge();
+  else await flushAllCloudStateBeforeIdentityChange();
   const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
   const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo } });
   if (error) throw error;

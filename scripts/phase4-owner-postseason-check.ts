@@ -47,5 +47,5 @@ assert.ok(ownerMode.includes('seasonStaffCommitmentsM:state.seasonStaffCommitmen
 assert.ok(ownerMode.includes('Math.max(0,-choiceCash)'),'decision spending must be included in season expenses');
 assert.ok(ownerMode.includes('careerExpensesM:trackCash&&cashDelta<0'),'buyouts and investments must reach the career expense ledger');
 assert.ok(ownerMode.includes('seasonStaffCommitmentsM))?Number(v.seasonStaffCommitmentsM):0'),'legacy saves must not repay salaries charged before migration');
-assert.ok(ownerMode.includes('careerWins:state.careerWins+(isRegularGame&&won?1:0)'),'postseason wins must not inflate the regular-season career record');
+assert.ok(ownerMode.includes('careerWins:baseline.careerWins+(isRegularGame&&won?1:0)'),'postseason wins must not inflate the regular-season career record');
 console.log('Phase 4 Owner postseason checks passed.');
