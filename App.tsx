@@ -58,6 +58,8 @@ function BallKnowerApp(){
   useEffect(()=>{setIntroActiveRef.current=setIntroActive},[setIntroActive]);
   useEffect(()=>{setIntroActiveRef.current(true);try{const savedTheme=getSavedTeamTheme();setFavoriteTheme(savedTheme);applyTeamCssVariables(savedTheme);const params=new URLSearchParams(window.location.search);const joinCode=params.get('join');if(joinCode)joinLeague(joinCode).then(res=>{if(res.success&&res.league)setCurrentTab('lobby')})}catch(e){console.error(e)}},[]);
   useEffect(()=>{let media:MediaQueryList|null=null;try{media=window.matchMedia('(max-width: 767px)');const sync=()=>setIsMobileDraftViewport(media?.matches??false);sync();media.addEventListener?.('change',sync);return()=>media?.removeEventListener?.('change',sync)}catch{return undefined}},[]);
+  useEffect(()=>{try{const previous=window.history.scrollRestoration;window.history.scrollRestoration='manual';return()=>{window.history.scrollRestoration=previous}}catch{return undefined}},[]);
+  useEffect(()=>{if(currentTab!=='home')return;const resetHomeScroll=()=>window.scrollTo({top:0,left:0,behavior:'auto'});resetHomeScroll();const frame=window.requestAnimationFrame(resetHomeScroll);const timer=window.setTimeout(resetHomeScroll,200);return()=>{window.cancelAnimationFrame(frame);window.clearTimeout(timer)}},[currentTab]);
   useEffect(()=>{trackBallKnowerEvent('Mode Opened',{mode:currentTab,active_league:Boolean(activeLeague)})},[currentTab]);
 
   const openIntro=()=>{setIntroActive(true);setIsIntroOpen(true)};

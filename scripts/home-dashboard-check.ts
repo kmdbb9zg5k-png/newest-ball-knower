@@ -27,7 +27,9 @@ assert.ok(home.includes('env(safe-area-inset-left)')&&home.includes('env(safe-ar
 assert.ok(navbar.includes("mobileTabClass('home')")&&navbar.includes("mobileTabClass('fantasy')")&&navbar.includes("mobileTabClass('sportsbook')")&&navbar.includes("mobileTabClass('challenges')")&&navbar.includes("mobileTabClass('locker')"), 'mobile navigation must expose the five approved primary destinations');
 assert.ok(navbar.includes("setCurrentTab('solo')")&&navbar.includes("setCurrentTab('news')")&&navbar.includes("setCurrentTab('legacy')"), 'secondary Solo, News, and Hall of Fame destinations must remain available');
 assert.ok(app.includes('teamTheme={favoriteTheme}')&&app.includes('pb-[calc(5rem+env(safe-area-inset-bottom))]'), 'the app must pass the selected team theme and reserve space for bottom navigation');
+assert.ok(app.includes("window.history.scrollRestoration='manual'")&&app.includes("currentTab!=='home'")&&app.includes('resetHomeScroll'), 'home must defeat stale iPhone browser scroll restoration and reopen at the top');
 assert.ok(footer.includes('pb-[calc(5rem+env(safe-area-inset-bottom))]'), 'the fixed bottom navigation must not cover the final footer controls');
 assert.ok(home.includes('grid grid-cols-4 overflow-hidden')&&home.includes('Continue your league')&&home.includes('League Activity'), 'home must preserve the approved compact concept hierarchy');
+assert.ok(styles.includes('-webkit-text-size-adjust: 100%')&&home.includes('min-w-0 overflow-hidden')&&!home.includes('className="whitespace-nowrap">{label}'), 'iPhone text autosizing must not make quick-link labels overlap their columns');
 
 console.log('Home dashboard checks passed: personalized team atmosphere, dynamic league action, real activity, and iPhone-safe navigation.');

@@ -14,7 +14,7 @@
 }
 
 * { box-sizing: border-box; }
-html { background: #07090d; scroll-behavior: smooth; }
+html { background: #07090d; scroll-behavior: smooth; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body { margin: 0; min-width: 320px; min-height: 100dvh; background: #07090d; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 .font-display { font-family: "Barlow Condensed", "Arial Narrow", Impact, ui-sans-serif, system-ui, sans-serif; font-stretch: condensed; }
 button, input, select, textarea { font: inherit; }
