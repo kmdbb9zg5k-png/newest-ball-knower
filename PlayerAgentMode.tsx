@@ -456,10 +456,12 @@ const readPendingAgentSigning = (): PendingAgentSigning | null => {
       !pending.state ||
       typeof pending.state !== "object"
     ) {
+      localStorage.removeItem(PENDING_SIGNING_KEY);
       return null;
     }
     return pending as PendingAgentSigning;
   } catch {
+    localStorage.removeItem(PENDING_SIGNING_KEY);
     return null;
   }
 };
