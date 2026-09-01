@@ -465,7 +465,25 @@ begin
       and public_state.value->>'week'=target.week::text
       and public_state.value->>'wins'=target.wins::text
       and public_state.value->>'losses'=target.losses::text
-      and coalesce(nullif(public_state.value->>'playoffSeed',''),'0')=coalesce(target.playoff_seed,0)::text then false
+      and coalesce(nullif(public_state.value->>'playoffSeed',''),'0')=coalesce(target.playoff_seed,0)::text then (
+        guest.season,
+        case guest.stage
+          when 'preseason' then 0 when 'regular' then 1 when 'wild-card' then 2
+          when 'divisional' then 3 when 'conference' then 4 when 'super-bowl' then 5 else -1 end,
+        guest.week,
+        guest.wins,
+        -guest.losses,
+        guest.abbr
+      ) > (
+        target.season,
+        case target.stage
+          when 'preseason' then 0 when 'regular' then 1 when 'wild-card' then 2
+          when 'divisional' then 3 when 'conference' then 4 when 'super-bowl' then 5 else -1 end,
+        target.week,
+        target.wins,
+        -target.losses,
+        target.abbr
+      )
     else true
   end
   into v_guest_owner_wins
