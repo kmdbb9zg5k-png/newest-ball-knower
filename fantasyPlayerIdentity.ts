@@ -1,8 +1,10 @@
-export function canMergeHistoricalProviderRows(
+export function resolveHistoricalProviderId(
   identityProviderIds: string[],
   fallbackProviderIds: string[],
-): boolean {
+): string {
   const current = [...new Set(identityProviderIds.filter(Boolean))];
   const historical = [...new Set(fallbackProviderIds.filter(Boolean))];
-  return current.length === 1 && historical.length === 1 && current[0] === historical[0];
+  if (historical.length !== 1 || current.length > 1) return '';
+  if (current.length === 1 && current[0] !== historical[0]) return '';
+  return historical[0];
 }
