@@ -428,7 +428,7 @@ const loadAuthoritativeAgentCareer = async (): Promise<AgencyState> => {
       throw new Error("Authoritative Agent career is unavailable.");
     }
     localStorage.setItem(SAVE_KEY, cloud.raw);
-    return restore();
+    return restore(false);
   } finally {
     window.clearTimeout(timer);
   }
