@@ -28,7 +28,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .bk-app-shell {
   isolation: isolate;
   min-height: 100dvh;
-  overflow: hidden;
+  overflow-x: clip;
   background:
     radial-gradient(ellipse at 82% -4%, rgb(var(--bk-team-primary-rgb) / .38), transparent 40%),
     radial-gradient(ellipse at 13% 27%, rgb(var(--bk-team-secondary-rgb) / .16), transparent 33%),

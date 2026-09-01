@@ -69,7 +69,7 @@ function BallKnowerApp(){
   const navigateToTab=useCallback((tab:AppTab)=>{if(tab==='fantasy')setFantasyView('leagues');if(tab==='solo')setSoloExperience('hub');setCurrentTab(tab)},[]);
   const openCheatSheet=useCallback(()=>{setFantasyView('cheatsheet');setCurrentTab('fantasy')},[]);
 
-  return <div data-tab={currentTab} className="bk-app-shell relative min-h-[100dvh] overflow-x-hidden text-white font-sans antialiased selection:bg-[var(--bk-team-accent)]/30 selection:text-[var(--bk-team-accent)]">
+  return <div data-tab={currentTab} className="bk-app-shell relative min-h-[100dvh] overflow-x-clip text-white font-sans antialiased selection:bg-[var(--bk-team-accent)]/30 selection:text-[var(--bk-team-accent)]">
     <div className="bk-cinematic-image" aria-hidden="true"/>
     <div className="fixed inset-0 z-[2] pointer-events-none overflow-hidden" aria-hidden="true"><div className="absolute -right-[22vw] top-[15vh] h-[72vw] w-[72vw] max-h-[900px] max-w-[900px] opacity-[.035] sm:opacity-[.045]" style={{filter:`drop-shadow(0 0 70px ${favoriteTheme.secondary}55)`}}><img src={teamLogoUrl(favoriteTheme.abbr)} alt="" className="h-full w-full object-contain"/></div><div className="absolute inset-y-0 right-0 w-[46vw] opacity-25" style={{background:`radial-gradient(circle at 100% 38%,${favoriteTheme.primary}55,transparent 64%)`}}/><div className="absolute inset-x-0 top-0 h-px" style={{background:`linear-gradient(90deg,transparent,${favoriteTheme.secondary}88,transparent)`}}/></div>
 
