@@ -163,6 +163,7 @@ assert.ok(
   'equal-revision Owner snapshots must compare canonical payloads instead of JSON property order',
 );
 assert.ok(cloudSync.includes('restoredServerWinner')&&cloudSync.includes('remoteRevision > localRevision'),'cloud sync must apply the server winner on stale Owner saves');
+const ownerBaselineFlush=owner.indexOf('await flushAllCloudState();');
 const ownerAtomicCall=owner.indexOf('await advanceVerifiedOwnerStep(');
 const ownerCommittedPersist=owner.indexOf('setState(nextState);persist(nextState);',ownerAtomicCall);
 const ownerMilestoneClaim=owner.indexOf('await claimPendingVerifiedModeMilestones()',ownerCommittedPersist);
@@ -170,8 +171,11 @@ const atomicOwnerFunctionStart=phase4bFollowup.indexOf('create or replace functi
 const atomicOwnerFunctionEnd=phase4bFollowup.indexOf('create or replace function public.commit_ball_knower_expected_agent_signing(',atomicOwnerFunctionStart);
 const atomicOwnerFunction=phase4bFollowup.slice(atomicOwnerFunctionStart,atomicOwnerFunctionEnd);
 assert.ok(
-  ownerAtomicCall>=0&&ownerAtomicCall<ownerCommittedPersist&&ownerCommittedPersist<ownerMilestoneClaim&&
-  owner.includes('ownerOutcomes={won:buildDecisionState(true,true,state.cloudRevision),lost:buildDecisionState(false,true,state.cloudRevision)}')&&
+  ownerBaselineFlush>=0&&ownerBaselineFlush<ownerAtomicCall&&ownerAtomicCall<ownerCommittedPersist&&ownerCommittedPersist<ownerMilestoneClaim&&
+  owner.includes('const baseline=restore();')&&
+  owner.includes('comparableOwnerState(baseline)!==comparableOwnerState(currentState)')&&
+  owner.includes('Owner baseline cloud save unavailable; decision paused')&&
+  owner.includes('ownerOutcomes={won:buildDecisionState(true,true,baseline.cloudRevision),lost:buildDecisionState(false,true,baseline.cloudRevision)}')&&
   owner.includes('committedOwnerState=normalize(committedState)')&&
   owner.includes('markCloudStateCommitted(SAVE_KEY,JSON.stringify(nextState))')&&
   modeApi.includes('const nextOwnerState=won?ownerOutcomes?.won:ownerOutcomes?.lost')&&
