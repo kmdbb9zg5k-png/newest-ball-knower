@@ -6,6 +6,27 @@ const AGENT_PENDING_SIGNING_KEY = 'ballknower_player_agent_signing_pending_v1';
 let activeFullFlush: FullCloudStateFlush | null = null;
 let activeCloudStateCommitted: CloudStateCommitted | null = null;
 
+function hasValidPendingAgentSigning(): boolean {
+  if (typeof localStorage === 'undefined') return false;
+  const raw = localStorage.getItem(AGENT_PENDING_SIGNING_KEY);
+  if (!raw) return false;
+  try {
+    const pending = JSON.parse(raw) as { userId?: unknown; beforeState?: unknown; state?: unknown };
+    if (
+      typeof pending.userId === 'string' &&
+      pending.userId &&
+      pending.beforeState &&
+      typeof pending.beforeState === 'object' &&
+      pending.state &&
+      typeof pending.state === 'object'
+    ) {
+      return true;
+    }
+  } catch {}
+  localStorage.removeItem(AGENT_PENDING_SIGNING_KEY);
+  return false;
+}
+
 export function cloudStateFingerprint(raw: string): string {
   let hash = 2166136261;
   for (let index = 0; index < raw.length; index += 1) {
@@ -59,7 +80,7 @@ export async function flushAllCloudState(): Promise<void> {
 }
 
 export async function flushAllCloudStateBeforeIdentityChange(): Promise<void> {
-  if (typeof localStorage !== 'undefined' && localStorage.getItem(AGENT_PENDING_SIGNING_KEY)) {
+  if (hasValidPendingAgentSigning()) {
     throw new Error('Finish verifying the pending Agent signing before changing accounts.');
   }
   await flushAllCloudState();
