@@ -1,4 +1,5 @@
 import { ensureOnlineSession, supabase } from './supabase';
+import { canMergeHistoricalProviderRows } from './fantasyPlayerIdentity';
 
 export type FantasyPlayerWeek = {
   id: string;
@@ -83,21 +84,20 @@ export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Pro
 
   const identityRows = (identityResult.data || []) as WeekRow[];
   const namePositionRows = (namePositionResult.data || []) as WeekRow[];
-  const identityProviderIds = new Set(identityRows.map(row => row.provider_player_id).filter(Boolean));
-  const fallbackProviderIds = new Set(namePositionRows.map(row => row.provider_player_id).filter(Boolean));
+  const identityProviderIds = identityRows.map(row => row.provider_player_id).filter(Boolean);
+  const fallbackProviderIds = namePositionRows.map(row => row.provider_player_id).filter(Boolean);
   const allFallbackRowsHaveProviderIds = namePositionRows.every(row => Boolean(row.provider_player_id));
-  const soleIdentityProviderId = identityProviderIds.size === 1 ? [...identityProviderIds][0] : '';
-  const soleFallbackProviderId = fallbackProviderIds.size === 1 ? [...fallbackProviderIds][0] : '';
+  const canMergeFallback =
+    allFallbackRowsHaveProviderIds &&
+    canMergeHistoricalProviderRows(identityProviderIds, fallbackProviderIds);
+  const anchoredProviderId = canMergeFallback ? [...new Set(identityProviderIds)][0] : '';
 
   // No current-id rows means there is no trustworthy provider identity anchor.
   // In that case, prefer an honest empty/partial history over attaching a same-
   // name player's rows to the selected player.
-  const anchoredFallbackRows =
-    soleIdentityProviderId &&
-    allFallbackRowsHaveProviderIds &&
-    soleFallbackProviderId === soleIdentityProviderId
-      ? namePositionRows.filter(row => row.provider_player_id === soleIdentityProviderId)
-      : [];
+  const anchoredFallbackRows = anchoredProviderId
+    ? namePositionRows.filter(row => row.provider_player_id === anchoredProviderId)
+    : [];
 
   const rows = [...identityRows, ...anchoredFallbackRows];
   const uniqueRows = [...new Map(rows.map(row => [row.id, row])).values()]
