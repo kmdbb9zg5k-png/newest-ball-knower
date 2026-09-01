@@ -62,6 +62,7 @@ import {
 import { counterTradeV2 } from "./fantasyTradeV2Cloud";
 import { FantasyRanking, loadFantasyRankings } from "./fantasyRankingsCloud";
 import { FantasyPlayerDetail } from "./FantasyPlayerDetail";
+import { ModalPortal } from "./ModalPortal";
 import { resolveWeeklyProjection } from "./fantasyLineup";
 import {
   buildFantasyWeekPairings,
@@ -182,6 +183,15 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const [error, setError] = useState("");
   const [detailPlayer, setDetailPlayer] = useState<Player | null>(null);
   const [detailOwnerName, setDetailOwnerName] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (!showAllMatchups) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowAllMatchups(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [showAllMatchups]);
 
   const [freeAgentQuery, setFreeAgentQuery] = useState("");
   const [faabPlayer, setFaabPlayer] = useState("");
@@ -1236,84 +1246,165 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
             </div>
             <button
               type="button"
+              aria-haspopup="dialog"
               aria-expanded={showAllMatchups}
-              onClick={() => setShowAllMatchups(value => !value)}
+              onClick={() => setShowAllMatchups(true)}
               className="min-h-11 rounded-full border border-white/15 bg-[#101318] px-4 text-[10px] font-black uppercase text-zinc-200"
             >
               All Matchups
             </button>
           </div>
-          {showAllMatchups && <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {weekMatchups.map((game) => {
-              const home = league.members.find(
-                (member) => member.id === game.homeMemberId,
-              );
-              const away = league.members.find(
-                (member) => member.id === game.awayMemberId,
-              );
-              const homeScore = matchupScoreFor(home);
-              const awayScore = matchupScoreFor(away);
-              const mine =
-                game.homeMemberId === me?.id || game.awayMemberId === me?.id;
-              return (
-                <button
-                  key={game.id}
-                  onClick={() => {
-                    setViewedMatchupId(game.id);
-                    setShowAllMatchups(false);
-                  }}
-                  className={`min-h-16 min-w-[11.5rem] shrink-0 rounded-xl border p-3 text-left ${viewedMatchup?.id === game.id ? "border-[#D4AF37]/50 bg-[#D4AF37]/10" : "border-white/10 bg-[#101318]"}`}
+          {showAllMatchups && (
+            <ModalPortal>
+              <div
+                className="flex h-full w-full justify-center overflow-y-auto bg-[#080b0f]/95 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.25rem,env(safe-area-inset-top))] backdrop-blur-xl"
+                onClick={() => setShowAllMatchups(false)}
+              >
+                <section
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="all-matchups-title"
+                  className="w-full max-w-xl"
+                  onClick={(event) => event.stopPropagation()}
                 >
-                  <div className="flex items-center justify-between gap-2 text-[8px] font-black uppercase">
-                    <span className={mine ? "text-[#D4AF37]" : "text-zinc-600"}>
-                      {mine ? "Your Matchup" : "League Matchup"}
-                    </span>
-                    <span
-                      className={
-                        homeScore?.isFinal && awayScore?.isFinal
-                          ? "text-zinc-500"
-                          : homeScore?.players.some(
-                                (player) => player.isLive,
-                              ) ||
-                              awayScore?.players.some((player) => player.isLive)
-                            ? "text-amber-300"
-                            : "text-zinc-600"
-                      }
+                  <header className="sticky top-0 z-20 -mx-1 flex items-center justify-between gap-3 bg-[#080b0f]/95 px-1 pb-4 backdrop-blur-xl">
+                    <div className="min-w-12" />
+                    <div className="min-w-0 text-center">
+                      <h2 id="all-matchups-title" className="text-lg font-black uppercase text-white">
+                        All Matchups
+                      </h2>
+                      <p className="truncate text-xs font-bold text-zinc-500">{league.name}</p>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label="Close all matchups"
+                      onClick={() => setShowAllMatchups(false)}
+                      className="grid h-12 w-12 place-items-center rounded-full border border-white/10 bg-[#11151b] text-white"
                     >
-                      {homeScore?.isFinal && awayScore?.isFinal
-                        ? "Final"
-                        : homeScore?.players.some((player) => player.isLive) ||
-                            awayScore?.players.some((player) => player.isLive)
-                          ? "Live"
-                          : "Upcoming"}
-                    </span>
+                      <X className="h-6 w-6" />
+                    </button>
+                  </header>
+
+                  <div className="mb-5 flex min-h-12 w-fit items-center overflow-hidden rounded-full border border-white/15 bg-[#101318]">
+                    <button
+                      type="button"
+                      aria-label="Previous fantasy week"
+                      disabled={week <= 1}
+                      onClick={() => setWeek(current => Math.max(1, current - 1))}
+                      className="grid h-12 w-12 place-items-center text-2xl text-zinc-300 disabled:text-zinc-700"
+                    >
+                      ‹
+                    </button>
+                    <select
+                      aria-label="All matchups fantasy week"
+                      value={week}
+                      onChange={(event) => setWeek(Number(event.target.value))}
+                      className="h-12 min-w-28 border-x border-white/10 bg-transparent px-3 text-center text-sm font-black text-white"
+                    >
+                      {Array.from({ length: maxSelectableWeek }, (_, index) => index + 1).map((value) => (
+                        <option key={value} value={value}>
+                          {value > maxWeek ? `Playoff ${value}` : `Week ${value}`}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      aria-label="Next fantasy week"
+                      disabled={week >= maxSelectableWeek}
+                      onClick={() => setWeek(current => Math.min(maxSelectableWeek, current + 1))}
+                      className="grid h-12 w-12 place-items-center text-2xl text-zinc-300 disabled:text-zinc-700"
+                    >
+                      ›
+                    </button>
                   </div>
-                  <div className="mt-1 flex items-center justify-between gap-2 text-[10px] font-black">
-                    <span className="truncate">{displayManagerName(away)}</span>
-                    <span>
-                      {awayScore?.isFinal ||
-                      awayScore?.players.some((player) => player.isLive)
-                        ? awayScore.livePoints.toFixed(1)
-                        : awayScore?.hasProjectedTotal === false
-                          ? "—"
-                          : awayScore?.projectedPoints.toFixed(1) || "—"}
-                    </span>
+
+                  <div className="space-y-3">
+                    {weekMatchups.map((game) => {
+                      const home = league.members.find((member) => member.id === game.homeMemberId);
+                      const away = league.members.find((member) => member.id === game.awayMemberId);
+                      const homeScore = matchupScoreFor(home);
+                      const awayScore = matchupScoreFor(away);
+                      const isFinal = Boolean(homeScore?.isFinal && awayScore?.isFinal);
+                      const isLive = Boolean(
+                        homeScore?.players.some((player) => player.isLive) ||
+                        awayScore?.players.some((player) => player.isLive),
+                      );
+                      const status = isFinal ? "Final" : isLive ? "Live" : "Scheduled";
+                      const homeTotal = matchupTotal(homeScore, status);
+                      const awayTotal = matchupTotal(awayScore, status);
+                      const homeRecord = visibleStandings.find((row) => row.memberId === home?.id);
+                      const awayRecord = visibleStandings.find((row) => row.memberId === away?.id);
+                      const selected = viewedMatchup?.id === game.id;
+                      const mine = game.homeMemberId === me?.id || game.awayMemberId === me?.id;
+                      const matchupRow = (
+                        member: LeagueMember | undefined,
+                        total: { value: string; label: string },
+                        record: (typeof visibleStandings)[number] | undefined,
+                      ) => {
+                        const name = displayManagerName(member);
+                        return (
+                          <div className="flex items-center gap-3">
+                            <div className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full border border-[#D4AF37]/30 bg-[#171b22] text-xs font-black text-[#D4AF37]">
+                              {name.slice(0, 2).toUpperCase()}
+                              {member?.userAvatar && (
+                                <img
+                                  src={member.userAvatar}
+                                  alt=""
+                                  className="absolute inset-0 h-full w-full object-cover"
+                                  referrerPolicy="no-referrer"
+                                  onError={(event) => { event.currentTarget.style.display = "none"; }}
+                                />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-sm font-black text-white">{name}</div>
+                              <div className="mt-0.5 text-[11px] font-bold text-zinc-500">
+                                {record ? `${record.wins}-${record.losses}-${record.ties}` : "0-0-0"}
+                              </div>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <div className={`text-base font-black ${isLive ? "text-amber-300" : "text-zinc-200"}`}>
+                                {total.value}
+                              </div>
+                              <div className="text-[9px] font-black uppercase text-zinc-600">{total.label}</div>
+                            </div>
+                          </div>
+                        );
+                      };
+
+                      return (
+                        <button
+                          key={game.id}
+                          type="button"
+                          aria-current={selected ? "true" : undefined}
+                          onClick={() => {
+                            setViewedMatchupId(game.id);
+                            setShowAllMatchups(false);
+                          }}
+                          className={`w-full rounded-2xl border p-4 text-left transition active:scale-[.99] ${selected ? "border-[#D4AF37]/60 bg-[#D4AF37]/10" : "border-white/10 bg-[#151922]"}`}
+                        >
+                          <div className="mb-3 flex items-center justify-between text-[9px] font-black uppercase tracking-wider">
+                            <span className={mine ? "text-[#D4AF37]" : "text-zinc-600"}>
+                              {mine ? "Your Matchup" : "League Matchup"}
+                            </span>
+                            <span className={isLive ? "text-amber-300" : "text-zinc-500"}>{status}</span>
+                          </div>
+                          <div className="space-y-3">
+                            {matchupRow(away, awayTotal, awayRecord)}
+                            <div className="h-px bg-white/5" />
+                            {matchupRow(home, homeTotal, homeRecord)}
+                          </div>
+                        </button>
+                      );
+                    })}
+                    {!weekMatchups.length && (
+                      <Empty text={week > maxWeek ? "This playoff matchup is not set yet." : "No matchups are available for this week."} />
+                    )}
                   </div>
-                  <div className="mt-1 flex items-center justify-between gap-2 text-[10px] font-black">
-                    <span className="truncate">{displayManagerName(home)}</span>
-                    <span>
-                      {homeScore?.isFinal ||
-                      homeScore?.players.some((player) => player.isLive)
-                        ? homeScore.livePoints.toFixed(1)
-                        : homeScore?.hasProjectedTotal === false
-                          ? "—"
-                          : homeScore?.projectedPoints.toFixed(1) || "—"}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>}
+                </section>
+              </div>
+            </ModalPortal>
+          )}
           {viewedMatchup ? (
             <div className="space-y-3">
               <HeadToHeadMatchup
