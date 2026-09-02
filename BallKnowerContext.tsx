@@ -301,7 +301,8 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           event: 'INSERT', schema: 'public', table: 'ball_knower_notifications',
           filter: `auth_user_id=eq.${auth.id}`,
         }, payload => {
-          const notification = payload.new as { title?: string; body?: string };
+          const notification = payload.new as { title?: string; body?: string; in_app_visible?: boolean };
+          if(notification.in_app_visible===false)return;
           showToast([notification.title, notification.body].filter(Boolean).join(' · '));
         })
         .subscribe();
