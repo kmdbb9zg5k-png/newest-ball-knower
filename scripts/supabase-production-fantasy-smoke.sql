@@ -44,6 +44,8 @@ declare
   v_waiver_result jsonb;
   v_injury_first jsonb;
   v_injury_retry jsonb;
+  v_recovered_draft jsonb;
+  v_recovered_retry jsonb;
   v_final_notifications integer;
   v_playoff_games jsonb;
   v_standings jsonb;
@@ -147,6 +149,33 @@ begin
     true
   );
   perform public.start_ball_knower_live_draft(v_league_id);
+
+  update public.ball_knower_live_drafts
+  set recovery_enabled=false,
+      pick_deadline_at=clock_timestamp()-interval '1 minute'
+  where league_id=v_league_id;
+  v_recovered_draft:=public.resume_ball_knower_live_draft_recovery(v_league_id);
+  v_recovered_retry:=public.resume_ball_knower_live_draft_recovery(v_league_id);
+  if coalesce((v_recovered_draft->>'recovery_enabled')::boolean,false)<>true
+     or v_recovered_retry->>'updated_at' is distinct from v_recovered_draft->>'updated_at'
+     or not exists(
+       select 1
+       from public.ball_knower_live_drafts draft
+       where draft.league_id=v_league_id
+         and draft.recovery_enabled=true
+         and draft.pick_deadline_at>clock_timestamp()
+     )
+  then
+    raise exception 'Quarantined fantasy draft did not resume safely';
+  end if;
+  if (
+    select count(*)
+    from public.ball_knower_league_events event
+    where event.league_id=v_league_id
+      and event.event_type='draft_recovery_resumed'
+  )<>1 then
+    raise exception 'Draft recovery retry was not idempotent';
+  end if;
 
   -- Isolate the production worker to this fixture. Existing active rooms are
   -- restored automatically by the outer rollback.

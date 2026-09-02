@@ -5,6 +5,7 @@ const sql=readFileSync(new URL('./supabase-production-fantasy-smoke.sql',import.
 
 for(const operation of [
   'start_ball_knower_live_draft',
+  'resume_ball_knower_live_draft_recovery',
   'process_due_ball_knower_draft_picks',
   'save_my_ball_knower_weekly_lineup',
   'generate_ball_knower_weekly_injuries',
@@ -22,6 +23,7 @@ assert.match(sql,/\brollback\s*;/i,'Production smoke must always roll fixtures b
 assert.ok(sql.includes("draft.pick_index = 150"),'Production smoke must complete a 150-pick draft');
 assert.ok(sql.includes("pick->>'source' = 'autopick'"),'Production smoke must assert human autopicks');
 assert.ok(sql.includes("pick->>'source' = 'cpu'"),'Production smoke must assert CPU picks');
+assert.match(sql,/draft\.recovery_enabled\s*=\s*true/,'Production smoke must assert safe draft recovery');
 assert.ok(sql.includes('jsonb_array_length(v_regular_games) <> 75'),'Production smoke must assert all 75 regular-season matchups');
 assert.ok(sql.includes('v_final_notifications <> 1'),'Production smoke must detect duplicate final notifications');
 

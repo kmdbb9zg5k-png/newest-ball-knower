@@ -23,6 +23,7 @@ import {
   saveMyCloudRoster, updateCloudLeague, upsertAiCloudMembers, deleteCloudMember,
   subscribeToCloudLeague, joinOrCreatePublicCloudLeague, lockPublicLeagueForCpuFill,
   reopenPublicLeagueMatchmaking, startCloudLiveFantasyDraft, makeCloudLiveFantasyDraftPick,
+  resumeCloudLiveFantasyDraftRecovery,
   finalizeCloudLiveFantasyDraftRosters, importOfflineFantasyDraft as importCloudOfflineFantasyDraft,
   resetCloudLeagueForNextSeason,
 } from './leagueCloud';
@@ -87,6 +88,7 @@ interface BallKnowerContextType {
   advanceFantasyWeek: (leagueId: string) => Promise<boolean>;
   finalizeDraftOrder: (leagueId: string, method: Exclude<DraftOrderMethod, 'game'>, orderedMemberIds: string[]) => Promise<boolean>;
   startLiveFantasyDraft: (leagueId: string) => Promise<boolean>;
+  resumeLiveFantasyDraftRecovery: (leagueId: string) => Promise<boolean>;
   makeLiveFantasyDraftPick: (leagueId: string, player: Player) => Promise<boolean>;
   finalizeLiveFantasyDraftRosters: (leagueId: string) => Promise<boolean>;
   importOfflineFantasyDraftResults: (leagueId:string,picks:{memberId:string;playerId:string}[])=>Promise<boolean>;
@@ -988,6 +990,22 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
+  const resumeLiveFantasyDraftRecovery = async (leagueId:string):Promise<boolean> => {
+    const league=leagues.find(item=>item.id===leagueId);
+    const current=league?.liveDraft;
+    if(!league||!current||current.status!=='active')return false;
+    if(!isCloudConfigured||current.recoveryEnabled!==false)return true;
+    try{
+      const draft=await resumeCloudLiveFantasyDraftRecovery(leagueId);
+      setLeagues(prev=>prev.map(item=>item.id===leagueId?{...item,liveDraft:draft}:item));
+      showToast('Draft clock restored. Automatic recovery is active.');
+      return true;
+    }catch(err:any){
+      const message=err?.message||'The fantasy draft could not be recovered safely.';
+      setCloudSyncError(message);showToast(message);return false;
+    }
+  };
+
   const finalizeLiveFantasyDraftRosters = async (leagueId:string):Promise<boolean> => {
     const league=leagues.find(item=>item.id===leagueId);
     const draft=league?.liveDraft;
@@ -1184,6 +1202,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         advanceFantasyWeek,
         finalizeDraftOrder,
         startLiveFantasyDraft,
+        resumeLiveFantasyDraftRecovery,
         makeLiveFantasyDraftPick,
         finalizeLiveFantasyDraftRosters,
         importOfflineFantasyDraftResults,

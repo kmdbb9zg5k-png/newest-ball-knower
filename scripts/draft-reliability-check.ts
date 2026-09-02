@@ -1,5 +1,6 @@
 import { PLAYERS_DATABASE } from '../players';
 import { CPU_LIVE_FANTASY_POSITION_LIMITS, getLiveFantasyDraftGroup, LIVE_FANTASY_ROSTER_REQUIREMENTS, type LiveFantasyDraftGroup } from '../liveFantasyRules';
+import { readFileSync } from 'node:fs';
 
 type Method='game'|'random'|'commissioner';
 type Pick={overall:number;round:number;memberId:string;playerId:string;group:LiveFantasyDraftGroup;source:'cpu'|'autopick'};
@@ -80,5 +81,24 @@ function verifyRecoveryClock(){
   return {abandonedPick:'passed',disconnectedPhone:'passed',expiredClock:'passed',cpuTurn:'passed'};
 }
 
+function verifyQuarantinedDraftRecovery(){
+  const migration=readFileSync(new URL('../migrations/20260902225000_resume_stalled_fantasy_drafts.sql',import.meta.url),'utf8');
+  const cloud=readFileSync(new URL('../leagueCloud.ts',import.meta.url),'utf8');
+  const room=readFileSync(new URL('../LeagueLiveDraftRoom.tsx',import.meta.url),'utf8');
+  for(const marker of [
+    'resume_ball_knower_live_draft_recovery',
+    "if v_draft.recovery_enabled then",
+    "jsonb_array_length(v_draft.picks)<>v_draft.pick_index",
+    "count(distinct pick->>'playerId')",
+    "the saved draft order no longer matches league membership",
+    "saved pick ledger failed ownership validation",
+    "pick_deadline_at=v_now+make_interval(secs=>pick_seconds)",
+    "'draft_recovery_resumed'",
+  ])if(!migration.includes(marker))throw new Error(`Draft recovery is missing ${marker}`);
+  if(!cloud.includes("supabase.rpc('resume_ball_knower_live_draft_recovery'"))throw new Error('Cloud draft recovery RPC is not connected.');
+  if(!room.includes("draft.recoveryEnabled!==false")||!room.includes('Validating and restoring the draft clock'))throw new Error('The draft room does not surface and start safe recovery.');
+  return {quarantinedRoom:'passed',ledgerValidation:'passed',auditableResume:'passed'};
+}
+
 const matrix=LEAGUE_SIZES.flatMap(teamCount=>(['game','random','commissioner'] as Method[]).map(method=>run(method,teamCount)));
-console.log(JSON.stringify({matrix,recovery:verifyRecoveryClock()},null,2));
+console.log(JSON.stringify({matrix,recovery:verifyRecoveryClock(),quarantinedRecovery:verifyQuarantinedDraftRecovery()},null,2));

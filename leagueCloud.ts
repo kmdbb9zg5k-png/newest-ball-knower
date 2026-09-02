@@ -19,6 +19,7 @@ const liveDraftFromRow = (row:any):LiveFantasyDraft|undefined => row ? ({
   pickSeconds:Number(row.pick_seconds)||60,
   pickStartedAt:row.pick_started_at||undefined,
   pickDeadlineAt:row.pick_deadline_at||undefined,
+  recoveryEnabled:row.recovery_enabled!==false,
   completedAt:row.completed_at||undefined,
   updatedAt:row.updated_at,
 }) : undefined;
@@ -313,6 +314,16 @@ export async function startCloudLiveFantasyDraft(leagueId:string):Promise<LiveFa
   if(error) throw error;
   const draft=liveDraftFromRow(data);
   if(!draft) throw new Error('The fantasy draft started without a saved draft room.');
+  return draft;
+}
+
+export async function resumeCloudLiveFantasyDraftRecovery(leagueId:string):Promise<LiveFantasyDraft>{
+  if(!supabase)throw new Error('Online fantasy draft recovery is unavailable.');
+  await ensureOnlineSession();
+  const {data,error}=await supabase.rpc('resume_ball_knower_live_draft_recovery',{p_league_id:leagueId});
+  if(error)throw error;
+  const draft=liveDraftFromRow(data);
+  if(!draft)throw new Error('Draft recovery completed without a saved room.');
   return draft;
 }
 

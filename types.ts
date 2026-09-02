@@ -304,6 +304,7 @@ export interface LiveFantasyDraft {
   pickSeconds: number;
   pickStartedAt?: string;
   pickDeadlineAt?: string;
+  recoveryEnabled?: boolean;
   completedAt?: string;
   updatedAt: string;
 }
