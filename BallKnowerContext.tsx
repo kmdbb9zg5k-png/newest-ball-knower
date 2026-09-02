@@ -224,6 +224,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // Cloud bootstrap: every browser gets a real authenticated identity (anonymous is fine)
   // and then loads only leagues that identity belongs to.
   useEffect(() => {
+    if (new URLSearchParams(window.location.search).has('fantasy-visual-qa')) return;
     if (!isCloudConfigured) return;
     let cancelled = false;
     (async () => {
