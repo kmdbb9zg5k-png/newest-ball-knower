@@ -1361,7 +1361,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                 ))}
               </RosterSection>
               {lineupDirty && (
-                <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-20 -mx-2 border-t border-[var(--bk-team-accent)]/30 bg-[#050608]/96 p-2 shadow-[0_-12px_30px_rgba(0,0,0,.55)] backdrop-blur-xl md:bottom-4 md:mx-0 md:rounded-xl md:border">
+                <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 border-t border-[var(--bk-team-accent)]/30 bg-[#050608]/96 p-2 shadow-[0_-12px_30px_rgba(0,0,0,.55)] backdrop-blur-xl md:sticky md:inset-x-auto md:bottom-4 md:mx-0 md:rounded-xl md:border">
                   <button
                     onClick={saveLineup}
                     disabled={busy || lineupErrors.length > 0}
