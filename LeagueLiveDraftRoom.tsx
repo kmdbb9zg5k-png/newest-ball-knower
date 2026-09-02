@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowLeft, ArrowUp, Ban, CheckCircle2, ChevronDown, ChevronUp, Clock3, ListPlus, LoaderCircle, Play, Search, Star, Trophy } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowDown, ArrowLeft, ArrowUp, Ban, CheckCircle2, ChevronDown, ChevronUp, Clock3, ListPlus, LoaderCircle, MessageCircle, Play, Search, Send, Star, Trophy, X } from 'lucide-react';
 import { useBallKnower } from './BallKnowerContext';
 import { playerPortraitFallbackUrl, playerPortraitUrl } from './playerPortraits';
 import { PLAYERS_DATABASE } from './players';
@@ -8,6 +8,8 @@ import { FantasyRanking, loadFantasyRankings } from './fantasyRankingsCloud';
 import { displayLeagueMemberName, resolveMyLeagueMember } from './leagueMemberDisplay';
 import { LiveFantasyDraft, Player } from './types';
 import { DraftPreferences, loadMyCloudDraftPreferences, saveMyCloudDraftPreferences } from './leagueCloud';
+import { fetchSeasonOperations, LeagueMessage, postLeagueMessage } from './fantasySeasonCloud';
+import { ModalPortal } from './ModalPortal';
 
 type Props={onBackToLobby:()=>void};
 type DraftGroup=LiveFantasyDraftGroup;
@@ -96,6 +98,10 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
   const [preferences,setPreferences]=useState<DraftPreferences>(EMPTY_PREFERENCES);
   const [preferencesReady,setPreferencesReady]=useState(false);
   const [now,setNow]=useState(()=>Date.now());
+  const [chatOpen,setChatOpen]=useState(false);
+  const [chatMessage,setChatMessage]=useState('');
+  const [chatMessages,setChatMessages]=useState<LeagueMessage[]>([]);
+  const [chatBusy,setChatBusy]=useState(false);
   const pickLockRef=useRef(false);
   const finalizeLockRef=useRef(false);
   const needsScrollRef=useRef<HTMLDivElement>(null);
@@ -133,6 +139,24 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
       .finally(()=>{if(alive)setRankingsReady(true);});
     return ()=>{alive=false;};
   },[]);
+
+  const refreshChat=useCallback(async()=>{
+    if(!activeLeague?.id)return;
+    try{const operations=await fetchSeasonOperations(activeLeague.id);setChatMessages(operations.messages.slice(0,100));}
+    catch(error){console.warn('Draft chat could not be loaded.',error);}
+  },[activeLeague?.id]);
+  useEffect(()=>{void refreshChat();},[refreshChat]);
+  const sendDraftMessage=async()=>{
+    const body=chatMessage.trim();
+    if(!activeLeague||!body||chatBusy)return;
+    setChatBusy(true);
+    try{
+      await postLeagueMessage(activeLeague.id,currentUser?.name||myMember?.userName||'Ball Knower',body);
+      setChatMessage('');
+      await refreshChat();
+    }catch(error:any){showToast(error?.message||'Draft chat message could not be sent.');}
+    finally{setChatBusy(false);}
+  };
 
   const makePick=async(player:Player)=>{
     if(!activeLeague||pickLockRef.current)return;
@@ -216,10 +240,10 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
   const secondsLeft=Math.max(0,Math.ceil(((draft.pickDeadlineAt?Date.parse(draft.pickDeadlineAt):Date.now())-now)/1000));
   const clockLabel=currentMember?.isAi?'CPU':secondsLeft>0?`${secondsLeft}s`:'AUTO';
 
-  return <div className="min-h-[100dvh] bg-[#07090c] px-3 pb-24 pt-3 text-white sm:px-6"><div className="mx-auto max-w-7xl">
-    <div className="sticky top-16 z-30 rounded-2xl border border-white/10 bg-[#0d1015]/95 p-3 shadow-2xl backdrop-blur-md"><div className="grid grid-cols-[44px_minmax(0,1fr)] gap-3 sm:grid-cols-[44px_minmax(0,1fr)_auto]"><button onClick={onBackToLobby} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10" aria-label="Back to League HQ"><ArrowLeft className="h-5 w-5"/></button><div className="min-w-0"><div className="text-[9px] font-black uppercase tracking-[.16em] text-[#D4AF37]">Round {round} of {draft.rounds} · Snake Draft</div><div className="text-base font-black uppercase leading-tight sm:text-lg">{onClockName} Is On The Clock</div></div><div className={`col-span-2 flex items-center justify-between rounded-lg px-3 py-2 sm:col-span-1 sm:block sm:p-0 sm:text-right ${secondsLeft<=10&&!currentMember?.isAi?'bg-red-500/10 text-red-300':'bg-black/25 sm:bg-transparent'}`}><div className="text-[9px] font-black uppercase opacity-60">Pick {Math.min(draft.pickIndex+1,totalPicks)} of {totalPicks}</div><div className="font-mono text-xl font-black sm:text-2xl">{clockLabel}</div></div></div><div className="mt-2 grid grid-cols-4 gap-2"><MiniStat label="Your Slot" value={mySlot?`#${mySlot}`:'—'}/><MiniStat label="Your Roster" value={`${myRoster.length} Players`}/><MiniStat label="Turn" value={currentMemberIsMe?'Your Pick':currentMember?.isAi?'CPU Picking':'Waiting'}/><MiniStat label="Auto Pick" value={preferences.queue.length?'Queue Ready':'Best Available'}/></div></div>
+  return <div className="bk-fantasy-shell min-h-[100dvh] bg-[#07090c] px-3 pt-3 text-white sm:px-6"><div className="mx-auto max-w-7xl">
+    <div className="bk-fantasy-sticky-nav bk-fantasy-card p-3 shadow-2xl backdrop-blur-md"><div className="grid grid-cols-[44px_minmax(0,1fr)_44px] gap-2 sm:grid-cols-[44px_minmax(0,1fr)_44px_auto]"><button onClick={onBackToLobby} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10" aria-label="Back to League HQ"><ArrowLeft className="h-5 w-5"/></button><div className="min-w-0"><div className="text-[9px] font-black uppercase tracking-[.16em] text-[#D4AF37]">Round {round} of {draft.rounds} · Snake Draft</div><div className="truncate text-base font-black uppercase leading-tight sm:text-lg">{onClockName} Is On The Clock</div></div><button type="button" aria-label="Open draft chat" onClick={()=>setChatOpen(true)} className="relative grid h-11 w-11 place-items-center rounded-xl border border-white/10 bg-black/25"><MessageCircle className="h-4 w-4"/>{chatMessages.length>0&&<span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[#D4AF37] px-1 text-[7px] font-black text-black">{Math.min(99,chatMessages.length)}</span>}</button><div className={`col-span-3 flex items-center justify-between rounded-lg px-3 py-2 sm:col-span-1 sm:block sm:p-0 sm:text-right ${secondsLeft<=10&&!currentMember?.isAi?'bg-red-500/10 text-red-300':'bg-black/25 sm:bg-transparent'}`}><div className="text-[9px] font-black uppercase opacity-60">Pick {Math.min(draft.pickIndex+1,totalPicks)} of {totalPicks}</div><div className="font-mono text-xl font-black sm:text-2xl">{clockLabel}</div></div></div><div className="mt-2 grid grid-cols-4 gap-2"><MiniStat label="Your Slot" value={mySlot?`#${mySlot}`:'—'}/><MiniStat label="Your Roster" value={`${myRoster.length} Players`}/><MiniStat label="Turn" value={currentMemberIsMe?'Your Pick':currentMember?.isAi?'CPU Picking':'Waiting'}/><MiniStat label="Auto Pick" value={preferences.queue.length?'Queue Ready':'Best Available'}/></div></div>
 
-    <section className="mt-3 rounded-2xl border border-[#D4AF37]/25 bg-[#0d1015] p-3 shadow-xl">
+    <section className="bk-fantasy-card mt-3 border-[#D4AF37]/25 p-3 shadow-xl">
       <div className="flex items-center justify-between gap-3"><div><div className="text-[9px] font-black uppercase tracking-[.18em] text-[#D4AF37]">Your roster needs</div><div className="mt-0.5 text-[10px] font-bold text-zinc-500">Counts update after every pick</div></div><button type="button" aria-label={`My picks (${myPicks.length})`} onClick={()=>setShowMyPicks(value=>!value)} className="flex min-h-10 items-center gap-1 rounded-xl border border-white/10 px-3 text-[9px] font-black uppercase">My picks ({myPicks.length}) {showMyPicks?<ChevronUp className="h-3.5 w-3.5"/>:<ChevronDown className="h-3.5 w-3.5"/>}</button></div>
       <div ref={needsScrollRef} className="mt-2 grid grid-cols-6 gap-1.5">{GROUPS.map(item=>{const current=myCounts[item]||0;const required=LIVE_FANTASY_ROSTER_REQUIREMENTS[item];const filled=current>=required;return <button type="button" key={item} onClick={()=>setGroup(item)} className={`min-w-0 rounded-xl border px-1 py-2 text-center ${filled?'border-emerald-400/20 bg-emerald-400/[.07]':'border-amber-300/25 bg-amber-300/[.07]'}`}><div className="truncate text-[8px] font-black text-zinc-400">{GROUP_LABELS[item]}</div><div className={`mt-0.5 text-base font-black ${filled?'text-emerald-300':'text-amber-200'}`}>{current}</div><div className="text-[6px] font-black uppercase text-zinc-600">{filled?'Set':`Need ${required-current}`}</div></button>})}</div>
       {showMyPicks&&<div className="mt-2 grid gap-1 border-t border-white/10 pt-2 sm:grid-cols-2 lg:grid-cols-4">{myPicks.length?myPicks.slice().reverse().map(pick=>{const player=PLAYER_BY_ID.get(pick.playerId);return <div key={pick.overall} className="flex items-center justify-between rounded-lg bg-black/35 px-2.5 py-2 text-[10px]"><span className="min-w-0 truncate"><b>#{pick.overall} · {player?.position}</b> {player?.name}</span><b className="ml-2 text-[#D4AF37]">{player?.ovr}</b></div>}):<div className="py-2 text-[10px] font-bold text-zinc-600">You have not made a pick yet.</div>}</div>}
@@ -256,6 +280,7 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
         <div className="flex items-start gap-2 rounded-2xl border border-emerald-400/20 bg-emerald-400/[.05] p-3 text-[11px] leading-5 text-emerald-200"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0"/>The locked order controls Round 1. Every even round reverses automatically for a true snake draft.</div>
       </aside>
     </div>
+    {chatOpen&&<ModalPortal><div role="dialog" aria-modal="true" aria-label="Live draft chat" className="fixed inset-0 z-[9999] flex items-end bg-black/80 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"><section className="flex max-h-[82dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-[#0d1015] pb-[env(safe-area-inset-bottom)] sm:max-w-lg sm:rounded-3xl sm:pb-0"><header className="flex items-center justify-between border-b border-white/10 p-4"><div><div className="text-[9px] font-black uppercase tracking-wider text-[#D4AF37]">Live Draft</div><h2 className="text-lg font-black uppercase">League Chat</h2></div><button type="button" aria-label="Close draft chat" onClick={()=>setChatOpen(false)} className="grid h-11 w-11 place-items-center rounded-full border border-white/10"><X className="h-5 w-5"/></button></header><div className="flex-1 space-y-2 overflow-y-auto overscroll-contain p-4">{chatMessages.length?chatMessages.slice().reverse().map(item=><div key={item.id} className="rounded-xl bg-black/30 p-3"><div className="text-[9px] font-black uppercase text-[#D4AF37]">{item.memberName}</div><p className="mt-1 text-sm leading-5 text-zinc-200">{item.body}</p></div>):<div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-xs font-bold text-zinc-600">No draft messages yet.</div>}</div><div className="grid grid-cols-[minmax(0,1fr)_48px] gap-2 border-t border-white/10 bg-[#101318] p-3"><input value={chatMessage} onChange={event=>setChatMessage(event.target.value)} onKeyDown={event=>{if(event.key==='Enter')void sendDraftMessage();}} placeholder="Message the league…" className="min-h-12 min-w-0 rounded-xl border border-white/10 bg-black/35 px-3 text-sm"/><button type="button" aria-label="Send draft message" disabled={!chatMessage.trim()||chatBusy} onClick={()=>void sendDraftMessage()} className="grid h-12 w-12 place-items-center rounded-xl bg-[#D4AF37] text-black disabled:opacity-35"><Send className="h-4 w-4"/></button></div></section></div></ModalPortal>}
   </div></div>;
 };
 
