@@ -67,6 +67,11 @@ try{
     const consoleErrors=[];
     page.on('pageerror',error=>consoleErrors.push(error.message));
     page.on('console',message=>{if(message.type()==='error')consoleErrors.push(message.text());});
+    await page.route('**/api/**',async route=>{
+      const pathname=new URL(route.request().url()).pathname;
+      const body=pathname==='/api/media'?{tracks:[],introUrl:null}:{ok:true};
+      await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});
+    });
     await page.addInitScript(()=>{
       localStorage.setItem('ball-knower-team-setup-v2','complete');
       localStorage.setItem('ball-knower-intro-sound-v1','off');
