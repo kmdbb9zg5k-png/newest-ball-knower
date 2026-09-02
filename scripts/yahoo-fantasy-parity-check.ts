@@ -159,4 +159,11 @@ assert.equal(isCompleteFantasySchedule(scheduleMembers,3,validSchedule),true,'co
 const duplicateMemberSchedule=validSchedule.map(game=>({...game}));duplicateMemberSchedule[1]={...duplicateMemberSchedule[1],homeMemberId:duplicateMemberSchedule[0].homeMemberId};
 assert.equal(isCompleteFantasySchedule(scheduleMembers,3,duplicateMemberSchedule),false,'a member repeated within a week must invalidate persisted schedule edits');
 
+const scorecard=readFileSync(new URL('../docs/FANTASY_YAHOO_COMPETITIVE_SCORECARD_2026-09-02.md',import.meta.url),'utf8');
+assert.ok(scorecard.includes('audited 2026-09-02 UTC'),'competitive audit must record its current-date evidence boundary');
+assert.ok(scorecard.includes('not yet objectively better than Yahoo in every controllable category'),'scorecard must not convert partial implementation into a superiority claim');
+for(let category=1;category<=41;category++)assert.match(scorecard,new RegExp(`^\\| ${category} \\|`,'m'),`competitive scorecard is missing category ${category}`);
+for(const verdict of ['Ball Knower better','Parity','Yahoo still better','Intentionally different','Not relevant'])assert.ok(scorecard.includes(`**${verdict}**`),`competitive scorecard must define or use ${verdict}`);
+for(const risk of ['Physical iPhone','legacy pre-standard-roster leagues','legacy active draft rooms','1.53 MB'])assert.ok(scorecard.includes(risk),`competitive scorecard must retain unresolved risk: ${risk}`);
+
 console.log('Yahoo fantasy parity checks passed: ugly human roster, strict weekly lineup, private communications, commissioner rules, event notifications, and safe draft formats.');
