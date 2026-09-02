@@ -76,7 +76,7 @@ const cpuSelection=(draft:LiveFantasyDraft,memberId:string,rankings:Map<string,F
 export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
   const {
     activeLeague,currentUser,makeLiveFantasyDraftPick,
-    finalizeLiveFantasyDraftRosters,showToast,
+    finalizeLiveFantasyDraftRosters,resumeLiveFantasyDraftRecovery,showToast,
   }=useBallKnower();
   const draft=activeLeague?.liveDraft;
   const [query,setQuery]=useState('');
@@ -92,8 +92,11 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
   const [chatMessage,setChatMessage]=useState('');
   const [chatMessages,setChatMessages]=useState<LeagueMessage[]>([]);
   const [chatBusy,setChatBusy]=useState(false);
+  const [recoveryFailed,setRecoveryFailed]=useState(false);
   const pickLockRef=useRef(false);
   const finalizeLockRef=useRef(false);
+  const recoveryLockRef=useRef(false);
+  const recoveryLeagueRef=useRef('');
   const needsScrollRef=useRef<HTMLDivElement>(null);
 
   const currentMemberId=draft?memberAtPick(draft):null;
@@ -154,6 +157,14 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
     try{await makeLiveFantasyDraftPick(activeLeague.id,player);}finally{pickLockRef.current=false;setBusy(false);}
   };
 
+  const recoverQuarantinedDraft=useCallback(()=>{
+    if(!activeLeague||recoveryLockRef.current)return;
+    recoveryLockRef.current=true;
+    setRecoveryFailed(false);
+    void resumeLiveFantasyDraftRecovery(activeLeague.id)
+      .then(success=>{if(!success)setRecoveryFailed(true);});
+  },[activeLeague?.id,resumeLiveFantasyDraftRecovery]);
+
   useEffect(()=>{
     if(!rankingsReady||!draft||draft.status!=='active'||!currentMember?.isAi||!myMember||busy||pickLockRef.current)return;
     const player=cpuSelection(draft,currentMember.id,rankings);
@@ -170,6 +181,16 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
       .then(success=>{if(!success)finalizeLockRef.current=false;})
       .finally(()=>setBusy(false));
   },[activeLeague?.id,draft?.status,isCommissioner,seasonHandoffComplete]);
+
+  useEffect(()=>{
+    if(recoveryLeagueRef.current!==activeLeague?.id){
+      recoveryLeagueRef.current=activeLeague?.id||'';
+      recoveryLockRef.current=false;
+      setRecoveryFailed(false);
+    }
+    if(!activeLeague||draft?.status!=='active'||draft.recoveryEnabled!==false||!myMember||recoveryLockRef.current)return;
+    recoverQuarantinedDraft();
+  },[activeLeague?.id,draft?.status,draft?.recoveryEnabled,myMember?.id,recoverQuarantinedDraft]);
 
   useEffect(()=>{needsScrollRef.current?.scrollTo({left:0,behavior:'auto'});},[draft?.leagueId]);
 
@@ -262,6 +283,9 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
 
     <div className="mt-2 grid gap-3 lg:grid-cols-[1.5fr_.65fr]">
       <section className="min-w-0">
+        {draft.recoveryEnabled===false&&(recoveryFailed
+          ?<div role="alert" className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-red-300/25 bg-red-300/[.08] px-3 py-2 text-[9px] font-black uppercase text-red-200"><span>Draft recovery needs another attempt.</span><button type="button" onClick={()=>{recoveryLockRef.current=false;recoverQuarantinedDraft();}} className="min-h-8 rounded-md border border-red-200/30 px-3">Retry</button></div>
+          :<div role="status" className="mb-2 rounded-lg border border-amber-300/25 bg-amber-300/[.08] px-3 py-2 text-center text-[9px] font-black uppercase text-amber-200"><LoaderCircle className="mr-1 inline h-3.5 w-3.5 animate-spin"/>Validating and restoring the draft clock…</div>)}
         <div className={`rounded-lg border px-2 py-1.5 text-center text-[9px] font-black uppercase ${canPick?'border-emerald-400/30 bg-emerald-400/[.08] text-emerald-300':'border-white/10 bg-[#101318] text-zinc-400'}`}>{canPick?'You are on the clock—select one player.':currentMember?.isAi?'CPU manager is selecting automatically…':`Waiting for ${onClockName} to pick.`}</div>
         <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-1.5"><div className="relative min-w-0"><Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-zinc-500"/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search players…" className="min-h-9 w-full rounded-lg border border-white/10 bg-[#101318] pl-9 pr-3 text-xs font-bold outline-none focus:border-[#D4AF37]/50"/></div><select aria-label="Position group" value={group} onChange={event=>setGroup(event.target.value as DraftGroup|'ALL')} className="min-h-9 max-w-[7rem] rounded-lg border border-white/10 bg-[#101318] px-2 text-[9px] font-black text-white"><option value="ALL">All</option>{GROUPS.map(item=><option key={item} value={item}>{GROUP_LABELS[item]}</option>)}</select></div>
         <div className="mt-2 space-y-1">{available.map((player,index)=>{
