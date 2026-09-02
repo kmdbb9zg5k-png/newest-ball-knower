@@ -6,6 +6,10 @@ const migration = readFileSync(
   new URL('../migrations/20260902154723_backfill_verified_player_history_identities.sql', import.meta.url),
   'utf8',
 );
+const suffixMigration = readFileSync(
+  new URL('../migrations/20260902171800_allow_unambiguous_player_name_suffixes.sql', import.meta.url),
+  'utf8',
+);
 
 assert.ok(
   migration.includes('player_provider_identities')
@@ -38,6 +42,13 @@ assert.ok(
   migration.includes('is already bound to a different Ball Knower player')
     && migration.includes('Unverified provider identity'),
   'Conflicting and unverified live identities must be rejected.',
+);
+assert.ok(
+  suffixMigration.includes('normalized_player_identity_name')
+    && suffixMigration.includes("(jr|sr|ii|iii|iv)")
+    && suffixMigration.includes('catalog_match_count <> 1')
+    && suffixMigration.includes('Unverified or ambiguous provider identity'),
+  'Live identity writes may ignore a generational suffix only after a unique same-team catalog match.',
 );
 
 assert.equal(resolveHistoricalProviderId(['provider-a'], ['provider-a']), 'provider-a');

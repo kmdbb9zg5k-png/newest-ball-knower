@@ -538,20 +538,41 @@ export default async function handler(req:any,res:any){
     const defenseProjectionByTeam=new Map<string,Json>();
     for(const projection of valueList(rawDefenseProjections)) defenseProjectionByTeam.set(normalizeTeam(projection.teamAbv||projection.team),projection);
 
-    const existingGameMap=new Map<string,GameRow>((existingGamesResult.data||[]).map((game:any)=>[game.provider_game_id,game as GameRow]));
-    const scheduleRows:GameRow[]=valueList(gamesPayload).flatMap(game=>{
-      const providerGameId=String(game.gameID||game.gameId||'');
+    const existingGameRows=(existingGamesResult.data||[]) as GameRow[];
+    const existingGameMap=new Map<string,GameRow>(
+      existingGameRows.map(game=>[game.provider_game_id,game]),
+    );
+    const matchupKey=(awayTeam:string,homeTeam:string)=>`${awayTeam}|${homeTeam}`;
+    const existingGameByMatchup=new Map<string,GameRow>();
+    for(const game of existingGameRows){
+      const key=matchupKey(game.away_team,game.home_team);
+      const prior=existingGameByMatchup.get(key);
+      // Prefer the long-lived schedule row when a legacy deployment already
+      // inserted the live provider's alternate game identifier.
+      if(!prior||(!prior.provider_game_id.startsWith('espn-')&&game.provider_game_id.startsWith('espn-'))){
+        existingGameByMatchup.set(key,game);
+      }
+    }
+    const pollProviderGameIdByCanonical=new Map<string,string>();
+    const scheduleRowsById=new Map<string,GameRow>();
+    for(const game of valueList(gamesPayload)){
+      const pollProviderGameId=String(game.gameID||game.gameId||'');
       const kickoff=kickoffIsoFromTank01Game(game);
-      if(!providerGameId||!kickoff) return [];
+      const awayTeam=normalizeTeam(game.away||game.awayTeam);
+      const homeTeam=normalizeTeam(game.home||game.homeTeam);
+      if(!pollProviderGameId||!kickoff||!awayTeam||!homeTeam||awayTeam===homeTeam) continue;
+      const existing=existingGameMap.get(pollProviderGameId)
+        ||existingGameByMatchup.get(matchupKey(awayTeam,homeTeam));
+      const providerGameId=existing?.provider_game_id||pollProviderGameId;
       const status=String(game.gameStatus||'Scheduled');
-      const existing=existingGameMap.get(providerGameId);
-      return [{
+      pollProviderGameIdByCanonical.set(providerGameId,pollProviderGameId);
+      scheduleRowsById.set(providerGameId,{
         provider_game_id:providerGameId,
         season,
         season_type:seasonType,
         week_number:week,
-        away_team:normalizeTeam(game.away||game.awayTeam),
-        home_team:normalizeTeam(game.home||game.homeTeam),
+        away_team:awayTeam,
+        home_team:homeTeam,
         kickoff_at:kickoff,
         game_status:status,
         game_status_code:String(game.gameStatusCode||''),
@@ -561,8 +582,9 @@ export default async function handler(req:any,res:any){
         is_final:isFinalGameStatus(status)||Boolean(existing?.is_final),
         final_at:existing?.final_at||null,
         last_polled_at:existing?.last_polled_at||null,
-      }];
-    });
+      });
+    }
+    const scheduleRows=[...scheduleRowsById.values()];
     if(scheduleRows.length){
       const {error}=await db.from('ball_knower_nfl_games').upsert(scheduleRows,{onConflict:'provider_game_id'});
       if(error) throw error;
@@ -666,7 +688,11 @@ export default async function handler(req:any,res:any){
     let playerRowsWritten=0;
 
     await Promise.all(pollable.map(async game=>{
-      const box=await tankGet('/getNFLBoxScore',{gameID:game.provider_game_id,playByPlay:false,fantasyPoints:true}) as Json;
+      const box=await tankGet('/getNFLBoxScore',{
+        gameID:pollProviderGameIdByCanonical.get(game.provider_game_id)||game.provider_game_id,
+        playByPlay:false,
+        fantasyPoints:true,
+      }) as Json;
       const status=String(box.gameStatus||game.game_status||'Scheduled');
       const isFinal=isFinalGameStatus(status);
       const gameUpdate={
