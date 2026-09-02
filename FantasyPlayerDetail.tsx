@@ -219,33 +219,33 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
         role="dialog"
         aria-modal="true"
         aria-label={`${player.name} fantasy details`}
-        className="fixed inset-0 z-[9999] flex items-end justify-center overflow-hidden bg-black/85 pt-[max(.75rem,env(safe-area-inset-top))] backdrop-blur-sm sm:items-center sm:px-4 sm:pb-4"
+        className="fixed inset-0 z-[9999] flex items-end justify-center overflow-hidden bg-black/80 pt-[max(.5rem,env(safe-area-inset-top))] backdrop-blur-sm sm:items-center sm:px-4 sm:pb-4"
       >
-        <div className="max-h-[calc(100dvh-max(.75rem,env(safe-area-inset-top)))] w-full max-w-3xl overflow-y-auto overscroll-contain rounded-t-[28px] border border-white/10 bg-[#171a20] text-white shadow-2xl [-webkit-overflow-scrolling:touch] sm:max-h-[92dvh] sm:rounded-[28px]">
-          <header className="relative min-h-48 overflow-hidden border-b border-white/10 bg-gradient-to-br from-[#222631] via-[#181b21] to-[#0b0d11] p-5 pr-32 sm:min-h-52 sm:p-6 sm:pr-48">
+        <div className="max-h-[calc(100dvh-max(.5rem,env(safe-area-inset-top)))] w-full max-w-3xl overflow-y-auto overscroll-contain rounded-t-2xl border border-white/10 bg-[#101217] text-white shadow-2xl [-webkit-overflow-scrolling:touch] sm:max-h-[92dvh] sm:rounded-2xl">
+          <header className="relative min-h-40 overflow-hidden border-b border-white/10 bg-[#15181e] p-4 pr-28 sm:min-h-52 sm:p-6 sm:pr-48">
             <button
               aria-label="Close player details"
               onClick={onClose}
-              className="absolute right-3 top-3 z-20 grid h-11 w-11 place-items-center rounded-full bg-black/45 text-white"
+              className="absolute right-3 top-3 z-20 grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-black/45 text-white sm:h-11 sm:w-11"
             >
-              <X className="h-6 w-6" />
+              <X className="h-4 w-4 sm:h-6 sm:w-6" />
             </button>
 
-            <div className="relative z-10 flex min-h-36 flex-col justify-end sm:min-h-40">
-              <div className="text-xs font-black uppercase tracking-[.14em] text-zinc-300">
+            <div className="relative z-10 flex min-h-32 flex-col justify-end sm:min-h-40">
+              <div className="text-[10px] font-black uppercase tracking-[.14em] text-zinc-300 sm:text-xs">
                 {player.position} · {player.team}{player.jerseyNumber ? ` · #${player.jerseyNumber}` : ''}
               </div>
-              <h2 className="mt-1 break-words text-3xl font-black leading-[1.02] tracking-tight sm:text-4xl">
+              <h2 className="mt-1 break-words text-2xl font-black leading-[1.02] tracking-tight sm:text-4xl">
                 {player.name}
               </h2>
               {teamName && <div className="mt-1 text-xs font-semibold text-zinc-400">{teamName}</div>}
               <div className="mt-1 text-xs font-semibold text-zinc-400">{ownerName ? `Rostered by ${ownerName}` : 'Available player'}</div>
-              <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-black uppercase">
-                <span className={`rounded-full px-3 py-1.5 ${player.injured || injuryStatus ? 'bg-red-500/15 text-red-200' : 'bg-emerald-400/15 text-emerald-200'}`}>
+              <div className="mt-2 flex flex-wrap gap-1.5 text-[8px] font-black uppercase sm:mt-3 sm:text-[10px]">
+                <span className={`rounded-full px-2 py-1 sm:px-3 sm:py-1.5 ${player.injured || injuryStatus ? 'bg-red-500/15 text-red-200' : 'bg-emerald-400/15 text-emerald-200'}`}>
                   {status}
                 </span>
                 {ranking && (
-                  <span className="rounded-full bg-[#D4AF37]/15 px-3 py-1.5 text-[#D4AF37]">
+                  <span className="rounded-full bg-[#D4AF37]/15 px-2 py-1 text-[#D4AF37] sm:px-3 sm:py-1.5">
                     Overall #{ranking.overall_rank}
                   </span>
                 )}
@@ -256,7 +256,7 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
               <img
                 src={portrait}
                 alt=""
-                className="absolute bottom-0 right-5 h-40 w-28 object-contain object-bottom sm:right-10 sm:h-44 sm:w-36"
+                className="absolute bottom-0 right-3 h-32 w-24 object-contain object-bottom sm:right-10 sm:h-44 sm:w-36"
               />
             ) : (
               <div className="absolute bottom-5 right-5 grid h-24 w-24 place-items-center rounded-full border border-white/10 bg-[#20242d] text-2xl font-black text-zinc-200 sm:right-10">
@@ -293,19 +293,19 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
                 key={value}
                 onClick={() => setTab(value)}
                 aria-pressed={tab === value}
-                className={`min-h-12 border-b-[3px] px-2 text-sm font-black transition ${tab === value ? 'border-[#D4AF37] text-white' : 'border-transparent text-zinc-400'}`}
+                className={`min-h-10 border-b-2 px-2 text-xs font-black transition sm:min-h-12 sm:text-sm ${tab === value ? 'border-[#D4AF37] text-white' : 'border-transparent text-zinc-400'}`}
               >
                 {label}
               </button>
             ))}
           </nav>
 
-          <div className="flex items-center gap-2 border-b border-white/10 bg-[#14171c] px-4 py-2.5">
+          <div className="flex items-center gap-2 border-b border-white/10 bg-[#14171c] px-3 py-2">
             {([2026, 2025] as const).map(value => (
               <button
                 key={value}
                 onClick={() => setSeason(value)}
-                className={`min-h-10 rounded-full px-4 text-[11px] font-black ${season === value ? 'bg-[#D4AF37] text-black' : 'bg-white/[.05] text-zinc-400'}`}
+                className={`min-h-8 rounded-full px-3 text-[10px] font-black ${season === value ? 'bg-[#D4AF37] text-black' : 'bg-white/[.05] text-zinc-400'}`}
               >
                 {value}
               </button>
@@ -371,9 +371,9 @@ const Metric = ({
   value: string;
   sublabel: string;
 }) => (
-  <div className="min-w-0 border-r border-white/10 px-2 py-3 text-center last:border-r-0 sm:px-4">
-    <div className="truncate text-[9px] font-black uppercase tracking-wide text-zinc-500">{label}</div>
-    <div className="mt-1 text-xl font-black">{value}</div>
+  <div className="min-w-0 border-r border-white/10 px-2 py-2 text-center last:border-r-0 sm:px-4 sm:py-3">
+    <div className="truncate text-[8px] font-black uppercase tracking-wide text-zinc-500 sm:text-[9px]">{label}</div>
+    <div className="mt-0.5 text-lg font-black sm:mt-1 sm:text-xl">{value}</div>
     <div className="mt-0.5 truncate text-[9px] font-semibold text-zinc-500">{sublabel}</div>
   </div>
 );
