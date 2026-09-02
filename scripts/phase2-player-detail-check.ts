@@ -72,7 +72,9 @@ assert.ok(detail.includes("useState<2026 | 2025>"), 'Player detail must expose 2
 assert.ok(cloud.includes("from('ball_knower_player_week_scores')"), 'Weekly detail must use the existing score source of truth.');
 assert.ok(cloud.includes("from('ball_knower_nfl_games')") && cloud.includes('teamGames.length !== 17'), 'Current-season game logs may use only a complete authoritative NFL schedule.');
 assert.ok(cloud.includes("historySource: 'nfl_schedule'") && cloud.includes('isBye: true'), 'Schedule-backed rows and verified byes must remain explicitly identifiable.');
+assert.ok(cloud.includes("/api/fantasy-live-scoring?mode=schedule") && cloud.includes('Authorization: `Bearer ${accessToken}`'), 'A signed-in preview may request the one-time authoritative schedule bootstrap.');
 assert.ok(liveScoring.includes('syncCompleteRegularSeasonSchedule') && liveScoring.includes('games.length!==272') && liveScoring.includes('count!==17'), 'The live scorer must bootstrap only a complete, validated 2026 NFL schedule.');
+assert.ok(liveScoring.includes('scheduleOnly') && liveScoring.includes('db.auth.getUser') && liveScoring.includes('if(scheduleOnly)'), 'The schedule bootstrap endpoint must verify the caller and stay isolated from the scoring cron.');
 assert.ok(liveScoring.includes("pregame_projection_source:'Tank01 weekly projections'") && liveScoring.includes('pregame_projected_points:snapshot'), 'Published 2026 weekly projections must be materialized with provider provenance.');
 assert.ok(detail.includes("typeof value === 'number' && Number.isFinite(value) ? value : null"), 'Missing weekly points must stay unavailable instead of becoming numeric zero.');
 assert.ok(detail.includes('DEFAULT_STAT_KEYS'), 'The game-log table must retain position-relevant columns before final stat rows arrive.');

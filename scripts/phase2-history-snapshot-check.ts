@@ -30,7 +30,9 @@ assert.match(api, /if\(!isFinalGameStatus\(status\)\) throw new Tank01Error/);
 assert.match(api, /if\(malformedPlayerRow\) throw new Tank01Error/);
 assert.match(api, /if\(!rows\.length\) throw new Tank01Error/);
 assert.match(api, /historical backfill remains active/);
-assert.match(api, /req\.headers\?\.authorization!==`Bearer \$\{cronSecret\}`/);
+assert.match(api, /authorization===`Bearer \$\{cronSecret\}`/);
+assert.match(api, /if\(!scheduleOnly\|\|!authorization\.startsWith\('Bearer '\)\) return res\.status\(401\)/);
+assert.match(api, /db\.auth\.getUser\(authorization\.slice\(7\)\)/);
 
 assert.match(cloud, /pregame_projected_points/);
 assert.match(cloud, /row\.pregame_projection_captured_at \? \(row\.pregame_projected_points \|\| \{\}\) : \{\}/);

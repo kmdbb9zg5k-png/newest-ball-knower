@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
+export const maxDuration=30;
+
 // Keep this route self-contained. Vercel's TypeScript function runtime has
 // failed to package modules imported from outside api/ for this project.
 // These scoring rules mirror fantasyLiveScoring.ts, which remains the tested
@@ -472,9 +474,6 @@ export default async function handler(req:any,res:any){
   if(req.method!=='GET') return res.status(405).json({ok:false,error:'Method not allowed'});
   res.setHeader('Cache-Control','no-store');
   const cronSecret=process.env.CRON_SECRET;
-  if(!cronSecret) return res.status(503).json({ok:false,error:'CRON_SECRET is not configured'});
-  if(req.headers?.authorization!==`Bearer ${cronSecret}`) return res.status(401).json({ok:false,error:'Unauthorized'});
-
   const supabaseUrl=process.env.SUPABASE_URL
     ||process.env.VITE_SUPABASE_URL
     ||'https://gpnboygoosrmeydwjpvk.supabase.co';
@@ -482,8 +481,20 @@ export default async function handler(req:any,res:any){
   if(!serviceKey) return res.status(503).json({ok:false,error:'SUPABASE_SERVICE_ROLE_KEY is not configured'});
   const db=createClient(supabaseUrl,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
   const now=new Date();
+  const authorization=String(req.headers?.authorization||'');
+  const scheduleOnly=String(req.query?.mode||'')==='schedule';
+  const cronAuthorized=Boolean(cronSecret)&&authorization===`Bearer ${cronSecret}`;
+  if(!cronAuthorized){
+    if(!scheduleOnly||!authorization.startsWith('Bearer ')) return res.status(401).json({ok:false,error:'Unauthorized'});
+    const {data,error}=await db.auth.getUser(authorization.slice(7));
+    if(error||!data.user) return res.status(401).json({ok:false,error:'Unauthorized'});
+  }
 
   try{
+    if(scheduleOnly){
+      const scheduleSync=await syncCompleteRegularSeasonSchedule(db,2026,now);
+      return res.status(200).json({ok:true,season:2026,scheduleSync,checkedAt:now.toISOString()});
+    }
     const current=await tankGet('/getNFLCurrentInfo') as Json;
     const season=Math.max(2026,Number(current?.season)||now.getUTCFullYear());
     let week=Math.max(1,Math.min(22,Number(current?.week)||1));

@@ -167,7 +167,29 @@ export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Pro
   // NFL schedule to keep the current-season game log useful. Schedule rows add
   // only verified opponent/kickoff metadata; unavailable fantasy data remains —.
   const currentTeam = normalizeTeam(player.team);
-  const schedule = scheduleResult.error ? [] : ((scheduleResult.data || []) as ScheduleRow[]);
+  let schedule = scheduleResult.error ? [] : ((scheduleResult.data || []) as ScheduleRow[]);
+  if (schedule.length === 0) {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (accessToken) {
+        const response = await fetch('/api/fantasy-live-scoring?mode=schedule', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (response.ok) {
+          const refreshed = await supabase
+            .from('ball_knower_nfl_games')
+            .select('provider_game_id,season,week_number,away_team,home_team,kickoff_at,game_status,is_final')
+            .eq('season', 2026)
+            .eq('season_type', 'reg')
+            .order('week_number', { ascending: true });
+          if (!refreshed.error) schedule = (refreshed.data || []) as ScheduleRow[];
+        }
+      }
+    } catch (error) {
+      console.warn('2026 fantasy schedule bootstrap failed', error);
+    }
+  }
   const teamGames = schedule.filter(row =>
     normalizeTeam(row.away_team) === currentTeam || normalizeTeam(row.home_team) === currentTeam,
   );
