@@ -162,8 +162,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .bk-fantasy-subnav::-webkit-scrollbar { display: none; }
 .bk-fantasy-subnav.bk-fantasy-subnav-scroll { display: flex; }
 .bk-fantasy-sticky-nav {
-  position: sticky;
-  top: calc(58px + env(safe-area-inset-top));
+  position: relative;
+  top: auto;
   z-index: 30;
 }
 .bk-fantasy-action {
@@ -185,7 +185,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 @media (min-width: 768px) {
-  .bk-fantasy-sticky-nav { top: calc(116px + env(safe-area-inset-top)); }
+  .bk-fantasy-sticky-nav { position: sticky; top: calc(116px + env(safe-area-inset-top)); }
 }
 
 @media (max-width: 640px) {
