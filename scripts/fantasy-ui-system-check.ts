@@ -6,14 +6,17 @@ import {
   fantasyPlayerAction,
   lineupChangeCount,
 } from '../fantasyUiSystem';
+import { buildFantasyDraftReports, type FantasyDraftReportPosition } from '../fantasyDraftReport';
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const app = read('App.tsx');
+const main = read('main.tsx');
 const nav = read('Navbar.tsx');
 const league = read('FantasyLeaguePostDraft.tsx');
 const player = read('FantasyPlayerDetail.tsx');
 const draft = read('LeagueLiveDraftRoom.tsx');
 const styles = read('index.css');
+const matchupMobileFix = read('fantasyMatchupMobileFix.css');
 
 assert.deepEqual(fantasyPlayerAction('mine', 'Jalen Hurts'), { kind: 'manage', label: 'MANAGE LINEUP' });
 assert.deepEqual(fantasyPlayerAction('opponent', 'Jalen Hurts'), { kind: 'trade', label: 'TRADE FOR JALEN HURTS' });
@@ -34,6 +37,29 @@ assert.equal(power.length, 3);
 assert.ok(power.find(row => row.memberId === 'projection')!.score > power.find(row => row.memberId === 'injured')!.score, 'availability must affect fantasy power without using Madden OVR');
 assert.deepEqual(power.map(row => row.rank), [1, 2, 3]);
 
+const reportPositions: FantasyDraftReportPosition[] = ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'RB', 'K', 'DST', 'WR', 'WR', 'QB', 'TE', 'RB', 'WR'];
+const reportTeam = (memberId: string, projectionScale: number) => ({
+  memberId,
+  picks: reportPositions.map((position, index) => ({
+    overall: index + 1,
+    playerName: `${memberId}-${position}-${index}`,
+    position,
+    projectedPoints: (320 - index * 9) * projectionScale,
+    overallRank: index + 1,
+  })),
+});
+const draftReports = buildFantasyDraftReports([
+  reportTeam('strong', 1.15),
+  reportTeam('weak', 0.85),
+], 15);
+const strongReport = draftReports.get('strong')!;
+const weakReport = draftReports.get('weak')!;
+assert.equal(draftReports.size, 2, 'every completed draft team must receive a report');
+assert.ok(strongReport.projectionScore > weakReport.projectionScore, 'projected roster strength must affect the grade');
+assert.ok(strongReport.projectedWins > weakReport.projectedWins, 'stronger projected rosters must receive better projected records');
+assert.equal(strongReport.projectedWins + weakReport.projectedWins, 15, 'league-relative projected records must conserve wins in a two-team model');
+assert.match(strongReport.explanation, /projected scoring roster/i, 'draft grades must explain their projection basis');
+
 assert.ok(app.includes('const showProductChrome=!isIntroOpen&&!showFavoriteTeam'), 'intro and favorite-team takeovers must hide both app bars and page content');
 assert.ok(app.includes('{showProductChrome&&<Navbar') && app.includes('{showProductChrome&&<main'), 'product chrome must render only after the intro flow is complete');
 assert.ok(nav.includes('58px+env(safe-area-inset-top)') && styles.includes('padding-bottom: calc(6rem + env(safe-area-inset-bottom))'), 'fantasy screens must reserve both iPhone safe areas and the compact fantasy app bar');
@@ -47,7 +73,16 @@ assert.ok(league.includes('weeklyContextFor(player)') && league.includes('weekCo
 assert.ok(league.includes('playerAvailability === "waiver" ? "Submit Claim" : "Add Player"'), 'free agents and waiver claims must use distinct actions');
 assert.ok(league.includes('playerPosition') && league.includes('Weekly projection') && league.includes('Overall rank'), 'Add Players must keep mobile position and sorting controls');
 assert.ok(league.includes('primaryAction={detailPrimaryAction') && league.includes('fantasyPlayerAction(detailOwnership'), 'shared Player Cards must receive ownership-aware primary actions');
-assert.ok(league.includes('grid-cols-[minmax(0,1fr)_42px_minmax(0,1fr)]') && league.includes('sm:grid-cols-[minmax(0,1fr)_56px_minmax(0,1fr)]'), 'matchup rows must protect the FLEX/WRT label from projection overlap at phone and desktop widths');
+assert.ok(
+  league.includes('grid-cols-[minmax(0,1fr)_42px_minmax(0,1fr)]') &&
+  league.includes('sm:grid-cols-[minmax(0,1fr)_56px_minmax(0,1fr)]') &&
+  league.includes('"FLEX/WRT"') &&
+  main.includes("import './fantasyMatchupMobileFix.css'") &&
+  matchupMobileFix.includes('52px') &&
+  matchupMobileFix.includes('overflow: hidden') &&
+  matchupMobileFix.includes('white-space: nowrap'),
+  'the FLEX/WRT matchup badge must stay contained in a dedicated phone-width center rail',
+);
 assert.ok(league.includes('pointsFor.toFixed(0)') && league.includes('pointsAgainst.toFixed(0)') && league.includes('standing.streak'), 'mobile standings must expose PF, PA and streak');
 assert.ok(league.includes('buildFantasyPowerRankings') && league.includes('rosterProjection') && !read('fantasyUiSystem.ts').includes('ovr'), 'power rankings must use fantasy inputs, never Madden OVR');
 
@@ -55,5 +90,6 @@ assert.ok(player.includes('primaryAction') && player.includes('sticky bottom-0')
 assert.ok(player.includes('Rostered by') && player.includes('Available player'), 'Player Card must disclose ownership state');
 assert.ok(draft.includes('bk-fantasy-sticky-nav') && draft.includes('Live Draft') && draft.includes('League Chat'), 'the live draft must share the fantasy system and keep league chat available');
 assert.ok(draft.includes('Auto-pick Queue') && draft.includes('Recent Picks') && draft.includes('Your Roster'), 'draft recovery tools, recent picks and roster context must remain present');
+assert.ok(draft.includes('Projected W-L') && draft.includes('Draft Grade') && draft.includes('report.explanation') && draft.includes('buildFantasyDraftReports'), 'completed draft cards must show every manager a grade explanation and projected record');
 
-console.log('Fantasy UI system checks passed: ownership, navigation, weekly lineup context, safe areas, matchup layout, rankings, Player Card actions, and draft chat.');
+console.log('Fantasy UI system checks passed: ownership, navigation, weekly lineup context, safe areas, contained FLEX/WRT rows, rankings, Player Card actions, draft reports, and draft chat.');

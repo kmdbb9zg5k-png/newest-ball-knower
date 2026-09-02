@@ -5,6 +5,7 @@ import { playerPortraitFallbackUrl, playerPortraitUrl } from './playerPortraits'
 import { PLAYERS_DATABASE } from './players';
 import { CPU_LIVE_FANTASY_POSITION_LIMITS, getLiveFantasyDraftGroup, LIVE_FANTASY_ROSTER_REQUIREMENTS, LiveFantasyDraftGroup } from './liveFantasyRules';
 import { FantasyRanking, loadFantasyRankings } from './fantasyRankingsCloud';
+import { buildFantasyDraftReports, type FantasyDraftReportTeam } from './fantasyDraftReport';
 import { displayLeagueMemberName, resolveMyLeagueMember } from './leagueMemberDisplay';
 import { LiveFantasyDraft, Player } from './types';
 import { DraftPreferences, loadMyCloudDraftPreferences, saveMyCloudDraftPreferences } from './leagueCloud';
@@ -70,17 +71,6 @@ const cpuSelection=(draft:LiveFantasyDraft,memberId:string,rankings:Map<string,F
     }
   }
   return best;
-};
-
-const draftGrade=(draft:LiveFantasyDraft,memberId:string,rankings:Map<string,FantasyRanking>)=>{
-  const picks=draft.picks.filter(pick=>pick.memberId===memberId);
-  const counts=countsFor(draft,memberId);
-  const missing=GROUPS.reduce((sum,group)=>sum+Math.max(0,LIVE_FANTASY_ROSTER_REQUIREMENTS[group]-(counts[group]||0)),0);
-  const ranked=picks.flatMap(pick=>{const player=PLAYER_BY_ID.get(pick.playerId);const ranking=player&&rankings.get(rankingKey(player.name,player.team));return ranking?[Math.max(-30,Math.min(30,pick.overall-ranking.overall_rank))]:[];});
-  const value=ranked.length?ranked.reduce((sum,item)=>sum+item,0)/ranked.length:0;
-  const score=Math.max(55,Math.min(98,Math.round(84+value*.35-missing*10)));
-  const letter=score>=97?'A+':score>=93?'A':score>=90?'A-':score>=87?'B+':score>=83?'B':score>=80?'B-':score>=77?'C+':score>=73?'C':score>=70?'C-':score>=60?'D':'F';
-  return {letter,score,detail:missing?`${missing} starter need${missing===1?'':'s'} unfilled`:`${ranked.length} picks graded against 2026 fantasy rank`};
 };
 
 export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
@@ -226,8 +216,28 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
   }
 
   if(draft.status==='completed'){
-    const myGrade=myMember?draftGrade(draft,myMember.id,rankings):null;
-    return <div className="min-h-[100dvh] bg-[#07090c] px-3 py-4 text-white sm:px-6"><div className="mx-auto max-w-5xl"><button onClick={onBackToLobby} className="min-h-11 rounded-xl border border-white/10 px-4 text-xs font-black uppercase"><ArrowLeft className="mr-1 inline h-4 w-4"/>League HQ</button><section className="mt-4 rounded-2xl border border-[#D4AF37]/30 bg-[#101318] p-5 text-center"><Trophy className="mx-auto h-9 w-9 text-[#D4AF37]"/><h1 className="mt-2 font-display text-4xl font-black uppercase">Fantasy Draft Complete</h1><p className="mt-2 text-sm text-zinc-400">All {draft.pickIndex} picks are locked. Every manager has a complete {draft.rounds}-player roster.</p>{myGrade&&<div className="mx-auto mt-4 max-w-sm rounded-2xl border border-[#D4AF37]/30 bg-black/25 p-4"><div className="text-[9px] font-black uppercase tracking-widest text-[#D4AF37]">Your Draft Grade</div><div className="mt-1 text-4xl font-black">{myGrade.letter}</div><div className="text-[10px] font-bold text-zinc-500">{myGrade.score}/100 · {myGrade.detail}</div></div>}<button onClick={onBackToLobby} disabled={!seasonHandoffComplete} className="mt-4 min-h-14 w-full rounded-xl bg-[#D4AF37] text-sm font-black uppercase tracking-wider text-black disabled:cursor-wait disabled:opacity-45">{seasonHandoffComplete?<><Play className="mr-2 inline h-4 w-4"/>Continue To Season</>:<><LoaderCircle className="mr-2 inline h-4 w-4 animate-spin"/>{isCommissioner?'Saving All League Rosters…':'Waiting For Commissioner To Save Rosters'}</>}</button></section><div className="mt-4 grid gap-3 sm:grid-cols-2">{draft.orderMemberIds.map(memberId=>{const member=activeLeague.members.find(item=>item.id===memberId);const mine=member?.id===myMember?.id;const picks=draft.picks.filter(pick=>pick.memberId===memberId);return <div key={memberId} className="rounded-2xl border border-white/10 bg-[#101318] p-4"><div className="flex items-center justify-between"><div className="font-black uppercase">{displayLeagueMemberName(member,mine,currentUser,activeLeague.members.indexOf(member!))}</div><div className="text-xs font-black text-[#D4AF37]">{picks.length}/{draft.rounds}</div></div><div className="mt-3 grid grid-cols-2 gap-1">{picks.map(pick=>{const player=PLAYER_BY_ID.get(pick.playerId);return <div key={pick.overall} className="truncate rounded-lg bg-black/30 px-2 py-1.5 text-[10px]"><b>{player?.position}</b> {player?.name}</div>})}</div></div>})}</div></div></div>;
+    const draftSettings=(activeLeague.settings||{}) as any;
+    const playoffWeeks=Number(draftSettings.playoffTeams)===4?2:3;
+    const configuredRegularSeasonGames=Number(draftSettings.regularSeasonWeeks??draftSettings.seasonGames)||17;
+    const regularSeasonGames=Math.min(Math.max(13,Math.min(17,configuredRegularSeasonGames)),18-playoffWeeks);
+    const reportTeams:FantasyDraftReportTeam[]=draft.orderMemberIds.map(memberId=>({
+      memberId,
+      picks:draft.picks.filter(pick=>pick.memberId===memberId).flatMap(pick=>{
+        const player=PLAYER_BY_ID.get(pick.playerId);
+        if(!player)return [];
+        const ranking=rankings.get(rankingKey(player.name,player.team));
+        return [{
+          overall:pick.overall,
+          playerName:player.name,
+          position:pick.group,
+          projectedPoints:ranking?Number(ranking.projected_points_2026):null,
+          overallRank:ranking?Number(ranking.overall_rank):null,
+        }];
+      }),
+    }));
+    const reports=rankingsReady&&rankings.size?buildFantasyDraftReports(reportTeams,regularSeasonGames):new Map();
+    const myGrade=myMember?reports.get(myMember.id):undefined;
+    return <div className="min-h-[100dvh] bg-[#07090c] px-3 py-4 text-white sm:px-6"><div className="mx-auto max-w-5xl"><button onClick={onBackToLobby} className="min-h-11 rounded-xl border border-white/10 px-4 text-xs font-black uppercase"><ArrowLeft className="mr-1 inline h-4 w-4"/>League HQ</button><section className="mt-4 rounded-2xl border border-[#D4AF37]/30 bg-[#101318] p-5 text-center"><Trophy className="mx-auto h-9 w-9 text-[#D4AF37]"/><h1 className="mt-2 font-display text-4xl font-black uppercase">Fantasy Draft Complete</h1><p className="mt-2 text-sm text-zinc-400">All {draft.pickIndex} picks are locked. Every manager has a complete {draft.rounds}-player roster.</p>{myGrade&&<div className="mx-auto mt-4 max-w-md rounded-2xl border border-[#D4AF37]/30 bg-black/25 p-4 text-left"><div className="grid grid-cols-2 divide-x divide-white/10 text-center"><div className="pr-3"><div className="text-[9px] font-black uppercase tracking-widest text-[#D4AF37]">Your Draft Grade</div><div className="mt-1 text-4xl font-black">{myGrade.letter}</div><div className="text-[10px] font-bold text-zinc-500">{myGrade.score}/100</div></div><div className="pl-3"><div className="text-[9px] font-black uppercase tracking-widest text-[#D4AF37]">Projected W-L</div><div className="mt-1 text-4xl font-black">{myGrade.projectedWins}-{myGrade.projectedLosses}</div><div className="text-[10px] font-bold text-zinc-500">#{myGrade.projectionRank} projected roster</div></div></div><p className="mt-3 text-[11px] font-semibold leading-5 text-zinc-400">{myGrade.explanation}</p></div>}{!myGrade&&<div className="mx-auto mt-4 max-w-sm rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-[10px] font-bold text-zinc-500">{rankingsReady?'Draft report unavailable — 2026 projection data did not load.':'Calculating draft grades and projected records…'}</div>}<button onClick={onBackToLobby} disabled={!seasonHandoffComplete} className="mt-4 min-h-14 w-full rounded-xl bg-[#D4AF37] text-sm font-black uppercase tracking-wider text-black disabled:cursor-wait disabled:opacity-45">{seasonHandoffComplete?<><Play className="mr-2 inline h-4 w-4"/>Continue To Season</>:<><LoaderCircle className="mr-2 inline h-4 w-4 animate-spin"/>{isCommissioner?'Saving All League Rosters…':'Waiting For Commissioner To Save Rosters'}</>}</button></section><div className="mt-4 grid gap-3 sm:grid-cols-2">{draft.orderMemberIds.map(memberId=>{const member=activeLeague.members.find(item=>item.id===memberId);const mine=member?.id===myMember?.id;const picks=draft.picks.filter(pick=>pick.memberId===memberId);const report=reports.get(memberId);return <div key={memberId} className="rounded-2xl border border-white/10 bg-[#101318] p-4"><div className="flex items-center justify-between"><div className="font-black uppercase">{displayLeagueMemberName(member,mine,currentUser,activeLeague.members.indexOf(member!))}</div><div className="text-xs font-black text-[#D4AF37]">{picks.length}/{draft.rounds}</div></div>{report?<div className="mt-3 rounded-xl border border-[#D4AF37]/20 bg-black/25 p-3"><div className="grid grid-cols-[64px_minmax(0,1fr)] gap-3"><div className="text-center"><div className="text-[8px] font-black uppercase tracking-wider text-zinc-500">Draft Grade</div><div className="mt-1 text-3xl font-black text-[#D4AF37]">{report.letter}</div><div className="text-[9px] font-bold text-zinc-600">{report.score}/100</div></div><div className="min-w-0 border-l border-white/10 pl-3"><div className="flex items-center justify-between gap-2"><span className="text-[8px] font-black uppercase tracking-wider text-zinc-500">Projected W-L</span><b className="text-xl text-white">{report.projectedWins}-{report.projectedLosses}</b></div><div className="mt-0.5 text-[9px] font-black uppercase text-[#D4AF37]">#{report.projectionRank} projected scoring roster</div><p className="mt-1.5 text-[10px] font-semibold leading-4 text-zinc-400">{report.explanation}</p></div></div><div className="mt-2 grid grid-cols-3 gap-1 border-t border-white/5 pt-2 text-center"><div><div className="text-[7px] font-black uppercase text-zinc-600">Projection</div><b className="text-[10px]">{report.projectionScore}</b></div><div><div className="text-[7px] font-black uppercase text-zinc-600">Build</div><b className="text-[10px]">{report.constructionScore}</b></div><div><div className="text-[7px] font-black uppercase text-zinc-600">Value</div><b className="text-[10px]">{report.valueScore}</b></div></div></div>:<div className="mt-3 rounded-xl border border-dashed border-white/10 px-3 py-2 text-center text-[9px] font-bold uppercase text-zinc-600">{rankingsReady?'Draft report unavailable':'Calculating draft report…'}</div>}<div className="mt-3 grid grid-cols-2 gap-1">{picks.map(pick=>{const player=PLAYER_BY_ID.get(pick.playerId);return <div key={pick.overall} className="truncate rounded-lg bg-black/30 px-2 py-1.5 text-[10px]"><b>{player?.position}</b> {player?.name}</div>})}</div></div>})}</div><p className="mt-3 text-center text-[9px] font-semibold text-zinc-600">Projected records are preseason estimates based on 2026 fantasy projections, lineup strength, roster construction, and draft value.</p></div></div>;
   }
 
   const round=Math.floor(draft.pickIndex/draft.orderMemberIds.length)+1;

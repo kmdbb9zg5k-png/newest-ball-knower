@@ -1,0 +1,20 @@
+/*
+ * The matchup center rail is intentionally a little wider on phones so the
+ * FLEX/WRT eligibility label cannot escape into either team's projection.
+ * Desktop keeps the Tailwind-defined 56px rail.
+ */
+@media (max-width: 639px) {
+  div[class*="grid-cols-[minmax(0,1fr)_42px_minmax(0,1fr)]"] {
+    grid-template-columns: minmax(0, 1fr) 52px minmax(0, 1fr);
+  }
+
+  div[class*="grid-cols-[minmax(0,1fr)_42px_minmax(0,1fr)]"] > div:nth-child(2) > span {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    padding-inline: 2px;
+    white-space: nowrap;
+    font-size: 6px;
+    line-height: 1.1;
+  }
+}

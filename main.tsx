@@ -6,6 +6,7 @@ import {redactAnalyticsUrl} from './analytics';
 import {recordApproximateVisitorLocation} from './visitorLocation';
 import {startModeProgressionBridge} from './modeProgressionBridge';
 import './index.css';
+import './fantasyMatchupMobileFix.css';
 
 void recordApproximateVisitorLocation();
 startModeProgressionBridge();
