@@ -121,26 +121,36 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
   useEffect(() => {
     if (!player) return;
     let active = true;
+    let hasGoodRows = false;
     setBusy(true);
     setError('');
-    loadFantasyPlayerWeeks({
-      id: player.id,
-      name: player.name,
-      team: player.team,
-      position: player.position,
-      projectedPoints2026: ranking?.projected_points_2026,
-    })
-      .then(rows => {
-        if (active) setWeeks(rows);
-      })
-      .catch(err => {
-        if (active) setError(err instanceof Error ? err.message : 'Player history could not be loaded.');
-      })
-      .finally(() => {
+    setWeeks([]);
+    const refresh = async () => {
+      try {
+        const rows = await loadFantasyPlayerWeeks({
+          id: player.id,
+          name: player.name,
+          team: player.team,
+          position: player.position,
+          projectedPoints2026: ranking?.projected_points_2026,
+        });
+        if (!active) return;
+        setWeeks(rows);
+        setError('');
+        hasGoodRows = rows.length > 0;
+      } catch (err) {
+        if (active && !hasGoodRows) {
+          setError(err instanceof Error ? err.message : 'Player history could not be loaded.');
+        }
+      } finally {
         if (active) setBusy(false);
-      });
+      }
+    };
+    void refresh();
+    const refreshTimer = window.setInterval(() => void refresh(), 30_000);
     return () => {
       active = false;
+      window.clearInterval(refreshTimer);
     };
   }, [player?.id, player?.name, player?.team, player?.position, ranking?.projected_points_2026]);
 

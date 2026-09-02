@@ -70,9 +70,58 @@ export type FantasyPlayerIdentity = {
 
 const weekColumns = 'id,provider_game_id,provider_player_id,season,week_number,player_name,team,position,opponent_team,is_home,kickoff_at,game_status,is_final,stats,fantasy_points,projected_points,pregame_projected_points,pregame_projection_reason,pregame_projection_source,pregame_projection_captured_at,history_source';
 const TEAM_ALIASES: Record<string, string> = { LA: 'LAR', WSH: 'WAS', JAC: 'JAX' };
+const scheduleCacheKey = (team: string) => `ball-knower:2026-schedule:${team}`;
 const normalizeTeam = (value: string) => {
   const team = value.trim().toUpperCase();
   return TEAM_ALIASES[team] || team;
+};
+
+const selectCompleteTeamSchedule = (rows: ScheduleRow[], team: string): ScheduleRow[] => {
+  const byWeek = new Map<number, ScheduleRow>();
+  const conflicts = new Set<number>();
+  for (const row of rows) {
+    const away = normalizeTeam(row.away_team);
+    const home = normalizeTeam(row.home_team);
+    if (away !== team && home !== team) continue;
+    const week = Number(row.week_number);
+    if (!Number.isInteger(week) || week < 1 || week > 18 || !row.kickoff_at) continue;
+    const existing = byWeek.get(week);
+    if (existing) {
+      const sameMatchup = normalizeTeam(existing.away_team) === away
+        && normalizeTeam(existing.home_team) === home;
+      if (!sameMatchup) {
+        conflicts.add(week);
+        continue;
+      }
+      // Tank01 rows can later replace the preseason ESPN import without
+      // creating a duplicate week in a player's game log.
+      if (existing.provider_game_id.startsWith('espn-') && !row.provider_game_id.startsWith('espn-')) {
+        byWeek.set(week, row);
+      }
+      continue;
+    }
+    byWeek.set(week, row);
+  }
+  if (conflicts.size || byWeek.size !== 17) return [];
+  return [...byWeek.values()].sort((a, b) => Number(a.week_number) - Number(b.week_number));
+};
+
+const readCachedTeamSchedule = (team: string): ScheduleRow[] => {
+  try {
+    const raw = window.localStorage.getItem(scheduleCacheKey(team));
+    const parsed = raw ? JSON.parse(raw) : null;
+    return Array.isArray(parsed) ? selectCompleteTeamSchedule(parsed as ScheduleRow[], team) : [];
+  } catch {
+    return [];
+  }
+};
+
+const cacheTeamSchedule = (team: string, rows: ScheduleRow[]) => {
+  try {
+    window.localStorage.setItem(scheduleCacheKey(team), JSON.stringify(rows));
+  } catch {
+    // The database remains authoritative when browser storage is unavailable.
+  }
 };
 
 export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Promise<FantasyPlayerWeek[]> {
@@ -169,27 +218,24 @@ export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Pro
   // NFL schedule to keep the current-season game log useful. Schedule rows add
   // only verified opponent/kickoff metadata; unavailable fantasy data remains —.
   const currentTeam = normalizeTeam(player.team);
-  let schedule = scheduleResult.error ? [] : ((scheduleResult.data || []) as ScheduleRow[]);
-  const scheduledGamesForTeam = () => schedule.filter(row =>
-    normalizeTeam(row.away_team) === currentTeam || normalizeTeam(row.home_team) === currentTeam,
-  );
-  if (scheduledGamesForTeam().length !== 17) {
-    try {
-      const response = await fetch(`/api/fantasy-player-schedule?team=${encodeURIComponent(currentTeam)}`);
-      if (response.ok) {
-        const payload = await response.json() as { games?: ScheduleRow[] };
-        schedule = Array.isArray(payload.games) ? payload.games : [];
-      }
-    } catch (error) {
-      console.warn('2026 fantasy schedule lookup failed', error);
-    }
+  const databaseSchedule = scheduleResult.error ? [] : ((scheduleResult.data || []) as ScheduleRow[]);
+  let teamGames = selectCompleteTeamSchedule(databaseSchedule, currentTeam);
+  if (teamGames.length === 17) {
+    cacheTeamSchedule(currentTeam, teamGames);
+  } else {
+    teamGames = readCachedTeamSchedule(currentTeam);
   }
-  const teamGames = scheduledGamesForTeam();
   if (teamGames.length !== 17) return verifiedRows;
 
-  const verifiedByWeek = new Map(
-    verifiedRows.filter(row => row.season === 2026).map(row => [row.week, row]),
-  );
+  const verifiedByWeek = new Map<number, FantasyPlayerWeek>();
+  for (const row of verifiedRows.filter(item => item.season === 2026)) {
+    const existing = verifiedByWeek.get(row.week);
+    const rowPriority = Number(row.isFinal) * 4 + Number(Object.keys(row.fantasyPoints).length > 0) * 2 + Number(Boolean(row.projectionCapturedAt));
+    const existingPriority = existing
+      ? Number(existing.isFinal) * 4 + Number(Object.keys(existing.fantasyPoints).length > 0) * 2 + Number(Boolean(existing.projectionCapturedAt))
+      : -1;
+    if (!existing || rowPriority > existingPriority) verifiedByWeek.set(row.week, row);
+  }
   const scheduledByWeek = new Map(teamGames.map(row => [Number(row.week_number), row]));
   const seasonWeeks: FantasyPlayerWeek[] = [];
   for (let week = 1; week <= 18; week += 1) {
