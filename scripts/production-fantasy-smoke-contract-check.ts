@@ -11,6 +11,7 @@ for(const operation of [
   'generate_ball_knower_weekly_injuries',
   'propose_ball_knower_trade_v2',
   'resolve_ball_knower_trade_v2',
+  'commissioner_set_ball_knower_waiver_priority',
   'submit_ball_knower_player_move',
   'process_due_ball_knower_waivers',
   'finalize_ball_knower_fantasy_season',
@@ -26,5 +27,8 @@ assert.ok(sql.includes("pick->>'source' = 'cpu'"),'Production smoke must assert 
 assert.match(sql,/draft\.recovery_enabled\s*=\s*true/,'Production smoke must assert safe draft recovery');
 assert.ok(sql.includes('jsonb_array_length(v_regular_games) <> 75'),'Production smoke must assert all 75 regular-season matchups');
 assert.ok(sql.includes('v_final_notifications <> 1'),'Production smoke must detect duplicate final notifications');
+assert.ok(sql.includes("event.event_type='commissioner_waiver_priority_changed'"),'Production smoke must assert commissioner waiver audit history');
+assert.ok(sql.includes("event.event_type='commissioner_trade_approved'"),'Production smoke must assert commissioner trade-review audit history');
+assert.ok(sql.includes("has_table_privilege('anon'"),'Production smoke must verify anonymous league-data grants stay revoked');
 
 console.log('Production fantasy smoke contract covers draft, schedule, lineup, injuries, trade, waivers, scoring, playoffs, archive, reset, and rollback.');
