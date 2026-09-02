@@ -11,7 +11,7 @@ assert.ok(!screen.includes('<MatchupRoster'), 'the matchup screen must not rende
 assert.match(comparison, /aria-label={`\$\{displayManagerName\(away\)\} versus \$\{displayManagerName\(home\)\}`}/, 'the matchup must announce both teams as one head-to-head surface');
 assert.match(comparison, /TeamMatchupHeader member={away}[\s\S]*>VS<[\s\S]*TeamMatchupHeader member={home}/, 'away must stay left and home must stay right');
 assert.match(comparison, /LINEUP_SLOTS\.map/, 'the comparison must render the canonical ordered lineup slots');
-assert.match(comparison, /grid-cols-\[minmax\(0,1fr\)_42px_minmax\(0,1fr\)\]/, 'each slot must be one balanced horizontal row');
+assert.match(comparison, /grid-cols-\[minmax\(0,1fr\)_56px_minmax\(0,1fr\)\]/, 'each slot must reserve a protected center column so FLEX/WRT cannot overlap either player or projection');
 assert.ok(comparison.includes('"FLEX/WRT"') && comparison.includes('"DST"'), 'FLEX/WRT and DST labels must use fantasy terminology');
 assert.match(comparison, /MatchupPlayerSide player={awayPlayer}[\s\S]*MatchupPlayerSide player={homePlayer}/, 'corresponding players must be directly across from each other');
 assert.ok(comparison.includes('Projected matchup advantage') && comparison.includes('Matchup advantage unavailable'), 'projection advantage must be data-gated');
