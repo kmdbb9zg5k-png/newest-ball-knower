@@ -47,6 +47,8 @@ declare
   v_recovered_draft jsonb;
   v_recovered_retry jsonb;
   v_final_notifications integer;
+  v_notification_id uuid;
+  v_notification_marked boolean;
   v_playoff_games jsonb;
   v_standings jsonb;
   v_season_result jsonb;
@@ -195,11 +197,123 @@ begin
     raise exception 'Commissioner waiver priority override was not audited exactly once';
   end if;
 
+  -- Notification categories are owner-controlled at persistence time. A user
+  -- who disables Transactions must still receive unrelated League alerts, and
+  -- another manager's defaults must remain unchanged.
+  perform public.save_my_ball_knower_notification_preference(
+    'transactions',
+    false,
+    true
+  );
+  perform public.notify_ball_knower_league_members(
+    v_league_id,
+    'Smoke trade notice',
+    'This transaction-category notice tests preference enforcement.',
+    'trade_received'
+  );
+
+  if not exists (
+    select 1 from public.ball_knower_notifications notification
+    where notification.league_id = v_league_id
+      and notification.auth_user_id = v_auth_ids[1]
+      and notification.title = 'Smoke trade notice'
+      and notification.category = 'transactions'
+      and not notification.in_app_visible
+      and notification.push_eligible
+  ) then
+    raise exception 'Transaction delivery flags did not preserve the push-only owner event';
+  end if;
+  if (
+    select count(*) from public.ball_knower_notifications notification
+    where notification.league_id = v_league_id
+      and notification.auth_user_id = v_auth_ids[2]
+      and notification.title = 'Smoke trade notice'
+      and notification.category = 'transactions'
+      and notification.in_app_visible
+      and notification.push_eligible
+  ) <> 1 then
+    raise exception 'Default transaction notification was not delivered and categorized for the other manager';
+  end if;
+
+  perform public.notify_ball_knower_league_members(
+    v_league_id,
+    'Smoke league notice',
+    'This league-category notice must remain independent.',
+    'commissioner_announcement'
+  );
+  if (
+    select count(*) from public.ball_knower_notifications notification
+    where notification.league_id = v_league_id
+      and notification.auth_user_id = v_auth_ids[1]
+      and notification.title = 'Smoke league notice'
+      and notification.category = 'league'
+      and notification.read_at is null
+  ) <> 1 then
+    raise exception 'League notification was incorrectly suppressed by the transaction preference';
+  end if;
+
+  select notification.id
+  into v_notification_id
+  from public.ball_knower_notifications notification
+  where notification.league_id = v_league_id
+    and notification.auth_user_id = v_auth_ids[1]
+    and notification.title = 'Smoke league notice';
+  v_notification_marked := public.mark_ball_knower_notification_read(v_notification_id);
+  if not v_notification_marked or not exists (
+       select 1 from public.ball_knower_notifications notification
+       where notification.id = v_notification_id
+         and notification.auth_user_id = v_auth_ids[1]
+         and notification.read_at is not null
+     ) then
+    raise exception 'Owner-scoped single notification receipt failed';
+  end if;
+
+  perform public.notify_ball_knower_league_members(
+    v_league_id,
+    'Smoke unread league notice',
+    'This row remains unread until the scoped bulk receipt runs.',
+    'commissioner_announcement'
+  );
+
+  if public.mark_all_ball_knower_notifications_read(v_league_id) < 1 then
+    raise exception 'League-scoped mark-all-read did not update the authenticated owner';
+  end if;
+  if exists (
+    select 1 from public.ball_knower_notifications notification
+    where notification.league_id = v_league_id
+      and notification.auth_user_id = v_auth_ids[1]
+      and notification.in_app_visible
+      and notification.read_at is null
+  ) then
+    raise exception 'League-scoped mark-all-read left an owner notification unread';
+  end if;
+
+  perform set_config(
+    'request.jwt.claims',
+    jsonb_build_object('role', 'authenticated', 'sub', v_auth_ids[2]::text)::text,
+    true
+  );
+  perform public.save_my_ball_knower_notification_preference('roster', true, false);
+  if not exists (
+    select 1 from public.ball_knower_notification_preferences preference
+    where preference.auth_user_id = v_auth_ids[2]
+      and preference.category = 'roster'
+      and preference.in_app_enabled
+      and not preference.push_enabled
+  ) or exists (
+    select 1 from public.ball_knower_notification_preferences preference
+    where preference.auth_user_id = v_auth_ids[1]
+      and preference.category = 'roster'
+  ) then
+    raise exception 'Notification preference writes were not isolated to the authenticated owner';
+  end if;
+
   perform set_config(
     'request.jwt.claims',
     jsonb_build_object('role', 'authenticated', 'sub', v_auth_ids[1]::text)::text,
     true
   );
+  perform public.save_my_ball_knower_notification_preference('transactions', true, true);
   perform public.start_ball_knower_live_draft(v_league_id);
 
   update public.ball_knower_live_drafts

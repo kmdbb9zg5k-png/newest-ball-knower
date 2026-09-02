@@ -29,6 +29,7 @@ import { playerPortraitFallbackUrl, playerPortraitUrl } from "./playerPortraits"
 import { useBallKnower } from "./BallKnowerContext";
 import { FantasyAdvancedLeagueSettings } from "./FantasyAdvancedLeagueSettings";
 import { FantasyLeagueCommunications } from "./FantasyLeagueCommunications";
+import { FantasyNotificationPreferences } from "./FantasyNotificationPreferences";
 import { isCloudConfigured } from "./supabase";
 import {
   fetchSeasonOperations,
@@ -2139,6 +2140,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                   league={league}
                   disabled={!isCommissioner}
                 />
+                <FantasyNotificationPreferences userId={currentUser?.id} />
               </div>
             )}
           </Panel>}

@@ -11,6 +11,10 @@ for(const operation of [
   'generate_ball_knower_weekly_injuries',
   'propose_ball_knower_trade_v2',
   'resolve_ball_knower_trade_v2',
+  'save_my_ball_knower_notification_preference',
+  'mark_ball_knower_notification_read',
+  'notify_ball_knower_league_members',
+  'mark_all_ball_knower_notifications_read',
   'commissioner_set_ball_knower_waiver_priority',
   'submit_ball_knower_player_move',
   'process_due_ball_knower_waivers',
@@ -30,5 +34,8 @@ assert.ok(sql.includes('v_final_notifications <> 1'),'Production smoke must dete
 assert.ok(sql.includes("event.event_type='commissioner_waiver_priority_changed'"),'Production smoke must assert commissioner waiver audit history');
 assert.ok(sql.includes("event.event_type='commissioner_trade_approved'"),'Production smoke must assert commissioner trade-review audit history');
 assert.ok(sql.includes("has_table_privilege('anon'"),'Production smoke must verify anonymous league-data grants stay revoked');
+assert.ok(sql.includes("notification.category = 'transactions'")&&sql.includes("notification.category = 'league'")&&sql.includes('not notification.in_app_visible')&&sql.includes('notification.push_eligible'),'Production smoke must prove category mapping and independent delivery flags');
+assert.ok(sql.includes('Notification preference writes were not isolated to the authenticated owner'),'Production smoke must verify notification preference owner isolation');
+assert.ok(sql.includes('Owner-scoped single notification receipt failed'),'Production smoke must verify one-row owner read receipts');
 
-console.log('Production fantasy smoke contract covers draft, schedule, lineup, injuries, trade, waivers, scoring, playoffs, archive, reset, and rollback.');
+console.log('Production fantasy smoke contract covers draft, schedule, lineup, injuries, trade, waivers, notifications, scoring, playoffs, archive, reset, and rollback.');

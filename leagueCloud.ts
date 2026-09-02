@@ -6,7 +6,9 @@ type UserLike = { id:string; name:string; avatarUrl?:string };
 export type LeagueEvent = { id:string; leagueId:string; actorName:string; eventType:string; message:string; metadata:any; createdAt:string };
 export type SeasonArchiveEntry = { id:string; leagueId:string; seasonNumber:number; result:SeasonResult; settings:any; createdAt:string };
 export type RosterRevision = { id:string; leagueId:string; memberId:string; revisionNumber:number; roster:Player[]; teamRatings?:TeamRatings; reason:string; createdAt:string };
-export type LeagueNotification = { id:string; leagueId?:string; title:string; body:string; kind:string; readAt?:string; createdAt:string };
+export type FantasyNotificationCategory='draft'|'roster'|'transactions'|'league';
+export type FantasyNotificationPreference={category:FantasyNotificationCategory;inAppEnabled:boolean;pushEnabled:boolean};
+export type LeagueNotification = { id:string; leagueId?:string; title:string; body:string; kind:string; category:FantasyNotificationCategory; inAppVisible:boolean; pushEligible:boolean; readAt?:string; createdAt:string };
 
 const liveDraftFromRow = (row:any):LiveFantasyDraft|undefined => row ? ({
   leagueId:row.league_id,
@@ -172,15 +174,42 @@ export async function fetchRosterRevisions(leagueId:string,memberId?:string):Pro
 export async function fetchMyNotifications(limit=75):Promise<LeagueNotification[]> {
   if(!supabase) return [];
   const auth=await ensureOnlineSession();
-  const {data,error}=await supabase.from('ball_knower_notifications').select('*').eq('auth_user_id',auth.id).order('created_at',{ascending:false}).limit(limit);
+  const {data,error}=await supabase.from('ball_knower_notifications').select('*').eq('auth_user_id',auth.id).eq('in_app_visible',true).order('created_at',{ascending:false}).limit(limit);
   if(error) throw error;
-  return (data||[]).map((x:any)=>({id:x.id,leagueId:x.league_id||undefined,title:x.title,body:x.body,kind:x.kind,readAt:x.read_at||undefined,createdAt:x.created_at}));
+  return (data||[]).map((x:any)=>({id:x.id,leagueId:x.league_id||undefined,title:x.title,body:x.body,kind:x.kind,category:x.category||'league',inAppVisible:x.in_app_visible!==false,pushEligible:x.push_eligible!==false,readAt:x.read_at||undefined,createdAt:x.created_at}));
 }
 
 export async function markNotificationRead(id:string):Promise<void> {
   if(!supabase) return;
-  const auth=await ensureOnlineSession();
-  const {error}=await supabase.from('ball_knower_notifications').update({read_at:new Date().toISOString()}).eq('id',id).eq('auth_user_id',auth.id);
+  await ensureOnlineSession();
+  const {error}=await supabase.rpc('mark_ball_knower_notification_read',{p_notification_id:id});
+  if(error) throw error;
+}
+
+export async function markAllNotificationsRead(leagueId?:string):Promise<number> {
+  if(!supabase) return 0;
+  await ensureOnlineSession();
+  const {data,error}=await supabase.rpc('mark_all_ball_knower_notifications_read',{p_league_id:leagueId||null});
+  if(error) throw error;
+  return Number(data)||0;
+}
+
+export async function fetchMyNotificationPreferences():Promise<FantasyNotificationPreference[]> {
+  if(!supabase) return [];
+  await ensureOnlineSession();
+  const {data,error}=await supabase.rpc('get_my_ball_knower_notification_preferences');
+  if(error) throw error;
+  return (data||[]).map((row:any)=>({category:row.category,inAppEnabled:row.in_app_enabled!==false,pushEnabled:row.push_enabled!==false}));
+}
+
+export async function saveMyNotificationPreference(preference:FantasyNotificationPreference):Promise<void> {
+  if(!supabase) return;
+  await ensureOnlineSession();
+  const {error}=await supabase.rpc('save_my_ball_knower_notification_preference',{
+    p_category:preference.category,
+    p_in_app_enabled:preference.inAppEnabled,
+    p_push_enabled:preference.pushEnabled,
+  });
   if(error) throw error;
 }
 
