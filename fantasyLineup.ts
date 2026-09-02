@@ -10,10 +10,17 @@ export function resolveWeeklyProjection(
   projections:WeeklyProjectionInput[],
   format:'standard'|'half_ppr'|'ppr',
   hasCustomScoring:boolean,
+  seasonProjection:number|null=null,
+  verifiedSeasonGames=0,
+  playsThisWeek=true,
 ):number|null{
   if(hasCustomScoring) return null;
   const value=Number(projections.find(item=>item.playerId===playerId)?.projectedPoints[format]);
-  return Number.isFinite(value)?value:null;
+  if(Number.isFinite(value)) return value;
+  if(seasonProjection===null) return null;
+  const seasonValue=Number(seasonProjection);
+  if(verifiedSeasonGames!==17||!Number.isFinite(seasonValue)||seasonValue<0) return null;
+  return playsThisWeek?seasonValue/17:0;
 }
 
 // Standard fantasy lineup. Drafting stays unrestricted; managers must use their bench,

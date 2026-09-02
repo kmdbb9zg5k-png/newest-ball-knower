@@ -187,17 +187,13 @@ begin
     raise exception 'Completed draft did not finalize ten legal 15-player rosters';
   end if;
 
-  select ball_knower_private.build_fantasy_regular_schedule(
-    to_jsonb(v_member_ids),
-    15
-  ) into v_regular_games;
-
-  update public.ball_knower_leagues
-  set season_result = jsonb_set(season_result, '{games}', v_regular_games, true)
+  select season_result->'games'
+  into v_regular_games
+  from public.ball_knower_leagues
   where id = v_league_id;
 
   if jsonb_array_length(v_regular_games) <> 75 then
-    raise exception '10-team regular-season schedule is not 75 matchups';
+    raise exception 'Draft finalization did not persist all 75 regular-season matchups';
   end if;
 
   select

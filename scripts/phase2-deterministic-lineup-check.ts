@@ -27,6 +27,11 @@ assert.equal(resolveWeeklyProjection('qb-a',weekOne,'ppr',false),20,'selected-we
 assert.equal(resolveWeeklyProjection('qb-a',weekTwo,'standard',false),24,'selected-week standard projection must be used');
 assert.equal(resolveWeeklyProjection('qb-a',weekOne,'ppr',true),null,'custom scoring must not invent a compatible projection');
 assert.equal(resolveWeeklyProjection('missing',weekOne,'ppr',false),null,'missing weekly data must remain unavailable');
+assert.equal(resolveWeeklyProjection('missing',weekOne,'ppr',false,340,17,true),20,'a verified 17-game schedule may use season projection pace before weekly projections publish');
+assert.equal(resolveWeeklyProjection('missing',weekOne,'ppr',false,340,17,false),0,'a verified bye must project zero points');
+assert.equal(resolveWeeklyProjection('missing',weekOne,'ppr',false,340,16,true),null,'an incomplete schedule must not invent a weekly projection');
+assert.equal(resolveWeeklyProjection('missing',weekOne,'ppr',false,null,17,true),null,'a missing season projection must not become a false zero');
+assert.equal(resolveWeeklyProjection('missing',weekOne,'ppr',true,340,17,true),null,'season pace must not be applied to incompatible custom scoring');
 
 const api=readFileSync(new URL('../api/fantasy-live-scoring.ts',import.meta.url),'utf8');
 assert.match(api,/\.sort\(compare\)\.map\(player=>player\.id\)/,'server bench must be deterministic');
@@ -42,6 +47,8 @@ assert.doesNotMatch(lineupRules,/localeCompare/,'shared lineup ordering must not
 assert.match(screen,/const authoritative = scores\.find[\s\S]*if \(authoritative\?\.players\.length\) return authoritative/,'authoritative scores must take precedence');
 assert.match(screen,/saved\?\.starters[\s\S]*buildFantasyLineup/,'saved lineups must precede deterministic fallback lineups');
 assert.match(screen,/resolveWeeklyProjection\([\s\S]*weeklyProjections[\s\S]*Object\.keys\(settings\.customScoring/,'matchup fallback must use the tested weekly projection resolver');
+assert.match(screen,/rankingsByPlayerKey\.get\(player\.id\)/,'D\/ST and other permanent player keys must resolve projections without fragile display-name matching');
+assert.match(screen,/verifiedTeamGames\.length[\s\S]*verifiedTeamGames\.some/,'season-pace projections must require a complete team schedule and the selected-week matchup');
 assert.match(screen,/const homeScore = matchupScoreFor\(home\)[\s\S]*const awayScore = matchupScoreFor\(away\)/,'every matchup card must receive projected totals without waiting for weekly score rows');
 assert.match(screen,/player\.opponent[\s\S]*player\.isHome === false \? "@" : "vs"/,'matchup rows must display the verified opponent and home/away designation');
 assert.ok(screen.includes('"Opponent unavailable"'),'missing opponent metadata must not be mislabeled as a bye');

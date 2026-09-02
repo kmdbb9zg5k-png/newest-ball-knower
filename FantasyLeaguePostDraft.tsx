@@ -222,8 +222,16 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
     return map;
   }, [rankings]);
 
+  const rankingsByPlayerKey = useMemo(() => {
+    const map = new Map<string, FantasyRanking>();
+    rankings.forEach((ranking) => map.set(ranking.player_key, ranking));
+    return map;
+  }, [rankings]);
+
   const rankingFor = (player?: Player) =>
-    player ? rankingsByName.get(normalizeName(player.name)) : undefined;
+    player
+      ? rankingsByPlayerKey.get(player.id) || rankingsByName.get(normalizeName(player.name))
+      : undefined;
   const projectedPointsFor = (player: Player): number | null => {
     const ranking = rankingFor(player);
     if (!ranking) return null;
@@ -832,11 +840,17 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
       : settings.scoringFormat === "half_ppr"
         ? "half_ppr"
         : "ppr";
+    const verifiedTeamGames = seasonGames.filter(
+      (game) => game.homeTeam === player.team || game.awayTeam === player.team,
+    );
     return resolveWeeklyProjection(
       player.id,
       weeklyProjections,
       format,
       Object.keys(settings.customScoring || {}).length > 0,
+      projectedPointsFor(player),
+      verifiedTeamGames.length,
+      verifiedTeamGames.some((game) => game.week === week),
     );
   };
   const isVerifiedBye = (team: string) => {
