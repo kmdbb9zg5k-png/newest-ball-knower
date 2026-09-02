@@ -29,6 +29,11 @@ as $function$
   select (nullif(current_setting('request.jwt.claims', true), '')::jsonb->>'sub')::uuid
 $function$;
 
+-- Match the Supabase role bootstrap: API roles can resolve auth.uid(), but
+-- they cannot inspect or mutate the auth schema itself.
+grant usage on schema auth to anon, authenticated;
+grant execute on function auth.uid() to anon, authenticated;
+
 create table public.ball_knower_leagues (
   id text primary key,
   code text not null unique,
