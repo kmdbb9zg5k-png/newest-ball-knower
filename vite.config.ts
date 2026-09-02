@@ -37,5 +37,23 @@ export default defineConfig(() => {
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            const normalized=id.replace(/\\/g,'/');
+            if(normalized.includes('/node_modules/react/')||normalized.includes('/node_modules/react-dom/')||normalized.includes('/node_modules/scheduler/'))return 'vendor-react';
+            if(normalized.includes('/node_modules/@supabase/'))return 'vendor-supabase';
+            if(normalized.includes('/node_modules/lucide-react/')||normalized.includes('/node_modules/motion/'))return 'vendor-ui';
+            if(/\/afc(?:East|North|South|West)\.ts$/.test(normalized))return 'player-catalog-afc';
+            if(/\/nfc(?:East|North|South|West)\.ts$/.test(normalized))return 'player-catalog-nfc';
+            if(/\/madden27(?:CurrentRoster|RosterChunk\d+)\.ts$/.test(normalized))return 'madden-roster';
+            if(normalized.endsWith('/maddenRatings.ts'))return 'madden-ratings';
+            if(/\/(?:players|masterRoster2026|currentSeasonRoster)\.ts$/.test(normalized))return 'player-catalog-core';
+            if(/\/(?:simulation|soloSeasonEngine|soloFranchiseEngine|fantasyLiveScoring)\.ts$/.test(normalized))return 'simulation-engines';
+          },
+        },
+      },
+    },
   };
 });
