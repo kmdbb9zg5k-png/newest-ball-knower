@@ -34,8 +34,11 @@ assert.ok(sql.includes('v_final_notifications <> 1'),'Production smoke must dete
 assert.ok(sql.includes("event.event_type='commissioner_waiver_priority_changed'"),'Production smoke must assert commissioner waiver audit history');
 assert.ok(sql.includes("event.event_type='commissioner_trade_approved'"),'Production smoke must assert commissioner trade-review audit history');
 assert.ok(sql.includes("has_table_privilege('anon'"),'Production smoke must verify anonymous league-data grants stay revoked');
+assert.ok(sql.includes("draft.status = 'completed'")&&sql.includes('count(distinct member.id) > 1'),'Production smoke must reject duplicate ownership only after a real fantasy draft completes');
+assert.ok(sql.includes("draft.status = 'active'")&&sql.includes("pick.value->>'playerId'")&&sql.includes('having count(*) > 1'),'Production smoke must reject duplicate picks in active authoritative ledgers');
+assert.ok(sql.includes('Draft Order Game/build rosters may intentionally overlap'),'Ownership checks must not reinterpret Draft Order Game builds as normal fantasy rosters');
 assert.ok(sql.includes("notification.category = 'transactions'")&&sql.includes("notification.category = 'league'")&&sql.includes('not notification.in_app_visible')&&sql.includes('notification.push_eligible'),'Production smoke must prove category mapping and independent delivery flags');
 assert.ok(sql.includes('Notification preference writes were not isolated to the authenticated owner'),'Production smoke must verify notification preference owner isolation');
 assert.ok(sql.includes('Owner-scoped single notification receipt failed'),'Production smoke must verify one-row owner read receipts');
 
-console.log('Production fantasy smoke contract covers draft, schedule, lineup, injuries, trade, waivers, notifications, scoring, playoffs, archive, reset, and rollback.');
+console.log('Production fantasy smoke contract covers ownership, draft, schedule, lineup, injuries, trade, waivers, notifications, scoring, playoffs, archive, reset, and rollback.');
