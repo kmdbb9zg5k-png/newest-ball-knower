@@ -278,6 +278,15 @@ const valueList = (value:unknown):Json[] => {
   return [];
 };
 
+export function dedupeProviderPlayerRows(value:unknown):Json[]{
+  const byProviderId=new Map<string,Json>();
+  for(const row of valueList(value)){
+    const providerPlayerId=String(row.playerID||row.playerId||'').trim();
+    if(providerPlayerId) byProviderId.set(providerPlayerId,row);
+  }
+  return [...byProviderId.values()];
+}
+
 const jsonEqual = (a:unknown,b:unknown) => JSON.stringify(a ?? {}) === JSON.stringify(b ?? {});
 const numeric = (value:unknown) => {
   const parsed=Number.parseFloat(String(value??'0'));
@@ -322,6 +331,16 @@ const matchupForTeam = (game:GameRow, teamValue:unknown) => {
 };
 const projectionReason = (team:string, opponent:string, isHome:boolean) =>
   `Tank01's weekly projection for ${team} ${isHome?'at home against':'on the road at'} ${opponent}, captured before kickoff.`;
+
+// PostgREST normalizes bulk-upsert objects to one shared column set. Mixing
+// existing rows (which include an id) with new rows (which rely on the database
+// default) can therefore turn the missing ids into explicit null values. Keep
+// the generated primary key out of every payload row and let the composite
+// league/member/week conflict target preserve existing ids on updates.
+export function weeklyLineupWritePayload(lineup:Json, updates:Json):Json{
+  const {id:_generatedId,...withoutGeneratedId}=lineup;
+  return {...withoutGeneratedId,...updates};
+}
 
 function defaultLineup(roster:RosterPlayer[], projections:Map<string,Record<FantasyScoringFormat,number>>, format:FantasyScoringFormat){
   const compare=(a:RosterPlayer,b:RosterPlayer)=>{
@@ -428,8 +447,9 @@ async function processHistoricalBackfill(db:any,now:Date):Promise<Json>{
     const status=String(box.gameStatus||game.game_status||'Final');
     const rows:Json[]=[];
     const rawPlayerStats=valueList(box.playerStats||box.players||{});
+    const uniquePlayerStats=dedupeProviderPlayerRows(rawPlayerStats);
     let malformedPlayerRow=false;
-    for(const playerRaw of rawPlayerStats){
+    for(const playerRaw of uniquePlayerStats){
       const providerPlayerId=String(playerRaw.playerID||playerRaw.playerId||'');
       const team=normalizeTeam(playerRaw.teamAbv||playerRaw.team);
       if(!providerPlayerId||!team||(team!==game.away_team&&team!==game.home_team)){ malformedPlayerRow=true; continue; }
@@ -694,7 +714,10 @@ export default async function handler(req:any,res:any){
         fantasyPoints:true,
       }) as Json;
       const status=String(box.gameStatus||game.game_status||'Scheduled');
-      const isFinal=isFinalGameStatus(status);
+      // Once a game is final, a delayed or stale provider response must never
+      // reopen it. Final rows stay pollable during the correction window, so
+      // corrected stats still propagate without regressing matchup state.
+      const isFinal=isFinalGameStatus(status)||Boolean(game.is_final);
       const gameUpdate={
         game_status:status,
         game_period:String(box.currentPeriod||box.lineScore?.period||''),
@@ -711,7 +734,7 @@ export default async function handler(req:any,res:any){
       Object.assign(game,gameUpdate);
 
       const rows:Json[]=[];
-      for(const playerRaw of valueList(box.playerStats||box.players||{})){
+      for(const playerRaw of dedupeProviderPlayerRows(box.playerStats||box.players||{})){
         const providerPlayerId=String(playerRaw.playerID||playerRaw.playerId||'');
         if(!providerPlayerId) continue;
         const name=String(playerRaw.longName||playerRaw.playerName||providerPlayerId);
@@ -853,8 +876,10 @@ export default async function handler(req:any,res:any){
             points:actual,projectedPoints:projected,projectionAvailable,status:game?.game_status||'Opponent unavailable',kickoffAt:game?.kickoff_at||null,
             isLive:Boolean(game?.is_live),isFinal:Boolean(game?.is_final),locked:lockedIds.has(player.id)});
         }
-        lineupWrites.push({...lineup,locked_player_ids:[...lockedIds],locked:lockedIds.size>=STANDARD_SLOTS.length,
-          finalized_at:weekIsFinal?(lineup.finalized_at||now.toISOString()):null,updated_at:now.toISOString()});
+        lineupWrites.push(weeklyLineupWritePayload(lineup,{
+          locked_player_ids:[...lockedIds],locked:lockedIds.size>=STANDARD_SLOTS.length,
+          finalized_at:weekIsFinal?(lineup.finalized_at||now.toISOString()):null,updated_at:now.toISOString(),
+        }));
 
         const previous=weeklyScoreMap.get(`${league.id}|${member.id}`);
         const totalChanged=Boolean(previous)&&(numeric(previous.live_points)!==Math.round(livePoints*100)/100||numeric(previous.projected_points)!==Math.round(projectedPoints*100)/100);
