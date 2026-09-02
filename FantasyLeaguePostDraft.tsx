@@ -3387,57 +3387,45 @@ const CutPicker = ({
   onChange: (ids: string[]) => void;
   max: number;
   valueLabel: (player: Player) => string;
-}) => (
-  <fieldset className="rounded-xl border border-amber-400/20 bg-amber-400/[.04] p-2">
-    <legend className="px-1 text-[9px] font-black uppercase text-amber-300">
-      {title} · {selected.length}/{max}
-    </legend>
-    <div className="max-h-44 space-y-1 overflow-y-auto">
-      {[...players]
-        .sort((a, b) =>
-          selected.includes(a.id) === selected.includes(b.id)
-            ? a.name.localeCompare(b.name)
-            : selected.includes(a.id)
-              ? -1
-              : 1,
-        )
-        .map((player) => {
-          const active = selected.includes(player.id);
-          return (
-            <button
-              type="button"
-              key={player.id}
-              aria-pressed={active}
-              onClick={() =>
-                onChange(
-                  active
-                    ? selected.filter((id) => id !== player.id)
-                    : selected.length < max
-                      ? [...selected, player.id]
-                      : selected,
-                )
-              }
-              className={`flex min-h-12 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left ${active ? "bg-amber-300 text-black" : "bg-black/30"}`}
-            >
-              <div className="min-w-0">
-                <div className="truncate text-xs font-black">
-                  {player.name} · {player.position}
-                </div>
-                <div
-                  className={`truncate text-[8px] ${active ? "text-black/60" : "text-zinc-600"}`}
-                >
-                  {valueLabel(player)}
-                </div>
-              </div>
-              <b className="shrink-0 text-[9px] uppercase">
-                {active ? "Cut ✓" : "Cut"}
-              </b>
-            </button>
-          );
-        })}
-    </div>
-  </fieldset>
-);
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  const selectedPlayers = selected
+    .map((id) => players.find((player) => player.id === id))
+    .filter((player): player is Player => Boolean(player));
+  const availablePlayers = [...players]
+    .filter((player) => !selected.includes(player.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  return (
+    <fieldset className="rounded-lg border border-amber-400/20 bg-amber-400/[.04] p-2">
+      <legend className="px-1 text-[9px] font-black uppercase text-amber-300">
+        {title} · {selected.length}/{max}
+      </legend>
+      <div className="space-y-1">
+        {selectedPlayers.map((player) => (
+          <div key={player.id} className="flex min-h-12 items-center gap-2 rounded-lg bg-amber-300 px-2 py-1 text-black">
+            <Portrait player={player}/>
+            <div className="min-w-0 flex-1"><div className="truncate text-[11px] font-black">{player.name} · {player.position}</div><div className="truncate text-[8px] text-black/60">{valueLabel(player)}</div></div>
+            <button type="button" aria-label={`Keep ${player.name} on roster`} onClick={() => onChange(selected.filter((id) => id !== player.id))} className="bk-fantasy-icon-button grid place-items-center text-black/60"><X className="h-3.5 w-3.5"/></button>
+          </div>
+        ))}
+        {selected.length < max && (
+          <button type="button" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} className="bk-fantasy-compact-button flex w-full items-center justify-center gap-1.5 border border-dashed border-amber-300/40 text-[9px] font-black uppercase text-amber-300">
+            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`}/> Choose roster cut
+          </button>
+        )}
+        {expanded && (
+          <div className="max-h-44 overflow-y-auto rounded-lg border border-white/10 bg-[#07090c] p-1">
+            {availablePlayers.map((player) => (
+              <button type="button" key={player.id} onClick={() => { const next = [...selected, player.id]; onChange(next); if (next.length >= max) setExpanded(false); }} className="bk-fantasy-player-row flex w-full items-center gap-2 border-b border-white/[.06] px-2 py-1 text-left last:border-0">
+                <Portrait player={player}/><span className="min-w-0 flex-1"><span className="block truncate text-[11px] font-black">{player.name} · {player.position}</span><span className="block truncate text-[8px] text-zinc-500">{valueLabel(player)}</span></span><Plus className="h-3.5 w-3.5 shrink-0 text-amber-300"/>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </fieldset>
+  );
+};
 
 const TradeSizeNote = ({
   myCount,
