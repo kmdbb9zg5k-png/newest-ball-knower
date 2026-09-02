@@ -70,7 +70,7 @@ try{
     await page.addInitScript(()=>{
       localStorage.setItem('ball-knower-team-setup-v2','complete');
       localStorage.setItem('ball-knower-intro-sound-v1','off');
-      localStorage.setItem('bk-guide-fantasy-hq-v3','complete');
+      localStorage.setItem('bk-guide-fantasy-hq-v3','seen');
     });
     await page.goto(baseURL,{waitUntil:'domcontentloaded'});
     const skip=page.getByRole('button',{name:/skip/i});
