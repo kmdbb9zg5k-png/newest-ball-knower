@@ -100,7 +100,7 @@ The release program therefore remains active. “Yahoo parity” tests in the re
 
 1. Physical iPhone/Dynamic Island/push/background/two-device testing is not complete and cannot be closed by browser emulation.
 2. The 2026 NFL season has not yet provided a full real Thursday–Monday scoring/correction cycle for longitudinal proof.
-3. Fifteen legacy pre-standard-roster leagues contain duplicate ownership rows from the older 20-player architecture. They are isolated legacy debt; no destructive cleanup should run without a reviewed recovery migration.
+3. Fifteen legacy pre-standard-roster leagues retain overlapping 20-player Draft Order Game/build rosters. That overlap is valid outside normal fantasy ownership: the current audit found zero duplicate player pairs in completed live-draft rosters and zero duplicate picks in active ledgers. Do not destructively “dedupe” the football-game rosters.
 4. Eight legacy active draft rooms remain quarantined until a member opens one and the new recovery validator approves its ledger. This is deliberate; they should not be blindly advanced.
 5. Native push transport still requires app-shell device-token registration, deep links, provider delivery receipts, and physical delivery verification. Category preferences and independent delivery flags are ready but are not delivery proof.
 6. The primary production JavaScript bundle remains about 1.53 MB minified; route-level code splitting is a performance follow-up.

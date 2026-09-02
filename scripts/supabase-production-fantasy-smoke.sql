@@ -61,6 +61,35 @@ begin
     raise exception 'Anonymous role retained access to private fantasy league data';
   end if;
 
+  -- Draft Order Game/build rosters may intentionally overlap because they are
+  -- independent football rosters. Actual fantasy ownership begins only after
+  -- a live draft completes, where one canonical player may have one owner.
+  if exists (
+    select member.league_id, player.value->>'id'
+    from public.ball_knower_league_members member
+    join public.ball_knower_live_drafts draft
+      on draft.league_id = member.league_id
+     and draft.status = 'completed'
+    cross join lateral jsonb_array_elements(coalesce(member.roster, '[]'::jsonb)) player(value)
+    where nullif(player.value->>'id', '') is not null
+    group by member.league_id, player.value->>'id'
+    having count(distinct member.id) > 1
+  ) then
+    raise exception 'A completed live fantasy draft contains duplicate player ownership';
+  end if;
+
+  if exists (
+    select draft.league_id, pick.value->>'playerId'
+    from public.ball_knower_live_drafts draft
+    cross join lateral jsonb_array_elements(coalesce(draft.picks, '[]'::jsonb)) pick(value)
+    where draft.status = 'active'
+      and nullif(pick.value->>'playerId', '') is not null
+    group by draft.league_id, pick.value->>'playerId'
+    having count(*) > 1
+  ) then
+    raise exception 'An active live fantasy draft ledger contains duplicate player picks';
+  end if;
+
   -- Borrow two real auth identities only as principals for auth.uid() checks.
   -- No rows belonging to those users are changed outside this transaction.
   select array_agg(auth_user_id order by auth_user_id)
