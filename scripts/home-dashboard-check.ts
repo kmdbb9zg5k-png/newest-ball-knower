@@ -7,6 +7,7 @@ const navbar=read('Navbar.tsx');
 const app=read('App.tsx');
 const footer=read('LaunchCenter.tsx');
 const locker=read('LockerHub.tsx');
+const fantasyHub=read('FantasyHub.tsx');
 const styles=read('index.css');
 
 assert.ok(home.includes('activeLeague||leagues.find'), 'home must feature the selected league instead of a hard-coded personal league');
@@ -20,13 +21,15 @@ assert.ok(home.includes('Ball Knower Rating')&&home.includes('rating points to')
 assert.ok(home.includes('Create League')&&home.includes('Join League')&&home.includes('Cheat Sheet')&&home.includes('Solo Mode'), 'all approved home quick links must remain reachable');
 
 assert.ok(navbar.includes('fixed inset-x-0 bottom-0')&&navbar.includes('pb-[env(safe-area-inset-bottom)]'), 'mobile navigation must be fixed above the iPhone home indicator');
+assert.ok(navbar.includes("createPortal")&&navbar.includes('fixed inset-x-0 top-0')&&navbar.includes('h-[calc(72px+env(safe-area-inset-top))]'), 'both app navigation bars must be portaled to the viewport with a safe content spacer');
 const headerClose=navbar.indexOf('</header>');
 const mobileNav=navbar.indexOf('<nav aria-label="Primary navigation"');
-assert.ok(headerClose>=0&&mobileNav>headerClose, 'mobile navigation must remain outside the blurred sticky header so iOS fixes it to the viewport');
+assert.ok(headerClose>=0&&mobileNav>headerClose, 'mobile navigation must remain outside the blurred top header so iOS fixes it to the viewport');
 assert.ok(app.includes('overflow-x-clip')&&styles.includes('overflow-x: clip')&&!styles.includes('overflow: hidden;'), 'the app shell must not become a false scroll container that breaks the sticky iPhone header');
 assert.ok(home.includes('env(safe-area-inset-left)')&&home.includes('env(safe-area-inset-right)')&&navbar.includes('env(safe-area-inset-left)')&&navbar.includes('env(safe-area-inset-right)'), 'home content and header must stay clear of the iPhone landscape notch');
 assert.ok(navbar.includes("mobileTabClass('home')")&&navbar.includes("mobileTabClass('fantasy')")&&navbar.includes("mobileTabClass('sportsbook')")&&navbar.includes("mobileTabClass('challenges')")&&navbar.includes("mobileTabClass('locker')"), 'mobile navigation must expose the five approved primary destinations');
 assert.ok(navbar.includes("setCurrentTab('solo')")&&navbar.includes("setCurrentTab('news')")&&navbar.includes("setCurrentTab('legacy')"), 'secondary Solo, News, and Hall of Fame destinations must remain available');
+assert.ok(!fantasyHub.includes('sticky top-[7rem]'), 'Cheat Sheet filters must scroll normally instead of covering player rows under the fixed app bars');
 assert.ok(app.includes('teamTheme={favoriteTheme}')&&app.includes('pb-[calc(5rem+env(safe-area-inset-bottom))]'), 'the app must pass the selected team theme and reserve space for bottom navigation');
 assert.ok(app.includes("window.history.scrollRestoration='manual'")&&app.includes("currentTab!=='home'")&&app.includes('resetHomeScroll'), 'home must defeat stale iPhone browser scroll restoration and reopen at the top');
 assert.ok(footer.includes('pb-[calc(5rem+env(safe-area-inset-bottom))]'), 'the fixed bottom navigation must not cover the final footer controls');

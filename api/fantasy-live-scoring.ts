@@ -340,6 +340,44 @@ function defaultLineup(roster:RosterPlayer[], projections:Map<string,Record<Fant
   return {starters,bench:roster.filter(player=>!used.has(player.id)).sort(compare).map(player=>player.id)};
 }
 
+async function syncCompleteRegularSeasonSchedule(db:any,season:number,now:Date):Promise<Json>{
+  const existing=await db.from('ball_knower_nfl_games').select('provider_game_id',{count:'exact',head:true})
+    .eq('season',season).eq('season_type','reg');
+  if(existing.error) throw existing.error;
+  if(Number(existing.count)===272) return {status:'complete',games:272};
+
+  const weeks=Array.from({length:18},(_,index)=>index+1);
+  const payloads=await Promise.all(weeks.map(week=>
+    tankGet('/getNFLGamesForWeek',{week:String(week),season:String(season),seasonType:'reg'}),
+  ));
+  const games:GameRow[]=payloads.flatMap((payload,index)=>valueList(payload).flatMap(game=>{
+    const providerGameId=String(game.gameID||game.gameId||'');
+    const kickoff=kickoffIsoFromTank01Game(game);
+    const awayTeam=normalizeTeam(game.away||game.awayTeam);
+    const homeTeam=normalizeTeam(game.home||game.homeTeam);
+    if(!providerGameId||!kickoff||!awayTeam||!homeTeam||awayTeam===homeTeam) return [];
+    const status=String(game.gameStatus||'Scheduled');
+    return [{
+      provider_game_id:providerGameId,season,season_type:'reg',week_number:index+1,
+      away_team:awayTeam,home_team:homeTeam,kickoff_at:kickoff,
+      game_status:status,game_status_code:String(game.gameStatusCode||''),game_period:null,game_clock:null,
+      is_live:isLiveGameStatus(status),is_final:isFinalGameStatus(status),
+      final_at:isFinalGameStatus(status)?now.toISOString():null,last_polled_at:null,
+    }];
+  }));
+  const teamGameCounts=new Map<string,number>();
+  for(const game of games){
+    teamGameCounts.set(game.away_team,(teamGameCounts.get(game.away_team)||0)+1);
+    teamGameCounts.set(game.home_team,(teamGameCounts.get(game.home_team)||0)+1);
+  }
+  if(games.length!==272||teamGameCounts.size!==32||[...teamGameCounts.values()].some(count=>count!==17)){
+    throw new Tank01Error('/getNFLGamesForWeek',200,'payload',`Tank01 returned an incomplete ${season} regular-season schedule.`);
+  }
+  const {error}=await db.from('ball_knower_nfl_games').upsert(games,{onConflict:'provider_game_id'});
+  if(error) throw error;
+  return {status:'loaded',games:games.length};
+}
+
 async function processHistoricalBackfill(db:any,now:Date):Promise<Json>{
   const stateResult=await db.from('ball_knower_fantasy_history_backfill').select('*').is('completed_at',null)
     .order('season',{ascending:true}).order('week_number',{ascending:true}).limit(1).maybeSingle();
@@ -448,8 +486,21 @@ export default async function handler(req:any,res:any){
   try{
     const current=await tankGet('/getNFLCurrentInfo') as Json;
     const season=Math.max(2026,Number(current?.season)||now.getUTCFullYear());
-    const week=Math.max(1,Math.min(22,Number(current?.week)||1));
-    const seasonType=String(current?.seasonType||'reg');
+    let week=Math.max(1,Math.min(22,Number(current?.week)||1));
+    let seasonType=String(current?.seasonType||'reg');
+    let scheduleSync:Json={status:'unavailable'};
+    try{ scheduleSync=await syncCompleteRegularSeasonSchedule(db,season,now); }
+    catch(error:any){ console.warn('fantasy-schedule-sync-failed',{season,message:error?.message||String(error)}); }
+    if(seasonType!=='reg'){
+      const nextGameResult=await db.from('ball_knower_nfl_games').select('week_number,kickoff_at')
+        .eq('season',season).eq('season_type','reg').eq('is_final',false)
+        .order('kickoff_at',{ascending:true}).limit(1).maybeSingle();
+      if(nextGameResult.error) throw nextGameResult.error;
+      if(nextGameResult.data){
+        week=Math.max(1,Math.min(18,Number(nextGameResult.data.week_number)||1));
+        seasonType='reg';
+      }
+    }
     if(seasonType==='Final'||seasonType!=='reg'){
       let historyBackfill:Json={status:'retry_later'};
       try{ historyBackfill=await processHistoricalBackfill(db,now); }
@@ -811,7 +862,7 @@ export default async function handler(req:any,res:any){
     }
 
     return res.status(200).json({
-      ok:true,season,week,seasonType,gamesScheduled:scheduleRows.length,gamesPolled:pollable.length,
+      ok:true,season,week,seasonType,scheduleSync,gamesScheduled:scheduleRows.length,gamesPolled:pollable.length,
       projectionSnapshotsWritten:scheduledProjectionRows.length,playerRowsWritten,leagueScoresWritten:weeklyScoreWrites.length,
       statCorrections:correctionCount,weekIsFinal,historyBackfill,checkedAt:now.toISOString(),
     });
