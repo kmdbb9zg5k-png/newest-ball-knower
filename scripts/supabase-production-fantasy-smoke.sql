@@ -51,6 +51,14 @@ declare
   v_standings jsonb;
   v_season_result jsonb;
 begin
+  if has_table_privilege('anon', 'public.ball_knower_weekly_lineups', 'select')
+     or has_table_privilege('anon', 'public.ball_knower_weekly_scores', 'select')
+     or has_table_privilege('anon', 'public.ball_knower_trades', 'select')
+     or has_table_privilege('anon', 'public.ball_knower_notifications', 'select')
+  then
+    raise exception 'Anonymous role retained access to private fantasy league data';
+  end if;
+
   -- Borrow two real auth identities only as principals for auth.uid() checks.
   -- No rows belonging to those users are changed outside this transaction.
   select array_agg(auth_user_id order by auth_user_id)
@@ -102,7 +110,7 @@ begin
       'nflSeason', 2026,
       'draftFormat', 'autopick',
       'scoringFormat', 'ppr',
-      'tradeReview', 'none',
+      'tradeReview', 'commissioner',
       'waiverType', 'priority',
       'freeAgentMode', 'continuous',
       'regularSeasonWeeks', 15,
@@ -142,6 +150,50 @@ begin
     true,
     slot
   from generate_series(1, 10) slot;
+
+  perform set_config(
+    'request.jwt.claims',
+    jsonb_build_object('role', 'authenticated', 'sub', v_auth_ids[2]::text)::text,
+    true
+  );
+  begin
+    perform public.commissioner_set_ball_knower_waiver_priority(
+      v_league_id,
+      v_member_ids[2],
+      1
+    );
+    raise exception 'Non-commissioner waiver override unexpectedly succeeded';
+  exception
+    when others then
+      if sqlerrm = 'Non-commissioner waiver override unexpectedly succeeded' then
+        raise;
+      end if;
+      if sqlerrm <> 'Commissioner only' then
+        raise exception 'Unexpected waiver override authorization error: %', sqlerrm;
+      end if;
+  end;
+
+  perform set_config(
+    'request.jwt.claims',
+    jsonb_build_object('role', 'authenticated', 'sub', v_auth_ids[1]::text)::text,
+    true
+  );
+  perform public.commissioner_set_ball_knower_waiver_priority(
+    v_league_id,
+    v_member_ids[2],
+    1
+  );
+  if (
+    select count(*)
+    from public.ball_knower_league_events event
+    where event.league_id=v_league_id
+      and event.event_type='commissioner_waiver_priority_changed'
+      and event.actor_auth_id=v_auth_ids[1]
+      and event.metadata->>'oldPriority'='2'
+      and event.metadata->>'newPriority'='1'
+  )<>1 then
+    raise exception 'Commissioner waiver priority override was not audited exactly once';
+  end if;
 
   perform set_config(
     'request.jwt.claims',
@@ -324,6 +376,21 @@ begin
     array[]::text[]
   );
 
+  if v_trade_result->>'status' <> 'accepted_pending_review' then
+    raise exception 'Commissioner-review trade did not enter pending review';
+  end if;
+
+  perform set_config(
+    'request.jwt.claims',
+    jsonb_build_object('role', 'authenticated', 'sub', v_auth_ids[1]::text)::text,
+    true
+  );
+  v_trade_result := public.resolve_ball_knower_trade_v2(
+    v_trade_id,
+    'approved',
+    array[]::text[]
+  );
+
   if v_trade_result->>'status' <> 'accepted'
      or not exists (
        select 1 from public.ball_knower_league_members member
@@ -337,6 +404,17 @@ begin
      )
   then
     raise exception 'Accepted trade did not atomically swap both players';
+  end if;
+
+  if (
+    select count(*)
+    from public.ball_knower_league_events event
+    where event.league_id=v_league_id
+      and event.event_type='commissioner_trade_approved'
+      and event.actor_auth_id=v_auth_ids[1]
+      and event.metadata->>'tradeId'=v_trade_id::text
+  )<>1 then
+    raise exception 'Commissioner trade approval was not audited exactly once';
   end if;
 
   perform set_config(
