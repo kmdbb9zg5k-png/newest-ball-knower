@@ -39,6 +39,11 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h 127.0.0.1 -U postgres -d postgres -f scripts/postgres-trigger-integration.sql
 
+      - name: Exercise private league RLS and league creation
+        env:
+          PGPASSWORD: postgres
+        run: psql -h 127.0.0.1 -U postgres -d postgres -f scripts/postgres-league-privacy-integration.sql
+
   hardening:
     runs-on: ubuntu-latest
     timeout-minutes: 10

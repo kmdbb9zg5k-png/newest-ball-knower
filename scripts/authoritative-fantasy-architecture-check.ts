@@ -41,4 +41,21 @@ assert.ok(migration.includes('revoke all on table public.%I from public, anon, a
 assert.ok(migration.includes('grant all on table public.%I to service_role'));
 assert.ok(migration.includes('join_fantasy_league_by_code'));
 
+const privacyMigration = readFileSync(
+  new URL('../migrations/20260902164240_allow_commissioner_insert_returning.sql', import.meta.url),
+  'utf8',
+);
+const privacyIntegration = readFileSync(
+  new URL('./postgres-league-privacy-integration.sql', import.meta.url),
+  'utf8',
+);
+const hardeningWorkflow = readFileSync(
+  new URL('../.github/workflows/hardening.yml', import.meta.url),
+  'utf8',
+);
+assert.ok(privacyMigration.includes('commissioner_auth_id = public.fantasy_requester_id()'));
+assert.ok(privacyIntegration.includes('returning id into returned_id'));
+assert.ok(privacyIntegration.includes('Authenticated non-member') || privacyIntegration.includes('non-member enumerated'));
+assert.ok(hardeningWorkflow.includes('scripts/postgres-league-privacy-integration.sql'));
+
 console.log('Authoritative fantasy architecture checks passed.');
