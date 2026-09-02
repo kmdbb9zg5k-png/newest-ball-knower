@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, ArrowLeft, ArrowUp, Ban, CheckCircle2, ChevronDown, ChevronUp, Clock3, ListPlus, LoaderCircle, Play, Search, Star, Trophy } from 'lucide-react';
 import { useBallKnower } from './BallKnowerContext';
-import { playerPortraitUrl } from './playerPortraits';
+import { playerPortraitFallbackUrl, playerPortraitUrl } from './playerPortraits';
 import { PLAYERS_DATABASE } from './players';
 import { CPU_LIVE_FANTASY_POSITION_LIMITS, getLiveFantasyDraftGroup, LIVE_FANTASY_ROSTER_REQUIREMENTS, LiveFantasyDraftGroup } from './liveFantasyRules';
 import { FantasyRanking, loadFantasyRankings } from './fantasyRankingsCloud';
@@ -235,7 +235,7 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
           const queued=preferences.queue.includes(player.id);const favorite=preferences.favorites.includes(player.id);const avoided=preferences.doNotDraft.includes(player.id);const preRanked=preferences.preRankings.includes(player.id);
           return <div key={player.id} className={`rounded-2xl border bg-[#101318] p-3 ${avoided?'border-red-400/25 opacity-60':queued?'border-[#D4AF37]/50':'border-white/10'}`}>
             <div className="grid grid-cols-[44px_minmax(0,1fr)_76px] items-center gap-2.5 sm:grid-cols-[48px_minmax(0,1fr)_88px] sm:gap-3">
-              <div className="h-11 w-11 overflow-hidden rounded-full bg-white/5 sm:h-12 sm:w-12">{playerPortraitUrl(player)?<img src={playerPortraitUrl(player)} alt="" className="h-full w-full object-cover"/>:null}</div>
+              <div className="h-11 w-11 overflow-hidden rounded-full border border-white/10 bg-white/5 sm:h-12 sm:w-12"><img src={playerPortraitUrl(player)} alt={`${player.name} headshot`} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event=>{event.currentTarget.onerror=null;event.currentTarget.src=playerPortraitFallbackUrl(player);}} className="h-full w-full object-cover"/></div>
               <div className="min-w-0"><div className="flex min-w-0 items-center gap-2"><div className="truncate font-black">{player.name}</div>{index===0&&group==='ALL'&&<span className="hidden shrink-0 rounded-full bg-emerald-400/10 px-2 py-0.5 text-[7px] font-black uppercase text-emerald-300 min-[390px]:inline">Top Available</span>}</div><div className="truncate text-xs font-semibold text-zinc-500">{player.position} · {player.team} · ADP {ranking?ranking.adp.toFixed(1):'—'}</div></div>
               <button onClick={()=>void makePick(player)} disabled={!canPick||avoided} className="rounded-xl bg-[#D4AF37] px-1 py-2 text-center text-black disabled:cursor-not-allowed disabled:opacity-45"><div className="text-base font-black sm:text-lg">{ranking?ranking.projected_points_2026.toFixed(1):teamDefense?'DEF':'—'}</div><div className="text-[7px] font-black">{canPick?'DRAFT':ranking?'PROJ PTS':teamDefense?'TEAM D/ST':'PLAYER'}</div></button>
             </div>

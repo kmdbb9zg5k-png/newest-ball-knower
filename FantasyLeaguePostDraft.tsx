@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { League, LeagueMember, Player, SimulationGame } from "./types";
 import { PLAYERS_DATABASE } from "./players";
-import { playerPortraitUrl } from "./playerPortraits";
+import { playerPortraitFallbackUrl, playerPortraitUrl } from "./playerPortraits";
 import { useBallKnower } from "./BallKnowerContext";
 import { FantasyAdvancedLeagueSettings } from "./FantasyAdvancedLeagueSettings";
 import { FantasyLeagueCommunications } from "./FantasyLeagueCommunications";
@@ -62,6 +62,7 @@ import {
 import { counterTradeV2 } from "./fantasyTradeV2Cloud";
 import { FantasyRanking, loadFantasyRankings } from "./fantasyRankingsCloud";
 import { FantasyPlayerDetail } from "./FantasyPlayerDetail";
+import { ModalPortal } from "./ModalPortal";
 import { resolveWeeklyProjection } from "./fantasyLineup";
 import {
   buildFantasyWeekPairings,
@@ -144,20 +145,27 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
       18 - playoffWeeks,
     );
   const maxSelectableWeek = maxWeek + playoffWeeks;
+  const storedWeekKey = `ball-knower:matchup-week:${league.id}`;
+  const storedMatchupKey = `ball-knower:matchup-id:${league.id}`;
 
   const [tab, setTab] = useState<Tab>("team");
   const [activityView, setActivityView] = useState<ActivityView>("trades");
   const [intelView, setIntelView] = useState<IntelView>("allbk");
-  const [week, setWeek] = useState(() =>
-    Math.min(maxSelectableWeek, Math.max(1, Number(settings.currentWeek) || 1)),
+  const [week, setWeek] = useState(() => {
+    const saved = Number(window.sessionStorage.getItem(storedWeekKey));
+    return Math.min(maxSelectableWeek, Math.max(1, saved || Number(settings.currentWeek) || 1));
+  });
+  const [viewedMatchupId, setViewedMatchupId] = useState(
+    () => window.sessionStorage.getItem(storedMatchupKey) || "",
   );
-  const [viewedMatchupId, setViewedMatchupId] = useState("");
+  const [showAllMatchups, setShowAllMatchups] = useState(false);
   const [lineups, setLineups] = useState<WeeklyLineup[]>([]);
   const [scores, setScores] = useState<WeeklyScore[]>([]);
   const [memberMeta, setMemberMeta] = useState<MemberFantasyMeta[]>([]);
   const [memberMetaLoaded, setMemberMetaLoaded] = useState(false);
   const [archives, setArchives] = useState<ArchivedSeason[]>([]);
   const [nflGames, setNflGames] = useState<NflWeekGame[]>([]);
+  const [seasonGames, setSeasonGames] = useState<NflWeekGame[]>([]);
   const [weeklyProjections, setWeeklyProjections] = useState<WeeklyPlayerProjection[]>([]);
   const [trades, setTrades] = useState<TradeOffer[]>([]);
   const [claims, setClaims] = useState<WaiverClaim[]>([]);
@@ -175,6 +183,15 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const [error, setError] = useState("");
   const [detailPlayer, setDetailPlayer] = useState<Player | null>(null);
   const [detailOwnerName, setDetailOwnerName] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (!showAllMatchups) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowAllMatchups(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [showAllMatchups]);
 
   const [freeAgentQuery, setFreeAgentQuery] = useState("");
   const [faabPlayer, setFaabPlayer] = useState("");
@@ -195,6 +212,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const tradeBuilderRef = useRef<HTMLDivElement>(null);
   const seasonFinalizeRef = useRef("");
   const parityRequestRef = useRef(0);
+  const parityViewCacheRef = useRef(new Map<string, any>());
 
   const rankingsByName = useMemo(() => {
     const map = new Map<string, FantasyRanking>();
@@ -204,8 +222,16 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
     return map;
   }, [rankings]);
 
+  const rankingsByPlayerKey = useMemo(() => {
+    const map = new Map<string, FantasyRanking>();
+    rankings.forEach((ranking) => map.set(ranking.player_key, ranking));
+    return map;
+  }, [rankings]);
+
   const rankingFor = (player?: Player) =>
-    player ? rankingsByName.get(normalizeName(player.name)) : undefined;
+    player
+      ? rankingsByPlayerKey.get(player.id) || rankingsByName.get(normalizeName(player.name))
+      : undefined;
   const projectedPointsFor = (player: Player): number | null => {
     const ranking = rankingFor(player);
     if (!ranking) return null;
@@ -256,47 +282,68 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
 
   const refresh = async () => {
     const requestId = ++parityRequestRef.current;
-    try {
-      setError("");
-      setMemberMetaLoaded(false);
-      const [parity, ops] = await Promise.all([
+    setError("");
+    setMemberMetaLoaded(false);
+    const [parityResult, opsResult] = await Promise.allSettled([
         fetchFantasyParityState(
           league.id,
           week,
           Number(settings.nflSeason) || 2026,
         ),
         fetchSeasonOperations(league.id),
-      ]);
-      if (requestId !== parityRequestRef.current) return;
+    ]);
+    if (requestId !== parityRequestRef.current) return;
+    if (parityResult.status === "fulfilled") {
+      const parity = parityResult.value;
       setLineups([...parity.lineups]);
       setScores([...parity.scores]);
       setMemberMeta([...parity.members]);
       setMemberMetaLoaded(true);
       setArchives([...parity.archives]);
       setNflGames([...parity.games]);
+      setSeasonGames([...parity.seasonGames]);
       setWeeklyProjections([...parity.projections]);
+      parityViewCacheRef.current.set(`${league.id}:${week}`, parity);
+    } else {
+      setError(parityResult.reason?.message || "Could not sync this matchup. Showing the last good data when available.");
+    }
+    if (opsResult.status === "fulfilled") {
+      const ops = opsResult.value;
       setTrades([...ops.trades]);
       setClaims([...ops.claims]);
       setInjuries([...ops.injuries]);
       setMessages([...ops.messages]);
       setTransactions([...ops.transactions]);
-    } catch (err: any) {
-      if (requestId !== parityRequestRef.current) return;
-      setError(err?.message || "Could not sync this league.");
+    } else if (parityResult.status === "fulfilled") {
+      setError("League activity could not sync. Matchup data is still available.");
     }
   };
 
   useEffect(() => {
+    const cached = parityViewCacheRef.current.get(`${league.id}:${week}`);
+    if (cached) {
+      setLineups([...cached.lineups]);
+      setScores([...cached.scores]);
+      setNflGames([...cached.games]);
+      setSeasonGames([...cached.seasonGames]);
+      setWeeklyProjections([...cached.projections]);
+    } else {
+      setLineups([]);
+      setNflGames([]);
+      setWeeklyProjections([]);
+    }
     void refresh();
   }, [league.id, week]);
   useEffect(() => {
-    setWeek(
-      Math.min(
-        maxSelectableWeek,
-        Math.max(1, Number(settings.currentWeek) || 1),
-      ),
-    );
-  }, [maxSelectableWeek, settings.currentWeek]);
+    const saved = Number(window.sessionStorage.getItem(storedWeekKey));
+    setWeek(Math.min(maxSelectableWeek, Math.max(1, saved || Number(settings.currentWeek) || 1)));
+  }, [league.id, maxSelectableWeek]);
+  useEffect(() => {
+    window.sessionStorage.setItem(storedWeekKey, String(week));
+  }, [storedWeekKey, week]);
+  useEffect(() => {
+    if (viewedMatchupId) window.sessionStorage.setItem(storedMatchupKey, viewedMatchupId);
+  }, [storedMatchupKey, viewedMatchupId]);
   useEffect(
     () =>
       subscribeToFantasyParity(league.id, () => {
@@ -793,12 +840,24 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
       : settings.scoringFormat === "half_ppr"
         ? "half_ppr"
         : "ppr";
+    const verifiedTeamGames = seasonGames.filter(
+      (game) => game.homeTeam === player.team || game.awayTeam === player.team,
+    );
     return resolveWeeklyProjection(
       player.id,
       weeklyProjections,
       format,
       Object.keys(settings.customScoring || {}).length > 0,
+      projectedPointsFor(player),
+      verifiedTeamGames.length,
+      verifiedTeamGames.some((game) => game.week === week),
     );
+  };
+  const isVerifiedBye = (team: string) => {
+    const teamGames = seasonGames.filter(
+      (game) => game.homeTeam === team || game.awayTeam === team,
+    );
+    return teamGames.length === 17 && !teamGames.some((game) => game.week === week);
   };
   const compareWeeklyLineupPlayers = (a: Player, b: Player) => {
     const aProjection = weeklyProjectionFor(a);
@@ -838,10 +897,12 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
         team: player.team,
         position: player.position,
         opponent,
+        isHome: game ? game.homeTeam === player.team : undefined,
+        isBye: !game && isVerifiedBye(player.team),
         points: 0,
         projectedPoints: weeklyProjection || 0,
         projectionAvailable: weeklyProjection !== null,
-        status: game?.gameStatus || "Scheduled",
+        status: game?.gameStatus || (isVerifiedBye(player.team) ? "Bye" : "Opponent unavailable"),
         kickoffAt: game?.kickoffAt,
         isLive: false,
         isFinal: false,
@@ -1152,172 +1213,246 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
 
       {tab === "matchup" && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-black uppercase">
-                {week > maxWeek ? "Playoff" : "Week"} {week} Matchups
-              </h2>
-              <p className="text-xs text-zinc-500">
-                {week > maxWeek
-                  ? "Winners advance automatically after both official scores are final."
-                  : nextKickoff
-                    ? `${nextKickoff.awayTeam} @ ${nextKickoff.homeTeam} · ${formatKickoff(nextKickoff.kickoffAt)}`
-                    : "Every NFL game is final."}
-              </p>
+          <div>
+            <h2 className="text-xl font-black uppercase">
+              {week > maxWeek ? "Playoff" : "Week"} {week} Matchup
+            </h2>
+            <p className="mt-0.5 text-[10px] text-zinc-500">
+              {week > maxWeek
+                ? "Winners advance after both official scores are final."
+                : nextKickoff
+                  ? `${nextKickoff.awayTeam} @ ${nextKickoff.homeTeam} · ${formatKickoff(nextKickoff.kickoffAt)}`
+                  : "Every NFL game is final."}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex min-h-11 items-center overflow-hidden rounded-full border border-white/15 bg-[#101318]">
+              <button
+                type="button"
+                aria-label="Previous fantasy week"
+                disabled={week <= 1}
+                onClick={() => setWeek(current => Math.max(1, current - 1))}
+                className="grid h-11 w-11 place-items-center text-lg text-zinc-300 disabled:text-zinc-700"
+              >
+                ‹
+              </button>
+              <select
+                aria-label="Fantasy week"
+                value={week}
+                onChange={(event) => setWeek(Number(event.target.value))}
+                className="h-11 min-w-20 border-x border-white/10 bg-transparent px-2 text-center text-xs font-black"
+              >
+                {Array.from({ length: maxSelectableWeek }, (_, index) => index + 1).map((value) => (
+                  <option key={value} value={value}>
+                    {value > maxWeek ? `Playoff ${value}` : `Week ${value}`}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                aria-label="Next fantasy week"
+                disabled={week >= maxSelectableWeek}
+                onClick={() => setWeek(current => Math.min(maxSelectableWeek, current + 1))}
+                className="grid h-11 w-11 place-items-center text-lg text-zinc-300 disabled:text-zinc-700"
+              >
+                ›
+              </button>
             </div>
-            <select
-              aria-label="Fantasy week"
-              value={week}
-              onChange={(event) => setWeek(Number(event.target.value))}
-              className="min-h-11 rounded-xl border border-white/10 bg-[#101318] px-3 text-xs"
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded={showAllMatchups}
+              onClick={() => setShowAllMatchups(true)}
+              className="min-h-11 rounded-full border border-white/15 bg-[#101318] px-4 text-[10px] font-black uppercase text-zinc-200"
             >
-              {Array.from(
-                { length: maxSelectableWeek },
-                (_, index) => index + 1,
-              ).map((value) => (
-                <option key={value} value={value}>
-                  {value > maxWeek
-                    ? `Playoffs · Week ${value}`
-                    : `Week ${value}`}
-                </option>
-              ))}
-            </select>
+              All Matchups
+            </button>
           </div>
-          <DataNotice text="Online fantasy matchups use official weekly scoring records. The bracket reseeds and saves the championship winner." />
-          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {weekMatchups.map((game) => {
-              const home = league.members.find(
-                (member) => member.id === game.homeMemberId,
-              );
-              const away = league.members.find(
-                (member) => member.id === game.awayMemberId,
-              );
-              const homeScore = matchupScoreFor(home);
-              const awayScore = matchupScoreFor(away);
-              const mine =
-                game.homeMemberId === me?.id || game.awayMemberId === me?.id;
-              return (
-                <button
-                  key={game.id}
-                  onClick={() => setViewedMatchupId(game.id)}
-                  className={`min-h-16 min-w-[11.5rem] shrink-0 rounded-xl border p-3 text-left ${viewedMatchup?.id === game.id ? "border-[#D4AF37]/50 bg-[#D4AF37]/10" : "border-white/10 bg-[#101318]"}`}
+          {showAllMatchups && (
+            <ModalPortal>
+              <div
+                className="flex h-full w-full justify-center overflow-y-auto bg-[#080b0f]/95 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.25rem,env(safe-area-inset-top))] backdrop-blur-xl"
+                onClick={() => setShowAllMatchups(false)}
+              >
+                <section
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="all-matchups-title"
+                  className="w-full max-w-xl"
+                  onClick={(event) => event.stopPropagation()}
                 >
-                  <div className="flex items-center justify-between gap-2 text-[8px] font-black uppercase">
-                    <span className={mine ? "text-[#D4AF37]" : "text-zinc-600"}>
-                      {mine ? "Your Matchup" : "League Matchup"}
-                    </span>
-                    <span
-                      className={
-                        homeScore?.isFinal && awayScore?.isFinal
-                          ? "text-zinc-500"
-                          : homeScore?.players.some(
-                                (player) => player.isLive,
-                              ) ||
-                              awayScore?.players.some((player) => player.isLive)
-                            ? "text-amber-300"
-                            : "text-zinc-600"
-                      }
+                  <header className="sticky top-0 z-20 -mx-1 flex items-center justify-between gap-3 bg-[#080b0f]/95 px-1 pb-4 backdrop-blur-xl">
+                    <div className="min-w-12" />
+                    <div className="min-w-0 text-center">
+                      <h2 id="all-matchups-title" className="text-lg font-black uppercase text-white">
+                        All Matchups
+                      </h2>
+                      <p className="truncate text-xs font-bold text-zinc-500">{league.name}</p>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label="Close all matchups"
+                      onClick={() => setShowAllMatchups(false)}
+                      className="grid h-12 w-12 place-items-center rounded-full border border-white/10 bg-[#11151b] text-white"
                     >
-                      {homeScore?.isFinal && awayScore?.isFinal
-                        ? "Final"
-                        : homeScore?.players.some((player) => player.isLive) ||
-                            awayScore?.players.some((player) => player.isLive)
-                          ? "Live"
-                          : "Upcoming"}
-                    </span>
+                      <X className="h-6 w-6" />
+                    </button>
+                  </header>
+
+                  <div className="mb-5 flex min-h-12 w-fit items-center overflow-hidden rounded-full border border-white/15 bg-[#101318]">
+                    <button
+                      type="button"
+                      aria-label="Previous fantasy week"
+                      disabled={week <= 1}
+                      onClick={() => setWeek(current => Math.max(1, current - 1))}
+                      className="grid h-12 w-12 place-items-center text-2xl text-zinc-300 disabled:text-zinc-700"
+                    >
+                      ‹
+                    </button>
+                    <select
+                      aria-label="All matchups fantasy week"
+                      value={week}
+                      onChange={(event) => setWeek(Number(event.target.value))}
+                      className="h-12 min-w-28 border-x border-white/10 bg-transparent px-3 text-center text-sm font-black text-white"
+                    >
+                      {Array.from({ length: maxSelectableWeek }, (_, index) => index + 1).map((value) => (
+                        <option key={value} value={value}>
+                          {value > maxWeek ? `Playoff ${value}` : `Week ${value}`}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      aria-label="Next fantasy week"
+                      disabled={week >= maxSelectableWeek}
+                      onClick={() => setWeek(current => Math.min(maxSelectableWeek, current + 1))}
+                      className="grid h-12 w-12 place-items-center text-2xl text-zinc-300 disabled:text-zinc-700"
+                    >
+                      ›
+                    </button>
                   </div>
-                  <div className="mt-1 flex items-center justify-between gap-2 text-[10px] font-black">
-                    <span className="truncate">{displayManagerName(away)}</span>
-                    <span>
-                      {awayScore?.isFinal ||
-                      awayScore?.players.some((player) => player.isLive)
-                        ? awayScore.livePoints.toFixed(1)
-                        : awayScore?.hasProjectedTotal === false
-                          ? "—"
-                          : awayScore?.projectedPoints.toFixed(1) || "—"}
-                    </span>
+
+                  <div className="space-y-3">
+                    {weekMatchups.map((game) => {
+                      const home = league.members.find((member) => member.id === game.homeMemberId);
+                      const away = league.members.find((member) => member.id === game.awayMemberId);
+                      const homeScore = matchupScoreFor(home);
+                      const awayScore = matchupScoreFor(away);
+                      const isFinal = Boolean(homeScore?.isFinal && awayScore?.isFinal);
+                      const isLive = Boolean(
+                        homeScore?.players.some((player) => player.isLive) ||
+                        awayScore?.players.some((player) => player.isLive),
+                      );
+                      const status = isFinal ? "Final" : isLive ? "Live" : "Scheduled";
+                      const homeTotal = matchupTotal(homeScore, status);
+                      const awayTotal = matchupTotal(awayScore, status);
+                      const homeRecord = visibleStandings.find((row) => row.memberId === home?.id);
+                      const awayRecord = visibleStandings.find((row) => row.memberId === away?.id);
+                      const selected = viewedMatchup?.id === game.id;
+                      const mine = game.homeMemberId === me?.id || game.awayMemberId === me?.id;
+                      const matchupRow = (
+                        member: LeagueMember | undefined,
+                        total: { value: string; label: string },
+                        record: (typeof visibleStandings)[number] | undefined,
+                      ) => {
+                        const name = displayManagerName(member);
+                        return (
+                          <div className="flex items-center gap-3">
+                            <div className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full border border-[#D4AF37]/30 bg-[#171b22] text-xs font-black text-[#D4AF37]">
+                              {name.slice(0, 2).toUpperCase()}
+                              {member?.userAvatar && (
+                                <img
+                                  src={member.userAvatar}
+                                  alt=""
+                                  className="absolute inset-0 h-full w-full object-cover"
+                                  referrerPolicy="no-referrer"
+                                  onError={(event) => { event.currentTarget.style.display = "none"; }}
+                                />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-sm font-black text-white">{name}</div>
+                              <div className="mt-0.5 text-[11px] font-bold text-zinc-500">
+                                {record ? `${record.wins}-${record.losses}-${record.ties}` : "0-0-0"}
+                              </div>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <div className={`text-base font-black ${isLive ? "text-amber-300" : "text-zinc-200"}`}>
+                                {total.value}
+                              </div>
+                              <div className="text-[9px] font-black uppercase text-zinc-600">{total.label}</div>
+                            </div>
+                          </div>
+                        );
+                      };
+
+                      return (
+                        <button
+                          key={game.id}
+                          type="button"
+                          aria-current={selected ? "true" : undefined}
+                          onClick={() => {
+                            setViewedMatchupId(game.id);
+                            setShowAllMatchups(false);
+                          }}
+                          className={`w-full rounded-2xl border p-4 text-left transition active:scale-[.99] ${selected ? "border-[#D4AF37]/60 bg-[#D4AF37]/10" : "border-white/10 bg-[#151922]"}`}
+                        >
+                          <div className="mb-3 flex items-center justify-between text-[9px] font-black uppercase tracking-wider">
+                            <span className={mine ? "text-[#D4AF37]" : "text-zinc-600"}>
+                              {mine ? "Your Matchup" : "League Matchup"}
+                            </span>
+                            <span className={isLive ? "text-amber-300" : "text-zinc-500"}>{status}</span>
+                          </div>
+                          <div className="space-y-3">
+                            {matchupRow(away, awayTotal, awayRecord)}
+                            <div className="h-px bg-white/5" />
+                            {matchupRow(home, homeTotal, homeRecord)}
+                          </div>
+                        </button>
+                      );
+                    })}
+                    {!weekMatchups.length && (
+                      <Empty text={week > maxWeek ? "This playoff matchup is not set yet." : "No matchups are available for this week."} />
+                    )}
                   </div>
-                  <div className="mt-1 flex items-center justify-between gap-2 text-[10px] font-black">
-                    <span className="truncate">{displayManagerName(home)}</span>
-                    <span>
-                      {homeScore?.isFinal ||
-                      homeScore?.players.some((player) => player.isLive)
-                        ? homeScore.livePoints.toFixed(1)
-                        : homeScore?.hasProjectedTotal === false
-                          ? "—"
-                          : homeScore?.projectedPoints.toFixed(1) || "—"}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-          <Panel
-            title={week > maxWeek ? `Playoffs · Week ${week}` : `Week ${week}`}
-            sub={
-              viewedMatchup
-                ? `${displayManagerName(viewedAway)} @ ${displayManagerName(viewedHome)}`
-                : "Bracket matchup pending"
-            }
-            icon={<Clock3 className="h-5 w-5 text-[#D4AF37]" />}
-          >
-            {viewedMatchup ? (
-              <>
-                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-                  <Score
-                    name={displayManagerName(viewedAway)}
-                    points={viewedAwayScore?.livePoints || 0}
-                    projection={viewedAwayScore?.hasProjectedTotal === false ? undefined : viewedAwayScore?.projectedPoints}
-                    status={viewedScoreStatus}
-                  />
-                  <b className="text-zinc-600">@</b>
-                  <Score
-                    name={displayManagerName(viewedHome)}
-                    points={viewedHomeScore?.livePoints || 0}
-                    projection={viewedHomeScore?.hasProjectedTotal === false ? undefined : viewedHomeScore?.projectedPoints}
-                    status={viewedScoreStatus}
-                  />
-                </div>
-                {(viewedHomeScore?.lastCorrectionAt ||
-                  viewedAwayScore?.lastCorrectionAt) && (
-                  <div className="rounded-lg border border-sky-400/20 bg-sky-400/[.06] p-2 text-center text-[9px] font-black uppercase text-sky-300">
-                    Official stat correction applied automatically
-                  </div>
-                )}
-              </>
-            ) : (
-              <Empty
-                text={
-                  week > maxWeek && !regularSeasonComplete
-                    ? `Playoff seeding locks after every Week ${maxWeek} score is final.`
-                    : week > postseason.nextWeek
-                      ? "This matchup appears after the prior playoff round is final."
-                      : "This week does not have a matchup."
-                }
-              />
-            )}
-          </Panel>
-          {viewedMatchup && (
-            <div className="grid gap-3 lg:grid-cols-2">
-              <MatchupRoster
-                member={viewedAway}
-                score={viewedAwayScore}
+                </section>
+              </div>
+            </ModalPortal>
+          )}
+          {viewedMatchup ? (
+            <div className="space-y-3">
+              <HeadToHeadMatchup
+                away={viewedAway}
+                home={viewedHome}
+                awayScore={viewedAwayScore}
+                homeScore={viewedHomeScore}
+                status={viewedScoreStatus}
                 injuries={injuries}
-                onOpenPlayer={(playerId) => {
+                onOpenAway={(playerId) => {
                   const player = findPlayer(playerId);
                   if (player) openPlayerDetail(player, viewedAway);
                 }}
-              />
-              <MatchupRoster
-                member={viewedHome}
-                score={viewedHomeScore}
-                injuries={injuries}
-                onOpenPlayer={(playerId) => {
+                onOpenHome={(playerId) => {
                   const player = findPlayer(playerId);
                   if (player) openPlayerDetail(player, viewedHome);
                 }}
               />
+              {(viewedHomeScore?.lastCorrectionAt || viewedAwayScore?.lastCorrectionAt) && (
+                <div className="rounded-lg border border-sky-400/20 bg-sky-400/[.06] p-2 text-center text-[9px] font-black uppercase text-sky-300">
+                  Official stat correction applied automatically
+                </div>
+              )}
             </div>
+          ) : (
+            <Empty
+              text={
+                week > maxWeek && !regularSeasonComplete
+                  ? `Playoff seeding locks after every Week ${maxWeek} score is final.`
+                  : week > postseason.nextWeek
+                    ? "This matchup appears after the prior playoff round is final."
+                    : "This week does not have a matchup."
+              }
+            />
           )}
           <Panel
             title="Full Season Schedule"
@@ -2521,7 +2656,14 @@ const Portrait = ({ player }: { player?: Player }) => (
     {player && playerPortraitUrl(player) ? (
       <img
         src={playerPortraitUrl(player)}
-        alt=""
+        alt={`${player.name} headshot`}
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        onError={(event) => {
+          event.currentTarget.onerror = null;
+          event.currentTarget.src = playerPortraitFallbackUrl(player);
+        }}
         className="h-full w-full object-cover"
       />
     ) : (
@@ -2673,41 +2815,10 @@ const Record = ({ label, value }: { label: string; value: string }) => (
     <div className="mt-1 truncate text-xs font-black">{value}</div>
   </div>
 );
-const Score = ({
-  name,
-  points,
-  projection,
-  status,
-}: {
-  name: string;
-  points: number;
-  projection?: number;
-  status: "Scheduled" | "Live" | "Final";
-}) => (
-  <div className="min-w-0 text-center">
-    <div className="truncate text-[10px] font-black uppercase text-zinc-400">
-      {name}
-    </div>
-    <div className="mt-1 text-3xl font-black">
-      {status === "Scheduled" ? "—" : Number(points || 0).toFixed(1)}
-    </div>
-    <div
-      className={`text-[9px] font-black uppercase ${status === "Live" ? "text-amber-300" : "text-zinc-600"}`}
-    >
-      {status}
-    </div>
-    {projection !== undefined && projection > 0 && (
-      <div className="text-[9px] text-zinc-600">
-        {Number(projection).toFixed(1)} proj
-      </div>
-    )}
-  </div>
-);
-
 const formatKickoff = (value?: string) => {
-  if (!value) return "Bye";
+  if (!value) return "Time unavailable";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Scheduled";
+  if (Number.isNaN(date.getTime())) return "Time unavailable";
   return date.toLocaleString(undefined, {
     weekday: "short",
     hour: "numeric",
@@ -2715,87 +2826,176 @@ const formatKickoff = (value?: string) => {
   });
 };
 
-const MatchupRoster = ({
+const matchupTotal = (score: WeeklyScore | undefined, status: "Scheduled" | "Live" | "Final") => {
+  if (!score) return { value: "—", label: status === "Scheduled" ? "Projection unavailable" : status };
+  if (status === "Scheduled") {
+    return score.hasProjectedTotal === true
+      ? { value: score.projectedPoints.toFixed(1), label: "Projected" }
+      : { value: "—", label: "Projection unavailable" };
+  }
+  return {
+    value: score.livePoints.toFixed(1),
+    label: status === "Final" ? "Final" : "Live",
+  };
+};
+
+const TeamMatchupHeader = ({
   member,
   score,
-  injuries,
-  onOpenPlayer,
+  status,
+  side,
 }: {
   member?: LeagueMember;
   score?: WeeklyScore;
-  injuries: LeagueInjury[];
-  onOpenPlayer: (playerId: string) => void;
-}) => (
-  <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#101318]">
-    <div className="flex items-center justify-between border-b border-white/10 p-3">
-      <div>
-        <div className="text-[9px] font-black uppercase text-[#D4AF37]">
-          {displayManagerName(member)}
-        </div>
-        <div className="mt-0.5 text-[10px] text-zinc-500">
-          {score?.isFinal
-            ? "Official final"
-            : score?.players.some((player) => player.isLive)
-              ? "Updating live"
-              : "Projected lineup"}
-        </div>
-      </div>
-      <div className="text-right">
-        <div className="text-lg font-black">
-          {score?.isFinal || score?.players.some((player) => player.isLive)
-            ? Number(score?.livePoints || 0).toFixed(1)
-            : score?.hasProjectedTotal === false
-              ? "—"
-              : Number(score?.projectedPoints || 0).toFixed(1)}
-        </div>
-        <div className="text-[8px] font-black uppercase text-zinc-600">
-          {score?.isFinal ? "Points" : "Projection"}
-        </div>
-      </div>
-    </div>
-    <div className="divide-y divide-white/5">
-      {score?.players.length ? (
-        score.players.map((player) => (
-          <MatchupPlayerRow
-            key={`${player.slot}-${player.playerId}`}
-            player={player}
-            injury={injuries.find(
-              (item) =>
-                item.memberId === member?.id &&
-                item.playerId === player.playerId,
-            )}
-            onOpen={() => onOpenPlayer(player.playerId)}
+  status: "Scheduled" | "Live" | "Final";
+  side: "away" | "home";
+}) => {
+  const total = matchupTotal(score, status);
+  const name = displayManagerName(member);
+  return (
+    <div className={`flex min-w-0 flex-col gap-1 ${side === "home" ? "items-end text-right" : "items-start text-left"}`}>
+      <div className="max-w-full truncate text-[10px] font-black uppercase text-zinc-200">{name}</div>
+      <div className={`flex items-center gap-2 ${side === "home" ? "flex-row-reverse" : ""}`}>
+      <div className="relative grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full border border-[#D4AF37]/35 bg-[#171b22] text-xs font-black text-[#D4AF37]">
+        {name.slice(0, 2).toUpperCase()}
+        {member?.userAvatar && (
+          <img
+            src={member.userAvatar}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+            referrerPolicy="no-referrer"
+            onError={(event) => { event.currentTarget.style.display = "none"; }}
           />
-        ))
-      ) : (
-        <Empty text="The authoritative lineup will appear when this scoring week opens." />
-      )}
+        )}
+      </div>
+      <div className="min-w-0">
+        <div className={`text-xl font-black ${status === "Live" ? "text-amber-300" : "text-white"}`}>{total.value}</div>
+        <div className="truncate text-[8px] font-black uppercase text-zinc-600">{total.label}</div>
+      </div>
+      </div>
     </div>
-  </section>
-);
+  );
+};
 
-const MatchupPlayerRow = ({
+const HeadToHeadMatchup = ({
+  away,
+  home,
+  awayScore,
+  homeScore,
+  status,
+  injuries,
+  onOpenAway,
+  onOpenHome,
+}: {
+  away?: LeagueMember;
+  home?: LeagueMember;
+  awayScore?: WeeklyScore;
+  homeScore?: WeeklyScore;
+  status: "Scheduled" | "Live" | "Final";
+  injuries: LeagueInjury[];
+  onOpenAway: (playerId: string) => void;
+  onOpenHome: (playerId: string) => void;
+}) => {
+  const projectionReady = awayScore?.hasProjectedTotal === true && homeScore?.hasProjectedTotal === true;
+  const projectionSum = Number(awayScore?.projectedPoints || 0) + Number(homeScore?.projectedPoints || 0);
+  const awayShare = projectionReady && projectionSum > 0
+    ? Math.max(0, Math.min(100, Number(awayScore?.projectedPoints || 0) / projectionSum * 100))
+    : null;
+  return (
+    <section aria-label={`${displayManagerName(away)} versus ${displayManagerName(home)}`} className="space-y-2">
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#151922] shadow-lg shadow-black/30">
+      <div className="grid grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)] items-center gap-2 p-3">
+        <TeamMatchupHeader member={away} score={awayScore} status={status} side="away" />
+        <div className="text-center text-[9px] font-black uppercase text-[#D4AF37]">VS</div>
+        <TeamMatchupHeader member={home} score={homeScore} status={status} side="home" />
+      </div>
+      {awayShare === null ? (
+        <div className="border-b border-white/5 px-3 py-2 text-center text-[8px] font-black uppercase text-zinc-600">
+          Matchup advantage unavailable
+        </div>
+      ) : (
+        <div className="border-b border-white/5 px-3 py-2">
+          <div className="mb-1 flex items-center justify-between text-[8px] font-black uppercase text-zinc-500">
+            <span>{awayShare.toFixed(0)}%</span>
+            <span>Projected matchup advantage</span>
+            <span>{(100 - awayShare).toFixed(0)}%</span>
+          </div>
+          <div className="flex h-1.5 overflow-hidden rounded-full bg-zinc-800">
+            <span className="bg-[#D4AF37]" style={{ width: `${awayShare}%` }} />
+            <span className="bg-zinc-500" style={{ width: `${100 - awayShare}%` }} />
+          </div>
+        </div>
+      )}
+      </div>
+      <div className="divide-y divide-white/[.04] overflow-hidden rounded-xl bg-[#0d1015]">
+        {LINEUP_SLOTS.map((slot) => {
+          const awayPlayer = awayScore?.players.find((player) => player.slot === slot.id);
+          const homePlayer = homeScore?.players.find((player) => player.slot === slot.id);
+          const awayInjury = injuries.find((item) => item.memberId === away?.id && item.playerId === awayPlayer?.playerId);
+          const homeInjury = injuries.find((item) => item.memberId === home?.id && item.playerId === homePlayer?.playerId);
+          const awayProjectedEdge = status === "Scheduled" && awayPlayer?.projectionAvailable === true && homePlayer?.projectionAvailable === true && awayPlayer.projectedPoints > homePlayer.projectedPoints;
+          const homeProjectedEdge = status === "Scheduled" && awayPlayer?.projectionAvailable === true && homePlayer?.projectionAvailable === true && homePlayer.projectedPoints > awayPlayer.projectedPoints;
+          return (
+            <div key={slot.id} className="grid grid-cols-[minmax(0,1fr)_42px_minmax(0,1fr)] items-stretch">
+              <MatchupPlayerSide player={awayPlayer} injury={awayInjury} align="left" projectedEdge={awayProjectedEdge} onOpen={onOpenAway} />
+              <div className="grid place-items-center border-x border-white/5 bg-black/20 px-1 text-center">
+                <span className="rounded-md border border-[#D4AF37]/25 bg-[#D4AF37]/[.06] px-1.5 py-1 text-[7px] font-black uppercase text-[#D4AF37]">
+                  {slot.id === "FLEX" ? "FLEX/WRT" : slot.id === "DST" ? "DST" : slot.label}
+                </span>
+              </div>
+              <MatchupPlayerSide player={homePlayer} injury={homeInjury} align="right" projectedEdge={homeProjectedEdge} onOpen={onOpenHome} />
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
+
+const MatchupPlayerSide = ({
   player,
   injury,
+  align,
+  projectedEdge,
   onOpen,
 }: {
-  player: PlayerScoreDetail;
+  player?: PlayerScoreDetail;
   injury?: LeagueInjury;
-  onOpen: () => void;
+  align: "left" | "right";
+  projectedEdge: boolean;
+  onOpen: (playerId: string) => void;
 }) => {
+  if (!player) {
+    return <div className={`grid min-h-[4.5rem] place-items-center px-2 text-[9px] font-bold text-zinc-700 ${align === "right" ? "text-right" : "text-left"}`}>No starter</div>;
+  }
   const gameLabel = player.isFinal
     ? "Final"
     : player.isLive
       ? player.status
-      : formatKickoff(player.kickoffAt);
+      : player.isBye
+        ? "Bye"
+        : formatKickoff(player.kickoffAt);
+  const opponentLabel = player.isBye
+    ? "Bye"
+    : player.opponent
+      ? `${player.isHome === false ? "@" : "vs"} ${player.opponent}`
+      : "Opponent unavailable";
+  const score = player.isLive || player.isFinal
+    ? player.points.toFixed(1)
+    : player.projectionAvailable === true
+      ? player.projectedPoints.toFixed(1)
+      : "—";
+  const scoreLabel = player.isLive ? "Live" : player.isFinal ? "Final" : player.projectionAvailable === true ? "Proj" : "N/A";
   return (
-    <button onClick={onOpen} className="grid min-h-16 w-full grid-cols-[38px_minmax(0,1fr)_62px] items-center gap-2 p-2.5 text-left">
-      <span className="grid h-9 w-9 place-items-center rounded-full border border-[#D4AF37]/30 text-[8px] font-black text-[#D4AF37]">
-        {player.slot.replace(/[0-9]/g, "")}
-      </span>
-      <div className="min-w-0">
+    <button
+      type="button"
+      aria-label={`Open ${player.playerName}`}
+      onClick={() => onOpen(player.playerId)}
+      className={`flex min-h-[4.5rem] min-w-0 items-center gap-1.5 rounded-lg px-2 py-2 ${injury ? "bg-red-950/45" : ""} ${align === "right" ? "flex-row-reverse text-right" : "text-left"}`}
+    >
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <span className="truncate text-xs font-black">
+          <span className={`truncate text-[10px] font-black sm:text-xs ${align === "right" ? "order-2" : ""}`}>
             {player.playerName}
           </span>
           {injury && (
@@ -2805,19 +3005,15 @@ const MatchupPlayerRow = ({
           )}
         </div>
         <div
-          className={`mt-0.5 truncate text-[9px] font-bold ${player.isLive ? "text-amber-300" : player.isFinal ? "text-zinc-600" : "text-zinc-500"}`}
+          className={`mt-0.5 truncate text-[8px] font-bold sm:text-[9px] ${player.isLive ? "text-amber-300" : player.isFinal ? "text-zinc-600" : "text-zinc-500"}`}
         >
-          {player.team}{player.opponent ? ` vs ${player.opponent}` : ""} · {gameLabel}
-          {player.locked ? " · Locked" : ""}
+          {player.team} · {opponentLabel}
         </div>
+        <div className="mt-0.5 truncate text-[7px] font-black uppercase text-zinc-600 sm:text-[8px]">{gameLabel}{player.locked ? " · Locked" : ""}</div>
       </div>
-      <div className="text-right">
-        <div className="text-sm font-black">
-          {player.isLive || player.isFinal ? player.points.toFixed(1) : "—"}
-        </div>
-        <div className="text-[8px] text-zinc-600">
-          {player.projectionAvailable === false ? "— proj" : `${player.projectedPoints.toFixed(1)} proj`}
-        </div>
+      <div className={`w-8 shrink-0 ${align === "right" ? "text-left" : "text-right"}`}>
+        <div className={`text-sm font-black ${player.isLive ? "text-amber-300" : projectedEdge ? "text-[#D4AF37]" : "text-white"}`}>{score}</div>
+        <div className="text-[7px] font-black uppercase text-zinc-600">{scoreLabel}</div>
       </div>
     </button>
   );

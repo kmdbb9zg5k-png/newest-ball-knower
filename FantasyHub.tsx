@@ -547,7 +547,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
                 {watchlist.length} MY GUYS
               </div>
             </div>
-            <div className="sticky top-[7rem] z-20 mt-4 space-y-2 border-y border-white/10 bg-black/90 py-3 backdrop-blur">
+            <div className="mt-4 space-y-2 border-y border-white/10 bg-black/90 py-3">
               <label className="flex min-h-11 items-center gap-2 rounded-xl border border-white/10 bg-[#111] px-3">
                 <Search className="h-4 w-4 text-zinc-500" />
                 <input

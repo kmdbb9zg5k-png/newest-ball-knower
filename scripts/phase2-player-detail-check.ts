@@ -1,44 +1,55 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { canMergeHistoricalProviderRows } from '../fantasyPlayerIdentity';
+import { historicalNameVariants, resolveHistoricalProviderId } from '../fantasyPlayerIdentity';
+import { PLAYER_PORTRAITS, playerPortraitFallbackUrl, playerPortraitUrl } from '../playerPortraits';
+import { PLAYERS_DATABASE } from '../players';
 
 const detail = readFileSync(new URL('../FantasyPlayerDetail.tsx', import.meta.url), 'utf8');
 const cloud = readFileSync(new URL('../fantasyPlayerDetailsCloud.ts', import.meta.url), 'utf8');
 const postDraft = readFileSync(new URL('../FantasyLeaguePostDraft.tsx', import.meta.url), 'utf8');
 const hub = readFileSync(new URL('../FantasyHub.tsx', import.meta.url), 'utf8');
 const communications = readFileSync(new URL('../FantasyLeagueCommunications.tsx', import.meta.url), 'utf8');
+const draftRoom = readFileSync(new URL('../LeagueLiveDraftRoom.tsx', import.meta.url), 'utf8');
+const liveScoring = readFileSync(new URL('../api/fantasy-live-scoring.ts', import.meta.url), 'utf8');
 
-assert.ok(detail.includes('loadFantasyPlayerWeeks({ id: player.id'), 'Player detail must load authoritative weekly history using the selected player identity.');
+assert.ok(detail.includes('loadFantasyPlayerWeeks({') && detail.includes('id: player.id'), 'Player detail must load authoritative weekly history using the selected player identity.');
 
 const discoveryNameMatches = cloud.match(/\.eq\('player_name', player\.name\)/g) || [];
-const discoveryPositionMatches = cloud.match(/\.eq\('position', player\.position\)/g) || [];
 assert.equal(discoveryNameMatches.length, 1, 'Exactly one name-based historical discovery query is allowed.');
-assert.equal(discoveryPositionMatches.length, 1, 'Exactly one position-scoped historical discovery query is allowed.');
+assert.ok(cloud.includes(".in('player_name', nameVariants)"), 'Historical discovery must also query bounded verified name variants.');
 
-const discoveryStart = cloud.indexOf('// Older weekly rows can retain a superseded Ball Knower id.');
+const discoveryStart = cloud.indexOf('// Name queries are discovery-only.');
 const discoveryEnd = cloud.indexOf('  ]);', discoveryStart);
 assert.ok(discoveryStart >= 0 && discoveryEnd > discoveryStart, 'The historical discovery query must be explicitly scoped.');
 const discoveryQuery = cloud.slice(discoveryStart, discoveryEnd);
-assert.match(discoveryQuery, /\.eq\('player_name', player\.name\)[\s\S]*?\.eq\('position', player\.position\)/, 'Historical discovery must require exact name and exact position.');
+assert.match(discoveryQuery, /\.eq\('player_name', player\.name\)/, 'Historical discovery must require the exact player name.');
+assert.ok(!discoveryQuery.includes(".eq('position', player.position)"), 'Historical discovery must support authoritative rows whose upstream box score omitted position.');
 assert.ok(!discoveryQuery.includes(".eq('team', player.team)"), 'Historical discovery must retain history across NFL team changes.');
 
 const anchorStart = cloud.indexOf('  const identityRows =');
 const anchorEnd = cloud.indexOf('  const rows = [...identityRows', anchorStart);
 assert.ok(anchorStart >= 0 && anchorEnd > anchorStart, 'Historical identity anchoring must be isolated before row merging.');
 const anchorLogic = cloud.slice(anchorStart, anchorEnd);
-assert.ok(anchorLogic.includes('allFallbackRowsHaveProviderIds'), 'Every discovered historical row must have a provider identity.');
-assert.ok(anchorLogic.includes('canMergeHistoricalProviderRows(identityProviderIds, fallbackProviderIds)'), 'Historical rows must pass the provider identity guard.');
-assert.ok(anchorLogic.includes('const anchoredProviderId = canMergeFallback'), 'Only an accepted provider identity may be used for fallback merging.');
-assert.ok(anchorLogic.includes('const anchoredFallbackRows = anchoredProviderId'), 'Fallback rows must be gated on the accepted provider identity.');
+assert.ok(anchorLogic.includes('allExactRowsHaveProviderIds') && anchorLogic.includes('allVariantRowsHaveProviderIds'), 'Every discovered historical row must have a provider identity.');
+assert.ok(anchorLogic.includes('resolveHistoricalProviderId(identityProviderIds, exactProviderIds)'), 'Exact historical rows must pass the provider identity guard.');
+assert.ok(anchorLogic.includes('resolveHistoricalProviderId(identityProviderIds, variantProviderIds)'), 'Variant historical rows must pass the provider identity guard.');
+assert.ok(anchorLogic.includes('const variantProviderId = exactNameRows.length === 0'), 'A name variant must never displace existing exact-name history.');
+assert.ok(anchorLogic.includes('const verifiedFallbackRows = exactProviderId'), 'Fallback rows must prefer the accepted exact identity.');
 
-assert.equal(canMergeHistoricalProviderRows(['provider-a'], ['provider-a']), true, 'Matching single provider identities may merge.');
-assert.equal(canMergeHistoricalProviderRows([], ['provider-a']), false, 'No current-player identity anchor must fail closed.');
-assert.equal(canMergeHistoricalProviderRows(['provider-a'], ['provider-b']), false, 'Different provider identities must not merge.');
-assert.equal(canMergeHistoricalProviderRows(['provider-a'], ['provider-a', 'provider-b']), false, 'Ambiguous historical provider identities must not merge.');
-assert.equal(canMergeHistoricalProviderRows(['provider-a', 'provider-b'], ['provider-a']), false, 'Ambiguous current-player provider identities must not merge.');
+assert.equal(resolveHistoricalProviderId(['provider-a'], ['provider-a']), 'provider-a', 'Matching single provider identities may merge.');
+assert.equal(resolveHistoricalProviderId([], ['provider-a']), '', 'A name-only provider identity must fail closed without a permanent-id anchor.');
+assert.equal(resolveHistoricalProviderId(['provider-a'], ['provider-b']), '', 'Different provider identities must not merge.');
+assert.equal(resolveHistoricalProviderId(['provider-a'], ['provider-a', 'provider-b']), '', 'Ambiguous historical provider identities must not merge.');
+assert.equal(resolveHistoricalProviderId(['provider-a', 'provider-b'], ['provider-a']), '', 'Ambiguous current-player provider identities must not merge.');
+assert.ok(historicalNameVariants('Travis Etienne').includes('Travis Etienne Jr.'), 'Suffix variants must recover provider rows that retain Jr.');
+assert.ok(historicalNameVariants('Calvin Austin').includes('Calvin Austin III'), 'Suffix variants must recover provider rows that retain III.');
+assert.ok(historicalNameVariants('Kenny Gainwell').includes('Kenneth Gainwell'), 'Verified nickname variants must recover authoritative provider names.');
+assert.ok(historicalNameVariants('Marquise Brown').includes('Hollywood Brown'), 'Verified public-name variants must recover authoritative provider names.');
+assert.ok(!historicalNameVariants('Michael Carter').includes('Michael Carter'), 'Variant discovery must exclude the exact name so exact history stays authoritative.');
 
 assert.ok(cloud.includes(".eq('ball_knower_player_id', player.id)"), 'Weekly history must query the permanent Ball Knower player identity first.');
-assert.ok(cloud.includes('No current-id rows means there is no trustworthy provider identity anchor.'), 'An empty current identity must fail closed instead of guessing a player from name and position.');
+assert.ok(cloud.includes('Exact-name rows win over variants'), 'Ambiguous name variants must never displace exact player history.');
+assert.ok(cloud.includes('position: row.position || player.position'), 'Verified historical rows must recover missing upstream position metadata from the selected player.');
 assert.ok(detail.includes("player?.name, player?.team, player?.position"), 'History must reload whenever a fallback identity field changes.');
 assert.ok(detail.includes("type DetailTab = 'overview' | 'gameLog' | 'stats'"), 'Player details must expose Overview, Game Log, and Stats destinations.');
 assert.ok(detail.includes('2026 Projection'), 'The player header must prioritize useful season projection data.');
@@ -59,8 +70,19 @@ assert.ok(detail.includes('projection_source_url'), 'Shared ranking details must
 assert.ok(detail.includes("event.key === 'Escape'"), 'Player details must close from the keyboard.');
 assert.ok(detail.includes("useState<2026 | 2025>"), 'Player detail must expose 2026 and 2025 season views.');
 assert.ok(cloud.includes("from('ball_knower_player_week_scores')"), 'Weekly detail must use the existing score source of truth.');
+assert.ok(cloud.includes("from('ball_knower_nfl_games')") && cloud.includes('teamGames.length !== 17'), 'Current-season game logs may use only a complete authoritative NFL schedule.');
+assert.ok(cloud.includes("historySource: 'espn_schedule'") && cloud.includes('isBye: true'), 'Schedule-backed rows and verified byes must remain explicitly identifiable.');
+assert.ok(cloud.includes('selectCompleteTeamSchedule') && cloud.includes('databaseSchedule'), 'Player cards must derive every game log from the saved authoritative schedule.');
+assert.ok(cloud.includes('readCachedTeamSchedule') && cloud.includes('cacheTeamSchedule'), 'A temporary schedule read failure must preserve the last complete player schedule.');
+assert.ok(!cloud.includes('/api/fantasy-player-schedule') && !cloud.includes('mode=schedule'), 'Player cards must not depend on a per-open third-party schedule request.');
+assert.ok(liveScoring.includes('syncCompleteRegularSeasonSchedule') && liveScoring.includes('games.length!==272') && liveScoring.includes('count!==17'), 'The live scorer must bootstrap only a complete, validated 2026 NFL schedule.');
+assert.ok(liveScoring.includes("pregame_projection_source:'Tank01 weekly projections'") && liveScoring.includes('pregame_projected_points:snapshot'), 'Published 2026 weekly projections must be materialized with provider provenance.');
+assert.ok(cloud.includes('seasonProjection / 17') && cloud.includes('seasonProjection > 0'), 'Schedule rows may show only a clearly derived, positive season projection pace.');
+assert.ok(detail.includes('setInterval(() => void refresh(), 30_000)'), 'An open player log must refresh as projections, live scores, finals, and corrections arrive.');
+assert.ok(detail.includes("typeof value === 'number' && Number.isFinite(value) ? value : null"), 'Missing weekly points must stay unavailable instead of becoming numeric zero.');
+assert.ok(detail.includes('DEFAULT_STAT_KEYS'), 'The game-log table must retain position-relevant columns before final stat rows arrive.');
 assert.ok(postDraft.includes('<FantasyPlayerDetail'), 'Online fantasy must render the reusable player detail surface.');
-assert.ok(postDraft.includes('onOpenPlayer={(playerId)'), 'Matchup players must open the shared player detail surface.');
+assert.ok(postDraft.includes('onOpenAway={(playerId)') && postDraft.includes('onOpenHome={(playerId)'), 'Both sides of a matchup must open the shared player detail surface.');
 assert.ok(postDraft.includes('onOpenPlayer={(player) => openPlayerDetail(player, selectedTeam)}'), 'Other managers’ roster players must open the same detail surface.');
 assert.ok(postDraft.includes('onClick={() => openPlayerDetail(player)}'), 'Free agents and waiver players must be inspectable without selecting a claim.');
 assert.ok(postDraft.includes('const player = findPlayer(playerId);'), 'Historical matchup players must resolve outside current rosters.');
@@ -68,5 +90,17 @@ assert.ok(hub.includes('watchAction={{ watched: watchlist.includes'), 'Cheat She
 assert.ok(hub.includes('<FantasyPlayerDetail'), 'Cheat Sheet rankings must open the shared detail surface.');
 assert.ok(communications.includes('<FantasyPlayerDetail'), 'Trading Block entries must open the shared detail surface.');
 assert.ok(communications.includes('onOpen={setDetailPlayer}'), 'Trading Block player buttons must wire into shared details.');
+assert.ok(Object.keys(PLAYER_PORTRAITS).length > 400, 'The shared portrait catalog must retain broad NFL player coverage.');
+assert.equal(playerPortraitUrl({ id: 'bijan', name: 'Bijan Robinson', position: 'RB' }), PLAYER_PORTRAITS['Bijan Robinson'], 'Known players must resolve to their real catalog headshot instead of initials.');
+assert.ok(playerPortraitUrl({ id: 'ea-16370', name: 'Jeremiyah Love', position: 'RB', team: 'ARI' }).includes('/portraits/11138.png'), 'Current players missing from the legacy catalog must resolve through their official EA roster identity.');
+assert.ok(playerPortraitUrl({ id: 'ea-14807', name: 'Cam Skattebo', position: 'RB', team: 'NYG' }).includes('/portraits/10732.png'), 'Rookie headshots must resolve through the complete official roster source.');
+assert.ok(playerPortraitUrl({ id: 'ea-15097', name: 'Tetairoa McMillan', position: 'WR', team: 'CAR' }).includes('/portraits/10657.png'), 'The current fantasy pool must not depend on hand-maintained portrait names.');
+assert.ok(playerPortraitUrl({ id: 'dst-den', name: 'Denver Broncos D/ST', position: 'DST', team: 'DEN' }).includes('/nfl/500/den.png'), 'D/ST rows must use the NFL team logo instead of fake player initials.');
+assert.ok(playerPortraitFallbackUrl({ id: 'unknown', name: 'Unknown Player', position: 'WR' }).startsWith('data:image/svg+xml,'), 'Unknown players must retain a safe initials fallback.');
+const draftablePlayers = PLAYERS_DATABASE.filter(player => ['QB', 'RB', 'WR', 'TE', 'K', 'DST'].includes(player.position));
+const realPortraitCount = draftablePlayers.filter(player => !playerPortraitUrl(player).startsWith('data:image/svg+xml,')).length;
+assert.ok(realPortraitCount / draftablePlayers.length >= 0.97, `At least 97% of the complete draftable fantasy pool must have a real headshot or D/ST logo; received ${realPortraitCount}/${draftablePlayers.length}.`);
+assert.ok(draftRoom.includes('playerPortraitFallbackUrl(player)') && draftRoom.includes('headshot'), 'Live draft rows must render player headshots with a safe failed-image fallback.');
+assert.ok(postDraft.includes('playerPortraitFallbackUrl(player)') && postDraft.includes('headshot'), 'My Team starter and bench rows must render player headshots with a safe failed-image fallback.');
 
 console.log('Phase 2 player detail checks passed: decision-first modal, safe game log, executable identity guard, and shared entry points.');

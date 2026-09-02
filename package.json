@@ -23,13 +23,18 @@
     "check:fantasy-transactions": "node --import tsx scripts/fantasy-transaction-correctness-check.ts",
     "check:phase2-player-details": "node --import tsx scripts/phase2-player-detail-check.ts",
     "check:phase2-history": "node --import tsx scripts/phase2-history-snapshot-check.ts",
+    "check:player-history-identity": "node --import tsx scripts/player-history-identity-check.ts",
+    "check:fantasy-architecture": "node --import tsx scripts/authoritative-fantasy-architecture-check.ts",
+    "check:production-fantasy-smoke": "node --import tsx scripts/production-fantasy-smoke-contract-check.ts",
     "check:phase2-lineups": "node --import tsx scripts/phase2-deterministic-lineup-check.ts",
+    "check:matchup-head-to-head": "node --import tsx scripts/matchup-head-to-head-check.ts",
+    "check:home-dashboard": "node --import tsx scripts/home-dashboard-check.ts",
     "check:phase3-agent": "node --import tsx scripts/phase3-agent-recruiting-check.ts",
     "check:phase3-careers": "node --import tsx scripts/phase3-agent-career-check.ts",
     "check:phase3-growth": "node --import tsx scripts/phase3-agent-growth-check.ts",
     "check:phase4-owner": "node --import tsx scripts/phase4-owner-postseason-check.ts",
     "check:final-release": "node --import tsx scripts/final-release-hardening-check.ts",
-    "check:hardening": "npm run lint && npm run check:integrity && npm run check:draft-reliability && npm run check:trivia && npm run check:identity && npm run check:yahoo-parity && npm run check:picks && npm run check:phase1-correctness && npm run check:dst-rankings && npm run check:fantasy-transactions && npm run check:phase2-player-details && npm run check:phase2-history && npm run check:phase2-lineups && npm run check:phase3-agent && npm run check:phase3-careers && npm run check:phase3-growth && npm run check:phase4-owner && npm run check:final-release"
+    "check:hardening": "npm run lint && npm run check:integrity && npm run check:draft-reliability && npm run check:trivia && npm run check:identity && npm run check:yahoo-parity && npm run check:picks && npm run check:phase1-correctness && npm run check:dst-rankings && npm run check:fantasy-transactions && npm run check:fantasy-architecture && npm run check:production-fantasy-smoke && npm run check:phase2-player-details && npm run check:phase2-history && npm run check:player-history-identity && npm run check:phase2-lineups && npm run check:matchup-head-to-head && npm run check:home-dashboard && npm run check:phase3-agent && npm run check:phase3-careers && npm run check:phase3-growth && npm run check:phase4-owner && npm run check:final-release"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

@@ -30,12 +30,13 @@ assert.match(api, /if\(!isFinalGameStatus\(status\)\) throw new Tank01Error/);
 assert.match(api, /if\(malformedPlayerRow\) throw new Tank01Error/);
 assert.match(api, /if\(!rows\.length\) throw new Tank01Error/);
 assert.match(api, /historical backfill remains active/);
-assert.match(api, /req\.headers\?\.authorization!==`Bearer \$\{cronSecret\}`/);
+assert.match(api, /if\(!cronSecret\|\|req\.headers\?\.authorization!==`Bearer \$\{cronSecret\}`\) return res\.status\(401\)/);
+assert.doesNotMatch(api, /scheduleOnly|db\.auth\.getUser/);
 
 assert.match(cloud, /pregame_projected_points/);
 assert.match(cloud, /row\.pregame_projection_captured_at \? \(row\.pregame_projected_points \|\| \{\}\) : \{\}/);
 assert.match(detail, /Why this projection/);
-assert.match(detail, /Pregame projections appear only when a snapshot was captured/);
+assert.match(detail, /Ball Knower Full PPR season pace until a provider weekly projection publishes/);
 assert.equal(vercel.crons.length, 2, 'History backfill must reuse the existing cron instead of exceeding the two-job cap.');
 
 console.log('Phase 2 history snapshot checks passed.');

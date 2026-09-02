@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
+export const maxDuration=30;
+
 // Keep this route self-contained. Vercel's TypeScript function runtime has
 // failed to package modules imported from outside api/ for this project.
 // These scoring rules mirror fantasyLiveScoring.ts, which remains the tested
@@ -340,6 +342,44 @@ function defaultLineup(roster:RosterPlayer[], projections:Map<string,Record<Fant
   return {starters,bench:roster.filter(player=>!used.has(player.id)).sort(compare).map(player=>player.id)};
 }
 
+async function syncCompleteRegularSeasonSchedule(db:any,season:number,now:Date):Promise<Json>{
+  const existing=await db.from('ball_knower_nfl_games').select('provider_game_id',{count:'exact',head:true})
+    .eq('season',season).eq('season_type','reg');
+  if(existing.error) throw existing.error;
+  if(Number(existing.count)===272) return {status:'complete',games:272};
+
+  const weeks=Array.from({length:18},(_,index)=>index+1);
+  const payloads=await Promise.all(weeks.map(week=>
+    tankGet('/getNFLGamesForWeek',{week:String(week),season:String(season),seasonType:'reg'}),
+  ));
+  const games:GameRow[]=payloads.flatMap((payload,index)=>valueList(payload).flatMap(game=>{
+    const providerGameId=String(game.gameID||game.gameId||'');
+    const kickoff=kickoffIsoFromTank01Game(game);
+    const awayTeam=normalizeTeam(game.away||game.awayTeam);
+    const homeTeam=normalizeTeam(game.home||game.homeTeam);
+    if(!providerGameId||!kickoff||!awayTeam||!homeTeam||awayTeam===homeTeam) return [];
+    const status=String(game.gameStatus||'Scheduled');
+    return [{
+      provider_game_id:providerGameId,season,season_type:'reg',week_number:index+1,
+      away_team:awayTeam,home_team:homeTeam,kickoff_at:kickoff,
+      game_status:status,game_status_code:String(game.gameStatusCode||''),game_period:null,game_clock:null,
+      is_live:isLiveGameStatus(status),is_final:isFinalGameStatus(status),
+      final_at:isFinalGameStatus(status)?now.toISOString():null,last_polled_at:null,
+    }];
+  }));
+  const teamGameCounts=new Map<string,number>();
+  for(const game of games){
+    teamGameCounts.set(game.away_team,(teamGameCounts.get(game.away_team)||0)+1);
+    teamGameCounts.set(game.home_team,(teamGameCounts.get(game.home_team)||0)+1);
+  }
+  if(games.length!==272||teamGameCounts.size!==32||[...teamGameCounts.values()].some(count=>count!==17)){
+    throw new Tank01Error('/getNFLGamesForWeek',200,'payload',`Tank01 returned an incomplete ${season} regular-season schedule.`);
+  }
+  const {error}=await db.from('ball_knower_nfl_games').upsert(games,{onConflict:'provider_game_id'});
+  if(error) throw error;
+  return {status:'loaded',games:games.length};
+}
+
 async function processHistoricalBackfill(db:any,now:Date):Promise<Json>{
   const stateResult=await db.from('ball_knower_fantasy_history_backfill').select('*').is('completed_at',null)
     .order('season',{ascending:true}).order('week_number',{ascending:true}).limit(1).maybeSingle();
@@ -434,9 +474,7 @@ export default async function handler(req:any,res:any){
   if(req.method!=='GET') return res.status(405).json({ok:false,error:'Method not allowed'});
   res.setHeader('Cache-Control','no-store');
   const cronSecret=process.env.CRON_SECRET;
-  if(!cronSecret) return res.status(503).json({ok:false,error:'CRON_SECRET is not configured'});
-  if(req.headers?.authorization!==`Bearer ${cronSecret}`) return res.status(401).json({ok:false,error:'Unauthorized'});
-
+  if(!cronSecret||req.headers?.authorization!==`Bearer ${cronSecret}`) return res.status(401).json({ok:false,error:'Unauthorized'});
   const supabaseUrl=process.env.SUPABASE_URL
     ||process.env.VITE_SUPABASE_URL
     ||'https://gpnboygoosrmeydwjpvk.supabase.co';
@@ -444,12 +482,24 @@ export default async function handler(req:any,res:any){
   if(!serviceKey) return res.status(503).json({ok:false,error:'SUPABASE_SERVICE_ROLE_KEY is not configured'});
   const db=createClient(supabaseUrl,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
   const now=new Date();
-
   try{
     const current=await tankGet('/getNFLCurrentInfo') as Json;
     const season=Math.max(2026,Number(current?.season)||now.getUTCFullYear());
-    const week=Math.max(1,Math.min(22,Number(current?.week)||1));
-    const seasonType=String(current?.seasonType||'reg');
+    let week=Math.max(1,Math.min(22,Number(current?.week)||1));
+    let seasonType=String(current?.seasonType||'reg');
+    let scheduleSync:Json={status:'unavailable'};
+    try{ scheduleSync=await syncCompleteRegularSeasonSchedule(db,season,now); }
+    catch(error:any){ console.warn('fantasy-schedule-sync-failed',{season,message:error?.message||String(error)}); }
+    if(seasonType!=='reg'){
+      const nextGameResult=await db.from('ball_knower_nfl_games').select('week_number,kickoff_at')
+        .eq('season',season).eq('season_type','reg').eq('is_final',false)
+        .order('kickoff_at',{ascending:true}).limit(1).maybeSingle();
+      if(nextGameResult.error) throw nextGameResult.error;
+      if(nextGameResult.data){
+        week=Math.max(1,Math.min(18,Number(nextGameResult.data.week_number)||1));
+        seasonType='reg';
+      }
+    }
     if(seasonType==='Final'||seasonType!=='reg'){
       let historyBackfill:Json={status:'retry_later'};
       try{ historyBackfill=await processHistoricalBackfill(db,now); }
@@ -755,19 +805,27 @@ export default async function handler(req:any,res:any){
             : 0;
           const providerProjection=player.position==='DST'?undefined:providerProjectionByKey.get(playerKey(player.name,player.team));
           const providerDefenseProjection=player.position==='DST'?defenseProjectionByTeam.get(teamForPlayer(player)):undefined;
+          const fallbackProjection=projectionByAppPlayer.get(player.id)?.[format];
+          const projectionAvailable=player.position==='DST'&&usesCustomDefenseScoring
+            ? hasDefenseProjectionStats(providerDefenseProjection)
+            : usesCustomScoring&&player.position!=='DST'
+              ? Boolean(providerProjection)
+              : playerScore
+                ? Number.isFinite(Number(playerScore.projected_points?.[format]))
+                : Number.isFinite(Number(fallbackProjection));
           const projected=player.position==='DST'&&usesCustomDefenseScoring
             ? (hasDefenseProjectionStats(providerDefenseProjection)?liveProjectedPoints(actual,scoreDefenseWithLeagueOverrides(providerDefenseProjection,customScoring),game?.game_status,game?.game_period):actual)
             : usesCustomScoring&&player.position!=='DST'
             ? (providerProjection?liveProjectedPoints(actual,scoreWithLeagueOverrides(providerProjection,format,customScoring),game?.game_status,game?.game_period):actual)
             : playerScore
               ? scoreForFormat(playerScore.projected_points,format)
-              : projectionByAppPlayer.get(player.id)?.[format]||0;
+              : fallbackProjection||0;
           livePoints+=actual;
           projectedPoints+=projected;
           details.push({slot:slot.id,playerId:player.id,playerName:player.name,team:player.team,position:player.position,
-            opponent:game?matchupForTeam(game,player.team).opponentTeam:null,
-            points:actual,projectedPoints:projected,status:game?.game_status||(game?'Scheduled':'Bye'),kickoffAt:game?.kickoff_at||null,
-            isLive:Boolean(game?.is_live),isFinal:Boolean(game?.is_final)||(!game&&weekIsFinal),locked:lockedIds.has(player.id)});
+            opponent:game?matchupForTeam(game,player.team).opponentTeam:null,isHome:game?matchupForTeam(game,player.team).isHome:null,isBye:false,
+            points:actual,projectedPoints:projected,projectionAvailable,status:game?.game_status||'Opponent unavailable',kickoffAt:game?.kickoff_at||null,
+            isLive:Boolean(game?.is_live),isFinal:Boolean(game?.is_final),locked:lockedIds.has(player.id)});
         }
         lineupWrites.push({...lineup,locked_player_ids:[...lockedIds],locked:lockedIds.size>=STANDARD_SLOTS.length,
           finalized_at:weekIsFinal?(lineup.finalized_at||now.toISOString()):null,updated_at:now.toISOString()});
@@ -779,7 +837,7 @@ export default async function handler(req:any,res:any){
           league_id:league.id,member_id:member.id,week_number:week,live_points:Math.round(livePoints*100)/100,
           projected_points:Math.round(projectedPoints*100)/100,source:'tank01',is_final:weekIsFinal,
           score_revision:totalChanged?Number(previous?.score_revision||1)+1:Number(previous?.score_revision||1),
-          score_details:{season,seasonType,format,players:details},finalized_at:weekIsFinal?(previous?.finalized_at||now.toISOString()):null,
+          score_details:{season,seasonType,format,hasProjectedTotal:details.length===STANDARD_SLOTS.length&&details.every(player=>player.projectionAvailable===true),players:details},finalized_at:weekIsFinal?(previous?.finalized_at||now.toISOString()):null,
           last_correction_at:corrected?now.toISOString():(previous?.last_correction_at||null),updated_at:now.toISOString(),
         });
       }
@@ -803,7 +861,7 @@ export default async function handler(req:any,res:any){
     }
 
     return res.status(200).json({
-      ok:true,season,week,seasonType,gamesScheduled:scheduleRows.length,gamesPolled:pollable.length,
+      ok:true,season,week,seasonType,scheduleSync,gamesScheduled:scheduleRows.length,gamesPolled:pollable.length,
       projectionSnapshotsWritten:scheduledProjectionRows.length,playerRowsWritten,leagueScoresWritten:weeklyScoreWrites.length,
       statCorrections:correctionCount,weekIsFinal,historyBackfill,checkedAt:now.toISOString(),
     });
