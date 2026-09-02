@@ -123,7 +123,13 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
     let active = true;
     setBusy(true);
     setError('');
-    loadFantasyPlayerWeeks({ id: player.id, name: player.name, team: player.team, position: player.position })
+    loadFantasyPlayerWeeks({
+      id: player.id,
+      name: player.name,
+      team: player.team,
+      position: player.position,
+      projectedPoints2026: ranking?.projected_points_2026,
+    })
       .then(rows => {
         if (active) setWeeks(rows);
       })
@@ -136,7 +142,7 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
     return () => {
       active = false;
     };
-  }, [player?.id, player?.name, player?.team, player?.position]);
+  }, [player?.id, player?.name, player?.team, player?.position, ranking?.projected_points_2026]);
 
   useEffect(() => {
     if (!player) return;
@@ -460,12 +466,15 @@ const OverviewTab = ({
       </section>
     )}
 
-    {week?.projectionCapturedAt && week.projectionReason && (
+    {week?.projectionReason && (
       <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
         <div className="text-[10px] font-black uppercase text-zinc-400">Why this projection</div>
         <p className="mt-2 text-xs leading-5 text-zinc-400">{week.projectionReason}</p>
         <div className="mt-2 text-[9px] text-zinc-600">
-          {week.projectionSource} · captured {new Date(week.projectionCapturedAt).toLocaleString()}
+          {week.projectionSource}
+          {week.projectionCapturedAt
+            ? ` · captured ${new Date(week.projectionCapturedAt).toLocaleString()}`
+            : ' · season pace until weekly projections publish'}
         </div>
       </section>
     )}
@@ -547,7 +556,9 @@ const GameLogTab = ({
       </div>
       <div className="flex items-center gap-2 px-4 py-3 text-[9px] leading-4 text-zinc-600">
         <Activity className="h-3.5 w-3.5 shrink-0" />
-        Final points and stats use stored scoring rows. Pregame projections appear only when a snapshot was captured.
+        {season === 2026
+          ? 'Schedule uses the published NFL slate. Proj Pts uses the Ball Knower Full PPR season pace until a provider weekly projection publishes.'
+          : 'Final points and stats use stored scoring rows. Pregame projections appear only when a snapshot was captured.'}
         <Shield className="ml-auto h-3.5 w-3.5 shrink-0" />
       </div>
     </div>

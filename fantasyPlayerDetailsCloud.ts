@@ -57,6 +57,7 @@ type ScheduleRow = {
   kickoff_at: string;
   game_status: string | null;
   is_final: boolean;
+  source?: string;
 };
 
 export type FantasyPlayerIdentity = {
@@ -64,6 +65,7 @@ export type FantasyPlayerIdentity = {
   name: string;
   team: string;
   position: string;
+  projectedPoints2026?: number | null;
 };
 
 const weekColumns = 'id,provider_game_id,provider_player_id,season,week_number,player_name,team,position,opponent_team,is_home,kickoff_at,game_status,is_final,stats,fantasy_points,projected_points,pregame_projected_points,pregame_projection_reason,pregame_projection_source,pregame_projection_captured_at,history_source';
@@ -168,31 +170,21 @@ export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Pro
   // only verified opponent/kickoff metadata; unavailable fantasy data remains —.
   const currentTeam = normalizeTeam(player.team);
   let schedule = scheduleResult.error ? [] : ((scheduleResult.data || []) as ScheduleRow[]);
-  if (schedule.length === 0) {
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-      if (accessToken) {
-        const response = await fetch('/api/fantasy-live-scoring?mode=schedule', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (response.ok) {
-          const refreshed = await supabase
-            .from('ball_knower_nfl_games')
-            .select('provider_game_id,season,week_number,away_team,home_team,kickoff_at,game_status,is_final')
-            .eq('season', 2026)
-            .eq('season_type', 'reg')
-            .order('week_number', { ascending: true });
-          if (!refreshed.error) schedule = (refreshed.data || []) as ScheduleRow[];
-        }
-      }
-    } catch (error) {
-      console.warn('2026 fantasy schedule bootstrap failed', error);
-    }
-  }
-  const teamGames = schedule.filter(row =>
+  const scheduledGamesForTeam = () => schedule.filter(row =>
     normalizeTeam(row.away_team) === currentTeam || normalizeTeam(row.home_team) === currentTeam,
   );
+  if (scheduledGamesForTeam().length !== 17) {
+    try {
+      const response = await fetch(`/api/fantasy-player-schedule?team=${encodeURIComponent(currentTeam)}`);
+      if (response.ok) {
+        const payload = await response.json() as { games?: ScheduleRow[] };
+        schedule = Array.isArray(payload.games) ? payload.games : [];
+      }
+    } catch (error) {
+      console.warn('2026 fantasy schedule lookup failed', error);
+    }
+  }
+  const teamGames = scheduledGamesForTeam();
   if (teamGames.length !== 17) return verifiedRows;
 
   const verifiedByWeek = new Map(
@@ -213,19 +205,24 @@ export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Pro
         playerName: player.name, team: currentTeam, opponentTeam: '', isHome: null,
         position: player.position, kickoffAt: '', status: 'Bye', isFinal: false,
         stats: {}, fantasyPoints: {}, projectedPoints: {}, projectionReason: '',
-        projectionSource: '', projectionCapturedAt: null, historySource: 'nfl_schedule', isBye: true,
+        projectionSource: '', projectionCapturedAt: null, historySource: 'espn_schedule', isBye: true,
       });
       continue;
     }
     const isHome = normalizeTeam(game.home_team) === currentTeam;
+    const seasonProjection = Number(player.projectedPoints2026);
+    const hasSeasonProjection = Number.isFinite(seasonProjection) && seasonProjection > 0;
+    const projectedPace = hasSeasonProjection ? Math.round((seasonProjection / 17) * 10) / 10 : null;
     seasonWeeks.push({
       id: `schedule-2026-${player.id}-${week}`, providerGameId: game.provider_game_id,
       season: 2026, week, playerName: player.name, team: currentTeam,
       opponentTeam: normalizeTeam(isHome ? game.away_team : game.home_team), isHome,
       position: player.position, kickoffAt: game.kickoff_at, status: game.game_status || 'Scheduled',
-      isFinal: Boolean(game.is_final), stats: {}, fantasyPoints: {}, projectedPoints: {},
-      projectionReason: '', projectionSource: '', projectionCapturedAt: null,
-      historySource: 'nfl_schedule',
+      isFinal: Boolean(game.is_final), stats: {}, fantasyPoints: {},
+      projectedPoints: projectedPace === null ? {} : { ppr: projectedPace },
+      projectionReason: projectedPace === null ? '' : 'Ball Knower season projection pace: the published Full PPR season projection divided across the 17 verified scheduled games. A provider weekly projection replaces this when published.',
+      projectionSource: projectedPace === null ? '' : 'Ball Knower preseason season projection',
+      projectionCapturedAt: null, historySource: game.source || 'nfl_schedule',
     });
   }
   return [...seasonWeeks, ...verifiedRows.filter(row => row.season !== 2026)];
