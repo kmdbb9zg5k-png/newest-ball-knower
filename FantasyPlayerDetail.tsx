@@ -12,6 +12,7 @@ type Props = {
   injuryStatus?: string;
   ranking?: FantasyRanking;
   watchAction?: { watched: boolean; onToggle: () => void };
+  primaryAction?: { label: string; onAction: () => void; disabled?: boolean };
   onClose: () => void;
 };
 
@@ -104,6 +105,7 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
   injuryStatus,
   ranking,
   watchAction,
+  primaryAction,
   onClose,
 }) => {
   const [season, setSeason] = useState<2026 | 2025>(2026);
@@ -217,9 +219,9 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
         role="dialog"
         aria-modal="true"
         aria-label={`${player.name} fantasy details`}
-        className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/85 pt-[max(.75rem,env(safe-area-inset-top))] backdrop-blur-sm sm:items-center sm:px-4 sm:pb-4"
+        className="fixed inset-0 z-[9999] flex items-end justify-center overflow-hidden bg-black/85 pt-[max(.75rem,env(safe-area-inset-top))] backdrop-blur-sm sm:items-center sm:px-4 sm:pb-4"
       >
-        <div className="max-h-[92dvh] w-full max-w-3xl overflow-y-auto overscroll-contain rounded-t-[28px] border border-white/10 bg-[#171a20] text-white shadow-2xl sm:rounded-[28px]">
+        <div className="max-h-[calc(100dvh-max(.75rem,env(safe-area-inset-top)))] w-full max-w-3xl overflow-y-auto overscroll-contain rounded-t-[28px] border border-white/10 bg-[#171a20] text-white shadow-2xl [-webkit-overflow-scrolling:touch] sm:max-h-[92dvh] sm:rounded-[28px]">
           <header className="relative min-h-48 overflow-hidden border-b border-white/10 bg-gradient-to-br from-[#222631] via-[#181b21] to-[#0b0d11] p-5 pr-32 sm:min-h-52 sm:p-6 sm:pr-48">
             <button
               aria-label="Close player details"
@@ -237,7 +239,7 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
                 {player.name}
               </h2>
               {teamName && <div className="mt-1 text-xs font-semibold text-zinc-400">{teamName}</div>}
-              {ownerName && <div className="mt-1 text-xs font-semibold text-zinc-400">Manager: {ownerName}</div>}
+              <div className="mt-1 text-xs font-semibold text-zinc-400">{ownerName ? `Rostered by ${ownerName}` : 'Available player'}</div>
               <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-black uppercase">
                 <span className={`rounded-full px-3 py-1.5 ${player.injured || injuryStatus ? 'bg-red-500/15 text-red-200' : 'bg-emerald-400/15 text-emerald-200'}`}>
                   {status}
@@ -347,14 +349,10 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
             )}
           </div>
 
-          {watchAction && (
-            <footer className="border-t border-white/10 bg-[#101217] px-4 py-3">
-              <button
-                onClick={watchAction.onToggle}
-                className="min-h-12 w-full rounded-xl bg-[#D4AF37] text-sm font-black text-black"
-              >
-                {watchAction.watched ? 'REMOVE FROM MY GUYS' : 'ADD TO MY GUYS'}
-              </button>
+          {(primaryAction || watchAction) && (
+            <footer className="sticky bottom-0 z-20 grid gap-2 border-t border-white/10 bg-[#101217]/95 px-4 py-3 pb-[max(.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:grid-cols-2 sm:pb-3">
+              {primaryAction && <button onClick={primaryAction.onAction} disabled={primaryAction.disabled} className="min-h-12 w-full rounded-xl bg-[#D4AF37] px-3 text-sm font-black text-black disabled:opacity-40">{primaryAction.label}</button>}
+              {watchAction && <button onClick={watchAction.onToggle} className={`min-h-12 w-full rounded-xl text-sm font-black ${primaryAction ? 'border border-white/10 bg-white/5 text-white' : 'bg-[#D4AF37] text-black'}`}>{watchAction.watched ? 'REMOVE FROM MY GUYS' : 'ADD TO MY GUYS'}</button>}
             </footer>
           )}
           <div aria-hidden="true" className="h-[max(.75rem,env(safe-area-inset-bottom))] bg-[#101217] sm:h-3" />

@@ -70,13 +70,14 @@ function BallKnowerApp(){
   const handleLeagueJoined=(league:League)=>{setActiveLeagueId(league.id);setCurrentTab('lobby')};
   const navigateToTab=useCallback((tab:AppTab)=>{if(tab==='fantasy')setFantasyView('leagues');if(tab==='solo')setSoloExperience('hub');setCurrentTab(tab)},[]);
   const openCheatSheet=useCallback(()=>{setFantasyView('cheatsheet');setCurrentTab('fantasy')},[]);
+  const showProductChrome=!isIntroOpen&&!showFavoriteTeam;
 
   return <div data-tab={currentTab} className="bk-app-shell relative min-h-[100dvh] overflow-x-clip text-white font-sans antialiased selection:bg-[var(--bk-team-accent)]/30 selection:text-[var(--bk-team-accent)]">
     <div className="bk-cinematic-image" aria-hidden="true"/>
     <div className="fixed inset-0 z-[2] pointer-events-none overflow-hidden" aria-hidden="true"><div className="absolute -right-[22vw] top-[15vh] h-[72vw] w-[72vw] max-h-[900px] max-w-[900px] opacity-[.035] sm:opacity-[.045]" style={{filter:`drop-shadow(0 0 70px ${favoriteTheme.secondary}55)`}}><img src={teamLogoUrl(favoriteTheme.abbr)} alt="" className="h-full w-full object-contain"/></div><div className="absolute inset-y-0 right-0 w-[46vw] opacity-25" style={{background:`radial-gradient(circle at 100% 38%,${favoriteTheme.primary}55,transparent 64%)`}}/><div className="absolute inset-x-0 top-0 h-px" style={{background:`linear-gradient(90deg,transparent,${favoriteTheme.secondary}88,transparent)`}}/></div>
 
-    <Navbar currentTab={currentTab} setCurrentTab={navigateToTab} onOpenAuth={()=>setIsAuthOpen(true)} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onOpenIntro={openIntro} onOpenDatabaseModal={()=>setIsDatabaseModalOpen(true)}/>
-    <main className="relative z-[3] w-full pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-[env(safe-area-inset-bottom)]">
+    {showProductChrome&&<Navbar currentTab={currentTab} setCurrentTab={navigateToTab} onOpenAuth={()=>setIsAuthOpen(true)} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onOpenIntro={openIntro} onOpenDatabaseModal={()=>setIsDatabaseModalOpen(true)}/>}
+    {showProductChrome&&<main className="relative z-[3] w-full pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-[env(safe-area-inset-bottom)]">
       {currentTab==='home'&&<HomeDashboard teamTheme={favoriteTheme} onNavigate={navigateToTab} onOpenCheatSheet={openCheatSheet} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague}/>}
       <Suspense fallback={<ScreenFallback/>}>
         {currentTab==='solo'&&<SoloMode initialExperience={soloExperience}/>} 
@@ -90,9 +91,9 @@ function BallKnowerApp(){
         {currentTab==='draft'&&(activeLeague?(isDraftOrderGame?(isMobileDraftViewport?<MobileDraftRoom onBackToLobby={()=>setCurrentTab('lobby')} onSubmitSuccess={()=>setCurrentTab('simulation')}/>:<DraftRoom onBackToLobby={()=>setCurrentTab('lobby')} onSubmitSuccess={()=>setCurrentTab('simulation')}/>):<LeagueLiveDraftRoom onBackToLobby={()=>setCurrentTab('lobby')}/>):<div className="mx-auto flex min-h-[60dvh] max-w-xl items-center justify-center px-4 text-center"><div className="rounded-2xl border border-white/10 bg-[#0d1015] p-6"><h2 className="text-2xl font-black uppercase">Choose A Fantasy League First</h2><p className="mt-2 text-sm text-zinc-500">League drafts live inside League HQ. Select a league before opening its draft room.</p><button onClick={()=>setCurrentTab('fantasy')} className="mt-5 min-h-12 w-full rounded-xl bg-[var(--bk-team-accent)] px-5 text-xs font-black uppercase text-[var(--bk-on-accent)]">Go To Fantasy</button></div></div>)}
         {currentTab==='simulation'&&activeLeague&&<SimulationView league={activeLeague} onBackToLobby={()=>setCurrentTab('lobby')} onOpenDraft={()=>setCurrentTab('draft')}/>} 
       </Suspense>
-    </main>
+    </main>}
 
-    <LaunchFooter onOpen={setLaunchPanel}/>
+    {showProductChrome&&<LaunchFooter onOpen={setLaunchPanel}/>}
 
     <CinematicIntro isOpen={isIntroOpen} onClose={closeIntro}/>
     {showFavoriteTeam&&!isIntroOpen&&<FavoriteTeamExperience onDone={finishFavoriteTeamSetup}/>} 
