@@ -2,6 +2,17 @@
 
 begin;
 
+do $roles$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then
+    create role anon nologin;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+    create role authenticated nologin;
+  end if;
+end;
+$roles$;
+
 create schema ball_knower_private;
 
 create table public.ball_knower_league_members (
