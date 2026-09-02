@@ -18,7 +18,7 @@ const discoveryNameMatches = cloud.match(/\.eq\('player_name', player\.name\)/g)
 assert.equal(discoveryNameMatches.length, 1, 'Exactly one name-based historical discovery query is allowed.');
 assert.ok(cloud.includes(".in('player_name', nameVariants)"), 'Historical discovery must also query bounded verified name variants.');
 
-const discoveryStart = cloud.indexOf('// Historical Tank01 box scores can omit position and Ball Knower id.');
+const discoveryStart = cloud.indexOf('// Name queries are discovery-only.');
 const discoveryEnd = cloud.indexOf('  ]);', discoveryStart);
 assert.ok(discoveryStart >= 0 && discoveryEnd > discoveryStart, 'The historical discovery query must be explicitly scoped.');
 const discoveryQuery = cloud.slice(discoveryStart, discoveryEnd);
@@ -37,7 +37,7 @@ assert.ok(anchorLogic.includes('const variantProviderId = exactNameRows.length =
 assert.ok(anchorLogic.includes('const verifiedFallbackRows = exactProviderId'), 'Fallback rows must prefer the accepted exact identity.');
 
 assert.equal(resolveHistoricalProviderId(['provider-a'], ['provider-a']), 'provider-a', 'Matching single provider identities may merge.');
-assert.equal(resolveHistoricalProviderId([], ['provider-a']), 'provider-a', 'A unique provider identity may anchor exact-name historical rows when position metadata is absent.');
+assert.equal(resolveHistoricalProviderId([], ['provider-a']), '', 'A name-only provider identity must fail closed without a permanent-id anchor.');
 assert.equal(resolveHistoricalProviderId(['provider-a'], ['provider-b']), '', 'Different provider identities must not merge.');
 assert.equal(resolveHistoricalProviderId(['provider-a'], ['provider-a', 'provider-b']), '', 'Ambiguous historical provider identities must not merge.');
 assert.equal(resolveHistoricalProviderId(['provider-a', 'provider-b'], ['provider-a']), '', 'Ambiguous current-player provider identities must not merge.');
@@ -48,7 +48,7 @@ assert.ok(historicalNameVariants('Marquise Brown').includes('Hollywood Brown'), 
 assert.ok(!historicalNameVariants('Michael Carter').includes('Michael Carter'), 'Variant discovery must exclude the exact name so exact history stays authoritative.');
 
 assert.ok(cloud.includes(".eq('ball_knower_player_id', player.id)"), 'Weekly history must query the permanent Ball Knower player identity first.');
-assert.ok(cloud.includes('Exact-name rows always win.'), 'Ambiguous name variants must never displace exact player history.');
+assert.ok(cloud.includes('Exact-name rows win over variants'), 'Ambiguous name variants must never displace exact player history.');
 assert.ok(cloud.includes('position: row.position || player.position'), 'Verified historical rows must recover missing upstream position metadata from the selected player.');
 assert.ok(detail.includes("player?.name, player?.team, player?.position"), 'History must reload whenever a fallback identity field changes.');
 assert.ok(detail.includes("type DetailTab = 'overview' | 'gameLog' | 'stats'"), 'Player details must expose Overview, Game Log, and Stats destinations.');

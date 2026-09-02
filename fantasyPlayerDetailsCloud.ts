@@ -136,8 +136,8 @@ export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Pro
       .in('season', [2025, 2026])
       .order('season', { ascending: false })
       .order('week_number', { ascending: true }),
-    // Historical Tank01 box scores can omit position and Ball Knower id. Exact
-    // name is checked first so a same-name suffix collision cannot displace it.
+    // Name queries are discovery-only. A row is merged below only when its
+    // provider id agrees with the permanent Ball Knower identity query.
     supabase
       .from('ball_knower_player_week_scores')
       .select(weekColumns)
@@ -179,9 +179,9 @@ export async function loadFantasyPlayerWeeks(player: FantasyPlayerIdentity): Pro
     ? resolveHistoricalProviderId(identityProviderIds, variantProviderIds)
     : '';
 
-  // Exact-name rows always win. Only when they do not exist may a suffix or
-  // nickname variant supply the unique provider identity. Ambiguity, missing
-  // provider ids, or disagreement with current rows still fails closed.
+  // Exact-name rows win over variants, but neither may establish identity by
+  // itself. Ambiguity, missing provider ids, or a missing permanent-id anchor
+  // fails closed.
   const verifiedFallbackRows = exactProviderId
     ? exactNameRows.filter(row => row.provider_player_id === exactProviderId)
     : variantProviderId

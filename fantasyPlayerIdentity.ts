@@ -4,8 +4,12 @@ export function resolveHistoricalProviderId(
 ): string {
   const current = [...new Set(identityProviderIds.filter(Boolean))];
   const historical = [...new Set(fallbackProviderIds.filter(Boolean))];
-  if (historical.length !== 1 || current.length > 1) return '';
-  if (current.length === 1 && current[0] !== historical[0]) return '';
+  // A name is discovery metadata, never an identity anchor. Historical rows
+  // may merge only when the permanent-id query already proves the same single
+  // provider id. The database backfill supplies that anchor for verified 2025
+  // rows and deliberately leaves ambiguous same-name players unassigned.
+  if (historical.length !== 1 || current.length !== 1) return '';
+  if (current[0] !== historical[0]) return '';
   return historical[0];
 }
 
