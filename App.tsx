@@ -35,13 +35,15 @@ const LockerHub=lazy(()=>import('./LockerHub').then(module=>({default:module.Loc
 export type AppTab='home'|'solo'|'news'|'fantasy'|'sportsbook'|'legacy'|'challenges'|'locker'|'lobby'|'draft'|'simulation';
 
 const detectMobileDraftViewport=()=>{try{return window.matchMedia('(max-width: 767px)').matches}catch{return false}};
+const fantasyVisualQaScreen=()=>{try{return new URLSearchParams(window.location.search).get('fantasy-visual-qa')}catch{return null}};
 const ScreenFallback=()=><div className="mx-auto flex min-h-[45dvh] max-w-5xl items-center justify-center px-4 text-center"><div><div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[var(--bk-team-accent)]"/><div className="mt-3 text-[10px] font-black uppercase tracking-[.22em] text-zinc-500">Loading Ball Knower</div></div></div>;
 
 function BallKnowerApp(){
+  const qaScreen=fantasyVisualQaScreen();
   const {activeLeague,setActiveLeagueId,toastMessage,joinLeague}=useBallKnower();
   const {setIntroActive}=useSoundtrack();
   const setIntroActiveRef=useRef(setIntroActive);
-  const [currentTab,setCurrentTab]=useState<AppTab>('home');
+  const [currentTab,setCurrentTab]=useState<AppTab>(()=>qaScreen==='draft'?'draft':qaScreen?'lobby':'home');
   const [fantasyView,setFantasyView]=useState<'leagues'|'cheatsheet'>('leagues');
   const [soloExperience,setSoloExperience]=useState<SoloExperience>('hub');
   const [isAuthOpen,setIsAuthOpen]=useState(false);
@@ -49,10 +51,10 @@ function BallKnowerApp(){
   const [isJoinLeagueOpen,setIsJoinLeagueOpen]=useState(false);
   const [isDatabaseModalOpen,setIsDatabaseModalOpen]=useState(false);
   const [launchPanel,setLaunchPanel]=useState<LaunchPanel|null>(null);
-  const [isIntroOpen,setIsIntroOpen]=useState(true);
+  const [isIntroOpen,setIsIntroOpen]=useState(()=>!qaScreen);
   const [isMobileDraftViewport,setIsMobileDraftViewport]=useState(detectMobileDraftViewport);
   const [favoriteTheme,setFavoriteTheme]=useState<TeamTheme>(()=>getSavedTeamTheme());
-  const [showFavoriteTeam,setShowFavoriteTeam]=useState(()=>{try{const params=new URLSearchParams(window.location.search);return params.get('teamsetup')==='1'||!localStorage.getItem('ball-knower-team-setup-v2')}catch{return false}});
+  const [showFavoriteTeam,setShowFavoriteTeam]=useState(()=>{try{const params=new URLSearchParams(window.location.search);return !qaScreen&&(params.get('teamsetup')==='1'||!localStorage.getItem('ball-knower-team-setup-v2'))}catch{return false}});
   const isDraftOrderGame=Boolean(activeLeague&&activeLeague.settings?.draftOrderMethod==='game'&&!activeLeague.seasonResult?.draftOrder?.length&&!activeLeague.liveDraft);
 
   useEffect(()=>{setIntroActiveRef.current=setIntroActive},[setIntroActive]);
