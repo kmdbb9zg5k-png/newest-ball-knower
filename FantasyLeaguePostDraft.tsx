@@ -81,6 +81,7 @@ import {
   isCompleteFantasySchedule,
   seedFantasyStandings,
 } from "./simulation";
+import { resolveMyLeagueMember } from "./leagueMemberDisplay";
 
 type Tab = "team" | "matchup" | "players" | "league";
 type LeagueView = "standings" | "playoffs" | "power" | "trades" | "activity" | "settings";
@@ -129,7 +130,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   onGoToSimulation,
 }) => {
   const { currentUser, showToast, updateLeagueSettings } = useBallKnower();
-  const me = league.members.find((member) => member.userId === currentUser?.id);
+  const me = resolveMyLeagueMember(league, currentUser);
   const roster = me?.roster || [];
   const settings = (league.settings || {}) as any;
   const fantasyRosterSize = Math.max(
