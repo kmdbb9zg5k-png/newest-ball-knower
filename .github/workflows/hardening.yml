@@ -44,6 +44,11 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h 127.0.0.1 -U postgres -d postgres -f scripts/postgres-league-privacy-integration.sql
 
+      - name: Preserve canonical games across provider ID changes
+        env:
+          PGPASSWORD: postgres
+        run: psql -h 127.0.0.1 -U postgres -d postgres -f scripts/postgres-live-schedule-integration.sql
+
   hardening:
     runs-on: ubuntu-latest
     timeout-minutes: 10

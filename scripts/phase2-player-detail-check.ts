@@ -11,6 +11,10 @@ const hub = readFileSync(new URL('../FantasyHub.tsx', import.meta.url), 'utf8');
 const communications = readFileSync(new URL('../FantasyLeagueCommunications.tsx', import.meta.url), 'utf8');
 const draftRoom = readFileSync(new URL('../LeagueLiveDraftRoom.tsx', import.meta.url), 'utf8');
 const liveScoring = readFileSync(new URL('../api/fantasy-live-scoring.ts', import.meta.url), 'utf8');
+const scheduleIdentity = readFileSync(
+  new URL('../migrations/20260902171900_prevent_duplicate_live_schedule_games.sql', import.meta.url),
+  'utf8',
+);
 
 assert.ok(detail.includes('loadFantasyPlayerWeeks({') && detail.includes('id: player.id'), 'Player detail must load authoritative weekly history using the selected player identity.');
 
@@ -76,6 +80,18 @@ assert.ok(cloud.includes('selectCompleteTeamSchedule') && cloud.includes('databa
 assert.ok(cloud.includes('readCachedTeamSchedule') && cloud.includes('cacheTeamSchedule'), 'A temporary schedule read failure must preserve the last complete player schedule.');
 assert.ok(!cloud.includes('/api/fantasy-player-schedule') && !cloud.includes('mode=schedule'), 'Player cards must not depend on a per-open third-party schedule request.');
 assert.ok(liveScoring.includes('syncCompleteRegularSeasonSchedule') && liveScoring.includes('games.length!==272') && liveScoring.includes('count!==17'), 'The live scorer must bootstrap only a complete, validated 2026 NFL schedule.');
+assert.ok(
+  liveScoring.includes('existingGameByMatchup')
+    && liveScoring.includes('pollProviderGameIdByCanonical')
+    && liveScoring.includes("gameID:pollProviderGameIdByCanonical.get(game.provider_game_id)||game.provider_game_id"),
+  'Live scoring must poll with the provider ID while preserving the one canonical saved game per matchup.',
+);
+assert.ok(
+  scheduleIdentity.includes('ball_knower_nfl_games_one_real_matchup_idx')
+    && scheduleIdentity.includes('Duplicate NFL games have conflicting player scoring rows; refusing automatic consolidation')
+    && scheduleIdentity.includes('set provider_game_id = duplicate.canonical_provider_game_id'),
+  'The database must preserve unambiguous scoring history and reject conflicting rows while consolidating duplicate games.',
+);
 assert.ok(liveScoring.includes("pregame_projection_source:'Tank01 weekly projections'") && liveScoring.includes('pregame_projected_points:snapshot'), 'Published 2026 weekly projections must be materialized with provider provenance.');
 assert.ok(cloud.includes('seasonProjection / 17') && cloud.includes('seasonProjection > 0'), 'Schedule rows may show only a clearly derived, positive season projection pace.');
 assert.ok(detail.includes('setInterval(() => void refresh(), 30_000)'), 'An open player log must refresh as projections, live scores, finals, and corrections arrive.');
