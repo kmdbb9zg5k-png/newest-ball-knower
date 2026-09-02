@@ -6,6 +6,7 @@ const home=read('HomeDashboard.tsx');
 const navbar=read('Navbar.tsx');
 const app=read('App.tsx');
 const footer=read('LaunchCenter.tsx');
+const locker=read('LockerHub.tsx');
 const styles=read('index.css');
 
 assert.ok(home.includes('activeLeague||leagues.find'), 'home must feature the selected league instead of a hard-coded personal league');
@@ -31,5 +32,7 @@ assert.ok(app.includes("window.history.scrollRestoration='manual'")&&app.include
 assert.ok(footer.includes('pb-[calc(5rem+env(safe-area-inset-bottom))]'), 'the fixed bottom navigation must not cover the final footer controls');
 assert.ok(home.includes('grid grid-cols-4 overflow-hidden')&&home.includes('Continue your league')&&home.includes('League Activity'), 'home must preserve the approved compact concept hierarchy');
 assert.ok(styles.includes('-webkit-text-size-adjust: 100%')&&home.includes('min-w-0 overflow-hidden')&&!home.includes('className="whitespace-nowrap">{label}'), 'iPhone text autosizing must not make quick-link labels overlap their columns');
+assert.ok(locker.includes("type Tab='locker'|'collections'")&&!locker.includes("['store','Store']")&&!locker.includes("['pass','Pass']")&&!locker.includes("['plus','BK+']"), 'unfinished Store, Season Pass, and BK+ surfaces must stay hidden from launch navigation');
+assert.ok(locker.includes("ownedItems.filter(x=>x.category==='collectible')")&&locker.includes('Anything you earn will appear here.'), 'Collections must show owned rewards only instead of leaking disabled purchase cards');
 
 console.log('Home dashboard checks passed: personalized team atmosphere, dynamic league action, real activity, and iPhone-safe navigation.');
