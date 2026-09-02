@@ -78,7 +78,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, o
     return (
       <div className="min-h-[calc(100dvh-7rem)] overflow-x-hidden bg-[#07090c] text-white">
         <OwnerCareerSync league={league} />
-        <div className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-5">
+        <div className="mx-auto max-w-6xl px-2 py-0 sm:px-6 sm:py-5">
           <ModeErrorBoundary key={`postdraft-${lazyVersion}`} onRetry={retryMode}>
             <FantasyLeaguePostDraft league={postDraftLeague} onGoToSimulation={onGoToSimulation} />
           </ModeErrorBoundary>
