@@ -25,9 +25,9 @@ export const Navbar:React.FC<NavbarProps>=({currentTab,setCurrentTab,onOpenAuth,
 
   useEffect(()=>{document.getElementById(`nav-tab-${currentTab}`)?.scrollIntoView?.({behavior:'smooth',block:'nearest',inline:'nearest'})},[currentTab]);
   useEffect(()=>{
-    if(!supabase)return;let alive=true;
-    const syncProfile=async(authUser:any)=>{if(!alive||!authUser)return;const metadata=authUser.user_metadata||{};const isGuest=Boolean(authUser.is_anonymous);const name=metadata.full_name||metadata.name||(isGuest?'Guest GM':authUser.email?.split('@')[0])||'Ball Knower GM';const photo=await resolveProfilePhotoForAuthUser(authUser);if(!alive)return;const providerAvatar=metadata.avatar_url||metadata.picture||undefined;setCurrentUser({id:authUser.id,name,email:authUser.email||'',avatarPath:photo.avatarPath,avatarUrl:photo.hasOverride?photo.avatarUrl:providerAvatar,createdAt:authUser.created_at||new Date().toISOString()})};
-    const {data:listener}=supabase.auth.onAuthStateChange((event,session)=>{if(!alive)return;if(session?.user){void syncProfile(session.user);return}if(event==='SIGNED_OUT'){setCurrentUser(null);setActiveLeagueId(null);setIsUserMenuOpen(false)}});
+    if(!supabase)return;let alive=true;let profileRequest=0;
+    const syncProfile=async(authUser:any)=>{if(!alive||!authUser)return;const request=++profileRequest;const metadata=authUser.user_metadata||{};const isGuest=Boolean(authUser.is_anonymous);const name=metadata.full_name||metadata.name||(isGuest?'Guest GM':authUser.email?.split('@')[0])||'Ball Knower GM';const photo=await resolveProfilePhotoForAuthUser(authUser);if(!alive||request!==profileRequest)return;const providerAvatar=metadata.avatar_url||metadata.picture||undefined;setCurrentUser({id:authUser.id,name,email:authUser.email||'',avatarPath:photo.avatarPath,avatarUrl:photo.hasOverride?photo.avatarUrl:providerAvatar,createdAt:authUser.created_at||new Date().toISOString()})};
+    const {data:listener}=supabase.auth.onAuthStateChange((event,session)=>{if(!alive)return;if(session?.user){void syncProfile(session.user);return}if(event==='SIGNED_OUT'){profileRequest+=1;setCurrentUser(null);setActiveLeagueId(null);setIsUserMenuOpen(false)}});
     return()=>{alive=false;listener.subscription.unsubscribe()};
   },[]);
 

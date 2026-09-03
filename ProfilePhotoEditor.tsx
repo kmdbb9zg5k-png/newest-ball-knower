@@ -31,6 +31,7 @@ export const ProfilePhotoEditor: React.FC = () => {
   const sourceUrlRef = useRef('');
   const [actionsOpen, setActionsOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [imageReady, setImageReady] = useState(false);
   const [crop, setCrop] = useState<AvatarCrop>(INITIAL_CROP);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -49,6 +50,7 @@ export const ProfilePhotoEditor: React.FC = () => {
 
   const closeEditor = () => {
     setFile(null);
+    setImageReady(false);
     setCrop(INITIAL_CROP);
     setError('');
     sourceImageRef.current = null;
@@ -66,16 +68,20 @@ export const ProfilePhotoEditor: React.FC = () => {
       const image = new Image();
       image.onload = () => {
         sourceImageRef.current = image;
+        setImageReady(true);
         const canvas = previewCanvasRef.current;
         if (canvas) drawSquareProfileImage(canvas, image, INITIAL_CROP);
       };
       image.onerror = () => {
+        sourceImageRef.current = null;
+        setImageReady(false);
         setError('That photo could not be opened. Try another image.');
         URL.revokeObjectURL(url);
         sourceUrlRef.current = '';
       };
       image.src = url;
       setCrop(INITIAL_CROP);
+      setImageReady(false);
       setError('');
       setFile(selected);
       setActionsOpen(false);
@@ -85,7 +91,7 @@ export const ProfilePhotoEditor: React.FC = () => {
   };
 
   const save = async () => {
-    if (!file || !previewCanvasRef.current || busy) return;
+    if (!file || !imageReady || !previewCanvasRef.current || busy) return;
     setBusy(true);
     setError('');
     try {
@@ -141,7 +147,7 @@ export const ProfilePhotoEditor: React.FC = () => {
 
     {actionsOpen && <ModalPortal><div className="fixed inset-0 z-[9999] flex items-end bg-black/75 pt-[env(safe-area-inset-top)] backdrop-blur-sm sm:items-center sm:justify-center sm:p-4" onClick={() => !busy && setActionsOpen(false)}><section role="dialog" aria-modal="true" aria-label="Profile photo actions" className="w-full rounded-t-3xl border border-white/10 bg-[#101318] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-3xl" onClick={event => event.stopPropagation()}><header className="mb-3 flex items-center justify-between"><div><div className="text-[9px] font-black uppercase tracking-wider text-[var(--bk-team-accent)]">Account</div><h2 className="text-lg font-black uppercase">{hasPhoto ? 'Change Photo' : 'Add Profile Photo'}</h2></div><button aria-label="Close profile photo actions" disabled={busy} onClick={() => setActionsOpen(false)} className="grid h-11 w-11 place-items-center rounded-full border border-white/10"><X className="h-5 w-5" /></button></header><div className="space-y-2"><button disabled={busy} onClick={() => cameraInputRef.current?.click()} className="flex min-h-12 w-full items-center gap-3 rounded-xl border border-white/10 bg-black/25 px-4 text-left text-xs font-black uppercase"><Camera className="h-4 w-4 text-[var(--bk-team-accent)]" />Take Photo</button><button disabled={busy} onClick={() => libraryInputRef.current?.click()} className="flex min-h-12 w-full items-center gap-3 rounded-xl border border-white/10 bg-black/25 px-4 text-left text-xs font-black uppercase"><ImagePlus className="h-4 w-4 text-[var(--bk-team-accent)]" />Choose From Photos</button>{hasPhoto && <button disabled={busy} onClick={() => void remove()} className="flex min-h-12 w-full items-center gap-3 rounded-xl border border-red-400/20 bg-red-400/5 px-4 text-left text-xs font-black uppercase text-red-300">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}Remove Photo</button>}</div>{error && <p role="alert" className="mt-3 rounded-xl border border-red-400/20 bg-red-400/5 p-3 text-xs font-bold text-red-300">{error}</p>}</section></div></ModalPortal>}
 
-    {file && <ModalPortal><div className="fixed inset-0 z-[10000] flex items-end bg-black/85 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-md sm:items-center sm:justify-center sm:p-4"><section role="dialog" aria-modal="true" aria-label="Crop profile photo" className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl border border-white/10 bg-[#101318] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-3xl"><header className="flex items-center justify-between"><div><div className="text-[9px] font-black uppercase tracking-wider text-[var(--bk-team-accent)]">Square crop</div><h2 className="text-lg font-black uppercase">Position Your Photo</h2></div><button aria-label="Cancel profile photo edit" disabled={busy} onClick={closeEditor} className="grid h-11 w-11 place-items-center rounded-full border border-white/10"><X className="h-5 w-5" /></button></header><div className="mx-auto mt-4 aspect-square w-full max-w-[min(70vw,20rem)] overflow-hidden rounded-full border-2 border-[var(--bk-team-accent)]/50 bg-black"><canvas ref={previewCanvasRef} className="h-full w-full" /></div><div className="mt-5 space-y-4"><CropSlider label="Zoom" min={100} max={300} value={Math.round(crop.zoom * 100)} onChange={value => setCrop(current => ({ ...current, zoom: value / 100 }))} /><CropSlider label="Left / Right" min={0} max={100} value={crop.x} onChange={value => setCrop(current => ({ ...current, x: value }))} /><CropSlider label="Up / Down" min={0} max={100} value={crop.y} onChange={value => setCrop(current => ({ ...current, y: value }))} /></div>{error && <p role="alert" className="mt-4 rounded-xl border border-red-400/20 bg-red-400/5 p-3 text-xs font-bold text-red-300">{error}</p>}<button disabled={busy} onClick={() => void save()} className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--bk-team-accent)] text-xs font-black uppercase text-[var(--bk-on-accent)] disabled:opacity-45">{busy && <Loader2 className="h-4 w-4 animate-spin" />}{busy ? 'Saving Photo…' : 'Save Photo'}</button><p className="mt-2 text-center text-[9px] font-bold text-zinc-600">Saved as a compressed 512 × 512 image.</p></section></div></ModalPortal>}
+    {file && <ModalPortal><div className="fixed inset-0 z-[10000] flex items-end bg-black/85 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-md sm:items-center sm:justify-center sm:p-4"><section role="dialog" aria-modal="true" aria-label="Crop profile photo" className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl border border-white/10 bg-[#101318] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-3xl"><header className="flex items-center justify-between"><div><div className="text-[9px] font-black uppercase tracking-wider text-[var(--bk-team-accent)]">Square crop</div><h2 className="text-lg font-black uppercase">Position Your Photo</h2></div><button aria-label="Cancel profile photo edit" disabled={busy} onClick={closeEditor} className="grid h-11 w-11 place-items-center rounded-full border border-white/10"><X className="h-5 w-5" /></button></header><div className="mx-auto mt-4 aspect-square w-full max-w-[min(70vw,20rem)] overflow-hidden rounded-full border-2 border-[var(--bk-team-accent)]/50 bg-black"><canvas ref={previewCanvasRef} className="h-full w-full" /></div><div className="mt-5 space-y-4"><CropSlider label="Zoom" min={100} max={300} value={Math.round(crop.zoom * 100)} onChange={value => setCrop(current => ({ ...current, zoom: value / 100 }))} /><CropSlider label="Left / Right" min={0} max={100} value={crop.x} onChange={value => setCrop(current => ({ ...current, x: value }))} /><CropSlider label="Up / Down" min={0} max={100} value={crop.y} onChange={value => setCrop(current => ({ ...current, y: value }))} /></div>{error && <p role="alert" className="mt-4 rounded-xl border border-red-400/20 bg-red-400/5 p-3 text-xs font-bold text-red-300">{error}</p>}<button disabled={busy || !imageReady} onClick={() => void save()} className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--bk-team-accent)] text-xs font-black uppercase text-[var(--bk-on-accent)] disabled:opacity-45">{(busy || !imageReady) && <Loader2 className="h-4 w-4 animate-spin" />}{busy ? 'Saving Photo…' : imageReady ? 'Save Photo' : 'Preparing Photo…'}</button><p className="mt-2 text-center text-[9px] font-bold text-zinc-600">Saved as a compressed 512 × 512 image.</p></section></div></ModalPortal>}
   </>;
 };
 

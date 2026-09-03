@@ -30,8 +30,10 @@ assert.match(editor, /Choose From Photos/);
 assert.match(editor, /Change Photo/);
 assert.match(editor, /Remove Photo/);
 assert.match(editor, /Saving Photo/);
+assert.match(editor, /disabled=\{busy \|\| !imageReady\}/);
 assert.match(context, /updateCurrentUserAvatar/);
 assert.match(context, /member\.userId === userId/);
+assert.match(read('Navbar.tsx'), /request!==profileRequest/);
 assert.match(ios, /NSCameraUsageDescription/);
 assert.match(ios, /NSPhotoLibraryUsageDescription/);
 
