@@ -101,6 +101,35 @@ const missingStarterReport=buildFantasyDraftReports([missingStarterTeam,reportTe
 assert.equal(missingStarterReport.weaknesses[0],'QB is missing 1 required starter.','a missing required starter must outrank generic depth/hoarding warnings');
 assert.match(missingStarterReport.explanation,/Risk: QB is missing 1 required starter/i,'the primary draft explanation must surface an illegal lineup before generic roster risks');
 
+const threeQbTeam=reportTeam('three-qb',1);
+const firstWrIndex=threeQbTeam.picks.findIndex(pick=>pick.position==='WR');
+threeQbTeam.picks[firstWrIndex]={...threeQbTeam.picks[firstWrIndex],position:'QB',playerName:'Third QB'};
+const threeQbReport=buildFantasyDraftReports([threeQbTeam,reportTeam('three-qb-control',1)],15).get('three-qb')!;
+assert.ok(threeQbReport.weaknesses.some(value=>/backup quarterbacks/i.test(value)),'three QBs must surface the same hoarding warning at the exact point the grade begins penalizing extra QB depth');
+
+const flexSurplusTeam={memberId:'flex-surplus',picks:[
+  makePick(1,'QB',300,1,'QB'),
+  makePick(2,'RB',250,2,'Only RB'),
+  makePick(3,'WR',245,3,'WR One'),
+  makePick(4,'WR',240,4,'WR Two'),
+  makePick(5,'WR',235,5,'WR Flex'),
+  makePick(6,'TE',220,6,'TE'),
+  makePick(7,'K',130,7,'K'),
+  makePick(8,'DST',125,8,'DST'),
+]};
+const flexSurplusReport=buildFantasyDraftReports([flexSurplusTeam,reportTeam('flex-control',1)],15).get('flex-surplus')!;
+assert.ok(flexSurplusReport.weaknesses.some(value=>/RB is missing 1 required starter/i.test(value)),'a missing RB starter must still be identified');
+assert.ok(!flexSurplusReport.weaknesses.some(value=>/FLEX spot/i.test(value)),'an extra eligible WR must satisfy FLEX even when total RB\/WR\/TE count is below six');
+
+const starterConfidenceTeam=reportTeam('starter-confidence',1);
+const backupQbIndex=starterConfidenceTeam.picks.map(pick=>pick.position).lastIndexOf('QB');
+starterConfidenceTeam.picks[backupQbIndex]={...starterConfidenceTeam.picks[backupQbIndex],position:'WR',playerName:'Converted Backup QB'};
+starterConfidenceTeam.picks=starterConfidenceTeam.picks.map(pick=>(pick.position==='QB'||pick.position==='DST')?{...pick,projectedPoints:null}:pick);
+const starterConfidenceReport=buildFantasyDraftReports([starterConfidenceTeam,reportTeam('confidence-control',1)],15).get('starter-confidence')!;
+assert.equal(starterConfidenceTeam.picks.filter(pick=>pick.projectedPoints!==null).length,13,'confidence fixture must retain 13 of 15 overall projections');
+assert.notEqual(starterConfidenceReport.confidence,'High','missing projections for required QB/DST starters must prevent a High confidence label even with high aggregate coverage');
+assert.match(starterConfidenceReport.confidenceNote,/starter\/FLEX projection coverage/i,'confidence disclosure must explicitly account for starter projection coverage');
+
 for(const size of [6,8,10,12,14,16]){
   const reports=buildFantasyDraftReports(Array.from({length:size},(_,index)=>reportTeam(`team-${size}-${index}`,1+index*.01)),15);
   assert.equal(reports.size,size,`${size}-team leagues must receive exactly one report per manager`);
