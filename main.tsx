@@ -5,9 +5,11 @@ import {PublicEntryRouter} from './PublicEntryRouter';
 import {redactAnalyticsUrl} from './analytics';
 import {recordApproximateVisitorLocation} from './visitorLocation';
 import {startModeProgressionBridge} from './modeProgressionBridge';
+import {installNativeApiBridge} from './nativeRuntime';
 import './index.css';
 import './fantasyMatchupMobileFix.css';
 
+installNativeApiBridge();
 void recordApproximateVisitorLocation();
 startModeProgressionBridge();
 
