@@ -64,7 +64,7 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: TypeScript and roster integrity
         run: npm run check:hardening
@@ -98,3 +98,38 @@ jobs:
           name: draft-order-game-catalog
           path: /tmp/20260825_update_draft_order_game_salary_estimates.sql
           retention-days: 1
+
+  fantasy-mobile-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build production app
+        run: npm run build
+
+      - name: Verify fantasy mobile layouts
+        run: npm run check:fantasy-mobile-browser
+
+      - name: Upload mobile screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fantasy-mobile-ui
+          path: artifacts/fantasy-mobile-ui
+          if-no-files-found: ignore
+          retention-days: 7
