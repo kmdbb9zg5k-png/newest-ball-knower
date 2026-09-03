@@ -11,7 +11,7 @@ import {
   validateProfilePhotoFile,
 } from './profilePhoto';
 
-const ACCEPTED_PHOTOS = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
+const ACCEPTED_PHOTOS = 'image/*,.jpg,.jpeg,.png,.webp,.heic,.heif';
 const INITIAL_CROP: AvatarCrop = { zoom: 1, x: 50, y: 50 };
 
 const initials = (name: string) => name

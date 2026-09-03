@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { keepActiveSoundtrackTrack } from '../soundtrackPolicy';
-import { getProfilePhotoMutationVersion, invalidateProfilePhotoReads } from '../profilePhoto';
+import { getProfilePhotoMutationVersion, invalidateProfilePhotoReads, isSupportedProfilePhotoFile, validateProfilePhotoFile } from '../profilePhoto';
 
 const read = (path: string) => fs.readFileSync(path, 'utf8');
 const migration = read('migrations/20260903080000_add_secure_profile_photos.sql');
@@ -27,6 +27,7 @@ assert.match(policyOptimization, /\(\(select auth\.jwt\(\)\)->>'is_anonymous'\):
 
 assert.match(client, /PROFILE_PHOTO_MAX_SOURCE_BYTES = 12 \* 1024 \* 1024/);
 assert.match(client, /PROFILE_PHOTO_OUTPUT_SIZE = 512/);
+assert.match(client, /application\/octet-stream/);
 assert.match(client, /contentType: 'image\/webp'/);
 assert.match(client, /upsert: false/);
 assert.match(client, /await setProfilePhotoPath\(avatarPath\)/);
@@ -47,6 +48,19 @@ assert.match(context, /currentSession\.session\?\.user\.id !== authUser\.id/);
 assert.match(context, /photoMutation !== getProfilePhotoMutationVersion\(\)/);
 assert.match(ios, /NSCameraUsageDescription/);
 assert.match(ios, /NSPhotoLibraryUsageDescription/);
+
+for (const source of [
+  { name: 'IMG_1001.PNG', type: 'image/x-png' },
+  { name: 'IMG_1002.HEIC', type: '' },
+  { name: 'IMG_1003.jpeg', type: 'application/octet-stream' },
+  { name: 'IMG_1004.heif', type: 'image/heif; charset=binary' },
+  { name: 'LIVE_1005.heic', type: 'image/heic-sequence' },
+]) {
+  assert.equal(isSupportedProfilePhotoFile(source), true, `iPhone photo ${source.name} (${source.type || 'missing MIME'}) must be accepted`);
+}
+assert.equal(isSupportedProfilePhotoFile({ name: 'document.pdf', type: 'application/pdf' }), false);
+assert.equal(isSupportedProfilePhotoFile({ name: 'avatar.svg', type: 'image/svg+xml' }), false);
+assert.throws(() => validateProfilePhotoFile(new File(['not-an-image'], 'document.pdf', { type: 'application/pdf' })), /Choose a JPG/);
 
 const profileReadVersion = getProfilePhotoMutationVersion();
 invalidateProfilePhotoReads();

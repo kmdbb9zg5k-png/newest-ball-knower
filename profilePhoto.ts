@@ -12,11 +12,21 @@ export const PROFILE_PHOTO_MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
 
 const ACCEPTED_SOURCE_TYPES = new Set([
   'image/jpeg',
+  'image/jpg',
+  'image/pjpeg',
   'image/png',
+  'image/x-png',
   'image/webp',
+  'image/x-webp',
   'image/heic',
+  'image/x-heic',
+  'image/heic-sequence',
   'image/heif',
+  'image/x-heif',
+  'image/heif-sequence',
 ]);
+
+const ACCEPTED_SOURCE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif']);
 
 type StoredProfilePhoto = { avatar_path: string | null };
 
@@ -35,8 +45,21 @@ export function profilePhotoPublicUrl(path?: string | null): string | undefined 
   return supabase.storage.from(PROFILE_PHOTO_BUCKET).getPublicUrl(path).data.publicUrl || undefined;
 }
 
+export function isSupportedProfilePhotoFile(file: Pick<File, 'name' | 'type'>): boolean {
+  const reportedType = file.type.toLowerCase().split(';', 1)[0].trim();
+  if (ACCEPTED_SOURCE_TYPES.has(reportedType)) return true;
+
+  const extension = file.name.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] || '';
+  const hasAcceptedExtension = ACCEPTED_SOURCE_EXTENSIONS.has(extension);
+
+  // iOS Photos and third-party photo providers can return an empty or generic
+  // MIME type even when the selected file has a valid image extension. The
+  // browser still has to decode the source before it can become a WebP upload.
+  return hasAcceptedExtension && (!reportedType || reportedType === 'application/octet-stream');
+}
+
 export function validateProfilePhotoFile(file: File): void {
-  if (!ACCEPTED_SOURCE_TYPES.has(file.type.toLowerCase())) {
+  if (!isSupportedProfilePhotoFile(file)) {
     throw new Error('Choose a JPG, PNG, WebP, HEIC, or HEIF photo.');
   }
   if (file.size <= 0 || file.size > PROFILE_PHOTO_MAX_SOURCE_BYTES) {
