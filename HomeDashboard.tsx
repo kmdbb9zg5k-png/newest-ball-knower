@@ -1,8 +1,7 @@
 import React,{useCallback,useEffect,useState} from 'react';
 import {ArrowRight,Bell,Brain,ChevronDown,ClipboardList,Flag,FlaskConical,Plus,RefreshCcw,Target,Trophy,UserPlus,Users} from 'lucide-react';
 import {useBallKnower} from './BallKnowerContext';
-import {fetchProgressionProfile,ProgressProfile} from './progressionCloud';
-import {fetchSeasonOperations} from './fantasySeasonCloud';
+import type {ProgressProfile} from './progressionCloud';
 import {formatDraftSchedule} from './draftSchedule';
 import {League} from './types';
 import type {TeamTheme} from './teamTheme';
@@ -42,7 +41,11 @@ export const HomeDashboard:React.FC<HomeDashboardProps>=({onOpenCreateLeague,onO
 
   const loadProfile=useCallback(async()=>{
     setRatingLoading(true);setRatingError('');
-    try{const data=await fetchProgressionProfile(currentUser?.name);setProfile(data.profile)}
+    try{
+      const {fetchProgressionProfile}=await import('./progressionCloud');
+      const data=await fetchProgressionProfile(currentUser?.name);
+      setProfile(data.profile);
+    }
     catch(e:any){setProfile(null);setRatingError(e?.message||'Could not verify your Ball Knower Rating.')}
     finally{setRatingLoading(false)}
   },[currentUser?.name]);
@@ -50,7 +53,8 @@ export const HomeDashboard:React.FC<HomeDashboardProps>=({onOpenCreateLeague,onO
   useEffect(()=>{
     let live=true;
     setRatingLoading(true);setRatingError('');
-    fetchProgressionProfile(currentUser?.name)
+    void import('./progressionCloud')
+      .then(({fetchProgressionProfile})=>fetchProgressionProfile(currentUser?.name))
       .then(data=>{if(live)setProfile(data.profile)})
       .catch((e:any)=>{if(live){setProfile(null);setRatingError(e?.message||'Could not verify your Ball Knower Rating.')}})
       .finally(()=>{if(live)setRatingLoading(false)});
@@ -71,7 +75,9 @@ export const HomeDashboard:React.FC<HomeDashboardProps>=({onOpenCreateLeague,onO
     if(!primaryLeague){setActivity([]);setActivityUnavailable(false);return}
     let live=true;
     setActivityLoading(true);setActivityUnavailable(false);
-    fetchSeasonOperations(primaryLeague.id).then(operations=>{
+    void import('./fantasySeasonCloud')
+      .then(({fetchSeasonOperations})=>fetchSeasonOperations(primaryLeague.id))
+      .then(operations=>{
       if(!live)return;
       const rows:HomeActivity[]=[];
       if(scheduledDraft&&primaryLeague.liveDraft?.status!=='completed')rows.push({id:'draft-schedule',label:'Draft scheduled',detail:scheduledDraft,occurredAt:primaryLeague.settings?.draftScheduledAt});
