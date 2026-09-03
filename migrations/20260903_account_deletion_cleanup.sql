@@ -11,7 +11,9 @@ set search_path = public, auth
 as $$
 declare
   league_row record;
-  successor record;
+  successor_id uuid;
+  successor_auth_id uuid;
+  successor_name text;
 begin
   -- If the deleting user commissions a league, transfer commissioner ownership to the
   -- oldest remaining human member. If nobody remains, delete the league and its
@@ -22,8 +24,12 @@ begin
     where commissioner_auth_id = old.id
     for update
   loop
+    successor_id := null;
+    successor_auth_id := null;
+    successor_name := null;
+
     select id, auth_user_id, user_name
-      into successor
+      into successor_id, successor_auth_id, successor_name
     from public.ball_knower_league_members
     where league_id = league_row.id
       and auth_user_id is not null
@@ -32,21 +38,19 @@ begin
     order by created_at asc, id asc
     limit 1;
 
-    if successor.id is null then
+    if successor_id is null then
       delete from public.ball_knower_leagues where id = league_row.id;
     else
       update public.ball_knower_league_members
-      set is_commissioner = (id = successor.id)
+      set is_commissioner = (id = successor_id)
       where league_id = league_row.id;
 
       update public.ball_knower_leagues
-      set commissioner_auth_id = successor.auth_user_id,
-          commissioner_name = successor.user_name,
+      set commissioner_auth_id = successor_auth_id,
+          commissioner_name = successor_name,
           updated_at = now()
       where id = league_row.id;
     end if;
-
-    successor := null;
   end loop;
 
   -- These legacy/current columns intentionally are not all foreign keys to auth.users,
