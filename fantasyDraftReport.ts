@@ -261,6 +261,9 @@ export const buildFantasyDraftReports = (
     snapshots.reduce((sum, snapshot) => sum + (snapshot.benchStrength - benchMean) ** 2, 0) / snapshots.length,
   );
   const benchScale = Math.max(MIN_MEANINGFUL_BENCH_SPREAD, benchDeviation);
+  const leagueCoverage = snapshots.reduce((sum, snapshot) => sum + snapshot.coverage, 0) / snapshots.length;
+  const leagueStarterCoverage = snapshots.reduce((sum, snapshot) => sum + snapshot.starterCoverage, 0) / snapshots.length;
+  const leagueStartersComplete = snapshots.every(snapshot => snapshot.starterCoverage >= 0.999);
 
   const rawWins = snapshots.map(snapshot => snapshots.length === 1
     ? games / 2
@@ -358,16 +361,20 @@ export const buildFantasyDraftReports = (
     }
 
     const completeStarterCoverage = snapshot.starterCoverage >= 0.999;
-    const confidence: FantasyDraftReport['confidence'] = snapshot.coverage >= 0.85 && completeStarterCoverage
+    const leagueComparisonsStrong = leagueCoverage >= 0.85 && leagueStartersComplete;
+    const leagueComparisonsUsable = leagueCoverage >= 0.65 && leagueStarterCoverage >= 0.75;
+    const confidence: FantasyDraftReport['confidence'] = snapshot.coverage >= 0.85 && completeStarterCoverage && leagueComparisonsStrong
       ? 'High'
-      : snapshot.coverage >= 0.65 && snapshot.starterCoverage >= 0.75
+      : snapshot.coverage >= 0.65 && snapshot.starterCoverage >= 0.75 && leagueComparisonsUsable
         ? 'Medium'
         : 'Low';
     const coveragePercent = Math.round(snapshot.coverage * 100);
     const starterCoveragePercent = Math.round(snapshot.starterCoverage * 100);
+    const leagueCoveragePercent = Math.round(leagueCoverage * 100);
+    const leagueStarterCoveragePercent = Math.round(leagueStarterCoverage * 100);
     const confidenceNote = confidence === 'High'
-      ? `${coveragePercent}% of drafted players have published 2026 projection data, including every required starter/FLEX slot.`
-      : `${coveragePercent}% roster projection coverage and ${starterCoveragePercent}% required starter/FLEX projection coverage; unavailable starter data lowers confidence in the grade and projected record.`;
+      ? `${coveragePercent}% of this roster and ${leagueCoveragePercent}% of league rosters have published 2026 projection data, with complete required starter/FLEX coverage across the comparison set.`
+      : `${coveragePercent}% roster projection coverage and ${starterCoveragePercent}% required starter/FLEX coverage for this team; league comparisons are ${leagueCoveragePercent}% overall and ${leagueStarterCoveragePercent}% required starter/FLEX covered. Missing comparison data lowers confidence in exact league-relative ranks, the grade, and projected record.`;
     const strongest = [...metrics].sort((a, b) => a.rank - b.rank || b.value - a.value)[0];
     const strongestPosition = strongest ? `${metricName(strongest.key)} (#${strongest.rank}/${snapshots.length})` : null;
     const projectedWins = clamp(wins[index], 0, games);
