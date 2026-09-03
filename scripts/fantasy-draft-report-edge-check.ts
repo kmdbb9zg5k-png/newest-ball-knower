@@ -97,4 +97,18 @@ const starterConfidenceReport=buildFantasyDraftReports([starterConfidence,baseTe
 assert.notEqual(starterConfidenceReport.confidence,'High','missing required QB/DST projection data must prevent a High confidence label');
 assert.match(starterConfidenceReport.confidenceNote,/starter\/FLEX projection coverage/i,'confidence text must disclose required-lineup projection coverage');
 
-console.log('Fantasy draft report edge checks passed: usable bench data, stable near-tie bench grading, TE/QB hoarding, FLEX legality, missing-starter priority, compact summaries, and starter-aware confidence.');
+const completeTeam=baseTeam('complete-self');
+const incompleteOpponent=baseTeam('incomplete-opponent');
+incompleteOpponent.picks=incompleteOpponent.picks.map((item,index)=>index<7?item:{...item,projectedPoints:null});
+const comparisonReports=buildFantasyDraftReports([completeTeam,incompleteOpponent],15);
+const completeReport=comparisonReports.get('complete-self')!;
+assert.notEqual(
+  completeReport.confidence,'High',
+  'a fully projected roster must not claim High confidence when opponent projections underlying league-relative ranks are materially incomplete',
+);
+assert.match(
+  completeReport.confidenceNote,/league comparisons/i,
+  'confidence disclosure must explicitly report comparison-set coverage when league-relative ranks depend on incomplete opponents',
+);
+
+console.log('Fantasy draft report edge checks passed: usable bench data, stable near-tie bench grading, TE/QB hoarding, FLEX legality, missing-starter priority, compact summaries, starter-aware confidence, and league comparison coverage.');
