@@ -71,6 +71,16 @@ missingStarter.picks[1]={...missingStarter.picks[1],position:'DST',playerName:'E
 const missingStarterReport=buildFantasyDraftReports([missingStarter,baseTeam('starter-control')],15).get('missing-starter')!;
 assert.equal(missingStarterReport.weaknesses[0],'QB is missing 1 required starter.','missing required starters must outrank generic depth and hoarding warnings');
 assert.match(missingStarterReport.explanation,/Risk: QB is missing 1 required starter/i,'the visible report explanation must lead with the illegal lineup risk');
+for(const risk of missingStarterReport.weaknesses){
+  assert.ok(missingStarterReport.explanation.includes(risk),`every generated risk must be visible in the completed-draft explanation: ${risk}`);
+}
+
+const visibleStrengthReports=buildFantasyDraftReports([baseTeam('visible-a'),baseTeam('visible-b')],15);
+const visibleStrengthReport=visibleStrengthReports.get('visible-a')!;
+assert.ok(visibleStrengthReport.strengths.length>1,'the visibility fixture must generate multiple strengths');
+for(const strength of visibleStrengthReport.strengths){
+  assert.ok(visibleStrengthReport.explanation.includes(strength),`every generated strength must be visible in the completed-draft explanation: ${strength}`);
+}
 
 const starterConfidence=baseTeam('starter-confidence');
 starterConfidence.picks[11]={...starterConfidence.picks[11],position:'WR',playerName:'Converted Backup QB'};
@@ -80,4 +90,4 @@ const starterConfidenceReport=buildFantasyDraftReports([starterConfidence,baseTe
 assert.notEqual(starterConfidenceReport.confidence,'High','missing required QB/DST projection data must prevent a High confidence label');
 assert.match(starterConfidenceReport.confidenceNote,/starter\/FLEX projection coverage/i,'confidence text must disclose required-lineup projection coverage');
 
-console.log('Fantasy draft report edge checks passed: usable bench data, TE/QB hoarding, FLEX legality, missing-starter priority, and starter-aware confidence.');
+console.log('Fantasy draft report edge checks passed: usable bench data, TE/QB hoarding, FLEX legality, missing-starter priority, full analysis visibility, and starter-aware confidence.');
