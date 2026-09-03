@@ -43,6 +43,10 @@ const TEAM_DEFENSES:Player[]=NFL_TEAMS.map(team=>{
  return {id:`dst-${team.code.toLowerCase()}`,playerId:`dst-${team.code.toLowerCase()}`,team:team.code,teamId:team.code,teamCity:team.city,teamName:team.name,name:`${team.city} ${team.name} D/ST`,position:'DST',positionGroup:'DST',ovr,overallRating:ovr,overall:ovr,salary:1,salaryType:'estimated',salarySource:'legacy_estimate',active:true,rosterSeason:2026,ratingSource:'Ball Knower Team Defense',ratingSeason:2026,ratingStatus:'VERIFIED',attributes:{runDefense:ovr,coverage:ovr,passRush:ovr,athleticism:ovr,footballIQ:ovr}} as Player;
 });
 export const PLAYERS_DATABASE:Player[]=[...NORMALIZED_PLAYERS,...TEAM_DEFENSES];
+// Draft screens already load this module on demand. Expose that loaded catalog to
+// the lightweight provider so legacy callers can retain the exact cap-completion
+// guard without making the provider import the entire NFL database at startup.
+if(typeof globalThis!=='undefined') (globalThis as any).__BALL_KNOWER_PLAYER_POOL__=PLAYERS_DATABASE;
 export function searchPlayers(query:string){ const q=String(query||'').trim().toLowerCase(); if(!q)return PLAYERS_DATABASE; return PLAYERS_DATABASE.filter((p:any)=>`${p.name} ${p.team} ${p.position} ${p.teamCity||''} ${p.teamName||''}`.toLowerCase().includes(q)); }
 export function getPlayersByTeam(team:string){ const t=String(team||'').toUpperCase(); return PLAYERS_DATABASE.filter(p=>String(p.team).toUpperCase()===t); }
 export function getPlayersByPosition(position:string){ const p=String(position||'').toUpperCase(); return PLAYERS_DATABASE.filter(x=>String(x.position).toUpperCase()===p || String((x as any).positionGroup||'').toUpperCase()===p); }
