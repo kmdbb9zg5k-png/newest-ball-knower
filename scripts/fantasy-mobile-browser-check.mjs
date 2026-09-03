@@ -86,9 +86,10 @@ try{
     const skip=page.getByRole('button',{name:/skip/i});
     if(await skip.isVisible().catch(()=>false))await skip.click();
     await page.locator('.bk-app-shell[data-tab="home"]').waitFor({state:'visible'});
+    const primary=page.getByRole('navigation',{name:'Primary navigation'});
+    await primary.waitFor({state:'visible'});
     assertContained(await layoutSnapshot(page),`${size.label} home`);
 
-    const primary=page.getByRole('navigation',{name:'Primary navigation'});
     await primary.getByRole('button',{name:'Fantasy',exact:true}).click();
     await page.locator('.bk-app-shell[data-tab="fantasy"]').waitFor({state:'visible'});
     await page.getByRole('button',{name:'League HQ',exact:true}).waitFor({state:'visible'});
