@@ -11,10 +11,6 @@ import {
   LiveFantasyDraft,
   LeagueSettings,
 } from './types';
-import { calculateTeamRatings } from './evaluation';
-import { buildFantasyWeekPairings, buildStandings, simulateFantasyPlayoffs, simulateFantasyWeek, simulateFullSeason } from './simulation';
-import { generateAiLeagueMembers, AI_ARCHETYPES, buildRosterForArchetype } from './aiOpponents';
-import { PLAYERS_DATABASE } from './players';
 import { countRosterGroups, getDraftPositionGroup, minimumCompletionCost, validateRosterShape } from './rosterRules';
 import { CPU_LIVE_FANTASY_POSITION_LIMITS, getLiveFantasyDraftGroup, validateLiveFantasyRoster } from './liveFantasyRules';
 import { isCloudConfigured, ensureOnlineSession, supabase } from './supabase';
@@ -27,10 +23,6 @@ import {
   finalizeCloudLiveFantasyDraftRosters, importOfflineFantasyDraft as importCloudOfflineFantasyDraft,
   resetCloudLeagueForNextSeason,
 } from './leagueCloud';
-import {
-  applyLiveDraftRosterAssignments,
-  buildLiveDraftRosterAssignments,
-} from './liveDraftRosters';
 import { trackBallKnowerEvent } from './analytics';
 import { getLeagueCommissionerName, isLeagueCommissioner } from './leaguePermissions';
 import { canStartScheduledDraft, formatDraftSchedule } from './draftSchedule';
@@ -52,7 +44,7 @@ interface BallKnowerContextType {
   // Draft Actions
   currentRoster: Player[];
   isRosterLocked: boolean;
-  addToRoster: (player: Player) => { success: boolean; message: string };
+  addToRoster: (player: Player, playerPool?: readonly Player[]) => { success: boolean; message: string };
   removeFromRoster: (playerId: string) => void;
   clearRoster: () => void;
   autoDraftTemplate: (archetype?: 'balanced' | 'trench' | 'air_raid' | 'stars_scrubs') => void;
@@ -112,6 +104,27 @@ const STORAGE_KEYS = {
   ACTIVE_LEAGUE_ID: 'ballknower_active_league_id_v1',
 };
 
+// Keep the provider's startup graph lightweight. The canonical simulation module is
+// dynamically imported for real simulation work; this small deterministic helper is
+// only used to normalize legacy local saves before those heavy modules are requested.
+const buildLightweightFantasyWeekPairings=(members:LeagueMember[],week:number)=>{
+  if(members.length<2||members.length%2!==0)throw new Error('Fantasy weeks require an even number of teams.');
+  const rotation=[...members];
+  const round=(week-1)%(members.length-1);
+  for(let index=0;index<round;index++)rotation.splice(1,0,rotation.pop()!);
+  const reverse=Math.floor((week-1)/(members.length-1))%2===1;
+  const games:{id:string;week:number;homeMemberId:string;awayMemberId:string}[]=[];
+  for(let index=0;index<members.length/2;index++){
+    const first=rotation[index];
+    const second=rotation[members.length-1-index];
+    const alternate=round%2===0;
+    const home=(alternate!==reverse)?first:second;
+    const away=home.id===first.id?second:first;
+    games.push({id:`game-w${week}-${home.id}-vs-${away.id}`,week,homeMemberId:home.id,awayMemberId:away.id});
+  }
+  return games;
+};
+
 const calendarSafeRegularSeasonWeeks=(settings:League['settings'])=>settings?.playoffTeams===4?16:15;
 const normalizeRestoredLocalLeague=(league:League):League=>{
   const settings=league.settings||{};
@@ -123,7 +136,7 @@ const normalizeRestoredLocalLeague=(league:League):League=>{
   const orderIds=[...(result?.draftOrder||[])].sort((a,b)=>a.pickNumber-b.pickNumber).map(item=>item.memberId);
   const canBuild=Boolean(result)&&league.members.length>=2&&league.members.length%2===0&&new Set(orderIds).size===league.members.length;
   if(!canBuild)return{...league,settings:{...settings,regularSeasonWeeks}};
-  const fantasySchedule=Array.from({length:regularSeasonWeeks},(_,index)=>buildFantasyWeekPairings(league.members,index+1)).flat().map(game=>({...game,homeScore:0,awayScore:0,winnerId:'',loserId:'',isTie:false,keyMatchupFactor:'Scheduled fantasy matchup.'}));
+  const fantasySchedule=Array.from({length:regularSeasonWeeks},(_,index)=>buildLightweightFantasyWeekPairings(league.members,index+1)).flat().map(game=>({...game,homeScore:0,awayScore:0,winnerId:'',loserId:'',isTie:false,keyMatchupFactor:'Scheduled fantasy matchup.'}));
   const priorGames=result?.games||[];
   const canonical=priorGames.length===fantasySchedule.length;
   const draftOrderGameGames=result?.orderMethod==='random'||result?.orderMethod==='commissioner'?result?.draftOrderGameGames:(result?.draftOrderGameGames?.length?result.draftOrderGameGames:priorGames);
@@ -156,14 +169,15 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.LEAGUES);
       if (saved) {
-      return (JSON.parse(saved) as League[]).map(normalizeRestoredLocalLeague);
+        return (JSON.parse(saved) as League[]).map(normalizeRestoredLocalLeague);
       }
     } catch (e) {
       console.error(e);
     }
-    // Seed initial league for immediate test enjoyment
+    // Keep the first paint free of the full NFL player database. Local-only CPU
+    // rosters are hydrated after mount; cloud production replaces this seed with
+    // authoritative league data without ever requesting the AI/player chunk.
     const seedLeagueId = 'league-ballers-2026';
-    const aiMembers = generateAiLeagueMembers(9, 0);
     const commissionerMember: LeagueMember = {
       id: `member-${DEFAULT_USER.id}`,
       userId: DEFAULT_USER.id,
@@ -183,7 +197,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       commissionerName: DEFAULT_USER.name,
       status: 'drafting',
       settings: { seasonGames: 17, regularSeasonWeeks:15, scoringFormat:'ppr', nflSeason:2026 },
-      members: [commissionerMember, ...aiMembers],
+      members: [commissionerMember],
       createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
     };
 
@@ -203,6 +217,25 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [cloudSyncError, setCloudSyncError] = useState<string | null>(null);
+
+  // Local-only convenience seed: load AI rosters after first paint, never in the
+  // normal cloud production path. This is an async boundary on purpose.
+  useEffect(() => {
+    if (isCloudConfigured) return;
+    let cancelled = false;
+    const seed = leagues.find(item => item.id === 'league-ballers-2026');
+    if (!seed || seed.members.length > 1) return;
+    void import('./aiOpponents')
+      .then(({ generateAiLeagueMembers }) => {
+        if (cancelled) return;
+        const aiMembers = generateAiLeagueMembers(9, 0, seed.salaryCap);
+        setLeagues(prev => prev.map(item => item.id === seed.id && item.members.length === 1
+          ? { ...item, members: [...item.members, ...aiMembers] }
+          : item));
+      })
+      .catch(error => console.warn('Local seed CPU rosters could not be hydrated.', error));
+    return () => { cancelled = true; };
+  }, []);
 
   // Sync user changes to localStorage
   const setCurrentUser = (user: UserProfile | null) => {
@@ -356,29 +389,23 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Position counts are centralized so LT/RT/LG/RG/FS/SS/NT all count correctly.
   const rosterCounts = countRosterGroups(currentRoster);
-  const { QB: qbCount, RB: rbCount, WR: wrCount, TE: teCount, OL: olCount, DL_EDGE: dlCount, LB: lbCount, CB: cbCount, S: sCount } = rosterCounts;
 
   // Check if current user's roster is locked in active league
   const myActiveMember = activeLeague && currentUser ? activeLeague.members.find(m => m.userId === currentUser.id) : null;
   const isRosterLocked = Boolean(myActiveMember && myActiveMember.status === 'ready');
 
-  // Roster validation
+  // Final roster validation stays lightweight. The exact cap-completion guard is
+  // enforced on every incremental draft pick using the player pool supplied by
+  // the draft screen, so the provider never imports the full NFL database itself.
   const rosterValidationErrors: string[] = validateRosterShape(currentRoster);
   if (remainingCap < 0) {
     rosterValidationErrors.unshift(`Over salary cap by $${Math.abs(remainingCap)}M.`);
   }
 
-  const completionCost = minimumCompletionCost(currentRoster, PLAYERS_DATABASE);
-  if (Number.isFinite(completionCost) && completionCost > remainingCap) {
-    rosterValidationErrors.unshift(
-      `Cap trap: you need at least $${completionCost}M to legally finish the remaining roster spots, but only $${remainingCap}M remains.`
-    );
-  }
-
   const isRosterValid = rosterValidationErrors.length === 0 && currentRoster.length === TOTAL_ROSTER_SIZE && remainingCap >= 0;
 
   // Add to roster
-  const addToRoster = (player: Player): { success: boolean; message: string } => {
+  const addToRoster = (player: Player, playerPool?: readonly Player[]): { success: boolean; message: string } => {
     if (isRosterLocked) {
       return { success: false, message: 'Your roster is locked and cannot be changed.' };
     }
@@ -408,9 +435,15 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       };
     }
 
+    if (!playerPool?.length) {
+      return {
+        success: false,
+        message: 'The player market is still loading. Try the pick again in a moment.',
+      };
+    }
     const candidateRoster = [...currentRoster, player];
     const capAfterPick = salaryCap - nextSalary;
-    const cheapestFinish = minimumCompletionCost(candidateRoster, PLAYERS_DATABASE);
+    const cheapestFinish = minimumCompletionCost(candidateRoster, playerPool as Player[]);
     if (Number.isFinite(cheapestFinish) && cheapestFinish > capAfterPick) {
       return {
         success: false,
@@ -418,8 +451,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       };
     }
 
-    const updated = candidateRoster;
-    setCurrentRoster(updated);
+    setCurrentRoster(candidateRoster);
     showToast(`Added ${player.name} (${player.position}) - $${player.salary}M`);
     return { success: true, message: `Added ${player.name}` };
   };
@@ -446,20 +478,26 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     showToast('Roster cleared');
   };
 
-  // Auto-draft templates for fast testing and demo
+  // Auto-draft is explicitly on-demand: opening the app does not load AI logic or
+  // the NFL player database. The public signature remains synchronous for callers.
   const autoDraftTemplate = (archetype: 'balanced' | 'trench' | 'air_raid' | 'stars_scrubs' = 'balanced') => {
     if (isRosterLocked) {
       showToast('Your roster is locked and cannot be replaced.');
       return;
     }
-    let target = AI_ARCHETYPES[0];
-    if (archetype === 'trench') target = AI_ARCHETYPES[1];
-    if (archetype === 'air_raid') target = AI_ARCHETYPES[2];
-    if (archetype === 'stars_scrubs') target = AI_ARCHETYPES[6];
-
-    const roster = buildRosterForArchetype(target);
-    setCurrentRoster(roster);
-    showToast(`Loaded ${target.name} template roster ($${roster.reduce((sum: number, p: Player) => sum + p.salary, 0)}M)`);
+    showToast('Building your smart roster template…');
+    void import('./aiOpponents').then(({ AI_ARCHETYPES, buildRosterForArchetype }) => {
+      let target = AI_ARCHETYPES[0];
+      if (archetype === 'trench') target = AI_ARCHETYPES[1];
+      if (archetype === 'air_raid') target = AI_ARCHETYPES[2];
+      if (archetype === 'stars_scrubs') target = AI_ARCHETYPES[6];
+      const roster = buildRosterForArchetype(target);
+      setCurrentRoster(roster);
+      showToast(`Loaded ${target.name} template roster ($${roster.reduce((sum: number, p: Player) => sum + p.salary, 0)}M)`);
+    }).catch(error => {
+      console.error('Smart roster template could not load', error);
+      showToast('The smart roster template could not load. Try again.');
+    });
   };
 
   // Submit Roster to Active League
@@ -483,6 +521,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return { success: false, message: 'Please join or select an active league.' };
     }
 
+    const { calculateTeamRatings } = await import('./evaluation');
     const ratings = calculateTeamRatings(currentRoster);
     try {
       if (isCloudConfigured) {
@@ -644,6 +683,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
       }
 
+      const { generateAiLeagueMembers } = await import('./aiOpponents');
       const aiMembers = generateAiLeagueMembers(slotsNeeded, league.members.length, league.salaryCap);
       if (isCloudConfigured) {
         await upsertAiCloudMembers(leagueId, aiMembers);
@@ -703,6 +743,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return false;
     }
 
+    const { buildFantasyWeekPairings, buildStandings, simulateFullSeason } = await import('./simulation');
     const fullResults = {
       ...simulateFullSeason(league.members, league.settings?.seasonGames || 17, league.settings?.simulationStyle || 'realistic'),
     };
@@ -752,6 +793,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       showToast(`Only Commissioner ${getLeagueCommissionerName(league)} can advance the season.`);
       return false;
     }
+    const { buildStandings, simulateFantasyPlayoffs, simulateFantasyWeek } = await import('./simulation');
     const regularWeeks = league.settings?.seasonGames || 17;
     const currentWeek = Math.max(1,Number(league.settings?.currentWeek)||1);
     let status:League['status']='simulating';
@@ -836,6 +878,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       teamRating: member.teamRatings?.overall || 0,
       streak: '-',
     }));
+    const { buildFantasyWeekPairings } = await import('./simulation');
     const fantasyWeeks=Math.max(13,Math.min(17,Number(league.settings?.regularSeasonWeeks)||calendarSafeRegularSeasonWeeks(league.settings)));
     const fantasySchedule=Array.from({length:fantasyWeeks},(_,index)=>buildFantasyWeekPairings(league.members,index+1)).flat().map(game=>({...game,homeScore:0,awayScore:0,winnerId:'',loserId:'',isTie:false,keyMatchupFactor:'Scheduled fantasy matchup.'}));
     const result = {
@@ -974,6 +1017,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           );
           setLeagues(prev=>[fresh,...prev.filter(item=>item.id!==fresh.id)]);
         }else{
+          const { applyLiveDraftRosterAssignments } = await import('./liveDraftRosters');
           setLeagues(prev=>prev.map(item=>item.id===leagueId
             ? applyLiveDraftRosterAssignments(item,draft,draft.completedAt)
             : item));
@@ -1012,6 +1056,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const draft=league?.liveDraft;
     if(!league||!draft||draft.status!=='completed')return false;
     try{
+      const { applyLiveDraftRosterAssignments, buildLiveDraftRosterAssignments } = await import('./liveDraftRosters');
       const assignments=buildLiveDraftRosterAssignments(league,draft);
       if(isCloudConfigured){
         await finalizeCloudLiveFantasyDraftRosters(leagueId,assignments);
@@ -1040,6 +1085,10 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const rosterSize=Math.max(15,Math.min(20,Number(league.settings?.rosterSize)||15));
       if(picks.length!==league.members.length*rosterSize)throw new Error(`Offline draft requires exactly ${league.members.length*rosterSize} picks.`);
       if(new Set(picks.map(pick=>pick.playerId)).size!==picks.length)throw new Error('A player appears more than once.');
+      const [{ PLAYERS_DATABASE }, { applyLiveDraftRosterAssignments }] = await Promise.all([
+        import('./players'),
+        import('./liveDraftRosters'),
+      ]);
       const playerById=new Map(PLAYERS_DATABASE.map(player=>[player.id,player]));
       const now=new Date().toISOString();
       const draftPicks=picks.map((pick,index)=>{
@@ -1129,37 +1178,42 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // Demo Mode
   const startDemoMode = () => {
     setIsDemoMode(true);
-    // Create a virtual demo league
-    const demoAiMembers = generateAiLeagueMembers(7, 0);
-    const user = currentUser || DEFAULT_USER;
-    const demoCommissioner: LeagueMember = {
-      id: `demo-user-${user.id}`,
-      userId: user.id,
-      userName: `${user.name} (You)`,
-      userAvatar: user.avatarUrl,
-      isCommissioner: true,
-      status: 'building',
-    };
+    showToast('Preparing Demo Mode…');
+    void import('./aiOpponents').then(({ generateAiLeagueMembers }) => {
+      const demoAiMembers = generateAiLeagueMembers(7, 0);
+      const user = currentUser || DEFAULT_USER;
+      const demoCommissioner: LeagueMember = {
+        id: `demo-user-${user.id}`,
+        userId: user.id,
+        userName: `${user.name} (You)`,
+        userAvatar: user.avatarUrl,
+        isCommissioner: true,
+        status: 'building',
+      };
 
-    const demoLeague: League = {
-      id: 'demo-league-instance',
-      code: 'BK-DEMO',
-      name: 'Ball Knower Live Demo League',
-      maxMembers: 8,
-      salaryCap: DEFAULT_SALARY_CAP,
-      commissionerId: user.id,
-      commissionerName: user.name,
-      status: 'drafting',
-      settings: { seasonGames: 17, scoringFormat:'ppr', nflSeason:2026 },
-      members: [demoCommissioner, ...demoAiMembers],
-      createdAt: new Date().toISOString(),
-    };
+      const demoLeague: League = {
+        id: 'demo-league-instance',
+        code: 'BK-DEMO',
+        name: 'Ball Knower Live Demo League',
+        maxMembers: 8,
+        salaryCap: DEFAULT_SALARY_CAP,
+        commissionerId: user.id,
+        commissionerName: user.name,
+        status: 'drafting',
+        settings: { seasonGames: 17, scoringFormat:'ppr', nflSeason:2026 },
+        members: [demoCommissioner, ...demoAiMembers],
+        createdAt: new Date().toISOString(),
+      };
 
-    // Replace or insert demo league
-    setLeagues(prev => [demoLeague, ...prev.filter(l => l.id !== 'demo-league-instance')]);
-    setActiveLeagueId('demo-league-instance');
-    setCurrentRoster([]);
-    showToast('Demo Mode active! Build your roster and simulate.');
+      setLeagues(prev => [demoLeague, ...prev.filter(l => l.id !== 'demo-league-instance')]);
+      setActiveLeagueId('demo-league-instance');
+      setCurrentRoster([]);
+      showToast('Demo Mode active! Build your roster and simulate.');
+    }).catch(error => {
+      console.error('Demo Mode data could not load', error);
+      setIsDemoMode(false);
+      showToast('Demo Mode could not load. Try again.');
+    });
   };
 
   const exitDemoMode = () => {
