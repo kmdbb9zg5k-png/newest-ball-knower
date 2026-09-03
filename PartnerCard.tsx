@@ -1,5 +1,5 @@
 import React from 'react';
-import { ExternalLink } from 'lucide-react';
+import { Database, ExternalLink } from 'lucide-react';
 import type { Partner } from './partners';
 
 export function PartnerCard({ partner, compact = false }: { partner: Partner; compact?: boolean }) {
@@ -10,8 +10,8 @@ export function PartnerCard({ partner, compact = false }: { partner: Partner; co
     aria-label={`Visit ${partner.name} website`}
     className="group grid w-full min-w-0 grid-cols-[56px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-white/10 bg-[linear-gradient(145deg,rgba(17,21,28,.94),rgba(7,10,15,.94))] p-3 text-left shadow-[inset_0_1px_rgba(255,255,255,.045),0_12px_32px_rgba(0,0,0,.20)] transition-colors hover:border-[#D9B43B]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--bk-team-accent)]"
   >
-    <span className="h-14 w-14 overflow-hidden rounded-lg border border-white/10 bg-white shadow-[0_8px_20px_rgba(0,0,0,.28)]">
-      <img src={partner.logo} alt={`${partner.name} logo`} className="h-full w-full object-contain" loading="lazy" decoding="async" />
+    <span className={`grid h-14 w-14 place-items-center overflow-hidden rounded-lg border border-white/10 shadow-[0_8px_20px_rgba(0,0,0,.28)] ${partner.logo ? 'bg-white' : 'bg-[#111820] text-[#E7C75A]'}`}>
+      {partner.logo?<img src={partner.logo} alt={`${partner.name} logo`} className="h-full w-full object-contain" loading="lazy" decoding="async" />:<Database aria-hidden="true" className="h-6 w-6" />}
     </span>
     <span className="min-w-0">
       <span className="block font-display text-sm font-black uppercase leading-4 tracking-[.035em] text-white">{partner.name}</span>
@@ -28,8 +28,8 @@ export function PartnerCard({ partner, compact = false }: { partner: Partner; co
     aria-label={`Visit ${partner.name} website`}
     className="group grid w-full min-w-0 grid-cols-[88px_minmax(0,1fr)] items-center gap-4 rounded-2xl border border-white/10 bg-[linear-gradient(145deg,rgba(17,21,28,.96),rgba(7,10,15,.96))] p-4 text-left shadow-[inset_0_1px_rgba(255,255,255,.055),0_18px_48px_rgba(0,0,0,.24)] transition-colors hover:border-[#D9B43B]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--bk-team-accent)] sm:grid-cols-[112px_minmax(0,1fr)_auto] sm:gap-5 sm:p-5"
   >
-    <span className="aspect-square overflow-hidden rounded-xl border border-white/10 bg-white shadow-[0_10px_28px_rgba(0,0,0,.32)]">
-      <img src={partner.logo} alt={`${partner.name} logo`} className="h-full w-full object-contain" loading="lazy" decoding="async" />
+    <span className={`grid aspect-square place-items-center overflow-hidden rounded-xl border border-white/10 shadow-[0_10px_28px_rgba(0,0,0,.32)] ${partner.logo ? 'bg-white' : 'bg-[#111820] text-[#E7C75A]'}`}>
+      {partner.logo?<img src={partner.logo} alt={`${partner.name} logo`} className="h-full w-full object-contain" loading="lazy" decoding="async" />:<Database aria-hidden="true" className="h-9 w-9" />}
     </span>
     <span className="min-w-0">
       <span className="block font-display text-lg font-black uppercase leading-none tracking-[.04em] text-white sm:text-xl">{partner.name}</span>
