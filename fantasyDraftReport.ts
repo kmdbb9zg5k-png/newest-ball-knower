@@ -67,7 +67,6 @@ const STARTERS: Record<FantasyDraftReportPosition, number> = {
   K: 1,
   DST: 1,
 };
-const REQUIRED_LINEUP_SLOTS = Object.values(STARTERS).reduce((sum, count) => sum + count, 0) + 1;
 const MIN_MEANINGFUL_BENCH_SPREAD = 12;
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
@@ -207,7 +206,9 @@ const snapshotFor = (input: FantasyDraftReportTeam): Snapshot => {
     constructionScore,
     valueScore,
     coverage: input.picks.length ? input.picks.filter(pick => projectedPoints(pick) > 0).length / input.picks.length : 0,
-    starterCoverage: starters.filter(pick => projectedPoints(pick) > 0).length / REQUIRED_LINEUP_SLOTS,
+    starterCoverage: starters.length
+      ? starters.filter(pick => projectedPoints(pick) > 0).length / starters.length
+      : 0,
     bestValue,
     biggestReach,
     counts,
@@ -263,7 +264,7 @@ export const buildFantasyDraftReports = (
   const benchScale = Math.max(MIN_MEANINGFUL_BENCH_SPREAD, benchDeviation);
   const leagueCoverage = snapshots.reduce((sum, snapshot) => sum + snapshot.coverage, 0) / snapshots.length;
   const leagueStarterCoverage = snapshots.reduce((sum, snapshot) => sum + snapshot.starterCoverage, 0) / snapshots.length;
-  const leagueStartersComplete = snapshots.every(snapshot => snapshot.starterCoverage >= 0.999);
+  const leagueStarterProjectionsComplete = snapshots.every(snapshot => snapshot.starterCoverage >= 0.999);
 
   const rawWins = snapshots.map(snapshot => snapshots.length === 1
     ? games / 2
@@ -360,10 +361,10 @@ export const buildFantasyDraftReports = (
       uniqueWeaknesses.push('No major construction hole stands out; weekly health and matchups become the main risk.');
     }
 
-    const completeStarterCoverage = snapshot.starterCoverage >= 0.999;
-    const leagueComparisonsStrong = leagueCoverage >= 0.85 && leagueStartersComplete;
+    const completeStarterProjectionCoverage = snapshot.starterCoverage >= 0.999;
+    const leagueComparisonsStrong = leagueCoverage >= 0.85 && leagueStarterProjectionsComplete;
     const leagueComparisonsUsable = leagueCoverage >= 0.65 && leagueStarterCoverage >= 0.75;
-    const confidence: FantasyDraftReport['confidence'] = snapshot.coverage >= 0.85 && completeStarterCoverage && leagueComparisonsStrong
+    const confidence: FantasyDraftReport['confidence'] = snapshot.coverage >= 0.85 && completeStarterProjectionCoverage && leagueComparisonsStrong
       ? 'High'
       : snapshot.coverage >= 0.65 && snapshot.starterCoverage >= 0.75 && leagueComparisonsUsable
         ? 'Medium'
@@ -373,8 +374,8 @@ export const buildFantasyDraftReports = (
     const leagueCoveragePercent = Math.round(leagueCoverage * 100);
     const leagueStarterCoveragePercent = Math.round(leagueStarterCoverage * 100);
     const confidenceNote = confidence === 'High'
-      ? `${coveragePercent}% of this roster and ${leagueCoveragePercent}% of league rosters have published 2026 projection data, with complete required starter/FLEX coverage across the comparison set.`
-      : `${coveragePercent}% roster projection coverage and ${starterCoveragePercent}% required starter/FLEX coverage for this team; league comparisons are ${leagueCoveragePercent}% overall and ${leagueStarterCoveragePercent}% required starter/FLEX covered. Missing comparison data lowers confidence in exact league-relative ranks, the grade, and projected record.`;
+      ? `${coveragePercent}% of this roster and ${leagueCoveragePercent}% of league rosters have published 2026 projection data, with complete projection coverage across occupied starter/FLEX slots in the comparison set.`
+      : `${coveragePercent}% roster projection coverage and ${starterCoveragePercent}% occupied starter/FLEX projection coverage for this team; league comparisons are ${leagueCoveragePercent}% overall and ${leagueStarterCoveragePercent}% occupied starter/FLEX projection covered. Missing comparison data lowers confidence in exact league-relative ranks, the grade, and projected record.`;
     const strongest = [...metrics].sort((a, b) => a.rank - b.rank || b.value - a.value)[0];
     const strongestPosition = strongest ? `${metricName(strongest.key)} (#${strongest.rank}/${snapshots.length})` : null;
     const projectedWins = clamp(wins[index], 0, games);
