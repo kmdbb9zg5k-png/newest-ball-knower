@@ -68,6 +68,7 @@ const STARTERS: Record<FantasyDraftReportPosition, number> = {
   DST: 1,
 };
 const MIN_MEANINGFUL_BENCH_SPREAD = 12;
+const MIN_MEANINGFUL_POSITION_SPREAD = 1;
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 const compareText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
@@ -226,7 +227,7 @@ const ranksFor = (snapshots: Snapshot[], key: string) => {
   let previousRank = 1;
   ordered.forEach((snapshot, index) => {
     const value = snapshot.positionStrength[key] || 0;
-    const rank = previousValue !== null && Math.abs(value - previousValue) <= 0.001
+    const rank = previousValue !== null && Math.abs(value - previousValue) <= MIN_MEANINGFUL_POSITION_SPREAD
       ? previousRank
       : index + 1;
     ranks.set(snapshot.input.memberId, rank);
@@ -374,8 +375,8 @@ export const buildFantasyDraftReports = (
     const leagueCoveragePercent = Math.round(leagueCoverage * 100);
     const leagueStarterCoveragePercent = Math.round(leagueStarterCoverage * 100);
     const confidenceNote = confidence === 'High'
-      ? `${coveragePercent}% of this roster and ${leagueCoveragePercent}% of league rosters have published 2026 projection data, with complete projection coverage across occupied starter/FLEX slots in the comparison set.`
-      : `${coveragePercent}% roster projection coverage and ${starterCoveragePercent}% occupied starter/FLEX projection coverage for this team; league comparisons are ${leagueCoveragePercent}% overall and ${leagueStarterCoveragePercent}% occupied starter/FLEX projection covered. Missing comparison data lowers confidence in exact league-relative ranks, the grade, and projected record.`;
+      ? `${coveragePercent}% of this roster's drafted slots and ${leagueCoveragePercent}% of drafted slots across the league have published 2026 projection data, with complete projection coverage across occupied starter/FLEX slots in the comparison set.`
+      : `${coveragePercent}% of this roster's drafted slots and ${starterCoveragePercent}% of its occupied starter/FLEX slots have projection data; coverage across league drafted slots is ${leagueCoveragePercent}% overall and ${leagueStarterCoveragePercent}% across occupied starter/FLEX slots. Missing comparison data lowers confidence in exact league-relative ranks, the grade, and projected record.`;
     const strongest = [...metrics].sort((a, b) => a.rank - b.rank || b.value - a.value)[0];
     const strongestPosition = strongest ? `${metricName(strongest.key)} (#${strongest.rank}/${snapshots.length})` : null;
     const projectedWins = clamp(wins[index], 0, games);
