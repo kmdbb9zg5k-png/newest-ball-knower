@@ -1,6 +1,5 @@
 import { ensureOnlineSession, supabase } from './supabase';
-import { League, Player } from './types';
-import { PLAYERS_DATABASE } from './players';
+import type { League, Player } from './types';
 
 export type TradeOffer={id:string;leagueId:string;proposerMemberId:string;recipientMemberId:string;offeredPlayerIds:string[];requestedPlayerIds:string[];proposerDropPlayerIds:string[];recipientDropPlayerIds:string[];status:string;note?:string;createdAt:string;resolvedAt?:string};
 export type TradeResolution={tradeId?:string;status:string;reason?:string};
@@ -223,7 +222,9 @@ export async function resolveTrade(
 }
 
 export async function submitWaiverClaim(leagueId:string,memberId:string,playerId:string,dropPlayerId?:string,priority=999){
-  if(!supabase) return; await ensureOnlineSession();
+  if(!supabase) return;
+  await ensureOnlineSession();
+  const {PLAYERS_DATABASE}=await import('./players');
   const player=PLAYERS_DATABASE.find(p=>p.id===playerId);
   if(!player) throw new Error('Player could not be found in the current NFL pool.');
   const {error}=await supabase.rpc('submit_ball_knower_player_move',{p_league_id:leagueId,p_player_snapshot:player,p_drop_player_id:dropPlayerId||null,p_faab_bid:0,p_claim_order:Math.max(1,priority),p_claim_group_id:null});
