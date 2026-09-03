@@ -33,6 +33,7 @@
     "check:matchup-head-to-head": "node --import tsx scripts/matchup-head-to-head-check.ts",
     "check:fantasy-ui": "node --import tsx scripts/fantasy-ui-system-check.ts",
     "check:fantasy-mobile-browser": "node scripts/fantasy-mobile-browser-check.mjs",
+    "check:root-bundle": "node scripts/root-bundle-budget-check.mjs",
     "check:home-dashboard": "node --import tsx scripts/home-dashboard-check.ts",
     "check:phase3-agent": "node --import tsx scripts/phase3-agent-recruiting-check.ts",
     "check:phase3-careers": "node --import tsx scripts/phase3-agent-career-check.ts",
