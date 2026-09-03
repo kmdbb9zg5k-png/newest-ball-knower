@@ -1,0 +1,1 @@
+PR scope: iOS native packaging/runtime fixes, authentication callbacks, account deletion compliance, public legal/support pages, App Store release gates, and submission handoff documentation. No intentional fantasy gameplay redesign is included.
