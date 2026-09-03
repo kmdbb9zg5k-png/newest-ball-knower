@@ -23,7 +23,7 @@ workflows:
       - name: Install web and Capacitor dependencies
         script: |
           npm install
-          npm install --no-save @capacitor/core@^8.0.0 @capacitor/cli@^8.0.0 @capacitor/ios@^8.0.0
+          npm install --no-save @capacitor/cli@^8.0.0 @capacitor/ios@^8.0.0
 
       - name: Run App Store release gate
         script: node scripts/ios-app-store-release-check.mjs
@@ -46,13 +46,18 @@ workflows:
           npx capacitor-assets generate --ios
           test -d "$CM_BUILD_DIR/ios/App/App/Assets.xcassets/AppIcon.appiconset"
 
-      - name: Add iOS privacy permission descriptions
+      - name: Add iOS privacy permissions and auth callback
         script: |
           PLIST="$CM_BUILD_DIR/ios/App/App/Info.plist"
           /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string Ball Knower uses the camera only when you choose to take a profile photo." "$PLIST" || \
             /usr/libexec/PlistBuddy -c "Set :NSCameraUsageDescription Ball Knower uses the camera only when you choose to take a profile photo." "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string Ball Knower uses your photo library only when you choose a profile photo." "$PLIST" || \
             /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryUsageDescription Ball Knower uses your photo library only when you choose a profile photo." "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes array" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0 dict" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLName string com.ballknower.ios" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string ballknower" "$PLIST"
 
       - name: Set up iOS signing keychain
         script: keychain initialize
