@@ -1,11 +1,15 @@
 export type FantasyScoringFormat = 'standard' | 'half_ppr' | 'ppr';
 
 export type FantasyStatLine = {
+  passingAttempts?: number;
+  passingCompletions?: number;
   passingYards: number;
   passingTouchdowns: number;
   interceptionsThrown: number;
+  rushingAttempts?: number;
   rushingYards: number;
   rushingTouchdowns: number;
+  targets?: number;
   receivingYards: number;
   receivingTouchdowns: number;
   receptions: number;
@@ -14,8 +18,10 @@ export type FantasyStatLine = {
   returnTouchdowns: number;
   fieldGoalsMade: number;
   fieldGoalsMissed: number;
+  fieldGoalsAttempted?: number;
   extraPointsMade: number;
   extraPointsMissed: number;
+  extraPointsAttempted?: number;
 };
 
 export type DefenseStatLine = {
@@ -52,6 +58,19 @@ const firstNumber = (...values: unknown[]): number => {
   return 0;
 };
 
+const optionalFirstNumber = (...values: unknown[]): number | undefined => {
+  for (const value of values) {
+    if (value !== undefined && value !== null && value !== '') return numeric(value);
+  }
+  return undefined;
+};
+
+const attemptedFromKnownParts=(made:unknown,missed:unknown):number|undefined=>{
+  const madeValue=optionalFirstNumber(made);
+  const missedValue=optionalFirstNumber(missed);
+  return madeValue===undefined&&missedValue===undefined?undefined:(madeValue||0)+(missedValue||0);
+};
+
 export function normalizeScoringFormat(value: unknown): FantasyScoringFormat {
   const normalized = String(value || '').toLowerCase().replace(/[^a-z]/g, '');
   if (normalized === 'standard') return 'standard';
@@ -72,23 +91,37 @@ export function normalizeTank01PlayerStats(rawValue: unknown): FantasyStatLine {
     rushing.rushingTwoPointConversion,
     receiving.receivingTwoPointConversion,
   ].reduce<number>((sum,value)=>sum+numeric(value),0);
+  const passingAttempts=optionalFirstNumber(passing.passAttempts,passing.passingAttempts,passing.att,raw.passAttempts,raw.passingAttempts);
+  const passingCompletions=optionalFirstNumber(passing.passCompletions,passing.completions,passing.cmp,raw.passCompletions,raw.completions);
+  const rushingAttempts=optionalFirstNumber(rushing.rushAttempts,rushing.rushingAttempts,rushing.carries,rushing.att,raw.rushAttempts,raw.rushingAttempts,raw.carries);
+  const targets=optionalFirstNumber(receiving.targets,raw.targets);
+  const fgMadeSource=kicking.fgMade??kicking.fieldGoalsMade??raw.fgMade??raw.fieldGoalsMade;
+  const fgMissedSource=kicking.fgMissed??kicking.fieldGoalsMissed??raw.fgMissed??raw.fieldGoalsMissed;
+  const xpMadeSource=kicking.xpMade??kicking.extraPointsMade??raw.xpMade??raw.extraPointsMade;
+  const xpMissedSource=kicking.xpMissed??kicking.extraPointsMissed??raw.xpMissed??raw.extraPointsMissed;
 
   return {
-    passingYards: firstNumber(passing.passYds, passing.passingYards, raw.passYds),
-    passingTouchdowns: firstNumber(passing.passTD, passing.passingTDs, raw.passTD),
-    interceptionsThrown: firstNumber(passing.int, passing.interceptions, raw.int),
-    rushingYards: firstNumber(rushing.rushYds, rushing.rushingYards, raw.rushYds),
-    rushingTouchdowns: firstNumber(rushing.rushTD, rushing.rushingTDs, raw.rushTD),
-    receivingYards: firstNumber(receiving.recYds, receiving.receivingYards, raw.recYds),
-    receivingTouchdowns: firstNumber(receiving.recTD, receiving.receivingTDs, raw.recTD),
+    ...(passingAttempts===undefined?{}:{passingAttempts}),
+    ...(passingCompletions===undefined?{}:{passingCompletions}),
+    passingYards: firstNumber(passing.passYds, passing.passingYards, raw.passYds,raw.passingYards),
+    passingTouchdowns: firstNumber(passing.passTD, passing.passingTDs, raw.passTD,raw.passingTouchdowns),
+    interceptionsThrown: firstNumber(passing.int, passing.interceptions, raw.int,raw.interceptionsThrown),
+    ...(rushingAttempts===undefined?{}:{rushingAttempts}),
+    rushingYards: firstNumber(rushing.rushYds, rushing.rushingYards, raw.rushYds,raw.rushingYards),
+    rushingTouchdowns: firstNumber(rushing.rushTD, rushing.rushingTDs, raw.rushTD,raw.rushingTouchdowns),
+    ...(targets===undefined?{}:{targets}),
+    receivingYards: firstNumber(receiving.recYds, receiving.receivingYards, raw.recYds,raw.receivingYards),
+    receivingTouchdowns: firstNumber(receiving.recTD, receiving.receivingTDs, raw.recTD,raw.receivingTouchdowns),
     receptions: firstNumber(receiving.receptions, raw.receptions),
-    twoPointConversions: categorizedTwoPointConversions || firstNumber(raw.twoPointConversion),
+    twoPointConversions: categorizedTwoPointConversions || firstNumber(raw.twoPointConversion,raw.twoPointConversions),
     fumblesLost: firstNumber(defense.fumblesLost, raw.fumblesLost),
     returnTouchdowns: firstNumber(raw.returnTD, raw.returnTouchdowns, raw.specialTeamsTD),
-    fieldGoalsMade: firstNumber(kicking.fgMade, kicking.fieldGoalsMade, raw.fgMade),
-    fieldGoalsMissed: firstNumber(kicking.fgMissed, kicking.fieldGoalsMissed, raw.fgMissed),
-    extraPointsMade: firstNumber(kicking.xpMade, kicking.extraPointsMade, raw.xpMade),
-    extraPointsMissed: firstNumber(kicking.xpMissed, kicking.extraPointsMissed, raw.xpMissed),
+    fieldGoalsMade: firstNumber(fgMadeSource),
+    fieldGoalsMissed: firstNumber(fgMissedSource),
+    ...(attemptedFromKnownParts(fgMadeSource,fgMissedSource)===undefined?{}:{fieldGoalsAttempted:attemptedFromKnownParts(fgMadeSource,fgMissedSource)}),
+    extraPointsMade: firstNumber(xpMadeSource),
+    extraPointsMissed: firstNumber(xpMissedSource),
+    ...(attemptedFromKnownParts(xpMadeSource,xpMissedSource)===undefined?{}:{extraPointsAttempted:attemptedFromKnownParts(xpMadeSource,xpMissedSource)}),
   };
 }
 
