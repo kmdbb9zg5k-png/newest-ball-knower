@@ -51,6 +51,7 @@ type Snapshot = {
   constructionScore: number;
   valueScore: number;
   coverage: number;
+  starterCoverage: number;
   bestValue: FantasyDraftValueNote | null;
   biggestReach: FantasyDraftValueNote | null;
   counts: Partial<Record<FantasyDraftReportPosition, number>>;
@@ -66,6 +67,7 @@ const STARTERS: Record<FantasyDraftReportPosition, number> = {
   K: 1,
   DST: 1,
 };
+const REQUIRED_LINEUP_SLOTS = Object.values(STARTERS).reduce((sum, count) => sum + count, 0) + 1;
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 const compareText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
@@ -93,6 +95,10 @@ const valueNote = (pick: FantasyDraftReportPick, delta: number): FantasyDraftVal
   delta: Math.round(delta),
 });
 const metricName = (key: string) => key === 'FLEX_DEPTH' ? 'FLEX/skill depth' : key === 'DST' ? 'D/ST' : key;
+const flexSurplus = (counts: Partial<Record<FantasyDraftReportPosition, number>>) =>
+  Math.max(0, (counts.RB || 0) - STARTERS.RB)
+  + Math.max(0, (counts.WR || 0) - STARTERS.WR)
+  + Math.max(0, (counts.TE || 0) - STARTERS.TE);
 
 const snapshotFor = (input: FantasyDraftReportTeam): Snapshot => {
   const byPosition = new Map<FantasyDraftReportPosition, FantasyDraftReportPick[]>();
@@ -134,14 +140,13 @@ const snapshotFor = (input: FantasyDraftReportTeam): Snapshot => {
     result[pick.position] = (result[pick.position] || 0) + 1;
     return result;
   }, {});
-  const skillCount = (counts.RB || 0) + (counts.WR || 0) + (counts.TE || 0);
+  const skillDepth = flexSurplus(counts);
   const missingBase = POSITIONS.reduce(
     (sum, position) => sum + Math.max(0, STARTERS[position] - (counts[position] || 0)),
     0,
   );
-  const missingFlex = skillCount >= 6 ? 0 : 1;
+  const missingFlex = skillDepth > 0 ? 0 : 1;
   const extraSpecialTeams = Math.max(0, (counts.K || 0) - 1) + Math.max(0, (counts.DST || 0) - 1);
-  const skillDepth = Math.max(0, (counts.RB || 0) - 2) + Math.max(0, (counts.WR || 0) - 2) + Math.max(0, (counts.TE || 0) - 1);
   const thinSkillPenalty = ((counts.RB || 0) < 3 ? 4 : 0) + ((counts.WR || 0) < 3 ? 4 : 0);
   const constructionScore = clamp(Math.round(
     90
@@ -193,6 +198,7 @@ const snapshotFor = (input: FantasyDraftReportTeam): Snapshot => {
     constructionScore,
     valueScore,
     coverage: input.picks.length ? input.picks.filter(pick => projectedPoints(pick) > 0).length / input.picks.length : 0,
+    starterCoverage: starters.filter(pick => projectedPoints(pick) > 0).length / REQUIRED_LINEUP_SLOTS,
     bestValue,
     biggestReach,
     counts,
@@ -311,13 +317,14 @@ export const buildFantasyDraftReports = (
         requiredWeaknesses.push(`${metricName(position)} is missing ${missing} required starter${missing === 1 ? '' : 's'}.`);
       }
     });
-    const skillCount = (snapshot.counts.RB || 0) + (snapshot.counts.WR || 0) + (snapshot.counts.TE || 0);
-    if (skillCount < 6) requiredWeaknesses.push('The roster does not have enough RB/WR/TE players to fill the required FLEX spot.');
+    if (flexSurplus(snapshot.counts) === 0) {
+      requiredWeaknesses.push('The roster does not have an extra RB/WR/TE available to fill the required FLEX spot.');
+    }
 
     const constructionWeaknesses: string[] = [];
     if ((snapshot.counts.RB || 0) < 3) constructionWeaknesses.push('RB depth is thin behind the required starters.');
     if ((snapshot.counts.WR || 0) < 3) constructionWeaknesses.push('WR depth is thin behind the required starters.');
-    if ((snapshot.counts.QB || 0) > 3) constructionWeaknesses.push('Too many roster spots are invested in backup quarterbacks.');
+    if ((snapshot.counts.QB || 0) > 2) constructionWeaknesses.push('Too many roster spots are invested in backup quarterbacks.');
     if ((snapshot.counts.K || 0) > 1 || (snapshot.counts.DST || 0) > 1) constructionWeaknesses.push('Extra K/D/ST picks reduced higher-upside bench depth.');
 
     const uniqueStrengths = [...new Set(strengths)].slice(0, 3);
@@ -337,15 +344,17 @@ export const buildFantasyDraftReports = (
       uniqueWeaknesses.push('No major construction hole stands out; weekly health and matchups become the main risk.');
     }
 
-    const confidence: FantasyDraftReport['confidence'] = snapshot.coverage >= 0.85
+    const completeStarterCoverage = snapshot.starterCoverage >= 0.999;
+    const confidence: FantasyDraftReport['confidence'] = snapshot.coverage >= 0.85 && completeStarterCoverage
       ? 'High'
-      : snapshot.coverage >= 0.65
+      : snapshot.coverage >= 0.65 && snapshot.starterCoverage >= 0.75
         ? 'Medium'
         : 'Low';
     const coveragePercent = Math.round(snapshot.coverage * 100);
+    const starterCoveragePercent = Math.round(snapshot.starterCoverage * 100);
     const confidenceNote = confidence === 'High'
-      ? `${coveragePercent}% of drafted players have published 2026 projection data.`
-      : `${coveragePercent}% projection coverage; unavailable players lower confidence in the grade and projected record.`;
+      ? `${coveragePercent}% of drafted players have published 2026 projection data, including every required starter/FLEX slot.`
+      : `${coveragePercent}% roster projection coverage and ${starterCoveragePercent}% required starter/FLEX projection coverage; unavailable starter data lowers confidence in the grade and projected record.`;
     const strongest = [...metrics].sort((a, b) => a.rank - b.rank || b.value - a.value)[0];
     const strongestPosition = strongest ? `${metricName(strongest.key)} (#${strongest.rank}/${snapshots.length})` : null;
     const valueText = snapshot.bestValue
