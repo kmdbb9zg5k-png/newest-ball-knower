@@ -1,0 +1,1 @@
+Validation order: GitHub CI → Vercel preview → Supabase redirect/secret configuration → production migration/deploy → signed IPA → TestFlight real-device gate → App Store Connect metadata → App Review.
