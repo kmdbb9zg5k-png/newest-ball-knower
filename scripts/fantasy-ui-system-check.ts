@@ -89,6 +89,16 @@ const missingReport=buildFantasyDraftReports([missingTeam,reportTeam('complete',
 assert.notEqual(missingReport.confidence,'High','materially incomplete projections must lower confidence');
 assert.match(missingReport.confidenceNote,/unavailable|coverage/i,'incomplete data must be disclosed rather than invented');
 
+const tiedReports=buildFantasyDraftReports([reportTeam('tie-a',1),reportTeam('tie-b',1)],15);
+assert.deepEqual(tiedReports.get('tie-a')!.strengths,tiedReports.get('tie-b')!.strengths,'identical positional projections must receive the same strength claims regardless of member ID');
+assert.deepEqual(tiedReports.get('tie-a')!.weaknesses,tiedReports.get('tie-b')!.weaknesses,'identical positional projections must receive the same risk claims regardless of member ID');
+
+const missingStarterTeam=reportTeam('missing-starter',1);
+missingStarterTeam.picks[0]={...missingStarterTeam.picks[0],position:'WR',playerName:'Extra WR'};
+const missingStarterReport=buildFantasyDraftReports([missingStarterTeam,reportTeam('starter-control',1)],15).get('missing-starter')!;
+assert.ok(missingStarterReport.weaknesses.some(value=>/QB is missing 1 required starter/i.test(value)),'a missing required QB must be called out explicitly in the displayed roster risks');
+assert.match(missingStarterReport.explanation,/QB is missing 1 required starter/i,'the primary draft explanation must surface a missing required starter instead of blaming an unrelated position');
+
 for(const size of [6,8,10,12,14,16]){
   const reports=buildFantasyDraftReports(Array.from({length:size},(_,index)=>reportTeam(`team-${size}-${index}`,1+index*.01)),15);
   assert.equal(reports.size,size,`${size}-team leagues must receive exactly one report per manager`);
