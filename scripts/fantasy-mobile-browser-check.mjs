@@ -64,14 +64,19 @@ try{
   for(const size of sizes){
     const context=await browser.newContext({viewport:{width:size.width,height:size.height},deviceScaleFactor:2,isMobile:true,hasTouch:true});
     const page=await context.newPage();
+    const pageErrors=[];
     const consoleErrors=[];
-    page.on('pageerror',error=>consoleErrors.push(error.message));
-    page.on('console',message=>{if(message.type()==='error')consoleErrors.push(message.text());});
+    const failedFirstPartyResponses=[];
+    const firstPartyOrigin=new URL(baseURL).origin;
+    page.on('pageerror',error=>pageErrors.push(error.message));
+    page.on('console',message=>{if(message.type()==='error'&&!message.text().startsWith('Failed to load resource:'))consoleErrors.push(message.text());});
+    page.on('response',response=>{if(response.status()>=400&&new URL(response.url()).origin===firstPartyOrigin)failedFirstPartyResponses.push(`${response.status()} ${response.url()}`);});
     await page.route('**/api/**',async route=>{
       const pathname=new URL(route.request().url()).pathname;
       const body=pathname==='/api/media'?{tracks:[],introUrl:null}:{ok:true};
       await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});
     });
+    await page.route('**/_vercel/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:''}));
     await page.addInitScript(()=>{
       localStorage.setItem('ball-knower-team-setup-v2','complete');
       localStorage.setItem('ball-knower-intro-sound-v1','off');
@@ -93,6 +98,8 @@ try{
     await page.getByRole('heading',{name:'Player Cheat Sheet',exact:true}).waitFor({state:'visible'});
     assertContained(await layoutSnapshot(page),`${size.label} Cheat Sheet`);
     await page.screenshot({path:`${artifactDir}/${size.label}-fantasy.png`,fullPage:true});
+    assert.deepEqual(pageErrors,[],`${size.label}: uncaught page errors:\n${pageErrors.join('\n')}`);
+    assert.deepEqual(failedFirstPartyResponses,[],`${size.label}: first-party request failures:\n${failedFirstPartyResponses.join('\n')}`);
     assert.deepEqual(consoleErrors,[],`${size.label}: browser console errors:\n${consoleErrors.join('\n')}`);
     await context.close();
   }
