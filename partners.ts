@@ -31,7 +31,7 @@ export const partners: Partner[] = [
     partnerType: 'Official Sports Data Provider',
     associatedTeam: null,
     category: 'data',
-    featuredOnHome: false,
+    featuredOnHome: true,
     active: true,
     sortOrder: 2,
   },
