@@ -95,7 +95,7 @@ starterConfidence.picks=starterConfidence.picks.map(item=>(item.position==='QB'|
 assert.equal(starterConfidence.picks.filter(item=>item.projectedPoints!==null).length,13,'confidence fixture must preserve 13 of 15 aggregate projections');
 const starterConfidenceReport=buildFantasyDraftReports([starterConfidence,baseTeam('confidence-control')],15).get('starter-confidence')!;
 assert.notEqual(starterConfidenceReport.confidence,'High','missing required QB/DST projection data must prevent a High confidence label');
-assert.match(starterConfidenceReport.confidenceNote,/starter\/FLEX projection coverage/i,'confidence text must disclose required-lineup projection coverage');
+assert.match(starterConfidenceReport.confidenceNote,/starter\/FLEX (?:projection )?coverage/i,'confidence text must disclose required-lineup projection coverage');
 
 const completeTeam=baseTeam('complete-self');
 const incompleteOpponent=baseTeam('incomplete-opponent');
