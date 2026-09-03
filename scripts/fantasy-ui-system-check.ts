@@ -128,7 +128,19 @@ assert.ok(player.includes('Rostered by') && player.includes('Available player'),
 assert.ok(draft.includes('bk-fantasy-sticky-nav') && draft.includes('Live Draft') && draft.includes('League Chat'), 'the live draft must share the fantasy system and keep league chat available');
 assert.ok(draft.includes('Auto-pick Queue') && draft.includes('Recent Picks') && draft.includes('Your Roster'), 'draft recovery tools, recent picks and roster context must remain present');
 assert.ok(draft.includes('Projected W-L') && draft.includes('Draft Grade') && draft.includes('report.explanation') && draft.includes('buildFantasyDraftReports'), 'completed draft cards must show every manager a grade explanation and projected record');
-assert.ok(draft.includes('report.strengths')&&draft.includes('report.weaknesses')&&draft.includes('report.benchQuality'),'completed-draft cards must render strengths, risks, and bench quality for every manager');
-assert.ok(draft.includes('report.bestValue')&&draft.includes('report.biggestReach')&&draft.includes('report.confidence'),'completed-draft cards must render meaningful pick value and confidence context');
+assert.ok(
+  draft.includes('report.explanation') &&
+  reportEngine.includes('Bench: ${benchQuality}') &&
+  reportEngine.includes('Strength: ${uniqueStrengths[0]}') &&
+  reportEngine.includes('Risk: ${uniqueWeaknesses[0]}'),
+  'completed-draft cards must visibly render bench quality, a strength, and a risk through the report explanation',
+);
+assert.ok(
+  draft.includes('report.explanation') &&
+  reportEngine.includes('Best value:') &&
+  reportEngine.includes('Biggest reach:') &&
+  reportEngine.includes('Confidence: ${confidence}.'),
+  'completed-draft cards must visibly render meaningful pick value and confidence context through the report explanation',
+);
 
 console.log('Fantasy UI system checks passed: ownership, navigation, weekly lineup context, safe areas, contained FLEX/WRT rows, rankings, rich draft reports, Player Card actions, and draft chat.');
