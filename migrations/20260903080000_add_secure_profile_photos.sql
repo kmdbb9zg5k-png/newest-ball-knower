@@ -15,6 +15,7 @@ for select to authenticated
 using (
   bucket_id='ball-knower-avatars'
   and (storage.foldername(name))[1]=(select auth.uid())::text
+  and coalesce((select (auth.jwt()->>'is_anonymous')::boolean),false)=false
 );
 
 drop policy if exists bk_avatar_insert_own on storage.objects;
@@ -24,6 +25,7 @@ with check (
   bucket_id='ball-knower-avatars'
   and (storage.foldername(name))[1]=(select auth.uid())::text
   and lower(storage.extension(name))='webp'
+  and coalesce((select (auth.jwt()->>'is_anonymous')::boolean),false)=false
 );
 
 drop policy if exists bk_avatar_update_own on storage.objects;
@@ -32,11 +34,13 @@ for update to authenticated
 using (
   bucket_id='ball-knower-avatars'
   and (storage.foldername(name))[1]=(select auth.uid())::text
+  and coalesce((select (auth.jwt()->>'is_anonymous')::boolean),false)=false
 )
 with check (
   bucket_id='ball-knower-avatars'
   and (storage.foldername(name))[1]=(select auth.uid())::text
   and lower(storage.extension(name))='webp'
+  and coalesce((select (auth.jwt()->>'is_anonymous')::boolean),false)=false
 );
 
 drop policy if exists bk_avatar_delete_own on storage.objects;
@@ -45,6 +49,7 @@ for delete to authenticated
 using (
   bucket_id='ball-knower-avatars'
   and (storage.foldername(name))[1]=(select auth.uid())::text
+  and coalesce((select (auth.jwt()->>'is_anonymous')::boolean),false)=false
 );
 
 create table if not exists public.ball_knower_user_profiles(
@@ -66,7 +71,10 @@ alter table public.ball_knower_user_profiles enable row level security;
 drop policy if exists bk_user_profiles_read_own on public.ball_knower_user_profiles;
 create policy bk_user_profiles_read_own on public.ball_knower_user_profiles
 for select to authenticated
-using (auth_user_id=(select auth.uid()));
+using (
+  auth_user_id=(select auth.uid())
+  and coalesce((select (auth.jwt()->>'is_anonymous')::boolean),false)=false
+);
 
 revoke all on table public.ball_knower_user_profiles from public,anon,authenticated;
 grant select on table public.ball_knower_user_profiles to authenticated;
@@ -82,6 +90,9 @@ declare
   v_updated_at timestamptz:=clock_timestamp();
 begin
   if v_user_id is null then raise exception 'Authentication required'; end if;
+  if coalesce((select (auth.jwt()->>'is_anonymous')::boolean),false) then
+    raise exception 'A permanent account is required';
+  end if;
   if p_avatar_path is not null and p_avatar_path !~ (
     '^'||v_user_id::text||'/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.webp$'
   ) then
@@ -108,4 +119,3 @@ $function$;
 
 revoke all on function public.set_ball_knower_profile_photo(text) from public,anon;
 grant execute on function public.set_ball_knower_profile_photo(text) to authenticated;
-

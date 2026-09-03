@@ -14,6 +14,6 @@ export const ManagerAvatar = ({ member, name, className = 'h-9 w-9' }: { member?
   const label = name || member?.userName || 'Ball Knower manager';
   return <div className={`relative grid shrink-0 place-items-center overflow-hidden rounded-full border border-[var(--bk-team-accent)]/35 bg-[#171b22] text-[9px] font-black text-[var(--bk-team-accent)] ${className}`} aria-label={`${label} profile photo`}>
     {initials(label)}
-    {member?.userAvatar && <img src={member.userAvatar} alt="" className="absolute inset-0 h-full w-full object-cover" referrerPolicy="no-referrer" onError={event => { event.currentTarget.style.display = 'none'; }} />}
+    {member?.userAvatar && <img key={member.userAvatar} src={member.userAvatar} alt="" className="absolute inset-0 h-full w-full object-cover" referrerPolicy="no-referrer" onError={event => { event.currentTarget.style.display = 'none'; }} />}
   </div>;
 };

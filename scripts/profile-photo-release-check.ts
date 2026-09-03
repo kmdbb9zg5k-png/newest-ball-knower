@@ -17,6 +17,8 @@ assert.match(migration, /revoke all on table public\.ball_knower_user_profiles f
 assert.match(migration, /grant select on table public\.ball_knower_user_profiles to authenticated/);
 assert.match(migration, /p_avatar_path !~ \(/);
 assert.match(migration, /where auth_user_id=v_user_id/);
+assert.match(migration, /auth\.jwt\(\)->>'is_anonymous'/);
+assert.match(migration, /A permanent account is required/);
 assert.match(migration, /revoke all on function public\.set_ball_knower_profile_photo\(text\) from public,anon/);
 
 assert.match(client, /PROFILE_PHOTO_MAX_SOURCE_BYTES = 12 \* 1024 \* 1024/);
@@ -31,9 +33,11 @@ assert.match(editor, /Change Photo/);
 assert.match(editor, /Remove Photo/);
 assert.match(editor, /Saving Photo/);
 assert.match(editor, /disabled=\{busy \|\| !imageReady\}/);
+assert.match(editor, /sourceUrlRef\.current !== url/);
 assert.match(context, /updateCurrentUserAvatar/);
 assert.match(context, /member\.userId === userId/);
 assert.match(read('Navbar.tsx'), /request!==profileRequest/);
+assert.match(context, /currentSession\.session\?\.user\.id !== authUser\.id/);
 assert.match(ios, /NSCameraUsageDescription/);
 assert.match(ios, /NSPhotoLibraryUsageDescription/);
 

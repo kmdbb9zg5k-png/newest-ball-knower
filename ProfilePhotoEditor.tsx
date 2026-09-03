@@ -67,12 +67,14 @@ export const ProfilePhotoEditor: React.FC = () => {
       sourceUrlRef.current = url;
       const image = new Image();
       image.onload = () => {
+        if (sourceUrlRef.current !== url) return;
         sourceImageRef.current = image;
         setImageReady(true);
         const canvas = previewCanvasRef.current;
         if (canvas) drawSquareProfileImage(canvas, image, INITIAL_CROP);
       };
       image.onerror = () => {
+        if (sourceUrlRef.current !== url) return;
         sourceImageRef.current = null;
         setImageReady(false);
         setError('That photo could not be opened. Try another image.');
@@ -132,7 +134,7 @@ export const ProfilePhotoEditor: React.FC = () => {
         className="relative grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-[var(--bk-team-accent)]/60 bg-[#171b22] text-xl font-black text-[var(--bk-team-accent)]"
       >
         {currentUser ? initials(currentUser.name) : <UserRound className="h-8 w-8" />}
-        {currentUser?.avatarUrl && <img src={currentUser.avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover" referrerPolicy="no-referrer" onError={event => { event.currentTarget.style.display = 'none'; }} />}
+        {currentUser?.avatarUrl && <img key={currentUser.avatarUrl} src={currentUser.avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover" referrerPolicy="no-referrer" onError={event => { event.currentTarget.style.display = 'none'; }} />}
         <span className="absolute bottom-0 right-0 grid h-7 w-7 place-items-center rounded-full border border-black bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)]"><Pencil className="h-3.5 w-3.5" /></span>
       </button>
       <div className="min-w-0 flex-1">

@@ -276,6 +276,8 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (cancelled) return;
         const metadata = authUser.user_metadata || {};
         const photo = await resolveProfilePhotoForAuthUser(authUser);
+        const { data: currentSession } = await supabase!.auth.getSession();
+        if (cancelled || currentSession.session?.user.id !== authUser.id) return;
         currentUserIdRef.current = authUser.id;
         invalidatePendingAutoDraft();
         setCurrentUserState(prev => {
@@ -294,7 +296,8 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           return synced;
         });
         const cloudLeagues = await loadMyCloudLeagues();
-        if (!cancelled) {
+        const { data: leagueSession } = await supabase!.auth.getSession();
+        if (!cancelled && leagueSession.session?.user.id === authUser.id) {
           setLeagues(prev => {
             const localOnly = prev.filter(l => l.id === 'demo-league-instance');
             return [...cloudLeagues, ...localOnly];

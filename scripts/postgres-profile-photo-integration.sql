@@ -11,6 +11,9 @@ create table auth.users(id uuid primary key);
 create function auth.uid() returns uuid language sql stable as $$
   select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid
 $$;
+create function auth.jwt() returns jsonb language sql stable as $$
+  select coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb,'{}'::jsonb)
+$$;
 create function storage.foldername(value text) returns text[] language sql immutable as $$
   select string_to_array(value,'/')
 $$;
@@ -65,6 +68,7 @@ $$;
 
 set role authenticated;
 select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+select set_config('request.jwt.claims','{"is_anonymous":false}',false);
 
 select public.set_ball_knower_profile_photo(
   '11111111-1111-4111-8111-111111111111/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.webp'
@@ -133,6 +137,31 @@ begin
   if (select count(*) from storage.objects)<>0 then
     raise exception 'Another user can enumerate the owner avatar folder';
   end if;
+end;
+$$;
+
+select set_config('request.jwt.claims','{"is_anonymous":true}',false);
+do $$
+begin
+  begin
+    perform public.set_ball_knower_profile_photo(
+      '22222222-2222-4222-8222-222222222222/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb.webp'
+    );
+    raise exception 'Anonymous profile mutation unexpectedly succeeded';
+  exception when others then
+    if sqlerrm='Anonymous profile mutation unexpectedly succeeded' then raise; end if;
+  end;
+
+  begin
+    insert into storage.objects(id,bucket_id,name,mime_type) values(
+      'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      'ball-knower-avatars',
+      '22222222-2222-4222-8222-222222222222/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb.webp',
+      'image/webp'
+    );
+    raise exception 'Anonymous storage write unexpectedly succeeded';
+  exception when insufficient_privilege then null;
+  end;
 end;
 $$;
 
