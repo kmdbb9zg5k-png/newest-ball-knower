@@ -67,7 +67,7 @@ import { counterTradeV2 } from "./fantasyTradeV2Cloud";
 import { FantasyRanking, loadFantasyRankings } from "./fantasyRankingsCloud";
 import { FantasyPlayerDetail } from "./FantasyPlayerDetail";
 import { ModalPortal } from "./ModalPortal";
-import { resolveWeeklyProjection } from "./fantasyLineup";
+import { movePlayerIntoLineupSlot, resolveWeeklyProjection } from "./fantasyLineup";
 import {
   buildFantasyPowerRankings,
   fantasyAvailability,
@@ -1054,22 +1054,31 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const currentSwapPlayer = roster.find(
     (player) => player.id === starters[swapSlot],
   );
-  const otherStarterIds = new Set(
-    Object.entries(starters)
-      .filter(([slot]) => slot !== swapSlot)
-      .map(([, id]) => id)
-      .filter(Boolean),
-  );
   const swapOptions = swapDefinition
     ? roster
         .filter(
           (player) =>
             swapDefinition.accept(player) &&
-            !otherStarterIds.has(player.id) &&
-            !irIds.includes(player.id),
+            !irIds.includes(player.id) &&
+            (!lockedPlayerIds.has(player.id) || player.id === currentSwapPlayer?.id),
         )
-        .sort(comparePlayers)
+        .sort(compareWeeklyLineupPlayers)
     : [];
+  const applyLineupSwap = (player: Player) => {
+    const result = movePlayerIntoLineupSlot(
+      roster,
+      starters,
+      swapSlot,
+      player.id,
+      lockedPlayerIds,
+    );
+    if (!result.changed && result.reason) {
+      showToast(result.reason);
+      return;
+    }
+    if (result.changed) setStarters(result.starters);
+    setSwapSlot("");
+  };
   const optimizeLineup = () => {
     const chosen = new Set<string>();
     const next: Record<string, string> = {};
@@ -1107,7 +1116,12 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
       showToast("No eligible unlocked starter slot is available.");
       return;
     }
-    setStarters((current) => ({ ...current, [slot.id]: player.id }));
+    const result = movePlayerIntoLineupSlot(roster, starters, slot.id, player.id, lockedPlayerIds);
+    if (!result.changed && result.reason) {
+      showToast(result.reason);
+      return;
+    }
+    if (result.changed) setStarters(result.starters);
   };
 
   const weeklyAwards = useMemo(() => {
@@ -2793,10 +2807,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
               {swapOptions.map((player) => (
                 <button
                   key={player.id}
-                  onClick={() => {
-                    setStarters((prev) => ({ ...prev, [swapSlot]: player.id }));
-                    setSwapSlot("");
-                  }}
+                  onClick={() => applyLineupSwap(player)}
                   className={`flex min-h-16 w-full items-center gap-3 rounded-xl p-2 text-left ${player.id === currentSwapPlayer?.id ? "border border-[#D4AF37]/30 bg-[#D4AF37]/5" : "bg-black/25"}`}
                 >
                   <Portrait player={player} />
@@ -2809,6 +2820,10 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                   {player.id === currentSwapPlayer?.id ? (
                     <span className="text-[9px] font-black uppercase text-[#D4AF37]">
                       Current
+                    </span>
+                  ) : starterIds.has(player.id) ? (
+                    <span className="text-[9px] font-black uppercase text-sky-300">
+                      Swap
                     </span>
                   ) : (
                     <span className="text-[9px] font-black uppercase">
