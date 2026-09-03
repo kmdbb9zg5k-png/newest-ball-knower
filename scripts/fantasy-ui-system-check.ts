@@ -174,14 +174,18 @@ assert.ok(
   reportEngine.includes('Bench: ${benchQuality}') &&
   reportEngine.includes('Strength: ${uniqueStrengths[0]}') &&
   reportEngine.includes('Risk: ${uniqueWeaknesses[0]}'),
-  'completed-draft cards must visibly render bench quality, a strength, and a risk through the report explanation',
+  'completed-draft cards must keep bench quality plus the primary strength and risk immediately visible',
 );
 assert.ok(
-  draft.includes('report.explanation') &&
-  reportEngine.includes('Best value:') &&
-  reportEngine.includes('Biggest reach:') &&
-  reportEngine.includes('Confidence: ${confidence}.'),
-  'completed-draft cards must visibly render meaningful pick value and confidence context through the report explanation',
+  draft.includes('<details') &&
+  draft.includes('Full Draft Analysis') &&
+  draft.includes('report.strengths.map') &&
+  draft.includes('report.weaknesses.map') &&
+  draft.includes('report.bestValue') &&
+  draft.includes('report.biggestReach') &&
+  draft.includes('report.confidenceNote'),
+  'secondary strengths, risks, pick-value evidence, and confidence must remain available through a touch-accessible disclosure',
 );
+assert.ok(draft.includes('grid-cols-4')&&draft.includes('report.benchScore'),'completed-draft component scores must include bench quality without expanding the always-visible explanation');
 
-console.log('Fantasy UI system checks passed: ownership, navigation, weekly lineup context, safe areas, contained FLEX/WRT rows, rankings, rich draft reports, Player Card actions, and draft chat.');
+console.log('Fantasy UI system checks passed: ownership, navigation, weekly lineup context, safe areas, contained FLEX/WRT rows, rankings, compact rich draft reports, Player Card actions, and draft chat.');
