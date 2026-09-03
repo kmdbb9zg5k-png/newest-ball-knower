@@ -158,11 +158,19 @@ const snapshotFor = (input: FantasyDraftReportTeam): Snapshot => {
       - thinSkillPenalty,
   ), 45, 98);
 
-  const usefulBench = bench.filter(pick => ['RB', 'WR', 'TE'].includes(pick.position)).length;
+  const projectedRbWrBench = bench.filter(
+    pick => (pick.position === 'RB' || pick.position === 'WR') && projectedPoints(pick) > 0,
+  ).length;
+  const projectedTeBench = bench.filter(pick => pick.position === 'TE' && projectedPoints(pick) > 0).length;
+  const activeTightEnds = starters.filter(pick => pick.position === 'TE').length;
+  const usefulTeBenchSlots = Math.max(0, 3 - activeTightEnds);
+  const usefulBench = projectedRbWrBench + Math.min(projectedTeBench, usefulTeBenchSlots);
+  const projectedBackupQb = bench.some(pick => pick.position === 'QB' && projectedPoints(pick) > 0) ? 1 : 0;
   const hoardPenalty = bench.filter(pick => pick.position === 'K' || pick.position === 'DST').length * 8
-    + Math.max(0, bench.filter(pick => pick.position === 'QB').length - 1) * 5;
+    + Math.max(0, bench.filter(pick => pick.position === 'QB').length - 1) * 5
+    + Math.max(0, (counts.TE || 0) - 3) * 7;
   const benchComposition = clamp(Math.round(
-    58 + Math.min(28, usefulBench * 5) + (bench.some(pick => pick.position === 'QB') ? 3 : 0) - hoardPenalty,
+    58 + Math.min(28, usefulBench * 5) + projectedBackupQb * 3 - hoardPenalty,
   ), 35, 98);
 
   const ranked = input.picks.filter(pick => Number.isFinite(Number(pick.overallRank)) && Number(pick.overallRank) > 0);
@@ -325,6 +333,7 @@ export const buildFantasyDraftReports = (
     if ((snapshot.counts.RB || 0) < 3) constructionWeaknesses.push('RB depth is thin behind the required starters.');
     if ((snapshot.counts.WR || 0) < 3) constructionWeaknesses.push('WR depth is thin behind the required starters.');
     if ((snapshot.counts.QB || 0) > 2) constructionWeaknesses.push('Too many roster spots are invested in backup quarterbacks.');
+    if ((snapshot.counts.TE || 0) > 3) constructionWeaknesses.push('Too many roster spots are invested in backup tight ends.');
     if ((snapshot.counts.K || 0) > 1 || (snapshot.counts.DST || 0) > 1) constructionWeaknesses.push('Extra K/D/ST picks reduced higher-upside bench depth.');
 
     const uniqueStrengths = [...new Set(strengths)].slice(0, 3);
