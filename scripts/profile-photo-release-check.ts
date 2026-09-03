@@ -5,6 +5,7 @@ import { getProfilePhotoMutationVersion, invalidateProfilePhotoReads } from '../
 
 const read = (path: string) => fs.readFileSync(path, 'utf8');
 const migration = read('migrations/20260903080000_add_secure_profile_photos.sql');
+const policyOptimization = read('migrations/20260903080100_optimize_profile_photo_rls_initplans.sql');
 const client = read('profilePhoto.ts');
 const editor = read('ProfilePhotoEditor.tsx');
 const context = read('BallKnowerContext.tsx');
@@ -21,6 +22,8 @@ assert.match(migration, /where auth_user_id=v_user_id/);
 assert.match(migration, /auth\.jwt\(\)->>'is_anonymous'/);
 assert.match(migration, /A permanent account is required/);
 assert.match(migration, /revoke all on function public\.set_ball_knower_profile_photo\(text\) from public,anon/);
+assert.match(policyOptimization, /alter policy bk_user_profiles_read_own/);
+assert.match(policyOptimization, /\(\(select auth\.jwt\(\)\)->>'is_anonymous'\)::boolean/g);
 
 assert.match(client, /PROFILE_PHOTO_MAX_SOURCE_BYTES = 12 \* 1024 \* 1024/);
 assert.match(client, /PROFILE_PHOTO_OUTPUT_SIZE = 512/);

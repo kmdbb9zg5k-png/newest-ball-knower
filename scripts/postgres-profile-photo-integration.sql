@@ -53,6 +53,7 @@ insert into public.ball_knower_league_members(id,auth_user_id) values
   ('member-two','22222222-2222-4222-8222-222222222222');
 
 \ir ../migrations/20260903080000_add_secure_profile_photos.sql
+\ir ../migrations/20260903080100_optimize_profile_photo_rls_initplans.sql
 
 do $$
 begin
