@@ -111,4 +111,27 @@ assert.match(
   'confidence disclosure must explicitly report comparison-set coverage when league-relative ranks depend on incomplete opponents',
 );
 
-console.log('Fantasy draft report edge checks passed: usable bench data, stable near-tie bench grading, TE/QB hoarding, FLEX legality, missing-starter priority, compact summaries, starter-aware confidence, and league comparison coverage.');
+const completeComparisonTeam=baseTeam('complete-comparison');
+const illegalButProjectedOpponent=baseTeam('illegal-but-projected');
+illegalButProjectedOpponent.picks=illegalButProjectedOpponent.picks.map(item=>
+  item.position==='QB'?{...item,position:'WR' as const,playerName:`Converted ${item.playerName}`}:item,
+);
+const legalityReports=buildFantasyDraftReports([completeComparisonTeam,illegalButProjectedOpponent],15);
+const completeComparisonReport=legalityReports.get('complete-comparison')!;
+const illegalButProjectedReport=legalityReports.get('illegal-but-projected')!;
+assert.equal(
+  completeComparisonReport.confidence,
+  'High',
+  'an opponent missing a required roster slot must not be mistaken for missing projection data when every occupied lineup player is projected',
+);
+assert.ok(
+  illegalButProjectedReport.weaknesses.some(value=>/QB is missing 1 required starter/i.test(value)),
+  'roster illegality must remain visible as a roster risk even when projection coverage is complete',
+);
+assert.doesNotMatch(
+  completeComparisonReport.confidenceNote,
+  /missing comparison data/i,
+  'complete provider coverage must not be described as missing comparison data merely because an opponent drafted an illegal roster shape',
+);
+
+console.log('Fantasy draft report edge checks passed: usable bench data, stable near-tie bench grading, TE/QB hoarding, FLEX legality, missing-starter priority, compact summaries, starter-aware confidence, league comparison coverage, and legality/data separation.');
