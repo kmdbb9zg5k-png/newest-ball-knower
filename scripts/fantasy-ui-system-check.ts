@@ -95,9 +95,11 @@ assert.deepEqual(tiedReports.get('tie-a')!.weaknesses,tiedReports.get('tie-b')!.
 
 const missingStarterTeam=reportTeam('missing-starter',1);
 missingStarterTeam.picks=missingStarterTeam.picks.map(pick=>pick.position==='QB'?{...pick,position:'WR' as const,playerName:`Converted ${pick.playerName}`}:pick);
+const firstRbIndex=missingStarterTeam.picks.findIndex(pick=>pick.position==='RB');
+missingStarterTeam.picks[firstRbIndex]={...missingStarterTeam.picks[firstRbIndex],position:'DST',playerName:'Extra DST'};
 const missingStarterReport=buildFantasyDraftReports([missingStarterTeam,reportTeam('starter-control',1)],15).get('missing-starter')!;
-assert.ok(missingStarterReport.weaknesses.some(value=>/QB is missing 1 required starter/i.test(value)),'a missing required QB must be called out explicitly in the displayed roster risks');
-assert.match(missingStarterReport.explanation,/QB is missing 1 required starter/i,'the primary draft explanation must surface a missing required starter instead of blaming an unrelated position');
+assert.equal(missingStarterReport.weaknesses[0],'QB is missing 1 required starter.','a missing required starter must outrank generic depth/hoarding warnings');
+assert.match(missingStarterReport.explanation,/Risk: QB is missing 1 required starter/i,'the primary draft explanation must surface an illegal lineup before generic roster risks');
 
 for(const size of [6,8,10,12,14,16]){
   const reports=buildFantasyDraftReports(Array.from({length:size},(_,index)=>reportTeam(`team-${size}-${index}`,1+index*.01)),15);
