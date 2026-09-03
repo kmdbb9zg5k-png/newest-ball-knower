@@ -15,6 +15,7 @@ const nav = read('Navbar.tsx');
 const league = read('FantasyLeaguePostDraft.tsx');
 const player = read('FantasyPlayerDetail.tsx');
 const draft = read('LeagueLiveDraftRoom.tsx');
+const reportEngine=read('fantasyDraftReport.ts');
 const styles = read('index.css');
 const matchupMobileFix = read('fantasyMatchupMobileFix.css');
 
@@ -59,6 +60,42 @@ assert.ok(strongReport.projectionScore > weakReport.projectionScore, 'projected 
 assert.ok(strongReport.projectedWins > weakReport.projectedWins, 'stronger projected rosters must receive better projected records');
 assert.equal(strongReport.projectedWins + weakReport.projectedWins, 15, 'league-relative projected records must conserve wins in a two-team model');
 assert.match(strongReport.explanation, /projected scoring roster/i, 'draft grades must explain their projection basis');
+assert.ok(strongReport.strengths.length>=1&&strongReport.weaknesses.length>=1,'every report must explain at least one strength and one risk/context point');
+assert.ok(Number.isFinite(strongReport.benchScore)&&strongReport.benchQuality,'every report must score and label bench quality');
+assert.match(strongReport.confidenceNote,/projection/i,'every report must disclose projection coverage/confidence');
+
+const makePick=(overall:number,position:FantasyDraftReportPosition,projectedPoints:number|null,overallRank:number|null,name=`P${overall}`)=>({overall,position,projectedPoints,overallRank,playerName:name});
+const balancedPositions:FantasyDraftReportPosition[]=['QB','RB','RB','WR','WR','TE','RB','K','DST','WR','RB','WR','TE','QB','WR'];
+const hoarderPositions:FantasyDraftReportPosition[]=['QB','RB','RB','WR','WR','TE','RB','K','DST','QB','QB','QB','K','DST','TE'];
+const balanced={memberId:'balanced',picks:balancedPositions.map((position,index)=>makePick(index+1,position,260-index*7,index+1,`Balanced ${index}`))};
+const hoarder={memberId:'hoarder',picks:hoarderPositions.map((position,index)=>makePick(index+1,position,260-index*7,index+1,`Hoarder ${index}`))};
+const constructionReports=buildFantasyDraftReports([balanced,hoarder],15);
+assert.ok(constructionReports.get('balanced')!.constructionScore>constructionReports.get('hoarder')!.constructionScore,'balanced RB/WR depth must beat QB/K/DST hoarding in construction');
+assert.ok(constructionReports.get('balanced')!.benchScore>constructionReports.get('hoarder')!.benchScore,'playable RB/WR bench depth must raise the bench score');
+assert.ok(constructionReports.get('hoarder')!.weaknesses.some(value=>/quarterback|K\/D\/ST|depth/i.test(value)),'hoarding must produce a specific roster-risk explanation');
+
+const valueTeam=reportTeam('value',1);
+valueTeam.picks[2]={...valueTeam.picks[2],overall:30,overallRank:10,playerName:'Clear Steal'};
+valueTeam.picks[4]={...valueTeam.picks[4],overall:5,overallRank:28,playerName:'Clear Reach'};
+const valueReport=buildFantasyDraftReports([valueTeam,reportTeam('control',1)],15).get('value')!;
+assert.equal(valueReport.bestValue?.playerName,'Clear Steal','the strongest meaningful value pick must be identified');
+assert.equal(valueReport.bestValue?.delta,20,'best-value delta must be pick minus current fantasy rank');
+assert.equal(valueReport.biggestReach?.playerName,'Clear Reach','the strongest meaningful reach must be identified');
+assert.equal(valueReport.biggestReach?.delta,-23,'reach delta must remain negative when selected ahead of rank');
+
+const missingTeam=reportTeam('missing',1);
+missingTeam.picks=missingTeam.picks.map((pick,index)=>index<7?pick:{...pick,projectedPoints:null});
+const missingReport=buildFantasyDraftReports([missingTeam,reportTeam('complete',1)],15).get('missing')!;
+assert.notEqual(missingReport.confidence,'High','materially incomplete projections must lower confidence');
+assert.match(missingReport.confidenceNote,/unavailable|coverage/i,'incomplete data must be disclosed rather than invented');
+
+for(const size of [6,8,10,12,14,16]){
+  const reports=buildFantasyDraftReports(Array.from({length:size},(_,index)=>reportTeam(`team-${size}-${index}`,1+index*.01)),15);
+  assert.equal(reports.size,size,`${size}-team leagues must receive exactly one report per manager`);
+  const wins=[...reports.values()].reduce((sum,item)=>sum+item.projectedWins,0);
+  assert.equal(wins,Math.round(size*15/2),`${size}-team projected records must remain league-coherent`);
+}
+assert.doesNotMatch(reportEngine,/\.ovr|salary|salaryCap|cap efficiency/i,'standard fantasy draft grades must never use Madden OVR or salary-cap efficiency');
 
 assert.ok(app.includes('const showProductChrome=!isIntroOpen&&!showFavoriteTeam'), 'intro and favorite-team takeovers must hide both app bars and page content');
 assert.ok(app.includes('{showProductChrome&&<Navbar') && app.includes('{showProductChrome&&<main'), 'product chrome must render only after the intro flow is complete');
@@ -91,5 +128,7 @@ assert.ok(player.includes('Rostered by') && player.includes('Available player'),
 assert.ok(draft.includes('bk-fantasy-sticky-nav') && draft.includes('Live Draft') && draft.includes('League Chat'), 'the live draft must share the fantasy system and keep league chat available');
 assert.ok(draft.includes('Auto-pick Queue') && draft.includes('Recent Picks') && draft.includes('Your Roster'), 'draft recovery tools, recent picks and roster context must remain present');
 assert.ok(draft.includes('Projected W-L') && draft.includes('Draft Grade') && draft.includes('report.explanation') && draft.includes('buildFantasyDraftReports'), 'completed draft cards must show every manager a grade explanation and projected record');
+assert.ok(draft.includes('report.strengths')&&draft.includes('report.weaknesses')&&draft.includes('report.benchQuality'),'completed-draft cards must render strengths, risks, and bench quality for every manager');
+assert.ok(draft.includes('report.bestValue')&&draft.includes('report.biggestReach')&&draft.includes('report.confidence'),'completed-draft cards must render meaningful pick value and confidence context');
 
-console.log('Fantasy UI system checks passed: ownership, navigation, weekly lineup context, safe areas, contained FLEX/WRT rows, rankings, Player Card actions, draft reports, and draft chat.');
+console.log('Fantasy UI system checks passed: ownership, navigation, weekly lineup context, safe areas, contained FLEX/WRT rows, rankings, rich draft reports, Player Card actions, and draft chat.');
