@@ -49,6 +49,11 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h 127.0.0.1 -U postgres -d postgres -f scripts/postgres-live-schedule-integration.sql
 
+      - name: Enforce profile-photo storage and profile ownership
+        env:
+          PGPASSWORD: postgres
+        run: psql -h 127.0.0.1 -U postgres -d postgres -f scripts/postgres-profile-photo-integration.sql
+
   hardening:
     runs-on: ubuntu-latest
     timeout-minutes: 10

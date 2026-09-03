@@ -3,6 +3,7 @@ import {Crown,Package,Shirt,ShoppingBag} from 'lucide-react';
 import {equipLockerItem,fetchLockerExperience,formatStorePrice,LockerState,PassProgress,StoreItem} from './lockerCloud';
 import {useBallKnower} from './BallKnowerContext';
 import {ProgressionProfileCard} from './ProgressionProfileCard';
+import {ProfilePhotoEditor} from './ProfilePhotoEditor';
 
 type Tab='locker'|'collections';
 const lockerSlots:Record<string,keyof LockerState>={profile_frame:'equippedProfileFrame',nameplate:'equippedNameplate',league_theme:'equippedLeagueTheme',trivia_effect:'equippedTriviaEffect',my_player_cosmetic:'equippedMyPlayerCosmetic'};
@@ -33,6 +34,7 @@ export const LockerHub:React.FC=()=>{
     <p className="mt-1 max-w-2xl text-xs font-semibold text-zinc-500">Your rating is the résumé. Cosmetics and extras stay secondary.</p>
    </header>
 
+   <ProfilePhotoEditor/>
    <ProgressionProfileCard/>
 
    <div className="mt-3 flex gap-1 overflow-x-auto rounded-xl border border-white/10 bg-black/30 p-1.5 no-scrollbar">{tabs.map(([id,label])=><button key={id} aria-pressed={tab===id} onClick={()=>setTab(id)} className={`min-h-10 shrink-0 rounded-lg px-3 text-[9px] font-black uppercase tracking-wider transition ${tab===id?'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)]':'text-zinc-500 hover:bg-white/5 hover:text-white'}`}>{label}</button>)}</div>

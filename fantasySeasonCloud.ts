@@ -6,7 +6,7 @@ export type TradeResolution={tradeId?:string;status:string;reason?:string};
 export type WaiverClaim={id:string;leagueId:string;memberId:string;playerId:string;dropPlayerId?:string;priority:number;faabBid:number;claimGroupId:string;claimOrder:number;status:string;createdAt:string;processAt:string;processedAt?:string;failureReason?:string};
 export type LeagueTransaction={id:string;leagueId:string;memberId?:string;transactionType:string;summary:string;metadata:any;createdAt:string};
 export type LeagueInjury={id:string;leagueId:string;memberId:string;playerId:string;playerName:string;injuryType:string;severity:'minor'|'moderate'|'major'|'season_ending';weeksRemaining:number;onIr:boolean;status:'questionable'|'doubtful'|'out'|'ir'|'cleared';createdAt:string;updatedAt:string};
-export type LeagueMessage={id:string;leagueId:string;memberName:string;body:string;kind:'chat'|'announcement'|'receipt'|'reaction';replyTo?:string;createdAt:string};
+export type LeagueMessage={id:string;leagueId:string;authUserId?:string;memberName:string;body:string;kind:'chat'|'announcement'|'receipt'|'reaction';replyTo?:string;createdAt:string};
 export type FantasyDmThread={id:string;leagueId:string;participantA:string;participantB:string;lastReadAAt?:string;lastReadBAt?:string;updatedAt:string};
 export type FantasyDmMessage={id:string;threadId:string;senderAuthId:string;body:string;createdAt:string};
 export type TradeMessage={id:string;tradeId:string;senderAuthId:string;body:string;createdAt:string};
@@ -19,7 +19,7 @@ const mapTrade=(x:any):TradeOffer=>({id:x.id,leagueId:x.league_id,proposerMember
 const mapClaim=(x:any):WaiverClaim=>({id:x.id,leagueId:x.league_id,memberId:x.member_id,playerId:x.player_id,dropPlayerId:x.drop_player_id||undefined,priority:Number(x.priority)||999,faabBid:Number(x.faab_bid)||0,claimGroupId:x.claim_group_id||x.id,claimOrder:Number(x.claim_order)||1,status:x.status,createdAt:x.created_at,processAt:x.process_at||x.created_at,processedAt:x.processed_at||undefined,failureReason:x.failure_reason||undefined});
 const mapTxn=(x:any):LeagueTransaction=>({id:x.id,leagueId:x.league_id,memberId:x.member_id||undefined,transactionType:x.transaction_type,summary:x.summary,metadata:x.metadata||{},createdAt:x.created_at});
 const mapInjury=(x:any):LeagueInjury=>({id:x.id,leagueId:x.league_id,memberId:x.member_id,playerId:x.player_id,playerName:x.player_name,injuryType:x.injury_type,severity:x.severity,weeksRemaining:Number(x.weeks_remaining)||0,onIr:Boolean(x.on_ir),status:x.status,createdAt:x.created_at,updatedAt:x.updated_at});
-const mapMessage=(x:any):LeagueMessage=>({id:x.id,leagueId:x.league_id,memberName:x.member_name,body:x.body,kind:x.kind,replyTo:x.reply_to||undefined,createdAt:x.created_at});
+const mapMessage=(x:any):LeagueMessage=>({id:x.id,leagueId:x.league_id,authUserId:x.auth_user_id||undefined,memberName:x.member_name,body:x.body,kind:x.kind,replyTo:x.reply_to||undefined,createdAt:x.created_at});
 const mapDmThread=(x:any):FantasyDmThread=>({id:x.id,leagueId:x.league_id,participantA:x.participant_a,participantB:x.participant_b,lastReadAAt:x.last_read_a_at||undefined,lastReadBAt:x.last_read_b_at||undefined,updatedAt:x.updated_at});
 const mapDmMessage=(x:any):FantasyDmMessage=>({id:x.id,threadId:x.thread_id,senderAuthId:x.sender_auth_id,body:x.body,createdAt:x.created_at});
 const mapTradeMessage=(x:any):TradeMessage=>({id:x.id,tradeId:x.trade_id,senderAuthId:x.sender_auth_id,body:x.body,createdAt:x.created_at});

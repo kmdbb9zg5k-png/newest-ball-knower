@@ -5,6 +5,7 @@ import { useBallKnower } from './BallKnowerContext';
 import { ensureOnlineSession, supabase } from './supabase';
 import { displayLeagueMemberName, resolveMyLeagueMember } from './leagueMemberDisplay';
 import { formatDraftSchedule, getDraftScheduledTime } from './draftSchedule';
+import { ManagerAvatar } from './ManagerAvatar';
 
 interface Props {
   league: League;
@@ -275,7 +276,7 @@ export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onV
                 const memberReady = pick.isAi || readyMemberIds.has(pick.memberId);
                 return <div key={pick.memberId} className={`grid min-h-12 grid-cols-[2.4rem_minmax(0,1fr)_auto] items-center gap-2 border-b border-white/[.06] px-2.5 py-2 last:border-b-0 ${mine ? 'bg-[#D4AF37]/10' : ''}`}>
                   <div className={`grid h-8 w-8 place-items-center rounded-lg text-[11px] font-black ${mine ? 'bg-[#D4AF37] text-black' : 'bg-white/[.05] text-zinc-400'}`}>#{pick.pickNumber}</div>
-                  <div className="min-w-0"><div className="truncate text-xs font-black uppercase">{displayName}</div><div className="mt-0.5 text-[8px] font-bold uppercase tracking-wider text-zinc-600">{mine ? 'Your Draft Slot' : pick.isAi ? 'CPU Manager · Auto Ready' : memberReady ? 'Human Manager · Ready' : 'Human Manager · Not Ready'}</div></div>
+                  <div className="flex min-w-0 items-center gap-2"><ManagerAvatar member={member} name={displayName} className="h-8 w-8"/><div className="min-w-0"><div className="truncate text-xs font-black uppercase">{displayName}</div><div className="mt-0.5 text-[8px] font-bold uppercase tracking-wider text-zinc-600">{mine ? 'Your Draft Slot' : pick.isAi ? 'CPU Manager · Auto Ready' : memberReady ? 'Human Manager · Ready' : 'Human Manager · Not Ready'}</div></div></div>
                   <div className={`rounded-md px-2 py-1 text-[8px] font-black uppercase ${mine ? 'bg-[#D4AF37] text-black' : memberReady ? 'bg-emerald-400/10 text-emerald-300' : 'bg-white/[.05] text-zinc-500'}`}>{mine ? (myReady ? 'READY' : 'YOU') : memberReady ? 'READY' : <><UserRound className="mr-1 inline h-3 w-3"/>WAIT</>}</div>
                 </div>;
               })}

@@ -83,6 +83,7 @@ import {
   seedFantasyStandings,
 } from "./simulation";
 import { resolveMyLeagueMember } from "./leagueMemberDisplay";
+import { ManagerAvatar } from "./ManagerAvatar";
 
 type Tab = "team" | "matchup" | "players" | "league";
 type LeagueView = "standings" | "playoffs" | "power" | "trades" | "activity" | "settings";
@@ -2063,6 +2064,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="w-5 shrink-0 text-[9px] font-black text-[var(--bk-team-accent)]">#{standing.rank}</span>
+                      <ManagerAvatar member={member} className="h-7 w-7" />
                       <span className="truncate text-[11px] font-black sm:text-sm">
                         {displayManagerName(member)}
                       </span>
@@ -2637,11 +2639,12 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
               <div className="max-h-[35dvh] space-y-2 overflow-y-auto">
                 {messages.length ? (
                   messages.map((item) => (
-                    <div key={item.id} className="rounded-xl bg-black/30 p-3">
-                      <b className="text-[10px] uppercase text-[#D4AF37]">
+                    <div key={item.id} className="flex gap-2 rounded-xl bg-black/30 p-3">
+                      <ManagerAvatar member={league.members.find(member => member.userId === item.authUserId)} name={item.memberName} className="h-8 w-8" />
+                      <div className="min-w-0"><b className="text-[10px] uppercase text-[#D4AF37]">
                         {item.memberName}
                       </b>
-                      <p className="mt-1 text-sm">{item.body}</p>
+                      <p className="mt-1 break-words text-sm">{item.body}</p></div>
                     </div>
                   ))
                 ) : (

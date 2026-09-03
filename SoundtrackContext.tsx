@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { globalSoundtrackEngine, SoundtrackTrack } from './soundtrackEngine';
 import { loadUserState, saveUserState } from './userStateCloud';
+import { keepActiveSoundtrackTrack } from './soundtrackPolicy';
 
 type MediaTrack = SoundtrackTrack & { url?: string; manualOnly?: boolean };
 
@@ -83,7 +84,7 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   useEffect(() => {
     fetch('/api/media').then(r=>r.json()).then(data => {
-      const loaded: MediaTrack[] = Array.isArray(data?.tracks) ? data.tracks : [];
+      const loaded: MediaTrack[] = Array.isArray(data?.tracks) ? data.tracks.filter(keepActiveSoundtrackTrack) : [];
       tracksRef.current = loaded;
       setTracks(loaded);
       if (loaded.length) {
