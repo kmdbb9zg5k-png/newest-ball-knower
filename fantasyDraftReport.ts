@@ -372,11 +372,13 @@ export const buildFantasyDraftReports = (
     const reachText = snapshot.biggestReach
       ? `Biggest reach: ${snapshot.biggestReach.playerName} at Pick ${snapshot.biggestReach.overall}, ${Math.abs(snapshot.biggestReach.delta)} spots ahead of rank.`
       : 'Biggest reach: no ranked pick cleared the meaningful five-slot reach threshold.';
+    const strengthText = `Strength: ${uniqueStrengths[0]}${uniqueStrengths.slice(1).map(value => ` Also: ${value}`).join('')}`;
+    const riskText = `Risk: ${uniqueWeaknesses[0]}${uniqueWeaknesses.slice(1).map(value => ` Also: ${value}`).join('')}`;
     const explanation = [
       `#${projectionRank} projected scoring roster.`,
       `Bench: ${benchQuality} (${benchScore}/100).`,
-      `Strength: ${uniqueStrengths[0]}`,
-      `Risk: ${uniqueWeaknesses[0]}`,
+      strengthText,
+      riskText,
       valueText,
       reachText,
       `Confidence: ${confidence}. ${confidenceNote}`,
