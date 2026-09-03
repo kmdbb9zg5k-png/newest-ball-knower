@@ -54,6 +54,7 @@ insert into public.ball_knower_league_members(id,auth_user_id) values
 
 \ir ../migrations/20260903080000_add_secure_profile_photos.sql
 \ir ../migrations/20260903080100_optimize_profile_photo_rls_initplans.sql
+\ir ../migrations/20260903211739_allow_jpeg_profile_photos.sql
 
 do $$
 begin
@@ -62,7 +63,7 @@ begin
     where id='ball-knower-avatars'
       and public
       and file_size_limit=2097152
-      and allowed_mime_types=array['image/webp']
+      and allowed_mime_types=array['image/webp','image/jpeg']
   ) then raise exception 'Avatar bucket restrictions are missing'; end if;
 end;
 $$;
@@ -72,7 +73,7 @@ select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111'
 select set_config('request.jwt.claims','{"is_anonymous":false}',false);
 
 select public.set_ball_knower_profile_photo(
-  '11111111-1111-4111-8111-111111111111/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.webp'
+  '11111111-1111-4111-8111-111111111111/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.jpg'
 );
 
 do $$
@@ -81,7 +82,7 @@ begin
     raise exception 'The owner cannot read their own profile photo record';
   end if;
   if (select user_avatar from public.ball_knower_league_members where id='member-one')<>
-    '11111111-1111-4111-8111-111111111111/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.webp' then
+    '11111111-1111-4111-8111-111111111111/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.jpg' then
     raise exception 'Profile photo did not propagate to the owner membership';
   end if;
   if (select user_avatar from public.ball_knower_league_members where id='member-two') is not null then
@@ -93,8 +94,8 @@ $$;
 insert into storage.objects(id,bucket_id,name,mime_type) values(
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   'ball-knower-avatars',
-  '11111111-1111-4111-8111-111111111111/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.webp',
-  'image/webp'
+  '11111111-1111-4111-8111-111111111111/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.jpg',
+  'image/jpeg'
 );
 
 do $$
