@@ -18,6 +18,8 @@ assert.ok(existsSync(new URL('../public/partners/cowboys-playbook-365.jpeg', imp
 assert.ok(card.includes('target="_blank"') && card.includes('noopener noreferrer external'), 'partner links must open outside iOS without replacing app navigation');
 assert.ok(card.includes('object-contain') && !card.includes('object-cover'), 'the supplied logo must display without cropping');
 assert.ok(home.includes('Our Partners') && home.includes('<PartnerCard') && home.indexOf('Our Partners') > home.indexOf('Quick Links'), 'the subtle partner card must appear below primary home content');
+assert.ok(card.includes('grid-cols-[56px_minmax(0,1fr)_auto]') && card.includes('h-14 w-14'), 'the Home partner treatment must stay compact on iPhone');
+assert.ok(home.includes('activePartners.length>1&&<button'), 'the Home screen must not waste space on a view-all row for a single partner');
 assert.ok(page.includes('activePartners.map') && app.includes("currentTab==='partners'"), 'the generic Partners page must be reachable');
 assert.ok(navbar.includes("setCurrentTab('partners')") && footer.includes('onOpenPartners'), 'Partners must be available from account and footer information areas');
 assert.ok(page.includes('env(safe-area-inset-left)') && page.includes('env(safe-area-inset-bottom)'), 'the Partners page must respect iPhone safe areas');
