@@ -122,6 +122,9 @@ jobs:
       - name: Build production app
         run: npm run build
 
+      - name: Enforce initial JavaScript bundle budget
+        run: npm run check:root-bundle
+
       - name: Verify fantasy mobile layouts
         run: npm run check:fantasy-mobile-browser
 

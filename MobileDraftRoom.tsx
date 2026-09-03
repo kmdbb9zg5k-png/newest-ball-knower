@@ -67,7 +67,7 @@ export const MobileDraftRoom: React.FC<MobileDraftRoomProps> = ({ onBackToLobby,
   const visiblePlayers = filteredPlayers.slice(0, visibleCount);
 
   const handleAdd = (player: Player) => {
-    const result = addToRoster(player);
+    const result = addToRoster(player, PLAYERS_DATABASE);
     if (result.success) playDraftPickSfx();
     else {
       playWarningSfx();
