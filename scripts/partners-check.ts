@@ -14,6 +14,7 @@ assert.ok(data.includes("name: 'The Cowboys Playbook 365'"), 'the official partn
 assert.ok(data.includes("websiteUrl: 'https://cowboysplaybook365.vercel.app/'"), 'the partner URL must be exact');
 assert.ok(data.includes("name: 'Tank01'") && data.includes("websiteUrl: 'https://www.tank01.com/'"), 'Tank01 must be linked as a data provider');
 assert.ok(data.includes("partnerType: 'Official Sports Data Provider'") && data.includes("category: 'data'"), 'Tank01 must be categorized as the official sports data provider');
+assert.ok(data.indexOf("name: 'Tank01'") < data.lastIndexOf('featuredOnHome: true'), 'Tank01 must appear in the compact Home partnership area');
 assert.ok(data.includes('partnerType:') && data.includes('associatedTeam:') && data.includes('active:') && data.includes('sortOrder:') && data.includes('featuredOnHome:'), 'partner records must support future additions and independent Home placement');
 assert.ok(data.includes('.filter(partner => partner.active)') && data.includes('.sort('), 'only active partners must display in the configured order');
 assert.ok(data.includes('homePartners') && data.includes('.filter(partner => partner.featuredOnHome)'), 'Home partners must be selected independently from the full directory');
