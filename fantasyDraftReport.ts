@@ -68,6 +68,7 @@ const STARTERS: Record<FantasyDraftReportPosition, number> = {
   DST: 1,
 };
 const REQUIRED_LINEUP_SLOTS = Object.values(STARTERS).reduce((sum, count) => sum + count, 0) + 1;
+const MIN_MEANINGFUL_BENCH_SPREAD = 12;
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 const compareText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
@@ -259,6 +260,7 @@ export const buildFantasyDraftReports = (
   const benchDeviation = Math.sqrt(
     snapshots.reduce((sum, snapshot) => sum + (snapshot.benchStrength - benchMean) ** 2, 0) / snapshots.length,
   );
+  const benchScale = Math.max(MIN_MEANINGFUL_BENCH_SPREAD, benchDeviation);
 
   const rawWins = snapshots.map(snapshot => snapshots.length === 1
     ? games / 2
@@ -280,9 +282,11 @@ export const buildFantasyDraftReports = (
     const projectionScore = clamp(Math.round(
       86 + (deviation > 0.001 ? (snapshot.strength - mean) / deviation : 0) * 6.5,
     ), 68, 98);
-    const benchProjection = benchDeviation > 0.001
-      ? clamp(Math.round(78 + (snapshot.benchStrength - benchMean) / benchDeviation * 8), 50, 98)
-      : 78;
+    const benchProjection = clamp(
+      Math.round(78 + ((snapshot.benchStrength - benchMean) / benchScale) * 8),
+      50,
+      98,
+    );
     const benchScore = clamp(Math.round(benchProjection * 0.65 + snapshot.benchComposition * 0.35), 45, 98);
     const benchQuality: FantasyDraftReport['benchQuality'] = benchScore >= 90
       ? 'Elite'
@@ -366,24 +370,13 @@ export const buildFantasyDraftReports = (
       : `${coveragePercent}% roster projection coverage and ${starterCoveragePercent}% required starter/FLEX projection coverage; unavailable starter data lowers confidence in the grade and projected record.`;
     const strongest = [...metrics].sort((a, b) => a.rank - b.rank || b.value - a.value)[0];
     const strongestPosition = strongest ? `${metricName(strongest.key)} (#${strongest.rank}/${snapshots.length})` : null;
-    const valueText = snapshot.bestValue
-      ? `Best value: ${snapshot.bestValue.playerName} at Pick ${snapshot.bestValue.overall}, ${snapshot.bestValue.delta} spots after Ball Knower rank.`
-      : 'Best value: no ranked pick cleared the meaningful five-slot steal threshold.';
-    const reachText = snapshot.biggestReach
-      ? `Biggest reach: ${snapshot.biggestReach.playerName} at Pick ${snapshot.biggestReach.overall}, ${Math.abs(snapshot.biggestReach.delta)} spots ahead of rank.`
-      : 'Biggest reach: no ranked pick cleared the meaningful five-slot reach threshold.';
-    const strengthText = `Strength: ${uniqueStrengths[0]}${uniqueStrengths.slice(1).map(value => ` Also: ${value}`).join('')}`;
-    const riskText = `Risk: ${uniqueWeaknesses[0]}${uniqueWeaknesses.slice(1).map(value => ` Also: ${value}`).join('')}`;
+    const projectedWins = clamp(wins[index], 0, games);
     const explanation = [
       `#${projectionRank} projected scoring roster.`,
       `Bench: ${benchQuality} (${benchScore}/100).`,
-      strengthText,
-      riskText,
-      valueText,
-      reachText,
-      `Confidence: ${confidence}. ${confidenceNote}`,
+      `Strength: ${uniqueStrengths[0]}`,
+      `Risk: ${uniqueWeaknesses[0]}`,
     ].join(' ');
-    const projectedWins = clamp(wins[index], 0, games);
 
     reports.set(snapshot.input.memberId, {
       memberId: snapshot.input.memberId,
