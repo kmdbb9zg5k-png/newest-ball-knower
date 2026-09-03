@@ -1,1 +1,0 @@
-If App Review requires a permanent-account credential, create a dedicated reviewer test account immediately before submission and place the credential only in App Store Connect review information. Do not commit reviewer credentials to GitHub.

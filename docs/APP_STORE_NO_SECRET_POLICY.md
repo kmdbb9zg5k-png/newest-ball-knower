@@ -1,1 +1,0 @@
-Apple private keys, certificate private keys, App Store Connect API private keys, Supabase service-role/secret keys, and other release secrets belong only in provider secret stores. Never commit them to this repository.
