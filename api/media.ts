@@ -1,5 +1,12 @@
 import { list } from '@vercel/blob';
-import { isRetiredSoundtrackTrack, keepActiveSoundtrackTrack } from '../soundtrackPolicy';
+
+// Keep this predicate inside the serverless entrypoint. Vercel emits API files
+// as native ESM, where an extensionless import outside /api fails at runtime.
+const isRetiredSoundtrackTrack = (value: string) =>
+  /from[-_ ]the[-_ ]a[-_ ]to[-_ ]south[-_ ]jersey/i.test(value);
+
+const keepActiveSoundtrackTrack = (track: { title?: string; url?: string; pathname?: string }) =>
+  !isRetiredSoundtrackTrack([track.title, track.url, track.pathname].filter(Boolean).join(' '));
 
 const HIDDEN_TRACK_TITLES = new Set([
   'After Party',
