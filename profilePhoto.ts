@@ -2,6 +2,10 @@ import type { User } from '@supabase/supabase-js';
 import { ensureOnlineSession, supabase } from './supabase';
 
 export const PROFILE_PHOTO_BUCKET = 'ball-knower-avatars';
+let profilePhotoMutationVersion = 0;
+
+export const getProfilePhotoMutationVersion = () => profilePhotoMutationVersion;
+export const invalidateProfilePhotoReads = () => { profilePhotoMutationVersion += 1; };
 export const PROFILE_PHOTO_MAX_SOURCE_BYTES = 12 * 1024 * 1024;
 export const PROFILE_PHOTO_OUTPUT_SIZE = 512;
 export const PROFILE_PHOTO_MAX_UPLOAD_BYTES = 2 * 1024 * 1024;

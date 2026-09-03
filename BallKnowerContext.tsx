@@ -26,7 +26,7 @@ import {
 import { trackBallKnowerEvent } from './analytics';
 import { getLeagueCommissionerName, isLeagueCommissioner } from './leaguePermissions';
 import { canStartScheduledDraft, formatDraftSchedule } from './draftSchedule';
-import { resolveProfilePhotoForAuthUser } from './profilePhoto';
+import { getProfilePhotoMutationVersion, invalidateProfilePhotoReads, resolveProfilePhotoForAuthUser } from './profilePhoto';
 
 interface BallKnowerContextType {
   currentUser: UserProfile | null;
@@ -241,6 +241,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const updateCurrentUserAvatar = (avatarUrl?: string, avatarPath?: string) => {
+    invalidateProfilePhotoReads();
     setCurrentUserState(previous => {
       if (!previous) return previous;
       const next = { ...previous, avatarUrl: avatarUrl || '', avatarPath };
@@ -275,9 +276,10 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const authUser = await ensureOnlineSession();
         if (cancelled) return;
         const metadata = authUser.user_metadata || {};
+        const photoMutation = getProfilePhotoMutationVersion();
         const photo = await resolveProfilePhotoForAuthUser(authUser);
         const { data: currentSession } = await supabase!.auth.getSession();
-        if (cancelled || currentSession.session?.user.id !== authUser.id) return;
+        if (cancelled || currentSession.session?.user.id !== authUser.id || photoMutation !== getProfilePhotoMutationVersion()) return;
         currentUserIdRef.current = authUser.id;
         invalidatePendingAutoDraft();
         setCurrentUserState(prev => {

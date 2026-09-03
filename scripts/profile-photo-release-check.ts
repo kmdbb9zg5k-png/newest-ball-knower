@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { keepActiveSoundtrackTrack } from '../soundtrackPolicy';
+import { getProfilePhotoMutationVersion, invalidateProfilePhotoReads } from '../profilePhoto';
 
 const read = (path: string) => fs.readFileSync(path, 'utf8');
 const migration = read('migrations/20260903080000_add_secure_profile_photos.sql');
@@ -36,10 +37,17 @@ assert.match(editor, /disabled=\{busy \|\| !imageReady\}/);
 assert.match(editor, /sourceUrlRef\.current !== url/);
 assert.match(context, /updateCurrentUserAvatar/);
 assert.match(context, /member\.userId === userId/);
+assert.match(context, /invalidateProfilePhotoReads\(\)/);
 assert.match(read('Navbar.tsx'), /request!==profileRequest/);
+assert.match(read('Navbar.tsx'), /photoMutation!==getProfilePhotoMutationVersion\(\)/);
 assert.match(context, /currentSession\.session\?\.user\.id !== authUser\.id/);
+assert.match(context, /photoMutation !== getProfilePhotoMutationVersion\(\)/);
 assert.match(ios, /NSCameraUsageDescription/);
 assert.match(ios, /NSPhotoLibraryUsageDescription/);
+
+const profileReadVersion = getProfilePhotoMutationVersion();
+invalidateProfilePhotoReads();
+assert.equal(getProfilePhotoMutationVersion(), profileReadVersion + 1);
 
 const retired = { title: 'From the A to South Jersey', url: '/audio/From-the-A-to-South-Jersey-full-v5.mp3' };
 assert.equal(keepActiveSoundtrackTrack(retired), false);
