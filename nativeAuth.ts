@@ -36,16 +36,21 @@ async function consumeAuthCallback(url:string):Promise<boolean>{
   return true;
 }
 
+async function finishNativeCallback(url:string|undefined|null):Promise<void>{
+  if(!url)return;
+  try{
+    if(await consumeAuthCallback(url))window.location.reload();
+  }catch(error){
+    console.error('Native authentication callback failed',error);
+    await Browser.close().catch(()=>undefined);
+  }
+}
+
 let nativeAuthListenerStarted=false;
 export async function initializeNativeAuthCallback():Promise<void>{
   if(nativeAuthListenerStarted||!isNativeBallKnower())return;
   nativeAuthListenerStarted=true;
-  await CapacitorApp.addListener('appUrlOpen',({url})=>{
-    void consumeAuthCallback(url).then(consumed=>{
-      if(consumed)window.location.reload();
-    }).catch(error=>{
-      console.error('Native authentication callback failed',error);
-      void Browser.close().catch(()=>undefined);
-    });
-  });
+  await CapacitorApp.addListener('appUrlOpen',({url})=>{void finishNativeCallback(url)});
+  const launch=await CapacitorApp.getLaunchUrl();
+  await finishNativeCallback(launch?.url);
 }
