@@ -1,5 +1,18 @@
 \set ON_ERROR_STOP on
 
+begin;
+
+-- Earlier database integration checks intentionally share this PostgreSQL service.
+-- Rebuild only the tables needed by this test inside a transaction, then roll back so
+-- the account-deletion fixture cannot collide with or permanently mutate those fixtures.
+drop table if exists public.ball_knower_roster_revisions cascade;
+drop table if exists public.ball_knower_owner_profiles cascade;
+drop table if exists public.ball_knower_notifications cascade;
+drop table if exists public.ball_knower_league_messages cascade;
+drop table if exists public.ball_knower_league_members cascade;
+drop table if exists public.ball_knower_leagues cascade;
+drop table if exists auth.users cascade;
+
 create schema if not exists auth;
 create table auth.users(id uuid primary key);
 
@@ -50,3 +63,6 @@ begin
   if not exists(select 1 from public.ball_knower_leagues where id='10000000-0000-0000-0000-000000000001' and commissioner_auth_id='00000000-0000-0000-0000-000000000002') then raise exception 'commissioner was not transferred'; end if;
   if not exists(select 1 from public.ball_knower_league_members where auth_user_id='00000000-0000-0000-0000-000000000002' and is_commissioner=true) then raise exception 'successor was not promoted'; end if;
 end $$;
+
+rollback;
+select 'account deletion integration passed' as result;
