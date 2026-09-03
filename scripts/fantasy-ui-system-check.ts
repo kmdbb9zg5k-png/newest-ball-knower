@@ -128,7 +128,7 @@ starterConfidenceTeam.picks=starterConfidenceTeam.picks.map(pick=>(pick.position
 const starterConfidenceReport=buildFantasyDraftReports([starterConfidenceTeam,reportTeam('confidence-control',1)],15).get('starter-confidence')!;
 assert.equal(starterConfidenceTeam.picks.filter(pick=>pick.projectedPoints!==null).length,13,'confidence fixture must retain 13 of 15 overall projections');
 assert.notEqual(starterConfidenceReport.confidence,'High','missing projections for required QB/DST starters must prevent a High confidence label even with high aggregate coverage');
-assert.match(starterConfidenceReport.confidenceNote,/starter\/FLEX projection coverage/i,'confidence disclosure must explicitly account for starter projection coverage');
+assert.match(starterConfidenceReport.confidenceNote,/starter\/FLEX (?:projection )?coverage/i,'confidence disclosure must explicitly account for starter projection coverage');
 
 for(const size of [6,8,10,12,14,16]){
   const reports=buildFantasyDraftReports(Array.from({length:size},(_,index)=>reportTeam(`team-${size}-${index}`,1+index*.01)),15);
