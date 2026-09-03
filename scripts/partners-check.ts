@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+
+const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+const data = read('partners.ts');
+const card = read('PartnerCard.tsx');
+const page = read('PartnersPage.tsx');
+const home = read('HomeDashboard.tsx');
+const app = read('App.tsx');
+const navbar = read('Navbar.tsx');
+const footer = read('LaunchCenter.tsx');
+
+assert.ok(data.includes("name: 'The Cowboys Playbook 365'"), 'the official partner must be configured');
+assert.ok(data.includes("websiteUrl: 'https://cowboysplaybook365.vercel.app/'"), 'the partner URL must be exact');
+assert.ok(data.includes('partnerType:') && data.includes('associatedTeam:') && data.includes('active:') && data.includes('sortOrder:'), 'partner records must support future additions');
+assert.ok(data.includes('.filter(partner => partner.active)') && data.includes('.sort('), 'only active partners must display in the configured order');
+assert.ok(existsSync(new URL('../public/partners/cowboys-playbook-365.jpeg', import.meta.url)), 'the supplied logo must ship locally');
+assert.ok(card.includes('target="_blank"') && card.includes('noopener noreferrer external'), 'partner links must open outside iOS without replacing app navigation');
+assert.ok(card.includes('object-contain') && !card.includes('object-cover'), 'the supplied logo must display without cropping');
+assert.ok(home.includes('Our Partners') && home.includes('<PartnerCard') && home.indexOf('Our Partners') > home.indexOf('Quick Links'), 'the subtle partner card must appear below primary home content');
+assert.ok(page.includes('activePartners.map') && app.includes("currentTab==='partners'"), 'the generic Partners page must be reachable');
+assert.ok(navbar.includes("setCurrentTab('partners')") && footer.includes('onOpenPartners'), 'Partners must be available from account and footer information areas');
+assert.ok(page.includes('env(safe-area-inset-left)') && page.includes('env(safe-area-inset-bottom)'), 'the Partners page must respect iPhone safe areas');
+
+console.log('Partner checks passed: exact media partner data, local logo, safe external link, and generic mobile-safe surfaces.');

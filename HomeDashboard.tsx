@@ -6,6 +6,8 @@ import {formatDraftSchedule} from './draftSchedule';
 import {League} from './types';
 import type {TeamTheme} from './teamTheme';
 import type {AppTab} from './App';
+import {PartnerCard} from './PartnerCard';
+import {activePartners} from './partners';
 
 interface HomeDashboardProps{
   onOpenCreateLeague:()=>void;
@@ -121,6 +123,8 @@ export const HomeDashboard:React.FC<HomeDashboardProps>=({onOpenCreateLeague,onO
     <section aria-label="Primary destinations" className="mt-3 grid grid-cols-3 gap-2"><ModeCard icon={<Trophy/>} label="Fantasy" onClick={()=>onNavigate('fantasy')}/><ModeCard icon={<Target/>} label="Picks" onClick={()=>onNavigate('sportsbook')}/><ModeCard icon={<Brain/>} label="Trivia" onClick={()=>onNavigate('challenges')}/></section>
 
     <section className="mt-4"><div className="mb-2 px-1 text-[8px] font-black uppercase tracking-[.22em] text-[rgb(var(--bk-team-secondary-rgb)/.62)]">Quick Links</div><div className="grid grid-cols-4 overflow-hidden rounded-2xl border border-white/10 bg-[#0b0f14]/94"><Action label="Create League" icon={<Plus/>} onClick={onOpenCreateLeague}/><Action label="Join League" icon={<UserPlus/>} onClick={onOpenJoinLeague}/><Action label="Cheat Sheet" icon={<ClipboardList/>} onClick={onOpenCheatSheet}/><Action label="Solo Mode" icon={<FlaskConical/>} onClick={()=>onNavigate('solo')}/></div></section>
+
+    {activePartners.length>0&&<section aria-labelledby="home-partners-heading" className="mt-7 border-t border-white/10 pt-5"><div id="home-partners-heading" className="mb-2 px-1 text-[8px] font-black uppercase tracking-[.22em] text-[rgb(var(--bk-team-secondary-rgb)/.62)]">Our Partners</div><div className="space-y-3">{activePartners.map(partner=><PartnerCard key={partner.name} partner={partner} compact/>)}</div><button onClick={()=>onNavigate('partners')} className="mt-2 min-h-11 w-full text-center text-[9px] font-black uppercase tracking-[.16em] text-zinc-500 hover:text-[#E7C75A]">View All Partners</button></section>}
   </div>;
 };
 
