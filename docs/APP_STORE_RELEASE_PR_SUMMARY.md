@@ -1,0 +1,1 @@
+Summary: prepare Ball Knower 1.0.0 for a signed iOS/TestFlight/App Store pipeline while preserving the existing web app. Includes native API routing, native auth callbacks, account deletion compliance, public legal/support URLs, release CI, and owner handoff documentation.
