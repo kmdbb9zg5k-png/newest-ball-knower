@@ -39,7 +39,13 @@ const trackedTextFiles=['.env.example','supabase.ts','codemagic.yaml','api/accou
 for(const path of trackedTextFiles){
   if(!fs.existsSync(path))continue;
   const text=read(path);
-  if(/SUPABASE_(?:SERVICE_ROLE|SECRET)_KEY\s*=\s*["']?[A-Za-z0-9._-]{20,}/.test(text))failures.push(`${path} appears to contain a Supabase server secret`);
+  for(const line of text.split(/\r?\n/)){
+    const match=line.match(/^\s*SUPABASE_(?:SERVICE_ROLE|SECRET)_KEY\s*=\s*["']?([^"'\s#]+)/);
+    if(!match)continue;
+    const value=match[1];
+    const isPlaceholder=/^(?:YOUR_|USE_|REPLACE_|EXAMPLE_|CHANGEME)/i.test(value);
+    if(!isPlaceholder && value.length>=20)failures.push(`${path} appears to contain a Supabase server secret`);
+  }
 }
 
 if(failures.length){
