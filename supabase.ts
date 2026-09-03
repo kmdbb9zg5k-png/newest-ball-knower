@@ -120,7 +120,9 @@ export async function attachEmailToAnonymousUser(email: string, displayName?: st
 export async function sendEmailMagicLink(email: string, displayName?: string): Promise<void> {
   if (!supabase) throw new Error('Online multiplayer is not configured yet.');
   await flushAllCloudStateBeforeIdentityChange();
-  const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+  const redirectTo = typeof window !== 'undefined'
+    ? (window.location.protocol === 'capacitor:' ? 'ballknower://auth/callback' : window.location.origin)
+    : undefined;
   const { error } = await supabase.auth.signInWithOtp({
     email: email.trim().toLowerCase(),
     options: {
@@ -156,7 +158,5 @@ export async function deleteBallKnowerAccount(): Promise<void> {
   const payload = await response.json().catch(() => ({})) as { error?: string };
   if (!response.ok) throw new Error(payload.error || 'Your account could not be deleted.');
 
-  // The server has already removed the auth identity. Clear the cached local token
-  // without requiring a second network request against the deleted account.
   await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
 }
