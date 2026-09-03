@@ -56,6 +56,8 @@ const retired = { title: 'From the A to South Jersey', url: '/audio/From-the-A-t
 assert.equal(keepActiveSoundtrackTrack(retired), false);
 assert.equal(keepActiveSoundtrackTrack({ title: 'Westbound Grind', url: '/audio/Westbound-Grind.mp3' }), true);
 assert.doesNotMatch(media, /\['From the A to South Jersey'/);
+assert.doesNotMatch(media, /from ['"]\.\.\/soundtrackPolicy/);
+assert.match(media, /const isRetiredSoundtrackTrack/);
 assert.match(media, /tracks: tracks\.filter\(keepActiveSoundtrackTrack\)/);
 assert.equal(fs.existsSync('public/audio/From-the-A-to-South-Jersey-full-v5.mp3'), false);
 
