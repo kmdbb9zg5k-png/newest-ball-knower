@@ -93,8 +93,7 @@ The release program therefore remains active. “Yahoo parity” tests in the re
 - PR [#178](https://github.com/kmdbb9zg5k-png/newest-ball-knower/pull/178): removed null generated lineup IDs from bulk PostgREST upserts, deduplicated provider snapshots, and kept finals sticky while allowing later stat corrections.
 - PR [#179](https://github.com/kmdbb9zg5k-png/newest-ball-knower/pull/179): added authenticated, idempotent, structurally validated recovery for quarantined live drafts with a visible league audit event.
 - PR [#180](https://github.com/kmdbb9zg5k-png/newest-ball-knower/pull/180): removed unnecessary anonymous access to private league tables and made commissioner waiver, schedule, offline-draft, approval and veto actions auditable.
-- Phase A gate closure adds a required Chromium CI job that exercises League HQ and the Cheat Sheet at 375, 390, 392 and 430 px, rejects horizontal page overflow or clipped fixed navigation, captures screenshots, and fails on browser errors.
-- Production chunking reduces the primary JavaScript entry from about 1.53 MB to about 249 KB minified, with every emitted chunk below the 500 KB warning threshold.
+- Phase A gate closure adds a required Chromium CI job that exercises League HQ and the Cheat Sheet at 375, 390, 392 and 430 px, rejects horizontal page/shell/content overflow or clipped fixed navigation, captures screenshots, and fails on browser errors.
 - Full local hardening, TypeScript, build, migration syntax, and rollback-only production fantasy smoke passed after each relevant change.
 - The live smoke covers a 10-team/150-pick draft, draft recovery retry, lineup save, injury idempotency, commissioner-reviewed atomic trade, continuous waiver award, score finalization/notification idempotency, playoffs, archive, reset, and rollback.
 
@@ -105,11 +104,11 @@ The release program therefore remains active. “Yahoo parity” tests in the re
 3. Fifteen legacy pre-standard-roster leagues retain overlapping 20-player Draft Order Game/build rosters. That overlap is valid outside normal fantasy ownership: the current audit found zero duplicate player pairs in completed live-draft rosters and zero duplicate picks in active ledgers. Do not destructively “dedupe” the football-game rosters.
 4. Eight legacy active draft rooms remain quarantined until a member opens one and the new recovery validator approves its ledger. This is deliberate; they should not be blindly advanced.
 5. Native push transport still requires app-shell device-token registration, deep links, provider delivery receipts, and physical delivery verification. Category preferences and independent delivery flags are ready but are not delivery proof.
-6. Browser mobile widths are now an automated merge gate, but they do not prove Dynamic Island safe-area values, the native keyboard, background recovery or physical touch behavior.
+6. Browser mobile widths are now an automated merge gate, but they do not prove Dynamic Island safe-area values, the native keyboard, background recovery or physical touch behavior. The primary production JavaScript entry also remains about 1.53 MB minified; suppressing the warning by splitting the same eager payload was reviewed and deliberately rejected.
 
 ## Next execution order
 
-1. Finish Phase A with real-device testing, native notification transport, direct authorization integration tests, and production monitoring through live NFL traffic. Browser layout widths and the prior oversized-entry warning are now closed in code.
+1. Finish Phase A with real-device testing, native notification transport, direct authorization integration tests, production monitoring through live NFL traffic, and real lazy loading of the root player/simulation data provider. Browser layout widths are now enforced in code.
 2. Build source-owned injury/news/usage/weather data contracts before exposing advanced recommendations.
 3. Ship start/sit explanations, matchup win paths, playoff simulations, FAAB guidance and trade impact from those reliable inputs.
 4. Upgrade the live draft with pick grades, runs, advisor, tiers/compare, and availability probability; then deepen personalized mocks and the pre-draft kit.

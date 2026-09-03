@@ -30,12 +30,30 @@ const waitForServer=async()=>{
 const layoutSnapshot=page=>page.evaluate(()=>{
   const primary=document.querySelector('nav[aria-label="Primary navigation"]');
   const header=document.querySelector('header');
+  const shell=document.querySelector('.bk-app-shell');
+  const main=document.querySelector('main');
   const primaryRect=primary?.getBoundingClientRect();
   const headerRect=header?.getBoundingClientRect();
+  const horizontallyClippedMainContent=main?[...main.querySelectorAll('*')].flatMap(element=>{
+    const style=getComputedStyle(element);
+    const rect=element.getBoundingClientRect();
+    if(style.display==='none'||style.visibility==='hidden'||Number(style.opacity)===0||rect.width<1||rect.height<1||element.closest('[aria-hidden="true"]'))return[];
+    let parent=element.parentElement;
+    while(parent&&parent!==main){
+      const parentStyle=getComputedStyle(parent);
+      if((parentStyle.overflowX==='auto'||parentStyle.overflowX==='scroll')&&parent.scrollWidth>parent.clientWidth)return[];
+      parent=parent.parentElement;
+    }
+    if(rect.left>=-1&&rect.right<=window.innerWidth+1)return[];
+    return[`${element.tagName.toLowerCase()}.${[...element.classList].slice(0,2).join('.')} [${Math.round(rect.left)}, ${Math.round(rect.right)}]`];
+  }).slice(0,12):[];
   return{
     viewport:{width:window.innerWidth,height:window.innerHeight},
     documentWidth:document.documentElement.scrollWidth,
     bodyWidth:document.body.scrollWidth,
+    shellWidth:shell?.scrollWidth||0,
+    mainWidth:main?.scrollWidth||0,
+    horizontallyClippedMainContent,
     primaryButtons:primary?.querySelectorAll('button').length||0,
     primaryRect:primaryRect&&{left:primaryRect.left,right:primaryRect.right,top:primaryRect.top,bottom:primaryRect.bottom},
     headerRect:headerRect&&{left:headerRect.left,right:headerRect.right,top:headerRect.top,bottom:headerRect.bottom},
@@ -47,6 +65,9 @@ const assertContained=(snapshot,label)=>{
   const {width,height}=snapshot.viewport;
   assert.ok(snapshot.documentWidth<=width+1,`${label}: document overflows by ${snapshot.documentWidth-width}px`);
   assert.ok(snapshot.bodyWidth<=width+1,`${label}: body overflows by ${snapshot.bodyWidth-width}px`);
+  assert.ok(snapshot.shellWidth<=width+1,`${label}: app shell clips ${snapshot.shellWidth-width}px of horizontal content`);
+  assert.ok(snapshot.mainWidth<=width+1,`${label}: main content clips ${snapshot.mainWidth-width}px horizontally`);
+  assert.deepEqual(snapshot.horizontallyClippedMainContent,[],`${label}: visible controls/content escape the viewport:\n${snapshot.horizontallyClippedMainContent.join('\n')}`);
   assert.equal(snapshot.primaryButtons,5,`${label}: mobile bottom navigation lost a destination`);
   assert.ok(snapshot.primaryRect,`${label}: mobile bottom navigation is missing`);
   assert.ok(snapshot.primaryRect.left>=-1&&snapshot.primaryRect.right<=width+1,`${label}: bottom navigation is clipped horizontally`);
