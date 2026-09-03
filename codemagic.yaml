@@ -34,6 +34,14 @@ workflows:
           npx cap sync ios
           test -d "$CM_BUILD_DIR/$XCODE_PROJECT"
 
+      - name: Add iOS profile photo permission descriptions
+        script: |
+          PLIST="$CM_BUILD_DIR/ios/App/App/Info.plist"
+          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string Ball Knower uses the camera only when you choose to take a profile photo." "$PLIST" || \
+            /usr/libexec/PlistBuddy -c "Set :NSCameraUsageDescription Ball Knower uses the camera only when you choose to take a profile photo." "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string Ball Knower uses your photo library only when you choose a profile photo." "$PLIST" || \
+            /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryUsageDescription Ball Knower uses your photo library only when you choose a profile photo." "$PLIST"
+
       - name: Set up iOS signing keychain
         script: keychain initialize
 

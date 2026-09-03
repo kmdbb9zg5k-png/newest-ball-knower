@@ -77,6 +77,14 @@ const assertContained=(snapshot,label)=>{
   assert.ok(snapshot.headerRect.top>=-1,`${label}: header is above the viewport`);
 };
 
+const assertDialogContained=async(page,label)=>{
+  const dialog=page.getByRole('dialog').last();
+  const box=await dialog.boundingBox();
+  assert.ok(box,`${label}: dialog is missing`);
+  assert.ok(box.x>=-1&&box.x+box.width<=page.viewportSize().width+1,`${label}: dialog is clipped horizontally`);
+  assert.ok(box.y>=-1&&box.y+box.height<=page.viewportSize().height+1,`${label}: dialog is clipped vertically`);
+};
+
 await mkdir(artifactDir,{recursive:true});
 let browser;
 try{
@@ -119,7 +127,20 @@ try{
     await page.getByRole('button',{name:'Cheat Sheet',exact:true}).click();
     await page.getByRole('heading',{name:'Player Cheat Sheet',exact:true}).waitFor({state:'visible'});
     assertContained(await layoutSnapshot(page),`${size.label} Cheat Sheet`);
-    await page.screenshot({path:`${artifactDir}/${size.label}-fantasy.png`,fullPage:true});
+
+    await primary.getByRole('button',{name:'Profile',exact:true}).click();
+    await page.getByRole('heading',{name:'Ball Knower Profile',exact:true}).waitFor({state:'visible'});
+    assertContained(await layoutSnapshot(page),`${size.label} Profile`);
+    await page.getByRole('button',{name:'Add profile photo',exact:true}).click();
+    await page.getByRole('button',{name:'Take Photo',exact:true}).waitFor({state:'visible'});
+    await page.getByRole('button',{name:'Choose From Photos',exact:true}).waitFor({state:'visible'});
+    await assertDialogContained(page,`${size.label} profile photo actions`);
+    const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFElEQVR42mP8z8AARAwMjDAGAC0KA/2BHvtYAAAAAElFTkSuQmCC','base64');
+    await page.locator('input[type="file"]:not([capture])').setInputFiles({name:'profile.png',mimeType:'image/png',buffer:png});
+    await page.getByRole('heading',{name:'Position Your Photo',exact:true}).waitFor({state:'visible'});
+    await page.getByRole('button',{name:'Save Photo',exact:true}).waitFor({state:'visible'});
+    await assertDialogContained(page,`${size.label} profile photo crop`);
+    await page.screenshot({path:`${artifactDir}/${size.label}-profile-photo.png`,fullPage:true});
     assert.deepEqual(pageErrors,[],`${size.label}: uncaught page errors:\n${pageErrors.join('\n')}`);
     assert.deepEqual(failedFirstPartyResponses,[],`${size.label}: first-party request failures:\n${failedFirstPartyResponses.join('\n')}`);
     assert.deepEqual(consoleErrors,[],`${size.label}: browser console errors:\n${consoleErrors.join('\n')}`);

@@ -36,12 +36,13 @@
     "check:fantasy-mobile-browser": "node scripts/fantasy-mobile-browser-check.mjs",
     "check:root-bundle": "node scripts/root-bundle-budget-check.mjs",
     "check:home-dashboard": "node --import tsx scripts/home-dashboard-check.ts",
+    "check:profile-photo": "node --import tsx scripts/profile-photo-release-check.ts",
     "check:phase3-agent": "node --import tsx scripts/phase3-agent-recruiting-check.ts",
     "check:phase3-careers": "node --import tsx scripts/phase3-agent-career-check.ts",
     "check:phase3-growth": "node --import tsx scripts/phase3-agent-growth-check.ts",
     "check:phase4-owner": "node --import tsx scripts/phase4-owner-postseason-check.ts",
     "check:final-release": "node --import tsx scripts/final-release-hardening-check.ts",
-    "check:hardening": "npm run lint && npm run check:integrity && npm run check:draft-reliability && npm run check:trivia && npm run check:identity && npm run check:yahoo-parity && npm run check:picks && npm run check:phase1-correctness && npm run check:dst-rankings && npm run check:fantasy-transactions && npm run check:fantasy-live-scoring && npm run check:fantasy-security && npm run check:fantasy-notifications && npm run check:async-roster-safety && npm run check:fantasy-architecture && npm run check:production-fantasy-smoke && npm run check:phase2-player-details && npm run check:phase2-history && npm run check:player-history-identity && npm run check:phase2-lineups && npm run check:matchup-head-to-head && npm run check:fantasy-ui && npm run check:home-dashboard && npm run check:phase3-agent && npm run check:phase3-careers && npm run check:phase3-growth && npm run check:phase4-owner && npm run check:final-release"
+    "check:hardening": "npm run lint && npm run check:integrity && npm run check:draft-reliability && npm run check:trivia && npm run check:identity && npm run check:yahoo-parity && npm run check:picks && npm run check:phase1-correctness && npm run check:dst-rankings && npm run check:fantasy-transactions && npm run check:fantasy-live-scoring && npm run check:fantasy-security && npm run check:fantasy-notifications && npm run check:async-roster-safety && npm run check:fantasy-architecture && npm run check:production-fantasy-smoke && npm run check:phase2-player-details && npm run check:phase2-history && npm run check:player-history-identity && npm run check:phase2-lineups && npm run check:matchup-head-to-head && npm run check:fantasy-ui && npm run check:home-dashboard && npm run check:profile-photo && npm run check:phase3-agent && npm run check:phase3-careers && npm run check:phase3-growth && npm run check:phase4-owner && npm run check:final-release"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

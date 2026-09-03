@@ -167,6 +167,7 @@ export interface UserProfile {
   name: string;
   email: string;
   avatarUrl?: string;
+  avatarPath?: string;
   createdAt: string;
 }
 

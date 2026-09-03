@@ -26,10 +26,12 @@ import {
 import { trackBallKnowerEvent } from './analytics';
 import { getLeagueCommissionerName, isLeagueCommissioner } from './leaguePermissions';
 import { canStartScheduledDraft, formatDraftSchedule } from './draftSchedule';
+import { resolveProfilePhotoForAuthUser } from './profilePhoto';
 
 interface BallKnowerContextType {
   currentUser: UserProfile | null;
   setCurrentUser: (user: UserProfile | null) => void;
+  updateCurrentUserAvatar: (avatarUrl?: string, avatarPath?: string) => void;
   loginWithProvider: (provider: 'google' | 'apple' | 'email', customName?: string, customEmail?: string) => void;
   logout: () => void;
   leagues: League[];
@@ -238,6 +240,24 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     else localStorage.removeItem(STORAGE_KEYS.USER);
   };
 
+  const updateCurrentUserAvatar = (avatarUrl?: string, avatarPath?: string) => {
+    setCurrentUserState(previous => {
+      if (!previous) return previous;
+      const next = { ...previous, avatarUrl: avatarUrl || '', avatarPath };
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(next));
+      return next;
+    });
+    const userId = currentUserIdRef.current;
+    if (userId) {
+      setLeagues(previous => previous.map(league => ({
+        ...league,
+        members: league.members.map(member => member.userId === userId && !member.isAi
+          ? { ...member, userAvatar: avatarUrl || undefined }
+          : member),
+      })));
+    }
+  };
+
   useEffect(() => {
     leaguesRef.current = leagues;
     try {
@@ -254,11 +274,22 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       try {
         const authUser = await ensureOnlineSession();
         if (cancelled) return;
+        const metadata = authUser.user_metadata || {};
+        const photo = await resolveProfilePhotoForAuthUser(authUser);
         currentUserIdRef.current = authUser.id;
         invalidatePendingAutoDraft();
         setCurrentUserState(prev => {
           const base = prev || DEFAULT_USER;
-          const synced = { ...base, id: authUser.id };
+          const providerAvatar = metadata.avatar_url || metadata.picture || '';
+          const synced = {
+            ...base,
+            id: authUser.id,
+            name: metadata.full_name || metadata.name || base.name,
+            email: authUser.email || base.email,
+            avatarPath: photo.avatarPath,
+            avatarUrl: photo.hasOverride ? (photo.avatarUrl || '') : providerAvatar,
+            createdAt: authUser.created_at || base.createdAt,
+          };
           localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(synced));
           return synced;
         });
@@ -984,7 +1015,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   return (
     <BallKnowerContext.Provider value={{
-      currentUser,setCurrentUser,loginWithProvider,logout,leagues,activeLeague,setActiveLeagueId,createLeague,joinLeague,joinPublicLeague,
+      currentUser,setCurrentUser,updateCurrentUserAvatar,loginWithProvider,logout,leagues,activeLeague,setActiveLeagueId,createLeague,joinLeague,joinPublicLeague,
       onlineInvitesReady:isCloudConfigured,cloudSyncError,currentRoster,isRosterLocked,addToRoster,removeFromRoster,clearRoster,autoDraftTemplate,submitRoster,
       totalSpent,remainingCap,rosterCounts,rosterValidationErrors,isRosterValid,autoFillLeagueWithAi,removeMemberFromLeague,startSimulation,advanceFantasyWeek,
       finalizeDraftOrder,startLiveFantasyDraft,resumeLiveFantasyDraftRecovery,makeLiveFantasyDraftPick,finalizeLiveFantasyDraftRosters,importOfflineFantasyDraftResults,

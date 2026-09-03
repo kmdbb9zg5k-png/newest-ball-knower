@@ -1,4 +1,5 @@
 import { list } from '@vercel/blob';
+import { isRetiredSoundtrackTrack, keepActiveSoundtrackTrack } from '../soundtrackPolicy';
 
 const HIDDEN_TRACK_TITLES = new Set([
   'After Party',
@@ -6,7 +7,6 @@ const HIDDEN_TRACK_TITLES = new Set([
 ]);
 
 const BUNDLED_TRACKS = [
-  ['From the A to South Jersey', '/audio/From-the-A-to-South-Jersey-full-v5.mp3', true],
   ['Westbound Grind', '/audio/Westbound-Grind.mp3', false],
   ['Bloody Love', '/audio/Bloody-Love.mp3', false],
   ['G-O-A-T', '/audio/G-O-A-T.mp3', false],
@@ -41,7 +41,7 @@ export default async function handler(_req: any, res: any) {
     const byTitle = new Map<string, any>();
     for (const blob of audio) {
       const title = cleanTitle(blob.pathname);
-      if (HIDDEN_TRACK_TITLES.has(title)) continue;
+      if (HIDDEN_TRACK_TITLES.has(title) || isRetiredSoundtrackTrack(`${title} ${blob.pathname}`)) continue;
 
       const prev = byTitle.get(title);
       const isRemaster = /remaster/i.test(blob.pathname);
@@ -81,7 +81,7 @@ export default async function handler(_req: any, res: any) {
     res.status(200).json({
       introUrl: video?.url || null,
       introPathname: video?.pathname || null,
-      tracks,
+      tracks: tracks.filter(keepActiveSoundtrackTrack),
     });
   } catch (error: any) {
     console.error('media-library-error', error);

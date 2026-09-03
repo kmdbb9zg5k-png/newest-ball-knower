@@ -5,6 +5,7 @@ import {useBallKnower} from './BallKnowerContext';
 import {Award,Brain,ChevronDown,Home,LogOut,Newspaper,Play,Plus,Shield,Target,Trophy,User,Users,Loader2} from 'lucide-react';
 import {SoundtrackControl} from './SoundtrackControl';
 import {isCloudConfigured,signOutOnline,supabase} from './supabase';
+import {resolveProfilePhotoForAuthUser} from './profilePhoto';
 
 interface NavbarProps{
   currentTab:AppTab;
@@ -25,8 +26,8 @@ export const Navbar:React.FC<NavbarProps>=({currentTab,setCurrentTab,onOpenAuth,
   useEffect(()=>{document.getElementById(`nav-tab-${currentTab}`)?.scrollIntoView?.({behavior:'smooth',block:'nearest',inline:'nearest'})},[currentTab]);
   useEffect(()=>{
     if(!supabase)return;let alive=true;
-    const syncProfile=(authUser:any)=>{if(!alive||!authUser)return;const metadata=authUser.user_metadata||{};const isGuest=Boolean(authUser.is_anonymous);const name=metadata.full_name||metadata.name||(isGuest?'Guest GM':authUser.email?.split('@')[0])||'Ball Knower GM';setCurrentUser({id:authUser.id,name,email:authUser.email||'',avatarUrl:metadata.avatar_url||metadata.picture||undefined,createdAt:authUser.created_at||new Date().toISOString()})};
-    const {data:listener}=supabase.auth.onAuthStateChange((event,session)=>{if(!alive)return;if(session?.user){syncProfile(session.user);return}if(event==='SIGNED_OUT'){setCurrentUser(null);setActiveLeagueId(null);setIsUserMenuOpen(false)}});
+    const syncProfile=async(authUser:any)=>{if(!alive||!authUser)return;const metadata=authUser.user_metadata||{};const isGuest=Boolean(authUser.is_anonymous);const name=metadata.full_name||metadata.name||(isGuest?'Guest GM':authUser.email?.split('@')[0])||'Ball Knower GM';const photo=await resolveProfilePhotoForAuthUser(authUser);if(!alive)return;const providerAvatar=metadata.avatar_url||metadata.picture||undefined;setCurrentUser({id:authUser.id,name,email:authUser.email||'',avatarPath:photo.avatarPath,avatarUrl:photo.hasOverride?photo.avatarUrl:providerAvatar,createdAt:authUser.created_at||new Date().toISOString()})};
+    const {data:listener}=supabase.auth.onAuthStateChange((event,session)=>{if(!alive)return;if(session?.user){void syncProfile(session.user);return}if(event==='SIGNED_OUT'){setCurrentUser(null);setActiveLeagueId(null);setIsUserMenuOpen(false)}});
     return()=>{alive=false;listener.subscription.unsubscribe()};
   },[]);
 

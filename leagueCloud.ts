@@ -1,8 +1,9 @@
 import { League, LeagueMember, LeagueSettings, LiveFantasyDraft, Player, TeamRatings, SeasonResult } from './types';
 import { ensureOnlineSession, isCloudConfigured, supabase } from './supabase';
 import type { LiveDraftRosterAssignment } from './liveDraftRosters';
+import { profilePhotoPublicUrl } from './profilePhoto';
 
-type UserLike = { id:string; name:string; avatarUrl?:string };
+type UserLike = { id:string; name:string; avatarUrl?:string; avatarPath?:string };
 export type LeagueEvent = { id:string; leagueId:string; actorName:string; eventType:string; message:string; metadata:any; createdAt:string };
 export type SeasonArchiveEntry = { id:string; leagueId:string; seasonNumber:number; result:SeasonResult; settings:any; createdAt:string };
 export type RosterRevision = { id:string; leagueId:string; memberId:string; revisionNumber:number; roster:Player[]; teamRatings?:TeamRatings; reason:string; createdAt:string };
@@ -67,7 +68,7 @@ const memberFromRow = (m:any):LeagueMember => ({
   id:m.id,
   userId:m.auth_user_id || m.app_user_id || m.id,
   userName:m.user_name,
-  userAvatar:m.user_avatar || undefined,
+  userAvatar:profilePhotoPublicUrl(m.user_avatar) || m.user_avatar || undefined,
   isCommissioner:Boolean(m.is_commissioner),
   isAi:Boolean(m.is_ai),
   aiArchetype:m.ai_archetype || undefined,
@@ -244,7 +245,7 @@ export async function createCloudLeague(
     if(error.code!=='23505') throw error;
   }
   if(!created) throw new Error('Could not generate a unique league code.');
-  const member={id:`member-${auth.id}-${Date.now()}`,league_id:id,auth_user_id:auth.id,app_user_id:auth.id,user_name:user.name,user_avatar:user.avatarUrl||null,is_commissioner:true,is_ai:false,status:'building'};
+  const member={id:`member-${auth.id}-${Date.now()}`,league_id:id,auth_user_id:auth.id,app_user_id:auth.id,user_name:user.name,user_avatar:user.avatarPath||user.avatarUrl||null,is_commissioner:true,is_ai:false,status:'building'};
   const {error:memberError}=await supabase.from('ball_knower_league_members').insert(member);
   if(memberError) throw memberError;
   await logLeagueEvent(id,'league_created',`${user.name} created the league.`,user.name);
@@ -255,7 +256,7 @@ export async function joinCloudLeague(inviteCode:string,user:UserLike):Promise<L
   if(!supabase) throw new Error('Online multiplayer is not configured.');
   await ensureOnlineSession();
   const clean=inviteCode.trim().toUpperCase();
-  const {data:leagueId,error:joinError}=await supabase.rpc('join_ball_knower_league',{p_code:clean,p_user_name:user.name,p_user_avatar:user.avatarUrl||null});
+  const {data:leagueId,error:joinError}=await supabase.rpc('join_ball_knower_league',{p_code:clean,p_user_name:user.name,p_user_avatar:user.avatarPath||user.avatarUrl||null});
   if(joinError){
     const message=String(joinError.message||'');
     if(message.toLowerCase().includes('full')) throw new Error('This league is full.');
@@ -274,7 +275,7 @@ export async function joinOrCreatePublicCloudLeague(user:UserLike,maxMembers=10)
   const auth=await ensureOnlineSession();
   const {data:leagueId,error}=await supabase.rpc('join_or_create_ball_knower_public_league',{
     p_user_name:user.name,
-    p_user_avatar:user.avatarUrl||null,
+    p_user_avatar:user.avatarPath||user.avatarUrl||null,
     p_max_members:maxMembers,
   });
   if(error) throw error;
