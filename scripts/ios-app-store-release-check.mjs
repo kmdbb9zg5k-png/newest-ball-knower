@@ -12,15 +12,21 @@ const capacitor=JSON.parse(read('capacitor.config.json'));
 if(capacitor.appId!=='com.ballknower.ios')failures.push('Capacitor appId must be com.ballknower.ios');
 if(capacitor.appName!=='Ball Knower')failures.push('Capacitor appName must be Ball Knower');
 if(capacitor.webDir!=='dist')failures.push('Capacitor webDir must be dist');
+if(capacitor.plugins?.CapacitorHttp?.enabled!==true)failures.push('CapacitorHttp must be enabled for native API traffic');
 
 requireText('codemagic.yaml',[
   'BUNDLE_ID: "com.ballknower.ios"',
+  'MARKETING_VERSION: "1.0.0"',
   'NSCameraUsageDescription',
   'NSPhotoLibraryUsageDescription',
+  'CFBundleURLSchemes:0 string ballknower',
   'Build signed IPA',
   'submit_to_testflight: false',
   'submit_to_app_store: false',
 ]);
+requireText('nativeRuntime.ts',['https://ballknower.com','/api/','Capacitor.isNativePlatform']);
+requireText('nativeAuth.ts',['ballknower://auth/callback','appUrlOpen','getLaunchUrl','exchangeCodeForSession']);
+requireText('main.tsx',['installNativeApiBridge();']);
 requireText('api/account-delete.ts',['auth.admin.deleteUser','confirmation','Bearer ']);
 requireText('LaunchCenter.tsx',['deleteBallKnowerAccount','Permanently delete account']);
 requireText('migrations/20260903_account_deletion_cleanup.sql',['before delete on auth.users','ball_knower_cleanup_account_before_auth_delete']);
