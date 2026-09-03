@@ -31,8 +31,9 @@ const DatabaseVerificationModal=lazy(()=>import('./DatabaseVerificationModal').t
 const MobileRosterBrowser=lazy(()=>import('./MobileRosterBrowser').then(module=>({default:module.MobileRosterBrowser})));
 const ChallengesHub=lazy(()=>import('./ChallengesHub').then(module=>({default:module.ChallengesHub})));
 const LockerHub=lazy(()=>import('./LockerHub').then(module=>({default:module.LockerHub})));
+const PartnersPage=lazy(()=>import('./PartnersPage').then(module=>({default:module.PartnersPage})));
 
-export type AppTab='home'|'solo'|'news'|'fantasy'|'sportsbook'|'legacy'|'challenges'|'locker'|'lobby'|'draft'|'simulation';
+export type AppTab='home'|'solo'|'news'|'fantasy'|'sportsbook'|'legacy'|'challenges'|'locker'|'partners'|'lobby'|'draft'|'simulation';
 
 const detectMobileDraftViewport=()=>{try{return window.matchMedia('(max-width: 767px)').matches}catch{return false}};
 const ScreenFallback=()=><div className="mx-auto flex min-h-[45dvh] max-w-5xl items-center justify-center px-4 text-center"><div><div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[var(--bk-team-accent)]"/><div className="mt-3 text-[10px] font-black uppercase tracking-[.22em] text-zinc-500">Loading Ball Knower</div></div></div>;
@@ -87,13 +88,14 @@ function BallKnowerApp(){
         {currentTab==='legacy'&&<HallOfFame/>}
         {currentTab==='challenges'&&<ChallengesHub/>}
         {currentTab==='locker'&&<LockerHub/>}
+        {currentTab==='partners'&&<PartnersPage onBack={()=>setCurrentTab('home')}/>}
         {currentTab==='lobby'&&activeLeague&&<LeagueLobby league={activeLeague} onGoToDraft={()=>setCurrentTab('draft')} onGoToSimulation={()=>setCurrentTab('simulation')}/>} 
         {currentTab==='draft'&&(activeLeague?(isDraftOrderGame?(isMobileDraftViewport?<MobileDraftRoom onBackToLobby={()=>setCurrentTab('lobby')} onSubmitSuccess={()=>setCurrentTab('simulation')}/>:<DraftRoom onBackToLobby={()=>setCurrentTab('lobby')} onSubmitSuccess={()=>setCurrentTab('simulation')}/>):<LeagueLiveDraftRoom onBackToLobby={()=>setCurrentTab('lobby')}/>):<div className="mx-auto flex min-h-[60dvh] max-w-xl items-center justify-center px-4 text-center"><div className="rounded-2xl border border-white/10 bg-[#0d1015] p-6"><h2 className="text-2xl font-black uppercase">Choose A Fantasy League First</h2><p className="mt-2 text-sm text-zinc-500">League drafts live inside League HQ. Select a league before opening its draft room.</p><button onClick={()=>setCurrentTab('fantasy')} className="mt-5 min-h-12 w-full rounded-xl bg-[var(--bk-team-accent)] px-5 text-xs font-black uppercase text-[var(--bk-on-accent)]">Go To Fantasy</button></div></div>)}
         {currentTab==='simulation'&&activeLeague&&<SimulationView league={activeLeague} onBackToLobby={()=>setCurrentTab('lobby')} onOpenDraft={()=>setCurrentTab('draft')}/>} 
       </Suspense>
     </main>}
 
-    {showProductChrome&&<LaunchFooter onOpen={setLaunchPanel}/>}
+    {showProductChrome&&<LaunchFooter onOpen={setLaunchPanel} onOpenPartners={()=>setCurrentTab('partners')}/>}
 
     <CinematicIntro isOpen={isIntroOpen} onClose={closeIntro}/>
     {showFavoriteTeam&&!isIntroOpen&&<FavoriteTeamExperience onDone={finishFavoriteTeamSetup}/>} 
