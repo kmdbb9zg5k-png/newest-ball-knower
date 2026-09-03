@@ -298,27 +298,34 @@ export const buildFantasyDraftReports = (
       .sort((a, b) => a.rank - b.rank || b.value - a.value)
       .slice(0, 3)
       .map(row => `${metricName(row.key)} projects #${row.rank} of ${snapshots.length} in the league.`);
-    const weaknesses = metrics
+    const relativeWeaknesses = metrics
       .filter(row => row.rank >= bottomCutoff)
       .sort((a, b) => b.rank - a.rank || a.value - b.value)
       .slice(0, 3)
       .map(row => `${metricName(row.key)} projects #${row.rank} of ${snapshots.length}; this is a roster risk.`);
 
+    const requiredWeaknesses: string[] = [];
     POSITIONS.forEach(position => {
       const missing = Math.max(0, STARTERS[position] - (snapshot.counts[position] || 0));
       if (missing > 0) {
-        weaknesses.unshift(`${metricName(position)} is missing ${missing} required starter${missing === 1 ? '' : 's'}.`);
+        requiredWeaknesses.push(`${metricName(position)} is missing ${missing} required starter${missing === 1 ? '' : 's'}.`);
       }
     });
     const skillCount = (snapshot.counts.RB || 0) + (snapshot.counts.WR || 0) + (snapshot.counts.TE || 0);
-    if (skillCount < 6) weaknesses.unshift('The roster does not have enough RB/WR/TE players to fill the required FLEX spot.');
-    if ((snapshot.counts.RB || 0) < 3) weaknesses.unshift('RB depth is thin behind the required starters.');
-    if ((snapshot.counts.WR || 0) < 3) weaknesses.unshift('WR depth is thin behind the required starters.');
-    if ((snapshot.counts.QB || 0) > 3) weaknesses.unshift('Too many roster spots are invested in backup quarterbacks.');
-    if ((snapshot.counts.K || 0) > 1 || (snapshot.counts.DST || 0) > 1) weaknesses.unshift('Extra K/D/ST picks reduced higher-upside bench depth.');
+    if (skillCount < 6) requiredWeaknesses.push('The roster does not have enough RB/WR/TE players to fill the required FLEX spot.');
+
+    const constructionWeaknesses: string[] = [];
+    if ((snapshot.counts.RB || 0) < 3) constructionWeaknesses.push('RB depth is thin behind the required starters.');
+    if ((snapshot.counts.WR || 0) < 3) constructionWeaknesses.push('WR depth is thin behind the required starters.');
+    if ((snapshot.counts.QB || 0) > 3) constructionWeaknesses.push('Too many roster spots are invested in backup quarterbacks.');
+    if ((snapshot.counts.K || 0) > 1 || (snapshot.counts.DST || 0) > 1) constructionWeaknesses.push('Extra K/D/ST picks reduced higher-upside bench depth.');
 
     const uniqueStrengths = [...new Set(strengths)].slice(0, 3);
-    const uniqueWeaknesses = [...new Set(weaknesses)].slice(0, 3);
+    const uniqueWeaknesses = [...new Set([
+      ...requiredWeaknesses,
+      ...constructionWeaknesses,
+      ...relativeWeaknesses,
+    ])].slice(0, 3);
     if (!uniqueStrengths.length) {
       uniqueStrengths.push(
         benchScore >= 83
