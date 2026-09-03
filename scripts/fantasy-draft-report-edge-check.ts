@@ -34,6 +34,15 @@ assert.notEqual(
   'unknown bench data must also reduce report confidence when coverage falls materially',
 );
 
+const nearTieTeams=Array.from({length:6},(_,index)=>baseTeam(`near-tie-${index}`));
+nearTieTeams[0].picks[14]={...nearTieTeams[0].picks[14],projectedPoints:Number(nearTieTeams[0].picks[14].projectedPoints)+0.01};
+const nearTieReports=buildFantasyDraftReports(nearTieTeams,15);
+const nearTieBenchScores=[...nearTieReports.values()].map(report=>report.benchScore);
+assert.ok(
+  Math.max(...nearTieBenchScores)-Math.min(...nearTieBenchScores)<=1,
+  'a 0.01-point bench projection difference must not create a material bench-grade tier swing',
+);
+
 const threeTe=baseTeam('three-te');
 threeTe.picks[14]={...threeTe.picks[14],position:'TE',playerName:'Third TE'};
 const fourTe=baseTeam('four-te');
@@ -70,17 +79,15 @@ missingStarter.picks=missingStarter.picks.map(item=>item.position==='QB'?{...ite
 missingStarter.picks[1]={...missingStarter.picks[1],position:'DST',playerName:'Extra DST'};
 const missingStarterReport=buildFantasyDraftReports([missingStarter,baseTeam('starter-control')],15).get('missing-starter')!;
 assert.equal(missingStarterReport.weaknesses[0],'QB is missing 1 required starter.','missing required starters must outrank generic depth and hoarding warnings');
-assert.match(missingStarterReport.explanation,/Risk: QB is missing 1 required starter/i,'the visible report explanation must lead with the illegal lineup risk');
-for(const risk of missingStarterReport.weaknesses){
-  assert.ok(missingStarterReport.explanation.includes(risk),`every generated risk must be visible in the completed-draft explanation: ${risk}`);
-}
+assert.match(missingStarterReport.explanation,/Risk: QB is missing 1 required starter/i,'the visible compact summary must lead with the illegal lineup risk');
+assert.ok(missingStarterReport.weaknesses.length>1,'the disclosure fixture must retain secondary risks outside the compact summary');
+assert.ok(!missingStarterReport.explanation.includes(missingStarterReport.weaknesses[1]),'secondary risks must stay out of the always-visible compact summary');
 
 const visibleStrengthReports=buildFantasyDraftReports([baseTeam('visible-a'),baseTeam('visible-b')],15);
 const visibleStrengthReport=visibleStrengthReports.get('visible-a')!;
-assert.ok(visibleStrengthReport.strengths.length>1,'the visibility fixture must generate multiple strengths');
-for(const strength of visibleStrengthReport.strengths){
-  assert.ok(visibleStrengthReport.explanation.includes(strength),`every generated strength must be visible in the completed-draft explanation: ${strength}`);
-}
+assert.ok(visibleStrengthReport.strengths.length>1,'the disclosure fixture must generate multiple strengths');
+assert.ok(visibleStrengthReport.explanation.includes(visibleStrengthReport.strengths[0]),'the primary strength must remain visible in the compact summary');
+assert.ok(!visibleStrengthReport.explanation.includes(visibleStrengthReport.strengths[1]),'secondary strengths must stay out of the always-visible compact summary');
 
 const starterConfidence=baseTeam('starter-confidence');
 starterConfidence.picks[11]={...starterConfidence.picks[11],position:'WR',playerName:'Converted Backup QB'};
@@ -90,4 +97,4 @@ const starterConfidenceReport=buildFantasyDraftReports([starterConfidence,baseTe
 assert.notEqual(starterConfidenceReport.confidence,'High','missing required QB/DST projection data must prevent a High confidence label');
 assert.match(starterConfidenceReport.confidenceNote,/starter\/FLEX projection coverage/i,'confidence text must disclose required-lineup projection coverage');
 
-console.log('Fantasy draft report edge checks passed: usable bench data, TE/QB hoarding, FLEX legality, missing-starter priority, full analysis visibility, and starter-aware confidence.');
+console.log('Fantasy draft report edge checks passed: usable bench data, stable near-tie bench grading, TE/QB hoarding, FLEX legality, missing-starter priority, compact summaries, and starter-aware confidence.');
