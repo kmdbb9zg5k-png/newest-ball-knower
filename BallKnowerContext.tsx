@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   UserProfile,
   League,
@@ -197,6 +197,19 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [cloudSyncError, setCloudSyncError] = useState<string | null>(null);
+  const activeLeagueIdRef = useRef(activeLeagueId);
+  const currentUserIdRef = useRef(currentUser?.id);
+  const leaguesRef = useRef(leagues);
+  const rosterMutationVersionRef = useRef(0);
+  const autoDraftRequestRef = useRef(0);
+  activeLeagueIdRef.current = activeLeagueId;
+  currentUserIdRef.current = currentUser?.id;
+  leaguesRef.current = leagues;
+
+  const invalidatePendingAutoDraft = () => {
+    rosterMutationVersionRef.current += 1;
+    autoDraftRequestRef.current += 1;
+  };
 
   // Local-only convenience seed: load AI rosters after first paint, never in the
   // normal cloud production path. This is an async boundary on purpose.
@@ -218,12 +231,15 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, []);
 
   const setCurrentUser = (user: UserProfile | null) => {
+    currentUserIdRef.current = user?.id;
+    invalidatePendingAutoDraft();
     setCurrentUserState(user);
     if (user) localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
     else localStorage.removeItem(STORAGE_KEYS.USER);
   };
 
   useEffect(() => {
+    leaguesRef.current = leagues;
     try {
       localStorage.setItem(STORAGE_KEYS.LEAGUES, JSON.stringify(leagues));
     } catch (e) {
@@ -238,6 +254,8 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       try {
         const authUser = await ensureOnlineSession();
         if (cancelled) return;
+        currentUserIdRef.current = authUser.id;
+        invalidatePendingAutoDraft();
         setCurrentUserState(prev => {
           const base = prev || DEFAULT_USER;
           const synced = { ...base, id: authUser.id };
@@ -279,6 +297,8 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [activeLeagueId]);
 
   const setActiveLeagueId = (id: string | null) => {
+    activeLeagueIdRef.current = id;
+    invalidatePendingAutoDraft();
     setActiveLeagueIdState(id);
     if (id) localStorage.setItem(STORAGE_KEYS.ACTIVE_LEAGUE_ID, id);
     else localStorage.removeItem(STORAGE_KEYS.ACTIVE_LEAGUE_ID);
@@ -336,6 +356,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   useEffect(() => {
     if (activeLeague && currentUser) {
       const myMember = activeLeague.members.find(m => m.userId === currentUser.id);
+      invalidatePendingAutoDraft();
       if (myMember && myMember.roster && myMember.roster.length > 0) setCurrentRoster(myMember.roster);
       else setCurrentRoster([]);
     }
@@ -376,6 +397,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (Number.isFinite(cheapestFinish) && cheapestFinish > capAfterPick) {
       return { success: false, message: `${player.name} would leave only $${capAfterPick}M, but you need at least $${cheapestFinish}M to finish a legal roster.` };
     }
+    invalidatePendingAutoDraft();
     setCurrentRoster(candidateRoster);
     showToast(`Added ${player.name} (${player.position}) - $${player.salary}M`);
     return { success: true, message: `Added ${player.name}` };
@@ -387,6 +409,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return;
     }
     const player = currentRoster.find(p => p.id === playerId);
+    invalidatePendingAutoDraft();
     setCurrentRoster(prev => prev.filter(p => p.id !== playerId));
     if (player) showToast(`Removed ${player.name}`);
   };
@@ -396,6 +419,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       showToast('Your roster is locked and cannot be cleared.');
       return;
     }
+    invalidatePendingAutoDraft();
     setCurrentRoster([]);
     showToast('Roster cleared');
   };
@@ -405,16 +429,40 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       showToast('Your roster is locked and cannot be replaced.');
       return;
     }
+    const requestLeagueId = activeLeagueIdRef.current;
+    const requestUserId = currentUserIdRef.current;
+    const requestRosterVersion = rosterMutationVersionRef.current;
+    const requestId = ++autoDraftRequestRef.current;
+    if (!requestLeagueId || !requestUserId) {
+      showToast('Choose a league before building a smart roster template.');
+      return;
+    }
     showToast('Building your smart roster template…');
     void import('./aiOpponents').then(({ AI_ARCHETYPES, buildRosterForArchetype }) => {
+      const latestLeague = leaguesRef.current.find(item => item.id === requestLeagueId);
+      const latestMember = latestLeague?.members.find(member => member.userId === requestUserId);
+      const stale = requestId !== autoDraftRequestRef.current
+        || requestRosterVersion !== rosterMutationVersionRef.current
+        || activeLeagueIdRef.current !== requestLeagueId
+        || currentUserIdRef.current !== requestUserId
+        || latestMember?.status === 'ready';
+      if (stale) return;
       let target = AI_ARCHETYPES[0];
       if (archetype === 'trench') target = AI_ARCHETYPES[1];
       if (archetype === 'air_raid') target = AI_ARCHETYPES[2];
       if (archetype === 'stars_scrubs') target = AI_ARCHETYPES[6];
       const roster = buildRosterForArchetype(target);
+      const stillCurrent = requestId === autoDraftRequestRef.current
+        && requestRosterVersion === rosterMutationVersionRef.current
+        && activeLeagueIdRef.current === requestLeagueId
+        && currentUserIdRef.current === requestUserId
+        && leaguesRef.current.find(item => item.id === requestLeagueId)?.members.find(member => member.userId === requestUserId)?.status !== 'ready';
+      if (!stillCurrent) return;
+      rosterMutationVersionRef.current += 1;
       setCurrentRoster(roster);
       showToast(`Loaded ${target.name} template roster ($${roster.reduce((sum: number, p: Player) => sum + p.salary, 0)}M)`);
     }).catch(error => {
+      if (requestId !== autoDraftRequestRef.current) return;
       console.error('Smart roster template could not load', error);
       showToast('The smart roster template could not load. Try again.');
     });
@@ -425,6 +473,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const firstError = rosterValidationErrors[0] || 'Roster is incomplete.';
       return { success: false, message: firstError };
     }
+    invalidatePendingAutoDraft();
     if (isDemoMode) {
       trackBallKnowerEvent('Draft Submitted', {
         player_count: currentRoster.length,
@@ -480,6 +529,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const newLeague = await createCloudLeague(name, maxMembers, customCap, user, draftSchedule, initialSettings);
         setLeagues(prev => [newLeague, ...prev.filter(l => l.id !== newLeague.id)]);
         setActiveLeagueId(newLeague.id);
+        invalidatePendingAutoDraft();
         setCurrentRoster([]);
         setCloudSyncError(null);
         trackBallKnowerEvent('League Created', { max_members: maxMembers, salary_cap: customCap, league_type: 'online' });
@@ -499,6 +549,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       };
       setLeagues(prev => [newLeague, ...prev]);
       setActiveLeagueId(newLeague.id);
+      invalidatePendingAutoDraft();
       setCurrentRoster([]);
       trackBallKnowerEvent('League Created', { max_members: maxMembers, salary_cap: customCap, league_type: 'local' });
       showToast(`Local league created. Add Supabase env vars for cross-device invites.`);
@@ -542,6 +593,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const targetLeague = await joinOrCreatePublicCloudLeague(user, 10);
       setLeagues(prev => [targetLeague, ...prev.filter(l => l.id !== targetLeague.id)]);
       setActiveLeagueId(targetLeague.id);
+      invalidatePendingAutoDraft();
       setCurrentRoster([]);
       setCloudSyncError(null);
       trackBallKnowerEvent('Public League Matched', {
@@ -922,7 +974,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const demoAiMembers = generateAiLeagueMembers(7, 0);const user = currentUser || DEFAULT_USER;
       const demoCommissioner: LeagueMember = {id:`demo-user-${user.id}`,userId:user.id,userName:`${user.name} (You)`,userAvatar:user.avatarUrl,isCommissioner:true,status:'building'};
       const demoLeague: League = {id:'demo-league-instance',code:'BK-DEMO',name:'Ball Knower Live Demo League',maxMembers:8,salaryCap:DEFAULT_SALARY_CAP,commissionerId:user.id,commissionerName:user.name,status:'drafting',settings:{seasonGames:17,scoringFormat:'ppr',nflSeason:2026},members:[demoCommissioner,...demoAiMembers],createdAt:new Date().toISOString()};
-      setLeagues(prev => [demoLeague, ...prev.filter(l => l.id !== 'demo-league-instance')]);setActiveLeagueId('demo-league-instance');setCurrentRoster([]);showToast('Demo Mode active! Build your roster and simulate.');
+      setLeagues(prev => [demoLeague, ...prev.filter(l => l.id !== 'demo-league-instance')]);setActiveLeagueId('demo-league-instance');invalidatePendingAutoDraft();setCurrentRoster([]);showToast('Demo Mode active! Build your roster and simulate.');
     }).catch(error => {console.error('Demo Mode data could not load', error);setIsDemoMode(false);showToast('Demo Mode could not load. Try again.');});
   };
 
