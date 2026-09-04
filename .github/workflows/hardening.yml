@@ -13,7 +13,7 @@ permissions:
 jobs:
   database-trigger-integration:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     services:
       postgres:
         image: postgres:17
@@ -59,14 +59,20 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h 127.0.0.1 -U postgres -d postgres -f scripts/postgres-account-deletion-integration.sql
 
+      - name: Exercise Build 7 waiver defaults and acquisition correctness
+        env:
+          PGPASSWORD: postgres
+        run: psql -h 127.0.0.1 -U postgres -d postgres -f scripts/postgres-build7-waiver-integration.sql
+
   hardening:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -76,8 +82,18 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: TypeScript and roster integrity
+      - name: Git diff whitespace gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="$(git merge-base HEAD origin/main)"
+          git diff --check "$BASE"...HEAD
+
+      - name: TypeScript and complete hardening suite
         run: npm run check:hardening
+
+      - name: Verify live Apple and Google Supabase provider configuration
+        run: npm run check:auth-provider-config
 
       - name: Require all six fantasy league sizes
         run: |
