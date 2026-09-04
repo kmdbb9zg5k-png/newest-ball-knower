@@ -82,8 +82,6 @@ export async function ensureOnlineSession(): Promise<User> {
   if (data.session?.user) return data.session.user;
   if (pendingAnonymousSession) return pendingAnonymousSession;
 
-  // Share one in-flight anonymous signup so concurrent callers cannot create
-  // competing guest UUIDs and drift league ownership from the visible profile.
   pendingAnonymousSession = (async () => {
     const { data: signed, error } = await supabase.auth.signInAnonymously();
     if (error || !signed.user) {
@@ -122,7 +120,9 @@ export async function attachEmailToAnonymousUser(email: string, displayName?: st
 export async function sendEmailMagicLink(email: string, displayName?: string): Promise<void> {
   if (!supabase) throw new Error('Online multiplayer is not configured yet.');
   await flushAllCloudStateBeforeIdentityChange();
-  const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+  const redirectTo = typeof window !== 'undefined'
+    ? (window.location.protocol === 'capacitor:' ? 'ballknower://auth/callback' : window.location.origin)
+    : undefined;
   const { error } = await supabase.auth.signInWithOtp({
     email: email.trim().toLowerCase(),
     options: {
@@ -139,4 +139,24 @@ export async function signOutOnline(): Promise<void> {
   await flushAllCloudStateBeforeIdentityChange();
   const { error } = await supabase.auth.signOut();
   if (error) throw new Error(error.message || 'Could not sign out.');
+}
+
+export async function deleteBallKnowerAccount(): Promise<void> {
+  if (!supabase) throw new Error('Account deletion requires online services.');
+  await flushAllCloudStateBeforeIdentityChange();
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data.session?.access_token) throw new Error('Sign in again before deleting your account.');
+
+  const response = await fetch('/api/account-delete', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${data.session.access_token}`,
+    },
+    body: JSON.stringify({ confirmation: 'DELETE' }),
+  });
+  const payload = await response.json().catch(() => ({})) as { error?: string };
+  if (!response.ok) throw new Error(payload.error || 'Your account could not be deleted.');
+
+  await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
 }

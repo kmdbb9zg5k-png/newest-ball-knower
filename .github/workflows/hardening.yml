@@ -54,6 +54,11 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h 127.0.0.1 -U postgres -d postgres -f scripts/postgres-profile-photo-integration.sql
 
+      - name: Preserve leagues during account deletion
+        env:
+          PGPASSWORD: postgres
+        run: psql -h 127.0.0.1 -U postgres -d postgres -f scripts/postgres-account-deletion-integration.sql
+
   hardening:
     runs-on: ubuntu-latest
     timeout-minutes: 10

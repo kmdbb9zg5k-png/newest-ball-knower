@@ -10,6 +10,7 @@ import {
 import { ensureOnlineSession, type PermanentAuthProvider, supabase } from './supabase';
 import { flushAllCloudStateBeforeIdentityChange } from './cloudSyncCoordinator';
 import { recoverTerminalGuestMerge } from './guestMergeRecovery';
+import {ballKnowerAuthRedirect,isNativeBallKnower,openNativeAuthUrl} from './nativeAuth';
 import {
   loadGauntletProgressEvents,
   loadUserState,
@@ -84,9 +85,16 @@ export async function startOAuthSignIn(provider: PermanentAuthProvider): Promise
   const current = await ensureOnlineSession();
   if (current.is_anonymous) await prepareGuestAccountMerge();
   else await flushAllCloudStateBeforeIdentityChange();
-  const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
-  const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo } });
+  const native=isNativeBallKnower();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: { redirectTo: ballKnowerAuthRedirect(), skipBrowserRedirect: native },
+  });
   if (error) throw error;
+  if(native){
+    if(!data.url)throw new Error('The sign-in provider did not return an authorization URL.');
+    await openNativeAuthUrl(data.url);
+  }
 }
 
 /**
