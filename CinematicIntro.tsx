@@ -13,6 +13,7 @@ export const CinematicIntro: React.FC<CinematicIntroProps> = ({ isOpen, onClose 
     try { return localStorage.getItem('ball-knower-intro-sound-v1') !== 'on'; } catch { return true; }
   });
   const [introUrl, setIntroUrl] = useState<string | null>(null);
+  const [videoReady, setVideoReady] = useState(false);
   const finishIntro = useCallback((outcome: 'completed' | 'skipped' | 'unavailable' | 'playback_error') => {
     trackBallKnowerEvent('Intro Exited', { outcome });
     onClose();
@@ -20,10 +21,15 @@ export const CinematicIntro: React.FC<CinematicIntroProps> = ({ isOpen, onClose 
 
   useEffect(() => {
     if (!isOpen) return;
+    setIntroUrl(null);
+    setVideoReady(false);
     trackBallKnowerEvent('Intro Shown');
     let cancelled = false;
-    fetch('/api/media')
-      .then(r => r.json())
+    fetch('/api/media', { cache: 'no-store' })
+      .then(r => {
+        if (!r.ok) throw new Error('media unavailable');
+        return r.json();
+      })
       .then(data => {
         if (cancelled) return;
         if (data?.introUrl) setIntroUrl(data.introUrl);
@@ -43,8 +49,8 @@ export const CinematicIntro: React.FC<CinematicIntroProps> = ({ isOpen, onClose 
     video.defaultMuted = !wantsSound;
     setIsMuted(!wantsSound);
     video.play().catch(() => {
-      // Mobile Safari can reject autoplay with sound. Keep the intro moving and
-      // preserve the preference so the next browser-supported visit can honor it.
+      // iOS may reject autoplay with sound. Fall back to muted autoplay so the
+      // intro still starts, then allow the user's first tap to enable sound.
       video.muted = true;
       video.defaultMuted = true;
       setIsMuted(true);
@@ -71,15 +77,18 @@ export const CinematicIntro: React.FC<CinematicIntroProps> = ({ isOpen, onClose 
   };
 
   return (
-    <div className="fixed inset-0 z-[110] bg-black flex items-center justify-center overflow-hidden" style={{paddingTop:'env(safe-area-inset-top)',paddingBottom:'env(safe-area-inset-bottom)'}}>
+    <div className="fixed inset-0 z-[110] flex items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_center,#17120a_0%,#08090b_46%,#020203_100%)]" style={{paddingTop:'env(safe-area-inset-top)',paddingBottom:'env(safe-area-inset-bottom)'}}>
+      {!videoReady && <div className="absolute inset-0 z-[1] grid place-items-center" aria-hidden="true"><div className="text-center"><div className="font-display text-4xl font-black uppercase tracking-[.1em] text-[#D4AF37]">Ball Knower</div><div className="mx-auto mt-3 h-px w-24 bg-gradient-to-r from-transparent via-[#D4AF37]/70 to-transparent"/></div></div>}
       {introUrl && <video
         ref={videoRef}
         src={introUrl}
-        className="absolute inset-0 h-full w-full object-cover bg-black"
+        className={`absolute inset-0 h-full w-full object-cover bg-black transition-opacity duration-200 ${videoReady?'opacity-100':'opacity-0'}`}
         playsInline
         autoPlay
         muted={isMuted}
         preload="auto"
+        onCanPlay={() => setVideoReady(true)}
+        onPlaying={() => setVideoReady(true)}
         onEnded={() => finishIntro('completed')}
         onError={() => finishIntro('playback_error')}
       />}

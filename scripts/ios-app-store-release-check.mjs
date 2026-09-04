@@ -20,20 +20,27 @@ requireText('codemagic.yaml',[
   'NSCameraUsageDescription',
   'NSPhotoLibraryUsageDescription',
   'CFBundleURLSchemes:0 string ballknower',
+  'com.apple.developer.applesignin',
+  'CODE_SIGN_ENTITLEMENTS = App/App.entitlements;',
   'Build signed IPA',
   'submit_to_testflight: false',
   'submit_to_app_store: false',
 ]);
-requireText('nativeRuntime.ts',['https://ballknower.com','/api/','Capacitor.isNativePlatform']);
-requireText('nativeAuth.ts',['ballknower://auth/callback','appUrlOpen','getLaunchUrl','exchangeCodeForSession']);
+requireText('nativeRuntime.ts',['https://ballknower.com','/api/','Capacitor.isNativePlatform','nativeApiUrl']);
+requireText('nativeAuth.ts',['ballknower://auth/callback','appUrlOpen','getLaunchUrl','exchangeCodeForSession','browserFinished','setSession']);
 requireText('main.tsx',['installNativeApiBridge();']);
-requireText('api/account-delete.ts',['auth.admin.deleteUser','confirmation','Bearer ']);
-requireText('LaunchCenter.tsx',['deleteBallKnowerAccount','Permanently delete account']);
+requireText('supabase.ts',['persistSession: true','autoRefreshToken: true','providerRefreshToken']);
+requireText('api/account-delete.ts',['auth.admin.deleteUser','confirmation','Bearer ','appleid.apple.com/auth/revoke','manualAppleRevokeRequired']);
+requireText('LaunchCenter.tsx',['deleteBallKnowerAccount','Permanently delete account','Apple Account’s Sign in with Apple settings']);
 requireText('migrations/20260903_account_deletion_cleanup.sql',['before delete on auth.users','ball_knower_cleanup_account_before_auth_delete']);
 requireText('public/privacy.html',['Ball Knower Privacy Policy','Delete your account in the app']);
 requireText('public/support.html',['Ball Knower Support']);
 requireText('public/terms.html',['Ball Knower Terms of Use']);
 requireText('public/ball-knower-icon.svg',['viewBox="0 0 512 512"']);
+
+const deletion=read('api/account-delete.ts');
+if(deletion.includes('APPLE_REAUTH_REQUIRED'))failures.push('Apple provider-token absence must not block account deletion');
+if(!/manualAppleRevokeRequired=true[\s\S]*auth\.admin\.deleteUser/.test(deletion))failures.push('Apple manual-revocation fallback must still proceed to auth account deletion');
 
 const trackedTextFiles=['.env.example','supabase.ts','codemagic.yaml','api/account-delete.ts'];
 for(const path of trackedTextFiles){
@@ -41,10 +48,13 @@ for(const path of trackedTextFiles){
   const text=read(path);
   for(const line of text.split(/\r?\n/)){
     const match=line.match(/^\s*SUPABASE_(?:SERVICE_ROLE|SECRET)_KEY\s*=\s*["']?([^"'\s#]+)/);
-    if(!match)continue;
-    const value=match[1];
-    const isPlaceholder=/^(?:YOUR_|USE_|REPLACE_|EXAMPLE_|CHANGEME)/i.test(value);
-    if(!isPlaceholder && value.length>=20)failures.push(`${path} appears to contain a Supabase server secret`);
+    if(match){
+      const value=match[1];
+      const isPlaceholder=/^(?:YOUR_|USE_|REPLACE_|EXAMPLE_|CHANGEME)/i.test(value);
+      if(!isPlaceholder && value.length>=20)failures.push(`${path} appears to contain a Supabase server secret`);
+    }
+    const appleClientSecret=line.match(/^\s*VITE_APPLE_(?:PRIVATE_KEY|KEY_ID|TEAM_ID|OAUTH_CLIENT_ID)\s*=/);
+    if(appleClientSecret)failures.push(`${path} exposes an Apple provider secret/client configuration to the Vite bundle`);
   }
 }
 

@@ -1,3 +1,4 @@
+import {createPrivateKey,sign} from 'node:crypto';
 import {createClient} from '@supabase/supabase-js';
 
 const url=process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL||'https://gpnboygoosrmeydwjpvk.supabase.co';
@@ -5,6 +6,7 @@ const serviceKey=process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_R
 const service=serviceKey?createClient(url,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}}):null;
 const bearer=(req:any)=>{const raw=String(req?.headers?.authorization||'');return raw.startsWith('Bearer ')?raw.slice(7):''};
 const AVATAR_BUCKET='ball-knower-avatars';
+const base64url=(value:Buffer|string)=>Buffer.from(value).toString('base64url');
 
 async function removeAvatarObjects(userId:string){
   if(!service)return;
@@ -14,6 +16,33 @@ async function removeAvatarObjects(userId:string){
   if(!paths.length)return;
   const removed=await service.storage.from(AVATAR_BUCKET).remove(paths);
   if(removed.error)throw removed.error;
+}
+
+const hasAppleIdentity=(user:any)=>{
+  const providers=Array.isArray(user?.app_metadata?.providers)?user.app_metadata.providers:[];
+  return providers.includes('apple')||Boolean(user?.identities?.some((identity:any)=>identity?.provider==='apple'));
+};
+
+function appleClientSecret(){
+  const clientId=process.env.APPLE_OAUTH_CLIENT_ID||'';
+  const teamId=process.env.APPLE_TEAM_ID||'';
+  const keyId=process.env.APPLE_KEY_ID||'';
+  const privateKey=String(process.env.APPLE_PRIVATE_KEY||'').replace(/\\n/g,'\n');
+  if(!clientId||!teamId||!keyId||!privateKey)return null;
+  const now=Math.floor(Date.now()/1000);
+  const header=base64url(JSON.stringify({alg:'ES256',kid:keyId,typ:'JWT'}));
+  const payload=base64url(JSON.stringify({iss:teamId,iat:now,exp:now+600,aud:'https://appleid.apple.com',sub:clientId}));
+  const unsigned=`${header}.${payload}`;
+  const signature=sign('sha256',Buffer.from(unsigned),{key:createPrivateKey(privateKey),dsaEncoding:'ieee-p1363'});
+  return{clientId,secret:`${unsigned}.${base64url(signature)}`};
+}
+
+async function revokeAppleAuthorization(providerToken:string,tokenType:'access_token'|'refresh_token'){
+  const client=appleClientSecret();
+  if(!client)throw new Error('Apple authorization revocation is not configured.');
+  const body=new URLSearchParams({client_id:client.clientId,client_secret:client.secret,token:providerToken,token_type_hint:tokenType});
+  const response=await fetch('https://appleid.apple.com/auth/revoke',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body,signal:AbortSignal.timeout(10_000)});
+  if(!response.ok)throw new Error(`Apple authorization revocation failed (${response.status}).`);
 }
 
 export default async function handler(req:any,res:any){
@@ -28,18 +57,40 @@ export default async function handler(req:any,res:any){
     if(auth.error||!auth.data.user)return res.status(401).json({error:'Session expired'});
     const user=auth.data.user;
 
-    if(String(req?.body?.confirmation||'')!=='DELETE'){
-      return res.status(400).json({error:'Deletion confirmation is required.'});
+    if(String(req?.body?.confirmation||'')!=='DELETE')return res.status(400).json({error:'Deletion confirmation is required.'});
+
+    let appleAuthorizationRevoked:boolean|null=null;
+    let manualAppleRevokeRequired=false;
+    if(hasAppleIdentity(user)){
+      const refreshToken=String(req?.body?.providerRefreshToken||'').trim();
+      const accessToken=String(req?.body?.providerToken||'').trim();
+      const providerToken=refreshToken||accessToken;
+      if(providerToken){
+        try{
+          await revokeAppleAuthorization(providerToken,refreshToken?'refresh_token':'access_token');
+          appleAuthorizationRevoked=true;
+        }catch(error:any){
+          // Apple requires the Ball Knower account deletion request to continue
+          // even when a provider token cannot be revoked automatically. Surface
+          // manual revocation to the client instead of stranding the account.
+          console.warn('apple-authorization-revocation-deferred',String(error?.message||error));
+          appleAuthorizationRevoked=false;
+          manualAppleRevokeRequired=true;
+        }
+      }else{
+        appleAuthorizationRevoked=false;
+        manualAppleRevokeRequired=true;
+      }
     }
 
-    // Delete user-owned avatar bytes before removing the auth identity. Database
-    // cleanup itself is transactionally coupled to auth.users through the migration
-    // trigger, so failed relational cleanup aborts the account deletion.
+    // Remove user-owned avatar bytes before removing the auth identity. Database
+    // cleanup itself is transactionally coupled to auth.users, so failed
+    // relational cleanup aborts account deletion rather than leaving partial data.
     await removeAvatarObjects(user.id);
     const deleted=await service.auth.admin.deleteUser(user.id,false);
     if(deleted.error)throw deleted.error;
 
-    return res.status(200).json({ok:true});
+    return res.status(200).json({ok:true,appleAuthorizationRevoked,manualAppleRevokeRequired});
   }catch(error:any){
     console.warn('account-delete-failed',String(error?.message||error));
     return res.status(500).json({error:'Your account could not be deleted. No retry was performed automatically.'});
