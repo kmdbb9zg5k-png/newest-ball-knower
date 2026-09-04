@@ -10,6 +10,7 @@ type Pick=SavedPick;
 const STORAGE_KEY='ball-knower-weekly-picks-v3';
 const LEGACY_STORAGE_KEY='ball-knower-weekly-picks-v2';
 const FEED_ERROR='NFL lines are temporarily unavailable. Use Refresh to try again.';
+const LINES_PENDING='NFL schedule is available, but spread and total lines are not posted right now.';
 const PICK_SAVE_ERROR='That pick could not be saved right now. Try again.';
 const mergeVerifiedPicks=(local:Pick[],verified:VerifiedPredictionPick[]):Pick[]=>{
   const verifiedGames=new Set(verified.map(pick=>pick.gameId));
@@ -27,13 +28,14 @@ export const SportsbookHub:React.FC=()=>{
   const[games,setGames]=useState<Game[]>([]);
   const[loading,setLoading]=useState(true);
   const[error,setError]=useState('');
+  const[notice,setNotice]=useState('');
   const[query,setQuery]=useState('');
   const[updated,setUpdated]=useState<Date|null>(null);
   const[busyGame,setBusyGame]=useState('');
   const[picks,setPicks]=useState<Pick[]>(()=>{try{const parsed=JSON.parse(localStorage.getItem(STORAGE_KEY)||localStorage.getItem(LEGACY_STORAGE_KEY)||'[]');return Array.isArray(parsed)?parsed.map(normalizeSavedPick).filter((pick):pick is Pick=>Boolean(pick)):[]}catch{return[]}});
 
   const load=async()=>{
-    setLoading(true);setError('');
+    setLoading(true);setError('');setNotice('');
     try{
       let activePicks=picks;
       try{
@@ -51,9 +53,10 @@ export const SportsbookHub:React.FC=()=>{
       const next=Array.isArray(data?.games)?data.games:[];
       if(!next.length)throw new Error('feed');
       setGames(next);setUpdated(new Date());
+      if(data?.linesAvailable===false)setNotice(typeof data?.warning==='string'&&data.warning.trim()?data.warning:LINES_PENDING);
     }catch(err){
       console.warn('Picks feed unavailable',err);
-      setGames([]);setUpdated(null);setError(FEED_ERROR);
+      setGames([]);setUpdated(null);setNotice('');setError(FEED_ERROR);
     }finally{setLoading(false)}
   };
   useEffect(()=>{void load()},[]);
@@ -80,9 +83,10 @@ export const SportsbookHub:React.FC=()=>{
 
     <div className="sticky top-[112px] z-20 mt-3 flex gap-2 border-y border-white/10 bg-black/90 py-2 backdrop-blur sm:top-[112px]"><label className="flex min-h-10 flex-1 items-center gap-2 rounded-xl border border-white/10 bg-[#111] px-3"><Search className="h-4 w-4 text-zinc-600"/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search team" className="w-full bg-transparent text-sm outline-none"/></label><div className="hidden rounded-xl border border-white/10 bg-[#111] px-3 py-2 text-[9px] font-bold text-zinc-600 sm:block">{updated?`Updated ${updated.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}`:'Not loaded'}</div></div>
 
-    {error&&<div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs font-bold text-red-300">{error}</div>}
+    {error&&<div role="alert" className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs font-bold text-red-300">{error}</div>}
+    {notice&&<div role="status" className="mt-3 rounded-xl border border-amber-400/25 bg-amber-400/10 p-3 text-xs font-bold text-amber-100">{notice}</div>}
 
-    <section className="mt-2 overflow-hidden rounded-2xl border border-white/10 bg-[#0d1014]">{loading&&!games.length?<div className="p-6 text-center text-sm text-zinc-600">Loading NFL lines…</div>:error&&!games.length?<div className="p-6 text-center"><div className="text-sm font-black text-zinc-300">NFL lines are temporarily unavailable.</div><div className="mt-2 text-xs font-semibold text-zinc-600">Use Refresh to try again. An outage is never shown as a valid empty board.</div></div>:!visible.length?<div className="p-6 text-center text-sm text-zinc-600">No NFL lines match that search.</div>:visible.map(game=>{
+    <section className="mt-2 overflow-hidden rounded-2xl border border-white/10 bg-[#0d1014]">{loading&&!games.length?<div className="p-6 text-center text-sm text-zinc-600">Loading NFL lines…</div>:error&&!games.length?<div className="p-6 text-center"><div className="text-sm font-black text-zinc-300">NFL lines are temporarily unavailable.</div><div className="mt-2 text-xs font-semibold text-zinc-600">Use Refresh to try again. An outage is never shown as a valid empty board.</div></div>:!visible.length?<div className="p-6 text-center text-sm text-zinc-600">No NFL games match that search.</div>:visible.map(game=>{
       const normalized=normalizeSpread(game.spread);const homeLine=game.homeSpread??normalized.home;const awayLine=game.awaySpread??normalized.away;const totalLine=game.overUnder;const locked=isPicksGameLocked(game);
       const homeLabel=homeLine==null?'Spread —':spreadLabel(game.home,homeLine);const awayLabel=awayLine==null?'Spread —':spreadLabel(game.away,awayLine);
       const homeSpreadId=`${game.id}-spread-home-${homeLine}`;const awaySpreadId=`${game.id}-spread-away-${awayLine}`;
