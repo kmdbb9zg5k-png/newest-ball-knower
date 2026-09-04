@@ -3,7 +3,6 @@ import {BallKnowerProvider,useBallKnower} from './BallKnowerContext';
 import {SoundtrackProvider,useSoundtrack} from './SoundtrackContext';
 import {Navbar} from './Navbar';
 import {HomeDashboard} from './HomeDashboard';
-import {AuthModal} from './AuthModal';
 import {CreateLeagueModal} from './CreateLeagueModal';
 import {JoinLeagueModal} from './JoinLeagueModal';
 import {CinematicIntro} from './CinematicIntro';
@@ -17,6 +16,7 @@ import {CloudSyncProvider} from './CloudSyncProvider';
 import type {SoloExperience} from './SoloFranchiseHub';
 import {LaunchCenter,LaunchFooter,type LaunchPanel} from './LaunchCenter';
 
+const AuthModal=lazy(()=>import('./AuthModal').then(module=>({default:module.AuthModal})));
 const SoloMode=lazy(()=>import('./SoloMode').then(module=>({default:module.SoloMode})));
 const NewsHub=lazy(()=>import('./NewsHub').then(module=>({default:module.NewsHub})));
 const FantasyHub=lazy(()=>import('./FantasyHub').then(module=>({default:module.FantasyHub})));
@@ -101,7 +101,7 @@ function BallKnowerApp(){
 
     <CinematicIntro isOpen={isIntroOpen} onClose={closeIntro}/>
     {showFavoriteTeam&&!isIntroOpen&&<FavoriteTeamExperience onDone={finishFavoriteTeamSetup}/>} 
-    <AuthModal isOpen={isAuthOpen} onClose={()=>setIsAuthOpen(false)} onOpenLegal={panel=>{setIsAuthOpen(false);setLaunchPanel(panel)}}/>
+    {isAuthOpen&&<Suspense fallback={null}><AuthModal isOpen onClose={()=>setIsAuthOpen(false)} onOpenLegal={panel=>{setIsAuthOpen(false);setLaunchPanel(panel)}}/></Suspense>}
     <CreateLeagueModal isOpen={isCreateLeagueOpen} onClose={()=>setIsCreateLeagueOpen(false)} onLeagueCreated={handleLeagueCreated}/>
     <JoinLeagueModal isOpen={isJoinLeagueOpen} onClose={()=>setIsJoinLeagueOpen(false)} onLeagueJoined={handleLeagueJoined}/>
     {isDatabaseModalOpen&&<Suspense fallback={null}>{isMobileDraftViewport?<MobileRosterBrowser isOpen={isDatabaseModalOpen} onClose={()=>setIsDatabaseModalOpen(false)}/>:<DatabaseVerificationModal isOpen={isDatabaseModalOpen} onClose={()=>setIsDatabaseModalOpen(false)}/>}</Suspense>}
