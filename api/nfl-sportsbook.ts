@@ -36,8 +36,8 @@ export default async function handler(req:any,res:any){
       };
     });
     if(!games.length)return sendUnavailable(res);
-    // Lines are time-sensitive. Do not serve a long stale-while-revalidate board
-    // after an upstream outage; force a fresh server check after this short TTL.
+    // Lines are time-sensitive. After this short TTL the server checks the
+    // provider again instead of presenting an old board as current.
     res.setHeader('Cache-Control','public, s-maxage=60, max-age=0');
     return res.status(200).json({games,available:true,fetchedAt:new Date().toISOString()});
   }catch(error:any){
