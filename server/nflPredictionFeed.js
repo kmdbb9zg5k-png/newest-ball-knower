@@ -12,8 +12,8 @@ const statusFinal=value=>/final|complete|closed|game over/i.test(String(value||'
 const normalizeNflDataRows=rows=>rows.flatMap(g=>{
   const stableId=String(g?.game_id||g?.id||'').trim();if(!stableId)return[];
   const awayAbbr=abbr(g?.away_team||g?.away);const homeAbbr=abbr(g?.home_team||g?.home);if(!awayAbbr||!homeAbbr||awayAbbr===homeAbbr)return[];
-  const spread=numberOrNull(g?.spread_line??g?.spread);const awayScore=numberOrNull(g?.away_score);const homeScore=numberOrNull(g?.home_score);const date=g?.gameday||g?.game_date||g?.date||null;const time=g?.gametime||g?.game_time||null;const kickoffAt=kickoffIso(date,time);const status=String(g?.game_status??g?.status??g?.game_state??'').trim();const hasScores=awayScore!==null&&homeScore!==null;
-  return[{id:stableId,kickoffAt,away:TEAM_NAMES[awayAbbr]||awayAbbr,home:TEAM_NAMES[homeAbbr]||homeAbbr,awayAbbr,homeAbbr,awaySpread:spread===null?null:spread>0?spread:spread<0?-Math.abs(spread):0,homeSpread:spread===null?null:spread>0?-spread:spread<0?Math.abs(spread):0,total:numberOrNull(g?.total_line??g?.over_under??g?.total),awayScore,homeScore,final:hasScores&&statusFinal(status),status}];
+  const spread=numberOrNull(g?.spread_line??g?.spread);const awayScore=numberOrNull(g?.away_score);const homeScore=numberOrNull(g?.home_score);const date=g?.gameday||g?.game_date||g?.date||null;const time=g?.gametime||g?.game_time||null;const kickoffAt=kickoffIso(date,time);const status=String(g?.game_status??g?.status??g?.game_state??'').trim();const hasScores=awayScore!==null&&homeScore!==null;const providerFinal=/final|complete|closed/i.test(status);
+  return[{id:stableId,kickoffAt,away:TEAM_NAMES[awayAbbr]||awayAbbr,home:TEAM_NAMES[homeAbbr]||homeAbbr,awayAbbr,homeAbbr,awaySpread:spread===null?null:spread>0?spread:spread<0?-Math.abs(spread):0,homeSpread:spread===null?null:spread>0?-spread:spread<0?Math.abs(spread):0,total:numberOrNull(g?.total_line??g?.over_under??g?.total),awayScore,homeScore,final:hasScores&&providerFinal,status}];
 });
 
 const tankGet=async(path,params={})=>{
