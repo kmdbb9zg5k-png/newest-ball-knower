@@ -46,9 +46,11 @@ workflows:
           npx capacitor-assets generate --ios
           test -d "$CM_BUILD_DIR/ios/App/App/Assets.xcassets/AppIcon.appiconset"
 
-      - name: Add iOS privacy permissions and auth callback
+      - name: Add iOS privacy permissions, auth callback and Apple entitlement
         script: |
           PLIST="$CM_BUILD_DIR/ios/App/App/Info.plist"
+          ENTITLEMENTS="$CM_BUILD_DIR/ios/App/App/App.entitlements"
+          PBXPROJ="$CM_BUILD_DIR/ios/App/App.xcodeproj/project.pbxproj"
           /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string Ball Knower uses the camera only when you choose to take a profile photo." "$PLIST" || \
             /usr/libexec/PlistBuddy -c "Set :NSCameraUsageDescription Ball Knower uses the camera only when you choose to take a profile photo." "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string Ball Knower uses your photo library only when you choose a profile photo." "$PLIST" || \
@@ -58,6 +60,20 @@ workflows:
           /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLName string com.ballknower.ios" "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string ballknower" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :com.apple.developer.applesignin array" "$ENTITLEMENTS"
+          /usr/libexec/PlistBuddy -c "Add :com.apple.developer.applesignin:0 string Default" "$ENTITLEMENTS"
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          path=Path(os.environ['CM_BUILD_DIR'])/'ios/App/App.xcodeproj/project.pbxproj'
+          text=path.read_text()
+          needle='PRODUCT_BUNDLE_IDENTIFIER = com.ballknower.ios;'
+          setting='CODE_SIGN_ENTITLEMENTS = App/App.entitlements;'
+          if setting not in text:
+              text=text.replace(needle,setting+'\n\t\t\t\t'+needle)
+          path.write_text(text)
+          PY
+          grep -q "CODE_SIGN_ENTITLEMENTS = App/App.entitlements;" "$PBXPROJ"
 
       - name: Set up iOS signing keychain
         script: keychain initialize
