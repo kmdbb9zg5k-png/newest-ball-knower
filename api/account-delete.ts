@@ -39,10 +39,10 @@ function appleClientSecret(){
 
 async function revokeAppleAuthorization(providerToken:string,tokenType:'access_token'|'refresh_token'){
   const client=appleClientSecret();
-  if(!client)throw Object.assign(new Error('Apple authorization revocation is not configured.'),{code:'APPLE_REVOCATION_NOT_CONFIGURED'});
+  if(!client)throw new Error('Apple authorization revocation is not configured.');
   const body=new URLSearchParams({client_id:client.clientId,client_secret:client.secret,token:providerToken,token_type_hint:tokenType});
   const response=await fetch('https://appleid.apple.com/auth/revoke',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body,signal:AbortSignal.timeout(10_000)});
-  if(!response.ok)throw Object.assign(new Error(`Apple authorization revocation failed (${response.status}).`),{code:'APPLE_REVOCATION_FAILED'});
+  if(!response.ok)throw new Error(`Apple authorization revocation failed (${response.status}).`);
 }
 
 export default async function handler(req:any,res:any){
@@ -59,30 +59,40 @@ export default async function handler(req:any,res:any){
 
     if(String(req?.body?.confirmation||'')!=='DELETE')return res.status(400).json({error:'Deletion confirmation is required.'});
 
+    let appleAuthorizationRevoked:boolean|null=null;
+    let manualAppleRevokeRequired=false;
     if(hasAppleIdentity(user)){
       const refreshToken=String(req?.body?.providerRefreshToken||'').trim();
       const accessToken=String(req?.body?.providerToken||'').trim();
       const providerToken=refreshToken||accessToken;
-      if(!providerToken){
-        return res.status(409).json({error:'Sign in with Apple again before deleting your account.',code:'APPLE_REAUTH_REQUIRED'});
+      if(providerToken){
+        try{
+          await revokeAppleAuthorization(providerToken,refreshToken?'refresh_token':'access_token');
+          appleAuthorizationRevoked=true;
+        }catch(error:any){
+          // Apple requires the Ball Knower account deletion request to continue
+          // even when a provider token cannot be revoked automatically. Surface
+          // manual revocation to the client instead of stranding the account.
+          console.warn('apple-authorization-revocation-deferred',String(error?.message||error));
+          appleAuthorizationRevoked=false;
+          manualAppleRevokeRequired=true;
+        }
+      }else{
+        appleAuthorizationRevoked=false;
+        manualAppleRevokeRequired=true;
       }
-      await revokeAppleAuthorization(providerToken,refreshToken?'refresh_token':'access_token');
     }
 
-    // Apple authorization is revoked first when applicable. Delete user-owned
-    // avatar bytes before removing the auth identity. Database cleanup itself is
-    // transactionally coupled to auth.users, so failed relational cleanup aborts
-    // the account deletion rather than leaving a partial Ball Knower identity.
+    // Remove user-owned avatar bytes before removing the auth identity. Database
+    // cleanup itself is transactionally coupled to auth.users, so failed
+    // relational cleanup aborts account deletion rather than leaving partial data.
     await removeAvatarObjects(user.id);
     const deleted=await service.auth.admin.deleteUser(user.id,false);
     if(deleted.error)throw deleted.error;
 
-    return res.status(200).json({ok:true});
+    return res.status(200).json({ok:true,appleAuthorizationRevoked,manualAppleRevokeRequired});
   }catch(error:any){
-    const code=String(error?.code||'');
-    console.warn('account-delete-failed',code||String(error?.message||error));
-    if(code==='APPLE_REVOCATION_NOT_CONFIGURED')return res.status(503).json({error:'Apple account deletion is not fully configured.',code});
-    if(code==='APPLE_REVOCATION_FAILED')return res.status(502).json({error:'Apple authorization could not be revoked. Your Ball Knower account was not deleted.',code});
+    console.warn('account-delete-failed',String(error?.message||error));
     return res.status(500).json({error:'Your account could not be deleted. No retry was performed automatically.'});
   }
 }
