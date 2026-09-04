@@ -149,8 +149,6 @@ jobs:
         run: npm run check:intro-media
       - name: Build 7 waiver static regression
         run: npm run check:build7-waivers
-      - name: Verify live Apple and Google Supabase provider configuration
-        run: npm run check:auth-provider-config
       - name: Require all six fantasy league sizes
         run: |
           npm run check:draft-reliability > /tmp/draft-reliability.json
@@ -177,6 +175,8 @@ jobs:
           name: draft-order-game-catalog
           path: /tmp/20260825_update_draft_order_game_salary_estimates.sql
           retention-days: 1
+      - name: Verify live Apple and Google Supabase provider configuration
+        run: npm run check:auth-provider-config
 
   fantasy-mobile-browser:
     runs-on: ubuntu-latest
