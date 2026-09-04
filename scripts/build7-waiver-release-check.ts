@@ -22,7 +22,9 @@ assert.match(hardening,/wc\.status='pending'/,'pending claims must block instant
 assert.match(hardening,/Free agent added instantly after waivers cleared\./);
 assert.match(hardening,/clearedUnclaimed/,'unclaimed due waiver players must be released to free agency');
 assert.match(hardening,/waiverType','priority/,'priority remains the standard default behavior');
-assert.match(hardening,/waiverType','faab/,'FAAB resolution remains supported');
+assert.match(hardening,/coalesce\(v_settings->>'waiverType','priority'\)='faab'/,'FAAB bids must be validated against the member budget');
+assert.match(hardening,/case when v_type='faab' then wc\.faab_bid end desc/,'FAAB claims must resolve by highest bid');
+assert.match(hardening,/case when v_type='faab' then c\.faab_bid else 0 end/,'FAAB winner must be charged the winning bid');
 assert.match(hardening,/waiver_priority/,'rolling priority must still move winners to the back');
 assert.match(hardening,/failure_reason='Another manager won this player'/,'losing duplicate claims must be resolved explicitly');
 
