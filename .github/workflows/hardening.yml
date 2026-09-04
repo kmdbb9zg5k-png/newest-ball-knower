@@ -66,7 +66,7 @@ jobs:
 
   hardening:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 14
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -89,8 +89,26 @@ jobs:
           BASE="$(git merge-base HEAD origin/main)"
           git diff --check "$BASE"...HEAD
 
-      - name: TypeScript and complete hardening suite
-        run: npm run check:hardening
+      - name: TypeScript
+        run: npm run lint
+
+      - name: Existing Ball Knower hardening suite
+        run: npm run check:hardening-core
+
+      - name: Build 7 native API and Picks regression
+        run: npm run check:build7-native
+
+      - name: Build 7 NFL News regression
+        run: npm run check:nfl-news
+
+      - name: Build 7 native authentication regression
+        run: npm run check:native-auth
+
+      - name: Build 7 intro and soundtrack regression
+        run: npm run check:intro-media
+
+      - name: Build 7 waiver static regression
+        run: npm run check:build7-waivers
 
       - name: Verify live Apple and Google Supabase provider configuration
         run: npm run check:auth-provider-config
