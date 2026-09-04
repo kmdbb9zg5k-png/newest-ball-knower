@@ -27,7 +27,7 @@ assert.match(supabase,/providerRefreshToken/,'account deletion must send a serve
 assert.match(modal,/SETUP REQUIRED/);
 assert.match(modal,/TRY SIGN-IN/,'unknown provider state must not be mislabeled setup-required');
 assert.match(modal,/NATIVE_AUTH_RESULT_EVENT/);
-assert.doesNotMatch(modal,/setErrorMessage\([^\n]*(err|error)\?\.message[^\n]*Google|Apple/i,'native OAuth must not render raw provider exceptions');
+assert.doesNotMatch(modal,/setErrorMessage\([^\n]*(err|error)\?\.message[^\n]*(Google|Apple)/i,'native OAuth must not render raw provider exceptions');
 
 assert.match(identity,/prepareGuestAccountMerge/,'existing guest-to-account ownership merge must remain wired');
 assert.match(identity,/signInWithOAuth/);
