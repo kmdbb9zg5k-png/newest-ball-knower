@@ -35,6 +35,8 @@ const PartnersPage=lazy(()=>import('./PartnersPage').then(module=>({default:modu
 
 export type AppTab='home'|'solo'|'news'|'fantasy'|'sportsbook'|'legacy'|'challenges'|'locker'|'partners'|'lobby'|'draft'|'simulation';
 
+const INTRO_COMPLETED_KEY='ball-knower-intro-completed-v1';
+const introEligible=()=>{try{return !localStorage.getItem(INTRO_COMPLETED_KEY)}catch{return true}};
 const detectMobileDraftViewport=()=>{try{return window.matchMedia('(max-width: 767px)').matches}catch{return false}};
 const ScreenFallback=()=><div className="mx-auto flex min-h-[45dvh] max-w-5xl items-center justify-center px-4 text-center"><div><div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[var(--bk-team-accent)]"/><div className="mt-3 text-[10px] font-black uppercase tracking-[.22em] text-zinc-500">Loading Ball Knower</div></div></div>;
 
@@ -50,21 +52,21 @@ function BallKnowerApp(){
   const [isJoinLeagueOpen,setIsJoinLeagueOpen]=useState(false);
   const [isDatabaseModalOpen,setIsDatabaseModalOpen]=useState(false);
   const [launchPanel,setLaunchPanel]=useState<LaunchPanel|null>(null);
-  const [isIntroOpen,setIsIntroOpen]=useState(true);
+  const [isIntroOpen,setIsIntroOpen]=useState(introEligible);
   const [isMobileDraftViewport,setIsMobileDraftViewport]=useState(detectMobileDraftViewport);
   const [favoriteTheme,setFavoriteTheme]=useState<TeamTheme>(()=>getSavedTeamTheme());
   const [showFavoriteTeam,setShowFavoriteTeam]=useState(()=>{try{const params=new URLSearchParams(window.location.search);return params.get('teamsetup')==='1'||!localStorage.getItem('ball-knower-team-setup-v2')}catch{return false}});
   const isDraftOrderGame=Boolean(activeLeague&&activeLeague.settings?.draftOrderMethod==='game'&&!activeLeague.seasonResult?.draftOrder?.length&&!activeLeague.liveDraft);
 
   useEffect(()=>{setIntroActiveRef.current=setIntroActive},[setIntroActive]);
-  useEffect(()=>{setIntroActiveRef.current(true);try{const savedTheme=getSavedTeamTheme();setFavoriteTheme(savedTheme);applyTeamCssVariables(savedTheme);const params=new URLSearchParams(window.location.search);const joinCode=params.get('join');if(joinCode)joinLeague(joinCode).then(res=>{if(res.success&&res.league)setCurrentTab('lobby')})}catch(e){console.error(e)}},[]);
+  useEffect(()=>{setIntroActiveRef.current(isIntroOpen||showFavoriteTeam);try{const savedTheme=getSavedTeamTheme();setFavoriteTheme(savedTheme);applyTeamCssVariables(savedTheme);const params=new URLSearchParams(window.location.search);const joinCode=params.get('join');if(joinCode)joinLeague(joinCode).then(res=>{if(res.success&&res.league)setCurrentTab('lobby')})}catch(e){console.error(e)}},[]);
   useEffect(()=>{let media:MediaQueryList|null=null;try{media=window.matchMedia('(max-width: 767px)');const sync=()=>setIsMobileDraftViewport(media?.matches??false);sync();media.addEventListener?.('change',sync);return()=>media?.removeEventListener?.('change',sync)}catch{return undefined}},[]);
   useEffect(()=>{try{const previous=window.history.scrollRestoration;window.history.scrollRestoration='manual';return()=>{window.history.scrollRestoration=previous}}catch{return undefined}},[]);
   useEffect(()=>{if(currentTab!=='home')return;const resetHomeScroll=()=>window.scrollTo({top:0,left:0,behavior:'auto'});resetHomeScroll();const frame=window.requestAnimationFrame(resetHomeScroll);const timer=window.setTimeout(resetHomeScroll,200);return()=>{window.cancelAnimationFrame(frame);window.clearTimeout(timer)}},[currentTab]);
   useEffect(()=>{trackBallKnowerEvent('Mode Opened',{mode:currentTab,active_league:Boolean(activeLeague)})},[currentTab]);
 
   const openIntro=()=>{setIntroActive(true);setIsIntroOpen(true)};
-  const closeIntro=useCallback(()=>{setIsIntroOpen(false);if(!showFavoriteTeam)setIntroActiveRef.current(false)},[showFavoriteTeam]);
+  const closeIntro=useCallback(()=>{try{localStorage.setItem(INTRO_COMPLETED_KEY,'1')}catch{}setIsIntroOpen(false);if(!showFavoriteTeam)setIntroActiveRef.current(false)},[showFavoriteTeam]);
   const finishFavoriteTeamSetup=(team:TeamTheme)=>{trackBallKnowerEvent('Favorite Team Selected',{team:team.abbr});setFavoriteTheme(team);applyTeamCssVariables(team);setShowFavoriteTeam(false);setIntroActive(false)};
   const handleSelectLeague=(league:League,tab:'lobby'|'draft'|'simulation')=>{setActiveLeagueId(league.id);setCurrentTab(tab)};
   const handleLeagueCreated=(league:League)=>{setActiveLeagueId(league.id);setCurrentTab('lobby')};
