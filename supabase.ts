@@ -59,8 +59,13 @@ export const supabase: SupabaseClient | null = isCloudConfigured
   : null;
 
 export type PermanentAuthProvider = 'google' | 'apple';
-export type AuthProviderAvailability = Record<PermanentAuthProvider, boolean>;
+export type AuthProviderAvailability = Record<PermanentAuthProvider, boolean | null>;
 
+/**
+ * false means Supabase explicitly reports the provider disabled. null means
+ * availability could not be verified, so the UI must not mislabel a transient
+ * settings/network failure as "SETUP REQUIRED".
+ */
 export async function fetchAuthProviderAvailability(): Promise<AuthProviderAvailability> {
   if (!url || !key) return { google: false, apple: false };
   try {
@@ -70,7 +75,7 @@ export async function fetchAuthProviderAvailability(): Promise<AuthProviderAvail
     return { google: Boolean(settings.external?.google), apple: Boolean(settings.external?.apple) };
   } catch (error) {
     console.warn('Could not verify social sign-in availability', error);
-    return { google: false, apple: false };
+    return { google: null, apple: null };
   }
 }
 
@@ -121,7 +126,7 @@ export async function sendEmailMagicLink(email: string, displayName?: string): P
   if (!supabase) throw new Error('Online multiplayer is not configured yet.');
   await flushAllCloudStateBeforeIdentityChange();
   const redirectTo = typeof window !== 'undefined'
-    ? (window.location.protocol === 'capacitor:' ? 'ballknower://auth/callback' : window.location.origin)
+    ? ((window.location.protocol === 'capacitor:' || window.location.protocol === 'ionic:') ? 'ballknower://auth/callback' : window.location.origin)
     : undefined;
   const { error } = await supabase.auth.signInWithOtp({
     email: email.trim().toLowerCase(),
@@ -153,10 +158,17 @@ export async function deleteBallKnowerAccount(): Promise<void> {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${data.session.access_token}`,
     },
-    body: JSON.stringify({ confirmation: 'DELETE' }),
+    body: JSON.stringify({
+      confirmation: 'DELETE',
+      providerToken: data.session.provider_token || null,
+      providerRefreshToken: data.session.provider_refresh_token || null,
+    }),
   });
-  const payload = await response.json().catch(() => ({})) as { error?: string };
-  if (!response.ok) throw new Error(payload.error || 'Your account could not be deleted.');
+  const payload = await response.json().catch(() => ({})) as { error?: string; code?: string };
+  if (!response.ok) {
+    if (payload.code === 'APPLE_REAUTH_REQUIRED') throw new Error('Sign in with Apple again, then return here to delete your account.');
+    throw new Error(payload.error || 'Your account could not be deleted.');
+  }
 
   await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
 }
