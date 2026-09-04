@@ -30,13 +30,17 @@ requireText('nativeRuntime.ts',['https://ballknower.com','/api/','Capacitor.isNa
 requireText('nativeAuth.ts',['ballknower://auth/callback','appUrlOpen','getLaunchUrl','exchangeCodeForSession','browserFinished','setSession']);
 requireText('main.tsx',['installNativeApiBridge();']);
 requireText('supabase.ts',['persistSession: true','autoRefreshToken: true','providerRefreshToken']);
-requireText('api/account-delete.ts',['auth.admin.deleteUser','confirmation','Bearer ','appleid.apple.com/auth/revoke','APPLE_REAUTH_REQUIRED']);
-requireText('LaunchCenter.tsx',['deleteBallKnowerAccount','Permanently delete account']);
+requireText('api/account-delete.ts',['auth.admin.deleteUser','confirmation','Bearer ','appleid.apple.com/auth/revoke','manualAppleRevokeRequired']);
+requireText('LaunchCenter.tsx',['deleteBallKnowerAccount','Permanently delete account','Apple Account’s Sign in with Apple settings']);
 requireText('migrations/20260903_account_deletion_cleanup.sql',['before delete on auth.users','ball_knower_cleanup_account_before_auth_delete']);
 requireText('public/privacy.html',['Ball Knower Privacy Policy','Delete your account in the app']);
 requireText('public/support.html',['Ball Knower Support']);
 requireText('public/terms.html',['Ball Knower Terms of Use']);
 requireText('public/ball-knower-icon.svg',['viewBox="0 0 512 512"']);
+
+const deletion=read('api/account-delete.ts');
+if(deletion.includes('APPLE_REAUTH_REQUIRED'))failures.push('Apple provider-token absence must not block account deletion');
+if(!/manualAppleRevokeRequired=true[\s\S]*auth\.admin\.deleteUser/.test(deletion))failures.push('Apple manual-revocation fallback must still proceed to auth account deletion');
 
 const trackedTextFiles=['.env.example','supabase.ts','codemagic.yaml','api/account-delete.ts'];
 for(const path of trackedTextFiles){
