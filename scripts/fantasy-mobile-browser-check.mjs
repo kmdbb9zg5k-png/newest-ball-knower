@@ -136,9 +136,29 @@ try{
     await page.getByRole('button',{name:'Choose From Photos',exact:true}).waitFor({state:'visible'});
     await assertDialogContained(page,`${size.label} profile photo actions`);
     const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFElEQVR42mP8z8AARAwMjDAGAC0KA/2BHvtYAAAAAElFTkSuQmCC','base64');
-    await page.locator('input[type="file"]:not([capture])').setInputFiles({name:'profile.png',mimeType:'image/png',buffer:png});
+    const largeIphonePhoto=Buffer.concat([png,Buffer.alloc(13*1024*1024)]);
+    await page.locator('input[type="file"]:not([capture])').setInputFiles({name:'IMG_9001.PNG',mimeType:'image/png',buffer:largeIphonePhoto});
     await page.getByRole('heading',{name:'Position Your Photo',exact:true}).waitFor({state:'visible'});
-    await page.getByRole('button',{name:'Save Photo',exact:true}).waitFor({state:'visible'});
+    const savePhoto=page.getByRole('button',{name:'Save Photo',exact:true});
+    await savePhoto.waitFor({state:'visible'});
+    await page.waitForFunction(()=>{
+      const button=[...document.querySelectorAll('button')].find(candidate=>candidate.textContent?.trim()==='Save Photo');
+      return button instanceof HTMLButtonElement&&!button.disabled;
+    });
+    assert.equal(await savePhoto.isEnabled(),true,`${size.label}: processed large iPhone photo did not enable Save Photo`);
+    for(const [name,value] of [['Zoom','150'],['Left / Right','65'],['Up / Down','35']]){
+      await page.getByRole('slider',{name}).evaluate((element,nextValue)=>{
+        const input=element;
+        input.value=nextValue;
+        input.dispatchEvent(new Event('input',{bubbles:true}));
+        input.dispatchEvent(new Event('change',{bubbles:true}));
+      },value);
+    }
+    await page.waitForFunction(()=>{
+      const button=[...document.querySelectorAll('button')].find(candidate=>candidate.textContent?.trim()==='Save Photo');
+      return button instanceof HTMLButtonElement&&!button.disabled;
+    });
+    assert.equal(await savePhoto.isEnabled(),true,`${size.label}: crop controls did not regenerate a saveable photo`);
     await assertDialogContained(page,`${size.label} profile photo crop`);
     await page.screenshot({path:`${artifactDir}/${size.label}-profile-photo.png`,fullPage:true});
     assert.deepEqual(pageErrors,[],`${size.label}: uncaught page errors:\n${pageErrors.join('\n')}`);

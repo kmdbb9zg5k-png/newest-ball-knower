@@ -6,9 +6,11 @@ let profilePhotoMutationVersion = 0;
 
 export const getProfilePhotoMutationVersion = () => profilePhotoMutationVersion;
 export const invalidateProfilePhotoReads = () => { profilePhotoMutationVersion += 1; };
-export const PROFILE_PHOTO_MAX_SOURCE_BYTES = 12 * 1024 * 1024;
+export const PROFILE_PHOTO_MAX_SOURCE_BYTES = 40 * 1024 * 1024;
 export const PROFILE_PHOTO_OUTPUT_SIZE = 512;
 export const PROFILE_PHOTO_MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
+export const PROFILE_PHOTO_OUTPUT_MIME = 'image/jpeg' as const;
+export const PROFILE_PHOTO_OUTPUT_EXTENSION = 'jpg' as const;
 
 const ACCEPTED_SOURCE_TYPES = new Set([
   'image/jpeg',
@@ -38,6 +40,14 @@ export type ProfilePhotoOverride = {
 
 export type AvatarCrop = { zoom: number; x: number; y: number };
 
+export type ProcessedProfilePhoto = {
+  blob: Blob;
+  mimeType: typeof PROFILE_PHOTO_OUTPUT_MIME;
+  extension: typeof PROFILE_PHOTO_OUTPUT_EXTENSION;
+  width: typeof PROFILE_PHOTO_OUTPUT_SIZE;
+  height: typeof PROFILE_PHOTO_OUTPUT_SIZE;
+};
+
 export function profilePhotoPublicUrl(path?: string | null): string | undefined {
   if (!path) return undefined;
   if (/^https?:\/\//i.test(path)) return path;
@@ -63,7 +73,7 @@ export function validateProfilePhotoFile(file: File): void {
     throw new Error('Choose a JPG, PNG, WebP, HEIC, or HEIF photo.');
   }
   if (file.size <= 0 || file.size > PROFILE_PHOTO_MAX_SOURCE_BYTES) {
-    throw new Error('Choose a photo smaller than 12 MB.');
+    throw new Error('Choose a photo smaller than 40 MB.');
   }
 }
 
@@ -151,19 +161,52 @@ export function drawSquareProfileImage(
   context.drawImage(image, left, top, width, height);
 }
 
-export function canvasToProfilePhoto(canvas: HTMLCanvasElement): Promise<Blob> {
+export async function validateProcessedProfilePhoto(photo: ProcessedProfilePhoto): Promise<void> {
+  const { blob } = photo;
+  const reportedType = blob.type.toLowerCase().split(';', 1)[0].trim();
+  if (
+    photo.width !== PROFILE_PHOTO_OUTPUT_SIZE
+    || photo.height !== PROFILE_PHOTO_OUTPUT_SIZE
+    || photo.mimeType !== PROFILE_PHOTO_OUTPUT_MIME
+    || photo.extension !== PROFILE_PHOTO_OUTPUT_EXTENSION
+    || reportedType !== PROFILE_PHOTO_OUTPUT_MIME
+    || blob.size <= 0
+    || blob.size > PROFILE_PHOTO_MAX_UPLOAD_BYTES
+  ) {
+    throw new Error('The processed profile photo is invalid or too large.');
+  }
+
+  const signature = new Uint8Array(await blob.slice(0, 3).arrayBuffer());
+  if (signature.length < 3 || signature[0] !== 0xff || signature[1] !== 0xd8 || signature[2] !== 0xff) {
+    throw new Error('The processed profile photo is not a valid JPEG image.');
+  }
+}
+
+export function canvasToProfilePhoto(canvas: HTMLCanvasElement): Promise<ProcessedProfilePhoto> {
   return new Promise((resolve, reject) => {
-    canvas.toBlob(blob => {
+    if (canvas.width !== PROFILE_PHOTO_OUTPUT_SIZE || canvas.height !== PROFILE_PHOTO_OUTPUT_SIZE) {
+      reject(new Error('Photo processing did not produce a 512 × 512 image.'));
+      return;
+    }
+    canvas.toBlob(async blob => {
       if (!blob) {
         reject(new Error('Photo compression failed. Try another image.'));
         return;
       }
-      if (blob.size > PROFILE_PHOTO_MAX_UPLOAD_BYTES) {
-        reject(new Error('The edited photo is still too large. Try a closer crop.'));
-        return;
+      const processed: ProcessedProfilePhoto = {
+        blob,
+        mimeType: PROFILE_PHOTO_OUTPUT_MIME,
+        extension: PROFILE_PHOTO_OUTPUT_EXTENSION,
+        width: PROFILE_PHOTO_OUTPUT_SIZE,
+        height: PROFILE_PHOTO_OUTPUT_SIZE,
+      };
+      try {
+        await validateProcessedProfilePhoto(processed);
+        resolve(processed);
+      } catch (error) {
+        reject(error);
       }
-      resolve(blob);
-    }, 'image/webp', 0.84);
+    }, PROFILE_PHOTO_OUTPUT_MIME, 0.84);
   });
 }
 
@@ -184,17 +227,15 @@ async function updatePhotoMetadata(path: string | null): Promise<void> {
   if (error) console.warn('Profile photo metadata mirror could not be updated.', error);
 }
 
-export async function uploadProfilePhoto(blob: Blob, oldPath?: string): Promise<{ avatarPath: string; avatarUrl: string }> {
+export async function uploadProfilePhoto(photo: ProcessedProfilePhoto, oldPath?: string): Promise<{ avatarPath: string; avatarUrl: string }> {
   if (!supabase) throw new Error('Profile photos require online services.');
-  if (blob.type !== 'image/webp' || blob.size <= 0 || blob.size > PROFILE_PHOTO_MAX_UPLOAD_BYTES) {
-    throw new Error('The edited profile photo is invalid or too large.');
-  }
+  await validateProcessedProfilePhoto(photo);
   const auth = await ensureOnlineSession();
   if (auth.is_anonymous) throw new Error('Sign in to save a profile photo to your account.');
-  const avatarPath = `${auth.id}/${crypto.randomUUID()}.webp`;
+  const avatarPath = `${auth.id}/${crypto.randomUUID()}.${photo.extension}`;
   const { error: uploadError } = await supabase.storage
     .from(PROFILE_PHOTO_BUCKET)
-    .upload(avatarPath, blob, { cacheControl: '31536000', contentType: 'image/webp', upsert: false });
+    .upload(avatarPath, photo.blob, { cacheControl: '31536000', contentType: photo.mimeType, upsert: false });
   if (uploadError) throw uploadError;
 
   try {
@@ -214,6 +255,17 @@ export async function uploadProfilePhoto(blob: Blob, oldPath?: string): Promise<
   return { avatarPath, avatarUrl };
 }
 
+export async function uploadAndCommitProfilePhoto(
+  photo: ProcessedProfilePhoto,
+  oldPath: string | undefined,
+  commit: (avatarUrl: string, avatarPath: string) => void,
+  upload: typeof uploadProfilePhoto = uploadProfilePhoto,
+): Promise<{ avatarPath: string; avatarUrl: string }> {
+  const result = await upload(photo, oldPath);
+  commit(result.avatarUrl, result.avatarPath);
+  return result;
+}
+
 export async function removeProfilePhoto(oldPath?: string): Promise<void> {
   if (!supabase) throw new Error('Profile photos require online services.');
   const auth = await ensureOnlineSession();
@@ -224,4 +276,13 @@ export async function removeProfilePhoto(oldPath?: string): Promise<void> {
     const { error } = await supabase.storage.from(PROFILE_PHOTO_BUCKET).remove([oldPath]);
     if (error) console.warn('Removed profile photo record; old object cleanup did not complete.', error);
   }
+}
+
+export async function removeAndCommitProfilePhoto(
+  oldPath: string | undefined,
+  commit: (avatarUrl?: string, avatarPath?: string) => void,
+  remove: typeof removeProfilePhoto = removeProfilePhoto,
+): Promise<void> {
+  await remove(oldPath);
+  commit(undefined, undefined);
 }
