@@ -133,8 +133,14 @@ jobs:
         run: npm run check:final-release
       - name: iOS App Store release gate
         run: npm run check:ios-release
-      - name: Build 7 native API and Picks regression
-        run: npm run check:build7-native
+      - name: Build 7 native bridge regression
+        run: node --import tsx scripts/build7-native-release-check.ts bridge
+      - name: Build 7 iOS kickoff regression
+        run: node --import tsx scripts/build7-native-release-check.ts kickoff
+      - name: Build 7 Picks UI and outage regression
+        run: node --import tsx scripts/build7-native-release-check.ts ui
+      - name: Build 7 Picks provider fallback regression
+        run: node --import tsx scripts/build7-native-release-check.ts feed
       - name: Build 7 NFL News regression
         run: npm run check:nfl-news
       - name: Build 7 native authentication regression
