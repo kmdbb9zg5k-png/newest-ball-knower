@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 import { globalSoundtrackEngine, SoundtrackTrack } from './soundtrackEngine';
 import { loadUserState, saveUserState } from './userStateCloud';
 import { keepActiveSoundtrackTrack } from './soundtrackPolicy';
@@ -62,6 +64,7 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const tracksRef = useRef<MediaTrack[]>([]);
   const shouldPlayRef = useRef(false);
   const introActiveRef = useRef(true);
+  const appActiveRef = useRef(true);
   const currentTrackIndexRef = useRef(0);
   const recoveredTrackUrlsRef = useRef<Map<string,string>>(new Map());
   const recoveryInFlightRef = useRef(false);
@@ -126,7 +129,7 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               audio.src = playableUrl;
               audio.addEventListener('loadedmetadata', () => {
                 audio.currentTime = Math.min(resumeAt, Math.max(0, audio.duration - .25));
-                if (shouldPlayRef.current && !introActiveRef.current) audio.play().catch(()=>setIsPlaying(false));
+                if (shouldPlayRef.current && !introActiveRef.current && appActiveRef.current) audio.play().catch(()=>setIsPlaying(false));
               }, { once: true });
               audio.load();
             } catch (error) {
@@ -177,12 +180,11 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const startIndex = useCallback((idx:number) => {
     shouldPlayRef.current = true;
-    if (introActiveRef.current || !tracks.length) return;
+    if (introActiveRef.current || !appActiveRef.current || !tracks.length) return;
     const normalized = (idx + tracks.length) % tracks.length;
     const track = tracks[normalized];
     const a = audioRef.current;
     if (!a || !track?.url) return;
-    shouldPlayRef.current = true;
     currentTrackIndexRef.current = normalized;
     setCurrentTrackIndex(normalized);
     const nextUrl = absoluteTrackUrl(track.url);
@@ -219,30 +221,55 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const setIntroActive = useCallback((active:boolean) => {
     introActiveRef.current = active;
     setIsIntroActiveState(active);
-    if (active) { shouldPlayRef.current = false; audioRef.current?.pause(); setIsPlaying(false); }
-    else {
+    if (active) {
+      shouldPlayRef.current = false;
+      audioRef.current?.pause();
+      setIsPlaying(false);
+    } else {
       shouldPlayRef.current = true;
-      window.setTimeout(() => startIndex(currentTrackIndex), 0);
+      // Deliberately do not defer this call. When the intro is skipped by a tap,
+      // keeping play() inside that same user gesture lets iOS unlock the audio.
+      startIndex(currentTrackIndexRef.current);
     }
-  }, [startIndex,currentTrackIndex]);
+  }, [startIndex]);
 
   useEffect(() => {
     const resume = () => {
       const audio = audioRef.current;
-      if (!introActiveRef.current && shouldPlayRef.current && audio?.paused && tracksRef.current.length) {
-        audio.play().catch(()=>setIsPlaying(false));
+      if (!introActiveRef.current && appActiveRef.current && shouldPlayRef.current && audio?.paused && tracksRef.current.length) {
+        audio.play().then(()=>setIsPlaying(true)).catch(()=>setIsPlaying(false));
       }
     };
-    const resumeWhenVisible = () => { if (document.visibilityState === 'visible') resume(); };
-    window.addEventListener('pointerdown', resume);
+    const resumeWhenVisible = () => {
+      appActiveRef.current = document.visibilityState === 'visible';
+      if (appActiveRef.current) resume();
+      else audioRef.current?.pause();
+    };
+    window.addEventListener('pointerdown', resume, { passive:true });
+    window.addEventListener('touchend', resume, { passive:true });
     window.addEventListener('keydown', resume);
     window.addEventListener('pageshow', resume);
     document.addEventListener('visibilitychange', resumeWhenVisible);
+
+    let removeNativeListener:(()=>Promise<void>)|null=null;
+    if (Capacitor.isNativePlatform()) {
+      void CapacitorApp.addListener('appStateChange', ({isActive}) => {
+        appActiveRef.current = isActive;
+        if (isActive) resume();
+        else {
+          audioRef.current?.pause();
+          setIsPlaying(false);
+        }
+      }).then(handle => { removeNativeListener = () => handle.remove(); });
+    }
+
     return () => {
       window.removeEventListener('pointerdown', resume);
+      window.removeEventListener('touchend', resume);
       window.removeEventListener('keydown', resume);
       window.removeEventListener('pageshow', resume);
       document.removeEventListener('visibilitychange', resumeWhenVisible);
+      void removeNativeListener?.();
     };
   }, []);
 
