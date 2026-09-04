@@ -6,6 +6,7 @@ const supabase=fs.readFileSync('supabase.ts','utf8');
 const modal=fs.readFileSync('AuthModal.tsx','utf8');
 const identity=fs.readFileSync('accountIdentity.ts','utf8');
 const deletion=fs.readFileSync('api/account-delete.ts','utf8');
+const launch=fs.readFileSync('LaunchCenter.tsx','utf8');
 const codemagic=fs.readFileSync('codemagic.yaml','utf8');
 const envExample=fs.readFileSync('.env.example','utf8');
 
@@ -37,10 +38,13 @@ assert.match(codemagic,/com\.apple\.developer\.applesignin/,'signed iOS project 
 assert.match(codemagic,/CODE_SIGN_ENTITLEMENTS = App\/App\.entitlements/);
 assert.match(codemagic,/CFBundleURLSchemes:0 string ballknower/);
 
-assert.match(deletion,/appleid\.apple\.com\/auth\/revoke/,'Apple authorization must be revoked before deleting an Apple-backed account');
-assert.match(deletion,/APPLE_REAUTH_REQUIRED/);
+assert.match(deletion,/appleid\.apple\.com\/auth\/revoke/,'Apple authorization must be attempted before deleting an Apple-backed account when a provider token exists');
+assert.match(deletion,/manualAppleRevokeRequired/,'deletion response must identify when Apple authorization needs manual revocation');
+assert.match(deletion,/apple-authorization-revocation-deferred/,'automatic Apple revocation failures must be recorded without blocking deletion');
+assert.doesNotMatch(deletion,/APPLE_REAUTH_REQUIRED/,'missing Apple provider tokens must never block the account deletion request');
 assert.match(deletion,/auth\.admin\.deleteUser/);
-assert.ok(deletion.indexOf("revokeAppleAuthorization")<deletion.indexOf("auth.admin.deleteUser"),'Apple revocation must be attempted before auth identity deletion');
+assert.ok(deletion.indexOf("revokeAppleAuthorization")<deletion.indexOf("auth.admin.deleteUser"),'Apple revocation should be attempted before auth identity deletion');
+assert.match(launch,/Apple Account’s Sign in with Apple settings/,'the deletion UI must direct users to manual Apple revocation when automatic revocation is unavailable');
 
 for(const secretName of ['APPLE_PRIVATE_KEY','APPLE_KEY_ID','APPLE_TEAM_ID']){
   assert.match(envExample,new RegExp(secretName));
