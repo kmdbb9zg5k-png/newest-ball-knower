@@ -108,6 +108,7 @@ declare
   v_old_priority integer;
   v_run uuid:=gen_random_uuid();
   v_cleared integer:=0;
+  v_just_cleared integer:=0;
 begin
   -- Players with no claims become free agents only when their actual configured
   -- processing deadline has arrived.
@@ -176,7 +177,8 @@ begin
       select 1 from public.ball_knower_waiver_claims wc
       where wc.league_id=w.league_id and wc.player_id=w.player_id and wc.status='pending'
     );
-  get diagnostics v_cleared=v_cleared+row_count;
+  get diagnostics v_just_cleared=row_count;
+  v_cleared:=v_cleared+v_just_cleared;
 
   select count(*) into v_lost from public.ball_knower_waiver_claims where processed_at=p_now and status='lost';
   if v_won>0 or v_lost>0 or v_cleared>0 then
