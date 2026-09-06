@@ -129,6 +129,8 @@ jobs:
         run: npm run check:phase3-growth
       - name: Owner postseason
         run: npm run check:phase4-owner
+      - name: Player headshot rights regression
+        run: npm run check:player-headshots
       - name: Final release hardening
         run: npm run check:final-release
       - name: iOS App Store release gate
