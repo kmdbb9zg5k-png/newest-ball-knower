@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { historicalNameVariants, resolveHistoricalProviderId } from '../fantasyPlayerIdentity';
 import { PLAYER_PORTRAITS, playerPortraitFallbackUrl, playerPortraitUrl } from '../playerPortraits';
+import { LICENSED_PLAYER_PORTRAITS } from '../licensedPlayerPortraits';
 import { PLAYERS_DATABASE } from '../players';
 
 const detail = readFileSync(new URL('../FantasyPlayerDetail.tsx', import.meta.url), 'utf8');
@@ -106,17 +107,49 @@ assert.ok(hub.includes('watchAction={{ watched: watchlist.includes'), 'Cheat She
 assert.ok(hub.includes('<FantasyPlayerDetail'), 'Cheat Sheet rankings must open the shared detail surface.');
 assert.ok(communications.includes('<FantasyPlayerDetail'), 'Trading Block entries must open the shared detail surface.');
 assert.ok(communications.includes('onOpen={setDetailPlayer}'), 'Trading Block player buttons must wire into shared details.');
-assert.ok(Object.keys(PLAYER_PORTRAITS).length > 400, 'The shared portrait catalog must retain broad NFL player coverage.');
-assert.equal(playerPortraitUrl({ id: 'bijan', name: 'Bijan Robinson', position: 'RB' }), PLAYER_PORTRAITS['Bijan Robinson'], 'Known players must resolve to their real catalog headshot instead of initials.');
-assert.ok(playerPortraitUrl({ id: 'ea-16370', name: 'Jeremiyah Love', position: 'RB', team: 'ARI' }).includes('/portraits/11138.png'), 'Current players missing from the legacy catalog must resolve through their official EA roster identity.');
-assert.ok(playerPortraitUrl({ id: 'ea-14807', name: 'Cam Skattebo', position: 'RB', team: 'NYG' }).includes('/portraits/10732.png'), 'Rookie headshots must resolve through the complete official roster source.');
-assert.ok(playerPortraitUrl({ id: 'ea-15097', name: 'Tetairoa McMillan', position: 'WR', team: 'CAR' }).includes('/portraits/10657.png'), 'The current fantasy pool must not depend on hand-maintained portrait names.');
-assert.ok(playerPortraitUrl({ id: 'dst-den', name: 'Denver Broncos D/ST', position: 'DST', team: 'DEN' }).includes('/nfl/500/den.png'), 'D/ST rows must use the NFL team logo instead of fake player initials.');
+
+const licensedNames = Object.keys(LICENSED_PLAYER_PORTRAITS);
+assert.ok(licensedNames.length >= 8, 'The initial licensed portrait registry must include the verified launch set.');
+assert.deepEqual(
+  Object.keys(PLAYER_PORTRAITS).sort(),
+  licensedNames.sort(),
+  'The public portrait catalog must contain only entries from the licensed portrait registry.',
+);
+assert.equal(
+  playerPortraitUrl({ id: 'hurts', name: 'Jalen Hurts', position: 'QB', team: 'PHI' }),
+  PLAYER_PORTRAITS['Jalen Hurts'],
+  'Known licensed players must resolve to the approved Commons image.',
+);
+assert.ok(
+  playerPortraitUrl({ id: 'hurts', name: 'Jalen Hurts', position: 'QB', team: 'PHI' }).startsWith('https://commons.wikimedia.org/'),
+  'Licensed portraits must resolve through Wikimedia Commons rather than EA/ESPN artwork.',
+);
+for (const player of [
+  { id: 'rookie-love', name: 'Jeremiyah Love', position: 'RB', team: 'ARI' },
+  { id: 'rookie-skattebo', name: 'Cam Skattebo', position: 'RB', team: 'NYG' },
+  { id: 'rookie-mcmillan', name: 'Tetairoa McMillan', position: 'WR', team: 'CAR' },
+] as const) {
+  assert.ok(
+    playerPortraitUrl(player).startsWith('data:image/svg+xml,'),
+    `Unlicensed portrait for ${player.name} must fail closed to a Ball Knower graphic.`,
+  );
+}
+assert.ok(
+  playerPortraitUrl({ id: 'dst-den', name: 'Denver Broncos D/ST', position: 'DST', team: 'DEN' }).startsWith('data:image/svg+xml,'),
+  'D/ST rows must use the neutral Ball Knower abbreviation badge until team artwork is separately licensed.',
+);
 assert.ok(playerPortraitFallbackUrl({ id: 'unknown', name: 'Unknown Player', position: 'WR' }).startsWith('data:image/svg+xml,'), 'Unknown players must retain a safe initials fallback.');
+
 const draftablePlayers = PLAYERS_DATABASE.filter(player => ['QB', 'RB', 'WR', 'TE', 'K', 'DST'].includes(player.position));
-const realPortraitCount = draftablePlayers.filter(player => !playerPortraitUrl(player).startsWith('data:image/svg+xml,')).length;
-assert.ok(realPortraitCount / draftablePlayers.length >= 0.97, `At least 97% of the complete draftable fantasy pool must have a real headshot or D/ST logo; received ${realPortraitCount}/${draftablePlayers.length}.`);
+const unsafePortraits = draftablePlayers
+  .map((player) => ({ player, url: playerPortraitUrl(player) }))
+  .filter(({ url }) => !url.startsWith('data:image/svg+xml,') && !url.startsWith('https://commons.wikimedia.org/'));
+assert.equal(unsafePortraits.length, 0, 'Every fantasy portrait must resolve to an approved Commons image or a Ball Knower fallback.');
+assert.ok(
+  Object.values(PLAYER_PORTRAITS).every((url) => url.startsWith('https://commons.wikimedia.org/')),
+  'The licensed portrait catalog must not contain EA, ESPN, Getty, or other unapproved image hosts.',
+);
 assert.ok(draftRoom.includes('playerPortraitFallbackUrl(player)') && draftRoom.includes('headshot'), 'Live draft rows must render player headshots with a safe failed-image fallback.');
 assert.ok(postDraft.includes('playerPortraitFallbackUrl(player)') && postDraft.includes('headshot'), 'My Team starter and bench rows must render player headshots with a safe failed-image fallback.');
 
-console.log('Phase 2 player detail checks passed: decision-first modal, safe game log, executable identity guard, and shared entry points.');
+console.log('Phase 2 player detail checks passed: decision-first modal, safe game log, licensed portrait policy, and shared entry points.');
