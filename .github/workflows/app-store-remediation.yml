@@ -1,0 +1,49 @@
+name: App Store remediation regressions
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  community-safety-and-consent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - name: Check attribution, original badges and AI consent
+        run: node --import tsx scripts/app-store-remediation-check.ts
+      - name: Exercise report privacy and bilateral blocking with actual message RPCs
+        env:
+          PGPASSWORD: postgres
+        run: |
+          node scripts/prepare-community-safety-fixture.mjs
+          psql -h 127.0.0.1 -U postgres -d postgres -f scripts/postgres-community-safety-integration.sql
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build && npm run check:root-bundle
+      - name: Open attribution in the production-built mobile app
+        run: node scripts/app-store-credits-browser-check.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: app-store-credits-mobile
+          path: artifacts/app-store-credits
+          if-no-files-found: ignore
+          retention-days: 3
