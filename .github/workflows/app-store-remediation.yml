@@ -40,10 +40,14 @@ jobs:
       - run: npm run build && npm run check:root-bundle
       - name: Open attribution in the production-built mobile app
         run: node scripts/app-store-credits-browser-check.mjs
+      - name: Exercise mobile News and outage recovery
+        run: node scripts/news-browser-check.mjs --fixture
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: app-store-credits-mobile
-          path: artifacts/app-store-credits
+          path: |
+            artifacts/app-store-credits
+            artifacts/news-release
           if-no-files-found: ignore
           retention-days: 3
