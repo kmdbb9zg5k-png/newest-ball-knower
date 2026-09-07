@@ -30,12 +30,12 @@ jobs:
       - run: npm run lint
       - name: Check attribution, original badges and AI consent
         run: node --import tsx scripts/app-store-remediation-check.ts
-      - name: Exercise report privacy and bilateral blocking with actual message RPCs
+      - name: Exercise report privacy, bilateral blocking and reply deletion with actual message RPCs
         env:
           PGPASSWORD: postgres
         run: |
           node scripts/prepare-community-safety-fixture.mjs
-          psql -h 127.0.0.1 -U postgres -d postgres -f scripts/postgres-community-safety-integration.sql
+          psql -h 127.0.0.1 -U postgres -d postgres -f /tmp/bk-community-safety-integration.sql
       - run: npx playwright install --with-deps chromium
       - run: npm run build && npm run check:root-bundle
       - name: Open attribution in the production-built mobile app
