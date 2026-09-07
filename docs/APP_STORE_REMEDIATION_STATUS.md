@@ -1,41 +1,45 @@
-# Preserve-feature App Store remediation
+# App Store release remediation — current engineering status
 
-Tracking: #200. This is a targeted implementation, not complete legal clearance.
+Tracking: #200. Updated after #201–#204; supersedes the earlier #201-only status. Passing code checks is not legal clearance or App Review approval.
 
-## Implemented
+## Completed engineering work
 
-- Original abbreviation badges replace the shared ESPN team-logo URL path while preserving all team choices, themes and layouts.
-- Photo Credits is available in the app footer; player details expose the applicable creator/source/license links. Credits are lazy-loaded to preserve the initial JavaScript budget.
-- Partner wording identifies Ball Knower's media partner and data supplier without suggesting a Dallas Cowboys endorsement or a formal Tank01 partnership.
-- My Player requires an unchecked, explicit, per-render permission step before sending a selfie and descriptive inputs to Google Gemini. The server rejects absent/stale permission before consuming quota. `store: false` disables stored interaction history, not all provider retention.
-- Rendering additionally requires `MY_PLAYER_AI_PAID_SERVICE_CONFIRMED=true`, to be set only after the operator verifies the applicable paid-service data terms and account setup. This deployment does not activate the unavailable AI service or purchase anything.
-- League chat, direct messages and trade discussions offer report and block controls. Blocking is enforced in the database for direct/trade messages in both directions; existing shared-league history is hidden from the blocking user. Teams, trades themselves, rosters and scores are not removed by blocking.
-- Reports are authoritatively resolved from existing content, private to the reporter/support, deduplicated and rate-limited. A trusted moderator can remove reported messages or suspend messaging access.
-- Tests cover account binding, report privacy, original message RPCs, bilateral blocking, anonymous denial, abusive-text rejection, unblocking, service-generated receipts, deletion cascades, unchanged rosters, AI consent and mobile credit access.
+- **#201:** In-app and per-player photo attribution; original shared team badges; accurate media-partner/data-supplier wording; explicit per-render Gemini permission; database-enforced user blocking, reporting and privileged moderation actions. AI rendering remains unavailable unless the operator completes its paid-service configuration.
+- **#202:** Native API, invitations and support/metadata URLs point to `https://ballknowerofficial.com`. The former domain returned a different application's HTML. An installed older native binary still needs replacing; this does not revoke existing sessions.
+- **#203:** Runtime Madden ratings/roster datasets were replaced with independently calculated ratings and projections based on documented factual inputs. Five owner-entered QB ratings remain editorial. Established legacy player IDs remain resolvable. The transactional source migration installed 2,477 active catalog entries and 793 projections per scoring format; its before/after saved-roster fingerprint matched. Existing leagues, scores and game saves were not reset. News switched from Google RSS to Tank01 headline links.
+- **#204:** Explicit top-news selection and safe provider diagnostics restored the public News endpoint. It returned 20 actual headline links with `available:true` in the post-deployment check. No publisher images or article summaries are republished. Missing publication dates remain unknown.
+- The follow-up release gate now rejects empty, unavailable, stale or unsafe News responses, even with HTTP 200. Mobile News tests exercise navigation, headline rendering, outage clearing and recovery at 320px/390px. Publication ordering is not advertised when the provider supplies no dates.
 
-## Deployment order
+## Native build request and verification
 
-1. Run the JavaScript and disposable PostgreSQL checks in `.github/workflows/app-store-remediation.yml` and the existing full hardening suite.
-2. Apply `migrations/20260907010000_community_safety.sql` to the production project using the migration mechanism.
-3. Merge only the reviewed implementation branch after all required checks pass; verify the resulting deployment and public pages.
-4. Test actual iPhone/TestFlight screens before public release. A successful web build is not a new native binary.
+The existing `ios-app-store` Codemagic workflow retains `com.ballknower.ios`, its signing integration and manual beta/public review flags. It runs web and backend preflight checks before signing and records the exact source commit/build number.
 
-## Moderation operations: human work remains required
+A push to the single exact branch `release/ios-candidate-2026-09-06` requests one build through the repository's Codemagic webhook. Main pushes and other branches do not automatically build. This is not proof that a webhook exists or that Codemagic accepted the request. Verify an actual Codemagic build ID/result and App Store Connect processing before claiming an IPA was built/uploaded. If the webhook does not start a build, use Codemagic's existing application → Start new build → current main → ios-app-store. Email notifications are configured only to the owner's Ball Knower mailbox for the build result.
 
-The owner/support operator must monitor `public.ball_knower_content_reports` for `status='open'` regularly and respond promptly. This PR does NOT create an autonomous moderation service or send an automatic email for every report. Users can also contact the support email shown in Community Safety.
+`auth: integration` is the upload configuration. The two `submit_to_*: false` values keep beta review and public review manual; they do not disable the IPA upload itself. Do not submit public review until the exact binary passes device QA and the unresolved rights/operation items below are settled.
 
-Use privileged Supabase administrative access, never a browser or a published service key. Inspect evidence and context before taking action. `public.moderate_ball_knower_report(report_id, action, note)` is granted only to `service_role`; supported actions are `dismiss`, `remove`, and `suspend`. Suspension is limited to messaging for 30 days and does not delete game progress. An administrator can remove an erroneous suspension from `ball_knower_private.community_suspensions`. Record the reason and follow up with the reporter as appropriate.
+## Remaining owner/external decisions — not coding tasks marked complete
 
-Profile/photo reports require manual storage/profile review and, when justified, removal of the uploaded asset with the established profile-storage tools; the message-removal RPC deliberately refuses to pretend it removed a profile photo. The baseline prohibited-text filter catches selected clearly abusive phrases; it is not comprehensive contextual or image moderation. Full operational coverage of objectionable shared profile images and content must be verified before public App Store submission.
+- Obtain the remaining source/creator evidence for soundtrack, intro and scene art. Filenames saying original are not proof. Do not replace the user's uploaded music or silently delete features.
+- Finish individual photo provenance/identity-use assessment. The 21 Commons pages' declared metadata has been collected; it does not grant every athlete publicity/identity right.
+- Confirm the precise Tank01 headline/display/caching permissions. The existing August 23 exchange discusses the Ultra plan, caching and no formal partnership/attribution requirement; its short final reply is not a detailed media license. A follow-up permission draft exists in the owner's Gmail and has not been sent by this task without explicit send approval.
+- Resolve the actual real-athlete simulation uses through appropriate permission or a qualified mode-specific assessment. No blanket fictional-player conversion was authorized as a legal conclusion and none was performed.
+- Install the newly processed TestFlight build on a real iPhone, perform the flows in `AT_HOME_RELEASE_CHECKLIST.md`, and provide actual final-app screenshots plus a working reviewer login. Never put reviewer credentials in public GitHub.
 
-## Still open — do not mark #200 fully resolved
+## Moderation operations
 
-- Independent ratings/roster source or applicable authorization for Madden-derived inputs, with stable player IDs and tested versioned data migrations. No ratings or roster identities were changed here.
-- Permission or replacement for external fantasy projection/depth-chart inputs, including Sleeper and the sources in saved ranking provenance. No production ranking rows were rewritten here.
-- Permission or replacement for Google News RSS. The existing News destination and feed remain unchanged in this PR, not claimed cleared.
-- Per-image original provenance and license validation of all 21 Commons photographs. Accessible attribution is necessary but is not proof that an uploader owned a photo or a player's personality rights were licensed.
-- Media-rights evidence for cloud/bundled music, intro and scene graphics, and review of standalone artwork beyond the shared logo helper.
-- Focused legal assessment or permission for the specific real-athlete simulation uses. Agent, Franchise, Owner and My Player game engines and saves remain intact.
-- Confirm production domain/native API URLs and run real-device release validation.
+The support operator must regularly review `public.ball_knower_content_reports` where `status='open'`, investigate, act and respond promptly. Reporting does not automatically email support. The baseline text filter is not comprehensive contextual or image moderation.
 
-No new player faces, purchases, third-party license agreements, external legal approval, or App Store submission are part of this patch.
+Use trusted administrative access only. `public.moderate_ball_knower_report(report_id, action, note)` is executable only by `service_role`; actions are `dismiss`, `remove` or `suspend`. Suspension lasts 30 days and affects messaging, not game progress. Profile/photo reports require manual review and appropriate storage/profile removal; the message removal RPC intentionally refuses to claim it removed an avatar.
+
+## Applied migration mapping
+
+Repository timestamps and the migration service's recorded timestamps differ. Reconcile this mapping before any CLI migration push; do not blindly apply an already-installed migration again.
+
+| Repository file prefix | Recorded production version | Name |
+| --- | --- | --- |
+| 20260907010000 | 20260907010825 | community_safety |
+| 20260907010100 | 20260907010839 | scope_community_safety_trigger_updates |
+| 20260907020000 | 20260907024140 | independent_football_sources |
+
+No new license purchase, signed native build, physical-device QA or Apple approval follows solely from this document. Record actual outcomes in issue #200.
