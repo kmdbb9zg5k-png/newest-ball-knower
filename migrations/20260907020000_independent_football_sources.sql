@@ -1,4 +1,8 @@
 -- Independently generated data. Existing leagues, scores and saved rosters are not rewritten.
+-- A missing historical total is unknown, not a fabricated zero.
+-- The original production table still enforces NOT NULL; relax it atomically
+-- with this verified source install, not in test setup or a separate rollout.
+alter table public.ball_knower_fantasy_rankings alter column actual_points_2025 drop not null;
 create schema if not exists ball_knower_private;
 create table ball_knower_private.independent_fantasy_rankings_snapshot (
   player_key text not null,

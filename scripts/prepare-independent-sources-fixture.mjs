@@ -16,7 +16,6 @@ create table public.bk_saved_progress(id text,roster jsonb,points numeric);
 insert into public.ball_knower_leagues values('finished','{"draftOrderMethod":"game"}','{"draftOrder":["manager"]}');
 insert into public.bk_saved_progress values('saved','[{"id":"ea-legacy","salary":12}]',125.4);
 ${rankings}
-alter table public.ball_knower_fantasy_rankings alter column actual_points_2025 drop not null;
 alter table public.ball_knower_fantasy_rankings add column adp numeric;
 ${catalog}
 ${migration}
@@ -26,6 +25,8 @@ select ball_knower_private.install_independent_snapshot(payload) from public.bk_
 do $$declare before_count integer; before_rating integer; begin
   select count(*) into before_count from public.ball_knower_fantasy_rankings;
   if before_count<>2379 then raise exception 'Missing format projections'; end if;
+  if not exists(select 1 from public.ball_knower_fantasy_rankings where actual_points_2025 is null) then raise exception 'Unknown history must remain null'; end if;
+  if exists(select 1 from pg_attribute where attrelid='public.ball_knower_fantasy_rankings'::regclass and attname='actual_points_2025' and attnotnull) then raise exception 'Production NOT NULL constraint was not migrated'; end if;
   if (select count(*) from ball_knower_private.draft_order_game_players where active)<>2477 then raise exception 'Missing active players'; end if;
   if has_function_privilege('authenticated','public.refresh_ball_knower_fantasy_rankings()','EXECUTE') then raise exception 'Public refresh must not be callable'; end if;
   if has_function_privilege('authenticated','ball_knower_private.install_independent_snapshot(jsonb)','EXECUTE') then raise exception 'Private install must not be callable'; end if;
