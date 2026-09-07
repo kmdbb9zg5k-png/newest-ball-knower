@@ -1,0 +1,138 @@
+name: Verify independent football source implementation
+on:
+  push:
+    branches: [maintenance/independent-sources-workspace]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  verify-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: instructions
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          path: app
+          ref: 9ab6adf744e61eeb192d05ba8fe06d6e92ecca25
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+        working-directory: app
+      - name: Preserve only established identity fields from the old roster
+        working-directory: app
+        run: |
+          mkdir -p data
+          node --import tsx --input-type=module - <<'JS'
+          import {PLAYERS_DATABASE} from './players.ts';
+          import fs from 'node:fs';
+          import {createHash} from 'node:crypto';
+          import assert from 'node:assert/strict';
+          const identities=PLAYERS_DATABASE.filter(p=>p.position!=='DST').map(({id,name,team,position})=>({id,name,team,position}));
+          const body=JSON.stringify(identities)+'\n';
+          assert.equal(identities.length,2329);
+          assert.equal(createHash('sha256').update(body).digest('hex'),'459a16a0436e58fc85fc21931576216fb0972552904cf4c69570770a19ea235d');
+          fs.writeFileSync('data/legacy-player-identities.json',body);
+          JS
+      - name: Apply checksummed changes to the reviewed base
+        run: |
+          python3 - <<'PY'
+          import base64,gzip,hashlib,json
+          from pathlib import Path
+          chunks=sorted(Path('instructions/.source-workspace').glob('part-*.b64'))
+          assert len(chunks)==5
+          data=base64.b64decode(''.join(p.read_text().strip() for p in chunks),validate=True)
+          assert hashlib.sha256(data).hexdigest()=='dbeeef65770031f8a061d105450cbe3897894a3d94bc70e1536d60444196b623','Transport checksum mismatch'
+          change=json.loads(gzip.decompress(data))
+          assert change['base']=='9ab6adf744e61eeb192d05ba8fe06d6e92ecca25'
+          for item in change['files']:
+              name=Path(item['path'])
+              assert not name.is_absolute() and '..' not in name.parts and '.git' not in name.parts
+              if '.github' in name.parts: assert str(name) in ['.github/workflows/hardening.yml','.github/workflows/independent-sources.yml']
+              path=Path('app')/name
+              original=path.read_text() if path.exists() else ''
+              assert hashlib.sha256(original.encode()).hexdigest()==item['oldSha256'],str(name)
+              if item.get('delete'):
+                  path.unlink()
+                  continue
+              result=original
+              for edit in reversed(item['edits']):result=result[:edit['start']]+edit['text']+result[edit['end']:]
+              assert hashlib.sha256(result.encode()).hexdigest()==item['newSha256'],str(name)
+              path.parent.mkdir(parents=True,exist_ok=True);path.write_text(result)
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          name: ball-knower-source-evidence
+          run-id: 34073398740
+          github-token: ${{ github.token }}
+          path: source-evidence
+      - uses: actions/download-artifact@v4
+        with:
+          name: ball-knower-historical-identities
+          run-id: 34073920057
+          github-token: ${{ github.token }}
+          path: historical-evidence
+      - name: Regenerate from the exact public source artifacts
+        working-directory: app
+        run: |
+          cp ../historical-evidence/roster_2024.csv ../historical-evidence/roster_2025.csv ../source-evidence/
+          cp ../historical-evidence/manifest.json ../source-evidence/historical-manifest.json
+          python3 scripts/build-independent-football-data.py ../source-evidence
+          node --import tsx scripts/generate-independent-published-data.ts
+          sha256sum --check docs/rights/published-snapshot.sha256
+      - run: npm run check:hardening
+        working-directory: app
+      - name: Check independent identity, estimate, feed and backend contracts
+        working-directory: app
+        run: |
+          node --import tsx scripts/independent-sources-check.ts
+          node --import tsx scripts/generate-independent-published-data.ts --check
+          node scripts/release-backend-preflight.mjs --self-test
+      - name: Exercise transactional source replacement against PostgreSQL
+        working-directory: app
+        env:
+          PGPASSWORD: postgres
+        run: |
+          node scripts/prepare-independent-sources-fixture.mjs
+          psql -h 127.0.0.1 -U postgres -d postgres -f /tmp/bk-independent-sources.sql
+      - run: npm run build && npm run check:root-bundle
+        working-directory: app
+      - name: Collect public photo metadata for separate rights verification
+        working-directory: app
+        run: python3 scripts/collect-photo-evidence.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: independent-source-verification
+          path: |
+            app/artifacts/
+            app/docs/rights/
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Publish only the tested implementation branch
+        working-directory: app
+        run: |
+          set -euo pipefail
+          test -z "$(git ls-remote origin refs/heads/release/independent-football-sources)"
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add --all
+          git reset -- artifacts/ 2>/dev/null || true
+          git commit -m 'Replace copied football ratings and projections with independent sourced models; fix native origin and preserve saves'
+          git push origin HEAD:refs/heads/release/independent-football-sources
