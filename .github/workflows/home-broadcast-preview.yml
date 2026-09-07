@@ -1,0 +1,30 @@
+name: Home broadcast preview regressions
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  home-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint && npm run check:home-dashboard && node --import tsx scripts/home-broadcast-check.ts
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build && npm run check:root-bundle
+      - name: Verify Home navigation, motion, headlines and narrow-screen layout
+        run: node scripts/home-broadcast-browser-check.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: home-broadcast-regression
+          path: artifacts/home-broadcast
+          if-no-files-found: ignore
+          retention-days: 3
