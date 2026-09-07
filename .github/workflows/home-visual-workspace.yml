@@ -1,4 +1,4 @@
-name: Build and inspect isolated Home visual preview
+name: Verify corrected Home visual preview
 on:
   push:
     branches: [maintenance/home-visual-workspace]
@@ -7,75 +7,65 @@ permissions:
 jobs:
   preview:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
-          path: instructions
-          persist-credentials: false
-      - uses: actions/checkout@v4
-        with:
-          path: app
-          ref: 564ec557ab6753b210679fc90eef0bb4ca26f9a8
-      - name: Apply exact reviewed local implementation
+          ref: 49ce86fecb06c7202ee974a7e6187ac0770f9884
+      - name: Apply focused Home-only typography fix and guide-aware test
         run: |
           python3 - <<'PY'
-          import base64,gzip,hashlib,json
           from pathlib import Path
-          chunks=sorted(Path('instructions/.home-preview').glob('part-*.b64'))
-          assert len(chunks)==8
-          packed=base64.b64decode(''.join(p.read_text().strip() for p in chunks),validate=True)
-          assert hashlib.sha256(packed).hexdigest()=='4b0dc299e4e467c5a39750e36d964c0e30d33cdb79ba7fdcaee77e46868fbb28'
-          patch=json.loads(gzip.decompress(packed))
-          assert patch['base']=='564ec557ab6753b210679fc90eef0bb4ca26f9a8'
-          for item in patch['files']:
-              name=Path(item['path'])
-              assert not name.is_absolute() and not set(name.parts)&{'.git','.github','..'}
-              dest=Path('app')/name
-              before=dest.read_bytes() if dest.exists() else b''
-              assert hashlib.sha256(before).hexdigest()==item['old'],str(name)
-              if 'binary' in item: after=base64.b64decode(item['binary'],validate=True)
-              else:
-                  text=before.decode('utf8')
-                  after=(text[:item['start']]+item['text']+text[item['end']:]).encode('utf8')
-              assert hashlib.sha256(after).hexdigest()==item['new'],str(name)
-              dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(after)
+          path=Path('Navbar.tsx');text=path.read_text()
+          old='aria-label="Primary navigation" className='
+          assert text.count(old)==1
+          path.write_text(text.replace(old,'aria-label="Primary navigation" data-home-broadcast={currentTab===\'home\'?\'true\':undefined} className='))
+          path=Path('homeBroadcast.css')
+          path.write_text(path.read_text()+'''\n
+          /* The base stylesheet has an unlayered button font reset. Keep Home labels
+             compact without changing any other mode's navigation. */
+          nav[data-home-broadcast="true"] button { font-family: inherit; font-size: 9px; font-weight: 800; line-height: 1.25; letter-spacing: .06em; }
+          nav[data-home-broadcast="true"] button svg { width: 21px; height: 21px; }
+          ''')
+          path=Path('scripts/home-broadcast-browser-check.mjs');text=path.read_text()
+          old="if(width<768)assert.equal(await page.getByRole('navigation',{name:'Primary navigation'}).locator('button').count(),5);"
+          assert text.count(old)==1
+          text=text.replace(old,"""if(width<768){
+             const buttons=page.getByRole('navigation',{name:'Primary navigation'}).locator('button');
+             assert.equal(await buttons.count(),5);
+             assert.ok((await buttons.evaluateAll(items=>items.map(e=>parseFloat(getComputedStyle(e).fontSize)))).every(size=>size>=8&&size<=11),'Bottom labels must remain compact and readable');
+            }""")
+          old="await page.locator('.bk-app-shell[data-tab=\"fantasy\"]').waitFor();"
+          assert text.count(old)==1
+          text=text.replace(old,old+"""
+             // Exercise the existing first-visit guide normally; do not click through it.
+             const guideClose=page.getByRole('button',{name:'Close instructions',exact:true});
+             if(await guideClose.isVisible())await guideClose.click();""")
+          path.write_text(text)
           PY
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: npm ci --no-audit --no-fund
-        working-directory: app
-      - name: Type and Home contracts
-        working-directory: app
-        run: |
-          npm run lint
-          npm run check:home-dashboard
-          node --import tsx scripts/home-broadcast-check.ts
-          npm run check:ios-release
-      - name: Production build and unchanged startup-size limit
-        working-directory: app
-        run: npm run build && npm run check:root-bundle
-      - name: Publish only the dedicated visual preview branch
-        working-directory: app
-        run: |
-          set -euo pipefail
-          test -z "$(git ls-remote origin refs/heads/design/home-stadium-preview)"
-          git diff --check
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add --all
-          git commit -m 'Build Home stadium atmosphere and live headline strip without changing navigation or league data'
-          git push origin HEAD:refs/heads/design/home-stadium-preview
+      - run: npm run lint && npm run check:home-dashboard && node --import tsx scripts/home-broadcast-check.ts && npm run check:ios-release
+      - run: npm run build && npm run check:root-bundle
       - run: npx playwright install --with-deps chromium
-        working-directory: app
-      - name: Check real mobile rendering, controls and motion with live headlines
-        working-directory: app
+      - name: Check actual mobile controls and capture live-headline screen/video
         run: node scripts/home-broadcast-browser-check.mjs --live
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: home-broadcast-preview
-          path: app/artifacts/home-broadcast
+          name: home-broadcast-corrected-preview
+          path: artifacts/home-broadcast
           if-no-files-found: ignore
           retention-days: 3
+      - name: Publish only the verified preview branch
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/design/home-stadium-preview | cut -f1)" = '49ce86fecb06c7202ee974a7e6187ac0770f9884'
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Navbar.tsx homeBroadcast.css scripts/home-broadcast-browser-check.mjs
+          git commit -m 'Fix compact Home navigation labels and verify real mobile controls'
+          git push origin HEAD:refs/heads/design/home-stadium-preview
