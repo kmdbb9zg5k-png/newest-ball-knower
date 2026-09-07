@@ -1,0 +1,81 @@
+name: Build and inspect isolated Home visual preview
+on:
+  push:
+    branches: [maintenance/home-visual-workspace]
+permissions:
+  contents: write
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: instructions
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          path: app
+          ref: 564ec557ab6753b210679fc90eef0bb4ca26f9a8
+      - name: Apply exact reviewed local implementation
+        run: |
+          python3 - <<'PY'
+          import base64,gzip,hashlib,json
+          from pathlib import Path
+          chunks=sorted(Path('instructions/.home-preview').glob('part-*.b64'))
+          assert len(chunks)==8
+          packed=base64.b64decode(''.join(p.read_text().strip() for p in chunks),validate=True)
+          assert hashlib.sha256(packed).hexdigest()=='4b0dc299e4e467c5a39750e36d964c0e30d33cdb79ba7fdcaee77e46868fbb28'
+          patch=json.loads(gzip.decompress(packed))
+          assert patch['base']=='564ec557ab6753b210679fc90eef0bb4ca26f9a8'
+          for item in patch['files']:
+              name=Path(item['path'])
+              assert not name.is_absolute() and not set(name.parts)&{'.git','.github','..'}
+              dest=Path('app')/name
+              before=dest.read_bytes() if dest.exists() else b''
+              assert hashlib.sha256(before).hexdigest()==item['old'],str(name)
+              if 'binary' in item: after=base64.b64decode(item['binary'],validate=True)
+              else:
+                  text=before.decode('utf8')
+                  after=(text[:item['start']]+item['text']+text[item['end']:]).encode('utf8')
+              assert hashlib.sha256(after).hexdigest()==item['new'],str(name)
+              dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(after)
+          PY
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+        working-directory: app
+      - name: Type and Home contracts
+        working-directory: app
+        run: |
+          npm run lint
+          npm run check:home-dashboard
+          node --import tsx scripts/home-broadcast-check.ts
+          npm run check:ios-release
+      - name: Production build and unchanged startup-size limit
+        working-directory: app
+        run: npm run build && npm run check:root-bundle
+      - name: Publish only the dedicated visual preview branch
+        working-directory: app
+        run: |
+          set -euo pipefail
+          test -z "$(git ls-remote origin refs/heads/design/home-stadium-preview)"
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add --all
+          git commit -m 'Build Home stadium atmosphere and live headline strip without changing navigation or league data'
+          git push origin HEAD:refs/heads/design/home-stadium-preview
+      - run: npx playwright install --with-deps chromium
+        working-directory: app
+      - name: Check real mobile rendering, controls and motion with live headlines
+        working-directory: app
+        run: node scripts/home-broadcast-browser-check.mjs --live
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: home-broadcast-preview
+          path: app/artifacts/home-broadcast
+          if-no-files-found: ignore
+          retention-days: 3
