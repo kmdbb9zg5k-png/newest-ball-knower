@@ -2,7 +2,7 @@ import{fetchCanonicalPredictionGames}from'../server/nflPredictionFeed.js';
 
 const sendUnavailable=(res:any)=>{
   res.setHeader('Cache-Control','private, no-store, max-age=0');
-  res.status(200).json({games:[],available:false,linesAvailable:false,warning:'NFL lines are temporarily unavailable.'});
+  res.status(200).json({games:[],available:false,linesAvailable:false,warning:'NFL matchups are temporarily unavailable.'});
 };
 
 export default async function handler(req:any,res:any){
@@ -12,8 +12,8 @@ export default async function handler(req:any,res:any){
     const requestedIds=new Set(String(req?.query?.gameIds||'').split(',').map((value:string)=>value.trim()).filter(Boolean));
     const requestedRows=rows.filter((game:any)=>requestedIds.has(game.id));
     const currentRows=rows
-      .filter((game:any)=>{const when=game.kickoffAt?Date.parse(game.kickoffAt):NaN;return!Number.isFinite(when)||when>=now-7*24*60*60*1000})
-      .sort((a:any,b:any)=>{const av=a.kickoffAt?Date.parse(a.kickoffAt):Number.MAX_SAFE_INTEGER;const bv=b.kickoffAt?Date.parse(b.kickoffAt):Number.MAX_SAFE_INTEGER;return av-bv})
+      .filter((game:any)=>{const when=game.kickoffAt?Date.parse(game.kickoffAt):game.scheduleDate?Date.parse(`${game.scheduleDate}T23:59:59Z`):NaN;return!Number.isFinite(when)||when>=now-7*24*60*60*1000})
+      .sort((a:any,b:any)=>{const av=a.kickoffAt?Date.parse(a.kickoffAt):a.scheduleDate?Date.parse(`${a.scheduleDate}T23:59:59Z`):Number.MAX_SAFE_INTEGER;const bv=b.kickoffAt?Date.parse(b.kickoffAt):b.scheduleDate?Date.parse(`${b.scheduleDate}T23:59:59Z`):Number.MAX_SAFE_INTEGER;return av-bv})
       .slice(0,50);
     const relevant=[...requestedRows,...currentRows.filter((game:any)=>!requestedIds.has(game.id))];
     const games=relevant.map((game:any)=>{
@@ -21,6 +21,10 @@ export default async function handler(req:any,res:any){
       const lineAvailable=game.homeSpread!=null||game.awaySpread!=null||game.total!=null;
       return{
         id:game.id,
+        scheduleDate:game.scheduleDate||null,
+        season:game.season||null,
+        week:game.week||null,
+        seasonType:game.seasonType||null,
         date:Number.isFinite(kickoffMs)?new Date(kickoffMs).toISOString():null,
         status:game.final?'Final':game.status||(Number.isFinite(kickoffMs)&&kickoffMs<=now?'Live':'Scheduled'),
         away:game.away,
@@ -38,7 +42,6 @@ export default async function handler(req:any,res:any){
         oddsSource:game.oddsSource||null,
       };
     });
-    if(!games.length)return sendUnavailable(res);
     const linesAvailable=games.some((game:any)=>game.lineAvailable);
     // Lines are time-sensitive. After this short TTL the server checks the
     // provider again instead of presenting an old board as current.
@@ -47,7 +50,7 @@ export default async function handler(req:any,res:any){
       games,
       available:true,
       linesAvailable,
-      warning:linesAvailable?null:'NFL schedule is available, but spread and total lines are not posted right now.',
+      warning:!games.length||linesAvailable?null:'NFL schedule is available, but spread and total lines are not posted right now.',
       fetchedAt:new Date().toISOString(),
     });
   }catch(error:any){

@@ -33,8 +33,9 @@ run('kickoff',()=>{
 
 run('ui',()=>{
   const sportsbook=fs.readFileSync('SportsbookHub.tsx','utf8');
-  assert.match(sportsbook,/NFL lines are temporarily unavailable\. Use Refresh to try again\./);
+  assert.match(sportsbook,/NFL matchups are temporarily unavailable\. Try again\./);
   assert.match(sportsbook,/data\?\.available===false/);
+  assert.match(sportsbook,/withPicksDeadline/,'matchup loading must be bounded independently of native abort support');
   assert.match(sportsbook,/data\?\.linesAvailable===false/,'schedule-only provider fallback must be identified to users');
   assert.match(sportsbook,/setGames\(\[\]\)/,'failed refresh must clear a previously valid board');
   assert.doesNotMatch(sportsbook,/setError\([^\n]*err\?\.message/,'raw native/provider errors must not be rendered');

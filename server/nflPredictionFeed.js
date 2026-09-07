@@ -10,11 +10,11 @@ const valueList=value=>Array.isArray(value)?value:(value&&typeof value==='object
 const statusFinal=value=>/final|complete|closed|game over/i.test(String(value||''));
 const tankDateKey=value=>{const day=isoDate(value);return day?day.replace(/-/g,''):null};
 
-const normalizeNflDataRows=rows=>rows.flatMap(g=>{
+export const normalizeNflDataRows=rows=>rows.flatMap(g=>{
   const stableId=String(g?.game_id||g?.id||'').trim();if(!stableId)return[];
   const awayAbbr=abbr(g?.away_team||g?.away);const homeAbbr=abbr(g?.home_team||g?.home);if(!awayAbbr||!homeAbbr||awayAbbr===homeAbbr)return[];
   const spread=numberOrNull(g?.spread_line??g?.spread);const awayScore=numberOrNull(g?.away_score);const homeScore=numberOrNull(g?.home_score);const date=g?.gameday||g?.game_date||g?.date||null;const time=g?.gametime||g?.game_time||null;const kickoffAt=kickoffIso(date,time);const status=String(g?.game_status??g?.status??g?.game_state??'').trim();const hasScores=awayScore!==null&&homeScore!==null;const providerFinal=/final|complete|closed/i.test(status);const total=numberOrNull(g?.total_line??g?.over_under??g?.total);
-  return[{id:stableId,kickoffAt,away:TEAM_NAMES[awayAbbr]||awayAbbr,home:TEAM_NAMES[homeAbbr]||homeAbbr,awayAbbr,homeAbbr,awaySpread:spread===null?null:spread>0?spread:spread<0?-Math.abs(spread):0,homeSpread:spread===null?null:spread>0?-spread:spread<0?Math.abs(spread):0,total,awayScore,homeScore,final:hasScores&&providerFinal,status,oddsSource:spread!==null||total!==null?'NFLData':null}];
+  return[{id:stableId,kickoffAt,scheduleDate:isoDate(date),season:numberOrNull(g?.season),week:numberOrNull(g?.week),seasonType:String(g?.game_type||'REG').toUpperCase(),away:TEAM_NAMES[awayAbbr]||awayAbbr,home:TEAM_NAMES[homeAbbr]||homeAbbr,awayAbbr,homeAbbr,awaySpread:spread===null?null:spread>0?spread:spread<0?-Math.abs(spread):0,homeSpread:spread===null?null:spread>0?-spread:spread<0?Math.abs(spread):0,total,awayScore,homeScore,final:hasScores&&providerFinal,status,oddsSource:spread!==null||total!==null?'NFLData':null}];
 });
 
 const tankGet=async(path,params={})=>{
@@ -68,10 +68,43 @@ const fetchTank01FallbackGames=async()=>{
     const directOdds=oddsById[id];
     const matchedOdds=directOdds||Object.values(oddsById).find(value=>abbr(value?.awayTeam)===awayAbbr&&abbr(value?.homeTeam)===homeAbbr&&(!dateKey||tankDateKey(value?.gameDate)===dateKey));
     const line=normalizeTank01Odds(matchedOdds);
-    return[{id,kickoffAt:tankKickoff(g),away:TEAM_NAMES[awayAbbr]||awayAbbr,home:TEAM_NAMES[homeAbbr]||homeAbbr,awayAbbr,homeAbbr,awaySpread:line.awaySpread,homeSpread:line.homeSpread,total:line.total,awayScore,homeScore,final:hasScores&&statusFinal(status),status:`${status}${status?' · ':''}${line.source?'Tank01 lines':'Tank01 schedule'}`,oddsSource:line.source?`Tank01 ${line.source}`:null}];
+    return[{id,kickoffAt:tankKickoff(g),scheduleDate:isoDate(g?.gameDate??g?.gameday??g?.date),season,week,seasonType:seasonType.toUpperCase(),away:TEAM_NAMES[awayAbbr]||awayAbbr,home:TEAM_NAMES[homeAbbr]||homeAbbr,awayAbbr,homeAbbr,awaySpread:line.awaySpread,homeSpread:line.homeSpread,total:line.total,awayScore,homeScore,final:hasScores&&statusFinal(status),status:`${status}${status?' · ':''}${line.source?'Tank01 lines':'Tank01 schedule'}`,oddsSource:line.source?`Tank01 ${line.source}`:null}];
   });
   if(!games.length)throw new Error('Tank01 fallback returned no games');return games;
 };
+
+// Schedule enrichment never changes canonical IDs, lines, scores or final status.
+// Share in-flight lookups and a five-minute schedule-only cache across warm requests.
+const scheduleCache=new Map();
+async function tankWeekSchedule(season,week,seasonType){
+  const key=`${season}:${seasonType}:${week}`;const now=Date.now();
+  const cached=scheduleCache.get(key);if(cached&&cached.expires>now)return cached.value;
+  for(const [id,entry]of scheduleCache)if(entry.expires<=now)scheduleCache.delete(id);
+  const entry={expires:now+300_000,value:null};
+  entry.value=tankGet('/getNFLGamesForWeek',{season,week,seasonType:seasonType.toLowerCase()})
+    .then(valueList).catch(error=>{entry.expires=Date.now()+30_000;console.warn('picks-kickoff-enrichment-degraded',String(error?.message||error));return[]});
+  scheduleCache.set(key,entry);return entry.value;
+}
+export function matchPredictionKickoff(game,candidates){
+  const matches=candidates.filter(candidate=>abbr(candidate?.away||candidate?.awayTeam)===game.awayAbbr&&abbr(candidate?.home||candidate?.homeTeam)===game.homeAbbr&&isoDate(candidate?.gameDate??candidate?.gameday??candidate?.date)===game.scheduleDate);
+  if(matches.length!==1)return null;
+  const kickoff=tankKickoff(matches[0]);if(!kickoff)return null;
+  // Reject provider conflicts rather than guessing an NFL kickoff or remapping a pick.
+  const localDay=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(kickoff));
+  return localDay===game.scheduleDate?kickoff:null;
+}
+async function enrichPredictionKickoffs(games){
+  if(!(process.env.TANK01_API_KEY||process.env.RAPIDAPI_KEY))return games;
+  const now=Date.now();const near=games.filter(game=>!game.kickoffAt&&game.scheduleDate&&game.season&&game.week&&Date.parse(game.scheduleDate)>=now-7*86400_000&&Date.parse(game.scheduleDate)<=now+14*86400_000).sort((a,b)=>a.scheduleDate.localeCompare(b.scheduleDate));
+  const groups=[...new Map(near.map(game=>[`${game.season}:${game.seasonType}:${game.week}`,game])).values()].slice(0,2);
+  const schedules=new Map(await Promise.all(groups.map(async game=>[`${game.season}:${game.seasonType}:${game.week}`,await tankWeekSchedule(game.season,game.week,game.seasonType)])));
+  return games.map(game=>{
+    if(game.kickoffAt)return game;
+    const candidates=schedules.get(`${game.season}:${game.seasonType}:${game.week}`)||[];
+    const kickoffAt=matchPredictionKickoff(game,candidates);
+    return kickoffAt?{...game,kickoffAt}:game;
+  });
+}
 
 export async function fetchCanonicalPredictionGames(){
   const attempts=[5000,3000];let lastError;
@@ -79,8 +112,8 @@ export async function fetchCanonicalPredictionGames(){
     try{
       const response=await fetch('https://api.nfldata.org/v1/games?season=2026&limit=400',{headers:{Accept:'application/json','User-Agent':'Mozilla/5.0 (compatible; BallKnower/1.0)'},signal:AbortSignal.timeout(timeoutMs)});
       if(!response.ok)throw new Error(`NFL feed returned ${response.status}`);
-      const payload=await response.json();const rows=Array.isArray(payload?.data)?payload.data:Array.isArray(payload)?payload:[];if(!rows.length)throw new Error('NFL feed returned no games');
-      const games=normalizeNflDataRows(rows);if(!games.length)throw new Error('NFL feed returned no stable game IDs');return games;
+      const payload=await response.json();const rows=Array.isArray(payload?.data)?payload.data:Array.isArray(payload)?payload:null;if(!rows)throw new Error('Invalid NFL schedule response');if(!rows.length)return[];
+      const games=normalizeNflDataRows(rows);if(!games.length)throw new Error('NFL feed returned no stable game IDs');return await enrichPredictionKickoffs(games);
     }catch(error){lastError=error;}
   }
   try{return await fetchTank01FallbackGames()}catch(fallbackError){console.warn('picks-tank01-fallback-degraded',String(fallbackError?.message||fallbackError));}

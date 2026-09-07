@@ -1,99 +1,189 @@
-import {BroadcastStage,BroadcastMasthead,BroadcastMotionControl} from './BroadcastScene';
-import React,{useEffect,useMemo,useState}from'react';
-import{Check,RefreshCw,Search,Target,X}from'lucide-react';
-import{ModeGuide}from'./ModeGuide';
-import{gradePick,isPicksGameLocked,normalizeSavedPick,normalizeSpread,PicksGame,SavedPick,spreadLabel}from'./picksEngine';
-import{deleteVerifiedPredictionPick,gradeVerifiedPredictionPicks,loadVerifiedPredictionPicks,saveVerifiedPredictionPick,VerifiedPredictionPick}from'./modeProgressionCloud';
+import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
+import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import {Check,RefreshCw,Search,Target,X} from 'lucide-react';
+import {ModeGuide} from './ModeGuide';
+import {gradePick,isPicksGameLocked,normalizeSavedPick,normalizeSpread,SavedPick,spreadLabel} from './picksEngine';
+import {deleteVerifiedPredictionPick,gradeVerifiedPredictionPicks,loadVerifiedPredictionPicks,saveVerifiedPredictionPick,VerifiedPredictionPick} from './modeProgressionCloud';
+import {BoardGame,gamePhase,hasKickoff,initialSlate,parsePicksBoard,PicksFilter,scheduleLabel,slateKey,slateLabel,visiblePicksGames} from './picksBoard';
+import {withPicksDeadline} from './picksRequest';
+import './picksScreen.css';
 
-type Game=PicksGame;
+type Game=BoardGame;
 type Pick=SavedPick;
-
 const STORAGE_KEY='ball-knower-weekly-picks-v3';
 const LEGACY_STORAGE_KEY='ball-knower-weekly-picks-v2';
-const FEED_ERROR='NFL lines are temporarily unavailable. Use Refresh to try again.';
-const LINES_PENDING='NFL schedule is available, but spread and total lines are not posted right now.';
-const PICK_SAVE_ERROR='That pick could not be saved right now. Try again.';
+const FEED_ERROR='NFL matchups are temporarily unavailable. Try again.';
+const LINES_PENDING='Matchups are available. Spread and total lines have not been posted yet.';
+const PICK_SAVE_ERROR='We could not confirm that change. Refresh to check your saved picks before trying again.';
 const mergeVerifiedPicks=(local:Pick[],verified:VerifiedPredictionPick[]):Pick[]=>{
   const verifiedGames=new Set(verified.map(pick=>pick.gameId));
   const historicalLocal=local.filter(pick=>Boolean(pick.result)&&!verifiedGames.has(pick.gameId));
-  return[...verified.map(pick=>normalizeSavedPick(pick)).filter((pick):pick is Pick=>Boolean(pick)),...historicalLocal];
-};
-const kickoffLabel=(value?:string)=>{
-  if(!value)return'Date TBD';
-  const time=Date.parse(value);
-  if(!Number.isFinite(time))return'Date TBD';
-  return new Date(time).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+  return [...verified.map(pick=>normalizeSavedPick(pick)).filter((pick):pick is Pick=>Boolean(pick)),...historicalLocal];
 };
 
 export const SportsbookHub:React.FC=()=>{
-  const[games,setGames]=useState<Game[]>([]);
-  const[loading,setLoading]=useState(true);
-  const[error,setError]=useState('');
-  const[notice,setNotice]=useState('');
-  const[query,setQuery]=useState('');
-  const[updated,setUpdated]=useState<Date|null>(null);
-  const[busyGame,setBusyGame]=useState('');
-  const[picks,setPicks]=useState<Pick[]>(()=>{try{const parsed=JSON.parse(localStorage.getItem(STORAGE_KEY)||localStorage.getItem(LEGACY_STORAGE_KEY)||'[]');return Array.isArray(parsed)?parsed.map(normalizeSavedPick).filter((pick):pick is Pick=>Boolean(pick)):[]}catch{return[]}});
-
-  const load=async()=>{
-    setLoading(true);setError('');setNotice('');
+  const [games,setGames]=useState<Game[]>([]);
+  const [loading,setLoading]=useState(true);
+  const [feedError,setFeedError]=useState('');
+  const [error,setError]=useState('');
+  const [notice,setNotice]=useState('');
+  const [syncNotice,setSyncNotice]=useState('');
+  const [query,setQuery]=useState('');
+  const [slate,setSlate]=useState('');
+  const [filter,setFilter]=useState<PicksFilter>('all');
+  const [updated,setUpdated]=useState<Date|null>(null);
+  const [busyGame,setBusyGame]=useState('');
+  const [now,setNow]=useState(Date.now);
+  const [picks,setPicks]=useState<Pick[]>(()=>{
     try{
-      let activePicks=picks;
-      try{
-        const verified=await gradeVerifiedPredictionPicks();activePicks=mergeVerifiedPicks(activePicks,verified);setPicks(activePicks);
-      }catch(syncError){
-        console.warn('Verified Picks sync unavailable',syncError);
-        try{const verified=await loadVerifiedPredictionPicks();activePicks=mergeVerifiedPicks(activePicks,verified);setPicks(activePicks)}catch{}
-      }
-      const ungradedIds=[...new Set(activePicks.filter(pick=>!pick.result).map(pick=>pick.gameId))];
+      const parsed=JSON.parse(localStorage.getItem(STORAGE_KEY)||localStorage.getItem(LEGACY_STORAGE_KEY)||'[]');
+      return Array.isArray(parsed)?parsed.map(normalizeSavedPick).filter((pick):pick is Pick=>Boolean(pick)):[];
+    }catch{return []}
+  });
+  const picksRef=useRef(picks);
+  const mounted=useRef(false);
+  const feedController=useRef<AbortController|null>(null);
+  const revision=useRef(0);
+  const syncRun=useRef(0);
+  const syncing=useRef(false);
+  const saving=useRef(false);
+  const commitPicks=useCallback((update:(current:Pick[])=>Pick[])=>{
+    setPicks(current=>{const next=update(current);picksRef.current=next;return next});
+  },[]);
+
+  // Public matchups must never wait for authentication, grading or reward claims.
+  const load=useCallback(async()=>{
+    feedController.current?.abort();
+    const controller=new AbortController();feedController.current=controller;
+    setLoading(true);setFeedError('');setNotice('');
+    try{
+      const ungradedIds=[...new Set(picksRef.current.filter(pick=>!pick.result).map(pick=>pick.gameId))];
       const params=ungradedIds.length?`?gameIds=${encodeURIComponent(ungradedIds.join(','))}`:'';
-      const response=await fetch(`/api/nfl-sportsbook${params}`,{cache:'no-store'});
-      if(!response.ok)throw new Error('feed');
-      const data=await response.json();
+      const data=await withPicksDeadline(async signal=>{
+        const response=await fetch(`/api/nfl-sportsbook${params}`,{cache:'no-store',signal});
+        if(!response.ok)throw new Error('feed');
+        return response.json();
+      },20_000,controller.signal);
       if(data?.available===false)throw new Error('feed');
-      const next=Array.isArray(data?.games)?data.games:[];
-      if(!next.length)throw new Error('feed');
-      setGames(next);setUpdated(new Date());
-      if(data?.linesAvailable===false)setNotice(typeof data?.warning==='string'&&data.warning.trim()?data.warning:LINES_PENDING);
+      const next=parsePicksBoard(data);
+      if(!mounted.current||controller.signal.aborted)return;
+      setGames(next);setUpdated(new Date());setNow(Date.now());
+      setSlate(current=>next.some(game=>slateKey(game)===current)?current:initialSlate(next));
+      if(next.length&&data?.linesAvailable===false)setNotice(LINES_PENDING);
     }catch(err){
+      if(!mounted.current||controller.signal.aborted)return;
       console.warn('Picks feed unavailable',err);
-      setGames([]);setUpdated(null);setNotice('');setError(FEED_ERROR);
-    }finally{setLoading(false)}
-  };
-  useEffect(()=>{void load()},[]);
-  useEffect(()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(picks))}catch{}},[picks]);
-  useEffect(()=>{if(!games.length)return;setPicks(current=>current.map(pick=>{const game=games.find(item=>item.id===pick.gameId);return game?gradePick(pick,game):pick}))},[games]);
+      // Never leave stale lines selectable after an unsuccessful refresh.
+      setGames([]);setUpdated(null);setNotice('');setFeedError(FEED_ERROR);
+    }finally{
+      if(mounted.current&&feedController.current===controller)setLoading(false);
+    }
+  },[]);
 
-  const visible=useMemo(()=>games.filter(game=>`${game.away} ${game.home}`.toLowerCase().includes(query.toLowerCase())),[games,query]);
-  const choose=async(game:Game,pick:Omit<Pick,'lockedAt'>)=>{
-    if(isPicksGameLocked(game)||busyGame===game.id)return;setBusyGame(game.id);setError('');
+  const syncPicks=useCallback(async()=>{
+    if(syncing.current||saving.current)return;
+    syncing.current=true;const run=++syncRun.current;const version=revision.current;
     try{
-      const current=picks.find(item=>item.gameId===game.id);
+      let verified:VerifiedPredictionPick[];
+      try{verified=await gradeVerifiedPredictionPicks()}
+      catch{verified=await loadVerifiedPredictionPicks()}
+      // A late initial sync must not overwrite a newer save/delete response.
+      if(mounted.current&&run===syncRun.current&&version===revision.current){
+        commitPicks(current=>mergeVerifiedPicks(current,verified));setSyncNotice('');
+      }
+    }catch(err){
+      if(mounted.current&&run===syncRun.current&&version===revision.current){
+        console.warn('Verified Picks sync unavailable',err);
+        setSyncNotice('Saved picks have not synced. Refresh to check your latest record.');
+      }
+    }finally{if(run===syncRun.current)syncing.current=false}
+  },[commitPicks]);
+  const refresh=()=>{void load();void syncPicks()};
+  useEffect(()=>{
+    mounted.current=true;void load();void syncPicks();
+    return()=>{mounted.current=false;revision.current++;syncRun.current++;syncing.current=false;feedController.current?.abort()};
+  },[load,syncPicks]);
+  useEffect(()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(picks))}catch{}},[picks]);
+  useEffect(()=>{
+    if(!games.length)return;
+    commitPicks(current=>current.map(pick=>{const game=games.find(item=>item.id===pick.gameId);return game?gradePick(pick,game):pick}));
+    const tick=()=>setNow(Date.now());const timer=setInterval(tick,1000);
+    document.addEventListener('visibilitychange',tick);
+    return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',tick)};
+  },[games,commitPicks]);
+
+  const slates=useMemo(()=>[...new Map([...games].sort((a,b)=>(a.season||0)-(b.season||0)||(a.week||0)-(b.week||0)).map(game=>[slateKey(game),game])).values()],[games]);
+  const visible=useMemo(()=>visiblePicksGames(games,slate,filter,query,now),[games,slate,filter,query,now]);
+  const slateGames=useMemo(()=>games.filter(game=>slateKey(game)===slate),[games,slate]);
+  const dates=[...new Set(slateGames.map(game=>game.scheduleDate||game.date?.slice(0,10)).filter(Boolean))].sort();
+  const dayLabel=(day:string)=>new Date(`${day}T12:00:00Z`).toLocaleDateString([],{month:'short',day:'numeric',timeZone:'UTC'});
+  const dateRange=dates.length?`${dayLabel(dates[0]!)}${dates.length>1?` – ${dayLabel(dates.at(-1)!)}`:''}`:'NFL schedule';
+  const choose=async(game:Game,pick:Omit<Pick,'lockedAt'>)=>{
+    if(loading||feedError||!hasKickoff(game)||gamePhase(game)!=='upcoming'||isPicksGameLocked(game)||saving.current)return;
+    saving.current=true;revision.current++;setBusyGame(game.id);setError('');
+    try{
+      const current=picksRef.current.find(item=>item.gameId===game.id);
       const verified=current?.id===pick.id
         ?await deleteVerifiedPredictionPick(game.id)
         :await saveVerifiedPredictionPick({id:pick.id,gameId:pick.gameId,label:pick.label,market:pick.market,selection:pick.selection,lockedLine:pick.lockedLine});
-      setPicks(existing=>mergeVerifiedPicks(existing,verified));
-    }catch(err){console.warn('Picks save unavailable',err);setError(PICK_SAVE_ERROR)}finally{setBusyGame('')}
+      if(mounted.current){commitPicks(existing=>mergeVerifiedPicks(existing,verified));setSyncNotice('')}
+    }catch(err){if(mounted.current){console.warn('Picks save unavailable',err);setError(PICK_SAVE_ERROR)}}
+    finally{saving.current=false;if(mounted.current)setBusyGame('')}
   };
   const selected=(id:string)=>picks.some(item=>item.id===id);
 
-  return <BroadcastStage scene="studio" page="picks" className="min-h-[calc(100dvh-7rem)] px-3 py-4 sm:px-6 sm:py-6"><div className="mx-auto max-w-5xl">
-    <BroadcastMasthead eyebrow="Make the call" title="Daily Picks" subtitle="One outcome per NFL game. No wagering. Just football knowledge." compact actions={<><ModeGuide storageKey="bk-guide-picks-v2" title="Picks" summary="Choose one football outcome per game. Your saved line is verified and locked on the server so it can be graded later." steps={["Choose a spread or an Over/Under total.","Selecting another outcome for the same game replaces the old one before kickoff.","Refresh before locking a pick because posted lines can move."]}/><button onClick={()=>void load()} className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Refresh picks"><RefreshCw className={`h-4 w-4 ${loading?'animate-spin':''}`}/></button></>}/>
+  return <BroadcastStage scene="studio" page="picks" className="bk-picks-screen min-h-[calc(100dvh-7rem)] px-3 py-4 sm:px-6 sm:py-6"><div className="mx-auto max-w-5xl">
+    <BroadcastMasthead eyebrow="Make the call" title="Daily Picks" subtitle="One pick per game. Football knowledge. No wagering." compact showMotionControl={false} actions={<>
+      <ModeGuide storageKey="bk-guide-picks-v2" title="Picks" summary="Choose one football outcome per game. Your saved line is verified and locked on the server so it can be graded later." steps={["Choose either team's spread, or an Over/Under total.","Change or remove your selection before the confirmed kickoff.","Games without confirmed kickoff times or posted lines remain visible, but cannot be picked yet."]}/>
+      <button type="button" onClick={refresh} disabled={loading} className="bk-picks-icon" aria-label="Refresh picks"><RefreshCw size={17} className={loading?'bk-picks-spin':''}/></button>
+    </>}/>
 
+    <section className="bk-picks-summary" aria-label="Your picks and record">
+      <div className="bk-picks-summary-heading"><strong><Target size={16}/>Your Picks</strong><span>{picks.length} saved · {picks.filter(pick=>pick.result==='win').length}W–{picks.filter(pick=>pick.result==='loss').length}L{picks.some(pick=>pick.result==='push')?` · ${picks.filter(pick=>pick.result==='push').length} pushes`:''}</span></div>
+      {picks.length?<div className="bk-picks-saved">{picks.map(pick=>{
+        const game=games.find(item=>item.id===pick.gameId);
+        const locked=Boolean(pick.result)||!game||!hasKickoff(game)||gamePhase(game,now)!=='upcoming'||isPicksGameLocked(game,now);
+        return <button type="button" key={pick.id} disabled={locked||Boolean(busyGame)||loading} onClick={()=>game&&void choose(game,pick)} aria-label={`${pick.label}${locked?' · Locked':' · Remove pick'}`}>
+          <Check size={14}/><span>{pick.label}</span>{pick.result?<b data-result={pick.result}>{pick.result.toUpperCase()}</b>:locked?<small>LOCKED</small>:<X size={13}/>}
+        </button>;
+      })}</div>:<p>Choose an outcome below to save your first pick.</p>}
+      {syncNotice&&<p className="bk-picks-sync" role="status">{syncNotice}</p>}
+    </section>
 
-    <section className="mt-3 rounded-2xl border border-[var(--bk-team-accent)]/25 bg-[#0c0f13]/95 p-3 shadow-xl"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-[var(--bk-team-accent)]"><Target className="h-4 w-4"/>Your Picks</div><div className="text-[10px] font-bold text-zinc-500">{picks.length} saved · {picks.filter(pick=>pick.result==='win').length}-{picks.filter(pick=>pick.result==='loss').length}{picks.some(pick=>pick.result==='push')?`-${picks.filter(pick=>pick.result==='push').length} pushes`:''}</div></div>{picks.length?<div className="mt-2 flex gap-2 overflow-x-auto pb-1 no-scrollbar">{picks.map(pick=>{const game=games.find(item=>item.id===pick.gameId);const locked=!game||isPicksGameLocked(game);return <button key={pick.id} disabled={locked||busyGame===pick.gameId} onClick={()=>game&&void choose(game,pick)} className="flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-[var(--bk-team-accent)]/25 bg-[var(--bk-team-accent)]/10 px-3 py-2 text-[11px] font-black text-white disabled:cursor-default"><Check className="h-3.5 w-3.5 text-[var(--bk-team-accent)]"/><span>{pick.label}</span>{pick.result?<span className={pick.result==='win'?'text-emerald-300':pick.result==='loss'?'text-red-300':'text-amber-200'}>{pick.result.toUpperCase()}</span>:locked?<span className="text-zinc-500">LOCKED</span>:<X className="h-3 w-3 text-zinc-500"/>}</button>})}</div>:<div className="mt-2 text-xs font-semibold text-zinc-600">Tap an outcome below to make a pick.</div>}</section>
+    <section className="bk-picks-controls" aria-label="Matchup navigation">
+      <div className="bk-picks-slate-meta"><strong>{dateRange}</strong><span>{loading?'Updating…':updated?`Updated ${updated.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}`:'Not updated'}</span></div>
+      {slates.length>0&&<div className="bk-picks-weeks" role="group" aria-label="NFL week">{slates.map(game=><button type="button" key={slateKey(game)} aria-pressed={slate===slateKey(game)} onClick={()=>{setSlate(slateKey(game));setFilter('all')}}>{slateLabel(game)}</button>)}</div>}
+      <div className="bk-picks-filters" role="group" aria-label="Game status">{(['all','upcoming','live','final'] as PicksFilter[]).map(value=><button type="button" key={value} onClick={()=>setFilter(value)} aria-pressed={filter===value}>{value==='all'?'All games':value==='final'?'Completed':value==='live'?'Live':'Upcoming'}</button>)}</div>
+      <div className="bk-picks-toolbar"><label className="bk-picks-search"><Search size={17}/><input aria-label="Search teams" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search team" type="search"/></label>{query&&<button type="button" className="bk-picks-icon" onClick={()=>setQuery('')} aria-label="Clear team search"><X size={17}/></button>}</div>
+    </section>
 
-    <div className="bk-picks-toolbar sticky top-[112px] z-20 mt-3 flex gap-2 border-y border-white/10 bg-black/90 py-2 backdrop-blur sm:top-[112px]"><label className="flex min-h-10 flex-1 items-center gap-2 rounded-xl border border-white/10 bg-[#111] px-3"><Search className="h-4 w-4 text-zinc-600"/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search team" className="w-full bg-transparent text-sm outline-none"/></label><div className="hidden rounded-xl border border-white/10 bg-[#111] px-3 py-2 text-[9px] font-bold text-zinc-600 sm:block">{updated?`Updated ${updated.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}`:'Not loaded'}</div></div>
-
-    {error&&<div role="alert" className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs font-bold text-red-300">{error}</div>}
-    {notice&&<div role="status" className="mt-3 rounded-xl border border-amber-400/25 bg-amber-400/10 p-3 text-xs font-bold text-amber-100">{notice}</div>}
-
-    <section className="mt-2 overflow-hidden rounded-2xl border border-white/10 bg-[#0d1014]">{loading&&!games.length?<div className="p-6 text-center text-sm text-zinc-600">Loading NFL lines…</div>:error&&!games.length?<div className="p-6 text-center"><div className="text-sm font-black text-zinc-300">NFL lines are temporarily unavailable.</div><div className="mt-2 text-xs font-semibold text-zinc-600">Use Refresh to try again. An outage is never shown as a valid empty board.</div></div>:!visible.length?<div className="p-6 text-center text-sm text-zinc-600">No NFL games match that search.</div>:visible.map(game=>{
-      const normalized=normalizeSpread(game.spread);const homeLine=game.homeSpread??normalized.home;const awayLine=game.awaySpread??normalized.away;const totalLine=game.overUnder;const locked=isPicksGameLocked(game);
-      const homeLabel=homeLine==null?'Spread —':spreadLabel(game.home,homeLine);const awayLabel=awayLine==null?'Spread —':spreadLabel(game.away,awayLine);
-      const homeSpreadId=`${game.id}-spread-home-${homeLine}`;const awaySpreadId=`${game.id}-spread-away-${awayLine}`;
-      const overId=`${game.id}-total-over-${totalLine}`;const underId=`${game.id}-total-under-${totalLine}`;
-      return <article key={game.id} className="border-b border-white/5 px-3 py-2.5 last:border-0"><div className="flex min-w-0 items-center justify-between gap-3"><div className="min-w-0"><div className="truncate text-[13px] font-black sm:text-sm">{game.away} <span className="text-zinc-600">@</span> {game.home}</div><div className="mt-0.5 truncate text-[8px] font-bold uppercase tracking-wide text-zinc-600">{kickoffLabel(game.date)} · {game.status||'Scheduled'}</div></div></div>{locked&&<div className="mt-1 text-[9px] font-black text-amber-200">LOCKED AT KICKOFF{game.status==='Final'&&Number.isFinite(game.awayScore)&&Number.isFinite(game.homeScore)?` · FINAL ${game.awayScore}-${game.homeScore}`:''}</div>}<div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4"><button disabled={locked||awayLine==null||busyGame===game.id} onClick={()=>awayLine!=null&&void choose(game,{id:awaySpreadId,gameId:game.id,label:awayLabel,market:'spread',selection:game.away,lockedLine:awayLine})} className={`min-h-11 rounded-xl border px-2 text-[10px] font-black ${selected(awaySpreadId)?'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)] text-black':'border-white/10 bg-black/25 text-zinc-200 disabled:opacity-35'}`}>{awayLabel}</button><button disabled={locked||homeLine==null||busyGame===game.id} onClick={()=>homeLine!=null&&void choose(game,{id:homeSpreadId,gameId:game.id,label:homeLabel,market:'spread',selection:game.home,lockedLine:homeLine})} className={`min-h-11 rounded-xl border px-2 text-[10px] font-black ${selected(homeSpreadId)?'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)] text-black':'border-white/10 bg-black/25 text-zinc-200 disabled:opacity-35'}`}>{homeLabel}</button><button disabled={locked||totalLine==null||busyGame===game.id} onClick={()=>totalLine!=null&&void choose(game,{id:overId,gameId:game.id,label:`Over ${totalLine}`,market:'total',selection:'over',lockedLine:totalLine})} className={`min-h-11 rounded-xl border px-2 text-[10px] font-black ${selected(overId)?'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)] text-black':'border-white/10 bg-black/25 text-zinc-200 disabled:opacity-35'}`}>O {totalLine??'—'}</button><button disabled={locked||totalLine==null||busyGame===game.id} onClick={()=>totalLine!=null&&void choose(game,{id:underId,gameId:game.id,label:`Under ${totalLine}`,market:'total',selection:'under',lockedLine:totalLine})} className={`min-h-11 rounded-xl border px-2 text-[10px] font-black ${selected(underId)?'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)] text-black':'border-white/10 bg-black/25 text-zinc-200 disabled:opacity-35'}`}>U {totalLine??'—'}</button></div></article>})}</section>
-    <p className="mt-3 text-center text-[9px] font-semibold text-zinc-700">Lines are informational and can change. Ball Knower does not accept or facilitate wagers.</p>
+    {error&&<div role="alert" className="bk-picks-alert">{error}</div>}
+    {notice&&<div role="status" className="bk-picks-notice">{notice}</div>}
+    <section className="bk-picks-board" aria-label="NFL matchups" aria-busy={loading}>
+      {loading&&!games.length?<div className="bk-picks-empty" role="status"><RefreshCw size={18} className="bk-picks-spin"/><strong>Loading matchups…</strong><span>Getting the latest NFL schedule.</span></div>
+      :feedError&&!games.length?<div className="bk-picks-empty" role="alert"><strong>{feedError}</strong><span>Your saved picks have not been removed.</span><button type="button" onClick={refresh}>Retry matchups</button></div>
+      :!games.length?<div className="bk-picks-empty"><strong>No NFL matchups scheduled right now.</strong><span>Check back when the next slate is available.</span><button type="button" onClick={refresh}>Refresh schedule</button></div>
+      :!visible.length?<div className="bk-picks-empty"><strong>{query.trim()?'No teams match your search.':`No ${filter==='final'?'completed':filter==='all'?'matching':filter} games in this week.`}</strong><button type="button" onClick={()=>{setQuery('');setFilter('all')}}>Show all games this week</button></div>
+      :visible.map(game=>{
+        const normalized=normalizeSpread(game.spread);const homeLine=game.homeSpread??normalized.home;const awayLine=game.awaySpread??normalized.away;const totalLine=game.overUnder;
+        const phase=gamePhase(game,now);const locked=phase!=='upcoming'||isPicksGameLocked(game,now);const pendingTime=!hasKickoff(game);
+        const homeLabel=homeLine==null?'Spread pending':spreadLabel(game.home,homeLine);const awayLabel=awayLine==null?'Spread pending':spreadLabel(game.away,awayLine);
+        const choices=[
+          {id:`${game.id}-spread-away-${awayLine}`,label:awayLabel,market:'spread' as const,selection:game.away,line:awayLine},
+          {id:`${game.id}-spread-home-${homeLine}`,label:homeLabel,market:'spread' as const,selection:game.home,line:homeLine},
+          {id:`${game.id}-total-over-${totalLine}`,label:`Over ${totalLine??'—'}`,market:'total' as const,selection:'over',line:totalLine},
+          {id:`${game.id}-total-under-${totalLine}`,label:`Under ${totalLine??'—'}`,market:'total' as const,selection:'under',line:totalLine},
+        ];
+        return <article key={game.id} className="bk-picks-game" data-game-id={game.id}>
+          <div className="bk-picks-game-heading"><h2>{game.away} <span>@</span> {game.home}</h2><span className="bk-picks-phase" data-phase={phase}>{phase==='final'?'Final':phase==='live'?'Live':'Upcoming'}</span></div>
+          <p className="bk-picks-kickoff">{scheduleLabel(game)}</p>
+          {locked&&<p className="bk-picks-lock">LOCKED AT KICKOFF{phase==='final'&&Number.isFinite(game.awayScore)&&Number.isFinite(game.homeScore)?` · FINAL ${game.awayScore}–${game.homeScore}`:''}</p>}
+          {!locked&&pendingTime&&<p className="bk-picks-lock">Picks open when kickoff time is confirmed.</p>}
+          <div className="bk-picks-choices">{choices.map(choice=><button type="button" key={choice.id} disabled={locked||pendingTime||choice.line==null||Boolean(busyGame)||loading} aria-pressed={selected(choice.id)} onClick={()=>choice.line!=null&&void choose(game,{id:choice.id,gameId:game.id,label:choice.label,market:choice.market,selection:choice.selection,lockedLine:choice.line})}>{choice.label}</button>)}</div>
+          {busyGame===game.id&&<p role="status" className="bk-picks-kickoff">Saving your pick…</p>}
+        </article>;
+      })}
+    </section>
+    <p className="bk-picks-disclaimer">Lines are informational and can change. Ball Knower does not accept or facilitate wagers.</p>
   </div></BroadcastStage>;
 };

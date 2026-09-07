@@ -1,3 +1,4 @@
+import{withPicksDeadline}from'./picksRequest';
 import{supabase,ensureOnlineSession}from'./supabase';
 import type{OwnerSeasonStage}from'./ownerSeasonEngine';
 
@@ -18,7 +19,7 @@ async function accessToken(){
 }
 
 async function request(path:string,init:RequestInit={}){
-  const token=await accessToken();const response=await fetch(path,{...init,headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`,...(init.headers||{})},cache:'no-store'});
+  const token=await accessToken();if(init.signal?.aborted)throw new DOMException('Request cancelled','AbortError');const response=await fetch(path,{...init,headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`,...(init.headers||{})},cache:'no-store'});
   const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data?.error||`Request failed (${response.status})`);return data;
 }
 
@@ -32,18 +33,22 @@ export async function claimPendingVerifiedModeMilestones(){
   return claimed;
 }
 
+// Bound auth + network + JSON together, without changing Owner request semantics.
+const predictionRequest=(init:RequestInit={})=>withPicksDeadline(signal=>request('/api/prediction-picks',{...init,signal}));
+
 export async function loadVerifiedPredictionPicks():Promise<VerifiedPredictionPick[]>{
-  await predictionMutationChain;const data=await request('/api/prediction-picks');return Array.isArray(data?.picks)?data.picks:[];
+  await predictionMutationChain;const data=await predictionRequest();return Array.isArray(data?.picks)?data.picks:[];
 }
 
 export function saveVerifiedPredictionPick(pick:Omit<VerifiedPredictionPick,'lockedAt'|'result'>):Promise<VerifiedPredictionPick[]>{
-  return queuePredictionMutation(async()=>{const data=await request('/api/prediction-picks',{method:'POST',body:JSON.stringify({action:'save',pick})});return Array.isArray(data?.picks)?data.picks:[]});
+  return queuePredictionMutation(async()=>{const data=await predictionRequest({method:'POST',body:JSON.stringify({action:'save',pick})});return Array.isArray(data?.picks)?data.picks:[]});
 }
 
 export function deleteVerifiedPredictionPick(gameId:string):Promise<VerifiedPredictionPick[]>{
-  return queuePredictionMutation(async()=>{const data=await request('/api/prediction-picks',{method:'POST',body:JSON.stringify({action:'delete',gameId})});return Array.isArray(data?.picks)?data.picks:[]});
+  return queuePredictionMutation(async()=>{const data=await predictionRequest({method:'POST',body:JSON.stringify({action:'delete',gameId})});return Array.isArray(data?.picks)?data.picks:[]});
 }
 
 export function gradeVerifiedPredictionPicks():Promise<VerifiedPredictionPick[]>{
-  return queuePredictionMutation(async()=>{const data=await request('/api/prediction-picks',{method:'POST',body:JSON.stringify({action:'grade'})});await claimPendingVerifiedModeMilestones();return Array.isArray(data?.picks)?data.picks:[]});
+  return queuePredictionMutation(async()=>{const data=await predictionRequest({method:'POST',body:JSON.stringify({action:'grade'})});// Milestone replay must never hold the pick-mutation queue hostage.
+    void withPicksDeadline(()=>claimPendingVerifiedModeMilestones()).catch(error=>console.warn('Prediction milestones pending',error));return Array.isArray(data?.picks)?data.picks:[]});
 }
