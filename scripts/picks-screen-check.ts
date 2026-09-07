@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {withPicksDeadline} from '../picksRequest';
-import {gamePhase,hasKickoff,initialSlate,parsePicksBoard,scheduleLabel,slateKey,visiblePicksGames} from '../picksBoard';
+import {createPicksMutationQueue} from '../picksMutationQueue';
+import {gamePhase,hasKickoff,initialSlate,parsePicksBoard,scheduleLabel,slateKey,slateLabel,visiblePicksGames} from '../picksBoard';
 import {normalizeNflDataRows,matchPredictionKickoff} from '../server/nflPredictionFeed.js';
 import handler from '../api/nfl-sportsbook';
 
@@ -13,6 +14,20 @@ await assert.rejects(withPicksDeadline(async()=>({json:never}).json(),15),/timed
 const controller=new AbortController();const cancelled=withPicksDeadline(never,1000,controller.signal);controller.abort();await assert.rejects(cancelled,{name:'AbortError'});
 assert.equal(await withPicksDeadline(async()=>42,100),42);
 let invoked=false;await assert.rejects(withPicksDeadline(async()=>{invoked=true},100,controller.signal));assert.equal(invoked,false,'do not send work after cancellation');
+
+// A client-side deadline is not a server-side rollback. Late writes retain ordering.
+const mutationQueue=createPicksMutationQueue(15);let finishWrite!:(value:string)=>void;
+const writeEvents:string[]=[];
+const slow=mutationQueue.run(()=>{writeEvents.push('old-start');return new Promise<string>(resolve=>{finishWrite=value=>{writeEvents.push('old-finish');resolve(value)}})});
+await assert.rejects(slow,/timed out/);
+const newer=mutationQueue.run(async()=>{writeEvents.push('new-start');return 'new'});
+await new Promise(resolve=>setTimeout(resolve,2));assert.deepEqual(writeEvents,['old-start'],'a timeout cannot release a submitted write');
+finishWrite('old');assert.equal(await newer,'new');assert.deepEqual(writeEvents,['old-start','old-finish','new-start']);
+const anotherSlow=mutationQueue.run(()=>new Promise<string>(resolve=>{finishWrite=resolve}));
+await assert.rejects(anotherSlow,/timed out/);
+let expiredSent=false;await assert.rejects(mutationQueue.run(async()=>{expiredSent=true}),/timed out/);
+finishWrite('done');await mutationQueue.whenIdle();assert.equal(expiredSent,false,'a timed-out queued click must never submit later');
+assert.equal(await mutationQueue.run(async()=>7),7,'confirmed completion unblocks the queue');
 
 const now=Date.parse('2026-09-07T20:00:00Z');
 const row={game_id:'2026_01_DAL_PHI',season:2026,week:1,game_type:'REG',gameday:'2026-09-10',gametime:null,away_team:'DAL',home_team:'PHI',spread_line:3.5,total_line:44.5};
@@ -81,4 +96,4 @@ assert.match(screen,/version===revision.current/,'late sync must not overwrite n
 assert.match(screen,/saving.current=true/,'synchronous duplicate-tap guard must precede awaiting verification');
 assert.match(screen,/setGames\(\[\]\)/,'failed refresh must not retain selectable stale lines');
 assert.match(readFileSync('picksScreen.css','utf8'),/prefers-reduced-motion:reduce/);
-console.log('Picks regression checks passed: deadlines, cancellation, date-only schedule, exact kickoff matching, canonical IDs, sorting, all saved history, real empty/outage, filters and guarded UI state.');
+console.log('Picks regression checks passed: deadlines, mutation ordering, cancellation, date-only schedule, exact kickoff matching, canonical IDs, sorting, all saved history, real empty/outage, filters and guarded UI state.');
