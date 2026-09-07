@@ -71,3 +71,9 @@
   .bk-home-stadium :is(.bk-home-light,.bk-home-haze),
   .bk-home-news-story[data-rotating="true"] a { animation: none; }
 }
+
+
+/* The base stylesheet has an unlayered button font reset. Keep Home labels
+   compact without changing any other mode's navigation. */
+nav[data-home-broadcast="true"] button { font-family: inherit; font-size: 9px; font-weight: 800; line-height: 1.25; letter-spacing: .06em; }
+nav[data-home-broadcast="true"] button svg { width: 21px; height: 21px; }

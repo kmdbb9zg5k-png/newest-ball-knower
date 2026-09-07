@@ -55,7 +55,11 @@ try{
   });
   assert.ok(geometry.documentWidth<=width+1,'No horizontal overflow');
   assert.ok(geometry.heroTop>=geometry.headerBottom-1,'Fixed headline strip must not cover hero');
-  if(width<768)assert.equal(await page.getByRole('navigation',{name:'Primary navigation'}).locator('button').count(),5);
+  if(width<768){
+   const buttons=page.getByRole('navigation',{name:'Primary navigation'}).locator('button');
+   assert.equal(await buttons.count(),5);
+   assert.ok((await buttons.evaluateAll(items=>items.map(e=>parseFloat(getComputedStyle(e).fontSize)))).every(size=>size>=8&&size<=11),'Bottom labels must remain compact and readable');
+  }
   assert.equal(await page.locator('.bk-home-primary-modes button').count(),4);
   const photo=await page.locator('.bk-home-stadium-art img').evaluate(e=>({w:e.naturalWidth,h:e.naturalHeight}));assert.deepEqual(photo,{w:249,h:158});
   await page.screenshot({path:`${out}/home-${width}.png`,fullPage:false});
@@ -77,6 +81,11 @@ try{
    assert.equal(await page.locator('.bk-home-light-one').evaluate(e=>getComputedStyle(e).animationName),'none');
    await page.emulateMedia({reducedMotion:'no-preference'});
    await page.getByRole('button',{name:'My Leagues',exact:true}).click();await page.locator('.bk-app-shell[data-tab="fantasy"]').waitFor();
+   // The destination shell mounts before its lazy-loaded first-visit guide.
+   // Wait for the real guide and close it normally, never click through it.
+   const guideClose=page.getByRole('button',{name:'Close instructions',exact:true});
+   await guideClose.waitFor();await guideClose.click();
+   await page.getByRole('dialog',{name:'Fantasy HQ instructions',exact:true}).waitFor({state:'hidden'});
    assert.equal(await page.locator('.bk-home-news-strip').count(),0,'Other modes must not gain the ticker');
    const beforeLeaving=calls();await page.clock.runFor(130_000);assert.equal(calls(),beforeLeaving,'Unmounted ticker stops polling');
    await page.getByRole('button',{name:'Ball Knower home',exact:true}).click();await hero.waitFor();
