@@ -1,0 +1,45 @@
+name: Daily Picks screen
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - SportsbookHub.tsx
+      - BroadcastScene.tsx
+      - picks*.ts
+      - picks*.css
+      - modeProgressionCloud.ts
+      - server/nflPredictionFeed.js
+      - api/nfl-sportsbook.ts
+      - scripts/picks-*
+      - .github/workflows/picks-screen.yml
+  push:
+    branches: [fix/daily-picks-loading-layout]
+permissions:
+  contents: read
+concurrency:
+  group: picks-screen-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+jobs:
+  picks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint && npm run check:picks && node --import tsx scripts/picks-screen-check.ts && node --import tsx scripts/picks-review-check.ts
+      - run: npm run build && npm run check:root-bundle
+      - run: npx playwright install --with-deps chromium webkit
+      - run: node scripts/picks-screen-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: picks-screen-${{ github.sha }}
+          path: artifacts/picks-screen
+          if-no-files-found: ignore
+          retention-days: 3

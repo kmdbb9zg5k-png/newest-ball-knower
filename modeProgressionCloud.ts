@@ -1,3 +1,5 @@
+import{withPicksDeadline}from'./picksRequest';
+import{createPicksMutationQueue}from'./picksMutationQueue';
 import{supabase,ensureOnlineSession}from'./supabase';
 import type{OwnerSeasonStage}from'./ownerSeasonEngine';
 
@@ -5,20 +7,16 @@ export type VerifiedPredictionPick={id:string;gameId:string;label:string;market:
 export type VerifiedOwnerExpected={abbr:string;season:number;week:number;stage:OwnerSeasonStage;wins:number;losses:number;playoffSeed?:number|null};
 export type VerifiedOwnerStepResult={ok:boolean;verified:boolean;reason?:string;won?:boolean;isBye?:boolean;isPreseason?:boolean;run?:unknown;ownerState?:unknown;milestoneIds?:number[]};
 
-let predictionMutationChain:Promise<void>=Promise.resolve();
-function queuePredictionMutation<T>(work:()=>Promise<T>):Promise<T>{
-  const run=predictionMutationChain.then(work,work);
-  predictionMutationChain=run.then(()=>undefined,()=>undefined);
-  return run;
-}
+const predictionMutationChain=createPicksMutationQueue();
+const queuePredictionMutation=predictionMutationChain.run;
 
 async function accessToken(){
   if(!supabase)throw new Error('Online services are unavailable.');
   await ensureOnlineSession();const session=await supabase.auth.getSession();const token=session.data.session?.access_token;if(!token)throw new Error('Online session expired.');return token;
 }
 
-async function request(path:string,init:RequestInit={}){
-  const token=await accessToken();const response=await fetch(path,{...init,headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`,...(init.headers||{})},cache:'no-store'});
+async function request(path:string,init:RequestInit={},beforeSend?:AbortSignal){
+  const token=beforeSend?await withPicksDeadline(()=>accessToken(),20_000,beforeSend):await accessToken();if(init.signal?.aborted||beforeSend?.aborted)throw new DOMException('Request cancelled','AbortError');const response=await fetch(path,{...init,headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`,...(init.headers||{})},cache:'no-store'});
   const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data?.error||`Request failed (${response.status})`);return data;
 }
 
@@ -32,18 +30,23 @@ export async function claimPendingVerifiedModeMilestones(){
   return claimed;
 }
 
+// Bound reads and caller waits. Submitted writes retain their queue slot until the actual response.
+const predictionRead=()=>withPicksDeadline(async signal=>{await predictionMutationChain.whenIdle();return request('/api/prediction-picks',{signal})});
+const predictionWrite=(init:RequestInit)=>queuePredictionMutation(beforeSend=>request('/api/prediction-picks',init,beforeSend));
+
 export async function loadVerifiedPredictionPicks():Promise<VerifiedPredictionPick[]>{
-  await predictionMutationChain;const data=await request('/api/prediction-picks');return Array.isArray(data?.picks)?data.picks:[];
+  const data=await predictionRead();return Array.isArray(data?.picks)?data.picks:[];
 }
 
-export function saveVerifiedPredictionPick(pick:Omit<VerifiedPredictionPick,'lockedAt'|'result'>):Promise<VerifiedPredictionPick[]>{
-  return queuePredictionMutation(async()=>{const data=await request('/api/prediction-picks',{method:'POST',body:JSON.stringify({action:'save',pick})});return Array.isArray(data?.picks)?data.picks:[]});
+export async function saveVerifiedPredictionPick(pick:Omit<VerifiedPredictionPick,'lockedAt'|'result'>):Promise<VerifiedPredictionPick[]>{
+  const data=await predictionWrite({method:'POST',body:JSON.stringify({action:'save',pick})});return Array.isArray(data?.picks)?data.picks:[];
 }
 
-export function deleteVerifiedPredictionPick(gameId:string):Promise<VerifiedPredictionPick[]>{
-  return queuePredictionMutation(async()=>{const data=await request('/api/prediction-picks',{method:'POST',body:JSON.stringify({action:'delete',gameId})});return Array.isArray(data?.picks)?data.picks:[]});
+export async function deleteVerifiedPredictionPick(gameId:string):Promise<VerifiedPredictionPick[]>{
+  const data=await predictionWrite({method:'POST',body:JSON.stringify({action:'delete',gameId})});return Array.isArray(data?.picks)?data.picks:[];
 }
 
-export function gradeVerifiedPredictionPicks():Promise<VerifiedPredictionPick[]>{
-  return queuePredictionMutation(async()=>{const data=await request('/api/prediction-picks',{method:'POST',body:JSON.stringify({action:'grade'})});await claimPendingVerifiedModeMilestones();return Array.isArray(data?.picks)?data.picks:[]});
+export async function gradeVerifiedPredictionPicks():Promise<VerifiedPredictionPick[]> {
+  const data=await predictionWrite({method:'POST',body:JSON.stringify({action:'grade'})});// Milestone replay must never hold the pick-mutation queue hostage.
+  void withPicksDeadline(()=>claimPendingVerifiedModeMilestones()).catch(error=>console.warn('Prediction milestones pending',error));return Array.isArray(data?.picks)?data.picks:[];
 }

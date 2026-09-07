@@ -52,9 +52,9 @@ export function BroadcastMotionControl(){
     {motion.enabled&&!motion.reduced&&!motion.quiet?<Pause size={12}/>:<Play size={12}/>}<span>{motion.quiet?'Focus mode':motion.reduced?'Reduced motion':`Motion ${motion.enabled?'on':'off'}`}</span>
   </button>;
 }
-export function BroadcastMasthead({eyebrow,title,subtitle,actions,compact=false}:{eyebrow:string;title:string;subtitle?:string;actions?:React.ReactNode;compact?:boolean}){
+export function BroadcastMasthead({eyebrow,title,subtitle,actions,compact=false,showMotionControl=true}:{eyebrow:string;title:string;subtitle?:string;actions?:React.ReactNode;compact?:boolean;showMotionControl?:boolean}){
   return <header className={`bk-scene-masthead${compact?' bk-scene-masthead-compact':''}`}>
-    <div className="bk-scene-toolbar"><span className="bk-scene-eyebrow">{eyebrow}</span><div className="bk-scene-actions">{actions}<BroadcastMotionControl/></div></div>
+    <div className="bk-scene-toolbar"><span className="bk-scene-eyebrow">{eyebrow}</span><div className="bk-scene-actions">{actions}{showMotionControl&&<BroadcastMotionControl/>}</div></div>
     <div className="bk-scene-title"><h1>{title}</h1>{subtitle&&<p>{subtitle}</p>}</div>
     <div className="bk-scene-rule" aria-hidden="true"/>
   </header>;
