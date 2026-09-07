@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {wantsNewsStrip} from '../broadcastFocus';
+const mappings:Record<string,string>={'FantasyHub.tsx':'tunnel','NewsHub.tsx':'studio','SportsbookHub.tsx':'studio','SoloFranchiseHub.tsx':'field','PlayerAgentMode.tsx':'office','OwnerBusinessMode.tsx':'suite','RealTeamFranchise.tsx':'suite','FantasyFranchise.tsx':'tunnel','FranchiseSeason.tsx':'field','MyPlayerStory.tsx':'locker','LockerHub.tsx':'locker','ChallengesHub.tsx':'studio','LeagueLobby.tsx':'tunnel','HallOfFame.tsx':'legacy','PartnersPage.tsx':'studio'};
+for(const [file,scene] of Object.entries(mappings))assert.ok(fs.readFileSync(file,'utf8').includes(`<BroadcastStage scene="${scene}"`),`${file} must use its actual scene, not a disconnected mockup`);
+for(const tab of ['home','news','sportsbook','solo','challenges','locker','legacy','partners','fantasy'])assert.equal(wantsNewsStrip(tab),true,tab);
+for(const tab of ['draft','simulation','lobby'])assert.equal(wantsNewsStrip(tab),false,tab);
+assert.equal(wantsNewsStrip('fantasy','cheatsheet'),false);
+const scene=fs.readFileSync('BroadcastScene.tsx','utf8');
+for(const term of ['prefers-reduced-motion','visibilitychange','IntersectionObserver','useBroadcastFocus(quiet)','aria-hidden="true"'])assert.ok(scene.includes(term),term);
+assert.ok(!scene.includes('<video')&&!scene.includes('<canvas')&&!scene.includes('setInterval'));
+const css=fs.readFileSync('broadcastScreens.css','utf8');
+assert.match(css,/prefers-reduced-motion/);assert.match(css,/animation-play-state:paused/);
+assert.ok(fs.statSync('public/atmosphere/office-suite.webp').size<50_000);
+const trivia=fs.readFileSync('ChallengesHub.tsx','utf8');assert.ok(trivia.includes('Boolean(triviaOpen||activeRun||dailyRun||tierPickerMode)'));
+assert.ok(fs.readFileSync('FranchiseSeason.tsx','utf8').includes('quiet={true}'));
+assert.ok(fs.readFileSync('ModeGuide.tsx','utf8').includes('useBroadcastFocus(open)'));
+console.log('All-screen contracts: real routes, individual scenes, single ticker policy, nested focus, shared preferences, bounded assets passed.');
