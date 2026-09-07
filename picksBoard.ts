@@ -8,7 +8,9 @@ export const slateLabel=(game:BoardGame)=>game.week?`${game.seasonType&&game.sea
 export const gameOrder=(game:BoardGame)=>hasKickoff(game)?Date.parse(game.date!):game.scheduleDate&&/^\d{4}-\d{2}-\d{2}$/.test(game.scheduleDate)?Date.parse(`${game.scheduleDate}T23:59:59Z`):Number.MAX_SAFE_INTEGER;
 export function initialSlate(games:BoardGame[],now=Date.now()):string{
   const ordered=[...games].sort((a,b)=>gameOrder(a)-gameOrder(b));
-  const today=new Date(now).toISOString().slice(0,10);
+  const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(now));
+  const calendar=Object.fromEntries(parts.map(part=>[part.type,part.value]));
+  const today=`${calendar.year}-${calendar.month}-${calendar.day}`;
   const first=ordered.find(game=>gamePhase(game,now)==='live')||ordered.find(game=>gamePhase(game,now)==='upcoming'&&(!game.scheduleDate||game.scheduleDate>=today))||ordered.at(-1);
   return first?slateKey(first):'';
 }
@@ -31,4 +33,9 @@ export function parsePicksBoard(data:unknown):BoardGame[]{
     for(const key of ['homeSpread','awaySpread','spread','overUnder','awayScore','homeScore'] as const)if(game[key]!=null&&!Number.isFinite(game[key]))throw new Error('Invalid game value');
     seen.add(game.id);return game;
   });
+}
+
+export function nextPicksKickoffDelay(games:BoardGame[],now=Date.now()):number|null{
+  const future=games.filter(hasKickoff).map(game=>Date.parse(game.date!)).filter(time=>time>now);
+  return future.length?Math.min(Math.min(...future)-now+1,2_147_483_647):null;
 }

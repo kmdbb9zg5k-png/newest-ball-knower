@@ -32,7 +32,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - run: npm run lint && npm run check:picks && node --import tsx scripts/picks-screen-check.ts
+      - run: npm run lint && npm run check:picks && node --import tsx scripts/picks-screen-check.ts && node --import tsx scripts/picks-review-check.ts
       - run: npm run build && npm run check:root-bundle
       - run: npx playwright install --with-deps chromium webkit
       - run: node scripts/picks-screen-browser.mjs

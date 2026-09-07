@@ -4,7 +4,7 @@ import {Check,RefreshCw,Search,Target,X} from 'lucide-react';
 import {ModeGuide} from './ModeGuide';
 import {gradePick,isPicksGameLocked,normalizeSavedPick,normalizeSpread,SavedPick,spreadLabel} from './picksEngine';
 import {deleteVerifiedPredictionPick,gradeVerifiedPredictionPicks,loadVerifiedPredictionPicks,saveVerifiedPredictionPick,VerifiedPredictionPick} from './modeProgressionCloud';
-import {BoardGame,gamePhase,hasKickoff,initialSlate,parsePicksBoard,PicksFilter,scheduleLabel,slateKey,slateLabel,visiblePicksGames} from './picksBoard';
+import {BoardGame,gamePhase,hasKickoff,initialSlate,nextPicksKickoffDelay,parsePicksBoard,PicksFilter,scheduleLabel,slateKey,slateLabel,visiblePicksGames} from './picksBoard';
 import {withPicksDeadline} from './picksRequest';
 import './picksScreen.css';
 
@@ -48,7 +48,9 @@ export const SportsbookHub:React.FC=()=>{
   const syncing=useRef(false);
   const saving=useRef(false);
   const commitPicks=useCallback((update:(current:Pick[])=>Pick[])=>{
-    setPicks(current=>{const next=update(current);picksRef.current=next;return next});
+    const next=update(picksRef.current);
+    picksRef.current=next;
+    setPicks(next);
   },[]);
 
   // Public matchups must never wait for authentication, grading or reward claims.
@@ -107,9 +109,15 @@ export const SportsbookHub:React.FC=()=>{
   useEffect(()=>{
     if(!games.length)return;
     commitPicks(current=>current.map(pick=>{const game=games.find(item=>item.id===pick.gameId);return game?gradePick(pick,game):pick}));
-    const tick=()=>setNow(Date.now());const timer=setInterval(tick,1000);
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    const tick=()=>{
+      clearTimeout(timer);const current=Date.now();setNow(current);
+      const delay=nextPicksKickoffDelay(games,current);
+      if(delay!==null&&!document.hidden)timer=setTimeout(tick,delay);
+    };
+    tick();
     document.addEventListener('visibilitychange',tick);
-    return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',tick)};
+    return()=>{clearTimeout(timer);document.removeEventListener('visibilitychange',tick)};
   },[games,commitPicks]);
 
   const slates=useMemo(()=>[...new Map([...games].sort((a,b)=>(a.season||0)-(b.season||0)||(a.week||0)-(b.week||0)).map(game=>[slateKey(game),game])).values()],[games]);
