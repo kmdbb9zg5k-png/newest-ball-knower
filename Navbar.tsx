@@ -1,4 +1,4 @@
-import React,{useEffect,useState} from 'react';
+import React,{lazy,Suspense,useEffect,useState} from 'react';
 import {createPortal} from 'react-dom';
 import type {AppTab} from './App';
 import {useBallKnower} from './BallKnowerContext';
@@ -6,6 +6,8 @@ import {Award,Brain,ChevronDown,Handshake,Home,LogOut,Newspaper,Play,Plus,Shield
 import {SoundtrackControl} from './SoundtrackControl';
 import {isCloudConfigured,signOutOnline,supabase} from './supabase';
 import {getProfilePhotoMutationVersion,resolveProfilePhotoForAuthUser} from './profilePhoto';
+
+const HomeNewsTicker=lazy(()=>import('./HomeNewsTicker').then(module=>({default:module.HomeNewsTicker})));
 
 interface NavbarProps{
   currentTab:AppTab;
@@ -38,7 +40,7 @@ export const Navbar:React.FC<NavbarProps>=({currentTab,setCurrentTab,onOpenAuth,
   const menuClass='flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[10px] font-black uppercase tracking-wide text-zinc-300 hover:bg-white/5';
   const compactFantasyChrome=currentTab==='lobby'||currentTab==='draft'||currentTab==='simulation';
 
-  const navigation=createPortal(<><header className="fixed inset-x-0 top-0 z-40 w-full border-b border-[var(--bk-team-accent)]/15 bg-[#090c12]/90 backdrop-blur-xl">
+  const navigation=createPortal(<><header className={`fixed inset-x-0 top-0 z-40 w-full border-b border-[var(--bk-team-accent)]/15 bg-[#090c12]/90 backdrop-blur-xl ${currentTab==='home'?'bk-home-broadcast-header':''}`}>
     <div className={`mx-auto flex max-w-5xl items-center justify-between gap-2 pl-[max(.75rem,env(safe-area-inset-left))] pr-[max(.75rem,env(safe-area-inset-right))] pt-[env(safe-area-inset-top)] sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] ${compactFantasyChrome?'min-h-[calc(58px+env(safe-area-inset-top))]':'min-h-[calc(72px+env(safe-area-inset-top))]'}`}>
       <button onClick={()=>setCurrentTab('home')} className="shrink-0 text-left" aria-label="Ball Knower home"><h1 className={`font-display font-black leading-none tracking-tighter text-white sm:text-[30px] ${compactFantasyChrome?'text-[21px] min-[390px]:text-[23px]':'text-[28px]'}`}>BALL <span className="text-[#D9B43B]">KNOWER</span></h1></button>
       <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
@@ -50,9 +52,10 @@ export const Navbar:React.FC<NavbarProps>=({currentTab,setCurrentTab,onOpenAuth,
     </div>
 
     <nav className="hidden h-11 overflow-x-auto border-t border-white/5 bg-[#13161b] no-scrollbar [-webkit-overflow-scrolling:touch] md:block"><div className="mx-auto flex h-full min-w-max items-stretch gap-1 px-2 sm:gap-2 sm:px-4"><button id="nav-tab-home" onClick={()=>setCurrentTab('home')} className={tabClass('home')}>Home</button><button id="nav-tab-fantasy" onClick={()=>setCurrentTab('fantasy')} className={tabClass('fantasy')}><Trophy className="h-3.5 w-3.5"/>Fantasy</button><button id="nav-tab-sportsbook" onClick={()=>setCurrentTab('sportsbook')} className={tabClass('sportsbook')}><Target className="h-3.5 w-3.5"/>Picks</button><button id="nav-tab-challenges" onClick={()=>setCurrentTab('challenges')} className={tabClass('challenges')}><Brain className="h-3.5 w-3.5"/>Trivia</button><button id="nav-tab-solo" onClick={()=>setCurrentTab('solo')} className={tabClass('solo')}><Play className="h-3.5 w-3.5"/>Solo</button><button id="nav-tab-news" onClick={()=>setCurrentTab('news')} className={tabClass('news')}><Newspaper className="h-3.5 w-3.5"/>News</button><button id="nav-tab-locker" onClick={()=>setCurrentTab('locker')} className={tabClass('locker')}><User className="h-3.5 w-3.5"/>Profile</button></div></nav>
+    {currentTab==='home'&&<Suspense fallback={<div className="bk-home-news-space" aria-hidden="true"/>}><HomeNewsTicker onOpenNews={()=>setCurrentTab('news')}/></Suspense>}
   </header>
-    <nav aria-label="Primary navigation" className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#080b0f]/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-16px_40px_rgba(0,0,0,.46)] backdrop-blur-xl md:hidden"><div className="mx-auto flex min-h-16 max-w-lg items-stretch px-1"><button onClick={()=>setCurrentTab('home')} className={mobileTabClass('home')}><Home className="h-5 w-5"/>Home{primaryTab==='home'&&<span className="absolute bottom-1 h-0.5 w-7 rounded-full bg-[#D9B43B]"/>}</button><button onClick={()=>setCurrentTab('fantasy')} className={mobileTabClass('fantasy')}><Trophy className="h-5 w-5"/>Fantasy{primaryTab==='fantasy'&&<span className="absolute bottom-1 h-0.5 w-7 rounded-full bg-[#D9B43B]"/>}</button><button onClick={()=>setCurrentTab('sportsbook')} className={mobileTabClass('sportsbook')}><Target className="h-5 w-5"/>Picks{primaryTab==='sportsbook'&&<span className="absolute bottom-1 h-0.5 w-7 rounded-full bg-[#D9B43B]"/>}</button><button onClick={()=>setCurrentTab('challenges')} className={mobileTabClass('challenges')}><Brain className="h-5 w-5"/>Trivia{primaryTab==='challenges'&&<span className="absolute bottom-1 h-0.5 w-7 rounded-full bg-[#D9B43B]"/>}</button><button onClick={()=>setCurrentTab('locker')} className={mobileTabClass('locker')}><User className="h-5 w-5"/>Profile{primaryTab==='locker'&&<span className="absolute bottom-1 h-0.5 w-7 rounded-full bg-[#D9B43B]"/>}</button></div></nav>
+    <nav aria-label="Primary navigation" data-home-broadcast={currentTab==='home'?'true':undefined} className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#080b0f]/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-16px_40px_rgba(0,0,0,.46)] backdrop-blur-xl md:hidden"><div className="mx-auto flex min-h-16 max-w-lg items-stretch px-1"><button onClick={()=>setCurrentTab('home')} className={mobileTabClass('home')}><Home className="h-5 w-5"/>Home{primaryTab==='home'&&<span className="absolute bottom-1 h-0.5 w-7 rounded-full bg-[#D9B43B]"/>}</button><button onClick={()=>setCurrentTab('fantasy')} className={mobileTabClass('fantasy')}><Trophy className="h-5 w-5"/>Fantasy{primaryTab==='fantasy'&&<span className="absolute bottom-1 h-0.5 w-7 rounded-full bg-[#D9B43B]"/>}</button><button onClick={()=>setCurrentTab('sportsbook')} className={mobileTabClass('sportsbook')}><Target className="h-5 w-5"/>Picks{primaryTab==='sportsbook'&&<span className="absolute bottom-1 h-0.5 w-7 rounded-full bg-[#D9B43B]"/>}</button><button onClick={()=>setCurrentTab('challenges')} className={mobileTabClass('challenges')}><Brain className="h-5 w-5"/>Trivia{primaryTab==='challenges'&&<span className="absolute bottom-1 h-0.5 w-7 rounded-full bg-[#D9B43B]"/>}</button><button onClick={()=>setCurrentTab('locker')} className={mobileTabClass('locker')}><User className="h-5 w-5"/>Profile{primaryTab==='locker'&&<span className="absolute bottom-1 h-0.5 w-7 rounded-full bg-[#D9B43B]"/>}</button></div></nav>
   </>,document.body);
 
-  return <><div aria-hidden="true" className={`${compactFantasyChrome?'h-[calc(58px+env(safe-area-inset-top))]':'h-[calc(72px+env(safe-area-inset-top))]'} md:h-[calc(116px+env(safe-area-inset-top))]`}/>{navigation}</>;
+  return <><div aria-hidden="true" className={`${compactFantasyChrome?'h-[calc(58px+env(safe-area-inset-top))]':'h-[calc(72px+env(safe-area-inset-top))]'} md:h-[calc(116px+env(safe-area-inset-top))]`}/>{currentTab==='home'&&<div className="bk-home-news-space" aria-hidden="true"/>}{navigation}</>;
 };
