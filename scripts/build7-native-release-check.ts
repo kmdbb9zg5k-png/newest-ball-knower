@@ -8,6 +8,7 @@ const run=(name:string,fn:()=>void)=>{if(requested==='all'||requested===name)fn(
 
 run('bridge',()=>{
   const origin=BALL_KNOWER_API_ORIGIN;
+  assert.equal(origin,'https://ballknowerofficial.com','Native API requests must target our verified production site');
   assert.equal(nativeApiUrl('/api/nfl-sportsbook'),`${origin}/api/nfl-sportsbook`);
   assert.equal(nativeApiUrl('api/nfl-sportsbook?week=1'),`${origin}/api/nfl-sportsbook?week=1`);
   assert.equal(nativeApiUrl('capacitor://localhost/api/nfl-sportsbook?gameIds=a%2Cb'),`${origin}/api/nfl-sportsbook?gameIds=a%2Cb`);

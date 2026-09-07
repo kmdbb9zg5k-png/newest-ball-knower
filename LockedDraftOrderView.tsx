@@ -13,7 +13,7 @@ interface Props {
   onViewResults: () => void;
 }
 
-const PUBLIC_APP_ORIGIN = 'https://ballknower.com';
+const PUBLIC_APP_ORIGIN = 'https://ballknowerofficial.com';
 const COUNTDOWN_SECONDS = 30;
 
 export const LockedDraftOrderView: React.FC<Props> = ({ league, onGoToDraft, onViewResults }) => {
