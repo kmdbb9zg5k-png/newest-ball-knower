@@ -1,4 +1,4 @@
-name: Home visual preview source snapshot
+name: All-screen visual source snapshot
 on:
   push:
     branches: [maintenance/news-release-verification]
@@ -11,11 +11,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 564ec557ab6753b210679fc90eef0bb4ca26f9a8
+          ref: b1dc206fa28d854c9cad317cc0c957538ddfea2c
           persist-credentials: false
-      - run: git archive --format=tar HEAD | gzip > /tmp/home-preview-source.tar.gz
+      - run: git archive --format=tar HEAD | gzip > /tmp/all-screens-source.tar.gz
       - uses: actions/upload-artifact@v4
         with:
-          name: home-preview-source
-          path: /tmp/home-preview-source.tar.gz
+          name: all-screens-source
+          path: /tmp/all-screens-source.tar.gz
           retention-days: 1
