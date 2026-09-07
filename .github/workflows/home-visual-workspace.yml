@@ -38,9 +38,11 @@ jobs:
           old="await page.locator('.bk-app-shell[data-tab=\"fantasy\"]').waitFor();"
           assert text.count(old)==1
           text=text.replace(old,old+"""
-             // Exercise the existing first-visit guide normally; do not click through it.
+             // The destination shell mounts before its lazy-loaded first-visit guide.
+             // Wait for the real guide and close it normally, never click through it.
              const guideClose=page.getByRole('button',{name:'Close instructions',exact:true});
-             if(await guideClose.isVisible())await guideClose.click();""")
+             await guideClose.waitFor();await guideClose.click();
+             await page.getByRole('dialog',{name:'Fantasy HQ instructions',exact:true}).waitFor({state:'hidden'});""")
           path.write_text(text)
           PY
       - uses: actions/setup-node@v4
