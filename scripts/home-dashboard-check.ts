@@ -31,7 +31,7 @@ assert.ok(navbar.includes("mobileTabClass('home')")&&navbar.includes("mobileTabC
 assert.ok(navbar.includes("setCurrentTab('solo')")&&navbar.includes("setCurrentTab('news')")&&navbar.includes("setCurrentTab('legacy')"), 'secondary Solo, News, and Hall of Fame destinations must remain available');
 assert.ok(!fantasyHub.includes('sticky top-[7rem]'), 'Cheat Sheet filters must scroll normally instead of covering player rows under the fixed app bars');
 assert.ok(app.includes('teamTheme={favoriteTheme}')&&app.includes('pb-[calc(5rem+env(safe-area-inset-bottom))]'), 'the app must pass the selected team theme and reserve space for bottom navigation');
-assert.ok(app.includes("window.history.scrollRestoration='manual'")&&app.includes("currentTab!=='home'")&&app.includes('resetHomeScroll'), 'home must defeat stale iPhone browser scroll restoration and reopen at the top');
+assert.ok(app.includes("window.history.scrollRestoration='manual'")&&app.includes("if(['lobby','draft','simulation'].includes(currentTab))return")&&app.includes('resetHomeScroll'), 'home must defeat stale iPhone browser scroll restoration and reopen at the top');
 assert.ok(footer.includes('pb-[calc(5rem+env(safe-area-inset-bottom))]'), 'the fixed bottom navigation must not cover the final footer controls');
 assert.ok(home.includes('grid grid-cols-4 overflow-hidden')&&home.includes('Continue your league')&&home.includes('League Activity'), 'home must preserve the approved compact concept hierarchy');
 assert.ok(styles.includes('-webkit-text-size-adjust: 100%')&&home.includes('min-w-0 overflow-hidden')&&!home.includes('className="whitespace-nowrap">{label}'), 'iPhone text autosizing must not make quick-link labels overlap their columns');

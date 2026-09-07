@@ -1,3 +1,4 @@
+import {BroadcastStage,BroadcastMasthead,BroadcastMotionControl} from './BroadcastScene';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ChevronRight, Play, RotateCcw, Trophy, Users } from 'lucide-react';
 import { calculateTeamRatings } from './evaluation';
@@ -399,7 +400,7 @@ export const FranchiseSeason: React.FC<Props> = ({
   }, [stage, draftedProspects.length, ownedDraftRounds.length]);
 
   return (
-    <div className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
+    <BroadcastStage scene="field" page="season" quiet={true} className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
       <div className="mx-auto max-w-6xl">
         <div className="mb-4 flex items-center justify-between gap-3">
           <button type="button" onClick={onBack} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Back to Solo Franchise Hub">
@@ -514,7 +515,7 @@ export const FranchiseSeason: React.FC<Props> = ({
 
         {stage === 'draft' ? <OffseasonDraft year={year + 1} round={draftRound} wins={wins} selected={draftedProspects} ownedRounds={ownedDraftRounds} onSelect={selectProspect} /> : null}
       </div>
-    </div>
+    </BroadcastStage>
   );
 };
 

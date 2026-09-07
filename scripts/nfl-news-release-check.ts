@@ -18,7 +18,7 @@ assert.doesNotMatch(api,/stale-while-revalidate/,'News must not silently represe
 
 assert.match(ui,/item\.source/);
 assert.match(ui,/publishedLabel\(item\.published\)/);
-assert.match(ui,/loading="lazy"/);
+assert.doesNotMatch(ui,/<img/,'Headline-only News must not reintroduce publisher images');
 assert.match(ui,/rel="noreferrer noopener"/);
 assert.match(ui,/data\?\.available===false/);
 assert.match(ui,/setItems\(\[\]\)/,'failed refresh must clear old stories rather than present them as current');

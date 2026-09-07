@@ -1,3 +1,4 @@
+import {BroadcastStage,BroadcastMasthead,BroadcastMotionControl} from './BroadcastScene';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Brain, CalendarDays, CheckCircle2, Eye, Film, Flame, Loader2, MessageSquare, RotateCcw, ShieldCheck, Target, Trophy, WifiOff, XCircle } from 'lucide-react';
 import { beginTriviaSession, fetchTriviaQuestion, submitTriviaAnswer, TriviaAnswerResult, TriviaQuestion, TriviaSession } from './progressionCloud';
@@ -225,24 +226,9 @@ export const ChallengesHub: React.FC = () => {
   }, [clearAdvanceTimer]);
 
   return (
-    <div className="mx-auto max-w-6xl px-3 pb-8 pt-4 sm:px-6 sm:pt-6">
-      <section className="relative min-h-[22rem] overflow-hidden rounded-[2rem] border border-fuchsia-400/30 bg-[#08070d] shadow-[0_24px_80px_rgba(88,28,135,.25)]">
-        <img src="/team-cinematic/purple-receiver.jpg" alt="" className="absolute inset-0 h-full w-full object-cover object-center opacity-75" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#08070d] via-[#08070d]/80 to-fuchsia-950/15" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#08070d] via-transparent to-black/20" />
-        <div className="relative z-10 flex min-h-[22rem] flex-col justify-between p-6 sm:p-9 md:w-2/3">
-          <header className="flex items-start justify-between gap-3">
-            <div className="inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[.3em] text-fuchsia-300"><Eye className="h-4 w-4"/>Football IQ Arena</div>
-            <ModeGuide storageKey="bk-guide-the-gauntlet-v4" title="The Gauntlet" summary="Choose a difficulty and answer football questions. Correct verified answers feed your Ball Knower progression." steps={["Choose Trivia.", "Pick a level.", "Answer and build verified XP."]} />
-          </header>
-          <div className="py-8">
-            <div className="text-[10px] font-black uppercase tracking-[.25em] text-fuchsia-300">Trivia · Decisions · Football IQ</div>
-            <h1 className="mt-3 font-display text-5xl font-black uppercase leading-[.82] tracking-[-.045em] sm:text-7xl">The<br/>Gauntlet.</h1>
-            <p className="mt-5 max-w-lg text-sm font-semibold leading-relaxed text-zinc-300">Prove you know ball under pressure. Every challenge is built to test recognition, judgment and nerve.</p>
-          </div>
-          <button onClick={()=>openTrivia('ROOKIE')} className="min-h-12 w-fit rounded-full bg-fuchsia-400 px-6 text-[10px] font-black uppercase tracking-widest text-black">Enter Trivia</button>
-        </div>
-      </section>
+    <BroadcastStage scene="studio" page="trivia" quiet={Boolean(triviaOpen||activeRun||dailyRun||tierPickerMode)} className="mx-auto max-w-6xl px-3 pb-8 pt-4 sm:px-6 sm:pt-6">
+      <BroadcastMasthead eyebrow="Football IQ arena" title="The Gauntlet" subtitle="Trivia. Decisions. Football IQ. Prove you know ball." compact actions={<ModeGuide storageKey="bk-guide-the-gauntlet-v4" title="The Gauntlet" summary="Choose a difficulty and answer football questions." steps={["Choose Trivia.","Pick a level.","Answer and build verified XP."]}/>}/>
+
 
       <section className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
         <ProgressStat label="Level" value={String(progress.level)}/><ProgressStat label="XP" value={String(progress.xp)}/><ProgressStat label="Current streak" value={String(progress.currentStreak)} icon={<Flame className="h-4 w-4 text-orange-400"/>}/><ProgressStat label="Longest streak" value={String(progress.longestStreak)}/><ProgressStat label="Accuracy" value={progress.totalAnswered?`${Math.round(progress.totalCorrect/progress.totalAnswered*100)}%`:'—'}/>
@@ -253,7 +239,7 @@ export const ChallengesHub: React.FC = () => {
         <span className="shrink-0 rounded-xl bg-amber-300 px-4 py-3 text-[10px] font-black uppercase text-black">{progress.daily[dailyDate]?.completed?`Complete · ${progress.daily[dailyDate].score}/5`:'Play today'}</span>
       </button>
 
-      <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <section className="bk-trivia-modes mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {gauntletModes.map(mode=>{const Icon=mode.icon;const best=mode.name==='TRIVIA'?Math.max(0,...triviaTiers.map(item=>progress.highScores[`TRIVIA:${item.name}`]||0)):Math.max(0,...triviaTiers.map(item=>progress.highScores[`${mode.name}:${item.name}`]||0));return <button key={mode.name} onClick={()=>mode.name==='TRIVIA'?openTrivia('ROOKIE'):setTierPickerMode(mode.name)} className="min-h-40 rounded-2xl border border-fuchsia-400/30 bg-[#101318] p-4 text-left"><div className="flex items-center justify-between"><Icon className="text-fuchsia-300"/><span className="text-[8px] font-black uppercase text-zinc-600">Best {best}/10</span></div><div className="mt-6 text-sm font-black uppercase">{mode.name}</div><p className="mt-2 text-[10px] leading-relaxed text-zinc-500">{mode.description}</p><div className="mt-3 text-[8px] font-black uppercase tracking-widest text-fuchsia-300">{mode.name==='TRIVIA'?'Quick start · Rookie':'Choose difficulty'}</div></button>})}
       </section>
 
@@ -339,7 +325,7 @@ export const ChallengesHub: React.FC = () => {
           </div>
         </div>
       </ModalPortal>}
-    </div>
+    </BroadcastStage>
   );
 };
 

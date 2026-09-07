@@ -1,3 +1,4 @@
+import {BroadcastStage,BroadcastMasthead,BroadcastMotionControl} from './BroadcastScene';
 import React, { useMemo, useState } from 'react';
 import { ArrowLeft, Play, RotateCcw, Search, Shuffle } from 'lucide-react';
 import { FranchiseSeason } from './FranchiseSeason';
@@ -114,17 +115,17 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
   if (draft && seasonStarted) {
     const opponentRosters = Object.fromEntries(TEAM_THEMES.map(team => [team.abbr, fantasyRosterPlayers(draft, team.abbr)]));
     return (
-      <div className="relative">
+      <BroadcastStage scene="tunnel" page="fantasy-franchise" quiet={true} className="relative">
         <button type="button" onClick={newCareer} className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-30 flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/90 px-4 text-xs font-black shadow-xl"><RotateCcw size={15} /> NEW DRAFT</button>
         <FranchiseSeason title="FANTASY FRANCHISE" userTeam={fantasyTeam(draft.userTeamAbbr)} roster={userRoster} opponentRosters={opponentRosters} saveKey={SOLO_FRANCHISE_SAVE_KEYS.fantasy} onBack={onBack} />
-      </div>
+      </BroadcastStage>
     );
   }
 
   if (!draft) {
     const selectedTeam = fantasyTeam(selectedAbbr);
     return (
-      <div className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
+      <BroadcastStage scene="tunnel" page="fantasy-franchise" quiet={true} className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
         <div className="mx-auto max-w-5xl">
           <button type="button" onClick={onBack} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Back to Solo Franchise Hub"><ArrowLeft size={19} /></button>
           <div className="mt-5 rounded-[2rem] border border-white/10 bg-[#10151d] p-5 sm:p-8">
@@ -139,7 +140,7 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
             <button type="button" onClick={startDraft} className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)]" aria-label="Start Fantasy Draft"><Play /></button>
           </div>
         </div>
-      </div>
+      </BroadcastStage>
     );
   }
 
@@ -153,7 +154,7 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
   }, {});
 
   return (
-    <div className="min-h-[100dvh] bg-transparent px-4 pb-12 pt-4 text-white sm:px-8">
+    <BroadcastStage scene="tunnel" page="fantasy-franchise" quiet={true} className="min-h-[100dvh] bg-transparent px-4 pb-12 pt-4 text-white sm:px-8">
       <div className="mx-auto min-w-0 max-w-7xl">
         <div className="flex min-w-0 items-center gap-3">
           <button type="button" onClick={onBack} className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Back to Solo Franchise Hub"><ArrowLeft size={19} /></button>
@@ -190,7 +191,7 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
           </div>
         )}
       </div>
-    </div>
+    </BroadcastStage>
   );
 };
 

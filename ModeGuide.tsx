@@ -1,3 +1,4 @@
+import {useBroadcastFocus} from './broadcastFocus';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CircleHelp, X } from 'lucide-react';
@@ -13,6 +14,8 @@ export const ModeGuide: React.FC<Props> = ({ storageKey, title, summary, steps }
   const [open, setOpen] = useState(() => {
     try { return localStorage.getItem(storageKey) !== 'seen'; } catch { return true; }
   });
+
+  useBroadcastFocus(open);
 
   const close = () => {
     try { localStorage.setItem(storageKey, 'seen'); } catch { /* The guide can safely reappear. */ }

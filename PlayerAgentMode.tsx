@@ -1,3 +1,4 @@
+import {BroadcastStage,BroadcastMasthead,BroadcastMotionControl} from './BroadcastScene';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -1624,7 +1625,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
 
   if (verifyingAgentSigning) {
     return (
-      <div className="grid min-h-[100dvh] place-items-center bg-[#05070b] p-5 text-white">
+      <BroadcastStage scene="office" page="agent" quiet={Boolean(recruit||negotiationRoom||verifyingAgentSigning)} className="grid min-h-[100dvh] place-items-center bg-[#05070b] p-5 text-white">
         <div className="w-full max-w-md rounded-[2rem] border border-violet-300/25 bg-[#0d121b] p-6 text-center shadow-2xl">
           <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-violet-400 text-black">
             <ShieldCheck size={28} />
@@ -1650,21 +1651,22 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
             BACK TO SOLO · KEEP RETRYING
           </button>
         </div>
-      </div>
+      </BroadcastStage>
     );
   }
 
   if (!agency.profile) {
     return (
-      <div className="relative min-h-[100dvh] overflow-hidden bg-[#05070b] text-white">
-        <div className="relative mx-auto flex min-h-[100dvh] max-w-5xl flex-col px-5 py-6 sm:px-8">
+      <BroadcastStage scene="office" page="agent" quiet={Boolean(recruit||negotiationRoom||verifyingAgentSigning)} className="relative min-h-[100dvh] overflow-hidden bg-[#05070b] text-white">
+        <div className="bk-agent-intro relative mx-auto flex max-w-5xl flex-col px-5 py-4 sm:px-8">
           <button
             onClick={handleBack}
             className="flex w-fit min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/30 px-4 text-xs font-black"
           >
             <ArrowLeft size={16} /> BACK
           </button>
-          <div className="flex flex-1 items-center justify-center py-8">
+          <BroadcastMasthead eyebrow="Player representation" title="Agent Mode" subtitle="Build your legacy. Every relationship starts with you."/>
+          <div className="bk-agent-intro-copy flex flex-1 items-center justify-center py-8">
             <div className="w-full max-w-3xl">
               {introStep < 2 && (
                 <div className="mx-auto max-w-2xl rounded-[2rem] border border-violet-300/25 bg-[#0b0f17]/95 p-6 sm:p-8">
@@ -1782,14 +1784,15 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
             </div>
           </div>
         </div>
-      </div>
+      </BroadcastStage>
     );
   }
 
   const deadlineOpen = isAgentTradeWindowOpen(agency.phase, agency.seasonWeek);
   return (
-    <div className="min-h-[100dvh] bg-[#06080d] px-4 py-5 text-white sm:px-8">
+    <BroadcastStage scene="office" page="agent" quiet={Boolean(recruit||negotiationRoom||verifyingAgentSigning)} className="min-h-[100dvh] bg-[#06080d] px-4 py-5 text-white sm:px-8">
       <div className="mx-auto max-w-6xl">
+        <BroadcastMasthead eyebrow="Player representation" title="Agent Mode" subtitle={`${agency.profile.name} · Build your agency. Shape their future.`}/>
         <div className="mb-5 flex items-center justify-between gap-4">
           <button
             onClick={handleBack}
@@ -2477,6 +2480,6 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           </ModalPortal>
         )}
       </div>
-    </div>
+    </BroadcastStage>
   );
 };

@@ -1,3 +1,4 @@
+import {wantsNewsStrip} from './broadcastFocus';
 import React,{lazy,Suspense,useCallback,useEffect,useRef,useState} from 'react';
 import {BallKnowerProvider,useBallKnower} from './BallKnowerContext';
 import {SoundtrackProvider,useSoundtrack} from './SoundtrackContext';
@@ -62,7 +63,7 @@ function BallKnowerApp(){
   useEffect(()=>{setIntroActiveRef.current(isIntroOpen||showFavoriteTeam);try{const savedTheme=getSavedTeamTheme();setFavoriteTheme(savedTheme);applyTeamCssVariables(savedTheme);const params=new URLSearchParams(window.location.search);const joinCode=params.get('join');if(joinCode)joinLeague(joinCode).then(res=>{if(res.success&&res.league)setCurrentTab('lobby')})}catch(e){console.error(e)}},[]);
   useEffect(()=>{let media:MediaQueryList|null=null;try{media=window.matchMedia('(max-width: 767px)');const sync=()=>setIsMobileDraftViewport(media?.matches??false);sync();media.addEventListener?.('change',sync);return()=>media?.removeEventListener?.('change',sync)}catch{return undefined}},[]);
   useEffect(()=>{try{const previous=window.history.scrollRestoration;window.history.scrollRestoration='manual';return()=>{window.history.scrollRestoration=previous}}catch{return undefined}},[]);
-  useEffect(()=>{if(currentTab!=='home')return;const resetHomeScroll=()=>window.scrollTo({top:0,left:0,behavior:'auto'});resetHomeScroll();const frame=window.requestAnimationFrame(resetHomeScroll);const timer=window.setTimeout(resetHomeScroll,200);return()=>{window.cancelAnimationFrame(frame);window.clearTimeout(timer)}},[currentTab]);
+  useEffect(()=>{if(['lobby','draft','simulation'].includes(currentTab))return;const resetHomeScroll=()=>window.scrollTo({top:0,left:0,behavior:'auto'});resetHomeScroll();const frame=window.requestAnimationFrame(resetHomeScroll);const timer=window.setTimeout(resetHomeScroll,200);return()=>{window.cancelAnimationFrame(frame);window.clearTimeout(timer)}},[currentTab]);
   useEffect(()=>{trackBallKnowerEvent('Mode Opened',{mode:currentTab,active_league:Boolean(activeLeague)})},[currentTab]);
 
   const openIntro=()=>{setIntroActive(true);setIsIntroOpen(true)};
@@ -79,7 +80,7 @@ function BallKnowerApp(){
     <div className="bk-cinematic-image" aria-hidden="true"/>
     <div className="bk-team-watermark fixed inset-0 z-[2] pointer-events-none overflow-hidden" aria-hidden="true"><div className="absolute -right-[22vw] top-[15vh] h-[72vw] w-[72vw] max-h-[900px] max-w-[900px] opacity-[.035] sm:opacity-[.045]" style={{filter:`drop-shadow(0 0 70px ${favoriteTheme.secondary}55)`}}><img src={teamLogoUrl(favoriteTheme.abbr)} alt="" className="h-full w-full object-contain"/></div><div className="absolute inset-y-0 right-0 w-[46vw] opacity-25" style={{background:`radial-gradient(circle at 100% 38%,${favoriteTheme.primary}55,transparent 64%)`}}/><div className="absolute inset-x-0 top-0 h-px" style={{background:`linear-gradient(90deg,transparent,${favoriteTheme.secondary}88,transparent)`}}/></div>
 
-    {showProductChrome&&<Navbar currentTab={currentTab} setCurrentTab={navigateToTab} onOpenAuth={()=>setIsAuthOpen(true)} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onOpenIntro={openIntro} onOpenDatabaseModal={()=>setIsDatabaseModalOpen(true)}/>}
+    {showProductChrome&&<Navbar newsEnabled={wantsNewsStrip(currentTab,fantasyView)} currentTab={currentTab} setCurrentTab={navigateToTab} onOpenAuth={()=>setIsAuthOpen(true)} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onOpenIntro={openIntro} onOpenDatabaseModal={()=>setIsDatabaseModalOpen(true)}/>}
     {showProductChrome&&<main className="relative z-[3] w-full pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-[env(safe-area-inset-bottom)]">
       {currentTab==='home'&&<HomeDashboard teamTheme={favoriteTheme} onNavigate={navigateToTab} onOpenCheatSheet={openCheatSheet} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague}/>}
       <Suspense fallback={<ScreenFallback/>}>
