@@ -1,31 +1,81 @@
-name: Verify historical football identities
+name: Verify production origin correction
 on:
   push:
     branches: [maintenance/app-store-remediation-workspace]
 permissions:
-  contents: read
+  contents: write
 jobs:
-  evidence:
+  verify-origin:
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 12
     steps:
-      - name: Retrieve explicit public roster releases
-        run: |
-          mkdir -p /tmp/identity-evidence
-          python3 - <<'PY'
-          import urllib.request, json, hashlib
-          from pathlib import Path
-          out=Path('/tmp/identity-evidence'); records=[]
-          for season in [2025,2024]:
-            url=f'https://github.com/nflverse/nflverse-data/releases/download/rosters/roster_{season}.csv'
-            with urllib.request.urlopen(url,timeout=45) as r: data=r.read()
-            assert len(data)<15000000
-            (out/f'roster_{season}.csv').write_bytes(data)
-            records.append({'source':url,'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest()})
-          (out/'manifest.json').write_text(json.dumps(records,indent=2))
-          PY
-      - uses: actions/upload-artifact@v4
+      - uses: actions/checkout@v4
         with:
-          name: ball-knower-historical-identities
-          path: /tmp/identity-evidence
-          retention-days: 1
+          ref: 9ab6adf744e61eeb192d05ba8fe06d6e92ecca25
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Correct only reviewed API, invitation, support and metadata URLs
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          names=['nativeRuntime.ts','LockedDraftOrderView.tsx','FantasyLeagueCommandCenter.tsx','LaunchCenter.tsx','index.html','scripts/ios-app-store-release-check.mjs']
+          for name in names:
+              p=Path(name);s=p.read_text()
+              assert 'https://ballknower.com' in s,name
+              p.write_text(s.replace('https://ballknower.com','https://ballknowerofficial.com'))
+          for p in Path('docs').glob('*APP_STORE*'):
+              if p.is_file():p.write_text(p.read_text().replace('https://ballknower.com','https://ballknowerofficial.com'))
+          p=Path('scripts/build7-native-release-check.ts');s=p.read_text()
+          old='  const origin=BALL_KNOWER_API_ORIGIN;'
+          assert s.count(old)==1
+          p.write_text(s.replace(old,old+"\n  assert.equal(origin,'https://ballknowerofficial.com','Native API requests must target our verified production site');"))
+          Path('scripts/production-origin-check.mjs').write_text('''import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          const origin='https://ballknowerofficial.com';
+          for(const file of ['nativeRuntime.ts','LockedDraftOrderView.tsx','FantasyLeagueCommandCenter.tsx','LaunchCenter.tsx','index.html']){
+            const text=fs.readFileSync(file,'utf8');
+            assert.ok(text.includes(origin),`${file} must use our verified application origin`);
+            assert.ok(!text.includes('https://ballknower.com'),`${file} must not send API traffic or invitees to the unrelated domain`);
+          }
+          if(process.argv.includes('--live')){
+            // No credentials. HTTP 200 alone can be an unrelated SPA fallback.
+            const response=await fetch(`${origin}/api/health`,{redirect:'error',signal:AbortSignal.timeout(10000)});
+            assert.equal(response.status,200);
+            assert.match(response.headers.get('content-type')||'',/application\\/json/i);
+            const body=await response.json();
+            assert.equal(body.service,'ball-knower');assert.equal(body.ok,true);
+          }
+          console.log('Production API and invite origins verified.');
+          ''')
+          p=Path('package.json');import json
+          package=json.loads(p.read_text());package['scripts']['check:production-origin']='node scripts/production-origin-check.mjs'
+          package['scripts']['check:build7-release']+=' && npm run check:production-origin'
+          p.write_text(json.dumps(package,indent=2)+'\n')
+          Path('docs/NATIVE_ORIGIN_FIX.md').write_text('''# Native production origin correction
+          
+          The prior native API origin and shared invite URLs used ballknower.com. A credential-free probe returned a different baseball application's HTML rather than Ball Knower football API JSON. The verified football deployment is ballknowerofficial.com.
+          
+          This patch corrects native API requests, share/invite links, support and social metadata. It does not change the bundle ID, Apple callback scheme, Supabase project, player identities, leagues or saved games. An executable test rejects a generic webpage masquerading as a successful health response.
+          
+          Existing installed native builds are not changed by a web deployment: rebuild and install a new signed IPA through Codemagic/TestFlight. Do not submit the previous binary. If a user made authenticated API calls through an older build, assess potential exposure of bearer tokens to the previous domain; there is no evidence here of misuse. Do not claim this code change revokes existing sessions.
+          
+          Still required: real-device sign-in, protected API and account-deletion QA on the new binary, and review of the separate remaining content-source items in issue #200.
+          ''')
+          PY
+      - run: npm ci --no-audit --no-fund
+      - run: npm run check:hardening
+      - run: npm run build && npm run check:root-bundle
+      - name: Verify real deployment identity without user credentials
+        run: node scripts/production-origin-check.mjs --live
+      - name: Publish the reviewed implementation only on a dedicated branch
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = '9ab6adf744e61eeb192d05ba8fe06d6e92ecca25'
+          test -z "$(git ls-remote origin refs/heads/fix/verified-production-origin)"
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add --all
+          git commit -m 'Fix native API and invite links to the verified football production origin'
+          git push origin HEAD:refs/heads/fix/verified-production-origin
