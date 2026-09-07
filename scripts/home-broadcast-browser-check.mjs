@@ -85,12 +85,15 @@ try{
    // Wait for the real guide and close it normally, never click through it.
    const guideClose=page.getByRole('button',{name:'Close instructions',exact:true});
    await guideClose.waitFor();await guideClose.click();
-   await page.getByRole('dialog',{name:'Fantasy HQ instructions',exact:true}).waitFor({state:'hidden'});
-   assert.equal(await page.locator('.bk-home-news-strip').count(),0,'Other modes must not gain the ticker');
+   await page.getByRole('dialog',{name:'Fantasy instructions',exact:true}).waitFor({state:'hidden'});
+   assert.equal(await page.locator('.bk-home-news-strip').count(),1,'Fantasy overview now shares the approved ticker');
+   await page.getByRole('button',{name:'Cheat Sheet',exact:true}).click();
+   await page.waitForFunction(()=>!document.querySelector('.bk-home-news-strip'));
+   assert.equal(await page.locator('.bk-home-news-strip').count(),0,'Research stays focused and stops ticker polling');
    const beforeLeaving=calls();await page.clock.runFor(130_000);assert.equal(calls(),beforeLeaving,'Unmounted ticker stops polling');
    await page.getByRole('button',{name:'Ball Knower home',exact:true}).click();await hero.waitFor();
    await page.getByRole('button',{name:'Open NFL News',exact:true}).click();await page.locator('.bk-app-shell[data-tab="news"]').waitFor();
-   assert.equal(await page.locator('.bk-home-news-strip').count(),0);
+   assert.equal(await page.locator('.bk-home-news-strip').count(),1,'News retains access to the shared headline strip');
   }
   assert.deepEqual(crashes,[]);results.push({width,...geometry,articleCount:news.articles.length});await context.close();
  }

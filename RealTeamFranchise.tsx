@@ -1,3 +1,4 @@
+import {BroadcastStage,BroadcastMasthead,BroadcastMotionControl} from './BroadcastScene';
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
@@ -251,7 +252,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
 
   if (teamAbbr && seasonOpen) {
     return (
-      <div className="relative">
+      <BroadcastStage scene="suite" page="franchise" quiet={seasonOpen} className="relative">
         <button
           type="button"
           onClick={newCareer}
@@ -272,7 +273,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
           onDraftPickAssetsChange={setDraftPickAssets}
           onSeasonYearChange={setFranchiseYear}
         />
-      </div>
+      </BroadcastStage>
     );
   }
 
@@ -380,8 +381,9 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
       setCommandTab("roster");
     };
     return (
-      <div className="min-h-[100dvh] px-4 pb-24 pt-4 text-white sm:px-8">
+      <BroadcastStage scene="suite" page="franchise" quiet={seasonOpen} className="min-h-[100dvh] px-4 pb-24 pt-4 text-white sm:px-8">
         <div className="mx-auto max-w-6xl">
+          <BroadcastMasthead eyebrow="Football operations" title="Franchise Command" subtitle="Build the roster. Set your game plan. Make the next move."/>
           <div className="flex items-center justify-between gap-3">
             <button
               type="button"
@@ -709,7 +711,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
             </ModalPortal>
           )}
         </div>
-      </div>
+      </BroadcastStage>
     );
   }
 
@@ -721,8 +723,9 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
     .slice(0, 3);
 
   return (
-    <div className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
+    <BroadcastStage scene="suite" page="franchise" quiet={seasonOpen} className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
       <div className="mx-auto max-w-5xl">
+        <BroadcastMasthead eyebrow="Football operations" title="Franchise Command" subtitle="Choose your team. Build a contender."/>
         <button
           type="button"
           onClick={onBack}
@@ -731,7 +734,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
         >
           <ArrowLeft size={19} />
         </button>
-        <div className="mt-5 rounded-[2rem] border border-white/10 bg-[#10151d] p-5 sm:p-8">
+        <div className="bk-franchise-panel mt-5 rounded-[2rem] border border-white/10 bg-[#10151d] p-5 sm:p-8">
           <div className="text-[10px] font-black tracking-[.25em] text-[var(--bk-team-accent)]">
             2026 NFL ROSTERS
           </div>
@@ -792,7 +795,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
           </button>
         </div>
       </div>
-    </div>
+    </BroadcastStage>
   );
 };
 

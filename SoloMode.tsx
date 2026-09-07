@@ -1,3 +1,4 @@
+import {BroadcastStage,BroadcastMasthead,BroadcastMotionControl} from './BroadcastScene';
 import {restoreSoloPlayer} from './legacySoloRestore';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Trophy, RotateCcw, Play, Plus, Trash2, Search, Share2, Award, Activity, ShieldAlert, BarChart3, Crown, ChevronRight } from 'lucide-react';
@@ -225,7 +226,7 @@ const CapChallenge:React.FC<{onBack:()=>void}>=({onBack})=>{
    try{if(navigator.share)await navigator.share({title:'Ball Knower Result',text});else{await navigator.clipboard.writeText(text);setMessage('Result card copied to clipboard.')}}catch{}
  };
 
- return <div className="min-h-[100dvh] bg-transparent text-white px-4 sm:px-8 pt-4 pb-8"><div className="mx-auto max-w-7xl">
+ return <BroadcastStage scene="tunnel" page="cap" quiet={true} className="min-h-[100dvh] bg-transparent text-white px-4 sm:px-8 pt-4 pb-8"><div className="mx-auto max-w-7xl">
   <button type="button" onClick={onBack} aria-label="Back to Solo Franchise Hub" className="mb-3 grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#111]"><ArrowLeft size={19}/></button>
   <div className="flex items-center justify-between gap-3 mb-4"><div className="min-w-0"><div className="text-[var(--bk-team-accent)] text-[10px] font-black tracking-[.28em]">SOLO MODE</div><h2 className="text-2xl sm:text-4xl font-black leading-none mt-1">{stage==='draft'?'BUILD YOUR ROSTER':<>ROAD TO THE <span className="text-[var(--bk-team-accent)]">SUPER BOWL</span></>}</h2></div><div className="flex shrink-0 gap-2"><button onClick={share} aria-label="Share Solo Mode" className="flex gap-2 items-center justify-center min-h-11 min-w-11 border border-white/10 px-3 sm:px-4 bg-[#151515]"><Share2 size={16}/><span className="hidden sm:inline">Share</span></button><button onClick={reset} disabled={isAutoDrafting} aria-label="Start a new Solo run" className="flex gap-2 items-center justify-center min-h-11 min-w-11 border border-white/10 px-3 sm:px-4 bg-[#151515] disabled:cursor-wait disabled:opacity-40"><RotateCcw size={16}/><span className="hidden sm:inline">New Run</span></button></div></div>
   {message&&<div className="mb-5 border border-[var(--bk-team-accent)]/30 bg-[var(--bk-team-accent)]/10 text-[var(--bk-team-accent)] px-4 py-3 font-bold">{message}</div>}
@@ -251,7 +252,7 @@ const CapChallenge:React.FC<{onBack:()=>void}>=({onBack})=>{
    <button onClick={share} className="mt-6 w-full py-4 border border-[var(--bk-team-accent)] text-[var(--bk-team-accent)] font-black"><Share2 className="inline mr-2"/>SHARE RESULT CARD</button></div>}
   <section className="mt-8 border border-white/10 bg-[#101010]/90 p-4"><div className="text-[10px] font-black tracking-[.25em] text-[var(--bk-team-accent)]">ROAD TO THE SUPER BOWL</div><p className="mt-1 text-sm text-zinc-400">Draft your 20, survive 17 weeks, earn a playoff seed, and win four playoff games.</p></section>
   <details className="mt-3 border border-white/10 bg-[#101010]/90"><summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-sm font-black"><span>CAREER STATS</span><span className="text-xs text-zinc-500">{career.runs} {career.runs===1?'RUN':'RUNS'} • {career.championships} {career.championships===1?'TITLE':'TITLES'}</span></summary><div className="grid grid-cols-2 md:grid-cols-6 gap-2 border-t border-white/10 p-3"><Stat label="Career Runs" value={`${career.runs}`}/><Stat label="Titles" value={`${career.championships}`}/><Stat label="Career W-L" value={`${career.regularWins}-${career.regularLosses}`}/><Stat label="Playoff Wins" value={`${career.playoffWins}`}/><Stat label="Best Record" value={career.bestRecord}/><Stat label="Best BK Score" value={`${career.bestScore}`}/></div></details>
- </div></div>
+ </div></BroadcastStage>
 };
 
 const DraftStat=({label,value,detail}:{label:string,value:string,detail?:string})=><div className="min-w-0 border border-white/10 bg-[#121212] p-3"><div className="text-[9px] font-black tracking-widest text-zinc-500">{label}</div><div className="truncate text-lg sm:text-2xl font-black leading-tight mt-1">{value}</div>{detail&&<div className="truncate text-[9px] font-black text-zinc-500">{detail}</div>}</div>;

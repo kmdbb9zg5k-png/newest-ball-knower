@@ -1,3 +1,4 @@
+import {BroadcastStage,BroadcastMasthead,BroadcastMotionControl} from './BroadcastScene';
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Dumbbell, Play, RotateCcw, Sparkles, Upload } from 'lucide-react';
 import { FranchiseSeason } from './FranchiseSeason';
@@ -344,7 +345,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
   if (profile.stage === 'season' && draftedTeam) {
     const roster = rosterWithMyPlayer(profile);
     return (
-      <div className="relative pb-20">
+      <BroadcastStage scene="locker" page="my-player" quiet className="relative pb-20">
         <div className="px-4 pt-4 sm:px-8">
           <div className="mx-auto max-w-7xl rounded-[2rem] border border-white/10 bg-black/25 p-3 sm:p-4">
             <div className="grid gap-3 sm:grid-cols-[220px_1fr] sm:items-center">
@@ -364,15 +365,16 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
           <div className="min-w-0 flex-1 px-2"><div className="truncate text-xs font-black">{profile.name} • {profile.overall} OVR</div><div className="text-[10px] text-zinc-500">XP {profile.xp}/100 • {profile.upgradePoints} UPGRADE POINT{profile.upgradePoints === 1 ? '' : 'S'}</div></div>
           {(['speed', 'power', 'awareness'] as UpgradeAttribute[]).map(attribute => <button key={attribute} type="button" disabled={!profile.upgradePoints || profile.overall >= 99} onClick={() => upgrade(attribute)} className="min-h-10 rounded-xl border border-[var(--bk-team-accent)]/30 px-2 text-[9px] font-black uppercase text-[var(--bk-team-accent)] disabled:opacity-30">+ {attribute}</button>)}
         </div>
-      </div>
+      </BroadcastStage>
     );
   }
 
   const stageTitle = profile.stage === 'creator' ? 'CREATE' : profile.stage === 'combine' ? 'NFL COMBINE' : 'DRAFT NIGHT';
 
   return (
-    <div className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
+    <BroadcastStage scene="locker" page="my-player" quiet={profile.stage!=='creator'} className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
       <div className="mx-auto max-w-5xl">
+        <BroadcastMasthead eyebrow="My Player story" title="Your Career Starts Here" subtitle="Create your player. Earn your place." compact/>
         <div className="flex items-center justify-between">
           <button type="button" onClick={onBack} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Back to Solo Franchise Hub"><ArrowLeft size={19} /></button>
           <div className="text-center"><div className="text-[10px] font-black tracking-[.22em] text-[var(--bk-team-accent)]">MY PLAYER STORY</div><div className="text-sm font-black">{stageTitle}</div></div>
@@ -441,7 +443,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
           </div>
         ) : null}
       </div>
-    </div>
+    </BroadcastStage>
   );
 };
 

@@ -1,3 +1,4 @@
+import {BroadcastStage,BroadcastMasthead,BroadcastMotionControl} from './BroadcastScene';
 import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { League } from './types';
 import { FantasyLeagueCommandCenter } from './FantasyLeagueCommandCenter';
@@ -76,20 +77,22 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, o
 
   if (draftComplete) {
     return (
-      <div className="min-h-[calc(100dvh-7rem)] overflow-x-hidden bg-[#07090c] text-white">
+      <BroadcastStage scene="tunnel" page="league" quiet={true} className="min-h-[calc(100dvh-7rem)] overflow-x-hidden bg-[#07090c] text-white">
+        <div className="mx-auto max-w-6xl px-3 sm:px-6"><div className="bk-league-scene-banner"><div><span>Fantasy football</span><strong>{league.name}</strong></div><BroadcastMotionControl/></div></div>
         <OwnerCareerSync league={league} />
         <div className="mx-auto max-w-6xl px-2 py-0 sm:px-6 sm:py-5">
           <ModeErrorBoundary key={`postdraft-${lazyVersion}`} onRetry={retryMode}>
             <FantasyLeaguePostDraft league={postDraftLeague} onGoToSimulation={onGoToSimulation} />
           </ModeErrorBoundary>
         </div>
-      </div>
+      </BroadcastStage>
     );
   }
 
   return (
-    <div className="min-h-[calc(100dvh-7rem)] bg-[#07090c] text-white">
-      <OwnerCareerSync league={league} />
+    <BroadcastStage scene="tunnel" page="league" quiet={true} className="min-h-[calc(100dvh-7rem)] bg-[#07090c] text-white">
+      <div className="mx-auto max-w-6xl px-3 sm:px-6"><div className="bk-league-scene-banner"><div><span>Fantasy football</span><strong>{league.name}</strong></div><BroadcastMotionControl/></div></div>
+        <OwnerCareerSync league={league} />
       <div className="mx-auto max-w-6xl px-3 pt-3 sm:px-6 sm:pt-4">
         <div className="grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-[#0d1015] p-1 sm:gap-2 sm:rounded-2xl sm:p-2">
           <button onClick={() => setMode('command')} className={`min-h-10 min-w-0 rounded-lg px-1 text-[9px] font-black uppercase tracking-[.06em] sm:min-h-12 sm:rounded-xl sm:text-[11px] sm:tracking-[.12em] ${mode === 'command' ? 'bg-[#D4AF37] text-black' : 'text-zinc-400'}`}><span className="sm:hidden">League HQ</span><span className="hidden sm:inline">Command Center</span></button>
@@ -117,7 +120,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, o
           </ModeErrorBoundary>
         </div>
       )}
-    </div>
+    </BroadcastStage>
   );
 };
 

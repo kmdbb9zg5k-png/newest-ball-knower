@@ -1,3 +1,4 @@
+import {BroadcastStage,BroadcastMasthead,BroadcastMotionControl} from './BroadcastScene';
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
@@ -207,7 +208,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
   };
 
   return (
-    <div className="min-h-[calc(100dvh-7rem)] px-4 pb-10 pt-5 text-white sm:px-8">
+    <BroadcastStage scene="tunnel" page="fantasy" quiet={view==='cheatsheet'} className="min-h-[calc(100dvh-7rem)] px-4 pb-10 pt-5 text-white sm:px-8">
       <div className="mx-auto max-w-6xl">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="grid flex-1 grid-cols-2 rounded-2xl border border-white/10 bg-[#0b0d10] p-1">
@@ -237,45 +238,9 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
         </div>
         {view === "leagues" && (
           <>
-            <section className="relative mb-3 overflow-hidden rounded-2xl border border-[#D4AF37]/25 bg-[#080a0d] p-4 shadow-2xl sm:mb-7 sm:rounded-[2rem] sm:p-9">
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_72%_38%,rgba(212,175,55,.22),transparent_24%),radial-gradient(circle_at_15%_100%,rgba(212,175,55,.10),transparent_35%),linear-gradient(115deg,#070809,#111318_55%,#060708)]" />
-              <div className="pointer-events-none absolute -right-8 top-5 hidden h-64 w-64 place-items-center rounded-full border border-[#D4AF37]/15 bg-black/30 shadow-[0_0_90px_rgba(212,175,55,.16)] sm:grid">
-                <Trophy
-                  className="h-36 w-36 text-[#D4AF37]/80"
-                  strokeWidth={1}
-                />
-              </div>
-              <div className="relative z-10 max-w-2xl">
-                <div className="mb-2 flex items-center gap-2 text-[9px] font-black uppercase tracking-[.25em] text-[#D4AF37] sm:mb-3 sm:text-[11px] sm:tracking-[.3em]">
-                  <Trophy className="h-4 w-4" /> Fantasy
-                </div>
-                <h2 className="font-display text-4xl font-black uppercase leading-[.88] tracking-[-.045em] sm:text-7xl">
-                  League <span className="text-[#D4AF37]">HQ</span>
-                </h2>
-                <h3 className="mt-2 text-base font-black uppercase leading-tight sm:mt-5 sm:text-2xl">
-                  Create, join, or enter a free public league.
-                </h3>
-                <p className="mt-2 max-w-xl text-xs font-semibold leading-relaxed text-zinc-400 sm:mt-3 sm:text-sm">
-                  Choose how draft order is decided, invite your crew, and run
-                  the league from one place.
-                </p>
-                <div className="mt-5 hidden items-center gap-3 text-xs font-black uppercase tracking-wider text-zinc-300 sm:flex">
-                  <div className="flex -space-x-2">
-                    {[0, 1, 2, 3].map((i) => (
-                      <div
-                        key={i}
-                        className="grid h-9 w-9 place-items-center rounded-full border-2 border-[#090a0d] bg-zinc-800 text-[10px] text-[#D4AF37]"
-                      >
-                        BK
-                      </div>
-                    ))}
-                  </div>
-                  <span>{memberCount || 0} league members</span>
-                </div>
-              </div>
-            </section>
+            <BroadcastMasthead eyebrow="Your league. Your legacy." title="Fantasy HQ" subtitle="Create, join, and manage your leagues. Build the team everyone has to beat."/>
 
-            <div className="mb-5 grid gap-2 sm:mb-9 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
+            <div className="bk-fantasy-actions mb-5 grid gap-2 sm:mb-9 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
               <button
                 onClick={() => void enterPublicLeague()}
                 disabled={publicMatchBusy}
@@ -529,7 +494,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
           </>
         )}
         {view === "cheatsheet" && (
-          <section className="rounded-[2rem] border border-[#D4AF37]/35 bg-[#0b0e12] p-4 sm:p-6">
+          <section className="bk-cheatsheet-panel rounded-[2rem] border border-[#D4AF37]/35 bg-[#0b0e12] p-4 sm:p-6">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <div className="text-[10px] font-black uppercase tracking-[.25em] text-[#D4AF37]">
@@ -803,6 +768,6 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
           </ModalPortal>
         )}
       </div>
-    </div>
+    </BroadcastStage>
   );
 };

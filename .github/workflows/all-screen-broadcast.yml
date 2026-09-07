@@ -1,0 +1,30 @@
+name: All-screen broadcast regressions
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  visual-navigation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint && node --import tsx scripts/all-screens-broadcast-check.ts
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build && npm run check:root-bundle
+      - name: Inspect real pages with isolated accounts and explicit news fixtures
+        run: node scripts/all-screens-broadcast-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: all-screen-broadcast
+          path: artifacts/all-screens
+          if-no-files-found: ignore
+          retention-days: 3
