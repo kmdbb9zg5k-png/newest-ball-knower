@@ -1,9 +1,10 @@
 name: Daily Picks screen
 on:
-  push:
-    branches: [main, fix/daily-picks-loading-layout]
+  pull_request:
+    branches: [main]
     paths:
       - SportsbookHub.tsx
+      - BroadcastScene.tsx
       - picks*.ts
       - picks*.css
       - modeProgressionCloud.ts
@@ -11,10 +12,12 @@ on:
       - api/nfl-sportsbook.ts
       - scripts/picks-*
       - .github/workflows/picks-screen.yml
+  push:
+    branches: [fix/daily-picks-loading-layout]
 permissions:
   contents: read
 concurrency:
-  group: picks-screen-${{ github.ref }}
+  group: picks-screen-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 jobs:
   picks:
@@ -22,32 +25,21 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - name: Capture public feed contract and source baseline
-        run: |
-          mkdir -p picks-diagnostics
-          git archive --format=tar HEAD '*.ts' '*.tsx' '*.js' '*.css' '*.json' '*.mjs' '.github/workflows' > picks-diagnostics/source.tar
-          node --input-type=module <<'NODE'
-          import {writeFileSync} from 'node:fs';
-          try {
-            const response = await fetch('https://api.nfldata.org/v1/games?season=2026&limit=400', {signal: AbortSignal.timeout(10000)});
-            const data = await response.json();
-            writeFileSync('picks-diagnostics/provider.json', JSON.stringify(data, null, 2));
-            const rows = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
-            console.log('Public provider status:', response.status, 'rows:', rows.length);
-            console.log('Provider sample:', JSON.stringify(rows.slice(-2), null, 2));
-          } catch (error) { console.warn('Public diagnostic unavailable:', String(error)); }
-          NODE
-      - name: Upload diagnostic evidence
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint && npm run check:picks && node --import tsx scripts/picks-screen-check.ts
+      - run: npm run build && npm run check:root-bundle
+      - run: npx playwright install --with-deps chromium webkit
+      - run: node scripts/picks-screen-browser.mjs
+      - uses: actions/upload-artifact@v4
         if: always()
-        uses: actions/upload-artifact@v4
         with:
-          name: picks-diagnostics-${{ github.sha }}
-          path: picks-diagnostics
+          name: picks-screen-${{ github.sha }}
+          path: artifacts/picks-screen
+          if-no-files-found: ignore
           retention-days: 3
-      - run: npm ci
-      - run: npm run lint && npm run check:picks
-      - run: npm run build
