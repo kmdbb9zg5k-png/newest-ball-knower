@@ -85,7 +85,10 @@ try{
       c.setMode('empty');await page.getByRole('button',{name:'Refresh picks',exact:true}).click();await page.getByText('No NFL matchups scheduled right now.').waitFor();
       assert.equal(await page.getByRole('button',{name:'Retry matchups',exact:true}).count(),0);
       if(width===390)await page.screenshot({path:`${out}/${name}-empty.png`});
-      await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await stage.getAttribute('data-motion'),'off');
+      await page.emulateMedia({reducedMotion:'reduce'});
+      // The media-query change event and React render are asynchronous.
+      await page.waitForFunction(()=>document.querySelector('.bk-picks-screen')?.getAttribute('data-motion')==='off',{},{timeout:3000});
+      assert.equal(await stage.getAttribute('data-motion'),'off');
       assert.deepEqual(c.crashes,[]);results.push({engine:name,width,geometry,saving:true,filters:true,outageRecovery:true,validEmpty:true,reducedMotion:true});await c.context.close();
     }
     if(name==='chromium'){
