@@ -25,7 +25,7 @@ import {
   Zap,
 } from "lucide-react";
 import { League, LeagueMember, Player, SimulationGame } from "./types";
-import { PLAYERS_DATABASE } from "./players";
+import { PLAYERS_DATABASE, KNOWN_PLAYERS_DATABASE } from "./players";
 import { playerPortraitFallbackUrl, playerPortraitUrl } from "./playerPortraits";
 import { useBallKnower } from "./BallKnowerContext";
 import { FantasyAdvancedLeagueSettings } from "./FantasyAdvancedLeagueSettings";
@@ -1052,7 +1052,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
     league.members
       .flatMap((member) => member.roster || [])
       .find((player) => player.id === id) ||
-    PLAYERS_DATABASE.find((player) => player.id === id);
+    KNOWN_PLAYERS_DATABASE.find((player) => player.id === id);
   const swapDefinition = LINEUP_SLOTS.find((slot) => slot.id === swapSlot);
   const currentSwapPlayer = roster.find(
     (player) => player.id === starters[swapSlot],
@@ -1811,7 +1811,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                           value={claim.claimGroupId}
                         >
                           Backup if{" "}
-                          {PLAYERS_DATABASE.find(
+                          {KNOWN_PLAYERS_DATABASE.find(
                             (player) => player.id === claim.playerId,
                           )?.name || "earlier claim"}{" "}
                           fails
@@ -1843,7 +1843,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                     <div className="min-w-0">
                       <div className="truncate text-xs font-black">
                         #{claim.claimOrder} ·{" "}
-                        {PLAYERS_DATABASE.find(
+                        {KNOWN_PLAYERS_DATABASE.find(
                           (player) => player.id === claim.playerId,
                         )?.name || claim.playerId}
                       </div>

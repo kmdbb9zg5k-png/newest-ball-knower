@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "rosterSeason": 2026,
+  "statsSeason": 2025,
+  "depthSnapshot": "2026-09-06T11:29:30Z",
+  "inputs": [
+    {
+      "file": "roster_2026.csv",
+      "source": "https://github.com/nflverse/nflverse-data/releases/download/rosters/roster_2026.csv",
+      "retrievedAt": "2026-09-07T01:33:36.552639+00:00",
+      "sha256": "5ec59c5228198f57ba577cfe06d52a789259b92d9c5c98c152b206e8ab80ab55",
+      "bytes": 932784
+    },
+    {
+      "file": "stats_player_reg_2025.csv",
+      "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_reg_2025.csv",
+      "retrievedAt": "2026-09-07T01:33:36.712664+00:00",
+      "sha256": "aaa8559478dd8d58569c93e278239e70e9411e79ee649c99d8d506030cd42b12",
+      "bytes": 882104
+    },
+    {
+      "file": "stats_player_week_2025.csv",
+      "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_2025.csv",
+      "retrievedAt": "2026-09-07T01:33:36.860192+00:00",
+      "sha256": "e5e0615b3d96a3eaebfaee91e55afb4a4e7fe0caf057454177bcd7d6ad4bcfc2",
+      "bytes": 8656387
+    },
+    {
+      "file": "stats_team_reg_2025.csv",
+      "source": "https://github.com/nflverse/nflverse-data/releases/download/stats_team/stats_team_reg_2025.csv",
+      "retrievedAt": "2026-09-07T01:33:36.999579+00:00",
+      "sha256": "0f7ec981428ea75659fbe5d927068ee9582232d9bd72df53f8acac14bd510b63",
+      "bytes": 20519
+    },
+    {
+      "file": "depth_charts_2026.csv",
+      "source": "https://github.com/nflverse/nflverse-data/releases/download/depth_charts/depth_charts_2026.csv",
+      "retrievedAt": "2026-09-07T01:33:37.148491+00:00",
+      "sha256": "5d6dbe195cb9104cc1ff3e19fc2a206a6fb565b1e3a9f6e17f75b21f36c0b6ab",
+      "bytes": 30000000
+    },
+    {
+      "file": "LICENSE.md",
+      "source": "https://raw.githubusercontent.com/nflverse/nflverse-data/master/LICENSE.md",
+      "retrievedAt": "2026-09-07T01:33:37.356767+00:00",
+      "sha256": "2a82ac9bbc3e3ee066908381e8d373896db5a6025d083fbd59692fe9ccfb9111",
+      "bytes": 18651
+    }
+  ],
+  "license": "CC BY 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+  "attribution": "nflverse contributors; normalized and modified by Ball Knower.",
+  "limitations": [
+    "No third-party artwork is imported. Data licensing does not clear publicity or trademark uses.",
+    "Depth input is a bounded history prefix; only its complete latest 32-team snapshot was selected.",
+    "Unmatched legacy identities are retained only for saved-data lookup, not new drafts."
+  ],
+  "activePlayers": 2477,
+  "knownPlayers": 3043,
+  "preservedLegacyIds": 2329,
+  "matchedLegacyIds": 2203,
+  "archivedUnmatchedLegacyIds": 126,
+  "historicalIdentitySources": [
+    {
+      "source": "https://github.com/nflverse/nflverse-data/releases/download/rosters/roster_2025.csv",
+      "bytes": 1010039,
+      "sha256": "531ee5de386037bb17de3e3e3d50f7b4ed08789526bbaae9876fdd3dfb4d04ad"
+    },
+    {
+      "source": "https://github.com/nflverse/nflverse-data/releases/download/rosters/roster_2024.csv",
+      "bytes": 1005701,
+      "sha256": "97721aa9092edb15c1357f2dac359dba72f63c81cc0e69408c65c229c91f50c1"
+    }
+  ],
+  "inputSha256": "30f2bc0ee738a54237c2d7bc084e6ba0e15f89cdb43a58078c371239340c9bab"
+}

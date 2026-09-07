@@ -1,6 +1,7 @@
+import {restoreSoloPlayer} from './legacySoloRestore';
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Trophy, RotateCcw, Play, Plus, Trash2, Search, Share2, Award, Activity, ShieldAlert, BarChart3, Crown, ChevronRight } from 'lucide-react';
-import { PLAYERS_DATABASE } from './players';
+import { PLAYERS_DATABASE, KNOWN_PLAYERS_DATABASE } from './players';
 import { Player, DEFAULT_SALARY_CAP, TOTAL_ROSTER_SIZE, ROSTER_REQUIREMENTS, LeagueMember } from './types';
 import { countRosterGroups, getDraftPositionGroup, minimumCompletionCost, validateRosterShape } from './rosterRules';
 import { calculateTeamRatings } from './evaluation';
@@ -24,7 +25,7 @@ type PlayoffResult={round:string;opponent:string;you:number;them:number;won:bool
 const CAREER_KEY='ballknower_solo_career_v1';
 const RUN_KEY='ballknower_solo_run_v1';
 const INITIAL_PLAYER_BATCH=40;
-const PLAYER_BY_ID=new Map(PLAYERS_DATABASE.map(player=>[player.id,player]));
+const PLAYER_BY_ID=new Map(KNOWN_PLAYERS_DATABASE.map(player=>[player.id,player]));
 
 const FantasyFranchiseMode=lazy(()=>import('./FantasyFranchise').then(module=>({default:module.FantasyFranchise})));
 const RealTeamFranchiseMode=lazy(()=>import('./RealTeamFranchise').then(module=>({default:module.RealTeamFranchise})));
@@ -57,8 +58,9 @@ const restoreRun=()=>{
    if(!saved||!['draft','regular','playoffs'].includes(saved.stage))throw new Error('Unsupported Solo stage');
    if(!Array.isArray(saved.roster)||saved.roster.length>TOTAL_ROSTER_SIZE||!saved.roster.every(isPlayer))throw new Error('Invalid Solo roster');
    if(!Array.isArray(saved.bench)||saved.bench.length>2||!saved.bench.every(isPlayer))throw new Error('Invalid Solo bench');
-   const roster=saved.roster.map((player:Player)=>PLAYER_BY_ID.get(player.id));
-   const bench=saved.bench.map((player:Player)=>PLAYER_BY_ID.get(player.id));
+   const legacyRun=saved.independentSourceVersion!==1;
+   const roster=saved.roster.map((player:Player)=>restoreSoloPlayer(player,PLAYER_BY_ID.get(player.id),legacyRun));
+   const bench=saved.bench.map((player:Player)=>restoreSoloPlayer(player,PLAYER_BY_ID.get(player.id),legacyRun));
    if(roster.some((player:Player|undefined)=>!player)||bench.some((player:Player|undefined)=>!player))throw new Error('Saved Solo player is no longer active');
    const currentRoster=roster as Player[],currentBench=bench as Player[];
    const ids=[...currentRoster,...currentBench].map(player=>player.id);
@@ -80,8 +82,8 @@ const restoreRun=()=>{
    const playoffs=saved.playoffs.map((result:any,index:number)=>({...result,opponent:getSoloOpponentTeam(25+index).name}));
    return {...saved,roster:currentRoster,bench:currentBench,weeks,playoffs,settings:{difficulty,injuries:injurySetting}};
  }catch(error){
-   console.warn('Discarding incompatible Solo save',error);
-   try{localStorage.removeItem(RUN_KEY)}catch{}
+   console.warn('Archiving incompatible Solo save for recovery',error);
+   try{const raw=localStorage.getItem(RUN_KEY);if(raw&&!localStorage.getItem(`${RUN_KEY}:recovery`))localStorage.setItem(`${RUN_KEY}:recovery`,raw);localStorage.removeItem(RUN_KEY)}catch{}
    return null;
  }
 };
@@ -115,7 +117,7 @@ const CapChallenge:React.FC<{onBack:()=>void}>=({onBack})=>{
  const simulationLock=useRef(false);
 
  useEffect(()=>{const saved=restoreRun();if(saved){setStage(saved.stage);setRoster(saved.roster);setBench(saved.bench);setWeeks(saved.weeks);setInjuries(saved.injuries);setPlayoffs(saved.playoffs);setSettings(saved.settings);setMessage('Restored your last Solo Mode run.')}setDidRestore(true)},[]);
- useEffect(()=>{if(!didRestore)return;if(stage==='finished'||(stage==='draft'&&!roster.length&&!bench.length)){try{localStorage.removeItem(RUN_KEY)}catch(error){console.warn('Unable to clear Solo run',error)}return}try{localStorage.setItem(RUN_KEY,JSON.stringify({stage,roster,bench,weeks,injuries,playoffs,settings}))}catch(error){console.warn('Unable to save Solo run',error)}},[didRestore,stage,roster,bench,weeks,injuries,playoffs,settings]);
+ useEffect(()=>{if(!didRestore)return;if(stage==='finished'||(stage==='draft'&&!roster.length&&!bench.length)){try{localStorage.removeItem(RUN_KEY)}catch(error){console.warn('Unable to clear Solo run',error)}return}try{localStorage.setItem(RUN_KEY,JSON.stringify({independentSourceVersion:1,stage,roster,bench,weeks,injuries,playoffs,settings}))}catch(error){console.warn('Unable to save Solo run',error)}},[didRestore,stage,roster,bench,weeks,injuries,playoffs,settings]);
  useEffect(()=>{setVisiblePlayerCount(INITIAL_PLAYER_BATCH)},[query,position]);
 
  const spent=useMemo(()=>[...roster,...bench].reduce((n,p)=>n+p.salary,0),[roster,bench]), remaining=DEFAULT_SALARY_CAP-spent;

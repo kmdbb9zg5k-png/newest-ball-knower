@@ -12,7 +12,7 @@ import {
   Sparkles,
   UserRound,
 } from "lucide-react";
-import { PLAYERS_DATABASE } from "./players";
+import { PLAYERS_DATABASE, KNOWN_PLAYERS_DATABASE } from "./players";
 import { Player } from "./types";
 import { playerPortraitUrl } from "./playerPortraits";
 import { ModalPortal } from "./ModalPortal";
@@ -880,7 +880,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       agency.clients
         .map((client) => ({
           client,
-          player: PLAYERS_DATABASE.find((p) => p.id === client.playerId),
+          player: KNOWN_PLAYERS_DATABASE.find((p) => p.id === client.playerId),
         }))
         .filter((x): x is { client: Client; player: Player } =>
           Boolean(x.player),
@@ -900,7 +900,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     [agency.clients, filter, unlockedOvr],
   );
 
-  const selected = PLAYERS_DATABASE.find((p) => p.id === selectedId) || null;
+  const selected = KNOWN_PLAYERS_DATABASE.find((p) => p.id === selectedId) || null;
   const actionsRemaining = agentActionsRemaining(agency.weeklyActionsUsed);
   const clientCapacity = agencyClientCapacity(agency.staff);
   const resume = buildAgencyResume({
@@ -1000,7 +1000,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     }
 
     const updatedClients = agency.clients.map((client) => {
-      const p = PLAYERS_DATABASE.find((x) => x.id === client.playerId);
+      const p = KNOWN_PLAYERS_DATABASE.find((x) => x.id === client.playerId);
       if (!p) return client;
       const tradeWindowOpen =
         nextPhase === "regular" && nextWeek <= TRADE_DEADLINE_WEEK;
@@ -1069,7 +1069,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     const actionAgency = spendAction("handling a client decision");
     if (!actionAgency) return;
     const client = agency.clients.find((c) => c.playerId === playerId);
-    const player = PLAYERS_DATABASE.find((p) => p.id === playerId);
+    const player = KNOWN_PLAYERS_DATABASE.find((p) => p.id === playerId);
     const event = client?.career.pendingEvent;
     if (!client || !player || !event) return;
     const result = resolveClientEvent({
@@ -1120,7 +1120,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     playerId: string,
     status: "resolved" | "denied",
   ) => {
-    const p = PLAYERS_DATABASE.find((x) => x.id === playerId);
+    const p = KNOWN_PLAYERS_DATABASE.find((x) => x.id === playerId);
     const client = agency.clients.find((c) => c.playerId === playerId);
     if (!p || !client?.tradeRequest) return;
     if (!canResolveAgentTradeRequest(status, agency.phase, agency.seasonWeek)) {
@@ -1517,7 +1517,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
 
   const counterNegotiation = () => {
     if (!negotiationRoom) return;
-    const p = PLAYERS_DATABASE.find((x) => x.id === negotiationRoom.playerId);
+    const p = KNOWN_PLAYERS_DATABASE.find((x) => x.id === negotiationRoom.playerId);
     const client = agency.clients.find(
       (x) => x.playerId === negotiationRoom.playerId,
     );
@@ -2294,7 +2294,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
         )}
         {negotiationRoom &&
           (() => {
-            const p = PLAYERS_DATABASE.find(
+            const p = KNOWN_PLAYERS_DATABASE.find(
               (x) => x.id === negotiationRoom.playerId,
             );
             if (!p) return null;

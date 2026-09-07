@@ -1,20 +1,11 @@
 import { Player, Position, PositionGroup } from './types';
-import { AFC_EAST_PLAYERS } from './afcEast';
-import { AFC_NORTH_PLAYERS } from './afcNorth';
-import { AFC_SOUTH_PLAYERS } from './afcSouth';
-import { AFC_WEST_PLAYERS } from './afcWest';
-import { NFC_EAST_PLAYERS } from './nfcEast';
-import { NFC_NORTH_PLAYERS } from './nfcNorth';
-import { NFC_SOUTH_PLAYERS } from './nfcSouth';
-import { NFC_WEST_PLAYERS } from './nfcWest';
 import { validateDatabase } from './databaseValidator';
 import { CURRENT_ROSTER_METADATA, HISTORICAL_ROSTER_MIGRATIONS, detectRosterMismatches, generateRosterMigrationReport } from './rosterSync';
-import { MADDEN_RATING_METADATA, OFFICIAL_MADDEN_RATINGS, getOfficialMaddenRating } from './maddenRatings';
-import { MASTER_2026_ROSTER_REGISTRY, enforce2026Roster, validateAndSyncRoster, generateFull2026RosterValidationReport } from './masterRoster2026';
 import { validatePlayerRatings } from './ratingsValidator';
-import { applyCurrent2026Roster } from './currentSeasonRoster';
+import { applyCurrent2026Roster, known2026Players } from './currentSeasonRoster';
+import { BALL_KNOWER_RATING_METADATA } from './independentPlayerRatings';
 
-export { CURRENT_ROSTER_METADATA, HISTORICAL_ROSTER_MIGRATIONS, detectRosterMismatches, generateRosterMigrationReport, MADDEN_RATING_METADATA, OFFICIAL_MADDEN_RATINGS, getOfficialMaddenRating, validatePlayerRatings, MASTER_2026_ROSTER_REGISTRY, enforce2026Roster, validateAndSyncRoster, generateFull2026RosterValidationReport };
+export { CURRENT_ROSTER_METADATA, HISTORICAL_ROSTER_MIGRATIONS, detectRosterMismatches, generateRosterMigrationReport, BALL_KNOWER_RATING_METADATA, validatePlayerRatings };
 
 export interface NFLTeamInfo { code:string; name:string; city:string; conference:'AFC'|'NFC'; division:'East'|'North'|'South'|'West'; primaryColor?:string; secondaryColor?:string; }
 
@@ -32,17 +23,18 @@ export const NFL_TEAMS:NFLTeamInfo[]=[
 export function getTeamData(code:string){ return NFL_TEAMS.find(team=>team.code===String(code||'').toUpperCase()); }
 export function getPositionGroup(pos:Position):PositionGroup{ const p=String(pos).toUpperCase(); if(p==='QB')return 'QB' as PositionGroup; if(['RB','FB'].includes(p))return 'RB' as PositionGroup; if(p==='WR')return 'WR' as PositionGroup; if(p==='TE')return 'TE' as PositionGroup; if(['OT','LT','RT','OG','LG','RG','C','OL'].includes(p))return 'OL' as PositionGroup; if(p==='EDGE')return 'EDGE' as PositionGroup; if(['DT','DE','NT','DL'].includes(p))return 'DL' as PositionGroup; if(['LB','OLB','ILB','MLB'].includes(p))return 'LB' as PositionGroup; if(p==='CB')return 'CB' as PositionGroup; if(['S','FS','SS'].includes(p))return 'S' as PositionGroup; if(['K','P'].includes(p))return 'K' as PositionGroup; return 'ALL' as PositionGroup; }
 
-const LEGACY_RAW_PLAYERS:Player[]=[...AFC_EAST_PLAYERS,...AFC_NORTH_PLAYERS,...AFC_SOUTH_PLAYERS,...AFC_WEST_PLAYERS,...NFC_EAST_PLAYERS,...NFC_NORTH_PLAYERS,...NFC_SOUTH_PLAYERS,...NFC_WEST_PLAYERS];
-const RAW_PLAYERS_COMBINED:Player[]=applyCurrent2026Roster(LEGACY_RAW_PLAYERS);
-function normalizePlayer(raw:Player):Player{ const teamData=NFL_TEAMS.find(t=>t.code===raw.team); const madden=getOfficialMaddenRating(raw.id,raw.name,raw.team,raw.position); const ovr=(raw as any).overallRating || (madden as any)?.overallRating || raw.ovr; return {...raw,playerId:(raw as any).playerId||raw.id,teamId:raw.team,teamAbbreviation:raw.team,teamCity:teamData?.city||(raw as any).teamCity||'NFL',teamName:teamData?.name||(raw as any).teamName||'',conference:teamData?.conference||(raw as any).conference||'AFC',division:teamData?.division||(raw as any).division||'East',positionGroup:(raw as any).positionGroup||getPositionGroup(raw.position),active:(raw as any).active!==false,rosterSeason:2026,overallRating:ovr,ovr,overall:ovr} as Player; }
+const RAW_PLAYERS_COMBINED:Player[]=applyCurrent2026Roster();
+function normalizePlayer(raw:Player):Player{ const teamData=NFL_TEAMS.find(t=>t.code===raw.team); const ovr=raw.overallRating ?? raw.ovr; return {...raw,playerId:(raw as any).playerId||raw.id,teamId:raw.team,teamAbbreviation:raw.team,teamCity:teamData?.city||(raw as any).teamCity||'NFL',teamName:teamData?.name||(raw as any).teamName||'',conference:teamData?.conference||(raw as any).conference||'AFC',division:teamData?.division||(raw as any).division||'East',positionGroup:(raw as any).positionGroup||getPositionGroup(raw.position),active:(raw as any).active!==false,rosterSeason:2026,overallRating:ovr,ovr,overall:ovr} as Player; }
 const NORMALIZED_PLAYERS:Player[]=RAW_PLAYERS_COMBINED.map(normalizePlayer);
 const DEFENSIVE_POSITIONS=new Set(['EDGE','DE','DT','NT','LB','CB','S','FS','SS']);
 const TEAM_DEFENSES:Player[]=NFL_TEAMS.map(team=>{
  const defenders=NORMALIZED_PLAYERS.filter(player=>player.team===team.code&&DEFENSIVE_POSITIONS.has(player.position)).sort((a,b)=>b.ovr-a.ovr).slice(0,11);
  const ovr=defenders.length?Math.round(defenders.reduce((sum,player)=>sum+player.ovr,0)/defenders.length):75;
- return {id:`dst-${team.code.toLowerCase()}`,playerId:`dst-${team.code.toLowerCase()}`,team:team.code,teamId:team.code,teamCity:team.city,teamName:team.name,name:`${team.city} ${team.name} D/ST`,position:'DST',positionGroup:'DST',ovr,overallRating:ovr,overall:ovr,salary:1,salaryType:'estimated',salarySource:'legacy_estimate',active:true,rosterSeason:2026,ratingSource:'Ball Knower Team Defense',ratingSeason:2026,ratingStatus:'VERIFIED',attributes:{runDefense:ovr,coverage:ovr,passRush:ovr,athleticism:ovr,footballIQ:ovr}} as Player;
+ return {id:`dst-${team.code.toLowerCase()}`,playerId:`dst-${team.code.toLowerCase()}`,team:team.code,teamId:team.code,teamCity:team.city,teamName:team.name,name:`${team.city} ${team.name} D/ST`,position:'DST',positionGroup:'DST',ovr,overallRating:ovr,overall:ovr,salary:1,salaryType:'estimated',salarySource:'legacy_estimate',active:true,rosterSeason:2026,ratingSource:'Ball Knower Team Defense',ratingSeason:2026,ratingStatus:'ESTIMATED',attributes:{runDefense:ovr,coverage:ovr,passRush:ovr,athleticism:ovr,footballIQ:ovr}} as Player;
 });
 export const PLAYERS_DATABASE:Player[]=[...NORMALIZED_PLAYERS,...TEAM_DEFENSES];
+// Archive identities remain resolvable, but are never put into new draft pools.
+export const KNOWN_PLAYERS_DATABASE:Player[]=[...known2026Players().map(normalizePlayer),...TEAM_DEFENSES];
 // Draft screens already load this module on demand. Expose that loaded catalog to
 // the lightweight provider so legacy callers can retain the exact cap-completion
 // guard without making the provider import the entire NFL database at startup.
@@ -53,4 +45,3 @@ export function getPlayersByPosition(position:string){ const p=String(position||
 export const DATABASE_VALIDATION_REPORT:any=validateDatabase(PLAYERS_DATABASE,NFL_TEAMS);
 export const ROSTER_MIGRATION_REPORT:any=generateRosterMigrationReport(PLAYERS_DATABASE);
 export const RATINGS_VALIDATION_REPORT:any=validatePlayerRatings(PLAYERS_DATABASE);
-export const MASTER_2026_VALIDATION_REPORT:any=generateFull2026RosterValidationReport(PLAYERS_DATABASE);

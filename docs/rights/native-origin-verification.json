@@ -1,0 +1,38 @@
+{
+  "oldOrigin": "https://ballknower.com",
+  "oldResult": "HTTP 200 text/html; baseball Legendary Lineup app, not the football API",
+  "productionOrigin": "https://ballknowerofficial.com",
+  "productionHealth": {
+    "ok": true,
+    "service": "ball-knower",
+    "release": "public-beta",
+    "checkedAt": "2026-09-07T01:33:37.711Z",
+    "integrations": {
+      "database": true,
+      "nflData": true,
+      "issueEmail": false
+    }
+  },
+  "probes": [
+    {
+      "file": "old-domain-health.txt",
+      "source": "https://ballknower.com/api/health",
+      "retrievedAt": "2026-09-07T01:33:37.429011+00:00",
+      "status": 200,
+      "finalUrl": "https://ballknower.com/api/health",
+      "contentType": "text/html; charset=utf-8",
+      "sha256": "537e237994607d979e62458b32739f098e5f2ac93c15dcaa652387afe1385f16",
+      "bytes": 1891
+    },
+    {
+      "file": "production-health.txt",
+      "source": "https://ballknowerofficial.com/api/health",
+      "retrievedAt": "2026-09-07T01:33:37.524989+00:00",
+      "status": 200,
+      "finalUrl": "https://ballknowerofficial.com/api/health",
+      "contentType": "application/json; charset=utf-8",
+      "sha256": "ad79864dd1808dbc9763342c58380f9a5efd787ed6c555923ba56f88ddc5133f",
+      "bytes": 165
+    }
+  ]
+}

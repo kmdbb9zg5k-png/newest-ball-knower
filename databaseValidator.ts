@@ -1,6 +1,6 @@
 import { Player } from './types';
 import { CURRENT_2026_QB_STARTERS } from './currentSeasonRoster';
-import { normalizeMaddenRosterName } from './madden27CurrentRoster';
+import { normalizeFootballName } from './independentPlayerRatings';
 
 export interface PositionGroupStatus {
   group: string;
@@ -84,7 +84,7 @@ export const RETIRED_OR_INACTIVE_PLAYERS = [
   'philip rivers',
   'eli manning',
   'andrew luck',
-  'aaron donald',
+  // Aaron Donald returned August 30, 2026 (Rams announcement); no longer excluded.
   'jason kelce',
   'fletcher cox',
   'jj watt',
@@ -416,7 +416,7 @@ export function validateDatabase(
     const starter = players.find(p => p.team === team && p.position === 'QB' && p.starter);
     if (!starter) {
       currentStarterMismatches.push(`${team}: no starting QB marked`);
-    } else if (normalizeMaddenRosterName(starter.name) !== normalizeMaddenRosterName(expectedName)) {
+    } else if (normalizeFootballName(starter.name) !== normalizeFootballName(expectedName)) {
       currentStarterMismatches.push(`${team}: ${starter.name} marked starter; expected ${expectedName}`);
     }
   });

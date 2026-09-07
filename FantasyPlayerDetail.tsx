@@ -444,7 +444,7 @@ const OverviewTab = ({
         <p className="mt-2 text-sm leading-6 text-zinc-300">{ranking.projection_reason}</p>
         <div className="mt-4 grid grid-cols-3 gap-2">
           <SmallFact label="Overall" value={`#${ranking.overall_rank}`} />
-          <SmallFact label="ADP" value={Number(ranking.adp).toFixed(1)} />
+          <SmallFact label="Draft Rank" value={Number(ranking.adp).toFixed(1)} />
           <SmallFact label="Pos Rank" value={`#${ranking.position_rank}`} />
         </div>
         <div className="mt-3 text-[10px] leading-5 text-zinc-500">

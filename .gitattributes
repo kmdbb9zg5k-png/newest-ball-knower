@@ -1,0 +1,4 @@
+# Preserve this upstream legal notice byte-for-byte, including its one trailing
+# space. The original source SHA-256 is recorded in the rights manifest.
+# All application code and other files retain the normal whitespace gate.
+docs/rights/NFLVERSE_LICENSE.md whitespace=-blank-at-eol

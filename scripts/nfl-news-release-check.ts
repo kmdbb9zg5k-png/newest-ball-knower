@@ -6,10 +6,11 @@ const ui=fs.readFileSync('NewsHub.tsx','utf8');
 const home=fs.readFileSync('HomeDashboard.tsx','utf8');
 const navbar=fs.readFileSync('Navbar.tsx','utf8');
 
-assert.match(api,/news\.google\.com\/rss\/search/,'News must use the current hardened upstream instead of the blocked ESPN implementation');
+assert.match(api,/getNFLNews/,'News must use the configured provider headline endpoint');
+assert.doesNotMatch(api,/news\.google\.com|a\.espncdn\.com/,'No unapproved fallback feeds or images');
 assert.match(api,/\.sort\(/,'News must explicitly sort newest first');
 assert.match(api,/source,/,'News payload must include source');
-assert.match(api,/published:/,'News payload must include publication time');
+assert.match(api,/published[, :]/,'News payload must include publication time');
 assert.match(api,/description:/,'News payload must include a short description when meaningful');
 assert.match(api,/available:false/,'Upstream outage must be explicit');
 assert.match(api,/s-maxage=120/,'News feed must use a lightweight short server cache');

@@ -23,7 +23,7 @@ const MODES = [
   },
   {
     id: 'fantasy' as const,
-    eyebrow: 'MADDEN-STYLE',
+    eyebrow: 'FRANCHISE SIMULATION',
     title: 'FANTASY DRAFT',
     description: 'Pick an NFL team and build a full 53-man roster in a 32-team snake draft with intelligent CPU GMs.',
     icon: Shuffle,
