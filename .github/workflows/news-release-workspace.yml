@@ -1,23 +1,34 @@
-name: News release source snapshot
+name: Verify live News release candidate
 on:
   push:
     branches: [maintenance/news-release-verification]
 permissions:
   contents: read
 jobs:
-  source:
+  live-release-check:
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ba6b5ec3738c0267ed14cac0a34d664c4526f28d
+          ref: d92ad8a8aa378a31898b614b58a57612ebde41d7
           persist-credentials: false
-      - name: Package exact committed source
-        run: |
-          git archive --format=tar HEAD | gzip > /tmp/news-release-source.tar.gz
-      - uses: actions/upload-artifact@v4
+      - uses: actions/setup-node@v4
         with:
-          name: news-release-source
-          path: /tmp/news-release-source.tar.gz
-          retention-days: 1
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build && npm run check:root-bundle
+      - name: Verify public production backend and actual headline feed
+        run: node scripts/release-backend-preflight.mjs
+      - name: Render actual production headlines in the built mobile app
+        run: node scripts/news-browser-check.mjs --live
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verified-live-news-release
+          path: |
+            artifacts/release
+            artifacts/news-release
+          if-no-files-found: ignore
+          retention-days: 3
