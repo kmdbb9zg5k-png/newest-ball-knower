@@ -1,0 +1,28 @@
+name: Remediation workspace snapshot
+on:
+  push:
+    branches: [maintenance/app-store-remediation-workspace]
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: 4f59959016ee82ab9c71de06885b18bb9d0ffa59
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - name: Package committed source and test dependencies
+        run: |
+          git archive --format=tar HEAD | gzip > /tmp/ball-knower-source.tar.gz
+          tar -czf /tmp/ball-knower-dependencies.tar.gz node_modules
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ball-knower-remediation-workspace
+          path: /tmp/ball-knower-*.tar.gz
+          retention-days: 1
