@@ -10,6 +10,6 @@ Camera and photo-library permissions are optional and requested only when the us
 
 Account deletion is available in-app from the Privacy screen. The user taps Delete my account and then a second Permanently delete account confirmation. The account identity and user-linked data are removed; if the user commissions a league containing another human member, commissioner ownership is transferred rather than deleting the other members' league.
 
-Support URL: https://ballknower.com/support.html
-Privacy Policy URL: https://ballknower.com/privacy.html
-Terms URL: https://ballknower.com/terms.html
+Support URL: https://ballknowerofficial.com/support.html
+Privacy Policy URL: https://ballknowerofficial.com/privacy.html
+Terms URL: https://ballknowerofficial.com/terms.html

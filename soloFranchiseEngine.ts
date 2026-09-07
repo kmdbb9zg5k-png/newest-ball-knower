@@ -1,5 +1,5 @@
 import { calculateTeamRatings } from './evaluation';
-import { PLAYERS_DATABASE } from './players';
+import { PLAYERS_DATABASE, KNOWN_PLAYERS_DATABASE } from './players';
 import { getDraftPositionGroup, validateRosterShape } from './rosterRules';
 import { TEAM_THEMES, TeamTheme } from './teamTheme';
 import { LeagueMember, Player, ROSTER_REQUIREMENTS, RosterRequirements, TeamRatings, TOTAL_ROSTER_SIZE } from './types';
@@ -29,7 +29,7 @@ export const SOLO_FRANCHISE_SAVE_KEYS = {
   player: 'ballknower_solo_my_player_v1',
 } as const;
 
-const PLAYER_BY_ID = new Map(PLAYERS_DATABASE.map(player => [player.id, player]));
+const PLAYER_BY_ID = new Map(KNOWN_PLAYERS_DATABASE.map(player => [player.id, player]));
 const TEAM_BY_ABBR = new Map(TEAM_THEMES.map(team => [team.abbr, team]));
 const STANDARD_REQUIRED_GROUPS = Object.entries(ROSTER_REQUIREMENTS) as Array<[keyof RosterRequirements, number]>;
 const FANTASY_REQUIRED_GROUPS = Object.entries(FANTASY_ROSTER_REQUIREMENTS) as Array<[keyof RosterRequirements, number]>;

@@ -21,14 +21,14 @@ import { loadUserState, saveUserState } from "./userStateCloud";
 import { ModalPortal } from "./ModalPortal";
 import { loadFantasyRankings } from "./fantasyRankingsCloud";
 import type { FantasyRanking } from "./fantasyRankingsCloud";
-import { PLAYERS_DATABASE } from "./players";
+import { PLAYERS_DATABASE, KNOWN_PLAYERS_DATABASE } from "./players";
 import { FantasyPlayerDetail } from "./FantasyPlayerDetail";
 
 const RANKINGS_PAGE_SIZE = 75;
 const normalizePlayerName = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
 const fantasyPlayerFromRanking = (ranking?: FantasyRanking): Player | null => {
   if (!ranking) return null;
-  const exactId = PLAYERS_DATABASE.find(player => player.id === ranking.player_key);
+  const exactId = KNOWN_PLAYERS_DATABASE.find(player => player.id === ranking.player_key);
   const identityMatches = PLAYERS_DATABASE.filter(player => normalizePlayerName(player.name) === normalizePlayerName(ranking.player_name) && player.position === ranking.position);
   const known = exactId || (identityMatches.length === 1 ? identityMatches[0] : undefined);
   if (known) return known;

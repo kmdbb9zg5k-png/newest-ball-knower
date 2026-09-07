@@ -50,7 +50,7 @@ export interface PlayerRatingRecord {
   team: string;
   position: Position;
   overallRating: number;
-  ratingSource: 'EA SPORTS Madden';
+  ratingSource: string;
   ratingSeason: number | string;
   lastUpdated: string;
   ratingStatus: 'VERIFIED' | 'RATING_REVIEW_REQUIRED';
@@ -87,12 +87,14 @@ export interface Player {
   injured?: boolean;
   depthChartOrder?: number;
   ovr: number; // 0 - 99 (synced alias to overallRating)
-  overallRating?: number; // 0 - 99 Single Source of Truth EA SPORTS Madden OVR (guaranteed on normalized players)
+  overallRating?: number; // 0 - 99 independent Ball Knower estimate (guaranteed on normalized players)
   overall?: number; // alias for ovr
-  ratingSource?: 'EA SPORTS Madden' | string; // Centralized Source of Truth
+  ratingSource?: string; // Centralized Source of Truth
   ratingSeason?: number | string; // 2026 / 'CURRENT'
   lastUpdated?: string; // ISO timestamp
-  ratingStatus?: 'VERIFIED' | 'RATING_REVIEW_REQUIRED';
+  ratingStatus?: 'VERIFIED' | 'RATING_REVIEW_REQUIRED' | 'ESTIMATED' | 'EDITORIAL';
+  ratingConfidence?: 'low' | 'medium' | 'editorial';
+  ratingExplanation?: string;
   legacyRatingRemoved?: boolean;
   previousRating?: number;
   salary: number; // 2026 cap hit in millions when salaryType === 'cap_hit'

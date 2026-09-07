@@ -22,11 +22,17 @@ workflows:
     scripts:
       - name: Install web and Capacitor dependencies
         script: |
-          npm install
+          npm ci --no-audit --no-fund
           npm install --no-save @capacitor/cli@^8.0.0 @capacitor/ios@^8.0.0
 
       - name: Run App Store release gate
         script: node scripts/ios-app-store-release-check.mjs
+
+      - name: Verify full web regression suite and football backend
+        script: |
+          npm run check:hardening
+          node --import tsx scripts/independent-sources-check.ts
+          node scripts/release-backend-preflight.mjs
 
       - name: Build Ball Knower web app
         script: npm run build
@@ -96,8 +102,10 @@ workflows:
       - name: Set iOS version and build number
         script: |
           cd ios/App
-          xcrun agvtool new-marketing-version "$MARKETING_VERSION" || true
-          xcrun agvtool new-version -all "$BUILD_NUMBER" || true
+          test -n "$BUILD_NUMBER"
+          case "$BUILD_NUMBER" in *[!0-9]*|0) echo "Invalid iOS build number"; exit 1;; esac
+          xcrun agvtool new-marketing-version "$MARKETING_VERSION"
+          xcrun agvtool new-version -all "$BUILD_NUMBER"
 
       - name: Build signed IPA
         script: |
@@ -108,7 +116,14 @@ workflows:
           echo "Generated IPA files:"
           find "$CM_BUILD_DIR" -type f -name "*.ipa" -print
 
+      - name: Record exact tested release source
+        script: |
+          mkdir -p artifacts/release
+          git rev-parse HEAD > artifacts/release/commit.txt
+          printf '%s\n' "$BUILD_NUMBER" > artifacts/release/ios-build-number.txt
+
     artifacts:
+      - artifacts/release/*
       - build/ios/ipa/*.ipa
       - ios/App/build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
@@ -117,6 +132,7 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        # Keep automatic publishing off until the exact IPA passes real-device TestFlight QA.
+        # auth: integration uploads the IPA; these flags keep beta/public REVIEW manual.
+        # Do not request public review until this exact build has passed device QA and rights checks.
         submit_to_testflight: false
         submit_to_app_store: false

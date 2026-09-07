@@ -51,7 +51,7 @@ export const OverviewModeGrid: React.FC<Props> = ({
     },
     {
       title: 'Solo Franchise',
-      eyebrow: 'MADDEN-STYLE SOLO',
+      eyebrow: 'FOOTBALL SIMULATION',
       description: 'Choose Cap Challenge, Fantasy Draft, a real NFL team, or My Player career.',
       action: 'Open Solo',
       icon: Gamepad2,

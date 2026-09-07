@@ -1,6 +1,6 @@
 import {Capacitor} from '@capacitor/core';
 
-export const BALL_KNOWER_API_ORIGIN='https://ballknower.com';
+export const BALL_KNOWER_API_ORIGIN='https://ballknowerofficial.com';
 let installed=false;
 
 const localNativeApiHost=(url:URL)=>
@@ -10,6 +10,9 @@ const localNativeApiHost=(url:URL)=>
 
 export function nativeApiUrl(raw:string):string{
   if(typeof raw!=='string'||!raw)return raw;
+  if(/^https?:\/\/(?:www\.)?ballknower\.com(?::\d+)?\/api(?:\/|$)/i.test(raw)){
+    throw new Error('Blocked obsolete API origin; update to the verified football backend.');
+  }
   if(raw.startsWith('/api/'))return `${BALL_KNOWER_API_ORIGIN}${raw}`;
   if(raw.startsWith('api/'))return `${BALL_KNOWER_API_ORIGIN}/${raw}`;
   try{

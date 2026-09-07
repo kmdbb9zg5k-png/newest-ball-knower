@@ -4,9 +4,9 @@
 - Version: 1.0.0
 - Bundle ID: com.ballknower.ios
 - Primary category: Sports
-- Support URL: https://ballknower.com/support.html
-- Privacy Policy URL: https://ballknower.com/privacy.html
-- Marketing URL: https://ballknower.com
+- Support URL: https://ballknowerofficial.com/support.html
+- Privacy Policy URL: https://ballknowerofficial.com/privacy.html
+- Marketing URL: https://ballknowerofficial.com
 
 ## Subtitle option
 

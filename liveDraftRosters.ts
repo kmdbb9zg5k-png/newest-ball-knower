@@ -1,5 +1,5 @@
 import { calculateFantasyTeamRatings } from './fantasyEvaluation';
-import { PLAYERS_DATABASE } from './players';
+import { PLAYERS_DATABASE, KNOWN_PLAYERS_DATABASE } from './players';
 import { validateLiveFantasyRoster } from './liveFantasyRules';
 import { League, LiveFantasyDraft, Player, TeamRatings } from './types';
 
@@ -9,7 +9,7 @@ export type LiveDraftRosterAssignment = {
   teamRatings: TeamRatings;
 };
 
-const PLAYER_BY_ID = new Map(PLAYERS_DATABASE.map(player => [player.id, player]));
+const PLAYER_BY_ID = new Map(KNOWN_PLAYERS_DATABASE.map(player => [player.id, player]));
 
 export function buildLiveDraftRosterAssignments(
   league: League,

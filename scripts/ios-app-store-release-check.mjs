@@ -26,7 +26,7 @@ requireText('codemagic.yaml',[
   'submit_to_testflight: false',
   'submit_to_app_store: false',
 ]);
-requireText('nativeRuntime.ts',['https://ballknower.com','/api/','Capacitor.isNativePlatform','nativeApiUrl']);
+requireText('nativeRuntime.ts',['https://ballknowerofficial.com','/api/','Capacitor.isNativePlatform','nativeApiUrl']);
 requireText('nativeAuth.ts',['ballknower://auth/callback','appUrlOpen','getLaunchUrl','exchangeCodeForSession','browserFinished','setSession']);
 requireText('main.tsx',['installNativeApiBridge();']);
 requireText('supabase.ts',['persistSession: true','autoRefreshToken: true','providerRefreshToken']);

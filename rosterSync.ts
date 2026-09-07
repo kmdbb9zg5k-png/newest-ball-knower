@@ -18,10 +18,10 @@ import { NFLTeamInfo, NFL_TEAMS } from './players';
 
 export const CURRENT_ROSTER_METADATA = {
   season: 2026,
-  rosterLastUpdated: '2026-08-16',
+  rosterLastUpdated: '2026-09-06',
   teamsLoaded: '32/32',
   validationStatus: 'PASSED' as const,
-  source: 'Official NFL.com 2026 Team Rosters & ESPN 2026 Depth Charts',
+  source: 'nflverse roster and depth snapshot · September 6, 2026',
 };
 
 export interface HistoricalTransactionRecord {
@@ -219,10 +219,10 @@ export function generateRosterMigrationReport(
   });
 
   const migrationLog = [
-    `Scanned ${teams.length}/32 NFL franchise rosters against official 2026 NFL.com/ESPN database.`,
+    `Scanned ${teams.length}/32 NFL franchise rosters against the dated nflverse input snapshot.`,
     `Verified separation of permanent Player ID and dynamic franchise assignment (player.teamId).`,
     `Historical migration records retained for reference only; current-season corrections are authoritative.`,
-    `Current-season starter corrections and Madden NFL 27 QB ratings applied before normalization.`,
+    `Independent ratings applied without importing game-rating values.`,
     `Audited zero retired players on active rosters (Brady, Donald, Kelce, Cox excluded).`,
     `Confirmed 0 duplicate player entities across multiple rosters.`,
     `Team integrity is determined from live validation results, never from hard-coded pass claims.`,
