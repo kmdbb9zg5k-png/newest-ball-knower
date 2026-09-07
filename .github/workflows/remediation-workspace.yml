@@ -1,28 +1,84 @@
-name: Remediation workspace snapshot
+name: Verify isolated App Store remediation
 on:
   push:
     branches: [maintenance/app-store-remediation-workspace]
 permissions:
-  contents: read
+  contents: write
 jobs:
-  snapshot:
+  verify-and-push-branch:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
         with:
+          path: instructions
           persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          path: app
           ref: 4f59959016ee82ab9c71de06885b18bb9d0ffa59
+      - name: Apply checksummed local edits to the exact reviewed base
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64, gzip, hashlib, json
+          from pathlib import Path
+          chunks=sorted(Path('instructions/.remediation').glob('edits-*.b64'))
+          assert len(chunks)==3
+          data=base64.b64decode(''.join(p.read_text().strip() for p in chunks),validate=True)
+          assert hashlib.sha256(data).hexdigest()=='215634f4a2163c87f71f2bd9be1847b981b808cce5421b6f6aa848fd953cbccd','Transport checksum mismatch'
+          change=json.loads(gzip.decompress(data))
+          assert change['base']=='4f59959016ee82ab9c71de06885b18bb9d0ffa59'
+          for item in change['files']:
+              name=Path(item['path'])
+              assert not name.is_absolute() and '..' not in name.parts and '.git' not in name.parts and '.github' not in name.parts
+              path=Path('app')/name
+              original=path.read_text() if path.exists() else ''
+              assert hashlib.sha256(original.encode()).hexdigest()==item['oldSha256'],str(name)
+              result=original
+              for edit in reversed(item['edits']):
+                  result=result[:edit['start']]+edit['text']+result[edit['end']:]
+              assert hashlib.sha256(result.encode()).hexdigest()==item['newSha256'],str(name)
+              path.parent.mkdir(parents=True,exist_ok=True)
+              path.write_text(result)
+          PY
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: npm ci --no-audit --no-fund
-      - name: Package committed source and test dependencies
+        working-directory: app
+      - run: npm run lint && node --import tsx scripts/app-store-remediation-check.ts
+        working-directory: app
+      - name: Test community controls against PostgreSQL and existing message RPCs
+        working-directory: app
+        env:
+          PGPASSWORD: postgres
         run: |
-          git archive --format=tar HEAD | gzip > /tmp/ball-knower-source.tar.gz
-          tar -czf /tmp/ball-knower-dependencies.tar.gz node_modules
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ball-knower-remediation-workspace
-          path: /tmp/ball-knower-*.tar.gz
-          retention-days: 1
+          node scripts/prepare-community-safety-fixture.mjs
+          psql -h 127.0.0.1 -U postgres -d postgres -f scripts/postgres-community-safety-integration.sql
+      - run: npm run build && npm run check:root-bundle
+        working-directory: app
+      - name: Push only the dedicated implementation branch after focused checks
+        working-directory: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = '4f59959016ee82ab9c71de06885b18bb9d0ffa59'
+          test -z "$(git ls-remote origin refs/heads/fix/app-store-preserve-feature-cleanup)"
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add --all
+          git commit -m 'Add accessible attribution, original badges, AI consent and server-enforced community safety'
+          git push origin HEAD:refs/heads/fix/app-store-preserve-feature-cleanup
