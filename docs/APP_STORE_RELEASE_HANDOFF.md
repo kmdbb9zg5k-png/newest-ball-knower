@@ -11,14 +11,14 @@ Prepared September 3, 2026.
 - Camera and photo-library iOS permission descriptions.
 - Native `ballknower://auth/callback` URL scheme for Apple, Google, and email authentication callbacks.
 - Cold-launch and warm-launch native auth callback handling.
-- CapacitorHttp enabled and `/api/*` calls rewritten to `https://ballknower.com` for native builds.
+- CapacitorHttp enabled and `/api/*` calls rewritten to `https://ballknowerofficial.com` for native builds.
 - Real in-app account deletion with explicit confirmation.
 - Transactional database cleanup/commissioner-transfer migration for deleted accounts.
 - Public App Store URLs:
-  - Privacy: `https://ballknower.com/privacy.html`
-  - Support: `https://ballknower.com/support.html`
-  - Terms: `https://ballknower.com/terms.html`
-  - Marketing: `https://ballknower.com`
+  - Privacy: `https://ballknowerofficial.com/privacy.html`
+  - Support: `https://ballknowerofficial.com/support.html`
+  - Terms: `https://ballknowerofficial.com/terms.html`
+  - Marketing: `https://ballknowerofficial.com`
 - Deterministic `npm run check:ios-release` gate included in the normal hardening suite.
 - Automatic App Store submission intentionally remains OFF until the exact IPA passes TestFlight on a real iPhone.
 
@@ -41,9 +41,9 @@ These cannot safely be completed from repository code alone.
 - Name: `Ball Knower`
 - Version: `1.0.0`
 - Primary category: Sports
-- Privacy Policy URL: `https://ballknower.com/privacy.html`
-- Support URL: `https://ballknower.com/support.html`
-- Marketing URL: `https://ballknower.com`
+- Privacy Policy URL: `https://ballknowerofficial.com/privacy.html`
+- Support URL: `https://ballknowerofficial.com/support.html`
+- Marketing URL: `https://ballknowerofficial.com`
 
 Suggested reviewer note:
 

@@ -1,6 +1,6 @@
 import {Capacitor} from '@capacitor/core';
 
-export const BALL_KNOWER_API_ORIGIN='https://ballknower.com';
+export const BALL_KNOWER_API_ORIGIN='https://ballknowerofficial.com';
 let installed=false;
 
 const localNativeApiHost=(url:URL)=>
