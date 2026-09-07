@@ -31,3 +31,5 @@ const mobileLabels=[...navbar.matchAll(/mobile[^\n]{0,120}|Home|Fantasy|Picks|Tr
 assert.ok(mobileLabels.length>0,'Navbar must remain present for the existing mobile layout');
 
 console.log('NFL News regression gate passed.');
+
+await import("./news-provider-contract-check");
