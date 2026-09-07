@@ -176,6 +176,6 @@ export function licensedPlayerPortraitUrl(
   portrait: LicensedPlayerPortrait,
   width = 512,
 ): string {
-  const safeWidth = Math.max(64, Math.min(1024, Math.round(width)));
+  const safeWidth = Math.max(64, Math.min(1024, Math.round(Number.isFinite(width) ? width : 512)));
   return `https://commons.wikimedia.org/wiki/Special:Redirect/file/${encodeURIComponent(portrait.fileName)}?width=${safeWidth}`;
 }

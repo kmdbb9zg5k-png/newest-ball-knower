@@ -6,6 +6,7 @@ import { getDraftPositionGroup } from './rosterRules';
 import { TEAM_THEMES, teamLogoUrl } from './teamTheme';
 import { Player, Position } from './types';
 import { ensureOnlineSession, supabase } from './supabase';
+import { AiPhotoConsent, AI_PHOTO_CONSENT_VERSION } from './AiPhotoConsent';
 
 type Props = { onBack: () => void };
 type StoryStage = 'creator' | 'combine' | 'drafted' | 'season';
@@ -192,6 +193,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
   const [profile, setProfile] = useState<MyPlayerProfile>(restoreProfile);
   const [message, setMessage] = useState('');
   const [isRendering, setIsRendering] = useState(false);
+  const [aiConsent, setAiConsent] = useState(false);
   const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
   const draftedTeam = TEAM_THEMES.find(team => team.abbr === profile.teamAbbr) ?? null;
 
@@ -240,6 +242,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
   };
 
   const onFace = async (file?: File) => {
+    setAiConsent(false);
     if (!file) return;
     if (!file.type.startsWith('image/')) return setMessage('Choose a photo from your camera or photo library.');
     try {
@@ -252,6 +255,8 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
   };
 
   const createRender = async () => {
+    if (isRendering) return;
+    if (!aiConsent) return setMessage('Read and accept the optional Google Gemini photo-sharing permission first.');
     if (!profile.faceImage) return setMessage('Upload a selfie first.');
     setIsRendering(true);
     setMessage('Creating your player render…');
@@ -264,7 +269,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
       const response = await fetch('/api/my-player-art', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ image: profile.faceImage, prompt: profile.appearancePrompt, bodyDescription, position: profile.position, number: profile.number, team: 'a future pro team' }),
+        body: JSON.stringify({ aiPhotoConsent: AI_PHOTO_CONSENT_VERSION, image: profile.faceImage, prompt: profile.appearancePrompt, bodyDescription, position: profile.position, number: profile.number, team: 'a future pro team' }),
       });
       const result = await response.json();
       if (!response.ok || !result.image) throw new Error(result.error || 'Render unavailable');
@@ -279,6 +284,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
       else if (detail.includes('Please wait')) setMessage('The renderer needs a short breather. Wait a minute, then try again.');
       else setMessage('The AI render is unavailable right now, but your third-person player preview and career still work.');
     } finally {
+      setAiConsent(false);
       setIsRendering(false);
     }
   };
@@ -407,7 +413,8 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
               </div>
 
               <label className="mt-4 block text-[10px] font-black text-zinc-500">DESCRIBE YOUR LOOK<textarea value={profile.appearancePrompt} onChange={event => setProfile(current => ({ ...current, appearancePrompt: event.target.value.slice(0, 280), renderImage: '' }))} className="mt-1 min-h-24 w-full rounded-xl border border-white/10 bg-[#151515] p-3 text-sm text-white outline-none" placeholder="Add a tattoo sleeve, dark visor, white gloves…" /></label>
-              <button type="button" disabled={isRendering || !profile.faceImage || aiAvailable === false} onClick={createRender} className="mt-3 w-full rounded-2xl border border-[var(--bk-team-accent)]/40 py-3 font-black text-[var(--bk-team-accent)] disabled:opacity-40"><Sparkles className="mr-2 inline" size={18} /> {isRendering ? 'CREATING RENDER…' : !profile.faceImage ? 'SELFIE RENDER (OPTIONAL)' : aiAvailable === false ? 'AI RENDER NEEDS CONNECTION' : 'CREATE AI PLAYER RENDER'}</button>
+              <AiPhotoConsent checked={aiConsent} onChange={setAiConsent} disabled={isRendering}/>
+              <button type="button" disabled={isRendering || !aiConsent || !profile.faceImage || aiAvailable === false} onClick={createRender} className="mt-3 w-full rounded-2xl border border-[var(--bk-team-accent)]/40 py-3 font-black text-[var(--bk-team-accent)] disabled:opacity-40"><Sparkles className="mr-2 inline" size={18} /> {isRendering ? 'CREATING RENDER…' : !profile.faceImage ? 'SELFIE RENDER (OPTIONAL)' : aiAvailable === false ? 'AI RENDER NEEDS CONNECTION' : 'CREATE AI PLAYER RENDER'}</button>
               {aiAvailable === false ? <p className="mt-2 text-center text-[10px] font-bold text-zinc-500">The built-in third-person preview and full career still work while the photorealistic image service is offline.</p> : null}
               <button type="button" onClick={enterCombine} className="mt-3 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)]"><Play className="mr-2 inline" /> ENTER THE COMBINE</button>
             </div>

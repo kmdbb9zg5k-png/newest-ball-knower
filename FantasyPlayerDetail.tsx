@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Activity, CalendarDays, Shield, X } from 'lucide-react';
 import { Player } from './types';
-import { playerPortraitUrl } from './playerPortraits';
+import { playerPortraitUrl, playerPortraitFallbackUrl } from './playerPortraits';
+import { PlayerPhotoCredit } from './PhotoCredits';
 import { ModalPortal } from './ModalPortal';
 import { FantasyRanking } from './fantasyRankingsCloud';
 import { FantasyPlayerWeek, loadFantasyPlayerWeeks } from './fantasyPlayerDetailsCloud';
@@ -255,6 +256,7 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
             {portrait ? (
               <img
                 src={portrait}
+                onError={event => { const image = event.currentTarget; const fallback = playerPortraitFallbackUrl(player); if (image.src !== fallback) image.src = fallback; }}
                 alt=""
                 className="absolute bottom-0 right-3 h-32 w-24 object-contain object-bottom sm:right-10 sm:h-44 sm:w-36"
               />
@@ -264,6 +266,7 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
               </div>
             )}
           </header>
+          <PlayerPhotoCredit name={player.name}/>
 
           <div className="grid grid-cols-3 border-b border-white/10 bg-[#1a1d24]">
             <Metric

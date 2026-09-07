@@ -1,3 +1,4 @@
+import { useCommunitySafety, MessageSafety, CommunitySafetySettings } from './CommunitySafety';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
@@ -65,6 +66,7 @@ const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
 export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   league,
 }) => {
+  const safety = useCommunitySafety();
   const { currentUser, showToast, updateLeagueSettings } = useBallKnower();
   const me = league.members.find((member) => member.userId === currentUser?.id);
   const settings = (league.settings || {}) as any;
@@ -805,7 +807,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
                         >
                           Send Counter
                         </button>
-{isCloudConfigured&&<div className="rounded-xl border border-white/10 p-3"><div className="text-[9px] font-black uppercase text-[#D4AF37]">Trade Thread</div>{communicationError&&<div className="mt-2 rounded-lg border border-red-400/20 bg-red-400/5 px-3 py-2 text-[10px] text-red-300">{communicationError}</div>}<div className="mt-2 max-h-40 space-y-1 overflow-y-auto">{visibleTradeMessages.filter(item=>item.tradeId===selectedCounter.id).map(item=><div key={item.id} className={`rounded-lg px-3 py-2 text-xs ${item.senderAuthId===currentUser?.id?'ml-6 bg-[#D4AF37] text-black':'mr-6 bg-black/35'}`}>{item.body}</div>)}{!visibleTradeMessages.some(item=>item.tradeId===selectedCounter.id)&&<div className="text-[10px] text-zinc-600">No trade messages yet.</div>}</div><div className="mt-2 flex gap-2"><input value={tradeMessageBodies[selectedCounter.id]||''} onChange={event=>setTradeMessageBodies(value=>({...value,[selectedCounter.id]:event.target.value}))} placeholder="Message about this trade…" className="min-h-11 min-w-0 flex-1 rounded-lg bg-black/40 px-3 text-xs"/><button disabled={!(tradeMessageBodies[selectedCounter.id]||'').trim()} onClick={()=>run(async()=>{const tradeId=selectedCounter.id;const sentBody=tradeMessageBodies[tradeId]||'';await sendTradeThreadMessage(tradeId,sentBody);setTradeMessageBodies(current=>current[tradeId]===sentBody?{...current,[tradeId]:''}:current);},'Trade message sent.')} className="min-h-11 rounded-lg bg-[#D4AF37] px-3 text-[9px] font-black uppercase text-black">Send</button></div></div>}
+{isCloudConfigured&&<div className="rounded-xl border border-white/10 p-3"><div className="text-[9px] font-black uppercase text-[#D4AF37]">Trade Thread</div>{communicationError&&<div className="mt-2 rounded-lg border border-red-400/20 bg-red-400/5 px-3 py-2 text-[10px] text-red-300">{communicationError}</div>}<div className="mt-2 max-h-40 space-y-1 overflow-y-auto">{visibleTradeMessages.filter(item=>item.tradeId===selectedCounter.id&&!safety.isBlocked(item.senderAuthId)).map(item=><div key={item.id} className={`rounded-lg px-3 py-2 text-xs ${item.senderAuthId===currentUser?.id?'ml-6 bg-[#D4AF37] text-black':'mr-6 bg-black/35'}`}>{item.body}<MessageSafety contentType="trade_message" contentId={item.id} authorId={item.senderAuthId} safety={safety}/></div>)}{!visibleTradeMessages.some(item=>item.tradeId===selectedCounter.id)&&<div className="text-[10px] text-zinc-600">No trade messages yet.</div>}</div><div className="mt-2 flex gap-2"><input value={tradeMessageBodies[selectedCounter.id]||''} onChange={event=>setTradeMessageBodies(value=>({...value,[selectedCounter.id]:event.target.value}))} placeholder="Message about this trade…" className="min-h-11 min-w-0 flex-1 rounded-lg bg-black/40 px-3 text-xs"/><button disabled={!(tradeMessageBodies[selectedCounter.id]||'').trim()} onClick={()=>run(async()=>{const tradeId=selectedCounter.id;const sentBody=tradeMessageBodies[tradeId]||'';await sendTradeThreadMessage(tradeId,sentBody);setTradeMessageBodies(current=>current[tradeId]===sentBody?{...current,[tradeId]:''}:current);},'Trade message sent.')} className="min-h-11 rounded-lg bg-[#D4AF37] px-3 text-[9px] font-black uppercase text-black">Send</button></div></div>}
                       </>
                     )}
                   </>
@@ -821,6 +823,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
               sub="League chat, owner-scoped DMs and the Trading Block"
               icon={<MessageCircle className="h-5 w-5 text-[#D4AF37]" />}
             >
+              <CommunitySafetySettings safety={safety} names={Object.fromEntries(league.members.map(member=>[member.userId,member.userName]))}/>
               {isCloudConfigured&&<div className="grid grid-cols-2 gap-1 rounded-xl bg-black/35 p-1">{(['league','private'] as MessageView[]).map(view=><button key={view} onClick={()=>setMessageView(view)} className={`min-h-11 rounded-lg text-[9px] font-black uppercase ${messageView===view?'bg-white text-black':'text-zinc-400'}`}>{view==='private'?'Private + Trades':'League Chat'}</button>)}</div>}
               {messageView==='league'&&<>
               <div className="flex gap-2">
@@ -842,12 +845,12 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
                 </button>
               </div>
               {messages.length ? (
-                messages.map((item) => (
+                messages.filter(item => !safety.isBlocked(item.authUserId)).map((item) => (
                   <div key={item.id} className="rounded-xl bg-black/30 p-3">
                     <b className="text-[10px] uppercase text-[#D4AF37]">
                       {item.memberName}
                     </b>
-                    <p className="text-sm">{item.body}</p>
+                    <p className="text-sm">{item.body}</p><MessageSafety contentType="league_message" contentId={item.id} authorId={item.authUserId} safety={safety}/>
                   </div>
                 ))
               ) : (

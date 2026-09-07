@@ -17,7 +17,7 @@ export const partners: Partner[] = [
     logo: '/partners/cowboys-playbook-365.jpeg',
     description: 'Cowboys news, analysis and podcast coverage.',
     websiteUrl: 'https://cowboysplaybook365.vercel.app/',
-    partnerType: 'Official Dallas Cowboys Podcast Partner',
+    partnerType: 'Ball Knower Media Partner — Cowboys Coverage',
     associatedTeam: 'DAL',
     category: 'media',
     featuredOnHome: true,
@@ -28,7 +28,7 @@ export const partners: Partner[] = [
     name: 'Tank01',
     description: 'Real-time NFL scores, schedules, rosters, statistics and fantasy data powering Ball Knower.',
     websiteUrl: 'https://www.tank01.com/',
-    partnerType: 'Official Sports Data Provider',
+    partnerType: 'Sports data supplied by Tank01',
     associatedTeam: null,
     category: 'data',
     featuredOnHome: true,
@@ -46,12 +46,12 @@ export const homePartners = activePartners.filter(partner => partner.featuredOnH
 export const partnerSections = [
   {
     id: 'media',
-    label: 'Official Media Partners',
+    label: 'Ball Knower Media Partners',
     partners: activePartners.filter(partner => partner.category === 'media'),
   },
   {
     id: 'data',
-    label: 'Official Sports Data Provider',
+    label: 'Sports data supplied by Tank01',
     partners: activePartners.filter(partner => partner.category === 'data'),
   },
 ].filter(section => section.partners.length > 0);
