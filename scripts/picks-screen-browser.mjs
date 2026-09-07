@@ -15,6 +15,7 @@ async function contextFor(engine,width,{hungSync=false}={}){
   let boardMode='ok',saved=[],saves=0;
   await page.route('**/*.supabase.co/**',route=>route.fulfill({status:403,contentType:'application/json',body:'{"message":"Isolated browser test. No account access."}'}));
   await page.route('**/_vercel/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:''}));
+  await page.route('https://a.espncdn.com/**',route=>route.fulfill({status:200,contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64')}));
   await page.route('**/api/**',async route=>{
     const path=new URL(route.request().url()).pathname;
     let data={ok:true};let status=200;
@@ -57,20 +58,27 @@ try{
       await page.evaluate(()=>document.fonts.ready);
       const geometry=await page.evaluate(()=>{
         const header=document.querySelector('.bk-picks-screen .bk-scene-masthead');const input=document.querySelector('.bk-picks-search input');const toolbar=document.querySelector('.bk-picks-toolbar');
-        return {width:innerWidth,scrollWidth:document.documentElement.scrollWidth,heroHeight:header.getBoundingClientRect().height,inputFont:getComputedStyle(input).fontSize,toolbarBackground:getComputedStyle(toolbar).backgroundColor,smallButtons:[...document.querySelectorAll('.bk-picks-screen button')].filter(button=>button.getBoundingClientRect().height<43).map(button=>button.textContent)};
+        const primary=[...document.querySelectorAll('.bk-picks-filters button')].map(button=>button.getBoundingClientRect().height);
+        const compact=[...document.querySelectorAll('.bk-picks-team-buttons button')].map(button=>button.getBoundingClientRect().height);
+        const cards=[...document.querySelectorAll('.bk-picks-game')].map(card=>card.getBoundingClientRect().height);
+        return {width:innerWidth,scrollWidth:document.documentElement.scrollWidth,heroHeight:header.getBoundingClientRect().height,inputFont:getComputedStyle(input).fontSize,toolbarBackground:getComputedStyle(toolbar).backgroundColor,primaryButtons:primary,compactPickButtons:compact,cardHeights:cards};
       });
-      assert.ok(geometry.scrollWidth<=width+1);assert.ok(geometry.heroHeight<125,JSON.stringify(geometry));assert.equal(geometry.inputFont,'16px');assert.equal(geometry.toolbarBackground,'rgba(0, 0, 0, 0)');assert.deepEqual(geometry.smallButtons,[]);
+      assert.ok(geometry.scrollWidth<=width+1);assert.ok(geometry.heroHeight<125,JSON.stringify(geometry));assert.equal(geometry.inputFont,'16px');assert.equal(geometry.toolbarBackground,'rgba(0, 0, 0, 0)');
+      assert.ok(geometry.primaryButtons.every(height=>height>=43),'status filters must remain practical phone targets');
+      assert.ok(geometry.compactPickButtons.every(height=>height>=31),'compact right-side pick controls must remain usable');
+      assert.ok(geometry.cardHeights.every(height=>height>=80),'matchup rows must retain the approved compact card height');
       await page.screenshot({path:`${out}/${name}-${width}.png`,fullPage:false});
       const first=page.locator(`[data-game-id="${game.id}"]`);
       await page.getByRole('button',{name:'Upcoming',exact:true}).click();assert.equal(await page.locator('.bk-picks-game').count(),1);
       await page.getByRole('button',{name:'Completed',exact:true}).click();assert.equal(await page.locator('.bk-picks-game').count(),1);
       await page.getByRole('button',{name:'Live',exact:true}).click();assert.equal(await page.locator('.bk-picks-game').count(),1);
-      await page.getByRole('button',{name:'All games',exact:true}).click();
+      await page.getByRole('button',{name:'All Games',exact:true}).click();
       await page.getByRole('searchbox',{name:'Search teams'}).fill('  PHI  ');assert.equal(await page.locator('.bk-picks-game').count(),1);
       await page.getByRole('button',{name:'Clear team search'}).click();
-      await page.getByRole('button',{name:'Week 2',exact:true}).click();assert.equal(await page.locator('.bk-picks-game').count(),1);
-      assert.ok(await page.getByText('Picks open when kickoff time is confirmed.').isVisible());assert.ok(await page.locator('.bk-picks-choices button').first().isDisabled());
-      await page.getByRole('button',{name:'Week 1',exact:true}).click();
+      const weekSelect=page.getByRole('combobox',{name:'NFL week'});
+      await weekSelect.selectOption({label:'Week 2'});assert.equal(await page.locator('.bk-picks-game').count(),1);
+      assert.ok(await page.getByText('Picks open when kickoff time is confirmed.').isVisible());assert.ok(await page.locator('.bk-picks-team-buttons button').first().isDisabled());
+      await weekSelect.selectOption({label:'Week 1'});
       const pick=first.getByRole('button',{name:'Philadelphia Eagles -3.5',exact:true});
       await pick.evaluate(button=>{button.click();button.click()});
       await page.waitForFunction(()=>document.querySelector('.bk-picks-summary-heading')?.textContent.includes('1 saved'));
@@ -86,7 +94,6 @@ try{
       assert.equal(await page.getByRole('button',{name:'Retry matchups',exact:true}).count(),0);
       if(width===390)await page.screenshot({path:`${out}/${name}-empty.png`});
       await page.emulateMedia({reducedMotion:'reduce'});
-      // The media-query change event and React render are asynchronous.
       await page.waitForFunction(()=>document.querySelector('.bk-picks-screen')?.getAttribute('data-motion')==='off',{},{timeout:3000});
       assert.equal(await stage.getAttribute('data-motion'),'off');
       assert.deepEqual(c.crashes,[]);results.push({engine:name,width,geometry,saving:true,filters:true,outageRecovery:true,validEmpty:true,reducedMotion:true});await c.context.close();
