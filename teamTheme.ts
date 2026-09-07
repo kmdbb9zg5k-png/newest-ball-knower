@@ -47,14 +47,16 @@ export const BALL_KNOWER_THEME: TeamTheme = {
   secondary: '#D9D9D9',
 };
 
-const ESPN_TEAM_LOGO_CODES: Record<string, string> = {
-  WAS: 'wsh',
-};
-
-export const teamLogoUrl = (abbr: string) => {
-  const normalized = String(abbr || '').toUpperCase();
-  const espnCode = ESPN_TEAM_LOGO_CODES[normalized] ?? normalized.toLowerCase();
-  return `https://a.espncdn.com/i/teamlogos/nfl/500/${espnCode}.png`;
+// Original Ball Knower abbreviation artwork. No league/club logo is fetched.
+// Keep this helper's interface so selectors, rosters and saved themes do not change.
+export const teamLogoUrl = (abbr: string): string => {
+  const raw = String(abbr || '').trim().toUpperCase();
+  const aliases: Record<string, string> = { WSH: 'WAS', JAC: 'JAX', LA: 'LAR' };
+  const normalized = aliases[raw] || raw;
+  const team = TEAM_THEMES.find(item => item.abbr === normalized) || BALL_KNOWER_THEME;
+  const label = team.abbr;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256"><title>Ball Knower ${label} badge</title><rect x="12" y="12" width="232" height="232" rx="58" fill="#101318"/><rect x="20" y="20" width="216" height="216" rx="50" fill="none" stroke="${team.primary}" stroke-width="8"/><path d="M76 65h104" stroke="${team.secondary}" stroke-width="6" stroke-linecap="round"/><text x="128" y="151" text-anchor="middle" font-family="Arial,sans-serif" font-size="${label.length === 3 ? 62 : 76}" font-weight="900" fill="#f4f4f5">${label}</text><text x="128" y="197" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" letter-spacing="3" fill="#d4af37">BALL KNOWER</text></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 };
 
 export function getTeamTheme(name?: string | null): TeamTheme {

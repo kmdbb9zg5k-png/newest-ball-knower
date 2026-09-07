@@ -30,7 +30,8 @@ export default async function handler(req: any, res: any) {
     || process.env.VITE_SUPABASE_PUBLISHABLE_KEY
     || process.env.VITE_SUPABASE_ANON_KEY
     || BALL_KNOWER_SUPABASE_PUBLISHABLE_KEY;
-  const configured = Boolean(apiKey && supabaseUrl && supabaseKey);
+  // User selfies must not be routed to an unverified free-tier configuration.
+  const configured = Boolean(apiKey && supabaseUrl && supabaseKey && process.env.MY_PLAYER_AI_PAID_SERVICE_CONFIRMED === 'true');
   if (req.method === 'GET') return res.status(200).json({ available: configured });
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (!configured) return res.status(503).json({ available: false, error: 'AI player rendering is not configured yet.' });
@@ -51,6 +52,7 @@ export default async function handler(req: any, res: any) {
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    if (body?.aiPhotoConsent !== '2026-09-06-v1') return res.status(400).json({ error: 'Explicit permission to send your photo and settings to Google Gemini is required.' });
     const image = String(body?.image || '');
     const edit = String(body?.prompt || '').trim().slice(0, 280);
     const bodyDescription = String(body?.bodyDescription || '').trim().slice(0, 180);
@@ -72,6 +74,7 @@ export default async function handler(req: any, res: any) {
     const ai = new GoogleGenAI({ apiKey });
     const interaction = await ai.interactions.create({
       model: 'gemini-3.1-flash-image',
+      store: false,
       input: [
         { type: 'text', text: prompt },
         { type: 'image', mime_type: match[1], data: match[2] },
