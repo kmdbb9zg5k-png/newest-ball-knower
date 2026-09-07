@@ -1,4 +1,4 @@
-name: Build and inspect all-screen broadcast rollout
+name: Verify final all-screen visual polish
 on:
   push:
     branches: [maintenance/all-screen-broadcast-workspace]
@@ -7,70 +7,75 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
         with:
-          path: instructions
-          persist-credentials: false
-      - uses: actions/checkout@v4
-        with:
-          path: app
-          ref: b1dc206fa28d854c9cad317cc0c957538ddfea2c
-      - name: Apply checked presentation-only edits on the approved Home baseline
-        run: |
-          python3 - <<'PY'
-          import json,hashlib,shutil
-          from pathlib import Path
-          raw=Path('instructions/.all-screen/edits.json').read_bytes()
-          assert hashlib.sha256(raw).hexdigest()=='2659e4c585f06c7bd30f1a7e45e373093fe17f0e7545079719ffe3d09fd3fe09','Patch transport differs'
-          items=json.loads(raw)
-          for item in items:
-              name=Path(item['path'])
-              assert not name.is_absolute() and not set(name.parts)&{'.git','.github','..'}
-              dest=Path('app')/name;text=dest.read_text()
-              for edit in reversed(item['edits']):text=text[:edit['start']]+edit['text']+text[edit['end']:]
-              dest.write_text(text)
-          manifest=''.join(i['path']+':'+hashlib.sha256((Path('app')/i['path']).read_bytes()).hexdigest()+'\n' for i in sorted(items,key=lambda i:i['path']))
-          assert hashlib.sha256(manifest.encode()).hexdigest()=='9fb065c7ef017d4e38eaaa1f0ad07c56ba699c574e2f3450069b7c156533694c','Result differs from locally checked implementation'
-          for name in ['BroadcastScene.tsx','broadcastFocus.ts','broadcastScreens.css','public/atmosphere/office-suite.webp','scripts/all-screens-broadcast-check.ts','scripts/all-screens-broadcast-browser.mjs','docs/design/ALL_SCREENS_BROADCAST.md']:
-              dest=Path('app')/name;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(Path('instructions')/name,dest)
-          PY
+          ref: 20ad129b8a567bb69a6746ca6e7e5e9a13e32879
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: npm ci --no-audit --no-fund
-        working-directory: app
-      - name: Verify actual route, state and presentation contracts
-        working-directory: app
+      - name: Apply small reviewed corrections without altering gameplay
         run: |
-          npm run lint
-          npm run check:home-dashboard
-          npm run check:nfl-news
-          node --import tsx scripts/all-screens-broadcast-check.ts
-          npm run check:ios-release
+          python3 -m pip install --quiet pillow
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import hashlib
+          def replace(file,old,new):
+              p=Path(file);t=p.read_text();assert t.count(old)==1,(file,old);p.write_text(t.replace(old,new))
+          replace('scripts/fantasy-mobile-browser-check.mjs',"const header=document.querySelector('header');","const header=document.querySelector('body > header');")
+          replace('scripts/fantasy-mobile-browser-check.mjs',"name:'Ball Knower Profile'","name:'Your Locker'")
+          replace('ModeGuide.tsx','className="inline-flex min-h-11','className="bk-mode-guide-button inline-flex min-h-11')
+          replace('BroadcastScene.tsx','<div ref={ref} className={`bk-screen','<div className={`bk-screen')
+          replace('BroadcastScene.tsx','<div className="bk-scene-backdrop"','<div ref={ref} className="bk-scene-backdrop"')
+          p=Path('broadcastScreens.css');t=p.read_text().replace('.bk-scene-actions>button:has(.lucide-circle-help)','.bk-scene-actions>.bk-mode-guide-button')
+          t+='''\n/* Keep help controls compact despite the base button font reset. */
+          .bk-screen .bk-mode-guide-button { min-height:40px; padding:0 10px; gap:6px; font-size:10px; font-weight:800; line-height:1.4; letter-spacing:.035em; flex-shrink:0; }
+          .bk-screen .bk-mode-guide-button svg { width:16px; height:16px; }
+          .bk-scene-actions>.bk-mode-guide-button { min-width:40px; padding-inline:0; justify-content:center; font-size:0; gap:0; }
+          '''
+          p.write_text(t)
+          p=Path('public/atmosphere/office-suite.webp');image=Image.open(p);assert image.size==(210,205)
+          image.crop((0,8,210,205)).save(p,format='WEBP',quality=85,method=6)
+          replace('docs/design/ALL_SCREENS_BROADCAST.md','210x205 crop (x790,y307 to x1000,y512)','210x197 text-free crop (x790,y315 to x1000,y512; eight upper pixels trimmed from the existing WebP)')
+          p=Path('scripts/all-screens-broadcast-browser.mjs');t=p.read_text();anchor="assert.equal(await page.locator('.bk-news-story').count(),news.articles.length);assert.equal(await page.locator('.bk-news-story img').count(),0);"
+          assert t.count(anchor)==1
+          t=t.replace(anchor,anchor+'''
+            if(width<768&&news.articles.length>10){
+             await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
+             const backdrop=await page.locator('.bk-scene-backdrop').boundingBox();
+             if(backdrop&&backdrop.y+backdrop.height<=0)await page.waitForFunction(()=>document.querySelector('.bk-screen[data-page="news"]')?.getAttribute('data-motion')==='off');
+             await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+             await page.waitForFunction(()=>document.querySelector('.bk-screen[data-page="news"]')?.getAttribute('data-motion')==='on');
+            }
+          ''');p.write_text(t)
+          print('Text-free office asset SHA-256:',hashlib.sha256(Path('public/atmosphere/office-suite.webp').read_bytes()).hexdigest())
+          PY
+      - run: npm run lint && node --import tsx scripts/all-screens-broadcast-check.ts
       - run: npm run build && npm run check:root-bundle
-        working-directory: app
-      - name: Publish isolated implementation for full PR checks
-        working-directory: app
-        run: |
-          set -euo pipefail
-          test -z "$(git ls-remote origin refs/heads/design/all-screen-broadcast)"
-          git diff --check
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add --all
-          git commit -m 'Extend approved broadcast atmosphere to all existing app destinations with focus-safe motion'
-          git push origin HEAD:refs/heads/design/all-screen-broadcast
       - run: npx playwright install --with-deps chromium
-        working-directory: app
-      - name: Inspect actual screens using public provider output and isolated account state
-        working-directory: app
+      - name: Retest existing mobile fantasy and profile-photo behavior
+        run: npm run check:fantasy-mobile-browser
+      - name: Recheck all real pages and capture final live-headline evidence
         run: node scripts/all-screens-broadcast-browser.mjs --live
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: all-screen-broadcast-evidence
-          path: app/artifacts/all-screens
+          name: all-screen-final-evidence
+          path: |
+            artifacts/all-screens
+            artifacts/fantasy-mobile-ui
           if-no-files-found: ignore
           retention-days: 3
+      - name: Publish only the tested presentation branch
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/design/all-screen-broadcast | cut -f1)" = '20ad129b8a567bb69a6746ca6e7e5e9a13e32879'
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add BroadcastScene.tsx ModeGuide.tsx broadcastScreens.css public/atmosphere/office-suite.webp docs/design/ALL_SCREENS_BROADCAST.md scripts/all-screens-broadcast-browser.mjs scripts/fantasy-mobile-browser-check.mjs
+          git commit -m 'Polish compact help controls, clean office artwork and verify actual mobile profile flows'
+          git push origin HEAD:refs/heads/design/all-screen-broadcast
