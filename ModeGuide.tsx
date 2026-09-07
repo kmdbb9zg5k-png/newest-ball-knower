@@ -32,7 +32,7 @@ export const ModeGuide: React.FC<Props> = ({ storageKey, title, summary, steps }
   </div> : null;
 
   return <>
-    <button type="button" onClick={() => setOpen(true)} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/40 px-4 text-[10px] font-black uppercase tracking-wider text-zinc-300">
+    <button type="button" onClick={() => setOpen(true)} className="bk-mode-guide-button inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/40 px-4 text-[10px] font-black uppercase tracking-wider text-zinc-300">
       <CircleHelp className="h-4 w-4" /> How it works
     </button>
     {guide ? createPortal(guide, document.body) : null}

@@ -27,7 +27,7 @@ The news component is still one shared lazy-loaded component in the existing nav
 
 ## Artwork
 
-Home's disclosed 249x158 stadium crop is preserved. The office/suite WebP is a 210x205 crop (x790,y307 to x1000,y512) of the supplied generated concept collage; it is not a new high-resolution photograph or an NFL photo license. CSS supplies the studio/tunnel/locker geometry and lighting. Existing original trophy imagery is reused. Small source crops may look soft on large displays; no pixel-exact match to all generated phones is claimed.
+Home's disclosed 249x158 stadium crop is preserved. The office/suite WebP is a 210x197 text-free crop (x790,y315 to x1000,y512; eight upper pixels trimmed from the existing WebP) of the supplied generated concept collage; it is not a new high-resolution photograph or an NFL photo license. CSS supplies the studio/tunnel/locker geometry and lighting. Existing original trophy imagery is reused. Small source crops may look soft on large displays; no pixel-exact match to all generated phones is claimed.
 
 ## Verification
 

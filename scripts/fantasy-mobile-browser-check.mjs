@@ -29,7 +29,7 @@ const waitForServer=async()=>{
 
 const layoutSnapshot=page=>page.evaluate(()=>{
   const primary=document.querySelector('nav[aria-label="Primary navigation"]');
-  const header=document.querySelector('header');
+  const header=document.querySelector('body > header');
   const shell=document.querySelector('.bk-app-shell');
   const main=document.querySelector('main');
   const primaryRect=primary?.getBoundingClientRect();
@@ -129,7 +129,7 @@ try{
     assertContained(await layoutSnapshot(page),`${size.label} Cheat Sheet`);
 
     await primary.getByRole('button',{name:'Profile',exact:true}).click();
-    await page.getByRole('heading',{name:'Ball Knower Profile',exact:true}).waitFor({state:'visible'});
+    await page.getByRole('heading',{name:'Your Locker',exact:true}).waitFor({state:'visible'});
     assertContained(await layoutSnapshot(page),`${size.label} Profile`);
     await page.getByRole('button',{name:'Add profile photo',exact:true}).click();
     await page.getByRole('button',{name:'Take Photo',exact:true}).waitFor({state:'visible'});

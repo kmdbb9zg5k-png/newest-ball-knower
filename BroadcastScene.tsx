@@ -35,8 +35,8 @@ export function BroadcastStage({scene,page,quiet=false,className='',children}:{s
   };
   const moving=enabled&&!reduce&&!quiet&&!focused&&visible&&onScreen;
   return <MotionContext.Provider value={{enabled,reduced:reduce,quiet:quiet||focused,toggle}}>
-    <div ref={ref} className={`bk-screen ${className}`} data-scene={scene} data-page={page} data-motion={moving?'on':'off'} data-quiet={quiet?'true':'false'}>
-      <div className="bk-scene-backdrop" aria-hidden="true">
+    <div className={`bk-screen ${className}`} data-scene={scene} data-page={page} data-motion={moving?'on':'off'} data-quiet={quiet?'true':'false'}>
+      <div ref={ref} className="bk-scene-backdrop" aria-hidden="true">
         <div className="bk-scene-art"/>
         <div className="bk-scene-architecture"><i/><i/><i/></div>
         <div className="bk-scene-beam bk-scene-beam-left"/><div className="bk-scene-beam bk-scene-beam-right"/>

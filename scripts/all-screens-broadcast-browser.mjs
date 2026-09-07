@@ -43,6 +43,14 @@ try{
   await page.getByRole('button',{name:'League HQ',exact:true}).click();await page.getByRole('region',{name:'NFL headlines'}).waitFor();
   await page.getByRole('button',{name:'Open NFL News',exact:true}).click();await capture('news','studio');
   assert.equal(await page.locator('.bk-news-story').count(),news.articles.length);assert.equal(await page.locator('.bk-news-story img').count(),0);
+  if(width<768&&news.articles.length>10){
+   await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
+   const backdrop=await page.locator('.bk-scene-backdrop').boundingBox();
+   if(backdrop&&backdrop.y+backdrop.height<=0)await page.waitForFunction(()=>document.querySelector('.bk-screen[data-page="news"]')?.getAttribute('data-motion')==='off');
+   await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+   await page.waitForFunction(()=>document.querySelector('.bk-screen[data-page="news"]')?.getAttribute('data-motion')==='on');
+  }
+
   await primary('Picks');await capture('picks','studio');
   await primary('Trivia');await capture('trivia','studio');
   await page.locator('.bk-trivia-modes').getByRole('button').filter({hasText:'TRIVIA'}).first().click();

@@ -103,8 +103,13 @@
 .bk-screen[data-page="picks"] .bk-picks-toolbar { top:calc(124px + env(safe-area-inset-top)); }
 @media(min-width:768px){.bk-screen[data-page="owner"] .bk-owner-tabs,.bk-screen[data-page="picks"] .bk-picks-toolbar { top:calc(168px + env(safe-area-inset-top)); }}
 .bk-screen[data-scene="office"] .bk-scene-art,.bk-screen[data-scene="suite"] .bk-scene-art { background-size:100% auto; }
-.bk-scene-actions>button:has(.lucide-circle-help) { font-size:0; padding-inline:0; min-width:40px; }
-.bk-scene-actions>button:has(.lucide-circle-help) svg { width:17px; height:17px; }
+.bk-scene-actions>.bk-mode-guide-button { font-size:0; padding-inline:0; min-width:40px; }
+.bk-scene-actions>.bk-mode-guide-button svg { width:17px; height:17px; }
 .bk-scene-title :is(h1,p) { position:relative; }
 @media(max-width:359px){.bk-news-refresh span { display:none; }}
 @media(min-width:768px){.bk-screen[data-scene="office"] .bk-scene-art,.bk-screen[data-scene="suite"] .bk-scene-art { background-size:cover; }}
+
+/* Keep help controls compact despite the base button font reset. */
+.bk-screen .bk-mode-guide-button { min-height:40px; padding:0 10px; gap:6px; font-size:10px; font-weight:800; line-height:1.4; letter-spacing:.035em; flex-shrink:0; }
+.bk-screen .bk-mode-guide-button svg { width:16px; height:16px; }
+.bk-scene-actions>.bk-mode-guide-button { min-width:40px; padding-inline:0; justify-content:center; font-size:0; gap:0; }
