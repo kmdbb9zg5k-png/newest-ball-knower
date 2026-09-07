@@ -1,34 +1,21 @@
-name: Verify live News release candidate
+name: Home visual preview source snapshot
 on:
   push:
     branches: [maintenance/news-release-verification]
 permissions:
   contents: read
 jobs:
-  live-release-check:
+  source:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: d92ad8a8aa378a31898b614b58a57612ebde41d7
+          ref: 564ec557ab6753b210679fc90eef0bb4ca26f9a8
           persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: npm ci --no-audit --no-fund
-      - run: npx playwright install --with-deps chromium
-      - run: npm run build && npm run check:root-bundle
-      - name: Verify public production backend and actual headline feed
-        run: node scripts/release-backend-preflight.mjs
-      - name: Render actual production headlines in the built mobile app
-        run: node scripts/news-browser-check.mjs --live
+      - run: git archive --format=tar HEAD | gzip > /tmp/home-preview-source.tar.gz
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: verified-live-news-release
-          path: |
-            artifacts/release
-            artifacts/news-release
-          if-no-files-found: ignore
-          retention-days: 3
+          name: home-preview-source
+          path: /tmp/home-preview-source.tar.gz
+          retention-days: 1
