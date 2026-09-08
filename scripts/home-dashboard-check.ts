@@ -3,6 +3,7 @@ import {readFileSync} from 'node:fs';
 
 const read=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'utf8');
 const home=read('HomeDashboard.tsx');
+const state=read('homeDashboardState.ts');
 const navbar=read('Navbar.tsx');
 const app=read('App.tsx');
 const footer=read('LaunchCenter.tsx');
@@ -10,18 +11,22 @@ const locker=read('LockerHub.tsx');
 const fantasyHub=read('FantasyHub.tsx');
 const styles=read('index.css');
 
-assert.ok(home.includes('activeLeague||leagues.find'), 'home must feature the selected league instead of a hard-coded personal league');
+assert.ok(home.includes('const selectedLeague = leagues.find')&&home.includes('const primaryLeague = selectedLeague || leagues.find'), 'home must feature the selected league instead of a hard-coded personal league');
 assert.ok(home.includes('teamTheme.name')&&home.includes('teamTheme.primary'), 'home atmosphere must come from the selected NFL team theme');
 assert.ok(!home.includes('The Justice League')&&!home.includes('Philadelphia Eagles'), 'personal league and favorite-team copy must never be hard-coded');
-assert.ok(home.includes("league.liveDraft?.status==='active'?'draft'")&&home.includes("league.settings?.fantasySeasonStarted?'View Matchup'"), 'the main action must follow authoritative league state');
+assert.ok(home.includes('homeLeagueAction(primaryLeague)')&&state.includes("league.liveDraft?.status === 'active'")&&state.includes("fantasySeasonStarted"), 'the main action must follow authoritative league state');
 assert.ok(home.includes('fetchSeasonOperations(primaryLeague.id)')&&home.includes('formatDraftSchedule(primaryLeague)'), 'league activity must use real operations and the saved draft schedule');
-assert.ok(home.includes("item.kind==='announcement'||item.kind==='receipt'")&&home.includes("item.memberId===myMember?.id"), 'home activity must avoid unrelated private owner data');
+assert.ok(home.includes('buildHomeActivity(operations')&&state.includes("item.kind === 'announcement'")&&state.includes('memberId'), 'home activity must avoid unrelated private owner data');
 assert.ok(home.includes('setActivityUnavailable(true)')&&!home.includes('Commissioner updated league settings'), 'failed activity requests must show unavailable instead of invented updates');
-assert.ok(home.includes('Ball Knower Rating')&&home.includes('rating points to'), 'rating progress must use the verified rating and truthful next-tier distance');
-assert.ok(home.includes('Create League')&&home.includes('Join League')&&home.includes('Cheat Sheet')&&home.includes('Solo Mode'), 'all approved home quick links must remain reachable');
+assert.ok(home.includes('Ball Knower Rating')&&state.includes('remaining')&&home.includes('rating points to'), 'rating progress must use the verified rating and truthful next-tier distance');
+assert.ok(home.includes('accessibleLabel="Create League"')&&home.includes('accessibleLabel="Join League"')&&home.includes('accessibleLabel="Cheat Sheet"')&&home.includes('accessibleLabel="Solo Mode"'), 'all approved home quick links must remain reachable');
+assert.ok(home.indexOf('aria-label="Quick links"')>home.indexOf('aria-label="Primary destinations"'), 'quick links must sit directly after the four primary destinations');
+assert.ok(!home.includes('Your 2026 Fantasy Cheat Sheet'), 'home must not duplicate Cheat Sheet as an always-on Featured card');
+assert.ok(home.includes('homeFeaturedActivity(currentActivity')&&home.includes('Commissioner update'), 'Featured must be reserved for a real recent commissioner update');
+assert.ok(home.includes('aria-label="Change league"')&&home.includes('Continue your league'), 'league selection must be integrated with the Continue Your League card');
 
 assert.ok(navbar.includes('fixed inset-x-0 bottom-0')&&navbar.includes('pb-[env(safe-area-inset-bottom)]'), 'mobile navigation must be fixed above the iPhone home indicator');
-assert.ok(navbar.includes("createPortal")&&navbar.includes('fixed inset-x-0 top-0')&&navbar.includes('h-[calc(72px+env(safe-area-inset-top))]'), 'both app navigation bars must be portaled to the viewport with a safe content spacer');
+assert.ok(navbar.includes('createPortal')&&navbar.includes('fixed inset-x-0 top-0')&&navbar.includes('h-[calc(72px+env(safe-area-inset-top))]'), 'both app navigation bars must be portaled to the viewport with a safe content spacer');
 const headerClose=navbar.indexOf('</header>');
 const mobileNav=navbar.indexOf('<nav aria-label="Primary navigation"');
 assert.ok(headerClose>=0&&mobileNav>headerClose, 'mobile navigation must remain outside the blurred top header so iOS fixes it to the viewport');
@@ -38,4 +43,4 @@ assert.ok(styles.includes('-webkit-text-size-adjust: 100%')&&home.includes('min-
 assert.ok(locker.includes("type Tab='locker'|'collections'")&&!locker.includes("['store','Store']")&&!locker.includes("['pass','Pass']")&&!locker.includes("['plus','BK+']"), 'unfinished Store, Season Pass, and BK+ surfaces must stay hidden from launch navigation');
 assert.ok(locker.includes("ownedItems.filter(x=>x.category==='collectible')")&&locker.includes('Anything you earn will appear here.'), 'Collections must show owned rewards only instead of leaking disabled purchase cards');
 
-console.log('Home dashboard checks passed: personalized team atmosphere, dynamic league action, real activity, and iPhone-safe navigation.');
+console.log('Home dashboard checks passed: compact navigation, selected-league state, real activity, truthful rating progress, and iPhone-safe navigation.');
