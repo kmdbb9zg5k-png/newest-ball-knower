@@ -33,6 +33,7 @@ export function ProfileLockerView({ profile, events, achievements, predictionPic
   const pushes = predictionPicks.filter(item => item.result === 'push').length;
   const pendingPicks = predictionPicks.filter(item => !item.result).length;
   const predictionHistory = [...predictionPicks].sort((a, b) => Date.parse(b.lockedAt || '') - Date.parse(a.lockedAt || ''));
+  const visibleTrophyCount = achievements.length + (predictionPicks.length > 0 ? 1 : 0);
   const scrollTrophies = (direction: number) => {
     const rail = trophyRail.current;
     if (!rail) return;
@@ -60,7 +61,7 @@ export function ProfileLockerView({ profile, events, achievements, predictionPic
     </section>
 
     <section className="bk-locker-trophies" aria-labelledby={`${id}-trophies`}>
-      <div className="bk-locker-section-heading"><h2 id={`${id}-trophies`}><Trophy aria-hidden="true"/>Trophy case</h2><span>{correctPicks} correct picks · {profile ? `${unlocked}/${achievements.length} trophies unlocked` : 'Awaiting sync'}</span>{achievements.length > 5 && <div className="bk-locker-trophy-arrows"><button type="button" aria-label="Previous trophies" onClick={() => scrollTrophies(-1)}><ChevronLeft aria-hidden="true"/></button><button type="button" aria-label="Next trophies" onClick={() => scrollTrophies(1)}><ChevronRight aria-hidden="true"/></button></div>}</div>
+      <div className="bk-locker-section-heading"><h2 id={`${id}-trophies`}><Trophy aria-hidden="true"/>Trophy case</h2><span>{correctPicks} correct picks · {profile ? `${unlocked}/${achievements.length} unlocked` : 'Awaiting sync'}</span>{visibleTrophyCount > 6 && <div className="bk-locker-trophy-arrows"><button type="button" aria-label="Previous trophies" onClick={() => scrollTrophies(-1)}><ChevronLeft aria-hidden="true"/></button><button type="button" aria-label="Next trophies" onClick={() => scrollTrophies(1)}><ChevronRight aria-hidden="true"/></button></div>}</div>
       <div className="bk-locker-trophy-case">
         <ul ref={trophyRail} className="bk-locker-trophy-rail" aria-label="Trophies">
           {predictionPicks.length > 0 && <li><button type="button" className="bk-locker-trophy" data-unlocked="true" aria-label={`Prediction record: ${correctPicks} correct picks. Show pick history`} aria-expanded={predictionHistoryOpen} aria-controls={`${id}-prediction-history`} onClick={() => { setPredictionHistoryOpen(value => !value); setSelectedTrophy(null); }}><LockerTrophyBadge tier="gold" unlocked/><strong>Pick Record</strong><span className="bk-locker-trophy-description">{correctPicks} correct NFL {correctPicks === 1 ? 'pick' : 'picks'} all time</span><small><Check aria-hidden="true"/>Verified history</small></button></li>}
