@@ -9,10 +9,14 @@
   .bk-profile-page .bk-locker-account{position:absolute;bottom:0;left:36%;right:30%;margin:0;padding:0}
   .bk-profile-page .bk-locker-account[open]{position:relative;bottom:auto;left:auto;right:auto;margin:0 10px 0 36%;padding:5px 0}
   .bk-profile-page .bk-locker-hex{min-height:58px;aspect-ratio:1.33;padding-block:6px}
-  .bk-profile-page .bk-locker-badge{width:calc(100% - 8px)}
+  .bk-profile-page .bk-locker-badge{width:min(calc(100% - 8px),50px)}
   .bk-profile-page .bk-locker-trophy{min-height:80px}
   .bk-profile-page .bk-locker-section-heading{min-height:30px}
   .bk-profile-page .bk-locker-receipt-art{top:30px}
+  .bk-profile-page .bk-locker-rating>strong{max-width:90px}
+  .bk-profile-page .bk-locker-motto{margin-top:4px;padding-bottom:1px}
+  .bk-profile-page .bk-locker-receipts{min-height:126px;padding-bottom:6px}
+  .bk-profile-page .bk-locker-receipt-rail{margin:4px auto 3px}
 }
 /* Replace the removed sample founding date with a non-factual ornament. */
 .bk-profile-page .bk-profile-identity>section>button::after{content:'YOUR LEGACY';position:absolute;left:29%;bottom:11%;width:44%;font:700 clamp(4px,1.1vw,7px)/1.1 Arial,sans-serif;letter-spacing:.16em;color:#dbc27c;text-shadow:0 1px #302315;pointer-events:none}
