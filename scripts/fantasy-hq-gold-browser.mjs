@@ -22,7 +22,7 @@ try{
   browser=await(engine==='chromium'?chromium:webkit).launch({headless:true});
   for(const width of engine==='chromium'?[390,320,430,1280]:[390]){
    const context=await browser.newContext({viewport:{width,height:844},isMobile:width<768,hasTouch:width<768,reducedMotion:'reduce'});
-   const page=await context.newPage();activePage=page;const crashes=[],mutations=[];page.on('pageerror',e=>crashes.push(e.message));
+   const page=await context.newPage();activePage=page;const crashes=[],mutations=[],backgroundPreferences=[];page.on('pageerror',e=>crashes.push(e.message));
    let empty=false,failScores=false,failActivity=false,activityContent=false;
    const user={id:userId,aud:'authenticated',role:'authenticated',email:'qa@example.invalid',is_anonymous:false,user_metadata:{name:'Elijah',full_name:'Elijah'},app_metadata:{provider:'email',providers:['email']},created_at:stamp};
    const token=[Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url'),Buffer.from(JSON.stringify({sub:userId,aud:'authenticated',role:'authenticated',exp:Math.floor(Date.now()/1000)+86400})).toString('base64url'),'fixture-only'].join('.');
@@ -32,7 +32,14 @@ try{
     const send=(body,status=200)=>route.fulfill({status,contentType:'application/json',headers,body:JSON.stringify(body)});
     if(method==='OPTIONS')return send({});
     if(path.startsWith('/auth/'))return send(path==='/auth/v1/user'?user:session);
-    if(method!=='GET')mutations.push(path);
+    if(method!=='GET'){
+     const payload=route.request().postDataJSON();
+     const writes=Array.isArray(payload)?payload:[payload];
+     // The unchanged SoundtrackContext debounces this preference write by 500ms.
+     // Count every other non-GET request; never ignore league, draft, or roster writes.
+     const soundtrackPreference=path.endsWith('/ball_knower_user_state')&&writes.length>0&&writes.every(row=>row?.state_key==='soundtrack_preferences');
+     (soundtrackPreference?backgroundPreferences:mutations).push(path);
+    }
     if(path.endsWith('/ball_knower_fantasy_rankings'))return send(rankingRows.filter(r=>r.position!=='DST'));
     if(path.endsWith('/ball_knower_leagues')){
      const rows=(empty?[]:leagues).filter(l=>!url.searchParams.get('id')?.startsWith('eq.')||url.searchParams.get('id')===`eq.${l.id}`).map(l=>({id:l.id,name:l.name,code:l.code,max_members:l.maxMembers,salary_cap:l.salaryCap,commissioner_auth_id:l.commissionerId,commissioner_name:l.commissionerName,status:l.status,created_at:l.createdAt,settings:l.settings}));
@@ -65,10 +72,10 @@ try{
    assert.equal(await page.locator('.bk-fantasy-league-facts').first().getByText('15 drafted',{exact:true}).count(),1);
    const bounds=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,hero:document.querySelector('.bk-fantasy-hq-hero').getBoundingClientRect().height,tools:[...document.querySelectorAll('[data-testid="fantasy-tool-grid"] button')].map(e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right,height:r.height,width:r.width};})}));
    assert.ok(bounds.scroll<=width+1);assert.ok(bounds.tools.every(b=>b.left>=0&&b.right<=width+1&&b.height>=44&&b.width>=44));if(width<640)assert.ok(bounds.hero<=210);
-   await page.screenshot({path:`${out}/${engine}-${width}-hq.png`});await page.screenshot({path:`${out}/${engine}-${width}-full.png`,fullPage:true});
+   await writeFile(`${out}/${engine}-${width}-geometry.json`,JSON.stringify(bounds,null,2));await page.screenshot({path:`${out}/${engine}-${width}-hq.png`});await page.screenshot({path:`${out}/${engine}-${width}-full.png`,fullPage:true});
    await page.getByRole('button',{name:'My Leagues (2)',exact:true}).click();let dialog=page.getByRole('dialog',{name:'My Leagues',exact:true});await dialog.waitFor();assert.equal(await dialog.locator('.bk-hq-league-list button').count(),2);await dialog.getByRole('button',{name:'Close My Leagues'}).click();
-   await page.getByTestId('fantasy-tool-grid').getByRole('button',{name:/Draft Simulation/}).click();dialog=page.getByRole('dialog',{name:'Draft Simulation',exact:true});await dialog.waitFor();await dialog.getByRole('button',{name:'Run draft simulation',exact:true}).waitFor();const before=mutations.length;
-   await dialog.getByRole('button',{name:'Run draft simulation',exact:true}).click();await dialog.getByRole('button',{name:'Run another simulation',exact:true}).waitFor();assert.equal(await dialog.locator('.bk-hq-mock-picks li').count(),150);await dialog.getByRole('button',{name:'Run another simulation',exact:true}).click();assert.equal(mutations.length,before,'Practice must not perform backend writes');await page.keyboard.press('Escape');await dialog.waitFor({state:'detached'});
+   await page.getByTestId('fantasy-tool-grid').getByRole('button',{name:/Draft Simulation/}).click();dialog=page.getByRole('dialog',{name:'Draft Simulation',exact:true});await dialog.waitFor();await dialog.getByRole('button',{name:'Run draft simulation',exact:true}).waitFor();const before=mutations.length;const savedLeagues=await page.evaluate(()=>localStorage.getItem('ballknower_leagues_v1'));
+   await dialog.getByRole('button',{name:'Run draft simulation',exact:true}).click();await dialog.getByRole('button',{name:'Run another simulation',exact:true}).waitFor();assert.equal(await dialog.locator('.bk-hq-mock-picks li').count(),150);await dialog.getByRole('button',{name:'Run another simulation',exact:true}).click();assert.equal(mutations.length,before,`Practice must not perform backend writes: ${JSON.stringify(mutations.slice(before))}`);assert.equal(await page.evaluate(()=>localStorage.getItem('ballknower_leagues_v1')),savedLeagues,'Practice must not change saved league state');await page.keyboard.press('Escape');await dialog.waitFor({state:'detached'});
    await page.getByTestId('fantasy-tool-grid').getByRole('button',{name:/Matchup Analyzer/}).click();dialog=page.getByRole('dialog',{name:'Matchup Analyzer',exact:true});await dialog.locator('.bk-hq-matchup').first().waitFor();assert.equal(await dialog.locator('.bk-hq-matchup').count(),5);assert.match(await dialog.innerText(),/0\.0/);assert.match(await dialog.innerText(),/—/);await dialog.getByLabel('Week',{exact:true}).selectOption('2');await dialog.getByText('Final',{exact:true}).first().waitFor();
    failScores=true;await dialog.getByLabel('Week',{exact:true}).selectOption('3');await dialog.getByRole('alert').waitFor();failScores=false;await dialog.getByRole('button',{name:'Retry matchups'}).click();await dialog.locator('.bk-hq-matchup').first().waitFor();await dialog.getByRole('button',{name:'Close Matchup Analyzer'}).click();
    failActivity=true;await page.getByRole('navigation',{name:'Fantasy views'}).getByRole('button',{name:'Cheat Sheet',exact:true}).click();await page.getByRole('heading',{name:'Player Cheat Sheet'}).waitFor();assert.equal(await page.locator('.bk-hq-premium').count(),0);await page.getByRole('navigation',{name:'Fantasy views'}).getByRole('button',{name:'League HQ',exact:true}).click();
@@ -77,7 +84,7 @@ try{
    await page.getByTestId('fantasy-tool-grid').locator('button').nth(1).click();await page.locator('#close-join-league-modal-btn').waitFor();await page.locator('#close-join-league-modal-btn').click();
    await page.locator('.bk-hq-public-tool').click();await page.locator('.bk-fantasy-public-error').waitFor();assert.ok(mutations.some(path=>path.includes('join_or_create_ball_knower_public_league')),'Public matchmaking must retain its existing RPC path');
    await page.getByRole('navigation',{name:'Fantasy views'}).getByRole('button',{name:'How it works',exact:true}).click();await page.getByRole('dialog',{name:'Fantasy instructions'}).waitFor();await page.getByRole('button',{name:'Close instructions'}).click();
-   assert.deepEqual(crashes,[]);results.push({engine,width,bounds,initialLeagues:2,tools:5,mockPicks:150,matchups:5,activityRecovery:true,createJoinEntrypoints:true,publicMatchmakingError:true,source:'Isolated account/rankings/scores fixtures',productionMutations:false,physicalIphone:false});await context.close();activePage=null;
+   assert.deepEqual(crashes,[]);results.push({engine,width,bounds,initialLeagues:2,tools:5,mockPicks:150,matchups:5,activityRecovery:true,createJoinEntrypoints:true,publicMatchmakingError:true,backgroundPreferenceWrites:backgroundPreferences.length,source:'Isolated account/rankings/scores fixtures',productionMutations:false,physicalIphone:false});await context.close();activePage=null;
   }
   await browser.close();browser=null;
  }
