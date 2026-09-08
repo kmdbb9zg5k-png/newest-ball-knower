@@ -1,5 +1,4 @@
-import React,{createContext,useContext,useEffect,useRef,useState} from 'react';
-import {Pause,Play} from 'lucide-react';
+import React,{createContext,useEffect,useRef,useState} from 'react';
 import {useBroadcastFocus,useBroadcastFocused} from './broadcastFocus';
 
 export type BroadcastScene='tunnel'|'studio'|'office'|'suite'|'field'|'locker'|'legacy';
@@ -46,15 +45,13 @@ export function BroadcastStage({scene,page,quiet=false,className='',children}:{s
     </div>
   </MotionContext.Provider>;
 }
-export function BroadcastMotionControl(){
-  const motion=useContext(MotionContext);
-  return <button type="button" className="bk-scene-motion" onClick={motion.toggle} disabled={motion.reduced||motion.quiet} aria-pressed={motion.enabled&&!motion.reduced&&!motion.quiet} aria-label={motion.quiet?'Background motion paused for gameplay':motion.reduced?'Background motion off: Reduce Motion is enabled':motion.enabled?'Pause background motion':'Enable background motion'}>
-    {motion.enabled&&!motion.reduced&&!motion.quiet?<Pause size={12}/>:<Play size={12}/>}<span>{motion.quiet?'Focus mode':motion.reduced?'Reduced motion':`Motion ${motion.enabled?'on':'off'}`}</span>
-  </button>;
-}
-export function BroadcastMasthead({eyebrow,title,subtitle,actions,compact=false,showMotionControl=true}:{eyebrow:string;title:string;subtitle?:string;actions?:React.ReactNode;compact?:boolean;showMotionControl?:boolean}){
+
+// Kept as a no-op export so any older callers cannot render the removed control.
+export function BroadcastMotionControl(){return null;}
+
+export function BroadcastMasthead({eyebrow,title,subtitle,actions,compact=false}:{eyebrow:string;title:string;subtitle?:string;actions?:React.ReactNode;compact?:boolean;showMotionControl?:boolean}){
   return <header className={`bk-scene-masthead${compact?' bk-scene-masthead-compact':''}`}>
-    <div className="bk-scene-toolbar"><span className="bk-scene-eyebrow">{eyebrow}</span><div className="bk-scene-actions">{actions}{showMotionControl&&<BroadcastMotionControl/>}</div></div>
+    <div className="bk-scene-toolbar"><span className="bk-scene-eyebrow">{eyebrow}</span><div className="bk-scene-actions">{actions}</div></div>
     <div className="bk-scene-title"><h1>{title}</h1>{subtitle&&<p>{subtitle}</p>}</div>
     <div className="bk-scene-rule" aria-hidden="true"/>
   </header>;
