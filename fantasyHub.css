@@ -74,7 +74,7 @@
 
 .bk-fantasy-hq-hero {
   position: relative;
-  height: 312px;
+  height: 248px;
   margin-top: 8px;
   border: 1px solid rgba(187, 166, 108, .25);
   border-radius: 11px 11px 3px 3px;
@@ -137,7 +137,7 @@
 .bk-fantasy-hq-haze { top: 29%; opacity: .56; }
 .bk-fantasy-hq-hero-copy {
   position: absolute;
-  inset: auto 14px 27px;
+  inset: auto 14px 20px;
   z-index: 3;
   text-align: center;
   text-shadow: 0 3px 18px #000, 0 1px 3px #000;
@@ -283,7 +283,7 @@
   flex-direction: column;
   align-items: flex-start;
   min-width: 0;
-  min-height: 139px;
+  min-height: 128px;
   padding: 14px 10px 10px;
   overflow: hidden;
   border: 1px solid #394040;
@@ -342,18 +342,18 @@
   .bk-fantasy-hq-screen { padding-inline: 12px; }
   .bk-fantasy-hq-tabs > button { padding-inline: 4px; font-size: 11px; }
   .bk-fantasy-hq-tabs > .bk-mode-guide-button { gap: 4px; font-size: 9px; }
-  .bk-fantasy-hq-hero { height: 292px; }
+  .bk-fantasy-hq-hero { height: 232px; }
   .bk-fantasy-hq-hero-copy h1 { font-size: 42px; }
   .bk-fantasy-league-grid { grid-template-columns: 1fr; }
   .bk-fantasy-league-card--featured { grid-column: auto; }
   .bk-fantasy-tool-grid { gap: 5px; }
-  .bk-fantasy-tool-grid > button { min-height: 136px; padding-inline: 8px; }
+  .bk-fantasy-tool-grid > button { min-height: 124px; padding-inline: 8px; }
   .bk-fantasy-tool-grid > button > strong { font-size: 10px; }
 }
 
 @media (min-width: 640px) {
   .bk-fantasy-hq-screen { padding: 16px 24px calc(28px + env(safe-area-inset-bottom)); }
-  .bk-fantasy-hq-hero { height: 370px; margin-top: 12px; }
+  .bk-fantasy-hq-hero { height: 350px; margin-top: 12px; }
   .bk-fantasy-hq-light-bank { top: 34px; grid-template-columns: repeat(6, 8px); grid-auto-rows: 8px; gap: 4px; padding: 9px; }
   .bk-fantasy-hq-light-bank i { width: 8px; height: 8px; }
   .bk-fantasy-hq-hero-copy { bottom: 39px; }
@@ -376,7 +376,7 @@
 }
 
 @media (min-width: 1024px) {
-  .bk-fantasy-hq-hero { height: 405px; }
+  .bk-fantasy-hq-hero { height: 390px; }
   .bk-fantasy-hq-hero-copy h1 { font-size: 78px; }
   .bk-fantasy-league-grid { gap: 13px; }
 }

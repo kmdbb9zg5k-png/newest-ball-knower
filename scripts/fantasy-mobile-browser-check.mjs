@@ -96,7 +96,7 @@ const assertFantasyHq=(snapshot,label)=>{
   assert.ok(snapshot.fantasyTabRect.left>=-1&&snapshot.fantasyTabRect.right<=width+1,`${label}: Fantasy HQ navigation is clipped`);
   assert.ok(snapshot.fantasyHeroRect,`${label}: Fantasy HQ stadium hero is missing`);
   assert.ok(snapshot.fantasyHeroRect.left>=-1&&snapshot.fantasyHeroRect.right<=width+1,`${label}: Fantasy HQ stadium hero is clipped`);
-  assert.ok(snapshot.fantasyHeroRect.height<=320,`${label}: Fantasy HQ hero regressed to an oversized dead zone`);
+  assert.ok(snapshot.fantasyHeroRect.height<=255,`${label}: Fantasy HQ hero regressed to an oversized dead zone`);
   assert.equal(snapshot.fantasyToolButtons,3,`${label}: league tools must keep create, join, and public destinations`);
   assert.deepEqual(snapshot.fantasyControlsOutsideViewport,[],`${label}: a fantasy destination escapes the viewport`);
 };
