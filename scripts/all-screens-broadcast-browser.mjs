@@ -54,8 +54,14 @@ try{
 
   await primary('Picks');await capture('picks','studio');
   await primary('Trivia');await capture('trivia','studio');
-  await page.locator('.bk-trivia-modes').getByRole('button').filter({hasText:'TRIVIA'}).first().click();
-  await page.getByRole('dialog').filter({has:page.getByRole('button',{name:'Exit',exact:true})}).waitFor();
+  await page.getByTestId('gauntlet-mode-grid').getByRole('button',{name:/Classic Trivia/i}).click();
+  const difficulty=page.getByRole('dialog',{name:'TRIVIA difficulty',exact:true});
+  await difficulty.waitFor();
+  assert.equal(await difficulty.locator('.bk-gauntlet-tier-card').count(),4,'Trivia must retain all four difficulty levels');
+  assert.equal(await page.locator('.bk-screen[data-page="trivia"]').getAttribute('data-motion'),'off');
+  assert.equal(await page.locator('.bk-home-news-strip').count(),0);
+  await difficulty.getByRole('button',{name:/ROOKIE/}).click();
+  await page.getByRole('dialog',{name:'ROOKIE Trivia',exact:true}).waitFor();
   assert.equal(await page.locator('.bk-screen[data-page="trivia"]').getAttribute('data-motion'),'off');assert.equal(await page.locator('.bk-home-news-strip').count(),0);
   await page.getByRole('button',{name:'Exit',exact:true}).click();await page.getByRole('region',{name:'NFL headlines'}).waitFor();
   await primary('Profile');await capture('profile','locker');

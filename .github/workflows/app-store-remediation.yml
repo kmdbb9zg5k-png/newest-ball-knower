@@ -30,6 +30,8 @@ jobs:
       - run: npm run lint
       - name: Check attribution, original badges and AI consent
         run: node --import tsx scripts/app-store-remediation-check.ts
+      - name: Check scoped favorite-team logos and disclaimer
+        run: node --import tsx scripts/favorite-team-branding-check.ts
       - name: Exercise report privacy, bilateral blocking and reply deletion with actual message RPCs
         env:
           PGPASSWORD: postgres
@@ -40,6 +42,8 @@ jobs:
       - run: npm run build && npm run check:root-bundle
       - name: Open attribution in the production-built mobile app
         run: node scripts/app-store-credits-browser-check.mjs
+      - name: Exercise favorite-team logos, mobile footer and selection persistence
+        run: node scripts/favorite-team-browser-check.mjs
       - name: Exercise mobile News and outage recovery
         run: node scripts/news-browser-check.mjs --fixture
       - uses: actions/upload-artifact@v4
@@ -48,6 +52,7 @@ jobs:
           name: app-store-credits-mobile
           path: |
             artifacts/app-store-credits
+            artifacts/favorite-team
             artifacts/news-release
           if-no-files-found: ignore
           retention-days: 3
