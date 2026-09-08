@@ -125,7 +125,7 @@ export const SportsbookHub:React.FC=()=>{
 
   return <BroadcastStage scene="studio" page="picks" className="bk-picks-screen min-h-[calc(100dvh-7rem)] px-3 py-4 sm:px-6 sm:py-6"><div className="mx-auto max-w-5xl">
     <div className="bk-picks-headrow">
-      <BroadcastMasthead eyebrow="Make the call" title="Daily Picks" subtitle="One outcome per NFL game. No wagering. Just football knowledge." compact showMotionControl={false}/>
+      <BroadcastMasthead eyebrow="Make the call" title="Daily Picks" subtitle="One outcome per NFL game. No wagering. Just football knowledge." compact/>
       <div className="bk-picks-week-select-wrap"><CalendarDays size={17}/><select aria-label="NFL week" value={slate} onChange={event=>{setSlate(event.target.value);setFilter('all')}}>{slates.map(game=><option key={slateKey(game)} value={slateKey(game)}>{slateLabel(game)}</option>)}</select><ChevronDown size={15}/></div>
     </div>
 

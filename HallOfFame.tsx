@@ -1,4 +1,4 @@
-import {BroadcastStage,BroadcastMasthead,BroadcastMotionControl} from './BroadcastScene';
+import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import React, { useEffect, useState } from 'react';
 import { Bot, Crown, Trophy } from 'lucide-react';
 import { fetchLeaderboard, publishCareer } from './leaderboardCloud';

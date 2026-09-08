@@ -1,4 +1,4 @@
-import {BroadcastStage,BroadcastMasthead,BroadcastMotionControl} from './BroadcastScene';
+import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { League } from './types';
 import { FantasyLeagueCommandCenter } from './FantasyLeagueCommandCenter';
@@ -78,7 +78,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, o
   if (draftComplete) {
     return (
       <BroadcastStage scene="tunnel" page="league" quiet={true} className="min-h-[calc(100dvh-7rem)] overflow-x-hidden bg-[#07090c] text-white">
-        <div className="mx-auto max-w-6xl px-3 sm:px-6"><div className="bk-league-scene-banner"><div><span>Fantasy football</span><strong>{league.name}</strong></div><BroadcastMotionControl/></div></div>
+        <div className="mx-auto max-w-6xl px-3 sm:px-6"><div className="bk-league-scene-banner"><div><span>Fantasy football</span><strong>{league.name}</strong></div></div></div>
         <OwnerCareerSync league={league} />
         <div className="mx-auto max-w-6xl px-2 py-0 sm:px-6 sm:py-5">
           <ModeErrorBoundary key={`postdraft-${lazyVersion}`} onRetry={retryMode}>
@@ -91,7 +91,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, o
 
   return (
     <BroadcastStage scene="tunnel" page="league" quiet={true} className="min-h-[calc(100dvh-7rem)] bg-[#07090c] text-white">
-      <div className="mx-auto max-w-6xl px-3 sm:px-6"><div className="bk-league-scene-banner"><div><span>Fantasy football</span><strong>{league.name}</strong></div><BroadcastMotionControl/></div></div>
+      <div className="mx-auto max-w-6xl px-3 sm:px-6"><div className="bk-league-scene-banner"><div><span>Fantasy football</span><strong>{league.name}</strong></div></div></div>
         <OwnerCareerSync league={league} />
       <div className="mx-auto max-w-6xl px-3 pt-3 sm:px-6 sm:pt-4">
         <div className="grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-[#0d1015] p-1 sm:gap-2 sm:rounded-2xl sm:p-2">

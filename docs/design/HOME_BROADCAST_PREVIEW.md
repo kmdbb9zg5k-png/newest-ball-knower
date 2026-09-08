@@ -10,9 +10,9 @@ The first Home viewport leads with the scene, My Leagues, all four existing prim
 
 ## Behavior
 
-Home-only CSS light/haze animations. No background video, no canvas, no new sound. Motion preference persists locally, respects live Reduce Motion changes and pauses in background tabs/offscreen. Decorative elements do not intercept input.
+Home-only CSS light/haze animations. No background video, no canvas, no new sound, and no on-screen motion toggle. Atmosphere motion respects live device Reduce Motion changes and pauses in background tabs/offscreen. Decorative elements do not intercept input.
 
-Home-only lazy-loaded ticker uses the existing first-party News endpoint; checks every two minutes while shown/visible, rotates one readable headline every ten seconds, supports manual next/swipe, focus/hover pause, explicit pause and hide. It rejects invalid or credentialed links and clears stories after a failed refresh instead of fabricating news. It does not announce automatic headline changes to screen readers. Background motion and headline rotation have separate controls. Publication freshness/order is not invented.
+Home-only lazy-loaded ticker uses the existing first-party News endpoint; checks every two minutes while shown/visible, rotates one readable headline every ten seconds, supports manual next/swipe, focus/hover pause, explicit pause and hide. It rejects invalid or credentialed links and clears stories after a failed refresh instead of fabricating news. It does not announce automatic headline changes to screen readers. The headline controls remain independent from automatic decorative motion. Publication freshness/order is not invented.
 
 ## Verification
 

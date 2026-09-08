@@ -23,7 +23,7 @@ Extends the owner-approved Home design from #206 to the remaining existing desti
 | Hall of Fame | Trophy setting | Motion while browsing |
 | Partners | Studio | Original links/copy retained |
 
-The news component is still one shared lazy-loaded component in the existing navbar. `broadcastFocus.ts` uses reference-counted locks to suspend it while gameplay or instruction dialogs are open. Hidden/offscreen motion is paused; device Reduce Motion and the existing persisted motion preference are respected. No new audio/video playback is added.
+The news component is still one shared lazy-loaded component in the existing navbar. `broadcastFocus.ts` uses reference-counted locks to suspend it while gameplay or instruction dialogs are open. Decorative motion has no on-screen toggle; it pauses while hidden/offscreen and respects the device Reduce Motion setting. No new audio/video playback is added.
 
 ## Artwork
 
@@ -31,6 +31,6 @@ Home's disclosed 249x158 stadium crop is preserved. The office/suite WebP is a 2
 
 ## Verification
 
-Run `node --import tsx scripts/all-screens-broadcast-check.ts`, the full existing hardening suite, production build and unchanged root-bundle limits. `scripts/all-screens-broadcast-browser.mjs` uses explicit synthetic news in CI, or captured public provider output with `--live`. It blocks all Supabase requests and does not mutate production accounts or leagues. Actual screenshots cover phone and desktop widths, per-screen geometry, navigation, motion preferences, Reduce Motion and focus transitions. Original Home and fantasy regression suites remain required.
+Run `node --import tsx scripts/all-screens-broadcast-check.ts`, the full existing hardening suite, production build and unchanged root-bundle limits. `scripts/all-screens-broadcast-browser.mjs` uses explicit synthetic news in CI, or captured public provider output with `--live`. It blocks all Supabase requests and does not mutate production accounts or leagues. Actual screenshots cover phone and desktop widths, per-screen geometry, navigation, the absence of motion controls, Reduce Motion and focus transitions. Original Home and fantasy regression suites remain required.
 
 Browser evidence is not physical iPhone/TestFlight QA. A web rollout does not update already-installed native binaries. External rights questions tracked in #200 remain separate.

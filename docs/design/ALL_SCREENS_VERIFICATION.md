@@ -10,7 +10,7 @@ Its artifact is **10028607689**, `all-screen-final-evidence`, archive SHA-256 **
 
 The all-screen run captured 15 actual destinations at 320px, 390px and 1280px: Fantasy, News, Picks, Trivia, Solo, Agent, Owner, Franchise Command, My Player, League HQ, Profile, Hall of Fame, Partners, Fantasy Franchise and Cap Challenge. This is 45 screenshots, not 45 separately redesigned features. Draft/season/research surfaces have matching static treatment; individual fantasy tables and gameplay engines were not rebuilt.
 
-Checks include real navigation controls, header/content separation, horizontal fit, five bottom tabs, shared motion preference, dynamic Reduce Motion, focused-game ticker suspension, and stopping offscreen decorative animation when the backdrop is outside the viewport. The existing profile-photo test passed at 375/390/392/430px, including decoding/cropping an oversized input without committing an upload.
+Checks include real navigation controls, header/content separation, horizontal fit, five bottom tabs, no on-screen motion controls, dynamic Reduce Motion, focused-game ticker suspension, and stopping offscreen decorative animation when the backdrop is outside the viewport. The existing profile-photo test passed at 375/390/392/430px, including decoding/cropping an oversized input without committing an upload.
 
 ## Corrections found through verification
 

@@ -54,7 +54,7 @@ try{
     for(const width of widths){
       const c=await contextFor(browser,width);const {page}=c;
       const stage=page.locator('.bk-picks-screen');
-      assert.equal(await stage.locator('.bk-scene-motion').count(),0,'no Motion On control on Picks');
+      assert.equal(await stage.locator('.bk-scene-motion').count(),0,'Picks must not render a motion control');
       await page.evaluate(()=>document.fonts.ready);
       const geometry=await page.evaluate(()=>{
         const header=document.querySelector('.bk-picks-screen .bk-scene-masthead');const input=document.querySelector('.bk-picks-search input');const toolbar=document.querySelector('.bk-picks-toolbar');
