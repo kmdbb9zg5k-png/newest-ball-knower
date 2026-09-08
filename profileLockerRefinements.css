@@ -24,3 +24,8 @@
    Explicit stroke colors keep the actual active Profile icon visually unambiguous. */
 body:has(.bk-app-shell[data-tab="locker"])>nav.bk-broadcast-nav button svg{stroke:#b4bec6}
 body:has(.bk-app-shell[data-tab="locker"])>nav.bk-broadcast-nav button:last-child svg{stroke:#f5d478}
+/* Compact visible labels keep full touch areas; disclosure expands in normal flow. */
+.bk-profile-page .bk-profile-identity{z-index:2}
+.bk-profile-page .bk-locker-account>summary{min-height:44px;margin-bottom:-20px;align-items:flex-start;padding-top:6px}
+.bk-profile-page .bk-locker-account[open]>summary{margin-bottom:0}
+.bk-profile-page .bk-locker-trophy-arrows button{width:44px;min-width:44px}

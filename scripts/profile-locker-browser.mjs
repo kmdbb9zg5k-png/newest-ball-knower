@@ -106,11 +106,18 @@ try {
       if (width < 768) assert.equal(await page.getByRole('navigation', { name: 'Primary navigation' }).locator('button').count(), 5);
       await page.screenshot({ path: `${output}/${engine}-${width}-profile.png` });
       await page.screenshot({ path: `${output}/${engine}-${width}-full.png`, fullPage: true });
-      const visual = await page.evaluate(() => { const rect = selector => { const box = document.querySelector(selector)?.getBoundingClientRect(); return box ? { x: box.x, y: box.y, width: box.width, height: box.height, bottom: box.bottom } : null; }; return { receipts: rect('.bk-locker-receipts'), nav: rect('nav[aria-label="Primary navigation"]'), identity: rect('.bk-profile-identity'), heading: rect('.bk-locker-masthead'), badges: [...document.querySelectorAll('.bk-locker-trophy')].slice(0,6).map(element => {const b=element.getBoundingClientRect(); return {x:b.x,right:b.right,width:b.width};}) }; });
+      const visual = await page.evaluate(() => { const rect = selector => { const box = document.querySelector(selector)?.getBoundingClientRect(); return box ? { x: box.x, y: box.y, width: box.width, height: box.height, bottom: box.bottom } : null; }; return { receipts: rect('.bk-locker-receipts'), nav: rect('nav[aria-label="Primary navigation"]'), identity: rect('.bk-profile-identity'), heading: rect('.bk-locker-masthead'), trophyTargets: [...document.querySelectorAll('.bk-locker-trophy')].slice(0,6).map(element => {const b=element.getBoundingClientRect(); return {x:b.x,right:b.right,width:b.width,height:b.height};}), badges: [...document.querySelectorAll('.bk-locker-badge')].slice(0,6).map(element => {const b=element.getBoundingClientRect(); return {x:b.x,right:b.right,width:b.width,height:b.height};}) }; });
       if (width === 390 || width === 430) {
         assert.ok(visual.receipts && visual.nav && visual.receipts.bottom <= visual.nav.y, `The reference's receipts panel must be visible above navigation: ${JSON.stringify(visual)}`);
       }
-      assert.ok(visual.badges.every(b => b.x >= 0 && b.right <= width + 1 && b.width >= 44), 'All six initial trophy badges must be visible and tappable');
+      assert.equal(visual.badges.length, 6);
+      assert.ok(visual.badges.every(b => b.x >= 0 && b.right <= width + 1 && b.width >= 44 && b.height >= 44), 'All six decorative badges must actually be visible');
+      assert.ok(visual.trophyTargets.every(b => b.width >= 44 && b.height >= 44), 'All six trophy controls must remain tappable');
+      if (width < 768) {
+        const nav = page.getByRole('navigation', { name: 'Primary navigation' });
+        assert.equal(await nav.getByRole('button', { name: 'Profile', exact: true }).locator('svg').evaluate(el => getComputedStyle(el).stroke), 'rgb(245, 212, 120)');
+        assert.equal(await nav.getByRole('button', { name: 'Home', exact: true }).locator('svg').evaluate(el => getComputedStyle(el).stroke), 'rgb(180, 190, 198)');
+      }
       assert.equal(await profile.locator('.bk-locker-trophy-arrows').count(), 0, 'Six badges need no extra toolbar');
       await profile.getByRole('button', { name: /^GM rating:/ }).click();
       assert.match(await profile.locator('.bk-locker-detail').innerText(), /general manager rating/);
@@ -154,10 +161,13 @@ try {
       await profile.getByRole('button', { name: 'Refresh profile', exact: true }).click();
       await profile.getByRole('button', { name: 'Next trophies', exact: true }).waitFor();
       assert.equal(await profile.locator('.bk-locker-trophy').count(), 7);
+      assert.ok(await profile.locator('.bk-locker-trophy-arrows button').evaluateAll(elements => elements.every(el => el.getBoundingClientRect().width >= 44 && el.getBoundingClientRect().height >= 44)), 'Extended catalog arrows need full phone targets');
       await profile.getByRole('button', { name: 'Next trophies', exact: true }).click();
       assert.ok(await rail.evaluate(element => element.scrollLeft > 0), 'Larger catalogs remain scrollable');
       await profile.getByRole('button', { name: /^Seventh Milestone:/ }).click();
       assert.match(await profile.locator('.bk-locker-detail').innerText(), /Additional verified catalog entry/);
+      const accountBox = await page.locator('.bk-locker-account > summary').boundingBox();
+      assert.ok(accountBox && accountBox.width >= 44 && accountBox.height >= 44, 'Account disclosure needs a practical phone target');
       await page.locator('.bk-locker-account > summary').click();
       assert.equal(await page.locator('.bk-locker-account code').innerText(), userId);
       await page.locator('.bk-locker-account > summary').click();
@@ -179,7 +189,7 @@ try {
       }, homeBrandSize, { timeout: 5000 });
       assert.equal(await page.getByRole('button', { name: 'Ball Knower home', exact: true }).locator('h1').evaluate(element => getComputedStyle(element).fontSize), homeBrandSize, 'Profile cosmetics must not leak into Home');
       assert.deepEqual(crashes, []);
-      results.push({ engine, width, geometry, visual, ratings: 6, trophies: 6, photoCrop: 'passed', xpZeroAndRollover: 'passed', refreshRecovery: 'passed', collectionAndEquip: 'passed', source: 'isolated network fixtures', physicalIphone: false });
+      results.push({ engine, width, geometry, visual, ratings: 6, initialTrophies: 6, extendedTrophies: 7, photoCrop: 'passed', xpZeroAndRollover: 'passed', refreshRecovery: 'passed', collectionAndEquip: 'passed', source: 'isolated network fixtures', physicalIphone: false });
       await context.close();
       activePage = null;
     }
