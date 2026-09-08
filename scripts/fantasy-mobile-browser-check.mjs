@@ -196,8 +196,12 @@ try{
     await tierSheet.waitFor({state:'visible'});
     const tierBox=await tierSheet.boundingBox();
     assert.ok(tierBox&&tierBox.x>=-1&&tierBox.x+tierBox.width<=size.width+1&&tierBox.y>=-1&&tierBox.y+tierBox.height<=size.height+1,`${size.label}: Trivia difficulty sheet is clipped`);
-    // Force the offline selector past the three hand-written fallbacks so this
-    // exercises a generated multi-situation question at every phone width.
+    // Make this branch deterministic: the default build has a live Supabase
+    // client, so explicitly disconnect Trivia before selecting from its local
+    // practice bank. Force the selector past the three hand-written fallbacks
+    // to exercise a generated multi-situation question at every phone width.
+    const supabasePattern='https://gpnboygoosrmeydwjpvk.supabase.co/**';
+    await page.route(supabasePattern,route=>route.abort('internetdisconnected'));
     await page.evaluate(()=>{Math.random=()=>.5;});
     await tierSheet.getByRole('button',{name:/HALL OF FAME/}).click();
     const triviaDialog=page.getByRole('dialog',{name:'HALL OF FAME Trivia',exact:true});
@@ -214,6 +218,7 @@ try{
     await triviaDialog.getByText(/Practice result only/).waitFor({state:'visible'});
     await triviaDialog.getByRole('button',{name:'Exit',exact:true}).click();
     await page.locator('[data-testid="gauntlet-arena"]').waitFor({state:'visible'});
+    await page.unroute(supabasePattern);
 
     await primary.getByRole('button',{name:'Profile',exact:true}).click();
     await page.getByRole('heading',{name:'Your Locker',exact:true}).waitFor({state:'visible'});
