@@ -122,29 +122,61 @@ const survivor:Concept[]=[
 ].map(([family,context,prompt,correct,wrong,explanation])=>({family,context,prompt,correct,wrong,explanation} as Concept));
 
 const concepts:Record<GauntletMode,Concept[]>={'FILM ROOM':film,'PREDICTIONS':predictions,'DEBATES':debates,'SURVIVOR':survivor};
-const tierLead:Record<GauntletTier,string>={ROOKIE:'Identify the clearest football clue.',PRO:'Account for assignment and situation.', 'ALL-PRO':'Separate the primary signal from the disguise.', 'HALL OF FAME':'Resolve the full chain of responsibility and game context.'};
-const tierDetail:Record<GauntletTier,string>={ROOKIE:'The picture is simplified.',PRO:'One secondary clue may be noise.','ALL-PRO':'Personnel and leverage can change the answer.','HALL OF FAME':'Assume the opponent is disguising intent until the snap confirms it.'};
+const tierLead:Record<GauntletMode,string>={
+ 'FILM ROOM':'Read the primary football clue.',
+ 'PREDICTIONS':'Use only the stated game evidence.',
+ 'DEBATES':'Evaluate the claim with football evidence.',
+ 'SURVIVOR':'Choose the lowest-risk side from the stated board.',
+};
+const tierDetail:Record<GauntletMode,Record<GauntletTier,string>>={
+ 'FILM ROOM':{
+  ROOKIE:'The picture is simplified.',PRO:'Diagnose both independent clips.','ALL-PRO':'Resolve both independent assignment checks.','HALL OF FAME':'Resolve all three independent film checks.',
+ },
+ 'PREDICTIONS':{
+  ROOKIE:'The game state is explicit.',PRO:'Treat both forecasts as separate decisions.','ALL-PRO':'Weigh every listed signal without inventing certainty.','HALL OF FAME':'Resolve all three independent forecasts.',
+ },
+ 'DEBATES':{
+  ROOKIE:'No extra context is required.',PRO:'Answer both independent claims.','ALL-PRO':'Preserve the relevant context in both arguments.','HALL OF FAME':'Resolve all three independent claims.',
+ },
+ 'SURVIVOR':{
+  ROOKIE:'Compare only the three options shown.',PRO:'Make one disciplined pick on each board.','ALL-PRO':'Choose the safest side on both independent boards.','HALL OF FAME':'Set all three independent survivor cards.',
+ },
+};
+
+const scenarioFrames:Record<GauntletMode,string[]>={
+ 'FILM ROOM':['1ST & 10','2ND & MEDIUM','3RD & SHORT','3RD & LONG','LATE-GAME','RED ZONE'],
+ 'PREDICTIONS':['MODEL CHECK','MARKET REVIEW','INJURY REPORT','PACE CHECK','GAME SCRIPT','LATE UPDATE'],
+ 'DEBATES':['FILM PANEL','RADIO ROW','FRONT OFFICE','ANALYTICS DESK','ERA CHECK','EVIDENCE ROOM'],
+ 'SURVIVOR':['WEEKLY CARD','UPSET AUDIT','FINAL LOCK','POOL BOARD','RISK CHECK','LEVERAGE SPOT'],
+};
+
+const scenarioLabels:Record<GauntletMode,[string,string,string]>={
+ 'FILM ROOM':['CLIP A','CLIP B','CLIP C'],
+ 'PREDICTIONS':['FORECAST A','FORECAST B','FORECAST C'],
+ 'DEBATES':['CLAIM A','CLAIM B','CLAIM C'],
+ 'SURVIVOR':['BOARD A','BOARD B','BOARD C'],
+};
 
 const multiReadPrompt:Record<GauntletMode,Record<Exclude<GauntletTier,'ROOKIE'>,string>>={
  'FILM ROOM':{
-  PRO:'The picture changes after the snap. Which coaching read should control the diagnosis?',
-  'ALL-PRO':'The offense and defense are countering each other. Which two-part diagnosis reconciles both assignments?',
-  'HALL OF FAME':'Resolve the complete pre-snap, post-snap, and late-down responsibility chain.',
+  PRO:'Which answer correctly diagnoses both independent clips?',
+  'ALL-PRO':'Which two-part diagnosis correctly resolves both independent assignment checks?',
+  'HALL OF FAME':'Which sequence correctly diagnoses all three independent clips?',
  },
  'PREDICTIONS':{
-  PRO:'A second game-state signal arrives. Which projection update should carry the most weight?',
-  'ALL-PRO':'Two predictive signals pull in different directions. Which combined forecast handles both?',
-  'HALL OF FAME':'Build the full forecast across matchup, game script, and late-breaking context.',
+  PRO:'Which answer makes the sound projection on both independent forecasts?',
+  'ALL-PRO':'Which combined answer handles both independent forecasts?',
+  'HALL OF FAME':'Which sequence resolves all three independent forecasts?',
  },
  'DEBATES':{
-  PRO:'The argument adds a second claim. Which evidence response now wins the exchange?',
-  'ALL-PRO':'Both sides cite valid but incomplete evidence. Which answer reconciles the full record?',
-  'HALL OF FAME':'Resolve all three claims without dropping team, era, role, or sample-size context.',
+  PRO:'Which answer gives the strongest evidence response to both independent claims?',
+  'ALL-PRO':'Which answer resolves both independent arguments without dropping relevant context?',
+  'HALL OF FAME':'Which sequence gives the strongest response to all three independent claims?',
  },
  'SURVIVOR':{
-  PRO:'A second risk report changes the board. Which update is the disciplined survivor move?',
-  'ALL-PRO':'The safest favorite and the cleanest matchup are no longer the same team. Which process handles both?',
-  'HALL OF FAME':'Set the card after reconciling baseline safety, late news, and pool-leverage risk.',
+  PRO:'Which answer makes the disciplined survivor pick on both independent boards?',
+  'ALL-PRO':'Which answer selects the safest side on both independent boards?',
+  'HALL OF FAME':'Which sequence correctly sets all three independent survivor cards?',
  },
 };
 
@@ -152,30 +184,31 @@ function combinedConcept(mode:GauntletMode,tier:Exclude<GauntletTier,'ROOKIE'>,i
   const pool=concepts[mode];
   const first=pool[index];
   const second=pool[(index+(tier==='PRO'?5:tier==='ALL-PRO'?9:13))%pool.length];
+  const labels=scenarioLabels[mode];
   if(tier==='PRO')return{
-    family:`${first.family}__update__${second.family}`,
-    context:`INITIAL READ · ${first.context} UPDATED READ · ${second.context}`,
+    family:`${first.family}__paired__${second.family}`,
+    context:`${labels[0]} · ${first.context} ${labels[1]} · ${second.context}`,
     prompt:multiReadPrompt[mode][tier],
-    correct:`Update to the second read: ${second.correct}`,
-    wrong:[`Freeze the first read: ${first.correct}`,`Discard both for: ${second.wrong[0]}`,`Ignore the update and choose: ${first.wrong[1]}`],
-    explanation:`The later information changes the decision. ${second.explanation} The initial clue still matters as context: ${first.explanation}`,
+    correct:`${labels[0]}: ${first.correct}; ${labels[1]}: ${second.correct}`,
+    wrong:[`${labels[0]} only: ${first.correct}`,`${labels[1]} only: ${second.correct}`,`${labels[0]}: ${first.wrong[0]}; ${labels[1]}: ${second.wrong[0]}`],
+    explanation:`These are separate situations, so both must be resolved. ${labels[0]}: ${first.explanation} ${labels[1]}: ${second.explanation}`,
   };
   if(tier==='ALL-PRO')return{
     family:`${first.family}__reconcile__${second.family}`,
-    context:`PRIMARY SIGNAL · ${first.context} COUNTER-SIGNAL · ${second.context}`,
+    context:`${labels[0]} · ${first.context} ${labels[1]} · ${second.context}`,
     prompt:multiReadPrompt[mode][tier],
-    correct:`Reconcile both: ${first.correct}; then ${second.correct}`,
-    wrong:[`Use only the first signal: ${first.correct}`,`Use only the counter-signal: ${second.correct}`,`Reject both for: ${first.wrong[0]}`],
-    explanation:`The correct answer preserves both independent football clues instead of pretending one erases the other. ${first.explanation} ${second.explanation}`,
+    correct:`${labels[0]}: ${first.correct}; ${labels[1]}: ${second.correct}`,
+    wrong:[`${labels[0]} only: ${first.correct}`,`${labels[1]} only: ${second.correct}`,`${labels[0]}: ${first.wrong[0]}; ${labels[1]}: ${second.wrong[0]}`],
+    explanation:`The answer must preserve both independent football reads. ${labels[0]}: ${first.explanation} ${labels[1]}: ${second.explanation}`,
   };
   const third=pool[(index+19)%pool.length];
   return{
     family:`${first.family}__chain__${second.family}__${third.family}`,
-    context:`BASELINE · ${first.context} ADJUSTMENT · ${second.context} FINAL CONSTRAINT · ${third.context}`,
+    context:`${labels[0]} · ${first.context} ${labels[1]} · ${second.context} ${labels[2]} · ${third.context}`,
     prompt:multiReadPrompt[mode][tier],
-    correct:`Complete chain: ${first.correct} → ${second.correct} → ${third.correct}`,
-    wrong:[`Stop after the baseline: ${first.correct}`,`Skip the adjustment: ${first.correct} → ${third.correct}`,`Abandon the chain for: ${second.wrong[1]}`],
-    explanation:`Hall of Fame decisions require the entire sequence. ${first.explanation} ${second.explanation} ${third.explanation}`,
+    correct:`${labels[0]}: ${first.correct} → ${labels[1]}: ${second.correct} → ${labels[2]}: ${third.correct}`,
+    wrong:[`${labels[0]} only: ${first.correct}`,`${labels[0]}: ${first.correct} → ${labels[2]}: ${third.correct}`,`${labels[0]}: ${first.wrong[0]} → ${labels[1]}: ${second.wrong[0]} → ${labels[2]}: ${third.wrong[0]}`],
+    explanation:`All three situations must be answered independently. ${labels[0]}: ${first.explanation} ${labels[1]}: ${second.explanation} ${labels[2]}: ${third.explanation}`,
   };
 }
 
@@ -189,16 +222,17 @@ function shuffled<T>(items:T[],seed:string){const out=[...items];const random=se
 function scenario(mode:GauntletMode,tier:GauntletTier,concept:Concept,index:number):GauntletScenario{
   const seed=`${mode}:${tier}:${concept.family}:${index}`;
   const options=shuffled([concept.correct,...concept.wrong],seed);
-  const situational=['1st & 10','2nd & medium','3rd & short','3rd & long','late-game','red zone'][hash(seed)%6];
+  const frame=scenarioFrames[mode][hash(seed)%scenarioFrames[mode].length];
   return {id:`${mode.toLowerCase().replaceAll(' ','-')}:${tier.toLowerCase()}:${index+1}`,mode,tier,family:concept.family,
-    context:`${situational.toUpperCase()} · ${concept.context} ${tierDetail[tier]}`,
-    prompt:tier==='ROOKIE'?`${tierLead[tier]} ${concept.prompt}`:concept.prompt,options,correct:options.indexOf(concept.correct),explanation:concept.explanation};
+    context:`${frame} · ${concept.context} ${tierDetail[mode][tier]}`,
+    prompt:tier==='ROOKIE'?`${tierLead[mode]} ${concept.prompt}`:concept.prompt,options,correct:options.indexOf(concept.correct),explanation:concept.explanation};
 }
 
 export function buildScenarioCatalog():GauntletScenario[]{
   return GAUNTLET_MODES.flatMap(mode=>GAUNTLET_TIERS.flatMap(tier=>conceptsForTier(mode,tier).map((concept,index)=>scenario(mode,tier,concept,index))));
 }
 export const GAUNTLET_CATALOG=buildScenarioCatalog();
+export const gauntletScenarioQuestion=(item:GauntletScenario)=>`${item.context} ${item.prompt}`;
 export function scenariosFor(mode:GauntletMode,tier:GauntletTier){return GAUNTLET_CATALOG.filter(item=>item.mode===mode&&item.tier===tier);}
 const runtimeFrames:Record<GauntletMode,string[]>={
  'FILM ROOM':['ALL-22 CHECK','END-ZONE ANGLE','COACHING TAPE','POST-SNAP FREEZE','SIDELINE TABLET'],

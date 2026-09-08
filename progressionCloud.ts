@@ -1,5 +1,5 @@
 import { ensureOnlineSession, supabase } from './supabase';
-import { GAUNTLET_CATALOG } from './gauntletEngine';
+import { GAUNTLET_CATALOG, gauntletScenarioQuestion } from './gauntletEngine';
 import { parseTriviaAnswers } from './triviaValidation';
 
 export type ProgressProfile={
@@ -31,7 +31,7 @@ const BASE_LOCAL_TRIVIA:Omit<LocalTrivia,'family'>[]=[
 ];
 const LOCAL_TRIVIA:LocalTrivia[]=[
   ...BASE_LOCAL_TRIVIA.map((item,index)=>({...item,family:`offline-rule:${index}`})),
-  ...GAUNTLET_CATALOG.map(item=>({tier:item.tier,family:`offline-scenario:${item.mode}:${item.family}`,question:item.prompt,answers:item.options,correctIndex:item.correct,explanation:item.explanation})),
+  ...GAUNTLET_CATALOG.map(item=>({tier:item.tier,family:`offline-scenario:${item.mode}:${item.family}`,question:gauntletScenarioQuestion(item),answers:item.options,correctIndex:item.correct,explanation:item.explanation})),
 ];
 const localAttempts=new Map<number,LocalTrivia>();
 const localSeenByTier=new Map<string,Set<string>>();

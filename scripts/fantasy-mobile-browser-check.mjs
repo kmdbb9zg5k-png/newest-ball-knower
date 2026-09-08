@@ -196,7 +196,29 @@ try{
     await tierSheet.waitFor({state:'visible'});
     const tierBox=await tierSheet.boundingBox();
     assert.ok(tierBox&&tierBox.x>=-1&&tierBox.x+tierBox.width<=size.width+1&&tierBox.y>=-1&&tierBox.y+tierBox.height<=size.height+1,`${size.label}: Trivia difficulty sheet is clipped`);
-    await page.getByRole('button',{name:'Close difficulty selector'}).click();
+    // Make this branch deterministic: the default build has a live Supabase
+    // client, so explicitly disconnect Trivia before selecting from its local
+    // practice bank. Force the selector past the three hand-written fallbacks
+    // to exercise a generated multi-situation question at every phone width.
+    const supabasePattern='https://gpnboygoosrmeydwjpvk.supabase.co/**';
+    await page.route(supabasePattern,route=>route.abort('internetdisconnected'));
+    await page.evaluate(()=>{Math.random=()=>.5;});
+    await tierSheet.getByRole('button',{name:/HALL OF FAME/}).click();
+    const triviaDialog=page.getByRole('dialog',{name:'HALL OF FAME Trivia',exact:true});
+    await triviaDialog.waitFor({state:'visible'});
+    await triviaDialog.getByText('Offline practice · no XP',{exact:true}).waitFor({state:'visible'});
+    const questionText=await triviaDialog.getByRole('heading',{level:2}).textContent();
+    assert.match(questionText||'',/(CLIP|FORECAST|CLAIM|BOARD) A/,`${size.label}: offline Trivia dropped the situation needed to answer the question`);
+    assert.match(questionText||'',/(CLIP|FORECAST|CLAIM|BOARD) B/,`${size.label}: Hall of Fame Trivia dropped its second situation`);
+    assert.match(questionText||'',/(CLIP|FORECAST|CLAIM|BOARD) C/,`${size.label}: Hall of Fame Trivia dropped its third situation`);
+    const answers=triviaDialog.locator('section').getByRole('button');
+    assert.equal(await answers.count(),4,`${size.label}: Trivia must render exactly four answer choices before scoring`);
+    await answers.first().click();
+    await triviaDialog.getByText(/^(Correct|Missed)(?:\s|$)/).waitFor({state:'visible'});
+    await triviaDialog.getByText(/Practice result only/).waitFor({state:'visible'});
+    await triviaDialog.getByRole('button',{name:'Exit',exact:true}).click();
+    await page.locator('[data-testid="gauntlet-arena"]').waitFor({state:'visible'});
+    await page.unroute(supabasePattern);
 
     await primary.getByRole('button',{name:'Profile',exact:true}).click();
     await page.getByRole('heading',{name:'Your Locker',exact:true}).waitFor({state:'visible'});

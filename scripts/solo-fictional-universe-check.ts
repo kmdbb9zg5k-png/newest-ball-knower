@@ -8,14 +8,21 @@ import {
 } from '../soloUniverse';
 import {
   buildSoloTeamRoster,
+  buildFranchiseRookieClass,
   createFantasyDraft,
   fantasyAvailablePlayers,
   fantasyDraftComplete,
+  franchiseSchedule,
+  isValidFantasyDraftState,
   makeFantasyUserPick,
   validateFranchiseRoster,
 } from '../soloFranchiseEngine';
 import { chooseSmartPick } from '../smartDraft';
-import { DEFAULT_SALARY_CAP } from '../types';
+import { buildAwards, defaultCareer, generatePlayerLines, getSoloOpponentTeam, makeSoloOpponent, playoffSnapshot, ratingsWithInjuries, simulateInjuries, updateCareer, type InjuryEvent } from '../soloSeasonEngine';
+import { calculateCombineResults } from '../MyPlayerStory';
+import { calculateTeamRatings } from '../evaluation';
+import { simulateGame } from '../simulation';
+import { DEFAULT_SALARY_CAP, type LeagueMember } from '../types';
 
 assert.equal(SOLO_UNIVERSE_VERSION, 1);
 assert.equal(SOLO_TEAM_THEMES.length, 32, 'Solo must have a complete 32-team fictional league.');
@@ -49,6 +56,32 @@ for (let attempt = 0; attempt < 60 && capRoster.length < 20; attempt += 1) {
 assert.equal(capRoster.length, 20, 'Cap Challenge cannot auto-draft a complete simulated roster.');
 assert.ok(capRoster.reduce((total, player) => total + player.salary, 0) <= DEFAULT_SALARY_CAP, 'Simulated Cap Challenge roster exceeds the cap.');
 
+const soloUser:LeagueMember={id:'solo-user',userId:'solo-user',userName:'YOU',isCommissioner:true,status:'ready',roster:capRoster,teamRatings:calculateTeamRatings(capRoster)};
+const regularSeason=[];
+let activeInjuries:InjuryEvent[]=[];
+for(let week=1;week<=17;week+=1){
+  const opponent=makeSoloOpponent(week,'pro');
+  assert.deepEqual(validateFranchiseRoster(opponent.roster||[]),[],`Week ${week} CPU opponent has an illegal roster.`);
+  const home=week%2===1;
+  const adjustedUser={...soloUser,teamRatings:ratingsWithInjuries(capRoster,activeInjuries)};
+  const game=home?simulateGame(week,adjustedUser,opponent):simulateGame(week,opponent,adjustedUser);
+  assert.notEqual(game.homeScore,game.awayScore,`Week ${week} ended in an unsupported tie.`);
+  const lines=generatePlayerLines(capRoster,game,home,week);
+  assert.ok(lines.length>=8&&lines.every(line=>Number.isFinite(line.fantasyScore)),`Week ${week} did not produce usable player lines.`);
+  regularSeason.push({game,lines});
+  const newInjuries=simulateInjuries(capRoster,week,'normal',activeInjuries);
+  activeInjuries=[...activeInjuries.map(injury=>({...injury,weeks:Math.max(0,injury.weeks-1)})),...newInjuries].filter(injury=>injury.weeks>0);
+}
+assert.equal(regularSeason.length,17,'Cap Challenge must simulate the complete 17-game regular season.');
+assert.equal(new Set(Array.from({length:17},(_,index)=>getSoloOpponentTeam(index+1).abbr)).size,17,'Cap Challenge repeats an opponent during the 17-game schedule.');
+const finalSnapshot=playoffSnapshot(11,6,17);
+assert.ok(finalSnapshot.seed>=1&&finalSnapshot.seed<=12&&finalSnapshot.odds>=1&&finalSnapshot.odds<=99,'Cap Challenge playoff projection is invalid.');
+const awards=buildAwards(regularSeason.flatMap(week=>week.lines));
+assert.equal(awards.length,3,'Cap Challenge season must produce all three awards.');
+assert.ok(awards.every(award=>award.winner!=='—'),'Cap Challenge season awards lost their winners.');
+const career=updateCareer(defaultCareer(),11,6,true,4,92,['LEGACY BOWL CHAMPION']);
+assert.deepEqual({runs:career.runs,titles:career.championships,playoffWins:career.playoffWins,record:career.bestRecord},{runs:1,titles:1,playoffWins:4,record:'11-6'},'Completed Cap Challenge results did not persist into the career summary.');
+
 let fantasyDraft = createFantasyDraft(SOLO_TEAM_THEMES[0].abbr, 17);
 while (!fantasyDraftComplete(fantasyDraft)) {
   const player = fantasyAvailablePlayers(fantasyDraft)[0];
@@ -56,6 +89,23 @@ while (!fantasyDraftComplete(fantasyDraft)) {
   const next = makeFantasyUserPick(fantasyDraft, player.id);
   assert.ok(next.pickIndex > fantasyDraft.pickIndex, 'A legal simulated fantasy pick did not advance the draft.');
   fantasyDraft = next;
+}
+assert.equal(fantasyDraft.picks.length,32*53,'Fantasy Draft must complete all 53 rounds for 32 teams.');
+assert.ok(isValidFantasyDraftState(fantasyDraft,true),'A completed Fantasy Draft cannot be safely restored.');
+assert.ok(isValidFantasyDraftState(JSON.parse(JSON.stringify(fantasyDraft)),true),'A serialized Fantasy Draft cannot be restored.');
+
+const franchiseTeam=SOLO_TEAM_THEMES[0];
+const schedule=franchiseSchedule(franchiseTeam.abbr);
+assert.equal(schedule.length,17,'Franchise Command must schedule 17 regular-season games.');
+assert.equal(new Set(schedule.map(team=>team.abbr)).size,17,'Franchise Command repeats an opponent in one regular season.');
+assert.ok(schedule.every(team=>team.abbr!==franchiseTeam.abbr),'Franchise Command scheduled the user against their own team.');
+const rookie2027=buildFranchiseRookieClass(2027),rookie2028=buildFranchiseRookieClass(2028);
+assert.ok(rookie2027.length>=7,'Franchise offseason must offer enough prospects for a seven-round draft.');
+assert.equal(new Set([...rookie2027,...rookie2028].map(player=>player.id)).size,rookie2027.length+rookie2028.length,'Franchise rookie classes repeat across seasons.');
+
+for(const position of ['QB','RB','WR','TE','EDGE','LB','CB','S'] as const){
+  const combine=calculateCombineResults({name:`Fixture ${position}`,position,heightInches:72,weightLbs:210,bodyBuild:50,armSize:48,legSize:52});
+  assert.ok(combine.forty>=4.25&&combine.forty<6&&combine.bench>=8&&combine.vertical>=27&&combine.score>=0&&combine.score<=100,`My Player ${position} combine result is invalid.`);
 }
 
 const soloFiles = [
@@ -74,4 +124,4 @@ assert.match(agentSource, /SOLO_PLAYERS_DATABASE/);
 assert.match(agentSource, /WHO WILL YOU REPRESENT\?/);
 assert.doesNotMatch(agentSource, /playerPortraitUrl\(/, 'Agent Mode may not resolve real-player portrait licenses.');
 
-console.log(`Solo fictional universe passed: ${SOLO_TEAM_THEMES.length} original teams, ${SOLO_PLAYERS_DATABASE.length} simulated players, full Cap and 53-round draft coverage.`);
+console.log(`Solo full-flow checks passed: ${SOLO_TEAM_THEMES.length} original teams, ${SOLO_PLAYERS_DATABASE.length} simulated players, legal Cap roster, 17-game season, awards/career persistence, complete 53-round Fantasy Draft, Franchise schedule/rookies, and My Player combine.`);
