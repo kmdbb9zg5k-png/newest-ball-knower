@@ -1,0 +1,4 @@
+/* Keep the compact sync row while preserving its full phone hit area.
+   The enlarged box extends only into adjacent non-interactive rating/motto space. */
+.bk-profile-page .bk-locker-sync{position:relative;z-index:1}
+.bk-profile-page .bk-locker-sync>button{width:44px;height:44px;min-height:44px;margin-block:-10px}

@@ -30,7 +30,7 @@ try {
   await mkdir(output, { recursive: true });
   for (const engine of process.env.PROFILE_CHROMIUM_ONLY ? ['chromium'] : ['chromium', 'webkit']) {
     browser = await (engine === 'chromium' ? chromium : webkit).launch({ headless: true, ...(engine === 'chromium' && process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}) });
-    for (const width of engine === 'chromium' ? [320, 390, 430, 1280] : [390]) {
+    for (const width of engine === 'chromium' ? [390, 430, 320, 1280] : [390]) {
       const context = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: 1, isMobile: width < 768, hasTouch: width < 768, reducedMotion: 'reduce' });
       const page = await context.newPage();
       activePage = page;
@@ -94,6 +94,9 @@ try {
       await page.waitForTimeout(250);
       assert.equal(await profile.locator('.bk-locker-hex').count(), 6);
       assert.equal(await profile.locator('.bk-locker-trophy').count(), 6);
+      assert.equal(await profile.getByRole('img', { name: 'Rating: 50', exact: true }).count(), 1, 'The live rating must have an accessible value');
+      const refreshBox = await profile.getByRole('button', { name: 'Refresh profile', exact: true }).boundingBox();
+      assert.ok(refreshBox && refreshBox.width >= 44 && refreshBox.height >= 44, 'Refresh must retain a practical phone hit target');
       assert.match(await profile.innerText(), /0\/6 unlocked/i);
       assert.equal(await profile.getByRole('progressbar').getAttribute('aria-valuenow'), '550');
       assert.match(await profile.innerText(), /No verified progression receipts yet/);
@@ -167,6 +170,13 @@ try {
       assert.equal(equipCalls, 1);
       await page.getByRole('button', { name: 'Ball Knower home', exact: true }).click();
       await page.locator('.bk-home-stadium').waitFor();
+      // Home commits before the browser finishes invalidating the ancestor :has() rule.
+      // Check the settled value, not the prior Profile style in that transition frame.
+      await page.waitForFunction(expected => {
+        const brand = document.querySelector('header button[aria-label="Ball Knower home"] h1');
+        return document.querySelector('.bk-app-shell')?.getAttribute('data-tab') === 'home'
+          && brand && getComputedStyle(brand).fontSize === expected;
+      }, homeBrandSize, { timeout: 5000 });
       assert.equal(await page.getByRole('button', { name: 'Ball Knower home', exact: true }).locator('h1').evaluate(element => getComputedStyle(element).fontSize), homeBrandSize, 'Profile cosmetics must not leak into Home');
       assert.deepEqual(crashes, []);
       results.push({ engine, width, geometry, visual, ratings: 6, trophies: 6, photoCrop: 'passed', xpZeroAndRollover: 'passed', refreshRecovery: 'passed', collectionAndEquip: 'passed', source: 'isolated network fixtures', physicalIphone: false });

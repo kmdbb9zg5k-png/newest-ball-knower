@@ -35,6 +35,8 @@ assert.match(html, /-1 RTG/);
 assert.doesNotMatch(html, /\+-1/);
 assert.match(html, /Fixture trophy 6/);
 assert.match(html, /Server controlled/);
+assert.match(html, /role="img" aria-label="Rating: 50"/);
+assert.match(html, /clipPathUnits="userSpaceOnUse"/);
 const zero = render({ profile: { ...profile, xp: 0, championships: 0 }, events: [], achievements: [] });
 assert.match(zero, /aria-valuenow="0"/);
 assert.match(zero, /No verified progression receipts yet/);
