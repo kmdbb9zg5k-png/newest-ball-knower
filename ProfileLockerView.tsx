@@ -1,6 +1,7 @@
 import React, { useId, useRef, useState } from 'react';
 import { Brain, BriefcaseBusiness, Check, ClipboardList, ChevronLeft, ChevronRight, Crown, RefreshCcw, ShieldCheck, Swords, Target, Trophy } from 'lucide-react';
 import type { Achievement, ProgressEvent, ProgressProfile } from './progressionCloud';
+import type { VerifiedPredictionPick } from './modeProgressionCloud';
 import { LockerTrophyBadge, LockerReceiptScene, LockerRatingNumeral } from './ProfileLockerArt';
 import { profileDate, profileNumber, profileXpProgress, signedProfileDelta } from './profileLockerState';
 import './profileLocker.css';
@@ -14,11 +15,12 @@ const CATEGORIES = [
   { key: 'ownerRating', label: 'Owner', Icon: Crown, description: 'Your server-recorded Owner rating. Verified career milestones contribute to this score.' },
 ] as const;
 
-type Props = { profile: ProgressProfile | null; events: ProgressEvent[]; achievements: Achievement[]; loading: boolean; error: string; onRefresh: () => void };
+type Props = { profile: ProgressProfile | null; events: ProgressEvent[]; achievements: Achievement[]; predictionPicks: VerifiedPredictionPick[]; loading: boolean; error: string; onRefresh: () => void };
 
-export function ProfileLockerView({ profile, events, achievements, loading, error, onRefresh }: Props) {
+export function ProfileLockerView({ profile, events, achievements, predictionPicks, loading, error, onRefresh }: Props) {
   const [category, setCategory] = useState<string | null>(null);
   const [selectedTrophy, setSelectedTrophy] = useState<string | null>(null);
+  const [predictionHistoryOpen, setPredictionHistoryOpen] = useState(false);
   const [showAllReceipts, setShowAllReceipts] = useState(false);
   const trophyRail = useRef<HTMLUListElement>(null);
   const id = useId();
@@ -26,6 +28,11 @@ export function ProfileLockerView({ profile, events, achievements, loading, erro
   const progress = profile ? profileXpProgress(profile.xp, profile.level) : null;
   const selectedCategory = CATEGORIES.find(item => item.key === category);
   const trophy = achievements.find(item => item.key === selectedTrophy);
+  const correctPicks = predictionPicks.filter(item => item.result === 'win').length;
+  const missedPicks = predictionPicks.filter(item => item.result === 'loss').length;
+  const pushes = predictionPicks.filter(item => item.result === 'push').length;
+  const pendingPicks = predictionPicks.filter(item => !item.result).length;
+  const predictionHistory = [...predictionPicks].sort((a, b) => Date.parse(b.lockedAt || '') - Date.parse(a.lockedAt || ''));
   const scrollTrophies = (direction: number) => {
     const rail = trophyRail.current;
     if (!rail) return;
@@ -53,13 +60,26 @@ export function ProfileLockerView({ profile, events, achievements, loading, erro
     </section>
 
     <section className="bk-locker-trophies" aria-labelledby={`${id}-trophies`}>
-      <div className="bk-locker-section-heading"><h2 id={`${id}-trophies`}><Trophy aria-hidden="true"/>Trophy case</h2><span>{profile ? `${unlocked}/${achievements.length} unlocked` : 'Awaiting sync'}</span>{achievements.length > 6 && <div className="bk-locker-trophy-arrows"><button type="button" aria-label="Previous trophies" onClick={() => scrollTrophies(-1)}><ChevronLeft aria-hidden="true"/></button><button type="button" aria-label="Next trophies" onClick={() => scrollTrophies(1)}><ChevronRight aria-hidden="true"/></button></div>}</div>
+      <div className="bk-locker-section-heading"><h2 id={`${id}-trophies`}><Trophy aria-hidden="true"/>Trophy case</h2><span>{correctPicks} correct picks · {profile ? `${unlocked}/${achievements.length} trophies unlocked` : 'Awaiting sync'}</span>{achievements.length > 5 && <div className="bk-locker-trophy-arrows"><button type="button" aria-label="Previous trophies" onClick={() => scrollTrophies(-1)}><ChevronLeft aria-hidden="true"/></button><button type="button" aria-label="Next trophies" onClick={() => scrollTrophies(1)}><ChevronRight aria-hidden="true"/></button></div>}</div>
       <div className="bk-locker-trophy-case">
-        {achievements.length > 0 ? <>
-
-          <ul ref={trophyRail} className="bk-locker-trophy-rail" aria-label="Trophies">{achievements.map(item => <li key={item.key}><button type="button" className="bk-locker-trophy" data-unlocked={Boolean(item.unlockedAt)} aria-label={`${item.title}: ${item.unlockedAt ? 'Unlocked' : 'Locked'}. ${item.description}`} aria-expanded={selectedTrophy === item.key} aria-controls={`${id}-trophy-detail`} onClick={() => setSelectedTrophy(selectedTrophy === item.key ? null : item.key)}><LockerTrophyBadge tier={item.tier} unlocked={Boolean(item.unlockedAt)}/><strong>{item.title}</strong><span className="bk-locker-trophy-description">{item.description}</span><small>{item.unlockedAt ? <><Check aria-hidden="true"/>Unlocked</> : 'Locked'}</small></button></li>)}</ul>
-          {trophy && <div className="bk-locker-detail" id={`${id}-trophy-detail`}><strong>{trophy.title}</strong><p>{trophy.description}</p><span>{trophy.unlockedAt ? `Unlocked ${profileDate(trophy.unlockedAt)}` : 'Not yet unlocked'} · {profileNumber(trophy.xpReward)} XP reward</span></div>}
-        </> : <p className="bk-locker-empty">{loading ? 'Loading your trophy case…' : error ? 'Your trophy case will return when profile sync is restored.' : 'No achievements are available in the current catalog.'}</p>}
+        <ul ref={trophyRail} className="bk-locker-trophy-rail" aria-label="Trophies">
+          {predictionPicks.length > 0 && <li><button type="button" className="bk-locker-trophy" data-unlocked="true" aria-label={`Prediction record: ${correctPicks} correct picks. Show pick history`} aria-expanded={predictionHistoryOpen} aria-controls={`${id}-prediction-history`} onClick={() => { setPredictionHistoryOpen(value => !value); setSelectedTrophy(null); }}><LockerTrophyBadge tier="gold" unlocked/><strong>Pick Record</strong><span className="bk-locker-trophy-description">{correctPicks} correct NFL {correctPicks === 1 ? 'pick' : 'picks'} all time</span><small><Check aria-hidden="true"/>Verified history</small></button></li>}
+          {achievements.map(item => <li key={item.key}><button type="button" className="bk-locker-trophy" data-unlocked={Boolean(item.unlockedAt)} aria-label={`${item.title}: ${item.unlockedAt ? 'Unlocked' : 'Locked'}. ${item.description}`} aria-expanded={selectedTrophy === item.key} aria-controls={`${id}-trophy-detail`} onClick={() => { setPredictionHistoryOpen(false); setSelectedTrophy(selectedTrophy === item.key ? null : item.key); }}><LockerTrophyBadge tier={item.tier} unlocked={Boolean(item.unlockedAt)}/><strong>{item.title}</strong><span className="bk-locker-trophy-description">{item.description}</span><small>{item.unlockedAt ? <><Check aria-hidden="true"/>Unlocked</> : 'Locked'}</small></button></li>)}
+        </ul>
+        {predictionHistoryOpen && <div className="bk-locker-detail" id={`${id}-prediction-history`}>
+          <strong>Pick Record · {correctPicks} correct</strong>
+          <p>{correctPicks}-{missedPicks}{pushes ? `-${pushes} pushes` : ''}{pendingPicks ? ` · ${pendingPicks} pending` : ''}. Every entry below is a server-saved NFL prediction.</p>
+          <ul className="mt-3 max-h-96 space-y-2 overflow-y-auto pr-1" aria-label="Prediction history">{predictionHistory.map(pick => {
+            const resultLabel = pick.result === 'win' ? 'Correct' : pick.result === 'loss' ? 'Missed' : pick.result === 'push' ? 'Push' : 'Pending';
+            const resultClass = pick.result === 'win' ? 'text-emerald-300' : pick.result === 'loss' ? 'text-red-300' : pick.result === 'push' ? 'text-amber-200' : 'text-zinc-400';
+            const matchup = pick.awayTeam && pick.homeTeam ? `${pick.awayTeam} @ ${pick.homeTeam}` : pick.label;
+            return <li key={pick.id} className="rounded-xl border border-white/10 bg-black/25 p-3">
+              <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate text-xs font-black uppercase text-white">{matchup}</div><div className="mt-1 text-[10px] font-bold text-zinc-400">Picked {pick.label}</div></div><span className={`shrink-0 text-[10px] font-black uppercase ${resultClass}`}>{resultLabel}</span></div>
+              <div className="mt-2 text-[9px] font-bold uppercase tracking-wide text-zinc-600">{pick.kickoffAt ? profileDate(pick.kickoffAt) : profileDate(pick.lockedAt)}{pick.gradedAt ? ` · graded ${profileDate(pick.gradedAt)}` : ''}</div>
+            </li>;
+          })}</ul>
+        </div>}
+        {trophy && <div className="bk-locker-detail" id={`${id}-trophy-detail`}><strong>{trophy.title}</strong><p>{trophy.description}</p><span>{trophy.unlockedAt ? `Unlocked ${profileDate(trophy.unlockedAt)}` : 'Not yet unlocked'} · {profileNumber(trophy.xpReward)} XP reward</span></div>}
       </div>
     </section>
 

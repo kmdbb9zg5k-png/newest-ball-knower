@@ -24,7 +24,7 @@ type GauntletModeName='TRIVIA'|GauntletMode;
 const gauntletModes:{name:GauntletModeName;description:string;icon:typeof Brain}[] = [
   {name:'TRIVIA',description:'Four difficulty levels with verified XP.',icon:Brain},
   {name:'FILM ROOM',description:'Read coverages and diagnose the play.',icon:Film},
-  {name:'PREDICTIONS',description:'Call the result from game context.',icon:Target},
+  {name:'PREDICTIONS',description:'Submit real NFL picks. Correct calls build your Trophy Case.',icon:Target},
   {name:'DEBATES',description:'Choose the evidence that wins the argument.',icon:MessageSquare},
   {name:'SURVIVOR',description:'One wrong pick ends the run.',icon:ShieldCheck},
 ];
@@ -79,9 +79,13 @@ export const ChallengesHub: React.FC = () => {
   },[userId]);
   useEffect(()=>{const local=loadGauntletProgress(userId);setProgress(local);applyProgress(local);},[applyProgress,userId]);
 
+  const openVerifiedPicks=useCallback(()=>{
+    const picksTab=document.getElementById('nav-tab-sportsbook') as HTMLButtonElement|null;
+    if(picksTab){picksTab.click();return;}
+    window.dispatchEvent(new CustomEvent('ball-knower:navigate',{detail:{tab:'sportsbook'}}));
+  },[]);
+
   const loadQuestion = useCallback(async (nextTier: TriviaTier, session?: TriviaSession | null) => {
-    // A previous RPC can finish after the user exits or switches tiers. Give every
-    // request a generation token so stale responses can never replace the active tier.
     const requestId = ++questionRequestRef.current;
     setLoading(true);
     setError('');
@@ -188,8 +192,6 @@ export const ChallengesHub: React.FC = () => {
   };
 
   const advanceQuestion = useCallback(() => {
-    // The timeout and the manual button can fire in the same event window on mobile.
-    // Claim this transition synchronously so one result creates exactly one next attempt.
     if (advancingRef.current) return;
     const sessionId = triviaSessionRef.current;
     const serverSession = serverSessionRef.current;
@@ -217,7 +219,6 @@ export const ChallengesHub: React.FC = () => {
       clearAdvanceTimer();
       return;
     }
-    // Keep explanations readable by default while preserving an immediate manual fast path.
     advanceTimerRef.current = window.setTimeout(advanceQuestion, result.isCorrect ? 5000 : 7000);
     return clearAdvanceTimer;
   }, [result, triviaOpen, advanceQuestion, clearAdvanceTimer]);
@@ -246,7 +247,7 @@ export const ChallengesHub: React.FC = () => {
           <img src="/atmosphere/home-stadium.webp" alt="" aria-hidden="true"/>
           <div className="bk-gauntlet-hero-shade" aria-hidden="true"/>
           <div className="bk-gauntlet-arena-label">Football IQ Arena</div>
-          <ModeGuide storageKey="bk-guide-the-gauntlet-v4" title="The Gauntlet" summary="Choose a challenge, select a difficulty, and build verified football IQ." steps={["Pick one of five challenge modes.","Choose Rookie, Pro, All-Pro, or Hall of Fame.","Finish the daily five to build your streak and XP."]}/>
+          <ModeGuide storageKey="bk-guide-the-gauntlet-v4" title="The Gauntlet" summary="Choose a challenge, select a difficulty, and build verified football IQ." steps={["Pick one of five challenge modes.","Choose Rookie, Pro, All-Pro, or Hall of Fame for challenge modes.","Predictions opens real NFL picks that lock before kickoff and grade after games finish."]}/>
           <div className="bk-gauntlet-crest" aria-hidden="true">
             <span className="bk-gauntlet-wing bk-gauntlet-wing-left"/><span className="bk-gauntlet-wing bk-gauntlet-wing-right"/>
             <div className="bk-gauntlet-eagle"><Bird/></div>
@@ -269,12 +270,13 @@ export const ChallengesHub: React.FC = () => {
         <section className="bk-gauntlet-board" aria-label="Gauntlet challenge modes" data-testid="gauntlet-mode-grid">
           {gauntletModes.map(mode=>{
             const Icon=mode.icon;
+            const predictionMode=mode.name==='PREDICTIONS';
             const best=Math.max(0,...triviaTiers.map(item=>progress.highScores[`${mode.name}:${item.name}`]||0));
-            return <button type="button" key={mode.name} onClick={()=>setTierPickerMode(mode.name)} className="bk-gauntlet-mode-card">
-              <span className="bk-gauntlet-mode-top"><Icon/><span>Best {best}/10</span></span>
+            return <button type="button" key={mode.name} onClick={()=>predictionMode?openVerifiedPicks():setTierPickerMode(mode.name)} className="bk-gauntlet-mode-card">
+              <span className="bk-gauntlet-mode-top"><Icon/><span>{predictionMode?'VERIFIED PICKS':`Best ${best}/10`}</span></span>
               <strong>{mode.name==='TRIVIA'?'Classic Trivia':mode.name}</strong>
               <small>{mode.description}</small>
-              <span className="bk-gauntlet-mode-action">Difficulty select <ChevronRight/></span>
+              <span className="bk-gauntlet-mode-action">{predictionMode?'Make picks':'Difficulty select'} <ChevronRight/></span>
             </button>;
           })}
           <button type="button" onClick={()=>setDailyRun(true)} disabled={Boolean(progress.daily[dailyDate]?.completed)} className="bk-gauntlet-daily-card" data-testid="gauntlet-daily-cta">
@@ -290,7 +292,7 @@ export const ChallengesHub: React.FC = () => {
         <header><span><small>Difficulty select</small><strong>{tierPickerMode==='TRIVIA'?'Classic Trivia':tierPickerMode}</strong></span><button type="button" onClick={()=>setTierPickerMode(null)} aria-label="Close difficulty selector"><X/></button></header>
         <div className="bk-gauntlet-tier-list">{triviaTiers.map((item,index)=>{
           const highScore=progress.highScores[`${tierPickerMode}:${item.name}`]||0;
-          return <button type="button" key={item.name} onClick={()=>{if(tierPickerMode==='TRIVIA')openTrivia(item.name);else setActiveRun({mode:tierPickerMode,tier:item.name,nonce:Date.now()});setTierPickerMode(null)}} className="bk-gauntlet-tier-card">
+          return <button type="button" key={item.name} onClick={()=>{if(tierPickerMode==='TRIVIA')openTrivia(item.name);else setActiveRun({mode:tierPickerMode as GauntletMode,tier:item.name,nonce:Date.now()});setTierPickerMode(null)}} className="bk-gauntlet-tier-card">
             <span className="bk-gauntlet-tier-medal">{index+1}</span><span className="bk-gauntlet-tier-copy"><strong>{item.name}</strong><small>{item.desc}</small></span>
             <span className="bk-gauntlet-tier-score"><b>{item.xp}</b><small>Best {highScore}/10</small></span>
           </button>;
