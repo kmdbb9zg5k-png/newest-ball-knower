@@ -63,6 +63,8 @@ try{
      const query=url.searchParams.get('league_id')||'';return send((empty?[]:leagues).filter(l=>!query||query.includes(l.id)).flatMap(l=>l.members.map(m=>({id:m.id,league_id:l.id,auth_user_id:m.userId,user_name:m.userName,is_commissioner:m.isCommissioner,status:m.status,roster:m.roster}))));
     }
     if(path.endsWith('/ball_knower_live_drafts'))return send(empty?[]:[draft].filter(d=>(url.searchParams.get('league_id')||'').includes(d.league_id)));
+    // An optional archive outage must never disable otherwise valid weekly scores.
+    if(path.endsWith('/ball_knower_season_archive'))return send({message:'Fixture optional archive outage'},503);
     if(path.endsWith('/ball_knower_weekly_scores'))return failScores?send({message:'Fixture score outage'},503):send([1,2].flatMap(week=>members.map((m,i)=>({league_id:leagues[0].id,member_id:m.id,week_number:week,live_points:i===0?0:80-i,projected_points:120-i,is_final:week===2,score_details:{hasProjectedTotal:i!==8,players:[]},updated_at:stamp}))));
     if(path.endsWith('/ball_knower_transactions'))return failActivity?send({message:'Fixture activity outage'},503):send(activityContent?[{id:'qa-txn',summary:'QA trade receipt',created_at:stamp}]:[]);
     if(path.endsWith('/ball_knower_league_messages'))return send(activityContent?[{id:'qa-notice',body:'QA commissioner announcement',kind:'announcement',created_at:stamp},{id:'qa-chat',body:'QA chat must not appear here',kind:'chat',created_at:stamp}]:[]);
@@ -97,7 +99,7 @@ try{
    await page.getByTestId('fantasy-tool-grid').locator('button').nth(1).click();await page.locator('#close-join-league-modal-btn').waitFor();await page.locator('#close-join-league-modal-btn').click();
    await page.locator('.bk-hq-public-tool').click();await page.locator('.bk-fantasy-public-error').waitFor();assert.ok(mutations.some(path=>path.includes('join_or_create_ball_knower_public_league')),'Public matchmaking must retain its existing RPC path');
    await page.getByRole('navigation',{name:'Fantasy views'}).getByRole('button',{name:'How it works',exact:true}).click();await page.getByRole('dialog',{name:'Fantasy instructions'}).waitFor();await page.getByRole('button',{name:'Close instructions'}).click();
-   assert.deepEqual(crashes,[]);results.push({engine,width,bounds,initialLeagues:2,tools:5,mockPicks:150,matchups:5,activityRecovery:true,createJoinEntrypoints:true,publicMatchmakingError:true,backgroundPreferenceWrites:backgroundPreferences.length,source:'Isolated account/rankings/scores fixtures',productionMutations:false,physicalIphone:false});await context.close();activePage=null;
+   assert.deepEqual(crashes,[]);results.push({engine,width,bounds,initialLeagues:2,tools:5,mockPicks:150,matchups:5,optionalParityOutage:true,activityRecovery:true,createJoinEntrypoints:true,publicMatchmakingError:true,backgroundPreferenceWrites:backgroundPreferences.length,source:'Isolated account/rankings/scores fixtures',productionMutations:false,physicalIphone:false});await context.close();activePage=null;
   }
   await browser.close();browser=null;
  }

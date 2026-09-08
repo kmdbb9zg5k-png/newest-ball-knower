@@ -94,7 +94,7 @@ function MatchupAnalysis({league}: {league:League}) {
     void Promise.all([import('./fantasyLeagueParityCloud'),import('./simulation')]).then(async([cloud,schedule])=>{
       const response=await cloud.fetchFantasyParityState(league.id,week,league.settings?.nflSeason||2026);
       if(!active)return;
-      if(response.isDegraded)throw new Error('Some matchup data could not sync. Retry to see current scores.');
+      if(response.syncIssues.includes('scores')||response.syncIssues.includes('session reconnect'))throw new Error('Weekly scores could not sync. Retry to see current scores.');
       const pairings=schedule.isCompleteFantasySchedule(league.members,weeks,persisted)?persisted.filter(game=>game.week===week):schedule.buildFantasyWeekPairings(league.members,week);
       setData({scores:[...response.scores],pairings});
     }).catch(()=>{if(active)setError('Matchup data is temporarily unavailable.');}).finally(()=>{if(active)setBusy(false);});
