@@ -1,0 +1,4 @@
+/* Preserve the compact public entrypoint without the generic tool-button caption. */
+.bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-public-tool>span{display:none}
+.bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-public-tool>strong{white-space:nowrap}
+.bk-hq-premium .bk-fantasy-league-facts small{white-space:normal;overflow:visible;text-overflow:clip}
