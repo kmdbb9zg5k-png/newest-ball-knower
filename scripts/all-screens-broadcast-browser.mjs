@@ -29,6 +29,7 @@ try{
   const capture=async(name,scene,label=name)=>{
    const stage=page.locator(`.bk-screen[data-page="${name}"]`).first();await stage.waitFor();
    assert.equal(await stage.getAttribute('data-scene'),scene);
+   assert.equal(await stage.locator('.bk-scene-motion').count(),0,`${name} must not render a motion button`);
    await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(200);
    const geometry=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,headerBottom:document.querySelector('body>header')?.getBoundingClientRect().bottom??0,stageTop:document.querySelector('.bk-screen')?.getBoundingClientRect().top}));
    assert.ok(geometry.scroll<=width+1,`${name} overflow at ${width}: ${geometry.scroll}`);
@@ -60,11 +61,9 @@ try{
   await primary('Profile');await capture('profile','locker');
   await home();await page.getByRole('button',{name:'Solo Mode',exact:true}).click();await capture('solo','field');
   await page.locator('.bk-mode-card').filter({hasText:'Agent Mode'}).click();await capture('agent','office');
-  await page.getByRole('button',{name:'Pause background motion',exact:true}).click();assert.equal(await page.locator('.bk-screen').getAttribute('data-motion'),'off');
   await page.getByRole('button',{name:'BACK',exact:true}).click();await page.locator('.bk-mode-card').filter({hasText:'Owner Office'}).click();await capture('owner','suite');
-  assert.equal(await page.locator('.bk-screen').getAttribute('data-motion'),'off','Motion choice must follow the user into other modes');
-  await page.getByRole('button',{name:'Enable background motion',exact:true}).click();await page.emulateMedia({reducedMotion:'reduce'});
-  await page.getByRole('button',{name:'Background motion off: Reduce Motion is enabled',exact:true}).waitFor();assert.equal(await page.locator('.bk-scene-beam-left').evaluate(e=>getComputedStyle(e).animationName),'none');
+  await page.emulateMedia({reducedMotion:'reduce'});await page.waitForFunction(()=>document.querySelector('.bk-screen')?.getAttribute('data-motion')==='off');
+  assert.equal(await page.locator('.bk-scene-beam-left').evaluate(e=>getComputedStyle(e).animationName),'none');
   await page.emulateMedia({reducedMotion:'no-preference'});
   await page.getByRole('button',{name:'BACK',exact:true}).click();await page.locator('.bk-mode-card').filter({hasText:'FRANCHISE COMMAND'}).click();await capture('franchise','suite');
   await page.getByRole('button',{name:'Back to Solo Franchise Hub',exact:true}).click();await page.locator('.bk-mode-card').filter({hasText:'MY PLAYER'}).click();await capture('my-player','locker');

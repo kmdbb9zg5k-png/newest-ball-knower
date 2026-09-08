@@ -35,8 +35,6 @@
 .bk-scene-toolbar { display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .bk-scene-eyebrow { font-size:9px; line-height:1.5; font-weight:800; text-transform:uppercase; letter-spacing:.18em; color:#d6bd7c; }
 .bk-scene-actions { display:flex; align-items:center; justify-content:flex-end; gap:6px; flex-shrink:0; }
-.bk-scene-motion { display:flex; align-items:center; gap:5px; min-height:36px; padding:0 9px; border-radius:5px; border:1px solid #c3af753f; background:#05090de6; color:#ddd2b3; font-size:9px; font-weight:700; line-height:1.4; text-transform:uppercase; letter-spacing:.035em; }
-.bk-scene-motion:disabled { color:#b2aba0; cursor:default; }
 .bk-scene-title { padding:28px 0 10px; }
 .bk-scene-title h1 { margin:0; font-family:'Barlow Condensed','Arial Narrow',Impact,sans-serif; font-weight:800; font-size:clamp(36px,9vw,52px); line-height:.95; text-transform:uppercase; letter-spacing:.01em; color:#f2e6c8; text-shadow:0 3px 18px #000; overflow-wrap:anywhere; }
 .bk-scene-title p { margin:10px 0 0; max-width:560px; font-size:12px; font-weight:500; line-height:1.65; color:#c2c7c7; text-shadow:0 2px 12px #000; }
@@ -94,7 +92,7 @@
 /* Keep competition chrome unchanged in size. No moving layer in drafts/results. */
 .bk-app-shell:is([data-tab="draft"],[data-tab="simulation"]) { background:linear-gradient(150deg,#0f1820,#060a0e); }
 @media(min-width:768px){.bk-scene-backdrop { height:760px; }.bk-scene-masthead { min-height:260px; }.bk-scene-masthead-compact { min-height:175px; }.bk-scene-title h1 { font-size:60px; }.bk-mode-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.bk-news-list { grid-template-columns:repeat(2,minmax(0,1fr)); }.bk-screen[data-scene="office"] .bk-scene-art,.bk-screen[data-scene="suite"] .bk-scene-art { background-size:cover; background-position:center 35%; filter:brightness(.7); }}
-@media(max-width:359px){.bk-scene-eyebrow { font-size:8px; letter-spacing:.08em; }.bk-scene-motion { padding:0 6px; }.bk-scene-motion span { font-size:8px; }.bk-scene-toolbar { gap:5px; }.bk-news-story { padding:12px 10px; gap:9px; grid-template-columns:30px minmax(0,1fr) 20px; }.bk-news-story .bk-story-mark { width:30px; }.bk-news-story h3 { font-size:20px; }}
+@media(max-width:359px){.bk-scene-eyebrow { font-size:8px; letter-spacing:.08em; }.bk-scene-toolbar { gap:5px; }.bk-news-story { padding:12px 10px; gap:9px; grid-template-columns:30px minmax(0,1fr) 20px; }.bk-news-story .bk-story-mark { width:30px; }.bk-news-story h3 { font-size:20px; }}
 @media(prefers-reduced-motion:reduce){.bk-screen :is(.bk-scene-beam,.bk-scene-haze) { animation:none!important; }}
 @keyframes bk-screen-light { from{transform:rotate(-9deg);opacity:.45}to{transform:rotate(13deg);opacity:.9} }
 @keyframes bk-screen-drift { from{transform:translateX(-5%);opacity:.45}to{transform:translateX(9%);opacity:.85} }

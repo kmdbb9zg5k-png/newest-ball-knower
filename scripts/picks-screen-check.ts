@@ -91,7 +91,7 @@ try{
   if(rapid===undefined)delete process.env.RAPIDAPI_KEY;else process.env.RAPIDAPI_KEY=rapid;
 }
 const screen=readFileSync('SportsbookHub.tsx','utf8');
-assert.match(screen,/showMotionControl=\{false\}/);assert.match(screen,/void load\(\);void syncPicks\(\)/);
+assert.doesNotMatch(screen,/MotionControl|showMotionControl/);assert.match(screen,/void load\(\);void syncPicks\(\)/);
 assert.match(screen,/version===revision.current/,'late sync must not overwrite newer choices');
 assert.match(screen,/saving.current=true/,'synchronous duplicate-tap guard must precede awaiting verification');
 assert.match(screen,/setGames\(\[\]\)/,'failed refresh must not retain selectable stale lines');

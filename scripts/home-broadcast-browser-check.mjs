@@ -62,6 +62,7 @@ try{
   }
   assert.equal(await page.locator('.bk-home-primary-modes button').count(),4);
   const photo=await page.locator('.bk-home-stadium-art img').evaluate(e=>({w:e.naturalWidth,h:e.naturalHeight}));assert.deepEqual(photo,{w:249,h:158});
+  assert.equal(await page.locator('.bk-home-motion').count(),0,'Home must not render a motion button');
   await page.screenshot({path:`${out}/home-${width}.png`,fullPage:false});
   if(width===390){
    const before=await strip.locator('a').getAttribute('href');await page.clock.runFor(10_050);
@@ -73,10 +74,7 @@ try{
    await page.getByRole('button',{name:'Hide headlines',exact:true}).click();
    const hiddenCalls=calls();await page.clock.runFor(240_100);assert.equal(calls(),hiddenCalls,'Hidden headlines must not poll');
    await page.getByRole('button',{name:'Show headlines',exact:true}).click();await strip.locator('a').waitFor();
-   await page.getByRole('button',{name:'Pause background motion',exact:true}).click();assert.equal(await hero.getAttribute('data-motion'),'off');
-   await page.reload({waitUntil:'domcontentloaded'});await hero.waitFor();assert.equal(await hero.getAttribute('data-motion'),'off','Motion preference persists');
-   await page.getByRole('button',{name:'Enable background motion',exact:true}).click();
-   await page.emulateMedia({reducedMotion:'reduce'});await page.getByRole('button',{name:'Background motion off: Reduce Motion is enabled',exact:true}).waitFor();
+   await page.emulateMedia({reducedMotion:'reduce'});await page.waitForFunction(()=>document.querySelector('.bk-home-stadium')?.getAttribute('data-motion')==='off');
    assert.equal(await hero.getAttribute('data-motion'),'off');
    assert.equal(await page.locator('.bk-home-light-one').evaluate(e=>getComputedStyle(e).animationName),'none');
    await page.emulateMedia({reducedMotion:'no-preference'});
@@ -106,5 +104,5 @@ try{
   await page.waitForTimeout(11_500);await context.close();
  }
  await writeFile(`${out}/results.json`,JSON.stringify({source:live?'actual public Tank01 feed captured for browser verification':'explicit synthetic regression fixture',checkedAt:new Date().toISOString(),results,physicalIphoneTest:false,productionAccountMutations:false},null,2));
- console.log('Home broadcast: phone/desktop rendering, nav, motion, reduced motion, rotation/pause/next/hide, cache and unmount passed.');
+ console.log('Home broadcast: phone/desktop rendering, nav, no motion control, reduced motion, rotation/pause/next/hide, cache and unmount passed.');
 }finally{await browser?.close();server.kill('SIGTERM')}

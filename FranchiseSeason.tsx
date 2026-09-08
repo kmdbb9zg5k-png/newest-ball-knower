@@ -1,4 +1,4 @@
-import {BroadcastStage,BroadcastMasthead,BroadcastMotionControl} from './BroadcastScene';
+import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ChevronRight, Play, RotateCcw, Trophy, Users } from 'lucide-react';
 import { calculateTeamRatings } from './evaluation';
