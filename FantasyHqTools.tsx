@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, RefreshCw, X } from 'lucide-react';
 import './fantasyHqControls.css';
+import { supabase, ensureOnlineSession } from './supabase';
 import type { League } from './types';
 import type { FantasyRanking } from './fantasyRankingsCloud';
 import type { WeeklyScore } from './fantasyLeagueParityCloud';
@@ -11,7 +12,6 @@ import { buildHqPracticeDraft, fantasyHqSummary, hqPublishedProjection } from '.
 type ActivityRow = { id:string; text:string; time:string };
 /** Fetch only the two activity sources; partial failures must not look like an empty feed. */
 async function readHqActivity(leagueId: string) {
-  const { supabase, ensureOnlineSession } = await import('./supabase');
   if (!supabase) throw new Error('Online league activity is unavailable.');
   await ensureOnlineSession();
   const [transactions, messages] = await Promise.all([

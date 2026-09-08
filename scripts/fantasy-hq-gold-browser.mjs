@@ -11,8 +11,7 @@ const leagues=[{id:'qa-golden-arm',name:'Golden Arm League',code:'BK-QATEST',com
 const draft={league_id:leagues[0].id,status:'completed',rounds:15,pick_index:150,order_member_ids:['m1','m2','m0','m3','m4','m5','m6','m7','m8','m9'],picks:Array.from({length:150},(_,i)=>({overall:i+1,round:Math.floor(i/10)+1,memberId:`m${i%10}`,playerId:`qa-pick-${i}`,group:'WR',pickedAt:stamp,source:'manual'})),started_at:stamp,completed_at:stamp,updated_at:stamp,pick_seconds:60};
 let browser,activePage;const results=[];
 try{
- await mkdir(out,{recursive:true});
- let ready=false,lastProbe='No response';
+ await mkdir(out,{recursive:true});let ready=false,lastProbe='No response';
  for(let i=0;i<100;i++){
   if(server.exitCode!==null)throw Error(`Preview exited ${server.exitCode}`);
   try{const response=await fetch(base);lastProbe=`HTTP ${response.status}`;if(response.ok){ready=true;break;}}catch(error){lastProbe=`${error.message}: ${error.cause?.message||''}`;}
@@ -21,10 +20,10 @@ try{
  assert.ok(ready,`Preview did not become ready at ${base}: ${lastProbe}`);
  for(const engine of ['chromium','webkit']){
   browser=await(engine==='chromium'?chromium:webkit).launch({headless:true});
-  for(const width of engine==='chromium'?[320,390,430,1280]:[390]){
+  for(const width of engine==='chromium'?[390,320,430,1280]:[390]){
    const context=await browser.newContext({viewport:{width,height:844},isMobile:width<768,hasTouch:width<768,reducedMotion:'reduce'});
    const page=await context.newPage();activePage=page;const crashes=[],mutations=[];page.on('pageerror',e=>crashes.push(e.message));
-   let empty=false,failScores=false,failActivity=false;
+   let empty=false,failScores=false,failActivity=false,activityContent=false;
    const user={id:userId,aud:'authenticated',role:'authenticated',email:'qa@example.invalid',is_anonymous:false,user_metadata:{name:'Elijah',full_name:'Elijah'},app_metadata:{provider:'email',providers:['email']},created_at:stamp};
    const token=[Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url'),Buffer.from(JSON.stringify({sub:userId,aud:'authenticated',role:'authenticated',exp:Math.floor(Date.now()/1000)+86400})).toString('base64url'),'fixture-only'].join('.');
    const session={user,access_token:token,refresh_token:'fixture-only',token_type:'bearer',expires_in:86400,expires_at:Math.floor(Date.now()/1000)+86400};
@@ -45,8 +44,9 @@ try{
     }
     if(path.endsWith('/ball_knower_live_drafts'))return send(empty?[]:[draft].filter(d=>(url.searchParams.get('league_id')||'').includes(d.league_id)));
     if(path.endsWith('/ball_knower_weekly_scores'))return failScores?send({message:'Fixture score outage'},503):send([1,2].flatMap(week=>members.map((m,i)=>({league_id:leagues[0].id,member_id:m.id,week_number:week,live_points:i===0?0:80-i,projected_points:120-i,is_final:week===2,score_details:{hasProjectedTotal:i!==8,players:[]},updated_at:stamp}))));
-    if(path.endsWith('/ball_knower_league_transactions'))return failActivity?send({message:'Fixture activity outage'},503):send([]);
-    if(path.includes('join_public'))return send({message:'Explicit public-matchmaking fixture outage'},503);
+    if(path.endsWith('/ball_knower_transactions'))return failActivity?send({message:'Fixture activity outage'},503):send(activityContent?[{id:'qa-txn',summary:'QA trade receipt',created_at:stamp}]:[]);
+    if(path.endsWith('/ball_knower_league_messages'))return send(activityContent?[{id:'qa-notice',body:'QA commissioner announcement',kind:'announcement',created_at:stamp},{id:'qa-chat',body:'QA chat must not appear here',kind:'chat',created_at:stamp}]:[]);
+    if(path.includes('join_or_create_ball_knower_public_league'))return send({message:'Explicit public-matchmaking fixture outage'},503);
     if(path.endsWith('/ball_knower_user_profiles'))return send(null);
     if(path.endsWith('/rpc/ensure_ball_knower_progress_profile'))return send([{user_id:userId,display_name:'Elijah',bk_rating:50,xp:0,level:1}]);
     if(path.includes('/rpc/'))return send(null);
@@ -71,15 +71,15 @@ try{
    await dialog.getByRole('button',{name:'Run draft simulation',exact:true}).click();await dialog.getByRole('button',{name:'Run another simulation',exact:true}).waitFor();assert.equal(await dialog.locator('.bk-hq-mock-picks li').count(),150);await dialog.getByRole('button',{name:'Run another simulation',exact:true}).click();assert.equal(mutations.length,before,'Practice must not perform backend writes');await page.keyboard.press('Escape');await dialog.waitFor({state:'detached'});
    await page.getByTestId('fantasy-tool-grid').getByRole('button',{name:/Matchup Analyzer/}).click();dialog=page.getByRole('dialog',{name:'Matchup Analyzer',exact:true});await dialog.locator('.bk-hq-matchup').first().waitFor();assert.equal(await dialog.locator('.bk-hq-matchup').count(),5);assert.match(await dialog.innerText(),/0\.0/);assert.match(await dialog.innerText(),/—/);await dialog.getByLabel('Week',{exact:true}).selectOption('2');await dialog.getByText('Final',{exact:true}).first().waitFor();
    failScores=true;await dialog.getByLabel('Week',{exact:true}).selectOption('3');await dialog.getByRole('alert').waitFor();failScores=false;await dialog.getByRole('button',{name:'Retry matchups'}).click();await dialog.locator('.bk-hq-matchup').first().waitFor();await dialog.getByRole('button',{name:'Close Matchup Analyzer'}).click();
-   await page.getByRole('navigation',{name:'Fantasy views'}).getByRole('button',{name:'Cheat Sheet',exact:true}).click();await page.getByRole('heading',{name:'Player Cheat Sheet'}).waitFor();assert.equal(await page.locator('.bk-hq-premium').count(),0);await page.getByRole('navigation',{name:'Fantasy views'}).getByRole('button',{name:'League HQ',exact:true}).click();
+   failActivity=true;await page.getByRole('navigation',{name:'Fantasy views'}).getByRole('button',{name:'Cheat Sheet',exact:true}).click();await page.getByRole('heading',{name:'Player Cheat Sheet'}).waitFor();assert.equal(await page.locator('.bk-hq-premium').count(),0);await page.getByRole('navigation',{name:'Fantasy views'}).getByRole('button',{name:'League HQ',exact:true}).click();
+   await page.locator('.bk-hq-activity [role=alert]').waitFor();failActivity=false;activityContent=true;await page.getByRole('button',{name:'Retry activity',exact:true}).click();await page.getByText('QA trade receipt',{exact:true}).waitFor();assert.equal(await page.locator('.bk-hq-activity li').count(),2);assert.doesNotMatch(await page.locator('.bk-hq-activity').innerText(),/QA chat must not appear/);
+   await page.getByTestId('fantasy-tool-grid').locator('button').nth(0).click();await page.locator('#close-create-league-modal-btn').waitFor();await page.locator('#close-create-league-modal-btn').click();
+   await page.getByTestId('fantasy-tool-grid').locator('button').nth(1).click();await page.locator('#close-join-league-modal-btn').waitFor();await page.locator('#close-join-league-modal-btn').click();
+   await page.locator('.bk-hq-public-tool').click();await page.locator('.bk-fantasy-public-error').waitFor();assert.ok(mutations.some(path=>path.includes('join_or_create_ball_knower_public_league')),'Public matchmaking must retain its existing RPC path');
    await page.getByRole('navigation',{name:'Fantasy views'}).getByRole('button',{name:'How it works',exact:true}).click();await page.getByRole('dialog',{name:'Fantasy instructions'}).waitFor();await page.getByRole('button',{name:'Close instructions'}).click();
-   assert.deepEqual(crashes,[]);results.push({engine,width,bounds,initialLeagues:2,tools:5,mockPicks:150,matchups:5,source:'Isolated account/rankings/scores fixtures',productionMutations:false,physicalIphone:false});await context.close();activePage=null;
+   assert.deepEqual(crashes,[]);results.push({engine,width,bounds,initialLeagues:2,tools:5,mockPicks:150,matchups:5,activityRecovery:true,createJoinEntrypoints:true,publicMatchmakingError:true,source:'Isolated account/rankings/scores fixtures',productionMutations:false,physicalIphone:false});await context.close();activePage=null;
   }
   await browser.close();browser=null;
  }
  await writeFile(`${out}/results.json`,JSON.stringify(results,null,2));console.log('Fantasy HQ gold browser checks passed in Chromium 320/390/430/1280 and WebKit390.');
-}catch(error){
- let body='';
- if(activePage&&!activePage.isClosed()){await activePage.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});body=await activePage.locator('body').innerText().catch(()=>'');}
- await mkdir(out,{recursive:true});await writeFile(`${out}/failure.txt`,`${error.stack||error}\n${body}`);throw error;
-}finally{await browser?.close();server.kill('SIGTERM');}
+}catch(error){let body='';if(activePage&&!activePage.isClosed()){await activePage.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});body=await activePage.locator('body').innerText().catch(()=>'');}await mkdir(out,{recursive:true});await writeFile(`${out}/failure.txt`,`${error.stack||error}\n${body}`);throw error;}finally{await browser?.close();server.kill('SIGTERM');}
