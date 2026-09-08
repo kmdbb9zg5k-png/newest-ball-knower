@@ -1,0 +1,29 @@
+name: Fantasy HQ gold reference
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  fantasy-hq:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint && node --import tsx scripts/fantasy-hq-gold-check.ts
+      - run: npm run build && npm run check:root-bundle
+      - run: npx playwright install --with-deps chromium webkit
+      - run: node scripts/fantasy-hq-gold-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fantasy-hq-gold-mobile
+          path: artifacts/fantasy-hq-gold
+          retention-days: 5
+          if-no-files-found: ignore
