@@ -152,7 +152,7 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
 
     <section className="bk-home-activity" aria-label="League Activity" aria-busy={checkingActivity}>
       <div className="bk-home-activity-heading"><Bell size={19} aria-hidden="true"/><div><h3>League Activity</h3><p role="status">{!primaryLeague ? 'Choose a league to see updates' : checkingActivity ? 'Checking updates…' : activityFailed ? 'Updates unavailable' : recent.length ? `${recent.length} recent update${recent.length === 1 ? '' : 's'}` : featured ? 'Latest update featured above' : 'You’re all caught up'}</p></div>
-        {primaryLeague && <button type="button" aria-label={primaryLeague.liveDraft?.status === 'completed' ? 'Open league activity' : 'Open League HQ'} onClick={openActivity}><ArrowRight size={18} aria-hidden="true"/></button>}
+        {primaryLeague && <button type="button" aria-label="Open league activity" onClick={openActivity}><ArrowRight size={18} aria-hidden="true"/></button>}
       </div>
       {!checkingActivity && !activityFailed && recent.length > 0 && <ul>{recent.map(item => <li key={item.id}><div><strong>{item.label}</strong><p>{item.detail}</p></div>{formatActivityTime(item.occurredAt) && <time dateTime={item.occurredAt}>{formatActivityTime(item.occurredAt)}</time>}</li>)}</ul>}
       {activityFailed && <button type="button" className="bk-home-activity-retry" onClick={() => setActivityRetry(value => value + 1)}>Retry updates</button>}
