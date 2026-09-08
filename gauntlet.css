@@ -116,6 +116,11 @@
   height: 43px;
   min-height: 43px;
   padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  letter-spacing: 0;
   overflow: hidden;
   border-color: rgba(226, 194, 116, .42);
   border-radius: 999px;
@@ -125,7 +130,7 @@
   backdrop-filter: blur(8px);
 }
 
-.bk-gauntlet-hero .bk-mode-guide-button svg { width: 19px; height: 19px; }
+.bk-gauntlet-hero .bk-mode-guide-button svg { width: 19px; height: 19px; flex-shrink: 0; }
 
 .bk-gauntlet-crest {
   position: absolute;
