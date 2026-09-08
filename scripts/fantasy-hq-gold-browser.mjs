@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { chromium, webkit } from 'playwright';
-const base='http://127.0.0.1:4190',out='artifacts/fantasy-hq-gold';
-const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port','4190','--strictPort'],{stdio:'inherit'});
+const base='http://127.0.0.1:4188',out='artifacts/fantasy-hq-gold';
+const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port','4188','--strictPort'],{stdio:'inherit'});
 const userId='22222222-2222-4222-8222-222222222222',stamp='2026-09-08T12:00:00Z';
 const rankingRows=['QB','RB','WR','TE','K','DST'].flatMap((position,g)=>Array.from({length:100},(_,i)=>({player_key:`qa-${position}-${i}`,player_name:`QA ${position} ${i}`,team:'PHI',position,overall_rank:i*6+g+1,adp:i*6+g+1,position_rank:i+1,actual_points_2025:100,projected_points_2026:200-i,point_change:100-i,projection_reason:'Explicit browser fixture',actual_source_name:'QA fixture',actual_source_url:'https://example.invalid',projection_source_name:'QA fixture',projection_source_url:null,projection_model:'QA',updated_at:stamp})));
 const members=Array.from({length:10},(_,i)=>({id:`m${i}`,userId:i===0?userId:`qa-${i}`,userName:i===0?'Elijah':`Manager ${i}`,isCommissioner:i===0,status:'ready',roster:Array.from({length:15},(_,j)=>({id:`qa-${i}-${j}`,name:`QA Player ${i}-${j}`,team:'PHI',teamCity:'Philadelphia',position:['QB','RB','RB','WR','WR','TE','WR','K','DST','RB','WR','TE','QB','RB','WR'][j],salary:0,ovr:50,attributes:{athleticism:50,footballIQ:50}}))}));
@@ -11,7 +11,14 @@ const leagues=[{id:'qa-golden-arm',name:'Golden Arm League',code:'BK-QATEST',com
 const draft={league_id:leagues[0].id,status:'completed',rounds:15,pick_index:150,order_member_ids:['m1','m2','m0','m3','m4','m5','m6','m7','m8','m9'],picks:Array.from({length:150},(_,i)=>({overall:i+1,round:Math.floor(i/10)+1,memberId:`m${i%10}`,playerId:`qa-pick-${i}`,group:'WR',pickedAt:stamp,source:'manual'})),started_at:stamp,completed_at:stamp,updated_at:stamp,pick_seconds:60};
 let browser,activePage;const results=[];
 try{
- await mkdir(out,{recursive:true});let ready=false;for(let i=0;i<100;i++){try{if((await fetch(base)).ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,200));}assert.ok(ready);
+ await mkdir(out,{recursive:true});
+ let ready=false,lastProbe='No response';
+ for(let i=0;i<100;i++){
+  if(server.exitCode!==null)throw Error(`Preview exited ${server.exitCode}`);
+  try{const response=await fetch(base);lastProbe=`HTTP ${response.status}`;if(response.ok){ready=true;break;}}catch(error){lastProbe=`${error.message}: ${error.cause?.message||''}`;}
+  await new Promise(resolve=>setTimeout(resolve,200));
+ }
+ assert.ok(ready,`Preview did not become ready at ${base}: ${lastProbe}`);
  for(const engine of ['chromium','webkit']){
   browser=await(engine==='chromium'?chromium:webkit).launch({headless:true});
   for(const width of engine==='chromium'?[320,390,430,1280]:[390]){
@@ -71,4 +78,8 @@ try{
   await browser.close();browser=null;
  }
  await writeFile(`${out}/results.json`,JSON.stringify(results,null,2));console.log('Fantasy HQ gold browser checks passed in Chromium 320/390/430/1280 and WebKit390.');
-}catch(e){if(activePage&&!activePage.isClosed()){await activePage.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});await writeFile(`${out}/failure.txt`,`${e}\n${await activePage.locator('body').innerText().catch(()=>'')}`);}throw e;}finally{await browser?.close();server.kill('SIGTERM');}
+}catch(error){
+ let body='';
+ if(activePage&&!activePage.isClosed()){await activePage.screenshot({path:`${out}/failure.png`,fullPage:true}).catch(()=>{});body=await activePage.locator('body').innerText().catch(()=>'');}
+ await mkdir(out,{recursive:true});await writeFile(`${out}/failure.txt`,`${error.stack||error}\n${body}`);throw error;
+}finally{await browser?.close();server.kill('SIGTERM');}
