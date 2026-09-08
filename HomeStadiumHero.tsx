@@ -25,6 +25,10 @@ export function HomeStadiumHero({onMyLeagues}:{onMyLeagues:()=>void}){
       <div className="bk-home-team-tint"/>
       <div className="bk-home-light bk-home-light-one"/>
       <div className="bk-home-light bk-home-light-two"/>
+      <div className="bk-home-floodlights">
+        <i className="bk-home-floodlight"/><i className="bk-home-floodlight"/><i className="bk-home-floodlight"/>
+        <i className="bk-home-floodlight"/><i className="bk-home-floodlight"/><i className="bk-home-floodlight"/>
+      </div>
       <div className="bk-home-haze"/>
       <div className="bk-home-stadium-shade"/>
     </div>

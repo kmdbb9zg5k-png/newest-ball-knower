@@ -16,8 +16,10 @@ assert.ok(ticker.includes('AbortController')&&ticker.includes("'visibilitychange
 assert.ok(ticker.includes('aria-live="off"')&&ticker.includes('onFocusCapture')&&ticker.includes('aria-expanded={!hidden}'));
 assert.ok(hero.includes('IntersectionObserver')&&hero.includes('prefers-reduced-motion: reduce'));
 assert.ok(!hero.includes('bk-home-motion')&&!hero.includes('Motion ')&&!hero.includes('localStorage'));
+assert.ok(hero.includes('bk-home-floodlights')&&css.includes('bk-home-stadium-flicker')&&css.includes('bk-home-stadium-halo'));
+assert.ok(css.includes('[data-motion="off"] :is(.bk-home-light,.bk-home-haze,.bk-home-floodlight)'));
 assert.ok(!hero.includes('<video')&&!hero.includes('<canvas')&&!hero.includes('setInterval'));
 assert.ok(nav.includes("showNews&&<Suspense")&&nav.includes("lazy(()=>import('./HomeNewsTicker')"));
 assert.ok(css.includes('animation-play-state: paused')&&css.includes('@media (prefers-reduced-motion: reduce)'));
 assert.ok(fs.statSync('public/atmosphere/home-stadium.webp').size<50_000);
-console.log('Home broadcast checks passed: safe news normalization, automatic accessible motion, lazy ticker, bounded payload and headline controls.');
+console.log('Home broadcast checks passed: safe news normalization, realistic floodlight flicker, automatic accessible motion, lazy ticker, bounded payload and headline controls.');

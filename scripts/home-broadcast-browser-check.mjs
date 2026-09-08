@@ -61,6 +61,7 @@ try{
    assert.ok((await buttons.evaluateAll(items=>items.map(e=>parseFloat(getComputedStyle(e).fontSize)))).every(size=>size>=8&&size<=11),'Bottom labels must remain compact and readable');
   }
   assert.equal(await page.locator('.bk-home-primary-modes button').count(),4);
+  assert.equal(await page.locator('.bk-home-floodlight').count(),6,'Six independent stadium floodlights render');
   const photo=await page.locator('.bk-home-stadium-art img').evaluate(e=>({w:e.naturalWidth,h:e.naturalHeight}));assert.deepEqual(photo,{w:249,h:158});
   assert.equal(await page.locator('.bk-home-motion').count(),0,'Home must not render a motion button');
   await page.screenshot({path:`${out}/home-${width}.png`,fullPage:false});
@@ -77,6 +78,7 @@ try{
    await page.emulateMedia({reducedMotion:'reduce'});await page.waitForFunction(()=>document.querySelector('.bk-home-stadium')?.getAttribute('data-motion')==='off');
    assert.equal(await hero.getAttribute('data-motion'),'off');
    assert.equal(await page.locator('.bk-home-light-one').evaluate(e=>getComputedStyle(e).animationName),'none');
+   assert.equal(await page.locator('.bk-home-floodlight').first().evaluate(e=>getComputedStyle(e).animationName),'none');
    await page.emulateMedia({reducedMotion:'no-preference'});
    await page.getByRole('button',{name:'My Leagues',exact:true}).click();await page.locator('.bk-app-shell[data-tab="fantasy"]').waitFor();
    // The destination shell mounts before its lazy-loaded first-visit guide.
