@@ -68,7 +68,7 @@ const layoutSnapshot=page=>page.evaluate(()=>{
     fantasyTabRect:fantasyTabRect&&{left:fantasyTabRect.left,right:fantasyTabRect.right,top:fantasyTabRect.top,bottom:fantasyTabRect.bottom},
     fantasyHeroRect:fantasyHeroRect&&{left:fantasyHeroRect.left,right:fantasyHeroRect.right,top:fantasyHeroRect.top,bottom:fantasyHeroRect.bottom,height:fantasyHeroRect.height},
     fantasyToolButtons:document.querySelectorAll('[data-testid="fantasy-tool-grid"] button').length,
-    fantasyControlsOutsideViewport:fantasyTools.flatMap(element=>{const rect=element.getBoundingClientRect();return rect.left>=-1&&rect.right<=width+1?[]:[element.textContent?.trim()||element.tagName];}),
+    fantasyControlsOutsideViewport:fantasyTools.flatMap(element=>{const rect=element.getBoundingClientRect();return rect.left>=-1&&rect.right<=window.innerWidth+1?[]:[element.textContent?.trim()||element.tagName];}),
     fantasyMotion:document.querySelector('.bk-fantasy-hq-screen')?.getAttribute('data-motion')||'',
     fantasyLightAnimation:getComputedStyle(document.querySelector('.bk-fantasy-hq-light-bank i')||document.documentElement).animationName,
     gauntletRect:gauntletRect&&{left:gauntletRect.left,right:gauntletRect.right,top:gauntletRect.top,bottom:gauntletRect.bottom},
