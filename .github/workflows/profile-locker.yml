@@ -1,0 +1,31 @@
+name: Profile locker regressions
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '*Profile*.tsx'
+      - 'LockerHub.tsx'
+      - 'profileLocker*'
+      - 'scripts/profile-locker*'
+      - '.github/workflows/profile-locker.yml'
+permissions:
+  contents: read
+jobs:
+  profile-locker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - name: Export isolated public-source verification workspace
+        run: tar --exclude='./.git' --exclude='./.env*' --exclude='./artifacts' --exclude='./dist' -czf /tmp/profile-workspace.tgz .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: profile-workspace
+          path: /tmp/profile-workspace.tgz
+          retention-days: 1
