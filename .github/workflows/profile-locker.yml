@@ -1,0 +1,42 @@
+name: Profile locker fidelity
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  profile-mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - name: Package changed source for isolated verification
+        run: tar -czf /tmp/profile-implementation.tgz LockerHub.tsx ProgressionProfileCard.tsx ProfileLockerView.tsx ProfileLockerArt.tsx profileLockerState.ts profileLocker.css scripts/profile-locker-check.ts scripts/profile-locker-browser.mjs .github/workflows/profile-locker.yml docs/design/PROFILE_LOCKER_FIDELITY.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: profile-implementation
+          path: /tmp/profile-implementation.tgz
+          retention-days: 1
+      - run: npm run lint && npm run check:profile-photo && npm run check:identity
+      - name: Build and verify profile display contracts
+        run: |
+          npx esbuild scripts/profile-locker-check.ts --bundle --platform=node --format=esm --packages=external --loader:.css=empty --outfile=scripts/.profile-locker-check.mjs
+          node scripts/.profile-locker-check.mjs
+          npm run build
+          npm run check:root-bundle
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Exercise the real Profile page with isolated backend fixtures
+        run: node scripts/profile-locker-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: profile-locker-mobile
+          path: artifacts/profile-locker
+          if-no-files-found: ignore
+          retention-days: 5
