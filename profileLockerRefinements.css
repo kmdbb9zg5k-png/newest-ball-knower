@@ -1,0 +1,31 @@
+/* Keep the compact sync row while preserving its full phone hit area.
+   The enlarged box extends only into adjacent non-interactive rating/motto space. */
+.bk-profile-page .bk-locker-sync{position:relative;z-index:1}
+.bk-profile-page .bk-locker-sync>button{width:44px;height:44px;min-height:44px;margin-block:-10px}
+/* Remove excess vertical spacing, not text or working controls. */
+@media(min-width:360px) and (max-width:639px){
+  .bk-profile-page .bk-profile-identity>section{min-height:126px;padding-block:0}
+  .bk-profile-page .bk-profile-identity>section>div{align-self:start;padding-top:8px}
+  .bk-profile-page .bk-locker-account{position:absolute;bottom:0;left:36%;right:30%;margin:0;padding:0}
+  .bk-profile-page .bk-locker-account[open]{position:relative;bottom:auto;left:auto;right:auto;margin:0 10px 0 36%;padding:5px 0}
+  .bk-profile-page .bk-locker-hex{min-height:58px;aspect-ratio:1.33;padding-block:6px}
+  .bk-profile-page .bk-locker-badge{width:min(calc(100% - 8px),50px)}
+  .bk-profile-page .bk-locker-trophy{min-height:80px}
+  .bk-profile-page .bk-locker-section-heading{min-height:30px}
+  .bk-profile-page .bk-locker-receipt-art{top:30px}
+  .bk-profile-page .bk-locker-rating>strong{max-width:90px}
+  .bk-profile-page .bk-locker-motto{margin-top:4px;padding-bottom:1px}
+  .bk-profile-page .bk-locker-receipts{min-height:126px;padding-bottom:6px}
+  .bk-profile-page .bk-locker-receipt-rail{margin:4px auto 3px}
+}
+/* Replace the removed sample founding date with a non-factual ornament. */
+.bk-profile-page .bk-profile-identity>section>button::after{content:'YOUR LEGACY';position:absolute;left:29%;bottom:11%;width:44%;font:700 clamp(4px,1.1vw,7px)/1.1 Arial,sans-serif;letter-spacing:.16em;color:#dbc27c;text-shadow:0 1px #302315;pointer-events:none}
+/* WebKit can retain a previous SVG currentColor paint after navigation.
+   Explicit stroke colors keep the actual active Profile icon visually unambiguous. */
+body:has(.bk-app-shell[data-tab="locker"])>nav.bk-broadcast-nav button svg{stroke:#b4bec6}
+body:has(.bk-app-shell[data-tab="locker"])>nav.bk-broadcast-nav button:last-child svg{stroke:#f5d478}
+/* Compact visible labels keep full touch areas; disclosure expands in normal flow. */
+.bk-profile-page .bk-profile-identity{z-index:2}
+.bk-profile-page .bk-locker-account>summary{min-height:44px;margin-bottom:-20px;align-items:flex-start;padding-top:6px}
+.bk-profile-page .bk-locker-account[open]>summary{margin-bottom:0}
+.bk-profile-page .bk-locker-trophy-arrows button{width:44px;min-width:44px}

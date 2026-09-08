@@ -167,7 +167,8 @@ try{
 
     await primary.getByRole('button',{name:'Fantasy',exact:true}).click();
     await page.locator('.bk-app-shell[data-tab="fantasy"]').waitFor({state:'visible'});
-    await page.getByRole('button',{name:'League HQ',exact:true}).waitFor({state:'visible'});
+    // A populated league card can also be named League HQ; wait for the navigation control.
+    await page.getByRole('navigation',{name:'Fantasy views',exact:true}).getByRole('button',{name:'League HQ',exact:true}).waitFor({state:'visible'});
     const fantasySnapshot=await layoutSnapshot(page);
     assertContained(fantasySnapshot,`${size.label} League HQ`);
     assertFantasyHq(fantasySnapshot,`${size.label} League HQ`);
