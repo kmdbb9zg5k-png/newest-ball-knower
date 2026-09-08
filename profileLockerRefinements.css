@@ -20,3 +20,7 @@
 }
 /* Replace the removed sample founding date with a non-factual ornament. */
 .bk-profile-page .bk-profile-identity>section>button::after{content:'YOUR LEGACY';position:absolute;left:29%;bottom:11%;width:44%;font:700 clamp(4px,1.1vw,7px)/1.1 Arial,sans-serif;letter-spacing:.16em;color:#dbc27c;text-shadow:0 1px #302315;pointer-events:none}
+/* WebKit can retain a previous SVG currentColor paint after navigation.
+   Explicit stroke colors keep the actual active Profile icon visually unambiguous. */
+body:has(.bk-app-shell[data-tab="locker"])>nav.bk-broadcast-nav button svg{stroke:#b4bec6}
+body:has(.bk-app-shell[data-tab="locker"])>nav.bk-broadcast-nav button:last-child svg{stroke:#f5d478}
