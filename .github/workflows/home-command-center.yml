@@ -1,0 +1,29 @@
+name: Home command center
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  home-mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - name: Prepare current public source and dependencies for implementation
+        run: |
+          git rev-parse HEAD > /tmp/home-source-commit.txt
+          tar --exclude=.git --exclude='.env*' --exclude=dist --exclude=artifacts -czf /tmp/home-workspace.tgz .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: home-workspace
+          path: |
+            /tmp/home-workspace.tgz
+            /tmp/home-source-commit.txt
+          retention-days: 1
