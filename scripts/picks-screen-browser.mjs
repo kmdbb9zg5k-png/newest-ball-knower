@@ -12,7 +12,7 @@ const results=[];let browser;
 async function contextFor(engine,width,{hungSync=false}={}){
   const context=await engine.newContext({viewport:{width,height:844},deviceScaleFactor:1,isMobile:width<768,hasTouch:width<768});
   const page=await context.newPage();const crashes=[];page.on('pageerror',error=>crashes.push(error.message));
-  let boardMode='ok',saved=[],saves=0;
+  let boardMode='ok',saved=[],saves=0,deletes=0;
   await page.route('**/*.supabase.co/**',route=>route.fulfill({status:403,contentType:'application/json',body:'{"message":"Isolated browser test. No account access."}'}));
   await page.route('**/_vercel/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:''}));
   await page.route('https://a.espncdn.com/**',route=>route.fulfill({status:200,contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64')}));
@@ -30,21 +30,21 @@ async function contextFor(engine,width,{hungSync=false}={}){
       if(body.action==='save'){
         saves++;await new Promise(resolve=>setTimeout(resolve,180));
         saved=[{...body.pick,lockedAt:new Date().toISOString()}];
-      }else if(body.action==='delete')saved=[];
+      }else if(body.action==='delete'){deletes++;saved=[]}
       data={ok:true,picks:saved};
     }else if(path==='/api/nfl-news')data={available:true,articles:[]};
     else if(path==='/api/media')data={tracks:[],introUrl:null};
     await route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
   });
   await page.addInitScript(()=>{
-    localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','1');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off');localStorage.setItem('bk-guide-picks-v2','seen');
+    localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','1');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off');localStorage.setItem('bk-guide-picks-v3','seen');
     const user={id:'00000000-0000-4000-8000-000000000001',aud:'authenticated',role:'authenticated',is_anonymous:true,app_metadata:{provider:'anonymous'},user_metadata:{},created_at:'2026-01-01T00:00:00Z'};
     localStorage.setItem('sb-gpnboygoosrmeydwjpvk-auth-token',JSON.stringify({access_token:'isolated-browser-fixture',refresh_token:'isolated-refresh-fixture',token_type:'bearer',expires_at:Math.floor(Date.now()/1000)+86400,expires_in:86400,user}));
   });
   await page.goto(base,{waitUntil:'domcontentloaded'});await page.locator('.bk-home-stadium').waitFor();
   for(const button of await page.getByRole('button',{name:'Picks',exact:true}).all())if(await button.isVisible()){await button.click();break}
   await page.locator('.bk-picks-game').first().waitFor({timeout:5000});
-  return {context,page,crashes,setMode:mode=>{boardMode=mode},saved:()=>saved,saves:()=>saves};
+  return {context,page,crashes,setMode:mode=>{boardMode=mode},saved:()=>saved,saves:()=>saves,deletes:()=>deletes};
 }
 try{
   let ready=false;for(let i=0;i<100;i++){try{if((await fetch(base)).ok){ready=true;break}}catch{}await new Promise(resolve=>setTimeout(resolve,200))}assert.ok(ready);
@@ -61,12 +61,15 @@ try{
         const primary=[...document.querySelectorAll('.bk-picks-filters button')].map(button=>button.getBoundingClientRect().height);
         const compact=[...document.querySelectorAll('.bk-picks-team-buttons button')].map(button=>button.getBoundingClientRect().height);
         const cards=[...document.querySelectorAll('.bk-picks-game')].map(card=>card.getBoundingClientRect().height);
-        return {width:innerWidth,scrollWidth:document.documentElement.scrollWidth,heroHeight:header.getBoundingClientRect().height,inputFont:getComputedStyle(input).fontSize,toolbarBackground:getComputedStyle(toolbar).backgroundColor,primaryButtons:primary,compactPickButtons:compact,cardHeights:cards};
+        const submit=document.querySelector('.bk-picks-submit-row button')?.getBoundingClientRect();
+        return {width:innerWidth,scrollWidth:document.documentElement.scrollWidth,heroHeight:header.getBoundingClientRect().height,inputFont:getComputedStyle(input).fontSize,toolbarBackground:getComputedStyle(toolbar).backgroundColor,primaryButtons:primary,compactPickButtons:compact,cardHeights:cards,submitHeight:submit?.height||0,submitWidth:submit?.width||0};
       });
       assert.ok(geometry.scrollWidth<=width+1);assert.ok(geometry.heroHeight<125,JSON.stringify(geometry));assert.equal(geometry.inputFont,'16px');assert.equal(geometry.toolbarBackground,'rgba(0, 0, 0, 0)');
       assert.ok(geometry.primaryButtons.every(height=>height>=43),'status filters must remain practical phone targets');
       assert.ok(geometry.compactPickButtons.every(height=>height>=31),'compact right-side pick controls must remain usable');
       assert.ok(geometry.cardHeights.every(height=>height>=80),'matchup rows must retain the approved compact card height');
+      assert.ok(geometry.submitHeight>=44,'Submit Picks must retain a practical tap target');
+      if(width<768)assert.ok(geometry.submitWidth>=width-60,'Submit Picks should be prominent and nearly full-width on phones');
       await page.screenshot({path:`${out}/${name}-${width}.png`,fullPage:false});
       const first=page.locator(`[data-game-id="${game.id}"]`);
       await page.getByRole('button',{name:'Upcoming',exact:true}).click();assert.equal(await page.locator('.bk-picks-game').count(),1);
@@ -81,13 +84,24 @@ try{
       await weekSelect.selectOption({label:'Week 1'});
       const pick=first.getByRole('button',{name:'Philadelphia Eagles -3.5',exact:true});
       await pick.evaluate(button=>{button.click();button.click()});
-      await page.waitForFunction(()=>document.querySelector('.bk-picks-summary-heading')?.textContent.includes('1 saved'));
-      assert.equal(c.saves(),1,'rapid double tap must only send one save');assert.equal(c.saved()[0].lockedLine,-3.5);
-      await page.getByRole('button',{name:'Philadelphia Eagles -3.5 · Remove pick',exact:true}).click();
-      await page.waitForFunction(()=>document.querySelector('.bk-picks-summary-heading')?.textContent.includes('0 saved'));
-      await pick.click();await page.waitForFunction(()=>document.querySelector('.bk-picks-summary-heading')?.textContent.includes('1 saved'));
+      await page.waitForFunction(()=>document.querySelector('.bk-picks-summary-heading')?.textContent.includes('1 selected')&&document.querySelector('.bk-picks-summary-heading')?.textContent.includes('1 unsent'));
+      assert.equal(c.saves(),0,'selecting a pick must not write to the server before Submit Picks');
+      const submit=page.getByRole('button',{name:'Submit Picks (1)',exact:true});
+      assert.ok(await submit.isEnabled(),'a staged pick must enable Submit Picks');
+      await submit.evaluate(button=>{button.click();button.click()});
+      await page.waitForFunction(()=>document.querySelector('.bk-picks-summary-heading')?.textContent.includes('1 submitted'));
+      assert.equal(c.saves(),1,'rapid double submit must only send one save');assert.equal(c.saved()[0].lockedLine,-3.5);
+      assert.ok(await page.getByRole('button',{name:'Picks Submitted',exact:true}).isDisabled());
+      await page.getByRole('button',{name:'Philadelphia Eagles -3.5 · Submitted · Remove pick',exact:true}).click();
+      await page.waitForFunction(()=>document.querySelector('.bk-picks-summary-heading')?.textContent.includes('0 selected')&&document.querySelector('.bk-picks-summary-heading')?.textContent.includes('1 unsent'));
+      assert.equal(c.deletes(),0,'removing a submitted pick must remain local until Submit Picks');
+      await page.getByRole('button',{name:'Submit Picks (1)',exact:true}).click();
+      await page.waitForFunction(()=>document.querySelector('.bk-picks-summary-heading')?.textContent.includes('0 submitted'));
+      assert.equal(c.deletes(),1,'submitting a removal must delete the verified pick');
+      await pick.click();await page.waitForFunction(()=>document.querySelector('.bk-picks-summary-heading')?.textContent.includes('1 selected'));
+      await page.getByRole('button',{name:'Submit Picks (1)',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.bk-picks-summary-heading')?.textContent.includes('1 submitted'));
       c.setMode('failure');await page.getByRole('button',{name:'Refresh picks',exact:true}).click();await page.getByRole('button',{name:'Retry matchups',exact:true}).waitFor();
-      assert.equal(await page.locator('.bk-picks-game').count(),0);assert.ok((await page.locator('.bk-picks-summary-heading').textContent()).includes('1 saved'));
+      assert.equal(await page.locator('.bk-picks-game').count(),0);assert.ok((await page.locator('.bk-picks-summary-heading').textContent()).includes('1 submitted'));
       if(width===390)await page.screenshot({path:`${out}/${name}-outage.png`});
       c.setMode('ok');await page.getByRole('button',{name:'Retry matchups',exact:true}).click();await first.waitFor();
       c.setMode('empty');await page.getByRole('button',{name:'Refresh picks',exact:true}).click();await page.getByText('No NFL matchups scheduled right now.').waitFor();
@@ -96,7 +110,7 @@ try{
       await page.emulateMedia({reducedMotion:'reduce'});
       await page.waitForFunction(()=>document.querySelector('.bk-picks-screen')?.getAttribute('data-motion')==='off',{},{timeout:3000});
       assert.equal(await stage.getAttribute('data-motion'),'off');
-      assert.deepEqual(c.crashes,[]);results.push({engine:name,width,geometry,saving:true,filters:true,outageRecovery:true,validEmpty:true,reducedMotion:true});await c.context.close();
+      assert.deepEqual(c.crashes,[]);results.push({engine:name,width,geometry,explicitSubmit:true,filters:true,outageRecovery:true,validEmpty:true,reducedMotion:true});await c.context.close();
     }
     if(name==='chromium'){
       const c=await contextFor(browser,390,{hungSync:true});

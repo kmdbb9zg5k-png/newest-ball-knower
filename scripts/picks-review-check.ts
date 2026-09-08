@@ -15,7 +15,7 @@ const screen=readFileSync('SportsbookHub.tsx','utf8');
 assert.match(screen,/setPicks\(next\)/,'state updater must not mutate the ref during React render');
 assert.doesNotMatch(screen,/setPicks\(current=>/);
 assert.doesNotMatch(screen,/setInterval/,'no permanent per-second board re-render');
-assert.match(screen,/isPicksGameLocked\(game\)\|\|saving.current/,'the final click guard must use the actual current time');
+assert.match(screen,/isPicksGameLocked\(game(?:,Date\.now\(\))?\)\|\|saving.current/,'the final click guard must use the actual current time');
 
 const originalFetch=globalThis.fetch;const originalNow=Date.now;const key=process.env.TANK01_API_KEY;const rapid=process.env.RAPIDAPI_KEY;
 try{

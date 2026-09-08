@@ -31,6 +31,11 @@
 .bk-picks-saved button{display:flex;align-items:center;gap:6px;flex:none;min-height:42px;padding:7px 10px;border:1px solid #6e6140;border-radius:11px;background:#1b1a13;color:#f3ebd4;font-size:12px;font-weight:800}
 .bk-picks-saved small{font-size:9px;color:#bec6cf}
 .bk-picks-saved [data-result="win"]{color:#9de0b7}.bk-picks-saved [data-result="loss"]{color:#ffaaaa}.bk-picks-saved [data-result="push"]{color:#e8cd82}
+.bk-picks-submit-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid #2c3943}
+.bk-picks-submit-row>span{min-width:0;color:#aeb7c0;font-size:11px;font-weight:700;line-height:1.35}
+.bk-picks-submit-row>button{display:inline-flex;min-height:44px;min-width:170px;align-items:center;justify-content:center;gap:7px;padding:0 16px;border:1px solid #f0c44f;border-radius:12px;background:linear-gradient(180deg,#f3cf63,#d6a92f);box-shadow:0 0 0 1px #fff2b633 inset,0 8px 18px #0006;color:#16130d;font-size:12px;font-weight:950;letter-spacing:.04em;text-transform:uppercase}
+.bk-picks-submit-row>button:disabled{border-color:#4a4f4a;background:#202521;box-shadow:none;color:#7f8780;opacity:1}
+.bk-picks-summary p.bk-picks-submit-note{color:#9de0b7;font-weight:800}
 .bk-picks-refreshline{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-height:28px;margin:-2px 0 8px;color:#85919c;font-size:11px}
 .bk-picks-refreshline>span{margin-right:auto}
 .bk-picks-refresh,.bk-picks-refreshline .bk-mode-guide-button{display:inline-flex;align-items:center;gap:5px;min-height:32px;padding:0 10px;border:1px solid #34414b;border-radius:10px;background:#0d151c;color:#aeb7c0;font-size:11px;font-weight:700}
@@ -68,6 +73,8 @@
   .bk-picks-filters{gap:5px}.bk-picks-filters button{min-height:44px;border-radius:13px;font-size:11px;padding:0 2px}
   .bk-picks-search{height:50px;border-radius:16px}
   .bk-picks-summary{padding:12px 13px;border-radius:16px}
+  .bk-picks-submit-row{align-items:stretch;flex-direction:column;gap:8px}
+  .bk-picks-submit-row>button{width:100%;min-width:0;min-height:48px;font-size:12px}
   .bk-picks-game{grid-template-columns:minmax(0,1fr) 82px 74px;gap:8px;min-height:82px;padding:10px 9px 10px 11px;border-radius:15px}
   .bk-picks-team{grid-template-columns:28px minmax(0,1fr);gap:7px}.bk-picks-team img{width:27px;height:27px}.bk-picks-team span{font-size:13px}
   .bk-picks-time{min-height:52px;padding-left:9px}.bk-picks-time strong{font-size:12px}.bk-picks-time span{font-size:10px}

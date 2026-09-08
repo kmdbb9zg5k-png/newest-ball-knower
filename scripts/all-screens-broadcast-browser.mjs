@@ -21,7 +21,7 @@ try{
   await page.addInitScript(()=>{
    localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','1');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off');
    // Existing first-visit guides have separate coverage; don't cover screenshot content.
-   for(const key of ['bk-guide-fantasy-hq-v3','bk-guide-picks-v2','bk-guide-the-gauntlet-v4','bk-guide-franchise-command-v1'])localStorage.setItem(key,'seen');
+   for(const key of ['bk-guide-fantasy-hq-v3','bk-guide-picks-v3','bk-guide-the-gauntlet-v4','bk-guide-franchise-command-v1'])localStorage.setItem(key,'seen');
   });
   await page.goto(base,{waitUntil:'domcontentloaded'});await page.locator('.bk-home-stadium').waitFor();
   const home=async()=>{await page.getByRole('button',{name:'Ball Knower home',exact:true}).click();await page.locator('.bk-home-stadium').waitFor()};

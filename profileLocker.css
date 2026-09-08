@@ -66,7 +66,8 @@
 .bk-locker-section-heading h2{display:flex;align-items:center;gap:6px;margin:0;font:800 clamp(13px,3.7vw,24px)/1.1 Arial,sans-serif;letter-spacing:.03em;text-transform:uppercase;text-wrap:wrap!important;color:#e9ebeb;text-shadow:0 1px #ffffff40}
 .bk-locker-section-heading h2 svg{width:19px;height:23px;flex:none;color:#e6c773;stroke-width:1.5;filter:drop-shadow(0 0 4px #ebc66b30)}
 .bk-locker-section-heading>span{font-size:9px;line-height:1.2;color:#c7cdd1;text-transform:uppercase;text-align:right;white-space:nowrap;margin-left:auto}
-.bk-locker-trophy-arrows{display:flex;margin-block:-3px;margin-right:-8px}.bk-locker-trophy-arrows button{display:grid;place-items:center;min-height:44px;width:30px;flex:none;color:#f1d388}.bk-locker-trophy-arrows svg{height:15px;width:15px}
+.bk-locker-trophies .bk-locker-section-heading>span{min-width:0;white-space:normal}
+.bk-locker-trophy-arrows{display:flex;flex:none;margin-block:-3px;margin-right:0}.bk-locker-trophy-arrows button{display:grid;place-items:center;min-height:44px;width:30px;flex:none;color:#f1d388}.bk-locker-trophy-arrows svg{height:15px;width:15px}
 .bk-locker-trophy-case{position:relative;background:linear-gradient(155deg,transparent 34%,#eacd8326 34.3%,transparent 34.9%)}
 .bk-locker-trophy-rail{display:flex;gap:3px;list-style:none;margin:0;padding:6px 5px 7px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:thin;scrollbar-color:#9d8549 #11191f;-webkit-overflow-scrolling:touch}
 .bk-locker-trophy-rail>li{flex:0 0 calc((100% - 15px)/6);min-width:44px;scroll-snap-align:start}
