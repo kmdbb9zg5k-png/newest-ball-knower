@@ -1,7 +1,7 @@
 -- Keep scored 2026 Trivia facts aligned with the app's canonical starter registry.
--- The existing statement trigger rebuilds every generated team/QB question after
--- this update; the explicit finalizer makes the intended regeneration clear and
--- keeps this migration safe if an older environment is missing that trigger.
+-- The existing statement trigger rebuilds every generated team/QB question,
+-- finalizes its content, and then reapplies the cross-tier repeat families. Do not
+-- run the finalizer again here: it would overwrite those newer family mappings.
 
 update ball_knower_private.trivia_team_facts
 set starting_qb = 'Tua Tagovailoa'
@@ -20,6 +20,5 @@ begin
   end if;
 
   perform ball_knower_private.validate_trivia_team_fact_registry();
-  perform ball_knower_private.finalize_generated_trivia_quality();
 end;
 $$;

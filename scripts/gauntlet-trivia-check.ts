@@ -40,12 +40,14 @@ const progressionSource=readFileSync(new URL('../progressionCloud.ts',import.met
 assert(progressionSource.includes('question:gauntletScenarioQuestion(item)'), 'Offline Classic Trivia must not drop a Gauntlet scenario context.');
 const starterRegistry=JSON.parse(readFileSync(new URL('../data/current-qb-starters.json',import.meta.url),'utf8')) as Record<string,string>;
 const factSeed=readFileSync(new URL('../migrations/20260825_expand_trivia_to_500_plus.sql',import.meta.url),'utf8');
+const repeatFamilyRefresh=readFileSync(new URL('../migrations/20260825_zzzzzzzzzzz_trivia_repeat_family_refresh.sql',import.meta.url),'utf8');
 const starterSync=readFileSync(new URL('../migrations/20260908183000_sync_trivia_qb_facts_with_current_roster.sql',import.meta.url),'utf8');
 const triviaStarters=Object.fromEntries([...factSeed.matchAll(/\('([A-Z]{2,3})','[^']+','[^']+','(?:AFC|NFC)','(?:AFC|NFC) (?:East|North|South|West)','([^']+)'\)/g)].map(match=>[match[1],match[2]]));
 for(const match of starterSync.matchAll(/set starting_qb = '([^']+)'[\s\S]*?where abbr = '([A-Z]{2,3})'/g))triviaStarters[match[2]]=match[1];
 assert.equal(Object.keys(triviaStarters).length,32,'Trivia must seed one current quarterback for every team.');
 assert.deepEqual(triviaStarters,starterRegistry,'Current-team Trivia questions must match the app\'s canonical 2026 starting-quarterback registry.');
-assert(starterSync.includes('finalize_generated_trivia_quality()'),'Starter corrections must regenerate every dependent Trivia question.');
+assert.match(repeatFamilyRefresh,/refresh_generated_trivia\(\);[\s\S]*finalize_generated_trivia_quality\(\);[\s\S]*apply_trivia_repeat_families\(\);/,'Starter corrections must regenerate dependent questions and finish with cross-tier repeat families.');
+assert(!starterSync.includes('finalize_generated_trivia_quality()'),'A fact-sync migration must not rerun the finalizer after the refresh trigger reapplies cross-tier repeat families.');
 
 const daily=buildDailyGauntlet('2026-08-28');const sameDaily=buildDailyGauntlet('2026-08-28');const nextDaily=buildDailyGauntlet('2026-08-29');
 assert.equal(daily.length,5,'Daily Gauntlet must contain five challenges.');
