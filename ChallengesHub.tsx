@@ -277,13 +277,13 @@ export const ChallengesHub: React.FC = () => {
               <span className="bk-gauntlet-mode-action">Difficulty select <ChevronRight/></span>
             </button>;
           })}
-          <div className="bk-gauntlet-mantra" aria-hidden="true">Same five<br/>challenges.</div>
+          <button type="button" onClick={()=>setDailyRun(true)} disabled={Boolean(progress.daily[dailyDate]?.completed)} className="bk-gauntlet-daily-card" data-testid="gauntlet-daily-cta">
+            <span className="bk-gauntlet-daily-card-top"><CalendarDays/><span>Daily · {dailyDate}</span></span>
+            <strong>Daily Challenges</strong>
+            <small>Five plays. One shared run. New board every day.</small>
+            <span className="bk-gauntlet-mode-action">{progress.daily[dailyDate]?.completed?`Complete · ${progress.daily[dailyDate].score}/5`:<><span>Play today</span><Play/></>}</span>
+          </button>
         </section>
-
-        <button type="button" onClick={()=>setDailyRun(true)} disabled={Boolean(progress.daily[dailyDate]?.completed)} className="bk-gauntlet-daily-cta" data-testid="gauntlet-daily-cta">
-          <span aria-hidden="true">≡</span><span className="bk-gauntlet-daily-play"><Play/></span>
-          <strong>{progress.daily[dailyDate]?.completed?`Daily complete · ${progress.daily[dailyDate].score}/5`:'Start daily challenge'}</strong><span aria-hidden="true">≡</span>
-        </button>
       </section>
 
       {tierPickerMode&&<ModalPortal><div role="dialog" aria-modal="true" aria-label={`${tierPickerMode} difficulty`} className="bk-gauntlet-tier-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)setTierPickerMode(null)}}><section className="bk-gauntlet-tier-sheet">

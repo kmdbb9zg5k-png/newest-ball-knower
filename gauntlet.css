@@ -298,7 +298,7 @@
 
 .bk-gauntlet-mode-card:active { transform: scale(.985); }
 .bk-gauntlet-mode-card:focus-visible,
-.bk-gauntlet-daily-cta:focus-visible,
+.bk-gauntlet-daily-card:focus-visible,
 .bk-gauntlet-tier-card:focus-visible { outline: 2px solid #f3d58b; outline-offset: 2px; }
 
 .bk-gauntlet-mode-top { display: flex; width: 100%; align-items: flex-start; justify-content: space-between; gap: 6px; }
@@ -309,42 +309,33 @@
 .bk-gauntlet-mode-action { position: absolute; right: 9px; bottom: 8px; left: 13px; display: flex; align-items: center; justify-content: space-between; color: #d4b66f; font-size: 8px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
 .bk-gauntlet-mode-action svg { width: 12px; height: 12px; }
 
-.bk-gauntlet-mantra {
-  display: grid;
+.bk-gauntlet-daily-card {
+  position: relative;
+  display: flex;
+  min-width: 0;
   min-height: 131px;
-  align-content: center;
-  padding-left: 8px;
-  color: #eee4cc;
-  font-family: "Barlow Condensed", "Arial Narrow", Impact, sans-serif;
-  font-size: clamp(31px, 9vw, 48px);
-  font-weight: 950;
-  line-height: .95;
-  text-transform: uppercase;
-  text-shadow: 0 3px 9px #000;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 12px 12px 28px 57px;
+  overflow: hidden;
+  border: 2px solid #b68a43;
+  border-radius: 13px;
+  color: #f3f0e9;
+  text-align: left;
+  background:
+    radial-gradient(circle at 8% 18%, rgba(240, 203, 117, .22), transparent 32%),
+    radial-gradient(circle at 95% 85%, rgba(159, 111, 43, .18), transparent 42%),
+    linear-gradient(155deg, #2a2721, #121419 72%);
+  box-shadow: inset 0 0 0 2px #090b0e, inset 0 0 0 3px rgba(239, 205, 126, .28), 0 4px 8px rgba(0, 0, 0, .5);
 }
 
-.bk-gauntlet-daily-cta {
-  display: grid;
-  grid-template-columns: 23px 35px minmax(0, 1fr) 23px;
-  width: calc(100% - 14px);
-  min-height: 60px;
-  align-items: center;
-  gap: 5px;
-  margin: 13px 7px 2px;
-  padding: 5px 9px;
-  border: 2px solid #8c6a34;
-  border-radius: 12px;
-  color: #e9cf8d;
-  background: linear-gradient(100deg, #1e2126, #0d1014 55%, #202126);
-  box-shadow: inset 0 0 0 2px #080a0d, inset 0 0 0 3px rgba(226, 190, 106, .19), 0 4px 8px #000;
-}
-
-.bk-gauntlet-daily-cta > span:first-child,
-.bk-gauntlet-daily-cta > span:last-child { color: #9b7c43; font-weight: 900; }
-.bk-gauntlet-daily-play { display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid #8f713a; border-radius: 50%; }
-.bk-gauntlet-daily-play svg { width: 15px; height: 15px; fill: currentColor; }
-.bk-gauntlet-daily-cta strong { overflow: hidden; font-size: 12px; font-weight: 900; letter-spacing: .03em; text-transform: uppercase; text-overflow: ellipsis; white-space: nowrap; }
-.bk-gauntlet-daily-cta:disabled { opacity: .68; }
+.bk-gauntlet-daily-card:active { transform: scale(.985); }
+.bk-gauntlet-daily-card:disabled { opacity: .72; }
+.bk-gauntlet-daily-card-top { display: flex; width: 100%; align-items: center; justify-content: flex-end; gap: 4px; color: #c3a96d; font-size: 6.5px; font-weight: 850; letter-spacing: .04em; text-transform: uppercase; }
+.bk-gauntlet-daily-card-top > svg { position: absolute; top: 17px; left: 14px; width: 34px; height: 34px; color: #efcc7b; stroke-width: 1.7; }
+.bk-gauntlet-daily-card > strong { margin-top: 12px; font-family: "Barlow Condensed", "Arial Narrow", Impact, sans-serif; font-size: clamp(17px, 5vw, 23px); font-weight: 900; line-height: .95; text-transform: uppercase; }
+.bk-gauntlet-daily-card > small { margin-top: 5px; color: #b5b0a4; font-size: 9px; font-weight: 600; line-height: 1.25; }
+.bk-gauntlet-daily-card .bk-gauntlet-mode-action svg { width: 13px; height: 13px; fill: currentColor; }
 
 .bk-gauntlet-tier-backdrop {
   position: fixed;
@@ -435,7 +426,9 @@
   .bk-gauntlet-mode-card { min-height: 154px; padding: 17px 17px 34px 74px; }
   .bk-gauntlet-mode-top > svg { left: 20px; width: 40px; height: 40px; }
   .bk-gauntlet-mode-card > small { font-size: 11px; }
-  .bk-gauntlet-daily-cta { width: calc(100% - 36px); margin-inline: 18px; }
+  .bk-gauntlet-daily-card { min-height: 154px; padding: 17px 17px 34px 74px; }
+  .bk-gauntlet-daily-card-top > svg { left: 20px; width: 40px; height: 40px; }
+  .bk-gauntlet-daily-card > small { font-size: 11px; }
   .bk-gauntlet-tier-backdrop { align-items: center; padding-bottom: 18px; background: rgba(0, 0, 0, .76); }
   .bk-gauntlet-tier-sheet { width: min(100%, 520px); }
   .bk-gauntlet-tier-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
