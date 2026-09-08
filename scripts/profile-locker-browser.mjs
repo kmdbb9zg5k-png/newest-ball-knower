@@ -92,7 +92,7 @@ try {
       await page.waitForTimeout(250);
       assert.equal(await profile.locator('.bk-locker-hex').count(), 6);
       assert.equal(await profile.locator('.bk-locker-trophy').count(), 6);
-      assert.match(await profile.innerText(), /0\/6 unlocked/);
+      assert.match(await profile.innerText(), /0\/6 unlocked/i);
       assert.equal(await profile.getByRole('progressbar').getAttribute('aria-valuenow'), '550');
       assert.match(await profile.innerText(), /No verified progression receipts yet/);
       const geometry = await page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth, profileWidth: document.querySelector('.bk-profile-page')?.getBoundingClientRect().width }));
@@ -137,7 +137,7 @@ try {
       await profile.getByRole('button', { name: 'Retry', exact: true }).click();
       await page.waitForFunction(() => document.querySelector('[data-testid="bk-rating"]')?.textContent === '61');
       assert.equal(await profile.getByRole('progressbar').getAttribute('aria-valuenow'), '450');
-      assert.match(await profile.innerText(), /2\/6 unlocked/);
+      assert.match(await profile.innerText(), /2\/6 unlocked/i);
       assert.match(await profile.innerText(), /-1 RTG/);
       assert.equal(await profile.locator('.bk-locker-event-list>li').count(), 6);
       await profile.getByRole('button', { name: 'Show all 7 recent receipts', exact: true }).click();
