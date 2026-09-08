@@ -17,6 +17,8 @@ const player = read('FantasyPlayerDetail.tsx');
 const draft = read('LeagueLiveDraftRoom.tsx');
 const styles = read('index.css');
 const matchupMobileFix = read('fantasyMatchupMobileFix.css');
+const fantasyHub = read('FantasyHub.tsx');
+const fantasyHubStyles = read('fantasyHub.css');
 
 assert.deepEqual(fantasyPlayerAction('mine', 'Jalen Hurts'), { kind: 'manage', label: 'MANAGE LINEUP' });
 assert.deepEqual(fantasyPlayerAction('opponent', 'Jalen Hurts'), { kind: 'trade', label: 'TRADE FOR JALEN HURTS' });
@@ -91,5 +93,10 @@ assert.ok(player.includes('Rostered by') && player.includes('Available player'),
 assert.ok(draft.includes('bk-fantasy-sticky-nav') && draft.includes('Live Draft') && draft.includes('League Chat'), 'the live draft must share the fantasy system and keep league chat available');
 assert.ok(draft.includes('Auto-pick Queue') && draft.includes('Recent Picks') && draft.includes('Your Roster'), 'draft recovery tools, recent picks and roster context must remain present');
 assert.ok(draft.includes('Projected W-L') && draft.includes('Draft Grade') && draft.includes('report.explanation') && draft.includes('buildFantasyDraftReports'), 'completed draft cards must show every manager a grade explanation and projected record');
+assert.ok(fantasyHub.includes('displayLeagues.map') && fantasyHub.includes('LeagueDestinationCard'), 'Fantasy HQ league cards must render the live league state');
+assert.ok(fantasyHub.includes('enterPublicLeague()') && fantasyHub.includes('onOpenCreateLeague') && fantasyHub.includes('onOpenJoinLeague') && fantasyHub.includes('onSelectLeague'), 'Fantasy HQ must preserve public, create, join, and saved-league actions');
+assert.ok(fantasyHub.includes('triggerRef={guideTriggerRef}') && fantasyHub.includes('guideTriggerRef.current?.click()'), 'Fantasy HQ navigation and help banner must share one ModeGuide dialog');
+assert.ok(fantasyHubStyles.includes('grid-template-columns: repeat(3, minmax(0, 1fr))') && fantasyHubStyles.includes('bk-fantasy-league-card--featured'), 'Fantasy HQ must keep equal premium league tools and a featured league destination');
+assert.ok(fantasyHubStyles.includes('prefers-reduced-motion: reduce') && fantasyHubStyles.includes('[data-motion="off"]'), 'Fantasy HQ stadium motion must honor both OS and broadcast motion controls');
 
 console.log('Fantasy UI system checks passed: ownership, navigation, weekly lineup context, safe areas, contained FLEX/WRT rows, rankings, Player Card actions, draft reports, and draft chat.');

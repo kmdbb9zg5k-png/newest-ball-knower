@@ -1,5 +1,5 @@
-import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
-import React, { useEffect, useMemo, useState } from "react";
+import {BroadcastStage} from './BroadcastScene';
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   Shield,
@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   TrendingDown,
   TrendingUp,
+  ChevronRight,
 } from "lucide-react";
 import { League, Player } from "./types";
 import { useBallKnower } from "./BallKnowerContext";
@@ -24,9 +25,93 @@ import { loadFantasyRankings } from "./fantasyRankingsCloud";
 import type { FantasyRanking } from "./fantasyRankingsCloud";
 import { PLAYERS_DATABASE, KNOWN_PLAYERS_DATABASE } from "./players";
 import { FantasyPlayerDetail } from "./FantasyPlayerDetail";
+import "./fantasyHub.css";
 
 const RANKINGS_PAGE_SIZE = 75;
+const STADIUM_LIGHTS = Array.from({ length: 6 }, (_, index) => index);
+const STADIUM_BANK_BULBS = Array.from({ length: 18 }, (_, index) => index);
 const normalizePlayerName = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+const leagueInitials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(word => word[0]).join("").toUpperCase() || "BK";
+const scoringLabel = (league: League) => {
+  const format = league.settings?.scoringFormat;
+  if (format === "half_ppr") return "Half PPR";
+  if (format === "standard") return "Standard";
+  return "PPR";
+};
+
+const LeagueDestinationCard = ({
+  league,
+  currentUserId,
+  featured,
+  onSelect,
+}: {
+  league: League;
+  currentUserId?: string;
+  featured: boolean;
+  onSelect: (league: League, tab: "lobby" | "draft" | "simulation") => void;
+}) => {
+  const mine = league.members.find(member => member.userId === currentUserId);
+  const submitted = league.members.filter(member => member.status === "ready").length;
+  const completed = league.status === "completed";
+  const isPublic = league.settings?.leagueType === "public_free";
+  const humans = league.members.filter(member => !member.isAi).length;
+  const phase = completed
+    ? "Season complete"
+    : league.status === "simulating"
+      ? `In season${league.settings?.currentWeek ? ` · Week ${league.settings.currentWeek}` : ""}`
+      : league.liveDraft?.status === "active"
+        ? "Live draft"
+        : submitted === league.members.length && submitted > 1
+          ? "Ready to draft"
+          : "Draft setup";
+  const primaryTab = completed ? "simulation" : "lobby";
+
+  return (
+    <article className={`bk-fantasy-league-card${featured ? " bk-fantasy-league-card--featured" : ""}`}>
+      <div className="bk-fantasy-league-summary">
+        <div className="bk-fantasy-league-crest" aria-hidden="true">
+          <span>{leagueInitials(league.name)}</span>
+          {featured && <Crown />}
+        </div>
+        <div className="bk-fantasy-league-copy">
+          <div className="bk-fantasy-league-kicker">
+            {league.commissionerId === currentUserId ? "Commissioner" : isPublic ? "Public free" : league.code}
+          </div>
+          <h4>{league.name}</h4>
+          <p>
+            {league.members.length}/{league.maxMembers} teams <span>•</span> {scoringLabel(league)} <span>•</span> {league.settings?.nflSeason || 2026} season
+          </p>
+          <div className="bk-fantasy-league-status"><i aria-hidden="true" />{phase}</div>
+        </div>
+        <button type="button" className="bk-fantasy-league-open" onClick={() => onSelect(league, primaryTab)} aria-label={`Open ${league.name}`}>
+          <ChevronRight />
+        </button>
+      </div>
+
+      {featured && (
+        <div className="bk-fantasy-league-facts" aria-label={`${league.name} status`}>
+          <span><small>Owners</small><strong>{submitted}/{league.members.length} ready</strong></span>
+          <span><small>Your roster</small><strong>{mine?.status === "ready" ? "Locked" : "Build"}</strong></span>
+          <span><small>{league.liveDraft?.status === "completed" ? "Players" : "Cap"}</small><strong>{league.liveDraft?.status === "completed" ? `${league.liveDraft.picks.length} drafted` : `${league.salaryCap}M`}</strong></span>
+          {isPublic && <span><small>Managers</small><strong>{humans} human</strong></span>}
+        </div>
+      )}
+
+      <div className="bk-fantasy-league-actions">
+        <button type="button" onClick={() => onSelect(league, primaryTab)}>
+          {completed ? <Trophy /> : <Users />}
+          {completed ? "View results" : "League HQ"}
+        </button>
+        {!completed && (
+          <button type="button" className="bk-fantasy-league-actions-primary" onClick={() => onSelect(league, "draft")}>
+            {mine?.status === "ready" ? "Draft board" : "Build team"}
+            <ArrowRight />
+          </button>
+        )}
+      </div>
+    </article>
+  );
+};
 const fantasyPlayerFromRanking = (ranking?: FantasyRanking): Player | null => {
   if (!ranking) return null;
   const exactId = KNOWN_PLAYERS_DATABASE.find(player => player.id === ranking.player_key);
@@ -65,11 +150,8 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
   onOpenJoinLeague,
   onSelectLeague,
 }) => {
-  const { leagues, currentUser, joinPublicLeague } = useBallKnower();
-  const memberCount = leagues.reduce(
-    (sum, league) => sum + league.members.length,
-    0,
-  );
+  const { leagues, currentUser, activeLeague, joinPublicLeague } = useBallKnower();
+  const guideTriggerRef = useRef<HTMLButtonElement>(null);
   const resumablePublicLeague = leagues.find(
     (league) =>
       league.settings?.leagueType === "public_free" &&
@@ -77,6 +159,11 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
         league.liveDraft?.status === "active" ||
         (league.status === "completed" && !league.liveDraft)),
   );
+  const activeLeagueId = activeLeague?.id;
+  const displayLeagues = useMemo(() => {
+    if (!activeLeagueId) return leagues;
+    return [...leagues].sort((left, right) => Number(right.id === activeLeagueId) - Number(left.id === activeLeagueId));
+  }, [activeLeagueId, leagues]);
   const [search, setSearch] = useState("");
   const [position, setPosition] = useState("ALL");
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
@@ -208,289 +295,125 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
   };
 
   return (
-    <BroadcastStage scene="tunnel" page="fantasy" quiet={view==='cheatsheet'} className="min-h-[calc(100dvh-7rem)] px-4 pb-10 pt-5 text-white sm:px-8">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div className="grid flex-1 grid-cols-2 rounded-2xl border border-white/10 bg-[#0b0d10] p-1">
-            <button
-              onClick={() => onViewChange("leagues")}
-              className={`min-h-11 rounded-xl text-xs font-black uppercase ${view === "leagues" ? "bg-[#D4AF37] text-black" : "text-zinc-400"}`}
-            >
-              League HQ
-            </button>
-            <button
-              onClick={() => onViewChange("cheatsheet")}
-              className={`min-h-11 rounded-xl text-xs font-black uppercase ${view === "cheatsheet" ? "bg-[#D4AF37] text-black" : "text-zinc-400"}`}
-            >
-              Cheat Sheet
-            </button>
-          </div>
+    <BroadcastStage scene="tunnel" page="fantasy" quiet={view==='cheatsheet'} className="bk-fantasy-hq-screen min-h-[calc(100dvh-7rem)] text-white">
+      <div className="bk-fantasy-hq-shell mx-auto max-w-6xl">
+        <nav className="bk-fantasy-hq-tabs" aria-label="Fantasy views">
+          <button
+            type="button"
+            onClick={() => onViewChange("leagues")}
+            aria-current={view === "leagues" ? "page" : undefined}
+          >
+            League HQ
+          </button>
+          <button
+            type="button"
+            onClick={() => onViewChange("cheatsheet")}
+            aria-current={view === "cheatsheet" ? "page" : undefined}
+          >
+            Cheat Sheet
+          </button>
           <ModeGuide
+            triggerRef={guideTriggerRef}
             storageKey="bk-guide-fantasy-hq-v3"
             title="Fantasy"
-            summary="Use the Cheat Sheet for projected-versus-actual player rankings. League HQ is where you create, join and manage leagues."
+            summary="League HQ is where you create, join, resume, and manage leagues. The Cheat Sheet keeps your full-PPR player board close by."
             steps={[
-              "Open Cheat Sheet for the full-PPR player board.",
-              "Compare the 2026 projection with the 2025 actual score and movement arrow.",
-              "Tap a player for the reasoning and data sources.",
+              "Open a saved league to return to its lobby, roster, draft, or results.",
+              "Create a league, join with a commissioner code, or enter free public matchmaking.",
+              "Open Cheat Sheet to compare player rankings, projections, and movement.",
             ]}
           />
-        </div>
+        </nav>
         {view === "leagues" && (
           <>
-            <BroadcastMasthead eyebrow="Your league. Your legacy." title="Fantasy HQ" subtitle="Create, join, and manage your leagues. Build the team everyone has to beat."/>
-
-            <div className="bk-fantasy-actions mb-5 grid gap-2 sm:mb-9 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
-              <button
-                onClick={() => void enterPublicLeague()}
-                disabled={publicMatchBusy}
-                className="group flex min-h-20 items-center gap-3 rounded-2xl border border-emerald-300/45 bg-emerald-300 p-3 text-left text-[#07100c] shadow-lg shadow-emerald-300/10 transition active:scale-[.99] disabled:opacity-60 sm:min-h-28 sm:gap-4 sm:p-5"
-              >
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-black/15 bg-black/5 sm:h-12 sm:w-12">
-                  {publicMatchBusy ? (
-                    <LoaderCircle className="h-5 w-5 animate-spin sm:h-6 sm:w-6" />
-                  ) : (
-                    <Globe2 className="h-5 w-5 sm:h-6 sm:w-6" />
-                  )}
+            <section className="bk-fantasy-hq-hero" aria-labelledby="fantasy-hq-title" data-testid="fantasy-hq-hero">
+              <div className="bk-fantasy-hq-stadium" aria-hidden="true">
+                <img src="/atmosphere/home-stadium.webp" alt="" />
+                <div className="bk-fantasy-hq-tint" />
+                <div className="bk-home-floodlights bk-fantasy-hq-floodlights">
+                  {STADIUM_LIGHTS.map(index => <i className="bk-home-floodlight" key={index} />)}
                 </div>
-                <div>
-                  <div className="text-base font-black uppercase sm:text-xl">
-                    {resumablePublicLeague
-                      ? "Resume Public League"
-                      : "Public Free League"}
-                  </div>
-                  <div className="mt-0.5 text-[10px] font-bold leading-4 text-black/65 sm:mt-1 sm:text-xs">
-                    {resumablePublicLeague
-                      ? `${resumablePublicLeague.code} · Continue your saved ${resumablePublicLeague.liveDraft?.status === "active" ? "live draft" : "league setup"}.`
-                      : "Real people first. CPU fills open spots only when you choose."}
-                  </div>
+                <div className="bk-fantasy-hq-light-bank bk-fantasy-hq-light-bank--left">
+                  {STADIUM_BANK_BULBS.map(index => <i key={index} />)}
                 </div>
-                <ArrowRight className="ml-auto h-4 w-4 shrink-0 transition group-hover:translate-x-1 sm:h-6 sm:w-6" />
-              </button>
-              <button
-                onClick={onOpenCreateLeague}
-                className="group flex min-h-20 items-center gap-3 rounded-2xl border border-[#D4AF37]/50 bg-[#D4AF37] p-3 text-left text-black shadow-lg shadow-[#D4AF37]/10 transition active:scale-[.99] sm:min-h-28 sm:gap-4 sm:p-5"
-              >
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-black/15 bg-black/5 sm:h-12 sm:w-12">
-                  <Shield className="h-5 w-5 sm:h-6 sm:w-6" />
+                <div className="bk-fantasy-hq-light-bank bk-fantasy-hq-light-bank--right">
+                  {STADIUM_BANK_BULBS.map(index => <i key={index} />)}
                 </div>
-                <div>
-                  <div className="text-base font-black uppercase sm:text-xl">
-                    Create League
-                  </div>
-                  <div className="mt-0.5 text-[10px] font-bold leading-4 text-black/65 sm:mt-1 sm:text-xs">
-                    Start a league, then pick one of three draft-order methods.
-                  </div>
-                </div>
-                <ArrowRight className="ml-auto h-4 w-4 shrink-0 transition group-hover:translate-x-1 sm:h-6 sm:w-6" />
-              </button>
-              <button
-                onClick={onOpenJoinLeague}
-                className="group flex min-h-20 items-center gap-3 rounded-2xl border border-white/10 bg-[#111318]/95 p-3 text-left transition hover:border-[#D4AF37]/40 active:scale-[.99] sm:min-h-28 sm:gap-4 sm:p-5"
-              >
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#D4AF37]/20 bg-[#D4AF37]/5 sm:h-12 sm:w-12">
-                  <Users className="h-5 w-5 text-[#D4AF37] sm:h-6 sm:w-6" />
-                </div>
-                <div>
-                  <div className="text-base font-black uppercase sm:text-xl">
-                    Join With Code
-                  </div>
-                  <div className="mt-0.5 text-[10px] font-semibold leading-4 text-zinc-400 sm:mt-1 sm:text-xs">
-                    Enter the commissioner’s code and join instantly.
-                  </div>
-                </div>
-                <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-[#D4AF37] transition group-hover:translate-x-1 sm:h-6 sm:w-6" />
-              </button>
-            </div>
-            {publicMatchError && (
-              <div className="-mt-6 mb-8 rounded-xl border border-red-400/25 bg-red-400/5 p-3 text-xs font-bold text-red-300">
-                {publicMatchError}
+                <div className="bk-home-haze bk-fantasy-hq-haze" />
+                <div className="bk-fantasy-hq-shade" />
               </div>
-            )}
-
-            <div className="mb-4 flex items-end justify-between border-b border-white/10 pb-4">
-              <div>
-                <h3 className="font-display text-2xl font-black uppercase">
-                  Your Leagues
-                </h3>
-                <p className="mt-1 text-xs font-semibold text-zinc-500">
-                  {leagues.length} active or saved league
-                  {leagues.length === 1 ? "" : "s"}
-                </p>
+              <div className="bk-fantasy-hq-hero-copy">
+                <p>Your league. Your legacy.</p>
+                <h1 id="fantasy-hq-title">Fantasy <span>HQ</span></h1>
+                <div>Create, join, and manage your leagues.<br />Build the team everyone has to beat.</div>
               </div>
-              <button
-                onClick={onOpenCreateLeague}
-                className="min-h-11 rounded-lg border border-[#D4AF37]/35 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-[#D4AF37]"
-              >
-                + New League
-              </button>
+            </section>
+
+            <div className="bk-fantasy-section-heading">
+              <h2>Your Leagues</h2>
+              <span>{leagues.length} saved <ChevronRight /></span>
             </div>
 
             {leagues.length === 0 ? (
-              <div className="rounded-2xl border border-white/10 bg-[#101216]/90 p-10 text-center">
-                <Trophy className="mx-auto mb-3 h-10 w-10 text-[#D4AF37]/60" />
-                <div className="font-black uppercase">
+              <div className="bk-fantasy-leagues-empty">
+                <Trophy />
+                <div>
                   Your trophy case is empty
                 </div>
-                <p className="mx-auto mt-2 max-w-sm text-sm text-zinc-500">
+                <p>
                   Create your first league or join your friends with a code.
                 </p>
               </div>
             ) : (
-              <div className="grid gap-4">
-                {leagues.map((league) => {
-                  const mine = league.members.find(
-                    (m) => m.userId === currentUser?.id,
-                  );
-                  const submitted = league.members.filter(
-                    (m) => m.status === "ready",
-                  ).length;
-                  const completed = league.status === "completed";
-                  const isPublic =
-                    league.settings?.leagueType === "public_free";
-                  const humans = league.members.filter(
-                    (member) => !member.isAi,
-                  ).length;
-                  const cpu = league.members.length - humans;
-                  return (
-                    <article
-                      key={league.id}
-                      className="group relative overflow-hidden rounded-2xl border border-white/10 bg-[#0d1014]/95 p-5 shadow-xl sm:p-6"
-                    >
-                      <div className="pointer-events-none absolute right-0 top-0 h-full w-1/2 bg-[radial-gradient(circle_at_80%_45%,rgba(212,175,55,.12),transparent_55%)]" />
-                      <div className="relative z-10">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#D4AF37]">
-                              {league.commissionerId === currentUser?.id && (
-                                <>
-                                  <Crown className="h-3.5 w-3.5" /> Commissioner
-                                  ·{" "}
-                                </>
-                              )}
-                              {isPublic && <>Public Free · </>}
-                              {league.code}
-                            </div>
-                            <h4 className="mt-2 font-display text-2xl font-black uppercase sm:text-3xl">
-                              {league.name}
-                            </h4>
-                            <div className="mt-1 text-xs font-bold uppercase tracking-wider text-zinc-500">
-                              {league.members.length}/{league.maxMembers} teams
-                              ·{" "}
-                              {completed
-                                ? "Complete"
-                                : isPublic
-                                  ? `${humans} human${humans === 1 ? "" : "s"} · ${cpu} CPU`
-                                  : "Private league"}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="mt-5 grid grid-cols-2 gap-2 border-y border-white/5 py-4 sm:grid-cols-4">
-                          <div>
-                            <div className="text-[9px] font-black uppercase tracking-widest text-zinc-600">
-                              Current Phase
-                            </div>
-                            <div className="mt-1 text-sm font-black text-[#D4AF37]">
-                              {completed
-                                ? "FINAL"
-                                : league.status === "simulating"
-                                  ? "SIMULATING"
-                                  : submitted === league.members.length &&
-                                      submitted > 1
-                                    ? "READY"
-                                    : "DRAFT"}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-[9px] font-black uppercase tracking-widest text-zinc-600">
-                              Owners Ready
-                            </div>
-                            <div className="mt-1 text-sm font-black">
-                              {submitted}/{league.members.length}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-[9px] font-black uppercase tracking-widest text-zinc-600">
-                              Your Roster
-                            </div>
-                            <div className="mt-1 text-sm font-black">
-                              {mine?.status === "ready" ? "LOCKED" : "BUILD"}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-[9px] font-black uppercase tracking-widest text-zinc-600">
-                              {league.liveDraft?.status === "completed"
-                                ? "Format"
-                                : "Cap"}
-                            </div>
-                            <div className="mt-1 text-sm font-black">
-                              {league.liveDraft?.status === "completed"
-                                ? "PPR"
-                                : `${league.salaryCap}M`}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-                          <button
-                            onClick={() =>
-                              onSelectLeague(
-                                league,
-                                completed ? "simulation" : "lobby",
-                              )
-                            }
-                            className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[.04] px-4 py-3 text-xs font-black uppercase tracking-wider hover:border-[#D4AF37]/35"
-                          >
-                            {completed ? (
-                              <Trophy className="h-4 w-4" />
-                            ) : (
-                              <Users className="h-4 w-4" />
-                            )}
-                            {completed ? "View Results" : "League Lobby"}
-                          </button>
-                          {!completed && (
-                            <button
-                              onClick={() => onSelectLeague(league, "draft")}
-                              className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#D4AF37] px-4 py-3 text-xs font-black uppercase tracking-wider text-black"
-                            >
-                              {mine?.status === "ready"
-                                ? "View Draft Board"
-                                : "Build Your Team"}
-                              <ArrowRight className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </article>
-                  );
-                })}
+              <div className="bk-fantasy-league-grid" data-testid="fantasy-league-grid">
+                {displayLeagues.map((league, leagueIndex) => (
+                  <LeagueDestinationCard
+                    key={league.id}
+                    league={league}
+                    currentUserId={currentUser?.id}
+                    featured={leagueIndex === 0}
+                    onSelect={onSelectLeague}
+                  />
+                ))}
               </div>
             )}
 
-            <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#0b0d10]/90 p-4">
-              <div>
-                <div className="text-[10px] font-black uppercase tracking-[.22em] text-[#D4AF37]">
-                  League Command Center
+            <section className="bk-fantasy-tools" aria-labelledby="fantasy-tools-title">
+              <div className="bk-fantasy-section-heading">
+                <h2 id="fantasy-tools-title">League Tools</h2>
+              </div>
+              <div className="bk-fantasy-tool-grid" data-testid="fantasy-tool-grid">
+                <button type="button" onClick={onOpenCreateLeague}>
+                  <Shield />
+                  <strong>Create League</strong>
+                  <span>Start a league in minutes.</span>
+                  <ChevronRight />
+                </button>
+                <button type="button" onClick={onOpenJoinLeague}>
+                  <Users />
+                  <strong>Join With Code</strong>
+                  <span>Enter a commissioner code.</span>
+                  <ChevronRight />
+                </button>
+                <button type="button" onClick={() => void enterPublicLeague()} disabled={publicMatchBusy}>
+                  {publicMatchBusy ? <LoaderCircle className="bk-fantasy-tool-spinner" /> : <Globe2 />}
+                  <strong>{resumablePublicLeague ? "Resume Public" : "Public League"}</strong>
+                  <span>{resumablePublicLeague ? `Continue ${resumablePublicLeague.code}.` : "Find and join a free league."}</span>
+                  <ChevronRight />
+                </button>
+              </div>
+              {publicMatchError && (
+                <div className="bk-fantasy-public-error" role="alert">
+                  <AlertTriangle /> {publicMatchError}
                 </div>
-                <p className="mt-1 text-xs font-semibold text-zinc-500">
-                  Open a league above to manage its lobby, roster, draft and
-                  results.
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={onOpenJoinLeague}
-                  className="min-h-11 rounded-xl border border-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-wider text-zinc-300"
-                >
-                  Join Code
-                </button>
-                <button
-                  onClick={onOpenCreateLeague}
-                  className="min-h-11 rounded-xl bg-[#D4AF37] px-4 py-2 text-[10px] font-black uppercase tracking-wider text-black"
-                >
-                  New League
-                </button>
-              </div>
-            </div>
+              )}
+            </section>
+
+            <button type="button" className="bk-fantasy-help-card" onClick={() => guideTriggerRef.current?.click()}>
+              <span className="bk-fantasy-help-icon"><Trophy /></span>
+              <span><strong>Need help getting started?</strong><small>Learn how Ball Knower Fantasy works.</small></span>
+              <ChevronRight />
+            </button>
           </>
         )}
         {view === "cheatsheet" && (
