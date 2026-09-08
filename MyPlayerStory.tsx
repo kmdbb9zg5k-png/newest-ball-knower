@@ -2,9 +2,9 @@ import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Dumbbell, Play, RotateCcw, Sparkles, Upload } from 'lucide-react';
 import { FranchiseSeason } from './FranchiseSeason';
-import { buildRealTeamRoster, SOLO_FRANCHISE_SAVE_KEYS } from './soloFranchiseEngine';
+import { buildSoloTeamRoster, SOLO_FRANCHISE_SAVE_KEYS } from './soloFranchiseEngine';
 import { getDraftPositionGroup } from './rosterRules';
-import { TEAM_THEMES, teamLogoUrl } from './teamTheme';
+import { SOLO_TEAM_THEMES, soloTeamLogoUrl } from './soloUniverse';
 import { Player, Position } from './types';
 import { ensureOnlineSession, supabase } from './supabase';
 import { AiPhotoConsent, AI_PHOTO_CONSENT_VERSION } from './AiPhotoConsent';
@@ -98,7 +98,7 @@ function restoreProfile() {
     if (!raw) return EMPTY_PROFILE;
     const saved = JSON.parse(raw);
     if (saved?.version !== 1 || !POSITIONS.includes(saved.position) || !['creator', 'combine', 'drafted', 'season'].includes(saved.stage)) return EMPTY_PROFILE;
-    if (['drafted', 'season'].includes(saved.stage) && !TEAM_THEMES.some(team => team.abbr === saved.teamAbbr)) return EMPTY_PROFILE;
+    if (['drafted', 'season'].includes(saved.stage) && !SOLO_TEAM_THEMES.some(team => team.abbr === saved.teamAbbr)) return EMPTY_PROFILE;
     return { ...EMPTY_PROFILE, ...saved } as MyPlayerProfile;
   } catch {
     return EMPTY_PROFILE;
@@ -136,7 +136,7 @@ async function compressImage(source: File | string, maxSize = 640, quality = 0.7
 }
 
 function playerFromProfile(profile: MyPlayerProfile): Player {
-  const team = TEAM_THEMES.find(item => item.abbr === profile.teamAbbr) ?? TEAM_THEMES[0];
+  const team = SOLO_TEAM_THEMES.find(item => item.abbr === profile.teamAbbr) ?? SOLO_TEAM_THEMES[0];
   return {
     id: 'my-player-user',
     playerId: 'my-player-user',
@@ -177,7 +177,7 @@ function playerFromProfile(profile: MyPlayerProfile): Player {
 
 function rosterWithMyPlayer(profile: MyPlayerProfile) {
   const created = playerFromProfile(profile);
-  const roster = buildRealTeamRoster(profile.teamAbbr);
+  const roster = buildSoloTeamRoster(profile.teamAbbr);
   const group = getDraftPositionGroup(created);
   const replaceable = roster
     .map((player, index) => ({ player, index }))
@@ -196,7 +196,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
   const [isRendering, setIsRendering] = useState(false);
   const [aiConsent, setAiConsent] = useState(false);
   const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
-  const draftedTeam = TEAM_THEMES.find(team => team.abbr === profile.teamAbbr) ?? null;
+  const draftedTeam = SOLO_TEAM_THEMES.find(team => team.abbr === profile.teamAbbr) ?? null;
 
   useEffect(() => {
     try {
@@ -299,7 +299,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
   const enterDraft = () => {
     const combine = calculateCombineResults(profile);
     const value = hash(`${profile.name}:${profile.position}:${profile.number}:${profile.heightInches}:${profile.weightLbs}:${combine.score}`);
-    const team = TEAM_THEMES[value % TEAM_THEMES.length];
+    const team = SOLO_TEAM_THEMES[value % SOLO_TEAM_THEMES.length];
     const draftRound = combine.score >= 90 ? 1 : combine.score >= 82 ? 2 : combine.score >= 74 ? 3 : combine.score >= 66 ? 4 : combine.score >= 58 ? 5 : 6 + (value % 2);
     const draftPick = 1 + ((value >>> 5) % 32);
     const overallChange = combine.score >= 90 ? 4 : combine.score >= 80 ? 2 : combine.score < 58 ? -2 : 0;
@@ -369,7 +369,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
     );
   }
 
-  const stageTitle = profile.stage === 'creator' ? 'CREATE' : profile.stage === 'combine' ? 'NFL COMBINE' : 'DRAFT NIGHT';
+  const stageTitle = profile.stage === 'creator' ? 'CREATE' : profile.stage === 'combine' ? 'PRO COMBINE' : 'DRAFT NIGHT';
 
   return (
     <BroadcastStage scene="locker" page="my-player" quiet={profile.stage!=='creator'} className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
@@ -435,9 +435,9 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
             <div><PlayerRender profile={profile} /><ViewSlider value={profile.viewRotation} onChange={value => updateSlider('viewRotation', value)} /></div>
             <div className="rounded-[2rem] border border-white/10 bg-[#10151d] p-7 text-center">
               <div className="text-[10px] font-black tracking-[.25em] text-[var(--bk-team-accent)]">WITH THE #{profile.draftPick} PICK IN ROUND {profile.draftRound}</div>
-              <img src={teamLogoUrl(draftedTeam.abbr)} alt="" aria-hidden="true" className="mx-auto mt-5 h-28 w-28 object-contain" />
+              <img src={soloTeamLogoUrl(draftedTeam.abbr)} alt="" aria-hidden="true" className="mx-auto mt-5 h-28 w-28 object-contain" />
               <h2 className="mt-4 text-4xl font-black">{draftedTeam.name}</h2>
-              <p className="mt-2 text-zinc-400">The selection is {profile.name}, {profile.position}, {feetAndInches(profile.heightInches)}, {profile.weightLbs} lbs. Your NFL story starts now.</p>
+              <p className="mt-2 text-zinc-400">The selection is {profile.name}, {profile.position}, {feetAndInches(profile.heightInches)}, {profile.weightLbs} lbs. Your Ball Knower League story starts now.</p>
               <button type="button" onClick={beginSeason} className="mt-6 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)]"><Play className="mr-2 inline" /> BEGIN ROOKIE SEASON</button>
             </div>
           </div>
@@ -565,7 +565,7 @@ const Combine = ({ profile, onDraft }: { profile: MyPlayerProfile; onDraft: () =
       <div className="mt-6 grid grid-cols-3 gap-2"><CombineStat label="40-YARD" value={`${combine.forty.toFixed(2)}s`} /><CombineStat label="BENCH" value={`${combine.bench}`} /><CombineStat label="VERTICAL" value={`${combine.vertical}”`} /></div>
       <div className="mt-3 rounded-2xl border border-[var(--bk-team-accent)]/25 bg-[var(--bk-team-accent)]/10 p-4"><div className="text-[10px] font-black tracking-widest text-[var(--bk-team-accent)]">DRAFT STOCK · {combine.label}</div><div className="mt-1 text-3xl font-black">{combine.score}/100</div><p className="mt-1 text-xs font-semibold text-zinc-400">These drill results now determine your draft round and can raise or lower your starting overall.</p></div>
       <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 p-4"><div className="text-xs font-black text-[var(--bk-team-accent)]">SCOUTING REPORT</div><p className="mt-2 text-sm leading-relaxed text-zinc-400">Explosive {profile.position} prospect with a {profile.overall} OVR foundation. At {feetAndInches(profile.heightInches)} and {profile.weightLbs} pounds, scouts see immediate upside, but every snap will determine how quickly the ratings climb.</p></div>
-      <button type="button" onClick={onDraft} className="mt-6 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)]"><Sparkles className="mr-2 inline" /> ENTER THE NFL DRAFT</button>
+      <button type="button" onClick={onDraft} className="mt-6 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)]"><Sparkles className="mr-2 inline" /> ENTER THE PRO DRAFT</button>
     </div>
   );
 };

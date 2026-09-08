@@ -13,8 +13,9 @@ import {
   SoloDifficulty,
   SoloWeek,
 } from './soloSeasonEngine';
-import { buildFranchiseRookieClass, buildRealTeamRoster, FranchiseRookieProspect, franchiseSchedule, makeFranchiseOpponent, replaceFranchisePlayersWithRookies } from './soloFranchiseEngine';
-import { TeamTheme, TEAM_THEMES, teamLogoUrl } from './teamTheme';
+import { buildFranchiseRookieClass, buildSoloTeamRoster, FranchiseRookieProspect, franchiseSchedule, makeFranchiseOpponent, replaceFranchisePlayersWithRookies } from './soloFranchiseEngine';
+import { TeamTheme } from './teamTheme';
+import { SOLO_TEAM_THEMES, soloTeamLogoUrl } from './soloUniverse';
 import { LeagueMember, Player, TeamRatings } from './types';
 import { ensureFranchiseDraftYear, FranchiseDraftPick, ownedFranchiseDraftRounds } from './franchiseDraftPicks';
 
@@ -23,7 +24,7 @@ type SeasonStage = 'regular' | 'playoffs' | 'finished' | 'draft';
 type RookieProspect = FranchiseRookieProspect;
 type Conference = 'AFC' | 'NFC';
 type PlayoffSeed = { abbr: string; name: string; conference: Conference; seed: number; wins: number; losses: number; differential: number };
-type PlayoffMatchup = { round: 'WILD CARD' | 'DIVISIONAL' | 'CONFERENCE CHAMPIONSHIP' | 'SUPER BOWL'; opponentAbbr: string; opponentSeed: number };
+type PlayoffMatchup = { round: 'WILD CARD' | 'DIVISIONAL' | 'CONFERENCE CHAMPIONSHIP' | 'LEGACY BOWL'; opponentAbbr: string; opponentSeed: number };
 
 type Props = {
   title: string;
@@ -42,8 +43,8 @@ type Props = {
   onSeasonYearChange?: (year: number) => void;
 };
 
-const AFC = new Set(['BAL','BUF','CIN','CLE','DEN','HOU','IND','JAX','KC','LAC','LV','MIA','NE','NYJ','PIT','TEN']);
-const conferenceFor = (abbr: string): Conference => AFC.has(abbr) ? 'AFC' : 'NFC';
+const EASTERN_CONFERENCE = new Set(SOLO_TEAM_THEMES.slice(0, 16).map(team => team.abbr));
+const conferenceFor = (abbr: string): Conference => EASTERN_CONFERENCE.has(abbr) ? 'AFC' : 'NFC';
 const stableNumber = (value: string) => Array.from(value).reduce((total, character) => Math.imul(total ^ character.charCodeAt(0), 16777619), 2166136261) >>> 0;
 const pairWinner = (first: PlayoffSeed, second: PlayoffSeed, userAbbr: string) => first.abbr === userAbbr ? first : second.abbr === userAbbr ? second : first.seed < second.seed ? first : second;
 const romanNumeral = (value: number) => {
@@ -81,7 +82,7 @@ export function applyFranchiseGamePlan(ratings: TeamRatings, gamePlan: string): 
 }
 
 export function buildFranchisePlayoffField(userTeam: TeamTheme, userWins: number, userDifferential: number, teamOverall: (team: TeamTheme) => number, year = 2026): PlayoffSeed[] {
-  const rows = TEAM_THEMES.map(team => {
+  const rows = SOLO_TEAM_THEMES.map(team => {
     const overall = teamOverall(team);
     const variation = (stableNumber(`${team.abbr}:${year}-playoffs`) % 5) - 2;
     const wins = team.abbr === userTeam.abbr ? userWins : Math.max(3, Math.min(14, Math.round(8 + (overall - 78) / 3 + variation)));
@@ -115,7 +116,7 @@ export function buildFranchisePlayoffPath(field: PlayoffSeed[], userAbbr: string
     ...(userWildOpponent ? [{ round: 'WILD CARD' as const, opponentAbbr: userWildOpponent.abbr, opponentSeed: userWildOpponent.seed }] : []),
     ...(userDivisionalOpponent ? [{ round: 'DIVISIONAL' as const, opponentAbbr: userDivisionalOpponent.abbr, opponentSeed: userDivisionalOpponent.seed }] : []),
     ...(conferenceOpponent ? [{ round: 'CONFERENCE CHAMPIONSHIP' as const, opponentAbbr: conferenceOpponent.abbr, opponentSeed: conferenceOpponent.seed }] : []),
-    ...(otherChampion ? [{ round: 'SUPER BOWL' as const, opponentAbbr: otherChampion.abbr, opponentSeed: otherChampion.seed }] : []),
+    ...(otherChampion ? [{ round: 'LEGACY BOWL' as const, opponentAbbr: otherChampion.abbr, opponentSeed: otherChampion.seed }] : []),
   ];
 }
 
@@ -204,7 +205,7 @@ export const FranchiseSeason: React.FC<Props> = ({
 
   useEffect(() => {
     if (!onDraftPickAssetsChange || draftPickAssets === undefined) return;
-    const next = ensureFranchiseDraftYear(draftPickAssets, year + 1, TEAM_THEMES.map(team => team.abbr));
+    const next = ensureFranchiseDraftYear(draftPickAssets, year + 1, SOLO_TEAM_THEMES.map(team => team.abbr));
     if (next.length !== draftPickAssets.length) onDraftPickAssetsChange(next);
   }, [draftPickAssets, onDraftPickAssetsChange, year]);
 
@@ -216,7 +217,7 @@ export const FranchiseSeason: React.FC<Props> = ({
     }
   }, [seasonKey, stage, weeks, playoffs, injuries, message, draftRound, draftedProspects, seasonRoster, playoffField, year]);
 
-  const rosterFor = (team: TeamTheme) => opponentRosters?.[team.abbr] ?? buildRealTeamRoster(team.abbr);
+  const rosterFor = (team: TeamTheme) => opponentRosters?.[team.abbr] ?? buildSoloTeamRoster(team.abbr);
   const unlockSimulation = () => window.setTimeout(() => {
     simulationLock.current = false;
     setIsSimulating(false);
@@ -297,7 +298,7 @@ export const FranchiseSeason: React.FC<Props> = ({
     simulationLock.current = true;
     setIsSimulating(true);
     try {
-    const opponentTeam = TEAM_THEMES.find(team => team.abbr === nextPlayoffMatchup?.opponentAbbr);
+    const opponentTeam = SOLO_TEAM_THEMES.find(team => team.abbr === nextPlayoffMatchup?.opponentAbbr);
     if (!opponentTeam) return;
     const opponent = makeFranchiseOpponent(opponentTeam, rosterFor(opponentTeam), difficulty as SoloDifficulty, `playoff-${playoffs.length}`);
     const me: LeagueMember = {
@@ -325,9 +326,9 @@ export const FranchiseSeason: React.FC<Props> = ({
     if (!won) {
       setStage('finished');
       setMessage(`${round}: ${you}-${them}. Your run ends here.`);
-    } else if (round === 'SUPER BOWL') {
+    } else if (round === 'LEGACY BOWL') {
       setStage('finished');
-      setMessage(`WORLD CHAMPION — ${userTeam.name} won Super Bowl ${romanNumeral(61 + year - 2026)} ${you}-${them}.`);
+      setMessage(`WORLD CHAMPION — ${userTeam.name} won Legacy Bowl ${romanNumeral(1 + year - 2026)} ${you}-${them}.`);
     } else {
       setMessage(`${round} WIN ${you}-${them}. Keep going.`);
     }
@@ -369,7 +370,7 @@ export const FranchiseSeason: React.FC<Props> = ({
     setPlayoffField([]);
     setYear(nextYear);
     onSeasonYearChange?.(nextYear);
-    if (draftPickAssets !== undefined) onDraftPickAssetsChange?.(ensureFranchiseDraftYear(draftPickAssets, nextYear + 1, TEAM_THEMES.map(team => team.abbr)));
+    if (draftPickAssets !== undefined) onDraftPickAssetsChange?.(ensureFranchiseDraftYear(draftPickAssets, nextYear + 1, SOLO_TEAM_THEMES.map(team => team.abbr)));
     setStage('regular');
     setDraftRound(1);
     setMessage(selected.length
@@ -490,13 +491,13 @@ export const FranchiseSeason: React.FC<Props> = ({
         {stage === 'playoffs' ? (
           <div className="rounded-[2rem] border border-white/10 bg-[#10151d] p-5 text-center sm:p-8">
             <Trophy className="mx-auto text-[var(--bk-team-accent)]" size={58} />
-            <h3 className="mt-3 text-4xl font-black">NFL PLAYOFFS</h3>
+            <h3 className="mt-3 text-4xl font-black">BK LEAGUE PLAYOFFS</h3>
             <div className="mt-6 grid gap-2 sm:grid-cols-4">
-              {['WILD CARD', 'DIVISIONAL', 'CONFERENCE CHAMPIONSHIP', 'SUPER BOWL'].map(label => {
+              {['WILD CARD', 'DIVISIONAL', 'CONFERENCE CHAMPIONSHIP', 'LEGACY BOWL'].map(label => {
                 const result = playoffs.find(game => game.round === label);
                 const scheduled = playoffPath.find(game => game.round === label);
                 const bye = label === 'WILD CARD' && playoffField.find(team => team.abbr === userTeam.abbr)?.seed === 1;
-                const opponent = scheduled ? TEAM_THEMES.find(team => team.abbr === scheduled.opponentAbbr) : null;
+                const opponent = scheduled ? SOLO_TEAM_THEMES.find(team => team.abbr === scheduled.opponentAbbr) : null;
                 return <div key={label} className="rounded-2xl border border-white/10 bg-black/20 p-3 text-left"><div className="text-[9px] font-black text-[var(--bk-team-accent)]">{label === 'CONFERENCE CHAMPIONSHIP' ? 'CONFERENCE' : label}</div><div className="mt-2 font-black">{bye ? 'FIRST-ROUND BYE' : result ? `${result.won ? 'WIN' : 'LOSS'} ${result.you}-${result.them}` : scheduled ? `VS #${scheduled.opponentSeed}` : 'TBD'}</div>{result ? <div className="truncate text-xs text-zinc-500">{result.opponent}</div> : opponent ? <div className="truncate text-xs text-zinc-500">{opponent.name}</div> : null}</div>;
               })}
             </div>
@@ -507,7 +508,7 @@ export const FranchiseSeason: React.FC<Props> = ({
         {stage === 'finished' ? (
           <div className="rounded-[2rem] border border-[var(--bk-team-accent)]/30 bg-[#10151d] p-7 text-center">
             <Trophy className="mx-auto text-[var(--bk-team-accent)]" size={64} />
-            <h3 className="mt-4 text-4xl font-black">{message.includes('WORLD CHAMPION') ? 'SUPER BOWL CHAMPION' : 'SEASON COMPLETE'}</h3>
+            <h3 className="mt-4 text-4xl font-black">{message.includes('WORLD CHAMPION') ? 'LEGACY BOWL CHAMPION' : 'SEASON COMPLETE'}</h3>
             <p className="mx-auto mt-3 max-w-xl text-zinc-400">{message}</p>
             <button type="button" onClick={startDraft} className="mt-6 rounded-2xl bg-[var(--bk-team-accent)] px-6 py-4 font-black text-[var(--bk-on-accent)]">ENTER OFFSEASON DRAFT</button>
           </div>
@@ -521,7 +522,7 @@ export const FranchiseSeason: React.FC<Props> = ({
 
 const TeamMatchup = ({ team, label }: { team: TeamTheme; label: string }) => (
   <div className="min-w-0">
-    <img src={teamLogoUrl(team.abbr)} alt="" aria-hidden="true" className="mx-auto h-14 w-14 object-contain sm:h-20 sm:w-20" />
+    <img src={soloTeamLogoUrl(team.abbr)} alt="" aria-hidden="true" className="mx-auto h-14 w-14 object-contain sm:h-20 sm:w-20" />
     <div className="mt-2 text-lg font-black leading-tight sm:text-2xl">{team.name}</div>
     <div className="text-xs font-bold text-zinc-500">{label}</div>
   </div>

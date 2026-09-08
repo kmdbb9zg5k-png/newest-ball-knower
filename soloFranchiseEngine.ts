@@ -1,7 +1,7 @@
 import { calculateTeamRatings } from './evaluation';
-import { PLAYERS_DATABASE, KNOWN_PLAYERS_DATABASE } from './players';
 import { getDraftPositionGroup, validateRosterShape } from './rosterRules';
-import { TEAM_THEMES, TeamTheme } from './teamTheme';
+import { TeamTheme } from './teamTheme';
+import { SOLO_PLAYERS_DATABASE, SOLO_PLAYER_BY_ID, SOLO_TEAM_THEMES, getSoloTeam } from './soloUniverse';
 import { LeagueMember, Player, ROSTER_REQUIREMENTS, RosterRequirements, TeamRatings, TOTAL_ROSTER_SIZE } from './types';
 import { SoloDifficulty } from './soloSeasonEngine';
 
@@ -23,19 +23,18 @@ export const FANTASY_DRAFT_ROUNDS = Object.values(FANTASY_ROSTER_REQUIREMENTS)
 const LEGACY_FANTASY_DRAFT_ROUNDS = Object.values(ROSTER_REQUIREMENTS)
   .reduce((total, required) => total + required, 0);
 export const SOLO_FRANCHISE_SAVE_KEYS = {
-  cap: 'ballknower_solo_run_v1',
-  fantasy: 'ballknower_solo_fantasy_v1',
-  real: 'ballknower_solo_real_team_v1',
-  player: 'ballknower_solo_my_player_v1',
+  cap: 'ballknower_solo_run_v2',
+  fantasy: 'ballknower_solo_fantasy_v2',
+  real: 'ballknower_solo_franchise_v2',
+  player: 'ballknower_solo_my_player_v2',
 } as const;
 
-const PLAYER_BY_ID = new Map(KNOWN_PLAYERS_DATABASE.map(player => [player.id, player]));
-const TEAM_BY_ABBR = new Map(TEAM_THEMES.map(team => [team.abbr, team]));
+const PLAYER_BY_ID = SOLO_PLAYER_BY_ID;
 const STANDARD_REQUIRED_GROUPS = Object.entries(ROSTER_REQUIREMENTS) as Array<[keyof RosterRequirements, number]>;
 const FANTASY_REQUIRED_GROUPS = Object.entries(FANTASY_ROSTER_REQUIREMENTS) as Array<[keyof RosterRequirements, number]>;
 const PLAYERS_BY_GROUP = new Map(FANTASY_REQUIRED_GROUPS.map(([group]) => [
   group,
-  PLAYERS_DATABASE
+  SOLO_PLAYERS_DATABASE
     .filter(player => getDraftPositionGroup(player) === group)
     .sort((first, second) => (second.ovr * 100 - second.salary * 0.01) - (first.ovr * 100 - first.salary * 0.01) || first.name.localeCompare(second.name)),
 ]));
@@ -76,7 +75,7 @@ function seeded(seed: number) {
 }
 
 function safeTeam(abbr: string) {
-  return TEAM_BY_ABBR.get(abbr) ?? TEAM_THEMES[0];
+  return getSoloTeam(abbr);
 }
 
 function rosterCounts(roster: Player[]) {
@@ -88,8 +87,8 @@ function rosterCounts(roster: Player[]) {
   return counts;
 }
 
-export function buildRealTeamRoster(teamAbbr: string): Player[] {
-  const teamPlayers = PLAYERS_DATABASE.filter(player => player.team === teamAbbr);
+export function buildSoloTeamRoster(teamAbbr: string): Player[] {
+  const teamPlayers = SOLO_PLAYERS_DATABASE.filter(player => player.team === teamAbbr);
   const selected: Player[] = [];
   const selectedIds = new Set<string>();
 
@@ -196,8 +195,8 @@ function stableSeed(value: string) {
 }
 
 export function franchiseSchedule(userTeamAbbr: string): TeamTheme[] {
-  const start = Math.max(0, TEAM_THEMES.findIndex(team => team.abbr === userTeamAbbr));
-  const rotated = [...TEAM_THEMES.slice(start + 1), ...TEAM_THEMES.slice(0, start + 1)];
+  const start = Math.max(0, SOLO_TEAM_THEMES.findIndex(team => team.abbr === userTeamAbbr));
+  const rotated = [...SOLO_TEAM_THEMES.slice(start + 1), ...SOLO_TEAM_THEMES.slice(0, start + 1)];
   return rotated.filter(team => team.abbr !== userTeamAbbr).slice(0, 17);
 }
 
@@ -236,7 +235,7 @@ export function makeFranchiseOpponent(
 
 function shuffledTeamOrder(seed: number) {
   const random = seeded(seed);
-  const teams = TEAM_THEMES.map(team => team.abbr);
+  const teams = SOLO_TEAM_THEMES.map(team => team.abbr);
   for (let index = teams.length - 1; index > 0; index -= 1) {
     const swapIndex = Math.floor(random() * (index + 1));
     [teams[index], teams[swapIndex]] = [teams[swapIndex], teams[index]];
@@ -272,7 +271,7 @@ export function isFantasyPickLegal(state: FantasyDraftState, teamAbbr: string, p
 function chooseCpuFantasyPick(state: FantasyDraftState, teamAbbr: string, drafted: Set<string>) {
   const roster = fantasyRosterPlayers(state, teamAbbr);
   const counts = rosterCounts(roster);
-  const teamIndex = TEAM_THEMES.findIndex(team => team.abbr === teamAbbr);
+  const teamIndex = SOLO_TEAM_THEMES.findIndex(team => team.abbr === teamAbbr);
   let best: Player | null = null;
   let bestScore = -Infinity;
 
@@ -328,7 +327,7 @@ export function advanceFantasyCpuPicks(source: FantasyDraftState): FantasyDraftS
 
 export function createFantasyDraft(userTeamAbbr: string, seed = Date.now()): FantasyDraftState {
   const teamOrder = shuffledTeamOrder(seed);
-  const rosters = Object.fromEntries(TEAM_THEMES.map(team => [team.abbr, []])) as Record<string, string[]>;
+  const rosters = Object.fromEntries(SOLO_TEAM_THEMES.map(team => [team.abbr, []])) as Record<string, string[]>;
   return advanceFantasyCpuPicks({
     version: 1,
     userTeamAbbr: safeTeam(userTeamAbbr).abbr,
@@ -355,7 +354,7 @@ export function fantasyDraftComplete(state: FantasyDraftState) {
 export function fantasyAvailablePlayers(state: FantasyDraftState) {
   const drafted = new Set(state.draftedIds);
   const counts = rosterCounts(fantasyRosterPlayers(state, state.userTeamAbbr));
-  return PLAYERS_DATABASE.filter(player => isFantasyPickLegalForRoster(player, drafted, counts))
+  return SOLO_PLAYERS_DATABASE.filter(player => isFantasyPickLegalForRoster(player, drafted, counts))
     .sort((first, second) => second.ovr - first.ovr || first.name.localeCompare(second.name));
 }
 
@@ -370,11 +369,11 @@ export function fantasyTeam(abbr: string) {
 export function isValidFantasyDraftState(value: unknown, requireComplete = false): value is FantasyDraftState {
   if (!value || typeof value !== 'object') return false;
   const state = value as FantasyDraftState;
-  const validTeams = new Set(TEAM_THEMES.map(team => team.abbr));
-  const totalPicks = TEAM_THEMES.length * FANTASY_DRAFT_ROUNDS;
-  const legacyTotalPicks = TEAM_THEMES.length * LEGACY_FANTASY_DRAFT_ROUNDS;
+  const validTeams = new Set(SOLO_TEAM_THEMES.map(team => team.abbr));
+  const totalPicks = SOLO_TEAM_THEMES.length * FANTASY_DRAFT_ROUNDS;
+  const legacyTotalPicks = SOLO_TEAM_THEMES.length * LEGACY_FANTASY_DRAFT_ROUNDS;
   if (state.version !== 1 || !validTeams.has(state.userTeamAbbr)) return false;
-  if (!Array.isArray(state.teamOrder) || state.teamOrder.length !== TEAM_THEMES.length || new Set(state.teamOrder).size !== TEAM_THEMES.length || state.teamOrder.some(team => !validTeams.has(team))) return false;
+  if (!Array.isArray(state.teamOrder) || state.teamOrder.length !== SOLO_TEAM_THEMES.length || new Set(state.teamOrder).size !== SOLO_TEAM_THEMES.length || state.teamOrder.some(team => !validTeams.has(team))) return false;
   const isCompleteDraft = state.pickIndex === totalPicks;
   const isLegacyStartedSeason = requireComplete && state.pickIndex === legacyTotalPicks;
   if (!Number.isInteger(state.pickIndex) || state.pickIndex < 0 || state.pickIndex > totalPicks || (requireComplete && !isCompleteDraft && !isLegacyStartedSeason)) return false;
@@ -382,15 +381,15 @@ export function isValidFantasyDraftState(value: unknown, requireComplete = false
   if (new Set(state.draftedIds).size !== state.draftedIds.length || state.draftedIds.some(id => !PLAYER_BY_ID.has(id))) return false;
   if (!state.rosters || typeof state.rosters !== 'object') return false;
 
-  const expectedRosters = Object.fromEntries(TEAM_THEMES.map(team => [team.abbr, [] as string[]])) as Record<string, string[]>;
+  const expectedRosters = Object.fromEntries(SOLO_TEAM_THEMES.map(team => [team.abbr, [] as string[]])) as Record<string, string[]>;
   for (let index = 0; index < state.picks.length; index += 1) {
     const pick = state.picks[index];
     const expectedTeam = fantasyDraftTeamAt(state, index);
-    if (!pick || pick.overall !== index + 1 || pick.round !== Math.floor(index / TEAM_THEMES.length) + 1 || pick.teamAbbr !== expectedTeam || pick.playerId !== state.draftedIds[index] || !PLAYER_BY_ID.has(pick.playerId)) return false;
+    if (!pick || pick.overall !== index + 1 || pick.round !== Math.floor(index / SOLO_TEAM_THEMES.length) + 1 || pick.teamAbbr !== expectedTeam || pick.playerId !== state.draftedIds[index] || !PLAYER_BY_ID.has(pick.playerId)) return false;
     expectedRosters[pick.teamAbbr].push(pick.playerId);
   }
 
-  for (const team of TEAM_THEMES) {
+  for (const team of SOLO_TEAM_THEMES) {
     const ids = state.rosters[team.abbr];
     if (!Array.isArray(ids) || ids.some(id => !PLAYER_BY_ID.has(id)) || ids.join('|') !== expectedRosters[team.abbr].join('|')) return false;
     const players = ids.map(id => PLAYER_BY_ID.get(id) as Player);

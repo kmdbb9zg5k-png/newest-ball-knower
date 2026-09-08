@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { TEAM_THEMES, applyTeamCssVariables, teamLogoUrl } from './teamTheme';
+import { applyTeamCssVariables } from './teamTheme';
+import { SOLO_TEAM_THEMES, saveSoloTeamTheme, soloTeamLogoUrl } from './soloUniverse';
 
 type Props = {
   selectedAbbr: string;
@@ -8,13 +9,13 @@ type Props = {
 
 export const SoloTeamPicker: React.FC<Props> = ({ selectedAbbr, onSelect }) => {
   useEffect(() => {
-    const selectedTeam = TEAM_THEMES.find(team => team.abbr === selectedAbbr);
+    const selectedTeam = SOLO_TEAM_THEMES.find(team => team.abbr === selectedAbbr);
     if (selectedTeam) applyTeamCssVariables(selectedTeam);
   }, [selectedAbbr]);
 
   return (
-    <div className="grid grid-cols-4 gap-2 sm:grid-cols-8" role="group" aria-label="Choose an NFL team">
-      {TEAM_THEMES.map(team => {
+    <div className="grid grid-cols-4 gap-2 sm:grid-cols-8" role="group" aria-label="Choose a Ball Knower League team">
+      {SOLO_TEAM_THEMES.map(team => {
         const selected = team.abbr === selectedAbbr;
         return (
           <button
@@ -22,6 +23,7 @@ export const SoloTeamPicker: React.FC<Props> = ({ selectedAbbr, onSelect }) => {
             type="button"
             onClick={() => {
               applyTeamCssVariables(team);
+              saveSoloTeamTheme(team.abbr);
               onSelect(team.abbr);
             }}
             aria-pressed={selected}
@@ -36,7 +38,7 @@ export const SoloTeamPicker: React.FC<Props> = ({ selectedAbbr, onSelect }) => {
               background: '#111',
             }}
           >
-            <img src={teamLogoUrl(team.abbr)} alt="" aria-hidden="true" className="mx-auto h-10 w-10 object-contain" />
+            <img src={soloTeamLogoUrl(team.abbr)} alt="" aria-hidden="true" className="mx-auto h-10 w-10 object-contain" />
             <div className={`mt-1 text-[10px] font-black ${selected ? 'text-white' : 'text-zinc-400'}`}>{team.abbr}</div>
           </button>
         );
