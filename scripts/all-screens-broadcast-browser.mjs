@@ -88,4 +88,4 @@ try{
  }
  await writeFile(`${out}/results.json`,JSON.stringify({checkedAt:new Date().toISOString(),source:live?'Captured public provider responses; no protected accounts':'Explicit synthetic news fixture',screens:results,physicalIphoneTest:false,productionMutations:false},null,2));
  console.log('All-screen actual browser render, route access, readable geometry, shared motion and quiet-game checks passed.');
-}finally{await browser?.close();server.kill('SIGTERM')
+}finally{await browser?.close();server.kill('SIGTERM')}
