@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ProfileLockerView } from '../ProfileLockerView';
@@ -52,4 +52,8 @@ assert.match(source('ProgressionProfileCard.tsx'), /version !== requestVersion\.
 assert.match(source('ProgressionProfileCard.tsx'), /key=\{currentUser\?\.id/);
 assert.match(source('profileLocker.css'), /prefers-reduced-motion:reduce/);
 assert.match(source('profileLocker.css'), /scroll-snap-type:x proximity/);
-console.log('Profile locker contracts passed: true XP thresholds, 6 ratings, full trophy catalog, signed receipts, loading/errors, unchanged photo entrypoint and account-scoped reads.');
+assert.ok(statSync(new URL('../public/profile/locker-reference-atlas.webp', import.meta.url)).size < 32768, 'Reference art must remain a small local asset');
+assert.match(source('ProfileLockerArt.tsx'), /LockerReceiptScene/);
+assert.match(source('LockerHub.tsx'), /<details className="bk-profile-extras"/);
+assert.match(source('profileLocker.css'), /body:has\(\.bk-app-shell\[data-tab="locker"\]\)/);
+console.log('Profile locker contracts passed: true XP thresholds, 6 ratings, full trophy catalog, signed receipts, loading/errors, unchanged photo entrypoint, scoped art and account reads.');

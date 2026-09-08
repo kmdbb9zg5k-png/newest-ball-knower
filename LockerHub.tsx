@@ -1,4 +1,4 @@
-import { BroadcastStage, BroadcastMasthead } from './BroadcastScene';
+import { BroadcastStage } from './BroadcastScene';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Crown, Package, Shirt, ShoppingBag } from 'lucide-react';
 import { equipLockerItem, fetchLockerExperience, formatStorePrice, LockerState, PassProgress, StoreItem } from './lockerCloud';
@@ -53,20 +53,22 @@ const LockerSession: React.FC = () => {
 
   return <BroadcastStage scene="locker" page="profile" className="bk-profile-page relative isolate min-h-[calc(100dvh-7rem)] overflow-hidden px-3 pb-8 pt-4 sm:px-6 sm:pt-6">
     <div className="mx-auto max-w-5xl">
-      <BroadcastMasthead eyebrow="Your identity" title="Your Locker" subtitle="Your rating is the résumé. Your legacy lives here." compact/>
+      <header className="bk-locker-masthead"><h1>Your Locker</h1><span>Football minds build more<i aria-hidden="true"/></span></header>
       <div className="bk-profile-identity" data-testid="locker-identity">
         <ProfilePhotoEditor/>
         <LockerManagerIllustration/>
-        {currentUser?.id && <p className="bk-locker-account">Account ID: <code>{currentUser.id}</code></p>}
+        {currentUser?.id && <details className="bk-locker-account"><summary>Account ID · …{currentUser.id.slice(-8)}</summary><code>{currentUser.id}</code></details>}
       </div>
       <ProgressionProfileCard/>
-      <section className="bk-profile-extras" aria-label="Locker and collection">
-        <h2 className="bk-profile-extras-heading">Locker &amp; collection</h2>
+      <details className="bk-profile-extras">
+        <summary className="bk-profile-extras-heading">Locker &amp; collection</summary>
+        <div aria-label="Locker and collection">
         <div className="flex gap-1 overflow-x-auto rounded-xl border border-white/10 bg-black/30 p-1.5 no-scrollbar">{tabs.map(([id, label]) => <button key={id} aria-pressed={tab === id} onClick={() => setTab(id)} className={`min-h-11 shrink-0 rounded-lg px-3 text-[10px] font-black uppercase tracking-wider transition ${tab === id ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)]' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}>{label}</button>)}</div>
         {error && <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-xs font-bold text-red-300"><span>{error}</span><button onClick={() => void refresh()} className="min-h-11 rounded-lg border border-red-400/30 px-4 text-[10px] font-black uppercase">Retry</button></div>}
         {tab === 'locker' && <div className="mt-3 space-y-3"><div className="grid grid-cols-3 gap-2"><Stat label="Owned" value={String(owned.size)}/><Stat label="Pass Lv" value={pass ? String(pass.level) : '—'}/><Stat label="Pass XP" value={pass ? String(pass.xp) : '—'}/></div><div className="rounded-2xl border border-white/10 bg-black/30 p-4"><div className="text-[10px] font-black uppercase">Equipped</div><div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">{Object.entries(locker).map(([key, value]) => <div key={key} className="rounded-xl border border-white/5 bg-black/25 p-3"><div className="text-[9px] font-black uppercase text-zinc-400">{key.replace('equipped', '').replace(/([A-Z])/g, ' $1')}</div><div className="mt-1 truncate text-[11px] font-black">{value || 'Default'}</div></div>)}</div></div><ItemGrid items={ownedItems} owned={owned} onEquip={equip}/></div>}
         {tab === 'collections' && <div className="mt-3">{ownedCollectibles.length ? <ItemGrid items={ownedCollectibles} owned={owned} onEquip={equip}/> : <div className="rounded-2xl border border-white/10 bg-black/30 p-6 text-center"><Package className="mx-auto h-6 w-6 text-[var(--bk-team-accent)]"/><div className="mt-3 text-sm font-black uppercase">No collectibles yet</div><p className="mt-1 text-xs text-zinc-400">Anything you earn will appear here.</p></div>}</div>}
-      </section>
+        </div>
+      </details>
     </div>
   </BroadcastStage>;
 };

@@ -28,8 +28,8 @@ try {
   }
   assert.ok(ready, 'Production preview must start');
   await mkdir(output, { recursive: true });
-  for (const engine of ['chromium', 'webkit']) {
-    browser = await (engine === 'chromium' ? chromium : webkit).launch({ headless: true });
+  for (const engine of process.env.PROFILE_CHROMIUM_ONLY ? ['chromium'] : ['chromium', 'webkit']) {
+    browser = await (engine === 'chromium' ? chromium : webkit).launch({ headless: true, ...(engine === 'chromium' && process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}) });
     for (const width of engine === 'chromium' ? [320, 390, 430, 1280] : [390]) {
       const context = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: 1, isMobile: width < 768, hasTouch: width < 768, reducedMotion: 'reduce' });
       const page = await context.newPage();
@@ -54,7 +54,7 @@ try {
           return respond([{ user_id: userId, display_name: user.user_metadata.name, bk_rating: mode === 'earned' ? 61 : 50, xp: mode === 'earned' ? 1450 : mode === 'zero' ? 0 : 550, level: mode === 'earned' ? 2 : 1, football_iq: 50, gm_rating: 52, prediction_rating: 48, trivia_rating: 50, agent_rating: 51, owner_rating: 49, championships: mode === 'earned' ? 3 : 0, current_streak: 0, longest_streak: 2, updated_at: timestamp }]);
         }
         if (path.endsWith('/ball_knower_progress_events')) return respond(mode === 'earned' ? Array.from({ length: 7 }, (_, index) => ({ id: index+1, event_type: index === 0 ? 'prediction_wrong' : 'trivia_correct', category: index === 0 ? 'prediction' : 'trivia', xp_awarded: index === 0 ? 2 : 20, rating_delta: index === 0 ? -1 : 1, occurred_at: timestamp, metadata: {} })) : []);
-        if (path.endsWith('/ball_knower_achievement_catalog')) return respond(catalog);
+        if (path.endsWith('/ball_knower_achievement_catalog')) return respond(mode === 'extended' ? [...catalog, { achievement_key: 'seventh', title: 'Seventh Milestone', description: 'Additional verified catalog entry.', tier: 'gold', category: 'gm', xp_reward: 125 }] : catalog);
         if (path.endsWith('/ball_knower_user_achievements')) return respond(mode === 'earned' ? [{ achievement_key: 'dynasty', unlocked_at: timestamp }, { achievement_key: 'first_receipt', unlocked_at: timestamp }] : []);
         if (path.endsWith('/ball_knower_store_catalog')) return respond([{ sku: 'qa-frame', title: 'Fixture Gold Frame', description: 'An owned equippable fixture.', category: 'profile_cosmetic', rarity: 'rare', price_cents: null, currency: 'USD', metadata: { slot: 'profile_frame' }, active: true }, { sku: 'qa-card', title: 'Fixture Collectible', description: 'An owned collectible fixture.', category: 'collectible', rarity: 'rare', price_cents: null, currency: 'USD', metadata: {}, active: true }]);
         if (path.endsWith('/ball_knower_entitlements')) return respond(['qa-frame', 'qa-card'].map(sku => ({ sku, source: 'test', granted_at: timestamp, expires_at: null, auth_user_id: userId })));
@@ -83,12 +83,14 @@ try {
       }, { session, user });
       await page.goto(base, { waitUntil: 'domcontentloaded' });
       await page.locator('.bk-home-stadium').waitFor();
+      const homeBrandSize = await page.getByRole('button', { name: 'Ball Knower home', exact: true }).locator('h1').evaluate(element => getComputedStyle(element).fontSize);
       await page.getByRole('button', { name: 'Profile', exact: true }).first().waitFor({ state: 'attached' });
       for (const button of await page.getByRole('button', { name: 'Profile', exact: true }).all()) { if (await button.isVisible()) { await button.click(); break; } }
       const profile = page.getByTestId('locker-profile');
       await profile.waitFor();
       await page.waitForFunction(() => document.querySelector('[data-testid="bk-rating"]')?.textContent === '50');
       await page.evaluate(() => document.fonts.ready);
+      await page.evaluate(async () => { const image = new Image(); image.src = '/profile/locker-reference-atlas.webp'; await image.decode(); });
       await page.waitForTimeout(250);
       assert.equal(await profile.locator('.bk-locker-hex').count(), 6);
       assert.equal(await profile.locator('.bk-locker-trophy').count(), 6);
@@ -101,14 +103,17 @@ try {
       if (width < 768) assert.equal(await page.getByRole('navigation', { name: 'Primary navigation' }).locator('button').count(), 5);
       await page.screenshot({ path: `${output}/${engine}-${width}-profile.png` });
       await page.screenshot({ path: `${output}/${engine}-${width}-full.png`, fullPage: true });
+      const visual = await page.evaluate(() => { const rect = selector => { const box = document.querySelector(selector)?.getBoundingClientRect(); return box ? { x: box.x, y: box.y, width: box.width, height: box.height, bottom: box.bottom } : null; }; return { receipts: rect('.bk-locker-receipts'), nav: rect('nav[aria-label="Primary navigation"]'), identity: rect('.bk-profile-identity'), heading: rect('.bk-locker-masthead'), badges: [...document.querySelectorAll('.bk-locker-trophy')].slice(0,6).map(element => {const b=element.getBoundingClientRect(); return {x:b.x,right:b.right,width:b.width};}) }; });
+      if (width === 390 || width === 430) {
+        assert.ok(visual.receipts && visual.nav && visual.receipts.bottom <= visual.nav.y, `The reference's receipts panel must be visible above navigation: ${JSON.stringify(visual)}`);
+      }
+      assert.ok(visual.badges.every(b => b.x >= 0 && b.right <= width + 1 && b.width >= 44), 'All six initial trophy badges must be visible and tappable');
+      assert.equal(await profile.locator('.bk-locker-trophy-arrows').count(), 0, 'Six badges need no extra toolbar');
       await profile.getByRole('button', { name: /^GM rating:/ }).click();
       assert.match(await profile.locator('.bk-locker-detail').innerText(), /general manager rating/);
       await profile.getByRole('button', { name: /^GM rating:/ }).click();
       const rail = profile.locator('.bk-locker-trophy-rail');
-      if (await rail.evaluate(element => element.scrollWidth > element.clientWidth)) {
-        await profile.getByRole('button', { name: 'Next trophies', exact: true }).click();
-        assert.ok(await rail.evaluate(element => element.scrollLeft > 0));
-      }
+      assert.ok(await rail.evaluate(element => element.scrollWidth <= element.clientWidth + 1), 'The six-item catalog should fit without horizontal scrolling');
       await profile.locator('.bk-locker-trophy').first().click();
       assert.match(await profile.locator('.bk-locker-detail').innerText(), /Not yet unlocked/);
       await profile.locator('.bk-locker-trophy').first().click();
@@ -132,7 +137,7 @@ try {
       failProfile = true;
       await profile.getByRole('button', { name: 'Refresh profile', exact: true }).click();
       await profile.getByRole('alert').waitFor();
-      assert.equal(await profile.getByTestId('bk-rating').innerText(), '50', 'Refresh failure must not fabricate or discard the last synced score');
+      assert.equal(await profile.getByTestId('bk-rating').textContent(), '50', 'Refresh failure must not fabricate or discard the last synced score');
       failProfile = false; mode = 'earned';
       await profile.getByRole('button', { name: 'Retry', exact: true }).click();
       await page.waitForFunction(() => document.querySelector('[data-testid="bk-rating"]')?.textContent === '61');
@@ -142,14 +147,29 @@ try {
       assert.equal(await profile.locator('.bk-locker-event-list>li').count(), 6);
       await profile.getByRole('button', { name: 'Show all 7 recent receipts', exact: true }).click();
       assert.equal(await profile.locator('.bk-locker-event-list>li').count(), 7);
+      mode = 'extended';
+      await profile.getByRole('button', { name: 'Refresh profile', exact: true }).click();
+      await profile.getByRole('button', { name: 'Next trophies', exact: true }).waitFor();
+      assert.equal(await profile.locator('.bk-locker-trophy').count(), 7);
+      await profile.getByRole('button', { name: 'Next trophies', exact: true }).click();
+      assert.ok(await rail.evaluate(element => element.scrollLeft > 0), 'Larger catalogs remain scrollable');
+      await profile.getByRole('button', { name: /^Seventh Milestone:/ }).click();
+      assert.match(await profile.locator('.bk-locker-detail').innerText(), /Additional verified catalog entry/);
+      await page.locator('.bk-locker-account > summary').click();
+      assert.equal(await page.locator('.bk-locker-account code').innerText(), userId);
+      await page.locator('.bk-locker-account > summary').click();
+      await page.locator('.bk-profile-extras > summary').click();
       await page.getByRole('button', { name: 'Collection', exact: true }).click();
       assert.ok(await page.getByText('Fixture Collectible', { exact: true }).isVisible());
       await page.getByRole('button', { name: 'Locker', exact: true }).click();
       await page.getByRole('button', { name: 'Equip', exact: true }).click();
       await page.waitForFunction(() => document.querySelector('.bk-profile-extras')?.textContent.includes('qa-frame'));
       assert.equal(equipCalls, 1);
+      await page.getByRole('button', { name: 'Ball Knower home', exact: true }).click();
+      await page.locator('.bk-home-stadium').waitFor();
+      assert.equal(await page.getByRole('button', { name: 'Ball Knower home', exact: true }).locator('h1').evaluate(element => getComputedStyle(element).fontSize), homeBrandSize, 'Profile cosmetics must not leak into Home');
       assert.deepEqual(crashes, []);
-      results.push({ engine, width, geometry, ratings: 6, trophies: 6, photoCrop: 'passed', xpZeroAndRollover: 'passed', refreshRecovery: 'passed', collectionAndEquip: 'passed', source: 'isolated network fixtures', physicalIphone: false });
+      results.push({ engine, width, geometry, visual, ratings: 6, trophies: 6, photoCrop: 'passed', xpZeroAndRollover: 'passed', refreshRecovery: 'passed', collectionAndEquip: 'passed', source: 'isolated network fixtures', physicalIphone: false });
       await context.close();
       activePage = null;
     }
