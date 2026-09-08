@@ -138,7 +138,7 @@ export function FavoriteTeamExperience({ onDone }: { onDone?: (team: TeamTheme) 
         <div className="mt-5 rounded-[28px] border border-white/10 bg-black/55 p-4 backdrop-blur-2xl" style={{boxShadow:`0 18px 70px ${preview.primary}33`}}>
           <button onClick={confirm} className="w-full rounded-2xl border py-4 text-sm font-black uppercase tracking-[.15em] active:scale-[.985]" style={{background:preview.primary,borderColor:preview.secondary,color:'var(--bk-on-accent)',boxShadow:`0 10px 30px ${preview.primary}66, inset 0 0 0 1px ${preview.secondary}55`}}>{confirmed ? '✓ TEAM LOCKED IN' : `CONFIRM ${team.abbr}`}</button>
           <button onClick={() => move(1)} className="mt-3 w-full rounded-2xl border border-white/10 bg-white/[.04] py-3 text-[11px] font-black uppercase tracking-[.18em] text-zinc-300">KEEP LOOKING</button>
-          <button onClick={() => { localStorage.setItem('ball-knower-team-setup-v2','skipped'); onDone?.(team); }} className="mt-3 w-full py-2 text-[10px] font-black uppercase tracking-[.16em] text-zinc-500">SKIP FOR NOW</button>
+          <button onClick={() => { localStorage.setItem('ball-knower-team-setup-v2','skipped'); onDone?.(team); }} className="mt-3 min-h-11 w-full py-2 text-[10px] font-black uppercase tracking-[.16em] text-zinc-500">SKIP FOR NOW</button>
         </div>
         <FavoriteTeamDisclaimer />
       </div>

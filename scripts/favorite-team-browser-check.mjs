@@ -64,6 +64,7 @@ try {
     assert.ok(await notice.evaluate(element => element.scrollWidth <= element.clientWidth + 1));
     assert.ok(await notice.evaluate(element => parseFloat(getComputedStyle(element).fontSize) >= 12));
     const skipBox = await page.getByRole('button', { name: 'SKIP FOR NOW', exact: true }).boundingBox();
+    assert.ok(skipBox && skipBox.height >= 44, 'Skip must retain a minimum 44px touch target');
     assert.ok(skipBox && skipBox.y + skipBox.height <= box.y, 'Notice belongs below the selection buttons');
     assert.match(await notice.innerText(), /We’d like to know your favorite team/);
     assert.match(await notice.innerText(), /not affiliated with, endorsed by, or sponsored by the NFL/);
