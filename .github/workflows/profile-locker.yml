@@ -1,19 +1,13 @@
-name: Profile locker regressions
+name: Profile locker fidelity
 on:
   pull_request:
     branches: [main]
-    paths:
-      - '*Profile*.tsx'
-      - 'LockerHub.tsx'
-      - 'profileLocker*'
-      - 'scripts/profile-locker*'
-      - '.github/workflows/profile-locker.yml'
 permissions:
   contents: read
 jobs:
-  profile-locker:
+  profile-mobile:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,10 +16,20 @@ jobs:
         with:
           node-version: 22
       - run: npm ci --no-audit --no-fund
-      - name: Export isolated public-source verification workspace
-        run: tar --exclude='./.git' --exclude='./.env*' --exclude='./artifacts' --exclude='./dist' -czf /tmp/profile-workspace.tgz .
+      - run: npm run lint && npm run check:profile-photo && npm run check:identity
+      - name: Build and verify profile display contracts
+        run: |
+          npx esbuild scripts/profile-locker-check.ts --bundle --platform=node --format=esm --packages=external --loader:.css=empty --outfile=scripts/.profile-locker-check.mjs
+          node scripts/.profile-locker-check.mjs
+          npm run build
+          npm run check:root-bundle
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Exercise the real Profile page with isolated backend fixtures
+        run: node scripts/profile-locker-browser.mjs
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: profile-workspace
-          path: /tmp/profile-workspace.tgz
-          retention-days: 1
+          name: profile-locker-mobile
+          path: artifacts/profile-locker
+          if-no-files-found: ignore
+          retention-days: 5
