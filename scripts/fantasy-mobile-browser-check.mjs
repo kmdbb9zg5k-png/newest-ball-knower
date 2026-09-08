@@ -39,6 +39,8 @@ const layoutSnapshot=page=>page.evaluate(()=>{
   const fantasyTools=[...document.querySelectorAll('[data-testid="fantasy-league-grid"] button, [data-testid="fantasy-tool-grid"] button')];
   const fantasyTabRect=fantasyTabs?.getBoundingClientRect();
   const fantasyHeroRect=fantasyHero?.getBoundingClientRect();
+  const gauntletArena=document.querySelector('[data-testid="gauntlet-arena"]');
+  const gauntletRect=gauntletArena?.getBoundingClientRect();
   const horizontallyClippedMainContent=main?[...main.querySelectorAll('*')].flatMap(element=>{
     const style=getComputedStyle(element);
     const rect=element.getBoundingClientRect();
@@ -69,6 +71,10 @@ const layoutSnapshot=page=>page.evaluate(()=>{
     fantasyControlsOutsideViewport:fantasyTools.flatMap(element=>{const rect=element.getBoundingClientRect();return rect.left>=-1&&rect.right<=window.innerWidth+1?[]:[element.textContent?.trim()||element.tagName];}),
     fantasyMotion:document.querySelector('.bk-fantasy-hq-screen')?.getAttribute('data-motion')||'',
     fantasyLightAnimation:getComputedStyle(document.querySelector('.bk-fantasy-hq-light-bank i')||document.documentElement).animationName,
+    gauntletRect:gauntletRect&&{left:gauntletRect.left,right:gauntletRect.right,top:gauntletRect.top,bottom:gauntletRect.bottom},
+    gauntletStats:document.querySelectorAll('.bk-gauntlet-stat').length,
+    gauntletModes:document.querySelectorAll('[data-testid="gauntlet-mode-grid"] button').length,
+    gauntletDailyButtons:document.querySelectorAll('[data-testid="gauntlet-daily-cta"]').length,
     tab:document.querySelector('.bk-app-shell')?.getAttribute('data-tab')||'',
   };
 });
@@ -99,6 +105,15 @@ const assertFantasyHq=(snapshot,label)=>{
   assert.ok(snapshot.fantasyHeroRect.height<=255,`${label}: Fantasy HQ hero regressed to an oversized dead zone`);
   assert.equal(snapshot.fantasyToolButtons,3,`${label}: league tools must keep create, join, and public destinations`);
   assert.deepEqual(snapshot.fantasyControlsOutsideViewport,[],`${label}: a fantasy destination escapes the viewport`);
+};
+
+const assertGauntlet=(snapshot,label)=>{
+  const {width}=snapshot.viewport;
+  assert.ok(snapshot.gauntletRect,`${label}: gold arena frame is missing`);
+  assert.ok(snapshot.gauntletRect.left>=-1&&snapshot.gauntletRect.right<=width+1,`${label}: arena frame is clipped horizontally`);
+  assert.equal(snapshot.gauntletStats,5,`${label}: Gauntlet must show five live progress stats`);
+  assert.equal(snapshot.gauntletModes,5,`${label}: Gauntlet must preserve all five challenge modes`);
+  assert.equal(snapshot.gauntletDailyButtons,1,`${label}: daily challenge CTA is missing`);
 };
 
 const assertDialogContained=async(page,label)=>{
@@ -134,6 +149,7 @@ try{
       localStorage.setItem('ball-knower-team-setup-v2','complete');
       localStorage.setItem('ball-knower-intro-sound-v1','off');
       localStorage.setItem('bk-guide-fantasy-hq-v3','seen');
+      localStorage.setItem('bk-guide-the-gauntlet-v4','seen');
     });
     await page.goto(baseURL,{waitUntil:'domcontentloaded'});
     const skip=page.getByRole('button',{name:/skip/i});
@@ -161,6 +177,19 @@ try{
     await page.getByRole('button',{name:'Cheat Sheet',exact:true}).click();
     await page.getByRole('heading',{name:'Player Cheat Sheet',exact:true}).waitFor({state:'visible'});
     assertContained(await layoutSnapshot(page),`${size.label} Cheat Sheet`);
+
+    await primary.getByRole('button',{name:'Trivia',exact:true}).click();
+    await page.locator('[data-testid="gauntlet-arena"]').waitFor({state:'visible'});
+    const gauntletSnapshot=await layoutSnapshot(page);
+    assertContained(gauntletSnapshot,`${size.label} Trivia`);
+    assertGauntlet(gauntletSnapshot,`${size.label} Trivia`);
+    await page.screenshot({path:`${artifactDir}/${size.label}-trivia-gauntlet.png`,fullPage:true});
+    await page.getByRole('button',{name:/Classic Trivia/i}).click();
+    const tierSheet=page.locator('.bk-gauntlet-tier-sheet');
+    await tierSheet.waitFor({state:'visible'});
+    const tierBox=await tierSheet.boundingBox();
+    assert.ok(tierBox&&tierBox.x>=-1&&tierBox.x+tierBox.width<=size.width+1&&tierBox.y>=-1&&tierBox.y+tierBox.height<=size.height+1,`${size.label}: Trivia difficulty sheet is clipped`);
+    await page.getByRole('button',{name:'Close difficulty selector'}).click();
 
     await primary.getByRole('button',{name:'Profile',exact:true}).click();
     await page.getByRole('heading',{name:'Your Locker',exact:true}).waitFor({state:'visible'});

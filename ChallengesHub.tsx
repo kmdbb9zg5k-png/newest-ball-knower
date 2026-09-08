@@ -1,6 +1,6 @@
-import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
+import {BroadcastStage} from './BroadcastScene';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Brain, CalendarDays, CheckCircle2, Eye, Film, Flame, Loader2, MessageSquare, RotateCcw, ShieldCheck, Target, Trophy, WifiOff, XCircle } from 'lucide-react';
+import { ArrowLeft, Bird, Brain, CalendarDays, CheckCircle2, ChevronRight, Film, Flame, Loader2, Medal, MessageSquare, Play, RotateCcw, ShieldCheck, Sparkles, Star, Target, Trophy, WifiOff, X, XCircle } from 'lucide-react';
 import { beginTriviaSession, fetchTriviaQuestion, submitTriviaAnswer, TriviaAnswerResult, TriviaQuestion, TriviaSession } from './progressionCloud';
 import { ModeGuide } from './ModeGuide';
 import { ModalPortal } from './ModalPortal';
@@ -9,6 +9,7 @@ import { useBallKnower } from './BallKnowerContext';
 import { GauntletPlayModal } from './GauntletPlayModal';
 import { buildDailyGauntlet,buildGauntletRound,compactGauntletProgressForCloud,GauntletMode,GauntletProgress,GauntletTier,loadGauntletProgress,mergeGauntletProgress,mergeGauntletProgressEvents,recordGauntletAnswer,recordGauntletRun,saveGauntletProgress,utcDateKey } from './gauntletEngine';
 import { loadGauntletProgressEvents,loadUserState,saveGauntletProgressEvents,saveUserState } from './userStateCloud';
+import './gauntlet.css';
 
 type TriviaTier = GauntletTier;
 
@@ -43,7 +44,7 @@ export const ChallengesHub: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [progress,setProgress]=useState<GauntletProgress>(()=>loadGauntletProgress(userId));
-  const [tierPickerMode,setTierPickerMode]=useState<GauntletMode|null>(null);
+  const [tierPickerMode,setTierPickerMode]=useState<GauntletModeName|null>(null);
   const [activeRun,setActiveRun]=useState<{mode:GauntletMode;tier:GauntletTier;nonce:number}|null>(null);
   const [dailyRun,setDailyRun]=useState(false);
   const advancingRef = useRef(false);
@@ -53,6 +54,9 @@ export const ChallengesHub: React.FC = () => {
   const serverSessionRef = useRef<TriviaSession | null>(null);
   const progressCloudQueueRef=useRef<Promise<void>>(Promise.resolve());
   const dailyDate=utcDateKey();
+  const levelFloor=Math.max(0,(progress.level-1)*250);
+  const levelProgress=Math.max(0,Math.min(100,((progress.xp-levelFloor)/250)*100));
+  const accuracy=progress.totalAnswered?Math.round(progress.totalCorrect/progress.totalAnswered*100):0;
   const dailyScenarios=useMemo(()=>buildDailyGauntlet(dailyDate),[dailyDate]);
   const runScenarios=useMemo(()=>activeRun?buildGauntletRound(activeRun.mode,activeRun.tier,10,`${activeRun.nonce}:${Date.now()}`):[],[activeRun]);
   const applyProgress=useCallback((next:GauntletProgress)=>{
@@ -172,7 +176,7 @@ export const ChallengesHub: React.FC = () => {
       advancingRef.current = false;
       setResult(receipt);
       if (receipt.isCorrect) setScore(current => current + 1);
-      const nextProgress=recordGauntletAnswer(loadGauntletProgress(userId),receipt.isCorrect,receipt.xpAwarded||({ROOKIE:10,PRO:20,'ALL-PRO':35,'HALL OF FAME':50}[answeredTier]));
+      const nextProgress=recordGauntletAnswer(loadGauntletProgress(userId),receipt.isCorrect,receipt.xpAwarded||({ROOKIE:15,PRO:25,'ALL-PRO':40,'HALL OF FAME':60}[answeredTier]));
       applyProgress(nextProgress);
     } catch (err) {
       if (sessionId !== triviaSessionRef.current) return;
@@ -225,44 +229,77 @@ export const ChallengesHub: React.FC = () => {
     serverSessionRef.current = null;
   }, [clearAdvanceTimer]);
 
+  useEffect(() => {
+    if (!tierPickerMode) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setTierPickerMode(null);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [tierPickerMode]);
+
   return (
-    <BroadcastStage scene="studio" page="trivia" quiet={Boolean(triviaOpen||activeRun||dailyRun||tierPickerMode)} className="mx-auto max-w-6xl px-3 pb-8 pt-4 sm:px-6 sm:pt-6">
-      <BroadcastMasthead eyebrow="Football IQ arena" title="The Gauntlet" subtitle="Trivia. Decisions. Football IQ. Prove you know ball." compact actions={<ModeGuide storageKey="bk-guide-the-gauntlet-v4" title="The Gauntlet" summary="Choose a difficulty and answer football questions." steps={["Choose Trivia.","Pick a level.","Answer and build verified XP."]}/>}/>
-
-
-      <section className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
-        <ProgressStat label="Level" value={String(progress.level)}/><ProgressStat label="XP" value={String(progress.xp)}/><ProgressStat label="Current streak" value={String(progress.currentStreak)} icon={<Flame className="h-4 w-4 text-orange-400"/>}/><ProgressStat label="Longest streak" value={String(progress.longestStreak)}/><ProgressStat label="Accuracy" value={progress.totalAnswered?`${Math.round(progress.totalCorrect/progress.totalAnswered*100)}%`:'—'}/>
-      </section>
-
-      <button onClick={()=>setDailyRun(true)} disabled={Boolean(progress.daily[dailyDate]?.completed)} className="mt-4 flex min-h-28 w-full items-center justify-between gap-4 rounded-2xl border border-amber-300/30 bg-[radial-gradient(circle_at_90%_20%,rgba(251,191,36,.16),transparent_35%),#101318] p-5 text-left disabled:opacity-70">
-        <span><span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[.22em] text-amber-300"><CalendarDays className="h-4 w-4"/>Daily Gauntlet · {dailyDate}</span><span className="mt-2 block text-2xl font-black uppercase">Same five challenges. Everybody.</span><span className="mt-1 block text-xs font-semibold text-zinc-500">One shared run across Film Room, Predictions, Debates and Survivor.</span></span>
-        <span className="shrink-0 rounded-xl bg-amber-300 px-4 py-3 text-[10px] font-black uppercase text-black">{progress.daily[dailyDate]?.completed?`Complete · ${progress.daily[dailyDate].score}/5`:'Play today'}</span>
-      </button>
-
-      <section className="bk-trivia-modes mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {gauntletModes.map(mode=>{const Icon=mode.icon;const best=mode.name==='TRIVIA'?Math.max(0,...triviaTiers.map(item=>progress.highScores[`TRIVIA:${item.name}`]||0)):Math.max(0,...triviaTiers.map(item=>progress.highScores[`${mode.name}:${item.name}`]||0));return <button key={mode.name} onClick={()=>mode.name==='TRIVIA'?openTrivia('ROOKIE'):setTierPickerMode(mode.name)} className="min-h-40 rounded-2xl border border-fuchsia-400/30 bg-[#101318] p-4 text-left"><div className="flex items-center justify-between"><Icon className="text-fuchsia-300"/><span className="text-[8px] font-black uppercase text-zinc-600">Best {best}/10</span></div><div className="mt-6 text-sm font-black uppercase">{mode.name}</div><p className="mt-2 text-[10px] leading-relaxed text-zinc-500">{mode.description}</p><div className="mt-3 text-[8px] font-black uppercase tracking-widest text-fuchsia-300">{mode.name==='TRIVIA'?'Quick start · Rookie':'Choose difficulty'}</div></button>})}
-      </section>
-
-      <section className="mt-4 overflow-hidden rounded-2xl border border-fuchsia-400/25 bg-[radial-gradient(circle_at_88%_8%,rgba(168,85,247,.18),transparent_34%),#0b0e13] p-3 sm:p-4">
-        <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-fuchsia-300"><Brain className="h-4 w-4"/>Trivia difficulty</div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {triviaTiers.map(item => (
-            <button key={item.name} onClick={() => openTrivia(item.name)} className="group flex min-h-16 items-center justify-between rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-left hover:border-fuchsia-400/45 hover:bg-fuchsia-400/[.06]">
-              <span className="min-w-0">
-                <span className="block font-display text-xl font-black uppercase">{item.name}</span>
-                <span className="mt-0.5 block truncate text-[10px] font-semibold text-zinc-500">{item.desc}</span>
-              </span>
-              <span className="ml-3 shrink-0 rounded-lg border border-fuchsia-400/20 bg-fuchsia-400/10 px-2 py-1 text-[9px] font-black text-fuchsia-300">{item.xp}</span>
-            </button>
-          ))}
+    <BroadcastStage scene="studio" page="trivia" quiet={Boolean(triviaOpen||activeRun||dailyRun||tierPickerMode)} className="bk-gauntlet-screen mx-auto max-w-6xl px-2 pb-24 pt-2 sm:px-6 sm:pt-5">
+      <section className="bk-gauntlet-frame" aria-labelledby="gauntlet-title" data-testid="gauntlet-arena">
+        <div className="bk-gauntlet-date"><CalendarDays aria-hidden="true"/> Daily <span>•</span> {dailyDate}</div>
+        <div className="bk-gauntlet-hero">
+          <img src="/atmosphere/home-stadium.webp" alt="" aria-hidden="true"/>
+          <div className="bk-gauntlet-hero-shade" aria-hidden="true"/>
+          <div className="bk-gauntlet-arena-label">Football IQ Arena</div>
+          <ModeGuide storageKey="bk-guide-the-gauntlet-v4" title="The Gauntlet" summary="Choose a challenge, select a difficulty, and build verified football IQ." steps={["Pick one of five challenge modes.","Choose Rookie, Pro, All-Pro, or Hall of Fame.","Finish the daily five to build your streak and XP."]}/>
+          <div className="bk-gauntlet-crest" aria-hidden="true">
+            <span className="bk-gauntlet-wing bk-gauntlet-wing-left"/><span className="bk-gauntlet-wing bk-gauntlet-wing-right"/>
+            <div className="bk-gauntlet-eagle"><Bird/></div>
+            <div className="bk-gauntlet-shield"><ShieldCheck/><span><Star/><Star/><Star/></span></div>
+          </div>
+          <div className="bk-gauntlet-title-lockup">
+            <h1 id="gauntlet-title">The Gauntlet</h1>
+            <p>Trivia. Decisions. Football IQ. Prove you know ball.</p>
+          </div>
         </div>
+
+        <section className="bk-gauntlet-stats" aria-label="Your Gauntlet progress">
+          <ProgressStat label="Level" value={String(progress.level)} detail="UP-LEVELING" progress={levelProgress} icon={<Sparkles/>}/>
+          <ProgressStat label="XP" value={String(progress.xp)} detail={`TO LVL ${progress.level+1}`} progress={levelProgress}/>
+          <ProgressStat label="Current streak" value={String(progress.currentStreak)} detail={`MAX: ${progress.longestStreak}`} progress={progress.longestStreak?progress.currentStreak/progress.longestStreak*100:0} icon={<Flame/>}/>
+          <ProgressStat label="Longest streak" value={String(progress.longestStreak)} detail="PERSONAL BEST" progress={Math.min(100,progress.longestStreak*10)} icon={<Medal/>}/>
+          <ProgressStat label="Accuracy" value={progress.totalAnswered?`${accuracy}%`:'—'} detail={`${progress.totalAnswered} ANSWERED`} progress={accuracy}/>
+        </section>
+
+        <section className="bk-gauntlet-board" aria-label="Gauntlet challenge modes" data-testid="gauntlet-mode-grid">
+          {gauntletModes.map(mode=>{
+            const Icon=mode.icon;
+            const best=Math.max(0,...triviaTiers.map(item=>progress.highScores[`${mode.name}:${item.name}`]||0));
+            return <button type="button" key={mode.name} onClick={()=>setTierPickerMode(mode.name)} className="bk-gauntlet-mode-card">
+              <span className="bk-gauntlet-mode-top"><Icon/><span>Best {best}/10</span></span>
+              <strong>{mode.name==='TRIVIA'?'Classic Trivia':mode.name}</strong>
+              <small>{mode.description}</small>
+              <span className="bk-gauntlet-mode-action">Difficulty select <ChevronRight/></span>
+            </button>;
+          })}
+          <div className="bk-gauntlet-mantra" aria-hidden="true">Same five<br/>challenges.</div>
+        </section>
+
+        <button type="button" onClick={()=>setDailyRun(true)} disabled={Boolean(progress.daily[dailyDate]?.completed)} className="bk-gauntlet-daily-cta" data-testid="gauntlet-daily-cta">
+          <span aria-hidden="true">≡</span><span className="bk-gauntlet-daily-play"><Play/></span>
+          <strong>{progress.daily[dailyDate]?.completed?`Daily complete · ${progress.daily[dailyDate].score}/5`:'Start daily challenge'}</strong><span aria-hidden="true">≡</span>
+        </button>
       </section>
 
-      {tierPickerMode&&<ModalPortal><div role="dialog" aria-modal="true" aria-label={`${tierPickerMode} difficulty`} className="fixed inset-0 z-[9998] grid place-items-center overflow-y-auto bg-black/85 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur"><section className="w-full max-w-xl rounded-3xl border border-fuchsia-400/25 bg-[#0b0e13] p-5 text-white"><div className="flex items-start justify-between gap-3"><div><div className="text-[10px] font-black uppercase tracking-widest text-fuchsia-300">{tierPickerMode}</div><h2 className="mt-1 text-3xl font-black uppercase">Choose difficulty</h2><p className="mt-1 text-xs text-zinc-500">Each tier pulls 10 families from a 25-scenario pool.</p></div><button onClick={()=>setTierPickerMode(null)} className="min-h-11 rounded-xl border border-white/10 px-3 text-xs font-black">CLOSE</button></div><div className="mt-5 grid gap-2 sm:grid-cols-2">{triviaTiers.map(item=><button key={item.name} onClick={()=>{setActiveRun({mode:tierPickerMode,tier:item.name,nonce:Date.now()});setTierPickerMode(null)}} className="min-h-20 rounded-2xl border border-white/10 bg-black/25 p-4 text-left"><span className="block text-xl font-black">{item.name}</span><span className="mt-1 block text-[10px] text-zinc-500">High score {progress.highScores[`${tierPickerMode}:${item.name}`]||0}/10 · {item.xp.replace('XP','XP each')}</span></button>)}</div></section></div></ModalPortal>}
+      {tierPickerMode&&<ModalPortal><div role="dialog" aria-modal="true" aria-label={`${tierPickerMode} difficulty`} className="bk-gauntlet-tier-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)setTierPickerMode(null)}}><section className="bk-gauntlet-tier-sheet">
+        <header><span><small>Difficulty select</small><strong>{tierPickerMode==='TRIVIA'?'Classic Trivia':tierPickerMode}</strong></span><button type="button" onClick={()=>setTierPickerMode(null)} aria-label="Close difficulty selector"><X/></button></header>
+        <div className="bk-gauntlet-tier-list">{triviaTiers.map((item,index)=>{
+          const highScore=progress.highScores[`${tierPickerMode}:${item.name}`]||0;
+          return <button type="button" key={item.name} onClick={()=>{if(tierPickerMode==='TRIVIA')openTrivia(item.name);else setActiveRun({mode:tierPickerMode,tier:item.name,nonce:Date.now()});setTierPickerMode(null)}} className="bk-gauntlet-tier-card">
+            <span className="bk-gauntlet-tier-medal">{index+1}</span><span className="bk-gauntlet-tier-copy"><strong>{item.name}</strong><small>{item.desc}</small></span>
+            <span className="bk-gauntlet-tier-score"><b>{item.xp}</b><small>Best {highScore}/10</small></span>
+          </button>;
+        })}</div>
+      </section></div></ModalPortal>}
       {activeRun&&<GauntletPlayModal key={activeRun.nonce} scenarios={runScenarios} title={`${activeRun.mode} · ${activeRun.tier}`} runKey={`${activeRun.mode}:${activeRun.tier}`} userId={userId} onClose={()=>setActiveRun(null)} onProgress={applyProgress} onReplay={()=>setActiveRun({...activeRun,nonce:Date.now()})}/>}
       {dailyRun&&<GauntletPlayModal scenarios={dailyScenarios} title={`Daily Gauntlet · ${dailyDate}`} runKey={`DAILY:${dailyDate}`} dailyDate={dailyDate} userId={userId} onClose={()=>setDailyRun(false)} onProgress={applyProgress}/>}
       {triviaOpen && <ModalPortal>
-        <div role="dialog" aria-modal="true" aria-label={`${tier} Trivia`} className="fixed inset-0 z-[9999] overflow-y-auto overscroll-contain bg-[#05070a] px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(.75rem,env(safe-area-inset-top))] text-white [-webkit-overflow-scrolling:touch] sm:px-4">
+        <div role="dialog" aria-modal="true" aria-label={`${tier} Trivia`} className="bk-gauntlet-question-dialog fixed inset-0 z-[9999] overflow-y-auto overscroll-contain bg-[#05070a] px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(.75rem,env(safe-area-inset-top))] text-white [-webkit-overflow-scrolling:touch] sm:px-4">
           <div className="mx-auto w-full max-w-2xl">
             <header className="flex min-h-12 items-center justify-between gap-3">
               <button onClick={closeTrivia} className="inline-flex min-h-11 items-center gap-2 px-1 text-[10px] font-black uppercase"><ArrowLeft className="h-4 w-4" /> Exit</button>
@@ -329,4 +366,4 @@ export const ChallengesHub: React.FC = () => {
   );
 };
 
-const ProgressStat=({label,value,icon}:{label:string;value:string;icon?:React.ReactNode})=><div className="rounded-2xl border border-white/10 bg-[#101318] p-3"><div className="flex items-center justify-between text-[8px] font-black uppercase tracking-wider text-zinc-600"><span>{label}</span>{icon}</div><div className="mt-1 text-2xl font-black">{value}</div></div>;
+const ProgressStat=({label,value,detail,progress,icon}:{label:string;value:string;detail:string;progress?:number;icon?:React.ReactNode})=><div className="bk-gauntlet-stat"><span className="bk-gauntlet-stat-label">{label}{icon}</span><strong className="bk-gauntlet-stat-value">{value}</strong>{progress!==undefined&&<span className="bk-gauntlet-stat-bar" aria-hidden="true"><i style={{width:`${Math.max(3,progress)}%`}}/></span>}<small className="bk-gauntlet-stat-detail">{detail}</small></div>;
