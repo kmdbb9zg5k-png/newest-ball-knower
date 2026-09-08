@@ -2,7 +2,7 @@ import assert from'node:assert/strict';
 import{readFileSync}from'node:fs';
 import{
   GAUNTLET_CATALOG,GAUNTLET_MODES,GAUNTLET_TIERS,buildDailyGauntlet,buildGauntletRound,
-  compactGauntletProgressForCloud,mergeGauntletProgress,recordGauntletAnswer,recordGauntletRun,scenariosFor,shouldEliminateGauntletRun,type GauntletProgress,
+  compactGauntletProgressForCloud,gauntletScenarioQuestion,mergeGauntletProgress,recordGauntletAnswer,recordGauntletRun,scenariosFor,shouldEliminateGauntletRun,type GauntletProgress,
 }from'../gauntletEngine';
 import{parseTriviaAnswers}from'../triviaValidation';
 
@@ -27,7 +27,25 @@ for(const item of GAUNTLET_CATALOG){
  assert.equal(new Set(item.options).size,4,`${item.id} contains duplicate answers.`);
  assert(item.correct>=0&&item.correct<4,`${item.id} has an invalid answer key.`);
  assert(item.context.length>35&&item.prompt.length>25&&item.explanation.length>25,`${item.id} is too shallow.`);
+ assert.equal(gauntletScenarioQuestion(item),`${item.context} ${item.prompt}`,`${item.id} offline Trivia must include the situation needed to answer it.`);
+ if(item.mode!=='FILM ROOM')assert(!/^(1ST|2ND|3RD) &|^RED ZONE|^LATE-GAME/.test(item.context),`${item.id} uses an on-field down marker outside Film Room.`);
+ if(item.tier!=='ROOKIE'){
+  assert(/(CLIP|FORECAST|CLAIM|BOARD) A/.test(item.context)&&/(CLIP|FORECAST|CLAIM|BOARD) B/.test(item.context),`${item.id} must label both independent situations.`);
+  assert(/(CLIP|FORECAST|CLAIM|BOARD) A:/.test(item.options[item.correct])&&/(CLIP|FORECAST|CLAIM|BOARD) B:/.test(item.options[item.correct]),`${item.id} answer must resolve both labeled situations.`);
+ }
+ if(item.tier==='HALL OF FAME')assert(/(CLIP|FORECAST|CLAIM|BOARD) C/.test(item.context)&&/(CLIP|FORECAST|CLAIM|BOARD) C:/.test(item.options[item.correct]),`${item.id} must resolve its third labeled situation.`);
 }
+
+const progressionSource=readFileSync(new URL('../progressionCloud.ts',import.meta.url),'utf8');
+assert(progressionSource.includes('question:gauntletScenarioQuestion(item)'), 'Offline Classic Trivia must not drop a Gauntlet scenario context.');
+const starterRegistry=JSON.parse(readFileSync(new URL('../data/current-qb-starters.json',import.meta.url),'utf8')) as Record<string,string>;
+const factSeed=readFileSync(new URL('../migrations/20260825_expand_trivia_to_500_plus.sql',import.meta.url),'utf8');
+const starterSync=readFileSync(new URL('../migrations/20260908183000_sync_trivia_qb_facts_with_current_roster.sql',import.meta.url),'utf8');
+const triviaStarters=Object.fromEntries([...factSeed.matchAll(/\('([A-Z]{2,3})','[^']+','[^']+','(?:AFC|NFC)','(?:AFC|NFC) (?:East|North|South|West)','([^']+)'\)/g)].map(match=>[match[1],match[2]]));
+for(const match of starterSync.matchAll(/set starting_qb = '([^']+)'[\s\S]*?where abbr = '([A-Z]{2,3})'/g))triviaStarters[match[2]]=match[1];
+assert.equal(Object.keys(triviaStarters).length,32,'Trivia must seed one current quarterback for every team.');
+assert.deepEqual(triviaStarters,starterRegistry,'Current-team Trivia questions must match the app\'s canonical 2026 starting-quarterback registry.');
+assert(starterSync.includes('finalize_generated_trivia_quality()'),'Starter corrections must regenerate every dependent Trivia question.');
 
 const daily=buildDailyGauntlet('2026-08-28');const sameDaily=buildDailyGauntlet('2026-08-28');const nextDaily=buildDailyGauntlet('2026-08-29');
 assert.equal(daily.length,5,'Daily Gauntlet must contain five challenges.');
