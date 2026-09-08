@@ -14,12 +14,12 @@ import { FranchiseSeason } from "./FranchiseSeason";
 import {
   assignPlayerToFranchiseTeam,
   buildFranchiseTradeResult,
-  buildRealTeamRoster,
+  buildSoloTeamRoster,
   SOLO_FRANCHISE_SAVE_KEYS,
   validateFranchiseRoster,
 } from "./soloFranchiseEngine";
 import { SoloTeamPicker } from "./SoloTeamPicker";
-import { getSavedNflTeamTheme, TEAM_THEMES, teamLogoUrl } from "./teamTheme";
+import { getSavedSoloTeamTheme, SOLO_TEAM_THEMES, soloTeamLogoUrl } from "./soloUniverse";
 import { Player } from "./types";
 import { ModeGuide } from "./ModeGuide";
 import { ModalPortal } from "./ModalPortal";
@@ -58,10 +58,10 @@ function restoreFranchise(): RealFranchiseSave | null {
     const saved = JSON.parse(raw);
     if (
       typeof saved?.teamAbbr !== "string" ||
-      !TEAM_THEMES.some((team) => team.abbr === saved.teamAbbr)
+      !SOLO_TEAM_THEMES.some((team) => team.abbr === saved.teamAbbr)
     )
       return null;
-    const baseRoster = buildRealTeamRoster(saved.teamAbbr);
+    const baseRoster = buildSoloTeamRoster(saved.teamAbbr);
     const savedRoster =
       Array.isArray(saved.roster) && saved.roster.length
         ? saved.roster.map((player: Player) =>
@@ -121,7 +121,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
     restored?.teamAbbr ?? null,
   );
   const [selectedAbbr, setSelectedAbbr] = useState(
-    () => teamAbbr ?? getSavedNflTeamTheme().abbr,
+    () => teamAbbr ?? getSavedSoloTeamTheme().abbr,
   );
   const [message, setMessage] = useState("");
   const [seasonOpen, setSeasonOpen] = useState(false);
@@ -147,7 +147,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
   const [franchiseYear, setFranchiseYear] = useState(restoredFranchiseYear);
   const team = teamByAbbr(teamAbbr ?? selectedAbbr);
   const baseRoster = useMemo(
-    () => (teamAbbr ? buildRealTeamRoster(teamAbbr) : []),
+    () => (teamAbbr ? buildSoloTeamRoster(teamAbbr) : []),
     [teamAbbr],
   );
   const roster = rosterOverride ?? baseRoster;
@@ -169,9 +169,9 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
   const leagueRosters = useMemo(
     () =>
       Object.fromEntries(
-        TEAM_THEMES.filter((item) => item.abbr !== teamAbbr).map((item) => [
+        SOLO_TEAM_THEMES.filter((item) => item.abbr !== teamAbbr).map((item) => [
           item.abbr,
-          opponentRosters[item.abbr] ?? buildRealTeamRoster(item.abbr),
+          opponentRosters[item.abbr] ?? buildSoloTeamRoster(item.abbr),
         ]),
       ),
     [opponentRosters, teamAbbr],
@@ -198,7 +198,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
 
   const start = () => {
     try {
-      const startingRoster = buildRealTeamRoster(selectedAbbr);
+      const startingRoster = buildSoloTeamRoster(selectedAbbr);
       localStorage.setItem(
         SOLO_FRANCHISE_SAVE_KEYS.real,
         JSON.stringify({
@@ -207,7 +207,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
           roster: startingRoster,
           draftPickAssets: createFranchiseDraftPicks(
             2027,
-            TEAM_THEMES.map((team) => team.abbr),
+            SOLO_TEAM_THEMES.map((team) => team.abbr),
           ),
           gamePlan: "Balanced attack",
           opponentRosters: {},
@@ -222,11 +222,11 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
     }
     setTeamAbbr(selectedAbbr);
     setSeasonOpen(false);
-    setRosterOverride(buildRealTeamRoster(selectedAbbr));
+    setRosterOverride(buildSoloTeamRoster(selectedAbbr));
     setDraftPickAssets(
       createFranchiseDraftPicks(
         2027,
-        TEAM_THEMES.map((team) => team.abbr),
+        SOLO_TEAM_THEMES.map((team) => team.abbr),
       ),
     );
     setFranchiseYear(2026);
@@ -332,7 +332,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
       }
       const tradePartner = tradeTarget.team;
       const partnerRoster =
-        leagueRosters[tradePartner] ?? buildRealTeamRoster(tradePartner);
+        leagueRosters[tradePartner] ?? buildSoloTeamRoster(tradePartner);
       const result = buildFranchiseTradeResult(
         roster,
         team.abbr,
@@ -364,7 +364,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
           ensureFranchiseDraftYear(
             picks,
             nextDraftYear,
-            TEAM_THEMES.map((item) => item.abbr),
+            SOLO_TEAM_THEMES.map((item) => item.abbr),
           ),
           team.abbr,
           tradePartner,
@@ -396,7 +396,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
             <ModeGuide
               storageKey="bk-guide-franchise-command-v1"
               title="Franchise Command"
-              summary="You control the football side of a real NFL team. Build the roster, listen to your coaches and then play the season."
+              summary="You control the football side of a simulated Ball Knower League team. Build the roster, listen to your coaches and then play the season."
               steps={[
                 "Pick a weekly game plan.",
                 "Trade players and future picks to improve weak spots.",
@@ -407,7 +407,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
           <section className="mt-4 overflow-hidden rounded-[2rem] border border-emerald-300/20 bg-[#0c1117] p-5 sm:p-7">
             <div className="flex items-center gap-4">
               <img
-                src={teamLogoUrl(team.abbr)}
+                src={soloTeamLogoUrl(team.abbr)}
                 alt=""
                 className="h-16 w-16 object-contain"
               />
@@ -716,7 +716,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
   }
 
   const selectedTeam = teamByAbbr(selectedAbbr);
-  const previewRoster = buildRealTeamRoster(selectedAbbr);
+  const previewRoster = buildSoloTeamRoster(selectedAbbr);
   const topPlayers = previewRoster
     .slice()
     .sort((first, second) => second.ovr - first.ovr)
@@ -736,13 +736,13 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
         </button>
         <div className="bk-franchise-panel mt-5 rounded-[2rem] border border-white/10 bg-[#10151d] p-5 sm:p-8">
           <div className="text-[10px] font-black tracking-[.25em] text-[var(--bk-team-accent)]">
-            2026 NFL ROSTERS
+            BALL KNOWER LEAGUE ROSTERS
           </div>
           <h2 className="mt-2 text-4xl font-black leading-none">
             TAKE OVER A TEAM
           </h2>
           <p className="mt-3 text-sm font-semibold text-zinc-400">
-            Choose one of the 32 current NFL rosters and start your franchise
+            Choose one of 32 original simulated teams and start your franchise
             immediately.
           </p>
           <div className="mt-6">
@@ -761,7 +761,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
           ) : null}
           <div className="flex items-center gap-4">
             <img
-              src={teamLogoUrl(selectedTeam.abbr)}
+              src={soloTeamLogoUrl(selectedTeam.abbr)}
               alt=""
               aria-hidden="true"
               className="h-16 w-16 object-contain"
@@ -800,7 +800,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
 };
 
 function teamByAbbr(abbr: string) {
-  return TEAM_THEMES.find((team) => team.abbr === abbr) ?? TEAM_THEMES[0];
+  return SOLO_TEAM_THEMES.find((team) => team.abbr === abbr) ?? SOLO_TEAM_THEMES[0];
 }
 
 const PICK_VALUES = [38, 22, 12, 7, 4, 2, 1];

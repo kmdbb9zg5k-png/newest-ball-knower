@@ -13,10 +13,10 @@ import {
   registerFullCloudStateFlush,
 } from '../cloudSyncCoordinator';
 import { recoverTerminalGuestMerge } from '../guestMergeRecovery';
-import { buildRealTeamRoster } from '../soloFranchiseEngine';
+import { buildSoloTeamRoster } from '../soloFranchiseEngine';
 import { validateRosterShape } from '../rosterRules';
 import { DEFAULT_SALARY_CAP } from '../types';
-import { TEAM_THEMES } from '../teamTheme';
+import { SOLO_TEAM_THEMES } from '../soloUniverse';
 
 const empty: GauntletProgress = {
   xp: 0, level: 1, currentStreak: 0, longestStreak: 0,
@@ -85,7 +85,7 @@ assert.equal(
 );
 assert.equal(stringFailureClears, 1, 'A string terminal failure must clear the pending token.');
 
-const legalSoloRoster = buildRealTeamRoster('PHI');
+const legalSoloRoster = buildSoloTeamRoster('ABQ');
 const newestGuestModes = {
   solo_career: { season: 4, wins: 11, roster: legalSoloRoster },
   solo_real_team: { week: 9 },
@@ -115,8 +115,8 @@ assert(
   migratedSoloRoster.reduce((total, player) => total + player.salary, 0) <= DEFAULT_SALARY_CAP,
   'Migrated Solo startup must retain salary-cap enforcement.',
 );
-for (const team of TEAM_THEMES) {
-  const newestRoster = buildRealTeamRoster(team.abbr);
+for (const team of SOLO_TEAM_THEMES) {
+  const newestRoster = buildSoloTeamRoster(team.abbr);
   const migratedTeamState = { solo_career: { roster: newestRoster.slice(0, -1) } };
   const unregisterTeamFlush = registerFullCloudStateFlush(async () => {
     migratedTeamState.solo_career.roster = newestRoster;

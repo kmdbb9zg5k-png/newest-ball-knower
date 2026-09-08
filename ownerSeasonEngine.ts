@@ -1,3 +1,5 @@
+import { SOLO_TEAM_THEMES } from './soloUniverse';
+
 export type OwnerSeasonStage='preseason'|'regular'|'wild-card'|'divisional'|'conference'|'super-bowl';
 
 export type OwnerSeasonSnapshot={
@@ -8,29 +10,15 @@ export type OwnerSeasonSnapshot={
 
 export type OwnerCalendarWeek={week:number;isBye:boolean;isHome:boolean};
 
-export const OWNER_TEAM_ABBRS=['ARI','ATL','BAL','BUF','CAR','CHI','CIN','CLE','DAL','DEN','DET','GB','HOU','IND','JAX','KC','LV','LAC','LAR','MIA','MIN','NE','NO','NYG','NYJ','PHI','PIT','SF','SEA','TB','TEN','WAS'] as const;
-const OWNER_2026_BYE_WEEK:Record<string,number>={ARI:14,ATL:11,BAL:13,BUF:7,CAR:5,CHI:10,CIN:6,CLE:11,DAL:14,DEN:10,DET:6,GB:11,HOU:8,IND:13,JAX:7,KC:5,LV:13,LAC:7,LAR:11,MIA:6,MIN:6,NE:11,NO:8,NYG:8,NYJ:13,PHI:10,PIT:9,SF:8,SEA:11,TB:10,TEN:9,WAS:7};
+export const OWNER_TEAM_ABBRS=SOLO_TEAM_THEMES.map(team=>team.abbr);
 
-// ESPN's published 2026 schedule grid. International games use the NFL's
-// designated home team, which is also the club that receives the home gate.
-const OWNER_2026_HOME_WEEKS:Record<string,readonly number[]>={
-  ARI:[2,5,7,10,12,13,15,17,18],ATL:[2,5,6,7,9,10,13,16,17],BAL:[2,4,7,9,10,14,16,18],BUF:[2,3,4,8,11,12,15,18],
-  CAR:[1,4,7,9,11,14,15,17,18],CHI:[2,3,4,7,9,11,13,16,17],CIN:[1,4,8,10,12,14,17,18],CLE:[3,4,6,10,12,13,14,17],
-  DAL:[2,3,5,8,10,11,12,16,17],DEN:[2,3,6,8,11,13,16,18],DET:[1,3,7,8,10,11,12,14,16],GB:[3,5,6,8,10,14,15,17,18],
-  HOU:[1,2,4,7,11,12,15,18],IND:[1,3,6,9,10,12,16,18],JAX:[1,3,5,6,8,12,14,17],KC:[1,2,6,9,11,15,16,18],
-  LV:[1,4,6,7,10,14,15,16],LAC:[1,2,5,9,11,12,15,17],LAR:[1,2,5,6,8,12,13,15,18],MIA:[3,5,8,9,12,14,16,17],
-  MIN:[1,4,7,9,12,13,15,16,18],NE:[2,5,6,9,13,14,17,18],NO:[3,4,5,7,9,10,13,16,18],NYG:[1,3,4,6,10,11,13,15,18],
-  NYJ:[2,5,7,8,10,14,16,17],PHI:[1,4,6,7,9,11,14,15,16],PIT:[1,3,5,8,12,13,15,16],SF:[2,3,4,6,9,11,12,14,17],
-  SEA:[1,4,5,7,8,9,13,14,16],TB:[2,3,4,6,8,12,13,15,17],TEN:[1,2,5,7,10,13,15,17],WAS:[3,4,5,8,9,11,14,15,18],
-};
-
-export const normalizeOwnerAbbr=(abbr:string)=>OWNER_TEAM_ABBRS.includes(abbr as typeof OWNER_TEAM_ABBRS[number])?abbr:'PHI';
+export const normalizeOwnerAbbr=(abbr:string)=>OWNER_TEAM_ABBRS.includes(abbr)?abbr:SOLO_TEAM_THEMES[0].abbr;
 
 export const owner2026Calendar=(abbr:string):OwnerCalendarWeek[]=>{
   const normalizedAbbr=normalizeOwnerAbbr(abbr);
-  const bye=OWNER_2026_BYE_WEEK[normalizedAbbr];
-  const homeWeeks=OWNER_2026_HOME_WEEKS[normalizedAbbr];
-  return Array.from({length:18},(_,index)=>{const week=index+1;const isBye=week===bye;return{week,isBye,isHome:!isBye&&homeWeeks.includes(week)};});
+  const teamIndex=Math.max(0,OWNER_TEAM_ABBRS.indexOf(normalizedAbbr));
+  const bye=teamIndex<12?5+Math.floor(teamIndex/2):11+Math.floor((teamIndex-12)/4);
+  return Array.from({length:18},(_,index)=>{const week=index+1;const isBye=week===bye;return{week,isBye,isHome:!isBye&&(week+teamIndex)%2===0};});
 };
 
 export const ownerSeasonCalendar=(abbr:string,season:number):OwnerCalendarWeek[]=>{
@@ -105,4 +93,4 @@ export const advanceOwnerSeason=(state:OwnerSeasonSnapshot,won:boolean):OwnerSea
   return{nextStage:'preseason',nextWeek:0,seasonEnded:true,playoffQualified:state.stage!=='regular',wonChampionship:champion,revenueM:revenue,expensesM:expenses,profitM:round(revenue-expenses)};
 };
 
-export const ownerStageLabel=(stage:OwnerSeasonStage,week:number)=>stage==='preseason'?'PRESEASON':stage==='regular'?`WEEK ${week}`:stage.replace('-',' ').toUpperCase();
+export const ownerStageLabel=(stage:OwnerSeasonStage,week:number)=>stage==='preseason'?'PRESEASON':stage==='regular'?`WEEK ${week}`:stage==='super-bowl'?'LEGACY BOWL':stage.replace('-',' ').toUpperCase();

@@ -2,7 +2,7 @@ import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import React, { useMemo, useState } from 'react';
 import { ArrowLeft, Play, RotateCcw, Search, Shuffle } from 'lucide-react';
 import { FranchiseSeason } from './FranchiseSeason';
-import { playerPortraitUrl } from './playerPortraits';
+import { playerPortraitFallbackUrl } from './playerPortraits';
 import { getDraftPositionGroup } from './rosterRules';
 import {
   createFantasyDraft,
@@ -20,7 +20,7 @@ import {
   SOLO_FRANCHISE_SAVE_KEYS,
 } from './soloFranchiseEngine';
 import { SoloTeamPicker } from './SoloTeamPicker';
-import { getSavedNflTeamTheme, TEAM_THEMES, teamLogoUrl } from './teamTheme';
+import { getSavedSoloTeamTheme, SOLO_TEAM_THEMES, soloTeamLogoUrl } from './soloUniverse';
 import { Player } from './types';
 
 type Props = { onBack: () => void };
@@ -55,7 +55,7 @@ function removeFantasySave(key: string) {
 
 export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
   const restored = useMemo(restoreFantasy, []);
-  const [selectedAbbr, setSelectedAbbr] = useState(() => restored?.draft.userTeamAbbr ?? getSavedNflTeamTheme().abbr);
+  const [selectedAbbr, setSelectedAbbr] = useState(() => restored?.draft.userTeamAbbr ?? getSavedSoloTeamTheme().abbr);
   const [draft, setDraft] = useState<FantasyDraftState | null>(() => restored?.draft ?? null);
   const [seasonStarted, setSeasonStarted] = useState(() => restored?.seasonStarted ?? false);
   const [query, setQuery] = useState('');
@@ -113,7 +113,7 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
   };
 
   if (draft && seasonStarted) {
-    const opponentRosters = Object.fromEntries(TEAM_THEMES.map(team => [team.abbr, fantasyRosterPlayers(draft, team.abbr)]));
+    const opponentRosters = Object.fromEntries(SOLO_TEAM_THEMES.map(team => [team.abbr, fantasyRosterPlayers(draft, team.abbr)]));
     return (
       <BroadcastStage scene="tunnel" page="fantasy-franchise" quiet={true} className="relative">
         <button type="button" onClick={newCareer} className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-30 flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/90 px-4 text-xs font-black shadow-xl"><RotateCcw size={15} /> NEW DRAFT</button>
@@ -131,12 +131,12 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
           <div className="mt-5 rounded-[2rem] border border-white/10 bg-[#10151d] p-5 sm:p-8">
             <div className="flex items-center gap-2 text-[var(--bk-team-accent)]"><Shuffle size={18} /><span className="text-[10px] font-black tracking-[.25em]">32-TEAM SNAKE DRAFT</span></div>
             <h2 className="mt-3 text-4xl font-black leading-none">FANTASY FRANCHISE</h2>
-            <p className="mt-3 text-sm font-semibold leading-relaxed text-zinc-400">Choose your franchise. Every NFL player enters one shared pool, and every CPU team drafts between your picks.</p>
+            <p className="mt-3 text-sm font-semibold leading-relaxed text-zinc-400">Choose your franchise. Every simulated pro enters one shared pool, and every CPU team drafts between your picks.</p>
             <div className="mt-6"><SoloTeamPicker selectedAbbr={selectedAbbr} onSelect={setSelectedAbbr} /></div>
           </div>
           <div className="mt-4 flex items-center gap-4 rounded-[2rem] border border-white/10 bg-[#111] p-5">
-            <img src={teamLogoUrl(selectedTeam.abbr)} alt="" aria-hidden="true" className="h-16 w-16 object-contain" />
-            <div className="min-w-0 flex-1"><div className="truncate text-2xl font-black">{selectedTeam.name}</div><div className="text-xs text-zinc-500">53 ROUNDS • FULL NFL ROSTER • SNAKE ORDER</div></div>
+            <img src={soloTeamLogoUrl(selectedTeam.abbr)} alt="" aria-hidden="true" className="h-16 w-16 object-contain" />
+            <div className="min-w-0 flex-1"><div className="truncate text-2xl font-black">{selectedTeam.name}</div><div className="text-xs text-zinc-500">53 ROUNDS • FULL SIMULATED ROSTER • SNAKE ORDER</div></div>
             <button type="button" onClick={startDraft} className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)]" aria-label="Start Fantasy Draft"><Play /></button>
           </div>
         </div>
@@ -166,7 +166,7 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
 
         {complete ? (
           <div className="mt-5 rounded-[2rem] border border-white/10 bg-[#10151d] p-6 text-center">
-            <img src={teamLogoUrl(draft.userTeamAbbr)} alt="" aria-hidden="true" className="mx-auto h-24 w-24 object-contain" />
+            <img src={soloTeamLogoUrl(draft.userTeamAbbr)} alt="" aria-hidden="true" className="mx-auto h-24 w-24 object-contain" />
             <h2 className="mt-3 text-4xl font-black">DRAFT COMPLETE</h2>
             <p className="mt-2 text-zinc-400">Your full 53-man fantasy roster is ready for Week 1.</p>
             <button type="button" onClick={beginSeason} className="mt-5 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)]"><Play className="mr-2 inline" /> START SEASON</button>
@@ -196,7 +196,7 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
 };
 
 const DraftPlayer = ({ player, disabled, onSelect }: { key?: React.Key; player: Player; disabled: boolean; onSelect: () => void }) => {
-  const portrait = playerPortraitUrl(player);
+  const portrait = playerPortraitFallbackUrl(player);
   return (
     <button
       type="button"

@@ -2,7 +2,7 @@ import assert from'node:assert/strict';
 import{readFileSync}from'node:fs';
 import{advanceOwnerSeason,migrateOwnerLegacyWeek,normalizeOwnerAbbr,OWNER_TEAM_ABBRS,owner2026Calendar,ownerGameRevenue,ownerPlayoffHomeGame,ownerPlayoffSeed,ownerSeasonCalendar,ownerStageLabel,qualifiesForOwnerPlayoffs,type OwnerSeasonSnapshot}from'../ownerSeasonEngine';
 
-const base:OwnerSeasonSnapshot={abbr:'PHI',season:2026,week:18,stage:'regular',wins:9,losses:7,cashM:350,ticketPrice:125,parkingPrice:35,fanTrust:70,stadium:75,gmCostM:9,coachCostM:12};
+const base:OwnerSeasonSnapshot={abbr:'ABQ',season:2026,week:18,stage:'regular',wins:9,losses:7,cashM:350,ticketPrice:125,parkingPrice:35,fanTrust:70,stadium:75,gmCostM:9,coachCostM:12};
 assert.equal(qualifiesForOwnerPlayoffs(9,8),true);
 assert.equal(qualifiesForOwnerPlayoffs(7,10),false);
 assert.equal(advanceOwnerSeason({...base,week:17},false).nextStage,'regular','Week 17 must not end the 18-week calendar');
@@ -25,10 +25,10 @@ for(const abbr of OWNER_TEAM_ABBRS){const calendar=owner2026Calendar(abbr);asser
 const calendars=OWNER_TEAM_ABBRS.map(abbr=>owner2026Calendar(abbr));
 assert.equal(calendars.flat().filter(week=>week.isHome).length,272,'the 272-game regular season must have exactly 272 designated home teams');
 for(let week=1;week<=18;week++){const entries=calendars.map(calendar=>calendar[week-1]);assert.equal(entries.filter(entry=>entry.isHome).length,entries.filter(entry=>!entry.isBye).length/2,`Week ${week} must have one home team per game`);}
-assert.equal(normalizeOwnerAbbr('NOPE'),'PHI','unsupported persisted team codes must fall back safely');
-assert.notDeepEqual(ownerSeasonCalendar('PHI',2027),ownerSeasonCalendar('PHI',2026),'later careers must not reuse the same venue slate');
-assert.equal(ownerSeasonCalendar('PHI',2026).filter(entry=>entry.isHome).length,9);
-assert.equal(ownerSeasonCalendar('PHI',2027).filter(entry=>entry.isHome).length,8,'future-year hosting must alternate conference revenue equity');
+assert.equal(normalizeOwnerAbbr('NOPE'),'ABQ','unsupported persisted team codes must fall back safely');
+assert.notDeepEqual(ownerSeasonCalendar('ABQ',2027),ownerSeasonCalendar('ABQ',2026),'later careers must not reuse the same venue slate');
+assert.equal(ownerSeasonCalendar('ABQ',2026).filter(entry=>entry.isHome).length,9);
+assert.equal(ownerSeasonCalendar('ABQ',2027).filter(entry=>entry.isHome).length,8,'future-year hosting must alternate league revenue equity');
 assert.equal(ownerPlayoffHomeGame({...base,stage:'wild-card',wins:9}),false,'a low-seeded Wild Card team must not receive a home gate');
 assert.equal(ownerPlayoffHomeGame({...base,stage:'wild-card',playoffSeed:4}),true,'seed 4 must host a Wild Card game');
 assert.equal(ownerPlayoffHomeGame({...base,stage:'super-bowl',wins:14}),false,'the Super Bowl must remain neutral');
@@ -36,11 +36,10 @@ assert.deepEqual(new Set(Array.from({length:20},(_,index)=>ownerPlayoffSeed(8+(i
 const topSeed=advanceOwnerSeason({...base,wins:12,losses:4},true);
 assert.equal(topSeed.playoffSeed,1);
 assert.equal(topSeed.nextStage,'divisional','seed 1 must receive a Wild Card bye');
-assert.equal(owner2026Calendar('WAS')[0].isHome,false,'Washington opens Week 1 away at Philadelphia');
-assert.equal(owner2026Calendar('PHI')[0].isHome,true,'Philadelphia opens Week 1 at home against Washington');
-assert.equal(owner2026Calendar('ARI')[3].isHome,false,'Arizona plays Week 4 away at the Giants');
-assert.equal(migrateOwnerLegacyWeek('WAS',7),8,'a legacy game counter must skip Washington’s Week 7 bye');
-assert.equal(migrateOwnerLegacyWeek('PHI',17),18,'a legacy Week 17 save must have one regular-season game left');
+assert.equal(owner2026Calendar('ABQ')[0].isHome,false,'Albuquerque opens Week 1 away in the simulated schedule');
+assert.equal(owner2026Calendar('ANC')[0].isHome,true,'Anchorage opens Week 1 at home in the simulated schedule');
+assert.equal(migrateOwnerLegacyWeek('ABQ',7),8,'a legacy game counter must skip Albuquerque’s Week 5 bye');
+assert.equal(migrateOwnerLegacyWeek('ABQ',17),18,'a legacy Week 17 save must have one regular-season game left');
 const ownerMode=readFileSync(new URL('../OwnerBusinessMode.tsx',import.meta.url),'utf8');
 assert.ok(!ownerMode.includes('cashM:state.cashM-p.costM'),'annual staff salary must not also be charged up front');
 assert.ok(ownerMode.includes('seasonStaffCommitmentsM:state.seasonStaffCommitmentsM+p.costM'),'hired staff salary must remain obligated after a later firing');

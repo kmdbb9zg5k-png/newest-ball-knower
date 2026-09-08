@@ -13,9 +13,9 @@ import {
   Sparkles,
   UserRound,
 } from "lucide-react";
-import { PLAYERS_DATABASE, KNOWN_PLAYERS_DATABASE } from "./players";
 import { Player } from "./types";
-import { playerPortraitUrl } from "./playerPortraits";
+import { SOLO_KNOWN_PLAYERS_DATABASE, SOLO_PLAYERS_DATABASE, SOLO_UNIVERSE_VERSION, simulatedPlayerForLegacyId } from "./soloUniverse";
+import { playerPortraitFallbackUrl } from "./playerPortraits";
 import { ModalPortal } from "./ModalPortal";
 import { AGENT_PENDING_RECRUIT_ACTION_KEY, AGENT_PENDING_SIGNING_KEY, commitAgentSigningForExpectedUser, loadUserState } from "./userStateCloud";
 import { claimPendingVerifiedModeMilestones } from "./modeProgressionCloud";
@@ -65,6 +65,33 @@ const LEGACY_SAVE_KEYS = [
 const RECRUIT_COOLDOWN_DAYS = 7;
 const TRADE_DEADLINE_WEEK = 9;
 const REGULAR_SEASON_WEEKS = 18;
+const AGENT_POSITION_FILTERS = ["QB", "RB", "WR", "TE", "OT", "EDGE", "DT", "LB", "CB", "S", "K", "P"] as const;
+
+const agentPositionGroup = (player: Player) => {
+  if (["LT", "RT", "OT"].includes(player.position)) return "OT";
+  if (["EDGE", "DE"].includes(player.position)) return "EDGE";
+  if (["DT", "NT"].includes(player.position)) return "DT";
+  if (["S", "FS", "SS"].includes(player.position)) return "S";
+  return player.position;
+};
+
+const buildAgentTargetBoard = (players: Player[], limit = 50) => {
+  const buckets = new Map(AGENT_POSITION_FILTERS.map(position => [
+    position,
+    players.filter(player => agentPositionGroup(player) === position),
+  ]));
+  const selected: Player[] = [];
+  for (let depth = 0; selected.length < limit; depth += 1) {
+    let added = false;
+    for (const position of AGENT_POSITION_FILTERS) {
+      const player = buckets.get(position)?.[depth];
+      if (player) { selected.push(player); added = true; }
+      if (selected.length === limit) break;
+    }
+    if (!added) break;
+  }
+  return selected;
+};
 
 type Pitch = RecruitingPitch;
 type AgentProfile = { name: string; age: number; location: string };
@@ -105,6 +132,7 @@ type Client = {
 };
 type SeasonPhase = "preseason" | "regular" | "postseason" | "offseason";
 type AgencyState = {
+  universeVersion: number;
   profile?: AgentProfile;
   reputation: number;
   negotiation: number;
@@ -228,6 +256,7 @@ const MAJOR_CITIES = [
 ];
 
 const fallbackAgency = (): AgencyState => ({
+  universeVersion: SOLO_UNIVERSE_VERSION,
   reputation: 20,
   negotiation: 32,
   brandPower: 24,
@@ -285,45 +314,47 @@ const restore = (includePendingRecruitAction = true): AgencyState => {
     }
     if (!raw) return fallbackAgency();
     const v = JSON.parse(raw);
-    return {
+    const legacyUniverse = v?.universeVersion !== SOLO_UNIVERSE_VERSION;
+    const restored: AgencyState = {
       ...fallbackAgency(),
       ...v,
       profile: v?.profile,
+      universeVersion: SOLO_UNIVERSE_VERSION,
       clients: Array.isArray(v?.clients)
         ? v.clients
-            .map((c: any) => ({
-              playerId: String(c.playerId),
+            .map((c: any, index: number) => {
+              const simulated = legacyUniverse
+                ? simulatedPlayerForLegacyId(String(c.playerId), index)
+                : SOLO_KNOWN_PLAYERS_DATABASE.find(player => player.id === String(c.playerId));
+              if (!simulated) return null;
+              const trust = Number.isFinite(Number(c.trust))
+                ? clamp(Number(c.trust), 0, 100)
+                : 72;
+              return {
+              playerId: simulated.id,
               trust: Number.isFinite(Number(c.trust))
                 ? clamp(Number(c.trust), 0, 100)
                 : 72,
-              currentTeam:
-                typeof c.currentTeam === "string" && c.currentTeam
-                  ? c.currentTeam
-                  : undefined,
+              currentTeam: simulated.team,
               futureDeal: c.futureDeal,
               signedAt: c.signedAt || new Date().toISOString(),
-              tradeRequest: c.tradeRequest,
+              tradeRequest: legacyUniverse ? undefined : c.tradeRequest,
               career:
-                c.career ||
-                createClientCareer(
-                  [],
-                  Number.isFinite(Number(c.trust))
-                    ? clamp(Number(c.trust), 0, 100)
-                    : 72,
-                ),
-            }))
+                legacyUniverse ? createClientCareer([], trust) : c.career || createClientCareer([], trust),
+            };})
+            .filter((client: Client | null): client is Client => client !== null)
             .slice(0, 5)
         : [],
       recruitCooldowns:
-        v?.recruitCooldowns && typeof v.recruitCooldowns === "object"
+        !legacyUniverse && v?.recruitCooldowns && typeof v.recruitCooldowns === "object"
           ? v.recruitCooldowns
           : {},
       recruitLockouts:
-        v?.recruitLockouts && typeof v.recruitLockouts === "object"
+        !legacyUniverse && v?.recruitLockouts && typeof v.recruitLockouts === "object"
           ? v.recruitLockouts
           : {},
       storyStarted: Boolean(v?.profile),
-      timeline: Array.isArray(v?.timeline)
+      timeline: !legacyUniverse && Array.isArray(v?.timeline)
         ? v.timeline
         : fallbackAgency().timeline,
       weeklyActionKey:
@@ -358,6 +389,11 @@ const restore = (includePendingRecruitAction = true): AgencyState => {
           ? v.clients.reduce((n: number, c: Client) => n + (c.career?.brokenPromises?.length || 0), 0)
           : 0,
     };
+    if (legacyUniverse) {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(restored));
+      localStorage.removeItem(PENDING_RECRUIT_ACTION_KEY);
+    }
+    return restored;
   } catch {
     return fallbackAgency();
   }
@@ -755,6 +791,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
   );
   const [agentSigningError, setAgentSigningError] = useState("");
   const signingInFlightRef = useRef(false);
+  const filterScrollPositionRef = useRef(0);
   const [signingInFlight, setSigningInFlight] = useState(false);
   const [verifyingAgentSigning, setVerifyingAgentSigning] = useState(
     () => pendingAgentSigningWrite !== null || readPendingAgentSigning() !== null,
@@ -881,7 +918,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       agency.clients
         .map((client) => ({
           client,
-          player: KNOWN_PLAYERS_DATABASE.find((p) => p.id === client.playerId),
+          player: SOLO_KNOWN_PLAYERS_DATABASE.find((p) => p.id === client.playerId),
         }))
         .filter((x): x is { client: Client; player: Player } =>
           Boolean(x.player),
@@ -890,18 +927,20 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
   );
 
   const unlockedOvr = maxUnlockedOverall(agency.reputation);
-  const prospects = useMemo(
+  const availableTargets = useMemo(
     () =>
-      PLAYERS_DATABASE.filter((p) => p.active !== false)
+      buildAgentTargetBoard(SOLO_PLAYERS_DATABASE.filter((p) => p.active !== false)
         .filter((p) => !agency.clients.some((c) => c.playerId === p.id))
         .filter((p) => p.ovr <= unlockedOvr)
-        .filter((p) => filter === "ALL" || p.position === filter)
-        .sort((a, b) => b.ovr - a.ovr || a.salary - b.salary)
-        .slice(0, 50),
-    [agency.clients, filter, unlockedOvr],
+        .sort((a, b) => b.ovr - a.ovr || a.salary - b.salary)),
+    [agency.clients, unlockedOvr],
+  );
+  const prospects = useMemo(
+    () => availableTargets.filter((p) => filter === "ALL" || agentPositionGroup(p) === filter),
+    [availableTargets, filter],
   );
 
-  const selected = KNOWN_PLAYERS_DATABASE.find((p) => p.id === selectedId) || null;
+  const selected = SOLO_KNOWN_PLAYERS_DATABASE.find((p) => p.id === selectedId) || null;
   const actionsRemaining = agentActionsRemaining(agency.weeklyActionsUsed);
   const clientCapacity = agencyClientCapacity(agency.staff);
   const resume = buildAgencyResume({
@@ -1001,7 +1040,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     }
 
     const updatedClients = agency.clients.map((client) => {
-      const p = KNOWN_PLAYERS_DATABASE.find((x) => x.id === client.playerId);
+      const p = SOLO_KNOWN_PLAYERS_DATABASE.find((x) => x.id === client.playerId);
       if (!p) return client;
       const tradeWindowOpen =
         nextPhase === "regular" && nextWeek <= TRADE_DEADLINE_WEEK;
@@ -1070,7 +1109,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     const actionAgency = spendAction("handling a client decision");
     if (!actionAgency) return;
     const client = agency.clients.find((c) => c.playerId === playerId);
-    const player = KNOWN_PLAYERS_DATABASE.find((p) => p.id === playerId);
+    const player = SOLO_KNOWN_PLAYERS_DATABASE.find((p) => p.id === playerId);
     const event = client?.career.pendingEvent;
     if (!client || !player || !event) return;
     const result = resolveClientEvent({
@@ -1121,7 +1160,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     playerId: string,
     status: "resolved" | "denied",
   ) => {
-    const p = KNOWN_PLAYERS_DATABASE.find((x) => x.id === playerId);
+    const p = SOLO_KNOWN_PLAYERS_DATABASE.find((x) => x.id === playerId);
     const client = agency.clients.find((c) => c.playerId === playerId);
     if (!p || !client?.tradeRequest) return;
     if (!canResolveAgentTradeRequest(status, agency.phase, agency.seasonWeek)) {
@@ -1137,7 +1176,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     const currentTeam = client.currentTeam || p.team;
     const teams = [
       ...new Set(
-        PLAYERS_DATABASE.map((player) => player.team).filter(
+        SOLO_PLAYERS_DATABASE.map((player) => player.team).filter(
           (team) => team && team !== currentTeam && team !== "FA",
         ),
       ),
@@ -1518,7 +1557,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
 
   const counterNegotiation = () => {
     if (!negotiationRoom) return;
-    const p = KNOWN_PLAYERS_DATABASE.find((x) => x.id === negotiationRoom.playerId);
+    const p = SOLO_KNOWN_PLAYERS_DATABASE.find((x) => x.id === negotiationRoom.playerId);
     const client = agency.clients.find(
       (x) => x.playerId === negotiationRoom.playerId,
     );
@@ -1970,7 +2009,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                 >
                   <div className="flex items-center gap-3">
                     <img
-                      src={playerPortraitUrl(player)}
+                      src={playerPortraitFallbackUrl(player)}
                       alt=""
                       className="h-14 w-14 rounded-xl bg-white/5 object-cover"
                     />
@@ -2131,35 +2170,28 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                 FIRST CLIENT BOARD
               </div>
               <h2 className="mt-1 text-3xl font-black">
-                WHO ARE YOU BETTING ON?
+                WHO WILL YOU REPRESENT?
               </h2>
               <p className="mt-2 text-xs font-semibold text-zinc-500">
                 {clients.length >= clientCapacity
                   ? `Agency full · ${clients.length}/${clientCapacity} clients`
-                  : `50 available targets · current unlock: ${unlockedOvr} OVR and below`}
+                  : `${availableTargets.length} available targets · current unlock: ${unlockedOvr} OVR and below`}
               </p>
             </div>
             <select
               aria-label="Filter prospects by position"
               value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              onPointerDown={() => { filterScrollPositionRef.current = window.scrollY; }}
+              onFocus={() => { filterScrollPositionRef.current = window.scrollY; }}
+              onChange={(e) => {
+                const control = e.currentTarget;
+                setFilter(control.value);
+                control.blur();
+                window.requestAnimationFrame(() => window.scrollTo({ top: filterScrollPositionRef.current }));
+              }}
               className="rounded-xl border border-white/10 bg-black px-3 py-3 text-sm font-black"
             >
-              {[
-                "ALL",
-                "QB",
-                "RB",
-                "WR",
-                "TE",
-                "OT",
-                "EDGE",
-                "DT",
-                "LB",
-                "CB",
-                "S",
-                "K",
-                "P",
-              ].map((x) => (
+              {["ALL", ...AGENT_POSITION_FILTERS].map((x) => (
                 <option key={x}>{x}</option>
               ))}
             </select>
@@ -2179,7 +2211,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                   className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/25 p-3 text-left disabled:opacity-35"
                 >
                   <img
-                    src={playerPortraitUrl(p)}
+                    src={playerPortraitFallbackUrl(p)}
                     alt=""
                     className="h-16 w-16 rounded-xl bg-white/5 object-cover"
                   />
@@ -2218,7 +2250,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
               <div className="mx-auto my-auto max-w-xl rounded-[2rem] border border-violet-300/25 bg-[#0c1018] p-5 sm:p-7">
                 <div className="flex items-start gap-4">
                   <img
-                    src={playerPortraitUrl(selected)}
+                    src={playerPortraitFallbackUrl(selected)}
                     alt=""
                     className="h-20 w-20 rounded-2xl bg-white/5 object-cover"
                   />
@@ -2297,7 +2329,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
         )}
         {negotiationRoom &&
           (() => {
-            const p = KNOWN_PLAYERS_DATABASE.find(
+            const p = SOLO_KNOWN_PLAYERS_DATABASE.find(
               (x) => x.id === negotiationRoom.playerId,
             );
             if (!p) return null;

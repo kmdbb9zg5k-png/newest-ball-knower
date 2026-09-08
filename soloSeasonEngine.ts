@@ -2,8 +2,8 @@ import { Player, LeagueMember, SimulationGame, TeamRatings, DEFAULT_SALARY_CAP }
 import { calculateTeamRatings } from './evaluation';
 import { simulateGame } from './simulation';
 import { chooseSmartPick, GmPersonality, gradeDraft } from './smartDraft';
-import { PLAYERS_DATABASE } from './players';
-import { TEAM_THEMES, TeamTheme } from './teamTheme';
+import { TeamTheme } from './teamTheme';
+import { SOLO_PLAYERS_DATABASE, SOLO_TEAM_THEMES } from './soloUniverse';
 
 export type SoloDifficulty='rookie'|'pro'|'all_pro'|'all_madden';
 export type InjurySetting='off'|'normal'|'chaos';
@@ -27,14 +27,7 @@ export interface CareerProfile {
 }
 export interface SoloSettings { difficulty:SoloDifficulty; injuries:InjurySetting; }
 
-// Keep the original Solo schedule order while using the real NFL identities
-// already maintained by the favorite-team experience. The remaining clubs
-// rotate into later runs and playoff matchups instead of using fake franchises.
-const SOLO_TEAM_ORDER=[
- 'BAL','BUF','MIA','NE','CLE','CIN','PIT','HOU','IND','JAX','TEN','DEN','KC','LV','LAC','NYJ','DAL',
- 'PHI','WAS','CHI','DET','GB','MIN','ATL','CAR','NO','TB','ARI','LAR','SF','SEA','NYG'
-];
-const SOLO_TEAMS=SOLO_TEAM_ORDER.map(abbr=>TEAM_THEMES.find(team=>team.abbr===abbr)).filter((team):team is TeamTheme=>Boolean(team));
+const SOLO_TEAMS: TeamTheme[] = SOLO_TEAM_THEMES;
 const PERSONALITIES:GmPersonality[]=['balanced','star_hunter','value_hunter','trenches','defense_first','air_raid'];
 
 function seeded(seed:number){ let x=seed|0; return ()=>{x=Math.imul(x^x>>>15,1|x);x^=x+Math.imul(x^x>>>7,61|x);return ((x^x>>>14)>>>0)/4294967296};}
@@ -43,14 +36,14 @@ function hash(s:string){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCo
 export function buildSoloAiRoster(seed:number):Player[]{
  const roster:Player[]=[];
  for(let i=0;i<60&&roster.length<20;i++){
-  const p=chooseSmartPick(PLAYERS_DATABASE,roster,DEFAULT_SALARY_CAP,PERSONALITIES[(seed+i)%PERSONALITIES.length]);
+  const p=chooseSmartPick(SOLO_PLAYERS_DATABASE,roster,DEFAULT_SALARY_CAP,PERSONALITIES[(seed+i)%PERSONALITIES.length]);
   if(!p) break; roster.push(p);
  }
  return roster;
 }
 export function getSoloOpponentTeam(week:number):TeamTheme{
  const safeWeek=Math.max(1,Math.trunc(Number(week)||1));
- return SOLO_TEAMS[(safeWeek-1)%SOLO_TEAMS.length]||TEAM_THEMES[0];
+ return SOLO_TEAMS[(safeWeek-1)%SOLO_TEAMS.length]||SOLO_TEAM_THEMES[0];
 }
 export function makeSoloOpponent(week:number,difficulty:SoloDifficulty):LeagueMember{
  const team=getSoloOpponentTeam(week);
@@ -130,7 +123,7 @@ export function buildAwards(lines:PlayerLine[]){
 export function achievementsForRun(wins:number,losses:number,champ:boolean,grade:number,roster:Player[]){
  const a:string[]=[];
  if(wins>=12)a.push('DOUBLE-DIGIT DOMINANCE'); if(wins>=15)a.push('15-WIN MONSTER'); if(losses===0)a.push('PERFECT REGULAR SEASON');
- if(champ)a.push('SUPER BOWL CHAMPION'); if(champ&&losses===0)a.push('IMMORTAL SEASON'); if(grade>=95)a.push('CAP WIZARD');
+ if(champ)a.push('LEGACY BOWL CHAMPION'); if(champ&&losses===0)a.push('IMMORTAL SEASON'); if(grade>=95)a.push('CAP WIZARD');
  if(roster.filter(p=>p.ovr>=90).length>=5)a.push('STAR COLLECTOR'); if(roster.reduce((n,p)=>n+p.salary,0)<=DEFAULT_SALARY_CAP-10)a.push('MONEYBALL');
  return a;
 }
