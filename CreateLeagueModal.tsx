@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useBallKnower } from './BallKnowerContext';
 import { X, Copy, Check, Shield, ArrowRight, CalendarClock, SlidersHorizontal } from 'lucide-react';
 import { League, LeagueSettings } from './types';
@@ -107,8 +108,8 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
 
   const LEAGUE_SIZES = [6, 8, 10, 12, 14, 16];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+  return createPortal(
+    <div role="dialog" aria-modal="true" aria-label="Create League" className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="relative max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg border border-white/10 bg-[#121212] p-6 shadow-2xl sm:p-8">
         {/* Close Button */}
         <button
@@ -305,7 +306,7 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
           </div>
         )}
       </div>
-    </div>
+    </div>, document.body
   );
 };
 

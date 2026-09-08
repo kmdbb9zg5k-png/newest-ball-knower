@@ -26,92 +26,15 @@ import type { FantasyRanking } from "./fantasyRankingsCloud";
 import { PLAYERS_DATABASE, KNOWN_PLAYERS_DATABASE } from "./players";
 import { FantasyPlayerDetail } from "./FantasyPlayerDetail";
 import "./fantasyHub.css";
+import "./fantasyHqPremium.css";
+import { LeagueDestinationCard } from './FantasyHqLeagueCard';
+import { FantasyHqActivity, FantasyHqWorkspace } from './FantasyHqTools';
+import { ClipboardList, Flag, Swords } from 'lucide-react';
 
 const RANKINGS_PAGE_SIZE = 75;
 const STADIUM_LIGHTS = Array.from({ length: 6 }, (_, index) => index);
 const STADIUM_BANK_BULBS = Array.from({ length: 18 }, (_, index) => index);
 const normalizePlayerName = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
-const leagueInitials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(word => word[0]).join("").toUpperCase() || "BK";
-const scoringLabel = (league: League) => {
-  const format = league.settings?.scoringFormat;
-  if (format === "half_ppr") return "Half PPR";
-  if (format === "standard") return "Standard";
-  return "PPR";
-};
-
-const LeagueDestinationCard = ({
-  league,
-  currentUserId,
-  featured,
-  onSelect,
-}: {
-  league: League;
-  currentUserId?: string;
-  featured: boolean;
-  onSelect: (league: League, tab: "lobby" | "draft" | "simulation") => void;
-}) => {
-  const mine = league.members.find(member => member.userId === currentUserId);
-  const submitted = league.members.filter(member => member.status === "ready").length;
-  const completed = league.status === "completed";
-  const isPublic = league.settings?.leagueType === "public_free";
-  const humans = league.members.filter(member => !member.isAi).length;
-  const phase = completed
-    ? "Season complete"
-    : league.status === "simulating"
-      ? `In season${league.settings?.currentWeek ? ` · Week ${league.settings.currentWeek}` : ""}`
-      : league.liveDraft?.status === "active"
-        ? "Live draft"
-        : submitted === league.members.length && submitted > 1
-          ? "Ready to draft"
-          : "Draft setup";
-  const primaryTab = completed ? "simulation" : "lobby";
-
-  return (
-    <article className={`bk-fantasy-league-card${featured ? " bk-fantasy-league-card--featured" : ""}`}>
-      <div className="bk-fantasy-league-summary">
-        <div className="bk-fantasy-league-crest" aria-hidden="true">
-          <span>{leagueInitials(league.name)}</span>
-          {featured && <Crown />}
-        </div>
-        <div className="bk-fantasy-league-copy">
-          <div className="bk-fantasy-league-kicker">
-            {league.commissionerId === currentUserId ? "Commissioner" : isPublic ? "Public free" : league.code}
-          </div>
-          <h4>{league.name}</h4>
-          <p>
-            {league.members.length}/{league.maxMembers} teams <span>•</span> {scoringLabel(league)} <span>•</span> {league.settings?.nflSeason || 2026} season
-          </p>
-          <div className="bk-fantasy-league-status"><i aria-hidden="true" />{phase}</div>
-        </div>
-        <button type="button" className="bk-fantasy-league-open" onClick={() => onSelect(league, primaryTab)} aria-label={`Open ${league.name}`}>
-          <ChevronRight />
-        </button>
-      </div>
-
-      {featured && (
-        <div className="bk-fantasy-league-facts" aria-label={`${league.name} status`}>
-          <span><small>Owners</small><strong>{submitted}/{league.members.length} ready</strong></span>
-          <span><small>Your roster</small><strong>{mine?.status === "ready" ? "Locked" : "Build"}</strong></span>
-          <span><small>{league.liveDraft?.status === "completed" ? "Players" : "Cap"}</small><strong>{league.liveDraft?.status === "completed" ? `${league.liveDraft.picks.length} drafted` : `${league.salaryCap}M`}</strong></span>
-          {isPublic && <span><small>Managers</small><strong>{humans} human</strong></span>}
-        </div>
-      )}
-
-      <div className="bk-fantasy-league-actions">
-        <button type="button" onClick={() => onSelect(league, primaryTab)}>
-          {completed ? <Trophy /> : <Users />}
-          {completed ? "View results" : "League HQ"}
-        </button>
-        {!completed && (
-          <button type="button" className="bk-fantasy-league-actions-primary" onClick={() => onSelect(league, "draft")}>
-            {mine?.status === "ready" ? "Draft board" : "Build team"}
-            <ArrowRight />
-          </button>
-        )}
-      </div>
-    </article>
-  );
-};
 const fantasyPlayerFromRanking = (ranking?: FantasyRanking): Player | null => {
   if (!ranking) return null;
   const exactId = KNOWN_PLAYERS_DATABASE.find(player => player.id === ranking.player_key);
@@ -152,6 +75,8 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
 }) => {
   const { leagues, currentUser, activeLeague, joinPublicLeague } = useBallKnower();
   const guideTriggerRef = useRef<HTMLButtonElement>(null);
+  const leagueRailRef = useRef<HTMLDivElement>(null);
+  const [workspace, setWorkspace] = useState<'draft'|'matchup'|'leagues'|null>(null);
   const resumablePublicLeague = leagues.find(
     (league) =>
       league.settings?.leagueType === "public_free" &&
@@ -295,7 +220,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
   };
 
   return (
-    <BroadcastStage scene="tunnel" page="fantasy" quiet={view==='cheatsheet'} className="bk-fantasy-hq-screen min-h-[calc(100dvh-7rem)] text-white">
+    <BroadcastStage scene="tunnel" page="fantasy" quiet={view==='cheatsheet'} className={`bk-fantasy-hq-screen ${view === "leagues" ? "bk-hq-premium" : ""} min-h-[calc(100dvh-7rem)] text-white`}>
       <div className="bk-fantasy-hq-shell mx-auto max-w-6xl">
         <nav className="bk-fantasy-hq-tabs" aria-label="Fantasy views">
           <button
@@ -303,14 +228,14 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
             onClick={() => onViewChange("leagues")}
             aria-current={view === "leagues" ? "page" : undefined}
           >
-            League HQ
+            {view === "leagues" && <Trophy aria-hidden="true"/>} League HQ
           </button>
           <button
             type="button"
             onClick={() => onViewChange("cheatsheet")}
             aria-current={view === "cheatsheet" ? "page" : undefined}
           >
-            Cheat Sheet
+            {view === "leagues" && <ClipboardList aria-hidden="true"/>} Cheat Sheet
           </button>
           <ModeGuide
             triggerRef={guideTriggerRef}
@@ -351,7 +276,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
 
             <div className="bk-fantasy-section-heading">
               <h2>Your Leagues</h2>
-              <span>{leagues.length} saved <ChevronRight /></span>
+              <button type="button" onClick={()=>setWorkspace("leagues")} aria-label={`My Leagues (${leagues.length})`}>My Leagues ({leagues.length}) <ChevronRight aria-hidden="true"/></button>
             </div>
 
             {leagues.length === 0 ? (
@@ -365,7 +290,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
                 </p>
               </div>
             ) : (
-              <div className="bk-fantasy-league-grid" data-testid="fantasy-league-grid">
+              <div ref={leagueRailRef} className="bk-fantasy-league-grid" data-testid="fantasy-league-grid" aria-label="Your leagues" tabIndex={0}>
                 {displayLeagues.map((league, leagueIndex) => (
                   <LeagueDestinationCard
                     key={league.id}
@@ -386,16 +311,22 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
                 <button type="button" onClick={onOpenCreateLeague}>
                   <Shield />
                   <strong>Create League</strong>
-                  <span>Start a league in minutes.</span>
+                  <span>Create league <ArrowRight aria-hidden="true"/></span>
                   <ChevronRight />
                 </button>
                 <button type="button" onClick={onOpenJoinLeague}>
                   <Users />
-                  <strong>Join With Code</strong>
-                  <span>Enter a commissioner code.</span>
+                  <strong>Join Code</strong>
+                  <span>Join code <ArrowRight aria-hidden="true"/></span>
                   <ChevronRight />
                 </button>
-                <button type="button" onClick={() => void enterPublicLeague()} disabled={publicMatchBusy}>
+                <button type="button" onClick={()=>setWorkspace('draft')}>
+                  <Flag aria-hidden="true"/><strong>Draft Simulation</strong><span>Practice draft <ArrowRight aria-hidden="true"/></span><ChevronRight aria-hidden="true"/>
+                </button>
+                <button type="button" onClick={()=>setWorkspace('matchup')}>
+                  <Swords aria-hidden="true"/><strong>Matchup Analyzer</strong><span>View matchups <ArrowRight aria-hidden="true"/></span><ChevronRight aria-hidden="true"/>
+                </button>
+                <button className="bk-hq-public-tool" type="button" onClick={() => void enterPublicLeague()} disabled={publicMatchBusy}>
                   {publicMatchBusy ? <LoaderCircle className="bk-fantasy-tool-spinner" /> : <Globe2 />}
                   <strong>{resumablePublicLeague ? "Resume Public" : "Public League"}</strong>
                   <span>{resumablePublicLeague ? `Continue ${resumablePublicLeague.code}.` : "Find and join a free league."}</span>
@@ -409,6 +340,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
               )}
             </section>
 
+            <FantasyHqActivity key={`${currentUser?.id || 'guest'}:${displayLeagues[0]?.id || 'none'}`} league={displayLeagues[0]} />
             <button type="button" className="bk-fantasy-help-card" onClick={() => guideTriggerRef.current?.click()}>
               <span className="bk-fantasy-help-icon"><Trophy /></span>
               <span><strong>Need help getting started?</strong><small>Learn how Ball Knower Fantasy works.</small></span>
@@ -581,6 +513,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
             </p>
           </section>
         )}
+        {workspace && <FantasyHqWorkspace key={`${currentUser?.id || 'guest'}:${workspace}`} mode={workspace} leagues={displayLeagues} rankings={fantasyRankings} rankingsBusy={rankingsBusy} rankingsError={rankingsError} onClose={()=>setWorkspace(null)} onCreate={()=>{setWorkspace(null);onOpenCreateLeague();}} onJoin={()=>{setWorkspace(null);onOpenJoinLeague();}} onOpenLeague={league=>{setWorkspace(null);onSelectLeague(league,'lobby');}} />}
         {selectedPlayer && selectedFantasyPlayer ? (
           <FantasyPlayerDetail
             player={selectedFantasyPlayer}
