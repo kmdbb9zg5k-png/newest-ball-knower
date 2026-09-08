@@ -34,6 +34,11 @@ const layoutSnapshot=page=>page.evaluate(()=>{
   const main=document.querySelector('main');
   const primaryRect=primary?.getBoundingClientRect();
   const headerRect=header?.getBoundingClientRect();
+  const fantasyTabs=document.querySelector('.bk-fantasy-hq-tabs');
+  const fantasyHero=document.querySelector('[data-testid="fantasy-hq-hero"]');
+  const fantasyTools=[...document.querySelectorAll('[data-testid="fantasy-league-grid"] button, [data-testid="fantasy-tool-grid"] button')];
+  const fantasyTabRect=fantasyTabs?.getBoundingClientRect();
+  const fantasyHeroRect=fantasyHero?.getBoundingClientRect();
   const horizontallyClippedMainContent=main?[...main.querySelectorAll('*')].flatMap(element=>{
     const style=getComputedStyle(element);
     const rect=element.getBoundingClientRect();
@@ -57,6 +62,13 @@ const layoutSnapshot=page=>page.evaluate(()=>{
     primaryButtons:primary?.querySelectorAll('button').length||0,
     primaryRect:primaryRect&&{left:primaryRect.left,right:primaryRect.right,top:primaryRect.top,bottom:primaryRect.bottom},
     headerRect:headerRect&&{left:headerRect.left,right:headerRect.right,top:headerRect.top,bottom:headerRect.bottom},
+    fantasyTabButtons:fantasyTabs?.querySelectorAll('button').length||0,
+    fantasyTabRect:fantasyTabRect&&{left:fantasyTabRect.left,right:fantasyTabRect.right,top:fantasyTabRect.top,bottom:fantasyTabRect.bottom},
+    fantasyHeroRect:fantasyHeroRect&&{left:fantasyHeroRect.left,right:fantasyHeroRect.right,top:fantasyHeroRect.top,bottom:fantasyHeroRect.bottom,height:fantasyHeroRect.height},
+    fantasyToolButtons:document.querySelectorAll('[data-testid="fantasy-tool-grid"] button').length,
+    fantasyControlsOutsideViewport:fantasyTools.flatMap(element=>{const rect=element.getBoundingClientRect();return rect.left>=-1&&rect.right<=window.innerWidth+1?[]:[element.textContent?.trim()||element.tagName];}),
+    fantasyMotion:document.querySelector('.bk-fantasy-hq-screen')?.getAttribute('data-motion')||'',
+    fantasyLightAnimation:getComputedStyle(document.querySelector('.bk-fantasy-hq-light-bank i')||document.documentElement).animationName,
     tab:document.querySelector('.bk-app-shell')?.getAttribute('data-tab')||'',
   };
 });
@@ -75,6 +87,18 @@ const assertContained=(snapshot,label)=>{
   assert.ok(snapshot.headerRect,`${label}: fixed header is missing`);
   assert.ok(snapshot.headerRect.left>=-1&&snapshot.headerRect.right<=width+1,`${label}: header is clipped horizontally`);
   assert.ok(snapshot.headerRect.top>=-1,`${label}: header is above the viewport`);
+};
+
+const assertFantasyHq=(snapshot,label)=>{
+  const {width}=snapshot.viewport;
+  assert.equal(snapshot.fantasyTabButtons,3,`${label}: League HQ navigation must keep League HQ, Cheat Sheet, and How It Works`);
+  assert.ok(snapshot.fantasyTabRect,`${label}: Fantasy HQ navigation is missing`);
+  assert.ok(snapshot.fantasyTabRect.left>=-1&&snapshot.fantasyTabRect.right<=width+1,`${label}: Fantasy HQ navigation is clipped`);
+  assert.ok(snapshot.fantasyHeroRect,`${label}: Fantasy HQ stadium hero is missing`);
+  assert.ok(snapshot.fantasyHeroRect.left>=-1&&snapshot.fantasyHeroRect.right<=width+1,`${label}: Fantasy HQ stadium hero is clipped`);
+  assert.ok(snapshot.fantasyHeroRect.height<=255,`${label}: Fantasy HQ hero regressed to an oversized dead zone`);
+  assert.equal(snapshot.fantasyToolButtons,3,`${label}: league tools must keep create, join, and public destinations`);
+  assert.deepEqual(snapshot.fantasyControlsOutsideViewport,[],`${label}: a fantasy destination escapes the viewport`);
 };
 
 const assertDialogContained=async(page,label)=>{
@@ -122,7 +146,17 @@ try{
     await primary.getByRole('button',{name:'Fantasy',exact:true}).click();
     await page.locator('.bk-app-shell[data-tab="fantasy"]').waitFor({state:'visible'});
     await page.getByRole('button',{name:'League HQ',exact:true}).waitFor({state:'visible'});
-    assertContained(await layoutSnapshot(page),`${size.label} League HQ`);
+    const fantasySnapshot=await layoutSnapshot(page);
+    assertContained(fantasySnapshot,`${size.label} League HQ`);
+    assertFantasyHq(fantasySnapshot,`${size.label} League HQ`);
+    await page.screenshot({path:`${artifactDir}/${size.label}-fantasy-hq.png`,fullPage:true});
+
+    await page.emulateMedia({reducedMotion:'reduce'});
+    await page.waitForFunction(()=>document.querySelector('.bk-fantasy-hq-screen')?.getAttribute('data-motion')==='off');
+    const reducedMotionSnapshot=await layoutSnapshot(page);
+    assert.equal(reducedMotionSnapshot.fantasyMotion,'off',`${size.label}: Reduce Motion must disable Fantasy HQ movement`);
+    assert.equal(reducedMotionSnapshot.fantasyLightAnimation,'none',`${size.label}: stadium shimmer must stop under Reduce Motion`);
+    await page.emulateMedia({reducedMotion:'no-preference'});
 
     await page.getByRole('button',{name:'Cheat Sheet',exact:true}).click();
     await page.getByRole('heading',{name:'Player Cheat Sheet',exact:true}).waitFor({state:'visible'});
