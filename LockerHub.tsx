@@ -8,7 +8,7 @@ import { ProfilePhotoEditor } from './ProfilePhotoEditor';
 import { LockerManagerIllustration } from './ProfileLockerArt';
 import './profileLocker.css';
 
-type Tab = 'locker' | 'collections';
+type Tab='locker'|'collections';
 const lockerSlots: Record<string, keyof LockerState> = { profile_frame: 'equippedProfileFrame', nameplate: 'equippedNameplate', league_theme: 'equippedLeagueTheme', trivia_effect: 'equippedTriviaEffect', my_player_cosmetic: 'equippedMyPlayerCosmetic' };
 const getLockerSlot = (item: StoreItem) => lockerSlots[String(item.metadata.slot || '')];
 
@@ -49,7 +49,7 @@ const LockerSession: React.FC = () => {
     catch (cause: any) { showToast(cause?.message || 'Could not equip item.'); }
   };
   const ownedItems = useMemo(() => catalog.filter(item => owned.has(item.sku)), [catalog, owned]);
-  const ownedCollectibles = useMemo(() => ownedItems.filter(item => item.category === 'collectible'), [ownedItems]);
+  const ownedCollectibles = useMemo(() => ownedItems.filter(x=>x.category==='collectible'), [ownedItems]);
 
   return <BroadcastStage scene="locker" page="profile" className="bk-profile-page relative isolate min-h-[calc(100dvh-7rem)] overflow-hidden px-3 pb-8 pt-4 sm:px-6 sm:pt-6">
     <div className="mx-auto max-w-5xl">

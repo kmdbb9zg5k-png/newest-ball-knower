@@ -18,7 +18,7 @@ const rows = [
 ];
 const catalog = rows.map(([achievement_key, title, description, tier]) => ({ achievement_key, title, description, tier, category: 'gm', xp_reward: 100 }));
 const results = [];
-let browser;
+let browser, activePage;
 try {
   let ready = false;
   for (let attempt = 0; attempt < 100; attempt++) {
@@ -33,6 +33,7 @@ try {
     for (const width of engine === 'chromium' ? [320, 390, 430, 1280] : [390]) {
       const context = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: 1, isMobile: width < 768, hasTouch: width < 768, reducedMotion: 'reduce' });
       const page = await context.newPage();
+      activePage = page;
       const crashes = [];
       page.on('pageerror', error => crashes.push(error.message));
       let mode = 'initial', failProfile = false, equipped = null, equipCalls = 0;
@@ -81,6 +82,8 @@ try {
         localStorage.setItem('ball-knower-intro-sound-v1', 'off');
       }, { session, user });
       await page.goto(base, { waitUntil: 'domcontentloaded' });
+      await page.locator('.bk-home-stadium').waitFor();
+      await page.getByRole('button', { name: 'Profile', exact: true }).first().waitFor({ state: 'attached' });
       for (const button of await page.getByRole('button', { name: 'Profile', exact: true }).all()) { if (await button.isVisible()) { await button.click(); break; } }
       const profile = page.getByTestId('locker-profile');
       await profile.waitFor();
@@ -148,9 +151,16 @@ try {
       assert.deepEqual(crashes, []);
       results.push({ engine, width, geometry, ratings: 6, trophies: 6, photoCrop: 'passed', xpZeroAndRollover: 'passed', refreshRecovery: 'passed', collectionAndEquip: 'passed', source: 'isolated network fixtures', physicalIphone: false });
       await context.close();
+      activePage = null;
     }
     await browser.close(); browser = null;
   }
   await writeFile(`${output}/results.json`, JSON.stringify(results, null, 2));
   console.log('Profile locker browser checks passed: Chromium 320/390/430/1280 and WebKit 390; loaded data, zero XP, earned/locked trophies, signed receipts, outage/retry, photo crop, collection and equip. No production writes.');
+} catch (error) {
+  if (activePage && !activePage.isClosed()) {
+    await activePage.screenshot({ path: `${output}/failure.png`, fullPage: true }).catch(() => {});
+    await writeFile(`${output}/failure.txt`, `${String(error)}\n\n${await activePage.locator('body').innerText().catch(() => '')}`);
+  }
+  throw error;
 } finally { await browser?.close(); server.kill('SIGTERM'); }
