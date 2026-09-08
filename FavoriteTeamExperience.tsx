@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { TEAM_THEMES, TeamTheme, applyTeamCssVariables, teamLogoUrl } from './teamTheme';
+import { TEAM_THEMES, TeamTheme, applyTeamCssVariables } from './teamTheme';
+import { FavoriteTeamDisclaimer, FavoriteTeamLogo } from './FavoriteTeamBranding';
 
 export function FavoriteTeamExperience({ onDone }: { onDone?: (team: TeamTheme) => void }) {
   const [index, setIndex] = useState(() => {
@@ -38,7 +39,7 @@ export function FavoriteTeamExperience({ onDone }: { onDone?: (team: TeamTheme) 
   const cardSpacing = typeof window === 'undefined' ? 140 : Math.min(160, Math.max(108, window.innerWidth * .30));
 
   return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto overscroll-contain bg-[#020405] text-white [-webkit-overflow-scrolling:touch]">
+    <div className="fixed inset-0 z-[100] overflow-x-hidden overflow-y-auto overscroll-contain bg-[#020405] text-white [-webkit-overflow-scrolling:touch]">
       <style>{`
         @keyframes bkPulse { 0%,100% { opacity:.24; transform:scale(.98) } 50% { opacity:.58; transform:scale(1.04) } }
         @keyframes bkSweep { from { transform:translateX(-35%) rotate(-7deg) } to { transform:translateX(35%) rotate(7deg) } }
@@ -57,7 +58,7 @@ export function FavoriteTeamExperience({ onDone }: { onDone?: (team: TeamTheme) 
         className="fixed left-1/2 top-[45%] h-[68vh] w-[68vh] max-h-[680px] max-w-[680px] -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-[.14] bk-team-logo-bg transition-opacity duration-500"
         style={{filter:`drop-shadow(0 0 55px ${preview.secondary}55)`}}
       >
-        <img src={teamLogoUrl(team.abbr)} alt="" className="h-full w-full object-contain" aria-hidden="true" />
+        <FavoriteTeamLogo team={team} decorative className="h-full w-full object-contain" />
       </div>
       <div className="fixed inset-0 pointer-events-none opacity-[.09]" style={{backgroundImage:'linear-gradient(rgba(255,255,255,.2) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.2) 1px,transparent 1px)',backgroundSize:'56px 56px',maskImage:'linear-gradient(to bottom,black,transparent 72%)'}} />
       <div className="fixed -inset-32 pointer-events-none blur-3xl opacity-40 bk-light-sweep" style={{background:`linear-gradient(110deg,transparent 28%,${preview.secondary}55 47%,transparent 65%)`}} />
@@ -113,7 +114,7 @@ export function FavoriteTeamExperience({ onDone }: { onDone?: (team: TeamTheme) 
                   }}
                 >
                   <div className="flex h-[164px] w-[164px] items-center justify-center">
-                    <img src={teamLogoUrl(t.abbr)} alt={t.name} className="max-h-[148px] max-w-[148px] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,.7)]" />
+                    <FavoriteTeamLogo team={t} className="max-h-[148px] max-w-[148px] object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,.7)]" />
                   </div>
                   <div className="mt-3 text-center">
                     <p className={`text-[9px] font-black uppercase tracking-[.22em] ${active?'text-white':'text-zinc-500'}`} style={active ? {textShadow:`0 0 14px ${t.secondary}`} : undefined}>{t.abbr}</p>
@@ -139,6 +140,7 @@ export function FavoriteTeamExperience({ onDone }: { onDone?: (team: TeamTheme) 
           <button onClick={() => move(1)} className="mt-3 w-full rounded-2xl border border-white/10 bg-white/[.04] py-3 text-[11px] font-black uppercase tracking-[.18em] text-zinc-300">KEEP LOOKING</button>
           <button onClick={() => { localStorage.setItem('ball-knower-team-setup-v2','skipped'); onDone?.(team); }} className="mt-3 w-full py-2 text-[10px] font-black uppercase tracking-[.16em] text-zinc-500">SKIP FOR NOW</button>
         </div>
+        <FavoriteTeamDisclaimer />
       </div>
     </div>
   );
