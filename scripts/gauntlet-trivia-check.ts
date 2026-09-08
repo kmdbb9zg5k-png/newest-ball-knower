@@ -42,12 +42,16 @@ const starterRegistry=JSON.parse(readFileSync(new URL('../data/current-qb-starte
 const factSeed=readFileSync(new URL('../migrations/20260825_expand_trivia_to_500_plus.sql',import.meta.url),'utf8');
 const repeatFamilyRefresh=readFileSync(new URL('../migrations/20260825_zzzzzzzzzzz_trivia_repeat_family_refresh.sql',import.meta.url),'utf8');
 const starterSync=readFileSync(new URL('../migrations/20260908183000_sync_trivia_qb_facts_with_current_roster.sql',import.meta.url),'utf8');
+const questionSync=readFileSync(new URL('../migrations/20260908233500_refresh_trivia_questions_after_qb_sync.sql',import.meta.url),'utf8');
 const triviaStarters=Object.fromEntries([...factSeed.matchAll(/\('([A-Z]{2,3})','[^']+','[^']+','(?:AFC|NFC)','(?:AFC|NFC) (?:East|North|South|West)','([^']+)'\)/g)].map(match=>[match[1],match[2]]));
 for(const match of starterSync.matchAll(/set starting_qb = '([^']+)'[\s\S]*?where abbr = '([A-Z]{2,3})'/g))triviaStarters[match[2]]=match[1];
 assert.equal(Object.keys(triviaStarters).length,32,'Trivia must seed one current quarterback for every team.');
 assert.deepEqual(triviaStarters,starterRegistry,'Current-team Trivia questions must match the app\'s canonical 2026 starting-quarterback registry.');
 assert.match(repeatFamilyRefresh,/refresh_generated_trivia\(\);[\s\S]*finalize_generated_trivia_quality\(\);[\s\S]*apply_trivia_repeat_families\(\);/,'Starter corrections must regenerate dependent questions and finish with cross-tier repeat families.');
 assert(!starterSync.includes('finalize_generated_trivia_quality()'),'A fact-sync migration must not rerun the finalizer after the refresh trigger reapplies cross-tier repeat families.');
+assert(questionSync.includes("q.question_key like 'gen\\_%'")&&questionSync.includes("q.question_key like 'deep\\_%'"),'Starter corrections must refresh both generations of materialized roster questions.');
+assert(questionSync.includes('jsonb_array_elements(q.answers) with ordinality'),'Starter corrections must preserve the order used by each answer key.');
+assert(questionSync.includes("answers ->> correct_index = 'Tua Tagovailoa'"),'Starter corrections must verify the scored Atlanta answer, not only the prompt text.');
 
 const daily=buildDailyGauntlet('2026-08-28');const sameDaily=buildDailyGauntlet('2026-08-28');const nextDaily=buildDailyGauntlet('2026-08-29');
 assert.equal(daily.length,5,'Daily Gauntlet must contain five challenges.');
