@@ -34,7 +34,7 @@ assert.equal(profileDate('bad date'), '');
 const html = render();
 assert.equal((html.match(/class="bk-locker-hex"/g) || []).length, 6);
 assert.equal((html.match(/class="bk-locker-trophy"/g) || []).length, 8, 'Prediction record should lead the complete trophy catalog');
-assert.match(html, /1\/7 trophies unlocked/);
+assert.match(html, /1\/7 unlocked/);
 assert.match(html, /2 correct picks/);
 assert.match(html, /Pick Record/);
 assert.match(html, /2 correct NFL picks all time/);
