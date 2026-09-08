@@ -24,6 +24,7 @@ try{
    const context=await browser.newContext({viewport:{width,height:844},isMobile:width<768,hasTouch:width<768,reducedMotion:'reduce'});
    const page=await context.newPage();activePage=page;const crashes=[],mutations=[],backgroundPreferences=[];page.on('pageerror',e=>crashes.push(e.message));
    let empty=false,failScores=false,failActivity=false,activityContent=false;
+   const userStateRows=new Map();
    const user={id:userId,aud:'authenticated',role:'authenticated',email:'qa@example.invalid',is_anonymous:false,user_metadata:{name:'Elijah',full_name:'Elijah'},app_metadata:{provider:'email',providers:['email']},created_at:stamp};
    const token=[Buffer.from('{"alg":"HS256","typ":"JWT"}').toString('base64url'),Buffer.from(JSON.stringify({sub:userId,aud:'authenticated',role:'authenticated',exp:Math.floor(Date.now()/1000)+86400})).toString('base64url'),'fixture-only'].join('.');
    const session={user,access_token:token,refresh_token:'fixture-only',token_type:'bearer',expires_in:86400,expires_at:Math.floor(Date.now()/1000)+86400};
@@ -39,6 +40,18 @@ try{
      // Count every other non-GET request; never ignore league, draft, or roster writes.
      const soundtrackPreference=path.endsWith('/ball_knower_user_state')&&writes.length>0&&writes.every(row=>row?.state_key==='soundtrack_preferences');
      (soundtrackPreference?backgroundPreferences:mutations).push(path);
+    }
+    if(path.endsWith('/ball_knower_user_state')){
+     // Mirror PostgREST upsert-return semantics so the existing cloud provider
+     // acknowledges startup preferences rather than retrying unacknowledged rows.
+     if(method==='POST'){
+      const payload=route.request().postDataJSON(),rows=(Array.isArray(payload)?payload:[payload]).map(row=>({...row,updated_at:stamp}));
+      for(const row of rows)userStateRows.set(row.state_key,row);
+      return send(rows);
+     }
+     const filter=url.searchParams.get('state_key')||'';
+     const rows=[...userStateRows.values()].filter(row=>!filter||filter===`eq.${row.state_key}`||(filter.startsWith('in.')&&filter.includes(row.state_key)));
+     return send(filter.startsWith('eq.')?rows[0]||null:rows);
     }
     if(path.endsWith('/ball_knower_fantasy_rankings'))return send(rankingRows.filter(r=>r.position!=='DST'));
     if(path.endsWith('/ball_knower_leagues')){
