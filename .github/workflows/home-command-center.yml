@@ -15,15 +15,26 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm ci --no-audit --no-fund
-      - name: Prepare current public source and dependencies for implementation
+      - name: Export scoped Home implementation for verification
         run: |
           git rev-parse HEAD > /tmp/home-source-commit.txt
-          tar --exclude=.git --exclude='.env*' --exclude=dist --exclude=artifacts -czf /tmp/home-workspace.tgz .
+          tar -czf /tmp/home-implementation.tgz HomeCommandCenter.tsx HomeCommandPanels.tsx HomeDashboard.tsx HomeStadiumHero.tsx homeCommandCenter.css homeCommandData.ts PartnerCard.tsx public/home scripts/home-dashboard-check.ts scripts/home-broadcast-check.ts scripts/home-broadcast-browser-check.mjs scripts/partners-check.ts docs/design/HOME_COMMAND_CENTER.md .github/workflows/home-command-center.yml
       - uses: actions/upload-artifact@v4
         with:
-          name: home-workspace
+          name: home-implementation
           path: |
-            /tmp/home-workspace.tgz
+            /tmp/home-implementation.tgz
             /tmp/home-source-commit.txt
           retention-days: 1
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint && npm run check:home && npm run check:partners
+      - run: npm run build && npm run check:root-bundle
+      - run: npx playwright install --with-deps chromium webkit
+      - run: node scripts/home-broadcast-browser-check.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: home-command-mobile
+          path: artifacts/home-broadcast
+          if-no-files-found: ignore
+          retention-days: 5

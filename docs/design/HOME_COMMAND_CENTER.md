@@ -1,0 +1,18 @@
+# Home command center — September 8, 2026
+
+Implement the owner's silver/graphite Home reference as a responsive live screen, not a flattened image. The page has a brushed-metal header, script wordmark, holographic stadium, five color-coded mode cards, verified rating/tier, compact continue-league panel, four quick links, active-league activity, featured matchup beside the Cowboys Playbook 365 media partner, and personal progression receipts.
+
+## Logical corrections to the reference
+- No fabricated odds, performance charts, serial numbers, players, win rates or partnership claims. Decorative stadium artwork is aria-hidden and has no data labels. Two small local crops of the owner's supplied reference are reused: stadium and wordmark; no image generation was used.
+- The media card uses the existing `partners.ts` entry, supplied local logo and exact Cowboys Playbook 365 website. Tank01 retains an attributed data-provider link and the complete Partners directory remains reachable. NFL teams are not represented as partners.
+- The rating and receipts are read from existing server progression. Zero remains zero; missing data shows unavailable. Existing presentation tiers are retained, with mathematically consistent within-tier progress and explicit next-tier distance.
+- A saved Draft Order Game result is not treated as a completed fantasy season. The primary action's label describes the real route: draft, draft-order result or League HQ. It does not promise a matchup deep link that actually opens an overview.
+- Activity includes public transactions/announcements/receipts and only the current member's trade/waiver updates. Ordinary chat is excluded. Partial and complete outages are distinct from empty activity. Draft scheduling appears in the league card instead of masquerading as a recent completed event.
+- Featured matchup uses the saved season length and pairings, published weekly scores and complete projections. Optional parity-source failures cannot erase valid scores. Playoff opponents are never synthesized. No score/odds/roster writes are added.
+- Switching account remounts Home data, switching league remounts league-specific panels, stale profile reads are rejected, and selection is resolved against leagues containing the current identity.
+
+## Preservation and implementation
+The current main baseline includes Profile #217 and Fantasy HQ #218. Existing routes, create/join/public leagues, research, uploaded avatars, soundtrack, news rotation, native configuration, scoring and solo identities remain unchanged. Shared broadcast CSS remains in the eager Home wrapper so deep links still receive global layout styles. Home-only code is lazy-loaded, reducing the shared startup JavaScript rather than increasing its budget. Header and bottom-navigation styling is scoped to the presence of `.bk-home-command` and automatically stops on other routes.
+
+## Verification
+New pure regression checks cover rating thresholds, zero/missing values, destination semantics, current-member activity filtering, configured partner links, account guards and bounded assets. Existing home/source/partner structural tests are updated only for the intentional five-mode layout and component split. Existing headline/motion/nav tests remain enabled. A dedicated production-built browser test covers Chromium 320/390/430/1280px and WebKit 390px using explicit account/network fixtures. Tests cover all mode and quick-link routes, partner URL/logo, league selection, partial/full outages and retry, zero rating, missing/posted scores and the empty-account state. Physical iPhone and live account writes are separate manual checks. No TestFlight upload is performed.

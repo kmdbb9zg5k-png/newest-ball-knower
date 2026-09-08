@@ -21,7 +21,7 @@ export function HomeStadiumHero({onMyLeagues}:{onMyLeagues:()=>void}){
   const moving=!reduced&&visible&&onScreen;
   return <section ref={scene} className="bk-home-stadium" aria-labelledby="home-stadium-title" data-motion={moving?'on':'off'}>
     <div className="bk-home-stadium-art" aria-hidden="true">
-      <img src="/atmosphere/home-stadium.webp" alt="" width="249" height="158" fetchPriority="high" decoding="async"/>
+      <img src="/home/command-stadium.webp" alt="" width="400" height="242" fetchPriority="high" decoding="async"/>
       <div className="bk-home-team-tint"/>
       <div className="bk-home-light bk-home-light-one"/>
       <div className="bk-home-light bk-home-light-two"/>
@@ -33,9 +33,8 @@ export function HomeStadiumHero({onMyLeagues}:{onMyLeagues:()=>void}){
       <div className="bk-home-stadium-shade"/>
     </div>
     <div className="bk-home-hero-copy">
-      <p className="bk-home-hero-eyebrow">Your game. Your legacy.</p>
-      <h2 id="home-stadium-title">IT’S MORE<br/><span>THAN FANTASY.</span></h2>
-      <p className="bk-home-hero-tagline">IT’S BALL KNOWLEDGE.</p>
+      <h2 id="home-stadium-title">The Ball Knowledge Command Center</h2>
+      <p className="bk-home-hero-tagline">Intel. Insights. NFL mastery.</p>
       <button type="button" className="bk-home-gold-button" onClick={onMyLeagues}>My Leagues <ArrowRight size={16}/></button>
     </div>
   </section>;
