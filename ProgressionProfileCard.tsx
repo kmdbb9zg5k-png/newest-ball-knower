@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useBallKnower } from './BallKnowerContext';
 import { fetchProgressionProfile, type Achievement, type ProgressEvent, type ProgressProfile } from './progressionCloud';
+import { gradeVerifiedPredictionPicks, loadVerifiedPredictionPicks, type VerifiedPredictionPick } from './modeProgressionCloud';
 import { ProfileLockerView } from './ProfileLockerView';
 
 export const ProgressionProfileCard: React.FC = () => {
@@ -13,6 +14,7 @@ function AccountProgression({ displayName }: { displayName?: string }) {
   const [profile, setProfile] = useState<ProgressProfile | null>(null);
   const [events, setEvents] = useState<ProgressEvent[]>([]);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [predictionPicks, setPredictionPicks] = useState<VerifiedPredictionPick[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const requestVersion = useRef(0);
@@ -20,11 +22,15 @@ function AccountProgression({ displayName }: { displayName?: string }) {
     const version = ++requestVersion.current;
     setLoading(true);
     try {
-      const data = await fetchProgressionProfile(displayName);
+      const [data, picks] = await Promise.all([
+        fetchProgressionProfile(displayName),
+        gradeVerifiedPredictionPicks().catch(() => loadVerifiedPredictionPicks()).catch(() => [] as VerifiedPredictionPick[]),
+      ]);
       if (version !== requestVersion.current) return;
       setProfile(data.profile);
       setEvents(data.events);
       setAchievements(data.achievements);
+      setPredictionPicks(picks);
       setError('');
     } catch (cause) {
       if (version !== requestVersion.current) return;
@@ -38,5 +44,5 @@ function AccountProgression({ displayName }: { displayName?: string }) {
     return () => { requestVersion.current += 1; };
   }, [refresh]);
 
-  return <ProfileLockerView profile={profile} events={events} achievements={achievements} error={error} loading={loading} onRefresh={() => void refresh()}/>;
+  return <ProfileLockerView profile={profile} events={events} achievements={achievements} predictionPicks={predictionPicks} error={error} loading={loading} onRefresh={() => void refresh()}/>;
 }
