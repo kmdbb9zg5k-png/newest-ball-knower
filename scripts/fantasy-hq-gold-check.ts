@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildHqPracticeDraft, fantasyHqSummary, hqPublishedProjection } from '../fantasyHqData';
+import { buildHqPracticeDraft, fantasyHqSummary, fantasyHqScheduleFacts, hqPublishedProjection } from '../fantasyHqData';
 import type { League } from '../types';
 import type { FantasyRanking } from '../fantasyRankingsCloud';
+import { buildFantasyWeekPairings, isCompleteFantasySchedule } from '../simulation';
 import type { WeeklyScore } from '../fantasyLeagueParityCloud';
 const players: FantasyRanking[] = ['QB','RB','WR','TE','K','DST'].flatMap((p,g)=>Array.from({length:100},(_,i)=>({player_key:`${p}-${i}`,player_name:`Fixture ${p} ${i}`,position:p,overall_rank:i*6+g+1} as FantasyRanking)));
 function league(size:number):League{return {id:'test',name:'Test league',code:'TEST',commissionerId:'u0',commissionerName:'GM',maxMembers:size,salaryCap:200,status:'drafting',createdAt:'2026-09-08T00:00:00Z',settings:{rosterSize:15},members:Array.from({length:size},(_,i)=>({id:`m${i}`,userId:`u${i}`,userName:`GM ${i}`,isCommissioner:i===0,status:'building'}))};}
@@ -32,3 +33,19 @@ const art=readFileSync(new URL('../public/fantasy/hq-decorations.webp',import.me
 assert.ok(read('FantasyHqTools.tsx').includes("item.kind==='announcement'||item.kind==='receipt'"));
 assert.doesNotMatch(read('FantasyHqTools.tsx'),/\.rpc\(|saveMyWeeklyLineup|updateLeagueSettings|importOfflineFantasyDraftResults/,'HQ practice/analysis must be read-only');
 console.log('Fantasy HQ gold checks passed: truthful phases/counts, 6–16-team private practice, snake order, complete roster construction, missing projections and preserved destinations.');
+
+// Persisted commissioner edits remain authoritative even after playoffs are appended.
+const historic=league(10);
+historic.settings={...historic.settings,regularSeasonWeeks:14};
+const edited=Array.from({length:16},(_,i)=>buildFantasyWeekPairings(historic.members,i+1)).flat();
+[edited[0].awayMemberId,edited[1].awayMemberId]=[edited[1].awayMemberId,edited[0].awayMemberId];
+historic.seasonResult={games:[...edited,{id:'playoff-1',week:17,homeMemberId:'m0',awayMemberId:'m1',playoffRound:'semifinal'}]} as League['seasonResult'];
+const facts=fantasyHqScheduleFacts(historic);
+assert.equal(facts.weeks,16,'Persisted regular-season length takes precedence');
+assert.equal(facts.persisted.length,80,'Do not validate appended playoff games as regular-season games');
+assert.ok(isCompleteFantasySchedule(historic.members,facts.weeks,facts.persisted));
+assert.deepEqual(facts.persisted[0],edited[0],'Keep custom opponents, not rebuilt default pairings');
+assert.equal(fantasyHqScheduleFacts(league(10)).weeks,15,'Default calendar matches the existing post-draft view');
+const legacy=league(10);legacy.settings={seasonGames:16,playoffTeams:4};
+assert.equal(fantasyHqScheduleFacts(legacy).weeks,16,'Retain valid legacy seasonGames settings');
+console.log('HQ schedule regressions passed: persisted length, commissioner edits, playoff filtering and legacy/default calendar.');

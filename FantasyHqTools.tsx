@@ -7,7 +7,7 @@ import type { FantasyRanking } from './fantasyRankingsCloud';
 import type { WeeklyScore } from './fantasyLeagueParityCloud';
 import { ModalPortal } from './ModalPortal';
 import { useBroadcastFocus } from './broadcastFocus';
-import { buildHqPracticeDraft, fantasyHqSummary, hqPublishedProjection } from './fantasyHqData';
+import { buildHqPracticeDraft, fantasyHqSummary, fantasyHqScheduleFacts, hqPublishedProjection } from './fantasyHqData';
 
 type ActivityRow = { id:string; text:string; time:string };
 /** Fetch only the two activity sources; partial failures must not look like an empty feed. */
@@ -81,10 +81,11 @@ function PracticeDraft({league,rankings,busy,error}: {league:League;rankings:Fan
 
 type Pairing={id:string;homeMemberId:string;awayMemberId:string;week:number};
 function MatchupAnalysis({league}: {league:League}) {
-  const weeks=league.settings?.regularSeasonWeeks||14;
+  const {weeks,persisted}=fantasyHqScheduleFacts(league);
   const [week,setWeek]=useState(Math.max(1,Math.min(weeks,league.settings?.currentWeek||1)));
   const [data,setData]=useState<{scores:WeeklyScore[];pairings:Pairing[]}|null>(null);
   const [busy,setBusy]=useState(true),[error,setError]=useState(''),[retry,setRetry]=useState(0);
+  useEffect(()=>setWeek(current=>Math.max(1,Math.min(weeks,current))),[weeks]);
   const ready=league.liveDraft?.status==='completed'&&league.members.length>=2&&league.members.length%2===0;
   useEffect(()=>{
     let active=true;
@@ -94,8 +95,7 @@ function MatchupAnalysis({league}: {league:League}) {
       const response=await cloud.fetchFantasyParityState(league.id,week,league.settings?.nflSeason||2026);
       if(!active)return;
       if(response.isDegraded)throw new Error('Some matchup data could not sync. Retry to see current scores.');
-      const saved=league.settings?.fantasySeasonStarted?(league.seasonResult?.games||[]):[];
-      const pairings=schedule.isCompleteFantasySchedule(league.members,weeks,saved)?saved.filter(game=>game.week===week):schedule.buildFantasyWeekPairings(league.members,week);
+      const pairings=schedule.isCompleteFantasySchedule(league.members,weeks,persisted)?persisted.filter(game=>game.week===week):schedule.buildFantasyWeekPairings(league.members,week);
       setData({scores:[...response.scores],pairings});
     }).catch(()=>{if(active)setError('Matchup data is temporarily unavailable.');}).finally(()=>{if(active)setBusy(false);});
     return()=>{active=false;};

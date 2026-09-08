@@ -76,3 +76,15 @@ export function hqPublishedProjection(score?: WeeklyScore): number | null {
   if (!score || score.hasProjectedTotal !== true || !Number.isFinite(score.projectedPoints)) return null;
   return score.projectedPoints;
 }
+
+/** Match the post-draft schedule's persisted-first regular-season rules. */
+export function fantasyHqScheduleFacts(league: League) {
+  const persisted = (league.seasonResult?.games || [])
+    .filter(game => !game.playoffRound)
+    .map(game => ({ id: game.id, week: game.week, homeMemberId: game.homeMemberId, awayMemberId: game.awayMemberId }));
+  const persistedWeeks = Math.max(0, ...persisted.map(game => Number(game.week) || 0));
+  const playoffWeeks = league.settings?.playoffTeams === 4 ? 2 : 3;
+  const configured = Number(league.settings?.regularSeasonWeeks ?? league.settings?.seasonGames) || 17;
+  const weeks = persistedWeeks || Math.min(Math.max(13, Math.min(17, configured)), 18 - playoffWeeks);
+  return { weeks, persisted };
+}
