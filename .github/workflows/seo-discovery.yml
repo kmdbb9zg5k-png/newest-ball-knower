@@ -1,0 +1,47 @@
+name: SEO discovery
+
+on:
+  pull_request:
+    paths:
+      - index.html
+      - README.md
+      - public/**/*.html
+      - public/robots.txt
+      - public/sitemap.xml
+      - public/llms.txt
+      - public/manifest.webmanifest
+      - public/seo.css
+      - public/1aa664e2f715ece0f5c3bedcfc833943.txt
+      - scripts/seo-discovery-check.mjs
+      - .github/workflows/seo-discovery.yml
+      - .github/workflows/indexnow.yml
+  push:
+    branches:
+      - main
+    paths:
+      - index.html
+      - README.md
+      - public/**/*.html
+      - public/robots.txt
+      - public/sitemap.xml
+      - public/llms.txt
+      - public/manifest.webmanifest
+      - public/seo.css
+      - public/1aa664e2f715ece0f5c3bedcfc833943.txt
+      - scripts/seo-discovery-check.mjs
+      - .github/workflows/seo-discovery.yml
+      - .github/workflows/indexnow.yml
+
+permissions:
+  contents: read
+
+jobs:
+  discovery:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify search discovery contracts
+        run: node scripts/seo-discovery-check.mjs
