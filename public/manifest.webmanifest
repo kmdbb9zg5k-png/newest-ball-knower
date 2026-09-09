@@ -1,0 +1,20 @@
+{
+  "name": "Ball Knower — Fantasy Football, NFL Picks & Trivia",
+  "short_name": "Ball Knower",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#070a0f",
+  "theme_color": "#d4af37",
+  "description": "The official Ball Knower football app for fantasy football leagues, NFL picks, football trivia, rankings, research and solo football modes.",
+  "categories": ["sports", "games", "entertainment"],
+  "icons": [
+    {
+      "src": "/ball-knower-icon.svg?v=1",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
