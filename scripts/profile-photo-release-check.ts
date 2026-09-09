@@ -9,6 +9,7 @@ const migration = read('migrations/20260903080000_add_secure_profile_photos.sql'
 const policyOptimization = read('migrations/20260903080100_optimize_profile_photo_rls_initplans.sql');
 const jpegMigration = read('migrations/20260903211739_allow_jpeg_profile_photos.sql');
 const guestIdentityMigration = read('migrations/20260909000100_guest_profile_identity.sql');
+const jpegBucketHotfix = read('migrations/20260909023000_allow_avatar_jpeg_bucket_uploads.sql');
 const client = read('profilePhoto.ts');
 const editor = read('ProfilePhotoEditor.tsx');
 const context = read('BallKnowerContext.tsx');
@@ -38,6 +39,8 @@ assert.match(guestIdentityMigration, /create or replace function public\.set_bal
 assert.match(guestIdentityMigration, /update public\.ball_knower_league_members[\s\S]*set user_name=v_name/);
 assert.match(guestIdentityMigration, /update public\.ball_knower_leagues[\s\S]*set commissioner_name=v_name/);
 assert.doesNotMatch(guestIdentityMigration, /A permanent account is required/);
+assert.match(jpegBucketHotfix, /allowed_mime_types=array\['image\/webp','image\/jpeg'\]/);
+assert.match(jpegBucketHotfix, /raise exception 'Ball Knower avatar bucket must allow WebP and JPEG uploads'/);
 
 assert.match(client, /PROFILE_PHOTO_MAX_SOURCE_BYTES = 40 \* 1024 \* 1024/);
 assert.match(client, /PROFILE_PHOTO_OUTPUT_SIZE = 512/);
