@@ -9,6 +9,16 @@
       "schedule": "* * * * *"
     }
   ],
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [
+        { "type": "host", "value": "www.ballknowerofficial.com" }
+      ],
+      "destination": "https://ballknowerofficial.com/$1",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
