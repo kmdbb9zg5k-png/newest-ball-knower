@@ -42,29 +42,50 @@ jobs:
           echo "Production did not expose the IndexNow key in time."
           exit 1
 
-      - name: Submit public URLs to IndexNow
+      - name: Submit sitemap URLs to IndexNow
         env:
           INDEXNOW_KEY: 1aa664e2f715ece0f5c3bedcfc833943
         run: |
           set -euo pipefail
-          cat > /tmp/indexnow.json <<EOF
-          {
-            "host": "ballknowerofficial.com",
-            "key": "${INDEXNOW_KEY}",
-            "keyLocation": "https://ballknowerofficial.com/${INDEXNOW_KEY}.txt",
-            "urlList": [
-              "https://ballknowerofficial.com/",
-              "https://ballknowerofficial.com/about-ball-knower.html",
-              "https://ballknowerofficial.com/features.html",
-              "https://ballknowerofficial.com/fantasy-football.html",
-              "https://ballknowerofficial.com/nfl-picks.html",
-              "https://ballknowerofficial.com/nfl-trivia.html",
-              "https://ballknowerofficial.com/faq.html",
-              "https://ballknowerofficial.com/support.html",
-              "https://ballknowerofficial.com/privacy.html"
-            ]
+          curl --silent --show-error --fail --location \
+            'https://ballknowerofficial.com/sitemap.xml' \
+            --output /tmp/sitemap.xml
+
+          python3 <<'PY'
+          import json
+          import os
+          import urllib.parse
+          import xml.etree.ElementTree as ET
+
+          host = 'ballknowerofficial.com'
+          key = os.environ['INDEXNOW_KEY']
+          root = ET.parse('/tmp/sitemap.xml').getroot()
+          urls = []
+
+          for node in root.iter():
+              if node.tag.endswith('loc') and node.text:
+                  url = node.text.strip()
+                  parsed = urllib.parse.urlparse(url)
+                  if parsed.scheme == 'https' and parsed.netloc == host:
+                      urls.append(url)
+
+          urls = list(dict.fromkeys(urls))
+          if not urls:
+              raise SystemExit('No valid production URLs found in sitemap.xml')
+          if len(urls) > 10000:
+              raise SystemExit('IndexNow submission exceeds the 10,000 URL limit')
+
+          payload = {
+              'host': host,
+              'key': key,
+              'keyLocation': f'https://{host}/{key}.txt',
+              'urlList': urls,
           }
-          EOF
+          with open('/tmp/indexnow.json', 'w', encoding='utf-8') as handle:
+              json.dump(payload, handle)
+          print(f'Prepared {len(urls)} sitemap URLs for IndexNow.')
+          PY
+
           status="$(curl --silent --show-error --output /tmp/indexnow-response.txt --write-out '%{http_code}' \
             --request POST 'https://api.indexnow.org/indexnow' \
             --header 'Content-Type: application/json; charset=utf-8' \
