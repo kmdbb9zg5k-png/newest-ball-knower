@@ -168,6 +168,7 @@ export interface UserProfile {
   id: string;
   name: string;
   email: string;
+  isAnonymous?: boolean;
   avatarUrl?: string;
   avatarPath?: string;
   createdAt: string;

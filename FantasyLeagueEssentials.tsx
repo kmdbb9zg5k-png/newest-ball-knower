@@ -19,6 +19,8 @@ import { League, Player } from "./types";
 import { PLAYERS_DATABASE } from "./players";
 import { useBallKnower } from "./BallKnowerContext";
 import { playerPortraitUrl } from "./playerPortraits";
+import { ManagerAvatar } from './ManagerAvatar';
+import { displayLeagueMemberName } from './leagueMemberDisplay';
 import { FantasyAdvancedLeagueSettings } from "./FantasyAdvancedLeagueSettings";
 import { FantasyLeagueCommunications } from "./FantasyLeagueCommunications";
 import { isCloudConfigured } from "./supabase";
@@ -564,21 +566,25 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
             sub="Tap any team to view its roster"
             icon={<Users className="h-5 w-5 text-[#D4AF37]" />}
           >
-            {league.members.map((member) => {
+            {league.members.map((member, index) => {
               const standing = league.seasonResult?.standings.find(
                 (row) => row.memberId === member.id,
               );
+              const managerName = displayLeagueMemberName(member, member.id === me?.id, currentUser, index);
               return (
-                <Action
+                <button
                   key={member.id}
-                  text={member.userName}
-                  label={`${standing ? `${standing.wins}-${standing.losses}` : "0-0"} ›`}
                   onClick={() =>
                     setSelectedTeamId(
                       selectedTeamId === member.id ? "" : member.id,
                     )
                   }
-                />
+                  className="flex min-h-14 w-full items-center gap-3 rounded-xl bg-black/30 px-3 text-left text-xs font-bold"
+                >
+                  <ManagerAvatar member={member} name={managerName} className="h-9 w-9"/>
+                  <span className="min-w-0 flex-1 truncate">{managerName}</span>
+                  <span className="shrink-0 text-[#D4AF37]">{standing ? `${standing.wins}-${standing.losses}` : "0-0"} ›</span>
+                </button>
               );
             })}
             {selectedTeam && (
@@ -586,7 +592,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="text-sm font-black uppercase">
-                      {selectedTeam.userName}
+                      {displayLeagueMemberName(selectedTeam, selectedTeam.id === me?.id, currentUser, league.members.indexOf(selectedTeam))}
                     </div>
                     <div className="text-[10px] text-zinc-500">
                       {selectedTeam.roster?.length || 0} players

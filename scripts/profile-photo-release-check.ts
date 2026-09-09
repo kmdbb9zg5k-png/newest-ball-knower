@@ -8,6 +8,7 @@ const read = (path: string) => fs.readFileSync(path, 'utf8');
 const migration = read('migrations/20260903080000_add_secure_profile_photos.sql');
 const policyOptimization = read('migrations/20260903080100_optimize_profile_photo_rls_initplans.sql');
 const jpegMigration = read('migrations/20260903211739_allow_jpeg_profile_photos.sql');
+const guestIdentityMigration = read('migrations/20260909000100_guest_profile_identity.sql');
 const client = read('profilePhoto.ts');
 const editor = read('ProfilePhotoEditor.tsx');
 const context = read('BallKnowerContext.tsx');
@@ -31,6 +32,12 @@ assert.match(jpegMigration, /lower\(storage\.extension\(name\)\) in \('webp','jp
 assert.match(jpegMigration, /\\\.\(webp\|jpg\)\$/);
 assert.match(jpegMigration, /storage\.foldername\(name\)\)\[1\]=\(select auth\.uid\(\)\)::text/g);
 assert.match(jpegMigration, /auth\.jwt\(\)->>'is_anonymous'/g);
+assert.match(guestIdentityMigration, /create policy bk_avatar_insert_own/);
+assert.match(guestIdentityMigration, /storage\.foldername\(name\)\)\[1\]=\(select auth\.uid\(\)\)::text/g);
+assert.match(guestIdentityMigration, /create or replace function public\.set_ball_knower_profile_name/);
+assert.match(guestIdentityMigration, /update public\.ball_knower_league_members[\s\S]*set user_name=v_name/);
+assert.match(guestIdentityMigration, /update public\.ball_knower_leagues[\s\S]*set commissioner_name=v_name/);
+assert.doesNotMatch(guestIdentityMigration, /A permanent account is required/);
 
 assert.match(client, /PROFILE_PHOTO_MAX_SOURCE_BYTES = 40 \* 1024 \* 1024/);
 assert.match(client, /PROFILE_PHOTO_OUTPUT_SIZE = 512/);
@@ -41,9 +48,11 @@ assert.match(client, /validateProcessedProfilePhoto\(photo\)/);
 assert.match(client, /upsert: false/);
 assert.match(client, /await setProfilePhotoPath\(avatarPath\)/);
 assert.match(client, /remove\(\[oldPath\]\)/);
+assert.doesNotMatch(client, /auth\.is_anonymous/);
 assert.match(editor, /capture="user"/);
 assert.match(editor, /Choose From Photos/);
-assert.match(editor, /Change Photo/);
+assert.match(editor, /Change profile photo/);
+assert.match(editor, /Edit Name &amp; Photo/);
 assert.match(editor, /Remove Photo/);
 assert.match(editor, /Saving Photo/);
 assert.match(editor, /disabled=\{busy \|\| processing \|\| !processedPhoto\}/);
@@ -93,12 +102,13 @@ for (const surface of [
   'LockedDraftOrderView.tsx',
   'LeagueLiveDraftRoom.tsx',
   'FantasyLeagueCommunications.tsx',
+  'FantasyLeagueEssentials.tsx',
 ]) {
   assert.match(read(surface), /ManagerAvatar/, `${surface} must render manager profile photos`);
 }
 
 console.log(JSON.stringify({
-  profilePhoto: 'secure owner path, crop, compression, replacement and removal verified',
-  identitySurfaces: 5,
+  profilePhoto: 'secure guest-or-permanent owner path, crop, compression, replacement and removal verified',
+  identitySurfaces: 6,
   retiredTrack: 'blocked in API and client; bundled asset absent',
 }, null, 2));

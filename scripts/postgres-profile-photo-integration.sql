@@ -39,22 +39,33 @@ grant select,insert,update,delete on storage.objects to authenticated;
 
 create table public.ball_knower_league_members(
   id text primary key,
+  league_id text not null,
   auth_user_id uuid,
+  user_name text not null,
   user_avatar text,
   is_ai boolean not null default false
 );
 grant select on public.ball_knower_league_members to authenticated;
+create table public.ball_knower_leagues(
+  id text primary key,
+  commissioner_auth_id uuid not null,
+  commissioner_name text not null
+);
 
 insert into auth.users(id) values
   ('11111111-1111-4111-8111-111111111111'),
   ('22222222-2222-4222-8222-222222222222');
-insert into public.ball_knower_league_members(id,auth_user_id) values
-  ('member-one','11111111-1111-4111-8111-111111111111'),
-  ('member-two','22222222-2222-4222-8222-222222222222');
+insert into public.ball_knower_leagues(id,commissioner_auth_id,commissioner_name) values
+  ('league-one','11111111-1111-4111-8111-111111111111','Guest GM'),
+  ('league-two','22222222-2222-4222-8222-222222222222','Guest GM');
+insert into public.ball_knower_league_members(id,league_id,auth_user_id,user_name) values
+  ('member-one','league-one','11111111-1111-4111-8111-111111111111','Guest GM'),
+  ('member-two','league-two','22222222-2222-4222-8222-222222222222','Guest GM');
 
 \ir ../migrations/20260903080000_add_secure_profile_photos.sql
 \ir ../migrations/20260903080100_optimize_profile_photo_rls_initplans.sql
 \ir ../migrations/20260903211739_allow_jpeg_profile_photos.sql
+\ir ../migrations/20260909000100_guest_profile_identity.sql
 
 do $$
 begin
@@ -143,27 +154,31 @@ end;
 $$;
 
 select set_config('request.jwt.claims','{"is_anonymous":true}',false);
+select public.set_ball_knower_profile_name('Eli The GM');
+select public.set_ball_knower_profile_photo(
+  '22222222-2222-4222-8222-222222222222/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb.webp'
+);
+insert into storage.objects(id,bucket_id,name,mime_type) values(
+  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  'ball-knower-avatars',
+  '22222222-2222-4222-8222-222222222222/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb.webp',
+  'image/webp'
+);
+
 do $$
 begin
-  begin
-    perform public.set_ball_knower_profile_photo(
-      '22222222-2222-4222-8222-222222222222/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb.webp'
-    );
-    raise exception 'Anonymous profile mutation unexpectedly succeeded';
-  exception when others then
-    if sqlerrm='Anonymous profile mutation unexpectedly succeeded' then raise; end if;
-  end;
-
-  begin
-    insert into storage.objects(id,bucket_id,name,mime_type) values(
-      'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
-      'ball-knower-avatars',
-      '22222222-2222-4222-8222-222222222222/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb.webp',
-      'image/webp'
-    );
-    raise exception 'Anonymous storage write unexpectedly succeeded';
-  exception when insufficient_privilege then null;
-  end;
+  if (select user_name from public.ball_knower_league_members where id='member-two')<>'Eli The GM' then
+    raise exception 'Guest GM name did not propagate to the owned league membership';
+  end if;
+  if (select commissioner_name from public.ball_knower_leagues where id='league-two')<>'Eli The GM' then
+    raise exception 'Guest commissioner name did not propagate';
+  end if;
+  if (select count(*) from public.ball_knower_user_profiles)<>1 then
+    raise exception 'Guest cannot read their own profile photo record';
+  end if;
+  if (select count(*) from storage.objects)<>1 then
+    raise exception 'Guest cannot read their own avatar folder';
+  end if;
 end;
 $$;
 

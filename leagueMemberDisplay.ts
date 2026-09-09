@@ -1,4 +1,5 @@
 import { League, LeagueMember, UserProfile } from './types';
+import { guestGmName, isPlaceholderGmName } from './profileIdentity';
 
 export function resolveMyLeagueMember(league: League | undefined, user: UserProfile | null | undefined): LeagueMember | undefined {
   if (!league || !user) return undefined;
@@ -22,5 +23,6 @@ export function displayLeagueMemberName(member: LeagueMember | undefined, mine: 
     if (cpuName.toLowerCase().replace(/\s+\d+$/, '') === user?.name?.toLowerCase()) return `CPU ${cpuName}`;
     return cpuName;
   }
+  if (member && isPlaceholderGmName(member.userName)) return guestGmName(member.userId || member.id);
   return member?.userName || 'Manager';
 }
