@@ -10,6 +10,7 @@ const policyOptimization = read('migrations/20260903080100_optimize_profile_phot
 const jpegMigration = read('migrations/20260903211739_allow_jpeg_profile_photos.sql');
 const guestIdentityMigration = read('migrations/20260909000100_guest_profile_identity.sql');
 const jpegBucketHotfix = read('migrations/20260909023000_allow_avatar_jpeg_bucket_uploads.sql');
+const jpegConstraintRepair = read('migrations/20260909214749_repair_avatar_jpeg_profile_constraint.sql');
 const client = read('profilePhoto.ts');
 const editor = read('ProfilePhotoEditor.tsx');
 const context = read('BallKnowerContext.tsx');
@@ -41,6 +42,9 @@ assert.match(guestIdentityMigration, /update public\.ball_knower_leagues[\s\S]*s
 assert.doesNotMatch(guestIdentityMigration, /A permanent account is required/);
 assert.match(jpegBucketHotfix, /allowed_mime_types=array\['image\/webp','image\/jpeg'\]/);
 assert.match(jpegBucketHotfix, /raise exception 'Ball Knower avatar bucket must allow WebP and JPEG uploads'/);
+assert.match(jpegConstraintRepair, /drop constraint if exists ball_knower_user_profiles_avatar_path_shape/);
+assert.match(jpegConstraintRepair, /\\\.\(webp\|jpg\)\$/);
+assert.match(jpegConstraintRepair, /raise exception 'Ball Knower profile path constraint must allow WebP and JPEG avatars'/);
 
 assert.match(client, /PROFILE_PHOTO_MAX_SOURCE_BYTES = 40 \* 1024 \* 1024/);
 assert.match(client, /PROFILE_PHOTO_OUTPUT_SIZE = 512/);
@@ -48,6 +52,7 @@ assert.match(client, /application\/octet-stream/);
 assert.match(client, /PROFILE_PHOTO_OUTPUT_MIME = 'image\/jpeg'/);
 assert.match(client, /contentType: photo\.mimeType/);
 assert.match(client, /validateProcessedProfilePhoto\(photo\)/);
+assert.match(client, /profilePhotoErrorMessage\(error, 'The profile photo record could not be saved\.'/);
 assert.match(client, /upsert: false/);
 assert.match(client, /await setProfilePhotoPath\(avatarPath\)/);
 assert.match(client, /remove\(\[oldPath\]\)/);

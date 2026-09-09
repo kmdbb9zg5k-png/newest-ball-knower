@@ -67,6 +67,7 @@ insert into public.ball_knower_league_members(id,league_id,auth_user_id,user_nam
 \ir ../migrations/20260903211739_allow_jpeg_profile_photos.sql
 \ir ../migrations/20260909000100_guest_profile_identity.sql
 \ir ../migrations/20260909023000_allow_avatar_jpeg_bucket_uploads.sql
+\ir ../migrations/20260909214749_repair_avatar_jpeg_profile_constraint.sql
 
 do $$
 begin

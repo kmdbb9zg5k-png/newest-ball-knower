@@ -32,6 +32,15 @@ const ACCEPTED_SOURCE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'heic'
 
 type StoredProfilePhoto = { avatar_path: string | null };
 
+export function profilePhotoErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  if (error && typeof error === 'object') {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) return message;
+  }
+  return fallback;
+}
+
 export type ProfilePhotoOverride = {
   hasOverride: boolean;
   avatarPath?: string;
@@ -213,7 +222,7 @@ export function canvasToProfilePhoto(canvas: HTMLCanvasElement): Promise<Process
 async function setProfilePhotoPath(path: string | null): Promise<void> {
   if (!supabase) throw new Error('Profile photos require online services.');
   const { error } = await supabase.rpc('set_ball_knower_profile_photo', { p_avatar_path: path });
-  if (error) throw error;
+  if (error) throw new Error(profilePhotoErrorMessage(error, 'The profile photo record could not be saved.'));
 }
 
 async function updatePhotoMetadata(path: string | null): Promise<void> {
@@ -235,7 +244,7 @@ export async function uploadProfilePhoto(photo: ProcessedProfilePhoto, oldPath?:
   const { error: uploadError } = await supabase.storage
     .from(PROFILE_PHOTO_BUCKET)
     .upload(avatarPath, photo.blob, { cacheControl: '31536000', contentType: photo.mimeType, upsert: false });
-  if (uploadError) throw uploadError;
+  if (uploadError) throw new Error(profilePhotoErrorMessage(uploadError, 'The profile photo could not be uploaded.'));
 
   try {
     await setProfilePhotoPath(avatarPath);
