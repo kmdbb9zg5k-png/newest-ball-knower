@@ -1,0 +1,76 @@
+name: Notify search engines with IndexNow
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - index.html
+      - public/**/*.html
+      - public/robots.txt
+      - public/sitemap.xml
+      - public/llms.txt
+      - public/manifest.webmanifest
+      - public/seo.css
+      - public/1aa664e2f715ece0f5c3bedcfc833943.txt
+      - .github/workflows/indexnow.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  notify-indexnow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Wait for production SEO files
+        env:
+          INDEXNOW_KEY: 1aa664e2f715ece0f5c3bedcfc833943
+        run: |
+          set -euo pipefail
+          key_url="https://ballknowerofficial.com/${INDEXNOW_KEY}.txt"
+          for attempt in $(seq 1 30); do
+            body="$(curl --silent --show-error --location "$key_url" || true)"
+            if [ "$body" = "$INDEXNOW_KEY" ]; then
+              echo "IndexNow key is live on production."
+              exit 0
+            fi
+            echo "Waiting for production deployment (${attempt}/30)..."
+            sleep 10
+          done
+          echo "Production did not expose the IndexNow key in time."
+          exit 1
+
+      - name: Submit public URLs to IndexNow
+        env:
+          INDEXNOW_KEY: 1aa664e2f715ece0f5c3bedcfc833943
+        run: |
+          set -euo pipefail
+          cat > /tmp/indexnow.json <<EOF
+          {
+            "host": "ballknowerofficial.com",
+            "key": "${INDEXNOW_KEY}",
+            "keyLocation": "https://ballknowerofficial.com/${INDEXNOW_KEY}.txt",
+            "urlList": [
+              "https://ballknowerofficial.com/",
+              "https://ballknowerofficial.com/about-ball-knower.html",
+              "https://ballknowerofficial.com/features.html",
+              "https://ballknowerofficial.com/fantasy-football.html",
+              "https://ballknowerofficial.com/nfl-picks.html",
+              "https://ballknowerofficial.com/nfl-trivia.html",
+              "https://ballknowerofficial.com/faq.html",
+              "https://ballknowerofficial.com/support.html",
+              "https://ballknowerofficial.com/privacy.html"
+            ]
+          }
+          EOF
+          status="$(curl --silent --show-error --output /tmp/indexnow-response.txt --write-out '%{http_code}' \
+            --request POST 'https://api.indexnow.org/indexnow' \
+            --header 'Content-Type: application/json; charset=utf-8' \
+            --data-binary '@/tmp/indexnow.json')"
+          cat /tmp/indexnow-response.txt || true
+          echo "IndexNow HTTP status: ${status}"
+          if [ "$status" != "200" ] && [ "$status" != "202" ]; then
+            exit 1
+          fi
