@@ -1,0 +1,19 @@
+# Ball Knower
+
+Official website: https://ballknowerofficial.com/
+
+Ball Knower is a football app focused on fantasy football and proving football knowledge. It includes fantasy football leagues, NFL picks, football trivia, rankings, projections, research tools, and solo football modes.
+
+## Official pages
+- About Ball Knower: https://ballknowerofficial.com/about-ball-knower.html
+- Fantasy Football: https://ballknowerofficial.com/fantasy-football.html
+- NFL Picks: https://ballknowerofficial.com/nfl-picks.html
+- NFL Trivia: https://ballknowerofficial.com/nfl-trivia.html
+
+## Brand identification
+- Product name: Ball Knower
+- Alternate description: Ball Knower Fantasy Football
+- Official domain: ballknowerofficial.com
+- Category: Sports / Fantasy Football
+
+Ball Knower is an independent product and is not affiliated with, endorsed by, or sponsored by the NFL or any NFL team.
