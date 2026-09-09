@@ -145,7 +145,7 @@ try {
       if (isGuest) {
         await actions.getByLabel('GM Name', { exact: true }).fill('Eli Test GM');
         await actions.getByRole('button', { name: 'Save GM name', exact: true }).click();
-        await page.waitForFunction(() => document.querySelector('[data-testid="locker-identity"]')?.textContent?.includes('ELI TEST GM'));
+        await page.waitForFunction(() => document.querySelector('[data-testid="locker-identity"]')?.textContent?.includes('Eli Test GM'));
       }
       assert.ok(await actions.getByRole('button', { name: 'Take Photo', exact: true }).isVisible());
       assert.ok(await actions.getByRole('button', { name: 'Choose From Photos', exact: true }).isVisible());
