@@ -27,11 +27,13 @@ import { trackBallKnowerEvent } from './analytics';
 import { getLeagueCommissionerName, isLeagueCommissioner } from './leaguePermissions';
 import { canStartScheduledDraft, formatDraftSchedule } from './draftSchedule';
 import { getProfilePhotoMutationVersion, invalidateProfilePhotoReads, resolveProfilePhotoForAuthUser } from './profilePhoto';
+import { isPlaceholderGmName, resolveAuthDisplayName, saveProfileDisplayName } from './profileIdentity';
 
 interface BallKnowerContextType {
   currentUser: UserProfile | null;
   setCurrentUser: (user: UserProfile | null) => void;
   updateCurrentUserAvatar: (avatarUrl?: string, avatarPath?: string) => void;
+  updateCurrentUserName: (name: string) => void;
   loginWithProvider: (provider: 'google' | 'apple' | 'email', customName?: string, customEmail?: string) => void;
   logout: () => void;
   leagues: League[];
@@ -137,7 +139,8 @@ const BallKnowerContext = createContext<BallKnowerContextType | undefined>(undef
 const DEFAULT_USER: UserProfile = {
   id: 'user-default-1',
   name: 'Ball Knower Guest',
-  email: 'guest@ballknower.local',
+  email: '',
+  isAnonymous: true,
   avatarUrl: '',
   createdAt: new Date().toISOString(),
 };
@@ -259,6 +262,24 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
+  const updateCurrentUserName = (name: string) => {
+    const userId = currentUserIdRef.current;
+    setCurrentUserState(previous => {
+      if (!previous) return previous;
+      const next = { ...previous, name };
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(next));
+      return next;
+    });
+    if (!userId) return;
+    setLeagues(previous => previous.map(league => ({
+      ...league,
+      commissionerName: league.commissionerId === userId ? name : league.commissionerName,
+      members: league.members.map(member => member.userId === userId && !member.isAi
+        ? { ...member, userName: name }
+        : member),
+    })));
+  };
+
   useEffect(() => {
     leaguesRef.current = leagues;
     try {
@@ -273,9 +294,20 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     let cancelled = false;
     (async () => {
       try {
-        const authUser = await ensureOnlineSession();
+        let authUser = await ensureOnlineSession();
         if (cancelled) return;
-        const metadata = authUser.user_metadata || {};
+        let metadata = authUser.user_metadata || {};
+        const localName = currentUserIdRef.current === authUser.id ? currentUser?.name : undefined;
+        const resolvedName = resolveAuthDisplayName(authUser, localName);
+        const metadataName = typeof metadata.full_name === 'string' ? metadata.full_name : typeof metadata.name === 'string' ? metadata.name : '';
+        if (authUser.is_anonymous && isPlaceholderGmName(metadataName)) {
+          try {
+            authUser = await saveProfileDisplayName(resolvedName);
+            metadata = authUser.user_metadata || {};
+          } catch (error) {
+            console.warn('Guest GM identity could not be projected yet.', error);
+          }
+        }
         const photoMutation = getProfilePhotoMutationVersion();
         const photo = await resolveProfilePhotoForAuthUser(authUser);
         const { data: currentSession } = await supabase!.auth.getSession();
@@ -288,8 +320,9 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           const synced = {
             ...base,
             id: authUser.id,
-            name: metadata.full_name || metadata.name || base.name,
-            email: authUser.email || base.email,
+            name: resolveAuthDisplayName(authUser, base.name),
+            email: authUser.email || (authUser.is_anonymous ? '' : base.email),
+            isAnonymous: Boolean(authUser.is_anonymous),
             avatarPath: photo.avatarPath,
             avatarUrl: photo.hasOverride ? (photo.avatarUrl || '') : providerAvatar,
             createdAt: authUser.created_at || base.createdAt,
@@ -1020,7 +1053,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   return (
     <BallKnowerContext.Provider value={{
-      currentUser,setCurrentUser,updateCurrentUserAvatar,loginWithProvider,logout,leagues,activeLeague,setActiveLeagueId,createLeague,joinLeague,joinPublicLeague,
+      currentUser,setCurrentUser,updateCurrentUserAvatar,updateCurrentUserName,loginWithProvider,logout,leagues,activeLeague,setActiveLeagueId,createLeague,joinLeague,joinPublicLeague,
       onlineInvitesReady:isCloudConfigured,cloudSyncError,currentRoster,isRosterLocked,addToRoster,removeFromRoster,clearRoster,autoDraftTemplate,submitRoster,
       totalSpent,remainingCap,rosterCounts,rosterValidationErrors,isRosterValid,autoFillLeagueWithAi,removeMemberFromLeague,startSimulation,advanceFantasyWeek,
       finalizeDraftOrder,startLiveFantasyDraft,resumeLiveFantasyDraftRecovery,makeLiveFantasyDraftPick,finalizeLiveFantasyDraftRosters,importOfflineFantasyDraftResults,

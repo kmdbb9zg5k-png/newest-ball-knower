@@ -231,7 +231,6 @@ export async function uploadProfilePhoto(photo: ProcessedProfilePhoto, oldPath?:
   if (!supabase) throw new Error('Profile photos require online services.');
   await validateProcessedProfilePhoto(photo);
   const auth = await ensureOnlineSession();
-  if (auth.is_anonymous) throw new Error('Sign in to save a profile photo to your account.');
   const avatarPath = `${auth.id}/${crypto.randomUUID()}.${photo.extension}`;
   const { error: uploadError } = await supabase.storage
     .from(PROFILE_PHOTO_BUCKET)
@@ -268,8 +267,7 @@ export async function uploadAndCommitProfilePhoto(
 
 export async function removeProfilePhoto(oldPath?: string): Promise<void> {
   if (!supabase) throw new Error('Profile photos require online services.');
-  const auth = await ensureOnlineSession();
-  if (auth.is_anonymous) throw new Error('Sign in to change your account photo.');
+  await ensureOnlineSession();
   await setProfilePhotoPath(null);
   await updatePhotoMetadata(null);
   if (oldPath) {

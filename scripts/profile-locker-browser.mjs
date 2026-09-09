@@ -37,8 +37,9 @@ try {
       const crashes = [];
       page.on('pageerror', error => crashes.push(error.message));
       let mode = 'initial', failProfile = false, equipped = null, equipCalls = 0;
-      const user = { id: userId, aud: 'authenticated', role: 'authenticated', email: 'profile-fixture@example.invalid', is_anonymous: false, app_metadata: { provider: 'email', providers: ['email'] }, user_metadata: { name: width === 320 ? 'A Very Long Profile Display Name' : 'Guest GM', full_name: width === 320 ? 'A Very Long Profile Display Name' : 'Guest GM' }, created_at: timestamp };
-      const token = [Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url'), Buffer.from(JSON.stringify({ sub: userId, aud: 'authenticated', role: 'authenticated', exp: Math.floor(Date.now()/1000)+86400, is_anonymous: false })).toString('base64url'), 'test-fixture-only'].join('.');
+      const isGuest = width === 390;
+      const user = { id: userId, aud: 'authenticated', role: 'authenticated', email: isGuest ? undefined : 'profile-fixture@example.invalid', is_anonymous: isGuest, app_metadata: { provider: isGuest ? 'anonymous' : 'email', providers: [isGuest ? 'anonymous' : 'email'] }, user_metadata: isGuest ? {} : { name: width === 320 ? 'A Very Long Profile Display Name' : 'Profile Fixture GM', full_name: width === 320 ? 'A Very Long Profile Display Name' : 'Profile Fixture GM' }, created_at: timestamp };
+      const token = [Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url'), Buffer.from(JSON.stringify({ sub: userId, aud: 'authenticated', role: 'authenticated', exp: Math.floor(Date.now()/1000)+86400, is_anonymous: isGuest })).toString('base64url'), 'test-fixture-only'].join('.');
       const session = { user, access_token: token, refresh_token: 'fixture-only', token_type: 'bearer', expires_in: 86400, expires_at: Math.floor(Date.now()/1000)+86400 };
       // Every hosted-data request is intercepted. These tests never mutate production.
       await page.route('**/*.supabase.co/**', async route => {
@@ -46,7 +47,13 @@ try {
         const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
         const respond = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', headers, body: JSON.stringify(body) });
         if (route.request().method() === 'OPTIONS') return respond({});
-        if (path === '/auth/v1/user') return respond(user);
+        if (path === '/auth/v1/user') {
+          if (route.request().method() === 'PUT') {
+            const body = route.request().postDataJSON();
+            if (body?.data) user.user_metadata = { ...user.user_metadata, ...body.data };
+          }
+          return respond(user);
+        }
         if (path === '/auth/v1/settings') return respond({ external: { google: true, apple: true } });
         if (path.startsWith('/auth/')) return respond(session);
         if (path.endsWith('/rpc/ensure_ball_knower_progress_profile')) {
@@ -75,7 +82,7 @@ try {
       });
       await page.addInitScript(({ session, user }) => {
         localStorage.setItem('sb-gpnboygoosrmeydwjpvk-auth-token', JSON.stringify(session));
-        localStorage.setItem('ballknower_user_v1', JSON.stringify({ id: user.id, name: user.user_metadata.name, email: user.email, avatarUrl: '', createdAt: user.created_at }));
+        localStorage.setItem('ballknower_user_v1', JSON.stringify({ id: user.id, name: user.user_metadata.name, email: user.email || '', isAnonymous: user.is_anonymous, avatarUrl: '', createdAt: user.created_at }));
         localStorage.setItem('ball-knower-team-setup-v2', 'complete');
         localStorage.setItem('ball-knower-intro-completed-v1', '1');
         localStorage.setItem('ball-knower-favorite-team', 'Philadelphia Eagles');
@@ -128,9 +135,18 @@ try {
       assert.match(await profile.locator('.bk-locker-detail').innerText(), /Not yet unlocked/);
       await profile.locator('.bk-locker-trophy').first().click();
       const identity = page.getByTestId('locker-identity');
+      if (isGuest) {
+        assert.match(await identity.innerText(), /Guest GM 111111/);
+        assert.ok(await identity.getByRole('button', { name: 'Save With Email', exact: true }).isVisible());
+      }
       await identity.getByRole('button', { name: 'Add profile photo', exact: true }).click();
-      const actions = page.getByRole('dialog', { name: 'Profile photo actions' });
+      const actions = page.getByRole('dialog', { name: 'Edit Ball Knower profile' });
       await actions.waitFor();
+      if (isGuest) {
+        await actions.getByLabel('GM Name', { exact: true }).fill('Eli Test GM');
+        await actions.getByRole('button', { name: 'Save GM name', exact: true }).click();
+        await page.waitForFunction(() => document.querySelector('[data-testid="locker-identity"]')?.textContent?.includes('ELI TEST GM'));
+      }
       assert.ok(await actions.getByRole('button', { name: 'Take Photo', exact: true }).isVisible());
       assert.ok(await actions.getByRole('button', { name: 'Choose From Photos', exact: true }).isVisible());
       const png = await page.evaluate(() => { const canvas = document.createElement('canvas'); canvas.width = 900; canvas.height = 700; const ctx = canvas.getContext('2d'); ctx.fillStyle = '#cfb875'; ctx.fillRect(0,0,900,700); return canvas.toDataURL('image/png').split(',')[1]; });

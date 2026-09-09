@@ -2,6 +2,7 @@ import { League, LeagueMember, LeagueSettings, LiveFantasyDraft, Player, TeamRat
 import { ensureOnlineSession, isCloudConfigured, supabase } from './supabase';
 import type { LiveDraftRosterAssignment } from './liveDraftRosters';
 import { profilePhotoPublicUrl } from './profilePhoto';
+import { guestGmName, isPlaceholderGmName } from './profileIdentity';
 
 type UserLike = { id:string; name:string; avatarUrl?:string; avatarPath?:string };
 export type LeagueEvent = { id:string; leagueId:string; actorName:string; eventType:string; message:string; metadata:any; createdAt:string };
@@ -52,7 +53,7 @@ const leagueFromRows = (row:any, members:any[], liveDraftRow?:any):League => ({
   maxMembers: row.max_members,
   salaryCap: Number(row.salary_cap),
   commissionerId: row.commissioner_auth_id,
-  commissionerName: row.commissioner_name,
+  commissionerName: isPlaceholderGmName(row.commissioner_name) ? guestGmName(row.commissioner_auth_id || row.id) : row.commissioner_name,
   status: row.status,
   members: members.map(memberFromRow),
   seasonResult: row.season_result || undefined,
@@ -67,7 +68,7 @@ const leagueFromRows = (row:any, members:any[], liveDraftRow?:any):League => ({
 const memberFromRow = (m:any):LeagueMember => ({
   id:m.id,
   userId:m.auth_user_id || m.app_user_id || m.id,
-  userName:m.user_name,
+  userName:!m.is_ai && isPlaceholderGmName(m.user_name) ? guestGmName(m.auth_user_id || m.app_user_id || m.id) : m.user_name,
   userAvatar:profilePhotoPublicUrl(m.user_avatar) || m.user_avatar || undefined,
   isCommissioner:Boolean(m.is_commissioner),
   isAi:Boolean(m.is_ai),

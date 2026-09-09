@@ -6,11 +6,12 @@ import{prepareGuestAccountMerge,startOAuthSignIn}from'./accountIdentity';
 import{NATIVE_AUTH_RESULT_EVENT,type NativeAuthResultDetail}from'./nativeAuth';
 import{trackBallKnowerEvent}from'./analytics';
 import type{LaunchPanel}from'./LaunchCenter';
+import{isPlaceholderGmName,saveProfileDisplayName}from'./profileIdentity';
 
 interface AuthModalProps{isOpen:boolean;onClose:()=>void;onOpenLegal?:(panel:LaunchPanel)=>void;}
 
 export const AuthModal:React.FC<AuthModalProps>=({isOpen,onClose,onOpenLegal})=>{
-  const{currentUser,setCurrentUser,showToast}=useBallKnower();
+  const{currentUser,setCurrentUser,updateCurrentUserName,showToast}=useBallKnower();
   const[emailInput,setEmailInput]=useState('');
   const[nameInput,setNameInput]=useState('');
   const[showEmailForm,setShowEmailForm]=useState(false);
@@ -23,6 +24,7 @@ export const AuthModal:React.FC<AuthModalProps>=({isOpen,onClose,onOpenLegal})=>
     if(!isOpen)return;
     let active=true;
     setProviderAvailability(null);
+    setNameInput(currentUser?.name&&!isPlaceholderGmName(currentUser.name)?currentUser.name:'');
     void fetchAuthProviderAvailability().then(value=>{if(active)setProviderAvailability(value)});
     const onNativeResult=(event:Event)=>{
       const detail=(event as CustomEvent<NativeAuthResultDetail>).detail;
@@ -60,8 +62,10 @@ export const AuthModal:React.FC<AuthModalProps>=({isOpen,onClose,onOpenLegal})=>
       const authUser=await ensureOnlineSession();
       if(authUser.is_anonymous){
         try{
+          await saveProfileDisplayName(name);
+          updateCurrentUserName(name);
           const upgraded=await attachEmailToAnonymousUser(email,name);
-          setCurrentUser({id:upgraded.id,name:(upgraded.user_metadata?.full_name as string|undefined)||name,email:upgraded.email||email,avatarUrl:currentUser?.avatarUrl,createdAt:upgraded.created_at||currentUser?.createdAt||new Date().toISOString()});
+          setCurrentUser({id:upgraded.id,name:(upgraded.user_metadata?.full_name as string|undefined)||name,email:upgraded.email||email,isAnonymous:Boolean(upgraded.is_anonymous),avatarPath:currentUser?.avatarPath,avatarUrl:currentUser?.avatarUrl,createdAt:upgraded.created_at||currentUser?.createdAt||new Date().toISOString()});
           trackBallKnowerEvent('Signup Started',{method:'email',flow:'guest_upgrade'});
           const message='Verification email sent. Your guest identity stays the same, so your leagues and roster ownership are preserved.';
           setStatusMessage(message);showToast('Verification email sent — your Ball Knower identity is preserved.');
@@ -112,13 +116,14 @@ export const AuthModal:React.FC<AuthModalProps>=({isOpen,onClose,onOpenLegal})=>
       {errorMessage&&<div className="rounded-sm border border-red-500/30 bg-red-500/10 p-3 text-xs font-bold text-red-300">{errorMessage}</div>}
 
       <button id="auth-email-btn" type="button" onClick={()=>{resetMessages();setShowEmailForm(true)}} className="w-full flex items-center justify-center gap-3 rounded-sm border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-[#D4AF37] hover:bg-[#D4AF37]/15 transition-all shadow-sm"><Mail className="h-4 w-4"/><span>Continue with Email</span></button>
-      <div className="rounded-sm border border-white/10 bg-black/20 p-3 text-[10px] leading-relaxed text-zinc-400"><div className="mb-1 flex items-center gap-2 font-black uppercase tracking-wider text-zinc-300"><LockKeyhole className="h-3.5 w-3.5 text-[#D4AF37]"/>Guest access stays active</div>You can play as a guest. Adding a new email upgrades that same Supabase identity so existing league ownership is not replaced. If the email already belongs to an account, you can sign back into that account with a magic link.</div>
+      <div className="rounded-sm border border-white/10 bg-black/20 p-3 text-[10px] leading-relaxed text-zinc-400"><div className="mb-1 flex items-center gap-2 font-black uppercase tracking-wider text-zinc-300"><LockKeyhole className="h-3.5 w-3.5 text-[#D4AF37]"/>Guest access stays active</div>Signing in is optional. Play, choose a GM name, add a photo, and join leagues as a guest. Add email whenever you want confirmation and cross-device account recovery.</div>
+      <button type="button" onClick={onClose} className="min-h-11 w-full rounded-sm border border-white/10 text-xs font-black uppercase tracking-wider text-zinc-300">Keep Playing As Guest</button>
     </div>:<form onSubmit={handleEmailSubmit} className="space-y-4">
-      <div><label className="block text-xs font-black uppercase tracking-wider text-zinc-300 mb-1">Your Name / GM Alias</label><input type="text" placeholder="e.g. Mike McDaniel" value={nameInput} onChange={e=>setNameInput(e.target.value)} disabled={isSubmitting} className="w-full rounded-sm border border-white/10 bg-[#1A1A1A] px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-[#D4AF37] focus:outline-none disabled:opacity-60"/></div>
+      <div><label className="block text-xs font-black uppercase tracking-wider text-zinc-300 mb-1">Your Name / GM Alias</label><input type="text" required minLength={2} maxLength={40} autoComplete="nickname" placeholder="e.g. Eli" value={nameInput} onChange={e=>setNameInput(e.target.value)} disabled={isSubmitting} className="w-full rounded-sm border border-white/10 bg-[#1A1A1A] px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-[#D4AF37] focus:outline-none disabled:opacity-60"/><p className="mt-1.5 text-[9px] font-bold text-zinc-600">This is the name other GMs will see in every league.</p></div>
       <div><label className="block text-xs font-black uppercase tracking-wider text-zinc-300 mb-1">Email Address</label><input type="email" required placeholder="you@domain.com" value={emailInput} onChange={e=>setEmailInput(e.target.value)} disabled={isSubmitting} className="w-full rounded-sm border border-white/10 bg-[#1A1A1A] px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-[#D4AF37] focus:outline-none disabled:opacity-60"/></div>
       {statusMessage&&<div className="flex gap-2 rounded-sm border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs font-bold text-emerald-300"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0"/><span>{statusMessage}</span></div>}
       {errorMessage&&<div className="rounded-sm border border-red-500/30 bg-red-500/10 p-3 text-xs font-bold text-red-300">{errorMessage}</div>}
-      <button type="submit" disabled={isSubmitting} className="w-full flex items-center justify-center gap-2 rounded-sm bg-[#D4AF37] px-4 py-3 text-xs font-black uppercase tracking-wider text-black shadow-lg hover:bg-amber-300 transition-all disabled:cursor-wait disabled:opacity-70">{isSubmitting?<Loader2 className="h-4 w-4 animate-spin"/>:<ArrowRight className="h-4 w-4"/>}<span>{isSubmitting?'CONNECTING...':'SEND VERIFICATION / SIGN-IN LINK'}</span></button>
+      <button type="submit" disabled={isSubmitting} className="w-full flex items-center justify-center gap-2 rounded-sm bg-[#D4AF37] px-4 py-3 text-xs font-black uppercase tracking-wider text-black shadow-lg hover:bg-amber-300 transition-all disabled:cursor-wait disabled:opacity-70">{isSubmitting?<Loader2 className="h-4 w-4 animate-spin"/>:<ArrowRight className="h-4 w-4"/>}<span>{isSubmitting?'CONNECTING...':'EMAIL MY CONFIRMATION LINK'}</span></button>
       <button type="button" onClick={()=>{resetMessages();setShowEmailForm(false)}} disabled={isSubmitting} className="w-full text-center text-xs font-bold uppercase text-zinc-400 hover:text-white py-1 tracking-wider disabled:opacity-60">Back to all sign in options</button>
     </form>}
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Camera, ImagePlus, Loader2, Pencil, Trash2, UserRound, X } from 'lucide-react';
+import { Camera, ImagePlus, Loader2, Mail, Pencil, Save, Trash2, UserRound, X } from 'lucide-react';
 import { useBallKnower } from './BallKnowerContext';
 import { ModalPortal } from './ModalPortal';
 import {
@@ -11,6 +11,7 @@ import {
   type AvatarCrop,
   type ProcessedProfilePhoto,
 } from './profilePhoto';
+import { saveProfileDisplayName, validateGmDisplayName } from './profileIdentity';
 
 const ACCEPTED_PHOTOS = 'image/*,.jpg,.jpeg,.png,.webp,.heic,.heif';
 const INITIAL_CROP: AvatarCrop = { zoom: 1, x: 50, y: 50 };
@@ -23,8 +24,8 @@ const initials = (name: string) => name
   .join('')
   .toUpperCase() || 'BK';
 
-export const ProfilePhotoEditor: React.FC = () => {
-  const { currentUser, updateCurrentUserAvatar, showToast } = useBallKnower();
+export const ProfilePhotoEditor: React.FC<{ onOpenAuth?: () => void }> = ({ onOpenAuth }) => {
+  const { currentUser, updateCurrentUserAvatar, updateCurrentUserName, showToast } = useBallKnower();
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const libraryInputRef = useRef<HTMLInputElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -39,7 +40,10 @@ export const ProfilePhotoEditor: React.FC = () => {
   const [crop, setCrop] = useState<AvatarCrop>(INITIAL_CROP);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [nameInput, setNameInput] = useState(currentUser?.name || '');
   const hasPhoto = Boolean(currentUser?.avatarUrl);
+
+  useEffect(() => { setNameInput(currentUser?.name || ''); }, [currentUser?.name]);
 
   useEffect(() => () => {
     if (sourceUrlRef.current) URL.revokeObjectURL(sourceUrlRef.current);
@@ -144,6 +148,23 @@ export const ProfilePhotoEditor: React.FC = () => {
     }
   };
 
+  const saveName = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const name = validateGmDisplayName(nameInput);
+      await saveProfileDisplayName(name);
+      updateCurrentUserName(name);
+      setNameInput(name);
+      showToast('GM name updated in every league.');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Your GM name could not be saved.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return <>
     <section className="mb-3 flex items-center gap-4 rounded-2xl border border-white/10 bg-black/30 p-4 sm:p-5">
       <button
@@ -158,15 +179,15 @@ export const ProfilePhotoEditor: React.FC = () => {
       </button>
       <div className="min-w-0 flex-1">
         <div className="truncate text-base font-black uppercase">{currentUser?.name || 'Ball Knower'}</div>
-        <div className="mt-1 truncate text-[10px] font-bold text-zinc-500">{currentUser?.email || 'Guest account'}</div>
-        <button type="button" onClick={() => setActionsOpen(true)} className="mt-3 min-h-10 rounded-xl border border-white/10 px-4 text-[9px] font-black uppercase text-zinc-200">{hasPhoto ? 'Change Photo' : 'Add Photo'}</button>
+        <div className="mt-1 truncate text-[10px] font-bold text-zinc-500">{currentUser?.email || (currentUser?.isAnonymous ? 'Guest profile · no sign-in required' : 'Ball Knower account')}</div>
+        <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => setActionsOpen(true)} className="min-h-10 rounded-xl border border-white/10 px-4 text-[9px] font-black uppercase text-zinc-200">Edit Name &amp; Photo</button>{currentUser?.isAnonymous && onOpenAuth && <button type="button" onClick={onOpenAuth} className="min-h-10 rounded-xl bg-[var(--bk-team-accent)] px-4 text-[9px] font-black uppercase text-[var(--bk-on-accent)]">Save With Email</button>}</div>
       </div>
     </section>
 
     <input ref={cameraInputRef} type="file" accept={ACCEPTED_PHOTOS} capture="user" className="sr-only" onChange={event => { chooseFile(event.target.files?.[0]); event.currentTarget.value = ''; }} />
     <input ref={libraryInputRef} type="file" accept={ACCEPTED_PHOTOS} className="sr-only" onChange={event => { chooseFile(event.target.files?.[0]); event.currentTarget.value = ''; }} />
 
-    {actionsOpen && <ModalPortal><div className="fixed inset-0 z-[9999] flex items-end bg-black/75 pt-[env(safe-area-inset-top)] backdrop-blur-sm sm:items-center sm:justify-center sm:p-4" onClick={() => !busy && setActionsOpen(false)}><section role="dialog" aria-modal="true" aria-label="Profile photo actions" className="w-full rounded-t-3xl border border-white/10 bg-[#101318] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-3xl" onClick={event => event.stopPropagation()}><header className="mb-3 flex items-center justify-between"><div><div className="text-[9px] font-black uppercase tracking-wider text-[var(--bk-team-accent)]">Account</div><h2 className="text-lg font-black uppercase">{hasPhoto ? 'Change Photo' : 'Add Profile Photo'}</h2></div><button aria-label="Close profile photo actions" disabled={busy} onClick={() => setActionsOpen(false)} className="grid h-11 w-11 place-items-center rounded-full border border-white/10"><X className="h-5 w-5" /></button></header><div className="space-y-2"><button disabled={busy} onClick={() => cameraInputRef.current?.click()} className="flex min-h-12 w-full items-center gap-3 rounded-xl border border-white/10 bg-black/25 px-4 text-left text-xs font-black uppercase"><Camera className="h-4 w-4 text-[var(--bk-team-accent)]" />Take Photo</button><button disabled={busy} onClick={() => libraryInputRef.current?.click()} className="flex min-h-12 w-full items-center gap-3 rounded-xl border border-white/10 bg-black/25 px-4 text-left text-xs font-black uppercase"><ImagePlus className="h-4 w-4 text-[var(--bk-team-accent)]" />Choose From Photos</button>{hasPhoto && <button disabled={busy} onClick={() => void remove()} className="flex min-h-12 w-full items-center gap-3 rounded-xl border border-red-400/20 bg-red-400/5 px-4 text-left text-xs font-black uppercase text-red-300">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}Remove Photo</button>}</div>{error && <p role="alert" className="mt-3 rounded-xl border border-red-400/20 bg-red-400/5 p-3 text-xs font-bold text-red-300">{error}</p>}</section></div></ModalPortal>}
+    {actionsOpen && <ModalPortal><div className="fixed inset-0 z-[9999] flex items-end bg-black/75 pt-[env(safe-area-inset-top)] backdrop-blur-sm sm:items-center sm:justify-center sm:p-4" onClick={() => !busy && setActionsOpen(false)}><section role="dialog" aria-modal="true" aria-label="Edit Ball Knower profile" className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl border border-white/10 bg-[#101318] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-3xl" onClick={event => event.stopPropagation()}><header className="mb-3 flex items-center justify-between"><div><div className="text-[9px] font-black uppercase tracking-wider text-[var(--bk-team-accent)]">Your Identity</div><h2 className="text-lg font-black uppercase">Edit GM Profile</h2></div><button aria-label="Close profile actions" disabled={busy} onClick={() => setActionsOpen(false)} className="grid h-11 w-11 place-items-center rounded-full border border-white/10"><X className="h-5 w-5" /></button></header><div className="mb-4 rounded-xl border border-white/10 bg-black/25 p-3"><label className="text-[9px] font-black uppercase tracking-wider text-zinc-400" htmlFor="gm-display-name">GM Name</label><div className="mt-2 flex gap-2"><input id="gm-display-name" value={nameInput} minLength={2} maxLength={40} autoComplete="nickname" onChange={event => setNameInput(event.target.value)} className="min-h-12 min-w-0 flex-1 rounded-xl border border-white/10 bg-[#171b22] px-3 text-sm font-bold outline-none focus:border-[var(--bk-team-accent)]" placeholder="Enter your name or GM alias"/><button type="button" disabled={busy || nameInput.trim() === currentUser?.name} onClick={() => void saveName()} className="grid min-h-12 min-w-12 place-items-center rounded-xl bg-[var(--bk-team-accent)] px-3 text-[var(--bk-on-accent)] disabled:opacity-40" aria-label="Save GM name">{busy ? <Loader2 className="h-4 w-4 animate-spin"/> : <Save className="h-4 w-4"/>}</button></div><p className="mt-2 text-[9px] font-bold text-zinc-600">Used in standings, drafts, matchups, trades, and league chat.</p></div><div className="space-y-2"><button disabled={busy} onClick={() => cameraInputRef.current?.click()} className="flex min-h-12 w-full items-center gap-3 rounded-xl border border-white/10 bg-black/25 px-4 text-left text-xs font-black uppercase"><Camera className="h-4 w-4 text-[var(--bk-team-accent)]" />Take Photo</button><button disabled={busy} onClick={() => libraryInputRef.current?.click()} className="flex min-h-12 w-full items-center gap-3 rounded-xl border border-white/10 bg-black/25 px-4 text-left text-xs font-black uppercase"><ImagePlus className="h-4 w-4 text-[var(--bk-team-accent)]" />Choose From Photos</button>{hasPhoto && <button disabled={busy} onClick={() => void remove()} className="flex min-h-12 w-full items-center gap-3 rounded-xl border border-red-400/20 bg-red-400/5 px-4 text-left text-xs font-black uppercase text-red-300">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}Remove Photo</button>}{currentUser?.isAnonymous && onOpenAuth && <button type="button" disabled={busy} onClick={() => { setActionsOpen(false); onOpenAuth(); }} className="flex min-h-12 w-full items-center gap-3 rounded-xl border border-[var(--bk-team-accent)]/30 bg-[var(--bk-team-accent)]/10 px-4 text-left text-xs font-black uppercase text-[var(--bk-team-accent)]"><Mail className="h-4 w-4"/>Add Email Confirmation</button>}</div>{error && <p role="alert" className="mt-3 rounded-xl border border-red-400/20 bg-red-400/5 p-3 text-xs font-bold text-red-300">{error}</p>}</section></div></ModalPortal>}
 
     {file && <ModalPortal><div className="fixed inset-0 z-[10000] flex items-end bg-black/85 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-md sm:items-center sm:justify-center sm:p-4"><section role="dialog" aria-modal="true" aria-label="Crop profile photo" className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl border border-white/10 bg-[#101318] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-3xl"><header className="flex items-center justify-between"><div><div className="text-[9px] font-black uppercase tracking-wider text-[var(--bk-team-accent)]">Square crop</div><h2 className="text-lg font-black uppercase">Position Your Photo</h2></div><button aria-label="Cancel profile photo edit" disabled={busy} onClick={closeEditor} className="grid h-11 w-11 place-items-center rounded-full border border-white/10"><X className="h-5 w-5" /></button></header><div className="mx-auto mt-4 aspect-square w-full max-w-[min(70vw,20rem)] overflow-hidden rounded-full border-2 border-[var(--bk-team-accent)]/50 bg-black"><canvas ref={previewCanvasRef} className="h-full w-full" /></div><div className="mt-5 space-y-4"><CropSlider label="Zoom" min={100} max={300} value={Math.round(crop.zoom * 100)} onChange={value => setCrop(current => ({ ...current, zoom: value / 100 }))} /><CropSlider label="Left / Right" min={0} max={100} value={crop.x} onChange={value => setCrop(current => ({ ...current, x: value }))} /><CropSlider label="Up / Down" min={0} max={100} value={crop.y} onChange={value => setCrop(current => ({ ...current, y: value }))} /></div>{error && <p role="alert" className="mt-4 rounded-xl border border-red-400/20 bg-red-400/5 p-3 text-xs font-bold text-red-300">{error}</p>}<button disabled={busy || processing || !processedPhoto} onClick={() => void save()} className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--bk-team-accent)] text-xs font-black uppercase text-[var(--bk-on-accent)] disabled:opacity-45">{(busy || processing || !processedPhoto) && <Loader2 className="h-4 w-4 animate-spin" />}{busy ? 'Saving Photo…' : processing || !processedPhoto ? 'Preparing Photo…' : 'Save Photo'}</button><p className="mt-2 text-center text-[9px] font-bold text-zinc-600">Saved as a compressed 512 × 512 JPEG image.</p></section></div></ModalPortal>}
   </>;

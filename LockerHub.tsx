@@ -12,12 +12,12 @@ type Tab='locker'|'collections';
 const lockerSlots: Record<string, keyof LockerState> = { profile_frame: 'equippedProfileFrame', nameplate: 'equippedNameplate', league_theme: 'equippedLeagueTheme', trivia_effect: 'equippedTriviaEffect', my_player_cosmetic: 'equippedMyPlayerCosmetic' };
 const getLockerSlot = (item: StoreItem) => lockerSlots[String(item.metadata.slot || '')];
 
-export const LockerHub: React.FC = () => {
+export const LockerHub: React.FC<{ onOpenAuth?: () => void }> = ({ onOpenAuth }) => {
   const { currentUser } = useBallKnower();
-  return <LockerSession key={currentUser?.id || 'guest'}/>;
+  return <LockerSession key={currentUser?.id || 'guest'} onOpenAuth={onOpenAuth}/>;
 };
 
-const LockerSession: React.FC = () => {
+const LockerSession: React.FC<{ onOpenAuth?: () => void }> = ({ onOpenAuth }) => {
   const { showToast, currentUser } = useBallKnower();
   const [tab, setTab] = useState<Tab>('locker');
   const [catalog, setCatalog] = useState<StoreItem[]>([]);
@@ -55,7 +55,7 @@ const LockerSession: React.FC = () => {
     <div className="mx-auto max-w-5xl">
       <header className="bk-locker-masthead"><h1>Your Locker</h1><span>Football minds build more<i aria-hidden="true"/></span></header>
       <div className="bk-profile-identity" data-testid="locker-identity">
-        <ProfilePhotoEditor/>
+        <ProfilePhotoEditor onOpenAuth={onOpenAuth}/>
         <LockerManagerIllustration/>
         {currentUser?.id && <details className="bk-locker-account"><summary>Account ID · …{currentUser.id.slice(-8)}</summary><code>{currentUser.id}</code></details>}
       </div>
