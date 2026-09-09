@@ -35,6 +35,7 @@ const migration = read('migrations/20260909000100_guest_profile_identity.sql');
 const authModal = read('AuthModal.tsx');
 const profileEditor = read('ProfilePhotoEditor.tsx');
 const profilePhoto = read('profilePhoto.ts');
+const profileIdentity = read('profileIdentity.ts');
 const context = read('BallKnowerContext.tsx');
 const standings = read('FantasyLeagueEssentials.tsx');
 
@@ -50,6 +51,8 @@ assert.match(profileEditor, /Edit Name &amp; Photo/);
 assert.match(profileEditor, /Save With Email/);
 assert.match(profileEditor, /saveProfileDisplayName\(name\)/);
 assert.doesNotMatch(profilePhoto, /if \(auth\.is_anonymous\)/);
+assert.match(profileIdentity, /database projection is authoritative/);
+assert.match(profileIdentity, /return current/);
 assert.match(context, /updateCurrentUserName/);
 assert.match(context, /saveProfileDisplayName\(resolvedName\)/);
 assert.match(context, /authUser\.is_anonymous \? '' : base\.email/);

@@ -57,10 +57,17 @@ export async function saveProfileDisplayName(value: string): Promise<User> {
   const projection = await supabase.rpc('set_ball_knower_profile_name', { p_display_name: displayName });
   if (projection.error) throw new Error(projection.error.message || 'Could not update your league identity.');
 
-  const { data, error } = await supabase.auth.updateUser({
-    data: { full_name: displayName, name: displayName },
-  });
-  if (error || !data.user) throw new Error(error?.message || 'Could not save your GM name.');
-  return data.user || current;
+  try {
+    const { data, error } = await supabase.auth.updateUser({
+      data: { full_name: displayName, name: displayName },
+    });
+    if (error) throw error;
+    return data.user || current;
+  } catch (error) {
+    // The UUID-owned database projection is authoritative. Do not report a
+    // failed save after it committed just because the Auth metadata mirror had
+    // a transient failure; bootstrap will retry the mirror on the next visit.
+    console.warn('GM name saved, but Auth profile metadata could not be mirrored yet.', error);
+    return current;
+  }
 }
-
