@@ -7,6 +7,7 @@ import {
   canvasToProfilePhoto,
   drawSquareProfileImage,
   isSupportedProfilePhotoFile,
+  profilePhotoErrorMessage,
   removeAndCommitProfilePhoto,
   uploadAndCommitProfilePhoto,
   validateProcessedProfilePhoto,
@@ -23,6 +24,13 @@ const validPhoto: ProcessedProfilePhoto = {
   width: PROFILE_PHOTO_OUTPUT_SIZE,
   height: PROFILE_PHOTO_OUTPUT_SIZE,
 };
+
+assert.equal(
+  profilePhotoErrorMessage({ code: '23514', message: 'profile path rejected' }, 'fallback'),
+  'profile path rejected',
+  'Supabase/PostgREST error objects must not be collapsed into a generic save error',
+);
+assert.equal(profilePhotoErrorMessage({ code: 'unknown' }, 'fallback'), 'fallback');
 
 const makeCanvas = (blob = validBlob) => {
   let requestedType = '';

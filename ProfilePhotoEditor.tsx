@@ -6,6 +6,7 @@ import {
   canvasToProfilePhoto,
   drawSquareProfileImage,
   removeAndCommitProfilePhoto,
+  profilePhotoErrorMessage,
   uploadAndCommitProfilePhoto,
   validateProfilePhotoFile,
   type AvatarCrop,
@@ -64,7 +65,7 @@ export const ProfilePhotoEditor: React.FC<{ onOpenAuth?: () => void }> = ({ onOp
       })
       .catch(cause => {
         if (processingVersionRef.current !== version) return;
-        setError(cause instanceof Error ? cause.message : 'Photo processing failed. Try another image.');
+        setError(profilePhotoErrorMessage(cause, 'Photo processing failed. Try another image.'));
       })
       .finally(() => {
         if (processingVersionRef.current === version) setProcessing(false);
@@ -114,7 +115,7 @@ export const ProfilePhotoEditor: React.FC<{ onOpenAuth?: () => void }> = ({ onOp
       setFile(selected);
       setActionsOpen(false);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'That photo cannot be used.');
+      setError(profilePhotoErrorMessage(cause, 'That photo cannot be used.'));
     }
   };
 
@@ -127,7 +128,7 @@ export const ProfilePhotoEditor: React.FC<{ onOpenAuth?: () => void }> = ({ onOp
       showToast('Profile photo updated everywhere.');
       closeEditor();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Profile photo could not be saved.');
+      setError(profilePhotoErrorMessage(cause, 'Profile photo could not be saved.'));
     } finally {
       setBusy(false);
     }
@@ -142,7 +143,7 @@ export const ProfilePhotoEditor: React.FC<{ onOpenAuth?: () => void }> = ({ onOp
       setActionsOpen(false);
       showToast('Profile photo removed.');
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Profile photo could not be removed.');
+      setError(profilePhotoErrorMessage(cause, 'Profile photo could not be removed.'));
     } finally {
       setBusy(false);
     }
