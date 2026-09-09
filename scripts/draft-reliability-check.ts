@@ -1,5 +1,5 @@
 import { PLAYERS_DATABASE } from '../players';
-import { CPU_LIVE_FANTASY_POSITION_LIMITS, getLiveFantasyDraftGroup, LIVE_FANTASY_ROSTER_REQUIREMENTS, type LiveFantasyDraftGroup } from '../liveFantasyRules';
+import { CPU_LIVE_FANTASY_POSITION_LIMITS, filterLiveFantasyPositionRows, getLiveFantasyDraftGroup, isLiveFantasyDraftGroup, LIVE_FANTASY_ROSTER_REQUIREMENTS, type LiveFantasyDraftGroup } from '../liveFantasyRules';
 import { readFileSync } from 'node:fs';
 
 type Method='game'|'random'|'commissioner';
@@ -8,6 +8,17 @@ type Preferences={queue:string[];preRankings:string[];favorites:string[];doNotDr
 const GROUPS=Object.keys(LIVE_FANTASY_ROSTER_REQUIREMENTS) as LiveFantasyDraftGroup[];
 const LEAGUE_SIZES=[6,8,10,12,14,16] as const;
 const ROSTER_SIZE=15;
+
+function verifyKickersOnly(){
+  const kicker=PLAYERS_DATABASE.find(player=>player.position==='K');
+  const punter=PLAYERS_DATABASE.find(player=>player.position==='P');
+  if(!kicker||!punter)throw new Error('Kicker/punter eligibility fixtures are missing.');
+  if(getLiveFantasyDraftGroup(kicker)!=='K')throw new Error('Kickers must remain fantasy eligible.');
+  if(getLiveFantasyDraftGroup(punter)!==null||isLiveFantasyDraftGroup('P'))throw new Error('Punters must not be fantasy eligible.');
+  const rankings=filterLiveFantasyPositionRows([{player_key:'kicker',position:'K'},{player_key:'punter',position:'P'}]);
+  if(rankings.length!==1||rankings[0].position!=='K')throw new Error('Cloud fantasy rankings did not remove punters.');
+  return {kickerEligible:'passed',punterExcluded:'passed',cloudRankingsFiltered:'passed'};
+}
 
 const orderFor=(method:Method,teamCount:number)=>{
   const members=Array.from({length:teamCount},(_,index)=>`m${index+1}`);
@@ -101,4 +112,4 @@ function verifyQuarantinedDraftRecovery(){
 }
 
 const matrix=LEAGUE_SIZES.flatMap(teamCount=>(['game','random','commissioner'] as Method[]).map(method=>run(method,teamCount)));
-console.log(JSON.stringify({matrix,recovery:verifyRecoveryClock(),quarantinedRecovery:verifyQuarantinedDraftRecovery()},null,2));
+console.log(JSON.stringify({matrix,kickersOnly:verifyKickersOnly(),recovery:verifyRecoveryClock(),quarantinedRecovery:verifyQuarantinedDraftRecovery()},null,2));

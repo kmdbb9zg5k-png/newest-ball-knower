@@ -3,13 +3,14 @@ import {
   BALL_KNOWER_SUPABASE_URL,
 } from './supabaseDefaults';
 import { buildDstFantasyRankings } from './dstFantasyRankings';
+import { filterLiveFantasyPositionRows, type LiveFantasyDraftGroup } from './liveFantasyRules';
 import { TEAM_THEMES } from './teamTheme';
 
 export type FantasyRanking = {
   player_key: string;
   player_name: string;
   team: string;
-  position: 'QB' | 'RB' | 'WR' | 'TE' | 'K' | 'DST';
+  position: LiveFantasyDraftGroup;
   overall_rank: number;
   adp: number;
   position_rank: number;
@@ -73,6 +74,7 @@ async function fetchFantasyRankings(signal: AbortSignal): Promise<FantasyRanking
     select: rankingColumns,
     season: 'eq.2026',
     scoring_format: 'eq.ppr',
+    position: 'in.(QB,RB,WR,TE,K,DST)',
     order: 'overall_rank.asc',
   });
   const response = await fetch(`${url}/rest/v1/ball_knower_fantasy_rankings?${params.toString()}`, {
@@ -87,8 +89,8 @@ async function fetchFantasyRankings(signal: AbortSignal): Promise<FantasyRanking
     throw new Error(`Could not load fantasy rankings (${response.status}).`);
   }
 
-  const data = await response.json() as FantasyRankingRow[];
-  const rankings = data.map(row => ({
+  const data = await response.json();
+  const rankings = filterLiveFantasyPositionRows(Array.isArray(data) ? data as FantasyRankingRow[] : []).map(row => ({
     ...row,
     overall_rank: Number(row.overall_rank),
     adp: Number(row.adp ?? row.overall_rank),
