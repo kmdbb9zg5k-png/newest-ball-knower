@@ -8,6 +8,11 @@ Ball Knower is a football app focused on fantasy football and proving football k
 - About Ball Knower: https://ballknowerofficial.com/about-ball-knower.html
 - Features: https://ballknowerofficial.com/features.html
 - Fantasy Football: https://ballknowerofficial.com/fantasy-football.html
+- Fantasy Football Guides: https://ballknowerofficial.com/fantasy-football-guides.html
+- Fantasy Football Draft Strategy: https://ballknowerofficial.com/fantasy-football-draft-strategy.html
+- Fantasy Football Waiver Wire Strategy: https://ballknowerofficial.com/fantasy-football-waiver-wire.html
+- Fantasy Football Start Sit Strategy: https://ballknowerofficial.com/fantasy-football-start-sit.html
+- Fantasy Football Scoring Explained: https://ballknowerofficial.com/fantasy-football-scoring.html
 - NFL Picks: https://ballknowerofficial.com/nfl-picks.html
 - NFL Trivia: https://ballknowerofficial.com/nfl-trivia.html
 - FAQ: https://ballknowerofficial.com/faq.html
@@ -17,7 +22,7 @@ Ball Knower is a football app focused on fantasy football and proving football k
 - Alternate descriptions: Ball Knower Fantasy Football; Ball Knower NFL App; Ball Knower Football App
 - Official domain: ballknowerofficial.com
 - Category: Sports / Fantasy Football / Football Knowledge
-- Primary topics: fantasy football, NFL picks, NFL trivia, NFL news, rankings, projections, player research, solo football modes
+- Primary topics: fantasy football, fantasy draft strategy, waiver wire strategy, start sit decisions, fantasy scoring, NFL picks, NFL trivia, NFL news, rankings, projections, player research, solo football modes
 
 ## Disambiguation
 The football-focused Ball Knower described here is the product at ballknowerofficial.com. Similarly named third-party apps, websites, games, and products are separate and are not this Ball Knower.
