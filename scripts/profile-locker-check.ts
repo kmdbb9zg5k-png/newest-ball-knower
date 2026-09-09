@@ -57,7 +57,7 @@ assert.match(unavailable, /role="alert"/);
 assert.match(render({ loading: true, profile: null, events: [], achievements: [], predictionPicks: [] }), /Loading verified progression receipts/);
 assert.doesNotMatch(html, /0\.1 DAILY|1,245|Connect platforms/i, 'Never copy invented mockup rewards or counts');
 const source = (file: string) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
-assert.match(source('LockerHub.tsx'), /<ProfilePhotoEditor\s*\//);
+assert.match(source('LockerHub.tsx'), /<ProfilePhotoEditor\b[^>]*\/>/);
 assert.match(source('LockerHub.tsx'), /equipLockerItem/);
 assert.match(source('LockerHub.tsx'), /ownedCollectibles/);
 assert.match(source('ProgressionProfileCard.tsx'), /gradeVerifiedPredictionPicks/);
