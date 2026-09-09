@@ -6,6 +6,11 @@ const requiredPages = [
   'public/about-ball-knower.html',
   'public/features.html',
   'public/fantasy-football.html',
+  'public/fantasy-football-guides.html',
+  'public/fantasy-football-draft-strategy.html',
+  'public/fantasy-football-waiver-wire.html',
+  'public/fantasy-football-start-sit.html',
+  'public/fantasy-football-scoring.html',
   'public/nfl-picks.html',
   'public/nfl-trivia.html',
   'public/faq.html',
@@ -15,6 +20,11 @@ const requiredUrls = [
   'https://ballknowerofficial.com/about-ball-knower.html',
   'https://ballknowerofficial.com/features.html',
   'https://ballknowerofficial.com/fantasy-football.html',
+  'https://ballknowerofficial.com/fantasy-football-guides.html',
+  'https://ballknowerofficial.com/fantasy-football-draft-strategy.html',
+  'https://ballknowerofficial.com/fantasy-football-waiver-wire.html',
+  'https://ballknowerofficial.com/fantasy-football-start-sit.html',
+  'https://ballknowerofficial.com/fantasy-football-scoring.html',
   'https://ballknowerofficial.com/nfl-picks.html',
   'https://ballknowerofficial.com/nfl-trivia.html',
   'https://ballknowerofficial.com/faq.html',
@@ -58,9 +68,19 @@ assert.match(faq, /What is the official Ball Knower website\?/);
 assert.match(faq, /ballknowerofficial\.com/);
 assert.match(faq, /similarly named third-party apps and websites are separate products/i);
 
+const fantasy = read('public/fantasy-football.html');
+for (const guide of [
+  '/fantasy-football-guides.html',
+  '/fantasy-football-draft-strategy.html',
+  '/fantasy-football-waiver-wire.html',
+  '/fantasy-football-start-sit.html',
+  '/fantasy-football-scoring.html',
+]) assert.ok(fantasy.includes(guide), `Fantasy landing page should link ${guide}`);
+
 const llms = read('public/llms.txt');
 assert.match(llms, /Official website: https:\/\/ballknowerofficial\.com\//);
 assert.match(llms, /## Disambiguation/);
+assert.match(llms, /Fantasy Football Guides/);
 assert.match(llms, /Similarly named third-party apps, websites, games, and products are separate/i);
 
 const manifest = JSON.parse(read('public/manifest.webmanifest'));
@@ -72,6 +92,8 @@ const key = '1aa664e2f715ece0f5c3bedcfc833943';
 assert.equal(read(`public/${key}.txt`).trim(), key);
 const indexNow = read('.github/workflows/indexnow.yml');
 assert.match(indexNow, /api\.indexnow\.org\/indexnow/);
-assert.match(indexNow, /ballknowerofficial\.com/);
+assert.match(indexNow, /ballknowerofficial\.com\/sitemap\.xml/);
+assert.match(indexNow, /xml\.etree\.ElementTree/);
+assert.match(indexNow, /urlList/);
 
-console.log('SEO discovery checks passed: crawl access, canonical identity, structured data, sitemap, FAQ, manifest, disambiguation, and IndexNow automation are present.');
+console.log('SEO discovery checks passed: crawl access, canonical identity, structured data, sitemap, fantasy guides, FAQ, manifest, disambiguation, and dynamic IndexNow automation are present.');
