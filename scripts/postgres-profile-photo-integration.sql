@@ -171,9 +171,6 @@ begin
   if (select user_name from public.ball_knower_league_members where id='member-two')<>'Eli The GM' then
     raise exception 'Guest GM name did not propagate to the owned league membership';
   end if;
-  if (select commissioner_name from public.ball_knower_leagues where id='league-two')<>'Eli The GM' then
-    raise exception 'Guest commissioner name did not propagate';
-  end if;
   if (select count(*) from public.ball_knower_user_profiles)<>1 then
     raise exception 'Guest cannot read their own profile photo record';
   end if;
@@ -184,4 +181,13 @@ end;
 $$;
 
 reset role;
+
+do $$
+begin
+  if (select commissioner_name from public.ball_knower_leagues where id='league-two')<>'Eli The GM' then
+    raise exception 'Guest commissioner name did not propagate';
+  end if;
+end;
+$$;
+
 select 'profile-photo ownership integration passed' as result;

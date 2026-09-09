@@ -180,7 +180,7 @@ export const ProfilePhotoEditor: React.FC<{ onOpenAuth?: () => void }> = ({ onOp
       <div className="min-w-0 flex-1">
         <div className="truncate text-base font-black uppercase">{currentUser?.name || 'Ball Knower'}</div>
         <div className="mt-1 truncate text-[10px] font-bold text-zinc-500">{currentUser?.email || (currentUser?.isAnonymous ? 'Guest profile · no sign-in required' : 'Ball Knower account')}</div>
-        <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => setActionsOpen(true)} className="min-h-10 rounded-xl border border-white/10 px-4 text-[9px] font-black uppercase text-zinc-200">Edit Name &amp; Photo</button>{currentUser?.isAnonymous && onOpenAuth && <button type="button" onClick={onOpenAuth} className="min-h-10 rounded-xl bg-[var(--bk-team-accent)] px-4 text-[9px] font-black uppercase text-[var(--bk-on-accent)]">Save With Email</button>}</div>
+        <div className="bk-profile-identity-actions mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => setActionsOpen(true)} className="min-h-10 rounded-xl border border-white/10 px-4 text-[9px] font-black uppercase text-zinc-200">Edit Name &amp; Photo</button>{currentUser?.isAnonymous && onOpenAuth && <button type="button" onClick={onOpenAuth} className="min-h-10 rounded-xl bg-[var(--bk-team-accent)] px-4 text-[9px] font-black uppercase text-[var(--bk-on-accent)]">Save With Email</button>}</div>
       </div>
     </section>
 
