@@ -22,6 +22,7 @@ try{
   browser=await(engine==='chromium'?chromium:webkit).launch({headless:true});
   for(const width of engine==='chromium'?[390,320,430,1280]:[390]){
    const context=await browser.newContext({viewport:{width,height:844},isMobile:width<768,hasTouch:width<768,reducedMotion:'reduce'});
+   leagues[0].code='BK-QATEST';
    const page=await context.newPage();activePage=page;const crashes=[],mutations=[],backgroundPreferences=[];page.on('pageerror',e=>crashes.push(e.message));
    let empty=false,failScores=false,failActivity=false,activityContent=false;
    const userStateRows=new Map();
