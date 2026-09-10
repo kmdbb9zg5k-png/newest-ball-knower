@@ -140,12 +140,20 @@ export function createAvailabilityHandler(deps: { fetchImpl?: typeof fetch; now?
       res.setHeader('Cache-Control', 'public, s-maxage=300, max-age=60, stale-while-revalidate=300');
       return res.status(200).json(payload);
     } catch (error) {
-      console.warn('NFL availability refresh failed', error instanceof Error ? error.message : 'unknown error');
+      const failure = error instanceof Error ? error.message : 'unknown error';
+      console.warn('NFL availability refresh failed', failure);
       if (cached && now() - Date.parse(cached.payload.fetchedAt) <= MAX_STALE_MS) {
         return res.status(200).json({ ...cached.payload, stale: true });
       }
       res.setHeader('Cache-Control', 'public, s-maxage=30, max-age=0');
-      return res.status(200).json({ available: false, source: 'ESPN injury report', fetchedAt: new Date(now()).toISOString(), stale: false, players: [] });
+      return res.status(200).json({
+        available: false,
+        source: 'ESPN injury report',
+        fetchedAt: new Date(now()).toISOString(),
+        stale: false,
+        players: [],
+        ...(req.query?.debug === '1' ? { failure } : {}),
+      });
     }
   };
 }
