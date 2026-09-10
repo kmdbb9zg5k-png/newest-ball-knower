@@ -948,9 +948,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
     viewedHomeScore && viewedAwayScore
       ? viewedHomeScore.isFinal && viewedAwayScore.isFinal
         ? "Final"
-        : [...viewedHomeScore.players, ...viewedAwayScore.players].some(
-              (player) => player.isLive,
-            )
+        : scoreIndicatesStarted(viewedHomeScore) || scoreIndicatesStarted(viewedAwayScore)
           ? "Live"
           : "Scheduled"
       : "Scheduled";
@@ -1410,49 +1408,6 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                   : "Every NFL game is final."}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex min-h-9 items-center overflow-hidden rounded-full border border-white/15 bg-[#101318]">
-              <button
-                type="button"
-                aria-label="Previous fantasy week"
-                disabled={week <= 1}
-                onClick={() => setWeek(current => Math.max(1, current - 1))}
-                className="grid h-9 w-9 place-items-center text-lg text-zinc-300 disabled:text-zinc-700"
-              >
-                ‹
-              </button>
-              <select
-                aria-label="Fantasy week"
-                value={week}
-                onChange={(event) => setWeek(Number(event.target.value))}
-                className="h-9 min-w-20 border-x border-white/10 bg-transparent px-2 text-center text-[10px] font-black"
-              >
-                {Array.from({ length: maxSelectableWeek }, (_, index) => index + 1).map((value) => (
-                  <option key={value} value={value}>
-                    {value > maxWeek ? `Playoff ${value}` : `Week ${value}`}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                aria-label="Next fantasy week"
-                disabled={week >= maxSelectableWeek}
-                onClick={() => setWeek(current => Math.min(maxSelectableWeek, current + 1))}
-                className="grid h-9 w-9 place-items-center text-lg text-zinc-300 disabled:text-zinc-700"
-              >
-                ›
-              </button>
-            </div>
-            <button
-              type="button"
-              aria-haspopup="dialog"
-              aria-expanded={showAllMatchups}
-              onClick={() => setShowAllMatchups(true)}
-              className="bk-fantasy-compact-button rounded-full border border-white/15 bg-[#101318] px-3 text-[9px] font-black uppercase text-zinc-200"
-            >
-              All Matchups
-            </button>
-          </div>
           {showAllMatchups && (
             <ModalPortal>
               <div
@@ -1524,10 +1479,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                       const homeScore = matchupScoreFor(home);
                       const awayScore = matchupScoreFor(away);
                       const isFinal = Boolean(homeScore?.isFinal && awayScore?.isFinal);
-                      const isLive = Boolean(
-                        homeScore?.players.some((player) => player.isLive) ||
-                        awayScore?.players.some((player) => player.isLive),
-                      );
+                      const isLive = scoreIndicatesStarted(homeScore) || scoreIndicatesStarted(awayScore);
                       const status = isFinal ? "Final" : isLive ? "Live" : "Scheduled";
                       const homeTotal = matchupTotal(homeScore, status);
                       const awayTotal = matchupTotal(awayScore, status);
@@ -1613,6 +1565,51 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                 homeScore={viewedHomeScore}
                 status={viewedScoreStatus}
                 injuries={injuries}
+                navigation={(
+                  <div className="flex items-center gap-2 px-1">
+                    <div className="flex min-h-10 items-center overflow-hidden rounded-full border border-white/15 bg-[#101318]">
+                      <button
+                        type="button"
+                        aria-label="Previous fantasy week"
+                        disabled={week <= 1}
+                        onClick={() => setWeek(current => Math.max(1, current - 1))}
+                        className="grid h-10 w-10 place-items-center text-xl text-zinc-300 disabled:text-zinc-700"
+                      >
+                        ‹
+                      </button>
+                      <select
+                        aria-label="Fantasy week"
+                        value={week}
+                        onChange={(event) => setWeek(Number(event.target.value))}
+                        className="h-10 min-w-20 border-x border-white/10 bg-transparent px-2 text-center text-[11px] font-black"
+                      >
+                        {Array.from({ length: maxSelectableWeek }, (_, index) => index + 1).map((value) => (
+                          <option key={value} value={value}>
+                            {value > maxWeek ? `Playoff ${value}` : `Week ${value}`}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        aria-label="Next fantasy week"
+                        disabled={week >= maxSelectableWeek}
+                        onClick={() => setWeek(current => Math.min(maxSelectableWeek, current + 1))}
+                        className="grid h-10 w-10 place-items-center text-xl text-zinc-300 disabled:text-zinc-700"
+                      >
+                        ›
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      aria-haspopup="dialog"
+                      aria-expanded={showAllMatchups}
+                      onClick={() => setShowAllMatchups(true)}
+                      className="bk-fantasy-compact-button min-h-10 rounded-full border border-white/15 bg-[#101318] px-3 text-[9px] font-black uppercase text-zinc-200"
+                    >
+                      All Matchups
+                    </button>
+                  </div>
+                )}
                 onOpenAway={(playerId) => {
                   const player = findPlayer(playerId);
                   if (player) openPlayerDetail(player, viewedAway);
@@ -3103,16 +3100,19 @@ const formatKickoff = (value?: string) => {
   });
 };
 
+const scoreIndicatesStarted = (score?: WeeklyScore) => Boolean(
+  score && (
+    score.livePoints !== 0 ||
+    score.players.some((player) => player.isLive || player.isFinal)
+  )
+);
+
 const matchupTotal = (score: WeeklyScore | undefined, status: "Scheduled" | "Live" | "Final") => {
-  if (!score) return { value: "—", label: status === "Scheduled" ? "Projection unavailable" : status };
-  if (status === "Scheduled") {
-    return score.hasProjectedTotal === true
-      ? { value: score.projectedPoints.toFixed(1), label: "Projected" }
-      : { value: "—", label: "Projection unavailable" };
-  }
   return {
-    value: score.livePoints.toFixed(1),
-    label: status === "Final" ? "Final" : "Live",
+    value: score ? score.livePoints.toFixed(2) : "—",
+    label: status === "Final" ? "Final" : status === "Live" ? "Live" : "Current",
+    projection: score?.hasProjectedTotal === true ? score.projectedPoints.toFixed(2) : "—",
+    projectionLabel: score?.hasProjectedTotal === true ? "Projected" : "Projection unavailable",
   };
 };
 
@@ -3133,7 +3133,7 @@ const TeamMatchupHeader = ({
     <div className={`flex min-w-0 flex-col gap-1 ${side === "home" ? "items-end text-right" : "items-start text-left"}`}>
       <div className="max-w-full truncate text-[10px] font-black uppercase text-zinc-200">{name}</div>
       <div className={`flex items-center gap-2 ${side === "home" ? "flex-row-reverse" : ""}`}>
-      <div className="relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full border border-[#D4AF37]/35 bg-[#171b22] text-[10px] font-black text-[#D4AF37] sm:h-14 sm:w-14 sm:text-xs">
+      <div className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full border border-[#D4AF37]/35 bg-[#171b22] text-[10px] font-black text-[#D4AF37] sm:h-14 sm:w-14 sm:text-xs">
         {name.slice(0, 2).toUpperCase()}
         {member?.userAvatar && (
           <img
@@ -3145,9 +3145,12 @@ const TeamMatchupHeader = ({
           />
         )}
       </div>
-      <div className="min-w-0">
-        <div className={`text-base font-black sm:text-xl ${status === "Live" ? "text-amber-300" : "text-white"}`}>{total.value}</div>
-        <div className="truncate text-[8px] font-black uppercase text-zinc-600">{total.label}</div>
+      <div className="min-w-0" data-matchup-side={side} data-matchup-member={member?.id}>
+        <div data-matchup-current className={`text-2xl font-black leading-none tabular-nums sm:text-3xl ${status === "Live" ? "text-amber-300" : "text-white"}`}>{total.value}</div>
+        <div className="mt-1 truncate text-[8px] font-black uppercase text-zinc-500">{total.label}</div>
+        <div data-matchup-projected className="mt-0.5 truncate text-[9px] font-black tabular-nums text-[#D4AF37]" title={total.projectionLabel}>
+          {total.projection} <span className="text-[7px] uppercase text-zinc-600">Proj</span>
+        </div>
       </div>
       </div>
     </div>
@@ -3161,6 +3164,7 @@ const HeadToHeadMatchup = ({
   homeScore,
   status,
   injuries,
+  navigation,
   onOpenAway,
   onOpenHome,
 }: {
@@ -3170,57 +3174,57 @@ const HeadToHeadMatchup = ({
   homeScore?: WeeklyScore;
   status: "Scheduled" | "Live" | "Final";
   injuries: LeagueInjury[];
+  navigation: React.ReactNode;
   onOpenAway: (playerId: string) => void;
   onOpenHome: (playerId: string) => void;
 }) => {
   const projectionReady = awayScore?.hasProjectedTotal === true && homeScore?.hasProjectedTotal === true;
-  const projectionSum = Number(awayScore?.projectedPoints || 0) + Number(homeScore?.projectedPoints || 0);
-  const awayShare = projectionReady && projectionSum > 0
-    ? Math.max(0, Math.min(100, Number(awayScore?.projectedPoints || 0) / projectionSum * 100))
+  const projectionMargin = Number(awayScore?.projectedPoints || 0) - Number(homeScore?.projectedPoints || 0);
+  const awayWinChance = projectionReady
+    ? Math.max(5, Math.min(95, 100 / (1 + Math.exp(-projectionMargin / 30))))
     : null;
   return (
-    <section aria-label={`${displayManagerName(away)} versus ${displayManagerName(home)}`} className="space-y-2">
-      <div className="overflow-hidden rounded-lg border border-white/10 bg-[#11141a]">
-      <div className="grid grid-cols-[minmax(0,1fr)_26px_minmax(0,1fr)] items-center gap-1.5 p-2 sm:grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)] sm:gap-2 sm:p-3">
+    <section aria-label={`${displayManagerName(away)} versus ${displayManagerName(home)}`} className="space-y-3">
+      <div data-testid="matchup-scoreboard" className="overflow-hidden rounded-2xl border border-white/10 bg-[#151922] shadow-[0_12px_30px_rgba(0,0,0,.24)]">
+      <div className="grid grid-cols-[minmax(0,1fr)_26px_minmax(0,1fr)] items-center gap-1.5 p-3 sm:grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)] sm:gap-2 sm:p-4">
         <TeamMatchupHeader member={away} score={awayScore} status={status} side="away" />
         <div className="text-center text-[9px] font-black uppercase text-[#D4AF37]">VS</div>
         <TeamMatchupHeader member={home} score={homeScore} status={status} side="home" />
       </div>
-      {awayShare === null ? (
+      {awayWinChance === null ? (
         <div className="border-b border-white/5 px-3 py-2 text-center text-[8px] font-black uppercase text-zinc-600">
-          Matchup advantage unavailable
+          Projected win chance unavailable
         </div>
       ) : (
-        <div className="border-b border-white/5 px-3 py-2">
+        <div className="border-t border-white/5 px-3 py-2.5">
           <div className="mb-1 flex items-center justify-between text-[8px] font-black uppercase text-zinc-500">
-            <span>{awayShare.toFixed(0)}%</span>
-            <span>Projected matchup advantage</span>
-            <span>{(100 - awayShare).toFixed(0)}%</span>
+            <span>{awayWinChance.toFixed(0)}%</span>
+            <span>Projected win chance</span>
+            <span>{(100 - awayWinChance).toFixed(0)}%</span>
           </div>
           <div className="flex h-1.5 overflow-hidden rounded-full bg-zinc-800">
-            <span className="bg-[#D4AF37]" style={{ width: `${awayShare}%` }} />
-            <span className="bg-zinc-500" style={{ width: `${100 - awayShare}%` }} />
+            <span className="bg-[#D4AF37]" style={{ width: `${awayWinChance}%` }} />
+            <span className="bg-zinc-500" style={{ width: `${100 - awayWinChance}%` }} />
           </div>
         </div>
       )}
       </div>
-      <div className="divide-y divide-white/[.04] overflow-hidden rounded-lg border border-white/[.05] bg-[#0d1015]">
+      {navigation}
+      <div className="divide-y divide-white/[.05] overflow-hidden rounded-xl border border-white/[.06] bg-[#101318]">
         {LINEUP_SLOTS.map((slot) => {
           const awayPlayer = awayScore?.players.find((player) => player.slot === slot.id);
           const homePlayer = homeScore?.players.find((player) => player.slot === slot.id);
           const awayInjury = injuries.find((item) => item.memberId === away?.id && item.playerId === awayPlayer?.playerId);
           const homeInjury = injuries.find((item) => item.memberId === home?.id && item.playerId === homePlayer?.playerId);
-          const awayProjectedEdge = status === "Scheduled" && awayPlayer?.projectionAvailable === true && homePlayer?.projectionAvailable === true && awayPlayer.projectedPoints > homePlayer.projectedPoints;
-          const homeProjectedEdge = status === "Scheduled" && awayPlayer?.projectionAvailable === true && homePlayer?.projectionAvailable === true && homePlayer.projectedPoints > awayPlayer.projectedPoints;
           return (
             <div key={slot.id} className="grid grid-cols-[minmax(0,1fr)_42px_minmax(0,1fr)] items-stretch sm:grid-cols-[minmax(0,1fr)_56px_minmax(0,1fr)]">
-              <MatchupPlayerSide player={awayPlayer} injury={awayInjury} align="left" projectedEdge={awayProjectedEdge} onOpen={onOpenAway} />
+              <MatchupPlayerSide player={awayPlayer} injury={awayInjury} align="left" onOpen={onOpenAway} />
               <div className="grid place-items-center border-x border-white/5 bg-black/20 px-1 text-center">
                 <span className="w-full rounded-md border border-[#D4AF37]/25 bg-[#D4AF37]/[.06] px-1 py-1 text-center text-[7px] font-black uppercase leading-tight text-[#D4AF37]">
                   {slot.id === "FLEX" ? "FLEX/WRT" : slot.id === "DST" ? "DST" : slot.label}
                 </span>
               </div>
-              <MatchupPlayerSide player={homePlayer} injury={homeInjury} align="right" projectedEdge={homeProjectedEdge} onOpen={onOpenHome} />
+              <MatchupPlayerSide player={homePlayer} injury={homeInjury} align="right" onOpen={onOpenHome} />
             </div>
           );
         })}
@@ -3233,13 +3237,11 @@ const MatchupPlayerSide = ({
   player,
   injury,
   align,
-  projectedEdge,
   onOpen,
 }: {
   player?: PlayerScoreDetail;
   injury?: LeagueInjury;
   align: "left" | "right";
-  projectedEdge: boolean;
   onOpen: (playerId: string) => void;
 }) => {
   if (!player) {
@@ -3257,18 +3259,18 @@ const MatchupPlayerSide = ({
     : player.opponent
       ? `${player.isHome === false ? "@" : "vs"} ${player.opponent}`
       : "Opponent unavailable";
-  const score = player.isLive || player.isFinal
+  const currentScore = player.isLive || player.isFinal
     ? player.points.toFixed(1)
-    : player.projectionAvailable === true
-      ? player.projectedPoints.toFixed(1)
-      : "—";
-  const scoreLabel = player.isLive ? "Live" : player.isFinal ? "Final" : player.projectionAvailable === true ? "Proj" : "N/A";
+    : "—";
+  const projectedScore = player.projectionAvailable === true
+    ? player.projectedPoints.toFixed(1)
+    : "—";
   return (
     <button
       type="button"
       aria-label={`Open ${player.playerName}`}
       onClick={() => onOpen(player.playerId)}
-      className={`flex min-h-[3.5rem] min-w-0 items-center gap-1 rounded-lg px-1.5 py-1.5 sm:min-h-[4.5rem] sm:gap-1.5 sm:px-2 sm:py-2 ${injury ? "bg-red-950/45" : ""} ${align === "right" ? "flex-row-reverse text-right" : "text-left"}`}
+      className={`flex min-h-[4.25rem] min-w-0 items-center gap-1 px-1.5 py-2 sm:min-h-[4.5rem] sm:gap-1.5 sm:px-2 ${injury ? "bg-red-950/45" : ""} ${align === "right" ? "flex-row-reverse text-right" : "text-left"}`}
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
@@ -3288,9 +3290,9 @@ const MatchupPlayerSide = ({
         </div>
         <div className="mt-0.5 truncate text-[7px] font-black uppercase text-zinc-600 sm:text-[8px]">{gameLabel}{player.locked ? " · Locked" : ""}</div>
       </div>
-      <div className={`w-8 shrink-0 ${align === "right" ? "text-left" : "text-right"}`}>
-        <div className={`text-sm font-black ${player.isLive ? "text-amber-300" : projectedEdge ? "text-[#D4AF37]" : "text-white"}`}>{score}</div>
-        <div className="text-[7px] font-black uppercase text-zinc-600">{scoreLabel}</div>
+      <div className={`w-9 shrink-0 tabular-nums ${align === "right" ? "text-left" : "text-right"}`} aria-label={`${currentScore} current, ${projectedScore} projected`}>
+        <div className={`text-sm font-black ${player.isLive ? "text-amber-300" : "text-white"}`}>{currentScore}</div>
+        <div className="mt-0.5 text-[9px] font-bold text-zinc-500">{projectedScore}</div>
       </div>
     </button>
   );
