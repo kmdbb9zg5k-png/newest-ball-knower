@@ -18,7 +18,7 @@ import {
 import { League, Player } from "./types";
 import { PLAYERS_DATABASE } from "./players";
 import { useBallKnower } from "./BallKnowerContext";
-import { playerPortraitUrl } from "./playerPortraits";
+import { FantasyPlayerPortrait } from "./FantasyPlayerPortrait";
 import { ManagerAvatar } from './ManagerAvatar';
 import { displayLeagueMemberName } from './leagueMemberDisplay';
 import { FantasyAdvancedLeagueSettings } from "./FantasyAdvancedLeagueSettings";
@@ -180,6 +180,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
         .slice(0, 100),
     [league.members],
   );
+  const selectedFaabPlayer = freeAgents.find((player) => player.id === faabPlayer);
   const records = useMemo(
     () => buildLeagueRecords(league, archives),
     [league, archives],
@@ -464,6 +465,15 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
                 </option>
               ))}
             </select>
+            {selectedFaabPlayer && (
+              <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/30 p-2">
+                <Portrait player={selectedFaabPlayer} />
+                <div className="min-w-0">
+                  <div className="truncate text-xs font-black">{selectedFaabPlayer.name}</div>
+                  <div className="text-[9px] font-bold text-zinc-500">{selectedFaabPlayer.position} · {selectedFaabPlayer.team} · {selectedFaabPlayer.ovr} OVR</div>
+                </div>
+              </div>
+            )}
             {waiverType === "faab" && (
               <input
                 type="number"
@@ -611,11 +621,10 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
                   {(selectedTeam.roster || []).map((player) => (
                     <div
                       key={player.id}
-                      className="flex items-center justify-between rounded-lg bg-black/35 px-3 py-2 text-xs"
+                      className="flex items-center gap-2 rounded-lg bg-black/35 px-2 py-2 text-xs"
                     >
-                      <span className="truncate">
-                        <b>{player.position}</b> {player.name}
-                      </span>
+                      <FantasyPlayerPortrait player={player} className="h-9 w-9 rounded-lg" decorative />
+                      <span className="min-w-0 flex-1 truncate"><b>{player.position}</b> {player.name}</span>
                       <b className="ml-2 text-[#D4AF37]">{player.ovr}</b>
                     </div>
                   ))}
@@ -872,7 +881,7 @@ export const FantasyLeagueEssentials: React.FC<{ league: League }> = ({
   );
 };
 
-const PackagePicker=({title,players,selected,onChange,disabled=false}:{title:string;players:Player[];selected:string[];onChange:(ids:string[])=>void;disabled?:boolean})=><fieldset disabled={disabled} className="rounded-xl border border-white/10 p-2 disabled:opacity-40"><legend className="px-1 text-[9px] font-black uppercase text-zinc-500">{title} · {selected.length}/3</legend><div className="max-h-52 space-y-1 overflow-y-auto">{players.map(player=>{const active=selected.includes(player.id);return <button type="button" key={player.id} aria-pressed={active} onClick={()=>onChange(active?selected.filter(id=>id!==player.id):selected.length<3?[...selected,player.id]:selected)} className={`flex min-h-11 w-full items-center justify-between rounded-lg px-3 text-left text-xs ${active?'bg-[#D4AF37] text-black':'bg-black/30'}`}><span><b>{player.position}</b> {player.name}</span><b>{active?'✓':player.ovr}</b></button>})}</div></fieldset>;
+const PackagePicker=({title,players,selected,onChange,disabled=false}:{title:string;players:Player[];selected:string[];onChange:(ids:string[])=>void;disabled?:boolean})=><fieldset disabled={disabled} className="rounded-xl border border-white/10 p-2 disabled:opacity-40"><legend className="px-1 text-[9px] font-black uppercase text-zinc-500">{title} · {selected.length}/3</legend><div className="max-h-52 space-y-1 overflow-y-auto">{players.map(player=>{const active=selected.includes(player.id);return <button type="button" key={player.id} aria-pressed={active} onClick={()=>onChange(active?selected.filter(id=>id!==player.id):selected.length<3?[...selected,player.id]:selected)} className={`flex min-h-12 w-full items-center gap-2 rounded-lg px-2 text-left text-xs ${active?'bg-[#D4AF37] text-black':'bg-black/30'}`}><FantasyPlayerPortrait player={player} className="h-9 w-9 rounded-lg" decorative/><span className="min-w-0 flex-1 truncate"><b>{player.position}</b> {player.name}</span><b>{active?'✓':player.ovr}</b></button>})}</div></fieldset>;
 
 const RosterSection = ({
   title,
@@ -889,15 +898,7 @@ const RosterSection = ({
   </section>
 );
 const Portrait = ({ player }: { player?: Player }) => (
-  <div className="h-12 w-12 overflow-hidden rounded-lg bg-white/5">
-    {player && playerPortraitUrl(player) && (
-      <img
-        src={playerPortraitUrl(player)}
-        alt=""
-        className="h-full w-full object-cover"
-      />
-    )}
-  </div>
+  <FantasyPlayerPortrait player={player} className="h-12 w-12 rounded-lg" decorative />
 );
 const LineupRow = ({
   label,

@@ -27,7 +27,7 @@ assert.match(source('partners.ts'),/cowboysplaybook365\.vercel\.app/);
 const credits=renderToStaticMarkup(React.createElement(PhotoCreditsContent));
 for(const [name,photo] of Object.entries(LICENSED_PLAYER_PORTRAITS)){
   const row=renderToStaticMarkup(React.createElement(PlayerPhotoCredit,{name}));
-  assert.ok(row.includes(photo.sourceUrl.replace(/&/g,'&amp;')));
+  assert.ok(row.includes(photo.sourceUrl.replace(/&/g,'&amp;').replace(/'/g,'&#x27;')));
   assert.ok(credits.includes(photo.licenseUrl));
   assert.ok(source('public/player-photo-credits.html').includes(photo.sourceUrl));
   assert.ok(licensedPlayerPortraitUrl(photo,NaN).endsWith('width=512'));
