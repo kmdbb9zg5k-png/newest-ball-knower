@@ -25,6 +25,7 @@ import { loadFantasyRankings } from "./fantasyRankingsCloud";
 import type { FantasyRanking } from "./fantasyRankingsCloud";
 import { PLAYERS_DATABASE, KNOWN_PLAYERS_DATABASE } from "./players";
 import { FantasyPlayerDetail } from "./FantasyPlayerDetail";
+import { FantasyPlayerPortrait } from "./FantasyPlayerPortrait";
 import "./fantasyHub.css";
 import "./fantasyHqPremium.css";
 import { LeagueDestinationCard } from './FantasyHqLeagueCard';
@@ -412,12 +413,18 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
                 <div className="mt-3 divide-y divide-white/5">
                   {visibleRanked.map((player) => {
                     const up = player.point_change !== null && player.point_change >= 0;
+                    const fantasyPlayer = fantasyPlayerFromRanking(player) || undefined;
                     return (
                       <article key={player.player_key} className="py-4">
-                        <div className="grid grid-cols-[2.2rem_minmax(0,1fr)_auto] items-center gap-3">
+                        <div className="grid grid-cols-[2.2rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3">
                           <div className="text-center text-base font-black text-zinc-500">
                             {player.overall_rank}
                           </div>
+                          <FantasyPlayerPortrait
+                            player={fantasyPlayer}
+                            className="h-11 w-11 rounded-xl"
+                            decorative
+                          />
                           <button
                             onClick={() =>
                               setSelectedPlayerId(player.player_key)

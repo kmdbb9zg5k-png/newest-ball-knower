@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { League, LeagueMember, Player, SimulationGame } from "./types";
 import { PLAYERS_DATABASE, KNOWN_PLAYERS_DATABASE } from "./players";
-import { playerPortraitFallbackUrl, playerPortraitUrl } from "./playerPortraits";
+import { FantasyPlayerPortrait } from "./FantasyPlayerPortrait";
 import { useBallKnower } from "./BallKnowerContext";
 import { FantasyAdvancedLeagueSettings } from "./FantasyAdvancedLeagueSettings";
 import { FantasyLeagueCommunications } from "./FantasyLeagueCommunications";
@@ -2752,11 +2752,12 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                     {allBkTeam.map((item, index) => (
                       <div
                         key={`${item.label}-${item.player.id}-${index}`}
-                        className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-3 py-3"
+                        className="grid grid-cols-[38px_40px_minmax(0,1fr)_auto] items-center gap-2 py-3 sm:grid-cols-[48px_48px_minmax(0,1fr)_auto] sm:gap-3"
                       >
                         <span className="text-[10px] font-black uppercase text-[#D4AF37]">
                           {item.label}
                         </span>
+                        <FantasyPlayerPortrait player={item.player} className="h-10 w-10 rounded-lg sm:h-12 sm:w-12" decorative />
                         <div className="min-w-0">
                           <div className="truncate text-sm font-black">
                             {item.player.name}
@@ -2925,30 +2926,7 @@ const DataNotice = ({
 );
 
 const Portrait = ({ player }: { player?: Player }) => (
-  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-white/5 bg-white/5 sm:h-12 sm:w-12">
-    {player && playerPortraitUrl(player) ? (
-      <img
-        src={playerPortraitUrl(player)}
-        alt={`${player.name} headshot`}
-        loading="lazy"
-        decoding="async"
-        referrerPolicy="no-referrer"
-        onError={(event) => {
-          event.currentTarget.onerror = null;
-          event.currentTarget.src = playerPortraitFallbackUrl(player);
-        }}
-        className="h-full w-full object-cover"
-      />
-    ) : (
-      <div className="grid h-full w-full place-items-center text-xs font-black text-zinc-600">
-        {player?.name
-          .split(" ")
-          .map((piece) => piece[0])
-          .slice(0, 2)
-          .join("") || "—"}
-      </div>
-    )}
-  </div>
+  <FantasyPlayerPortrait player={player} className="h-9 w-9 rounded-lg sm:h-12 sm:w-12" />
 );
 
 const RosterSection = ({

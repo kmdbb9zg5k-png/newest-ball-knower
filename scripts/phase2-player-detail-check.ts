@@ -125,9 +125,9 @@ assert.ok(
   'Licensed portraits must resolve through Wikimedia Commons rather than EA/ESPN artwork.',
 );
 for (const player of [
-  { id: 'rookie-love', name: 'Jeremiyah Love', position: 'RB', team: 'ARI' },
-  { id: 'rookie-skattebo', name: 'Cam Skattebo', position: 'RB', team: 'NYG' },
-  { id: 'rookie-mcmillan', name: 'Tetairoa McMillan', position: 'WR', team: 'CAR' },
+  { id: 'unknown-qb', name: 'Ball Knower Quarterback', position: 'QB', team: 'BK' },
+  { id: 'unknown-rb', name: 'Ball Knower Running Back', position: 'RB', team: 'BK' },
+  { id: 'unknown-wr', name: 'Ball Knower Wide Receiver', position: 'WR', team: 'BK' },
 ] as const) {
   assert.ok(
     playerPortraitUrl(player).startsWith('data:image/svg+xml,'),
@@ -149,7 +149,7 @@ assert.ok(
   Object.values(PLAYER_PORTRAITS).every((url) => url.startsWith('https://commons.wikimedia.org/')),
   'The licensed portrait catalog must not contain EA, ESPN, Getty, or other unapproved image hosts.',
 );
-assert.ok(draftRoom.includes('playerPortraitFallbackUrl(player)') && draftRoom.includes('headshot'), 'Live draft rows must render player headshots with a safe failed-image fallback.');
-assert.ok(postDraft.includes('playerPortraitFallbackUrl(player)') && postDraft.includes('headshot'), 'My Team starter and bench rows must render player headshots with a safe failed-image fallback.');
+assert.ok(draftRoom.includes('FantasyPlayerPortrait'), 'Live draft rows must render the shared licensed Fantasy player portrait.');
+assert.ok(postDraft.includes('FantasyPlayerPortrait'), 'My Team starter and bench rows must render the shared licensed Fantasy player portrait.');
 
 console.log('Phase 2 player detail checks passed: decision-first modal, safe game log, licensed portrait policy, and shared entry points.');
