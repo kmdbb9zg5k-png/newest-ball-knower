@@ -11,6 +11,7 @@ const loadIntelligenceExtras = () => import('./IntelligenceExtras').then(module 
 
 interface LeagueLobbyProps {
   league: League;
+  onBack: () => void;
   onGoToDraft: () => void;
   onGoToSimulation: () => void;
   onViewMemberLocker: (member: LeagueMember) => void;
@@ -53,7 +54,7 @@ class ModeErrorBoundary extends React.Component<ModeErrorBoundaryProps, ModeErro
   }
 }
 
-export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, onGoToSimulation, onViewMemberLocker }) => {
+export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onBack, onGoToDraft, onGoToSimulation, onViewMemberLocker }) => {
   const draftComplete = league.liveDraft?.status === 'completed';
   const [mode, setMode] = useState<'command' | 'season' | 'intelligence'>(draftComplete ? 'season' : 'command');
   const [lazyVersion, setLazyVersion] = useState(0);
@@ -83,7 +84,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, o
         <OwnerCareerSync league={league} />
         <div className="mx-auto max-w-6xl px-2 py-0 sm:px-6 sm:py-5">
           <ModeErrorBoundary key={`postdraft-${lazyVersion}`} onRetry={retryMode}>
-            <FantasyLeaguePostDraft league={postDraftLeague} onGoToSimulation={onGoToSimulation} onViewMemberLocker={onViewMemberLocker} />
+            <FantasyLeaguePostDraft league={postDraftLeague} onBack={onBack} onGoToSimulation={onGoToSimulation} onViewMemberLocker={onViewMemberLocker} />
           </ModeErrorBoundary>
         </div>
       </BroadcastStage>

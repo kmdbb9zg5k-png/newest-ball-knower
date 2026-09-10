@@ -2,6 +2,7 @@ import { useCommunitySafety, MessageSafety, CommunitySafetySettings } from './Co
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
+  ArrowLeft,
   ArrowUp,
   ArrowRightLeft,
   Bandage,
@@ -103,6 +104,7 @@ type IntelView = "awards" | "allbk";
 
 type Props = {
   league: League;
+  onBack: () => void;
   onGoToSimulation: () => void;
   onViewMemberLocker: (member: LeagueMember) => void;
 };
@@ -139,6 +141,7 @@ const buildFantasyLineup = (
 
 export const FantasyLeaguePostDraft: React.FC<Props> = ({
   league,
+  onBack,
   onGoToSimulation,
   onViewMemberLocker,
 }) => {
@@ -180,6 +183,17 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
     const saved = window.sessionStorage.getItem(storedTabKey);
     return saved === "matchup" || saved === "players" || saved === "league" ? saved : "team";
   });
+  const tabHistory = useRef<Tab[]>([]);
+  const openTab = (next: Tab) => {
+    if (next === tab) return;
+    tabHistory.current.push(tab);
+    setTab(next);
+  };
+  const backFromTab = () => {
+    const previous = tabHistory.current.pop();
+    if (previous) setTab(previous);
+    else onBack();
+  };
   const [leagueView, setLeagueView] = useState<LeagueView>("standings");
   const [activityView, setActivityView] = useState<ActivityView>("trades");
   const [intelView, setIntelView] = useState<IntelView>("allbk");
@@ -797,7 +811,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
     setSelectedTeamId("");
     setActivityView("trades");
     setLeagueView("trades");
-    setTab("league");
+    openTab("league");
     window.setTimeout(
       () =>
         tradeBuilderRef.current?.scrollIntoView({
@@ -1302,11 +1316,11 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
     if (detailPrimaryAction.kind === "trade" && detailOwnerId) {
       startTrade(detailOwnerId, detailPlayer.id);
     } else if (detailPrimaryAction.kind === "manage") {
-      setTab("team");
+      openTab("team");
     } else {
       setFaabPlayer(detailPlayer.id);
       setPlayerPoolView(playerAvailability === "waiver" ? "waivers" : "freeAgents");
-      setTab("players");
+      openTab("players");
     }
     setDetailPlayer(null);
   };
@@ -1351,7 +1365,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
           {navItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => setTab(item.id)}
+              onClick={() => openTab(item.id)}
               className={`relative flex min-h-10 min-w-0 items-center justify-center gap-1 px-1 text-[9px] font-black uppercase min-[390px]:text-[10px] ${tab === item.id ? "text-[var(--bk-team-accent)] after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:bg-[var(--bk-team-accent)]" : "text-zinc-500"}`}
             >
               <span className="hidden sm:inline">{item.icon}</span>
@@ -1371,13 +1385,16 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
       {tab === "team" && (
         <div className="space-y-2">
           <div className="flex min-h-14 items-center justify-between gap-2 px-1 py-2">
-            <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-3">
+              <LeaguePageBackButton onBack={backFromTab} />
+              <div className="min-w-0">
               <h2 className="text-base font-black uppercase leading-tight">My Team</h2>
               <div className={`mt-0.5 flex items-center gap-1 text-[9px] font-black ${lineupErrors.length ? "text-amber-300" : "text-emerald-400"}`}>
                 {!lineupErrors.length && <Check className="h-3 w-3" />}
                 Week {week} · {lineupErrors.length ? "Lineup Invalid" : "Lineup Valid"}
               </div>
               {lineupErrors.length > 0 && <div className="mt-0.5 max-w-48 truncate text-[8px] font-bold text-amber-200">{lineupErrors[0]}</div>}
+              </div>
             </div>
             <button type="button" onClick={optimizeLineup} disabled={!roster.length} className="bk-fantasy-compact-button shrink-0 px-1 text-[9px] font-black uppercase text-[var(--bk-team-accent)] disabled:opacity-40">
               <Zap className="mr-1 inline h-3.5 w-3.5" />Optimize Lineup
@@ -1440,18 +1457,21 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
 
       {tab === "matchup" && (
         <div className="space-y-2">
-          <div className="px-1 pt-2 sm:rounded-lg sm:border sm:border-white/10 sm:bg-[#0b0d11] sm:p-4">
-            <div className="text-[9px] font-black uppercase tracking-[.18em] text-[var(--bk-team-accent)]">Head to head</div>
-            <h2 className="mt-0.5 text-base font-black uppercase sm:text-xl">
+          <div className="flex items-center gap-3 px-1 pt-2 sm:rounded-lg sm:border sm:border-white/10 sm:bg-[#0b0d11] sm:p-4">
+            <LeaguePageBackButton onBack={backFromTab} />
+            <div className="min-w-0">
+              <div className="text-[9px] font-black uppercase tracking-[.18em] text-[var(--bk-team-accent)]">Head to head</div>
+              <h2 className="mt-0.5 text-base font-black uppercase sm:text-xl">
               {week > maxWeek ? "Playoff" : "Week"} {week} Matchup
-            </h2>
-            <p className="mt-0.5 truncate text-[9px] text-zinc-500 sm:text-[10px]">
+              </h2>
+              <p className="mt-0.5 truncate text-[9px] text-zinc-500 sm:text-[10px]">
               {week > maxWeek
                 ? "Winners advance after both official scores are final."
                 : nextKickoff
                   ? `${nextKickoff.awayTeam} @ ${nextKickoff.homeTeam} · ${formatKickoff(nextKickoff.kickoffAt)}`
                   : "Every NFL game is final."}
-            </p>
+              </p>
+            </div>
           </div>
           {showAllMatchups && (
             <ModalPortal>
@@ -1734,9 +1754,12 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
 
       {tab === "players" && (
         <div className="space-y-2">
-          <div className="px-1 pt-2">
-            <div className="text-[9px] font-black uppercase tracking-[.18em] text-[var(--bk-team-accent)]">Roster market</div>
-            <h2 className="mt-0.5 text-base font-black uppercase">Add Players</h2>
+          <div className="flex items-center gap-3 px-1 pt-2">
+            <LeaguePageBackButton onBack={backFromTab} />
+            <div className="min-w-0">
+              <div className="text-[9px] font-black uppercase tracking-[.18em] text-[var(--bk-team-accent)]">Roster market</div>
+              <h2 className="mt-0.5 text-base font-black uppercase">Add Players</h2>
+            </div>
           </div>
           {rankingsBusy && (
             <DataNotice text="Loading the 2026 fantasy projection board. Player actions stay available." />
@@ -1946,6 +1969,10 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
 
       {tab === "league" && (
         <div className="space-y-3">
+          <div className="flex items-center gap-3 px-1 pt-2">
+            <LeaguePageBackButton onBack={backFromTab} />
+            <div className="min-w-0"><div className="text-[9px] font-black uppercase tracking-[.18em] text-[var(--bk-team-accent)]">League HQ</div><h2 className="mt-0.5 text-base font-black uppercase">League</h2></div>
+          </div>
           <div aria-label="League tools" className="bk-fantasy-subnav bk-fantasy-subnav-scroll">
             {leagueNavItems.map((item) => (
               <button
@@ -3125,6 +3152,17 @@ const Panel = ({
     {children}
   </section>
 );
+const LeaguePageBackButton = ({ onBack }: { onBack: () => void }) => (
+  <button
+    type="button"
+    onClick={onBack}
+    aria-label="Back to previous page"
+    className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/15 bg-[#101318]/90 text-zinc-200 shadow-lg transition hover:border-[var(--bk-team-accent)]/60 hover:text-[var(--bk-team-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--bk-team-accent)]"
+  >
+    <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+  </button>
+);
+
 const Empty = ({ text }: { text: string }) => (
   <div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-xs font-semibold leading-5 text-zinc-600">
     {text}
