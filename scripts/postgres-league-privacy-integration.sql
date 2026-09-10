@@ -45,7 +45,8 @@ create table public.ball_knower_league_members (
   id text primary key,
   league_id text not null references public.ball_knower_leagues(id) on delete cascade,
   auth_user_id uuid,
-  user_name text not null
+  user_name text not null,
+  is_commissioner boolean not null default false
 );
 
 alter table public.ball_knower_leagues enable row level security;
@@ -60,6 +61,15 @@ on public.ball_knower_leagues
 for insert
 to authenticated
 with check (commissioner_auth_id = public.fantasy_requester_id());
+
+create policy ball_knower_leagues_update
+on public.ball_knower_leagues
+for update
+to authenticated
+using (commissioner_auth_id = public.fantasy_requester_id())
+with check (commissioner_auth_id = public.fantasy_requester_id());
+
+\ir ../migrations/20260910041535_custom_join_codes_league_removal.sql
 
 insert into public.ball_knower_leagues(id, code, name, commissioner_auth_id) values
   ('privacy-a', 'BK-PRIVA', 'Commissioner A', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
@@ -94,6 +104,16 @@ begin
   if (select count(*) from public.ball_knower_leagues where id in ('privacy-a', 'privacy-b')) <> 2 then
     raise exception 'Member/commissioner access matrix is incorrect';
   end if;
+
+  delete from public.ball_knower_leagues where id = 'privacy-a';
+  if not exists (select 1 from public.ball_knower_leagues where id = 'privacy-a') then
+    raise exception 'A non-commissioner deleted somebody else''s league';
+  end if;
+
+  delete from public.ball_knower_league_members where id = 'member-b-in-a';
+  if exists (select 1 from public.ball_knower_league_members where id = 'member-b-in-a') then
+    raise exception 'A member could not leave their own league';
+  end if;
 end;
 $member$;
 
@@ -120,6 +140,25 @@ begin
   end if;
 end;
 $outsider$;
+
+select set_config(
+  'request.jwt.claims',
+  '{"role":"authenticated","sub":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}',
+  true
+);
+update public.ball_knower_leagues set code = 'SUNDAY-CREW' where id = 'privacy-a';
+do $management$
+begin
+  if not exists (select 1 from public.ball_knower_leagues where id = 'privacy-a' and code = 'SUNDAY-CREW') then
+    raise exception 'Commissioner could not save a custom join code';
+  end if;
+  delete from public.ball_knower_leagues where id = 'privacy-a';
+  if exists (select 1 from public.ball_knower_leagues where id = 'privacy-a')
+     or exists (select 1 from public.ball_knower_league_members where league_id = 'privacy-a') then
+    raise exception 'Commissioner league deletion did not cascade';
+  end if;
+end;
+$management$;
 
 reset role;
 set local role anon;

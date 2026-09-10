@@ -22,6 +22,7 @@ try{
   browser=await(engine==='chromium'?chromium:webkit).launch({headless:true});
   for(const width of engine==='chromium'?[390,320,430,1280]:[390]){
    const context=await browser.newContext({viewport:{width,height:844},isMobile:width<768,hasTouch:width<768,reducedMotion:'reduce'});
+   leagues[0].code='BK-QATEST';
    const page=await context.newPage();activePage=page;const crashes=[],mutations=[],backgroundPreferences=[];page.on('pageerror',e=>crashes.push(e.message));
    let empty=false,failScores=false,failActivity=false,activityContent=false;
    const userStateRows=new Map();
@@ -55,6 +56,10 @@ try{
     }
     if(path.endsWith('/ball_knower_fantasy_rankings'))return send(rankingRows.filter(r=>r.position!=='DST'));
     if(path.endsWith('/ball_knower_leagues')){
+     if(method==='PATCH'){
+      const patch=route.request().postDataJSON()||{};const target=leagues.find(l=>(url.searchParams.get('id')||'').includes(l.id));
+      if(target&&patch.code)target.code=patch.code;
+     }
      const rows=(empty?[]:leagues).filter(l=>!url.searchParams.get('id')?.startsWith('eq.')||url.searchParams.get('id')===`eq.${l.id}`).map(l=>({id:l.id,name:l.name,code:l.code,max_members:l.maxMembers,salary_cap:l.salaryCap,commissioner_auth_id:l.commissionerId,commissioner_name:l.commissionerName,status:l.status,created_at:l.createdAt,settings:l.settings}));
      return send(url.searchParams.get('id')?.startsWith('eq.')?rows[0]||null:rows);
     }
@@ -83,11 +88,13 @@ try{
    await go('Fantasy');await page.locator('.bk-hq-premium').waitFor();await page.getByText('Draft complete',{exact:true}).first().waitFor();await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(300);
    assert.equal(await page.getByTestId('fantasy-tool-grid').locator('button').count(),5);
    assert.equal(await page.locator('.bk-fantasy-league-pair').count(),2);
+   assert.equal(await page.locator('.bk-fantasy-league-code strong').filter({hasText:'BK-QATEST'}).count(),1,'Join code must be prominent on the league card');
    assert.match(await page.locator('.bk-hq-league-status-panel').first().innerText(),/#3/);
    assert.equal(await page.locator('.bk-fantasy-league-facts').first().getByText('15 drafted',{exact:true}).count(),1);
    const bounds=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,hero:document.querySelector('.bk-fantasy-hq-hero').getBoundingClientRect().height,tools:[...document.querySelectorAll('[data-testid="fantasy-tool-grid"] button')].map(e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right,height:r.height,width:r.width};})}));
    assert.ok(bounds.scroll<=width+1);assert.ok(bounds.tools.every(b=>b.left>=0&&b.right<=width+1&&b.height>=44&&b.width>=44));if(width<640)assert.ok(bounds.hero<=210);
    await writeFile(`${out}/${engine}-${width}-geometry.json`,JSON.stringify(bounds,null,2));await page.screenshot({path:`${out}/${engine}-${width}-hq.png`});await page.screenshot({path:`${out}/${engine}-${width}-full.png`,fullPage:true});
+   await page.getByRole('button',{name:'Manage Golden Arm League',exact:true}).click();let manage=page.getByRole('dialog',{name:'Golden Arm League',exact:true});await manage.waitFor();assert.match(await manage.innerText(),/JOIN CODE[\s\S]*BK-QATEST/);await manage.getByLabel('Custom code').fill('SUNDAY CREW');await manage.getByRole('button',{name:'Save custom code',exact:true}).click();await manage.getByText('SUNDAY-CREW',{exact:true}).waitFor();await manage.getByRole('button',{name:'Delete league',exact:true}).click();await manage.getByText('This cannot be undone. Delete it for everyone?',{exact:true}).waitFor();await manage.getByRole('button',{name:'Cancel',exact:true}).click();await manage.getByRole('button',{name:'Close league management',exact:true}).click();
    await page.getByRole('button',{name:'My Leagues (2)',exact:true}).click();let dialog=page.getByRole('dialog',{name:'My Leagues',exact:true});await dialog.waitFor();assert.equal(await dialog.locator('.bk-hq-league-list button').count(),2);await dialog.getByRole('button',{name:'Close My Leagues'}).click();
    await page.getByTestId('fantasy-tool-grid').getByRole('button',{name:/Draft Simulation/}).click();dialog=page.getByRole('dialog',{name:'Draft Simulation',exact:true});await dialog.waitFor();await dialog.getByRole('button',{name:'Run draft simulation',exact:true}).waitFor();const before=mutations.length;const savedLeagues=await page.evaluate(()=>localStorage.getItem('ballknower_leagues_v1'));
    await dialog.getByRole('button',{name:'Run draft simulation',exact:true}).click();await dialog.getByRole('button',{name:'Run another simulation',exact:true}).waitFor();assert.equal(await dialog.locator('.bk-hq-mock-picks li').count(),150);await dialog.getByRole('button',{name:'Run another simulation',exact:true}).click();assert.equal(mutations.length,before,`Practice must not perform backend writes: ${JSON.stringify(mutations.slice(before))}`);assert.equal(await page.evaluate(()=>localStorage.getItem('ballknower_leagues_v1')),savedLeagues,'Practice must not change saved league state');await page.keyboard.press('Escape');await dialog.waitFor({state:'detached'});

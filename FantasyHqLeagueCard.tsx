@@ -1,11 +1,13 @@
 import React from 'react';
-import { ArrowRight, Crown, Trophy } from 'lucide-react';
+import { ArrowRight, Copy, Crown, Settings2, Trophy } from 'lucide-react';
 import type { League } from './types';
 import { fantasyHqSummary } from './fantasyHqData';
 
-export function LeagueDestinationCard({league,currentUserId,featured,onSelect}: {
+export function LeagueDestinationCard({league,currentUserId,featured,onSelect,onCopyCode,onManage}: {
   league: League; currentUserId?: string; featured: boolean;
   onSelect: (league: League, tab: 'lobby'|'draft'|'simulation') => void;
+  onCopyCode: (league: League) => void;
+  onManage: (league: League) => void;
 }) {
   const facts=fantasyHqSummary(league,currentUserId);
   const format=league.settings?.scoringFormat==='half_ppr'?'Half PPR':league.settings?.scoringFormat==='standard'?'Standard':'PPR';
@@ -14,6 +16,11 @@ export function LeagueDestinationCard({league,currentUserId,featured,onSelect}: 
       <div className="bk-fantasy-league-summary">
         <div className="bk-fantasy-league-crest" aria-hidden="true"><span>{league.name.trim().slice(0,1).toUpperCase()||'F'}</span>{league.commissionerId===currentUserId&&<Crown/>}</div>
         <div className="bk-fantasy-league-copy"><h4>{league.name}</h4><p className="bk-hq-commissioner">Commissioner: <b>{league.commissionerName || 'Not available'}</b></p><small>Status</small><div className="bk-fantasy-league-status"><i aria-hidden="true"/>{facts.phase}</div></div>
+      </div>
+      <div className="bk-fantasy-league-code" aria-label={`${league.name} join code ${league.code}`}>
+        <span><small>Join code</small><strong>{league.code}</strong></span>
+        <button type="button" onClick={()=>onCopyCode(league)} aria-label={`Copy join code ${league.code}`}><Copy aria-hidden="true"/>Copy</button>
+        <button type="button" onClick={()=>onManage(league)} aria-label={`Manage ${league.name}`}><Settings2 aria-hidden="true"/>Manage</button>
       </div>
       <div className="bk-fantasy-league-facts" aria-label={`${league.name} status`}>
         <span><strong>{facts.ready}/{league.members.length} ready</strong><small>{league.members.length}/{league.maxMembers} teams · {format}</small></span>

@@ -71,6 +71,7 @@ interface BallKnowerContextType {
   cloudSyncError: string | null;
   autoFillLeagueWithAi: (leagueId: string) => Promise<boolean>;
   removeMemberFromLeague: (leagueId: string, memberId: string) => void;
+  syncLg: (leagueId: string, code?: string) => void;
   startSimulation: (leagueId: string) => Promise<boolean>;
   advanceFantasyWeek: (leagueId: string) => Promise<boolean>;
   finalizeDraftOrder: (leagueId: string, method: Exclude<DraftOrderMethod, 'game'>, orderedMemberIds: string[]) => Promise<boolean>;
@@ -730,6 +731,13 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     showToast('Removed member from league');
   };
 
+  const syncLg = (leagueId: string, code?: string) => {
+    if(code){setLeagues(previous=>previous.map(item=>item.id===leagueId?{...item,code,inviteEnabled:true}:item));return;}
+    const remaining=leaguesRef.current.filter(item=>item.id!==leagueId);setLeagues(remaining);
+    if(activeLeagueIdRef.current===leagueId){setActiveLeagueId(remaining[0]?.id||null);setCurrentRoster([]);}
+    if(leagueId==='demo-league-instance')setIsDemoMode(false);
+  };
+
   const startSimulation = async (leagueId: string): Promise<boolean> => {
     const league = leagues.find(l => l.id === leagueId);
     if (!league) return false;
@@ -1072,7 +1080,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     <BallKnowerContext.Provider value={{
       currentUser,setCurrentUser,updateCurrentUserAvatar,updateCurrentUserName,loginWithProvider,logout,leagues,activeLeague,setActiveLeagueId,createLeague,joinLeague,joinPublicLeague,
       onlineInvitesReady:isCloudConfigured,cloudSyncError,currentRoster,isRosterLocked,addToRoster,removeFromRoster,clearRoster,autoDraftTemplate,submitRoster,
-      totalSpent,remainingCap,rosterCounts,rosterValidationErrors,isRosterValid,autoFillLeagueWithAi,removeMemberFromLeague,startSimulation,advanceFantasyWeek,
+      totalSpent,remainingCap,rosterCounts,rosterValidationErrors,isRosterValid,autoFillLeagueWithAi,removeMemberFromLeague,syncLg,startSimulation,advanceFantasyWeek,
       finalizeDraftOrder,startLiveFantasyDraft,resumeLiveFantasyDraftRecovery,claimExpiredLiveFantasyDraftPick,makeLiveFantasyDraftPick,finalizeLiveFantasyDraftRosters,importOfflineFantasyDraftResults,
       resetLeagueSimulation,updateSalaryCap,updateLeagueSettings,isDemoMode,startDemoMode,exitDemoMode,toastMessage,showToast,
     }}>

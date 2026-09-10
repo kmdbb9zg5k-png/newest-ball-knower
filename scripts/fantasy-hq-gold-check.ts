@@ -5,6 +5,7 @@ import type { League } from '../types';
 import type { FantasyRanking } from '../fantasyRankingsCloud';
 import { buildFantasyWeekPairings, isCompleteFantasySchedule } from '../simulation';
 import type { WeeklyScore } from '../fantasyLeagueParityCloud';
+import { leagueJoinCodeError, normalizeLeagueJoinCode } from '../leagueJoinCode';
 const players: FantasyRanking[] = ['QB','RB','WR','TE','K','DST'].flatMap((p,g)=>Array.from({length:100},(_,i)=>({player_key:`${p}-${i}`,player_name:`Fixture ${p} ${i}`,position:p,overall_rank:i*6+g+1} as FantasyRanking)));
 function league(size:number):League{return {id:'test',name:'Test league',code:'TEST',commissionerId:'u0',commissionerName:'GM',maxMembers:size,salaryCap:200,status:'drafting',createdAt:'2026-09-08T00:00:00Z',settings:{rosterSize:15},members:Array.from({length:size},(_,i)=>({id:`m${i}`,userId:`u${i}`,userName:`GM ${i}`,isCommissioner:i===0,status:'building'}))};}
 for(const size of [6,8,10,12,14,16]){
@@ -32,6 +33,11 @@ for(const token of ['onOpenCreateLeague','onOpenJoinLeague','enterPublicLeague()
 const art=readFileSync(new URL('../public/fantasy/hq-decorations.webp',import.meta.url));assert.ok(art.length<25000);assert.equal(art.toString('ascii',8,12),'WEBP');
 assert.ok(read('FantasyHqTools.tsx').includes("item.kind==='announcement'||item.kind==='receipt'"));
 assert.doesNotMatch(read('FantasyHqTools.tsx'),/\.rpc\(|saveMyWeeklyLineup|updateLeagueSettings|importOfflineFantasyDraftResults/,'HQ practice/analysis must be read-only');
+assert.equal(normalizeLeagueJoinCode(' sunday crew '),'SUNDAY-CREW');
+assert.equal(leagueJoinCodeError('SUNDAY-CREW'),null);
+assert.match(leagueJoinCodeError('bad!')||'',/letters, numbers, or hyphens/);
+for(const token of ['Join code','onCopyCode','onManage'])assert.ok(read('FantasyHqLeagueCard.tsx').includes(token),`Missing dashboard league access control: ${token}`);
+for(const token of ['Customize join code','Delete league','Leave league','Save custom code'])assert.ok(read('LeagueManagementModal.tsx').includes(token),`Missing league management control: ${token}`);
 console.log('Fantasy HQ gold checks passed: truthful phases/counts, 6–16-team private practice, snake order, complete roster construction, missing projections and preserved destinations.');
 
 // Persisted commissioner edits remain authoritative even after playoffs are appended.
