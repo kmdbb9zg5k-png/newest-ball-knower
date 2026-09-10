@@ -68,6 +68,13 @@ import {
 import { counterTradeV2 } from "./fantasyTradeV2Cloud";
 import { FantasyRanking, loadFantasyRankings } from "./fantasyRankingsCloud";
 import { FantasyPlayerDetail } from "./FantasyPlayerDetail";
+import { FantasyAvailabilityBadge } from "./FantasyAvailabilityBadge";
+import {
+  availabilityForPlayer,
+  FantasyPlayerAvailability,
+  loadFantasyPlayerAvailability,
+  playerAvailabilityKey,
+} from "./fantasyPlayerAvailability";
 import { ModalPortal } from "./ModalPortal";
 import { movePlayerIntoLineupSlot, resolveWeeklyProjection } from "./fantasyLineup";
 import {
@@ -200,6 +207,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const [rankings, setRankings] = useState<FantasyRanking[]>([]);
   const [rankingsBusy, setRankingsBusy] = useState(true);
   const [rankingsError, setRankingsError] = useState<string | null>(null);
+  const [liveAvailability, setLiveAvailability] = useState<FantasyPlayerAvailability[]>([]);
   const [starters, setStarters] = useState<Record<string, string>>({});
   const [swapSlot, setSwapSlot] = useState<string>("");
   const [selectedTeamId, setSelectedTeamId] = useState<string>("");
@@ -414,6 +422,31 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    const refreshAvailability = () => {
+      void loadFantasyPlayerAvailability()
+        .then((payload) => {
+          if (active && payload.available) setLiveAvailability(payload.players);
+        })
+        .catch(() => {
+          // Keep the last verified designations during a brief provider outage.
+        });
+    };
+    refreshAvailability();
+    const timer = window.setInterval(refreshAvailability, 5 * 60_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const availabilityByPlayerKey = useMemo(
+    () => new Map(liveAvailability.map(item => [playerAvailabilityKey(item.playerName, item.team), item])),
+    [liveAvailability],
+  );
+  const liveAvailabilityFor = (player?: Player) => availabilityForPlayer(player, availabilityByPlayerKey);
 
   const myLineup = lineups.find((item) => item.memberId === me?.id);
   const lockedPlayerIds = new Set(myLineup?.lockedPlayerIds || []);
@@ -1366,6 +1399,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                       player={player}
                       valueLabel={valueLabel}
                       weekContext={weeklyContextFor(player)}
+                      availability={liveAvailabilityFor(player)}
                       locked={Boolean(player && lockedPlayerIds.has(player.id))}
                       onSwap={() => setSwapSlot(slot.id)}
                       onOpen={() => player && openPlayerDetail(player, me)}
@@ -1381,6 +1415,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                     player={player}
                     valueLabel={valueLabel}
                     weekContext={weeklyContextFor(player)}
+                    availability={liveAvailabilityFor(player)}
                     onOpen={() => openPlayerDetail(player, me)}
                     onAction={() => startBenchPlayer(player)}
                   />
@@ -1574,7 +1609,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                 awayScore={viewedAwayScore}
                 homeScore={viewedHomeScore}
                 status={viewedScoreStatus}
-                injuries={injuries}
+                availabilityForId={(playerId) => liveAvailabilityFor(findPlayer(playerId))}
                 onViewMemberLocker={onViewMemberLocker}
                 navigation={(
                   <div className="flex items-center gap-2 px-1">
@@ -1757,8 +1792,9 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                 >
                   <Portrait player={player}/>
                   <button onClick={() => openPlayerDetail(player)} className="bk-fantasy-compact-button min-w-0 text-left">
-                    <div className="truncate text-[11px] font-black">
-                      {player.name}
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate text-[11px] font-black">{player.name}</span>
+                      <FantasyAvailabilityBadge availability={liveAvailabilityFor(player)} />
                     </div>
                     <div className="truncate text-[8px] text-zinc-500">
                       {player.team} · {player.position} · {context?.opponentText || "Opponent TBD"}
@@ -2912,6 +2948,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
           me={me}
           comparePlayers={comparePlayers}
           valueLabel={valueLabel}
+          availabilityFor={liveAvailabilityFor}
           onClose={() => setSelectedTeamId("")}
           onTrade={(playerId) => startTrade(selectedTeam.id, playerId)}
           onOpenPlayer={(player) => openPlayerDetail(player, selectedTeam)}
@@ -2920,7 +2957,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
       <FantasyPlayerDetail
         player={detailPlayer}
         ownerName={detailOwnerName}
-        injuryStatus={injuries.find(item => item.playerId === detailPlayer?.id)?.status}
+        availability={liveAvailabilityFor(detailPlayer || undefined)}
         ranking={detailPlayer ? rankingsByName.get(normalizeName(detailPlayer.name)) : undefined}
           primaryAction={detailPrimaryAction ? { label: detailPrimaryAction.label, onAction: handleDetailPrimaryAction } : undefined}
           onClose={() => setDetailPlayer(null)}
@@ -2981,6 +3018,7 @@ const LineupRow = ({
   player,
   valueLabel,
   weekContext,
+  availability,
   onSwap,
   onOpen,
   locked = false,
@@ -2989,6 +3027,7 @@ const LineupRow = ({
   player?: Player;
   valueLabel: (player: Player) => string;
   weekContext?: WeeklyRowContext;
+  availability?: FantasyPlayerAvailability;
   onSwap: () => void;
   onOpen: () => void;
   locked?: boolean;
@@ -2999,8 +3038,9 @@ const LineupRow = ({
     </span>
     <Portrait player={player} />
     <button onClick={onOpen} title={player ? valueLabel(player) : undefined} className="bk-fantasy-compact-button min-w-0 text-left">
-      <div className="truncate text-[11px] font-black sm:text-xs">
-        {player?.name || "Empty starter"}
+      <div className="flex items-center gap-1.5">
+        <span className="truncate text-[11px] font-black sm:text-xs">{player?.name || "Empty starter"}</span>
+        <FantasyAvailabilityBadge availability={availability} />
       </div>
       <div className="truncate text-[8px] font-bold leading-tight text-zinc-500 sm:text-[9px]">
         {player ? `${player.team} · ${player.position} · ${weekContext?.opponentText || "Opponent unavailable"}` : "Choose an eligible player"}
@@ -3034,6 +3074,7 @@ const PlayerRow = ({
   player,
   valueLabel,
   weekContext,
+  availability,
   onOpen,
   onAction,
 }: {
@@ -3041,6 +3082,7 @@ const PlayerRow = ({
   player: Player;
   valueLabel: (player: Player) => string;
   weekContext?: WeeklyRowContext;
+  availability?: FantasyPlayerAvailability;
   onOpen: () => void;
   onAction: () => void;
 }) => (
@@ -3050,7 +3092,7 @@ const PlayerRow = ({
     </span>
     <Portrait player={player} />
     <button type="button" onClick={onOpen} title={valueLabel(player)} className="bk-fantasy-compact-button min-w-0 text-left">
-      <div className="truncate text-[11px] font-black sm:text-xs">{player.name}</div>
+      <div className="flex items-center gap-1.5"><span className="truncate text-[11px] font-black sm:text-xs">{player.name}</span><FantasyAvailabilityBadge availability={availability} /></div>
       <div className="truncate text-[8px] font-bold text-zinc-500 sm:text-[9px]">
         {player.team} · {player.position} · {weekContext?.opponentText || "Opponent unavailable"}
       </div>
@@ -3206,7 +3248,7 @@ const HeadToHeadMatchup = ({
   awayScore,
   homeScore,
   status,
-  injuries,
+  availabilityForId,
   navigation,
   onOpenAway,
   onOpenHome,
@@ -3217,7 +3259,7 @@ const HeadToHeadMatchup = ({
   awayScore?: WeeklyScore;
   homeScore?: WeeklyScore;
   status: "Scheduled" | "Live" | "Final";
-  injuries: LeagueInjury[];
+  availabilityForId: (playerId: string) => FantasyPlayerAvailability | undefined;
   navigation: React.ReactNode;
   onOpenAway: (playerId: string) => void;
   onOpenHome: (playerId: string) => void;
@@ -3259,17 +3301,17 @@ const HeadToHeadMatchup = ({
         {LINEUP_SLOTS.map((slot) => {
           const awayPlayer = awayScore?.players.find((player) => player.slot === slot.id);
           const homePlayer = homeScore?.players.find((player) => player.slot === slot.id);
-          const awayInjury = injuries.find((item) => item.memberId === away?.id && item.playerId === awayPlayer?.playerId);
-          const homeInjury = injuries.find((item) => item.memberId === home?.id && item.playerId === homePlayer?.playerId);
+          const awayAvailability = awayPlayer ? availabilityForId(awayPlayer.playerId) : undefined;
+          const homeAvailability = homePlayer ? availabilityForId(homePlayer.playerId) : undefined;
           return (
             <div key={slot.id} className="grid grid-cols-[minmax(0,1fr)_42px_minmax(0,1fr)] items-stretch sm:grid-cols-[minmax(0,1fr)_56px_minmax(0,1fr)]">
-              <MatchupPlayerSide player={awayPlayer} injury={awayInjury} align="left" onOpen={onOpenAway} />
+              <MatchupPlayerSide player={awayPlayer} availability={awayAvailability} align="left" onOpen={onOpenAway} />
               <div className="grid place-items-center border-x border-white/5 bg-black/20 px-1 text-center">
                 <span className="w-full rounded-md border border-[#D4AF37]/25 bg-[#D4AF37]/[.06] px-1 py-1 text-center text-[7px] font-black uppercase leading-tight text-[#D4AF37]">
                   {slot.id === "FLEX" ? "FLEX/WRT" : slot.id === "DST" ? "DST" : slot.label}
                 </span>
               </div>
-              <MatchupPlayerSide player={homePlayer} injury={homeInjury} align="right" onOpen={onOpenHome} />
+              <MatchupPlayerSide player={homePlayer} availability={homeAvailability} align="right" onOpen={onOpenHome} />
             </div>
           );
         })}
@@ -3280,12 +3322,12 @@ const HeadToHeadMatchup = ({
 
 const MatchupPlayerSide = ({
   player,
-  injury,
+  availability,
   align,
   onOpen,
 }: {
   player?: PlayerScoreDetail;
-  injury?: LeagueInjury;
+  availability?: FantasyPlayerAvailability;
   align: "left" | "right";
   onOpen: (playerId: string) => void;
 }) => {
@@ -3315,18 +3357,14 @@ const MatchupPlayerSide = ({
       type="button"
       aria-label={`Open ${player.playerName}`}
       onClick={() => onOpen(player.playerId)}
-      className={`flex min-h-[4.25rem] min-w-0 items-center gap-1 px-1.5 py-2 sm:min-h-[4.5rem] sm:gap-1.5 sm:px-2 ${injury ? "bg-red-950/45" : ""} ${align === "right" ? "flex-row-reverse text-right" : "text-left"}`}
+      className={`flex min-h-[4.25rem] min-w-0 items-center gap-1 px-1.5 py-2 sm:min-h-[4.5rem] sm:gap-1.5 sm:px-2 ${align === "right" ? "flex-row-reverse text-right" : "text-left"}`}
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <span className={`truncate text-[10px] font-black sm:text-xs ${align === "right" ? "order-2" : ""}`}>
             {player.playerName}
           </span>
-          {injury && (
-            <span className="shrink-0 rounded bg-red-500/10 px-1 py-0.5 text-[7px] font-black uppercase text-red-300">
-              {injury.status}
-            </span>
-          )}
+          <FantasyAvailabilityBadge availability={availability} />
         </div>
         <div
           className={`mt-0.5 truncate text-[8px] font-bold sm:text-[9px] ${player.isLive ? "text-amber-300" : player.isFinal ? "text-zinc-600" : "text-zinc-500"}`}
@@ -3651,6 +3689,7 @@ const TeamRosterDrawer = ({
   me,
   comparePlayers,
   valueLabel,
+  availabilityFor,
   onClose,
   onTrade,
   onOpenPlayer,
@@ -3659,6 +3698,7 @@ const TeamRosterDrawer = ({
   me?: LeagueMember;
   comparePlayers: (a: Player, b: Player) => number;
   valueLabel: (player: Player) => string;
+  availabilityFor: (player: Player) => FantasyPlayerAvailability | undefined;
   onClose: () => void;
   onTrade: (playerId: string) => void;
   onOpenPlayer: (player: Player) => void;
@@ -3713,9 +3753,8 @@ const TeamRosterDrawer = ({
                     <span className="text-[9px] font-black uppercase text-[#D4AF37]">
                       {player.position}
                     </span>
-                    <span className="truncate text-sm font-black">
-                      {player.name}
-                    </span>
+                    <span className="truncate text-sm font-black">{player.name}</span>
+                    <FantasyAvailabilityBadge availability={availabilityFor(player)} />
                   </div>
                   <div className="truncate text-[9px] text-zinc-500">
                     {valueLabel(player)}
