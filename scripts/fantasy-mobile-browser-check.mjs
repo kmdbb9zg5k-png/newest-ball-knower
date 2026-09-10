@@ -189,7 +189,7 @@ try{
     await cheatSheetSearch.focus();
     await page.setViewportSize({width:size.width,height:size.height-300});
     await page.waitForTimeout(100);
-    assert.equal(await primary.getAttribute('data-keyboard-open'),'true',`${size.label}: simulated iPhone keyboard must hide the bottom navigation`);
+    assert.equal(await page.locator('body > .bk-broadcast-nav').getAttribute('data-keyboard-open'),'true',`${size.label}: simulated iPhone keyboard must hide the bottom navigation`);
     await cheatSheetSearch.blur();
     await page.setViewportSize({width:size.width,height:size.height});
     await page.waitForTimeout(750);
