@@ -26,9 +26,9 @@ assert.ok(home.includes('homeFeaturedActivity(currentActivity')&&home.includes('
 assert.ok(home.includes('aria-label="Change league"')&&home.includes('Continue your league'), 'league selection must be integrated with the Continue Your League card');
 
 assert.ok(navbar.includes('fixed inset-x-0 bottom-0')&&navbar.includes('pb-[env(safe-area-inset-bottom)]'), 'mobile navigation must be fixed above the iPhone home indicator');
-assert.ok(styles.includes('body > .bk-broadcast-nav')&&styles.includes('bottom: var(--bk-mobile-nav-bottom, 0px) !important')&&styles.includes('transform: none !important')&&!styles.includes('contain: layout paint'), 'the iPhone navigation must follow the live visual viewport without a stale keyboard compositor layer');
+assert.ok(styles.includes('body > .bk-broadcast-nav')&&styles.includes('bottom: 0 !important')&&styles.includes('transform: none !important')&&!styles.includes('contain: layout paint'), 'the iPhone navigation must stay fixed without a stale keyboard compositor layer');
 assert.ok(app.includes("currentTab==='draft'?'bk-live-draft-viewport':''")&&styles.includes('.bk-live-draft-viewport')&&styles.includes('overscroll-behavior: contain'), 'live drafts must scroll inside a contained iPhone viewport instead of moving the fixed tab bar through the player list');
-assert.ok(navbar.includes('data-keyboard-open')&&navbar.includes("style.setProperty('--bk-mobile-nav-bottom'")&&navbar.includes('[50,150,350,700]')&&styles.includes('.bk-broadcast-nav[data-keyboard-open="true"]'), 'the tab bar must hide while the keyboard is open and resync to the settled iPhone visual viewport after it closes');
+assert.ok(navbar.includes('data-keyboard-open')&&styles.includes('.bk-broadcast-nav[data-keyboard-open="true"]'), 'the tab bar must leave the visual viewport while the iPhone keyboard is open instead of floating mid-screen');
 assert.ok(navbar.includes('createPortal')&&navbar.includes('fixed inset-x-0 top-0')&&navbar.includes('h-[calc(72px+env(safe-area-inset-top))]'), 'both app navigation bars must be portaled to the viewport with a safe content spacer');
 const headerClose=navbar.indexOf('</header>');
 const mobileNav=navbar.indexOf('aria-label="Primary navigation"');
