@@ -3145,7 +3145,7 @@ const TeamMatchupHeader = ({
           />
         )}
       </div>
-      <div className="min-w-0" data-matchup-side={side}>
+      <div className="min-w-0" data-matchup-side={side} data-matchup-member={member?.id}>
         <div data-matchup-current className={`text-2xl font-black leading-none tabular-nums sm:text-3xl ${status === "Live" ? "text-amber-300" : "text-white"}`}>{total.value}</div>
         <div className="mt-1 truncate text-[8px] font-black uppercase text-zinc-500">{total.label}</div>
         <div data-matchup-projected className="mt-0.5 truncate text-[9px] font-black tabular-nums text-[#D4AF37]" title={total.projectionLabel}>
