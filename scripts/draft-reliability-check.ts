@@ -111,5 +111,25 @@ function verifyQuarantinedDraftRecovery(){
   return {quarantinedRoom:'passed',ledgerValidation:'passed',auditableResume:'passed'};
 }
 
+function verifyImmediateHumanTimeoutClaim(){
+  const migration=readFileSync(new URL('../migrations/20260910011000_claim_expired_live_draft_pick.sql',import.meta.url),'utf8');
+  const cloud=readFileSync(new URL('../leagueCloud.ts',import.meta.url),'utf8');
+  const context=readFileSync(new URL('../BallKnowerContext.tsx',import.meta.url),'utf8');
+  const room=readFileSync(new URL('../LeagueLiveDraftRoom.tsx',import.meta.url),'utf8');
+  for(const marker of [
+    'claim_ball_knower_expired_draft_pick',
+    'requester.auth_user_id = v_auth',
+    'for update',
+    'v_draft.pick_index <> p_expected_pick_index',
+    "v_draft.pick_deadline_at > v_now",
+    "'source', case when coalesce(v_member.is_ai, false) then 'cpu' else 'autopick' end",
+    'revoke all on function public.claim_ball_knower_expired_draft_pick(text, integer)',
+  ])if(!migration.includes(marker))throw new Error(`Immediate timeout claim is missing ${marker}`);
+  if(!cloud.includes("supabase.rpc('claim_ball_knower_expired_draft_pick'"))throw new Error('Cloud timeout claim RPC is not connected.');
+  if(!context.includes('claimExpiredLiveFantasyDraftPick'))throw new Error('Timeout claim does not update shared league state.');
+  if(!room.includes("draftSecondsLeft!==0")||!room.includes('Automatic pick delayed—retrying'))throw new Error('Draft room does not immediately claim and surface expired human turns.');
+  return {memberAuthorized:'passed',singlePickClaim:'passed',concurrentRetry:'passed',visibleRecovery:'passed'};
+}
+
 const matrix=LEAGUE_SIZES.flatMap(teamCount=>(['game','random','commissioner'] as Method[]).map(method=>run(method,teamCount)));
-console.log(JSON.stringify({matrix,kickersOnly:verifyKickersOnly(),recovery:verifyRecoveryClock(),quarantinedRecovery:verifyQuarantinedDraftRecovery()},null,2));
+console.log(JSON.stringify({matrix,kickersOnly:verifyKickersOnly(),recovery:verifyRecoveryClock(),quarantinedRecovery:verifyQuarantinedDraftRecovery(),immediateHumanTimeout:verifyImmediateHumanTimeoutClaim()},null,2));

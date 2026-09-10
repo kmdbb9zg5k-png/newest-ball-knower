@@ -77,7 +77,7 @@ const cpuSelection=(draft:LiveFantasyDraft,memberId:string,rankings:Map<string,F
 export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
   const {
     activeLeague,currentUser,makeLiveFantasyDraftPick,
-    finalizeLiveFantasyDraftRosters,resumeLiveFantasyDraftRecovery,showToast,
+    finalizeLiveFantasyDraftRosters,resumeLiveFantasyDraftRecovery,claimExpiredLiveFantasyDraftPick,showToast,
   }=useBallKnower();
   const draft=activeLeague?.liveDraft;
   const [query,setQuery]=useState('');
@@ -94,10 +94,15 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
   const [chatMessages,setChatMessages]=useState<LeagueMessage[]>([]);
   const [chatBusy,setChatBusy]=useState(false);
   const [recoveryFailed,setRecoveryFailed]=useState(false);
+  const [timeoutClaimState,setTimeoutClaimState]=useState<'idle'|'claiming'|'retrying'>('idle');
+  const [timeoutRetryVersion,setTimeoutRetryVersion]=useState(0);
   const pickLockRef=useRef(false);
   const finalizeLockRef=useRef(false);
   const recoveryLockRef=useRef(false);
   const recoveryLeagueRef=useRef('');
+  const timeoutClaimKeyRef=useRef('');
+  const claimExpiredPickRef=useRef(claimExpiredLiveFantasyDraftPick);
+  claimExpiredPickRef.current=claimExpiredLiveFantasyDraftPick;
   const needsScrollRef=useRef<HTMLDivElement>(null);
 
   const currentMemberId=draft?memberAtPick(draft):null;
@@ -112,6 +117,9 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
   const myPicks=useMemo(()=>draft&&myMember?draft.picks.filter(pick=>pick.memberId===myMember.id):[],[draft,myMember]);
   const myRoster=useMemo(()=>myPicks.map(pick=>PLAYER_BY_ID.get(pick.playerId)).filter((player):player is Player=>Boolean(player)),[myPicks]);
   const myCounts=useMemo(()=>draft?countsFor(draft,myMember?.id||''):{},[draft,myMember?.id]);
+  const draftSecondsLeft=draft?.status==='active'
+    ?Math.max(0,Math.ceil(((draft.pickDeadlineAt?Date.parse(draft.pickDeadlineAt):Date.now())-now)/1000))
+    :null;
   const available=useMemo(()=>{
     if(!draft||!currentMemberId)return [];
     const clean=query.trim().toLowerCase();
@@ -216,6 +224,30 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
     return ()=>window.clearInterval(timer);
   },[]);
 
+  useEffect(()=>{
+    if(!activeLeague||!draft||draft.status!=='active'||draftSecondsLeft!==0||currentMember?.isAi||!myMember||draft.recoveryEnabled===false){
+      timeoutClaimKeyRef.current='';
+      setTimeoutClaimState('idle');
+      return;
+    }
+    const claimKey=`${activeLeague.id}:${draft.pickIndex}`;
+    if(timeoutClaimKeyRef.current===claimKey)return;
+    timeoutClaimKeyRef.current=claimKey;
+    let cancelled=false;
+    let retryTimer=0;
+    setTimeoutClaimState('claiming');
+    void claimExpiredPickRef.current(activeLeague.id,draft.pickIndex).then(advanced=>{
+      if(cancelled||advanced)return;
+      setTimeoutClaimState('retrying');
+      retryTimer=window.setTimeout(()=>{
+        if(cancelled)return;
+        timeoutClaimKeyRef.current='';
+        setTimeoutRetryVersion(value=>value+1);
+      },1500);
+    });
+    return()=>{cancelled=true;if(retryTimer)window.clearTimeout(retryTimer);};
+  },[activeLeague?.id,draft?.pickIndex,draft?.status,draft?.recoveryEnabled,draftSecondsLeft,currentMember?.isAi,myMember?.id,timeoutRetryVersion]);
+
   const togglePreference=(key:'favorites'|'doNotDraft'|'preRankings',playerId:string)=>setPreferences(value=>{
     const present=value[key].includes(playerId);
     const next={...value,[key]:present?value[key].filter(id=>id!==playerId):[...value[key],playerId]};
@@ -266,10 +298,10 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
   const currentMemberIsMe=currentMember?.id===myMember?.id;
   const onClockIsMe=currentMemberIsMe;
   const onClockName=displayLeagueMemberName(currentMember,currentMemberIsMe,currentUser,activeLeague.members.indexOf(currentMember!));
-  const canPick=onClockIsMe&&!currentMember?.isAi&&!busy;
+  const canPick=onClockIsMe&&!currentMember?.isAi&&!busy&&draftSecondsLeft!==0;
   const totalPicks=draft.orderMemberIds.length*draft.rounds;
   const openNeeds=GROUPS.filter(item=>(myCounts[item]||0)<LIVE_FANTASY_ROSTER_REQUIREMENTS[item]);
-  const secondsLeft=Math.max(0,Math.ceil(((draft.pickDeadlineAt?Date.parse(draft.pickDeadlineAt):Date.now())-now)/1000));
+  const secondsLeft=draftSecondsLeft??0;
   const clockLabel=currentMember?.isAi?'CPU':secondsLeft>0?`${secondsLeft}s`:'AUTO';
 
   return <div className="bk-fantasy-shell min-h-[100dvh] bg-[#07090c] px-2 pt-0 text-white sm:px-6 sm:pt-3"><div className="mx-auto max-w-7xl">
@@ -287,7 +319,7 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
         {draft.recoveryEnabled===false&&(recoveryFailed
           ?<div role="alert" className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-red-300/25 bg-red-300/[.08] px-3 py-2 text-[9px] font-black uppercase text-red-200"><span>Draft recovery needs another attempt.</span><button type="button" onClick={()=>{recoveryLockRef.current=false;recoverQuarantinedDraft();}} className="min-h-8 rounded-md border border-red-200/30 px-3">Retry</button></div>
           :<div role="status" className="mb-2 rounded-lg border border-amber-300/25 bg-amber-300/[.08] px-3 py-2 text-center text-[9px] font-black uppercase text-amber-200"><LoaderCircle className="mr-1 inline h-3.5 w-3.5 animate-spin"/>Validating and restoring the draft clock…</div>)}
-        <div className={`rounded-lg border px-2 py-1.5 text-center text-[9px] font-black uppercase ${canPick?'border-emerald-400/30 bg-emerald-400/[.08] text-emerald-300':'border-white/10 bg-[#101318] text-zinc-400'}`}>{canPick?'You are on the clock—select one player.':currentMember?.isAi?'CPU manager is selecting automatically…':`Waiting for ${onClockName} to pick.`}</div>
+        <div className={`rounded-lg border px-2 py-1.5 text-center text-[9px] font-black uppercase ${canPick?'border-emerald-400/30 bg-emerald-400/[.08] text-emerald-300':'border-white/10 bg-[#101318] text-zinc-400'}`}>{canPick?'You are on the clock—select one player.':currentMember?.isAi?'CPU manager is selecting automatically…':secondsLeft===0?<><LoaderCircle className="mr-1 inline h-3.5 w-3.5 animate-spin"/>{timeoutClaimState==='retrying'?'Automatic pick delayed—retrying…':`Completing ${onClockName}'s automatic pick…`}</>:`Waiting for ${onClockName} to pick.`}</div>
         <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-1.5"><div className="relative min-w-0"><Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-zinc-500"/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search players…" className="min-h-9 w-full rounded-lg border border-white/10 bg-[#101318] pl-9 pr-3 text-xs font-bold outline-none focus:border-[#D4AF37]/50"/></div><select aria-label="Position group" value={group} onChange={event=>setGroup(event.target.value as DraftGroup|'ALL')} className="min-h-9 max-w-[7rem] rounded-lg border border-white/10 bg-[#101318] px-2 text-[9px] font-black text-white"><option value="ALL">All</option>{GROUPS.map(item=><option key={item} value={item}>{GROUP_LABELS[item]}</option>)}</select></div>
         <div className="mt-2 space-y-1">{available.map((player,index)=>{
           const playerGroup=getLiveFantasyDraftGroup(player);const ranking=rankings.get(rankingKey(player.name,player.team));const teamDefense=playerGroup==='DST';

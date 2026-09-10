@@ -46,6 +46,9 @@ declare
   v_injury_retry jsonb;
   v_recovered_draft jsonb;
   v_recovered_retry jsonb;
+  v_early_timeout_draft jsonb;
+  v_immediate_timeout_draft jsonb;
+  v_immediate_timeout_retry jsonb;
   v_final_notifications integer;
   v_notification_id uuid;
   v_notification_marked boolean;
@@ -59,6 +62,19 @@ begin
      or has_table_privilege('anon', 'public.ball_knower_notifications', 'select')
   then
     raise exception 'Anonymous role retained access to private fantasy league data';
+  end if;
+  if has_function_privilege(
+       'anon',
+       'public.claim_ball_knower_expired_draft_pick(text,integer)',
+       'execute'
+     )
+     or not has_function_privilege(
+       'authenticated',
+       'public.claim_ball_knower_expired_draft_pick(text,integer)',
+       'execute'
+     )
+  then
+    raise exception 'Immediate draft timeout claim has unsafe function grants';
   end if;
 
   -- Draft Order Game/build rosters may intentionally overlap because they are
@@ -371,6 +387,29 @@ begin
   )<>1 then
     raise exception 'Draft recovery retry was not idempotent';
   end if;
+
+  update public.ball_knower_leagues
+  set settings=jsonb_set(settings,'{draftFormat}','"live_snake"'::jsonb)
+  where id=v_league_id;
+  v_early_timeout_draft:=public.claim_ball_knower_expired_draft_pick(v_league_id,0);
+  if (v_early_timeout_draft->>'pick_index')::integer<>0 then
+    raise exception 'Human pick was claimed before its authoritative deadline';
+  end if;
+
+  update public.ball_knower_live_drafts
+  set pick_deadline_at=clock_timestamp()-interval '1 second'
+  where league_id=v_league_id;
+  v_immediate_timeout_draft:=public.claim_ball_knower_expired_draft_pick(v_league_id,0);
+  v_immediate_timeout_retry:=public.claim_ball_knower_expired_draft_pick(v_league_id,0);
+  if (v_immediate_timeout_draft->>'pick_index')::integer<>1
+     or (v_immediate_timeout_draft->'picks'->-1)->>'source'<>'autopick'
+     or v_immediate_timeout_retry->>'pick_index'<>'1'
+  then
+    raise exception 'Expired human pick was not claimed immediately and idempotently';
+  end if;
+  update public.ball_knower_leagues
+  set settings=jsonb_set(settings,'{draftFormat}','"autopick"'::jsonb)
+  where id=v_league_id;
 
   -- Isolate the production worker to this fixture. Existing active rooms are
   -- restored automatically by the outer rollback.
