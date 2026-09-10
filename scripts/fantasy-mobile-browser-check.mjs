@@ -185,7 +185,7 @@ try{
     await page.getByRole('button',{name:'Cheat Sheet',exact:true}).click();
     await page.getByRole('heading',{name:'Player Cheat Sheet',exact:true}).waitFor({state:'visible'});
     assertContained(await layoutSnapshot(page),`${size.label} Cheat Sheet`);
-    const cheatSheetSearch=page.getByPlaceholder('Search players...');
+    const cheatSheetSearch=page.getByPlaceholder('Search player, team or position');
     await cheatSheetSearch.focus();
     await page.setViewportSize({width:size.width,height:size.height-300});
     await page.waitForTimeout(100);
