@@ -31,6 +31,7 @@ import "./fantasyHqPremium.css";
 import { LeagueDestinationCard } from './FantasyHqLeagueCard';
 import { FantasyHqActivity, FantasyHqWorkspace } from './FantasyHqTools';
 import { ClipboardList, Flag, Swords } from 'lucide-react';
+import { LeagueManagementModal } from './LeagueManagementModal';
 
 const RANKINGS_PAGE_SIZE = 75;
 const STADIUM_LIGHTS = Array.from({ length: 6 }, (_, index) => index);
@@ -74,10 +75,11 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
   onOpenJoinLeague,
   onSelectLeague,
 }) => {
-  const { leagues, currentUser, activeLeague, joinPublicLeague } = useBallKnower();
+  const { leagues, currentUser, activeLeague, joinPublicLeague, showToast } = useBallKnower();
   const guideTriggerRef = useRef<HTMLButtonElement>(null);
   const leagueRailRef = useRef<HTMLDivElement>(null);
   const [workspace, setWorkspace] = useState<'draft'|'matchup'|'leagues'|null>(null);
+  const [managedLeagueId,setManagedLeagueId]=useState<string|null>(null);
   const resumablePublicLeague = leagues.find(
     (league) =>
       league.settings?.leagueType === "public_free" &&
@@ -219,6 +221,13 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
       setPublicMatchBusy(false);
     }
   };
+  const copyJoinCode=async(league:League)=>{
+    try{
+      if(!navigator.clipboard?.writeText)throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(league.code);
+      showToast(`Copied join code ${league.code}`);
+    }catch{showToast(`Join code: ${league.code}`);}
+  };
 
   return (
     <BroadcastStage scene="tunnel" page="fantasy" quiet={view==='cheatsheet'} className={`bk-fantasy-hq-screen ${view === "leagues" ? "bk-hq-premium" : ""} min-h-[calc(100dvh-7rem)] text-white`}>
@@ -299,6 +308,8 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
                     currentUserId={currentUser?.id}
                     featured={leagueIndex === 0}
                     onSelect={onSelectLeague}
+                    onCopyCode={league=>void copyJoinCode(league)}
+                    onManage={league=>setManagedLeagueId(league.id)}
                   />
                 ))}
               </div>
@@ -521,6 +532,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
           </section>
         )}
         {workspace && <FantasyHqWorkspace key={`${currentUser?.id || 'guest'}:${workspace}`} mode={workspace} leagues={displayLeagues} rankings={fantasyRankings} rankingsBusy={rankingsBusy} rankingsError={rankingsError} onClose={()=>setWorkspace(null)} onCreate={()=>{setWorkspace(null);onOpenCreateLeague();}} onJoin={()=>{setWorkspace(null);onOpenJoinLeague();}} onOpenLeague={league=>{setWorkspace(null);onSelectLeague(league,'lobby');}} />}
+        {managedLeagueId?<LeagueManagementModal leagueId={managedLeagueId} onClose={()=>setManagedLeagueId(null)}/>:null}
         {selectedPlayer && selectedFantasyPlayer ? (
           <FantasyPlayerDetail
             player={selectedFantasyPlayer}
