@@ -1,6 +1,6 @@
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { League } from './types';
+import { League, LeagueMember } from './types';
 import { FantasyLeagueCommandCenter } from './FantasyLeagueCommandCenter';
 import { LockedDraftOrderView } from './LockedDraftOrderView';
 import { OwnerCareerSync } from './OwnerCareerSync';
@@ -13,6 +13,7 @@ interface LeagueLobbyProps {
   league: League;
   onGoToDraft: () => void;
   onGoToSimulation: () => void;
+  onViewMemberLocker: (member: LeagueMember) => void;
 }
 
 interface ModeErrorBoundaryProps {
@@ -52,7 +53,7 @@ class ModeErrorBoundary extends React.Component<ModeErrorBoundaryProps, ModeErro
   }
 }
 
-export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, onGoToSimulation }) => {
+export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, onGoToSimulation, onViewMemberLocker }) => {
   const draftComplete = league.liveDraft?.status === 'completed';
   const [mode, setMode] = useState<'command' | 'season' | 'intelligence'>(draftComplete ? 'season' : 'command');
   const [lazyVersion, setLazyVersion] = useState(0);
@@ -82,7 +83,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onGoToDraft, o
         <OwnerCareerSync league={league} />
         <div className="mx-auto max-w-6xl px-2 py-0 sm:px-6 sm:py-5">
           <ModeErrorBoundary key={`postdraft-${lazyVersion}`} onRetry={retryMode}>
-            <FantasyLeaguePostDraft league={postDraftLeague} onGoToSimulation={onGoToSimulation} />
+            <FantasyLeaguePostDraft league={postDraftLeague} onGoToSimulation={onGoToSimulation} onViewMemberLocker={onViewMemberLocker} />
           </ModeErrorBoundary>
         </div>
       </BroadcastStage>

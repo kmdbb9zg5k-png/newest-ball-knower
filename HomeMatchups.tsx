@@ -9,6 +9,7 @@ type Props = {
   leagues: League[];
   currentUser: UserProfile | null;
   onSelectLeague: (league: League, tab: 'lobby') => void;
+  onViewMemberLocker: (member: LeagueMember) => void;
 };
 type MatchupState = Record<string, { scores: WeeklyScore[]; loading: boolean; unavailable: boolean }>;
 
@@ -38,7 +39,7 @@ const started = (score?: WeeklyScore) => Boolean(score && (score.livePoints !== 
 const points = (score?: WeeklyScore) => score ? score.livePoints.toFixed(2) : '—';
 const projection = (score?: WeeklyScore) => score?.hasProjectedTotal === true ? score.projectedPoints.toFixed(2) : '—';
 
-export const HomeMatchups = ({ leagues, currentUser, onSelectLeague }: Props) => {
+export const HomeMatchups = ({ leagues, currentUser, onSelectLeague, onViewMemberLocker }: Props) => {
   const active = leagues.filter(league => league.settings?.fantasySeasonStarted && !league.settings?.fantasySeasonComplete && resolveMyLeagueMember(league, currentUser));
   const requestKey = active.map(league => `${league.id}:${Math.max(1, Number(league.settings?.currentWeek) || 1)}`).join('|');
   const [state, setState] = useState<MatchupState>({});
@@ -85,9 +86,9 @@ export const HomeMatchups = ({ leagues, currentUser, onSelectLeague }: Props) =>
       return <article key={league.id} className="bk-home-matchup-card" aria-label={`${league.name}, Week ${pairing.week} matchup`}>
         <header><span><Trophy aria-hidden="true"/>{league.name}</span><strong>WEEK {pairing.week} · {status}</strong></header>
         <div className="bk-home-matchup-teams">
-          <MatchupTeam member={mine} mine user={currentUser} score={myScore}/>
+          <MatchupTeam member={mine} mine user={currentUser} score={myScore} onOpenLocker={onViewMemberLocker}/>
           <span className="bk-home-matchup-vs">VS</span>
-          <MatchupTeam member={opponent} user={currentUser} score={opponentScore}/>
+          <MatchupTeam member={opponent} user={currentUser} score={opponentScore} onOpenLocker={onViewMemberLocker}/>
         </div>
         {chance !== null ? <div className="bk-home-matchup-odds">
           <div><strong>{chance.toFixed(0)}%</strong><span>Projected win chance</span><strong>{(100 - chance).toFixed(0)}%</strong></div>
@@ -99,10 +100,10 @@ export const HomeMatchups = ({ leagues, currentUser, onSelectLeague }: Props) =>
   </section>;
 };
 
-const MatchupTeam = ({ member, mine = false, user, score }: { member?: LeagueMember; mine?: boolean; user: UserProfile | null; score?: WeeklyScore }) => {
+const MatchupTeam = ({ member, mine = false, user, score, onOpenLocker }: { member?: LeagueMember; mine?: boolean; user: UserProfile | null; score?: WeeklyScore; onOpenLocker: (member: LeagueMember) => void }) => {
   const name = displayLeagueMemberName(member, mine, user);
   return <div className={`bk-home-matchup-team ${mine ? '' : 'bk-home-matchup-team-right'}`}>
     <strong>{name}</strong>
-    <div><ManagerAvatar member={member} name={name} className="h-14 w-14"/><span><b>{points(score)}</b><small>{projection(score)} PROJ</small></span></div>
+    <div>{member && !member.isAi ? <button type="button" aria-label={`View ${name}'s locker`} onClick={() => onOpenLocker(member)}><ManagerAvatar member={member} name={name} className="h-14 w-14"/></button> : <ManagerAvatar member={member} name={name} className="h-14 w-14"/>}<span><b>{points(score)}</b><small>{projection(score)} PROJ</small></span></div>
   </div>;
 };

@@ -8,7 +8,7 @@ import {JoinLeagueModal} from './JoinLeagueModal';
 import {CinematicIntro} from './CinematicIntro';
 import {FavoriteTeamExperience} from './FavoriteTeamExperience';
 import {AppErrorBoundary} from './AppErrorBoundary';
-import {League} from './types';
+import {League,LeagueMember} from './types';
 import {TeamTheme,applyTeamCssVariables,getSavedTeamTheme,teamLogoUrl} from './teamTheme';
 import {CheckCircle2} from 'lucide-react';
 import {trackBallKnowerEvent} from './analytics';
@@ -42,7 +42,7 @@ const detectMobileDraftViewport=()=>{try{return window.matchMedia('(max-width: 7
 const ScreenFallback=()=><div className="mx-auto flex min-h-[45dvh] max-w-5xl items-center justify-center px-4 text-center"><div><div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[var(--bk-team-accent)]"/><div className="mt-3 text-[10px] font-black uppercase tracking-[.22em] text-zinc-500">Loading Ball Knower</div></div></div>;
 
 function BallKnowerApp(){
-  const {activeLeague,setActiveLeagueId,toastMessage,joinLeague}=useBallKnower();
+  const {activeLeague,currentUser,setActiveLeagueId,toastMessage,joinLeague}=useBallKnower();
   const {setIntroActive}=useSoundtrack();
   const setIntroActiveRef=useRef(setIntroActive);
   const [currentTab,setCurrentTab]=useState<AppTab>('home');
@@ -53,6 +53,8 @@ function BallKnowerApp(){
   const [isJoinLeagueOpen,setIsJoinLeagueOpen]=useState(false);
   const [isDatabaseModalOpen,setIsDatabaseModalOpen]=useState(false);
   const [launchPanel,setLaunchPanel]=useState<LaunchPanel|null>(null);
+  const [viewedLockerMember,setViewedLockerMember]=useState<LeagueMember|null>(null);
+  const [lockerReturnTab,setLockerReturnTab]=useState<AppTab>('home');
   const [isIntroOpen,setIsIntroOpen]=useState(introEligible);
   const [isMobileDraftViewport,setIsMobileDraftViewport]=useState(detectMobileDraftViewport);
   const [favoriteTheme,setFavoriteTheme]=useState<TeamTheme>(()=>getSavedTeamTheme());
@@ -72,7 +74,9 @@ function BallKnowerApp(){
   const handleSelectLeague=(league:League,tab:'lobby'|'draft'|'simulation')=>{setActiveLeagueId(league.id);setCurrentTab(tab)};
   const handleLeagueCreated=(league:League)=>{setActiveLeagueId(league.id);setCurrentTab('lobby')};
   const handleLeagueJoined=(league:League)=>{setActiveLeagueId(league.id);setCurrentTab('lobby')};
-  const navigateToTab=useCallback((tab:AppTab)=>{if(tab==='fantasy')setFantasyView('leagues');if(tab==='solo')setSoloExperience('hub');setCurrentTab(tab)},[]);
+  const navigateToTab=useCallback((tab:AppTab)=>{if(tab==='fantasy')setFantasyView('leagues');if(tab==='solo')setSoloExperience('hub');if(tab==='locker')setViewedLockerMember(null);setCurrentTab(tab)},[]);
+  const openMemberLocker=useCallback((member:LeagueMember)=>{if(member.isAi||!member.userId)return;setLockerReturnTab(currentTab);setViewedLockerMember(member.userId===currentUser?.id?null:member);setCurrentTab('locker')},[currentTab,currentUser?.id]);
+  const closeMemberLocker=useCallback(()=>{setViewedLockerMember(null);setCurrentTab(lockerReturnTab)},[lockerReturnTab]);
   const openCheatSheet=useCallback(()=>{setFantasyView('cheatsheet');setCurrentTab('fantasy')},[]);
   const showProductChrome=!isIntroOpen&&!showFavoriteTeam;
 
@@ -82,26 +86,26 @@ function BallKnowerApp(){
 
     {showProductChrome&&<Navbar newsEnabled={wantsNewsStrip(currentTab,fantasyView)} currentTab={currentTab} setCurrentTab={navigateToTab} onOpenAuth={()=>setIsAuthOpen(true)} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onOpenIntro={openIntro} onOpenDatabaseModal={()=>setIsDatabaseModalOpen(true)}/>}
     {showProductChrome&&<main className={`relative z-[3] w-full pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-[env(safe-area-inset-bottom)] ${currentTab==='draft'?'bk-live-draft-viewport':''}`}>
-      {currentTab==='home'&&<Suspense fallback={<ScreenFallback/>}><HomeDashboard teamTheme={favoriteTheme} onNavigate={navigateToTab} onOpenCheatSheet={openCheatSheet} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague}/></Suspense>}
+      {currentTab==='home'&&<Suspense fallback={<ScreenFallback/>}><HomeDashboard teamTheme={favoriteTheme} onNavigate={navigateToTab} onOpenCheatSheet={openCheatSheet} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague} onViewMemberLocker={openMemberLocker}/></Suspense>}
       <Suspense fallback={<ScreenFallback/>}>
-        {currentTab==='solo'&&<SoloMode initialExperience={soloExperience}/>} 
+        {currentTab==='solo'&&<SoloMode initialExperience={soloExperience}/>}
         {currentTab==='news'&&<NewsHub/>}
-        {currentTab==='fantasy'&&<FantasyHub view={fantasyView} onViewChange={setFantasyView} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague}/>} 
+        {currentTab==='fantasy'&&<FantasyHub view={fantasyView} onViewChange={setFantasyView} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague}/>}
         {currentTab==='sportsbook'&&<SportsbookHub/>}
         {currentTab==='legacy'&&<HallOfFame/>}
         {currentTab==='challenges'&&<ChallengesHub/>}
-        {currentTab==='locker'&&<LockerHub onOpenAuth={()=>setIsAuthOpen(true)}/>}
+        {currentTab==='locker'&&<LockerHub onOpenAuth={()=>setIsAuthOpen(true)} viewedMember={viewedLockerMember} onBack={viewedLockerMember?closeMemberLocker:undefined}/>}
         {currentTab==='partners'&&<PartnersPage onBack={()=>setCurrentTab('home')}/>}
-        {currentTab==='lobby'&&activeLeague&&<LeagueLobby league={activeLeague} onGoToDraft={()=>setCurrentTab('draft')} onGoToSimulation={()=>setCurrentTab('simulation')}/>} 
+        {currentTab==='lobby'&&activeLeague&&<LeagueLobby league={activeLeague} onGoToDraft={()=>setCurrentTab('draft')} onGoToSimulation={()=>setCurrentTab('simulation')} onViewMemberLocker={openMemberLocker}/>}
         {currentTab==='draft'&&(activeLeague?(isDraftOrderGame?(isMobileDraftViewport?<MobileDraftRoom onBackToLobby={()=>setCurrentTab('lobby')} onSubmitSuccess={()=>setCurrentTab('simulation')}/>:<DraftRoom onBackToLobby={()=>setCurrentTab('lobby')} onSubmitSuccess={()=>setCurrentTab('simulation')}/>):<LeagueLiveDraftRoom onBackToLobby={()=>setCurrentTab('lobby')}/>):<div className="mx-auto flex min-h-[60dvh] max-w-xl items-center justify-center px-4 text-center"><div className="rounded-2xl border border-white/10 bg-[#0d1015] p-6"><h2 className="text-2xl font-black uppercase">Choose A Fantasy League First</h2><p className="mt-2 text-sm text-zinc-500">League drafts live inside League HQ. Select a league before opening its draft room.</p><button onClick={()=>setCurrentTab('fantasy')} className="mt-5 min-h-12 w-full rounded-xl bg-[var(--bk-team-accent)] px-5 text-xs font-black uppercase text-[var(--bk-on-accent)]">Go To Fantasy</button></div></div>)}
-        {currentTab==='simulation'&&activeLeague&&<SimulationView league={activeLeague} onBackToLobby={()=>setCurrentTab('lobby')} onOpenDraft={()=>setCurrentTab('draft')}/>} 
+        {currentTab==='simulation'&&activeLeague&&<SimulationView league={activeLeague} onBackToLobby={()=>setCurrentTab('lobby')} onOpenDraft={()=>setCurrentTab('draft')}/>}
       </Suspense>
     </main>}
 
     {showProductChrome&&currentTab!=='draft'&&<LaunchFooter onOpen={setLaunchPanel} onOpenPartners={()=>setCurrentTab('partners')}/>}
 
     <CinematicIntro isOpen={isIntroOpen} onClose={closeIntro}/>
-    {showFavoriteTeam&&!isIntroOpen&&<FavoriteTeamExperience onDone={finishFavoriteTeamSetup}/>} 
+    {showFavoriteTeam&&!isIntroOpen&&<FavoriteTeamExperience onDone={finishFavoriteTeamSetup}/>}
     {isAuthOpen&&<Suspense fallback={null}><AuthModal isOpen onClose={()=>setIsAuthOpen(false)} onOpenLegal={panel=>{setIsAuthOpen(false);setLaunchPanel(panel)}}/></Suspense>}
     <CreateLeagueModal isOpen={isCreateLeagueOpen} onClose={()=>setIsCreateLeagueOpen(false)} onLeagueCreated={handleLeagueCreated}/>
     <JoinLeagueModal isOpen={isJoinLeagueOpen} onClose={()=>setIsJoinLeagueOpen(false)} onLeagueJoined={handleLeagueJoined}/>

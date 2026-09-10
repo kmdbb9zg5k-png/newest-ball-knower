@@ -15,9 +15,9 @@ const CATEGORIES = [
   { key: 'ownerRating', label: 'Owner', Icon: Crown, description: 'Your server-recorded Owner rating. Verified career milestones contribute to this score.' },
 ] as const;
 
-type Props = { profile: ProgressProfile | null; events: ProgressEvent[]; achievements: Achievement[]; predictionPicks: VerifiedPredictionPick[]; loading: boolean; error: string; onRefresh: () => void };
+type Props = { profile: ProgressProfile | null; events: ProgressEvent[]; achievements: Achievement[]; predictionPicks: VerifiedPredictionPick[]; profileOwnerName?: string; loading: boolean; error: string; onRefresh: () => void };
 
-export function ProfileLockerView({ profile, events, achievements, predictionPicks, loading, error, onRefresh }: Props) {
+export function ProfileLockerView({ profile, events, achievements, predictionPicks, profileOwnerName, loading, error, onRefresh }: Props) {
   const [category, setCategory] = useState<string | null>(null);
   const [selectedTrophy, setSelectedTrophy] = useState<string | null>(null);
   const [predictionHistoryOpen, setPredictionHistoryOpen] = useState(false);
@@ -40,7 +40,8 @@ export function ProfileLockerView({ profile, events, achievements, predictionPic
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     rail.scrollBy({ left: direction * Math.max(140, rail.clientWidth * .7), behavior: reducedMotion ? 'auto' : 'smooth' });
   };
-  const status = loading ? 'Syncing your profile…' : error ? (profile ? 'Showing your last synced profile.' : 'Profile data is unavailable.') : 'Server verified';
+  const ownerPossessive = profileOwnerName ? `${profileOwnerName}${profileOwnerName.toLowerCase().endsWith('s') ? "'" : "'s"}` : 'your';
+  const status = loading ? `Syncing ${ownerPossessive} profile…` : error ? (profile ? `Showing ${ownerPossessive} last synced profile.` : 'Profile data is unavailable.') : 'Server verified';
 
   return <div className="bk-locker-profile" data-testid="locker-profile" aria-busy={loading}>
     <section className="bk-locker-overview" aria-label="Universal Ball Knower Profile">
@@ -55,7 +56,7 @@ export function ProfileLockerView({ profile, events, achievements, predictionPic
         </button>)}</div>
         <div className="bk-locker-rating-stack"><div className="bk-locker-rating" aria-label={`BK Rating ${profileNumber(profile?.bkRating)}`}><span>BK Rating:</span><strong data-testid="bk-rating"><LockerRatingNumeral value={profileNumber(profile?.bkRating)}/></strong><small>Server controlled</small></div><p className="bk-locker-motto">“Same game.<br/>Higher standards.”</p></div>
       </div>
-      {selectedCategory && <div id={`${id}-category`} className="bk-locker-detail"><strong>{selectedCategory.label} · {profileNumber(profile?.[selectedCategory.key])}/99</strong><p>{selectedCategory.description}</p></div>}
+      {selectedCategory && <div id={`${id}-category`} className="bk-locker-detail"><strong>{selectedCategory.label} · {profileNumber(profile?.[selectedCategory.key])}/99</strong><p>{profileOwnerName ? selectedCategory.description.replace(/^Your/, ownerPossessive) : selectedCategory.description}</p></div>}
       <div className="bk-locker-sync"><span role="status">{status}{!loading && !error && profileDate(profile?.updatedAt) ? ` · ${profileDate(profile?.updatedAt)}` : ''}</span><button type="button" onClick={onRefresh} disabled={loading} aria-label="Refresh profile"><RefreshCcw aria-hidden="true"/></button></div>
       {error && <div className="bk-locker-error" role="alert"><span>{error}</span><button type="button" disabled={loading} onClick={onRefresh}>Retry</button></div>}
     </section>
@@ -88,7 +89,7 @@ export function ProfileLockerView({ profile, events, achievements, predictionPic
       <LockerReceiptScene/>
       <div className="bk-locker-section-heading"><h2 id={`${id}-receipts`}><ClipboardList aria-hidden="true"/>Verified receipts</h2><span className="bk-locker-receipt-tagline">Trust builds legacies</span></div>
       <div className="bk-locker-receipt-rail" aria-hidden="true" data-empty={events.length === 0}>{Array.from({length:17},(_,index)=><i key={index}/>)}</div>
-      {events.length > 0 ? <><ul className="bk-locker-event-list">{events.slice(0, showAllReceipts ? events.length : 6).map(event => <li key={event.id}><ShieldCheck aria-hidden="true"/><div><strong>{event.eventType.replaceAll('_', ' ')}</strong><span>{event.category.replaceAll('_', ' ')}{profileDate(event.occurredAt) ? ` · ${profileDate(event.occurredAt)}` : ''}</span></div><p>{signedProfileDelta(event.xpAwarded)} XP{event.ratingDelta !== 0 && <small>{signedProfileDelta(event.ratingDelta)} RTG</small>}</p></li>)}</ul>{events.length > 6 && <button type="button" className="bk-locker-receipts-more" aria-expanded={showAllReceipts} onClick={() => setShowAllReceipts(!showAllReceipts)}>{showAllReceipts ? 'Show fewer receipts' : `Show all ${events.length} recent receipts`}</button>}</> : <div className="bk-locker-receipts-empty"><BriefcaseBusiness aria-hidden="true"/><p>{loading ? 'Loading verified progression receipts…' : error ? 'Verified receipts are temporarily unavailable. Retry profile sync above.' : 'No verified progression receipts yet. Your trusted Trivia, League, Agent, Owner and Prediction events will appear here.'}</p><small>Only server-verified events count toward your profile.</small></div>}
+      {events.length > 0 ? <><ul className="bk-locker-event-list">{events.slice(0, showAllReceipts ? events.length : 6).map(event => <li key={event.id}><ShieldCheck aria-hidden="true"/><div><strong>{event.eventType.replaceAll('_', ' ')}</strong><span>{event.category.replaceAll('_', ' ')}{profileDate(event.occurredAt) ? ` · ${profileDate(event.occurredAt)}` : ''}</span></div><p>{signedProfileDelta(event.xpAwarded)} XP{event.ratingDelta !== 0 && <small>{signedProfileDelta(event.ratingDelta)} RTG</small>}</p></li>)}</ul>{events.length > 6 && <button type="button" className="bk-locker-receipts-more" aria-expanded={showAllReceipts} onClick={() => setShowAllReceipts(!showAllReceipts)}>{showAllReceipts ? 'Show fewer receipts' : `Show all ${events.length} recent receipts`}</button>}</> : <div className="bk-locker-receipts-empty"><BriefcaseBusiness aria-hidden="true"/><p>{loading ? 'Loading verified progression receipts…' : error ? 'Verified receipts are temporarily unavailable. Retry profile sync above.' : `No verified progression receipts yet.${profileOwnerName ? '' : ' Your trusted Trivia, League, Agent, Owner and Prediction events will appear here.'}`}</p><small>Only server-verified events count toward this profile.</small></div>}
     </section>
   </div>;
 }

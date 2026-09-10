@@ -1,16 +1,19 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useBallKnower } from './BallKnowerContext';
-import { fetchProgressionProfile, type Achievement, type ProgressEvent, type ProgressProfile } from './progressionCloud';
+import { fetchProgressionProfile, fetchPublicProgressionProfile, type Achievement, type ProgressEvent, type ProgressProfile } from './progressionCloud';
 import { gradeVerifiedPredictionPicks, loadVerifiedPredictionPicks, type VerifiedPredictionPick } from './modeProgressionCloud';
 import { ProfileLockerView } from './ProfileLockerView';
 
-export const ProgressionProfileCard: React.FC = () => {
+type Props = { targetUserId?: string; targetDisplayName?: string };
+
+export const ProgressionProfileCard: React.FC<Props> = ({ targetUserId, targetDisplayName }) => {
   const { currentUser } = useBallKnower();
   // Remount on identity changes: never show another account's receipts while loading.
+  if (targetUserId) return <AccountProgression key={targetUserId} displayName={targetDisplayName} targetUserId={targetUserId}/>;
   return <AccountProgression key={currentUser?.id || 'guest'} displayName={currentUser?.name}/>;
 };
 
-function AccountProgression({ displayName }: { displayName?: string }) {
+function AccountProgression({ displayName, targetUserId }: { displayName?: string; targetUserId?: string }) {
   const [profile, setProfile] = useState<ProgressProfile | null>(null);
   const [events, setEvents] = useState<ProgressEvent[]>([]);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
@@ -22,10 +25,14 @@ function AccountProgression({ displayName }: { displayName?: string }) {
     const version = ++requestVersion.current;
     setLoading(true);
     try {
-      const [data, picks] = await Promise.all([
-        fetchProgressionProfile(displayName),
-        gradeVerifiedPredictionPicks().catch(() => loadVerifiedPredictionPicks()).catch(() => [] as VerifiedPredictionPick[]),
-      ]);
+      const isPublicView = Boolean(targetUserId);
+      const [data, picks] = isPublicView
+        ? await fetchPublicProgressionProfile(targetUserId!)
+          .then(result => [result, result.predictionPicks] as const)
+        : await Promise.all([
+          fetchProgressionProfile(displayName),
+          gradeVerifiedPredictionPicks().catch(() => loadVerifiedPredictionPicks()).catch(() => [] as VerifiedPredictionPick[]),
+        ]);
       if (version !== requestVersion.current) return;
       setProfile(data.profile);
       setEvents(data.events);
@@ -38,11 +45,11 @@ function AccountProgression({ displayName }: { displayName?: string }) {
     } finally {
       if (version === requestVersion.current) setLoading(false);
     }
-  }, [displayName]);
+  }, [displayName, targetUserId]);
   useEffect(() => {
     void refresh();
     return () => { requestVersion.current += 1; };
   }, [refresh]);
 
-  return <ProfileLockerView profile={profile} events={events} achievements={achievements} predictionPicks={predictionPicks} error={error} loading={loading} onRefresh={() => void refresh()}/>;
+  return <ProfileLockerView profile={profile} events={events} achievements={achievements} predictionPicks={predictionPicks} profileOwnerName={targetUserId ? displayName : undefined} error={error} loading={loading} onRefresh={() => void refresh()}/>;
 }
