@@ -26,12 +26,12 @@ assert.ok(home.includes('homeFeaturedActivity(currentActivity')&&home.includes('
 assert.ok(home.includes('aria-label="Change league"')&&home.includes('Continue your league'), 'league selection must be integrated with the Continue Your League card');
 
 assert.ok(navbar.includes('fixed inset-x-0 bottom-0')&&navbar.includes('pb-[env(safe-area-inset-bottom)]'), 'mobile navigation must be fixed above the iPhone home indicator');
-assert.ok(styles.includes('body > .bk-broadcast-nav')&&styles.includes('bottom: 0 !important')&&styles.includes('translate3d(0, 0, 0)'), 'the iPhone navigation needs a body-level compositor pin at the real viewport bottom');
+assert.ok(styles.includes('body > .bk-broadcast-nav')&&styles.includes('bottom: 0 !important')&&styles.includes('transform: none !important')&&!styles.includes('contain: layout paint'), 'the iPhone navigation must stay fixed without a stale keyboard compositor layer');
 assert.ok(app.includes("currentTab==='draft'?'bk-live-draft-viewport':''")&&styles.includes('.bk-live-draft-viewport')&&styles.includes('overscroll-behavior: contain'), 'live drafts must scroll inside a contained iPhone viewport instead of moving the fixed tab bar through the player list');
 assert.ok(navbar.includes('data-keyboard-open')&&styles.includes('.bk-broadcast-nav[data-keyboard-open="true"]'), 'the tab bar must leave the visual viewport while the iPhone keyboard is open instead of floating mid-screen');
 assert.ok(navbar.includes('createPortal')&&navbar.includes('fixed inset-x-0 top-0')&&navbar.includes('h-[calc(72px+env(safe-area-inset-top))]'), 'both app navigation bars must be portaled to the viewport with a safe content spacer');
 const headerClose=navbar.indexOf('</header>');
-const mobileNav=navbar.indexOf('<nav aria-label="Primary navigation"');
+const mobileNav=navbar.indexOf('aria-label="Primary navigation"');
 assert.ok(headerClose>=0&&mobileNav>headerClose, 'mobile navigation must remain outside the blurred top header so iOS fixes it to the viewport');
 assert.ok(app.includes('overflow-x-clip')&&styles.includes('overflow-x: clip')&&!styles.includes('overflow: hidden;'), 'the app shell must not become a false scroll container that breaks the sticky iPhone header');
 assert.ok(home.includes('env(safe-area-inset-left)')&&home.includes('env(safe-area-inset-right)')&&navbar.includes('env(safe-area-inset-left)')&&navbar.includes('env(safe-area-inset-right)'), 'home content and header must stay clear of the iPhone landscape notch');

@@ -196,9 +196,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .bk-fantasy-player-row { min-height: 52px !important; }
 }
 
-/* Keep the native iPhone draft as one contained viewport. WKWebView can
-   otherwise composite a body-level fixed bar at the old keyboard edge while
-   the long player list continues scrolling beneath it. */
+/* Keep the body-level tab bar tied to the iPhone viewport.
+   Do not force a permanent transformed/contained compositor layer:
+   WKWebView can strand that layer at the old keyboard edge after it closes. */
 @media (max-width: 767px) {
   body > .bk-broadcast-nav {
     position: fixed !important;
@@ -208,11 +208,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     left: 0 !important;
     width: 100%;
     max-width: 100vw;
-    transform: translate3d(0, 0, 0);
-    -webkit-transform: translate3d(0, 0, 0);
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
-    contain: layout paint;
+    transform: none !important;
+    -webkit-transform: none !important;
+    contain: none;
   }
   body > .bk-broadcast-nav[data-keyboard-open="true"] {
     visibility: hidden;

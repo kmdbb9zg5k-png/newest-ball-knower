@@ -185,6 +185,15 @@ try{
     await page.getByRole('button',{name:'Cheat Sheet',exact:true}).click();
     await page.getByRole('heading',{name:'Player Cheat Sheet',exact:true}).waitFor({state:'visible'});
     assertContained(await layoutSnapshot(page),`${size.label} Cheat Sheet`);
+    const cheatSheetSearch=page.getByPlaceholder('Search player, team or position');
+    await cheatSheetSearch.focus();
+    await page.setViewportSize({width:size.width,height:size.height-300});
+    await page.waitForTimeout(100);
+    assert.equal(await page.locator('body > .bk-broadcast-nav').getAttribute('data-keyboard-open'),'true',`${size.label}: simulated iPhone keyboard must hide the bottom navigation`);
+    await cheatSheetSearch.blur();
+    await page.setViewportSize({width:size.width,height:size.height});
+    await page.waitForTimeout(750);
+    assertContained(await layoutSnapshot(page),`${size.label} Cheat Sheet after keyboard close`);
     await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'auto'}));
     await page.waitForTimeout(50);
     assertContained(await layoutSnapshot(page),`${size.label} scrolled Cheat Sheet`);
