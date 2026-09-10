@@ -83,7 +83,22 @@ export const HomeMatchups = ({ leagues, currentUser, onSelectLeague, onViewMembe
       const status = myScore?.isFinal && opponentScore?.isFinal ? 'Final' : started(myScore) || started(opponentScore) ? 'Live' : 'Scheduled';
       const projectionsReady = myScore?.hasProjectedTotal === true && opponentScore?.hasProjectedTotal === true;
       const chance = projectionsReady ? Math.max(5, Math.min(95, 100 / (1 + Math.exp(-(myScore.projectedPoints - opponentScore.projectedPoints) / 30)))) : null;
-      return <article key={league.id} className="bk-home-matchup-card" aria-label={`${league.name}, Week ${pairing.week} matchup`}>
+      return <article
+        key={league.id}
+        className="bk-home-matchup-card"
+        role="button"
+        tabIndex={0}
+        aria-label={`Open ${league.name}, Week ${pairing.week} matchup`}
+        onClick={(event) => {
+          if ((event.target as Element).closest('button, a')) return;
+          open(league, 'matchup');
+        }}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return;
+          event.preventDefault();
+          open(league, 'matchup');
+        }}
+      >
         <header><span><Trophy aria-hidden="true"/>{league.name}</span><strong>WEEK {pairing.week} · {status}</strong></header>
         <div className="bk-home-matchup-teams">
           <MatchupTeam member={mine} mine user={currentUser} score={myScore} onOpenLocker={onViewMemberLocker}/>
