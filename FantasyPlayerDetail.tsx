@@ -6,11 +6,13 @@ import { PlayerPhotoCredit } from './PhotoCredits';
 import { ModalPortal } from './ModalPortal';
 import { FantasyRanking } from './fantasyRankingsCloud';
 import { FantasyPlayerWeek, loadFantasyPlayerWeeks } from './fantasyPlayerDetailsCloud';
+import { FantasyPlayerAvailability } from './fantasyPlayerAvailability';
+import { FantasyAvailabilityBadge } from './FantasyAvailabilityBadge';
 
 type Props = {
   player: Player | null;
   ownerName?: string;
-  injuryStatus?: string;
+  availability?: FantasyPlayerAvailability;
   ranking?: FantasyRanking;
   watchAction?: { watched: boolean; onToggle: () => void };
   primaryAction?: { label: string; onAction: () => void; disabled?: boolean };
@@ -103,7 +105,7 @@ const compactEmptyText = (season: 2026 | 2025) =>
 export const FantasyPlayerDetail: React.FC<Props> = ({
   player,
   ownerName,
-  injuryStatus,
+  availability,
   ranking,
   watchAction,
   primaryAction,
@@ -204,7 +206,6 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
 
   const portrait = playerPortraitUrl(player);
   const teamName = [player.teamCity, player.teamName].filter(Boolean).join(' ').trim();
-  const status = injuryStatus || (player.injured ? 'Injured' : 'Active');
   const actualFinals = finals.filter(row => points(row, 'actual') !== null);
   const total = actualFinals.reduce((sum, row) => sum + (points(row, 'actual') || 0), 0);
   const seasonProjection = ranking && Number.isFinite(Number(ranking.projected_points_2026))
@@ -242,15 +243,18 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
               {teamName && <div className="mt-1 text-xs font-semibold text-zinc-400">{teamName}</div>}
               <div className="mt-1 text-xs font-semibold text-zinc-400">{ownerName ? `Rostered by ${ownerName}` : 'Available player'}</div>
               <div className="mt-2 flex flex-wrap gap-1.5 text-[8px] font-black uppercase sm:mt-3 sm:text-[10px]">
-                <span className={`rounded-full px-2 py-1 sm:px-3 sm:py-1.5 ${player.injured || injuryStatus ? 'bg-red-500/15 text-red-200' : 'bg-emerald-400/15 text-emerald-200'}`}>
-                  {status}
-                </span>
+                <FantasyAvailabilityBadge availability={availability} full />
                 {ranking && (
                   <span className="rounded-full bg-[#D4AF37]/15 px-2 py-1 text-[#D4AF37] sm:px-3 sm:py-1.5">
                     Overall #{ranking.overall_rank}
                   </span>
                 )}
               </div>
+              {availability && (
+                <div className={`mt-1.5 text-[9px] font-bold ${availability.status === 'out' ? 'text-red-300' : 'text-yellow-200'}`}>
+                  {availability.injury || 'Official game designation'} · ESPN injury report
+                </div>
+              )}
             </div>
 
             {portrait ? (

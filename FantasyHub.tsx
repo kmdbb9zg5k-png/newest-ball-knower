@@ -26,6 +26,8 @@ import type { FantasyRanking } from "./fantasyRankingsCloud";
 import { PLAYERS_DATABASE, KNOWN_PLAYERS_DATABASE } from "./players";
 import { FantasyPlayerDetail } from "./FantasyPlayerDetail";
 import { FantasyPlayerPortrait } from "./FantasyPlayerPortrait";
+import { FantasyAvailabilityBadge } from "./FantasyAvailabilityBadge";
+import { availabilityForPlayer, FantasyPlayerAvailability, loadFantasyPlayerAvailability, playerAvailabilityKey } from "./fantasyPlayerAvailability";
 import "./fantasyHub.css";
 import "./fantasyHqPremium.css";
 import { LeagueDestinationCard } from './FantasyHqLeagueCard';
@@ -98,6 +100,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
   const [fantasyRankings, setFantasyRankings] = useState<FantasyRanking[]>([]);
   const [rankingsBusy, setRankingsBusy] = useState(true);
   const [rankingsError, setRankingsError] = useState<string | null>(null);
+  const [liveAvailability, setLiveAvailability] = useState<FantasyPlayerAvailability[]>([]);
   const [visibleRankingCount, setVisibleRankingCount] =
     useState(RANKINGS_PAGE_SIZE);
   const [publicMatchBusy, setPublicMatchBusy] = useState(false);
@@ -130,6 +133,26 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
     (player) => player.player_key === selectedPlayerId,
   );
   const selectedFantasyPlayer = useMemo(() => fantasyPlayerFromRanking(selectedPlayer), [selectedPlayer]);
+  const availabilityByPlayerKey = useMemo(
+    () => new Map(liveAvailability.map(item => [playerAvailabilityKey(item.playerName, item.team), item])),
+    [liveAvailability],
+  );
+  useEffect(() => {
+    let active = true;
+    const refreshAvailability = () => {
+      void loadFantasyPlayerAvailability()
+        .then(payload => {
+          if (active && payload.available) setLiveAvailability(payload.players);
+        })
+        .catch(() => {});
+    };
+    refreshAvailability();
+    const timer = window.setInterval(refreshAvailability, 5 * 60_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
   useEffect(() => {
     let active = true;
     void loadUserState<string[]>("fantasy_watchlist")
@@ -442,8 +465,9 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
                             }
                             className="min-w-0 text-left"
                           >
-                            <div className="truncate text-sm font-black sm:text-base">
-                              {player.player_name}
+                            <div className="flex items-center gap-1.5">
+                              <span className="truncate text-sm font-black sm:text-base">{player.player_name}</span>
+                              <FantasyAvailabilityBadge availability={availabilityForPlayer(fantasyPlayer, availabilityByPlayerKey)} />
                             </div>
                             <div className="mt-0.5 text-[10px] font-bold text-zinc-500">
                               {player.position}
@@ -537,6 +561,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
           <FantasyPlayerDetail
             player={selectedFantasyPlayer}
             ranking={selectedPlayer}
+            availability={availabilityForPlayer(selectedFantasyPlayer, availabilityByPlayerKey)}
             watchAction={{ watched: watchlist.includes(selectedPlayer.player_key), onToggle: () => toggleWatch(selectedPlayer.player_key) }}
             onClose={() => setSelectedPlayerId(null)}
           />
