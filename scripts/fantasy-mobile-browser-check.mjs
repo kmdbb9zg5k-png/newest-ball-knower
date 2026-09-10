@@ -93,6 +93,7 @@ const assertContained=(snapshot,label)=>{
   assert.ok(snapshot.primaryRect,`${label}: mobile bottom navigation is missing`);
   assert.ok(snapshot.primaryRect.left>=-1&&snapshot.primaryRect.right<=width+1,`${label}: bottom navigation is clipped horizontally`);
   assert.ok(snapshot.primaryRect.top>=0&&snapshot.primaryRect.bottom<=height+1,`${label}: bottom navigation is outside the viewport`);
+  assert.ok(Math.abs(snapshot.primaryRect.bottom-height)<=1,`${label}: bottom navigation floated ${Math.round(height-snapshot.primaryRect.bottom)}px above the viewport bottom`);
   assert.ok(snapshot.headerRect,`${label}: fixed header is missing`);
   assert.ok(snapshot.headerRect.left>=-1&&snapshot.headerRect.right<=width+1,`${label}: header is clipped horizontally`);
   assert.ok(snapshot.headerRect.top>=-1,`${label}: header is above the viewport`);
@@ -184,6 +185,9 @@ try{
     await page.getByRole('button',{name:'Cheat Sheet',exact:true}).click();
     await page.getByRole('heading',{name:'Player Cheat Sheet',exact:true}).waitFor({state:'visible'});
     assertContained(await layoutSnapshot(page),`${size.label} Cheat Sheet`);
+    await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'auto'}));
+    await page.waitForTimeout(50);
+    assertContained(await layoutSnapshot(page),`${size.label} scrolled Cheat Sheet`);
 
     await primary.getByRole('button',{name:'Trivia',exact:true}).click();
     await page.locator('[data-testid="gauntlet-arena"]').waitFor({state:'visible'});

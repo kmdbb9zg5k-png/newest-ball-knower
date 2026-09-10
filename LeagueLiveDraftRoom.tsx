@@ -12,6 +12,7 @@ import { DraftPreferences, loadMyCloudDraftPreferences, saveMyCloudDraftPreferen
 import { fetchSeasonOperations, LeagueMessage, postLeagueMessage } from './fantasySeasonCloud';
 import { ModalPortal } from './ModalPortal';
 import { ManagerAvatar } from './ManagerAvatar';
+import { memberIdAtLiveDraftPick, nextLiveDraftPickForMember, upcomingLiveDraftOrder } from './liveDraftOrder';
 
 type Props={onBackToLobby:()=>void};
 type DraftGroup=LiveFantasyDraftGroup;
@@ -22,14 +23,6 @@ const CPU_DEPTH_PENALTY:Record<DraftGroup,number>={QB:72,RB:18,WR:14,TE:48,K:120
 const PLAYER_BY_ID=new Map(KNOWN_PLAYERS_DATABASE.map(player=>[player.id,player]));
 const rankingKey=(name:string,team:string)=>`${name.toLowerCase().replace(/[^a-z0-9]/g,'')}|${team.toUpperCase()}`;
 const EMPTY_PREFERENCES:DraftPreferences={queue:[],favorites:[],doNotDraft:[],preRankings:[]};
-
-const memberAtPick=(draft:LiveFantasyDraft)=>{
-  const teamCount=draft.orderMemberIds.length;
-  if(!teamCount||draft.pickIndex>=teamCount*draft.rounds)return null;
-  const round=Math.floor(draft.pickIndex/teamCount);
-  const slot=draft.pickIndex%teamCount;
-  return draft.orderMemberIds[round%2===0?slot:teamCount-1-slot]||null;
-};
 
 const countsFor=(draft:LiveFantasyDraft,memberId:string)=>draft.picks.reduce<Partial<Record<DraftGroup,number>>>((counts,pick)=>{
   if(pick.memberId===memberId)counts[pick.group]=(counts[pick.group]||0)+1;
@@ -105,7 +98,7 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
   claimExpiredPickRef.current=claimExpiredLiveFantasyDraftPick;
   const needsScrollRef=useRef<HTMLDivElement>(null);
 
-  const currentMemberId=draft?memberAtPick(draft):null;
+  const currentMemberId=draft?memberIdAtLiveDraftPick(draft):null;
   const currentMember=activeLeague?.members.find(member=>member.id===currentMemberId);
   const myMember=resolveMyLeagueMember(activeLeague,currentUser);
   const isCommissioner=activeLeague?.commissionerId===currentUser?.id;
@@ -300,12 +293,33 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
   const onClockName=displayLeagueMemberName(currentMember,currentMemberIsMe,currentUser,activeLeague.members.indexOf(currentMember!));
   const canPick=onClockIsMe&&!currentMember?.isAi&&!busy&&draftSecondsLeft!==0;
   const totalPicks=draft.orderMemberIds.length*draft.rounds;
+  const upcomingOrder=upcomingLiveDraftOrder(draft,12);
+  const nextMyPick=myMember?nextLiveDraftPickForMember(draft,myMember.id):null;
+  const picksUntilMine=nextMyPick?nextMyPick.pickIndex-draft.pickIndex:null;
+  const myTurnStatus=!myMember
+    ?'Sign in to track your turn'
+    :picksUntilMine===0
+      ?"You're up now"
+      :picksUntilMine===1
+        ?`You pick next · #${nextMyPick?.overall}`
+        :nextMyPick
+          ?`Your next: #${nextMyPick.overall} · ${picksUntilMine} picks away`
+          :'Your draft is complete';
   const openNeeds=GROUPS.filter(item=>(myCounts[item]||0)<LIVE_FANTASY_ROSTER_REQUIREMENTS[item]);
   const secondsLeft=draftSecondsLeft??0;
   const clockLabel=currentMember?.isAi?'CPU':secondsLeft>0?`${secondsLeft}s`:'AUTO';
 
   return <div className="bk-fantasy-shell min-h-[100dvh] bg-[#07090c] px-2 pt-0 text-white sm:px-6 sm:pt-3"><div className="mx-auto max-w-7xl">
-    <div className="bk-fantasy-sticky-nav -mx-2 border-b border-white/10 bg-[#07090c]/95 px-2 py-2 backdrop-blur-md sm:mx-0 sm:rounded-lg sm:border"><div className="grid grid-cols-[34px_minmax(0,1fr)_34px_54px] items-center gap-2"><button onClick={onBackToLobby} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10" aria-label="Back to League HQ"><ArrowLeft className="h-4 w-4"/></button><div className="flex min-w-0 items-center gap-2"><ManagerAvatar member={currentMember} name={onClockName} className="h-7 w-7"/><div className="min-w-0"><div className="text-[8px] font-black uppercase tracking-[.14em] text-[#D4AF37]">Round {round} · Pick {Math.min(draft.pickIndex+1,totalPicks)}</div><div className="truncate text-xs font-black uppercase leading-tight sm:text-lg">{onClockName} Is On The Clock</div></div></div><button type="button" aria-label="Open draft chat" onClick={()=>setChatOpen(true)} className="relative grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-black/25"><MessageCircle className="h-3.5 w-3.5"/>{chatMessages.length>0&&<span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[#D4AF37] px-1 text-[7px] font-black text-black">{Math.min(99,chatMessages.length)}</span>}</button><div className={`rounded-lg px-1.5 py-1 text-center ${secondsLeft<=10&&!currentMember?.isAi?'bg-red-500/10 text-red-300':'bg-black/25'}`}><div className="text-[7px] font-black uppercase opacity-60">Clock</div><div className="font-mono text-sm font-black sm:text-2xl">{clockLabel}</div></div></div><div className="mt-2 hidden grid-cols-4 gap-2 sm:grid"><MiniStat label="Your Slot" value={mySlot?`#${mySlot}`:'—'}/><MiniStat label="Your Roster" value={`${myRoster.length} Players`}/><MiniStat label="Turn" value={currentMemberIsMe?'Your Pick':currentMember?.isAi?'CPU Picking':'Waiting'}/><MiniStat label="Auto Pick" value={preferences.queue.length?'Queue Ready':'Best Available'}/></div></div>
+    <div className="bk-fantasy-sticky-nav -mx-2 border-b border-white/10 bg-[#07090c]/[.98] px-2 py-2 shadow-[0_12px_28px_rgba(0,0,0,.46)] sm:mx-0 sm:rounded-lg sm:border">
+      <div className="grid grid-cols-[34px_minmax(0,1fr)_34px_54px] items-center gap-2"><button onClick={onBackToLobby} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10" aria-label="Back to League HQ"><ArrowLeft className="h-4 w-4"/></button><div className="flex min-w-0 items-center gap-2"><ManagerAvatar member={currentMember} name={onClockName} className="h-7 w-7"/><div className="min-w-0"><div className="text-[8px] font-black uppercase tracking-[.14em] text-[#D4AF37]">Round {round} · Pick {Math.min(draft.pickIndex+1,totalPicks)}</div><div className="truncate text-xs font-black uppercase leading-tight sm:text-lg">{onClockName} Is On The Clock</div></div></div><button type="button" aria-label="Open draft chat" onClick={()=>setChatOpen(true)} className="relative grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-black/25"><MessageCircle className="h-3.5 w-3.5"/>{chatMessages.length>0&&<span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[#D4AF37] px-1 text-[7px] font-black text-black">{Math.min(99,chatMessages.length)}</span>}</button><div className={`rounded-lg px-1.5 py-1 text-center ${secondsLeft<=10&&!currentMember?.isAi?'bg-red-500/10 text-red-300':'bg-black/25'}`}><div className="text-[7px] font-black uppercase opacity-60">Clock</div><div className="font-mono text-sm font-black sm:text-2xl">{clockLabel}</div></div></div>
+      <div className="mt-2 border-t border-white/10 pt-1.5">
+        <div className="flex items-center justify-between gap-2"><div className="text-[8px] font-black uppercase tracking-[.16em] text-zinc-500">Upcoming draft order</div><div data-testid="my-next-draft-pick" className={`truncate text-right text-[8px] font-black uppercase ${picksUntilMine===0?'text-emerald-300':'text-[#E7C75A]'}`}>{myTurnStatus}</div></div>
+        <ol data-testid="live-draft-order-strip" aria-label="Upcoming draft order" className="bk-fantasy-scroll-shadow no-scrollbar mt-1 flex gap-1.5 overflow-x-auto pb-0.5 [-webkit-overflow-scrolling:touch]">
+          {upcomingOrder.map((pick,index)=>{const member=activeLeague.members.find(item=>item.id===pick.memberId);const mine=member?.id===myMember?.id;const name=displayLeagueMemberName(member,mine,currentUser,activeLeague.members.indexOf(member!));return <li key={pick.pickIndex} aria-current={index===0?'step':undefined} className={`grid min-w-[74px] grid-cols-[24px_minmax(0,1fr)] items-center gap-1 rounded-md border px-1.5 py-1 ${index===0?'border-[#D4AF37]/70 bg-[#D4AF37]/15':mine?'border-emerald-300/35 bg-emerald-300/[.07]':'border-white/10 bg-black/30'}`}><ManagerAvatar member={member} name={name} className="h-6 w-6"/><div className="min-w-0"><div className={`truncate text-[7px] font-black uppercase ${index===0?'text-[#E7C75A]':mine?'text-emerald-300':'text-zinc-500'}`}>{index===0?'On clock':`#${pick.overall} · R${pick.round}`}</div><div className="truncate text-[8px] font-black uppercase text-white">{name}</div></div></li>})}
+        </ol>
+      </div>
+      <div className="mt-2 hidden grid-cols-4 gap-2 sm:grid"><MiniStat label="Your Slot" value={mySlot?`#${mySlot}`:'—'}/><MiniStat label="Your Roster" value={`${myRoster.length} Players`}/><MiniStat label="Turn" value={currentMemberIsMe?'Your Pick':currentMember?.isAi?'CPU Picking':'Waiting'}/><MiniStat label="Auto Pick" value={preferences.queue.length?'Queue Ready':'Best Available'}/></div>
+    </div>
 
     <section className="bk-fantasy-card mt-2 border-[#D4AF37]/20 p-2 sm:mt-3 sm:p-3">
       <div className="flex items-center justify-between gap-3"><div><div className="text-[9px] font-black uppercase tracking-[.18em] text-[#D4AF37]">Your roster needs</div><div className="mt-0.5 text-[10px] font-bold text-zinc-500">Counts update after every pick</div></div><button type="button" aria-label={`My picks (${myPicks.length})`} onClick={()=>setShowMyPicks(value=>!value)} className="flex min-h-10 items-center gap-1 rounded-xl border border-white/10 px-3 text-[9px] font-black uppercase">My picks ({myPicks.length}) {showMyPicks?<ChevronUp className="h-3.5 w-3.5"/>:<ChevronDown className="h-3.5 w-3.5"/>}</button></div>
