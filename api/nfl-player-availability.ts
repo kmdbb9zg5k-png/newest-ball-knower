@@ -1,4 +1,4 @@
-const INJURIES_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/injuries';
+const INJURIES_URL = 'https://site.web.api.espn.com/apis/site/v2/sports/football/nfl/injuries';
 const CACHE_MS = 5 * 60_000;
 const MAX_STALE_MS = 30 * 60_000;
 const MAX_RESPONSE_BYTES = 12_000_000;
@@ -97,7 +97,12 @@ export function normalizeAvailabilityReports(reports: unknown[], fetchedAt = new
 
 const fetchJson = async (request: typeof fetch, url: string) => {
   const response = await request(url, {
-    headers: { accept: 'application/json', 'user-agent': 'BallKnower/1.0 fantasy-availability' },
+    headers: {
+      accept: 'application/json, text/plain, */*',
+      'accept-language': 'en-US,en;q=0.9',
+      referer: 'https://www.espn.com/',
+      'user-agent': 'Mozilla/5.0 (compatible; BallKnower/1.0; +https://ballknowerofficial.com)',
+    },
     signal: AbortSignal.timeout(20_000),
   });
   if (!response.ok) throw new Error(`availability upstream ${response.status}`);
