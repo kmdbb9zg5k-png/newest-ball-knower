@@ -14,13 +14,16 @@ assert.match(comparison, /LINEUP_SLOTS\.map/, 'the comparison must render the ca
 assert.match(comparison, /grid-cols-\[minmax\(0,1fr\)_56px_minmax\(0,1fr\)\]/, 'each slot must reserve a protected center column so FLEX/WRT cannot overlap either player or projection');
 assert.ok(comparison.includes('"FLEX/WRT"') && comparison.includes('"DST"'), 'FLEX/WRT and DST labels must use fantasy terminology');
 assert.match(comparison, /MatchupPlayerSide player={awayPlayer}[\s\S]*MatchupPlayerSide player={homePlayer}/, 'corresponding players must be directly across from each other');
-assert.ok(comparison.includes('Projected matchup advantage') && comparison.includes('Matchup advantage unavailable'), 'projection advantage must be data-gated');
+assert.ok(comparison.includes('Projected win chance') && comparison.includes('Projected win chance unavailable'), 'projected win chance must be data-gated');
+assert.ok(screen.includes('scoreIndicatesStarted(viewedHomeScore)') && screen.includes('player.isLive || player.isFinal'), 'a completed player game must move the matchup out of the scheduled-only score state');
+assert.match(screen, /livePoints\.toFixed\(2\)[\s\S]*projectedPoints\.toFixed\(2\)/, 'team headers must show current points first and projected totals second');
+assert.match(comparison, /currentScore[\s\S]*projectedScore[\s\S]*current, \$\{projectedScore\} projected/, 'player rows must expose current points above their projection');
 assert.ok(screen.includes('member?.userAvatar'), 'team avatars must display when available');
 assert.ok(comparison.includes('Opponent unavailable'), 'missing opponent metadata must have a truthful unavailable state');
 assert.ok(comparison.includes('player.isHome === false ? "@" : "vs"'), 'NFL home and away designation must be explicit');
 assert.ok(comparison.includes('player.isBye') && screen.includes('teamGames.length === 17'), 'bye labels must require a complete verified team schedule');
 assert.ok(screen.includes('ball-knower:matchup-week:') && screen.includes('ball-knower:matchup-id:'), 'selected matchup state must survive refresh and player-card close');
-assert.ok(comparison.includes('space-y-2') && screen.includes('aria-expanded={showAllMatchups}'), 'the primary matchup must remain visually separate from an on-demand league matchup picker');
+assert.ok(comparison.includes('space-y-3') && screen.includes('aria-expanded={showAllMatchups}'), 'the primary matchup must remain visually separate from an on-demand league matchup picker');
 assert.ok(screen.includes('aria-labelledby="all-matchups-title"') && screen.includes('role="dialog"'), 'All Matchups must open as a dedicated league matchup picker');
 assert.ok(screen.includes('weekMatchups.map') && screen.includes('setViewedMatchupId(game.id)') && screen.includes('setShowAllMatchups(false)'), 'selecting any league matchup must close the picker and load the full comparison');
 assert.ok(screen.includes('All matchups fantasy week') && screen.includes('visibleStandings.find'), 'the league matchup picker must support week changes and show team records');
