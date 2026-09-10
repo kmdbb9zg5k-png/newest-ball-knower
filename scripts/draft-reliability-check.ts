@@ -1,6 +1,8 @@
 import { PLAYERS_DATABASE } from '../players';
 import { CPU_LIVE_FANTASY_POSITION_LIMITS, filterLiveFantasyPositionRows, getLiveFantasyDraftGroup, isLiveFantasyDraftGroup, LIVE_FANTASY_ROSTER_REQUIREMENTS, type LiveFantasyDraftGroup } from '../liveFantasyRules';
 import { readFileSync } from 'node:fs';
+import { memberIdAtLiveDraftPick, nextLiveDraftPickForMember, upcomingLiveDraftOrder } from '../liveDraftOrder';
+import type { LiveFantasyDraft } from '../types';
 
 type Method='game'|'random'|'commissioner';
 type Pick={overall:number;round:number;memberId:string;playerId:string;group:LiveFantasyDraftGroup;source:'cpu'|'autopick'};
@@ -92,6 +94,20 @@ function verifyRecoveryClock(){
   return {abandonedPick:'passed',disconnectedPhone:'passed',expiredClock:'passed',cpuTurn:'passed'};
 }
 
+function verifyVisibleUpcomingOrder(){
+  const order=['m1','m2','m3','m4'];
+  const draft:LiveFantasyDraft={leagueId:'order-test',status:'active',orderMemberIds:order,rounds:4,pickIndex:3,picks:[],startedAt:'2026-09-10T00:00:00.000Z',pickSeconds:60,updatedAt:'2026-09-10T00:00:00.000Z'};
+  const sequence=upcomingLiveDraftOrder(draft,7).map(pick=>pick.memberId);
+  const expected=['m4','m4','m3','m2','m1','m1','m2'];
+  if(JSON.stringify(sequence)!==JSON.stringify(expected))throw new Error(`Upcoming strip lost snake turnarounds: ${sequence.join(',')}`);
+  if(memberIdAtLiveDraftPick(draft,4)!=='m4')throw new Error('Snake turnaround must show the same end-slot manager twice.');
+  const next=nextLiveDraftPickForMember(draft,'m1');
+  if(!next||next.pickIndex!==7||next.overall!==8||next.round!==2)throw new Error('The personal next-pick countdown is inaccurate.');
+  const room=readFileSync(new URL('../LeagueLiveDraftRoom.tsx',import.meta.url),'utf8');
+  if(!room.includes('Upcoming draft order')||!room.includes('Your next: #')||!room.includes('live-draft-order-strip'))throw new Error('The live draft does not keep the upcoming order and personal countdown visible.');
+  return {snakeTurnaround:'passed',personalCountdown:'passed',stickyOrderStrip:'passed'};
+}
+
 function verifyQuarantinedDraftRecovery(){
   const migration=readFileSync(new URL('../migrations/20260902225000_resume_stalled_fantasy_drafts.sql',import.meta.url),'utf8');
   const cloud=readFileSync(new URL('../leagueCloud.ts',import.meta.url),'utf8');
@@ -132,4 +148,4 @@ function verifyImmediateHumanTimeoutClaim(){
 }
 
 const matrix=LEAGUE_SIZES.flatMap(teamCount=>(['game','random','commissioner'] as Method[]).map(method=>run(method,teamCount)));
-console.log(JSON.stringify({matrix,kickersOnly:verifyKickersOnly(),recovery:verifyRecoveryClock(),quarantinedRecovery:verifyQuarantinedDraftRecovery(),immediateHumanTimeout:verifyImmediateHumanTimeoutClaim()},null,2));
+console.log(JSON.stringify({matrix,kickersOnly:verifyKickersOnly(),recovery:verifyRecoveryClock(),visibleUpcomingOrder:verifyVisibleUpcomingOrder(),quarantinedRecovery:verifyQuarantinedDraftRecovery(),immediateHumanTimeout:verifyImmediateHumanTimeoutClaim()},null,2));
