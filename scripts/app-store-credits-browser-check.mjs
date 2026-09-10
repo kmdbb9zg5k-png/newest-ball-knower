@@ -42,7 +42,10 @@ try{
     const dialog=page.getByRole('dialog',{name:'Ball Knower launch information'});
     await dialog.getByRole('heading',{name:'Photo Credits',exact:true}).waitFor();
     await dialog.getByRole('link',{name:'Original file and history',exact:true}).first().waitFor();
-    assert.equal(await dialog.getByRole('link',{name:'Original file and history',exact:true}).count(),21);
+    assert.ok(
+      await dialog.getByRole('link',{name:'Original file and history',exact:true}).count() >= 100,
+      'The in-app credits must expose the expanded licensed Fantasy portrait set.',
+    );
     const box=await dialog.boundingBox();
     assert.ok(box&&box.x>=-1&&box.x+box.width<=width+1,'Credits dialog must fit the viewport');
     assert.equal(await dialog.evaluate(element=>element.scrollWidth<=element.clientWidth+1),true,'Credits must not overflow horizontally');
