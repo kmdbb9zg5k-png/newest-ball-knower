@@ -9,7 +9,8 @@ type Props = { targetUserId?: string; targetDisplayName?: string };
 export const ProgressionProfileCard: React.FC<Props> = ({ targetUserId, targetDisplayName }) => {
   const { currentUser } = useBallKnower();
   // Remount on identity changes: never show another account's receipts while loading.
-  return <AccountProgression key={targetUserId || currentUser?.id || 'guest'} displayName={targetDisplayName || currentUser?.name} targetUserId={targetUserId}/>;
+  if (targetUserId) return <AccountProgression key={targetUserId} displayName={targetDisplayName} targetUserId={targetUserId}/>;
+  return <AccountProgression key={currentUser?.id || 'guest'} displayName={currentUser?.name}/>;
 };
 
 function AccountProgression({ displayName, targetUserId }: { displayName?: string; targetUserId?: string }) {
