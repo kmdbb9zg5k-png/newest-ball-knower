@@ -19,7 +19,7 @@ import {
   saveMyCloudRoster, updateCloudLeague, upsertAiCloudMembers, deleteCloudMember,
   subscribeToCloudLeague, joinOrCreatePublicCloudLeague, lockPublicLeagueForCpuFill,
   reopenPublicLeagueMatchmaking, startCloudLiveFantasyDraft, makeCloudLiveFantasyDraftPick,
-  resumeCloudLiveFantasyDraftRecovery,
+  resumeCloudLiveFantasyDraftRecovery, claimExpiredCloudLiveFantasyDraftPick,
   finalizeCloudLiveFantasyDraftRosters, importOfflineFantasyDraft as importCloudOfflineFantasyDraft,
   resetCloudLeagueForNextSeason,
 } from './leagueCloud';
@@ -76,6 +76,7 @@ interface BallKnowerContextType {
   finalizeDraftOrder: (leagueId: string, method: Exclude<DraftOrderMethod, 'game'>, orderedMemberIds: string[]) => Promise<boolean>;
   startLiveFantasyDraft: (leagueId: string) => Promise<boolean>;
   resumeLiveFantasyDraftRecovery: (leagueId: string) => Promise<boolean>;
+  claimExpiredLiveFantasyDraftPick: (leagueId: string, expectedPickIndex: number) => Promise<boolean>;
   makeLiveFantasyDraftPick: (leagueId: string, player: Player) => Promise<boolean>;
   finalizeLiveFantasyDraftRosters: (leagueId: string) => Promise<boolean>;
   importOfflineFantasyDraftResults: (leagueId:string,picks:{memberId:string;playerId:string}[])=>Promise<boolean>;
@@ -959,6 +960,22 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }catch(err:any){const message=err?.message||'The fantasy draft could not be recovered safely.';setCloudSyncError(message);showToast(message);return false;}
   };
 
+  const claimExpiredLiveFantasyDraftPick = async (
+    leagueId:string,
+    expectedPickIndex:number,
+  ):Promise<boolean> => {
+    if(!isCloudConfigured)return false;
+    try{
+      const draft=await claimExpiredCloudLiveFantasyDraftPick(leagueId,expectedPickIndex);
+      setLeagues(prev=>prev.map(item=>item.id===leagueId?{...item,liveDraft:draft}:item));
+      setCloudSyncError(null);
+      return draft.status==='completed'||draft.pickIndex!==expectedPickIndex;
+    }catch(err:any){
+      setCloudSyncError(err?.message||'The automatic draft pick is delayed.');
+      return false;
+    }
+  };
+
   const finalizeLiveFantasyDraftRosters = async (leagueId:string):Promise<boolean> => {
     const league=leagues.find(item=>item.id===leagueId);const draft=league?.liveDraft;
     if(!league||!draft||draft.status!=='completed')return false;
@@ -1056,7 +1073,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       currentUser,setCurrentUser,updateCurrentUserAvatar,updateCurrentUserName,loginWithProvider,logout,leagues,activeLeague,setActiveLeagueId,createLeague,joinLeague,joinPublicLeague,
       onlineInvitesReady:isCloudConfigured,cloudSyncError,currentRoster,isRosterLocked,addToRoster,removeFromRoster,clearRoster,autoDraftTemplate,submitRoster,
       totalSpent,remainingCap,rosterCounts,rosterValidationErrors,isRosterValid,autoFillLeagueWithAi,removeMemberFromLeague,startSimulation,advanceFantasyWeek,
-      finalizeDraftOrder,startLiveFantasyDraft,resumeLiveFantasyDraftRecovery,makeLiveFantasyDraftPick,finalizeLiveFantasyDraftRosters,importOfflineFantasyDraftResults,
+      finalizeDraftOrder,startLiveFantasyDraft,resumeLiveFantasyDraftRecovery,claimExpiredLiveFantasyDraftPick,makeLiveFantasyDraftPick,finalizeLiveFantasyDraftRosters,importOfflineFantasyDraftResults,
       resetLeagueSimulation,updateSalaryCap,updateLeagueSettings,isDemoMode,startDemoMode,exitDemoMode,toastMessage,showToast,
     }}>
       {children}

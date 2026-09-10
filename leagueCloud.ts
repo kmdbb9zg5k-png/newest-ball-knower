@@ -358,6 +358,22 @@ export async function resumeCloudLiveFantasyDraftRecovery(leagueId:string):Promi
   return draft;
 }
 
+export async function claimExpiredCloudLiveFantasyDraftPick(
+  leagueId:string,
+  expectedPickIndex:number,
+):Promise<LiveFantasyDraft>{
+  if(!supabase)throw new Error('Online fantasy draft recovery is unavailable.');
+  await ensureOnlineSession();
+  const {data,error}=await supabase.rpc('claim_ball_knower_expired_draft_pick',{
+    p_league_id:leagueId,
+    p_expected_pick_index:expectedPickIndex,
+  });
+  if(error)throw error;
+  const draft=liveDraftFromRow(data);
+  if(!draft)throw new Error('Automatic pick completed without a saved draft room.');
+  return draft;
+}
+
 export async function makeCloudLiveFantasyDraftPick(
   leagueId:string,
   playerId:string,

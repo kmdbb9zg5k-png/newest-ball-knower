@@ -7,6 +7,7 @@ for(const operation of [
   'start_ball_knower_live_draft',
   'resume_ball_knower_live_draft_recovery',
   'process_due_ball_knower_draft_picks',
+  'claim_ball_knower_expired_draft_pick',
   'save_my_ball_knower_weekly_lineup',
   'generate_ball_knower_weekly_injuries',
   'propose_ball_knower_trade_v2',
@@ -27,6 +28,7 @@ assert.match(sql,/\bbegin\s*;/i,'Production smoke must open a transaction');
 assert.match(sql,/\brollback\s*;/i,'Production smoke must always roll fixtures back');
 assert.ok(sql.includes("draft.pick_index = 150"),'Production smoke must complete a 150-pick draft');
 assert.ok(sql.includes("pick->>'source' = 'autopick'"),'Production smoke must assert human autopicks');
+assert.ok(sql.includes('Expired human pick was not claimed immediately'),'Production smoke must assert immediate authenticated timeout claims');
 assert.ok(sql.includes("pick->>'source' = 'cpu'"),'Production smoke must assert CPU picks');
 assert.match(sql,/draft\.recovery_enabled\s*=\s*true/,'Production smoke must assert safe draft recovery');
 assert.ok(sql.includes('jsonb_array_length(v_regular_games) <> 75'),'Production smoke must assert all 75 regular-season matchups');
