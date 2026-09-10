@@ -13,6 +13,7 @@ const app = read('App.tsx');
 const main = read('main.tsx');
 const nav = read('Navbar.tsx');
 const league = read('FantasyLeaguePostDraft.tsx');
+const lobby = read('LeagueLobby.tsx');
 const player = read('FantasyPlayerDetail.tsx');
 const draft = read('LeagueLiveDraftRoom.tsx');
 const styles = read('index.css');
@@ -67,6 +68,24 @@ assert.ok(app.includes('{showProductChrome&&<Navbar') && app.includes('{showProd
 assert.ok(nav.includes('58px+env(safe-area-inset-top)') && styles.includes('padding-bottom: calc(6rem + env(safe-area-inset-bottom))'), 'fantasy screens must reserve both iPhone safe areas and the compact fantasy app bar');
 
 assert.match(league, /label: "My Team"[\s\S]*label: "Matchup"[\s\S]*label: "Add Players"[\s\S]*label: "League"/, 'primary fantasy navigation must expose the approved four destinations');
+assert.equal((league.match(/<LeaguePageBackButton onBack=\{backFromTab\} \/>/g) || []).length, 4, 'every primary fantasy league page must expose the shared back control');
+assert.ok(league.includes('aria-label="Back to previous page"') && league.includes('h-11 w-11'), 'the shared back control must be labeled and meet the 44px mobile touch target');
+assert.ok(
+  league.includes('const tabHistory = useRef<Tab[]>([])') &&
+  league.includes('tabHistory.current.push(tab)') &&
+  league.includes('const previous = tabHistory.current.pop()') &&
+  league.includes('else onBack()'),
+  'fantasy page back controls must return through the actual league-page history before leaving the league',
+);
+assert.ok(
+  lobby.includes('onBack: () => void') &&
+  lobby.includes('onBack={onBack}') &&
+  app.includes('const tabHistory=useRef<AppTab[]>([])') &&
+  app.includes('tabHistory.current.push(current)') &&
+  app.includes("return previous||'home'") &&
+  app.includes('onBack={goBack}'),
+  'league back navigation must continue through the actual app-page history with Home as the safe root',
+);
 assert.ok(league.includes('leagueNavItems') && league.includes('Standings') && league.includes('Power') && league.includes('Trades'), 'secondary league tools must live inside League');
 assert.ok(league.includes('"Lineup Valid"') && !league.includes('"Lineup ready"'), 'lineup legality must not claim an optimized lineup');
 assert.ok(league.includes('Optimize Lineup') && league.includes('Save Changes ({lineupChanges})') && league.includes('lineupDirty &&'), 'lineup suggestions and save controls must be dirty-state aware');
