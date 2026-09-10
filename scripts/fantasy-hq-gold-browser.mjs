@@ -87,7 +87,7 @@ try{
    await go('Fantasy');await page.locator('.bk-hq-premium').waitFor();await page.getByText('Draft complete',{exact:true}).first().waitFor();await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(300);
    assert.equal(await page.getByTestId('fantasy-tool-grid').locator('button').count(),5);
    assert.equal(await page.locator('.bk-fantasy-league-pair').count(),2);
-   assert.equal(await page.getByText('BK-QATEST',{exact:true}).count(),1,'Join code must be prominent on the league card');
+   assert.equal(await page.locator('.bk-fantasy-league-code strong').filter({hasText:'BK-QATEST'}).count(),1,'Join code must be prominent on the league card');
    assert.match(await page.locator('.bk-hq-league-status-panel').first().innerText(),/#3/);
    assert.equal(await page.locator('.bk-fantasy-league-facts').first().getByText('15 drafted',{exact:true}).count(),1);
    const bounds=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,hero:document.querySelector('.bk-fantasy-hq-hero').getBoundingClientRect().height,tools:[...document.querySelectorAll('[data-testid="fantasy-tool-grid"] button')].map(e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right,height:r.height,width:r.width};})}));
