@@ -1,4 +1,4 @@
-const INJURIES_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/injuries';
+const INJURIES_URL = 'https://site.web.api.espn.com/apis/site/v2/sports/football/nfl/injuries';
 const CACHE_MS = 5 * 60_000;
 const MAX_STALE_MS = 30 * 60_000;
 const MAX_RESPONSE_BYTES = 12_000_000;
