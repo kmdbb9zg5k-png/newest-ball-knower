@@ -3,6 +3,11 @@ const CACHE_MS = 5 * 60_000;
 const MAX_STALE_MS = 30 * 60_000;
 const MAX_RESPONSE_BYTES = 12_000_000;
 
+// ESPN's league-wide report is large and can take longer than eight seconds on
+// a cold serverless connection. Keep the function bounded, but leave enough
+// room to receive and normalize the authoritative report before failing closed.
+export const maxDuration = 30;
+
 type AvailabilityStatus = 'questionable' | 'out';
 type Json = Record<string, any>;
 
@@ -93,7 +98,7 @@ export function normalizeAvailabilityReports(reports: unknown[], fetchedAt = new
 const fetchJson = async (request: typeof fetch, url: string) => {
   const response = await request(url, {
     headers: { accept: 'application/json', 'user-agent': 'BallKnower/1.0 fantasy-availability' },
-    signal: AbortSignal.timeout(8_000),
+    signal: AbortSignal.timeout(20_000),
   });
   if (!response.ok) throw new Error(`availability upstream ${response.status}`);
   const raw = await response.text();
@@ -134,7 +139,8 @@ export function createAvailabilityHandler(deps: { fetchImpl?: typeof fetch; now?
       const payload = await pending;
       res.setHeader('Cache-Control', 'public, s-maxage=300, max-age=60, stale-while-revalidate=300');
       return res.status(200).json(payload);
-    } catch {
+    } catch (error) {
+      console.warn('NFL availability refresh failed', error instanceof Error ? error.message : 'unknown error');
       if (cached && now() - Date.parse(cached.payload.fetchedAt) <= MAX_STALE_MS) {
         return res.status(200).json({ ...cached.payload, stale: true });
       }
