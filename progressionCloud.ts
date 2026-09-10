@@ -1,6 +1,7 @@
 import { ensureOnlineSession, supabase } from './supabase';
 import { GAUNTLET_CATALOG, gauntletScenarioQuestion } from './gauntletEngine';
 import { parseTriviaAnswers } from './triviaValidation';
+import type { VerifiedPredictionPick } from './modeProgressionCloud';
 
 export type ProgressProfile={
   userId:string;displayName:string;bkRating:number;xp:number;level:number;
@@ -124,6 +125,23 @@ export async function fetchProgressionProfile(displayName?:string){
     profile:mapProfile(profileRow),
     events:(events.data||[]).map((x:any)=>({id:Number(x.id),eventType:x.event_type,category:x.category,xpAwarded:Number(x.xp_awarded)||0,ratingDelta:Number(x.rating_delta)||0,occurredAt:x.occurred_at,metadata:x.metadata||{}} as ProgressEvent)),
     achievements:(achievements.data||[]).map((x:any)=>({key:x.achievement_key,title:x.title,description:x.description,category:x.category,tier:x.tier,xpReward:Number(x.xp_reward)||0,unlockedAt:unlockedMap.get(x.achievement_key)} as Achievement)),
+  };
+}
+
+export async function fetchPublicProgressionProfile(userId:string){
+  if(!supabase) throw new Error('Ball Knower profile requires online services.');
+  await ensureOnlineSession();
+  const response=await supabase.rpc('get_ball_knower_public_locker_profile',{p_user_id:userId});
+  if(response.error) throw response.error;
+  const payload=response.data as any;
+  if(!payload?.profile) throw new Error('This manager profile is unavailable.');
+  return {
+    profile:mapProfile(payload.profile),
+    events:(payload.events||[]).map((x:any)=>({id:Number(x.id),eventType:x.event_type,category:x.category,xpAwarded:Number(x.xp_awarded)||0,ratingDelta:Number(x.rating_delta)||0,occurredAt:x.occurred_at,metadata:x.metadata||{}} as ProgressEvent)),
+    achievements:(payload.achievements||[]).map((x:any)=>({key:x.achievement_key,title:x.title,description:x.description,category:x.category,tier:x.tier,xpReward:Number(x.xp_reward)||0,unlockedAt:x.unlocked_at||undefined} as Achievement)),
+    predictionPicks:(payload.prediction_picks||[]).map((x:any)=>({
+      id:String(x.id),gameId:String(x.game_id),pickId:String(x.pick_id),market:x.market,selection:String(x.selection),lockedLine:Number(x.locked_line),label:String(x.label),kickoffAt:String(x.kickoff_at),awayTeam:String(x.away_team),homeTeam:String(x.home_team),lockedAt:String(x.locked_at),result:x.result,gradedAt:x.graded_at||undefined,
+    } as VerifiedPredictionPick)),
   };
 }
 

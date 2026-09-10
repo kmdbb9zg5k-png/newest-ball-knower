@@ -3,7 +3,7 @@ import { ArrowRight, Bell, Brain, ChevronDown, ClipboardList, Flag, FlaskConical
 import { useBallKnower } from './BallKnowerContext';
 import type { ProgressProfile } from './progressionCloud';
 import { formatDraftSchedule } from './draftSchedule';
-import type { League } from './types';
+import type { League, LeagueMember } from './types';
 import type { TeamTheme } from './teamTheme';
 import type { AppTab } from './App';
 import { PartnerCard } from './PartnerCard';
@@ -20,6 +20,7 @@ interface HomeDashboardProps {
   onSelectLeague: (league: League, tab: 'lobby' | 'draft' | 'simulation') => void;
   onNavigate: (tab: AppTab) => void;
   onOpenCheatSheet: () => void;
+  onViewMemberLocker: (member: LeagueMember) => void;
   teamTheme: TeamTheme;
 }
 
@@ -34,7 +35,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = props => {
   return <HomeSession key={currentUser?.id || 'guest'} {...props}/>;
 };
 
-function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onNavigate, onOpenCheatSheet, teamTheme }: HomeDashboardProps) {
+function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onNavigate, onOpenCheatSheet, onViewMemberLocker, teamTheme }: HomeDashboardProps) {
   const { leagues, activeLeague, currentUser, setActiveLeagueId } = useBallKnower();
   const [profile, setProfile] = useState<ProgressProfile | null>(null);
   const [ratingLoading, setRatingLoading] = useState(true);
@@ -116,7 +117,7 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
       <Action label="Solo" accessibleLabel="Solo Mode" icon={<FlaskConical/>} onClick={() => onNavigate('solo')}/>
     </nav>
 
-    <HomeMatchups leagues={leagues} currentUser={currentUser} onSelectLeague={onSelectLeague}/>
+    <HomeMatchups leagues={leagues} currentUser={currentUser} onSelectLeague={onSelectLeague} onViewMemberLocker={onViewMemberLocker}/>
 
     {featured && <section className="bk-home-featured" aria-labelledby="home-featured-heading">
       <h3 id="home-featured-heading" className="bk-home-section-title">Featured</h3>

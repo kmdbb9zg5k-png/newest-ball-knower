@@ -23,6 +23,7 @@ import {
   Users,
   X,
   Zap,
+  UserRound,
 } from "lucide-react";
 import { League, LeagueMember, Player, SimulationGame } from "./types";
 import { PLAYERS_DATABASE, KNOWN_PLAYERS_DATABASE } from "./players";
@@ -96,6 +97,7 @@ type IntelView = "awards" | "allbk";
 type Props = {
   league: League;
   onGoToSimulation: () => void;
+  onViewMemberLocker: (member: LeagueMember) => void;
 };
 
 const STANDARD_POSITIONS = new Set(["QB", "RB", "WR", "TE", "K", "DST"]);
@@ -131,6 +133,7 @@ const buildFantasyLineup = (
 export const FantasyLeaguePostDraft: React.FC<Props> = ({
   league,
   onGoToSimulation,
+  onViewMemberLocker,
 }) => {
   const safety = useCommunitySafety();
   const { currentUser, showToast, updateLeagueSettings } = useBallKnower();
@@ -1572,6 +1575,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                 homeScore={viewedHomeScore}
                 status={viewedScoreStatus}
                 injuries={injuries}
+                onViewMemberLocker={onViewMemberLocker}
                 navigation={(
                   <div className="flex items-center gap-2 px-1">
                     <div className="flex min-h-10 items-center overflow-hidden rounded-full border border-white/15 bg-[#101318]">
@@ -2054,21 +2058,17 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
             sub="Record, points, streak and playoff position—tap any team for its roster"
             icon={<Users className="h-5 w-5 text-[#D4AF37]" />}
           >
-            <div className="grid grid-cols-[minmax(0,1fr)_50px_42px_42px_34px] gap-1 border-b border-white/10 px-1 pb-2 text-right text-[7px] font-black uppercase tracking-wide text-zinc-600">
-              <span className="text-left">Team</span><span>Record</span><span>PF</span><span>PA</span><span>Strk</span>
+            <div className="grid grid-cols-[minmax(0,1fr)_50px_42px_42px_34px_38px] gap-1 border-b border-white/10 px-1 pb-2 text-right text-[7px] font-black uppercase tracking-wide text-zinc-600">
+              <span className="text-left">Team</span><span>Record</span><span>PF</span><span>PA</span><span>Strk</span><span>Profile</span>
             </div>
             {visibleStandings.map((standing) => {
               const member = league.members.find(
                 (item) => item.id === standing.memberId,
               )!;
               return (
-                <button
-                  key={member.id}
-                  onClick={() => setSelectedTeamId(member.id)}
-                  className="bk-fantasy-row grid min-h-12 w-full grid-cols-[minmax(0,1fr)_50px_42px_42px_34px] items-center gap-1 px-1 py-1.5 text-left"
-                >
+                <div key={member.id} className="bk-fantasy-row grid min-h-12 w-full grid-cols-[minmax(0,1fr)_50px_42px_42px_34px_38px] items-center gap-1 px-1 py-1.5 text-left">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => setSelectedTeamId(member.id)} className="flex min-h-10 w-full items-center gap-2 text-left" aria-label={`View ${displayManagerName(member)} roster`}>
                       <span className="w-5 shrink-0 text-[9px] font-black text-[var(--bk-team-accent)]">#{standing.rank}</span>
                       <ManagerAvatar member={member} className="h-7 w-7" />
                       <span className="truncate text-[11px] font-black sm:text-sm">
@@ -2080,7 +2080,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                           You
                         </span>
                       )}
-                    </div>
+                    </button>
                     <div className="ml-7 text-[9px] text-zinc-500">
                       {standing.rank <= playoffTeamCount ? `Playoff seed ${standing.rank}` : `${rosterCount(member)} players`}
                     </div>
@@ -2089,7 +2089,8 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                   <span className="text-right text-[9px] font-bold text-zinc-400">{standing.pointsFor.toFixed(0)}</span>
                   <span className="text-right text-[9px] font-bold text-zinc-500">{standing.pointsAgainst.toFixed(0)}</span>
                   <span className={`text-right text-[9px] font-black ${standing.streak.startsWith("W") ? "text-emerald-300" : "text-red-300"}`}>{standing.streak}</span>
-                </button>
+                  <button type="button" disabled={member.isAi||!member.userId} aria-label={`View ${displayManagerName(member)}'s locker`} onClick={() => onViewMemberLocker(member)} className="grid h-9 w-9 place-items-center rounded-full border border-white/10 text-[var(--bk-team-accent)] disabled:opacity-25"><UserRound className="h-4 w-4"/></button>
+                </div>
               );
             })}
           </Panel>}
@@ -2645,15 +2646,34 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
               </div>
               <div className="max-h-[35dvh] space-y-2 overflow-y-auto">
                 {messages.length ? (
-                  messages.filter(item => !safety.isBlocked(item.authUserId)).map((item) => (
-                    <div key={item.id} className="flex gap-2 rounded-xl bg-black/30 p-3">
-                      <ManagerAvatar member={league.members.find(member => member.userId === item.authUserId)} name={item.memberName} className="h-8 w-8" />
-                      <div className="min-w-0"><b className="text-[10px] uppercase text-[#D4AF37]">
-                        {item.memberName}
-                      </b>
-                      <p className="mt-1 break-words text-sm">{item.body}</p><MessageSafety contentType="league_message" contentId={item.id} authorId={item.authUserId} safety={safety}/></div>
-                    </div>
-                  ))
+                  messages.filter(item => !safety.isBlocked(item.authUserId)).map((item) => {
+                    const author = league.members.find(member => member.userId === item.authUserId);
+                    const canOpenLocker = Boolean(author?.userId && !author.isAi);
+                    return (
+                      <div key={item.id} className="flex gap-2 rounded-xl bg-black/30 p-3">
+                        <button
+                          type="button"
+                          disabled={!canOpenLocker}
+                          aria-label={`View ${item.memberName}'s locker`}
+                          onClick={() => author && onViewMemberLocker(author)}
+                          className="h-8 w-8 shrink-0 rounded-full disabled:cursor-default"
+                        >
+                          <ManagerAvatar member={author} name={item.memberName} className="h-8 w-8" />
+                        </button>
+                        <div className="min-w-0">
+                          <button
+                            type="button"
+                            disabled={!canOpenLocker}
+                            onClick={() => author && onViewMemberLocker(author)}
+                            className="text-[10px] font-bold uppercase text-[#D4AF37] disabled:cursor-default"
+                          >
+                            {item.memberName}
+                          </button>
+                          <p className="mt-1 break-words text-sm">{item.body}</p><MessageSafety contentType="league_message" contentId={item.id} authorId={item.authUserId} safety={safety}/>
+                        </div>
+                      </div>
+                    );
+                  })
                 ) : (
                   <Empty text="No messages yet." />
                 )}
@@ -2684,11 +2704,11 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                 const standing = visibleStandings.find((item) => item.memberId === row.memberId);
                 const previousRank = previousPowerRanks.get(row.memberId);
                 const movement = previousRank ? previousRank - row.rank : 0;
-                return <button key={row.memberId} type="button" onClick={() => setSelectedTeamId(row.memberId)} className="bk-fantasy-row grid min-h-12 w-full grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2 px-2 text-left">
+                return <div key={row.memberId} className="bk-fantasy-row grid min-h-12 w-full grid-cols-[minmax(0,1fr)_40px] items-center gap-1 px-1"><button type="button" onClick={() => setSelectedTeamId(row.memberId)} className="grid min-h-11 min-w-0 grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2 px-1 text-left">
                   <span className="text-center"><span className="block font-display text-lg font-black text-[var(--bk-team-accent)]">{row.rank}</span>{previousRank ? <span className={`block text-[7px] font-black ${movement > 0 ? "text-emerald-300" : movement < 0 ? "text-red-300" : "text-zinc-600"}`}>{movement > 0 ? `▲${movement}` : movement < 0 ? `▼${Math.abs(movement)}` : "—"}</span> : null}</span>
                   <span className="min-w-0"><span className="block truncate text-xs font-black uppercase">{row.memberName}</span><span className="block truncate text-[8px] font-bold text-zinc-500">{standing ? `${standing.wins}-${standing.losses}${standing.ties ? `-${standing.ties}` : ""} · ${standing.pointsFor.toFixed(1)} PF` : "Preseason"}{row.injuryCount ? ` · ${row.injuryCount} injury flag${row.injuryCount === 1 ? "" : "s"}` : ""}</span></span>
                   <span className="text-right"><span className="block text-base font-black">{row.score.toFixed(1)}</span><span className="block text-[7px] font-black uppercase text-zinc-600">Power</span></span>
-                </button>;
+                </button><button type="button" disabled={!member||member.isAi||!member.userId} aria-label={`View ${row.memberName}'s locker`} onClick={() => member&&onViewMemberLocker(member)} className="grid h-9 w-9 place-items-center rounded-full border border-white/10 text-[var(--bk-team-accent)] disabled:opacity-25"><UserRound className="h-4 w-4"/></button></div>;
               })}
             </div>
           </Panel>
@@ -3128,19 +3148,35 @@ const TeamMatchupHeader = ({
   score,
   status,
   side,
+  onViewMemberLocker,
 }: {
   member?: LeagueMember;
   score?: WeeklyScore;
   status: "Scheduled" | "Live" | "Final";
   side: "away" | "home";
+  onViewMemberLocker: (member: LeagueMember) => void;
 }) => {
   const total = matchupTotal(score, status);
   const name = displayManagerName(member);
+  const canOpenLocker = Boolean(member?.userId && !member.isAi);
   return (
     <div className={`flex min-w-0 flex-col gap-1 ${side === "home" ? "items-end text-right" : "items-start text-left"}`}>
-      <div className="max-w-full truncate text-[10px] font-black uppercase text-zinc-200">{name}</div>
+      <button
+        type="button"
+        disabled={!canOpenLocker}
+        onClick={() => member && onViewMemberLocker(member)}
+        className="max-w-full truncate text-[10px] font-black uppercase text-zinc-200 disabled:cursor-default"
+      >
+        {name}
+      </button>
       <div className={`flex items-center gap-2 ${side === "home" ? "flex-row-reverse" : ""}`}>
-      <div className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full border border-[#D4AF37]/35 bg-[#171b22] text-[10px] font-black text-[#D4AF37] sm:h-14 sm:w-14 sm:text-xs">
+      <button
+        type="button"
+        disabled={!canOpenLocker}
+        aria-label={`View ${name}'s locker`}
+        onClick={() => member && onViewMemberLocker(member)}
+        className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full border border-[#D4AF37]/35 bg-[#171b22] text-[10px] font-black text-[#D4AF37] disabled:cursor-default sm:h-14 sm:w-14 sm:text-xs"
+      >
         {name.slice(0, 2).toUpperCase()}
         {member?.userAvatar && (
           <img
@@ -3151,7 +3187,7 @@ const TeamMatchupHeader = ({
             onError={(event) => { event.currentTarget.style.display = "none"; }}
           />
         )}
-      </div>
+      </button>
       <div className="min-w-0" data-matchup-side={side} data-matchup-member={member?.id}>
         <div data-matchup-current className={`text-2xl font-black leading-none tabular-nums sm:text-3xl ${status === "Live" ? "text-amber-300" : "text-white"}`}>{total.value}</div>
         <div className="mt-1 truncate text-[8px] font-black uppercase text-zinc-500">{total.label}</div>
@@ -3174,6 +3210,7 @@ const HeadToHeadMatchup = ({
   navigation,
   onOpenAway,
   onOpenHome,
+  onViewMemberLocker,
 }: {
   away?: LeagueMember;
   home?: LeagueMember;
@@ -3184,6 +3221,7 @@ const HeadToHeadMatchup = ({
   navigation: React.ReactNode;
   onOpenAway: (playerId: string) => void;
   onOpenHome: (playerId: string) => void;
+  onViewMemberLocker: (member: LeagueMember) => void;
 }) => {
   const projectionReady = awayScore?.hasProjectedTotal === true && homeScore?.hasProjectedTotal === true;
   const projectionMargin = Number(awayScore?.projectedPoints || 0) - Number(homeScore?.projectedPoints || 0);
@@ -3194,9 +3232,9 @@ const HeadToHeadMatchup = ({
     <section aria-label={`${displayManagerName(away)} versus ${displayManagerName(home)}`} className="space-y-3">
       <div data-testid="matchup-scoreboard" className="overflow-hidden rounded-2xl border border-white/10 bg-[#151922] shadow-[0_12px_30px_rgba(0,0,0,.24)]">
       <div className="grid grid-cols-[minmax(0,1fr)_26px_minmax(0,1fr)] items-center gap-1.5 p-3 sm:grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)] sm:gap-2 sm:p-4">
-        <TeamMatchupHeader member={away} score={awayScore} status={status} side="away" />
+        <TeamMatchupHeader member={away} score={awayScore} status={status} side="away" onViewMemberLocker={onViewMemberLocker} />
         <div className="text-center text-[9px] font-black uppercase text-[#D4AF37]">VS</div>
-        <TeamMatchupHeader member={home} score={homeScore} status={status} side="home" />
+        <TeamMatchupHeader member={home} score={homeScore} status={status} side="home" onViewMemberLocker={onViewMemberLocker} />
       </div>
       {awayWinChance === null ? (
         <div className="border-b border-white/5 px-3 py-2 text-center text-[8px] font-black uppercase text-zinc-600">

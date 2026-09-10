@@ -1,20 +1,52 @@
 import { BroadcastStage } from './BroadcastScene';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Crown, Package, Shirt, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Crown, Package, Shirt, ShoppingBag } from 'lucide-react';
 import { equipLockerItem, fetchLockerExperience, formatStorePrice, LockerState, PassProgress, StoreItem } from './lockerCloud';
 import { useBallKnower } from './BallKnowerContext';
 import { ProgressionProfileCard } from './ProgressionProfileCard';
 import { ProfilePhotoEditor } from './ProfilePhotoEditor';
 import { LockerManagerIllustration } from './ProfileLockerArt';
 import './profileLocker.css';
+import type { LeagueMember } from './types';
 
 type Tab='locker'|'collections';
 const lockerSlots: Record<string, keyof LockerState> = { profile_frame: 'equippedProfileFrame', nameplate: 'equippedNameplate', league_theme: 'equippedLeagueTheme', trivia_effect: 'equippedTriviaEffect', my_player_cosmetic: 'equippedMyPlayerCosmetic' };
 const getLockerSlot = (item: StoreItem) => lockerSlots[String(item.metadata.slot || '')];
 
-export const LockerHub: React.FC<{ onOpenAuth?: () => void }> = ({ onOpenAuth }) => {
+type LockerHubProps = { onOpenAuth?: () => void; viewedMember?: LeagueMember | null; onBack?: () => void };
+
+const possessiveLockerTitle = (name: string) => `${name}${name.trim().toLowerCase().endsWith('s') ? "'" : "'s"} Locker`;
+
+export const LockerHub: React.FC<LockerHubProps> = ({ onOpenAuth, viewedMember, onBack }) => {
   const { currentUser } = useBallKnower();
+  if (viewedMember?.userId) {
+    return <PublicLocker member={viewedMember} onBack={onBack}/>;
+  }
   return <LockerSession key={currentUser?.id || 'guest'} onOpenAuth={onOpenAuth}/>;
+};
+
+const PublicLocker: React.FC<{ member: LeagueMember; onBack?: () => void }> = ({ member, onBack }) => {
+  const name = member.userName?.trim() || 'Manager';
+  return <BroadcastStage scene="locker" page="profile" className="bk-profile-page relative isolate min-h-[calc(100dvh-7rem)] overflow-hidden px-3 pb-8 pt-4 sm:px-6 sm:pt-6">
+    <div className="mx-auto max-w-5xl">
+      <header className="bk-locker-masthead">
+        <button type="button" onClick={onBack} aria-label="Back to league" className="bk-locker-back"><ArrowLeft aria-hidden="true"/></button>
+        <h1>{possessiveLockerTitle(name)}</h1>
+        <span>Football minds build more<i aria-hidden="true"/></span>
+      </header>
+      <div className="bk-profile-identity" data-testid="locker-identity">
+        <section className="bk-member-locker-identity" aria-label={`${name}'s Ball Knower profile`}>
+          <div className="bk-member-locker-portrait">
+            {name.slice(0, 2).toUpperCase()}
+            {member.userAvatar && <img src={member.userAvatar} alt="" referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.style.display = 'none'; }}/>}
+          </div>
+          <div className="bk-member-locker-copy"><div>{name}</div><div>League manager · verified Ball Knower profile</div></div>
+        </section>
+        <LockerManagerIllustration/>
+      </div>
+      <ProgressionProfileCard targetUserId={member.userId} targetDisplayName={name}/>
+    </div>
+  </BroadcastStage>;
 };
 
 const LockerSession: React.FC<{ onOpenAuth?: () => void }> = ({ onOpenAuth }) => {
