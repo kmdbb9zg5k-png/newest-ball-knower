@@ -10,11 +10,16 @@ const footer=read('LaunchCenter.tsx');
 const locker=read('LockerHub.tsx');
 const fantasyHub=read('FantasyHub.tsx');
 const styles=read('index.css');
+const matchups=read('HomeMatchups.tsx');
+const parity=read('fantasyLeagueParityCloud.ts');
 
 assert.ok(home.includes('const selectedLeague = leagues.find')&&home.includes('const primaryLeague = selectedLeague || leagues.find'), 'home must feature the selected league instead of a hard-coded personal league');
 assert.ok(home.includes('teamTheme.name')&&home.includes('teamTheme.primary'), 'home atmosphere must come from the selected NFL team theme');
 assert.ok(!home.includes('The Justice League')&&!home.includes('Philadelphia Eagles'), 'personal league and favorite-team copy must never be hard-coded');
 assert.ok(home.includes('homeLeagueAction(primaryLeague)')&&state.includes("league.liveDraft?.status === 'active'")&&state.includes("fantasySeasonStarted"), 'the main action must follow authoritative league state');
+assert.ok(home.includes('<HomeMatchups')&&matchups.includes('My Matchups')&&matchups.includes('My Team')&&matchups.includes('Matchup'), 'signed-in Home must lead with Yahoo-style matchup cards and direct team/matchup actions');
+assert.ok(matchups.includes('livePoints.toFixed(2)')&&matchups.includes('hasProjectedTotal === true')&&matchups.includes('Projected win chance unavailable'), 'Home matchup cards must separate live points from verified projections without inventing odds');
+assert.ok(parity.includes('fetchHomeWeeklyScores')&&parity.includes(".eq('week_number',week)"), 'Home matchups must fetch authoritative scores for the current week only');
 assert.ok(home.includes('fetchSeasonOperations(primaryLeague.id)')&&home.includes('formatDraftSchedule(primaryLeague)'), 'league activity must use real operations and the saved draft schedule');
 assert.ok(home.includes('buildHomeActivity(operations')&&state.includes("item.kind === 'announcement'")&&state.includes('memberId'), 'home activity must avoid unrelated private owner data');
 assert.ok(home.includes('setActivityUnavailable(true)')&&!home.includes('Commissioner updated league settings'), 'failed activity requests must show unavailable instead of invented updates');
@@ -26,6 +31,7 @@ assert.ok(home.includes('homeFeaturedActivity(currentActivity')&&home.includes('
 assert.ok(home.includes('aria-label="Change league"')&&home.includes('Continue your league'), 'league selection must be integrated with the Continue Your League card');
 
 assert.ok(navbar.includes('fixed inset-x-0 bottom-0')&&navbar.includes('pb-[env(safe-area-inset-bottom)]'), 'mobile navigation must be fixed above the iPhone home indicator');
+assert.ok(navbar.includes('keyboardInset>80')&&navbar.includes('mobileNavRevision')&&navbar.includes('[80,220,450,800]'), 'mobile navigation must stay hidden until the iPhone keyboard viewport recovers, then remount at the true bottom edge');
 assert.ok(styles.includes('body > .bk-broadcast-nav')&&styles.includes('bottom: 0 !important')&&styles.includes('transform: none !important')&&!styles.includes('contain: layout paint'), 'the iPhone navigation must stay fixed without a stale keyboard compositor layer');
 assert.ok(app.includes("currentTab==='draft'?'bk-live-draft-viewport':''")&&styles.includes('.bk-live-draft-viewport')&&styles.includes('overscroll-behavior: contain'), 'live drafts must scroll inside a contained iPhone viewport instead of moving the fixed tab bar through the player list');
 assert.ok(navbar.includes('data-keyboard-open')&&styles.includes('.bk-broadcast-nav[data-keyboard-open="true"]'), 'the tab bar must leave the visual viewport while the iPhone keyboard is open instead of floating mid-screen');

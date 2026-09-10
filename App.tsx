@@ -3,7 +3,6 @@ import React,{lazy,Suspense,useCallback,useEffect,useRef,useState} from 'react';
 import {BallKnowerProvider,useBallKnower} from './BallKnowerContext';
 import {SoundtrackProvider,useSoundtrack} from './SoundtrackContext';
 import {Navbar} from './Navbar';
-import {HomeDashboard} from './HomeDashboard';
 import {CreateLeagueModal} from './CreateLeagueModal';
 import {JoinLeagueModal} from './JoinLeagueModal';
 import {CinematicIntro} from './CinematicIntro';
@@ -18,6 +17,7 @@ import type {SoloExperience} from './SoloFranchiseHub';
 import {LaunchCenter,LaunchFooter,type LaunchPanel} from './LaunchCenter';
 
 const AuthModal=lazy(()=>import('./AuthModal').then(module=>({default:module.AuthModal})));
+const HomeDashboard=lazy(()=>import('./HomeDashboard').then(module=>({default:module.HomeDashboard})));
 const SoloMode=lazy(()=>import('./SoloMode').then(module=>({default:module.SoloMode})));
 const NewsHub=lazy(()=>import('./NewsHub').then(module=>({default:module.NewsHub})));
 const FantasyHub=lazy(()=>import('./FantasyHub').then(module=>({default:module.FantasyHub})));
@@ -82,7 +82,7 @@ function BallKnowerApp(){
 
     {showProductChrome&&<Navbar newsEnabled={wantsNewsStrip(currentTab,fantasyView)} currentTab={currentTab} setCurrentTab={navigateToTab} onOpenAuth={()=>setIsAuthOpen(true)} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onOpenIntro={openIntro} onOpenDatabaseModal={()=>setIsDatabaseModalOpen(true)}/>}
     {showProductChrome&&<main className={`relative z-[3] w-full pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-[env(safe-area-inset-bottom)] ${currentTab==='draft'?'bk-live-draft-viewport':''}`}>
-      {currentTab==='home'&&<HomeDashboard teamTheme={favoriteTheme} onNavigate={navigateToTab} onOpenCheatSheet={openCheatSheet} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague}/>}
+      {currentTab==='home'&&<Suspense fallback={<ScreenFallback/>}><HomeDashboard teamTheme={favoriteTheme} onNavigate={navigateToTab} onOpenCheatSheet={openCheatSheet} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague}/></Suspense>}
       <Suspense fallback={<ScreenFallback/>}>
         {currentTab==='solo'&&<SoloMode initialExperience={soloExperience}/>} 
         {currentTab==='news'&&<NewsHub/>}
