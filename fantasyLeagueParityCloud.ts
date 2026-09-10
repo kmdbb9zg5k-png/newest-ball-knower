@@ -206,6 +206,14 @@ export async function fetchFantasyParityState(leagueId:string,week:number,season
   return result;
 }
 
+export async function fetchHomeWeeklyScores(leagueId:string,week:number):Promise<WeeklyScore[]>{
+  if(!supabase) return [];
+  await ensureOnlineSession();
+  const {data,error}=await supabase.from('ball_knower_weekly_scores').select('*').eq('league_id',leagueId).eq('week_number',week);
+  if(error) throw error;
+  return (data||[]).map(mapScore);
+}
+
 export function subscribeToFantasyParity(leagueId:string,onChange:()=>void){
   if(!supabase) return ()=>{};
   let timer=0;

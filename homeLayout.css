@@ -30,6 +30,35 @@
 .bk-home-clean .bk-home-league-options>div,.bk-home-clean .bk-home-league-empty>div { display:grid; grid-template-columns:1fr 1fr; gap:8px; border-top:1px solid #ffffff12; padding-top:5px; }
 .bk-home-clean .bk-home-league-options>div>button,.bk-home-clean .bk-home-league-empty button { min-height:44px; padding:7px; color:#dfc878; font:600 12px/1.3 Arial,sans-serif; }
 .bk-home-clean .bk-home-league-empty>p { margin:8px 0 12px; color:#b8bfc2; font:400 12px/1.5 Arial,sans-serif; }
+.bk-home-clean .bk-home-matchups { margin:2px 0 14px; }
+.bk-home-clean .bk-home-matchups-title { display:flex; align-items:center; justify-content:space-between; min-height:44px; }
+.bk-home-clean .bk-home-matchups-title h2 { margin:0; color:#f5f2e9; font:900 24px/1 'Barlow Condensed','Arial Narrow',sans-serif; text-transform:uppercase; }
+.bk-home-clean .bk-home-matchups-title>span { color:#cdb76e; font:700 9px/1 Arial,sans-serif; text-transform:uppercase; letter-spacing:.08em; }
+.bk-home-clean .bk-home-matchup-list { display:grid; gap:10px; }
+.bk-home-clean .bk-home-matchup-card { overflow:hidden; border:1px solid #5e512e; border-radius:11px; background:#10141a; box-shadow:0 10px 28px #0005; }
+.bk-home-clean .bk-home-matchup-card>header { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:42px; padding:7px 11px; border-bottom:1px solid #ffffff10; background:linear-gradient(105deg,#4b3911,#17150e 72%); }
+.bk-home-clean .bk-home-matchup-card>header>span { display:flex; min-width:0; align-items:center; gap:7px; overflow:hidden; color:#f4e4ac; font:800 13px/1.2 Arial,sans-serif; white-space:nowrap; text-overflow:ellipsis; }
+.bk-home-clean .bk-home-matchup-card>header svg { width:15px; height:15px; flex:none; color:#dfbd4d; }
+.bk-home-clean .bk-home-matchup-card>header>strong { flex:none; color:#d4bd73; font:800 8px/1.2 Arial,sans-serif; text-transform:uppercase; letter-spacing:.05em; }
+.bk-home-clean .bk-home-matchup-teams { display:grid; grid-template-columns:minmax(0,1fr) 24px minmax(0,1fr); align-items:center; gap:5px; padding:14px 12px 10px; }
+.bk-home-clean .bk-home-matchup-team { min-width:0; }
+.bk-home-clean .bk-home-matchup-team>strong { display:block; overflow:hidden; color:#f4f1e9; font:900 11px/1.2 'Barlow Condensed','Arial Narrow',sans-serif; text-transform:uppercase; white-space:nowrap; text-overflow:ellipsis; }
+.bk-home-clean .bk-home-matchup-team>div { display:flex; align-items:center; gap:8px; margin-top:7px; }
+.bk-home-clean .bk-home-matchup-team b { display:block; color:#fff; font:900 27px/.9 'Barlow Condensed','Arial Narrow',sans-serif; font-variant-numeric:tabular-nums; }
+.bk-home-clean .bk-home-matchup-team small { display:block; margin-top:5px; color:#bda657; font:800 9px/1 Arial,sans-serif; font-variant-numeric:tabular-nums; }
+.bk-home-clean .bk-home-matchup-team-right { text-align:right; }
+.bk-home-clean .bk-home-matchup-team-right>div { flex-direction:row-reverse; }
+.bk-home-clean .bk-home-matchup-vs { color:#d0b75e; font:900 8px/1 Arial,sans-serif; text-align:center; }
+.bk-home-clean .bk-home-matchup-odds { padding:0 12px 12px; }
+.bk-home-clean .bk-home-matchup-odds>div:first-child { display:flex; align-items:center; justify-content:space-between; color:#9fa4aa; font:800 8px/1.2 Arial,sans-serif; text-transform:uppercase; }
+.bk-home-clean .bk-home-matchup-odds strong { color:#babfc2; font-size:10px; }
+.bk-home-clean .bk-home-matchup-meter { display:flex; height:6px; margin-top:6px; overflow:hidden; border-radius:99px; background:#2b3035; }
+.bk-home-clean .bk-home-matchup-meter i:first-child { background:#d9b43b; }
+.bk-home-clean .bk-home-matchup-meter i:last-child { background:#697078; }
+.bk-home-clean .bk-home-matchup-sync { margin:0; padding:1px 12px 12px; color:#7e858d; font:800 8px/1.2 Arial,sans-serif; text-align:center; text-transform:uppercase; }
+.bk-home-clean .bk-home-matchup-card>footer { display:grid; grid-template-columns:1fr 1fr; border-top:1px solid #ffffff12; }
+.bk-home-clean .bk-home-matchup-card>footer button { min-height:46px; border-right:1px solid #ffffff12; color:#eeeae0; font:800 13px/1 Arial,sans-serif; }
+.bk-home-clean .bk-home-matchup-card>footer button:last-child { border-right:0; color:#e3c359; }
 .bk-home-clean .bk-home-rating { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:12px; margin:10px 0 0; padding:11px 13px; min-height:84px; border:1px solid #303632; border-radius:9px; background:#0c1015; }
 .bk-home-clean .bk-home-rating-value>span { display:block; color:#a7afb4; font:700 9px/1.25 Arial,sans-serif; text-transform:uppercase; letter-spacing:.07em; }
 .bk-home-clean .bk-home-rating-value>strong { display:block; margin-top:3px; color:#f2f2ed; font:800 34px/.95 'Barlow Condensed','Arial Narrow',sans-serif; }

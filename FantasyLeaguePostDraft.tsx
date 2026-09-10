@@ -164,8 +164,12 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const maxSelectableWeek = maxWeek + playoffWeeks;
   const storedWeekKey = `ball-knower:matchup-week:${league.id}`;
   const storedMatchupKey = `ball-knower:matchup-id:${league.id}`;
+  const storedTabKey = `ball-knower:league-tab:${league.id}`;
 
-  const [tab, setTab] = useState<Tab>("team");
+  const [tab, setTab] = useState<Tab>(() => {
+    const saved = window.sessionStorage.getItem(storedTabKey);
+    return saved === "matchup" || saved === "players" || saved === "league" ? saved : "team";
+  });
   const [leagueView, setLeagueView] = useState<LeagueView>("standings");
   const [activityView, setActivityView] = useState<ActivityView>("trades");
   const [intelView, setIntelView] = useState<IntelView>("allbk");
@@ -366,6 +370,9 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   useEffect(() => {
     window.sessionStorage.setItem(storedWeekKey, String(week));
   }, [storedWeekKey, week]);
+  useEffect(() => {
+    window.sessionStorage.setItem(storedTabKey, tab);
+  }, [storedTabKey, tab]);
   useEffect(() => {
     if (viewedMatchupId) window.sessionStorage.setItem(storedMatchupKey, viewedMatchupId);
   }, [storedMatchupKey, viewedMatchupId]);

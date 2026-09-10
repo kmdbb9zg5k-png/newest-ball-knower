@@ -9,6 +9,7 @@ import type { AppTab } from './App';
 import { PartnerCard } from './PartnerCard';
 import { homePartners } from './partners';
 import { HomeStadiumHero } from './HomeStadiumHero';
+import { HomeMatchups } from './HomeMatchups';
 import { buildHomeActivity, homeFeaturedActivity, homeLeagueAction, homeLeaguePhase, homeRatingTier, type HomeActivity } from './homeDashboardState';
 import './homeBroadcast.css';
 import './homeLayout.css';
@@ -115,6 +116,8 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
       <Action label="Solo" accessibleLabel="Solo Mode" icon={<FlaskConical/>} onClick={() => onNavigate('solo')}/>
     </nav>
 
+    <HomeMatchups leagues={leagues} currentUser={currentUser} onSelectLeague={onSelectLeague}/>
+
     {featured && <section className="bk-home-featured" aria-labelledby="home-featured-heading">
       <h3 id="home-featured-heading" className="bk-home-section-title">Featured</h3>
       <button type="button" onClick={openActivity} aria-label="Open featured league update">
@@ -124,7 +127,7 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
       </button>
     </section>}
 
-    <section className="bk-home-current-league" aria-label="Your league" style={{ background: `linear-gradient(115deg,${teamTheme.primary}32,#0b1016 72%)` }}>
+    {(!primaryLeague?.settings?.fantasySeasonStarted || primaryLeague.settings?.fantasySeasonComplete) && <section className="bk-home-current-league" aria-label="Your league" style={{ background: `linear-gradient(115deg,${teamTheme.primary}32,#0b1016 72%)` }}>
       <div className="bk-home-league-top"><p><Flag size={15} aria-hidden="true"/>Continue your league</p>
         {leagues.length > 0 && <button type="button" ref={changeButton} aria-label="Change league" aria-expanded={leagueMenuOpen} aria-controls={leaguePickerId} onClick={() => setLeagueMenuOpen(value => !value)}>Change<ChevronDown size={15} aria-hidden="true"/></button>}
       </div>
@@ -139,7 +142,7 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
         {scheduledDraft && <p className="bk-home-league-meta">Draft · {scheduledDraft}</p>}
         <button type="button" className="bk-home-league-cta" onClick={openPrimaryLeague}>{action!.label}<ArrowRight size={18} aria-hidden="true"/></button>
       </> : <div className="bk-home-league-empty"><h2>Your league starts here</h2><p>Create a league or join your friends with an invite code.</p><div><button type="button" onClick={onOpenCreateLeague}>Create League</button><button type="button" onClick={onOpenJoinLeague}>Join League</button></div></div>}
-    </section>
+    </section>}
 
     <section className="bk-home-rating" aria-label="Ball Knower Rating" aria-busy={ratingLoading}>
       <div className="bk-home-rating-value"><span>BK Rating</span><strong>{profile?.bkRating ?? '—'}</strong></div>
