@@ -90,6 +90,15 @@ try{
   await home();await page.getByRole('button',{name:'View All Partners',exact:true}).click();await capture('partners','studio');
   await home();await page.getByRole('button',{name:'Solo Mode',exact:true}).click();
   await page.locator('.bk-mode-card').filter({hasText:'FANTASY DRAFT'}).click();await capture('fantasy-franchise','tunnel');assert.equal(await page.locator('.bk-home-news-strip').count(),0);
+  const fixedBack=page.getByRole('button',{name:'Back to Solo Mode choices',exact:true});
+  const nestedBack=page.getByRole('button',{name:'Back to Solo Franchise Hub',exact:true});
+  const fixedBox=await fixedBack.boundingBox(),nestedBox=await nestedBack.boundingBox();
+  assert.ok(fixedBox&&nestedBox&&nestedBox.y>=fixedBox.y+fixedBox.height,`Solo return buttons overlap at ${width}px`);
+  await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
+  await fixedBack.click();
+  await page.locator('.bk-mode-card').filter({hasText:'FANTASY DRAFT'}).click();
+  await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+
   await page.getByRole('button',{name:'Back to Solo Franchise Hub',exact:true}).click();await page.locator('.bk-mode-card').filter({hasText:'CAP CHALLENGE'}).click();await capture('cap','tunnel');assert.equal(await page.locator('.bk-home-news-strip').count(),0);
   assert.deepEqual(crashes,[]);await context.close();
  }

@@ -10,3 +10,5 @@ assert.match(solo, /md:top-\[calc\(116px\+env\(safe-area-inset-top\)\+\.75rem\)\
 assert.match(solo, /onClick=\{back\}/, 'The persistent control must return to the Solo choice hub.');
 
 console.log('Solo back-navigation checks passed: the control stays visible above every sub-screen and returns to the Solo hub.');
+
+assert.match(solo, /bk-solo-experience pt-16/, "Reserve space so the persistent back control does not cover the nested screen header.");
