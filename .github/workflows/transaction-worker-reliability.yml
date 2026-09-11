@@ -1,0 +1,39 @@
+name: Transaction worker reliability
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - api/fantasy-transactions.ts
+      - migrations/20260911_transaction_worker_receipts.sql
+      - scripts/transaction-worker-reliability-check.ts
+      - scripts/postgres-transaction-worker-integration.sql
+      - .github/workflows/transaction-worker-reliability.yml
+permissions:
+  contents: read
+jobs:
+  worker-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: 22}
+      - run: npm ci --no-audit --no-fund
+      - run: node --import tsx scripts/transaction-worker-reliability-check.ts
+      - name: Verify atomic receipts and concurrent-worker locking
+        env: {PGPASSWORD: postgres}
+        run: psql -h 127.0.0.1 -U postgres -d postgres -f scripts/postgres-transaction-worker-integration.sql

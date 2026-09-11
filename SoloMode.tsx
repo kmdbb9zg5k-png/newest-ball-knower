@@ -94,7 +94,7 @@ export const SoloMode:React.FC<{initialExperience?:SoloExperience}>=({initialExp
  const openExperience=(next:SoloExperience)=>{trackBallKnowerEvent('Solo Experience Opened',{experience:next});setExperience(next)};
  if(experience==='hub')return <SoloFranchiseHub onOpen={openExperience}/>;
  const back=()=>setExperience('hub');
- return <div className="bk-solo-experience">
+ return <div className="bk-solo-experience pt-16">
   <button
    type="button"
    onClick={back}
