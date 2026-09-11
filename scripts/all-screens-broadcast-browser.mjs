@@ -94,10 +94,14 @@ try{
   const nestedBack=page.getByRole('button',{name:'Back to Solo Franchise Hub',exact:true});
   const fixedBox=await fixedBack.boundingBox(),nestedBox=await nestedBack.boundingBox();
   assert.ok(fixedBox&&nestedBox&&nestedBox.y>=fixedBox.y+fixedBox.height,`Solo return buttons overlap at ${width}px`);
-  await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
   await fixedBack.click();
-  await page.locator('.bk-mode-card').filter({hasText:'FANTASY DRAFT'}).click();
-  await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+  const fantasyDraftCard=page.locator('.bk-mode-card').filter({hasText:'FANTASY DRAFT'});
+  await fantasyDraftCard.waitFor();
+  await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
+  await fantasyDraftCard.click();
+  await page.getByText(/FANTASY DRAFT • ROUND/).waitFor();
+  await page.waitForFunction(()=>window.scrollY===0);
+  assert.equal(await page.evaluate(()=>window.scrollY),0,`Solo Fantasy Draft inherited the hub scroll position at ${width}px`);
 
   await page.getByRole('button',{name:'Back to Solo Franchise Hub',exact:true}).click();await page.locator('.bk-mode-card').filter({hasText:'CAP CHALLENGE'}).click();await capture('cap','tunnel');assert.equal(await page.locator('.bk-home-news-strip').count(),0);
   assert.deepEqual(crashes,[]);await context.close();
