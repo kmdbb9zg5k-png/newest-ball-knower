@@ -89,7 +89,7 @@ const assertContained=(snapshot,label)=>{
   assert.ok(snapshot.shellWidth<=width+1,`${label}: app shell clips ${snapshot.shellWidth-width}px of horizontal content`);
   assert.ok(snapshot.mainWidth<=width+1,`${label}: main content clips ${snapshot.mainWidth-width}px horizontally`);
   assert.deepEqual(snapshot.horizontallyClippedMainContent,[],`${label}: visible controls/content escape the viewport:\n${snapshot.horizontallyClippedMainContent.join('\n')}`);
-  assert.equal(snapshot.primaryButtons,5,`${label}: mobile bottom navigation lost a destination`);
+  assert.equal(snapshot.primaryButtons,6,`${label}: mobile bottom navigation lost a destination`);
   assert.ok(snapshot.primaryRect,`${label}: mobile bottom navigation is missing`);
   assert.ok(snapshot.primaryRect.left>=-1&&snapshot.primaryRect.right<=width+1,`${label}: bottom navigation is clipped horizontally`);
   assert.ok(snapshot.primaryRect.top>=0&&snapshot.primaryRect.bottom<=height+1,`${label}: bottom navigation is outside the viewport`);

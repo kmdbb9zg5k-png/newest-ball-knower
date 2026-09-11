@@ -34,7 +34,7 @@ try{
    const geometry=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,headerBottom:document.querySelector('body>header')?.getBoundingClientRect().bottom??0,stageTop:document.querySelector('.bk-screen')?.getBoundingClientRect().top}));
    assert.ok(geometry.scroll<=width+1,`${name} overflow at ${width}: ${geometry.scroll}`);
    assert.ok(geometry.stageTop>=geometry.headerBottom-1,`${name} covered by fixed header`);
-   if(width<768)assert.equal(await page.getByRole('navigation',{name:'Primary navigation'}).locator('button').count(),5);
+   if(width<768)assert.equal(await page.getByRole('navigation',{name:'Primary navigation'}).locator('button').count(),6);
    console.log('Captured',name,width);
    await page.screenshot({path:`${out}/${label}-${width}.png`,fullPage:false});results.push({screen:label,scene,width,...geometry});
   };

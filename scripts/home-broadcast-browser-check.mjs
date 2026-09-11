@@ -57,7 +57,7 @@ try{
   assert.ok(geometry.heroTop>=geometry.headerBottom-1,'Fixed headline strip must not cover hero');
   if(width<768){
    const buttons=page.getByRole('navigation',{name:'Primary navigation'}).locator('button');
-   assert.equal(await buttons.count(),5);
+   assert.equal(await buttons.count(),6);
    assert.ok((await buttons.evaluateAll(items=>items.map(e=>parseFloat(getComputedStyle(e).fontSize)))).every(size=>size>=8&&size<=11),'Bottom labels must remain compact and readable');
   }
   assert.equal(await page.locator('.bk-home-primary-modes button').count(),4);
