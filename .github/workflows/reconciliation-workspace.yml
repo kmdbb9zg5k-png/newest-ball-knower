@@ -1,0 +1,41 @@
+name: Reconciliation workspace
+on:
+  push:
+    branches: [maintenance/reconciliation-workspace-20260911]
+    paths: [.github/workflows/reconciliation-workspace.yml]
+permissions:
+  contents: read
+jobs:
+  workspace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Prepare source snapshots
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin 303f33f7c0e2d7a631ab2aeac1211d4b4ebe694c 3db2f4cfe07dbdcd6f4342e448ef23130d2d6356 520726327485d556a3fa2ccc4ef6efdb198266ea
+          mkdir -p workspace/main workspace/pr187 workspace/pr188
+          git archive 303f33f7c0e2d7a631ab2aeac1211d4b4ebe694c | tar -x -C workspace/main
+          git archive 3db2f4cfe07dbdcd6f4342e448ef23130d2d6356 fantasyDraftReport.ts LeagueLiveDraftRoom.tsx scripts/fantasy-ui-system-check.ts scripts/fantasy-draft-report-edge-check.ts docs/tasks/2026-09-02-fantasy-draft-report-depth.md | tar -x -C workspace/pr187
+          git archive 520726327485d556a3fa2ccc4ef6efdb198266ea fantasyLiveScoring.ts scripts/fantasy-live-scoring-reliability-check.ts scripts/fantasy-player-data-completeness-check.ts docs/tasks/2026-09-02-fantasy-player-data-completeness.md | tar -x -C workspace/pr188
+      - name: Install dependencies in isolated workspace
+        working-directory: workspace/main
+        run: npm ci --no-audit --no-fund
+      - name: Archive source and test dependencies only
+        run: |
+          find workspace -name '.env' -o -name '.env.local' -o -name '.env.production' | xargs -r rm -f
+          tar -czf reconciliation-workspace.tgz -C workspace main pr187 pr188
+          du -h reconciliation-workspace.tgz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reconciliation-workspace
+          path: reconciliation-workspace.tgz
+          retention-days: 1
+          compression-level: 0
