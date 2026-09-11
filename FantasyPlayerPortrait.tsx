@@ -22,6 +22,8 @@ export const FantasyPlayerPortrait = ({
     {player ? (
       <img
         src={playerPortraitUrl(player)}
+        width={160}
+        height={160}
         alt={decorative ? "" : `${player.name} headshot`}
         loading="lazy"
         decoding="async"
