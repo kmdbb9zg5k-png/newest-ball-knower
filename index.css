@@ -75,6 +75,22 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   background-position: center top, center, center 20%;
 }
 
+.bk-app-shell[data-tab="ask"] .bk-cinematic-image {
+  background-image:
+    linear-gradient(180deg, rgb(3 5 8 / .06), rgb(3 5 8 / .76) 50%, #05070b 96%),
+    linear-gradient(115deg, rgb(var(--bk-team-primary-rgb) / .38), rgb(25 55 92 / .2) 48%, rgb(0 0 0 / .8)),
+    url('/team-cinematic/gold-trophy.jpg');
+  background-position: center top, center, center 16%;
+}
+
+.ask-bk-response :is(h1,h2,h3){margin-top:1rem;margin-bottom:.35rem;font-family:"Barlow Condensed","Arial Narrow",Impact,sans-serif;font-weight:900;text-transform:uppercase}
+.ask-bk-response :is(p,ul,ol){margin:.55rem 0}
+.ask-bk-response :is(ul,ol){padding-left:1.25rem}
+.ask-bk-response li{margin:.25rem 0}
+.ask-bk-response a{color:var(--bk-team-accent);font-weight:800;text-decoration:underline;text-underline-offset:2px}
+.ask-bk-response strong{color:white}
+.ask-bk-response code{border-radius:.3rem;background:rgb(255 255 255 / .08);padding:.12rem .28rem;font-size:.82em}
+
 /* Team-driven stadium architecture. The selected NFL team's tokens power every glow. */
 .bk-app-shell::before {
   position: fixed;
