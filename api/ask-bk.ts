@@ -12,10 +12,13 @@ const MAX_IMAGES=5;
 const MAX_IMAGE_DATA_CHARS=3_200_000;
 const MAX_MESSAGE_CHARS=2_000;
 const MAX_HISTORY_MESSAGES=12;
+const LIVE_SEARCH_PATTERN=/\b(latest|current(?:ly)?|right now|today|tonight|tomorrow|yesterday|this (?:week|season|year)|last (?:game|week|night|season)|breaking|news|update|injur(?:y|ed|ies)|questionable|doubtful|inactive|ruled out|game[- ]time decision|depth chart|starting lineup|start\s*(?:\/|or)\s*sit|who (?:do|should) i start|waiver|free agent|transaction|trade rumor|traded|released|signed|score|result|standings|schedule|kickoff|game time|odds|spread|moneyline|over\/under|weather|projection|rankings?|rest of season|ros)\b|\b20(?:2[5-9]|[3-9]\d)\b/i;
 
 type InputMessage={role:'user'|'assistant';text:string};
 type InputImage={name?:string;dataUrl:string};
 type SafeSource={title:string;url:string};
+
+export function needsAskBkLiveSearch(question:string){return LIVE_SEARCH_PATTERN.test(question)}
 
 const recentRequests=new Map<string,number[]>();
 function allowed(key:string){
@@ -123,12 +126,15 @@ export default async function handler(req:any,res:any){
     const lastUserIndex=messages.map(message=>message.role).lastIndexOf('user');
     if(lastUserIndex<0)return res.status(400).json({error:'Ask a sports question first.'});
     const lastQuestion=messages[lastUserIndex].text;
+    const liveSearchRequested=needsAskBkLiveSearch(lastQuestion);
+    const liveSearchEnabled=process.env.ASK_BK_LIVE_SEARCH_ENABLED!=='false';
+    const allowLiveSearch=liveSearchRequested&&liveSearchEnabled;
     const nflNews=await latestNflContext(lastQuestion);
     const now=new Date().toISOString();
     const system=`You are Ask BK, Ball Knower's sharp, plain-spoken sports assistant. Football and fantasy football are your specialty, but you can answer questions about any sport. Today is ${now}.
 
 Accuracy rules:
-- For current, recent, scheduled, injury, transaction, odds, standings, statistics, or news questions, use the search tool before answering. Never present old model knowledge as current.
+- ${allowLiveSearch?'This question may need current information. Call sports_search no more than once before answering, and never present old model knowledge as current.':'No live-search tool is available for this question. Answer from the supplied context and stable knowledge; if the user needs current information, say what could not be confirmed.'}
 - Prefer league/team/player primary sources and established sports reporting. Link important current claims using markdown links, and say when current information could not be confirmed.
 - Treat the Ball Knower league context as user-supplied planning context, not as an authoritative real-world stat feed.
 - When screenshots are attached, read all of them, call out uncertainty or unreadable details, and compare them when useful.
@@ -145,16 +151,18 @@ ${nflNews?`\nRecent Tank01 NFL headlines (verify with search before treating as 
     });
     const gatewayOptions={
       sort:'cost',models:[process.env.ASK_BK_FALLBACK_MODEL||FALLBACK_MODEL],user:verified.user.id,
-      tags:['ask-bk','session-only','v1'],zeroDataRetention:true,disallowPromptTraining:true,...(images.length?{has:['vision' as const]}:{}),
+      tags:['ask-bk','session-only','v1',allowLiveSearch?'live-search':'no-search'],zeroDataRetention:true,disallowPromptTraining:true,...(images.length?{has:['vision' as const]}:{}),
     } satisfies GatewayProviderOptions;
     const result=await generateText({
-      model:process.env.ASK_BK_MODEL||PRIMARY_MODEL,system,messages:modelMessages,maxOutputTokens:900,temperature:.3,
-      tools:{sports_search:gateway.tools.perplexitySearch({maxResults:5,maxTokensPerPage:512,maxTokens:2_500,country:'US',searchLanguageFilter:['en']})},
-      stopWhen:stepCountIs(3),providerOptions:{gateway:gatewayOptions},
+      model:process.env.ASK_BK_MODEL||PRIMARY_MODEL,system,messages:modelMessages,maxOutputTokens:700,temperature:.3,
+      ...(allowLiveSearch?{
+        tools:{sports_search:gateway.tools.perplexitySearch({maxResults:5,maxTokensPerPage:384,maxTokens:1_500,country:'US',searchLanguageFilter:['en']})},
+        stopWhen:stepCountIs(2),
+      }:{}),providerOptions:{gateway:gatewayOptions},
     });
     const answer=result.text.trim();
     if(!answer)return res.status(502).json({error:'Ask BK did not return an answer. Try wording that question another way.'});
-    return res.status(200).json({answer,sources:collectSources(result),answeredAt:new Date().toISOString(),conversationStorage:false});
+    return res.status(200).json({answer,sources:collectSources(result),answeredAt:new Date().toISOString(),conversationStorage:false,liveSearchUsed:allowLiveSearch&&Boolean(result.toolResults?.length)});
   }catch(error:any){
     if(error?.message==='image_count')return res.status(400).json({error:`Attach up to ${MAX_IMAGES} screenshots at once.`});
     if(error?.message==='image_format')return res.status(400).json({error:'Ask BK accepts compressed JPG, PNG, or WebP screenshots.'});
