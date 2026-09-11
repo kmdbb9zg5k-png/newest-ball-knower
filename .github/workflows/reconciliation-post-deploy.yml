@@ -56,7 +56,8 @@ jobs:
           s=s.replace(old,"const server={kill(){}};",1)
           needle="await page.goto(base,{waitUntil:'domcontentloaded'});await page.locator('.bk-home-stadium').waitFor();";assert s.count(needle)==1
           extra='''
-          assert.deepEqual(await page.getByRole('region',{name:'Primary destinations',exact:true}).locator('.bk-home-mode-label').allTextContents(),['Fantasy','Picks','Trivia','Solo']);
+          const destinations=await page.getByRole('region',{name:'Primary destinations',exact:true}).locator('button').allTextContents();
+          assert.deepEqual(destinations.map(value=>value.trim()),['Fantasy','Picks','Trivia','Solo']);
           const links=page.getByRole('navigation',{name:'Quick links',exact:true});
           assert.match(await links.locator('button').last().innerText(),/NFL NEWS/i);
           await page.screenshot({path:`${out}/home-${width}.png`,fullPage:false});
