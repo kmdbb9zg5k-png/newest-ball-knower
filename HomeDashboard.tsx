@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useId, useRef, useState } from 'react';
 import { ArrowRight, Bell, Brain, ChevronDown, ClipboardList, Flag, FlaskConical, Newspaper, Plus, RefreshCcw, Target, Trophy, UserPlus } from 'lucide-react';
 import { useBallKnower } from './BallKnowerContext';
 import type { ProgressProfile } from './progressionCloud';
@@ -13,6 +13,9 @@ import { HomeMatchups } from './HomeMatchups';
 import { buildHomeActivity, homeFeaturedActivity, homeLeagueAction, homeLeaguePhase, homeRatingTier, type HomeActivity } from './homeDashboardState';
 import './homeBroadcast.css';
 import './homeLayout.css';
+
+const FantasySettingsHub = lazy(() => import('./FantasySettingsHub').then(module => ({ default: module.FantasySettingsHub })));
+const LeagueManagementModal = lazy(() => import('./LeagueManagementModal').then(module => ({ default: module.LeagueManagementModal })));
 
 interface HomeDashboardProps {
   onOpenCreateLeague: () => void;
@@ -42,6 +45,8 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
   const [ratingError, setRatingError] = useState('');
   const [ratingRetry, setRatingRetry] = useState(0);
   const [leagueMenuOpen, setLeagueMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [managedLeagueId, setManagedLeagueId] = useState('');
   const [activity, setActivity] = useState<HomeActivity[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityUnavailable, setActivityUnavailable] = useState(false);
@@ -117,7 +122,7 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
       <Action label="Solo" accessibleLabel="Solo Mode" icon={<FlaskConical/>} onClick={() => onNavigate('solo')}/>
     </nav>
 
-    <HomeMatchups leagues={leagues} currentUser={currentUser} onSelectLeague={onSelectLeague} onViewMemberLocker={onViewMemberLocker}/>
+    <HomeMatchups leagues={leagues} currentUser={currentUser} onSelectLeague={onSelectLeague} onViewMemberLocker={onViewMemberLocker} onOpenSettings={() => setSettingsOpen(true)}/>
 
     {featured && <section className="bk-home-featured" aria-labelledby="home-featured-heading">
       <h3 id="home-featured-heading" className="bk-home-section-title">Featured</h3>
@@ -163,6 +168,8 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
     </section>
 
     {homePartners.length > 0 && <section aria-labelledby="home-partners-heading" className="bk-home-partners"><h3 id="home-partners-heading">Our Partners</h3><div>{homePartners.map(partner => <PartnerCard key={partner.name} partner={partner} compact/>)}</div>{homePartners.length > 1 && <button type="button" onClick={() => onNavigate('partners')}>View All Partners</button>}</section>}
+    {settingsOpen && <Suspense fallback={null}><FantasySettingsHub isOpen onClose={() => setSettingsOpen(false)} onOpenLeague={league => { setSettingsOpen(false); onSelectLeague(league, 'lobby'); }} onManageLeague={league => { setSettingsOpen(false); setManagedLeagueId(league.id); }}/></Suspense>}
+    {managedLeagueId && <Suspense fallback={null}><LeagueManagementModal leagueId={managedLeagueId} onClose={() => setManagedLeagueId('')}/></Suspense>}
   </div>;
 }
 

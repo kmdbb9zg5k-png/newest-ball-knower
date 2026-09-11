@@ -5,6 +5,7 @@ import { isLeagueCommissioner } from './leaguePermissions';
 import { leagueJoinCodeError, normalizeLeagueJoinCode } from './leagueJoinCode';
 import { customizeLeagueAction, removeLeagueAction } from './leagueManagementActions';
 import { ModalPortal } from './ModalPortal';
+import './fantasyHqControls.css';
 
 const PUBLIC_APP_ORIGIN='https://ballknowerofficial.com';
 
@@ -17,6 +18,7 @@ export function LeagueManagementModal({leagueId,onClose}:{leagueId:string;onClos
   const [error,setError]=useState('');
   const [copied,setCopied]=useState(false);
   const [confirmingRemoval,setConfirmingRemoval]=useState(false);
+  const [confirmationName,setConfirmationName]=useState('');
 
   useEffect(()=>{setCodeInput(league?.code||'');},[league?.code]);
   useEffect(()=>{
@@ -78,7 +80,7 @@ export function LeagueManagementModal({leagueId,onClose}:{leagueId:string;onClos
         {error?<p className="bk-league-manage-error" role="alert">{error}</p>:null}
         <section className="bk-league-manage-danger" aria-labelledby="remove-league-title">
           <div><strong id="remove-league-title">{commissioner?'Delete league':'Leave league'}</strong><p>{commissioner?'Permanently deletes the league, its rosters, draft, messages, and history for everyone.':'Removes your team and this league from your dashboard. The league stays available to everyone else.'}</p></div>
-          {!confirmingRemoval?<button type="button" onClick={()=>setConfirmingRemoval(true)}>{commissioner?<Trash2 aria-hidden="true"/>:<LogOut aria-hidden="true"/>}{commissioner?'Delete league':'Leave league'}</button>:<div className="bk-league-manage-confirm"><p>{commissioner?'This cannot be undone. Delete it for everyone?':'Leave this league now?'}</p><button type="button" onClick={()=>setConfirmingRemoval(false)} disabled={busy!==null}>Cancel</button><button type="button" onClick={()=>void removeLeague()} disabled={busy!==null}>{busy==='remove'?'Removing…':commissioner?'Yes, delete':'Yes, leave'}</button></div>}
+          {!confirmingRemoval?<button type="button" onClick={()=>{setConfirmationName('');setConfirmingRemoval(true);}}>{commissioner?<Trash2 aria-hidden="true"/>:<LogOut aria-hidden="true"/>}{commissioner?'Delete league':'Leave league'}</button>:<div className="bk-league-manage-confirm"><p>{commissioner?<>This deletes the league for all {league.members.length} members. Type <strong>{league.name}</strong> to confirm.</>:"Leave this league now?"}</p>{commissioner&&<input aria-label="Type league name to confirm deletion" value={confirmationName} onChange={event=>setConfirmationName(event.target.value)} placeholder={league.name} autoComplete="off"/>}<button type="button" onClick={()=>{setConfirmationName('');setConfirmingRemoval(false);}} disabled={busy!==null}>Cancel</button><button type="button" onClick={()=>void removeLeague()} disabled={busy!==null||(commissioner&&confirmationName.trim()!==league.name.trim())}>{busy==='remove'?'Removing…':commissioner?'Permanently delete':'Yes, leave'}</button></div>}
         </section>
       </section>
     </div>
