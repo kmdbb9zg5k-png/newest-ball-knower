@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Trophy } from 'lucide-react';
+import { ArrowRight, Trophy } from 'lucide-react';
 import type { League, LeagueMember, UserProfile } from './types';
 import type { WeeklyScore } from './fantasyLeagueParityCloud';
 import { ManagerAvatar } from './ManagerAvatar';
 import { displayLeagueMemberName, resolveMyLeagueMember } from './leagueMemberDisplay';
+import { homeLeagueAction, homeLeaguePhase } from './homeDashboardState';
 
 type Props = {
   leagues: League[];
   currentUser: UserProfile | null;
-  onSelectLeague: (league: League, tab: 'lobby') => void;
+  onSelectLeague: (league: League, tab: 'lobby' | 'draft' | 'simulation') => void;
   onViewMemberLocker: (member: LeagueMember) => void;
 };
 type MatchupState = Record<string, { scores: WeeklyScore[]; loading: boolean; unavailable: boolean }>;
@@ -40,7 +41,17 @@ const points = (score?: WeeklyScore) => score ? score.livePoints.toFixed(2) : '�
 const projection = (score?: WeeklyScore) => score?.hasProjectedTotal === true ? score.projectedPoints.toFixed(2) : '—';
 
 export const HomeMatchups = ({ leagues, currentUser, onSelectLeague, onViewMemberLocker }: Props) => {
-  const active = leagues.filter(league => league.settings?.fantasySeasonStarted && !league.settings?.fantasySeasonComplete && resolveMyLeagueMember(league, currentUser));
+  const active = leagues.filter(league => {
+    const mine = resolveMyLeagueMember(league, currentUser);
+    return Boolean(
+      league.settings?.fantasySeasonStarted &&
+      !league.settings?.fantasySeasonComplete &&
+      mine &&
+      currentPairing(league, mine.id),
+    );
+  });
+  const activeIds = new Set(active.map(league => league.id));
+  const otherLeagues = leagues.filter(league => !activeIds.has(league.id));
   const requestKey = active.map(league => `${league.id}:${Math.max(1, Number(league.settings?.currentWeek) || 1)}`).join('|');
   const [state, setState] = useState<MatchupState>({});
 
@@ -62,7 +73,7 @@ export const HomeMatchups = ({ leagues, currentUser, onSelectLeague, onViewMembe
     return () => { live = false; cleanups.forEach(cleanup => cleanup()); };
   }, [requestKey]);
 
-  if (!active.length) return null;
+  if (!leagues.length) return null;
   const open = (league: League, tab: 'team' | 'matchup') => {
     window.sessionStorage.setItem(`ball-knower:league-tab:${league.id}`, tab);
     window.sessionStorage.setItem(`ball-knower:matchup-week:${league.id}`, String(Math.max(1, Number(league.settings?.currentWeek) || 1)));
@@ -70,7 +81,7 @@ export const HomeMatchups = ({ leagues, currentUser, onSelectLeague, onViewMembe
   };
 
   return <section className="bk-home-matchups" aria-labelledby="home-matchups-heading">
-    <div className="bk-home-matchups-title"><h2 id="home-matchups-heading">My Matchups</h2><span>{active.length} active</span></div>
+    <div className="bk-home-matchups-title"><h2 id="home-matchups-heading">My Matchups</h2><span>{active.length} active · {leagues.length} leagues</span></div>
     <div className="bk-home-matchup-list">{active.map(league => {
       const mine = resolveMyLeagueMember(league, currentUser)!;
       const pairing = currentPairing(league, mine.id);
@@ -112,6 +123,24 @@ export const HomeMatchups = ({ leagues, currentUser, onSelectLeague, onViewMembe
         <footer><button type="button" onClick={() => open(league, 'team')}>My Team</button><button type="button" onClick={() => open(league, 'matchup')}>Matchup</button></footer>
       </article>;
     })}</div>
+    {otherLeagues.length > 0 && <div className="bk-home-other-leagues">
+      <div className="bk-home-matchups-title"><h3>Other Leagues</h3><span>{otherLeagues.length} more</span></div>
+      <div className="bk-home-other-league-list">
+        {otherLeagues.map(league => {
+          const action = homeLeagueAction(league);
+          return <button
+            type="button"
+            key={league.id}
+            aria-label={`${action.label}: ${league.name}`}
+            onClick={() => onSelectLeague(league, action.tab)}
+          >
+            <span className="bk-home-other-league-icon" aria-hidden="true"><Trophy/></span>
+            <span className="bk-home-other-league-copy"><strong>{league.name}</strong><small>{league.members.length}/{league.maxMembers} teams · {homeLeaguePhase(league)}</small></span>
+            <span className="bk-home-other-league-action">{action.label}<ArrowRight aria-hidden="true"/></span>
+          </button>;
+        })}
+      </div>
+    </div>}
   </section>;
 };
 

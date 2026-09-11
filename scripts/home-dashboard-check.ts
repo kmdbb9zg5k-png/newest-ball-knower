@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import React from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {HomeMatchups} from '../HomeMatchups';
+import type {League, UserProfile} from '../types';
 
 const read=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'utf8');
 const home=read('HomeDashboard.tsx');
@@ -18,6 +22,17 @@ assert.ok(home.includes('teamTheme.name')&&home.includes('teamTheme.primary'), '
 assert.ok(!home.includes('The Justice League')&&!home.includes('Philadelphia Eagles'), 'personal league and favorite-team copy must never be hard-coded');
 assert.ok(home.includes('homeLeagueAction(primaryLeague)')&&state.includes("league.liveDraft?.status === 'active'")&&state.includes("fantasySeasonStarted"), 'the main action must follow authoritative league state');
 assert.ok(home.includes('<HomeMatchups')&&matchups.includes('My Matchups')&&matchups.includes('My Team')&&matchups.includes('Matchup'), 'signed-in Home must lead with Yahoo-style matchup cards and direct team/matchup actions');
+assert.ok(matchups.includes('const otherLeagues = leagues.filter')&&matchups.includes('Other Leagues')&&matchups.includes('{leagues.length} leagues'), 'Home must show every saved league, not only leagues whose fantasy season is already active');
+assert.ok(matchups.includes('homeLeagueAction(league)')&&matchups.includes('homeLeaguePhase(league)')&&matchups.includes('onSelectLeague(league, action.tab)'), 'non-matchup leagues must expose their truthful phase and resume at the correct destination');
+const member=(id:string,userId:string,userName:string)=>({id,userId,userName,isAi:false,isCommissioner:id==='mine',status:'ready' as const,roster:[]});
+const activeMembers=[member('mine','home-user','Elijah'),member('rival','rival-user','Rival')];
+const fixture=(id:string,name:string,settings:Record<string,unknown>,liveDraft?:Record<string,unknown>)=>({id,name,code:`BK-${id}`,commissionerId:'home-user',commissionerName:'Elijah',maxMembers:10,salaryCap:200,status:'drafting',createdAt:'2026-09-11T00:00:00Z',settings:{rosterSize:15,scoringFormat:'ppr',regularSeasonWeeks:14,nflSeason:2026,...settings},members:activeMembers,liveDraft} as unknown as League);
+const homeMarkup=renderToStaticMarkup(React.createElement(HomeMatchups,{leagues:[fixture('active','Active League',{fantasySeasonStarted:true,currentWeek:1}),fixture('setup','Setup League',{}),fixture('draft','Draft League',{}, {status:'active'})],currentUser:{id:'home-user',name:'Elijah'} as UserProfile,onSelectLeague:()=>{},onViewMemberLocker:()=>{}}));
+assert.match(homeMarkup,/1 active · 3 leagues/);
+assert.match(homeMarkup,/Active League/);
+assert.match(homeMarkup,/Setup League/);
+assert.match(homeMarkup,/Draft League/);
+assert.match(homeMarkup,/Enter Draft: Draft League/);
 assert.ok(matchups.includes('role="button"')&&matchups.includes("open(league, 'matchup')")&&matchups.includes("closest('button, a')")&&matchups.includes("event.key !== 'Enter'")&&matchups.includes("event.key !== ' '"), 'each Home matchup card must open its exact league matchup by pointer or keyboard without stealing its nested actions');
 assert.ok(matchups.includes('livePoints.toFixed(2)')&&matchups.includes('hasProjectedTotal === true')&&matchups.includes('Projected win chance unavailable'), 'Home matchup cards must separate live points from verified projections without inventing odds');
 assert.ok(parity.includes('fetchHomeWeeklyScores')&&parity.includes(".eq('week_number',week)"), 'Home matchups must fetch authoritative scores for the current week only');
