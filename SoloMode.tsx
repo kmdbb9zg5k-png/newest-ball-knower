@@ -1,6 +1,6 @@
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import {restoreSoloPlayer} from './legacySoloRestore';
-import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Trophy, RotateCcw, Play, Plus, Trash2, Search, Share2, Award, Activity, ShieldAlert, BarChart3, Crown, ChevronRight } from 'lucide-react';
 import { Player, DEFAULT_SALARY_CAP, TOTAL_ROSTER_SIZE, ROSTER_REQUIREMENTS, LeagueMember } from './types';
 import { countRosterGroups, getDraftPositionGroup, minimumCompletionCost, validateRosterShape } from './rosterRules';
@@ -92,6 +92,16 @@ const restoreRun=()=>{
 export const SoloMode:React.FC<{initialExperience?:SoloExperience}>=({initialExperience='hub'})=>{
  const [experience,setExperience]=useState<SoloExperience>(initialExperience);
  const openExperience=(next:SoloExperience)=>{trackBallKnowerEvent('Solo Experience Opened',{experience:next});setExperience(next)};
+ useLayoutEffect(()=>{
+  const resetSoloScroll=()=>{
+   window.scrollTo(0,0);
+   document.documentElement.scrollTop=0;
+   document.body.scrollTop=0;
+  };
+  resetSoloScroll();
+  const frame=window.requestAnimationFrame(resetSoloScroll);
+  return()=>window.cancelAnimationFrame(frame);
+ },[experience]);
  if(experience==='hub')return <SoloFranchiseHub onOpen={openExperience}/>;
  const back=()=>setExperience('hub');
  return <div className="bk-solo-experience pt-16">
