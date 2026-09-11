@@ -8,7 +8,7 @@ permissions:
 jobs:
   prepare:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
         with:
@@ -17,74 +17,56 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: app
-          ref: 942ccf635356385566f98a18214218c8adf47bb4
+          ref: 0f2a6c1391179d6dfabdbe356fd5d5458affd401
           persist-credentials: true
       - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Reconcile the observed Solo back-button collision
+        with: {node-version: 22}
+      - name: Preserve current source and selected historical inputs
+        working-directory: app
+        run: |
+          set -euo pipefail
+          mkdir -p ../out ../old187 ../old188
+          git archive --format=tar.gz HEAD > ../out/current-main.tgz
+          git fetch --depth=1 origin 3db2f4cfe07dbdcd6f4342e448ef23130d2d6356 520726327485d556a3fa2ccc4ef6efdb198266ea
+          git archive 3db2f4cfe07dbdcd6f4342e448ef23130d2d6356 fantasyDraftReport.ts scripts/fantasy-draft-report-edge-check.ts docs/tasks/2026-09-02-fantasy-draft-report-depth.md | tar -x -C ../old187
+          git archive 520726327485d556a3fa2ccc4ef6efdb198266ea fantasyLiveScoring.ts scripts/fantasy-live-scoring-reliability-check.ts docs/tasks/2026-09-02-fantasy-player-data-completeness.md | tar -x -C ../old188
+      - name: Reconcile only the missing fantasy improvements
+        working-directory: app
+        run: |
+          set -euo pipefail
+          git switch -c feat/fantasy-reconciliation-verified-20260911
+          export BK_ROOT="$PWD" BK_OLD187="$PWD/../old187" BK_OLD188="$PWD/../old188"
+          python3 ../staging/.reconciliation/port.py
+          cp .github/workflows/hardening.yml ../out/proposed-hardening.yml
+          # This token can write source, not workflows. Workflow integration is
+          # preserved as an artifact for the authorized connector write.
+          git restore --source=HEAD -- .github/workflows/hardening.yml
+          git add FantasyDraftAnalysis.tsx fantasyDraftReport.ts LeagueLiveDraftRoom.tsx fantasyLiveScoring.ts api/fantasy-live-scoring.ts fantasyGameLogStats.ts FantasyPlayerDetail.tsx package.json scripts/fantasy-draft-report-edge-check.ts scripts/fantasy-draft-report-depth-check.ts scripts/fantasy-player-data-completeness-check.ts scripts/fantasy-live-scoring-reliability-check.ts scripts/fantasy-reconciliation-browser-check.mjs docs/tasks/2026-09-02-fantasy-draft-report-depth.md docs/tasks/2026-09-02-fantasy-player-data-completeness.md docs/qa/2026-09-11-fantasy-reconciliation.md
+          git diff --cached --check
+          git diff --cached --binary > ../out/fantasy-changes.patch
+          git diff --cached --name-only -z | tar --null -T - -czf ../out/fantasy-changed-files.tgz
+      - name: Install dependencies and execute complete source regression
+        working-directory: app
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npm run check:hardening 2>&1 | tee ../out/hardening.log
+          npm run build > ../out/build.log 2>&1
+          npm run check:root-bundle | tee ../out/bundle.log
+      - name: Publish source branch only after successful checks
         working-directory: app
         run: |
           set -euo pipefail
           git config user.name 'Ball Knower Engineering'
           git config user.email 'engineering@ballknowerofficial.com'
-          git switch -c maintenance/solo-navigation-fix-20260911
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('SoloMode.tsx'); text=p.read_text()
-          old='return <div className="bk-solo-experience">'
-          assert text.count(old)==1
-          text=text.replace(old,'return <div className="bk-solo-experience pt-16">',1)
-          p.write_text(text)
-          p=Path('scripts/solo-back-navigation-check.ts'); text=p.read_text()
-          text += '\nassert.match(solo, /bk-solo-experience pt-16/, "Reserve space so the persistent back control does not cover the nested screen header.");\n'
-          p.write_text(text)
-          p=Path('scripts/all-screens-broadcast-browser.mjs'); text=p.read_text()
-          needle="await capture('fantasy-franchise','tunnel');assert.equal(await page.locator('.bk-home-news-strip').count(),0);"
-          assert text.count(needle)==1
-          extra='''
-            const fixedBack=page.getByRole('button',{name:'Back to Solo Mode choices',exact:true});
-            const nestedBack=page.getByRole('button',{name:'Back to Solo Franchise Hub',exact:true});
-            const fixedBox=await fixedBack.boundingBox(),nestedBox=await nestedBack.boundingBox();
-            assert.ok(fixedBox&&nestedBox&&nestedBox.y>=fixedBox.y+fixedBox.height,`Solo return buttons overlap at ${width}px`);
-            await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
-            await fixedBack.click();
-            await page.locator('.bk-mode-card').filter({hasText:'FANTASY DRAFT'}).click();
-            await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
-          '''
-          text=text.replace(needle,needle+extra,1)
-          p.write_text(text)
-          PY
-          npm ci --no-audit --no-fund
-          npm run lint
-          node --import tsx scripts/solo-back-navigation-check.ts
-          git diff --check
-          git add SoloMode.tsx scripts/solo-back-navigation-check.ts scripts/all-screens-broadcast-browser.mjs
-          git commit -m 'fix: reserve Solo navigation space and test both back controls'
-          git push origin HEAD:maintenance/solo-navigation-fix-20260911
-      - name: Prepare selected old source snapshots
-        working-directory: app
-        run: |
-          set -euo pipefail
-          git fetch --depth=1 origin 3db2f4cfe07dbdcd6f4342e448ef23130d2d6356 520726327485d556a3fa2ccc4ef6efdb198266ea
-          mkdir -p ../old187 ../old188
-          git archive 3db2f4cfe07dbdcd6f4342e448ef23130d2d6356 fantasyDraftReport.ts scripts/fantasy-draft-report-edge-check.ts docs/tasks/2026-09-02-fantasy-draft-report-depth.md | tar -x -C ../old187
-          git archive 520726327485d556a3fa2ccc4ef6efdb198266ea fantasyLiveScoring.ts scripts/fantasy-live-scoring-reliability-check.ts docs/tasks/2026-09-02-fantasy-player-data-completeness.md | tar -x -C ../old188
-      - name: Apply targeted fantasy improvements to the current source
-        working-directory: app
-        run: |
-          set -euo pipefail
-          git switch -c feat/fantasy-reconciliation-20260911
-          export BK_ROOT="$PWD" BK_OLD187="$PWD/../old187" BK_OLD188="$PWD/../old188"
-          python3 ../staging/.reconciliation/port.py
-          npm run lint
-          npm run check:transaction-worker
-          npm run check:fantasy-draft-report
-          npm run check:fantasy-player-data-completeness
-          npm run check:fantasy-live-scoring
-          npm run check:fantasy-ui
-          git diff --check
-          git add FantasyDraftAnalysis.tsx fantasyDraftReport.ts LeagueLiveDraftRoom.tsx fantasyLiveScoring.ts api/fantasy-live-scoring.ts fantasyGameLogStats.ts FantasyPlayerDetail.tsx package.json .github/workflows/hardening.yml scripts/fantasy-draft-report-edge-check.ts scripts/fantasy-draft-report-depth-check.ts scripts/fantasy-player-data-completeness-check.ts scripts/fantasy-live-scoring-reliability-check.ts scripts/fantasy-reconciliation-browser-check.mjs docs/tasks/2026-09-02-fantasy-draft-report-depth.md docs/tasks/2026-09-02-fantasy-player-data-completeness.md docs/qa/2026-09-11-fantasy-reconciliation.md
-          git commit -m 'feat: reconcile rich draft reports and complete player game logs'
-          git push origin HEAD:feat/fantasy-reconciliation-20260911
-          git log -2 --oneline
+          git commit -m 'feat: reconcile draft reports and complete player game logs on current main'
+          git push origin HEAD:feat/fantasy-reconciliation-verified-20260911
+          git rev-parse HEAD > ../out/source-head.txt
+      - name: Preserve inspectable source and results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reconciliation-recovery
+          path: out
+          if-no-files-found: error
+          retention-days: 3
