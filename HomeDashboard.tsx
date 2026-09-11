@@ -113,7 +113,7 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
       <ModeCard icon={<Trophy/>} label="Fantasy" onClick={() => onNavigate('fantasy')}/>
       <ModeCard icon={<Target/>} label="Picks" onClick={() => onNavigate('sportsbook')}/>
       <ModeCard icon={<Brain/>} label="Trivia" onClick={() => onNavigate('challenges')}/>
-      <ModeCard icon={<FlaskConical/>} label="Solo" onClick={() => onNavigate('solo')}/>
+      <ModeCard icon={<FlaskConical/>} label="Solo" accessibleLabel="Solo Mode" onClick={() => onNavigate('solo')}/>
     </section>
     <nav aria-label="Quick links" className="bk-home-shortcuts grid grid-cols-4 overflow-hidden">
       <Action label="Create" accessibleLabel="Create League" icon={<Plus/>} onClick={onOpenCreateLeague}/>
@@ -173,5 +173,5 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
   </div>;
 }
 
-const ModeCard = ({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) => <button type="button" onClick={onClick} className="bk-home-mode"><span aria-hidden="true">{icon}</span><span>{label}</span><span aria-hidden="true"/></button>;
+const ModeCard = ({ icon, label, accessibleLabel, onClick }: { icon: React.ReactNode; label: string; accessibleLabel?: string; onClick: () => void }) => <button type="button" aria-label={accessibleLabel || label} onClick={onClick} className="bk-home-mode"><span aria-hidden="true">{icon}</span><span>{label}</span><span aria-hidden="true"/></button>;
 const Action = ({ icon, label, accessibleLabel, onClick }: { icon: React.ReactNode; label: string; accessibleLabel: string; onClick: () => void }) => <button type="button" aria-label={accessibleLabel} onClick={onClick} className="min-w-0 overflow-hidden"><span aria-hidden="true">{icon}</span><span>{label}</span></button>;
