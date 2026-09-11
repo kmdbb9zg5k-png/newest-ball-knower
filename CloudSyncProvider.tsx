@@ -26,7 +26,7 @@ const CLOUD_STORAGE: StorageEntry[] = [
   { localKey: 'ball-knower-team-setup-v2', cloudKey: 'favorite_team_setup' },
   { localKey: 'ballknower_solo_career_v1', cloudKey: 'solo_career' },
   { localKey: 'ballknower_solo_run_v1', cloudKey: 'solo_cap_run' },
-  { localKey: 'ballknower_solo_fantasy_v1', cloudKey: 'solo_fantasy' },
+  { localKey: 'ballknower_solo_fantasy_v2', cloudKey: 'solo_fantasy' },
   { localKey: 'ballknower_solo_fantasy_v1:season', cloudKey: 'solo_fantasy_season' },
   { localKey: 'ballknower_solo_real_team_v1', cloudKey: 'solo_real_team' },
   { localKey: 'ballknower_solo_real_team_v1:season', cloudKey: 'solo_real_team_season' },

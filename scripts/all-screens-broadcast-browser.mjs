@@ -89,7 +89,14 @@ try{
   await avatar.click();await page.getByRole('button',{name:'Hall of Fame',exact:true}).click();await capture('legacy','legacy');
   await home();await page.getByRole('button',{name:'View All Partners',exact:true}).click();await capture('partners','studio');
   await home();await page.getByRole('button',{name:'Solo Mode',exact:true}).click();
-  await page.locator('.bk-mode-card').filter({hasText:'FANTASY DRAFT'}).click();await capture('fantasy-franchise','tunnel');assert.equal(await page.locator('.bk-home-news-strip').count(),0);
+  await page.locator('.bk-mode-card').filter({hasText:'FANTASY DRAFT'}).click();await capture('fantasy-franchise','tunnel','fantasy-franchise-creator');assert.equal(await page.locator('.bk-home-news-strip').count(),0);
+  await page.getByLabel('League name').fill('Browser Test League');
+  await page.getByLabel('Your team name').fill('Test City Captains');
+  await page.getByLabel('Team location').fill('Allentown, PA');
+  await page.getByLabel('League size').selectOption('8');
+  await page.getByRole('button',{name:'Create League & Enter Draft',exact:true}).click();
+  await page.getByRole('list',{name:'Upcoming draft order'}).waitFor();
+  await capture('fantasy-franchise','tunnel','fantasy-franchise-draft');
   const fixedBack=page.getByRole('button',{name:'Back to Solo Mode choices',exact:true});
   const nestedBack=page.getByRole('button',{name:'Back to Solo Franchise Hub',exact:true});
   const fixedBox=await fixedBack.boundingBox(),nestedBox=await nestedBack.boundingBox();
@@ -99,7 +106,7 @@ try{
   await fantasyDraftCard.waitFor();
   await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
   await fantasyDraftCard.click();
-  await page.getByText(/FANTASY DRAFT • ROUND/).waitFor();
+  await page.getByRole('list',{name:'Upcoming draft order'}).waitFor();
   await page.waitForFunction(()=>window.scrollY===0);
   assert.equal(await page.evaluate(()=>window.scrollY),0,`Solo Fantasy Draft inherited the hub scroll position at ${width}px`);
 
