@@ -33,6 +33,7 @@
 .bk-home-clean .bk-home-matchups { margin:2px 0 14px; }
 .bk-home-clean .bk-home-matchups-title { display:flex; align-items:center; justify-content:space-between; min-height:44px; }
 .bk-home-clean .bk-home-matchups-title h2 { margin:0; color:#f5f2e9; font:900 24px/1 'Barlow Condensed','Arial Narrow',sans-serif; text-transform:uppercase; }
+.bk-home-clean .bk-home-matchups-title h3 { margin:0; color:#ded9cc; font:900 17px/1 'Barlow Condensed','Arial Narrow',sans-serif; text-transform:uppercase; }
 .bk-home-clean .bk-home-matchups-title>span { color:#cdb76e; font:700 9px/1 Arial,sans-serif; text-transform:uppercase; letter-spacing:.08em; }
 .bk-home-clean .bk-home-matchup-list { display:grid; gap:10px; }
 .bk-home-clean .bk-home-matchup-card { overflow:hidden; border:1px solid #5e512e; border-radius:11px; background:#10141a; box-shadow:0 10px 28px #0005; }
@@ -62,6 +63,17 @@
 .bk-home-clean .bk-home-matchup-card>footer { display:grid; grid-template-columns:1fr 1fr; border-top:1px solid #ffffff12; }
 .bk-home-clean .bk-home-matchup-card>footer button { min-height:46px; border-right:1px solid #ffffff12; color:#eeeae0; font:800 13px/1 Arial,sans-serif; }
 .bk-home-clean .bk-home-matchup-card>footer button:last-child { border-right:0; color:#e3c359; }
+.bk-home-clean .bk-home-other-leagues { margin-top:10px; }
+.bk-home-clean .bk-home-other-league-list { display:grid; gap:7px; }
+.bk-home-clean .bk-home-other-league-list>button { display:flex; align-items:center; gap:9px; width:100%; min-height:58px; padding:8px 10px; border:1px solid #ffffff16; border-radius:9px; color:#f1eee5; background:#10141a; text-align:left; }
+.bk-home-clean .bk-home-other-league-list>button:focus-visible { outline:2px solid #e3c359; outline-offset:2px; }
+.bk-home-clean .bk-home-other-league-icon { display:grid; place-items:center; width:34px; height:34px; flex:none; border:1px solid #8b7338aa; border-radius:8px; color:#dfbd4d; background:#d5ad3820; }
+.bk-home-clean .bk-home-other-league-icon svg { width:17px; height:17px; }
+.bk-home-clean .bk-home-other-league-copy { display:grid; min-width:0; gap:3px; flex:1; }
+.bk-home-clean .bk-home-other-league-copy strong { overflow:hidden; color:#f3f0e8; font:800 13px/1.2 Arial,sans-serif; white-space:nowrap; text-overflow:ellipsis; }
+.bk-home-clean .bk-home-other-league-copy small { overflow:hidden; color:#9ea4aa; font:600 9px/1.25 Arial,sans-serif; white-space:nowrap; text-overflow:ellipsis; }
+.bk-home-clean .bk-home-other-league-action { display:flex; align-items:center; justify-content:flex-end; gap:4px; max-width:34%; flex:none; color:#d9bd68; font:800 8px/1.2 Arial,sans-serif; text-align:right; text-transform:uppercase; }
+.bk-home-clean .bk-home-other-league-action svg { width:14px; height:14px; flex:none; }
 .bk-home-clean .bk-home-rating { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:12px; margin:10px 0 0; padding:11px 13px; min-height:84px; border:1px solid #303632; border-radius:9px; background:#0c1015; }
 .bk-home-clean .bk-home-rating-value>span { display:block; color:#a7afb4; font:700 9px/1.25 Arial,sans-serif; text-transform:uppercase; letter-spacing:.07em; }
 .bk-home-clean .bk-home-rating-value>strong { display:block; margin-top:3px; color:#f2f2ed; font:800 34px/.95 'Barlow Condensed','Arial Narrow',sans-serif; }
