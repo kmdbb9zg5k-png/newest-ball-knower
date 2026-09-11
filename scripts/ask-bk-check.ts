@@ -30,6 +30,7 @@ check(!/localStorage|sessionStorage|indexedDB/i.test(hub),'Ask BK chat must not 
 check(api.includes("zeroDataRetention:true")&&api.includes("disallowPromptTraining:true"),'AI routing must request zero retention and no training.');
 check(api.includes("FALLBACK_MODEL='openai/"),'Ask BK must retain a different-provider fallback engine.');
 check(api.includes("gateway.tools.perplexitySearch"),'Date-sensitive sports questions need current search grounding.');
+check(api.includes("from './nfl-news.js'"),'Ask BK must use an explicit ESM extension for the deployed NFL news import.');
 check(api.includes("ASK_BK_LIVE_SEARCH_ENABLED!=='false'"),'Ask BK needs an emergency live-search cost switch.');
 check(api.includes('...(allowLiveSearch?{'),'Stable questions must not receive the paid search tool.');
 check(api.includes('stopWhen:stepCountIs(2)'),'Current questions must be limited to one search round.');
