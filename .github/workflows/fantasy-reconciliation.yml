@@ -1,0 +1,38 @@
+name: Fantasy reconciliation regressions
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  fantasy-reconciliation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: 22}
+      - run: npm ci --no-audit --no-fund
+      - name: Type and targeted regression checks
+        run: |
+          npm run lint
+          npm run check:transaction-worker
+          npm run check:fantasy-draft-report
+          npm run check:fantasy-player-data-completeness
+          npm run check:fantasy-live-scoring
+          npm run check:player-history-identity
+          npm run check:fantasy-ui
+      - run: npx playwright install --with-deps chromium
+      - name: Real components with isolated backend fixtures at mobile widths
+        run: npm run check:fantasy-reconciliation-browser
+      - name: Preserve mobile screenshots and failure diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fantasy-reconciliation-ui
+          path: artifacts/fantasy-reconciliation
+          if-no-files-found: ignore
+          retention-days: 7
