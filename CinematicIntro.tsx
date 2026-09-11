@@ -86,7 +86,7 @@ export const CinematicIntro: React.FC<CinematicIntroProps> = ({ isOpen, onClose 
         playsInline
         autoPlay
         muted={isMuted}
-        preload="auto"
+        preload="metadata"
         onCanPlay={() => setVideoReady(true)}
         onPlaying={() => setVideoReady(true)}
         onEnded={() => finishIntro('completed')}
