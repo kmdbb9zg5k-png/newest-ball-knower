@@ -16,6 +16,7 @@ const token=`${encode({alg:'HS256',typ:'JWT'})}.${encode({sub:fixtureUser.id,rol
 const tinyPng=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFElEQVR42mP8z8AARAwMjDAGAC0KA/2BHvtYAAAAAElFTkSuQmCC','base64');
 let server;
 let browser;
+const failures=[];
 await mkdir(artifacts,{recursive:true});
 await writeFile(html,`<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"></head><body><div id="root"></div><script type="module" src="/${entry}"></script></body></html>`);
 await writeFile(entry,`
@@ -130,16 +131,18 @@ try {
     await page.getByRole('button',{name:'2026',exact:true}).click();
    }
    const dimensions=await page.evaluate(()=>({width:innerWidth,document:document.documentElement.scrollWidth,body:document.body.scrollWidth}));
-   assert.ok(dimensions.document<=width+1&&dimensions.body<=width+1,view+' overflow at '+width+'px');
+   assert.ok(dimensions.document<=width+1&&dimensions.body<=width+1,view+' overflow at '+width+'px: '+JSON.stringify(dimensions));
    assert.deepEqual(errors,[],view+' had uncaught errors');
    await page.screenshot({path:artifacts+'/'+width+'-'+view+'.png',fullPage:true});
    } catch (error) {
     await page.screenshot({path:artifacts+'/'+width+'-'+view+'-failure.png',fullPage:true}).catch(()=>{});
     await writeFile(artifacts+'/'+width+'-'+view+'-failure.txt',JSON.stringify({error:String(error),errors,body:await page.locator('body').innerText().catch(()=>'' )},null,2));
-    throw error;
+    failures.push({width,view,error:String(error)});
+    console.error('Reconciliation case failed',width,view,String(error));
    } finally { await context.close(); }
   }
  }
+ assert.deepEqual(failures,[],'All reconciliation cases must pass');
  console.log('Reconciliation browser checks passed: actual six-team completed draft cards, photos, disclosure and season navigation; QB/RB/WR/TE/K/DST tables at 320/390/430px; 2025 history; 2026 schedule/bye; zeros, trade actions, live correction and immutable pregame projections. All backend traffic was mocked.');
 } finally {
  await browser?.close();await server?.close();
