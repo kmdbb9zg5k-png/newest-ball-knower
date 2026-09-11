@@ -31,10 +31,11 @@ const SimulationView=lazy(()=>import('./SimulationView').then(module=>({default:
 const DatabaseVerificationModal=lazy(()=>import('./DatabaseVerificationModal').then(module=>({default:module.DatabaseVerificationModal})));
 const MobileRosterBrowser=lazy(()=>import('./MobileRosterBrowser').then(module=>({default:module.MobileRosterBrowser})));
 const ChallengesHub=lazy(()=>import('./ChallengesHub').then(module=>({default:module.ChallengesHub})));
+const AskBkHub=lazy(()=>import('./AskBkHub').then(module=>({default:module.AskBkHub})));
 const LockerHub=lazy(()=>import('./LockerHub').then(module=>({default:module.LockerHub})));
 const PartnersPage=lazy(()=>import('./PartnersPage').then(module=>({default:module.PartnersPage})));
 
-export type AppTab='home'|'solo'|'news'|'fantasy'|'sportsbook'|'legacy'|'challenges'|'locker'|'partners'|'lobby'|'draft'|'simulation';
+export type AppTab='home'|'solo'|'news'|'fantasy'|'sportsbook'|'legacy'|'challenges'|'ask'|'locker'|'partners'|'lobby'|'draft'|'simulation';
 
 const INTRO_COMPLETED_KEY='ball-knower-intro-completed-v1';
 const introEligible=()=>{try{return !localStorage.getItem(INTRO_COMPLETED_KEY)}catch{return true}};
@@ -97,6 +98,7 @@ function BallKnowerApp(){
         {currentTab==='sportsbook'&&<SportsbookHub/>}
         {currentTab==='legacy'&&<HallOfFame/>}
         {currentTab==='challenges'&&<ChallengesHub/>}
+        {currentTab==='ask'&&<AskBkHub/>}
         {currentTab==='locker'&&<LockerHub onOpenAuth={()=>setIsAuthOpen(true)} viewedMember={viewedLockerMember} onBack={viewedLockerMember?closeMemberLocker:undefined}/>}
         {currentTab==='partners'&&<PartnersPage onBack={()=>setCurrentTab('home')}/>}
         {currentTab==='lobby'&&activeLeague&&<LeagueLobby league={activeLeague} onBack={goBack} onGoToDraft={()=>goToTab('draft')} onGoToSimulation={()=>goToTab('simulation')} onViewMemberLocker={openMemberLocker}/>}

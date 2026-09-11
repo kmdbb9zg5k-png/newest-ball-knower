@@ -34,7 +34,7 @@ try{
    const geometry=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,headerBottom:document.querySelector('body>header')?.getBoundingClientRect().bottom??0,stageTop:document.querySelector('.bk-screen')?.getBoundingClientRect().top}));
    assert.ok(geometry.scroll<=width+1,`${name} overflow at ${width}: ${geometry.scroll}`);
    assert.ok(geometry.stageTop>=geometry.headerBottom-1,`${name} covered by fixed header`);
-   if(width<768)assert.equal(await page.getByRole('navigation',{name:'Primary navigation'}).locator('button').count(),5);
+   if(width<768)assert.equal(await page.getByRole('navigation',{name:'Primary navigation'}).locator('button').count(),6);
    console.log('Captured',name,width);
    await page.screenshot({path:`${out}/${label}-${width}.png`,fullPage:false});results.push({screen:label,scene,width,...geometry});
   };
@@ -64,6 +64,13 @@ try{
   await page.getByRole('dialog',{name:'ROOKIE Trivia',exact:true}).waitFor();
   assert.equal(await page.locator('.bk-screen[data-page="trivia"]').getAttribute('data-motion'),'off');assert.equal(await page.locator('.bk-home-news-strip').count(),0);
   await page.getByRole('button',{name:'Exit',exact:true}).click();await page.getByRole('region',{name:'NFL headlines'}).waitFor();
+  await primary('Ask BK');await page.getByRole('heading',{name:'Ask BK',exact:true}).waitFor();
+  const askGeometry=await page.evaluate(()=>{const rect=selector=>{const box=document.querySelector(selector)?.getBoundingClientRect();return box?{top:box.top,bottom:box.bottom,left:box.left,right:box.right}:null};return{width:innerWidth,scroll:document.documentElement.scrollWidth,headerBottom:document.querySelector('body>header')?.getBoundingClientRect().bottom??0,stageTop:document.querySelector('main section')?.getBoundingClientRect().top??0,composer:rect('[data-testid="ask-bk-composer"]'),nav:rect('nav[aria-label="Primary navigation"]')}});
+  assert.ok(askGeometry.scroll<=width+1,`Ask BK overflow at ${width}: ${askGeometry.scroll}`);
+  assert.ok(askGeometry.stageTop>=askGeometry.headerBottom-1,'Ask BK covered by fixed header');
+  if(width<768)assert.ok(askGeometry.composer&&askGeometry.nav&&askGeometry.composer.bottom<=askGeometry.nav.top,`Ask BK composer must be visible above mobile navigation: ${JSON.stringify(askGeometry)}`);
+  assert.equal(await page.getByText('Session only.',{exact:false}).count(),1,'Ask BK must show session-only privacy disclosure');
+  await page.screenshot({path:`${out}/ask-${width}.png`,fullPage:false});results.push({screen:'ask',scene:'trophy',width,...askGeometry});
   await primary('Profile');await capture('profile','locker');
   await home();await page.getByRole('button',{name:'Solo Mode',exact:true}).click();await capture('solo','field');
   await page.locator('.bk-mode-card').filter({hasText:'Agent Mode'}).click();await capture('agent','office');
