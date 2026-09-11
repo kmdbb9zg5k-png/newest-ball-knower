@@ -68,6 +68,7 @@ assert.match(source('ProfileLockerView.tsx'), /Correct|Missed|Pending/);
 assert.match(source('profileLocker.css'), /prefers-reduced-motion:reduce/);
 assert.match(source('profileLocker.css'), /scroll-snap-type:x proximity/);
 assert.ok(statSync(new URL('../public/profile/locker-reference-atlas.webp', import.meta.url)).size < 32768, 'Reference art must remain a small local asset');
+assert.ok(statSync(new URL('../public/profile/locker-manager-face.webp', import.meta.url)).size < 8192, 'Manager face overlay must remain a small local asset');
 assert.match(source('ProfileLockerArt.tsx'), /LockerReceiptScene/);
 assert.match(source('LockerHub.tsx'), /<details className="bk-profile-extras"/);
 assert.match(source('profileLocker.css'), /body:has\(\.bk-app-shell\[data-tab="locker"\]\)/);
