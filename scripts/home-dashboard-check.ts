@@ -27,7 +27,7 @@ assert.ok(matchups.includes('homeLeagueAction(league)')&&matchups.includes('home
 const member=(id:string,userId:string,userName:string)=>({id,userId,userName,isAi:false,isCommissioner:id==='mine',status:'ready' as const,roster:[]});
 const activeMembers=[member('mine','home-user','Elijah'),member('rival','rival-user','Rival')];
 const fixture=(id:string,name:string,settings:Record<string,unknown>,liveDraft?:Record<string,unknown>)=>({id,name,code:`BK-${id}`,commissionerId:'home-user',commissionerName:'Elijah',maxMembers:10,salaryCap:200,status:'drafting',createdAt:'2026-09-11T00:00:00Z',settings:{rosterSize:15,scoringFormat:'ppr',regularSeasonWeeks:14,nflSeason:2026,...settings},members:activeMembers,liveDraft} as unknown as League);
-const homeMarkup=renderToStaticMarkup(React.createElement(HomeMatchups,{leagues:[fixture('active','Active League',{fantasySeasonStarted:true,currentWeek:1}),fixture('setup','Setup League',{}),fixture('draft','Draft League',{}, {status:'active'})],currentUser:{id:'home-user',name:'Elijah'} as UserProfile,onSelectLeague:()=>{},onViewMemberLocker:()=>{}}));
+const homeMarkup=renderToStaticMarkup(React.createElement(HomeMatchups,{leagues:[fixture('active','Active League',{fantasySeasonStarted:true,currentWeek:1}),fixture('setup','Setup League',{}),fixture('draft','Draft League',{}, {status:'active'})],currentUser:{id:'home-user',name:'Elijah'} as UserProfile,onSelectLeague:()=>{},onViewMemberLocker:()=>{},onOpenSettings:()=>{}}));
 assert.match(homeMarkup,/1 active · 3 leagues/);
 assert.match(homeMarkup,/Active League/);
 assert.match(homeMarkup,/Setup League/);

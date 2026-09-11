@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, Trophy } from 'lucide-react';
+import { ArrowRight, Settings, Trophy } from 'lucide-react';
 import type { League, LeagueMember, UserProfile } from './types';
 import type { WeeklyScore } from './fantasyLeagueParityCloud';
 import { ManagerAvatar } from './ManagerAvatar';
 import { displayLeagueMemberName, resolveMyLeagueMember } from './leagueMemberDisplay';
 import { homeLeagueAction, homeLeaguePhase } from './homeDashboardState';
+import { FANTASY_DISPLAY_EVENT, readFantasyDisplayPreferences, type FantasyDisplayPreferences } from './fantasyDisplayPreferences';
 
 type Props = {
   leagues: League[];
   currentUser: UserProfile | null;
   onSelectLeague: (league: League, tab: 'lobby' | 'draft' | 'simulation') => void;
   onViewMemberLocker: (member: LeagueMember) => void;
+  onOpenSettings: () => void;
 };
 type MatchupState = Record<string, { scores: WeeklyScore[]; loading: boolean; unavailable: boolean }>;
 
@@ -40,7 +42,7 @@ const started = (score?: WeeklyScore) => Boolean(score && (score.livePoints !== 
 const points = (score?: WeeklyScore) => score ? score.livePoints.toFixed(2) : '—';
 const projection = (score?: WeeklyScore) => score?.hasProjectedTotal === true ? score.projectedPoints.toFixed(2) : '—';
 
-export const HomeMatchups = ({ leagues, currentUser, onSelectLeague, onViewMemberLocker }: Props) => {
+export const HomeMatchups = ({ leagues, currentUser, onSelectLeague, onViewMemberLocker, onOpenSettings }: Props) => {
   const active = leagues.filter(league => {
     const mine = resolveMyLeagueMember(league, currentUser);
     return Boolean(
@@ -54,6 +56,9 @@ export const HomeMatchups = ({ leagues, currentUser, onSelectLeague, onViewMembe
   const otherLeagues = leagues.filter(league => !activeIds.has(league.id));
   const requestKey = active.map(league => `${league.id}:${Math.max(1, Number(league.settings?.currentWeek) || 1)}`).join('|');
   const [state, setState] = useState<MatchupState>({});
+  const [display, setDisplay] = useState<FantasyDisplayPreferences>(readFantasyDisplayPreferences);
+
+  useEffect(() => { const sync = () => setDisplay(readFantasyDisplayPreferences()); window.addEventListener(FANTASY_DISPLAY_EVENT, sync); return () => window.removeEventListener(FANTASY_DISPLAY_EVENT, sync); }, []);
 
   useEffect(() => {
     let live = true;
@@ -80,8 +85,8 @@ export const HomeMatchups = ({ leagues, currentUser, onSelectLeague, onViewMembe
     onSelectLeague(league, 'lobby');
   };
 
-  return <section className="bk-home-matchups" aria-labelledby="home-matchups-heading">
-    <div className="bk-home-matchups-title"><h2 id="home-matchups-heading">My Matchups</h2><span>{active.length} active · {leagues.length} leagues</span></div>
+  return <section className="bk-home-matchups" data-density={display.density} data-show-projections={display.showProjections} data-spoiler-free={display.spoilerFree} aria-labelledby="home-matchups-heading">
+    <div className="bk-home-matchups-title"><div className="bk-home-matchups-title-main"><h2 id="home-matchups-heading">My Matchups</h2><button type="button" className="bk-home-settings-trigger" aria-label="Open fantasy settings" onClick={onOpenSettings}><Settings aria-hidden="true"/></button></div><button type="button" className="bk-home-league-count" onClick={onOpenSettings}>{active.length} active · {leagues.length} leagues</button></div>
     <div className="bk-home-matchup-list">{active.map(league => {
       const mine = resolveMyLeagueMember(league, currentUser)!;
       const pairing = currentPairing(league, mine.id);
