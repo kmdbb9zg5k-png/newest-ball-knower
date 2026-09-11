@@ -1,7 +1,9 @@
 import {createClient} from '@supabase/supabase-js';
 import type {GatewayProviderOptions} from '@ai-sdk/gateway';
 import {gateway,generateText,stepCountIs,type ModelMessage} from 'ai';
-import {normalizeNews} from './nfl-news';
+// Vercel runs compiled API functions as native ESM. Keep the runtime extension
+// explicit so Node resolves the sibling function module after TypeScript emits JS.
+import {normalizeNews} from './nfl-news.js';
 
 const BALL_KNOWER_SUPABASE_URL='https://gpnboygoosrmeydwjpvk.supabase.co';
 const BALL_KNOWER_SUPABASE_PUBLISHABLE_KEY='sb_publishable_tgnOH0RUtswLI58isL5Qfw_Pq3xaV9h';
