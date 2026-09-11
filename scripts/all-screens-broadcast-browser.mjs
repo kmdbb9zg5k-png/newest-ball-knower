@@ -93,9 +93,8 @@ try{
   await page.getByLabel('League name').fill('Browser Test League');
   await page.getByLabel('Your team name').fill('Test City Captains');
   await page.getByLabel('Team location').fill('Allentown, PA');
-  await page.getByLabel('League size').selectOption('8');
-  await page.getByRole('button',{name:'Create League & Enter Draft',exact:true}).click();
-  await page.getByRole('list',{name:'Upcoming draft order'}).waitFor();
+  await page.getByRole('button',{name:'Create League & Start Draft',exact:true}).click();
+  await page.getByText(/FANTASY DRAFT • ROUND/).waitFor();
   await capture('fantasy-franchise','tunnel','fantasy-franchise-draft');
   const fixedBack=page.getByRole('button',{name:'Back to Solo Mode choices',exact:true});
   const nestedBack=page.getByRole('button',{name:'Back to Solo Franchise Hub',exact:true});
@@ -106,7 +105,7 @@ try{
   await fantasyDraftCard.waitFor();
   await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
   await fantasyDraftCard.click();
-  await page.getByRole('list',{name:'Upcoming draft order'}).waitFor();
+  await page.getByText(/FANTASY DRAFT • ROUND/).waitFor();
   await page.waitForFunction(()=>window.scrollY===0);
   assert.equal(await page.evaluate(()=>window.scrollY),0,`Solo Fantasy Draft inherited the hub scroll position at ${width}px`);
 
