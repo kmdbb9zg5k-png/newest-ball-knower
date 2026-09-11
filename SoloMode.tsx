@@ -94,7 +94,17 @@ export const SoloMode:React.FC<{initialExperience?:SoloExperience}>=({initialExp
  const openExperience=(next:SoloExperience)=>{trackBallKnowerEvent('Solo Experience Opened',{experience:next});setExperience(next)};
  if(experience==='hub')return <SoloFranchiseHub onOpen={openExperience}/>;
  const back=()=>setExperience('hub');
- return <Suspense fallback={<SoloModeLoading/>}>{experience==='cap'?<CapChallenge onBack={back}/>:experience==='fantasy'?<FantasyFranchiseMode onBack={back}/>:experience==='real'?<RealTeamFranchiseMode onBack={back}/>:<MyPlayerStoryMode onBack={back}/>}</Suspense>;
+ return <div className="bk-solo-experience">
+  <button
+   type="button"
+   onClick={back}
+   aria-label="Back to Solo Mode choices"
+   className="fixed left-[max(.75rem,env(safe-area-inset-left))] top-[calc(72px+env(safe-area-inset-top)+.75rem)] z-[35] inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-[#090c12]/95 px-4 text-[10px] font-black uppercase tracking-wider text-white shadow-2xl backdrop-blur-xl md:top-[calc(116px+env(safe-area-inset-top)+.75rem)]"
+  >
+   <ArrowLeft size={17} aria-hidden="true"/> Back
+  </button>
+  <Suspense fallback={<SoloModeLoading/>}>{experience==='cap'?<CapChallenge onBack={back}/>:experience==='fantasy'?<FantasyFranchiseMode onBack={back}/>:experience==='real'?<RealTeamFranchiseMode onBack={back}/>:<MyPlayerStoryMode onBack={back}/>}</Suspense>
+ </div>;
 };
 
 const CapChallenge:React.FC<{onBack:()=>void}>=({onBack})=>{
