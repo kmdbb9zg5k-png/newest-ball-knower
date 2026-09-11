@@ -1,0 +1,63 @@
+name: Prepare scoring read recovery
+on:
+  push:
+    branches: [maintenance/reconciliation-workspace-20260911]
+    paths: [.github/workflows/prepare-scoring-read-recovery.yml]
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: staging
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          path: app
+          ref: b48e7b6d2fadcc1cdfc94a38ba436159d83dba54
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with: {node-version: 22}
+      - name: Apply the transport-only change to current production source
+        working-directory: app
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('api/fantasy-live-scoring.ts');s=p.read_text()
+          old='export default async function handler(req:any,res:any){'
+          assert s.count(old)==1 and 'createScoringDatabaseFetch' not in s
+          s=s.replace(old,Path('../staging/.reconciliation/scoring-read-recovery-snippet.txt').read_text()+old,1)
+          old='const db=createClient(supabaseUrl,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});'
+          assert s.count(old)==1
+          s=s.replace(old,'const db=createClient(supabaseUrl,serviceKey,{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:createScoringDatabaseFetch(supabaseUrl)}});',1)
+          p.write_text(s)
+          p=Path('scripts/fantasy-scoring-read-recovery-check.ts')
+          p.write_text(Path('../staging/.reconciliation/files/scripts/fantasy-scoring-read-recovery-check.ts').read_text())
+          p=Path('scripts/fantasy-live-scoring-reliability-check.ts');s=p.read_text()
+          assert 'fantasy-scoring-read-recovery-check' not in s
+          p.write_text("import './fantasy-scoring-read-recovery-check';\n"+s)
+          PY
+      - run: npm ci --no-audit --no-fund
+        working-directory: app
+      - name: Test existing and new scoring contracts
+        working-directory: app
+        run: |
+          npm run lint
+          npm run check:fantasy-live-scoring
+          npm run check:fantasy-player-data-completeness
+          npm run check:production-fantasy-smoke
+          npm run check:player-history-identity
+          git diff --check
+      - name: Publish only the tested source changes
+        working-directory: app
+        run: |
+          set -euo pipefail
+          git config user.name 'Ball Knower Engineering'
+          git config user.email 'engineering@ballknowerofficial.com'
+          git add api/fantasy-live-scoring.ts scripts/fantasy-scoring-read-recovery-check.ts scripts/fantasy-live-scoring-reliability-check.ts
+          git commit -m 'fix: recover transient scoring reads without replaying writes'
+          git push origin HEAD:refs/heads/fix/scoring-read-recovery-20260911
+          git rev-parse HEAD
