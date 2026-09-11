@@ -3,7 +3,9 @@ import { readFileSync } from 'node:fs';
 import {
   buildFantasyPowerRankings,
   fantasyAvailability,
+  fantasyGameHasStarted,
   fantasyPlayerAction,
+  fantasyPlayerMarketAvailability,
   lineupChangeCount,
 } from '../fantasyUiSystem';
 import { buildFantasyDraftReports, type FantasyDraftReportPosition } from '../fantasyDraftReport';
@@ -29,6 +31,12 @@ assert.deepEqual(fantasyPlayerAction('free_agent'), { kind: 'add', label: 'ADD' 
 assert.deepEqual(fantasyPlayerAction('waiver'), { kind: 'claim', label: 'CLAIM' });
 assert.equal(fantasyAvailability('instant'), 'free_agent');
 assert.equal(fantasyAvailability('continuous'), 'waiver');
+const now = Date.parse('2026-09-11T12:00:00Z');
+assert.equal(fantasyGameHasStarted({ kickoffAt: '2026-09-10T23:00:00Z', isFinal: true }, now), true);
+assert.equal(fantasyGameHasStarted({ kickoffAt: '2026-09-13T17:00:00Z' }, now), false);
+assert.equal(fantasyPlayerMarketAvailability('instant', false, { kickoffAt: '2026-09-10T23:00:00Z', isFinal: true }, now), 'waiver', 'a player who played last night cannot remain an immediate add');
+assert.equal(fantasyPlayerMarketAvailability('instant', true, { kickoffAt: '2026-09-13T17:00:00Z' }, now), 'waiver', 'an explicit dropped-player waiver remains a claim');
+assert.equal(fantasyPlayerMarketAvailability('instant', false, { kickoffAt: '2026-09-13T17:00:00Z' }, now), 'free_agent');
 
 assert.equal(lineupChangeCount({ QB: 'a', RB1: 'b' }, { QB: 'a', RB1: 'c', WR1: 'd' }), 2);
 assert.equal(lineupChangeCount({ QB: 'a' }, { QB: 'a' }), 0);
@@ -95,7 +103,10 @@ assert.ok(league.includes('"Lineup Valid"') && !league.includes('"Lineup ready"'
 assert.ok(league.includes('Optimize Lineup') && league.includes('Save Changes ({lineupChanges})') && league.includes('lineupDirty &&'), 'lineup suggestions and save controls must be dirty-state aware');
 assert.ok(league.includes('fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))]') && league.includes('md:sticky'), 'dirty lineup saves must remain visible above the mobile app bar without changing desktop behavior');
 assert.ok(league.includes('weeklyContextFor(player)') && league.includes('weekContext?.opponentText') && league.includes('weekContext?.projection'), 'lineup rows must prioritize weekly opponent and projection context');
-assert.ok(league.includes('playerAvailability === "waiver" ? "Submit Claim" : "Add Player"'), 'free agents and waiver claims must use distinct actions');
+assert.ok(league.includes('selectedPlayerAvailability === "waiver" ? "Submit Waiver Claim"') && league.includes('dropRequired ? "Add & Drop" : "Add Player"'), 'the simplified add/drop sheet must use distinct immediate-add and waiver actions');
+assert.ok(league.includes('Step 1 · Select Player to Drop') && league.includes('dropGroups.map') && league.includes('h-[100dvh]'), 'Add Players must use the simple full-screen mobile roster picker');
+assert.ok(league.includes('dropLockedFor(player)') && league.includes('<LockKeyhole') && league.includes('gameLockedFor(player)'), 'started lineup players must render as unavailable drop choices');
+assert.ok(league.includes('activeWaiverIds') && league.includes('moveAvailabilityFor(player)') && league.includes('Immediate adds stay open only until each player'), 'started and explicitly waived free agents must move out of immediate adds');
 assert.ok(league.includes('playerPosition') && league.includes('Weekly projection') && league.includes('Overall rank'), 'Add Players must keep mobile position and sorting controls');
 assert.ok(league.includes('primaryAction={detailPrimaryAction') && league.includes('fantasyPlayerAction(detailOwnership'), 'shared Player Cards must receive ownership-aware primary actions');
 assert.ok(

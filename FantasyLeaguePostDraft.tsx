@@ -14,6 +14,7 @@ import {
   Gavel,
   Medal,
   MessageCircle,
+  LockKeyhole,
   Plus,
   RefreshCw,
   Save,
@@ -41,6 +42,7 @@ import {
   LeagueInjury,
   LeagueMessage,
   LeagueTransaction,
+  PlayerWaiver,
   postLeagueMessage,
   proposeTrade,
   voteOnFantasyTrade,
@@ -80,8 +82,9 @@ import { ModalPortal } from "./ModalPortal";
 import { movePlayerIntoLineupSlot, resolveWeeklyProjection } from "./fantasyLineup";
 import {
   buildFantasyPowerRankings,
-  fantasyAvailability,
+  fantasyGameHasStarted,
   fantasyPlayerAction,
+  fantasyPlayerMarketAvailability,
   lineupChangeCount,
 } from "./fantasyUiSystem";
 import {
@@ -112,6 +115,8 @@ type Props = {
 const STANDARD_POSITIONS = new Set(["QB", "RB", "WR", "TE", "K", "DST"]);
 const normalizeName = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]/g, "");
+const normalizeTeam = (value: string) =>
+  ({ JAC: "JAX", LA: "LAR", WSH: "WAS" })[value.toUpperCase()] || value.toUpperCase();
 const compareCodeUnits = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0;
 const displayManagerName = (member?: LeagueMember) => {
   if (!member) return "Team";
@@ -215,6 +220,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const [weeklyProjections, setWeeklyProjections] = useState<WeeklyPlayerProjection[]>([]);
   const [trades, setTrades] = useState<TradeOffer[]>([]);
   const [claims, setClaims] = useState<WaiverClaim[]>([]);
+  const [playerWaivers, setPlayerWaivers] = useState<PlayerWaiver[]>([]);
   const [injuries, setInjuries] = useState<LeagueInjury[]>([]);
   const [messages, setMessages] = useState<LeagueMessage[]>([]);
   const [transactions, setTransactions] = useState<LeagueTransaction[]>([]);
@@ -251,6 +257,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const [faabBid, setFaabBid] = useState(1);
   const [dropPlayer, setDropPlayer] = useState("");
   const [dropPickerOpen, setDropPickerOpen] = useState(false);
+  const [marketNow, setMarketNow] = useState(() => Date.now());
   const [claimGroupId, setClaimGroupId] = useState("");
 
   const [tradeTarget, setTradeTarget] = useState("");
@@ -365,6 +372,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
       const ops = opsResult.value;
       setTrades([...ops.trades]);
       setClaims([...ops.claims]);
+      setPlayerWaivers([...ops.playerWaivers]);
       setInjuries([...ops.injuries]);
       setMessages([...ops.messages]);
       setTransactions([...ops.transactions]);
@@ -435,6 +443,11 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
     return () => {
       active = false;
     };
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setMarketNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -766,7 +779,15 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
       setFaabPlayer("");
       setDropPlayer("");
       setClaimGroupId("");
+      setDropPickerOpen(false);
     });
+
+  const beginPlayerMove = (player: Player) => {
+    setFaabPlayer(player.id);
+    setDropPlayer("");
+    setClaimGroupId("");
+    setDropPickerOpen(true);
+  };
 
   const sendTrade = () =>
     run(async () => {
@@ -1012,10 +1033,46 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const nextKickoff = nflGames
     .filter((game) => !game.isFinal)
     .sort((a, b) => Date.parse(a.kickoffAt) - Date.parse(b.kickoffAt))[0];
-  const playerAvailability = fantasyAvailability(settings.freeAgentMode);
+  const currentTransactionWeek = Math.max(1, Number(settings.currentWeek) || 1);
+  const currentTransactionSeason = Number(settings.nflSeason) || 2026;
+  const activeWaiverIds = new Set(playerWaivers.map((item) => item.playerId));
+  const marketGameFor = (player?: Player) => {
+    if (!player) return undefined;
+    const team = normalizeTeam(player.team);
+    return seasonGames.find(
+      (game) =>
+        game.season === currentTransactionSeason &&
+        game.week === currentTransactionWeek &&
+        (normalizeTeam(game.homeTeam) === team || normalizeTeam(game.awayTeam) === team),
+    );
+  };
+  const gameLockedFor = (player?: Player) => {
+    const game = marketGameFor(player);
+    return fantasyGameHasStarted(game, marketNow);
+  };
+  const moveAvailabilityFor = (player?: Player) =>
+    fantasyPlayerMarketAvailability(
+      settings.freeAgentMode,
+      Boolean(player && activeWaiverIds.has(player.id)),
+      marketGameFor(player),
+      marketNow,
+    );
+  const selectedFreeAgent = freeAgents.find((player) => player.id === faabPlayer);
+  const selectedPlayerAvailability = moveAvailabilityFor(selectedFreeAgent);
+  const dropRequired = activeRosterCount >= fantasyRosterSize;
+  const dropLockedFor = (player: Player) =>
+    (lockedPlayerIds.has(player.id) || starterIds.has(player.id)) && gameLockedFor(player);
+  const dropGroups = [
+    { label: "Offense", players: roster.filter((player) => !irIds.includes(player.id) && player.position !== "K" && player.position !== "DST") },
+    { label: "Kickers", players: roster.filter((player) => !irIds.includes(player.id) && player.position === "K") },
+    { label: "Defense/Special Teams", players: roster.filter((player) => !irIds.includes(player.id) && player.position === "DST") },
+  ].map((group) => ({ ...group, players: group.players.sort(compareLowestKnownValue) }));
   const visibleFreeAgents = useMemo(() => {
     const query = freeAgentQuery.trim().toLowerCase();
     return freeAgents
+      .filter((player) =>
+        moveAvailabilityFor(player) === (playerPoolView === "waivers" ? "waiver" : "free_agent"),
+      )
       .filter((player) => playerPosition === "ALL" || player.position === playerPosition)
       .filter(
         (player) =>
@@ -1038,7 +1095,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
         return comparePlayers(a, b);
       })
       .slice(0, 50);
-  }, [freeAgents, freeAgentQuery, playerPosition, playerSort, weeklyProjections, nflGames, seasonGames, week, rankingsByName]);
+  }, [freeAgents, freeAgentQuery, playerPosition, playerSort, playerPoolView, weeklyProjections, nflGames, seasonGames, week, rankingsByName, playerWaivers, marketNow, settings.freeAgentMode, currentTransactionWeek, currentTransactionSeason]);
   const weeklyContextFor = (player?: Player) => {
     if (!player) return undefined;
     const game = nflGames.find(
@@ -1307,7 +1364,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
     ? detailOwnerId === me?.id
       ? "mine"
       : "opponent"
-    : playerAvailability;
+    : moveAvailabilityFor(detailPlayer || undefined);
   const detailPrimaryAction = detailPlayer
     ? fantasyPlayerAction(detailOwnership, detailPlayer.name)
     : undefined;
@@ -1318,9 +1375,11 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
     } else if (detailPrimaryAction.kind === "manage") {
       openTab("team");
     } else {
-      setFaabPlayer(detailPlayer.id);
-      setPlayerPoolView(playerAvailability === "waiver" ? "waivers" : "freeAgents");
+      const availability = moveAvailabilityFor(detailPlayer);
+      setPlayerPoolView(availability === "waiver" ? "waivers" : "freeAgents");
+      setWeek(currentTransactionWeek);
       openTab("players");
+      beginPlayerMove(detailPlayer);
     }
     setDetailPlayer(null);
   };
@@ -1365,7 +1424,10 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
           {navItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => openTab(item.id)}
+              onClick={() => {
+                if (item.id === "players") setWeek(currentTransactionWeek);
+                openTab(item.id);
+              }}
               className={`relative flex min-h-10 min-w-0 items-center justify-center gap-1 px-1 text-[9px] font-black uppercase min-[390px]:text-[10px] ${tab === item.id ? "text-[var(--bk-team-accent)] after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:bg-[var(--bk-team-accent)]" : "text-zinc-500"}`}
             >
               <span className="hidden sm:inline">{item.icon}</span>
@@ -1778,11 +1840,11 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
           {playerPoolView !== "ir" && <Panel
             title={playerPoolView === "waivers" ? "Waiver Wire" : "Free Agents"}
             sub={
-              waiverType === "faab"
+              playerPoolView === "waivers" && waiverType === "faab"
                 ? `$${myMeta?.faabBalance ?? 100} FAAB remaining`
-                : playerAvailability === "waiver"
+                : playerPoolView === "waivers"
                   ? `Claims process daily at ${String(Number(settings.waiverProcessHourUtc ?? 9)).padStart(2, "0")}:00 UTC`
-                  : "Available for an immediate add"
+                  : "Immediate adds stay open only until each player's kickoff"
             }
             icon={<Search className="h-5 w-5 text-[#D4AF37]" />}
           >
@@ -1803,15 +1865,18 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                 <option value="rank">Overall rank</option>
               </select>
             </label>
-            {((playerPoolView === "waivers") === (playerAvailability === "waiver")) ? <div className="max-h-[52dvh] overflow-y-auto rounded-lg border border-white/10">
+            <div className="max-h-[52dvh] overflow-y-auto rounded-lg border border-white/10">
               {visibleFreeAgents.map((player) => {
-                const action = fantasyPlayerAction(playerAvailability, player.name);
+                const availability = moveAvailabilityFor(player);
+                const action = fantasyPlayerAction(availability, player.name);
                 const context = weeklyContextFor(player);
                 const ranking = rankingFor(player);
+                const game = marketGameFor(player);
+                const playerWaiver = playerWaivers.find((item) => item.playerId === player.id);
                 return (
                 <div
                   key={player.id}
-                  className={`bk-fantasy-row bk-fantasy-player-row grid w-full grid-cols-[36px_minmax(0,1fr)_42px_48px] items-center gap-2 px-2 py-1.5 text-left ${faabPlayer === player.id ? "bg-[var(--bk-team-accent)]/[.08] ring-1 ring-inset ring-[var(--bk-team-accent)]/35" : ""}`}
+                  className="bk-fantasy-row bk-fantasy-player-row grid w-full grid-cols-[36px_minmax(0,1fr)_42px_52px] items-center gap-2 px-2 py-1.5 text-left"
                 >
                   <Portrait player={player}/>
                   <button onClick={() => openPlayerDetail(player)} className="bk-fantasy-compact-button min-w-0 text-left">
@@ -1822,81 +1887,23 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                     <div className="truncate text-[8px] text-zinc-500">
                       {player.team} · {player.position} · {context?.opponentText || "Opponent TBD"}
                     </div>
-                    <div className="truncate text-[7px] font-bold text-zinc-600">
-                      {context?.kickoffText || "Kickoff TBD"}{ranking ? ` · #${ranking.position_rank} ${ranking.position}` : ""}
+                    <div className={`truncate text-[7px] font-bold ${availability === "waiver" ? "text-amber-300" : "text-zinc-600"}`}>
+                      {gameLockedFor(player)
+                        ? `${game?.isFinal ? "Final" : game?.isLive ? "Live" : "Locked"} · Waivers`
+                        : playerWaiver
+                          ? `Waivers · ${new Date(playerWaiver.clearsAt).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}`
+                          : context?.kickoffText || "Kickoff TBD"}
+                      {ranking ? ` · #${ranking.position_rank} ${ranking.position}` : ""}
                     </div>
                   </button>
                   <div className="text-right"><div className="text-xs font-black">{context?.projection === null || context?.projection === undefined ? "—" : context.projection.toFixed(1)}</div><div className="text-[7px] font-black uppercase text-zinc-600">Proj</div></div>
-                  <button onClick={() => setFaabPlayer(player.id)} className={`bk-fantasy-compact-button shrink-0 border px-2 text-[8px] font-black uppercase ${faabPlayer === player.id ? "border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)]" : "border-emerald-400/50 bg-emerald-400/[.05] text-emerald-400"}`}>
-                    {faabPlayer === player.id ? "Added" : action.label}
+                  <button type="button" aria-haspopup="dialog" onClick={() => beginPlayerMove(player)} className={`bk-fantasy-compact-button shrink-0 border px-2 text-[8px] font-black uppercase ${availability === "waiver" ? "border-amber-300/40 bg-amber-300/[.06] text-amber-300" : "border-emerald-400/50 bg-emerald-400/[.05] text-emerald-400"}`}>
+                    {action.label}
                   </button>
                 </div>
               )})}
-            </div> : <DataNotice text={playerPoolView === "waivers" ? "This league currently uses immediate free-agent adds. Players move here only when league rules require waivers." : "This league uses continuous waivers, so every available player must be claimed from the Waivers tab."} />}
-            {faabPlayer && (
-              <div className="space-y-2 rounded-xl border border-[#D4AF37]/20 bg-[#D4AF37]/5 p-3">
-                {waiverType === "faab" && (
-                  <input
-                    aria-label="FAAB bid"
-                    type="number"
-                    min={0}
-                    max={myMeta?.faabBalance ?? 100}
-                    value={faabBid}
-                    onChange={(event) => setFaabBid(Number(event.target.value))}
-                    className="min-h-11 w-full rounded-xl bg-black/40 px-3 text-xs"
-                    placeholder="FAAB bid"
-                  />
-                )}
-                <button
-                  type="button"
-                  aria-haspopup="dialog"
-                  aria-expanded={dropPickerOpen}
-                  onClick={() => setDropPickerOpen(true)}
-                  className="flex min-h-11 w-full items-center justify-between rounded-lg bg-black/40 px-3 text-left text-xs"
-                >
-                  <span className={dropPlayer ? "text-white" : "text-zinc-500"}>{dropPlayer ? `${roster.find(player => player.id === dropPlayer)?.name || "Selected player"} · ${roster.find(player => player.id === dropPlayer)?.position || ""}` : activeRosterCount >= fantasyRosterSize ? "Choose player to drop" : "No drop needed"}</span>
-                  <ChevronDown className="h-4 w-4 text-zinc-500"/>
-                </button>
-                {myPendingClaims.length > 0 && (
-                  <select
-                    aria-label="Conditional claim"
-                    value={claimGroupId}
-                    onChange={(event) => setClaimGroupId(event.target.value)}
-                    className="min-h-11 w-full rounded-xl bg-black/40 px-3 text-xs"
-                  >
-                    <option value="">Independent move</option>
-                    {myPendingClaims
-                      .filter(
-                        (claim, index, list) =>
-                          list.findIndex(
-                            (item) => item.claimGroupId === claim.claimGroupId,
-                          ) === index,
-                      )
-                      .map((claim) => (
-                        <option
-                          key={claim.claimGroupId}
-                          value={claim.claimGroupId}
-                        >
-                          Backup if{" "}
-                          {KNOWN_PLAYERS_DATABASE.find(
-                            (player) => player.id === claim.playerId,
-                          )?.name || "earlier claim"}{" "}
-                          fails
-                        </option>
-                      ))}
-                  </select>
-                )}
-                <button
-                  disabled={
-                    busy || !memberMetaLoaded || (activeRosterCount >= fantasyRosterSize && !dropPlayer)
-                  }
-                  onClick={submitClaim}
-                  className="bk-fantasy-action min-h-11 w-full disabled:opacity-30"
-                >
-                  {playerAvailability === "waiver" ? "Submit Claim" : "Add Player"}
-                </button>
-              </div>
-            )}
+              {!visibleFreeAgents.length && <div className="p-4 text-center text-[10px] font-bold text-zinc-500">No players match this search and position.</div>}
+            </div>
             {myPendingClaims.length > 0 && (
               <div className="space-y-2">
                 <div className="text-[10px] font-black uppercase text-zinc-500">
@@ -2931,39 +2938,57 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
         </div>
       )}
 
-      {dropPickerOpen && (
+      {dropPickerOpen && selectedFreeAgent && (
         <ModalPortal>
           <div
-            className="fixed inset-0 z-[90] flex items-end bg-black/75 backdrop-blur-sm sm:items-center sm:justify-center"
+            className="fixed inset-0 z-[90] flex bg-[#0b0d11] sm:items-center sm:justify-center sm:bg-black/80 sm:p-4 sm:backdrop-blur-sm"
             onMouseDown={(event) => {
               if (event.target === event.currentTarget) setDropPickerOpen(false);
             }}
           >
-            <section role="dialog" aria-modal="true" aria-labelledby="drop-player-title" className="max-h-[78dvh] w-full overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0d11] pb-[env(safe-area-inset-bottom)] shadow-2xl sm:max-w-md sm:rounded-2xl">
-              <header className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-                <div>
-                  <h2 id="drop-player-title" className="text-sm font-black uppercase">Choose Player to Drop</h2>
-                  <p className="mt-0.5 text-[9px] text-zinc-500">Lowest projected players are listed first.</p>
-                </div>
-                <button type="button" aria-label="Close player picker" onClick={() => setDropPickerOpen(false)} className="bk-fantasy-icon-button grid place-items-center border border-white/10"><X className="h-4 w-4"/></button>
+            <section role="dialog" aria-modal="true" aria-labelledby="drop-player-title" className="flex h-[100dvh] w-full flex-col overflow-hidden bg-[#0b0d11] pt-[env(safe-area-inset-top)] shadow-2xl sm:h-[min(820px,calc(100dvh-2rem))] sm:max-w-lg sm:rounded-2xl sm:border sm:border-white/10 sm:pt-0">
+              <header className="relative border-b border-white/10 px-16 pb-3 pt-4 text-center">
+                <h2 id="drop-player-title" className="text-sm font-black">Add Player</h2>
+                <p className="mt-0.5 text-xs text-zinc-400">Step 1 · Select Player to Drop</p>
+                <button type="button" aria-label="Close add player" onClick={() => setDropPickerOpen(false)} className="absolute right-4 top-3 grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[.02]"><X className="h-6 w-6"/></button>
               </header>
-              <div className="max-h-[62dvh] overflow-y-auto p-2">
-                {activeRosterCount < fantasyRosterSize && (
-                  <button type="button" onClick={() => { setDropPlayer(""); setDropPickerOpen(false); }} className="mb-1 flex min-h-12 w-full items-center justify-between rounded-lg border border-emerald-400/20 bg-emerald-400/[.05] px-3 text-left text-xs font-black text-emerald-300">
-                    No drop needed <Check className="h-4 w-4"/>
-                  </button>
-                )}
-                {roster.filter((player) => player.id !== faabPlayer && !irIds.includes(player.id)).sort(compareLowestKnownValue).map((player) => {
-                  const context = weeklyContextFor(player);
-                  const selected = dropPlayer === player.id;
-                  return <button key={player.id} type="button" aria-pressed={selected} onClick={() => { setDropPlayer(player.id); setDropPickerOpen(false); }} className={`bk-fantasy-player-row flex w-full items-center gap-2 border-b border-white/[.06] px-2 py-1.5 text-left ${selected ? "bg-[var(--bk-team-accent)]/[.08]" : ""}`}>
-                    <Portrait player={player}/>
-                    <span className="min-w-0 flex-1"><span className="block truncate text-xs font-black">{player.name}</span><span className="block truncate text-[8px] text-zinc-500">{player.team} · {player.position} · {context?.opponentText || "Opponent TBD"}</span></span>
-                    <span className="shrink-0 text-right"><span className="block text-xs font-black">{context?.projection === null || context?.projection === undefined ? "—" : context.projection.toFixed(1)}</span><span className="block text-[7px] font-black uppercase text-zinc-600">Proj</span></span>
-                    {selected && <Check className="h-4 w-4 shrink-0 text-[var(--bk-team-accent)]"/>}
-                  </button>;
-                })}
+              <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl font-black">Drop</span>
+                    <span className={`rounded px-1.5 py-1 text-[8px] font-black uppercase ${dropRequired ? "bg-red-400 text-[#16080a]" : "bg-emerald-300 text-[#07130d]"}`}>{dropRequired ? "Required" : "Optional"}</span>
+                  </div>
+                  <div className="mt-1 truncate text-[10px] text-zinc-500">Adding {selectedFreeAgent.name} · {selectedPlayerAvailability === "waiver" ? "waiver claim" : "immediate add"}</div>
+                </div>
+                <div className="shrink-0 rounded-full border border-white/10 px-3 py-2 text-xs font-black">Week {currentTransactionWeek}</div>
               </div>
+              {(selectedPlayerAvailability === "waiver" && (waiverType === "faab" || myPendingClaims.length > 0)) && <div className="grid gap-2 border-b border-white/10 p-3 sm:grid-cols-2">
+                {waiverType === "faab" && <label className="rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-[9px] font-black uppercase text-zinc-500">FAAB bid<input aria-label="FAAB bid" type="number" min={0} max={myMeta?.faabBalance ?? 100} value={faabBid} onChange={(event) => setFaabBid(Number(event.target.value))} className="mt-1 min-h-9 w-full bg-transparent text-sm font-black text-white outline-none"/></label>}
+                {myPendingClaims.length > 0 && <label className="rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-[9px] font-black uppercase text-zinc-500">Claim order<select aria-label="Conditional claim" value={claimGroupId} onChange={(event) => setClaimGroupId(event.target.value)} className="mt-1 min-h-9 w-full bg-transparent text-xs font-black normal-case text-white"><option value="">Independent move</option>{myPendingClaims.filter((claim,index,list)=>list.findIndex((item)=>item.claimGroupId===claim.claimGroupId)===index).map((claim)=><option key={claim.claimGroupId} value={claim.claimGroupId}>Backup if {KNOWN_PLAYERS_DATABASE.find((player)=>player.id===claim.playerId)?.name||"earlier claim"} fails</option>)}</select></label>}
+              </div>}
+              <div className="grid grid-cols-[minmax(0,1fr)_48px_42px] border-b border-white/10 px-4 py-2 text-[9px] font-bold text-zinc-500"><span>Roster</span><span className="text-right">Proj</span><span className="text-right">Rank</span></div>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                {!dropRequired && <button type="button" aria-pressed={!dropPlayer} onClick={() => setDropPlayer("")} className={`flex min-h-14 w-full items-center gap-3 border-b border-white/[.06] px-4 text-left ${!dropPlayer ? "bg-[var(--bk-team-accent)]/[.14]" : ""}`}><span className={`grid h-6 w-6 shrink-0 place-items-center rounded border ${!dropPlayer ? "border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)]" : "border-white/15"}`}>{!dropPlayer && <Check className="h-4 w-4"/>}</span><span className="text-sm font-black">No player drop needed</span></button>}
+                {dropGroups.map((group) => group.players.length > 0 && <section key={group.label}>
+                  <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_48px_42px] bg-[#0b0d11]/95 px-4 py-2 text-[9px] font-bold text-zinc-400 backdrop-blur"><span>{group.label}</span><span className="text-right">Proj</span><span className="text-right">Rank</span></div>
+                  {group.players.map((player) => {
+                    const context = weeklyContextFor(player);
+                    const ranking = rankingFor(player);
+                    const selected = dropPlayer === player.id;
+                    const locked = dropLockedFor(player);
+                    return <button key={player.id} type="button" aria-pressed={selected} disabled={locked} onClick={() => setDropPlayer(player.id)} className={`bk-fantasy-player-row grid min-h-[72px] w-full grid-cols-[28px_48px_minmax(0,1fr)_48px_42px] items-center gap-2 border-b border-white/[.06] px-3 text-left disabled:opacity-55 ${selected ? "bg-[var(--bk-team-accent)]/[.18]" : ""}`}>
+                      <span className={`grid h-6 w-6 place-items-center rounded border ${locked ? "border-transparent" : selected ? "border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)]" : "border-white/15"}`}>{locked ? <LockKeyhole className="h-4 w-4 text-zinc-400"/> : selected ? <Check className="h-4 w-4"/> : null}</span>
+                      <FantasyPlayerPortrait player={player} className="h-14 w-12 rounded-xl"/>
+                      <span className="min-w-0"><span className="flex items-center gap-1"><span className="truncate text-xs font-black">{player.name}</span><FantasyAvailabilityBadge availability={liveAvailabilityFor(player)}/></span><span className="block truncate text-[10px] font-bold text-zinc-400"><span className="text-[var(--bk-team-accent)]">{player.position}</span> · {player.team}</span><span className={`block truncate text-[9px] ${gameLockedFor(player) ? "text-zinc-500" : "text-zinc-400"}`}>{gameLockedFor(player) ? `${marketGameFor(player)?.isFinal ? "Final" : "Game started"} · ${context?.opponentText || ""}` : `${context?.kickoffText || "Kickoff TBD"} · ${context?.opponentText || ""}`}</span></span>
+                      <span className="text-right text-xs text-zinc-300">{context?.projection === null || context?.projection === undefined ? "—" : context.projection.toFixed(2)}</span>
+                      <span className="text-right text-xs text-zinc-300">{ranking?.overall_rank ?? "—"}</span>
+                    </button>;
+                  })}
+                </section>)}
+              </div>
+              <footer className="border-t border-white/10 bg-[#11151c] px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4">
+                <button type="button" disabled={busy || !memberMetaLoaded || (dropRequired && !dropPlayer)} onClick={submitClaim} className="bk-fantasy-action min-h-14 w-full rounded-full text-sm disabled:opacity-30">{busy ? "Submitting…" : selectedPlayerAvailability === "waiver" ? "Submit Waiver Claim" : dropRequired ? "Add & Drop" : "Add Player"}</button>
+              </footer>
             </section>
           </div>
         </ModalPortal>
