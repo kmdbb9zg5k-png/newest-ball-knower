@@ -4,6 +4,7 @@ import type { League, Player } from './types';
 export type TradeOffer={id:string;leagueId:string;proposerMemberId:string;recipientMemberId:string;offeredPlayerIds:string[];requestedPlayerIds:string[];proposerDropPlayerIds:string[];recipientDropPlayerIds:string[];status:string;note?:string;createdAt:string;resolvedAt?:string};
 export type TradeResolution={tradeId?:string;status:string;reason?:string};
 export type WaiverClaim={id:string;leagueId:string;memberId:string;playerId:string;dropPlayerId?:string;priority:number;faabBid:number;claimGroupId:string;claimOrder:number;status:string;createdAt:string;processAt:string;processedAt?:string;failureReason?:string};
+export type PlayerWaiver={id:string;leagueId:string;playerId:string;clearsAt:string;createdAt:string};
 export type LeagueTransaction={id:string;leagueId:string;memberId?:string;transactionType:string;summary:string;metadata:any;createdAt:string};
 export type LeagueInjury={id:string;leagueId:string;memberId:string;playerId:string;playerName:string;injuryType:string;severity:'minor'|'moderate'|'major'|'season_ending';weeksRemaining:number;onIr:boolean;status:'questionable'|'doubtful'|'out'|'ir'|'cleared';createdAt:string;updatedAt:string};
 export type LeagueMessage={id:string;leagueId:string;authUserId?:string;memberName:string;body:string;kind:'chat'|'announcement'|'receipt'|'reaction';replyTo?:string;createdAt:string};
@@ -17,6 +18,7 @@ export type TradeAction='accepted'|'rejected'|'cancelled'|'vetoed'|'approved';
 
 const mapTrade=(x:any):TradeOffer=>({id:x.id,leagueId:x.league_id,proposerMemberId:x.proposer_member_id,recipientMemberId:x.recipient_member_id,offeredPlayerIds:x.offered_player_ids||[],requestedPlayerIds:x.requested_player_ids||[],proposerDropPlayerIds:x.proposer_drop_player_ids||[],recipientDropPlayerIds:x.recipient_drop_player_ids||[],status:x.status,note:x.note||undefined,createdAt:x.created_at,resolvedAt:x.resolved_at||undefined});
 const mapClaim=(x:any):WaiverClaim=>({id:x.id,leagueId:x.league_id,memberId:x.member_id,playerId:x.player_id,dropPlayerId:x.drop_player_id||undefined,priority:Number(x.priority)||999,faabBid:Number(x.faab_bid)||0,claimGroupId:x.claim_group_id||x.id,claimOrder:Number(x.claim_order)||1,status:x.status,createdAt:x.created_at,processAt:x.process_at||x.created_at,processedAt:x.processed_at||undefined,failureReason:x.failure_reason||undefined});
+const mapPlayerWaiver=(x:any):PlayerWaiver=>({id:x.id,leagueId:x.league_id,playerId:x.player_id,clearsAt:x.clears_at,createdAt:x.created_at});
 const mapTxn=(x:any):LeagueTransaction=>({id:x.id,leagueId:x.league_id,memberId:x.member_id||undefined,transactionType:x.transaction_type,summary:x.summary,metadata:x.metadata||{},createdAt:x.created_at});
 const mapInjury=(x:any):LeagueInjury=>({id:x.id,leagueId:x.league_id,memberId:x.member_id,playerId:x.player_id,playerName:x.player_name,injuryType:x.injury_type,severity:x.severity,weeksRemaining:Number(x.weeks_remaining)||0,onIr:Boolean(x.on_ir),status:x.status,createdAt:x.created_at,updatedAt:x.updated_at});
 const mapMessage=(x:any):LeagueMessage=>({id:x.id,leagueId:x.league_id,authUserId:x.auth_user_id||undefined,memberName:x.member_name,body:x.body,kind:x.kind,replyTo:x.reply_to||undefined,createdAt:x.created_at});
@@ -24,7 +26,7 @@ const mapDmThread=(x:any):FantasyDmThread=>({id:x.id,leagueId:x.league_id,partic
 const mapDmMessage=(x:any):FantasyDmMessage=>({id:x.id,threadId:x.thread_id,senderAuthId:x.sender_auth_id,body:x.body,createdAt:x.created_at});
 const mapTradeMessage=(x:any):TradeMessage=>({id:x.id,tradeId:x.trade_id,senderAuthId:x.sender_auth_id,body:x.body,createdAt:x.created_at});
 const mapBlock=(x:any):TradingBlockEntry=>({leagueId:x.league_id,memberId:x.member_id,playerId:x.player_id,status:x.status,lookingFor:x.looking_for||[],note:x.note||undefined,updatedAt:x.updated_at});
-const seasonOperationsCache=new Map<string,{trades:TradeOffer[];claims:WaiverClaim[];transactions:LeagueTransaction[];injuries:LeagueInjury[];messages:LeagueMessage[]}>();
+const seasonOperationsCache=new Map<string,{trades:TradeOffer[];claims:WaiverClaim[];playerWaivers:PlayerWaiver[];transactions:LeagueTransaction[];injuries:LeagueInjury[];messages:LeagueMessage[]}>();
 
 export async function fetchFantasyCommunications(leagueId:string){
   if(!supabase)return {dmThreads:[] as FantasyDmThread[],dmMessages:[] as FantasyDmMessage[],tradeMessages:[] as TradeMessage[],tradeThreadReads:[] as TradeThreadRead[],tradingBlock:[] as TradingBlockEntry[],watchedPlayerIds:[] as string[]};
@@ -60,7 +62,7 @@ export function assertStandardFantasyTradePackage(offeredPlayerIds:string[],requ
 }
 
 export async function fetchSeasonOperations(leagueId:string){
-  if(!supabase) return {trades:[],claims:[],transactions:[],injuries:[],messages:[]} as const;
+  if(!supabase) return {trades:[],claims:[],playerWaivers:[],transactions:[],injuries:[],messages:[]} as const;
   const cached=seasonOperationsCache.get(leagueId);
   try{
     await ensureOnlineSession();
@@ -71,6 +73,7 @@ export async function fetchSeasonOperations(leagueId:string){
   const outcomes=await Promise.allSettled([
     supabase.from('ball_knower_trades').select('*').eq('league_id',leagueId).order('created_at',{ascending:false}).limit(100),
     supabase.from('ball_knower_waiver_claims').select('*').eq('league_id',leagueId).order('created_at',{ascending:false}).limit(100),
+    supabase.from('ball_knower_player_waivers').select('id,league_id,player_id,clears_at,created_at').eq('league_id',leagueId),
     supabase.from('ball_knower_transactions').select('*').eq('league_id',leagueId).order('created_at',{ascending:false}).limit(150),
     supabase.from('ball_knower_injuries').select('*').eq('league_id',leagueId).neq('status','cleared').order('updated_at',{ascending:false}).limit(100),
     supabase.from('ball_knower_league_messages').select('*').eq('league_id',leagueId).order('created_at',{ascending:false}).limit(100),
@@ -86,10 +89,11 @@ export async function fetchSeasonOperations(leagueId:string){
     const reason=first?.status==='rejected'?first.reason:first?.value?.error;
     throw new Error(reason?.message||'League activity could not sync. Check your connection and try again.');
   }
-  const trades=rows(0); const claims=rows(1); const transactions=rows(2); const injuries=rows(3); const messages=rows(4);
+  const trades=rows(0); const claims=rows(1); const playerWaivers=rows(2); const transactions=rows(3); const injuries=rows(4); const messages=rows(5);
   const result={
     trades:trades?trades.map(mapTrade):(cached?.trades||[]),
     claims:claims?claims.map(mapClaim):(cached?.claims||[]),
+    playerWaivers:playerWaivers?playerWaivers.map(mapPlayerWaiver):(cached?.playerWaivers||[]),
     transactions:transactions?transactions.map(mapTxn):(cached?.transactions||[]),
     injuries:injuries?injuries.map(mapInjury):(cached?.injuries||[]),
     messages:messages?messages.map(mapMessage):(cached?.messages||[]),

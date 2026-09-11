@@ -13,6 +13,7 @@ end $$;
 drop table if exists public.ball_knower_waiver_runs cascade;
 drop table if exists public.ball_knower_player_waivers cascade;
 drop table if exists public.ball_knower_waiver_claims cascade;
+drop table if exists public.ball_knower_nfl_games cascade;
 drop table if exists public.ball_knower_league_members cascade;
 drop table if exists public.ball_knower_leagues cascade;
 drop function if exists auth.uid() cascade;
@@ -42,6 +43,11 @@ create table public.ball_knower_player_waivers(
 create table public.ball_knower_waiver_runs(
   id uuid primary key default gen_random_uuid(),processed_at timestamptz not null default now(),won_count integer not null default 0,
   lost_count integer not null default 0,metadata jsonb not null default '{}'::jsonb
+);
+create table public.ball_knower_nfl_games(
+  provider_game_id text primary key,season integer not null,season_type text not null default 'reg',week_number integer not null,
+  away_team text not null,home_team text not null,kickoff_at timestamptz not null,game_status text not null default 'Scheduled',
+  is_live boolean not null default false,is_final boolean not null default false
 );
 
 create or replace function public.next_ball_knower_waiver_run(p_settings jsonb,p_from timestamptz default now())
@@ -83,6 +89,7 @@ end;$$;
 
 \i migrations/20260903_build7_waiver_defaults.sql
 \i migrations/20260903_build7_waiver_deadline_hardening.sql
+\i migrations/20260911164240_lock_started_free_agents.sql
 
 insert into public.ball_knower_leagues(id,settings) values('standard','{}'::jsonb);
 insert into public.ball_knower_leagues(id,settings) values('custom','{"waiverType":"faab","freeAgentMode":"continuous","waiverDays":1,"waiverProcessHourUtc":13,"waiverRunDays":[1,3,5]}'::jsonb);
@@ -151,6 +158,18 @@ do $$ begin if exists(select 1 from public.ball_knower_player_waivers where leag
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000007',false);
 select public.submit_ball_knower_player_move('unclaimed','{"id":"P3","name":"Unclaimed Player"}',null,0,1,null);
 do $$ begin if not exists(select 1 from public.ball_knower_league_members m,jsonb_array_elements(m.roster)e where m.id='free-agent-manager' and e->>'id'='P3') then raise exception 'instant add after clear failed'; end if; end $$;
+
+insert into public.ball_knower_leagues(id,settings) values('kickoff-lock','{"freeAgentMode":"instant","currentWeek":1,"nflSeason":2026,"waiverProcessHourUtc":9}'::jsonb);
+insert into public.ball_knower_league_members(id,league_id,auth_user_id,user_name,waiver_priority) values('kickoff-manager','kickoff-lock','00000000-0000-0000-0000-000000000010','Kickoff Manager',1);
+insert into public.ball_knower_nfl_games(provider_game_id,season,season_type,week_number,away_team,home_team,kickoff_at,game_status,is_final)
+values('played-last-night',2026,'reg',1,'PHI','DAL',now()-interval '12 hours','Final',true);
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000010',false);
+select public.submit_ball_knower_player_move('kickoff-lock','{"id":"LOCKED-FA","name":"Played Last Night","team":"PHI","position":"WR"}',null,0,1,null);
+do $$
+begin
+  if exists(select 1 from public.ball_knower_league_members m,jsonb_array_elements(m.roster)e where m.id='kickoff-manager' and e->>'id'='LOCKED-FA') then raise exception 'started free agent was added immediately'; end if;
+  if not exists(select 1 from public.ball_knower_waiver_claims where league_id='kickoff-lock' and player_id='LOCKED-FA' and status='pending') then raise exception 'started free agent did not become a waiver claim'; end if;
+end $$;
 
 insert into public.ball_knower_leagues(id,settings) values('duplicate','{}');
 insert into public.ball_knower_league_members(id,league_id,auth_user_id,user_name,waiver_priority) values

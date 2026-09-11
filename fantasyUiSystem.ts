@@ -22,6 +22,30 @@ export const fantasyAvailability = (
 ): Extract<FantasyOwnership, "free_agent" | "waiver"> =>
   freeAgentMode === "continuous" ? "waiver" : "free_agent";
 
+export type FantasyMarketGame = {
+  kickoffAt: string;
+  isLive?: boolean;
+  isFinal?: boolean;
+};
+
+export const fantasyGameHasStarted = (
+  game: FantasyMarketGame | undefined,
+  now = Date.now(),
+) => Boolean(
+  game &&
+    (game.isLive || game.isFinal || Date.parse(game.kickoffAt) <= now),
+);
+
+export const fantasyPlayerMarketAvailability = (
+  freeAgentMode: string | undefined,
+  isExplicitWaiver: boolean,
+  game: FantasyMarketGame | undefined,
+  now = Date.now(),
+): Extract<FantasyOwnership, "free_agent" | "waiver"> =>
+  freeAgentMode === "continuous" || isExplicitWaiver || fantasyGameHasStarted(game, now)
+    ? "waiver"
+    : "free_agent";
+
 export const lineupChangeCount = (
   saved: Record<string, string> | undefined,
   current: Record<string, string>,

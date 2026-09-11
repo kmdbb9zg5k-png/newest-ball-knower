@@ -4,6 +4,7 @@ import fs from 'node:fs';
 const defaults=fs.readFileSync('migrations/20260903_build7_waiver_defaults.sql','utf8');
 const hardening=fs.readFileSync('migrations/20260903_build7_waiver_deadline_hardening.sql','utf8');
 const phase1=fs.readFileSync('migrations/20260830_zz_phase1_fantasy_transaction_correctness.sql','utf8');
+const kickoffLock=fs.readFileSync('migrations/20260911164240_lock_started_free_agents.sql','utf8');
 
 for(const required of [
   "'waiverType','priority'",
@@ -30,5 +31,10 @@ assert.match(hardening,/failure_reason='Another manager won this player'/,'losin
 
 assert.match(phase1,/pg_advisory_xact_lock/,'acquisition execution must retain a database transaction lock');
 assert.match(phase1,/Player is no longer available/,'acquisition execution must recheck ownership under lock');
+
+assert.match(kickoffLock,/g\.kickoff_at<=now\(\) or g\.is_live or g\.is_final/,'current-week kickoff must close immediate free agency authoritatively');
+assert.match(kickoffLock,/v_active_waiver:=v_active_waiver or v_game_locked/,'started free agents must route through waivers');
+assert.match(kickoffLock,/That player has already played\. Waiver claim scheduled\./,'the client must receive an honest started-player result');
+assert.doesNotMatch(kickoffLock,/grant execute[\s\S]*service_role/,'the user-facing submission RPC must not be granted to service_role');
 
 console.log('Build 7 waiver defaults and transaction regression gate passed.');
