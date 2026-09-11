@@ -24,9 +24,9 @@ const MODES = [
   },
   {
     id: 'fantasy' as const,
-    eyebrow: 'FRANCHISE SIMULATION',
+    eyebrow: 'CREATE YOUR LEAGUE',
     title: 'FANTASY DRAFT',
-    description: 'Pick a Ball Knower League team and build a full 53-man roster in a 32-team snake draft with intelligent CPU GMs.',
+    description: 'Name your league and team, choose a logo and location, then enter a live-style fantasy draft against CPU GMs.',
     icon: Shuffle,
     key: SOLO_FRANCHISE_SAVE_KEYS.fantasy,
     accent: 'from-sky-400/25 to-transparent',
