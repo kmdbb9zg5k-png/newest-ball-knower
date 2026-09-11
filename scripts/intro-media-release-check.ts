@@ -17,6 +17,7 @@ assert.match(intro,/video\.muted = true/,'intro must fall back to muted autoplay
 assert.match(intro,/videoReady/,'intro must render a nonblank loading state while native media becomes ready');
 assert.match(intro,/Ball Knower/);
 assert.match(intro,/onCanPlay/);
+assert.match(intro,/preload="metadata"/,'iPhone startup must not eagerly buffer the full intro before playback');
 
 assert.match(soundtrack,/appStateChange/,'native background/foreground lifecycle must be handled');
 assert.match(soundtrack,/pointerdown/,'first meaningful interaction must retry blocked playback');
@@ -28,5 +29,6 @@ assert.doesNotMatch(soundtrack,/setTimeout\(\(\) => startIndex/,'intro exit must
 assert.match(soundtrack,/STORAGE_KEY_MUTED/,'saved mute preference must remain authoritative');
 assert.match(soundtrack,/manualOnly/,'reserved/manual-only track policy must remain intact');
 assert.equal((soundtrack.match(/new Audio\(\)/g)||[]).length,1,'only one soundtrack audio element may be created');
+assert.match(soundtrack,/audio\.preload = 'metadata'/,'the soundtrack must not eagerly buffer a full track before playback');
 
 console.log('Intro and native soundtrack lifecycle regression gate passed.');
