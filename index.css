@@ -455,3 +455,28 @@ main > div { animation: bk-rise .38s ease-out; }
   main { overflow-x: clip; }
   main > div::before { opacity: .62; }
 }
+
+/* Mobile WebKit can terminate a long-lived page when many decoded player
+   portraits and animated compositing layers accumulate together. Keep the
+   same artwork and static stadium glow on iPhone while avoiding persistent
+   GPU layers and dozens of live backdrop surfaces. */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 767px) {
+    .bk-glass,
+    main :is(.bg-\[\#111\], .bg-\[\#121212\], .bg-\[\#151515\], .bg-\[\#1A1A1A\]) {
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+    }
+    .bk-home-stadium :is(.bk-home-light, .bk-home-haze, .bk-home-floodlight),
+    .bk-home-stadium .bk-home-floodlight::after {
+      animation: none !important;
+      will-change: auto !important;
+    }
+    .bk-home-floodlights { mix-blend-mode: normal; opacity: .82; }
+    .bk-home-floodlight { filter: none !important; }
+    .bk-fantasy-player-row {
+      content-visibility: auto;
+      contain-intrinsic-size: auto 52px;
+    }
+  }
+}
