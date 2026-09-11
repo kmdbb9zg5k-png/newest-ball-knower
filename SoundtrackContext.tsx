@@ -108,7 +108,7 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   useEffect(() => {
     if (!audioRef.current) {
       const audio = new Audio();
-      audio.preload = 'auto';
+      audio.preload = 'metadata';
       const handlePlay = () => setIsPlaying(true);
       const handlePause = () => setIsPlaying(false);
       const handleEnded = () => {

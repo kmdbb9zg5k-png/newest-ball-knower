@@ -993,8 +993,8 @@ export function getLicensedPlayerPortrait(
 
 export function licensedPlayerPortraitUrl(
   portrait: LicensedPlayerPortrait,
-  width = 512,
+  width = 160,
 ): string {
-  const safeWidth = Math.max(64, Math.min(1024, Math.round(Number.isFinite(width) ? width : 512)));
+  const safeWidth = Math.max(64, Math.min(1024, Math.round(Number.isFinite(width) ? width : 160)));
   return `https://commons.wikimedia.org/wiki/Special:Redirect/file/${encodeURIComponent(portrait.fileName)}?width=${safeWidth}`;
 }

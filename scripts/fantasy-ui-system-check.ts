@@ -20,6 +20,8 @@ const styles = read('index.css');
 const matchupMobileFix = read('fantasyMatchupMobileFix.css');
 const fantasyHub = read('FantasyHub.tsx');
 const fantasyHubStyles = read('fantasyHub.css');
+const portraitHelper = read('playerPortraits.ts');
+const portraitRegistry = read('licensedPlayerPortraits.ts');
 
 assert.deepEqual(fantasyPlayerAction('mine', 'Jalen Hurts'), { kind: 'manage', label: 'MANAGE LINEUP' });
 assert.deepEqual(fantasyPlayerAction('opponent', 'Jalen Hurts'), { kind: 'trade', label: 'TRADE FOR JALEN HURTS' });
@@ -66,6 +68,8 @@ assert.match(strongReport.explanation, /projected scoring roster/i, 'draft grade
 assert.ok(app.includes('const showProductChrome=!isIntroOpen&&!showFavoriteTeam'), 'intro and favorite-team takeovers must hide both app bars and page content');
 assert.ok(app.includes('{showProductChrome&&<Navbar') && app.includes('{showProductChrome&&<main'), 'product chrome must render only after the intro flow is complete');
 assert.ok(nav.includes('58px+env(safe-area-inset-top)') && styles.includes('padding-bottom: calc(6rem + env(safe-area-inset-bottom))'), 'fantasy screens must reserve both iPhone safe areas and the compact fantasy app bar');
+assert.ok(styles.includes('@supports (-webkit-touch-callout: none)') && styles.includes('content-visibility: auto') && styles.includes('-webkit-backdrop-filter: none !important'), 'iPhone Fantasy surfaces must avoid unbounded WebKit compositing and off-screen row rendering');
+assert.ok(portraitHelper.includes('width = 160') && portraitRegistry.includes('width = 160'), 'compact Fantasy rows must request memory-safe player thumbnails instead of full-size portraits');
 
 assert.match(league, /label: "My Team"[\s\S]*label: "Matchup"[\s\S]*label: "Add Players"[\s\S]*label: "League"/, 'primary fantasy navigation must expose the approved four destinations');
 assert.equal((league.match(/<LeaguePageBackButton onBack=\{backFromTab\} \/>/g) || []).length, 4, 'every primary fantasy league page must expose the shared back control');

@@ -34,14 +34,14 @@ export function playerPortraitFallbackUrl(player: PortraitPlayer): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
-export function playerPortraitUrl(player: PortraitPlayer): string {
+export function playerPortraitUrl(player: PortraitPlayer, width = 160): string {
   // Team defenses intentionally use Ball Knower's neutral abbreviation badge
   // until separately licensed team artwork is available.
   if (player.position === 'DST') return playerPortraitFallbackUrl(player);
 
   const licensed = getLicensedPlayerPortrait(player.name);
   return licensed
-    ? licensedPlayerPortraitUrl(licensed)
+    ? licensedPlayerPortraitUrl(licensed, width)
     : playerPortraitFallbackUrl(player);
 }
 
