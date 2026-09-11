@@ -1,3 +1,4 @@
+import { canonicalGameLogStats, gameLogColumns, GAME_LOG_STAT_KEYS as DEFAULT_STAT_KEYS, GAME_LOG_STAT_LABELS as STAT_LABELS } from './fantasyGameLogStats';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Activity, CalendarDays, Shield, X } from 'lucide-react';
 import { Player } from './types';
@@ -27,38 +28,6 @@ const points = (week: FantasyPlayerWeek, kind: 'actual' | 'projected') => {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 };
 
-const STAT_LABELS: Record<string, string> = {
-  passYards: 'Pass Yds',
-  passingYards: 'Pass Yds',
-  passTd: 'Pass TD',
-  passTD: 'Pass TD',
-  passingTd: 'Pass TD',
-  passingTD: 'Pass TD',
-  interceptions: 'INT',
-  passingInterceptions: 'INT',
-  rushAttempts: 'Rush Att',
-  rushingAttempts: 'Rush Att',
-  rushYards: 'Rush Yds',
-  rushingYards: 'Rush Yds',
-  rushTd: 'Rush TD',
-  rushTD: 'Rush TD',
-  rushingTd: 'Rush TD',
-  rushingTD: 'Rush TD',
-  receptions: 'Rec',
-  targets: 'Targets',
-  recYards: 'Rec Yds',
-  receivingYards: 'Rec Yds',
-  recTd: 'Rec TD',
-  recTD: 'Rec TD',
-  receivingTd: 'Rec TD',
-  receivingTD: 'Rec TD',
-  fieldGoalsMade: 'FG',
-  extraPointsMade: 'XP',
-  sacks: 'Sacks',
-  fumblesRecovered: 'FR',
-  defensiveTouchdowns: 'DEF TD',
-};
-
 const statLabel = (key: string) =>
   STAT_LABELS[key] ||
   key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase());
@@ -67,15 +36,6 @@ const numericStats = (stats: Record<string, unknown>) =>
   Object.entries(stats)
     .filter(([, value]) => typeof value === 'number' && Number.isFinite(value))
     .map(([key, value]) => [key, Number(value)] as const);
-
-const DEFAULT_STAT_KEYS: Record<string, string[]> = {
-  QB: ['passYards', 'passTd', 'interceptions', 'rushAttempts', 'rushYards', 'rushTd'],
-  RB: ['rushAttempts', 'rushYards', 'rushTd', 'targets', 'receptions', 'recYards'],
-  WR: ['targets', 'receptions', 'recYards', 'recTd', 'rushAttempts', 'rushYards'],
-  TE: ['targets', 'receptions', 'recYards', 'recTd'],
-  K: ['fieldGoalsMade', 'extraPointsMade'],
-  DST: ['sacks', 'interceptions', 'fumblesRecovered', 'defensiveTouchdowns'],
-};
 
 const formatStat = (value: number) =>
   Number.isInteger(value) ? String(value) : value.toFixed(1);
@@ -169,26 +129,18 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
   }, [player, onClose]);
 
   const visible = useMemo(
-    () => weeks.filter(row => row.season === season).sort((a, b) => a.week - b.week),
-    [weeks, season],
+    () => weeks.filter(row => row.season === season).map(row => ({ ...row, stats: canonicalGameLogStats(row.stats, player?.position || row.position) })).sort((a, b) => a.week - b.week),
+    [weeks, season, player?.position],
   );
   const finals = useMemo(() => visible.filter(row => row.isFinal), [visible]);
   const focusWeek = useMemo(
     () => visible.find(row => !row.isFinal) || visible[visible.length - 1],
     [visible],
   );
-  const gameLogStatKeys = useMemo(() => {
-    const counts = new Map<string, number>();
-    finals.forEach(week => {
-      numericStats(week.stats).forEach(([key, value]) => {
-        if (value !== 0) counts.set(key, (counts.get(key) || 0) + 1);
-      });
-    });
-    return [...counts.entries()]
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .slice(0, 6)
-      .map(([key]) => key);
-  }, [finals]);
+  const gameLogStatKeys = useMemo(
+    () => gameLogColumns(player?.position || '', visible.map(week => week.stats)),
+    [visible, player?.position],
+  );
   const seasonStats = useMemo(() => {
     const totals = new Map<string, number>();
     finals.forEach(week => {
@@ -196,11 +148,10 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
         totals.set(key, (totals.get(key) || 0) + value);
       });
     });
-    return [...totals.entries()]
-      .filter(([, value]) => value !== 0)
-      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
-      .slice(0, 12);
-  }, [finals]);
+    return gameLogColumns(player?.position || '', finals.map(week => week.stats))
+      .filter(key => totals.has(key))
+      .map(key => [key, totals.get(key)!] as [string, number]);
+  }, [finals, player?.position]);
 
   if (!player) return null;
 
@@ -524,7 +475,7 @@ const GameLogTab = ({
     );
   }
 
-  const columns = statKeys.length ? statKeys : (DEFAULT_STAT_KEYS[position] || []).slice(0, 6);
+  const columns = statKeys.length ? statKeys : (DEFAULT_STAT_KEYS[position] || []);
 
   return (
     <div>
@@ -547,7 +498,7 @@ const GameLogTab = ({
                 <td className="px-3 py-3.5 font-black text-white">{week.week}</td>
                 <td className="px-3 py-3.5">
                   <div className="font-bold">{opponentLabel(week)}</div>
-                  {!week.isBye && <div className="mt-0.5 text-[9px] text-zinc-600">{formatKickoff(week.kickoffAt)}</div>}
+                  {!week.isBye && <div className="mt-0.5 text-[9px] text-zinc-600">{[formatKickoff(week.kickoffAt), week.status].filter(Boolean).join(' · ')}</div>}
                 </td>
                 <td className="px-3 py-3.5 text-right font-black">
                   {points(week, 'actual')?.toFixed(1) || '—'}
