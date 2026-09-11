@@ -26,7 +26,7 @@ const MODES = [
     id: 'fantasy' as const,
     eyebrow: 'CREATE YOUR LEAGUE',
     title: 'FANTASY DRAFT',
-    description: 'Name your league and team, choose a logo and location, then enter a live-style fantasy draft against CPU GMs.',
+    description: 'Create a custom football team, draft a full 53-man roster, then play a 17-game season through the Legacy Bowl.',
     icon: Shuffle,
     key: SOLO_FRANCHISE_SAVE_KEYS.fantasy,
     accent: 'from-sky-400/25 to-transparent',

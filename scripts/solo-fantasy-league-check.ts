@@ -1,53 +1,58 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { LIVE_FANTASY_ROSTER_REQUIREMENTS } from '../liveFantasyRules';
+import { getDraftPositionGroup } from '../rosterRules';
 import {
-  SOLO_FANTASY_GROUPS,
-  createSoloFantasyDraft,
-  makeSoloFantasyPick,
-  soloFantasyAutopickSelection,
-  soloFantasyCounts,
-  soloFantasyCpuSelection,
-  soloFantasyManagerAt,
-} from '../soloFantasyDraftEngine';
+  FANTASY_DRAFT_ROUNDS,
+  FANTASY_ROSTER_REQUIREMENTS,
+  createFantasyDraft,
+  fantasyAvailablePlayers,
+  fantasyDraftComplete,
+  fantasyRosterPlayers,
+  isValidFantasyDraftState,
+  makeFantasyUserPick,
+} from '../soloFranchiseEngine';
+import { SOLO_TEAM_THEMES } from '../soloUniverse';
 
-const logo = '/solo-fantasy-logos/flight-collective.jpeg';
+let draft = createFantasyDraft(SOLO_TEAM_THEMES[0].abbr, 260911);
+while (!fantasyDraftComplete(draft)) {
+  const player = fantasyAvailablePlayers(draft)[0];
+  assert.ok(player, 'The user must always have a legal player available.');
+  const previousPick = draft.pickIndex;
+  draft = makeFantasyUserPick(draft, player.id);
+  assert.ok(draft.pickIndex > previousPick, 'A user selection must advance through the CPU picks to the next user turn.');
+}
 
-for (const leagueSize of [8, 10, 12] as const) {
-  let draft = createSoloFantasyDraft({ leagueName: 'Test League', teamName: 'Allentown Iron', location: 'Allentown, PA', logoUrl: logo, leagueSize }, 260911 + leagueSize);
-  assert.equal(draft.managers.length, leagueSize);
-  assert.equal(new Set(draft.orderManagerIds).size, leagueSize);
+assert.equal(FANTASY_DRAFT_ROUNDS, 53);
+assert.equal(draft.picks.length, SOLO_TEAM_THEMES.length * FANTASY_DRAFT_ROUNDS);
+assert.equal(new Set(draft.draftedIds).size, draft.draftedIds.length, 'A simulated player cannot be drafted twice.');
+assert.ok(isValidFantasyDraftState(draft, true), 'The completed Madden-style draft must restore safely.');
 
-  while (draft.status === 'active') {
-    const managerId = soloFantasyManagerAt(draft);
-    const manager = draft.managers.find(item => item.id === managerId);
-    const player = manager?.isUser ? soloFantasyAutopickSelection(draft, managerId) : soloFantasyCpuSelection(draft, managerId);
-    assert.ok(player, `${leagueSize}-team draft must always find a legal player at pick ${draft.pickIndex + 1}`);
-    const next = makeSoloFantasyPick(draft, player.id, manager?.isUser ? 'autopick' : 'cpu');
-    assert.equal(next.pickIndex, draft.pickIndex + 1, `${leagueSize}-team draft must advance exactly once per selection`);
-    draft = next;
-  }
-
-  assert.equal(draft.picks.length, leagueSize * 15);
-  assert.equal(new Set(draft.picks.map(pick => pick.playerId)).size, draft.picks.length, 'A simulated player cannot be drafted twice.');
-  assert.ok(draft.picks.every(pick => SOLO_FANTASY_GROUPS.includes(pick.group)), 'Solo Fantasy must use only standard fantasy positions.');
-  assert.ok(draft.picks.every(pick => pick.group !== ('P' as never)), 'Punters must not return to fantasy drafts.');
-  for (const manager of draft.managers) {
-    const counts = soloFantasyCounts(draft, manager.id);
-    for (const [group, required] of Object.entries(LIVE_FANTASY_ROSTER_REQUIREMENTS)) {
-      assert.ok((counts[group as keyof typeof counts] ?? 0) >= required, `${manager.name} must finish with a legal ${group} minimum.`);
-    }
+for (const team of SOLO_TEAM_THEMES) {
+  const roster = fantasyRosterPlayers(draft, team.abbr);
+  assert.equal(roster.length, 53, team.name + ' must finish with a full 53-player roster.');
+  const counts = roster.reduce<Record<string, number>>((result, player) => {
+    const group = getDraftPositionGroup(player);
+    result[group] = (result[group] ?? 0) + 1;
+    return result;
+  }, {});
+  for (const [group, required] of Object.entries(FANTASY_ROSTER_REQUIREMENTS)) {
+    assert.equal(counts[group] ?? 0, required, team.name + ' must satisfy the ' + group + ' roster requirement.');
   }
 }
 
 const screen = readFileSync(new URL('../FantasyFranchise.tsx', import.meta.url), 'utf8');
+const season = readFileSync(new URL('../FranchiseSeason.tsx', import.meta.url), 'utf8');
 const cloudSync = readFileSync(new URL('../CloudSyncProvider.tsx', import.meta.url), 'utf8');
-for (const requirement of ['League name', 'Your team name', 'Team location', 'Upload custom team logo', 'Create League & Enter Draft', 'Upcoming draft order', 'Auto-pick Queue', 'Draft Results']) {
-  assert.ok(screen.includes(requirement), `Solo Fantasy UI is missing ${requirement}.`);
+for (const requirement of ['MADDEN-STYLE FANTASY FRANCHISE', 'League name', 'Your team name', 'Team location', 'Upload custom team logo', '32 teams · 53 rounds', 'Create League & Start Draft', 'START SEASON', '17-game season']) {
+  assert.ok(screen.includes(requirement), 'Solo Fantasy UI is missing ' + requirement + '.');
 }
 for (const logoName of ['flight-collective.jpeg', 'gridiron-shield.jpeg', 'champions-circle.jpeg', 'neon-guardians.jpeg']) {
-  assert.ok(screen.includes(logoName), `Solo Fantasy must expose stock logo ${logoName}.`);
+  assert.ok(screen.includes(logoName), 'Solo Fantasy must expose stock logo ' + logoName + '.');
+}
+for (const seasonRequirement of ['SIMULATE WEEK', 'SELECTION SUNDAY', 'BK LEAGUE PLAYOFFS', 'LEGACY BOWL', 'ENTER OFFSEASON DRAFT', 'userLogoUrl']) {
+  assert.ok(season.includes(seasonRequirement), 'Madden-style season is missing ' + seasonRequirement + '.');
 }
 assert.ok(cloudSync.includes("localKey: 'ballknower_solo_fantasy_v2', cloudKey: 'solo_fantasy'"), 'The current Solo Fantasy save must be included in cloud sync.');
+assert.ok(cloudSync.includes("localKey: 'ballknower_solo_fantasy_v2:season', cloudKey: 'solo_fantasy_season'"), 'The Madden-style season must be included in cloud sync.');
 
-console.log('Solo Fantasy League checks passed: custom identity, stock/uploaded logos, standard live-style snake drafts, simulated players, legal CPU rosters, resume data, and League HQ.');
+console.log('Solo Madden Fantasy Franchise checks passed: custom team identity, 32-team 53-round draft, complete simulated rosters, 17-game season, playoffs, Legacy Bowl, persistence, and offseason.');

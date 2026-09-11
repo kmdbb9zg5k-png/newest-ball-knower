@@ -29,6 +29,8 @@ type PlayoffMatchup = { round: 'WILD CARD' | 'DIVISIONAL' | 'CONFERENCE CHAMPION
 type Props = {
   title: string;
   userTeam: TeamTheme;
+  userLogoUrl?: string;
+  userLocation?: string;
   roster: Player[];
   saveKey: string;
   onBack: () => void;
@@ -137,6 +139,8 @@ function restoreSeason(key: string) {
 export const FranchiseSeason: React.FC<Props> = ({
   title,
   userTeam,
+  userLogoUrl,
+  userLocation,
   roster,
   saveKey,
   onBack,
@@ -409,7 +413,7 @@ export const FranchiseSeason: React.FC<Props> = ({
           </button>
           <div className="min-w-0 flex-1">
             <div className="truncate text-[10px] font-black tracking-[.24em] text-[var(--bk-team-accent)]">{title}</div>
-            <div className="truncate text-xl font-black">{userTeam.name} · {year}</div>
+            <div className="truncate text-xl font-black">{userTeam.name} · {year}</div>{userLocation ? <div className="truncate text-[10px] font-bold text-zinc-500">{userLocation}</div> : null}
           </div>
           <button type="button" onClick={resetSeason} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Restart season">
             <RotateCcw size={18} />
@@ -434,7 +438,7 @@ export const FranchiseSeason: React.FC<Props> = ({
                   <div className="text-[10px] font-black tracking-[.25em] text-[var(--bk-team-accent)]">WEEK {weeks.length + 1} • GAMEDAY</div>
                   <div className="mt-1 text-[9px] font-black uppercase tracking-wider text-zinc-500">Game plan: {gamePlan}</div>
                   <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center">
-                    <TeamMatchup team={userTeam} label={`${ratings.overall} OVR`} />
+                    <TeamMatchup team={userTeam} label={`${ratings.overall} OVR`} logoUrl={userLogoUrl} />
                     <div className="text-2xl font-black text-zinc-600">VS</div>
                     <TeamMatchup team={currentOpponent} label="CPU" />
                   </div>
@@ -520,9 +524,9 @@ export const FranchiseSeason: React.FC<Props> = ({
   );
 };
 
-const TeamMatchup = ({ team, label }: { team: TeamTheme; label: string }) => (
+const TeamMatchup = ({ team, label, logoUrl }: { team: TeamTheme; label: string; logoUrl?: string }) => (
   <div className="min-w-0">
-    <img src={soloTeamLogoUrl(team.abbr)} alt="" aria-hidden="true" className="mx-auto h-14 w-14 object-contain sm:h-20 sm:w-20" />
+    <img src={logoUrl ?? soloTeamLogoUrl(team.abbr)} alt="" aria-hidden="true" className="mx-auto h-14 w-14 rounded-2xl bg-white object-contain p-1 sm:h-20 sm:w-20" />
     <div className="mt-2 text-lg font-black leading-tight sm:text-2xl">{team.name}</div>
     <div className="text-xs font-bold text-zinc-500">{label}</div>
   </div>
