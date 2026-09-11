@@ -53,5 +53,6 @@ for (const seasonRequirement of ['SIMULATE WEEK', 'SELECTION SUNDAY', 'BK LEAGUE
   assert.ok(season.includes(seasonRequirement), 'Madden-style season is missing ' + seasonRequirement + '.');
 }
 assert.ok(cloudSync.includes("localKey: 'ballknower_solo_fantasy_v2', cloudKey: 'solo_fantasy'"), 'The current Solo Fantasy save must be included in cloud sync.');
+assert.ok(cloudSync.includes("localKey: 'ballknower_solo_fantasy_v2:season', cloudKey: 'solo_fantasy_season'"), 'The Madden-style season must be included in cloud sync.');
 
 console.log('Solo Madden Fantasy Franchise checks passed: custom team identity, 32-team 53-round draft, complete simulated rosters, 17-game season, playoffs, Legacy Bowl, persistence, and offseason.');
