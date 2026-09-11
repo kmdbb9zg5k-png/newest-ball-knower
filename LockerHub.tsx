@@ -1,8 +1,9 @@
 import { BroadcastStage } from './BroadcastScene';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Crown, Package, Shirt, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Crown, Maximize2, Package, Shirt, ShoppingBag, X } from 'lucide-react';
 import { equipLockerItem, fetchLockerExperience, formatStorePrice, LockerState, PassProgress, StoreItem } from './lockerCloud';
 import { useBallKnower } from './BallKnowerContext';
+import { ModalPortal } from './ModalPortal';
 import { ProgressionProfileCard } from './ProgressionProfileCard';
 import { ProfilePhotoEditor } from './ProfilePhotoEditor';
 import { LockerManagerIllustration } from './ProfileLockerArt';
@@ -27,7 +28,19 @@ export const LockerHub: React.FC<LockerHubProps> = ({ onOpenAuth, viewedMember, 
 
 const PublicLocker: React.FC<{ member: LeagueMember; onBack?: () => void }> = ({ member, onBack }) => {
   const name = member.userName?.trim() || 'Manager';
-  return <BroadcastStage scene="locker" page="profile" className="bk-profile-page relative isolate min-h-[calc(100dvh-7rem)] overflow-hidden px-3 pb-8 pt-4 sm:px-6 sm:pt-6">
+  const avatar = member.userAvatar?.trim() || '';
+  const [photoOpen, setPhotoOpen] = useState(false);
+  const [photoUnavailable, setPhotoUnavailable] = useState(false);
+  useEffect(() => {
+    setPhotoOpen(false);
+    setPhotoUnavailable(false);
+  }, [avatar, member.userId]);
+  const closeUnavailablePhoto = () => {
+    setPhotoUnavailable(true);
+    setPhotoOpen(false);
+  };
+
+  return <><BroadcastStage scene="locker" page="profile" className="bk-profile-page relative isolate min-h-[calc(100dvh-7rem)] overflow-hidden px-3 pb-8 pt-4 sm:px-6 sm:pt-6">
     <div className="mx-auto max-w-5xl">
       <header className="bk-locker-masthead">
         <button type="button" onClick={onBack} aria-label="Back to league" className="bk-locker-back"><ArrowLeft aria-hidden="true"/></button>
@@ -38,7 +51,10 @@ const PublicLocker: React.FC<{ member: LeagueMember; onBack?: () => void }> = ({
         <section className="bk-member-locker-identity" aria-label={`${name}'s Ball Knower profile`}>
           <div className="bk-member-locker-portrait">
             {name.slice(0, 2).toUpperCase()}
-            {member.userAvatar && <img src={member.userAvatar} alt="" referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.style.display = 'none'; }}/>}
+            {avatar && !photoUnavailable && <button type="button" className="bk-member-locker-photo-trigger" aria-label={`Expand ${name}'s profile photo`} aria-haspopup="dialog" onClick={() => setPhotoOpen(true)}>
+              <img src={avatar} alt="" referrerPolicy="no-referrer" onError={closeUnavailablePhoto}/>
+              <span aria-hidden="true"><Maximize2/></span>
+            </button>}
           </div>
           <div className="bk-member-locker-copy"><div>{name}</div><div>League manager · verified Ball Knower profile</div></div>
         </section>
@@ -46,7 +62,27 @@ const PublicLocker: React.FC<{ member: LeagueMember; onBack?: () => void }> = ({
       </div>
       <ProgressionProfileCard targetUserId={member.userId} targetDisplayName={name}/>
     </div>
-  </BroadcastStage>;
+  </BroadcastStage>
+  {photoOpen && avatar && <ExpandedProfilePhoto name={name} src={avatar} onClose={() => setPhotoOpen(false)} onError={closeUnavailablePhoto}/>}
+  </>;
+};
+
+const ExpandedProfilePhoto: React.FC<{ name: string; src: string; onClose: () => void; onError: () => void }> = ({ name, src, onClose, onError }) => {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [onClose]);
+
+  return <ModalPortal><div className="fixed inset-0 z-[9999] grid place-items-center bg-black/90 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-md" onClick={onClose}>
+    <section role="dialog" aria-modal="true" aria-label={`${name}'s profile photo`} className="relative flex max-h-full w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-[#e4c77f]/45 bg-[#080d12] shadow-2xl" onClick={event => event.stopPropagation()}>
+      <header className="flex min-h-16 items-center justify-between gap-4 border-b border-white/10 px-4">
+        <div className="min-w-0"><div className="truncate text-base font-black text-white">{name}</div><div className="text-[9px] font-black uppercase tracking-[.18em] text-[#e4c77f]">Profile photo</div></div>
+        <button type="button" aria-label="Close profile photo" onClick={onClose} className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/15 bg-white/5 text-white"><X className="h-5 w-5"/></button>
+      </header>
+      <div className="grid min-h-0 flex-1 place-items-center bg-black p-2 sm:p-4"><img src={src} alt={`${name}'s profile photo`} referrerPolicy="no-referrer" onError={onError} className="max-h-[calc(100dvh-8rem)] w-full object-contain"/></div>
+    </section>
+  </div></ModalPortal>;
 };
 
 const LockerSession: React.FC<{ onOpenAuth?: () => void }> = ({ onOpenAuth }) => {

@@ -6,17 +6,18 @@ import './profileLockerRefinements.css';
 // Decorative crops of the owner's approved reference, not a flattened UI.
 // Sample initials/date and shield centers were removed; identity and awards stay live.
 export const LOCKER_ATLAS = '/profile/locker-reference-atlas.webp';
-function ReferenceArt({ region, className }: { region: string; className?: string }) {
+export const LOCKER_MANAGER_FACE = '/profile/locker-manager-face.webp';
+function ReferenceArt({ region, className, children }: { region: string; className?: string; children?: React.ReactNode }) {
   const clipId = `locker-art-${useId().replace(/:/g, '')}`;
   const [x, y, width, height] = region.split(' ').map(Number);
   // Letterboxed SVG viewports otherwise reveal neighboring atlas cells.
   return <svg className={className} viewBox={region} aria-hidden="true" focusable="false" overflow="hidden">
     <defs><clipPath id={clipId} clipPathUnits="userSpaceOnUse"><rect x={x} y={y} width={width} height={height}/></clipPath></defs>
-    <g clipPath={`url(#${clipId})`}><image href={LOCKER_ATLAS} width="544" height="552"/></g>
+    <g clipPath={`url(#${clipId})`}><image href={LOCKER_ATLAS} width="544" height="552"/>{children}</g>
   </svg>;
 }
 export function LockerManagerIllustration() {
-  return <ReferenceArt region="280 0 255 223" className="bk-locker-manager"/>;
+  return <ReferenceArt region="280 0 255 223" className="bk-locker-manager"><image href={LOCKER_MANAGER_FACE} x="368" y="27" width="62" height="87"/></ReferenceArt>;
 }
 export function LockerReceiptScene() {
   return <div className="bk-locker-receipt-art" aria-hidden="true"><ReferenceArt region="0 240 180 182" className="bk-locker-receipt-player"/><ReferenceArt region="200 240 177 184" className="bk-locker-receipt-tunnel"/></div>;
