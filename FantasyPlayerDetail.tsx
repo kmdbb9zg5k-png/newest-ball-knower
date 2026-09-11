@@ -204,7 +204,7 @@ export const FantasyPlayerDetail: React.FC<Props> = ({
 
   if (!player) return null;
 
-  const portrait = playerPortraitUrl(player);
+  const portrait = playerPortraitUrl(player, 384);
   const teamName = [player.teamCity, player.teamName].filter(Boolean).join(' ').trim();
   const actualFinals = finals.filter(row => points(row, 'actual') !== null);
   const total = actualFinals.reduce((sum, row) => sum + (points(row, 'actual') || 0), 0);
