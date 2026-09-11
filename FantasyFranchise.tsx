@@ -19,7 +19,7 @@ import {
   isValidFantasyDraftState,
   SOLO_FRANCHISE_SAVE_KEYS,
 } from './soloFranchiseEngine';
-import { SOLO_TEAM_THEMES, soloTeamLogoUrl } from './soloUniverse';
+import { SOLO_TEAM_THEMES } from './soloUniverse';
 import { Player } from './types';
 
 type Props = { onBack: () => void };
