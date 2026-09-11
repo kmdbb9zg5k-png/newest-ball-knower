@@ -1,0 +1,88 @@
+name: Reconciliation post-deployment verification
+on:
+  push:
+    branches: [maintenance/reconciliation-workspace-20260911]
+    paths: [.github/workflows/reconciliation-post-deploy.yml]
+permissions:
+  contents: read
+jobs:
+  deployed-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: b48e7b6d2fadcc1cdfc94a38ba436159d83dba54
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: 22}
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Verify shipped feature bundles and safe endpoint responses
+        run: |
+          mkdir -p artifacts/post-deployment
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {writeFile} from 'node:fs/promises';
+          import {createHash} from 'node:crypto';
+          const base='https://ballknowerofficial.com';
+          const load=async path=>{const r=await fetch(new URL(path,base),{signal:AbortSignal.timeout(20000)});assert.equal(r.status,200,path);return r.text();};
+          let evidence;
+          for(let attempt=0;attempt<12;attempt++){
+            try{
+              const html=await load('/');const entryPath=html.match(/src="(\/assets\/index-[^"]+\.js)"/)?.[1];assert.ok(entryPath,'Production entry module missing');
+              const entry=await load(entryPath);const checks=[];
+              for(const [name,labels] of [['LeagueLiveDraftRoom',['Full Draft Analysis','Bench Quality','Projection Confidence']],['fantasyPlayerAvailability',['Pass Att','FG Att','Pts Allowed']]]){
+                const path=entry.match(new RegExp('(?:assets/)?'+name+'-[A-Za-z0-9_-]+\\.js'))?.[0];assert.ok(path,name+' bundle missing');
+                const code=await load('/assets/'+path.split('/').pop());for(const label of labels)assert.ok(code.includes(label),'Shipped bundle missing '+label);
+                checks.push({name,path,sha256:createHash('sha256').update(code).digest('hex'),labels});
+              }
+              evidence={checkedAt:new Date().toISOString(),sourceCommit:'b48e7b6d2fadcc1cdfc94a38ba436159d83dba54',base,entryPath,checks};break;
+            }catch(error){if(attempt===11)throw error;await new Promise(r=>setTimeout(r,10000));}
+          }
+          const auth=await fetch(base+'/api/fantasy-transactions',{signal:AbortSignal.timeout(10000)});assert.equal(auth.status,401,'Unauthenticated worker call must remain rejected');
+          const availability=JSON.parse(await load('/api/nfl-player-availability'));assert.equal(availability.available,true);assert.ok(availability.players.length>0);
+          Object.assign(evidence,{unauthenticatedWorkerStatus:auth.status,availability:{available:availability.available,stale:availability.stale,playerCount:availability.players.length,fetchedAt:availability.fetchedAt},productionMutations:false});
+          await writeFile('artifacts/post-deployment/endpoints-and-bundles.json',JSON.stringify(evidence,null,2));console.log(JSON.stringify(evidence,null,2));
+          JS
+      - name: Point existing navigation checks at the deployed application
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/all-screens-broadcast-browser.mjs');s=p.read_text()
+          old="base='http://127.0.0.1:4180'";assert s.count(old)==1
+          s=s.replace(old,"base='https://ballknowerofficial.com'",1)
+          old="const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port','4180','--strictPort'],{stdio:'inherit'});";assert s.count(old)==1
+          s=s.replace(old,"const server={kill(){}};",1)
+          needle="await page.goto(base,{waitUntil:'domcontentloaded'});await page.locator('.bk-home-stadium').waitFor();";assert s.count(needle)==1
+          extra='''
+          assert.deepEqual(await page.getByRole('region',{name:'Primary destinations',exact:true}).locator('.bk-home-mode-label').allTextContents(),['Fantasy','Picks','Trivia','Solo']);
+          const links=page.getByRole('navigation',{name:'Quick links',exact:true});
+          assert.match(await links.locator('button').last().innerText(),/NFL NEWS/i);
+          await page.screenshot({path:`${out}/home-${width}.png`,fullPage:false});
+          await links.locator('button').last().click();await page.locator('.bk-screen[data-page="news"]').waitFor();
+          await page.getByRole('button',{name:'Ball Knower home',exact:true}).click();await page.locator('.bk-home-stadium').waitFor();
+          '''
+          s=s.replace(needle,needle+extra,1)
+          s=s.replace("source:live?'Captured public provider responses; no protected accounts'","source:live?'Deployed production HTML/JS/CSS; captured public provider responses; protected accounts intercepted'",1)
+          p.write_text(s)
+          PY
+      - name: Exercise deployed routes at mobile and desktop widths
+        run: |
+          set -euo pipefail
+          node scripts/all-screens-broadcast-browser.mjs --live 2>&1 | tee artifacts/post-deployment/navigation.log
+      - name: Repeat reconciled feature scenarios on the merged source
+        run: |
+          set -euo pipefail
+          npm run check:fantasy-reconciliation-browser 2>&1 | tee artifacts/post-deployment/feature-fixtures.log
+      - name: Preserve deployment evidence and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reconciliation-post-deployment
+          path: |
+            artifacts/post-deployment
+            artifacts/all-screens
+            artifacts/fantasy-reconciliation
+          if-no-files-found: error
+          retention-days: 7
