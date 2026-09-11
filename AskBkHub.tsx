@@ -7,7 +7,7 @@ import {Conversation,ConversationContent} from './components/ai-elements/convers
 import {Message,MessageContent,MessageResponse} from './components/ai-elements/message';
 
 type AskBkSource={title:string;url:string};
-type AskBkMessage={id:string;role:'user'|'assistant';text:string;attachments?:AskBkAttachment[];sources?:AskBkSource[]};
+type AskBkMessage={id:string;role:'user'|'assistant';text:string;attachments?:AskBkAttachment[];attachmentCount?:number;sources?:AskBkSource[]};
 
 const suggestions=[
   'Who should I start this week?',
@@ -34,9 +34,10 @@ export function AskBkHub(){
   const [error,setError]=useState<string|null>(null);
   const fileInputRef=useRef<HTMLInputElement|null>(null);
   const requestRef=useRef<AbortController|null>(null);
+  const imagePreparationRef=useRef(0);
   const mountedRef=useRef(true);
 
-  useEffect(()=>{mountedRef.current=true;return()=>{mountedRef.current=false;requestRef.current?.abort()}},[]);
+  useEffect(()=>{mountedRef.current=true;return()=>{mountedRef.current=false;imagePreparationRef.current++;requestRef.current?.abort()}},[]);
 
   const leagueContext=useMemo(()=>{
     if(!activeLeague)return null;
@@ -51,19 +52,20 @@ export function AskBkHub(){
 
   const chooseFiles=async(event:React.ChangeEvent<HTMLInputElement>)=>{
     const files=Array.from(event.target.files||[]);event.target.value='';if(!files.length)return;
+    const preparationId=++imagePreparationRef.current;
     setError(null);setIsPreparingImages(true);
-    try{const compressed=await compressAskBkImages(files,attachments);if(mountedRef.current)setAttachments(compressed)}
-    catch(imageError:any){if(mountedRef.current)setError(imageError?.message||'Those screenshots could not be prepared.')}
-    finally{if(mountedRef.current)setIsPreparingImages(false)}
+    try{const compressed=await compressAskBkImages(files,attachments);if(mountedRef.current&&preparationId===imagePreparationRef.current)setAttachments(compressed)}
+    catch(imageError:any){if(mountedRef.current&&preparationId===imagePreparationRef.current)setError(imageError?.message||'Those screenshots could not be prepared.')}
+    finally{if(mountedRef.current&&preparationId===imagePreparationRef.current)setIsPreparingImages(false)}
   };
 
-  const clearSession=()=>{requestRef.current?.abort();requestRef.current=null;setMessages([]);setDraft('');setAttachments([]);setError(null);setIsAnswering(false)};
+  const clearSession=()=>{imagePreparationRef.current++;requestRef.current?.abort();requestRef.current=null;setMessages([]);setDraft('');setAttachments([]);setError(null);setIsPreparingImages(false);setIsAnswering(false)};
 
   const ask=async()=>{
     if(isAnswering||isPreparingImages)return;
     const question=draft.trim()||(attachments.length?'Analyze every attached screenshot. Tell me what matters most and what I should do.':'');
     if(!question){setError('Type a sports question or attach a screenshot first.');return}
-    const userMessage:AskBkMessage={id:messageId('user'),role:'user',text:question,attachments:[...attachments]};
+    const userMessage:AskBkMessage={id:messageId('user'),role:'user',text:question,attachments:[...attachments],attachmentCount:attachments.length};
     setMessages(previous=>[...previous,userMessage]);setError(null);setIsAnswering(true);
     const controller=new AbortController();requestRef.current=controller;
     try{
@@ -76,7 +78,7 @@ export function AskBkHub(){
       const payload=await response.json().catch(()=>({})) as {answer?:string;error?:string;sources?:AskBkSource[]};
       if(!response.ok||!payload.answer)throw new Error(payload.error||'Ask BK could not answer that right now.');
       if(!mountedRef.current)return;
-      setMessages(previous=>[...previous,{id:messageId('assistant'),role:'assistant',text:payload.answer!,sources:payload.sources||[]}]);
+      setMessages(previous=>[...previous.map(message=>message.id===userMessage.id?{...message,attachments:undefined}:message),{id:messageId('assistant'),role:'assistant',text:payload.answer!,sources:payload.sources||[]}]);
       setDraft('');setAttachments([]);
     }catch(requestError:any){
       if(requestError?.name==='AbortError')return;
@@ -102,6 +104,7 @@ export function AskBkHub(){
             {messages.map(message=><Message key={message.id} from={message.role} className={message.role==='user'?'max-w-[92%]':'max-w-full'}>
               <MessageContent className={message.role==='user'?'ml-auto rounded-2xl rounded-br-md bg-[var(--bk-team-accent)] px-4 py-3 text-[var(--bk-on-accent)]':'w-full rounded-2xl border border-white/10 bg-[#10141b] px-4 py-4 text-zinc-100 shadow-xl'}>
                 {message.attachments?.length?<div className={`grid gap-2 ${message.attachments.length>1?'grid-cols-2':'grid-cols-1'}`}>{message.attachments.map(image=><img key={image.id} src={image.dataUrl} alt={`Attached ${image.name}`} className="max-h-56 w-full rounded-lg border border-black/20 object-cover"/>)}</div>:null}
+                {!message.attachments?.length&&message.attachmentCount?<div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider opacity-70"><Camera className="h-3.5 w-3.5"/>{message.attachmentCount} screenshot{message.attachmentCount===1?'':'s'} analyzed · image data cleared</div>:null}
                 {message.role==='assistant'?<MessageResponse className="ask-bk-response text-sm leading-6">{message.text}</MessageResponse>:<p className="whitespace-pre-wrap text-sm font-bold leading-5">{message.text}</p>}
                 {message.role==='assistant'&&<div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-3"><div className="flex flex-wrap gap-1.5">{message.sources?.map(source=><a key={source.url} href={source.url} target="_blank" rel="noreferrer noopener" className="max-w-[15rem] truncate rounded-full border border-white/10 bg-white/[.035] px-2.5 py-1.5 text-[9px] font-black text-zinc-400 hover:text-white">{source.title}</a>)}</div><CopyAnswer text={message.text}/></div>}
               </MessageContent>

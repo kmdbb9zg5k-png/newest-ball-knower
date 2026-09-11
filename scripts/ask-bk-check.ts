@@ -23,6 +23,8 @@ const profileIndex=nav.indexOf("setCurrentTab('locker')",askIndex);
 check(triviaIndex>=0&&askIndex>triviaIndex&&profileIndex>askIndex,'Ask BK must appear between Trivia and Profile.');
 check(/type="file" multiple/.test(hub),'Screenshot picker must allow multiple images.');
 check(hub.includes('requestRef.current?.abort()'),'Leaving or clearing Ask BK must abort in-flight work.');
+check(hub.includes('imagePreparationRef.current++'),'Clearing Ask BK must invalidate screenshot preparation.');
+check(hub.includes('attachments:undefined'),'Full screenshot data must be discarded after an answer.');
 check(!/localStorage|sessionStorage|indexedDB/i.test(hub),'Ask BK chat must not use persistent browser storage.');
 check(api.includes("zeroDataRetention:true")&&api.includes("disallowPromptTraining:true"),'AI routing must request zero retention and no training.');
 check(api.includes("FALLBACK_MODEL='openai/"),'Ask BK must retain a different-provider fallback engine.');
