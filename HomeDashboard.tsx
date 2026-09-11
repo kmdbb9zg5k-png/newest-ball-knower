@@ -113,13 +113,13 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
       <ModeCard icon={<Trophy/>} label="Fantasy" onClick={() => onNavigate('fantasy')}/>
       <ModeCard icon={<Target/>} label="Picks" onClick={() => onNavigate('sportsbook')}/>
       <ModeCard icon={<Brain/>} label="Trivia" onClick={() => onNavigate('challenges')}/>
-      <ModeCard icon={<Newspaper/>} label="NFL News" onClick={() => onNavigate('news')}/>
+      <ModeCard icon={<FlaskConical/>} label="Solo" onClick={() => onNavigate('solo')}/>
     </section>
     <nav aria-label="Quick links" className="bk-home-shortcuts grid grid-cols-4 overflow-hidden">
       <Action label="Create" accessibleLabel="Create League" icon={<Plus/>} onClick={onOpenCreateLeague}/>
       <Action label="Join" accessibleLabel="Join League" icon={<UserPlus/>} onClick={onOpenJoinLeague}/>
       <Action label="Cheat Sheet" accessibleLabel="Cheat Sheet" icon={<ClipboardList/>} onClick={onOpenCheatSheet}/>
-      <Action label="Solo" accessibleLabel="Solo Mode" icon={<FlaskConical/>} onClick={() => onNavigate('solo')}/>
+      <Action label="NFL News" accessibleLabel="NFL News" icon={<Newspaper/>} onClick={() => onNavigate('news')}/>
     </nav>
 
     <HomeMatchups leagues={leagues} currentUser={currentUser} onSelectLeague={onSelectLeague} onViewMemberLocker={onViewMemberLocker} onOpenSettings={() => setSettingsOpen(true)}/>
