@@ -1,0 +1,59 @@
+name: Verify reconciliation mobile repair
+on:
+  push:
+    branches: [maintenance/reconciliation-workspace-20260911]
+    paths: [.github/workflows/verify-reconciliation-fix.yml]
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 17b3900b375c8c522d25432f8f9fc94cbb1d27c8
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with: {node-version: 22}
+      - name: Apply the reviewed layout repair and improve failure diagnostics
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('LeagueLiveDraftRoom.tsx'); s=p.read_text()
+          old='className="mt-4 grid gap-3 sm:grid-cols-2"'
+          assert s.count(old)==1
+          s=s.replace(old,'className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2"',1)
+          old='key={memberId} className="rounded-2xl border border-white/10 bg-[#101318] p-4"'
+          assert s.count(old)==1
+          s=s.replace(old,'key={memberId} className="min-w-0 rounded-2xl border border-white/10 bg-[#101318] p-4"',1)
+          p.write_text(s)
+          p=Path('scripts/fantasy-reconciliation-browser-check.mjs'); s=p.read_text()
+          s=s.replace('let browser;','let browser;\nconst failures=[];',1)
+          s=s.replace('    throw error;\n   } finally',"    failures.push({width,view,error:String(error)});\n    console.error('Reconciliation case failed',width,view,String(error));\n   } finally",1)
+          s=s.replace(" console.log('Reconciliation browser checks passed:"," assert.deepEqual(failures,[],'All reconciliation cases must pass');\n console.log('Reconciliation browser checks passed:",1)
+          s=s.replace("assert.ok(dimensions.document<=width+1&&dimensions.body<=width+1,view+' overflow at '+width+'px');","assert.ok(dimensions.document<=width+1&&dimensions.body<=width+1,view+' overflow at '+width+'px: '+JSON.stringify(dimensions));",1)
+          p.write_text(s)
+          PY
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint && npm run check:fantasy-draft-report && npm run check:fantasy-player-data-completeness
+      - run: npx playwright install --with-deps chromium
+      - name: Exercise every mobile case without stopping at the first failure
+        run: npm run check:fantasy-reconciliation-browser
+      - name: Publish tested source repair without changing workflow permissions
+        run: |
+          set -euo pipefail
+          git diff --check
+          git config user.name 'Ball Knower Engineering'
+          git config user.email 'engineering@ballknowerofficial.com'
+          git add LeagueLiveDraftRoom.tsx scripts/fantasy-reconciliation-browser-check.mjs
+          git commit -m 'fix: contain completed-draft cards on narrow phones'
+          git push origin HEAD:maintenance/reconciliation-mobile-repair-20260911
+          git rev-parse HEAD
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: repaired-reconciliation-ui
+          path: artifacts/fantasy-reconciliation
+          if-no-files-found: error
+          retention-days: 3
