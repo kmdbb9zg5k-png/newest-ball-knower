@@ -99,9 +99,14 @@ export async function beginTriviaSession():Promise<TriviaSession>{
   return session;
 }
 
-const mapProfile=(x:any):ProgressProfile=>({
-  userId:x.user_id,displayName:x.display_name,bkRating:Number(x.bk_rating)||50,xp:Number(x.xp)||0,level:Number(x.level)||1,
-  footballIq:Number(x.football_iq)||50,gmRating:Number(x.gm_rating)||50,predictionRating:Number(x.prediction_rating)||50,triviaRating:Number(x.trivia_rating)||50,agentRating:Number(x.agent_rating)||50,ownerRating:Number(x.owner_rating)||50,
+const ratingNumber=(value:unknown)=>{
+  const parsed=Number(value);
+  return Number.isFinite(parsed)?Math.max(0,Math.min(99,Math.round(parsed))):0;
+};
+
+export const mapProgressProfile=(x:any):ProgressProfile=>({
+  userId:x.user_id,displayName:x.display_name,bkRating:ratingNumber(x.bk_rating),xp:Number(x.xp)||0,level:Number(x.level)||1,
+  footballIq:ratingNumber(x.football_iq),gmRating:ratingNumber(x.gm_rating),predictionRating:ratingNumber(x.prediction_rating),triviaRating:ratingNumber(x.trivia_rating),agentRating:ratingNumber(x.agent_rating),ownerRating:ratingNumber(x.owner_rating),
   championships:Number(x.championships)||0,currentStreak:Number(x.current_streak)||0,longestStreak:Number(x.longest_streak)||0,updatedAt:x.updated_at,
 });
 
@@ -122,7 +127,7 @@ export async function fetchProgressionProfile(displayName?:string){
   const err=[events.error,achievements.error,unlocked.error].find(Boolean);if(err)throw err;
   const unlockedMap=new Map((unlocked.data||[]).map((x:any)=>[x.achievement_key,x.unlocked_at]));
   return {
-    profile:mapProfile(profileRow),
+    profile:mapProgressProfile(profileRow),
     events:(events.data||[]).map((x:any)=>({id:Number(x.id),eventType:x.event_type,category:x.category,xpAwarded:Number(x.xp_awarded)||0,ratingDelta:Number(x.rating_delta)||0,occurredAt:x.occurred_at,metadata:x.metadata||{}} as ProgressEvent)),
     achievements:(achievements.data||[]).map((x:any)=>({key:x.achievement_key,title:x.title,description:x.description,category:x.category,tier:x.tier,xpReward:Number(x.xp_reward)||0,unlockedAt:unlockedMap.get(x.achievement_key)} as Achievement)),
   };
@@ -136,7 +141,7 @@ export async function fetchPublicProgressionProfile(userId:string){
   const payload=response.data as any;
   if(!payload?.profile) throw new Error('This manager profile is unavailable.');
   return {
-    profile:mapProfile(payload.profile),
+    profile:mapProgressProfile(payload.profile),
     events:(payload.events||[]).map((x:any)=>({id:Number(x.id),eventType:x.event_type,category:x.category,xpAwarded:Number(x.xp_awarded)||0,ratingDelta:Number(x.rating_delta)||0,occurredAt:x.occurred_at,metadata:x.metadata||{}} as ProgressEvent)),
     achievements:(payload.achievements||[]).map((x:any)=>({key:x.achievement_key,title:x.title,description:x.description,category:x.category,tier:x.tier,xpReward:Number(x.xp_reward)||0,unlockedAt:x.unlocked_at||undefined} as Achievement)),
     predictionPicks:(payload.prediction_picks||[]).map((x:any)=>({
