@@ -1,0 +1,75 @@
+// One additional retry per scoring invocation, and only for idempotent table
+// reads that received a gateway error. Never replay an unknown-commit write or
+// an RPC. Keep this helper in the route to preserve serverless packaging.
+export function createScoringDatabaseFetch(supabaseUrl:string, deps:{
+  request?:typeof fetch;
+  now?:()=>number;
+  retryTimeoutMs?:number;
+  log?:(event:Record<string,unknown>)=>void;
+}={}):typeof fetch{
+  const request=deps.request??fetch;
+  const clock=deps.now??Date.now;
+  const started=clock();
+  const origin=new URL(supabaseUrl).origin;
+  const log=deps.log??(event=>console.warn('fantasy-scoring-database-request',event));
+  let readRetriesRemaining=1;
+  return async(input,init)=>{
+    const rawUrl=input instanceof Request?input.url:String(input);
+    const url=new URL(rawUrl);
+    const method=String(init?.method||(input instanceof Request?input.method:'GET')).toUpperCase();
+    const signal=init?.signal??(input instanceof Request?input.signal:undefined);
+    const table=url.pathname.match(/^\/rest\/v1\/(ball_knower_[a-z0-9_]+)$/)?.[1];
+    const operation=table??(url.pathname.startsWith('/rest/v1/rpc/')?'rpc':'other');
+    const safeMethod=['GET','HEAD','POST','PATCH','DELETE','PUT','OPTIONS'].includes(method)?method:'OTHER';
+    const requestStarted=clock();
+    let response:Response;
+    try{response=await request(input,init);}
+    catch(error){
+      log({operation,method:safeMethod,status:0,attempt:1,elapsedMs:clock()-requestStarted,retry:false,code:signal?.aborted?'request_aborted':'transport_error'});
+      throw error; // Preserve the client's existing transport-error handling.
+    }
+    if(response.status<500)return response;
+    const retry=Boolean(table&&url.origin===origin&&['GET','HEAD'].includes(method)
+      &&[502,503,504].includes(response.status)&&!signal?.aborted
+      &&readRetriesRemaining>0&&clock()-started<20_000);
+    log({operation,method:safeMethod,status:response.status,attempt:1,elapsedMs:clock()-requestStarted,retry,code:'database_http_error'});
+    if(!retry)return response;
+    readRetriesRemaining-=1; // Reserve before awaiting; parallel reads share one budget.
+    void response.body?.cancel().catch(()=>{});
+    const controller=new AbortController();
+    const relayAbort=()=>controller.abort();
+    if(signal?.aborted)controller.abort();
+    else signal?.addEventListener('abort',relayAbort,{once:true});
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    try{
+      const deadline=new Promise<never>((_,reject)=>{
+        timer=setTimeout(()=>{
+          controller.abort();
+          reject(new DOMException('Scoring database read retry exceeded its deadline','AbortError'));
+        },deps.retryTimeoutMs??4_000);
+      });
+      const retried=await Promise.race([
+        (async()=>{
+          controller.signal.throwIfAborted();
+          const result=await request(input,{...init,signal:controller.signal});
+          const body=await result.arrayBuffer();
+          const headers=new Headers(result.headers);
+          headers.delete('content-encoding');headers.delete('content-length');
+          return new Response(method==='HEAD'||[204,205,304].includes(result.status)?null:body,
+            {status:result.status,statusText:result.statusText,headers});
+        })(),deadline,
+      ]);
+      log({operation,method:safeMethod,status:retried.status,attempt:2,elapsedMs:clock()-requestStarted,retry:false,recovered:retried.ok});
+      return retried;
+    }catch{
+      log({operation,method:safeMethod,status:0,attempt:2,elapsedMs:clock()-requestStarted,retry:false,code:signal?.aborted?'request_aborted':'read_retry_failed'});
+      // A bounded failed read is still a failure; never fabricate an empty
+      // successful dataset. The handler retains its fail-closed behavior.
+      return new Response('Scoring database read unavailable',{status:504});
+    }finally{
+      if(timer!==undefined)clearTimeout(timer);
+      signal?.removeEventListener('abort',relayAbort);
+    }
+  };
+}
+
