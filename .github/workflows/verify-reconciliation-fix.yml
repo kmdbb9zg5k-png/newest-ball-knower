@@ -48,7 +48,7 @@ jobs:
           git config user.email 'engineering@ballknowerofficial.com'
           git add LeagueLiveDraftRoom.tsx scripts/fantasy-reconciliation-browser-check.mjs
           git commit -m 'fix: contain completed-draft cards on narrow phones'
-          git push origin HEAD:maintenance/reconciliation-mobile-repair-20260911
+          git push origin HEAD:refs/heads/maintenance/reconciliation-mobile-repair-20260911
           git rev-parse HEAD
       - uses: actions/upload-artifact@v4
         if: always()
