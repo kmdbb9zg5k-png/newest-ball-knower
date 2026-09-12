@@ -1,3 +1,4 @@
+import './soloAppearanceV2.css';
 import React,{createContext,lazy,Suspense,useCallback,useContext,useEffect,useMemo,useRef,useState} from 'react';
 import type {Player} from '../types';
 import type {SoloWeek,PlayerLine} from '../soloSeasonEngine';
