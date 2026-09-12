@@ -1,0 +1,23 @@
+.bk-solo-portrait-hair,.bk-solo-portrait-beard,.bk-solo-portrait-eye-black{position:absolute;display:block;pointer-events:none;z-index:2}
+.bk-solo-portrait-hair{left:20%;top:2%;width:60%;height:24%;background:#17120f;border-radius:55% 55% 32% 32%;transform-origin:50% 100%}
+.bk-solo-portrait[data-hair="0"] .bk-solo-portrait-hair{height:13%;top:7%;border-radius:50%}
+.bk-solo-portrait[data-hair="1"] .bk-solo-portrait-hair{height:28%;top:-2%;border-radius:50%;box-shadow:-7px 4px 0 #17120f,7px 2px 0 #17120f}
+.bk-solo-portrait[data-hair="2"] .bk-solo-portrait-hair{height:14%;top:5%;border-radius:46% 46% 18% 18%}
+.bk-solo-portrait[data-hair="3"] .bk-solo-portrait-hair{height:31%;top:0%;background:repeating-linear-gradient(90deg,#15100d 0 4px,transparent 4px 7px)}
+.bk-solo-portrait[data-hair="4"] .bk-solo-portrait-hair{left:14%;width:72%;height:29%;top:-2%;border-radius:50%}
+.bk-solo-portrait[data-hair="5"] .bk-solo-portrait-hair{left:26%;width:48%;height:18%;top:3%;border-radius:50% 50% 30% 30%}
+.bk-solo-portrait[data-hair="6"] .bk-solo-portrait-hair{height:9%;top:7%;border-radius:45%}
+.bk-solo-portrait[data-hair="7"] .bk-solo-portrait-hair{height:25%;top:0%;background:radial-gradient(circle at 20% 40%,#17120f 0 5px,transparent 6px),radial-gradient(circle at 50% 25%,#17120f 0 6px,transparent 7px),radial-gradient(circle at 80% 40%,#17120f 0 5px,transparent 6px)}
+.bk-solo-portrait[data-hair="8"] .bk-solo-portrait-hair{left:16%;width:68%;height:20%;top:1%;border-radius:48% 48% 24% 24%;box-shadow:-5px 7px 0 -2px #17120f,5px 7px 0 -2px #17120f}
+.bk-solo-portrait[data-hair="9"] .bk-solo-portrait-hair{left:24%;width:52%;height:16%;top:4%;border-radius:48%}
+.bk-solo-portrait-beard{display:none;left:31%;top:58%;width:38%;height:24%;background:#17120f;opacity:.78;border-radius:20% 20% 50% 50%}
+.bk-solo-portrait[data-beard="1"] .bk-solo-portrait-beard{display:block;top:57%;height:6%;border-radius:30%}
+.bk-solo-portrait[data-beard="2"] .bk-solo-portrait-beard{display:block;left:40%;width:20%;height:18%}
+.bk-solo-portrait[data-beard="3"] .bk-solo-portrait-beard{display:block;left:27%;width:46%;height:21%}
+.bk-solo-portrait[data-beard="4"] .bk-solo-portrait-beard{display:block;left:24%;width:52%;height:28%}
+.bk-solo-portrait[data-beard="5"] .bk-solo-portrait-beard{display:block;left:34%;width:32%;height:17%}
+.bk-solo-portrait-eye-black{display:none;left:27%;top:46%;width:12%;height:3px;background:#111;box-shadow:21px 0 0 #111;opacity:.85}
+.bk-solo-portrait[data-eye-black="1"] .bk-solo-portrait-eye-black,.bk-solo-portrait[data-eye-black="2"] .bk-solo-portrait-eye-black,.bk-solo-portrait[data-eye-black="3"] .bk-solo-portrait-eye-black{display:block}
+.bk-solo-portrait[data-eye-black="2"] .bk-solo-portrait-eye-black{width:16%;left:23%;box-shadow:25px 0 0 #111}
+.bk-solo-portrait[data-eye-black="3"] .bk-solo-portrait-eye-black{width:20%;left:20%;height:4px;box-shadow:29px 0 0 #111}
+.bk-solo-portrait[data-creator="true"] .bk-solo-portrait-hair,.bk-solo-portrait[data-creator="true"] .bk-solo-portrait-beard,.bk-solo-portrait[data-creator="true"] .bk-solo-portrait-eye-black{display:none}
