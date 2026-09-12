@@ -173,37 +173,28 @@ const buildSoloPlayers = (): Player[] => {
   });
 };
 
-export const SOLO_PLAYERS_DATABASE: Player[] = buildSoloPlayers();
+const SOLO_CREATOR_EASTER_EGG: Player = {
+  id: 'bk-001-eli-rodriguez', playerId: 'bk-001-eli-rodriguez',
+  teamId: 'JCY', team: 'JCY', teamAbbreviation: 'JCY', teamCity: 'Jersey City', teamName: 'Jersey City Knights',
+  conference: 'AFC', division: 'East',
+  name: 'Eli Rodriguez', firstName: 'Eli', lastName: 'Rodriguez', fullName: 'Eli Rodriguez',
+  position: 'WR', positionGroup: 'WR', jerseyNumber: 11,
+  age: 30, experience: 10, starter: true, active: true, isFreeAgent: false, rosterSeason: 1,
+  ovr: 85, overall: 85, overallRating: 85,
+  ratingSource: 'Ball Knower simulated universe', ratingSeason: 'SIM-1', ratingStatus: 'EDITORIAL',
+  salary: 14.8, salaryType: 'estimated', salarySource: 'Ball Knower simulation model',
+  archetype: 'Elite slot route runner',
+  speed: 96, awareness: 93,
+  attributes: { athleticism: 91, footballIQ: 94, receiving: 95 },
+} satisfies Player;
+
+const BASE_SOLO_PLAYERS_DATABASE: Player[] = buildSoloPlayers();
+const eliRosterSlot = BASE_SOLO_PLAYERS_DATABASE.findIndex(player => player.team === 'JCY' && player.position === 'WR' && !player.starter);
+if (eliRosterSlot >= 0) BASE_SOLO_PLAYERS_DATABASE[eliRosterSlot] = SOLO_CREATOR_EASTER_EGG;
+
+export const SOLO_PLAYERS_DATABASE: Player[] = BASE_SOLO_PLAYERS_DATABASE;
 export const SOLO_KNOWN_PLAYERS_DATABASE: Player[] = SOLO_PLAYERS_DATABASE;
 export const SOLO_PLAYER_BY_ID = new Map(SOLO_PLAYERS_DATABASE.map(player => [player.id, player]));
 
 export function getSoloTeam(abbr?: string | null): TeamTheme {
-  return SOLO_TEAM_THEMES.find(team => team.abbr === abbr) ?? SOLO_TEAM_THEMES[0];
-}
-
-export function getSoloTeamByName(name?: string | null): TeamTheme {
-  return SOLO_TEAM_THEMES.find(team => team.name === name) ?? SOLO_TEAM_THEMES[0];
-}
-
-export function getSavedSoloTeamTheme(): TeamTheme {
-  try {
-    return getSoloTeam(localStorage.getItem(SOLO_TEAM_STORAGE_KEY));
-  } catch {
-    return SOLO_TEAM_THEMES[0];
-  }
-}
-
-export function saveSoloTeamTheme(abbr: string) {
-  try { localStorage.setItem(SOLO_TEAM_STORAGE_KEY, getSoloTeam(abbr).abbr); } catch {}
-}
-
-export function soloTeamLogoUrl(abbr: string): string {
-  const team = getSoloTeam(abbr);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256"><title>Ball Knower League ${team.abbr} badge</title><rect x="12" y="12" width="232" height="232" rx="58" fill="#101318"/><rect x="20" y="20" width="216" height="216" rx="50" fill="none" stroke="${team.primary}" stroke-width="8"/><path d="M76 65h104" stroke="${team.secondary}" stroke-width="6" stroke-linecap="round"/><text x="128" y="151" text-anchor="middle" font-family="Arial,sans-serif" font-size="62" font-weight="900" fill="#f4f4f5">${team.abbr}</text><text x="128" y="197" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" letter-spacing="3" fill="#d4af37">BK LEAGUE</text></svg>`;
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
-}
-
-export function simulatedPlayerForLegacyId(id: string, index = 0): Player {
-  const seed = stableNumber(`${id}:${index}:solo-migration`);
-  return SOLO_PLAYERS_DATABASE[seed % SOLO_PLAYERS_DATABASE.length];
-}
+  return SOLO_TEAM_THEMES.find(team => team.abbr === abbr) ??
