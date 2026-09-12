@@ -89,11 +89,16 @@ export const AuthModal:React.FC<AuthModalProps>=({isOpen,onClose,onOpenLegal,pre
           setStatusMessage('Verification email sent. Your guest identity stays the same, so your leagues and roster ownership are preserved.');
           showToast('Verification email sent — your Ball Knower identity is preserved.');
         }catch(upgradeError:any){
-          const raw=upgradeError?.message||'';if(!/already|registered|exists|taken|duplicate/i.test(raw))throw upgradeError;
+          const raw=upgradeError?.message||'';
+          const existingAccount=/already|registered|exists|taken|duplicate/i.test(raw);
+          const emailChangeDeliveryFailed=/error sending email change email|smtp|send.*email|email.*send/i.test(raw);
+          if(!existingAccount&&!emailChangeDeliveryFailed)throw upgradeError;
           await prepareGuestAccountMerge();await sendEmailMagicLink(email,name);
-          trackBallKnowerEvent('Magic Link Requested',{method:'email',flow:'existing_account'});
-          setStatusMessage('That email already has a Ball Knower account. Open the magic link and your guest XP, streaks and leagues will merge into it automatically.');
-          showToast('Existing account found — magic sign-in link sent.');
+          trackBallKnowerEvent('Magic Link Requested',{method:'email',flow:existingAccount?'existing_account':'guest_upgrade_fallback'});
+          setStatusMessage(existingAccount
+            ?'That email already has a Ball Knower account. Open the magic link and your guest XP, streaks and leagues will merge into it automatically.'
+            :'Confirmation link sent. Open it on this device and your guest XP, streaks and leagues will transfer automatically.');
+          showToast(existingAccount?'Existing account found — magic sign-in link sent.':'Confirmation link sent — your guest progress is protected.');
         }
       }else{
         await sendEmailMagicLink(email,name);
