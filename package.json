@@ -61,6 +61,8 @@
     "check:native-auth": "node --import tsx scripts/native-auth-release-check.ts",
     "check:auth-provider-config": "node --import tsx scripts/auth-provider-config-check.ts",
     "check:bk-auth-email": "node --import tsx scripts/bk-auth-email-check.ts",
+    "check:post-intro-auth": "node --import tsx scripts/post-intro-auth-check.ts",
+    "check:post-intro-auth-browser": "node scripts/post-intro-auth-browser.mjs",
     "check:intro-media": "node --import tsx scripts/intro-media-release-check.ts",
     "check:build7-waivers": "node --import tsx scripts/build7-waiver-release-check.ts",
     "check:build7-release": "npm run check:build7-native && npm run check:nfl-news && npm run check:native-auth && npm run check:intro-media && npm run check:build7-waivers && npm run check:player-headshots && npm run check:production-origin",
