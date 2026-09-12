@@ -18,6 +18,14 @@ const READ_TIMEOUT_MS=8000;
 const READ_ATTEMPTS=3;
 const sleep=(ms:number)=>new Promise(resolve=>setTimeout(resolve,ms));
 
+const BALL_KNOWER_PRODUCTION_ORIGIN='https://ballknowerofficial.com';
+export const ballKnowerEmailRedirect=()=>{
+  if(typeof window==='undefined')return BALL_KNOWER_PRODUCTION_ORIGIN;
+  if(window.location.protocol==='capacitor:'||window.location.protocol==='ionic:')return'ballknower://auth/callback';
+  if(window.location.hostname==='localhost'||window.location.hostname==='127.0.0.1')return window.location.origin;
+  return BALL_KNOWER_PRODUCTION_ORIGIN;
+};
+
 const resilientSupabaseFetch=async(input:RequestInfo|URL,init?:RequestInit):Promise<Response>=>{
   const options=init??{};
   const method=String(options.method||'GET').toUpperCase();
@@ -115,7 +123,7 @@ export async function attachEmailToAnonymousUser(email: string, displayName?: st
   const { data: updated, error } = await supabase.auth.updateUser({
     email: email.trim().toLowerCase(),
     data,
-  });
+  },{emailRedirectTo:ballKnowerEmailRedirect()});
   if (error || !updated.user) {
     throw new Error(error?.message || 'Could not attach that email to this guest account.');
   }
@@ -125,13 +133,10 @@ export async function attachEmailToAnonymousUser(email: string, displayName?: st
 export async function sendEmailMagicLink(email: string, displayName?: string): Promise<void> {
   if (!supabase) throw new Error('Online multiplayer is not configured yet.');
   await flushAllCloudStateBeforeIdentityChange();
-  const redirectTo = typeof window !== 'undefined'
-    ? ((window.location.protocol === 'capacitor:' || window.location.protocol === 'ionic:') ? 'ballknower://auth/callback' : window.location.origin)
-    : undefined;
   const { error } = await supabase.auth.signInWithOtp({
     email: email.trim().toLowerCase(),
     options: {
-      emailRedirectTo: redirectTo,
+      emailRedirectTo: ballKnowerEmailRedirect(),
       shouldCreateUser: true,
       data: displayName?.trim() ? { full_name: displayName.trim(), name: displayName.trim() } : undefined,
     },
