@@ -216,3 +216,137 @@
 @media (prefers-reduced-motion: reduce) {
   .bk-auth-provider, .bk-auth-email, .bk-auth-guest-button, .bk-auth-submit { transition: none; }
 }
+
+/* Post-intro launch treatment: compact, cinematic, and matched to the approved phone reference. */
+.bk-auth-stage--launch {
+  background:
+    radial-gradient(circle at 50% 15%, rgba(91, 45, 142, .58), transparent 22rem),
+    radial-gradient(circle at 12% 78%, rgba(25, 142, 196, .13), transparent 24rem),
+    linear-gradient(168deg, #080511 0%, #180b2b 45%, #07101d 76%, #05070d 100%);
+}
+.bk-auth-stage--launch .bk-auth-sky {
+  background:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px);
+  background-size: 54px 54px;
+  mask-image: none;
+}
+.bk-auth-stage--launch .bk-auth-sky::before {
+  opacity: .32;
+  mask-image: linear-gradient(to bottom, #000 0%, #000 42%, transparent 68%);
+}
+.bk-auth-stage--launch .bk-auth-sky::after {
+  left: 50%;
+  bottom: -9.5rem;
+  width: min(58rem, 160vw);
+  height: 56dvh;
+  aspect-ratio: auto;
+  translate: -50% 0;
+  transform: perspective(560px) rotateX(61deg);
+  transform-origin: center bottom;
+  clip-path: polygon(35% 0, 65% 0, 100% 100%, 0 100%);
+  border: 0;
+  background:
+    linear-gradient(rgba(220,185,87,.46) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(220,185,87,.38) 1px, transparent 1px);
+  background-size: 12% 12%;
+  box-shadow: 0 -18px 60px rgba(80,31,127,.38);
+  opacity: .72;
+}
+.bk-auth-stage--launch .bk-auth-console {
+  width: min(100%, 27rem);
+  min-height: 100dvh;
+  padding: max(2.65rem, calc(env(safe-area-inset-top) + 1.15rem)) 1.5rem max(1.25rem, calc(env(safe-area-inset-bottom) + .8rem));
+}
+.bk-auth-stage--launch .bk-auth-brand {
+  position: relative;
+  z-index: 1;
+}
+.bk-auth-stage--launch .bk-auth-crest {
+  width: 7rem;
+  height: 7.35rem;
+  margin-bottom: .35rem;
+  filter: drop-shadow(0 13px 18px rgba(0,0,0,.75));
+}
+.bk-auth-stage--launch .bk-auth-crest::before { display: none; }
+.bk-auth-crest-art { width: 100%; height: 100%; overflow: visible; }
+.bk-auth-stage--launch .bk-auth-brand h2 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.35rem, 10.8vw, 2.95rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -.025em;
+  filter: drop-shadow(0 2px #2c1806) drop-shadow(0 7px 11px rgba(0,0,0,.78));
+}
+.bk-auth-stage--launch .bk-auth-brand p {
+  margin-top: .45rem;
+  font-size: clamp(.72rem, 3.2vw, .9rem);
+  letter-spacing: .08em;
+}
+.bk-auth-stage--launch .bk-auth-options {
+  position: relative;
+  z-index: 1;
+  gap: 1rem;
+  margin-top: 2.45rem;
+}
+.bk-auth-stage--launch .bk-auth-provider,
+.bk-auth-stage--launch .bk-auth-email {
+  min-height: 4rem;
+}
+.bk-auth-stage--launch .bk-auth-provider {
+  grid-template-columns: 1.6rem 2.65rem 1fr 1.6rem;
+  border-width: 1px;
+  box-shadow: 0 0 0 2px #77797a, 0 0 0 4px #111217, inset 0 0 0 1px #fff, inset 0 -8px 16px rgba(0,0,0,.18), 0 10px 19px rgba(0,0,0,.5);
+}
+.bk-auth-stage--launch .bk-auth-provider-mark,
+.bk-auth-stage--launch .bk-auth-provider-mark svg { width: 2.15rem; height: 2.15rem; }
+.bk-auth-stage--launch .bk-auth-provider-copy strong {
+  font-size: clamp(1.65rem, 7.4vw, 2rem);
+  letter-spacing: .01em;
+}
+.bk-auth-stage--launch .bk-auth-provider-copy small {
+  margin-top: .12rem;
+  font-size: .56rem;
+}
+.bk-auth-stage--launch .bk-auth-edge-light { height: 1.65rem; }
+.bk-auth-stage--launch .bk-auth-email {
+  font-size: clamp(1.25rem, 5.3vw, 1.55rem);
+  box-shadow: 0 0 0 2px #72541d, 0 0 0 4px #17100a, inset 0 0 0 1px #fff3bb, inset 0 -7px 15px rgba(77,42,2,.24), 0 10px 20px rgba(0,0,0,.48);
+}
+.bk-auth-stage--launch .bk-auth-guest-card {
+  margin-top: .2rem;
+  padding: 1rem 1.05rem;
+  border-width: 1.5px;
+  border-radius: .7rem;
+  box-shadow: 0 0 0 2px rgba(17,75,93,.52), 0 0 19px rgba(69,230,255,.35), inset 0 0 25px rgba(31,172,203,.08);
+}
+.bk-auth-stage--launch .bk-auth-guest-title { font-size: .95rem; }
+.bk-auth-stage--launch .bk-auth-guest-card p {
+  margin-top: .55rem;
+  font-size: .74rem;
+  line-height: 1.48;
+}
+.bk-auth-stage--launch .bk-auth-guest-button {
+  min-height: 3.45rem;
+  margin-top: .2rem;
+  font-size: 1.25rem;
+}
+.bk-auth-stage--launch .bk-auth-legal {
+  position: relative;
+  z-index: 1;
+  margin-top: 1.15rem;
+  padding: .75rem .9rem;
+  font-size: .59rem;
+}
+@media (max-height: 760px) {
+  .bk-auth-stage--launch .bk-auth-console { padding-top: max(1.2rem, env(safe-area-inset-top)); }
+  .bk-auth-stage--launch .bk-auth-crest { width: 5.7rem; height: 5.9rem; margin-bottom: .15rem; }
+  .bk-auth-stage--launch .bk-auth-brand h2 { font-size: 2.15rem; }
+  .bk-auth-stage--launch .bk-auth-brand p { margin-top: .25rem; font-size: .68rem; }
+  .bk-auth-stage--launch .bk-auth-options { gap: .72rem; margin-top: 1.2rem; }
+  .bk-auth-stage--launch .bk-auth-provider, .bk-auth-stage--launch .bk-auth-email { min-height: 3.55rem; }
+  .bk-auth-stage--launch .bk-auth-guest-card { padding: .75rem .85rem; }
+  .bk-auth-stage--launch .bk-auth-guest-card p { margin-top: .35rem; font-size: .65rem; line-height: 1.35; }
+  .bk-auth-stage--launch .bk-auth-guest-button { min-height: 3rem; }
+  .bk-auth-stage--launch .bk-auth-legal { margin-top: .75rem; padding: .58rem .75rem; }
+}
