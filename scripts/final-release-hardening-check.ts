@@ -137,6 +137,7 @@ assert.ok(
   'legacy Owner cloud snapshots must be revisioned before rollout so stale local state cannot overwrite them',
 );
 assert.ok(phase4bFollowup.includes('save_ball_knower_revisioned_user_state'),'Owner saves must use a server-revisioned database write');
+assert.ok(phase4bFollowup.includes('on conflict on constraint ball_knower_user_state_pkey'),'Revisioned owner saves must avoid PL/pgSQL output-column ambiguity');
 assert.ok(phase4bFollowup.includes('v_incoming_revision=v_stored_revision'),'stale Owner snapshots must never overwrite a newer server revision');
 assert.ok(
   phase4bFollowup.includes("state_key not in ('gauntlet_progress_v1','gauntlet_progress_v2','owner_business_career_v1')")&&

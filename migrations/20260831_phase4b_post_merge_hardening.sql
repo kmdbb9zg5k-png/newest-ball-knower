@@ -213,7 +213,7 @@ begin
 
   insert into public.ball_knower_user_state(user_id,state_key,value,updated_at)
   values(v_user,p_state_key,p_value||jsonb_build_object('cloudRevision',0),now())
-  on conflict(user_id,state_key) do nothing;
+  on conflict on constraint ball_knower_user_state_pkey do nothing;
 
   select * into v_row
   from public.ball_knower_user_state s
