@@ -1,6 +1,8 @@
 import { Appearance, AppearancePlayer, FACE_SKIN, SOLO_ART_ROOT, UniformVariant, uniformFor } from './appearance';
 
 const images = new Map<string,Promise<HTMLImageElement>>();
+const ELI_EASTER_EGG_ID='bk-001-eli-rodriguez';
+const ELI_FACE=`${SOLO_ART_ROOT}/creator/eli-face.webp`;
 function loadImage(path: string): Promise<HTMLImageElement> {
   let promise = images.get(path);
   if (!promise) {
@@ -19,7 +21,11 @@ const clamp=(n:number)=>Math.max(0,Math.min(255,Math.round(n)));
 
 /** A single static 2D composite. No WebGL, continuous render loop, video or image API. */
 export async function drawCharacter(canvas:HTMLCanvasElement,player:AppearancePlayer,look:Appearance,variant:UniformVariant='home',helmet=false,isCurrent:()=>boolean=()=>true):Promise<void> {
-  const [body,regions,faces]=await Promise.all(['body.webp','regions.webp','faces.webp'].map(file=>loadImage(`${SOLO_ART_ROOT}/${file}`)));
+  const creator=player.id===ELI_EASTER_EGG_ID;
+  const [body,regions,faces,creatorFace]=await Promise.all([
+    loadImage(`${SOLO_ART_ROOT}/body.webp`),loadImage(`${SOLO_ART_ROOT}/regions.webp`),loadImage(`${SOLO_ART_ROOT}/faces.webp`),
+    creator?loadImage(ELI_FACE):Promise.resolve(null),
+  ]);
   if(!isCurrent())return;
   const width=256,height=768;
   const buffer=document.createElement('canvas');buffer.width=width;buffer.height=height;
@@ -31,7 +37,7 @@ export async function drawCharacter(canvas:HTMLCanvasElement,player:AppearancePl
   draw.clearRect(0,0,width,height);draw.drawImage(regions,0,0,width,height);
   const mask=draw.getImageData(0,0,width,height).data;
   const uniform=uniformFor(player,variant);
-  const jersey=rgb(uniform.jersey),pants=rgb(uniform.pants),skin=rgb(FACE_SKIN[look.face]);
+  const jersey=rgb(uniform.jersey),pants=rgb(uniform.pants),skin=rgb(creator?'#9b654d':FACE_SKIN[look.face]);
   for(let index=0;index<pixels.data.length;index+=4){
     if(pixels.data[index+3]===0)continue;
     const luminance=(pixels.data[index]*.2126+pixels.data[index+1]*.7152+pixels.data[index+2]*.0722)/255;
@@ -45,10 +51,17 @@ export async function drawCharacter(canvas:HTMLCanvasElement,player:AppearancePl
   if(!isCurrent())return;
   canvas.width=width;canvas.height=height;
   ctx.clearRect(0,0,width,height);
-  // Neck is tucked behind the uniform. A trade changes the kit, never this face index.
-  const cellWidth=faces.naturalWidth/3,cellHeight=faces.naturalHeight/3;
-  const faceX=(look.face%3)*cellWidth,faceY=Math.floor(look.face/3)*cellHeight;
-  ctx.drawImage(faces,faceX,faceY,cellWidth,cellHeight,75,0,116,165);
+  // Identity stays with the player ID. Trades only recolor the uniform below.
+  if(creator&&creatorFace){
+    ctx.save();
+    ctx.beginPath();ctx.ellipse(133,83,58,82,0,0,Math.PI*2);ctx.clip();
+    ctx.drawImage(creatorFace,0,0,creatorFace.naturalWidth,creatorFace.naturalHeight,75,0,116,165);
+    ctx.restore();
+  }else{
+    const cellWidth=faces.naturalWidth/3,cellHeight=faces.naturalHeight/3;
+    const faceX=(look.face%3)*cellWidth,faceY=Math.floor(look.face/3)*cellHeight;
+    ctx.drawImage(faces,faceX,faceY,cellWidth,cellHeight,75,0,116,165);
+  }
   const scale=look.build==='power'?1.16:look.build==='lean'?.91:1;
   ctx.save();ctx.translate(128,0);ctx.scale(scale,1);ctx.translate(-128,0);
   ctx.drawImage(buffer,0,0);
