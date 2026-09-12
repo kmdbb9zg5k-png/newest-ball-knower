@@ -15,6 +15,7 @@
     "lint": "tsc --noEmit",
     "check:integrity": "node --import tsx scripts/integrity-check.ts",
     "check:draft-reliability": "node --import tsx scripts/draft-reliability-check.ts",
+    "check:draft-order-game": "node --import tsx scripts/draft-order-game-regression-check.ts",
     "check:trivia": "node --import tsx scripts/gauntlet-trivia-check.ts",
     "check:trivia-visual": "node --import tsx scripts/trivia-visual-fidelity-check.ts",
     "check:identity": "node --import tsx scripts/account-identity-check.ts",
