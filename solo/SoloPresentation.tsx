@@ -9,6 +9,8 @@ export type SoloPlayerRecord = {player:Player;logs?:PlayerGameLog[];development?
 type PresentationContext = {openPlayer:(record:SoloPlayerRecord)=>void;registerRecords:(records:Map<string,SoloPlayerRecord>)=>()=>void};
 const Context=createContext<PresentationContext|null>(null);
 const Profile=lazy(()=>import('./SoloPlayerProfile'));
+const ELI_EASTER_EGG_ID='bk-001-eli-rodriguez';
+const ELI_FACE=`${SOLO_ART_ROOT}/creator/eli-face.webp`;
 
 export function useAppearance(player:AppearancePlayer):Appearance {
   const [look,setLook]=useState(()=>readAppearance(player));
@@ -69,6 +71,9 @@ export function useSoloRecords(roster:Player[],weeks:SoloWeek[],interactions?:Fr
 export function SoloPortrait({player,className='',face}:{player:AppearancePlayer;className?:string;face?:number}) {
   const look=useAppearance(player);const selected=face??look.face;
   const [failed,setFailed]=useState(false);
+  if(player.id===ELI_EASTER_EGG_ID&&face===undefined){
+    return <span className={`bk-solo-portrait ${className}`} aria-hidden="true" data-face="bk-001" style={{backgroundImage:`url(${ELI_FACE})`,backgroundSize:'cover',backgroundPosition:'50% 24%',backgroundRepeat:'no-repeat'}}/>;
+  }
   return <span className={`bk-solo-portrait ${className}`} aria-hidden="true" data-face={selected}>
     {!failed?<img src={`${SOLO_ART_ROOT}/faces.webp`} alt="" loading="lazy" decoding="async" width="384" height="480" onError={()=>setFailed(true)} style={{left:`-${selected%3*100}%`,top:`-${Math.floor(selected/3)*100}%`}}/>:<span className="bk-solo-art-fallback">BK</span>}
   </span>;
