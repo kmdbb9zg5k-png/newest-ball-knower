@@ -18,6 +18,20 @@ import { TeamTheme } from './teamTheme';
 import { SOLO_TEAM_THEMES, soloTeamLogoUrl } from './soloUniverse';
 import { LeagueMember, Player, TeamRatings } from './types';
 import { ensureFranchiseDraftYear, FranchiseDraftPick, ownedFranchiseDraftRounds } from './franchiseDraftPicks';
+import { FranchiseInteractionCenter } from './FranchiseInteractionCenter';
+import {
+  createFranchiseInteractions,
+  applyFranchiseOpportunities,
+  ensureFranchiseWeek,
+  isFranchiseInteractionState,
+  respondToFranchiseScenario,
+  resolveFranchiseWeek,
+  ratingsWithFranchiseMorale,
+  syncFranchiseInteractions,
+  upgradeFranchisePlayer,
+  type FranchiseInteractionState,
+  type UpgradeFocus,
+} from './franchiseInteractions';
 
 type PlayoffResult = { round: string; opponent: string; you: number; them: number; won: boolean };
 type SeasonStage = 'regular' | 'playoffs' | 'finished' | 'draft';
@@ -127,7 +141,7 @@ function restoreSeason(key: string) {
     const raw = localStorage.getItem(key);
     if (!raw) return null;
     const saved = JSON.parse(raw);
-    if (!saved || saved.version !== 1 || !['regular', 'playoffs', 'finished', 'draft'].includes(saved.stage)) return null;
+    if (!saved || ![1, 2].includes(saved.version) || !['regular', 'playoffs', 'finished', 'draft'].includes(saved.stage)) return null;
     if (!Array.isArray(saved.weeks) || saved.weeks.length > 17 || saved.weeks.some((week: any) => !week?.game || !Number.isFinite(Number(week.game.homeScore)) || !Number.isFinite(Number(week.game.awayScore)) || !Array.isArray(week.playerLines))) return null;
     if (!Array.isArray(saved.playoffs) || saved.playoffs.length > 4 || !Array.isArray(saved.injuries)) return null;
     return saved;
@@ -168,6 +182,12 @@ export const FranchiseSeason: React.FC<Props> = ({
   const [draftRound, setDraftRound] = useState<number>(() => restoredDraftIsCurrent ? restored?.draftRound ?? 1 : 1);
   const [draftedProspects, setDraftedProspects] = useState<RookieProspect[]>(() => restoredDraftIsCurrent ? restored?.draftedProspects ?? [] : []);
   const [seasonRoster, setSeasonRoster] = useState<Player[]>(() => Array.isArray(restored?.roster) && restored.roster.length ? restored.roster : roster);
+  const [interactionState, setInteractionState] = useState<FranchiseInteractionState>(() => {
+    const restoredInteractions = restored?.interactions;
+    return isFranchiseInteractionState(restoredInteractions)
+      ? syncFranchiseInteractions(restoredInteractions, Array.isArray(restored?.roster) && restored.roster.length ? restored.roster : roster)
+      : createFranchiseInteractions(Array.isArray(restored?.roster) && restored.roster.length ? restored.roster : roster, (restored?.weeks?.length ?? 0) + 1, myPlayerId, (restored?.stage ?? 'regular') === 'regular' && (restored?.weeks?.length ?? 0) < 17);
+  });
   const [playoffField, setPlayoffField] = useState<PlayoffSeed[]>(() => Array.isArray(restored?.playoffField) ? restored.playoffField : []);
   const [year, setYear] = useState<number>(restoredYear);
   const [isSimulating, setIsSimulating] = useState(false);
@@ -184,11 +204,8 @@ export const FranchiseSeason: React.FC<Props> = ({
       return JSON.stringify(next.map(player => player.id)) === JSON.stringify(current.map(player => player.id)) ? current : next;
     });
   }, [roster]);
-  const activeRoster = useMemo(() => {
-    const latest = new Map(roster.map(player => [player.id, player]));
-    return seasonRoster.map(player => latest.get(player.id) ?? player);
-  }, [roster, seasonRoster]);
-  const ratings = useMemo(() => calculateTeamRatings(activeRoster), [activeRoster]);
+  const activeRoster = seasonRoster;
+  const ratings = useMemo(() => ratingsWithFranchiseMorale(calculateTeamRatings(activeRoster), interactionState, activeRoster), [activeRoster, interactionState]);
   const wins = weeks.filter(week => week.won).length;
   const losses = weeks.length - wins;
   const finalPointDifferential = weeks.reduce((total, week) => total + (
@@ -215,11 +232,11 @@ export const FranchiseSeason: React.FC<Props> = ({
 
   useEffect(() => {
     try {
-      localStorage.setItem(seasonKey, JSON.stringify({ version: 1, stage, weeks, playoffs, injuries, message, draftRound, draftedProspects, roster: seasonRoster, playoffField, year }));
+      localStorage.setItem(seasonKey, JSON.stringify({ version: 2, stage, weeks, playoffs, injuries, message, draftRound, draftedProspects, roster: seasonRoster, playoffField, year, interactions: interactionState }));
     } catch (error) {
       console.warn('Unable to save franchise season', error);
     }
-  }, [seasonKey, stage, weeks, playoffs, injuries, message, draftRound, draftedProspects, seasonRoster, playoffField, year]);
+  }, [seasonKey, stage, weeks, playoffs, injuries, message, draftRound, draftedProspects, seasonRoster, playoffField, year, interactionState]);
 
   const rosterFor = (team: TeamTheme) => opponentRosters?.[team.abbr] ?? buildSoloTeamRoster(team.abbr);
   const unlockSimulation = () => window.setTimeout(() => {
@@ -229,13 +246,13 @@ export const FranchiseSeason: React.FC<Props> = ({
 
   const playWeek = () => {
     const weekNumber = weeks.length + 1;
-    if (weekNumber > 17 || simulationLock.current) return;
+    if (weekNumber > 17 || simulationLock.current || interactionState.pendingScenario) return;
     simulationLock.current = true;
     setIsSimulating(true);
     try {
     const opponentTeam = schedule[weekNumber - 1];
     const opponent = makeFranchiseOpponent(opponentTeam, rosterFor(opponentTeam), difficulty as SoloDifficulty, weekNumber);
-    const myRatings = applyFranchiseGamePlan(ratingsWithInjuries(activeRoster, activeInjuries), gamePlan);
+    const myRatings = applyFranchiseGamePlan(ratingsWithFranchiseMorale(ratingsWithInjuries(activeRoster, activeInjuries), interactionState, activeRoster), gamePlan);
     const me: LeagueMember = {
       id: 'franchise-user',
       userId: 'franchise-user',
@@ -252,7 +269,14 @@ export const FranchiseSeason: React.FC<Props> = ({
     const nextLosses = losses + (won ? 0 : 1);
     const snapshot = playoffSnapshot(nextWins, nextLosses, weekNumber);
     const newInjuries = simulateInjuries(activeRoster, weekNumber, 'normal', activeInjuries);
-    const playerLines = generatePlayerLines(activeRoster, game, userHome, weekNumber);
+    const playerLines = applyFranchiseOpportunities(interactionState, activeRoster, generatePlayerLines(activeRoster, game, userHome, weekNumber), weekNumber);
+    const interactionOutcome = resolveFranchiseWeek(interactionState, activeRoster, playerLines, weekNumber, newInjuries, won);
+    const nextInteractions = weekNumber < 17
+      ? ensureFranchiseWeek(interactionOutcome.state, interactionOutcome.roster, weekNumber + 1, myPlayerId)
+      : interactionOutcome.state;
+    setInteractionState(nextInteractions);
+    setSeasonRoster(interactionOutcome.roster);
+    onRosterChange?.(interactionOutcome.roster);
     setWeeks(previous => [...previous, {
       week: weekNumber,
       opponent: opponentTeam.name,
@@ -312,15 +336,19 @@ export const FranchiseSeason: React.FC<Props> = ({
       isCommissioner: true,
       status: 'ready',
       roster: activeRoster,
-      teamRatings: applyFranchiseGamePlan(ratingsWithInjuries(activeRoster, activeInjuries), gamePlan),
+      teamRatings: applyFranchiseGamePlan(ratingsWithFranchiseMorale(ratingsWithInjuries(activeRoster, activeInjuries), interactionState, activeRoster), gamePlan),
     };
     const userHome = playoffs.length % 2 === 0;
     const game = userHome ? simulateGame(18 + playoffs.length, me, opponent) : simulateGame(18 + playoffs.length, opponent, me);
     const you = userHome ? game.homeScore : game.awayScore;
     const them = userHome ? game.awayScore : game.homeScore;
     const won = game.winnerId === 'franchise-user';
+    const playerLines = applyFranchiseOpportunities(interactionState, activeRoster, generatePlayerLines(activeRoster, game, userHome, 18 + playoffs.length), 18 + playoffs.length);
+    const interactionOutcome = resolveFranchiseWeek(interactionState, activeRoster, playerLines, 18 + playoffs.length, [], won);
+    setInteractionState(interactionOutcome.state);
+    setSeasonRoster(interactionOutcome.roster);
+    onRosterChange?.(interactionOutcome.roster);
     if (myPlayerId && onMyPlayerGame) {
-      const playerLines = generatePlayerLines(activeRoster, game, userHome, 18 + playoffs.length);
       const myLine = playerLines.find(line => line.playerId === myPlayerId);
       onMyPlayerGame(myLine?.fantasyScore ?? 3, won);
     }
@@ -348,6 +376,7 @@ export const FranchiseSeason: React.FC<Props> = ({
     setInjuries([]);
     setMessage('Week 1 is ready.');
     setPlayoffField([]);
+    setInteractionState(createFranchiseInteractions(roster, 1, myPlayerId));
     try { localStorage.removeItem(seasonKey); } catch (error) { console.warn('Unable to clear franchise season', error); }
   };
 
@@ -373,6 +402,8 @@ export const FranchiseSeason: React.FC<Props> = ({
     setInjuries([]);
     setPlayoffField([]);
     setYear(nextYear);
+    const carriedInteractions = syncFranchiseInteractions({ ...interactionState, pendingScenario: null, promises: [], decisions: [] }, nextRoster);
+    setInteractionState(ensureFranchiseWeek(carriedInteractions, nextRoster, 1, myPlayerId));
     onSeasonYearChange?.(nextYear);
     if (draftPickAssets !== undefined) onDraftPickAssetsChange?.(ensureFranchiseDraftYear(draftPickAssets, nextYear + 1, SOLO_TEAM_THEMES.map(team => team.abbr)));
     setStage('regular');
@@ -393,6 +424,20 @@ export const FranchiseSeason: React.FC<Props> = ({
     setDraftRound(ownedDraftRounds[pickIndex + 1]);
     setMessage(`${prospect.name} is the pick. CPU teams simulated forward to your next selection.`);
   };
+
+  const respondToScenario = (choiceId: string) => {
+    setInteractionState(current => respondToFranchiseScenario(current, choiceId, activeRoster));
+  };
+  const applyUpgrade = (playerId: string, focus: UpgradeFocus) => {
+    const outcome = upgradeFranchisePlayer(interactionState, activeRoster, playerId, focus);
+    setInteractionState(outcome.state);
+    setSeasonRoster(outcome.roster);
+    onRosterChange?.(outcome.roster);
+  };
+  const readAllNotifications = () => setInteractionState(current => ({
+    ...current,
+    notifications: current.notifications.map(notification => ({ ...notification, read: true })),
+  }));
 
   useEffect(() => {
     if (stage !== 'draft') return;
@@ -422,6 +467,8 @@ export const FranchiseSeason: React.FC<Props> = ({
 
         {message ? <div className="mb-4 rounded-2xl border border-[var(--bk-team-accent)]/25 bg-[var(--bk-team-accent)]/10 px-4 py-3 text-sm font-bold text-[var(--bk-team-accent)]">{message}</div> : null}
 
+        {stage === 'regular' || stage === 'playoffs' ? <FranchiseInteractionCenter state={interactionState} roster={activeRoster} onRespond={respondToScenario} onUpgrade={applyUpgrade} onReadAll={readAllNotifications} /> : null}
+
         {stage === 'regular' ? (
           <div className="grid gap-5 lg:grid-cols-[1.35fr_.65fr]">
             <div>
@@ -442,8 +489,8 @@ export const FranchiseSeason: React.FC<Props> = ({
                     <div className="text-2xl font-black text-zinc-600">VS</div>
                     <TeamMatchup team={currentOpponent} label="CPU" />
                   </div>
-                  <button type="button" onClick={playWeek} disabled={isSimulating} aria-busy={isSimulating} className="mt-6 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)] disabled:cursor-wait disabled:opacity-60">
-                    <Play className="mr-2 inline" size={20} /> {isSimulating ? 'SIMULATING…' : `SIMULATE WEEK ${weeks.length + 1}`}
+                  <button type="button" onClick={playWeek} disabled={isSimulating || Boolean(interactionState.pendingScenario)} aria-busy={isSimulating} className="mt-6 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)] disabled:cursor-wait disabled:opacity-60">
+                    <Play className="mr-2 inline" size={20} /> {isSimulating ? 'SIMULATING…' : interactionState.pendingScenario ? 'RESPOND TO TEAM FIRST' : `SIMULATE WEEK ${weeks.length + 1}`}
                   </button>
                 </div>
               ) : (

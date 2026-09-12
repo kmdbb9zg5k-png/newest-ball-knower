@@ -19,6 +19,20 @@ import {
   achievementsForRun, updateCareer
 } from './soloSeasonEngine';
 import { trackBallKnowerEvent } from './analytics';
+import { FranchiseInteractionCenter } from './FranchiseInteractionCenter';
+import {
+  createFranchiseInteractions,
+  applyFranchiseOpportunities,
+  ensureFranchiseWeek,
+  isFranchiseInteractionState,
+  respondToFranchiseScenario,
+  resolveFranchiseWeek,
+  ratingsWithFranchiseMorale,
+  syncFranchiseInteractions,
+  upgradeFranchisePlayer,
+  type FranchiseInteractionState,
+  type UpgradeFocus,
+} from './franchiseInteractions';
 
 type Stage='draft'|'regular'|'playoffs'|'finished';
 type PlayoffResult={round:string;opponent:string;you:number;them:number;won:boolean};
@@ -81,7 +95,10 @@ const restoreRun=()=>{
    const injurySetting=['off','normal','chaos'].includes(saved.settings?.injuries)?saved.settings.injuries:'normal';
    const weeks=saved.weeks.map((week:any,index:number)=>({...week,opponent:getSoloOpponentTeam(Number(week.week)||index+1).name}));
    const playoffs=saved.playoffs.map((result:any,index:number)=>({...result,opponent:getSoloOpponentTeam(25+index).name}));
-   return {...saved,roster:currentRoster,bench:currentBench,weeks,playoffs,settings:{difficulty,injuries:injurySetting}};
+   const interactions=isFranchiseInteractionState(saved.interactions)
+     ?syncFranchiseInteractions(saved.interactions,currentRoster)
+     :createFranchiseInteractions(currentRoster,weeks.length+1,undefined,saved.stage==='regular'&&weeks.length<17);
+   return {...saved,roster:currentRoster,bench:currentBench,weeks,playoffs,settings:{difficulty,injuries:injurySetting},interactions};
  }catch(error){
    console.warn('Archiving incompatible Solo save for recovery',error);
    try{const raw=localStorage.getItem(RUN_KEY);if(raw&&!localStorage.getItem(`${RUN_KEY}:recovery`))localStorage.setItem(`${RUN_KEY}:recovery`,raw);localStorage.removeItem(RUN_KEY)}catch{}
@@ -135,16 +152,17 @@ const CapChallenge:React.FC<{onBack:()=>void}>=({onBack})=>{
  const [isAutoDrafting,setIsAutoDrafting]=useState(false);
  const [didRestore,setDidRestore]=useState(false);
  const [isSimulating,setIsSimulating]=useState(false);
+ const [interactions,setInteractions]=useState<FranchiseInteractionState>(()=>createFranchiseInteractions([],1));
  const simulationLock=useRef(false);
 
- useEffect(()=>{const saved=restoreRun();if(saved){setStage(saved.stage);setRoster(saved.roster);setBench(saved.bench);setWeeks(saved.weeks);setInjuries(saved.injuries);setPlayoffs(saved.playoffs);setSettings(saved.settings);setMessage('Restored your last Solo Mode run.')}setDidRestore(true)},[]);
- useEffect(()=>{if(!didRestore)return;if(stage==='finished'||(stage==='draft'&&!roster.length&&!bench.length)){try{localStorage.removeItem(RUN_KEY)}catch(error){console.warn('Unable to clear Solo run',error)}return}try{localStorage.setItem(RUN_KEY,JSON.stringify({independentSourceVersion:1,stage,roster,bench,weeks,injuries,playoffs,settings}))}catch(error){console.warn('Unable to save Solo run',error)}},[didRestore,stage,roster,bench,weeks,injuries,playoffs,settings]);
+ useEffect(()=>{const saved=restoreRun();if(saved){setStage(saved.stage);setRoster(saved.roster);setBench(saved.bench);setWeeks(saved.weeks);setInjuries(saved.injuries);setPlayoffs(saved.playoffs);setSettings(saved.settings);setInteractions(saved.interactions);setMessage('Restored your last Solo Mode run.')}setDidRestore(true)},[]);
+ useEffect(()=>{if(!didRestore)return;if(stage==='finished'||(stage==='draft'&&!roster.length&&!bench.length)){try{localStorage.removeItem(RUN_KEY)}catch(error){console.warn('Unable to clear Solo run',error)}return}try{localStorage.setItem(RUN_KEY,JSON.stringify({independentSourceVersion:1,stage,roster,bench,weeks,injuries,playoffs,settings,interactions}))}catch(error){console.warn('Unable to save Solo run',error)}},[didRestore,stage,roster,bench,weeks,injuries,playoffs,settings,interactions]);
  useEffect(()=>{setVisiblePlayerCount(INITIAL_PLAYER_BATCH)},[query,position]);
 
  const spent=useMemo(()=>[...roster,...bench].reduce((n,p)=>n+p.salary,0),[roster,bench]), remaining=DEFAULT_SALARY_CAP-spent;
  const counts=countRosterGroups(roster), errors=validateRosterShape(roster);
  const valid=roster.length===TOTAL_ROSTER_SIZE&&errors.length===0&&spent<=DEFAULT_SALARY_CAP;
- const ratings=useMemo(()=>calculateTeamRatings(roster),[roster]);
+ const ratings=useMemo(()=>ratingsWithFranchiseMorale(calculateTeamRatings(roster),interactions,roster),[roster,interactions]);
  const grade=useMemo(()=>gradeDraft(roster,DEFAULT_SALARY_CAP),[roster]);
  const wins=weeks.filter(w=>w.won).length, losses=weeks.length-wins;
  const finalPointDifferential=weeks.reduce((total,week)=>total+(week.game.homeMemberId==='solo-user'?week.game.homeScore-week.game.awayScore:week.game.awayScore-week.game.homeScore),0);
@@ -195,22 +213,25 @@ const CapChallenge:React.FC<{onBack:()=>void}>=({onBack})=>{
      setMessage(nextRoster.length===20?'Smart starting roster built. You can still add up to 2 optional bench players if cap allows.':'Auto-Draft could not complete a legal roster. Try again or draft manually.');
    }finally{setIsAutoDrafting(false)}
  };
- const start=()=>{if(!valid)return setMessage(errors[0]||'Finish the roster first.');trackBallKnowerEvent('Solo Season Started',{difficulty:settings.difficulty,injuries:settings.injuries,team_overall:ratings.overall,draft_grade:grade.letter});setWeeks([]);setInjuries([]);setPlayoffs([]);setRunSaved(false);setStage('regular');setMessage('Week 1 is ready. Your road starts now.');};
+ const start=()=>{if(!valid)return setMessage(errors[0]||'Finish the roster first.');trackBallKnowerEvent('Solo Season Started',{difficulty:settings.difficulty,injuries:settings.injuries,team_overall:ratings.overall,draft_grade:grade.letter});setWeeks([]);setInjuries([]);setPlayoffs([]);setInteractions(createFranchiseInteractions(roster,1));setRunSaved(false);setStage('regular');setMessage('Week 1 is ready. Your road starts now.');};
  const unlockSimulation=()=>window.setTimeout(()=>{simulationLock.current=false;setIsSimulating(false)},400);
 
  const playWeek=()=>{
-   const week=weeks.length+1;if(week>17||simulationLock.current)return;
+   const week=weeks.length+1;if(week>17||simulationLock.current||interactions.pendingScenario)return;
    simulationLock.current=true;setIsSimulating(true);
    try{
    const current=activeInjuries;
-   const myRatings=ratingsWithInjuries(roster,current,bench);
+   const myRatings=ratingsWithFranchiseMorale(ratingsWithInjuries(roster,current,bench),interactions,roster);
    const me:LeagueMember={id:'solo-user',userId:'solo-user',userName:'YOU',isCommissioner:true,status:'ready',roster,teamRatings:myRatings};
    const opp=makeSoloOpponent(week,settings.difficulty);
    const userHome=week%2===1;const game=userHome?simulateGame(week,me,opp):simulateGame(week,opp,me);
    const won=game.winnerId==='solo-user';
    const newWins=wins+(won?1:0),newLosses=losses+(won?0:1);const snap=playoffSnapshot(newWins,newLosses,week);
    const newInjuries=simulateInjuries(roster,week,settings.injuries,current);
-   const playerLines=generatePlayerLines(roster,game,userHome,week);
+   const playerLines=applyFranchiseOpportunities(interactions,roster,generatePlayerLines(roster,game,userHome,week),week);
+   const interactionOutcome=resolveFranchiseWeek(interactions,roster,playerLines,week,newInjuries,won);
+   setRoster(interactionOutcome.roster);
+   setInteractions(week<17?ensureFranchiseWeek(interactionOutcome.state,interactionOutcome.roster,week+1):interactionOutcome.state);
    setWeeks(prev=>[...prev,{week,opponent:opp.userName,game,won,playerLines,injuries:newInjuries,playoffSeed:snap.seed,playoffOdds:snap.odds,record:`${newWins}-${newLosses}`}]);
    setInjuries(prev=>[...prev.map(i=>({...i,weeks:Math.max(0,i.weeks-1)})),...newInjuries]);
    setMessage(newInjuries.length?`${newInjuries[0].playerName} suffered a ${newInjuries[0].severity.toLowerCase()} injury (${newInjuries[0].weeks} week${newInjuries[0].weeks===1?'':'s'}).`:'');
@@ -226,9 +247,12 @@ const CapChallenge:React.FC<{onBack:()=>void}>=({onBack})=>{
  const playRound=()=>{
    if(!round||simulationLock.current)return;simulationLock.current=true;setIsSimulating(true);
    try{const idx=playoffs.length;const opp=makeSoloOpponent(25+idx,settings.difficulty);
-   const me:LeagueMember={id:'solo-user',userId:'solo-user',userName:'YOU',isCommissioner:true,status:'ready',roster,teamRatings:ratingsWithInjuries(roster,activeInjuries,bench)};
+   const me:LeagueMember={id:'solo-user',userId:'solo-user',userName:'YOU',isCommissioner:true,status:'ready',roster,teamRatings:ratingsWithFranchiseMorale(ratingsWithInjuries(roster,activeInjuries,bench),interactions,roster)};
    const home=idx%2===0;const g=home?simulateGame(18+idx,me,opp):simulateGame(18+idx,opp,me);
    const you=home?g.homeScore:g.awayScore,them=home?g.awayScore:g.homeScore,won=g.winnerId==='solo-user';
+   const playerLines=applyFranchiseOpportunities(interactions,roster,generatePlayerLines(roster,g,home,18+idx),18+idx);
+   const interactionOutcome=resolveFranchiseWeek(interactions,roster,playerLines,18+idx,[],won);
+   setInteractions(interactionOutcome.state);setRoster(interactionOutcome.roster);
    const next=[...playoffs,{round,opponent:opp.userName,you,them,won}];setPlayoffs(next);
    if(!won)finish(false,next.filter(x=>x.won).length,`${round}: ${you}-${them}. Your run ends here.`);
    else if(round==='LEGACY BOWL')finish(true,4,`WORLD CHAMPION — you won the Legacy Bowl ${you}-${them}.`);
@@ -240,7 +264,10 @@ const CapChallenge:React.FC<{onBack:()=>void}>=({onBack})=>{
    const ach=achievementsForRun(wins,losses,champ,grade.score,roster);
    const next=updateCareer(career,wins,losses,champ,pw,grade.score,ach);setCareer(next);try{localStorage.setItem(CAREER_KEY,JSON.stringify(next));localStorage.removeItem(RUN_KEY)}catch(error){console.warn('Unable to save completed Solo career',error)}void publishCareer(currentUser?.name || 'Ball Knower GM', next).catch(()=>{});setRunSaved(true);setStage('finished');setMessage(msg);
  };
- const reset=()=>{setStage('draft');setRoster([]);setBench([]);setWeeks([]);setInjuries([]);setPlayoffs([]);setMessage('');setRunSaved(false);try{localStorage.removeItem(RUN_KEY)}catch(error){console.warn('Unable to clear Solo run',error)}};
+ const reset=()=>{setStage('draft');setRoster([]);setBench([]);setWeeks([]);setInjuries([]);setPlayoffs([]);setInteractions(createFranchiseInteractions([],1));setMessage('');setRunSaved(false);try{localStorage.removeItem(RUN_KEY)}catch(error){console.warn('Unable to clear Solo run',error)}};
+ const respondToScenario=(choiceId:string)=>setInteractions(current=>respondToFranchiseScenario(current,choiceId,roster));
+ const applyUpgrade=(playerId:string,focus:UpgradeFocus)=>{const outcome=upgradeFranchisePlayer(interactions,roster,playerId,focus);setInteractions(outcome.state);setRoster(outcome.roster)};
+ const readAllNotifications=()=>setInteractions(current=>({...current,notifications:current.notifications.map(notification=>({...notification,read:true}))}));
  const share=async()=>{
    const champ=message.includes('WORLD CHAMPION'),text=`BALL KNOWER ${champ?'LEGACY BOWL CHAMPION':'SOLO RUN'} 🏈\nRecord: ${wins}-${losses}\nTeam OVR: ${ratings.overall}\nDraft Grade: ${grade.letter} (${grade.score}/100)\nCap: $${spent.toFixed(1)}M / $301.2M\n${champ?'🏆 LEGACY BOWL CHAMPION':''}`;
    try{if(navigator.share)await navigator.share({title:'Ball Knower Result',text});else{await navigator.clipboard.writeText(text);setMessage('Result card copied to clipboard.')}}catch{}
@@ -259,13 +286,13 @@ const CapChallenge:React.FC<{onBack:()=>void}>=({onBack})=>{
    <div className="bg-[#111] border border-white/10 p-4 h-fit sticky top-24"><h3 className="text-xl font-black mb-2">YOUR 20</h3><div className="text-xs text-zinc-500 mb-3">QB {counts.QB}/1 • RB {counts.RB}/1 • WR {counts.WR}/2 • TE {counts.TE}/1 • OL {counts.OL}/4 • DL {counts.DL_EDGE}/3 • LB {counts.LB}/2 • CB {counts.CB}/2 • S {counts.S}/2 • K {counts.K}/1 • P {counts.P}/1</div><div className="space-y-1 max-h-[430px] overflow-y-auto">{roster.map(p=><div key={p.id} className="flex justify-between bg-[#181818] px-3 py-2"><span><b>{p.position}</b> {p.name}</span><button aria-label={`Remove ${p.name} from starting roster`} onClick={()=>setRoster(r=>r.filter(x=>x.id!==p.id))}><Trash2 size={15}/></button></div>)}</div>
            <div className="mt-4 pt-3 border-t border-white/10"><div className="text-[10px] text-[var(--bk-team-accent)] font-black tracking-wider mb-2">OPTIONAL FLEX BENCH — {bench.length}/2</div>{bench.length===0?<div className="text-xs text-zinc-600">After your 20 starters are complete, draft up to two backups under the same cap.</div>:bench.map(p=><div key={p.id} className="flex justify-between bg-[#151515] px-3 py-2 mb-1"><span><b>{p.position}</b> {p.name}</span><button aria-label={`Remove ${p.name} from bench`} onClick={()=>setBench(b=>b.filter(x=>x.id!==p.id))}><Trash2 size={15}/></button></div>)}</div><button disabled={!valid} onClick={start} className="mt-4 w-full py-4 bg-[var(--bk-team-accent)] disabled:bg-zinc-800 text-black font-black"><Play className="inline mr-2" size={17}/>START SEASON</button></div></div></>}
 
-  {stage==='regular'&&<div className="grid lg:grid-cols-[1.4fr_.7fr] gap-6"><div><div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5"><Stat label="Week" value={`${weeks.length+1>17?'17':weeks.length+1}/17`}/><Stat label="Record" value={`${wins}-${losses}`}/><Stat label={weeks.length===17?'Playoff Status':'Projected Seed'} value={weeks.length===17?(finalPlayoffOdds===100?'CLINCHED':'OUT'):`#${weeks.at(-1)?.playoffSeed||'—'}`}/><Stat label="Playoff Odds" value={`${finalPlayoffOdds}%`}/><Stat label="Team OVR" value={`${ratings.overall}`}/></div>
-   {weeks.length<17&&<GameDay week={weeks.length+1} opponent={makeSoloOpponent(weeks.length+1,settings.difficulty).userName} ratings={ratings} injuries={activeInjuries} onPlay={playWeek} disabled={isSimulating}/>}
+  {stage==='regular'&&<><FranchiseInteractionCenter state={interactions} roster={roster} onRespond={respondToScenario} onUpgrade={applyUpgrade} onReadAll={readAllNotifications}/><div className="grid lg:grid-cols-[1.4fr_.7fr] gap-6"><div><div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5"><Stat label="Week" value={`${weeks.length+1>17?'17':weeks.length+1}/17`}/><Stat label="Record" value={`${wins}-${losses}`}/><Stat label={weeks.length===17?'Playoff Status':'Projected Seed'} value={weeks.length===17?(finalPlayoffOdds===100?'CLINCHED':'OUT'):`#${weeks.at(-1)?.playoffSeed||'—'}`}/><Stat label="Playoff Odds" value={`${finalPlayoffOdds}%`}/><Stat label="Team OVR" value={`${ratings.overall}`}/></div>
+   {weeks.length<17&&<GameDay week={weeks.length+1} opponent={makeSoloOpponent(weeks.length+1,settings.difficulty).userName} ratings={ratings} injuries={activeInjuries} onPlay={playWeek} disabled={isSimulating||Boolean(interactions.pendingScenario)}/>}
    {weeks.length===17&&<button onClick={enterPlayoffs} className="w-full bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] py-5 font-black text-xl">SELECTION SUNDAY — CHECK PLAYOFF BRACKET <ChevronRight className="inline"/></button>}
    <div className="mt-6"><h3 className="font-black text-xl mb-3">SEASON LOG</h3><WeekList weeks={weeks}/></div></div>
-   <aside className="space-y-5"><Panel title="INJURY REPORT" icon={<ShieldAlert size={18}/>}>{activeInjuries.length?activeInjuries.map(i=><div key={i.playerId} className="border-b border-white/5 py-2"><b>{i.playerName}</b><div className="text-xs text-zinc-500">{i.position} • {i.weeks} week(s) remaining • {i.severity}</div></div>):<p className="text-zinc-500 text-sm">Healthy roster.</p>}</Panel><Panel title="TEAM LEADERS" icon={<BarChart3 size={18}/>}>{leaders.map((l,i)=><div key={l.name} className="flex justify-between py-2 border-b border-white/5"><span>{i+1}. {l.name} <small className="text-zinc-500">{l.pos}</small></span><b>{l.score.toFixed(1)}</b></div>)}</Panel></aside></div>}
+   <aside className="space-y-5"><Panel title="INJURY REPORT" icon={<ShieldAlert size={18}/>}>{activeInjuries.length?activeInjuries.map(i=><div key={i.playerId} className="border-b border-white/5 py-2"><b>{i.playerName}</b><div className="text-xs text-zinc-500">{i.position} • {i.weeks} week(s) remaining • {i.severity}</div></div>):<p className="text-zinc-500 text-sm">Healthy roster.</p>}</Panel><Panel title="TEAM LEADERS" icon={<BarChart3 size={18}/>}>{leaders.map((l,i)=><div key={l.name} className="flex justify-between py-2 border-b border-white/5"><span>{i+1}. {l.name} <small className="text-zinc-500">{l.pos}</small></span><b>{l.score.toFixed(1)}</b></div>)}</Panel></aside></div></>}
 
-  {stage==='playoffs'&&<div className="max-w-4xl mx-auto"><div className="text-center mb-8"><Trophy className="mx-auto text-[var(--bk-team-accent)]" size={60}/><h3 className="text-5xl font-black mt-3">BK LEAGUE PLAYOFFS</h3><p className="text-zinc-400">Wild Card → Divisional → Conference Championship → Legacy Bowl.</p></div><PlayoffBracket results={playoffs} current={round}/>{round&&<button onClick={playRound} disabled={isSimulating} aria-busy={isSimulating} className="mt-6 w-full py-5 bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] font-black text-xl disabled:cursor-wait disabled:opacity-60">{isSimulating?'SIMULATING…':`PLAY ${round}`}</button>}</div>}
+  {stage==='playoffs'&&<div className="max-w-4xl mx-auto"><FranchiseInteractionCenter state={interactions} roster={roster} onRespond={respondToScenario} onUpgrade={applyUpgrade} onReadAll={readAllNotifications}/><div className="text-center mb-8"><Trophy className="mx-auto text-[var(--bk-team-accent)]" size={60}/><h3 className="text-5xl font-black mt-3">BK LEAGUE PLAYOFFS</h3><p className="text-zinc-400">Wild Card → Divisional → Conference Championship → Legacy Bowl.</p></div><PlayoffBracket results={playoffs} current={round}/>{round&&<button onClick={playRound} disabled={isSimulating} aria-busy={isSimulating} className="mt-6 w-full py-5 bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)] font-black text-xl disabled:cursor-wait disabled:opacity-60">{isSimulating?'SIMULATING…':`PLAY ${round}`}</button>}</div>}
 
   {stage==='finished'&&<div className="max-w-5xl mx-auto"><div className="text-center border border-[var(--bk-team-accent)]/40 bg-[#111] p-8"><Crown className="mx-auto text-[var(--bk-team-accent)]" size={70}/><h3 className="text-5xl font-black mt-3">{message.includes('WORLD CHAMPION')?'LEGACY BOWL CHAMPION':'RUN COMPLETE'}</h3><p className="text-xl text-zinc-300 mt-3">{message}</p><div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6"><Stat label="Record" value={`${wins}-${losses}`}/><Stat label="Team OVR" value={`${ratings.overall}`}/><Stat label="Draft Grade" value={grade.letter}/><Stat label="BK Score" value={`${grade.score}`}/></div></div>
    <div className="grid md:grid-cols-2 gap-6 mt-6"><Panel title="SEASON AWARDS" icon={<Award size={18}/>}>{awards.map(a=><div key={a.award} className="py-3 border-b border-white/5"><div className="text-[10px] text-[var(--bk-team-accent)] font-black tracking-wider">{a.award}</div><div className="text-lg font-black">{a.winner}</div></div>)}</Panel><Panel title="ACHIEVEMENTS UNLOCKED" icon={<Trophy size={18}/>}>{achievementsForRun(wins,losses,message.includes('WORLD CHAMPION'),grade.score,roster).map(a=><div key={a} className="py-2 font-black">🏆 {a}</div>)}</Panel></div>
