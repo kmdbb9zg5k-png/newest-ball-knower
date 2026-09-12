@@ -82,7 +82,7 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
   const [selectedGroup, setSelectedGroup] = useState<PositionGroup | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTeam, setSelectedTeam] = useState<string>('ALL');
-  const [sortBy, setSortBy] = useState<'ovr_desc' | 'ovr_asc' | 'name_asc' | 'name_desc' | 'price_desc' | 'price_asc' | 'value_desc'>('ovr_desc');
+  const [sortBy, setSortBy] = useState<'ovr_desc' | 'ovr_asc' | 'name_asc' | 'name_desc' | 'price_desc' | 'price_asc' | 'value_desc'>('price_desc');
   const [maxSalaryFilter, setMaxSalaryFilter] = useState<number>(70);
 
   // Selected player for detail modal
@@ -139,16 +139,17 @@ export const DraftRoom: React.FC<DraftRoomProps> = ({ onBackToLobby, onSubmitSuc
 
       return true;
     }).sort((a, b) => {
-      if (sortBy === 'ovr_desc') return b.ovr - a.ovr;
-      if (sortBy === 'ovr_asc') return a.ovr - b.ovr;
+      const stableOrder = () => a.name.localeCompare(b.name) || String(a.id).localeCompare(String(b.id));
+      if (sortBy === 'ovr_desc') return b.ovr - a.ovr || stableOrder();
+      if (sortBy === 'ovr_asc') return a.ovr - b.ovr || stableOrder();
       if (sortBy === 'name_asc') return a.name.localeCompare(b.name);
       if (sortBy === 'name_desc') return b.name.localeCompare(a.name);
-      if (sortBy === 'price_desc') return b.salary - a.salary;
-      if (sortBy === 'price_asc') return a.salary - b.salary;
+      if (sortBy === 'price_desc') return b.salary - a.salary || stableOrder();
+      if (sortBy === 'price_asc') return a.salary - b.salary || stableOrder();
       if (sortBy === 'value_desc') {
         const valA = a.ovr / Math.max(a.salary, 1);
         const valB = b.ovr / Math.max(b.salary, 1);
-        return valB - valA;
+        return valB - valA || a.salary - b.salary || stableOrder();
       }
       return 0;
     });

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, Shield, CheckCircle2, RotateCcw, Users } from 'lucide-react';
+import { ArrowLeft, Search, Shield, CheckCircle2, RotateCcw, Users } from 'lucide-react';
 import { useBallKnower } from './BallKnowerContext';
 import { useSoundtrack } from './SoundtrackContext';
 import { NFL_TEAMS, PLAYERS_DATABASE } from './players';
@@ -11,6 +11,20 @@ interface MobileDraftRoomProps {
 }
 
 const BATCH_SIZE = 36;
+
+export type MobileDraftSort = 'salary_desc' | 'salary_asc' | 'value_desc';
+
+const stablePlayerOrder = (a: Player, b: Player) =>
+  a.name.localeCompare(b.name) || String(a.id).localeCompare(String(b.id));
+
+export const compareMobileDraftPlayers = (sortBy: MobileDraftSort) => (a: Player, b: Player) => {
+  if (sortBy === 'salary_asc') return a.salary - b.salary || stablePlayerOrder(a, b);
+  if (sortBy === 'value_desc') {
+    const valueDifference = (b.ovr / Math.max(b.salary, 1)) - (a.ovr / Math.max(a.salary, 1));
+    return valueDifference || a.salary - b.salary || stablePlayerOrder(a, b);
+  }
+  return b.salary - a.salary || stablePlayerOrder(a, b);
+};
 
 export const MobileDraftRoom: React.FC<MobileDraftRoomProps> = ({ onBackToLobby, onSubmitSuccess }) => {
   const {
@@ -33,7 +47,7 @@ export const MobileDraftRoom: React.FC<MobileDraftRoomProps> = ({ onBackToLobby,
   const [selectedGroup, setSelectedGroup] = useState<PositionGroup | 'ALL'>('ALL');
   const [selectedTeam, setSelectedTeam] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'ovr_desc' | 'price_asc' | 'value_desc'>('ovr_desc');
+  const [sortBy, setSortBy] = useState<MobileDraftSort>('salary_desc');
   const [visibleCount, setVisibleCount] = useState(BATCH_SIZE);
   const salaryCap = activeLeague?.salaryCap || 200;
 
@@ -53,11 +67,7 @@ export const MobileDraftRoom: React.FC<MobileDraftRoomProps> = ({ onBackToLobby,
         if (!haystack.includes(q)) return false;
       }
       return true;
-    }).sort((a, b) => {
-      if (sortBy === 'price_asc') return a.salary - b.salary;
-      if (sortBy === 'value_desc') return (b.ovr / Math.max(b.salary, 1)) - (a.ovr / Math.max(a.salary, 1));
-      return b.ovr - a.ovr;
-    });
+    }).sort(compareMobileDraftPlayers(sortBy));
   }, [selectedGroup, selectedTeam, searchQuery, sortBy]);
 
   useEffect(() => {
@@ -107,8 +117,19 @@ export const MobileDraftRoom: React.FC<MobileDraftRoomProps> = ({ onBackToLobby,
   ];
 
   return (
-    <div className="min-h-[100dvh] bg-[#0A0A0A] px-3 pb-28 pt-3 text-white">
-      <div className="sticky top-16 z-30 mb-3 rounded-xl border border-white/10 bg-[#111]/95 p-3 shadow-2xl backdrop-blur-md">
+    <div className="bk-draft-order-game-shell min-h-full bg-[#0A0A0A] px-3 pb-6 pt-3 text-white">
+      <div className="bk-draft-order-game-header sticky top-0 z-30 mb-3 rounded-xl border border-white/10 bg-[#111]/95 p-3 shadow-2xl backdrop-blur-md">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <button onClick={onBackToLobby} aria-label="Back to league lobby" className="flex min-h-11 items-center gap-1.5 rounded-xl border border-white/10 bg-[#151515] px-3 text-xs font-black uppercase tracking-wider">
+            <ArrowLeft className="h-4 w-4" /> Back
+          </button>
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+            {!isRosterLocked && currentRoster.length > 0 && <button onClick={clearRoster} className="min-h-11 rounded-xl border border-red-500/25 bg-red-500/10 px-3 text-xs font-black uppercase text-red-300"><RotateCcw className="mr-1 inline h-3.5 w-3.5"/>Reset</button>}
+            <button onClick={handleSubmit} disabled={!isRosterValid || isRosterLocked} className={`min-h-11 min-w-0 flex-1 rounded-xl px-3 text-xs font-black uppercase tracking-wider sm:max-w-52 ${isRosterValid && !isRosterLocked ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)]' : 'bg-zinc-800 text-zinc-500'}`}>
+              {isRosterLocked ? 'Locked' : isRosterValid ? 'Submit Roster' : 'Build Roster'}
+            </button>
+          </div>
+        </div>
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-[9px] font-black uppercase tracking-[.2em] text-zinc-500">Draft Board</div>
@@ -128,14 +149,6 @@ export const MobileDraftRoom: React.FC<MobileDraftRoomProps> = ({ onBackToLobby,
         )}
       </div>
 
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <button onClick={onBackToLobby} className="min-h-11 rounded-xl border border-white/10 bg-[#151515] px-3 text-xs font-black uppercase tracking-wider">← Lobby</button>
-        {!isRosterLocked && currentRoster.length > 0 && <button onClick={clearRoster} className="min-h-11 rounded-xl border border-red-500/25 bg-red-500/10 px-3 text-xs font-black uppercase text-red-300"><RotateCcw className="mr-1 inline h-3.5 w-3.5"/>Reset</button>}
-        <button onClick={handleSubmit} disabled={!isRosterValid || isRosterLocked} className={`min-h-11 flex-1 rounded-xl px-3 text-xs font-black uppercase tracking-wider ${isRosterValid && !isRosterLocked ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)]' : 'bg-zinc-800 text-zinc-500'}`}>
-          {isRosterLocked ? 'Locked' : isRosterValid ? 'Submit Roster' : 'Build Roster'}
-        </button>
-      </div>
-
       <div className="mb-3 space-y-2">
         <div className="relative">
           <Search className="absolute left-3 top-3.5 h-4 w-4 text-zinc-500" />
@@ -149,9 +162,9 @@ export const MobileDraftRoom: React.FC<MobileDraftRoomProps> = ({ onBackToLobby,
             <option value="ALL">All 32 Teams</option>
             {NFL_TEAMS.map(team => <option key={team.code} value={team.code}>{team.code} · {team.name}</option>)}
           </select>
-          <select value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)} className="min-h-11 rounded-xl border border-white/10 bg-[#121212] px-2 text-xs font-bold text-white">
-            <option value="ovr_desc">OVR High-Low</option>
-            <option value="price_asc">Salary Low-High</option>
+          <select aria-label="Sort players" value={sortBy} onChange={e => setSortBy(e.target.value as MobileDraftSort)} className="min-h-11 rounded-xl border border-white/10 bg-[#121212] px-2 text-xs font-bold text-white">
+            <option value="salary_desc">Salary High-Low</option>
+            <option value="salary_asc">Salary Low-High</option>
             <option value="value_desc">Best Value</option>
           </select>
         </div>

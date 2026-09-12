@@ -227,6 +227,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     transform: none !important;
     -webkit-transform: none !important;
     contain: none;
+    z-index: 100 !important;
+    overscroll-behavior: none;
+    touch-action: pan-x;
   }
   body > .bk-broadcast-nav[data-keyboard-open="true"] {
     visibility: hidden;
@@ -248,6 +251,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     padding-bottom: 1rem;
   }
   .bk-live-draft-viewport .bk-fantasy-sticky-nav {
+    position: sticky;
+    top: 0;
+    z-index: 35;
+  }
+  .bk-live-draft-viewport .bk-draft-order-game-header {
     position: sticky;
     top: 0;
     z-index: 35;
