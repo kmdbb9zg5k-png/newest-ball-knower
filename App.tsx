@@ -55,6 +55,7 @@ function BallKnowerApp(){
   const [fantasyView,setFantasyView]=useState<'leagues'|'cheatsheet'>('leagues');
   const [soloExperience,setSoloExperience]=useState<SoloExperience>('hub');
   const [isAuthOpen,setIsAuthOpen]=useState(false);
+  const [isLaunchAuth,setIsLaunchAuth]=useState(false);
   const [isCreateLeagueOpen,setIsCreateLeagueOpen]=useState(false);
   const [isJoinLeagueOpen,setIsJoinLeagueOpen]=useState(false);
   const [isDatabaseModalOpen,setIsDatabaseModalOpen]=useState(false);
@@ -62,6 +63,7 @@ function BallKnowerApp(){
   const [viewedLockerMember,setViewedLockerMember]=useState<LeagueMember|null>(null);
   const [lockerReturnTab,setLockerReturnTab]=useState<AppTab>('home');
   const [isIntroOpen,setIsIntroOpen]=useState(introEligible);
+  const shouldLaunchAuthAfterIntroRef=useRef(introEligible());
   const [isMobileDraftViewport,setIsMobileDraftViewport]=useState(detectMobileDraftViewport);
   const [favoriteTheme,setFavoriteTheme]=useState<TeamTheme>(()=>getSavedTeamTheme());
   const [showFavoriteTeam,setShowFavoriteTeam]=useState(()=>{try{const params=new URLSearchParams(window.location.search);return params.get('teamsetup')==='1'||!localStorage.getItem('ball-knower-team-setup-v2')}catch{return false}});
@@ -75,7 +77,15 @@ function BallKnowerApp(){
   useEffect(()=>{trackBallKnowerEvent('Mode Opened',{mode:currentTab,active_league:Boolean(activeLeague)})},[currentTab]);
 
   const openIntro=()=>{setIntroActive(true);setIsIntroOpen(true)};
-  const closeIntro=useCallback(()=>{try{localStorage.setItem(INTRO_COMPLETED_KEY,'1')}catch{}setIsIntroOpen(false);if(!showFavoriteTeam)setIntroActiveRef.current(false)},[showFavoriteTeam]);
+  const closeIntro=useCallback(()=>{
+    try{localStorage.setItem(INTRO_COMPLETED_KEY,'1')}catch{}
+    setIsIntroOpen(false);
+    const shouldOfferSignIn=shouldLaunchAuthAfterIntroRef.current&&currentUser?.isAnonymous!==false;
+    shouldLaunchAuthAfterIntroRef.current=false;
+    if(shouldOfferSignIn){setIsLaunchAuth(true);setIsAuthOpen(true);return}
+    if(!showFavoriteTeam)setIntroActiveRef.current(false);
+  },[currentUser?.isAnonymous,showFavoriteTeam]);
+  const closeAuth=useCallback(()=>{setIsAuthOpen(false);setIsLaunchAuth(false);if(!showFavoriteTeam)setIntroActiveRef.current(false)},[showFavoriteTeam]);
   const finishFavoriteTeamSetup=(team:TeamTheme)=>{trackBallKnowerEvent('Favorite Team Selected',{team:team.abbr});setFavoriteTheme(team);applyTeamCssVariables(team);setShowFavoriteTeam(false);setIntroActive(false)};
   const handleSelectLeague=(league:League,tab:'lobby'|'draft'|'simulation')=>{setActiveLeagueId(league.id);goToTab(tab)};
   const handleLeagueCreated=(league:League)=>{setActiveLeagueId(league.id);goToTab('lobby')};
@@ -85,7 +95,7 @@ function BallKnowerApp(){
   const openCommunityLocker=useCallback((person:CommunityPerson)=>openMemberLocker({id:`community-${person.userId}`,userId:person.userId,userName:person.displayName,isCommissioner:false,status:'ready'}),[openMemberLocker]);
   const closeMemberLocker=useCallback(()=>{setViewedLockerMember(null);setCurrentTab(lockerReturnTab)},[lockerReturnTab]);
   const openCheatSheet=useCallback(()=>{setFantasyView('cheatsheet');goToTab('fantasy')},[goToTab]);
-  const showProductChrome=!isIntroOpen&&!showFavoriteTeam;
+  const showProductChrome=!isIntroOpen&&!showFavoriteTeam&&!isLaunchAuth;
 
   return <div data-tab={currentTab} className="bk-app-shell relative min-h-[100dvh] overflow-x-clip text-white font-sans antialiased selection:bg-[var(--bk-team-accent)]/30 selection:text-[var(--bk-team-accent)]">
     <div className="bk-cinematic-image" aria-hidden="true"/>
@@ -114,8 +124,8 @@ function BallKnowerApp(){
     {showProductChrome&&currentTab!=='draft'&&<LaunchFooter onOpen={setLaunchPanel} onOpenPartners={()=>setCurrentTab('partners')}/>}
 
     <CinematicIntro isOpen={isIntroOpen} onClose={closeIntro}/>
-    {showFavoriteTeam&&!isIntroOpen&&<FavoriteTeamExperience onDone={finishFavoriteTeamSetup}/>}
-    {isAuthOpen&&<Suspense fallback={null}><AuthModal isOpen onClose={()=>setIsAuthOpen(false)} onOpenLegal={panel=>{setIsAuthOpen(false);setLaunchPanel(panel)}}/></Suspense>}
+    {showFavoriteTeam&&!isIntroOpen&&!isLaunchAuth&&<FavoriteTeamExperience onDone={finishFavoriteTeamSetup}/>}
+    {isAuthOpen&&<Suspense fallback={null}><AuthModal isOpen presentation={isLaunchAuth?'launch':'modal'} onClose={closeAuth} onOpenLegal={panel=>{closeAuth();setLaunchPanel(panel)}}/></Suspense>}
     <CreateLeagueModal isOpen={isCreateLeagueOpen} onClose={()=>setIsCreateLeagueOpen(false)} onLeagueCreated={handleLeagueCreated}/>
     <JoinLeagueModal isOpen={isJoinLeagueOpen} onClose={()=>setIsJoinLeagueOpen(false)} onLeagueJoined={handleLeagueJoined}/>
     {isDatabaseModalOpen&&<Suspense fallback={null}>{isMobileDraftViewport?<MobileRosterBrowser isOpen={isDatabaseModalOpen} onClose={()=>setIsDatabaseModalOpen(false)}/>:<DatabaseVerificationModal isOpen={isDatabaseModalOpen} onClose={()=>setIsDatabaseModalOpen(false)}/>}</Suspense>}
