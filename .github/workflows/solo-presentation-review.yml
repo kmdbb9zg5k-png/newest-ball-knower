@@ -4,7 +4,7 @@ on:
     branches: [solo-player-universe-reference-fidelity]
   pull_request:
     branches: [main]
-    paths: ['solo/**', '*Franchise*.tsx', 'SoloMode.tsx', 'MyPlayerStory.tsx', 'PlayerAgentMode.tsx', 'OwnerBusinessMode.tsx', '.github/workflows/solo-presentation-review.yml']
+    paths: ['solo/**', '*Franchise*.tsx', 'SoloMode.tsx', 'MyPlayerStory.tsx', 'PlayerAgentMode.tsx', 'OwnerBusinessMode.tsx', 'scripts/*solo*', '.github/workflows/solo-presentation-review.yml']
 permissions:
   contents: read
 concurrency:
@@ -14,31 +14,59 @@ jobs:
   review:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          ref: ${{ github.head_ref || github.ref_name }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: npm ci --no-audit --no-fund
+      - name: Apply reviewed Solo presentation integration
+        if: github.event_name == 'push'
+        run: node scripts/apply-solo-integration.mjs
+      - name: Verify source artwork
+        run: |
+          python -m pip install Pillow --quiet
+          python scripts/verify-solo-art.py
       - name: Type check
         run: npm run lint
       - name: Production build
         run: npm run build
-      - name: Solo functional tests
+      - name: Focused regression tests
         run: |
-          if test -f scripts/solo-appearance-check.ts; then node --import tsx scripts/solo-appearance-check.ts; fi
+          node --import tsx scripts/solo-appearance-check.ts
+          npm run check:solo-fictional
+          npm run check:solo-fantasy
+          npm run check:franchise-interactions
           npm run check:root-bundle
-      - name: Package reproducible source for review
-        if: github.event_name == 'push'
+      - name: Browser setup
+        run: npx playwright install --with-deps chromium
+      - name: Actual Solo screen verification
+        run: node scripts/solo-ui-browser.mjs
+      - name: Commit verified integration to the dedicated branch only
+        if: github.event_name == 'push' && github.ref_name == 'solo-player-universe-reference-fidelity'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git add SoloMode.tsx SoloFranchiseHub.tsx FranchiseInteractionCenter.tsx FranchiseSeason.tsx RealTeamFranchise.tsx FantasyFranchise.tsx PlayerAgentMode.tsx OwnerBusinessMode.tsx solo/SoloPresentation.tsx solo/characterRenderer.ts public/solo-characters/v1 docs/qa/solo-integration.json
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Integrate verified Solo player presentation into existing careers'
+            AUTH="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+            git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $AUTH" push origin HEAD:solo-player-universe-reference-fidelity
+          fi
+      - name: Package review evidence
+        if: always() && github.event_name == 'push'
         run: |
           mkdir -p /tmp/bk-solo-review
-          git archive HEAD -o /tmp/bk-solo-review/source.tar
-          tar -czf /tmp/bk-solo-review/dependencies.tar.gz node_modules
+          tar --exclude=node_modules --exclude=.git --exclude=dist --exclude=artifacts -czf /tmp/bk-solo-review/source.tar.gz .
+          cp -r artifacts/solo-ui /tmp/bk-solo-review/screenshots 2>/dev/null || true
       - uses: actions/upload-artifact@v4
-        if: github.event_name == 'push'
+        if: always() && github.event_name == 'push'
         with:
-          name: solo-review-workspace
+          name: solo-integrated-review
           path: /tmp/bk-solo-review
           retention-days: 1
