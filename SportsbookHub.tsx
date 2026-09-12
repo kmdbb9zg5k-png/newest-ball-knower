@@ -22,8 +22,6 @@ const mergeVerifiedPicks=(local:Pick[],verified:VerifiedPredictionPick[]):Pick[]
   const historicalLocal=local.filter(pick=>Boolean(pick.result)&&!verifiedGames.has(pick.gameId));
   return [...verified.map(pick=>normalizeSavedPick(pick)).filter((pick):pick is Pick=>Boolean(pick)),...historicalLocal];
 };
-const logoAbbr=(abbr?:string)=>({JAX:'jax',WAS:'wsh'}[String(abbr||'').toUpperCase()]||String(abbr||'').toLowerCase());
-const logoUrl=(abbr?:string)=>abbr?`https://a.espncdn.com/i/teamlogos/nfl/500/${logoAbbr(abbr)}.png`:'';
 const displayAbbr=(abbr?:string,name?:string)=>abbr||String(name||'').split(/\s+/).map(part=>part[0]).join('').slice(0,3).toUpperCase();
 const gameDay=(game:Game)=>game.scheduleDate||game.date?.slice(0,10)||'TBD';
 const dayHeading=(day:string)=>day==='TBD'?'DATE TBD':new Date(`${day}T12:00:00Z`).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric',year:'numeric',timeZone:'UTC'}).toUpperCase();
@@ -204,8 +202,8 @@ export const SportsbookHub:React.FC=()=>{
         const pickDisabled=locked||pendingTime||Boolean(busyGame)||loading;
         return <article key={game.id} className="bk-picks-game" data-game-id={game.id}>
           <div className="bk-picks-teams">
-            <div className="bk-picks-team"><img src={logoUrl(game.awayAbbr)} alt="" onError={event=>{event.currentTarget.style.visibility='hidden'}}/><span>{game.away}</span></div>
-            <div className="bk-picks-team"><img src={logoUrl(game.homeAbbr)} alt="" onError={event=>{event.currentTarget.style.visibility='hidden'}}/><span>{game.home}</span></div>
+            <div className="bk-picks-team"><span>{game.away}</span></div>
+            <div className="bk-picks-team"><span>{game.home}</span></div>
           </div>
           <div className="bk-picks-time"><strong>{kickoff.time}</strong><span>{phase==='final'&&Number.isFinite(game.awayScore)&&Number.isFinite(game.homeScore)?`${game.awayScore}-${game.homeScore}`:kickoff.meta}</span></div>
           <div className="bk-picks-team-buttons">
