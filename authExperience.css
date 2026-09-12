@@ -253,6 +253,20 @@
   box-shadow: 0 -18px 60px rgba(80,31,127,.38);
   opacity: .72;
 }
+.bk-auth-arena-art { display: none; }
+.bk-auth-stage--launch .bk-auth-arena-art {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.bk-auth-stage--launch .bk-auth-sky::after { display: none; }
+.bk-auth-floor-lines { stroke-width: 1; opacity: .62; }
+.bk-auth-arena-rings { stroke: #d3aa4d; stroke-width: .85; opacity: .3; }
+.bk-auth-horizon-beam { fill: none; stroke: #f2d57e; stroke-width: 1.2; opacity: .56; }
 .bk-auth-stage--launch .bk-auth-console {
   width: min(100%, 27rem);
   min-height: 100dvh;
@@ -262,6 +276,18 @@
   position: relative;
   z-index: 1;
 }
+.bk-auth-stage--launch .bk-auth-brand::before,
+.bk-auth-stage--launch .bk-auth-brand::after {
+  content: '';
+  position: absolute;
+  top: 3.45rem;
+  width: 4.5rem;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(228,193,95,.7));
+  box-shadow: 0 0 8px rgba(228,193,95,.28);
+}
+.bk-auth-stage--launch .bk-auth-brand::before { left: .5rem; }
+.bk-auth-stage--launch .bk-auth-brand::after { right: .5rem; transform: scaleX(-1); }
 .bk-auth-stage--launch .bk-auth-crest {
   width: 7rem;
   height: 7.35rem;
@@ -298,8 +324,45 @@
   border-width: 1px;
   box-shadow: 0 0 0 2px #77797a, 0 0 0 4px #111217, inset 0 0 0 1px #fff, inset 0 -8px 16px rgba(0,0,0,.18), 0 10px 19px rgba(0,0,0,.5);
 }
+.bk-auth-stage--launch .bk-auth-provider::before,
+.bk-auth-stage--launch .bk-auth-email::before,
+.bk-auth-stage--launch .bk-auth-guest-button::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  z-index: 0;
+  border: 1px solid rgba(255,255,255,.58);
+  clip-path: inherit;
+  pointer-events: none;
+}
+.bk-auth-stage--launch .bk-auth-provider::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: .55;
+  background:
+    linear-gradient(115deg, transparent 0 17%, rgba(255,255,255,.54) 18%, transparent 20% 79%, rgba(32,35,37,.18) 80%, transparent 82%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.2) 0 1px, rgba(54,54,54,.05) 1px 3px);
+  pointer-events: none;
+}
+.bk-auth-stage--launch .bk-auth-provider > *,
+.bk-auth-stage--launch .bk-auth-email > *,
+.bk-auth-stage--launch .bk-auth-guest-button > * { position: relative; z-index: 1; }
 .bk-auth-stage--launch .bk-auth-provider-mark,
 .bk-auth-stage--launch .bk-auth-provider-mark svg { width: 2.15rem; height: 2.15rem; }
+.bk-auth-stage--launch .bk-auth-provider-mark--google::before {
+  content: '';
+  position: absolute;
+  right: 1.35rem;
+  width: 4.4rem;
+  height: 1.7rem;
+  opacity: .5;
+  background: repeating-linear-gradient(175deg, transparent 0 4px, rgba(93,181,255,.5) 5px, transparent 6px 9px);
+  filter: blur(.3px);
+  mask-image: linear-gradient(90deg, transparent, #000 58%, #000);
+  pointer-events: none;
+}
 .bk-auth-stage--launch .bk-auth-provider-copy strong {
   font-size: clamp(1.65rem, 7.4vw, 2rem);
   letter-spacing: .01em;
@@ -313,13 +376,48 @@
   font-size: clamp(1.25rem, 5.3vw, 1.55rem);
   box-shadow: 0 0 0 2px #72541d, 0 0 0 4px #17100a, inset 0 0 0 1px #fff3bb, inset 0 -7px 15px rgba(77,42,2,.24), 0 10px 20px rgba(0,0,0,.48);
 }
+.bk-auth-stage--launch .bk-auth-email::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: .32;
+  background:
+    linear-gradient(45deg, transparent 46%, rgba(73,43,5,.32) 48% 52%, transparent 54%) 0 0/18px 18px,
+    linear-gradient(-45deg, transparent 46%, rgba(255,241,185,.42) 48% 52%, transparent 54%) 0 0/18px 18px;
+  pointer-events: none;
+}
 .bk-auth-stage--launch .bk-auth-guest-card {
+  position: relative;
+  overflow: hidden;
   margin-top: .2rem;
   padding: 1rem 1.05rem;
   border-width: 1.5px;
   border-radius: .7rem;
   box-shadow: 0 0 0 2px rgba(17,75,93,.52), 0 0 19px rgba(69,230,255,.35), inset 0 0 25px rgba(31,172,203,.08);
 }
+.bk-auth-stage--launch .bk-auth-guest-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: .38;
+  background:
+    linear-gradient(135deg, rgba(65,239,255,.28), transparent 17%) top left/5rem 5rem no-repeat,
+    linear-gradient(315deg, rgba(151,81,230,.28), transparent 18%) bottom right/7rem 7rem no-repeat,
+    repeating-linear-gradient(90deg, transparent 0 38px, rgba(81,224,250,.08) 39px 40px);
+  pointer-events: none;
+}
+.bk-auth-stage--launch .bk-auth-guest-card::after {
+  content: '';
+  position: absolute;
+  top: .85rem;
+  right: 1rem;
+  width: 2.5rem;
+  height: .28rem;
+  border-block: 1px solid rgba(88,231,255,.5);
+  opacity: .75;
+}
+.bk-auth-stage--launch .bk-auth-guest-card > * { position: relative; z-index: 1; }
 .bk-auth-stage--launch .bk-auth-guest-title { font-size: .95rem; }
 .bk-auth-stage--launch .bk-auth-guest-card p {
   margin-top: .55rem;
@@ -330,6 +428,14 @@
   min-height: 3.45rem;
   margin-top: .2rem;
   font-size: 1.25rem;
+}
+.bk-auth-stage--launch .bk-auth-guest-button::after {
+  content: '';
+  position: absolute;
+  inset-inline: 9%;
+  bottom: 4px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(229,190,92,.58), transparent);
 }
 .bk-auth-stage--launch .bk-auth-legal {
   position: relative;
