@@ -1,23 +1,19 @@
-"""Validate uploaded prototype artwork against the original approved-input checksums."""
-import base64, hashlib, json
+"""Verify prototype image integrity; a known one-byte upload error is repaired only against its exact checksum."""
+import hashlib, json
 from pathlib import Path
 from PIL import Image
 root=Path('public/solo-characters/v1')
 manifest=json.loads((root/'manifest.json').read_text())
-# Repair the known transcription typo in the prior uncommitted upload, never substitute a different image.
 p=root/'faces.webp'
-s=base64.b64encode(p.read_bytes()).decode()
-s=s.replace('OBhwUe/FwcYLei8O','OBhwUe/FwYGLei8O')
-p.write_bytes(base64.b64decode(s))
-errors=[]
+data=bytearray(p.read_bytes())
+if hashlib.sha256(data).hexdigest()=='fb8969d12a86d752782cac202acb5530fac2330cf97253d00dff098ca1957383':
+    assert data[1759]==193
+    data[1759]=129
+    assert hashlib.sha256(data).hexdigest()==manifest['files']['faces.webp']['sha256']
+    p.write_bytes(data)
 for name,item in manifest['files'].items():
     data=(root/name).read_bytes()
     actual=hashlib.sha256(data).hexdigest()
-    print(name, len(data), actual, flush=True)
-    if len(data)!=item['bytes'] or actual!=item['sha256']:
-        errors.append(name+' checksum mismatch')
-    try:
-        image=Image.open(root/name);image.load();print('decoded',image.size,flush=True)
-    except Exception as error:
-        errors.append(name+' decode failed: '+str(error))
-if errors: raise SystemExit('; '.join(errors))
+    assert len(data)==item['bytes'] and actual==item['sha256'], name+' checksum mismatch'
+    image=Image.open(root/name);image.load()
+    print(name, len(data), actual, image.size, flush=True)

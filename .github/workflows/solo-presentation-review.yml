@@ -27,7 +27,9 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Apply reviewed Solo presentation integration
         if: github.event_name == 'push'
-        run: node scripts/apply-solo-integration.mjs
+        run: |
+          node scripts/apply-solo-integration.mjs
+          node scripts/finalize-solo-integration.mjs
       - name: Verify source artwork
         run: |
           python -m pip install Pillow --quiet
@@ -52,7 +54,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          git add SoloMode.tsx SoloFranchiseHub.tsx FranchiseInteractionCenter.tsx FranchiseSeason.tsx RealTeamFranchise.tsx FantasyFranchise.tsx PlayerAgentMode.tsx OwnerBusinessMode.tsx solo/SoloPresentation.tsx solo/characterRenderer.ts public/solo-characters/v1 docs/qa/solo-integration.json
+          git add main.tsx SoloMode.tsx SoloFranchiseHub.tsx FranchiseInteractionCenter.tsx FranchiseSeason.tsx RealTeamFranchise.tsx FantasyFranchise.tsx PlayerAgentMode.tsx OwnerBusinessMode.tsx solo/SoloPresentation.tsx solo/characterRenderer.ts public/solo-characters/v1 docs/qa/solo-integration.json
           if ! git diff --cached --quiet; then
             git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Integrate verified Solo player presentation into existing careers'
             AUTH="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
