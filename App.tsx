@@ -7,9 +7,10 @@ import {CreateLeagueModal} from './CreateLeagueModal';
 import {JoinLeagueModal} from './JoinLeagueModal';
 import {CinematicIntro} from './CinematicIntro';
 import {FavoriteTeamExperience} from './FavoriteTeamExperience';
+import {FAVORITE_NFL_TEAM_BRANDING_ENABLED} from './releaseFeatures';
 import {AppErrorBoundary} from './AppErrorBoundary';
 import {League,LeagueMember} from './types';
-import {TeamTheme,applyTeamCssVariables,getSavedTeamTheme,teamLogoUrl} from './teamTheme';
+import {BALL_KNOWER_THEME,TeamTheme,applyTeamCssVariables,getSavedTeamTheme,teamLogoUrl} from './teamTheme';
 import {CheckCircle2} from 'lucide-react';
 import {trackBallKnowerEvent} from './analytics';
 import {CloudSyncProvider} from './CloudSyncProvider';
@@ -65,12 +66,12 @@ function BallKnowerApp(){
   const [isIntroOpen,setIsIntroOpen]=useState(introEligible);
   const shouldLaunchAuthAfterIntroRef=useRef(introEligible());
   const [isMobileDraftViewport,setIsMobileDraftViewport]=useState(detectMobileDraftViewport);
-  const [favoriteTheme,setFavoriteTheme]=useState<TeamTheme>(()=>getSavedTeamTheme());
-  const [showFavoriteTeam,setShowFavoriteTeam]=useState(()=>{try{const params=new URLSearchParams(window.location.search);return params.get('teamsetup')==='1'||!localStorage.getItem('ball-knower-team-setup-v2')}catch{return false}});
+  const [favoriteTheme,setFavoriteTheme]=useState<TeamTheme>(()=>FAVORITE_NFL_TEAM_BRANDING_ENABLED?getSavedTeamTheme():BALL_KNOWER_THEME);
+  const [showFavoriteTeam,setShowFavoriteTeam]=useState(()=>{if(!FAVORITE_NFL_TEAM_BRANDING_ENABLED)return false;try{const params=new URLSearchParams(window.location.search);return params.get('teamsetup')==='1'||!localStorage.getItem('ball-knower-team-setup-v2')}catch{return false}});
   const isDraftOrderGame=Boolean(activeLeague&&activeLeague.settings?.draftOrderMethod==='game'&&!activeLeague.seasonResult?.draftOrder?.length&&!activeLeague.liveDraft);
 
   useEffect(()=>{setIntroActiveRef.current=setIntroActive},[setIntroActive]);
-  useEffect(()=>{setIntroActiveRef.current(isIntroOpen||showFavoriteTeam);try{const savedTheme=getSavedTeamTheme();setFavoriteTheme(savedTheme);applyTeamCssVariables(savedTheme);const params=new URLSearchParams(window.location.search);const joinCode=params.get('join');if(joinCode)joinLeague(joinCode).then(res=>{if(res.success&&res.league)setCurrentTab('lobby')})}catch(e){console.error(e)}},[]);
+  useEffect(()=>{setIntroActiveRef.current(isIntroOpen||showFavoriteTeam);try{const savedTheme=FAVORITE_NFL_TEAM_BRANDING_ENABLED?getSavedTeamTheme():BALL_KNOWER_THEME;setFavoriteTheme(savedTheme);applyTeamCssVariables(savedTheme);const params=new URLSearchParams(window.location.search);const joinCode=params.get('join');if(joinCode)joinLeague(joinCode).then(res=>{if(res.success&&res.league)setCurrentTab('lobby')})}catch(e){console.error(e)}},[]);
   useEffect(()=>{let media:MediaQueryList|null=null;try{media=window.matchMedia('(max-width: 767px)');const sync=()=>setIsMobileDraftViewport(media?.matches??false);sync();media.addEventListener?.('change',sync);return()=>media?.removeEventListener?.('change',sync)}catch{return undefined}},[]);
   useEffect(()=>{try{const previous=window.history.scrollRestoration;window.history.scrollRestoration='manual';return()=>{window.history.scrollRestoration=previous}}catch{return undefined}},[]);
   useEffect(()=>{if(['lobby','draft','simulation'].includes(currentTab))return;const resetHomeScroll=()=>window.scrollTo({top:0,left:0,behavior:'auto'});resetHomeScroll();const frame=window.requestAnimationFrame(resetHomeScroll);const timer=window.setTimeout(resetHomeScroll,200);return()=>{window.cancelAnimationFrame(frame);window.clearTimeout(timer)}},[currentTab]);
@@ -99,7 +100,7 @@ function BallKnowerApp(){
 
   return <div data-tab={currentTab} className="bk-app-shell relative min-h-[100dvh] overflow-x-clip text-white font-sans antialiased selection:bg-[var(--bk-team-accent)]/30 selection:text-[var(--bk-team-accent)]">
     <div className="bk-cinematic-image" aria-hidden="true"/>
-    <div className="bk-team-watermark fixed inset-0 z-[2] pointer-events-none overflow-hidden" aria-hidden="true"><div className="absolute -right-[22vw] top-[15vh] h-[72vw] w-[72vw] max-h-[900px] max-w-[900px] opacity-[.035] sm:opacity-[.045]" style={{filter:`drop-shadow(0 0 70px ${favoriteTheme.secondary}55)`}}><img src={teamLogoUrl(favoriteTheme.abbr)} alt="" className="h-full w-full object-contain"/></div><div className="absolute inset-y-0 right-0 w-[46vw] opacity-25" style={{background:`radial-gradient(circle at 100% 38%,${favoriteTheme.primary}55,transparent 64%)`}}/><div className="absolute inset-x-0 top-0 h-px" style={{background:`linear-gradient(90deg,transparent,${favoriteTheme.secondary}88,transparent)`}}/></div>
+    <div className="bk-team-watermark fixed inset-0 z-[2] pointer-events-none overflow-hidden" aria-hidden="true">{FAVORITE_NFL_TEAM_BRANDING_ENABLED&&<div className="absolute -right-[22vw] top-[15vh] h-[72vw] w-[72vw] max-h-[900px] max-w-[900px] opacity-[.035] sm:opacity-[.045]" style={{filter:`drop-shadow(0 0 70px ${favoriteTheme.secondary}55)`}}><img src={teamLogoUrl(favoriteTheme.abbr)} alt="" className="h-full w-full object-contain"/></div>}<div className="absolute inset-y-0 right-0 w-[46vw] opacity-25" style={{background:`radial-gradient(circle at 100% 38%,${favoriteTheme.primary}55,transparent 64%)`}}/><div className="absolute inset-x-0 top-0 h-px" style={{background:`linear-gradient(90deg,transparent,${favoriteTheme.secondary}88,transparent)`}}/></div>
 
     {showProductChrome&&<Navbar newsEnabled={wantsNewsStrip(currentTab,fantasyView)} currentTab={currentTab} setCurrentTab={navigateToTab} onOpenAuth={()=>setIsAuthOpen(true)} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onOpenIntro={openIntro} onOpenDatabaseModal={()=>setIsDatabaseModalOpen(true)}/>}
     {showProductChrome&&<main className={`relative z-[3] w-full pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-[env(safe-area-inset-bottom)] ${currentTab==='draft'?'bk-live-draft-viewport':''}`}>
@@ -124,7 +125,7 @@ function BallKnowerApp(){
     {showProductChrome&&currentTab!=='draft'&&<LaunchFooter onOpen={setLaunchPanel} onOpenPartners={()=>setCurrentTab('partners')}/>}
 
     <CinematicIntro isOpen={isIntroOpen} onClose={closeIntro}/>
-    {showFavoriteTeam&&!isIntroOpen&&!isLaunchAuth&&<FavoriteTeamExperience onDone={finishFavoriteTeamSetup}/>}
+    {FAVORITE_NFL_TEAM_BRANDING_ENABLED&&showFavoriteTeam&&!isIntroOpen&&!isLaunchAuth&&<FavoriteTeamExperience onDone={finishFavoriteTeamSetup}/>}
     {isAuthOpen&&<Suspense fallback={null}><AuthModal isOpen presentation={isLaunchAuth?'launch':'modal'} onClose={closeAuth} onOpenLegal={panel=>{closeAuth();setLaunchPanel(panel)}}/></Suspense>}
     <CreateLeagueModal isOpen={isCreateLeagueOpen} onClose={()=>setIsCreateLeagueOpen(false)} onLeagueCreated={handleLeagueCreated}/>
     <JoinLeagueModal isOpen={isJoinLeagueOpen} onClose={()=>setIsJoinLeagueOpen(false)} onLeagueJoined={handleLeagueJoined}/>
