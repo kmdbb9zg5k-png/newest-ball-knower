@@ -2,14 +2,13 @@ import React,{createContext,lazy,Suspense,useCallback,useContext,useEffect,useMe
 import type {Player} from '../types';
 import type {SoloWeek,PlayerLine} from '../soloSeasonEngine';
 import type {FranchiseInteractionState} from '../franchiseInteractions';
-import {Appearance,AppearancePlayer,readAppearance,SOLO_ART_ROOT,UniformVariant} from './appearance';
+import {Appearance,AppearancePlayer,CREATOR_EASTER_EGG_ID,readAppearance,SOLO_ART_ROOT,UniformVariant} from './appearance';
 
 export type PlayerGameLog = PlayerLine & {week:number;opponent:string;won:boolean;year?:number};
 export type SoloPlayerRecord = {player:Player;logs?:PlayerGameLog[];development?:FranchiseInteractionState['development'][string]};
 type PresentationContext = {openPlayer:(record:SoloPlayerRecord)=>void;registerRecords:(records:Map<string,SoloPlayerRecord>)=>()=>void};
 const Context=createContext<PresentationContext|null>(null);
 const Profile=lazy(()=>import('./SoloPlayerProfile'));
-const ELI_EASTER_EGG_ID='bk-001-eli-rodriguez';
 const ELI_FACE=`${SOLO_ART_ROOT}/creator/eli-face.webp`;
 
 export function useAppearance(player:AppearancePlayer):Appearance {
@@ -42,7 +41,7 @@ export function SoloPresentationProvider({children}:{children:React.ReactNode}) 
     }
     return selected;
   },[selected,revision]);
-  return <Context.Provider value={value}><div className="bk-solo-presentation" data-solo-presentation="v1">{children}</div>
+  return <Context.Provider value={value}><div className="bk-solo-presentation" data-solo-presentation="v2">{children}</div>
     {selectedRecord&&<Suspense fallback={<div className="bk-solo-opening" role="status">Opening player profile…<button type="button" onClick={()=>setSelected(null)}>Cancel</button></div>}><Profile key={selectedRecord.player.id} record={selectedRecord} onClose={()=>setSelected(null)}/></Suspense>}
   </Context.Provider>;
 }
@@ -71,11 +70,12 @@ export function useSoloRecords(roster:Player[],weeks:SoloWeek[],interactions?:Fr
 export function SoloPortrait({player,className='',face}:{player:AppearancePlayer;className?:string;face?:number}) {
   const look=useAppearance(player);const selected=face??look.face;
   const [failed,setFailed]=useState(false);
-  if(player.id===ELI_EASTER_EGG_ID&&face===undefined){
-    return <span className={`bk-solo-portrait ${className}`} aria-hidden="true" data-face="bk-001" style={{backgroundImage:`url(${ELI_FACE})`,backgroundSize:'cover',backgroundPosition:'50% 24%',backgroundRepeat:'no-repeat'}}/>;
+  if(player.id===CREATOR_EASTER_EGG_ID&&face===undefined){
+    return <span className={`bk-solo-portrait ${className}`} aria-hidden="true" data-face="bk-001" data-creator="true" style={{backgroundImage:`url(${ELI_FACE})`,backgroundSize:'cover',backgroundPosition:'50% 24%',backgroundRepeat:'no-repeat'}}/>;
   }
-  return <span className={`bk-solo-portrait ${className}`} aria-hidden="true" data-face={selected}>
+  return <span className={`bk-solo-portrait ${className}`} aria-hidden="true" data-face={selected} data-hair={look.hair} data-beard={look.facialHair} data-eye-black={look.eyeBlack}>
     {!failed?<img src={`${SOLO_ART_ROOT}/faces.webp`} alt="" loading="lazy" decoding="async" width="384" height="480" onError={()=>setFailed(true)} style={{left:`-${selected%3*100}%`,top:`-${Math.floor(selected/3)*100}%`}}/>:<span className="bk-solo-art-fallback">BK</span>}
+    <i className="bk-solo-portrait-hair"/><i className="bk-solo-portrait-beard"/><i className="bk-solo-portrait-eye-black"/>
   </span>;
 }
 
@@ -106,8 +106,8 @@ export function SoloCharacter({player,look,variant='home',helmet=false,className
       if(current)setState('ready');
     }).catch(()=>{if(current)setState('error');});});
     return()=>{current=false;cancelAnimationFrame(frame);};
-  },[player.id,player.name,player.team,player.teamName,look.face,look.build,look.number,look.sleeves,variant,helmet,retry]);
-  return <div className={`bk-solo-character ${className}`} data-render-state={state}>
+  },[player.id,player.name,player.team,player.teamName,look.face,look.hair,look.facialHair,look.eyeBlack,look.build,look.number,look.sleeves,look.gloves,variant,helmet,retry]);
+  return <div className={`bk-solo-character ${className}`} data-render-state={state} data-build={look.build}>
     <canvas ref={canvas} width="256" height="768" role="img" aria-label={`${player.name}, simulated full-body player in ${variant} uniform`} />
     {state==='loading'&&<span className="bk-solo-art-status" role="status">Loading player…</span>}
     {state==='error'&&<div className="bk-solo-art-status" role="status">Artwork unavailable.<button type="button" onClick={()=>setRetry(n=>n+1)}>Retry preview</button></div>}
