@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from './supabase';
 import { useBallKnower } from './BallKnowerContext';
 
-export type ReportableContent = 'league_message' | 'dm_message' | 'trade_message' | 'profile';
+export type ReportableContent = 'league_message' | 'dm_message' | 'trade_message' | 'global_message' | 'community_dm' | 'profile';
 const REASONS = ['harassment', 'hate', 'sexual', 'threats', 'spam', 'impersonation', 'rights', 'other'] as const;
 const CHANGE_EVENT = 'ball-knower-community-safety-changed';
 
@@ -47,7 +47,7 @@ export function useCommunitySafety() {
   const blockedIds = snapshot.userId === userId ? snapshot.ids : [];
   const setBlocked = async (otherId: string, blocked: boolean) => {
     const expected = userId;
-    await safetyRequest(expected, 'set_ball_knower_user_block', { p_user_id: otherId, p_blocked: blocked });
+    await safetyRequest(expected, 'set_ball_knower_community_block', { p_user_id: otherId, p_blocked: blocked });
     if (identityRef.current !== expected) return;
     generation.current += 1;
     setSnapshot(previous => ({ userId: expected, ids: blocked
@@ -81,15 +81,18 @@ export function MessageSafety({ contentType, contentId, authorId, safety }: {
     catch (error) { if (scopeRef.current === expectedScope) setStatus(error instanceof Error ? error.message : 'Unable to save. Contact support.'); }
     finally { if (scopeRef.current === expectedScope) setBusy(false); }
   };
+  const reportOperation = contentType === 'global_message' || contentType === 'community_dm'
+    ? 'report_ball_knower_community_content'
+    : 'report_ball_knower_content';
   return <div className="mt-1 text-[10px] leading-5 text-zinc-400">
     <button type="button" aria-expanded={open} onClick={() => setOpen(value => !value)} className="min-h-11 px-2 underline">Report / Block</button>
     {open && <div className="space-y-2 rounded-xl border border-white/15 bg-[#101318] p-3 text-zinc-200">
-      <p>Reports go to Ball Knower support. Blocking stops direct and trade messages between you and hides this manager's league messages. It does not remove either manager's team.</p>
+      <p>Reports go to Ball Knower support. Blocking hides this manager's posts and stops direct, trade and friend interactions. It does not remove either manager's team.</p>
       <label className="block">Reason<select aria-label="Report reason" value={reason} onChange={event => setReason(event.target.value as typeof reason)} className="ml-2 min-h-11 rounded bg-[#20242d] px-2">{REASONS.map(value => <option key={value} value={value}>{value}</option>)}</select></label>
       <label className="block">Additional information<textarea aria-label="Report details" maxLength={1000} value={details} onChange={event => setDetails(event.target.value)} className="mt-1 min-h-20 w-full rounded-lg bg-[#20242d] p-2"/></label>
       <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={busy} onClick={() => void submit(() => safetyRequest(currentUser.id, 'report_ball_knower_content', { p_content_type: contentType, p_content_id: contentId, p_reason: reason, p_details: details }), 'Report saved for support review.')} className="min-h-11 rounded-lg border border-white/20 px-3 disabled:opacity-40">Report content</button>
-        {contentType !== 'profile' && <button type="button" disabled={busy} onClick={() => void submit(() => safetyRequest(currentUser.id, 'report_ball_knower_content', { p_content_type: 'profile', p_content_id: authorId, p_reason: reason, p_details: details }), 'Profile report saved for support review.')} className="min-h-11 rounded-lg border border-white/20 px-3 disabled:opacity-40">Report profile/photo</button>}
+        <button type="button" disabled={busy} onClick={() => void submit(() => safetyRequest(currentUser.id, reportOperation, { p_content_type: contentType, p_content_id: contentId, p_reason: reason, p_details: details }), 'Report saved for support review.')} className="min-h-11 rounded-lg border border-white/20 px-3 disabled:opacity-40">Report content</button>
+        {contentType !== 'profile' && <button type="button" disabled={busy} onClick={() => void submit(() => safetyRequest(currentUser.id, reportOperation, { p_content_type: 'profile', p_content_id: authorId, p_reason: reason, p_details: details }), 'Profile report saved for support review.')} className="min-h-11 rounded-lg border border-white/20 px-3 disabled:opacity-40">Report profile/photo</button>}
         <button type="button" disabled={busy} onClick={() => void submit(() => safety.setBlocked(authorId, !safety.isBlocked(authorId)), safety.isBlocked(authorId) ? 'Manager unblocked.' : 'Manager blocked.')} className="min-h-11 rounded-lg border border-red-300/30 px-3 text-red-200 disabled:opacity-40">{safety.isBlocked(authorId) ? 'Unblock manager' : 'Block manager'}</button>
       </div>
     </div>}
