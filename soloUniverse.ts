@@ -173,7 +173,26 @@ const buildSoloPlayers = (): Player[] => {
   });
 };
 
-export const SOLO_PLAYERS_DATABASE: Player[] = buildSoloPlayers();
+const SOLO_CREATOR_EASTER_EGG: Player = {
+  id: 'bk-001-eli-rodriguez', playerId: 'bk-001-eli-rodriguez',
+  teamId: 'JCY', team: 'JCY', teamAbbreviation: 'JCY', teamCity: 'Jersey City', teamName: 'Jersey City Knights',
+  conference: 'AFC', division: 'East',
+  name: 'Eli Rodriguez', firstName: 'Eli', lastName: 'Rodriguez', fullName: 'Eli Rodriguez',
+  position: 'WR', positionGroup: 'WR', jerseyNumber: 11,
+  age: 30, experience: 10, starter: true, active: true, isFreeAgent: false, rosterSeason: 1,
+  ovr: 85, overall: 85, overallRating: 85,
+  ratingSource: 'Ball Knower simulated universe', ratingSeason: 'SIM-1', ratingStatus: 'EDITORIAL',
+  salary: 14.8, salaryType: 'estimated', salarySource: 'Ball Knower simulation model',
+  archetype: 'Elite slot route runner',
+  speed: 96, awareness: 93,
+  attributes: { athleticism: 91, footballIQ: 94, receiving: 95 },
+} satisfies Player;
+
+const BASE_SOLO_PLAYERS_DATABASE: Player[] = buildSoloPlayers();
+const eliRosterSlot = BASE_SOLO_PLAYERS_DATABASE.findIndex(player => player.team === 'JCY' && player.position === 'WR' && !player.starter);
+if (eliRosterSlot >= 0) BASE_SOLO_PLAYERS_DATABASE[eliRosterSlot] = SOLO_CREATOR_EASTER_EGG;
+
+export const SOLO_PLAYERS_DATABASE: Player[] = BASE_SOLO_PLAYERS_DATABASE;
 export const SOLO_KNOWN_PLAYERS_DATABASE: Player[] = SOLO_PLAYERS_DATABASE;
 export const SOLO_PLAYER_BY_ID = new Map(SOLO_PLAYERS_DATABASE.map(player => [player.id, player]));
 

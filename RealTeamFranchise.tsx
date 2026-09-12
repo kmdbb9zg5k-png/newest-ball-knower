@@ -1,3 +1,4 @@
+import {SoloPlayerIdentity,SoloPlayerLink} from './solo/SoloPresentation';
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -522,7 +523,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
                   <div key={player.id} className="flex items-center gap-3 py-3">
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-black">
-                        {player.name}
+                        <SoloPlayerLink player={player}/>
                       </div>
                       <div className="text-[10px] font-bold text-zinc-500">
                         {player.team} · {player.position} · {player.ovr} OVR · $
@@ -563,7 +564,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
                       className="flex items-center justify-between rounded-xl bg-black/25 p-3"
                     >
                       <div>
-                        <div className="text-sm font-black">{player.name}</div>
+                        <div className="text-sm font-black"><SoloPlayerLink player={player}/></div>
                         <div className="text-[10px] text-zinc-500">
                           {player.position} · ${player.salary}M
                           {player.salaryType === "estimated"
@@ -610,7 +611,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
                       YOU RECEIVE
                     </div>
                     <div className="mt-1 font-black">
-                      {tradeTarget.name}{" "}
+                      <SoloPlayerIdentity player={tradeTarget}/>{" "}
                       <span className="text-emerald-300">
                         {tradeTarget.ovr} OVR
                       </span>
@@ -640,7 +641,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
                           >
                             <div>
                               <div className="text-xs font-black">
-                                {player.name}
+                                <SoloPlayerIdentity player={player}/>
                               </div>
                               <div className="text-[9px] text-zinc-500">
                                 {player.position} · {player.ovr} OVR · Value{" "}
@@ -779,7 +780,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
                 key={player.id}
                 className="min-w-0 rounded-2xl bg-white/5 p-3"
               >
-                <div className="truncate text-xs font-black">{player.name}</div>
+                <div className="truncate text-xs font-black"><SoloPlayerLink player={player}/></div>
                 <div className="mt-1 text-[10px] text-zinc-500">
                   {player.position} • {player.ovr} OVR
                 </div>

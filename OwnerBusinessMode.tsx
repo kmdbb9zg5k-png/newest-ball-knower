@@ -1,3 +1,4 @@
+import {SoloPortrait} from './solo/SoloPresentation';
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import React,{useEffect,useMemo,useState}from'react';
 import{ArrowLeft,Building2,CalendarDays,ChevronRight,Crown,DollarSign,Gavel,Landmark,MapPin,Trophy,Users}from'lucide-react';
@@ -22,7 +23,7 @@ const normalize=(v:any):State=>{const legacyUniverse=v?.universeVersion!==SOLO_U
 const restore=():State=>{try{const raw=localStorage.getItem(SAVE_KEY);if(!raw)return defaults;const parsed=JSON.parse(raw);const restored=normalize(parsed);if(parsed?.universeVersion!==SOLO_UNIVERSE_VERSION)localStorage.setItem(SAVE_KEY,JSON.stringify(restored));return restored;}catch{return defaults;}};
 const persist=(s:State)=>{try{localStorage.setItem(SAVE_KEY,JSON.stringify(s));}catch{}};
 const money=(n:number)=>`${n<0?'-':''}$${Math.abs(n).toFixed(0)}M`;
-const Face=({p}:{p:Staff})=><div className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-gradient-to-br ${p.tone}`}><div className="absolute left-1/2 top-2 h-7 w-7 -translate-x-1/2 rounded-full bg-amber-100/80"/><div className="absolute left-1/2 top-8 h-9 w-11 -translate-x-1/2 rounded-t-[45%] bg-white/80"/><div className="absolute left-1/2 top-2 h-3 w-8 -translate-x-1/2 rounded-full bg-black/70"/></div>;
+const Face=({p}:{p:Staff})=><SoloPortrait player={{id:'solo-staff:'+p.id,name:p.name,position:p.role,team:'BK'}} className="bk-solo-staff-portrait"/>;
 const Scene=({d}:{d:OwnerDecision})=>d.visual==='trade'?<div className="relative aspect-[16/9] overflow-hidden rounded-3xl border border-white/10"><img src="/scenes/owner-trade-request.png" alt="Stylized football player addressing reporters" className="h-full w-full object-cover"/><div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black to-transparent p-4 pt-12 text-xl font-black">BREAKING: THE LEAGUE IS WATCHING</div></div>:null;
 
 export const OwnerBusinessMode:React.FC<{onBack:()=>void}>=({onBack})=>{

@@ -1,0 +1,50 @@
+name: Solo presentation review
+on:
+  push:
+    branches: [solo-player-universe-reference-fidelity]
+  pull_request:
+    branches: [main]
+    paths: ['solo/**', 'public/solo-characters/**', '*Franchise*.tsx', 'SoloMode.tsx', 'MyPlayerStory.tsx', 'PlayerAgentMode.tsx', 'OwnerBusinessMode.tsx', 'main.tsx', 'scripts/*solo*', '.github/workflows/solo-presentation-review.yml']
+permissions:
+  contents: read
+concurrency:
+  group: solo-presentation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - name: Verify source artwork
+        run: |
+          python -m pip install Pillow --quiet
+          python scripts/verify-solo-art.py
+      - name: Type check
+        run: npm run lint
+      - name: Production build
+        run: npm run build
+      - name: Focused regression tests
+        run: |
+          node --import tsx scripts/solo-appearance-check.ts
+          npm run check:solo-fictional
+          npm run check:solo-fantasy
+          npm run check:franchise-interactions
+          npm run check:root-bundle
+      - name: Browser setup
+        run: npx playwright install --with-deps chromium
+      - name: Actual Solo screen verification
+        run: node scripts/solo-ui-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: solo-screen-review
+          path: artifacts/solo-ui
+          if-no-files-found: ignore
+          retention-days: 7

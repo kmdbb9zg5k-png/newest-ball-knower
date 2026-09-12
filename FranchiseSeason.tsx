@@ -1,3 +1,4 @@
+import {useSoloRecords} from './solo/SoloPresentation';
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ChevronRight, Play, RotateCcw, Trophy, Users } from 'lucide-react';
@@ -205,6 +206,7 @@ export const FranchiseSeason: React.FC<Props> = ({
     });
   }, [roster]);
   const activeRoster = seasonRoster;
+  useSoloRecords(activeRoster,weeks,interactionState,year);
   const ratings = useMemo(() => ratingsWithFranchiseMorale(calculateTeamRatings(activeRoster), interactionState, activeRoster), [activeRoster, interactionState]);
   const wins = weeks.filter(week => week.won).length;
   const losses = weeks.length - wins;
