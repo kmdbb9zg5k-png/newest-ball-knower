@@ -7,6 +7,7 @@ export type ProgressProfile={
   userId:string;displayName:string;bkRating:number;xp:number;level:number;
   footballIq:number;gmRating:number;predictionRating:number;triviaRating:number;agentRating:number;ownerRating:number;
   championships:number;currentStreak:number;longestStreak:number;updatedAt:string;
+  h2hRating?:number;h2hWins?:number;h2hLosses?:number;h2hTies?:number;h2hStreak?:number;h2hBestStreak?:number;
 };
 export type ProgressEvent={id:number;eventType:string;category:string;xpAwarded:number;ratingDelta:number;occurredAt:string;metadata:Record<string,unknown>};
 export type Achievement={key:string;title:string;description:string;category:string;tier:'bronze'|'silver'|'gold'|'diamond';xpReward:number;unlockedAt?:string};
@@ -108,6 +109,7 @@ export const mapProgressProfile=(x:any):ProgressProfile=>({
   userId:x.user_id,displayName:x.display_name,bkRating:ratingNumber(x.bk_rating),xp:Number(x.xp)||0,level:Number(x.level)||1,
   footballIq:ratingNumber(x.football_iq),gmRating:ratingNumber(x.gm_rating),predictionRating:ratingNumber(x.prediction_rating),triviaRating:ratingNumber(x.trivia_rating),agentRating:ratingNumber(x.agent_rating),ownerRating:ratingNumber(x.owner_rating),
   championships:Number(x.championships)||0,currentStreak:Number(x.current_streak)||0,longestStreak:Number(x.longest_streak)||0,updatedAt:x.updated_at,
+  h2hRating:Number(x.h2h_rating)||1000,h2hWins:Number(x.h2h_wins)||0,h2hLosses:Number(x.h2h_losses)||0,h2hTies:Number(x.h2h_ties)||0,h2hStreak:Number(x.h2h_streak)||0,h2hBestStreak:Number(x.h2h_best_streak)||0,
 });
 
 export async function fetchProgressionProfile(displayName?:string){
@@ -136,7 +138,8 @@ export async function fetchProgressionProfile(displayName?:string){
 export async function fetchPublicProgressionProfile(userId:string){
   if(!supabase) throw new Error('Ball Knower profile requires online services.');
   await ensureOnlineSession();
-  const response=await supabase.rpc('get_ball_knower_public_locker_profile',{p_user_id:userId});
+  let response=await supabase.rpc('get_ball_knower_public_locker_profile',{p_user_id:userId});
+  if(response.error) response=await supabase.rpc('get_ball_knower_community_profile',{p_user_id:userId});
   if(response.error) throw response.error;
   const payload=response.data as any;
   if(!payload?.profile) throw new Error('This manager profile is unavailable.');

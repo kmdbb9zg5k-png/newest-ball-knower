@@ -42,6 +42,8 @@
     "check:partners": "node --import tsx scripts/partners-check.ts",
     "check:profile-photo": "node --import tsx scripts/profile-photo-release-check.ts",
     "check:member-locker": "node --import tsx scripts/member-locker-check.ts",
+    "check:community-arena": "node --import tsx scripts/community-arena-check.ts",
+    "check:community-browser": "node scripts/community-arena-browser.mjs",
     "check:profile-rating": "node --import tsx scripts/profile-rating-zero-check.ts",
     "check:fantasy-availability": "node --import tsx scripts/fantasy-player-availability-check.ts",
     "check:phase3-agent": "node --import tsx scripts/phase3-agent-recruiting-check.ts",

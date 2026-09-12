@@ -15,6 +15,7 @@ import {trackBallKnowerEvent} from './analytics';
 import {CloudSyncProvider} from './CloudSyncProvider';
 import type {SoloExperience} from './SoloFranchiseHub';
 import {LaunchCenter,LaunchFooter,type LaunchPanel} from './LaunchCenter';
+import type {CommunityPerson} from './communityCloud';
 
 const AuthModal=lazy(()=>import('./AuthModal').then(module=>({default:module.AuthModal})));
 const HomeDashboard=lazy(()=>import('./HomeDashboard').then(module=>({default:module.HomeDashboard})));
@@ -34,8 +35,9 @@ const ChallengesHub=lazy(()=>import('./ChallengesHub').then(module=>({default:mo
 const AskBkHub=lazy(()=>import('./AskBkHub').then(module=>({default:module.AskBkHub})));
 const LockerHub=lazy(()=>import('./LockerHub').then(module=>({default:module.LockerHub})));
 const PartnersPage=lazy(()=>import('./PartnersPage').then(module=>({default:module.PartnersPage})));
+const CommunityHub=lazy(()=>import('./CommunityHub').then(module=>({default:module.CommunityHub})));
 
-export type AppTab='home'|'solo'|'news'|'fantasy'|'sportsbook'|'legacy'|'challenges'|'ask'|'locker'|'partners'|'lobby'|'draft'|'simulation';
+export type AppTab='home'|'solo'|'news'|'fantasy'|'sportsbook'|'legacy'|'challenges'|'community'|'ask'|'locker'|'partners'|'lobby'|'draft'|'simulation';
 
 const INTRO_COMPLETED_KEY='ball-knower-intro-completed-v1';
 const introEligible=()=>{try{return !localStorage.getItem(INTRO_COMPLETED_KEY)}catch{return true}};
@@ -80,6 +82,7 @@ function BallKnowerApp(){
   const handleLeagueJoined=(league:League)=>{setActiveLeagueId(league.id);goToTab('lobby')};
   const navigateToTab=useCallback((tab:AppTab)=>{if(tab==='fantasy')setFantasyView('leagues');if(tab==='solo')setSoloExperience('hub');if(tab==='locker')setViewedLockerMember(null);goToTab(tab)},[goToTab]);
   const openMemberLocker=useCallback((member:LeagueMember)=>{if(member.isAi||!member.userId)return;setLockerReturnTab(currentTab);setViewedLockerMember(member.userId===currentUser?.id?null:member);goToTab('locker')},[currentTab,currentUser?.id,goToTab]);
+  const openCommunityLocker=useCallback((person:CommunityPerson)=>openMemberLocker({id:`community-${person.userId}`,userId:person.userId,userName:person.displayName,isCommissioner:false,status:'ready'}),[openMemberLocker]);
   const closeMemberLocker=useCallback(()=>{setViewedLockerMember(null);setCurrentTab(lockerReturnTab)},[lockerReturnTab]);
   const openCheatSheet=useCallback(()=>{setFantasyView('cheatsheet');goToTab('fantasy')},[goToTab]);
   const showProductChrome=!isIntroOpen&&!showFavoriteTeam;
@@ -98,6 +101,7 @@ function BallKnowerApp(){
         {currentTab==='sportsbook'&&<SportsbookHub/>}
         {currentTab==='legacy'&&<HallOfFame/>}
         {currentTab==='challenges'&&<ChallengesHub/>}
+        {currentTab==='community'&&<CommunityHub onOpenAuth={()=>setIsAuthOpen(true)} onOpenTrivia={()=>goToTab('challenges')} onViewLocker={openCommunityLocker}/>}
         {currentTab==='ask'&&<AskBkHub/>}
         {currentTab==='locker'&&<LockerHub onOpenAuth={()=>setIsAuthOpen(true)} viewedMember={viewedLockerMember} onBack={viewedLockerMember?closeMemberLocker:undefined}/>}
         {currentTab==='partners'&&<PartnersPage onBack={()=>setCurrentTab('home')}/>}
