@@ -22,20 +22,48 @@ const AuthCrest=()=> <svg className="bk-auth-crest-art" aria-hidden="true" viewB
   <defs>
     <linearGradient id="bkCrestGold" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#fff0ae"/><stop offset=".24" stopColor="#bf8a2f"/><stop offset=".52" stopColor="#f3d27a"/><stop offset=".78" stopColor="#76501e"/><stop offset="1" stopColor="#d5aa4f"/></linearGradient>
     <linearGradient id="bkCrestDark" x1="0" y1="0" x2="0" y2="1"><stop stopColor="#33281e"/><stop offset=".52" stopColor="#0b0d12"/><stop offset="1" stopColor="#25190d"/></linearGradient>
+    <linearGradient id="bkCrestInset" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#ffe99b" stopOpacity=".88"/><stop offset=".42" stopColor="#6b4516" stopOpacity=".32"/><stop offset="1" stopColor="#f2c964" stopOpacity=".8"/></linearGradient>
+    <pattern id="bkCrestGrain" width="5" height="5" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".6" fill="#fff2b0" fillOpacity=".2"/><circle cx="4" cy="3" r=".55" fill="#000" fillOpacity=".3"/></pattern>
     <filter id="bkCrestShadow" x="-40%" y="-40%" width="180%" height="190%"><feDropShadow dx="0" dy="8" stdDeviation="6" floodOpacity=".7"/></filter>
   </defs>
   <g filter="url(#bkCrestShadow)">
     <path className="bk-auth-crest-laurel" d="M38 160C13 130 11 88 27 51M30 141c-11-5-17-13-20-24m25 9c-11-7-16-16-17-27m22 10c-10-9-13-18-12-29m18 15c-8-10-9-19-6-29m102 94c25-30 27-72 11-109m-3 90c11-5 17-13 20-24m-25 9c11-7 16-16 17-27m-22 10c10-9 13-18 12-29m-18 15c8-10 9-19 6-29" fill="none" stroke="url(#bkCrestGold)" strokeWidth="5" strokeLinecap="round"/>
+    <g fill="url(#bkCrestGold)" stroke="#4a2e10" strokeWidth=".7">
+      <ellipse cx="20" cy="124" rx="4" ry="10" transform="rotate(-38 20 124)"/><ellipse cx="17" cy="104" rx="4" ry="10" transform="rotate(-26 17 104)"/><ellipse cx="20" cy="83" rx="4" ry="10" transform="rotate(-15 20 83)"/><ellipse cx="27" cy="63" rx="4" ry="10" transform="rotate(-5 27 63)"/>
+      <ellipse cx="160" cy="124" rx="4" ry="10" transform="rotate(38 160 124)"/><ellipse cx="163" cy="104" rx="4" ry="10" transform="rotate(26 163 104)"/><ellipse cx="160" cy="83" rx="4" ry="10" transform="rotate(15 160 83)"/><ellipse cx="153" cy="63" rx="4" ry="10" transform="rotate(5 153 63)"/>
+    </g>
     <path d="M90 8 143 29v64c0 38-20 66-53 86-33-20-53-48-53-86V29z" fill="#0a0a0c" stroke="url(#bkCrestGold)" strokeWidth="5"/>
     <path d="M90 17 134 35v56c0 31-15 55-44 74-29-19-44-43-44-74V35z" fill="url(#bkCrestDark)" stroke="#e0bd67" strokeWidth="2"/>
+    <path d="M90 23 128 39v51c0 27-12 48-38 66-26-18-38-39-38-66V39z" fill="url(#bkCrestGrain)" stroke="url(#bkCrestInset)" strokeWidth="1.2"/>
     <path d="M90 20v142M48 49h84M48 92h84" fill="none" stroke="#c69a44" strokeOpacity=".55" strokeWidth="1.5"/>
+    <path d="m90 8 6 8-6 7-6-7zM47 51l7 3-6 6-6-3zm86 0-7 3 6 6 6-3z" fill="#f4d67e" stroke="#493011" strokeWidth="1"/>
     <g transform="rotate(-28 91 88)">
-      <ellipse cx="91" cy="88" rx="22" ry="38" fill="url(#bkCrestGold)" stroke="#fff0b7" strokeWidth="2"/>
+      <ellipse cx="91" cy="88" rx="23.5" ry="39.5" fill="#2b1b0b" stroke="#5c3b15" strokeWidth="5"/>
+      <ellipse cx="91" cy="88" rx="21" ry="37" fill="url(#bkCrestGold)" stroke="#fff0b7" strokeWidth="1.5"/>
       <path d="M73 80c10 8 26 8 36 0M73 96c10-8 26-8 36 0" fill="none" stroke="#4c3116" strokeWidth="2"/>
       <path d="M91 73v30m-7-23h14m-14 7h14m-14 7h14" stroke="#3b2814" strokeWidth="2.5" strokeLinecap="round"/>
+      <path d="M80 58c7-4 15-5 22-2" fill="none" stroke="#fff4c9" strokeOpacity=".62" strokeWidth="2" strokeLinecap="round"/>
     </g>
     <path d="M90 179 79 166h22z" fill="url(#bkCrestGold)"/>
   </g>
+</svg>;
+const AuthArenaArt=()=> <svg className="bk-auth-arena-art" aria-hidden="true" viewBox="0 0 430 932" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="bkArenaFloor" x1="0" y1="0" x2="0" y2="1"><stop stopColor="#2d1645" stopOpacity=".08"/><stop offset=".25" stopColor="#20173b" stopOpacity=".42"/><stop offset="1" stopColor="#071421" stopOpacity=".9"/></linearGradient>
+    <linearGradient id="bkArenaGoldLine" x1="0" y1="0" x2="0" y2="1"><stop stopColor="#f1d784" stopOpacity=".76"/><stop offset="1" stopColor="#8a6928" stopOpacity=".18"/></linearGradient>
+    <radialGradient id="bkArenaHorizon"><stop stopColor="#853dc2" stopOpacity=".36"/><stop offset=".52" stopColor="#292060" stopOpacity=".15"/><stop offset="1" stopColor="#06111d" stopOpacity="0"/></radialGradient>
+    <filter id="bkArenaGlow"><feGaussianBlur stdDeviation="4"/></filter>
+  </defs>
+  <ellipse cx="215" cy="488" rx="245" ry="130" fill="url(#bkArenaHorizon)"/>
+  <path d="M0 932h430L282 464H148z" fill="url(#bkArenaFloor)"/>
+  <g className="bk-auth-floor-lines" fill="none" stroke="url(#bkArenaGoldLine)">
+    <path d="M148 465h134"/><path d="M139 494h152"/><path d="M127 530h176"/><path d="M112 577h206"/><path d="M91 638h248"/><path d="M64 714h302"/><path d="M28 810h374"/><path d="M0 929h430"/>
+    <path d="M149 465-74 932M174 465 45 932M194 465 130 932M215 465v467M236 465l64 467M256 465l129 467M281 465l223 467"/>
+  </g>
+  <g className="bk-auth-arena-rings" fill="none"><path d="M54 506c53-60 269-60 322 0"/><path d="M20 535c80-98 310-98 390 0"/><path d="M-16 574c105-139 357-139 462 0"/></g>
+  <path className="bk-auth-horizon-beam" d="M48 465h334"/>
+  <path d="M64 469h302" stroke="#50e8ff" strokeOpacity=".22" strokeWidth="8" filter="url(#bkArenaGlow)"/>
+  <g className="bk-auth-arena-markers" fill="#e9cd76"><circle cx="149" cy="465" r="2"/><circle cx="181" cy="465" r="2"/><circle cx="215" cy="465" r="2.5"/><circle cx="249" cy="465" r="2"/><circle cx="281" cy="465" r="2"/></g>
 </svg>;
 
 export const AuthModal:React.FC<AuthModalProps>=({isOpen,onClose,onOpenLegal,presentation='modal'})=>{
@@ -146,7 +174,7 @@ export const AuthModal:React.FC<AuthModalProps>=({isOpen,onClose,onOpenLegal,pre
   };
 
   return <div className={`bk-auth-stage bk-auth-stage--${presentation}`} data-auth-presentation={presentation}>
-    <div className="bk-auth-sky" aria-hidden="true"><span/><span/><span/></div>
+    <div className="bk-auth-sky" aria-hidden="true"><span/><span/><span/><AuthArenaArt/></div>
     <section className="bk-auth-console" role="dialog" aria-modal="true" aria-labelledby={titleId}>
       {presentation==='modal'&&<button id="close-auth-modal-btn" onClick={onClose} className="bk-auth-close" aria-label="Close sign in"><X/></button>}
       <header className="bk-auth-brand"><div className="bk-auth-crest"><AuthCrest/></div><h2 id={titleId}>BALL KNOWER</h2><p>One account. One league identity.</p></header>
