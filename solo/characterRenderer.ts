@@ -46,8 +46,9 @@ export async function drawCharacter(canvas:HTMLCanvasElement,player:AppearancePl
   canvas.width=width;canvas.height=height;
   ctx.clearRect(0,0,width,height);
   // Neck is tucked behind the uniform. A trade changes the kit, never this face index.
-  const faceX=(look.face%3)*128,faceY=Math.floor(look.face/3)*160;
-  ctx.drawImage(faces,faceX,faceY,128,160,75,0,116,165);
+  const cellWidth=faces.naturalWidth/3,cellHeight=faces.naturalHeight/3;
+  const faceX=(look.face%3)*cellWidth,faceY=Math.floor(look.face/3)*cellHeight;
+  ctx.drawImage(faces,faceX,faceY,cellWidth,cellHeight,75,0,116,165);
   const scale=look.build==='power'?1.16:look.build==='lean'?.91:1;
   ctx.save();ctx.translate(128,0);ctx.scale(scale,1);ctx.translate(-128,0);
   ctx.drawImage(buffer,0,0);

@@ -3,7 +3,6 @@ import type {Player} from '../types';
 import type {SoloWeek,PlayerLine} from '../soloSeasonEngine';
 import type {FranchiseInteractionState} from '../franchiseInteractions';
 import {Appearance,AppearancePlayer,readAppearance,SOLO_ART_ROOT,UniformVariant} from './appearance';
-import './soloPresentation.css';
 
 export type PlayerGameLog = PlayerLine & {week:number;opponent:string;won:boolean;year?:number};
 export type SoloPlayerRecord = {player:Player;logs?:PlayerGameLog[];development?:FranchiseInteractionState['development'][string]};
@@ -42,7 +41,7 @@ export function SoloPresentationProvider({children}:{children:React.ReactNode}) 
     return selected;
   },[selected,revision]);
   return <Context.Provider value={value}><div className="bk-solo-presentation" data-solo-presentation="v1">{children}</div>
-    {selectedRecord&&<Suspense fallback={<div className="bk-solo-opening" role="status">Opening player profile…<button type="button" onClick={()=>setSelected(null)}>Cancel</button></div>}><Profile record={selectedRecord} onClose={()=>setSelected(null)}/></Suspense>}
+    {selectedRecord&&<Suspense fallback={<div className="bk-solo-opening" role="status">Opening player profile…<button type="button" onClick={()=>setSelected(null)}>Cancel</button></div>}><Profile key={selectedRecord.player.id} record={selectedRecord} onClose={()=>setSelected(null)}/></Suspense>}
   </Context.Provider>;
 }
 

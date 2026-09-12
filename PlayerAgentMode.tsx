@@ -1,3 +1,4 @@
+import {SoloPlayerIdentity,SoloPlayerLink,SoloPortrait,SoloQuickView} from './solo/SoloPresentation';
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -2008,13 +2009,9 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                   className="rounded-2xl border border-white/10 bg-black/25 p-4"
                 >
                   <div className="flex items-center gap-3">
-                    <img
-                      src={playerPortraitFallbackUrl(player)}
-                      alt=""
-                      className="h-14 w-14 rounded-xl bg-white/5 object-cover"
-                    />
+                    <SoloPortrait player={player}/>
                     <div className="min-w-0 flex-1">
-                      <div className="font-black">{player.name}</div>
+                      <div className="font-black"><SoloPlayerLink player={player} showPortrait={false}/></div>
                       <div className="text-xs text-zinc-500">
                         {client.currentTeam || player.team} · {player.position}{" "}
                         · {player.ovr} OVR
@@ -2204,19 +2201,15 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                 agency.simulatedDate,
               );
               return (
-                <button
+                <div className="bk-solo-selection" key={p.id}><button
                   key={p.id}
                   onClick={() => beginRecruit(p)}
                   disabled={clients.length >= clientCapacity}
                   className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/25 p-3 text-left disabled:opacity-35"
                 >
-                  <img
-                    src={playerPortraitFallbackUrl(p)}
-                    alt=""
-                    className="h-16 w-16 rounded-xl bg-white/5 object-cover"
-                  />
+                  <SoloPortrait player={p}/>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-black">{p.name}</div>
+                    <div className="truncate font-black"><SoloPlayerIdentity player={p} showPortrait={false}/></div>
                     <div className="text-xs text-zinc-500">
                       {p.team} · {p.position}
                       {p.age ? ` · Age ${p.age}` : ""} · 1 year left
@@ -2233,7 +2226,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                       {days > 0 ? `${days}D WAIT` : "OVR"}
                     </div>
                   </div>
-                </button>
+                </button><SoloQuickView player={p}/></div>
               );
             })}
           </div>
@@ -2249,11 +2242,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
             >
               <div className="mx-auto my-auto max-w-xl rounded-[2rem] border border-violet-300/25 bg-[#0c1018] p-5 sm:p-7">
                 <div className="flex items-start gap-4">
-                  <img
-                    src={playerPortraitFallbackUrl(selected)}
-                    alt=""
-                    className="h-20 w-20 rounded-2xl bg-white/5 object-cover"
-                  />
+                  <SoloPortrait player={selected}/>
                   <div className="min-w-0 flex-1">
                     <div className="text-[10px] font-black tracking-[.2em] text-violet-300">
                       PRIVATE MEETING ·{" "}
@@ -2262,7 +2251,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                         : "DECISION"}
                     </div>
                     <h3 className="mt-1 text-2xl font-black">
-                      {selected.name}
+                      <SoloPlayerIdentity player={selected} showPortrait={false}/>
                     </h3>
                     <div className="text-xs text-zinc-500">
                       {selected.team} · {selected.position} · {selected.ovr} OVR
@@ -2348,7 +2337,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                         <div className="text-[10px] font-black tracking-[.22em] text-violet-300">
                           NEGOTIATION ROOM · ROUND {negotiationRoom.round}
                         </div>
-                        <h3 className="mt-1 text-3xl font-black">{p.name}</h3>
+                        <h3 className="mt-1 text-3xl font-black"><SoloPlayerIdentity player={p}/></h3>
                         <div className="text-xs text-zinc-500">
                           {p.team} GM · Market estimate {moneyM(market)}/yr
                         </div>

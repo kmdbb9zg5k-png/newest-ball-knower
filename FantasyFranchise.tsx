@@ -1,3 +1,4 @@
+import {SoloPlayerIdentity,SoloPlayerLink,SoloPortrait,SoloQuickView} from './solo/SoloPresentation';
 import { BroadcastStage } from './BroadcastScene';
 import React, { useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, MapPin, Play, RotateCcw, Search, Shuffle, Upload } from 'lucide-react';
@@ -236,7 +237,7 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
             </div>
 
             <aside className="min-w-0 space-y-3">
-              <div className="rounded-2xl border border-white/10 bg-[#111] p-4"><div className="text-xs font-black tracking-widest text-[var(--bk-team-accent)]">YOUR ROSTER • {userRoster.length}/{FANTASY_DRAFT_ROUNDS}</div><div className="mt-2 text-sm leading-relaxed text-zinc-400">{Object.entries(FANTASY_ROSTER_REQUIREMENTS).map(([group, required]) => `${group} ${counts[group] ?? 0}/${required}`).join(' • ')}</div><div className="mt-3 max-h-[65dvh] space-y-1 overflow-y-auto overscroll-contain pr-1">{userRoster.map(player => <div key={player.id} className="flex justify-between rounded-xl bg-white/5 px-3 py-2 text-xs"><span className="truncate"><b>{player.position}</b> {player.name}</span><b>{player.ovr}</b></div>)}</div></div>
+              <div className="rounded-2xl border border-white/10 bg-[#111] p-4"><div className="text-xs font-black tracking-widest text-[var(--bk-team-accent)]">YOUR ROSTER • {userRoster.length}/{FANTASY_DRAFT_ROUNDS}</div><div className="mt-2 text-sm leading-relaxed text-zinc-400">{Object.entries(FANTASY_ROSTER_REQUIREMENTS).map(([group, required]) => `${group} ${counts[group] ?? 0}/${required}`).join(' • ')}</div><div className="mt-3 max-h-[65dvh] space-y-1 overflow-y-auto overscroll-contain pr-1">{userRoster.map(player => <div key={player.id} className="flex justify-between rounded-xl bg-white/5 px-3 py-2 text-xs"><span className="truncate"><b>{player.position}</b> <SoloPlayerLink player={player}/></span><b>{player.ovr}</b></div>)}</div></div>
               <div className="rounded-2xl border border-white/10 bg-[#111] p-4"><div className="text-xs font-black tracking-widest text-[var(--bk-team-accent)]">RECENT PICKS</div><div className="mt-2 space-y-2">{draft.picks.slice(-8).reverse().map(pick => {const player = fantasyPickPlayer(pick); return <div key={pick.overall} className="text-xs"><b>#{pick.overall} {fantasyTeam(pick.teamAbbr).abbr}</b><div className="truncate text-zinc-500">{player?.name ?? 'Unknown'} • {player?.position}</div></div>;})}</div></div>
             </aside>
           </div>
@@ -247,18 +248,17 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
 };
 
 const DraftPlayer = ({ player, disabled, onSelect }: { key?: React.Key; player: Player; disabled: boolean; onSelect: () => void }) => {
-  const portrait = playerPortraitFallbackUrl(player);
   return (
-    <button
+    <div className="bk-solo-selection"><button
       type="button"
       onClick={onSelect}
       disabled={disabled}
       aria-label={`Draft ${player.name}, ${player.position}, ${player.ovr} overall`}
       className="grid w-full min-w-0 grid-cols-[48px_minmax(0,1fr)_72px] items-center gap-3 rounded-2xl border border-white/10 bg-[#111] p-3 text-left transition hover:border-[var(--bk-team-accent)]/45 hover:bg-white/[.06] disabled:cursor-wait disabled:opacity-50 active:scale-[.99]"
     >
-      <div className="h-12 w-12 overflow-hidden rounded-full bg-white/5">{portrait ? <img src={portrait} alt="" loading="lazy" className="h-full w-full object-cover" /> : null}</div>
-      <div className="min-w-0"><div className="truncate font-black">{player.name}</div><div className="truncate text-xs text-zinc-500">{player.team} • {player.position}</div></div>
+      <SoloPortrait player={player}/>
+      <div className="min-w-0"><div className="truncate font-black"><SoloPlayerIdentity player={player} showPortrait={false}/></div><div className="truncate text-xs text-zinc-500">{player.team} • {player.position}</div></div>
       <span className="grid min-h-11 place-items-center rounded-xl bg-[var(--bk-team-accent)] px-2 text-center text-[10px] font-black leading-tight text-[var(--bk-on-accent)]">DRAFT<br />{player.ovr}</span>
-    </button>
+    </button><SoloQuickView player={player}/></div>
   );
 };

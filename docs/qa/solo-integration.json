@@ -1,0 +1,67 @@
+[
+  {
+    "file": "SoloMode.tsx",
+    "edits": 7,
+    "imports": [
+      "withSoloPresentation",
+      "SoloPlayerLink",
+      "SoloPortrait",
+      "useSoloRecords"
+    ]
+  },
+  {
+    "file": "SoloFranchiseHub.tsx",
+    "edits": 3,
+    "imports": [
+      "SoloModeArtwork"
+    ]
+  },
+  {
+    "file": "FranchiseInteractionCenter.tsx",
+    "edits": 1,
+    "imports": [
+      "SoloPlayerLink"
+    ]
+  },
+  {
+    "file": "FranchiseSeason.tsx",
+    "edits": 1,
+    "imports": [
+      "useSoloRecords"
+    ]
+  },
+  {
+    "file": "RealTeamFranchise.tsx",
+    "edits": 5,
+    "imports": [
+      "SoloPlayerLink",
+      "SoloPlayerIdentity"
+    ]
+  },
+  {
+    "file": "FantasyFranchise.tsx",
+    "edits": 4,
+    "imports": [
+      "SoloPlayerLink",
+      "SoloPlayerIdentity",
+      "SoloQuickView"
+    ]
+  },
+  {
+    "file": "PlayerAgentMode.tsx",
+    "edits": 9,
+    "imports": [
+      "SoloPortrait",
+      "SoloPlayerLink",
+      "SoloPlayerIdentity",
+      "SoloQuickView"
+    ]
+  },
+  {
+    "file": "OwnerBusinessMode.tsx",
+    "edits": 1,
+    "imports": [
+      "SoloPortrait"
+    ]
+  }
+]
