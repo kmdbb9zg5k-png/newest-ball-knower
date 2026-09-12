@@ -17,7 +17,8 @@ assert.equal(defaultAppearance({...player,name:'Renamed player'}).face,base.face
 assert.equal(appearanceSeed(player.id),appearanceSeed(player.id));
 assert.notEqual(appearanceSeed('franchise-rookie-2027-1'),appearanceSeed('franchise-rookie-2028-1'));
 const migrated=normalizeAppearance(player,{version:1,face:1,build:'power',number:0,sleeves:'both'});
-assert.equal(migrated.version,2);assert.equal(migrated.face,1);assert.equal(migrated.build,'power');assert.equal(migrated.number,0);assert.equal(migrated.sleeves,'both');
+assert.equal(migrated.version,3);assert.equal(migrated.face,1);assert.equal(migrated.build,'power');assert.equal(migrated.number,0);assert.equal(migrated.sleeves,'both');
+assert.equal(migrated.tattooCoverage,base.tattooCoverage,'Older saves inherit stable tattoo DNA');
 assert.equal(normalizeAppearance(player,{version:1,face:-1,build:'invalid',number:NaN}).face,base.face);
 assert.equal(normalizeAppearance(player,{version:1,face:FACE_COUNT,number:1000}).number,base.number);
 assert.deepEqual(readAppearance(player,{getItem:()=>'{bad',setItem:()=>{},removeItem:()=>{}}),base);
@@ -35,12 +36,16 @@ assert.deepEqual(playerAttributes({...player,speed:undefined,strength:undefined,
 
 const signatures=new Map<string,string[]>();
 const teamSignatures=new Map<string,Set<string>>();
+let tattooedPlayers=0;
 for(const item of SOLO_PLAYERS_DATABASE){
  const look=defaultAppearance(item);
  assert.ok(look.face>=0&&look.face<FACE_COUNT);assert.ok(look.hair>=0&&look.hair<HAIR_COUNT);assert.ok(look.facialHair>=0&&look.facialHair<FACIAL_HAIR_COUNT);assert.ok(look.eyeBlack>=0&&look.eyeBlack<EYE_BLACK_COUNT);assert.ok(look.number>=0&&look.number<=99);
+ if(look.tattooCoverage!=='none')tattooedPlayers++;
  const signature=appearanceSignature(item);const list=signatures.get(signature)??[];list.push(item.id);signatures.set(signature,list);
  const teamSet=teamSignatures.get(item.team)??new Set<string>();teamSet.add(signature);teamSignatures.set(item.team,teamSet);
 }
+const tattooRatio=tattooedPlayers/SOLO_PLAYERS_DATABASE.length;
+assert.ok(tattooRatio>.45&&tattooRatio<.55,`Tattoo population should stay near half: ${(tattooRatio*100).toFixed(1)}%`);
 const uniqueRatio=signatures.size/SOLO_PLAYERS_DATABASE.length;
 assert.ok(uniqueRatio>.78,`Exact appearance-DNA uniqueness too low: ${(uniqueRatio*100).toFixed(1)}%`);
 for(const [team,set] of teamSignatures)assert.ok(set.size>=44,`${team} has too many exact visual duplicates: ${set.size}/53 unique`);
@@ -50,6 +55,7 @@ assert.ok(worstCollision<=4,`One exact appearance combo is reused ${worstCollisi
 const eli=SOLO_PLAYERS_DATABASE.find(p=>p.id===CREATOR_EASTER_EGG_ID);
 assert.ok(eli,'Creator Easter egg must remain in Solo database');
 assert.equal(eli?.name,'Eli Rodriguez');assert.equal(eli?.position,'WR');assert.equal(eli?.ovr,85);assert.equal(eli?.experience,10);assert.equal(eli?.age,30);
+const eliLook=defaultAppearance(eli!);assert.equal(eliLook.tattooCoverage,'full-sleeve');assert.equal(eliLook.tattooStyle,'mixed');
 
 const manifest=JSON.parse(readFileSync('public/solo-characters/v1/manifest.json','utf8'));
 assert.equal(manifest.faces,FACE_COUNT);
@@ -62,4 +68,4 @@ for(const file of ['solo/SoloPresentation.tsx','solo/SoloPlayerProfile.tsx','sol
  const source=readFileSync(file,'utf8');assert.ok(!/gemini|api\/my-player-art|licensedPlayerPortrait|three\/|WebGLRenderer|setInterval\(/.test(source),`${file} must not add generation calls, real photos or continuous rendering`);
 }
 const css=readFileSync('solo/soloPresentation.css','utf8');assert.ok(css.includes('100dvh')&&css.includes('safe-area-inset-bottom')&&css.includes('prefers-reduced-motion'));
-console.log(JSON.stringify({playersChecked:SOLO_PLAYERS_DATABASE.length,teamsChecked:SOLO_TEAM_THEMES.length,baseFaces:FACE_COUNT,hairStyles:HAIR_COUNT,facialHairStyles:FACIAL_HAIR_COUNT,eyeBlackStyles:EYE_BLACK_COUNT,exactUniqueAppearances:signatures.size,uniqueRatio:Number(uniqueRatio.toFixed(3)),worstExactCollision:worstCollision,sharedArtBytes:sharedBytes,creatorArtBytes:creatorBytes,identityMigrationAndFailureCases:'passed',physicalIphoneVerified:false,visualFidelityApproved:false},null,2));
+console.log(JSON.stringify({playersChecked:SOLO_PLAYERS_DATABASE.length,teamsChecked:SOLO_TEAM_THEMES.length,baseFaces:FACE_COUNT,hairStyles:HAIR_COUNT,facialHairStyles:FACIAL_HAIR_COUNT,eyeBlackStyles:EYE_BLACK_COUNT,tattooedPlayers,tattooRatio:Number(tattooRatio.toFixed(3)),exactUniqueAppearances:signatures.size,uniqueRatio:Number(uniqueRatio.toFixed(3)),worstExactCollision:worstCollision,sharedArtBytes:sharedBytes,creatorArtBytes:creatorBytes,identityMigrationAndFailureCases:'passed',physicalIphoneVerified:false,visualFidelityApproved:false},null,2));
