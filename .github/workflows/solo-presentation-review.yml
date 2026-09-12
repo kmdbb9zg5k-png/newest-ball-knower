@@ -1,0 +1,44 @@
+name: Solo presentation review
+on:
+  push:
+    branches: [solo-player-universe-reference-fidelity]
+  pull_request:
+    branches: [main]
+    paths: ['solo/**', '*Franchise*.tsx', 'SoloMode.tsx', 'MyPlayerStory.tsx', 'PlayerAgentMode.tsx', 'OwnerBusinessMode.tsx', '.github/workflows/solo-presentation-review.yml']
+permissions:
+  contents: read
+concurrency:
+  group: solo-presentation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - name: Type check
+        run: npm run lint
+      - name: Production build
+        run: npm run build
+      - name: Solo functional tests
+        run: |
+          if test -f scripts/solo-appearance-check.ts; then node --import tsx scripts/solo-appearance-check.ts; fi
+          npm run check:root-bundle
+      - name: Package reproducible source for review
+        if: github.event_name == 'push'
+        run: |
+          mkdir -p /tmp/bk-solo-review
+          git archive HEAD -o /tmp/bk-solo-review/source.tar
+          tar -czf /tmp/bk-solo-review/dependencies.tar.gz node_modules
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push'
+        with:
+          name: solo-review-workspace
+          path: /tmp/bk-solo-review
+          retention-days: 1
