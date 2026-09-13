@@ -1,4 +1,7 @@
+import {agentTradeWindowMessage,canResolveAgentTradeRequest,isAgentTradeWindowOpen,TRADE_DEADLINE_WEEK,type SeasonPhase} from './agentTradeRules';
+export {agentTradeWindowMessage,canResolveAgentTradeRequest,isAgentTradeWindowOpen} from './agentTradeRules';
 import {SoloPlayerIdentity,SoloPlayerLink,SoloPortrait,SoloQuickView} from './solo/SoloPresentation';
+import {playerOnSoloTeam} from './solo/presentationPlayer';
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -64,7 +67,6 @@ const LEGACY_SAVE_KEYS = [
   "ballknower_player_agent_v1",
 ];
 const RECRUIT_COOLDOWN_DAYS = 7;
-const TRADE_DEADLINE_WEEK = 9;
 const REGULAR_SEASON_WEEKS = 18;
 const AGENT_POSITION_FILTERS = ["QB", "RB", "WR", "TE", "OT", "EDGE", "DT", "LB", "CB", "S", "K", "P"] as const;
 
@@ -131,7 +133,6 @@ type Client = {
   tradeRequest?: TradeRequest;
   career: ClientCareer;
 };
-type SeasonPhase = "preseason" | "regular" | "postseason" | "offseason";
 type AgencyState = {
   universeVersion: number;
   profile?: AgentProfile;
@@ -176,22 +177,6 @@ type RecruitState = {
   failed?: boolean;
 };
 
-export const isAgentTradeWindowOpen = (phase: SeasonPhase, week: number) =>
-  phase === "regular" &&
-  Number.isInteger(week) &&
-  week >= 1 &&
-  week <= TRADE_DEADLINE_WEEK;
-
-export const agentTradeWindowMessage = (phase: SeasonPhase) =>
-  phase === "preseason"
-    ? "The regular-season trade window is not open yet. This request remains open."
-    : `The Week ${TRADE_DEADLINE_WEEK} trade deadline has passed. This request remains open until the next regular-season trade window.`;
-
-export const canResolveAgentTradeRequest = (
-  status: "resolved" | "denied",
-  phase: SeasonPhase,
-  week: number,
-) => status !== "resolved" || isAgentTradeWindowOpen(phase, week);
 
 const MAJOR_CITIES = [
   "Atlanta, GA",
@@ -923,7 +908,8 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
         }))
         .filter((x): x is { client: Client; player: Player } =>
           Boolean(x.player),
-        ),
+        )
+        .map(({client,player}) => ({client,player:playerOnSoloTeam(player,client.currentTeam)})),
     [agency.clients],
   );
 

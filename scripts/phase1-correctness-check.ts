@@ -8,16 +8,7 @@ import {
   transferFranchiseDraftPicks,
 } from '../franchiseDraftPicks';
 
-const TRADE_DEADLINE_WEEK = 9;
-type SeasonPhase = 'preseason' | 'regular' | 'postseason' | 'offseason';
-const isAgentTradeWindowOpen = (phase: SeasonPhase, week: number) =>
-  phase === 'regular' && Number.isInteger(week) && week >= 1 && week <= TRADE_DEADLINE_WEEK;
-const agentTradeWindowMessage = (phase: SeasonPhase) =>
-  phase === 'preseason'
-    ? 'The regular-season trade window is not open yet. This request remains open.'
-    : `The Week ${TRADE_DEADLINE_WEEK} trade deadline has passed. This request remains open until the next regular-season trade window.`;
-const canResolveAgentTradeRequest = (status: 'resolved' | 'denied', phase: SeasonPhase, week: number) =>
-  status !== 'resolved' || isAgentTradeWindowOpen(phase, week);
+import {agentTradeWindowMessage,canResolveAgentTradeRequest,isAgentTradeWindowOpen,TRADE_DEADLINE_WEEK} from '../agentTradeRules';
 
 const teams = ['PHI', 'DAL'];
 let picks = createFranchiseDraftPicks(2027, teams);
@@ -42,9 +33,8 @@ assert.match(agentTradeWindowMessage('preseason'), /not open yet/i);
 assert.match(agentTradeWindowMessage('postseason'), /deadline has passed/i);
 
 const agentSource = readFileSync(new URL('../PlayerAgentMode.tsx', import.meta.url), 'utf8');
-assert.match(agentSource, /const TRADE_DEADLINE_WEEK = 9;/, 'Agent trade deadline must remain Week 9.');
-assert.match(agentSource, /export const isAgentTradeWindowOpen[\s\S]*?week <= TRADE_DEADLINE_WEEK;/, 'Agent trade-window implementation changed unexpectedly.');
-assert.match(agentSource, /status !== "resolved" \|\| isAgentTradeWindowOpen\(phase, week\)/, 'Resolved trade requests must still honor the deadline.');
+assert.equal(TRADE_DEADLINE_WEEK,9,'Agent trade deadline must remain Week 9.');
+assert.match(agentSource,/from ['"]\.\/agentTradeRules['"]/,'The UI must consume the tested production rules.');
 assert.match(readFileSync(new URL('../RealTeamFranchise.tsx', import.meta.url), 'utf8'), /const PICK_VALUES = \[38, 22, 12, 7, 4, 2, 1\]/);
 assert.match(readFileSync(new URL('../RealTeamFranchise.tsx', import.meta.url), 'utf8'), /LEGACY_TRADED/, 'legacy traded rounds must remain represented so replenishment cannot recreate them');
 

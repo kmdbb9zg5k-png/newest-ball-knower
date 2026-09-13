@@ -1,0 +1,77 @@
+name: Solo artwork fidelity audit
+on:
+  push:
+    branches: [fix/solo-art-fidelity-audit]
+permissions:
+  contents: read
+concurrency:
+  group: solo-art-fidelity-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  functional-repairs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - name: Type check and focused production regressions
+        run: |
+          git diff --check
+          npm run lint
+          node --import tsx scripts/solo-art-repair-check.ts
+          node --import tsx scripts/solo-appearance-check.ts
+          npm run check:solo-fictional
+          npm run check:solo-fantasy
+          npm run check:franchise-interactions
+          npm run check:phase1-correctness
+          npm run check:phase3-agent
+          npm run check:phase3-careers
+          npm run check:phase3-growth
+          npm run check:phase4-owner
+  browser-and-source-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - run: node --import tsx scripts/solo-art-repair-check.ts
+      - run: npx playwright install --with-deps chromium
+      - name: Actual entry screens, shared profile tabs and tattoo editing
+        run: node scripts/solo-art-browser-check.mjs
+      - name: Export reviewed source
+        if: always()
+        run: |
+          mkdir -p artifacts/solo-art-source
+          git archive --format=tar.gz HEAD > artifacts/solo-art-source/source.tar.gz
+          git rev-parse HEAD > artifacts/solo-art-source/commit.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: solo-art-audit-evidence
+          path: |
+            artifacts/solo-art-audit
+            artifacts/solo-art-browser
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: solo-art-audit-source
+          path: artifacts/solo-art-source
+          retention-days: 3
+  visual-release-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Reject prototype artwork as release-quality visuals
+        run: node scripts/solo-art-quality-gate.mjs

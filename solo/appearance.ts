@@ -49,3 +49,11 @@ export function appearanceSignature(player:AppearancePlayer):string{const l=defa
 export function uniformFor(player:AppearancePlayer,variant:UniformVariant='home'):Uniform{const team=SOLO_TEAM_THEMES.find(i=>i.abbr===player.team),primary=team?.primary??'#252c38',secondary=team?.secondary??'#d4af37';return{name:team?.name??(player.teamName&&player.team!=='FA'?player.teamName:'BK Training Kit'),abbr:team?.abbr??'BK',jersey:variant==='away'?'#f0f0e9':variant==='alternate'?'#171b24':primary,pants:variant==='away'?primary:variant==='alternate'?secondary:'#1a1e27',trim:secondary,ink:variant==='away'?primary:'#fff6d7',pattern:appearanceSeed(team?.abbr??'BK')%4};}
 export const ATTRIBUTE_LABELS:Record<string,string>={athleticism:'Athleticism',footballIQ:'Football IQ',passing:'Passing',rushing:'Rushing',receiving:'Receiving',passBlocking:'Pass blocking',runBlocking:'Run blocking',passRush:'Pass rush',runDefense:'Run defense',coverage:'Coverage',kicking:'Kicking',throwPower:'Throw power',shortAccuracy:'Short accuracy',mediumAccuracy:'Medium accuracy',deepAccuracy:'Deep accuracy',pocketPresence:'Pocket presence',decisionMaking:'Decision making',mobility:'Mobility',playAction:'Play action',throwUnderPressure:'Under pressure'};
 export function playerAttributes(player:Player):Array<{key:string;label:string;value:number}>{const fields:Array<[string,unknown]>=[['speed',player.speed],['strength',player.strength],['awareness',player.awareness],...Object.entries(player.attributes??{})];return fields.filter(([,v])=>typeof v==='number'&&Number.isFinite(v)).map(([key,v])=>({key,label:ATTRIBUTE_LABELS[key]??key.charAt(0).toUpperCase()+key.slice(1),value:Number(v)}));}
+
+/** Shared identity for save detection and render invalidation, including tattoo-only edits. */
+export function appearanceRenderKey(look: Appearance): string {
+  return JSON.stringify(Object.keys(look).sort().map(key => [key, look[key as keyof Appearance]]));
+}
+export function sameAppearance(first: Appearance, second: Appearance): boolean {
+  return appearanceRenderKey(first) === appearanceRenderKey(second);
+}
