@@ -1,9 +1,8 @@
-import './soloAppearanceV2.css';
 import React,{createContext,lazy,Suspense,useCallback,useContext,useEffect,useMemo,useRef,useState} from 'react';
 import type {Player} from '../types';
 import type {SoloWeek,PlayerLine} from '../soloSeasonEngine';
 import type {FranchiseInteractionState} from '../franchiseInteractions';
-import {Appearance,AppearancePlayer,CREATOR_EASTER_EGG_ID,readAppearance,SOLO_ART_ROOT,UniformVariant} from './appearance';
+import {Appearance,AppearancePlayer,CREATOR_EASTER_EGG_ID,appearanceRenderKey,readAppearance,SOLO_ART_ROOT,UniformVariant} from './appearance';
 
 export type PlayerGameLog = PlayerLine & {week:number;opponent:string;won:boolean;year?:number};
 export type SoloPlayerRecord = {player:Player;logs?:PlayerGameLog[];development?:FranchiseInteractionState['development'][string]};
@@ -30,7 +29,7 @@ export function SoloPresentationProvider({children}:{children:React.ReactNode}) 
   const [revision,setRevision]=useState(0);
   const registerRecords=useCallback((value:Map<string,SoloPlayerRecord>)=>{
     const owner=Symbol();records.current.set(owner,value);setRevision(n=>n+1);
-    return()=>{records.current.delete(owner);};
+    return()=>{records.current.delete(owner);setRevision(n=>n+1);};
   },[]);
   const openPlayer=useCallback((record:SoloPlayerRecord)=>setSelected(record),[]);
   const value=useMemo(()=>({openPlayer,registerRecords}),[openPlayer,registerRecords]);
@@ -71,12 +70,12 @@ export function useSoloRecords(roster:Player[],weeks:SoloWeek[],interactions?:Fr
 export function SoloPortrait({player,className='',face}:{player:AppearancePlayer;className?:string;face?:number}) {
   const look=useAppearance(player);const selected=face??look.face;
   const [failed,setFailed]=useState(false);
+  useEffect(()=>setFailed(false),[player.id,selected]);
   if(player.id===CREATOR_EASTER_EGG_ID&&face===undefined){
-    return <span className={`bk-solo-portrait ${className}`} aria-hidden="true" data-face="bk-001" data-creator="true" style={{backgroundImage:`url(${ELI_FACE})`,backgroundSize:'cover',backgroundPosition:'50% 24%',backgroundRepeat:'no-repeat'}}/>;
+    return <span className={`bk-solo-portrait ${className}`} aria-hidden="true" data-face="bk-001" data-creator="true" >{!failed?<img src={ELI_FACE} alt="" loading="lazy" decoding="async" width="192" height="240" onError={()=>setFailed(true)} style={{left:0,top:0,width:'100%',height:'100%',objectFit:'cover',objectPosition:'50% 24%'}}/>:<span className="bk-solo-art-fallback">BK</span>}</span>;
   }
   return <span className={`bk-solo-portrait ${className}`} aria-hidden="true" data-face={selected} data-hair={look.hair} data-beard={look.facialHair} data-eye-black={look.eyeBlack}>
     {!failed?<img src={`${SOLO_ART_ROOT}/faces.webp`} alt="" loading="lazy" decoding="async" width="384" height="480" onError={()=>setFailed(true)} style={{left:`-${selected%3*100}%`,top:`-${Math.floor(selected/3)*100}%`}}/>:<span className="bk-solo-art-fallback">BK</span>}
-    <i className="bk-solo-portrait-hair"/><i className="bk-solo-portrait-beard"/><i className="bk-solo-portrait-eye-black"/>
   </span>;
 }
 
@@ -107,7 +106,7 @@ export function SoloCharacter({player,look,variant='home',helmet=false,className
       if(current)setState('ready');
     }).catch(()=>{if(current)setState('error');});});
     return()=>{current=false;cancelAnimationFrame(frame);};
-  },[player.id,player.name,player.team,player.teamName,look.face,look.hair,look.facialHair,look.eyeBlack,look.build,look.number,look.sleeves,look.gloves,variant,helmet,retry]);
+  },[player.id,player.name,player.team,player.teamName,appearanceRenderKey(look),variant,helmet,retry]);
   return <div className={`bk-solo-character ${className}`} data-render-state={state} data-build={look.build}>
     <canvas ref={canvas} width="256" height="768" role="img" aria-label={`${player.name}, simulated full-body player in ${variant} uniform`} />
     {state==='loading'&&<span className="bk-solo-art-status" role="status">Loading player…</span>}
