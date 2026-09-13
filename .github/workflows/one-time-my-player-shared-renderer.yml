@@ -1,0 +1,117 @@
+name: One-time My Player shared renderer migration
+on:
+  push:
+    branches: [fix/solo-art-fidelity-audit]
+permissions:
+  contents: write
+jobs:
+  migrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/solo-art-fidelity-audit
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply shared-renderer migration
+        shell: bash
+        run: |
+          cat > solo/MyPlayerSharedRender.tsx <<'EOF'
+          import React, { useMemo } from 'react';
+          import type { Position } from '../types';
+          import type { Appearance, AppearancePlayer, BodyBuild, GloveStyle, SleeveStyle, TattooCoverage, TattooStyle } from './appearance';
+          import { appearanceSeed, defaultAppearance } from './appearance';
+          import { SoloCharacter } from './SoloPresentation';
+
+          type Profile = {
+            name:string; position:Position; number:number; faceImage:string; presetFaceId:string; renderImage:string;
+            appearancePrompt:string; teamAbbr:string; heightInches:number; weightLbs:number; bodyBuild:number;
+            shoulderWidth:number; armSize:number; legSize:number; viewRotation:number;
+          };
+          const FACE_BY_PRESET:Record<string,number>={mason:0,nico:2,malik:5,darius:7};
+          const clamp=(v:number,min:number,max:number)=>Math.max(min,Math.min(max,v));
+          const feetAndInches=(inches:number)=>`${Math.floor(inches/12)}'${inches%12}\"`;
+          function buildFor(profile:Profile):BodyBuild{const frame=profile.bodyBuild+Math.max(0,profile.weightLbs-205)*.22;return frame>=82?'heavy':frame>=61?'power':frame>=34?'athletic':'lean';}
+          function promptAppearance(value:string):Pick<Appearance,'sleeves'|'gloves'|'tattooCoverage'|'tattooStyle'>{
+            const prompt=value.toLowerCase();
+            const sleeves:SleeveStyle=/both.+sleeve|two.+sleeve/.test(prompt)?'both':/left.+sleeve/.test(prompt)?'left':/right.+sleeve|arm sleeve/.test(prompt)?'right':'none';
+            const gloves:GloveStyle=/white|light/.test(prompt)&&/glove/.test(prompt)?'light':/glove/.test(prompt)?'dark':'none';
+            const tattooCoverage:TattooCoverage=/both.+tattoo|two.+tattoo/.test(prompt)?'both-arms':/full.+sleeve|tattoo sleeve/.test(prompt)?'full-sleeve':/half.+sleeve/.test(prompt)?'half-sleeve':/forearm/.test(prompt)?'forearm':/tattoo/.test(prompt)?'upper-arm':'none';
+            const tattooStyle:TattooStyle=/script/.test(prompt)?'script':/geometric/.test(prompt)?'geometric':/traditional/.test(prompt)?'traditional':/blackwork/.test(prompt)?'blackwork':'mixed';
+            return{sleeves,gloves,tattooCoverage,tattooStyle};
+          }
+          function sharedPlayer(profile:Profile):AppearancePlayer{return{id:'my-player-user',name:profile.name||'My Player',position:profile.position,team:profile.teamAbbr||'BK',teamName:profile.teamAbbr?undefined:'Ball Knower Training',jerseyNumber:clamp(Math.round(profile.number),0,99)};}
+          function sharedAppearance(profile:Profile,player:AppearancePlayer):Appearance{const base=defaultAppearance(player);return{...base,face:FACE_BY_PRESET[profile.presetFaceId]??base.face,build:buildFor(profile),number:clamp(Math.round(profile.number),0,99),...promptAppearance(profile.appearancePrompt),tattooSeed:appearanceSeed(`my-player:${profile.name}:${profile.presetFaceId}:${profile.appearancePrompt}`)&0x7fffffff};}
+          export function MyPlayerSharedRender({profile,compact=false}:{profile:Profile;compact?:boolean}){
+            const player=useMemo(()=>sharedPlayer(profile),[profile.name,profile.position,profile.teamAbbr,profile.number]);
+            const look=useMemo(()=>sharedAppearance(profile,player),[player,profile.presetFaceId,profile.bodyBuild,profile.weightLbs,profile.appearancePrompt]);
+            const heightScale=clamp(.93+(profile.heightInches-70)*.012,.88,1.09);
+            const widthScale=clamp(.92+(profile.weightLbs-185)*.0015+(profile.shoulderWidth-50)*.0012,.88,1.14);
+            if(profile.renderImage)return <div className={`relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#111] ${compact?'h-[260px]':''}`} data-my-player-render="ai"><img src={profile.renderImage} alt={`${profile.name||'Created player'} render`} className={`${compact?'h-full':'aspect-[4/5] h-full'} w-full object-cover`} style={{transform:`perspective(900px) rotateY(${profile.viewRotation*.12}deg) scale(${compact?1.05:1})`,transition:'transform 120ms ease-out'}}/><div className="absolute bottom-3 left-3 rounded-full bg-black/70 px-3 py-1 text-[9px] font-black">{feetAndInches(profile.heightInches)} • {profile.weightLbs} LB</div></div>;
+            return <div className={`relative overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(ellipse_at_50%_105%,rgba(94,234,196,.18),transparent_48%),radial-gradient(circle_at_50%_15%,rgba(90,120,180,.3),transparent_30%),linear-gradient(160deg,#111827,#05070b)] ${compact?'min-h-[260px]':'min-h-[500px]'}`} data-my-player-render="shared"><div className="absolute inset-x-0 top-5 z-10 text-center text-[9px] font-black tracking-[.24em] text-white/35">SHARED PLAYER ENGINE</div><div className="absolute inset-x-0 bottom-9 top-10 flex items-end justify-center overflow-hidden"><div className="origin-bottom transition-transform duration-150" style={{width:compact?150:232,transform:`perspective(900px) rotateY(${profile.viewRotation*.18}deg) scaleX(${widthScale}) scaleY(${heightScale})`}}><SoloCharacter player={player} look={look} customFaceSrc={profile.faceImage||undefined} className="bk-my-player-shared-character"/></div></div><div className="absolute bottom-3 left-3 rounded-full bg-black/70 px-3 py-1 text-[9px] font-black">{feetAndInches(profile.heightInches)} • {profile.weightLbs} LB</div><div className="absolute bottom-3 right-3 rounded-full bg-black/70 px-3 py-1 text-[8px] font-black text-white/60">{look.build.toUpperCase()}</div></div>;
+          }
+          EOF
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('MyPlayerStory.tsx'); s=p.read_text()
+          anchor="import { AiPhotoConsent, AI_PHOTO_CONSENT_VERSION } from './AiPhotoConsent';\n"
+          imp="import { MyPlayerSharedRender as PlayerRender } from './solo/MyPlayerSharedRender';\n"
+          if imp not in s: s=s.replace(anchor,anchor+imp)
+          marker="const PlayerRender = ({ profile, compact = false }"
+          if marker in s:
+            start=s.index(marker); end=s.index("\n\n\nconst Combine =",start); s=s[:start]+s[end+2:]
+          p.write_text(s)
+          PY
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('solo/SoloPresentation.tsx'); s=p.read_text()
+          old="export function SoloCharacter({player,look,variant='home',helmet=false,className=''}:{player:AppearancePlayer;look:Appearance;variant?:UniformVariant;helmet?:boolean;className?:string}) {"
+          new="export function SoloCharacter({player,look,variant='home',helmet=false,className='',customFaceSrc}:{player:AppearancePlayer;look:Appearance;variant?:UniformVariant;helmet?:boolean;className?:string;customFaceSrc?:string}) {"
+          s=s.replace(old,new)
+          s=s.replace("const renderKey=JSON.stringify([player.id,player.name,player.team,player.teamName,appearanceRenderKey(look),variant,helmet,retry]);","const customFaceKey=customFaceSrc?`${customFaceSrc.length}:${customFaceSrc.slice(-32)}`:'';\n  const renderKey=JSON.stringify([player.id,player.name,player.team,player.teamName,appearanceRenderKey(look),variant,helmet,customFaceKey,retry]);")
+          s=s.replace("await drawCharacter(canvas.current,player,look,variant,helmet,()=>current);","await drawCharacter(canvas.current,player,look,variant,helmet,customFaceSrc,()=>current);")
+          old="<SoloPortrait key={`${player.id}:${retry}`} player={player} face={player.id===CREATOR_EASTER_EGG_ID?undefined:look.face}/>"
+          new="{customFaceSrc?<img src={customFaceSrc} alt=\"\" className=\"bk-solo-custom-face-fallback\"/>:<SoloPortrait key={`${player.id}:${retry}`} player={player} face={player.id===CREATOR_EASTER_EGG_ID?undefined:look.face}/>}"
+          s=s.replace(old,new)
+          p.write_text(s)
+          PY
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('solo/characterRenderer.ts'); s=p.read_text()
+          old="export async function drawCharacter(canvas:HTMLCanvasElement,player:AppearancePlayer,look:Appearance,variant:UniformVariant='home',helmet=false,isCurrent:()=>boolean=()=>true):Promise<void>{look=normalizeAppearance(player,look);const portrait=portraitAsset(player,look.face),creator=portrait.single;const[body,regions,faceImage]=await Promise.all([loadImage(`${SOLO_ART_ROOT}/body.webp`),loadImage(`${SOLO_ART_ROOT}/regions.webp`),loadImage(portrait.src)]);"
+          new="export async function drawCharacter(canvas:HTMLCanvasElement,player:AppearancePlayer,look:Appearance,variant:UniformVariant='home',helmet=false,customFaceSrc?:string,isCurrent:()=>boolean=()=>true):Promise<void>{look=normalizeAppearance(player,look);const portrait=portraitAsset(player,look.face),creator=portrait.single&&!customFaceSrc,customFace=Boolean(customFaceSrc),faceSource=customFaceSrc||portrait.src;const[body,regions,faceImage]=await Promise.all([loadImage(`${SOLO_ART_ROOT}/body.webp`),loadImage(`${SOLO_ART_ROOT}/regions.webp`),loadImage(faceSource)]);"
+          s=s.replace(old,new)
+          old="if(creator){ctx.save();ctx.beginPath();ctx.ellipse(133,83,58,82,0,0,Math.PI*2);ctx.clip();ctx.drawImage(faceImage,0,0,faceImage.naturalWidth,faceImage.naturalHeight,75,0,116,165);ctx.restore()}else{const cw=faceImage.naturalWidth/PORTRAIT_COLUMNS,ch=faceImage.naturalHeight/PORTRAIT_ROWS;ctx.drawImage(faceImage,portrait.column*cw,portrait.row*ch,cw,ch,75,0,116,165)}"
+          new="if(creator||customFace){ctx.save();ctx.beginPath();ctx.ellipse(133,83,58,82,0,0,Math.PI*2);ctx.clip();const targetRatio=116/165,sourceRatio=faceImage.naturalWidth/faceImage.naturalHeight;let sx=0,sy=0,sw=faceImage.naturalWidth,sh=faceImage.naturalHeight;if(sourceRatio>targetRatio){sw=sh*targetRatio;sx=(faceImage.naturalWidth-sw)/2}else{sh=sw/targetRatio;sy=Math.max(0,(faceImage.naturalHeight-sh)*.28)}ctx.drawImage(faceImage,sx,sy,sw,sh,75,0,116,165);ctx.restore()}else{const cw=faceImage.naturalWidth/PORTRAIT_COLUMNS,ch=faceImage.naturalHeight/PORTRAIT_ROWS;ctx.drawImage(faceImage,portrait.column*cw,portrait.row*ch,cw,ch,75,0,116,165)}"
+          s=s.replace(old,new)
+          p.write_text(s)
+          PY
+          cat >> solo/playerPhotos.css <<'EOF'
+          .bk-solo-custom-face-fallback{width:min(100%,150px);aspect-ratio:4/5;object-fit:cover;object-position:50% 28%;border-radius:42%}
+          .bk-my-player-shared-character canvas{width:100%;height:auto;display:block}
+          EOF
+          cat > scripts/my-player-shared-renderer-check.ts <<'EOF'
+          import assert from 'node:assert/strict';import{readFileSync}from'node:fs';
+          const story=readFileSync('MyPlayerStory.tsx','utf8'),shared=readFileSync('solo/MyPlayerSharedRender.tsx','utf8'),presentation=readFileSync('solo/SoloPresentation.tsx','utf8'),renderer=readFileSync('solo/characterRenderer.ts','utf8');
+          assert.ok(!story.includes('const PlayerRender ='),'legacy CSS mannequin must be removed');
+          assert.match(story,/MyPlayerSharedRender as PlayerRender/);assert.match(shared,/customFaceSrc=\{profile\.faceImage\|\|undefined\}/);assert.match(shared,/profile\.renderImage/);assert.match(shared,/heightInches/);assert.match(shared,/shoulderWidth/);assert.match(shared,/appearancePrompt/);assert.match(presentation,/customFaceSrc\?:string/);assert.match(renderer,/faceSource=customFaceSrc\|\|portrait\.src/);console.log('PASS: My Player uses shared renderer while retaining selfie, AI render, body settings, prompt cosmetics and saved profile fields.');
+          EOF
+      - run: npm ci --no-audit --no-fund
+      - name: Verify migration
+        run: |
+          npm run lint
+          npm run build
+          node --import tsx scripts/my-player-shared-renderer-check.ts
+          node --import tsx scripts/solo-player-photos-check.ts
+          node scripts/solo-art-quality-gate.mjs || true
+      - name: Commit migration and retire this workflow
+        shell: bash
+        run: |
+          rm .github/workflows/one-time-my-player-shared-renderer.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add MyPlayerStory.tsx solo/MyPlayerSharedRender.tsx solo/SoloPresentation.tsx solo/characterRenderer.ts solo/playerPhotos.css scripts/my-player-shared-renderer-check.ts .github/workflows/one-time-my-player-shared-renderer.yml
+          git commit -m "Migrate My Player to shared Solo character renderer"
+          git push origin HEAD:fix/solo-art-fidelity-audit
