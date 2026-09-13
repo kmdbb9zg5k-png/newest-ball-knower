@@ -53,13 +53,15 @@ assert.match(source('solo/MyPlayerSharedRender.tsx'),/customFaceSrc=\{profile\.f
 assert.match(source('PlayerAgentMode.tsx'),/playerOnSoloTeam\(player,client.currentTeam\)/);
 
 for(const obsolete of ['solo/characterRenderer.ts','solo/portraitAsset.ts','solo/imageLoader.ts','solo/tattooMask.ts','public/solo-characters/v1/manifest.json'])assert(!existsSync(obsolete),'Obsolete prototype remains: '+obsolete);
-const api=source('api/simulated-player-art.ts'),migration=source('migrations/20260913142719_simulated_player_art_v4.sql');
-assert.match(api,/SUPABASE_SERVICE_ROLE_KEY/);assert.match(api,/SIMULATED_PLAYER_ART_ADMIN_KEY/);assert.match(api,/status:'pending_review'/);assert.match(api,/image_size:full\?'2K':'1K'/);
+const api=source('api/simulated-player-art.ts'),migration=source('migrations/20260913142719_simulated_player_art_v4.sql'),budgetMigration=source('migrations/20260913191220_simulated_player_art_budget_cap.sql');
+assert.match(api,/SUPABASE_SERVICE_ROLE_KEY/);assert.match(api,/SIMULATED_PLAYER_ART_ADMIN_KEY/);assert.match(api,/status:'pending_review'/);assert.match(api,/ai\.batches\.create/);
+assert.match(source('solo/artBudget.ts'),/gemini-3\.1-flash-lite-image/);assert.match(api,/responseModalities:\['IMAGE'\]/);assert.match(api,/source_sheet_path/);
 assert.match(api,/appearanceRenderKey\(appearance\)/);assert.match(api,/\['BK','FA'\]/);
 assert.match(api,/reusableIdentityAnchor/);assert.match(api,/identity_anchor_path/);assert.match(api,/Every production visual check must pass before approval/);
 assert.match(api,/resize\(96,96/);assert.match(api,/resize\(160,200/);assert.match(api,/resize\(384,480/);assert.match(api,/resize\(640,800/);assert.match(api,/resize\(768,1152/);
 assert.match(migration,new RegExp(SIMULATED_ART_BUCKET));assert.match(migration,/enable row level security/);assert.match(migration,/grant select .* anon,authenticated/);assert.match(migration,/status='approved'/);
 assert.match(migration,/identity_anchor_path is not null/);
+assert.match(budgetMigration,/35000000/);assert.match(budgetMigration,/reserve_simulated_art_generation/);assert.match(budgetMigration,/for update/);assert.match(budgetMigration,/service_role/);
 assert.doesNotMatch(source('OwnerBusinessMode.tsx'),/owner-trade-request\.png/);assert.match(source('OwnerBusinessMode.tsx'),/SoloPortrait/);
 assert.match(source('FranchiseSeason.tsx'),/franchise-rookie-/);assert.match(source('FranchiseSeason.tsx'),/SoloPortrait/);
 
