@@ -43,7 +43,7 @@ try{
    await hub();await shot('hub');
    await page.locator('.bk-mode-card').filter({hasText:'CAP CHALLENGE'}).click();
    await page.getByPlaceholder('Search players...').fill('Eli Rodriguez');
-   const open=page.locator('[data-solo-player-id="bk-001-eli-rodriguez"]').first();await open.waitFor();await shot('cap');await open.click();
+   const open=page.locator('button.bk-solo-player-link[data-solo-player-id="bk-001-eli-rodriguez"]');await open.waitFor();await shot('cap');await open.click();
    const dialog=page.locator('.bk-solo-profile');await dialog.waitFor();
    await dialog.locator('.bk-solo-hero-art [data-render-state="ready"]').waitFor();await shot('profile');
    for(const name of ['Stats','Game log','Development','Overview']){
