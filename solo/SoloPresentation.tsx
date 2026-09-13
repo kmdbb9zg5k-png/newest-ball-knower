@@ -1,26 +1,31 @@
-import React,{createContext,lazy,Suspense,useCallback,useContext,useEffect,useMemo,useRef,useState} from 'react';
+import React,{createContext,lazy,Suspense,useCallback,useContext,useEffect,useMemo,useRef,useState,useSyncExternalStore} from 'react';
 import type {Player} from '../types';
 import type {SoloWeek,PlayerLine} from '../soloSeasonEngine';
 import type {FranchiseInteractionState} from '../franchiseInteractions';
-import {Appearance,AppearancePlayer,CREATOR_EASTER_EGG_ID,appearanceRenderKey,readAppearance,SOLO_ART_ROOT,UniformVariant} from './appearance';
+import {Appearance,AppearancePlayer,CREATOR_EASTER_EGG_ID,appearanceKey,appearanceRenderKey,defaultAppearance,readAppearance,SOLO_ART_ROOT,UniformVariant} from './appearance';
+
+import {portraitAsset} from './portraitAsset';
+import './playerPhotos.css';
 
 export type PlayerGameLog = PlayerLine & {week:number;opponent:string;won:boolean;year?:number};
 export type SoloPlayerRecord = {player:Player;logs?:PlayerGameLog[];development?:FranchiseInteractionState['development'][string]};
 type PresentationContext = {openPlayer:(record:SoloPlayerRecord)=>void;registerRecords:(records:Map<string,SoloPlayerRecord>)=>()=>void};
 const Context=createContext<PresentationContext|null>(null);
 const Profile=lazy(()=>import('./SoloPlayerProfile'));
-const ELI_FACE=`${SOLO_ART_ROOT}/creator/eli-face.webp`;
 
 export function useAppearance(player:AppearancePlayer):Appearance {
-  const [look,setLook]=useState(()=>readAppearance(player));
-  useEffect(()=>{
-    const sync=()=>setLook(readAppearance(player));sync();
+  const subscribe=useCallback((sync:()=>void)=>{
     const local=(event:Event)=>{if((event as CustomEvent).detail===player.id)sync();};
-    const remote=(event:StorageEvent)=>{if(event.key===null||event.key?.endsWith(encodeURIComponent(player.id)))sync();};
+    const remote=(event:StorageEvent)=>{if(event.key===null||event.key===appearanceKey(player.id))sync();};
     window.addEventListener('bk-solo-appearance',local);window.addEventListener('storage',remote);
     return()=>{window.removeEventListener('bk-solo-appearance',local);window.removeEventListener('storage',remote);};
-  },[player.id,player.position,player.jerseyNumber]);
-  return look;
+  },[player.id]);
+  // Primitive snapshots are stable between reads. A reused row reads its NEW player's
+  // appearance during render, rather than displaying the previous face until an effect runs.
+  const getSnapshot=useCallback(()=>JSON.stringify(readAppearance(player)),[player.id,player.position,player.jerseyNumber]);
+  const getServerSnapshot=useCallback(()=>JSON.stringify(defaultAppearance(player)),[player.id,player.position,player.jerseyNumber]);
+  const snapshot=useSyncExternalStore(subscribe,getSnapshot,getServerSnapshot);
+  return useMemo(()=>JSON.parse(snapshot) as Appearance,[snapshot]);
 }
 
 export function SoloPresentationProvider({children}:{children:React.ReactNode}) {
@@ -68,14 +73,18 @@ export function useSoloRecords(roster:Player[],weeks:SoloWeek[],interactions?:Fr
 }
 
 export function SoloPortrait({player,className='',face}:{player:AppearancePlayer;className?:string;face?:number}) {
-  const look=useAppearance(player);const selected=face??look.face;
-  const [failed,setFailed]=useState(false);
-  useEffect(()=>setFailed(false),[player.id,selected]);
-  if(player.id===CREATOR_EASTER_EGG_ID&&face===undefined){
-    return <span className={`bk-solo-portrait ${className}`} aria-hidden="true" data-face="bk-001" data-creator="true" >{!failed?<img src={ELI_FACE} alt="" loading="lazy" decoding="async" width="192" height="240" onError={()=>setFailed(true)} style={{left:0,top:0,width:'100%',height:'100%',objectFit:'cover',objectPosition:'50% 24%'}}/>:<span className="bk-solo-art-fallback">BK</span>}</span>;
-  }
-  return <span className={`bk-solo-portrait ${className}`} aria-hidden="true" data-face={selected} data-hair={look.hair} data-beard={look.facialHair} data-eye-black={look.eyeBlack}>
-    {!failed?<img src={`${SOLO_ART_ROOT}/faces.webp`} alt="" loading="lazy" decoding="async" width="384" height="480" onError={()=>setFailed(true)} style={{left:`-${selected%3*100}%`,top:`-${Math.floor(selected/3)*100}%`}}/>:<span className="bk-solo-art-fallback">BK</span>}
+  const look=useAppearance(player);
+  const asset=portraitAsset(player,face??look.face,face!==undefined);
+  const [failedSource,setFailedSource]=useState<string|null>(null);
+  const failed=failedSource===asset.src;
+  return <span className={`bk-solo-portrait ${className}`} aria-hidden="true"
+    data-face={asset.single?'bk-001':asset.face} data-creator={asset.single?'true':undefined}
+    data-portrait-kind={asset.single?'single':'atlas'} data-hair={look.hair} data-beard={look.facialHair} data-eye-black={look.eyeBlack}>
+    {!failed?<img key={asset.src} src={asset.src} alt="" loading="lazy" decoding="async"
+      width={asset.single?192:384} height={asset.single?240:480}
+      onError={()=>setFailedSource(asset.src)}
+      style={{left:`-${asset.single?0:asset.column*100}%`,top:`-${asset.single?0:asset.row*100}%`}}/>
+      :<span className="bk-solo-art-fallback">{player.name.trim().split(/\s+/).slice(0,2).map(part=>part[0]).join('')||'BK'}</span>}
   </span>;
 }
 
@@ -96,21 +105,45 @@ export function SoloQuickView({player}:{player:Player}) {
 }
 
 export function SoloCharacter({player,look,variant='home',helmet=false,className=''}:{player:AppearancePlayer;look:Appearance;variant?:UniformVariant;helmet?:boolean;className?:string}) {
-  const canvas=useRef<HTMLCanvasElement>(null);const [state,setState]=useState<'loading'|'ready'|'error'>('loading');
+  const canvas=useRef<HTMLCanvasElement>(null);
+  const container=useRef<HTMLDivElement>(null);
+  const [visible,setVisible]=useState(false);
   const [retry,setRetry]=useState(0);
+  const renderKey=JSON.stringify([player.id,player.name,player.team,player.teamName,appearanceRenderKey(look),variant,helmet,retry]);
+  const [result,setResult]=useState<{key:string;state:'loading'|'ready'|'error'}>({key:'',state:'loading'});
+  const state=result.key===renderKey?result.state:'loading';
   useEffect(()=>{
-    let current=true;let frame=0;setState('loading');
-    frame=requestAnimationFrame(()=>{import('./characterRenderer').then(async({drawCharacter})=>{
+    if(typeof IntersectionObserver==='undefined'){setVisible(true);return;}
+    const observer=new IntersectionObserver(entries=>{
+      if(entries.some(entry=>entry.isIntersecting)){setVisible(true);observer.disconnect();}
+    },{rootMargin:'128px'});
+    if(container.current)observer.observe(container.current);
+    return()=>observer.disconnect();
+  },[]);
+  useEffect(()=>{
+    if(!visible)return;
+    let current=true;
+    setResult({key:renderKey,state:'loading'});
+    const frame=requestAnimationFrame(()=>{import('./characterRenderer').then(async({drawCharacter})=>{
       if(!current||!canvas.current)return;
       await drawCharacter(canvas.current,player,look,variant,helmet,()=>current);
-      if(current)setState('ready');
-    }).catch(()=>{if(current)setState('error');});});
+      if(current)setResult({key:renderKey,state:'ready'});
+    }).catch(()=>{if(current)setResult({key:renderKey,state:'error'});});});
     return()=>{current=false;cancelAnimationFrame(frame);};
-  },[player.id,player.name,player.team,player.teamName,appearanceRenderKey(look),variant,helmet,retry]);
-  return <div className={`bk-solo-character ${className}`} data-render-state={state} data-build={look.build}>
-    <canvas ref={canvas} width="256" height="768" role="img" aria-label={`${player.name}, simulated full-body player in ${variant} uniform`} />
-    {state==='loading'&&<span className="bk-solo-art-status" role="status">Loading player…</span>}
-    {state==='error'&&<div className="bk-solo-art-status" role="status">Artwork unavailable.<button type="button" onClick={()=>setRetry(n=>n+1)}>Retry preview</button></div>}
+  },[renderKey,visible]);
+  return <div ref={container} className={`bk-solo-character ${className}`} data-render-state={visible?state:'waiting'} data-build={look.build}>
+    {/* A new identity gets a new canvas immediately; an old player's pixels never carry over. */}
+    <canvas key={renderKey} ref={canvas} width="256" height="768" role="img" aria-hidden={state!=='ready'}
+      style={{visibility:state==='ready'?'visible':'hidden'}} aria-label={`${player.name}, simulated full-body player in ${variant} uniform`} />
+    {visible&&state==='loading'&&<span className="bk-solo-art-status" role="status">Loading player…</span>}
+    {state==='error'&&<>
+      <div className="bk-solo-character-fallback" role="img" aria-label={`${player.name}, portrait fallback`}>
+        <SoloPortrait key={`${player.id}:${retry}`} player={player} face={player.id===CREATOR_EASTER_EGG_ID?undefined:look.face}/>
+      </div>
+      <div className="bk-solo-art-status" role="status">Full-body preview unavailable. Your player is unchanged.
+        <button type="button" onClick={()=>setRetry(n=>n+1)}>Retry preview</button>
+      </div>
+    </>}
   </div>;
 }
 

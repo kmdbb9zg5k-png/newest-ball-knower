@@ -1,0 +1,21 @@
+/* Single-person photos must not inherit the 300% atlas crop from the shared portrait rule. */
+.bk-solo-portrait[data-portrait-kind="single"]>img {
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+  object-position:50% 24%;
+  left:0;
+  top:0;
+}
+.bk-solo-character-fallback {
+  position:absolute;
+  inset:10% 10% auto;
+  display:flex;
+  justify-content:center;
+}
+.bk-solo-character-fallback .bk-solo-portrait {
+  width:min(100%,150px);
+  height:auto;
+  aspect-ratio:4/5;
+  flex-basis:auto;
+}
