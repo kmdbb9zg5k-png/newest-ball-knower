@@ -19,3 +19,5 @@
   aspect-ratio:4/5;
   flex-basis:auto;
 }
+.bk-solo-custom-face-fallback{width:min(100%,150px);aspect-ratio:4/5;object-fit:cover;object-position:50% 28%;border-radius:42%}
+.bk-my-player-shared-character canvas{width:100%;height:auto;display:block}

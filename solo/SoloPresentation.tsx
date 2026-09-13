@@ -104,12 +104,13 @@ export function SoloQuickView({player}:{player:Player}) {
   return <button type="button" className="bk-solo-quick-view" data-solo-player-id={player.id} aria-label={`View ${player.name} player profile`} onClick={()=>presentation.openPlayer({player})}><span aria-hidden="true">↗</span></button>;
 }
 
-export function SoloCharacter({player,look,variant='home',helmet=false,className=''}:{player:AppearancePlayer;look:Appearance;variant?:UniformVariant;helmet?:boolean;className?:string}) {
+export function SoloCharacter({player,look,variant='home',helmet=false,className='',customFaceSrc}:{player:AppearancePlayer;look:Appearance;variant?:UniformVariant;helmet?:boolean;className?:string;customFaceSrc?:string}) {
   const canvas=useRef<HTMLCanvasElement>(null);
   const container=useRef<HTMLDivElement>(null);
   const [visible,setVisible]=useState(false);
   const [retry,setRetry]=useState(0);
-  const renderKey=JSON.stringify([player.id,player.name,player.team,player.teamName,appearanceRenderKey(look),variant,helmet,retry]);
+  const customFaceKey=customFaceSrc?`${customFaceSrc.length}:${customFaceSrc.slice(-32)}`:'';
+  const renderKey=JSON.stringify([player.id,player.name,player.team,player.teamName,appearanceRenderKey(look),variant,helmet,customFaceKey,retry]);
   const [result,setResult]=useState<{key:string;state:'loading'|'ready'|'error'}>({key:'',state:'loading'});
   const state=result.key===renderKey?result.state:'loading';
   useEffect(()=>{
@@ -126,7 +127,7 @@ export function SoloCharacter({player,look,variant='home',helmet=false,className
     setResult({key:renderKey,state:'loading'});
     const frame=requestAnimationFrame(()=>{import('./characterRenderer').then(async({drawCharacter})=>{
       if(!current||!canvas.current)return;
-      await drawCharacter(canvas.current,player,look,variant,helmet,()=>current);
+      await drawCharacter(canvas.current,player,look,variant,helmet,customFaceSrc,()=>current);
       if(current)setResult({key:renderKey,state:'ready'});
     }).catch(()=>{if(current)setResult({key:renderKey,state:'error'});});});
     return()=>{current=false;cancelAnimationFrame(frame);};
@@ -138,7 +139,7 @@ export function SoloCharacter({player,look,variant='home',helmet=false,className
     {visible&&state==='loading'&&<span className="bk-solo-art-status" role="status">Loading player…</span>}
     {state==='error'&&<>
       <div className="bk-solo-character-fallback" role="img" aria-label={`${player.name}, portrait fallback`}>
-        <SoloPortrait key={`${player.id}:${retry}`} player={player} face={player.id===CREATOR_EASTER_EGG_ID?undefined:look.face}/>
+        {customFaceSrc?<img src={customFaceSrc} alt="" className="bk-solo-custom-face-fallback"/>:<SoloPortrait key={`${player.id}:${retry}`} player={player} face={player.id===CREATOR_EASTER_EGG_ID?undefined:look.face}/>}
       </div>
       <div className="bk-solo-art-status" role="status">Full-body preview unavailable. Your player is unchanged.
         <button type="button" onClick={()=>setRetry(n=>n+1)}>Retry preview</button>

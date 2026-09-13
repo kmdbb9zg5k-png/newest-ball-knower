@@ -1,0 +1,4 @@
+import assert from 'node:assert/strict';import{readFileSync}from'node:fs';
+const story=readFileSync('MyPlayerStory.tsx','utf8'),shared=readFileSync('solo/MyPlayerSharedRender.tsx','utf8'),presentation=readFileSync('solo/SoloPresentation.tsx','utf8'),renderer=readFileSync('solo/characterRenderer.ts','utf8');
+assert.ok(!story.includes('const PlayerRender ='),'legacy CSS mannequin must be removed');
+assert.match(story,/MyPlayerSharedRender as PlayerRender/);assert.match(shared,/customFaceSrc=\{profile\.faceImage\|\|undefined\}/);assert.match(shared,/profile\.renderImage/);assert.match(shared,/heightInches/);assert.match(shared,/shoulderWidth/);assert.match(shared,/appearancePrompt/);assert.match(presentation,/customFaceSrc\?:string/);assert.match(renderer,/faceSource=customFaceSrc\|\|portrait\.src/);console.log('PASS: My Player uses shared renderer while retaining selfie, AI render, body settings, prompt cosmetics and saved profile fields.');

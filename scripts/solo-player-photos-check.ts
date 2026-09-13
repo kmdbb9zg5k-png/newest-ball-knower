@@ -70,6 +70,7 @@ assert.match(css, /data-portrait-kind="single"/);
 assert.match(css, /width:100%!important/);
 assert.match(css, /height:100%!important/);
 const renderer = readFileSync('solo/characterRenderer.ts', 'utf8');
-assert.match(renderer, /loadImage\(portrait.src\)/, 'Only the actual face asset should be loaded');
+assert.match(renderer, /faceSource=customFaceSrc\|\|portrait\.src/, 'Renderer must select the uploaded selfie or stable portrait source');
+assert.match(renderer, /loadImage\(faceSource\)/, 'Only the selected face source should be loaded');
 assert.ok(!renderer.includes('loadImage(ELI_FACE)'), 'Creator does not load both face libraries');
 console.log(JSON.stringify({ players: SOLO_PLAYERS_DATABASE.length, teamAssignments: assignments, requestsDeduplicated: true, failedAndTimedOutRequestsRecover: true, creatorSinglePhotoSizing: 'CSS contract checked; browser test measures actual geometry', newArtworkGenerated: false, visualFidelityApproved: false }, null, 2));
