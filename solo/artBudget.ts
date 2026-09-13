@@ -12,4 +12,3 @@ export function simulatedArtBudgetLimitMicroUsd(configured:unknown=35):number {
 export function canReserveSimulatedArt(spent:number,reserved:number,cost:number,limit=SIMULATED_ART_ABSOLUTE_BUDGET_MICRO_USD):boolean {
   return [spent,reserved,cost,limit].every(Number.isFinite)&&spent>=0&&reserved>=0&&cost>0&&limit>=0&&spent+reserved+cost<=Math.min(limit,SIMULATED_ART_ABSOLUTE_BUDGET_MICRO_USD);
 }
-

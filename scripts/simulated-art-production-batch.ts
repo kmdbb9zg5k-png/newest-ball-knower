@@ -54,4 +54,3 @@ else if(command==='submit')await submit();
 else if(command==='sync')await syncOnce();
 else if(command==='watch')await watch();
 else throw new Error('Use: status, submit, sync, or watch.');
-
