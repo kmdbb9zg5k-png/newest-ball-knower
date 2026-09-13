@@ -52,7 +52,9 @@ try{
    await dialog.getByRole('tab',{name:'Edit player',exact:true}).click();
    await dialog.getByText('Persistent player identity',{exact:true}).waitFor();
    await dialog.getByLabel('Jersey number',{exact:true}).fill('0');
-   await dialog.locator('.bk-solo-editor-model [data-render-state]').waitFor();
+   const editor=dialog.locator('.bk-solo-editor-model');
+   await editor.locator('[data-render-state]').waitFor();
+   await editor.locator('img[src*="/solo-characters/v2/eli-rodriguez/portrait.webp"]').waitFor();
    assert.equal(await dialog.locator('canvas,.bk-solo-portrait-hair,.bk-solo-portrait-beard').count(),0,'No canvas mannequin or synthetic face blobs');
    await dialog.getByRole('group',{name:'Arm gear',exact:true}).getByRole('button',{name:'none',exact:true}).click();
    await dialog.getByRole('group',{name:'Tattoo coverage',exact:true}).getByRole('button',{name:'none',exact:true}).click();
