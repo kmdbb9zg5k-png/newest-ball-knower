@@ -8,19 +8,96 @@ concurrency:
   group: solo-art-fidelity-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  source-snapshot:
+  publish-reviewed-repair:
+    if: github.ref == 'refs/heads/fix/solo-art-fidelity-audit'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      commit: ${{ steps.publish.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - name: Apply bounded reviewed source changes
+        run: |
+          if [ -f scripts/apply-solo-art-audit-repair.py ]; then
+            python scripts/apply-solo-art-audit-repair.py
+            rm scripts/apply-solo-art-audit-repair.py
+          fi
+      - name: Verify source before publishing
+        run: |
+          git diff --check
+          npm run lint
+          node --import tsx scripts/solo-art-repair-check.ts
+          node --import tsx scripts/solo-appearance-check.ts
+          npm run check:solo-fictional
+          npm run check:solo-fantasy
+          npm run check:franchise-interactions
+          npm run check:phase1-correctness
+          npm run check:phase3-agent
+          npm run check:phase3-careers
+          npm run check:phase3-growth
+          npm run check:phase4-owner
+      - name: Publish source changes to the repair branch only
+        id: publish
+        run: |
+          git add -- MyPlayerStory.tsx PlayerAgentMode.tsx agentTradeRules.ts myPlayerCombine.ts solo scripts/phase1-correctness-check.ts scripts/solo-fictional-universe-check.ts scripts/apply-solo-art-audit-repair.py
+          if ! git diff --cached --quiet; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'Repair Solo tattoo state, natural face rendering and traded player identity'
+            git push origin HEAD:refs/heads/fix/solo-art-fidelity-audit
+          fi
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+  browser-and-source-audit:
+    needs: publish-reviewed-repair
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ needs.publish-reviewed-repair.outputs.commit }}
           persist-credentials: false
-      - name: Export tracked source for reproducible review
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - run: node --import tsx scripts/solo-art-repair-check.ts
+      - run: npx playwright install --with-deps chromium
+      - name: Actual entry screens, shared profile tabs and tattoo editing
+        run: node scripts/solo-art-browser-check.mjs
+      - name: Export reviewed source
+        if: always()
         run: |
-          mkdir -p /tmp/solo-audit-snapshot
-          git archive --format=tar.gz HEAD > /tmp/solo-audit-snapshot/source.tar.gz
-          git rev-parse HEAD > /tmp/solo-audit-snapshot/commit.txt
+          mkdir -p artifacts/solo-art-source
+          git archive --format=tar.gz HEAD > artifacts/solo-art-source/source.tar.gz
+          git rev-parse HEAD > artifacts/solo-art-source/commit.txt
       - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: solo-art-audit-evidence
+          path: |
+            artifacts/solo-art-audit
+            artifacts/solo-art-browser
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: solo-art-audit-source
-          path: /tmp/solo-audit-snapshot
+          path: artifacts/solo-art-source
           retention-days: 3
+  visual-release-gate:
+    needs: publish-reviewed-repair
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.publish-reviewed-repair.outputs.commit }}
+          persist-credentials: false
+      - name: Reject prototype artwork as release-quality visuals
+        run: node scripts/solo-art-quality-gate.mjs
