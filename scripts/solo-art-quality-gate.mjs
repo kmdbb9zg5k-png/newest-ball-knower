@@ -1,0 +1,11 @@
+import {readFileSync} from 'node:fs';
+const read=path=>readFileSync(path,'utf8');
+const manifest=JSON.parse(read('public/solo-characters/v1/manifest.json'));
+const failures=[];
+if(manifest.faceCell?.[0]<256||manifest.faceCell?.[1]<320)failures.push('Expanded profiles still enlarge sub-profile-resolution face crops.');
+if(manifest.body?.[0]<384||manifest.body?.[1]<768)failures.push('Full-body artwork still lacks sufficient native detail.');
+if(/unapproved|prototype/i.test(manifest.artReview||manifest.source||''))failures.push('The source artwork is explicitly an unapproved prototype.');
+if(read('MyPlayerStory.tsx').includes('const PlayerRender ='))failures.push('My Player still uses its separate legacy player preview.');
+if(read('solo/characterRenderer.ts').includes('drawHairAndFaceDetails'))failures.push('Synthetic face-feature overlays are still active.');
+console.log(JSON.stringify({visualReleaseAllowed:failures.length===0,failures,physicalIphoneVerified:false},null,2));
+if(failures.length)process.exitCode=1;
