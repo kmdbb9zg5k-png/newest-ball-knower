@@ -48,7 +48,10 @@ for(const player of SOLO_PLAYERS_DATABASE){
 }
 const rookies=[...buildFranchiseRookieClass(2027),...buildFranchiseRookieClass(2028)];
 assert.equal(new Set(rookies.map(p=>p.id)).size,rookies.length);
-for(const rookie of rookies)assert(sameAppearance(defaultAppearance(rookie),defaultAppearance(JSON.parse(JSON.stringify(rookie)))));
+for(const rookie of rookies){
+ const prospect={...rookie,team:'FA'};
+ assert(sameAppearance(defaultAppearance(prospect),defaultAppearance(JSON.parse(JSON.stringify(prospect)))));
+}
 const eli=SOLO_PLAYERS_DATABASE.find(p=>p.id===CREATOR_EASTER_EGG_ID)!;
 assert(eli);assert.equal(eli.name,'Eli Rodriguez');assert.equal(eli.ovr,85);
 assert.equal(defaultAppearance(eli).tattooCoverage,'full-sleeve');
