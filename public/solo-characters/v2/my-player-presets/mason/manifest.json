@@ -1,0 +1,50 @@
+{
+  "artVersion": 4,
+  "identity": "my-player-preset-mason",
+  "sourcePortrait": [
+    1122,
+    1402
+  ],
+  "sourceFullBody": [
+    1024,
+    1536
+  ],
+  "sourceSha256": {
+    "portrait": "8050d4d80d0f86f5a2b24823cb2a087e6dd4099f7aefd2a26ca57099b7c6ab83",
+    "fullBody": "a404c567229b3a3d328791ee4acfd3ed0183f8a03eec1278c315d931a2fc538b"
+  },
+  "files": {
+    "avatar.webp": {
+      "bytes": 2190,
+      "sha256": "3223ad25d73802731cd96c62c1e44b02dda3068a4b83822a61d5ac0c9c00ff33"
+    },
+    "card.webp": {
+      "bytes": 16892,
+      "sha256": "67d69e6aff7f5e36694bd69e08c761211a9a04cc87042d3bb33f93d2e753903d"
+    },
+    "full-body.webp": {
+      "bytes": 89450,
+      "sha256": "6bc82d8d927d2a6e613d495d6c1ef0a8d42cb10e16adbca7f7a2ffe7c05dd65c"
+    },
+    "portrait.webp": {
+      "bytes": 42056,
+      "sha256": "ab6930fae42f0a0b846a884fcb8c7517d7c8e7019a8702b0c3498502ff6f55cb"
+    },
+    "row.webp": {
+      "bytes": 4674,
+      "sha256": "54ef916a32b64e4727231911b8931a5e653bb6fa1aff420b2558e95fe76c4e30"
+    }
+  },
+  "visualReview": "approved",
+  "checklist": {
+    "distortedEyes": true,
+    "duplicatedFeatures": true,
+    "malformedEars": true,
+    "mangledHands": true,
+    "warpedJersey": true,
+    "readableNumber": true,
+    "identityMatch": true,
+    "realisticAppearance": true,
+    "sharpExpandedView": true
+  }
+}

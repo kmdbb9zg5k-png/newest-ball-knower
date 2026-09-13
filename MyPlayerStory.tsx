@@ -10,7 +10,7 @@ import { SOLO_TEAM_THEMES, soloTeamLogoUrl } from './soloUniverse';
 import { Player, Position } from './types';
 import { ensureOnlineSession, supabase } from './supabase';
 import { AiPhotoConsent, AI_PHOTO_CONSENT_VERSION } from './AiPhotoConsent';
-import { MyPlayerSharedRender as PlayerRender } from './solo/MyPlayerSharedRender';
+import { MyPlayerSharedRender as PlayerRender, myPlayerPresetPortrait } from './solo/MyPlayerSharedRender';
 
 type Props = { onBack: () => void };
 type StoryStage = 'creator' | 'combine' | 'drafted' | 'season';
@@ -51,10 +51,10 @@ type MyPlayerProfile = {
 const POSITIONS: Position[] = ['QB', 'RB', 'WR', 'TE', 'EDGE', 'LB', 'CB', 'S'];
 
 const FACE_PRESETS = [
-  { id: 'mason', name: 'Mason', skin: '#f1c6a8', shadow: '#c98f6c', hair: '#3b2418', hairStyle: 'short' },
-  { id: 'nico', name: 'Nico', skin: '#d99b72', shadow: '#aa6747', hair: '#211711', hairStyle: 'fade' },
-  { id: 'malik', name: 'Malik', skin: '#9a5c3d', shadow: '#713d28', hair: '#16100d', hairStyle: 'twists' },
-  { id: 'darius', name: 'Darius', skin: '#5d3528', shadow: '#3b211a', hair: '#100b09', hairStyle: 'waves' },
+  { id: 'mason', name: 'Mason' },
+  { id: 'nico', name: 'Nico' },
+  { id: 'malik', name: 'Malik' },
+  { id: 'darius', name: 'Darius' },
 ] as const;
 
 const BODY_PRESETS = [
@@ -152,6 +152,10 @@ function playerFromProfile(profile: MyPlayerProfile): Player {
     fullName: profile.name || 'My Player',
     position: profile.position,
     jerseyNumber: profile.number,
+    heightInches: profile.heightInches,
+    weightLbs: profile.weightLbs,
+    simulatedPortraitUrl: profile.faceImage || myPlayerPresetPortrait(profile.presetFaceId),
+    simulatedFullBodyUrl: profile.renderImage || undefined,
     starter: true,
     active: true,
     ovr: profile.overall,
@@ -470,14 +474,7 @@ const ViewSlider = ({ value, onChange }: { value: number; onChange: (value: numb
 );
 
 const PresetFace = ({ face, small = false }: { face: typeof FACE_PRESETS[number]; small?: boolean }) => (
-  <div className={`relative mx-auto overflow-hidden rounded-[42%] bg-[#1c2531] ${small ? 'h-14 w-12' : 'h-full w-full'}`} aria-hidden="true">
-    <div className="absolute bottom-[-5%] left-1/2 h-[86%] w-[72%] -translate-x-1/2 rounded-[46%_46%_42%_42%]" style={{ background: `linear-gradient(105deg,${face.shadow},${face.skin} 52%,${face.shadow})` }}>
-      <div className="absolute left-[18%] top-[45%] h-[5%] w-[16%] rounded-full bg-[#17120f]" /><div className="absolute right-[18%] top-[45%] h-[5%] w-[16%] rounded-full bg-[#17120f]" />
-      <div className="absolute left-1/2 top-[48%] h-[20%] w-[10%] -translate-x-1/2 rounded-full border-r border-black/20" />
-      <div className="absolute bottom-[17%] left-1/2 h-[5%] w-[28%] -translate-x-1/2 rounded-b-full border-b-2 border-white/70" />
-    </div>
-    {face.hairStyle === 'twists' ? <div className="absolute left-[13%] top-[2%] h-[35%] w-[74%] rounded-t-[48%]" style={{ background: `radial-gradient(circle,${face.hair} 0 35%,transparent 40%) 0 0/12px 12px` }} /> : <div className={`absolute left-[14%] top-[3%] h-[29%] w-[72%] ${face.hairStyle === 'fade' ? 'rounded-[48%_48%_30%_30%]' : 'rounded-t-[50%]'}`} style={{ background: face.hair }} />}
-  </div>
+  <img src={myPlayerPresetPortrait(face.id)} width="640" height="800" loading="lazy" decoding="async" alt="" className={`mx-auto rounded-[42%] object-cover ${small ? 'h-14 w-12' : 'h-full w-full'}`} aria-hidden="true" />
 );
 
 

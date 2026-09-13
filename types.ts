@@ -76,6 +76,12 @@ export interface Player {
   jerseyNumber?: number;
   age?: number;
   experience?: number;
+  heightInches?: number;
+  weightLbs?: number;
+  fortyYardDash?: number;
+  durability?: number;
+  simulatedPortraitUrl?: string;
+  simulatedFullBodyUrl?: string;
   starterStatus?: 'starter' | 'backup' | 'rotational' | 'projected_starter';
   starter?: boolean;
   projectedStarter?: boolean;

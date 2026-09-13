@@ -1,0 +1,50 @@
+{
+  "artVersion": 4,
+  "identity": "bk-001-eli-rodriguez",
+  "sourcePortrait": [
+    1122,
+    1402
+  ],
+  "sourceFullBody": [
+    1024,
+    1536
+  ],
+  "sourceSha256": {
+    "portrait": "6a5eda39a713d2c764c8dd29ac02d365353f4414e3ef396618a3a1bba1269681",
+    "fullBody": "c1a0afa23e4f2fd842b0bcd451c4bfd38bdfcfb8f17aae37d19e3dd22e39b34e"
+  },
+  "files": {
+    "avatar.webp": {
+      "bytes": 2570,
+      "sha256": "c5b08dda73f21d9b4bfbce925d86f166e95f09af3b40438ff84eeb4c6fa586d5"
+    },
+    "card.webp": {
+      "bytes": 23156,
+      "sha256": "a2b2af83f3fa8e16a0f5067bb42e8fb596d80d01e98da0b758fda879f3d7bc75"
+    },
+    "full-body.webp": {
+      "bytes": 105914,
+      "sha256": "ecca7b369a830de561731f07399902a224a7abf59bf23842b85df1bc57ad73b1"
+    },
+    "portrait.webp": {
+      "bytes": 63284,
+      "sha256": "6a3d965c4983400729dee3fb561fa4bd86dcae7c5f6d3200a519c6388a21f65a"
+    },
+    "row.webp": {
+      "bytes": 5802,
+      "sha256": "23d305ec0f0acedeeb13bebbb23f774ac7082839a64007be248a8d55f6751a33"
+    }
+  },
+  "visualReview": "approved",
+  "checklist": {
+    "distortedEyes": true,
+    "duplicatedFeatures": true,
+    "malformedEars": true,
+    "mangledHands": true,
+    "warpedJersey": true,
+    "readableNumber": true,
+    "identityMatch": true,
+    "realisticAppearance": true,
+    "sharpExpandedView": true
+  }
+}

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
-import {readFileSync,statSync} from 'node:fs';
+import {readFileSync} from 'node:fs';
 import {SOLO_PLAYERS_DATABASE,SOLO_TEAM_THEMES} from '../soloUniverse';
 import {appearanceKey,appearanceSeed,appearanceSignature,CREATOR_EASTER_EGG_ID,defaultAppearance,EYE_BLACK_COUNT,FACE_COUNT,FACIAL_HAIR_COUNT,HAIR_COUNT,normalizeAppearance,playerAttributes,readAppearance,saveAppearance,uniformFor} from '../solo/appearance';
+import {simulatedIdentityFingerprint,simulatedPlayerIdentity,SIMULATED_ART_VERSION} from '../solo/artIdentity';
 
 const player=SOLO_PLAYERS_DATABASE.find(p=>p.position==='WR'&&p.id!==CREATOR_EASTER_EGG_ID)!;
 const base=defaultAppearance(player);
@@ -55,17 +56,12 @@ assert.ok(worstCollision<=4,`One exact appearance combo is reused ${worstCollisi
 const eli=SOLO_PLAYERS_DATABASE.find(p=>p.id===CREATOR_EASTER_EGG_ID);
 assert.ok(eli,'Creator Easter egg must remain in Solo database');
 assert.equal(eli?.name,'Eli Rodriguez');assert.equal(eli?.position,'WR');assert.equal(eli?.ovr,85);assert.equal(eli?.experience,10);assert.equal(eli?.age,30);
+assert.equal(eli?.heightInches,69);assert.equal(eli?.fortyYardDash,4.36);assert.equal(eli?.durability,96);
 const eliLook=defaultAppearance(eli!);assert.equal(eliLook.tattooCoverage,'full-sleeve');assert.equal(eliLook.tattooStyle,'mixed');
-
-const manifest=JSON.parse(readFileSync('public/solo-characters/v1/manifest.json','utf8'));
-assert.equal(manifest.faces,FACE_COUNT);
-let sharedBytes=0;
-for(const name of ['faces.webp','body.webp','regions.webp']){const actual=statSync(`public/solo-characters/v1/${name}`).size;assert.equal(actual,manifest.files[name].bytes);sharedBytes+=actual;}
-const creatorBytes=statSync('public/solo-characters/v1/creator/eli-face.webp').size;
-assert.ok(sharedBytes<80_000,`Shared artwork exceeds 80 KB: ${sharedBytes}`);
-assert.ok(sharedBytes+creatorBytes<100_000,`Solo visual payload exceeds 100 KB: ${sharedBytes+creatorBytes}`);
-for(const file of ['solo/SoloPresentation.tsx','solo/SoloPlayerProfile.tsx','solo/appearance.ts','solo/characterRenderer.ts']){
- const source=readFileSync(file,'utf8');assert.ok(!/gemini|api\/my-player-art|licensedPlayerPortrait|three\/|WebGLRenderer|setInterval\(/.test(source),`${file} must not add generation calls, real photos or continuous rendering`);
+const identity=simulatedPlayerIdentity(eli!);assert.equal(identity.version,SIMULATED_ART_VERSION);assert.equal(identity.lockedReference,'eli-rodriguez-approved-face');
+assert.equal(simulatedIdentityFingerprint({...eli!,team:'AUS'}),simulatedIdentityFingerprint(eli!),'Uniform changes cannot alter identity');
+for(const file of ['solo/SoloPresentation.tsx','solo/SoloPlayerProfile.tsx','solo/appearance.ts','solo/artIdentity.ts','solo/simulatedArt.ts']){
+ const fileSource=readFileSync(file,'utf8');assert.ok(!/licensedPlayerPortrait|three\/|WebGLRenderer|setInterval\(/.test(fileSource),`${file} must not import real fantasy art or continuous rendering`);
 }
 const css=readFileSync('solo/soloPresentation.css','utf8');assert.ok(css.includes('100dvh')&&css.includes('safe-area-inset-bottom')&&css.includes('prefers-reduced-motion'));
-console.log(JSON.stringify({playersChecked:SOLO_PLAYERS_DATABASE.length,teamsChecked:SOLO_TEAM_THEMES.length,baseFaces:FACE_COUNT,hairStyles:HAIR_COUNT,facialHairStyles:FACIAL_HAIR_COUNT,eyeBlackStyles:EYE_BLACK_COUNT,tattooedPlayers,tattooRatio:Number(tattooRatio.toFixed(3)),exactUniqueAppearances:signatures.size,uniqueRatio:Number(uniqueRatio.toFixed(3)),worstExactCollision:worstCollision,sharedArtBytes:sharedBytes,creatorArtBytes:creatorBytes,identityMigrationAndFailureCases:'passed',physicalIphoneVerified:false,visualFidelityApproved:false},null,2));
+console.log(JSON.stringify({playersChecked:SOLO_PLAYERS_DATABASE.length,teamsChecked:SOLO_TEAM_THEMES.length,legacyAppearanceMigrationVersion:3,productionArtVersion:SIMULATED_ART_VERSION,hairStyles:HAIR_COUNT,facialHairStyles:FACIAL_HAIR_COUNT,eyeBlackStyles:EYE_BLACK_COUNT,tattooedPlayers,tattooRatio:Number(tattooRatio.toFixed(3)),exactUniqueAppearances:signatures.size,uniqueRatio:Number(uniqueRatio.toFixed(3)),worstExactCollision:worstCollision,identityMigrationAndFailureCases:'passed',physicalIphoneVerified:false,fullCatalogVisualFidelityApproved:false},null,2));

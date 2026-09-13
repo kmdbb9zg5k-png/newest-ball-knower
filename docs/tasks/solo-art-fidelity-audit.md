@@ -1,48 +1,58 @@
-# Solo player artwork audit and first repair
+# Simulated-player production art overhaul
 
 Baseline: main `71ac875c07b3901879ae1512bc6faa844ee0857f`.
 
-**Not a completed visual overhaul. Do not merge this as reference-quality artwork.**
+**Release status: blocked. Do not merge until the full 1,696-player catalog and physical iPhone pass are approved.**
 
-## Source inspection, one mode at a time
+## Replaced production path
 
-| Mode | Inspected implementation | Finding |
-| --- | --- | --- |
-| Cap Challenge | SoloMode.tsx, shared presentation/profile | Shared portraits and profile links exist. Hero still uses low-resolution face/body templates. Week-list names are plain text, not universally linked profiles. |
-| Fantasy Draft / Solo Fantasy franchise | FantasyFranchise.tsx, soloFranchiseEngine.ts, FranchiseSeason.tsx | Draft rows and quick views use shared presentation. Season rosters/upgrades use the same unresolved artwork. Rookie IDs are stable, but that alone does not prove detailed or unique faces. |
-| Franchise Command | RealTeamFranchise.tsx, FranchiseSeason.tsx | Shared roster and trade profile access exists. Uniform data is team-aware. Material quality and complete trade/season browser walkthrough remain open. |
-| Agent Mode | PlayerAgentMode.tsx | Client labels used currentTeam, but portraits/profile links received the original database player. Repair now supplies a view-only copy with the current fictional team, keeping ID and ratings unchanged. Recruiting and negotiating views still need full visual review. |
-| Owner Office | OwnerBusinessMode.tsx | Staff portraits use shared SoloPortrait. A narrative trade scene uses its own illustration. This is not a complete 53-player roster screen and must not be falsely counted as one. |
-| My Player | MyPlayerStory.tsx | Still has a separate CSS-built body/face preview, optional selfie and optional AI-generated render. Not integrated into shared player artwork. Existing customizations must be preserved when replaced. |
+The 96×120 face atlas, single 149×448 body template, canvas character renderer, CSS facial overlays, tattoo mask and v1 public assets were removed. Simulated players now use responsive WebP images supplied by a stable-ID manifest. The fantasy-football headshot system is unchanged and remains separate.
 
-## First repair scope
+Every canonical simulated player receives a deterministic v4 identity descriptor derived from stable `player.id`. The descriptor locks age, skin tone, face structure, eyes, hair, facial hair, body archetype, measurements, tattoos, accessories and distinguishing details. Team, season, rating and uniform are excluded from the identity fingerprint. Team and uniform variant are separate asset dimensions, so a trade requests a new uniform render without changing the person.
 
-- Remove geometric hair/beard/eye-black overlays from the shared canvas and list portraits. Preserve saved style fields. Select photographic facial features together instead of covering them with shapes.
-- Include every appearance field in shared dirty checking and render invalidation, including tattoo coverage, style and seed.
-- Add working tattoo coverage/style controls and persistence checks.
-- Mask tattoo ink to exposed skin using the existing material mask and body alpha; layer equipment afterward.
-- Give creator portrait loading an image error fallback and lazy loading.
-- Correct the Agent client profile's displayed team after trades without changing player identity or database objects.
-- Extract production combine/trade-rule functions into browser-independent modules. The Node tests now import production logic instead of testing copied implementations.
+## Production pipeline
+
+- Source minimums: 640×800 portrait and 768×1536 full body.
+- The first render creates a neutral, stable-ID identity anchor. Every team/uniform portrait and full-body render reuses that exact anchor, so a trade changes the kit without independently rerolling the face.
+- Card/portrait sources are separately rendered in the correct fictional uniform; the neutral identity anchor is never sent to the client.
+- Client derivatives: 96×96 avatar, 160×200 roster row, 384×480 card, 640×800 expanded portrait and 768×1152 full body.
+- Full-body images are intersection-gated and lazy-loaded. Lists request only their thumbnail derivative.
+- Approved manifests are cached in memory and local storage. Viewed images are primed into Cache Storage and can be recovered as blob URLs when the network image request fails.
+- Supabase stores sources, derivatives and review state under a predictable stable-ID/team/uniform/appearance key. Normal clients can read only approved manifest rows; only the server service role can generate, upload, approve or reject.
+- Generation is server-only, disabled unless explicitly enabled, and accepts no arbitrary user prompt. Generated art remains `pending_review` until every required manual defect/identity check is explicitly passed.
+
+## App-wide integration
+
+The shared production renderer/profile is used by Cap Challenge, Fantasy Franchise, Franchise Command, Agent, Owner staff, My Player, rosters, trade views, depth/upgrade views, weekly results, injury reports, team leaders, awards and offseason rookie-draft rows. Draft prospects use a stable `franchise-rookie-{year}-{prospectId}` identity before and after selection.
+
+My Player retains the existing v1 save structure, career progression, selfie, AI render, cosmetics and body settings. Height and weight now feed the generated body identity. The UI no longer stretches a single body image along X/Y axes.
+
+Eli Rodriguez remains locked to `bk-001-eli-rodriguez`, his approved creator face and requested football record: WR/slot receiver, 5′9″, age 30, 10 years, 85 OVR, 4.36 forty, elite route running and 96 durability.
+
+## Current visual evidence
+
+Nineteen local identities are approved: Eli plus an 18-player representative set containing two each of QB, RB, WR, TE, OL, DL, LB, DB and K. The set includes varied ages, skin tones, hair, facial hair, tattoos, accessories, heights, weights and position builds. Six initial portrait variants were rejected because their jersey numbers did not match stored data; corrected variants were regenerated.
+
+Four additional reviewed, photorealistic My Player portrait presets replace the former CSS-drawn face controls. Selfies and existing AI renders remain optional and take precedence; when a team/body render is not yet approved, the same selected portrait remains visible instead of a mannequin or generic silhouette.
+
+Evidence:
+
+- `docs/qa/simulated-player-art-contact-sheet.webp`
+- `docs/qa/simulated-player-art-full-body-contact-sheet.webp`
+- `docs/qa/simulated-player-art-visual-set.json`
+- `docs/qa/simulated-player-art-catalog.json`
 
 ## Checks
 
-Local typecheck and production build passed. Ten focused checks passed: repair invariants, appearance, fictional universe, Solo Fantasy, Franchise interactions, trade rules, Agent recruiting/careers/growth, and Owner postseason.
+The focused checks validate all 1,696 stable identities and 54,272 team assignments, identity invariance across trades, position measurements and numbers, rookie continuity, Eli fields, My Player save compatibility, source/derivative dimensions, hashes, obsolete-code removal, server-only storage writes, lazy loading, optimized list images and same-player offline fallback.
 
-The new repair invariant test exercises 1,696 players against 32 fictional team assignments, tattoo-only saves, material-mask pixels, and two rookie classes. These are functional/configuration checks, **not proof of 1,696 distinct realistic faces**.
+The production build and TypeScript check pass. Browser scripts are committed for CI; the local workspace could not download Playwright Chromium because the browser CDN returned 502. No network or browser policy was bypassed.
 
-The new browser test is intended to capture six entry screens and shared profile tabs at 320, 390 and 1280 CSS pixels, plus tattoo pixel changes and save/reopen. It does not assert that every career flow was traversed. Results and screenshots are uploaded by CI. Physical iPhone testing remains unverified.
+## Remaining release blockers
 
-The local managed Chromium denied navigation to the local preview (`ERR_BLOCKED_BY_ADMINISTRATOR`). No browser policy was changed; browser testing runs in the repository's isolated CI environment instead.
+1. Generate, inspect and approve the remaining 1,677 canonical identities and required uniform variants in the production storage catalog.
+2. Deploy the migration and configure `SUPABASE_SERVICE_ROLE_KEY`, `SIMULATED_PLAYER_ART_ADMIN_KEY`, `GEMINI_API_KEY` and `SIMULATED_PLAYER_ART_GENERATION_ENABLED=true` in the server environment. The current production art endpoint reports unavailable.
+3. Run committed browser checks in CI and inspect actual card/profile screenshots at 320, 390 and 1280 CSS pixels.
+4. Complete the physical iPhone visual pass.
 
-## Open visual release blockers
-
-1. The shipped manifest still describes nine 96x120 face crops and one 149x448 body as an unapproved prototype. Replace these with suitable detailed artwork, not larger canvas dimensions.
-2. There is no verified distinct-face library for the entire league. Preserve stable IDs; do not count hidden settings or gloves as unique faces.
-3. My Player still requires migration to the shared system without losing saved selfies, body choices or career progress.
-4. Numbers, uniform materials, tattoos, gear and body proportions still need a reference-quality rendering/asset pass.
-5. Recheck profiles, drafts, rosters, upgrades, trades, game logs, generated rookies and Eli against actual rendered screenshots. Entry-page screenshots are not end-to-end signoff.
-6. Verify Eli's requested height, explicit forty time and durability in production fields. Earlier descriptions are not evidence of implementation.
-7. Replace the unrealistic total-art budget with separate thumbnail/profile budgets and measured lazy-load/caching checks, while retaining no runtime AI requirement for normal Solo viewing.
-
-`solo-art-quality-gate.mjs` deliberately fails while the known prototype and separate My Player preview remain. A successful build or a nonempty canvas cannot override this release gate.
+`scripts/solo-art-quality-gate.mjs` must remain failing while either the full catalog or physical-device pass is incomplete. A successful compile cannot override this gate.

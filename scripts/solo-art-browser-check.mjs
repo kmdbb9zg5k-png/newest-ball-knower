@@ -42,25 +42,22 @@ try{
    };
    await hub();await shot('hub');
    await page.locator('.bk-mode-card').filter({hasText:'CAP CHALLENGE'}).click();
-   const open=page.locator('[data-solo-player-id]').first();await open.waitFor();await shot('cap');await open.click();
+   await page.getByPlaceholder('Search players...').fill('Eli Rodriguez');
+   const open=page.locator('[data-solo-player-id="bk-001-eli-rodriguez"]').first();await open.waitFor();await shot('cap');await open.click();
    const dialog=page.locator('.bk-solo-profile');await dialog.waitFor();
    await dialog.locator('.bk-solo-hero-art [data-render-state="ready"]').waitFor();await shot('profile');
    for(const name of ['Stats','Game log','Development','Overview']){
     await dialog.getByRole('tab',{name,exact:true}).click();await shot('profile-'+name.toLowerCase().replaceAll(' ','-'));
    }
    await dialog.getByRole('tab',{name:'Edit player',exact:true}).click();
+   await dialog.getByText('Persistent player identity',{exact:true}).waitFor();
    await dialog.getByLabel('Jersey number',{exact:true}).fill('0');
-   await dialog.getByRole('button',{name:'Face 2',exact:true}).click();
-   await dialog.getByRole('button',{name:'power',exact:true}).click();
-   await dialog.locator('.bk-solo-editor-model [data-render-state="ready"]').waitFor();
-   assert.equal(await dialog.locator('.bk-solo-portrait-hair,.bk-solo-portrait-beard').count(),0,'No synthetic face blobs');
+   await dialog.locator('.bk-solo-editor-model [data-render-state]').waitFor();
+   assert.equal(await dialog.locator('canvas,.bk-solo-portrait-hair,.bk-solo-portrait-beard').count(),0,'No canvas mannequin or synthetic face blobs');
    await dialog.getByRole('group',{name:'Arm gear',exact:true}).getByRole('button',{name:'none',exact:true}).click();
    await dialog.getByRole('group',{name:'Tattoo coverage',exact:true}).getByRole('button',{name:'none',exact:true}).click();
-   await dialog.locator('.bk-solo-editor-model [data-render-state="ready"]').waitFor();
-   const cleanCanvas=await dialog.locator('.bk-solo-editor-model canvas').evaluate(canvas=>canvas.toDataURL());
    await dialog.getByRole('group',{name:'Tattoo coverage',exact:true}).getByRole('button',{name:'both arms',exact:true}).click();
-   await page.waitForFunction(before=>{const c=document.querySelector('.bk-solo-editor-model canvas');return c&&c.toDataURL()!==before;},cleanCanvas);
-   await dialog.locator('.bk-solo-editor-model [data-render-state="ready"]').waitFor();await shot('editor');
+   await shot('editor');
    await dialog.getByRole('button',{name:'Save changes',exact:true}).click();
    await dialog.getByText('Appearance saved. Ratings and career progress are unchanged.',{exact:true}).waitFor();
    await dialog.getByRole('button',{name:'Close player profile',exact:true}).click();await open.click();await dialog.waitFor();
@@ -76,6 +73,6 @@ try{
   }catch(error){await page.screenshot({path:`${out}/failure-${width}.png`}).catch(()=>{});throw error;}
   finally{await context.close();}
  }
- await writeFile(`${out}/results.json`,JSON.stringify({results,coverage:'Six entry screens; shared profile tabs; tattoo redraw and save/reopen. Not every career flow.',physicalIphoneVerified:false,visualFidelityApproved:false,allModesEndToEndVerified:false},null,2));
- console.log('PASS: three widths, six entry screens, profile tabs, tattoo pixel redraw and appearance save/reopen. Visual fidelity NOT approved; physical iPhone NOT tested.');
+ await writeFile(`${out}/results.json`,JSON.stringify({results,coverage:'Six entry screens; approved Eli v4 profile; stable identity lock; equipment save/reopen. Not every career flow.',physicalIphoneVerified:false,fullCatalogVisualFidelityApproved:false,allModesEndToEndVerified:false},null,2));
+ console.log('PASS: three widths, six entry screens, approved Eli profile, persistent identity, and equipment save/reopen. Full catalog visual fidelity NOT approved; physical iPhone NOT tested.');
 }finally{await browser?.close();server.kill();}

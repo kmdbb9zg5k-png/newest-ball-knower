@@ -1,0 +1,19 @@
+{
+  "artVersion": 4,
+  "capturedAt": "2026-09-13T05:35:00Z",
+  "expectedPlayers": 1696,
+  "approvedPlayers": 19,
+  "pendingPlayers": 1677,
+  "duplicateIdentityGroups": 0,
+  "prototypeFallbacks": 0,
+  "releaseApproved": false,
+  "approvedLocalPlayers": [
+    "bk-001-eli-rodriguez",
+    "solo-brk-02", "solo-slc-02", "solo-brk-05", "solo-slc-05",
+    "solo-brk-10", "solo-slc-10", "solo-brk-15", "solo-slc-15",
+    "solo-brk-21", "solo-slc-20", "solo-brk-30", "solo-slc-30",
+    "solo-brk-38", "solo-slc-38", "solo-brk-46", "solo-slc-45",
+    "solo-brk-52", "solo-slc-52"
+  ],
+  "note": "The release gate remains closed until every stable simulated-player ID has an approved manifest."
+}

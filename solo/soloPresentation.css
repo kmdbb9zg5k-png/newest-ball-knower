@@ -22,8 +22,10 @@
 .bk-solo-presentation .bk-mode-card>.bk-solo-tile-art img{width:100%;height:100%;object-fit:cover;object-position:center top}
 .bk-solo-presentation .bk-mode-continue{font-size:8px!important;letter-spacing:.11em;color:#e3bc61!important}
 .bk-solo-presentation .bk-mode-card>svg:last-child{position:absolute;bottom:18px;right:12px;width:15px;color:#d6b55c}
-.bk-solo-portrait{position:relative;display:inline-block;overflow:hidden;width:44px;height:55px;flex:0 0 44px;border-radius:8px;background:radial-gradient(ellipse at bottom,rgba(196,155,62,.16),transparent 75%),#121824;vertical-align:middle;contain:layout paint}
-.bk-solo-portrait>img{position:absolute!important;max-width:none!important;width:300%!important;height:300%!important;object-fit:fill!important;pointer-events:none}
+.bk-solo-portrait{position:relative;display:inline-grid;place-items:center;overflow:hidden;width:44px;height:55px;flex:0 0 44px;border:1px solid rgba(222,187,94,.18);border-radius:8px;background:radial-gradient(ellipse at bottom,rgba(196,155,62,.18),transparent 75%),#121824;vertical-align:middle;contain:layout paint}
+.bk-solo-portrait>img{position:static!important;display:block;width:100%!important;height:100%!important;max-width:100%!important;object-fit:cover!important;object-position:50% 34%;pointer-events:none}
+.bk-solo-portrait[data-art-size="avatar"]{aspect-ratio:1/1}
+.bk-solo-portrait[data-art-size="card"],.bk-solo-portrait[data-art-size="portrait"]{aspect-ratio:4/5}
 .bk-solo-art-fallback{display:grid;height:100%;place-items:center;color:#d8b964;font-size:11px}
 .bk-solo-identity{display:inline-flex;align-items:center;gap:10px;max-width:100%;min-width:0;vertical-align:middle;text-align:left}
 .bk-solo-player-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:inherit;font-weight:800;line-height:1.25;color:inherit}
@@ -52,7 +54,7 @@
 .bk-solo-profile-hero:after{content:"";position:absolute;inset:0;pointer-events:none;z-index:-1;background:repeating-linear-gradient(98deg,transparent 0,transparent 130px,rgba(149,174,209,.018) 135px,transparent 151px)}
 .bk-solo-hero-art{position:absolute;top:17px;left:-2%;width:57%;height:100%;overflow:hidden;z-index:-1;mask-image:linear-gradient(#000 76%,transparent)}
 .bk-solo-hero-art .bk-solo-character{width:100%;height:auto;min-height:0}
-.bk-solo-hero-art canvas{width:100%;height:auto;filter:drop-shadow(0 8px 18px rgba(0,0,0,.5))}
+.bk-solo-hero-art .bk-solo-character>img{width:100%;height:100%;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 8px 18px rgba(0,0,0,.5))}
 .bk-solo-profile-heading{position:relative;margin-left:51%;padding:94px 16px 10px 0;max-width:49%}
 .bk-solo-hero-position{font-size:13px;font-weight:900;letter-spacing:.06em;color:#f5f5f5}
 .bk-solo-hero-position>span{font-weight:600;color:#8b94a5;margin-left:8px}
@@ -86,8 +88,8 @@
 .bk-solo-uniform-showcase{display:grid;grid-template-columns:minmax(0,45%) minmax(0,1fr);gap:14px;align-items:center;min-height:320px;border:1px solid #25313e;border-radius:14px;background:radial-gradient(ellipse at 20% 35%,rgba(211,171,71,.09),transparent 70%),#080d13;padding:12px}
 .bk-solo-uniform-showcase .bk-solo-character{max-height:340px;min-height:280px}
 .bk-solo-eyebrow{font-size:8px;letter-spacing:.13em;color:#c7a960;font-weight:850}
-.bk-solo-character{position:relative;min-height:260px;isolation:isolate;width:100%;aspect-ratio:1/3;display:flex;align-items:center;justify-content:center}
-.bk-solo-character canvas{width:auto;height:100%;max-height:inherit;max-width:100%;object-fit:contain;display:block}
+.bk-solo-character{position:relative;min-height:260px;isolation:isolate;width:100%;aspect-ratio:2/3;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.bk-solo-character>img{width:100%;height:100%;max-height:inherit;max-width:100%;object-fit:contain;object-position:center bottom;display:block}
 .bk-solo-art-status{position:absolute;inset:auto 0 18px;text-align:center;font-size:10px;line-height:1.5;background:rgba(7,10,16,.75);padding:7px;border-radius:7px}
 .bk-solo-art-status button{display:block;margin:8px auto;min-height:36px;border:1px solid #56503c;border-radius:6px;padding:6px 12px}
 .bk-solo-secondary,.bk-solo-primary{min-height:44px;padding:9px 12px;border:1px solid #364352;border-radius:8px;background:#111925;color:#dee4ed;font-size:10px;font-weight:800;text-align:center}
@@ -122,6 +124,8 @@
 .bk-solo-editor-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-top:17px;align-items:start}
 .bk-solo-editor-model{position:sticky;top:65px;min-width:0;border:1px solid #2b3645;border-radius:13px;overflow:hidden;background:radial-gradient(ellipse at 50% 25%,rgba(200,160,62,.12),transparent 65%),#080d13;padding:5px}
 .bk-solo-editor-model .bk-solo-character{min-height:330px}
+.bk-solo-identity-lock{display:grid;gap:5px;padding:12px;border:1px solid rgba(222,187,94,.25);border-radius:10px;background:linear-gradient(135deg,rgba(222,187,94,.09),rgba(255,255,255,.02));text-transform:capitalize}
+.bk-solo-identity-lock strong{color:#f4d77f;font-size:12px;letter-spacing:.04em;text-transform:uppercase}.bk-solo-identity-lock span{font-size:11px;color:#d7dde7}.bk-solo-identity-lock small{font:800 9px/1.2 ui-monospace,monospace;color:#778292;text-transform:uppercase}
 .bk-solo-editor-controls{min-width:0}
 .bk-solo-editor-controls fieldset{min-width:0;margin:0 0 17px;padding:0;border:0}
 .bk-solo-editor-controls legend,.bk-solo-number-label{display:block;font-size:9px;font-weight:800;text-transform:uppercase;color:#cbd2de;margin-bottom:9px;letter-spacing:.04em}
@@ -144,7 +148,7 @@
 @media(prefers-reduced-motion:reduce){.bk-solo-presentation *,.bk-solo-profile *{animation:none!important;scroll-behavior:auto!important;transition:none!important}}
 .bk-solo-presentation .bk-mode-card>.bk-solo-tile-art{top:5%;height:160%;opacity:.24}
 .bk-solo-presentation .bk-mode-card>.bk-solo-tile-art>img{object-fit:contain;object-position:top center;position:absolute;inset:0}
-.bk-solo-tile-art>.bk-solo-portrait{position:absolute;top:0;left:30%;width:43%;height:auto;aspect-ratio:4/5;background:transparent}
+.bk-solo-tile-art-v4>img{filter:saturate(.78) contrast(1.06);mask-image:linear-gradient(#000 58%,transparent 96%)}
 .bk-solo-staff-portrait{width:56px;height:64px;border-radius:12px}
 .bk-solo-created-face-small{width:48px;height:56px}
 .bk-solo-created-face{width:100%;height:100%;border-radius:25%;background:none}

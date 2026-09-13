@@ -2,12 +2,10 @@ import type { Player } from '../types';
 import { SOLO_TEAM_THEMES } from '../soloUniverse';
 
 export const SOLO_ART_VERSION = 3 as const;
-export const SOLO_ART_ROOT = '/solo-characters/v1';
 export const FACE_COUNT = 9;
 export const HAIR_COUNT = 10;
 export const FACIAL_HAIR_COUNT = 6;
 export const EYE_BLACK_COUNT = 4;
-export const FACE_SKIN = ['#8f634d','#4d3024','#94624b','#7a4e3a','#5a3523','#a97455','#40261b','#a16b52','#815239'];
 export const APPEARANCE_PREFIX = 'ball-knower-solo-appearance-v1:';
 export const CREATOR_EASTER_EGG_ID = 'bk-001-eli-rodriguez';
 export type UniformVariant = 'home' | 'away' | 'alternate';
@@ -21,7 +19,7 @@ export type Appearance = {
   face: number; hair: number; facialHair: number; eyeBlack: number; build: BodyBuild; number: number;
   sleeves: SleeveStyle; gloves: GloveStyle; tattooCoverage: TattooCoverage; tattooStyle: TattooStyle; tattooSeed: number;
 };
-export type AppearancePlayer = Pick<Player,'id'|'name'|'team'> & {position:string} & Partial<Pick<Player,'jerseyNumber'|'teamName'>>;
+export type AppearancePlayer = Pick<Player,'id'|'name'|'team'> & {position:string} & Partial<Pick<Player,'jerseyNumber'|'teamName'|'age'|'heightInches'|'weightLbs'|'simulatedPortraitUrl'|'simulatedFullBodyUrl'>>;
 export type Uniform = { name: string; abbr: string; jersey: string; pants: string; trim: string; ink: string; pattern: number };
 type Store = Pick<Storage,'getItem'|'setItem'|'removeItem'>;
 

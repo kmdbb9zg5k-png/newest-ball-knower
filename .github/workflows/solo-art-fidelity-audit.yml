@@ -25,6 +25,8 @@ jobs:
           node --import tsx scripts/solo-player-photos-check.ts
           node --import tsx scripts/solo-art-repair-check.ts
           node --import tsx scripts/solo-appearance-check.ts
+          node --import tsx scripts/my-player-shared-renderer-check.ts
+          python scripts/verify-solo-art.py
           npm run check:solo-fictional
           npm run check:solo-fantasy
           npm run check:franchise-interactions
@@ -77,5 +79,5 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Reject prototype artwork as release-quality visuals
+      - name: Enforce full-catalog and physical-device release approval
         run: node scripts/solo-art-quality-gate.mjs

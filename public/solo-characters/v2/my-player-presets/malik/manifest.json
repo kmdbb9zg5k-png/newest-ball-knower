@@ -1,0 +1,50 @@
+{
+  "artVersion": 4,
+  "identity": "my-player-preset-malik",
+  "sourcePortrait": [
+    1122,
+    1402
+  ],
+  "sourceFullBody": [
+    1024,
+    1536
+  ],
+  "sourceSha256": {
+    "portrait": "53db8f101885f780f3f8e675fd44dd94bbe0eed286909e75357741cea9b7c08e",
+    "fullBody": "dae05c58a336f9d44af36f318aeb937b2842cb8c7cfdff441eea4a79b03cb410"
+  },
+  "files": {
+    "avatar.webp": {
+      "bytes": 2148,
+      "sha256": "5846d81a546dc0f9a072984a4328edfa63a6a07e3661461243f1d90540d952dd"
+    },
+    "card.webp": {
+      "bytes": 17370,
+      "sha256": "0e32f14a019086060ee76fdd4e67ab14f0a846d9c9f60ecc379151741e9820d7"
+    },
+    "full-body.webp": {
+      "bytes": 79484,
+      "sha256": "6f4668e5cebbeb7dfd0482c79b9368dc4e063fccf9b25c73ce543c9734619d74"
+    },
+    "portrait.webp": {
+      "bytes": 46770,
+      "sha256": "2c06ad0b1d61fa06357411d8c93dae6b938142401ac6ca9435cb2b2fe56c9d0d"
+    },
+    "row.webp": {
+      "bytes": 4772,
+      "sha256": "162a9a6157572d4f093fbf32c8e05ec8f5f98b10ee119ad83c45e83360e96199"
+    }
+  },
+  "visualReview": "approved",
+  "checklist": {
+    "distortedEyes": true,
+    "duplicatedFeatures": true,
+    "malformedEars": true,
+    "mangledHands": true,
+    "warpedJersey": true,
+    "readableNumber": true,
+    "identityMatch": true,
+    "realisticAppearance": true,
+    "sharpExpandedView": true
+  }
+}
