@@ -838,7 +838,7 @@ async function submitBatch(service, ai, inputs, tier) {
     if (existingError) throw new Error(`Could not check existing artwork: ${existingError.message}`);
     if (existing?.status === "approved" || existing?.status === "pending_review" || existing?.status === "generating" && raw.attempt === 0 && Date.now() - Date.parse(existing.updated_at) < 26 * 60 * 6e4) continue;
     const priorAttempt = Number(existing?.quality_report?.generation?.attempt);
-    if (tier === "review" && Number.isFinite(priorAttempt) && stored.attempt <= priorAttempt) {
+    if (Number.isFinite(priorAttempt) && stored.attempt <= priorAttempt) {
       stored.attempt = priorAttempt + 1;
       stored.input.attempt = stored.attempt;
       stored.dedupeKey = sha(JSON.stringify({ ...rowKey(raw), tier, attempt: stored.attempt }));
