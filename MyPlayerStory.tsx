@@ -1,3 +1,5 @@
+import {calculateCombineResults} from './myPlayerCombine';
+export {calculateCombineResults} from './myPlayerCombine';
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Dumbbell, Play, RotateCcw, Sparkles, Upload } from 'lucide-react';
@@ -8,6 +10,7 @@ import { SOLO_TEAM_THEMES, soloTeamLogoUrl } from './soloUniverse';
 import { Player, Position } from './types';
 import { ensureOnlineSession, supabase } from './supabase';
 import { AiPhotoConsent, AI_PHOTO_CONSENT_VERSION } from './AiPhotoConsent';
+import { MyPlayerSharedRender as PlayerRender, myPlayerPresetPortrait } from './solo/MyPlayerSharedRender';
 
 type Props = { onBack: () => void };
 type StoryStage = 'creator' | 'combine' | 'drafted' | 'season';
@@ -48,10 +51,10 @@ type MyPlayerProfile = {
 const POSITIONS: Position[] = ['QB', 'RB', 'WR', 'TE', 'EDGE', 'LB', 'CB', 'S'];
 
 const FACE_PRESETS = [
-  { id: 'mason', name: 'Mason', skin: '#f1c6a8', shadow: '#c98f6c', hair: '#3b2418', hairStyle: 'short' },
-  { id: 'nico', name: 'Nico', skin: '#d99b72', shadow: '#aa6747', hair: '#211711', hairStyle: 'fade' },
-  { id: 'malik', name: 'Malik', skin: '#9a5c3d', shadow: '#713d28', hair: '#16100d', hairStyle: 'twists' },
-  { id: 'darius', name: 'Darius', skin: '#5d3528', shadow: '#3b211a', hair: '#100b09', hairStyle: 'waves' },
+  { id: 'mason', name: 'Mason' },
+  { id: 'nico', name: 'Nico' },
+  { id: 'malik', name: 'Malik' },
+  { id: 'darius', name: 'Darius' },
 ] as const;
 
 const BODY_PRESETS = [
@@ -149,6 +152,10 @@ function playerFromProfile(profile: MyPlayerProfile): Player {
     fullName: profile.name || 'My Player',
     position: profile.position,
     jerseyNumber: profile.number,
+    heightInches: profile.heightInches,
+    weightLbs: profile.weightLbs,
+    simulatedPortraitUrl: profile.faceImage || myPlayerPresetPortrait(profile.presetFaceId),
+    simulatedFullBodyUrl: profile.renderImage || undefined,
     starter: true,
     active: true,
     ovr: profile.overall,
@@ -467,93 +474,9 @@ const ViewSlider = ({ value, onChange }: { value: number; onChange: (value: numb
 );
 
 const PresetFace = ({ face, small = false }: { face: typeof FACE_PRESETS[number]; small?: boolean }) => (
-  <div className={`relative mx-auto overflow-hidden rounded-[42%] bg-[#1c2531] ${small ? 'h-14 w-12' : 'h-full w-full'}`} aria-hidden="true">
-    <div className="absolute bottom-[-5%] left-1/2 h-[86%] w-[72%] -translate-x-1/2 rounded-[46%_46%_42%_42%]" style={{ background: `linear-gradient(105deg,${face.shadow},${face.skin} 52%,${face.shadow})` }}>
-      <div className="absolute left-[18%] top-[45%] h-[5%] w-[16%] rounded-full bg-[#17120f]" /><div className="absolute right-[18%] top-[45%] h-[5%] w-[16%] rounded-full bg-[#17120f]" />
-      <div className="absolute left-1/2 top-[48%] h-[20%] w-[10%] -translate-x-1/2 rounded-full border-r border-black/20" />
-      <div className="absolute bottom-[17%] left-1/2 h-[5%] w-[28%] -translate-x-1/2 rounded-b-full border-b-2 border-white/70" />
-    </div>
-    {face.hairStyle === 'twists' ? <div className="absolute left-[13%] top-[2%] h-[35%] w-[74%] rounded-t-[48%]" style={{ background: `radial-gradient(circle,${face.hair} 0 35%,transparent 40%) 0 0/12px 12px` }} /> : <div className={`absolute left-[14%] top-[3%] h-[29%] w-[72%] ${face.hairStyle === 'fade' ? 'rounded-[48%_48%_30%_30%]' : 'rounded-t-[50%]'}`} style={{ background: face.hair }} />}
-  </div>
+  <img src={myPlayerPresetPortrait(face.id)} width="640" height="800" loading="lazy" decoding="async" alt="" className={`mx-auto rounded-[42%] object-cover ${small ? 'h-14 w-12' : 'h-full w-full'}`} aria-hidden="true" />
 );
 
-const PlayerRender = ({ profile, compact = false }: { profile: MyPlayerProfile; compact?: boolean }) => {
-  const prompt = profile.appearancePrompt.toLowerCase();
-  const tags = [
-    /tattoo/.test(prompt) ? 'TATTOO SLEEVE' : '',
-    /visor/.test(prompt) ? 'VISOR' : '',
-    /glove/.test(prompt) ? 'GLOVES' : '',
-    /arm sleeve/.test(prompt) ? 'ARM SLEEVE' : '',
-  ].filter(Boolean);
-
-  if (profile.renderImage) return (
-    <div className={`relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#111] ${compact ? 'h-[260px]' : ''}`}>
-      <img src={profile.renderImage} alt={`${profile.name || 'Created player'} render`} className={`${compact ? 'h-full' : 'aspect-[4/5] h-full'} w-full object-cover`} style={{ transform: `perspective(900px) rotateY(${profile.viewRotation * 0.12}deg) scale(${compact ? 1.05 : 1})`, transition: 'transform 120ms ease-out' }} />
-      <div className="absolute bottom-3 left-3 rounded-full bg-black/70 px-3 py-1 text-[9px] font-black">{feetAndInches(profile.heightInches)} • {profile.weightLbs} LB</div>
-    </div>
-  );
-
-  const heightScale = 0.88 + ((profile.heightInches - 66) / 14) * 0.18;
-  const weightScale = 0.88 + ((profile.weightLbs - 165) / 195) * 0.3;
-  const shoulderScale = 0.88 + profile.shoulderWidth / 100 * 0.34;
-  const armScale = 0.82 + profile.armSize / 100 * 0.34;
-  const legScale = 0.86 + profile.legSize / 100 * 0.32;
-  const torsoRadius = 34 + Math.round(profile.bodyBuild * 0.12);
-  const showingBack = Math.abs(profile.viewRotation) > 95;
-  const presetFace = FACE_PRESETS.find(face => face.id === profile.presetFaceId) ?? FACE_PRESETS[0];
-
-  return (
-    <div className={`relative overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(ellipse_at_50%_105%,rgba(94,234,196,.18),transparent_48%),radial-gradient(circle_at_50%_15%,rgba(90,120,180,.3),transparent_30%),linear-gradient(160deg,#111827,#05070b)] ${compact ? 'min-h-[260px]' : 'min-h-[500px]'}`}>
-      <div className="absolute inset-x-[12%] bottom-[7%] h-px bg-emerald-200/20 shadow-[0_0_35px_rgba(94,234,196,.25)]" />
-      <div className="absolute inset-x-0 top-5 text-center text-[9px] font-black tracking-[.24em] text-white/35">INTERACTIVE PLAYER PREVIEW</div>
-      <div className="absolute inset-x-0 bottom-4 top-12 flex items-end justify-center" style={{ perspective: '900px' }}>
-        <div
-          className="relative origin-bottom"
-          style={{
-            width: compact ? 160 : 245,
-            height: compact ? 205 : 405,
-            transform: `rotateY(${profile.viewRotation}deg) scaleY(${heightScale}) scaleX(${weightScale})`,
-            transformStyle: 'preserve-3d',
-            transition: 'transform 120ms ease-out',
-          }}
-        >
-          <div className="absolute left-1/2 top-0 z-20 h-[20%] w-[35%] -translate-x-1/2 overflow-hidden rounded-[48%_48%_42%_42%] border-[4px] border-zinc-300 bg-zinc-900 shadow-[0_10px_30px_rgba(0,0,0,.7)]" style={{ transform: 'translateZ(20px)' }}>
-            {profile.faceImage && !showingBack ? <img src={profile.faceImage} alt="Your uploaded face" className="h-full w-full object-cover" /> : !showingBack ? <PresetFace face={presetFace} /> : <div className="h-full w-full bg-gradient-to-b from-zinc-700 to-zinc-950" />}
-          </div>
-          <div className="absolute left-1/2 top-[15%] h-[15%] -translate-x-1/2 rounded-[50%_50%_30%_30%] border-t border-white/40 bg-gradient-to-b from-zinc-100 to-zinc-500 shadow-lg" style={{ width: `${76 * shoulderScale}%`, transform: 'translateZ(8px)' }} />
-          <div className="absolute left-1/2 top-[18%] h-[45%] -translate-x-1/2 border-x border-white/10 bg-gradient-to-b from-[#46556a] via-[#1b2635] to-[#070a0e] shadow-2xl" style={{ width: `${52 * shoulderScale}%`, clipPath: 'polygon(12% 0,88% 0,100% 78%,82% 100%,18% 100%,0 78%)', borderRadius: `${torsoRadius}% ${torsoRadius}% 16% 16%`, transform: 'translateZ(12px)' }}>
-            <div className="absolute left-1/2 top-0 h-[10%] w-[30%] -translate-x-1/2 rounded-b-full bg-black/65" />
-            <div className="absolute inset-x-0 top-[22%] text-center font-black text-white/90" style={{ fontSize: compact ? 42 : 68 }}>{profile.number}</div>
-            <div className="absolute inset-x-[10%] bottom-[8%] h-[4%] rounded-full bg-white/15" />
-          </div>
-          <div className="absolute left-[4%] top-[22%] h-[39%] origin-top rounded-full border-r border-white/10 bg-gradient-to-b from-zinc-400 via-zinc-600 to-zinc-950" style={{ width: `${14 * armScale}%`, transform: 'rotate(12deg) translateZ(5px)' }} />
-          <div className="absolute right-[4%] top-[22%] h-[39%] origin-top rounded-full border-l border-white/10 bg-gradient-to-b from-zinc-400 via-zinc-600 to-zinc-950" style={{ width: `${14 * armScale}%`, transform: 'rotate(-12deg) translateZ(5px)' }} />
-          <div className="absolute bottom-[35%] left-[20%] h-[13%] w-[60%] rounded-b-[38%] border-t-2 border-white/30 bg-gradient-to-b from-zinc-100 to-zinc-400" style={{ transform: 'translateZ(6px)' }} />
-          <div className="absolute bottom-[4%] left-[23%] h-[41%] rounded-[38%_28%_24%_28%] bg-gradient-to-r from-zinc-500 via-zinc-100 to-zinc-500" style={{ width: `${19 * legScale}%`, transform: 'rotate(2deg) translateZ(4px)' }} />
-          <div className="absolute bottom-[4%] right-[23%] h-[41%] rounded-[28%_38%_28%_24%] bg-gradient-to-l from-zinc-500 via-zinc-100 to-zinc-500" style={{ width: `${19 * legScale}%`, transform: 'rotate(-2deg) translateZ(4px)' }} />
-          <div className="absolute bottom-0 left-[23%] h-[6%] w-[25%] skew-x-[-12deg] rounded bg-black shadow-lg" /><div className="absolute bottom-0 right-[23%] h-[6%] w-[25%] skew-x-[12deg] rounded bg-black shadow-lg" />
-          <div className="absolute inset-x-0 bottom-[5%] flex flex-wrap justify-center gap-1" style={{ transform: 'translateZ(24px)' }}>{tags.map(tag => <span key={tag} className="rounded-full bg-black/65 px-2 py-1 text-[7px] font-black text-white/70">{tag}</span>)}</div>
-        </div>
-      </div>
-      <div className="absolute bottom-3 left-3 rounded-full bg-black/70 px-3 py-1 text-[9px] font-black">{feetAndInches(profile.heightInches)} • {profile.weightLbs} LB</div>
-    </div>
-  );
-};
-
-export const calculateCombineResults = (profile: Pick<MyPlayerProfile, 'name' | 'position' | 'heightInches' | 'weightLbs' | 'bodyBuild' | 'armSize' | 'legSize'>) => {
-  const base = hash(`${profile.name}:${profile.position}:${profile.heightInches}:${profile.weightLbs}`);
-  const sizePenalty = Math.max(0, profile.weightLbs - 215) / 180;
-  const athleticBonus = (profile.bodyBuild < 60 ? 0.05 : 0) + (profile.legSize - 50) / 1800;
-  const forty = Number(Math.max(4.25, 4.34 + (base % 42) / 100 + sizePenalty - athleticBonus).toFixed(2));
-  const bench = Math.max(8, 12 + ((base >>> 4) % 18) + Math.round((profile.armSize + profile.bodyBuild - 90) / 12));
-  const vertical = Math.max(27, 31 + ((base >>> 7) % 10) + Math.round((profile.legSize - 50) / 18));
-  const speedValue = Math.max(0, Math.min(100, 100 - (forty - 4.25) * 105));
-  const strengthValue = Math.max(0, Math.min(100, 35 + bench * 2.15));
-  const explosionValue = Math.max(0, Math.min(100, 20 + vertical * 2));
-  const positionWeights = ['QB','K','P'].includes(profile.position) ? [.25, .25, .5] : ['OT','OG','EDGE','DT','LB'].includes(profile.position) ? [.2, .55, .25] : [.55, .15, .3];
-  const score = Math.round(speedValue * positionWeights[0] + strengthValue * positionWeights[1] + explosionValue * positionWeights[2]);
-  return { forty, bench, vertical, score, label: score >= 90 ? 'ELITE' : score >= 80 ? 'RISER' : score >= 68 ? 'SOLID' : score >= 58 ? 'MIXED' : 'SLIPPING' };
-};
 
 const Combine = ({ profile, onDraft }: { profile: MyPlayerProfile; onDraft: () => void }) => {
   const combine = calculateCombineResults(profile);

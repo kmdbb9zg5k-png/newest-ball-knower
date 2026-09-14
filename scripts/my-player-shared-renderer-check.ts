@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const story=readFileSync('MyPlayerStory.tsx','utf8');
+const shared=readFileSync('solo/MyPlayerSharedRender.tsx','utf8');
+const presentation=readFileSync('solo/SoloPresentation.tsx','utf8');
+assert.ok(!story.includes('const PlayerRender ='),'legacy CSS mannequin must be removed');
+assert.match(story,/MyPlayerSharedRender as PlayerRender/);
+assert.match(shared,/customFaceSrc=\{profile\.faceImage\|\|myPlayerPresetPortrait/);
+assert.match(story,/simulatedPortraitUrl/);assert.match(story,/simulatedFullBodyUrl/);assert.match(presentation,/player\.simulatedPortraitUrl/);assert.match(presentation,/player\.simulatedFullBodyUrl/);
+assert.match(story,/myPlayerPresetPortrait/);assert.doesNotMatch(story,/radial-gradient\(circle,\$\{face\.hair\}/);
+for(const preset of ['mason','nico','malik','darius'])assert.match(shared,new RegExp(preset));
+assert.match(shared,/profile\.renderImage/);
+for(const field of ['heightInches','weightLbs','shoulderWidth','armSize','legSize','viewRotation','appearancePrompt'])assert.match(shared,new RegExp(field),'My Player must preserve '+field);
+assert.match(presentation,/useSimulatedArtwork/);
+assert.match(presentation,/customFaceSrc\?:string/);
+assert.doesNotMatch(presentation,/<canvas|characterRenderer/);
+console.log('PASS: My Player keeps career, selfie, AI render, body, rotation and cosmetic fields while using reviewed v4 portraits instead of CSS faces.');

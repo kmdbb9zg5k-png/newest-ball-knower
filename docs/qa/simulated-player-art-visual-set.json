@@ -1,0 +1,50 @@
+{
+  "artVersion": 4,
+  "reviewedAt": "2026-09-13T05:35:00Z",
+  "reviewer": "production-art-overhaul",
+  "approvedByGroup": {"QB": 2, "RB": 2, "WR": 2, "TE": 2, "OL": 2, "DL": 2, "LB": 2, "DB": 2, "K": 2},
+  "rejectedDefects": {
+    "distortedEyes": 0,
+    "duplicatedFeatures": 0,
+    "malformedEars": 0,
+    "mangledHands": 0,
+    "warpedJerseys": 0,
+    "unreadableNumbers": 6,
+    "identityMismatch": 0,
+    "cartoonAppearance": 0,
+    "blurryExpanded": 0
+  },
+  "players": [
+    {"group":"QB","id":"solo-brk-02","name":"Kendrick Fairmont","position":"QB","number":18,"heightInches":74,"weightLbs":230},
+    {"group":"QB","id":"solo-slc-02","name":"Jalen Bexley","position":"QB","number":3,"heightInches":77,"weightLbs":222},
+    {"group":"RB","id":"solo-brk-05","name":"Leo Fairmont","position":"RB","number":46,"heightInches":69,"weightLbs":211},
+    {"group":"RB","id":"solo-slc-05","name":"Jordan Bexley","position":"RB","number":17,"heightInches":71,"weightLbs":210},
+    {"group":"WR","id":"solo-brk-10","name":"Miles Fairmont","position":"WR","number":88,"heightInches":71,"weightLbs":208},
+    {"group":"WR","id":"solo-slc-10","name":"Landon Bexley","position":"WR","number":19,"heightInches":74,"weightLbs":181},
+    {"group":"TE","id":"solo-brk-15","name":"Rashad Fairmont","position":"TE","number":42,"heightInches":78,"weightLbs":270},
+    {"group":"TE","id":"solo-slc-15","name":"Micah Bexley","position":"TE","number":87,"heightInches":77,"weightLbs":269},
+    {"group":"OL","id":"solo-brk-21","name":"Tyrese Fairmont","position":"LG","number":57,"heightInches":74,"weightLbs":334},
+    {"group":"OL","id":"solo-slc-20","name":"Quentin Bexley","position":"RT","number":57,"heightInches":77,"weightLbs":358},
+    {"group":"DL","id":"solo-brk-30","name":"Cameron Gaines","position":"DE","number":94,"heightInches":79,"weightLbs":294},
+    {"group":"DL","id":"solo-slc-30","name":"Aiden Corwin","position":"DE","number":79,"heightInches":76,"weightLbs":256},
+    {"group":"LB","id":"solo-brk-38","name":"Felix Gaines","position":"LB","number":91,"heightInches":77,"weightLbs":245},
+    {"group":"LB","id":"solo-slc-38","name":"Damon Corwin","position":"LB","number":55,"heightInches":73,"weightLbs":268},
+    {"group":"DB","id":"solo-brk-46","name":"Jonah Gaines","position":"CB","number":20,"heightInches":68,"weightLbs":202},
+    {"group":"DB","id":"solo-slc-45","name":"Gavin Corwin","position":"CB","number":28,"heightInches":68,"weightLbs":202},
+    {"group":"K","id":"solo-brk-52","name":"Landon Gaines","position":"K","number":17,"heightInches":75,"weightLbs":191},
+    {"group":"K","id":"solo-slc-52","name":"Jonah Corwin","position":"K","number":33,"heightInches":71,"weightLbs":208}
+  ],
+  "artifactRoot": "/solo-characters/v2/qa/{playerId}",
+  "finalAssetChecklist": {
+    "distortedEyes": false,
+    "duplicatedFeatures": false,
+    "malformedEars": false,
+    "mangledHands": false,
+    "warpedJerseys": false,
+    "unreadableNumbers": false,
+    "identityMismatch": false,
+    "cartoonAppearance": false,
+    "blurryExpanded": false
+  },
+  "note": "Six initial portrait variants were rejected because their jersey numbers did not match stored player data; corrected variants were regenerated before derivative packaging."
+}

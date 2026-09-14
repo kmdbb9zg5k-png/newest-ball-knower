@@ -1,0 +1,50 @@
+{
+  "artVersion": 4,
+  "identity": "my-player-preset-darius",
+  "sourcePortrait": [
+    1122,
+    1402
+  ],
+  "sourceFullBody": [
+    1024,
+    1536
+  ],
+  "sourceSha256": {
+    "portrait": "260f27ab8ff1c687ce9614c5aab9ab15478c4cbbec5a25009388014ef09d5ac4",
+    "fullBody": "29d9e567e6b07389186749bb038b7b5f5f732d66e721708da79cfd90e9fd9675"
+  },
+  "files": {
+    "avatar.webp": {
+      "bytes": 2158,
+      "sha256": "0cfb42694fb6c15281bc14e14e62c81c8745e6f4298f080ff257a8b1e36f7d99"
+    },
+    "card.webp": {
+      "bytes": 18752,
+      "sha256": "c14882e9af08ec8258ca0b33ca0a9567b7619b3132a269fd258ee657b3461221"
+    },
+    "full-body.webp": {
+      "bytes": 94028,
+      "sha256": "13e47094b7bc51e13d62cf1bf8d166a94d1bf23710dbc5b3b3d4fc9cc82e9c57"
+    },
+    "portrait.webp": {
+      "bytes": 46400,
+      "sha256": "cb6e96cd8bf3a5dbc6c4b4a27f12a1a45c457ac066b48b034152c6edbd59eeac"
+    },
+    "row.webp": {
+      "bytes": 4768,
+      "sha256": "1d8ea7fda2003ad648fb0a1346fb1cfa46d56db3b2ba5437cfadbffb3a1dcff5"
+    }
+  },
+  "visualReview": "approved",
+  "checklist": {
+    "distortedEyes": true,
+    "duplicatedFeatures": true,
+    "malformedEars": true,
+    "mangledHands": true,
+    "warpedJersey": true,
+    "readableNumber": true,
+    "identityMatch": true,
+    "realisticAppearance": true,
+    "sharpExpandedView": true
+  }
+}

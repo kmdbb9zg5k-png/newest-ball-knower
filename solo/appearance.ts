@@ -2,12 +2,10 @@ import type { Player } from '../types';
 import { SOLO_TEAM_THEMES } from '../soloUniverse';
 
 export const SOLO_ART_VERSION = 3 as const;
-export const SOLO_ART_ROOT = '/solo-characters/v1';
 export const FACE_COUNT = 9;
 export const HAIR_COUNT = 10;
 export const FACIAL_HAIR_COUNT = 6;
 export const EYE_BLACK_COUNT = 4;
-export const FACE_SKIN = ['#8f634d','#4d3024','#94624b','#7a4e3a','#5a3523','#a97455','#40261b','#a16b52','#815239'];
 export const APPEARANCE_PREFIX = 'ball-knower-solo-appearance-v1:';
 export const CREATOR_EASTER_EGG_ID = 'bk-001-eli-rodriguez';
 export type UniformVariant = 'home' | 'away' | 'alternate';
@@ -21,7 +19,7 @@ export type Appearance = {
   face: number; hair: number; facialHair: number; eyeBlack: number; build: BodyBuild; number: number;
   sleeves: SleeveStyle; gloves: GloveStyle; tattooCoverage: TattooCoverage; tattooStyle: TattooStyle; tattooSeed: number;
 };
-export type AppearancePlayer = Pick<Player,'id'|'name'|'team'> & {position:string} & Partial<Pick<Player,'jerseyNumber'|'teamName'>>;
+export type AppearancePlayer = Pick<Player,'id'|'name'|'team'> & {position:string} & Partial<Pick<Player,'jerseyNumber'|'teamName'|'age'|'heightInches'|'weightLbs'|'simulatedPortraitUrl'|'simulatedFullBodyUrl'>>;
 export type Uniform = { name: string; abbr: string; jersey: string; pants: string; trim: string; ink: string; pattern: number };
 type Store = Pick<Storage,'getItem'|'setItem'|'removeItem'>;
 
@@ -49,3 +47,11 @@ export function appearanceSignature(player:AppearancePlayer):string{const l=defa
 export function uniformFor(player:AppearancePlayer,variant:UniformVariant='home'):Uniform{const team=SOLO_TEAM_THEMES.find(i=>i.abbr===player.team),primary=team?.primary??'#252c38',secondary=team?.secondary??'#d4af37';return{name:team?.name??(player.teamName&&player.team!=='FA'?player.teamName:'BK Training Kit'),abbr:team?.abbr??'BK',jersey:variant==='away'?'#f0f0e9':variant==='alternate'?'#171b24':primary,pants:variant==='away'?primary:variant==='alternate'?secondary:'#1a1e27',trim:secondary,ink:variant==='away'?primary:'#fff6d7',pattern:appearanceSeed(team?.abbr??'BK')%4};}
 export const ATTRIBUTE_LABELS:Record<string,string>={athleticism:'Athleticism',footballIQ:'Football IQ',passing:'Passing',rushing:'Rushing',receiving:'Receiving',passBlocking:'Pass blocking',runBlocking:'Run blocking',passRush:'Pass rush',runDefense:'Run defense',coverage:'Coverage',kicking:'Kicking',throwPower:'Throw power',shortAccuracy:'Short accuracy',mediumAccuracy:'Medium accuracy',deepAccuracy:'Deep accuracy',pocketPresence:'Pocket presence',decisionMaking:'Decision making',mobility:'Mobility',playAction:'Play action',throwUnderPressure:'Under pressure'};
 export function playerAttributes(player:Player):Array<{key:string;label:string;value:number}>{const fields:Array<[string,unknown]>=[['speed',player.speed],['strength',player.strength],['awareness',player.awareness],...Object.entries(player.attributes??{})];return fields.filter(([,v])=>typeof v==='number'&&Number.isFinite(v)).map(([key,v])=>({key,label:ATTRIBUTE_LABELS[key]??key.charAt(0).toUpperCase()+key.slice(1),value:Number(v)}));}
+
+/** Shared identity for save detection and render invalidation, including tattoo-only edits. */
+export function appearanceRenderKey(look: Appearance): string {
+  return JSON.stringify(Object.keys(look).sort().map(key => [key, look[key as keyof Appearance]]));
+}
+export function sameAppearance(first: Appearance, second: Appearance): boolean {
+  return appearanceRenderKey(first) === appearanceRenderKey(second);
+}

@@ -93,11 +93,45 @@ const stableNumber = (value: string) =>
 
 const clampRating = (value: number) => Math.max(60, Math.min(97, Math.round(value)));
 
+const measurementsFor = (position: Position, seed: number) => {
+  const ranges: Record<string, [[number, number], [number, number]]> = {
+    QB:[[72,78],[205,245]],RB:[[67,73],[195,235]],FB:[[69,74],[230,265]],WR:[[68,77],[170,225]],TE:[[75,79],[240,275]],
+    LT:[[76,81],[300,380]],RT:[[76,81],[300,380]],OT:[[76,81],[300,380]],LG:[[73,79],[295,365]],RG:[[73,79],[295,365]],OG:[[73,79],[295,365]],C:[[72,78],[290,350]],
+    EDGE:[[73,79],[235,285]],DE:[[73,79],[255,310]],DT:[[71,77],[285,345]],NT:[[71,77],[315,385]],LB:[[71,77],[225,270]],
+    CB:[[68,75],[170,210]],S:[[69,75],[185,225]],FS:[[69,75],[185,225]],SS:[[69,75],[195,235]],K:[[68,76],[170,220]],P:[[70,78],[185,235]],
+  };
+  const [height,weight]=ranges[position]??ranges.WR;
+  return {heightInches:height[0]+((seed>>>8)%(height[1]-height[0]+1)),weightLbs:weight[0]+((seed>>>15)%(weight[1]-weight[0]+1))};
+};
+
 const salaryFor = (position: Position, overall: number, seed: number) => {
   const premium: Record<string, number> = { QB: 1.75, EDGE: 1.25, WR: 1.16, LT: 1.14, CB: 1.08, RT: .92, DT: .9, DE: .9, TE: .72, RB: .62, LB: .68, FS: .62, SS: .62, K: .18, P: .14 };
   const floor = ['K','P'].includes(position) ? .8 : 1.1;
   const talent = Math.max(0, overall - 66);
   return Number(Math.max(floor, (talent * talent / 48) * (premium[position] ?? .58) + (seed % 9) * .12).toFixed(1));
+};
+
+const jerseyPoolFor = (position: Position) => {
+  if (position === 'QB') return [...Array.from({length: 20}, (_, index) => index)];
+  if (['RB','FB','CB','FS','SS','K','P'].includes(position)) return Array.from({length: 50}, (_, index) => index);
+  if (position === 'WR') return [...Array.from({length: 20}, (_, index) => index), ...Array.from({length: 10}, (_, index) => 80 + index)];
+  if (position === 'TE') return [...Array.from({length: 10}, (_, index) => 40 + index), ...Array.from({length: 10}, (_, index) => 80 + index)];
+  if (['LT','RT','LG','RG','C','OT','OG'].includes(position)) return Array.from({length: 30}, (_, index) => 50 + index);
+  if (['EDGE','DE','DT','NT'].includes(position)) return [...Array.from({length: 30}, (_, index) => 50 + index), ...Array.from({length: 10}, (_, index) => 90 + index)];
+  if (position === 'LB') return [...Array.from({length: 20}, (_, index) => 40 + index), ...Array.from({length: 10}, (_, index) => 90 + index)];
+  return Array.from({length: 100}, (_, index) => index);
+};
+
+const jerseyFor = (position: Position, seed: number, used: Set<number>) => {
+  const pool = jerseyPoolFor(position);
+  const offset = seed % pool.length;
+  for (let index = 0; index < pool.length; index += 1) {
+    const candidate = pool[(index + offset) % pool.length];
+    if (!used.has(candidate)) { used.add(candidate); return candidate; }
+  }
+  const fallback = Array.from({length:100}, (_, index) => index).find(number => !used.has(number)) ?? pool[offset];
+  used.add(fallback);
+  return fallback;
 };
 
 const attributesFor = (position: Position, overall: number, seed: number): Player['attributes'] => {
@@ -121,6 +155,7 @@ const buildSoloPlayers = (): Player[] => {
   let globalIndex = 0;
   return SOLO_TEAM_THEMES.flatMap((team, teamIndex) => {
     const depthByGroup = new Map<string, number>();
+    const usedJerseyNumbers = new Set<number>();
     return TEAM_POSITIONS.map((position, rosterIndex) => {
       const group = positionGroup(position);
       const depth = depthByGroup.get(group) ?? 0;
@@ -133,6 +168,7 @@ const buildSoloPlayers = (): Player[] => {
       const lastName = LAST_NAMES[Math.floor(globalIndex / FIRST_NAMES.length) % LAST_NAMES.length];
       const name = `${firstName} ${lastName}`;
       const id = `solo-${team.abbr.toLowerCase()}-${String(rosterIndex + 1).padStart(2, '0')}`;
+      const measurements = measurementsFor(position, seed);
       globalIndex += 1;
       return {
         id,
@@ -150,9 +186,11 @@ const buildSoloPlayers = (): Player[] => {
         fullName: name,
         position,
         positionGroup: group,
-        jerseyNumber: (seed % 98) + 1,
+        jerseyNumber: jerseyFor(position, seed, usedJerseyNumbers),
         age: 21 + (seed % 14),
         experience: seed % 12,
+        ...measurements,
+        durability: 70 + ((seed >>> 23) % 28),
         starter: depth === 0 || (group === 'WR' && depth < 3) || (['OL','DL_EDGE','LB','CB','S'].includes(group) && depth < 4),
         active: true,
         isFreeAgent: false,
@@ -179,11 +217,12 @@ const SOLO_CREATOR_EASTER_EGG: Player = {
   conference: 'AFC', division: 'East',
   name: 'Eli Rodriguez', firstName: 'Eli', lastName: 'Rodriguez', fullName: 'Eli Rodriguez',
   position: 'WR', positionGroup: 'WR', jerseyNumber: 11,
-  age: 30, experience: 10, starter: true, active: true, isFreeAgent: false, rosterSeason: 1,
+  age: 30, experience: 10, heightInches: 69, weightLbs: 190, fortyYardDash: 4.36, durability: 96,
+  starter: true, active: true, isFreeAgent: false, rosterSeason: 1,
   ovr: 85, overall: 85, overallRating: 85,
   ratingSource: 'Ball Knower simulated universe', ratingSeason: 'SIM-1', ratingStatus: 'EDITORIAL',
   salary: 14.8, salaryType: 'estimated', salarySource: 'Ball Knower simulation model',
-  archetype: 'Elite slot route runner',
+  archetype: 'Elite slot route runner · 4.36 forty · very durable',
   speed: 96, awareness: 93,
   attributes: { athleticism: 91, footballIQ: 94, receiving: 95 },
 } satisfies Player;

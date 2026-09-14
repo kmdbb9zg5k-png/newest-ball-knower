@@ -1,27 +1,30 @@
-import './soloAppearanceV2.css';
-import React,{createContext,lazy,Suspense,useCallback,useContext,useEffect,useMemo,useRef,useState} from 'react';
+import React,{createContext,lazy,Suspense,useCallback,useContext,useEffect,useMemo,useRef,useState,useSyncExternalStore} from 'react';
 import type {Player} from '../types';
 import type {SoloWeek,PlayerLine} from '../soloSeasonEngine';
 import type {FranchiseInteractionState} from '../franchiseInteractions';
-import {Appearance,AppearancePlayer,CREATOR_EASTER_EGG_ID,readAppearance,SOLO_ART_ROOT,UniformVariant} from './appearance';
+import {Appearance,AppearancePlayer,appearanceKey,defaultAppearance,readAppearance,UniformVariant} from './appearance';
+import {cacheSimulatedArtwork,localApprovedArtwork,recoverCachedSimulatedArtwork,SimulatedArtSize,useSimulatedArtwork} from './simulatedArt';
+import './playerPhotos.css';
 
 export type PlayerGameLog = PlayerLine & {week:number;opponent:string;won:boolean;year?:number};
 export type SoloPlayerRecord = {player:Player;logs?:PlayerGameLog[];development?:FranchiseInteractionState['development'][string]};
 type PresentationContext = {openPlayer:(record:SoloPlayerRecord)=>void;registerRecords:(records:Map<string,SoloPlayerRecord>)=>()=>void};
 const Context=createContext<PresentationContext|null>(null);
 const Profile=lazy(()=>import('./SoloPlayerProfile'));
-const ELI_FACE=`${SOLO_ART_ROOT}/creator/eli-face.webp`;
 
 export function useAppearance(player:AppearancePlayer):Appearance {
-  const [look,setLook]=useState(()=>readAppearance(player));
-  useEffect(()=>{
-    const sync=()=>setLook(readAppearance(player));sync();
+  const subscribe=useCallback((sync:()=>void)=>{
     const local=(event:Event)=>{if((event as CustomEvent).detail===player.id)sync();};
-    const remote=(event:StorageEvent)=>{if(event.key===null||event.key?.endsWith(encodeURIComponent(player.id)))sync();};
+    const remote=(event:StorageEvent)=>{if(event.key===null||event.key===appearanceKey(player.id))sync();};
     window.addEventListener('bk-solo-appearance',local);window.addEventListener('storage',remote);
     return()=>{window.removeEventListener('bk-solo-appearance',local);window.removeEventListener('storage',remote);};
-  },[player.id,player.position,player.jerseyNumber]);
-  return look;
+  },[player.id]);
+  // Primitive snapshots are stable between reads. A reused row reads its NEW player's
+  // appearance during render, rather than displaying the previous face until an effect runs.
+  const getSnapshot=useCallback(()=>JSON.stringify(readAppearance(player)),[player.id,player.position,player.jerseyNumber]);
+  const getServerSnapshot=useCallback(()=>JSON.stringify(defaultAppearance(player)),[player.id,player.position,player.jerseyNumber]);
+  const snapshot=useSyncExternalStore(subscribe,getSnapshot,getServerSnapshot);
+  return useMemo(()=>JSON.parse(snapshot) as Appearance,[snapshot]);
 }
 
 export function SoloPresentationProvider({children}:{children:React.ReactNode}) {
@@ -30,7 +33,7 @@ export function SoloPresentationProvider({children}:{children:React.ReactNode}) 
   const [revision,setRevision]=useState(0);
   const registerRecords=useCallback((value:Map<string,SoloPlayerRecord>)=>{
     const owner=Symbol();records.current.set(owner,value);setRevision(n=>n+1);
-    return()=>{records.current.delete(owner);};
+    return()=>{records.current.delete(owner);setRevision(n=>n+1);};
   },[]);
   const openPlayer=useCallback((record:SoloPlayerRecord)=>setSelected(record),[]);
   const value=useMemo(()=>({openPlayer,registerRecords}),[openPlayer,registerRecords]);
@@ -68,15 +71,27 @@ export function useSoloRecords(roster:Player[],weeks:SoloWeek[],interactions?:Fr
   },[register,roster,weeks,interactions,year]);
 }
 
-export function SoloPortrait({player,className='',face}:{player:AppearancePlayer;className?:string;face?:number}) {
-  const look=useAppearance(player);const selected=face??look.face;
-  const [failed,setFailed]=useState(false);
-  if(player.id===CREATOR_EASTER_EGG_ID&&face===undefined){
-    return <span className={`bk-solo-portrait ${className}`} aria-hidden="true" data-face="bk-001" data-creator="true" style={{backgroundImage:`url(${ELI_FACE})`,backgroundSize:'cover',backgroundPosition:'50% 24%',backgroundRepeat:'no-repeat'}}/>;
-  }
-  return <span className={`bk-solo-portrait ${className}`} aria-hidden="true" data-face={selected} data-hair={look.hair} data-beard={look.facialHair} data-eye-black={look.eyeBlack}>
-    {!failed?<img src={`${SOLO_ART_ROOT}/faces.webp`} alt="" loading="lazy" decoding="async" width="384" height="480" onError={()=>setFailed(true)} style={{left:`-${selected%3*100}%`,top:`-${Math.floor(selected/3)*100}%`}}/>:<span className="bk-solo-art-fallback">BK</span>}
-    <i className="bk-solo-portrait-hair"/><i className="bk-solo-portrait-beard"/><i className="bk-solo-portrait-eye-black"/>
+const initials=(name:string)=>name.trim().split(/\s+/).slice(0,2).map(part=>part[0]).join('').toUpperCase()||'BK';
+const dimensions:Record<SimulatedArtSize,[number,number]>={avatar:[96,96],row:[160,200],card:[384,480],portrait:[640,800],fullBody:[768,1152]};
+
+function useNearViewport<T extends HTMLElement>() {
+  const ref=useRef<T>(null);const [visible,setVisible]=useState(false);
+  useEffect(()=>{
+    if(typeof IntersectionObserver==='undefined'){setVisible(true);return;}
+    const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)){setVisible(true);observer.disconnect();}},{rootMargin:'240px'});
+    if(ref.current)observer.observe(ref.current);return()=>observer.disconnect();
+  },[]);
+  return {ref,visible};
+}
+
+export function SoloPortrait({player,className='',size='row',variant='home'}:{player:AppearancePlayer;className?:string;size?:Exclude<SimulatedArtSize,'fullBody'>;variant?:UniformVariant}) {
+  const look=useAppearance(player);const {ref,visible}=useNearViewport<HTMLSpanElement>();
+  const identityPortrait=player.simulatedPortraitUrl;const local=localApprovedArtwork(player,variant,look);const art=useSimulatedArtwork(player,variant,look,visible&&!local&&!identityPortrait);
+  const source=identityPortrait||local?.[size]||(art.state==='ready'?art.manifest?.urls?.[size]:undefined);const sourceIsPrivate=Boolean(source&&source===identityPortrait);
+  const [failedSource,setFailedSource]=useState<string|null>(null);const [recovered,setRecovered]=useState<{source:string;blob:string}|null>(null);const failed=Boolean(source&&failedSource===source);const displaySource=source&&recovered?.source===source?recovered.blob:source;const [width,height]=dimensions[size];
+  return <span ref={ref} className={`bk-solo-portrait ${className}`} aria-hidden="true" data-art-state={source&&!failed?'ready':art.state} data-art-size={size} data-solo-player-id={player.id}>
+    {source&&!failed?<img key={displaySource} src={displaySource} alt="" loading="lazy" decoding="async" width={width} height={height} onLoad={()=>{if(!sourceIsPrivate&&displaySource===source)void cacheSimulatedArtwork(source)}} onError={()=>{if(sourceIsPrivate){setFailedSource(source);return;}if(displaySource!==source){setFailedSource(source);return;}void recoverCachedSimulatedArtwork(source).then(blob=>blob?setRecovered({source,blob}):setFailedSource(source));}}/>
+      :<span className="bk-solo-art-fallback"><b>{initials(player.name)}</b><small>{art.state==='loading'?'RENDERING':'ART PENDING'}</small></span>}
   </span>;
 }
 
@@ -96,26 +111,20 @@ export function SoloQuickView({player}:{player:Player}) {
   return <button type="button" className="bk-solo-quick-view" data-solo-player-id={player.id} aria-label={`View ${player.name} player profile`} onClick={()=>presentation.openPlayer({player})}><span aria-hidden="true">↗</span></button>;
 }
 
-export function SoloCharacter({player,look,variant='home',helmet=false,className=''}:{player:AppearancePlayer;look:Appearance;variant?:UniformVariant;helmet?:boolean;className?:string}) {
-  const canvas=useRef<HTMLCanvasElement>(null);const [state,setState]=useState<'loading'|'ready'|'error'>('loading');
-  const [retry,setRetry]=useState(0);
-  useEffect(()=>{
-    let current=true;let frame=0;setState('loading');
-    frame=requestAnimationFrame(()=>{import('./characterRenderer').then(async({drawCharacter})=>{
-      if(!current||!canvas.current)return;
-      await drawCharacter(canvas.current,player,look,variant,helmet,()=>current);
-      if(current)setState('ready');
-    }).catch(()=>{if(current)setState('error');});});
-    return()=>{current=false;cancelAnimationFrame(frame);};
-  },[player.id,player.name,player.team,player.teamName,look.face,look.hair,look.facialHair,look.eyeBlack,look.build,look.number,look.sleeves,look.gloves,variant,helmet,retry]);
-  return <div className={`bk-solo-character ${className}`} data-render-state={state} data-build={look.build}>
-    <canvas ref={canvas} width="256" height="768" role="img" aria-label={`${player.name}, simulated full-body player in ${variant} uniform`} />
-    {state==='loading'&&<span className="bk-solo-art-status" role="status">Loading player…</span>}
-    {state==='error'&&<div className="bk-solo-art-status" role="status">Artwork unavailable.<button type="button" onClick={()=>setRetry(n=>n+1)}>Retry preview</button></div>}
+export function SoloCharacter({player,look,variant='home',className='',customFaceSrc}:{player:AppearancePlayer;look:Appearance;variant?:UniformVariant;className?:string;customFaceSrc?:string}) {
+  const {ref,visible}=useNearViewport<HTMLDivElement>();const local=localApprovedArtwork(player,variant,look);const identityPortrait=customFaceSrc||player.simulatedPortraitUrl;const customBody=player.simulatedFullBodyUrl;const art=useSimulatedArtwork(player,variant,look,visible&&!local&&!customBody&&!identityPortrait);
+  const source=visible?(customBody||local?.fullBody||(art.state==='ready'?art.manifest?.urls?.fullBody:undefined)):undefined;const sourceIsPrivate=Boolean(source&&source===customBody);const [failedSource,setFailedSource]=useState<string|null>(null);const [recovered,setRecovered]=useState<{source:string;blob:string}|null>(null);const failed=Boolean(source&&failedSource===source);const displaySource=source&&recovered?.source===source?recovered.blob:source;
+  const renderState=!visible?'waiting':failed?'error':source?'ready':identityPortrait?'portrait':art.state;
+  return <div ref={ref} className={`bk-solo-character ${className}`} data-render-state={renderState} data-build={look.build}>
+    {source&&!failed?<img key={displaySource} src={displaySource} loading="lazy" decoding="async" width="768" height="1152" alt={`${player.name}, fictional professional football player in ${variant} uniform`} onLoad={()=>{if(!sourceIsPrivate&&displaySource===source)void cacheSimulatedArtwork(source)}} onError={()=>{if(sourceIsPrivate){setFailedSource(source);return;}if(displaySource!==source){setFailedSource(source);return;}void recoverCachedSimulatedArtwork(source).then(blob=>blob?setRecovered({source,blob}):setFailedSource(source));}}/>
+      :identityPortrait?<div className="bk-solo-character-fallback" role="img" aria-label={`${player.name}, persistent identity portrait`}><img src={identityPortrait} alt="" className="bk-solo-custom-face-fallback"/><span>Full-body render not created yet</span></div>
+      :visible?<div className="bk-solo-character-fallback" role="status"><SoloPortrait player={player} size="portrait" variant={variant}/><span>{art.state==='loading'?'Loading production player art…':'Production player art awaiting visual approval'}</span></div>:null}
   </div>;
 }
 
-/** Decorative, shared artwork for the six entry tiles; never a roster/stat source. */
+/** Decorative, optimized artwork for entry tiles; never a roster/stat source. */
 export function SoloModeArtwork({seed}:{seed:string}) {
-  return <span className="bk-solo-tile-art" aria-hidden="true"><img src={`${SOLO_ART_ROOT}/body.webp`} alt="" loading="lazy" decoding="async"/><SoloPortrait player={{id:`solo-tile:${seed}`,name:'',position:'WR',team:'BK'}}/></span>;
+  const samples=['solo-brk-02','solo-slc-05','solo-brk-10','solo-slc-15','solo-brk-21','solo-slc-45'];
+  const index=Array.from(seed).reduce((hash,char)=>(hash*31+char.charCodeAt(0))>>>0,0)%samples.length;
+  return <span className="bk-solo-tile-art bk-solo-tile-art-v4" data-art-seed={seed} aria-hidden="true"><img src={`/solo-characters/v2/qa/${samples[index]}/card.webp`} alt="" loading="lazy" decoding="async" width="384" height="480"/></span>;
 }

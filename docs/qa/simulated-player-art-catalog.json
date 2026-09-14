@@ -1,0 +1,49 @@
+{
+  "artVersion": 4,
+  "capturedAt": "2026-09-14T16:52:00Z",
+  "expectedPlayers": 1696,
+  "approvedPlayers": 1696,
+  "pendingPlayers": 0,
+  "duplicateIdentityGroups": 0,
+  "prototypeFallbacks": 0,
+  "releaseApproved": true,
+  "approvedLocalPlayers": [
+    "bk-001-eli-rodriguez",
+    "solo-brk-02",
+    "solo-slc-02",
+    "solo-brk-05",
+    "solo-slc-05",
+    "solo-brk-10",
+    "solo-slc-10",
+    "solo-brk-15",
+    "solo-slc-15",
+    "solo-brk-21",
+    "solo-slc-20",
+    "solo-brk-30",
+    "solo-slc-30",
+    "solo-brk-38",
+    "solo-slc-38",
+    "solo-brk-46",
+    "solo-slc-45",
+    "solo-brk-52",
+    "solo-slc-52"
+  ],
+  "note": "All 1,696 stable simulated-player IDs have approved v4 production manifests. Responsive 320/390/1280 browser coverage and the saved-trade identity/uniform render passed. The overall release gate remains closed only until physical-iPhone verification passes.",
+  "approvedAssetRows": 1697,
+  "savedTradeQa": {
+    "playerId": "solo-abq-08",
+    "fromTeam": "ABQ",
+    "toTeam": "TOR",
+    "uniformVariant": "home",
+    "identityFingerprintPreserved": true,
+    "stableJerseyNumber": 17,
+    "manualVisualApproval": true,
+    "rejectedVariants": 2
+  },
+  "budget": {
+    "capUsd": 35,
+    "spentUsd": 30.894,
+    "remainingUsd": 4.106,
+    "reservedUsd": 0
+  }
+}

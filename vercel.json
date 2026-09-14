@@ -1,4 +1,10 @@
 {
+  "rewrites": [
+    {
+      "source": "/api/simulated-player-art",
+      "destination": "/api/simulated-player-art-runtime"
+    }
+  ],
   "crons": [
     {
       "path": "/api/fantasy-live-scoring",

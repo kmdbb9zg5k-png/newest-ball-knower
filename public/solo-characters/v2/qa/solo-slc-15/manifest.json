@@ -1,0 +1,50 @@
+{
+  "artVersion": 4,
+  "identity": "solo-slc-15",
+  "sourcePortrait": [
+    1024,
+    1536
+  ],
+  "sourceFullBody": [
+    1024,
+    1536
+  ],
+  "sourceSha256": {
+    "portrait": "317321ddfeb86fe9ac17d7e6daf33b1074200236c6befc1f76d68a77c67e1150",
+    "fullBody": "b6f31316bb00e641d02d46037e454e81a30fa30d2ebfe28db3a1d06787730fa8"
+  },
+  "files": {
+    "avatar.webp": {
+      "bytes": 2988,
+      "sha256": "4104a67e4cd145c4831b1eb2aabfca397994043ff8efd9514331ab68fef4f5b5"
+    },
+    "card.webp": {
+      "bytes": 27596,
+      "sha256": "aabf2dc4d26c17c37df609d6180814d89d3f6457a4aa3cb830239b0ec541b7d5"
+    },
+    "full-body.webp": {
+      "bytes": 102132,
+      "sha256": "e6d308e1e64f99d1066f2cf8e9e28a9ed04d1d6eae5dc37cf54daae74d0794b1"
+    },
+    "portrait.webp": {
+      "bytes": 66582,
+      "sha256": "ff28780623db2b2371a5f0ec312cceddcb6ebd6032b8fb3aef4ecff2c33dca17"
+    },
+    "row.webp": {
+      "bytes": 7260,
+      "sha256": "b85fcf66e47cf95f93eac6f6ed3e9c125dee83c69cf79dcbf380afc12fe3207e"
+    }
+  },
+  "visualReview": "approved",
+  "checklist": {
+    "distortedEyes": true,
+    "duplicatedFeatures": true,
+    "malformedEars": true,
+    "mangledHands": true,
+    "warpedJersey": true,
+    "readableNumber": true,
+    "identityMatch": true,
+    "realisticAppearance": true,
+    "sharpExpandedView": true
+  }
+}

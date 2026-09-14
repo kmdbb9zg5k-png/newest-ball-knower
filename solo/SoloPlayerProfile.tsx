@@ -1,12 +1,13 @@
 import React,{useEffect,useId,useMemo,useState} from 'react';
 import {ModalPortal} from '../ModalPortal';
-import {Appearance,BodyBuild,EYE_BLACK_COUNT,FACE_COUNT,FACIAL_HAIR_COUNT,GloveStyle,HAIR_COUNT,saveAppearance,SleeveStyle,UniformVariant,uniformFor,playerAttributes} from './appearance';
-import {SoloCharacter,SoloPlayerRecord,SoloPortrait,useAppearance} from './SoloPresentation';
+import {Appearance,GloveStyle,saveAppearance,sameAppearance,TattooCoverage,TattooStyle,SleeveStyle,UniformVariant,uniformFor,playerAttributes} from './appearance';
+import {SoloCharacter,SoloPlayerRecord,useAppearance} from './SoloPresentation';
+import {simulatedPlayerIdentity} from './artIdentity';
 
 type Tab='overview'|'stats'|'game-log'|'development'|'appearance';
 const TABS:Array<[Tab,string]>=[['overview','Overview'],['stats','Stats'],['game-log','Game log'],['development','Development'],['appearance','Edit player']];
 const STATS:Record<string,string>={passYds:'Pass yards',passTD:'Pass TD',interceptions:'Interceptions',rushYds:'Rush yards',rushTD:'Rush TD',receptions:'Receptions',recYds:'Receiving yards',recTD:'Receiving TD',tackles:'Tackles',sacks:'Sacks',picks:'Def. interceptions',fgMade:'FG made',fgAtt:'FG attempts',puntsInside20:'Punts inside 20',fantasyScore:'Sim points'};
-const sameLook=(a:Appearance,b:Appearance)=>a.face===b.face&&a.hair===b.hair&&a.facialHair===b.facialHair&&a.eyeBlack===b.eyeBlack&&a.build===b.build&&a.number===b.number&&a.sleeves===b.sleeves&&a.gloves===b.gloves;
+const sameLook=sameAppearance;
 
 export default function SoloPlayerProfile({record,onClose}:{record:SoloPlayerRecord;onClose:()=>void}) {
   const {player,logs,development}=record;
@@ -16,11 +17,11 @@ export default function SoloPlayerProfile({record,onClose}:{record:SoloPlayerRec
   const [variant,setVariant]=useState<UniformVariant>('home');
   const [message,setMessage]=useState('');
   const [discard,setDiscard]=useState(false);
-  const [showHelmet,setShowHelmet]=useState(false);
   const id=useId();
   const dirty=!sameLook(saved,draft);
   const kit=uniformFor(player,variant);
   const attributes=useMemo(()=>playerAttributes(player),[player]);
+  const identity=useMemo(()=>simulatedPlayerIdentity(player),[player.id]);
   const close=()=>{if(dirty){setDiscard(true);return;}onClose();};
   useEffect(()=>{
     const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();if(dirty)setDiscard(true);else onClose();}};
@@ -47,7 +48,10 @@ export default function SoloPlayerProfile({record,onClose}:{record:SoloPlayerRec
             <dl className="bk-solo-player-facts">
               {typeof player.age==='number'&&<><dt>Age</dt><dd>{player.age}</dd></>}
               {typeof player.experience==='number'&&<><dt>Experience</dt><dd>{player.experience===0?'Rookie':`${player.experience} years`}</dd></>}
+              <dt>Size</dt><dd>{Math.floor(identity.heightInches/12)}′{identity.heightInches%12}″ · {identity.weightLbs} lb</dd>
               <dt>Position</dt><dd>{player.position}</dd>
+              {typeof player.fortyYardDash==='number'&&<><dt>40-yard dash</dt><dd>{player.fortyYardDash.toFixed(2)} sec</dd></>}
+              {typeof player.durability==='number'&&<><dt>Durability</dt><dd>{player.durability}</dd></>}
               {Number.isFinite(player.salary)&&<><dt>Salary</dt><dd>${player.salary.toFixed(1)}M{player.salaryType==='estimated'?' est.':''}</dd></>}
             </dl>
           </div>
@@ -65,18 +69,16 @@ export default function SoloPlayerProfile({record,onClose}:{record:SoloPlayerRec
             <section className="bk-solo-profile-section"><h2>Scouting profile</h2><p>{player.archetype&&player.archetype!=='Simulated pro player'?player.archetype:`${player.position} · ${player.ovr} overall in the Ball Knower simulated universe.`}</p>
               <p className="bk-solo-muted">{player.ratingExplanation||'Attributes below come from this player’s current career record. Appearance changes do not change performance.'}</p>
             </section>
-            <section className="bk-solo-profile-section"><h2>Uniform preview</h2><UniformSwitch value={variant} onChange={setVariant}/><div className="bk-solo-uniform-showcase"><SoloCharacter player={player} look={saved} variant={variant} helmet={showHelmet}/><div><span className="bk-solo-eyebrow">{kit.abbr} / {variant.toUpperCase()}</span><h3>{kit.name}</h3><p>Same player. Team-specific kit.</p><button type="button" className="bk-solo-secondary" aria-pressed={showHelmet} onClick={()=>setShowHelmet(value=>!value)}>{showHelmet?'Show face':'Show helmet'}</button><button type="button" className="bk-solo-secondary" onClick={()=>setTab('appearance')}>Edit appearance</button></div></div></section>
+            <section className="bk-solo-profile-section"><h2>Uniform preview</h2><UniformSwitch value={variant} onChange={setVariant}/><div className="bk-solo-uniform-showcase"><SoloCharacter player={player} look={saved} variant={variant}/><div><span className="bk-solo-eyebrow">{kit.abbr} / {variant.toUpperCase()}</span><h3>{kit.name}</h3><p>Same player. Team-specific kit.</p><button type="button" className="bk-solo-secondary" onClick={()=>setTab('appearance')}>Edit equipment</button></div></div></section>
           </>}
           {tab==='stats'&&<><h2>Recorded season totals</h2>{totals.length?<><p className="bk-solo-muted">{logs?.length} recorded player game{logs?.length===1?'':'s'} in the current career season. Simulated, not live NFL statistics.</p><div className="bk-solo-totals">{totals.map(stat=><div key={stat.key}><span>{stat.label}</span><strong>{Number.isInteger(stat.value)?stat.value:stat.value.toFixed(1)}</strong></div>)}</div></>:<Empty title="No recorded statistics yet" detail="This view has no recorded game lines for this player. Unavailable statistics are not shown as zero."/>}</>}
           {tab==='game-log'&&<><h2>Player game log</h2>{logs?.length?<div className="bk-solo-game-log">{[...logs].reverse().map((line,index)=><article key={`${line.year??'season'}-${line.week}-${index}`}><header><strong>{line.year?`${line.year} · `:''}Week {line.week}</strong><span className={line.won?'is-win':''}>{line.won?'WIN':'LOSS'}</span></header><p>{line.opponent}</p><div>{statKeys.filter(key=>typeof (line as unknown as Record<string,unknown>)[key]==='number').map(key=><span key={key}><b>{String((line as unknown as Record<string,unknown>)[key])}</b> {STATS[key]}</span>)}</div></article>)}</div>:<Empty title="No game log available" detail="Recorded games appear here when this career supplies a player stat line. Your existing season schedule remains in the career screen."/>}</>}
           {tab==='development'&&<><h2>Player development</h2>{development?<section className="bk-solo-development"><div><strong>{development.upgradePoints}</strong><span>AVAILABLE POINTS</span></div><label>Experience <b>{development.xp}/100 XP</b><progress max="100" value={Math.max(0,Math.min(100,development.xp))}/></label><p>Morale <b>{development.morale}</b></p><p className="bk-solo-muted">Spend upgrade points using the career’s existing Physical, Awareness and Position controls. Opening this profile does not spend a point.</p></section>:<p className="bk-solo-muted">This career has not supplied a development record for this player.</p>}<h2>Current ratings</h2><div className="bk-solo-rating-list">{attributes.map(attribute=><div key={attribute.key}><span>{attribute.label}</span><strong>{attribute.value}</strong><i aria-hidden="true" style={{width:`${Math.max(0,Math.min(100,attribute.value))}%`}}/></div>)}</div></>}
-          {tab==='appearance'&&<><h2>Edit player appearance</h2><p className="bk-solo-muted">Saved on this device. Face, hair, build and gear are cosmetic only; ratings, contracts and career progress stay untouched.</p><UniformSwitch value={variant} onChange={setVariant}/><div className="bk-solo-editor-layout"><div className="bk-solo-editor-model"><SoloCharacter player={player} look={draft} variant={variant}/></div><div className="bk-solo-editor-controls">
-            <fieldset><legend>Face</legend><div className="bk-solo-face-picker">{Array.from({length:FACE_COUNT},(_,face)=><button key={face} type="button" aria-label={`Face ${face+1}`} aria-pressed={draft.face===face} onClick={()=>{setDraft(value=>({...value,face}));setMessage('');}}><SoloPortrait player={player} face={face}/></button>)}</div></fieldset>
-            <fieldset><legend>Hair</legend><div className="bk-solo-choice-stack">{Array.from({length:HAIR_COUNT},(_,hair)=><button key={hair} type="button" aria-pressed={draft.hair===hair} onClick={()=>setDraft(value=>({...value,hair}))}>Style {hair+1}</button>)}</div></fieldset>
-            <fieldset><legend>Facial hair</legend><div className="bk-solo-choice-stack">{Array.from({length:FACIAL_HAIR_COUNT},(_,facialHair)=><button key={facialHair} type="button" aria-pressed={draft.facialHair===facialHair} onClick={()=>setDraft(value=>({...value,facialHair}))}>{facialHair===0?'Clean':`Style ${facialHair}`}</button>)}</div></fieldset>
-            <fieldset><legend>Eye black</legend><div className="bk-solo-choice-stack">{Array.from({length:EYE_BLACK_COUNT},(_,eyeBlack)=><button key={eyeBlack} type="button" aria-pressed={draft.eyeBlack===eyeBlack} onClick={()=>setDraft(value=>({...value,eyeBlack}))}>{eyeBlack===0?'None':`Style ${eyeBlack}`}</button>)}</div></fieldset>
-            <fieldset><legend>Body build</legend><div className="bk-solo-choice-stack">{(['lean','athletic','power','heavy'] as BodyBuild[]).map(build=><button key={build} type="button" aria-pressed={draft.build===build} onClick={()=>setDraft(value=>({...value,build}))}>{build}</button>)}</div></fieldset>
+          {tab==='appearance'&&<><h2>Edit player equipment</h2><p className="bk-solo-muted">This player’s face, skin tone, hair, age and body identity are locked to the stable player ID. Equipment changes never replace that person or alter ratings and career progress.</p><UniformSwitch value={variant} onChange={setVariant}/><div className="bk-solo-editor-layout"><div className="bk-solo-editor-model"><SoloCharacter player={player} look={draft} variant={variant}/></div><div className="bk-solo-editor-controls">
+            <section className="bk-solo-identity-lock"><strong>Persistent player identity</strong><span>{identity.skinTone} · {identity.hairStyle} · {identity.facialHair}</span><small>Identity #{identity.identitySeed.toString(16).toUpperCase()}</small></section>
             <label className="bk-solo-number-label">Jersey number<input aria-label="Jersey number" inputMode="numeric" type="number" min="0" max="99" step="1" value={draft.number} onChange={event=>{const number=Number(event.target.value);if(Number.isInteger(number)&&number>=0&&number<=99)setDraft(value=>({...value,number}));}}/></label>
+            <fieldset><legend>Tattoo coverage</legend><div className="bk-solo-choice-stack">{(['none','minimal','upper-arm','forearm','half-sleeve','full-sleeve','both-arms'] as TattooCoverage[]).map(tattooCoverage=><button key={tattooCoverage} type="button" aria-pressed={draft.tattooCoverage===tattooCoverage} onClick={()=>setDraft(value=>({...value,tattooCoverage}))}>{tattooCoverage.replaceAll('-',' ')}</button>)}</div></fieldset>
+            <fieldset><legend>Tattoo style</legend><div className="bk-solo-choice-stack">{(['blackwork','geometric','script','traditional','mixed'] as TattooStyle[]).map(tattooStyle=><button key={tattooStyle} type="button" aria-pressed={draft.tattooStyle===tattooStyle} onClick={()=>setDraft(value=>({...value,tattooStyle}))}>{tattooStyle}</button>)}</div></fieldset>
             <fieldset><legend>Arm gear</legend><div className="bk-solo-choice-stack">{(['none','right','left','both'] as SleeveStyle[]).map(sleeves=><button key={sleeves} type="button" aria-pressed={draft.sleeves===sleeves} onClick={()=>setDraft(value=>({...value,sleeves}))}>{sleeves}</button>)}</div></fieldset>
             <fieldset><legend>Gloves</legend><div className="bk-solo-choice-stack">{(['none','light','dark'] as GloveStyle[]).map(gloves=><button key={gloves} type="button" aria-pressed={draft.gloves===gloves} onClick={()=>setDraft(value=>({...value,gloves}))}>{gloves}</button>)}</div></fieldset>
           </div></div></>}
