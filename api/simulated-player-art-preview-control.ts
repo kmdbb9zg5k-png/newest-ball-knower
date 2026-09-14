@@ -1508,7 +1508,14 @@ async function previewControl(req, res) {
     const players = SOLO_PLAYERS_DATABASE2.filter((player) => requested.has(player.id));
     if (!players.length || players.length !== requested.size) return res.status(400).json({ error: "Supply one to sixteen valid simulated player IDs." });
     const attempt = Math.max(1, Math.min(20, Number(req.query?.attempt) || 1));
-    req.body = { action: "submit-batch", qualityTier: "economy", jobs: players.map((player) => jobFor(player, attempt)) };
+    const requestedTeam = String(req.query?.team || "").toUpperCase();
+    const uniformTeam = requestedTeam ? SOLO_TEAM_THEMES2.find((team) => team.abbr === requestedTeam) : void 0;
+    if (requestedTeam && !uniformTeam) return res.status(400).json({ error: "Supply a valid fictional team abbreviation." });
+    req.body = {
+      action: "submit-batch",
+      qualityTier: "economy",
+      jobs: players.map((player) => jobFor(uniformTeam ? { ...player, team: uniformTeam.abbr } : player, attempt))
+    };
   } else if (action === "submit-slice" || action === "retry-slice") {
     const team = String(req.query?.team || "").toUpperCase();
     const offset = Math.max(0, Math.min(SOLO_PLAYERS_DATABASE2.length, Number(req.query?.offset) || 0));
