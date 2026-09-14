@@ -8,7 +8,6 @@ import type { TeamTheme } from './teamTheme';
 import type { AppTab } from './App';
 import { PartnerCard } from './PartnerCard';
 import { homePartners } from './partners';
-import { HomeStadiumHero } from './HomeStadiumHero';
 import { HomeMatchups } from './HomeMatchups';
 import { HomeSoloFeature } from './HomeSoloFeature';
 import { buildHomeActivity, homeFeaturedActivity, homeLeagueAction, homeLeaguePhase, homeRatingTier, type HomeActivity } from './homeDashboardState';
@@ -109,7 +108,7 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
   }, [leagueMenuOpen]);
 
   return <div className="bk-home-dashboard bk-home-broadcast bk-home-clean mx-auto max-w-5xl pb-5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pb-8 sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
-    <HomeStadiumHero onMyLeagues={() => onNavigate('fantasy')}/>
+    <HomeSoloFeature onOpen={() => onNavigate('solo')}/>
     <section aria-label="Primary destinations" className="bk-home-primary-modes">
       <ModeCard icon={<Trophy/>} label="Fantasy" onClick={() => onNavigate('fantasy')}/>
       <ModeCard icon={<Target/>} label="Picks" onClick={() => onNavigate('sportsbook')}/>
@@ -150,8 +149,6 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
         <button type="button" className="bk-home-league-cta" onClick={openPrimaryLeague}>{action!.label}<ArrowRight size={18} aria-hidden="true"/></button>
       </> : <div className="bk-home-league-empty"><h2>Your league starts here</h2><p>Create a league or join your friends with an invite code.</p><div><button type="button" onClick={onOpenCreateLeague}>Create League</button><button type="button" onClick={onOpenJoinLeague}>Join League</button></div></div>}
     </section>}
-
-    <HomeSoloFeature onOpen={() => onNavigate('solo')}/>
 
     <section className="bk-home-rating" aria-label="Ball Knower Rating" aria-busy={ratingLoading}>
       <div className="bk-home-rating-value"><span>BK Rating</span><strong>{profile?.bkRating ?? '—'}</strong></div>
