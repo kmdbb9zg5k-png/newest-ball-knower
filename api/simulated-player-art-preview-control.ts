@@ -548,7 +548,22 @@ function simulatedIdentityFingerprint(player) {
   return [identity.version, identity.playerId, identity.identitySeed, identity.approximateAge, identity.skinTone, identity.hairStyle, identity.hairColor, identity.facialHair, identity.faceShape, identity.eyeColor, identity.bodyArchetype, identity.heightInches, identity.weightLbs, identity.tattooProfile, identity.accessoryProfile, identity.distinguishingDetail, identity.lockedReference ?? ""].join("|");
 }
 function fictionalUniformPrompt(player, number, variant = "home") {
-  return `${player.teamName || player.team || "Ball Knower Training"} fictional professional football ${variant} uniform, jersey number ${number}; no NFL, real-team, league, sponsor, or manufacturer logos`;
+  const team = SOLO_TEAM_THEMES.find((item) => item.abbr === player.team);
+  const name = player.teamName || team?.name || player.team || "Ball Knower Training";
+  const primary = team?.primary || "#111827";
+  const secondary = team?.secondary || "#D4AF37";
+  const jerseyBase = variant === "away" ? "clean white" : variant === "alternate" ? secondary : primary;
+  const numberColor = variant === "away" ? primary : variant === "alternate" ? primary : secondary;
+  return `${name} fictional professional football ${variant} uniform. STRICT TEAM PALETTE LOCK: primary ${primary}, secondary ${secondary}, with neutral white or black only when needed. Jersey base ${jerseyBase}; jersey number ${number} in ${numberColor} with high-contrast trim; coordinated pants, socks, gloves and blank helmet use this exact same palette. The chest-up and full-body panels must show the identical uniform design, colors, number ${number}, striping and equipment. Do not invent or substitute any color outside this palette. No NFL, real-team, league, sponsor, wordmark, mascot, manufacturer or swoosh logos`;
+}
+function positionBuildDirection(position, height, weight) {
+  if (["WR", "CB"].includes(position)) return `lean explosive skill-player frame at ${height} inches and ${weight} pounds, narrow waist, defined shoulders and realistic speed-athlete legs`;
+  if (["RB", "FS", "SS", "S"].includes(position)) return `compact muscular frame at ${height} inches and ${weight} pounds, powerful hips and thighs without oversized lineman mass`;
+  if (position === "QB") return `balanced athletic quarterback frame at ${height} inches and ${weight} pounds, strong but not bodybuilder-heavy`;
+  if (["TE", "EDGE", "DE", "LB"].includes(position)) return `large athletic contact-player frame at ${height} inches and ${weight} pounds, broad shoulders with believable mobility`;
+  if (["OT", "LT", "RT", "OG", "LG", "RG", "C", "DT", "NT"].includes(position)) return `large realistic football lineman frame at ${height} inches and ${weight} pounds, thick torso, heavy legs and functional mass, never merely a stretched skill-player body`;
+  if (["K", "P"].includes(position)) return `lean position-appropriate specialist frame at ${height} inches and ${weight} pounds, athletic but not oversized`;
+  return `${height} inches and ${weight} pounds with position-appropriate professional football proportions`;
 }
 function isSupportedSimulatedPlayerId(value) {
   return /^(solo-[a-z0-9-]{3,80}|bk-001-eli-rodriguez|franchise-rookie-[a-z0-9-]{3,100}|my-player-[a-z0-9-]{3,100})$/.test(value);
@@ -665,7 +680,7 @@ function serializedInput(job) {
 function sheetPrompt(job, hasAnchor) {
   const i = job.identity, number = job.appearance.number;
   const identityDirection = hasAnchor ? "Use the supplied fictional identity anchor as the exact same person in both panels. Preserve the face, skin tone, age, facial structure, eyes, ears, hairline, hair and facial hair." : `Create one entirely fictional adult professional football player, not a real athlete: ${i.approximateAge} years old; ${i.skinTone} skin; ${i.faceShape} face; ${i.eyeColor} eyes; ${i.hairColor} ${i.hairStyle}; ${i.facialHair}; ${i.distinguishingDetail}.`;
-  return `${identityDirection} Produce one square two-panel professional football photography sheet with a clean split exactly at the vertical center. LEFT HALF: a large chest-up database portrait, face fully visible, no helmet. RIGHT HALF: the exact same player's realistic full body from hair to both cleats, standing in a natural three-quarter hero pose and holding a helmet at his side. Keep each person entirely inside their own half and do not cross the center. ${i.heightInches} inches and ${i.weightLbs} pounds with a ${i.bodyArchetype} build appropriate for ${job.player.position}. Both panels use the exact same ${fictionalUniformPrompt(job.player, number, job.variant)} and clearly readable jersey number ${number}. Equipment: ${job.appearance.eyeBlack ? "eye black" : "no eye black"}; ${job.appearance.sleeves} arm sleeves; ${job.appearance.gloves} gloves. Tattoos: ${job.appearance.tattooCoverage}, ${job.appearance.tattooStyle}; stable identity detail: ${i.tattooProfile}. Photorealistic skin pores, believable eyes, nose, ears, teeth if visible, hairline, hands, fingers, anatomy, football pads, fabric weave and stitching. Dark stadium tunnel with matching cinematic key and rim lighting in both halves. No divider line, captions, words, logos, trademarks, watermark, real teams or real players. Reject mismatched faces between panels, duplicate features, distorted eyes, malformed ears, extra fingers, fused hands, extra limbs, warped jersey, unreadable or inconsistent number, mannequin proportions, plastic skin, cartoon styling, blur, cropped feet, or cropped hair.`;
+  return `${identityDirection} Produce one square two-panel professional football photography sheet with a clean split exactly at the vertical center. LEFT HALF: a large chest-up database portrait, face fully visible, no helmet. RIGHT HALF: the exact same player's realistic full body from hair to both cleats, standing in a natural three-quarter hero pose and holding a helmet at his side. Keep each person entirely inside their own half and do not cross the center. Body requirement: ${positionBuildDirection(job.player.position, i.heightInches, i.weightLbs)}; ${i.bodyArchetype}. Uniform requirement: ${fictionalUniformPrompt(job.player, number, job.variant)}. Equipment: ${job.appearance.eyeBlack ? "eye black" : "no eye black"}; ${job.appearance.sleeves} arm sleeves; ${job.appearance.gloves} gloves. Tattoos: ${job.appearance.tattooCoverage}, ${job.appearance.tattooStyle}; stable identity detail: ${i.tattooProfile}. Photorealistic skin pores, believable eyes, nose, ears, teeth if visible, hairline, hands, fingers, anatomy, football pads, fabric weave and stitching. Dark stadium tunnel with matching cinematic key and rim lighting in both halves. No divider line, captions, words, logos, trademarks, watermark, real teams or real players. Reject any palette drift between players on the same team, mismatched uniforms or faces between panels, duplicate features, distorted eyes, malformed ears, extra fingers, fused hands, extra limbs, warped jersey, unreadable or inconsistent number, mannequin proportions, plastic skin, cartoon styling, blur, cropped feet, or cropped hair.`;
 }
 function rowKey(job) {
   return { player_id: job.player.id, team_abbr: job.player.team, uniform_variant: job.variant, appearance_key: job.appearanceKey, art_version: SIMULATED_ART_VERSION };
@@ -1452,7 +1467,7 @@ async function previewControl(req, res) {
         heightInches: player.heightInches,
         weightLbs: player.weightLbs,
         appearance: defaultAppearance2(player),
-        attempt: 1
+        attempt: 2
       }))
     };
   } else if (action === "sync") req.body = { action: "sync-open-batches" };
