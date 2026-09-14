@@ -1,6 +1,6 @@
 import handler from './simulated-player-art';
 import { defaultAppearance } from '../solo/appearance';
-import { SOLO_PLAYERS_DATABASE } from '../soloUniverse';
+import { SOLO_PLAYERS_DATABASE, SOLO_TEAM_THEMES } from '../soloUniverse';
 
 const APPROVED_LOCAL = new Set([
   'bk-001-eli-rodriguez','solo-brk-02','solo-slc-02','solo-brk-05','solo-slc-05','solo-brk-10','solo-slc-10','solo-brk-15','solo-slc-15',
@@ -50,7 +50,14 @@ export default async function previewControl(req:any,res:any) {
     const players = SOLO_PLAYERS_DATABASE.filter(player => requested.has(player.id));
     if (!players.length || players.length !== requested.size) return res.status(400).json({error:'Supply one to sixteen valid simulated player IDs.'});
     const attempt = Math.max(1,Math.min(20,Number(req.query?.attempt) || 1));
-    req.body = {action:'submit-batch',qualityTier:'economy',jobs:players.map(player => jobFor(player,attempt))};
+    const requestedTeam = String(req.query?.team || '').toUpperCase();
+    const uniformTeam = requestedTeam ? SOLO_TEAM_THEMES.find(team => team.abbr === requestedTeam) : undefined;
+    if (requestedTeam && !uniformTeam) return res.status(400).json({error:'Supply a valid fictional team abbreviation.'});
+    req.body = {
+      action:'submit-batch',
+      qualityTier:'economy',
+      jobs:players.map(player => jobFor(uniformTeam ? {...player,team:uniformTeam.abbr} : player,attempt)),
+    };
   } else if (action === 'submit-slice' || action === 'retry-slice') {
     const team = String(req.query?.team || '').toUpperCase();
     const offset = Math.max(0,Math.min(SOLO_PLAYERS_DATABASE.length,Number(req.query?.offset) || 0));
