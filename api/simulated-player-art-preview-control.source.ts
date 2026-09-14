@@ -44,6 +44,13 @@ export default async function previewControl(req:any,res:any) {
       qualityTier:'economy',
       jobs:samplePlayers().map(player => jobFor(player,5)),
     };
+  } else if (action === 'retry-ids') {
+    const ids = String(req.query?.ids || '').split(',').map(id => id.trim()).filter(Boolean);
+    const requested = new Set(ids.slice(0,16));
+    const players = SOLO_PLAYERS_DATABASE.filter(player => requested.has(player.id));
+    if (!players.length || players.length !== requested.size) return res.status(400).json({error:'Supply one to sixteen valid simulated player IDs.'});
+    const attempt = Math.max(1,Math.min(20,Number(req.query?.attempt) || 1));
+    req.body = {action:'submit-batch',qualityTier:'economy',jobs:players.map(player => jobFor(player,attempt))};
   } else if (action === 'submit-slice' || action === 'retry-slice') {
     const team = String(req.query?.team || '').toUpperCase();
     const offset = Math.max(0,Math.min(SOLO_PLAYERS_DATABASE.length,Number(req.query?.offset) || 0));
