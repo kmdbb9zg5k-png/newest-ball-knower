@@ -823,7 +823,7 @@ async function submitBatch(service, ai, inputs, tier) {
     if (existingError) throw new Error(`Could not check existing artwork: ${existingError.message}`);
     if (existing?.status === "approved" || existing?.status === "pending_review" || existing?.status === "generating" && raw.attempt === 0 && Date.now() - Date.parse(existing.updated_at) < 26 * 60 * 6e4) continue;
     const priorAttempt = Number(existing?.quality_report?.generation?.attempt);
-    if (tier === "review" && Number.isFinite(priorAttempt) && stored.attempt <= priorAttempt) {
+    if (Number.isFinite(priorAttempt) && stored.attempt <= priorAttempt) {
       stored.attempt = priorAttempt + 1;
       stored.input.attempt = stored.attempt;
       stored.dedupeKey = sha(JSON.stringify({ ...rowKey(raw), tier, attempt: stored.attempt }));
@@ -1501,6 +1501,13 @@ async function previewControl(req, res) {
       qualityTier: "economy",
       jobs: samplePlayers().map((player) => jobFor(player, 5))
     };
+  } else if (action === "retry-ids") {
+    const ids = String(req.query?.ids || "").split(",").map((id) => id.trim()).filter(Boolean);
+    const requested = new Set(ids.slice(0, 16));
+    const players = SOLO_PLAYERS_DATABASE2.filter((player) => requested.has(player.id));
+    if (!players.length || players.length !== requested.size) return res.status(400).json({ error: "Supply one to sixteen valid simulated player IDs." });
+    const attempt = Math.max(1, Math.min(20, Number(req.query?.attempt) || 1));
+    req.body = { action: "submit-batch", qualityTier: "economy", jobs: players.map((player) => jobFor(player, attempt)) };
   } else if (action === "submit-slice" || action === "retry-slice") {
     const team = String(req.query?.team || "").toUpperCase();
     const offset = Math.max(0, Math.min(SOLO_PLAYERS_DATABASE2.length, Number(req.query?.offset) || 0));
