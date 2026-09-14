@@ -1,5 +1,7 @@
 // api/simulated-player-art.ts
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 import sharp from "sharp";
@@ -697,11 +699,32 @@ async function download(client, path) {
 async function reusableIdentityAnchor(service, job) {
   const { data, error } = await service.from(TABLE).select("identity_anchor_path").eq("player_id", job.player.id).eq("identity_fingerprint", job.fingerprint).eq("art_version", SIMULATED_ART_VERSION).not("identity_anchor_path", "is", null).order("reviewed_at", { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
   if (error) throw new Error(`Could not resolve the persistent identity anchor: ${error.message}`);
-  return data?.identity_anchor_path ? { path: String(data.identity_anchor_path), image: await download(service, String(data.identity_anchor_path)) } : null;
+  if (data?.identity_anchor_path) return { path: String(data.identity_anchor_path), image: await download(service, String(data.identity_anchor_path)) };
+  const relativePath = job.player.id === "bk-001-eli-rodriguez" ? "solo-characters/v2/eli-rodriguez/portrait.webp" : `solo-characters/v2/qa/${job.player.id}/portrait.webp`;
+  const image = await localReference(relativePath);
+  return image ? { path: null, image } : null;
 }
-function batchRequest(job, anchor) {
-  const parts = [{ text: sheetPrompt(job, Boolean(anchor)) }];
+var TEAM_UNIFORM_ANCHOR_PATHS = {
+  "ABQ:home": "v4/uniforms/solo-abq-01/ABQ/home/be6db37008ab133c5dae/98389f5ce35b479e17f8/full-body.webp"
+};
+async function localReference(relativePath) {
+  try {
+    return { mime: "image/webp", buffer: await readFile(join(process.cwd(), "public", relativePath)) };
+  } catch {
+    return null;
+  }
+}
+async function reusableTeamUniformAnchor(service, job) {
+  const storedPath = TEAM_UNIFORM_ANCHOR_PATHS[`${job.player.team}:${job.variant}`];
+  if (storedPath) return download(service, storedPath);
+  const staticTeamAnchor = job.player.team === "BRK" ? "solo-characters/v2/qa/solo-brk-02/full-body.webp" : job.player.team === "SLC" ? "solo-characters/v2/qa/solo-slc-02/full-body.webp" : null;
+  return staticTeamAnchor ? localReference(staticTeamAnchor) : null;
+}
+function batchRequest(job, anchor, uniformAnchor) {
+  const referenceDirection = uniformAnchor ? " A second supplied reference shows the team's approved uniform only: copy its jersey base color, number color and trim, shoulder striping, pants, socks and helmet palette exactly, but do not copy that reference player's face, hair, skin, body, pose, tattoos or jersey number." : "";
+  const parts = [{ text: `${sheetPrompt(job, Boolean(anchor))}${referenceDirection}` }];
   if (anchor) parts.push({ inlineData: { mimeType: anchor.mime, data: anchor.buffer.toString("base64") } });
+  if (uniformAnchor) parts.push({ inlineData: { mimeType: uniformAnchor.mime, data: uniformAnchor.buffer.toString("base64") } });
   return { contents: [{ role: "user", parts }], config: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "1:1", imageSize: "1K" } } };
 }
 function outputBatchImage(value) {
@@ -727,7 +750,7 @@ async function packageIdentitySheet(service, raw, generated, stored, model, cost
   };
   const identityRoot = `v${SIMULATED_ART_VERSION}/identities/${raw.player.id}/${sha(raw.fingerprint).slice(0, 20)}`, reusable = await reusableIdentityAnchor(service, raw);
   const identityAnchorPath = reusable?.path ?? `${identityRoot}/anchor.jpg`;
-  if (!reusable) await upload(service, identityAnchorPath, portraitSource, "image/jpeg");
+  if (!reusable?.path) await upload(service, identityAnchorPath, reusable?.image.buffer ?? portraitSource, reusable?.image.mime ?? "image/jpeg");
   const assetHash = sha(sourceSheet).slice(0, 20), pathHash = sha(raw.appearanceKey).slice(0, 20), root = `v${SIMULATED_ART_VERSION}/uniforms/${raw.player.id}/${raw.player.team}/${raw.variant}/${pathHash}/${assetHash}`;
   const paths = { sheet: `${root}/source-sheet.jpg`, identityAnchor: identityAnchorPath, sourcePortrait: `${root}/source-portrait.jpg`, sourceFull: `${root}/source-full-body.jpg`, avatar: `${root}/avatar.webp`, row: `${root}/row.webp`, card: `${root}/card.webp`, portrait: `${root}/portrait.webp`, fullBody: `${root}/full-body.webp` };
   await Promise.all([
@@ -817,8 +840,8 @@ async function submitBatch(service, ai, inputs, tier) {
     const requests = [];
     for (const stored of accepted) {
       const raw = normalizeJob(stored.input);
-      const anchor = await reusableIdentityAnchor(service, raw);
-      requests.push({ ...batchRequest(raw, anchor?.image), metadata: { generationId: stored.generationId } });
+      const [anchor, uniformAnchor] = await Promise.all([reusableIdentityAnchor(service, raw), reusableTeamUniformAnchor(service, raw)]);
+      requests.push({ ...batchRequest(raw, anchor?.image, uniformAnchor), metadata: { generationId: stored.generationId } });
       const { error } = await service.from(TABLE).upsert({ ...rowKey(raw), identity_fingerprint: raw.fingerprint, identity_descriptor: raw.identity, status: "generating", generation_model: model, generation_id: stored.generationId, estimated_cost_microusd: cost, rejection_reason: null, updated_at: (/* @__PURE__ */ new Date()).toISOString() }, { onConflict: "player_id,team_abbr,uniform_variant,appearance_key,art_version" });
       if (error) throw new Error(`Could not reserve artwork manifest: ${error.message}`);
     }
@@ -1467,7 +1490,7 @@ async function previewControl(req, res) {
         heightInches: player.heightInches,
         weightLbs: player.weightLbs,
         appearance: defaultAppearance2(player),
-        attempt: 2
+        attempt: 3
       }))
     };
   } else if (action === "sync") req.body = { action: "sync-open-batches" };
