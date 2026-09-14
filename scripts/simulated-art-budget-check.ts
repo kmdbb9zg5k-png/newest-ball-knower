@@ -27,6 +27,7 @@ const api=readFileSync('api/simulated-player-art.ts','utf8');
 const previewControl=readFileSync('api/simulated-player-art-preview-control.source.ts','utf8');
 const migration=readFileSync('migrations/20260913191220_simulated_player_art_budget_cap.sql','utf8');
 assert.match(api,/ai\.batches\.create/);assert.match(api,/responseModalities:\s*\[\s*['\"]IMAGE['\"]\s*\]/);assert.match(api,/aspectRatio:\s*['\"]1:1['\"]/);
+assert.match(api,/centerGutter/,'Generated split-sheet dividers must be cropped out of client artwork.');
 assert.match(api,/sync-open-batches/);assert.match(api,/source_sheet_path/);assert.match(api,/status:\s*['\"]pending_review['\"]/);
 assert.match(api,/Number\.isFinite\(priorAttempt\)\s*&&\s*stored\.attempt\s*<=\s*priorAttempt/);
 assert.doesNotMatch(api,/tier\s*===\s*[\"']review[\"']\s*&&\s*Number\.isFinite\(priorAttempt\)/);
