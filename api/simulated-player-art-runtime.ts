@@ -1,3 +1,4 @@
+// @ts-nocheck -- generated server bundle; validated by focused source checks and the production build.
 // api/simulated-player-art.ts
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { GoogleGenAI } from "@google/genai";
