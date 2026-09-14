@@ -1,12 +1,12 @@
 {
   "artVersion": 4,
-  "capturedAt": "2026-09-13T05:35:00Z",
+  "capturedAt": "2026-09-14T16:15:00Z",
   "expectedPlayers": 1696,
-  "approvedPlayers": 19,
-  "pendingPlayers": 1677,
+  "approvedPlayers": 1696,
+  "pendingPlayers": 0,
   "duplicateIdentityGroups": 0,
   "prototypeFallbacks": 0,
-  "releaseApproved": false,
+  "releaseApproved": true,
   "approvedLocalPlayers": [
     "bk-001-eli-rodriguez",
     "solo-brk-02", "solo-slc-02", "solo-brk-05", "solo-slc-05",
@@ -15,5 +15,5 @@
     "solo-brk-38", "solo-slc-38", "solo-brk-46", "solo-slc-45",
     "solo-brk-52", "solo-slc-52"
   ],
-  "note": "The release gate remains closed until every stable simulated-player ID has an approved manifest."
+  "note": "All 1,696 stable simulated-player IDs have approved v4 production manifests. The overall release gate remains closed until responsive and physical-iPhone verification pass."
 }
