@@ -25,8 +25,8 @@ assert.equal(SIMULATED_ART_MODELS.review,'gemini-3.1-flash-image');
 
 const api=readFileSync('api/simulated-player-art.ts','utf8');
 const migration=readFileSync('migrations/20260913191220_simulated_player_art_budget_cap.sql','utf8');
-assert.match(api,/ai\.batches\.create/);assert.match(api,/responseModalities:\['IMAGE'\]/);assert.match(api,/aspectRatio:'1:1'/);
-assert.match(api,/sync-open-batches/);assert.match(api,/source_sheet_path/);assert.match(api,/status:'pending_review'/);
+assert.match(api,/ai\.batches\.create/);assert.match(api,/responseModalities:\s*\[\s*['\"]IMAGE['\"]\s*\]/);assert.match(api,/aspectRatio:\s*['\"]1:1['\"]/);
+assert.match(api,/sync-open-batches/);assert.match(api,/source_sheet_path/);assert.match(api,/status:\s*['\"]pending_review['\"]/);
 assert.match(migration,/35000000/);assert.match(migration,/reserve_simulated_art_generation/);assert.match(migration,/for update/);
 assert.match(migration,/enable row level security/);assert.match(migration,/revoke all .* from public,anon,authenticated/);
 assert.match(migration,/grant execute .* service_role/);
