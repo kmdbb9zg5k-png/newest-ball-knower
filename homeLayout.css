@@ -5,7 +5,7 @@
 .bk-home-clean .bk-home-mode { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:8px 4px; min-width:0; }
 .bk-home-clean .bk-home-mode>span:first-child { display:grid; place-items:center; }
 .bk-home-clean .bk-home-mode>span:nth-child(2) { font-family:'Barlow Condensed','Arial Narrow',sans-serif; font-weight:800; text-transform:uppercase; }
-.bk-home-clean .bk-home-shortcuts { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); margin:8px 0 16px; border:1px solid #303632; border-radius:9px; background:#0d1114; }
+.bk-home-clean .bk-home-shortcuts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); margin:8px 0 16px; border:1px solid #303632; border-radius:9px; background:#0d1114; }
 .bk-home-clean .bk-home-shortcuts>button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; min-width:0; min-height:54px; padding:7px 2px; border:0; border-right:1px solid #ffffff0d; background:none; color:#c4c7c6; font:600 11px/1.25 Arial,sans-serif; letter-spacing:0; text-transform:none; }
 .bk-home-clean .bk-home-shortcuts>button:last-child { border-right:0; }
 .bk-home-clean .bk-home-shortcuts svg { width:16px; height:16px; color:#cbbb83; }

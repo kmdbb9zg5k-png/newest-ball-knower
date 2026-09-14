@@ -39,7 +39,7 @@ const soloRoads = [
 export function HomeSoloFeature({ onOpen }: { onOpen: () => void }) {
   return <section className="bk-home-solo-feature" aria-labelledby="home-solo-mode-heading">
     <button type="button" className="bk-home-solo-hero" onClick={onOpen} aria-label="Explore Solo Mode">
-      <img src="/solo-universe-edition.webp" alt="" fetchPriority="high" decoding="async" draggable={false}/>
+      <img src="/solo-universe-edition.jpg?v=2" alt="" width="816" height="1203" fetchPriority="high" decoding="async" draggable={false}/>
     </button>
     <div className="bk-home-solo-heading">
       <p>THE BALL KNOWER UNIVERSE</p>
