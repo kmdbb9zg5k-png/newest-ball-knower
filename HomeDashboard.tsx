@@ -115,11 +115,10 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
       <ModeCard icon={<Brain/>} label="Trivia" onClick={() => onNavigate('challenges')}/>
       <ModeCard icon={<Newspaper/>} label="News" accessibleLabel="NFL News" onClick={() => onNavigate('news')}/>
     </section>
-    <nav aria-label="Quick links" className="bk-home-shortcuts grid grid-cols-4 overflow-hidden">
+    <nav aria-label="Quick links" className="bk-home-shortcuts grid grid-cols-3 overflow-hidden">
       <Action label="Create" accessibleLabel="Create League" icon={<Plus/>} onClick={onOpenCreateLeague}/>
       <Action label="Join" accessibleLabel="Join League" icon={<UserPlus/>} onClick={onOpenJoinLeague}/>
       <Action label="Cheat Sheet" accessibleLabel="Cheat Sheet" icon={<ClipboardList/>} onClick={onOpenCheatSheet}/>
-      <Action label="NFL News" accessibleLabel="NFL News" icon={<Newspaper/>} onClick={() => onNavigate('news')}/>
     </nav>
 
     <HomeMatchups leagues={leagues} currentUser={currentUser} onSelectLeague={onSelectLeague} onViewMemberLocker={onViewMemberLocker} onOpenSettings={() => setSettingsOpen(true)}/>
