@@ -10,6 +10,7 @@ import { PartnerCard } from './PartnerCard';
 import { homePartners } from './partners';
 import { HomeStadiumHero } from './HomeStadiumHero';
 import { HomeMatchups } from './HomeMatchups';
+import { HomeSoloFeature } from './HomeSoloFeature';
 import { buildHomeActivity, homeFeaturedActivity, homeLeagueAction, homeLeaguePhase, homeRatingTier, type HomeActivity } from './homeDashboardState';
 import './homeBroadcast.css';
 import './homeLayout.css';
@@ -120,6 +121,8 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
       <Action label="Join" accessibleLabel="Join League" icon={<UserPlus/>} onClick={onOpenJoinLeague}/>
       <Action label="Cheat Sheet" accessibleLabel="Cheat Sheet" icon={<ClipboardList/>} onClick={onOpenCheatSheet}/>
     </nav>
+
+    <HomeSoloFeature onOpen={() => onNavigate('solo')}/>
 
     <HomeMatchups leagues={leagues} currentUser={currentUser} onSelectLeague={onSelectLeague} onViewMemberLocker={onViewMemberLocker} onOpenSettings={() => setSettingsOpen(true)}/>
 
