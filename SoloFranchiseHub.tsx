@@ -59,6 +59,38 @@ const MODE_SCENES: Record<SceneKey, SceneArt> = {
   },
 };
 
+const MODE_EYEBROW_STYLE: React.CSSProperties = {
+  display: 'inline-block',
+  width: 'fit-content',
+  maxWidth: '100%',
+  padding: '4px 7px',
+  marginBottom: '7px',
+  borderRadius: '999px',
+  border: '1px solid rgba(223,185,84,.28)',
+  background: 'rgba(5,8,12,.86)',
+  color: '#f1f5fa',
+  fontWeight: 900,
+  lineHeight: 1.25,
+  textShadow: '0 1px 3px rgba(0,0,0,.9)',
+  boxShadow: '0 2px 8px rgba(0,0,0,.45)',
+};
+
+const MODE_TITLE_STYLE: React.CSSProperties = {
+  color: '#fff6dc',
+  textShadow: '0 2px 8px rgba(0,0,0,.95)',
+};
+
+const MODE_DESCRIPTION_STYLE: React.CSSProperties = {
+  color: '#dce3ed',
+  fontWeight: 600,
+  textShadow: '0 1px 6px rgba(0,0,0,.9)',
+};
+
+const MODE_CONTINUE_STYLE: React.CSSProperties = {
+  color: '#f0c96a',
+  textShadow: '0 1px 4px rgba(0,0,0,.9)',
+};
+
 function ModeSceneArt({ seed }: { seed: SceneKey }) {
   const art = MODE_SCENES[seed];
 
@@ -86,8 +118,8 @@ function ModeSceneArt({ seed }: { seed: SceneKey }) {
           height: '100%',
           objectFit: 'cover',
           objectPosition: art.position,
-          opacity: 0.78,
-          filter: 'saturate(.92) contrast(1.05)',
+          opacity: 0.72,
+          filter: 'saturate(.9) contrast(1.05)',
         }}
       />
       <span
@@ -95,7 +127,7 @@ function ModeSceneArt({ seed }: { seed: SceneKey }) {
           position: 'absolute',
           inset: 0,
           background:
-            'linear-gradient(90deg,rgba(6,9,14,.93) 0%,rgba(6,9,14,.80) 40%,rgba(6,9,14,.22) 100%),linear-gradient(180deg,rgba(0,0,0,.10),rgba(0,0,0,.40))',
+            'linear-gradient(90deg,rgba(4,7,11,.97) 0%,rgba(4,7,11,.92) 44%,rgba(4,7,11,.62) 72%,rgba(4,7,11,.30) 100%),linear-gradient(180deg,rgba(0,0,0,.18),rgba(0,0,0,.55))',
         }}
       />
     </span>
@@ -190,10 +222,10 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
             <BriefcaseBusiness style={{ zIndex: 2 }} />
             <ModeSceneArt seed="agent" />
             <div>
-              <small>PLAYER REPRESENTATION</small>
-              <strong>Agent Mode</strong>
-              <p>Build your agency. Recruit clients and negotiate their next move.</p>
-              <span className="bk-mode-continue">BUILD YOUR AGENCY</span>
+              <small style={MODE_EYEBROW_STYLE}>PLAYER REPRESENTATION</small>
+              <strong style={MODE_TITLE_STYLE}>Agent Mode</strong>
+              <p style={MODE_DESCRIPTION_STYLE}>Build your agency. Recruit clients and negotiate their next move.</p>
+              <span className="bk-mode-continue" style={MODE_CONTINUE_STYLE}>BUILD YOUR AGENCY</span>
             </div>
             <ChevronRight size={17} style={{ zIndex: 2 }} />
           </button>
@@ -202,10 +234,10 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
             <Building2 style={{ zIndex: 2 }} />
             <ModeSceneArt seed="owner" />
             <div>
-              <small>FRONT OFFICE / BUSINESS</small>
-              <strong>Owner Office</strong>
-              <p>Make the decisions that shape the entire organization.</p>
-              <span className="bk-mode-continue">ENTER OWNER OFFICE</span>
+              <small style={MODE_EYEBROW_STYLE}>FRONT OFFICE / BUSINESS</small>
+              <strong style={MODE_TITLE_STYLE}>Owner Office</strong>
+              <p style={MODE_DESCRIPTION_STYLE}>Make the decisions that shape the entire organization.</p>
+              <span className="bk-mode-continue" style={MODE_CONTINUE_STYLE}>ENTER OWNER OFFICE</span>
             </div>
             <ChevronRight size={17} style={{ zIndex: 2 }} />
           </button>
@@ -224,10 +256,10 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
                 <Icon style={{ zIndex: 2 }} />
                 <ModeSceneArt seed={mode.id} />
                 <div>
-                  <small>{mode.eyebrow}</small>
-                  <strong>{mode.title}</strong>
-                  <p>{mode.description}</p>
-                  <span className="bk-mode-continue">
+                  <small style={MODE_EYEBROW_STYLE}>{mode.eyebrow}</small>
+                  <strong style={MODE_TITLE_STYLE}>{mode.title}</strong>
+                  <p style={MODE_DESCRIPTION_STYLE}>{mode.description}</p>
+                  <span className="bk-mode-continue" style={MODE_CONTINUE_STYLE}>
                     {saved ? 'RESUME FRANCHISE' : 'CREATE FRANCHISE'}
                   </span>
                 </div>
