@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#05080c" />
+  <title>Ball Knower | Two-Minute Drill</title>
+  <style>
+    :root{color-scheme:dark;--gold:#efc85b;--green:#47d98f;--red:#ff6565;--ink:#05080c;--panel:#0b1118;--muted:#93a0ad}
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{margin:0;min-height:100%;background:#05080c;color:#fff;font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overscroll-behavior:none}
+    button{font:inherit;color:inherit}
+    .app{min-height:100vh;background:radial-gradient(circle at 50% -15%,#243443 0,#0b1016 40%,#05080c 72%);padding:env(safe-area-inset-top) 0 calc(18px + env(safe-area-inset-bottom))}
+    .shell{width:min(100%,720px);margin:auto;padding:12px}
+    .topline{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 2px 10px}
+    .brand{font-size:11px;font-weight:950;letter-spacing:.22em;color:var(--gold);text-transform:uppercase}.mode{font-size:10px;font-weight:900;letter-spacing:.16em;color:#8f9aa7;text-transform:uppercase}
+    .scoreboard{border:1px solid rgba(255,255,255,.11);border-radius:20px;background:linear-gradient(180deg,rgba(18,26,36,.98),rgba(7,11,16,.98));box-shadow:0 18px 60px rgba(0,0,0,.38);overflow:hidden}
+    .score-main{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:12px 14px 10px}
+    .team{min-width:0}.team.right{text-align:right}.team small{display:block;font-size:9px;font-weight:900;letter-spacing:.18em;color:#7d8a96;text-transform:uppercase}.team strong{display:block;margin-top:2px;font-size:25px;font-weight:950;line-height:1}.team .name{font-size:11px;color:#c5ced7;margin-top:3px;font-weight:800}
+    .clock{text-align:center;padding:0 14px}.clock strong{display:block;font-variant-numeric:tabular-nums;font-size:25px;font-weight:950}.clock span{font-size:9px;font-weight:950;color:var(--gold);letter-spacing:.13em;text-transform:uppercase}
+    .situation{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:rgba(255,255,255,.08);border-top:1px solid rgba(255,255,255,.07)}
+    .sit{background:#090e14;text-align:center;padding:8px 4px}.sit b{display:block;font-size:12px}.sit span{display:block;margin-top:2px;font-size:7px;font-weight:900;letter-spacing:.13em;color:#687581;text-transform:uppercase}
+    .game-wrap{position:relative;margin-top:10px;border:1px solid rgba(255,255,255,.12);border-radius:24px;overflow:hidden;background:#07100b;box-shadow:0 22px 70px rgba(0,0,0,.52)}
+    .stadium{position:absolute;inset:0 0 auto;height:64px;background:linear-gradient(180deg,#0e1720 0,#111d25 48%,rgba(5,8,12,0) 100%);z-index:1;pointer-events:none}.lights{height:5px;margin:12px 10% 0;border-radius:100%;background:linear-gradient(90deg,transparent,#e8f3ff 13%,transparent 23%,#e8f3ff 50%,transparent 62%,#e8f3ff 84%,transparent);filter:blur(1px);opacity:.9;box-shadow:0 0 25px #cce9ff}
+    .field{position:relative;height:min(66vh,610px);min-height:440px;overflow:hidden;background:
+      linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px) 0 0/10% 100%,
+      repeating-linear-gradient(0deg,rgba(255,255,255,.17) 0 2px,transparent 2px 10%),
+      linear-gradient(90deg,#0c4d2e,#17683e 48%,#0d4a2d);transform:translateZ(0)}
+    .field:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 4%,rgba(255,255,255,.13),transparent 44%),linear-gradient(90deg,rgba(0,0,0,.2),transparent 20% 80%,rgba(0,0,0,.2));pointer-events:none}
+    .endzone{position:absolute;left:0;right:0;top:0;height:10%;display:grid;place-items:center;background:repeating-linear-gradient(135deg,rgba(14,18,23,.95) 0 9px,rgba(226,187,79,.23) 9px 18px);border-bottom:3px solid rgba(255,255,255,.8);font-size:28px;font-weight:950;letter-spacing:.24em;color:rgba(255,255,255,.2);text-indent:.24em}
+    .yardnum{position:absolute;left:3%;right:3%;display:flex;justify-content:space-between;font-size:11px;font-weight:950;color:rgba(255,255,255,.25);pointer-events:none}.y20{bottom:20%}.y40{bottom:40%}.y60{bottom:60%}.y80{bottom:80%}
+    .line-scrimmage,.first-down{position:absolute;left:0;right:0;height:2px;z-index:3;pointer-events:none}.line-scrimmage{background:#3aa7ff;box-shadow:0 0 8px #218dff}.first-down{background:#ffd958;box-shadow:0 0 8px #e0b11e}
+    .routes{position:absolute;inset:0;z-index:4;pointer-events:none}.route-path{fill:none;stroke-width:2.4;stroke-dasharray:5 5;stroke-linecap:round;opacity:.78}.route-x{stroke:#f6d260}.route-z{stroke:#51d7ff}.route-slot{stroke:#ff7ea9}
+    .route-tip{fill:#fff;opacity:.85}
+    .player{position:absolute;z-index:8;width:52px;height:76px;transform:translate(-50%,-72%);transition:filter .15s;touch-action:manipulation;cursor:pointer;user-select:none}.player img{width:100%;height:100%;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 8px 5px rgba(0,0,0,.7));pointer-events:none}.player:after{content:"";position:absolute;left:50%;bottom:1px;width:34px;height:10px;border-radius:50%;transform:translateX(-50%);background:rgba(0,0,0,.44);filter:blur(3px);z-index:-1}.player .tag{position:absolute;left:50%;bottom:-15px;transform:translateX(-50%);min-width:30px;padding:2px 5px;border-radius:7px;background:#05080ddd;border:1px solid rgba(255,255,255,.16);font-size:8px;line-height:1;font-weight:950;text-align:center;letter-spacing:.05em;white-space:nowrap}.player.offense.selected{filter:drop-shadow(0 0 9px #ffe06b)}.player.defense{width:48px;height:70px;z-index:7}.player.defense img{filter:grayscale(.75) brightness(.63) contrast(1.15) sepia(.2) drop-shadow(0 8px 5px rgba(0,0,0,.72))}.player.defense .tag{border-color:rgba(255,102,102,.5);color:#ff9b9b}.player.qb{width:56px;height:82px;z-index:9;cursor:default}.player.running img{animation:stride .28s ease-in-out infinite alternate}.player.catching img{animation:catchpop .22s ease-out 1}.player.hit img{animation:hit .35s ease-out 1}
+    @keyframes stride{from{transform:translateY(0) rotate(-1.3deg)}to{transform:translateY(-3px) rotate(1.3deg)}}@keyframes catchpop{0%{transform:scale(1)}45%{transform:scale(1.12) translateY(-5px)}100%{transform:scale(1)}}@keyframes hit{0%{transform:rotate(0)}45%{transform:rotate(13deg) translateX(7px)}100%{transform:rotate(0)}}
+    .ball{position:absolute;z-index:15;width:15px;height:9px;border-radius:70% 28% 70% 28%;background:#6e351b;border:1px solid #e7c2a2;box-shadow:0 5px 8px rgba(0,0,0,.55);transform:translate(-50%,-50%) rotate(22deg);display:none;pointer-events:none}.ball:after{content:"";position:absolute;left:5px;top:1px;width:1px;height:5px;background:#fff8;box-shadow:2px 0 #fff8}
+    .pocket{position:absolute;left:50%;bottom:6.2%;z-index:5;width:138px;height:76px;border:1px dashed rgba(87,211,255,.4);border-radius:50% 50% 42% 42%;transform:translateX(-50%);background:radial-gradient(ellipse,rgba(70,188,255,.08),transparent 67%);pointer-events:none}.pressure{position:absolute;left:12px;right:12px;bottom:12px;z-index:18;height:7px;border-radius:20px;background:#091017;border:1px solid rgba(255,255,255,.12);overflow:hidden}.pressure span{display:block;width:0;height:100%;background:linear-gradient(90deg,#4ade80,#facc15 60%,#ef4444);transition:width .08s linear}.pressure-label{position:absolute;right:14px;bottom:23px;z-index:18;font-size:7px;font-weight:950;letter-spacing:.15em;color:#a6b1ba;text-transform:uppercase}
+    .toast{position:absolute;left:50%;top:72px;z-index:30;transform:translateX(-50%) translateY(-8px);width:min(90%,420px);padding:11px 14px;border-radius:13px;background:rgba(5,9,13,.93);border:1px solid rgba(255,255,255,.16);font-size:12px;font-weight:900;text-align:center;opacity:0;pointer-events:none;transition:.18s}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}.toast.good{border-color:#50dc97;color:#82f0b5}.toast.bad{border-color:#ff6b6b;color:#ff9e9e}
+    .result-screen{position:absolute;inset:0;z-index:40;display:none;place-items:center;padding:22px;background:rgba(3,6,9,.88);backdrop-filter:blur(8px)}.result-screen.show{display:grid}.result-card{width:min(100%,420px);padding:23px;border-radius:24px;border:1px solid rgba(255,255,255,.14);background:linear-gradient(180deg,#111a23,#080c11);text-align:center;box-shadow:0 22px 70px #000a}.result-card .eyebrow{font-size:9px;font-weight:950;letter-spacing:.22em;color:var(--gold);text-transform:uppercase}.result-card h2{font-size:34px;line-height:.95;margin:9px 0 12px;font-weight:1000}.result-card p{font-size:13px;line-height:1.55;color:#aeb9c3}.result-card button{width:100%;min-height:50px;border:0;border-radius:14px;background:var(--gold);color:#12100a;font-weight:950;margin-top:14px}
+    .controls{padding:12px 2px 0}.playbook{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.playcall{min-height:50px;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:#0b1118;padding:7px 5px;text-align:center;font-size:9px;font-weight:950;color:#b8c2cc;text-transform:uppercase;letter-spacing:.06em}.playcall.active{border-color:rgba(239,200,91,.7);background:rgba(239,200,91,.11);color:#ffe49b}.playcall:disabled{opacity:.35}
+    .snaprow{display:grid;grid-template-columns:1fr 1.55fr;gap:8px;margin-top:8px}.snap,.timeout{min-height:52px;border-radius:15px;font-weight:950;border:0}.snap{background:linear-gradient(180deg,#efcc67,#d9ad37);color:#12100a;font-size:13px;letter-spacing:.07em}.snap.live{background:#e35b50;color:white}.timeout{background:#111923;border:1px solid rgba(255,255,255,.12);font-size:10px;color:#c0cad3}.timeout:disabled{opacity:.35}
+    .targets{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:8px}.target{min-height:49px;border-radius:14px;border:1px solid rgba(255,255,255,.11);background:#0c131c;text-align:center;font-size:9px;font-weight:950;text-transform:uppercase;color:#d7dfe6}.target strong{display:block;font-size:12px;color:#fff}.target[data-open="1"]{border-color:rgba(74,222,128,.58);background:rgba(74,222,128,.09)}.target:disabled{opacity:.3}
+    .help{margin:10px 2px 0;font-size:10px;line-height:1.5;color:#6f7b87;text-align:center}.help b{color:#aeb9c3}
+    .drive-log{margin-top:10px;border:1px solid rgba(255,255,255,.09);border-radius:16px;background:#080d13;padding:10px}.drive-log header{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:9px;font-weight:950;letter-spacing:.14em;color:#7f8a95;text-transform:uppercase}.log-items{margin-top:7px;display:grid;gap:5px;max-height:86px;overflow:auto}.log-item{font-size:10px;color:#b5c0ca;padding:6px 8px;border-radius:8px;background:#0c131b}.log-item b{color:#fff}
+    @media(max-width:430px){.shell{padding:8px}.field{min-height:430px;height:58vh}.player{width:46px;height:69px}.player.defense{width:43px;height:65px}.player.qb{width:50px;height:75px}.team strong,.clock strong{font-size:22px}.score-main{padding-left:10px;padding-right:10px}.clock{padding:0 7px}.playbook{gap:5px}.playcall{font-size:8px;padding:5px 2px}.endzone{font-size:22px}.situation{grid-template-columns:repeat(4,1fr)}}
+    @media(prefers-reduced-motion:reduce){.player.running img,.player.catching img,.player.hit img{animation:none}.toast{transition:none}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <main class="shell" aria-label="Ball Knower Two-Minute Drill">
+    <div class="topline"><div class="brand">BALL KNOWER</div><div class="mode">Franchise Command · Mini Game</div></div>
+    <section class="scoreboard" aria-label="Score and game situation">
+      <div class="score-main">
+        <div class="team"><small>You</small><strong id="userScore">24</strong><div class="name">KNOWERS</div></div>
+        <div class="clock"><strong id="clock">1:18</strong><span>4th Quarter</span></div>
+        <div class="team right"><small>Opponent</small><strong id="oppScore">27</strong><div class="name">VIPERS</div></div>
+      </div>
+      <div class="situation">
+        <div class="sit"><b id="downText">1ST &amp; 10</b><span>Down</span></div>
+        <div class="sit"><b id="yardText">OWN 25</b><span>Ball</span></div>
+        <div class="sit"><b id="toText">2</b><span>Timeouts</span></div>
+        <div class="sit"><b id="driveText">75 YDS</b><span>To End Zone</span></div>
+      </div>
+    </section>
+
+    <section class="game-wrap">
+      <div class="stadium"><div class="lights"></div></div>
+      <div class="field" id="field">
+        <div class="endzone">BALL KNOWER</div>
+        <div class="yardnum y20"><span>20</span><span>20</span></div><div class="yardnum y40"><span>40</span><span>40</span></div><div class="yardnum y60"><span>40</span><span>40</span></div><div class="yardnum y80"><span>20</span><span>20</span></div>
+        <div class="line-scrimmage" id="los"></div><div class="first-down" id="first"></div>
+        <svg class="routes" id="routes" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+        <div class="pocket" aria-hidden="true"></div>
+        <div class="pressure-label">Pocket pressure</div><div class="pressure"><span id="pressure"></span></div>
+        <div class="ball" id="ball"></div>
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
+        <div class="result-screen" id="resultScreen">
+          <div class="result-card"><div class="eyebrow" id="resultEyebrow">Drive Complete</div><h2 id="resultTitle">TOUCHDOWN</h2><p id="resultBody"></p><button type="button" id="restartBtn">RUN IT AGAIN</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="controls">
+      <div class="playbook" aria-label="Choose a play">
+        <button class="playcall active" type="button" data-play="mesh">MESH</button>
+        <button class="playcall" type="button" data-play="verts">4 VERTS</button>
+        <button class="playcall" type="button" data-play="flood">FLOOD</button>
+        <button class="playcall" type="button" data-play="dig">DAGGER</button>
+      </div>
+      <div class="snaprow"><button class="timeout" id="timeoutBtn" type="button">USE TIMEOUT</button><button class="snap" id="snapBtn" type="button">SNAP BALL</button></div>
+      <div class="targets" aria-label="Throw targets">
+        <button class="target" type="button" data-target="x" disabled><strong>X</strong> THROW</button>
+        <button class="target" type="button" data-target="slot" disabled><strong>SLOT</strong> THROW</button>
+        <button class="target" type="button" data-target="z" disabled><strong>Z</strong> THROW</button>
+      </div>
+      <p class="help"><b>How to play:</b> pick a concept, snap it, then tap a receiver on the field or a THROW button when he separates. Hold the ball too long and the pocket collapses.</p>
+    </section>
+    <section class="drive-log"><header><span>Drive Log</span><span id="status">Hurry-up offense</span></header><div class="log-items" id="log"></div></section>
+  </main>
+</div>
+<script>
+(() => {
+  const field = document.getElementById('field');
+  const routesSvg = document.getElementById('routes');
+  const ball = document.getElementById('ball');
+  const toast = document.getElementById('toast');
+  const pressureBar = document.getElementById('pressure');
+  const snapBtn = document.getElementById('snapBtn');
+  const timeoutBtn = document.getElementById('timeoutBtn');
+  const resultScreen = document.getElementById('resultScreen');
+  const targetButtons = [...document.querySelectorAll('.target')];
+  const playButtons = [...document.querySelectorAll('.playcall')];
+  const images = {
+    x: '/solo-characters/v2/my-player-presets/darius/full-body.webp',
+    slot: '/solo-characters/v2/my-player-presets/malik/full-body.webp',
+    z: '/solo-characters/v2/my-player-presets/nico/full-body.webp',
+    qb: '/solo-characters/v2/my-player-presets/mason/full-body.webp'
+  };
+  const state = {
+    score:24, opp:27, clock:78, timeouts:2, ballYard:25, down:1, toGo:10,
+    selectedPlay:'mesh', live:false, throwing:false, ended:false, snapAt:0, raf:0,
+    playClockElapsed:0, receiverProgress:0, lastFrame:0, playNumber:0, defenders:[], receivers:{}, qb:null
+  };
+  const playbook = {
+    mesh:{
+      label:'Mesh',
+      routes:{x:[[18,88],[20,68],[42,55],[67,55]],slot:[[48,88],[49,68],[38,60],[25,60]],z:[[82,88],[80,69],[77,48],[76,28]]}
+    },
+    verts:{
+      label:'Four Verticals',
+      routes:{x:[[18,88],[18,68],[17,47],[18,22]],slot:[[48,88],[48,67],[51,45],[53,20]],z:[[82,88],[82,67],[84,44],[83,19]]}
+    },
+    flood:{
+      label:'Flood',
+      routes:{x:[[18,88],[20,69],[33,58],[45,52]],slot:[[48,88],[50,70],[63,61],[78,60]],z:[[82,88],[82,68],[74,49],[62,37]]}
+    },
+    dig:{
+      label:'Dagger',
+      routes:{x:[[18,88],[18,67],[21,43],[48,43]],slot:[[48,88],[49,67],[52,52],[72,52]],z:[[82,88],[82,67],[82,44],[81,24]]}
+    }
+  };
+  const defenderStart = [[13,68],[29,63],[43,66],[58,62],[73,66],[87,68]];
+  const receiverStart = {x:[18,86],slot:[48,86],z:[82,86],qb:[50,94]};
+
+  function playerEl(id, kind, image, x, y, tag){
+    const el=document.createElement('button');
+    el.type='button'; el.className='player '+kind+(id==='qb'?' qb':''); el.dataset.id=id;
+    el.style.left=x+'%'; el.style.top=y+'%'; el.setAttribute('aria-label',tag);
+    el.innerHTML='<img src="'+image+'" alt="" draggable="false"><span class="tag">'+tag+'</span>';
+    if(kind.includes('offense') && id!=='qb') el.addEventListener('click',()=>throwTo(id)); else el.tabIndex=-1;
+    field.appendChild(el); return {id,el,x,y,startX:x,startY:y,defenderId:null};
+  }
+  function setupPlayers(){
+    field.querySelectorAll('.player').forEach(n=>n.remove());
+    state.receivers={
+      x:playerEl('x','offense',images.x,...receiverStart.x,'X'),
+      slot:playerEl('slot','offense',images.slot,...receiverStart.slot,'SLOT'),
+      z:playerEl('z','offense',images.z,...receiverStart.z,'Z')
+    };
+    state.qb=playerEl('qb','offense',images.qb,...receiverStart.qb,'QB');
+    state.defenders=defenderStart.map((p,i)=>playerEl('d'+i,'defense',i%2?images.malik:images.darius,p[0],p[1],'D'));
+    state.receivers.x.defenderId='d0'; state.receivers.slot.defenderId='d2'; state.receivers.z.defenderId='d5';
+    drawRoutes();
+  }
+  function drawRoutes(){
+    routesSvg.innerHTML='';
+    const colors={x:'route-x',slot:'route-slot',z:'route-z'};
+    Object.entries(playbook[state.selectedPlay].routes).forEach(([id,pts])=>{
+      const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('class','route-path '+colors[id]);
+      path.setAttribute('d',pts.map((p,i)=>(i?'L':'M')+' '+p[0]+' '+p[1]).join(' '));
+      routesSvg.appendChild(path);
+      const last=pts[pts.length-1], circle=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      circle.setAttribute('cx',last[0]);circle.setAttribute('cy',last[1]);circle.setAttribute('r','1.15');circle.setAttribute('class','route-tip');routesSvg.appendChild(circle);
+    });
+  }
+  function routePosition(points,t){
+    const segmentCount=points.length-1, scaled=Math.min(.999,t)*segmentCount, index=Math.floor(scaled), local=scaled-index;
+    const a=points[index], b=points[index+1]; return [a[0]+(b[0]-a[0])*local,a[1]+(b[1]-a[1])*local];
+  }
+  function setPos(p,x,y){p.x=x;p.y=y;p.el.style.left=x+'%';p.el.style.top=y+'%'}
+  function resetFormation(){
+    cancelAnimationFrame(state.raf);state.live=false;state.throwing=false;state.playClockElapsed=0;state.receiverProgress=0;pressureBar.style.width='0%';ball.style.display='none';
+    snapBtn.disabled=false;snapBtn.classList.remove('live');snapBtn.textContent='SNAP BALL';targetButtons.forEach(b=>{b.disabled=true;b.dataset.open='0'});playButtons.forEach(b=>b.disabled=false);
+    setupPlayers();updateFieldLines();
+  }
+  function updateFieldLines(){
+    const losPct=90-(state.ballYard*.8); const firstYard=Math.min(100,state.ballYard+state.toGo); const firstPct=90-(firstYard*.8);
+    document.getElementById('los').style.top=losPct+'%'; document.getElementById('first').style.top=Math.max(10,firstPct)+'%';
+  }
+  function snap(){
+    if(state.live||state.ended)return;
+    state.live=true;state.throwing=false;state.playClockElapsed=0;state.snapAt=performance.now();state.lastFrame=state.snapAt;state.playNumber++;
+    routesSvg.style.opacity='.32';snapBtn.disabled=true;snapBtn.classList.add('live');snapBtn.textContent='PLAY LIVE';playButtons.forEach(b=>b.disabled=true);targetButtons.forEach(b=>b.disabled=false);
+    Object.values(state.receivers).forEach(r=>r.el.classList.add('running'));
+    state.qb.el.classList.add('running');logPlay('Snap',playbook[state.selectedPlay].label+' called');state.raf=requestAnimationFrame(frame);
+  }
+  function frame(now){
+    if(!state.live)return;
+    const dt=Math.min(.05,(now-state.lastFrame)/1000);state.lastFrame=now;state.playClockElapsed=(now-state.snapAt)/1000;
+    state.receiverProgress=Math.min(1,state.playClockElapsed/4.7);
+    Object.entries(state.receivers).forEach(([id,r])=>{
+      const pos=routePosition(playbook[state.selectedPlay].routes[id],state.receiverProgress);setPos(r,pos[0],pos[1]);
+    });
+    const qbY=94+Math.min(3.1,state.playClockElapsed*1.05);setPos(state.qb,50,qbY);
+    const assignments=[['x',0,3.5,2.6],['x',1,-7,5.8],['slot',2,3.3,3.0],['slot',3,-8,5.2],['z',4,-7,5.5],['z',5,-3.2,2.7]];
+    assignments.forEach(([rid,di,ox,oy],idx)=>{
+      const rec=state.receivers[rid], d=state.defenders[di]; const react=Math.min(1,Math.max(0,(state.playClockElapsed-.18-(idx%3)*.06)/.55));
+      const tx=rec.x+Number(ox),ty=rec.y+Number(oy);setPos(d,d.x+(tx-d.x)*react*dt*5.4,d.y+(ty-d.y)*react*dt*5.4);
+    });
+    updateOpenIndicators();
+    const pressure=Math.min(100,(state.playClockElapsed/4.55)*100);pressureBar.style.width=pressure+'%';
+    if(state.playClockElapsed>=4.6 && !state.throwing){resolveSack();return}
+    state.raf=requestAnimationFrame(frame);
+  }
+  function defenderDistance(id){
+    const r=state.receivers[id];let min=999;state.defenders.forEach(d=>{const dx=(r.x-d.x)*.63,dy=r.y-d.y;min=Math.min(min,Math.hypot(dx,dy))});return min;
+  }
+  function updateOpenIndicators(){
+    Object.entries(state.receivers).forEach(([id,r])=>{
+      const dist=defenderDistance(id);r.el.classList.toggle('selected',dist>7.3);
+      const btn=targetButtons.find(b=>b.dataset.target===id);if(btn)btn.dataset.open=dist>7.3?'1':'0';
+    });
+  }
+  function throwTo(id){
+    if(!state.live||state.throwing||state.ended)return;
+    state.throwing=true;cancelAnimationFrame(state.raf);Object.values(state.receivers).forEach(r=>r.el.classList.remove('running'));state.qb.el.classList.remove('running');targetButtons.forEach(b=>b.disabled=true);
+    const r=state.receivers[id], dist=defenderDistance(id), pressure=Math.min(1,state.playClockElapsed/4.7), depth=Math.max(1,(86-r.y)*.74), timing=state.receiverProgress;
+    const openScore=dist+(timing>.22&&timing<.92?1.7:-1.5)-pressure*2.2;
+    flyBall(state.qb.x,state.qb.y-3,r.x,r.y-3,()=>{
+      const pickRisk=Math.max(.03,.32-openScore*.027+pressure*.12);
+      const catchChance=Math.max(.18,Math.min(.96,.52+openScore*.055-pressure*.12));
+      const roll=Math.random();
+      if(roll<pickRisk){finishDrive(false,'INTERCEPTED','The window closed and the defender jumped the throw.');return}
+      if(roll>catchChance){resolveIncomplete(id,dist);return}
+      resolveCatch(id,depth,dist);
+    });
+  }
+  function flyBall(x1,y1,x2,y2,done){
+    ball.style.display='block';const start=performance.now(),duration=430+Math.hypot(x2-x1,y2-y1)*7;
+    function animate(now){const t=Math.min(1,(now-start)/duration),ease=1-Math.pow(1-t,2),arc=Math.sin(Math.PI*t)*7;ball.style.left=(x1+(x2-x1)*ease)+'%';ball.style.top=(y1+(y2-y1)*ease-arc)+'%';ball.style.transform='translate(-50%,-50%) rotate('+(22+t*520)+'deg)';if(t<1)requestAnimationFrame(animate);else{ball.style.display='none';done()}}
+    requestAnimationFrame(animate);
+  }
+  function resolveCatch(id,depth,coverage){
+    const r=state.receivers[id];r.el.classList.add('catching');const yac=Math.max(0,Math.round((coverage-4)*.7+Math.random()*5));const yards=Math.max(3,Math.round(depth+yac));
+    state.ballYard=Math.min(100,state.ballYard+yards);state.clock=Math.max(0,state.clock-Math.max(5,Math.round(state.playClockElapsed)+4));
+    showToast((coverage>8?'WIDE OPEN · ':'')+'COMPLETE +'+yards+' YDS','good');logPlay('Complete',id.toUpperCase()+' for '+yards+' yards');
+    if(state.ballYard>=100){state.score+=6;updateHud();setTimeout(()=>finishDrive(true,'TOUCHDOWN','You drove the field and took the lead with '+formatClock(state.clock)+' left.'),430);return}
+    if(yards>=state.toGo){state.down=1;state.toGo=10}else{state.toGo-=yards;state.down++}
+    if(state.down>4){finishDrive(false,'TURNOVER ON DOWNS','The defense got the stop before you reached the sticks.');return}
+    updateHud();setTimeout(resetFormation,520);
+  }
+  function resolveIncomplete(id,coverage){
+    state.clock=Math.max(0,state.clock-4);state.down++;showToast(coverage<5?'BROKEN UP':'INCOMPLETE','bad');logPlay('Incomplete',id.toUpperCase()+' target');
+    if(state.down>4){finishDrive(false,'TURNOVER ON DOWNS','Four chances are gone. The Vipers take over.');return}if(state.clock<=0){finishDrive(false,'TIME EXPIRED','The final throw hit the turf as the clock ran out.');return}updateHud();setTimeout(resetFormation,430);
+  }
+  function resolveSack(){
+    state.live=false;state.down++;state.ballYard=Math.max(1,state.ballYard-7);state.toGo+=7;state.clock=Math.max(0,state.clock-9);Object.values(state.receivers).forEach(r=>r.el.classList.remove('running'));state.qb.el.classList.remove('running');state.qb.el.classList.add('hit');showToast('SACK · -7 YDS','bad');logPlay('Sack','Pocket collapsed');
+    if(state.down>4){finishDrive(false,'TURNOVER ON DOWNS','You held it too long on fourth down.');return}if(state.clock<=0){finishDrive(false,'TIME EXPIRED','The pocket collapsed and the clock hit zero.');return}updateHud();setTimeout(resetFormation,650);
+  }
+  function useTimeout(){
+    if(state.timeouts<=0||state.live||state.ended)return;state.timeouts--;showToast('TIMEOUT · CLOCK STOPPED','good');logPlay('Timeout',state.timeouts+' remaining');updateHud();
+  }
+  function finishDrive(win,title,body){
+    cancelAnimationFrame(state.raf);state.live=false;state.ended=true;document.getElementById('resultEyebrow').textContent=win?'CLUTCH DRIVE':'DRIVE OVER';document.getElementById('resultTitle').textContent=title;document.getElementById('resultBody').textContent=body+' Final situation: '+state.score+'-'+state.opp+'.';resultScreen.classList.add('show');updateHud();
+  }
+  function restart(){
+    Object.assign(state,{score:24,opp:27,clock:78,timeouts:2,ballYard:25,down:1,toGo:10,selectedPlay:'mesh',live:false,throwing:false,ended:false,snapAt:0,playClockElapsed:0,receiverProgress:0,playNumber:0});resultScreen.classList.remove('show');routesSvg.style.opacity='1';document.getElementById('log').innerHTML='';playButtons.forEach((b,i)=>b.classList.toggle('active',i===0));updateHud();resetFormation();logPlay('Drive','Ball at your own 25 · 1:18 left');
+  }
+  function updateHud(){
+    document.getElementById('userScore').textContent=state.score;document.getElementById('oppScore').textContent=state.opp;document.getElementById('clock').textContent=formatClock(state.clock);document.getElementById('toText').textContent=state.timeouts;
+    const ord=['','1ST','2ND','3RD','4TH'];document.getElementById('downText').textContent=(ord[state.down]||'4TH')+' & '+state.toGo;document.getElementById('yardText').textContent=state.ballYard<50?'OWN '+state.ballYard:state.ballYard===50?'50':'OPP '+(100-state.ballYard);document.getElementById('driveText').textContent=(100-state.ballYard)+' YDS';timeoutBtn.disabled=state.timeouts<=0||state.live||state.ended;
+  }
+  function formatClock(sec){sec=Math.max(0,Math.round(sec));return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0')}
+  let toastTimer=0;function showToast(text,type){clearTimeout(toastTimer);toast.textContent=text;toast.className='toast show '+(type||'');toastTimer=setTimeout(()=>toast.className='toast',1200)}
+  function logPlay(type,text){const item=document.createElement('div');item.className='log-item';item.innerHTML='<b>'+type+':</b> '+text;document.getElementById('log').prepend(item);document.getElementById('status').textContent=state.ended?'Drive finished':state.live?'Play live':'Hurry-up offense'}
+  playButtons.forEach(btn=>btn.addEventListener('click',()=>{if(state.live)return;state.selectedPlay=btn.dataset.play;playButtons.forEach(b=>b.classList.toggle('active',b===btn));drawRoutes()}));
+  targetButtons.forEach(btn=>btn.addEventListener('click',()=>throwTo(btn.dataset.target)));
+  snapBtn.addEventListener('click',snap);timeoutBtn.addEventListener('click',useTimeout);document.getElementById('restartBtn').addEventListener('click',restart);
+  setupPlayers();updateHud();updateFieldLines();logPlay('Drive','Ball at your own 25 · 1:18 left');
+})();
+</script>
+</body>
+</html>
