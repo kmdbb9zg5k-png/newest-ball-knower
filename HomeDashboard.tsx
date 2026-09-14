@@ -8,8 +8,8 @@ import type { TeamTheme } from './teamTheme';
 import type { AppTab } from './App';
 import { PartnerCard } from './PartnerCard';
 import { homePartners } from './partners';
+import { HomeStadiumHero } from './HomeStadiumHero';
 import { HomeMatchups } from './HomeMatchups';
-import { HomeSoloFeature } from './HomeSoloFeature';
 import { buildHomeActivity, homeFeaturedActivity, homeLeagueAction, homeLeaguePhase, homeRatingTier, type HomeActivity } from './homeDashboardState';
 import './homeBroadcast.css';
 import './homeLayout.css';
@@ -108,7 +108,7 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
   }, [leagueMenuOpen]);
 
   return <div className="bk-home-dashboard bk-home-broadcast bk-home-clean mx-auto max-w-5xl pb-5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pb-8 sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
-    <HomeSoloFeature onOpen={() => onNavigate('solo')}/>
+    <HomeStadiumHero onMyLeagues={() => onNavigate('fantasy')}/>
     <section aria-label="Primary destinations" className="bk-home-primary-modes">
       <ModeCard icon={<Trophy/>} label="Fantasy" onClick={() => onNavigate('fantasy')}/>
       <ModeCard icon={<Target/>} label="Picks" onClick={() => onNavigate('sportsbook')}/>

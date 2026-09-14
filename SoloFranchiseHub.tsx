@@ -1,5 +1,5 @@
 import {SoloModeArtwork} from './solo/SoloPresentation';
-import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
+import {BroadcastStage} from './BroadcastScene';
 import React, { useState } from 'react';
 import { BadgeDollarSign, BriefcaseBusiness, Building2, ChevronRight, Crown, Shuffle, Sparkles, Trophy, Users } from 'lucide-react';
 import { SOLO_FRANCHISE_SAVE_KEYS } from './soloFranchiseEngine';
@@ -82,10 +82,11 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
   if (agentOpen) return <PlayerAgentMode onBack={() => setAgentOpen(false)} />;
 
   return (
-  <BroadcastStage scene="field" page="solo" className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
+  <BroadcastStage scene="field" page="solo" className="min-h-[100dvh] bg-transparent pb-10 text-white">
     <div className="mx-auto max-w-6xl">
-      <BroadcastMasthead eyebrow="The Ball Knower universe" title="Choose Your Road" subtitle="Run the team. Own the business. Represent the talent. Build your legacy."/>
-      <div className="bk-mode-grid">
+      <div className="bk-solo-universe-hero" aria-hidden="true"><img src="/solo-universe-edition.jpg?v=2" alt="" width="816" height="1203" fetchPriority="high" decoding="async" draggable={false}/></div>
+      <header className="bk-solo-universe-heading"><p>THE BALL KNOWER UNIVERSE</p><h1>CHOOSE YOUR ROAD</h1><span>Run the team. Own the business. Represent the talent. Build your legacy.</span></header>
+      <div className="bk-mode-grid bk-solo-universe-grid">
         <button type="button" className="bk-mode-card" onClick={()=>setAgentOpen(true)}><SoloModeArtwork seed={'agent'}/><BriefcaseBusiness/><div><small>PLAYER REPRESENTATION</small><strong>Agent Mode</strong><p>Build your agency. Recruit clients and negotiate their next move.</p><span className="bk-mode-continue">BUILD YOUR AGENCY</span></div><ChevronRight size={17}/></button>
         <button type="button" className="bk-mode-card" onClick={()=>setOwnerOpen(true)}><SoloModeArtwork seed={'owner'}/><Building2/><div><small>FRONT OFFICE / BUSINESS</small><strong>Owner Office</strong><p>Make the decisions that shape the entire organization.</p><span className="bk-mode-continue">ENTER OWNER OFFICE</span></div><ChevronRight size={17}/></button>
         {MODES.map(mode=>{const Icon=mode.icon;const saved=hasSave(mode.key);return <button key={mode.id} type="button" className="bk-mode-card" onClick={()=>onOpen(mode.id)}><SoloModeArtwork seed={mode.id}/><Icon/><div><small>{mode.eyebrow}</small><strong>{mode.title}</strong><p>{mode.description}</p><span className="bk-mode-continue">{saved?'RESUME FRANCHISE':'CREATE FRANCHISE'}</span></div><ChevronRight size={17}/></button>})}

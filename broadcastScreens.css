@@ -64,7 +64,16 @@
 .bk-screen[data-page="picks"] .bk-picks-toolbar { top:var(--bk-nav-offset,124px); }
 .bk-screen[data-page="picks"] article { background:linear-gradient(115deg,#121c25,#090e15); border-bottom:1px solid #a68d3c33; }
 .bk-screen[data-page="picks"] article:last-child { border-bottom:none; }
+.bk-screen[data-page="solo"] .bk-scene-backdrop { display:none; }
 .bk-screen[data-page="solo"] .bk-mode-grid { display:grid; gap:10px; }
+.bk-solo-universe-hero { overflow:hidden; border-bottom:1px solid #b28d3f88; background:#05070a; }
+.bk-solo-universe-hero img { display:block; width:100%; height:auto; aspect-ratio:4/5; object-fit:cover; object-position:center top; user-select:none; filter:saturate(.93) contrast(1.03); }
+.bk-solo-universe-heading { position:relative; padding:18px 16px 17px; background:linear-gradient(180deg,#090c10,#060909); }
+.bk-solo-universe-heading::after { content:""; position:absolute; left:16px; right:16px; bottom:0; height:1px; background:linear-gradient(90deg,#d3ad53,transparent); }
+.bk-solo-universe-heading p { margin:0 0 9px; color:#d5b66d; font:800 8px/1.2 Arial,sans-serif; letter-spacing:.28em; }
+.bk-solo-universe-heading h1 { margin:0; color:#fff9e9; font:900 clamp(34px,10vw,48px)/.95 'Barlow Condensed','Arial Narrow',sans-serif; letter-spacing:-.015em; }
+.bk-solo-universe-heading span { display:block; margin-top:10px; color:#b7bdc5; font:500 13px/1.45 Arial,sans-serif; }
+.bk-solo-universe-grid { padding:14px 16px 0; }
 .bk-mode-card { position:relative; display:flex; align-items:center; gap:14px; width:100%; min-height:103px; padding:17px; text-align:left; border:1px solid #b5a06a55; border-radius:9px; background:linear-gradient(125deg,#182026e8,#0a1017f5); color:#e6ddc9; }
 .bk-mode-card>svg { flex:none; width:29px; height:29px; color:#d2b36e; }
 .bk-mode-card>div { min-width:0; flex:1; }
@@ -91,7 +100,7 @@
 .bk-app-shell:not([data-tab="home"])::before,.bk-app-shell:not([data-tab="home"])::after { animation:none!important; }
 /* Keep competition chrome unchanged in size. No moving layer in drafts/results. */
 .bk-app-shell:is([data-tab="draft"],[data-tab="simulation"]) { background:linear-gradient(150deg,#0f1820,#060a0e); }
-@media(min-width:768px){.bk-scene-backdrop { height:760px; }.bk-scene-masthead { min-height:260px; }.bk-scene-masthead-compact { min-height:175px; }.bk-scene-title h1 { font-size:60px; }.bk-mode-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.bk-news-list { grid-template-columns:repeat(2,minmax(0,1fr)); }.bk-screen[data-scene="office"] .bk-scene-art,.bk-screen[data-scene="suite"] .bk-scene-art { background-size:cover; background-position:center 35%; filter:brightness(.7); }}
+@media(min-width:768px){.bk-scene-backdrop { height:760px; }.bk-scene-masthead { min-height:260px; }.bk-scene-masthead-compact { min-height:175px; }.bk-scene-title h1 { font-size:60px; }.bk-mode-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.bk-solo-universe-hero img { max-height:760px; aspect-ratio:16/10; object-position:center 20%; }.bk-solo-universe-heading,.bk-solo-universe-grid { padding-left:32px; padding-right:32px; }.bk-news-list { grid-template-columns:repeat(2,minmax(0,1fr)); }.bk-screen[data-scene="office"] .bk-scene-art,.bk-screen[data-scene="suite"] .bk-scene-art { background-size:cover; background-position:center 35%; filter:brightness(.7); }}
 @media(max-width:359px){.bk-scene-eyebrow { font-size:8px; letter-spacing:.08em; }.bk-scene-toolbar { gap:5px; }.bk-news-story { padding:12px 10px; gap:9px; grid-template-columns:30px minmax(0,1fr) 20px; }.bk-news-story .bk-story-mark { width:30px; }.bk-news-story h3 { font-size:20px; }}
 @media(prefers-reduced-motion:reduce){.bk-screen :is(.bk-scene-beam,.bk-scene-haze) { animation:none!important; }}
 @keyframes bk-screen-light { from{transform:rotate(-9deg);opacity:.45}to{transform:rotate(13deg);opacity:.9} }
