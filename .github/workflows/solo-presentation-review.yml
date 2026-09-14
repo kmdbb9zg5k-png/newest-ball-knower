@@ -33,6 +33,7 @@ jobs:
       - name: Focused regression tests
         run: |
           node --import tsx scripts/solo-appearance-check.ts
+          node --import tsx scripts/staff-portrait-options-check.ts
           npm run check:solo-fictional
           npm run check:solo-fantasy
           npm run check:franchise-interactions

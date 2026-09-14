@@ -1,6 +1,7 @@
 import handler from './simulated-player-art';
 import { defaultAppearance } from '../solo/appearance';
 import { SOLO_PLAYERS_DATABASE, SOLO_TEAM_THEMES } from '../soloUniverse';
+import { STAFF_ART_PROFILES, staffPortraitPlayer } from '../solo/staffPortraits';
 
 const APPROVED_LOCAL = new Set([
   'bk-001-eli-rodriguez','solo-brk-02','solo-slc-02','solo-brk-05','solo-slc-05','solo-brk-10','solo-slc-10','solo-brk-15','solo-slc-15',
@@ -44,10 +45,20 @@ export default async function previewControl(req:any,res:any) {
       qualityTier:'economy',
       jobs:samplePlayers().map(player => jobFor(player,5)),
     };
+  } else if (action === 'submit-staff') {
+    req.body = {
+      action:'submit-batch',
+      qualityTier:'economy',
+      jobs:STAFF_ART_PROFILES.map(profile => jobFor(staffPortraitPlayer(profile),0)),
+    };
   } else if (action === 'retry-ids') {
     const ids = String(req.query?.ids || '').split(',').map(id => id.trim()).filter(Boolean);
     const requested = new Set(ids.slice(0,16));
-    const players = SOLO_PLAYERS_DATABASE.filter(player => requested.has(player.id));
+    const knownPlayers = [
+      ...SOLO_PLAYERS_DATABASE,
+      ...STAFF_ART_PROFILES.map(profile => staffPortraitPlayer(profile)),
+    ];
+    const players = knownPlayers.filter(player => requested.has(player.id));
     if (!players.length || players.length !== requested.size) return res.status(400).json({error:'Supply one to sixteen valid simulated player IDs.'});
     const attempt = Math.max(1,Math.min(20,Number(req.query?.attempt) || 1));
     const requestedTeam = String(req.query?.team || '').toUpperCase();

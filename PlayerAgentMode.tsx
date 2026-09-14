@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Player } from "./types";
 import { SOLO_KNOWN_PLAYERS_DATABASE, SOLO_PLAYERS_DATABASE, SOLO_UNIVERSE_VERSION, simulatedPlayerForLegacyId } from "./soloUniverse";
+import { AGENT_PORTRAITS, staffPortraitPlayer, staffPortraitProfile } from "./solo/staffPortraits";
 import { playerPortraitFallbackUrl } from "./playerPortraits";
 import { ModalPortal } from "./ModalPortal";
 import { AGENT_PENDING_RECRUIT_ACTION_KEY, AGENT_PENDING_SIGNING_KEY, commitAgentSigningForExpectedUser, loadUserState } from "./userStateCloud";
@@ -97,7 +98,7 @@ const buildAgentTargetBoard = (players: Player[], limit = 50) => {
 };
 
 type Pitch = RecruitingPitch;
-type AgentProfile = { name: string; age: number; location: string };
+type AgentProfile = { name: string; age: number; location: string; portraitId: string };
 type FutureDeal = {
   totalM: number;
   annualM: number;
@@ -304,7 +305,9 @@ const restore = (includePendingRecruitAction = true): AgencyState => {
     const restored: AgencyState = {
       ...fallbackAgency(),
       ...v,
-      profile: v?.profile,
+      profile: v?.profile
+        ? { ...v.profile, portraitId: staffPortraitProfile(v.profile.portraitId, "agent").id }
+        : undefined,
       universeVersion: SOLO_UNIVERSE_VERSION,
       clients: Array.isArray(v?.clients)
         ? v.clients
@@ -767,6 +770,9 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
   const [draftLocation, setDraftLocation] = useState(
     agency.profile?.location || "",
   );
+  const [draftPortraitId, setDraftPortraitId] = useState(
+    staffPortraitProfile(agency.profile?.portraitId, "agent").id,
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [recruit, setRecruit] = useState<RecruitState | null>(null);
   const [negotiationRoom, setNegotiationRoom] =
@@ -968,7 +974,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       return;
     const next: AgencyState = {
       ...agency,
-      profile: { name: draftName.trim(), age, location: draftLocation.trim() },
+      profile: { name: draftName.trim(), age, location: draftLocation.trim(), portraitId: draftPortraitId },
       storyStarted: true,
       reputation: agency.profile ? agency.reputation : 20,
     };
@@ -1794,6 +1800,34 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                       </datalist>
                     </label>
                   </div>
+                  <div className="mt-6 text-[10px] font-black tracking-[.25em] text-violet-300">
+                    CHOOSE YOUR AGENT PORTRAIT
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {AGENT_PORTRAITS.map((profile) => (
+                      <button
+                        key={profile.id}
+                        type="button"
+                        aria-pressed={draftPortraitId === profile.id}
+                        onClick={() => setDraftPortraitId(profile.id)}
+                        className={`overflow-hidden rounded-2xl border p-2 text-left ${
+                          draftPortraitId === profile.id
+                            ? "border-violet-300 bg-violet-300/10"
+                            : "border-white/10 bg-black/25"
+                        }`}
+                      >
+                        <SoloPortrait
+                          player={staffPortraitPlayer(profile, draftName.trim() || profile.name)}
+                          size="card"
+                          className="!h-auto !w-full aspect-[4/5] !rounded-xl"
+                        />
+                        <b className="mt-2 block text-xs">{profile.name}</b>
+                        <small className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
+                          {profile.nationality}
+                        </small>
+                      </button>
+                    ))}
+                  </div>
                   <button
                     onClick={createAgent}
                     disabled={
@@ -1814,6 +1848,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     );
   }
 
+  const agentPortrait = staffPortraitProfile(agency.profile.portraitId, "agent");
   const deadlineOpen = isAgentTradeWindowOpen(agency.phase, agency.seasonWeek);
   return (
     <BroadcastStage scene="office" page="agent" quiet={Boolean(recruit||negotiationRoom||verifyingAgentSigning)} className="min-h-[100dvh] bg-[#06080d] px-4 py-5 text-white sm:px-8">
@@ -1826,11 +1861,18 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           >
             <ArrowLeft size={16} /> SOLO
           </button>
-          <div className="text-right">
-            <div className="text-[10px] font-black tracking-[.25em] text-violet-300">
-              AGENT CAREER
+          <div className="flex items-center gap-3 text-right">
+            <SoloPortrait
+              player={staffPortraitPlayer(agentPortrait, agency.profile.name)}
+              size="avatar"
+              className="!h-12 !w-12 !rounded-xl"
+            />
+            <div>
+              <div className="text-[10px] font-black tracking-[.25em] text-violet-300">
+                AGENT CAREER
+              </div>
+              <div className="text-lg font-black">{agency.profile.name}</div>
             </div>
-            <div className="text-lg font-black">{agency.profile.name}</div>
           </div>
         </div>
 

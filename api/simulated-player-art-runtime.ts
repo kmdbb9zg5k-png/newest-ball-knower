@@ -4,6 +4,7 @@ import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 import sharp from "sharp";
+import { STAFF_ART_BY_ID } from "../solo/staffPortraits";
 
 // soloUniverse.ts
 var SOLO_TEAM_THEMES = [
@@ -674,6 +675,16 @@ function serializedInput(job) {
   };
 }
 function sheetPrompt(job, hasAnchor) {
+  const staff = STAFF_ART_BY_ID[job.player.id];
+  if (staff) {
+    const identityDirection = hasAnchor
+      ? "Use the supplied fictional identity anchor as the exact same person in both panels. Preserve the face, skin tone, age, facial structure, eyes, ears, hairline, hair, facial hair and body proportions."
+      : `Create one entirely fictional adult professional football ${staff.role}, not a real person: ${staff.visualDirection}; approximately ${staff.age} years old.`;
+    const wardrobe = staff.role === "owner"
+      ? "premium tailored executive suit with understated luxury, photographed as a credible professional football franchise owner"
+      : "sharp contemporary tailored business suit, photographed as a credible professional football player agent";
+    return `${identityDirection} Produce one square two-panel professional sports-business photography sheet with a clean split exactly at the vertical center. LEFT HALF: a large chest-up database portrait, face fully visible. RIGHT HALF: the exact same person from hair to shoes, standing in a natural three-quarter executive pose. Keep each person entirely inside their own half and do not cross the center. Wardrobe: ${wardrobe}; neutral shirt; no football uniform, jersey, helmet, sports equipment, national flag, costume or cultural stereotype. Dark premium stadium suite and football-operations office with matching cinematic key and rim lighting in both halves. Photorealistic skin pores, believable eyes, nose, ears, teeth if visible, hairline, hands, fingers, anatomy, fabric weave and tailoring. No divider line, captions, words, logos, trademarks, watermark, real teams, real athletes or public figures. Reject duplicate features, distorted eyes, malformed ears, extra fingers, fused hands, extra limbs, warped clothing, mannequin proportions, plastic skin, cartoon styling, blur, cropped shoes or cropped hair.`;
+  }
   const i = job.identity, number = job.appearance.number;
   const identityDirection = hasAnchor ? "Use the supplied fictional identity anchor as the exact same person in both panels. Preserve the face, skin tone, age, facial structure, eyes, ears, hairline, hair and facial hair." : `Create one entirely fictional adult professional football player, not a real athlete: ${i.approximateAge} years old; ${i.skinTone} skin; ${i.faceShape} face; ${i.eyeColor} eyes; ${i.hairColor} ${i.hairStyle}; ${i.facialHair}; ${i.distinguishingDetail}.`;
   return `${identityDirection} Produce one square two-panel professional football photography sheet with a clean split exactly at the vertical center. LEFT HALF: a large chest-up database portrait, face fully visible, no helmet. RIGHT HALF: the exact same player's realistic full body from hair to both cleats, standing in a natural three-quarter hero pose and holding a helmet at his side. Keep each person entirely inside their own half and do not cross the center. ${i.heightInches} inches and ${i.weightLbs} pounds with a ${i.bodyArchetype} build appropriate for ${job.player.position}. Both panels use the exact same ${fictionalUniformPrompt(job.player, number, job.variant)} and clearly readable jersey number ${number}. Equipment: ${job.appearance.eyeBlack ? "eye black" : "no eye black"}; ${job.appearance.sleeves} arm sleeves; ${job.appearance.gloves} gloves. Tattoos: ${job.appearance.tattooCoverage}, ${job.appearance.tattooStyle}; stable identity detail: ${i.tattooProfile}. Photorealistic skin pores, believable eyes, nose, ears, teeth if visible, hairline, hands, fingers, anatomy, football pads, fabric weave and stitching. Dark stadium tunnel with matching cinematic key and rim lighting in both halves. No divider line, captions, words, logos, trademarks, watermark, real teams or real players. Reject mismatched faces between panels, duplicate features, distorted eyes, malformed ears, extra fingers, fused hands, extra limbs, warped jersey, unreadable or inconsistent number, mannequin proportions, plastic skin, cartoon styling, blur, cropped feet, or cropped hair.`;
