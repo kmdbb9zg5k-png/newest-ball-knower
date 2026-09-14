@@ -556,7 +556,8 @@ function fictionalUniformPrompt(player, number, variant = "home") {
   const secondary = team?.secondary || "#D4AF37";
   const jerseyBase = variant === "away" ? "clean white" : variant === "alternate" ? secondary : primary;
   const numberColor = variant === "away" ? primary : variant === "alternate" ? primary : secondary;
-  return `${name} fictional professional football ${variant} uniform. STRICT TEAM PALETTE LOCK: primary ${primary}, secondary ${secondary}, with neutral white or black only when needed. Jersey base ${jerseyBase}; jersey number ${number} in ${numberColor} with high-contrast trim; coordinated pants, socks, gloves and blank helmet use this exact same palette. The chest-up and full-body panels must show the identical uniform design, colors, number ${number}, striping and equipment. Do not invent or substitute any color outside this palette. No NFL, real-team, league, sponsor, wordmark, mascot, manufacturer or swoosh logos`;
+  const componentLock = variant === "home" ? `jersey, pants, helmet and socks must all use primary ${primary}; secondary ${secondary} is permitted only for number ${number}, thin trim and narrow stripes\u2014never for the pants, helmet shell or large shoulder panels` : `jersey base ${jerseyBase}; pants, helmet and socks use primary ${primary}; number ${number} uses ${numberColor}; secondary ${secondary} is trim only`;
+  return `${name} fictional professional football ${variant} uniform. STRICT TEAM PALETTE LOCK: ${componentLock}. The chest-up and full-body panels must show the identical uniform design, colors, number ${number}, striping and equipment. Do not invent or substitute any color outside this palette. Every garment and helmet surface must be completely unbranded: no NFL, real-team, league, sponsor, wordmark, mascot, manufacturer, checkmark, wing, swoosh or logo-like marks anywhere`;
 }
 function positionBuildDirection(position, height, weight) {
   if (["WR", "CB"].includes(position)) return `lean explosive skill-player frame at ${height} inches and ${weight} pounds, narrow waist, defined shoulders and realistic speed-athlete legs`;
@@ -718,17 +719,16 @@ async function reusableTeamUniformAnchor(service, job) {
   const number = job.variant === "home" ? team.secondary : team.primary;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="768" height="768" viewBox="0 0 768 768">
     <rect width="768" height="768" fill="#111318"/>
-    <rect x="32" y="32" width="704" height="250" rx="24" fill="${jersey}"/>
-    <rect x="32" y="306" width="704" height="160" rx="24" fill="${number}"/>
-    <rect x="32" y="490" width="336" height="246" rx="24" fill="${team.primary}"/>
-    <rect x="400" y="490" width="336" height="246" rx="24" fill="${team.secondary}"/>
+    <rect x="32" y="32" width="704" height="704" rx="24" fill="${jersey}"/>
+    <rect x="32" y="620" width="704" height="44" fill="${number}"/>
+    <rect x="32" y="692" width="704" height="44" fill="${number}"/>
     <path d="M218 82h96l48 38 48-38h96l94 62-56 94-58-34v54H238v-54l-58 34-56-94z" fill="${jersey}" stroke="${number}" stroke-width="18"/>
     <path d="M238 204h248" stroke="${number}" stroke-width="18"/>
   </svg>`;
   return { mime: "image/png", buffer: await sharp(Buffer.from(svg)).png().toBuffer() };
 }
 function batchRequest(job, anchor, uniformAnchor) {
-  const referenceDirection = uniformAnchor ? " A second supplied image is a FACELESS COLOR-PALETTE BOARD, not a person or finished uniform. Match its dominant jersey color, number/trim color and team accent colors exactly across the jersey, pants, socks and blank helmet. Do not turn the flat board into a cartoon or graphic illustration; the requested player must remain a photorealistic, unique human." : "";
+  const referenceDirection = uniformAnchor ? " A second supplied image is a FACELESS COLOR-PALETTE BOARD, not a person or finished uniform. Its dominant color is mandatory for every large home-uniform surface: jersey, pants, socks and blank helmet shell. Use its thin accent color only for the jersey number, piping and narrow stripes. Never create accent-color pants, an accent-color helmet, dark shoulder blocks or white helmet shells. Do not turn the flat board into a cartoon or graphic illustration; the requested player must remain a photorealistic, unique human. Remove every brand-like mark, including tiny checkmarks and swooshes." : "";
   const parts = [{ text: `${sheetPrompt(job, Boolean(anchor))}${referenceDirection}` }];
   if (anchor) parts.push({ inlineData: { mimeType: anchor.mime, data: anchor.buffer.toString("base64") } });
   if (uniformAnchor) parts.push({ inlineData: { mimeType: uniformAnchor.mime, data: uniformAnchor.buffer.toString("base64") } });
@@ -1497,7 +1497,7 @@ async function previewControl(req, res) {
         heightInches: player.heightInches,
         weightLbs: player.weightLbs,
         appearance: defaultAppearance2(player),
-        attempt: 4
+        attempt: 5
       }))
     };
   } else if (action === "sync") req.body = { action: "sync-open-batches" };
