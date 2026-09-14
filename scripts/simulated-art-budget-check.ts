@@ -31,6 +31,8 @@ assert.match(api,/sync-open-batches/);assert.match(api,/source_sheet_path/);asse
 assert.match(api,/Number\.isFinite\(priorAttempt\)\s*&&\s*stored\.attempt\s*<=\s*priorAttempt/);
 assert.doesNotMatch(api,/tier\s*===\s*[\"']review[\"']\s*&&\s*Number\.isFinite\(priorAttempt\)/);
 assert.match(previewControl,/action\s*===\s*['\"]retry-ids['\"]/);
+assert.match(previewControl,/SOLO_TEAM_THEMES\\.find/,'Targeted QA can render a stable player identity in a new fictional-team uniform.');
+assert.match(previewControl,/uniformTeam\\s*\\?\\s*\\{\\.\\.\\.player,team:uniformTeam\\.abbr\\}/);
 assert.match(previewControl,/qualityTier:\s*['\"]economy['\"]/);
 assert.match(migration,/35000000/);assert.match(migration,/reserve_simulated_art_generation/);assert.match(migration,/for update/);
 assert.match(migration,/enable row level security/);assert.match(migration,/revoke all .* from public,anon,authenticated/);
