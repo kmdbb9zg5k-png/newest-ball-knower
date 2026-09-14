@@ -1475,6 +1475,19 @@ var samplePlayers = () => {
     return player;
   });
 };
+var jobFor = (player, attempt) => ({
+  playerId: player.id,
+  team: player.team,
+  variant: "home",
+  position: player.position,
+  name: player.name,
+  number: player.jerseyNumber,
+  age: player.age,
+  heightInches: player.heightInches,
+  weightLbs: player.weightLbs,
+  appearance: defaultAppearance2(player),
+  attempt
+});
 async function previewControl(req, res) {
   if (process.env.VERCEL_ENV !== "preview") return res.status(404).json({ error: "Not found" });
   const adminKey = process.env.SIMULATED_PLAYER_ART_ADMIN_KEY || "";
@@ -1486,20 +1499,14 @@ async function previewControl(req, res) {
     req.body = {
       action: "submit-batch",
       qualityTier: "economy",
-      jobs: samplePlayers().map((player) => ({
-        playerId: player.id,
-        team: player.team,
-        variant: "home",
-        position: player.position,
-        name: player.name,
-        number: player.jerseyNumber,
-        age: player.age,
-        heightInches: player.heightInches,
-        weightLbs: player.weightLbs,
-        appearance: defaultAppearance2(player),
-        attempt: 5
-      }))
+      jobs: samplePlayers().map((player) => jobFor(player, 5))
     };
+  } else if (action === "submit-slice") {
+    const team = String(req.query?.team || "").toUpperCase();
+    const offset = Math.max(0, Math.min(SOLO_PLAYERS_DATABASE2.length, Number(req.query?.offset) || 0));
+    const players = SOLO_PLAYERS_DATABASE2.filter((player) => player.team === team).slice(offset, offset + 16);
+    if (!players.length) return res.status(400).json({ error: "No simulated players found for that team slice." });
+    req.body = { action: "submit-batch", qualityTier: "economy", jobs: players.map((player) => jobFor(player, 0)) };
   } else if (action === "sync") req.body = { action: "sync-open-batches" };
   else req.body = { action: "status" };
   return handler(req, res);
