@@ -687,7 +687,7 @@ async function reusableIdentityAnchor(service, job) {
 function batchRequest(job, anchor) {
   const parts = [{ text: sheetPrompt(job, Boolean(anchor)) }];
   if (anchor) parts.push({ inlineData: { mimeType: anchor.mime, data: anchor.buffer.toString("base64") } });
-  return { contents: [{ role: "user", parts }], config: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "1:1", imageSize: "1K", personGeneration: "ALLOW_ADULT" } } };
+  return { contents: [{ role: "user", parts }], config: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "1:1", imageSize: "1K" } } };
 }
 function outputBatchImage(value) {
   const parts = value?.response?.candidates?.flatMap((candidate) => candidate?.content?.parts ?? []) ?? [];
