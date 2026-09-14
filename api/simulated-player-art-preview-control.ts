@@ -704,9 +704,6 @@ async function reusableIdentityAnchor(service, job) {
   const image = await localReference(relativePath);
   return image ? { path: null, image } : null;
 }
-var TEAM_UNIFORM_ANCHOR_PATHS = {
-  "ABQ:home": "v4/uniforms/solo-abq-01/ABQ/home/be6db37008ab133c5dae/98389f5ce35b479e17f8/full-body.webp"
-};
 async function localReference(relativePath) {
   try {
     return { mime: "image/webp", buffer: await readFile(join(process.cwd(), "public", relativePath)) };
@@ -715,13 +712,23 @@ async function localReference(relativePath) {
   }
 }
 async function reusableTeamUniformAnchor(service, job) {
-  const storedPath = TEAM_UNIFORM_ANCHOR_PATHS[`${job.player.team}:${job.variant}`];
-  if (storedPath) return download(service, storedPath);
-  const staticTeamAnchor = job.player.team === "BRK" ? "solo-characters/v2/qa/solo-brk-02/full-body.webp" : job.player.team === "SLC" ? "solo-characters/v2/qa/solo-slc-02/full-body.webp" : null;
-  return staticTeamAnchor ? localReference(staticTeamAnchor) : null;
+  const team = SOLO_TEAM_THEMES.find((item) => item.abbr === job.player.team);
+  if (!team) return null;
+  const jersey = job.variant === "away" ? "#F7F7F4" : job.variant === "alternate" ? team.secondary : team.primary;
+  const number = job.variant === "home" ? team.secondary : team.primary;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="768" height="768" viewBox="0 0 768 768">
+    <rect width="768" height="768" fill="#111318"/>
+    <rect x="32" y="32" width="704" height="250" rx="24" fill="${jersey}"/>
+    <rect x="32" y="306" width="704" height="160" rx="24" fill="${number}"/>
+    <rect x="32" y="490" width="336" height="246" rx="24" fill="${team.primary}"/>
+    <rect x="400" y="490" width="336" height="246" rx="24" fill="${team.secondary}"/>
+    <path d="M218 82h96l48 38 48-38h96l94 62-56 94-58-34v54H238v-54l-58 34-56-94z" fill="${jersey}" stroke="${number}" stroke-width="18"/>
+    <path d="M238 204h248" stroke="${number}" stroke-width="18"/>
+  </svg>`;
+  return { mime: "image/png", buffer: await sharp(Buffer.from(svg)).png().toBuffer() };
 }
 function batchRequest(job, anchor, uniformAnchor) {
-  const referenceDirection = uniformAnchor ? " A second supplied reference shows the team's approved uniform only: copy its jersey base color, number color and trim, shoulder striping, pants, socks and helmet palette exactly, but do not copy that reference player's face, hair, skin, body, pose, tattoos or jersey number." : "";
+  const referenceDirection = uniformAnchor ? " A second supplied image is a FACELESS COLOR-PALETTE BOARD, not a person or finished uniform. Match its dominant jersey color, number/trim color and team accent colors exactly across the jersey, pants, socks and blank helmet. Do not turn the flat board into a cartoon or graphic illustration; the requested player must remain a photorealistic, unique human." : "";
   const parts = [{ text: `${sheetPrompt(job, Boolean(anchor))}${referenceDirection}` }];
   if (anchor) parts.push({ inlineData: { mimeType: anchor.mime, data: anchor.buffer.toString("base64") } });
   if (uniformAnchor) parts.push({ inlineData: { mimeType: uniformAnchor.mime, data: uniformAnchor.buffer.toString("base64") } });
