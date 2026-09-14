@@ -776,7 +776,7 @@ async function submitBatch(service, ai, inputs, tier) {
     const raw = normalized[index], stored = requestedJobs[index];
     const { data: existing, error: existingError } = await service.from(TABLE).select("status,updated_at,quality_report").match(rowKey(raw)).maybeSingle();
     if (existingError) throw new Error(`Could not check existing artwork: ${existingError.message}`);
-    if (existing?.status === "approved" || existing?.status === "pending_review" || existing?.status === "generating" && Date.now() - Date.parse(existing.updated_at) < 26 * 60 * 6e4) continue;
+    if (existing?.status === "approved" || existing?.status === "pending_review" || existing?.status === "generating" && raw.attempt === 0 && Date.now() - Date.parse(existing.updated_at) < 26 * 60 * 6e4) continue;
     const priorAttempt = Number(existing?.quality_report?.generation?.attempt);
     if (tier === "review" && Number.isFinite(priorAttempt) && stored.attempt <= priorAttempt) {
       stored.attempt = priorAttempt + 1;
