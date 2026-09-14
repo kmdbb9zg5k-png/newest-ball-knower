@@ -44,12 +44,12 @@ export default async function previewControl(req:any,res:any) {
       qualityTier:'economy',
       jobs:samplePlayers().map(player => jobFor(player,5)),
     };
-  } else if (action === 'submit-slice') {
+  } else if (action === 'submit-slice' || action === 'retry-slice') {
     const team = String(req.query?.team || '').toUpperCase();
     const offset = Math.max(0,Math.min(SOLO_PLAYERS_DATABASE.length,Number(req.query?.offset) || 0));
     const players = SOLO_PLAYERS_DATABASE.filter(player => player.team === team).slice(offset,offset+16);
     if (!players.length) return res.status(400).json({error:'No simulated players found for that team slice.'});
-    req.body = {action:'submit-batch',qualityTier:'economy',jobs:players.map(player => jobFor(player,0))};
+    req.body = {action:'submit-batch',qualityTier:action === 'retry-slice' ? 'review' : 'economy',jobs:players.map(player => jobFor(player,0))};
   } else if (action === 'sync') req.body = {action:'sync-open-batches'};
   else req.body = {action:'status'};
   return handler(req,res);
