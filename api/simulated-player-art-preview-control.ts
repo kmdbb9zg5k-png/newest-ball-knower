@@ -1452,7 +1452,7 @@ async function previewControl(req, res) {
         heightInches: player.heightInches,
         weightLbs: player.weightLbs,
         appearance: defaultAppearance2(player),
-        attempt: 0
+        attempt: 1
       }))
     };
   } else if (action === "sync") req.body = { action: "sync-open-batches" };
