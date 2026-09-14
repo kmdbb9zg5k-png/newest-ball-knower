@@ -554,7 +554,7 @@ function simulatedIdentityFingerprint(player) {
   return [identity.version, identity.playerId, identity.identitySeed, identity.approximateAge, identity.skinTone, identity.hairStyle, identity.hairColor, identity.facialHair, identity.faceShape, identity.eyeColor, identity.bodyArchetype, identity.heightInches, identity.weightLbs, identity.tattooProfile, identity.accessoryProfile, identity.distinguishingDetail, identity.lockedReference ?? ""].join("|");
 }
 function fictionalUniformPrompt(player, number, variant = "home") {
-  return `${player.teamName || player.team || "Ball Knower Training"} fictional professional football ${variant} uniform, jersey number ${number}; no NFL, real-team, league, sponsor, or manufacturer logos`;
+  return `Original fictional professional football ${variant} uniform, jersey number ${number}; every garment and helmet surface must be completely unbranded: no words, NFL, real-team, league, sponsor, wordmark, mascot, manufacturer, checkmark, wing, swoosh or logo-like marks anywhere`;
 }
 function isSupportedSimulatedPlayerId(value) {
   return /^(solo-[a-z0-9-]{3,80}|bk-001-eli-rodriguez|franchise-rookie-[a-z0-9-]{3,100}|my-player-[a-z0-9-]{3,100})$/.test(value);
