@@ -16,6 +16,7 @@ const fantasyHub=read('FantasyHub.tsx');
 const styles=read('index.css');
 const matchups=read('HomeMatchups.tsx');
 const soloHub=read('SoloFranchiseHub.tsx');
+const soloFeature=read('HomeSoloFeature.tsx');
 const parity=read('fantasyLeagueParityCloud.ts');
 
 assert.ok(home.includes('const selectedLeague = leagues.find')&&home.includes('const primaryLeague = selectedLeague || leagues.find'), 'home must feature the selected league instead of a hard-coded personal league');
@@ -65,7 +66,8 @@ assert.ok(app.includes('teamTheme={favoriteTheme}')&&app.includes('pb-[calc(5rem
 assert.ok(app.includes("window.history.scrollRestoration='manual'")&&app.includes("if(['lobby','draft','simulation'].includes(currentTab))return")&&app.includes('resetHomeScroll'), 'home must defeat stale iPhone browser scroll restoration and reopen at the top');
 assert.ok(footer.includes('pb-[calc(5rem+env(safe-area-inset-bottom))]'), 'the fixed bottom navigation must not cover the final footer controls');
 assert.ok(home.includes('grid grid-cols-3 overflow-hidden')&&home.includes('Continue your league')&&home.includes('League Activity'), 'home must preserve the approved compact concept hierarchy without the duplicate News shortcut');
-assert.ok(home.includes('<HomeStadiumHero onMyLeagues={() => onNavigate(\'fantasy\')}/>')&&!home.includes('<HomeSoloFeature'), 'Home must retain its stadium and My Leagues hero instead of rendering the Solo universe');
+assert.ok(home.includes('<HomeStadiumHero onMyLeagues={() => onNavigate(\'fantasy\')}/>')&&home.includes('<HomeSoloFeature onOpen={() => onNavigate(\'solo\')}/>')&&home.indexOf('<HomeSoloFeature')>home.indexOf('aria-label="Quick links"')&&home.indexOf('<HomeSoloFeature')<home.indexOf('<HomeMatchups'), 'Home must retain its stadium while keeping the cinematic Solo entry visible before matchups');
+assert.ok(soloFeature.includes('/solo-mode-home-cover.webp?v=2')&&soloFeature.includes('aria-label="Play Solo Mode"'), 'the compact Home Solo promo must remain a working, cache-busted navigation target');
 assert.ok(soloHub.includes('/solo-universe-edition.jpg?v=2')&&!soloHub.includes('eli-rodriguez'), 'the Solo hub must use the cache-busted, Safari-safe Universe Edition artwork');
 assert.ok(soloHub.includes('CHOOSE YOUR ROAD')&&soloHub.includes('Agent Mode')&&soloHub.includes('Owner Office')&&soloHub.includes('CAP CHALLENGE')&&soloHub.includes('FANTASY DRAFT'), 'the Universe artwork and all approved road cards must live inside the Solo Mode page');
 assert.ok(styles.includes('-webkit-text-size-adjust: 100%')&&home.includes('min-w-0 overflow-hidden')&&!home.includes('className="whitespace-nowrap">{label}'), 'iPhone text autosizing must not make quick-link labels overlap their columns');

@@ -74,27 +74,9 @@
 .bk-home-clean .bk-home-other-league-copy small { overflow:hidden; color:#9ea4aa; font:600 9px/1.25 Arial,sans-serif; white-space:nowrap; text-overflow:ellipsis; }
 .bk-home-clean .bk-home-other-league-action { display:flex; align-items:center; justify-content:flex-end; gap:4px; max-width:34%; flex:none; color:#d9bd68; font:800 8px/1.2 Arial,sans-serif; text-align:right; text-transform:uppercase; }
 .bk-home-clean .bk-home-other-league-action svg { width:14px; height:14px; flex:none; }
-.bk-home-clean .bk-home-solo-feature { margin:0 -16px 14px; overflow:hidden; border-bottom:1px solid #b28d3f55; background:linear-gradient(180deg,#07090c,#090c10 68%,#060707); }
-.bk-home-clean .bk-home-solo-hero { display:block; width:100%; overflow:hidden; padding:0; border:0; background:#05070a; }
-.bk-home-clean .bk-home-solo-hero>img { display:block; width:100%; aspect-ratio:4/5; object-fit:cover; object-position:center top; user-select:none; filter:saturate(.91) contrast(1.04); }
-.bk-home-clean .bk-home-solo-heading { position:relative; padding:14px 16px 13px; border-top:1px solid #c39c4d77; background:linear-gradient(180deg,#0b0d10,#080b0f); }
-.bk-home-clean .bk-home-solo-heading::after { content:""; position:absolute; left:16px; right:16px; bottom:0; height:1px; background:linear-gradient(90deg,#d3ad53,transparent); }
-.bk-home-clean .bk-home-solo-heading>p { margin:0 0 7px; color:#d5b66d; font:800 8px/1.2 Arial,sans-serif; letter-spacing:.28em; }
-.bk-home-clean .bk-home-solo-heading>h2 { margin:0; color:#fff9e9; font:900 clamp(30px,9vw,42px)/.95 'Barlow Condensed','Arial Narrow',sans-serif; letter-spacing:-.015em; }
-.bk-home-clean .bk-home-solo-heading>span { display:block; margin-top:8px; color:#b7bdc5; font:500 13px/1.35 Arial,sans-serif; }
-.bk-home-clean .bk-home-solo-roads { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; padding:12px 16px 16px; }
-.bk-home-clean .bk-home-solo-roads>button { position:relative; display:grid; grid-template-columns:32px minmax(0,1fr); align-items:end; min-width:0; min-height:178px; overflow:hidden; padding:13px 10px; border:1px solid #8b774a80; border-radius:13px; background:linear-gradient(145deg,#151b23ee,#080c12f7); color:#eef0f1; text-align:left; box-shadow:inset 0 1px 0 #ffffff0d; }
-.bk-home-clean .bk-home-solo-roads>button::after { content:""; position:absolute; inset:0; background:linear-gradient(90deg,#0c1118 4%,#0c1118d9 47%,transparent 100%); pointer-events:none; }
-.bk-home-clean .bk-home-solo-roads>button>img { position:absolute; inset:0 0 0 auto; width:67%; height:100%; object-fit:cover; object-position:center top; opacity:.42; filter:saturate(.7) contrast(1.08); }
-.bk-home-clean .bk-home-solo-road-icon,.bk-home-clean .bk-home-solo-road-copy { position:relative; z-index:1; }
-.bk-home-clean .bk-home-solo-road-icon { display:flex; align-items:flex-end; color:#e2be68; }
-.bk-home-clean .bk-home-solo-road-icon>svg { width:25px; height:25px; stroke-width:2.2; }
-.bk-home-clean .bk-home-solo-road-copy { align-self:stretch; display:flex; min-width:0; flex-direction:column; justify-content:flex-end; }
-.bk-home-clean .bk-home-solo-road-copy>small { color:#c5c5c7; font:800 7px/1.35 Arial,sans-serif; letter-spacing:.15em; }
-.bk-home-clean .bk-home-solo-road-copy>strong { display:block; margin-top:5px; color:#f3d487; font:900 21px/.95 'Barlow Condensed','Arial Narrow',sans-serif; }
-.bk-home-clean .bk-home-solo-road-copy>p { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; margin:7px 0 0; color:#c1c5cb; font:500 10px/1.42 Arial,sans-serif; }
-.bk-home-clean .bk-home-solo-road-copy>b { display:flex; align-items:center; gap:2px; margin-top:auto; padding-top:8px; color:#e2bd65; font:800 8px/1.2 Arial,sans-serif; letter-spacing:.1em; }
-.bk-home-clean .bk-home-solo-road-copy>b>svg { width:13px; height:13px; flex:none; }
+.bk-home-clean .bk-home-solo-feature { margin:0 0 16px; }
+.bk-home-clean .bk-home-solo-feature>button { display:block; width:100%; overflow:hidden; padding:0; border:1px solid #d3ad3e; border-radius:13px; background:#06080c; box-shadow:0 16px 42px #0009,0 0 30px #d2ad3420; }
+.bk-home-clean .bk-home-solo-feature img { display:block; width:100%; height:auto; aspect-ratio:657/500; object-fit:cover; user-select:none; }
 .bk-home-clean .bk-home-rating { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:12px; margin:10px 0 0; padding:11px 13px; min-height:84px; border:1px solid #303632; border-radius:9px; background:#0c1015; }
 .bk-home-clean .bk-home-rating-value>span { display:block; color:#a7afb4; font:700 9px/1.25 Arial,sans-serif; text-transform:uppercase; letter-spacing:.07em; }
 .bk-home-clean .bk-home-rating-value>strong { display:block; margin-top:3px; color:#f2f2ed; font:800 34px/.95 'Barlow Condensed','Arial Narrow',sans-serif; }
@@ -128,5 +110,4 @@
 .bk-home-clean .bk-home-partners a>span:last-child { min-height:44px; }
 .bk-home-clean .bk-home-partners>button { min-height:44px; width:100%; color:#b8af95; font:600 11px/1.3 Arial,sans-serif; }
 @media (max-width:359px) { .bk-home-clean .bk-home-rating { gap:8px; padding-inline:10px; } .bk-home-clean .bk-home-rating-actions>button { padding-inline:6px; font-size:10px; } .bk-home-clean .bk-home-rating-actions>button svg { display:none; } .bk-home-clean .bk-home-league-top>p { font-size:9px; letter-spacing:.05em; } }
-@media (max-width:359px) { .bk-home-clean .bk-home-solo-roads { gap:6px; padding-inline:10px; } .bk-home-clean .bk-home-solo-roads>button { grid-template-columns:25px minmax(0,1fr); min-height:172px; padding-inline:8px; } .bk-home-clean .bk-home-solo-road-icon>svg { width:21px; height:21px; } .bk-home-clean .bk-home-solo-road-copy>strong { font-size:18px; } }
-@media (min-width:640px) { .bk-home-clean .bk-home-solo-feature { margin-inline:-24px; } .bk-home-clean .bk-home-solo-hero>img { aspect-ratio:16/10; object-position:center 22%; } .bk-home-clean .bk-home-solo-heading,.bk-home-clean .bk-home-solo-roads { padding-inline:24px; } .bk-home-clean .bk-home-solo-roads>button { min-height:190px; } .bk-home-clean .bk-home-shortcuts>button { flex-direction:row; gap:7px; min-height:48px; font-size:12px; } .bk-home-clean .bk-home-current-league { padding:10px 18px 16px; } .bk-home-clean .bk-home-league-name h2 { font-size:30px; } .bk-home-clean .bk-home-rating { padding:12px 18px; } }
+@media (min-width:640px) { .bk-home-clean .bk-home-shortcuts>button { flex-direction:row; gap:7px; min-height:48px; font-size:12px; } .bk-home-clean .bk-home-current-league { padding:10px 18px 16px; } .bk-home-clean .bk-home-league-name h2 { font-size:30px; } .bk-home-clean .bk-home-rating { padding:12px 18px; } }
