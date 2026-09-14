@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useId, useRef, useState } from 'react';
-import { ArrowRight, Bell, Brain, ChevronDown, ClipboardList, Flag, FlaskConical, Newspaper, Plus, RefreshCcw, Target, Trophy, UserPlus } from 'lucide-react';
+import { ArrowRight, Bell, Brain, ChevronDown, ClipboardList, Flag, Newspaper, Plus, RefreshCcw, Target, Trophy, UserPlus } from 'lucide-react';
 import { useBallKnower } from './BallKnowerContext';
 import type { ProgressProfile } from './progressionCloud';
 import { formatDraftSchedule } from './draftSchedule';
@@ -10,6 +10,7 @@ import { PartnerCard } from './PartnerCard';
 import { homePartners } from './partners';
 import { HomeStadiumHero } from './HomeStadiumHero';
 import { HomeMatchups } from './HomeMatchups';
+import { HomeSoloFeature } from './HomeSoloFeature';
 import { buildHomeActivity, homeFeaturedActivity, homeLeagueAction, homeLeaguePhase, homeRatingTier, type HomeActivity } from './homeDashboardState';
 import './homeBroadcast.css';
 import './homeLayout.css';
@@ -113,7 +114,7 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
       <ModeCard icon={<Trophy/>} label="Fantasy" onClick={() => onNavigate('fantasy')}/>
       <ModeCard icon={<Target/>} label="Picks" onClick={() => onNavigate('sportsbook')}/>
       <ModeCard icon={<Brain/>} label="Trivia" onClick={() => onNavigate('challenges')}/>
-      <ModeCard icon={<FlaskConical/>} label="Solo" accessibleLabel="Solo Mode" onClick={() => onNavigate('solo')}/>
+      <ModeCard icon={<Newspaper/>} label="News" accessibleLabel="NFL News" onClick={() => onNavigate('news')}/>
     </section>
     <nav aria-label="Quick links" className="bk-home-shortcuts grid grid-cols-4 overflow-hidden">
       <Action label="Create" accessibleLabel="Create League" icon={<Plus/>} onClick={onOpenCreateLeague}/>
@@ -149,6 +150,8 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
         <button type="button" className="bk-home-league-cta" onClick={openPrimaryLeague}>{action!.label}<ArrowRight size={18} aria-hidden="true"/></button>
       </> : <div className="bk-home-league-empty"><h2>Your league starts here</h2><p>Create a league or join your friends with an invite code.</p><div><button type="button" onClick={onOpenCreateLeague}>Create League</button><button type="button" onClick={onOpenJoinLeague}>Join League</button></div></div>}
     </section>}
+
+    <HomeSoloFeature onOpen={() => onNavigate('solo')}/>
 
     <section className="bk-home-rating" aria-label="Ball Knower Rating" aria-busy={ratingLoading}>
       <div className="bk-home-rating-value"><span>BK Rating</span><strong>{profile?.bkRating ?? '—'}</strong></div>
