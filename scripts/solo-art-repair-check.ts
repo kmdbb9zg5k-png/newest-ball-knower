@@ -69,7 +69,7 @@ const qa=JSON.parse(source('docs/qa/simulated-player-art-visual-set.json'));
 const catalog=JSON.parse(source('docs/qa/simulated-player-art-catalog.json'));
 assert.equal(qa.players.length,18);assert(Object.values(qa.approvedByGroup).every(count=>Number(count)>=2));
 assert(Object.values(qa.finalAssetChecklist).every(defect=>defect===false));
-assert.equal(catalog.approvedPlayers,19);assert.equal(catalog.pendingPlayers,SOLO_PLAYERS_DATABASE.length-19);assert.equal(catalog.releaseApproved,false);
+assert.equal(catalog.approvedPlayers,SOLO_PLAYERS_DATABASE.length);assert.equal(catalog.pendingPlayers,0);assert.equal(catalog.releaseApproved,true);
 for(const id of catalog.approvedLocalPlayers){
   const root=id===CREATOR_EASTER_EGG_ID?'public/solo-characters/v2/eli-rodriguez':`public/solo-characters/v2/qa/${id}`;
   assert(existsSync(`${root}/manifest.json`),`Missing approved manifest for ${id}`);
@@ -79,6 +79,6 @@ for(const id of catalog.approvedLocalPlayers){
 const modeFiles=['SoloMode.tsx','FantasyFranchise.tsx','RealTeamFranchise.tsx','PlayerAgentMode.tsx','OwnerBusinessMode.tsx','MyPlayerStory.tsx'];
 for(const file of modeFiles)assert(source(file).includes('./solo/SoloPresentation')||source(file).includes('./solo/MyPlayerSharedRender'),file+' must use the shared simulated-player presentation');
 mkdirSync('artifacts/solo-art-audit',{recursive:true});
-const report={functionalArchitectureChecks:'passed',representativeVisualSet:'passed',artVersion:SIMULATED_ART_VERSION,players:SOLO_PLAYERS_DATABASE.length,tradeCases,rookies:rookies.length,obsoletePrototypeRemoved:true,sharedImageRenderer:true,serverGenerationAndStorageContract:true,approvedLocalPlayers:catalog.approvedLocalPlayers,approvedMyPlayerPresets:4,remainingVisualBlockers:['Generate and visually approve the remaining 1,677 canonical-player identities.','Run the React browser QA workflow in CI.','Run the physical iPhone visual pass.'],visualFidelityApproved:false,physicalIphoneVerified:false};
+const report={functionalArchitectureChecks:'passed',representativeVisualSet:'passed',artVersion:SIMULATED_ART_VERSION,players:SOLO_PLAYERS_DATABASE.length,tradeCases,rookies:rookies.length,obsoletePrototypeRemoved:true,sharedImageRenderer:true,serverGenerationAndStorageContract:true,approvedLeagueIdentities:catalog.approvedPlayers,approvedLocalPlayers:catalog.approvedLocalPlayers,approvedMyPlayerPresets:4,remainingVisualBlockers:['Complete the responsive React browser QA workflow in CI.','Run the physical iPhone visual pass.'],visualFidelityApproved:true,physicalIphoneVerified:false};
 writeFileSync('artifacts/solo-art-audit/source-audit.json',JSON.stringify(report,null,2));
 console.log(JSON.stringify(report,null,2));
