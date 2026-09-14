@@ -710,9 +710,10 @@ async function packageIdentitySheet(service, raw, generated, stored, model, cost
   const meta = await sharp(generated.buffer).metadata(), width = meta.width ?? 0, height = meta.height ?? 0;
   if (width < 900 || height < 900 || Math.abs(width - height) > Math.max(width, height) * 0.15) throw new Error("Identity sheet is not a production-size square.");
   const sourceSheet = await sharp(generated.buffer).jpeg({ quality: 94, mozjpeg: true }).toBuffer();
-  const leftWidth = Math.floor(width / 2), rightWidth = width - leftWidth;
+  const halfWidth = Math.floor(width / 2), centerGutter = Math.max(2, Math.round(width * 0.004));
+  const leftWidth = halfWidth - centerGutter, rightStart = halfWidth + centerGutter, rightWidth = width - rightStart;
   const portraitSource = await sharp(generated.buffer).extract({ left: 0, top: 0, width: leftWidth, height }).resize(640, 800, { fit: "cover", position: "north" }).jpeg({ quality: 93 }).toBuffer();
-  const fullSource = await sharp(generated.buffer).extract({ left: leftWidth, top: 0, width: rightWidth, height }).resize(768, 1536, { fit: "cover", position: "centre" }).jpeg({ quality: 92 }).toBuffer();
+  const fullSource = await sharp(generated.buffer).extract({ left: rightStart, top: 0, width: rightWidth, height }).resize(768, 1536, { fit: "cover", position: "centre" }).jpeg({ quality: 92 }).toBuffer();
   const portraitMeta = await sharp(portraitSource).metadata(), fullMeta = await sharp(fullSource).metadata();
   const derivatives = {
     avatar: await sharp(portraitSource).resize(96, 96, { fit: "cover", position: "attention" }).webp({ quality: 76 }).toBuffer(),
