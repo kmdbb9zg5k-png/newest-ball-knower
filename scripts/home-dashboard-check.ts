@@ -15,7 +15,7 @@ const locker=read('LockerHub.tsx');
 const fantasyHub=read('FantasyHub.tsx');
 const styles=read('index.css');
 const matchups=read('HomeMatchups.tsx');
-const soloFeature=read('HomeSoloFeature.tsx');
+const soloHub=read('SoloFranchiseHub.tsx');
 const parity=read('fantasyLeagueParityCloud.ts');
 
 assert.ok(home.includes('const selectedLeague = leagues.find')&&home.includes('const primaryLeague = selectedLeague || leagues.find'), 'home must feature the selected league instead of a hard-coded personal league');
@@ -65,9 +65,9 @@ assert.ok(app.includes('teamTheme={favoriteTheme}')&&app.includes('pb-[calc(5rem
 assert.ok(app.includes("window.history.scrollRestoration='manual'")&&app.includes("if(['lobby','draft','simulation'].includes(currentTab))return")&&app.includes('resetHomeScroll'), 'home must defeat stale iPhone browser scroll restoration and reopen at the top');
 assert.ok(footer.includes('pb-[calc(5rem+env(safe-area-inset-bottom))]'), 'the fixed bottom navigation must not cover the final footer controls');
 assert.ok(home.includes('grid grid-cols-3 overflow-hidden')&&home.includes('Continue your league')&&home.includes('League Activity'), 'home must preserve the approved compact concept hierarchy without the duplicate News shortcut');
-assert.ok(home.includes('<HomeSoloFeature onOpen={() => onNavigate(\'solo\')}/>')&&home.indexOf('<HomeSoloFeature')<home.indexOf('bk-home-primary-modes'), 'the cinematic Solo universe must lead Home while Fantasy, Picks, Trivia, and News remain directly below it');
-assert.ok(soloFeature.includes('/solo-universe-edition.jpg?v=2')&&!soloFeature.includes('eli-rodriguez'), 'the Home Solo feature must use the cache-busted, Safari-safe Universe Edition artwork');
-assert.ok(soloFeature.includes('aria-label="Explore Solo Mode"')&&soloFeature.includes('CHOOSE YOUR ROAD')&&soloFeature.includes('AGENT MODE')&&soloFeature.includes('OWNER OFFICE')&&soloFeature.includes('CAP CHALLENGE')&&soloFeature.includes('FANTASY DRAFT'), 'the Solo showcase must remain an accessible navigation target with all four approved road cards');
+assert.ok(home.includes('<HomeStadiumHero onMyLeagues={() => onNavigate(\'fantasy\')}/>')&&!home.includes('<HomeSoloFeature'), 'Home must retain its stadium and My Leagues hero instead of rendering the Solo universe');
+assert.ok(soloHub.includes('/solo-universe-edition.jpg?v=2')&&!soloHub.includes('eli-rodriguez'), 'the Solo hub must use the cache-busted, Safari-safe Universe Edition artwork');
+assert.ok(soloHub.includes('CHOOSE YOUR ROAD')&&soloHub.includes('Agent Mode')&&soloHub.includes('Owner Office')&&soloHub.includes('CAP CHALLENGE')&&soloHub.includes('FANTASY DRAFT'), 'the Universe artwork and all approved road cards must live inside the Solo Mode page');
 assert.ok(styles.includes('-webkit-text-size-adjust: 100%')&&home.includes('min-w-0 overflow-hidden')&&!home.includes('className="whitespace-nowrap">{label}'), 'iPhone text autosizing must not make quick-link labels overlap their columns');
 assert.ok(locker.includes("type Tab='locker'|'collections'")&&!locker.includes("['store','Store']")&&!locker.includes("['pass','Pass']")&&!locker.includes("['plus','BK+']"), 'unfinished Store, Season Pass, and BK+ surfaces must stay hidden from launch navigation');
 assert.ok(locker.includes("ownedItems.filter(x=>x.category==='collectible')")&&locker.includes('Anything you earn will appear here.'), 'Collections must show owned rewards only instead of leaking disabled purchase cards');
