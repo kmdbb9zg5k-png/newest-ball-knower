@@ -39,7 +39,7 @@ export default async function previewControl(req:any,res:any) {
       qualityTier:'economy',
       jobs:samplePlayers().map(player => ({
         playerId:player.id,team:player.team,variant:'home',position:player.position,name:player.name,number:player.jerseyNumber,
-        age:player.age,heightInches:player.heightInches,weightLbs:player.weightLbs,appearance:defaultAppearance(player),attempt:3,
+        age:player.age,heightInches:player.heightInches,weightLbs:player.weightLbs,appearance:defaultAppearance(player),attempt:4,
       })),
     };
   } else if (action === 'sync') req.body = {action:'sync-open-batches'};
