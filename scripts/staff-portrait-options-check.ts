@@ -35,6 +35,8 @@ assert.match(owner,/portraitId/);
 assert.match(owner,/OWNER_PORTRAITS\.map/);
 assert.match(agent,/portraitId/);
 assert.match(agent,/AGENT_PORTRAITS\.map/);
+assert.doesNotMatch(agent,/profile\.nationality/);
+assert(AGENT_PORTRAITS.some(profile=>profile.id==='solo-staff-agent-ethan-cole'));
 assert.match(api,/professional sports-business photography sheet/);
 assert.match(api,/no football uniform, jersey, helmet, sports equipment, national flag, costume or cultural stereotype/);
 assert.match(controller,/action\s*===\s*['"]submit-staff['"]/);

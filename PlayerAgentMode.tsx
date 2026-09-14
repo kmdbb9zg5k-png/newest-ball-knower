@@ -1822,9 +1822,6 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                           className="!h-auto !w-full aspect-[4/5] !rounded-xl"
                         />
                         <b className="mt-2 block text-xs">{profile.name}</b>
-                        <small className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
-                          {profile.nationality}
-                        </small>
                       </button>
                     ))}
                   </div>

@@ -40,8 +40,8 @@ export const AGENT_PORTRAITS:StaffPortraitProfile[]=[
     visualDirection:'Brazilian man with tan brown skin, athletic features, short dark curls, close-trimmed facial hair, and charismatic professional energy',
   },
   {
-    id:'solo-staff-agent-layla-haddad',name:'Layla Haddad',nationality:'Lebanese',role:'agent',age:39,heightInches:67,weightLbs:142,
-    visualDirection:'Lebanese woman with light olive skin, dark almond-shaped eyes, thick shoulder-length dark hair, and composed high-stakes confidence',
+    id:'solo-staff-agent-ethan-cole',name:'Ethan Cole',nationality:'American',role:'agent',age:39,heightInches:72,weightLbs:186,
+    visualDirection:'White American man in his late thirties with fair skin, a lean angular face, neatly styled medium-brown hair, light stubble, and composed high-stakes negotiating confidence',
   },
   {
     id:'solo-staff-agent-kwame-mensah',name:'Kwame Mensah',nationality:'Ghanaian',role:'agent',age:45,heightInches:74,weightLbs:210,

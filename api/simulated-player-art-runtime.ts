@@ -11,7 +11,7 @@ var STAFF_ART_BY_ID = {
   "solo-staff-owner-declan-byrne": { role: "owner", name: "Declan Byrne", nationality: "Irish", visualDirection: "Irish man in his late fifties with fair freckled skin, neatly cropped auburn-gray hair, light stubble and distinguished executive styling" },
   "solo-staff-agent-maya-patel": { role: "agent", name: "Maya Patel", nationality: "Indian", visualDirection: "Indian woman in her mid-thirties with warm brown skin, shoulder-length dark hair, expressive eyes and polished contemporary agent styling" },
   "solo-staff-agent-thiago-almeida": { role: "agent", name: "Thiago Almeida", nationality: "Brazilian", visualDirection: "Brazilian man in his late thirties with tan brown skin, short tight curls, a neatly shaped beard and energetic contemporary agent styling" },
-  "solo-staff-agent-layla-haddad": { role: "agent", name: "Layla Haddad", nationality: "Lebanese", visualDirection: "Lebanese woman in her early forties with olive skin, thick dark hair in a sleek low bun, defined features and sophisticated agent styling" },
+  "solo-staff-agent-ethan-cole": { role: "agent", name: "Ethan Cole", nationality: "American", visualDirection: "White American man in his late thirties with fair skin, a lean angular face, neatly styled medium-brown hair, light stubble and composed high-stakes negotiating confidence" },
   "solo-staff-agent-kwame-mensah": { role: "agent", name: "Kwame Mensah", nationality: "Ghanaian", visualDirection: "Ghanaian man in his mid-forties with rich dark skin, close-cropped hair, a precise goatee and assured contemporary agent styling" }
 };
 
