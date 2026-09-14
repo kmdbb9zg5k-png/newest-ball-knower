@@ -6,7 +6,20 @@ import { join } from "node:path";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 import sharp from "sharp";
-import { STAFF_ART_BY_ID, STAFF_ART_PROFILES, staffPortraitPlayer } from "../solo/staffPortraits";
+var STAFF_ART_PROFILES = [
+  { id: "solo-staff-owner-amara-okafor", role: "owner", name: "Amara Okafor", nationality: "Nigerian", age: 48, heightInches: 67, weightLbs: 150, visualDirection: "Nigerian woman in her late forties with deep brown skin, a poised oval face, natural textured updo and understated executive styling" },
+  { id: "solo-staff-owner-kenji-watanabe", role: "owner", name: "Kenji Watanabe", nationality: "Japanese", age: 52, heightInches: 70, weightLbs: 172, visualDirection: "Japanese man in his early fifties with warm light skin, short salt-and-pepper hair, a composed angular face and refined executive styling" },
+  { id: "solo-staff-owner-valentina-rojas", role: "owner", name: "Valentina Rojas", nationality: "Colombian", age: 43, heightInches: 66, weightLbs: 142, visualDirection: "Colombian woman in her early forties with medium olive skin, long dark waves, strong brows and confident modern executive styling" },
+  { id: "solo-staff-owner-declan-byrne", role: "owner", name: "Declan Byrne", nationality: "Irish", age: 57, heightInches: 73, weightLbs: 205, visualDirection: "Irish man in his late fifties with fair freckled skin, neatly cropped auburn-gray hair, light stubble and distinguished executive styling" },
+  { id: "solo-staff-agent-maya-patel", role: "agent", name: "Maya Patel", nationality: "Indian", age: 36, heightInches: 65, weightLbs: 132, visualDirection: "Indian woman in her mid-thirties with warm brown skin, shoulder-length dark hair, expressive eyes and polished contemporary agent styling" },
+  { id: "solo-staff-agent-thiago-almeida", role: "agent", name: "Thiago Almeida", nationality: "Brazilian", age: 39, heightInches: 72, weightLbs: 188, visualDirection: "Brazilian man in his late thirties with tan brown skin, short tight curls, a neatly shaped beard and energetic contemporary agent styling" },
+  { id: "solo-staff-agent-layla-haddad", role: "agent", name: "Layla Haddad", nationality: "Lebanese", age: 41, heightInches: 66, weightLbs: 138, visualDirection: "Lebanese woman in her early forties with olive skin, thick dark hair in a sleek low bun, defined features and sophisticated agent styling" },
+  { id: "solo-staff-agent-kwame-mensah", role: "agent", name: "Kwame Mensah", nationality: "Ghanaian", age: 45, heightInches: 71, weightLbs: 194, visualDirection: "Ghanaian man in his mid-forties with rich dark skin, close-cropped hair, a precise goatee and assured contemporary agent styling" }
+];
+var STAFF_ART_BY_ID = Object.fromEntries(STAFF_ART_PROFILES.map((profile) => [profile.id, profile]));
+function staffPortraitPlayer(profile, displayName = profile.name) {
+  return { id: profile.id, name: displayName, team: "BK", teamName: "Ball Knower Football Operations", position: "QB", jerseyNumber: 0, age: profile.age, heightInches: profile.heightInches, weightLbs: profile.weightLbs };
+}
 var SOLO_TEAM_THEMES = [
   { name: "Albuquerque Scorpions", abbr: "ABQ", primary: "#8B2F3C", secondary: "#E4B363" },
   { name: "Anchorage Aurora", abbr: "ANC", primary: "#185C66", secondary: "#8DE1D2" },
