@@ -53,6 +53,9 @@ const safeTier=(value:unknown):QualityTier=>value==='review'?'review':'economy';
 const sha=(value:string|Buffer)=>createHash('sha256').update(value).digest('hex');
 const secureEqual=(provided:string,expected:string)=>{const a=Buffer.from(provided),b=Buffer.from(expected);return a.length===b.length&&timingSafeEqual(a,b);};
 const budgetLimitMicroUsd=()=>simulatedArtBudgetLimitMicroUsd(process.env.SIMULATED_PLAYER_ART_BUDGET_USD);
+// Keep compatibility with the originally configured Vercel variable. The
+// canonical all-caps name remains preferred for every new environment.
+const geminiApiKey=()=>process.env.GEMINI_API_KEY||process.env.Gemini_key||'';
 
 function clients():{publicClient:any;serviceClient:any|null} {
   const url=process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL||DEFAULT_SUPABASE_URL;
@@ -298,24 +301,25 @@ export default async function handler(req:any,res:any) {
       return json(res,200,{budget:await budgetSnapshot(serviceClient),batches:batches??[]});
     }
     if(action==='submit-batch'||action==='generate'){
-      if(process.env.SIMULATED_PLAYER_ART_GENERATION_ENABLED!=='true'||!process.env.GEMINI_API_KEY)return json(res,503,{error:'Production artwork generation is not enabled.'});
+      const apiKey=geminiApiKey();
+      if(process.env.SIMULATED_PLAYER_ART_GENERATION_ENABLED!=='true'||!apiKey)return json(res,503,{error:'Production artwork generation is not enabled.'});
       const jobs=(Array.isArray(req.body?.jobs)?req.body.jobs:[req.body?.job]).filter(Boolean) as JobInput[];
       if(!jobs.length)return json(res,400,{error:'At least one artwork job is required.'});
-      const ai=new GoogleGenAI({apiKey:process.env.GEMINI_API_KEY});
+      const ai=new GoogleGenAI({apiKey});
       return json(res,202,await submitBatch(serviceClient,ai,jobs,safeTier(req.body?.qualityTier)));
     }
     if(action==='sync-batch'){
-      if(!process.env.GEMINI_API_KEY)return json(res,503,{error:'Gemini is not configured.'});
+      const apiKey=geminiApiKey();if(!apiKey)return json(res,503,{error:'Gemini is not configured.'});
       const batchId=String(req.body?.batchId||'');if(!/^[0-9a-f-]{36}$/i.test(batchId))return json(res,400,{error:'A valid batch ID is required.'});
-      const ai=new GoogleGenAI({apiKey:process.env.GEMINI_API_KEY});
+      const ai=new GoogleGenAI({apiKey});
       return json(res,200,await syncBatch(serviceClient,publicClient,ai,batchId));
     }
     if(action==='sync-open-batches'){
-      if(!process.env.GEMINI_API_KEY)return json(res,503,{error:'Gemini is not configured.'});
+      const apiKey=geminiApiKey();if(!apiKey)return json(res,503,{error:'Gemini is not configured.'});
       const {data:open,error}=await serviceClient.from(BATCH_TABLE).select('id').in('status',['submitted','running','processing']).order('created_at',{ascending:true}).limit(4);
       if(error)throw new Error(`Could not find open artwork batches: ${error.message}`);
       if(!open?.length)return json(res,200,{status:'idle',budget:await budgetSnapshot(serviceClient)});
-      const ai=new GoogleGenAI({apiKey:process.env.GEMINI_API_KEY});
+      const ai=new GoogleGenAI({apiKey});
       const results=[];for(const batch of open)results.push(await syncBatch(serviceClient,publicClient,ai,String(batch.id)));
       return json(res,200,{status:'checked',results,budget:await budgetSnapshot(serviceClient)});
     }
