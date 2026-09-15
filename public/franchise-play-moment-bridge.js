@@ -41,7 +41,7 @@ function openMoment(sim){
  const season=readJson(SEASON_KEY)||{weeks:[]};const before=Array.isArray(season.weeks)?season.weeks.length:0;const week=before+1;if(week>17||sim.disabled)return;
  activeRun={before,week,sim,opponent:currentOpponent(sim)};
  overlay=document.createElement('div');overlay.id='bk-play-moment-overlay';Object.assign(overlay.style,{position:'fixed',inset:'0',zIndex:'2147483000',background:'#05080c',padding:'0',margin:'0'});
- const iframe=document.createElement('iframe');iframe.title='Ball Knower Play Moment';iframe.allow='autoplay';iframe.src='/franchise-play-moment.html?embedded=1&week='+encodeURIComponent(week)+'&opponent='+encodeURIComponent(activeRun.opponent);Object.assign(iframe.style,{width:'100%',height:'100%',border:'0',display:'block',background:'#05080c'});overlay.appendChild(iframe);document.body.appendChild(overlay);document.documentElement.style.overflow='hidden';
+ const iframe=document.createElement('iframe');iframe.title='Ball Knower Play Moment';iframe.allow='autoplay';iframe.src='/franchise-play-moment-v2.html?embedded=1&week='+encodeURIComponent(week)+'&opponent='+encodeURIComponent(activeRun.opponent);Object.assign(iframe.style,{width:'100%',height:'100%',border:'0',display:'block',background:'#05080c'});overlay.appendChild(iframe);document.body.appendChild(overlay);document.documentElement.style.overflow='hidden';
 }
 function closeMoment(){overlay?.remove();overlay=null;document.documentElement.style.overflow=''}
 function addDriveStats(lines,result){
