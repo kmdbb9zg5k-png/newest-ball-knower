@@ -16,10 +16,15 @@ an art-quality pass before replacing the live mode.
 ## Playable
 Four run concepts (Inside Zone, HB Stretch, Counter, HB Toss), four passing concepts
 (Mesh, Verticals, Flood, Dagger), touch steering and keyboard arrows/WASD, Sprint, Juke,
-Manual/Assist running, X/Y/Z throws (keyboard 1/2/3), basic pursuit/blocking, handoff,
+Manual/Assist running, X/Y/Z throws (keyboard X/Y/Z or 1/2/3), basic pursuit/blocking, handoff,
 catch-and-run, bounds/tackles, sacks, down progression, pause, restart and a practice-drive end.
 Space snaps; Escape pauses. No Stiff Arm/Spin, official players, career stats, save transfer,
 replays, audio, advanced football rules, or multiplayer are claimed for this preview.
+
+Gameplay balance now makes coverage readable instead of resolving every target with the same
+coin flip: tight-window throws have a higher breakup chance, contested completions are called
+out, engaged defenders cannot tackle through their blocker, pass pursuit contains automatic
+catch-and-run touchdowns, and the Juke window/cooldown freezes when the game is paused.
 
 ## Resources and budget
 All art geometry and textures are constructed on-device from the included source. No
@@ -33,7 +38,8 @@ Local Chromium with actual WebGL2 (software SwiftShader) rendered the complete s
 including the generated character geometry and field textures, at 844x334 and 932x430.
 Passed: 22 players/11 per side, zero WebGL errors, 33 draw calls in sampled scenes,
 passing positional movement, QB in frame at sampled pass time, target throw, run handoff
-and movement, pause/restart, sack/next-down reset, and portrait rotation pause/recovery.
+and movement, pause/restart, sack/next-down reset, portrait rotation pause/recovery,
+receiver-key parity, coverage windows, pursuit balance, tackle grace and simulation-time jukes.
 No outbound HTTP requests from the offline test harness. JS module imports were loaded as
 local blobs because this environment disallows local HTTP browser navigation. Scripts passed
 `node --check`. There is no real-iPhone/Safari certification or measured hardware frame-rate.
@@ -41,6 +47,7 @@ local blobs because this environment disallows local HTTP browser navigation. Sc
 Reproduce after installing Python Playwright and an available Chromium build:
 `python scripts/check-play-moment-3d.py 844 334`
 `python scripts/check-play-moment-3d.py 932 430`
+`node scripts/check-play-moment-gameplay.mjs`
 Set CHROMIUM_PATH/DISPLAY as required for your environment. Screenshot/check JSON results
 are written outside the repository to /tmp/bk-3d-checks by default. The harness uses explicit
 QA stepping for repeatable simulation checks; actual touch controls still require phone QA.

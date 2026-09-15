@@ -6,7 +6,7 @@ import {readFileSync} from 'node:fs';
 const source=readFileSync(new URL('../public/play-moment-3d/game.js',import.meta.url),'utf8');
 function between(a,b){const i=source.indexOf(a),j=source.indexOf(b,i+a.length);assert.ok(i>=0&&j>i,`Missing function boundary ${a}`);return source.slice(i,j);}
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const normalizeSource=between('export function normalizeControlKey','/** Place compact receiver badges');
+const normalizeSource=between('export function normalizeControlKey','export function receiverSlotForKey');
 const normalize=Function(normalizeSource.replace('export ','')+';return normalizeControlKey;')();
 assert.equal(normalize('W'),'w');assert.equal(normalize('A'),'a');assert.equal(normalize('d'),'d');assert.equal(normalize('Shift'),'Shift');assert.equal(normalize('ArrowRight'),'ArrowRight');
 const helpers=between('export function layoutReceiverMarkers','const RUNS=');

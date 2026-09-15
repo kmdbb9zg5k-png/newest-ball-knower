@@ -9,6 +9,7 @@ on:
       - 'scripts/check-play-moment-night.py'
       - 'scripts/check-play-moment-framing.*'
       - 'scripts/check-play-moment-goal-line.*'
+      - 'scripts/check-play-moment-gameplay.mjs'
       - '.github/workflows/play-moment-3d-night-stadium.yml'
   workflow_dispatch:
 permissions:
@@ -37,6 +38,8 @@ jobs:
         run: node scripts/check-play-moment-framing.mjs
       - name: Goal-to-go series labels and actual endPlay state regressions
         run: node scripts/check-play-moment-goal-line.mjs
+      - name: Gameplay controls, coverage, pursuit and tackle balance
+        run: node scripts/check-play-moment-gameplay.mjs
       - run: python -m pip install playwright==1.57.0 pillow
       - run: python -m playwright install --with-deps chromium
       - name: Render offline stadium fixtures at three screen sizes
