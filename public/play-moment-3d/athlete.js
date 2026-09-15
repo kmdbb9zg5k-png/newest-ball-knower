@@ -1,5 +1,5 @@
-import{mul,translate,scale,rx,ry,rz,pose,segment,hex}from'./renderer.js';
-import{advanceMotion,samplePose,footTarget,twoBone}from'./motion.js';
+import{mul,translate,scale,rx,ry,rz,pose,segment,hex,point}from'./renderer.js';
+import{advanceMotion,samplePose,footTarget,twoBone,readyHandTarget}from'./motion.js';
 import{createTorsoGeometry}from'./geometry.js';
 export{advanceMotion};
 const white=hex('#e6e8e2'),dark=hex('#111a22'),gold=hex('#d8b66e');
@@ -22,6 +22,28 @@ export function prepareJerseys(r,actors){
   r.texture(key,c);
  }
 }
+const mixPoint=(a,b,t)=>a.map((v,i)=>v+(b[i]-v)*t);
+const torsoFrame=q=>mul(translate(0,q.pelvis,0),mul(ry(q.twist),mul(rz(q.turn),rx(q.lean))));
+/* Blend a ground/ready hand target into the existing action pose, then solve
+   the arm with fixed segment lengths. This never moves the actor or camera. */
+export function resolveArm(p,q,side,phase,torso=torsoFrame(q)){
+ const shoulder=mul(torso,translate(side*.315,.458,0));
+ const swing=Math.sin(q.gait+(side===1?Math.PI:0)+Math.PI);
+ let angle=-.15+swing*(.62+.12*q.sprint)*q.drive,elbow=-.94-.20*q.drive;
+ angle=angle*(1-q.block)-1.08*q.block;
+ elbow=elbow*(1-q.block)-.50*q.block;
+ if(p.hasBall&&side===1){angle=-.50;elbow=-1.72}
+ if(p.role==='QB'&&(phase==='pass'||phase==='pre')){angle=-.55;elbow=-1.82}
+ if(q.throwWeight>0&&p.role==='QB'&&side===1){angle=-2.55+q.throwProgress*2.35;elbow=-1.30+q.throwProgress*1.10}
+ angle=angle*(1-q.catch)-1.54*q.catch;elbow=elbow*(1-q.catch)-.38*q.catch;
+ const upper=mul(shoulder,mul(rz(side*.12),rx(angle)));
+ const fore=mul(mul(upper,translate(0,-.355,0)),rx(elbow));
+ const start=point(shoulder,[0,0,0]),joint=point(fore,[0,0,0]),end=point(fore,[0,-.333,.011]);
+ const weight=q.ready*(1-q.catch)*(1-q.throwWeight)*(1-q.fall);
+ if(weight<.0001)return{start,joint,end};
+ const target=mixPoint(end,readyHandTarget(p.role,side),weight);
+ return {start,...twoBone(start,target,.355,Math.hypot(.333,.011),[side*.8,-.12,-.38])};
+}
 /* Articulated bodies use game-driven pose blends. Geometry, textures and
    equipment are shared; no player photos, generated images or external assets. */
 export function drawAthlete(r,p,time,phase){
@@ -32,7 +54,7 @@ export function drawAthlete(r,p,time,phase){
  const ell=(base,x,y,z,sx,sy,sz,color,shine=0)=>r.add('sphere',mul(base,pose(x,y,z,sx,sy,sz)),color,'',false,shine);
  const box=(base,x,y,z,sx,sy,sz,color)=>r.add('cube',mul(base,pose(x,y,z,sx,sy,sz)),color);
  const bone=(base,a,b,radius,color)=>r.add('sphere',mul(base,mul(segment(a,b,radius),scale(1,.55,1))),color);
- const chest=mul(mul(root,translate(0,q.pelvis,0)),mul(ry(q.twist),mul(rz(q.turn),rx(q.lean))));
+ const torso=torsoFrame(q),chest=mul(root,torso);
  ell(root,0,q.pelvis,0,.222,.155,.165,k.pants);
  r.add('torso',mul(chest,pose(0,.295,0,.285,.58,.172)),k.jersey);
  box(chest,0,.018,0,.405,.036,.311,dark);
@@ -42,7 +64,7 @@ export function drawAthlete(r,p,time,phase){
   ell(chest,side*.265,.46,0,.118,.119,.164,k.jersey);
  }
  ell(chest,0,.587,0,.091,.069,.094,dark);ell(chest,0,.64,.005,.079,.083,.078,skin);
- const head=mul(mul(chest,translate(0,.79,.012)),rx(-q.lean*.72));
+ const head=mul(mul(mul(chest,translate(0,.79,.012)),rx(-q.lean*.80)),scale(.97));
  ell(head,0,-.018,.029,.126,.157,.13,skin);
  r.add('helmet',mul(head,scale(.174,.204,.204)),k.helmet,'',false,.48);
  for(const side of[-1,1]){
@@ -60,42 +82,35 @@ export function drawAthlete(r,p,time,phase){
  // A dark visor on skill positions, open face on the line and quarterback.
  if(['WR','RB','DB'].includes(p.role))box(head,0,-.005,.175,.23,.069,.018,visor);
  else {for(const side of[-1,1])ell(head,side*.043,.004,.151,.018,.009,.007,dark)}
+ // Orient each number panel for its viewing side; keep cloth normals outward.
  const jersey='jersey-'+p.team+'-'+p.number;
- r.add('plane',mul(mul(chest,translate(0,.318,-.181)),mul(rx(Math.PI/2),scale(.33,1,.31))),[1,1,1,1],jersey);
- r.add('plane',mul(mul(chest,translate(0,.318,.181)),mul(rx(-Math.PI/2),scale(.33,1,.31))),[1,1,1,1],jersey);
+ r.add('plane',mul(mul(chest,translate(0,.318,-.181)),mul(rx(Math.PI/2),scale(-.33,-1,.31))),[1,1,1,1],jersey);
+ r.add('plane',mul(mul(chest,translate(0,.318,.181)),mul(rx(-Math.PI/2),scale(.33,-1,-.31))),[1,1,1,1],jersey);
  for(const side of[-1,1]){
   const foot=footTarget(q,side),hip=[side*.141,q.pelvis,0],leg=twoBone(hip,foot,.50,.50,[0,0,1]);
   bone(root,hip,leg.joint,build.leg,k.pants);
-  ell(root,...leg.joint,build.leg*.99,.094,build.leg*1.04,k.pants);
+  ell(root,...leg.joint,build.leg*.94,.090,build.leg*.99,k.pants);
   bone(root,leg.joint,leg.end,build.leg*.73,k.pants);
   // Stripes follow the articulated thigh rather than a floating texture card.
   const thighStripeA=hip.map((v,i)=>v+(i===0?side*build.leg*.87:0));
   const thighStripeB=leg.joint.map((v,i)=>v+(i===0?side*build.leg*.87:0));
   r.add('cylinder',mul(root,segment(thighStripeA,thighStripeB,.015)),k.trim);
   const ankle=leg.end;
-  ell(root,ankle[0],ankle[1]+.065,ankle[2],.084,.073,.083,white);
-  ell(root,ankle[0],ankle[1]-.020,ankle[2]+.064,.092,.059,.176,dark);
-  box(root,ankle[0],Math.max(.016,ankle[1]-.056),ankle[2]+.065,.164,.023,.282,white);
+  ell(root,ankle[0],ankle[1]+.065,ankle[2],.076,.047,.077,white);
+  ell(root,ankle[0],ankle[1]-.020,ankle[2]+.064,.086,.052,.153,dark);
+  box(root,ankle[0],Math.max(.016,ankle[1]-.056),ankle[2]+.065,.150,.020,.259,dark);
   box(root,ankle[0],ankle[1]+.027,ankle[2]+.13,.068,.010,.063,k.trim);
-  const shoulder=mul(chest,translate(side*.315,.458,0));
-  const swing=Math.sin(q.gait+(side===1?Math.PI:0)+Math.PI);
-  let upperAngle=-.15+swing*(.62+.12*q.sprint)*q.drive,elbow=-.94-.20*q.drive;
-  upperAngle=upperAngle*(1-q.ready)+(-.30)*q.ready;
-  upperAngle=upperAngle*(1-q.block)-1.08*q.block;
-  elbow=elbow*(1-q.block)-.50*q.block;
-  if(p.hasBall&&side===1){upperAngle=-.50;elbow=-1.72}
-  if(p.role==='QB'&&(phase==='pass'||phase==='pre')){upperAngle=-.55;elbow=-1.82}
-  if(q.throwWeight>0&&p.role==='QB'&&side===1){upperAngle=-2.55+q.throwProgress*2.35;elbow=-1.30+q.throwProgress*1.10}
-  upperAngle=upperAngle*(1-q.catch)-1.54*q.catch;elbow=elbow*(1-q.catch)-.38*q.catch;
-  const upper=mul(shoulder,mul(rz(side*.12),rx(upperAngle)));
-  ell(upper,0,-.065,0,.114,.125,.136,k.jersey);
-  ell(upper,0,-.132,0,.109,.022,.127,k.trim);
-  ell(upper,0,-.244,0,build.arm,.153,build.arm*1.03,skin);
-  const fore=mul(mul(upper,translate(0,-.355,0)),rx(elbow));
-  ell(fore,0,-.04,0,build.arm*.91,.070,build.arm*.93,skin);
-  ell(fore,0,-.153,0,build.arm*.81,.15,build.arm*.84,p.index%4===0?dark:skin);
-  ell(fore,0,-.271,0,.069,.032,.070,white);
-  ell(fore,0,-.333,.011,.075,.073,.046,p.role==='QB'?skin:white);
+  const arm=resolveArm(p,q,side,phase,torso);
+  // Short sleeves and tapered exposed arms keep a continuous silhouette.
+  const sleeveEnd=mixPoint(arm.start,arm.joint,.43);
+  bone(root,arm.start,sleeveEnd,build.arm*1.16,k.jersey);
+  bone(root,mixPoint(arm.start,arm.joint,.40),mixPoint(arm.start,arm.joint,.46),build.arm*1.17,k.trim);
+  bone(root,mixPoint(arm.start,arm.joint,.44),arm.joint,build.arm*.94,skin);
+  ell(root,...arm.joint,build.arm*.89,build.arm*.91,build.arm*.91,skin);
+  const cuff=mixPoint(arm.joint,arm.end,.83);
+  bone(root,arm.joint,cuff,build.arm*.79,p.index%4===0?dark:skin);
+  bone(root,mixPoint(arm.joint,arm.end,.79),mixPoint(arm.joint,arm.end,.87),build.arm*.82,white);
+  bone(root,cuff,arm.end,build.arm*.77,p.role==='QB'?skin:white);
  }
  if(p.hasBall){
   const qb=p.role==='QB';const ballM=mul(chest,mul(translate(qb?0:.184,qb?.21:.16,qb?.305:.23),rz(qb?1.15:-.28)));

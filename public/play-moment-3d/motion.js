@@ -14,6 +14,21 @@ export const bodyTypes={
  LB:{height:1.02,width:1.09,leg:.135,arm:.104},
  DB:{height:.99,width:.95,leg:.111,arm:.086}
 };
+/* Root-local stance targets. The same targets are mirrored by the player's
+   heading, so both teams face the play without changing engine coordinates. */
+export const readyStances={
+ OL:{pelvis:.57,lean:1.18}, DL:{pelvis:.59,lean:1.25},
+ QB:{pelvis:.95,lean:.16}, RB:{pelvis:.82,lean:.53},
+ WR:{pelvis:.82,lean:.60}, TE:{pelvis:.81,lean:.58},
+ LB:{pelvis:.80,lean:.49}, DB:{pelvis:.84,lean:.44}
+};
+export function readyHandTarget(role,side){
+ if(role==='OL'||role==='DL')return side===1?[.30,.085,.50]:[-.40,.55,.42];
+ if(role==='QB')return [side*.16,1.27,.33];
+ if(role==='WR')return side===1?[.29,.70,.37]:[-.31,.83,.12];
+ if(role==='RB'||role==='TE')return [side*.30,.79,.34];
+ return [side*.36,.75,.38];
+}
 export function advanceMotion(p,dt,phase){
  dt=clamp(Number.isFinite(dt)?dt:0,0,.1);
  const ready=phase==='pre',heavy=p.role==='OL'||p.role==='DL';
@@ -23,7 +38,7 @@ export function advanceMotion(p,dt,phase){
  const speed=dt>0?clamp(distance/dt,0,12):0;
  m.speed=damp(m.speed,speed,12,dt);
  m.run=damp(m.run,!ready&&!p.fallen?clamp(m.speed/4,0,1):0,14,dt);
- m.ready=damp(m.ready,ready?1:0,18,dt);
+ m.ready=damp(m.ready,ready?1:0,ready?18:10,dt);
  m.block=damp(m.block,!ready&&p.engaged?1:0,16,dt);
  m.turn=damp(m.turn,dt>0?clamp(delta/dt,-4,4):0,10,dt);
  // Gait advances only with distance, not wall-clock time or a CSS loop.
@@ -40,9 +55,11 @@ export function samplePose(p){
  const m=p.motion||advanceMotion(p,0,'pre'),heavy=p.role==='OL'||p.role==='DL';
  const build=bodyTypes[p.role]||bodyTypes.WR;
  const sprint=clamp((m.speed-6.5)/2.7,0,1);
- const squat=(heavy?.27:p.role==='DB'||p.role==='LB'?.15:.10)*m.ready+.17*m.block;
+ const stance=readyStances[p.role]||readyStances.WR;
+ const squat=(1.02-stance.pelvis)*m.ready+.17*m.block;
  const drive=m.run*(1-.75*m.block)*(1-m.ready);
- const lean=lerp(.025,.22+sprint*.10,drive)+(heavy?.71:.28)*m.ready+.39*m.block;
+ const liveLean=lerp(.025,.22+sprint*.10,drive)+.39*m.block;
+ const lean=lerp(liveLean,stance.lean,m.ready);
  const throwProgress=clamp(m.throwTime/.46,0,1),throwWeight=m.throwTime<.46?Math.sin(throwProgress*Math.PI):0;
  return {build,pelvis:1.02-squat,lean,turn:clamp(-m.turn*.065,-.24,.24)*drive,
   twist:Math.sin(m.gait)*.055*drive-throwWeight*.20,
