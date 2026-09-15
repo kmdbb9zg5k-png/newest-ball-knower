@@ -19,7 +19,8 @@ for(const role of Object.keys(bodyTypes)){
  }
 }
 const line=actor('OL');advanceMotion(line,0,'pre');const receiver=actor('WR');advanceMotion(receiver,0,'pre');assert.ok(samplePose(line).pelvis<samplePose(receiver).pelvis);assert.ok(samplePose(line).build.width>samplePose(receiver).build.width);
-const blocking=actor('OL');blocking.engaged=true;for(let i=0;i<30;i++)advanceMotion(blocking,1/60,'pass');assert.ok(samplePose(blocking).block>.99);
+const blocking=actor('OL');blocking.engaged=true;const rootBeforeBlock=[blocking.x,blocking.z,blocking.heading];for(let i=0;i<30;i++)advanceMotion(blocking,1/60,'pass');const blockPose=samplePose(blocking);assert.ok(blockPose.block>.99&&blockPose.brace>.99);const left=footTarget(blockPose,-1),right=footTarget(blockPose,1);assert.ok(left[0]<-.23&&right[0]>.23);assert.ok(left[2]>.20&&right[2]<-.20);near(left[1],.085);near(right[1],.085);assert.deepEqual([blocking.x,blocking.z,blocking.heading],rootBeforeBlock);
+blocking.engaged=false;for(let i=0;i<45;i++)advanceMotion(blocking,1/60,'pass');assert.ok(samplePose(blocking).brace<1e-4);
 const q=actor('QB');advanceMotion(q,0,'pass');q.throwT=.001;for(let i=0;i<8;i++)advanceMotion(q,1/60,'flight');assert.ok(samplePose(q).throwWeight>.3);for(let i=0;i<40;i++)advanceMotion(q,1/60,'flight');near(samplePose(q).throwWeight,0);
 q.fallen=true;const original=[q.x,q.z];advanceMotion(q,1/60,'dead');assert.ok(q.motion.fall>0&&q.motion.fall<.3);for(let i=0;i<60;i++)advanceMotion(q,1/60,'dead');assert.ok(q.motion.fall>.99);assert.deepEqual([q.x,q.z],original);
 // Dampening is independent of the render frame rate when sampling a uniform run.
@@ -27,4 +28,4 @@ const a=actor(),b=actor();advanceMotion(a,0,'run');advanceMotion(b,0,'run');
 for(let i=0;i<60;i++){a.z+=.1;advanceMotion(a,1/60,'run')}
 for(let i=0;i<30;i++){b.z+=.2;advanceMotion(b,1/30,'run')}
 near(a.motion.speed,b.motion.speed);near(a.motion.gait,b.motion.gait);
-console.log('PASS: eight body types, pose blending, gait stop, coordinate isolation, foot targets, two-bone segment lengths, block/throw/fall and frame-rate invariance.');
+console.log('PASS: eight body types, grounded contact brace, pose blending, gait stop, coordinate isolation, foot targets, two-bone segment lengths, block/throw/fall and frame-rate invariance.');

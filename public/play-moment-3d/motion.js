@@ -52,18 +52,20 @@ export function advanceMotion(p,dt,phase){
  return m;
 }
 export function samplePose(p){
- const m=p.motion||advanceMotion(p,0,'pre'),heavy=p.role==='OL'||p.role==='DL';
+ const m=p.motion||advanceMotion(p,0,'pre');
  const build=bodyTypes[p.role]||bodyTypes.WR;
  const sprint=clamp((m.speed-6.5)/2.7,0,1);
  const stance=readyStances[p.role]||readyStances.WR;
- const squat=(1.02-stance.pelvis)*m.ready+.17*m.block;
- const drive=m.run*(1-.75*m.block)*(1-m.ready);
- const liveLean=lerp(.025,.22+sprint*.10,drive)+.39*m.block;
+ // Contact gets its own grounded brace instead of borrowing a reduced running stride.
+ const brace=m.block*(1-m.ready);
+ const squat=(1.02-stance.pelvis)*m.ready+.18*brace;
+ const drive=m.run*(1-.90*brace)*(1-m.ready);
+ const liveLean=lerp(.025,.22+sprint*.10,drive)+.38*brace;
  const lean=lerp(liveLean,stance.lean,m.ready);
  const throwProgress=clamp(m.throwTime/.46,0,1),throwWeight=m.throwTime<.46?Math.sin(throwProgress*Math.PI):0;
  return {build,pelvis:1.02-squat,lean,turn:clamp(-m.turn*.065,-.24,.24)*drive,
   twist:Math.sin(m.gait)*.055*drive-throwWeight*.20,
-  ready:m.ready,block:m.block,drive,sprint,gait:m.gait,fall:m.fall,
+  ready:m.ready,block:m.block,brace,drive,sprint,gait:m.gait,fall:m.fall,
   catch:m.catch,throwProgress,throwWeight};
 }
 export function footTarget(pose,side){
@@ -72,9 +74,12 @@ export function footTarget(pose,side){
  const amplitude=.43+pose.sprint*.07;
  const z=planted?lerp(amplitude,-amplitude,progress):lerp(-amplitude,amplitude,smooth(progress));
  const lift=planted?0:Math.sin(progress*Math.PI)*(.23+.07*pose.sprint);
- const stagger=side===1?-.18:.16;
- return [side*(.14+.08*pose.ready+.035*pose.block),.085+lift*pose.drive,
-  z*pose.drive+stagger*pose.ready];
+ const readyStagger=side===1?-.18:.16;
+ const brace=pose.brace??pose.block??0;
+ // Engaged linemen widen and stagger their base instead of shuffling in place.
+ const braceStagger=(side===1?-.22:.22)*brace;
+ return [side*(.14+.08*pose.ready+.10*brace),.085+lift*pose.drive,
+  z*pose.drive+readyStagger*pose.ready+braceStagger];
 }
 /* Solves in local 3D coordinates. Both segments retain their physical length,
    and unreachable targets are clamped instead of stretching the limb. */
