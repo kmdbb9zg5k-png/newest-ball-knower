@@ -28,8 +28,14 @@ const art=(p,i)=>p?.simulatedFullBodyUrl||p?.fullBodyUrl||p?.fullBodyArt||fallba
 const qb=best(['QB'])||roster[0]||{id:'demo-qb',name:'QB',ovr:80,attributes:{}};
 const rb=best(['RB','HB','FB'])||roster.find(p=>p.position==='WR')||{id:'demo-rb',name:'J. Carter',position:'RB',ovr:82,attributes:{athleticism:84,footballIQ:80}};
 const te=best(['TE'])||{id:'demo-te',name:'M. Bryant',position:'TE',ovr:79,attributes:{receiving:78,runBlocking:81}};
-const skill=roster.filter(p=>['WR','TE','RB','HB'].includes(p.position)).sort((a,b)=>rating(b)-rating(a));
-const targets=[skill[0],skill[1],skill[2]].map((p,i)=>p||{id:'demo-rec-'+i,name:['X Receiver','Slot Receiver','Z Receiver'][i],position:'WR',ovr:80,attributes:{athleticism:80,receiving:80,footballIQ:80}});
+const identityKey=p=>String(p?.id||[p?.name,p?.position].filter(Boolean).join(':'));
+const rosterIdentities=new Set(roster.map(identityKey));
+const routeExcludedIdentities=new Set([qb,rb].map(identityKey));
+const seenReceiverIdentities=new Set();
+const receivers=roster.filter(p=>['WR','TE'].includes(p.position)&&!routeExcludedIdentities.has(identityKey(p))).sort((a,b)=>(b.position==='WR'?1:0)-(a.position==='WR'?1:0)||rating(b)-rating(a)).filter(p=>{const key=identityKey(p);if(seenReceiverIdentities.has(key))return false;seenReceiverIdentities.add(key);return true});
+const targets=[receivers[0],receivers[1],receivers[2]].map((p,i)=>p||{id:'demo-rec-'+i,name:['X Receiver','Slot Receiver','Z Receiver'][i],position:'WR',ovr:80,attributes:{athleticism:80,receiving:80,footballIQ:80}});
+const targetIdentities=new Set(targets.map(identityKey));
+const teSupport=targetIdentities.has(identityKey(te))?{id:'demo-blocking-te',name:'Blocking TE',position:'TE',ovr:78,attributes:{runBlocking:81}}:te;
 const ol=roster.filter(p=>['OT','LT','RT','OG','LG','RG','C'].includes(p.position)).sort((a,b)=>rating(b)-rating(a));
 const blockers=[0,1,2,3,4].map((_,i)=>ol[i]||{id:'demo-ol-'+i,name:'OL',position:'OL',ovr:78,attributes:{passBlocking:78,runBlocking:78}});
 
@@ -142,12 +148,12 @@ function clearPlayers(){field.querySelectorAll('.player').forEach(n=>n.remove())
 function setup(){
  clearPlayers();
  state.blockers=blockerStarts.map((pos,i)=>makePlayer('ol'+i,'offense blocker',blockers[i],pos[0],pos[1],'',i,['LT','LG','C','RG','RT'][i],[72,65,58,63,76][i]));
- state.receivers={x:makePlayer('x','offense',targets[0],...starts.x,'X',0,'WR',11),slot:makePlayer('slot','offense',targets[1],...starts.slot,'SLOT',1,'WR',17),z:makePlayer('z','offense',targets[2],...starts.z,'Z',2,'WR',81)};
+ state.receivers={x:makePlayer('x','offense',targets[0],...starts.x,'X',0,targets[0].position||'WR',11),slot:makePlayer('slot','offense',targets[1],...starts.slot,'SLOT',1,targets[1].position||'WR',17),z:makePlayer('z','offense',targets[2],...starts.z,'Z',2,targets[2].position||'WR',81)};
  state.qb=makePlayer('qb','offense',qb,...starts.qb,'QB',3,'QB',12);
- state.support=[makePlayer('te','offense blocker support',te,...starts.te,'TE',4,'TE',87)];
+ state.support=[makePlayer('te','offense blocker support',teSupport,...starts.te,'TE',4,'TE',87)];
  if(state.mode==='run')state.runner=makePlayer('runner','offense runner',rb,...starts.runner,'RB',1,'RB',24);
  else{state.runner=null;state.support.push(makePlayer('passrb','offense blocker support',rb,...starts.runner,'RB',1,'RB',24))}
- state.defenders=defStarts.map((pos,i)=>makePlayer('d'+i,'defense '+pos[2],targets[i%3],pos[0],pos[1],'',i,pos[2],[91,97,94,99,52,54,45,21,31,26,23][i]));
+ state.defenders=defStarts.map((pos,i)=>makePlayer('d'+i,'defense '+pos[2],null,pos[0],pos[1],'',i,pos[2],[91,97,94,99,52,54,45,21,31,26,23][i]));
  drawRoutes();
 }
 
@@ -277,7 +283,7 @@ function advanceDown(yards,isRun){
 }
 function useTimeout(){if(state.timeouts<=0||state.live||state.ended)return;state.timeouts--;toastMsg('TIMEOUT · CLOCK STOPPED','good');log('Timeout',state.timeouts+' remaining');updateHud()}
 function finish(won,title,body){cancelAnimationFrame(state.raf);state.live=false;state.ended=true;state.finalWon=Boolean(won);showManualHud(false);$('resultEyebrow').textContent=won?'CLUTCH MOMENT':'DRIVE OVER';$('resultTitle').textContent=title;$('resultBody').textContent=body+' '+state.score+'-'+state.opp+' with '+fmt(state.clock)+' left.';$('result').classList.add('show');updateHud();vibrate(won?[20,35,20]:35)}
-function payload(){return{type:'bk-play-moment-result',won:Boolean(state.finalWon),week,scenario:scenario.name,score:state.score,opponentScore:state.opp,clockLeft:state.clock,plays:state.plays,controlMode:state.control,qb:{id:qb.id,name:qb.name,passYards:state.qbStats.yards,passTD:state.qbStats.td,interceptions:state.qbStats.int},receivers:Object.values(state.receiverStats),rushers:Object.values(state.rushStats)}}
+function payload(){return{type:'bk-play-moment-result',won:Boolean(state.finalWon),week,scenario:scenario.name,score:state.score,opponentScore:state.opp,clockLeft:state.clock,plays:state.plays,controlMode:state.control,qb:{id:qb.id,name:qb.name,passYards:state.qbStats.yards,passTD:state.qbStats.td,interceptions:state.qbStats.int},receivers:Object.values(state.receiverStats).filter(row=>rosterIdentities.has(identityKey(row))),rushers:Object.values(state.rushStats)}}
 function apply(){const data=payload();try{localStorage.setItem('ballknower_franchise_play_moment_pending_v1',JSON.stringify(data))}catch{}if(window.parent!==window)window.parent.postMessage(data,location.origin);else location.href='/'}
 function cancel(){if(window.parent!==window)window.parent.postMessage({type:'bk-play-moment-cancel'},location.origin);else history.back()}
 function updateHud(){
