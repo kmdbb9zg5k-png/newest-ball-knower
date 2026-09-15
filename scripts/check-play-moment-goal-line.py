@@ -75,7 +75,7 @@ def main():
             finish(100,'TOUCHDOWN');assert framing.state(page)['drive']['score']==30
             page.click('#restart');tick();assert label()=='1ST & 10 · OPP 15'
             diag=framing.state(page);g=page.evaluate('bkGraphicsDiagnostics()')
-            assert diag['glError']==0 and g['drawCalls']<=44 and g['shadowDrawCalls']==10 and g['overflows']==0,g
+            assert diag['glError']==0 and g['drawCalls']<=48 and g['shadowDrawCalls']==14 and g['overflows']==0,g
             assert not errors and not [u for u in requests if u.startswith(('http:','https:'))],(errors,requests)
             reports.append({'viewport':[w,h],'status':'PASS','goalLabelFits':box,'graphics':g,'errors':errors})
             page.close()

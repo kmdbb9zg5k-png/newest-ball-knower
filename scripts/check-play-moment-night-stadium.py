@@ -50,11 +50,11 @@ def offline_bundle(baseline):
         return '(()=>{' + prefix + source + ';return {' + ','.join(exports) + '};})()'
     renderer_exports = ['Renderer','pose','segment','hex','mul','rx','ry','rz','translate','scale','point']
     out = ['const R=' + module('renderer.js','',renderer_exports) + ';']
-    out.append('const G=' + module('geometry.js','',['createTorsoGeometry','createLimbGeometry']) + ';')
+    out.append('const G=' + module('geometry.js','',['createTorsoGeometry','createLimbGeometry','createPlayerDetailGeometry']) + ';')
     motion_exports = ['advanceMotion','samplePose','footTarget','twoBone','readyHandTarget']
     out.append('const M=' + module('motion.js','',motion_exports) + ';')
     out.append('const A=' + module('athlete.js',
-        'const {'+','.join(renderer_exports)+'}=R;const {'+','.join(motion_exports)+'}=M;const {createTorsoGeometry,createLimbGeometry}=G;',
+        'const {'+','.join(renderer_exports)+'}=R;const {'+','.join(motion_exports)+'}=M;const {createTorsoGeometry,createLimbGeometry,createPlayerDetailGeometry}=G;',
         ['prepareJerseys','drawAthlete','advanceMotion']) + ';')
     out.append('const N=' + module('night-stadium.js',
         'const {hex,mul,pose,rx,scale,segment,translate}=R;', ['installNightStadium']) + ';')

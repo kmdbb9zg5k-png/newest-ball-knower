@@ -33,6 +33,7 @@ jobs:
           node scripts/check-play-moment-motion.mjs
           node scripts/check-play-moment-stance.mjs
           node scripts/check-play-moment-night.mjs
+          node scripts/check-play-moment-player-art.mjs
           for file in public/play-moment-3d/*.js; do node --check "$file"; done
       - run: python -m pip install playwright==1.57.0 pillow
       - run: python -m playwright install --with-deps chromium
