@@ -1,49 +1,55 @@
 /* Camera/depth pass for PLAY MOMENT. Loaded after the existing immersive shell. */
 @media (orientation: landscape){
   .game-wrap{overflow:hidden!important;background:linear-gradient(180deg,#06120c 0%,#07150d 100%)!important}
-  .game-wrap:before{content:"";position:fixed;inset:0;z-index:34;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.32),transparent 13%,transparent 78%,rgba(0,0,0,.22)),radial-gradient(ellipse at 50% 58%,transparent 48%,rgba(0,0,0,.32) 100%)}
+  .game-wrap:before{content:"";position:fixed;inset:0;z-index:34;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.30),transparent 12%,transparent 80%,rgba(0,0,0,.20)),radial-gradient(ellipse at 50% 56%,transparent 52%,rgba(0,0,0,.28) 100%)}
 
-  /* Show roughly 40-45 yards at once instead of the entire football field. */
-  .field{position:absolute!important;left:50%!important;top:0!important;width:108vw!important;height:220dvh!important;min-height:220dvh!important;max-width:none!important;padding-top:0!important;transform:translate3d(-50%,var(--bk-camera-y,-122dvh),0)!important;transform-origin:center top!important;clip-path:polygon(6% 0,94% 0,100% 100%,0 100%);will-change:transform;filter:saturate(1.08) contrast(1.035)}
-  .field:before{background:repeating-linear-gradient(0deg,rgba(255,255,255,.16) 0 2px,transparent 2px 10%),linear-gradient(90deg,rgba(0,0,0,.44),transparent 11% 89%,rgba(0,0,0,.44))!important}
-  .field:after{background:radial-gradient(ellipse at 50% -4%,rgba(229,243,255,.23),transparent 34%),linear-gradient(180deg,rgba(0,0,0,.14),transparent 40%,rgba(255,255,255,.025) 64%,rgba(0,0,0,.22))!important}
+  /* Keep a true gameplay camera, but show enough of the pocket and secondary to avoid chopping bodies. */
+  .field{position:absolute!important;left:50%!important;top:0!important;width:104vw!important;height:190dvh!important;min-height:190dvh!important;max-width:none!important;padding-top:0!important;transform:translate3d(-50%,var(--bk-camera-y,-96dvh),0)!important;transform-origin:center top!important;clip-path:polygon(3% 0,97% 0,100% 100%,0 100%);will-change:transform;filter:saturate(1.08) contrast(1.035)}
+  .field:before{background:repeating-linear-gradient(0deg,rgba(255,255,255,.16) 0 2px,transparent 2px 10%),linear-gradient(90deg,rgba(0,0,0,.40),transparent 10% 90%,rgba(0,0,0,.40))!important}
+  .field:after{background:radial-gradient(ellipse at 50% -4%,rgba(229,243,255,.22),transparent 35%),linear-gradient(180deg,rgba(0,0,0,.12),transparent 42%,rgba(255,255,255,.025) 65%,rgba(0,0,0,.20))!important}
   .endzone{height:10%!important;font-size:18px!important;letter-spacing:.19em!important}
-  .yardnum{font-size:10px!important;opacity:.35!important}
+  .yardnum{font-size:10px!important;opacity:.34!important}
 
-  /* Let the world get larger near the camera. JS updates --scale every frame. */
-  .player{width:48px!important;height:72px!important;transition:opacity .16s ease,filter .16s ease!important}
-  .player.blocker{width:42px!important;height:63px!important}
-  .player.defense{width:41px!important;height:61px!important}
-  .player.qb{width:50px!important;height:76px!important;--bk-shift-y:18px!important}
-  .player.runner{width:52px!important;height:79px!important}
+  /* Larger near-camera athletes, with enough mask room to keep heads/shoulders from being clipped. */
+  .player{width:52px!important;height:82px!important;transition:opacity .16s ease,filter .16s ease!important}
+  .player.blocker{width:46px!important;height:73px!important}
+  .player.defense{width:44px!important;height:70px!important}
+  .player.qb{width:55px!important;height:87px!important;--bk-shift-y:10px!important}
+  .player.runner{width:57px!important;height:90px!important}
+  .player .portrait-mask{inset:-6px -4px -4px!important;border-radius:46% 46% 38% 38% / 32% 32% 20% 20%!important;-webkit-mask-image:radial-gradient(ellipse 44% 59% at 50% 49%,#000 45%,rgba(0,0,0,.98) 62%,rgba(0,0,0,.55) 76%,transparent 89%)!important;mask-image:radial-gradient(ellipse 44% 59% at 50% 49%,#000 45%,rgba(0,0,0,.98) 62%,rgba(0,0,0,.55) 76%,transparent 89%)!important}
+  .player img{transform:scale(1.08) translateY(1%)!important;transform-origin:center bottom!important}
   .player .tag{font-size:6px!important;bottom:-8px!important;box-shadow:0 2px 8px #000a}
   .player:after{opacity:.9!important;filter:blur(2.4px)!important}
   .player.bk-focus{filter:drop-shadow(0 0 10px rgba(239,200,91,.72)) drop-shadow(0 7px 6px rgba(0,0,0,.72))!important}
 
+  /* Routes should be useful before the snap and almost disappear once the play is moving. */
+  .routes{z-index:5!important;opacity:1!important}.route{stroke-width:1.55!important;opacity:.76!important;stroke-dasharray:3 3!important;filter:drop-shadow(0 0 2px rgba(0,0,0,.42))}.route.runroute{stroke-width:1.9!important;opacity:.80!important}
+  body[data-live="1"] .routes{opacity:.035!important}
+
   /* The HUD should read like a game overlay, not another dashboard card. */
-  .scoreboard{width:min(44vw,430px)!important;border-radius:10px!important;background:#03080cc9!important;box-shadow:0 7px 24px #0007!important}
-  .score-main{min-height:30px!important;padding:3px 9px!important}.team strong{font-size:15px!important}.team .name{font-size:6px!important}.clock strong{font-size:16px!important}.clock span{font-size:5px!important}.sit{padding:2px!important}.sit b{font-size:7px!important}.sit span{font-size:4px!important}
-  .mode-row .mode{opacity:.84}.control-switch{opacity:.88}
-  body[data-live="1"] .scoreboard{opacity:.72!important}.stadium-rim{opacity:.58!important;height:22px!important}
+  .scoreboard{width:min(40vw,390px)!important;border-radius:9px!important;background:#03080cc7!important;box-shadow:0 7px 22px #0007!important;top:max(5px,env(safe-area-inset-top))!important}
+  .score-main{min-height:27px!important;padding:2px 8px!important}.team strong{font-size:14px!important}.team .name{font-size:5px!important}.clock strong{font-size:15px!important}.clock span{font-size:5px!important}.sit{padding:2px!important}.sit b{font-size:6px!important}.sit span{font-size:4px!important}
+  .mode-row .mode{opacity:.78}.control-switch{opacity:.86}
+  body[data-live="1"] .scoreboard{opacity:.74!important}.stadium-rim{opacity:.50!important;height:18px!important}
 
   /* These are UI overlays, not objects in the scrolling field world. */
   .manual-hud{position:fixed!important;inset:0!important;z-index:110!important;pointer-events:none!important}
   .manual-hud.show .joystick,.manual-hud.show .skill-grid{pointer-events:auto!important}
-  .joystick{width:104px!important;height:104px!important;left:max(16px,env(safe-area-inset-left))!important;bottom:max(14px,env(safe-area-inset-bottom))!important}
-  .joy-knob{width:46px!important;height:46px!important;margin:-23px!important}
-  .skill-grid{right:max(15px,env(safe-area-inset-right))!important;bottom:max(13px,env(safe-area-inset-bottom))!important;grid-template-columns:repeat(2,58px)!important;gap:7px!important}.skill{height:58px!important}.skill span{font-size:15px!important}.skill b{font-size:6px!important}
-  .pressure{position:fixed!important;z-index:111!important;left:132px!important;right:144px!important;bottom:max(8px,env(safe-area-inset-bottom))!important}.pressure-label{position:fixed!important;z-index:111!important;right:144px!important;bottom:max(15px,calc(env(safe-area-inset-bottom) + 7px))!important}
-  .toast{position:fixed!important;z-index:115!important;top:max(54px,calc(env(safe-area-inset-top) + 48px))!important;left:50%!important;transform:translateX(-50%)!important}
+  .joystick{width:100px!important;height:100px!important;left:max(15px,env(safe-area-inset-left))!important;bottom:max(13px,env(safe-area-inset-bottom))!important}
+  .joy-knob{width:44px!important;height:44px!important;margin:-22px!important}
+  .skill-grid{right:max(14px,env(safe-area-inset-right))!important;bottom:max(12px,env(safe-area-inset-bottom))!important;grid-template-columns:repeat(2,56px)!important;gap:7px!important}.skill{height:56px!important}.skill span{font-size:15px!important}.skill b{font-size:6px!important}
+  .pressure{position:fixed!important;z-index:111!important;left:126px!important;right:138px!important;bottom:max(8px,env(safe-area-inset-bottom))!important}.pressure-label{position:fixed!important;z-index:111!important;right:138px!important;bottom:max(15px,calc(env(safe-area-inset-bottom) + 7px))!important}
+  .toast{position:fixed!important;z-index:115!important;top:max(48px,calc(env(safe-area-inset-top) + 43px))!important;left:50%!important;transform:translateX(-50%)!important;min-width:128px!important;padding:5px 10px!important;font-size:7px!important}
   .result{position:fixed!important;inset:0!important;z-index:130!important}
 
-  /* Pre-snap controls float over the field. Live play removes them. */
-  .controls{width:min(50vw,560px)!important;bottom:max(7px,env(safe-area-inset-bottom))!important}.playcall{min-height:36px!important}.snap{min-height:36px!important;width:150px!important}.timeout{min-height:36px!important;width:96px!important}
+  /* Pre-snap controls float over the field. Live play removes them, then they return as soon as the engine resets. */
+  .controls{width:min(48vw,540px)!important;bottom:max(7px,env(safe-area-inset-bottom))!important}.playcall{min-height:35px!important}.snap{min-height:35px!important;width:145px!important}.timeout{min-height:35px!important;width:94px!important}
   body[data-live="1"] .controls{display:none!important}
-  body[data-live="1"] .routes{opacity:.025!important}
 }
 
 @media (orientation:landscape) and (max-height:460px){
-  .scoreboard{width:min(42vw,390px)!important}.score-main{min-height:27px!important}.team strong{font-size:14px!important}.clock strong{font-size:15px!important}
-  .mode-row .mode{min-height:32px!important;width:48px!important}.control-pills button{padding:4px 7px!important}
-  .joystick{width:92px!important;height:92px!important}.joy-knob{width:40px!important;height:40px!important;margin:-20px!important}.skill-grid{grid-template-columns:repeat(2,52px)!important}.skill{height:52px!important}
+  .scoreboard{width:min(38vw,360px)!important}.score-main{min-height:25px!important}.team strong{font-size:13px!important}.clock strong{font-size:14px!important}
+  .mode-row .mode{min-height:30px!important;width:46px!important}.control-pills button{padding:4px 7px!important}
+  .player{width:48px!important;height:76px!important}.player.blocker{width:43px!important;height:68px!important}.player.defense{width:41px!important;height:65px!important}.player.qb{width:51px!important;height:81px!important}.player.runner{width:53px!important;height:84px!important}
+  .joystick{width:90px!important;height:90px!important}.joy-knob{width:40px!important;height:40px!important;margin:-20px!important}.skill-grid{grid-template-columns:repeat(2,50px)!important}.skill{height:50px!important}
 }
