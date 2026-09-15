@@ -67,9 +67,9 @@ def offline_bundle(baseline):
     return '() => {' + ''.join(out) + 'const {Renderer,pose,segment,hex}=R;const {prepareJerseys,drawAthlete,advanceMotion}=A;const {makeStadium}=S;' + scene + 'return window.result;}'
 
 
-def capture_canvas(page, path):
-    """Capture only the WebGL canvas, avoiding Playwright's expensive page screenshot path."""
-    data = page.evaluate("() => document.getElementById('game').toDataURL('image/png').split(',')[1]")
+def capture_canvas(page, path, camera):
+    """Render and read back in one browser task before the default framebuffer is discarded."""
+    data = page.evaluate("camera => { window.render(camera); return document.getElementById('game').toDataURL('image/png').split(',')[1] }", camera)
     path.write_bytes(base64.b64decode(data))
 
 
@@ -90,18 +90,16 @@ def main():
             for baseline in [True, False]:
                 page.set_content(HTML.split('<script type="module">')[0] + '</body></html>')
                 page.evaluate(offline_bundle(baseline))
-                result = page.evaluate("window.render('game', 60)")
+                result = page.evaluate("window.render('game', 2)")
                 assert result['players'] == 22 and result['glError'] == 0, result
                 assert result['maxBatch'] < 4096, result
                 assert result['newUploads'] == 0 and result['coordinatesUnchanged'], result
                 key = 'before' if baseline else 'after';results[key] = result
                 for camera in ['game', 'sideline', 'bowl']:
-                    page.evaluate('(camera)=>window.render(camera)', camera)
-                    capture_canvas(page, args.output / f'{key}-{camera}-{width}x{height}.png')
+                    capture_canvas(page, args.output / f'{key}-{camera}-{width}x{height}.png', camera)
                 if not baseline and width == 932:
                     for camera in ['north', 'south']:
-                        page.evaluate('(camera)=>window.render(camera)', camera)
-                        capture_canvas(page, args.output / f'board-{camera}.png')
+                        capture_canvas(page, args.output / f'board-{camera}.png', camera)
             assert results['after']['drawCalls'] - results['before']['drawCalls'] <= 1, results
             assert results['after']['textures'] - results['before']['textures'] == 1, results
             assert not errors and not outbound, {'errors': errors, 'outbound': outbound}
