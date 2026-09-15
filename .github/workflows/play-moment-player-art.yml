@@ -1,0 +1,55 @@
+name: 3D player visual review
+on:
+  push:
+    branches: [feat/play-moment-3d-practice-preview]
+    paths:
+      - 'public/play-moment-3d/athlete.js'
+      - 'public/play-moment-3d/geometry.js'
+      - 'scripts/check-play-moment-player-art.*'
+      - '.github/workflows/play-moment-player-art.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: player-visual-review-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  player-art:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Existing geometry and motion regressions
+        run: |
+          node scripts/check-play-moment-motion.mjs
+          node scripts/check-play-moment-stance.mjs
+          node scripts/check-play-moment-night.mjs
+          for file in public/play-moment-3d/*.js; do node --check "$file"; done
+      - run: python -m pip install playwright==1.57.0 pillow
+      - run: python -m playwright install --with-deps chromium
+      - name: Same-renderer close-up player comparison
+        run: python scripts/check-play-moment-player-art.py --baseline-ref HEAD^ --output artifacts/player-art
+      - name: Preserve non-sensitive tested rendering source alongside visual evidence
+        if: always()
+        run: |
+          mkdir -p artifacts/source/public artifacts/source/scripts
+          cp -r public/play-moment-3d artifacts/source/public/
+          cp public/play-moment-3d-preview.html artifacts/source/public/
+          cp scripts/check-play-moment-*.mjs scripts/check-play-moment-*.py artifacts/source/scripts/
+          git rev-parse HEAD > artifacts/source/COMMIT.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: player-visual-review
+          path: artifacts
+          if-no-files-found: error
+          retention-days: 3
