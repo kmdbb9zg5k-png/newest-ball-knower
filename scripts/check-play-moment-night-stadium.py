@@ -3,6 +3,7 @@ Run with Python + Playwright Chromium installed. Writes screenshots/report to
 --output (defaults /tmp/bk-night-stadium). Makes no external network requests.
 """
 import argparse
+import base64
 import json
 import re
 from pathlib import Path
@@ -66,6 +67,12 @@ def offline_bundle(baseline):
     return '() => {' + ''.join(out) + 'const {Renderer,pose,segment,hex}=R;const {prepareJerseys,drawAthlete,advanceMotion}=A;const {makeStadium}=S;' + scene + 'return window.result;}'
 
 
+def capture_canvas(page, path):
+    """Capture only the WebGL canvas, avoiding Playwright's expensive page screenshot path."""
+    data = page.evaluate("() => document.getElementById('game').toDataURL('image/png').split(',')[1]")
+    path.write_bytes(base64.b64decode(data))
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', type=Path, default=Path('/tmp/bk-night-stadium'))
@@ -90,11 +97,11 @@ def main():
                 key = 'before' if baseline else 'after';results[key] = result
                 for camera in ['game', 'sideline', 'bowl']:
                     page.evaluate('(camera)=>window.render(camera)', camera)
-                    page.screenshot(path=str(args.output / f'{key}-{camera}-{width}x{height}.png'))
+                    capture_canvas(page, args.output / f'{key}-{camera}-{width}x{height}.png')
                 if not baseline and width == 932:
                     for camera in ['north', 'south']:
                         page.evaluate('(camera)=>window.render(camera)', camera)
-                        page.screenshot(path=str(args.output / f'board-{camera}.png'))
+                        capture_canvas(page, args.output / f'board-{camera}.png')
             assert results['after']['drawCalls'] - results['before']['drawCalls'] <= 1, results
             assert results['after']['textures'] - results['before']['textures'] == 1, results
             assert not errors and not outbound, {'errors': errors, 'outbound': outbound}

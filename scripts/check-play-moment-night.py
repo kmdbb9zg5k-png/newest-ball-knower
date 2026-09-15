@@ -19,7 +19,7 @@ def load(page,redzone=False,fbo_failure=False):
           HTMLCanvasElement.prototype.getContext=function(type,...args){const gl=original.call(this,type,...args);
           if(type==='webgl2'&&gl)gl.checkFramebufferStatus=()=>gl.FRAMEBUFFER_UNSUPPORTED;return gl;};}''')
     urls={}
-    for name in ['renderer','motion','geometry','athlete','stadium','game']:
+    for name in ['renderer','motion','geometry','athlete','night-stadium','stadium','game']:
         text=(ROOT/f'public/play-moment-3d/{name}.js').read_text()
         for dep,url in urls.items(): text=text.replace("'./"+dep+".js'",repr(url))
         text=text.replace("new URLSearchParams(location.search).has('qa')",'true')
@@ -45,7 +45,7 @@ if __name__=='__main__':
             super().append(value);print('PASS:',value,flush=True)
     result={'viewport':[w,h],'renderer':'Chromium/SwiftShader WebGL2; not real-phone FPS or touch certification','checks':Checks()}
     with sync_playwright() as p:
-        browser=p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH','/usr/bin/chromium'),headless=True,
+        browser=p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH'),headless=True,
             args=['--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ozone-platform=headless'],env={**os.environ,'DISPLAY':''})
         page=browser.new_page(viewport={'width':w,'height':h},device_scale_factor=2,has_touch=True)
         errors=[];requests=[]
@@ -58,7 +58,6 @@ if __name__=='__main__':
         assert d['glError']==0 and g['shadowAvailable'] and g['shadowSize']==1024
         assert g['overflows']==0 and g['drawCalls']<55 and 0<g['shadowDrawCalls']<18
         result['checks'].append('22 actors; red-zone entry; night shaders/depth target; bounded draw calls; zero overflow')
-        # Quality changes must not change position, score, time, or pose.
         page.click('#pause');before=diag(page)
         for tier,size,ratio in [('eco',0,1),('high',2048,2),('balanced',1024,1.5),('high',2048,2)]:
             page.click('[data-bk-quality="'+tier+'"]');step(page,0);g=graphics(page)
@@ -79,7 +78,6 @@ if __name__=='__main__':
         result['checks'].append('all four pass concepts; moving receivers; pocket framing; target throws')
         restart(page);page.click('#runTab');page.click('#snap');step(page,.6)
         assert diag(page)['phase']=='run'
-        # Chrome emulated simultaneous stick and sprint touches, with explicit release.
         stick=page.locator('#stick').bounding_box();sprint=page.locator('#sprint').bounding_box()
         cdp=page.context.new_cdp_session(page)
         touches=[{'x':stick['x']+stick['width']/2,'y':stick['y']+stick['height']*.2,'id':1},
@@ -97,7 +95,6 @@ if __name__=='__main__':
         restart(page);page.click('#passTab');page.click('#snap');step(page,6.5)
         assert diag(page)['phase']=='pre' and diag(page)['drive']['down']==2 and page.locator('#snap').is_visible()
         result['checks'].append('sack, next-down reset and controls recovery')
-        # Compare an identical frame at DPR=1, isolating the depth-shadow effect.
         shade=browser.new_page(viewport={'width':w,'height':h},device_scale_factor=1)
         load(shade,redzone=True)
         shade.evaluate("document.querySelector('[data-bk-quality=balanced]').click()")
@@ -121,7 +118,6 @@ if __name__=='__main__':
         assert not [u for u in requests if u.startswith(('http:','https:'))],requests
         result['checks'].append('portrait recovery; no JS/WebGL errors; no external requests')
         result['graphics']=graphics(page)
-        # FBO failure is simulated, not confused with a real GPU certification.
         fail=browser.new_page(viewport={'width':w,'height':h})
         load(fail,fbo_failure=True)
         assert not graphics(fail)['shadowAvailable'] and diag(fail)['glError']==0

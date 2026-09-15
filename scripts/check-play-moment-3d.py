@@ -6,7 +6,7 @@ ROOT=Path(__file__).resolve().parents[1]/'public';OUT=Path(os.environ.get('BK_3D
 def load(page):
  html=(ROOT/'play-moment-3d-preview.html').read_text();html=re.sub(r'<script type="module">[\s\S]*?</script>','',html);html=html.replace('<link rel="stylesheet" href="/play-moment-3d/hud.css">','<style>'+(ROOT/'play-moment-3d/hud.css').read_text()+'</style>');page.set_content(html)
  urls={}
- for name in ['renderer','motion','geometry','athlete','stadium','game']:
+ for name in ['renderer','motion','geometry','athlete','night-stadium','stadium','game']:
   text=(ROOT/f'play-moment-3d/{name}.js').read_text()
   for dep,url in urls.items():text=text.replace("'./"+dep+".js'",repr(url))
   if name=='game':text=text.replace("new URLSearchParams(location.search).has('qa')",'true')
@@ -15,7 +15,7 @@ def load(page):
 
 def diag(page):return page.evaluate('window.bk3dDiagnostics()')
 with sync_playwright() as p:
- b=p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH','/usr/bin/chromium'),headless=True,args=['--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ozone-platform=headless'],env={k:v for k,v in os.environ.items() if k!='DISPLAY'})
+ b=p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH'),headless=True,args=['--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ozone-platform=headless'],env={k:v for k,v in os.environ.items() if k!='DISPLAY'})
  w,h=(int(x) for x in (sys.argv[1:3] or ['844','334']));page=b.new_page(viewport={'width':w,'height':h},device_scale_factor=1,has_touch=True);errors=[];requests=[];page.set_default_timeout(8000);page.on('pageerror',lambda e:errors.append(str(e)));page.on('request',lambda r:requests.append(r.url));load(page)
  d=diag(page);assert len(d['players'])==22 and sum(x['team']==0 for x in d['players'])==11;assert d['glError']==0;assert d['drawCalls']<50
  assert page.locator('#snap').is_visible();page.screenshot(path=str(OUT/f'3d-presnap-{w}x{h}.png'))
