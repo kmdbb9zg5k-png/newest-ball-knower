@@ -1,5 +1,5 @@
 import{Renderer,pose,segment,hex}from'./renderer.js';
-import{drawAthlete,prepareJerseys}from'./athlete.js';
+import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js';
 import{makeStadium}from'./stadium.js';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const RUNS=[{id:'zone',name:'INSIDE ZONE',path:[[0,0],[-2,4],[-3,12],[0,25]],icon:'M24 23L24 13L17 5M17 5L17 11M17 5L23 5'}, {id:'stretch',name:'HB STRETCH',path:[[0,0],[7,2],[14,7],[17,25]],icon:'M12 23L18 14L36 6M36 6L29 6M36 6L34 13'}, {id:'counter',name:'COUNTER',path:[[0,0],[-5,1],[-6,4],[5,12],[9,25]],icon:'M26 23L15 19L15 13L31 5M31 5L24 5M31 5L29 11'}, {id:'toss',name:'HB TOSS',path:[[0,0],[9,-1],[18,6],[20,25]],icon:'M10 23L34 18L36 5M36 5L30 10M36 5L41 11'}];
@@ -55,7 +55,11 @@ export function start(){
  function camera(dt){const isPocket=phase==='pre'||phase==='pass',isDead=phase==='dead';let x=0,z=snapZ+2,mult=1;
   if(!isPocket&&!isDead){x=carrier.x*.55;z=carrier.z+5;if(flight){const t=clamp(flight.t,0,1);x=(flight.from[0]+(flight.to[0]-flight.from[0])*t)*.55;z=flight.from[2]+(flight.to[2]-flight.from[2])*t+4}}
   if(phase==='pass'){const deep=Math.max(...receiverIndices.map(i=>actors[i].z));z=(deep+actors[5].z)*.5;mult=clamp(1+(deep-actors[5].z-16)*.018,1,1.7)}
-  const desiredEye=[x+4*mult,12*mult,(isPocket?snapZ:z)-19*mult],desiredTarget=[x,0,z];
+  // Keep contact in view until the next down; move closer only after possession.
+  if(isDead){r.camera(camEye,camTarget);return}
+  const tracking=phase==='run';
+  const desiredEye=tracking?[carrier.x*.9+5,9.5,carrier.z-14]:[x+4*mult,12*mult,(isPocket?snapZ:z)-19*mult];
+  const desiredTarget=tracking?[carrier.x*.9,.5,carrier.z+4]:[x,0,z];
   // Fit actual projected heads/feet above the pre-snap controls. Do not pan the QB away.
   if(isPocket){for(let trial=0;trial<8;trial++){r.camera(desiredEye,desiredTarget);const watch=phase==='pre'?actors.filter(p=>!p.team):[actors[5],...receiverIndices.map(i=>actors[i])];const fits=watch.every(p=>{const h=r.project([p.x,2.1,p.z]),f=r.project([p.x,0,p.z]);return h.y>65&&f.y<r.height-(phase==='pre'?85:22)&&h.x>24&&h.x<r.width-24});if(fits)break;desiredEye[1]*=1.055;desiredEye[2]=desiredTarget[2]+(desiredEye[2]-desiredTarget[2])*1.055}}
   const blend=phase==='pre'?Math.min(1,dt*10):Math.min(1,dt*5);camEye=camEye.map((v,i)=>v+(desiredEye[i]-v)*blend);camTarget=camTarget.map((v,i)=>v+(desiredTarget[i]-v)*blend);r.camera(camEye,camTarget);
@@ -75,7 +79,8 @@ export function start(){
   r.draw();
   const placed=[];if(phase==='pass')receiverIndices.forEach(i=>{const p=actors[i],button=$('target-'+i),q=r.project([p.x,2.6,p.z]);if(button){q.x=clamp(q.x,30,r.width-30);q.y=clamp(q.y,83,r.height-34);for(const other of placed){if(Math.hypot(q.x-other.x,q.y-other.y)<46)q.x=clamp(other.x+48,30,r.width-30)}placed.push({...q});button.style.left=q.x+'px';button.style.top=q.y+'px';button.hidden=!q.visible;button.classList.toggle('open',Math.min(...actors.filter(d=>d.team).map(d=>Math.hypot(d.x-p.x,d.z-p.z)))>2)}});
  }
- function loop(now){raf=requestAnimationFrame(loop);const dt=Math.min(.25,Math.max(0,(now-last)/1000)||.016);last=now;if(document.hidden||r.lost)return;if(!paused&&!qaStepping){accumulator+=dt;let steps=0;while(accumulator>=1/60&&steps++<15){tick(1/60);accumulator-=1/60;if(paused)break}}camera(dt);scene(dt,now);if(now>messageUntil)$('message').classList.remove('show');frameId++}
+ function simulate(dt){tick(dt);for(const p of actors)advanceMotion(p,dt,phase)}
+ function loop(now){raf=requestAnimationFrame(loop);const dt=Math.min(.25,Math.max(0,(now-last)/1000)||.016);last=now;if(document.hidden||r.lost)return;if(!paused&&!qaStepping){accumulator+=dt;let steps=0;while(accumulator>=1/60&&steps++<15){simulate(1/60);accumulator-=1/60;if(paused)break}}camera(dt);scene(dt,now);if(now>messageUntil)$('message').classList.remove('show');frameId++}
  function setMode(v){if(phase!=='pre')return;mode=v;selected=0;setup()}
  $('runTab').onclick=()=>setMode('run');$('passTab').onclick=()=>setMode('pass');$('snap').onclick=snap;$('control').onclick=()=>{assist=!assist;input.x=input.z=0;updateControls()};$('pause').onclick=pause;$('resume').onclick=pause;
  $('restart').onclick=()=>{drive={ball:25,down:1,toGo:10,clock:78,score:24,plays:0};paused=false;ended=false;$('paused').hidden=true;setup()};
@@ -89,5 +94,5 @@ export function start(){
  setup();camera(1);scene(.016,0);$('loading').hidden=true;raf=requestAnimationFrame(loop);
  // Test controls exist only on an explicitly requested QA URL. This isolated
  // practice renderer never reads or writes career saves or result payloads.
- if(new URLSearchParams(location.search).has('qa')){window.bk3dTest={manualFrames(){qaStepping=true;accumulator=0},step(seconds){const n=Math.ceil(clamp(seconds,0,10)*60);for(let i=0;i<n;i++){if(!paused)tick(1/60);camera(1/60)}scene(.016,performance.now())}};window.bk3dDiagnostics=()=>({phase,paused,ended,frames:frameId,drawCalls:r.drawCalls,glError:r.gl.getError(),players:actors.map(p=>({role:p.role,team:p.team,x:p.x,z:p.z,distance:p.distance,head:r.project([p.x,2.1,p.z]),foot:r.project([p.x,0,p.z])})),drive:{...drive},stamina,worldObjects:stadium.parts});}
+ if(new URLSearchParams(location.search).has('qa')){window.bk3dTest={manualFrames(){qaStepping=true;accumulator=0},step(seconds){const n=Math.ceil(clamp(seconds,0,10)*60);for(let i=0;i<n;i++){if(!paused)simulate(1/60);camera(1/60)}scene(.016,performance.now())}};window.bk3dDiagnostics=()=>({phase,paused,ended,frames:frameId,drawCalls:r.drawCalls,glError:r.gl.getError(),players:actors.map(p=>({role:p.role,team:p.team,x:p.x,z:p.z,distance:p.distance,pose:p.motion?{speed:p.motion.speed,run:p.motion.run,ready:p.motion.ready,block:p.motion.block,turn:p.motion.turn,gait:p.motion.gait,fall:p.motion.fall}:null,head:r.project([p.x,2.1,p.z]),foot:r.project([p.x,0,p.z])})),drive:{...drive},stamina,worldObjects:stadium.parts});}
 }

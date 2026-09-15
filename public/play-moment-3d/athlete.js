@@ -1,64 +1,105 @@
 import{mul,translate,scale,rx,ry,rz,pose,segment,hex}from'./renderer.js';
-const white=hex('#e7e9e5'),dark=hex('#101a23'),gold=hex('#d8b66e'),skinTones=['#a46d49','#633d2d','#ba8b66','#8b563b'];
-const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const kit=[{jersey:hex('#19354d'),pants:hex('#20374a'),helmet:hex('#bba275'),trim:gold},{jersey:hex('#e8e9e1'),pants:hex('#afb5b8'),helmet:hex('#863d3b'),trim:hex('#8f4640')}];
-export function prepareJerseys(renderer,actors){for(const p of actors){if(renderer.textures.has('jersey-'+p.team+'-'+p.number))continue;const c=document.createElement('canvas');c.width=128;c.height=128;const ctx=c.getContext('2d');ctx.fillStyle=p.team?'#e8e9e1':'#19354d';ctx.fillRect(0,0,128,128);ctx.fillStyle=p.team?'#863d3b':'#ece9dc';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='900 78px system-ui';ctx.fillText(String(p.number),64,66);renderer.texture('jersey-'+p.team+'-'+p.number,c)}}
-/* Hierarchical articulated geometry with two-bone leg IK. Root movement comes
-   from the simulation; the character is never bobbed as a flat image. */
+import{advanceMotion,samplePose,footTarget,twoBone}from'./motion.js';
+import{createTorsoGeometry}from'./geometry.js';
+export{advanceMotion};
+const white=hex('#e6e8e2'),dark=hex('#111a22'),gold=hex('#d8b66e');
+const skinTones=['#a46d49','#633d2d','#ba8b66','#8b563b'].map(hex);
+const leather=hex('#81482b'),visor=hex('#233c48');
+const kit=[
+ {jersey:hex('#173349'),pants:hex('#203548'),helmet:hex('#bba275'),trim:gold,cloth:'#173349',ink:'#f1ecda'},
+ {jersey:hex('#e6e8e0'),pants:hex('#a8afb2'),helmet:hex('#863d3b'),trim:hex('#8f4640'),cloth:'#e6e8e0',ink:'#74322f'}
+];
+export function prepareJerseys(r,actors){
+ if(!r.shapes.torso)r.shapes.torso=createTorsoGeometry();
+ for(const p of actors){
+  const key='jersey-'+p.team+'-'+p.number;if(r.textures.has(key))continue;
+  const c=document.createElement('canvas');c.width=128;c.height=128;
+  const ctx=c.getContext('2d'),k=kit[p.team];ctx.fillStyle=k.cloth;ctx.fillRect(0,0,128,128);
+  ctx.strokeStyle=p.team?'#c3c9c333':'#55708033';ctx.lineWidth=.5;
+  for(let y=0;y<128;y+=4){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(128,y);ctx.stroke()}
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='800 12px system-ui';ctx.fillStyle=k.ink;ctx.fillText(p.team?'RIVALS':'KNOWERS',64,18);
+  ctx.font='900 78px Arial';ctx.lineWidth=3;ctx.strokeStyle=p.team?'#9eaaa4':'#9c834a';ctx.strokeText(String(p.number),64,72);ctx.fillStyle=k.ink;ctx.fillText(String(p.number),64,72);
+  r.texture(key,c);
+ }
+}
+/* Articulated bodies use game-driven pose blends. Geometry, textures and
+   equipment are shared; no player photos, generated images or external assets. */
 export function drawAthlete(r,p,time,phase){
- const k=kit[p.team],large=p.role==='OL'||p.role==='DL',size=large?1.06:1,wide=large?1.14:1;
- let root=mul(translate(p.x,0,p.z),ry(p.heading||0));root=mul(root,scale(wide,size,1));
- if(p.fallen){root=mul(root,translate(0,.34,0));root=mul(root,rx(1.3))}
- const skin=hex(skinTones[p.index%skinTones.length]);
- const running=p.moving&&phase!=='pre'&&!p.fallen,blocking=(p.role==='OL'||p.engaged)&&phase!=='pre',ready=phase==='pre';
- const crouch=ready?(large?.22:.06):blocking?.16:0;
- const pelvisY=1.04-crouch,gait=(p.distance||0)*5.5;
- const chest=mul(mul(root,translate(0,pelvisY,0)),rx(ready?(large?.57:.25):running?.21:blocking?.36:0));
+ const k=kit[p.team],q=samplePose(p),build=q.build,skin=skinTones[p.index%skinTones.length];
+ const height=build.height*(.99+(p.index%3)*.01);
+ let root=mul(mul(translate(p.x,.15*q.fall,p.z),ry(p.heading||0)),rx(q.fall*1.38));
+ root=mul(root,scale(build.width,height,1));
  const ell=(base,x,y,z,sx,sy,sz,color,shine=0)=>r.add('sphere',mul(base,pose(x,y,z,sx,sy,sz)),color,'',false,shine);
  const box=(base,x,y,z,sx,sy,sz,color)=>r.add('cube',mul(base,pose(x,y,z,sx,sy,sz)),color);
- ell(chest,0,.035,0,.225,.18,.155,k.pants);
- ell(chest,0,.26,0,.245,.30,.185,k.jersey);
- ell(chest,0,.44,.015,.34,.195,.205,k.jersey);
- box(chest,0,.09,0,.44,.042,.307,k.trim);
- ell(chest,0,.64,0,.088,.11,.09,skin);
- // Helmet with an actual face opening, ear protection, center stripe and facemask.
- const head=mul(chest,translate(0,.79,.012));
- ell(head,0,-.012,.025,.139,.17,.144,skin);
- r.add('helmet',mul(head,scale(.189,.215,.225)),k.helmet,'',false,.55);
- ell(head,-.177,-.025,0,.03,.087,.084,k.helmet,.3);ell(head,.177,-.025,0,.03,.087,.084,k.helmet,.3);
- // Stripe follows the crown instead of a flat logo sticker.
- for(let j=0;j<10;j++){const a=-1.7+j*.27,b=a+.29;const A=[0,Math.cos(a)*.217,Math.sin(a)*.227],B=[0,Math.cos(b)*.217,Math.sin(b)*.227];r.add('cylinder',mul(head,segment(A,B,.016)),p.team?white:k.jersey)}
- const bars=[[[ -.18,-.065,.16],[-.135,-.13,.30]],[[.18,-.065,.16],[.135,-.13,.30]],[[-.135,-.13,.30],[.135,-.13,.30]],[[-.15,-.055,.28],[.15,-.055,.28]],[[-.15,-.055,.28],[-.135,-.13,.30]],[[.15,-.055,.28],[.135,-.13,.30]],[[0,-.055,.28],[0,-.13,.30]]];
- for(const[a,b]of bars)r.add('cylinder',mul(head,segment(a,b,.012)),dark,'',false,.32);
- box(head,0,-.006,.176,.254,.058,.018,dark);
- // Jersey numbers front/back remain attached to the torso as it rotates.
- const jersey='jersey-'+p.team+'-'+p.number;
- r.add('plane',mul(mul(chest,translate(0,.36,-.19)),mul(rx(Math.PI/2),scale(.31,1,.30))),[1,1,1,1],jersey);
- r.add('plane',mul(mul(chest,translate(0,.36,.198)),mul(rx(-Math.PI/2),scale(.31,1,.30))),[1,1,1,1],jersey);
+ const bone=(base,a,b,radius,color)=>r.add('sphere',mul(base,mul(segment(a,b,radius),scale(1,.55,1))),color);
+ const chest=mul(mul(root,translate(0,q.pelvis,0)),mul(ry(q.twist),mul(rz(q.turn),rx(q.lean))));
+ ell(root,0,q.pelvis,0,.222,.155,.165,k.pants);
+ r.add('torso',mul(chest,pose(0,.295,0,.285,.58,.172)),k.jersey);
+ box(chest,0,.018,0,.405,.036,.311,dark);
+ // Jersey side seams and a close-fitting collar avoid oversized round pads.
  for(const side of[-1,1]){
-  const a=gait+(side===1?Math.PI:0),footZ=running?Math.sin(a)*.44:ready?.10:0,footY=running?Math.max(0,Math.cos(a))*.19+.09:.09;
-  const dy=footY-pelvisY,dz=footZ,d=clamp(Math.hypot(dy,dz),.15,.995),L1=.51,L2=.49;
-  const aim=Math.atan2(-dz,-dy),hipA=aim-Math.acos(clamp((L1*L1+d*d-L2*L2)/(2*L1*d),-1,1)),kneeA=Math.PI-Math.acos(clamp((L1*L1+L2*L2-d*d)/(2*L1*L2),-1,1));
-  const thigh=mul(mul(root,translate(side*.15,pelvisY,0)),rx(hipA));
-  ell(thigh,0,-.22,0,.123,.285,.126,k.pants);const shin=mul(mul(thigh,translate(0,-L1,0)),rx(kneeA));
-  ell(shin,0,0,.035,.13,.105,.135,k.pants);ell(shin,0,-.21,0,.086,.265,.093,k.pants);
-  ell(shin,0,-.34,0,.096,.105,.105,white);
-  // Foot targets, not a vertical sprite animation, control the grounded stride.
-  ell(root,side*.15,footY-.025,footZ+.075,.11,.071,.208,dark);
-  box(root,side*.15,Math.max(.015,footY-.07),footZ+.07,.19,.034,.32,white);
-  const shoulder=mul(chest,translate(side*.305,.45,0));
-  let armA=running?Math.sin(a+Math.PI)*.83:ready?-.28:0,elbow=-.45;
-  if(blocking){armA=-1.00;elbow=-.56}
-  if(p.hasBall&&side===1){armA=-.57;elbow=-1.65}
-  if(p.role==='QB'&&phase==='pass'){armA=-.55;elbow=-1.9}
-  if(p.throwT>0&&side===1){armA=-2.8+p.throwT*1.8;elbow=-.9+p.throwT*.5}
-  if(p.catchT>0){armA=-1.7;elbow=-.5}
-  const upper=mul(shoulder,mul(rz(side*.08),rx(armA)));
-  ell(upper,0,-.055,0,.14,.15,.15,k.jersey);
-  ell(upper,0,-.14,0,.132,.03,.14,k.trim);
-  ell(upper,0,-.25,0,.092,.18,.10,skin);
-  const fore=mul(mul(upper,translate(0,-.36,0)),rx(elbow));
-  ell(fore,0,-.14,0,.078,.17,.085,skin);ell(fore,0,-.265,0,.085,.045,.095,white);ell(fore,0,-.327,.006,.087,.10,.062,white);
+  bone(chest,[side*.22,.08,.02],[side*.271,.36,.025],.015,k.trim);
+  ell(chest,side*.265,.46,0,.118,.119,.164,k.jersey);
  }
- if(p.hasBall){const ballM=mul(chest,mul(translate(.18,.19,.265),rz(-.25)));ell(ballM,0,0,0,.105,.21,.102,hex('#81482b'));box(ballM,0,0,.099,.025,.18,.009,white)}
+ ell(chest,0,.587,0,.091,.069,.094,dark);ell(chest,0,.64,.005,.079,.083,.078,skin);
+ const head=mul(mul(chest,translate(0,.79,.012)),rx(-q.lean*.72));
+ ell(head,0,-.018,.029,.126,.157,.13,skin);
+ r.add('helmet',mul(head,scale(.174,.204,.204)),k.helmet,'',false,.48);
+ for(const side of[-1,1]){
+  ell(head,side*.163,-.022,0,.026,.078,.075,k.helmet,.22);
+  ell(head,side*.18,-.043,.016,.009,.024,.022,dark);
+  bone(head,[side*.147,-.06,.11],[side*.061,-.164,.15],.011,white);
+ }
+ // Crown stripe, rear bumper and chin cup, with no licensed insignia.
+ for(let j=0;j<9;j++){const a=-1.65+j*.28,b=a+.30;r.add('cylinder',mul(head,segment([0,Math.cos(a)*.206,Math.sin(a)*.207],[0,Math.cos(b)*.206,Math.sin(b)*.207],.012)),p.team?white:k.jersey)}
+ box(head,0,-.062,-.178,.20,.041,.012,white);
+ ell(head,0,-.155,.177,.073,.027,.040,white);
+ const bars=[[[ -.165,-.062,.14],[-.13,-.127,.272]],[[.165,-.062,.14],[.13,-.127,.272]],[[-.13,-.127,.272],[.13,-.127,.272]],[[-.142,-.052,.252],[.142,-.052,.252]],[[-.142,-.052,.252],[-.13,-.127,.272]],[[.142,-.052,.252],[.13,-.127,.272]]];
+ if(p.role==='OL'||p.role==='DL')bars.push([[-.05,-.052,.252],[-.05,-.127,.272]],[[.05,-.052,.252],[.05,-.127,.272]]);
+ for(const[a,b]of bars)r.add('cylinder',mul(head,segment(a,b,.010)),dark,'',false,.24);
+ // A dark visor on skill positions, open face on the line and quarterback.
+ if(['WR','RB','DB'].includes(p.role))box(head,0,-.005,.175,.23,.069,.018,visor);
+ else {for(const side of[-1,1])ell(head,side*.043,.004,.151,.018,.009,.007,dark)}
+ const jersey='jersey-'+p.team+'-'+p.number;
+ r.add('plane',mul(mul(chest,translate(0,.318,-.181)),mul(rx(Math.PI/2),scale(.33,1,.31))),[1,1,1,1],jersey);
+ r.add('plane',mul(mul(chest,translate(0,.318,.181)),mul(rx(-Math.PI/2),scale(.33,1,.31))),[1,1,1,1],jersey);
+ for(const side of[-1,1]){
+  const foot=footTarget(q,side),hip=[side*.141,q.pelvis,0],leg=twoBone(hip,foot,.50,.50,[0,0,1]);
+  bone(root,hip,leg.joint,build.leg,k.pants);
+  ell(root,...leg.joint,build.leg*.99,.094,build.leg*1.04,k.pants);
+  bone(root,leg.joint,leg.end,build.leg*.73,k.pants);
+  // Stripes follow the articulated thigh rather than a floating texture card.
+  const thighStripeA=hip.map((v,i)=>v+(i===0?side*build.leg*.87:0));
+  const thighStripeB=leg.joint.map((v,i)=>v+(i===0?side*build.leg*.87:0));
+  r.add('cylinder',mul(root,segment(thighStripeA,thighStripeB,.015)),k.trim);
+  const ankle=leg.end;
+  ell(root,ankle[0],ankle[1]+.065,ankle[2],.084,.073,.083,white);
+  ell(root,ankle[0],ankle[1]-.020,ankle[2]+.064,.092,.059,.176,dark);
+  box(root,ankle[0],Math.max(.016,ankle[1]-.056),ankle[2]+.065,.164,.023,.282,white);
+  box(root,ankle[0],ankle[1]+.027,ankle[2]+.13,.068,.010,.063,k.trim);
+  const shoulder=mul(chest,translate(side*.315,.458,0));
+  const swing=Math.sin(q.gait+(side===1?Math.PI:0)+Math.PI);
+  let upperAngle=-.15+swing*(.62+.12*q.sprint)*q.drive,elbow=-.94-.20*q.drive;
+  upperAngle=upperAngle*(1-q.ready)+(-.30)*q.ready;
+  upperAngle=upperAngle*(1-q.block)-1.08*q.block;
+  elbow=elbow*(1-q.block)-.50*q.block;
+  if(p.hasBall&&side===1){upperAngle=-.50;elbow=-1.72}
+  if(p.role==='QB'&&(phase==='pass'||phase==='pre')){upperAngle=-.55;elbow=-1.82}
+  if(q.throwWeight>0&&p.role==='QB'&&side===1){upperAngle=-2.55+q.throwProgress*2.35;elbow=-1.30+q.throwProgress*1.10}
+  upperAngle=upperAngle*(1-q.catch)-1.54*q.catch;elbow=elbow*(1-q.catch)-.38*q.catch;
+  const upper=mul(shoulder,mul(rz(side*.12),rx(upperAngle)));
+  ell(upper,0,-.065,0,.114,.125,.136,k.jersey);
+  ell(upper,0,-.132,0,.109,.022,.127,k.trim);
+  ell(upper,0,-.244,0,build.arm,.153,build.arm*1.03,skin);
+  const fore=mul(mul(upper,translate(0,-.355,0)),rx(elbow));
+  ell(fore,0,-.04,0,build.arm*.91,.070,build.arm*.93,skin);
+  ell(fore,0,-.153,0,build.arm*.81,.15,build.arm*.84,p.index%4===0?dark:skin);
+  ell(fore,0,-.271,0,.069,.032,.070,white);
+  ell(fore,0,-.333,.011,.075,.073,.046,p.role==='QB'?skin:white);
+ }
+ if(p.hasBall){
+  const qb=p.role==='QB';const ballM=mul(chest,mul(translate(qb?0:.184,qb?.21:.16,qb?.305:.23),rz(qb?1.15:-.28)));
+  ell(ballM,0,0,0,.091,.188,.088,leather);box(ballM,0,0,.088,.017,.117,.006,white);
+  for(let i=-2;i<=2;i++)box(ballM,0,i*.020,.092,.047,.006,.005,white);
+ }
 }
