@@ -24,6 +24,7 @@ assert.match(renderer,/hashUnit\(el\.dataset\.id/,'cloned athletes use determini
 assert.match(renderer,/bodyProfile\(el,phase\)/,'athlete builds vary by football role');
 assert.match(renderer,/syncHitTarget\(actor/,'interactive receiver hit targets follow the perspective projection');
 assert.match(renderer,/createTeamKit\(isDefense/,'players receive team-specific helmets and jersey numbers');
+assert.match(renderer,/node\.userData\.kitOwned\|\|node\.userData\.actorOwned/,'actor-owned geometry is released between plays');
 assert.match(renderer,/document\.body\.dataset\.bk3d='fallback'/,'2D fallback is retained');
 for(const action of ['idle','running','sprint','throw','catch','block','tackle','celebrate']){
   assert.match(renderer,new RegExp(`${action}:clips\\[`),`${action} animation is mapped`);
@@ -33,6 +34,7 @@ assert.match(css,/data-bk3d="ready"/,'portraits hide only after successful 3D se
 assert.doesNotMatch(css,/data-bk-3d/,'CSS reads the same data attribute written by the renderer');
 assert.match(css,/\.routes\{visibility:hidden\}/,'flat route art is replaced by projected 3D routes');
 assert.match(css,/--bk-screen-x/,'perspective-projected player hit zones are applied');
+assert.doesNotMatch(css,/body\[data-bk3d="ready"\] #field \.player\{[^}]*opacity:0/s,'hit targets do not make the rendered actors invisible');
 assert.match(gameplay,/bk-sprinting/,'sprint state is exposed to the animation renderer');
 assert.match(gameplay,/state\.support=\[/,'the offense fills its tight-end and back support roles');
 const defensiveShell=gameplay.match(/const defStarts=\[([\s\S]*?)\n\];/)?.[1]||'';
