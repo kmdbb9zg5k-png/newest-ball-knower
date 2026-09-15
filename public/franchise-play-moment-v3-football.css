@@ -87,11 +87,7 @@
     opacity:.018!important;
   }
 
-  /* Reuse the engine's action classes to sell motion with the current art. */
-  .player.run .portrait-mask{
-    animation:bkStride .20s ease-in-out infinite alternate!important;
-    transform-origin:center bottom!important;
-  }
+  /* Preserve action feedback without adding a looping locomotion animation. */
   .player.catch .portrait-mask{
     transform:translateY(-5px) scaleY(1.03) rotate(-3deg)!important;
   }
@@ -103,10 +99,6 @@
     animation:bkCelebrate .34s ease-in-out infinite alternate!important;
   }
 
-  @keyframes bkStride{
-    from{transform:translateY(1px) rotate(-1.4deg) scaleY(.985)}
-    to{transform:translateY(-3px) rotate(1.4deg) scaleY(1.015)}
-  }
   @keyframes bkCelebrate{
     from{transform:translateY(0) scale(1)}
     to{transform:translateY(-7px) scale(1.025)}
@@ -128,4 +120,19 @@
   body[data-live="0"] .player[data-id="x"],
   body[data-live="0"] .player[data-id="slot"],
   body[data-live="0"] .player[data-id="z"]{--bk-shift-y:3px!important}
+}
+
+/* Ordinary running is driven by the simulation's .player position, not a
+   looping transform on the portrait. Cover both animation layers and both
+   orientations; preserve the existing short action cues. */
+.player.run:not(.cut):not(.throw):not(.catch):not(.hit):not(.celebrate):not(.skill) .portrait-mask,
+.player.run:not(.cut):not(.throw):not(.catch):not(.hit):not(.celebrate):not(.skill) img {
+  animation: none !important;
+}
+
+/* Clear the pre-snap mask pose without touching player position/depth or the
+   image crop. Do not substitute another rocking/scaling loop for the bounce. */
+body[data-live="1"] .player.run:not(.cut):not(.throw):not(.catch):not(.hit):not(.celebrate):not(.skill) .portrait-mask {
+  transform: none !important;
+  transition-property: filter, opacity, box-shadow !important;
 }
