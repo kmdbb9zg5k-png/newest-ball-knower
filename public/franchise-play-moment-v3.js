@@ -72,7 +72,7 @@ const skillBtns=[...document.querySelectorAll('.skill')];
 
 const state={
  score:scenario.score,opp:scenario.opp,clock:scenario.clock,ballYard:scenario.ball,down:scenario.down,toGo:scenario.toGo,timeouts:scenario.timeouts,
- mode:'pass',play:'mesh',control:'manual',live:false,throwing:false,ended:false,phase:'pre',snapAt:0,last:0,raf:0,plays:0,
+ mode:'pass',play:'mesh',control:'manual',live:false,throwing:false,ended:false,paused:false,pauseStarted:0,phase:'pre',snapAt:0,last:0,raf:0,plays:0,
  qbStats:{yards:0,td:0,int:0},receiverStats:{},rushStats:{},receivers:{},defenders:[],blockers:[],qb:null,runner:null,
  finalWon:false,joystick:{x:0,y:0,pointerId:null},sprinting:false,stamina:100,evadeUntil:0,evadeType:'',evaded:new Set(),
  graceUntil:0,runStartY:96,playStartBall:scenario.ball,assistIndex:1,stunned:new Map(),blocked:new Map(),runElapsed:0
@@ -123,11 +123,11 @@ const pocketLimit=clamp(4.2+(passPro-passRush)*.035+(qbPocket-80)*.014,3.15,5.45
 function makePlayer(id,kind,p,x,y,label,i){
  const el=document.createElement('button');el.type='button';el.className='player '+kind+(id==='qb'?' qb':'');el.dataset.id=id;
  el.innerHTML='<span class="portrait-mask"><img src="'+art(p,i)+'" alt="" draggable="false"></span><span class="tag">'+label+'</span>';
- el.style.left=x+'%';el.style.top=y+'%';
+ el.style.left=x+'%';el.style.top=(35+y*.65)+'%';
  if(kind==='offense'&&['x','slot','z'].includes(id))el.addEventListener('click',()=>throwTo(id));else el.tabIndex=-1;
  field.appendChild(el);return{id,el,p,x,y,segment:0};
 }
-function setPos(p,x,y){p.x=clamp(x,4,96);p.y=clamp(y,7,99);p.el.style.left=p.x+'%';p.el.style.top=p.y+'%';p.el.style.setProperty('--scale',String(.70+p.y*.0036))}
+function setPos(p,x,y){p.x=clamp(x,4,96);p.y=clamp(y,7,99);p.el.style.left=p.x+'%';p.el.style.top=(35+p.y*.65)+'%';p.el.style.setProperty('--scale',String(.70+p.y*.0036))}
 function clearPlayers(){field.querySelectorAll('.player').forEach(n=>n.remove())}
 function setup(){
  clearPlayers();
@@ -154,7 +154,7 @@ function routePos(pts,t){const count=pts.length-1,scaled=Math.min(.999,t)*count,
 function resetInput(){state.joystick.x=0;state.joystick.y=0;state.joystick.pointerId=null;joyKnob.style.transform='translate(0,0)';state.sprinting=false;skillBtns.forEach(b=>b.classList.remove('active'))}
 function showManualHud(show){manualHud.classList.toggle('show',show);manualHud.setAttribute('aria-hidden',show?'false':'true');manualHud.classList.toggle('assist',state.control==='assist');joystick.style.opacity=state.control==='assist'?'.28':'1';joystick.style.pointerEvents=state.control==='assist'?'none':'auto'}
 function resetPlay(){
- cancelAnimationFrame(state.raf);state.live=false;state.throwing=false;state.phase='pre';state.evadeUntil=0;state.evadeType='';state.evaded=new Set();state.stunned.clear();state.blocked.clear();state.stamina=100;state.assistIndex=1;state.runElapsed=0;resetInput();
+ cancelAnimationFrame(state.raf);state.live=false;state.throwing=false;state.paused=false;state.pauseStarted=0;state.phase='pre';state.evadeUntil=0;state.evadeType='';state.evaded=new Set();state.stunned.clear();state.blocked.clear();state.stamina=100;state.assistIndex=1;state.runElapsed=0;resetInput();
  pressure.style.width=state.mode==='run'?'100%':'0%';ball.style.display='none';snapBtn.disabled=false;snapBtn.classList.remove('live');snapBtn.querySelector('b').textContent='SNAP BALL';
  [...$('playbook').querySelectorAll('button')].forEach(b=>b.disabled=false);targetBtns.forEach(b=>{b.disabled=true;b.dataset.open='0'});showManualHud(false);routes.style.opacity='1';setup();updateHud();updateHelp();
 }
@@ -167,7 +167,7 @@ function snap(){
  state.defenders.forEach(d=>d.el.classList.add('run'));state.blockers.forEach(b=>b.el.classList.add('run'));log('Snap',currentPlay().name);vibrate(12);state.raf=requestAnimationFrame(frame);
 }
 function frame(now){
- if(!state.live)return;const dt=Math.min(.05,(now-state.last)/1000);state.last=now;
+ if(!state.live)return;if(state.paused){state.last=now;state.raf=requestAnimationFrame(frame);return}const dt=Math.min(.05,(now-state.last)/1000);state.last=now;
  if(state.mode==='pass')passFrame(now,dt);else runFrame(now,dt);
  if(state.live)state.raf=requestAnimationFrame(frame);
 }
@@ -258,6 +258,16 @@ function advanceDown(yards,isRun){
  updateHud();
 }
 function useTimeout(){if(state.timeouts<=0||state.live||state.ended)return;state.timeouts--;toastMsg('TIMEOUT · CLOCK STOPPED','good');log('Timeout',state.timeouts+' remaining');updateHud()}
+function togglePause(){
+ if(!state.live||state.throwing||state.ended)return false;
+ const now=performance.now();
+ if(state.paused){
+  state.snapAt+=Math.max(0,now-state.pauseStarted);state.last=now;state.pauseStarted=0;state.paused=false;
+ }else{state.paused=true;state.pauseStarted=now;resetInput()}
+ document.body.dataset.paused=state.paused?'1':'0';
+ const button=$('pauseBtn');if(button){button.setAttribute('aria-pressed',state.paused?'true':'false');button.setAttribute('aria-label',state.paused?'Resume gameplay':'Pause gameplay');button.querySelector('.pause-icon').textContent=state.paused?'▶':'Ⅱ'}
+ toastMsg(state.paused?'GAME PAUSED':'GAME RESUMED','good');return state.paused;
+}
 function finish(won,title,body){cancelAnimationFrame(state.raf);state.live=false;state.ended=true;state.finalWon=Boolean(won);showManualHud(false);$('resultEyebrow').textContent=won?'CLUTCH MOMENT':'DRIVE OVER';$('resultTitle').textContent=title;$('resultBody').textContent=body+' '+state.score+'-'+state.opp+' with '+fmt(state.clock)+' left.';$('result').classList.add('show');updateHud();vibrate(won?[20,35,20]:35)}
 function payload(){return{type:'bk-play-moment-result',won:Boolean(state.finalWon),week,scenario:scenario.name,score:state.score,opponentScore:state.opp,clockLeft:state.clock,plays:state.plays,controlMode:state.control,qb:{id:qb.id,name:qb.name,passYards:state.qbStats.yards,passTD:state.qbStats.td,interceptions:state.qbStats.int},receivers:Object.values(state.receiverStats),rushers:Object.values(state.rushStats)}}
 function apply(){const data=payload();try{localStorage.setItem('ballknower_franchise_play_moment_pending_v1',JSON.stringify(data))}catch{}if(window.parent!==window)window.parent.postMessage(data,location.origin);else location.href='/'}
@@ -279,6 +289,8 @@ joystick.addEventListener('pointerup',endJoy);joystick.addEventListener('pointer
 skillBtns.forEach(b=>{const type=b.dataset.skill;if(type==='sprint'){b.addEventListener('pointerdown',e=>{if(state.phase!=='run')return;state.sprinting=true;b.classList.add('active');vibrate(8);e.preventDefault()});const stop=()=>{state.sprinting=false;b.classList.remove('active')};b.addEventListener('pointerup',stop);b.addEventListener('pointercancel',stop);b.addEventListener('pointerleave',stop)}else b.addEventListener('click',()=>triggerSkill(type))});
 $('manualBtn').addEventListener('click',()=>setControl('manual'));$('assistBtn').addEventListener('click',()=>setControl('assist'));$('passMode').addEventListener('click',()=>setMode('pass'));$('runMode').addEventListener('click',()=>setMode('run'));
 targetBtns.forEach(b=>b.addEventListener('click',()=>throwTo(b.dataset.target)));snapBtn.addEventListener('click',snap);timeoutBtn.addEventListener('click',useTimeout);$('applyBtn').addEventListener('click',apply);$('closeBtn').addEventListener('click',cancel);
+$('pauseBtn')?.addEventListener('click',togglePause);
+window.BKPlayMomentControls={togglePause,isPaused:()=>state.paused,isLive:()=>state.live};
 
 renderPlaybook();updateRatings();setControl('manual');setup();updateHud();updateHelp();log('Situation',scenario.name+' · Week '+week);
 })();
