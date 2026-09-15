@@ -6,15 +6,8 @@ const field = document.getElementById('field');
 const MODEL_URL = '/models/gridiron-gold-player.glb';
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 
-if (field && canRenderWebGL()) boot();
-else document.body.dataset.bk3d = 'fallback';
-
-function canRenderWebGL(){
-  try{
-    const probe=document.createElement('canvas');
-    return Boolean(window.WebGL2RenderingContext&&probe.getContext('webgl2',{failIfMajorPerformanceCaveat:true}));
-  }catch{return false}
-}
+if(field){document.body.dataset.bk3d='loading';boot()}
+else document.body.dataset.bk3d='fallback';
 
 function boot(){
   const canvas=document.createElement('canvas');
@@ -25,7 +18,8 @@ function boot(){
   let renderer;
   try{
     renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'high-performance'});
-  }catch{
+  }catch(error){
+    console.error('[Ball Knower 3D] WebGL renderer failed',error);
     canvas.remove();
     document.body.dataset.bk3d='fallback';
     return;
@@ -68,7 +62,8 @@ function boot(){
     sourceMinY=bounds.min.y;
     syncActors();
     if(actors.size)document.body.dataset.bk3d='ready';
-  },undefined,()=>{
+  },undefined,error=>{
+    console.error('[Ball Knower 3D] Player model failed to load',error);
     document.body.dataset.bk3d='fallback';
     renderer.dispose();
     canvas.remove();

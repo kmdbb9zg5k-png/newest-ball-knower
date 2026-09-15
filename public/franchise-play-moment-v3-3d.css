@@ -9,17 +9,17 @@
   pointer-events:none;
 }
 
-body[data-bk-3d="ready"] #field .player .portrait-mask{
+body[data-bk3d="ready"] #field .player .portrait-mask{
   opacity:0!important;
   box-shadow:none!important;
   filter:none!important;
 }
 
-body[data-bk-3d="ready"] #field .player{
+body[data-bk3d="ready"] #field .player{
   background:transparent!important;
 }
 
-body[data-bk-3d="ready"] #field .player.defense:after{
+body[data-bk3d="ready"] #field .player.defense:after{
   background:rgba(125,18,32,.72);
 }
 

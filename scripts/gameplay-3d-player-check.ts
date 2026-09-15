@@ -10,8 +10,8 @@ const css=read('public/franchise-play-moment-v3-3d.css');
 const gameplay=read('public/franchise-play-moment-v3.js');
 
 assert.match(html,/franchise-play-moment-v3-3d\.css/,'3D stylesheet is loaded');
-assert.match(html,/type="importmap"/,'Three.js import map is present');
-assert.match(html,/type="module" src="\/franchise-play-moment-v3-3d\.js"/,'3D renderer module is loaded');
+assert.doesNotMatch(html,/type="importmap"/,'brittle runtime import map was removed');
+assert.match(html,/defer src="\/franchise-play-moment-v3-3d\.bundle\.js"/,'self-contained 3D bundle is loaded');
 assert.match(renderer,/new THREE\.WebGLRenderer/,'renderer creates a WebGL surface');
 assert.equal((renderer.match(/new THREE\.WebGLRenderer/g)||[]).length,1,'gameplay uses one shared WebGL renderer');
 assert.match(renderer,/cloneSkinned\(source\)/,'skinned model is safely cloned for each athlete');
@@ -20,8 +20,13 @@ for(const action of ['idle','running','sprint','throw','catch','block','tackle',
   assert.match(renderer,new RegExp(`${action}:clips\\[`),`${action} animation is mapped`);
 }
 assert.match(css,/pointer-events:none/,'3D layer cannot block gameplay input');
-assert.match(css,/data-bk-3d="ready"/,'portraits hide only after successful 3D setup');
+assert.match(css,/data-bk3d="ready"/,'portraits hide only after successful 3D setup');
+assert.doesNotMatch(css,/data-bk-3d/,'CSS reads the same data attribute written by the renderer');
 assert.match(gameplay,/bk-sprinting/,'sprint state is exposed to the animation renderer');
+
+const bundle=read('public/franchise-play-moment-v3-3d.bundle.js');
+assert.ok(bundle.length>400_000,'self-contained Three.js runtime bundle is present');
+assert.doesNotMatch(bundle,/^\s*import\s/m,'runtime bundle has no unresolved module imports');
 
 const modelPath=join(root,'public/models/gridiron-gold-player.glb');
 const model=readFileSync(modelPath);
