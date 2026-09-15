@@ -37,7 +37,9 @@ assert.match(css,/--bk-screen-x/,'perspective-projected player hit zones are app
 assert.doesNotMatch(css,/body\[data-bk3d="ready"\] #field \.player\{[^}]*opacity:0/s,'hit targets do not make the rendered actors invisible');
 assert.match(gameplay,/bk-sprinting/,'sprint state is exposed to the animation renderer');
 assert.match(gameplay,/state\.support=\[/,'the offense fills its tight-end and back support roles');
-assert.match(gameplay,/supportIdentities\.has\(identityKey\(p\)\)/,'receivers cannot duplicate the QB, running back or tight end identity');
+assert.match(gameplay,/routeExcludedIdentities\.has\(identityKey\(p\)\)/,'receivers cannot duplicate the QB or running back identity');
+assert.match(gameplay,/targetIdentities\.has\(identityKey\(te\)\)/,'a receiving tight end gets a separate blocking support identity');
+assert.match(gameplay,/Object\.values\(state\.receiverStats\)\.filter\(row=>rosterIdentities\.has\(identityKey\(row\)\)\)/,'synthetic fallback receivers cannot enter persisted season stats');
 assert.match(gameplay,/state\.defenders=defStarts\.map\(\(pos,i\)=>makePlayer\('d'\+i,'defense '\+pos\[2\],null,/,'defenders use independent opponent identities and jersey numbers');
 const defensiveShell=gameplay.match(/const defStarts=\[([\s\S]*?)\n\];/)?.[1]||'';
 assert.equal((defensiveShell.match(/\[\d+,\d+,'/g)||[]).length,11,'the defensive shell contains 11 players');
