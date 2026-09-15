@@ -27,6 +27,7 @@ const art=(p,i)=>p?.simulatedFullBodyUrl||p?.fullBodyUrl||p?.fullBodyArt||fallba
 
 const qb=best(['QB'])||roster[0]||{id:'demo-qb',name:'QB',ovr:80,attributes:{}};
 const rb=best(['RB','HB','FB'])||roster.find(p=>p.position==='WR')||{id:'demo-rb',name:'J. Carter',position:'RB',ovr:82,attributes:{athleticism:84,footballIQ:80}};
+const te=best(['TE'])||{id:'demo-te',name:'M. Bryant',position:'TE',ovr:79,attributes:{receiving:78,runBlocking:81}};
 const skill=roster.filter(p=>['WR','TE','RB','HB'].includes(p.position)).sort((a,b)=>rating(b)-rating(a));
 const targets=[skill[0],skill[1],skill[2]].map((p,i)=>p||{id:'demo-rec-'+i,name:['X Receiver','Slot Receiver','Z Receiver'][i],position:'WR',ovr:80,attributes:{athleticism:80,receiving:80,footballIQ:80}});
 const ol=roster.filter(p=>['OT','LT','RT','OG','LG','RG','C'].includes(p.position)).sort((a,b)=>rating(b)-rating(a));
@@ -53,10 +54,10 @@ const scenarios=[
 const scenario=scenarios[(week-1)%scenarios.length];
 
 const passPlays={
- mesh:{name:'MESH',diagram:'↗ ⇆ ↖',routes:{x:[[18,88],[20,68],[43,55],[67,55]],slot:[[48,88],[49,68],[38,60],[25,60]],z:[[82,88],[80,69],[77,48],[76,27]]}},
- verts:{name:'4 VERTS',diagram:'↑ ↑ ↑',routes:{x:[[18,88],[18,67],[18,45],[18,20]],slot:[[48,88],[48,66],[51,43],[53,18]],z:[[82,88],[82,66],[84,42],[83,18]]}},
- flood:{name:'FLOOD',diagram:'↗ → ↑',routes:{x:[[18,88],[20,69],[34,58],[45,52]],slot:[[48,88],[50,70],[64,61],[79,60]],z:[[82,88],[82,68],[74,49],[62,36]]}},
- dagger:{name:'DAGGER',diagram:'↑ ↗ ⟂',routes:{x:[[18,88],[18,67],[21,43],[48,43]],slot:[[48,88],[49,67],[52,52],[72,52]],z:[[82,88],[82,67],[82,44],[81,23]]}}
+ mesh:{name:'MESH',diagram:'↗ ⇆ ↖',routes:{x:[[12,83],[15,68],[43,55],[67,55]],slot:[[28,84],[31,68],[40,60],[24,60]],z:[[88,83],[85,69],[79,48],[77,27]]}},
+ verts:{name:'4 VERTS',diagram:'↑ ↑ ↑',routes:{x:[[12,83],[13,66],[16,43],[18,20]],slot:[[28,84],[29,66],[36,42],[42,18]],z:[[88,83],[87,66],[85,42],[83,18]]}},
+ flood:{name:'FLOOD',diagram:'↗ → ↑',routes:{x:[[12,83],[18,69],[34,58],[45,52]],slot:[[28,84],[35,70],[58,61],[79,60]],z:[[88,83],[86,68],[76,49],[62,36]]}},
+ dagger:{name:'DAGGER',diagram:'↑ ↗ ⟂',routes:{x:[[12,83],[13,67],[21,43],[48,43]],slot:[[28,84],[31,67],[45,52],[72,52]],z:[[88,83],[87,67],[84,44],[81,23]]}}
 };
 const runPlays={
  stretch:{name:'HB STRETCH',diagram:'→ ↗',path:[[50,96],[52,90],[64,82],[77,72],[84,60],[87,46]]},
@@ -73,7 +74,7 @@ const skillBtns=[...document.querySelectorAll('.skill')];
 const state={
  score:scenario.score,opp:scenario.opp,clock:scenario.clock,ballYard:scenario.ball,down:scenario.down,toGo:scenario.toGo,timeouts:scenario.timeouts,
  mode:'pass',play:'mesh',control:'manual',live:false,throwing:false,ended:false,phase:'pre',snapAt:0,last:0,raf:0,plays:0,
- qbStats:{yards:0,td:0,int:0},receiverStats:{},rushStats:{},receivers:{},defenders:[],blockers:[],qb:null,runner:null,
+ qbStats:{yards:0,td:0,int:0},receiverStats:{},rushStats:{},receivers:{},defenders:[],blockers:[],support:[],qb:null,runner:null,
  finalWon:false,joystick:{x:0,y:0,pointerId:null},sprinting:false,stamina:100,evadeUntil:0,evadeType:'',evaded:new Set(),
  graceUntil:0,runStartY:96,playStartBall:scenario.ball,assistIndex:1,stunned:new Map(),blocked:new Map(),runElapsed:0
 };
@@ -114,28 +115,39 @@ function renderPlaybook(){
 }
 function updateSelectedPlay(){$('playType').textContent=state.mode==='pass'?'PASS PLAY':'RUN PLAY';$('selectedPlayName').textContent=currentPlay().name}
 
-const starts={x:[18,86],slot:[48,86],z:[82,86],qb:[50,93],runner:[50,97]};
-const blockerStarts=[[30,84],[40,84],[50,84],[60,84],[70,84]];
-const defStarts=[[13,67],[27,61],[39,68],[50,60],[62,67],[75,61],[88,68]];
+// A real 11-on-11 shell: five linemen, three wideouts, a tight end, QB and back
+// against a four-man front, three linebackers and four defensive backs.
+const starts={x:[12,83],slot:[28,84],z:[88,83],te:[70,84],qb:[50,92],runner:[56,96]};
+const blockerStarts=[[38,84],[44,84],[50,84],[56,84],[62,84]];
+const defStarts=[
+ [38,77,'edge'],[46,77,'line'],[54,77,'line'],[62,77,'edge'],
+ [29,67,'linebacker'],[50,65,'linebacker'],[71,67,'linebacker'],
+ [12,55,'corner'],[36,51,'safety'],[64,51,'safety'],[88,55,'corner']
+];
 const coverage=clamp(79+((week*3)%7),76,88),passRush=clamp(80+((week*5)%8),77,89),runDefense=clamp(79+((week*7)%9),76,89);
 const pocketLimit=clamp(4.2+(passPro-passRush)*.035+(qbPocket-80)*.014,3.15,5.45);
 
-function makePlayer(id,kind,p,x,y,label,i){
+function jerseyNumber(p,fallback){const value=Number(p?.jerseyNumber??p?.number);return Number.isFinite(value)&&value>0&&value<100?Math.round(value):fallback}
+function makePlayer(id,kind,p,x,y,label,i,role,number){
  const el=document.createElement('button');el.type='button';el.className='player '+kind+(id==='qb'?' qb':'');el.dataset.id=id;
+ el.dataset.fieldX=String(x);el.dataset.fieldY=String(y);el.dataset.role=role||p?.position||kind;el.dataset.number=String(jerseyNumber(p,number||((i*7+11)%89+1)));
+ el.setAttribute('aria-label',(p?.name||label||role||'Player')+' · '+(role||p?.position||kind));
  el.innerHTML='<span class="portrait-mask"><img src="'+art(p,i)+'" alt="" draggable="false"></span><span class="tag">'+label+'</span>';
  el.style.left=x+'%';el.style.top=y+'%';
  if(kind==='offense'&&['x','slot','z'].includes(id))el.addEventListener('click',()=>throwTo(id));else el.tabIndex=-1;
  field.appendChild(el);return{id,el,p,x,y,segment:0};
 }
-function setPos(p,x,y){p.x=clamp(x,4,96);p.y=clamp(y,7,99);p.el.style.left=p.x+'%';p.el.style.top=p.y+'%';p.el.style.setProperty('--scale',String(.70+p.y*.0036))}
+function setPos(p,x,y){p.x=clamp(x,4,96);p.y=clamp(y,7,99);p.el.dataset.fieldX=String(p.x);p.el.dataset.fieldY=String(p.y);p.el.style.left=p.x+'%';p.el.style.top=p.y+'%';p.el.style.setProperty('--scale',String(.70+p.y*.0036))}
 function clearPlayers(){field.querySelectorAll('.player').forEach(n=>n.remove())}
 function setup(){
  clearPlayers();
- state.blockers=blockerStarts.map((pos,i)=>makePlayer('ol'+i,'blocker',blockers[i],pos[0],pos[1],'',i));
- state.receivers={x:makePlayer('x','offense',targets[0],...starts.x,'X',0),slot:makePlayer('slot','offense',targets[1],...starts.slot,'SLOT',1),z:makePlayer('z','offense',targets[2],...starts.z,'Z',2)};
- state.qb=makePlayer('qb','offense',qb,...starts.qb,'QB',3);
- if(state.mode==='run')state.runner=makePlayer('runner','offense runner',rb,...starts.runner,'RB',1);else state.runner=null;
- state.defenders=defStarts.map((pos,i)=>makePlayer('d'+i,'defense',targets[i%3],pos[0],pos[1],'D',i));
+ state.blockers=blockerStarts.map((pos,i)=>makePlayer('ol'+i,'offense blocker',blockers[i],pos[0],pos[1],'',i,['LT','LG','C','RG','RT'][i],[72,65,58,63,76][i]));
+ state.receivers={x:makePlayer('x','offense',targets[0],...starts.x,'X',0,'WR',11),slot:makePlayer('slot','offense',targets[1],...starts.slot,'SLOT',1,'WR',17),z:makePlayer('z','offense',targets[2],...starts.z,'Z',2,'WR',81)};
+ state.qb=makePlayer('qb','offense',qb,...starts.qb,'QB',3,'QB',12);
+ state.support=[makePlayer('te','offense blocker support',te,...starts.te,'TE',4,'TE',87)];
+ if(state.mode==='run')state.runner=makePlayer('runner','offense runner',rb,...starts.runner,'RB',1,'RB',24);
+ else{state.runner=null;state.support.push(makePlayer('passrb','offense blocker support',rb,...starts.runner,'RB',1,'RB',24))}
+ state.defenders=defStarts.map((pos,i)=>makePlayer('d'+i,'defense '+pos[2],targets[i%3],pos[0],pos[1],'',i,pos[2],[91,97,94,99,52,54,45,21,31,26,23][i]));
  drawRoutes();
 }
 
@@ -162,9 +174,9 @@ function resetPlay(){
 function snap(){
  if(state.live||state.ended)return;state.live=true;state.throwing=false;state.snapAt=performance.now();state.last=state.snapAt;state.plays++;state.phase=state.mode==='pass'?'pass':'handoff';state.playStartBall=state.ballYard;state.runStartY=starts.runner[1];
  routes.style.opacity='.22';snapBtn.disabled=true;snapBtn.classList.add('live');snapBtn.querySelector('b').textContent='PLAY LIVE';[...$('playbook').querySelectorAll('button')].forEach(b=>b.disabled=true);
- if(state.mode==='pass'){targetBtns.forEach(b=>b.disabled=false);Object.values(state.receivers).forEach(r=>r.el.classList.add('run'));state.qb.el.classList.add('run');}
+ if(state.mode==='pass'){targetBtns.forEach(b=>b.disabled=false);Object.values(state.receivers).forEach(r=>r.el.classList.add('run'));state.qb.el.classList.add('run');state.support.forEach(p=>p.el.classList.add('run'));}
  else{state.runner.el.classList.add('run');state.qb.el.classList.add('run')}
- state.defenders.forEach(d=>d.el.classList.add('run'));state.blockers.forEach(b=>b.el.classList.add('run'));log('Snap',currentPlay().name);vibrate(12);state.raf=requestAnimationFrame(frame);
+ state.defenders.forEach(d=>d.el.classList.add('run'));state.blockers.forEach(b=>b.el.classList.add('run'));state.support.forEach(p=>p.el.classList.add('run'));log('Snap',currentPlay().name);vibrate(12);state.raf=requestAnimationFrame(frame);
 }
 function frame(now){
  if(!state.live)return;const dt=Math.min(.05,(now-state.last)/1000);state.last=now;
@@ -180,7 +192,11 @@ function passFrame(now,dt){
   if(pos.seg!==r.segment){r.segment=pos.seg;r.el.classList.add('cut');setTimeout(()=>r.el.classList.remove('cut'),180)}setPos(r,pos.x,pos.y);
  });
  setPos(state.qb,50,93+Math.min(3.1,elapsed*.9));
- const assign=[['x',0,3.6,2.8],['x',1,-7,5.9],['slot',2,3.3,3],['slot',3,-8,5.2],['z',4,-7,5.4],['z',5,-3.2,2.8]];
+ // The front closes the pocket while the back seven play layered coverage.
+ state.defenders.slice(0,4).forEach((d,i)=>{const gapX=[41,47,53,59][i],tx=gapX+(state.qb.x-50)*.35,ty=state.qb.y-5;setPos(d,d.x+(tx-d.x)*dt*(1.65+i*.06),d.y+(ty-d.y)*dt*(1.7+i*.05))});
+ if(state.support[0])setPos(state.support[0],70,84);
+ if(state.support[1])setPos(state.support[1],54,88.5);
+ const assign=[['x',7,3.6,2.8],['x',8,-6.5,5.9],['slot',4,3.3,3],['slot',5,-7.5,5.2],['z',10,-7,5.4],['z',9,-3.2,2.8]];
  assign.forEach(([rid,di,ox,oy],i)=>{const r=state.receivers[rid],d=state.defenders[di];if(!d)return;const route=avg(attrAny(r.p,['receiving','routeRunning'],rating(r.p)),attrAny(r.p,['footballIQ','awareness'],rating(r.p))),react=clamp(.52+(coverage-route)*.012,.24,.78),factor=Math.max(0,elapsed-react-i*.018),tx=r.x+Number(ox),ty=r.y+Number(oy),chase=clamp(4.4+(coverage-80)*.06,2.8,6.5);setPos(d,d.x+(tx-d.x)*Math.min(1,factor)*dt*chase,d.y+(ty-d.y)*Math.min(1,factor)*dt*chase)});
  updateOpen();pressure.style.width=Math.min(100,elapsed/pocketLimit*100)+'%';if(elapsed>=pocketLimit&&!state.throwing)sack();
 }
@@ -226,7 +242,8 @@ function runFrame(now,dt){
  if(elapsed>12){finishRun(false,'WHISTLE');return}
 }
 function moveRunBlockers(dt,now){
- state.blockers.forEach((b,i)=>{const lane=currentPlay().path[Math.min(2,currentPlay().path.length-1)],tx=lane[0]+(i-2)*5,ty=lane[1]+5;setPos(b,b.x+(tx-b.x)*dt*2.1,b.y+(ty-b.y)*dt*2.1);let bestD=null,best=999;state.defenders.forEach(d=>{const dist=Math.hypot((b.x-d.x)*.7,b.y-d.y);if(dist<best){best=dist;bestD=d}});if(bestD&&best<8.5){const blockChance=clamp(.62+(runBlock-runDefense)*.012,.3,.88);if(!state.blocked.has(bestD.id)&&Math.random()<blockChance){state.blocked.set(bestD.id,now+650+Math.random()*650);b.el.classList.add('blocked');setTimeout(()=>b.el.classList.remove('blocked'),450)}}});
+ const runBlockers=[...state.blockers,...state.support];
+ runBlockers.forEach((b,i)=>{const lane=currentPlay().path[Math.min(2,currentPlay().path.length-1)],tx=lane[0]+(i-(runBlockers.length-1)/2)*5,ty=lane[1]+5;setPos(b,b.x+(tx-b.x)*dt*2.1,b.y+(ty-b.y)*dt*2.1);let bestD=null,best=999;state.defenders.forEach(d=>{const dist=Math.hypot((b.x-d.x)*.7,b.y-d.y);if(dist<best){best=dist;bestD=d}});if(bestD&&best<8.5){const blockChance=clamp(.62+(runBlock-runDefense)*.012,.3,.88);if(!state.blocked.has(bestD.id)&&Math.random()<blockChance){state.blocked.set(bestD.id,now+650+Math.random()*650);b.el.classList.add('blocked');setTimeout(()=>b.el.classList.remove('blocked'),450)}}});
 }
 function moveRunDefense(dt,now,preHandoff){
  const target=state.runner||state.qb;

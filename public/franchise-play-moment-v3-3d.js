@@ -4,12 +4,14 @@ import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 
 const field = document.getElementById('field');
 const MODEL_URL = '/models/gridiron-gold-player.glb';
+const DEFENSE_TEXTURE_URL = '/models/gridiron-gold-defense.jpg';
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const FIELD_WIDTH = 19;
 const FIELD_LENGTH = 34;
 const FIELD_CENTER_Z = -5;
-const LOS_Z = percentToWorldZ(89);
+const LOS_Z = percentToWorldZ(80.5);
 const FIRST_DOWN_Z = percentToWorldZ(68);
+const numberTextureCache = new Map();
 
 if(field){document.body.dataset.bk3d='loading';boot()}
 else document.body.dataset.bk3d='fallback';
@@ -34,6 +36,11 @@ function boot(){
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   renderer.toneMapping=THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure=1.14;
+
+  const defenseTexture=new THREE.TextureLoader().load(DEFENSE_TEXTURE_URL);
+  defenseTexture.colorSpace=THREE.SRGBColorSpace;
+  defenseTexture.flipY=false;
+  defenseTexture.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
 
   const scene=new THREE.Scene();
   scene.background=new THREE.Color(0x03130f);
@@ -103,37 +110,41 @@ function boot(){
   function addActor(el){
     const root=new THREE.Group();
     const model=cloneSkinned(source);
+    const isDefense=el.classList.contains('defense');
     model.position.set(-sourceCenter.x,-sourceMinY,-sourceCenter.z);
     model.traverse(node=>{
       if(!node.isMesh)return;
       node.frustumCulled=false;
       node.castShadow=false;
       node.receiveShadow=false;
-      if(el.classList.contains('defense')){
-        const materials=Array.isArray(node.material)?node.material:[node.material];
-        const tinted=materials.map(material=>{
-          const copy=material.clone();
-          if(copy.color)copy.color.lerp(new THREE.Color(0xd8e0e8),.62);
-          if(copy.emissive){copy.emissive.set(0x24050a);copy.emissiveIntensity=.18}
-          return copy;
-        });
-        node.material=Array.isArray(node.material)?tinted:tinted[0];
-      }
+      const materials=Array.isArray(node.material)?node.material:[node.material];
+      const cloned=materials.map(material=>{
+        const copy=material.clone();
+        if(isDefense&&copy.map)copy.map=defenseTexture;
+        if(copy.color)copy.color.set(0xffffff);
+        if(copy.emissive){copy.emissive.set(isDefense?0x160207:0x02040c);copy.emissiveIntensity=.08}
+        copy.roughness=Math.max(.72,copy.roughness||0);
+        return copy;
+      });
+      node.material=Array.isArray(node.material)?cloned:cloned[0];
     });
     root.add(model);
-    root.rotation.y=el.classList.contains('defense')?0:Math.PI;
+    root.rotation.y=isDefense?0:Math.PI;
+    const kit=createTeamKit(isDefense,el.dataset.number||'0');
+    root.add(kit.group);
     scene.add(root);
-    const actor={el,root,mixer:new THREE.AnimationMixer(root),action:null,actionName:''};
+    const phase=hashUnit(el.dataset.id||'player');
+    const actor={el,root,model,kit,head:model.getObjectByName('mixamorig:Head'),mixer:new THREE.AnimationMixer(root),action:null,actionName:'',phase,isDefense,heading:isDefense?0:Math.PI,previous:new THREE.Vector3(),hasPrevious:false,profile:bodyProfile(el,phase)};
     const shadow=new THREE.Mesh(
       new THREE.CircleGeometry(.58,20),
-      new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.42,depthWrite:false})
+      new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.36,depthWrite:false})
     );
     shadow.rotation.x=-Math.PI/2;
     shadow.position.y=.015;
     root.add(shadow);
     const selector=new THREE.Mesh(
       new THREE.RingGeometry(.52,.65,26),
-      new THREE.MeshBasicMaterial({color:0xf6d260,transparent:true,opacity:.95,depthWrite:false,side:THREE.DoubleSide})
+      new THREE.MeshBasicMaterial({color:isDefense?0xd34255:0xf6d260,transparent:true,opacity:.95,depthWrite:false,side:THREE.DoubleSide})
     );
     selector.rotation.x=-Math.PI/2;
     selector.position.y=.025;
@@ -148,10 +159,8 @@ function boot(){
     actor.mixer.stopAllAction();
     actor.root.traverse(node=>{
       if(!node.isMesh||!node.material)return;
-      if(node.parent&&actor.el.classList.contains('defense')){
-        const materials=Array.isArray(node.material)?node.material:[node.material];
-        materials.forEach(material=>material.dispose());
-      }
+      const materials=Array.isArray(node.material)?node.material:[node.material];
+      materials.forEach(material=>material.dispose());
     });
     scene.remove(actor.root);
     actors.delete(id);
@@ -176,7 +185,7 @@ function boot(){
     if(el.classList.contains('catch'))return 'catch';
     if(el.classList.contains('hit'))return 'tackle';
     if(el.classList.contains('skill')||el.classList.contains('bk-sprinting'))return 'sprint';
-    if(el.classList.contains('run'))return el.classList.contains('blocker')?'block':'running';
+    if(el.classList.contains('run'))return el.classList.contains('blocker')||el.classList.contains('line')||el.classList.contains('edge')?'block':'running';
     return 'idle';
   }
 
@@ -195,6 +204,7 @@ function boot(){
     if(actor.action&&!immediate)next.crossFadeFrom(actor.action,.12,true);
     else actor.action?.stop();
     next.play();
+    if(!oneShot&&clip.duration)next.time=actor.phase*clip.duration;
     actor.action=next;
     actor.actionName=name;
   }
@@ -212,12 +222,13 @@ function boot(){
     camera.position.set(0,aspect<.82?15:9.2,aspect<.82?23:22);
     camera.lookAt(0,.55,aspect<.82?-4:-3);
     camera.updateProjectionMatrix();
+    camera.updateMatrixWorld(true);
   }
 
   function updateActor(actor){
     const el=actor.el;
-    const x=parseFloat(el.style.left||'50');
-    const y=parseFloat(el.style.top||'50');
+    const x=parseFloat(el.dataset.fieldX||el.style.left||'50');
+    const y=parseFloat(el.dataset.fieldY||el.style.top||'50');
     const style=getComputedStyle(el);
     const shiftX=parseFloat(style.getPropertyValue('--bk-shift-x'))||0;
     const shiftY=parseFloat(style.getPropertyValue('--bk-shift-y'))||0;
@@ -226,12 +237,42 @@ function boot(){
     const worldX=percentToWorldX(x)+(shiftX/Math.max(1,width))*FIELD_WIDTH;
     const worldZ=percentToWorldZ(y)+(shiftY/Math.max(1,height))*FIELD_LENGTH;
     actor.root.position.set(worldX,.025,worldZ);
+    if(actor.hasPrevious){
+      const dx=worldX-actor.previous.x,dz=worldZ-actor.previous.z;
+      if(dx*dx+dz*dz>.00002)actor.heading=lerpAngle(actor.heading,Math.atan2(dx,dz),.24);
+      else actor.heading=lerpAngle(actor.heading,actor.isDefense?0:Math.PI,.08);
+    }
+    actor.previous.set(worldX,0,worldZ);actor.hasPrevious=true;
+    actor.root.rotation.y=actor.heading;
     actor.root.renderOrder=Math.round(100-worldZ*2);
-    actor.root.scale.setScalar(scale);
+    actor.root.scale.set(scale*actor.profile.x,scale*actor.profile.y,scale*actor.profile.z);
     actor.root.visible=style.opacity!=='0'&&style.display!=='none';
     const selector=actor.root.children.find(child=>child.userData.isSelector);
     if(selector)selector.visible=el.classList.contains('open')||el.classList.contains('runner');
     setAction(actor,desiredAction(el));
+    syncHitTarget(actor,worldX,worldZ,1.86*roleScale*actor.profile.y);
+  }
+
+  function syncHitTarget(actor,worldX,worldZ,actorHeight){
+    const foot=new THREE.Vector3(worldX,.02,worldZ).project(camera);
+    const top=new THREE.Vector3(worldX,actorHeight,worldZ).project(camera);
+    const screenX=(foot.x*.5+.5)*100;
+    const topY=(-top.y*.5+.5)*height;
+    const footY=(-foot.y*.5+.5)*height;
+    const projectedHeight=Math.max(52,Math.abs(footY-topY));
+    actor.el.style.setProperty('--bk-screen-x',screenX+'%');
+    actor.el.style.setProperty('--bk-screen-y',((topY+footY)/2/height*100)+'%');
+    actor.el.style.setProperty('--bk-hit-height',Math.min(112,projectedHeight*1.08)+'px');
+    actor.el.style.setProperty('--bk-hit-width',Math.max(48,Math.min(76,projectedHeight*.62))+'px');
+  }
+
+  function syncEquipment(actor){
+    if(!actor.head)return;
+    actor.root.updateMatrixWorld(true);
+    const position=new THREE.Vector3();
+    actor.head.localToWorld(position.set(0,.055,0));
+    actor.root.worldToLocal(position);
+    actor.kit.helmet.position.copy(position);
   }
 
   function syncFootball(dt){
@@ -288,6 +329,7 @@ function boot(){
     for(const actor of actors){
       updateActor(actor[1]);
       if(!reduceMotion.matches)actor[1].mixer.update(dt);
+      syncEquipment(actor[1]);
     }
     syncFootball(dt);
     renderer.render(scene,camera);
@@ -295,6 +337,84 @@ function boot(){
 
   document.addEventListener('visibilitychange',()=>clock.getDelta());
   frame();
+}
+
+function hashUnit(value){
+  let hash=2166136261;
+  for(const character of String(value)){hash^=character.charCodeAt(0);hash=Math.imul(hash,16777619)}
+  return (hash>>>0)/4294967295;
+}
+
+function bodyProfile(el,variation){
+  const role=el.dataset.role||'';
+  if(el.classList.contains('blocker')||/^(LT|LG|C|RG|RT)$/.test(role))return{x:1.14+variation*.08,y:.95+variation*.035,z:1.08+variation*.07};
+  if(el.classList.contains('line')||el.classList.contains('edge'))return{x:1.09+variation*.08,y:.97+variation*.05,z:1.06+variation*.07};
+  if(el.classList.contains('linebacker'))return{x:1.04+variation*.065,y:.99+variation*.055,z:1.03+variation*.05};
+  if(el.classList.contains('qb'))return{x:.99+variation*.035,y:1.01+variation*.035,z:1};
+  return{x:.93+variation*.055,y:1+variation*.065,z:.95+variation*.04};
+}
+
+function lerpAngle(from,to,amount){
+  const delta=Math.atan2(Math.sin(to-from),Math.cos(to-from));
+  return from+delta*amount;
+}
+
+function createTeamKit(isDefense,number){
+  const group=new THREE.Group();
+  const primary=isDefense?0x721229:0x071936;
+  const secondary=isDefense?0xe8c96a:0xe8c96a;
+  const helmet=new THREE.Group();
+  const shell=new THREE.Mesh(
+    new THREE.SphereGeometry(.137,18,12,0,Math.PI*2,0,Math.PI*.76),
+    new THREE.MeshStandardMaterial({color:primary,roughness:.42,metalness:.16})
+  );
+  shell.scale.set(1,.91,1.04);
+  helmet.add(shell);
+  const stripe=new THREE.Mesh(
+    new THREE.BoxGeometry(.024,.125,.235),
+    new THREE.MeshStandardMaterial({color:secondary,roughness:.48,metalness:.08})
+  );
+  stripe.position.y=.012;
+  helmet.add(stripe);
+  group.add(helmet);
+
+  const shoulderMaterial=new THREE.MeshStandardMaterial({color:primary,roughness:.66,metalness:.04});
+  for(const x of [-.245,.245]){
+    const cap=new THREE.Mesh(new THREE.SphereGeometry(.105,12,8),shoulderMaterial);
+    cap.scale.set(1.25,.62,1.18);
+    cap.position.set(x,1.315,0);
+    group.add(cap);
+  }
+
+  const panelMaterial=new THREE.MeshBasicMaterial({map:numberTexture(isDefense,number),transparent:true,alphaTest:.08,side:THREE.FrontSide,depthWrite:false});
+  const back=new THREE.Mesh(new THREE.PlaneGeometry(.235,.285),panelMaterial);
+  back.position.set(0,1.195,.154);
+  group.add(back);
+  const front=back.clone();
+  front.position.z=-.154;
+  front.rotation.y=Math.PI;
+  group.add(front);
+  return{group,helmet};
+}
+
+function numberTexture(isDefense,number){
+  const key=(isDefense?'defense:':'offense:')+number;
+  if(numberTextureCache.has(key))return numberTextureCache.get(key);
+  const canvas=document.createElement('canvas');
+  canvas.width=128;canvas.height=160;
+  const context=canvas.getContext('2d');
+  const primary=isDefense?'#721229':'#071936';
+  context.fillStyle=primary;
+  context.beginPath();context.roundRect(7,7,114,146,20);context.fill();
+  context.strokeStyle='#e8c96a';context.lineWidth=6;context.stroke();
+  context.fillStyle='#fff7df';context.textAlign='center';context.textBaseline='middle';
+  context.font='900 82px Arial Black, system-ui, sans-serif';context.fillText(String(number).slice(0,2),64,83);
+  const texture=new THREE.CanvasTexture(canvas);
+  texture.colorSpace=THREE.SRGBColorSpace;
+  texture.minFilter=THREE.LinearMipmapLinearFilter;
+  texture.magFilter=THREE.LinearFilter;
+  numberTextureCache.set(key,texture);
+  return texture;
 }
 
 function percentToWorldX(percent){
