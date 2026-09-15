@@ -5,6 +5,7 @@ on:
     paths:
       - 'public/play-moment-3d/**'
       - 'scripts/check-play-moment-night-stadium.*'
+      - 'scripts/check-play-moment-night.py'
       - '.github/workflows/play-moment-3d-night-stadium.yml'
   workflow_dispatch:
 permissions:
@@ -15,7 +16,7 @@ concurrency:
 jobs:
   presentation-fixtures:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
         with:
@@ -28,14 +29,16 @@ jobs:
           python-version: '3.12'
       - name: Geometry, budgets and board orientation
         run: node scripts/check-play-moment-night-stadium.mjs
-      - run: python -m pip install playwright==1.57.0
+      - run: python -m pip install playwright==1.57.0 pillow
       - run: python -m playwright install --with-deps chromium
       - name: Render offline stadium fixtures at three screen sizes
         run: python scripts/check-play-moment-night-stadium.py --output artifacts/night-stadium
+      - name: Exercise playable camera-relative cuts and night renderer
+        run: BK_NIGHT_RESULTS=artifacts/night-game python scripts/check-play-moment-night.py 932 430
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: night-stadium-fixtures
-          path: artifacts/night-stadium
+          path: artifacts
           if-no-files-found: ignore
           retention-days: 3
