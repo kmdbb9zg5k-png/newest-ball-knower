@@ -25,6 +25,7 @@ export function pocketPressure(nearestRusherDistance,seconds){
  const proximity=clamp((4-nearestRusherDistance)/3.25,0,1),late=clamp((seconds-2.1)/3,0,1);
  return clamp(proximity*.78+late*.3,0,1);
 }
+export function sackLoss(scrimmageZ,qbZ){return clamp(Math.round(scrimmageZ-qbZ)+1,3,12)}
 export function passOutcomeChances(separation,pressure,kind='bullet',receiverGap=0,defenderLeverage=0){
  const profile=THROW_PROFILES[kind]||THROW_PROFILES.bullet;
  return{
@@ -101,7 +102,7 @@ export function start(){
   if(phase==='pass'||phase==='flight'){coverage(dt);blockers(dt,false);const qb=actors[5];
    if(phase==='pass'){
     let x=input.x,z=input.z;const kx=(keys.has('ArrowRight')||keys.has('d')?1:0)-(keys.has('ArrowLeft')||keys.has('a')?1:0),kz=(keys.has('ArrowUp')||keys.has('w')?1:0)-(keys.has('ArrowDown')||keys.has('s')?1:0);if(kx||kz){const len=Math.hypot(kx,kz);x=kx/len;z=kz/len}if(x||z){[x,z]=cameraWorldVector(x,z,camEye,camTarget);move(qb,clamp(qb.x+x*4.15*dt,-9.5,9.5),clamp(qb.z+z*4.15*dt,snapZ-11,snapZ-2.1),dt,9)}else move(qb,qb.x,qb.z,dt);
-    const rushers=actors.slice(11,15).filter(p=>!p.engaged),nearest=Math.min(...rushers.map(p=>Math.hypot(p.x-qb.x,p.z-qb.z)),8),pressure=pocketPressure(nearest,elapsed);$('stamina').firstElementChild.style.width=(pressure*100)+'%';$('instruction').textContent='MOVE QB · HOLD TARGET FOR TOUCH / LOB · PRESSURE '+Math.round(pressure*100)+'%';if(nearest<.92||pressure>=.995){endPlay('SACK',drive.ball-Math.max(3,Math.round(snapZ-qb.z)));return}
+    const rushers=actors.slice(11,15).filter(p=>!p.engaged),nearest=Math.min(...rushers.map(p=>Math.hypot(p.x-qb.x,p.z-qb.z)),8),pressure=pocketPressure(nearest,elapsed);$('stamina').firstElementChild.style.width=(pressure*100)+'%';$('instruction').textContent='MOVE QB · HOLD TARGET FOR TOUCH / LOB · PRESSURE '+Math.round(pressure*100)+'%';if(nearest<.92||pressure>=.995){endPlay('SACK',drive.ball-sackLoss(snapZ,qb.z));return}
    }
    if(flight){flight.t+=dt/flight.duration;qb.throwT=clamp(flight.t,.001,1);if(flight.t>=1){const p=actors[flight.target],defenders=actors.filter(a=>a.team===1),closest=defenders.reduce((a,b)=>Math.hypot(a.x-flight.to[0],a.z-flight.to[2])<Math.hypot(b.x-flight.to[0],b.z-flight.to[2])?a:b),defenderBallDistance=Math.hypot(closest.x-flight.to[0],closest.z-flight.to[2]),receiverGap=Math.hypot(p.x-flight.to[0],p.z-flight.to[2]),distance=Math.min(...defenders.map(a=>Math.hypot(a.x-p.x,a.z-p.z))),leverage=clamp((receiverGap-defenderBallDistance+1)/2,0,1),chances=passOutcomeChances(distance,flight.pressure,flight.kind,receiverGap,leverage),roll=rand();flight=null;qb.throwT=0;if(defenderBallDistance<1.85&&roll<chances.interception){closest.hasBall=true;carrier=closest;message('INTERCEPTED',1.2);endDrive('INTERCEPTED','The defender undercut the throw. Mix trajectory, timing and pocket movement on the next drive.');return}if(receiverGap>2.2||roll<chances.interception+chances.inaccurate){endPlay('INACCURATE PASS',drive.ball,true);return}if(roll<chances.interception+chances.inaccurate+chances.breakup){const miss=distance>=2?'DROPPED PASS':distance<.7?'TIGHT WINDOW · PASS BROKEN UP':'PASS BROKEN UP';endPlay(miss,drive.ball,true);return}p.hasBall=true;p.catchT=.35;carrier=p;phase='run';elapsed=0;updateControls();message(distance<2?'CONTESTED CATCH · TAKE CONTROL':'COMPLETE · TAKE CONTROL',1)}}
    return;

@@ -7,6 +7,7 @@ import {
   passOutcomeChances,
   pocketPressure,
   receiverSlotForKey,
+  sackLoss,
   tackleRadius,
   THROW_PROFILES,
   throwKindForHold,
@@ -59,6 +60,10 @@ assert.equal(pocketPressure(8, 0), 0);
 assert.ok(pocketPressure(2, 2) > pocketPressure(4, 2), 'A closer rusher must create more pressure');
 assert.ok(pocketPressure(4, 5) > pocketPressure(4, 2), 'A late pocket must become less stable');
 assert.equal(pocketPressure(0, 8), 1);
+assert.equal(sackLoss(108, 103), 6, 'A stationary-pocket sack should preserve the established six-yard loss');
+assert.equal(sackLoss(108, 105), 4, 'Climbing the pocket should reduce sack depth');
+assert.equal(sackLoss(108, 99), 10, 'Dropping deeper should cost more yardage');
+assert.equal(sackLoss(108, 80), 12, 'Sack loss must stay bounded');
 
 assert.deepEqual([0, 1, 2, 3].map(coverageShell), ['man', 'quarters', 'zone', 'robber']);
 const cleanWindow = passOutcomeChances(2.5, .1, 'touch', .25, 0);
