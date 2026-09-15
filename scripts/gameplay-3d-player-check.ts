@@ -14,6 +14,10 @@ assert.doesNotMatch(html,/type="importmap"/,'brittle runtime import map was remo
 assert.match(html,/defer src="\/franchise-play-moment-v3-3d\.bundle\.js"/,'self-contained 3D bundle is loaded');
 assert.match(renderer,/new THREE\.WebGLRenderer/,'renderer creates a WebGL surface');
 assert.equal((renderer.match(/new THREE\.WebGLRenderer/g)||[]).length,1,'gameplay uses one shared WebGL renderer');
+assert.match(renderer,/new THREE\.PerspectiveCamera/,'gameplay uses a broadcast-style perspective camera');
+assert.match(renderer,/createStadium\(scene\)/,'renderer builds the field and stadium in 3D');
+assert.match(renderer,/syncRoutes\(\)/,'play art is projected onto the 3D field');
+assert.match(renderer,/syncFootball\(dt\)/,'the live football is projected into the 3D scene');
 assert.match(renderer,/cloneSkinned\(source\)/,'skinned model is safely cloned for each athlete');
 assert.match(renderer,/document\.body\.dataset\.bk3d='fallback'/,'2D fallback is retained');
 for(const action of ['idle','running','sprint','throw','catch','block','tackle','celebrate']){
@@ -22,6 +26,7 @@ for(const action of ['idle','running','sprint','throw','catch','block','tackle',
 assert.match(css,/pointer-events:none/,'3D layer cannot block gameplay input');
 assert.match(css,/data-bk3d="ready"/,'portraits hide only after successful 3D setup');
 assert.doesNotMatch(css,/data-bk-3d/,'CSS reads the same data attribute written by the renderer');
+assert.match(css,/\.routes\{visibility:hidden\}/,'flat route art is replaced by projected 3D routes');
 assert.match(gameplay,/bk-sprinting/,'sprint state is exposed to the animation renderer');
 
 const bundle=read('public/franchise-play-moment-v3-3d.bundle.js');

@@ -6,8 +6,24 @@
   display:block;
   width:100%;
   height:100%;
+  opacity:0;
+  transition:opacity .22s ease;
   pointer-events:none;
 }
+
+body[data-bk3d="ready"] #field > .bk-3d-layer{opacity:1}
+
+body[data-bk3d="ready"] #field:before,
+body[data-bk3d="ready"] #field:after,
+body[data-bk3d="ready"] #field .endzone,
+body[data-bk3d="ready"] #field .yardnum,
+body[data-bk3d="ready"] #field .hash,
+body[data-bk3d="ready"] #field .los,
+body[data-bk3d="ready"] #field .first{
+  opacity:0!important;
+}
+
+body[data-bk3d="ready"] #field .routes{visibility:hidden}
 
 body[data-bk3d="ready"] #field .player .portrait-mask{
   opacity:0!important;
@@ -17,11 +33,13 @@ body[data-bk3d="ready"] #field .player .portrait-mask{
 
 body[data-bk3d="ready"] #field .player{
   background:transparent!important;
+  filter:none!important;
 }
 
-body[data-bk3d="ready"] #field .player.defense:after{
-  background:rgba(125,18,32,.72);
-}
+body[data-bk3d="ready"] #field .player:after,
+body[data-bk3d="ready"] #field .player .tag{opacity:0!important}
+
+body[data-bk3d="ready"] #field .ball{opacity:0!important}
 
 @media (prefers-reduced-motion:reduce){
   #field > .bk-3d-layer{transition:none}
