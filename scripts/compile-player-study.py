@@ -44,7 +44,8 @@ def compile_study(folder):
         shoulder=joints[f'joint-{label}-shoulder'];delta=rest-shoulder
         angle=-side*np.deg2rad(23);c=np.cos(angle);s=np.sin(angle)
         rotated=np.stack([c*delta[:,0]-s*delta[:,1],s*delta[:,0]+c*delta[:,1],delta[:,2]],axis=1)+shoulder
-        weight=smooth(1.3,2.7,side*rest[:,0])*smooth(1.6,3.1,rest[:,1])*(1-smooth(6.0,6.8,rest[:,1]))
+        lower_mask=np.maximum(smooth(1.6,3.1,rest[:,1]),smooth(2.7,3.4,np.abs(rest[:,0])))
+        weight=smooth(1.3,2.7,side*rest[:,0])*lower_mask*(1-smooth(6.0,6.8,rest[:,1]))
         posed+= (rotated-rest)*weight[:,None]
     final=posed.copy();final[:,1]-=ground;final*=factor
     output=defaultdict(lambda:{'v':[],'ix':[]});lookup=defaultdict(dict)
@@ -52,7 +53,7 @@ def compile_study(folder):
         p=rest[[x[0] for x in face]].mean(0);x,y,z=p
         side='l' if x>=0 else 'r';a=joints[f'joint-{side}-shoulder'];b=joints[f'joint-{side}-elbow']
         axis=b-a;t=float(np.dot(p-a,axis)/np.dot(axis,axis))
-        arm=abs(x)>1.85 and y>1.8
+        arm=(abs(x)>1.85 and y>1.8) or abs(x)>3.2
         exposed=arm and t>.40
         if source=='body':
             return 'skin' if y>7.0 or exposed else None
