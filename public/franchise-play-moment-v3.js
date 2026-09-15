@@ -28,8 +28,11 @@ const art=(p,i)=>p?.simulatedFullBodyUrl||p?.fullBodyUrl||p?.fullBodyArt||fallba
 const qb=best(['QB'])||roster[0]||{id:'demo-qb',name:'QB',ovr:80,attributes:{}};
 const rb=best(['RB','HB','FB'])||roster.find(p=>p.position==='WR')||{id:'demo-rb',name:'J. Carter',position:'RB',ovr:82,attributes:{athleticism:84,footballIQ:80}};
 const te=best(['TE'])||{id:'demo-te',name:'M. Bryant',position:'TE',ovr:79,attributes:{receiving:78,runBlocking:81}};
-const skill=roster.filter(p=>['WR','TE','RB','HB'].includes(p.position)).sort((a,b)=>rating(b)-rating(a));
-const targets=[skill[0],skill[1],skill[2]].map((p,i)=>p||{id:'demo-rec-'+i,name:['X Receiver','Slot Receiver','Z Receiver'][i],position:'WR',ovr:80,attributes:{athleticism:80,receiving:80,footballIQ:80}});
+const identityKey=p=>String(p?.id||[p?.name,p?.position].filter(Boolean).join(':'));
+const supportIdentities=new Set([qb,rb,te].map(identityKey));
+const seenReceiverIdentities=new Set();
+const receivers=roster.filter(p=>p.position==='WR'&&!supportIdentities.has(identityKey(p))).sort((a,b)=>rating(b)-rating(a)).filter(p=>{const key=identityKey(p);if(seenReceiverIdentities.has(key))return false;seenReceiverIdentities.add(key);return true});
+const targets=[receivers[0],receivers[1],receivers[2]].map((p,i)=>p||{id:'demo-rec-'+i,name:['X Receiver','Slot Receiver','Z Receiver'][i],position:'WR',ovr:80,attributes:{athleticism:80,receiving:80,footballIQ:80}});
 const ol=roster.filter(p=>['OT','LT','RT','OG','LG','RG','C'].includes(p.position)).sort((a,b)=>rating(b)-rating(a));
 const blockers=[0,1,2,3,4].map((_,i)=>ol[i]||{id:'demo-ol-'+i,name:'OL',position:'OL',ovr:78,attributes:{passBlocking:78,runBlocking:78}});
 
@@ -147,7 +150,7 @@ function setup(){
  state.support=[makePlayer('te','offense blocker support',te,...starts.te,'TE',4,'TE',87)];
  if(state.mode==='run')state.runner=makePlayer('runner','offense runner',rb,...starts.runner,'RB',1,'RB',24);
  else{state.runner=null;state.support.push(makePlayer('passrb','offense blocker support',rb,...starts.runner,'RB',1,'RB',24))}
- state.defenders=defStarts.map((pos,i)=>makePlayer('d'+i,'defense '+pos[2],targets[i%3],pos[0],pos[1],'',i,pos[2],[91,97,94,99,52,54,45,21,31,26,23][i]));
+ state.defenders=defStarts.map((pos,i)=>makePlayer('d'+i,'defense '+pos[2],null,pos[0],pos[1],'',i,pos[2],[91,97,94,99,52,54,45,21,31,26,23][i]));
  drawRoutes();
 }
 
