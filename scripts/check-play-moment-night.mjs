@@ -22,6 +22,9 @@ const qualityState={quality:'balanced'};
 for(const invalid of ['toString','__proto__','unknown',null]){Renderer.prototype.setQuality.call(qualityState,invalid);assert.equal(qualityState.quality,'balanced');}
 assert.equal(GRAPHICS_TIERS.eco.shadow,0);assert.equal(GRAPHICS_TIERS.high.shadow,2048);
 assert.ok(Object.values(GRAPHICS_TIERS).every(t=>t.dpr<=2&&t.shadow<=2048));
+const rendererSource=readFileSync(new URL('../public/play-moment-3d/renderer.js',import.meta.url),'utf8');
+assert.match(rendererSource,/this\.setQuality\('high'\)/,'The preview must always launch in High graphics');
+assert.doesNotMatch(rendererSource,/installQualityControls/,'Graphics quality must not be player-selectable');
 assert.deepEqual([...mul(identity(),pose(1,2,3))],[...pose(1,2,3)]);
 assert.deepEqual(point(pose(1,2,3),[0,0,0]),[1,2,3]);
 for(const f of ['renderer','athlete','geometry','stadium','game']){

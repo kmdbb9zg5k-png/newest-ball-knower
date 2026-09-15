@@ -55,16 +55,18 @@ if __name__=='__main__':
         d=diag(page);g=graphics(page)
         assert len(d['players'])==22 and sum(x['team']==0 for x in d['players'])==11
         assert d['drive']['ball']==85 and d['drive']['clock']==63
-        assert d['glError']==0 and g['shadowAvailable'] and g['shadowSize']==1024
+        assert d['glError']==0 and g['quality']=='high' and g['shadowAvailable'] and g['shadowSize']==2048
+        assert g['canvas']==[round(w*2),round(h*2)],g
+        assert page.locator('.graphics-settings').count()==0 and page.locator('[data-bk-quality]').count()==0
         assert g['overflows']==0 and g['drawCalls']<55 and 0<g['shadowDrawCalls']<18
-        result['checks'].append('22 actors; red-zone entry; night shaders/depth target; bounded draw calls; zero overflow')
+        result['checks'].append('22 actors; red-zone entry; forced High graphics with no player selector; bounded draw calls; zero overflow')
         page.click('#pause');before=diag(page)
         for tier,size,ratio in [('eco',0,1),('high',2048,2),('balanced',1024,1.5),('high',2048,2)]:
-            page.click('[data-bk-quality="'+tier+'"]');step(page,0);g=graphics(page)
+            page.evaluate('(tier)=>bkSetGraphicsQualityForQA(tier)',tier);step(page,0);g=graphics(page)
             assert g['shadowSize']==size and g['canvas']==[round(w*ratio),round(h*ratio)],g
             assert diag(page)['players']==before['players'] and diag(page)['drive']==before['drive']
             assert diag(page)['glError']==0
-        result['checks'].append('low-power/balanced/high switching; correct resolution; paused state/pose retained')
+        result['checks'].append('QA-only fallback tier switching; correct resolution; paused state/pose retained')
         page.click('#resume');page.click('#passTab');step(page,.2)
         page.screenshot(path=str(OUT/f'night-presnap-{w}x{h}.png'))
         for i in range(4):
@@ -76,6 +78,13 @@ if __name__=='__main__':
             page.keyboard.press('1');step(page,1.0)
             assert diag(page)['phase'] in ['run','dead','pre']
         result['checks'].append('all four pass concepts; moving receivers; pocket framing; target throws')
+        restart(page);page.click('#passTab');page.click('#snap');step(page,.2)
+        page.keyboard.down('ArrowUp');step(page,1.45);page.keyboard.up('ArrowUp')
+        scrambled=diag(page)
+        assert scrambled['phase']=='run' and scrambled['players'][5]['hasBall'] and not scrambled['assist'],scrambled
+        assert scrambled['players'][5]['z']>=scrambled['field']['scrimmage']+.15,scrambled
+        assert page.locator('#target-7').count()==0 or not page.locator('#target-7').is_visible()
+        result['checks'].append('quarterback crosses the line of scrimmage, keeps possession and enters manual run control')
         restart(page);page.click('#runTab');page.click('#snap');step(page,.6)
         assert diag(page)['phase']=='run'
         stick=page.locator('#stick').bounding_box();sprint=page.locator('#sprint').bounding_box()
@@ -107,10 +116,10 @@ if __name__=='__main__':
         result['checks'].append('sack, next-down reset and controls recovery')
         shade=browser.new_page(viewport={'width':w,'height':h},device_scale_factor=1)
         load(shade,redzone=True)
-        shade.evaluate("document.querySelector('[data-bk-quality=balanced]').click()")
+        shade.evaluate("bkSetGraphicsQualityForQA('balanced')")
         on=OUT/f'shadow-on-{w}x{h}.png';off=OUT/f'shadow-off-{w}x{h}.png'
         snap_canvas(shade,on)
-        shade.evaluate("document.querySelector('[data-bk-quality=eco]').click()")
+        shade.evaluate("bkSetGraphicsQualityForQA('eco')")
         snap_canvas(shade,off)
         from PIL import Image,ImageChops
         diff=ImageChops.difference(Image.open(on).convert('RGB'),Image.open(off).convert('RGB'))

@@ -113,7 +113,7 @@ export class Renderer{
   this.canvas=canvas;const gl=canvas.getContext('webgl2',{antialias:true,alpha:false,powerPreference:'high-performance'});
   if(!gl)throw new Error('WebGL2 unavailable');this.gl=gl;this.batches=new Map();this.actorPass=false;
   this.eye=[0,18,0];this.target=[0,0,40];this.vp=identity();this.lightVP=identity();this.drawCalls=0;this.shadowDrawCalls=0;this.lost=false;
-  this.shadowTexture=null;this.shadowBuffer=null;this.shadowAvailable=false;this.shadowSize=0;this.quality='balanced';this.overflows=0;
+  this.shadowTexture=null;this.shadowBuffer=null;this.shadowAvailable=false;this.shadowSize=0;this.quality='high';this.overflows=0;
   canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();this.lost=true;const box=document.getElementById('error'),text=document.getElementById('errorText');if(box)box.hidden=false;if(text)text.textContent='Graphics paused. Reload this practice page to restart. Your career is unchanged.'});
   this.program=program(gl,vertex,fragment);this.depthProgram=program(gl,depthVertex,depthFragment);
   this.skyProgram=program(gl,skyVertex,skyFragment);this.skyVao=gl.createVertexArray();
@@ -126,9 +126,10 @@ export class Renderer{
   this.neutralShadow=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,this.neutralShadow);
   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([255,255,255,255]));
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
-  const requested=new URLSearchParams(location.search).get('graphics');
-  this.setQuality(Object.prototype.hasOwnProperty.call(GRAPHICS_TIERS,requested)?requested:'balanced');this.installQualityControls();
-  if(new URLSearchParams(location.search).has('qa'))window.bkGraphicsDiagnostics=()=>({quality:this.quality,shadowAvailable:this.shadowAvailable,shadowSize:this.shadowSize,shadowDrawCalls:this.shadowDrawCalls,drawCalls:this.drawCalls,textureCount:this.textures.size,overflows:this.overflows,eye:this.eye,target:this.target,canvas:[canvas.width,canvas.height]});
+  // The practice experience always launches at full fidelity. Lower tiers remain
+  // internal only so automated fallback checks can still exercise weak hardware.
+  this.setQuality('high');
+  if(new URLSearchParams(location.search).has('qa')){window.bkSetGraphicsQualityForQA=tier=>this.setQuality(tier);window.bkGraphicsDiagnostics=()=>({quality:this.quality,shadowAvailable:this.shadowAvailable,shadowSize:this.shadowSize,shadowDrawCalls:this.shadowDrawCalls,drawCalls:this.drawCalls,textureCount:this.textures.size,overflows:this.overflows,eye:this.eye,target:this.target,canvas:[canvas.width,canvas.height]})}
  }
  texture(name,canvas){
   const gl=this.gl;const previous=this.textures.get(name);if(previous)gl.deleteTexture(previous);
@@ -155,13 +156,6 @@ export class Renderer{
   const ok=gl.checkFramebufferStatus(gl.FRAMEBUFFER)===gl.FRAMEBUFFER_COMPLETE;gl.bindFramebuffer(gl.FRAMEBUFFER,null);
   if(!ok){gl.deleteFramebuffer(buffer);gl.deleteTexture(texture);console.warn('Using contact shadows: depth framebuffer unavailable.');return;}
   this.shadowBuffer=buffer;this.shadowTexture=texture;this.shadowSize=size;this.shadowAvailable=true;
- }
- installQualityControls(){
-  const host=document.querySelector('#paused>div');if(!host||host.querySelector('.graphics-settings'))return;
-  const wrap=document.createElement('fieldset');wrap.className='graphics-settings';const legend=document.createElement('legend');legend.textContent='GRAPHICS';wrap.appendChild(legend);
-  const row=document.createElement('div');for(const [key,label]of[['eco','LOW POWER'],['balanced','BALANCED'],['high','HIGH']]){
-   const b=document.createElement('button');b.type='button';b.textContent=label;b.dataset.bkQuality=key;b.setAttribute('aria-pressed',String(key===this.quality));b.onclick=()=>this.setQuality(key);row.appendChild(b);
-  }wrap.appendChild(row);const note=document.createElement('small');note.textContent='Higher settings use more battery. Gameplay is unchanged.';wrap.appendChild(note);host.insertBefore(wrap,document.getElementById('resume'));
  }
  resize(){const r=this.canvas.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,GRAPHICS_TIERS[this.quality].dpr);this.width=Math.max(1,r.width);this.height=Math.max(1,r.height);this.canvas.width=Math.max(1,Math.round(this.width*d));this.canvas.height=Math.max(1,Math.round(this.height*d));this.gl.viewport(0,0,this.canvas.width,this.canvas.height)}
  camera(eye,target){this.eye=eye;this.target=target;this.vp=mul(projection(this.width/this.height),view(eye,target))}

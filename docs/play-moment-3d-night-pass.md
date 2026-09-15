@@ -10,7 +10,7 @@ Continue draft PR #301 from d653050. Implement the approved players/lighting dir
 - Dark stadium surroundings, sky gradient, light-bank halos, rails, ribbon lighting and corner pylons. Turf markings and the 22-player formation are retained.
 - Lower presentation camera with the existing pocket-fit safety checks. No changes to play routes, movement/collision rules, scoring or controls.
 - Pause > Graphics: Low Power / Balanced / High, with bounded pixel ratio, resource cleanup on switches and a contact-shadow fallback when a depth framebuffer is unsupported. Settings remain in memory.
-- Optional `?scenario=redzone` starts practice at OPP 15 with 1:03; the default two-minute starting situation remains unchanged. Optional `graphics=high` selects High on entry. Restart restores the selected practice situation.
+- Optional `?scenario=redzone` starts practice at OPP 15 with 1:03; the default two-minute starting situation remains unchanged. High graphics are always active with no player-facing selector. Restart restores the selected practice situation.
 - QA manual stepping now cancels the automatic render loop on explicitly requested QA URLs, avoiding simultaneous automatic/manual frames in software-rendered tests. Normal play still uses the animation loop.
 
 ## Verification performed

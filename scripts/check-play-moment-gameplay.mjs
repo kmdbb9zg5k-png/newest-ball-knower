@@ -4,8 +4,10 @@ import {
   catchBreakupChance,
   coverageShell,
   defenderPursuitSpeed,
+  hasCrossedScrimmage,
   passOutcomeChances,
   pocketPressure,
+  qbMovementSpeed,
   receiverSlotForKey,
   sackLoss,
   tackleRadius,
@@ -64,6 +66,11 @@ assert.equal(sackLoss(108, 103), 6, 'A stationary-pocket sack should preserve th
 assert.equal(sackLoss(108, 105), 4, 'Climbing the pocket should reduce sack depth');
 assert.equal(sackLoss(108, 99), 10, 'Dropping deeper should cost more yardage');
 assert.equal(sackLoss(108, 80), 12, 'Sack loss must stay bounded');
+assert.equal(hasCrossedScrimmage(100.14, 100), false);
+assert.equal(hasCrossedScrimmage(100.15, 100), true);
+assert.equal(qbMovementSpeed(0), 4.4);
+assert.equal(qbMovementSpeed(6), 4.4);
+assert.equal(qbMovementSpeed(6.01), 5.8, 'A quarterback outside the tackle box should accelerate into a rollout');
 
 assert.deepEqual([0, 1, 2, 3].map(coverageShell), ['man', 'quarters', 'zone', 'robber']);
 const cleanWindow = passOutcomeChances(2.5, .1, 'touch', .25, 0);
@@ -80,10 +87,13 @@ assert.match(source, /p\.team===1&&!p\.engaged/, 'An engaged defender should not
 assert.match(source, /CONTESTED CATCH · TAKE CONTROL/, 'Contested catches need player feedback');
 assert.match(source, /TIGHT WINDOW · PASS BROKEN UP/, 'Tight-window incompletions need player feedback');
 assert.match(source, /DROPPED PASS/, 'Open-target drops must not be mislabeled as breakups');
-assert.match(source, /nearest<\.92\|\|pressure>=\.995/, 'Sacks must come from pocket pressure rather than a fixed timer');
+assert.match(source, /if\(nearest<\.92\)/, 'Sacks must require actual rusher contact');
+assert.doesNotMatch(source, /pressure>=\.995/, 'Pressure alone must not create an invisible sack');
 assert.doesNotMatch(source, /elapsed>4\.6/, 'The old fixed sack timer must stay removed');
-assert.match(source, /MOVE QB · HOLD TARGET FOR TOUCH \/ LOB/, 'Passing controls need to teach pocket movement and trajectories');
+assert.match(source, /MOVE QB · TAP\/HOLD TARGET · CROSS BLUE LINE TO RUN/, 'Passing controls need to teach trajectories and the scramble boundary');
 assert.match(source, /endDrive\('INTERCEPTED'/, 'Interceptions must create a real turnover result');
+assert.match(source, /QB SCRAMBLE · TAKE CONTROL/, 'Crossing the line of scrimmage must transition the quarterback to a runner');
+assert.match(source, /phase='run';assist=false;elapsed=0/, 'A scramble must always hand manual control back to the player');
 
 console.log(JSON.stringify({
   status: 'PASS',
@@ -94,5 +104,5 @@ console.log(JSON.stringify({
   pursuitSamples: 4,
   throwTypes: Object.keys(THROW_PROFILES),
   coverageShells: [0, 1, 2, 3].map(coverageShell),
-  checks: 'X/Y/Z and 1/2/3 throws, tap/hold and modifier trajectories, movable QB pocket, proximity pressure and sacks, four coverage shells, interceptions, coverage-scaled outcomes, contact windows, pursuit balance and simulation-time jukes',
+  checks: 'X/Y/Z and 1/2/3 throws, tap/hold and modifier trajectories, movable QB pocket, rollout acceleration, line-of-scrimmage scramble transition, contact-only sacks, four coverage shells, interceptions, coverage-scaled outcomes, contact windows, pursuit balance and simulation-time jukes',
 }, null, 2));

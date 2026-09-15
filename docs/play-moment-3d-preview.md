@@ -52,10 +52,12 @@ Reproduce after installing Python Playwright and an available Chromium build:
 ## Gameplay controls
 
 - Before a pass, use the left stick or WASD/arrow keys to climb, drift or escape the pocket.
+- The quarterback can roll outside the tackle box and accelerates there. Cross the blue line of scrimmage to become a runner; passing is disabled after crossing.
 - Tap a receiver badge for a bullet, hold briefly for touch, or hold longer for a lob.
 - On a keyboard, use X/Y/Z (or 1/2/3); hold Shift for touch or Alt for a lob.
 - The center bar becomes a live pocket-pressure meter during pass plays. Sacks are caused by rusher proximity and a collapsing pocket rather than a fixed timer.
 - The four pass concepts face man, quarters, zone and robber behavior respectively. Defenders can undercut inaccurate, pressured or late throws for interceptions.
+- The preview always launches in High graphics. There is no player-facing graphics selector.
 Set CHROMIUM_PATH/DISPLAY as required for your environment. Screenshot/check JSON results
 are written outside the repository to /tmp/bk-3d-checks by default. The harness uses explicit
 QA stepping for repeatable simulation checks; actual touch controls still require phone QA.
