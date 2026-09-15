@@ -53,6 +53,8 @@ SCENE=r'''async({urls,model})=>{
   const front=mul(translate(0,1.38,.194),mul(rx(-Math.PI/2),scale(.28,-1,-.32)));
   const back=mul(translate(0,1.38,-.119),mul(rx(Math.PI/2),scale(-.28,-1,.32)));
   for(const m of[front,back])r.add('plane',m,[1,1,1,1],'jersey-0-11',false,0,2);
+  // A narrow fitted waistband separates the tucked jersey from football pants.
+  for(let i=0;i<40;i++){const a=i/40*Math.PI*2,b=(i+1)/40*Math.PI*2;r.add('cylinder',segment([Math.cos(a)*.16,1.018,.032+Math.sin(a)*.121],[Math.cos(b)*.16,1.018,.032+Math.sin(b)*.121],.006),dark,'',false,0,2);}
   for(const a of model.ankles)r.add('playerCleat',pose(a[0],.007,a[2]+.045,.084,.10,.16),dark,'',false,.10,1);
   if(view!=='faceBare')equipment();
   r.actorPass=false;r.draw();
