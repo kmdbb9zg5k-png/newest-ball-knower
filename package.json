@@ -77,7 +77,8 @@
     "check:transaction-worker": "node --import tsx scripts/transaction-worker-reliability-check.ts",
     "check:fantasy-draft-report": "node --import tsx scripts/fantasy-draft-report-edge-check.ts && node --import tsx scripts/fantasy-draft-report-depth-check.ts",
     "check:fantasy-player-data-completeness": "node --import tsx scripts/fantasy-player-data-completeness-check.ts",
-    "check:fantasy-reconciliation-browser": "node scripts/fantasy-reconciliation-browser-check.mjs"
+    "check:fantasy-reconciliation-browser": "node scripts/fantasy-reconciliation-browser-check.mjs",
+    "check:gameplay-3d": "node --import tsx scripts/gameplay-3d-player-check.ts"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.191",
@@ -107,6 +108,7 @@
     "sharp": "0.34.4",
     "streamdown": "^2.6.0",
     "tailwind-merge": "^3.6.0",
+    "three": "^0.180.0",
     "use-stick-to-bottom": "^1.1.6"
   },
   "devDependencies": {
