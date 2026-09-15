@@ -83,7 +83,8 @@ function updateCamera(){
 
 /* Re-anchor routes to where the receiver actually renders after masking/visual offsets. */
 function anchorVisibleRoutes(){
-  const fieldRect=field.getBoundingClientRect();
+  const routeLayer=document.getElementById('routes');
+  const fieldRect=(routeLayer||field).getBoundingClientRect();
   const fw=fieldRect.width||1,fh=fieldRect.height||1;
   ['x','slot','z'].forEach(id=>{
     const el=player(id),path=document.querySelector('#routes .route.'+id);
