@@ -151,7 +151,7 @@ function drawRoutes(){
 }
 function routePos(pts,t){const count=pts.length-1,scaled=Math.min(.999,t)*count,index=Math.floor(scaled),u=scaled-index,a=pts[index],b=pts[index+1];return{x:a[0]+(b[0]-a[0])*u,y:a[1]+(b[1]-a[1])*u,seg:index}}
 
-function resetInput(){state.joystick.x=0;state.joystick.y=0;state.joystick.pointerId=null;joyKnob.style.transform='translate(0,0)';state.sprinting=false;skillBtns.forEach(b=>b.classList.remove('active'))}
+function resetInput(){state.joystick.x=0;state.joystick.y=0;state.joystick.pointerId=null;joyKnob.style.transform='translate(0,0)';state.sprinting=false;state.runner?.el.classList.remove('bk-sprinting');skillBtns.forEach(b=>b.classList.remove('active'))}
 function showManualHud(show){manualHud.classList.toggle('show',show);manualHud.setAttribute('aria-hidden',show?'false':'true');manualHud.classList.toggle('assist',state.control==='assist');joystick.style.opacity=state.control==='assist'?'.28':'1';joystick.style.pointerEvents=state.control==='assist'?'none':'auto'}
 function resetPlay(){
  cancelAnimationFrame(state.raf);state.live=false;state.throwing=false;state.phase='pre';state.evadeUntil=0;state.evadeType='';state.evaded=new Set();state.stunned.clear();state.blocked.clear();state.stamina=100;state.assistIndex=1;state.runElapsed=0;resetInput();
@@ -247,6 +247,7 @@ function runYards(){const scale=(100-state.playStartBall)/Math.max(1,state.runSt
 function finishRun(touchdown,reason){
  if(!state.live)return;state.live=false;cancelAnimationFrame(state.raf);showManualHud(false);resetInput();const yards=touchdown?100-state.playStartBall:clamp(runYards(),-6,100-state.playStartBall);const row=state.rushStats[rb.id]||{id:rb.id,name:rb.name||'Running back',attempts:0,yards:0,td:0};row.attempts++;row.yards+=yards;state.rushStats[rb.id]=row;state.ballYard=clamp(state.playStartBall+yards,1,100);const elapsed=Math.max(1,Math.round(state.runElapsed));state.clock=Math.max(0,state.clock-Math.max(4,elapsed+4));
  if(touchdown||state.ballYard>=100){state.score+=6;row.td++;state.runner.el.classList.add('celebrate');toastMsg('TOUCHDOWN · '+yards+' YDS','good');log('Rush TD',(rb.name||'RB')+' '+yards+' yards');updateHud();setTimeout(()=>finish(state.score>state.opp,'TOUCHDOWN','You ran it in and took control of the moment.'),420);return}
+ if(reason==='TACKLED')state.runner.el.classList.add('hit');
  toastMsg(reason+' · '+(yards>=0?'+':'')+yards+' YDS',yards>=state.toGo?'good':'bad');log('Rush',(rb.name||'RB')+' '+(yards>=0?'+':'')+yards);vibrate(reason==='TACKLED'?28:12);advanceDown(yards,true);if(!state.ended)setTimeout(resetPlay,620);
 }
 function triggerSkill(type){if(!state.live||state.phase!=='run'||state.ended)return;if(type==='sprint')return;const now=performance.now();if(now<state.evadeUntil-120)return;state.evadeType=type;state.evadeUntil=now+(type==='spin'?520:420);state.evaded=new Set();state.runner.el.classList.add('skill');setTimeout(()=>state.runner?.el.classList.remove('skill'),330);const b=skillBtns.find(x=>x.dataset.skill===type);b?.classList.add('active');setTimeout(()=>b?.classList.remove('active'),300);vibrate(10)}
@@ -276,7 +277,7 @@ joystick.addEventListener('pointermove',e=>{if(state.joystick.pointerId!==e.poin
 const endJoy=e=>{if(state.joystick.pointerId!==null&&e.pointerId!==undefined&&state.joystick.pointerId!==e.pointerId)return;state.joystick.pointerId=null;state.joystick.x=0;state.joystick.y=0;joyKnob.style.transform='translate(0,0)'};
 joystick.addEventListener('pointerup',endJoy);joystick.addEventListener('pointercancel',endJoy);
 
-skillBtns.forEach(b=>{const type=b.dataset.skill;if(type==='sprint'){b.addEventListener('pointerdown',e=>{if(state.phase!=='run')return;state.sprinting=true;b.classList.add('active');vibrate(8);e.preventDefault()});const stop=()=>{state.sprinting=false;b.classList.remove('active')};b.addEventListener('pointerup',stop);b.addEventListener('pointercancel',stop);b.addEventListener('pointerleave',stop)}else b.addEventListener('click',()=>triggerSkill(type))});
+skillBtns.forEach(b=>{const type=b.dataset.skill;if(type==='sprint'){b.addEventListener('pointerdown',e=>{if(state.phase!=='run')return;state.sprinting=true;state.runner?.el.classList.add('bk-sprinting');b.classList.add('active');vibrate(8);e.preventDefault()});const stop=()=>{state.sprinting=false;state.runner?.el.classList.remove('bk-sprinting');b.classList.remove('active')};b.addEventListener('pointerup',stop);b.addEventListener('pointercancel',stop);b.addEventListener('pointerleave',stop)}else b.addEventListener('click',()=>triggerSkill(type))});
 $('manualBtn').addEventListener('click',()=>setControl('manual'));$('assistBtn').addEventListener('click',()=>setControl('assist'));$('passMode').addEventListener('click',()=>setMode('pass'));$('runMode').addEventListener('click',()=>setMode('run'));
 targetBtns.forEach(b=>b.addEventListener('click',()=>throwTo(b.dataset.target)));snapBtn.addEventListener('click',snap);timeoutBtn.addEventListener('click',useTimeout);$('applyBtn').addEventListener('click',apply);$('closeBtn').addEventListener('click',cancel);
 

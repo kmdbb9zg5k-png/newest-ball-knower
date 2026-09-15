@@ -1,0 +1,28 @@
+/* Progressive 3D athlete layer. The original portraits remain the fallback. */
+#field > .bk-3d-layer{
+  position:absolute;
+  inset:0;
+  z-index:6;
+  display:block;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+}
+
+body[data-bk-3d="ready"] #field .player .portrait-mask{
+  opacity:0!important;
+  box-shadow:none!important;
+  filter:none!important;
+}
+
+body[data-bk-3d="ready"] #field .player{
+  background:transparent!important;
+}
+
+body[data-bk-3d="ready"] #field .player.defense:after{
+  background:rgba(125,18,32,.72);
+}
+
+@media (prefers-reduced-motion:reduce){
+  #field > .bk-3d-layer{transition:none}
+}
