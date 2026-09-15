@@ -32,9 +32,20 @@ body[data-bk3d="ready"] #field .player .portrait-mask{
 }
 
 body[data-bk3d="ready"] #field .player{
+  left:var(--bk-screen-x)!important;
+  top:var(--bk-screen-y)!important;
+  width:var(--bk-hit-width)!important;
+  height:var(--bk-hit-height)!important;
+  transform:translate(-50%,-50%)!important;
   background:transparent!important;
   filter:none!important;
+  z-index:12!important;
 }
+
+body[data-bk3d="ready"] #field .player:not([data-id="x"]):not([data-id="slot"]):not([data-id="z"]){pointer-events:none}
+body[data-bk3d="ready"] #field .player[data-id="x"],
+body[data-bk3d="ready"] #field .player[data-id="slot"],
+body[data-bk3d="ready"] #field .player[data-id="z"]{pointer-events:auto}
 
 body[data-bk3d="ready"] #field .player:after,
 body[data-bk3d="ready"] #field .player .tag{opacity:0!important}
