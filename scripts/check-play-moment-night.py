@@ -89,6 +89,16 @@ if __name__=='__main__':
         assert released['players'][6]['distance']>1
         page.screenshot(path=str(OUT/f'night-run-{w}x{h}.png'))
         result['checks'].append('handoff, manual movement, emulated simultaneous stick+sprint and release')
+        for key,screen_side in [('ArrowRight',1),('ArrowLeft',-1)]:
+            restart(page);page.click('#runTab');page.click('#snap');step(page,.6)
+            before=diag(page);g=graphics(page);runner=before['players'][6]
+            fx=g['target'][0]-g['eye'][0];fz=g['target'][2]-g['eye'][2];length=(fx*fx+fz*fz)**.5 or 1
+            expected=(-fz*screen_side/length,fx*screen_side/length)
+            page.keyboard.down(key);page.click('#juke');page.keyboard.up(key)
+            after=diag(page)['players'][6];delta=(after['x']-runner['x'],after['z']-runner['z'])
+            assert delta[0]*expected[0]+delta[1]*expected[1]>.9,(key,expected,delta,g)
+            assert abs(after['heading']-runner['heading'])>.05,(key,runner,after)
+        result['checks'].append('keyboard juke cuts follow camera-space left/right and visibly plant into the cut')
         restart(page);page.click('#runTab');page.click('#control');page.click('#snap');step(page,1.0)
         assert diag(page)['players'][6]['distance']>1 and page.locator('#control').inner_text().startswith('ASSIST')
         result['checks'].append('assisted run movement')
