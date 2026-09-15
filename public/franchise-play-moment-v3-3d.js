@@ -141,6 +141,7 @@ function boot(){
     );
     shadow.rotation.x=-Math.PI/2;
     shadow.position.y=.015;
+    shadow.userData.actorOwned=true;
     root.add(shadow);
     const selector=new THREE.Mesh(
       new THREE.RingGeometry(.52,.65,26),
@@ -150,6 +151,7 @@ function boot(){
     selector.position.y=.025;
     selector.visible=false;
     selector.userData.isSelector=true;
+    selector.userData.actorOwned=true;
     root.add(selector);
     actors.set(el.dataset.id,actor);
     setAction(actor,'idle',true);
@@ -157,11 +159,16 @@ function boot(){
 
   function removeActor(id,actor){
     actor.mixer.stopAllAction();
+    const materials=new Set();
+    const geometries=new Set();
     actor.root.traverse(node=>{
       if(!node.isMesh||!node.material)return;
-      const materials=Array.isArray(node.material)?node.material:[node.material];
-      materials.forEach(material=>material.dispose());
+      const nodeMaterials=Array.isArray(node.material)?node.material:[node.material];
+      nodeMaterials.forEach(material=>materials.add(material));
+      if((node.userData.kitOwned||node.userData.actorOwned)&&node.geometry)geometries.add(node.geometry);
     });
+    materials.forEach(material=>material.dispose());
+    geometries.forEach(geometry=>geometry.dispose());
     scene.remove(actor.root);
     actors.delete(id);
   }
@@ -394,6 +401,7 @@ function createTeamKit(isDefense,number){
   front.position.z=-.154;
   front.rotation.y=Math.PI;
   group.add(front);
+  group.traverse(node=>{if(node.isMesh)node.userData.kitOwned=true});
   return{group,helmet};
 }
 
