@@ -21,3 +21,15 @@ export function createTorsoGeometry(){
  for(let i=0;i<v.length;i+=8){const no=norm(v.slice(i+3,i+6));v.splice(i+3,3,...no)}
  return{v,ix};
 }
+
+/* Tapered limb envelope. The pose solver still owns both joint positions. */
+export function createLimbGeometry(){
+ const rings=[[-.54,.035],[-.45,.68],[-.23,1],[.04,.94],[.30,.72],[.47,.44],[.52,.035]],n=16,v=[],ix=[];
+ for(let j=0;j<rings.length;j++){
+  const [y,r]=rings[j],prev=rings[Math.max(0,j-1)],next=rings[Math.min(rings.length-1,j+1)];
+  const slope=(next[1]-prev[1])/Math.max(.001,next[0]-prev[0]);
+  for(let i=0;i<=n;i++){const a=i/n*Math.PI*2,c=Math.cos(a),s=Math.sin(a),N=norm([c,-slope,s]);v.push(c*r,y,s*r,...N,i/n,j/(rings.length-1));}
+ }
+ for(let j=0;j<rings.length-1;j++)for(let i=0;i<n;i++){const a=j*(n+1)+i,b=a+n+1;ix.push(a,b,a+1,b,b+1,a+1);}
+ return{v,ix};
+}

@@ -8,7 +8,9 @@ function travel(path,distance){for(let i=1;i<path.length;i++){const a=path[i-1],
 export function start(){
  const r=new Renderer($('game')),stadium=makeStadium(r);let actors=[],frameId=0,elapsed=0,last=0,raf=0,messageUntil=0,recoveryLeft=0;
  let mode='run',selected=0,assist=false,phase='pre',paused=false,ended=false,flight=null,carrier=null,jukeUntil=0,jukeReady=0;
- let drive={ball:25,down:1,toGo:10,clock:78,score:24,plays:0},snapZ=35,stamina=1;
+ const redZone=new URLSearchParams(location.search).get('scenario')==='redzone';
+ const initialDrive={ball:redZone?85:25,down:1,toGo:10,clock:redZone?63:78,score:24,plays:0};
+ let drive={...initialDrive},snapZ=10+initialDrive.ball,stamina=1;
  let input={x:0,z:0,sprint:false,pointer:null},camEye=[14,16,10],camTarget=[0,0,40];const keys=new Set();
  let qaStepping=false;let accumulator=0;let numSeed=175;const rand=()=>{numSeed=(Math.imul(numSeed,1664525)+1013904223)>>>0;return numSeed/4294967296};
  const specs=[['OL',-4.4,-.35,71],['OL',-2.2,-.35,64],['OL',0,-.35,55],['OL',2.2,-.35,68],['OL',4.4,-.35,79],['QB',0,-5,12],['RB',-2,-7,24],['WR',-21,0,11],['WR',-12,-.6,18],['WR',21,0,84],['TE',6.5,-.4,87],['DL',-5,.8,90],['DL',-1.7,.8,94],['DL',1.7,.8,97],['DL',5,.8,92],['LB',-8,5,53],['LB',0,5,54],['LB',8,5,58],['DB',-20,3,21],['DB',-12,9,23],['DB',20,4,29],['DB',8,17,31]];
@@ -58,8 +60,8 @@ export function start(){
   // Keep contact in view until the next down; move closer only after possession.
   if(isDead){r.camera(camEye,camTarget);return}
   const tracking=phase==='run';
-  const desiredEye=tracking?[carrier.x*.9+5,9.5,carrier.z-14]:[x+4*mult,12*mult,(isPocket?snapZ:z)-19*mult];
-  const desiredTarget=tracking?[carrier.x*.9,.5,carrier.z+4]:[x,0,z];
+  const desiredEye=tracking?[carrier.x*.9+5,9.5,carrier.z-14]:[x+4*mult,8.5*mult,(isPocket?snapZ:z)-27*mult];
+  const desiredTarget=tracking?[carrier.x*.9,.5,carrier.z+4]:[x,1.8,z];
   // Fit actual projected heads/feet above the pre-snap controls. Do not pan the QB away.
   if(isPocket){for(let trial=0;trial<8;trial++){r.camera(desiredEye,desiredTarget);const watch=phase==='pre'?actors.filter(p=>!p.team):[actors[5],...receiverIndices.map(i=>actors[i])];const fits=watch.every(p=>{const h=r.project([p.x,2.1,p.z]),f=r.project([p.x,0,p.z]);return h.y>65&&f.y<r.height-(phase==='pre'?85:22)&&h.x>24&&h.x<r.width-24});if(fits)break;desiredEye[1]*=1.055;desiredEye[2]=desiredTarget[2]+(desiredEye[2]-desiredTarget[2])*1.055}}
   const blend=phase==='pre'?Math.min(1,dt*10):Math.min(1,dt*5);camEye=camEye.map((v,i)=>v+(desiredEye[i]-v)*blend);camTarget=camTarget.map((v,i)=>v+(desiredTarget[i]-v)*blend);r.camera(camEye,camTarget);
@@ -83,7 +85,7 @@ export function start(){
  function loop(now){raf=requestAnimationFrame(loop);const dt=Math.min(.25,Math.max(0,(now-last)/1000)||.016);last=now;if(document.hidden||r.lost)return;if(!paused&&!qaStepping){accumulator+=dt;let steps=0;while(accumulator>=1/60&&steps++<15){simulate(1/60);accumulator-=1/60;if(paused)break}}camera(dt);scene(dt,now);if(now>messageUntil)$('message').classList.remove('show');frameId++}
  function setMode(v){if(phase!=='pre')return;mode=v;selected=0;setup()}
  $('runTab').onclick=()=>setMode('run');$('passTab').onclick=()=>setMode('pass');$('snap').onclick=snap;$('control').onclick=()=>{assist=!assist;input.x=input.z=0;updateControls()};$('pause').onclick=pause;$('resume').onclick=pause;
- $('restart').onclick=()=>{drive={ball:25,down:1,toGo:10,clock:78,score:24,plays:0};paused=false;ended=false;$('paused').hidden=true;setup()};
+ $('restart').onclick=()=>{drive={...initialDrive};paused=false;ended=false;$('paused').hidden=true;setup()};
  function joy(e){const box=$('stick').getBoundingClientRect(),dx=e.clientX-box.left-box.width/2,dy=e.clientY-box.top-box.height/2,max=box.width*.32,len=Math.hypot(dx,dy)||1,s=Math.min(1,max/len);input.x=dx*s/max;input.z=-dy*s/max;$('knob').style.transform=`translate(${dx*s}px,${dy*s}px)`;$('stick').setAttribute('aria-valuenow',input.x.toFixed(2))}
  $('stick').onpointerdown=e=>{if(assist||phase!=='run')return;input.pointer=e.pointerId;$('stick').setPointerCapture(e.pointerId);joy(e);e.preventDefault()};$('stick').onpointermove=e=>{if(input.pointer!==e.pointerId)return;joy(e);e.preventDefault()};const clearJoy=()=>{input.x=input.z=0;input.pointer=null;$('knob').style.transform='none'};$('stick').onpointerup=clearJoy;$('stick').onpointercancel=clearJoy;$('stick').onlostpointercapture=clearJoy;
  $('sprint').onpointerdown=e=>{input.sprint=true;$('sprint').setPointerCapture(e.pointerId);e.preventDefault()};$('sprint').onpointerup=()=>input.sprint=false;$('sprint').onpointercancel=()=>input.sprint=false;$('sprint').onlostpointercapture=()=>input.sprint=false;
@@ -94,5 +96,5 @@ export function start(){
  setup();camera(1);scene(.016,0);$('loading').hidden=true;raf=requestAnimationFrame(loop);
  // Test controls exist only on an explicitly requested QA URL. This isolated
  // practice renderer never reads or writes career saves or result payloads.
- if(new URLSearchParams(location.search).has('qa')){window.bk3dTest={manualFrames(){qaStepping=true;accumulator=0},step(seconds){const n=Math.ceil(clamp(seconds,0,10)*60);for(let i=0;i<n;i++){if(!paused)simulate(1/60);camera(1/60)}scene(.016,performance.now())}};window.bk3dDiagnostics=()=>({phase,paused,ended,frames:frameId,drawCalls:r.drawCalls,glError:r.gl.getError(),players:actors.map(p=>({role:p.role,team:p.team,x:p.x,z:p.z,distance:p.distance,pose:p.motion?{speed:p.motion.speed,run:p.motion.run,ready:p.motion.ready,block:p.motion.block,turn:p.motion.turn,gait:p.motion.gait,fall:p.motion.fall}:null,head:r.project([p.x,2.1,p.z]),foot:r.project([p.x,0,p.z])})),drive:{...drive},stamina,worldObjects:stadium.parts});}
+ if(new URLSearchParams(location.search).has('qa')){window.bk3dTest={manualFrames(){qaStepping=true;accumulator=0;cancelAnimationFrame(raf)},step(seconds){const n=Math.ceil(clamp(seconds,0,10)*60);for(let i=0;i<n;i++){if(!paused)simulate(1/60);camera(1/60)}scene(.016,performance.now())}};window.bk3dDiagnostics=()=>({phase,paused,ended,frames:frameId,drawCalls:r.drawCalls,glError:r.gl.getError(),players:actors.map(p=>({role:p.role,team:p.team,x:p.x,z:p.z,distance:p.distance,pose:p.motion?{speed:p.motion.speed,run:p.motion.run,ready:p.motion.ready,block:p.motion.block,turn:p.motion.turn,gait:p.motion.gait,fall:p.motion.fall}:null,head:r.project([p.x,2.1,p.z]),foot:r.project([p.x,0,p.z])})),drive:{...drive},stamina,worldObjects:stadium.parts});}
 }

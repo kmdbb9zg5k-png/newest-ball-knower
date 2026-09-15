@@ -1,6 +1,6 @@
 import{mul,translate,scale,rx,ry,rz,pose,segment,hex,point}from'./renderer.js';
 import{advanceMotion,samplePose,footTarget,twoBone,readyHandTarget}from'./motion.js';
-import{createTorsoGeometry}from'./geometry.js';
+import{createTorsoGeometry,createLimbGeometry}from'./geometry.js';
 export{advanceMotion};
 const white=hex('#e6e8e2'),dark=hex('#111a22'),gold=hex('#d8b66e');
 const skinTones=['#a46d49','#633d2d','#ba8b66','#8b563b'].map(hex);
@@ -11,10 +11,11 @@ const kit=[
 ];
 export function prepareJerseys(r,actors){
  if(!r.shapes.torso)r.shapes.torso=createTorsoGeometry();
+ if(!r.shapes.limb)r.shapes.limb=createLimbGeometry();
  for(const p of actors){
   const key='jersey-'+p.team+'-'+p.number;if(r.textures.has(key))continue;
-  const c=document.createElement('canvas');c.width=128;c.height=128;
-  const ctx=c.getContext('2d'),k=kit[p.team];ctx.fillStyle=k.cloth;ctx.fillRect(0,0,128,128);
+  const c=document.createElement('canvas');c.width=256;c.height=256;
+  const ctx=c.getContext('2d'),k=kit[p.team];ctx.scale(2,2);ctx.fillStyle=k.cloth;ctx.fillRect(0,0,128,128);
   ctx.strokeStyle=p.team?'#c3c9c333':'#55708033';ctx.lineWidth=.5;
   for(let y=0;y<128;y+=4){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(128,y);ctx.stroke()}
   ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='800 12px system-ui';ctx.fillStyle=k.ink;ctx.fillText(p.team?'RIVALS':'KNOWERS',64,18);
@@ -47,16 +48,18 @@ export function resolveArm(p,q,side,phase,torso=torsoFrame(q)){
 /* Articulated bodies use game-driven pose blends. Geometry, textures and
    equipment are shared; no player photos, generated images or external assets. */
 export function drawAthlete(r,p,time,phase){
+ const wasActor=r.actorPass;r.actorPass=true;
  const k=kit[p.team],q=samplePose(p),build=q.build,skin=skinTones[p.index%skinTones.length];
  const height=build.height*(.99+(p.index%3)*.01);
  let root=mul(mul(translate(p.x,.15*q.fall,p.z),ry(p.heading||0)),rx(q.fall*1.38));
  root=mul(root,scale(build.width,height,1));
- const ell=(base,x,y,z,sx,sy,sz,color,shine=0)=>r.add('sphere',mul(base,pose(x,y,z,sx,sy,sz)),color,'',false,shine);
- const box=(base,x,y,z,sx,sy,sz,color)=>r.add('cube',mul(base,pose(x,y,z,sx,sy,sz)),color);
- const bone=(base,a,b,radius,color)=>r.add('sphere',mul(base,mul(segment(a,b,radius),scale(1,.55,1))),color);
+ const material=color=>color===skin?3:(color===k.jersey||color===k.pants)?2:1;
+ const ell=(base,x,y,z,sx,sy,sz,color,shine=0)=>r.add('sphere',mul(base,pose(x,y,z,sx,sy,sz)),color,'',false,shine,material(color));
+ const box=(base,x,y,z,sx,sy,sz,color)=>r.add('cube',mul(base,pose(x,y,z,sx,sy,sz)),color,'',false,color===visor?.92:0,material(color));
+ const bone=(base,a,b,radius,color)=>r.add('limb',mul(base,segment(a,b,radius)),color,'',false,0,material(color));
  const torso=torsoFrame(q),chest=mul(root,torso);
  ell(root,0,q.pelvis,0,.222,.155,.165,k.pants);
- r.add('torso',mul(chest,pose(0,.295,0,.285,.58,.172)),k.jersey);
+ r.add('torso',mul(chest,pose(0,.295,0,.285,.58,.172)),k.jersey,'',false,0,2);
  box(chest,0,.018,0,.405,.036,.311,dark);
  // Jersey side seams and a close-fitting collar avoid oversized round pads.
  for(const side of[-1,1]){
@@ -64,11 +67,13 @@ export function drawAthlete(r,p,time,phase){
   ell(chest,side*.265,.46,0,.118,.119,.164,k.jersey);
  }
  ell(chest,0,.587,0,.091,.069,.094,dark);ell(chest,0,.64,.005,.079,.083,.078,skin);
- const head=mul(mul(mul(chest,translate(0,.79,.012)),rx(-q.lean*.80)),scale(.97));
+ const head=mul(mul(mul(chest,translate(0,.79,.012)),rx(-q.lean*.80)),scale(.84));
  ell(head,0,-.018,.029,.126,.157,.13,skin);
- r.add('helmet',mul(head,scale(.174,.204,.204)),k.helmet,'',false,.48);
+ ell(head,0,-.025,.154,.024,.039,.028,skin);
+ ell(head,0,-.099,.141,.048,.026,.015,skin);
+ r.add('helmet',mul(head,scale(.174,.204,.204)),k.helmet,'',false,.86,1);
  for(const side of[-1,1]){
-  ell(head,side*.163,-.022,0,.026,.078,.075,k.helmet,.22);
+  ell(head,side*.163,-.022,0,.026,.078,.075,k.helmet,.45);
   ell(head,side*.18,-.043,.016,.009,.024,.022,dark);
   bone(head,[side*.147,-.06,.11],[side*.061,-.164,.15],.011,white);
  }
@@ -84,8 +89,8 @@ export function drawAthlete(r,p,time,phase){
  else {for(const side of[-1,1])ell(head,side*.043,.004,.151,.018,.009,.007,dark)}
  // Orient each number panel for its viewing side; keep cloth normals outward.
  const jersey='jersey-'+p.team+'-'+p.number;
- r.add('plane',mul(mul(chest,translate(0,.318,-.181)),mul(rx(Math.PI/2),scale(-.33,-1,.31))),[1,1,1,1],jersey);
- r.add('plane',mul(mul(chest,translate(0,.318,.181)),mul(rx(-Math.PI/2),scale(.33,-1,-.31))),[1,1,1,1],jersey);
+ r.add('plane',mul(mul(chest,translate(0,.318,-.181)),mul(rx(Math.PI/2),scale(-.33,-1,.31))),[1,1,1,1],jersey,false,0,2);
+ r.add('plane',mul(mul(chest,translate(0,.318,.181)),mul(rx(-Math.PI/2),scale(.33,-1,-.31))),[1,1,1,1],jersey,false,0,2);
  for(const side of[-1,1]){
   const foot=footTarget(q,side),hip=[side*.141,q.pelvis,0],leg=twoBone(hip,foot,.50,.50,[0,0,1]);
   bone(root,hip,leg.joint,build.leg,k.pants);
@@ -117,4 +122,5 @@ export function drawAthlete(r,p,time,phase){
   ell(ballM,0,0,0,.091,.188,.088,leather);box(ballM,0,0,.088,.017,.117,.006,white);
   for(let i=-2;i<=2;i++)box(ballM,0,i*.020,.092,.047,.006,.005,white);
  }
+ r.actorPass=wasActor;
 }
