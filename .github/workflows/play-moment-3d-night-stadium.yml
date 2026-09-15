@@ -8,6 +8,7 @@ on:
       - 'scripts/check-play-moment-night-stadium.*'
       - 'scripts/check-play-moment-night.py'
       - 'scripts/check-play-moment-framing.*'
+      - 'scripts/check-play-moment-goal-line.*'
       - '.github/workflows/play-moment-3d-night-stadium.yml'
   workflow_dispatch:
 permissions:
@@ -34,14 +35,27 @@ jobs:
         run: node scripts/check-play-moment-night-stadium.mjs
       - name: Camera framing and clustered receiver markers
         run: node scripts/check-play-moment-framing.mjs
+      - name: Goal-to-go series labels and actual endPlay state regressions
+        run: node scripts/check-play-moment-goal-line.mjs
       - run: python -m pip install playwright==1.57.0 pillow
       - run: python -m playwright install --with-deps chromium
       - name: Render offline stadium fixtures at three screen sizes
         run: python scripts/check-play-moment-night-stadium.py --output artifacts/night-stadium
       - name: Exercise playable camera-relative cuts and night renderer
         run: BK_NIGHT_RESULTS=artifacts/night-game python scripts/check-play-moment-night.py 932 430
+      - name: Render goal-line HUD, series markers and completion states
+        run: python scripts/check-play-moment-goal-line.py --output artifacts/goal-line
       - name: Compare camera and HUD and exercise enlarged target hit areas
-        run: python scripts/check-play-moment-framing.py --baseline-ref HEAD^ --output artifacts/framing
+        shell: bash
+        run: |
+          baseline=()
+          if git cat-file -e 'HEAD^:public/play-moment-3d/game.js' 2>/dev/null &&
+             git cat-file -e 'HEAD^:public/play-moment-3d-preview.html' 2>/dev/null; then
+            baseline=(--baseline-ref HEAD^)
+          else
+            echo 'Before comparison unavailable: parent has no complete preview. Current-head WebGL and HUD checks still run.'
+          fi
+          python scripts/check-play-moment-framing.py "${baseline[@]}" --output artifacts/framing
       - uses: actions/upload-artifact@v4
         if: always()
         with:

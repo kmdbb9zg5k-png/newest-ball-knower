@@ -2,6 +2,12 @@ import{Renderer,pose,segment,hex}from'./renderer.js';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js';
 import{makeStadium}from'./stadium.js';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+/** The established first-down target, in the drive's 0–100 field coordinates.
+ * Using ball + toGo preserves goal-to-go even after a loss beyond the ten.
+ */
+export function lineToGain(drive){return Math.min(100,drive.ball+drive.toGo)}
+/** Format the series without confusing short yardage with goal-to-go. */
+export function downDistanceLabel(drive){const ord=['1ST','2ND','3RD','4TH'];return ord[Math.min(3,drive.down-1)]+' & '+(lineToGain(drive)===100?'GOAL':drive.toGo)}
 export function cameraWorldVector(screenX,screenZ,eye,target){const fx=target[0]-eye[0],fz=target[2]-eye[2],l=Math.hypot(fx,fz)||1;return[(-fz*screenX+fx*screenZ)/l,(fx*screenX+fz*screenZ)/l]}
 export function normalizeControlKey(key){return typeof key==='string'&&key.length===1?key.toLowerCase():key}
 /** Place compact receiver badges above helmets while keeping 44px hit areas apart.
@@ -33,13 +39,13 @@ export function start(){
  let mode='run',selected=0,assist=false,phase='pre',paused=false,ended=false,flight=null,carrier=null,jukeUntil=0,jukeReady=0;
  const redZone=new URLSearchParams(location.search).get('scenario')==='redzone';
  const initialDrive={ball:redZone?85:25,down:1,toGo:10,clock:redZone?63:78,score:24,plays:0};
- let drive={...initialDrive},snapZ=10+initialDrive.ball,stamina=1;
+ let drive={...initialDrive},snapZ=10+initialDrive.ball,snapGainZ=10+lineToGain(initialDrive),stamina=1;
  let input={x:0,z:0,sprint:false,pointer:null},camEye=[14,16,10],camTarget=[0,0,40];const keys=new Set();
  let qaStepping=false;let accumulator=0;let numSeed=175;const rand=()=>{numSeed=(Math.imul(numSeed,1664525)+1013904223)>>>0;return numSeed/4294967296};
  const specs=[['OL',-4.4,-.35,71],['OL',-2.2,-.35,64],['OL',0,-.35,55],['OL',2.2,-.35,68],['OL',4.4,-.35,79],['QB',0,-5,12],['RB',-2,-7,24],['WR',-21,0,11],['WR',-12,-.6,18],['WR',21,0,84],['TE',6.5,-.4,87],['DL',-5,.8,90],['DL',-1.7,.8,94],['DL',1.7,.8,97],['DL',5,.8,92],['LB',-8,5,53],['LB',0,5,54],['LB',8,5,58],['DB',-20,3,21],['DB',-12,9,23],['DB',20,4,29],['DB',8,17,31]];
  const receiverIndices=[7,8,9];
- function setup(){snapZ=10+drive.ball;actors=specs.map(([role,x,z,number],index)=>({index,role,number,team:index>=11?1:0,x,z:snapZ+z,startX:x,startZ:snapZ+z,heading:index>=11?Math.PI:0,distance:0,moving:false,engaged:false,fallen:false,hasBall:index===5,throwT:0,catchT:0}));carrier=actors[5];flight=null;phase='pre';stamina=1;elapsed=0;input={x:0,z:0,sprint:false,pointer:null};keys.clear();$('knob').style.transform='none';jukeReady=0;prepareJerseys(r,actors);updateHud();updateControls();renderPlays()}
- function updateHud(){const ord=['1ST','2ND','3RD','4TH'];$('score').textContent=drive.score;$('clock').textContent=Math.floor(Math.max(0,drive.clock)/60)+':'+String(Math.floor(Math.max(0,drive.clock)%60)).padStart(2,'0');$('down').textContent=ord[Math.min(3,drive.down-1)]+' & '+drive.toGo+' · '+(drive.ball<50?'OWN '+drive.ball:drive.ball===50?'50':'OPP '+(100-drive.ball))}
+ function setup(){snapZ=10+drive.ball;snapGainZ=10+lineToGain(drive);actors=specs.map(([role,x,z,number],index)=>({index,role,number,team:index>=11?1:0,x,z:snapZ+z,startX:x,startZ:snapZ+z,heading:index>=11?Math.PI:0,distance:0,moving:false,engaged:false,fallen:false,hasBall:index===5,throwT:0,catchT:0}));carrier=actors[5];flight=null;phase='pre';stamina=1;elapsed=0;input={x:0,z:0,sprint:false,pointer:null};keys.clear();$('knob').style.transform='none';jukeReady=0;prepareJerseys(r,actors);updateHud();updateControls();renderPlays()}
+ function updateHud(){$('score').textContent=drive.score;$('clock').textContent=Math.floor(Math.max(0,drive.clock)/60)+':'+String(Math.floor(Math.max(0,drive.clock)%60)).padStart(2,'0');$('down').textContent=downDistanceLabel(drive)+' · '+(drive.ball<50?'OWN '+drive.ball:drive.ball===50?'50':'OPP '+(100-drive.ball))}
  function renderPlays(){const plays=mode==='run'?RUNS:PASSES;$('plays').replaceChildren();plays.forEach((p,i)=>{const b=document.createElement('button');b.type='button';b.className=i===selected?'selected':'';b.innerHTML='<svg viewBox="0 0 48 28" aria-hidden="true"><path d="'+p.icon+'"/></svg><b>'+p.name+'</b>';b.onclick=()=>{if(phase!=='pre')return;selected=i;renderPlays()};$('plays').appendChild(b)});$('playName').textContent=plays[selected].name;$('runTab').classList.toggle('selected',mode==='run');$('passTab').classList.toggle('selected',mode==='pass')}
  function updateControls(){const live=phase!=='pre'&&phase!=='dead';$('pre').hidden=phase!=='pre'||ended;$('live').hidden=phase!=='run'||paused||ended;$('instruction').textContent=phase==='pre'?'Practice preview · No career saves are changed':phase==='pass'?'Tap X, Y or Z to throw.':' ';$('control').textContent=(assist?'ASSIST':'MANUAL')+' ●';$('stick').style.opacity=assist?'.3':'1';$('stick').style.pointerEvents=assist?'none':'auto';$('targetLayer').replaceChildren();if(phase==='pass')receiverIndices.forEach((index,i)=>{const b=document.createElement('button');b.className='target';b.id='target-'+index;const badge=document.createElement('span');badge.className='target-label';badge.textContent=['X','Y','Z'][i];const tether=document.createElement('span');tether.className='target-tether';tether.setAttribute('aria-hidden','true');b.append(tether,badge);b.setAttribute('aria-label','Throw to receiver '+['X','Y','Z'][i]);b.onclick=()=>throwTo(index);$('targetLayer').appendChild(b)})}
  function message(text,seconds=1.4){$('message').textContent=text;$('message').classList.add('show');messageUntil=performance.now()+seconds*1000}
@@ -52,7 +58,7 @@ export function start(){
  function endPlay(reason,ballSpot,incomplete=false){if(phase==='dead'||ended)return;const old=drive.ball;phase='dead';flight=null;input.x=0;input.z=0;input.sprint=false;keys.clear();actors.forEach(p=>{p.moving=false;p.engaged=false});if(carrier&&reason==='TACKLED')carrier.fallen=true;drive.ball=incomplete?old:clamp(Math.round(ballSpot),1,100);const gain=drive.ball-old;let copy=reason;
   if(drive.ball>=100){drive.score+=6;message('TOUCHDOWN',3);endDrive('TOUCHDOWN','You finished the drive. Practice results stay separate from your career.');return}
   if(!incomplete){copy+=' · '+(gain>=0?'+':'')+gain+' YDS'}
-  if(gain>=drive.toGo){drive.down=1;drive.toGo=Math.min(10,100-drive.ball)}else{drive.down++;drive.toGo=Math.max(1,drive.toGo-gain)}
+  if(gain>=drive.toGo){drive.down=1;drive.toGo=Math.min(10,100-drive.ball);copy=(lineToGain(drive)===100?'FIRST & GOAL':'FIRST DOWN')+' · +'+gain+' YDS'}else{drive.down++;drive.toGo=Math.max(1,drive.toGo-gain)}
   message(copy,1.4);updateHud();updateControls();if(drive.down>4){endDrive('TURNOVER ON DOWNS','The defense held. Restart this practice drive to try again.');return}if(drive.clock<=0){endDrive('TIME EXPIRED','The clock reached zero. Your career is unchanged.');return}recoveryLeft=1.2;
  }
  function endDrive(title,body){ended=true;paused=true;phase='dead';$('dialogTitle').textContent=title;$('dialogBody').textContent=body;$('resume').hidden=true;$('paused').hidden=false;updateHud();updateControls()}
@@ -92,9 +98,9 @@ export function start(){
   const blend=phase==='pre'?Math.min(1,dt*10):Math.min(1,dt*5);camEye=camEye.map((v,i)=>v+(desiredEye[i]-v)*blend);camTarget=camTarget.map((v,i)=>v+(desiredTarget[i]-v)*blend);r.camera(camEye,camTarget);
  }
  function scene(dt,now){r.begin();stadium.draw();
-  // Ground-space field markings share the same perspective as the athletes.
+  // Keep both snap markers fixed through contact; reset together for the next down.
   r.add('plane',pose(0,.025,snapZ,53.15,1,.11),hex('#4599ba'),'',true);
-  r.add('plane',pose(0,.03,Math.min(110,snapZ+drive.toGo),53.15,1,.13),hex('#e1c156'),'',true);
+  r.add('plane',pose(0,.03,snapGainZ,53.15,1,.13),hex('#e1c156'),'',true);
   for(const p of actors){r.add('plane',pose(p.x+.13,.038,p.z-.12,1.65,1,1.15),[0,0,0,.75],'shadow',true)}
   if(carrier&&!ended){const cx=carrier.x,cz=carrier.z;for(let i=0;i<32;i++){const a=i/32*2*Math.PI,b=(i+1)/32*2*Math.PI;r.add('cylinder',segment([cx+Math.cos(a)*.70,.045,cz+Math.sin(a)*.70],[cx+Math.cos(b)*.70,.045,cz+Math.sin(b)*.70],.025),hex('#ebce7a'),'',true)}}
   if(phase==='pre'){
@@ -133,5 +139,5 @@ export function start(){
  setup();camera(1);scene(.016,0);$('loading').hidden=true;raf=requestAnimationFrame(loop);
  // Test controls exist only on an explicitly requested QA URL. This isolated
  // practice renderer never reads or writes career saves or result payloads.
- if(new URLSearchParams(location.search).has('qa')){window.bk3dTest={manualFrames(){qaStepping=true;accumulator=0;cancelAnimationFrame(raf)},step(seconds){const n=Math.ceil(clamp(seconds,0,10)*60);for(let i=0;i<n;i++){if(!paused)simulate(1/60);camera(1/60)}scene(.016,performance.now())}};window.bk3dDiagnostics=()=>({phase,paused,ended,frames:frameId,drawCalls:r.drawCalls,glError:r.gl.getError(),players:actors.map(p=>({role:p.role,team:p.team,x:p.x,z:p.z,distance:p.distance,heading:p.heading,pose:p.motion?{speed:p.motion.speed,run:p.motion.run,ready:p.motion.ready,block:p.motion.block,turn:p.motion.turn,gait:p.motion.gait,fall:p.motion.fall}:null,head:r.project([p.x,2.1,p.z]),foot:r.project([p.x,0,p.z])})),drive:{...drive},stamina,worldObjects:stadium.parts});}
+ if(new URLSearchParams(location.search).has('qa')){window.bk3dTest={manualFrames(){qaStepping=true;accumulator=0;cancelAnimationFrame(raf)},step(seconds){const n=Math.ceil(clamp(seconds,0,10)*60);for(let i=0;i<n;i++){if(!paused)simulate(1/60);camera(1/60)}scene(.016,performance.now())}};window.bk3dDiagnostics=()=>({phase,paused,ended,frames:frameId,drawCalls:r.drawCalls,glError:r.gl.getError(),players:actors.map(p=>({role:p.role,team:p.team,x:p.x,z:p.z,distance:p.distance,heading:p.heading,pose:p.motion?{speed:p.motion.speed,run:p.motion.run,ready:p.motion.ready,block:p.motion.block,turn:p.motion.turn,gait:p.motion.gait,fall:p.motion.fall}:null,head:r.project([p.x,2.1,p.z]),foot:r.project([p.x,0,p.z])})),drive:{...drive},field:{scrimmage:snapZ,lineToGain:snapGainZ},stamina,worldObjects:stadium.parts});}
 }
