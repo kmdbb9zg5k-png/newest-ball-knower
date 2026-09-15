@@ -1,0 +1,75 @@
+/* Screenshot-driven visual polish for Franchise PLAY MOMENT v3. */
+:root{--bk-sprite-shadow:0 5px 5px rgba(0,0,0,.72)}
+
+/* Make the field feel deeper without adding a heavy 3D renderer. */
+.field{background:
+  linear-gradient(180deg,rgba(0,0,0,.28) 0%,rgba(0,0,0,.06) 24%,rgba(255,255,255,.025) 58%,rgba(0,0,0,.16) 100%),
+  linear-gradient(90deg,#0a3d27 0%,#12653a 18%,#197545 50%,#12653a 82%,#0a3d27 100%)}
+.field:before{background:
+  repeating-linear-gradient(0deg,rgba(255,255,255,.12) 0 2px,transparent 2px 10%),
+  linear-gradient(90deg,rgba(0,0,0,.32),transparent 15% 85%,rgba(0,0,0,.32));opacity:.9}
+.field:after{background:
+  radial-gradient(ellipse at 50% -12%,rgba(240,247,255,.24),transparent 34%),
+  linear-gradient(180deg,rgba(0,0,0,.20),transparent 30%,rgba(0,0,0,.05) 68%,rgba(0,0,0,.20));}
+.stadium-rim{height:38px;background:radial-gradient(ellipse at 50% 120%,#303b45 0,#111922 42%,#06090d 100%);box-shadow:inset 0 -10px 25px rgba(0,0,0,.38)}
+.endzone{height:8.5%;font-size:15px;letter-spacing:.14em;background:linear-gradient(180deg,#0a1016,#151d24),repeating-linear-gradient(135deg,#111821 0 10px,#d9b64822 10px 20px)}
+
+/* The approved art has dark studio backgrounds. Crop/feather much tighter so it reads as an athlete, not a trading card. */
+.player{width:35px;height:55px;filter:drop-shadow(var(--bk-sprite-shadow));transform:translate(calc(-50% + var(--bk-shift-x,0px)),calc(-72% + var(--bk-shift-y,0px))) scale(var(--scale))}
+.player .portrait-mask{inset:-3px -2px -1px;overflow:hidden;border-radius:48% 48% 40% 40% / 34% 34% 22% 22%;-webkit-mask-image:radial-gradient(ellipse 39% 52% at 50% 50%,#000 42%,rgba(0,0,0,.97) 58%,rgba(0,0,0,.48) 72%,transparent 84%);mask-image:radial-gradient(ellipse 39% 52% at 50% 50%,#000 42%,rgba(0,0,0,.97) 58%,rgba(0,0,0,.48) 72%,transparent 84%)}
+.player img{transform:scale(1.20);transform-origin:center bottom}
+.player:after{width:24px;height:6px;bottom:2px;filter:blur(2px);opacity:.8}
+.player .tag{font-size:5px;bottom:-9px;padding:1px 4px;border-radius:6px;background:#03070ad9}
+.player.blocker{width:31px;height:49px}
+.player.defense{width:30px;height:47px}
+.player.qb{width:37px;height:58px}
+.player.runner{width:39px;height:61px;filter:drop-shadow(0 0 8px rgba(239,200,91,.62)) drop-shadow(var(--bk-sprite-shadow))}
+.player.blocker .tag,.player.defense .tag{display:none}
+.player[data-id="x"],.player[data-id="z"]{width:33px;height:52px}
+.player[data-id="slot"]{width:32px;height:50px}
+
+/* Reduce visual pile-up in the run formation while keeping the actual engine coordinates unchanged. */
+.player[data-id="ol0"]{--bk-shift-x:-5px}.player[data-id="ol1"]{--bk-shift-x:-3px}.player[data-id="ol3"]{--bk-shift-x:3px}.player[data-id="ol4"]{--bk-shift-x:5px}
+.player[data-id="qb"]{--bk-shift-y:-5px}.player[data-id="runner"]{--bk-shift-x:8px;--bk-shift-y:5px}
+body[data-play-mode="run"] .player[data-id="x"],body[data-play-mode="run"] .player[data-id="slot"],body[data-play-mode="run"] .player[data-id="z"]{opacity:.55}
+body[data-play-mode="run"][data-live="1"] .player.qb{opacity:.24;filter:grayscale(.6) brightness(.68);--bk-shift-y:0px}
+
+/* The old giant message blocked the actual football. Keep feedback compact. */
+.toast{top:12px;width:auto;min-width:150px;max-width:235px;padding:6px 10px;border-radius:999px;font-size:8px;letter-spacing:.04em;background:#05090ddd;box-shadow:0 8px 24px rgba(0,0,0,.38)}
+
+/* Thumb controls need to frame the action, not cover it. */
+.joystick{left:10px;bottom:13px;width:78px;height:78px}
+.joy-knob{width:36px;height:36px;margin:-18px}
+.skill-grid{right:8px;bottom:11px;grid-template-columns:repeat(2,48px);gap:6px}
+.skill{height:48px;border-color:#efc85b55;background:#081019c7;box-shadow:0 6px 17px #0007}
+.skill span{font-size:13px}.skill b{font-size:5px;margin-top:3px}.skill.sprint{transform:scale(1.03)}
+.pressure{left:104px;right:112px;bottom:8px;height:4px}.pressure-label{right:112px;bottom:14px;font-size:5px}
+
+/* Once a play is live, collapse pre-snap furniture and let the field own the screen. */
+body[data-live="1"] .routes{opacity:.10!important}
+body[data-live="1"] .controls .playbook,body[data-live="1"] .controls .timeout,body[data-live="1"] .controls .targets,body[data-live="1"] .controls .help{display:none!important}
+body[data-live="1"] .snap.live{display:none!important}
+body[data-live="1"] .controls{height:0;padding:0;overflow:hidden}
+body[data-live="1"] .log{display:none}
+body[data-live="1"] .game-wrap{margin-bottom:0}
+body[data-live="1"] .field{height:min(64dvh,620px);min-height:470px}
+
+/* Less boxed UI above the field. */
+.rating{background:linear-gradient(180deg,#0c141d,#080d13);padding:5px 4px}.rating b{font-size:11px}.mode-row{margin-top:6px}.game-wrap{margin-top:6px}
+
+@media(max-width:430px){
+  .field{height:55dvh;min-height:430px}
+  .player{width:31px;height:49px}.player.blocker{width:28px;height:44px}.player.defense{width:27px;height:42px}.player.qb{width:33px;height:52px}.player.runner{width:35px;height:55px}
+  .joystick{width:72px;height:72px;left:8px;bottom:10px}.joy-knob{width:32px;height:32px;margin:-16px}
+  .skill-grid{grid-template-columns:repeat(2,44px);gap:5px;right:7px;bottom:9px}.skill{height:44px}
+  .pressure{left:91px;right:101px}.pressure-label{right:101px}
+  body[data-live="1"] .field{height:64dvh;min-height:475px}
+}
+
+@media(orientation:landscape) and (min-width:700px){
+  .player{width:43px;height:67px}.player.blocker{width:39px;height:61px}.player.defense{width:37px;height:58px}.player.qb{width:47px;height:73px}.player.runner{width:49px;height:76px}
+  .joystick{width:112px;height:112px;left:22px;bottom:24px}.joy-knob{width:50px;height:50px;margin:-25px}
+  .skill-grid{right:18px;bottom:20px;grid-template-columns:repeat(2,66px);gap:9px}.skill{height:66px}.skill span{font-size:17px}.skill b{font-size:7px}
+  .pressure{left:152px;right:167px;bottom:14px;height:5px}.pressure-label{right:167px;bottom:21px;font-size:6px}
+  body[data-live="1"] .field{height:calc(100dvh - 132px);min-height:430px}
+}
