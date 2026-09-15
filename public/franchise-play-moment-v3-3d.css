@@ -39,7 +39,6 @@ body[data-bk3d="ready"] #field .player{
   transform:translate(-50%,-50%)!important;
   background:transparent!important;
   filter:none!important;
-  opacity:0!important;
   z-index:12!important;
 }
 
