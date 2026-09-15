@@ -3,6 +3,26 @@ import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js';
 import{makeStadium}from'./stadium.js';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function cameraWorldVector(screenX,screenZ,eye,target){const fx=target[0]-eye[0],fz=target[2]-eye[2],l=Math.hypot(fx,fz)||1;return[(-fz*screenX+fx*screenZ)/l,(fx*screenX+fz*screenZ)/l]}
+/** Place compact receiver badges above helmets while keeping 44px hit areas apart.
+ * Inputs are screen projections only; this never moves players or changes routes.
+ */
+export function layoutReceiverMarkers(points,width,height,bounds={}){
+ const left=bounds.left??28,right=Math.max(left,bounds.right??width-28);
+ const top=bounds.top??96,bottom=Math.max(top,bounds.bottom??height-30),placed=[];
+ return points.map(p=>{
+  if(!p.visible||!Number.isFinite(p.x)||!Number.isFinite(p.y))return{...p,visible:false};
+  const x=clamp(p.x,left,right),y=clamp(p.y-28,top,bottom),candidates=[];
+  for(const dy of[0,-48,-96,48,96])for(const dx of[0,-48,48,-96,96]){
+   const q={x:clamp(x+dx,left,right),y:clamp(y+dy,top,bottom)};
+   // Prefer above/alongside the receiver over obscuring the body below its head.
+   q.cost=(q.x-x)**2+(q.y-y)**2+(q.y>p.y-18?10000:0);
+   candidates.push(q);
+  }
+  candidates.sort((a,b)=>a.cost-b.cost);
+  const q=candidates.find(q=>placed.every(o=>Math.abs(q.x-o.x)>=48||Math.abs(q.y-o.y)>=48))||{x,y};
+  placed.push(q);return{...p,x:q.x,y:q.y};
+ });
+}
 const RUNS=[{id:'zone',name:'INSIDE ZONE',path:[[0,0],[-2,4],[-3,12],[0,25]],icon:'M24 23L24 13L17 5M17 5L17 11M17 5L23 5'}, {id:'stretch',name:'HB STRETCH',path:[[0,0],[7,2],[14,7],[17,25]],icon:'M12 23L18 14L36 6M36 6L29 6M36 6L34 13'}, {id:'counter',name:'COUNTER',path:[[0,0],[-5,1],[-6,4],[5,12],[9,25]],icon:'M26 23L15 19L15 13L31 5M31 5L24 5M31 5L29 11'}, {id:'toss',name:'HB TOSS',path:[[0,0],[9,-1],[18,6],[20,25]],icon:'M10 23L34 18L36 5M36 5L30 10M36 5L41 11'}];
 const PASSES=[{id:'mesh',name:'MESH',routes:[[[0,0],[0,5],[17,9],[28,9]],[[0,0],[0,6],[-5,10],[-14,10]],[[0,0],[0,8],[-3,18],[-3,32]]],icon:'M5 23L5 14L35 6M42 23L42 14L12 6'}, {id:'verts',name:'VERTICALS',routes:[[[0,0],[0,35]],[[0,0],[2,35]],[[0,0],[0,35]]],icon:'M8 23L8 4M24 23L24 4M40 23L40 4M4 9L8 4L12 9M20 9L24 4L28 9M36 9L40 4L44 9'}, {id:'flood',name:'FLOOD',routes:[[[0,0],[0,8],[17,14],[24,18]],[[0,0],[0,5],[20,9]],[[0,0],[0,12],[-4,29]]],icon:'M6 23L6 14L24 8M22 23L22 16L42 16M39 23L39 4'}, {id:'dagger',name:'DAGGER',routes:[[[0,0],[0,16],[19,16]],[[0,0],[1,24],[5,32]],[[0,0],[0,20],[-17,20]]],icon:'M8 23L8 9L22 9M26 23L26 3M40 23L40 14L29 14'}];
 function travel(path,distance){for(let i=1;i<path.length;i++){const a=path[i-1],b=path[i],len=Math.hypot(b[0]-a[0],b[1]-a[1]);if(distance<=len){const t=distance/len;return[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]}distance-=len}const a=path[path.length-1];return[a[0],a[1]+distance]}
@@ -19,7 +39,7 @@ export function start(){
  function setup(){snapZ=10+drive.ball;actors=specs.map(([role,x,z,number],index)=>({index,role,number,team:index>=11?1:0,x,z:snapZ+z,startX:x,startZ:snapZ+z,heading:index>=11?Math.PI:0,distance:0,moving:false,engaged:false,fallen:false,hasBall:index===5,throwT:0,catchT:0}));carrier=actors[5];flight=null;phase='pre';stamina=1;elapsed=0;input={x:0,z:0,sprint:false,pointer:null};keys.clear();$('knob').style.transform='none';jukeReady=0;prepareJerseys(r,actors);updateHud();updateControls();renderPlays()}
  function updateHud(){const ord=['1ST','2ND','3RD','4TH'];$('score').textContent=drive.score;$('clock').textContent=Math.floor(Math.max(0,drive.clock)/60)+':'+String(Math.floor(Math.max(0,drive.clock)%60)).padStart(2,'0');$('down').textContent=ord[Math.min(3,drive.down-1)]+' & '+drive.toGo+' · '+(drive.ball<50?'OWN '+drive.ball:drive.ball===50?'50':'OPP '+(100-drive.ball))}
  function renderPlays(){const plays=mode==='run'?RUNS:PASSES;$('plays').replaceChildren();plays.forEach((p,i)=>{const b=document.createElement('button');b.type='button';b.className=i===selected?'selected':'';b.innerHTML='<svg viewBox="0 0 48 28" aria-hidden="true"><path d="'+p.icon+'"/></svg><b>'+p.name+'</b>';b.onclick=()=>{if(phase!=='pre')return;selected=i;renderPlays()};$('plays').appendChild(b)});$('playName').textContent=plays[selected].name;$('runTab').classList.toggle('selected',mode==='run');$('passTab').classList.toggle('selected',mode==='pass')}
- function updateControls(){const live=phase!=='pre'&&phase!=='dead';$('pre').hidden=phase!=='pre'||ended;$('live').hidden=phase!=='run'||paused||ended;$('instruction').textContent=phase==='pre'?'Practice preview · No career saves are changed':phase==='pass'?'Tap X, Y or Z to throw.':' ';$('control').textContent=(assist?'ASSIST':'MANUAL')+' ●';$('stick').style.opacity=assist?'.3':'1';$('stick').style.pointerEvents=assist?'none':'auto';$('targetLayer').replaceChildren();if(phase==='pass')receiverIndices.forEach((index,i)=>{const b=document.createElement('button');b.className='target';b.id='target-'+index;b.textContent=['X','Y','Z'][i];b.setAttribute('aria-label','Throw to receiver '+['X','Y','Z'][i]);b.onclick=()=>throwTo(index);$('targetLayer').appendChild(b)})}
+ function updateControls(){const live=phase!=='pre'&&phase!=='dead';$('pre').hidden=phase!=='pre'||ended;$('live').hidden=phase!=='run'||paused||ended;$('instruction').textContent=phase==='pre'?'Practice preview · No career saves are changed':phase==='pass'?'Tap X, Y or Z to throw.':' ';$('control').textContent=(assist?'ASSIST':'MANUAL')+' ●';$('stick').style.opacity=assist?'.3':'1';$('stick').style.pointerEvents=assist?'none':'auto';$('targetLayer').replaceChildren();if(phase==='pass')receiverIndices.forEach((index,i)=>{const b=document.createElement('button');b.className='target';b.id='target-'+index;const badge=document.createElement('span');badge.className='target-label';badge.textContent=['X','Y','Z'][i];const tether=document.createElement('span');tether.className='target-tether';tether.setAttribute('aria-hidden','true');b.append(tether,badge);b.setAttribute('aria-label','Throw to receiver '+['X','Y','Z'][i]);b.onclick=()=>throwTo(index);$('targetLayer').appendChild(b)})}
  function message(text,seconds=1.4){$('message').textContent=text;$('message').classList.add('show');messageUntil=performance.now()+seconds*1000}
  function snap(){if(phase!=='pre'||paused||ended)return;phase=mode==='run'?'handoff':'pass';elapsed=0;drive.plays++;carrier=actors[5];message(mode==='run'?RUNS[selected].name:'READ THE COVERAGE',.85);updateControls()}
  function move(p,x,z,dt,turn=12){const dx=x-p.x,dz=z-p.z,dist=Math.hypot(dx,dz);p.moving=dist>.001;p.distance+=dist;p.x=clamp(x,-26.3,26.3);p.z=z;if(dist>.001){const heading=Math.atan2(dx,dz),diff=Math.atan2(Math.sin(heading-p.heading),Math.cos(heading-p.heading));p.heading+=diff*Math.min(1,dt*turn)}}
@@ -61,8 +81,10 @@ export function start(){
   // Keep contact in view until the next down; move closer only after possession.
   if(isDead){r.camera(camEye,camTarget);return}
   const tracking=phase==='run';
-  const desiredEye=tracking?[carrier.x*.9+5,9.5,carrier.z-14]:[x+4*mult,8.5*mult,(isPocket?snapZ:z)-27*mult];
-  const desiredTarget=tracking?[carrier.x*.9,.5,carrier.z+4]:[x,1.8,z];
+  // Center the pocket and move closer without enlarging athlete geometry.
+  // Keep the existing wide/long-flight presentation and receiver-fit guard.
+  const desiredEye=tracking?[carrier.x*.9+3,7.4,carrier.z-11]:[x+(isPocket?0:4*mult),(isPocket?6.5:8.5)*mult,(isPocket?snapZ:z)-(isPocket?22:27)*mult];
+  const desiredTarget=tracking?[carrier.x*.9,.6,carrier.z+3.5]:[x,1.8,z];
   // Fit actual projected heads/feet above the pre-snap controls. Do not pan the QB away.
   if(isPocket){for(let trial=0;trial<8;trial++){r.camera(desiredEye,desiredTarget);const watch=phase==='pre'?actors.filter(p=>!p.team):[actors[5],...receiverIndices.map(i=>actors[i])];const fits=watch.every(p=>{const h=r.project([p.x,2.1,p.z]),f=r.project([p.x,0,p.z]);return h.y>65&&f.y<r.height-(phase==='pre'?85:22)&&h.x>24&&h.x<r.width-24});if(fits)break;desiredEye[1]*=1.055;desiredEye[2]=desiredTarget[2]+(desiredEye[2]-desiredTarget[2])*1.055}}
   const blend=phase==='pre'?Math.min(1,dt*10):Math.min(1,dt*5);camEye=camEye.map((v,i)=>v+(desiredEye[i]-v)*blend);camTarget=camTarget.map((v,i)=>v+(desiredTarget[i]-v)*blend);r.camera(camEye,camTarget);
@@ -80,7 +102,19 @@ export function start(){
   for(const p of actors)drawAthlete(r,p,now/1000,phase);
   if(flight){const t=clamp(flight.t,0,1),p=flight.from.map((v,i)=>v+(flight.to[i]-flight.from[i])*t);p[1]+=Math.sin(Math.PI*t)*3.3;r.add('sphere',pose(...p,.12,.12,.23),hex('#7d4226'));r.add('plane',pose(p[0],.06,p[2],.45,1,.35),[0,0,0,.65],'shadow',true)}
   r.draw();
-  const placed=[];if(phase==='pass')receiverIndices.forEach(i=>{const p=actors[i],button=$('target-'+i),q=r.project([p.x,2.6,p.z]);if(button){q.x=clamp(q.x,30,r.width-30);q.y=clamp(q.y,83,r.height-34);for(const other of placed){if(Math.hypot(q.x-other.x,q.y-other.y)<46)q.x=clamp(other.x+48,30,r.width-30)}placed.push({...q});button.style.left=q.x+'px';button.style.top=q.y+'px';button.hidden=!q.visible;button.classList.toggle('open',Math.min(...actors.filter(d=>d.team).map(d=>Math.hypot(d.x-p.x,d.z-p.z)))>2)}});
+  if(phase==='pass'){
+   const header=document.querySelector('header').getBoundingClientRect();
+   const projected=receiverIndices.map(i=>({id:i,...r.project([actors[i].x,2.1,actors[i].z])}));
+   const markers=layoutReceiverMarkers(projected,r.width,r.height,{left:header.left+22,right:header.right-22,top:header.bottom+28});
+   markers.forEach((q,n)=>{const p=actors[q.id],button=$('target-'+q.id);if(!button)return;
+    button.hidden=!q.visible;if(!q.visible)return;
+    button.style.left=q.x+'px';button.style.top=q.y+'px';
+    const dx=projected[n].x-q.x,dy=projected[n].y-q.y,tether=button.firstElementChild;
+    tether.style.height=Math.max(0,Math.hypot(dx,dy)-3)+'px';
+    tether.style.transform='rotate('+(-Math.atan2(dx,dy))+'rad)';
+    button.classList.toggle('open',Math.min(...actors.filter(d=>d.team).map(d=>Math.hypot(d.x-p.x,d.z-p.z)))>2);
+   });
+  }
  }
  function simulate(dt){tick(dt);for(const p of actors)advanceMotion(p,dt,phase)}
  function loop(now){raf=requestAnimationFrame(loop);const dt=Math.min(.25,Math.max(0,(now-last)/1000)||.016);last=now;if(document.hidden||r.lost)return;if(!paused&&!qaStepping){accumulator+=dt;let steps=0;while(accumulator>=1/60&&steps++<15){simulate(1/60);accumulator-=1/60;if(paused)break}}camera(dt);scene(dt,now);if(now>messageUntil)$('message').classList.remove('show');frameId++}

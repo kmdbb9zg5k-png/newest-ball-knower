@@ -4,8 +4,10 @@ on:
     branches: [feat/play-moment-3d-practice-preview]
     paths:
       - 'public/play-moment-3d/**'
+      - 'public/play-moment-3d-preview.html'
       - 'scripts/check-play-moment-night-stadium.*'
       - 'scripts/check-play-moment-night.py'
+      - 'scripts/check-play-moment-framing.*'
       - '.github/workflows/play-moment-3d-night-stadium.yml'
   workflow_dispatch:
 permissions:
@@ -21,6 +23,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -29,12 +32,16 @@ jobs:
           python-version: '3.12'
       - name: Geometry, budgets and board orientation
         run: node scripts/check-play-moment-night-stadium.mjs
+      - name: Camera framing and clustered receiver markers
+        run: node scripts/check-play-moment-framing.mjs
       - run: python -m pip install playwright==1.57.0 pillow
       - run: python -m playwright install --with-deps chromium
       - name: Render offline stadium fixtures at three screen sizes
         run: python scripts/check-play-moment-night-stadium.py --output artifacts/night-stadium
       - name: Exercise playable camera-relative cuts and night renderer
         run: BK_NIGHT_RESULTS=artifacts/night-game python scripts/check-play-moment-night.py 932 430
+      - name: Compare camera and HUD and exercise enlarged target hit areas
+        run: python scripts/check-play-moment-framing.py --baseline-ref HEAD^ --output artifacts/framing
       - uses: actions/upload-artifact@v4
         if: always()
         with:
