@@ -1,4 +1,5 @@
 import{pose,mul,rx,rz,translate,scale,segment,hex}from'./renderer.js';
+import{installNightStadium}from'./night-stadium.js';
 const C=hex;
 function canvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return[c,c.getContext('2d')]}
 let seed=31;function random(){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296}
@@ -72,5 +73,6 @@ export function makeStadium(r){
   }
  }
  for(const x of[-26.4,26.4])for(const z of[10,110])add('cube',pose(x,.25,z,.20,.50,.20),C('#ef7943'));
+ installNightStadium(r,add);
  return{draw(){for(const p of staticParts)r.add(...p);for(const pos of lamps)r.glow(pos,10,[.60,.76,1,.27]);},parts:staticParts.length};
 }

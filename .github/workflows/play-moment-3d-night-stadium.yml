@@ -1,0 +1,41 @@
+name: 3D practice night stadium
+on:
+  push:
+    branches: [feat/play-moment-3d-practice-preview]
+    paths:
+      - 'public/play-moment-3d/**'
+      - 'scripts/check-play-moment-night-stadium.*'
+      - '.github/workflows/play-moment-3d-night-stadium.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: practice-night-stadium-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  presentation-fixtures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Geometry, budgets and board orientation
+        run: node scripts/check-play-moment-night-stadium.mjs
+      - run: python -m pip install playwright==1.57.0
+      - run: python -m playwright install --with-deps chromium
+      - name: Render offline stadium fixtures at three screen sizes
+        run: python scripts/check-play-moment-night-stadium.py --output artifacts/night-stadium
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: night-stadium-fixtures
+          path: artifacts/night-stadium
+          if-no-files-found: ignore
+          retention-days: 3
