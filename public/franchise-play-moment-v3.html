@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+<meta name="theme-color" content="#05080c" />
+<title>Ball Knower | Play Moment</title>
+<link rel="stylesheet" href="/franchise-play-moment-v3.css" />
+</head>
+<body>
+<div class="app">
+  <main class="shell">
+    <header class="topbar">
+      <button class="close" id="closeBtn" aria-label="Cancel playable moment">×</button>
+      <div class="brandblock">
+        <div class="brand">BALL KNOWER</div>
+        <div class="scenario" id="scenarioName">PLAY MOMENT</div>
+      </div>
+      <div class="control-switch" aria-label="Control mode">
+        <span>CONTROL</span>
+        <div class="control-pills">
+          <button id="manualBtn" class="active" type="button">MANUAL</button>
+          <button id="assistBtn" type="button">ASSIST</button>
+        </div>
+      </div>
+    </header>
+
+    <section class="scoreboard">
+      <div class="score-main">
+        <div class="team"><small>YOU</small><strong id="userScore">24</strong><div class="name" id="userName">KNOWERS</div></div>
+        <div class="clock"><strong id="clock">1:18</strong><span>4TH QUARTER</span></div>
+        <div class="team right"><small>CPU</small><strong id="oppScore">27</strong><div class="name" id="oppName">OPPONENT</div></div>
+      </div>
+      <div class="situation">
+        <div class="sit"><b id="downText">1ST &amp; 10</b><span>DOWN</span></div>
+        <div class="sit"><b id="yardText">OWN 25</b><span>BALL</span></div>
+        <div class="sit"><b id="toText">2</b><span>TIMEOUTS</span></div>
+        <div class="sit"><b id="driveText">75 YDS</b><span>TO END ZONE</span></div>
+      </div>
+    </section>
+
+    <section class="rating-strip">
+      <div class="rating"><b id="primaryRating">80</b><span id="primaryLabel">QB ACC</span></div>
+      <div class="rating"><b id="lineRating">78</b><span id="lineLabel">PASS PRO</span></div>
+      <div class="rating"><b id="speedRating">80</b><span id="speedLabel">WR SPD</span></div>
+      <div class="rating"><b id="skillRating">80</b><span id="skillLabel">ROUTE</span></div>
+    </section>
+
+    <div class="mode-row">
+      <button id="passMode" class="mode active" type="button">PASS</button>
+      <button id="runMode" class="mode" type="button">RUN</button>
+      <div class="selected-play"><span id="playType">PASS PLAY</span><b id="selectedPlayName">MESH</b></div>
+    </div>
+
+    <section class="game-wrap">
+      <div class="stadium-rim"><span>SMART PLAYERS WIN MORE.</span><b>BALL KNOWER</b><span>FOOTBALL IQ BUILDS LEGENDS.</span></div>
+      <div class="field" id="field">
+        <div class="endzone"><span>♛</span> BALL KNOWER</div>
+        <div class="yardnum y20"><span>20</span><span>20</span></div>
+        <div class="yardnum y40"><span>40</span><span>40</span></div>
+        <div class="yardnum y60"><span>40</span><span>40</span></div>
+        <div class="yardnum y80"><span>20</span><span>20</span></div>
+        <div class="hash hash-a"></div><div class="hash hash-b"></div>
+        <div class="los" id="los"></div><div class="first" id="first"></div>
+        <svg class="routes" id="routes" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+        <div class="pressure-label" id="pressureLabel">POCKET PRESSURE</div>
+        <div class="pressure" id="pressureWrap"><span id="pressure"></span></div>
+        <div class="ball" id="ball"></div>
+        <div class="toast" id="toast"></div>
+
+        <div class="manual-hud" id="manualHud" aria-hidden="true">
+          <div class="joystick" id="joystick">
+            <div class="joy-ring"></div>
+            <div class="joy-knob" id="joyKnob"></div>
+          </div>
+          <div class="skill-grid">
+            <button class="skill" data-skill="juke" type="button"><span>↯</span><b>JUKE</b></button>
+            <button class="skill" data-skill="spin" type="button"><span>⟳</span><b>SPIN</b></button>
+            <button class="skill" data-skill="stiff" type="button"><span>✋</span><b>STIFF ARM</b></button>
+            <button class="skill sprint" data-skill="sprint" type="button"><span>➜</span><b>SPRINT</b></button>
+          </div>
+        </div>
+
+        <div class="result" id="result">
+          <div class="result-card">
+            <div class="eyebrow" id="resultEyebrow">DRIVE COMPLETE</div>
+            <h2 id="resultTitle">TOUCHDOWN</h2>
+            <p id="resultBody"></p>
+            <button id="applyBtn" type="button">APPLY RESULT</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="controls">
+      <div class="playbook" id="playbook"></div>
+      <div class="snaprow">
+        <button class="timeout" id="timeoutBtn" type="button"><span>◴</span><b>USE TIMEOUT</b><small id="timeoutCopy">2 REMAINING</small></button>
+        <button class="snap" id="snapBtn" type="button"><span>🏈</span><b>SNAP BALL</b></button>
+      </div>
+      <div class="targets" id="targets">
+        <button class="target" data-target="x" disabled><strong>X</strong> THROW</button>
+        <button class="target" data-target="slot" disabled><strong>SLOT</strong> THROW</button>
+        <button class="target" data-target="z" disabled><strong>Z</strong> THROW</button>
+      </div>
+      <p class="help" id="help"><b>Read the coverage.</b> Tap a receiver when he separates.</p>
+    </section>
+
+    <section class="log"><header><span>DRIVE LOG</span><span id="status">HURRY-UP OFFENSE</span></header><div class="items" id="logItems"></div></section>
+  </main>
+</div>
+<script src="/franchise-play-moment-v3.js"></script>
+</body>
+</html>
