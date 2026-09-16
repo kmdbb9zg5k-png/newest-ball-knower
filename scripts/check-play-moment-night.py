@@ -66,20 +66,20 @@ if __name__=='__main__':
         assert g['overflows']==0 and g['drawCalls']<55 and 0<g['shadowDrawCalls']<18
         result['checks'].append('22 actors; red-zone entry; forced High graphics with no player selector; bounded draw calls; zero overflow')
         defensive_looks=[]
-        for snap_number in range(4):
+        for snap_number in range(6):
             assert page.evaluate('(n)=>bk3dTest.setSnapNumber(n)',snap_number)
             look=diag(page)
             defensive_looks.append((look['defense']['id'],look['defense']['coverage'],tuple((round(p['x'],2),round(p['z']-look['field']['scrimmage'],2)) for p in look['players'][11:])))
-        assert len({look[0] for look in defensive_looks})==4,defensive_looks
+        assert len({look[0] for look in defensive_looks})==6,defensive_looks
         assert len({look[1] for look in defensive_looks})==4,defensive_looks
-        assert len({look[2] for look in defensive_looks})==4,defensive_looks
+        assert len({look[2] for look in defensive_looks})==6,defensive_looks
         page.evaluate('bk3dTest.setSnapNumber(0)')
         blitz_counts=[]
-        for snap_number in range(4):
+        for snap_number in range(6):
             page.evaluate('(n)=>bk3dTest.setSnapNumber(n)',snap_number);blitz_counts.append(len(diag(page)['defense']['blitzers']))
-        assert sorted(blitz_counts)==[0,0,1,2],blitz_counts
+        assert sorted(blitz_counts)==[0,0,1,1,1,2],blitz_counts
         page.evaluate('bk3dTest.setSnapNumber(0)')
-        result['checks'].append('four distinct situational fronts rotate independently of the offense; pressure calls send real linebackers')
+        result['checks'].append('six distinct situational fronts rotate independently of the offense; pressure calls send real linebackers')
         page.click('#pause');before=diag(page)
         for tier,size,ratio in [('eco',0,1),('high',2048,2),('balanced',1024,1.5),('high',2048,2)]:
             page.evaluate('(tier)=>bkSetGraphicsQualityForQA(tier)',tier);step(page,0);g=graphics(page)
@@ -107,10 +107,23 @@ if __name__=='__main__':
         assert scrambled['phase']=='run' and scrambled['players'][5]['hasBall'] and not scrambled['assist'],scrambled
         assert scrambled['players'][5]['z']>=scrambled['field']['scrimmage']+.15,scrambled
         assert page.locator('#target-7').count()==0 or not page.locator('#target-7').is_visible()
+        receiver_z={index:scrambled['players'][index]['z'] for index in [6,7,8,9,10]}
+        step(page,.25);supported=diag(page)
+        assert all(supported['players'][index]['z']>=receiver_z[index]-.08 for index in receiver_z),(receiver_z,supported['players'])
         qb_skill=page.locator('#juke').bounding_box();qb_cdp=page.context.new_cdp_session(page)
         skill_gesture(qb_cdp,qb_skill,0,42,10);slid=diag(page)
         assert slid['phase']=='dead' and slid['lastSkill']=='slide' and slid['players'][5]['fallen'],slid
-        result['checks'].append('quarterback crosses the line of scrimmage, keeps possession, enters manual control and slides on a downward skill swipe')
+        result['checks'].append('quarterback crosses the line of scrimmage, keeps possession, receivers flow into support blocks without retreating, and a downward swipe slides')
+        restart(page);page.click('#passTab');page.evaluate('bk3dTest.setSnapNumber(3)');page.click('#snap');step(page,.15)
+        assert page.locator('#throwAway').is_visible() and page.locator('#throwAway').get_attribute('data-ready')=='false'
+        page.click('#throwAway');assert diag(page)['phase']=='pass'
+        page.keyboard.down('ArrowRight');step(page,1.55);page.keyboard.up('ArrowRight')
+        escaped=diag(page);assert escaped['phase']=='pass' and abs(escaped['players'][5]['x'])>6,escaped
+        assert page.locator('#throwAway').get_attribute('data-ready')=='true'
+        page.click('#throwAway');assert diag(page)['phase']=='flight' and diag(page)['throwKind']=='throwaway'
+        step(page,.55);thrown_away=diag(page)
+        assert thrown_away['phase']=='dead' and thrown_away['drive']['down']==2 and thrown_away['drive']['ball']==85,thrown_away
+        result['checks'].append('throwaway control rejects the pocket, becomes ready outside the tackles, animates to the sideline and preserves the spot')
         run_results=[]
         for run_index in range(4):
             restart(page);page.click('#runTab');page.evaluate('(n)=>bk3dTest.setSnapNumber(n)',run_index);page.locator('#plays button').nth(run_index).click()
@@ -119,6 +132,7 @@ if __name__=='__main__':
             assert fit['phase']=='run',fit
             assert mike['z']>fit['field']['scrimmage']+.6,(run_index,mike,fit['defense'])
             assert mike['engagedWith'] is not None or mike['z']-fit['players'][6]['z']>2.2,(run_index,mike,fit['players'][6],fit['defense'])
+            assert any(fit['players'][index]['engagedWith'] in [18,19,20] for index in [7,8,9]),(run_index,fit['players'][7:10],fit['defense'])
             step(page,.65);page.keyboard.up('ArrowUp');played=diag(page);runner=played['players'][6]
             assert runner['z']>=played['field']['scrimmage']-.25,(run_index,runner,played['defense'],played['lastTackler'])
             if played['phase']=='dead':assert played['drive']['ball']>=85,(run_index,played)
@@ -126,7 +140,7 @@ if __name__=='__main__':
         assert max(sample['runnerX'] for sample in run_results)-min(sample['runnerX'] for sample in run_results)>4,run_results
         assert len({round(sample['runnerZ'],1) for sample in run_results})>1,run_results
         result['runFitSamples']=run_results
-        result['checks'].append('four run concepts produce different landmarks and pace versus four defensive calls; climbing blocks account for the Mike')
+        result['checks'].append('four run concepts produce different landmarks and pace; climbing blocks account for the Mike and receivers stalk-block force defenders')
         restart(page);page.click('#runTab')
         assert page.locator('#stick').is_visible() and not page.locator('#moves').is_visible()
         presnap_stick=page.locator('#stick').bounding_box()
