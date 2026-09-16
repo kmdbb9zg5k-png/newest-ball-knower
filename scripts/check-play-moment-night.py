@@ -74,7 +74,12 @@ if __name__=='__main__':
         assert len({look[1] for look in defensive_looks})==4,defensive_looks
         assert len({look[2] for look in defensive_looks})==4,defensive_looks
         page.evaluate('bk3dTest.setSnapNumber(0)')
-        result['checks'].append('four distinct pre-snap defensive fronts rotate through zone, man, quarters and robber independently of the offense')
+        blitz_counts=[]
+        for snap_number in range(4):
+            page.evaluate('(n)=>bk3dTest.setSnapNumber(n)',snap_number);blitz_counts.append(len(diag(page)['defense']['blitzers']))
+        assert sorted(blitz_counts)==[0,0,1,2],blitz_counts
+        page.evaluate('bk3dTest.setSnapNumber(0)')
+        result['checks'].append('four distinct situational fronts rotate independently of the offense; pressure calls send real linebackers')
         page.click('#pause');before=diag(page)
         for tier,size,ratio in [('eco',0,1),('high',2048,2),('balanced',1024,1.5),('high',2048,2)]:
             page.evaluate('(tier)=>bkSetGraphicsQualityForQA(tier)',tier);step(page,0);g=graphics(page)
@@ -88,11 +93,14 @@ if __name__=='__main__':
             restart(page);page.click('#passTab');page.locator('#plays button').nth(i).click();page.click('#snap');step(page,1.3)
             d=diag(page);assert d['phase']=='pass' and d['players'][7]['distance']>3
             assert d['players'][5]['foot']['y']<h-10,d['players'][5]
-            assert page.locator('#target-7').is_visible() and d['glError']==0
+            assert page.locator('.target').count()==5 and page.locator('#target-7').is_visible() and page.locator('#target-10').is_visible() and page.locator('#target-6').is_visible() and d['glError']==0
             if i==0: page.screenshot(path=str(OUT/f'night-pass-{w}x{h}.png'))
-            page.keyboard.press('1');step(page,1.0)
+            page.keyboard.press('4' if i==0 else '5' if i==1 else '1')
+            assert page.locator('#catchChoices').is_visible()
+            page.locator('#catchChoices button[data-catch="secure"]').click();assert diag(page)['catchStyle']=='secure'
+            step(page,1.0)
             assert diag(page)['phase'] in ['run','dead','pre']
-        result['checks'].append('all four pass concepts; moving receivers; pocket framing; target throws')
+        result['checks'].append('all four pass concepts; five eligible targets including TE/RB; live secure/aggressive/RAC choice; pocket framing')
         restart(page);page.click('#passTab');page.click('#snap');step(page,.2)
         page.keyboard.down('ArrowUp');step(page,1.45);page.keyboard.up('ArrowUp')
         scrambled=diag(page)
@@ -114,9 +122,11 @@ if __name__=='__main__':
             step(page,.65);page.keyboard.up('ArrowUp');played=diag(page);runner=played['players'][6]
             assert runner['z']>=played['field']['scrimmage']-.25,(run_index,runner,played['defense'],played['lastTackler'])
             if played['phase']=='dead':assert played['drive']['ball']>=85,(run_index,played)
-            run_results.append({'run':run_index,'defense':played['defense']['id'],'runnerZ':runner['z'],'scrimmage':played['field']['scrimmage'],'lastTackler':played['lastTackler']})
+            run_results.append({'run':run_index,'defense':played['defense']['id'],'runnerX':runner['x'],'runnerZ':runner['z'],'scrimmage':played['field']['scrimmage'],'lastTackler':played['lastTackler']})
+        assert max(sample['runnerX'] for sample in run_results)-min(sample['runnerX'] for sample in run_results)>4,run_results
+        assert len({round(sample['runnerZ'],1) for sample in run_results})>1,run_results
         result['runFitSamples']=run_results
-        result['checks'].append('all four run concepts versus four defensive calls; climbing blocker accounts for the Mike; no scripted backfield tackle')
+        result['checks'].append('four run concepts produce different landmarks and pace versus four defensive calls; climbing blocks account for the Mike')
         restart(page);page.click('#runTab')
         assert page.locator('#stick').is_visible() and not page.locator('#moves').is_visible()
         presnap_stick=page.locator('#stick').bounding_box()
