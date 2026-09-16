@@ -98,6 +98,7 @@ if __name__=='__main__':
         stick=page.locator('#stick').bounding_box();sprint=page.locator('#sprint').bounding_box();juke=page.locator('#juke').bounding_box()
         assert abs(stick['x']-presnap_stick['x'])<1 and abs(stick['y']-presnap_stick['y'])<1,(presnap_stick,stick)
         cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]})
+        cdp=page.context.new_cdp_session(page)
         touches=[{'x':stick['x']+stick['width']/2,'y':stick['y']+stick['height']*.2,'id':21},
                  {'x':sprint['x']+sprint['width']/2,'y':sprint['y']+sprint['height']/2,'id':22}]
         cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':touches})
