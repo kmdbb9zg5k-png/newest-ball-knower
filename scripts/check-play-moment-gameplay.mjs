@@ -164,10 +164,12 @@ assert.ok(ratingMultiplier(95) > ratingMultiplier(65));
 assert.equal(contactOutcome(rbRatings, mikeRatings, { momentum: .9, angle: .2, skill: 'truck', roll: .05 }).type, 'miss');
 assert.equal(contactOutcome(rbRatings, mikeRatings, { momentum: .9, angle: .2, skill: 'truck', roll: .25 }).type, 'broken');
 assert.ok(['wrap', 'gang', 'big-hit'].includes(contactOutcome(rbRatings, mikeRatings, { momentum: .2, angle: 1, gang: 1, roll: .8 }).type));
-const wrapFinish=contactPresentation('wrap',.5,-1),gangFinish=contactPresentation('gang',.5,1),hitFinish=contactPresentation('big-hit',.5,1);
+assert.equal(contactOutcome(rbRatings,mikeRatings,{momentum:.72,defenderMomentum:.92,distance:.8,angle:.9,roll:.8}).type,'dive','A fast square tackler at the edge of contact should use a dive finish');
+const wrapFinish=contactPresentation('wrap',.5,-1),gangFinish=contactPresentation('gang',.5,1),diveFinish=contactPresentation('dive',.75,1),hitFinish=contactPresentation('big-hit',.5,1);
 assert.equal(wrapFinish.side,-1);
 assert.ok(gangFinish.helper&&gangFinish.duration>wrapFinish.duration,'Gang tackles need a helper and a longer finish');
 assert.ok(hitFinish.carrierDrive>wrapFinish.carrierDrive&&hitFinish.shake>wrapFinish.shake,'Big hits need more displacement and camera impact');
+assert.ok(diveFinish.carrierDrive>wrapFinish.carrierDrive&&diveFinish.duration<wrapFinish.duration,'Diving tackles need a faster, longer finish than wraps');
 assert.equal(contactPresentation('unknown').type,'wrap','Unknown contact presentation must fail safe to a wrap');
 const cleanWindow = passOutcomeChances(2.5, .1, 'touch', .25, 0);
 const dangerWindow = passOutcomeChances(.4, .9, 'lob', 1.4, 1);
@@ -190,7 +192,8 @@ assert.match(source, /nearest\.reactionT=\.001/, 'Nearby defenders must react vi
 assert.match(source, /carriedBallAnchor\(carrier,phase\)/, 'Possessed footballs must use the hand-relative anchor');
 assert.match(source, /endPlay\('QB SLIDE'/, 'A quarterback slide must safely end the play at the current spot');
 assert.match(source, /beginSkillAction\('spin'/, 'Spin must drive its own presentation state');
-assert.match(source, /beginSkillAction\('truck'/, 'Truck/stiff-arm must drive its own presentation state');
+assert.match(source, /beginSkillAction\(presentation,\.48/, 'Truck/stiff-arm must drive its own presentation state');
+assert.match(source, /presentation=lateral>\.62\?'stiff-arm':'truck'/, 'A side defender must trigger a true stiff-arm state instead of reusing the truck pose');
 assert.match(source, /beginSkillAction\('hurdle'/, 'Hurdle must drive its own presentation state');
 assert.match(source, /!p\.fallen/, 'Fallen defenders must not immediately resume pursuit or tackling');
 assert.match(source, /p\.team===1&&!p\.engaged/, 'An engaged defender should not make a tackle through a blocker');
@@ -200,6 +203,8 @@ assert.match(source, /supportBlockers\(dt\)/, 'Receivers must find support block
 assert.match(source, /Math\.max\(blocker\.z,carrier\.z\+4\)/, 'Scramble support cannot make receivers turn backward');
 assert.match(source, /blocker\.blockStyle='stalk'/, 'Perimeter and support receivers need a distinct stalk-block presentation');
 assert.match(source, /p\.blockStyle='pass-anchor'/, 'Pass protectors need a distinct anchor state at contact');
+assert.match(source, /'rush-rip':'rush-swim'/, 'Edge rushers must alternate independent rip and swim techniques');
+assert.match(source, /qb\.throwStyle=kind/, 'Bullet, touch and lob passes must drive different quarterback releases');
 assert.match(source, /p\.routeStyle=elapsed<\.48/, 'Route runners need release, stem and cut states');
 assert.match(source, /d\.coverageStyle=elapsed<\.62/, 'Defensive backs need pedal, match and break states');
 assert.match(source, /defensiveCall\.alignments\.forEach/, 'The defense must display its selected front before the snap');
@@ -233,10 +238,10 @@ console.log(JSON.stringify({
   receiverKeys: 11,
   invalidReceiverKeys: 7,
   coverageWindows: separations.length,
-  contactWindows: 4,
+  contactWindows: 5,
   pursuitSamples: 4,
   throwTypes: Object.keys(THROW_PROFILES),
   coverageShells: [0, 1, 2, 3].map(coverageShell),
   defensiveCalls: DEFENSIVE_CALLS.map(call => call.id),
-  checks: 'five eligible targets, catch choices, tap/hold trajectories and legal throwaways, ratings-driven throws, role-specific line/perimeter/support blocks, timed wrap/gang/big-hit contact, six situational defensive fronts with real blitzers, distinct run timing/landmarks/acceleration, linebacker read steps, momentum locomotion, predictive pursuit, forward progress, movable QB pocket, scramble/slide, contextual skills, contact-only sacks and coverage-scaled outcomes',
+  checks: 'five eligible targets, catch choices, distinct bullet/touch/lob releases and legal throwaways, ratings-driven throws, role-specific line/perimeter/support blocks, alternating rip/swim rush techniques, timed wrap/dive/gang/big-hit contact, six situational defensive fronts with real blitzers, distinct run timing/landmarks/acceleration, linebacker read steps, momentum locomotion, predictive pursuit, forward progress, movable QB pocket, scramble/slide, contextual skills including true stiff arms, contact-only sacks and coverage-scaled outcomes',
 }, null, 2));

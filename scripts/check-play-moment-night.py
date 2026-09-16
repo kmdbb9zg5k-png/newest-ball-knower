@@ -172,6 +172,7 @@ if __name__=='__main__':
         before_juke=diag(page)['players'][6]
         cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':juke['x']+juke['width']/2,'y':juke['y']+juke['height']/2,'id':31}]})
         cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]})
+        step(page,.04)
         after_juke=diag(page)['players'][6]
         # A juke now plants into a short lateral cut and carries the rest of the
         # burst through velocity instead of teleporting the runner 1.8 yards.
@@ -180,6 +181,7 @@ if __name__=='__main__':
         assert after_juke['action']=='juke' and (after_juke['vx']**2+after_juke['vz']**2)**.5>6.5,(before_juke,after_juke)
         assert abs(after_juke['heading']-before_juke['heading'])>.35,(before_juke,after_juke)
         assert diag(page)['lastSkill']=='juke'
+        assert 'carry-juke' in diag(page)['athletes']['states'],diag(page)['athletes']
         for name,dx,dy,touch_id in [('spin-right',42,0,41),('truck',0,-42,42),('hurdle',0,42,43)]:
             restart(page);page.click('#runTab');page.click('#snap');step(page,.6)
             skill=page.locator('#juke').bounding_box();before=diag(page)['players'][6]
@@ -188,6 +190,8 @@ if __name__=='__main__':
             assert moved['lastSkill']==name,(name,moved)
             assert after['action']==('spin' if name=='spin-right' else name),(name,after)
             assert ((after['x']-before['x'])**2+(after['z']-before['z'])**2)**.5>.35,(name,before,after)
+            expected_states={'spin-right':{'carry-spin'},'truck':{'carry-truck','carry-stiff-arm'},'hurdle':{'carry-hurdle'}}[name]
+            assert expected_states.intersection(moved['athletes']['states']),(name,moved['athletes'])
         page.screenshot(path=str(OUT/f'night-run-{w}x{h}.png'))
         result['checks'].append('fixed-position pre-snap stick with held input; five-man run assignments; simultaneous stick+sprint; tap juke; swipe spin, truck and hurdle')
         for key,screen_side in [('ArrowRight',1),('ArrowLeft',-1)]:
@@ -201,7 +205,7 @@ if __name__=='__main__':
             assert abs(after['heading']-runner['heading'])>.05,(key,runner,after)
         result['checks'].append('keyboard juke cuts follow camera-space left/right and visibly plant into the cut')
         contact_samples=[]
-        for contact_type in ['wrap','gang','big-hit']:
+        for contact_type in ['wrap','dive','gang','big-hit']:
             restart(page);page.click('#runTab');page.click('#snap');step(page,.7)
             assert diag(page)['phase']=='run'
             assert page.evaluate('(kind)=>bk3dTest.forceContact(kind)',contact_type)
@@ -219,7 +223,7 @@ if __name__=='__main__':
             if contact_type=='wrap':page.screenshot(path=str(OUT/f'night-contact-{w}x{h}.png'))
             contact_samples.append({'type':contact_type,'duration':middle['contact']['duration'],'carrierDrive':middle['players'][carrier_index]['z']-start_z})
         result['contactSamples']=contact_samples
-        result['checks'].append('wrap, gang and big-hit sequences continue after the whistle; carrier, tackler and gang helper finish contact instead of freezing on impact')
+        result['checks'].append('wrap, diving, gang and big-hit sequences continue after the whistle; carrier, tackler and gang helper finish contact instead of freezing on impact')
         restart(page);page.click('#runTab');page.click('#snap');step(page,.7)
         assert page.evaluate("bk3dTest.forceContact('wrap',true)")
         drive_end=diag(page);assert drive_end['paused'] and drive_end['ended'] and drive_end['contact']['type']=='wrap',drive_end
