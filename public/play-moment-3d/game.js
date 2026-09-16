@@ -28,7 +28,7 @@ export function pocketPressure(nearestRusherDistance,seconds){
 }
 export function sackLoss(scrimmageZ,qbZ){return clamp(Math.round(scrimmageZ-qbZ)+1,3,12)}
 export function hasCrossedScrimmage(qbZ,scrimmageZ){return qbZ>=scrimmageZ+.15}
-export function qbMovementSpeed(qbX){return Math.abs(qbX)>6?5.8:4.4}
+export function qbMovementSpeed(qbX,forwardInput=0){return(Math.abs(qbX)>6?5.8:4.4)+clamp(forwardInput,0,1)*.7}
 /** Presentation-only ball anchor kept close to the throwing hand or carrying arm. */
 export function carriedBallAnchor(player,phase='run'){
  const heading=player.heading||0,forward=[Math.sin(heading),Math.cos(heading)],right=[Math.cos(heading),-Math.sin(heading)],pulse=Math.sin(Math.max(0,Math.min(1,player.actionT||0))*Math.PI);
@@ -272,7 +272,7 @@ function coverage(dt){
   if(phase==='handoff'){const a=actors[5],b=actors[6],concept=RUNS[selected],t=clamp(elapsed/concept.handoff,0,1),ease=t*t*(3-2*t);move(b,-2+(concept.mesh[0]+2)*ease,snapZ-7+(concept.mesh[1]+7)*ease,dt);a.heading=Math.atan2(concept.mesh[0],concept.mesh[1]+5);blockers(dt,true);if(t>=1){a.hasBall=false;b.hasBall=true;carrier=b;phase='run';elapsed=0;updateControls()}return}
   if(phase==='pass'||phase==='flight'){coverage(dt);blockers(dt,false);const qb=actors[5];
    if(phase==='pass'){
-    let x=input.x,z=input.z;const kx=(keys.has('ArrowRight')||keys.has('d')?1:0)-(keys.has('ArrowLeft')||keys.has('a')?1:0),kz=(keys.has('ArrowUp')||keys.has('w')?1:0)-(keys.has('ArrowDown')||keys.has('s')?1:0);if(kx||kz){const len=Math.hypot(kx,kz);x=kx/len;z=kz/len}if(x||z){[x,z]=cameraWorldVector(x,z,camEye,camTarget);const speed=qbMovementSpeed(qb.x);accelerate(qb,x,z,speed,dt,14,22);qb.x=clamp(qb.x,-19,19);qb.z=clamp(qb.z,snapZ-12,snapZ+.35)}else accelerate(qb,0,0,qbMovementSpeed(qb.x),dt,14,25);
+    let x=input.x,z=input.z;const kx=(keys.has('ArrowRight')||keys.has('d')?1:0)-(keys.has('ArrowLeft')||keys.has('a')?1:0),kz=(keys.has('ArrowUp')||keys.has('w')?1:0)-(keys.has('ArrowDown')||keys.has('s')?1:0);if(kx||kz){const len=Math.hypot(kx,kz);x=kx/len;z=kz/len}if(x||z){[x,z]=cameraWorldVector(x,z,camEye,camTarget);const speed=qbMovementSpeed(qb.x,z);accelerate(qb,x,z,speed,dt,14,22);qb.x=clamp(qb.x,-19,19);qb.z=clamp(qb.z,snapZ-12,snapZ+.35)}else accelerate(qb,0,0,qbMovementSpeed(qb.x),dt,14,25);
     if(hasCrossedScrimmage(qb.z,snapZ)){phase='run';assist=false;elapsed=0;stamina=1;$('stamina').firstElementChild.style.width='100%';updateControls();message('QB SCRAMBLE · TAKE CONTROL',1);return}
     const rushers=actors.filter(p=>p.team===1&&!p.engaged&&(p.role==='DL'||defensiveCall.blitzers.includes(p.index))),nearest=Math.min(...rushers.map(p=>Math.hypot(p.x-qb.x,p.z-qb.z)),8),pressure=pocketPressure(nearest,elapsed);$('stamina').firstElementChild.style.width=(pressure*100)+'%';$('instruction').textContent='MOVE QB · CROSS BLUE LINE TO RUN · PRESSURE '+Math.round(pressure*100)+'%';if(nearest<.92){endPlay('SACK',drive.ball-sackLoss(snapZ,qb.z));return}
    }

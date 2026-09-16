@@ -88,6 +88,7 @@ assert.equal(hasCrossedScrimmage(100.15, 100), true);
 assert.equal(qbMovementSpeed(0), 4.4);
 assert.equal(qbMovementSpeed(6), 4.4);
 assert.equal(qbMovementSpeed(6.01), 5.8, 'A quarterback outside the tackle box should accelerate into a rollout');
+assert.ok(qbMovementSpeed(0, 1) > 5.09, 'Climbing the pocket should be fast enough to create a fair scramble window');
 
 const qbBall=carriedBallAnchor({role:'QB',x:2,z:20,heading:0},'pass');
 assert.deepEqual(qbBall,[2.13,1.4,20.28,0],'The quarterback should hold the ball at chest height before release');
