@@ -4,18 +4,22 @@ import {
   CATCH_STYLES,
   canThrowAway,
   carrierControlVector,
+  blockOutcome,
   catchBreakupChance,
   carriedBallAnchor,
   contactOutcome,
   contactPresentation,
+  cutSeverity,
   coverageShell,
   DEFENSIVE_CALLS,
   defensiveCallForSnap,
   defenderPursuitSpeed,
   forwardProgressSpot,
   hasCrossedScrimmage,
+  identifyMikeAssignments,
   locomotionStep,
   passOutcomeChances,
+  passLeadOffset,
   playerRatings,
   perimeterBlockAssignments,
   pocketPressure,
@@ -117,6 +121,13 @@ assert.ok(Math.hypot(coast.vx, coast.vz) < Math.hypot(cut.vx, cut.vz), 'Released
 assert.deepEqual(carrierControlVector(false, 0, 0, .8, .6), { x: 0, z: 0, manual: false }, 'Manual mode must never auto-steer an untouched runner');
 assert.deepEqual(carrierControlVector(false, -1, 0, .8, .6), { x: -1, z: 0, manual: true }, 'Manual stick input must fully override the run concept');
 assert.deepEqual(carrierControlVector(true, 0, 0, .8, .6), { x: .8, z: .6, manual: false }, 'Assist mode should retain concept steering');
+assert.equal(cutSeverity(0, 7, 0, -1), 1, 'A full-speed reversal must trigger a hard plant');
+assert.equal(cutSeverity(0, 2, 1, 0), 0, 'Low-speed direction changes should remain responsive');
+assert.equal(blockOutcome(95, 72, .2, .5), 'steer', 'A leveraged elite blocker should steer the defender');
+assert.equal(blockOutcome(65, 94, 0, .1), 'shed', 'An elite defender should be able to shed a weak block');
+assert.equal(blockOutcome(96, 68, .25, .99), 'pancake', 'Dominant run blocks should occasionally finish on the ground');
+assert.deepEqual(identifyMikeAssignments([[1, 15], [3, 16]], 15), [[1, 16], [3, 15]], 'Changing the Mike must swap assignments without duplicating him');
+assert.deepEqual(passLeadOffset(1, -.5), { x: 2.2, z: -1.4 }, 'The passing stick should lead throws laterally and vertically');
 
 const pursuit = pursuitTarget({ x: 0, z: 0 }, { x: 12, z: 20, vx: 4, vz: 7 }, true);
 assert.ok(pursuit.z > 20, 'A defender should aim ahead of a moving runner');
@@ -187,11 +198,19 @@ assert.ok(secureWindow.breakup < racWindow.breakup, 'Secure catches must trade Y
 assert.ok(CATCH_STYLES.rac.yac > CATCH_STYLES.secure.yac && CATCH_STYLES.aggressive.yac < CATCH_STYLES.rac.yac);
 
 const source = readFileSync(new URL('../public/play-moment-3d/game.js', import.meta.url), 'utf8');
+const preview = readFileSync(new URL('../public/play-moment-3d-preview.html', import.meta.url), 'utf8');
+const hud = readFileSync(new URL('../public/play-moment-3d/hud.css', import.meta.url), 'utf8');
+const meshySource = readFileSync(new URL('../public/play-moment-3d/meshy-athlete.js', import.meta.url), 'utf8');
+for (const id of ['flipPlay', 'motionReceiver', 'identifyMike', 'juke', 'spin', 'power', 'airMove', 'sprint', 'pumpFake', 'throwAway', 'watchReplay']) assert.match(preview, new RegExp(`id="${id}"`), `${id} must remain in the mobile control deck`);
+assert.match(hud, /#skillPad\{display:grid/, 'The four skill actions need a compact two-by-two mobile layout');
+assert.match(hud, /button\.cooldown/, 'Skill cooldowns need visible feedback');
+assert.match(meshySource, /p\.action==='cut'/, 'Hard direction changes must select the carry-cut animation');
+assert.match(meshySource, /p\.action==='pancake'/, 'Dominant block finishes must select a grounded animation');
 assert.match(source, /receiverSlot=receiverSlotForKey\(key\)/, 'Keyboard receiver mapping is not wired to throws');
 assert.match(source, /simTime<jukeReady/, 'Juke cooldown must use paused simulation time');
 assert.match(source, /simTime>jukeUntil/, 'Juke contact immunity must use paused simulation time');
-assert.match(source, /skillButton\.onpointermove/, 'Skill gestures must resolve while the thumb is moving');
-assert.match(source, /finishSkillGesture/, 'A short skill-button tap must resolve to a juke');
+assert.match(source, /document\.querySelectorAll\('#skillPad button'\)/, 'Dedicated skill buttons must resolve directly on touch down');
+assert.doesNotMatch(source, /finishSkillGesture/, 'Dedicated skill buttons should not depend on ambiguous swipe completion');
 assert.match(source, /carrier\.vx=dx\*7\.4/, 'Juke must create a visible lateral acceleration');
 assert.match(source, /nearest\.reactionT=\.001/, 'Nearby defenders must react visibly to skill moves');
 assert.match(source, /carriedBallAnchor\(carrier,phase\)/, 'Possessed footballs must use the hand-relative anchor');
@@ -222,13 +241,22 @@ assert.match(source, /p\.role!=='DL'&&!p\.engaged/, 'A blocked linebacker must n
 assert.match(source, /\['pre','pass','run'\]\.includes\(phase\)/, 'The movement stick must accept a held direction before the snap');
 assert.match(source, /BALL CARRIER · YOU HAVE CONTROL/, 'The handoff must visibly confirm manual ball-carrier control');
 assert.doesNotMatch(source, /else if\(guide\)\{x=guide\.x;z=guide\.z\}/, 'Manual run control must not fall back to automatic concept steering');
+assert.match(source, /document\.querySelectorAll\('#skillPad button'\)/, 'Juke, spin, power and hurdle controls must use dedicated mobile buttons');
+assert.match(source, /function flipPlay\(/, 'Pre-snap play flipping must be wired');
+assert.match(source, /function motionReceiver\(/, 'Pre-snap receiver motion must be wired');
+assert.match(source, /function identifyMike\(/, 'Pre-snap Mike identification must be wired');
+assert.match(source, /function pumpFake\(/, 'Quarterback pump fakes must be wired');
+assert.match(source, /passLeadOffset\(input\.x,input\.z\)/, 'Live stick direction must lead receiver throws');
+assert.match(source, /function watchReplay\(/, 'Explosive plays must be retained for an in-game replay');
+assert.match(source, /function stadiumSound\(/, 'Snap, collision and touchdown presentation must include stadium audio feedback');
+assert.match(source, /blocker\.blockResult=blockOutcome/, 'Run blocks must resolve individual win, steer, shed or pancake outcomes');
 assert.match(source, /CONTESTED /, 'Contested catches need player feedback');
 assert.match(source, /TIGHT WINDOW · PASS BROKEN UP/, 'Tight-window incompletions need player feedback');
 assert.match(source, /DROPPED PASS/, 'Open-target drops must not be mislabeled as breakups');
 assert.match(source, /if\(nearest<\.92\)/, 'Sacks must require actual rusher contact');
 assert.doesNotMatch(source, /pressure>=\.995/, 'Pressure alone must not create an invisible sack');
 assert.doesNotMatch(source, /elapsed>4\.6/, 'The old fixed sack timer must stay removed');
-assert.match(source, /MOVE QB · 5 TARGETS · CROSS BLUE LINE TO RUN/, 'Passing controls need to teach five targets and the scramble boundary');
+assert.match(source, /MOVE QB · TAP\/HOLD TARGET · PUMP · SCRAMBLE/, 'Passing controls need to teach target timing, pump fakes and scrambling');
 assert.match(source, /endDrive\('INTERCEPTED'/, 'Interceptions must create a real turnover result');
 assert.match(source, /QB SCRAMBLE · TAKE CONTROL/, 'Crossing the line of scrimmage must transition the quarterback to a runner');
 assert.match(source, /phase='run';assist=false;elapsed=0/, 'A scramble must always hand manual control back to the player');
