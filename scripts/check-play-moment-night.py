@@ -115,11 +115,11 @@ if __name__=='__main__':
         assert slid['phase']=='dead' and slid['lastSkill']=='slide' and slid['players'][5]['fallen'],slid
         result['checks'].append('quarterback crosses the line of scrimmage, keeps possession, receivers flow into support blocks without retreating, and a downward swipe slides')
         restart(page);page.click('#passTab');page.evaluate('bk3dTest.setSnapNumber(3)');page.click('#snap');step(page,.15)
-        assert page.locator('#throwAway').is_visible() and page.locator('#throwAway').get_attribute('aria-disabled')=='true'
+        assert page.locator('#throwAway').is_visible() and page.locator('#throwAway').get_attribute('data-ready')=='false'
         page.click('#throwAway');assert diag(page)['phase']=='pass'
         page.keyboard.down('ArrowRight');step(page,1.55);page.keyboard.up('ArrowRight')
         escaped=diag(page);assert escaped['phase']=='pass' and abs(escaped['players'][5]['x'])>6,escaped
-        assert page.locator('#throwAway').get_attribute('aria-disabled')=='false'
+        assert page.locator('#throwAway').get_attribute('data-ready')=='true'
         page.click('#throwAway');assert diag(page)['phase']=='flight' and diag(page)['throwKind']=='throwaway'
         step(page,.55);thrown_away=diag(page)
         assert thrown_away['phase']=='dead' and thrown_away['drive']['down']==2 and thrown_away['drive']['ball']==85,thrown_away
