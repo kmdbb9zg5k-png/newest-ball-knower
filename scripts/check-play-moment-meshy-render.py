@@ -47,19 +47,20 @@ def main():
             pre = page.evaluate('bk3dDiagnostics()')
             assert pre['athletes']['ready'] and not pre['athletes']['error'], pre['athletes']
             assert pre['athletes']['triangles'] == 14_187 and pre['athletes']['bones'] == 27 and pre['athletes']['clips'] == 11
-            assert pre['athletes']['motionRecipes'] == 12 and pre['athletes']['states'] == ['pre'] * 22, pre['athletes']
+            assert pre['athletes']['motionRecipes'] == 25 and pre['athletes']['states'] == ['pre'] * 22, pre['athletes']
             assert len(pre['players']) == 22 and pre['drawCalls'] < 80 and pre['glError'] == 0, pre
             assert any(url.endswith('/meshy-gridiron-gold.glb') and status == 200 for url, status in responses), responses
             page.screenshot(path=str(args.output / 'detailed-presnap-932x430.png'))
             report['views'].append({'name': 'presnap', 'phase': pre['phase'], 'drawCalls': pre['drawCalls'], 'athletes': pre['athletes']})
 
             page.click('#snap')
-            page.evaluate('bk3dTest.step(.7)')
+            page.evaluate('bk3dTest.step(.95)')
             run = page.evaluate('bk3dDiagnostics()')
             assert run['phase'] == 'run' and any(player['engaged'] for player in run['players'][:11]), run
             assert any(player['engagedWith'] is not None for player in run['players']), 'Run blocks are not paired'
             assert 'carry-run' in run['athletes']['states'] or 'carry-sprint' in run['athletes']['states'], run['athletes']
-            assert 'drive-block' in run['athletes']['states'] and 'shed' in run['athletes']['states'], run['athletes']
+            assert any(state in run['athletes']['states'] for state in ['drive-block', 'reach-block', 'climb-block']) and 'shed' in run['athletes']['states'], run['athletes']
+            assert 'stalk-block' in run['athletes']['states'], run['athletes']
             page.screenshot(path=str(args.output / 'detailed-run-932x430.png'))
             report['views'].append({'name': 'run', 'phase': run['phase'], 'drawCalls': run['drawCalls']})
 
@@ -71,8 +72,8 @@ def main():
             page.evaluate('bk3dTest.step(1.2)')
             passing = page.evaluate('bk3dDiagnostics()')
             assert passing['phase'] == 'pass' and passing['pocketPressure'] >= 0
-            assert 'route-release' in passing['athletes']['states'] or 'route-cut' in passing['athletes']['states'], passing['athletes']
-            assert 'pass-set' in passing['athletes']['states'] and 'rush-engaged' in passing['athletes']['states'], passing['athletes']
+            assert any(state in passing['athletes']['states'] for state in ['route-release', 'route-stem', 'route-cut']), passing['athletes']
+            assert 'pass-anchor' in passing['athletes']['states'] and 'rush-engaged' in passing['athletes']['states'], passing['athletes']
             page.locator('#target-7').click()
             page.evaluate('bk3dTest.step(.25)')
             flight = page.evaluate('bk3dDiagnostics()')
