@@ -46,7 +46,7 @@
  </div>
  <div id="instruction">Choose a play. Snap the ball. Find the opening.</div>
 </div>
-<div id="paused" class="dialog" hidden><div><span class="eyebrow">BALL KNOWER · PRACTICE</span><h1 id="dialogTitle">PAUSED</h1><p id="dialogBody">This preview never changes your career saves or season record.</p><button id="resume">RESUME</button><button id="restart" class="secondary">RESTART DRIVE</button><a href="/">Return to Ball Knower</a></div></div>
+<div id="paused" class="dialog" hidden><div><span class="eyebrow">BALL KNOWER · PRACTICE</span><h1 id="dialogTitle">PAUSED</h1><p id="dialogBody">This preview never changes your career saves or season record.</p><button id="resume">RESUME</button><button id="restart" class="secondary">RESTART DRIVE</button><div class="gameplay-report"><textarea id="reportNote" maxlength="500" aria-label="Optional gameplay report note" placeholder="Optional: what felt wrong?"></textarea><button id="sendReport" class="secondary">SEND GAMEPLAY REPORT</button><small id="reportStatus">Sends gameplay inputs and player positions only. No screen, audio, camera, location, or account data.</small></div><a href="/">Return to Ball Knower</a></div></div>
 <div id="rotate"><div><b>TURN THE FIELD SIDEWAYS</b><p>Rotate your phone for the 3D practice preview.</p><a href="/">Back to Ball Knower</a></div></div>
 <script type="module">
 try { const {start}=await import('/play-moment-3d/game.js'); start(); }

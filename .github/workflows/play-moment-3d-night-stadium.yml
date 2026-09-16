@@ -5,22 +5,28 @@ on:
     paths:
       - 'public/play-moment-3d/**'
       - 'public/play-moment-3d-preview.html'
+      - 'public/privacy.html'
+      - 'api/gameplay-report.ts'
       - 'scripts/check-play-moment-night-stadium.*'
       - 'scripts/check-play-moment-night.py'
       - 'scripts/check-play-moment-framing.*'
       - 'scripts/check-play-moment-goal-line.*'
       - 'scripts/check-play-moment-gameplay.mjs'
+      - 'scripts/check-play-moment-replay.mjs'
       - 'scripts/record-play-moment-gameplay.py'
       - '.github/workflows/play-moment-3d-night-stadium.yml'
   pull_request:
     paths:
       - 'public/play-moment-3d/**'
       - 'public/play-moment-3d-preview.html'
+      - 'public/privacy.html'
+      - 'api/gameplay-report.ts'
       - 'scripts/check-play-moment-night-stadium.*'
       - 'scripts/check-play-moment-night.py'
       - 'scripts/check-play-moment-framing.*'
       - 'scripts/check-play-moment-goal-line.*'
       - 'scripts/check-play-moment-gameplay.mjs'
+      - 'scripts/check-play-moment-replay.mjs'
       - 'scripts/record-play-moment-gameplay.py'
       - '.github/workflows/play-moment-3d-night-stadium.yml'
   workflow_dispatch:
@@ -52,6 +58,8 @@ jobs:
         run: node scripts/check-play-moment-goal-line.mjs
       - name: Gameplay controls, coverage, pursuit and tackle balance
         run: node scripts/check-play-moment-gameplay.mjs
+      - name: Optional gameplay report privacy and replay contract
+        run: node scripts/check-play-moment-replay.mjs
       - name: Detailed Meshy player, PBR maps and football animation budget
         run: node scripts/check-play-moment-meshy.mjs
       - run: python -m pip install playwright==1.57.0 pillow
