@@ -85,9 +85,12 @@ if __name__=='__main__':
         assert scrambled['players'][5]['z']>=scrambled['field']['scrimmage']+.15,scrambled
         assert page.locator('#target-7').count()==0 or not page.locator('#target-7').is_visible()
         result['checks'].append('quarterback crosses the line of scrimmage, keeps possession and enters manual run control')
-        restart(page);page.click('#runTab');page.click('#snap');step(page,.6)
+        restart(page);page.click('#runTab')
+        assert page.locator('#stick').is_visible() and not page.locator('#moves').is_visible()
+        page.click('#snap');step(page,.6)
         assert diag(page)['phase']=='run'
-        stick=page.locator('#stick').bounding_box();sprint=page.locator('#sprint').bounding_box()
+        assert sum(p['team']==1 and p['engaged'] for p in diag(page)['players'])>=4,diag(page)['players']
+        stick=page.locator('#stick').bounding_box();sprint=page.locator('#sprint').bounding_box();juke=page.locator('#juke').bounding_box()
         cdp=page.context.new_cdp_session(page)
         touches=[{'x':stick['x']+stick['width']/2,'y':stick['y']+stick['height']*.2,'id':1},
                  {'x':sprint['x']+sprint['width']/2,'y':sprint['y']+sprint['height']/2,'id':2}]
@@ -96,8 +99,13 @@ if __name__=='__main__':
         cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]})
         step(page,.2);released=diag(page);assert released['stamina']>running['stamina']
         assert released['players'][6]['distance']>1
+        before_juke=released['players'][6]
+        cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':juke['x']+juke['width']/2,'y':juke['y']+juke['height']/2,'id':3}]})
+        cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]})
+        after_juke=diag(page)['players'][6]
+        assert ((after_juke['x']-before_juke['x'])**2+(after_juke['z']-before_juke['z'])**2)**.5>1.7,(before_juke,after_juke)
         page.screenshot(path=str(OUT/f'night-run-{w}x{h}.png'))
-        result['checks'].append('handoff, manual movement, emulated simultaneous stick+sprint and release')
+        result['checks'].append('pre-snap stick; five-man run assignments; manual movement; simultaneous stick+sprint; touch-down juke')
         for key,screen_side in [('ArrowRight',1),('ArrowLeft',-1)]:
             restart(page);page.click('#runTab');page.click('#snap');step(page,.6)
             before=diag(page);g=graphics(page);runner=before['players'][6]

@@ -51,11 +51,14 @@ Reproduce after installing Python Playwright and an available Chromium build:
 
 ## Gameplay controls
 
+- The movement stick is visible before the snap and can be held early, so the runner or quarterback responds immediately when control becomes live.
 - Before a pass, use the left stick or WASD/arrow keys to climb, drift or escape the pocket.
 - The quarterback can roll outside the tackle box and accelerates there. Cross the blue line of scrimmage to become a runner; passing is disabled after crossing.
 - Tap a receiver badge for a bullet, hold briefly for touch, or hold longer for a lob.
 - On a keyboard, use X/Y/Z (or 1/2/3); hold Shift for touch or Alt for a lob.
 - The center bar becomes a live pocket-pressure meter during pass plays. Sacks are caused by rusher proximity and a collapsing pocket rather than a fixed timer.
+- Run plays assign all five offensive linemen to the defensive front plus the play-side linebacker. Engaged defenders cannot pursue or tackle through their blocker.
+- Juke fires on touch-down, cuts away from the nearest unblocked defender when no direction is selected, and grants a short contact-avoidance window.
 - The four pass concepts face man, quarters, zone and robber behavior respectively. Defenders can undercut inaccurate, pressured or late throws for interceptions.
 - The preview always launches in High graphics. There is no player-facing graphics selector.
 Set CHROMIUM_PATH/DISPLAY as required for your environment. Screenshot/check JSON results

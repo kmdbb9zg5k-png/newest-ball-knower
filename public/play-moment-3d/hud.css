@@ -8,3 +8,5 @@
 #live[data-phase="pass"] #moves{display:none}
 #live[data-phase="pass"] #stamina{width:220px;left:calc(50% - 110px);height:5px}
 #live[data-phase="pass"] #stamina span{width:0;background:linear-gradient(90deg,#e8c66c 0 55%,#ef8b55 76%,#ed5757 100%);transition:width .08s linear}
+#live[data-phase="pre"] #stick{bottom:max(112px,calc(env(safe-area-inset-bottom) + 104px));opacity:.72}
+#live[data-phase="pre"] #moves,#live[data-phase="pre"] #stamina{display:none}

@@ -83,7 +83,12 @@ const source = readFileSync(new URL('../public/play-moment-3d/game.js', import.m
 assert.match(source, /receiverSlot=receiverSlotForKey\(key\)/, 'Keyboard receiver mapping is not wired to throws');
 assert.match(source, /simTime<jukeReady/, 'Juke cooldown must use paused simulation time');
 assert.match(source, /simTime>jukeUntil/, 'Juke contact immunity must use paused simulation time');
+assert.match(source, /onpointerdown=e=>\{juke\(\)/, 'Juke must react on touch-down instead of waiting for a delayed click');
+assert.match(source, /carrier\.x\+dx\*2\.05/, 'Juke must create a visible lateral cut');
 assert.match(source, /p\.team===1&&!p\.engaged/, 'An engaged defender should not make a tackle through a blocker');
+assert.match(source, /assignments=\[11,12,13,14,side<0\?15:17\]/, 'Run blockers must account for the defensive front and a play-side linebacker');
+assert.match(source, /p\.role!=='DL'&&!p\.engaged/, 'A blocked linebacker must not pursue through his lineman');
+assert.match(source, /\['pre','pass','run'\]\.includes\(phase\)/, 'The movement stick must accept a held direction before the snap');
 assert.match(source, /CONTESTED CATCH · TAKE CONTROL/, 'Contested catches need player feedback');
 assert.match(source, /TIGHT WINDOW · PASS BROKEN UP/, 'Tight-window incompletions need player feedback');
 assert.match(source, /DROPPED PASS/, 'Open-target drops must not be mislabeled as breakups');
