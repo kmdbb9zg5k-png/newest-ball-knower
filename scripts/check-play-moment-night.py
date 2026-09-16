@@ -31,6 +31,11 @@ def load(page,redzone=False,fbo_failure=False):
 def diag(page): return page.evaluate('bk3dDiagnostics()')
 def graphics(page): return page.evaluate('bkGraphicsDiagnostics()')
 def step(page,s): page.evaluate('(s)=>bk3dTest.step(s)',s)
+def skill_gesture(cdp,box,dx,dy,touch_id):
+    x=box['x']+box['width']/2;y=box['y']+box['height']/2
+    cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':x,'y':y,'id':touch_id}]})
+    cdp.send('Input.dispatchTouchEvent',{'type':'touchMove','touchPoints':[{'x':x+dx,'y':y+dy,'id':touch_id}]})
+    cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]})
 def restart(page):
     if not page.locator('#paused').is_visible(): page.click('#pause')
     page.click('#restart');step(page,.2)
@@ -84,7 +89,10 @@ if __name__=='__main__':
         assert scrambled['phase']=='run' and scrambled['players'][5]['hasBall'] and not scrambled['assist'],scrambled
         assert scrambled['players'][5]['z']>=scrambled['field']['scrimmage']+.15,scrambled
         assert page.locator('#target-7').count()==0 or not page.locator('#target-7').is_visible()
-        result['checks'].append('quarterback crosses the line of scrimmage, keeps possession and enters manual run control')
+        qb_skill=page.locator('#juke').bounding_box();qb_cdp=page.context.new_cdp_session(page)
+        skill_gesture(qb_cdp,qb_skill,0,42,10);slid=diag(page)
+        assert slid['phase']=='dead' and slid['lastSkill']=='slide' and slid['players'][5]['fallen'],slid
+        result['checks'].append('quarterback crosses the line of scrimmage, keeps possession, enters manual control and slides on a downward skill swipe')
         restart(page);page.click('#runTab')
         assert page.locator('#stick').is_visible() and not page.locator('#moves').is_visible()
         presnap_stick=page.locator('#stick').bounding_box()
@@ -111,8 +119,17 @@ if __name__=='__main__':
         cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]})
         after_juke=diag(page)['players'][6]
         assert ((after_juke['x']-before_juke['x'])**2+(after_juke['z']-before_juke['z'])**2)**.5>1.7,(before_juke,after_juke)
+        assert diag(page)['lastSkill']=='juke'
+        for name,dx,dy,touch_id in [('spin-right',42,0,41),('truck',0,-42,42),('hurdle',0,42,43)]:
+            restart(page);page.click('#runTab');page.click('#snap');step(page,.6)
+            skill=page.locator('#juke').bounding_box();before=diag(page)['players'][6]
+            skill_gesture(page.context.new_cdp_session(page),skill,dx,dy,touch_id);step(page,.08)
+            moved=diag(page);after=moved['players'][6]
+            assert moved['lastSkill']==name,(name,moved)
+            assert after['action']==('spin' if name=='spin-right' else name),(name,after)
+            assert ((after['x']-before['x'])**2+(after['z']-before['z'])**2)**.5>.35,(name,before,after)
         page.screenshot(path=str(OUT/f'night-run-{w}x{h}.png'))
-        result['checks'].append('fixed-position pre-snap stick with held input; five-man run assignments; simultaneous stick+sprint; touch-down juke')
+        result['checks'].append('fixed-position pre-snap stick with held input; five-man run assignments; simultaneous stick+sprint; tap juke; swipe spin, truck and hurdle')
         for key,screen_side in [('ArrowRight',1),('ArrowLeft',-1)]:
             restart(page);page.click('#runTab');page.click('#snap');step(page,.6)
             before=diag(page);g=graphics(page);runner=before['players'][6]

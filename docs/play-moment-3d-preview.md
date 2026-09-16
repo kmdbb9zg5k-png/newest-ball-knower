@@ -15,10 +15,10 @@ an art-quality pass before replacing the live mode.
 
 ## Playable
 Four run concepts (Inside Zone, HB Stretch, Counter, HB Toss), four passing concepts
-(Mesh, Verticals, Flood, Dagger), touch steering and keyboard arrows/WASD, Sprint, Juke,
+(Mesh, Verticals, Flood, Dagger), touch steering and keyboard arrows/WASD, Sprint, contextual skill moves,
 Manual/Assist running, X/Y/Z throws (keyboard X/Y/Z or 1/2/3), basic pursuit/blocking, handoff,
 catch-and-run, bounds/tackles, sacks, down progression, pause, restart and a practice-drive end.
-Space snaps; Escape pauses. No Stiff Arm/Spin, official players, career stats, save transfer,
+Space snaps; Escape pauses. No official players, career stats, save transfer,
 replays, audio, advanced football rules, or multiplayer are claimed for this preview.
 
 Gameplay balance now makes coverage readable instead of resolving every target with the same
@@ -58,7 +58,10 @@ Reproduce after installing Python Playwright and an available Chromium build:
 - On a keyboard, use X/Y/Z (or 1/2/3); hold Shift for touch or Alt for a lob.
 - The center bar becomes a live pocket-pressure meter during pass plays. Sacks are caused by rusher proximity and a collapsing pocket rather than a fixed timer.
 - Run plays assign all five offensive linemen to the defensive front plus the play-side linebacker. Engaged defenders cannot pursue or tackle through their blocker.
-- Juke fires on touch-down, cuts away from the nearest unblocked defender when no direction is selected, and grants a short contact-avoidance window.
+- The right skill button is gesture-aware: tap for juke, swipe left/right for a directional spin, swipe up for truck/stiff-arm, and swipe down for hurdle.
+- When the quarterback crosses the line of scrimmage, swipe down on the skill button to slide and safely end the play at the current spot.
+- Skill moves have distinct stamina costs, cooldowns, contact-avoidance windows and procedural body movement. Tap juke still cuts away from the nearest unblocked defender when no direction is selected.
+- Keyboard parity uses J for juke, Q/E for left/right spin, R for truck, and F for hurdle or quarterback slide.
 - The four pass concepts face man, quarters, zone and robber behavior respectively. Defenders can undercut inaccurate, pressured or late throws for interceptions.
 - The preview always launches in High graphics. There is no player-facing graphics selector.
 Set CHROMIUM_PATH/DISPLAY as required for your environment. Screenshot/check JSON results

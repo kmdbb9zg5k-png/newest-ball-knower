@@ -23,9 +23,14 @@ const blocking=actor('OL');blocking.engaged=true;const rootBeforeBlock=[blocking
 blocking.engaged=false;for(let i=0;i<45;i++)advanceMotion(blocking,1/60,'pass');assert.ok(samplePose(blocking).brace<1e-4);
 const q=actor('QB');advanceMotion(q,0,'pass');q.throwT=.001;for(let i=0;i<8;i++)advanceMotion(q,1/60,'flight');assert.ok(samplePose(q).throwWeight>.3);for(let i=0;i<40;i++)advanceMotion(q,1/60,'flight');near(samplePose(q).throwWeight,0);
 q.fallen=true;const original=[q.x,q.z];advanceMotion(q,1/60,'dead');assert.ok(q.motion.fall>0&&q.motion.fall<.3);for(let i=0;i<60;i++)advanceMotion(q,1/60,'dead');assert.ok(q.motion.fall>.99);assert.deepEqual([q.x,q.z],original);
+const skilled=actor('RB');advanceMotion(skilled,0,'run');const skillRoot=[skilled.x,skilled.z,skilled.heading];
+skilled.action='spin';skilled.actionT=.5;skilled.actionSide=1;const spinPose=samplePose(skilled);near(spinPose.skillYaw,Math.PI);assert.deepEqual([skilled.x,skilled.z,skilled.heading],skillRoot);
+skilled.action='hurdle';const hurdlePose=samplePose(skilled);assert.ok(hurdlePose.skillLift>.3&&footTarget(hurdlePose,1)[1]>.3);
+skilled.action='truck';const truckPose=samplePose(skilled);assert.ok(truckPose.power>.99&&truckPose.lean>.2);
+skilled.action='juke';const jukePose=samplePose(skilled);assert.ok(jukePose.turn>.3);
 // Dampening is independent of the render frame rate when sampling a uniform run.
 const a=actor(),b=actor();advanceMotion(a,0,'run');advanceMotion(b,0,'run');
 for(let i=0;i<60;i++){a.z+=.1;advanceMotion(a,1/60,'run')}
 for(let i=0;i<30;i++){b.z+=.2;advanceMotion(b,1/30,'run')}
 near(a.motion.speed,b.motion.speed);near(a.motion.gait,b.motion.gait);
-console.log('PASS: eight body types, grounded contact brace, pose blending, gait stop, coordinate isolation, foot targets, two-bone segment lengths, block/throw/fall and frame-rate invariance.');
+console.log('PASS: eight body types, grounded contact brace, skill-move poses, pose blending, gait stop, coordinate isolation, foot targets, two-bone segment lengths, block/throw/fall and frame-rate invariance.');

@@ -10,6 +10,7 @@ import {
   qbMovementSpeed,
   receiverSlotForKey,
   sackLoss,
+  skillMoveForGesture,
   tackleRadius,
   THROW_PROFILES,
   throwKindForHold,
@@ -72,6 +73,14 @@ assert.equal(qbMovementSpeed(0), 4.4);
 assert.equal(qbMovementSpeed(6), 4.4);
 assert.equal(qbMovementSpeed(6.01), 5.8, 'A quarterback outside the tackle box should accelerate into a rollout');
 
+assert.equal(skillMoveForGesture(2, 3, 120, false), 'juke');
+assert.equal(skillMoveForGesture(2, 3, 700, false), null, 'A long hold must not accidentally fire a juke');
+assert.equal(skillMoveForGesture(-42, 4, 100, false), 'spin-left');
+assert.equal(skillMoveForGesture(42, 4, 100, false), 'spin-right');
+assert.equal(skillMoveForGesture(2, -42, 100, false), 'truck');
+assert.equal(skillMoveForGesture(2, 42, 100, false), 'hurdle');
+assert.equal(skillMoveForGesture(2, 42, 100, true), 'slide');
+
 assert.deepEqual([0, 1, 2, 3].map(coverageShell), ['man', 'quarters', 'zone', 'robber']);
 const cleanWindow = passOutcomeChances(2.5, .1, 'touch', .25, 0);
 const dangerWindow = passOutcomeChances(.4, .9, 'lob', 1.4, 1);
@@ -83,8 +92,14 @@ const source = readFileSync(new URL('../public/play-moment-3d/game.js', import.m
 assert.match(source, /receiverSlot=receiverSlotForKey\(key\)/, 'Keyboard receiver mapping is not wired to throws');
 assert.match(source, /simTime<jukeReady/, 'Juke cooldown must use paused simulation time');
 assert.match(source, /simTime>jukeUntil/, 'Juke contact immunity must use paused simulation time');
-assert.match(source, /onpointerdown=e=>\{juke\(\)/, 'Juke must react on touch-down instead of waiting for a delayed click');
+assert.match(source, /skillButton\.onpointermove/, 'Skill gestures must resolve while the thumb is moving');
+assert.match(source, /finishSkillGesture/, 'A short skill-button tap must resolve to a juke');
 assert.match(source, /carrier\.x\+dx\*2\.05/, 'Juke must create a visible lateral cut');
+assert.match(source, /endPlay\('QB SLIDE'/, 'A quarterback slide must safely end the play at the current spot');
+assert.match(source, /beginSkillAction\('spin'/, 'Spin must drive its own presentation state');
+assert.match(source, /beginSkillAction\('truck'/, 'Truck/stiff-arm must drive its own presentation state');
+assert.match(source, /beginSkillAction\('hurdle'/, 'Hurdle must drive its own presentation state');
+assert.match(source, /!p\.fallen/, 'Fallen defenders must not immediately resume pursuit or tackling');
 assert.match(source, /p\.team===1&&!p\.engaged/, 'An engaged defender should not make a tackle through a blocker');
 assert.match(source, /assignments=\[11,12,13,14,side<0\?15:17\]/, 'Run blockers must account for the defensive front and a play-side linebacker');
 assert.match(source, /p\.role!=='DL'&&!p\.engaged/, 'A blocked linebacker must not pursue through his lineman');
@@ -109,5 +124,5 @@ console.log(JSON.stringify({
   pursuitSamples: 4,
   throwTypes: Object.keys(THROW_PROFILES),
   coverageShells: [0, 1, 2, 3].map(coverageShell),
-  checks: 'X/Y/Z and 1/2/3 throws, tap/hold and modifier trajectories, movable QB pocket, rollout acceleration, line-of-scrimmage scramble transition, contact-only sacks, four coverage shells, interceptions, coverage-scaled outcomes, contact windows, pursuit balance and simulation-time jukes',
+  checks: 'X/Y/Z and 1/2/3 throws, tap/hold and modifier trajectories, movable QB pocket, rollout acceleration, line-of-scrimmage scramble transition and slide, contextual touch skills, contact-only sacks, four coverage shells, interceptions, coverage-scaled outcomes, contact windows and pursuit balance',
 }, null, 2));

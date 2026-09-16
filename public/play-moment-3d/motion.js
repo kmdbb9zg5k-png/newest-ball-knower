@@ -55,18 +55,20 @@ export function samplePose(p){
  const m=p.motion||advanceMotion(p,0,'pre');
  const build=bodyTypes[p.role]||bodyTypes.WR;
  const sprint=clamp((m.speed-6.5)/2.7,0,1);
+ const actionT=clamp(p.actionT||0,0,1),actionPulse=Math.sin(actionT*Math.PI);
+ const spin=p.action==='spin'?1:0,hurdle=p.action==='hurdle'?actionPulse:0,power=p.action==='truck'?actionPulse:0,juke=p.action==='juke'?actionPulse:0;
  const stance=readyStances[p.role]||readyStances.WR;
  // Contact gets its own grounded brace instead of borrowing a reduced running stride.
  const brace=m.block*(1-m.ready);
  const squat=(1.02-stance.pelvis)*m.ready+.18*brace;
  const drive=m.run*(1-.90*brace)*(1-m.ready);
- const liveLean=lerp(.025,.22+sprint*.10,drive)+.38*brace;
+ const liveLean=lerp(.025,.22+sprint*.10,drive)+.38*brace+.24*power;
  const lean=lerp(liveLean,stance.lean,m.ready);
  const throwProgress=clamp(m.throwTime/.46,0,1),throwWeight=m.throwTime<.46?Math.sin(throwProgress*Math.PI):0;
- return {build,pelvis:1.02-squat,lean,turn:clamp(-m.turn*.065,-.24,.24)*drive,
-  twist:Math.sin(m.gait)*.055*drive-throwWeight*.20,
+ return {build,pelvis:1.02-squat,lean,turn:clamp(-m.turn*.065,-.24,.24)*drive+(p.actionSide||0)*juke*.34,
+  twist:Math.sin(m.gait)*.055*drive-throwWeight*.20+(p.actionSide||0)*power*.14,
   ready:m.ready,block:m.block,brace,drive,sprint,gait:m.gait,fall:m.fall,
-  catch:m.catch,throwProgress,throwWeight};
+  catch:m.catch,throwProgress,throwWeight,power,skillYaw:spin*(p.actionSide||1)*actionT*TAU,skillLift:hurdle*.34,skillTuck:hurdle*.24};
 }
 export function footTarget(pose,side){
  const u=((pose.gait/TAU+(side===1?.5:0))%1+1)%1;
@@ -78,7 +80,7 @@ export function footTarget(pose,side){
  const brace=pose.brace??pose.block??0;
  // Engaged linemen widen and stagger their base instead of shuffling in place.
  const braceStagger=(side===1?-.22:.22)*brace;
- return [side*(.14+.08*pose.ready+.10*brace),.085+lift*pose.drive,
+ return [side*(.14+.08*pose.ready+.10*brace),.085+lift*pose.drive+(pose.skillTuck||0),
   z*pose.drive+readyStagger*pose.ready+braceStagger];
 }
 /* Solves in local 3D coordinates. Both segments retain their physical length,

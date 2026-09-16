@@ -33,6 +33,7 @@ export function resolveArm(p,q,side,phase,torso=torsoFrame(q)){
  angle=angle*(1-q.block)-1.08*q.block;
  elbow=elbow*(1-q.block)-.50*q.block;
  if(p.hasBall&&side===1){angle=-.50;elbow=-1.72}
+ if(q.power>0&&side===-1){angle=angle*(1-q.power)-1.42*q.power;elbow=elbow*(1-q.power)-.24*q.power}
  if(p.role==='QB'&&(phase==='pass'||phase==='pre')){angle=-.55;elbow=-1.82}
  if(q.throwWeight>0&&p.role==='QB'&&side===1){angle=-2.55+q.throwProgress*2.35;elbow=-1.30+q.throwProgress*1.10}
  angle=angle*(1-q.catch)-1.54*q.catch;elbow=elbow*(1-q.catch)-.38*q.catch;
@@ -51,7 +52,7 @@ export function drawAthlete(r,p,time,phase){
  try {
   const k=kit[p.team],q=samplePose(p),build=q.build,skin=skinTones[p.index%skinTones.length];
   const height=build.height*(.99+(p.index%3)*.01);
-  let root=mul(mul(translate(p.x,.15*q.fall,p.z),ry(p.heading||0)),rx(q.fall*1.38));
+  let root=mul(mul(translate(p.x,.15*q.fall+(q.skillLift||0),p.z),ry((p.heading||0)+(q.skillYaw||0))),rx(q.fall*1.38));
   root=mul(root,scale(build.width,height,1));
   const material=color=>color===skin?3:(color===k.jersey||color===k.pants)?2:1;
   const ell=(base,x,y,z,sx,sy,sz,color,shine=0)=>r.add('sphere',mul(base,pose(x,y,z,sx,sy,sz)),color,'',false,shine,material(color));
