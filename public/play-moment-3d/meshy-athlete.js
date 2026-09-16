@@ -13,6 +13,22 @@ export const MESHY_CLIPS=Object.freeze({
  run:0,walk:1,sprint:2,tackle:3,block:4,idle:5,idleAlt:6,throw:7,catch:8,celebrate:9,rest:10,
 });
 
+// Keep pre-snap feet planted. The generated idle clips contain a large leg
+// flourish later in their loops, so each position uses a reviewed football
+// frame instead of marching through the same full-body loop in sync.
+export const PRE_SNAP_ROLE_POSES=Object.freeze({
+ QB:Object.freeze({clip:MESHY_CLIPS.idle,time:.04}),
+ RB:Object.freeze({clip:MESHY_CLIPS.idle,time:.18}),
+ WR:Object.freeze({clip:MESHY_CLIPS.idleAlt,time:.06}),
+ TE:Object.freeze({clip:MESHY_CLIPS.idleAlt,time:.20}),
+ OL:Object.freeze({clip:MESHY_CLIPS.block,time:.04}),
+ DL:Object.freeze({clip:MESHY_CLIPS.block,time:.22}),
+ LB:Object.freeze({clip:MESHY_CLIPS.idleAlt,time:.32}),
+ DB:Object.freeze({clip:MESHY_CLIPS.idleAlt,time:.44}),
+});
+export function preSnapPoseForRole(role,index=0){const pose=PRE_SNAP_ROLE_POSES[role]||PRE_SNAP_ROLE_POSES.LB;return{clip:pose.clip,time:pose.time+(index%3)*.012}}
+export function meshyPlaybackSeed(index=0,team=0){return{rate:.91+((index*5+(team ? 3 : 0))%7)*.027,offset:(index*.437+(team ? .271 : 0))%1}}
+
 function compile(gl,type,source){const shader=gl.createShader(type);gl.shaderSource(shader,source);gl.compileShader(shader);if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS)){const message=gl.getShaderInfoLog(shader);gl.deleteShader(shader);throw new Error(message)}return shader}
 function makeProgram(gl,vs,fs){const program=gl.createProgram(),vert=compile(gl,gl.VERTEX_SHADER,vs),frag=compile(gl,gl.FRAGMENT_SHADER,fs);gl.attachShader(program,vert);gl.attachShader(program,frag);gl.linkProgram(program);gl.deleteShader(vert);gl.deleteShader(frag);if(!gl.getProgramParameter(program,gl.LINK_STATUS)){const message=gl.getProgramInfoLog(program);gl.deleteProgram(program);throw new Error(message)}return program}
 
@@ -20,6 +36,8 @@ function quatMatrix(q){
  const[x,y,z,w]=q,x2=x+x,y2=y+y,z2=z+z,xx=x*x2,xy=x*y2,xz=x*z2,yy=y*y2,yz=y*z2,zz=z*z2,wx=w*x2,wy=w*y2,wz=w*z2;
  return new Float32Array([1-(yy+zz),xy+wz,xz-wy,0,xy-wz,1-(xx+zz),yz+wx,0,xz+wy,yz-wx,1-(xx+yy),0,0,0,0,1]);
 }
+function quatMul(a,b){return[a[3]*b[0]+a[0]*b[3]+a[1]*b[2]-a[2]*b[1],a[3]*b[1]-a[0]*b[2]+a[1]*b[3]+a[2]*b[0],a[3]*b[2]+a[0]*b[1]-a[1]*b[0]+a[2]*b[3],a[3]*b[3]-a[0]*b[0]-a[1]*b[1]-a[2]*b[2]]}
+function axisQuat(x,y,z,angle){const h=angle*.5,s=Math.sin(h);return[x*s,y*s,z*s,Math.cos(h)]}
 function compose(t,q,s){const m=quatMatrix(q);m[0]*=s[0];m[1]*=s[0];m[2]*=s[0];m[4]*=s[1];m[5]*=s[1];m[6]*=s[1];m[8]*=s[2];m[9]*=s[2];m[10]*=s[2];m[12]=t[0];m[13]=t[1];m[14]=t[2];return m}
 function slerp(a,b,t){let cos=a[0]*b[0]+a[1]*b[1]+a[2]*b[2]+a[3]*b[3],bb=b;if(cos<0){cos=-cos;bb=b.map(v=>-v)}if(cos>.9995){const out=a.map((v,i)=>v+(bb[i]-v)*t),l=Math.hypot(...out)||1;return out.map(v=>v/l)}const angle=Math.acos(clamp(cos,-1,1)),sin=Math.sin(angle),u=Math.sin((1-t)*angle)/sin,v=Math.sin(t*angle)/sin;return a.map((n,i)=>n*u+bb[i]*v)}
 function lerpArray(a,b,t){return a.map((v,i)=>v+(b[i]-v)*t)}
@@ -74,7 +92,7 @@ export class MeshyAthletes{
    attribute(0,'POSITION',3);attribute(1,'NORMAL',3);attribute(2,'TEXCOORD_0',2);attribute(3,'JOINTS_0',4,true);attribute(4,'WEIGHTS_0',4);attribute(5,'TANGENT',4);
    const indexAccessor=json.accessors[primitive.indices],indices=accessor(primitive.indices);this.indexType=indexAccessor.componentType;this.indexCount=indexAccessor.count;this.triangles=this.indexCount/3;this.indexBuffer=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,this.indexBuffer);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,indices,gl.STATIC_DRAW);gl.bindVertexArray(null);
    const material=json.materials[primitive.material].pbrMetallicRoughness,normalIndex=json.materials[primitive.material].normalTexture.index,[baseImage,normalImage,ormImage]=await Promise.all([bitmapFor(parsed,material.baseColorTexture.index),bitmapFor(parsed,normalIndex),bitmapFor(parsed,material.metallicRoughnessTexture.index)]);this.textures=[uploadTexture(gl,baseImage),uploadTexture(gl,normalImage),uploadTexture(gl,ormImage)];for(const image of[baseImage,normalImage,ormImage])image.close?.();
-   this.parents=new Int16Array(json.nodes.length).fill(-1);json.nodes.forEach((node,index)=>(node.children||[]).forEach(child=>{this.parents[child]=index}));
+   this.parents=new Int16Array(json.nodes.length).fill(-1);json.nodes.forEach((node,index)=>(node.children||[]).forEach(child=>{this.parents[child]=index}));this.namedNodes=Object.fromEntries(json.nodes.map((node,index)=>[node.name,index]));
    this.base=json.nodes.map(node=>({t:[...(node.translation||[0,0,0])],r:[...(node.rotation||[0,0,0,1])],s:[...(node.scale||[1,1,1])]}));
    const skin=json.skins[json.nodes.find(node=>Number.isInteger(node.skin)).skin];this.joints=skin.joints;this.inverseBind=accessor(skin.inverseBindMatrices);if(this.joints.length>MAX_BONES)throw new Error('Meshy rig exceeds GPU bone budget');
    this.clips=json.animations.map(animation=>{let duration=0;const channels=animation.channels.map(channel=>{const sampler=animation.samplers[channel.sampler],times=accessor(sampler.input),values=accessor(sampler.output);duration=Math.max(duration,times[times.length-1]||0);return{node:channel.target.node,path:channel.target.path,times,values,size:channel.target.path==='rotation'?4:3}});return{name:animation.name,duration,channels}});this.clipNames=this.clips.map(clip=>clip.name);this.ready=true;
@@ -86,13 +104,23 @@ export class MeshyAthletes{
   if(p.action==='celebrate')return[MESHY_CLIPS.celebrate,time%this.clips[MESHY_CLIPS.celebrate].duration];
   if(p.throwT>0&&p.role==='QB')return[MESHY_CLIPS.throw,clamp(p.throwT,0,1)*this.clips[MESHY_CLIPS.throw].duration];
   if(p.catchT>0)return[MESHY_CLIPS.catch,clamp(1-p.catchT/.35,0,1)*this.clips[MESHY_CLIPS.catch].duration];
-  if(p.engaged)return[MESHY_CLIPS.block,(time+p.index*.07)%this.clips[MESHY_CLIPS.block].duration];
-  if(phase==='pre')return[p.index%2?MESHY_CLIPS.idle:MESHY_CLIPS.idleAlt,(time+p.index*.11)%this.clips[p.index%2?MESHY_CLIPS.idle:MESHY_CLIPS.idleAlt].duration];
-  const speed=Math.hypot(p.vx||0,p.vz||0);if(speed>7.7)return[MESHY_CLIPS.sprint,(time*1.2+p.index*.09)%this.clips[MESHY_CLIPS.sprint].duration];if(speed>2.4)return[MESHY_CLIPS.run,(time*1.05+p.index*.07)%this.clips[MESHY_CLIPS.run].duration];if(speed>.2)return[MESHY_CLIPS.walk,(time*.55+p.index*.13)%this.clips[MESHY_CLIPS.walk].duration];return[p.index%2?MESHY_CLIPS.idle:MESHY_CLIPS.idleAlt,(time+p.index*.11)%this.clips[p.index%2?MESHY_CLIPS.idle:MESHY_CLIPS.idleAlt].duration];
+  const seed=meshyPlaybackSeed(p.index,p.team);
+  if(p.engaged)return[MESHY_CLIPS.block,(time*seed.rate+seed.offset*this.clips[MESHY_CLIPS.block].duration)%this.clips[MESHY_CLIPS.block].duration];
+  if(phase==='pre'){const pose=preSnapPoseForRole(p.role,p.index);return[pose.clip,Math.min(pose.time,this.clips[pose.clip].duration-.001)]}
+  const speed=Math.hypot(p.vx||0,p.vz||0),phaseTime=(clip,rate=1)=>(time*seed.rate*rate+seed.offset*this.clips[clip].duration)%this.clips[clip].duration;
+  if(phase==='pass'&&p.role==='QB'&&speed>.2)return[MESHY_CLIPS.walk,phaseTime(MESHY_CLIPS.walk,.72)];
+  if(phase==='pass'&&p.team&&p.role==='DL'&&speed>.2)return[MESHY_CLIPS.sprint,phaseTime(MESHY_CLIPS.sprint,1.08)];
+  if(speed>7.7)return[MESHY_CLIPS.sprint,phaseTime(MESHY_CLIPS.sprint,1.2)];if(speed>2.4)return[MESHY_CLIPS.run,phaseTime(MESHY_CLIPS.run,1.05)];if(speed>.2)return[MESHY_CLIPS.walk,phaseTime(MESHY_CLIPS.walk,.55)];const idle=p.index%2?MESHY_CLIPS.idle:MESHY_CLIPS.idleAlt;return[idle,phaseTime(idle,.72)];
  }
  bonesFor(p,phase,time){
   const[clipIndex,clipTime]=this.choose(p,phase,time),clip=this.clips[clipIndex],locals=this.base.map(node=>({t:[...node.t],r:[...node.r],s:[...node.s]}));
   for(const channel of clip.channels){const value=this.sampleChannel(channel,clipTime);if(channel.path==='translation')locals[channel.node].t=value;else if(channel.path==='rotation')locals[channel.node].r=value;else locals[channel.node].s=value}
+  if(phase==='pre'){
+   const seed=meshyPlaybackSeed(p.index,p.team),breath=Math.sin(time*(1.25+seed.rate*.22)+seed.offset*Math.PI*2),scan=Math.sin(time*(.38+seed.rate*.08)+seed.offset*Math.PI*2);
+   const spine=this.namedNodes['mixamorig:Spine2'],head=this.namedNodes['mixamorig:Head'];
+   if(Number.isInteger(spine))locals[spine].r=quatMul(locals[spine].r,axisQuat(1,0,0,breath*.012));
+   if(Number.isInteger(head))locals[head].r=quatMul(locals[head].r,axisQuat(0,1,0,scan*((p.role==='QB'||p.role==='LB') ? .09 : .045)));
+  }
   // Gameplay owns world locomotion. Keep only the vertical bounce in root motion.
   const hips=this.joints[0];locals[hips].t[0]=this.base[hips].t[0];locals[hips].t[2]=this.base[hips].t[2];
   const world=new Array(locals.length),resolve=index=>world[index]||(world[index]=this.parents[index]<0?compose(locals[index].t,locals[index].r,locals[index].s):mul(resolve(this.parents[index]),compose(locals[index].t,locals[index].r,locals[index].s)));
