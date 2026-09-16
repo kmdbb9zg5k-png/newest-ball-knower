@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { MESHY_CLIPS } from '../public/play-moment-3d/meshy-athlete.js';
+import { MESHY_CLIPS, PRE_SNAP_ROLE_POSES, meshyPlaybackSeed, preSnapPoseForRole } from '../public/play-moment-3d/meshy-athlete.js';
 
 const asset = new URL('../public/play-moment-3d/assets/meshy-gridiron-gold.glb', import.meta.url);
 const bytes = readFileSync(asset);
@@ -31,6 +31,15 @@ for (const index of [MESHY_CLIPS.sprint, MESHY_CLIPS.tackle, MESHY_CLIPS.block, 
   assert.equal(animation.channels.length, 54, 'Each custom football clip must animate translation and rotation on 27 bones');
 }
 
+const footballRoles = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'DB'];
+const preSnap = footballRoles.map((role, index) => preSnapPoseForRole(role, index));
+assert.equal(Object.keys(PRE_SNAP_ROLE_POSES).length, footballRoles.length, 'Every football role needs a deliberate pre-snap pose');
+assert.ok(new Set(preSnap.map(({ clip, time }) => `${clip}:${time.toFixed(3)}`)).size >= 7, 'Pre-snap players must not share one synchronized pose');
+assert.ok(preSnap.every(({ clip, time }) => clip >= 0 && clip < gltf.animations.length && time >= 0 && time < 1), 'Pre-snap anchors must resolve inside shipped clips');
+const playbackSeeds = Array.from({ length: 22 }, (_, index) => meshyPlaybackSeed(index, index >= 11));
+assert.ok(new Set(playbackSeeds.map(({ offset }) => offset.toFixed(3))).size >= 18, 'Live animation cycles need player-specific phase offsets');
+assert.ok(new Set(playbackSeeds.map(({ rate }) => rate.toFixed(3))).size >= 7, 'Live animation cycles need subtle speed variation');
+
 const rendererSource = readFileSync(new URL('../public/play-moment-3d/meshy-athlete.js', import.meta.url), 'utf8');
 const gameSource = readFileSync(new URL('../public/play-moment-3d/game.js', import.meta.url), 'utf8');
 assert.match(rendererSource, /weights\.x\*bones\[joints\.x\]/, 'The detailed model must use GPU skinning');
@@ -49,5 +58,6 @@ console.log(JSON.stringify({
   textures: gltf.images.length,
   animations: gltf.animations.length,
   footballStates: Object.keys(MESHY_CLIPS),
-  checks: 'reviewed binary asset, shared mobile topology, 27-bone GPU skinning budget, embedded PBR maps, football clip map, live integration and procedural fallback',
+  preSnapPoses: Object.keys(PRE_SNAP_ROLE_POSES).length,
+  checks: 'reviewed binary asset, shared mobile topology, 27-bone GPU skinning budget, embedded PBR maps, position-specific planted pre-snap poses, staggered live motion, live integration and procedural fallback',
 }, null, 2));
