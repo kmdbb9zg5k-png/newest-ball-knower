@@ -47,7 +47,8 @@ def main():
             pre = page.evaluate('bk3dDiagnostics()')
             assert pre['athletes']['ready'] and not pre['athletes']['error'], pre['athletes']
             assert pre['athletes']['triangles'] == 14_187 and pre['athletes']['bones'] == 27 and pre['athletes']['clips'] == 11
-            assert pre['athletes']['motionRecipes'] == 25 and pre['athletes']['states'] == ['pre'] * 22, pre['athletes']
+            assert pre['athletes']['motionRecipes'] == 40 and pre['athletes']['states'] == ['pre'] * 22, pre['athletes']
+            assert pre['athletes']['motionFamilies'] == {'quarterback': 9, 'ballCarrier': 9, 'receiver': 6, 'trenches': 11, 'contact': 7}, pre['athletes']
             assert pre['athletes']['authenticityPilot'] == ['pass-set', 'drive-block', 'edge-rush', 'carry-cut', 'wrap-tackle']
             assert len(pre['players']) == 22 and pre['drawCalls'] < 80 and pre['glError'] == 0, pre
             assert any(url.endswith('/meshy-gridiron-gold.glb') and status == 200 for url, status in responses), responses
@@ -65,6 +66,17 @@ def main():
             page.screenshot(path=str(args.output / 'detailed-run-932x430.png'))
             report['views'].append({'name': 'run', 'phase': run['phase'], 'drawCalls': run['drawCalls']})
 
+            page.click('#juke')
+            page.evaluate('bk3dTest.step(.04)')
+            skill = page.evaluate('bk3dDiagnostics()')
+            assert skill['lastSkill'] == 'juke' and 'carry-juke' in skill['athletes']['states'], skill
+            assert page.evaluate("bk3dTest.forceContact('dive')")
+            page.evaluate('bk3dTest.step(.12)')
+            contact = page.evaluate('bk3dDiagnostics()')
+            assert contact['contact']['type'] == 'dive' and 'dive-tackle' in contact['athletes']['states'], contact
+            page.screenshot(path=str(args.output / 'detailed-skill-contact-932x430.png'))
+            report['views'].append({'name': 'skill-contact', 'phase': contact['phase'], 'drawCalls': contact['drawCalls']})
+
             page.click('#pause')
             page.click('#restart')
             page.evaluate('bk3dTest.step(.2)')
@@ -74,13 +86,13 @@ def main():
             passing = page.evaluate('bk3dDiagnostics()')
             assert passing['phase'] == 'pass' and passing['pocketPressure'] >= 0
             assert any(state in passing['athletes']['states'] for state in ['route-release', 'route-stem', 'route-cut']), passing['athletes']
-            assert 'pass-anchor' in passing['athletes']['states'] and 'rush-engaged' in passing['athletes']['states'], passing['athletes']
+            assert 'pass-anchor' in passing['athletes']['states'] and any(state in passing['athletes']['states'] for state in ['rush-engaged', 'rush-rip', 'rush-swim', 'bull-rush']), passing['athletes']
             page.locator('#target-7').click()
             page.evaluate('bk3dTest.step(.25)')
             flight = page.evaluate('bk3dDiagnostics()')
             assert flight['phase'] == 'flight' and flight['throwKind'] == 'bullet', flight
             assert flight['glError'] == 0 and flight['drawCalls'] < 80
-            assert 'throw' in flight['athletes']['states'], flight['athletes']
+            assert 'throw-bullet' in flight['athletes']['states'], flight['athletes']
             page.screenshot(path=str(args.output / 'detailed-pass-932x430.png'))
             report['views'].append({'name': 'pass', 'phase': flight['phase'], 'drawCalls': flight['drawCalls']})
 
