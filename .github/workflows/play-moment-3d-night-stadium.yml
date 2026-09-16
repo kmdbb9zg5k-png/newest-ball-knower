@@ -1,7 +1,7 @@
 name: 3D practice night stadium
 on:
   push:
-    branches: [feat/play-moment-3d-practice-preview]
+    branches: [main]
     paths:
       - 'public/play-moment-3d/**'
       - 'public/play-moment-3d-preview.html'
@@ -10,6 +10,18 @@ on:
       - 'scripts/check-play-moment-framing.*'
       - 'scripts/check-play-moment-goal-line.*'
       - 'scripts/check-play-moment-gameplay.mjs'
+      - 'scripts/record-play-moment-gameplay.py'
+      - '.github/workflows/play-moment-3d-night-stadium.yml'
+  pull_request:
+    paths:
+      - 'public/play-moment-3d/**'
+      - 'public/play-moment-3d-preview.html'
+      - 'scripts/check-play-moment-night-stadium.*'
+      - 'scripts/check-play-moment-night.py'
+      - 'scripts/check-play-moment-framing.*'
+      - 'scripts/check-play-moment-goal-line.*'
+      - 'scripts/check-play-moment-gameplay.mjs'
+      - 'scripts/record-play-moment-gameplay.py'
       - '.github/workflows/play-moment-3d-night-stadium.yml'
   workflow_dispatch:
 permissions:
@@ -48,6 +60,8 @@ jobs:
         run: python scripts/check-play-moment-night-stadium.py --output artifacts/night-stadium
       - name: Exercise playable camera-relative cuts and night renderer
         run: BK_NIGHT_RESULTS=artifacts/night-game python scripts/check-play-moment-night.py 932 430
+      - name: Record WebGL gameplay review sessions
+        run: python scripts/record-play-moment-gameplay.py --output artifacts/gameplay-recordings
       - name: Render shipped skinned players in run and pass gameplay
         run: python scripts/check-play-moment-meshy-render.py --output artifacts/meshy-player
       - name: Render goal-line HUD, series markers and completion states
@@ -69,4 +83,4 @@ jobs:
           name: night-stadium-fixtures
           path: artifacts
           if-no-files-found: ignore
-          retention-days: 3
+          retention-days: 14
