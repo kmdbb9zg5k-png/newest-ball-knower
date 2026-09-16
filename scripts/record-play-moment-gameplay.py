@@ -59,7 +59,7 @@ def compact_diagnostics(page, label):
     }
 
 
-def animate(page, seconds, timeline, label, fps=20):
+def animate(page, seconds, timeline, label, fps=8):
     frames = max(1, round(seconds * fps))
     for frame in range(frames):
         page.evaluate("dt => bk3dTest.step(dt)", 1 / fps)
