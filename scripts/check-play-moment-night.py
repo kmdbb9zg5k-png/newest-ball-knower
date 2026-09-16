@@ -256,7 +256,10 @@ if __name__=='__main__':
         assert payload['privacy']=='gameplay-state-only' and payload['graphics']=='high'
         assert len(payload['samples'])>5 and payload['events']
         assert 'userAgent' not in payload and 'account' not in payload and 'location' not in payload
-        assert 'bk_test123_abcdef123456' in page.locator('#reportStatus').inner_text()
+        assert page.locator('#reportReceipt').is_visible()
+        assert page.locator('#reportCode').inner_text()=='bk_test123_abcdef123456'
+        assert 'automatically' in page.locator('#reportStatus').inner_text()
+        page.click('#copyReportCode')
         result['checks'].append('opt-in gameplay report submits bounded state replay and note without screen, device identity, account or location data')
         shade=browser.new_page(viewport={'width':w,'height':h},device_scale_factor=1)
         load(shade,redzone=True)
