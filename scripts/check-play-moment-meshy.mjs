@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { FOOTBALL_MOTION_RECIPES, MESHY_CLIPS, PRE_SNAP_ROLE_POSES, ROLE_MOTION_PROFILES, ROLE_STANCE_PROFILES, meshyAnimationState, meshyPlaybackSeed, meshyTransitionRate, motionRecipeForState, preSnapPoseForRole } from '../public/play-moment-3d/meshy-athlete.js';
+import { AUTHENTICITY_PILOT_STATES, FOOTBALL_MOTION_RECIPES, MESHY_CLIPS, PRE_SNAP_ROLE_POSES, ROLE_MOTION_PROFILES, ROLE_STANCE_PROFILES, authenticityPilotPhase, meshyAnimationState, meshyPlaybackSeed, meshyTransitionRate, motionRecipeForState, preSnapPoseForRole } from '../public/play-moment-3d/meshy-athlete.js';
 
 const asset = new URL('../public/play-moment-3d/assets/meshy-gridiron-gold.glb', import.meta.url);
 const bytes = readFileSync(asset);
@@ -44,6 +44,10 @@ const playbackSeeds = Array.from({ length: 22 }, (_, index) => meshyPlaybackSeed
 assert.ok(new Set(playbackSeeds.map(({ offset }) => offset.toFixed(3))).size >= 18, 'Live animation cycles need player-specific phase offsets');
 assert.ok(new Set(playbackSeeds.map(({ rate }) => rate.toFixed(3))).size >= 7, 'Live animation cycles need subtle speed variation');
 assert.equal(Object.keys(FOOTBALL_MOTION_RECIPES).length, 25, 'The compact GLB should expand into a twenty-five-recipe football motion graph');
+assert.deepEqual(AUTHENTICITY_PILOT_STATES, ['pass-set', 'drive-block', 'edge-rush', 'carry-cut', 'wrap-tackle'], 'The pilot must cover the five highest-visibility football movements');
+assert.notEqual(authenticityPilotPhase('pass-set', { index: 0, team: 0 }, 1), authenticityPilotPhase('pass-set', { index: 1, team: 0 }, 1), 'Adjacent linemen must not share a synchronized set cadence');
+assert.equal(authenticityPilotPhase('wrap-tackle', { actionT: .64 }, 1), .64, 'Wrap animation must stay synchronized to gameplay contact time');
+assert.ok(authenticityPilotPhase('carry-cut', { motion: { turn: 2 } }, 1) >= .49, 'RB cut weight must come from the actual change of direction');
 for (const [state, recipe] of Object.entries(FOOTBALL_MOTION_RECIPES)) {
   assert.ok(recipe.base >= 0 && recipe.base < gltf.animations.length, `${state} must use a shipped base clip`);
   assert.ok(recipe.overlay === null || recipe.overlay >= 0 && recipe.overlay < gltf.animations.length, `${state} overlay must use a shipped clip`);
@@ -90,6 +94,9 @@ assert.match(rendererSource, /ormMap/, 'The detailed model must retain its rough
 assert.match(rendererSource, /using built-in players/, 'Asset or GPU failure must preserve the procedural fallback');
 assert.match(rendererSource, /blendLocals\(p,locals,time,choice\.state\)/, 'Clip changes must use state-aware blending instead of snapping between poses');
 assert.match(rendererSource, /mixLocals\(locals,this\.poseLocals/, 'Football recipes must layer shipped clips without another model download');
+assert.match(rendererSource, /const locked=state==='pass-set'\|\|state==='drive-block'/, 'Engaged linemen must use planted contact frames instead of looping the source leg flourish');
+assert.match(rendererSource, /reach=smooth\(clamp\(contact\/\.42/, 'Wrap tackles must use staged reach, clasp and finish motion');
+assert.match(rendererSource, /gait=Number\.isFinite\(p\.motion\?\.gait\)/, 'Edge rush footwork must remain distance-coupled');
 assert.match(rendererSource, /p\.reactionT>0/, 'Defenders need a visible reaction to nearby skill moves');
 assert.match(rendererSource, /catch-'\+\(p\.catchStyle/, 'Catch choice must select a contextual animation state');
 assert.match(rendererSource, /break-tackle/, 'Contact outcomes must select a contextual animation state');
@@ -111,5 +118,6 @@ console.log(JSON.stringify({
   footballStates: Object.keys(MESHY_CLIPS),
   preSnapPoses: Object.keys(PRE_SNAP_ROLE_POSES).length,
   motionRecipes: Object.keys(FOOTBALL_MOTION_RECIPES).length,
-  checks: 'reviewed binary asset, shared mobile topology, 27-bone GPU skinning budget, embedded PBR maps, twenty-five layered football recipes, role-varying cadence and root motion, distinct exchange/block/rush/route/carry/coverage/contact states, completed tackle sequences, state-aware transitions, skeleton football stances and procedural fallback',
+  authenticityPilot: AUTHENTICITY_PILOT_STATES,
+  checks: 'reviewed binary asset, shared mobile topology, 27-bone GPU skinning budget, embedded PBR maps, twenty-five layered football recipes, football-authored pass set/drive block/edge rush/RB cut/wrap tackle, role-varying cadence and root motion, distinct exchange/block/rush/route/carry/coverage/contact states, completed tackle sequences, state-aware transitions, skeleton football stances and procedural fallback',
 }, null, 2));

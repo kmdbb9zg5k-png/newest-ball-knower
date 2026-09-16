@@ -48,6 +48,7 @@ def main():
             assert pre['athletes']['ready'] and not pre['athletes']['error'], pre['athletes']
             assert pre['athletes']['triangles'] == 14_187 and pre['athletes']['bones'] == 27 and pre['athletes']['clips'] == 11
             assert pre['athletes']['motionRecipes'] == 25 and pre['athletes']['states'] == ['pre'] * 22, pre['athletes']
+            assert pre['athletes']['authenticityPilot'] == ['pass-set', 'drive-block', 'edge-rush', 'carry-cut', 'wrap-tackle']
             assert len(pre['players']) == 22 and pre['drawCalls'] < 80 and pre['glError'] == 0, pre
             assert any(url.endswith('/meshy-gridiron-gold.glb') and status == 200 for url, status in responses), responses
             page.screenshot(path=str(args.output / 'detailed-presnap-932x430.png'))
