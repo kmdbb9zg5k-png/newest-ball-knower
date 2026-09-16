@@ -87,11 +87,17 @@ if __name__=='__main__':
         result['checks'].append('quarterback crosses the line of scrimmage, keeps possession and enters manual run control')
         restart(page);page.click('#runTab')
         assert page.locator('#stick').is_visible() and not page.locator('#moves').is_visible()
+        presnap_stick=page.locator('#stick').bounding_box()
+        cdp=page.context.new_cdp_session(page)
+        cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':presnap_stick['x']+presnap_stick['width']/2,'y':presnap_stick['y']+presnap_stick['height']*.2,'id':1}]})
         page.click('#snap');step(page,.6)
         assert diag(page)['phase']=='run'
         assert sum(p['team']==1 and p['engaged'] for p in diag(page)['players'])>=4,diag(page)['players']
+        held_start=diag(page)['players'][6];step(page,.25);held_end=diag(page)['players'][6]
+        assert held_end['z']-held_start['z']>1,(held_start,held_end)
         stick=page.locator('#stick').bounding_box();sprint=page.locator('#sprint').bounding_box();juke=page.locator('#juke').bounding_box()
-        cdp=page.context.new_cdp_session(page)
+        assert abs(stick['x']-presnap_stick['x'])<1 and abs(stick['y']-presnap_stick['y'])<1,(presnap_stick,stick)
+        cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]})
         touches=[{'x':stick['x']+stick['width']/2,'y':stick['y']+stick['height']*.2,'id':1},
                  {'x':sprint['x']+sprint['width']/2,'y':sprint['y']+sprint['height']/2,'id':2}]
         cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':touches})
@@ -105,7 +111,7 @@ if __name__=='__main__':
         after_juke=diag(page)['players'][6]
         assert ((after_juke['x']-before_juke['x'])**2+(after_juke['z']-before_juke['z'])**2)**.5>1.7,(before_juke,after_juke)
         page.screenshot(path=str(OUT/f'night-run-{w}x{h}.png'))
-        result['checks'].append('pre-snap stick; five-man run assignments; manual movement; simultaneous stick+sprint; touch-down juke')
+        result['checks'].append('fixed-position pre-snap stick with held input; five-man run assignments; simultaneous stick+sprint; touch-down juke')
         for key,screen_side in [('ArrowRight',1),('ArrowLeft',-1)]:
             restart(page);page.click('#runTab');page.click('#snap');step(page,.6)
             before=diag(page);g=graphics(page);runner=before['players'][6]

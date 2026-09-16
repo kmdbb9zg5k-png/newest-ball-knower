@@ -51,7 +51,7 @@ Reproduce after installing Python Playwright and an available Chromium build:
 
 ## Gameplay controls
 
-- The movement stick is visible before the snap and can be held early, so the runner or quarterback responds immediately when control becomes live.
+- The movement stick stays in the same bottom-left position before and after the snap and can be held early, so the runner or quarterback responds immediately without repositioning the player's thumb.
 - Before a pass, use the left stick or WASD/arrow keys to climb, drift or escape the pocket.
 - The quarterback can roll outside the tackle box and accelerates there. Cross the blue line of scrimmage to become a runner; passing is disabled after crossing.
 - Tap a receiver badge for a bullet, hold briefly for touch, or hold longer for a lob.
