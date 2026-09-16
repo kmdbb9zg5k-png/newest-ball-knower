@@ -114,7 +114,14 @@ if __name__=='__main__':
         cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]})
         step(page,.2);released=diag(page);assert released['stamina']>running['stamina']
         assert released['players'][6]['distance']>1
-        before_juke=released['players'][6]
+        # Exercise the tap juke from a fresh live-play state. The preceding
+        # sustained-control sequence intentionally runs long enough for pursuit
+        # contact, so reusing that runner makes this control assertion depend on
+        # whether the randomized defense has already completed a tackle.
+        restart(page);page.click('#runTab');page.click('#snap');step(page,.6)
+        assert diag(page)['phase']=='run' and not diag(page)['players'][6]['fallen']
+        juke=page.locator('#juke').bounding_box();cdp=page.context.new_cdp_session(page)
+        before_juke=diag(page)['players'][6]
         cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':juke['x']+juke['width']/2,'y':juke['y']+juke['height']/2,'id':31}]})
         cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]})
         after_juke=diag(page)['players'][6]
