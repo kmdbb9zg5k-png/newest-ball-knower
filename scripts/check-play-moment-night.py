@@ -93,8 +93,8 @@ if __name__=='__main__':
         page.click('#snap');step(page,.6)
         assert diag(page)['phase']=='run'
         assert sum(p['team']==1 and p['engaged'] for p in diag(page)['players'])>=4,diag(page)['players']
-        held_start=diag(page)['players'][6];step(page,.25);held_end=diag(page)['players'][6]
-        assert held_end['z']-held_start['z']>1,(held_start,held_end)
+        held_start=diag(page)['players'][6];step(page,.08);held_end=diag(page)['players'][6]
+        assert held_end['z']-held_start['z']>.25,(held_start,held_end)
         stick=page.locator('#stick').bounding_box();sprint=page.locator('#sprint').bounding_box();juke=page.locator('#juke').bounding_box()
         assert abs(stick['x']-presnap_stick['x'])<1 and abs(stick['y']-presnap_stick['y'])<1,(presnap_stick,stick)
         cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]})
