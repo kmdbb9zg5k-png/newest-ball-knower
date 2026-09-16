@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { MESHY_CLIPS, PRE_SNAP_ROLE_POSES, meshyPlaybackSeed, preSnapPoseForRole } from '../public/play-moment-3d/meshy-athlete.js';
+import { MESHY_CLIPS, PRE_SNAP_ROLE_POSES, ROLE_STANCE_PROFILES, meshyPlaybackSeed, preSnapPoseForRole } from '../public/play-moment-3d/meshy-athlete.js';
 
 const asset = new URL('../public/play-moment-3d/assets/meshy-gridiron-gold.glb', import.meta.url);
 const bytes = readFileSync(asset);
@@ -34,6 +34,8 @@ for (const index of [MESHY_CLIPS.sprint, MESHY_CLIPS.tackle, MESHY_CLIPS.block, 
 const footballRoles = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'DB'];
 const preSnap = footballRoles.map((role, index) => preSnapPoseForRole(role, index));
 assert.equal(Object.keys(PRE_SNAP_ROLE_POSES).length, footballRoles.length, 'Every football role needs a deliberate pre-snap pose');
+assert.deepEqual(Object.keys(ROLE_STANCE_PROFILES),footballRoles,'Every football role needs a skeleton-level stance profile');
+assert.ok(ROLE_STANCE_PROFILES.OL.crouch>ROLE_STANCE_PROFILES.WR.crouch&&ROLE_STANCE_PROFILES.DL.lean>ROLE_STANCE_PROFILES.QB.lean,'Line stances must be lower and more aggressive than skill stances');
 assert.ok(new Set(preSnap.map(({ clip, time }) => `${clip}:${time.toFixed(3)}`)).size >= 7, 'Pre-snap players must not share one synchronized pose');
 assert.ok(preSnap.every(({ clip, time }) => clip >= 0 && clip < gltf.animations.length && time >= 0 && time < 1), 'Pre-snap anchors must resolve inside shipped clips');
 const playbackSeeds = Array.from({ length: 22 }, (_, index) => meshyPlaybackSeed(index, index >= 11));
@@ -46,6 +48,8 @@ assert.match(rendererSource, /weights\.x\*bones\[joints\.x\]/, 'The detailed mod
 assert.match(rendererSource, /normalMap/, 'The detailed model must retain its normal map');
 assert.match(rendererSource, /ormMap/, 'The detailed model must retain its roughness/metalness map');
 assert.match(rendererSource, /using built-in players/, 'Asset or GPU failure must preserve the procedural fallback');
+assert.match(rendererSource, /blendLocals\(p,locals,time\)/, 'Clip changes must blend instead of snapping between poses');
+assert.match(rendererSource, /p\.reactionT>0/, 'Defenders need a visible reaction to nearby skill moves');
 assert.match(gameSource, /if\(!meshy\.ready\)for\(const p of actors\)drawAthlete/, 'The existing players must stay visible until the detailed asset is ready');
 assert.match(gameSource, /meshy\.draw\(actors,phase,now\/1000\)/, 'The shared skinned player must be wired into the live scene with presentation time');
 
@@ -59,5 +63,5 @@ console.log(JSON.stringify({
   animations: gltf.animations.length,
   footballStates: Object.keys(MESHY_CLIPS),
   preSnapPoses: Object.keys(PRE_SNAP_ROLE_POSES).length,
-  checks: 'reviewed binary asset, shared mobile topology, 27-bone GPU skinning budget, embedded PBR maps, position-specific planted pre-snap poses, staggered live motion, live integration and procedural fallback',
+  checks: 'reviewed binary asset, shared mobile topology, 27-bone GPU skinning budget, embedded PBR maps, skeleton-level football stances, blended live motion, skill reactions, live integration and procedural fallback',
 }, null, 2));

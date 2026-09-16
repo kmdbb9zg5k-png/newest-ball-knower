@@ -114,9 +114,10 @@ def main():
                 page.click('#restart');page.click('#runTab');page.click('#snap');page.evaluate('bk3dTest.step(.85)')
                 assert state(page)['phase'] == 'run'
                 capture(page, args.output / f'{variant}-running-{w}x{h}.png')
-                # Player-only meshes add three shapes and one material batch; no new textures.
+                # Detailed players plus the visible carried football stay inside a
+                # fixed mobile batch budget and do not add runtime textures.
                 g = page.evaluate('bkGraphicsDiagnostics()')
-                assert g['drawCalls'] <= 48 and g['shadowDrawCalls'] == 14 and g['overflows'] == 0, g
+                assert g['drawCalls'] <= 49 and g['shadowDrawCalls'] == 14 and g['overflows'] == 0, g
                 if variant == 'after':
                     page.set_viewport_size({'width': 390, 'height': 844})
                     box = page.locator('#rotate a').bounding_box();assert box and box['height'] >= 44
