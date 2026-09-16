@@ -120,6 +120,7 @@ export function meshyAnimationState(p,phase){
  if(p.action==='celebrate')return'celebrate';
  if(p.action==='handoff')return'handoff';
  if(p.action==='receive-handoff')return'receive-handoff';
+ if(p.action==='cut')return'carry-cut';
  if(p.action==='juke')return'carry-juke';
  if(p.action==='spin')return'carry-spin';
  if(p.action==='truck')return'carry-truck';
@@ -134,6 +135,7 @@ export function meshyAnimationState(p,phase){
  if(p.action==='break-tackle')return'break-tackle';
  if(p.action==='miss')return'miss';
  if(p.action==='stumble')return'stumble';
+ if(p.action==='pancake')return'pancake';
  if(p.throwT>0&&p.role==='QB')return'throw-'+(p.throwStyle||'bullet');
  if(p.catchT>0)return'catch-'+(p.catchStyle||'rac');
  if(p.engaged){
@@ -268,6 +270,7 @@ export class MeshyAthletes{
   if(state==='break-tackle')return result(MESHY_CLIPS.block,phaseTime(MESHY_CLIPS.block,1.18),MESHY_CLIPS.run,.16,phaseTime(MESHY_CLIPS.run,.74));
   if(state==='miss')return result(MESHY_CLIPS.tackle,tackleTime*.72,MESHY_CLIPS.idleAlt,.10,phaseTime(MESHY_CLIPS.idleAlt));
   if(state==='stumble')return result(MESHY_CLIPS.walk,phaseTime(MESHY_CLIPS.walk,.62),MESHY_CLIPS.tackle,.18,tackleTime*.58);
+  if(state==='pancake')return result(MESHY_CLIPS.tackle,tackleTime,MESHY_CLIPS.block,.12,phaseTime(MESHY_CLIPS.block,.72));
   if(state==='pre'){const pose=preSnapPoseForRole(p.role,p.index);return result(pose.clip,Math.min(pose.time,this.clips[pose.clip].duration-.001))}
   const recipe=motionRecipeForState(state);if(recipe){
    // Lock engaged pass/run bases to a reviewed contact frame. The procedural
@@ -432,7 +435,7 @@ export class MeshyAthletes{
   const widths={OL:1.12,DL:1.10,QB:.98,RB:1.03,WR:.95,TE:1.05,LB:1.06,DB:.94},width=widths[p.role]||1;
   let lift=0,pitch=0,roll=0,yaw=0;if(p.action==='hurdle')lift=Math.sin((p.actionT||0)*Math.PI)*.68;if(p.action==='truck')pitch=.29*Math.sin((p.actionT||0)*Math.PI);if(p.action==='juke')roll=-(p.actionSide||0)*.22*Math.sin((p.actionT||0)*Math.PI);if(p.action==='spin')yaw=(p.actionSide||1)*(p.actionT||0)*Math.PI*2;
   if(p.action==='break-tackle')roll+=(p.actionSide||1)*.18*Math.sin((p.actionT||0)*Math.PI);if(p.action==='miss')pitch+=.34*Math.sin((p.actionT||0)*Math.PI);if(p.engaged)pitch+=.11;if(p.reactionT>0)roll+=(p.reactionSide||1)*.12*Math.sin(clamp(p.reactionT,0,1)*Math.PI);
-  const contactFall=p.fallen&&/tackle|hit|gang|wrap|slide|dive/.test(p.action||''),rawFall=clamp(p.actionT||0,0,1),fallProgress=contactFall?rawFall*rawFall*(3-2*rawFall):p.fallen?1:0,wrapFall=p.team===1?.86:1.02,fall=fallProgress*(p.action==='slide'?.72:p.action==='dive'?(p.team===1?1.38:1.08):p.action==='big-hit'?1.48:p.action==='gang'?1.08:p.action==='wrap'?wrapFall:1.24),fallRoll=fallProgress*((p.index%2?1:-1)*(p.action==='gang'?.28:p.action==='slide'?.05:p.action==='wrap'?.08:.12));return mul(translate(p.x,lift+.02,p.z),mul(ry((p.heading||0)+yaw),mul(rx(fall+pitch),mul(rz(roll+fallRoll),scale(1.17*width,1.17,1.17)))));
+  const contactFall=p.fallen&&/tackle|hit|gang|wrap|slide|dive|pancake/.test(p.action||''),rawFall=clamp(p.actionT||0,0,1),fallProgress=contactFall?rawFall*rawFall*(3-2*rawFall):p.fallen?1:0,wrapFall=p.team===1?.86:1.02,fall=fallProgress*(p.action==='slide'?.72:p.action==='dive'?(p.team===1?1.38:1.08):p.action==='big-hit'?1.48:p.action==='pancake'?1.18:p.action==='gang'?1.08:p.action==='wrap'?wrapFall:1.24),fallRoll=fallProgress*((p.index%2?1:-1)*(p.action==='gang'?.28:p.action==='slide'?.05:p.action==='wrap'?.08:.12));return mul(translate(p.x,lift+.02,p.z),mul(ry((p.heading||0)+yaw),mul(rx(fall+pitch),mul(rz(roll+fallRoll),scale(1.17*width,1.17,1.17)))));
  }
  draw(actors,phase,time){if(!this.ready)return false;const gl=this.gl;this.lastStates=actors.map(p=>meshyAnimationState(p,phase));gl.useProgram(this.program);gl.bindVertexArray(this.vao);gl.uniformMatrix4fv(this.uniforms.vp,false,this.renderer.vp);gl.uniform3fv(this.uniforms.eye,this.renderer.eye);for(let i=0;i<3;i++){gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,this.textures[i])}gl.uniform1i(this.uniforms.baseMap,0);gl.uniform1i(this.uniforms.normalMap,1);gl.uniform1i(this.uniforms.ormMap,2);gl.disable(gl.BLEND);gl.depthMask(true);
   for(const p of actors){gl.uniformMatrix4fv(this.uniforms.model,false,this.modelFor(p));gl.uniformMatrix4fv(this.uniforms.bones,false,this.bonesFor(p,phase,time));gl.uniform1f(this.uniforms.rival,p.team?1:0);gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0);this.renderer.drawCalls++}
