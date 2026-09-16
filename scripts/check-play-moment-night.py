@@ -200,6 +200,33 @@ if __name__=='__main__':
             assert delta[0]*expected[0]+delta[1]*expected[1]>.3,(key,expected,delta,g)
             assert abs(after['heading']-runner['heading'])>.05,(key,runner,after)
         result['checks'].append('keyboard juke cuts follow camera-space left/right and visibly plant into the cut')
+        contact_samples=[]
+        for contact_type in ['wrap','gang','big-hit']:
+            restart(page);page.click('#runTab');page.click('#snap');step(page,.7)
+            assert diag(page)['phase']=='run'
+            assert page.evaluate('(kind)=>bk3dTest.forceContact(kind)',contact_type)
+            started=diag(page);carrier_index=6
+            assert started['phase']=='dead' and started['contact']['type']==contact_type,started
+            assert started['players'][carrier_index]['fallen'] and started['players'][carrier_index]['action']==contact_type,started
+            start_z=started['players'][carrier_index]['z'];start_time=started['simTime']
+            step(page,.28);middle=diag(page)
+            assert middle['simTime']>start_time and 0<middle['contact']['elapsed']<middle['contact']['duration'],middle
+            assert .1<middle['players'][carrier_index]['actionT']<.8,middle['players'][carrier_index]
+            assert middle['players'][carrier_index]['z']>start_z,(started,middle)
+            tackler=middle['players'][middle['contact']['tackler']]
+            assert ((tackler['x']-middle['players'][carrier_index]['x'])**2+(tackler['z']-middle['players'][carrier_index]['z'])**2)**.5<1.5,(contact_type,tackler,middle['players'][carrier_index])
+            if contact_type=='gang':assert middle['contact']['helper'] is not None and middle['players'][middle['contact']['helper']]['action']=='gang',middle
+            if contact_type=='wrap':page.screenshot(path=str(OUT/f'night-contact-{w}x{h}.png'))
+            contact_samples.append({'type':contact_type,'duration':middle['contact']['duration'],'carrierDrive':middle['players'][carrier_index]['z']-start_z})
+        result['contactSamples']=contact_samples
+        result['checks'].append('wrap, gang and big-hit sequences continue after the whistle; carrier, tackler and gang helper finish contact instead of freezing on impact')
+        restart(page);page.click('#runTab');page.click('#snap');step(page,.7)
+        assert page.evaluate("bk3dTest.forceContact('wrap',true)")
+        drive_end=diag(page);assert drive_end['paused'] and drive_end['ended'] and drive_end['contact']['type']=='wrap',drive_end
+        step(page,1);drive_end_finished=diag(page)
+        assert drive_end_finished['paused'] and drive_end_finished['ended'] and drive_end_finished['contact'] is None,drive_end_finished
+        assert drive_end_finished['players'][6]['action']=='wrap' and drive_end_finished['players'][6]['actionT']>=.99,drive_end_finished['players'][6]
+        result['checks'].append('fourth-down contact completes behind the drive-end result instead of freezing when gameplay pauses')
         restart(page);page.click('#runTab');page.click('#control');page.click('#snap');step(page,1.0)
         assert diag(page)['players'][6]['distance']>1 and page.locator('#control').inner_text().startswith('ASSIST')
         result['checks'].append('assisted run movement')

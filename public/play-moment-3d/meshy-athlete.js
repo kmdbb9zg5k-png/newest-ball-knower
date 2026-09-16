@@ -20,19 +20,46 @@ export const MESHY_CLIPS=Object.freeze({
 const motion=(base,overlay=null,overlayWeight=0,rate=1)=>Object.freeze({base,overlay,overlayWeight,rate});
 export const FOOTBALL_MOTION_RECIPES=Object.freeze({
  'qb-drop':motion(MESHY_CLIPS.walk,MESHY_CLIPS.throw,.10,.68),
+ 'qb-scramble':motion(MESHY_CLIPS.run,MESHY_CLIPS.throw,.08,1.02),
  handoff:motion(MESHY_CLIPS.idle,MESHY_CLIPS.catch,.22,.92),
  'receive-handoff':motion(MESHY_CLIPS.run,MESHY_CLIPS.catch,.18,.78),
  'route-release':motion(MESHY_CLIPS.sprint,MESHY_CLIPS.run,.16,1.05),
+ 'route-stem':motion(MESHY_CLIPS.run,MESHY_CLIPS.sprint,.10,1.02),
  'route-cut':motion(MESHY_CLIPS.run,MESHY_CLIPS.block,.08,.92),
  'carry-run':motion(MESHY_CLIPS.run,MESHY_CLIPS.block,.12,1.02),
  'carry-sprint':motion(MESHY_CLIPS.sprint,MESHY_CLIPS.block,.10,1.12),
+ 'carry-cut':motion(MESHY_CLIPS.run,MESHY_CLIPS.block,.18,.86),
  'pass-set':motion(MESHY_CLIPS.block,MESHY_CLIPS.walk,.12,.90),
+ 'pass-anchor':motion(MESHY_CLIPS.block,MESHY_CLIPS.idle,.16,.82),
  'drive-block':motion(MESHY_CLIPS.block,MESHY_CLIPS.run,.18,1.08),
+ 'reach-block':motion(MESHY_CLIPS.block,MESHY_CLIPS.run,.22,.96),
+ 'climb-block':motion(MESHY_CLIPS.run,MESHY_CLIPS.block,.24,.92),
+ 'stalk-block':motion(MESHY_CLIPS.block,MESHY_CLIPS.walk,.18,.80),
  'rush-engaged':motion(MESHY_CLIPS.block,MESHY_CLIPS.tackle,.13,1.04),
+ shed:motion(MESHY_CLIPS.block,MESHY_CLIPS.tackle,.18,1.08),
+ 'bull-rush':motion(MESHY_CLIPS.block,MESHY_CLIPS.sprint,.14,1.06),
+ 'edge-rush':motion(MESHY_CLIPS.sprint,MESHY_CLIPS.tackle,.11,1.16),
  rush:motion(MESHY_CLIPS.sprint,MESHY_CLIPS.tackle,.07,1.12),
  coverage:motion(MESHY_CLIPS.walk,MESHY_CLIPS.idleAlt,.16,.82),
+ 'coverage-pedal':motion(MESHY_CLIPS.walk,MESHY_CLIPS.block,.10,.70),
+ 'coverage-break':motion(MESHY_CLIPS.run,MESHY_CLIPS.tackle,.08,.94),
+ stumble:motion(MESHY_CLIPS.walk,MESHY_CLIPS.tackle,.16,.68),
 });
 export function motionRecipeForState(state){return FOOTBALL_MOTION_RECIPES[state]||null}
+
+// The source clips are shared, but each position gets its own cadence and root
+// restraint. This avoids eleven players marching through the same leg cycle
+// while keeping the single mobile-friendly rig and texture set.
+export const ROLE_MOTION_PROFILES=Object.freeze({
+ QB:Object.freeze({cadence:.96,root:.34,lean:.035,arm:.045}),
+ RB:Object.freeze({cadence:1.06,root:.72,lean:.105,arm:.080}),
+ WR:Object.freeze({cadence:1.09,root:.80,lean:.12,arm:.095}),
+ TE:Object.freeze({cadence:.99,root:.58,lean:.10,arm:.065}),
+ OL:Object.freeze({cadence:.90,root:.20,lean:.16,arm:.035}),
+ DL:Object.freeze({cadence:.95,root:.26,lean:.18,arm:.050}),
+ LB:Object.freeze({cadence:1.01,root:.52,lean:.13,arm:.070}),
+ DB:Object.freeze({cadence:1.08,root:.74,lean:.115,arm:.088}),
+});
 
 // Keep pre-snap feet planted. The generated idle clips contain a large leg
 // flourish later in their loops, so each position uses a reviewed football
@@ -73,15 +100,26 @@ export function meshyAnimationState(p,phase){
  if(p.action==='tackle')return'tackle';
  if(p.action==='break-tackle')return'break-tackle';
  if(p.action==='miss')return'miss';
+ if(p.action==='stumble')return'stumble';
  if(p.throwT>0&&p.role==='QB')return'throw';
  if(p.catchT>0)return'catch-'+(p.catchStyle||'rac');
- if(p.engaged){const runPhase=phase==='handoff'||phase==='run';return runPhase?(p.team?'shed':'drive-block'):(p.team?'rush-engaged':'pass-set')}
+ if(p.engaged){
+  const runPhase=phase==='handoff'||phase==='run';
+  if(!runPhase)return p.team?(p.blockStyle==='bull-rush'?'bull-rush':'rush-engaged'):(p.blockStyle==='pass-anchor'?'pass-anchor':'pass-set');
+  if(p.team)return'shed';
+  if(p.blockStyle==='stalk')return'stalk-block';
+  if(p.blockStyle==='reach')return'reach-block';
+  if(p.blockStyle==='climb')return'climb-block';
+  return'drive-block';
+ }
  if(phase==='pre')return'pre';
  const speed=Math.hypot(p.vx||0,p.vz||0);
  if(phase==='pass'&&p.role==='QB'&&speed>.2)return'qb-drop';
- if((phase==='pass'||phase==='flight')&&!p.team&&['WR','TE','RB'].includes(p.role)&&speed>.2)return Math.abs(p.motion?.turn||0)>1.05?'route-cut':'route-release';
- if((phase==='pass'||phase==='flight')&&p.team&&['LB','DB'].includes(p.role)&&speed>.2&&speed<7.7)return'coverage';
- if((phase==='pass'||phase==='flight')&&p.team&&p.role==='DL'&&speed>.2)return'rush';
+ if((phase==='pass'||phase==='flight')&&!p.team&&['WR','TE','RB'].includes(p.role)&&speed>.2)return p.routeStyle==='release'?'route-release':p.routeStyle==='cut'||Math.abs(p.motion?.turn||0)>1.05?'route-cut':'route-stem';
+ if((phase==='pass'||phase==='flight')&&p.team&&['LB','DB'].includes(p.role)&&speed>.2&&speed<7.7)return p.coverageStyle==='pedal'?'coverage-pedal':p.coverageStyle==='break'?'coverage-break':'coverage';
+ if((phase==='pass'||phase==='flight')&&p.team&&p.role==='DL'&&speed>.2)return p.blockStyle==='edge-rush'?'edge-rush':p.blockStyle==='bull-rush'?'bull-rush':'rush';
+ if(phase==='run'&&p.hasBall&&p.role==='QB'&&speed>.2)return'qb-scramble';
+ if(phase==='run'&&p.hasBall&&Math.abs(p.motion?.turn||0)>1.12)return'carry-cut';
  if(phase==='run'&&p.hasBall&&speed>7.7)return'carry-sprint';
  if(phase==='run'&&p.hasBall&&speed>.2)return'carry-run';
  if(speed>7.7)return'sprint';if(speed>2.4)return'run';if(speed>.2)return'walk';return'idle';
@@ -166,7 +204,7 @@ export class MeshyAthletes{
  }
  sampleChannel(channel,time){const{times,values,size}=channel;if(times.length===1)return Array.from(values.subarray(0,size));let low=0,high=times.length-1;while(low+1<high){const mid=(low+high)>>1;if(times[mid]<=time)low=mid;else high=mid}const a=low,b=Math.min(times.length-1,low+1),span=times[b]-times[a],t=span?clamp((time-times[a])/span,0,1):0,left=Array.from(values.subarray(a*size,a*size+size)),right=Array.from(values.subarray(b*size,b*size+size));return channel.path==='rotation'?slerp(left,right,t):lerpArray(left,right,t)}
  choose(p,phase,time){
-  const state=meshyAnimationState(p,phase),seed=meshyPlaybackSeed(p.index,p.team),roleRate={OL:.91,DL:.95,QB:.97,RB:1.05,WR:1.08,TE:.98,LB:1.01,DB:1.07}[p.role]||1,phaseTime=(clip,rate=1)=>(time*seed.rate*roleRate*rate+seed.offset*this.clips[clip].duration)%this.clips[clip].duration;
+  const state=meshyAnimationState(p,phase),seed=meshyPlaybackSeed(p.index,p.team),profile=ROLE_MOTION_PROFILES[p.role]||ROLE_MOTION_PROFILES.LB,roleRate=profile.cadence,phaseTime=(clip,rate=1)=>(time*seed.rate*roleRate*rate+seed.offset*this.clips[clip].duration)%this.clips[clip].duration;
   const result=(base,baseTime,overlay=null,overlayWeight=0,overlayTime=0)=>({state,base,baseTime,overlay,overlayWeight,overlayTime});
   const actionTime=clamp(p.actionT||0,0,1),tackleTime=actionTime*this.clips[MESHY_CLIPS.tackle].duration;
   if(state==='tackle')return result(MESHY_CLIPS.tackle,tackleTime);
@@ -179,6 +217,7 @@ export class MeshyAthletes{
   if(state.startsWith('catch-')){const style=state.slice(6),overlay=style==='secure'?MESHY_CLIPS.block:style==='aggressive'?MESHY_CLIPS.sprint:MESHY_CLIPS.run,weight=style==='secure'?.18:style==='aggressive'?.12:.08;return result(MESHY_CLIPS.catch,clamp(1-p.catchT/.45,0,1)*this.clips[MESHY_CLIPS.catch].duration,overlay,weight,phaseTime(overlay,.82))}
   if(state==='break-tackle')return result(MESHY_CLIPS.block,phaseTime(MESHY_CLIPS.block,1.18),MESHY_CLIPS.run,.16,phaseTime(MESHY_CLIPS.run,.74));
   if(state==='miss')return result(MESHY_CLIPS.tackle,tackleTime*.72,MESHY_CLIPS.idleAlt,.10,phaseTime(MESHY_CLIPS.idleAlt));
+  if(state==='stumble')return result(MESHY_CLIPS.walk,phaseTime(MESHY_CLIPS.walk,.62),MESHY_CLIPS.tackle,.18,tackleTime*.58);
   if(state==='pre'){const pose=preSnapPoseForRole(p.role,p.index);return result(pose.clip,Math.min(pose.time,this.clips[pose.clip].duration-.001))}
   const recipe=motionRecipeForState(state);if(recipe)return result(recipe.base,phaseTime(recipe.base,recipe.rate),recipe.overlay,recipe.overlayWeight,recipe.overlay===null?0:phaseTime(recipe.overlay,recipe.rate*.93));
   if(state==='sprint')return result(MESHY_CLIPS.sprint,phaseTime(MESHY_CLIPS.sprint,1.2));if(state==='run')return result(MESHY_CLIPS.run,phaseTime(MESHY_CLIPS.run,1.05));if(state==='walk')return result(MESHY_CLIPS.walk,phaseTime(MESHY_CLIPS.walk,.55));const idle=p.index%2?MESHY_CLIPS.idle:MESHY_CLIPS.idleAlt;return result(idle,phaseTime(idle,.72));
@@ -190,7 +229,7 @@ export class MeshyAthletes{
  mixLocals(base,overlay,weight){return base.map((node,index)=>({t:lerpArray(node.t,overlay[index].t,weight),r:slerp(node.r,overlay[index].r,weight),s:lerpArray(node.s,overlay[index].s,weight)}))}
  rotate(locals,name,x,y,z,angle){const index=this.namedNodes[name];if(Number.isInteger(index))locals[index].r=quatMul(locals[index].r,axisQuat(x,y,z,angle))}
  applyFootballPose(locals,p,phase,time,state){
-  const pulse=Math.sin(clamp(p.actionT||0,0,1)*Math.PI),side=p.actionSide||0,mirror=(p.index+p.team)%2?1:-1,hips=this.joints[0],beat=Math.sin(time*(6.4+(p.index%4)*.31)+p.index*.83);
+  const pulse=Math.sin(clamp(p.actionT||0,0,1)*Math.PI),side=p.actionSide||0,mirror=(p.index+p.team)%2?1:-1,hips=this.joints[0],beat=Math.sin(time*(6.4+(p.index%4)*.31)+p.index*.83),profile=ROLE_MOTION_PROFILES[p.role]||ROLE_MOTION_PROFILES.LB,speed=clamp(Math.hypot(p.vx||0,p.vz||0)/9,0,1);
   if(phase==='pre'){
    const profile=ROLE_STANCE_PROFILES[p.role]||ROLE_STANCE_PROFILES.LB;locals[hips].t[1]-=profile.crouch;
    this.rotate(locals,'mixamorig:Spine',1,0,0,profile.lean);
@@ -205,21 +244,36 @@ export class MeshyAthletes{
     this.rotate(locals,'mixamorig:RightArm',0,0,1,.10);
    }
   }
+  if(phase!=='pre'&&!p.engaged&&!/tackle|hit|miss|break|slide|stumble/.test(state)){
+   this.rotate(locals,'mixamorig:Spine',1,0,0,profile.lean*speed);
+   this.rotate(locals,'mixamorig:LeftArm',1,0,0,-profile.arm*beat*speed);
+   this.rotate(locals,'mixamorig:RightArm',1,0,0,profile.arm*beat*speed);
+  }
   if(state==='qb-drop'){
    locals[hips].t[1]-=.035;this.rotate(locals,'mixamorig:Spine',1,0,0,.055);this.rotate(locals,'mixamorig:LeftArm',0,0,1,-.17);this.rotate(locals,'mixamorig:RightArm',0,0,1,.17);this.rotate(locals,'mixamorig:LeftForeArm',1,0,0,-.22);this.rotate(locals,'mixamorig:RightForeArm',1,0,0,-.22);
+  }else if(state==='qb-scramble'){
+   this.rotate(locals,'mixamorig:Spine',1,0,0,.14);this.rotate(locals,'mixamorig:Head',1,0,0,-.08);this.rotate(locals,'mixamorig:RightArm',0,0,1,.18);this.rotate(locals,'mixamorig:RightForeArm',1,0,0,-.48);
   }else if(state==='handoff'||state==='receive-handoff'){
    const exchange=state==='handoff'?1:-1;this.rotate(locals,'mixamorig:Spine',1,0,0,.10*pulse);this.rotate(locals,'mixamorig:LeftArm',1,0,0,-.24*pulse);this.rotate(locals,'mixamorig:RightArm',1,0,0,-.24*pulse);this.rotate(locals,'mixamorig:LeftForeArm',0,1,0,.24*exchange*pulse);this.rotate(locals,'mixamorig:RightForeArm',0,1,0,-.24*exchange*pulse);
-  }else if(state==='pass-set'){
+  }else if(state==='pass-set'||state==='pass-anchor'){
    locals[hips].t[1]-=.09;this.rotate(locals,'mixamorig:Spine',1,0,0,.16);this.rotate(locals,'mixamorig:LeftUpLeg',0,0,1,-.10);this.rotate(locals,'mixamorig:RightUpLeg',0,0,1,.10);this.rotate(locals,'mixamorig:LeftArm',1,0,0,-.22-beat*.035);this.rotate(locals,'mixamorig:RightArm',1,0,0,-.22+beat*.035);
-  }else if(state==='drive-block'){
+   if(state==='pass-anchor'){locals[hips].t[1]-=.045;this.rotate(locals,'mixamorig:Spine2',1,0,0,.08);}
+  }else if(state==='drive-block'||state==='reach-block'||state==='climb-block'||state==='stalk-block'){
    locals[hips].t[1]-=.075;this.rotate(locals,'mixamorig:Spine',1,0,0,.24);this.rotate(locals,'mixamorig:Spine2',0,0,1,mirror*beat*.045);this.rotate(locals,'mixamorig:LeftShoulder',1,0,0,-.18-beat*.045);this.rotate(locals,'mixamorig:RightShoulder',1,0,0,-.18+beat*.045);
-  }else if(state==='rush-engaged'||state==='shed'){
+   if(state==='reach-block')this.rotate(locals,'mixamorig:Spine2',0,0,1,(side||mirror)*.17);
+   if(state==='climb-block'){this.rotate(locals,'mixamorig:Spine',1,0,0,.10);this.rotate(locals,'mixamorig:LeftArm',0,1,0,.16);this.rotate(locals,'mixamorig:RightArm',0,1,0,-.16);}
+   if(state==='stalk-block'){locals[hips].t[1]+=.035;this.rotate(locals,'mixamorig:Spine',1,0,0,-.09);}
+  }else if(state==='rush-engaged'||state==='shed'||state==='bull-rush'){
    this.rotate(locals,'mixamorig:Spine',1,0,0,.20);this.rotate(locals,'mixamorig:Spine2',0,0,1,mirror*.12);this.rotate(locals,mirror>0?'mixamorig:RightArm':'mixamorig:LeftArm',0,1,0,mirror*.34);this.rotate(locals,mirror>0?'mixamorig:RightForeArm':'mixamorig:LeftForeArm',1,0,0,-.22);
-  }else if(state==='rush'){
+   if(state==='bull-rush'){locals[hips].t[1]-=.06;this.rotate(locals,'mixamorig:LeftShoulder',1,0,0,-.18);this.rotate(locals,'mixamorig:RightShoulder',1,0,0,-.18);}
+  }else if(state==='rush'||state==='edge-rush'){
    this.rotate(locals,'mixamorig:Spine',1,0,0,.16);this.rotate(locals,'mixamorig:Spine2',0,1,0,mirror*.055);
-  }else if(state==='coverage'){
+   if(state==='edge-rush')this.rotate(locals,'mixamorig:Spine2',0,0,1,(side||mirror)*.16);
+  }else if(state==='coverage'||state==='coverage-pedal'||state==='coverage-break'){
    locals[hips].t[1]-=.065;this.rotate(locals,'mixamorig:Spine',1,0,0,.10);this.rotate(locals,'mixamorig:LeftArm',0,0,1,-.11);this.rotate(locals,'mixamorig:RightArm',0,0,1,.11);
-  }else if(state==='route-cut'){
+   if(state==='coverage-pedal'){this.rotate(locals,'mixamorig:Spine',1,0,0,-.08);this.rotate(locals,'mixamorig:LeftUpLeg',0,0,1,-.08);this.rotate(locals,'mixamorig:RightUpLeg',0,0,1,.08);}
+   if(state==='coverage-break')this.rotate(locals,'mixamorig:Spine2',0,0,1,clamp(-(p.motion?.turn||0)*.10,-.22,.22));
+  }else if(state==='route-cut'||state==='carry-cut'){
    const cut=clamp(-(p.motion?.turn||0)*.12,-.30,.30);this.rotate(locals,'mixamorig:Spine2',0,0,1,cut);this.rotate(locals,cut>0?'mixamorig:RightUpLeg':'mixamorig:LeftUpLeg',1,0,0,-Math.abs(cut)*.85);
   }
   if(state==='carry-run'||state==='carry-sprint'){
@@ -248,6 +302,8 @@ export class MeshyAthletes{
   }else if(p.action==='miss'){
    this.rotate(locals,'mixamorig:Spine',1,0,0,.34*pulse);
    this.rotate(locals,'mixamorig:Spine2',0,0,1,(side||1)*.30*pulse);
+  }else if(p.action==='stumble'){
+   locals[hips].t[1]-=.10*pulse;this.rotate(locals,'mixamorig:Spine',1,0,0,.30*pulse);this.rotate(locals,'mixamorig:Spine2',0,0,1,(side||1)*.18*pulse);
   }else if(p.action==='wrap'||p.action==='gang'){
    const low=p.action==='gang'?.16:.08;locals[hips].t[1]-=low*pulse;this.rotate(locals,'mixamorig:Spine',1,0,0,.26*pulse);this.rotate(locals,'mixamorig:LeftArm',0,1,0,.34*pulse);this.rotate(locals,'mixamorig:RightArm',0,1,0,-.34*pulse);
   }else if(p.action==='big-hit'){
@@ -281,7 +337,7 @@ export class MeshyAthletes{
   const choice=this.choose(p,phase,time);let locals=this.poseLocals(choice.base,choice.baseTime);if(choice.overlay!==null)locals=this.mixLocals(locals,this.poseLocals(choice.overlay,choice.overlayTime),choice.overlayWeight);
   // Remove excessive source-root bob before adding intentional football
   // crouches, catches and skills. This keeps feet believable on mobile.
-  const hips=this.joints[0],baseY=this.base[hips].t[1];locals[hips].t[1]=baseY+clamp(locals[hips].t[1]-baseY,-.10,.14);
+  const hips=this.joints[0],baseY=this.base[hips].t[1],profile=ROLE_MOTION_PROFILES[p.role]||ROLE_MOTION_PROFILES.LB;locals[hips].t[1]=baseY+clamp(locals[hips].t[1]-baseY,-.10,.14)*profile.root;
   this.applyFootballPose(locals,p,phase,time,choice.state);
   if(phase==='pre'){
    const seed=meshyPlaybackSeed(p.index,p.team),breath=Math.sin(time*(1.25+seed.rate*.22)+seed.offset*Math.PI*2),scan=Math.sin(time*(.38+seed.rate*.08)+seed.offset*Math.PI*2);
@@ -299,7 +355,7 @@ export class MeshyAthletes{
   const widths={OL:1.12,DL:1.10,QB:.98,RB:1.03,WR:.95,TE:1.05,LB:1.06,DB:.94},width=widths[p.role]||1;
   let lift=0,pitch=0,roll=0,yaw=0;if(p.action==='hurdle')lift=Math.sin((p.actionT||0)*Math.PI)*.68;if(p.action==='truck')pitch=.29*Math.sin((p.actionT||0)*Math.PI);if(p.action==='juke')roll=-(p.actionSide||0)*.22*Math.sin((p.actionT||0)*Math.PI);if(p.action==='spin')yaw=(p.actionSide||1)*(p.actionT||0)*Math.PI*2;
   if(p.action==='break-tackle')roll+=(p.actionSide||1)*.18*Math.sin((p.actionT||0)*Math.PI);if(p.action==='miss')pitch+=.34*Math.sin((p.actionT||0)*Math.PI);if(p.engaged)pitch+=.11;if(p.reactionT>0)roll+=(p.reactionSide||1)*.12*Math.sin(clamp(p.reactionT,0,1)*Math.PI);
-  const fall=p.fallen?(p.action==='slide'?.72:p.action==='big-hit'?1.48:p.action==='gang'?1.08:p.action==='wrap'?.96:1.24):0,fallRoll=p.fallen?((p.index%2?1:-1)*(p.action==='gang'?.28:p.action==='slide'?.05:.12)):0;return mul(translate(p.x,lift+.02,p.z),mul(ry((p.heading||0)+yaw),mul(rx(fall+pitch),mul(rz(roll+fallRoll),scale(1.17*width,1.17,1.17)))));
+  const contactFall=p.fallen&&/tackle|hit|gang|wrap|slide/.test(p.action||''),rawFall=clamp(p.actionT||0,0,1),fallProgress=contactFall?rawFall*rawFall*(3-2*rawFall):p.fallen?1:0,fall=fallProgress*(p.action==='slide'?.72:p.action==='big-hit'?1.48:p.action==='gang'?1.08:p.action==='wrap'?.96:1.24),fallRoll=fallProgress*((p.index%2?1:-1)*(p.action==='gang'?.28:p.action==='slide'?.05:.12));return mul(translate(p.x,lift+.02,p.z),mul(ry((p.heading||0)+yaw),mul(rx(fall+pitch),mul(rz(roll+fallRoll),scale(1.17*width,1.17,1.17)))));
  }
  draw(actors,phase,time){if(!this.ready)return false;const gl=this.gl;this.lastStates=actors.map(p=>meshyAnimationState(p,phase));gl.useProgram(this.program);gl.bindVertexArray(this.vao);gl.uniformMatrix4fv(this.uniforms.vp,false,this.renderer.vp);gl.uniform3fv(this.uniforms.eye,this.renderer.eye);for(let i=0;i<3;i++){gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,this.textures[i])}gl.uniform1i(this.uniforms.baseMap,0);gl.uniform1i(this.uniforms.normalMap,1);gl.uniform1i(this.uniforms.ormMap,2);gl.disable(gl.BLEND);gl.depthMask(true);
   for(const p of actors){gl.uniformMatrix4fv(this.uniforms.model,false,this.modelFor(p));gl.uniformMatrix4fv(this.uniforms.bones,false,this.bonesFor(p,phase,time));gl.uniform1f(this.uniforms.rival,p.team?1:0);gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0);this.renderer.drawCalls++}

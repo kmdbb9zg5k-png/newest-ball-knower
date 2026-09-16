@@ -34,7 +34,7 @@ function fixture(initial){
  const create=Function('initial','lineToGain',`
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
  let drive={clock:63,score:24,plays:1,...initial},phase='run',ended=false,flight=null;
- let input={x:1,z:1,sprint:true},keys=new Set(['w']),recoveryLeft=0;
+ let input={x:1,z:1,sprint:true},keys=new Set(['w']),recoveryLeft=0,activeContact=null;
  let carrier={fallen:false,moving:true,engaged:false},actors=[carrier],messages=[],ending=null;
  const message=t=>messages.push(t),updateHud=()=>{},updateControls=()=>{};
  const endDrive=title=>{ending=title;ended=true;phase='dead';};
