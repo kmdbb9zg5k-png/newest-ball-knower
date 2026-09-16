@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { FOOTBALL_MOTION_RECIPES, MESHY_CLIPS, PRE_SNAP_ROLE_POSES, ROLE_STANCE_PROFILES, meshyAnimationState, meshyPlaybackSeed, meshyTransitionRate, motionRecipeForState, preSnapPoseForRole } from '../public/play-moment-3d/meshy-athlete.js';
+import { FOOTBALL_MOTION_RECIPES, MESHY_CLIPS, PRE_SNAP_ROLE_POSES, ROLE_MOTION_PROFILES, ROLE_STANCE_PROFILES, meshyAnimationState, meshyPlaybackSeed, meshyTransitionRate, motionRecipeForState, preSnapPoseForRole } from '../public/play-moment-3d/meshy-athlete.js';
 
 const asset = new URL('../public/play-moment-3d/assets/meshy-gridiron-gold.glb', import.meta.url);
 const bytes = readFileSync(asset);
@@ -35,13 +35,15 @@ const footballRoles = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'DB'];
 const preSnap = footballRoles.map((role, index) => preSnapPoseForRole(role, index));
 assert.equal(Object.keys(PRE_SNAP_ROLE_POSES).length, footballRoles.length, 'Every football role needs a deliberate pre-snap pose');
 assert.deepEqual(Object.keys(ROLE_STANCE_PROFILES),footballRoles,'Every football role needs a skeleton-level stance profile');
+assert.deepEqual(Object.keys(ROLE_MOTION_PROFILES),footballRoles,'Every football role needs a locomotion profile');
 assert.ok(ROLE_STANCE_PROFILES.OL.crouch>ROLE_STANCE_PROFILES.WR.crouch&&ROLE_STANCE_PROFILES.DL.lean>ROLE_STANCE_PROFILES.QB.lean,'Line stances must be lower and more aggressive than skill stances');
+assert.ok(ROLE_MOTION_PROFILES.WR.cadence>ROLE_MOTION_PROFILES.OL.cadence&&ROLE_MOTION_PROFILES.WR.root>ROLE_MOTION_PROFILES.OL.root,'Receivers and linemen cannot share one synchronized stride and root bounce');
 assert.ok(new Set(preSnap.map(({ clip, time }) => `${clip}:${time.toFixed(3)}`)).size >= 7, 'Pre-snap players must not share one synchronized pose');
 assert.ok(preSnap.every(({ clip, time }) => clip >= 0 && clip < gltf.animations.length && time >= 0 && time < 1), 'Pre-snap anchors must resolve inside shipped clips');
 const playbackSeeds = Array.from({ length: 22 }, (_, index) => meshyPlaybackSeed(index, index >= 11));
 assert.ok(new Set(playbackSeeds.map(({ offset }) => offset.toFixed(3))).size >= 18, 'Live animation cycles need player-specific phase offsets');
 assert.ok(new Set(playbackSeeds.map(({ rate }) => rate.toFixed(3))).size >= 7, 'Live animation cycles need subtle speed variation');
-assert.equal(Object.keys(FOOTBALL_MOTION_RECIPES).length, 12, 'The compact GLB should expand into a twelve-recipe football motion graph');
+assert.equal(Object.keys(FOOTBALL_MOTION_RECIPES).length, 25, 'The compact GLB should expand into a twenty-five-recipe football motion graph');
 for (const [state, recipe] of Object.entries(FOOTBALL_MOTION_RECIPES)) {
   assert.ok(recipe.base >= 0 && recipe.base < gltf.animations.length, `${state} must use a shipped base clip`);
   assert.ok(recipe.overlay === null || recipe.overlay >= 0 && recipe.overlay < gltf.animations.length, `${state} overlay must use a shipped clip`);
@@ -56,17 +58,28 @@ assert.equal(meshyAnimationState({ role: 'RB', action: 'receive-handoff' }, 'han
 assert.equal(meshyAnimationState({ role: 'QB', action: 'slide' }, 'dead'), 'slide');
 assert.equal(meshyAnimationState({ role: 'OL', team: 0, engaged: true }, 'run'), 'drive-block');
 assert.equal(meshyAnimationState({ role: 'OL', team: 0, engaged: true }, 'pass'), 'pass-set');
+assert.equal(meshyAnimationState({ role: 'WR', team: 0, engaged: true, blockStyle: 'stalk' }, 'run'), 'stalk-block');
+assert.equal(meshyAnimationState({ role: 'OL', team: 0, engaged: true, blockStyle: 'reach' }, 'run'), 'reach-block');
+assert.equal(meshyAnimationState({ role: 'TE', team: 0, engaged: true, blockStyle: 'climb' }, 'run'), 'climb-block');
+assert.equal(meshyAnimationState({ role: 'OL', team: 0, engaged: true, blockStyle: 'pass-anchor' }, 'pass'), 'pass-anchor');
 assert.equal(meshyAnimationState({ role: 'DL', team: 1, engaged: true }, 'run'), 'shed');
 assert.equal(meshyAnimationState({ role: 'DL', team: 1, engaged: true }, 'pass'), 'rush-engaged');
 assert.equal(meshyAnimationState({ role: 'QB', vx: 2, vz: 0 }, 'pass'), 'qb-drop');
-assert.equal(meshyAnimationState({ role: 'WR', team: 0, vx: 5, vz: 0, motion: { turn: 1.4 } }, 'pass'), 'route-cut');
-assert.equal(meshyAnimationState({ role: 'WR', team: 0, vx: 6, vz: 0, motion: { turn: .2 } }, 'pass'), 'route-release');
+assert.equal(meshyAnimationState({ role: 'WR', team: 0, vx: 5, vz: 0, routeStyle: 'cut', motion: { turn: 1.4 } }, 'pass'), 'route-cut');
+assert.equal(meshyAnimationState({ role: 'WR', team: 0, vx: 6, vz: 0, routeStyle: 'release', motion: { turn: .2 } }, 'pass'), 'route-release');
+assert.equal(meshyAnimationState({ role: 'WR', team: 0, vx: 6, vz: 0, routeStyle: 'stem', motion: { turn: .2 } }, 'pass'), 'route-stem');
 assert.equal(meshyAnimationState({ role: 'RB', team: 0, hasBall: true, vx: 8, vz: 0 }, 'run'), 'carry-sprint');
+assert.equal(meshyAnimationState({ role: 'RB', team: 0, hasBall: true, vx: 6, vz: 0, motion: { turn: 1.3 } }, 'run'), 'carry-cut');
+assert.equal(meshyAnimationState({ role: 'QB', team: 0, hasBall: true, vx: 5, vz: 0 }, 'run'), 'qb-scramble');
 assert.equal(meshyAnimationState({ role: 'DB', team: 1, vx: 5, vz: 0 }, 'pass'), 'coverage');
+assert.equal(meshyAnimationState({ role: 'DB', team: 1, vx: 5, vz: 0, coverageStyle: 'pedal' }, 'pass'), 'coverage-pedal');
+assert.equal(meshyAnimationState({ role: 'DB', team: 1, vx: 5, vz: 0, coverageStyle: 'break' }, 'pass'), 'coverage-break');
+assert.equal(meshyAnimationState({ role: 'DL', team: 1, vx: 6, vz: 0, blockStyle: 'edge-rush' }, 'pass'), 'edge-rush');
 assert.equal(meshyAnimationState({ role: 'DB', vx: 8, vz: 0 }, 'run'), 'sprint');
 assert.equal(meshyAnimationState({ role: 'LB', action: 'big-hit' }, 'run'), 'big-hit');
 assert.equal(meshyAnimationState({ role: 'LB', action: 'gang' }, 'run'), 'gang-tackle');
 assert.equal(meshyAnimationState({ role: 'LB', action: 'wrap' }, 'run'), 'wrap-tackle');
+assert.equal(meshyAnimationState({ role: 'RB', action: 'stumble' }, 'run'), 'stumble');
 assert.ok(meshyTransitionRate('run', 'big-hit') > meshyTransitionRate('run', 'route-release'), 'Contact must blend in faster than routine locomotion');
 
 const rendererSource = readFileSync(new URL('../public/play-moment-3d/meshy-athlete.js', import.meta.url), 'utf8');
@@ -81,7 +94,8 @@ assert.match(rendererSource, /p\.reactionT>0/, 'Defenders need a visible reactio
 assert.match(rendererSource, /catch-'\+\(p\.catchStyle/, 'Catch choice must select a contextual animation state');
 assert.match(rendererSource, /break-tackle/, 'Contact outcomes must select a contextual animation state');
 assert.match(gameSource, /a\.action='handoff'.*b\.action='receive-handoff'/, 'The exchange must drive distinct quarterback and runner poses');
-assert.match(gameSource, /d\.action=outcome\.type/, 'The tackler must receive the actual wrap, gang or big-hit state');
+assert.match(gameSource, /beginContactSequence\(d,outcome,helpers,speed\)/, 'The tackler must receive the actual wrap, gang or big-hit sequence');
+assert.match(gameSource, /advanceContactSequence\(dt\)/, 'Dead-ball contact must keep advancing instead of freezing on impact');
 assert.match(gameSource, /updateSkillAction\(\)\{for\(const p of actors\)/, 'Every actor action must advance instead of freezing non-carriers on one frame');
 assert.match(gameSource, /if\(!meshy\.ready\)for\(const p of actors\)drawAthlete/, 'The existing players must stay visible until the detailed asset is ready');
 assert.match(gameSource, /meshy\.draw\(actors,phase,now\/1000\)/, 'The shared skinned player must be wired into the live scene with presentation time');
@@ -97,5 +111,5 @@ console.log(JSON.stringify({
   footballStates: Object.keys(MESHY_CLIPS),
   preSnapPoses: Object.keys(PRE_SNAP_ROLE_POSES).length,
   motionRecipes: Object.keys(FOOTBALL_MOTION_RECIPES).length,
-  checks: 'reviewed binary asset, shared mobile topology, 27-bone GPU skinning budget, embedded PBR maps, twelve layered football recipes, role-varying cadence, distinct exchange/block/rush/route/carry/catch/contact states, state-aware transitions, skeleton football stances and procedural fallback',
+  checks: 'reviewed binary asset, shared mobile topology, 27-bone GPU skinning budget, embedded PBR maps, twenty-five layered football recipes, role-varying cadence and root motion, distinct exchange/block/rush/route/carry/coverage/contact states, completed tackle sequences, state-aware transitions, skeleton football stances and procedural fallback',
 }, null, 2));
