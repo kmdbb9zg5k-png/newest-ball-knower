@@ -180,6 +180,7 @@ assert.match(source, /p\.team===1&&!p\.engaged/, 'An engaged defender should not
 assert.match(source, /assignments=runBlockAssignments\(selected\)/, 'Run blocking must use the concept-specific assignment plan');
 assert.match(source, /defensiveCall\.alignments\.forEach/, 'The defense must display its selected front before the snap');
 assert.match(source, /const shell=defensiveCall\.coverage/, 'Pass coverage cannot be selected by the offense\'s route concept');
+assert.match(source, /if\(elapsed<\.9\).*d\.startX/, 'An unblocked sixth rusher must disguise pressure long enough to preserve a scramble read');
 assert.match(source, /runFit\(p,dt\)/, 'Free defenders must honor their read step before pursuit');
 assert.match(source, /engagedWith/, 'Block engagements must preserve an explicit blocker-defender pairing');
 assert.match(source, /pursuitTarget\(p,target/, 'Open-field pursuit must use predictive leverage instead of direct homing');
