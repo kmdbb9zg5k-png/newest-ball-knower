@@ -125,7 +125,12 @@ if __name__=='__main__':
         cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':juke['x']+juke['width']/2,'y':juke['y']+juke['height']/2,'id':31}]})
         cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]})
         after_juke=diag(page)['players'][6]
-        assert ((after_juke['x']-before_juke['x'])**2+(after_juke['z']-before_juke['z'])**2)**.5>1.7,(before_juke,after_juke)
+        # A juke now plants into a short lateral cut and carries the rest of the
+        # burst through velocity instead of teleporting the runner 1.8 yards.
+        # Verify both halves of that motion contract.
+        assert ((after_juke['x']-before_juke['x'])**2+(after_juke['z']-before_juke['z'])**2)**.5>.32,(before_juke,after_juke)
+        assert after_juke['action']=='juke' and (after_juke['vx']**2+after_juke['vz']**2)**.5>6.5,(before_juke,after_juke)
+        assert abs(after_juke['heading']-before_juke['heading'])>.35,(before_juke,after_juke)
         assert diag(page)['lastSkill']=='juke'
         for name,dx,dy,touch_id in [('spin-right',42,0,41),('truck',0,-42,42),('hurdle',0,42,43)]:
             restart(page);page.click('#runTab');page.click('#snap');step(page,.6)
@@ -144,7 +149,7 @@ if __name__=='__main__':
             expected=(-fz*screen_side/length,fx*screen_side/length)
             page.keyboard.down(key);page.click('#juke');page.keyboard.up(key)
             after=diag(page)['players'][6];delta=(after['x']-runner['x'],after['z']-runner['z'])
-            assert delta[0]*expected[0]+delta[1]*expected[1]>.9,(key,expected,delta,g)
+            assert delta[0]*expected[0]+delta[1]*expected[1]>.3,(key,expected,delta,g)
             assert abs(after['heading']-runner['heading'])>.05,(key,runner,after)
         result['checks'].append('keyboard juke cuts follow camera-space left/right and visibly plant into the cut')
         restart(page);page.click('#runTab');page.click('#control');page.click('#snap');step(page,1.0)
