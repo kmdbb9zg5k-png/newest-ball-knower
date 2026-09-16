@@ -1,0 +1,38 @@
+name: Player anatomical foundation intake
+on:
+  push:
+    branches: [feat/play-moment-3d-practice-preview]
+    paths:
+      - 'scripts/prepare-player-foundation.py'
+      - 'scripts/compile-player-study.py'
+      - 'scripts/check-player-anatomy-study.py'
+      - '.github/workflows/player-foundation-intake.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verified-art-inputs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Retrieve only pinned CC0 mesh and adult shape data, validating every blob
+        run: python scripts/prepare-player-foundation.py --output artifacts/player-foundation
+      - run: python -m pip install numpy playwright==1.57.0
+      - run: python -m playwright install --with-deps chromium
+      - name: Compile one clothed anatomical model for offline visual evaluation only
+        run: python scripts/compile-player-study.py
+      - name: Render character study through existing game renderer without game integration
+        run: python scripts/check-player-anatomy-study.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: player-anatomical-foundation
+          path: artifacts
+          if-no-files-found: error
+          retention-days: 3

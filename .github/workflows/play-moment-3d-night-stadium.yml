@@ -1,0 +1,68 @@
+name: 3D practice night stadium
+on:
+  push:
+    branches: [feat/play-moment-3d-practice-preview]
+    paths:
+      - 'public/play-moment-3d/**'
+      - 'public/play-moment-3d-preview.html'
+      - 'scripts/check-play-moment-night-stadium.*'
+      - 'scripts/check-play-moment-night.py'
+      - 'scripts/check-play-moment-framing.*'
+      - 'scripts/check-play-moment-goal-line.*'
+      - 'scripts/check-play-moment-gameplay.mjs'
+      - '.github/workflows/play-moment-3d-night-stadium.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: practice-night-stadium-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  presentation-fixtures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Geometry, budgets and board orientation
+        run: node scripts/check-play-moment-night-stadium.mjs
+      - name: Camera framing and clustered receiver markers
+        run: node scripts/check-play-moment-framing.mjs
+      - name: Goal-to-go series labels and actual endPlay state regressions
+        run: node scripts/check-play-moment-goal-line.mjs
+      - name: Gameplay controls, coverage, pursuit and tackle balance
+        run: node scripts/check-play-moment-gameplay.mjs
+      - run: python -m pip install playwright==1.57.0 pillow
+      - run: python -m playwright install --with-deps chromium
+      - name: Render offline stadium fixtures at three screen sizes
+        run: python scripts/check-play-moment-night-stadium.py --output artifacts/night-stadium
+      - name: Exercise playable camera-relative cuts and night renderer
+        run: BK_NIGHT_RESULTS=artifacts/night-game python scripts/check-play-moment-night.py 932 430
+      - name: Render goal-line HUD, series markers and completion states
+        run: python scripts/check-play-moment-goal-line.py --output artifacts/goal-line
+      - name: Compare camera and HUD and exercise enlarged target hit areas
+        shell: bash
+        run: |
+          baseline=()
+          if git cat-file -e 'HEAD^:public/play-moment-3d/game.js' 2>/dev/null &&
+             git cat-file -e 'HEAD^:public/play-moment-3d-preview.html' 2>/dev/null; then
+            baseline=(--baseline-ref HEAD^)
+          else
+            echo 'Before comparison unavailable: parent has no complete preview. Current-head WebGL and HUD checks still run.'
+          fi
+          python scripts/check-play-moment-framing.py "${baseline[@]}" --output artifacts/framing
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: night-stadium-fixtures
+          path: artifacts
+          if-no-files-found: ignore
+          retention-days: 3
