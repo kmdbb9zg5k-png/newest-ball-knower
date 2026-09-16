@@ -1,0 +1,28 @@
+import { list, put } from '@vercel/blob';
+
+export const config = { api: { bodyParser: false } };
+const MAX_BODY_BYTES=1_250_000,MAX_SAMPLES=720,MAX_EVENTS=400,REPORTS_PER_WINDOW=5,REPORT_WINDOW_MS=60*60*1000;
+const REPORT_ID=/^bk_[a-z0-9]{6,20}_[a-f0-9]{12}$/;
+const rateLimit=new Map<string,{count:number;resetAt:number}>();
+const text=(value:unknown,limit=120)=>String(value??'').replace(/[\u0000-\u001f\u007f]/g,' ').trim().slice(0,limit);
+const finite=(value:unknown,floor:number,ceiling:number)=>Math.min(ceiling,Math.max(floor,Number.isFinite(Number(value))?Number(value):0));
+const integer=(value:unknown,floor:number,ceiling:number)=>Math.round(finite(value,floor,ceiling));
+function requestKey(req:any){return String(req.headers?.['x-forwarded-for']||req.headers?.['x-real-ip']||req.socket?.remoteAddress||'unknown').split(',')[0].trim()}
+function consumeRateLimit(key:string){const now=Date.now();for(const[stored,entry]of rateLimit)if(entry.resetAt<=now)rateLimit.delete(stored);const current=rateLimit.get(key);if(current){if(current.count>=REPORTS_PER_WINDOW)return false;current.count+=1;return true}if(rateLimit.size>=1000)return false;rateLimit.set(key,{count:1,resetAt:now+REPORT_WINDOW_MS});return true}
+function isCrossSiteBrowserRequest(req:any){if(String(req.headers?.['sec-fetch-site']||'').toLowerCase()==='cross-site')return true;const origin=String(req.headers?.origin||'').trim(),host=String(req.headers?.host||'').trim().toLowerCase();if(!origin||!host)return false;try{return new URL(origin).host.toLowerCase()!==host}catch{return true}}
+async function readJsonBody(req:any){let total=0;const chunks:Buffer[]=[];for await(const chunk of req){const buffer=Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk);total+=buffer.length;if(total>MAX_BODY_BYTES)throw new Error('Report too large');chunks.push(buffer)}if(!chunks.length)return{};return JSON.parse(Buffer.concat(chunks).toString('utf8'))}
+function sanitizePlayer(raw:unknown){const values=Array.isArray(raw)?raw:[];return[integer(values[0],-3000,3000),integer(values[1],0,12000),integer(values[2],-1500,1500),integer(values[3],-1500,1500),text(values[4],24),integer(values[5],-1,21),values[6]?1:0,values[7]?1:0]}
+export function sanitizeGameplayReport(raw:any){
+ if(!raw||raw.version!==1||!REPORT_ID.test(String(raw.id||'')))throw new Error('Invalid report identity');
+ if(!Array.isArray(raw.samples)||!raw.samples.length||raw.samples.length>MAX_SAMPLES)throw new Error('Invalid replay samples');
+ if(!Array.isArray(raw.events)||raw.events.length>MAX_EVENTS)throw new Error('Invalid replay events');
+ const samples=raw.samples.map((sample:any)=>({t:integer(sample?.t,0,3_600_000),ph:text(sample?.ph,12),m:sample?.m==='p'?'p':'r',pl:integer(sample?.pl,0,3),d:(Array.isArray(sample?.d)?sample.d:[]).slice(0,4).map((value:unknown,index:number)=>integer(value,0,index===3?100_000:120)),i:(Array.isArray(sample?.i)?sample.i:[]).slice(0,4).map((value:unknown)=>integer(value,-1000,1000)),df:text(sample?.df,32),c:integer(sample?.c,-1,21),sk:text(sample?.sk,24),p:(Array.isArray(sample?.p)?sample.p:[]).slice(0,22).map(sanitizePlayer)}));
+ const events=raw.events.map((event:any)=>({t:integer(event?.t,0,3_600_000),type:text(event?.type,40),data:Object.fromEntries(Object.entries(event?.data&&typeof event.data==='object'?event.data:{}).slice(0,8).map(([key,value])=>[text(key,32),typeof value==='number'?finite(value,-1_000_000,1_000_000):text(value,80)]))}));
+ return{version:1,id:String(raw.id),createdAt:text(raw.createdAt,40),startedAt:text(raw.startedAt,40),privacy:'gameplay-state-only',note:text(raw.note,500),viewport:(Array.isArray(raw.viewport)?raw.viewport:[]).slice(0,2).map((value:unknown)=>integer(value,1,5000)),pixelRatio:finite(raw.pixelRatio,1,3),graphics:'high',samplePeriodMs:integer(raw.samplePeriodMs,100,1000),events,samples};
+}
+export default async function handler(req:any,res:any){
+ res.setHeader('Cache-Control','private, no-store, max-age=0');
+ if(req.method==='GET'){const id=String(req.query?.id||'');if(!REPORT_ID.test(id))return res.status(400).json({error:'Invalid report ID'});const{blobs}=await list({prefix:`gameplay-reports/${id}.json`,limit:1});const report=blobs.find(blob=>blob.pathname===`gameplay-reports/${id}.json`);if(!report)return res.status(404).json({error:'Report not found'});const response=await fetch(report.url);if(!response.ok)return res.status(502).json({error:'Report unavailable'});res.setHeader('Content-Type','application/json; charset=utf-8');return res.status(200).send(await response.text())}
+ if(req.method!=='POST')return res.status(405).json({error:'Method not allowed'});if(isCrossSiteBrowserRequest(req))return res.status(403).json({error:'Cross-site reports are not allowed'});if(!consumeRateLimit(requestKey(req))){res.setHeader('Retry-After','3600');return res.status(429).json({error:'Too many gameplay reports'})}const length=Number(req.headers?.['content-length']||0);if(length>MAX_BODY_BYTES)return res.status(413).json({error:'Report too large'});
+ try{const report=sanitizeGameplayReport(await readJsonBody(req)),pathname=`gameplay-reports/${report.id}.json`;await put(pathname,JSON.stringify(report),{access:'public',addRandomSuffix:false,contentType:'application/json; charset=utf-8'});return res.status(201).json({id:report.id,reviewUrl:`/api/gameplay-report?id=${encodeURIComponent(report.id)}`})}catch(error:any){console.error('gameplay-report-failed',error);const message=String(error?.message||'');return res.status(message==='Report too large'?413:400).json({error:message==='Report too large'?message:'Invalid gameplay report'})}
+}

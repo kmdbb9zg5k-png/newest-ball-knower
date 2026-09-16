@@ -19,7 +19,7 @@ def load(page,redzone=False,fbo_failure=False):
           HTMLCanvasElement.prototype.getContext=function(type,...args){const gl=original.call(this,type,...args);
           if(type==='webgl2'&&gl)gl.checkFramebufferStatus=()=>gl.FRAMEBUFFER_UNSUPPORTED;return gl;};}''')
     urls={}
-    for name in ['renderer','motion','geometry','athlete','meshy-athlete','night-stadium','stadium','game']:
+    for name in ['renderer','motion','geometry','athlete','meshy-athlete','night-stadium','stadium','replay','game']:
         text=(ROOT/f'public/play-moment-3d/{name}.js').read_text()
         for dep,url in urls.items(): text=text.replace("'./"+dep+".js'",repr(url))
         text=text.replace("new URLSearchParams(location.search).has('qa')",'true')
@@ -239,6 +239,25 @@ if __name__=='__main__':
         restart(page);page.click('#passTab');page.click('#snap');step(page,6.5)
         assert diag(page)['phase']=='pre' and diag(page)['drive']['down']==2 and page.locator('#snap').is_visible()
         result['checks'].append('sack, next-down reset and controls recovery')
+        if not page.locator('#paused').is_visible():page.click('#pause')
+        page.evaluate("""() => {
+          window.__gameplayReportRequest=null;
+          window.fetch=async(url,options)=>{
+            window.__gameplayReportRequest={url,body:JSON.parse(options.body)};
+            return new Response(JSON.stringify({id:'bk_test123_abcdef123456',reviewUrl:'/api/gameplay-report?id=bk_test123_abcdef123456'}),
+              {status:201,headers:{'Content-Type':'application/json'}});
+          };
+        }""")
+        page.fill('#reportNote','Middle linebacker beat every run block.')
+        page.click('#sendReport')
+        page.wait_for_function("document.getElementById('reportStatus').classList.contains('sent')")
+        submitted=page.evaluate('window.__gameplayReportRequest');payload=submitted['body']
+        assert submitted['url']=='/api/gameplay-report'
+        assert payload['privacy']=='gameplay-state-only' and payload['graphics']=='high'
+        assert len(payload['samples'])>5 and payload['events']
+        assert 'userAgent' not in payload and 'account' not in payload and 'location' not in payload
+        assert 'bk_test123_abcdef123456' in page.locator('#reportStatus').inner_text()
+        result['checks'].append('opt-in gameplay report submits bounded state replay and note without screen, device identity, account or location data')
         shade=browser.new_page(viewport={'width':w,'height':h},device_scale_factor=1)
         load(shade,redzone=True)
         shade.evaluate("bkSetGraphicsQualityForQA('balanced')")
