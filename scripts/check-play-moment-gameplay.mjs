@@ -224,6 +224,9 @@ assert.match(source, /LEAVE THE POCKET TO THROW AWAY/, 'Throwaway control must t
 assert.match(source, /flight\.throwAway/, 'A legal throwaway must travel to the sideline before ending the down');
 assert.match(source, /beginContactSequence\(d,outcome,helpers,speed\)/, 'Successful tackles must start a timed contact sequence');
 assert.match(source, /if\(phase==='dead'\)\{simTime\+=dt;if\(activeContact\)advanceContactSequence\(dt\)/, 'Contact animation must advance after the whistle');
+assert.match(source, /if\(c\.elapsed>=c\.duration\)activeContact=null/, 'Completed contact must release its paused-loop continuation');
+assert.match(source, /\(!paused\|\|activeContact\)&&!qaStepping/, 'Drive-ending hits must finish even after the result dialog pauses gameplay');
+assert.match(source, /title==='TOUCHDOWN'&&carrier&&!activeContact/, 'A tackle at the goal line must finish before celebration can replace its contact pose');
 
 console.log(JSON.stringify({
   status: 'PASS',
