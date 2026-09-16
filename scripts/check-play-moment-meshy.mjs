@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { MESHY_CLIPS, PRE_SNAP_ROLE_POSES, ROLE_STANCE_PROFILES, meshyPlaybackSeed, preSnapPoseForRole } from '../public/play-moment-3d/meshy-athlete.js';
+import { MESHY_CLIPS, PRE_SNAP_ROLE_POSES, ROLE_STANCE_PROFILES, meshyAnimationState, meshyPlaybackSeed, preSnapPoseForRole } from '../public/play-moment-3d/meshy-athlete.js';
 
 const asset = new URL('../public/play-moment-3d/assets/meshy-gridiron-gold.glb', import.meta.url);
 const bytes = readFileSync(asset);
@@ -41,6 +41,11 @@ assert.ok(preSnap.every(({ clip, time }) => clip >= 0 && clip < gltf.animations.
 const playbackSeeds = Array.from({ length: 22 }, (_, index) => meshyPlaybackSeed(index, index >= 11));
 assert.ok(new Set(playbackSeeds.map(({ offset }) => offset.toFixed(3))).size >= 18, 'Live animation cycles need player-specific phase offsets');
 assert.ok(new Set(playbackSeeds.map(({ rate }) => rate.toFixed(3))).size >= 7, 'Live animation cycles need subtle speed variation');
+assert.equal(meshyAnimationState({ role: 'WR', catchT: .3, catchStyle: 'aggressive' }, 'flight'), 'catch-aggressive');
+assert.equal(meshyAnimationState({ role: 'RB', action: 'break-tackle' }, 'run'), 'break-tackle');
+assert.equal(meshyAnimationState({ role: 'LB', action: 'miss' }, 'run'), 'miss');
+assert.equal(meshyAnimationState({ role: 'OL', engaged: true }, 'run'), 'block');
+assert.equal(meshyAnimationState({ role: 'DB', vx: 8, vz: 0 }, 'run'), 'sprint');
 
 const rendererSource = readFileSync(new URL('../public/play-moment-3d/meshy-athlete.js', import.meta.url), 'utf8');
 const gameSource = readFileSync(new URL('../public/play-moment-3d/game.js', import.meta.url), 'utf8');
@@ -50,6 +55,8 @@ assert.match(rendererSource, /ormMap/, 'The detailed model must retain its rough
 assert.match(rendererSource, /using built-in players/, 'Asset or GPU failure must preserve the procedural fallback');
 assert.match(rendererSource, /blendLocals\(p,locals,time\)/, 'Clip changes must blend instead of snapping between poses');
 assert.match(rendererSource, /p\.reactionT>0/, 'Defenders need a visible reaction to nearby skill moves');
+assert.match(rendererSource, /catch-'\+\(p\.catchStyle/, 'Catch choice must select a contextual animation state');
+assert.match(rendererSource, /break-tackle/, 'Contact outcomes must select a contextual animation state');
 assert.match(gameSource, /if\(!meshy\.ready\)for\(const p of actors\)drawAthlete/, 'The existing players must stay visible until the detailed asset is ready');
 assert.match(gameSource, /meshy\.draw\(actors,phase,now\/1000\)/, 'The shared skinned player must be wired into the live scene with presentation time');
 
@@ -63,5 +70,5 @@ console.log(JSON.stringify({
   animations: gltf.animations.length,
   footballStates: Object.keys(MESHY_CLIPS),
   preSnapPoses: Object.keys(PRE_SNAP_ROLE_POSES).length,
-  checks: 'reviewed binary asset, shared mobile topology, 27-bone GPU skinning budget, embedded PBR maps, skeleton-level football stances, blended live motion, skill reactions, live integration and procedural fallback',
+  checks: 'reviewed binary asset, shared mobile topology, 27-bone GPU skinning budget, embedded PBR maps, role-varying cadence, contextual catch/contact states, skeleton football stances, blended live motion and procedural fallback',
 }, null, 2));

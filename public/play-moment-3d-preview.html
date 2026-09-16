@@ -38,7 +38,12 @@
   <div class="play-picker"><div class="mode"><button id="runTab" class="selected">RUN</button><button id="passTab">PASS</button></div><div id="plays"></div></div>
   <button id="snap"><small id="playName">INSIDE ZONE</small><b>SNAP BALL <span>›</span></b></button>
  </div>
- <div id="live" hidden><div id="stick" role="slider" aria-label="Move ball carrier" aria-valuemin="-1" aria-valuemax="1" aria-valuenow="0" tabindex="0"><span id="knob"></span></div><div id="moves"><button id="juke" aria-label="Skill moves"><b>SKILL</b><small id="skillHint">SWIPE</small></button><button id="sprint">SPRINT</button></div><div id="stamina"><span></span></div></div>
+ <div id="live" hidden>
+  <div id="stick" role="slider" aria-label="Move ball carrier" aria-valuemin="-1" aria-valuemax="1" aria-valuenow="0" tabindex="0"><span id="knob"></span></div>
+  <div id="moves"><button id="juke" aria-label="Skill moves"><b>SKILL</b><small id="skillHint">SWIPE</small></button><button id="sprint">SPRINT</button></div>
+  <div id="catchChoices" role="group" aria-label="Choose catch type" hidden><button data-catch="secure">SECURE<small>HANDS</small></button><button data-catch="aggressive">AGGRESSIVE<small>HIGH POINT</small></button><button data-catch="rac" class="selected">RAC<small>RUN AFTER</small></button></div>
+  <div id="stamina"><span></span></div>
+ </div>
  <div id="instruction">Choose a play. Snap the ball. Find the opening.</div>
 </div>
 <div id="paused" class="dialog" hidden><div><span class="eyebrow">BALL KNOWER · PRACTICE</span><h1 id="dialogTitle">PAUSED</h1><p id="dialogBody">This preview never changes your career saves or season record.</p><button id="resume">RESUME</button><button id="restart" class="secondary">RESTART DRIVE</button><a href="/">Return to Ball Knower</a></div></div>

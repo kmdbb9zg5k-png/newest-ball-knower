@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
+  CATCH_STYLES,
   catchBreakupChance,
   carriedBallAnchor,
+  contactOutcome,
   coverageShell,
   DEFENSIVE_CALLS,
   defensiveCallForSnap,
@@ -11,13 +13,18 @@ import {
   hasCrossedScrimmage,
   locomotionStep,
   passOutcomeChances,
+  playerRatings,
   pocketPressure,
   pursuitTarget,
   qbMovementSpeed,
+  ratingMultiplier,
   receiverSlotForKey,
   runBlockAssignments,
+  runConceptDirection,
   runReadDelay,
+  RUNS,
   sackLoss,
+  situationalDefensiveCall,
   skillMoveForGesture,
   tackleRadius,
   THROW_PROFILES,
@@ -29,8 +36,9 @@ for (const [key, slot] of [
   ['x', 0], ['X', 0], ['1', 0],
   ['y', 1], ['Y', 1], ['2', 1],
   ['z', 2], ['Z', 2], ['3', 2],
+  ['4', 3], ['5', 4],
 ]) assert.equal(receiverSlotForKey(key), slot, `${key} should select receiver ${slot}`);
-for (const key of ['0', '4', 'q', 'Shift', 'ArrowUp', '', null]) {
+for (const key of ['0', '6', 'q', 'Shift', 'ArrowUp', '', null]) {
   assert.equal(receiverSlotForKey(key), -1, `${key} should not select a receiver`);
 }
 
@@ -80,6 +88,7 @@ assert.equal(hasCrossedScrimmage(100.15, 100), true);
 assert.equal(qbMovementSpeed(0), 4.4);
 assert.equal(qbMovementSpeed(6), 4.4);
 assert.equal(qbMovementSpeed(6.01), 5.8, 'A quarterback outside the tackle box should accelerate into a rollout');
+assert.ok(qbMovementSpeed(0, 1) > 5.09, 'Climbing the pocket should be fast enough to create a fair scramble window');
 
 const qbBall=carriedBallAnchor({role:'QB',x:2,z:20,heading:0},'pass');
 assert.deepEqual(qbBall,[2.13,1.4,20.28,0],'The quarterback should hold the ball at chest height before release');
@@ -115,7 +124,11 @@ assert.equal(skillMoveForGesture(2, 42, 100, true), 'slide');
 assert.deepEqual([0, 1, 2, 3].map(coverageShell), ['man', 'quarters', 'zone', 'robber']);
 assert.deepEqual([0, 1, 2, 3, 4].map(i => defensiveCallForSnap(i).id), ['over-three', 'under-man', 'nickel-quarters', 'double-a-robber', 'over-three']);
 assert.deepEqual(DEFENSIVE_CALLS.map(call => call.coverage), ['zone', 'man', 'quarters', 'robber']);
+assert.deepEqual(DEFENSIVE_CALLS.map(call => call.blitzers.length), [0, 1, 0, 2], 'Pressure calls need real second-level rushers');
 assert.equal(new Set(DEFENSIVE_CALLS.map(call => JSON.stringify(call.alignments))).size, 4, 'Every defensive call needs a visibly different alignment');
+assert.equal(situationalDefensiveCall({ down: 3, toGo: 9, ball: 42, clock: 55, plays: 0 }).id, 'nickel-quarters');
+assert.equal(situationalDefensiveCall({ down: 4, toGo: 2, ball: 42, clock: 55, plays: 0 }).id, 'under-man');
+assert.equal(situationalDefensiveCall({ down: 1, toGo: 10, ball: 88, clock: 55, plays: 0 }).id, 'double-a-robber');
 for (let runIndex = 0; runIndex < 4; runIndex++) {
   const assignments = runBlockAssignments(runIndex);
   assert.equal(assignments.length, 6, 'Every run concept needs six blocking assignments');
@@ -128,11 +141,27 @@ for (let callIndex = 0; callIndex < DEFENSIVE_CALLS.length; callIndex++) {
   for (const linebacker of [15, 16, 17]) assert.ok(runReadDelay(callIndex, linebacker, 0) >= .34, 'Linebackers cannot diagnose a run instantly');
 }
 assert.ok(runReadDelay(0, 16, 2) > runReadDelay(0, 16, 0), 'Counter action must hold the Mike longer than inside zone');
+assert.equal(RUNS.length, 4);
+assert.equal(new Set(RUNS.map(run => `${run.handoff}:${run.speed}:${run.acceleration}:${run.blockLeverage}`)).size, 4, 'Run concepts need different timing and physical profiles');
+const conceptDirections = RUNS.map((run, index) => runConceptDirection(index, .45, run.mesh[0], 92 + run.mesh[1], 92));
+assert.ok(conceptDirections[0].x < 0, 'Inside zone should initially press the backside A gap');
+assert.ok(conceptDirections[1].x > .6 && conceptDirections[3].x > .6, 'Stretch and toss must attack width');
+assert.ok(conceptDirections[2].targetX < -4, 'Counter must sell the false step before redirecting');
+const rbRatings = playerRatings('RB', 6, 0), mikeRatings = playerRatings('LB', 16, 1), qbRatings = playerRatings('QB', 5, 0);
+assert.ok(rbRatings.speed > qbRatings.speed && mikeRatings.tackle > qbRatings.tackle, 'Position ratings must affect football strengths');
+assert.ok(ratingMultiplier(95) > ratingMultiplier(65));
+assert.equal(contactOutcome(rbRatings, mikeRatings, { momentum: .9, angle: .2, skill: 'truck', roll: .05 }).type, 'miss');
+assert.equal(contactOutcome(rbRatings, mikeRatings, { momentum: .9, angle: .2, skill: 'truck', roll: .25 }).type, 'broken');
+assert.ok(['wrap', 'gang', 'big-hit'].includes(contactOutcome(rbRatings, mikeRatings, { momentum: .2, angle: 1, gang: 1, roll: .8 }).type));
 const cleanWindow = passOutcomeChances(2.5, .1, 'touch', .25, 0);
 const dangerWindow = passOutcomeChances(.4, .9, 'lob', 1.4, 1);
 assert.ok(dangerWindow.interception > cleanWindow.interception, 'Tight pressured throws need more interception risk');
 assert.ok(dangerWindow.inaccurate > cleanWindow.inaccurate, 'Pressure and target error must affect accuracy');
 assert.ok(dangerWindow.breakup > cleanWindow.breakup, 'Tight coverage must increase breakup risk');
+const secureWindow = passOutcomeChances(.9, .3, 'touch', .3, .2, { catchStyle: 'secure', catchRating: 90, coverageRating: 82, throwRating: 90 });
+const racWindow = passOutcomeChances(.9, .3, 'touch', .3, .2, { catchStyle: 'rac', catchRating: 90, coverageRating: 82, throwRating: 90 });
+assert.ok(secureWindow.breakup < racWindow.breakup, 'Secure catches must trade YAC for stronger possession odds');
+assert.ok(CATCH_STYLES.rac.yac > CATCH_STYLES.secure.yac && CATCH_STYLES.aggressive.yac < CATCH_STYLES.rac.yac);
 
 const source = readFileSync(new URL('../public/play-moment-3d/game.js', import.meta.url), 'utf8');
 assert.match(source, /receiverSlot=receiverSlotForKey\(key\)/, 'Keyboard receiver mapping is not wired to throws');
@@ -152,25 +181,26 @@ assert.match(source, /p\.team===1&&!p\.engaged/, 'An engaged defender should not
 assert.match(source, /assignments=runBlockAssignments\(selected\)/, 'Run blocking must use the concept-specific assignment plan');
 assert.match(source, /defensiveCall\.alignments\.forEach/, 'The defense must display its selected front before the snap');
 assert.match(source, /const shell=defensiveCall\.coverage/, 'Pass coverage cannot be selected by the offense\'s route concept');
+assert.match(source, /if\(elapsed<\.9\).*d\.startX/, 'An unblocked sixth rusher must disguise pressure long enough to preserve a scramble read');
 assert.match(source, /runFit\(p,dt\)/, 'Free defenders must honor their read step before pursuit');
 assert.match(source, /engagedWith/, 'Block engagements must preserve an explicit blocker-defender pairing');
 assert.match(source, /pursuitTarget\(p,target/, 'Open-field pursuit must use predictive leverage instead of direct homing');
 assert.match(source, /p\.role!=='DL'&&!p\.engaged/, 'A blocked linebacker must not pursue through his lineman');
 assert.match(source, /\['pre','pass','run'\]\.includes\(phase\)/, 'The movement stick must accept a held direction before the snap');
-assert.match(source, /CONTESTED CATCH · TAKE CONTROL/, 'Contested catches need player feedback');
+assert.match(source, /CONTESTED /, 'Contested catches need player feedback');
 assert.match(source, /TIGHT WINDOW · PASS BROKEN UP/, 'Tight-window incompletions need player feedback');
 assert.match(source, /DROPPED PASS/, 'Open-target drops must not be mislabeled as breakups');
 assert.match(source, /if\(nearest<\.92\)/, 'Sacks must require actual rusher contact');
 assert.doesNotMatch(source, /pressure>=\.995/, 'Pressure alone must not create an invisible sack');
 assert.doesNotMatch(source, /elapsed>4\.6/, 'The old fixed sack timer must stay removed');
-assert.match(source, /MOVE QB · TAP\/HOLD TARGET · CROSS BLUE LINE TO RUN/, 'Passing controls need to teach trajectories and the scramble boundary');
+assert.match(source, /MOVE QB · 5 TARGETS · CROSS BLUE LINE TO RUN/, 'Passing controls need to teach five targets and the scramble boundary');
 assert.match(source, /endDrive\('INTERCEPTED'/, 'Interceptions must create a real turnover result');
 assert.match(source, /QB SCRAMBLE · TAKE CONTROL/, 'Crossing the line of scrimmage must transition the quarterback to a runner');
 assert.match(source, /phase='run';assist=false;elapsed=0/, 'A scramble must always hand manual control back to the player');
 
 console.log(JSON.stringify({
   status: 'PASS',
-  receiverKeys: 9,
+  receiverKeys: 11,
   invalidReceiverKeys: 7,
   coverageWindows: separations.length,
   contactWindows: 4,
@@ -178,5 +208,5 @@ console.log(JSON.stringify({
   throwTypes: Object.keys(THROW_PROFILES),
   coverageShells: [0, 1, 2, 3].map(coverageShell),
   defensiveCalls: DEFENSIVE_CALLS.map(call => call.id),
-  checks: 'X/Y/Z and 1/2/3 throws, tap/hold and modifier trajectories, four rotating defensive fronts/coverages independent of offensive play selection, linebacker read steps, concept-specific run fits with Mike accounting, momentum-based locomotion, predictive pursuit leverage, sustained run-block pairings, forward progress, movable QB pocket, rollout acceleration, line-of-scrimmage scramble transition and slide, contextual touch skills, contact-only sacks, interceptions, coverage-scaled outcomes, contact windows and pursuit balance',
+  checks: 'five eligible targets, catch choices, tap/hold trajectories, ratings-driven throws, blocks and contact, four situational defensive fronts with real blitzers, distinct run timing/landmarks/acceleration, linebacker read steps, momentum locomotion, predictive pursuit, forward progress, movable QB pocket, scramble/slide, contextual skills, contact-only sacks and coverage-scaled outcomes',
 }, null, 2));

@@ -60,11 +60,11 @@ def inspect_markers(page, height):
       const r=e.getBoundingClientRect(),b=e.querySelector('.target-label').getBoundingClientRect();
       return{id:e.id,x:r.x,y:r.y,w:r.width,h:r.height,badgeW:b.width,badgeH:b.height,badgeBottom:b.bottom,
       label:e.textContent,name:e.getAttribute('aria-label'),tether:e.firstElementChild.style.height};})""")
-    assert len(markers) == 3
+    assert len(markers) == 5
     for i, m in enumerate(markers):
         assert m['w'] >= 44 and m['h'] >= 44 and m['badgeW'] == 28 and m['badgeH'] == 28, m
         assert m['y'] >= 54 and m['y'] + m['h'] < height, m
-        assert m['label'] in ['X', 'Y', 'Z'] and m['label'] in m['name'], m
+        assert m['label'] in ['X', 'Y', 'Z', 'A', 'B'] and m['label'] in m['name'], m
         for n in markers[:i]:
             assert m['x'] + m['w'] <= n['x'] or n['x'] + n['w'] <= m['x'] or m['y'] + m['h'] <= n['y'] or n['y'] + n['h'] <= m['y'], markers
     d = state(page)
