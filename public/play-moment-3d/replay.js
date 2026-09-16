@@ -1,7 +1,7 @@
 const MAX_SAMPLES=720,MAX_EVENTS=400,SAMPLE_SECONDS=.25;
 const round=(value,scale=100)=>Math.round((Number(value)||0)*scale);
 const safeText=(value,limit=120)=>String(value??'').replace(/[\u0000-\u001f\u007f]/g,' ').trim().slice(0,limit);
-const reportId=()=>`bk_${Date.now().toString(36)}_${crypto.randomUUID().replace(/-/g,'').slice(0,12)}`;
+const reportId=()=>{const bytes=crypto.getRandomValues(new Uint8Array(6));return`bk_${Date.now().toString(36)}_${[...bytes].map(value=>value.toString(16).padStart(2,'0')).join('')}`};
 
 /** Records bounded gameplay state. It never reads screen, camera, microphone, account, clipboard, location, or user agent. */
 export function createGameplayReplayRecorder(getState,options={}){
