@@ -37,7 +37,7 @@ function fixture(phase,actors,width,height,carrier=actors[5]){
   return{x:(dot(x,v)*f/(width/height)/depth*.5+.5)*width,y:(.5-dot(y,v)*f/depth*.5)*height,visible:depth>0};
  }};
  const before=JSON.stringify(actors);
- Function('r','phase','actors','carrier','clamp',`let camEye=[0,0,0],camTarget=[0,0,0];const snapZ=95,receiverIndices=[7,8,9],flight=null;${cameraSource};camera(1);`)(r,phase,actors,carrier,clamp);
+ Function('r','phase','actors','carrier','clamp',`let camEye=[0,0,0],camTarget=[0,0,0],impactShake=0,simTime=0;const snapZ=95,receiverIndices=[7,8,9],flight=null;${cameraSource};camera(1);`)(r,phase,actors,carrier,clamp);
  assert.equal(JSON.stringify(actors),before,'Camera changed player state');return r;
 }
 let samples=0;

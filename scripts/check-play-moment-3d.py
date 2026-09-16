@@ -6,7 +6,7 @@ ROOT=Path(__file__).resolve().parents[1]/'public';OUT=Path(os.environ.get('BK_3D
 def load(page):
  html=(ROOT/'play-moment-3d-preview.html').read_text();html=re.sub(r'<script type="module">[\s\S]*?</script>','',html);html=html.replace('<link rel="stylesheet" href="/play-moment-3d/hud.css">','<style>'+(ROOT/'play-moment-3d/hud.css').read_text()+'</style>');page.set_content(html)
  urls={}
- for name in ['renderer','motion','geometry','athlete','night-stadium','stadium','game']:
+ for name in ['renderer','motion','geometry','athlete','meshy-athlete','night-stadium','stadium','game']:
   text=(ROOT/f'play-moment-3d/{name}.js').read_text()
   for dep,url in urls.items():text=text.replace("'./"+dep+".js'",repr(url))
   if name=='game':text=text.replace("new URLSearchParams(location.search).has('qa')",'true')

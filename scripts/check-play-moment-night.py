@@ -19,7 +19,7 @@ def load(page,redzone=False,fbo_failure=False):
           HTMLCanvasElement.prototype.getContext=function(type,...args){const gl=original.call(this,type,...args);
           if(type==='webgl2'&&gl)gl.checkFramebufferStatus=()=>gl.FRAMEBUFFER_UNSUPPORTED;return gl;};}''')
     urls={}
-    for name in ['renderer','motion','geometry','athlete','night-stadium','stadium','game']:
+    for name in ['renderer','motion','geometry','athlete','meshy-athlete','night-stadium','stadium','game']:
         text=(ROOT/f'public/play-moment-3d/{name}.js').read_text()
         for dep,url in urls.items(): text=text.replace("'./"+dep+".js'",repr(url))
         text=text.replace("new URLSearchParams(location.search).has('qa')",'true')

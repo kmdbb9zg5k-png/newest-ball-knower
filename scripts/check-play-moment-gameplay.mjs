@@ -4,9 +4,12 @@ import {
   catchBreakupChance,
   coverageShell,
   defenderPursuitSpeed,
+  forwardProgressSpot,
   hasCrossedScrimmage,
+  locomotionStep,
   passOutcomeChances,
   pocketPressure,
+  pursuitTarget,
   qbMovementSpeed,
   receiverSlotForKey,
   sackLoss,
@@ -73,6 +76,22 @@ assert.equal(qbMovementSpeed(0), 4.4);
 assert.equal(qbMovementSpeed(6), 4.4);
 assert.equal(qbMovementSpeed(6.01), 5.8, 'A quarterback outside the tackle box should accelerate into a rollout');
 
+let locomotion = { vx: 0, vz: 0 };
+locomotion = locomotionStep(locomotion.vx, locomotion.vz, 0, 1, 9.2, 1 / 60);
+assert.ok(locomotion.vz > 0 && locomotion.vz < 9.2, 'A runner should accelerate instead of teleporting to top speed');
+for (let i = 0; i < 60; i++) locomotion = locomotionStep(locomotion.vx, locomotion.vz, 0, 1, 9.2, 1 / 60);
+assert.ok(locomotion.vz > 9.1, 'Sustained input should still reach sprint speed');
+const cut = locomotionStep(locomotion.vx, locomotion.vz, 1, 0, 9.2, 1 / 60);
+assert.ok(cut.vz > 8.5 && cut.vx > 0, 'A hard cut should preserve momentum for at least one frame');
+const coast = locomotionStep(cut.vx, cut.vz, 0, 0, 9.2, 1 / 60);
+assert.ok(Math.hypot(coast.vx, coast.vz) < Math.hypot(cut.vx, cut.vz), 'Released input should decelerate predictably');
+
+const pursuit = pursuitTarget({ x: 0, z: 0 }, { x: 12, z: 20, vx: 4, vz: 7 }, true);
+assert.ok(pursuit.z > 20, 'A defender should aim ahead of a moving runner');
+assert.ok(pursuit.x < 12 + 4 * .38, 'Sideline pursuit should retain inside leverage');
+assert.equal(forwardProgressSpot(40, 0), 30);
+assert.equal(forwardProgressSpot(40, 20), 30.72, 'Contact momentum should be useful but capped');
+
 assert.equal(skillMoveForGesture(2, 3, 120, false), 'juke');
 assert.equal(skillMoveForGesture(2, 3, 700, false), null, 'A long hold must not accidentally fire a juke');
 assert.equal(skillMoveForGesture(-42, 4, 100, false), 'spin-left');
@@ -94,14 +113,17 @@ assert.match(source, /simTime<jukeReady/, 'Juke cooldown must use paused simulat
 assert.match(source, /simTime>jukeUntil/, 'Juke contact immunity must use paused simulation time');
 assert.match(source, /skillButton\.onpointermove/, 'Skill gestures must resolve while the thumb is moving');
 assert.match(source, /finishSkillGesture/, 'A short skill-button tap must resolve to a juke');
-assert.match(source, /carrier\.x\+dx\*2\.05/, 'Juke must create a visible lateral cut');
+assert.match(source, /carrier\.vx=dx\*6\.8/, 'Juke must create a visible lateral acceleration');
 assert.match(source, /endPlay\('QB SLIDE'/, 'A quarterback slide must safely end the play at the current spot');
 assert.match(source, /beginSkillAction\('spin'/, 'Spin must drive its own presentation state');
 assert.match(source, /beginSkillAction\('truck'/, 'Truck/stiff-arm must drive its own presentation state');
 assert.match(source, /beginSkillAction\('hurdle'/, 'Hurdle must drive its own presentation state');
 assert.match(source, /!p\.fallen/, 'Fallen defenders must not immediately resume pursuit or tackling');
 assert.match(source, /p\.team===1&&!p\.engaged/, 'An engaged defender should not make a tackle through a blocker');
-assert.match(source, /assignments=\[11,12,13,14,side<0\?15:17\]/, 'Run blockers must account for the defensive front and a play-side linebacker');
+assert.match(source, /blockers=\[0,1,2,3,4,10\]/, 'Run blocking must include the offensive line and tight end');
+assert.match(source, /assignments=\[11,12,13,14,16,side<0\?15:17\]/, 'Run blockers must account for the defensive front and two linebackers');
+assert.match(source, /engagedWith/, 'Block engagements must preserve an explicit blocker-defender pairing');
+assert.match(source, /pursuitTarget\(p,target/, 'Open-field pursuit must use predictive leverage instead of direct homing');
 assert.match(source, /p\.role!=='DL'&&!p\.engaged/, 'A blocked linebacker must not pursue through his lineman');
 assert.match(source, /\['pre','pass','run'\]\.includes\(phase\)/, 'The movement stick must accept a held direction before the snap');
 assert.match(source, /CONTESTED CATCH · TAKE CONTROL/, 'Contested catches need player feedback');
@@ -124,5 +146,5 @@ console.log(JSON.stringify({
   pursuitSamples: 4,
   throwTypes: Object.keys(THROW_PROFILES),
   coverageShells: [0, 1, 2, 3].map(coverageShell),
-  checks: 'X/Y/Z and 1/2/3 throws, tap/hold and modifier trajectories, movable QB pocket, rollout acceleration, line-of-scrimmage scramble transition and slide, contextual touch skills, contact-only sacks, four coverage shells, interceptions, coverage-scaled outcomes, contact windows and pursuit balance',
+  checks: 'X/Y/Z and 1/2/3 throws, tap/hold and modifier trajectories, momentum-based locomotion, predictive pursuit leverage, sustained run-block pairings, forward progress, movable QB pocket, rollout acceleration, line-of-scrimmage scramble transition and slide, contextual touch skills, contact-only sacks, four coverage shells, interceptions, coverage-scaled outcomes, contact windows and pursuit balance',
 }, null, 2));

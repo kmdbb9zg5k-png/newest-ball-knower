@@ -25,7 +25,7 @@ def load(page, baseline=None):
     html = html.replace('<link rel="stylesheet" href="/play-moment-3d/hud.css">', '<style>' + read_source('public/play-moment-3d/hud.css') + '</style>')
     page.set_content(html)
     urls = {}
-    for name in ['renderer', 'motion', 'geometry', 'athlete', 'night-stadium', 'stadium', 'game']:
+    for name in ['renderer', 'motion', 'geometry', 'athlete', 'meshy-athlete', 'night-stadium', 'stadium', 'game']:
         text = read_source(f'public/play-moment-3d/{name}.js', baseline)
         for dep, url in urls.items():
             text = text.replace("'./" + dep + ".js'", repr(url))
