@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   CATCH_STYLES,
+  canThrowAway,
   catchBreakupChance,
   carriedBallAnchor,
   contactOutcome,
@@ -14,6 +15,7 @@ import {
   locomotionStep,
   passOutcomeChances,
   playerRatings,
+  perimeterBlockAssignments,
   pocketPressure,
   pursuitTarget,
   qbMovementSpeed,
@@ -85,6 +87,9 @@ assert.equal(sackLoss(108, 99), 10, 'Dropping deeper should cost more yardage');
 assert.equal(sackLoss(108, 80), 12, 'Sack loss must stay bounded');
 assert.equal(hasCrossedScrimmage(100.14, 100), false);
 assert.equal(hasCrossedScrimmage(100.15, 100), true);
+assert.equal(canThrowAway(6), false, 'The quarterback is still inside the tackle box');
+assert.equal(canThrowAway(6.01), true, 'The quarterback may throw away after escaping the tackle box');
+assert.equal(canThrowAway(-8), true, 'Throwaways must work from either edge');
 assert.equal(qbMovementSpeed(0), 4.4);
 assert.equal(qbMovementSpeed(6), 4.4);
 assert.equal(qbMovementSpeed(6.01), 5.8, 'A quarterback outside the tackle box should accelerate into a rollout');
@@ -122,10 +127,10 @@ assert.equal(skillMoveForGesture(2, 42, 100, false), 'hurdle');
 assert.equal(skillMoveForGesture(2, 42, 100, true), 'slide');
 
 assert.deepEqual([0, 1, 2, 3].map(coverageShell), ['man', 'quarters', 'zone', 'robber']);
-assert.deepEqual([0, 1, 2, 3, 4].map(i => defensiveCallForSnap(i).id), ['over-three', 'under-man', 'nickel-quarters', 'double-a-robber', 'over-three']);
-assert.deepEqual(DEFENSIVE_CALLS.map(call => call.coverage), ['zone', 'man', 'quarters', 'robber']);
-assert.deepEqual(DEFENSIVE_CALLS.map(call => call.blitzers.length), [0, 1, 0, 2], 'Pressure calls need real second-level rushers');
-assert.equal(new Set(DEFENSIVE_CALLS.map(call => JSON.stringify(call.alignments))).size, 4, 'Every defensive call needs a visibly different alignment');
+assert.deepEqual([0, 1, 2, 3, 4, 5, 6].map(i => defensiveCallForSnap(i).id), ['over-three', 'under-man', 'nickel-quarters', 'double-a-robber', 'edge-fire-three', 'press-trap', 'over-three']);
+assert.deepEqual(DEFENSIVE_CALLS.map(call => call.coverage), ['zone', 'man', 'quarters', 'robber', 'zone', 'man']);
+assert.deepEqual(DEFENSIVE_CALLS.map(call => call.blitzers.length), [0, 1, 0, 2, 1, 1], 'Pressure calls need real second-level rushers');
+assert.equal(new Set(DEFENSIVE_CALLS.map(call => JSON.stringify(call.alignments))).size, 6, 'Every defensive call needs a visibly different alignment');
 assert.equal(situationalDefensiveCall({ down: 3, toGo: 9, ball: 42, clock: 55, plays: 0 }).id, 'nickel-quarters');
 assert.equal(situationalDefensiveCall({ down: 4, toGo: 2, ball: 42, clock: 55, plays: 0 }).id, 'under-man');
 assert.equal(situationalDefensiveCall({ down: 1, toGo: 10, ball: 88, clock: 55, plays: 0 }).id, 'double-a-robber');
@@ -136,6 +141,11 @@ for (let runIndex = 0; runIndex < 4; runIndex++) {
   assert.equal(new Set(assignments.map(([, defender]) => defender)).size, 6, 'Two blockers cannot target the same defender');
   assert.ok(assignments.some(([, defender]) => defender === 16), 'Every run concept must account for the Mike linebacker');
   assert.ok([11, 12, 13, 14].every(defender => assignments.some(([, target]) => target === defender)), 'Every run concept must account for the defensive front');
+  const perimeter = perimeterBlockAssignments(runIndex);
+  assert.equal(perimeter.length, 2, 'Every run needs two receiver stalk-block assignments');
+  assert.equal(new Set(perimeter.map(([blocker]) => blocker)).size, 2, 'A perimeter blocker cannot receive two assignments');
+  assert.equal(new Set(perimeter.map(([, defender]) => defender)).size, 2, 'Perimeter blocks must target separate force defenders');
+  assert.ok(perimeter.every(([blocker, defender]) => [7, 8, 9].includes(blocker) && [18, 19, 20].includes(defender)));
 }
 for (let callIndex = 0; callIndex < DEFENSIVE_CALLS.length; callIndex++) {
   for (const linebacker of [15, 16, 17]) assert.ok(runReadDelay(callIndex, linebacker, 0) >= .34, 'Linebackers cannot diagnose a run instantly');
@@ -178,7 +188,10 @@ assert.match(source, /beginSkillAction\('truck'/, 'Truck/stiff-arm must drive it
 assert.match(source, /beginSkillAction\('hurdle'/, 'Hurdle must drive its own presentation state');
 assert.match(source, /!p\.fallen/, 'Fallen defenders must not immediately resume pursuit or tackling');
 assert.match(source, /p\.team===1&&!p\.engaged/, 'An engaged defender should not make a tackle through a blocker');
-assert.match(source, /assignments=runBlockAssignments\(selected\)/, 'Run blocking must use the concept-specific assignment plan');
+assert.match(source, /runBlockAssignments\(selected\)/, 'Run blocking must use the concept-specific assignment plan');
+assert.match(source, /perimeterBlockAssignments\(selected\)/, 'Run blocking must include receiver stalk blocks');
+assert.match(source, /supportBlockers\(dt\)/, 'Receivers must find support blocks after catches and scrambles');
+assert.match(source, /Math\.max\(blocker\.z,carrier\.z\+4\)/, 'Scramble support cannot make receivers turn backward');
 assert.match(source, /defensiveCall\.alignments\.forEach/, 'The defense must display its selected front before the snap');
 assert.match(source, /const shell=defensiveCall\.coverage/, 'Pass coverage cannot be selected by the offense\'s route concept');
 assert.match(source, /if\(elapsed<\.9\).*d\.startX/, 'An unblocked sixth rusher must disguise pressure long enough to preserve a scramble read');
@@ -197,6 +210,8 @@ assert.match(source, /MOVE QB · 5 TARGETS · CROSS BLUE LINE TO RUN/, 'Passing 
 assert.match(source, /endDrive\('INTERCEPTED'/, 'Interceptions must create a real turnover result');
 assert.match(source, /QB SCRAMBLE · TAKE CONTROL/, 'Crossing the line of scrimmage must transition the quarterback to a runner');
 assert.match(source, /phase='run';assist=false;elapsed=0/, 'A scramble must always hand manual control back to the player');
+assert.match(source, /LEAVE THE POCKET TO THROW AWAY/, 'Throwaway control must teach the tackle-box rule');
+assert.match(source, /flight\.throwAway/, 'A legal throwaway must travel to the sideline before ending the down');
 
 console.log(JSON.stringify({
   status: 'PASS',
@@ -208,5 +223,5 @@ console.log(JSON.stringify({
   throwTypes: Object.keys(THROW_PROFILES),
   coverageShells: [0, 1, 2, 3].map(coverageShell),
   defensiveCalls: DEFENSIVE_CALLS.map(call => call.id),
-  checks: 'five eligible targets, catch choices, tap/hold trajectories, ratings-driven throws, blocks and contact, four situational defensive fronts with real blitzers, distinct run timing/landmarks/acceleration, linebacker read steps, momentum locomotion, predictive pursuit, forward progress, movable QB pocket, scramble/slide, contextual skills, contact-only sacks and coverage-scaled outcomes',
+  checks: 'five eligible targets, catch choices, tap/hold trajectories and legal throwaways, ratings-driven throws, line/perimeter/support blocks and contact, six situational defensive fronts with real blitzers, distinct run timing/landmarks/acceleration, linebacker read steps, momentum locomotion, predictive pursuit, forward progress, movable QB pocket, scramble/slide, contextual skills, contact-only sacks and coverage-scaled outcomes',
 }, null, 2));
