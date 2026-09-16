@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   catchBreakupChance,
+  carriedBallAnchor,
   coverageShell,
   defenderPursuitSpeed,
   forwardProgressSpot,
@@ -76,6 +77,13 @@ assert.equal(qbMovementSpeed(0), 4.4);
 assert.equal(qbMovementSpeed(6), 4.4);
 assert.equal(qbMovementSpeed(6.01), 5.8, 'A quarterback outside the tackle box should accelerate into a rollout');
 
+const qbBall=carriedBallAnchor({role:'QB',x:2,z:20,heading:0},'pass');
+assert.deepEqual(qbBall,[2.13,1.4,20.28,0],'The quarterback should hold the ball at chest height before release');
+const runnerBall=carriedBallAnchor({role:'RB',x:0,z:30,heading:Math.PI/2},'run');
+assert.ok(Math.abs(runnerBall[0]-.09)<1e-9&&Math.abs(runnerBall[2]-29.66)<1e-9,'A runner should tuck the ball relative to body heading');
+const hurdleBall=carriedBallAnchor({role:'RB',x:0,z:30,heading:0,action:'hurdle',actionT:.5},'run');
+assert.ok(hurdleBall[1]>1.6,'The football must remain attached to the runner during a hurdle');
+
 let locomotion = { vx: 0, vz: 0 };
 locomotion = locomotionStep(locomotion.vx, locomotion.vz, 0, 1, 9.2, 1 / 60);
 assert.ok(locomotion.vz > 0 && locomotion.vz < 9.2, 'A runner should accelerate instead of teleporting to top speed');
@@ -113,7 +121,9 @@ assert.match(source, /simTime<jukeReady/, 'Juke cooldown must use paused simulat
 assert.match(source, /simTime>jukeUntil/, 'Juke contact immunity must use paused simulation time');
 assert.match(source, /skillButton\.onpointermove/, 'Skill gestures must resolve while the thumb is moving');
 assert.match(source, /finishSkillGesture/, 'A short skill-button tap must resolve to a juke');
-assert.match(source, /carrier\.vx=dx\*6\.8/, 'Juke must create a visible lateral acceleration');
+assert.match(source, /carrier\.vx=dx\*7\.4/, 'Juke must create a visible lateral acceleration');
+assert.match(source, /nearest\.reactionT=\.001/, 'Nearby defenders must react visibly to skill moves');
+assert.match(source, /carriedBallAnchor\(carrier,phase\)/, 'Possessed footballs must use the hand-relative anchor');
 assert.match(source, /endPlay\('QB SLIDE'/, 'A quarterback slide must safely end the play at the current spot');
 assert.match(source, /beginSkillAction\('spin'/, 'Spin must drive its own presentation state');
 assert.match(source, /beginSkillAction\('truck'/, 'Truck/stiff-arm must drive its own presentation state');
