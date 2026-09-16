@@ -220,6 +220,13 @@ if __name__=='__main__':
             contact_samples.append({'type':contact_type,'duration':middle['contact']['duration'],'carrierDrive':middle['players'][carrier_index]['z']-start_z})
         result['contactSamples']=contact_samples
         result['checks'].append('wrap, gang and big-hit sequences continue after the whistle; carrier, tackler and gang helper finish contact instead of freezing on impact')
+        restart(page);page.click('#runTab');page.click('#snap');step(page,.7)
+        assert page.evaluate("bk3dTest.forceContact('wrap',true)")
+        drive_end=diag(page);assert drive_end['paused'] and drive_end['ended'] and drive_end['contact']['type']=='wrap',drive_end
+        step(page,1);drive_end_finished=diag(page)
+        assert drive_end_finished['paused'] and drive_end_finished['ended'] and drive_end_finished['contact'] is None,drive_end_finished
+        assert drive_end_finished['players'][6]['action']=='wrap' and drive_end_finished['players'][6]['actionT']>=.99,drive_end_finished['players'][6]
+        result['checks'].append('fourth-down contact completes behind the drive-end result instead of freezing when gameplay pauses')
         restart(page);page.click('#runTab');page.click('#control');page.click('#snap');step(page,1.0)
         assert diag(page)['players'][6]['distance']>1 and page.locator('#control').inner_text().startswith('ASSIST')
         result['checks'].append('assisted run movement')
