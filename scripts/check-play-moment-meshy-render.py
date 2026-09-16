@@ -66,6 +66,17 @@ def main():
             page.screenshot(path=str(args.output / 'detailed-run-932x430.png'))
             report['views'].append({'name': 'run', 'phase': run['phase'], 'drawCalls': run['drawCalls']})
 
+            page.click('#juke')
+            page.evaluate('bk3dTest.step(.04)')
+            skill = page.evaluate('bk3dDiagnostics()')
+            assert skill['lastSkill'] == 'juke' and 'carry-juke' in skill['athletes']['states'], skill
+            assert page.evaluate("bk3dTest.forceContact('dive')")
+            page.evaluate('bk3dTest.step(.12)')
+            contact = page.evaluate('bk3dDiagnostics()')
+            assert contact['contact']['type'] == 'dive' and 'dive-tackle' in contact['athletes']['states'], contact
+            page.screenshot(path=str(args.output / 'detailed-skill-contact-932x430.png'))
+            report['views'].append({'name': 'skill-contact', 'phase': contact['phase'], 'drawCalls': contact['drawCalls']})
+
             page.click('#pause')
             page.click('#restart')
             page.evaluate('bk3dTest.step(.2)')
