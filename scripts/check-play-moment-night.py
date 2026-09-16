@@ -89,7 +89,7 @@ if __name__=='__main__':
         assert page.locator('#stick').is_visible() and not page.locator('#moves').is_visible()
         presnap_stick=page.locator('#stick').bounding_box()
         cdp=page.context.new_cdp_session(page)
-        cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':presnap_stick['x']+presnap_stick['width']/2,'y':presnap_stick['y']+presnap_stick['height']*.2,'id':1}]})
+        cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':presnap_stick['x']+presnap_stick['width']/2,'y':presnap_stick['y']+presnap_stick['height']*.2,'id':11}]})
         page.click('#snap');step(page,.6)
         assert diag(page)['phase']=='run'
         assert sum(p['team']==1 and p['engaged'] for p in diag(page)['players'])>=4,diag(page)['players']
@@ -98,15 +98,15 @@ if __name__=='__main__':
         stick=page.locator('#stick').bounding_box();sprint=page.locator('#sprint').bounding_box();juke=page.locator('#juke').bounding_box()
         assert abs(stick['x']-presnap_stick['x'])<1 and abs(stick['y']-presnap_stick['y'])<1,(presnap_stick,stick)
         cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]})
-        touches=[{'x':stick['x']+stick['width']/2,'y':stick['y']+stick['height']*.2,'id':1},
-                 {'x':sprint['x']+sprint['width']/2,'y':sprint['y']+sprint['height']/2,'id':2}]
+        touches=[{'x':stick['x']+stick['width']/2,'y':stick['y']+stick['height']*.2,'id':21},
+                 {'x':sprint['x']+sprint['width']/2,'y':sprint['y']+sprint['height']/2,'id':22}]
         cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':touches})
         step(page,.25);running=diag(page);assert running['stamina']<.99,running['stamina']
         cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]})
         step(page,.2);released=diag(page);assert released['stamina']>running['stamina']
         assert released['players'][6]['distance']>1
         before_juke=released['players'][6]
-        cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':juke['x']+juke['width']/2,'y':juke['y']+juke['height']/2,'id':3}]})
+        cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':juke['x']+juke['width']/2,'y':juke['y']+juke['height']/2,'id':31}]})
         cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]})
         after_juke=diag(page)['players'][6]
         assert ((after_juke['x']-before_juke['x'])**2+(after_juke['z']-before_juke['z'])**2)**.5>1.7,(before_juke,after_juke)
