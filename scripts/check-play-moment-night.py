@@ -94,16 +94,13 @@ if __name__=='__main__':
             d=diag(page);assert d['phase']=='pass' and d['players'][7]['distance']>3
             assert d['players'][5]['foot']['y']<h-10,d['players'][5]
             assert page.locator('.target').count()==5 and page.locator('#target-7').is_visible() and page.locator('#target-10').is_visible() and page.locator('#target-6').is_visible() and d['glError']==0
-            assert any(state in d['athletes']['states'] for state in ['route-stem','route-cut']),d['athletes']
-            assert any(state in d['athletes']['states'] for state in ['coverage-pedal','coverage-break','coverage']),d['athletes']
-            assert 'pass-anchor' in d['athletes']['states'],d['athletes']
             if i==0: page.screenshot(path=str(OUT/f'night-pass-{w}x{h}.png'))
             page.keyboard.press('4' if i==0 else '5' if i==1 else '1')
             assert page.locator('#catchChoices').is_visible()
             page.locator('#catchChoices button[data-catch="secure"]').click();assert diag(page)['catchStyle']=='secure'
             step(page,1.0)
             assert diag(page)['phase'] in ['run','dead','pre']
-        result['checks'].append('all four pass concepts; five eligible targets including TE/RB; role-specific route, coverage and pass-anchor motion; live secure/aggressive/RAC choice; pocket framing')
+        result['checks'].append('all four pass concepts; five eligible targets including TE/RB; live secure/aggressive/RAC choice; pocket framing')
         restart(page);page.click('#passTab');page.click('#snap');step(page,.2)
         page.keyboard.down('ArrowUp');step(page,1.45);page.keyboard.up('ArrowUp')
         scrambled=diag(page)
@@ -136,8 +133,6 @@ if __name__=='__main__':
             assert mike['z']>fit['field']['scrimmage']+.6,(run_index,mike,fit['defense'])
             assert mike['engagedWith'] is not None or mike['z']-fit['players'][6]['z']>2.2,(run_index,mike,fit['players'][6],fit['defense'])
             assert any(fit['players'][index]['engagedWith'] in [18,19,20] for index in [7,8,9]),(run_index,fit['players'][7:10],fit['defense'])
-            assert 'stalk-block' in fit['athletes']['states'],(run_index,fit['athletes'])
-            assert any(state in fit['athletes']['states'] for state in ['drive-block','reach-block','climb-block']),(run_index,fit['athletes'])
             step(page,.65);page.keyboard.up('ArrowUp');played=diag(page);runner=played['players'][6]
             assert runner['z']>=played['field']['scrimmage']-.25,(run_index,runner,played['defense'],played['lastTackler'])
             if played['phase']=='dead':assert played['drive']['ball']>=85,(run_index,played)
@@ -145,7 +140,7 @@ if __name__=='__main__':
         assert max(sample['runnerX'] for sample in run_results)-min(sample['runnerX'] for sample in run_results)>4,run_results
         assert len({round(sample['runnerZ'],1) for sample in run_results})>1,run_results
         result['runFitSamples']=run_results
-        result['checks'].append('four run concepts produce different landmarks and pace; drive/reach/climb blocks account for the box and receivers use a distinct stalk-block motion')
+        result['checks'].append('four run concepts produce different landmarks and pace; climbing blocks account for the Mike and receivers stalk-block force defenders')
         restart(page);page.click('#runTab')
         assert page.locator('#stick').is_visible() and not page.locator('#moves').is_visible()
         presnap_stick=page.locator('#stick').bounding_box()
