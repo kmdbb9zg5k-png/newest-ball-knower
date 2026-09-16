@@ -1,7 +1,7 @@
 name: 3D practice night stadium
 on:
   push:
-    branches: [feat/play-moment-3d-practice-preview]
+    branches: [main]
     paths:
       - 'public/play-moment-3d/**'
       - 'public/play-moment-3d-preview.html'
@@ -10,6 +10,18 @@ on:
       - 'scripts/check-play-moment-framing.*'
       - 'scripts/check-play-moment-goal-line.*'
       - 'scripts/check-play-moment-gameplay.mjs'
+      - 'scripts/record-play-moment-gameplay.py'
+      - '.github/workflows/play-moment-3d-night-stadium.yml'
+  pull_request:
+    paths:
+      - 'public/play-moment-3d/**'
+      - 'public/play-moment-3d-preview.html'
+      - 'scripts/check-play-moment-night-stadium.*'
+      - 'scripts/check-play-moment-night.py'
+      - 'scripts/check-play-moment-framing.*'
+      - 'scripts/check-play-moment-goal-line.*'
+      - 'scripts/check-play-moment-gameplay.mjs'
+      - 'scripts/record-play-moment-gameplay.py'
       - '.github/workflows/play-moment-3d-night-stadium.yml'
   workflow_dispatch:
 permissions:
@@ -69,4 +81,25 @@ jobs:
           name: night-stadium-fixtures
           path: artifacts
           if-no-files-found: ignore
-          retention-days: 3
+          retention-days: 14
+  gameplay-recordings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install playwright==1.57.0
+      - run: python -m playwright install --with-deps chromium
+      - name: Record WebGL gameplay review sessions
+        run: python scripts/record-play-moment-gameplay.py --output artifacts/gameplay-recordings
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gameplay-review-recordings
+          path: artifacts/gameplay-recordings
+          if-no-files-found: ignore
+          retention-days: 14
