@@ -36,6 +36,7 @@ function fixture(initial){
  let drive={clock:63,score:24,plays:1,...initial},phase='run',ended=false,flight=null;
  let input={x:1,z:1,sprint:true},keys=new Set(['w']),recoveryLeft=0,activeContact=null;
  let carrier={fallen:false,moving:true,engaged:false},actors=[carrier],messages=[],ending=null;
+ const replay={event(){},sample(){}};
  const message=t=>messages.push(t),updateHud=()=>{},updateControls=()=>{};
  const endDrive=title=>{ending=title;ended=true;phase='dead';};
  ${endSource}
