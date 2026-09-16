@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import {
   CATCH_STYLES,
   canThrowAway,
+  carrierControlVector,
   catchBreakupChance,
   carriedBallAnchor,
   contactOutcome,
@@ -113,6 +114,10 @@ assert.ok(cut.vz > 8.5 && cut.vx > 0, 'A hard cut should preserve momentum for a
 const coast = locomotionStep(cut.vx, cut.vz, 0, 0, 9.2, 1 / 60);
 assert.ok(Math.hypot(coast.vx, coast.vz) < Math.hypot(cut.vx, cut.vz), 'Released input should decelerate predictably');
 
+assert.deepEqual(carrierControlVector(false, 0, 0, .8, .6), { x: 0, z: 0, manual: false }, 'Manual mode must never auto-steer an untouched runner');
+assert.deepEqual(carrierControlVector(false, -1, 0, .8, .6), { x: -1, z: 0, manual: true }, 'Manual stick input must fully override the run concept');
+assert.deepEqual(carrierControlVector(true, 0, 0, .8, .6), { x: .8, z: .6, manual: false }, 'Assist mode should retain concept steering');
+
 const pursuit = pursuitTarget({ x: 0, z: 0 }, { x: 12, z: 20, vx: 4, vz: 7 }, true);
 assert.ok(pursuit.z > 20, 'A defender should aim ahead of a moving runner');
 assert.ok(pursuit.x < 12 + 4 * .38, 'Sideline pursuit should retain inside leverage');
@@ -215,6 +220,8 @@ assert.match(source, /engagedWith/, 'Block engagements must preserve an explicit
 assert.match(source, /pursuitTarget\(p,target/, 'Open-field pursuit must use predictive leverage instead of direct homing');
 assert.match(source, /p\.role!=='DL'&&!p\.engaged/, 'A blocked linebacker must not pursue through his lineman');
 assert.match(source, /\['pre','pass','run'\]\.includes\(phase\)/, 'The movement stick must accept a held direction before the snap');
+assert.match(source, /BALL CARRIER · YOU HAVE CONTROL/, 'The handoff must visibly confirm manual ball-carrier control');
+assert.doesNotMatch(source, /else if\(guide\)\{x=guide\.x;z=guide\.z\}/, 'Manual run control must not fall back to automatic concept steering');
 assert.match(source, /CONTESTED /, 'Contested catches need player feedback');
 assert.match(source, /TIGHT WINDOW · PASS BROKEN UP/, 'Tight-window incompletions need player feedback');
 assert.match(source, /DROPPED PASS/, 'Open-target drops must not be mislabeled as breakups');
