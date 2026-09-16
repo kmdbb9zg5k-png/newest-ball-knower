@@ -1,4 +1,4 @@
-import{Renderer,pose,segment,hex,mul,translate,scale,ry}from'./renderer.js';
+import{Renderer,pose,segment,hex}from'./renderer.js';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js';
 import{createMeshyAthletes}from'./meshy-athlete.js';
 import{makeStadium}from'./stadium.js';
@@ -231,7 +231,7 @@ export function start(){
    lists.forEach((pts,i)=>{for(let j=1;j<pts.length;j++){const a=pts[j-1],b=pts[j];r.add('cylinder',segment([a[0],.052,a[1]],[b[0],.052,b[1]],.036),hex(['#d2bb75','#bcced4','#819fae'][i%3]),'',true)}})
   }
   if(!meshy.ready)for(const p of actors)drawAthlete(r,p,now/1000,phase);
-  if(carrier?.hasBall&&!flight&&!ended){const[x,y,z,heading]=carriedBallAnchor(carrier,phase),ballModel=mul(translate(x,y,z),mul(ry(heading),scale(.115,.095,.205)));r.add('sphere',ballModel,hex('#713a22'),'',false,1)}
+  if(carrier?.hasBall&&!flight&&!ended){const[x,y,z,heading]=carriedBallAnchor(carrier,phase),fx=Math.sin(heading)*.17,fz=Math.cos(heading)*.17;r.add('cylinder',segment([x-fx,y,z-fz],[x+fx,y,z+fz],.105),hex('#713a22'),'',false,.72)}
   if(flight){const t=clamp(flight.t,0,1),p=flight.from.map((v,i)=>v+(flight.to[i]-flight.from[i])*t);p[1]+=Math.sin(Math.PI*t)*flight.arc;r.add('sphere',pose(...p,.12,.12,.23),hex('#7d4226'));r.add('plane',pose(p[0],.06,p[2],.45,1,.35),[0,0,0,.65],'shadow',true)}
   r.draw();meshy.draw(actors,phase,now/1000);
   if(phase==='pass'){
