@@ -4,6 +4,8 @@ import {
   catchBreakupChance,
   carriedBallAnchor,
   coverageShell,
+  DEFENSIVE_CALLS,
+  defensiveCallForSnap,
   defenderPursuitSpeed,
   forwardProgressSpot,
   hasCrossedScrimmage,
@@ -13,6 +15,8 @@ import {
   pursuitTarget,
   qbMovementSpeed,
   receiverSlotForKey,
+  runBlockAssignments,
+  runReadDelay,
   sackLoss,
   skillMoveForGesture,
   tackleRadius,
@@ -109,6 +113,21 @@ assert.equal(skillMoveForGesture(2, 42, 100, false), 'hurdle');
 assert.equal(skillMoveForGesture(2, 42, 100, true), 'slide');
 
 assert.deepEqual([0, 1, 2, 3].map(coverageShell), ['man', 'quarters', 'zone', 'robber']);
+assert.deepEqual([0, 1, 2, 3, 4].map(i => defensiveCallForSnap(i).id), ['over-three', 'under-man', 'nickel-quarters', 'double-a-robber', 'over-three']);
+assert.deepEqual(DEFENSIVE_CALLS.map(call => call.coverage), ['zone', 'man', 'quarters', 'robber']);
+assert.equal(new Set(DEFENSIVE_CALLS.map(call => JSON.stringify(call.alignments))).size, 4, 'Every defensive call needs a visibly different alignment');
+for (let runIndex = 0; runIndex < 4; runIndex++) {
+  const assignments = runBlockAssignments(runIndex);
+  assert.equal(assignments.length, 6, 'Every run concept needs six blocking assignments');
+  assert.equal(new Set(assignments.map(([blocker]) => blocker)).size, 6, 'A blocker cannot receive two run-fit assignments');
+  assert.equal(new Set(assignments.map(([, defender]) => defender)).size, 6, 'Two blockers cannot target the same defender');
+  assert.ok(assignments.some(([, defender]) => defender === 16), 'Every run concept must account for the Mike linebacker');
+  assert.ok([11, 12, 13, 14].every(defender => assignments.some(([, target]) => target === defender)), 'Every run concept must account for the defensive front');
+}
+for (let callIndex = 0; callIndex < DEFENSIVE_CALLS.length; callIndex++) {
+  for (const linebacker of [15, 16, 17]) assert.ok(runReadDelay(callIndex, linebacker, 0) >= .34, 'Linebackers cannot diagnose a run instantly');
+}
+assert.ok(runReadDelay(0, 16, 2) > runReadDelay(0, 16, 0), 'Counter action must hold the Mike longer than inside zone');
 const cleanWindow = passOutcomeChances(2.5, .1, 'touch', .25, 0);
 const dangerWindow = passOutcomeChances(.4, .9, 'lob', 1.4, 1);
 assert.ok(dangerWindow.interception > cleanWindow.interception, 'Tight pressured throws need more interception risk');
@@ -130,8 +149,10 @@ assert.match(source, /beginSkillAction\('truck'/, 'Truck/stiff-arm must drive it
 assert.match(source, /beginSkillAction\('hurdle'/, 'Hurdle must drive its own presentation state');
 assert.match(source, /!p\.fallen/, 'Fallen defenders must not immediately resume pursuit or tackling');
 assert.match(source, /p\.team===1&&!p\.engaged/, 'An engaged defender should not make a tackle through a blocker');
-assert.match(source, /blockers=\[0,1,2,3,4,10\]/, 'Run blocking must include the offensive line and tight end');
-assert.match(source, /assignments=\[11,12,13,14,16,side<0\?15:17\]/, 'Run blockers must account for the defensive front and two linebackers');
+assert.match(source, /assignments=runBlockAssignments\(selected\)/, 'Run blocking must use the concept-specific assignment plan');
+assert.match(source, /defensiveCall\.alignments\.forEach/, 'The defense must display its selected front before the snap');
+assert.match(source, /const shell=defensiveCall\.coverage/, 'Pass coverage cannot be selected by the offense\'s route concept');
+assert.match(source, /runFit\(p,dt\)/, 'Free defenders must honor their read step before pursuit');
 assert.match(source, /engagedWith/, 'Block engagements must preserve an explicit blocker-defender pairing');
 assert.match(source, /pursuitTarget\(p,target/, 'Open-field pursuit must use predictive leverage instead of direct homing');
 assert.match(source, /p\.role!=='DL'&&!p\.engaged/, 'A blocked linebacker must not pursue through his lineman');
@@ -156,5 +177,6 @@ console.log(JSON.stringify({
   pursuitSamples: 4,
   throwTypes: Object.keys(THROW_PROFILES),
   coverageShells: [0, 1, 2, 3].map(coverageShell),
-  checks: 'X/Y/Z and 1/2/3 throws, tap/hold and modifier trajectories, momentum-based locomotion, predictive pursuit leverage, sustained run-block pairings, forward progress, movable QB pocket, rollout acceleration, line-of-scrimmage scramble transition and slide, contextual touch skills, contact-only sacks, four coverage shells, interceptions, coverage-scaled outcomes, contact windows and pursuit balance',
+  defensiveCalls: DEFENSIVE_CALLS.map(call => call.id),
+  checks: 'X/Y/Z and 1/2/3 throws, tap/hold and modifier trajectories, four rotating defensive fronts/coverages independent of offensive play selection, linebacker read steps, concept-specific run fits with Mike accounting, momentum-based locomotion, predictive pursuit leverage, sustained run-block pairings, forward progress, movable QB pocket, rollout acceleration, line-of-scrimmage scramble transition and slide, contextual touch skills, contact-only sacks, interceptions, coverage-scaled outcomes, contact windows and pursuit balance',
 }, null, 2));
