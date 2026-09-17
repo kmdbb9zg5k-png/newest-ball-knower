@@ -19,10 +19,10 @@ import {
   identifyMikeAssignments,
   locomotionStep,
   passOutcomeChances,
-  passLeadOffset,
   playerRatings,
   perimeterBlockAssignments,
   pocketPressure,
+  QB_LATERAL_LIMIT,
   pursuitTarget,
   qbMovementSpeed,
   ratingMultiplier,
@@ -100,6 +100,7 @@ assert.equal(qbMovementSpeed(0), 4.4);
 assert.equal(qbMovementSpeed(6), 4.4);
 assert.equal(qbMovementSpeed(6.01), 5.8, 'A quarterback outside the tackle box should accelerate into a rollout');
 assert.ok(qbMovementSpeed(0, 1) > 5.09, 'Climbing the pocket should be fast enough to create a fair scramble window');
+assert.equal(QB_LATERAL_LIMIT, 12, 'The quarterback rollout must stay inside a playable camera and pursuit window');
 
 const qbBall=carriedBallAnchor({role:'QB',x:2,z:20,heading:0},'pass');
 assert.deepEqual(qbBall,[2.13,1.4,20.28,0],'The quarterback should hold the ball at chest height before release');
@@ -127,8 +128,6 @@ assert.equal(blockOutcome(95, 72, .2, .5), 'steer', 'A leveraged elite blocker s
 assert.equal(blockOutcome(65, 94, 0, .1), 'shed', 'An elite defender should be able to shed a weak block');
 assert.equal(blockOutcome(96, 68, .25, .99), 'pancake', 'Dominant run blocks should occasionally finish on the ground');
 assert.deepEqual(identifyMikeAssignments([[1, 15], [3, 16]], 15), [[1, 16], [3, 15]], 'Changing the Mike must swap assignments without duplicating him');
-assert.deepEqual(passLeadOffset(1, -.5), { x: 2.2, z: -1.4 }, 'The passing stick should lead throws laterally and vertically');
-
 const pursuit = pursuitTarget({ x: 0, z: 0 }, { x: 12, z: 20, vx: 4, vz: 7 }, true);
 assert.ok(pursuit.z > 20, 'A defender should aim ahead of a moving runner');
 assert.ok(pursuit.x < 12 + 4 * .38, 'Sideline pursuit should retain inside leverage');
@@ -180,6 +179,8 @@ assert.ok(ratingMultiplier(95) > ratingMultiplier(65));
 assert.equal(contactOutcome(rbRatings, mikeRatings, { momentum: .9, angle: .2, skill: 'truck', roll: .05 }).type, 'miss');
 assert.equal(contactOutcome(rbRatings, mikeRatings, { momentum: .9, angle: .2, skill: 'truck', roll: .25 }).type, 'broken');
 assert.ok(['wrap', 'gang', 'big-hit'].includes(contactOutcome(rbRatings, mikeRatings, { momentum: .2, angle: 1, gang: 1, roll: .8 }).type));
+assert.notEqual(contactOutcome(rbRatings, mikeRatings, { momentum: .2, angle: 1, gang: 1, roll: .6 }).type, 'gang', 'One nearby helper must not automatically force a gang tackle');
+assert.equal(contactOutcome(rbRatings, mikeRatings, { momentum: .2, angle: 1, gang: 2, roll: .8 }).type, 'gang', 'A true multi-defender collapse should still finish as a gang tackle');
 assert.equal(contactOutcome(rbRatings,mikeRatings,{momentum:.72,defenderMomentum:.92,distance:.8,angle:.9,roll:.8}).type,'dive','A fast square tackler at the edge of contact should use a dive finish');
 const wrapFinish=contactPresentation('wrap',.5,-1),gangFinish=contactPresentation('gang',.5,1),diveFinish=contactPresentation('dive',.75,1),hitFinish=contactPresentation('big-hit',.5,1);
 assert.equal(wrapFinish.side,-1);
@@ -249,7 +250,9 @@ assert.match(source, /function flipPlay\(/, 'Pre-snap play flipping must be wire
 assert.match(source, /function motionReceiver\(/, 'Pre-snap receiver motion must be wired');
 assert.match(source, /function identifyMike\(/, 'Pre-snap Mike identification must be wired');
 assert.match(source, /function pumpFake\(/, 'Quarterback pump fakes must be wired');
-assert.match(source, /passLeadOffset\(input\.x,input\.z\)/, 'Live stick direction must lead receiver throws');
+assert.doesNotMatch(source, /passLeadOffset\(input\.x,input\.z\)/, 'Quarterback movement input must not silently alter pass placement');
+assert.match(source, /leadX=0,leadZ=0/, 'Receiver route prediction must own pass placement independently of movement');
+assert.match(source, /QB_LATERAL_LIMIT,QB_LATERAL_LIMIT/, 'Quarterback lateral movement must stay inside the playable rollout boundary');
 assert.match(source, /function watchReplay\(/, 'Explosive plays must be retained for an in-game replay');
 assert.match(source, /function stadiumSound\(/, 'Snap, collision and touchdown presentation must include stadium audio feedback');
 assert.match(source, /blocker\.blockResult=blockOutcome/, 'Run blocks must resolve individual win, steer, shed or pancake outcomes');

@@ -72,8 +72,7 @@ export function blockOutcome(blockRating,shedRating,leverage=0,roll=.5){
 export function identifyMikeAssignments(assignments,mikeIndex=16){
  const mike=clamp(Math.trunc(mikeIndex)||16,15,17);return assignments.map(([blocker,defender])=>[blocker,defender===16?mike:defender===mike?16:defender]);
 }
-/** Convert the live left-stick direction into a modest receiver lead. */
-export function passLeadOffset(inputX,inputZ,maxLateral=2.2,maxDepth=2.8){const magnitude=Math.min(1,Math.hypot(inputX,inputZ));return{x:clamp(inputX,-1,1)*maxLateral*magnitude,z:clamp(inputZ,-1,1)*maxDepth*magnitude}}
+export const QB_LATERAL_LIMIT=12;
 /** Aim pursuit ahead of the runner while keeping outside leverage near a sideline. */
 export function pursuitTarget(defender,runner,afterCatch=false){
  const speed=Math.hypot(runner.vx||0,runner.vz||0),separation=Math.hypot(runner.x-defender.x,runner.z-defender.z);
@@ -123,14 +122,15 @@ export function ratingMultiplier(rating,floor=.82,ceiling=1.18){return floor+(cl
 export function contactOutcome(carrierRatings,defenderRatings,context={}){
  const momentum=clamp(Number(context.momentum)||0,0,1),angle=clamp(Number(context.angle)||0,0,1),gang=Math.max(0,Number(context.gang)||0),skill=context.skill||null,roll=clamp(Number.isFinite(context.roll)?context.roll:.5,0,1),distance=Math.max(0,Number(context.distance)||0),defenderMomentum=clamp(Number(context.defenderMomentum)||0,0,1);
  const runner=(carrierRatings.breakTackle*.42+carrierRatings.strength*.22+carrierRatings.agility*.13+carrierRatings.carrying*.13)/100+momentum*.16+({truck:.18,spin:.12,juke:.1,hurdle:.06}[skill]||0);
- const tackler=(defenderRatings.tackle*.46+defenderRatings.strength*.22+defenderRatings.awareness*.13)/100+angle*.17+gang*.08;
+ const tackler=(defenderRatings.tackle*.46+defenderRatings.strength*.22+defenderRatings.awareness*.13)/100+angle*.17+Math.min(gang,2)*.055;
  const edge=runner-tackler,escape=clamp(.16+edge*.72,.04,.62),miss=clamp(.04+(1-angle)*.13+(skill==='juke'||skill==='spin'?.09:0),.03,.28);
  if(roll<miss)return{type:'miss',edge};
  if(roll<miss+escape)return{type:'broken',edge};
  const bigHit=defenderRatings.strength+defenderRatings.tackle>178&&momentum<.72&&roll>.86;
+ const gangTackle=gang>=2||(gang>=1&&edge<-.08&&roll>.82);
  const dive=!bigHit&&gang<1&&distance>.68&&defenderMomentum>.76&&angle>.62&&roll>.58;
  const stumble=!bigHit&&!dive&&gang<1&&edge>-.12&&momentum>.48&&roll>.52&&roll<.74;
- return{type:bigHit?'big-hit':gang>=1?'gang':dive?'dive':stumble?'stumble':'wrap',edge};
+ return{type:bigHit?'big-hit':gangTackle?'gang':dive?'dive':stumble?'stumble':'wrap',edge};
 }
 /** Presentation timing for a completed tackle. Gameplay owns the spot; this
  * only lets the carrier, tackler and optional helper finish the contact. */
@@ -358,7 +358,7 @@ function coverage(dt){
   }
   return handled;
  }
-  function throwTo(index,kind='bullet'){if(phase!=='pass'||paused)return;const target=actors[index],routeIndex=receiverIndices.indexOf(index),profile=THROW_PROFILES[kind]||THROW_PROFILES.bullet,qb=actors[5],nearest=Math.min(...actors.filter(p=>p.team===1&&!p.engaged).map(p=>Math.hypot(p.x-qb.x,p.z-qb.z)),8),pressure=pocketPressure(nearest,elapsed),release=liveBallAnchor(qb,'pass');carrier.hasBall=false;qb.throwT=.001;qb.throwStyle=kind;const routeSpeed=(6.05+routeIndex*.12)*ratingMultiplier(target.ratings.speed,.91,1.1),duration=profile.duration+Math.abs(target.z-carrier.z)*profile.distanceScale,to=routeIndex>=0?predictPassDestination(PASSES[selected].routes[routeIndex],target.startX,target.startZ,elapsed,duration,routeSpeed):[target.x,1.6,target.z],lead=passLeadOffset(input.x,input.z),[leadX,leadZ]=cameraWorldVector(lead.x,lead.z,camEye,camTarget),movingPenalty=qb.moving?.62:0,accuracy=ratingMultiplier(qb.ratings.throw,.74,1.03),error=(profile.error+pressure*1.18+movingPenalty)/accuracy;if(routeIndex>=0)to[0]=target.startX+(to[0]-target.startX)*runDirection;to[0]=clamp(to[0]+leadX+(rand()-.5)*2*error,-26.3,26.3);to[2]=clamp(to[2]+leadZ+(rand()-.5)*1.25*error,10,110);replay.event('throw',{target:index,kind,pressure,leadX,leadZ});catchStyle='rac';flight={from:release,to,target:index,t:0,duration,arc:profile.arc,kind,pressure};phase='flight';message(kind.toUpperCase()+' PASS · '+(Math.hypot(leadX,leadZ)>.35?'LED RECEIVER · ':'')+'PICK A CATCH',.65);updateControls()}
+  function throwTo(index,kind='bullet'){if(phase!=='pass'||paused)return;const target=actors[index],routeIndex=receiverIndices.indexOf(index),profile=THROW_PROFILES[kind]||THROW_PROFILES.bullet,qb=actors[5],nearest=Math.min(...actors.filter(p=>p.team===1&&!p.engaged).map(p=>Math.hypot(p.x-qb.x,p.z-qb.z)),8),pressure=pocketPressure(nearest,elapsed),release=liveBallAnchor(qb,'pass');carrier.hasBall=false;qb.throwT=.001;qb.throwStyle=kind;const routeSpeed=(6.05+routeIndex*.12)*ratingMultiplier(target.ratings.speed,.91,1.1),duration=profile.duration+Math.abs(target.z-carrier.z)*profile.distanceScale,to=routeIndex>=0?predictPassDestination(PASSES[selected].routes[routeIndex],target.startX,target.startZ,elapsed,duration,routeSpeed):[target.x,1.6,target.z],leadX=0,leadZ=0,movingPenalty=qb.moving?.62:0,accuracy=ratingMultiplier(qb.ratings.throw,.74,1.03),error=(profile.error+pressure*1.18+movingPenalty)/accuracy;if(routeIndex>=0)to[0]=target.startX+(to[0]-target.startX)*runDirection;to[0]=clamp(to[0]+(rand()-.5)*2*error,-26.3,26.3);to[2]=clamp(to[2]+(rand()-.5)*1.25*error,10,110);replay.event('throw',{target:index,kind,pressure,leadX,leadZ});catchStyle='rac';flight={from:release,to,target:index,t:0,duration,arc:profile.arc,kind,pressure};phase='flight';message(kind.toUpperCase()+' PASS · PICK A CATCH',.65);updateControls()}
  function throwAway(){
   if(phase!=='pass'||paused)return;const qb=actors[5];if(!canThrowAway(qb.x)){message('LEAVE THE POCKET TO THROW AWAY',.9);navigator.vibrate?.(12);return}
    const side=Math.sign(qb.x)||1,release=liveBallAnchor(qb,'pass'),nearest=Math.min(...actors.filter(p=>p.team===1&&!p.engaged).map(p=>Math.hypot(p.x-qb.x,p.z-qb.z)),8),pressure=pocketPressure(nearest,elapsed);replay.event('throwaway',{side,pressure});carrier.hasBall=false;qb.throwT=.001;qb.throwStyle='away';flight={from:release,to:[side*28.5,1.45,Math.min(109,snapZ+8.5)],target:null,t:0,duration:.46,arc:2.35,kind:'throwaway',pressure,throwAway:true};phase='flight';message('THROWING IT AWAY',.65);updateControls()
@@ -376,7 +376,7 @@ function coverage(dt){
   if(phase==='pass'||phase==='flight'){coverage(dt);blockers(dt,false);const qb=actors[5];
    if(phase==='pass'){
     if(qb.throwStyle==='pump'&&simTime>=qb.actionUntil){qb.throwT=0;qb.throwStyle=null}
-    let x=input.x,z=input.z;const kx=(keys.has('ArrowRight')||keys.has('d')?1:0)-(keys.has('ArrowLeft')||keys.has('a')?1:0),kz=(keys.has('ArrowUp')||keys.has('w')?1:0)-(keys.has('ArrowDown')||keys.has('s')?1:0);if(kx||kz){const len=Math.hypot(kx,kz);x=kx/len;z=kz/len}if(x||z){[x,z]=cameraWorldVector(x,z,camEye,camTarget);const speed=qbMovementSpeed(qb.x,z);accelerate(qb,x,z,speed,dt,14,22);qb.x=clamp(qb.x,-19,19);qb.z=clamp(qb.z,snapZ-12,snapZ+.35)}else accelerate(qb,0,0,qbMovementSpeed(qb.x),dt,14,25);
+    let x=input.x,z=input.z;const kx=(keys.has('ArrowRight')||keys.has('d')?1:0)-(keys.has('ArrowLeft')||keys.has('a')?1:0),kz=(keys.has('ArrowUp')||keys.has('w')?1:0)-(keys.has('ArrowDown')||keys.has('s')?1:0);if(kx||kz){const len=Math.hypot(kx,kz);x=kx/len;z=kz/len}if(x||z){[x,z]=cameraWorldVector(x,z,camEye,camTarget);const speed=qbMovementSpeed(qb.x,z);accelerate(qb,x,z,speed,dt,14,22);qb.x=clamp(qb.x,-QB_LATERAL_LIMIT,QB_LATERAL_LIMIT);qb.z=clamp(qb.z,snapZ-12,snapZ+.35)}else accelerate(qb,0,0,qbMovementSpeed(qb.x),dt,14,25);
     if(hasCrossedScrimmage(qb.z,snapZ)){phase='run';assist=false;elapsed=0;stamina=1;jukeUntil=simTime+.42;$('stamina').firstElementChild.style.width='100%';updateControls();message('QB SCRAMBLE · TAKE CONTROL',1);return}
     const rushers=actors.filter(p=>p.team===1&&!p.engaged&&(p.role==='DL'||defensiveCall.blitzers.includes(p.index))),nearest=Math.min(...rushers.map(p=>Math.hypot(p.x-qb.x,p.z-qb.z)),8),pressure=pocketPressure(nearest,elapsed),throwAwayReady=canThrowAway(qb.x);$('stamina').firstElementChild.style.width=(pressure*100)+'%';$('throwAway').classList.toggle('ready',throwAwayReady);$('throwAway').dataset.ready=String(throwAwayReady);$('throwAway').setAttribute('aria-label',throwAwayReady?'Throw the ball away':'Throwaway unavailable. Leave the pocket first.');$('instruction').textContent='MOVE QB · CROSS BLUE LINE TO RUN · PRESSURE '+Math.round(pressure*100)+'%';if(nearest<.92){endPlay('SACK',drive.ball-sackLoss(snapZ,qb.z));return}
    }
