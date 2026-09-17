@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { meshyAnimationState } from '../public/play-moment-3d/meshy-athlete.js';
+import { MESHY_CLIPS, meshyAnimationState, motionRecipeForState } from '../public/play-moment-3d/meshy-athlete.js';
 import { samplePose } from '../public/play-moment-3d/motion.js';
 import {
   CATCH_STYLES,
@@ -203,6 +203,8 @@ assert.ok(CATCH_STYLES.rac.yac > CATCH_STYLES.secure.yac && CATCH_STYLES.aggress
 const fastCarrier={index:6,team:0,role:'RB',vx:8.3,vz:0,hasBall:true,sprinting:false,action:null,throwT:0,catchT:0,engaged:false,motion:{speed:8.3,run:1,ready:0,block:0,turn:0,gait:0,fall:0,catch:0,throwTime:1}};
 assert.equal(meshyAnimationState(fastCarrier,'run'),'carry-run','Normal movement must keep the regular carry-run animation even at high speed');
 assert.equal(meshyAnimationState({...fastCarrier,sprinting:true},'run'),'carry-sprint','Holding Sprint must explicitly select the carry-sprint animation');
+assert.equal(motionRecipeForState('carry-sprint').base,MESHY_CLIPS.run,'Carrier Sprint must use the verified looping run clip instead of the malformed generated source clip');
+assert.ok(motionRecipeForState('carry-sprint').rate>motionRecipeForState('carry-run').rate,'Carrier Sprint must have a visibly faster cadence than the regular run');
 assert.equal(samplePose(fastCarrier).sprint,0,'The fallback regular run must not inherit the sprint posture from raw speed');
 assert.ok(samplePose({...fastCarrier,sprinting:true}).sprint>0,'The fallback athlete must use a distinct sprint posture while boosting');
 
