@@ -46,7 +46,10 @@ export const FOOTBALL_MOTION_RECIPES=Object.freeze({
  'route-stem':motion(MESHY_CLIPS.run,MESHY_CLIPS.sprint,.10,1.02),
  'route-cut':motion(MESHY_CLIPS.run,MESHY_CLIPS.block,.08,.92),
  'carry-run':motion(MESHY_CLIPS.run,MESHY_CLIPS.block,.12,1.02),
- 'carry-sprint':motion(MESHY_CLIPS.sprint,MESHY_CLIPS.block,.10,1.12),
+ // The generated three-second "sprint" source is not a clean locomotion loop.
+ // Build a stable football sprint from the verified run cycle instead, then
+ // author the sprint posture below so boosting remains visually distinct.
+ 'carry-sprint':motion(MESHY_CLIPS.run,null,0,1.36),
  'carry-cut':motion(MESHY_CLIPS.run,MESHY_CLIPS.block,.18,.86),
  'carry-juke':motion(MESHY_CLIPS.run,MESHY_CLIPS.block,.22,.76),
  'carry-spin':motion(MESHY_CLIPS.run,MESHY_CLIPS.idleAlt,.18,1.18),
@@ -343,6 +346,8 @@ export class MeshyAthletes{
    locals[hips].t[1]-=.065;this.rotate(locals,'mixamorig:Spine',1,0,0,.10);this.rotate(locals,'mixamorig:LeftArm',0,0,1,-.11);this.rotate(locals,'mixamorig:RightArm',0,0,1,.11);
    if(state==='coverage-pedal'){this.rotate(locals,'mixamorig:Spine',1,0,0,-.08);this.rotate(locals,'mixamorig:LeftUpLeg',0,0,1,-.08);this.rotate(locals,'mixamorig:RightUpLeg',0,0,1,.08);}
    if(state==='coverage-break')this.rotate(locals,'mixamorig:Spine2',0,0,1,clamp(-(p.motion?.turn||0)*.10,-.22,.22));
+  }else if(state==='carry-sprint'){
+   locals[hips].t[1]+=.018;this.rotate(locals,'mixamorig:Spine',1,0,0,.17);this.rotate(locals,'mixamorig:Spine2',1,0,0,.055);this.rotate(locals,'mixamorig:Head',1,0,0,-.065);this.rotate(locals,mirror>0?'mixamorig:LeftArm':'mixamorig:RightArm',1,0,0,-beat*.13);
   }else if(state==='route-cut'||state==='carry-cut'){
    const cut=clamp(-(p.motion?.turn||0)*.12,-.34,.34),plant=cut>=0?1:-1,plantWeight=state==='carry-cut'?pilotPhase:1;locals[hips].t[1]-=.085*plantWeight;this.rotate(locals,'mixamorig:Spine2',0,0,1,cut);this.rotate(locals,plant>0?'mixamorig:RightUpLeg':'mixamorig:LeftUpLeg',1,0,0,-Math.abs(cut)*1.15);this.rotate(locals,plant>0?'mixamorig:RightLeg':'mixamorig:LeftLeg',1,0,0,Math.abs(cut)*.78);this.rotate(locals,plant>0?'mixamorig:RightUpLeg':'mixamorig:LeftUpLeg',0,0,1,-plant*Math.abs(cut)*.42);this.rotate(locals,'mixamorig:Spine',1,0,0,.12*plantWeight);
   }
