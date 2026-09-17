@@ -1,6 +1,6 @@
 import{identity,mul,translate,scale,rx,ry,rz}from'./renderer.js';
 
-const ASSET='/play-moment-3d/assets/tripo-gridiron-pro.glb?v=tripo-athlete-1';
+const ASSET='/play-moment-3d/assets/tripo-gridiron-pro.glb?v=tripo-athlete-2';
 const MAX_BONES=32;
 const COMPONENTS={SCALAR:1,VEC2:2,VEC3:3,VEC4:4,MAT4:16};
 const CTORS={5120:Int8Array,5121:Uint8Array,5122:Int16Array,5123:Uint16Array,5125:Uint32Array,5126:Float32Array};
