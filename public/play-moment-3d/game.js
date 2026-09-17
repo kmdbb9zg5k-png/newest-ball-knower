@@ -449,9 +449,9 @@ function coverage(dt){
   r.add('plane',pose(0,.03,snapGainZ,53.15,1,.13),hex('#e1c156'),'',true);
   // Chain crew anchors the broadcast view to the live down and distance.
   for(const [z,color,label]of[[snapZ,'#ef7e38',false],[snapGainZ,'#f4cc57',true]]){r.add('cylinder',segment([-27.25,.08,z],[-27.25,2.05,z],.055),hex(color),'',true);r.add('cube',pose(-27.25,label?2.02:1.62,z,label?.42:.58,label?.42:.34,.12),hex(color),'',true)}
-  for(const p of actors){r.add('plane',pose(p.x+.13,.038,p.z-.12,1.65,1,1.15),[0,0,0,.75],'shadow',true)}
+  for(const p of actors){r.add('plane',pose(p.x+.13,.038,p.z-.12,1.65,1,1.15),[0,0,0,meshy.ready?.28:.75],'shadow',true)}
   turfFx=turfFx.filter(f=>simTime-f.born<f.life);for(const fx of turfFx){const age=simTime-fx.born,t=clamp(age/fx.life,0,1),size=fx.size*(1+t*.8);r.add('plane',pose(fx.x+fx.driftX*age,.043,fx.z+fx.driftZ*age,size,1,size*.64),[.61,.50,.28,(1-t)*.55],'turf-fx',true)}
-  if(contactFx){const age=simTime-contactFx.born,t=age/.34;if(t<1){const size=(.55+t*2.6)*contactFx.power;r.add('plane',pose(contactFx.x,.055,contactFx.z,size,1,size),[1,.76,.28,(1-t)*.52],'impact-glow',true)}else contactFx=null}
+  if(contactFx){const age=simTime-contactFx.born,t=age/.34;if(t<1){const size=(.55+t*2.6)*contactFx.power;r.add('plane',pose(contactFx.x,.055,contactFx.z,size,1,size),[1,.76,.28,(1-t)*.52],'impact-glow',true);for(let i=0;i<7;i++){const angle=i/7*Math.PI*2+.35,radius=t*(.45+i*.06)*contactFx.power,height=.10+Math.sin(t*Math.PI)*(.20+(i%3)*.07);r.add('sphere',pose(contactFx.x+Math.cos(angle)*radius,height,contactFx.z+Math.sin(angle)*radius,.025+(1-t)*.018),[.62,.49,.27,1],'',false,.04)}}else contactFx=null}
   if(carrier&&!ended){const cx=carrier.x,cz=carrier.z;r.add('plane',pose(cx,.036,cz,2.35,1,1.65),[1,1,1,.72],'player-glow',true);for(let i=0;i<32;i++){const a=i/32*2*Math.PI,b=(i+1)/32*2*Math.PI;r.add('cylinder',segment([cx+Math.cos(a)*.70,.045,cz+Math.sin(a)*.70],[cx+Math.cos(b)*.70,.045,cz+Math.sin(b)*.70],.025),hex('#ebce7a'),'',true)}}
   if(phase==='pre'){
    const lists=mode==='run'?[RUNS[selected].path.map(p=>[p[0]*runDirection,snapZ+p[1]])]:PASSES[selected].routes.map((pts,i)=>pts.map(p=>[actors[receiverIndices[i]].startX+p[0]*runDirection,actors[receiverIndices[i]].startZ+p[1]]));
@@ -459,6 +459,7 @@ function coverage(dt){
   }
   if(phase==='pre'&&actors[mikeIndex]){const m=actors[mikeIndex];for(let i=0;i<24;i++){const a=i/24*2*Math.PI,b=(i+1)/24*2*Math.PI;r.add('cylinder',segment([m.x+Math.cos(a)*.82,.05,m.z+Math.sin(a)*.82],[m.x+Math.cos(b)*.82,.05,m.z+Math.sin(b)*.82],.035),hex('#f0cc67'),'',true)}}
   if(!meshy.ready)for(const p of actors)drawAthlete(r,p,now/1000,phase);
+  else meshy.queueShadows(actors,phase,now/1000);
   if(carrier?.hasBall&&!flight&&!ended){const rigged=meshy.ballAnchor(carrier);if(rigged)r.add('cylinder',segment(rigged.a,rigged.b,.105),hex('#713a22'),'',false,.72);else{const[x,y,z,heading]=carriedBallAnchor(carrier,phase),fx=Math.sin(heading)*.17,fz=Math.cos(heading)*.17;r.add('cylinder',segment([x-fx,y,z-fz],[x+fx,y,z+fz],.105),hex('#713a22'),'',false,.72)}}
   if(flight){const t=clamp(flight.t,0,1),p=flight.from.map((v,i)=>v+(flight.to[i]-flight.from[i])*t);p[1]+=Math.sin(Math.PI*t)*flight.arc;r.add('sphere',pose(...p,.12,.12,.23),hex('#7d4226'));r.add('plane',pose(p[0],.06,p[2],.45,1,.35),[0,0,0,.65],'shadow',true)}
   r.draw();meshy.draw(actors,phase,now/1000);
