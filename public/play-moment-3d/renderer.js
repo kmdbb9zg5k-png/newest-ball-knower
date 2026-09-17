@@ -60,7 +60,9 @@ void main(){
  }
  if(material==4){
   vec2 grid=world.xz*36.;float aa=1.-smoothstep(.6,2.3,max(fwidth(grid.x),fwidth(grid.y)));
-  float grain=hash(floor(grid));albedo*=1.+(grain-.5)*.17*aa;
+  float grain=hash(floor(grid)),crossGrain=hash(floor(world.zx*67.+19.));
+  albedo*=1.+(grain-.5)*.16*aa+(crossGrain-.5)*.035;
+  N=normalize(N+vec3((grain-.5)*.045,0.,(crossGrain-.5)*.045));
  }
  float lit=visibility(N);vec3 L0=normalize(KEY),L1=normalize(vec3(.62,.69,.38)),L2=normalize(vec3(-.20,.72,.65));
  float d0=max(dot(N,L0),0.),d1=max(dot(N,L1),0.),d2=max(dot(N,L2),0.);
@@ -82,6 +84,10 @@ void main(){
   vec3 R=reflect(-V,N);float crown=pow(max(dot(R,normalize(vec3(.10,.96,.15))),0.),18.);
   rgb+=fresnel*g*crown*.7;
  }
+ if(material==4){
+  float grazing=pow(1.-max(dot(N,V),0.),3.);float dew=pow(max(dot(N,normalize(L1+V)),0.),30.);
+  rgb+=vec3(.045,.085,.055)*(grazing*.48+dew*.24);
+ }
  float groundFill=smoothstep(0.,.65,world.y);if(material>0&&material!=4)rgb*=mix(.72,1.,groundFill);
  float fog=smoothstep(50.,190.,distance(eye,world));rgb=mix(rgb,vec3(.016,.026,.046),fog*.70);
  outputColor=vec4(pow(film(rgb*1.12),vec3(1./2.2)),base.a);
@@ -91,7 +97,7 @@ precision highp float;out vec2 uv;
 void main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));uv=p;gl_Position=vec4(p*2.-1.,0.,1.);}`;
 const skyFragment=`#version 300 es
 precision highp float;in vec2 uv;out vec4 outputColor;
-void main(){vec3 sky=mix(vec3(.012,.022,.047),vec3(.065,.091,.14),pow(1.-uv.y,1.6));outputColor=vec4(sky,1.);}`;
+void main(){float y=clamp(uv.y,0.,1.),horizon=pow(1.-y,3.2);vec3 sky=mix(vec3(.006,.012,.029),vec3(.055,.086,.133),horizon);sky+=vec3(.032,.049,.072)*exp(-pow((y-.14)*5.2,2.));vec2 p=uv*2.-1.;sky*=1.-clamp(dot(p,p)*.085,0.,.24);outputColor=vec4(sky,1.);}`;
 const depthVertex=`#version 300 es
 precision highp float;layout(location=0)in vec3 p;layout(location=3)in mat4 model;uniform mat4 lightVP;
 void main(){gl_Position=lightVP*model*vec4(p,1.);}`;
@@ -162,7 +168,7 @@ export class Renderer{
  project(p){const m=this.vp,x=m[0]*p[0]+m[4]*p[1]+m[8]*p[2]+m[12],y=m[1]*p[0]+m[5]*p[1]+m[9]*p[2]+m[13],w=m[3]*p[0]+m[7]*p[1]+m[11]*p[2]+m[15];return{x:(x/w*.5+.5)*this.width,y:(.5-y/w*.5)*this.height,visible:w>0}}
  begin(){for(const b of this.batches.values())b.count=0;this.actorPass=false;this.overflows=0;}
  add(shape,matrix,color=[1,1,1,1],texture='',unlit=false,shine=0,material=0){
-  const actor=Boolean(this.actorPass),blend=texture==='shadow'||texture==='lamp-glow';
+  const actor=Boolean(this.actorPass),blend=texture==='shadow'||texture==='lamp-glow'||texture==='player-glow';
   if(texture==='turf')material=4;
   const key=[shape,texture,unlit,actor,material].join('|');let b=this.batches.get(key);
   if(!b){const gl=this.gl,g=this.shapes[shape];if(!g)throw new Error('Unknown geometry: '+shape);
@@ -203,7 +209,7 @@ export class Renderer{
   // Transparent contact shadows and light halos must draw after every opaque batch.
   active.sort((a,b)=>Number(a.blend)-Number(b.blend));
   for(const b of active){
-   if(b.blend){gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,b.texture==='lamp-glow'?gl.ONE:gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false)}else{gl.disable(gl.BLEND);gl.depthMask(true)}
+   if(b.blend){gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,b.texture.endsWith('-glow')?gl.ONE:gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false)}else{gl.disable(gl.BLEND);gl.depthMask(true)}
    gl.bindVertexArray(b.vao);gl.uniform1i(this.uniforms.textured,b.texture?1:0);gl.uniform1i(this.uniforms.unlit,b.unlit?1:0);gl.uniform1i(this.uniforms.material,b.material);
    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,b.texture?this.textures.get(b.texture):this.neutralShadow);gl.uniform1i(this.uniforms.image,0);
    gl.drawElementsInstanced(gl.TRIANGLES,b.indices,gl.UNSIGNED_SHORT,0,b.count);this.drawCalls++;
