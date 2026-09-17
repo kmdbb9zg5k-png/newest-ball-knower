@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b1218">
+<meta name="robots" content="noindex,nofollow">
+<title>Ball Knower | 3D Practice Preview</title>
+<link rel="stylesheet" href="/play-moment-3d/hud.css">
+<style>
+/* Keep touch targets practical on phone-sized landscape screens without rewriting the HUD. */
+.icon,.control,.mode button,.dialog button{min-width:44px;min-height:44px}
+@media(max-height:380px){.mode{flex-direction:row}.mode button{min-height:44px}.icon{width:44px;height:44px}}
+@media(max-width:740px){.icon{width:44px;height:44px}.mode button{width:44px;min-height:44px}}
+/* Smaller visible badges, unchanged finger-sized hit areas, clear helmet tethers. */
+.target{width:44px;min-width:44px;height:44px;padding:0;border:0;background:transparent;box-shadow:none;display:grid;place-items:center;isolation:isolate}
+.target.open{background:transparent}
+.target-label{display:grid;place-items:center;width:28px;height:28px;border:1px solid #f5da8f;border-radius:50%;background:#0a1626ed;box-shadow:0 2px 5px #0007;color:#f9d984;font-size:11px;line-height:1;font-weight:900;pointer-events:none;z-index:1}
+.target.open .target-label{border-color:#b7efbd;color:#cdf5d3;background:#163c2ded}
+.target-tether{position:absolute;left:21.5px;top:22px;width:1px;background:currentColor;opacity:.5;transform-origin:50% 0;pointer-events:none;z-index:0}
+.dialog a,#rotate a{display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;padding:8px}
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="Three-dimensional football practice field"></canvas>
+<div id="loading"><b>BALL KNOWER</b><span>Preparing practice field…</span></div>
+<div id="error" hidden><h1>3D preview unavailable</h1><p id="errorText">This browser could not start the graphics renderer.</p><a href="/">Return to Ball Knower</a></div>
+<div id="hud">
+ <header>
+  <div class="utility"><a class="icon" href="/" aria-label="Return to Ball Knower">‹</a><button class="icon" id="pause" aria-label="Pause practice">Ⅱ</button></div>
+  <div class="scorebug"><div class="club home"><span class="crest">BK</span><div><b>KNOWERS</b><strong id="score">24</strong></div></div><div class="game-state"><div><b id="clock">1:18</b><span>4TH</span></div><small id="down">1ST &amp; 10 · OWN 25</small></div><div class="club away"><div><b>RIVALS</b><strong>27</strong></div><span class="crest">R</span></div></div>
+  <button id="control" class="control" aria-label="Toggle manual or assisted running">MANUAL <span>●</span></button>
+ </header>
+ <div class="build-label">3D LAB <i></i> PRACTICE ONLY</div>
+ <div id="message" role="status"></div>
+ <div id="targetLayer"></div>
+ <div id="pre">
+  <div class="play-picker"><div class="play-row"><div class="mode"><button id="runTab" class="selected">RUN</button><button id="passTab">PASS</button></div><div id="plays"></div></div><div id="adjustments" aria-label="Pre-snap adjustments"><button id="flipPlay">↔ FLIP</button><button id="motionReceiver">MOTION</button><button id="identifyMike">MIKE 54</button><span>AUDIBLE: PICK ANY PLAY</span></div></div>
+  <button id="snap"><small id="playName">INSIDE ZONE</small><b>SNAP BALL <span>›</span></b></button>
+ </div>
+ <div id="live" hidden>
+  <div id="stick" role="slider" aria-label="Move ball carrier" aria-valuemin="-1" aria-valuemax="1" aria-valuenow="0" tabindex="0"><span id="knob"></span></div>
+  <div id="moves"><div id="skillPad" role="group" aria-label="Ball carrier moves"><button id="juke" data-skill="juke">JUKE</button><button id="spin" data-skill="spin">SPIN</button><button id="power" data-skill="truck">TRUCK</button><button id="airMove" data-skill="hurdle">HURDLE</button></div><button id="sprint">SPRINT</button><button id="pumpFake" aria-label="Pump fake"><b>PUMP</b><small>FAKE</small></button><button id="throwAway" aria-label="Throwaway unavailable. Leave the pocket first." data-ready="false"><b>THROW</b><small>AWAY</small></button></div>
+  <div id="catchChoices" role="group" aria-label="Choose catch type" hidden><button data-catch="secure">SECURE<small>HANDS</small></button><button data-catch="aggressive">AGGRESSIVE<small>HIGH POINT</small></button><button data-catch="rac" class="selected">RAC<small>RUN AFTER</small></button></div>
+  <div id="stamina"><span></span></div>
+ </div>
+ <div id="instruction">Choose a play. Snap the ball. Find the opening.</div>
+</div>
+<div id="paused" class="dialog" hidden><div><span class="eyebrow">BALL KNOWER · PRACTICE</span><h1 id="dialogTitle">PAUSED</h1><p id="dialogBody">This preview never changes your career saves or season record.</p><button id="resume">RESUME</button><button id="watchReplay" class="secondary" hidden>WATCH LAST PLAY</button><button id="restart" class="secondary">RESTART DRIVE</button><div class="gameplay-report"><textarea id="reportNote" maxlength="500" aria-label="Optional gameplay report note" placeholder="Optional: what felt wrong?"></textarea><button id="sendReport" class="secondary">SEND GAMEPLAY REPORT</button><div id="reportReceipt" class="report-receipt" role="status" hidden><b>REPORT SENT ✓</b><code id="reportCode"></code><button id="copyReportCode" type="button">COPY REPORT CODE</button><small>Codex can now locate this report automatically.</small></div><small id="reportStatus">Sends gameplay inputs and player positions only. No screen, audio, camera, location, or account data.</small></div><a href="/">Return to Ball Knower</a></div></div>
+<div id="rotate"><div><b>TURN THE FIELD SIDEWAYS</b><p>Rotate your phone for the 3D practice preview.</p><a href="/">Back to Ball Knower</a></div></div>
+<script type="module">
+try { const {start}=await import('/play-moment-3d/game.js?v=tripo-athlete-1'); start(); }
+catch(error){document.getElementById('loading').hidden=true;document.getElementById('error').hidden=false;document.getElementById('errorText').textContent='The 3D preview could not start. Your saved career is unchanged.';console.error(error);}
+</script>
+</body>
+</html>
