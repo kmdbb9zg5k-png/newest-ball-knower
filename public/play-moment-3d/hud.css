@@ -33,3 +33,4 @@
 #moves #juke b{font-size:10px;line-height:1;pointer-events:none}
 #moves #juke small{font-size:6px;line-height:1;letter-spacing:.11em;color:#d8c78f;pointer-events:none}
 @media(max-height:380px){#catchChoices{bottom:max(12px,calc(env(safe-area-inset-bottom) + 8px))}#catchChoices button{min-width:82px;height:44px}}
+html,body{overscroll-behavior:none;touch-action:none}
