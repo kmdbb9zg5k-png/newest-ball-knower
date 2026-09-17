@@ -217,6 +217,8 @@ const source = readFileSync(new URL('../public/play-moment-3d/game.js', import.m
 const preview = readFileSync(new URL('../public/play-moment-3d-preview.html', import.meta.url), 'utf8');
 const hud = readFileSync(new URL('../public/play-moment-3d/hud.css', import.meta.url), 'utf8');
 const meshySource = readFileSync(new URL('../public/play-moment-3d/meshy-athlete.js', import.meta.url), 'utf8');
+const rendererSource = readFileSync(new URL('../public/play-moment-3d/renderer.js', import.meta.url), 'utf8');
+const stadiumSource = readFileSync(new URL('../public/play-moment-3d/stadium.js', import.meta.url), 'utf8');
 for (const id of ['flipPlay', 'motionReceiver', 'identifyMike', 'juke', 'spin', 'power', 'airMove', 'sprint', 'pumpFake', 'throwAway', 'watchReplay']) assert.match(preview, new RegExp(`id="${id}"`), `${id} must remain in the mobile control deck`);
 assert.match(hud, /#skillPad\{display:grid/, 'The four skill actions need a compact two-by-two mobile layout');
 assert.match(hud, /button\.cooldown/, 'Skill cooldowns need visible feedback');
@@ -226,6 +228,13 @@ assert.match(meshySource, /ballAnchor\(p\)/, 'The football must bind to the live
 assert.match(meshySource, /mixamorig:RightHand/, 'The carry anchor must resolve the rig hand bone');
 assert.match(source, /carrier\.sprinting=boosting/, 'The Sprint control must explicitly drive the carrier animation state');
 assert.match(meshySource, /p\.hasBall&&p\.sprinting/, 'The rigged carrier must select Sprint from input state rather than a raw speed threshold');
+assert.match(meshySource, /rimColor\*rim/, 'Detailed athletes need stadium rim light to separate them from the field');
+assert.match(rendererSource, /crossGrain/, 'The turf shader must include cross-grain blade variation');
+assert.match(rendererSource, /texture==='player-glow'/, 'The renderer must blend the controlled-player focus halo');
+assert.match(stadiumSource, /r\.texture\('player-glow'/, 'The stadium must install the controlled-player focus texture');
+assert.match(stadiumSource, /if\(k%18===8\|\|k%18===9\)continue/, 'Crowd tiers need aisle breaks instead of an artificial solid grid');
+assert.match(source, /phase==='pre'\|\|phase==='pass'\|\|phase==='handoff'/, 'The camera must remain stable through the snap and handoff');
+assert.match(source, /'player-glow',true/, 'The live scene must render a soft focus halo below the controlled player');
 assert.match(source, /receiverSlot=receiverSlotForKey\(key\)/, 'Keyboard receiver mapping is not wired to throws');
 assert.match(source, /simTime<jukeReady/, 'Juke cooldown must use paused simulation time');
 assert.match(source, /simTime>jukeUntil/, 'Juke contact immunity must use paused simulation time');
