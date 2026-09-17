@@ -64,6 +64,9 @@ const [api,html,css]=await Promise.all([
   readFile(new URL('../public/play-moment-3d/hud.css',import.meta.url),'utf8'),
 ]);
 for(const contract of ['MAX_BODY_BYTES=1_250_000','MAX_SAMPLES=720','MAX_EVENTS=400','isCrossSiteBrowserRequest','consumeRateLimit','sanitizeGameplayReport','gameplay-reports/','gameplay-report-saved'])assert.ok(api.includes(contract),contract);
+for(const contract of ['QA_ORIGINS','Access-Control-Allow-Origin','OPTIONS'])assert.ok(api.includes(contract),contract);
 for(const control of ['id="reportNote"','id="sendReport"','id="reportStatus"','id="reportReceipt"','id="reportCode"','id="copyReportCode"'])assert.ok(html.includes(control),control);
 assert.ok(css.includes('.gameplay-report'));
+assert.ok(css.includes('touch-action:none'));
+assert.ok(html.includes('maximum-scale=1,user-scalable=no'));
 console.log('PASS optional gameplay report: bounded replay, explicit submit, privacy exclusions and server guards');
