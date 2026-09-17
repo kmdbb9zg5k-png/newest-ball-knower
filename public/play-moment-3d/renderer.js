@@ -168,7 +168,7 @@ export class Renderer{
  project(p){const m=this.vp,x=m[0]*p[0]+m[4]*p[1]+m[8]*p[2]+m[12],y=m[1]*p[0]+m[5]*p[1]+m[9]*p[2]+m[13],w=m[3]*p[0]+m[7]*p[1]+m[11]*p[2]+m[15];return{x:(x/w*.5+.5)*this.width,y:(.5-y/w*.5)*this.height,visible:w>0}}
  begin(){for(const b of this.batches.values())b.count=0;this.actorPass=false;this.overflows=0;}
  add(shape,matrix,color=[1,1,1,1],texture='',unlit=false,shine=0,material=0){
-  const actor=Boolean(this.actorPass),blend=texture==='shadow'||texture==='lamp-glow'||texture==='player-glow';
+  const actor=Boolean(this.actorPass),blend=texture==='shadow'||texture==='lamp-glow'||texture==='player-glow'||texture==='turf-fx'||texture==='impact-glow';
   if(texture==='turf')material=4;
   const key=[shape,texture,unlit,actor,material].join('|');let b=this.batches.get(key);
   if(!b){const gl=this.gl,g=this.shapes[shape];if(!g)throw new Error('Unknown geometry: '+shape);

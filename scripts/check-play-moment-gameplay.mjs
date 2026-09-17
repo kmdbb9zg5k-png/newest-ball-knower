@@ -26,6 +26,7 @@ import {
   perimeterBlockAssignments,
   pocketPressure,
   QB_LATERAL_LIMIT,
+  pursuitLaneOffset,
   pursuitTarget,
   qbMovementSpeed,
   ratingMultiplier,
@@ -138,6 +139,11 @@ assert.deepEqual(identifyMikeAssignments([[1, 15], [3, 16]], 15), [[1, 16], [3, 
 const pursuit = pursuitTarget({ x: 0, z: 0 }, { x: 12, z: 20, vx: 4, vz: 7 }, true);
 assert.ok(pursuit.z > 20, 'A defender should aim ahead of a moving runner');
 assert.ok(pursuit.x < 12 + 4 * .38, 'Sideline pursuit should retain inside leverage');
+const leftLane = pursuitLaneOffset(11, 10, 0);
+const rightLane = pursuitLaneOffset(12, 10, 0);
+assert.ok(leftLane < 0 && rightLane > 0, 'Pursuit lanes must stagger defenders across both sides of the runner');
+assert.ok(Math.abs(pursuitLaneOffset(11, 1.2, 0)) < Math.abs(leftLane), 'Pursuit lanes must collapse near contact');
+assert.ok(Math.abs(pursuitLaneOffset(11, 10, 24)) < Math.abs(leftLane), 'Pursuit lanes must narrow near a sideline');
 assert.equal(forwardProgressSpot(40, 0), 30);
 assert.equal(forwardProgressSpot(40, 20), 30.72, 'Contact momentum should be useful but capped');
 
@@ -231,10 +237,14 @@ assert.match(meshySource, /p\.hasBall&&p\.sprinting/, 'The rigged carrier must s
 assert.match(meshySource, /rimColor\*rim/, 'Detailed athletes need stadium rim light to separate them from the field');
 assert.match(rendererSource, /crossGrain/, 'The turf shader must include cross-grain blade variation');
 assert.match(rendererSource, /texture==='player-glow'/, 'The renderer must blend the controlled-player focus halo');
+assert.match(rendererSource, /texture==='turf-fx'/, 'The renderer must blend live turf particles');
 assert.match(stadiumSource, /r\.texture\('player-glow'/, 'The stadium must install the controlled-player focus texture');
+assert.match(stadiumSource, /r\.texture\('impact-glow'/, 'The stadium must install the contact burst texture');
 assert.match(stadiumSource, /if\(k%18===8\|\|k%18===9\)continue/, 'Crowd tiers need aisle breaks instead of an artificial solid grid');
 assert.match(source, /phase==='pre'\|\|phase==='pass'\|\|phase==='handoff'/, 'The camera must remain stable through the snap and handoff');
 assert.match(source, /'player-glow',true/, 'The live scene must render a soft focus halo below the controlled player');
+assert.match(source, /pursuitLaneOffset/, 'Open-field pursuit needs staggered lane leverage');
+assert.match(source, /emitRunFx\(\)/, 'A moving carrier must kick up live turf detail');
 assert.match(source, /receiverSlot=receiverSlotForKey\(key\)/, 'Keyboard receiver mapping is not wired to throws');
 assert.match(source, /simTime<jukeReady/, 'Juke cooldown must use paused simulation time');
 assert.match(source, /simTime>jukeUntil/, 'Juke contact immunity must use paused simulation time');
