@@ -6,6 +6,7 @@ import {
   CATCH_STYLES,
   canThrowAway,
   carrierControlVector,
+  openingRunControl,
   blockOutcome,
   catchBreakupChance,
   carriedBallAnchor,
@@ -124,6 +125,10 @@ assert.ok(Math.hypot(coast.vx, coast.vz) < Math.hypot(cut.vx, cut.vz), 'Released
 assert.deepEqual(carrierControlVector(false, 0, 0, .8, .6), { x: 0, z: 0, manual: false }, 'Manual mode must never auto-steer an untouched runner');
 assert.deepEqual(carrierControlVector(false, -1, 0, .8, .6), { x: -1, z: 0, manual: true }, 'Manual stick input must fully override the run concept');
 assert.deepEqual(carrierControlVector(true, 0, 0, .8, .6), { x: .8, z: .6, manual: false }, 'Assist mode should retain concept steering');
+assert.deepEqual(openingRunControl(false, 0, 0, .8, .6, .2, .9, true), { x: .8, z: .6, manual: true }, 'A pre-snap direction must survive a canceled mobile touch through the handoff');
+assert.deepEqual(openingRunControl(false, .5, .4, .8, .6, .2, .9, true), carrierControlVector(false, .5, .4, .2, .9), 'Fresh stick input must immediately override the opening buffer');
+assert.deepEqual(openingRunControl(false, 0, 0, .8, .6, .2, .9, false), { x: 0, z: 0, manual: false }, 'The opening direction must expire instead of steering forever');
+assert.deepEqual(openingRunControl(true, 0, 0, .8, .6, .2, .9, true), carrierControlVector(true, 0, 0, .2, .9), 'Assist mode must keep following its run concept');
 assert.equal(cutSeverity(0, 7, 0, -1), 1, 'A full-speed reversal must trigger a hard plant');
 assert.equal(cutSeverity(0, 2, 1, 0), 0, 'Low-speed direction changes should remain responsive');
 assert.equal(blockOutcome(95, 72, .2, .5), 'steer', 'A leveraged elite blocker should steer the defender');
@@ -255,6 +260,9 @@ assert.match(source, /engagedWith/, 'Block engagements must preserve an explicit
 assert.match(source, /pursuitTarget\(p,target/, 'Open-field pursuit must use predictive leverage instead of direct homing');
 assert.match(source, /p\.role!=='DL'&&!p\.engaged/, 'A blocked linebacker must not pursue through his lineman');
 assert.match(source, /\['pre','pass','run'\]\.includes\(phase\)/, 'The movement stick must accept a held direction before the snap');
+assert.match(source, /snapDirectionUntil=simTime\+\.75/, 'A pre-snap direction must remain buffered briefly after the handoff');
+assert.match(source, /\$\('snap'\)\.onpointerdown/, 'Snap must fire on touch down while the movement stick remains held');
+assert.match(source, /b\.heading=Math\.atan2\(launch\[0\],launch\[1\]\)/, 'The runner must face the buffered direction as possession starts');
 assert.match(source, /BALL CARRIER · YOU HAVE CONTROL/, 'The handoff must visibly confirm manual ball-carrier control');
 assert.doesNotMatch(source, /else if\(guide\)\{x=guide\.x;z=guide\.z\}/, 'Manual run control must not fall back to automatic concept steering');
 assert.match(source, /document\.querySelectorAll\('#skillPad button'\)/, 'Juke, spin, power and hurdle controls must use dedicated mobile buttons');
