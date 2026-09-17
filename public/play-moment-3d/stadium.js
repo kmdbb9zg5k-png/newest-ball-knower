@@ -7,21 +7,25 @@ export function makeStadium(r){
  const staticParts=[],lamps=[],add=(...args)=>staticParts.push(args);
  seed=31;
  const [t,ctx]=canvas(1024,2048),W=1024,H=2048;
- ctx.fillStyle='#365f35';ctx.fillRect(0,0,W,H);
- for(let i=0;i<24;i++){ctx.fillStyle=i%2?'#30562e':'#365e32';ctx.fillRect(0,i*H/24,W,H/24)}
- for(let i=0;i<95000;i++){const k=Math.floor(random()*30+45);ctx.fillStyle=`rgba(${k},${k+30},${k-5},.19)`;ctx.fillRect(random()*W,random()*H,1+random()*2,1+random()*4)}
  const px=x=>(x+26.6667)/53.3334*W,py=z=>z/120*H;
- ctx.fillStyle='#162a32';ctx.fillRect(0,0,W,py(10));ctx.fillRect(0,py(110),W,py(10));
- ctx.strokeStyle='#e5e3d6';ctx.lineWidth=2.3;ctx.strokeRect(3,3,W-6,H-6);
- for(let y=10;y<=110;y+=5){ctx.beginPath();ctx.moveTo(0,py(y));ctx.lineTo(W,py(y));ctx.stroke()}
- for(let z=11;z<110;z++)for(const x of[-25.6,-3.1,3.1,25.6]){ctx.beginPath();ctx.moveTo(px(x)-5,py(z));ctx.lineTo(px(x)+5,py(z));ctx.lineWidth=1.9;ctx.stroke()}
+ const base=ctx.createLinearGradient(0,0,W,0);base.addColorStop(0,'#28502d');base.addColorStop(.5,'#346a36');base.addColorStop(1,'#254b2b');ctx.fillStyle=base;ctx.fillRect(0,0,W,H);
+ for(let i=0;i<24;i++){ctx.fillStyle=i%2?'rgba(10,45,17,.14)':'rgba(102,146,74,.08)';ctx.fillRect(0,i*H/24,W,H/24)}
+ for(let i=0;i<18000;i++){const bright=random()>.46,k=Math.floor(random()*24+38);ctx.fillStyle=bright?`rgba(${k},${k+38},${k-4},.16)`:`rgba(9,28,12,.11)`;ctx.fillRect(random()*W,random()*H,.6+random()*1.4,1+random()*5)}
+ for(let i=0;i<820;i++){const z=py(12+random()*96),x=px((random()-.5)*14),radius=3+random()*15,wear=ctx.createRadialGradient(x,z,0,x,z,radius);wear.addColorStop(0,'rgba(156,145,91,.025)');wear.addColorStop(1,'rgba(156,145,91,0)');ctx.fillStyle=wear;ctx.fillRect(x-radius,z-radius,radius*2,radius*2)}
+ for(const [a,b]of[[0,10],[110,120]]){const end=ctx.createLinearGradient(0,py(a),0,py(b));end.addColorStop(0,'#10252f');end.addColorStop(.55,'#17333c');end.addColorStop(1,'#0b1b25');ctx.fillStyle=end;ctx.fillRect(0,py(a),W,py(b-a))}
+ ctx.strokeStyle='#eeeadd';ctx.lineCap='round';ctx.lineWidth=3.1;ctx.strokeRect(4,4,W-8,H-8);
+ for(let y=10;y<=110;y+=5){ctx.globalAlpha=y%10===0?1:.72;ctx.lineWidth=y%10===0?3.2:2.1;ctx.beginPath();ctx.moveTo(0,py(y));ctx.lineTo(W,py(y));ctx.stroke()}
+ ctx.globalAlpha=1;
+ for(let z=11;z<110;z++)for(const x of[-25.6,-3.1,3.1,25.6]){ctx.beginPath();ctx.moveTo(px(x)-5.5,py(z));ctx.lineTo(px(x)+5.5,py(z));ctx.lineWidth=z%5===0?2.2:1.65;ctx.stroke()}
+ ctx.strokeStyle='#cdb16b';ctx.lineWidth=4;for(const z of[10,110]){ctx.beginPath();ctx.moveTo(0,py(z));ctx.lineTo(W,py(z));ctx.stroke()}
  for(let z=20;z<=100;z+=10){const n=z<=60?z-10:110-z;for(const x of[-21.2,21.2]){ctx.save();ctx.translate(px(x),py(z));ctx.rotate(x<0?-Math.PI/2:Math.PI/2);ctx.font='900 42px Arial';ctx.textAlign='center';ctx.fillStyle='#e2e1cc';ctx.fillText(String(n),0,15);ctx.restore()}}
- ctx.fillStyle='#cbb475';ctx.textAlign='center';ctx.font='900 84px system-ui';ctx.fillText('KNOWERS',W/2,py(6.5));ctx.save();ctx.translate(W/2,py(114));ctx.rotate(Math.PI);ctx.fillText('BALL KNOWER',0,0);ctx.restore();
- ctx.save();ctx.translate(W/2,py(60));ctx.rotate(Math.PI/2);ctx.fillStyle='#172d32bb';ctx.font='italic 950 150px system-ui';ctx.fillText('BK',0,50);ctx.restore();r.texture('turf',t);
+ ctx.fillStyle='#d9bc74';ctx.textAlign='center';ctx.shadowColor='rgba(0,0,0,.35)';ctx.shadowBlur=6;ctx.font='italic 950 84px system-ui';ctx.fillText('KNOWERS',W/2,py(6.5));ctx.save();ctx.translate(W/2,py(114));ctx.rotate(Math.PI);ctx.fillText('BALL KNOWER',0,0);ctx.restore();ctx.shadowBlur=0;
+ ctx.save();ctx.translate(W/2,py(60));ctx.rotate(Math.PI/2);ctx.beginPath();ctx.moveTo(-92,-73);ctx.lineTo(76,-73);ctx.lineTo(112,0);ctx.lineTo(76,73);ctx.lineTo(-92,73);ctx.lineTo(-116,0);ctx.closePath();ctx.fillStyle='#102a36d9';ctx.fill();ctx.lineWidth=9;ctx.strokeStyle='#cbb06b';ctx.stroke();ctx.font='italic 950 104px system-ui';ctx.fillStyle='#eef0e7';ctx.fillText('BK',-2,35);ctx.restore();r.texture('turf',t);
  const [b,bc]=canvas(1024,128);bc.fillStyle='#0c1925';bc.fillRect(0,0,1024,128);bc.fillStyle='#d9c284';bc.font='900 49px system-ui';bc.textAlign='center';bc.fillText('BALL KNOWER',512,70);bc.font='700 14px system-ui';bc.letterSpacing='4px';bc.fillStyle='#adbcca';bc.fillText('BUILD YOUR LEGACY',512,103);r.texture('banner',b);
  const [glow,gc]=canvas(128,128),halo=gc.createRadialGradient(64,64,0,64,64,64);
  halo.addColorStop(0,'rgba(230,242,255,.9)');halo.addColorStop(.12,'rgba(198,220,255,.5)');halo.addColorStop(.38,'rgba(152,191,244,.12)');halo.addColorStop(1,'rgba(100,160,255,0)');gc.fillStyle=halo;gc.fillRect(0,0,128,128);r.texture('lamp-glow',glow);
  const [sh,sc]=canvas(64,64),g=sc.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(0,0,0,.55)');g.addColorStop(.3,'rgba(0,0,0,.38)');g.addColorStop(1,'rgba(0,0,0,0)');sc.fillStyle=g;sc.fillRect(0,0,64,64);r.texture('shadow',sh);
+ const [focus,fc]=canvas(128,128),focusGlow=fc.createRadialGradient(64,64,3,64,64,64);focusGlow.addColorStop(0,'rgba(255,223,129,.38)');focusGlow.addColorStop(.34,'rgba(225,188,91,.16)');focusGlow.addColorStop(1,'rgba(204,165,68,0)');fc.fillStyle=focusGlow;fc.fillRect(0,0,128,128);r.texture('player-glow',focus);
  add('cube',pose(0,-.22,60,88,.4,148),C('#222e31'));
  add('plane',pose(0,.01,60,53.333,1,120),[1,1,1,1],'turf');
  // Concrete bowl and continuous seating tiers. Spectators are cheap instances.
@@ -31,8 +35,8 @@ export function makeStadium(r){
    const x=side*(33+row*.95),y=1.5+row*.74;
    add('cube',pose(x,y-.27,60,1.25,.58,135),C(row%3===0?'#243442':'#182632'));
    for(let k=0;k<95;k++){
-    const z=-5+k*1.4+(row%2)*.6,v=random(),cl=v<.48?'#b8b6ab':v<.68?'#172c46':v<.85?'#bd945c':'#723c37';
-    add('cube',pose(x,y+.25,z,.37,.57,.43),C(cl));add('crowd',pose(x,y+.66,z,.145,.17,.14),C(random()<.45?'#b88a65':'#7c563c'));
+    if(k%18===8||k%18===9)continue;const z=-5+k*1.4+(row%2)*.6,v=random(),cl=v<.42?'#c5c2b5':v<.66?'#142e4d':v<.86?'#c29a57':'#7b4140',body=.25+random()*.055;
+    add('crowd',pose(x,y+.27,z,body,.40+random()*.07,body*.92),C(cl));add('crowd',pose(x,y+.67,z,.135,.16,.13),C(random()<.45?'#b88a65':'#7c563c'));
    }
   }
   add('cube',pose(side*46,12,60,2,2,140),C('#142330'));
