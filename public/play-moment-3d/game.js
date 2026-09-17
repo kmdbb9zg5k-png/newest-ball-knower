@@ -413,7 +413,7 @@ function coverage(dt){
    if(drive.clock<=0||elapsed>16)endPlay(drive.clock<=0?'TIME EXPIRED':'WHISTLE',carrier.z-10);
   }
  }
- function camera(dt){const isPocket=phase==='pre'||phase==='pass',isDead=phase==='dead';let x=0,z=snapZ+2,mult=1;
+ function camera(dt){const isPocket=phase==='pre'||phase==='pass'||phase==='handoff',isDead=phase==='dead';let x=0,z=snapZ+2,mult=1;
   if(!isPocket&&!isDead){x=carrier.x*.55;z=carrier.z+5;if(flight){const t=clamp(flight.t,0,1);x=(flight.from[0]+(flight.to[0]-flight.from[0])*t)*.55;z=flight.from[2]+(flight.to[2]-flight.from[2])*t+4}}
   if(phase==='pass'){const deep=Math.max(...receiverIndices.map(i=>actors[i].z));z=(deep+actors[5].z)*.5;mult=clamp(1+(deep-actors[5].z-16)*.018,1,1.7)}
   // Keep contact in view until the next down; move closer only after possession.
@@ -421,8 +421,8 @@ function coverage(dt){
   const tracking=phase==='run';
   // Center the pocket and move closer without enlarging athlete geometry.
   // Keep the existing wide/long-flight presentation and receiver-fit guard.
-  const desiredEye=tracking?[carrier.x*.92+2.15,6.2,carrier.z-8.7]:[x+(isPocket?0:3.5*mult),(isPocket?6.05:8.0)*mult,(isPocket?snapZ:z)-(isPocket?20.2:24.5)*mult];
-  const desiredTarget=tracking?[carrier.x*.92,.82,carrier.z+4.5]:[x,1.8,z];
+  const desiredEye=tracking?[carrier.x*.94+1.85,5.65,carrier.z-7.9]:[x+(isPocket?0:3.5*mult),(isPocket?5.55:8.0)*mult,(isPocket?snapZ:z)-(isPocket?18:24.5)*mult];
+  const desiredTarget=tracking?[carrier.x*.94,1.02,carrier.z+5.2]:[x,1.42,z];
   // Fit actual projected heads/feet above the pre-snap controls. Do not pan the QB away.
   if(isPocket){for(let trial=0;trial<8;trial++){r.camera(desiredEye,desiredTarget);const watch=phase==='pre'?actors.filter(p=>!p.team):[actors[5],...receiverIndices.map(i=>actors[i])];const fits=watch.every(p=>{const h=r.project([p.x,2.1,p.z]),f=r.project([p.x,0,p.z]);return h.y>65&&f.y<r.height-(phase==='pre'?85:22)&&h.x>24&&h.x<r.width-24});if(fits)break;desiredEye[1]*=1.055;desiredEye[2]=desiredTarget[2]+(desiredEye[2]-desiredTarget[2])*1.055}}
   if(tracking){for(let trial=0;trial<6;trial++){r.camera(desiredEye,desiredTarget);if(r.project([carrier.x,0,carrier.z]).y<r.height-90)break;desiredEye[1]*=1.045;desiredEye[2]=desiredTarget[2]+(desiredEye[2]-desiredTarget[2])*1.045}}
@@ -433,7 +433,7 @@ function coverage(dt){
   r.add('plane',pose(0,.025,snapZ,53.15,1,.11),hex('#4599ba'),'',true);
   r.add('plane',pose(0,.03,snapGainZ,53.15,1,.13),hex('#e1c156'),'',true);
   for(const p of actors){r.add('plane',pose(p.x+.13,.038,p.z-.12,1.65,1,1.15),[0,0,0,.75],'shadow',true)}
-  if(carrier&&!ended){const cx=carrier.x,cz=carrier.z;for(let i=0;i<32;i++){const a=i/32*2*Math.PI,b=(i+1)/32*2*Math.PI;r.add('cylinder',segment([cx+Math.cos(a)*.70,.045,cz+Math.sin(a)*.70],[cx+Math.cos(b)*.70,.045,cz+Math.sin(b)*.70],.025),hex('#ebce7a'),'',true)}}
+  if(carrier&&!ended){const cx=carrier.x,cz=carrier.z;r.add('plane',pose(cx,.036,cz,2.35,1,1.65),[1,1,1,.72],'player-glow',true);for(let i=0;i<32;i++){const a=i/32*2*Math.PI,b=(i+1)/32*2*Math.PI;r.add('cylinder',segment([cx+Math.cos(a)*.70,.045,cz+Math.sin(a)*.70],[cx+Math.cos(b)*.70,.045,cz+Math.sin(b)*.70],.025),hex('#ebce7a'),'',true)}}
   if(phase==='pre'){
    const lists=mode==='run'?[RUNS[selected].path.map(p=>[p[0]*runDirection,snapZ+p[1]])]:PASSES[selected].routes.map((pts,i)=>pts.map(p=>[actors[receiverIndices[i]].startX+p[0]*runDirection,actors[receiverIndices[i]].startZ+p[1]]));
    lists.forEach((pts,i)=>{for(let j=1;j<pts.length;j++){const a=pts[j-1],b=pts[j];r.add('cylinder',segment([a[0],.052,a[1]],[b[0],.052,b[1]],.036),hex(['#d2bb75','#bcced4','#819fae'][i%3]),'',true)}})
