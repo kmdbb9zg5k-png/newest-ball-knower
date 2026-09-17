@@ -51,7 +51,7 @@ export function makeStadium(r){
  }
  for(const end of[-5,125]){
   for(let j=0;j<7;j++)add('cube',pose(0,1+j*.8,end+(end<0?-j:j),67,1,1.1),C('#243746'));
-  for(let row=0;row<5;row++)for(let x=-31;x<32;x+=1.35){add('cube',pose(x,1.7+row*.8,end+(end<0?-row:row),.45,.65,.45),C(random()<.5?'#a8aba9':'#263948'))}
+  for(let row=0;row<5;row++)for(let x=-31,seat=0;x<32;x+=1.35,seat++){const z=end+(end<0?-row:row),occupied=seat%17!==8&&seat%17!==9&&random()>.13;add('cube',pose(x,1.7+row*.8,z,.45,.65,.45),C(occupied?'#263948':'#354754'));if(occupied){const v=random(),shirt=v<.38?'#c7c5b9':v<.62?'#17324d':v<.82?'#bd9554':'#814541';add('crowdEnd',pose(x,2.05+row*.8,z+(end<0?.22:-.22),.25,.38,.23),C(shirt));add('crowdEnd',pose(x,2.45+row*.8,z+(end<0?.22:-.22),.13,.15,.13),C(random()<.48?'#b88664':'#7d573f'))}}
  }
  // Goal posts, with actual vertical scale.
  for(const z of[3,117]){

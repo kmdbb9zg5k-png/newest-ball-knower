@@ -126,7 +126,7 @@ export class Renderer{
   this.skyProgram=program(gl,skyVertex,skyFragment);this.skyVao=gl.createVertexArray();
   this.uniforms=Object.fromEntries(['vp','eye','image','textured','unlit','lightVP','shadowMap','useShadow','shadowTexel','material'].map(k=>[k,gl.getUniformLocation(this.program,k)]));
   this.depthUniform=gl.getUniformLocation(this.depthProgram,'lightVP');
-  this.shapes={crowd:sphere(6,4),sphere:sphere(),helmet:sphere(28,18,true),cube:cube(),cylinder:cylinder(),plane:{v:[-.5,0,-.5,0,1,0,0,0,.5,0,-.5,0,1,0,1,0,.5,0,.5,0,1,0,1,1,-.5,0,.5,0,1,0,0,1],ix:[0,2,1,0,3,2]}};
+  this.shapes={crowd:sphere(6,4),crowdEnd:sphere(6,4),sphere:sphere(),helmet:sphere(28,18,true),cube:cube(),cylinder:cylinder(),plane:{v:[-.5,0,-.5,0,1,0,0,0,.5,0,-.5,0,1,0,1,0,.5,0,.5,0,1,0,1,1,-.5,0,.5,0,1,0,0,1],ix:[0,2,1,0,3,2]}};
   this.textures=new Map();this.anisotropy=gl.getExtension('EXT_texture_filter_anisotropic');
   gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);gl.clearColor(.009,.016,.029,1);
   // Always bind a complete sampler, including the low-power/failure paths.
@@ -168,6 +168,7 @@ export class Renderer{
  camera(eye,target){this.eye=eye;this.target=target;this.vp=mul(projection(this.width/this.height),view(eye,target))}
  project(p){const m=this.vp,x=m[0]*p[0]+m[4]*p[1]+m[8]*p[2]+m[12],y=m[1]*p[0]+m[5]*p[1]+m[9]*p[2]+m[13],w=m[3]*p[0]+m[7]*p[1]+m[11]*p[2]+m[15];return{x:(x/w*.5+.5)*this.width,y:(.5-y/w*.5)*this.height,visible:w>0}}
  begin(){for(const b of this.batches.values())b.count=0;this.actorPass=false;this.overflows=0;this.shadowCasters.length=0;}
+ lateBegin(){for(const b of this.batches.values())b.count=0;this.actorPass=false;this.overflows=0;}
  queueShadowCaster(draw){if(typeof draw==='function')this.shadowCasters.push(draw)}
  add(shape,matrix,color=[1,1,1,1],texture='',unlit=false,shine=0,material=0){
   const actor=Boolean(this.actorPass),blend=texture==='shadow'||texture==='lamp-glow'||texture==='player-glow'||texture==='turf-fx'||texture==='impact-glow'||texture==='stadium-pool';
@@ -217,6 +218,14 @@ export class Renderer{
    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,b.texture?this.textures.get(b.texture):this.neutralShadow);gl.uniform1i(this.uniforms.image,0);
    gl.drawElementsInstanced(gl.TRIANGLES,b.indices,gl.UNSIGNED_SHORT,0,b.count);this.drawCalls++;
   }
+  gl.depthMask(true);gl.disable(gl.BLEND);gl.bindVertexArray(null);
+ }
+ drawLate(){
+  if(this.lost)return;const gl=this.gl,active=[...this.batches.values()].filter(b=>b.count);if(!active.length)return;
+  for(const b of active){gl.bindBuffer(gl.ARRAY_BUFFER,b.instances);gl.bufferSubData(gl.ARRAY_BUFFER,0,b.data.subarray(0,b.count*21));}
+  gl.viewport(0,0,this.canvas.width,this.canvas.height);gl.useProgram(this.program);gl.uniformMatrix4fv(this.uniforms.vp,false,this.vp);gl.uniformMatrix4fv(this.uniforms.lightVP,false,this.lightVP);gl.uniform3fv(this.uniforms.eye,this.eye);
+  gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.shadowAvailable?this.shadowTexture:this.neutralShadow);gl.uniform1i(this.uniforms.shadowMap,1);gl.uniform1i(this.uniforms.useShadow,this.shadowAvailable?1:0);gl.uniform1f(this.uniforms.shadowTexel,this.shadowSize?1/this.shadowSize:1);
+  active.sort((a,b)=>Number(a.blend)-Number(b.blend));for(const b of active){if(b.blend){gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,b.texture.endsWith('-glow')?gl.ONE:gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false)}else{gl.disable(gl.BLEND);gl.depthMask(true)}gl.bindVertexArray(b.vao);gl.uniform1i(this.uniforms.textured,b.texture?1:0);gl.uniform1i(this.uniforms.unlit,b.unlit?1:0);gl.uniform1i(this.uniforms.material,b.material);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,b.texture?this.textures.get(b.texture):this.neutralShadow);gl.uniform1i(this.uniforms.image,0);gl.drawElementsInstanced(gl.TRIANGLES,b.indices,gl.UNSIGNED_SHORT,0,b.count);this.drawCalls++;}
   gl.depthMask(true);gl.disable(gl.BLEND);gl.bindVertexArray(null);
  }
 }

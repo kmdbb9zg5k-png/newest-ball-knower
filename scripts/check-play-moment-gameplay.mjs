@@ -222,6 +222,7 @@ assert.ok(samplePose({...fastCarrier,sprinting:true}).sprint>0,'The fallback ath
 const source = readFileSync(new URL('../public/play-moment-3d/game.js', import.meta.url), 'utf8');
 const preview = readFileSync(new URL('../public/play-moment-3d-preview.html', import.meta.url), 'utf8');
 const hud = readFileSync(new URL('../public/play-moment-3d/hud.css', import.meta.url), 'utf8');
+const athleteSource = readFileSync(new URL('../public/play-moment-3d/athlete.js', import.meta.url), 'utf8');
 const meshySource = readFileSync(new URL('../public/play-moment-3d/meshy-athlete.js', import.meta.url), 'utf8');
 const rendererSource = readFileSync(new URL('../public/play-moment-3d/renderer.js', import.meta.url), 'utf8');
 const stadiumSource = readFileSync(new URL('../public/play-moment-3d/stadium.js', import.meta.url), 'utf8');
@@ -251,6 +252,12 @@ assert.match(source, /emitRunFx\(\)/, 'A moving carrier must kick up live turf d
 assert.match(source, /meshy\.queueShadows/, 'Detailed animated athletes must cast into the live field shadow map');
 assert.match(meshySource, /uniform float controlled/, 'The controlled carrier needs a dedicated stadium-light rim');
 assert.match(meshySource, /const depthVertex=/, 'Detailed players need a skinned depth pass for body-shaped shadows');
+assert.match(athleteSource, /'meshy-number-'/, 'Every detailed uniform needs a roster-number texture to replace the baked source number');
+assert.match(meshySource, /drawJerseyNumbers\(actors\)/, 'Detailed athletes must render live front-and-back jersey numbers');
+assert.match(rendererSource, /drawLate\(\)/, 'The renderer must support depth-tested uniform decals after skinned players');
+assert.match(source, /meshy\.drawJerseyNumbers\(actors\)/, 'The live scene must draw the roster-number pass');
+assert.match(rendererSource, /crowdEnd:sphere/, 'The end-zone audience needs its own bounded instance batch');
+assert.match(stadiumSource, /add\('crowdEnd'/, 'The end-zone deck must render spectators instead of empty seat blocks');
 assert.match(hud, /#hud::before/, 'The field presentation needs a no-cost cinematic edge falloff');
 assert.match(source, /receiverSlot=receiverSlotForKey\(key\)/, 'Keyboard receiver mapping is not wired to throws');
 assert.match(source, /simTime<jukeReady/, 'Juke cooldown must use paused simulation time');
