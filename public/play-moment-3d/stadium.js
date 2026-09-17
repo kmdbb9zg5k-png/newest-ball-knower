@@ -8,7 +8,7 @@ export function makeStadium(r){
  seed=31;
  const [t,ctx]=canvas(1024,2048),W=1024,H=2048;
  const px=x=>(x+26.6667)/53.3334*W,py=z=>z/120*H;
- const base=ctx.createLinearGradient(0,0,W,0);base.addColorStop(0,'#28502d');base.addColorStop(.5,'#346a36');base.addColorStop(1,'#254b2b');ctx.fillStyle=base;ctx.fillRect(0,0,W,H);
+ const base=ctx.createLinearGradient(0,0,W,0);base.addColorStop(0,'#24472b');base.addColorStop(.5,'#315e34');base.addColorStop(1,'#214228');ctx.fillStyle=base;ctx.fillRect(0,0,W,H);
  for(let i=0;i<24;i++){ctx.fillStyle=i%2?'rgba(10,45,17,.14)':'rgba(102,146,74,.08)';ctx.fillRect(0,i*H/24,W,H/24)}
  for(let i=0;i<18000;i++){const bright=random()>.46,k=Math.floor(random()*24+38);ctx.fillStyle=bright?`rgba(${k},${k+38},${k-4},.16)`:`rgba(9,28,12,.11)`;ctx.fillRect(random()*W,random()*H,.6+random()*1.4,1+random()*5)}
  for(let i=0;i<820;i++){const z=py(12+random()*96),x=px((random()-.5)*14),radius=3+random()*15,wear=ctx.createRadialGradient(x,z,0,x,z,radius);wear.addColorStop(0,'rgba(156,145,91,.025)');wear.addColorStop(1,'rgba(156,145,91,0)');ctx.fillStyle=wear;ctx.fillRect(x-radius,z-radius,radius*2,radius*2)}
@@ -26,6 +26,8 @@ export function makeStadium(r){
  halo.addColorStop(0,'rgba(230,242,255,.9)');halo.addColorStop(.12,'rgba(198,220,255,.5)');halo.addColorStop(.38,'rgba(152,191,244,.12)');halo.addColorStop(1,'rgba(100,160,255,0)');gc.fillStyle=halo;gc.fillRect(0,0,128,128);r.texture('lamp-glow',glow);
  const [sh,sc]=canvas(64,64),g=sc.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(0,0,0,.55)');g.addColorStop(.3,'rgba(0,0,0,.38)');g.addColorStop(1,'rgba(0,0,0,0)');sc.fillStyle=g;sc.fillRect(0,0,64,64);r.texture('shadow',sh);
  const [focus,fc]=canvas(128,128),focusGlow=fc.createRadialGradient(64,64,3,64,64,64);focusGlow.addColorStop(0,'rgba(255,223,129,.38)');focusGlow.addColorStop(.34,'rgba(225,188,91,.16)');focusGlow.addColorStop(1,'rgba(204,165,68,0)');fc.fillStyle=focusGlow;fc.fillRect(0,0,128,128);r.texture('player-glow',focus);
+ const [dust,dc]=canvas(96,96),dustGlow=dc.createRadialGradient(48,48,2,48,48,46);dustGlow.addColorStop(0,'rgba(255,247,210,.82)');dustGlow.addColorStop(.26,'rgba(196,166,103,.48)');dustGlow.addColorStop(1,'rgba(124,96,54,0)');dc.fillStyle=dustGlow;dc.fillRect(0,0,96,96);for(let i=0;i<28;i++){dc.fillStyle=`rgba(255,239,190,${.12+random()*.28})`;dc.beginPath();dc.arc(18+random()*60,18+random()*60,.7+random()*2.2,0,Math.PI*2);dc.fill()}r.texture('turf-fx',dust);
+ const [impact,ic]=canvas(128,128),impactGlow=ic.createRadialGradient(64,64,0,64,64,64);impactGlow.addColorStop(0,'rgba(255,244,187,.86)');impactGlow.addColorStop(.14,'rgba(255,199,78,.46)');impactGlow.addColorStop(.42,'rgba(243,132,40,.12)');impactGlow.addColorStop(1,'rgba(225,102,26,0)');ic.fillStyle=impactGlow;ic.fillRect(0,0,128,128);r.texture('impact-glow',impact);
  add('cube',pose(0,-.22,60,88,.4,148),C('#222e31'));
  add('plane',pose(0,.01,60,53.333,1,120),[1,1,1,1],'turf');
  // Concrete bowl and continuous seating tiers. Spectators are cheap instances.
@@ -43,6 +45,7 @@ export function makeStadium(r){
   for(let z=10;z<120;z+=22){let m=mul(translate(side*31.9,1.08,z),mul(rz(side*Math.PI/2),scale(1.45,1,14)));add('plane',m,[1,1,1,1],'banner',true)}
   // Sideline benches and practice staff silhouettes, outside the playing field.
   for(let z=34;z<90;z+=8){add('cube',pose(side*28.6,.55,z,.65,.18,3.3),C('#d1d6d7'));add('cube',pose(side*29,.9,z,.2,.65,3.3),C('#969fa5'))}
+  for(let z=29;z<=94;z+=5){const jersey=(Math.round(z/5)+side)%3===0?'#c8ccd0':side<0?'#132e4c':'#8e302c';add('cylinder',segment([side*28.1,.08,z],[side*28.1,1.3,z],.20),C(jersey));add('sphere',pose(side*28.1,1.56,z,.22,.24,.22),C('#9a6e50'));}
  }
  for(const end of[-5,125]){
   for(let j=0;j<7;j++)add('cube',pose(0,1+j*.8,end+(end<0?-j:j),67,1,1.1),C('#243746'));
