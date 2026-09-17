@@ -97,7 +97,8 @@ precision highp float;out vec2 uv;
 void main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));uv=p;gl_Position=vec4(p*2.-1.,0.,1.);}`;
 const skyFragment=`#version 300 es
 precision highp float;in vec2 uv;out vec4 outputColor;
-void main(){float y=clamp(uv.y,0.,1.),horizon=pow(1.-y,3.2);vec3 sky=mix(vec3(.006,.012,.029),vec3(.055,.086,.133),horizon);sky+=vec3(.032,.049,.072)*exp(-pow((y-.14)*5.2,2.));vec2 p=uv*2.-1.;sky*=1.-clamp(dot(p,p)*.085,0.,.24);outputColor=vec4(sky,1.);}`;
+float skyHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+void main(){float y=clamp(uv.y,0.,1.),horizon=pow(1.-y,3.2);vec3 sky=mix(vec3(.004,.009,.023),vec3(.050,.080,.126),horizon);sky+=vec3(.040,.058,.080)*exp(-pow((y-.13)*5.4,2.));vec2 cells=floor(uv*vec2(310.,175.));float star=step(.9965,skyHash(cells))*smoothstep(.46,.05,length(fract(uv*vec2(310.,175.))-.5))*smoothstep(.16,.42,y);sky+=vec3(.58,.67,.78)*star;float cloud=(sin(uv.x*18.+uv.y*7.)+sin(uv.x*31.-uv.y*11.))*.5;sky+=vec3(.018,.025,.038)*smoothstep(.70,1.,cloud)*smoothstep(.20,.62,y);vec2 p=uv*2.-1.;sky*=1.-clamp(dot(p,p)*.095,0.,.28);outputColor=vec4(sky,1.);}`;
 const depthVertex=`#version 300 es
 precision highp float;layout(location=0)in vec3 p;layout(location=3)in mat4 model;uniform mat4 lightVP;
 void main(){gl_Position=lightVP*model*vec4(p,1.);}`;
@@ -119,7 +120,7 @@ export class Renderer{
   this.canvas=canvas;const gl=canvas.getContext('webgl2',{antialias:true,alpha:false,powerPreference:'high-performance'});
   if(!gl)throw new Error('WebGL2 unavailable');this.gl=gl;this.batches=new Map();this.actorPass=false;
   this.eye=[0,18,0];this.target=[0,0,40];this.vp=identity();this.lightVP=identity();this.drawCalls=0;this.shadowDrawCalls=0;this.lost=false;
-  this.shadowTexture=null;this.shadowBuffer=null;this.shadowAvailable=false;this.shadowSize=0;this.quality='high';this.overflows=0;
+  this.shadowTexture=null;this.shadowBuffer=null;this.shadowAvailable=false;this.shadowSize=0;this.quality='high';this.overflows=0;this.shadowCasters=[];
   canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();this.lost=true;const box=document.getElementById('error'),text=document.getElementById('errorText');if(box)box.hidden=false;if(text)text.textContent='Graphics paused. Reload this practice page to restart. Your career is unchanged.'});
   this.program=program(gl,vertex,fragment);this.depthProgram=program(gl,depthVertex,depthFragment);
   this.skyProgram=program(gl,skyVertex,skyFragment);this.skyVao=gl.createVertexArray();
@@ -166,9 +167,10 @@ export class Renderer{
  resize(){const r=this.canvas.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,GRAPHICS_TIERS[this.quality].dpr);this.width=Math.max(1,r.width);this.height=Math.max(1,r.height);this.canvas.width=Math.max(1,Math.round(this.width*d));this.canvas.height=Math.max(1,Math.round(this.height*d));this.gl.viewport(0,0,this.canvas.width,this.canvas.height)}
  camera(eye,target){this.eye=eye;this.target=target;this.vp=mul(projection(this.width/this.height),view(eye,target))}
  project(p){const m=this.vp,x=m[0]*p[0]+m[4]*p[1]+m[8]*p[2]+m[12],y=m[1]*p[0]+m[5]*p[1]+m[9]*p[2]+m[13],w=m[3]*p[0]+m[7]*p[1]+m[11]*p[2]+m[15];return{x:(x/w*.5+.5)*this.width,y:(.5-y/w*.5)*this.height,visible:w>0}}
- begin(){for(const b of this.batches.values())b.count=0;this.actorPass=false;this.overflows=0;}
+ begin(){for(const b of this.batches.values())b.count=0;this.actorPass=false;this.overflows=0;this.shadowCasters.length=0;}
+ queueShadowCaster(draw){if(typeof draw==='function')this.shadowCasters.push(draw)}
  add(shape,matrix,color=[1,1,1,1],texture='',unlit=false,shine=0,material=0){
-  const actor=Boolean(this.actorPass),blend=texture==='shadow'||texture==='lamp-glow'||texture==='player-glow'||texture==='turf-fx'||texture==='impact-glow';
+  const actor=Boolean(this.actorPass),blend=texture==='shadow'||texture==='lamp-glow'||texture==='player-glow'||texture==='turf-fx'||texture==='impact-glow'||texture==='stadium-pool';
   if(texture==='turf')material=4;
   const key=[shape,texture,unlit,actor,material].join('|');let b=this.batches.get(key);
   if(!b){const gl=this.gl,g=this.shapes[shape];if(!g)throw new Error('Unknown geometry: '+shape);
@@ -199,6 +201,7 @@ export class Renderer{
    gl.useProgram(this.depthProgram);gl.uniformMatrix4fv(this.depthUniform,false,this.lightVP);gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(1.1,1.2);
    // Only articulated solid athlete geometry casts; number panels/crowd never do.
    for(const b of active){if(!b.actor||b.shape==='plane'||b.unlit||b.blend)continue;gl.bindVertexArray(b.vao);gl.drawElementsInstanced(gl.TRIANGLES,b.indices,gl.UNSIGNED_SHORT,0,b.count);this.shadowDrawCalls++;}
+   for(const draw of this.shadowCasters)this.shadowDrawCalls+=Math.max(0,Number(draw(this.lightVP))||0);
    gl.disable(gl.POLYGON_OFFSET_FILL);gl.bindFramebuffer(gl.FRAMEBUFFER,null);
   }
   gl.viewport(0,0,this.canvas.width,this.canvas.height);gl.depthMask(true);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
