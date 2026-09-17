@@ -34,3 +34,8 @@
 #moves #juke small{font-size:6px;line-height:1;letter-spacing:.11em;color:#d8c78f;pointer-events:none}
 @media(max-height:380px){#catchChoices{bottom:max(12px,calc(env(safe-area-inset-bottom) + 8px))}#catchChoices button{min-width:82px;height:44px}}
 html,body{overscroll-behavior:none;touch-action:none}
+
+/* Cinematic edge falloff preserves a bright play space while grounding the
+   stadium bowl. It is composited by CSS, so it adds no WebGL draw cost. */
+#hud{isolation:isolate}
+#hud::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 49%,transparent 43%,rgba(3,9,16,.08) 68%,rgba(1,5,10,.30) 100%);z-index:0}
