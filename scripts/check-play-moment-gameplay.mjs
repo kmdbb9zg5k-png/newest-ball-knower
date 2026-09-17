@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { meshyAnimationState } from '../public/play-moment-3d/meshy-athlete.js';
+import { samplePose } from '../public/play-moment-3d/motion.js';
 import {
   CATCH_STYLES,
   canThrowAway,
@@ -198,6 +200,12 @@ const racWindow = passOutcomeChances(.9, .3, 'touch', .3, .2, { catchStyle: 'rac
 assert.ok(secureWindow.breakup < racWindow.breakup, 'Secure catches must trade YAC for stronger possession odds');
 assert.ok(CATCH_STYLES.rac.yac > CATCH_STYLES.secure.yac && CATCH_STYLES.aggressive.yac < CATCH_STYLES.rac.yac);
 
+const fastCarrier={index:6,team:0,role:'RB',vx:8.3,vz:0,hasBall:true,sprinting:false,action:null,throwT:0,catchT:0,engaged:false,motion:{speed:8.3,run:1,ready:0,block:0,turn:0,gait:0,fall:0,catch:0,throwTime:1}};
+assert.equal(meshyAnimationState(fastCarrier,'run'),'carry-run','Normal movement must keep the regular carry-run animation even at high speed');
+assert.equal(meshyAnimationState({...fastCarrier,sprinting:true},'run'),'carry-sprint','Holding Sprint must explicitly select the carry-sprint animation');
+assert.equal(samplePose(fastCarrier).sprint,0,'The fallback regular run must not inherit the sprint posture from raw speed');
+assert.ok(samplePose({...fastCarrier,sprinting:true}).sprint>0,'The fallback athlete must use a distinct sprint posture while boosting');
+
 const source = readFileSync(new URL('../public/play-moment-3d/game.js', import.meta.url), 'utf8');
 const preview = readFileSync(new URL('../public/play-moment-3d-preview.html', import.meta.url), 'utf8');
 const hud = readFileSync(new URL('../public/play-moment-3d/hud.css', import.meta.url), 'utf8');
@@ -209,6 +217,8 @@ assert.match(meshySource, /p\.action==='cut'/, 'Hard direction changes must sele
 assert.match(meshySource, /p\.action==='pancake'/, 'Dominant block finishes must select a grounded animation');
 assert.match(meshySource, /ballAnchor\(p\)/, 'The football must bind to the live animated hand transform');
 assert.match(meshySource, /mixamorig:RightHand/, 'The carry anchor must resolve the rig hand bone');
+assert.match(source, /carrier\.sprinting=boosting/, 'The Sprint control must explicitly drive the carrier animation state');
+assert.match(meshySource, /p\.hasBall&&p\.sprinting/, 'The rigged carrier must select Sprint from input state rather than a raw speed threshold');
 assert.match(source, /receiverSlot=receiverSlotForKey\(key\)/, 'Keyboard receiver mapping is not wired to throws');
 assert.match(source, /simTime<jukeReady/, 'Juke cooldown must use paused simulation time');
 assert.match(source, /simTime>jukeUntil/, 'Juke contact immunity must use paused simulation time');

@@ -54,7 +54,7 @@ export function advanceMotion(p,dt,phase){
 export function samplePose(p){
  const m=p.motion||advanceMotion(p,0,'pre');
  const build=bodyTypes[p.role]||bodyTypes.WR;
- const sprint=clamp((m.speed-6.5)/2.7,0,1);
+ const sprint=p.sprinting?clamp((m.speed-4.8)/4.4,.35,1):0;
  const actionT=clamp(p.actionT||0,0,1),actionPulse=Math.sin(actionT*Math.PI);
  const spin=p.action==='spin'?1:0,hurdle=p.action==='hurdle'?actionPulse:0,power=p.action==='truck'?actionPulse:0,juke=p.action==='juke'?actionPulse:0;
  const stance=readyStances[p.role]||readyStances.WR;

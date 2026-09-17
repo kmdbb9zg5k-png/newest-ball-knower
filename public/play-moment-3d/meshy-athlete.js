@@ -160,7 +160,7 @@ export function meshyAnimationState(p,phase){
  if((phase==='pass'||phase==='flight')&&p.team&&p.role==='DL'&&speed>.2)return p.blockStyle==='rush-rip'?'rush-rip':p.blockStyle==='rush-swim'?'rush-swim':p.blockStyle==='edge-rush'?'edge-rush':p.blockStyle==='bull-rush'?'bull-rush':'rush';
  if(phase==='run'&&p.hasBall&&p.role==='QB'&&speed>.2)return'qb-scramble';
  if(phase==='run'&&p.hasBall&&Math.abs(p.motion?.turn||0)>1.12)return'carry-cut';
- if(phase==='run'&&p.hasBall&&speed>7.7)return'carry-sprint';
+ if(phase==='run'&&p.hasBall&&p.sprinting)return'carry-sprint';
  if(phase==='run'&&p.hasBall&&speed>.2)return'carry-run';
  if(speed>7.7)return'sprint';if(speed>2.4)return'run';if(speed>.2)return'walk';return'idle';
 }

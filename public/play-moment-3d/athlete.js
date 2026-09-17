@@ -145,10 +145,7 @@ export function drawAthlete(r,p,time,phase){
    bone(hm,[side*.028,.009,.002],[side*.049,.027,.019],.012,glove);
    bone(hm,[side*.049,.027,.019],[side*.040,.044,.032],.010,glove);
   }
-  if(p.hasBall){
-   const qb=p.role==='QB';const ballM=mul(chest,mul(translate(qb?0:.184,qb?.21:.16,qb?.305:.23),rz(qb?1.15:-.28)));
-   ell(ballM,0,0,0,.091,.188,.088,leather);box(ballM,0,0,.088,.017,.117,.006,white);
-   for(let i=-2;i<=2;i++)box(ballM,0,i*.020,.092,.047,.006,.005,white);
-  }
+  // The gameplay renderer owns the single possessed football so the fallback
+  // athlete cannot draw a second ball at a different body-relative anchor.
  } finally {r.actorPass=wasActor;}
 }
