@@ -206,6 +206,8 @@ assert.match(hud, /#skillPad\{display:grid/, 'The four skill actions need a comp
 assert.match(hud, /button\.cooldown/, 'Skill cooldowns need visible feedback');
 assert.match(meshySource, /p\.action==='cut'/, 'Hard direction changes must select the carry-cut animation');
 assert.match(meshySource, /p\.action==='pancake'/, 'Dominant block finishes must select a grounded animation');
+assert.match(meshySource, /ballAnchor\(p\)/, 'The football must bind to the live animated hand transform');
+assert.match(meshySource, /mixamorig:RightHand/, 'The carry anchor must resolve the rig hand bone');
 assert.match(source, /receiverSlot=receiverSlotForKey\(key\)/, 'Keyboard receiver mapping is not wired to throws');
 assert.match(source, /simTime<jukeReady/, 'Juke cooldown must use paused simulation time');
 assert.match(source, /simTime>jukeUntil/, 'Juke contact immunity must use paused simulation time');
@@ -214,6 +216,7 @@ assert.doesNotMatch(source, /finishSkillGesture/, 'Dedicated skill buttons shoul
 assert.match(source, /carrier\.vx=dx\*7\.4/, 'Juke must create a visible lateral acceleration');
 assert.match(source, /nearest\.reactionT=\.001/, 'Nearby defenders must react visibly to skill moves');
 assert.match(source, /carriedBallAnchor\(carrier,phase\)/, 'Possessed footballs must use the hand-relative anchor');
+assert.match(source, /meshy\.ballAnchor\(carrier\)/, 'Detailed athletes must render the ball from the live hand bone');
 assert.match(source, /endPlay\('QB SLIDE'/, 'A quarterback slide must safely end the play at the current spot');
 assert.match(source, /beginSkillAction\('spin'/, 'Spin must drive its own presentation state');
 assert.match(source, /beginSkillAction\(presentation,\.48/, 'Truck/stiff-arm must drive its own presentation state');
