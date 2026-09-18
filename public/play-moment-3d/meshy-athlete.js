@@ -138,6 +138,8 @@ export function meshyAnimationState(p,phase){
  if(p.action==='break-tackle')return'break-tackle';
  if(p.action==='miss')return'miss';
  if(p.action==='stumble')return'stumble';
+ if(p.action==='breakup')return'coverage-break';
+ if(p.action==='interception')return'catch-secure';
  if(p.action==='pancake')return'pancake';
  if(p.throwT>0&&p.role==='QB')return'throw-'+(p.throwStyle||'bullet');
  if(p.catchT>0)return'catch-'+(p.catchStyle||'rac');
@@ -318,6 +320,7 @@ export class MeshyAthletes{
   }
   if(phase!=='pre'&&!p.engaged&&!/tackle|hit|miss|break|slide|stumble|dive/.test(state)){
    this.rotate(locals,'mixamorig:Spine',1,0,0,profile.lean*speed);
+   this.rotate(locals,'mixamorig:Spine2',0,0,1,clamp(-(p.motion?.turn||0)*.045,-.16,.16)*speed);
    this.rotate(locals,'mixamorig:LeftArm',1,0,0,-profile.arm*beat*speed);
    this.rotate(locals,'mixamorig:RightArm',1,0,0,profile.arm*beat*speed);
   }
@@ -442,6 +445,9 @@ export class MeshyAthletes{
    if(Number.isInteger(head))locals[head].r=quatMul(locals[head].r,axisQuat(0,1,0,scan*((p.role==='QB'||p.role==='LB') ? .09 : .045)));
   }
   locals=this.blendLocals(p,locals,time,choice.state);
+  // The source scan reads slightly mascot-like at gameplay distance. A subtle
+  // head correction restores football proportions without changing the mesh.
+  const proportionHead=this.namedNodes['mixamorig:Head'];if(Number.isInteger(proportionHead))locals[proportionHead].s=locals[proportionHead].s.map(value=>value*.92);
   // Gameplay owns world locomotion. Keep only the vertical bounce in root motion.
   locals[hips].t[0]=this.base[hips].t[0];locals[hips].t[2]=this.base[hips].t[2];
   const world=new Array(locals.length),resolve=index=>world[index]||(world[index]=this.parents[index]<0?compose(locals[index].t,locals[index].r,locals[index].s):mul(resolve(this.parents[index]),compose(locals[index].t,locals[index].r,locals[index].s)));

@@ -39,3 +39,14 @@ html,body{overscroll-behavior:none;touch-action:none}
    stadium bowl. It is composited by CSS, so it adds no WebGL draw cost. */
 #hud{isolation:isolate}
 #hud::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 49%,transparent 43%,rgba(3,9,16,.08) 68%,rgba(1,5,10,.30) 100%);z-index:0}
+
+/* Continuous two-thumb control and a quieter phone HUD. */
+html,body,#game,#hud{min-height:100dvh}
+#snap{touch-action:none;-webkit-user-select:none;user-select:none}
+#knob{transition:background .08s,box-shadow .08s}
+#knob.held{background:linear-gradient(#e6ce87,#8f7334);border-color:#ffe6a0;box-shadow:0 0 0 5px #e8c66c24,0 5px 15px #0008}
+#live[data-phase="handoff"] #moves,#live[data-phase="handoff"] #stamina{display:none}
+#live[data-phase="handoff"] #stick{opacity:1!important;pointer-events:auto!important}
+#targetLayer{position:absolute;inset:0;pointer-events:none}
+#targetLayer .target{pointer-events:auto}
+@media(max-height:430px){#instruction{max-width:46%;left:27%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#message{top:66px;padding:5px 10px;font-size:10px}.build-label{opacity:.62}.scorebug{transform:scale(.94);transform-origin:top center}}

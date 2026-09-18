@@ -12,6 +12,7 @@ import {
   carriedBallAnchor,
   contactOutcome,
   contactPresentation,
+  cameraFollowBlend,
   cutSeverity,
   coverageShell,
   DEFENSIVE_CALLS,
@@ -20,6 +21,7 @@ import {
   forwardProgressSpot,
   hasCrossedScrimmage,
   identifyMikeAssignments,
+  handoffControlPoint,
   locomotionStep,
   passOutcomeChances,
   playerRatings,
@@ -36,6 +38,7 @@ import {
   runReadDelay,
   RUNS,
   sackLoss,
+  separationCorrection,
   situationalDefensiveCall,
   skillMoveForGesture,
   tackleRadius,
@@ -130,6 +133,15 @@ assert.deepEqual(openingRunControl(false, 0, 0, .8, .6, .2, .9, true), { x: .8, 
 assert.deepEqual(openingRunControl(false, .5, .4, .8, .6, .2, .9, true), carrierControlVector(false, .5, .4, .2, .9), 'Fresh stick input must immediately override the opening buffer');
 assert.deepEqual(openingRunControl(false, 0, 0, .8, .6, .2, .9, false), { x: 0, z: 0, manual: false }, 'The opening direction must expire instead of steering forever');
 assert.deepEqual(openingRunControl(true, 0, 0, .8, .6, .2, .9, true), carrierControlVector(true, 0, 0, .2, .9), 'Assist mode must keep following its run concept');
+const earlyHandoff=handoffControlPoint(-2,18,-.5,21.9,.25,1,0),lateHandoff=handoffControlPoint(-2,18,-.5,21.9,.9,1,0);
+assert.ok(earlyHandoff.x>-2,'Held input must influence the runner before the exchange finishes');
+assert.ok(lateHandoff.x>earlyHandoff.x&&lateHandoff.z>earlyHandoff.z,'The handoff must progress continuously toward the mesh and held direction');
+const separated=separationCorrection(0,0,.2,0,.8,1);
+assert.ok(Math.hypot(.2+separated.bx-separated.ax,separated.bz-separated.az)>=.799,'Overlapping non-contact players must be pushed apart');
+const stacked=separationCorrection(0,0,0,0,.8,2);
+assert.ok(Math.hypot(stacked.bx-stacked.ax,stacked.bz-stacked.az)>=.799,'Exactly stacked actors must separate deterministically');
+assert.deepEqual(separationCorrection(0,0,2,0,.8,1),{ax:0,az:0,bx:0,bz:0},'Separated players must not be moved');
+assert.ok(Math.abs(cameraFollowBlend(1/60,5)*2-cameraFollowBlend(1/30,5))<.02,'Camera damping must remain stable across frame rates');
 assert.equal(cutSeverity(0, 7, 0, -1), 1, 'A full-speed reversal must trigger a hard plant');
 assert.equal(cutSeverity(0, 2, 1, 0), 0, 'Low-speed direction changes should remain responsive');
 assert.equal(blockOutcome(95, 72, .2, .5), 'steer', 'A leveraged elite blocker should steer the defender');
@@ -292,11 +304,11 @@ assert.match(source, /runFit\(p,dt\)/, 'Free defenders must honor their read ste
 assert.match(source, /engagedWith/, 'Block engagements must preserve an explicit blocker-defender pairing');
 assert.match(source, /pursuitTarget\(p,target/, 'Open-field pursuit must use predictive leverage instead of direct homing');
 assert.match(source, /p\.role!=='DL'&&!p\.engaged/, 'A blocked linebacker must not pursue through his lineman');
-assert.match(source, /\['pre','pass','run'\]\.includes\(phase\)/, 'The movement stick must accept a held direction before the snap');
+assert.match(source, /\['pre','handoff','pass','run'\]\.includes\(phase\)/, 'The movement stick must stay mounted and accept input through the handoff');
 assert.match(source, /snapDirectionUntil=simTime\+\.75/, 'A pre-snap direction must remain buffered briefly after the handoff');
 assert.match(source, /\$\('snap'\)\.onpointerdown/, 'Snap must fire on touch down while the movement stick remains held');
 assert.match(source, /b\.heading=Math\.atan2\(launch\[0\],launch\[1\]\)/, 'The runner must face the buffered direction as possession starts');
-assert.match(source, /BALL CARRIER · YOU HAVE CONTROL/, 'The handoff must visibly confirm manual ball-carrier control');
+assert.match(source, /BALL CARRIER · DIRECTION HELD/, 'The handoff must visibly confirm continuous manual ball-carrier control');
 assert.doesNotMatch(source, /else if\(guide\)\{x=guide\.x;z=guide\.z\}/, 'Manual run control must not fall back to automatic concept steering');
 assert.match(source, /document\.querySelectorAll\('#skillPad button'\)/, 'Juke, spin, power and hurdle controls must use dedicated mobile buttons');
 assert.match(source, /function flipPlay\(/, 'Pre-snap play flipping must be wired');
@@ -310,6 +322,7 @@ assert.match(source, /function watchReplay\(/, 'Explosive plays must be retained
 assert.match(source, /function stadiumSound\(/, 'Snap, collision and touchdown presentation must include stadium audio feedback');
 assert.match(source, /blocker\.blockResult=blockOutcome/, 'Run blocks must resolve individual win, steer, shed or pancake outcomes');
 assert.match(source, /CONTESTED /, 'Contested catches need player feedback');
+assert.match(source, /catchChoices'\)\.hidden=flight\.t<\.28/, 'Catch choices must wait until the player can visually track the throw');
 assert.match(source, /TIGHT WINDOW · PASS BROKEN UP/, 'Tight-window incompletions need player feedback');
 assert.match(source, /DROPPED PASS/, 'Open-target drops must not be mislabeled as breakups');
 assert.match(source, /if\(nearest<\.92\)/, 'Sacks must require actual rusher contact');
@@ -322,8 +335,8 @@ assert.match(source, /phase='run';assist=false;elapsed=0/, 'A scramble must alwa
 assert.match(source, /LEAVE THE POCKET TO THROW AWAY/, 'Throwaway control must teach the tackle-box rule');
 assert.match(source, /flight\.throwAway/, 'A legal throwaway must travel to the sideline before ending the down');
 assert.match(source, /beginContactSequence\(d,outcome,helpers,speed\)/, 'Successful tackles must start a timed contact sequence');
-assert.match(source, /if\(phase==='dead'\)\{simTime\+=dt;if\(activeContact\)advanceContactSequence\(dt\)/, 'Contact animation must advance after the whistle');
-assert.match(source, /if\(c\.elapsed>=c\.duration\)activeContact=null/, 'Completed contact must release its paused-loop continuation');
+assert.match(source, /if\(phase==='dead'\)\{simTime\+=dt;postPlayElapsed\+=dt;if\(activeContact\)advanceContactSequence\(dt\)/, 'Contact animation and post-play movement must advance after the whistle');
+assert.match(source, /if\(c\.elapsed>=c\.duration\)\{activeContact=null/, 'Completed contact must release its paused-loop continuation');
 assert.match(source, /\(!paused\|\|activeContact\)&&!qaStepping/, 'Drive-ending hits must finish even after the result dialog pauses gameplay');
 assert.match(source, /title==='TOUCHDOWN'&&carrier&&!activeContact/, 'A tackle at the goal line must finish before celebration can replace its contact pose');
 
