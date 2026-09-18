@@ -14,7 +14,7 @@ export function cameraWorldVector(screenX,screenZ,eye,target){const fx=target[0]
 export function normalizeControlKey(key){return typeof key==='string'&&key.length===1?key.toLowerCase():key}
 export function receiverSlotForKey(key){const slot={x:0,y:1,z:2,'1':0,'2':1,'3':2,'4':3,'5':4}[normalizeControlKey(key)];return Number.isInteger(slot)?slot:-1}
 export function catchBreakupChance(separation){return separation<.7?.9:separation<1.2?.68:separation<2?.3:.04}
-export function defenderPursuitSpeed(separation,afterCatch=false){const base=afterCatch?7.55:6.55,ceiling=afterCatch?8.4:7.2;return clamp(base+Math.max(0,separation-1)*(afterCatch?.12:.06),base,ceiling)}
+export function defenderPursuitSpeed(separation,afterCatch=false){const base=afterCatch?7.65:6.8,ceiling=afterCatch?8.85:8.55;return clamp(base+Math.max(0,separation-1)*(afterCatch?.14:.11),base,ceiling)}
 export function tackleRadius(possessionSeconds,afterCatch=false){const grace=afterCatch?.18:.55;if(possessionSeconds<grace)return 0;return afterCatch?1.05:.86}
 /** Require real convergence before a tackle begins so parallel runners do not
  * magnetically snap into contact. Very close body contact still counts. */
@@ -115,9 +115,10 @@ export function pursuitLaneOffset(defenderIndex,separation,runnerX=0){
 /** Aim pursuit ahead of the runner while keeping outside leverage near a sideline. */
 export function pursuitTarget(defender,runner,afterCatch=false){
  const speed=Math.hypot(runner.vx||0,runner.vz||0),separation=Math.hypot(runner.x-defender.x,runner.z-defender.z);
- const lead=clamp(.12+separation*.018+(afterCatch?.08:0),.12,.38)*(speed>2?1:0);
+ const lead=clamp(.12+separation*.018+(afterCatch?.08:0),.12,.38)*(speed>2?1:0),ahead=(defender.z||0)-(runner.z||0),vertical=Math.max(2,runner.vz||0),crossingLead=ahead>1.5&&vertical>2?clamp(ahead/vertical,lead,.92):lead;
  const sideline=clamp(Math.abs(runner.x)/26,0,1),inside=-Math.sign(runner.x||1)*sideline*.72,lane=pursuitLaneOffset(defender.index,separation,runner.x);
- return{x:clamp(runner.x+(runner.vx||0)*lead+inside+lane,-25.8,25.8),z:runner.z+(runner.vz||0)*lead+.28};
+ const predictedZ=runner.z+(runner.vz||0)*lead+.28,preserveDepth=ahead>1.5&&vertical>2?defender.z-.42:predictedZ;
+ return{x:clamp(runner.x+(runner.vx||0)*crossingLead+inside+lane,-25.8,25.8),z:Math.max(predictedZ,preserveDepth)};
 }
 /** Preserve a small amount of earned forward momentum through wrap contact. */
 export function forwardProgressSpot(z,vz){return z-10+clamp(Math.max(0,vz||0)*.085,0,.72)}

@@ -76,11 +76,15 @@ assert.equal(tackleContactEligible({x:0,z:0,vx:8,vz:0},{x:1.2,z:0,vx:0,vz:0},.86
 for (const separation of [0, 2, 8, 20]) {
   const runSpeed = defenderPursuitSpeed(separation, false);
   const passSpeed = defenderPursuitSpeed(separation, true);
-  assert.ok(runSpeed >= 6.55 && runSpeed <= 7.2);
-  assert.ok(passSpeed >= 7.55 && passSpeed <= 8.4);
+  assert.ok(runSpeed >= 6.8 && runSpeed <= 8.55);
+  assert.ok(passSpeed >= 7.65 && passSpeed <= 8.85);
   assert.ok(passSpeed > runSpeed, 'Open-field pass pursuit should close faster than box pursuit');
   assert.ok(passSpeed < 9.2, 'A full-stamina sprint must still be able to win a footrace');
 }
+
+const deepSafetyTarget=pursuitTarget({index:21,x:0,z:58,vx:0,vz:0},{x:4,z:44,vx:1,vz:8},false);
+assert.ok(deepSafetyTarget.z>=57.5,'A deep safety must preserve his depth instead of chasing backward into open grass');
+assert.ok(deepSafetyTarget.x>0,'A deep safety should shade toward the runner\'s projected crossing point');
 
 assert.equal(throwKindForHold(0), 'bullet');
 assert.equal(throwKindForHold(219), 'bullet');
