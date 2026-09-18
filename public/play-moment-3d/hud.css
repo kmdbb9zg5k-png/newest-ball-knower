@@ -50,3 +50,12 @@ html,body,#game,#hud{min-height:100dvh}
 #targetLayer{position:absolute;inset:0;pointer-events:none}
 #targetLayer .target{pointer-events:auto}
 @media(max-height:430px){#instruction{max-width:46%;left:27%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#message{top:66px;padding:5px 10px;font-size:10px}.build-label{opacity:.62}.scorebug{transform:scale(.94);transform-origin:top center}}
+@media(max-height:520px) and (max-width:1180px){
+ #stick{left:max(18px,env(safe-area-inset-left));bottom:max(16px,calc(env(safe-area-inset-bottom) + 9px));width:88px;height:88px;background:radial-gradient(circle,#e8edf016 0 32%,#08122170 33%)}
+ #knob{width:40px;height:40px;margin:-20px}
+ #moves{right:max(18px,env(safe-area-inset-right));bottom:max(16px,calc(env(safe-area-inset-bottom) + 9px));gap:7px}
+ #skillPad{grid-template-columns:repeat(2,44px);gap:4px}#skillPad button,#moves button{width:44px;height:44px;font-size:7px;background:#0a1621b8}
+ #moves #sprint{width:66px;height:66px;font-size:8px}
+ #catchChoices{bottom:max(14px,calc(env(safe-area-inset-bottom) + 8px));gap:5px}#catchChoices button{min-width:82px;height:44px;padding:4px 7px}
+ #stamina{bottom:8px;width:112px;left:calc(50% - 56px)}
+}
