@@ -29,6 +29,7 @@ export function makeStadium(r){
  const [dust,dc]=canvas(96,96),dustGlow=dc.createRadialGradient(48,48,2,48,48,46);dustGlow.addColorStop(0,'rgba(255,247,210,.82)');dustGlow.addColorStop(.26,'rgba(196,166,103,.48)');dustGlow.addColorStop(1,'rgba(124,96,54,0)');dc.fillStyle=dustGlow;dc.fillRect(0,0,96,96);for(let i=0;i<28;i++){dc.fillStyle=`rgba(255,239,190,${.12+random()*.28})`;dc.beginPath();dc.arc(18+random()*60,18+random()*60,.7+random()*2.2,0,Math.PI*2);dc.fill()}r.texture('turf-fx',dust);
  const [impact,ic]=canvas(128,128),impactGlow=ic.createRadialGradient(64,64,0,64,64,64);impactGlow.addColorStop(0,'rgba(255,244,187,.86)');impactGlow.addColorStop(.14,'rgba(255,199,78,.46)');impactGlow.addColorStop(.42,'rgba(243,132,40,.12)');impactGlow.addColorStop(1,'rgba(225,102,26,0)');ic.fillStyle=impactGlow;ic.fillRect(0,0,128,128);r.texture('impact-glow',impact);
  const [pool,pc]=canvas(128,128),poolGlow=pc.createRadialGradient(64,64,1,64,64,64);poolGlow.addColorStop(0,'rgba(224,238,242,.24)');poolGlow.addColorStop(.45,'rgba(176,207,220,.095)');poolGlow.addColorStop(1,'rgba(115,160,184,0)');pc.fillStyle=poolGlow;pc.fillRect(0,0,128,128);r.texture('stadium-pool',pool);
+ const [ribbon,rc]=canvas(128,2048),ribbonGradient=rc.createLinearGradient(0,0,128,0);ribbonGradient.addColorStop(0,'#07111a');ribbonGradient.addColorStop(.48,'#233843');ribbonGradient.addColorStop(1,'#07111a');rc.fillStyle=ribbonGradient;rc.fillRect(0,0,128,2048);for(let y=0;y<2048;y+=128){const hot=(y/128)%3===0;rc.fillStyle=hot?'#d7b966':'#6f93a7';rc.fillRect(18,y+16,92,5);rc.fillStyle=hot?'#745e2f':'#263f51';rc.fillRect(30,y+34,68,44);rc.fillStyle='#e8edf0';for(let x=37;x<93;x+=14)rc.fillRect(x,y+46,5,18);rc.fillStyle='#0b151e';rc.fillRect(18,y+96,92,3)}r.texture('led-ribbon',ribbon);
  add('cube',pose(0,-.22,60,88,.4,148),C('#222e31'));
  add('plane',pose(0,.01,60,53.333,1,120),[1,1,1,1],'turf');
  for(const x of[-16,16])for(const z of[31,89])add('plane',pose(x,.018,z,30,1,24),[1,1,1,.75],'stadium-pool',true);
@@ -66,6 +67,7 @@ export function makeStadium(r){
  }
  // Upper-deck lights, ribbon boards and rails frame the field without a sky image.
  for(const side of[-1,1]){
+  const ribbonMatrix=mul(translate(side*45.66,12.95,60),mul(rz(side*Math.PI/2),scale(.42,1,69)));add('plane',ribbonMatrix,[1,1,1,.96],'led-ribbon',true);
   add('cube',pose(side*46,11.8,60,.12,.14,139),C('#b18d4e'),'',true);
   add('cylinder',segment([side*30,1.9,-3],[side*30,1.9,123],.045),C('#86929b'));
   for(let z=0;z<=120;z+=4)add('cylinder',segment([side*30,.8,z],[side*30,1.9,z],.035),C('#68747e'));

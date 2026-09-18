@@ -253,7 +253,14 @@ assert.match(meshySource, /mixamorig:RightHand/, 'The carry anchor must resolve 
 assert.match(source, /carrier\.sprinting=boosting/, 'The Sprint control must explicitly drive the carrier animation state');
 assert.match(meshySource, /p\.hasBall&&p\.sprinting/, 'The rigged carrier must select Sprint from input state rather than a raw speed threshold');
 assert.match(meshySource, /rimColor\*rim/, 'Detailed athletes need stadium rim light to separate them from the field');
+assert.match(meshySource, /lightSpace=lightVP\*w/, 'Detailed athletes must receive the animated stadium shadow map');
+assert.match(meshySource, /clearcoat/, 'Helmet and pad surfaces need a distinct clearcoat response');
+assert.match(meshySource, /weave=sin/, 'Uniform fabric needs close-range weave detail');
+assert.match(meshySource, /uniform float roleClass/, 'Position groups need distinct material wear variation');
 assert.match(rendererSource, /crossGrain/, 'The turf shader must include cross-grain blade variation');
+assert.match(rendererSource, /bankA\+bankB/, 'World geometry needs localized stadium-bank lighting');
+assert.match(rendererSource, /float mowing=/, 'The field shader needs directional mowing variation');
+assert.match(rendererSource, /float moon=/, 'The stadium sky needs a cinematic moon and halo');
 assert.match(rendererSource, /texture==='player-glow'/, 'The renderer must blend the controlled-player focus halo');
 assert.match(rendererSource, /texture==='turf-fx'/, 'The renderer must blend live turf particles');
 assert.match(rendererSource, /shadowCasters/, 'The renderer must accept detailed animated shadow casters');
@@ -261,6 +268,7 @@ assert.match(rendererSource, /skyHash/, 'The night sky must retain procedural de
 assert.match(stadiumSource, /r\.texture\('player-glow'/, 'The stadium must install the controlled-player focus texture');
 assert.match(stadiumSource, /r\.texture\('impact-glow'/, 'The stadium must install the contact burst texture');
 assert.match(stadiumSource, /r\.texture\('stadium-pool'/, 'The field must include subtle floodlight pools');
+assert.match(stadiumSource, /r\.texture\('led-ribbon'/, 'The stadium bowl must include illuminated ribbon boards');
 assert.match(stadiumSource, /if\(k%18===8\|\|k%18===9\)continue/, 'Crowd tiers need aisle breaks instead of an artificial solid grid');
 assert.match(source, /phase==='pre'\|\|phase==='pass'\|\|phase==='handoff'/, 'The camera must remain stable through the snap and handoff');
 assert.match(source, /'player-glow',true/, 'The live scene must render a soft focus halo below the controlled player');
