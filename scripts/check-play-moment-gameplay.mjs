@@ -42,6 +42,7 @@ import {
   situationalDefensiveCall,
   skillMoveForGesture,
   tackleRadius,
+  tackleContactEligible,
   THROW_PROFILES,
   throwKindForHold,
   throwKindForModifiers,
@@ -67,6 +68,10 @@ assert.equal(tackleRadius(.3, false), 0, 'Run handoff grace should still be acti
 assert.equal(tackleRadius(.56, false), .86, 'Run contact should activate after the handoff settles');
 assert.equal(tackleRadius(.1, true), 0, 'A catch should complete before contact');
 assert.equal(tackleRadius(.19, true), 1.05, 'Catch contact should activate quickly');
+assert.equal(tackleContactEligible({x:0,z:0,vx:0,vz:7},{x:.75,z:0,vx:0,vz:7},.86),false,'Parallel runners must not magnetically trigger a tackle');
+assert.equal(tackleContactEligible({x:0,z:0,vx:5,vz:0},{x:.75,z:0,vx:0,vz:0},.86),true,'A defender closing through the runner should trigger contact');
+assert.equal(tackleContactEligible({x:0,z:0,vx:0,vz:0},{x:.5,z:0,vx:0,vz:0},.86),true,'Core body overlap should still trigger contact');
+assert.equal(tackleContactEligible({x:0,z:0,vx:8,vz:0},{x:1.2,z:0,vx:0,vz:0},.86),false,'Closing speed cannot extend the tackle radius');
 
 for (const separation of [0, 2, 8, 20]) {
   const runSpeed = defenderPursuitSpeed(separation, false);
