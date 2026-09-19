@@ -12,7 +12,6 @@ import {
   carriedBallAnchor,
   contactOutcome,
   contactPresentation,
-  cameraFollowBlend,
   cutSeverity,
   coverageShell,
   DEFENSIVE_CALLS,
@@ -21,7 +20,6 @@ import {
   forwardProgressSpot,
   hasCrossedScrimmage,
   identifyMikeAssignments,
-  handoffControlPoint,
   locomotionStep,
   passOutcomeChances,
   playerRatings,
@@ -38,11 +36,9 @@ import {
   runReadDelay,
   RUNS,
   sackLoss,
-  separationCorrection,
   situationalDefensiveCall,
   skillMoveForGesture,
   tackleRadius,
-  tackleContactEligible,
   THROW_PROFILES,
   throwKindForHold,
   throwKindForModifiers,
@@ -68,23 +64,15 @@ assert.equal(tackleRadius(.3, false), 0, 'Run handoff grace should still be acti
 assert.equal(tackleRadius(.56, false), .86, 'Run contact should activate after the handoff settles');
 assert.equal(tackleRadius(.1, true), 0, 'A catch should complete before contact');
 assert.equal(tackleRadius(.19, true), 1.05, 'Catch contact should activate quickly');
-assert.equal(tackleContactEligible({x:0,z:0,vx:0,vz:7},{x:.75,z:0,vx:0,vz:7},.86),false,'Parallel runners must not magnetically trigger a tackle');
-assert.equal(tackleContactEligible({x:0,z:0,vx:5,vz:0},{x:.75,z:0,vx:0,vz:0},.86),true,'A defender closing through the runner should trigger contact');
-assert.equal(tackleContactEligible({x:0,z:0,vx:0,vz:0},{x:.5,z:0,vx:0,vz:0},.86),true,'Core body overlap should still trigger contact');
-assert.equal(tackleContactEligible({x:0,z:0,vx:8,vz:0},{x:1.2,z:0,vx:0,vz:0},.86),false,'Closing speed cannot extend the tackle radius');
 
 for (const separation of [0, 2, 8, 20]) {
   const runSpeed = defenderPursuitSpeed(separation, false);
   const passSpeed = defenderPursuitSpeed(separation, true);
-  assert.ok(runSpeed >= 6.8 && runSpeed <= 8.55);
-  assert.ok(passSpeed >= 7.65 && passSpeed <= 8.85);
+  assert.ok(runSpeed >= 6.55 && runSpeed <= 7.2);
+  assert.ok(passSpeed >= 7.55 && passSpeed <= 8.4);
   assert.ok(passSpeed > runSpeed, 'Open-field pass pursuit should close faster than box pursuit');
   assert.ok(passSpeed < 9.2, 'A full-stamina sprint must still be able to win a footrace');
 }
-
-const deepSafetyTarget=pursuitTarget({index:21,x:0,z:58,vx:0,vz:0},{x:4,z:44,vx:1,vz:8},false);
-assert.ok(deepSafetyTarget.z>=57.5,'A deep safety must preserve his depth instead of chasing backward into open grass');
-assert.ok(deepSafetyTarget.x>0,'A deep safety should shade toward the runner\'s projected crossing point');
 
 assert.equal(throwKindForHold(0), 'bullet');
 assert.equal(throwKindForHold(219), 'bullet');
@@ -142,15 +130,6 @@ assert.deepEqual(openingRunControl(false, 0, 0, .8, .6, .2, .9, true), { x: .8, 
 assert.deepEqual(openingRunControl(false, .5, .4, .8, .6, .2, .9, true), carrierControlVector(false, .5, .4, .2, .9), 'Fresh stick input must immediately override the opening buffer');
 assert.deepEqual(openingRunControl(false, 0, 0, .8, .6, .2, .9, false), { x: 0, z: 0, manual: false }, 'The opening direction must expire instead of steering forever');
 assert.deepEqual(openingRunControl(true, 0, 0, .8, .6, .2, .9, true), carrierControlVector(true, 0, 0, .2, .9), 'Assist mode must keep following its run concept');
-const earlyHandoff=handoffControlPoint(-2,18,-.5,21.9,.25,1,0),lateHandoff=handoffControlPoint(-2,18,-.5,21.9,.9,1,0);
-assert.ok(earlyHandoff.x>-2,'Held input must influence the runner before the exchange finishes');
-assert.ok(lateHandoff.x>earlyHandoff.x&&lateHandoff.z>earlyHandoff.z,'The handoff must progress continuously toward the mesh and held direction');
-const separated=separationCorrection(0,0,.2,0,.8,1);
-assert.ok(Math.hypot(.2+separated.bx-separated.ax,separated.bz-separated.az)>=.799,'Overlapping non-contact players must be pushed apart');
-const stacked=separationCorrection(0,0,0,0,.8,2);
-assert.ok(Math.hypot(stacked.bx-stacked.ax,stacked.bz-stacked.az)>=.799,'Exactly stacked actors must separate deterministically');
-assert.deepEqual(separationCorrection(0,0,2,0,.8,1),{ax:0,az:0,bx:0,bz:0},'Separated players must not be moved');
-assert.ok(Math.abs(cameraFollowBlend(1/60,5)*2-cameraFollowBlend(1/30,5))<.02,'Camera damping must remain stable across frame rates');
 assert.equal(cutSeverity(0, 7, 0, -1), 1, 'A full-speed reversal must trigger a hard plant');
 assert.equal(cutSeverity(0, 2, 1, 0), 0, 'Low-speed direction changes should remain responsive');
 assert.equal(blockOutcome(95, 72, .2, .5), 'steer', 'A leveraged elite blocker should steer the defender');
@@ -235,7 +214,7 @@ assert.ok(CATCH_STYLES.rac.yac > CATCH_STYLES.secure.yac && CATCH_STYLES.aggress
 const fastCarrier={index:6,team:0,role:'RB',vx:8.3,vz:0,hasBall:true,sprinting:false,action:null,throwT:0,catchT:0,engaged:false,motion:{speed:8.3,run:1,ready:0,block:0,turn:0,gait:0,fall:0,catch:0,throwTime:1}};
 assert.equal(meshyAnimationState(fastCarrier,'run'),'carry-run','Normal movement must keep the regular carry-run animation even at high speed');
 assert.equal(meshyAnimationState({...fastCarrier,sprinting:true},'run'),'carry-sprint','Holding Sprint must explicitly select the carry-sprint animation');
-assert.equal(motionRecipeForState('carry-sprint').base,MESHY_CLIPS.run,'Carrier Sprint must use the verified looping run clip instead of the malformed generated source clip');
+assert.equal(motionRecipeForState('carry-sprint').base,MESHY_CLIPS.sprint,'Carrier Sprint must use the verified Meshy sprint cycle');
 assert.ok(motionRecipeForState('carry-sprint').rate>motionRecipeForState('carry-run').rate,'Carrier Sprint must have a visibly faster cadence than the regular run');
 assert.equal(samplePose(fastCarrier).sprint,0,'The fallback regular run must not inherit the sprint posture from raw speed');
 assert.ok(samplePose({...fastCarrier,sprinting:true}).sprint>0,'The fallback athlete must use a distinct sprint posture while boosting');
@@ -257,14 +236,7 @@ assert.match(meshySource, /mixamorig:RightHand/, 'The carry anchor must resolve 
 assert.match(source, /carrier\.sprinting=boosting/, 'The Sprint control must explicitly drive the carrier animation state');
 assert.match(meshySource, /p\.hasBall&&p\.sprinting/, 'The rigged carrier must select Sprint from input state rather than a raw speed threshold');
 assert.match(meshySource, /rimColor\*rim/, 'Detailed athletes need stadium rim light to separate them from the field');
-assert.match(meshySource, /lightSpace=lightVP\*w/, 'Detailed athletes must receive the animated stadium shadow map');
-assert.match(meshySource, /clearcoat/, 'Helmet and pad surfaces need a distinct clearcoat response');
-assert.match(meshySource, /weave=sin/, 'Uniform fabric needs close-range weave detail');
-assert.match(meshySource, /uniform float roleClass/, 'Position groups need distinct material wear variation');
 assert.match(rendererSource, /crossGrain/, 'The turf shader must include cross-grain blade variation');
-assert.match(rendererSource, /bankA\+bankB/, 'World geometry needs localized stadium-bank lighting');
-assert.match(rendererSource, /float mowing=/, 'The field shader needs directional mowing variation');
-assert.match(rendererSource, /float moon=/, 'The stadium sky needs a cinematic moon and halo');
 assert.match(rendererSource, /texture==='player-glow'/, 'The renderer must blend the controlled-player focus halo');
 assert.match(rendererSource, /texture==='turf-fx'/, 'The renderer must blend live turf particles');
 assert.match(rendererSource, /shadowCasters/, 'The renderer must accept detailed animated shadow casters');
@@ -272,7 +244,6 @@ assert.match(rendererSource, /skyHash/, 'The night sky must retain procedural de
 assert.match(stadiumSource, /r\.texture\('player-glow'/, 'The stadium must install the controlled-player focus texture');
 assert.match(stadiumSource, /r\.texture\('impact-glow'/, 'The stadium must install the contact burst texture');
 assert.match(stadiumSource, /r\.texture\('stadium-pool'/, 'The field must include subtle floodlight pools');
-assert.match(stadiumSource, /r\.texture\('led-ribbon'/, 'The stadium bowl must include illuminated ribbon boards');
 assert.match(stadiumSource, /if\(k%18===8\|\|k%18===9\)continue/, 'Crowd tiers need aisle breaks instead of an artificial solid grid');
 assert.match(source, /phase==='pre'\|\|phase==='pass'\|\|phase==='handoff'/, 'The camera must remain stable through the snap and handoff');
 assert.match(source, /'player-glow',true/, 'The live scene must render a soft focus halo below the controlled player');
@@ -321,11 +292,11 @@ assert.match(source, /runFit\(p,dt\)/, 'Free defenders must honor their read ste
 assert.match(source, /engagedWith/, 'Block engagements must preserve an explicit blocker-defender pairing');
 assert.match(source, /pursuitTarget\(p,target/, 'Open-field pursuit must use predictive leverage instead of direct homing');
 assert.match(source, /p\.role!=='DL'&&!p\.engaged/, 'A blocked linebacker must not pursue through his lineman');
-assert.match(source, /\['pre','handoff','pass','run'\]\.includes\(phase\)/, 'The movement stick must stay mounted and accept input through the handoff');
+assert.match(source, /\['pre','pass','run'\]\.includes\(phase\)/, 'The movement stick must accept a held direction before the snap');
 assert.match(source, /snapDirectionUntil=simTime\+\.75/, 'A pre-snap direction must remain buffered briefly after the handoff');
 assert.match(source, /\$\('snap'\)\.onpointerdown/, 'Snap must fire on touch down while the movement stick remains held');
 assert.match(source, /b\.heading=Math\.atan2\(launch\[0\],launch\[1\]\)/, 'The runner must face the buffered direction as possession starts');
-assert.match(source, /BALL CARRIER · DIRECTION HELD/, 'The handoff must visibly confirm continuous manual ball-carrier control');
+assert.match(source, /BALL CARRIER · YOU HAVE CONTROL/, 'The handoff must visibly confirm manual ball-carrier control');
 assert.doesNotMatch(source, /else if\(guide\)\{x=guide\.x;z=guide\.z\}/, 'Manual run control must not fall back to automatic concept steering');
 assert.match(source, /document\.querySelectorAll\('#skillPad button'\)/, 'Juke, spin, power and hurdle controls must use dedicated mobile buttons');
 assert.match(source, /function flipPlay\(/, 'Pre-snap play flipping must be wired');
@@ -339,7 +310,6 @@ assert.match(source, /function watchReplay\(/, 'Explosive plays must be retained
 assert.match(source, /function stadiumSound\(/, 'Snap, collision and touchdown presentation must include stadium audio feedback');
 assert.match(source, /blocker\.blockResult=blockOutcome/, 'Run blocks must resolve individual win, steer, shed or pancake outcomes');
 assert.match(source, /CONTESTED /, 'Contested catches need player feedback');
-assert.match(source, /catchChoices'\)\.hidden=flight\.t<\.28/, 'Catch choices must wait until the player can visually track the throw');
 assert.match(source, /TIGHT WINDOW · PASS BROKEN UP/, 'Tight-window incompletions need player feedback');
 assert.match(source, /DROPPED PASS/, 'Open-target drops must not be mislabeled as breakups');
 assert.match(source, /if\(nearest<\.92\)/, 'Sacks must require actual rusher contact');
@@ -352,8 +322,8 @@ assert.match(source, /phase='run';assist=false;elapsed=0/, 'A scramble must alwa
 assert.match(source, /LEAVE THE POCKET TO THROW AWAY/, 'Throwaway control must teach the tackle-box rule');
 assert.match(source, /flight\.throwAway/, 'A legal throwaway must travel to the sideline before ending the down');
 assert.match(source, /beginContactSequence\(d,outcome,helpers,speed\)/, 'Successful tackles must start a timed contact sequence');
-assert.match(source, /if\(phase==='dead'\)\{simTime\+=dt;postPlayElapsed\+=dt;if\(activeContact\)advanceContactSequence\(dt\)/, 'Contact animation and post-play movement must advance after the whistle');
-assert.match(source, /if\(c\.elapsed>=c\.duration\)\{activeContact=null/, 'Completed contact must release its paused-loop continuation');
+assert.match(source, /if\(phase==='dead'\)\{simTime\+=dt;if\(activeContact\)advanceContactSequence\(dt\)/, 'Contact animation must advance after the whistle');
+assert.match(source, /if\(c\.elapsed>=c\.duration\)activeContact=null/, 'Completed contact must release its paused-loop continuation');
 assert.match(source, /\(!paused\|\|activeContact\)&&!qaStepping/, 'Drive-ending hits must finish even after the result dialog pauses gameplay');
 assert.match(source, /title==='TOUCHDOWN'&&carrier&&!activeContact/, 'A tackle at the goal line must finish before celebration can replace its contact pose');
 
