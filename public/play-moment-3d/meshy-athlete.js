@@ -458,7 +458,7 @@ export class MeshyAthletes{
   if(p.action==='break-tackle')roll+=(p.actionSide||1)*.18*Math.sin((p.actionT||0)*Math.PI);if(p.action==='miss')pitch+=.34*Math.sin((p.actionT||0)*Math.PI);if(p.engaged)pitch+=.11;if(p.reactionT>0)roll+=(p.reactionSide||1)*.12*Math.sin(clamp(p.reactionT,0,1)*Math.PI);
   const contactFall=p.fallen&&/tackle|hit|gang|wrap|slide|dive|pancake/.test(p.action||''),rawFall=clamp(p.actionT||0,0,1),fallProgress=contactFall?rawFall*rawFall*(3-2*rawFall):p.fallen?1:0,wrapFall=p.team===1?.86:1.02,fall=fallProgress*(p.action==='slide'?.72:p.action==='dive'?(p.team===1?1.38:1.08):p.action==='big-hit'?1.48:p.action==='pancake'?1.18:p.action==='gang'?1.08:p.action==='wrap'?wrapFall:1.24),fallRoll=fallProgress*((p.index%2?1:-1)*(p.action==='gang'?.28:p.action==='slide'?.05:p.action==='wrap'?.08:.12));return mul(translate(p.x,lift+.02,p.z),mul(ry((p.heading||0)+yaw),mul(rx(fall+pitch),mul(rz(roll+fallRoll),scale(1.17*build[0]*variation,1.17*build[1]/variation,1.17*build[2]*variation)))));
  }
- numberDecalMatrix(p,front=false){return front?mul(this.modelFor(p),mul(translate(0,1.10,.205),mul(rx(-Math.PI/2),scale(.40,-1,-.46)))):mul(this.modelFor(p),mul(translate(0,1.10,-.205),mul(rx(Math.PI/2),scale(-.40,-1,.46))))}
+ numberDecalMatrix(p,front=false){return front?mul(this.modelFor(p),mul(translate(0,1.10,.205),mul(rx(-Math.PI/2),scale(.30,-1,-.32)))):mul(this.modelFor(p),mul(translate(0,1.10,-.205),mul(rx(Math.PI/2),scale(-.30,-1,.32))))}
  queueShadows(actors,phase,time){
   if(!this.ready||!this.renderer.shadowAvailable)return false;this.phase=phase;this.frameBones=new Map(actors.map(p=>[p.index,this.bonesFor(p,phase,time)]));
   this.renderer.queueShadowCaster(lightVP=>{const gl=this.gl;gl.useProgram(this.depthProgram);gl.bindVertexArray(this.vao);gl.uniformMatrix4fv(this.depthUniforms.lightVP,false,lightVP);for(const p of actors){gl.uniformMatrix4fv(this.depthUniforms.model,false,this.modelFor(p));gl.uniformMatrix4fv(this.depthUniforms.bones,false,this.frameBones.get(p.index));gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0)}gl.bindVertexArray(null);return actors.length});return true;
@@ -468,7 +468,7 @@ export class MeshyAthletes{
   this.frameBones=null;gl.bindVertexArray(null);return true;
  }
  drawJerseyNumbers(actors){
-  if(!this.ready)return false;const r=this.renderer;r.lateBegin();for(const p of actors){const texture='meshy-number-'+p.team+'-'+p.number;if(!r.textures.has(texture))continue;r.add('plane',this.numberDecalMatrix(p,false),[1,1,1,1],texture,false,0,2);r.add('plane',this.numberDecalMatrix(p,true),[1,1,1,1],texture,false,0,2)}r.drawLate();return true;
+  if(!this.ready)return false;const r=this.renderer;r.lateBegin();for(const p of actors){const texture='meshy-number-'+p.team+'-'+p.number;if(!r.textures.has(texture))continue;r.add('plane',this.numberDecalMatrix(p,false),[1,1,1,1],texture,true,0,2);r.add('plane',this.numberDecalMatrix(p,true),[1,1,1,1],texture,true,0,2)}r.drawLate();return true;
  }
  ballAnchor(p){
   const phase=arguments[1]||this.phase||'run';if(!this.ready||!p)return null;const hands=this.handTransforms.get(p.index);if(!hands)return null;

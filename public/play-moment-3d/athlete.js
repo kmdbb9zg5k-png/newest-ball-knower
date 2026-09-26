@@ -20,12 +20,11 @@ export function prepareJerseys(r,actors){
   ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='800 12px system-ui';ctx.fillStyle=k.ink;ctx.fillText(p.team?'RIVALS':'KNOWERS',64,18);
   ctx.font='900 78px Arial';ctx.lineWidth=3;ctx.strokeStyle=p.team?'#9eaaa4':'#9c834a';ctx.strokeText(String(p.number),64,72);ctx.fillStyle=k.ink;ctx.fillText(String(p.number),64,72);
   r.texture(key,c);
-  // The shared Meshy source uniform has a baked-in 17. A fitted live number
-  // plate covers it with the actual roster number on both sides of the torso.
+  // The shared Meshy source uniform has a baked-in number. Keep only the live
+  // digits in this texture so its transparent edges never form a jersey card.
   const meshKey='meshy-number-'+p.team+'-'+p.number;if(!r.textures.has(meshKey)){
    const n=document.createElement('canvas');n.width=n.height=128;const nc=n.getContext('2d'),home=!p.team;
-   const cloth=nc.createLinearGradient(0,0,128,128);cloth.addColorStop(0,home?'#18364d':'#eef0ea');cloth.addColorStop(1,home?'#10283d':'#cfd4d2');nc.fillStyle=cloth;nc.fillRect(0,0,128,128);
-   nc.strokeStyle=home?'rgba(231,199,110,.13)':'rgba(116,48,44,.12)';nc.lineWidth=1;for(let x=-128;x<256;x+=12){nc.beginPath();nc.moveTo(x,0);nc.lineTo(x+128,128);nc.stroke()}
+   nc.clearRect(0,0,128,128);
    nc.textAlign='center';nc.textBaseline='middle';nc.font='900 82px Arial';nc.lineJoin='round';nc.lineWidth=8;nc.strokeStyle=home?'#b7964f':'#8f3c38';nc.strokeText(String(p.number),64,68);nc.fillStyle=home?'#f1ead7':'#9b3f39';nc.fillText(String(p.number),64,68);r.texture(meshKey,n);
   }
  }
