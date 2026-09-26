@@ -1,6 +1,6 @@
 import{Renderer,pose,segment,hex}from'./renderer.js';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js';
-import{createMeshyAthletes}from'./meshy-athlete.js?v=football-recovery-3';
+import{createMeshyAthletes}from'./meshy-athlete.js?v=football-contact-4';
 import{makeStadium}from'./stadium.js';
 import{createGameplayReplayRecorder}from'./replay.js';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -327,7 +327,7 @@ export function start(){
  function message(text,seconds=1.4){$('message').textContent=text;$('message').classList.add('show');messageUntil=performance.now()+seconds*1000}
  function stadiumSound(kind='snap'){try{const AudioCtor=window.AudioContext||window.webkitAudioContext;if(!AudioCtor)return;soundContext||=new AudioCtor();if(soundContext.state==='suspended')soundContext.resume();const now=soundContext.currentTime,duration=kind==='touchdown'?1.15:kind==='hit'?.22:.08,buffer=soundContext.createBuffer(1,Math.ceil(soundContext.sampleRate*duration),soundContext.sampleRate),data=buffer.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*(1-i/data.length);const source=soundContext.createBufferSource(),filter=soundContext.createBiquadFilter(),gain=soundContext.createGain();source.buffer=buffer;filter.type=kind==='touchdown'?'bandpass':'lowpass';filter.frequency.value=kind==='touchdown'?720:kind==='hit'?180:420;gain.gain.setValueAtTime(kind==='touchdown'?.055:kind==='hit'?.08:.045,now);gain.gain.exponentialRampToValueAtTime(.001,now+duration);source.connect(filter).connect(gain).connect(soundContext.destination);source.start(now)}catch{}}
   function snap(){if(phase!=='pre'||paused||ended)return;if(mode==='run'&&Math.hypot(input.x,input.z)>=.12)snapDirection={x:input.x,z:input.z};if(mode==='run'&&Math.hypot(snapDirection.x,snapDirection.z)>=.12)snapDirectionUntil=simTime+1.35;phase=mode==='run'?'handoff':'pass';elapsed=0;drive.plays++;lastTackler=null;catchStyle='rac';carrier=actors[5];highlightFrames=[];highlightSampleAt=-1;replay.event('snap',{mode,play:(mode==='run'?RUNS:PASSES)[selected].id,defense:defensiveCall.id,runDirection,mikeIndex,motioned,openingX:snapDirection.x,openingZ:snapDirection.z});stadiumSound('snap');navigator.vibrate?.(7);message(mode==='run'?RUNS[selected].name:defensiveCall.blitzers.length?'PRESSURE LOOK · READ HOT':'READ THE COVERAGE',.85);updateControls()}
- function captureHighlight(){if(phase==='pre'||phase==='dead'||simTime-highlightSampleAt<.08)return;highlightSampleAt=simTime;highlightFrames.push({phase,carrier:carrier?.index??5,players:actors.map(p=>({x:p.x,z:p.z,heading:p.heading,vx:p.vx,vz:p.vz,distance:p.distance,sprinting:p.sprinting,hasBall:p.hasBall,fallen:p.fallen,engaged:p.engaged,blockStyle:p.blockStyle,routeStyle:p.routeStyle,coverageStyle:p.coverageStyle,action:p.action,actionT:p.actionT,actionSide:p.actionSide,throwT:p.throwT,throwStyle:p.throwStyle,catchT:p.catchT,catchStyle:p.catchStyle}))});if(highlightFrames.length>100)highlightFrames.shift()}
+ function captureHighlight(){if(phase==='pre'||phase==='dead'||simTime-highlightSampleAt<.08)return;highlightSampleAt=simTime;highlightFrames.push({phase,carrier:carrier?.index??5,players:actors.map(p=>({x:p.x,z:p.z,heading:p.heading,vx:p.vx,vz:p.vz,distance:p.distance,sprinting:p.sprinting,hasBall:p.hasBall,fallen:p.fallen,fallHeading:p.fallHeading,engaged:p.engaged,blockStyle:p.blockStyle,routeStyle:p.routeStyle,coverageStyle:p.coverageStyle,action:p.action,actionT:p.actionT,actionSide:p.actionSide,throwT:p.throwT,throwStyle:p.throwStyle,catchT:p.catchT,catchStyle:p.catchStyle}))});if(highlightFrames.length>100)highlightFrames.shift()}
  function applyHighlightFrame(frame){phase=frame.phase;carrier=actors[frame.carrier]||actors[5];frame.players.forEach((state,index)=>Object.assign(actors[index],state))}
  function watchReplay(){if(!lastHighlight.length||replaying)return;replaying=true;replayCursor=0;replayEndPhase=phase;paused=false;$('paused').hidden=true;message('INSTANT REPLAY',9);applyHighlightFrame(lastHighlight[0])}
  function advanceReplay(dt){if(!replaying)return;replayCursor+=dt/.08*.68;const index=Math.min(lastHighlight.length-1,Math.floor(replayCursor));applyHighlightFrame(lastHighlight[index]);if(index>=lastHighlight.length-1){replaying=false;if(replayEndPhase==='pre')setup();else phase='dead';paused=true;$('paused').hidden=false;message('REPLAY COMPLETE',.8)}}
@@ -355,16 +355,16 @@ export function start(){
  function updateSkillAction(){for(const p of actors)advancePlayerAction(p,simTime,phase==='dead')}
  function beginContactSequence(tackler,outcome,helpers=[],speed=0){
   const length=Math.hypot(carrier.vx||0,carrier.vz||0),dirX=length>.2?carrier.vx/length:Math.sin(carrier.heading||0),dirZ=length>.2?carrier.vz/length:Math.cos(carrier.heading||0),side=Math.sign((tackler.x-carrier.x)*dirZ-(tackler.z-carrier.z)*dirX)||1,presentation=contactPresentation(outcome.type,speed/9.5,side),helper=presentation.helper?helpers.find(p=>p!==tackler&&!p.fallen)||null:null;
-  activeContact={type:presentation.type,elapsed:0,...presentation,dirX,dirZ,rightX:dirZ,rightZ:-dirX,carrierStart:[carrier.x,carrier.z],tacklerStart:[tackler.x,tackler.z],tackler:tackler.index,helper:helper?.index??null,helperStart:helper?[helper.x,helper.z]:null};
+  activeContact={type:presentation.type,elapsed:0,...presentation,dirX,dirZ,rightX:dirZ,rightZ:-dirX,carrierStart:[carrier.x,carrier.z],tacklerStart:[tackler.x,tackler.z],tackler:tackler.index,tacklerHeading:Math.atan2(carrier.x-tackler.x,carrier.z-tackler.z),helper:helper?.index??null,helperStart:helper?[helper.x,helper.z]:null};
   contactFx={x:carrier.x,z:carrier.z,born:simTime,power:presentation.shake};
-  setTimedAction(tackler,presentation.type,presentation.duration,side);setTimedAction(carrier,presentation.type,presentation.duration,-side);carrier.fallen=true;tackler.fallen=true;carrier.vx=carrier.vz=0;tackler.vx=tackler.vz=0;
-  if(helper){setTimedAction(helper,'gang',presentation.duration,-side);helper.vx=helper.vz=0;helper.fallen=true}
+  setTimedAction(tackler,presentation.type,presentation.duration,side);setTimedAction(carrier,presentation.type,presentation.duration,-side);carrier.fallen=true;tackler.fallen=true;carrier.heading=Math.atan2(dirX,dirZ);carrier.fallHeading=tackler.fallHeading=carrier.heading;carrier.vx=carrier.vz=0;tackler.vx=tackler.vz=0;
+  if(helper){setTimedAction(helper,'gang',presentation.duration,-side);helper.vx=helper.vz=0;helper.fallen=true;helper.fallHeading=carrier.heading}
   impactShake=presentation.shake;recoveryLeft=presentation.duration+.34;
  }
  function advanceContactSequence(dt){
   const c=activeContact;if(!c)return;c.elapsed=Math.min(c.duration,c.elapsed+dt);const raw=clamp(c.elapsed/c.duration,0,1),t=raw*raw*(3-2*raw),ball=carrier,tackler=actors[c.tackler],carrierX=c.carrierStart[0]+c.dirX*c.carrierDrive*t,carrierZ=c.carrierStart[1]+c.dirZ*c.carrierDrive*t;
  ball.x=clamp(carrierX,-26.3,26.3);ball.z=carrierZ;ball.vx=ball.vz=0;ball.actionT=raw;ball.moving=false;
- const tacklerX=carrierX-c.dirX*(.48-c.tacklerDrive*t)+c.rightX*c.side*c.spread,tacklerZ=carrierZ-c.dirZ*(.48-c.tacklerDrive*t)+c.rightZ*c.side*c.spread;tackler.x=c.tacklerStart[0]+(tacklerX-c.tacklerStart[0])*t;tackler.z=c.tacklerStart[1]+(tacklerZ-c.tacklerStart[1])*t;tackler.heading=Math.atan2(ball.x-tackler.x,ball.z-tackler.z);tackler.actionT=raw;tackler.moving=false;
+ const tacklerX=carrierX-c.dirX*(.48-c.tacklerDrive*t)+c.rightX*c.side*Math.max(.64,c.spread),tacklerZ=carrierZ-c.dirZ*(.48-c.tacklerDrive*t)+c.rightZ*c.side*Math.max(.64,c.spread);tackler.x=c.tacklerStart[0]+(tacklerX-c.tacklerStart[0])*t;tackler.z=c.tacklerStart[1]+(tacklerZ-c.tacklerStart[1])*t;tackler.heading=c.tacklerHeading;tackler.actionT=raw;tackler.moving=false;
  if(c.helper!==null){const helper=actors[c.helper],targetX=carrierX-c.dirX*.25-c.rightX*c.side*.62,targetZ=carrierZ-c.dirZ*.25-c.rightZ*c.side*.62;helper.x=c.helperStart[0]+(targetX-c.helperStart[0])*t;helper.z=c.helperStart[1]+(targetZ-c.helperStart[1])*t;helper.heading=Math.atan2(ball.x-helper.x,ball.z-helper.z);helper.actionT=raw;helper.moving=false}
   if(c.elapsed>=c.duration){activeContact=null;if(pendingPlayMessage){message(pendingPlayMessage,1.4);pendingPlayMessage=null}if(pendingDriveEnd?.title==='TOUCHDOWN'&&carrier)setTimedAction(carrier,'celebrate',2.6,0)}
  }
@@ -428,8 +428,26 @@ function coverage(dt){
    assignments.forEach(([blockerIndex,defenderIndex],i)=>{handled.add(defenderIndex);engageBlock(actors[blockerIndex],actors[defenderIndex],dt,side,i,true)});
    return handled;
   }
-  for(let i=0;i<5;i++){const p=actors[i],desiredZ=snapZ-.4-Math.min(elapsed*.55,1.7);p.engaged=false;p.engagedWith=null;p.blockStyle='pass-set';chase(p,p.startX,desiredZ,2.8,dt);p.heading=0}
-  const rushers=[11,12,13,14,...defensiveCall.blitzers];rushers.forEach((defenderIndex,i)=>{const d=actors[defenderIndex],p=i<5?actors[i]:null,edge=i===0||i===3;d.blockStyle=edge?((i+drive.plays)%2?'rush-rip':'rush-swim'):'bull-rush';if(d.fallen){d.engaged=false;return}if(!p){d.engaged=false;if(elapsed<.9){chase(d,d.startX,d.startZ,.8,dt);d.heading=Math.PI}else pursue(d,carrier,5.65*ratingMultiplier(d.ratings.speed,.92,1.1),dt);return}const ratingEdge=(p.ratings.block-d.ratings.blockShed)*.016,release=clamp(1.75+i*.18+ratingEdge,1.05,3.15);if(elapsed<release){chase(d,p.x,p.z+.9,4.15,dt);d.engaged=true;d.engagedWith=p.index;p.engaged=true;p.engagedWith=d.index;p.blockStyle='pass-anchor';d.heading=Math.PI}else{d.engaged=false;d.engagedWith=null;p.engaged=false;p.engagedWith=null;p.blockStyle='pass-set';pursue(d,carrier,(5.2+i*.08)*ratingMultiplier(d.ratings.speed,.92,1.1),dt)}})
+  const rushers=[11,12,13,14,...defensiveCall.blitzers],desiredZ=snapZ-.4-Math.min(elapsed*.55,1.7);
+  for(let i=0;i<5;i++){
+   const p=actors[i];p.engaged=false;p.engagedWith=null;p.blockStyle='pass-set';
+   if(i>=rushers.length){chase(p,p.startX,desiredZ,2.8,dt);p.heading=0}
+  }
+  rushers.forEach((defenderIndex,i)=>{
+   const d=actors[defenderIndex],p=i<5?actors[i]:null,edge=i===0||i===3;
+   d.engaged=false;d.engagedWith=null;d.blockStyle=null;
+   if(d.fallen){if(p)chase(p,p.startX,desiredZ,2.8,dt);return}
+   if(!p){if(elapsed<.9){chase(d,d.startX,d.startZ,.8,dt);d.heading=Math.PI}else pursue(d,carrier,5.65*ratingMultiplier(d.ratings.speed,.92,1.1),dt);return}
+   const ratingEdge=(p.ratings.block-d.ratings.blockShed)*.016,release=clamp(1.75+i*.18+ratingEdge,1.05,3.15);
+   if(elapsed<release){
+    chase(p,p.startX,desiredZ,2.8,dt);p.heading=0;chase(d,p.x,p.z+.9,4.15,dt);d.heading=Math.atan2(p.x-d.x,p.z-d.z);
+    if(Math.hypot(d.x-p.x,d.z-p.z)<1.55){d.engaged=p.engaged=true;d.engagedWith=p.index;p.engagedWith=d.index;p.blockStyle='pass-anchor';d.blockStyle=edge?((i+drive.plays)%2?'rush-rip':'rush-swim'):'bull-rush'}
+   }else{
+    pursue(d,carrier,(5.2+i*.08)*ratingMultiplier(d.ratings.speed,.92,1.1),dt);
+    // A beaten lineman turns and follows; do not also pull him back to his set point.
+    const angle=Math.atan2(d.x-p.x,d.z-p.z);chase(p,d.x,d.z+(Math.sign(p.z-d.z)||1)*.85,2.5,dt);p.heading=angle;
+   }
+  });
  }
  function sustainSupportBlock(blocker,d,dt){blocker.engaged=d.engaged=true;blocker.engagedWith=d.index;d.engagedWith=blocker.index;blocker.blockStyle='stalk';d.blockStyle='shed';const side=Math.sign(d.x-carrier.x)||1,drive=.12*ratingMultiplier(blocker.ratings.strength,.86,1.12);blocker.actionSide=side;chase(blocker,d.x-side*.08,d.z-.82,5.1*ratingMultiplier(blocker.ratings.acceleration,.9,1.08),dt);move(d,d.x+side*.035*dt,d.z+drive*dt,dt,7);const heading=Math.atan2(d.x-blocker.x,d.z-blocker.z);blocker.heading=heading;d.heading=heading+Math.PI}
  function supportBlockers(dt){

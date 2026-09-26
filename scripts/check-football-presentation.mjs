@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {MeshyAthletes,parseGLB,athleteSupportVertices,skinSupportVertices,ATHLETE_SHADERS} from '../public/play-moment-3d/meshy-athlete.js';
+import {MeshyAthletes,parseGLB,athleteSupportVertices,skinSupportVertices,meshyAnimationState,ATHLETE_SHADERS} from '../public/play-moment-3d/meshy-athlete.js';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const raw=fs.readFileSync(path.join(root,'public/play-moment-3d/assets/ball-knower-gridiron-pro-v3.glb'));
 const parsed=parseGLB(raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength)),{json,accessor}=parsed,primitive=json.meshes[0].primitives[0];
@@ -57,6 +57,26 @@ for(const role of['QB','RB','WR','TE','OL','DL','LB','DB'])for(const speed of[5.
 for(const t of[0,.2,.4,.6,.8,1]){
  const pose=sample('LB','run',1,'get-up',t,221,{fallen:true,vz:0});assert.ok(pose.model[5]>.8||t<.8,'Get-up should finish upright');checks++;
 }
+// All formerly sticky pass-rush styles must release into grounded locomotion.
+for(const style of['rush-rip','rush-swim','bull-rush']){
+ const actor={role:'DL',team:1,index:222,x:5,z:0,heading:0,vx:0,vz:5.5,distance:0,engaged:true,blockStyle:style};rig.phase='pass';rig.poseStates.clear();
+ for(let i=0;i<30;i++){
+  if(i===10)actor.engaged=false;actor.distance+=5.5/60;
+  const bones=rig.bonesFor(actor,'pass',i/60),model=rig.modelFor(actor),chest=rig.handTransforms.get(actor.index).chest;
+  assert.ok([...bones,...model].every(Number.isFinite),`${style}: invalid transition`);
+  if(!actor.engaged){assert.equal(meshyAnimationState(actor,'pass'),'edge-rush');if(i>16)assert.ok(chest[5]/Math.hypot(chest[4],chest[5],chest[6])>.85,`${style}: released rusher still diving`)}checks++;
+ }
+}
+// A completed tackle rests the torso near the ground, rather than on hands/knees.
+for(const role of['RB','QB','LB','DL']){
+ const pose=sample(role,'dead',role==='LB'||role==='DL'?1:0,'wrap',1,223),chest=rig.handTransforms.get(223).chest,m=pose.model;
+ const height=m[1]*chest[12]+m[5]*chest[13]+m[9]*chest[14]+m[13];
+ assert.ok(height<.55,`${role}: tackle torso still propped up at ${height}`);checks++;
+}
+for(const heading of[0,Math.PI/2,Math.PI]){
+ const pose=sample('DL','dead',1,'wrap',1,224,{heading,fallHeading:0});
+ assert.ok(pose.model[6]/Math.hypot(pose.model[4],pose.model[5],pose.model[6])>.85,'Defender must fall with impact regardless of facing');checks++;
+}
 console.log(`Presentation checks passed: ${checks} real-asset poses; ${rig.supportVertices.length} support vertices; lowest body point ${worstFloor.toFixed(4)}m.`);
 const flag=process.argv.indexOf('--render-dir');
 if(flag>=0){
@@ -66,6 +86,21 @@ if(flag>=0){
  const mat=json.materials[primitive.material];[mat.pbrMetallicRoughness.baseColorTexture.index,mat.normalTexture.index,mat.pbrMetallicRoughness.metallicRoughnessTexture.index].forEach((idx,i)=>{const im=json.images[json.textures[idx].source],v=json.bufferViews[im.bufferView];fs.writeFileSync(path.join(out,'tex'+i+'.jpg'),Buffer.from(parsed.bin,v.byteOffset||0,v.byteLength))});
  let poses=[sample('OL','run',0,null,0,0,{engaged:true,blockStyle:'drive',distance:2}),sample('DL','run',1,null,0,1,{engaged:true,blockStyle:'shed',distance:2}),sample('RB','run',0,null,0,6,{distance:2}),sample('RB','run',0,null,0,6,{distance:3,sprinting:true}),sample('RB','run',0,'cut',.4,6,{fallen:false,distance:2.5}),sample('LB','dead',1,'wrap',1),sample('RB','dead',0,'wrap',1),sample('RB','dead',0,'wrap',.5)];
  if(process.argv.includes('--recovery'))poses=[sample('LB','run',1,null,0,17,{distance:.3,vz:8.4}),sample('LB','run',1,null,0,17,{distance:1,vz:8.4}),sample('LB','run',1,null,0,17,{distance:1.7,vz:8.4}),sample('LB','run',1,null,0,17,{distance:2.4,vz:8.4}),sample('LB','run',1,'get-up',0,17,{vz:0}),sample('LB','run',1,'get-up',.5,17,{vz:0}),sample('LB','run',1,'get-up',1,17,{vz:0}),sample('QB','dead',0,'wrap',1,5)];
+ const sequenceFlag=process.argv.indexOf('--sequences');
+ if(sequenceFlag>=0){
+  poses=[];const sequences=JSON.parse(fs.readFileSync(process.argv[sequenceFlag+1],'utf8'));
+  for(const sequence of sequences){
+   rig.poseStates.clear();const actors=new Map();
+   sequence.frames.forEach((frame,index)=>{
+    rig.phase=frame.phase;
+    const group=frame.actors.map(snapshot=>{
+     let p=actors.get(snapshot.index);if(!p){p={};actors.set(snapshot.index,p)}Object.assign(p,snapshot);
+     const bones=rig.bonesFor(p,frame.phase,frame.time),model=rig.modelFor(p);return{p:{...p},bones:[...bones],model:[...model]};
+    });
+    const selected=sequence.selected.find(s=>s.frameIndex===index);if(selected)poses.push({label:selected.label,group});
+   });
+  }
+ }
  fs.writeFileSync(path.join(out,'scene.json'),JSON.stringify({...ATHLETE_SHADERS,attrs,indexType:json.accessors[primitive.indices].componentType,indexCount:ix.length,poses}));
  console.log('Render scene:',out);
 }

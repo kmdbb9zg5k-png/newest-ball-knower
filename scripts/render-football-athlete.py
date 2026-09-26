@@ -49,13 +49,17 @@ def camera(eye,target):
 groundPr=program('#version 330 core\nlayout(location=0) in vec3 p;uniform mat4 vp;void main(){gl_Position=vp*vec4(p,1.);}', '#version 330 core\nout vec4 color;void main(){color=vec4(.08,.19,.10,1.);}')
 groundVao=gen('glGenVertexArrays');gl('glBindVertexArray',None,u)(groundVao);buf(0x8892,np.array([-10,0,-10,10,0,-10,10,0,10,-10,0,-10,10,0,10,-10,0,10],dtype='f4').tobytes());gl('glEnableVertexAttribArray',None,u)(0);gl('glVertexAttribPointer',None,u,i,u,B,i,p)(0,3,0x1406,False,0,None)
 canvas=Image.new('RGB',(W*4,H*2))
-for idx,pose in enumerate(scene['poses']):
- eye=[2.7,1.8,4.0] if idx<6 else [-2.7,1.8,-4.0];target=[0,.85,.3];
+for idx,cell in enumerate(scene['poses']):
+ group=cell.get('group',[cell]);pose=group[0];eye=[2.7,1.8,4.0] if idx<6 else [-2.7,1.8,-4.0];target=[0,.85,.3]
  if pose['p']['fallen']:eye=[3.1,2.5,4.5];target=[0,.55,1.0]
+ if 'group' in cell:eye=[5.2,3.6,6.2];target=[0,.8,.5]
  vp=camera(eye,target)
  gl('glViewport',None,i,i,i,i)(0,0,W,H);gl('glClearColor',None,f,f,f,f)(.035,.055,.08,1);gl('glClear',None,u)(0x4000|0x0100);gl('glEnable',None,u)(0x0B71)
  gl('glUseProgram',None,u)(groundPr);gl('glBindVertexArray',None,u)(groundVao);mat('vp',vp,groundPr);gl('glDrawArrays',None,u,i,i)(4,0,6)
- gl('glUseProgram',None,u)(pr);gl('glBindVertexArray',None,u)(vao);mat('vp',vp);mat('model',pose['model']);mat('bones[0]',pose['bones']);e=np.array(eye,dtype='f4');gl('glUniform3fv',None,i,i,p)(loc('eye'),1,e.ctypes.data)
- for name,value in [('rival',pose['p']['team']),('controlled',0),('playerSeed',.5)]:gl('glUniform1f',None,i,f)(loc(name),value)
- number(pose['p']['team']);gl('glDrawElements',None,u,i,u,p)(4,scene['indexCount'],scene['indexType'],None);pixels=C.create_string_buffer(W*H*4);gl('glReadPixels',None,i,i,i,i,u,u,p)(0,0,W,H,0x1908,0x1401,pixels);im=Image.frombytes('RGBA',(W,H),pixels.raw).transpose(Image.Transpose.FLIP_TOP_BOTTOM).convert('RGB');ImageDraw.Draw(im).text((8,8),pose['label'],fill='white');canvas.paste(im,((idx%4)*W,(idx//4)*H))
-canvas.save(D/'poses.png');print('Rendered shader and 8 poses with Mesa; GL error:',gl('glGetError',u)())
+ gl('glUseProgram',None,u)(pr);gl('glBindVertexArray',None,u)(vao);mat('vp',vp);e=np.array(eye,dtype='f4');gl('glUniform3fv',None,i,i,p)(loc('eye'),1,e.ctypes.data)
+ for actor in group:
+  mat('model',actor['model']);mat('bones[0]',actor['bones'])
+  for name,value in [('rival',actor['p']['team']),('controlled',0),('playerSeed',.5)]:gl('glUniform1f',None,i,f)(loc(name),value)
+  number(actor['p']['team']);gl('glDrawElements',None,u,i,u,p)(4,scene['indexCount'],scene['indexType'],None)
+ pixels=C.create_string_buffer(W*H*4);gl('glReadPixels',None,i,i,i,i,u,u,p)(0,0,W,H,0x1908,0x1401,pixels);im=Image.frombytes('RGBA',(W,H),pixels.raw).transpose(Image.Transpose.FLIP_TOP_BOTTOM).convert('RGB');ImageDraw.Draw(im).text((8,8),cell['label'],fill='white');canvas.paste(im,((idx%4)*W,(idx//4)*H))
+canvas.save(D/'poses.png');print('Rendered shader and',len(scene['poses']),'pose groups with Mesa; GL error:',gl('glGetError',u)())
