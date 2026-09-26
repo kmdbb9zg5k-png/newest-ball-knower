@@ -50,7 +50,12 @@ try{
   const dead=await page.evaluate(()=>bk3dDiagnostics());assert.equal(dead.phase,'dead');assert.equal(await page.locator('#live').isHidden(),true);
   await step(.6);const stopped=await page.evaluate(()=>bk3dDiagnostics());assert.equal(stopped.drive.clock,dead.drive.clock);
   assert.ok(stopped.players.filter(p=>!p.fallen).every(p=>Math.hypot(p.vx,p.vz)<.15));
-  await step(2.8);await page.keyboard.up('ArrowUp');assert.equal(await page.evaluate(()=>bk3dDiagnostics().phase),'pre');
+  let maxResetOverlay=0;
+  for(let i=0;i<240;i++){
+   await step(1/60);maxResetOverlay=Math.max(maxResetOverlay,Number(await page.locator('#playTransition').evaluate(el=>el.style.opacity))||0);
+   if(await page.evaluate(()=>bk3dDiagnostics().phase)==='pre')break;
+  }
+  await page.keyboard.up('ArrowUp');assert.equal(await page.evaluate(()=>bk3dDiagnostics().phase),'pre');assert.ok(maxResetOverlay<=.281,`Play reset darkened the screen to ${maxResetOverlay}`);
   await page.locator('#restart').dispatchEvent('click');
   await page.locator('#passTab').click();await page.locator('#plays button').nth(1).click();await page.locator('#snap').dispatchEvent('pointerdown',{pointerId:2,pointerType:'touch',bubbles:true});await step(.8);
   assert.equal(await page.evaluate(()=>bk3dDiagnostics().phase),'pass');await page.evaluate(()=>bk3dTest.seed(500));await page.keyboard.press('x');await step(.25);
@@ -76,7 +81,7 @@ try{
   await page.setViewportSize({width,height});
   assert.equal(await page.locator('#rotate').isVisible(),false);
   assert.deepEqual(errors,[]);assert.equal(await page.evaluate(()=>bk3dDiagnostics().glError),0);
-  results.push({width,height,players:22,snap:'passed',toss:'passed',heldTouch:'passed',contact:'passed',whistle:'passed',pass:'passed',catch:'passed',touchdown:'passed',maxCatchCameraStep,rotation:'passed',errors});
+  results.push({width,height,players:22,snap:'passed',toss:'passed',heldTouch:'passed',contact:'passed',whistle:'passed',maxResetOverlay,pass:'passed',catch:'passed',touchdown:'passed',maxCatchCameraStep,rotation:'passed',errors});
   console.log('Passed',width,height);await browser.close();browser=null;
  }
  await writeFile(join(out,'report.json'),JSON.stringify(results,null,2));console.log(JSON.stringify(results,null,2));
