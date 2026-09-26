@@ -313,11 +313,18 @@ export class MeshyAthletes{
    this.rotate(locals,'mixamorig:RightUpLeg',1,0,0,-profile.knees+profile.stagger*mirror);
    this.rotate(locals,'mixamorig:LeftLeg',1,0,0,profile.knees*.72);
    this.rotate(locals,'mixamorig:RightLeg',1,0,0,profile.knees*.72);
+   // The generated rest clip has both upper arms spread almost horizontally.
+   // Its local shoulder Z axes are mirrored: negative on the left and positive
+   // on the right bring the elbows down beside the jersey. The block clip used
+   // by linemen already has lowered arms and needs only a small adjustment.
+   const trench=p.role==='OL'||p.role==='DL',drop=trench?.12:1.04;
+   this.rotate(locals,'mixamorig:LeftArm',0,0,1,-drop);
+   this.rotate(locals,'mixamorig:RightArm',0,0,1,drop);
    this.rotate(locals,'mixamorig:LeftForeArm',1,0,0,-profile.elbows);
    this.rotate(locals,'mixamorig:RightForeArm',1,0,0,-profile.elbows);
-   if(p.role==='OL'||p.role==='DL'){
-    this.rotate(locals,'mixamorig:LeftArm',0,0,1,-.10);
-    this.rotate(locals,'mixamorig:RightArm',0,0,1,.10);
+   if(trench){
+    this.rotate(locals,'mixamorig:LeftArm',1,0,0,.08);
+    this.rotate(locals,'mixamorig:RightArm',1,0,0,.08);
    }
   }
   if(phase!=='pre'&&!p.engaged&&!/tackle|hit|miss|break|slide|stumble|dive/.test(state)){
