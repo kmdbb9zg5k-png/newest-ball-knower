@@ -398,7 +398,8 @@ export class MeshyAthletes{
    for(const name of[side+'UpLeg',side+'Leg',side+'Foot']){const i=this.namedNodes['mixamorig:'+name];locals[i].r=[...this.base[i].r]}
    this.solveLimb(locals,[side+'UpLeg',side+'Leg',side+'Foot'],[sign*width+z*sideways,ankle[1]+step.lift,ankle[2]+z*forward],[sign*width+sideways*.25,.42,.65*forward],true);
    const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m),swing=Math.sin(distance/2.45*Math.PI*2+offset*Math.PI*2);
-   this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],[sign*.19,chest[1]-.22+swing*.12,chest[2]+.12-swing*(sprint?.23:.17)],[sign*.32,chest[1]-.40,chest[2]-.10]);
+   const walking=state==='walk',handY=walking?-.40:-.24,armSwing=walking?.09:sprint?.23:.17;
+   this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],[sign*.17,chest[1]+handY+swing*(walking?.035:.10),chest[2]+.12-swing*armSwing],[sign*.25,chest[1]-.43,chest[2]-.13]);
   }
  }
  standingPose(locals,p,crouch=.06,lean=.06){
@@ -428,6 +429,7 @@ export class MeshyAthletes{
  worldHandTargets(locals,p,model){
   const other=this.actorMap?.get(p.contactWith??p.engagedWith),otherHands=other&&this.handTransforms.get(other.index),targetModel=other&&otherHands?this.modelFor(other):null;
   if(!p.ballTarget&&!targetModel)return false;
+  if(!p.ballTarget&&p.engaged&&Math.hypot(p.x-other.x,p.z-other.z)>1.45)return false;
   const inversePoint=world=>{const v=world.map((n,i)=>n-model[12+i]);return[0,1,2].map(col=>{const j=col*4;return(v[0]*model[j]+v[1]*model[j+1]+v[2]*model[j+2])/(model[j]*model[j]+model[j+1]*model[j+1]+model[j+2]*model[j+2])})};
   const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m);
   let changed=false;
@@ -436,7 +438,7 @@ export class MeshyAthletes{
    if(p.ballTarget){const h=p.heading||0;target=inversePoint([p.ballTarget[0]+Math.cos(h)*sign*.055,p.ballTarget[1]+(p.role==='RB'?sign*.045:0),p.ballTarget[2]-Math.sin(h)*sign*.055])}
    else if(p.engaged){target=inversePoint(pointFromMatrix(mul(targetModel,otherHands.chest),[-sign*.18,-.05,.13]))}
    else if(p.contactRole==='tackler'&&p.action!=='get-up'){
-    weight=smooth((p.actionT||0)/.16)*(1-smooth(((p.actionT||0)-.76)/.22));
+    weight=smooth((p.actionT||0)/.10)*(1-smooth(((p.actionT||0)-.84)/.15));
     target=inversePoint(pointFromMatrix(mul(targetModel,otherHands.chest),[sign*.24,-.19,-.01]));
    }
    if(!target||weight<=0)continue;
@@ -616,7 +618,7 @@ export class MeshyAthletes{
   if(!p.fallen&&p.contactRole==='tackler'){if(Math.hypot(p.vx||0,p.vz||0)>.3)this.groundedLocomotion(locals,p,'run');else this.standingPose(locals,p,.12,.18)}
   if(choice.state==='break-tackle'||choice.state==='stumble')this.rotate(locals,'mixamorig:Spine2',0,0,1,(p.actionSide||1)*.13*Math.sin((p.actionT||0)*Math.PI));
   if(choice.state==='idle'||choice.state==='qb-pocket'||choice.state==='receive-snap')this.standingPose(locals,p);
-  if(choice.state==='handoff'||choice.state==='receive-handoff'){if(Math.hypot(p.vx||0,p.vz||0)>.3)this.groundedLocomotion(locals,p,'run');else this.standingPose(locals,p);this.readyPose(locals,p)}
+  if(choice.state==='handoff'||choice.state==='receive-handoff'){if(Math.hypot(p.vx||0,p.vz||0)>.3)this.groundedLocomotion(locals,p,'run');else this.standingPose(locals,p)}
   if(p.role==='QB'&&(/qb-pocket|qb-drop|qb-climb|qb-rollout|receive-snap/.test(choice.state)||choice.state.startsWith('throw-')))this.quarterbackPose(locals,p,choice.state);
   if((phase==='pre'&&p.index===2)||choice.state==='snap')this.standingPose(locals,p,.32,.66);
   if(choice.state==='get-up')this.getUpPose(locals,p);

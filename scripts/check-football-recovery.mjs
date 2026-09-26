@@ -14,7 +14,7 @@ for(const type of['miss','tackle','pancake']){
 let pancakes=0;for(let i=0;i<1000;i++)if(blockOutcome(84,78,.5,i/1000)==='pancake')pancakes++;assert.ok(pancakes<40,`Too many knockdowns: ${pancakes}`);
 const runner={x:20,z:45,vx:2,vz:7},near={index:15,team:1,x:17,z:45},safety={index:21,team:1,x:24,z:57},back={index:16,team:1,x:0,z:40};
 assert.equal(pursuitRole(near,runner,[near,safety,back]),'primary');assert.equal(pursuitRole(safety,runner,[near,safety,back]),'contain');
-const cutoff=pursuitTarget(safety,runner,false,8,'contain');assert.ok(cutoff.z>=safety.z-.6&&cutoff.x>runner.x&&cutoff.x<=25.4);
+const cutoff=pursuitTarget(safety,runner,false,8,'contain');assert.ok(cutoff.z>runner.z&&cutoff.z<safety.z&&cutoff.x>runner.x&&cutoff.x<=25.4);
 // During stance, model-space foot travel must cancel world movement exactly.
 const stepA=groundedStride(.2),stepB=groundedStride(.3);assert.ok(stepA.planted&&stepB.planted);assert.ok(Math.abs((stepB.z-stepA.z)*1.17+.1)<1e-9);
 assert.equal(meshyAnimationState({fallen:true,role:'LB',vx:8,vz:2},'run'),'tackle');
@@ -82,6 +82,26 @@ for(let play=0;play<4;play++){
  const g=game();g.element('passTab').onclick();g.snap();g.step(.7);g.key('x');assert.equal(g.read().phase,'flight');let previous=[...g.renderer.eye],maxCameraStep=0;
  for(let i=0;i<240;i++){g.step(1/60);const eye=g.renderer.eye,delta=Math.hypot(...eye.map((v,n)=>v-previous[n]));maxCameraStep=Math.max(maxCameraStep,delta);previous=[...eye];assert.ok(eye.every(Number.isFinite));}
  assert.ok(maxCameraStep<2,`Camera jumped ${maxCameraStep} yards in one frame`);console.log(`Pass/flight camera maximum per-frame travel: ${maxCameraStep.toFixed(3)} yards.`);
+}
+// Reproduce the recording's sideline pursuit, whistle and snap-control states.
+for(const play of[1,3])for(const call of[0,2,4]){
+ const g=game();g.context.bk3dTest.setSnapNumber(call);g.element('plays').children[play].onclick();
+ const box=g.element('stick').getBoundingClientRect();
+ const steer=(x,z)=>g.element('stick').onpointerdown({pointerId:1,clientX:box.left+box.width/2+x*box.width*.32,clientY:box.top+box.height/2-z*box.height*.32,preventDefault(){}});
+ steer(-.7,.7);g.snap();let airborne=0,endedAt=0;
+ for(let i=0;i<900;i++){
+  g.step(1/60);const d=g.read();
+  if(d.exchange?.kind==='pitch'&&d.elapsed>.48&&d.elapsed<.78){assert.ok(d.players.every(p=>!p.hasBall),'Pitch flight must have no owner');airborne++}
+  if(d.phase==='run')steer(d.players[6].x<-19?0:-.65,1);
+  if(d.phase==='dead'){endedAt=i;break}
+ }
+ assert.ok(endedAt>0,'A sideline run must resolve');if(play===3)assert.ok(airborne>5,'Pitch should have a readable flight');
+ const atWhistle=g.read(),clock=atWhistle.drive.clock;
+ assert.equal(g.element('live').hidden,true,'Live controls must disappear at the whistle');
+ g.step(.7);const resting=g.read();
+ for(let i=0;i<22;i++)if(!resting.players[i].fallen)assert.ok(Math.hypot(resting.players[i].vx,resting.players[i].vz)<.15,'Upright players stop after whistle');
+ assert.equal(resting.drive.clock,clock);
+ console.log(`Sideline ${play}, defense ${call}: spot ${atWhistle.drive.ball}, resolved in ${(endedAt/60).toFixed(2)}s.`);
 }
 // Real renderer allocation growth: tiny material batches must not reserve 4096 instances.
 let allocated=0;const gl=new Proxy({createVertexArray:()=>({}),createBuffer:()=>({}),bufferData:(target,data)=>{allocated+=typeof data==='number'?data:data.byteLength}}, {get:(o,k)=>o[k]??(()=>{})});

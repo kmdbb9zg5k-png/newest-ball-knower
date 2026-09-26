@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {pursuitTarget,pursuitSteering,locomotionStep,tackleContactEligible} from '../public/play-moment-3d/game.js';
+import {pursuitTarget,pursuitSteering,locomotionStep,tackleContactEligible,defenderRunSpeed,playerRatings} from '../public/play-moment-3d/game.js';
 import {MeshyAthletes,MESHY_CLIPS} from '../public/play-moment-3d/meshy-athlete.js';
 // Compare actual accelerated pursuit against the previous short lead for a crossing run.
 function chase(targetFn){
@@ -24,3 +24,12 @@ assert.equal(rig.choose(p,'run',1).baseTime,rig.choose(p,'run',20).baseTime,'Unc
 assert.notEqual(rig.choose(p,'run',1).baseTime,rig.choose({...p,distance:2.5},'run',1).baseTime,'Ground covered must advance the stride');
 assert.equal(rig.choose({...p,sprinting:true},'run',1).base,MESHY_CLIPS.sprint);
 console.log('Pursuit checks passed: crossing interception, 27 direction/boundary cases, teammate spacing, distance-driven run/sprint playback.');
+
+// A support defender must close the tackle window instead of shadowing a parallel lane.
+const support={index:19,team:1,x:1.2,z:29},ballCarrier={x:0,z:30,vx:0,vz:7.7};
+const closeAim=pursuitTarget(support,ballCarrier,false,8.8,'support');
+assert.ok(Math.abs(closeAim.x-ballCarrier.x)<.01,'Support must collapse to the ball inside 2.5 yards');
+const rated={role:'DB',ratings:playerRatings('DB',21,1)};
+assert.ok(defenderRunSpeed(rated)>8.6,'A fast defensive back can finish a reachable pursuit angle');
+assert.equal(defenderRunSpeed({...rated,x:0,z:0}),defenderRunSpeed({...rated,x:1,z:1}),'Closing distance cannot throttle a defender');
+console.log('Closing pursuit checks passed: collapsed support lane and rating-based running speed.');
