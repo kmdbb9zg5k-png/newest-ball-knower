@@ -388,12 +388,19 @@ export class MeshyAthletes{
   }
  }
  groundedLocomotion(locals,p,state){
-  const hips=this.joints[0],speed=Math.hypot(p.vx||0,p.vz||0),sprint=state.includes('sprint')||speed>7.7,gaitCycle=sprint?5.4:state==='walk'?2.15:4.25,distance=(p.distance||0)+(p.index%7)*.21,authoredStride=usesAuthoredForwardStride(p);
+  const hips=this.joints[0],speed=Math.hypot(p.vx||0,p.vz||0),sprint=state.includes('sprint')||speed>7.7,distance=(p.distance||0)+(p.index%7)*.21,authoredStride=usesAuthoredForwardStride(p);
+  if(authoredStride){
+   // Keep the source clip's continuous pelvis and limb motion. Its sprint
+   // torso/root pitch is too extreme, so stabilize just those joints.
+   locals[hips].r=[...this.base[hips].r];
+   for(const name of['Spine','Spine1','Spine2']){const i=this.namedNodes['mixamorig:'+name];if(Number.isInteger(i))locals[i].r=[...this.base[i].r]}
+   return;
+  }
   // The generated sprint root pitches almost 70 degrees. Keep an authored
   // upright torso and let speed determine lean, not the source clip's dive.
-  locals[hips].r=[...this.base[hips].r];locals[hips].t=[...this.base[hips].t];locals[hips].t[1]-=.075+.018*Math.cos(distance/gaitCycle*Math.PI*4);
+  locals[hips].r=[...this.base[hips].r];locals[hips].t=[...this.base[hips].t];locals[hips].t[1]-=.075+.018*Math.cos(distance/2.45*Math.PI*4);
   for(const name of['Spine','Spine1','Spine2','Neck','Head']){const i=this.namedNodes['mixamorig:'+name];if(Number.isInteger(i))locals[i].r=[...this.base[i].r]}
-  const lean=sprint?.24:speed<2?.04:.13;this.rotate(locals,'mixamorig:Spine',1,0,0,lean);this.rotate(locals,'mixamorig:Head',1,0,0,-lean*.45);this.rotate(locals,'mixamorig:Spine2',0,1,0,Math.sin(distance/gaitCycle*Math.PI*2)*.075);
+  const lean=sprint?.24:speed<2?.04:.13;this.rotate(locals,'mixamorig:Spine',1,0,0,lean);this.rotate(locals,'mixamorig:Head',1,0,0,-lean*.45);this.rotate(locals,'mixamorig:Spine2',0,1,0,Math.sin(distance/2.45*Math.PI*2)*.075);
   const direction=Math.atan2(p.vx||0,p.vz||0)-(p.heading||0),sideways=Math.sin(direction),forward=Math.cos(direction),width=p.role==='OL'||p.role==='DL'?.15:.105;
   for(const [side,sign,offset]of[['Left',1,0],['Right',-1,.5]]){
    if(!authoredStride){
