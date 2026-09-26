@@ -13,7 +13,13 @@ export const MESHY_CLIPS=Object.freeze({
  run:0,walk:1,juke:2,stiffArm:3,tackle:4,block:4,catch:5,throw:5,celebrate:5,sprint:6,idle:7,idleAlt:7,rest:7,
 });
 
-// The source GLB contains eleven full-body clips. These recipes turn that
+/** Advance locomotion by ground covered so a stopped player cannot run in place. */
+export function locomotionClipTime(distance,duration,clip,seed=0){
+ const cycle=clip===MESHY_CLIPS.walk?2.15:clip===MESHY_CLIPS.sprint?5.4:4.25;
+ return ((Math.max(0,distance||0)/cycle+seed)%1)*duration;
+}
+
+// The source GLB contains eight full-body clips. These recipes turn that
 // compact mobile asset into a football motion graph by layering low-weight
 // secondary clips over the most appropriate base clip. Gameplay coordinates
 // still own movement; these layers only change the rendered skeleton.
@@ -304,7 +310,7 @@ export class MeshyAthletes{
  }
  sampleChannel(channel,time){const{times,values,size}=channel;if(times.length===1)return Array.from(values.subarray(0,size));let low=0,high=times.length-1;while(low+1<high){const mid=(low+high)>>1;if(times[mid]<=time)low=mid;else high=mid}const a=low,b=Math.min(times.length-1,low+1),span=times[b]-times[a],t=span?clamp((time-times[a])/span,0,1):0,left=Array.from(values.subarray(a*size,a*size+size)),right=Array.from(values.subarray(b*size,b*size+size));return channel.path==='rotation'?slerp(left,right,t):lerpArray(left,right,t)}
  choose(p,phase,time){
-  const state=meshyAnimationState(p,phase),seed=meshyPlaybackSeed(p.index,p.team),profile=ROLE_MOTION_PROFILES[p.role]||ROLE_MOTION_PROFILES.LB,roleRate=profile.cadence,phaseTime=(clip,rate=1)=>(time*seed.rate*roleRate*rate+seed.offset*this.clips[clip].duration)%this.clips[clip].duration;
+  const state=meshyAnimationState(p,phase),seed=meshyPlaybackSeed(p.index,p.team),profile=ROLE_MOTION_PROFILES[p.role]||ROLE_MOTION_PROFILES.LB,roleRate=profile.cadence,phaseTime=(clip,rate=1)=>Number.isFinite(p.distance)&&!p.engaged&&[MESHY_CLIPS.run,MESHY_CLIPS.walk,MESHY_CLIPS.sprint].includes(clip)?locomotionClipTime(p.distance,this.clips[clip].duration,clip,seed.offset):(time*seed.rate*roleRate*rate+seed.offset*this.clips[clip].duration)%this.clips[clip].duration;
   const result=(base,baseTime,overlay=null,overlayWeight=0,overlayTime=0)=>({state,base,baseTime,overlay,overlayWeight,overlayTime});
   const actionTime=clamp(p.actionT||0,0,1),tackleTime=actionTime*this.clips[MESHY_CLIPS.tackle].duration;
   if(state==='tackle')return result(MESHY_CLIPS.tackle,tackleTime);
@@ -325,7 +331,7 @@ export class MeshyAthletes{
    // Lock engaged pass/run bases to a reviewed contact frame. The procedural
    // pilot below owns the footwork, so the three-second generated flourish
    // cannot make every lineman kick in unison.
-   const locked=state==='pass-set'||state==='drive-block';
+   const locked=p.engaged||state==='pass-set'||state==='drive-block';
    const baseTime=locked?Math.min(this.clips[recipe.base].duration-.001,state==='pass-set'?.16:.24):phaseTime(recipe.base,recipe.rate);
    return result(recipe.base,baseTime,recipe.overlay,locked?Math.min(recipe.overlayWeight,.06):recipe.overlayWeight,recipe.overlay===null?0:locked?Math.min(this.clips[recipe.overlay].duration-.001,.12):phaseTime(recipe.overlay,recipe.rate*.93));
   }
@@ -361,6 +367,15 @@ export class MeshyAthletes{
   for(const [side,sign]of[['Left',1],['Right',-1]]){
    const target=qb?[sign*.11,chest[1]-.10,chest[2]+.27]:trench?[sign*.24,chest[1]-.23,chest[2]+.32]:[sign*.23,chest[1]-.28,chest[2]+(receiver?.12:.20)];
    this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],target,[sign*.62,chest[1]-.40,chest[2]-.06]);
+  }
+ }
+ blockPose(locals,p,time){
+  // Short alternating steps with hands meeting the opponent's shoulder pads.
+  const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m),beat=time*7.5+p.index*.83;
+  for(const [side,sign]of[['Left',1],['Right',-1]]){
+   const ankle=pointFromMatrix(this.jointWorld(this.base,this.namedNodes['mixamorig:'+side+'Foot']).m),step=Math.sin(beat+(sign>0?0:Math.PI));
+   this.solveLimb(locals,[side+'UpLeg',side+'Leg',side+'Foot'],[sign*.20,ankle[1]+Math.max(0,step)*.045,ankle[2]+step*.075],[sign*.22,.45,.65],true);
+   this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],[sign*.21,chest[1]-.06,chest[2]+.38],[sign*.46,chest[1]-.26,chest[2]+.08]);
   }
  }
  carryPose(locals,p){
@@ -516,6 +531,7 @@ export class MeshyAthletes{
   const hips=this.joints[0],baseY=this.base[hips].t[1],profile=ROLE_MOTION_PROFILES[p.role]||ROLE_MOTION_PROFILES.LB;locals[hips].t[1]=baseY+clamp(locals[hips].t[1]-baseY,-.10,.14)*profile.root;
   this.applyFootballPose(locals,p,phase,time,choice.state);
   if(phase==='pre')this.readyPose(locals,p);
+  else if(p.engaged&&!p.fallen)this.blockPose(locals,p,time);
   else if(p.hasBall&&(/^carry-|^qb-scramble/.test(choice.state)||p.fallen))this.carryPose(locals,p);
   if(p.fallen&&/wrap|gang|tackle|hit|pancake/.test(choice.state)){
    const finish=smooth(((p.actionT||0)-.45)/.55),chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m);
@@ -543,6 +559,7 @@ export class MeshyAthletes{
  modelFor(p){
   const builds={OL:[1.14,1.025,1.09],DL:[1.12,1.035,1.10],QB:[.98,1.02,.98],RB:[1.04,.985,1.02],WR:[.94,1.015,.94],TE:[1.07,1.045,1.05],LB:[1.075,1.025,1.06],DB:[.93,1,.94]},build=builds[p.role]||[1,1,1],variation=1+((p.index%5)-2)*.006;
   let lift=0,pitch=0,roll=0,yaw=0;if(p.action==='hurdle')lift=Math.sin((p.actionT||0)*Math.PI)*.68;if(p.action==='truck')pitch=.29*Math.sin((p.actionT||0)*Math.PI);if(p.action==='juke')roll=-(p.actionSide||0)*.22*Math.sin((p.actionT||0)*Math.PI);if(p.action==='spin')yaw=(p.actionSide||1)*(p.actionT||0)*Math.PI*2;
+  if(!p.fallen&&!p.engaged&&Math.hypot(p.vx||0,p.vz||0)>1){const direction=Math.atan2(p.vx||0,p.vz||0),turn=Math.atan2(Math.sin(direction-(p.heading||0)),Math.cos(direction-(p.heading||0)));roll+=clamp(-turn*.24,-.16,.16)}
   if(p.action==='break-tackle')roll+=(p.actionSide||1)*.18*Math.sin((p.actionT||0)*Math.PI);if(p.action==='miss')pitch+=.34*Math.sin((p.actionT||0)*Math.PI);if(p.engaged)pitch+=.11;if(p.reactionT>0)roll+=(p.reactionSide||1)*.12*Math.sin(clamp(p.reactionT,0,1)*Math.PI);
   const contactFall=p.fallen&&/tackle|hit|gang|wrap|slide|dive|pancake/.test(p.action||''),fallProgress=contactFall?smooth(p.actionT||0):p.fallen?1:0;
   const fall=fallProgress*(p.action==='slide'?1.30:p.action==='dive'?1.53:1.48),fallRoll=fallProgress*(p.actionSide||1)*(p.team?.27:-.20);

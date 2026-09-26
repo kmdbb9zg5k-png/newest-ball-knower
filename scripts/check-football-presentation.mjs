@@ -17,8 +17,8 @@ const positions=accessor(primitive.attributes.POSITION),joints=accessor(primitiv
 rig.supportVertices=athleteSupportVertices(positions,joints,weights);
 const allVertices=Array.from({length:positions.length/3},(_,i)=>({p:[...positions.subarray(i*3,i*3+3)],j:[...joints.subarray(i*4,i*4+4)],w:[...weights.subarray(i*4,i*4+4)]}));
 rig.clips=json.animations.map(a=>{let duration=0;const channels=a.channels.map(c=>{const s=a.samplers[c.sampler],times=accessor(s.input);duration=Math.max(duration,times.at(-1));return{node:c.target.node,path:c.target.path,times,values:accessor(s.output),size:c.target.path==='rotation'?4:3}});return{name:a.name,duration,channels}});
-function sample(role,phase,team,action=null,actionT=0,index=0){
- const p={role,phase,team,index,number:24,x:0,z:0,heading:0,vx:0,vz:phase==='run'?7:0,hasBall:role==='RB',action,actionT,fallen:Boolean(action),actionSide:1};
+function sample(role,phase,team,action=null,actionT=0,index=0,extra={}){
+ const p={role,phase,team,index,number:24,x:0,z:0,heading:0,vx:0,vz:phase==='run'?7:0,hasBall:role==='RB',action,actionT,fallen:Boolean(action),actionSide:1,...extra};
  rig.phase=phase;rig.poseStates.clear();const bones=rig.bonesFor(p,phase,1),model=rig.modelFor(p);
  assert.ok([...bones,...model].every(Number.isFinite),'Non-finite pose matrix');
  return{label:`${role} ${phase} ${action||''} ${actionT}`,p,bones:[...bones],model:[...model]};
@@ -33,6 +33,15 @@ for(const team of[0,1])for(const role of['QB','RB','WR','TE','OL','DL','LB','DB'
  }
  checks++;
 }
+// Sample engaged linemen over a complete step cycle, with real skinning.
+for(const team of[0,1])for(let i=0;i<12;i++){
+ const p={role:team?'DL':'OL',team,index:100+team,x:0,z:0,heading:0,vx:0,vz:.3,distance:i*.04,engaged:true,blockStyle:team?'shed':'drive'};
+ rig.phase='run';rig.poseStates.clear();const bones=rig.bonesFor(p,'run',i/12),model=rig.modelFor(p),hands=rig.handTransforms.get(p.index);
+ assert.ok([...bones,...model].every(Number.isFinite),'Block pose must remain finite');
+ for(const hand of[hands.left,hands.right])assert.ok(hand[14]>hands.chest[14]+.15,'Block hands should reach forward');
+ const points=skinSupportVertices(allVertices,bones);let floor=Infinity;for(const v of points)floor=Math.min(floor,model[1]*v[0]+model[5]*v[1]+model[9]*v[2]+model[13]);
+ assert.ok(floor>=-.04,'Blocking steps must not penetrate the turf');checks++;
+}
 console.log(`Presentation checks passed: ${checks} real-asset poses; ${rig.supportVertices.length} support vertices; lowest body point ${worstFloor.toFixed(4)}m.`);
 const flag=process.argv.indexOf('--render-dir');
 if(flag>=0){
@@ -40,7 +49,7 @@ if(flag>=0){
  for(const [name,idx]of Object.entries(primitive.attributes)){const a=accessor(idx);fs.writeFileSync(path.join(out,name+'.bin'),Buffer.from(a.buffer,a.byteOffset,a.byteLength));attrs[name]={type:json.accessors[idx].componentType,count:json.accessors[idx].count}}
  const ix=accessor(primitive.indices);fs.writeFileSync(path.join(out,'indices.bin'),Buffer.from(ix.buffer,ix.byteOffset,ix.byteLength));
  const mat=json.materials[primitive.material];[mat.pbrMetallicRoughness.baseColorTexture.index,mat.normalTexture.index,mat.pbrMetallicRoughness.metallicRoughnessTexture.index].forEach((idx,i)=>{const im=json.images[json.textures[idx].source],v=json.bufferViews[im.bufferView];fs.writeFileSync(path.join(out,'tex'+i+'.jpg'),Buffer.from(parsed.bin,v.byteOffset||0,v.byteLength))});
- const poses=[sample('QB','pre',0),sample('OL','pre',0),sample('DB','pre',1),sample('LB','dead',1),sample('RB','run',0),sample('LB','dead',1,'wrap',1),sample('RB','dead',0,'wrap',1),sample('RB','dead',0,'wrap',.5)];
+ const poses=[sample('OL','run',0,null,0,0,{engaged:true,blockStyle:'drive',distance:2}),sample('DL','run',1,null,0,1,{engaged:true,blockStyle:'shed',distance:2}),sample('RB','run',0,null,0,6,{distance:2}),sample('RB','run',0,null,0,6,{distance:3,sprinting:true}),sample('RB','run',0,'cut',.4,6,{fallen:false,distance:2.5}),sample('LB','dead',1,'wrap',1),sample('RB','dead',0,'wrap',1),sample('RB','dead',0,'wrap',.5)];
  fs.writeFileSync(path.join(out,'scene.json'),JSON.stringify({...ATHLETE_SHADERS,attrs,indexType:json.accessors[primitive.indices].componentType,indexCount:ix.length,poses}));
  console.log('Render scene:',out);
 }
