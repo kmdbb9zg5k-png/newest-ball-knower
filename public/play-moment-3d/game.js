@@ -1,6 +1,6 @@
 import{Renderer,pose,segment,hex}from'./renderer.js';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js';
-import{createMeshyAthletes}from'./meshy-athlete.js?v=football-finish-13';
+import{createMeshyAthletes}from'./meshy-athlete.js?v=football-finish-14';
 import{makeStadium}from'./stadium.js';
 import{createGameplayReplayRecorder}from'./replay.js';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
@@ -12,6 +12,8 @@ export function lineToGain(drive){return Math.min(100,drive.ball+drive.toGo)}
 export function downDistanceLabel(drive){const ord=['1ST','2ND','3RD','4TH'];return ord[Math.min(3,drive.down-1)]+' & '+(lineToGain(drive)===100?'GOAL':drive.toGo)}
 export function cameraWorldVector(screenX,screenZ,eye,target){const fx=target[0]-eye[0],fz=target[2]-eye[2],l=Math.hypot(fx,fz)||1;return[(-fz*screenX+fx*screenZ)/l,(fx*screenX+fz*screenZ)/l]}
 export function normalizeControlKey(key){return typeof key==='string'&&key.length===1?key.toLowerCase():key}
+/** Let a preview link opt into assisted running without changing the default mode. */
+export function initialAssistMode(search=''){return new URLSearchParams(search).get('assist')==='1'}
 export function receiverSlotForKey(key){const slot={x:0,y:1,z:2,'1':0,'2':1,'3':2,'4':3,'5':4}[normalizeControlKey(key)];return Number.isInteger(slot)?slot:-1}
 export function catchBreakupChance(separation){return separation<.7?.9:separation<1.2?.68:separation<2?.3:.04}
 export function defenderPursuitSpeed(separation,afterCatch=false){const base=afterCatch?7.65:6.8,ceiling=afterCatch?8.85:8.55;return clamp(base+Math.max(0,separation-1)*(afterCatch?.14:.11),base,ceiling)}
@@ -316,7 +318,7 @@ export function runConceptDirection(runIndex,seconds,runnerX,runnerZ,scrimmageZ,
 export function predictPassDestination(path,startX,startZ,elapsed,duration,speed){const p=travel(path,Math.max(0,elapsed+duration)*speed);return[clamp(startX+p[0],-26.3,26.3),1.6,startZ+p[1]]}
 export function start(){
  const r=new Renderer($('game')),stadium=makeStadium(r),meshy=createMeshyAthletes(r);let actors=[],frameId=0,elapsed=0,last=0,raf=0,messageUntil=0,recoveryLeft=0,postPlayElapsed=0,exchange=null,transitionFade=0,activeContact=null,pendingPlayMessage=null,pendingDriveEnd=null,soundContext=null,highlightFrames=[],lastHighlight=[],highlightSampleAt=-1,replaying=false,replayCursor=0,replayEndPhase='dead';
- let mode='run',selected=0,assist=false,phase='pre',paused=false,ended=false,flight=null,lastFlightEnd=null,looseBall=null,carrier=null,jukeUntil=0,jukeReady=0,simTime=0,lastSkill=null,lastSkillAt=-10,impactShake=0,catchStyle='rac',runDirection=1,mikeIndex=16,motioned=false,pumpReady=0,plantReady=0,turfFx=[],nextTurfFx=0,contactFx=null;
+ let mode='run',selected=0,assist=initialAssistMode(location.search),phase='pre',paused=false,ended=false,flight=null,lastFlightEnd=null,looseBall=null,carrier=null,jukeUntil=0,jukeReady=0,simTime=0,lastSkill=null,lastSkillAt=-10,impactShake=0,catchStyle='rac',runDirection=1,mikeIndex=16,motioned=false,pumpReady=0,plantReady=0,turfFx=[],nextTurfFx=0,contactFx=null;
  const redZone=new URLSearchParams(location.search).get('scenario')==='redzone';
  const initialDrive={ball:redZone?85:25,down:1,toGo:10,clock:redZone?63:78,score:24,plays:0};
  let drive={...initialDrive},snapZ=10+initialDrive.ball,snapGainZ=10+lineToGain(initialDrive),stamina=1;

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {pursuitTarget,pursuitSteering,locomotionStep,tackleContactEligible,defenderRunSpeed,playerRatings} from '../public/play-moment-3d/game.js';
+import {pursuitTarget,pursuitSteering,locomotionStep,tackleContactEligible,defenderRunSpeed,playerRatings,initialAssistMode} from '../public/play-moment-3d/game.js';
 import {MeshyAthletes,MESHY_CLIPS} from '../public/play-moment-3d/meshy-athlete.js';
 // Compare actual accelerated pursuit against the previous short lead for a crossing run.
 function chase(targetFn){
@@ -9,6 +9,9 @@ function chase(targetFn){
 }
 const interception=chase((d,r)=>pursuitTarget(d,r,false,8.2));
 assert.ok(interception.caught,'A safety with a reachable crossing angle should meet the runner');
+assert.equal(initialAssistMode(''),false,'Default launch must remain manual');
+assert.equal(initialAssistMode('?assist=1'),true,'Preview query must enable assisted running');
+assert.equal(initialAssistMode('?assist=0'),false,'Manual mode must remain explicit for other values');
 for(const x of[-25,0,25])for(const vx of[-9,0,9])for(const vz of[-8,0,8]){
  const p=pursuitTarget({index:18,x:4,z:32},{x,z:25,vx,vz},false,8);
  assert.ok(Number.isFinite(p.x)&&Number.isFinite(p.z));assert.ok(Math.abs(p.x)<=25.8);assert.ok(Math.abs(p.z-25)<=Math.abs(vz)*4+.001);
