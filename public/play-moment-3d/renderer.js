@@ -125,7 +125,7 @@ function program(gl,vs,fs){
 export class Renderer{
  constructor(canvas){
   this.canvas=canvas;const gl=canvas.getContext('webgl2',{antialias:true,alpha:false,powerPreference:'high-performance'});
-  if(!gl)throw new Error('WebGL2 unavailable');this.gl=gl;this.batches=new Map();this.actorPass=false;
+  if(!gl)throw new Error('WebGL2 unavailable');this.gl=gl;this.batches=new Map();this.geometry=new Map();this.actorPass=false;
   this.eye=[0,18,0];this.target=[0,0,40];this.vp=identity();this.lightVP=identity();this.drawCalls=0;this.shadowDrawCalls=0;this.lost=false;
   this.shadowTexture=null;this.shadowBuffer=null;this.shadowAvailable=false;this.shadowSize=0;this.quality='high';this.overflows=0;this.shadowCasters=[];
   canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();this.lost=true;const box=document.getElementById('error'),text=document.getElementById('errorText');if(box)box.hidden=false;if(text)text.textContent='Graphics paused. Reload this practice page to restart. Your career is unchanged.'});
@@ -143,7 +143,7 @@ export class Renderer{
   // The practice experience always launches at full fidelity. Lower tiers remain
   // internal only so automated fallback checks can still exercise weak hardware.
   this.setQuality('high');
-  if(new URLSearchParams(location.search).has('qa')){window.bkSetGraphicsQualityForQA=tier=>this.setQuality(tier);window.bkGraphicsDiagnostics=()=>({quality:this.quality,shadowAvailable:this.shadowAvailable,shadowSize:this.shadowSize,shadowDrawCalls:this.shadowDrawCalls,drawCalls:this.drawCalls,textureCount:this.textures.size,overflows:this.overflows,eye:this.eye,target:this.target,canvas:[canvas.width,canvas.height]})}
+  if(new URLSearchParams(location.search).has('qa')){window.bkSetGraphicsQualityForQA=tier=>this.setQuality(tier);window.bkGraphicsDiagnostics=()=>({quality:this.quality,shadowAvailable:this.shadowAvailable,shadowSize:this.shadowSize,shadowDrawCalls:this.shadowDrawCalls,drawCalls:this.drawCalls,textureCount:this.textures.size,instanceBytes:[...this.batches.values()].reduce((n,b)=>n+b.data.byteLength,0),geometryCount:this.geometry.size,overflows:this.overflows,eye:this.eye,target:this.target,canvas:[canvas.width,canvas.height]})}
  }
  texture(name,canvas){
   const gl=this.gl;const previous=this.textures.get(name);if(previous)gl.deleteTexture(previous);
@@ -171,7 +171,7 @@ export class Renderer{
   if(!ok){gl.deleteFramebuffer(buffer);gl.deleteTexture(texture);console.warn('Using contact shadows: depth framebuffer unavailable.');return;}
   this.shadowBuffer=buffer;this.shadowTexture=texture;this.shadowSize=size;this.shadowAvailable=true;
  }
- resize(){const r=this.canvas.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,GRAPHICS_TIERS[this.quality].dpr);this.width=Math.max(1,r.width);this.height=Math.max(1,r.height);this.canvas.width=Math.max(1,Math.round(this.width*d));this.canvas.height=Math.max(1,Math.round(this.height*d));this.gl.viewport(0,0,this.canvas.width,this.canvas.height)}
+ resize(){const r=this.canvas.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,GRAPHICS_TIERS[this.quality].dpr);this.width=Math.max(1,r.width);this.height=Math.max(1,r.height);const w=Math.max(1,Math.round(this.width*d)),h=Math.max(1,Math.round(this.height*d));if(this.canvas.width!==w)this.canvas.width=w;if(this.canvas.height!==h)this.canvas.height=h;this.gl.viewport(0,0,this.canvas.width,this.canvas.height)}
  camera(eye,target){this.eye=eye;this.target=target;this.vp=mul(projection(this.width/this.height),view(eye,target))}
  project(p){const m=this.vp,x=m[0]*p[0]+m[4]*p[1]+m[8]*p[2]+m[12],y=m[1]*p[0]+m[5]*p[1]+m[9]*p[2]+m[13],w=m[3]*p[0]+m[7]*p[1]+m[11]*p[2]+m[15];return{x:(x/w*.5+.5)*this.width,y:(.5-y/w*.5)*this.height,visible:w>0}}
  begin(){for(const b of this.batches.values())b.count=0;this.actorPass=false;this.overflows=0;this.shadowCasters.length=0;}
@@ -182,16 +182,19 @@ export class Renderer{
   if(texture==='turf')material=4;
   const key=[shape,texture,unlit,actor,material].join('|');let b=this.batches.get(key);
   if(!b){const gl=this.gl,g=this.shapes[shape];if(!g)throw new Error('Unknown geometry: '+shape);
-   b={count:0,data:new Float32Array(21*4096),shape,texture,unlit,actor,material,blend,vao:gl.createVertexArray(),instances:gl.createBuffer(),indices:g.ix.length};
-   gl.bindVertexArray(b.vao);const vb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(g.v),gl.STATIC_DRAW);
+   b={count:0,capacity:32,data:new Float32Array(21*32),shape,texture,unlit,actor,material,blend,vao:gl.createVertexArray(),instances:gl.createBuffer(),indices:g.ix.length};
+   gl.bindVertexArray(b.vao);let geometry=this.geometry.get(shape);
+   if(!geometry){geometry={vertices:gl.createBuffer(),indices:gl.createBuffer()};gl.bindBuffer(gl.ARRAY_BUFFER,geometry.vertices);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(g.v),gl.STATIC_DRAW);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,geometry.indices);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(g.ix),gl.STATIC_DRAW);this.geometry.set(shape,geometry)}
+   gl.bindBuffer(gl.ARRAY_BUFFER,geometry.vertices);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,geometry.indices);
    for(const [i,size,offset]of[[0,3,0],[1,3,12],[2,2,24]]){gl.enableVertexAttribArray(i);gl.vertexAttribPointer(i,size,gl.FLOAT,false,32,offset)}
-   const ib=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(g.ix),gl.STATIC_DRAW);
    gl.bindBuffer(gl.ARRAY_BUFFER,b.instances);gl.bufferData(gl.ARRAY_BUFFER,b.data.byteLength,gl.DYNAMIC_DRAW);
    for(let i=0;i<4;i++){gl.enableVertexAttribArray(3+i);gl.vertexAttribPointer(3+i,4,gl.FLOAT,false,84,i*16);gl.vertexAttribDivisor(3+i,1)}
    gl.enableVertexAttribArray(7);gl.vertexAttribPointer(7,4,gl.FLOAT,false,84,64);gl.vertexAttribDivisor(7,1);
    gl.enableVertexAttribArray(8);gl.vertexAttribPointer(8,1,gl.FLOAT,false,84,80);gl.vertexAttribDivisor(8,1);this.batches.set(key,b);
   }
-  if(b.count>=4096){this.overflows++;return;}const i=b.count++*21;b.data.set(matrix,i);b.data.set(color,i+16);b.data[i+20]=shine;
+  if(b.count>=4096){this.overflows++;return;}
+  if(b.count>=b.capacity){b.capacity=Math.min(4096,b.capacity*2);const data=new Float32Array(21*b.capacity);data.set(b.data);b.data=data;this.gl.bindBuffer(this.gl.ARRAY_BUFFER,b.instances);this.gl.bufferData(this.gl.ARRAY_BUFFER,b.data.byteLength,this.gl.DYNAMIC_DRAW)}
+  const i=b.count++*21;b.data.set(matrix,i);b.data.set(color,i+16);b.data[i+20]=shine;
  }
  glow(position,size,color=[.7,.84,1,.2]){
   const forward=norm(this.eye.map((v,i)=>v-position[i])),right=norm(cross([0,1,0],forward)),up=cross(forward,right);

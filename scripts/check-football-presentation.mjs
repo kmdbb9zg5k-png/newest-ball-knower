@@ -42,6 +42,21 @@ for(const team of[0,1])for(let i=0;i<12;i++){
  const points=skinSupportVertices(allVertices,bones);let floor=Infinity;for(const v of points)floor=Math.min(floor,model[1]*v[0]+model[5]*v[1]+model[9]*v[2]+model[13]);
  assert.ok(floor>=-.04,'Blocking steps must not penetrate the turf');checks++;
 }
+// Sweep complete run/sprint and get-up sequences, not just representative stills.
+for(const role of['QB','RB','WR','TE','OL','DL','LB','DB'])for(const speed of[5.5,8.4]){
+ const actor={role,index:220,team:role==='LB'||role==='DB'||role==='DL'?1:0,x:0,z:0,heading:0,vx:0,vz:speed,hasBall:role==='RB',sprinting:speed>8};
+ rig.poseStates.clear();rig.phase='run';
+ for(let i=0;i<28;i++){
+  actor.distance=i*.1;const bones=rig.bonesFor(actor,'run',i*.1/speed),model=rig.modelFor(actor),chest=rig.handTransforms.get(actor.index).chest;
+  assert.ok(chest[5]/Math.hypot(chest[4],chest[5],chest[6])>.85,`${role}: horizontal running torso`);
+  assert.ok([...bones,...model].every(Number.isFinite),'Stride matrix must be finite');
+  const points=skinSupportVertices(allVertices,bones);let floor=Infinity;for(const v of points)floor=Math.min(floor,model[1]*v[0]+model[5]*v[1]+model[9]*v[2]+model[13]);
+  assert.ok(floor>=-.04&&floor<.03,`${role}: stride foot misses turf ${floor}`);checks++;
+ }
+}
+for(const t of[0,.2,.4,.6,.8,1]){
+ const pose=sample('LB','run',1,'get-up',t,221,{fallen:true,vz:0});assert.ok(pose.model[5]>.8||t<.8,'Get-up should finish upright');checks++;
+}
 console.log(`Presentation checks passed: ${checks} real-asset poses; ${rig.supportVertices.length} support vertices; lowest body point ${worstFloor.toFixed(4)}m.`);
 const flag=process.argv.indexOf('--render-dir');
 if(flag>=0){
@@ -49,7 +64,8 @@ if(flag>=0){
  for(const [name,idx]of Object.entries(primitive.attributes)){const a=accessor(idx);fs.writeFileSync(path.join(out,name+'.bin'),Buffer.from(a.buffer,a.byteOffset,a.byteLength));attrs[name]={type:json.accessors[idx].componentType,count:json.accessors[idx].count}}
  const ix=accessor(primitive.indices);fs.writeFileSync(path.join(out,'indices.bin'),Buffer.from(ix.buffer,ix.byteOffset,ix.byteLength));
  const mat=json.materials[primitive.material];[mat.pbrMetallicRoughness.baseColorTexture.index,mat.normalTexture.index,mat.pbrMetallicRoughness.metallicRoughnessTexture.index].forEach((idx,i)=>{const im=json.images[json.textures[idx].source],v=json.bufferViews[im.bufferView];fs.writeFileSync(path.join(out,'tex'+i+'.jpg'),Buffer.from(parsed.bin,v.byteOffset||0,v.byteLength))});
- const poses=[sample('OL','run',0,null,0,0,{engaged:true,blockStyle:'drive',distance:2}),sample('DL','run',1,null,0,1,{engaged:true,blockStyle:'shed',distance:2}),sample('RB','run',0,null,0,6,{distance:2}),sample('RB','run',0,null,0,6,{distance:3,sprinting:true}),sample('RB','run',0,'cut',.4,6,{fallen:false,distance:2.5}),sample('LB','dead',1,'wrap',1),sample('RB','dead',0,'wrap',1),sample('RB','dead',0,'wrap',.5)];
+ let poses=[sample('OL','run',0,null,0,0,{engaged:true,blockStyle:'drive',distance:2}),sample('DL','run',1,null,0,1,{engaged:true,blockStyle:'shed',distance:2}),sample('RB','run',0,null,0,6,{distance:2}),sample('RB','run',0,null,0,6,{distance:3,sprinting:true}),sample('RB','run',0,'cut',.4,6,{fallen:false,distance:2.5}),sample('LB','dead',1,'wrap',1),sample('RB','dead',0,'wrap',1),sample('RB','dead',0,'wrap',.5)];
+ if(process.argv.includes('--recovery'))poses=[sample('LB','run',1,null,0,17,{distance:.3,vz:8.4}),sample('LB','run',1,null,0,17,{distance:1,vz:8.4}),sample('LB','run',1,null,0,17,{distance:1.7,vz:8.4}),sample('LB','run',1,null,0,17,{distance:2.4,vz:8.4}),sample('LB','run',1,'get-up',0,17,{vz:0}),sample('LB','run',1,'get-up',.5,17,{vz:0}),sample('LB','run',1,'get-up',1,17,{vz:0}),sample('QB','dead',0,'wrap',1,5)];
  fs.writeFileSync(path.join(out,'scene.json'),JSON.stringify({...ATHLETE_SHADERS,attrs,indexType:json.accessors[primitive.indices].componentType,indexCount:ix.length,poses}));
  console.log('Render scene:',out);
 }
