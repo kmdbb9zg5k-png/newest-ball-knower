@@ -184,3 +184,23 @@ if(blockFlag>=0){
  }
  fs.writeFileSync(process.argv[blockFlag+1],JSON.stringify(scenarios));console.log('Captured sustained run/pass blocks.');
 }
+
+// Holding an empty sprint must settle into a steady run, not regenerate one
+// frame of stamina and repeatedly restart the animation transition.
+for(const keyboard of [false,true]){
+ const g=game();g.snap();g.step(1.4);
+ g.context.bk3dFixture.mutate(players=>players.filter(p=>p.team).forEach(p=>{p.x=100;p.z=100}));
+ const stick=g.element('stick').getBoundingClientRect();
+ g.element('stick').onpointerdown({pointerId:1,clientX:stick.left+45,clientY:stick.top,preventDefault(){}});
+ const press=()=>keyboard?g.key('Shift'):g.element('sprint').onpointerdown({pointerId:2,preventDefault(){}});
+ const release=()=>keyboard?g.events.get('keyup')({key:'Shift',code:'Shift'}):g.element('sprint').onpointerup({pointerId:2});
+ const advance=()=>{g.context.bk3dFixture.mutate(players=>players.forEach(p=>{if(p.hasBall){p.x=0;p.z=40}else if(p.team){p.x=100;p.z=100}}));g.step(1/60)};
+ press();for(let i=0;i<210;i++)advance();assert.equal(g.read().stamina,0);
+ for(let i=0;i<60;i++){
+  advance();assert.equal(g.read().phase,'run');assert.equal(g.read().stamina,0);
+  assert.equal(g.context.bk3dRenderActors().find(p=>p.hasBall).sprinting,false,'Empty held sprint must stay in run animation');
+ }
+ release();g.step(.5);assert.ok(g.read().stamina>.04,'Release restores stamina');
+ press();g.step(1/60);assert.equal(g.context.bk3dRenderActors().find(p=>p.hasBall).sprinting,true,'Recovered sprint works again');
+}
+console.log('Exhausted sprint stays stable for touch and keyboard');
