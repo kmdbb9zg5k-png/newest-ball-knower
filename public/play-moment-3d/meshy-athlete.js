@@ -108,8 +108,8 @@ export const ROLE_STANCE_PROFILES=Object.freeze({
  RB:Object.freeze({crouch:.115,lean:.11,knees:.17,elbows:.22,stagger:.04}),
  WR:Object.freeze({crouch:.075,lean:.12,knees:.12,elbows:.13,stagger:.09}),
  TE:Object.freeze({crouch:.095,lean:.13,knees:.14,elbows:.17,stagger:.06}),
- OL:Object.freeze({crouch:.205,lean:.24,knees:.25,elbows:.31,stagger:.02}),
- DL:Object.freeze({crouch:.225,lean:.30,knees:.27,elbows:.34,stagger:.12}),
+ OL:Object.freeze({crouch:.205,lean:.38,knees:.25,elbows:.31,stagger:.02}),
+ DL:Object.freeze({crouch:.225,lean:.44,knees:.27,elbows:.34,stagger:.12}),
  LB:Object.freeze({crouch:.13,lean:.15,knees:.18,elbows:.18,stagger:.07}),
  DB:Object.freeze({crouch:.10,lean:.13,knees:.15,elbows:.12,stagger:.10}),
 });
@@ -200,7 +200,24 @@ function slerp(a,b,t){let cos=a[0]*b[0]+a[1]*b[1]+a[2]*b[2]+a[3]*b[3],bb=b;if(co
 function lerpArray(a,b,t){return a.map((v,i)=>v+(b[i]-v)*t)}
 function pointFromMatrix(matrix,point=[0,0,0]){const[x,y,z]=point;return[matrix[0]*x+matrix[4]*y+matrix[8]*z+matrix[12],matrix[1]*x+matrix[5]*y+matrix[9]*z+matrix[13],matrix[2]*x+matrix[6]*y+matrix[10]*z+matrix[14]]}
 
-function parseGLB(buffer){
+export function athleteSupportVertices(positions,joints,weights){
+ const extremes=new Map();
+ for(let i=0;i<positions.length/3;i++){
+  const js=Array.from(joints.subarray(i*4,i*4+4)),ws=Array.from(weights.subarray(i*4,i*4+4)),joint=js[ws.indexOf(Math.max(...ws))],p=Array.from(positions.subarray(i*3,i*3+3));
+  for(let axis=0;axis<3;axis++)for(const sign of[-1,1]){const key=joint+':'+axis+':'+sign,old=extremes.get(key);if(!old||p[axis]*sign>old.p[axis]*sign)extremes.set(key,{index:i,p,j:js,w:ws})}
+ }
+ return[...new Map([...extremes.values()].map(v=>[v.index,v])).values()];
+}
+export function skinSupportVertices(vertices,bones){return vertices.map(v=>{const out=[0,0,0];for(let c=0;c<4;c++){if(!v.w[c])continue;const o=v.j[c]*16;for(let axis=0;axis<3;axis++)out[axis]+=(bones[o+axis]*v.p[0]+bones[o+4+axis]*v.p[1]+bones[o+8+axis]*v.p[2]+bones[o+12+axis])*v.w[c]}return out})}
+
+function directionQuat(from,to){
+ const a=from.map(v=>v/(Math.hypot(...from)||1)),b=to.map(v=>v/(Math.hypot(...to)||1)),dot=clamp(a.reduce((sum,v,i)=>sum+v*b[i],0),-1,1);
+ if(dot<-.9999){const axis=Math.abs(a[0])<.9?[0,a[2],-a[1]]:[-a[2],0,a[0]],length=Math.hypot(...axis)||1;return axisQuat(...axis.map(v=>v/length),Math.PI)}
+ const q=[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0],1+dot],length=Math.hypot(...q)||1;return q.map(v=>v/length);
+}
+const subtract=(a,b)=>a.map((v,i)=>v-b[i]);
+
+export function parseGLB(buffer){
  const view=new DataView(buffer);if(view.getUint32(0,true)!==0x46546c67||view.getUint32(4,true)!==2)throw new Error('Unsupported Meshy GLB');
  let offset=12,json=null,bin=null;
  while(offset<buffer.byteLength){const length=view.getUint32(offset,true),type=view.getUint32(offset+4,true),start=offset+8;if(type===0x4e4f534a)json=JSON.parse(new TextDecoder().decode(new Uint8Array(buffer,start,length)).replace(/\0+$/,''));if(type===0x004e4942)bin=buffer.slice(start,start+length);offset=start+length}
@@ -223,28 +240,40 @@ precision highp float;precision highp int;
 layout(location=0)in vec3 position;layout(location=1)in vec3 normalIn;layout(location=2)in vec2 uvIn;
 layout(location=3)in uvec4 joints;layout(location=4)in vec4 weights;layout(location=5)in vec4 tangentIn;
 uniform mat4 vp;uniform mat4 model;uniform mat4 bones[${MAX_BONES}];
-out vec3 world;out vec3 normal;out vec3 tangent;out float handedness;out vec2 uv;out vec3 bindPosition;
-void main(){mat4 skin=weights.x*bones[joints.x]+weights.y*bones[joints.y]+weights.z*bones[joints.z]+weights.w*bones[joints.w];vec4 local=skin*vec4(position,1.);vec4 w=model*local;mat3 basis=mat3(model)*mat3(skin);world=w.xyz;normal=normalize(basis*normalIn);tangent=normalize(basis*tangentIn.xyz);handedness=tangentIn.w;uv=uvIn;bindPosition=position;gl_Position=vp*w;}`;
+out vec3 world;out vec3 normal;out vec3 tangent;out float handedness;out vec2 uv;out vec3 bindPosition;out vec3 bindNormal;
+void main(){mat4 skin=weights.x*bones[joints.x]+weights.y*bones[joints.y]+weights.z*bones[joints.z]+weights.w*bones[joints.w];vec4 local=skin*vec4(position,1.);vec4 w=model*local;mat3 basis=mat3(model)*mat3(skin);world=w.xyz;normal=normalize(basis*normalIn);tangent=normalize(basis*tangentIn.xyz);handedness=tangentIn.w;uv=uvIn;bindPosition=position;bindNormal=normalIn;gl_Position=vp*w;}`;
 const fragment=`#version 300 es
 precision highp float;
-in vec3 world;in vec3 normal;in vec3 tangent;in float handedness;in vec2 uv;in vec3 bindPosition;
-uniform vec3 eye;uniform sampler2D baseMap;uniform sampler2D normalMap;uniform sampler2D ormMap;uniform float rival;uniform float controlled;uniform float playerSeed;
+in vec3 world;in vec3 normal;in vec3 tangent;in float handedness;in vec2 uv;in vec3 bindPosition;in vec3 bindNormal;
+uniform vec3 eye;uniform sampler2D baseMap;uniform sampler2D normalMap;uniform sampler2D ormMap;uniform sampler2D numberMap;uniform float rival;uniform float controlled;uniform float playerSeed;
 out vec4 color;
 vec3 film(vec3 v){return clamp((v*(2.51*v+.03))/(v*(2.43*v+.59)+.14),0.,1.);}
 void main(){vec4 sampleColor=texture(baseMap,uv);if(sampleColor.a<.04)discard;vec3 albedo=pow(sampleColor.rgb,vec3(2.2));
  float navy=smoothstep(.025,.14,sampleColor.b-sampleColor.r)*smoothstep(.02,.12,sampleColor.b-sampleColor.g);
  float gold=smoothstep(.03,.18,sampleColor.r-sampleColor.b)*smoothstep(.015,.10,sampleColor.g-sampleColor.b)*(1.-smoothstep(.12,.28,sampleColor.r-sampleColor.g));vec3 away=mix(vec3(.72,.76,.77),vec3(.98,.985,.96),clamp(dot(sampleColor.rgb,vec3(.333)),0.,1.));albedo=mix(albedo,pow(away,vec3(2.2)),navy*rival*.94);albedo=mix(albedo,pow(vec3(.48,.075,.055),vec3(2.2)),gold*rival*.82);albedo*=mix(.955,1.045,playerSeed);
+ // Give the away helmet a painted shell rather than the skin-like copper tint.
+ float shell=smoothstep(1.47,1.55,bindPosition.y)*(1.-smoothstep(.12,.22,bindPosition.z))*rival;
+ albedo=mix(albedo,pow(vec3(.34,.035,.045),vec3(2.2)),shell*.92);
  // Meshy may bake arbitrary lettering into generated uniforms. Preserve the
  // high-resolution weave/normal response but own the torso and pants colors in
- // shader so the only visible roster number is Ball Knower's live decal.
+ // shader so the only visible roster number is Ball Knower's live print.
  float torso=smoothstep(.63,.78,bindPosition.y)*(1.-smoothstep(1.34,1.49,bindPosition.y))*(1.-smoothstep(.31,.46,abs(bindPosition.x)));
  float pants=smoothstep(.25,.38,bindPosition.y)*(1.-smoothstep(.76,.93,bindPosition.y))*(1.-smoothstep(.42,.58,abs(bindPosition.x)));
  float uniformZone=clamp(max(torso,pants),0.,1.);float clothValue=mix(.82,1.08,clamp(dot(sampleColor.rgb,vec3(.333)),0.,1.));
- vec3 cleanUniform=mix(vec3(.018,.050,.082),vec3(.79,.82,.82),rival)*clothValue;
+ vec3 jerseyColor=mix(vec3(.045,.105,.17),vec3(.83,.85,.84),rival),pantsColor=mix(vec3(.023,.040,.064),vec3(.64,.69,.72),rival);
+ vec3 cleanUniform=mix(jerseyColor,pantsColor,pants*(1.-torso))*clothValue;
  albedo=mix(albedo,pow(cleanUniform,vec3(2.2)),uniformZone*.97);albedo*=mix(.955,1.045,playerSeed);
- vec3 N=normalize(normal),T=normalize(tangent-N*dot(N,tangent)),B=normalize(cross(N,T))*handedness;vec3 mapped=texture(normalMap,uv).xyz*2.-1.;N=normalize(mat3(T,B,N)*mapped);
+ // Project the ink onto the bind-pose jersey, before skeletal deformation.
+ // Front/back get readable orientation; sidewalls, sleeves and pants are masked.
+ float face=bindNormal.z>=0.?1.:-1.;
+ vec2 numberUV=vec2(bindPosition.x*face/.34+.5,(1.22-bindPosition.y)/.36+.5);
+ float printMask=step(0.,numberUV.x)*step(numberUV.x,1.)*step(0.,numberUV.y)*step(numberUV.y,1.)*smoothstep(.35,.65,abs(bindNormal.z))*torso;
+ vec4 ink=texture(numberMap,clamp(numberUV,0.,1.));
+ albedo=mix(albedo,pow(ink.rgb,vec3(2.2)),ink.a*printMask);
+
+ vec3 N=normalize(normal),T=normalize(tangent-N*dot(N,tangent)),B=normalize(cross(N,T))*handedness;vec3 mapped=texture(normalMap,uv).xyz*2.-1.;mapped.xy*=mix(1.,.68,uniformZone);N=normalize(mat3(T,B,N)*mapped);
  vec3 V=normalize(eye-world),L0=normalize(vec3(-.48,.82,-.31)),L1=normalize(vec3(.62,.69,.38)),L2=normalize(vec3(-.20,.72,.65));float d0=max(dot(N,L0),0.),d1=max(dot(N,L1),0.),d2=max(dot(N,L2),0.);vec3 ambient=mix(vec3(.075,.09,.105),vec3(.20,.25,.34),N.y*.5+.5);vec3 lit=ambient+vec3(1.52,1.43,1.24)*d0+vec3(.38,.50,.72)*d1+vec3(.20,.24,.33)*d2;
- vec3 orm=texture(ormMap,uv).rgb;float rough=clamp(orm.g,.18,.96),metal=orm.b;vec3 H=normalize(L0+V),F0=mix(vec3(.028),albedo,metal),fresnel=F0+(1.-F0)*pow(1.-max(dot(N,V),0.),5.);float spec=pow(max(dot(N,H),0.),mix(90.,10.,rough)),rim=pow(1.-max(dot(N,V),0.),2.6);vec3 rimColor=mix(vec3(.22,.31,.42),vec3(.42,.18,.14),rival);vec3 rgb=albedo*lit+fresnel*spec*(.35+1.35*(1.-rough))+rimColor*rim*(.105+controlled*.11);float heroRim=pow(1.-max(dot(N,V),0.),4.2)*controlled;rgb+=vec3(.46,.31,.09)*heroRim;float fog=smoothstep(55.,190.,distance(eye,world));rgb=mix(rgb,vec3(.016,.026,.046),fog*.68);color=vec4(pow(film(rgb*1.08),vec3(1./2.2)),1.);}`;
+ vec3 orm=texture(ormMap,uv).rgb;float rough=clamp(orm.g,.18,.96),metal=orm.b*(1.-uniformZone);rough=mix(rough,max(rough,.82),uniformZone);vec3 H=normalize(L0+V),F0=mix(vec3(.028),albedo,metal),fresnel=F0+(1.-F0)*pow(1.-max(dot(N,V),0.),5.);float spec=pow(max(dot(N,H),0.),mix(90.,10.,rough)),rim=pow(1.-max(dot(N,V),0.),2.6);vec3 rimColor=mix(vec3(.22,.31,.42),vec3(.42,.18,.14),rival);vec3 rgb=albedo*lit+fresnel*spec*(.35+1.35*(1.-rough))+rimColor*rim*(.105+controlled*.11);float heroRim=pow(1.-max(dot(N,V),0.),4.2)*controlled;rgb+=vec3(.46,.31,.09)*heroRim;float fog=smoothstep(55.,190.,distance(eye,world));rgb=mix(rgb,vec3(.016,.026,.046),fog*.68);color=vec4(pow(film(rgb*1.08),vec3(1./2.2)),1.);}`;
 
 const depthVertex=`#version 300 es
 precision highp float;precision highp int;
@@ -255,15 +284,16 @@ const depthFragment=`#version 300 es
 precision highp float;void main(){}`;
 
 export class MeshyAthletes{
- constructor(renderer){this.renderer=renderer;this.gl=renderer.gl;this.ready=false;this.error='';this.triangles=0;this.clipNames=[];this.lastStates=[];this.poseStates=new Map();this.handTransforms=new Map();this.frameBones=null;this.loadPromise=this.load()}
+ constructor(renderer){this.renderer=renderer;this.gl=renderer.gl;this.ready=false;this.error='';this.triangles=0;this.clipNames=[];this.lastStates=[];this.poseStates=new Map();this.handTransforms=new Map();this.supportPoints=new Map();this.frameBones=null;this.loadPromise=this.load()}
  async load(){
   try{
    const url=globalThis.BK_MESHY_GLTF_URL||ASSET,response=await fetch(url,{cache:'force-cache'});if(!response.ok)throw new Error('Detailed player '+response.status);
    const parsed=parseGLB(await response.arrayBuffer()),{json,accessor}=parsed,gl=this.gl,primitive=json.meshes[0].primitives[0];this.parsed=parsed;
-   this.program=makeProgram(gl,vertex,fragment);this.depthProgram=makeProgram(gl,depthVertex,depthFragment);this.uniforms=Object.fromEntries(['vp','model','bones','eye','baseMap','normalMap','ormMap','rival','controlled','playerSeed'].map(name=>[name,gl.getUniformLocation(this.program,name==='bones'?'bones[0]':name)]));this.depthUniforms=Object.fromEntries(['lightVP','model','bones'].map(name=>[name,gl.getUniformLocation(this.depthProgram,name==='bones'?'bones[0]':name)]));
+   this.program=makeProgram(gl,vertex,fragment);this.depthProgram=makeProgram(gl,depthVertex,depthFragment);this.uniforms=Object.fromEntries(['vp','model','bones','eye','baseMap','normalMap','ormMap','numberMap','rival','controlled','playerSeed'].map(name=>[name,gl.getUniformLocation(this.program,name==='bones'?'bones[0]':name)]));this.depthUniforms=Object.fromEntries(['lightVP','model','bones'].map(name=>[name,gl.getUniformLocation(this.depthProgram,name==='bones'?'bones[0]':name)]));
    this.vao=gl.createVertexArray();gl.bindVertexArray(this.vao);
    const attribute=(location,name,size,integer=false)=>{const index=primitive.attributes[name],a=json.accessors[index],data=accessor(index),buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);gl.enableVertexAttribArray(location);if(integer)gl.vertexAttribIPointer(location,size,a.componentType,0,0);else gl.vertexAttribPointer(location,size,a.componentType,Boolean(a.normalized),0,0)};
    attribute(0,'POSITION',3);attribute(1,'NORMAL',3);attribute(2,'TEXCOORD_0',2);attribute(3,'JOINTS_0',4,true);attribute(4,'WEIGHTS_0',4);attribute(5,'TANGENT',4);
+   this.supportVertices=athleteSupportVertices(accessor(primitive.attributes.POSITION),accessor(primitive.attributes.JOINTS_0),accessor(primitive.attributes.WEIGHTS_0));
    const indexAccessor=json.accessors[primitive.indices],indices=accessor(primitive.indices);this.indexType=indexAccessor.componentType;this.indexCount=indexAccessor.count;this.triangles=this.indexCount/3;this.indexBuffer=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,this.indexBuffer);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,indices,gl.STATIC_DRAW);gl.bindVertexArray(null);
    const material=json.materials[primitive.material].pbrMetallicRoughness,normalIndex=json.materials[primitive.material].normalTexture.index,[baseImage,normalImage,ormImage]=await Promise.all([bitmapFor(parsed,material.baseColorTexture.index),bitmapFor(parsed,normalIndex),bitmapFor(parsed,material.metallicRoughnessTexture.index)]);this.textures=[uploadTexture(gl,baseImage),uploadTexture(gl,normalImage),uploadTexture(gl,ormImage)];for(const image of[baseImage,normalImage,ormImage])image.close?.();
    this.parents=new Int16Array(json.nodes.length).fill(-1);json.nodes.forEach((node,index)=>(node.children||[]).forEach(child=>{this.parents[child]=index}));this.namedNodes=Object.fromEntries(json.nodes.map((node,index)=>[node.name,index]));
@@ -307,6 +337,36 @@ export class MeshyAthletes{
  }
  mixLocals(base,overlay,weight){return base.map((node,index)=>({t:lerpArray(node.t,overlay[index].t,weight),r:slerp(node.r,overlay[index].r,weight),s:lerpArray(node.s,overlay[index].s,weight)}))}
  rotate(locals,name,x,y,z,angle){const index=this.namedNodes[name];if(Number.isInteger(index))locals[index].r=quatMul(locals[index].r,axisQuat(x,y,z,angle))}
+ jointWorld(locals,index){
+  const n=locals[index],parent=this.parents[index],local=compose(n.t,n.r,n.s);
+  if(parent<0)return{m:local,q:n.r};const w=this.jointWorld(locals,parent);return{m:mul(w.m,local),q:quatMul(w.q,n.r)};
+ }
+ aimJoint(locals,index,child,target){
+  const parent=this.parents[index],pw=parent<0?{q:[0,0,0,1]}:this.jointWorld(locals,parent),origin=pointFromMatrix(this.jointWorld(locals,index).m),inverse=[-pw.q[0],-pw.q[1],-pw.q[2],pw.q[3]],desired=pointFromMatrix(quatMatrix(inverse),subtract(target,origin)),current=pointFromMatrix(quatMatrix(locals[index].r),locals[child].t);
+  locals[index].r=quatMul(directionQuat(current,desired),locals[index].r);
+ }
+ solveLimb(locals,names,target,pole,keepEndRotation=false){
+  const [a,b,c]=names.map(name=>this.namedNodes['mixamorig:'+name]);if(![a,b,c].every(Number.isInteger))return;
+  const origin=pointFromMatrix(this.jointWorld(locals,a).m),endRotation=this.jointWorld(locals,c).q,upper=Math.hypot(...locals[b].t),lower=Math.hypot(...locals[c].t),delta=subtract(target,origin),raw=Math.hypot(...delta)||.001,d=clamp(raw,Math.abs(upper-lower)+.001,upper+lower-.001),axis=delta.map(v=>v/raw),poleDelta=subtract(pole,origin),dot=poleDelta.reduce((sum,v,i)=>sum+v*axis[i],0),bend=poleDelta.map((v,i)=>v-dot*axis[i]),bl=Math.hypot(...bend)||1,along=(upper*upper-lower*lower+d*d)/(2*d),height=Math.sqrt(Math.max(0,upper*upper-along*along)),joint=origin.map((v,i)=>v+axis[i]*along+bend[i]/bl*height),end=origin.map((v,i)=>v+axis[i]*d);
+  this.aimJoint(locals,a,b,joint);this.aimJoint(locals,b,c,end);
+  if(keepEndRotation){const parent=this.jointWorld(locals,b).q;locals[c].r=quatMul([-parent[0],-parent[1],-parent[2],parent[3]],endRotation)}
+ }
+ readyPose(locals,p){
+  const trench=p.role==='OL'||p.role==='DL',qb=p.role==='QB',receiver=p.role==='WR'||p.role==='TE',width=trench?.21:.145;
+  for(const [side,sign]of[['Left',1],['Right',-1]]){
+   const foot=this.namedNodes['mixamorig:'+side+'Foot'],ankle=pointFromMatrix(this.jointWorld(this.base,foot).m),stagger=receiver?.10:trench?.045:.025;
+   this.solveLimb(locals,[side+'UpLeg',side+'Leg',side+'Foot'],[sign*width,ankle[1],ankle[2]+sign*stagger],[sign*width,.45,.75],true);
+  }
+  const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m);
+  for(const [side,sign]of[['Left',1],['Right',-1]]){
+   const target=qb?[sign*.11,chest[1]-.10,chest[2]+.27]:trench?[sign*.24,chest[1]-.23,chest[2]+.32]:[sign*.23,chest[1]-.28,chest[2]+(receiver?.12:.20)];
+   this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],target,[sign*.62,chest[1]-.40,chest[2]-.06]);
+  }
+ }
+ carryPose(locals,p){
+  const side=(p.index+p.team)%2?'Right':'Left',sign=side==='Left'?1:-1,chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m);
+  this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],[sign*.16,chest[1]-.20,chest[2]+.20],[sign*.48,chest[1]-.40,chest[2]-.06]);
+ }
  applyFootballPose(locals,p,phase,time,state){
   const pulse=Math.sin(clamp(p.actionT||0,0,1)*Math.PI),side=p.actionSide||0,mirror=(p.index+p.team)%2?1:-1,hips=this.joints[0],beat=Math.sin(time*(6.4+(p.index%4)*.31)+p.index*.83),profile=ROLE_MOTION_PROFILES[p.role]||ROLE_MOTION_PROFILES.LB,speed=clamp(Math.hypot(p.vx||0,p.vz||0)/9,0,1),pilotPhase=authenticityPilotPhase(state,p,time);
   if(phase==='pre'){
@@ -455,6 +515,18 @@ export class MeshyAthletes{
   // crouches, catches and skills. This keeps feet believable on mobile.
   const hips=this.joints[0],baseY=this.base[hips].t[1],profile=ROLE_MOTION_PROFILES[p.role]||ROLE_MOTION_PROFILES.LB;locals[hips].t[1]=baseY+clamp(locals[hips].t[1]-baseY,-.10,.14)*profile.root;
   this.applyFootballPose(locals,p,phase,time,choice.state);
+  if(phase==='pre')this.readyPose(locals,p);
+  else if(p.hasBall&&(/^carry-|^qb-scramble/.test(choice.state)||p.fallen))this.carryPose(locals,p);
+  if(p.fallen&&/wrap|gang|tackle|hit|pancake/.test(choice.state)){
+   const finish=smooth(((p.actionT||0)-.45)/.55),chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m);
+   for(const [side,sign]of[['Left',1],['Right',-1]]){
+    const reach=[sign*.17,chest[1]-.18,chest[2]+.30],rest=[sign*.26,chest[1]-.24,chest[2]+.02];
+    this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],lerpArray(reach,rest,finish),[sign*.45,chest[1]-.28,chest[2]+.04]);
+    const hip=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:'+side+'UpLeg']).m),foot=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:'+side+'Foot']).m),target=[hip[0]+sign*.03,hip[1]-(sign>0?.50:.60),hip[2]-(sign>0?.30:.18)];
+    this.solveLimb(locals,[side+'UpLeg',side+'Leg',side+'Foot'],lerpArray(foot,target,finish),[hip[0],hip[1]-.25,hip[2]+.6]);
+   }
+   if(p.hasBall)this.carryPose(locals,p);
+  }
   if(phase==='pre'){
    const seed=meshyPlaybackSeed(p.index,p.team),breath=Math.sin(time*(1.25+seed.rate*.22)+seed.offset*Math.PI*2),scan=Math.sin(time*(.38+seed.rate*.08)+seed.offset*Math.PI*2);
    const spine=this.namedNodes['mixamorig:Spine2'],head=this.namedNodes['mixamorig:Head'];
@@ -466,25 +538,27 @@ export class MeshyAthletes{
   locals[hips].t[0]=this.base[hips].t[0];locals[hips].t[2]=this.base[hips].t[2];
   const world=new Array(locals.length),resolve=index=>world[index]||(world[index]=this.parents[index]<0?compose(locals[index].t,locals[index].r,locals[index].s):mul(resolve(this.parents[index]),compose(locals[index].t,locals[index].r,locals[index].s)));
   const left=this.namedNodes['mixamorig:LeftHand'],right=this.namedNodes['mixamorig:RightHand'],leftForearm=this.namedNodes['mixamorig:LeftForeArm'],rightForearm=this.namedNodes['mixamorig:RightForeArm'],chest=this.namedNodes['mixamorig:Spine2'];this.handTransforms.set(p.index,{left:Number.isInteger(left)?resolve(left):null,right:Number.isInteger(right)?resolve(right):null,leftForearm:Number.isInteger(leftForearm)?resolve(leftForearm):null,rightForearm:Number.isInteger(rightForearm)?resolve(rightForearm):null,chest:Number.isInteger(chest)?resolve(chest):null});
-  const bones=new Float32Array(this.joints.length*16);this.joints.forEach((joint,i)=>bones.set(mul(resolve(joint),this.inverseBind.subarray(i*16,i*16+16)),i*16));return bones;
+  const bones=new Float32Array(this.joints.length*16);this.joints.forEach((joint,i)=>bones.set(mul(resolve(joint),this.inverseBind.subarray(i*16,i*16+16)),i*16));this.supportPoints.set(p.index,skinSupportVertices(this.supportVertices,bones));return bones;
  }
  modelFor(p){
   const builds={OL:[1.14,1.025,1.09],DL:[1.12,1.035,1.10],QB:[.98,1.02,.98],RB:[1.04,.985,1.02],WR:[.94,1.015,.94],TE:[1.07,1.045,1.05],LB:[1.075,1.025,1.06],DB:[.93,1,.94]},build=builds[p.role]||[1,1,1],variation=1+((p.index%5)-2)*.006;
   let lift=0,pitch=0,roll=0,yaw=0;if(p.action==='hurdle')lift=Math.sin((p.actionT||0)*Math.PI)*.68;if(p.action==='truck')pitch=.29*Math.sin((p.actionT||0)*Math.PI);if(p.action==='juke')roll=-(p.actionSide||0)*.22*Math.sin((p.actionT||0)*Math.PI);if(p.action==='spin')yaw=(p.actionSide||1)*(p.actionT||0)*Math.PI*2;
   if(p.action==='break-tackle')roll+=(p.actionSide||1)*.18*Math.sin((p.actionT||0)*Math.PI);if(p.action==='miss')pitch+=.34*Math.sin((p.actionT||0)*Math.PI);if(p.engaged)pitch+=.11;if(p.reactionT>0)roll+=(p.reactionSide||1)*.12*Math.sin(clamp(p.reactionT,0,1)*Math.PI);
-  const contactFall=p.fallen&&/tackle|hit|gang|wrap|slide|dive|pancake/.test(p.action||''),rawFall=clamp(p.actionT||0,0,1),fallProgress=contactFall?rawFall*rawFall*(3-2*rawFall):p.fallen?1:0,wrapFall=p.team===1?.86:1.02,fall=fallProgress*(p.action==='slide'?.72:p.action==='dive'?(p.team===1?1.38:1.08):p.action==='big-hit'?1.48:p.action==='pancake'?1.18:p.action==='gang'?1.08:p.action==='wrap'?wrapFall:1.24),fallRoll=fallProgress*((p.index%2?1:-1)*(p.action==='gang'?.28:p.action==='slide'?.05:p.action==='wrap'?.08:.12));return mul(translate(p.x,lift+.02,p.z),mul(ry((p.heading||0)+yaw),mul(rx(fall+pitch),mul(rz(roll+fallRoll),scale(1.17*build[0]*variation,1.17*build[1]/variation,1.17*build[2]*variation)))));
+  const contactFall=p.fallen&&/tackle|hit|gang|wrap|slide|dive|pancake/.test(p.action||''),fallProgress=contactFall?smooth(p.actionT||0):p.fallen?1:0;
+  const fall=fallProgress*(p.action==='slide'?1.30:p.action==='dive'?1.53:1.48),fallRoll=fallProgress*(p.actionSide||1)*(p.team?.27:-.20);
+  const basis=mul(ry((p.heading||0)+yaw),mul(rx(fall+pitch),mul(rz(roll+fallRoll),scale(1.17*build[0]*variation,1.17*build[1]/variation,1.17*build[2]*variation))));
+  const points=this.supportPoints.get(p.index)||[],floor=points.length?Math.min(...points.map(v=>basis[1]*v[0]+basis[5]*v[1]+basis[9]*v[2])):0;
+  const plant=this.phase==='pre'||p.fallen||Math.hypot(p.vx||0,p.vz||0)<.2,correction=plant?floor:Math.min(0,floor);
+  return mul(translate(p.x,lift+.02-correction,p.z),basis);
  }
- numberDecalMatrix(p,front=false){return front?mul(this.modelFor(p),mul(translate(0,1.10,.205),mul(rx(-Math.PI/2),scale(.30,-1,-.32)))):mul(this.modelFor(p),mul(translate(0,1.10,-.205),mul(rx(Math.PI/2),scale(-.30,-1,.32))))}
+
  queueShadows(actors,phase,time){
   if(!this.ready||!this.renderer.shadowAvailable)return false;this.phase=phase;this.frameBones=new Map(actors.map(p=>[p.index,this.bonesFor(p,phase,time)]));
   this.renderer.queueShadowCaster(lightVP=>{const gl=this.gl;gl.useProgram(this.depthProgram);gl.bindVertexArray(this.vao);gl.uniformMatrix4fv(this.depthUniforms.lightVP,false,lightVP);for(const p of actors){gl.uniformMatrix4fv(this.depthUniforms.model,false,this.modelFor(p));gl.uniformMatrix4fv(this.depthUniforms.bones,false,this.frameBones.get(p.index));gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0)}gl.bindVertexArray(null);return actors.length});return true;
  }
- draw(actors,phase,time){if(!this.ready)return false;this.phase=phase;const gl=this.gl;this.lastStates=actors.map(p=>meshyAnimationState(p,phase));gl.useProgram(this.program);gl.bindVertexArray(this.vao);gl.uniformMatrix4fv(this.uniforms.vp,false,this.renderer.vp);gl.uniform3fv(this.uniforms.eye,this.renderer.eye);for(let i=0;i<3;i++){gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,this.textures[i])}gl.uniform1i(this.uniforms.baseMap,0);gl.uniform1i(this.uniforms.normalMap,1);gl.uniform1i(this.uniforms.ormMap,2);gl.disable(gl.BLEND);gl.depthMask(true);
-  for(const p of actors){gl.uniformMatrix4fv(this.uniforms.model,false,this.modelFor(p));gl.uniformMatrix4fv(this.uniforms.bones,false,this.frameBones?.get(p.index)||this.bonesFor(p,phase,time));gl.uniform1f(this.uniforms.rival,p.team?1:0);gl.uniform1f(this.uniforms.controlled,p.hasBall?1:0);gl.uniform1f(this.uniforms.playerSeed,((p.index*37+p.team*11)%17)/16);gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0);this.renderer.drawCalls++}
+ draw(actors,phase,time){if(!this.ready)return false;this.phase=phase;const gl=this.gl;this.lastStates=actors.map(p=>meshyAnimationState(p,phase));gl.useProgram(this.program);gl.bindVertexArray(this.vao);gl.uniformMatrix4fv(this.uniforms.vp,false,this.renderer.vp);gl.uniform3fv(this.uniforms.eye,this.renderer.eye);for(let i=0;i<3;i++){gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,this.textures[i])}gl.uniform1i(this.uniforms.baseMap,0);gl.uniform1i(this.uniforms.normalMap,1);gl.uniform1i(this.uniforms.ormMap,2);gl.uniform1i(this.uniforms.numberMap,3);gl.disable(gl.BLEND);gl.depthMask(true);
+  for(const p of actors){const bones=this.frameBones?.get(p.index)||this.bonesFor(p,phase,time);gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,this.renderer.textures.get('meshy-number-'+p.team+'-'+p.number));gl.uniformMatrix4fv(this.uniforms.model,false,this.modelFor(p));gl.uniformMatrix4fv(this.uniforms.bones,false,bones);gl.uniform1f(this.uniforms.rival,p.team?1:0);gl.uniform1f(this.uniforms.controlled,p.hasBall?1:0);gl.uniform1f(this.uniforms.playerSeed,((p.index*37+p.team*11)%17)/16);gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0);this.renderer.drawCalls++}
   this.frameBones=null;gl.bindVertexArray(null);return true;
- }
- drawJerseyNumbers(actors){
-  if(!this.ready)return false;const r=this.renderer;r.lateBegin();for(const p of actors){const texture='meshy-number-'+p.team+'-'+p.number;if(!r.textures.has(texture))continue;r.add('plane',this.numberDecalMatrix(p,false),[1,1,1,1],texture,true,0,2);r.add('plane',this.numberDecalMatrix(p,true),[1,1,1,1],texture,true,0,2)}r.drawLate();return true;
  }
  ballAnchor(p){
   const phase=arguments[1]||this.phase||'run';if(!this.ready||!p)return null;const hands=this.handTransforms.get(p.index);if(!hands)return null;
@@ -500,3 +574,6 @@ export class MeshyAthletes{
 }
 
 export function createMeshyAthletes(renderer){return new MeshyAthletes(renderer)}
+
+// The offline render gate compiles these same athlete shaders.
+export const ATHLETE_SHADERS=Object.freeze({vertex,fragment});
