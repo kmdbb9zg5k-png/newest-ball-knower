@@ -23,7 +23,7 @@ def program(vs,fs):
 def gen(name):
  obj=u();gl(name,None,i,C.POINTER(u))(1,C.byref(obj));return obj.value
 def data(name):return (D/name).read_bytes()
-W,H=360,420;fb=gen('glGenFramebuffers');gl('glBindFramebuffer',None,u,u)(0x8D40,fb)
+W,H=480,520;fb=gen('glGenFramebuffers');gl('glBindFramebuffer',None,u,u)(0x8D40,fb)
 for kind,internal in [(0x8CE0,0x8058),(0x8D00,0x81A6)]:
  rb=gen('glGenRenderbuffers');gl('glBindRenderbuffer',None,u,u)(0x8D41,rb);gl('glRenderbufferStorage',None,u,u,i,i)(0x8D41,internal,W,H);gl('glFramebufferRenderbuffer',None,u,u,u,u)(0x8D40,kind,0x8D41,rb)
 assert gl('glCheckFramebufferStatus',u,u)(0x8D40)==0x8CD5
@@ -42,17 +42,26 @@ def texture(image,unit):
  gl('glActiveTexture',None,u)(0x84C0+unit);tex=gen('glGenTextures');gl('glBindTexture',None,u,u)(0x0DE1,tex);raw=image.convert('RGBA').tobytes();gl('glTexImage2D',None,u,i,i,i,i,i,u,u,p)(0x0DE1,0,0x1908,image.width,image.height,0,0x1908,0x1401,C.c_char_p(raw));gl('glTexParameteri',None,u,u,i)(0x0DE1,0x2801,0x2601);gl('glTexParameteri',None,u,u,i)(0x0DE1,0x2800,0x2601);return tex
 for unit,name in enumerate(['baseMap','normalMap','ormMap']):texture(Image.open(D/f'tex{unit}.jpg'),unit);gl('glUniform1i',None,i,i)(loc(name),unit)
 font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',82)
-def number(team):
- im=Image.new('RGBA',(128,128));dr=ImageDraw.Draw(im);dr.text((64,64),'24',font=font,anchor='mm',fill='#9b3f39' if team else '#f1ead7',stroke_width=4,stroke_fill='#8f3c38' if team else '#b7964f');texture(im,3);gl('glUniform1i',None,i,i)(loc('numberMap'),3)
+def number(team,value=24):
+ im=Image.new('RGBA',(128,128));dr=ImageDraw.Draw(im);dr.text((64,64),str(value),font=font,anchor='mm',fill='#9b3f39' if team else '#f1ead7',stroke_width=4,stroke_fill='#8f3c38' if team else '#b7964f');texture(im,3);gl('glUniform1i',None,i,i)(loc('numberMap'),3)
 def camera(eye,target):
  eye=np.array(eye);target=np.array(target);z=eye-target;z=z/np.linalg.norm(z);x=np.cross([0,1,0],z);x=x/np.linalg.norm(x);y=np.cross(z,x);v=np.eye(4);v[:3,:3]=np.array([x,y,z]);v[:3,3]=-v[:3,:3]@eye;q=1/np.tan(np.deg2rad(33)/2);pm=np.zeros((4,4));pm[0,0]=q/(W/H);pm[1,1]=q;pm[2,2]=-1.002;pm[2,3]=-.2002;pm[3,2]=-1;return (pm@v).T.ravel()
 groundPr=program('#version 330 core\nlayout(location=0) in vec3 p;uniform mat4 vp;void main(){gl_Position=vp*vec4(p,1.);}', '#version 330 core\nout vec4 color;void main(){color=vec4(.08,.19,.10,1.);}')
 groundVao=gen('glGenVertexArrays');gl('glBindVertexArray',None,u)(groundVao);buf(0x8892,np.array([-10,0,-10,10,0,-10,10,0,10,-10,0,-10,10,0,10,-10,0,10],dtype='f4').tobytes());gl('glEnableVertexAttribArray',None,u)(0);gl('glVertexAttribPointer',None,u,i,u,B,i,p)(0,3,0x1406,False,0,None)
+ballPr=program('#version 330 core\nlayout(location=0) in vec3 p;uniform mat4 vp;uniform vec3 center;void main(){gl_Position=vp*vec4(p+center,1.);}', '#version 330 core\nout vec4 color;void main(){color=vec4(.43,.19,.07,1.);}')
+ballVao=gen('glGenVertexArrays');gl('glBindVertexArray',None,u)(ballVao);vertices=[]
+for latitude in range(8):
+ for longitude in range(12):
+  def point(a,b):
+   phi=a*np.pi/8;theta=b*2*np.pi/12;return [.13*np.sin(phi)*np.cos(theta),.11*np.cos(phi),.22*np.sin(phi)*np.sin(theta)]
+  for a,b in [(latitude,longitude),(latitude+1,longitude),(latitude+1,longitude+1),(latitude,longitude),(latitude+1,longitude+1),(latitude,longitude+1)]:vertices.extend(point(a,b))
+buf(0x8892,np.array(vertices,dtype='f4').tobytes());gl('glEnableVertexAttribArray',None,u)(0);gl('glVertexAttribPointer',None,u,i,u,B,i,p)(0,3,0x1406,False,0,None)
 canvas=Image.new('RGB',(W*4,H*2))
 for idx,cell in enumerate(scene['poses']):
  group=cell.get('group',[cell]);pose=group[0];eye=[2.7,1.8,4.0] if idx<6 else [-2.7,1.8,-4.0];target=[0,.85,.3]
  if pose['p']['fallen']:eye=[3.1,2.5,4.5];target=[0,.55,1.0]
  if 'group' in cell:eye=[5.2,3.6,6.2];target=[0,.8,.5]
+ if cell.get('exchange'):eye=[6,6,-10];target=[1,.9,1.3]
  vp=camera(eye,target)
  gl('glViewport',None,i,i,i,i)(0,0,W,H);gl('glClearColor',None,f,f,f,f)(.035,.055,.08,1);gl('glClear',None,u)(0x4000|0x0100);gl('glEnable',None,u)(0x0B71)
  gl('glUseProgram',None,u)(groundPr);gl('glBindVertexArray',None,u)(groundVao);mat('vp',vp,groundPr);gl('glDrawArrays',None,u,i,i)(4,0,6)
@@ -60,6 +69,8 @@ for idx,cell in enumerate(scene['poses']):
  for actor in group:
   mat('model',actor['model']);mat('bones[0]',actor['bones'])
   for name,value in [('rival',actor['p']['team']),('controlled',0),('playerSeed',.5)]:gl('glUniform1f',None,i,f)(loc(name),value)
-  number(actor['p']['team']);gl('glDrawElements',None,u,i,u,p)(4,scene['indexCount'],scene['indexType'],None)
+  number(actor['p']['team'],actor['p'].get('number',24));gl('glDrawElements',None,u,i,u,p)(4,scene['indexCount'],scene['indexType'],None)
+ if cell.get('ball'):
+  gl('glUseProgram',None,u)(ballPr);gl('glBindVertexArray',None,u)(ballVao);mat('vp',vp,ballPr);center=np.array(cell['ball'],dtype='f4');gl('glUniform3fv',None,i,i,p)(loc('center',ballPr),1,center.ctypes.data);gl('glDrawArrays',None,u,i,i)(4,0,len(vertices)//3)
  pixels=C.create_string_buffer(W*H*4);gl('glReadPixels',None,i,i,i,i,u,u,p)(0,0,W,H,0x1908,0x1401,pixels);im=Image.frombytes('RGBA',(W,H),pixels.raw).transpose(Image.Transpose.FLIP_TOP_BOTTOM).convert('RGB');ImageDraw.Draw(im).text((8,8),cell['label'],fill='white');canvas.paste(im,((idx%4)*W,(idx//4)*H))
 canvas.save(D/'poses.png');print('Rendered shader and',len(scene['poses']),'pose groups with Mesa; GL error:',gl('glGetError',u)())

@@ -29,25 +29,44 @@ function game(width=844,height=335){
  vm.createContext(context);vm.runInContext(source.replace('window.bk3dTest={','window.bk3dRenderActors=()=>actors.map(p=>({...p}));window.bk3dTest={')+'\nstart();',context);context.bk3dTest.manualFrames();
  return{context,element,events,renderer,step:t=>context.bk3dTest.step(t),read:()=>context.bk3dDiagnostics(),snap:()=>element('snap').onpointerdown({preventDefault:noop}),key:key=>events.get('keydown')({key,code:key,preventDefault:noop})};
 }
+// The ball must follow center -> snap flight -> QB -> exchange -> RB.
+for(let play=0;play<4;play++)for(const flip of[false,true]){
+ const g=game();g.element('plays').children[play].onclick();if(flip)g.context.bk3dTest.flipPlay();
+ const stick=g.element('stick').getBoundingClientRect();g.element('stick').onpointerdown({pointerId:1,clientX:stick.left+stick.width/2,clientY:stick.top+stick.height/2-25,preventDefault(){}});
+ assert.equal(g.read().players[2].hasBall,true,'Center starts with ball');g.snap();g.step(.13);assert.equal(g.read().phase,'snap');assert.ok(g.read().players.every(p=>!p.hasBall),'Snap is in flight, not in RB hands');
+ const midpoint=g.read().exchange.ball;assert.ok(midpoint[2]>30&&midpoint[2]<35,'Snap travels between center and QB');
+ g.step(.19);let d=g.read();assert.equal(d.phase,'handoff');assert.equal(d.players[5].hasBall,true);assert.equal(d.players[6].hasBall,false);let qbTravel=0,transfer=false;
+ for(let i=0;i<110;i++){
+  g.step(1/60);d=g.read();qbTravel=Math.max(qbTravel,Math.hypot(d.players[5].x,d.players[5].z-30));
+  assert.ok(d.players.filter(p=>p.hasBall).length<=1,'Only one player owns the ball');
+  if(d.players[6].hasBall&&!transfer){transfer=true;const q=d.players[5],b=d.players[6],separation=Math.hypot(q.x-b.x,q.z-b.z);if(play!==3)assert.ok(separation<1.05,'Handoff transfers only at the mesh point');else assert.ok(separation>2,'Toss must travel through the air')}
+  if(d.phase==='run')break;
+ }
+ assert.ok(transfer&&qbTravel>.6,'QB must move through exchange');assert.equal(d.phase,'run');
+ const before={...d.players[6]};g.step(.12);const after=g.read().players[6];assert.ok(Math.hypot(after.x-before.x,after.z-before.z)>.2,'Held stick remains active after exchange');
+}
+{
+ const g=game();g.element('passTab').onclick();g.snap();g.step(.14);assert.equal(g.read().phase,'snap');g.step(.16);assert.equal(g.read().phase,'pass');assert.equal(g.read().players[5].hasBall,true);
+}
 for(const [w,h]of[[844,335],[932,430],[740,330]]){
  const g=game(w,h);g.element('passTab').onclick();g.snap();let result;
  for(let i=0;i<420;i++){g.step(1/60);result=g.read();if(result.phase==='dead')break}
  assert.equal(result.phase,'dead','A stationary QB should be sacked');assert.ok(result.contact,'Sack must start paired contact');assert.equal(result.players[5].fallen,true);assert.ok(result.players[result.lastTackler].fallen);
- const clock=result.drive.clock;g.step(.9);assert.equal(g.read().players[5].actionT,1,'QB must finish on turf');assert.equal(g.read().drive.clock,clock,'Dead-ball animation must not run the game clock');
- g.step(1);assert.equal(g.read().phase,'pre');for(const p of g.read().players)assert.equal(p.fallen,false);
+ const clock=result.drive.clock;g.step(1.15);assert.equal(g.read().players[5].actionT,1,'QB must finish on turf');assert.equal(g.read().drive.clock,clock,'Dead-ball animation must not run the game clock');
+ g.step(1.4);assert.ok(g.read().players.every(p=>!p.fallen),'Players must get up before reset');g.step(1.1);assert.equal(g.read().phase,'pre');for(const p of g.read().players)assert.equal(p.fallen,false);
  // Camera is continuous between dead ball and setup; then fits the offensive lineup.
  for(let i=0;i<150;i++)g.step(1/60);for(const p of g.read().players.filter(p=>!p.team)){assert.ok(p.foot.y<h-95&&p.head.y>55,`${w}: formation overlaps HUD`)}
 }
 for(let play=0;play<4;play++){
  const g=game();g.element('plays').children[play].onclick();g.key('ArrowUp');g.snap();let maxDown=0,frames=0;
  for(let i=0;i<650;i++){g.step(1/60);const d=g.read();maxDown=Math.max(maxDown,d.players.filter(p=>p.fallen).length);for(const p of d.players){assert.ok(Number.isFinite(p.x)&&Number.isFinite(p.z));if(p.fallen)assert.ok(Math.hypot(p.vx,p.vz)<.001,'Prone player must not chase')}frames++;if(d.phase==='dead')break}
- assert.ok(frames>20);console.log(`Run ${play}: ${frames} frames, maximum ${maxDown} downed players.`);
+ assert.ok(frames>20);console.log(`Run ${play}: ${frames} frames, maximum ${maxDown} downed players, spot ${g.read().drive.ball}.`);
 }
 // Pass protectors move once per step and contact poses require proximity.
 {
  const g=game();g.element('passTab').onclick();g.snap();let previous=g.read().players,turned=false;
  for(let frame=0;frame<220;frame++){
-  g.step(1/60);const d=g.read();if(d.phase!=='pass')break;
+  g.step(1/60);const d=g.read();if(d.phase==='snap'){previous=d.players;continue}if(d.phase!=='pass')break;
   for(let index=0;index<5;index++){
    const p=d.players[index],before=previous[index];
    assert.ok(Math.hypot(p.x-before.x,p.z-before.z)<.07,'Pass blocker moved twice in one tick');
@@ -71,23 +90,45 @@ for(let i=0;i<60;i++)r.add('cube',math.identity(),[1,1,1,1],'material-'+i);const
 for(let i=0;i<80;i++)r.add('cube',math.identity(),[1,1,1,1],'material-0');assert.ok([...r.batches.values()][0].capacity>=81);assert.equal(r.overflows,0);
 console.log(`Recovery checks passed: sacks at three mobile sizes, four run concepts, get-ups, containment, planted step travel, shared geometry, ${bytes} instance bytes across 60 batches.`);
 
-// Capture actual paired interactions for the real-mesh offline renderer.
+// Capture actual controller states, including shared ball/contact targets.
+function renderFrame(g){const d=g.read();return{phase:d.phase,time:d.simTime,ball:d.exchange?.ball||null,actors:g.context.bk3dRenderActors().map(p=>({...p,motion:undefined}))}}
+function centerFrames(frames,ids,origin){for(const frame of frames){if(frame.ball)frame.ball=[frame.ball[0]-origin[0],frame.ball[1],frame.ball[2]-origin[1]];frame.actors=frame.actors.filter(p=>ids.includes(p.index)).map(p=>({...p,x:p.x-origin[0],z:p.z-origin[1],ballTarget:p.ballTarget?[p.ballTarget[0]-origin[0],p.ballTarget[1],p.ballTarget[2]-origin[1]]:null}))}}
 const captureFlag=process.argv.indexOf('--capture');
 if(captureFlag>=0){
  const scenarios=[];
  for(const scenario of['run tackle','QB sack']){
   const g=game(),frames=[];if(scenario==='QB sack')g.element('passTab').onclick();else g.key('ArrowUp');g.snap();let contactAt=-1,ids;
-  for(let frame=0;frame<600;frame++){
-   g.step(1/60);const d=g.read(),actors=g.context.bk3dRenderActors();
-   frames.push({phase:d.phase,time:d.simTime,actors:actors.map((p,index)=>({index,role:p.role,team:p.team,number:p.number,x:p.x,z:p.z,heading:p.heading,vx:p.vx,vz:p.vz,distance:p.distance,sprinting:p.sprinting,hasBall:p.hasBall,engaged:p.engaged,blockStyle:p.blockStyle,action:p.action,actionT:p.actionT,actionSide:p.actionSide,fallHeading:p.fallHeading,fallen:p.fallen}))});
-   if(contactAt<0&&d.contact){contactAt=frame;ids=[actors.find(p=>p.hasBall).index,d.lastTackler]}
-   if(contactAt>=0&&frame>=contactAt+65)break;
+  for(let frame=0;frame<900;frame++){
+   g.step(1/60);const d=g.read();frames.push(renderFrame(g));
+   if(contactAt<0&&d.contact){contactAt=frame;ids=[frames.at(-1).actors.find(p=>p.hasBall).index,d.lastTackler]}
+   if(contactAt>=0&&frame>=contactAt+155)break;
   }
   assert.ok(contactAt>=0,'Recorded play must reach paired contact');
-  const start=frames[contactAt].actors[ids[0]],origin=[start.x,start.z];
-  for(const frame of frames)frame.actors=frame.actors.filter(p=>ids.includes(p.index)).map(p=>({...p,x:p.x-origin[0],z:p.z-origin[1]}));
-  scenarios.push({label:scenario,frames,selected:[0,15,30,60].map(offset=>({frameIndex:contactAt+offset,label:`${scenario} +${(offset/60).toFixed(2)}s`}))});
+  const start=frames[contactAt].actors[ids[0]];centerFrames(frames,ids,[start.x,start.z]);
+  scenarios.push({label:scenario,frames,selected:[5,27,63,145].map(offset=>({frameIndex:contactAt+offset,label:`${scenario} +${(offset/60).toFixed(2)}s`}))});
  }
- fs.writeFileSync(process.argv[captureFlag+1],JSON.stringify(scenarios));
- console.log('Captured two actual paired contact sequences.');
+ fs.writeFileSync(process.argv[captureFlag+1],JSON.stringify(scenarios));console.log('Captured paired tackles and recovery.');
+}
+const exchangeFlag=process.argv.indexOf('--capture-exchanges');
+if(exchangeFlag>=0){
+ const scenarios=[];
+ for(const play of[0,3]){
+  const g=game(),frames=[];g.element('plays').children[play].onclick();g.snap();
+  for(let frame=0;frame<115;frame++){g.step(1/60);frames.push(renderFrame(g))}
+  centerFrames(frames,[2,5,6],[0,30]);
+  scenarios.push({label:play?'pitch':'handoff',frames,selected:(play?[6,26,50,72]:[6,26,53,84]).map(frameIndex=>({frameIndex,label:`${play?'Pitch':'Handoff'} ${(frameIndex/60).toFixed(2)}s`}))});
+ }
+ fs.writeFileSync(process.argv[exchangeFlag+1],JSON.stringify(scenarios));console.log('Captured center/QB/RB exchanges.');
+}
+
+const blockFlag=process.argv.indexOf('--capture-blocks');
+if(blockFlag>=0){
+ const scenarios=[];
+ for(const mode of['run','pass']){
+  const g=game(),frames=[];if(mode==='pass')g.element('passTab').onclick();g.snap();
+  for(let frame=0;frame<125;frame++){g.step(1/60);frames.push(renderFrame(g))}
+  centerFrames(frames,[0,11],[-4.4,34.65]);
+  scenarios.push({label:mode+' blocking',frames,selected:[25,45,70,108].map(frameIndex=>({frameIndex,label:`${mode} block ${(frameIndex/60).toFixed(2)}s`}))});
+ }
+ fs.writeFileSync(process.argv[blockFlag+1],JSON.stringify(scenarios));console.log('Captured sustained run/pass blocks.');
 }
