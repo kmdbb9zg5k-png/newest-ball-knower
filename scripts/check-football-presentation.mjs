@@ -98,6 +98,36 @@ for(const heading of[0,Math.PI/2,-Math.PI/2]){
  }
  rig.actorMap=null;
 }
+
+// Reproduce the whistle/TD freeze with stale live overlays and verify the
+// actual asset has two planted ankles and lowered, relaxed hands.
+for(const role of['QB','RB','OL','DL','DB'])for(const state of['rest','celebrate']){
+ const p={role,index:240,team:role==='DL'||role==='DB'?1:0,x:0,z:0,heading:0,vx:0,vz:0,catchT:.4,throwT:.5,reactionT:0,hasBall:role==='RB',action:state==='celebrate'?'celebrate':null,actionT:0};
+ rig.phase='dead';rig.poseStates.clear();
+ for(let frame=0;frame<90;frame++){
+  p.actionT=frame/89;const bones=rig.bonesFor(p,'dead',frame/60),model=rig.modelFor(p);
+  const footHeight=side=>{const node=rig.namedNodes['mixamorig:'+side+'Foot'],joint=rig.joints.indexOf(node),point=skinSupportVertices([{p:pointFromBind(node),j:[joint,0,0,0],w:[1,0,0,0]}],bones)[0];return model[1]*point[0]+model[5]*point[1]+model[9]*point[2]+model[13]};
+  for(const side of['Left','Right'])assert.ok(footHeight(side)<.27,`${state} ${role}: raised ${side} foot ${footHeight(side)}`);
+  if(state==='rest'){assert.equal(meshyAnimationState(p,'dead'),'rest');const hands=rig.handTransforms.get(p.index);for(const [side,hand]of[['Left',hands.left],['Right',hands.right]])if(!(p.hasBall&&side==='Left'))assert.ok(hand[13]<hands.chest[13]-.30,`${role} ${side}: resting hand height ${hand[13]-hands.chest[13]}`);}
+  checks++;
+ }
+}
+function pointFromBind(node){return rig.jointWorld(rig.base,node).m.slice(12,15)}
+// Follow landing -> kneel -> standing continuously; a pose can satisfy a
+// floor-only assertion while still visibly snapping several feet upward.
+let recoveryStep=0;
+for(const role of['RB','LB']){
+ const p={role,index:250,team:role==='LB'?1:0,x:0,z:0,heading:0,fallHeading:0,vx:0,vz:0,fallen:true,hasBall:role==='RB',action:'wrap',actionT:1,actionSide:1};
+ rig.phase='dead';rig.poseStates.clear();let previous;
+ for(let frame=0;frame<100;frame++){
+  if(frame>=10){p.action='get-up';p.actionT=Math.min(1,(frame-10)/66);}
+  rig.bonesFor(p,'dead',frame/60);const m=rig.modelFor(p),c=rig.handTransforms.get(p.index).chest,world=[0,1,2].map(i=>m[i]*c[12]+m[4+i]*c[13]+m[8+i]*c[14]+m[12+i]);
+  if(previous)recoveryStep=Math.max(recoveryStep,Math.hypot(...world.map((v,i)=>v-previous[i])));previous=world;checks++;
+ }
+}
+assert.ok(recoveryStep<.16,`Recovery torso snapped ${recoveryStep} yards/frame`);
+console.log(`Post-play poses: planted celebration/rest feet; maximum get-up torso movement ${recoveryStep.toFixed(3)} yards/frame.`);
+
 console.log(`Presentation checks passed: ${checks} real-asset poses; ${rig.supportVertices.length} support vertices; lowest body point ${worstFloor.toFixed(4)}m.`);
 const flag=process.argv.indexOf('--render-dir');
 if(flag>=0){
@@ -111,7 +141,7 @@ if(flag>=0){
  if(sequenceFlag>=0){
   poses=[];const sequences=JSON.parse(fs.readFileSync(process.argv[sequenceFlag+1],'utf8'));
   for(const sequence of sequences){
-   rig.poseStates.clear();rig.handTransforms.clear();rig.supportPoints.clear();const actors=new Map();let previousBall=null,maxBallStep=0;
+   rig.poseStates.clear();rig.handTransforms.clear();rig.supportPoints.clear();const actors=new Map();let previousBall=null,maxBallStep=0,maxWrapGap=0;
    sequence.frames.forEach((frame,index)=>{
     rig.phase=frame.phase;
     for(const snapshot of frame.actors){let p=actors.get(snapshot.index);if(!p){p={};actors.set(snapshot.index,p)}Object.assign(p,snapshot)}
@@ -119,8 +149,11 @@ if(flag>=0){
     const group=frame.actors.map(snapshot=>{const p=actors.get(snapshot.index),bones=rig.bonesFor(p,frame.phase,frame.time),model=rig.modelFor(p);return{p:{...p},bones:[...bones],model:[...model]}});
     const holder=frame.actors.find(p=>p.hasBall),ball=frame.ball||(holder&&rig.ballAnchor(holder,frame.phase)?.center);
     if(ball&&previousBall){const travel=Math.hypot(...ball.map((v,i)=>v-previousBall[i]));maxBallStep=Math.max(maxBallStep,travel)}previousBall=ball;
+    for(const member of group){const p=member.p;if(p.contactRole!=='tackler'||p.actionT<.18||p.actionT>.75)continue;const target=group.find(q=>q.p.index===p.contactWith);if(!target)continue;const h=rig.handTransforms.get(p.index),c=rig.handTransforms.get(target.p.index).chest;const wp=(m,v)=>[0,1,2].map(i=>m[i]*v[12]+m[4+i]*v[13]+m[8+i]*v[14]+m[12+i]),chest=wp(target.model,c);const gap=Math.min(...[h.left,h.right].map(hand=>Math.hypot(...wp(member.model,hand).map((v,i)=>v-chest[i]))));maxWrapGap=Math.max(maxWrapGap,gap);}
     const selected=sequence.selected.find(s=>s.frameIndex===index);if(selected)poses.push({label:selected.label,group,ball,exchange:sequence.label==='handoff'||sequence.label==='pitch'});
    });
+   if(maxWrapGap)assert.ok(maxWrapGap<.45,`${sequence.label}: wrap misses the carrier`);
+   if(maxWrapGap)console.log(`${sequence.label}: maximum nearest wrap hand gap ${maxWrapGap.toFixed(3)} yards`);
    if(sequence.label==='handoff'||sequence.label==='pitch'){assert.ok(maxBallStep<.36,`${sequence.label}: ball jumped ${maxBallStep.toFixed(3)} yards`);console.log(`${sequence.label}: maximum ball travel per frame ${maxBallStep.toFixed(3)} yards`)}
   }
  }

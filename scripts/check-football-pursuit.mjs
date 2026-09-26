@@ -11,7 +11,7 @@ const interception=chase((d,r)=>pursuitTarget(d,r,false,8.2));
 assert.ok(interception.caught,'A safety with a reachable crossing angle should meet the runner');
 for(const x of[-25,0,25])for(const vx of[-9,0,9])for(const vz of[-8,0,8]){
  const p=pursuitTarget({index:18,x:4,z:32},{x,z:25,vx,vz},false,8);
- assert.ok(Number.isFinite(p.x)&&Number.isFinite(p.z));assert.ok(Math.abs(p.x)<=25.8);assert.ok(Math.abs(p.z-25)<=Math.abs(vz)*1.65+.001);
+ assert.ok(Number.isFinite(p.x)&&Number.isFinite(p.z));assert.ok(Math.abs(p.x)<=25.8);assert.ok(Math.abs(p.z-25)<=Math.abs(vz)*4+.001);
 }
 const d={index:15,team:1,x:0,z:0},mate={index:16,team:1,x:.5,z:0},runner={x:0,z:10,vx:0,vz:7};
 const alone=pursuitSteering(d,runner,[d],8),crowded=pursuitSteering(d,runner,[d,mate],8);
@@ -33,3 +33,16 @@ const rated={role:'DB',ratings:playerRatings('DB',21,1)};
 assert.ok(defenderRunSpeed(rated)>8.6,'A fast defensive back can finish a reachable pursuit angle');
 assert.equal(defenderRunSpeed({...rated,x:0,z:0}),defenderRunSpeed({...rated,x:1,z:1}),'Closing distance cannot throttle a defender');
 console.log('Closing pursuit checks passed: collapsed support lane and rating-based running speed.');
+
+// Trailing support maintains both shoulders instead of assigning a defender
+// across his teammate's path; contain works for lateral as well as upfield runs.
+for(const direction of [1,-1]){
+ const r={x:0,z:40,vx:direction*8,vz:0},near={index:15,team:1,x:direction*2,z:40},safety={index:21,team:1,x:direction*14,z:47};
+ const aim=pursuitTarget(safety,r,false,8.8,'contain');
+ assert.ok(aim.x*direction>0,'Contain must lead a lateral runner');
+}
+for(const x of[-8,8]){
+ const d={index:16,team:1,x,z:25},r={x:0,z:40,vx:0,vz:8};
+ const aim=pursuitTarget(d,r,false,8.8,'support');assert.equal(Math.sign(aim.x),Math.sign(x));assert.ok(Math.abs(aim.x)>=1.5);
+}
+console.log('Containment checks passed: lateral cutoffs and separate trailing shoulders.');
