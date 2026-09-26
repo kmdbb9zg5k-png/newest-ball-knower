@@ -195,10 +195,11 @@ for(const keyboard of [false,true]){
  const press=()=>keyboard?g.key('Shift'):g.element('sprint').onpointerdown({pointerId:2,preventDefault(){}});
  const release=()=>keyboard?g.events.get('keyup')({key:'Shift',code:'Shift'}):g.element('sprint').onpointerup({pointerId:2});
  const advance=()=>{g.context.bk3dFixture.mutate(players=>players.forEach(p=>{if(p.hasBall){p.x=0;p.z=40}else if(p.team){p.x=100;p.z=100}}));g.step(1/60)};
- press();for(let i=0;i<210;i++)advance();assert.equal(g.read().stamina,0);
+ press();let peakSprintSpeed=0;for(let i=0;i<300;i++){advance();const running=g.context.bk3dRenderActors().find(p=>p.hasBall);if(running.sprinting)peakSprintSpeed=Math.max(peakSprintSpeed,Math.hypot(running.vx,running.vz))}assert.ok(peakSprintSpeed>10,`Sprint reaches the quicker target speed: ${peakSprintSpeed.toFixed(2)}`);assert.equal(g.read().stamina,0);
  for(let i=0;i<60;i++){
   advance();assert.equal(g.read().phase,'run');assert.equal(g.read().stamina,0);
-  assert.equal(g.context.bk3dRenderActors().find(p=>p.hasBall).sprinting,false,'Empty held sprint must stay in run animation');
+  const carrier=g.context.bk3dRenderActors().find(p=>p.hasBall);assert.ok(Math.hypot(carrier.vx,carrier.vz)>7.7,'Exhausted carrier keeps the quicker normal run speed');
+  assert.equal(carrier.sprinting,false,'Empty held sprint must stay in run animation');
  }
  release();g.step(.5);assert.ok(g.read().stamina>.04,'Release restores stamina');
  press();g.step(1/60);assert.equal(g.context.bk3dRenderActors().find(p=>p.hasBall).sprinting,true,'Recovered sprint works again');
