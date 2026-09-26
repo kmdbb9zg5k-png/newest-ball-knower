@@ -51,7 +51,8 @@ try{
   await step(.6);const stopped=await page.evaluate(()=>bk3dDiagnostics());assert.equal(stopped.drive.clock,dead.drive.clock);
   assert.ok(stopped.players.filter(p=>!p.fallen).every(p=>Math.hypot(p.vx,p.vz)<.15));
   await step(2.8);await page.keyboard.up('ArrowUp');assert.equal(await page.evaluate(()=>bk3dDiagnostics().phase),'pre');
-  await page.locator('#passTab').click();await page.locator('#plays button').nth(1).click();await page.locator('#snap').dispatchEvent('pointerdown',{pointerId:2,pointerType:'touch',bubbles:true});await step(.65);
+  await page.locator('#restart').dispatchEvent('click');
+  await page.locator('#passTab').click();await page.locator('#plays button').nth(1).click();await page.locator('#snap').dispatchEvent('pointerdown',{pointerId:2,pointerType:'touch',bubbles:true});await step(.8);
   assert.equal(await page.evaluate(()=>bk3dDiagnostics().phase),'pass');await page.evaluate(()=>bk3dTest.seed(500));await page.keyboard.press('x');await step(.25);
   assert.equal(await page.evaluate(()=>bk3dDiagnostics().phase),'flight');
   await page.screenshot({path:join(out,`${width}-pass.png`)});
