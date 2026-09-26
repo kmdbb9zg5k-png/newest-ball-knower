@@ -24,7 +24,7 @@ export function usesGroundedStride(state){return /^(run|sprint|walk|carry-run|ca
 export function groundedStride(distance,side=0){
  const cycle=2.8,phase=((Math.max(0,distance||0)/cycle+side)%1+1)%1,stance=.48,reach=cycle*stance/(2*1.17);
  if(phase<stance)return{z:reach*(1-2*phase/stance),lift:0,planted:true};
- const t=(phase-stance)/(1-stance);return{z:reach*(-1+2*smooth(t)),lift:Math.sin(t*Math.PI)*.22,planted:false};
+ const t=(phase-stance)/(1-stance);return{z:reach*(-1+2*smooth(t)),lift:Math.sin(t*Math.PI)*.31,planted:false};
 }
 // The source GLB contains eight full-body clips. These recipes turn that
 // compact mobile asset into a football motion graph by layering low-weight
@@ -174,7 +174,7 @@ export function meshyAnimationState(p,phase){
  }
  if((phase==='pass'||phase==='flight')&&!p.team&&['WR','TE','RB'].includes(p.role)&&speed>.2)return p.routeStyle==='release'?'route-release':p.routeStyle==='cut'||Math.abs(p.motion?.turn||0)>1.05?'route-cut':'route-stem';
  if((phase==='pass'||phase==='flight')&&p.team&&['LB','DB'].includes(p.role)&&speed>.2&&speed<7.7)return p.coverageStyle==='pedal'?'coverage-pedal':p.coverageStyle==='break'?'coverage-break':'coverage';
- if((phase==='pass'||phase==='flight')&&p.team&&p.role==='DL'&&speed>.2)return p.blockStyle==='rush-rip'?'rush-rip':p.blockStyle==='rush-swim'?'rush-swim':p.blockStyle==='edge-rush'?'edge-rush':p.blockStyle==='bull-rush'?'bull-rush':'rush';
+ if((phase==='pass'||phase==='flight')&&p.team&&p.role==='DL'&&speed>.2)return Math.abs(p.x||0)>4?'edge-rush':'rush';
  if(phase==='run'&&p.hasBall&&p.role==='QB'&&speed>.2)return'qb-scramble';
  if(phase==='run'&&p.hasBall&&Math.abs(p.motion?.turn||0)>1.12)return'carry-cut';
  if(phase==='run'&&p.hasBall&&p.sprinting)return'carry-sprint';
@@ -187,6 +187,7 @@ export function meshyTransitionRate(fromState,toState){
  if(/tackle|hit|miss|break|slide|dive/.test(toState))return 30;
  if(/juke|spin|truck|stiff|hurdle/.test(toState))return 27;
  if(/catch|throw|handoff/.test(toState))return 23;
+ if(/rush/.test(toState)&&/block|shed|rush-swim|rush-rip|bull-rush/.test(fromState))return 26;
  if(/block|set|shed|rush/.test(toState))return 17;
  return 11;
 }
@@ -385,9 +386,9 @@ export class MeshyAthletes{
   const hips=this.joints[0],speed=Math.hypot(p.vx||0,p.vz||0),sprint=state.includes('sprint')||speed>7.7,distance=p.distance||0;
   // The generated sprint root pitches almost 70 degrees. Keep an authored
   // upright torso and let speed determine lean, not the source clip's dive.
-  locals[hips].r=[...this.base[hips].r];locals[hips].t=[...this.base[hips].t];locals[hips].t[1]-=.045;
+  locals[hips].r=[...this.base[hips].r];locals[hips].t=[...this.base[hips].t];locals[hips].t[1]-=.075+.018*Math.cos(distance/2.8*Math.PI*4);
   for(const name of['Spine','Spine1','Spine2','Neck','Head']){const i=this.namedNodes['mixamorig:'+name];if(Number.isInteger(i))locals[i].r=[...this.base[i].r]}
-  const lean=sprint?.20:.10;this.rotate(locals,'mixamorig:Spine',1,0,0,lean);this.rotate(locals,'mixamorig:Head',1,0,0,-lean*.45);
+  const lean=sprint?.25:.16;this.rotate(locals,'mixamorig:Spine',1,0,0,lean);this.rotate(locals,'mixamorig:Head',1,0,0,-lean*.45);this.rotate(locals,'mixamorig:Spine2',0,1,0,Math.sin(distance/2.8*Math.PI*2)*.075);
   const direction=Math.atan2(p.vx||0,p.vz||0)-(p.heading||0),sideways=Math.sin(direction),forward=Math.cos(direction),width=p.role==='OL'||p.role==='DL'?.18:.13;
   for(const [side,sign,offset]of[['Left',1,0],['Right',-1,.5]]){
    const step=groundedStride(distance,offset),foot=this.namedNodes['mixamorig:'+side+'Foot'],ankle=pointFromMatrix(this.jointWorld(this.base,foot).m),z=step.z;
@@ -570,11 +571,14 @@ export class MeshyAthletes{
   else if(p.engaged&&!p.fallen)this.blockPose(locals,p,time);
   else if(p.hasBall&&(/^carry-|^qb-scramble/.test(choice.state)||p.fallen))this.carryPose(locals,p);
   if(p.fallen&&/wrap|gang|tackle|hit|pancake/.test(choice.state)){
-   const finish=smooth(((p.actionT||0)-.45)/.55),chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m);
+   const finish=smooth(((p.actionT||0)-.28)/.52);
+   // Stop the source tackle clip from finishing in a hands-and-knees pose.
+   for(const name of['Hips','Spine','Spine1','Spine2','Neck','Head']){const i=this.namedNodes['mixamorig:'+name];if(Number.isInteger(i))locals[i].r=slerp(locals[i].r,this.base[i].r,finish)}
+   const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m);
    for(const [side,sign]of[['Left',1],['Right',-1]]){
-    const reach=[sign*.17,chest[1]-.18,chest[2]+.30],rest=[sign*.26,chest[1]-.24,chest[2]+.02];
+    const reach=[sign*.17,chest[1]-.18,chest[2]+.30],rest=[sign*.23,chest[1]-.13,chest[2]-.035];
     this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],lerpArray(reach,rest,finish),[sign*.45,chest[1]-.28,chest[2]+.04]);
-    const hip=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:'+side+'UpLeg']).m),foot=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:'+side+'Foot']).m),target=[hip[0]+sign*.03,hip[1]-(sign>0?.50:.60),hip[2]-(sign>0?.30:.18)];
+    const hip=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:'+side+'UpLeg']).m),foot=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:'+side+'Foot']).m),target=[hip[0]+sign*.03,hip[1]-(sign>0?.70:.75),hip[2]-(sign>0?.13:.06)];
     this.solveLimb(locals,[side+'UpLeg',side+'Leg',side+'Foot'],lerpArray(foot,target,finish),[hip[0],hip[1]-.25,hip[2]+.6]);
    }
    if(p.hasBall)this.carryPose(locals,p);
@@ -598,8 +602,11 @@ export class MeshyAthletes{
   if(!p.fallen&&!p.engaged&&Math.hypot(p.vx||0,p.vz||0)>1){const direction=Math.atan2(p.vx||0,p.vz||0),turn=Math.atan2(Math.sin(direction-(p.heading||0)),Math.cos(direction-(p.heading||0)));roll+=clamp(-turn*.24,-.16,.16)}
   if(p.action==='break-tackle')roll+=(p.actionSide||1)*.18*Math.sin((p.actionT||0)*Math.PI);if(p.action==='miss')pitch+=.34*Math.sin((p.actionT||0)*Math.PI);if(p.engaged)pitch+=.11;if(p.reactionT>0)roll+=(p.reactionSide||1)*.12*Math.sin(clamp(p.reactionT,0,1)*Math.PI);
   const contactFall=p.fallen&&/tackle|hit|gang|wrap|slide|dive|pancake|miss/.test(p.action||''),fallProgress=p.action==='get-up'?1-smooth(p.actionT||0):contactFall?smooth(p.actionT||0):p.fallen?1:0;
-  const fall=fallProgress*(p.action==='slide'?1.30:p.action==='dive'?1.53:1.48),fallRoll=fallProgress*(p.actionSide||1)*(p.team?.27:-.20);
-  const basis=mul(ry((p.heading||0)+yaw),mul(rx(fall+pitch),mul(rz(roll+fallRoll),scale(1.17*build[0]*variation,1.17*build[1]/variation,1.17*build[2]*variation))));
+  const fall=fallProgress*(p.action==='slide'?1.30:p.action==='dive'?1.53:1.48),fallRoll=fallProgress*(p.actionSide||1)*(p.hasBall?-.68:.38);
+  const heading=(p.heading||0)+yaw,fallHeading=Number.isFinite(p.fallHeading)?p.fallHeading:heading;
+  // Both bodies fall with the impact, even when the defender faces the runner.
+  const fallBasis=mul(ry(fallHeading),mul(rx(fall),ry(heading-fallHeading)));
+  const basis=mul(fallBasis,mul(rx(pitch),mul(rz(roll+fallRoll),scale(1.17*build[0]*variation,1.17*build[1]/variation,1.17*build[2]*variation))));
   const points=this.supportPoints.get(p.index)||[],floor=points.length?Math.min(...points.map(v=>basis[1]*v[0]+basis[5]*v[1]+basis[9]*v[2])):0;
   const plant=this.phase==='pre'||p.fallen||usesGroundedStride(meshyAnimationState(p,this.phase))||Math.hypot(p.vx||0,p.vz||0)<.2,correction=plant?floor:Math.min(0,floor);
   return mul(translate(p.x,lift+.02-correction,p.z),basis);
