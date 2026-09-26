@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import * as math from '../public/play-moment-3d/renderer.js';
 import {advanceMotion} from '../public/play-moment-3d/athlete.js';
 import {knockDownPlayer,advancePlayerAction,blockOutcome,pursuitRole,pursuitTarget} from '../public/play-moment-3d/game.js';
-import {groundedStride,meshyAnimationState} from '../public/play-moment-3d/meshy-athlete.js';
+import {groundedStride,meshyAnimationState,usesAuthoredForwardStride} from '../public/play-moment-3d/meshy-athlete.js';
 // Live recovery and dead-ball finishes must take different paths.
 for(const type of['miss','tackle','pancake']){
  const p={vx:7,vz:4,engaged:true};knockDownPlayer(p,0,type,.6);assert.equal(p.vx,0);assert.equal(p.engaged,false);
@@ -18,6 +18,8 @@ const cutoff=pursuitTarget(safety,runner,false,8,'contain');assert.ok(cutoff.z>r
 // During stance, model-space foot travel must cancel world movement exactly.
 const stepA=groundedStride(.2),stepB=groundedStride(.3);assert.ok(stepA.planted&&stepB.planted);assert.ok(Math.abs((stepB.z-stepA.z)*1.17+.1)<1e-9);
 assert.equal(meshyAnimationState({fallen:true,role:'LB',vx:8,vz:2},'run'),'tackle');
+assert.equal(usesAuthoredForwardStride({vx:0,vz:8,heading:0}),true,'Straight forward running keeps the smooth authored stride');
+assert.equal(usesAuthoredForwardStride({vx:5,vz:6,heading:0}),false,'Sharp cuts keep planted procedural foot placement');
 
 // Exercise the real game controller and camera math with only DOM/GPU I/O stubbed.
 const source=fs.readFileSync(new URL('../public/play-moment-3d/game.js',import.meta.url),'utf8').replace(/^import.*;\n/gm,'').replace(/export /g,'');

@@ -20,6 +20,11 @@ export function locomotionClipTime(distance,duration,clip,seed=0){
 }
 
 export function usesGroundedStride(state){return /^(run|sprint|walk|carry-run|carry-sprint|carry-cut|route-release|route-stem|route-cut|qb-scramble|qb-drop|qb-climb|qb-rollout|coverage|coverage-pedal|coverage-break|rush|edge-rush|break-tackle|stumble)$/.test(state)}
+/** Keep the authored Meshy gait on straight runs; reserve procedural planting for cuts. */
+export function usesAuthoredForwardStride(p){
+ const speed=Math.hypot(p.vx||0,p.vz||0);if(speed<2)return false;
+ const angle=Math.atan2(p.vx||0,p.vz||0)-(p.heading||0);return Math.cos(angle)>.82&&Math.abs(Math.sin(angle))<.25;
+}
 /** Same distance phase across run/sprint, with a linear planted half-step. */
 export function groundedStride(distance,side=0){
  const cycle=2.45,phase=((Math.max(0,distance||0)/cycle+side)%1+1)%1,stance=.53,reach=cycle*stance/(2*1.17);
@@ -383,21 +388,23 @@ export class MeshyAthletes{
   }
  }
  groundedLocomotion(locals,p,state){
-  const hips=this.joints[0],speed=Math.hypot(p.vx||0,p.vz||0),sprint=state.includes('sprint')||speed>7.7,distance=(p.distance||0)+(p.index%7)*.21;
+  const hips=this.joints[0],speed=Math.hypot(p.vx||0,p.vz||0),sprint=state.includes('sprint')||speed>7.7,gaitCycle=sprint?5.4:state==='walk'?2.15:4.25,distance=(p.distance||0)+(p.index%7)*.21,authoredStride=usesAuthoredForwardStride(p);
   // The generated sprint root pitches almost 70 degrees. Keep an authored
   // upright torso and let speed determine lean, not the source clip's dive.
-  locals[hips].r=[...this.base[hips].r];locals[hips].t=[...this.base[hips].t];locals[hips].t[1]-=.075+.018*Math.cos(distance/2.45*Math.PI*4);
+  locals[hips].r=[...this.base[hips].r];locals[hips].t=[...this.base[hips].t];locals[hips].t[1]-=.075+.018*Math.cos(distance/gaitCycle*Math.PI*4);
   for(const name of['Spine','Spine1','Spine2','Neck','Head']){const i=this.namedNodes['mixamorig:'+name];if(Number.isInteger(i))locals[i].r=[...this.base[i].r]}
-  const lean=sprint?.24:speed<2?.04:.13;this.rotate(locals,'mixamorig:Spine',1,0,0,lean);this.rotate(locals,'mixamorig:Head',1,0,0,-lean*.45);this.rotate(locals,'mixamorig:Spine2',0,1,0,Math.sin(distance/2.45*Math.PI*2)*.075);
+  const lean=sprint?.24:speed<2?.04:.13;this.rotate(locals,'mixamorig:Spine',1,0,0,lean);this.rotate(locals,'mixamorig:Head',1,0,0,-lean*.45);this.rotate(locals,'mixamorig:Spine2',0,1,0,Math.sin(distance/gaitCycle*Math.PI*2)*.075);
   const direction=Math.atan2(p.vx||0,p.vz||0)-(p.heading||0),sideways=Math.sin(direction),forward=Math.cos(direction),width=p.role==='OL'||p.role==='DL'?.15:.105;
   for(const [side,sign,offset]of[['Left',1,0],['Right',-1,.5]]){
-   const step=groundedStride(distance,offset),foot=this.namedNodes['mixamorig:'+side+'Foot'],ankle=pointFromMatrix(this.jointWorld(this.base,foot).m),z=step.z;
-   // Reset the ankle orientation before IK so planted soles stay level.
-   for(const name of[side+'UpLeg',side+'Leg',side+'Foot']){const i=this.namedNodes['mixamorig:'+name];locals[i].r=[...this.base[i].r]}
-   this.solveLimb(locals,[side+'UpLeg',side+'Leg',side+'Foot'],[sign*width+z*sideways,ankle[1]+step.lift,ankle[2]+z*forward],[sign*width+sideways*.25,.42,.65*forward],true);
-   const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m),swing=Math.sin(distance/2.45*Math.PI*2+offset*Math.PI*2);
-   const walking=state==='walk',handY=walking?-.40:-.24,armSwing=walking?.09:sprint?.23:.17;
-   this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],[sign*.17,chest[1]+handY+swing*(walking?.035:.10),chest[2]+.12-swing*armSwing],[sign*.25,chest[1]-.43,chest[2]-.13]);
+   if(!authoredStride){
+    const step=groundedStride(distance,offset),foot=this.namedNodes['mixamorig:'+side+'Foot'],ankle=pointFromMatrix(this.jointWorld(this.base,foot).m),z=step.z;
+    // Reset the ankle orientation before IK so planted soles stay level.
+    for(const name of[side+'UpLeg',side+'Leg',side+'Foot']){const i=this.namedNodes['mixamorig:'+name];locals[i].r=[...this.base[i].r]}
+    this.solveLimb(locals,[side+'UpLeg',side+'Leg',side+'Foot'],[sign*width+z*sideways,ankle[1]+step.lift,ankle[2]+z*forward],[sign*width+sideways*.25,.42,.65*forward],true);
+    const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m),swing=Math.sin(distance/2.45*Math.PI*2+offset*Math.PI*2);
+    const walking=state==='walk',handY=walking?-.40:-.24,armSwing=walking?.09:sprint?.23:.17;
+    this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],[sign*.17,chest[1]+handY+swing*(walking?.035:.10),chest[2]+.12-swing*armSwing],[sign*.25,chest[1]-.43,chest[2]-.13]);
+   }
   }
  }
  standingPose(locals,p,crouch=.06,lean=.06){
