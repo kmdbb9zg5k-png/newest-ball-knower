@@ -147,6 +147,9 @@ export function meshyAnimationState(p,phase){
   return'drive-block';
  }
  if(phase==='pre')return'pre';
+ // Once a play is dead, residual settling velocity must not keep upright
+ // players in a walk cycle or return them to the source clip's T-pose.
+ if(phase==='dead'&&!p.action&&!p.fallen)return'idle';
  const speed=Math.hypot(p.vx||0,p.vz||0);
  if(phase==='pass'&&p.role==='QB'){
   if(speed<=.2)return'qb-pocket';
@@ -326,6 +329,12 @@ export class MeshyAthletes{
     this.rotate(locals,'mixamorig:LeftArm',1,0,0,.08);
     this.rotate(locals,'mixamorig:RightArm',1,0,0,.08);
    }
+  }
+  if(state==='idle'){
+   this.rotate(locals,'mixamorig:LeftArm',0,0,1,-1.04);
+   this.rotate(locals,'mixamorig:RightArm',0,0,1,1.04);
+   this.rotate(locals,'mixamorig:LeftForeArm',1,0,0,-.16);
+   this.rotate(locals,'mixamorig:RightForeArm',1,0,0,-.16);
   }
   if(phase!=='pre'&&!p.engaged&&!/tackle|hit|miss|break|slide|stumble|dive/.test(state)){
    this.rotate(locals,'mixamorig:Spine',1,0,0,profile.lean*speed);
