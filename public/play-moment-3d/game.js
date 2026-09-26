@@ -1,6 +1,6 @@
 import{Renderer,pose,segment,hex}from'./renderer.js';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js';
-import{createMeshyAthletes}from'./meshy-athlete.js?v=football-finish-7';
+import{createMeshyAthletes}from'./meshy-athlete.js?v=football-finish-12';
 import{makeStadium}from'./stadium.js';
 import{createGameplayReplayRecorder}from'./replay.js';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
