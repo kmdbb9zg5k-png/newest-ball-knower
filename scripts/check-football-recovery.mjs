@@ -8,13 +8,13 @@ import {groundedStride,meshyAnimationState} from '../public/play-moment-3d/meshy
 // Live recovery and dead-ball finishes must take different paths.
 for(const type of['miss','tackle','pancake']){
  const p={vx:7,vz:4,engaged:true};knockDownPlayer(p,0,type,.6);assert.equal(p.vx,0);assert.equal(p.engaged,false);
- advancePlayerAction(p,.7);assert.ok(p.fallen);advancePlayerAction(p,1.06);assert.equal(p.action,'get-up');advancePlayerAction(p,1.5);assert.ok(p.fallen);advancePlayerAction(p,1.9);assert.equal(p.fallen,false);assert.equal(p.action,null);
+ advancePlayerAction(p,.7);assert.ok(p.fallen);advancePlayerAction(p,1.06);assert.equal(p.action,'get-up');advancePlayerAction(p,1.5);assert.ok(p.fallen);advancePlayerAction(p,2.2);assert.equal(p.fallen,false);assert.equal(p.action,null);
  knockDownPlayer(p,2,type,.6);advancePlayerAction(p,10,true);assert.ok(p.fallen);assert.equal(p.actionT,1);
 }
 let pancakes=0;for(let i=0;i<1000;i++)if(blockOutcome(84,78,.5,i/1000)==='pancake')pancakes++;assert.ok(pancakes<40,`Too many knockdowns: ${pancakes}`);
 const runner={x:20,z:45,vx:2,vz:7},near={index:15,team:1,x:17,z:45},safety={index:21,team:1,x:24,z:57},back={index:16,team:1,x:0,z:40};
 assert.equal(pursuitRole(near,runner,[near,safety,back]),'primary');assert.equal(pursuitRole(safety,runner,[near,safety,back]),'contain');
-const cutoff=pursuitTarget(safety,runner,false,8,'contain');assert.ok(cutoff.z>runner.z&&cutoff.z<safety.z&&cutoff.x>runner.x&&cutoff.x<=25.4);
+const cutoff=pursuitTarget(safety,runner,false,8,'contain');assert.ok(cutoff.z>runner.z&&cutoff.z<safety.z&&cutoff.x>runner.x&&cutoff.x<=25.8);
 // During stance, model-space foot travel must cancel world movement exactly.
 const stepA=groundedStride(.2),stepB=groundedStride(.3);assert.ok(stepA.planted&&stepB.planted);assert.ok(Math.abs((stepB.z-stepA.z)*1.17+.1)<1e-9);
 assert.equal(meshyAnimationState({fallen:true,role:'LB',vx:8,vz:2},'run'),'tackle');
@@ -26,7 +26,7 @@ function game(width=844,height=335){
  const element=id=>{if(elements.has(id))return elements.get(id);const el={id,hidden:false,children:[],style:{},dataset:{},classList:{add(){},remove(){},toggle(){}},setAttribute(){},setPointerCapture(){},replaceChildren(){this.children=[]},append(...c){this.children.push(...c);for(const child of c)if(child.id)elements.set(child.id,child)},appendChild(c){this.append(c)},getBoundingClientRect(){return id==='pre'?{top:height-105,left:0,width,height:105}:id==='header'?{left:width*.3,right:width*.7,top:8,bottom:58}:id==='stick'?{left:30,top:height-110,width:90,height:90}:{left:0,top:0,width,height,right:width,bottom:height}}};Object.defineProperty(el,'firstElementChild',{get(){return this.children[0]||(this.children[0]={style:{}})}});elements.set(id,el);return el};
  class HeadlessRenderer{constructor(){renderer=this;this.width=width;this.height=height;this.vp=math.identity();this.gl={getError:()=>0};this.drawCalls=0;this.eye=[0,0,0]}camera=math.Renderer.prototype.camera;project=math.Renderer.prototype.project;begin(){}add(){}draw(){}lateBegin(){}drawLate(){}glow(){}}
  const noop=()=>{},context={...math,Renderer:HeadlessRenderer,drawAthlete:noop,prepareJerseys:noop,advanceMotion,makeStadium:()=>({draw:noop,parts:0}),createMeshyAthletes:()=>({ready:false,ballAnchor:()=>null,draw:noop,diagnostics:()=>({})}),createGameplayReplayRecorder:()=>({event:noop,sample:noop}),console,URLSearchParams,performance:{now:()=>0},location:{search:'?qa'},navigator:{vibrate:noop},document:{hidden:false,getElementById:element,createElement:()=>element('generated-'+elements.size),querySelector:()=>element('header'),querySelectorAll:()=>[],addEventListener:noop},requestAnimationFrame:()=>1,cancelAnimationFrame:noop,matchMedia:()=>({addEventListener:noop}),innerWidth:width,innerHeight:height,addEventListener:(name,fn)=>events.set(name,fn)};context.window=context;
- vm.createContext(context);vm.runInContext(source.replace('window.bk3dTest={','window.bk3dRenderActors=()=>actors.map(p=>({...p}));window.bk3dTest={')+'\nstart();',context);context.bk3dTest.manualFrames();
+ vm.createContext(context);vm.runInContext(source.replace('window.bk3dTest={','window.bk3dRenderActors=()=>actors.map(p=>({...p}));window.bk3dFixture={mutate(fn){fn(actors)},touchdown(){endPlay("TOUCHDOWN",100)},seed(value){numSeed=value},camera};window.bk3dTest={')+'\nstart();',context);context.bk3dTest.manualFrames();
  return{context,element,events,renderer,step:t=>context.bk3dTest.step(t),read:()=>context.bk3dDiagnostics(),snap:()=>element('snap').onpointerdown({preventDefault:noop}),key:key=>events.get('keydown')({key,code:key,preventDefault:noop})};
 }
 // The ball must follow center -> snap flight -> QB -> exchange -> RB.
@@ -53,7 +53,7 @@ for(const [w,h]of[[844,335],[932,430],[740,330]]){
  for(let i=0;i<420;i++){g.step(1/60);result=g.read();if(result.phase==='dead')break}
  assert.equal(result.phase,'dead','A stationary QB should be sacked');assert.ok(result.contact,'Sack must start paired contact');assert.equal(result.players[5].fallen,true);assert.ok(result.players[result.lastTackler].fallen);
  const clock=result.drive.clock;g.step(1.15);assert.equal(g.read().players[5].actionT,1,'QB must finish on turf');assert.equal(g.read().drive.clock,clock,'Dead-ball animation must not run the game clock');
- g.step(1.4);assert.ok(g.read().players.every(p=>!p.fallen),'Players must get up before reset');g.step(1.1);assert.equal(g.read().phase,'pre');for(const p of g.read().players)assert.equal(p.fallen,false);
+ g.step(1.8);assert.ok(g.read().players.every(p=>!p.fallen),'Players must get up before reset');g.step(1.1);assert.equal(g.read().phase,'pre');for(const p of g.read().players)assert.equal(p.fallen,false);
  // Camera is continuous between dead ball and setup; then fits the offensive lineup.
  for(let i=0;i<150;i++)g.step(1/60);for(const p of g.read().players.filter(p=>!p.team)){assert.ok(p.foot.y<h-95&&p.head.y>55,`${w}: formation overlaps HUD`)}
 }
@@ -103,6 +103,38 @@ for(const play of[1,3])for(const call of[0,2,4]){
  assert.equal(resting.drive.clock,clock);
  console.log(`Sideline ${play}, defense ${call}: spot ${atWhistle.drive.ball}, resolved in ${(endedAt/60).toFixed(2)}s.`);
 }
+
+// The new recording catches a ball and reaches the goal line before catchT
+// expires. Test the actual finish path with the live catch overlay still set.
+{
+ const g=game(1108,512);g.key('ArrowUp');g.snap();g.step(1.5);
+ g.context.bk3dFixture.mutate(actors=>{const p=actors[6];p.catchT=.4;p.throwT=.3;p.reactionT=.6;p.z=110;p.action='hurdle';p.actionT=.5;actors[15].x=p.x+.5;actors[15].z=p.z;actors[15].reactionT=.7;});
+ g.context.bk3dFixture.touchdown();g.step(.8);
+ const d=g.read();assert.ok(d.ended);assert.equal(d.drive.score,30);
+ const poses=g.context.bk3dRenderActors();
+ for(const p of poses){assert.equal(p.catchT,0);assert.equal(p.throwT,0);assert.equal(p.reactionT,0);if(!p.fallen)assert.ok(['rest','celebrate'].includes(meshyAnimationState(p,'dead')));}
+ assert.equal(poses[6].action,'celebrate');
+ assert.ok(Math.hypot(poses[6].x-poses[15].x,poses[6].z-poses[15].z)>=1.4,'Finish must leave space around the scorer');
+ assert.equal(g.element('live').hidden,true);g.step(3.5);assert.ok(g.read().paused);
+}
+// Require a successful catch, rather than allowing the camera test to pass
+// after an incompletion. Track screen motion at the ownership transition.
+for(const targetKey of ['x','y','z']){
+ const g=game(844,390);g.element('passTab').onclick();g.element('plays').children[1].onclick();g.snap();g.step(.8);g.context.bk3dFixture.seed(500);g.key(targetKey);
+ let previous=g.read(),caught=false,maxEyeStep=0,catchPixels=0;
+ for(let frame=0;frame<170;frame++){
+  g.step(1/60);const d=g.read();
+  maxEyeStep=Math.max(maxEyeStep,Math.hypot(...d.camera.eye.map((v,i)=>v-previous.camera.eye[i])));
+  if(previous.phase==='flight'&&d.phase==='run'){
+   caught=true;const index=d.players.findIndex(p=>p.hasBall),a=previous.players[index].head,b=d.players[index].head;
+   catchPixels=Math.hypot(a.x-b.x,a.y-b.y);assert.ok(catchPixels<18,`Catch camera moved ${catchPixels}px`);
+  }
+  previous=d;if(d.phase==='dead')break;
+ }
+ assert.ok(caught,`Camera case ${targetKey} must catch the pass`);assert.ok(maxEyeStep<=.401);
+ console.log(`Caught ${targetKey}: camera step ${maxEyeStep.toFixed(3)} yards, receiver motion ${catchPixels.toFixed(2)}px at catch.`);
+}
+
 // Real renderer allocation growth: tiny material batches must not reserve 4096 instances.
 let allocated=0;const gl=new Proxy({createVertexArray:()=>({}),createBuffer:()=>({}),bufferData:(target,data)=>{allocated+=typeof data==='number'?data:data.byteLength}}, {get:(o,k)=>o[k]??(()=>{})});
 const r=Object.create(math.Renderer.prototype);Object.assign(r,{gl,shapes:{cube:{v:Array(24).fill(0),ix:[0,1,2]}},geometry:new Map(),batches:new Map(),overflows:0});

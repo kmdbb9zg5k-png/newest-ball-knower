@@ -9,7 +9,10 @@ await mkdir(out,{recursive:true});
 const server=createServer(async(req,res)=>{
  const p=resolve(root,'.'+new URL(req.url,'http://localhost').pathname);
  if(!p.startsWith(root+'/')){res.writeHead(403).end();return}
- try{res.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.css':'text/css','.glb':'model/gltf-binary'})[extname(p)]||'application/octet-stream');res.end(await readFile(p))}catch{res.writeHead(404).end()}
+ try{res.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.css':'text/css','.glb':'model/gltf-binary'})[extname(p)]||'application/octet-stream');let content=await readFile(p);
+  // Test-only placement and RNG controls; these are never shipped in the game.
+  if(p.endsWith('/play-moment-3d/game.js'))content=Buffer.from(content.toString().replace('window.bk3dTest={',`window.bk3dTest={seed(value){numSeed=value},goalLine(){const dz=109.96-carrier.z;actors.forEach(p=>p.z+=dz);snapZ+=dz;snapGainZ=110;camEye[2]+=dz;camTarget[2]+=dz;if(runCameraStart){runCameraStart.eye[2]+=dz;runCameraStart.target[2]+=dz;runCameraStart.z+=dz}carrier.vx=0;carrier.vz=7;carrier.catchT=.4;const d=actors[15];d.x=carrier.x+.5;d.z=carrier.z;d.reactionT=.6;},`));
+  res.end(content)}catch{res.writeHead(404).end()}
 });
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const origin=process.env.BK_QA_ORIGIN||`http://127.0.0.1:${server.address().port}`;
@@ -19,7 +22,7 @@ try{
  for(const [width,height] of [[1108,512],[844,390]]){
   browser=await launch();const page=await browser.newPage({viewport:{width,height},hasTouch:true,isMobile:true,deviceScaleFactor:1}),errors=[];
   page.on('pageerror',e=>errors.push(String(e)));
-  console.log('Opening',width,height);await page.goto(origin+'/play-moment-3d-preview.html?qa&v=football-pursuit-6');
+  console.log('Opening',width,height);await page.goto(origin+'/play-moment-3d-preview.html?qa&v=football-finish-7');
   await page.waitForFunction(()=>window.bk3dDiagnostics?.().athletes.ready,{timeout:30000});
   await page.evaluate(()=>bk3dTest.manualFrames());
   const step=seconds=>page.evaluate(s=>bk3dTest.step(s),seconds);
@@ -47,17 +50,33 @@ try{
   const dead=await page.evaluate(()=>bk3dDiagnostics());assert.equal(dead.phase,'dead');assert.equal(await page.locator('#live').isHidden(),true);
   await step(.6);const stopped=await page.evaluate(()=>bk3dDiagnostics());assert.equal(stopped.drive.clock,dead.drive.clock);
   assert.ok(stopped.players.filter(p=>!p.fallen).every(p=>Math.hypot(p.vx,p.vz)<.15));
-  await step(2.3);await page.keyboard.up('ArrowUp');assert.equal(await page.evaluate(()=>bk3dDiagnostics().phase),'pre');
-  await page.locator('#passTab').click();await page.locator('#snap').dispatchEvent('pointerdown',{pointerId:2,pointerType:'touch',bubbles:true});await step(.65);
-  assert.equal(await page.evaluate(()=>bk3dDiagnostics().phase),'pass');await page.keyboard.press('x');await step(.25);
+  await step(2.8);await page.keyboard.up('ArrowUp');assert.equal(await page.evaluate(()=>bk3dDiagnostics().phase),'pre');
+  await page.locator('#restart').dispatchEvent('click');
+  await page.locator('#passTab').click();await page.locator('#plays button').nth(1).click();await page.locator('#snap').dispatchEvent('pointerdown',{pointerId:2,pointerType:'touch',bubbles:true});await step(.8);
+  assert.equal(await page.evaluate(()=>bk3dDiagnostics().phase),'pass');await page.evaluate(()=>bk3dTest.seed(500));await page.keyboard.press('x');await step(.25);
   assert.equal(await page.evaluate(()=>bk3dDiagnostics().phase),'flight');
   await page.screenshot({path:join(out,`${width}-pass.png`)});
+  let caught=false,maxCatchCameraStep=0,lastState=await page.evaluate(()=>bk3dDiagnostics());
+  for(let i=0;i<60;i++){
+   await step(1/60);const state=await page.evaluate(()=>bk3dDiagnostics());
+   maxCatchCameraStep=Math.max(maxCatchCameraStep,Math.hypot(...state.camera.eye.map((v,n)=>v-lastState.camera.eye[n])));
+   if(state.phase==='run'){caught=true;break}if(state.phase==='dead')break;lastState=state;
+  }
+  assert.ok(caught,'Rendered pass must reach a successful catch');assert.ok(maxCatchCameraStep<=.401);
+  await page.screenshot({path:join(out,`${width}-catch.png`)});
+  await page.evaluate(()=>bk3dTest.goalLine());await step(.08);
+  assert.equal(await page.evaluate(()=>bk3dDiagnostics().drive.score),30);
+  for(let i=0;i<18;i++)await step(.05);
+  const finish=await page.evaluate(()=>bk3dDiagnostics());
+  assert.ok(finish.ended);assert.ok(finish.athletes.states.includes('celebrate'));
+  assert.ok(finish.athletes.states.every(s=>['celebrate','rest','get-up','tackle','wrap-tackle'].includes(s)),JSON.stringify(finish.athletes.states));
+  await page.screenshot({path:join(out,`${width}-touchdown.png`)});
   // Portrait must offer recovery, then landscape controls must be reachable again.
   await page.setViewportSize({width:390,height:844});assert.equal(await page.locator('#rotate').isVisible(),true);
   await page.setViewportSize({width,height});
   assert.equal(await page.locator('#rotate').isVisible(),false);
   assert.deepEqual(errors,[]);assert.equal(await page.evaluate(()=>bk3dDiagnostics().glError),0);
-  results.push({width,height,players:22,snap:'passed',toss:'passed',heldTouch:'passed',contact:'passed',whistle:'passed',pass:'passed',rotation:'passed',errors});
+  results.push({width,height,players:22,snap:'passed',toss:'passed',heldTouch:'passed',contact:'passed',whistle:'passed',pass:'passed',catch:'passed',touchdown:'passed',maxCatchCameraStep,rotation:'passed',errors});
   console.log('Passed',width,height);await browser.close();browser=null;
  }
  await writeFile(join(out,'report.json'),JSON.stringify(results,null,2));console.log(JSON.stringify(results,null,2));
