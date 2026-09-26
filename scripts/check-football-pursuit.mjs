@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {pursuitTarget,pursuitSteering,locomotionStep,tackleContactEligible,defenderRunSpeed,playerRatings,initialAssistMode} from '../public/play-moment-3d/game.js';
-import {MeshyAthletes,MESHY_CLIPS} from '../public/play-moment-3d/meshy-athlete.js';
+import {MeshyAthletes,MESHY_CLIPS,forwardRunArmSwing} from '../public/play-moment-3d/meshy-athlete.js';
 // Compare actual accelerated pursuit against the previous short lead for a crossing run.
 function chase(targetFn){
  const d={index:21,team:1,x:14,z:35,vx:0,vz:0},r={x:-8,z:20,vx:3,vz:6};let closest=Infinity;
@@ -26,6 +26,9 @@ const p={index:6,team:0,role:'RB',vx:0,vz:7,hasBall:true,distance:2};
 assert.equal(rig.choose(p,'run',1).baseTime,rig.choose(p,'run',20).baseTime,'Unchanged position must not advance a running clip');
 assert.notEqual(rig.choose(p,'run',1).baseTime,rig.choose({...p,distance:2.5},'run',1).baseTime,'Ground covered must advance the stride');
 assert.equal(rig.choose({...p,sprinting:true},'run',1).base,MESHY_CLIPS.sprint);
+assert.ok(Math.abs(forwardRunArmSwing(0))<1e-9,'Run arms start centered with the leg cycle');
+assert.ok(Math.abs(forwardRunArmSwing(.6125)-.12)<1e-9,'Run arm swing follows the planted leg cadence');
+assert.ok(Math.abs(forwardRunArmSwing(1.8375)+.12)<1e-9,'Opposite arm swings with the next leg');
 console.log('Pursuit checks passed: crossing interception, 27 direction/boundary cases, teammate spacing, distance-driven run/sprint playback.');
 
 // A support defender must close the tackle window instead of shadowing a parallel lane.
