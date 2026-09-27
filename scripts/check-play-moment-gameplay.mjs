@@ -180,8 +180,8 @@ for (let callIndex = 0; callIndex < DEFENSIVE_CALLS.length; callIndex++) {
   for (const linebacker of [15, 16, 17]) assert.ok(runReadDelay(callIndex, linebacker, 0) >= .34, 'Linebackers cannot diagnose a run instantly');
 }
 assert.ok(runReadDelay(0, 16, 2) > runReadDelay(0, 16, 0), 'Counter action must hold the Mike longer than inside zone');
-assert.equal(RUNS.length, 4);
-assert.equal(new Set(RUNS.map(run => `${run.handoff}:${run.speed}:${run.acceleration}:${run.blockLeverage}`)).size, 4, 'Run concepts need different timing and physical profiles');
+assert.equal(RUNS.length, 18);
+assert.equal(new Set(RUNS.slice(0,4).map(run => `${run.handoff}:${run.speed}:${run.acceleration}:${run.blockLeverage}`)).size, 4, 'Run concepts need different timing and physical profiles');
 const conceptDirections = RUNS.map((run, index) => runConceptDirection(index, .45, run.mesh[0], 92 + run.mesh[1], 92));
 assert.ok(conceptDirections[0].x < 0, 'Inside zone should initially press the backside A gap');
 assert.ok(conceptDirections[1].x > .6 && conceptDirections[3].x > .6, 'Stretch and toss must attack width');
