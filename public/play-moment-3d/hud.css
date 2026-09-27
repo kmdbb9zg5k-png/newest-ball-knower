@@ -253,7 +253,7 @@ html,body,#game,#hud{min-height:100dvh}
 .pre-panel-heading>div{display:flex;gap:4px}
 #prePanel button{min-height:44px;border:1px solid transparent;border-radius:7px;color:var(--control-text);font-weight:850;font-size:10px;letter-spacing:.6px;background:#172b39}
 .pre-panel-heading button{padding:0 12px}
-.pre-panel-heading button[aria-pressed="true"]{color:var(--control-accent);background:#213f4e}
+#prePanel .pre-panel-heading button[aria-pressed="true"]{color:var(--control-accent);background:#213f4e}
 #closePrePanel{min-width:44px;font-size:22px!important;background:transparent!important}
 #pre #adjustments{display:flex;gap:6px}
 #pre #adjustments button{flex:1;min-width:0;padding:0 8px;font-size:10px}
@@ -267,6 +267,8 @@ html,body,#game,#hud{min-height:100dvh}
 #openPlaybook{width:100%;margin-top:8px;background:transparent!important;color:var(--control-muted)!important}
 #openPlaybook span{color:var(--control-accent);margin-left:8px}
 #snap:disabled{opacity:.6}
+#snap:disabled b>span[aria-hidden]{display:none}
+#snap:disabled #snapLabel{font-size:.86em;letter-spacing:0}
 #snap #snapLabel{color:var(--control-text);font-size:inherit;line-height:inherit}
 .running-setting{margin:8px 0 16px}
 .running-setting #control{width:100%;margin-bottom:8px}
