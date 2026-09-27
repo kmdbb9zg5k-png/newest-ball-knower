@@ -78,7 +78,7 @@ def record(browser, origin, out, mode):
         assert page.locator('#playerNames').is_visible()
         assert page.locator('#playerNames .player-name').count() == 22
         assert page.locator('#player-name-5').is_visible()
-        assert page.locator('#player-name-5').inner_text() == read()['players'][5]['lastName']
+        assert page.locator('#player-name-5').text_content() == read()['players'][5]['lastName'], 'QB label must match his stable roster name'
         assert page.locator('#playerNames').evaluate("el => getComputedStyle(el).pointerEvents") == 'none'
         boxes = []
         for selector in ['#playArt', '#adjustPlay', '#snap', '#stick']:
