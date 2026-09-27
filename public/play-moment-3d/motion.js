@@ -33,7 +33,7 @@ export function advanceMotion(p,dt,phase){
  dt=clamp(Number.isFinite(dt)?dt:0,0,.1);
  const ready=phase==='pre',heavy=p.role==='OL'||p.role==='DL';
  const m=p.motion||(p.motion={x:p.x,z:p.z,heading:p.heading||0,speed:0,run:0,
-  ready:ready?1:0,block:0,turn:0,gait:p.index*.43,fall:0,catch:0,throwTime:1,throwing:false});
+  ready:ready?1:0,block:0,turn:0,gait:p.index*.43,stridePhase:(p.index*.437+(p.team?.271:0))%1,fall:0,catch:0,throwTime:1,throwing:false});
  const distance=Math.hypot(p.x-m.x,p.z-m.z),delta=Math.atan2(Math.sin((p.heading||0)-m.heading),Math.cos((p.heading||0)-m.heading));
  const speed=dt>0?clamp(distance/dt,0,12):0;
  m.speed=damp(m.speed,speed,12,dt);
@@ -43,6 +43,11 @@ export function advanceMotion(p,dt,phase){
  m.turn=damp(m.turn,dt>0?clamp(delta/dt,-4,4):0,10,dt);
  // Gait advances only with distance, not wall-clock time or a CSS loop.
  m.gait+=distance*TAU/(heavy?2.25:2.75);
+ // Integrate a shared phase, rather than dividing total distance by a changing
+ // stride length (which jumps every time the player accelerates or sprints).
+ const strideLength=2.15+1.8*smooth((m.speed-2)/3)+.65*smooth((m.speed-7)/3);
+ if(!Number.isFinite(m.stridePhase))m.stridePhase=(p.index*.437+(p.team?.271:0))%1;
+ m.stridePhase+=distance/strideLength;
  m.fall=damp(m.fall,p.fallen?1:0,10,dt);
  m.catch=damp(m.catch,p.catchT>0?clamp(p.catchT/.20,0,1):0,18,dt);
  if(p.throwT>0&&!m.throwing)m.throwTime=0;
