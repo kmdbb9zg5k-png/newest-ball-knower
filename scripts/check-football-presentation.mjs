@@ -131,6 +131,22 @@ for(const role of['RB','LB']){
 assert.ok(recoveryStep<.16,`Recovery torso snapped ${recoveryStep} yards/frame`);
 console.log(`Post-play poses: planted celebration/rest feet; maximum get-up torso movement ${recoveryStep.toFixed(3)} yards/frame.`);
 
+// Authored QB delivery: planted lower body, high release and continuous arm.
+for(const kind of ['bullet','touch','lob']){
+ const p={role:'QB',index:5,team:0,x:0,z:0,heading:0,vx:0,vz:0,hasBall:true,throwStyle:kind,throwT:.001};
+ rig.phase='pass';rig.poseStates.clear();let previous,maxStep=0,releaseHeight=0;
+ for(let frame=0;frame<=36;frame++){
+  p.throwT=Math.max(.001,frame/36);const bones=rig.bonesFor(p,'pass',frame/60),model=rig.modelFor(p),hands=rig.handTransforms.get(5);
+  const hand=[hands.right[12],hands.right[13],hands.right[14]];
+  if(previous)maxStep=Math.max(maxStep,Math.hypot(...hand.map((v,i)=>v-previous[i])));previous=hand;
+  if(Math.abs(p.throwT-.42)<.025)releaseHeight=hand[1]-hands.chest[13];
+  for(const side of ['Left','Right']){const foot=rig.jointWorld(rig.poseStates.get(5).locals,rig.namedNodes['mixamorig:'+side+'Foot']).m;assert.ok(foot[13]<.25,'Throw must not inherit the high-catch leg kick')}
+  assert.ok([...bones,...model].every(Number.isFinite));checks++;
+ }
+ assert.ok(maxStep<.15,`${kind} throwing hand snaps ${maxStep}`);assert.ok(releaseHeight>.20,`${kind} release stays below shoulder`);
+ console.log(`${kind} delivery: maximum hand step ${maxStep.toFixed(3)}, release above chest ${releaseHeight.toFixed(3)}.`);
+}
+
 console.log(`Presentation checks passed: ${checks} real-asset poses; ${rig.supportVertices.length} support vertices; lowest body point ${worstFloor.toFixed(4)}m.`);
 const flag=process.argv.indexOf('--render-dir');
 if(flag>=0){
@@ -139,6 +155,7 @@ if(flag>=0){
  const ix=accessor(primitive.indices);fs.writeFileSync(path.join(out,'indices.bin'),Buffer.from(ix.buffer,ix.byteOffset,ix.byteLength));
  const mat=json.materials[primitive.material];[mat.pbrMetallicRoughness.baseColorTexture.index,mat.normalTexture.index,mat.pbrMetallicRoughness.metallicRoughnessTexture.index].forEach((idx,i)=>{const im=json.images[json.textures[idx].source],v=json.bufferViews[im.bufferView];fs.writeFileSync(path.join(out,'tex'+i+'.jpg'),Buffer.from(parsed.bin,v.byteOffset||0,v.byteLength))});
  let poses=[sample('OL','run',0,null,0,0,{engaged:true,blockStyle:'drive',distance:2}),sample('DL','run',1,null,0,1,{engaged:true,blockStyle:'shed',distance:2}),sample('RB','run',0,null,0,6,{distance:2}),sample('RB','run',0,null,0,6,{distance:3,sprinting:true}),sample('RB','run',0,'cut',.4,6,{fallen:false,distance:2.5}),sample('LB','dead',1,'wrap',1),sample('RB','dead',0,'wrap',1),sample('RB','dead',0,'wrap',.5)];
+ if(process.argv.includes('--throws'))poses=[.001,.12,.25,.34,.42,.58,.76,.99].map(t=>sample('QB','pass',0,null,0,5,{fallen:false,vz:0,hasBall:t<.42,throwT:t,throwStyle:'bullet'}));
  if(process.argv.includes('--recovery'))poses=[sample('LB','run',1,null,0,17,{distance:.3,vz:8.4}),sample('LB','run',1,null,0,17,{distance:1,vz:8.4}),sample('LB','run',1,null,0,17,{distance:1.7,vz:8.4}),sample('LB','run',1,null,0,17,{distance:2.4,vz:8.4}),sample('LB','run',1,'get-up',0,17,{vz:0}),sample('LB','run',1,'get-up',.5,17,{vz:0}),sample('LB','run',1,'get-up',1,17,{vz:0}),sample('QB','dead',0,'wrap',1,5)];
  const sequenceFlag=process.argv.indexOf('--sequences');
  if(sequenceFlag>=0){

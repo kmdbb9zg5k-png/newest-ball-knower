@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="robots" content="noindex,nofollow">
 <title>Ball Knower | 3D Practice Preview</title>
-<link rel="stylesheet" href="/play-moment-3d/hud.css">
+<link rel="stylesheet" href="/play-moment-3d/hud.css?v=football-finish-21">
 <style>
 /* Keep touch targets practical on phone-sized landscape screens without rewriting the HUD. */
 .icon,.control,.mode button,.dialog button{min-width:44px;min-height:44px}
@@ -45,7 +45,7 @@
  </div>
  <div id="live" hidden>
   <div id="stick" role="slider" aria-label="Move ball carrier" aria-valuemin="-1" aria-valuemax="1" aria-valuenow="0" tabindex="0"><span id="knob"></span></div>
-  <div id="moves"><div id="skillPad" role="group" aria-label="Ball carrier moves"><button id="juke" data-skill="juke">JUKE</button><button id="spin" data-skill="spin">SPIN</button><button id="power" data-skill="truck">TRUCK</button><button id="airMove" data-skill="hurdle">HURDLE</button></div><button id="sprint">SPRINT</button><button id="pumpFake" aria-label="Pump fake"><b>PUMP</b><small>FAKE</small></button><button id="throwAway" aria-label="Throwaway unavailable. Leave the pocket first." data-ready="false"><b>THROW</b><small>AWAY</small></button></div>
+  <div id="moves"><div id="skillPad" role="group" aria-label="Ball carrier moves"><button id="juke" data-skill="juke">JUKE</button><button id="spin" data-skill="spin">SPIN</button><button id="power" data-skill="truck">TRUCK</button><button id="airMove" data-skill="hurdle">HURDLE</button></div><button id="sprint">SPRINT</button><button id="scramble" aria-label="Tuck the ball and scramble. Keyboard G." hidden><b>SCRAMBLE</b><small>TUCK &amp; RUN</small></button><button id="pumpFake" aria-label="Pump fake"><b>PUMP</b><small>FAKE</small></button><button id="throwAway" aria-label="Throwaway unavailable. Leave the pocket first." data-ready="false"><b>THROW</b><small>AWAY</small></button></div>
   <div id="catchChoices" role="group" aria-label="Choose catch type" hidden><button data-catch="secure">SECURE<small>HANDS</small></button><button data-catch="aggressive">AGGRESSIVE<small>HIGH POINT</small></button><button data-catch="rac" class="selected">RAC<small>RUN AFTER</small></button></div>
   <div id="stamina"><span></span></div>
  </div>
@@ -54,7 +54,7 @@
 <div id="paused" class="dialog" hidden><div><span class="eyebrow">BALL KNOWER · PRACTICE</span><h1 id="dialogTitle">PAUSED</h1><p id="dialogBody">This preview never changes your career saves or season record.</p><button id="resume">RESUME</button><button id="watchReplay" class="secondary" hidden>WATCH LAST PLAY</button><button id="restart" class="secondary">RESTART DRIVE</button><div class="gameplay-report"><textarea id="reportNote" maxlength="500" aria-label="Optional gameplay report note" placeholder="Optional: what felt wrong?"></textarea><button id="sendReport" class="secondary">SEND GAMEPLAY REPORT</button><div id="reportReceipt" class="report-receipt" role="status" hidden><b>REPORT SENT ✓</b><code id="reportCode"></code><button id="copyReportCode" type="button">COPY REPORT CODE</button><small>Codex can now locate this report automatically.</small></div><small id="reportStatus">Sends gameplay inputs and player positions only. No screen, audio, camera, location, or account data.</small></div><a href="/">Return to Ball Knower</a></div></div>
 <div id="rotate"><div><b>TURN THE FIELD SIDEWAYS</b><p>Rotate your phone for the 3D practice preview.</p><a href="/">Back to Ball Knower</a></div></div>
 <script type="module">
-try { const {start}=await import('/play-moment-3d/game.js?v=football-finish-20'); start(); }
+try { const {start}=await import('/play-moment-3d/game.js?v=football-finish-21'); start(); }
 catch(error){document.getElementById('loading').hidden=true;document.getElementById('error').hidden=false;document.getElementById('errorText').textContent='The 3D preview could not start. Your saved career is unchanged.';console.error(error);}
 </script>
 </body>

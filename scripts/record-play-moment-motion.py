@@ -23,7 +23,8 @@ def record(browser, origin, out, mode):
     folder = out / mode
     frames = folder / 'frames'
     frames.mkdir(parents=True, exist_ok=True)
-    context = browser.new_context(viewport={'width': 932, 'height': 430}, device_scale_factor=1, has_touch=True)
+    viewport = {'width': 667, 'height': 290} if mode == 'qb-scramble' else {'width': 932, 'height': 430}
+    context = browser.new_context(viewport=viewport, device_scale_factor=1, has_touch=True)
     page = context.new_page()
     errors, timeline = [], []
     page.on('pageerror', lambda error: errors.append(str(error)))
@@ -54,14 +55,37 @@ def record(browser, origin, out, mode):
             page.click('#control')
             assert read()['assist'] is False
             page.keyboard.down('ArrowUp')
-        elif mode == 'pass':
+        elif mode in ['pass', 'qb-scramble']:
             page.click('#passTab')
         page.click('#snap')
-        if mode == 'pass':
+        if mode == 'qb-scramble':
+            capture(.45)
+            assert read()['phase'] == 'pass'
+            for selector in ['#scramble', '#pumpFake', '#throwAway']:
+                control = page.locator(selector)
+                assert control.is_visible(), selector
+                box = control.bounding_box()
+                assert box and box['width'] >= 44 and box['height'] >= 44, box
+                assert box['x'] >= 0 and box['y'] >= 0 and box['x'] + box['width'] <= viewport['width'] and box['y'] + box['height'] <= viewport['height'], box
+            page.screenshot(path=str(folder / 'scramble-controls.png'))
+            page.locator('#scramble').click()
+            assert read()['phase'] == 'run' and read()['players'][5]['hasBall']
+            assert page.locator('#scramble').is_hidden()
+            page.keyboard.down('Shift')
+            capture(1.8)
+            page.keyboard.up('Shift')
+            assert any(item['phase'] == 'run' and item['carrier'] and item['carrier']['role'] == 'QB' for item in timeline)
+        elif mode == 'pass':
             capture(.9)
             assert read()['phase'] == 'pass'
             page.locator('#target-7').click()
-            assert read()['phase'] == 'flight'
+            assert read()['throwing'] and read()['players'][5]['hasBall']
+            for _ in range(24):
+                if read()['phase'] == 'flight':
+                    break
+                assert read()['phase'] == 'pass' and read()['players'][5]['hasBall']
+                capture(1 / 30)
+            assert read()['phase'] == 'flight' and not read()['players'][5]['hasBall']
             # Catch choices intentionally appear partway through the flight.
             # In manual-clock mode, waiting for visibility cannot advance time.
             secure = page.locator('#catchChoices button[data-catch="secure"]')
@@ -117,9 +141,9 @@ def record(browser, origin, out, mode):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', type=Path, default=ROOT / 'artifacts/gameplay-motion')
-    parser.add_argument('--mode', choices=['all', 'automatic-run', 'manual-run', 'pass'], default='all')
+    parser.add_argument('--mode', choices=['all', 'automatic-run', 'manual-run', 'pass', 'qb-scramble'], default='all')
     args = parser.parse_args()
-    modes = ['automatic-run', 'manual-run', 'pass'] if args.mode == 'all' else [args.mode]
+    modes = ['automatic-run', 'manual-run', 'pass', 'qb-scramble'] if args.mode == 'all' else [args.mode]
     args.output.mkdir(parents=True, exist_ok=True)
     handler = lambda *a, **kw: QuietHandler(*a, directory=str(ROOT / 'public'), **kw)
     server = ThreadingHTTPServer(('127.0.0.1', 0), handler)

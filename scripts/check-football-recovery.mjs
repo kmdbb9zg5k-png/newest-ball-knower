@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {QB_THROW_RELEASE,quarterbackThrowDuration} from '../public/play-moment-3d/quarterback.js';
+import {playerTopSpeed,playerRunSpeed} from '../public/play-moment-3d/game.js';
 import * as math from '../public/play-moment-3d/renderer.js';
 import {advanceMotion} from '../public/play-moment-3d/athlete.js';
 import {knockDownPlayer,advancePlayerAction,blockOutcome,pursuitRole,pursuitTarget} from '../public/play-moment-3d/game.js';
@@ -25,8 +27,8 @@ function game(width=844,height=335){
  const elements=new Map(),events=new Map(),rendered=new Map();let renderer;
  const element=id=>{if(elements.has(id))return elements.get(id);const el={id,hidden:false,children:[],style:{},dataset:{},classList:{add(){},remove(){},toggle(){}},setAttribute(){},setPointerCapture(){},replaceChildren(){this.children=[]},append(...c){this.children.push(...c);for(const child of c)if(child.id)elements.set(child.id,child)},appendChild(c){this.append(c)},getBoundingClientRect(){return id==='pre'?{top:height-105,left:0,width,height:105}:id==='header'?{left:width*.3,right:width*.7,top:8,bottom:58}:id==='stick'?{left:30,top:height-110,width:90,height:90}:{left:0,top:0,width,height,right:width,bottom:height}}};Object.defineProperty(el,'firstElementChild',{get(){return this.children[0]||(this.children[0]={style:{}})}});elements.set(id,el);return el};
  class HeadlessRenderer{constructor(){renderer=this;this.width=width;this.height=height;this.vp=math.identity();this.gl={getError:()=>0};this.drawCalls=0;this.eye=[0,0,0]}camera=math.Renderer.prototype.camera;project=math.Renderer.prototype.project;begin(){}add(){}draw(){}lateBegin(){}drawLate(){}glow(){}}
- const noop=()=>{},context={...math,Renderer:HeadlessRenderer,drawAthlete:(_r,p,time)=>rendered.set(p.index,{...p,motion:p.motion?{...p.motion}:null,time}),prepareJerseys:noop,advanceMotion,makeStadium:()=>({draw:noop,parts:0}),createMeshyAthletes:()=>({ready:false,ballAnchor:()=>null,draw:noop,diagnostics:()=>({})}),createGameplayReplayRecorder:()=>({event:noop,sample:noop}),console,URLSearchParams,performance:{now:()=>0},location:{search:'?qa'},navigator:{vibrate:noop},document:{hidden:false,getElementById:element,createElement:()=>element('generated-'+elements.size),querySelector:()=>element('header'),querySelectorAll:()=>[],addEventListener:noop},requestAnimationFrame:()=>1,cancelAnimationFrame:noop,matchMedia:()=>({addEventListener:noop}),innerWidth:width,innerHeight:height,addEventListener:(name,fn)=>events.set(name,fn)};context.window=context;
- vm.createContext(context);vm.runInContext(source.replace('window.bk3dTest={','window.bk3dRenderActors=()=>actors.map(p=>({...p}));window.bk3dFixture={mutate(fn){fn(actors)},touchdown(){endPlay("TOUCHDOWN",100)},seed(value){numSeed=value},present,camera};window.bk3dTest={')+'\nstart();',context);context.bk3dTest.manualFrames();
+ const noop=()=>{},context={...math,QB_THROW_RELEASE,quarterbackThrowDuration,Renderer:HeadlessRenderer,drawAthlete:(_r,p,time)=>rendered.set(p.index,{...p,motion:p.motion?{...p.motion}:null,time}),prepareJerseys:noop,advanceMotion,makeStadium:()=>({draw:noop,parts:0}),createMeshyAthletes:()=>({ready:false,ballAnchor:()=>null,draw:noop,diagnostics:()=>({})}),createGameplayReplayRecorder:()=>({event:noop,sample:noop}),console,URLSearchParams,performance:{now:()=>0},location:{search:'?qa'},navigator:{vibrate:noop},document:{hidden:false,getElementById:element,createElement:()=>element('generated-'+elements.size),querySelector:()=>element('header'),querySelectorAll:()=>[],addEventListener:noop},requestAnimationFrame:()=>1,cancelAnimationFrame:noop,matchMedia:()=>({addEventListener:noop}),innerWidth:width,innerHeight:height,addEventListener:(name,fn)=>events.set(name,fn)};context.window=context;
+ vm.createContext(context);vm.runInContext(source.replace('window.bk3dTest={','window.bk3dRenderActors=()=>actors.map(p=>({...p}));window.bk3dFixture={throwTo,finish:endPlay,drive(values){Object.assign(drive,values)},mutate(fn){fn(actors)},touchdown(){endPlay("TOUCHDOWN",100)},seed(value){numSeed=value},present,camera};window.bk3dTest={')+'\nstart();',context);context.bk3dTest.manualFrames();
  return{context,element,events,renderer,rendered,step:t=>context.bk3dTest.step(t),read:()=>context.bk3dDiagnostics(),snap:()=>element('snap').onpointerdown({preventDefault:noop}),key:key=>events.get('keydown')({key,code:key,preventDefault:noop})};
 }
 // The ball must follow center -> snap flight -> QB -> exchange -> RB.
@@ -79,7 +81,7 @@ for(let play=0;play<4;play++){
 }
 // Follow an actual throw through flight/end with bounded camera motion.
 {
- const g=game();g.element('passTab').onclick();g.snap();g.step(.7);g.key('x');assert.equal(g.read().phase,'flight');let previous=[...g.renderer.eye],maxCameraStep=0;
+ const g=game();g.element('passTab').onclick();g.snap();g.step(.7);g.key('x');g.step(.23);assert.equal(g.read().phase,'flight');let previous=[...g.renderer.eye],maxCameraStep=0;
  for(let i=0;i<240;i++){g.step(1/60);const eye=g.renderer.eye,delta=Math.hypot(...eye.map((v,n)=>v-previous[n]));maxCameraStep=Math.max(maxCameraStep,delta);previous=[...eye];assert.ok(eye.every(Number.isFinite));}
  assert.ok(maxCameraStep<2,`Camera jumped ${maxCameraStep} yards in one frame`);console.log(`Pass/flight camera maximum per-frame travel: ${maxCameraStep.toFixed(3)} yards.`);
 }
@@ -217,3 +219,66 @@ console.log('Exhausted sprint stays stable for touch and keyboard');
  g.context.bk3dFixture.present(1/120,1);assert.equal(g.rendered.get(6).z,authoritative[6].z);
  console.log('Real presentation path: interpolated carrier, finite stride phase, authoritative state unchanged.');
 }
+
+// Ball stays owned through the windup, leaves once, and arm timing does not
+// stretch with the length or arc of the pass.
+for(const kind of ['bullet','touch','lob']){
+ const g=game();g.element('passTab').onclick();g.snap();g.step(.8);
+ const duration=quarterbackThrowDuration(kind),release=duration*QB_THROW_RELEASE;
+ g.context.bk3dFixture.throwTo(7,kind);
+ assert.equal(g.read().phase,'pass');assert.ok(g.read().throwing);assert.ok(g.read().players[5].hasBall);
+ g.step(release-.025);assert.ok(g.read().players[5].hasBall,'Windup cannot launch a chest pass');
+ g.step(.04);assert.equal(g.read().phase,'flight');assert.equal(g.read().players[5].hasBall,false);assert.equal(g.read().throwing,null);
+ const before=g.read().simTime;g.step(.1);const d=g.read();
+ assert.ok(d.players[5].throwT>QB_THROW_RELEASE,'Follow-through continues after release');
+ assert.ok(Math.abs(d.players[5].throwT-(d.simTime-.8)/duration)<.04,'Throw pose follows its own clock');
+ assert.ok(d.simTime>before);
+}
+// A scramble is a commitment to carry with the same player and ratings.
+// Pausing freezes a pending release, and a sack cancels it without a ghost pass.
+for(const interruptedBy of ['pause','sack']){
+ const g=game();g.element('passTab').onclick();g.snap();g.step(.8);g.key('x');
+ if(interruptedBy==='pause'){
+  const before=g.read().simTime;g.element('pause').onclick();g.step(.5);
+  assert.equal(g.read().simTime,before);assert.ok(g.read().players[5].hasBall);assert.ok(g.read().throwing);
+  g.element('resume').onclick();g.step(.24);assert.equal(g.read().phase,'flight');
+ }else{
+  g.context.bk3dFixture.mutate(players=>{const qb=players[5],d=players[11];d.x=qb.x;d.z=qb.z+.1;d.engaged=false;d.engagedWith=null;players[0].x=100});
+  g.step(1/60);assert.equal(g.read().phase,'dead');assert.equal(g.read().throwing,null);
+  g.step(.3);assert.equal(g.read().phase,'dead');assert.equal(g.read().throwKind,null);
+ }
+}
+// Sprint and ordinary running both use the same curve at every position.
+for(const rating of [35,55,75,95,99])for(const sprint of [false,true]){
+ const g=game();g.element('passTab').onclick();g.snap();g.step(.4);
+ g.context.bk3dFixture.mutate(players=>{players.filter(p=>p.team).forEach(p=>{p.x=100;p.z=200});const q=players[5];q.ratings={...q.ratings,speed:rating};q.x=16;q.z=28});
+ g.element('scramble').onclick();if(sprint)g.key('Shift');g.step(1.2);
+ const d=g.read(),q=d.players[5];assert.equal(d.phase,'run');assert.ok(q.hasBall);assert.equal(g.element('scramble').hidden,true);
+ assert.ok(Math.abs(Math.hypot(q.vx,q.vz)-playerRunSpeed(q,sprint))<.04,`SPD ${rating} ${sprint?'sprint':'run'} ignores rating`);
+ g.key('x');assert.equal(g.read().phase,'run','Tucked QB cannot throw');
+ for(const role of ['QB','RB','WR','TE','OL','DL','LB','DB'])assert.equal(playerTopSpeed({role,ratings:{speed:rating}}),playerTopSpeed(q),'Position must not override speed rating');
+}
+{
+ const g=game();g.element('passTab').onclick();g.snap();g.step(.4);
+ g.context.bk3dFixture.mutate(players=>{players.filter(p=>p.team).forEach(p=>{p.x=100;p.z=200});const q=players[5];q.x=16;q.z=28});
+ const target=g.read().field.lineToGain;g.element('scramble').onclick();g.step(5);
+ assert.equal(g.read().phase,'run');assert.ok(g.read().players[5].z>target+12,'QB must keep running well past the first-down line');
+ const spot=g.read().players[5].z-10;g.context.bk3dFixture.finish('TACKLED',spot);
+ assert.equal(g.read().drive.down,1);assert.equal(g.read().drive.ball,Math.round(spot));assert.equal(g.read().drive.toGo,10);
+}
+{
+ const g=game();g.element('passTab').onclick();g.snap();g.step(.4);
+ g.context.bk3dFixture.mutate(players=>{players.filter(p=>p.team).forEach(p=>{p.x=100;p.z=-200});const q=players[5];q.x=16;q.z=28;q.ratings={...q.ratings,speed:35}});
+ g.context.bk3dFixture.drive({clock:.2});g.element('scramble').onclick();g.step(10);g.step(6.4);
+ assert.equal(g.read().drive.clock,0);assert.equal(g.read().phase,'run','Neither clock zero nor the old 16-second cap may whistle a live carry');
+ g.context.bk3dFixture.mutate(players=>{players[5].z=109.98});g.step(.1);
+ assert.equal(g.read().phase,'dead');assert.equal(g.read().drive.score,30,'A scrambling QB can finish a touchdown');
+}
+// Manual button + keyboard shortcut, and the existing cross-line conversion.
+for(const via of ['button','keyboard','line']){
+ const g=game();g.element('control').onclick();g.element('passTab').onclick();g.snap();g.step(.4);
+ g.context.bk3dFixture.mutate(players=>{players.filter(p=>p.team).forEach(p=>{p.x=100;p.z=200});players[5].x=16;if(via==='line')players[5].z=35.2});
+ g.key('ArrowUp');if(via==='button')g.element('scramble').onclick();if(via==='keyboard')g.key('g');g.step(.1);
+ assert.equal(g.read().phase,'run');assert.equal(g.read().assist,false);assert.ok(g.read().players[5].hasBall);
+}
+console.log('QB checks passed: three timed deliveries, ten rating/sprint cases, scramble controls, extra yards, first-down spot and touchdown after clock zero.');

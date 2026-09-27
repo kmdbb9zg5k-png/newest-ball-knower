@@ -1,5 +1,5 @@
 import{mul,translate,scale,rx,ry,rz,pose,segment,hex,point}from'./renderer.js';
-import{advanceMotion,samplePose,footTarget,twoBone,readyHandTarget}from'./motion.js?v=football-finish-20';
+import{advanceMotion,samplePose,footTarget,twoBone,readyHandTarget}from'./motion.js?v=football-finish-21';
 import{createTorsoGeometry,createLimbGeometry,createPlayerDetailGeometry}from'./geometry.js';
 export{advanceMotion};
 const white=hex('#e6e8e2'),dark=hex('#111a22'),gold=hex('#d8b66e');

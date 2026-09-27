@@ -124,7 +124,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [automatic-run, manual-run, pass]
+        mode: [automatic-run, manual-run, pass, qb-scramble]
     steps:
       - uses: actions/checkout@v4
         with:
