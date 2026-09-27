@@ -309,10 +309,11 @@ console.log('QB checks passed: three timed deliveries, ten rating/sprint cases, 
 {
  const g=game(),clock=g.read().drive.clock;
  assert.equal(g.read().preSnap.playArt,false);assert.equal(g.element('prePanel').hidden,true);
- const hold={pointerId:3,preventDefault(){}};
- g.element('playArt').onpointerdown(hold);assert.equal(g.read().preSnap.playArt,true);
- g.element('playArt').onpointercancel();assert.equal(g.read().preSnap.playArt,false);
- g.key('p');assert.equal(g.read().preSnap.playArt,true);g.events.get('keyup')({key:'p'});assert.equal(g.read().preSnap.playArt,false);
+ assert.equal(g.element('playerNames').hidden,true);
+ g.element('playArt').onclick();assert.equal(g.read().preSnap.playArt,true);assert.equal(g.element('playerNames').hidden,false);
+ g.element('playArt').onclick();assert.equal(g.read().preSnap.playArt,false);assert.equal(g.element('playerNames').hidden,true);
+ g.key('p');assert.equal(g.read().preSnap.playArt,true);g.events.get('keyup')({key:'p'});assert.equal(g.read().preSnap.playArt,true,'Play art remains visible after releasing P');
+ g.key('p');assert.equal(g.read().preSnap.playArt,false);
  g.element('adjustPlay').onclick();assert.equal(g.read().preSnap.panel,'adjust');g.key('Escape');assert.equal(g.read().preSnap.panel,null);assert.equal(g.read().paused,false);
  g.element('adjustPlay').onclick();g.element('flipPlay').onclick();g.element('audibleTab').onclick();
  let choices=g.element('quickAudibles').children;

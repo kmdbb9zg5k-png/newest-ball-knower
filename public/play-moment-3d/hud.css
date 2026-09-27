@@ -244,8 +244,7 @@ html,body,#game,#hud{min-height:100dvh}
 #pre .play-picker{position:relative;justify-self:center;min-width:0}
 #preTools{display:flex;gap:8px;pointer-events:auto}
 #preTools button{min-height:48px;min-width:86px;padding:8px 12px;border:1px solid #7d9db83d;border-radius:10px;background:var(--control-surface);color:var(--control-text);font-size:10px;font-weight:850;letter-spacing:.7px;touch-action:none}
-#playArt b,#playArt small{display:block}
-#playArt small{margin-top:4px;color:var(--control-muted);font-size:7px;letter-spacing:1.2px}
+#playArt b{display:block;font-weight:700}
 #playArt[aria-pressed="true"],#adjustPlay[aria-expanded="true"]{border-color:var(--control-accent);background:#193b49}
 #adjustPlay span{margin-left:6px;color:var(--control-accent)}
 #prePanel{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);width:340px;max-width:calc(100vw - 32px);max-height:calc(100dvh - 140px);overflow:auto;padding:10px;border:1px solid #7297ac73;border-radius:12px;background:#0c1924f7;box-shadow:0 10px 30px #0006;pointer-events:auto}
@@ -286,7 +285,7 @@ html,body,#game,#hud{min-height:100dvh}
  #adjustHelp{font-size:10px;margin:6px 4px 2px}
 }
 
-/* Pre-snap identifiers track feet and never intercept a field control. */
+/* Own-team skill-player labels appear only with Show Play and never intercept controls. */
 #playerNames{position:absolute;inset:0;pointer-events:none;overflow:hidden}
-.player-name{position:absolute;transform:translateX(-50%);padding:0 4px;color:#f4f8fc;font-size:10px;line-height:13px;font-weight:800;letter-spacing:.2px;text-transform:uppercase;white-space:nowrap;text-shadow:0 1px 2px #000,1px 0 2px #000,-1px 0 2px #000,0 -1px 2px #000;pointer-events:none;user-select:none}
-.player-name.opponent{color:#d7e2e9;font-weight:700}
+.player-name{position:absolute;display:flex;align-items:center;gap:5px;transform:translateX(-50%);padding:3px 6px;border-radius:5px;background:#0b1a27d9;color:#f4f8fc;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:clamp(10px,1.3vw,12px);line-height:1.2;font-weight:600;letter-spacing:0;white-space:nowrap;pointer-events:none;user-select:none}
+.player-position{color:var(--control-accent);font-size:.8em;font-weight:600}

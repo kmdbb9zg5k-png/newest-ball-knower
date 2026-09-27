@@ -75,10 +75,9 @@ def record(browser, origin, out, mode):
         assert score['y'] + score['height'] <= heading['y'], 'Scoreboard overlaps playbook title'
     def check_presnap():
         assert not read()['playbook']['open'] and page.locator('#playbook').is_hidden()
-        assert page.locator('#playerNames').is_visible()
-        assert page.locator('#playerNames .player-name').count() == 22
-        assert page.locator('#player-name-5').is_visible()
-        assert page.locator('#player-name-5').text_content() == read()['players'][5]['lastName'], 'QB label must match his stable roster name'
+        assert page.locator('#playerNames').is_hidden(), 'Names stay hidden until Show Play'
+        assert page.locator('#playerNames .player-name').count() == 5
+        assert page.locator('#player-name-5').count() == 0, 'QB must not receive a name pill'
         assert page.locator('#playerNames').evaluate("el => getComputedStyle(el).pointerEvents") == 'none'
         boxes = []
         for selector in ['#playArt', '#adjustPlay', '#snap', '#stick']:
@@ -148,13 +147,21 @@ def record(browser, origin, out, mode):
                 page.click('#quickAudibles button:nth-child(1)')
                 assert read()['mode'] == 'run' and read()['playbook']['open'] is False
                 page.click('#adjustPlay');check_hit('#identifyMike');page.click('#closePrePanel')
-                art = page.locator('#playArt').bounding_box()
-                page.mouse.move(art['x'] + art['width']/2, art['y'] + art['height']/2)
-                page.mouse.down();page.evaluate('bk3dTest.step(1/60)')
-                assert read()['preSnap']['playArt']
+                page.tap('#playArt');page.evaluate('bk3dTest.step(1/60)')
+                assert read()['preSnap']['playArt'], 'A completed tap keeps play art visible'
+                assert page.locator('#playArt').inner_text() == 'HIDE PLAY'
+                assert page.locator('#playerNames .player-name:visible').count() == 5
+                for index, player in enumerate(read()['players']):
+                    label = page.locator(f'#player-name-{index}')
+                    if player['team'] == 0 and player['role'] in ['WR', 'RB', 'TE']:
+                        assert label.is_visible()
+                        assert label.get_attribute('aria-label').startswith(player['role'] + ' ' + player['lastName'])
+                    else:
+                        assert label.count() == 0
                 page.screenshot(path=str(folder / f'play-art-{width}x{height}.png'))
-                page.mouse.up()
+                page.tap('#playArt')
                 assert not read()['preSnap']['playArt']
+                assert page.locator('#playerNames').is_hidden()
                 if width == 667:
                     page.click('#adjustPlay');page.click('#motionReceiver')
                     assert page.locator('#snap').is_disabled()
