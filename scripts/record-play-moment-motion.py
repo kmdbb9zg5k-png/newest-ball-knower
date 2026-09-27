@@ -62,7 +62,16 @@ def record(browser, origin, out, mode):
             assert read()['phase'] == 'pass'
             page.locator('#target-7').click()
             assert read()['phase'] == 'flight'
-            page.locator('#catchChoices button[data-catch="secure"]').click()
+            # Catch choices intentionally appear partway through the flight.
+            # In manual-clock mode, waiting for visibility cannot advance time.
+            secure = page.locator('#catchChoices button[data-catch="secure"]')
+            for _ in range(40):
+                if secure.is_visible():
+                    break
+                assert read()['phase'] == 'flight', 'Flight ended before catch controls appeared'
+                capture(1 / 30)
+            assert secure.is_visible(), 'Catch controls never appeared during flight'
+            secure.click()
             capture(1.8)
             assert read()['phase'] in ['run', 'dead']
         else:
