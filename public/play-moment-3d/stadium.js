@@ -6,11 +6,12 @@ let seed=31;function random(){seed=(Math.imul(seed,1664525)+1013904223)>>>0;retu
 export function makeStadium(r){
  const staticParts=[],lamps=[],add=(...args)=>staticParts.push(args);
  seed=31;
- const [t,ctx]=canvas(1024,2048),W=1024,H=2048;
+ const turfScale=Math.min(2,(r.gl?.getParameter?.(r.gl.MAX_TEXTURE_SIZE)||4096)/2048);
+ const [t,ctx]=canvas(1024*turfScale,2048*turfScale),W=1024,H=2048;ctx.scale(turfScale,turfScale);
  const px=x=>(x+26.6667)/53.3334*W,py=z=>z/120*H;
- const base=ctx.createLinearGradient(0,0,W,0);base.addColorStop(0,'#24472b');base.addColorStop(.5,'#315e34');base.addColorStop(1,'#214228');ctx.fillStyle=base;ctx.fillRect(0,0,W,H);
+ const base=ctx.createLinearGradient(0,0,W,0);base.addColorStop(0,'#22482c');base.addColorStop(.5,'#35673c');base.addColorStop(1,'#21452b');ctx.fillStyle=base;ctx.fillRect(0,0,W,H);
  for(let i=0;i<24;i++){ctx.fillStyle=i%2?'rgba(10,45,17,.14)':'rgba(102,146,74,.08)';ctx.fillRect(0,i*H/24,W,H/24)}
- for(let i=0;i<18000;i++){const bright=random()>.46,k=Math.floor(random()*24+38);ctx.fillStyle=bright?`rgba(${k},${k+38},${k-4},.16)`:`rgba(9,28,12,.11)`;ctx.fillRect(random()*W,random()*H,.6+random()*1.4,1+random()*5)}
+ for(let i=0;i<30000;i++){const bright=random()>.46,k=Math.floor(random()*24+38);ctx.fillStyle=bright?`rgba(${k},${k+38},${k-4},.16)`:`rgba(9,28,12,.11)`;ctx.fillRect(random()*W,random()*H,.6+random()*1.4,1+random()*2.1)}
  for(let i=0;i<820;i++){const z=py(12+random()*96),x=px((random()-.5)*14),radius=3+random()*15,wear=ctx.createRadialGradient(x,z,0,x,z,radius);wear.addColorStop(0,'rgba(156,145,91,.025)');wear.addColorStop(1,'rgba(156,145,91,0)');ctx.fillStyle=wear;ctx.fillRect(x-radius,z-radius,radius*2,radius*2)}
  for(const [a,b]of[[0,10],[110,120]]){const end=ctx.createLinearGradient(0,py(a),0,py(b));end.addColorStop(0,'#10252f');end.addColorStop(.55,'#17333c');end.addColorStop(1,'#0b1b25');ctx.fillStyle=end;ctx.fillRect(0,py(a),W,py(b-a))}
  ctx.strokeStyle='#eeeadd';ctx.lineCap='round';ctx.lineWidth=3.1;ctx.strokeRect(4,4,W-8,H-8);
@@ -40,19 +41,33 @@ export function makeStadium(r){
    const x=side*(33+row*.95),y=1.5+row*.74;
    add('cube',pose(x,y-.27,60,1.25,.58,135),C(row%3===0?'#243442':'#182632'));
    for(let k=0;k<95;k++){
-    if(k%18===8||k%18===9)continue;const z=-5+k*1.4+(row%2)*.6,v=random(),cl=v<.42?'#c5c2b5':v<.66?'#142e4d':v<.86?'#c29a57':'#7b4140',body=.25+random()*.055;
-    add('crowd',pose(x,y+.27,z,body,.40+random()*.07,body*.92),C(cl));add('crowd',pose(x,y+.67,z,.135,.16,.13),C(random()<.45?'#b88a65':'#7c563c'));
+    if(k%18===8||k%18===9)continue;const z=-5+k*1.4+(row%2)*.6,v=random(),cl=v<.19?'#a6adb0':v<.60?'#18344a':v<.78?'#856d47':v<.91?'#543435':'#3a4651',body=.25+random()*.055;
+    add('crowd',pose(x,y+.27,z,body,.75+random()*.06,body*.92),C(cl));add('crowdHead',pose(x,y+.68,z,.12,.15,.12),C(random()<.45?'#b88a65':'#7c563c'));if(k%13===row%13){for(const sign of[-1,1])add('cylinder',segment([x,y+.42,z+sign*.21],[x-side*.12,y+.88,z+sign*.38],.048),C(cl));}
    }
   }
   add('cube',pose(side*46,12,60,2,2,140),C('#142330'));
   for(let z=10;z<120;z+=22){let m=mul(translate(side*31.9,1.08,z),mul(rz(side*Math.PI/2),scale(1.45,1,14)));add('plane',m,[1,1,1,1],'banner',true)}
   // Sideline benches and practice staff silhouettes, outside the playing field.
   for(let z=34;z<90;z+=8){add('cube',pose(side*28.6,.55,z,.65,.18,3.3),C('#d1d6d7'));add('cube',pose(side*29,.9,z,.2,.65,3.3),C('#969fa5'))}
-  for(let z=29;z<=94;z+=5){const jersey=(Math.round(z/5)+side)%3===0?'#c8ccd0':side<0?'#132e4c':'#8e302c';add('cylinder',segment([side*28.1,.08,z],[side*28.1,1.3,z],.20),C(jersey));add('sphere',pose(side*28.1,1.56,z,.22,.24,.22),C('#9a6e50'));}
+  for(let z=29;z<=94;z+=5){
+   const x=side*(28.1+random()*.42),staff=Math.round(z/5)%3===0,jersey=staff?'#8b9498':side<0?'#18394e':'#a13d39',skin=random()<.5?'#aa7957':'#68452f';
+   add('crowd',pose(x,1.21,z,.25,.59,.25),C(jersey),'',false,.02,2);
+   add('sphere',pose(x,1.72,z,.13,.17,.14),C(skin),'',false,.02,3);
+   if(!staff)add('sphere',pose(x,1.78,z,.155,.15,.16),C(side<0?'#d8dee1':'#8e3033'),'',false,.38,1);
+   for(const sign of[-1,1]){
+    const hip=[x,1.01,z+sign*.11],knee=[x-side*.035,.54,z+sign*.135],foot=[x-side*.075,.10,z+sign*.15];
+    add('cylinder',segment(hip,knee,.092),C(staff?'#202e39':jersey),'',false,0,2);
+    add('cylinder',segment(knee,foot,.065),C(staff?'#202e39':'#b7c0c3'),'',false,0,2);
+    add('sphere',pose(foot[0]-side*.05,.07,foot[2],.15,.07,.082),C('#151f29'));
+    const shoulder=[x,1.44,z+sign*.24],elbow=[x-side*.06,1.15,z+sign*.29],hand=[x-side*(staff?.28:.08),staff?1.2:.97,z+sign*.18];
+    add('cylinder',segment(shoulder,elbow,.066),C(jersey),'',false,0,2);add('cylinder',segment(elbow,hand,.045),C(skin),'',false,0,3);add('sphere',pose(...hand,.05),C(skin));
+   }
+   if(staff){add('cube',pose(x-side*.27,1.18,z,.035,.23,.31),C('#c3b390'));add('cylinder',segment([x,1.84,z-.08],[x-side*.20,1.82,z-.08],.025),C('#162330'));}
+  }
  }
  for(const end of[-5,125]){
   for(let j=0;j<7;j++)add('cube',pose(0,1+j*.8,end+(end<0?-j:j),67,1,1.1),C('#243746'));
-  for(let row=0;row<5;row++)for(let x=-31,seat=0;x<32;x+=1.35,seat++){const z=end+(end<0?-row:row),occupied=seat%17!==8&&seat%17!==9&&random()>.13;add('cube',pose(x,1.7+row*.8,z,.45,.65,.45),C(occupied?'#263948':'#354754'));if(occupied){const v=random(),shirt=v<.38?'#c7c5b9':v<.62?'#17324d':v<.82?'#bd9554':'#814541';add('crowdEnd',pose(x,2.05+row*.8,z+(end<0?.22:-.22),.25,.38,.23),C(shirt));add('crowdEnd',pose(x,2.45+row*.8,z+(end<0?.22:-.22),.13,.15,.13),C(random()<.48?'#b88664':'#7d573f'))}}
+  for(let row=0;row<5;row++)for(let x=-31,seat=0;x<32;x+=1.35,seat++){const z=end+(end<0?-row:row),occupied=seat%17!==8&&seat%17!==9&&random()>.13;add('cube',pose(x,1.7+row*.8,z,.45,.65,.45),C(occupied?'#263948':'#354754'));if(occupied){const v=random(),shirt=v<.19?'#a6adb0':v<.60?'#18344a':v<.78?'#856d47':'#543435';add('crowdEnd',pose(x,2.05+row*.8,z+(end<0?.22:-.22),.25,.75,.23),C(shirt));add('crowdHead',pose(x,2.45+row*.8,z+(end<0?.22:-.22),.12,.15,.12),C(random()<.48?'#b88664':'#7d573f'))}}
  }
  // Goal posts, with actual vertical scale.
  for(const z of[3,117]){
