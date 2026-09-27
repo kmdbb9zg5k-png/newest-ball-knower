@@ -298,9 +298,9 @@ console.log('QB checks passed: three timed deliveries, ten rating/sprint cases, 
  g.element('breakHuddle').onclick();assert.equal(g.read().playbook.open,false);assert.equal(g.read().mode,'pass');assert.equal(g.read().selected,1);assert.equal(g.element('playName').textContent,'VERTICALS');assert.equal(g.element('pre').hidden,false);
  g.element('flipPlay').onclick();assert.equal(g.read().preSnap.runDirection,-1);
  g.element('openPlaybook').onclick();assert.equal(g.read().playbook.choice.index,1);g.element('call-run-2').onclick();g.element('breakHuddle').onclick();assert.equal(g.read().mode,'run');assert.equal(g.read().selected,2);assert.equal(g.read().preSnap.runDirection,1);
- g.snap();g.step(2);assert.equal(g.read().phase,'run');g.context.bk3dTest.forceContact('wrap');g.step(5);assert.equal(g.read().phase,'pre');assert.equal(g.read().playbook.open,true);assert.equal(g.read().drive.down,2);
+ g.snap();g.step(2);assert.equal(g.read().phase,'run');g.context.bk3dTest.forceContact('big-hit');g.step(5);assert.equal(g.read().phase,'pre');assert.equal(g.read().playbook.open,true);assert.equal(g.read().drive.down,2);
  const nextClock=g.read().drive.clock;g.step(4);assert.equal(g.read().drive.clock,nextClock);
- g.element('pause').onclick();g.element('watchReplay').onclick();assert.equal(g.element('playbook').hidden,true);g.step(8);assert.equal(g.read().paused,true);g.element('resume').onclick();assert.equal(g.element('playbook').hidden,false);assert.equal(g.read().drive.clock,nextClock);
+ assert.ok(g.read().replay.available>0);g.element('pause').onclick();g.element('watchReplay').onclick();assert.equal(g.read().replay.replaying,true);assert.equal(g.element('playbook').hidden,true);g.step(8);assert.equal(g.read().paused,true);g.element('resume').onclick();assert.equal(g.element('playbook').hidden,false);assert.equal(g.read().drive.clock,nextClock);
  g.element('pause').onclick();g.element('restart').onclick();assert.equal(g.read().playbook.open,true);assert.equal(g.read().drive.down,1);assert.equal(g.read().drive.clock,78);
  console.log('Playbook: eight calls, filters, confirmation, pause, audibles, next down and restart passed.');
 }
