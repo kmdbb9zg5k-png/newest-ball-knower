@@ -101,7 +101,7 @@ def main():
                     for p in d['players'][:11]:
                         assert 24 < p['head']['x'] < w - 24 and 65 < p['head']['y'] and p['foot']['y'] < h - 85, p
                 capture(page, args.output / f'{variant}-presnap-{w}x{h}.png')
-                page.click('#openPlaybook');page.click('#call-pass-0');page.click('#breakHuddle');page.click('#snap');page.evaluate('bk3dTest.step(1.3)')
+                page.click('#adjustPlay');page.click('#audibleTab');page.click('#openPlaybook');page.click('#call-pass-0');page.click('#breakHuddle');page.click('#snap');page.evaluate('bk3dTest.step(1.3)')
                 assert state(page)['phase'] == 'pass'
                 markers = inspect_markers(page, h) if variant == 'after' else []
                 capture(page, args.output / f'{variant}-passing-{w}x{h}.png')
@@ -117,7 +117,7 @@ def main():
                 page.click('#restart')
                 if page.locator('#breakHuddle').is_visible():
                     page.click('#breakHuddle')
-                page.click('#openPlaybook');page.click('#call-run-0');page.click('#breakHuddle');page.click('#snap');page.evaluate('bk3dTest.step(.85)')
+                page.click('#adjustPlay');page.click('#audibleTab');page.click('#openPlaybook');page.click('#call-run-0');page.click('#breakHuddle');page.click('#snap');page.evaluate('bk3dTest.step(.85)')
                 assert state(page)['phase'] == 'run'
                 capture(page, args.output / f'{variant}-running-{w}x{h}.png')
                 # Detailed players plus the visible carried football stay inside a

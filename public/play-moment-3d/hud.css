@@ -239,3 +239,49 @@ html,body,#game,#hud{min-height:100dvh}
 /* After the huddle, leave the field open and keep only line adjustments. */
 #pre .play-picker{align-self:center}
 #pre #adjustments{margin:0}
+
+/* Keep the formation visible; deeper options open only when requested. */
+#pre .play-picker{position:relative;justify-self:center;min-width:0}
+#preTools{display:flex;gap:8px;pointer-events:auto}
+#preTools button{min-height:48px;min-width:86px;padding:8px 12px;border:1px solid #7d9db83d;border-radius:10px;background:var(--control-surface);color:var(--control-text);font-size:10px;font-weight:850;letter-spacing:.7px;touch-action:none}
+#playArt b,#playArt small{display:block}
+#playArt small{margin-top:4px;color:var(--control-muted);font-size:7px;letter-spacing:1.2px}
+#playArt[aria-pressed="true"],#adjustPlay[aria-expanded="true"]{border-color:var(--control-accent);background:#193b49}
+#adjustPlay span{margin-left:6px;color:var(--control-accent)}
+#prePanel{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);width:340px;max-width:calc(100vw - 32px);max-height:calc(100dvh - 140px);overflow:auto;padding:10px;border:1px solid #7297ac73;border-radius:12px;background:#0c1924f7;box-shadow:0 10px 30px #0006;pointer-events:auto}
+.pre-panel-heading{display:flex;justify-content:space-between;gap:8px;margin-bottom:8px}
+.pre-panel-heading>div{display:flex;gap:4px}
+#prePanel button{min-height:44px;border:1px solid transparent;border-radius:7px;color:var(--control-text);font-weight:850;font-size:10px;letter-spacing:.6px;background:#172b39}
+.pre-panel-heading button{padding:0 12px}
+#prePanel .pre-panel-heading button[aria-pressed="true"]{color:var(--control-accent);background:#213f4e}
+#closePrePanel{min-width:44px;font-size:22px!important;background:transparent!important}
+#pre #adjustments{display:flex;gap:6px}
+#pre #adjustments button{flex:1;min-width:0;padding:0 8px;font-size:10px}
+#pre #adjustments button.active{border-color:var(--control-accent);color:var(--control-accent)}
+#adjustHelp{margin:10px 4px 2px;color:var(--control-muted);font-size:11px;line-height:1.45;max-width:300px}
+#quickAudibles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+#quickAudibles button{padding:8px 4px;min-height:56px}
+#quickAudibles small,#quickAudibles b{display:block}
+#quickAudibles small{color:var(--control-accent);font-size:7px;letter-spacing:1px;margin-bottom:6px}
+#quickAudibles b{font-size:10px}
+#openPlaybook{width:100%;margin-top:8px;background:transparent!important;color:var(--control-muted)!important}
+#openPlaybook span{color:var(--control-accent);margin-left:8px}
+#snap:disabled{opacity:.6}
+#snap:disabled b>span[aria-hidden]{display:none}
+#snap:disabled #snapLabel{font-size:.86em;letter-spacing:0}
+#snap #snapLabel{color:var(--control-text);font-size:inherit;line-height:inherit}
+.running-setting{margin:8px 0 16px}
+.running-setting #control{width:100%;margin-bottom:8px}
+.running-setting small{display:block;color:var(--control-muted);font-size:12px;line-height:1.5;text-align:left}
+#pre button:focus-visible{outline:2px solid var(--control-accent);outline-offset:3px}
+@media(max-height:380px){
+ #preTools{gap:6px}
+ #preTools button{min-width:78px;min-height:44px;padding:6px 8px;font-size:9px}
+ #prePanel{padding:4px;width:310px;border-radius:9px}
+ .pre-panel-heading{margin-bottom:2px;gap:4px}
+ #quickAudibles{gap:4px}
+ #quickAudibles button{min-height:44px;padding:4px}
+ #quickAudibles small{margin-bottom:3px}
+ #openPlaybook{margin-top:2px}
+ #adjustHelp{font-size:10px;margin:6px 4px 2px}
+}

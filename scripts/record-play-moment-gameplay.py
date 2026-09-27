@@ -109,7 +109,7 @@ def restart(page, timeline):
 
 def choose_play(page, mode, play_index, snap_number):
     if not page.locator("#breakHuddle").is_visible():
-        page.click("#openPlaybook")
+        page.click("#adjustPlay");page.click("#audibleTab");page.click("#openPlaybook")
     page.click(f"#call-{mode}-{play_index}")
     page.click("#breakHuddle")
     assert page.evaluate("n => bk3dTest.setSnapNumber(n)", snap_number)

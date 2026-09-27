@@ -76,11 +76,13 @@ def record(browser, origin, out, mode):
     def check_presnap():
         assert not read()['playbook']['open'] and page.locator('#playbook').is_hidden()
         boxes = []
-        for selector in ['#flipPlay', '#motionReceiver', '#identifyMike', '#openPlaybook', '#snap', '#stick']:
+        for selector in ['#playArt', '#adjustPlay', '#snap', '#stick']:
             boxes.append(check_hit(selector))
-        for selector in ['.play-row', '#plays', '#runTab', '#passTab']:
+        for selector in ['.play-row', '#plays', '#runTab', '#passTab', '#prePanel', '#control']:
             assert page.locator(selector).is_hidden(), ('Play picker remained after selection', selector)
         assert page.locator('#instruction').is_hidden(), 'Duplicate pre-snap instruction returned'
+        assert page.locator('.build-label').count() == 0
+        assert read()['preSnap']['playArt'] is False
         controls_top = page.locator('#pre').bounding_box()['y']
         for player in read()['players'][:11]:
             head, foot = player['head'], player['foot']
@@ -127,8 +129,49 @@ def record(browser, origin, out, mode):
                 page.evaluate('bk3dTest.step(2)')
                 check_presnap()
                 page.screenshot(path=str(folder / f'presnap-{width}x{height}.png'))
-                page.click('#openPlaybook')
-                assert read()['playbook']['choice']['index'] == 1
+                page.click('#adjustPlay')
+                for selector in ['#adjustTab', '#audibleTab', '#closePrePanel', '#flipPlay', '#motionReceiver']:
+                    check_hit(selector)
+                assert page.locator('#identifyMike').is_hidden()
+                page.screenshot(path=str(folder / f'adjust-{width}x{height}.png'))
+                page.click('#audibleTab')
+                assert page.locator('#quickAudibles button').count() == 3
+                for index in range(3):
+                    check_hit(f'#quickAudibles button:nth-child({index + 1})')
+                check_hit('#openPlaybook')
+                page.screenshot(path=str(folder / f'audible-{width}x{height}.png'))
+                page.click('#quickAudibles button:nth-child(1)')
+                assert read()['mode'] == 'run' and read()['playbook']['open'] is False
+                page.click('#adjustPlay');check_hit('#identifyMike');page.click('#closePrePanel')
+                art = page.locator('#playArt').bounding_box()
+                page.mouse.move(art['x'] + art['width']/2, art['y'] + art['height']/2)
+                page.mouse.down();page.evaluate('bk3dTest.step(1/60)')
+                assert read()['preSnap']['playArt']
+                page.screenshot(path=str(folder / f'play-art-{width}x{height}.png'))
+                page.mouse.up()
+                assert not read()['preSnap']['playArt']
+                if width == 667:
+                    page.click('#adjustPlay');page.click('#motionReceiver')
+                    assert page.locator('#snap').is_disabled()
+                    before = read()['players'][8]
+                    page.evaluate('bk3dTest.step(1)')
+                    moving = read()['players'][8]
+                    assert moving['action'] == 'pre-motion' and moving['pose']['run'] > .3
+                    assert moving['x'] != before['x'] or moving['z'] != before['z']
+                    page.click('#pause')
+                    page.evaluate('bk3dTest.step(1)')
+                    assert read()['players'][8]['x'] == moving['x']
+                    page.click('#resume')
+                    page.evaluate('bk3dTest.step(2)')
+                    assert 'run' in read()['athletes']['states']
+                    page.screenshot(path=str(folder / 'receiver-motion.png'))
+                    page.evaluate('bk3dTest.step(6)')
+                    assert not read()['preSnap']['moving'] and read()['players'][8]['x'] == 12
+                    assert read()['players'][8]['startX'] == 12 and read()['drive']['clock'] == 78
+                    assert not page.locator('#snap').is_disabled()
+                    page.screenshot(path=str(folder / 'receiver-set.png'))
+                page.click('#adjustPlay');page.click('#audibleTab');page.click('#openPlaybook')
+                assert read()['playbook']['choice']['index'] == 0
                 page.click('#filterRun')
                 assert page.locator('#playbookGrid .play-card').count() == 4
                 page.click('#filterAll')
@@ -139,7 +182,7 @@ def record(browser, origin, out, mode):
         check_presnap()
         page.screenshot(path=str(folder / 'presnap.png'))
         if mode == 'manual-run':
-            page.click('#control')
+            page.click('#pause');page.click('#control');page.click('#resume')
             assert read()['assist'] is False
             page.keyboard.down('ArrowUp')
         page.click('#snap')
