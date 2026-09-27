@@ -71,3 +71,8 @@ html,body,#game,#hud{min-height:100dvh}
 #hud[data-assist="true"] #live[data-phase="handoff"] #stick{opacity:.3!important;pointer-events:none!important}
 @media(max-height:380px){#adjustments button{height:32px;min-height:32px;min-width:58px;padding:0 7px}#instruction{max-width:54vw;font-size:9px}}
 @media(max-width:520px){#adjustments span{display:none}#adjustments button{min-width:56px;padding:0 6px}#hud[data-phase="run"] #instruction,#hud[data-phase="handoff"] #instruction{max-width:calc(100vw - 220px);font-size:8px}}
+
+
+/* Keep live coaching off the play and let it clear after the runner takes over. */
+#hud[data-phase="run"] #instruction,#hud[data-phase="handoff"] #instruction{animation:gameplay-hint-clear 2s ease-out forwards}
+@keyframes gameplay-hint-clear{0%,68%{opacity:1}100%{opacity:0;visibility:hidden}}

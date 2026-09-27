@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {pursuitTarget,pursuitSteering,locomotionStep,tackleContactEligible,defenderRunSpeed,playerRatings,initialAssistMode,gameplayInstruction} from '../public/play-moment-3d/game.js';
+import {pursuitTarget,pursuitSteering,locomotionStep,tackleContactEligible,defenderRunSpeed,playerRatings,initialAssistMode,gameplayInstruction,runCameraFraming} from '../public/play-moment-3d/game.js';
 import {MeshyAthletes,MESHY_CLIPS,forwardRunArmSwing} from '../public/play-moment-3d/meshy-athlete.js';
 // Compare actual accelerated pursuit against the previous short lead for a crossing run.
 function chase(targetFn){
@@ -19,6 +19,8 @@ assert.match(gameplayInstruction({phase:'handoff',assist:false}),/STICK/,'Manual
 assert.match(gameplayInstruction({phase:'pre',mode:'run',assist:false}),/DIRECTION.*STICK/,'Manual runners can set their opening direction before the snap');
 assert.match(gameplayInstruction({phase:'pre',mode:'pass'}),/ROUTE/,'Passing pre-snap guidance must match the selected mode');
 assert.match(gameplayInstruction({phase:'flight'}),/CATCH/,'Ball-flight guidance must offer the catch choice');
+const runFrame=runCameraFraming(0,40);
+assert.ok(Math.hypot(...runFrame.eye.map((v,i)=>v-runFrame.target[i]))<9,'Live framing must stay close enough to make the runner easy to read');
 for(const x of[-25,0,25])for(const vx of[-9,0,9])for(const vz of[-8,0,8]){
  const p=pursuitTarget({index:18,x:4,z:32},{x,z:25,vx,vz},false,8);
  assert.ok(Number.isFinite(p.x)&&Number.isFinite(p.z));assert.ok(Math.abs(p.x)<=25.8);assert.ok(Math.abs(p.z-25)<=Math.abs(vz)*4+.001);
