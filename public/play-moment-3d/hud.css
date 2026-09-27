@@ -235,3 +235,7 @@ html,body,#game,#hud{min-height:100dvh}
  #snap small{font-size:7px}
 }
 @media(min-height:381px) and (max-width:800px){#adjustments span{display:none}}
+
+/* After the huddle, leave the field open and keep only line adjustments. */
+#pre .play-picker{align-self:center}
+#pre #adjustments{margin:0}
