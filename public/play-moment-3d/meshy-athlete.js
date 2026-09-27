@@ -18,18 +18,7 @@ export function locomotionClipTime(distance,duration,clip,seed=0){
  const cycle=clip===MESHY_CLIPS.walk?2.15:clip===MESHY_CLIPS.sprint?5.4:4.25;
  return ((Math.max(0,distance||0)/cycle+seed)%1)*duration;
 }
-/** Keep arm swing in step with the authored leg cycle, with a restrained range. */
-export function forwardRunArmSwing(distance,side=0,cycle=4.25){
- const stride=Math.max(.01,Number(cycle)||4.25);
- return Math.sin((Math.max(0,distance||0)/stride+side)*Math.PI*2)*.12;
-}
-
-export function usesGroundedStride(state){return /^(run|sprint|walk|carry-run|carry-sprint|carry-cut|route-release|route-stem|route-cut|qb-scramble|qb-drop|qb-climb|qb-rollout|coverage|coverage-pedal|coverage-break|rush|edge-rush|break-tackle|stumble)$/.test(state)}
-/** Keep the authored Meshy gait on straight runs; reserve procedural planting for cuts. */
-export function usesAuthoredForwardStride(p){
- const speed=Math.hypot(p.vx||0,p.vz||0);if(speed<2)return false;
- const angle=Math.atan2(p.vx||0,p.vz||0)-(p.heading||0);return Math.cos(angle)>.82&&Math.abs(Math.sin(angle))<.25;
-}
+export function usesGroundedStride(state){return /^(run|sprint|walk|carry-run|carry-sprint|carry-cut|carry-juke|carry-spin|carry-truck|carry-stiff-arm|carry-hurdle|route-release|route-stem|route-cut|qb-scramble|qb-drop|qb-climb|qb-rollout|coverage|coverage-pedal|coverage-break|rush|edge-rush|break-tackle|stumble)$/.test(state)}
 /** Same distance phase across run/sprint, with a linear planted half-step. */
 export function groundedStride(distance,side=0){
  const cycle=2.45,phase=((Math.max(0,distance||0)/cycle+side)%1+1)%1,stance=.53,reach=cycle*stance/(2*1.17);
@@ -327,7 +316,7 @@ export class MeshyAthletes{
    this.parents=new Int16Array(json.nodes.length).fill(-1);json.nodes.forEach((node,index)=>(node.children||[]).forEach(child=>{this.parents[child]=index}));this.namedNodes=Object.fromEntries(json.nodes.map((node,index)=>[node.name,index]));
    this.base=json.nodes.map(node=>({t:[...(node.translation||[0,0,0])],r:[...(node.rotation||[0,0,0,1])],s:[...(node.scale||[1,1,1])]}));
    const skin=json.skins[json.nodes.find(node=>Number.isInteger(node.skin)).skin];this.joints=skin.joints;this.inverseBind=accessor(skin.inverseBindMatrices);if(this.joints.length>MAX_BONES)throw new Error('Meshy rig exceeds GPU bone budget');
-   this.clips=json.animations.map(animation=>{let duration=0;const channels=animation.channels.map(channel=>{const sampler=animation.samplers[channel.sampler],times=accessor(sampler.input),values=accessor(sampler.output);duration=Math.max(duration,times[times.length-1]||0);return{node:channel.target.node,path:channel.target.path,times,values,size:channel.target.path==='rotation'?4:3}});return{name:animation.name,duration,channels}});this.clipNames=this.clips.map(clip=>clip.name);this.ready=true;
+   this.clips=json.animations.map(animation=>{let duration=0;const channels=animation.channels.map(channel=>{const sampler=animation.samplers[channel.sampler],times=accessor(sampler.input),values=accessor(sampler.output);duration=Math.max(duration,times[times.length-1]||0);return{node:channel.target.node,path:channel.target.path,times,values,size:channel.target.path==='rotation'?4:3}});return{name:animation.name,duration,channels}});this.clipNames=this.clips.map(clip=>clip.name);for(const clip of[MESHY_CLIPS.walk,MESHY_CLIPS.run,MESHY_CLIPS.sprint])this.cycleLocals(clip,0);this.ready=true;
   }catch(error){this.error=String(error?.message||error);console.warn('Detailed athletes unavailable; using built-in players.',this.error)}
  }
  sampleChannel(channel,time){const{times,values,size}=channel;if(times.length===1)return Array.from(values.subarray(0,size));let low=0,high=times.length-1;while(low+1<high){const mid=(low+high)>>1;if(times[mid]<=time)low=mid;else high=mid}const a=low,b=Math.min(times.length-1,low+1),span=times[b]-times[a],t=span?clamp((time-times[a])/span,0,1):0,left=Array.from(values.subarray(a*size,a*size+size)),right=Array.from(values.subarray(b*size,b*size+size));return channel.path==='rotation'?slerp(left,right,t):lerpArray(left,right,t)}
@@ -392,40 +381,71 @@ export class MeshyAthletes{
    this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],target,[sign*.62,chest[1]-.40,chest[2]-.06]);
   }
  }
- groundedLocomotion(locals,p,state){
-  const hips=this.joints[0],speed=Math.hypot(p.vx||0,p.vz||0),sprint=state.includes('sprint')||speed>7.7,gaitCycle=sprint?5.4:state==='walk'?2.15:4.25,distance=(p.distance||0)+(p.index%7)*.21,authoredStride=usesAuthoredForwardStride(p);
-  if(authoredStride){
-   // Keep the source clip's continuous pelvis and limb motion. Its sprint
-   // torso/root pitch and loose arm swing are too extreme, so stabilize those
-   // parts while leaving the authored leg cycle intact.
-   locals[hips].r=[...this.base[hips].r];
-   for(const name of['Spine','Spine1','Spine2']){const i=this.namedNodes['mixamorig:'+name];if(Number.isInteger(i))locals[i].r=[...this.base[i].r]}
-   const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m);
-   for(const [side,sign,offset]of[['Left',1,0],['Right',-1,.5]]){
-    for(const name of[side+'Arm',side+'ForeArm',side+'Hand']){const i=this.namedNodes['mixamorig:'+name];locals[i].r=[...this.base[i].r]}
-    const swing=forwardRunArmSwing(distance,offset,gaitCycle),handY=state==='walk'?-.40:-.31;
-    this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],[sign*.17,chest[1]+handY+swing,chest[2]+.12-swing*.8],[sign*.25,chest[1]-.43,chest[2]-.13]);
-   }
-   return;
-  }
-  // The generated sprint root pitches almost 70 degrees. Keep an authored
-  // upright torso and let speed determine lean, not the source clip's dive.
-  locals[hips].r=[...this.base[hips].r];locals[hips].t=[...this.base[hips].t];locals[hips].t[1]-=.075+.018*Math.cos(distance/2.45*Math.PI*4);
-  for(const name of['Spine','Spine1','Spine2','Neck','Head']){const i=this.namedNodes['mixamorig:'+name];if(Number.isInteger(i))locals[i].r=[...this.base[i].r]}
-  const lean=sprint?.24:speed<2?.04:.13;this.rotate(locals,'mixamorig:Spine',1,0,0,lean);this.rotate(locals,'mixamorig:Head',1,0,0,-lean*.45);this.rotate(locals,'mixamorig:Spine2',0,1,0,Math.sin(distance/2.45*Math.PI*2)*.075);
-  const direction=Math.atan2(p.vx||0,p.vz||0)-(p.heading||0),sideways=Math.sin(direction),forward=Math.cos(direction),width=p.role==='OL'||p.role==='DL'?.15:.105;
-  for(const [side,sign,offset]of[['Left',1,0],['Right',-1,.5]]){
-   if(!authoredStride){
-    const step=groundedStride(distance,offset),foot=this.namedNodes['mixamorig:'+side+'Foot'],ankle=pointFromMatrix(this.jointWorld(this.base,foot).m),z=step.z;
-    // Reset the ankle orientation before IK so planted soles stay level.
-    for(const name of[side+'UpLeg',side+'Leg',side+'Foot']){const i=this.namedNodes['mixamorig:'+name];locals[i].r=[...this.base[i].r]}
-    this.solveLimb(locals,[side+'UpLeg',side+'Leg',side+'Foot'],[sign*width+z*sideways,ankle[1]+step.lift,ankle[2]+z*forward],[sign*width+sideways*.25,.42,.65*forward],true);
-    const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m),swing=Math.sin(distance/2.45*Math.PI*2+offset*Math.PI*2);
-    const walking=state==='walk',handY=walking?-.40:-.24,armSwing=walking?.09:sprint?.23:.17;
-    this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],[sign*.17,chest[1]+handY+swing*(walking?.035:.10),chest[2]+.12-swing*armSwing],[sign*.25,chest[1]-.43,chest[2]-.13]);
-   }
-  }
+ /** Sample the moving part of a loop. The GLB's rotations start at 66.7ms,
+  * translations at 41.7ms: sampling from zero adds a hold to EVERY stride.
+  * Remove the small endpoint drift so the wrap itself is continuous too. */
+ cycleLocals(clipIndex,phase){
+  this.loopClips??=[];
+  const frames=this.loopClips[clipIndex]??(this.loopClips[clipIndex]=Array.from({length:64},(_,i)=>this.sampleCycleLocals(clipIndex,i/64)));
+  const frame=(((phase%1)+1)%1)*frames.length,index=Math.floor(frame);
+  return this.mixLocals(frames[index],frames[(index+1)%frames.length],frame-index);
  }
+ sampleCycleLocals(clipIndex,phase){
+  const clip=this.clips[clipIndex],u=((phase%1)+1)%1,locals=this.base.map(n=>({t:[...n.t],r:[...n.r],s:[...n.s]}));
+  for(const channel of clip.channels){
+   const {times,values,size}=channel,first=Array.from(values.subarray(0,size)),last=Array.from(values.subarray(values.length-size)),value=this.sampleChannel(channel,times[0]+u*(times.at(-1)-times[0]));
+   if(channel.path==='rotation'){
+    const inverse=[-last[0],-last[1],-last[2],last[3]],correction=slerp([0,0,0,1],quatMul(inverse,first),u);
+    locals[channel.node].r=quatMul(value,correction);
+   }else locals[channel.node][channel.path==='translation'?'t':'s']=value.map((v,i)=>v+(first[i]-last[i])*u);
+  }
+  return locals;
+ }
+ groundedLocomotion(locals,p,state){
+  const speed=Math.hypot(p.vx||0,p.vz||0),seed=meshyPlaybackSeed(p.index,p.team),phase=p.motion?.stridePhase??((p.distance||0)/4.25+seed.offset);
+  const runWeight=smooth((speed-2.2)/2.6),sprintWeight=smooth((speed-7.2)/3),hips=this.joints[0];
+  // Measured left-foot contact markers in the shipped clips. Every blend is
+  // between the same part of the stride, including when a skill/state changes.
+  let gait=runWeight>=1?this.cycleLocals(MESHY_CLIPS.run,phase+.25):runWeight<=0?this.cycleLocals(MESHY_CLIPS.walk,phase+.27):this.mixLocals(this.cycleLocals(MESHY_CLIPS.walk,phase+.27),this.cycleLocals(MESHY_CLIPS.run,phase+.25),runWeight);
+  if(sprintWeight>0)gait=sprintWeight>=1?this.cycleLocals(MESHY_CLIPS.sprint,phase):this.mixLocals(gait,this.cycleLocals(MESHY_CLIPS.sprint,phase),sprintWeight);
+  for(let i=0;i<gait.length;i++)locals[i]=gait[i];
+  const pulse=Math.sin(clamp(p.actionT||0,0,1)*Math.PI),direction=Math.atan2(p.vx||0,p.vz||0)-(p.heading||0),angle=Math.atan2(Math.sin(direction),Math.cos(direction));
+  // Keep the pelvis AND its legs in the source coordinate frame. Correcting
+  // the pelvis alone rotated sprint feet up into the high-kick pose.
+  // Turn the lower body continuously into travel; backpedals use restrained IK.
+  const turn=clamp(angle,-.8,.8),pedal=smooth((Math.abs(angle)-.7)/.9);
+  locals[hips].r=quatMul(axisQuat(0,1,0,turn*(1-pedal)),locals[hips].r);
+  const spine=this.namedNodes['mixamorig:Spine'],parent=this.jointWorld(locals,this.parents[spine]).q;
+  const lean=.07+.10*runWeight+.07*sprintWeight+(state==='stumble'?.13*pulse:0);
+  const desired=quatMul(axisQuat(1,0,0,lean),axisQuat(0,1,0,Math.sin(phase*Math.PI*2)*.045));
+  locals[spine].r=quatMul([-parent[0],-parent[1],-parent[2],parent[3]],desired);
+  for(const name of['Spine1','Spine2','Neck','Head']){const i=this.namedNodes['mixamorig:'+name];locals[i].r=slerp(this.base[i].r,locals[i].r,.22)}
+  this.rotate(locals,'mixamorig:Head',1,0,0,-lean*.45);
+  this.rotate(locals,'mixamorig:Spine2',0,0,1,clamp(-(p.motion?.turn||0)*.035,-.10,.10));
+  if(pedal>0){
+   const original=locals.map(n=>({t:[...n.t],r:[...n.r],s:[...n.s]}));
+   locals[hips].r=[...this.base[hips].r];locals[hips].t=[...this.base[hips].t];locals[hips].t[1]-=.065;
+   for(const [side,sign,offset]of[['Left',1,0],['Right',-1,.5]]){
+    const step=groundedStride(phase*2.45,offset),foot=this.namedNodes['mixamorig:'+side+'Foot'],ankle=pointFromMatrix(this.jointWorld(this.base,foot).m);
+    for(const name of[side+'UpLeg',side+'Leg',side+'Foot']){const i=this.namedNodes['mixamorig:'+name];locals[i].r=[...this.base[i].r]}
+    this.solveLimb(locals,[side+'UpLeg',side+'Leg',side+'Foot'],[sign*.105+step.z*Math.sin(angle)*.65,ankle[1]+step.lift*.55,ankle[2]+step.z*Math.cos(angle)*.65],[sign*.12,.4,.65],true);
+   }
+   for(let i=0;i<locals.length;i++){locals[i].t=lerpArray(original[i].t,locals[i].t,pedal);locals[i].r=slerp(original[i].r,locals[i].r,pedal)}
+  }
+  const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m);
+  for(const [side,sign,offset]of[['Left',1,0],['Right',-1,.5]]){
+   for(const name of[side+'Arm',side+'ForeArm',side+'Hand']){const i=this.namedNodes['mixamorig:'+name];locals[i].r=[...this.base[i].r]}
+   const swing=-Math.cos((phase+offset)*Math.PI*2),amplitude=.10+.10*runWeight+.045*sprintWeight;
+   this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],[sign*.19,chest[1]-.30+.075*swing,chest[2]+.10+swing*amplitude],[sign*.29,chest[1]-.41,chest[2]-.13]);
+  }
+  if(p.action==='hurdle')for(const side of['Left','Right']){this.rotate(locals,'mixamorig:'+side+'UpLeg',1,0,0,-.55*pulse);this.rotate(locals,'mixamorig:'+side+'Leg',1,0,0,.78*pulse)}
+  if(p.action==='stiff-arm'){
+   const side=(p.index+p.team)%2?'Left':'Right',sign=side==='Left'?1:-1,hand=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:'+side+'Hand']).m);
+   this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],lerpArray(hand,[sign*.53,chest[1]-.07,chest[2]+.39],pulse),[sign*.38,chest[1]-.20,chest[2]+.12]);
+  }
+
+ }
+
  standingPose(locals,p,crouch=.06,lean=.06){
   for(let i=0;i<locals.length;i++){locals[i].r=[...this.base[i].r];locals[i].t=[...this.base[i].t]}
   locals[this.joints[0]].t[1]-=crouch;this.rotate(locals,'mixamorig:Spine',1,0,0,lean);this.rotate(locals,'mixamorig:Head',1,0,0,-lean*.45);this.readyPose(locals,p);
@@ -654,17 +674,19 @@ export class MeshyAthletes{
   const previous=this.poseStates.get(p.index),fresh=!previous||previous.actor!==p||time<previous.time||time-previous.time>.3;
   if(fresh){this.poseStates.set(p.index,{actor:p,time,state,fromState:state,locals,fromLocals:locals,stateStarted:time,transitioning:false});return locals}
   let entry=previous;if(previous.state!==state)entry={actor:p,time,state,fromState:previous.state,locals:previous.locals,fromLocals:previous.locals,stateStarted:time,transitioning:true};
+  if(usesGroundedStride(entry.fromState)&&usesGroundedStride(state)){entry={...entry,fromState:state,transitioning:false}}
   if(!entry.transitioning){this.poseStates.set(p.index,{...entry,time,locals});return locals}
   const rate=meshyTransitionRate(entry.fromState,state),progress=smooth(clamp((time-entry.stateStarted)*rate/2.4,0,1)),blended=locals.map((node,index)=>({t:lerpArray(entry.fromLocals[index].t,node.t,progress),r:slerp(entry.fromLocals[index].r,node.r,progress),s:lerpArray(entry.fromLocals[index].s,node.s,progress)})),transitioning=progress<1;
   this.poseStates.set(p.index,{...entry,actor:p,time,state,locals:blended,transitioning});return blended;
  }
  bonesFor(p,phase,time){
-  const choice=this.choose(p,phase,time);let locals=this.poseLocals(choice.base,choice.baseTime);if(choice.overlay!==null)locals=this.mixLocals(locals,this.poseLocals(choice.overlay,choice.overlayTime),choice.overlayWeight);
-  // Remove excessive source-root bob before adding intentional football
-  // crouches, catches and skills. This keeps feet believable on mobile.
-  const hips=this.joints[0],baseY=this.base[hips].t[1],profile=ROLE_MOTION_PROFILES[p.role]||ROLE_MOTION_PROFILES.LB;locals[hips].t[1]=baseY+clamp(locals[hips].t[1]-baseY,-.10,.14)*profile.root;
-  this.applyFootballPose(locals,p,phase,time,choice.state);
-  if(!p.fallen&&!p.engaged&&usesGroundedStride(choice.state))this.groundedLocomotion(locals,p,choice.state);
+  const choice=this.choose(p,phase,time),locomoting=!p.fallen&&!p.engaged&&usesGroundedStride(choice.state),hips=this.joints[0];let locals;
+  if(locomoting){locals=[];this.groundedLocomotion(locals,p,choice.state)}
+  else{
+   locals=this.poseLocals(choice.base,choice.baseTime);if(choice.overlay!==null)locals=this.mixLocals(locals,this.poseLocals(choice.overlay,choice.overlayTime),choice.overlayWeight);
+   const baseY=this.base[hips].t[1],profile=ROLE_MOTION_PROFILES[p.role]||ROLE_MOTION_PROFILES.LB;locals[hips].t[1]=baseY+clamp(locals[hips].t[1]-baseY,-.10,.14)*profile.root;
+   this.applyFootballPose(locals,p,phase,time,choice.state);
+  }
   if(!p.fallen&&p.contactRole==='tackler'){if(Math.hypot(p.vx||0,p.vz||0)>.3)this.groundedLocomotion(locals,p,'run');else this.standingPose(locals,p,.12,.18)}
   if(choice.state==='break-tackle'||choice.state==='stumble')this.rotate(locals,'mixamorig:Spine2',0,0,1,(p.actionSide||1)*.13*Math.sin((p.actionT||0)*Math.PI));
   if(choice.state==='idle'||choice.state==='qb-pocket'||choice.state==='receive-snap')this.standingPose(locals,p);
@@ -710,7 +732,9 @@ export class MeshyAthletes{
   const fallBasis=mul(ry(fallHeading),mul(rx(fall),ry(heading-fallHeading)));
   const basis=mul(fallBasis,mul(rx(pitch),mul(rz(roll+fallRoll),scale(1.17*build[0]*variation,1.17*build[1]/variation,1.17*build[2]*variation))));
   const points=this.supportPoints.get(p.index)||[],floor=points.length?Math.min(...points.map(v=>basis[1]*v[0]+basis[5]*v[1]+basis[9]*v[2])):0;
-  const plant=['pre','snap','handoff'].includes(this.phase)||p.engaged||p.fallen||usesGroundedStride(meshyAnimationState(p,this.phase))||Math.hypot(p.vx||0,p.vz||0)<.2,correction=plant?floor:Math.min(0,floor);
+  // Preserve the run's short airborne interval. Pulling the lowest foot to
+  // the ground every frame erased flight and made the entire body pogo.
+  const plant=['pre','snap','handoff'].includes(this.phase)||p.engaged||p.fallen||Math.hypot(p.vx||0,p.vz||0)<.2,correction=plant?floor:Math.min(0,floor);
   return mul(translate(p.x,lift+.02-correction,p.z),basis);
  }
 

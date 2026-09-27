@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import * as math from '../public/play-moment-3d/renderer.js';
 import {advanceMotion} from '../public/play-moment-3d/athlete.js';
 import {knockDownPlayer,advancePlayerAction,blockOutcome,pursuitRole,pursuitTarget} from '../public/play-moment-3d/game.js';
-import {groundedStride,meshyAnimationState,usesAuthoredForwardStride} from '../public/play-moment-3d/meshy-athlete.js';
+import {groundedStride,meshyAnimationState} from '../public/play-moment-3d/meshy-athlete.js';
 // Live recovery and dead-ball finishes must take different paths.
 for(const type of['miss','tackle','pancake']){
  const p={vx:7,vz:4,engaged:true};knockDownPlayer(p,0,type,.6);assert.equal(p.vx,0);assert.equal(p.engaged,false);
@@ -18,18 +18,16 @@ const cutoff=pursuitTarget(safety,runner,false,8,'contain');assert.ok(cutoff.z>r
 // During stance, model-space foot travel must cancel world movement exactly.
 const stepA=groundedStride(.2),stepB=groundedStride(.3);assert.ok(stepA.planted&&stepB.planted);assert.ok(Math.abs((stepB.z-stepA.z)*1.17+.1)<1e-9);
 assert.equal(meshyAnimationState({fallen:true,role:'LB',vx:8,vz:2},'run'),'tackle');
-assert.equal(usesAuthoredForwardStride({vx:0,vz:8,heading:0}),true,'Straight forward running keeps the smooth authored stride');
-assert.equal(usesAuthoredForwardStride({vx:5,vz:6,heading:0}),false,'Sharp cuts keep planted procedural foot placement');
 
 // Exercise the real game controller and camera math with only DOM/GPU I/O stubbed.
 const source=fs.readFileSync(new URL('../public/play-moment-3d/game.js',import.meta.url),'utf8').replace(/^import.*;\n/gm,'').replace(/export /g,'');
 function game(width=844,height=335){
- const elements=new Map(),events=new Map();let renderer;
+ const elements=new Map(),events=new Map(),rendered=new Map();let renderer;
  const element=id=>{if(elements.has(id))return elements.get(id);const el={id,hidden:false,children:[],style:{},dataset:{},classList:{add(){},remove(){},toggle(){}},setAttribute(){},setPointerCapture(){},replaceChildren(){this.children=[]},append(...c){this.children.push(...c);for(const child of c)if(child.id)elements.set(child.id,child)},appendChild(c){this.append(c)},getBoundingClientRect(){return id==='pre'?{top:height-105,left:0,width,height:105}:id==='header'?{left:width*.3,right:width*.7,top:8,bottom:58}:id==='stick'?{left:30,top:height-110,width:90,height:90}:{left:0,top:0,width,height,right:width,bottom:height}}};Object.defineProperty(el,'firstElementChild',{get(){return this.children[0]||(this.children[0]={style:{}})}});elements.set(id,el);return el};
  class HeadlessRenderer{constructor(){renderer=this;this.width=width;this.height=height;this.vp=math.identity();this.gl={getError:()=>0};this.drawCalls=0;this.eye=[0,0,0]}camera=math.Renderer.prototype.camera;project=math.Renderer.prototype.project;begin(){}add(){}draw(){}lateBegin(){}drawLate(){}glow(){}}
- const noop=()=>{},context={...math,Renderer:HeadlessRenderer,drawAthlete:noop,prepareJerseys:noop,advanceMotion,makeStadium:()=>({draw:noop,parts:0}),createMeshyAthletes:()=>({ready:false,ballAnchor:()=>null,draw:noop,diagnostics:()=>({})}),createGameplayReplayRecorder:()=>({event:noop,sample:noop}),console,URLSearchParams,performance:{now:()=>0},location:{search:'?qa'},navigator:{vibrate:noop},document:{hidden:false,getElementById:element,createElement:()=>element('generated-'+elements.size),querySelector:()=>element('header'),querySelectorAll:()=>[],addEventListener:noop},requestAnimationFrame:()=>1,cancelAnimationFrame:noop,matchMedia:()=>({addEventListener:noop}),innerWidth:width,innerHeight:height,addEventListener:(name,fn)=>events.set(name,fn)};context.window=context;
- vm.createContext(context);vm.runInContext(source.replace('window.bk3dTest={','window.bk3dRenderActors=()=>actors.map(p=>({...p}));window.bk3dFixture={mutate(fn){fn(actors)},touchdown(){endPlay("TOUCHDOWN",100)},seed(value){numSeed=value},camera};window.bk3dTest={')+'\nstart();',context);context.bk3dTest.manualFrames();
- return{context,element,events,renderer,step:t=>context.bk3dTest.step(t),read:()=>context.bk3dDiagnostics(),snap:()=>element('snap').onpointerdown({preventDefault:noop}),key:key=>events.get('keydown')({key,code:key,preventDefault:noop})};
+ const noop=()=>{},context={...math,Renderer:HeadlessRenderer,drawAthlete:(_r,p,time)=>rendered.set(p.index,{...p,motion:p.motion?{...p.motion}:null,time}),prepareJerseys:noop,advanceMotion,makeStadium:()=>({draw:noop,parts:0}),createMeshyAthletes:()=>({ready:false,ballAnchor:()=>null,draw:noop,diagnostics:()=>({})}),createGameplayReplayRecorder:()=>({event:noop,sample:noop}),console,URLSearchParams,performance:{now:()=>0},location:{search:'?qa'},navigator:{vibrate:noop},document:{hidden:false,getElementById:element,createElement:()=>element('generated-'+elements.size),querySelector:()=>element('header'),querySelectorAll:()=>[],addEventListener:noop},requestAnimationFrame:()=>1,cancelAnimationFrame:noop,matchMedia:()=>({addEventListener:noop}),innerWidth:width,innerHeight:height,addEventListener:(name,fn)=>events.set(name,fn)};context.window=context;
+ vm.createContext(context);vm.runInContext(source.replace('window.bk3dTest={','window.bk3dRenderActors=()=>actors.map(p=>({...p}));window.bk3dFixture={mutate(fn){fn(actors)},touchdown(){endPlay("TOUCHDOWN",100)},seed(value){numSeed=value},present,camera};window.bk3dTest={')+'\nstart();',context);context.bk3dTest.manualFrames();
+ return{context,element,events,renderer,rendered,step:t=>context.bk3dTest.step(t),read:()=>context.bk3dDiagnostics(),snap:()=>element('snap').onpointerdown({preventDefault:noop}),key:key=>events.get('keydown')({key,code:key,preventDefault:noop})};
 }
 // The ball must follow center -> snap flight -> QB -> exchange -> RB.
 for(let play=0;play<4;play++)for(const flip of[false,true]){
@@ -145,7 +143,7 @@ for(let i=0;i<80;i++)r.add('cube',math.identity(),[1,1,1,1],'material-0');assert
 console.log(`Recovery checks passed: sacks at three mobile sizes, four run concepts, get-ups, containment, planted step travel, shared geometry, ${bytes} instance bytes across 60 batches.`);
 
 // Capture actual controller states, including shared ball/contact targets.
-function renderFrame(g){const d=g.read();return{phase:d.phase,time:d.simTime,ball:d.exchange?.ball||null,actors:g.context.bk3dRenderActors().map(p=>({...p,motion:undefined}))}}
+function renderFrame(g){const d=g.read();return{phase:d.phase,time:d.simTime,ball:d.exchange?.ball||null,actors:g.context.bk3dRenderActors().map(p=>({...p,motion:p.motion?{...p.motion}:null}))}}
 function centerFrames(frames,ids,origin){for(const frame of frames){if(frame.ball)frame.ball=[frame.ball[0]-origin[0],frame.ball[1],frame.ball[2]-origin[1]];frame.actors=frame.actors.filter(p=>ids.includes(p.index)).map(p=>({...p,x:p.x-origin[0],z:p.z-origin[1],ballTarget:p.ballTarget?[p.ballTarget[0]-origin[0],p.ballTarget[1],p.ballTarget[2]-origin[1]]:null}))}}
 const captureFlag=process.argv.indexOf('--capture');
 if(captureFlag>=0){
@@ -207,3 +205,15 @@ for(const keyboard of [false,true]){
  press();g.step(1/60);assert.equal(g.context.bk3dRenderActors().find(p=>p.hasBall).sprinting,true,'Recovered sprint works again');
 }
 console.log('Exhausted sprint stays stable for touch and keyboard');
+
+// Exercise interpolation through the real present() path, not just its helper.
+{
+ const g=game();g.snap();g.step(1.2);g.context.bk3dFixture.present(0,1);const before=g.read().players;g.step(1/60);const authoritative=g.read().players;
+ g.context.bk3dFixture.present(1/120,.5);
+ const shown=g.rendered.get(6),expected=(before[6].z+authoritative[6].z)/2;
+ assert.ok(Math.abs(shown.z-expected)<1e-9,'120 Hz render interpolates the moving carrier');
+ assert.equal(g.read().players[6].z,authoritative[6].z,'Rendering cannot mutate simulation positions');
+ assert.ok(Number.isFinite(shown.motion.stridePhase),'Render gait phase stays finite');
+ g.context.bk3dFixture.present(1/120,1);assert.equal(g.rendered.get(6).z,authoritative[6].z);
+ console.log('Real presentation path: interpolated carrier, finite stride phase, authoritative state unchanged.');
+}

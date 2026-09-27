@@ -46,13 +46,16 @@ for(const team of[0,1])for(let i=0;i<12;i++){
 for(const role of['QB','RB','WR','TE','OL','DL','LB','DB'])for(const speed of[5.5,8.4]){
  const actor={role,index:220,team:role==='LB'||role==='DB'||role==='DL'?1:0,x:0,z:0,heading:0,vx:0,vz:speed,hasBall:role==='RB',sprinting:speed>8};
  rig.poseStates.clear();rig.phase='run';
- for(let i=0;i<28;i++){
+ let lowestStrideFoot=Infinity;
+ for(let i=0;i<86;i++){
   actor.distance=i*.1;const bones=rig.bonesFor(actor,'run',i*.1/speed),model=rig.modelFor(actor),chest=rig.handTransforms.get(actor.index).chest;
   assert.ok(chest[5]/Math.hypot(chest[4],chest[5],chest[6])>.85,`${role}: horizontal running torso`);
   assert.ok([...bones,...model].every(Number.isFinite),'Stride matrix must be finite');
   const points=skinSupportVertices(allVertices,bones);let floor=Infinity;for(const v of points)floor=Math.min(floor,model[1]*v[0]+model[5]*v[1]+model[9]*v[2]+model[13]);
-  assert.ok(floor>=-.04&&floor<.03,`${role}: stride foot misses turf ${floor}`);checks++;
+  lowestStrideFoot=Math.min(lowestStrideFoot,floor);
+  assert.ok(floor>=-.04&&floor<.24,`${role}: stride penetrates turf or floats too high ${floor}`);checks++;
  }
+ assert.ok(lowestStrideFoot<.045,`${role}: neither foot lands during two complete strides`);
 }
 for(const t of[0,.2,.4,.6,.8,1]){
  const pose=sample('LB','run',1,'get-up',t,221,{fallen:true,vz:0});assert.ok(pose.model[5]>.8||t<.8,'Get-up should finish upright');checks++;

@@ -23,7 +23,10 @@ def program(vs,fs):
 def gen(name):
  obj=u();gl(name,None,i,C.POINTER(u))(1,C.byref(obj));return obj.value
 def data(name):return (D/name).read_bytes()
-W,H=480,520;fb=gen('glGenFramebuffers');gl('glBindFramebuffer',None,u,u)(0x8D40,fb)
+animation=scene.get('animation',False)
+W,H=(960,560) if animation else (480,520)
+if animation:(D/'frames').mkdir(exist_ok=True)
+fb=gen('glGenFramebuffers');gl('glBindFramebuffer',None,u,u)(0x8D40,fb)
 for kind,internal in [(0x8CE0,0x8058),(0x8D00,0x81A6)]:
  rb=gen('glGenRenderbuffers');gl('glBindRenderbuffer',None,u,u)(0x8D41,rb);gl('glRenderbufferStorage',None,u,u,i,i)(0x8D41,internal,W,H);gl('glFramebufferRenderbuffer',None,u,u,u,u)(0x8D40,kind,0x8D41,rb)
 assert gl('glCheckFramebufferStatus',u,u)(0x8D40)==0x8CD5
@@ -56,12 +59,14 @@ for latitude in range(8):
    phi=a*np.pi/8;theta=b*2*np.pi/12;return [.13*np.sin(phi)*np.cos(theta),.11*np.cos(phi),.22*np.sin(phi)*np.sin(theta)]
   for a,b in [(latitude,longitude),(latitude+1,longitude),(latitude+1,longitude+1),(latitude,longitude),(latitude+1,longitude+1),(latitude,longitude+1)]:vertices.extend(point(a,b))
 buf(0x8892,np.array(vertices,dtype='f4').tobytes());gl('glEnableVertexAttribArray',None,u)(0);gl('glVertexAttribPointer',None,u,i,u,B,i,p)(0,3,0x1406,False,0,None)
-canvas=Image.new('RGB',(W*4,H*2))
+canvas=Image.new('RGB',(480*4,280*3)) if animation else Image.new('RGB',(W*4,H*((len(scene['poses'])+3)//4)))
+selected=np.linspace(0,len(scene['poses'])-1,12,dtype=int).tolist() if animation else []
 for idx,cell in enumerate(scene['poses']):
  group=cell.get('group',[cell]);pose=group[0];eye=[2.7,1.8,4.0] if idx<6 else [-2.7,1.8,-4.0];target=[0,.85,.3]
- if pose['p']['fallen']:eye=[3.1,2.5,4.5];target=[0,.55,1.0]
+ if pose['p'].get('fallen'):eye=[3.1,2.5,4.5];target=[0,.55,1.0]
  if 'group' in cell:eye=[5.2,3.6,6.2];target=[0,.8,.5]
  if cell.get('exchange'):eye=[6,6,-10];target=[1,.9,1.3]
+ eye=cell.get('eye',eye);target=cell.get('target',target)
  vp=camera(eye,target)
  gl('glViewport',None,i,i,i,i)(0,0,W,H);gl('glClearColor',None,f,f,f,f)(.035,.055,.08,1);gl('glClear',None,u)(0x4000|0x0100);gl('glEnable',None,u)(0x0B71)
  gl('glUseProgram',None,u)(groundPr);gl('glBindVertexArray',None,u)(groundVao);mat('vp',vp,groundPr);gl('glDrawArrays',None,u,i,i)(4,0,6)
@@ -72,5 +77,13 @@ for idx,cell in enumerate(scene['poses']):
   number(actor['p']['team'],actor['p'].get('number',24));gl('glDrawElements',None,u,i,u,p)(4,scene['indexCount'],scene['indexType'],None)
  if cell.get('ball'):
   gl('glUseProgram',None,u)(ballPr);gl('glBindVertexArray',None,u)(ballVao);mat('vp',vp,ballPr);center=np.array(cell['ball'],dtype='f4');gl('glUniform3fv',None,i,i,p)(loc('center',ballPr),1,center.ctypes.data);gl('glDrawArrays',None,u,i,i)(4,0,len(vertices)//3)
- pixels=C.create_string_buffer(W*H*4);gl('glReadPixels',None,i,i,i,i,u,u,p)(0,0,W,H,0x1908,0x1401,pixels);im=Image.frombytes('RGBA',(W,H),pixels.raw).transpose(Image.Transpose.FLIP_TOP_BOTTOM).convert('RGB');ImageDraw.Draw(im).text((8,8),cell['label'],fill='white');canvas.paste(im,((idx%4)*W,(idx//4)*H))
+ pixels=C.create_string_buffer(W*H*4);gl('glReadPixels',None,i,i,i,i,u,u,p)(0,0,W,H,0x1908,0x1401,pixels);im=Image.frombytes('RGBA',(W,H),pixels.raw).transpose(Image.Transpose.FLIP_TOP_BOTTOM).convert('RGB');ImageDraw.Draw(im).text((8,8),cell['label'],fill='white')
+ if animation:
+  if cell.get('labels'):
+   titlefont=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',24)
+   for col,label in enumerate(cell['labels']):ImageDraw.Draw(im).text((W*(col+1)/3,38),label,font=titlefont,fill='white',anchor='mm')
+  im.save(D/'frames'/f'{idx:04d}.png')
+  if idx in selected:
+   tile=selected.index(idx);canvas.paste(im.resize((480,280)),((tile%4)*480,(tile//4)*280))
+ else:canvas.paste(im,((idx%4)*W,(idx//4)*H))
 canvas.save(D/'poses.png');print('Rendered shader and',len(scene['poses']),'pose groups with Mesa; GL error:',gl('glGetError',u)())
