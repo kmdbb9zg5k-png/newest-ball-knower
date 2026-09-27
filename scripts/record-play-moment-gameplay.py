@@ -12,6 +12,8 @@ import html
 import json
 import os
 import shutil
+import subprocess
+import sys
 import threading
 import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -339,7 +341,11 @@ def write_index(output, report):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, default=ROOT / "artifacts/gameplay-recordings")
+    parser.add_argument("--legacy", action="store_true", help="Run the historical 8 fps playbook recorder")
     args = parser.parse_args()
+    if not args.legacy:
+        subprocess.run([sys.executable, str(ROOT / "scripts/record-play-moment-motion.py"), "--output", str(args.output)], check=True)
+        return
     args.output.mkdir(parents=True, exist_ok=True)
 
     handler = lambda *a, **kw: QuietHandler(*a, directory=str(ROOT / "public"), **kw)

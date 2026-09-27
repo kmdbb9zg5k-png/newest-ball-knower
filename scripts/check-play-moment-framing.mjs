@@ -2,22 +2,16 @@
  * No renderer mocks are counted as rendered or device tests; see the .py suite.
  */
 import assert from 'node:assert/strict';
-import {cameraTravel} from '../public/play-moment-3d/game.js';
+import {cameraTravel,runCameraFraming,normalizeControlKey as normalize,layoutReceiverMarkers as layout,predictPassDestination as predict} from '../public/play-moment-3d/game.js';
 import {readFileSync} from 'node:fs';
 const source=readFileSync(new URL('../public/play-moment-3d/game.js',import.meta.url),'utf8');
 function between(a,b){const i=source.indexOf(a),j=source.indexOf(b,i+a.length);assert.ok(i>=0&&j>i,`Missing function boundary ${a}`);return source.slice(i,j);}
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const normalizeSource=between('export function normalizeControlKey','export function receiverSlotForKey');
-const normalize=Function(normalizeSource.replace('export ','')+';return normalizeControlKey;')();
 assert.equal(normalize('W'),'w');assert.equal(normalize('A'),'a');assert.equal(normalize('d'),'d');assert.equal(normalize('Shift'),'Shift');assert.equal(normalize('ArrowRight'),'ArrowRight');
-const helpers=between('export function layoutReceiverMarkers','export const RUNS=');
-const layout=Function('clamp',helpers.replace('export ','')+';return layoutReceiverMarkers;')(clamp);
 const cameraSource=between(' function camera(dt)',' function scene(dt');
 const specs=Function('return '+between(' const specs=',';\n const receiverIndices=').split('const specs=')[1])();
 const routeSource=between('const PASSES=','export function runConceptDirection');
 const routes=Function(routeSource+';return {PASSES,travel};')();
-const predictSource=between('export function predictPassDestination','export function start()');
-const predict=Function('clamp','travel',predictSource.replace('export ','')+';return predictPassDestination;')(clamp,routes.travel);
 let passLeadSamples=0;
 for(const pass of routes.PASSES)for(let i=0;i<3;i++)for(const elapsed of[.2,.9,1.8]){
  const duration=.72,speed=6.3+i*.2,startX=[-21,-12,21][i],startZ=[95,94.4,95][i];
@@ -39,7 +33,7 @@ function fixture(phase,actors,width,height,carrier=actors[5]){
  }};
  const before=JSON.stringify(actors);
  const cameraFollowBlend=(dt,rate=5)=>1-Math.exp(-Math.max(0,Number(rate)||0)*clamp(Number(dt)||0,0,.25));
- Function('r','phase','actors','carrier','clamp','cameraFollowBlend','cameraTravel',`let camEye=[0,0,0],camTarget=[0,0,0],impactShake=0,simTime=0,postPlayElapsed=0,runCameraBlend=0,runCameraStart=null,flightCameraStart=null;const smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)},$=()=>({getBoundingClientRect:()=>({top:r.height-100})});const snapZ=95,receiverIndices=[7,8,9,10,6],flight=null;${cameraSource};for(let frame=0;frame<240;frame++)camera(1/60);`)(r,phase,actors,carrier,clamp,cameraFollowBlend,cameraTravel);
+ Function('r','phase','actors','carrier','clamp','cameraFollowBlend','cameraTravel','runCameraFraming',`let camEye=[0,0,0],camTarget=[0,0,0],impactShake=0,simTime=0,postPlayElapsed=0,runCameraBlend=0,runCameraStart=null,flightCameraStart=null,deadCameraStart=null;const smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)},$=()=>({getBoundingClientRect:()=>({top:r.height-100})});const snapZ=95,receiverIndices=[7,8,9,10,6],flight=null;${cameraSource};for(let frame=0;frame<240;frame++)camera(1/60);`)(r,phase,actors,carrier,clamp,cameraFollowBlend,cameraTravel,runCameraFraming);
  assert.equal(JSON.stringify(actors),before,'Camera changed player state');return r;
 }
 let samples=0;
