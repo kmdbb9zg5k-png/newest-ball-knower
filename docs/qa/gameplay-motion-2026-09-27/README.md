@@ -8,6 +8,7 @@ Baseline: `4afd606ed720b2e4cf872f8ea1b618c1b385ac42`. Release asset key: `footba
 - [Stride sequence](stride-sequence.png)
 - [Contact and recovery](contact-sequence.png): actors and ball positions exported from the actual game controller.
 - [Snap, handoff and pitch](exchange-sequence.png): controller output rendered with the shipped skeleton and shaders.
+- [Actual automatic gameplay](automatic-gameplay.mp4): Chromium WebGL2 at a 932×430 viewport, captured at deterministic 30 fps. Includes the snap, handoff, run and tackle. Software rendering time is excluded from movie timing; this is not a phone FPS measurement.
 
 ## Root causes and repairs
 
@@ -35,6 +36,10 @@ Passed:
 - `node scripts/check-football-pursuit.mjs`
 - Mesa renders with production athlete shaders: zero GL errors.
 - `git diff --check`
+- `node scripts/check-play-moment-framing.mjs`: 80 camera cases at four viewport sizes, 2,000 receiver markers, and pass-lead cases.
+- Actual Chromium WebGL2 automatic and manual running scenarios: 108 frames each, including a manual cut and paired contact; no page exceptions or GL errors. Captures: [Actions run 36287027126](https://github.com/kmdbb9zg5k-png/newest-ball-knower/actions/runs/36287027126). That combined job timed out during the third scenario; the scenarios now run independently in CI.
+
+The `football-motion-regressions` CI job runs the shipped-asset, locomotion, full-pose, controller, pursuit and replay checks independently of the older presentation fixtures. The browser recording matrix runs automatic carries, manual cuts and passing separately and preserves diagnostics/captures on failure.
 
 Measured gait sweep: maximum ankle travel 0.136 model units per 60 Hz frame, maximum forward ankle reach 0.293, maximum flight clearance 0.187, lowest support point 0.020. The test checks immediate loop motion, continuous wrap, acceleration, and the former 14.5-degree turn discontinuity.
 
@@ -63,4 +68,6 @@ ffmpeg -framerate 30 -i /tmp/bk-motion-render/frames/%04d.png -c:v libx264 -crf 
 
 ## Limits
 
-Chromium downloaded successfully, but this execution environment rejects its process socket creation (`Operation not permitted`), preventing a full browser playthrough. The rendered evidence uses the real GLB, skinning, shaders and controller exports through Mesa; browser DOM/GPU integration and physical iPhone frame pacing remain unverified. Viewport/controller tests do not replace that device check. No claim of photorealistic or AAA animation is made.
+Local Chromium cannot create its process sockets, and the interactive cloud browser has no WebGL2. GitHub Actions Chromium with SwiftShader successfully runs the actual game and provides the browser captures above. Physical iPhone frame pacing and touch feel remain unverified; deterministic software-rendered video and viewport tests do not replace that device check.
+
+The repository-wide CI is not fully green. The older goal-line fixture calls extracted `endPlay` code without its existing `captureHighlight` dependency; that fixture and dependency predate this repair. Other older fixtures still target previous pursuit speeds and the superseded player model. Unrelated app-navigation checks also fail. These failures are retained and disclosed; they are not treated as successful verification.

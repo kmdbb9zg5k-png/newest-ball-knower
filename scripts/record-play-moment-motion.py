@@ -108,7 +108,9 @@ def record(browser, origin, out, mode):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', type=Path, default=ROOT / 'artifacts/gameplay-motion')
+    parser.add_argument('--mode', choices=['all', 'automatic-run', 'manual-run', 'pass'], default='all')
     args = parser.parse_args()
+    modes = ['automatic-run', 'manual-run', 'pass'] if args.mode == 'all' else [args.mode]
     args.output.mkdir(parents=True, exist_ok=True)
     handler = lambda *a, **kw: QuietHandler(*a, directory=str(ROOT / 'public'), **kw)
     server = ThreadingHTTPServer(('127.0.0.1', 0), handler)
@@ -118,14 +120,14 @@ def main():
     try:
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=True, executable_path=os.environ.get('CHROMIUM_PATH'), args=['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ozone-platform=headless'])
-            for mode in ['automatic-run', 'manual-run', 'pass']:
+            for mode in modes:
                 results.append(record(browser, f'http://127.0.0.1:{server.server_port}', args.output, mode))
             browser.close()
     finally:
         server.shutdown()
         thread.join(timeout=2)
         (args.output / 'report.json').write_text(json.dumps({'renderer': 'Chromium WebGL2 / SwiftShader', 'fps': 30, 'phonePerformanceCertified': False, 'scenarios': results}, indent=2))
-    if len(results) != 3 or any(item['status'] != 'passed' for item in results):
+    if len(results) != len(modes) or any(item['status'] != 'passed' for item in results):
         raise SystemExit('Actual WebGL motion verification failed; see reports and captures.')
 
 if __name__ == '__main__':
