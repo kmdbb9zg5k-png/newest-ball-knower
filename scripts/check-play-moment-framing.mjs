@@ -2,6 +2,7 @@
  * No renderer mocks are counted as rendered or device tests; see the .py suite.
  */
 import assert from 'node:assert/strict';
+import {PASSES} from '../public/play-moment-3d/playbook.js';
 import {cameraTravel,runCameraFraming,normalizeControlKey as normalize,layoutReceiverMarkers as layout,predictPassDestination as predict} from '../public/play-moment-3d/game.js';
 import {readFileSync} from 'node:fs';
 const source=readFileSync(new URL('../public/play-moment-3d/game.js',import.meta.url),'utf8');
@@ -10,8 +11,8 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 assert.equal(normalize('W'),'w');assert.equal(normalize('A'),'a');assert.equal(normalize('d'),'d');assert.equal(normalize('Shift'),'Shift');assert.equal(normalize('ArrowRight'),'ArrowRight');
 const cameraSource=between(' function camera(dt)',' function scene(dt');
 const specs=Function('return '+between(' const specs=',';\n const receiverIndices=').split('const specs=')[1])();
-const routeSource=between('const PASSES=','export function runConceptDirection');
-const routes=Function(routeSource+';return {PASSES,travel};')();
+const routeSource=between('function travel(','export function runConceptDirection');
+const routes={PASSES,travel:Function(routeSource+';return travel;')()};
 let passLeadSamples=0;
 for(const pass of routes.PASSES)for(let i=0;i<3;i++)for(const elapsed of[.2,.9,1.8]){
  const duration=.72,speed=6.3+i*.2,startX=[-21,-12,21][i],startZ=[95,94.4,95][i];
