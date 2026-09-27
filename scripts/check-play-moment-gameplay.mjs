@@ -226,7 +226,7 @@ const athleteSource = readFileSync(new URL('../public/play-moment-3d/athlete.js'
 const meshySource = readFileSync(new URL('../public/play-moment-3d/meshy-athlete.js', import.meta.url), 'utf8');
 const rendererSource = readFileSync(new URL('../public/play-moment-3d/renderer.js', import.meta.url), 'utf8');
 const stadiumSource = readFileSync(new URL('../public/play-moment-3d/stadium.js', import.meta.url), 'utf8');
-for (const id of ['flipPlay', 'motionReceiver', 'identifyMike', 'juke', 'spin', 'power', 'airMove', 'sprint', 'pumpFake', 'throwAway', 'watchReplay']) assert.match(preview, new RegExp(`id="${id}"`), `${id} must remain in the mobile control deck`);
+for (const id of ['flipPlay', 'motionReceiver', 'identifyMike', 'juke', 'spin', 'power', 'airMove', 'sprint', 'scramble', 'throwAway', 'watchReplay']) assert.match(preview, new RegExp(`id="${id}"`), `${id} must remain in the mobile control deck`);
 assert.match(hud, /#skillPad\{display:grid/, 'The four skill actions need a compact two-by-two mobile layout');
 assert.match(hud, /button\.cooldown/, 'Skill cooldowns need visible feedback');
 assert.match(meshySource, /p\.action==='cut'/, 'Hard direction changes must select the carry-cut animation');
@@ -302,7 +302,7 @@ assert.match(source, /document\.querySelectorAll\('#skillPad button'\)/, 'Juke, 
 assert.match(source, /function flipPlay\(/, 'Pre-snap play flipping must be wired');
 assert.match(source, /function motionReceiver\(/, 'Pre-snap receiver motion must be wired');
 assert.match(source, /function identifyMike\(/, 'Pre-snap Mike identification must be wired');
-assert.match(source, /function pumpFake\(/, 'Quarterback pump fakes must be wired');
+assert.doesNotMatch(preview, /id="pumpFake"/, 'The approved control deck omits pump fake');
 assert.doesNotMatch(source, /passLeadOffset\(input\.x,input\.z\)/, 'Quarterback movement input must not silently alter pass placement');
 assert.match(source, /leadX=0,leadZ=0/, 'Receiver route prediction must own pass placement independently of movement');
 assert.match(source, /QB_LATERAL_LIMIT,QB_LATERAL_LIMIT/, 'Quarterback lateral movement must stay inside the playable rollout boundary');

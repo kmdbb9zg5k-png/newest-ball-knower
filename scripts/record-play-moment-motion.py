@@ -32,6 +32,25 @@ def record(browser, origin, out, mode):
     result = {'mode': mode, 'status': 'failed', 'phonePerformanceCertified': False}
     def read():
         return page.evaluate('bk3dDiagnostics()')
+    def check_pocket_controls():
+        assert page.locator('#pumpFake').count() == 0
+        assert page.locator('#scramble .action-icon').count() == 1
+        assert page.locator('#throwAway .action-icon').count() == 1
+        for index in [7, 8, 9, 10, 6]:
+            assert page.locator(f'#target-{index} .target-label').inner_text() == read()['players'][index]['role']
+        boxes = []
+        for selector in ['#scramble', '#throwAway']:
+            control = page.locator(selector)
+            assert control.is_visible(), selector
+            box = control.bounding_box()
+            size = page.viewport_size
+            assert box and box['width'] >= 44 and box['height'] >= 44, box
+            assert box['x'] >= 0 and box['y'] >= 0 and box['x'] + box['width'] <= size['width'] and box['y'] + box['height'] <= size['height'], box
+            assert control.evaluate('(el) => { const r=el.getBoundingClientRect(); return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)); }'), selector
+            boxes.append(box)
+        assert boxes[0]['x'] + boxes[0]['width'] + 4 <= boxes[1]['x'], 'Pocket actions overlap'
+        instruction = page.locator('#instruction').bounding_box()
+        assert instruction['x'] + instruction['width'] <= boxes[0]['x'], 'Guidance overlaps actions'
     def capture(seconds):
         nonlocal frame
         for _ in range(round(seconds * 30)):
@@ -61,12 +80,14 @@ def record(browser, origin, out, mode):
         if mode == 'qb-scramble':
             capture(.45)
             assert read()['phase'] == 'pass'
-            for selector in ['#scramble', '#pumpFake', '#throwAway']:
-                control = page.locator(selector)
-                assert control.is_visible(), selector
-                box = control.bounding_box()
-                assert box and box['width'] >= 44 and box['height'] >= 44, box
-                assert box['x'] >= 0 and box['y'] >= 0 and box['x'] + box['width'] <= viewport['width'] and box['y'] + box['height'] <= viewport['height'], box
+            for width, height in [(932, 430), (844, 390), (667, 290)]:
+                page.set_viewport_size({'width': width, 'height': height})
+                # Resize clears WebGL's drawing buffer. Let the real resize
+                # handler finish before drawing the paused manual-clock frame.
+                page.wait_for_function('([w,h]) => { const c=document.querySelector("#game"); return c.width===w && c.height===h; }', arg=[width, height])
+                page.evaluate('bk3dTest.step(1/60)')
+                check_pocket_controls()
+                page.screenshot(path=str(folder / f'controls-{width}x{height}.png'))
             page.screenshot(path=str(folder / 'scramble-controls.png'))
             page.locator('#scramble').click()
             assert read()['phase'] == 'run' and read()['players'][5]['hasBall']
@@ -78,6 +99,7 @@ def record(browser, origin, out, mode):
         elif mode == 'pass':
             capture(.9)
             assert read()['phase'] == 'pass'
+            check_pocket_controls()
             page.locator('#target-7').click()
             assert read()['throwing'] and read()['players'][5]['hasBall']
             for _ in range(24):

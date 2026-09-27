@@ -7,7 +7,7 @@
 /* Gameplay control deck: compact pre-snap tools and dedicated ball-carrier moves. */
 .play-picker{flex-direction:column;align-items:stretch;gap:5px}.play-row{display:flex;align-items:stretch;gap:8px}#adjustments{display:flex;align-items:center;gap:5px;height:25px}#adjustments button{height:25px;min-width:58px;padding:0 8px;border:1px solid #ffffff24;border-radius:6px;background:#09121de8;color:#d8e0e6;font-size:7px;font-weight:900;letter-spacing:.05em}#adjustments button.active{border-color:var(--gold);color:#f5d984;background:#352f1fe8}#adjustments span{font-size:6px;color:#aeb8c2;letter-spacing:.08em;margin-left:2px}
 #moves{gap:10px}#moves button{width:58px;height:58px;font-size:9px;font-weight:900;transition:transform .08s,filter .08s,opacity .12s}#moves #sprint{width:78px;height:78px}#moves button:active,#moves button.pressed{filter:brightness(1.35);transform:scale(.94)}#moves button.cooldown{opacity:.42;filter:saturate(.45)}#skillPad{display:grid;grid-template-columns:repeat(2,50px);gap:5px;align-self:flex-end}#skillPad button{width:50px;height:50px;font-size:8px}#skillPad button.ready{box-shadow:0 0 0 2px #f2d67955,0 0 18px #e8c66c25}
-#live[data-phase="pass"] #skillPad,#live[data-phase="pass"] #sprint{display:none}#moves #pumpFake{display:none;flex-direction:column;align-items:center;justify-content:center;gap:2px;opacity:1}#live[data-phase="pass"] #pumpFake{display:flex}#moves #pumpFake b{font-size:9px;line-height:1;pointer-events:none}#moves #pumpFake small{font-size:6px;line-height:1;letter-spacing:.12em;color:#d8c78f;pointer-events:none}
+#live[data-phase="pass"] #skillPad,#live[data-phase="pass"] #sprint{display:none}
 @media(max-height:380px){#skillPad{grid-template-columns:repeat(2,44px);gap:4px}#skillPad button{width:44px;height:44px;font-size:7px}#moves #sprint{width:68px;height:68px}#adjustments{height:22px}#adjustments button{height:22px;min-width:52px;padding:0 6px}.play-picker{gap:3px}}
 
 /* Passing reuses the left stick for the QB and the center bar for live pressure. */
@@ -77,11 +77,50 @@ html,body,#game,#hud{min-height:100dvh}
 #hud[data-phase="run"] #instruction,#hud[data-phase="handoff"] #instruction{animation:gameplay-hint-clear 2s ease-out forwards}
 @keyframes gameplay-hint-clear{0%,68%{opacity:1}100%{opacity:0;visibility:hidden}}
 
-/* An explicit commitment to run; stays thumb-sized on phone landscape. */
-#moves #scramble{display:none;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:90px;height:66px;border-color:#ecd286;background:#e8c66c;color:#111a20}
+/* Approved default control deck: graphite, frost and restrained ice-blue trim.
+   Team colors and receiver availability retain their football meanings. */
+:root{--control-accent:#53dcff;--control-text:#f4f8fc;--control-muted:#a1bbcf;--control-surface:linear-gradient(155deg,#203846ed,#0b1521ed)}
+#moves{gap:8px;align-items:flex-end}
+#moves button{border:1px solid #9ab3c08c;border-radius:14px;background:var(--control-surface);color:var(--control-text);box-shadow:inset 0 1px 0 #e4f3ff20,0 3px 10px #0003;letter-spacing:.025em}
+#moves button:active,#moves button.pressed{filter:brightness(1.16);transform:scale(.96);border-color:var(--control-accent)}
+#moves button.cooldown{opacity:.5;filter:none}
+#moves button .action-icon{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2.7;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;flex-shrink:0}
+#moves .speed-lines{stroke:var(--control-accent);stroke-width:1.4}
+#moves button b{font-size:11px;line-height:1;pointer-events:none}
+#moves button small{font-size:7px;line-height:1;letter-spacing:.15em;color:var(--control-muted);pointer-events:none}
+#moves #scramble,#moves #throwAway,#moves #sprint{flex-direction:column;align-items:center;justify-content:center;gap:5px;height:66px}
+#moves #scramble{display:none;width:132px;border:1.5px solid var(--control-accent);border-radius:17px;background:var(--control-surface);box-shadow:inset 0 1px 0 #b9f2ff52,inset 0 0 16px #23c9ec0c,0 3px 10px #0004}
 #live[data-phase="pass"] #scramble{display:flex}
-#moves #scramble b{font-size:10px;line-height:1;pointer-events:none}
-#moves #scramble small{font-size:7px;line-height:1;pointer-events:none}
+#moves #throwAway{width:64px;opacity:1}
+#moves #throwAway:not(.ready){color:#adc0ce;border-color:#8198a86b}
+#moves #throwAway.ready{border-color:#b2cbdc;background:var(--control-surface);box-shadow:inset 0 1px 0 #e4f3ff26,0 3px 10px #0003}
+#moves #throwAway b{font-size:10px}
+#moves #throwAway small{font-size:7px;color:var(--control-muted)}
+#moves #sprint{display:flex;width:76px;height:78px;border:1.5px solid var(--control-accent);background:var(--control-surface);color:var(--control-text)}
+#skillPad button{border-radius:12px;color:var(--control-text);font-size:8px}
+#skillPad button.ready{box-shadow:inset 0 1px 0 #d8efff26,0 2px 6px #0003}
+#moves #juke small{color:var(--control-muted)}
+#stick{border-color:#b0d8ef57;background:radial-gradient(circle,#c4eeff13 0 32%,#08182770 33%)}
+#knob{background:linear-gradient(145deg,#dbf2ff,#8eaac1 50%,#344d66);border:1px solid #e3f7ffb3;box-shadow:inset 0 1px 3px #fff6,0 4px 12px #0005}
+#knob.held{background:linear-gradient(145deg,#e4f7ff,#93b7ce 50%,#365870);border-color:#dcf7ff;box-shadow:0 0 0 5px #53dcff22,inset 0 1px 3px #fff6,0 4px 12px #0005}
+#stamina span{background:#67def0}
+#live[data-phase="pass"] #stamina span{background:linear-gradient(90deg,#53dcff 0 55%,#f09a70 76%,#ed5757 100%)}
+#catchChoices button.selected{border-color:var(--control-accent);background:#183040;color:var(--control-text);box-shadow:inset 0 1px 0 #c4f3ff30}
+#catchChoices button.selected small{color:var(--control-muted)}
+#hud[data-phase="pass"] #instruction{max-width:min(46vw,calc(100vw - 440px))}
 #live[data-phase="windup"] #stick,#live[data-phase="windup"] #moves,#live[data-phase="windup"] #stamina{display:none}
-@media(max-height:380px){#moves #scramble{width:82px;height:54px}#moves #scramble b{font-size:9px}}
-#hud[data-phase="pass"] #instruction{max-width:min(50vw,calc(100vw - 420px))}
+@media(max-height:520px) and (max-width:1180px){
+ #moves #scramble{width:124px;height:64px}
+ #moves #throwAway{width:60px;height:64px}
+ #moves #sprint{width:66px;height:72px}
+ #skillPad button{font-size:7px}
+}
+@media(max-height:380px){
+ #moves{gap:7px}
+ #moves #scramble{width:112px;height:58px;border-radius:15px}
+ #moves #throwAway{width:58px;height:58px}
+ #moves #scramble b{font-size:10px}
+ #moves button .action-icon{width:23px;height:23px}
+ #moves #scramble,#moves #throwAway{gap:4px}
+ #hud[data-phase="pass"] #instruction{max-width:min(42vw,calc(100vw - 410px))}
+}
