@@ -91,6 +91,8 @@ export function cameraTravel(current,target,dt,rate=3,maxSpeed=24){
  const delta=target.map((v,i)=>v-current[i]),distance=Math.hypot(...delta),blend=Math.min(cameraFollowBlend(dt,rate),maxSpeed*Math.max(0,dt)/Math.max(distance,.001));
  return current.map((v,i)=>v+delta[i]*blend);
 }
+/** Compose a closer, lower live-run camera around the ball carrier. */
+export function runCameraFraming(x,z){return{eye:[x*.94+.8,4.65,z-5.1],target:[x*.94,1.18,z+2.8]}}
 /** Keep run concepts as coaching for Assist mode; Manual always obeys the player's stick. */
 export function carrierControlVector(assist,inputX,inputZ,guideX=0,guideZ=0){
  const manualMagnitude=Math.hypot(inputX,inputZ);
@@ -590,12 +592,13 @@ function coverage(dt){
   if(phase==='pass'||phase==='flight'){const deep=Math.max(...receiverIndices.map(i=>actors[i].z));z=actors[5].z+clamp((deep-actors[5].z)*.42,6,14);mult=clamp(1+(deep-actors[5].z-20)*.01,1,1.35)}
   // Let the camera settle around the finish instead of freezing at the whistle.
   if(isDead){const focus=carrier||actors[5],desiredEye=[focus.x*.94+.8,6.1,focus.z-10.5],desiredTarget=[focus.x*.94,1.05,focus.z+4.2];camEye=cameraTravel(camEye,desiredEye,dt,2.45);camTarget=cameraTravel(camTarget,desiredTarget,dt,2.45);const strength=impactShake*.12;impactShake=Math.max(0,impactShake-dt*3.8);r.camera([camEye[0]+Math.sin(simTime*91)*strength,camEye[1]+Math.cos(simTime*73)*strength*.45,camEye[2]],camTarget);return}
-  const tracking=phase==='run';runCameraBlend=clamp(runCameraBlend+(tracking?dt/1.15:-dt/.6),0,1);
+  const tracking=phase==='run';runCameraBlend=clamp(runCameraBlend+(tracking?dt/.55:-dt/.6),0,1);
   if(tracking&&!runCameraStart)runCameraStart={eye:[...camEye],target:[...camTarget],x:carrier.x,z:carrier.z};
   // Center the pocket and move closer without enlarging athlete geometry.
   // Keep the existing wide/long-flight presentation and receiver-fit guard.
-  let desiredEye=tracking?[carrier.x*.94+.8,4.9,carrier.z-6.75]:[x+(isPocket?0:3.5*mult),(isPocket?5.15:8.0)*mult,(isPocket?snapZ:z)-(isPocket?14.5:24.5)*mult];
-  let desiredTarget=tracking?[carrier.x*.94,1.08,carrier.z+4.2]:[x,1.42,phase==='pre'?snapZ-5:z];
+  const runFrame=tracking?runCameraFraming(carrier.x,carrier.z):null;
+  let desiredEye=tracking?runFrame.eye:[x+(isPocket?0:3.5*mult),(isPocket?5.15:8.0)*mult,(isPocket?snapZ:z)-(isPocket?14.5:24.5)*mult];
+  let desiredTarget=tracking?runFrame.target:[x,1.42,phase==='pre'?snapZ-5:z];
   if(tracking){const t=smooth(runCameraBlend),offset=[(carrier.x-runCameraStart.x)*.94,0,carrier.z-runCameraStart.z];desiredEye=desiredEye.map((v,i)=>(runCameraStart.eye[i]+offset[i])*(1-t)+v*t);desiredTarget=desiredTarget.map((v,i)=>(runCameraStart.target[i]+offset[i])*(1-t)+v*t)}
   // Start following the intended receiver while the football is in the air.
   // Catching continues from the actual camera position, never a new fixed view.
@@ -604,7 +607,7 @@ function coverage(dt){
   const pocketBottom=phase==='pre'?Math.min(r.height-100,$('pre').getBoundingClientRect().top-10):r.height-22;
   if(isPocket&&phase!=='flight'){for(let trial=0;trial<18;trial++){r.camera(desiredEye,desiredTarget);const watch=phase==='pre'?actors.filter(p=>!p.team):[actors[5],...receiverIndices.map(i=>actors[i])];const fits=watch.every(p=>{const h=r.project([p.x,2.1,p.z]),f=r.project([p.x,0,p.z]);return h.y>65&&f.y<pocketBottom&&h.x>24&&h.x<r.width-24});if(fits)break;desiredEye[1]*=1.055;desiredEye[2]=desiredTarget[2]+(desiredEye[2]-desiredTarget[2])*1.055}}
   if(tracking){for(let trial=0;trial<18;trial++){r.camera(desiredEye,desiredTarget);if(r.project([carrier.x,0,carrier.z]).y<r.height-90)break;desiredEye[1]*=1.045;desiredEye[2]=desiredTarget[2]+(desiredEye[2]-desiredTarget[2])*1.045}}
-  const rate=phase==='flight'?5.5:phase==='pre'||phase==='handoff'?3.5:3.2;camEye=cameraTravel(camEye,desiredEye,dt,rate,phase==='pre'?80:24);camTarget=cameraTravel(camTarget,desiredTarget,dt,rate,phase==='pre'?80:28);const strength=impactShake*.12;impactShake=Math.max(0,impactShake-dt*3.8);r.camera([camEye[0]+Math.sin(simTime*91)*strength,camEye[1]+Math.cos(simTime*73)*strength*.45,camEye[2]],camTarget);
+  const rate=phase==='flight'?5.5:phase==='pre'||phase==='handoff'?3.5:tracking?5.2:3.2;camEye=cameraTravel(camEye,desiredEye,dt,rate,phase==='pre'?80:24);camTarget=cameraTravel(camTarget,desiredTarget,dt,rate,phase==='pre'?80:28);const strength=impactShake*.12;impactShake=Math.max(0,impactShake-dt*3.8);r.camera([camEye[0]+Math.sin(simTime*91)*strength,camEye[1]+Math.cos(simTime*73)*strength*.45,camEye[2]],camTarget);
  }
  function scene(dt,now){r.begin();stadium.draw();
   // Keep both snap markers fixed through contact; reset together for the next down.
