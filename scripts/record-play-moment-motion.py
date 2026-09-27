@@ -82,6 +82,9 @@ def record(browser, origin, out, mode):
             assert read()['phase'] == 'pass'
             for width, height in [(932, 430), (844, 390), (667, 290)]:
                 page.set_viewport_size({'width': width, 'height': height})
+                # Resize clears WebGL's drawing buffer. Let the real resize
+                # handler finish before drawing the paused manual-clock frame.
+                page.wait_for_function('([w,h]) => { const c=document.querySelector("#game"); return c.width===w && c.height===h; }', arg=[width, height])
                 page.evaluate('bk3dTest.step(1/60)')
                 check_pocket_controls()
                 page.screenshot(path=str(folder / f'controls-{width}x{height}.png'))
