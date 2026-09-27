@@ -676,8 +676,18 @@ function coverage(dt){
   // Catching continues from the actual camera position, never a new fixed view.
   if(phase==='flight'&&flight){const start=flightCameraStart||{eye:camEye,target:camTarget},t=smooth(flight.t),to=flight.to;desiredEye=[to[0]*.94+.8,7.6,to[2]-17].map((v,i)=>start.eye[i]+(v-start.eye[i])*t);desiredTarget=[to[0]*.94,1.35,to[2]+3.8].map((v,i)=>start.target[i]+(v-start.target[i])*t)}
   // Fit actual projected heads/feet above the pre-snap controls. Do not pan the QB away.
-  const pocketBottom=phase==='pre'?(playbookOpen?r.height-100:Math.min(r.height-100,$('pre').getBoundingClientRect().top-10)):r.height-22;
-  if(isPocket&&!tracking&&phase!=='flight'){for(let trial=0;trial<18;trial++){r.camera(desiredEye,desiredTarget);const watch=phase==='pre'?actors.filter(p=>!p.team):[actors[5],...receiverIndices.map(i=>actors[i])];const fits=watch.every(p=>{const h=r.project([p.x,2.1,p.z]),f=r.project([p.x,0,p.z]);return h.y>65&&f.y<pocketBottom&&h.x>24&&h.x<r.width-24});if(fits)break;desiredEye[1]*=1.055;desiredEye[2]=desiredTarget[2]+(desiredEye[2]-desiredTarget[2])*1.055}}
+  const pocketBottom=phase==='pre'?(playbookOpen?r.height-100:Math.min(r.height-100,$('plays').getBoundingClientRect().top-10)):r.height-22;
+  if(isPocket&&!tracking&&phase!=='flight'){
+   for(let trial=0;trial<(phase==='pre'?30:18);trial++){
+    r.camera(desiredEye,desiredTarget);const watch=phase==='pre'?actors.filter(p=>!p.team):[actors[5],...receiverIndices.map(i=>actors[i])],bounds=watch.map(p=>({head:r.project([p.x,2.1,p.z]),foot:r.project([p.x,0,p.z])}));
+    const top=Math.min(...bounds.map(p=>p.head.y)),bottom=Math.max(...bounds.map(p=>p.foot.y)),widthFits=bounds.every(p=>p.head.x>24&&p.head.x<r.width-24);
+    if(top>65&&bottom<pocketBottom&&widthFits)break;
+    // The Run/Pass switch sits beside the formation. Fit the card row below
+    // it, and tilt slightly before shrinking an otherwise well-sized team.
+    if(phase==='pre'&&widthFits&&bottom>=pocketBottom&&top>80){desiredTarget[1]-=.25;continue}
+    desiredEye[1]*=1.055;desiredEye[2]=desiredTarget[2]+(desiredEye[2]-desiredTarget[2])*1.055;
+   }
+  }
   if(tracking){for(let trial=0;trial<18;trial++){r.camera(desiredEye,desiredTarget);if(r.project([focus.x,0,focus.z]).y<r.height-90)break;desiredEye[1]*=1.045;desiredEye[2]=desiredTarget[2]+(desiredEye[2]-desiredTarget[2])*1.045}}
   const rate=phase==='flight'?5.5:phase==='pre'||phase==='handoff'?3.5:tracking?5.2:3.2;camEye=cameraTravel(camEye,desiredEye,dt,rate,phase==='pre'?80:24);camTarget=cameraTravel(camTarget,desiredTarget,dt,rate,phase==='pre'?80:28);const strength=impactShake*.12;impactShake=Math.max(0,impactShake-dt*3.8);r.camera([camEye[0]+Math.sin(simTime*91)*strength,camEye[1]+Math.cos(simTime*73)*strength*.45,camEye[2]],camTarget);
  }

@@ -73,14 +73,18 @@ def record(browser, origin, out, mode):
         assert score['y'] + score['height'] <= heading['y'], 'Scoreboard overlaps playbook title'
     def check_presnap():
         assert not read()['playbook']['open'] and page.locator('#playbook').is_hidden()
+        boxes = []
         for selector in ['#runTab', '#passTab', '#flipPlay', '#motionReceiver', '#identifyMike', '#openPlaybook', '#snap', '#stick']:
-            check_hit(selector)
+            boxes.append(check_hit(selector))
         for index in range(4):
-            check_hit(f'#plays button:nth-child({index+1})')
+            boxes.append(check_hit(f'#plays button:nth-child({index+1})'))
         assert page.locator('#instruction').is_hidden(), 'Duplicate pre-snap instruction returned'
-        controls_top = page.locator('#pre').bounding_box()['y']
+        controls_top = page.locator('#plays').bounding_box()['y']
         for player in read()['players'][:11]:
-            assert player['head']['y'] > 60 and player['foot']['y'] < controls_top - 4, (player['role'], player['head'], player['foot'], controls_top)
+            head, foot = player['head'], player['foot']
+            assert head['y'] > 60 and foot['y'] < controls_top - 4, (player['role'], head, foot, controls_top)
+            for box in boxes:
+                assert max(head['x'], foot['x']) + 5 < box['x'] or min(head['x'], foot['x']) - 5 > box['x'] + box['width'] or foot['y'] < box['y'] or head['y'] > box['y'] + box['height'], ('Player/control overlap', player['role'], box)
     def capture(seconds):
         nonlocal frame
         for _ in range(round(seconds * 30)):
