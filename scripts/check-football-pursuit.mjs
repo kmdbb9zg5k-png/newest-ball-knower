@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {pursuitTarget,pursuitSteering,locomotionStep,tackleContactEligible,defenderRunSpeed,playerRatings,initialAssistMode} from '../public/play-moment-3d/game.js';
+import {pursuitTarget,pursuitSteering,locomotionStep,tackleContactEligible,defenderRunSpeed,playerRatings,initialAssistMode,gameplayInstruction} from '../public/play-moment-3d/game.js';
 import {MeshyAthletes,MESHY_CLIPS,forwardRunArmSwing} from '../public/play-moment-3d/meshy-athlete.js';
 // Compare actual accelerated pursuit against the previous short lead for a crossing run.
 function chase(targetFn){
@@ -12,6 +12,13 @@ assert.ok(interception.caught,'A safety with a reachable crossing angle should m
 assert.equal(initialAssistMode(''),true,'Default preview launch must be assisted');
 assert.equal(initialAssistMode('?assist=1'),true,'Preview query must enable assisted running');
 assert.equal(initialAssistMode('?assist=0'),false,'Manual mode must remain available by query');
+assert.match(gameplayInstruction({phase:'run',assist:true}),/AUTO RUNNING/,'Assisted play must explain that steering is automatic');
+assert.match(gameplayInstruction({phase:'run',assist:false}),/STEER/,'Manual play must explain how to steer');
+assert.match(gameplayInstruction({phase:'handoff',assist:true}),/AUTO ROUTE/,'Assisted handoffs must not prompt ineffective stick input');
+assert.match(gameplayInstruction({phase:'handoff',assist:false}),/STICK/,'Manual handoffs must keep steering directions visible');
+assert.match(gameplayInstruction({phase:'pre',mode:'run',assist:false}),/DIRECTION.*STICK/,'Manual runners can set their opening direction before the snap');
+assert.match(gameplayInstruction({phase:'pre',mode:'pass'}),/ROUTE/,'Passing pre-snap guidance must match the selected mode');
+assert.match(gameplayInstruction({phase:'flight'}),/CATCH/,'Ball-flight guidance must offer the catch choice');
 for(const x of[-25,0,25])for(const vx of[-9,0,9])for(const vz of[-8,0,8]){
  const p=pursuitTarget({index:18,x:4,z:32},{x,z:25,vx,vz},false,8);
  assert.ok(Number.isFinite(p.x)&&Number.isFinite(p.z));assert.ok(Math.abs(p.x)<=25.8);assert.ok(Math.abs(p.z-25)<=Math.abs(vz)*4+.001);

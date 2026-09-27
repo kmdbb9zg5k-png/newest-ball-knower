@@ -14,6 +14,16 @@ export function cameraWorldVector(screenX,screenZ,eye,target){const fx=target[0]
 export function normalizeControlKey(key){return typeof key==='string'&&key.length===1?key.toLowerCase():key}
 /** Let a preview link opt into assisted running without changing the default mode. */
 export function initialAssistMode(search=''){return new URLSearchParams(search).get('assist')!=='0'}
+export function gameplayInstruction({phase,mode='run',assist=true,qbRunner=false}={}){
+ if(phase==='pre')return mode==='pass'?'CHOOSE A ROUTE · SNAP THE BALL':'AIM RUN DIRECTION WITH THE STICK · SNAP';
+ if(phase==='snap')return'WATCH THE EXCHANGE';
+ if(phase==='handoff')return assist?'HANDOFF · AUTO ROUTE ACTIVE':'HOLD THE STICK THROUGH THE HANDOFF';
+ if(phase==='pass')return'MOVE THE QB · PICK A RECEIVER · PUMP OR THROW AWAY';
+ if(phase==='flight')return'CHOOSE YOUR CATCH · SECURE, AGGRESSIVE OR RUN';
+ if(phase==='run')return assist&&!qbRunner?'AUTO RUNNING · TAP A MOVE OR SPRINT':'STEER · SPRINT · JUKE · SPIN · POWER';
+ if(phase==='dead')return'PLAY OVER · SETTING UP THE NEXT DOWN';
+ return'';
+}
 export function receiverSlotForKey(key){const slot={x:0,y:1,z:2,'1':0,'2':1,'3':2,'4':3,'5':4}[normalizeControlKey(key)];return Number.isInteger(slot)?slot:-1}
 export function catchBreakupChance(separation){return separation<.7?.9:separation<1.2?.68:separation<2?.3:.04}
 export function defenderPursuitSpeed(separation,afterCatch=false){const base=afterCatch?7.65:6.8,ceiling=afterCatch?8.85:8.55;return clamp(base+Math.max(0,separation-1)*(afterCatch?.14:.11),base,ceiling)}
@@ -337,11 +347,11 @@ export function start(){
  function identifyMike(){if(phase!=='pre')return;mikeIndex=mikeIndex===17?15:mikeIndex+1;$('identifyMike').textContent='MIKE '+actors[mikeIndex].number;$('identifyMike').classList.toggle('active',mikeIndex!==16);replay.event('pre-snap',{adjustment:'mike',defender:mikeIndex});message('MIKE '+actors[mikeIndex].number+' IDENTIFIED',.75)}
  function pumpFake(){if(phase!=='pass'||simTime<pumpReady)return;const qb=actors[5];pumpReady=simTime+1.35;qb.throwT=.001;qb.throwStyle='pump';setTimedAction(qb,'pump',.34,0);for(const d of actors.filter(p=>p.team===1&&!defensiveCall.blitzers.includes(p.index))){if(Math.hypot(d.x-qb.x,d.z-qb.z)<22){d.reactionT=.001;d.reactionSide=Math.sign(qb.x-d.x)||1}}replay.event('pump-fake',{pressure:pocketPressure(Math.min(...actors.filter(p=>p.team===1&&!p.engaged).map(p=>Math.hypot(p.x-qb.x,p.z-qb.z)),8),elapsed)});message('PUMP FAKE · COVERAGE FROZEN',.65);navigator.vibrate?.(10)}
  function updateControls(){
-  $('pre').hidden=phase!=='pre'||ended;$('live').hidden=!['pre','snap','handoff','pass','flight','run'].includes(phase)||paused||ended;$('live').dataset.phase=phase;$('catchChoices').hidden=phase!=='flight'||!flight||flight.t<.28;
+  $('pre').hidden=phase!=='pre'||ended;$('live').hidden=!['pre','snap','handoff','pass','flight','run'].includes(phase)||paused||ended;$('live').dataset.phase=phase;$('hud').dataset.phase=phase;$('hud').dataset.assist=String(assist);$('catchChoices').hidden=phase!=='flight'||!flight||flight.t<.28;
   $('flipPlay').classList.toggle('active',runDirection<0);$('motionReceiver').classList.toggle('active',motioned);$('identifyMike').textContent='MIKE '+(actors[mikeIndex]?.number||54);$('identifyMike').classList.toggle('active',mikeIndex!==16);
   $('stick').setAttribute('aria-label',phase==='pre'?'Set movement direction before the snap':phase==='handoff'?'Keep holding movement through the handoff':phase==='pass'?'Move quarterback':'Move ball carrier');const qbRunner=phase==='run'&&carrier?.role==='QB';
-  $('instruction').textContent=phase==='pre'?'HOLD STICK TOWARD THE HOLE · TAP SNAP WITH OTHER THUMB':phase==='handoff'?'KEEP HOLDING · YOUR DIRECTION IS LIVE':phase==='pass'?'MOVE QB · TAP/HOLD TARGET · PUMP · SCRAMBLE':phase==='flight'?'TRACK THE BALL · CHOOSE CATCH':phase==='run'?'STEER · SPRINT · JUKE · SPIN · POWER':' ';
-  $('airMove').textContent=qbRunner?'SLIDE':'HURDLE';$('airMove').dataset.skill=qbRunner?'slide':'hurdle';$('power').textContent=qbRunner?'TRUCK':'TRUCK';$('throwAway').classList.remove('ready');$('throwAway').dataset.ready='false';$('throwAway').setAttribute('aria-label','Throwaway unavailable. Leave the pocket first.');$('control').textContent=(assist?'ASSIST':'MANUAL')+' ●';const stickDisabled=phase==='run'&&assist;$('stick').style.opacity=stickDisabled?'.3':'1';$('stick').style.pointerEvents=stickDisabled?'none':'auto';$('targetLayer').replaceChildren();
+  $('instruction').textContent=gameplayInstruction({phase,mode,assist,qbRunner});
+  $('airMove').textContent=qbRunner?'SLIDE':'HURDLE';$('airMove').dataset.skill=qbRunner?'slide':'hurdle';$('power').textContent='TRUCK';$('throwAway').classList.remove('ready');$('throwAway').dataset.ready='false';$('throwAway').setAttribute('aria-label','Throwaway unavailable. Leave the pocket first.');$('control').textContent=(assist?'AUTO RUN':'MANUAL')+' ●';$('control').setAttribute('aria-pressed',String(assist));$('control').setAttribute('aria-label','Running control: '+(assist?'automatic':'manual')+'. Tap to change.');const stickDisabled=assist&&(phase==='run'||phase==='handoff');$('stick').style.opacity=stickDisabled?'.3':'1';$('stick').style.pointerEvents=stickDisabled?'none':'auto';$('targetLayer').replaceChildren();
   if(phase==='pass')receiverIndices.forEach((index,i)=>{const b=document.createElement('button');b.className='target';b.id='target-'+index;const badge=document.createElement('span');badge.className='target-label';badge.textContent=receiverLabels[i];const tether=document.createElement('span');tether.className='target-tether';tether.setAttribute('aria-hidden','true');b.append(tether,badge);b.setAttribute('aria-label','Throw to receiver '+receiverLabels[i]+'. Tap for bullet, hold for touch or lob.');let pressedAt=null;b.onpointerdown=e=>{pressedAt=performance.now();b.setPointerCapture(e.pointerId);e.preventDefault()};b.onpointerup=e=>{if(pressedAt===null)return;const held=performance.now()-pressedAt;pressedAt=null;throwTo(index,throwKindForHold(held));e.preventDefault()};b.onpointercancel=()=>{pressedAt=null};b.onclick=e=>{if(e.detail===0)throwTo(index,'bullet')};$('targetLayer').appendChild(b)})
  }
  function updateSkillButtons(){const ready=phase==='run'&&simTime>=jukeReady;document.querySelectorAll('#skillPad button').forEach(button=>{button.classList.toggle('cooldown',phase==='run'&&!ready);button.classList.toggle('ready',ready);button.setAttribute('aria-disabled',String(!ready))});$('pumpFake').classList.toggle('cooldown',phase==='pass'&&simTime<pumpReady)}
@@ -584,8 +594,8 @@ function coverage(dt){
   if(tracking&&!runCameraStart)runCameraStart={eye:[...camEye],target:[...camTarget],x:carrier.x,z:carrier.z};
   // Center the pocket and move closer without enlarging athlete geometry.
   // Keep the existing wide/long-flight presentation and receiver-fit guard.
-  let desiredEye=tracking?[carrier.x*.94+.8,5.15,carrier.z-7.25]:[x+(isPocket?0:3.5*mult),(isPocket?5.15:8.0)*mult,(isPocket?snapZ:z)-(isPocket?14.5:24.5)*mult];
-  let desiredTarget=tracking?[carrier.x*.94,1.05,carrier.z+4.8]:[x,1.42,phase==='pre'?snapZ-5:z];
+  let desiredEye=tracking?[carrier.x*.94+.8,4.9,carrier.z-6.75]:[x+(isPocket?0:3.5*mult),(isPocket?5.15:8.0)*mult,(isPocket?snapZ:z)-(isPocket?14.5:24.5)*mult];
+  let desiredTarget=tracking?[carrier.x*.94,1.08,carrier.z+4.2]:[x,1.42,phase==='pre'?snapZ-5:z];
   if(tracking){const t=smooth(runCameraBlend),offset=[(carrier.x-runCameraStart.x)*.94,0,carrier.z-runCameraStart.z];desiredEye=desiredEye.map((v,i)=>(runCameraStart.eye[i]+offset[i])*(1-t)+v*t);desiredTarget=desiredTarget.map((v,i)=>(runCameraStart.target[i]+offset[i])*(1-t)+v*t)}
   // Start following the intended receiver while the football is in the air.
   // Catching continues from the actual camera position, never a new fixed view.

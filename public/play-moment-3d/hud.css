@@ -59,3 +59,15 @@ html,body,#game,#hud{min-height:100dvh}
  #catchChoices{bottom:max(14px,calc(env(safe-area-inset-bottom) + 8px));gap:5px}#catchChoices button{min-width:82px;height:44px;padding:4px 7px}
  #stamina{bottom:8px;width:112px;left:calc(50% - 56px)}
 }
+
+/* Final gameplay polish: legible guidance and reliable pre-snap touch targets. */
+#adjustments button{position:relative;height:34px;min-height:34px;min-width:62px;padding:0 9px;font-size:8px;letter-spacing:.045em}
+#adjustments button::before{content:"";position:absolute;inset:-5px 0;}
+#adjustments span{font-size:7px}
+#instruction{width:max-content;max-width:min(70vw,520px);left:50%;right:auto;transform:translateX(-50%);padding:5px 10px;border:1px solid #ffffff20;border-radius:999px;background:#07121dcc;font-size:10px;font-weight:750;letter-spacing:.04em;line-height:1.25}
+#hud[data-phase="run"] #instruction,#hud[data-phase="handoff"] #instruction{bottom:max(94px,calc(env(safe-area-inset-bottom) + 88px));}
+#hud[data-phase="pass"] #instruction{bottom:max(22px,calc(env(safe-area-inset-bottom) + 14px));}
+#hud[data-phase="pre"] #instruction{border-color:transparent;background:#07121d99}
+#hud[data-assist="true"] #live[data-phase="handoff"] #stick{opacity:.3!important;pointer-events:none!important}
+@media(max-height:380px){#adjustments button{height:32px;min-height:32px;min-width:58px;padding:0 7px}#instruction{max-width:54vw;font-size:9px}}
+@media(max-width:520px){#adjustments span{display:none}#adjustments button{min-width:56px;padding:0 6px}#hud[data-phase="run"] #instruction,#hud[data-phase="handoff"] #instruction{max-width:calc(100vw - 220px);font-size:8px}}
