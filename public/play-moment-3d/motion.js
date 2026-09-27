@@ -31,7 +31,7 @@ export function readyHandTarget(role,side){
 }
 export function advanceMotion(p,dt,phase){
  dt=clamp(Number.isFinite(dt)?dt:0,0,.1);
- const ready=phase==='pre',heavy=p.role==='OL'||p.role==='DL';
+ const ready=phase==='pre'&&p.action!=='pre-motion',heavy=p.role==='OL'||p.role==='DL';
  const m=p.motion||(p.motion={x:p.x,z:p.z,heading:p.heading||0,speed:0,run:0,
   ready:ready?1:0,block:0,turn:0,gait:p.index*.43,stridePhase:(p.index*.437+(p.team?.271:0))%1,fall:0,catch:0,throwTime:1,throwing:false});
  const distance=Math.hypot(p.x-m.x,p.z-m.z),delta=Math.atan2(Math.sin((p.heading||0)-m.heading),Math.cos((p.heading||0)-m.heading));

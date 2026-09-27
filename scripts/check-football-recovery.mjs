@@ -276,7 +276,7 @@ for(const rating of [35,55,75,95,99])for(const sprint of [false,true]){
 }
 // Manual button + keyboard shortcut, and the existing cross-line conversion.
 for(const via of ['button','keyboard','line']){
- const g=game();g.element('control').onclick();g.element('passTab').onclick();g.snap();g.step(.4);
+ const g=game();g.element('pause').onclick();g.element('control').onclick();g.element('resume').onclick();g.element('passTab').onclick();g.snap();g.step(.4);
  g.context.bk3dFixture.mutate(players=>{players.filter(p=>p.team).forEach(p=>{p.x=100;p.z=200});players[5].x=16;if(via==='line')players[5].z=35.2});
  g.key('ArrowUp');if(via==='button')g.element('scramble').onclick();if(via==='keyboard')g.key('g');g.step(.1);
  assert.equal(g.read().phase,'run');assert.equal(g.read().assist,false);assert.ok(g.read().players[5].hasBall);
@@ -304,3 +304,45 @@ console.log('QB checks passed: three timed deliveries, ten rating/sprint cases, 
  g.element('pause').onclick();g.element('restart').onclick();assert.equal(g.read().playbook.open,true);assert.equal(g.read().drive.down,1);assert.equal(g.read().drive.clock,78);
  console.log('Playbook: eight calls, filters, confirmation, pause, audibles, next down and restart passed.');
 }
+
+// Pre-snap tools must change the real controller without resetting the formation.
+{
+ const g=game(),clock=g.read().drive.clock;
+ assert.equal(g.read().preSnap.playArt,false);assert.equal(g.element('prePanel').hidden,true);
+ const hold={pointerId:3,preventDefault(){}};
+ g.element('playArt').onpointerdown(hold);assert.equal(g.read().preSnap.playArt,true);
+ g.element('playArt').onpointercancel();assert.equal(g.read().preSnap.playArt,false);
+ g.key('p');assert.equal(g.read().preSnap.playArt,true);g.events.get('keyup')({key:'p'});assert.equal(g.read().preSnap.playArt,false);
+ g.element('adjustPlay').onclick();assert.equal(g.read().preSnap.panel,'adjust');g.key('Escape');assert.equal(g.read().preSnap.panel,null);assert.equal(g.read().paused,false);
+ g.element('adjustPlay').onclick();g.element('flipPlay').onclick();g.element('audibleTab').onclick();
+ let choices=g.element('quickAudibles').children;
+ assert.equal(choices.length,3);assert.equal(new Set(choices.map(p=>p.dataset.mode+p.dataset.index)).size,3);
+ assert.ok(choices.every(p=>p.dataset.mode!=='run'||p.dataset.index!=='0'));
+ const positions=JSON.stringify(g.read().players.map(p=>[p.x,p.z]));choices[1].onclick();
+ assert.equal(g.read().mode,'pass');assert.equal(g.read().playbook.open,false);assert.equal(g.read().preSnap.panel,null);assert.equal(g.read().preSnap.runDirection,-1);assert.equal(JSON.stringify(g.read().players.map(p=>[p.x,p.z])),positions);
+ assert.equal(g.element('identifyMike').hidden,true);assert.equal(g.read().drive.clock,clock);
+ g.element('control').onclick();assert.equal(g.read().assist,true,'Mode changes belong in pause settings');
+ g.key('p');g.element('pause').onclick();assert.equal(g.read().preSnap.playArt,false);g.element('control').onclick();g.element('resume').onclick();assert.equal(g.read().assist,false);
+ g.element('pause').onclick();g.element('restart').onclick();assert.equal(g.read().assist,false,'Restart preserves the chosen running mode');
+}
+// Receiver motion follows a continuous path behind the blockers, animates from
+// travelled distance and finishes set before a snap. No game time is consumed.
+for(const reverse of [false,true]){
+ const g=game(),initial=g.read(),clock=initial.drive.clock;
+ g.element('motionReceiver').onclick();assert.equal(g.read().players[8].x,-12,'Motion must not teleport');assert.ok(g.element('snap').disabled);g.snap();assert.equal(g.read().phase,'pre');
+ g.step(1);let p=g.read().players[8];assert.ok(Math.hypot(p.x+12,p.z-initial.players[8].z)>.5);assert.ok(p.pose.run>.3);assert.ok(['walk','run'].includes(meshyAnimationState(p,'pre')));
+ g.element('pause').onclick();const paused=JSON.stringify(g.read().players.map(p=>[p.x,p.z,p.vx,p.vz,p.heading,p.pose]));g.step(2);assert.equal(JSON.stringify(g.read().players.map(p=>[p.x,p.z,p.vx,p.vz,p.heading,p.pose])),paused);g.element('resume').onclick();
+ if(reverse)g.element('motionReceiver').onclick();
+ let previous=g.read().players[8],steps=0;
+ while(g.read().preSnap.moving&&steps++<650){
+  g.step(1/60);const d=g.read();p=d.players[8];
+  assert.ok(Math.hypot(p.x-previous.x,p.z-previous.z)<=.09,'Motion jumped a frame');
+  for(let i=0;i<5;i++)assert.ok(Math.hypot(p.x-d.players[i].x,p.z-d.players[i].z)>1.3,'Motion crossed an offensive lineman');
+  for(let i=0;i<22;i++)if(i!==8){assert.equal(d.players[i].x,initial.players[i].x);assert.equal(d.players[i].z,initial.players[i].z)}
+  previous=p;
+ }
+ assert.ok(steps<650,'Motion must finish');assert.equal(p.x,reverse?-12:12);assert.equal(p.z,initial.players[8].z);assert.equal(p.startX,p.x);assert.equal(p.startZ,p.z);assert.equal(p.heading,0);assert.equal(p.action,null);assert.equal(g.element('snap').disabled,false);assert.equal(g.read().drive.clock,clock);assert.equal(g.read().drive.plays,0);
+ g.element('adjustPlay').onclick();g.element('audibleTab').onclick();g.element('quickAudibles').children[1].onclick();assert.equal(g.read().players[8].startX,p.x,'Quick audible preserves completed motion');
+ g.key('p');g.snap();assert.equal(g.read().phase,'snap');assert.equal(g.read().preSnap.playArt,false);assert.equal(g.element('prePanel').hidden,true);
+}
+console.log('Pre-snap flow: hold/release art, quick audibles, pause running settings and continuous receiver motion passed.');

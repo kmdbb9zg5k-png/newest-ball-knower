@@ -164,7 +164,7 @@ export function meshyAnimationState(p,phase){
   if(p.blockStyle==='climb')return'climb-block';
   return'drive-block';
  }
- if(phase==='pre')return'pre';
+ if(phase==='pre')return p.action==='pre-motion'?(Math.hypot(p.vx||0,p.vz||0)>2.4?'run':'walk'):'pre';
  const speed=Math.hypot(p.vx||0,p.vz||0);
  if(phase==='pass'&&p.role==='QB'){
   if(speed<=.2)return'qb-pocket';
@@ -553,7 +553,7 @@ export class MeshyAthletes{
  }
  applyFootballPose(locals,p,phase,time,state){
   const pulse=Math.sin(clamp(p.actionT||0,0,1)*Math.PI),side=p.actionSide||0,mirror=(p.index+p.team)%2?1:-1,hips=this.joints[0],beat=Math.sin(time*(6.4+(p.index%4)*.31)+p.index*.83),profile=ROLE_MOTION_PROFILES[p.role]||ROLE_MOTION_PROFILES.LB,speed=clamp(Math.hypot(p.vx||0,p.vz||0)/9,0,1),pilotPhase=authenticityPilotPhase(state,p,time);
-  if(phase==='pre'){
+  if(state==='pre'){
    const profile=ROLE_STANCE_PROFILES[p.role]||ROLE_STANCE_PROFILES.LB;locals[hips].t[1]-=profile.crouch;
    this.rotate(locals,'mixamorig:Spine',1,0,0,profile.lean);
    this.rotate(locals,'mixamorig:LeftUpLeg',1,0,0,-profile.knees-profile.stagger*mirror);
@@ -712,11 +712,11 @@ export class MeshyAthletes{
   if(choice.state==='rest')this.relaxedPose(locals,p,time);
   if(choice.state==='settle')this.settlePose(locals,p,time);
   if(choice.state==='celebrate')this.celebrationPose(locals,p,time);
-  if(phase==='pre')this.readyPose(locals,p);
+  if(choice.state==='pre')this.readyPose(locals,p);
   else if(p.engaged&&!p.fallen)this.blockPose(locals,p,time);
   else if(p.hasBall&&(/^carry-|^qb-scramble|break-tackle|stumble/.test(choice.state)||p.fallen))this.carryPose(locals,p);
   if(p.fallen&&/wrap|gang|tackle|hit|pancake/.test(choice.state))this.contactPose(locals,p);
-  if(phase==='pre'){
+  if(choice.state==='pre'){
    const seed=meshyPlaybackSeed(p.index,p.team),breath=Math.sin(time*(1.25+seed.rate*.22)+seed.offset*Math.PI*2),scan=Math.sin(time*(.38+seed.rate*.08)+seed.offset*Math.PI*2);
    const spine=this.namedNodes['mixamorig:Spine2'],head=this.namedNodes['mixamorig:Head'];
    if(Number.isInteger(spine))locals[spine].r=quatMul(locals[spine].r,axisQuat(1,0,0,breath*.012));
