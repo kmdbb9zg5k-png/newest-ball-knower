@@ -212,8 +212,8 @@ html,body,#game,#hud{min-height:100dvh}
  .playbook-heading .eyebrow{font-size:7px}
  .playbook-filters{padding:0;gap:0}
  .playbook-filters button{min-width:52px}
- #playbookGrid{gap:6px}
- .play-card{padding:5px 8px 2px;border-radius:8px}
+ #playbookGrid{gap:6px;grid-template-rows:repeat(2,minmax(48px,1fr))}
+ .play-card{min-height:48px;padding:5px 8px 2px;border-radius:8px}
  .play-card-heading b{font-size:9px}
  .play-card-heading small{font-size:6px;padding:2px 3px}
  .playbook-footer{padding-top:4px}

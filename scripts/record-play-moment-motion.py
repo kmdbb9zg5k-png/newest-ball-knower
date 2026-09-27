@@ -63,9 +63,11 @@ def record(browser, origin, out, mode):
         assert read()['playbook']['open'] and page.locator('#playbook').is_visible()
         assert page.locator('#playbookGrid .play-card').count() == 8
         assert page.locator('#pre').is_hidden() and page.locator('#live').is_hidden()
+        grid = page.locator('#playbookGrid').bounding_box()
         for kind in ['run', 'pass']:
             for index in range(4):
-                check_hit(f'#call-{kind}-{index}')
+                box = check_hit(f'#call-{kind}-{index}')
+                assert box['y'] >= grid['y'] and box['y'] + box['height'] <= grid['y'] + grid['height'] + .1, ('Clipped play card', kind, index, box, grid)
         for selector in ['#filterAll', '#filterRun', '#filterPass', '#breakHuddle']:
             check_hit(selector)
         score = page.locator('.scorebug').bounding_box()
