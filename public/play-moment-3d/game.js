@@ -389,7 +389,7 @@ export function start(){
  function motionReceiver(){if(phase!=='pre'||playbookOpen||paused)return;const receiver=actors[8],homeX=specs[8][1];motioned=!motioned;receiver.startX=receiver.x=motioned?-homeX:homeX;receiver.action=motioned?'motion':null;receiver.heading=motioned?-Math.PI/2:Math.PI/2;$('motionReceiver').classList.toggle('active',motioned);replay.event('pre-snap',{adjustment:'motion',receiver:receiver.index,active:motioned});message(motioned?'WR MOTIONED ACROSS':'MOTION RESET',.7)}
  function identifyMike(){if(phase!=='pre'||playbookOpen||paused)return;mikeIndex=mikeIndex===17?15:mikeIndex+1;$('identifyMike').textContent='MIKE '+actors[mikeIndex].number;$('identifyMike').classList.toggle('active',mikeIndex!==16);replay.event('pre-snap',{adjustment:'mike',defender:mikeIndex});message('MIKE '+actors[mikeIndex].number+' IDENTIFIED',.75)}
  function updateControls(){
-  $('playbook').hidden=!playbookOpen||paused||ended||replaying;$('hud').dataset.playbook=String(playbookOpen);$('control').hidden=playbookOpen;$('instruction').hidden=playbookOpen;$('pre').hidden=phase!=='pre'||playbookOpen||paused||ended;$('live').hidden=!['pre','snap','handoff','pass','flight','run'].includes(phase)||playbookOpen||paused||ended||replaying;$('live').dataset.phase=pendingThrow?'windup':phase;$('hud').dataset.phase=pendingThrow?'windup':phase;$('hud').dataset.assist=String(assist);$('catchChoices').hidden=phase!=='flight'||!flight||flight.t<.28;
+  $('playbook').hidden=!playbookOpen||paused||ended||replaying;$('hud').dataset.playbook=String(playbookOpen);$('control').hidden=playbookOpen;$('instruction').hidden=playbookOpen||phase==='dead';$('pre').hidden=phase!=='pre'||playbookOpen||paused||ended;$('live').hidden=!['pre','snap','handoff','pass','flight','run'].includes(phase)||playbookOpen||paused||ended||replaying;$('live').dataset.phase=pendingThrow?'windup':phase;$('hud').dataset.phase=pendingThrow?'windup':phase;$('hud').dataset.assist=String(assist);$('catchChoices').hidden=phase!=='flight'||!flight||flight.t<.28;
   $('flipPlay').classList.toggle('active',runDirection<0);$('motionReceiver').classList.toggle('active',motioned);$('identifyMike').textContent='MIKE '+(actors[mikeIndex]?.number||54);$('identifyMike').classList.toggle('active',mikeIndex!==16);
   $('stick').setAttribute('aria-label',phase==='pre'?'Set movement direction before the snap':phase==='handoff'?'Keep holding movement through the handoff':phase==='pass'?'Move quarterback':'Move ball carrier');const qbRunner=phase==='run'&&carrier?.role==='QB';
   $('instruction').textContent=gameplayInstruction({phase,mode,assist,qbRunner});
@@ -676,14 +676,14 @@ function coverage(dt){
   // Catching continues from the actual camera position, never a new fixed view.
   if(phase==='flight'&&flight){const start=flightCameraStart||{eye:camEye,target:camTarget},t=smooth(flight.t),to=flight.to;desiredEye=[to[0]*.94+.8,7.6,to[2]-17].map((v,i)=>start.eye[i]+(v-start.eye[i])*t);desiredTarget=[to[0]*.94,1.35,to[2]+3.8].map((v,i)=>start.target[i]+(v-start.target[i])*t)}
   // Fit actual projected heads/feet above the pre-snap controls. Do not pan the QB away.
-  const pocketBottom=phase==='pre'?(playbookOpen?r.height-100:Math.min(r.height-100,$('plays').getBoundingClientRect().top-10)):r.height-22;
+  const pocketBottom=phase==='pre'?(playbookOpen?r.height-100:Math.min(r.height-100,$('pre').getBoundingClientRect().top-10)):r.height-22;
   if(isPocket&&!tracking&&phase!=='flight'){
    for(let trial=0;trial<(phase==='pre'?30:18);trial++){
     r.camera(desiredEye,desiredTarget);const watch=phase==='pre'?actors.filter(p=>!p.team):[actors[5],...receiverIndices.map(i=>actors[i])],bounds=watch.map(p=>({head:r.project([p.x,2.1,p.z]),foot:r.project([p.x,0,p.z])}));
     const top=Math.min(...bounds.map(p=>p.head.y)),bottom=Math.max(...bounds.map(p=>p.foot.y)),widthFits=bounds.every(p=>p.head.x>24&&p.head.x<r.width-24);
     if(top>65&&bottom<pocketBottom&&widthFits)break;
-    // The Run/Pass switch sits beside the formation. Fit the card row below
-    // it, and tilt slightly before shrinking an otherwise well-sized team.
+    // Fit the compact adjustment row and snap button, tilting slightly
+    // before shrinking an otherwise well-sized team.
     if(phase==='pre'&&widthFits&&bottom>=pocketBottom&&top>80){desiredTarget[1]-=.25;continue}
     desiredEye[1]*=1.055;desiredEye[2]=desiredTarget[2]+(desiredEye[2]-desiredTarget[2])*1.055;
    }

@@ -76,12 +76,12 @@ def record(browser, origin, out, mode):
     def check_presnap():
         assert not read()['playbook']['open'] and page.locator('#playbook').is_hidden()
         boxes = []
-        for selector in ['#runTab', '#passTab', '#flipPlay', '#motionReceiver', '#identifyMike', '#openPlaybook', '#snap', '#stick']:
+        for selector in ['#flipPlay', '#motionReceiver', '#identifyMike', '#openPlaybook', '#snap', '#stick']:
             boxes.append(check_hit(selector))
-        for index in range(4):
-            boxes.append(check_hit(f'#plays button:nth-child({index+1})'))
+        for selector in ['.play-row', '#plays', '#runTab', '#passTab']:
+            assert page.locator(selector).is_hidden(), ('Play picker remained after selection', selector)
         assert page.locator('#instruction').is_hidden(), 'Duplicate pre-snap instruction returned'
-        controls_top = page.locator('#plays').bounding_box()['y']
+        controls_top = page.locator('#pre').bounding_box()['y']
         for player in read()['players'][:11]:
             head, foot = player['head'], player['foot']
             assert head['y'] > 60 and foot['y'] < controls_top - 4, (player['role'], head, foot, controls_top)
@@ -201,6 +201,8 @@ def record(browser, origin, out, mode):
             capture(.9)
             assert read()['phase'] == 'dead'
             page.evaluate('bk3dTest.step(1.5)')
+        if read()['phase'] == 'dead':
+            assert page.locator('#instruction').is_hidden(), 'Post-play setup banner remained visible'
         page.screenshot(path=str(folder / 'finish.png'))
         if read()['phase'] == 'run':
             assert page.evaluate("bk3dTest.forceContact('wrap')")
