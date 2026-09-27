@@ -76,3 +76,12 @@ html,body,#game,#hud{min-height:100dvh}
 /* Keep live coaching off the play and let it clear after the runner takes over. */
 #hud[data-phase="run"] #instruction,#hud[data-phase="handoff"] #instruction{animation:gameplay-hint-clear 2s ease-out forwards}
 @keyframes gameplay-hint-clear{0%,68%{opacity:1}100%{opacity:0;visibility:hidden}}
+
+/* An explicit commitment to run; stays thumb-sized on phone landscape. */
+#moves #scramble{display:none;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:90px;height:66px;border-color:#ecd286;background:#e8c66c;color:#111a20}
+#live[data-phase="pass"] #scramble{display:flex}
+#moves #scramble b{font-size:10px;line-height:1;pointer-events:none}
+#moves #scramble small{font-size:7px;line-height:1;pointer-events:none}
+#live[data-phase="windup"] #stick,#live[data-phase="windup"] #moves,#live[data-phase="windup"] #stamina{display:none}
+@media(max-height:380px){#moves #scramble{width:82px;height:54px}#moves #scramble b{font-size:9px}}
+#hud[data-phase="pass"] #instruction{max-width:min(50vw,calc(100vw - 420px))}

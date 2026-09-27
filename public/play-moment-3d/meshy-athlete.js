@@ -1,4 +1,5 @@
 import{identity,mul,translate,scale,rx,ry,rz}from'./renderer.js';
+import{quarterbackThrowPose}from'./quarterback.js?v=football-finish-21';
 
 const ASSET='/play-moment-3d/assets/ball-knower-gridiron-pro-v3.glb?v=clean-rig-1';
 const MAX_BONES=32;
@@ -467,11 +468,25 @@ export class MeshyAthletes{
   this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],[sign*(.20+.08*raise),chest[1]-.48+1.05*raise,chest[2]+.025+.10*raise],[sign*.32,chest[1]-.30+.60*raise,chest[2]+.06]);
  }
  quarterbackPose(locals,p,state){
-  const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m),throwing=state.startsWith('throw-'),t=clamp(p.throwT||0,0,1);
+  const throwing=state.startsWith('throw-'),t=clamp(p.throwT||0,0,1),delivery=quarterbackThrowPose(t,p.throwStyle);
+  if(throwing){
+   // The old throw alias is a high-point catch, including its jumping legs.
+   this.standingPose(locals,p,.045,.035);
+   const {load,drive}=delivery;
+   this.rotate(locals,'mixamorig:Hips',0,1,0,-.13*load+.17*drive);
+   this.rotate(locals,'mixamorig:Spine2',0,1,0,-.22*load+.30*drive);
+   this.rotate(locals,'mixamorig:Spine',1,0,0,-.035*load+.10*drive);
+   for(const [side,sign]of[['Left',1],['Right',-1]]){
+    const ankle=pointFromMatrix(this.jointWorld(this.base,this.namedNodes['mixamorig:'+side+'Foot']).m);
+    this.solveLimb(locals,[side+'UpLeg',side+'Leg',side+'Foot'],[sign*.16,ankle[1],ankle[2]+(sign>0?.06+.17*drive:-.16)],[sign*.18,.44,.65],true);
+   }
+  }
+  const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m);
   for(const [side,sign]of[['Left',1],['Right',-1]]){
-   let target=[sign*.09,chest[1]-.10,chest[2]+.26];
-   if(throwing&&side==='Right'){const load=smooth(t/.35),release=smooth((t-.35)/.35),follow=smooth((t-.7)/.3);target=[-.28+.35*follow,chest[1]-.10+.34*load-.44*follow,chest[2]+.26-.45*load+.85*release-.20*follow]}
-   this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],target,[sign*.35,chest[1]-.28,chest[2]-.07]);
+   let target=[sign*.09,chest[1]-.10,chest[2]+.26],elbow=[sign*.35,chest[1]-.28,chest[2]-.07];
+   if(throwing&&side==='Right'){target=[delivery.hand[0],chest[1]+delivery.hand[1],chest[2]+delivery.hand[2]];elbow=[delivery.elbow[0],chest[1]+delivery.elbow[1],chest[2]+delivery.elbow[2]]}
+   else if(throwing){const tuck=smooth(t/.32);target=[.09+.09*tuck,chest[1]-.10-.15*tuck,chest[2]+.26-.08*tuck]}
+   this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],target,elbow);
   }
  }
  contactPose(locals,p){
@@ -751,6 +766,7 @@ export class MeshyAthletes{
   if(p.ballTarget){const c=p.ballTarget,h=p.heading||0;return{center:[...c],a:[c[0]-.16*Math.cos(h),c[1],c[2]+.16*Math.sin(h)],b:[c[0]+.16*Math.cos(h),c[1],c[2]-.16*Math.sin(h)],hand:'both'}}
   const model=this.modelFor(p),worldPoint=(matrix,offset=[0,0,0])=>pointFromMatrix(mul(model,matrix),offset),between=(a,b,t)=>a.map((value,index)=>value+(b[index]-value)*t),normal=(a,b)=>{const v=b.map((value,index)=>value-a[index]),length=Math.hypot(...v)||1;return v.map(value=>value/length)};
   const left=hands.left&&worldPoint(hands.left),right=hands.right&&worldPoint(hands.right),chest=hands.chest&&worldPoint(hands.chest,[0,.055,-.015]);
+  if(p.role==='QB'&&p.throwT>0&&p.throwStyle!=='pump'&&right){const center=worldPoint(hands.right,[0,.035,.025]),axis=[Math.sin(p.heading||0),0,Math.cos(p.heading||0)];return{center,a:center.map((v,i)=>v-axis[i]*.16),b:center.map((v,i)=>v+axis[i]*.16),hand:'right'}}
   if(p.role==='QB'&&['pre','pass','handoff'].includes(phase)&&left&&right){const grip=between(left,right,.5),center=chest?between(grip,chest,.18):grip,axis=normal(left,right),a=center.map((value,index)=>value-axis[index]*.155),b=center.map((value,index)=>value+axis[index]*.175);return{center,a,b,hand:'both'}}
   const carryRight=(p.index+p.team)%2===1,handMatrix=(carryRight?hands.right:hands.left)||(carryRight?hands.left:hands.right),forearmMatrix=(carryRight?hands.rightForearm:hands.leftForearm)||(carryRight?hands.leftForearm:hands.rightForearm);if(!handMatrix)return null;
   const hand=worldPoint(handMatrix),elbow=forearmMatrix?worldPoint(forearmMatrix):null,forearmCenter=elbow?between(elbow,hand,.64):hand,center=chest?between(forearmCenter,chest,.12):forearmCenter,axis=elbow?normal(elbow,hand):normal(worldPoint(handMatrix,[0,0,-.2]),worldPoint(handMatrix,[0,0,.2])),a=center.map((value,index)=>value-axis[index]*.155),b=center.map((value,index)=>value+axis[index]*.175);
