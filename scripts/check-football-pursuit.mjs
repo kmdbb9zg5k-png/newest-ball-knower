@@ -35,9 +35,10 @@ const p={index:6,team:0,role:'RB',vx:0,vz:7,hasBall:true,distance:2};
 assert.equal(rig.choose(p,'run',1).baseTime,rig.choose(p,'run',20).baseTime,'Unchanged position must not advance a running clip');
 assert.notEqual(rig.choose(p,'run',1).baseTime,rig.choose({...p,distance:2.5},'run',1).baseTime,'Ground covered must advance the stride');
 assert.equal(rig.choose({...p,sprinting:true},'run',1).base,MESHY_CLIPS.sprint);
-assert.ok(Math.abs(forwardRunArmSwing(0))<1e-9,'Run arms start centered with the leg cycle');
-assert.ok(Math.abs(forwardRunArmSwing(.6125)-.12)<1e-9,'Run arm swing follows the planted leg cadence');
-assert.ok(Math.abs(forwardRunArmSwing(1.8375)+.12)<1e-9,'Opposite arm swings with the next leg');
+assert.ok(Math.abs(forwardRunArmSwing(0,0,4.25))<1e-9,'Run arm swing starts in phase with the authored cycle');
+assert.ok(Math.abs(forwardRunArmSwing(1.0625,0,4.25)-.12)<1e-9,'Run arm swing reaches its peak on the same cycle as the legs');
+assert.ok(Math.abs(forwardRunArmSwing(1.35,0,5.4)-.12)<1e-9,'Sprint arm swing uses the sprint stride cycle');
+assert.ok(Math.abs(forwardRunArmSwing(.87,0,4.25)+forwardRunArmSwing(.87,.5,4.25))<1e-9,'Opposing arms remain half a gait cycle apart');
 console.log('Pursuit checks passed: crossing interception, 27 direction/boundary cases, teammate spacing, distance-driven run/sprint playback.');
 
 // A support defender must close the tackle window instead of shadowing a parallel lane.
