@@ -75,6 +75,11 @@ def record(browser, origin, out, mode):
         assert score['y'] + score['height'] <= heading['y'], 'Scoreboard overlaps playbook title'
     def check_presnap():
         assert not read()['playbook']['open'] and page.locator('#playbook').is_hidden()
+        assert page.locator('#playerNames').is_visible()
+        assert page.locator('#playerNames .player-name').count() == 22
+        assert page.locator('#player-name-5').is_visible()
+        assert page.locator('#player-name-5').text_content() == read()['players'][5]['lastName'], 'QB label must match his stable roster name'
+        assert page.locator('#playerNames').evaluate("el => getComputedStyle(el).pointerEvents") == 'none'
         boxes = []
         for selector in ['#playArt', '#adjustPlay', '#snap', '#stick']:
             boxes.append(check_hit(selector))
@@ -186,6 +191,7 @@ def record(browser, origin, out, mode):
             assert read()['assist'] is False
             page.keyboard.down('ArrowUp')
         page.click('#snap')
+        assert page.locator('#playerNames').is_hidden(), 'Names must disappear at the snap'
         if mode == 'qb-scramble':
             capture(.45)
             assert read()['phase'] == 'pass'

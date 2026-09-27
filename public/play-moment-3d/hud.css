@@ -285,3 +285,8 @@ html,body,#game,#hud{min-height:100dvh}
  #openPlaybook{margin-top:2px}
  #adjustHelp{font-size:10px;margin:6px 4px 2px}
 }
+
+/* Pre-snap identifiers track feet and never intercept a field control. */
+#playerNames{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.player-name{position:absolute;transform:translateX(-50%);padding:0 4px;color:#f4f8fc;font-size:10px;line-height:13px;font-weight:800;letter-spacing:.2px;text-transform:uppercase;white-space:nowrap;text-shadow:0 1px 2px #000,1px 0 2px #000,-1px 0 2px #000,0 -1px 2px #000;pointer-events:none;user-select:none}
+.player-name.opponent{color:#d7e2e9;font-weight:700}
