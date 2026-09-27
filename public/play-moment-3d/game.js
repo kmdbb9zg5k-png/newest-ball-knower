@@ -1,9 +1,9 @@
 import{RUNS,PASSES,FORMATIONS,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=formation-book-28';
 export{RUNS,PASSES}from'./playbook.js?v=formation-book-28';
-import{Renderer,pose,segment,hex}from'./renderer.js';
+import{Renderer,pose,segment,hex,mul,ry}from'./renderer.js?v=graphics-pass-30';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js?v=football-finish-25';
-import{createMeshyAthletes}from'./meshy-athlete.js?v=football-finish-25';
-import{makeStadium}from'./stadium.js';
+import{createMeshyAthletes}from'./meshy-athlete.js?v=graphics-pass-30';
+import{makeStadium}from'./stadium.js?v=graphics-pass-30';
 import{createGameplayReplayRecorder}from'./replay.js';
 import{QB_THROW_RELEASE,quarterbackThrowDuration}from'./quarterback.js?v=football-finish-21';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
@@ -767,10 +767,10 @@ function coverage(dt){
   if(!meshy.ready)for(const p of actors)drawAthlete(r,p,now/1000,phase);
   else meshy.queueShadows(actors,phase,now/1000);
   const stagedBall=phase==='pre'?[actors[2].x,.42,actors[2].z-.2]:exchange?.ball;
-  if(stagedBall&&!ended){const[x,y,z]=stagedBall;r.add('sphere',pose(x,y,z,.13,.115,.22),hex('#713a22'));r.add('cylinder',segment([x-.065,y+.1,z],[x+.065,y+.1,z],.012),hex('#f3eee0'))}
-  if(!stagedBall&&carrier?.hasBall&&!flight){const rigged=meshy.ballAnchor(carrier);if(rigged)r.add('cylinder',segment(rigged.a,rigged.b,.105),hex('#713a22'),'',false,.72);else{const[x,y,z,heading]=carriedBallAnchor(carrier,phase),fx=Math.sin(heading)*.17,fz=Math.cos(heading)*.17;r.add('cylinder',segment([x-fx,y,z-fz],[x+fx,y,z+fz],.105),hex('#713a22'),'',false,.72)}}
-  if(flight){const t=clamp(flight.t,0,1),p=flight.from.map((v,i)=>v+(flight.to[i]-flight.from[i])*t),dx=flight.to[0]-flight.from[0],dz=flight.to[2]-flight.from[2],length=Math.hypot(dx,dz)||1,right=[dz/length,-dx/length];p[1]+=Math.sin(Math.PI*t)*flight.arc;r.add('sphere',pose(...p,.155,.14,.29),hex('#7d4226'));for(const offset of[-.07,0,.07])r.add('cylinder',segment([p[0]+right[0]*.095,p[1]+.10+offset*.18,p[2]+right[1]*.095],[p[0]-right[0]*.095,p[1]+.10+offset*.18,p[2]-right[1]*.095],.014),hex('#f3eee0'));r.add('plane',pose(p[0],.06,p[2],.52,1,.40),[0,0,0,.65],'shadow',true)}
-  if(looseBall){const age=simTime-looseBall.born,t=clamp(age/looseBall.life,0,1);if(t>=1)looseBall=null;else{const bounce=Math.abs(Math.sin(age*16))*.36*(1-t),x=looseBall.x+age*.22,z=looseBall.z+age*.12,y=.16+bounce;r.add('sphere',pose(x,y,z,.17,.15,.31),hex('#7d4226'));r.add('cylinder',segment([x-.09,y+.10,z],[x+.09,y+.10,z],.014),hex('#f3eee0'));r.add('plane',pose(x,.06,z,.48,1,.36),[0,0,0,.58],'shadow',true)}}
+  if(stagedBall&&!ended){const[x,y,z]=stagedBall;r.add('football',segment([x,y,z-.17],[x,y,z+.17],.105),[1,1,1,1],'',false,.08,5)}
+  if(!stagedBall&&carrier?.hasBall&&!flight){const rigged=meshy.ballAnchor(carrier);if(rigged)r.add('football',segment(rigged.a,rigged.b,.105),[1,1,1,1],'',false,.08,5);else{const[x,y,z,heading]=carriedBallAnchor(carrier,phase),fx=Math.sin(heading)*.17,fz=Math.cos(heading)*.17;r.add('football',segment([x-fx,y,z-fz],[x+fx,y,z+fz],.105),[1,1,1,1],'',false,.08,5)}}
+  if(flight){const t=clamp(flight.t,0,1),p=flight.from.map((v,i)=>v+(flight.to[i]-flight.from[i])*t),dx=flight.to[0]-flight.from[0],dz=flight.to[2]-flight.from[2];p[1]+=Math.sin(Math.PI*t)*flight.arc;const axis=[dx,flight.to[1]-flight.from[1]+Math.cos(Math.PI*t)*Math.PI*flight.arc,dz],axisLength=Math.hypot(...axis)||1,a=p.map((v,i)=>v-axis[i]/axisLength*.19),b=p.map((v,i)=>v+axis[i]/axisLength*.19);r.add('football',mul(segment(a,b,.112),ry(simTime*22)),[1,1,1,1],'',false,.08,5);r.add('plane',pose(p[0],.06,p[2],.52,1,.40),[0,0,0,.65],'shadow',true)}
+  if(looseBall){const age=simTime-looseBall.born,t=clamp(age/looseBall.life,0,1);if(t>=1)looseBall=null;else{const bounce=Math.abs(Math.sin(age*16))*.36*(1-t),x=looseBall.x+age*.22,z=looseBall.z+age*.12,y=.16+bounce;const tilt=Math.sin(age*14)*.075;r.add('football',mul(segment([x-.17,y-tilt,z-.08],[x+.17,y+tilt,z+.08],.112),ry(age*9)),[1,1,1,1],'',false,.08,5);r.add('plane',pose(x,.06,z,.48,1,.36),[0,0,0,.58],'shadow',true)}}
   r.draw();meshy.draw(actors,phase,now/1000);
   positionPlayerNames();
   if(phase==='pass'){

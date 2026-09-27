@@ -20,6 +20,26 @@ function orthographic(size,near=.1,far=140){return new Float32Array([1/size,0,0,
 function sphere(n=16,rows=10,helmet=false){const v=[],ix=[];for(let j=0;j<=rows;j++){const th=j/rows*Math.PI;for(let i=0;i<=n;i++){const ph=i/n*Math.PI*2,x=Math.sin(th)*Math.cos(ph),y=Math.cos(th),z=Math.sin(th)*Math.sin(ph);v.push(x,y,z,x,y,z,i/n,j/rows)}}for(let j=0;j<rows;j++)for(let i=0;i<n;i++){const a=j*(n+1)+i,b=a+n+1;const ph=(i+.5)/n*Math.PI*2,th=(j+.5)/rows*Math.PI;if(helmet&&Math.sin(ph)>.40&&th>Math.PI*.36&&th<Math.PI*.83)continue;ix.push(a,b,a+1,b,b+1,a+1)}return{v,ix}}
 function cube(){const v=[],ix=[],faces=[[[1,0,0],[0,1,0],[0,0,1]],[[-1,0,0],[0,1,0],[0,0,-1]],[[0,1,0],[1,0,0],[0,0,-1]],[[0,-1,0],[1,0,0],[0,0,1]],[[0,0,1],[1,0,0],[0,1,0]],[[0,0,-1],[-1,0,0],[0,1,0]]];for(const [n,u,w] of faces){const off=v.length/8;for(const [a,b] of [[-1,-1],[1,-1],[1,1],[-1,1]])v.push(...n.map((x,i)=>(x+u[i]*a+w[i]*b)*.5),...n,(a+1)/2,(b+1)/2);ix.push(off,off+1,off+2,off,off+2,off+3)}return{v,ix}}
 function cylinder(n=12){const v=[],ix=[];for(let j=0;j<=1;j++)for(let i=0;i<=n;i++){const a=i/n*Math.PI*2,x=Math.cos(a),z=Math.sin(a);v.push(x,j-.5,z,x,0,z,i/n,j)}for(let i=0;i<n;i++)ix.push(i,i+n+1,i+1,i+1,i+n+1,i+n+2);return{v,ix}}
+/** Pointed leather shell, aligned with segment()'s local Y axis. */
+export function footballGeometry(){
+ const v=[],ix=[],rings=18,sides=24;
+ for(let j=0;j<=rings;j++){
+  const theta=j/rings*Math.PI,y=.5*Math.cos(theta),radius=Math.pow(Math.sin(theta),1.18);
+  for(let i=0;i<=sides;i++){
+   const phi=i/sides*Math.PI*2,c=Math.cos(phi),s=Math.sin(phi);
+   const dy=-.5*Math.sin(theta),dr=1.18*Math.pow(Math.max(.00001,Math.sin(theta)),.18)*Math.cos(theta),normal=norm([-dy*c,dr,-dy*s]);
+   v.push(radius*c,y,radius*s,...normal,i/sides,j/rings);
+  }
+ }
+ for(let j=0;j<rings;j++)for(let i=0;i<sides;i++){const a=j*(sides+1)+i,b=a+sides+1;ix.push(a,b,a+1,a+1,b,b+1)}
+ return{v,ix};
+}
+function spectatorBody(){
+ const v=[],ix=[],rings=[[-.5,.65],[-.20,.82],[.30,1],[.5,.62]],n=8;
+ for(const [y,r]of rings)for(let i=0;i<=n;i++){const a=i/n*Math.PI*2;v.push(Math.cos(a)*r,y,Math.sin(a)*r*.65,...norm([Math.cos(a),.10,Math.sin(a)]),i/n,y+.5)}
+ for(let j=0;j<rings.length-1;j++)for(let i=0;i<n;i++){const a=j*(n+1)+i,b=a+n+1;ix.push(a,b,a+1,a+1,b,b+1)}
+ return{v,ix};
+}
 const vertex=`#version 300 es
 precision highp float;
 layout(location=0) in vec3 p;layout(location=1) in vec3 n;layout(location=2) in vec2 uv;
@@ -58,11 +78,24 @@ void main(){
   float weave=sin(tex.x*frequency*6.283)*sin(tex.y*frequency*6.283);
   albedo*=1.+.045*weave*aa;
  }
+ if(material==5){
+  // Four stitched leather panels and an eight-crossbar lace, built into the shell.
+  vec2 grainUV=tex*vec2(190.,95.);float detail=1.-smoothstep(.35,1.3,max(fwidth(grainUV.x),fwidth(grainUV.y)));
+  vec2 pebble=fract(grainUV)-.5;float grain=1.-smoothstep(.13,.45,length(pebble));
+  float seam=1.-smoothstep(.008,.018,abs(fract(tex.x*4.+.5)-.5));
+  float laceU=abs(tex.x-.25),span=step(.34,tex.y)*step(tex.y,.66);
+  float crosses=span*(1.-smoothstep(.007,.014,abs(fract((tex.y-.34)*25.)-.5)/25.))*(1.-smoothstep(.058,.070,laceU));
+  float spine=span*(1.-smoothstep(.007,.015,laceU)),lace=max(crosses,spine);
+  albedo=pow(vec3(.34,.125,.052)*(1.+grain*.14*detail)*(1.-seam*.42),vec3(2.2));
+  albedo=mix(albedo,vec3(.76,.72,.59),lace);
+  N=normalize(N+vec3(pebble.x,0.,pebble.y)*.075*detail*(1.-lace));rough=.82;g=.08;
+ }
  if(material==4){
   vec2 grid=world.xz*36.;float aa=1.-smoothstep(.6,2.3,max(fwidth(grid.x),fwidth(grid.y)));
   float grain=hash(floor(grid)),crossGrain=hash(floor(world.zx*67.+19.));
+  float blades=sin(world.z*290.+grain*3.)*sin(world.x*137.+crossGrain*2.);
   albedo*=1.+(grain-.5)*.16*aa+(crossGrain-.5)*.035;
-  N=normalize(N+vec3((grain-.5)*.045,0.,(crossGrain-.5)*.045));
+  N=normalize(N+vec3((grain-.5)*.12,0.,blades*.085)*aa);
  }
  float lit=visibility(N);vec3 L0=normalize(KEY),L1=normalize(vec3(.62,.69,.38)),L2=normalize(vec3(-.20,.72,.65));
  float d0=max(dot(N,L0),0.),d1=max(dot(N,L1),0.),d2=max(dot(N,L2),0.);
@@ -75,7 +108,7 @@ void main(){
  // Slight wrap on skin keeps faces readable without making uniforms luminous.
  if(material==3)diffuse+=vec3(.17,.10,.075)*max(0.,dot(N,L0)+.35);
  // The field is floodlit; the surrounding bowl remains a night environment.
- float exposure=material==4?.43:material==0?.40:1.;
+ float exposure=material==4?.38:material==0?.32:1.;
  vec3 rgb=albedo*diffuse*exposure;
  float nv=max(dot(N,V),0.);vec3 F0=mix(vec3(.025),albedo*.55+vec3(.12),g*.5);
  vec3 fresnel=F0+(1.-F0)*pow(1.-nv,5.);
@@ -89,7 +122,8 @@ void main(){
   rgb+=fresnel*g*crown*.7;
  }
  if(material==4){
-  float mowing=.965+.035*sin(world.z*3.14159*.2);rgb*=mowing;
+  float mowing=.95+.05*sin(world.z*3.14159*.2);rgb*=mowing;
+  float paint=smoothstep(.20,.45,albedo.r);rgb=mix(rgb,rgb*1.08,paint);
   float grazing=pow(1.-max(dot(N,V),0.),3.);float dew=pow(max(dot(N,normalize(L1+V)),0.),30.);
   float blade=hash(floor(world.xz*92.));rgb+=vec3(.028,.062,.035)*(grazing*(.42+blade*.20)+dew*.30);
  }
@@ -105,7 +139,7 @@ void main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));uv=p;gl_
 const skyFragment=`#version 300 es
 precision highp float;in vec2 uv;out vec4 outputColor;
 float skyHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-void main(){float y=clamp(uv.y,0.,1.),horizon=pow(1.-y,3.2);vec3 sky=mix(vec3(.003,.007,.019),vec3(.050,.083,.132),horizon);sky+=vec3(.050,.071,.095)*exp(-pow((y-.12)*5.1,2.));vec2 cells=floor(uv*vec2(340.,190.));float star=step(.9970,skyHash(cells))*smoothstep(.46,.05,length(fract(uv*vec2(340.,190.))-.5))*smoothstep(.18,.44,y);sky+=vec3(.61,.70,.82)*star;float cloud=(sin(uv.x*18.+uv.y*7.)+sin(uv.x*31.-uv.y*11.)+sin(uv.x*9.-uv.y*4.))*.36;sky+=vec3(.021,.030,.046)*smoothstep(.48,1.,cloud)*smoothstep(.18,.65,y);vec2 moonP=(uv-vec2(.78,.73))*vec2(1.78,1.);float moon=1.-smoothstep(.027,.035,length(moonP));float moonHalo=exp(-length(moonP)*24.);sky+=vec3(.70,.77,.82)*(moon*.78+moonHalo*.055);float stadiumGlow=exp(-pow((y-.055)*10.,2.));sky+=vec3(.035,.060,.086)*stadiumGlow;vec2 p=uv*2.-1.;sky*=1.-clamp(dot(p,p)*.105,0.,.30);outputColor=vec4(sky,1.);}`;
+void main(){float y=clamp(uv.y,0.,1.),horizon=pow(1.-y,3.2);vec3 sky=mix(vec3(.020,.032,.058),vec3(.068,.096,.145),horizon);sky+=vec3(.050,.071,.095)*exp(-pow((y-.12)*5.1,2.));vec2 cells=floor(uv*vec2(340.,190.));float star=step(.9970,skyHash(cells))*smoothstep(.46,.05,length(fract(uv*vec2(340.,190.))-.5))*smoothstep(.18,.44,y);sky+=vec3(.61,.70,.82)*star;float cloud=(sin(uv.x*18.+uv.y*7.)+sin(uv.x*31.-uv.y*11.)+sin(uv.x*9.-uv.y*4.))*.36;sky+=vec3(.021,.030,.046)*smoothstep(.48,1.,cloud)*smoothstep(.18,.65,y);vec2 moonP=(uv-vec2(.78,.73))*vec2(1.78,1.);float moon=1.-smoothstep(.027,.035,length(moonP));float moonHalo=exp(-length(moonP)*24.);sky+=vec3(.70,.77,.82)*(moon*.78+moonHalo*.055);float stadiumGlow=exp(-pow((y-.055)*10.,2.));sky+=vec3(.035,.060,.086)*stadiumGlow;vec2 p=uv*2.-1.;sky*=1.-clamp(dot(p,p)*.105,0.,.30);outputColor=vec4(sky,1.);}`;
 const depthVertex=`#version 300 es
 precision highp float;layout(location=0)in vec3 p;layout(location=3)in mat4 model;uniform mat4 lightVP;
 void main(){gl_Position=lightVP*model*vec4(p,1.);}`;
@@ -133,7 +167,7 @@ export class Renderer{
   this.skyProgram=program(gl,skyVertex,skyFragment);this.skyVao=gl.createVertexArray();
   this.uniforms=Object.fromEntries(['vp','eye','image','textured','unlit','lightVP','shadowMap','useShadow','shadowTexel','material'].map(k=>[k,gl.getUniformLocation(this.program,k)]));
   this.depthUniform=gl.getUniformLocation(this.depthProgram,'lightVP');
-  this.shapes={crowd:sphere(6,4),crowdEnd:sphere(6,4),sphere:sphere(),helmet:sphere(28,18,true),cube:cube(),cylinder:cylinder(),plane:{v:[-.5,0,-.5,0,1,0,0,0,.5,0,-.5,0,1,0,1,0,.5,0,.5,0,1,0,1,1,-.5,0,.5,0,1,0,0,1],ix:[0,2,1,0,3,2]}};
+  this.shapes={crowd:spectatorBody(),crowdEnd:spectatorBody(),crowdHead:sphere(6,4),football:footballGeometry(),sphere:sphere(),helmet:sphere(28,18,true),cube:cube(),cylinder:cylinder(),plane:{v:[-.5,0,-.5,0,1,0,0,0,.5,0,-.5,0,1,0,1,0,.5,0,.5,0,1,0,1,1,-.5,0,.5,0,1,0,0,1],ix:[0,2,1,0,3,2]}};
   this.textures=new Map();this.anisotropy=gl.getExtension('EXT_texture_filter_anisotropic');
   gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);gl.clearColor(.009,.016,.029,1);
   // Always bind a complete sampler, including the low-power/failure paths.

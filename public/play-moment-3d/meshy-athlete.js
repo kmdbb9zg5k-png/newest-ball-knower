@@ -3,6 +3,34 @@ import{quarterbackThrowPose}from'./quarterback.js?v=football-finish-21';
 
 const ASSET='/play-moment-3d/assets/ball-knower-gridiron-pro-v3.glb?v=clean-rig-1';
 const MAX_BONES=32;
+// Surface offsets in bind space: torso, shoulder pads, thighs, upper arms.
+// The head, hands and feet retain their original size and attachment points.
+export const PLAYER_BUILDS=Object.freeze({
+ OL:{bulk:[.074,.054,.030,.020],scale:[1.04,1.025,1.035]},
+ DL:{bulk:[.056,.060,.034,.028],scale:[1.035,1.035,1.04]},
+ QB:{bulk:[.008,.012,.002,.002],scale:[.99,1.02,.99]},
+ RB:{bulk:[.025,.028,.025,.020],scale:[1.01,.975,1.01]},
+ WR:{bulk:[-.012,-.006,-.006,-.005],scale:[.97,1.015,.97]},
+ TE:{bulk:[.028,.033,.018,.017],scale:[1.025,1.045,1.025]},
+ LB:{bulk:[.035,.040,.025,.022],scale:[1.025,1.025,1.025]},
+ DB:{bulk:[-.008,-.006,-.005,-.004],scale:[.97,1,.97]},
+});
+export function playerBuild(role){return PLAYER_BUILDS[role]||PLAYER_BUILDS.QB}
+function buildRegions(positions,jointIndices,weights,jointNames){
+ const out=new Float32Array(positions.length/3*4);
+ for(let i=0;i<positions.length/3;i++)for(let c=0;c<4;c++){
+  const name=jointNames[jointIndices[i*4+c]]||'',w=weights[i*4+c];
+  if(/Spine|Hips/.test(name))out[i*4]+=w;
+  if(/Shoulder/.test(name))out[i*4+1]+=w;
+  else if(/(?:Left|Right)Arm$/.test(name)){
+   const pad=1-smooth((Math.abs(positions[i*3])-.30)/.22);
+   out[i*4+1]+=w*pad;out[i*4+3]+=w*(1-pad);
+  }else if(/ForeArm/.test(name))out[i*4+3]+=w*.28;
+  if(/UpLeg/.test(name))out[i*4+2]+=w;
+ }
+ return out;
+}
+
 const COMPONENTS={SCALAR:1,VEC2:2,VEC3:3,VEC4:4,MAT4:16};
 const CTORS={5120:Int8Array,5121:Uint8Array,5122:Int16Array,5123:Uint16Array,5125:Uint32Array,5126:Float32Array};
 const BYTES={5120:1,5121:1,5122:2,5123:2,5125:4,5126:4};
@@ -254,16 +282,42 @@ function uploadTexture(gl,image,srgb=false){const texture=gl.createTexture();gl.
 const vertex=`#version 300 es
 precision highp float;precision highp int;
 layout(location=0)in vec3 position;layout(location=1)in vec3 normalIn;layout(location=2)in vec2 uvIn;
-layout(location=3)in uvec4 joints;layout(location=4)in vec4 weights;layout(location=5)in vec4 tangentIn;
-uniform mat4 vp;uniform mat4 model;uniform mat4 bones[${MAX_BONES}];
-out vec3 world;out vec3 normal;out vec3 tangent;out float handedness;out vec2 uv;out vec3 bindPosition;out vec3 bindNormal;
-void main(){mat4 skin=weights.x*bones[joints.x]+weights.y*bones[joints.y]+weights.z*bones[joints.z]+weights.w*bones[joints.w];vec4 local=skin*vec4(position,1.);vec4 w=model*local;mat3 basis=mat3(model)*mat3(skin);world=w.xyz;normal=normalize(basis*normalIn);tangent=normalize(basis*tangentIn.xyz);handedness=tangentIn.w;uv=uvIn;bindPosition=position;bindNormal=normalIn;gl_Position=vp*w;}`;
+layout(location=3)in uvec4 joints;layout(location=4)in vec4 weights;layout(location=5)in vec4 tangentIn;layout(location=6)in vec4 bodyRegions;
+uniform mat4 vp;uniform mat4 model;uniform mat4 lightVP;uniform mat4 bones[${MAX_BONES}];uniform vec4 bodyProfile;
+out vec3 world;out vec3 normal;out vec3 tangent;out float handedness;out vec2 uv;out vec3 bindPosition;out vec3 bindNormal;out vec4 lightSpace;
+void main(){mat4 skin=weights.x*bones[joints.x]+weights.y*bones[joints.y]+weights.z*bones[joints.z]+weights.w*bones[joints.w];vec3 shaped=position+normalIn*dot(bodyRegions,bodyProfile);vec4 local=skin*vec4(shaped,1.);vec4 w=model*local;mat3 basis=mat3(model)*mat3(skin);world=w.xyz;normal=normalize(transpose(inverse(basis))*normalIn);tangent=normalize(basis*tangentIn.xyz);handedness=tangentIn.w;uv=uvIn;bindPosition=position;bindNormal=normalIn;lightSpace=lightVP*w;gl_Position=vp*w;}`;
 const fragment=`#version 300 es
 precision highp float;
-in vec3 world;in vec3 normal;in vec3 tangent;in float handedness;in vec2 uv;in vec3 bindPosition;in vec3 bindNormal;
+in vec3 world;in vec3 normal;in vec3 tangent;in float handedness;in vec2 uv;in vec3 bindPosition;in vec3 bindNormal;in vec4 lightSpace;
+uniform sampler2D shadowMap;uniform int useShadow;uniform float shadowTexel;
 uniform vec3 eye;uniform sampler2D baseMap;uniform sampler2D normalMap;uniform sampler2D ormMap;uniform sampler2D numberMap;uniform float rival;uniform float controlled;uniform float playerSeed;
 out vec4 color;
 vec3 film(vec3 v){return clamp((v*(2.51*v+.03))/(v*(2.43*v+.59)+.14),0.,1.);}
+float playerShadow(vec3 N){
+ if(useShadow==0)return 1.;vec3 q=lightSpace.xyz/lightSpace.w*.5+.5;
+ if(any(lessThan(q,vec3(.002)))||any(greaterThan(q,vec3(.998))))return 1.;
+ float bias=max(.00013,.00048*(1.-max(dot(N,normalize(vec3(-.48,.82,-.31))),0.))),sum=0.;
+ for(int x=-1;x<=1;x++)for(int y=-1;y<=1;y++)sum+=q.z-bias<=texture(shadowMap,q.xy+vec2(float(x),float(y))*shadowTexel).r?1.:0.;
+ return sum/9.;
+}
+vec3 environmentLight(vec3 R,float rough){
+ vec3 env=mix(vec3(.025,.052,.032),vec3(.10,.16,.24),smoothstep(-.15,.5,R.y));
+ float exponent=mix(200.,9.,rough*rough);
+ for(int i=0;i<4;i++){
+  vec3 bank=vec3(i<2?-35.:35.,23.,(i==0||i==2)?6.:111.);
+  vec3 L=normalize(bank-world);float highlight=pow(max(dot(R,L),0.),exponent);
+  env+=vec3(2.4,2.65,2.9)*highlight*(1.-rough*.65);
+ }
+ return env;
+}
+vec3 brdf(vec3 N,vec3 V,vec3 L,vec3 base,float rough,float metal){
+ vec3 H=normalize(V+L);float nl=max(dot(N,L),0.),nv=max(dot(N,V),.04),nh=max(dot(N,H),0.),vh=max(dot(V,H),0.);
+ float a=rough*rough,a2=a*a,denom=nh*nh*(a2-1.)+1.;
+ float D=a2/max(3.14159*denom*denom,.0001),k=(rough+1.)*(rough+1.)/8.;
+ float G=nv/(nv*(1.-k)+k)*nl/max(nl*(1.-k)+k,.001);
+ vec3 F0=mix(vec3(.04),base,metal),F=F0+(1.-F0)*pow(1.-vh,5.);
+ return ((1.-F)*(1.-metal)*base/3.14159+D*G*F/max(4.*nv*nl,.001))*nl;
+}
 void main(){vec4 sampleColor=texture(baseMap,uv);if(sampleColor.a<.04)discard;vec3 albedo=pow(sampleColor.rgb,vec3(2.2));
  float navy=smoothstep(.025,.14,sampleColor.b-sampleColor.r)*smoothstep(.02,.12,sampleColor.b-sampleColor.g);
  float gold=smoothstep(.03,.18,sampleColor.r-sampleColor.b)*smoothstep(.015,.10,sampleColor.g-sampleColor.b)*(1.-smoothstep(.12,.28,sampleColor.r-sampleColor.g));vec3 away=mix(vec3(.72,.76,.77),vec3(.98,.985,.96),clamp(dot(sampleColor.rgb,vec3(.333)),0.,1.));albedo=mix(albedo,pow(away,vec3(2.2)),navy*rival*.94);albedo=mix(albedo,pow(vec3(.48,.075,.055),vec3(2.2)),gold*rival*.82);albedo*=mix(.955,1.045,playerSeed);
@@ -287,15 +341,50 @@ void main(){vec4 sampleColor=texture(baseMap,uv);if(sampleColor.a<.04)discard;ve
  vec4 ink=texture(numberMap,clamp(numberUV,0.,1.));
  albedo=mix(albedo,pow(ink.rgb,vec3(2.2)),ink.a*printMask);
 
- vec3 N=normalize(normal),T=normalize(tangent-N*dot(N,tangent)),B=normalize(cross(N,T))*handedness;vec3 mapped=texture(normalMap,uv).xyz*2.-1.;mapped.xy*=mix(1.,.68,uniformZone);N=normalize(mat3(T,B,N)*mapped);
- vec3 V=normalize(eye-world),L0=normalize(vec3(-.48,.82,-.31)),L1=normalize(vec3(.62,.69,.38)),L2=normalize(vec3(-.20,.72,.65));float d0=max(dot(N,L0),0.),d1=max(dot(N,L1),0.),d2=max(dot(N,L2),0.);vec3 ambient=mix(vec3(.075,.09,.105),vec3(.20,.25,.34),N.y*.5+.5);vec3 lit=ambient+vec3(1.52,1.43,1.24)*d0+vec3(.38,.50,.72)*d1+vec3(.20,.24,.33)*d2;
- vec3 orm=texture(ormMap,uv).rgb;float rough=clamp(orm.g,.18,.96),metal=orm.b*(1.-uniformZone);rough=mix(rough,max(rough,.82),uniformZone);vec3 H=normalize(L0+V),F0=mix(vec3(.028),albedo,metal),fresnel=F0+(1.-F0)*pow(1.-max(dot(N,V),0.),5.);float spec=pow(max(dot(N,H),0.),mix(90.,10.,rough)),rim=pow(1.-max(dot(N,V),0.),2.6);vec3 rimColor=mix(vec3(.22,.31,.42),vec3(.42,.18,.14),rival);vec3 rgb=albedo*lit+fresnel*spec*(.35+1.35*(1.-rough))+rimColor*rim*(.105+controlled*.11);float heroRim=pow(1.-max(dot(N,V),0.),4.2)*controlled;rgb+=vec3(.46,.31,.09)*heroRim;float fog=smoothstep(55.,190.,distance(eye,world));rgb=mix(rgb,vec3(.016,.026,.046),fog*.68);color=vec4(pow(film(rgb*1.08),vec3(1./2.2)),1.);}`;
+ // Clean painted shells and position-specific cloth retain detail without baked noise.
+ float helmet=smoothstep(1.47,1.55,bindPosition.y)*(1.-smoothstep(.15,.235,bindPosition.z));
+ float stripe=(1.-smoothstep(.022,.033,abs(bindPosition.x)))*helmet;
+ vec3 shellColor=mix(vec3(.85,.88,.89),vec3(.48,.025,.035),rival);
+ shellColor=mix(shellColor,mix(vec3(.035,.075,.12),vec3(.89,.90,.87),rival),stripe);
+ albedo=mix(albedo,pow(shellColor,vec3(2.2)),helmet*.985);
+ // Author material regions in bind space so recoloring follows the skinned limb.
+ float armBand=smoothstep(.99,1.06,bindPosition.y)*(1.-smoothstep(1.36,1.42,bindPosition.y));
+ float skinMask=smoothstep(.36,.44,abs(bindPosition.x))*(1.-smoothstep(.70,.79,abs(bindPosition.x)))*armBand;
+ float gloves=smoothstep(.78,.86,abs(bindPosition.x))*armBand;
+ float cleats=1.-smoothstep(.11,.17,bindPosition.y);
+ vec3 skinColor=mix(vec3(.30,.155,.09),vec3(.62,.405,.27),playerSeed);
+ albedo=mix(albedo,pow(skinColor*(.92+.16*dot(sampleColor.rgb,vec3(.333))),vec3(2.2)),skinMask);
+ albedo=mix(albedo,pow(vec3(.83,.85,.84),vec3(2.2)),gloves*.93);
+ vec3 bootColor=mix(vec3(.018,.029,.038),vec3(.29,.32,.34),1.-smoothstep(.025,.045,bindPosition.y));
+ albedo=mix(albedo,pow(bootColor,vec3(2.2)),cleats*.94);
+ vec3 N=normalize(normal),T=normalize(tangent-N*dot(N,tangent)),B=normalize(cross(N,T))*handedness;
+ vec3 mapped=texture(normalMap,uv).xyz*2.-1.;mapped.xy*=mix(.80,.38,uniformZone)*(1.-helmet*.88)*(1.-skinMask*.55)*(1.-gloves*.5);
+ N=normalize(mat3(T,B,N)*mapped);
+ // Weave fades out below a pixel, avoiding sparkling cloth on phone screens.
+ vec2 clothUV=uv*360.;float aa=1.-smoothstep(.25,1.,max(fwidth(clothUV.x),fwidth(clothUV.y)));
+ float weave=sin(clothUV.x*6.283)*sin(clothUV.y*6.283)*aa*uniformZone;
+ albedo*=1.+weave*.028;
+ vec3 orm=texture(ormMap,uv).rgb;float rough=mix(clamp(orm.g,.35,.9),.82,uniformZone);
+ rough=mix(rough,.21,helmet);rough=mix(rough,.62,skinMask);rough=mix(rough,.70,gloves);rough=mix(rough,.49,cleats);
+ float metal=clamp(orm.b,0.,.55)*(1.-max(max(uniformZone,helmet),max(skinMask,gloves)));
+ vec3 V=normalize(eye-world),L0=normalize(vec3(-.48,.82,-.31)),L1=normalize(vec3(.62,.69,.38));
+ float shadow=playerShadow(normalize(normal)),ao=mix(.72,1.,orm.r);
+ vec3 ambient=mix(vec3(.06,.09,.065),vec3(.22,.29,.39),N.y*.5+.5);
+ vec3 rgb=albedo*ambient*ao+brdf(N,V,L0,albedo,rough,metal)*vec3(4.1,3.9,3.55)*mix(.13,1.,shadow);
+ rgb+=brdf(N,V,L1,albedo,rough,metal)*vec3(.9,1.2,1.65);
+ vec3 R=reflect(-V,N),F0=mix(vec3(.04),albedo,metal),F=F0+(1.-F0)*pow(1.-max(dot(N,V),0.),5.);
+ rgb+=environmentLight(R,rough)*F*mix(.30,1.,helmet)*ao;
+ // Soft fabric edge response; no full-body outline or glowing skin.
+ rgb+=albedo*vec3(.08,.105,.14)*pow(1.-max(dot(N,V),0.),3.)*uniformZone;
+ float fog=smoothstep(55.,190.,distance(eye,world));rgb=mix(rgb,vec3(.016,.026,.046),fog*.68);
+ color=vec4(pow(film(rgb*1.12),vec3(1./2.2)),1.);}`;
+
 
 const depthVertex=`#version 300 es
 precision highp float;precision highp int;
-layout(location=0)in vec3 position;layout(location=3)in uvec4 joints;layout(location=4)in vec4 weights;
+layout(location=0)in vec3 position;layout(location=1)in vec3 normalIn;layout(location=3)in uvec4 joints;layout(location=4)in vec4 weights;layout(location=6)in vec4 bodyRegions;uniform vec4 bodyProfile;
 uniform mat4 lightVP;uniform mat4 model;uniform mat4 bones[${MAX_BONES}];
-void main(){mat4 skin=weights.x*bones[joints.x]+weights.y*bones[joints.y]+weights.z*bones[joints.z]+weights.w*bones[joints.w];gl_Position=lightVP*model*skin*vec4(position,1.);}`;
+void main(){mat4 skin=weights.x*bones[joints.x]+weights.y*bones[joints.y]+weights.z*bones[joints.z]+weights.w*bones[joints.w];gl_Position=lightVP*model*skin*vec4(position+normalIn*dot(bodyRegions,bodyProfile),1.);}`;
 const depthFragment=`#version 300 es
 precision highp float;void main(){}`;
 
@@ -305,11 +394,19 @@ export class MeshyAthletes{
   try{
    const url=globalThis.BK_MESHY_GLTF_URL||ASSET,response=await fetch(url,{cache:'force-cache'});if(!response.ok)throw new Error('Detailed player '+response.status);
    const parsed=parseGLB(await response.arrayBuffer()),{json,accessor}=parsed,gl=this.gl,primitive=json.meshes[0].primitives[0];
-   this.program=makeProgram(gl,vertex,fragment);this.depthProgram=makeProgram(gl,depthVertex,depthFragment);this.uniforms=Object.fromEntries(['vp','model','bones','eye','baseMap','normalMap','ormMap','numberMap','rival','controlled','playerSeed'].map(name=>[name,gl.getUniformLocation(this.program,name==='bones'?'bones[0]':name)]));this.depthUniforms=Object.fromEntries(['lightVP','model','bones'].map(name=>[name,gl.getUniformLocation(this.depthProgram,name==='bones'?'bones[0]':name)]));
+   this.program=makeProgram(gl,vertex,fragment);this.depthProgram=makeProgram(gl,depthVertex,depthFragment);this.uniforms=Object.fromEntries(['vp','model','bones','eye','baseMap','normalMap','ormMap','numberMap','rival','controlled','playerSeed','lightVP','shadowMap','shadowTexel','useShadow','bodyProfile'].map(name=>[name,gl.getUniformLocation(this.program,name==='bones'?'bones[0]':name)]));this.depthUniforms=Object.fromEntries(['lightVP','model','bones','bodyProfile'].map(name=>[name,gl.getUniformLocation(this.depthProgram,name==='bones'?'bones[0]':name)]));
    this.vao=gl.createVertexArray();gl.bindVertexArray(this.vao);
    const attribute=(location,name,size,integer=false)=>{const index=primitive.attributes[name],a=json.accessors[index],data=accessor(index),buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);gl.enableVertexAttribArray(location);if(integer)gl.vertexAttribIPointer(location,size,a.componentType,0,0);else gl.vertexAttribPointer(location,size,a.componentType,Boolean(a.normalized),0,0)};
    attribute(0,'POSITION',3);attribute(1,'NORMAL',3);attribute(2,'TEXCOORD_0',2);attribute(3,'JOINTS_0',4,true);attribute(4,'WEIGHTS_0',4);attribute(5,'TANGENT',4);
-   this.supportVertices=athleteSupportVertices(accessor(primitive.attributes.POSITION),accessor(primitive.attributes.JOINTS_0),accessor(primitive.attributes.WEIGHTS_0));
+   const positions=accessor(primitive.attributes.POSITION),normals=accessor(primitive.attributes.NORMAL),joints=accessor(primitive.attributes.JOINTS_0),weights=accessor(primitive.attributes.WEIGHTS_0);
+   const skinIndex=json.nodes.find(node=>Number.isInteger(node.skin)).skin,jointNames=json.skins[skinIndex].joints.map(i=>json.nodes[i].name);
+   const regions=buildRegions(positions,joints,weights,jointNames),regionBuffer=gl.createBuffer();
+   gl.bindBuffer(gl.ARRAY_BUFFER,regionBuffer);gl.bufferData(gl.ARRAY_BUFFER,regions,gl.STATIC_DRAW);gl.enableVertexAttribArray(6);gl.vertexAttribPointer(6,4,gl.FLOAT,false,0,0);
+   this.supportVertices=athleteSupportVertices(positions,joints,weights);this.bodySupport=new Map();
+   for(const role of Object.keys(PLAYER_BUILDS)){
+    const bulk=playerBuild(role).bulk;
+    this.bodySupport.set(role,this.supportVertices.map(v=>{const offset=bulk.reduce((sum,n,c)=>sum+n*regions[v.index*4+c],0);return{...v,p:v.p.map((n,c)=>n+normals[v.index*3+c]*offset)}}));
+   }
    const indexAccessor=json.accessors[primitive.indices],indices=accessor(primitive.indices);this.indexType=indexAccessor.componentType;this.indexCount=indexAccessor.count;this.triangles=this.indexCount/3;this.indexBuffer=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,this.indexBuffer);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,indices,gl.STATIC_DRAW);gl.bindVertexArray(null);
    const material=json.materials[primitive.material].pbrMetallicRoughness,normalIndex=json.materials[primitive.material].normalTexture.index;this.textures=[];
    // Decode/upload/close one 2K map at a time to bound mobile startup memory.
@@ -476,9 +573,11 @@ export class MeshyAthletes{
    this.rotate(locals,'mixamorig:Hips',0,1,0,-.13*load+.17*drive);
    this.rotate(locals,'mixamorig:Spine2',0,1,0,-.22*load+.30*drive);
    this.rotate(locals,'mixamorig:Spine',1,0,0,-.035*load+.10*drive);
+   this.rotate(locals,'mixamorig:Head',0,1,0,.15*load-.21*drive);
+   this.rotate(locals,'mixamorig:RightFoot',0,1,0,-.18*drive);
    for(const [side,sign]of[['Left',1],['Right',-1]]){
     const ankle=pointFromMatrix(this.jointWorld(this.base,this.namedNodes['mixamorig:'+side+'Foot']).m);
-    this.solveLimb(locals,[side+'UpLeg',side+'Leg',side+'Foot'],[sign*.16,ankle[1],ankle[2]+(sign>0?.06+.17*drive:-.16)],[sign*.18,.44,.65],true);
+    this.solveLimb(locals,[side+'UpLeg',side+'Leg',side+'Foot'],[sign*.16,ankle[1]+(sign<0?.032*drive:0),ankle[2]+(sign>0?.06+.17*drive:-.16)],[sign*.18,.44,.65],true);
    }
   }
   const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m);
@@ -499,6 +598,8 @@ export class MeshyAthletes{
    const foot=this.namedNodes['mixamorig:'+side+'Foot'],ankle=pointFromMatrix(this.jointWorld(this.base,foot).m);
    this.solveLimb(locals,[side+'UpLeg',side+'Leg',side+'Foot'],[sign*.13,ankle[1]+land*(sign>0?.14:.06),ankle[2]+(sign>0?-.13:.10)*(1-land)-land*.11],[sign*.15,.38,.60],true);
   }
+  this.rotate(locals,'mixamorig:Spine2',0,0,1,(p.actionSide||1)*(p.hasBall?.15:-.10)*wrap*(1-land));
+  this.rotate(locals,'mixamorig:Head',1,0,0,p.hasBall?.025:.11*wrap);
   if(p.hasBall)this.carryPose(locals,p);
  }
  worldHandTargets(locals,p,model){
@@ -511,7 +612,11 @@ export class MeshyAthletes{
   for(const [side,sign]of[['Left',1],['Right',-1]]){
    let target,weight=1;
    if(p.ballTarget){const h=p.heading||0;target=inversePoint([p.ballTarget[0]+Math.cos(h)*sign*.055,p.ballTarget[1]+(p.role==='RB'?sign*.045:0),p.ballTarget[2]-Math.sin(h)*sign*.055])}
-   else if(p.engaged){target=inversePoint(pointFromMatrix(mul(targetModel,otherHands.chest),[-sign*.18,-.05,.13]))}
+   else if(p.engaged){
+    const swim=p.blockStyle==='rush-swim'&&side===((p.index%2)?'Left':'Right'),rip=p.blockStyle==='rush-rip'&&side===((p.index%2)?'Right':'Left');
+    const move=.5+.5*Math.sin((p.distance||0)*6+p.index*.83);
+    target=inversePoint(pointFromMatrix(mul(targetModel,otherHands.chest),[-sign*(swim?.27:.18),swim?.12+.23*move:rip?-.27+.24*move:-.05,swim?-.035:.13]));
+   }
    else if(p.contactRole==='tackler'&&p.action!=='get-up'){
     weight=smooth((p.actionT||0)/.10)*(1-smooth(((p.actionT||0)-.84)/.15));
     target=inversePoint(pointFromMatrix(mul(targetModel,otherHands.chest),[sign*.24,-.19,-.01]));
@@ -538,14 +643,29 @@ export class MeshyAthletes{
   for(let i=0;i<locals.length;i++){locals[i].t=lerpArray(landed[i].t,locals[i].t,kneel);locals[i].r=slerp(landed[i].r,locals[i].r,kneel)}
  }
  blockPose(locals,p,time){
-  this.standingPose(locals,p,.15,.22);
-  // Short alternating steps with hands meeting the opponent's shoulder pads.
+  const runBlock=this.phase==='handoff'||this.phase==='run',drive=runBlock&&!p.team,reach=p.blockStyle==='reach-block',passAnchor=p.blockStyle==='pass-anchor';
+  this.standingPose(locals,p,drive?.21:passAnchor?.20:.16,drive?.34:runBlock?.24:.12);
   const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m),beat=(p.distance||0)*10+p.index*.83;
   for(const [side,sign]of[['Left',1],['Right',-1]]){
-   const ankle=pointFromMatrix(this.jointWorld(this.base,this.namedNodes['mixamorig:'+side+'Foot']).m),step=Math.sin(beat+(sign>0?0:Math.PI));
-   this.solveLimb(locals,[side+'UpLeg',side+'Leg',side+'Foot'],[sign*.20,ankle[1]+Math.max(0,step)*.045,ankle[2]+step*.075],[sign*.22,.45,.65],true);
-   this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],[sign*.21,chest[1]-.06,chest[2]+.38],[sign*.46,chest[1]-.26,chest[2]+.08]);
+   const ankle=pointFromMatrix(this.jointWorld(this.base,this.namedNodes['mixamorig:'+side+'Foot']).m),step=Math.sin(beat+(sign>0?0:Math.PI)),width=runBlock?.20:.235;
+   const stagger=runBlock?sign*.045:sign*.11,travel=step*(drive?.105:.055);
+   this.solveLimb(locals,[side+'UpLeg',side+'Leg',side+'Foot'],[sign*width+(reach?.055:0),ankle[1]+Math.max(0,step)*.035,ankle[2]+stagger+travel],[sign*.25,.43,.66],true);
+   this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],[sign*.20,chest[1]-(drive?.12:.04),chest[2]+(drive?.37:.31)],[sign*.42,chest[1]-.28,chest[2]+.04]);
   }
+  // Shoulders stay square in pass protection; driving hips sit behind the pads.
+  this.rotate(locals,'mixamorig:Head',1,0,0,drive?-.12:-.045);
+ }
+ catchPose(locals,p){
+  const t=clamp(1-(p.catchT||0)/.45,0,1),tuck=smooth((t-.18)/.70),style=p.catchStyle||'rac';
+  if(Math.hypot(p.vx||0,p.vz||0)>.3)this.groundedLocomotion(locals,p,'carry-run');else this.standingPose(locals,p,.05,.04);
+  const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m),carrySign=(p.index+p.team)%2?-1:1;
+  for(const [side,sign]of[['Left',1],['Right',-1]]){
+   const high=style==='aggressive'?.33:style==='secure'?.01:.075;
+   const reach=[sign*.11,chest[1]+high,chest[2]+.42],secure=[carrySign*.16+sign*.045,chest[1]-.20,chest[2]+.20];
+   this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],lerpArray(reach,secure,tuck),[sign*.41,chest[1]-.12+high*(1-tuck),chest[2]+.04]);
+  }
+  this.rotate(locals,'mixamorig:Head',1,0,0,-.12*(1-tuck));
+  if(style==='secure')this.rotate(locals,'mixamorig:Spine2',1,0,0,.10*tuck);
  }
  carryPose(locals,p){
   const side=(p.index+p.team)%2?'Right':'Left',sign=side==='Left'?1:-1,chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m);
@@ -716,6 +836,7 @@ export class MeshyAthletes{
   else if(p.engaged&&!p.fallen)this.blockPose(locals,p,time);
   else if(p.hasBall&&(/^carry-|^qb-scramble|break-tackle|stumble/.test(choice.state)||p.fallen))this.carryPose(locals,p);
   if(p.fallen&&/wrap|gang|tackle|hit|pancake/.test(choice.state))this.contactPose(locals,p);
+  if(choice.state.startsWith('catch-')&&!p.fallen)this.catchPose(locals,p);
   if(choice.state==='pre'){
    const seed=meshyPlaybackSeed(p.index,p.team),breath=Math.sin(time*(1.25+seed.rate*.22)+seed.offset*Math.PI*2),scan=Math.sin(time*(.38+seed.rate*.08)+seed.offset*Math.PI*2);
    const spine=this.namedNodes['mixamorig:Spine2'],head=this.namedNodes['mixamorig:Head'];
@@ -728,7 +849,7 @@ export class MeshyAthletes{
   let world=new Array(locals.length);const resolve=index=>world[index]||(world[index]=this.parents[index]<0?compose(locals[index].t,locals[index].r,locals[index].s):mul(resolve(this.parents[index]),compose(locals[index].t,locals[index].r,locals[index].s)));
   const capture=()=>{
    const transforms={};for(const [key,name]of Object.entries({left:'LeftHand',right:'RightHand',leftForearm:'LeftForeArm',rightForearm:'RightForeArm',chest:'Spine2'})){const i=this.namedNodes['mixamorig:'+name];transforms[key]=Number.isInteger(i)?resolve(i):null}this.handTransforms.set(p.index,transforms);
-   const bones=new Float32Array(this.joints.length*16);this.joints.forEach((joint,i)=>bones.set(mul(resolve(joint),this.inverseBind.subarray(i*16,i*16+16)),i*16));this.supportPoints.set(p.index,skinSupportVertices(this.supportVertices,bones));return bones;
+   const bones=new Float32Array(this.joints.length*16);this.joints.forEach((joint,i)=>bones.set(mul(resolve(joint),this.inverseBind.subarray(i*16,i*16+16)),i*16));this.supportPoints.set(p.index,skinSupportVertices(this.bodySupport?.get(p.role)||this.supportVertices,bones));return bones;
   };
   let bones=capture();
   if(this.worldHandTargets(locals,p,this.modelFor(p))){world=new Array(locals.length);bones=capture()}
@@ -736,7 +857,7 @@ export class MeshyAthletes{
  }
 
  modelFor(p){
-  const builds={OL:[1.14,1.025,1.09],DL:[1.12,1.035,1.10],QB:[.98,1.02,.98],RB:[1.04,.985,1.02],WR:[.94,1.015,.94],TE:[1.07,1.045,1.05],LB:[1.075,1.025,1.06],DB:[.93,1,.94]},build=builds[p.role]||[1,1,1],variation=1+((p.index%5)-2)*.006;
+  const build=playerBuild(p.role).scale,variation=1+((p.index%5)-2)*.006;
   let lift=0,pitch=0,roll=0,yaw=0;if(p.action==='hurdle')lift=Math.sin((p.actionT||0)*Math.PI)*.68;if(p.action==='truck')pitch=.29*Math.sin((p.actionT||0)*Math.PI);if(p.action==='juke')roll=-(p.actionSide||0)*.22*Math.sin((p.actionT||0)*Math.PI);if(p.action==='spin')yaw=(p.actionSide||1)*(p.actionT||0)*Math.PI*2;
   if(!p.fallen&&!p.engaged&&Math.hypot(p.vx||0,p.vz||0)>1){const direction=Math.atan2(p.vx||0,p.vz||0),turn=Math.atan2(Math.sin(direction-(p.heading||0)),Math.cos(direction-(p.heading||0)));roll+=clamp(-turn*.24,-.16,.16)}
   if(p.action==='break-tackle')roll+=(p.actionSide||1)*.18*Math.sin((p.actionT||0)*Math.PI);if(p.action==='miss')pitch+=.34*Math.sin((p.actionT||0)*Math.PI);if(p.engaged)pitch+=.11;if(p.reactionT>0)roll+=(p.reactionSide||1)*.12*Math.sin(clamp(p.reactionT,0,1)*Math.PI);
@@ -755,10 +876,12 @@ export class MeshyAthletes{
 
  queueShadows(actors,phase,time){
   if(!this.ready||!this.renderer.shadowAvailable)return false;this.phase=phase;this.actorMap=new Map(actors.map(p=>[p.index,p]));this.frameBones=new Map(actors.map(p=>[p.index,this.bonesFor(p,phase,time)]));
-  this.renderer.queueShadowCaster(lightVP=>{const gl=this.gl;gl.useProgram(this.depthProgram);gl.bindVertexArray(this.vao);gl.uniformMatrix4fv(this.depthUniforms.lightVP,false,lightVP);for(const p of actors){gl.uniformMatrix4fv(this.depthUniforms.model,false,this.modelFor(p));gl.uniformMatrix4fv(this.depthUniforms.bones,false,this.frameBones.get(p.index));gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0)}gl.bindVertexArray(null);return actors.length});return true;
+  this.renderer.queueShadowCaster(lightVP=>{const gl=this.gl;gl.useProgram(this.depthProgram);gl.bindVertexArray(this.vao);gl.uniformMatrix4fv(this.depthUniforms.lightVP,false,lightVP);for(const p of actors){gl.uniform4fv(this.depthUniforms.bodyProfile,playerBuild(p.role).bulk);gl.uniformMatrix4fv(this.depthUniforms.model,false,this.modelFor(p));gl.uniformMatrix4fv(this.depthUniforms.bones,false,this.frameBones.get(p.index));gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0)}gl.bindVertexArray(null);return actors.length});return true;
  }
- draw(actors,phase,time){if(!this.ready)return false;this.phase=phase;this.actorMap=new Map(actors.map(p=>[p.index,p]));const gl=this.gl;this.lastStates=actors.map(p=>meshyAnimationState(p,phase));gl.useProgram(this.program);gl.bindVertexArray(this.vao);gl.uniformMatrix4fv(this.uniforms.vp,false,this.renderer.vp);gl.uniform3fv(this.uniforms.eye,this.renderer.eye);for(let i=0;i<3;i++){gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,this.textures[i])}gl.uniform1i(this.uniforms.baseMap,0);gl.uniform1i(this.uniforms.normalMap,1);gl.uniform1i(this.uniforms.ormMap,2);gl.uniform1i(this.uniforms.numberMap,3);gl.disable(gl.BLEND);gl.depthMask(true);
-  for(const p of actors){const bones=this.frameBones?.get(p.index)||this.bonesFor(p,phase,time);gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,this.renderer.textures.get('meshy-number-'+p.team+'-'+p.number));gl.uniformMatrix4fv(this.uniforms.model,false,this.modelFor(p));gl.uniformMatrix4fv(this.uniforms.bones,false,bones);gl.uniform1f(this.uniforms.rival,p.team?1:0);gl.uniform1f(this.uniforms.controlled,p.hasBall?1:0);gl.uniform1f(this.uniforms.playerSeed,((p.index*37+p.team*11)%17)/16);gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0);this.renderer.drawCalls++}
+ draw(actors,phase,time){if(!this.ready)return false;this.phase=phase;this.actorMap=new Map(actors.map(p=>[p.index,p]));const gl=this.gl;this.lastStates=actors.map(p=>meshyAnimationState(p,phase));gl.useProgram(this.program);gl.bindVertexArray(this.vao);gl.uniformMatrix4fv(this.uniforms.vp,false,this.renderer.vp);gl.uniform3fv(this.uniforms.eye,this.renderer.eye);
+  gl.uniformMatrix4fv(this.uniforms.lightVP,false,this.renderer.lightVP);gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,this.renderer.shadowAvailable?this.renderer.shadowTexture:this.renderer.neutralShadow);gl.uniform1i(this.uniforms.shadowMap,4);gl.uniform1i(this.uniforms.useShadow,this.renderer.shadowAvailable?1:0);gl.uniform1f(this.uniforms.shadowTexel,this.renderer.shadowSize?1/this.renderer.shadowSize:1);
+  for(let i=0;i<3;i++){gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,this.textures[i])}gl.uniform1i(this.uniforms.baseMap,0);gl.uniform1i(this.uniforms.normalMap,1);gl.uniform1i(this.uniforms.ormMap,2);gl.uniform1i(this.uniforms.numberMap,3);gl.disable(gl.BLEND);gl.depthMask(true);
+  for(const p of actors){const bones=this.frameBones?.get(p.index)||this.bonesFor(p,phase,time);gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,this.renderer.textures.get('meshy-number-'+p.team+'-'+p.number));gl.uniform4fv(this.uniforms.bodyProfile,playerBuild(p.role).bulk);gl.uniformMatrix4fv(this.uniforms.model,false,this.modelFor(p));gl.uniformMatrix4fv(this.uniforms.bones,false,bones);gl.uniform1f(this.uniforms.rival,p.team?1:0);gl.uniform1f(this.uniforms.controlled,p.hasBall?1:0);gl.uniform1f(this.uniforms.playerSeed,((p.index*37+p.team*11)%17)/16);gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0);this.renderer.drawCalls++}
   this.frameBones=null;gl.bindVertexArray(null);return true;
  }
  ballAnchor(p){
@@ -770,10 +893,11 @@ export class MeshyAthletes{
   if(p.role==='QB'&&['pre','pass','handoff'].includes(phase)&&left&&right){const grip=between(left,right,.5),center=chest?between(grip,chest,.18):grip,axis=normal(left,right),a=center.map((value,index)=>value-axis[index]*.155),b=center.map((value,index)=>value+axis[index]*.175);return{center,a,b,hand:'both'}}
   const carryRight=(p.index+p.team)%2===1,handMatrix=(carryRight?hands.right:hands.left)||(carryRight?hands.left:hands.right),forearmMatrix=(carryRight?hands.rightForearm:hands.leftForearm)||(carryRight?hands.leftForearm:hands.rightForearm);if(!handMatrix)return null;
   const hand=worldPoint(handMatrix),elbow=forearmMatrix?worldPoint(forearmMatrix):null,forearmCenter=elbow?between(elbow,hand,.64):hand,center=chest?between(forearmCenter,chest,.12):forearmCenter,axis=elbow?normal(elbow,hand):normal(worldPoint(handMatrix,[0,0,-.2]),worldPoint(handMatrix,[0,0,.2])),a=center.map((value,index)=>value-axis[index]*.155),b=center.map((value,index)=>value+axis[index]*.175);
+  if(p.catchT>0&&left&&right){const reach=1-smooth((1-p.catchT/.45)/.75),grip=between(left,right,.5);for(let i=0;i<3;i++){const shift=(grip[i]-center[i])*reach;center[i]+=shift;a[i]+=shift;b[i]+=shift}}
   if(!center.every(Number.isFinite)||!a.every(Number.isFinite)||!b.every(Number.isFinite))return null;
   return{center,a,b,hand:carryRight?'right':'left'};
  }
- diagnostics(){return{ready:this.ready,error:this.error,triangles:this.triangles,clips:this.clipNames.length,motionRecipes:Object.keys(FOOTBALL_MOTION_RECIPES).length,motionFamilies:Object.fromEntries(Object.entries(FOOTBALL_MOTION_FAMILIES).map(([family,states])=>[family,states.length])),authenticityPilot:[...AUTHENTICITY_PILOT_STATES],states:[...this.lastStates],bones:this.joints?.length||0,asset:ASSET}}
+ diagnostics(){return{ready:this.ready,error:this.error,triangles:this.triangles,bodyProfiles:Object.keys(PLAYER_BUILDS).length,receivesShadows:Boolean(this.renderer.shadowAvailable),clips:this.clipNames.length,motionRecipes:Object.keys(FOOTBALL_MOTION_RECIPES).length,authoredActions:['throw','pass-protect','drive-block','swim','rip','catch-rac','catch-secure','catch-aggressive','wrap'],motionFamilies:Object.fromEntries(Object.entries(FOOTBALL_MOTION_FAMILIES).map(([family,states])=>[family,states.length])),authenticityPilot:[...AUTHENTICITY_PILOT_STATES],states:[...this.lastStates],bones:this.joints?.length||0,asset:ASSET}}
 }
 
 export function createMeshyAthletes(renderer){return new MeshyAthletes(renderer)}
