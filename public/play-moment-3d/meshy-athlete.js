@@ -19,8 +19,9 @@ export function locomotionClipTime(distance,duration,clip,seed=0){
  return ((Math.max(0,distance||0)/cycle+seed)%1)*duration;
 }
 /** Keep arm swing in step with the authored leg cycle, with a restrained range. */
-export function forwardRunArmSwing(distance,side=0){
- return Math.sin((Math.max(0,distance||0)/2.45+side)*Math.PI*2)*.12;
+export function forwardRunArmSwing(distance,side=0,cycle=4.25){
+ const stride=Math.max(.01,Number(cycle)||4.25);
+ return Math.sin((Math.max(0,distance||0)/stride+side)*Math.PI*2)*.12;
 }
 
 export function usesGroundedStride(state){return /^(run|sprint|walk|carry-run|carry-sprint|carry-cut|route-release|route-stem|route-cut|qb-scramble|qb-drop|qb-climb|qb-rollout|coverage|coverage-pedal|coverage-break|rush|edge-rush|break-tackle|stumble)$/.test(state)}
@@ -392,7 +393,7 @@ export class MeshyAthletes{
   }
  }
  groundedLocomotion(locals,p,state){
-  const hips=this.joints[0],speed=Math.hypot(p.vx||0,p.vz||0),sprint=state.includes('sprint')||speed>7.7,distance=(p.distance||0)+(p.index%7)*.21,authoredStride=usesAuthoredForwardStride(p);
+  const hips=this.joints[0],speed=Math.hypot(p.vx||0,p.vz||0),sprint=state.includes('sprint')||speed>7.7,gaitCycle=sprint?5.4:state==='walk'?2.15:4.25,distance=(p.distance||0)+(p.index%7)*.21,authoredStride=usesAuthoredForwardStride(p);
   if(authoredStride){
    // Keep the source clip's continuous pelvis and limb motion. Its sprint
    // torso/root pitch and loose arm swing are too extreme, so stabilize those
@@ -402,7 +403,7 @@ export class MeshyAthletes{
    const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m);
    for(const [side,sign,offset]of[['Left',1,0],['Right',-1,.5]]){
     for(const name of[side+'Arm',side+'ForeArm',side+'Hand']){const i=this.namedNodes['mixamorig:'+name];locals[i].r=[...this.base[i].r]}
-    const swing=forwardRunArmSwing(distance,offset),handY=state==='walk'?-.40:-.31;
+    const swing=forwardRunArmSwing(distance,offset,gaitCycle),handY=state==='walk'?-.40:-.31;
     this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],[sign*.17,chest[1]+handY+swing,chest[2]+.12-swing*.8],[sign*.25,chest[1]-.43,chest[2]-.13]);
    }
    return;
