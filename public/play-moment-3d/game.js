@@ -329,14 +329,16 @@ export function layoutReceiverMarkers(points,width,height,bounds={}){
   placed.push(q);return{...p,x:q.x,y:q.y};
  });
 }
-// Use the same route coordinates as the live concepts, with a shared field scale.
+// Use live route coordinates and fit the drawing to its players and arrowheads.
 function playDiagram(play,kind,direction=1){
  const point=([x,z])=>[70+x*2.3*direction,60-z*1.35];
  const formation=formationForPlay(play),positions=formation.positions,origins=[positions[2],positions[3],positions[4],positions[5],positions[1]];
  const routes=kind==='run'?[[positions[1],...play.path],...(play.option?[[positions[0],...play.keepPath]]:[])]:play.routes.map((path,i)=>path.map(([x,z])=>[x+origins[i][0],z+origins[i][1]]));
- const lines=routes.map((route,i)=>{const points=route.map(point),end=points.at(-1),before=points.at(-2),angle=Math.atan2(end[1]-before[1],end[0]-before[0]);const wing=side=>[end[0]-4*Math.cos(angle+side*.6),end[1]-4*Math.sin(angle+side*.6)];return '<g class="route route-'+i+'"><polyline points="'+points.map(p=>p.join(',')).join(' ')+'"/><polyline points="'+[wing(-1),end,wing(1)].map(p=>p.join(',')).join(' ')+'"/></g>'}).join('');
- const players=[[-4.4,-.35],[-2.2,-.35],[0,-.35],[2.2,-.35],[4.4,-.35],positions[0],...origins].map(p=>{const[x,y]=point(p);return '<circle cx="'+x+'" cy="'+y+'" r="1.8"/>'}).join('');
- return '<svg class="play-diagram" viewBox="0 0 140 80" aria-hidden="true" focusable="false"><path class="diagram-yard" d="M10 20H130M10 40H130M10 60H130"/>'+lines+'<g class="diagram-players">'+players+'</g></svg>';
+ const bounds=[];
+ const lines=routes.map((route,i)=>{const points=route.map(point),end=points.at(-1),before=points.at(-2),angle=Math.atan2(end[1]-before[1],end[0]-before[0]);const wing=side=>[end[0]-4*Math.cos(angle+side*.6),end[1]-4*Math.sin(angle+side*.6)],arrow=[wing(-1),end,wing(1)];bounds.push(...points,...arrow);return '<g class="route route-'+i+'"><polyline points="'+points.map(p=>p.join(',')).join(' ')+'"/><polyline points="'+arrow.map(p=>p.join(',')).join(' ')+'"/></g>'}).join('');
+ const players=[[-4.4,-.35],[-2.2,-.35],[0,-.35],[2.2,-.35],[4.4,-.35],positions[0],...origins].map(p=>{const[x,y]=point(p);bounds.push([x,y]);return '<circle cx="'+x+'" cy="'+y+'" r="2"/>'}).join('');
+ const left=Math.min(...bounds.map(p=>p[0]))-7,top=Math.min(...bounds.map(p=>p[1]))-7,right=Math.max(...bounds.map(p=>p[0]))+7,bottom=Math.max(...bounds.map(p=>p[1]))+7;
+ return '<svg class="play-diagram" viewBox="'+[left,top,right-left,bottom-top].join(' ')+'" aria-hidden="true" focusable="false"><path class="diagram-yard" d="M'+left+' 20H'+right+'M'+left+' 40H'+right+'M'+left+' 60H'+right+'"/>'+lines+'<g class="diagram-players">'+players+'</g></svg>';
 }
 function travel(path,distance){for(let i=1;i<path.length;i++){const a=path[i-1],b=path[i],len=Math.hypot(b[0]-a[0],b[1]-a[1]);if(distance<=len){const t=distance/len;return[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]}distance-=len}const a=path[path.length-1];return[a[0],a[1]+distance]}
 export function runConceptDirection(runIndex,seconds,runnerX,runnerZ,scrimmageZ,direction=1,keep=false){const concept=RUNS[clamp(Math.trunc(runIndex)||0,0,RUNS.length-1)],point=travel(keep&&concept.keepPath?concept.keepPath:concept.path,Math.max(0,seconds)*concept.pathSpeed+concept.pathLead),side=Math.sign(direction)||1,targetX=point[0]*side,dx=targetX-runnerX,dz=scrimmageZ+point[1]-runnerZ,length=Math.hypot(dx,dz)||1;return{x:dx/length,z:dz/length,targetX,targetZ:scrimmageZ+point[1]}}
