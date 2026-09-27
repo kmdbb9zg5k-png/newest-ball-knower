@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="robots" content="noindex,nofollow">
 <title>Ball Knower | 3D Practice Preview</title>
-<link rel="stylesheet" href="/play-moment-3d/hud.css?v=skill-play-labels-27">
+<link rel="stylesheet" href="/play-moment-3d/hud.css?v=formation-book-28">
 <style>
 /* Keep touch targets practical on phone-sized landscape screens without rewriting the HUD. */
 .icon,.control,.mode button,.dialog button{min-width:44px;min-height:44px}
@@ -39,7 +39,8 @@
  <div id="targetLayer"></div>
  <div id="playerNames" aria-label="Our WR, RB and TE play assignments" hidden></div>
  <section id="playbook" aria-labelledby="playbookTitle" hidden>
-  <div class="playbook-heading"><div><span class="eyebrow">OFFENSIVE PLAYBOOK</span><h1 id="playbookTitle">CALL YOUR PLAY</h1></div><div class="playbook-filters" role="group" aria-label="Filter plays"><button id="filterAll" aria-pressed="true">ALL</button><button id="filterRun" aria-pressed="false">RUN</button><button id="filterPass" aria-pressed="false">PASS</button></div></div>
+  <div class="playbook-heading"><div><span class="eyebrow">OFFENSIVE PLAYBOOK</span><h1 id="playbookTitle">CALL YOUR PLAY</h1></div><div class="playbook-filters" role="group" aria-label="Filter plays"><button id="filterAll" aria-pressed="true">ALL</button><button id="filterRun" aria-pressed="false">RUN</button><button id="filterPass" aria-pressed="false">PASS</button><button id="filterRead" aria-pressed="false">READ OPTION</button></div></div>
+  <div class="formation-row"><div id="formationTabs" role="group" aria-label="Formation"></div><span id="playCount" aria-live="polite"></span></div>
   <div id="playbookGrid" aria-label="Available plays"></div>
   <div class="playbook-footer"><div aria-live="polite"><small id="callType">RUN · SELECTED PLAY</small><strong id="callName">INSIDE ZONE</strong></div><button id="breakHuddle">BREAK HUDDLE <span aria-hidden="true">›</span></button></div>
  </section>
@@ -56,6 +57,7 @@
   <button id="snap"><small id="playName">INSIDE ZONE</small><b><span id="snapLabel">SNAP BALL</span> <span aria-hidden="true">›</span></b></button>
  </div>
  <div id="live" hidden>
+  <div id="optionChoices" role="group" aria-label="Read option decision" hidden><span>READ OPTION</span><button id="option-give" aria-pressed="true">GIVE · HB</button><button id="option-keep" aria-pressed="false">KEEP · QB</button></div>
   <div id="stick" role="slider" aria-label="Move ball carrier" aria-valuemin="-1" aria-valuemax="1" aria-valuenow="0" tabindex="0"><span id="knob"></span></div>
   <div id="moves"><div id="skillPad" role="group" aria-label="Ball carrier moves"><button id="juke" data-skill="juke">JUKE</button><button id="spin" data-skill="spin">SPIN</button><button id="power" data-skill="truck">TRUCK</button><button id="airMove" data-skill="hurdle">HURDLE</button></div><button id="sprint"><svg class="action-icon" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path class="speed-lines" d="M2 13h7M1 18h5"/><circle cx="22" cy="5" r="3" fill="currentColor" stroke="none"/><path d="m12 13 5-5 6 4 5 1M18 9l-4 10 7 4-2 7M14 19l-5 8H4"/></svg><b>SPRINT</b></button><button id="scramble" aria-label="Tuck the ball and scramble. Keyboard G." hidden><svg class="action-icon" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path class="speed-lines" d="M2 13h7M1 18h5"/><circle cx="22" cy="5" r="3" fill="currentColor" stroke="none"/><path d="m12 13 5-5 6 4 5 1M18 9l-4 10 7 4-2 7M14 19l-5 8H4"/></svg><b>SCRAMBLE</b><small>TUCK &amp; RUN</small></button><button id="throwAway" aria-label="Throwaway unavailable. Leave the pocket first." data-ready="false"><svg class="action-icon" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M7 25 25 7M12 7h13v13"/></svg><b>THROW</b><small>AWAY</small></button></div>
   <div id="catchChoices" role="group" aria-label="Choose catch type" hidden><button data-catch="secure">SECURE<small>HANDS</small></button><button data-catch="aggressive">AGGRESSIVE<small>HIGH POINT</small></button><button data-catch="rac" class="selected">RAC<small>RUN AFTER</small></button></div>
@@ -66,7 +68,7 @@
 <div id="paused" class="dialog" hidden><div><span class="eyebrow">BALL KNOWER · PRACTICE</span><h1 id="dialogTitle">PAUSED</h1><p id="dialogBody">This preview never changes your career saves or season record.</p><button id="resume">RESUME</button><div class="running-setting"><button id="control" class="secondary" aria-pressed="true" aria-describedby="controlHelp">RUNNING: AUTOMATIC</button><small id="controlHelp">Ball carriers run automatically. You still move the quarterback in the pocket.</small></div><button id="watchReplay" class="secondary" hidden>WATCH LAST PLAY</button><button id="restart" class="secondary">RESTART DRIVE</button><div class="gameplay-report"><textarea id="reportNote" maxlength="500" aria-label="Optional gameplay report note" placeholder="Optional: what felt wrong?"></textarea><button id="sendReport" class="secondary">SEND GAMEPLAY REPORT</button><div id="reportReceipt" class="report-receipt" role="status" hidden><b>REPORT SENT ✓</b><code id="reportCode"></code><button id="copyReportCode" type="button">COPY REPORT CODE</button><small>Codex can now locate this report automatically.</small></div><small id="reportStatus">Sends gameplay inputs and player positions only. No screen, audio, camera, location, or account data.</small></div><a href="/">Return to Ball Knower</a></div></div>
 <div id="rotate"><div><b>TURN THE FIELD SIDEWAYS</b><p>Rotate your phone for the 3D practice preview.</p><a href="/">Back to Ball Knower</a></div></div>
 <script type="module">
-try { const {start}=await import('/play-moment-3d/game.js?v=skill-play-labels-27'); start(); }
+try { const {start}=await import('/play-moment-3d/game.js?v=formation-book-28'); start(); }
 catch(error){document.getElementById('loading').hidden=true;document.getElementById('error').hidden=false;document.getElementById('errorText').textContent='The 3D preview could not start. Your saved career is unchanged.';console.error(error);}
 </script>
 </body>

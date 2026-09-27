@@ -289,3 +289,25 @@ html,body,#game,#hud{min-height:100dvh}
 #playerNames{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 .player-name{position:absolute;display:flex;align-items:center;gap:5px;transform:translateX(-50%);padding:3px 6px;border-radius:5px;background:#0b1a27d9;color:#f4f8fc;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:clamp(10px,1.3vw,12px);line-height:1.2;font-weight:600;letter-spacing:0;white-space:nowrap;pointer-events:none;user-select:none}
 .player-position{color:var(--control-accent);font-size:.8em;font-weight:600}
+
+/* Formation playbook: fixed controls, swipeable formations, scrolling play cards. */
+#playbook{grid-template-rows:48px 44px minmax(0,1fr) 56px;gap:8px}
+.formation-row{display:flex;align-items:center;gap:12px;min-width:0;border-bottom:1px solid #abc9de26}
+#formationTabs{display:flex;align-items:stretch;gap:7px;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:thin;scrollbar-color:#38596b transparent}
+#formationTabs button{flex:none;min-height:44px;padding:0 14px;border:0;border-radius:7px 7px 0 0;background:transparent;color:#9cb7c9;font-size:11px;font-weight:850;letter-spacing:.04em;white-space:nowrap}
+#formationTabs button.selected{color:#e7faff;background:#1e3949;box-shadow:inset 0 -2px var(--control-accent)}
+#playCount{flex:none;color:#8eaabd;font-size:9px;letter-spacing:.08em;white-space:nowrap}
+#playbookGrid{grid-template-rows:none;grid-auto-rows:minmax(112px,1fr);align-content:start}
+.play-card-heading b{white-space:normal}
+.play-card-formation{flex:none;color:#829fb3;font-size:8px;letter-spacing:.07em;padding-bottom:3px}
+.playbook-empty{grid-column:1/-1;align-self:center;text-align:center;color:#a8bdce;font-size:13px}
+#breakHuddle:disabled{opacity:.45}
+#optionChoices{position:absolute;right:max(20px,env(safe-area-inset-right));bottom:110px;display:flex;align-items:center;gap:6px;pointer-events:auto;background:#0c1b29ed;padding:6px;border:1px solid #abc9de42;border-radius:9px}
+#optionChoices>span{color:#98b4c6;font-size:8px;max-width:44px;line-height:1.5}
+#optionChoices button{min-height:44px;min-width:90px;border:1px solid #abc9de35;border-radius:6px;background:#152736;color:#c8dce9;font-size:11px;font-weight:800}
+#optionChoices button[aria-pressed="true"]{border-color:var(--control-accent);background:#234353;color:#e5faff}
+#optionChoices button:disabled{opacity:.7}
+#motionReceiver:disabled{opacity:.4}
+@media(max-height:430px){#playbook{grid-template-rows:44px 44px minmax(0,1fr) 48px;gap:5px;padding-top:70px}#playbookGrid{grid-auto-rows:100px}.play-card{padding:6px 8px 2px}.play-card-heading b{font-size:10px}#formationTabs button{font-size:10px;padding:0 11px}}
+@media(max-height:380px){#playbook{padding-top:64px}#playbookGrid{grid-auto-rows:94px}.playbook-heading .eyebrow{display:none}.playbook-filters button{min-width:48px;font-size:9px}.playbook-filters #filterRead{padding:0 10px}#optionChoices{bottom:92px}}
+@media(max-width:760px){#playbookGrid{grid-template-columns:repeat(3,minmax(0,1fr))}#playCount{display:none}.playbook-heading h1{font-size:16px}.playbook-heading{gap:8px}.playbook-filters button{min-width:44px;font-size:9px}#formationTabs button{padding:0 10px;font-size:10px}}
