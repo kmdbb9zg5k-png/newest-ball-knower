@@ -89,7 +89,10 @@ def main():
                 errors, requests = [], []
                 page.on('pageerror', lambda e: errors.append(str(e)))
                 page.on('request', lambda r: requests.append(r.url))
-                load(page, ref);d = state(page)
+                load(page, ref)
+                if page.locator('#breakHuddle').is_visible():
+                    page.click('#breakHuddle');page.evaluate('bk3dTest.step(2)')
+                d = state(page)
                 assert d['phase'] == 'pre' and len(d['players']) == 22 and d['glError'] == 0
                 snapshots[variant] = gameplay(d)
                 qb = d['players'][5];pixels = qb['foot']['y'] - qb['head']['y']
@@ -111,7 +114,10 @@ def main():
                 page.click('#pause');link = page.locator('#paused a');link.scroll_into_view_if_needed()
                 if variant == 'after':
                     box = link.bounding_box();assert box['height'] >= 44 and box['width'] >= 44
-                page.click('#restart');page.click('#runTab');page.click('#snap');page.evaluate('bk3dTest.step(.85)')
+                page.click('#restart')
+                if page.locator('#breakHuddle').is_visible():
+                    page.click('#breakHuddle')
+                page.click('#runTab');page.click('#snap');page.evaluate('bk3dTest.step(.85)')
                 assert state(page)['phase'] == 'run'
                 capture(page, args.output / f'{variant}-running-{w}x{h}.png')
                 # Detailed players plus the visible carried football stay inside a

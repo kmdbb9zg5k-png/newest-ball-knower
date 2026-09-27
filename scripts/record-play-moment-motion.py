@@ -51,6 +51,36 @@ def record(browser, origin, out, mode):
         assert boxes[0]['x'] + boxes[0]['width'] + 4 <= boxes[1]['x'], 'Pocket actions overlap'
         instruction = page.locator('#instruction').bounding_box()
         assert instruction['x'] + instruction['width'] <= boxes[0]['x'], 'Guidance overlaps actions'
+    def check_hit(selector):
+        control = page.locator(selector)
+        assert control.is_visible(), selector
+        box, size = control.bounding_box(), page.viewport_size
+        assert box and box['width'] >= 44 and box['height'] >= 44, (selector, box)
+        assert box['x'] >= 0 and box['y'] >= 0 and box['x'] + box['width'] <= size['width'] + .1 and box['y'] + box['height'] <= size['height'] + .1, (selector, box)
+        assert control.evaluate('(el) => { const r=el.getBoundingClientRect(); return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)); }'), selector
+        return box
+    def check_playbook():
+        assert read()['playbook']['open'] and page.locator('#playbook').is_visible()
+        assert page.locator('#playbookGrid .play-card').count() == 8
+        assert page.locator('#pre').is_hidden() and page.locator('#live').is_hidden()
+        for kind in ['run', 'pass']:
+            for index in range(4):
+                check_hit(f'#call-{kind}-{index}')
+        for selector in ['#filterAll', '#filterRun', '#filterPass', '#breakHuddle']:
+            check_hit(selector)
+        score = page.locator('.scorebug').bounding_box()
+        heading = page.locator('.playbook-heading').bounding_box()
+        assert score['y'] + score['height'] <= heading['y'], 'Scoreboard overlaps playbook title'
+    def check_presnap():
+        assert not read()['playbook']['open'] and page.locator('#playbook').is_hidden()
+        for selector in ['#runTab', '#passTab', '#flipPlay', '#motionReceiver', '#identifyMike', '#openPlaybook', '#snap', '#stick']:
+            check_hit(selector)
+        for index in range(4):
+            check_hit(f'#plays button:nth-child({index+1})')
+        assert page.locator('#instruction').is_hidden(), 'Duplicate pre-snap instruction returned'
+        controls_top = page.locator('#pre').bounding_box()['y']
+        for player in read()['players'][:11]:
+            assert player['head']['y'] > 60 and player['foot']['y'] < controls_top - 4, (player['role'], player['head'], player['foot'], controls_top)
     def capture(seconds):
         nonlocal frame
         for _ in range(round(seconds * 30)):
@@ -69,13 +99,43 @@ def record(browser, origin, out, mode):
         loaded = read()
         assert (loaded['athletes']['triangles'], loaded['athletes']['bones'], loaded['athletes']['clips']) == (28988, 28, 8)
         assert loaded['assist'] is True
+        assert loaded['playbook']['open'] and loaded['drive']['clock'] == 78
+        page.keyboard.press('Space')
+        page.evaluate('bk3dTest.step(2)')
+        assert read()['phase'] == 'pre' and read()['drive']['clock'] == 78
+        check_playbook()
+        if mode == 'qb-scramble':
+            for width, height in [(932, 430), (844, 390), (667, 290)]:
+                page.set_viewport_size({'width': width, 'height': height})
+                page.wait_for_function('([w,h]) => { const c=document.querySelector("#game"); return c.width===w && c.height===h; }', arg=[width, height])
+                page.evaluate('bk3dTest.step(1/60)')
+                check_playbook()
+                page.screenshot(path=str(folder / f'playbook-{width}x{height}.png'))
+                page.click('#filterPass')
+                assert page.locator('#playbookGrid .play-card').count() == 4
+                page.click('#call-pass-1')
+                page.click('#pause');page.click('#resume')
+                assert page.locator('#callName').inner_text() == 'VERTICALS'
+                page.click('#breakHuddle')
+                assert read()['mode'] == 'pass' and read()['selected'] == 1
+                page.evaluate('bk3dTest.step(2)')
+                check_presnap()
+                page.screenshot(path=str(folder / f'presnap-{width}x{height}.png'))
+                page.click('#openPlaybook')
+                assert read()['playbook']['choice']['index'] == 1
+                page.click('#filterRun')
+                assert page.locator('#playbookGrid .play-card').count() == 4
+                page.click('#filterAll')
+        page.screenshot(path=str(folder / 'playbook.png'))
+        call_mode = 'pass' if mode in ['pass', 'qb-scramble'] else 'run'
+        page.click(f'#call-{call_mode}-0');page.click('#breakHuddle')
+        page.evaluate('bk3dTest.step(2)')
+        check_presnap()
         page.screenshot(path=str(folder / 'presnap.png'))
         if mode == 'manual-run':
             page.click('#control')
             assert read()['assist'] is False
             page.keyboard.down('ArrowUp')
-        elif mode in ['pass', 'qb-scramble']:
-            page.click('#passTab')
         page.click('#snap')
         if mode == 'qb-scramble':
             capture(.45)
@@ -136,6 +196,17 @@ def record(browser, origin, out, mode):
             assert read()['phase'] == 'dead'
             page.evaluate('bk3dTest.step(1.5)')
         page.screenshot(path=str(folder / 'finish.png'))
+        if read()['phase'] == 'run':
+            assert page.evaluate("bk3dTest.forceContact('wrap')")
+        if read()['phase'] == 'dead':
+            page.evaluate('bk3dTest.step(5)')
+        if not read()['ended']:
+            assert read()['phase'] == 'pre' and read()['playbook']['open']
+            clock = read()['drive']['clock']
+            page.evaluate('bk3dTest.step(2)')
+            assert read()['drive']['clock'] == clock
+            check_playbook()
+            page.screenshot(path=str(folder / 'next-down-playbook.png'))
         assert not errors, errors
         result.update(status='passed', frames=frame, finalPhase=read()['phase'], glError=read()['glError'])
     except Exception as exc:

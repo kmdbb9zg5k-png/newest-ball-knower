@@ -108,6 +108,8 @@ def restart(page, timeline):
 
 
 def choose_play(page, mode, play_index, snap_number):
+    if page.locator("#breakHuddle").is_visible():
+        page.click("#breakHuddle")
     page.click("#runTab" if mode == "run" else "#passTab")
     assert page.evaluate("n => bk3dTest.setSnapNumber(n)", snap_number)
     page.locator("#plays button").nth(play_index).click()

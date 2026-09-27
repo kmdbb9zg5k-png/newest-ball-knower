@@ -23,12 +23,12 @@ assert.equal(meshyAnimationState({fallen:true,role:'LB',vx:8,vz:2},'run'),'tackl
 
 // Exercise the real game controller and camera math with only DOM/GPU I/O stubbed.
 const source=fs.readFileSync(new URL('../public/play-moment-3d/game.js',import.meta.url),'utf8').replace(/^import.*;\n/gm,'').replace(/export /g,'');
-function game(width=844,height=335){
+function game(width=844,height=335,leavePlaybookOpen=false){
  const elements=new Map(),events=new Map(),rendered=new Map();let renderer;
  const element=id=>{if(elements.has(id))return elements.get(id);const el={id,hidden:false,children:[],style:{},dataset:{},classList:{add(){},remove(){},toggle(){}},setAttribute(){},setPointerCapture(){},replaceChildren(){this.children=[]},append(...c){this.children.push(...c);for(const child of c)if(child.id)elements.set(child.id,child)},appendChild(c){this.append(c)},getBoundingClientRect(){return id==='pre'?{top:height-105,left:0,width,height:105}:id==='header'?{left:width*.3,right:width*.7,top:8,bottom:58}:id==='stick'?{left:30,top:height-110,width:90,height:90}:{left:0,top:0,width,height,right:width,bottom:height}}};Object.defineProperty(el,'firstElementChild',{get(){return this.children[0]||(this.children[0]={style:{}})}});elements.set(id,el);return el};
  class HeadlessRenderer{constructor(){renderer=this;this.width=width;this.height=height;this.vp=math.identity();this.gl={getError:()=>0};this.drawCalls=0;this.eye=[0,0,0]}camera=math.Renderer.prototype.camera;project=math.Renderer.prototype.project;begin(){}add(){}draw(){}lateBegin(){}drawLate(){}glow(){}}
  const noop=()=>{},context={...math,QB_THROW_RELEASE,quarterbackThrowDuration,Renderer:HeadlessRenderer,drawAthlete:(_r,p,time)=>rendered.set(p.index,{...p,motion:p.motion?{...p.motion}:null,time}),prepareJerseys:noop,advanceMotion,makeStadium:()=>({draw:noop,parts:0}),createMeshyAthletes:()=>({ready:false,ballAnchor:()=>null,draw:noop,diagnostics:()=>({})}),createGameplayReplayRecorder:()=>({event:noop,sample:noop}),console,URLSearchParams,performance:{now:()=>0},location:{search:'?qa'},navigator:{vibrate:noop},document:{hidden:false,getElementById:element,createElement:()=>element('generated-'+elements.size),querySelector:()=>element('header'),querySelectorAll:()=>[],addEventListener:noop},requestAnimationFrame:()=>1,cancelAnimationFrame:noop,matchMedia:()=>({addEventListener:noop}),innerWidth:width,innerHeight:height,addEventListener:(name,fn)=>events.set(name,fn)};context.window=context;
- vm.createContext(context);vm.runInContext(source.replace('window.bk3dTest={','window.bk3dRenderActors=()=>actors.map(p=>({...p}));window.bk3dFixture={throwTo,finish:endPlay,drive(values){Object.assign(drive,values)},mutate(fn){fn(actors)},touchdown(){endPlay("TOUCHDOWN",100)},seed(value){numSeed=value},present,camera};window.bk3dTest={')+'\nstart();',context);context.bk3dTest.manualFrames();
+ vm.createContext(context);vm.runInContext(source.replace('window.bk3dTest={','window.bk3dRenderActors=()=>actors.map(p=>({...p}));window.bk3dFixture={throwTo,finish:endPlay,drive(values){Object.assign(drive,values)},mutate(fn){fn(actors)},touchdown(){endPlay("TOUCHDOWN",100)},seed(value){numSeed=value},present,camera};window.bk3dTest={')+'\nstart();',context);context.bk3dTest.manualFrames();if(!leavePlaybookOpen)element('breakHuddle').onclick();
  return{context,element,events,renderer,rendered,step:t=>context.bk3dTest.step(t),read:()=>context.bk3dDiagnostics(),snap:()=>element('snap').onpointerdown({preventDefault:noop}),key:key=>events.get('keydown')({key,code:key,preventDefault:noop})};
 }
 // The ball must follow center -> snap flight -> QB -> exchange -> RB.
@@ -282,3 +282,25 @@ for(const via of ['button','keyboard','line']){
  assert.equal(g.read().phase,'run');assert.equal(g.read().assist,false);assert.ok(g.read().players[5].hasBall);
 }
 console.log('QB checks passed: three timed deliveries, ten rating/sprint cases, scramble controls, extra yards, first-down spot and touchdown after clock zero.');
+
+// Play calling freezes the game until the chosen call is confirmed. Exercise
+// filtering, pause/resume, return from the line, next down and drive restart.
+{
+ const g=game(667,290,true),clock=g.read().drive.clock;
+ assert.equal(g.read().playbook.open,true);assert.equal(g.element('playbookGrid').children.length,8);
+ assert.equal(g.element('pre').hidden,true);assert.equal(g.element('live').hidden,true);
+ g.snap();g.key('Space');g.step(4);assert.equal(g.read().phase,'pre');assert.equal(g.read().drive.clock,clock);assert.equal(g.read().drive.plays,0);
+ g.element('filterPass').onclick();assert.equal(g.element('playbookGrid').children.length,4);assert.ok(g.element('playbookGrid').children.every(p=>p.dataset.mode==='pass'));
+ g.element('call-pass-1').onclick();assert.equal(g.element('callName').textContent,'VERTICALS');assert.equal(g.read().mode,'run','Draft call must not start gameplay');
+ g.element('pause').onclick();assert.equal(g.element('playbook').hidden,true);g.element('resume').onclick();assert.equal(g.element('playbook').hidden,false);assert.equal(g.read().playbook.choice.index,1);
+ g.element('filterRun').onclick();assert.equal(g.element('playbookGrid').children.length,4);assert.ok(g.element('playbookGrid').children.every(p=>p.dataset.mode==='run'));
+ g.element('filterAll').onclick();assert.equal(g.element('playbookGrid').children.length,8);
+ g.element('breakHuddle').onclick();assert.equal(g.read().playbook.open,false);assert.equal(g.read().mode,'pass');assert.equal(g.read().selected,1);assert.equal(g.element('playName').textContent,'VERTICALS');assert.equal(g.element('pre').hidden,false);
+ g.element('flipPlay').onclick();assert.equal(g.read().preSnap.runDirection,-1);
+ g.element('openPlaybook').onclick();assert.equal(g.read().playbook.choice.index,1);g.element('call-run-2').onclick();g.element('breakHuddle').onclick();assert.equal(g.read().mode,'run');assert.equal(g.read().selected,2);assert.equal(g.read().preSnap.runDirection,1);
+ g.snap();g.step(2);assert.equal(g.read().phase,'run');g.context.bk3dTest.forceContact('wrap');g.step(5);assert.equal(g.read().phase,'pre');assert.equal(g.read().playbook.open,true);assert.equal(g.read().drive.down,2);
+ const nextClock=g.read().drive.clock;g.step(4);assert.equal(g.read().drive.clock,nextClock);
+ g.element('pause').onclick();g.element('watchReplay').onclick();assert.equal(g.element('playbook').hidden,true);g.step(8);assert.equal(g.read().paused,true);g.element('resume').onclick();assert.equal(g.element('playbook').hidden,false);assert.equal(g.read().drive.clock,nextClock);
+ g.element('pause').onclick();g.element('restart').onclick();assert.equal(g.read().playbook.open,true);assert.equal(g.read().drive.down,1);assert.equal(g.read().drive.clock,78);
+ console.log('Playbook: eight calls, filters, confirmation, pause, audibles, next down and restart passed.');
+}

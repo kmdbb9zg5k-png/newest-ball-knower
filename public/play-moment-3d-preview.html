@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="robots" content="noindex,nofollow">
 <title>Ball Knower | 3D Practice Preview</title>
-<link rel="stylesheet" href="/play-moment-3d/hud.css?v=football-finish-22">
+<link rel="stylesheet" href="/play-moment-3d/hud.css?v=football-finish-23">
 <style>
 /* Keep touch targets practical on phone-sized landscape screens without rewriting the HUD. */
 .icon,.control,.mode button,.dialog button{min-width:44px;min-height:44px}
@@ -33,14 +33,19 @@
 <div id="hud">
  <header>
   <div class="utility"><a class="icon" href="/" aria-label="Return to Ball Knower">‹</a><button class="icon" id="pause" aria-label="Pause practice">Ⅱ</button></div>
-  <div class="scorebug"><div class="club home"><span class="crest">BK</span><div><b>KNOWERS</b><strong id="score">24</strong></div></div><div class="game-state"><div><b id="clock">1:18</b><span>4TH</span></div><small id="down">1ST &amp; 10 · OWN 25</small></div><div class="club away"><div><b>RIVALS</b><strong>27</strong></div><span class="crest">R</span></div></div>
+  <div class="scorebug" aria-label="Scoreboard"><div class="club home"><span class="crest">BK</span><div><b>KNOWERS</b><strong id="score">24</strong></div></div><div class="game-state"><b id="clock">1:18</b><span>4TH</span></div><div class="club away"><div><b>RIVALS</b><strong>27</strong></div><span class="crest">R</span></div><small id="down" class="series">1ST &amp; 10 · OWN 25</small></div>
   <button id="control" class="control" aria-label="Toggle manual or assisted running">MANUAL <span>●</span></button>
  </header>
  <div class="build-label">3D LAB <i></i> PRACTICE ONLY</div>
  <div id="message" role="status"></div>
  <div id="targetLayer"></div>
+ <section id="playbook" aria-labelledby="playbookTitle" hidden>
+  <div class="playbook-heading"><div><span class="eyebrow">OFFENSIVE PLAYBOOK</span><h1 id="playbookTitle">CALL YOUR PLAY</h1></div><div class="playbook-filters" role="group" aria-label="Filter plays"><button id="filterAll" aria-pressed="true">ALL</button><button id="filterRun" aria-pressed="false">RUN</button><button id="filterPass" aria-pressed="false">PASS</button></div></div>
+  <div id="playbookGrid" aria-label="Available plays"></div>
+  <div class="playbook-footer"><div aria-live="polite"><small id="callType">RUN · SELECTED PLAY</small><strong id="callName">INSIDE ZONE</strong></div><button id="breakHuddle">BREAK HUDDLE <span aria-hidden="true">›</span></button></div>
+ </section>
  <div id="pre">
-  <div class="play-picker"><div class="play-row"><div class="mode"><button id="runTab" class="selected">RUN</button><button id="passTab">PASS</button></div><div id="plays"></div></div><div id="adjustments" aria-label="Pre-snap adjustments"><button id="flipPlay">↔ FLIP</button><button id="motionReceiver">MOTION</button><button id="identifyMike">MIKE 54</button><span>AUDIBLE: PICK ANY PLAY</span></div></div>
+  <div class="play-picker"><div class="play-row"><div class="mode"><button id="runTab" class="selected">RUN</button><button id="passTab">PASS</button></div><div id="plays"></div></div><div id="adjustments" aria-label="Pre-snap adjustments"><button id="flipPlay">↔ FLIP</button><button id="motionReceiver">MOTION</button><button id="identifyMike">MIKE 54</button><button id="openPlaybook">PLAYBOOK</button><span>SET YOUR PLAY · SNAP WHEN READY</span></div></div>
   <button id="snap"><small id="playName">INSIDE ZONE</small><b>SNAP BALL <span>›</span></b></button>
  </div>
  <div id="live" hidden>
@@ -54,7 +59,7 @@
 <div id="paused" class="dialog" hidden><div><span class="eyebrow">BALL KNOWER · PRACTICE</span><h1 id="dialogTitle">PAUSED</h1><p id="dialogBody">This preview never changes your career saves or season record.</p><button id="resume">RESUME</button><button id="watchReplay" class="secondary" hidden>WATCH LAST PLAY</button><button id="restart" class="secondary">RESTART DRIVE</button><div class="gameplay-report"><textarea id="reportNote" maxlength="500" aria-label="Optional gameplay report note" placeholder="Optional: what felt wrong?"></textarea><button id="sendReport" class="secondary">SEND GAMEPLAY REPORT</button><div id="reportReceipt" class="report-receipt" role="status" hidden><b>REPORT SENT ✓</b><code id="reportCode"></code><button id="copyReportCode" type="button">COPY REPORT CODE</button><small>Codex can now locate this report automatically.</small></div><small id="reportStatus">Sends gameplay inputs and player positions only. No screen, audio, camera, location, or account data.</small></div><a href="/">Return to Ball Knower</a></div></div>
 <div id="rotate"><div><b>TURN THE FIELD SIDEWAYS</b><p>Rotate your phone for the 3D practice preview.</p><a href="/">Back to Ball Knower</a></div></div>
 <script type="module">
-try { const {start}=await import('/play-moment-3d/game.js?v=football-finish-22'); start(); }
+try { const {start}=await import('/play-moment-3d/game.js?v=football-finish-23'); start(); }
 catch(error){document.getElementById('loading').hidden=true;document.getElementById('error').hidden=false;document.getElementById('errorText').textContent='The 3D preview could not start. Your saved career is unchanged.';console.error(error);}
 </script>
 </body>
