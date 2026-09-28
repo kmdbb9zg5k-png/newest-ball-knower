@@ -1,9 +1,9 @@
 import{RUNS,PASSES,FORMATIONS,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=formation-book-28';
 export{RUNS,PASSES}from'./playbook.js?v=formation-book-28';
-import{Renderer,pose,segment,hex,mul,ry}from'./renderer.js?v=reference-scene-31';
+import{Renderer,pose,segment,hex,mul,ry}from'./renderer.js?v=stadium-finish-36';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js?v=football-finish-25';
-import{createMeshyAthletes}from'./meshy-athlete.js?v=sentinel-materials-34';
-import{makeStadium}from'./stadium.js?v=reference-scene-31';
+import{createMeshyAthletes}from'./meshy-athlete.js?v=stadium-finish-36';
+import{makeStadium}from'./stadium.js?v=stadium-finish-36';
 import{createGameplayReplayRecorder}from'./replay.js';
 import{QB_THROW_RELEASE,quarterbackThrowDuration}from'./quarterback.js?v=football-finish-21';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
@@ -727,7 +727,7 @@ function coverage(dt){
   // Center the pocket and move closer without enlarging athlete geometry.
   // Keep the existing wide/long-flight presentation and receiver-fit guard.
   const runFrame=tracking?runCameraFraming(focus.x,focus.z):null;
-  let desiredEye=tracking?runFrame.eye:[x+(isPocket?0:3.5*mult),(isPocket?5.3:8.0)*mult,(isPocket?snapZ:z)-(isPocket?13.8:24.5)*mult];
+  let desiredEye=tracking?runFrame.eye:[x+(isPocket?0:3.5*mult),(isPocket?3.6:8.0)*mult,(isPocket?snapZ:z)-(isPocket?12.8:24.5)*mult];
   let desiredTarget=tracking?runFrame.target:[x,1.42,phase==='pre'?snapZ-1.8:z];
   if(tracking){const t=smooth(runCameraBlend),offset=[(focus.x-runCameraStart.x)*.96,0,focus.z-runCameraStart.z];desiredEye=desiredEye.map((v,i)=>(runCameraStart.eye[i]+offset[i])*(1-t)+v*t);desiredTarget=desiredTarget.map((v,i)=>(runCameraStart.target[i]+offset[i])*(1-t)+v*t)}
   // Start following the intended receiver while the football is in the air.
@@ -749,7 +749,7 @@ function coverage(dt){
   if(tracking){for(let trial=0;trial<18;trial++){r.camera(desiredEye,desiredTarget);if(r.project([focus.x,0,focus.z]).y<r.height-90)break;desiredEye[1]*=1.045;desiredEye[2]=desiredTarget[2]+(desiredEye[2]-desiredTarget[2])*1.045}}
   const rate=phase==='flight'?5.5:phase==='pre'||phase==='handoff'?3.5:tracking?5.2:3.2;camEye=cameraTravel(camEye,desiredEye,dt,rate,phase==='pre'?80:24);camTarget=cameraTravel(camTarget,desiredTarget,dt,rate,phase==='pre'?80:28);const strength=impactShake*.12;impactShake=Math.max(0,impactShake-dt*3.8);r.camera([camEye[0]+Math.sin(simTime*91)*strength,camEye[1]+Math.cos(simTime*73)*strength*.45,camEye[2]],camTarget);
  }
- function scene(dt,now){r.begin();stadium.draw();
+ function scene(dt,now){r.sceneTime=now/1000;r.begin();stadium.draw();
   // Keep both snap markers fixed through contact; reset together for the next down.
   r.add('plane',pose(0,.025,snapZ,53.15,1,.11),hex('#4599ba'),'',true);
   r.add('plane',pose(0,.03,snapGainZ,53.15,1,.13),hex('#e1c156'),'',true);

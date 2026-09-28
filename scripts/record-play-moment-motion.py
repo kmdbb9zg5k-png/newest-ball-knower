@@ -109,7 +109,7 @@ def record(browser, origin, out, mode):
         page.wait_for_function('window.bk3dDiagnostics && bk3dDiagnostics().athletes.ready', timeout=45000)
         page.evaluate('bk3dTest.manualFrames(); bk3dTest.step(2)')
         loaded = read()
-        assert (loaded['athletes']['triangles'], loaded['athletes']['bones'], loaded['athletes']['clips']) == (28988, 28, 8)
+        assert (loaded['athletes']['triangles'], loaded['athletes']['bones'], loaded['athletes']['clips']) == (31070, 28, 8)
         assert loaded['assist'] is True
         assert loaded['playbook']['open'] and loaded['drive']['clock'] == 78
         page.keyboard.press('Space')

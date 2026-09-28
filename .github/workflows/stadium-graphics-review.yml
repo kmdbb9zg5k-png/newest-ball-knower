@@ -1,0 +1,42 @@
+name: Stadium graphics review
+on:
+  pull_request:
+    paths:
+      - 'public/play-moment-3d/**'
+      - 'public/play-moment-3d-preview.html'
+      - 'scripts/check-stadium-presentation.mjs'
+      - 'scripts/check-football-scene.mjs'
+      - '.github/workflows/stadium-graphics-review.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  actual-webgl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Compare actual goal-line rendering
+        run: node scripts/check-stadium-presentation.mjs
+        env:
+          BK_BASELINE_REF: cf37901fbfe2293a6c9cca04cf931d663b637e3e
+          BK_SCENE_OUT: artifacts/stadium-36/comparison
+      - name: Validate mobile formations and missing-art fallback
+        run: node scripts/check-football-scene.mjs
+        env:
+          BK_SCENE_OUT: artifacts/stadium-36/mobile
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stadium-36-webgl
+          path: artifacts/stadium-36
+          retention-days: 14

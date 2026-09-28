@@ -1,5 +1,6 @@
+import{stadiumCorners,stadiumDetails}from'./stadium-architecture.js?v=stadium-finish-36';
 import{installSceneMaterials}from'./scene-materials.js?v=reference-scene-31';
-import{pose,mul,rx,rz,translate,scale,segment,hex}from'./renderer.js?v=reference-scene-31';
+import{pose,mul,rx,rz,translate,scale,segment,hex}from'./renderer.js?v=stadium-finish-36';
 import{installNightStadium}from'./night-stadium.js';
 const C=hex;
 function canvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return[c,c.getContext('2d')]}
@@ -40,9 +41,9 @@ export function makeStadium(r){
   add('cube',pose(side*31,.85,60,2,1.7,130),C('#1b2935'));
   for(let row=0;row<13;row++){
    const x=side*(33+row*.95),y=1.5+row*.74;
-   add('cube',pose(x,y-.27,60,1.25,.58,135),C(row%3===0?'#243442':'#182632'));
-   for(let k=0;k<139;k++){
-    if(k%18===8||k%18===9)continue;const z=-5+k*.96+(row%2)*.43,v=random(),cl=v<.19?'#a6adb0':v<.60?'#18344a':v<.78?'#856d47':v<.91?'#543435':'#3a4651',body=.25+random()*.055;
+   add('cube',pose(x,y-.27,60,1.25,.58,120),C(row%3===0?'#243442':'#182632'));
+   for(let k=0;k<125;k++){
+    if(k%18===8||k%18===9)continue;const z=k*.96+(row%2)*.43,v=random(),cl=v<.19?'#a6adb0':v<.60?'#18344a':v<.78?'#856d47':v<.91?'#543435':'#3a4651',body=.25+random()*.055;
     crowdGeometry=true;fans.push([x,y-.12,z,1.40+random()*.26,1.64+random()*.20,Math.floor(random()*16),.84+random()*.23]);add('crowd',pose(x,y+.27,z,body,.75+random()*.06,body*.92),C(cl));add('crowdHead',pose(x,y+.68,z,.12,.15,.12),C(random()<.45?'#b88a65':'#7c563c'));if(k%13===row%13){for(const sign of[-1,1])add('cylinder',segment([x,y+.42,z+sign*.21],[x-side*.12,y+.88,z+sign*.38],.048),C(cl));}crowdGeometry=false;
    }
   }
@@ -76,10 +77,43 @@ export function makeStadium(r){
   }
   staffFallback.push(...staticParts.splice(staffStart));
  }
- for(const end of[-5,125]){
-  for(let j=0;j<7;j++)add('cube',pose(0,1+j*.8,end+(end<0?-j:j),67,1,1.1),C('#243746'));
-  for(let row=0;row<5;row++)for(let x=-31,seat=0;x<32;x+=1.35,seat++){const z=end+(end<0?-row:row),occupied=seat%17!==8&&seat%17!==9&&random()>.13;add('cube',pose(x,1.7+row*.8,z,.45,.65,.45),C(occupied?'#263948':'#354754'));if(occupied){crowdGeometry=true;fans.push([x,1.15+row*.8,z,1.50,1.80,Math.floor(random()*16),.89+random()*.20]);const v=random(),shirt=v<.19?'#a6adb0':v<.60?'#18344a':v<.78?'#856d47':'#543435';add('crowdEnd',pose(x,2.05+row*.8,z+(end<0?.22:-.22),.25,.75,.23),C(shirt));add('crowdHead',pose(x,2.45+row*.8,z+(end<0?.22:-.22),.12,.15,.12),C(random()<.48?'#b88664':'#7d573f'));crowdGeometry=false}}
+ // Continuous end-zone stands: close the empty gap behind the goal posts.
+ // Shared atlas instances keep the fuller bowl in one crowd draw call.
+ for(const end of[-6,126]){
+  const direction=end<0?-1:1;
+  for(let row=0;row<14;row++){
+   const y=1.5+row*.74,z=end+direction*row*.95;
+   add('cube',pose(0,y-.27,z,54,.58,1.15),C(row%3===0?'#26333b':'#18242e'));
+   for(let seat=0;seat<59;seat++){
+    const x=-26.5+seat*.91+(row%2)*.20;
+    if(Math.abs(x)<.7||Math.abs(Math.abs(x)-18.4)<.7||Math.abs(x)<4.1&&row<4)continue;
+    const v=random(),shirt=v<.24?'#b4a178':v<.63?'#253c50':v<.81?'#b4b8b7':'#544047';
+    crowdGeometry=true;
+    fans.push([x,y+.12,z,1.32+random()*.14,1.65+random()*.17,Math.floor(random()*16),.87+random()*.23]);
+    add('crowdEnd',pose(x,y+.70,z,.28,.78,.25),C(shirt));
+    add('crowdHead',pose(x,y+1.10,z,.12,.15,.12),C(random()<.48?'#b88664':'#7d573f'));
+    crowdGeometry=false;
+   }
+  }
+  // A warm concourse and lit roof edge give the night scene a visible horizon.
+  const rear=end+direction*15.4;
+  add('cube',pose(0,13.6,rear,83,3.6,2),C('#122333'));
+  add('cube',pose(0,15.7,rear,86,.42,5),C('#1c303c'));
+  add('cube',pose(0,11.75,rear-direction*1.05,82,.24,.10),C('#d0b475'),'',true);
+  for(let x=-38;x<=38;x+=4){
+   add('cube',pose(x,13.5,rear-direction*1.06,2.9,1.65,.08),C('#645b47'),'',true);
+   add('cube',pose(x,13.5,rear-direction*1.12,.08,1.75,.12),C('#1e2b35'));
+  }
+  for(const x of[-31,31])lamps.push([x,15.45,rear-direction*2.6]);
  }
+ stadiumCorners(add,(x,y,z,row,seat)=>{
+  const v=random(),shirt=v<.3?'#b5a67a':v<.72?'#243d53':'#aaaca5';
+  fans.push([x,y,z,1.24+random()*.20,1.60+random()*.20,Math.floor(random()*16),.80+random()*.25]);
+  crowdGeometry=true;add('crowdEnd',pose(x,y+.48,z,.26,.76,.24),C(shirt));add('crowdHead',pose(x,y+.88,z,.12,.15,.12),C('#9c775a'));crowdGeometry=false;
+ });
+ stadiumDetails(add);
+ // Per-instance pose reflection, spacing and brightness break the repeated grid.
+ for(const fan of fans){fan[0]+=(random()-.5)*.13;fan[2]+=(random()-.5)*.13;fan[5]+=random()>.5?.25:0;fan[6]*=.92+random()*.16;}
  // Goal posts, with actual vertical scale.
  for(const z of[3,117]){
   add('cylinder',segment([0,0,z],[0,3.2,z],.13),C('#d1b254'));add('cylinder',segment([-3.1,3.2,z],[3.1,3.2,z],.09),C('#ead57a'));
@@ -114,5 +148,5 @@ export function makeStadium(r){
  return{draw(){for(const p of staticParts)r.add(...p);if(!art.crowd)for(const p of crowdFallback)r.add(...p);
   if(art.crowd)for(const [x,y,z,w,h,cell,shade]of fans)r.add('crowdSprite',pose(x,y,z,w,h,1),[shade,shade,shade,1],'crowd-atlas',false,cell,6);
   if(art.sideline)for(const [x,y,z,h,cell]of staffSprites){r.add('crowdSprite',pose(x,y,z,h,h,1),[1.1,1.1,1.1,1],'sideline-atlas',false,cell,6);r.add('plane',pose(x,.016,z,.7,1,.55),[1,1,1,.42],'shadow',true)}else for(const p of staffFallback)r.add(...p);
-  for(const pos of lamps)r.glow(pos,10,[.60,.76,1,.27]);},parts:staticParts.length};
+  for(const pos of lamps){r.glow(pos,8,[.64,.75,1,.19]);r.glow(pos,2.4,[1,.95,.80,.52]);}},parts:staticParts.length};
 }

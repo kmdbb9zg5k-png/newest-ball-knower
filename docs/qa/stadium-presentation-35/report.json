@@ -1,0 +1,94 @@
+[
+  {
+    "before": true,
+    "camera": {
+      "eye": [
+        0.00003393950577260657,
+        6.5657935192468955,
+        92.3281432575877
+      ],
+      "target": [
+        0,
+        1.419996604022151,
+        107.19415570520584
+      ]
+    },
+    "graphics": {
+      "quality": "high",
+      "shadowAvailable": true,
+      "shadowSize": 2048,
+      "shadowDrawCalls": 22,
+      "drawCalls": 39,
+      "textureCount": 57,
+      "instanceBytes": 1790208,
+      "geometryCount": 15,
+      "overflows": 0,
+      "eye": [
+        0.00003393950577260657,
+        6.5657935192468955,
+        92.3281432575877
+      ],
+      "target": [
+        0,
+        1.419996604022151,
+        107.19415570520584
+      ],
+      "canvas": [
+        1290,
+        590
+      ]
+    },
+    "art": {
+      "turf": true,
+      "crowd": true,
+      "sideline": true,
+      "failed": []
+    }
+  },
+  {
+    "before": false,
+    "camera": {
+      "eye": [
+        0.000298005087750966,
+        4.964069021027529,
+        92.02626372336113
+      ],
+      "target": [
+        0,
+        1.4199730927377905,
+        107.1945255883601
+      ]
+    },
+    "graphics": {
+      "quality": "high",
+      "shadowAvailable": true,
+      "shadowSize": 2048,
+      "shadowDrawCalls": 22,
+      "drawCalls": 39,
+      "textureCount": 57,
+      "instanceBytes": 2714880,
+      "geometryCount": 15,
+      "overflows": 0,
+      "eye": [
+        0.000298005087750966,
+        4.964069021027529,
+        92.02626372336113
+      ],
+      "target": [
+        0,
+        1.4199730927377905,
+        107.1945255883601
+      ],
+      "canvas": [
+        1290,
+        590
+      ]
+    },
+    "art": {
+      "turf": true,
+      "crowd": true,
+      "sideline": true,
+      "failed": []
+    }
+  }
+]
