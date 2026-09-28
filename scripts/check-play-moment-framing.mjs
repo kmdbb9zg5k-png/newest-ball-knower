@@ -3,7 +3,7 @@
  */
 import assert from 'node:assert/strict';
 import {PASSES} from '../public/play-moment-3d/playbook.js';
-import {cameraTravel,runCameraFraming,normalizeControlKey as normalize,layoutReceiverMarkers as layout,predictPassDestination as predict} from '../public/play-moment-3d/game.js';
+import {cameraRigTravel,cameraTravel,runCameraFraming,normalizeControlKey as normalize,layoutReceiverMarkers as layout,predictPassDestination as predict} from '../public/play-moment-3d/game.js';
 import {readFileSync} from 'node:fs';
 const source=readFileSync(new URL('../public/play-moment-3d/game.js',import.meta.url),'utf8');
 function between(a,b){const i=source.indexOf(a),j=source.indexOf(b,i+a.length);assert.ok(i>=0&&j>i,`Missing function boundary ${a}`);return source.slice(i,j);}
@@ -34,7 +34,7 @@ function fixture(phase,actors,width,height,carrier=actors[5]){
  }};
  const before=JSON.stringify(actors);
  const cameraFollowBlend=(dt,rate=5)=>1-Math.exp(-Math.max(0,Number(rate)||0)*clamp(Number(dt)||0,0,.25));
- Function('r','phase','actors','carrier','clamp','cameraFollowBlend','cameraTravel','runCameraFraming',`const playbookOpen=false;let camEye=[0,0,0],camTarget=[0,0,0],impactShake=0,simTime=0,postPlayElapsed=0,runCameraBlend=0,runCameraStart=null,flightCameraStart=null,deadCameraStart=null;const smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)},$=()=>({getBoundingClientRect:()=>({top:r.height-100})});const snapZ=95,receiverIndices=[7,8,9,10,6],flight=null;${cameraSource};for(let frame=0;frame<240;frame++)camera(1/60);`)(r,phase,actors,carrier,clamp,cameraFollowBlend,cameraTravel,runCameraFraming);
+ Function('r','phase','actors','carrier','clamp','cameraFollowBlend','cameraTravel','runCameraFraming','cameraRigTravel',`const playbookOpen=false;let camEye=[0,0,0],camTarget=[0,0,0],impactShake=0,simTime=0,postPlayElapsed=0,runCameraBlend=0,runCameraStart=null,flightCameraStart=null,deadCameraStart=null;const smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)},$=()=>({getBoundingClientRect:()=>({top:r.height-100})});const snapZ=95,receiverIndices=[7,8,9,10,6],flight=null;${cameraSource};for(let frame=0;frame<240;frame++)camera(1/60);`)(r,phase,actors,carrier,clamp,cameraFollowBlend,cameraTravel,runCameraFraming,cameraRigTravel);
  assert.equal(JSON.stringify(actors),before,'Camera changed player state');return r;
 }
 let samples=0;

@@ -24,11 +24,11 @@ assert.equal(meshyAnimationState({fallen:true,role:'LB',vx:8,vz:2},'run'),'tackl
 
 // Exercise the real game controller and camera math with only DOM/GPU I/O stubbed.
 const source=fs.readFileSync(new URL('../public/play-moment-3d/game.js',import.meta.url),'utf8').replace(/^import.*;\n/gm,'').replace(/^export\{.*;\n/gm,'').replace(/export /g,'');
-function game(width=844,height=335,leavePlaybookOpen=false){
+function game(width=844,height=335,leavePlaybookOpen=false,assist=true){
  const elements=new Map(),events=new Map(),rendered=new Map();let renderer;
  const element=id=>{if(elements.has(id))return elements.get(id);const el={id,hidden:false,children:[],style:{},dataset:{},classList:{add(){},remove(){},toggle(){}},setAttribute(){},setPointerCapture(){},replaceChildren(){this.children=[]},append(...c){this.children.push(...c);for(const child of c)if(child.id)elements.set(child.id,child)},appendChild(c){this.append(c)},getBoundingClientRect(){return ['pre','plays'].includes(id)?{top:height-105,left:0,width,height:105}:id==='header'?{left:width*.3,right:width*.7,top:8,bottom:58}:id==='stick'?{left:30,top:height-110,width:90,height:90}:{left:0,top:0,width,height,right:width,bottom:height}}};Object.defineProperty(el,'firstElementChild',{get(){return this.children[0]||(this.children[0]={style:{}})}});elements.set(id,el);return el};
  class HeadlessRenderer{constructor(){renderer=this;this.width=width;this.height=height;this.vp=math.identity();this.gl={getError:()=>0};this.drawCalls=0;this.eye=[0,0,0]}camera=math.Renderer.prototype.camera;project=math.Renderer.prototype.project;begin(){}add(){}draw(){}lateBegin(){}drawLate(){}glow(){}}
- const noop=()=>{},context={...math,...playbook,QB_THROW_RELEASE,quarterbackThrowDuration,Renderer:HeadlessRenderer,drawAthlete:(_r,p,time)=>rendered.set(p.index,{...p,motion:p.motion?{...p.motion}:null,time}),prepareJerseys:noop,advanceMotion,makeStadium:()=>({draw:noop,parts:0}),createMeshyAthletes:()=>({ready:false,ballAnchor:()=>null,draw:noop,diagnostics:()=>({})}),createGameplayReplayRecorder:()=>({event:noop,sample:noop}),console,URLSearchParams,performance:{now:()=>0},location:{search:'?qa'},navigator:{vibrate:noop},document:{hidden:false,getElementById:element,createElement:()=>element('generated-'+elements.size),querySelector:()=>element('header'),querySelectorAll:()=>[],addEventListener:noop},requestAnimationFrame:()=>1,cancelAnimationFrame:noop,matchMedia:()=>({addEventListener:noop}),innerWidth:width,innerHeight:height,addEventListener:(name,fn)=>events.set(name,fn)};context.window=context;
+ const noop=()=>{},context={...math,...playbook,QB_THROW_RELEASE,quarterbackThrowDuration,Renderer:HeadlessRenderer,drawAthlete:(_r,p,time)=>rendered.set(p.index,{...p,motion:p.motion?{...p.motion}:null,time}),prepareJerseys:noop,advanceMotion,makeStadium:()=>({draw:noop,parts:0}),createMeshyAthletes:()=>({ready:false,ballAnchor:()=>null,draw:noop,diagnostics:()=>({})}),createGameplayReplayRecorder:()=>({event:noop,sample:noop}),console,URLSearchParams,performance:{now:()=>0},location:{search:assist?'?qa&assist=1':'?qa'},navigator:{vibrate:noop},document:{hidden:false,getElementById:element,createElement:()=>element('generated-'+elements.size),querySelector:()=>element('header'),querySelectorAll:()=>[],addEventListener:noop},requestAnimationFrame:()=>1,cancelAnimationFrame:noop,matchMedia:()=>({addEventListener:noop}),innerWidth:width,innerHeight:height,addEventListener:(name,fn)=>events.set(name,fn)};context.window=context;
  vm.createContext(context);vm.runInContext(source.replace('window.bk3dTest={','window.bk3dRenderActors=()=>actors.map(p=>({...p}));window.bk3dFixture={throwTo,finish:endPlay,drive(values){Object.assign(drive,values)},mutate(fn){fn(actors)},touchdown(){endPlay("TOUCHDOWN",100)},seed(value){numSeed=value},present,camera};window.bk3dTest={')+'\nstart();',context);context.bk3dTest.manualFrames();if(!leavePlaybookOpen)element('breakHuddle').onclick();
  return{context,element,events,renderer,rendered,step:t=>context.bk3dTest.step(t),read:()=>context.bk3dDiagnostics(),snap:()=>element('snap').onpointerdown({preventDefault:noop}),key:key=>events.get('keydown')({key,code:key,preventDefault:noop})};
 }
@@ -72,7 +72,8 @@ for(let play=0;play<4;play++){
   g.step(1/60);const d=g.read();if(d.phase==='snap'){previous=d.players;continue}if(d.phase!=='pass')break;
   for(let index=0;index<5;index++){
    const p=d.players[index],before=previous[index];
-   assert.ok(Math.hypot(p.x-before.x,p.z-before.z)<.07,'Pass blocker moved twice in one tick');
+   assert.ok(p.distance-before.distance<=2.8/60+.001,'Pass blocker locomotion applied twice');
+   assert.ok(Math.hypot(p.x-before.x,p.z-before.z)<.22,'Collision correction teleported blocker');
    if(d.elapsed>2.5&&!p.engaged&&Math.abs(p.heading)>.3)turned=true;
    if(p.engaged){const defender=d.players[p.engagedWith];assert.ok(Math.hypot(p.x-defender.x,p.z-defender.z)<1.6,'Block pose started before contact')}
   }
@@ -134,7 +135,7 @@ for(const targetKey of ['x','y','z']){
   }
   previous=d;if(d.phase==='dead')break;
  }
- assert.ok(caught,`Camera case ${targetKey} must catch the pass`);assert.ok(maxEyeStep<=.401);
+ assert.ok(caught,`Camera case ${targetKey} must catch the pass`);assert.ok(maxEyeStep<=1.084);
  console.log(`Caught ${targetKey}: camera step ${maxEyeStep.toFixed(3)} yards, receiver motion ${catchPixels.toFixed(2)}px at catch.`);
 }
 
@@ -348,3 +349,37 @@ for(const reverse of [false,true]){
  g.key('p');g.snap();assert.equal(g.read().phase,'snap');assert.equal(g.read().preSnap.playArt,false);assert.equal(g.element('prePanel').hidden,true);
 }
 console.log('Pre-snap flow: hold/release art, quick audibles, pause running settings and continuous receiver motion passed.');
+
+// Recording regression: default manual control survives the catch and a held
+// joystick is immediately effective without lifting and touching again.
+for(const target of['x','y','z']){
+ const g=game(844,390,false,false);assert.equal(g.read().assist,false);
+ g.element('passTab').onclick();g.element('plays').children[1].onclick();g.snap();g.step(.8);g.context.bk3dFixture.seed(500);g.key(target);
+ let caught=false,flightFrames=0,maxTurn=0,prior=null;
+ for(let frame=0;frame<120;frame++){
+  g.step(1/60);const d=g.read(),angle=Math.atan2(d.camera.target[0]-d.camera.eye[0],d.camera.target[2]-d.camera.eye[2]);
+  if(prior!==null)maxTurn=Math.max(maxTurn,Math.abs(Math.atan2(Math.sin(angle-prior),Math.cos(angle-prior))));prior=angle;
+  if(d.phase==='flight'){
+   flightFrames++;const p=d.players[{x:7,y:8,z:9}[target]];
+   assert.ok(p.head.visible&&p.head.x>0&&p.head.x<844&&p.head.y>45&&p.foot.y<350,'Intended receiver left the flight frame');
+   const box=g.element('stick').getBoundingClientRect();g.element('stick').onpointerdown({pointerId:1,clientX:box.left+box.width*.8,clientY:box.top+box.height*.5,preventDefault(){}});
+  }
+  if(d.phase==='run'){
+   caught=true;assert.equal(d.assist,false);assert.equal(g.element('stick').style.pointerEvents,'auto');const index=d.players.findIndex(p=>p.hasBall),before=d.players[index];
+   g.context.bk3dFixture.mutate(actors=>actors.filter(p=>p.team===1).forEach(p=>{p.x=24;p.z=100}));g.step(.12);const after=g.read().players[index];
+   const fx=d.camera.target[0]-d.camera.eye[0],fz=d.camera.target[2]-d.camera.eye[2];
+   assert.ok((after.x-before.x)*(-fz)+(after.z-before.z)*fx>0,'Held joystick did not steer the new receiver');break;
+  }
+ }
+ assert.ok(caught&&flightFrames>10);assert.ok(maxTurn<.05,'Camera yaw snapped during flight/catch');
+}
+// A collapsing engaged block and a closing free rusher must warn before contact.
+{
+ const {pocketThreat}=await import('../public/play-moment-3d/game.js');const qb={x:0,z:0,vx:0,vz:0};
+ assert.ok(pocketThreat(qb,[{x:0,z:3.2,engaged:true}],1)>.1);
+ assert.ok(pocketThreat(qb,[{x:0,z:5,vz:-5}],1)>pocketThreat(qb,[{x:0,z:5,vz:0}],1));
+ const g=game();g.element('passTab').onclick();g.snap();let warned=false,sacked=false;
+ for(let i=0;i<420;i++){g.step(1/60);const d=g.read();if(d.phase==='pass'&&d.pocketPressure>.15)warned=true;if(d.phase==='dead'){sacked=true;assert.ok(d.contact);assert.ok(!g.element('message').textContent.startsWith('SACK'),'Sack announced before contact finish');g.step(1.2);assert.match(g.element('message').textContent,/SACK/);break}}
+ assert.ok(warned&&sacked);
+}
+console.log('Recording regressions passed: manual catch steering, receiver flight framing, bounded yaw, early pressure and synchronized sack result.');

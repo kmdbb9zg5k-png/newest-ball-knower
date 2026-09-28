@@ -9,7 +9,7 @@ function chase(targetFn){
 }
 const interception=chase((d,r)=>pursuitTarget(d,r,false,8.2));
 assert.ok(interception.caught,'A safety with a reachable crossing angle should meet the runner');
-assert.equal(initialAssistMode(''),true,'Default preview launch must be assisted');
+assert.equal(initialAssistMode(''),false,'Default preview launch must be manual');
 assert.equal(initialAssistMode('?assist=1'),true,'Preview query must enable assisted running');
 assert.equal(initialAssistMode('?assist=0'),false,'Manual mode must remain available by query');
 assert.match(gameplayInstruction({phase:'run',assist:true}),/AUTO RUNNING/,'Assisted play must explain that steering is automatic');
