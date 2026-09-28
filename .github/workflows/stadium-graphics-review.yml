@@ -13,7 +13,7 @@ permissions:
 jobs:
   actual-webgl:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,18 +25,24 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
+      - name: Validate controller recording regressions
+        run: node scripts/check-football-recovery.mjs
+      - name: Render blocking contact and manual catch sequence
+        run: node scripts/check-gameplay-contact.mjs
+        env:
+          BK_SCENE_OUT: artifacts/gameplay-37/contact
       - name: Compare actual goal-line rendering
         run: node scripts/check-stadium-presentation.mjs
         env:
-          BK_BASELINE_REF: cf37901fbfe2293a6c9cca04cf931d663b637e3e
-          BK_SCENE_OUT: artifacts/stadium-36/comparison
+          BK_BASELINE_REF: 77c309861d08a924556d2f1b41425521b68881b2
+          BK_SCENE_OUT: artifacts/gameplay-37/comparison
       - name: Validate mobile formations and missing-art fallback
         run: node scripts/check-football-scene.mjs
         env:
-          BK_SCENE_OUT: artifacts/stadium-36/mobile
+          BK_SCENE_OUT: artifacts/gameplay-37/mobile
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: stadium-36-webgl
-          path: artifacts/stadium-36
+          name: gameplay-37-webgl
+          path: artifacts/gameplay-37
           retention-days: 14

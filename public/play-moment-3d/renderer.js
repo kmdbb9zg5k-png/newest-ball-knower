@@ -106,6 +106,7 @@ void main(){
  if(material==4&&hasTurfDetail==1){
   vec2 grassUV=world.xz*.38;
   vec3 grass=texture(turfDetail,grassUV).rgb;
+  grass=mix(grass,vec3(.30,.43,.24),.23);
   float grassMask=(1.-smoothstep(.80,.96,base.r/max(base.g,.001)))*smoothstep(.16,.23,base.g);
   float variation=.92+.08*smoothstep(-.2,.2,sin(world.z*3.14159*.2));
   grass=mix(grass,vec3(dot(grass,vec3(.2126,.7152,.0722))),.30);
@@ -122,8 +123,8 @@ void main(){
   vec2 grid=world.xz*36.;float aa=1.-smoothstep(.6,2.3,max(fwidth(grid.x),fwidth(grid.y)));
   float grain=hash(floor(grid)),crossGrain=hash(floor(world.zx*67.+19.));
   float blades=sin(world.z*290.+grain*3.)*sin(world.x*137.+crossGrain*2.);
-  albedo*=1.+(grain-.5)*.16*aa+(crossGrain-.5)*.025*aa;
-  N=normalize(N+vec3((grain-.5)*.12,0.,blades*.085)*aa);
+  albedo*=1.+(grain-.5)*.075*aa+(crossGrain-.5)*.025*aa;
+  N=normalize(N+vec3((grain-.5)*.06,0.,blades*.045)*aa);
  }
  float lit=visibility(N);vec3 L0=normalize(KEY),L1=normalize(vec3(.62,.69,.38)),L2=normalize(vec3(-.20,.72,.65));
  float d0=max(dot(N,L0),0.),d1=max(dot(N,L1),0.),d2=max(dot(N,L2),0.);
