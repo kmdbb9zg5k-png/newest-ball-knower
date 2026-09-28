@@ -17,7 +17,7 @@ try{
  const page=await browser.newPage({viewport:{width:844,height:390},deviceScaleFactor:1,hasTouch:true,isMobile:true,ignoreHTTPSErrors:true});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const url=process.env.BK_TEST_URL||`http://127.0.0.1:${server.address().port}/play-moment-3d-preview.html?qa=1`;
- await page.goto(url,{waitUntil:'networkidle'});await page.waitForFunction(()=>window.bk3dDiagnostics?.().athletes.ready&&window.bkSceneArtDiagnostics?.().sideline,{timeout:45000});
+ await page.goto(url,{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>window.bk3dTest);await page.evaluate(()=>window.bk3dTest.manualFrames());await page.waitForFunction(()=>window.bk3dDiagnostics?.().athletes.ready&&window.bkSceneArtDiagnostics?.().sideline,{timeout:45000});
  assert.deepEqual(await page.evaluate(()=>window.bkSceneArtDiagnostics()),{turf:true,crowd:true,sideline:true,failed:[]});
  await page.evaluate(()=>window.bk3dTest.manualFrames());const frames=[];
  for(const [width,height]of[[667,320],[844,335],[844,390],[1290,590]]){
@@ -37,7 +37,7 @@ try{
  // Optional art failures must leave a playable scene with the procedural fallback.
  const fallback=await browser.newPage({viewport:{width:844,height:390},deviceScaleFactor:1,ignoreHTTPSErrors:true});fallback.on('pageerror',e=>errors.push(e.message));
  await fallback.route('**/stadium-*-v1.webp',route=>route.abort('failed'));
- await fallback.goto(url,{waitUntil:'networkidle'});await fallback.waitForFunction(()=>window.bk3dDiagnostics?.().athletes.ready&&window.bkSceneArtDiagnostics?.().failed.length===3,{timeout:45000});
+ await fallback.goto(url,{waitUntil:'domcontentloaded'});await fallback.waitForFunction(()=>window.bk3dTest);await fallback.evaluate(()=>window.bk3dTest.manualFrames());await fallback.waitForFunction(()=>window.bk3dDiagnostics?.().athletes.ready&&window.bkSceneArtDiagnostics?.().failed.length===3,{timeout:45000});
  await fallback.evaluate(()=>window.bk3dTest.manualFrames());await fallback.locator('#filterPass').click();await fallback.locator('.play-card').first().click();await fallback.locator('#breakHuddle').click();
  await fallback.locator('#snap').dispatchEvent('pointerdown',{pointerId:1,pointerType:'touch'});await fallback.evaluate(()=>window.bk3dTest.step(.4));
  const d=await fallback.evaluate(()=>({game:window.bk3dDiagnostics(),graphics:window.bkGraphicsDiagnostics(),art:window.bkSceneArtDiagnostics()}));

@@ -75,7 +75,7 @@ void main(){
   vec2 cell=vec2(mod(floor(gloss+.5),4.),floor(gloss/4.));
   vec2 atlasUV=(cell+clamp(tex,vec2(.006),vec2(.994)))*.25;
   base*=texture(image,atlasUV);if(base.a<.48)discard;
-  float falloff=mix(.78,.49,smoothstep(25.,125.,distance(eye,world)));
+  float falloff=mix(.91,.64,smoothstep(25.,145.,distance(eye,world)));
   vec3 crowd=base.rgb*falloff;crowd=mix(crowd,vec3(.035,.048,.063),smoothstep(55.,170.,distance(eye,world))*.35);
   outputColor=vec4(crowd,1.);return;
  }
@@ -102,24 +102,25 @@ void main(){
   N=normalize(N+vec3(pebble.x,0.,pebble.y)*.075*detail*(1.-lace));rough=.82;g=.08;
  }
  if(material==4&&hasTurfDetail==1){
-  vec2 grassUV=world.xz*.46;
+  vec2 grassUV=world.xz*.38;
   vec3 grass=texture(turfDetail,grassUV).rgb;
   float grassMask=(1.-smoothstep(.80,.96,base.r/max(base.g,.001)))*smoothstep(.16,.23,base.g);
-  float variation=.92+.08*sin(world.z*3.14159*.2);
+  float variation=.93+.07*sin(world.z*3.14159*.2);
   grass=mix(grass,vec3(dot(grass,vec3(.2126,.7152,.0722))),.30);
   vec3 turf=pow(grass*vec3(.78,.83,.79),vec3(2.2))*variation;
   albedo=mix(albedo,turf,grassMask*.94);
   float fiber=dot(grass,vec3(.3,.6,.1));
-  albedo*=mix(.87,1.10,clamp(fiber*2.,0.,1.));
-  float dx=dot(texture(turfDetail,grassUV+vec2(.001,0.)).rgb,vec3(.3,.6,.1))-fiber;
-  float dz=dot(texture(turfDetail,grassUV+vec2(0.,.001)).rgb,vec3(.3,.6,.1))-fiber;
+  albedo*=mix(.96,1.04,clamp(fiber*2.,0.,1.));
+  float rawFiber=dot(texture(turfDetail,grassUV).rgb,vec3(.3,.6,.1));
+  float dx=dot(texture(turfDetail,grassUV+vec2(.001,0.)).rgb,vec3(.3,.6,.1))-rawFiber;
+  float dz=dot(texture(turfDetail,grassUV+vec2(0.,.001)).rgb,vec3(.3,.6,.1))-rawFiber;
   N=normalize(N+vec3(-dx,0.,-dz)*1.4);
  }
  if(material==4){
   vec2 grid=world.xz*36.;float aa=1.-smoothstep(.6,2.3,max(fwidth(grid.x),fwidth(grid.y)));
   float grain=hash(floor(grid)),crossGrain=hash(floor(world.zx*67.+19.));
   float blades=sin(world.z*290.+grain*3.)*sin(world.x*137.+crossGrain*2.);
-  albedo*=1.+(grain-.5)*.16*aa+(crossGrain-.5)*.035;
+  albedo*=1.+(grain-.5)*.16*aa+(crossGrain-.5)*.025*aa;
   N=normalize(N+vec3((grain-.5)*.12,0.,blades*.085)*aa);
  }
  float lit=visibility(N);vec3 L0=normalize(KEY),L1=normalize(vec3(.62,.69,.38)),L2=normalize(vec3(-.20,.72,.65));
@@ -133,7 +134,7 @@ void main(){
  // Slight wrap on skin keeps faces readable without making uniforms luminous.
  if(material==3)diffuse+=vec3(.17,.10,.075)*max(0.,dot(N,L0)+.35);
  // The field is floodlit; the surrounding bowl remains a night environment.
- float exposure=material==4?.48:material==0?.39:1.;
+ float exposure=material==4?.46:material==0?.48:1.;
  vec3 rgb=albedo*diffuse*exposure;
  float nv=max(dot(N,V),0.);vec3 F0=mix(vec3(.025),albedo*.55+vec3(.12),g*.5);
  vec3 fresnel=F0+(1.-F0)*pow(1.-nv,5.);
@@ -251,8 +252,8 @@ export class Renderer{
    gl.enableVertexAttribArray(7);gl.vertexAttribPointer(7,4,gl.FLOAT,false,84,64);gl.vertexAttribDivisor(7,1);
    gl.enableVertexAttribArray(8);gl.vertexAttribPointer(8,1,gl.FLOAT,false,84,80);gl.vertexAttribDivisor(8,1);this.batches.set(key,b);
   }
-  if(b.count>=4096){this.overflows++;return;}
-  if(b.count>=b.capacity){b.capacity=Math.min(4096,b.capacity*2);const data=new Float32Array(21*b.capacity);data.set(b.data);b.data=data;this.gl.bindBuffer(this.gl.ARRAY_BUFFER,b.instances);this.gl.bufferData(this.gl.ARRAY_BUFFER,b.data.byteLength,this.gl.DYNAMIC_DRAW)}
+  if(b.count>=8192){this.overflows++;return;}
+  if(b.count>=b.capacity){b.capacity=Math.min(8192,b.capacity*2);const data=new Float32Array(21*b.capacity);data.set(b.data);b.data=data;this.gl.bindBuffer(this.gl.ARRAY_BUFFER,b.instances);this.gl.bufferData(this.gl.ARRAY_BUFFER,b.data.byteLength,this.gl.DYNAMIC_DRAW)}
   const i=b.count++*21;b.data.set(matrix,i);b.data.set(color,i+16);b.data[i+20]=shine;
  }
  glow(position,size,color=[.7,.84,1,.2]){

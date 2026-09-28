@@ -5,7 +5,7 @@ import {fileURLToPath} from 'node:url';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const assetFlag=process.argv.indexOf('--asset');
-const assetPath=assetFlag>=0?path.resolve(process.argv[assetFlag+1]):path.join(root,'public/play-moment-3d/assets/ball-knower-gridiron-pro-v3.glb');
+const assetPath=assetFlag>=0?path.resolve(process.argv[assetFlag+1]):path.join(root,'public/play-moment-3d/assets/ball-knower-gridiron-sentinel-v4.glb');
 const bytes=fs.readFileSync(assetPath);
 assert.equal(bytes.readUInt32LE(0),0x46546c67,'Athlete must be GLB');
 assert.equal(bytes.readUInt32LE(4),2,'Athlete must use GLB v2');

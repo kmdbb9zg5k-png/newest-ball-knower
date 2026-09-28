@@ -1,5 +1,5 @@
 import{installSceneMaterials}from'./scene-materials.js?v=reference-scene-31';
-import{pose,mul,rx,rz,translate,scale,segment,hex}from'./renderer.js?v=reference-scene-31';
+import{pose,mul,rx,rz,translate,scale,segment,hex}from'./renderer.js?v=stadium-presentation-35';
 import{installNightStadium}from'./night-stadium.js';
 const C=hex;
 function canvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return[c,c.getContext('2d')]}
@@ -76,9 +76,34 @@ export function makeStadium(r){
   }
   staffFallback.push(...staticParts.splice(staffStart));
  }
+ // Continuous end-zone stands: close the empty gap behind the goal posts.
+ // Shared atlas instances keep the fuller bowl in one crowd draw call.
  for(const end of[-5,125]){
-  for(let j=0;j<7;j++)add('cube',pose(0,1+j*.8,end+(end<0?-j:j),67,1,1.1),C('#243746'));
-  for(let row=0;row<5;row++)for(let x=-31,seat=0;x<32;x+=1.35,seat++){const z=end+(end<0?-row:row),occupied=seat%17!==8&&seat%17!==9&&random()>.13;add('cube',pose(x,1.7+row*.8,z,.45,.65,.45),C(occupied?'#263948':'#354754'));if(occupied){crowdGeometry=true;fans.push([x,1.15+row*.8,z,1.50,1.80,Math.floor(random()*16),.89+random()*.20]);const v=random(),shirt=v<.19?'#a6adb0':v<.60?'#18344a':v<.78?'#856d47':'#543435';add('crowdEnd',pose(x,2.05+row*.8,z+(end<0?.22:-.22),.25,.75,.23),C(shirt));add('crowdHead',pose(x,2.45+row*.8,z+(end<0?.22:-.22),.12,.15,.12),C(random()<.48?'#b88664':'#7d573f'));crowdGeometry=false}}
+  const direction=end<0?-1:1;
+  for(let row=0;row<14;row++){
+   const y=1+row*.78,z=end+direction*row*1.05;
+   add('cube',pose(0,y,z,78,.78,1.2),C(row%3===0?'#26333b':'#18242e'));
+   for(let seat=0;seat<84;seat++){
+    const x=-38+seat*.91+(row%2)*.30;
+    if(seat%21===10||Math.abs(x)<4.1&&row<4)continue;
+    const v=random(),shirt=v<.24?'#b4a178':v<.63?'#253c50':v<.81?'#b4b8b7':'#544047';
+    crowdGeometry=true;
+    fans.push([x,y+.12,z,1.32+random()*.14,1.65+random()*.17,Math.floor(random()*16),.87+random()*.23]);
+    add('crowdEnd',pose(x,y+.70,z,.28,.78,.25),C(shirt));
+    add('crowdHead',pose(x,y+1.10,z,.12,.15,.12),C(random()<.48?'#b88664':'#7d573f'));
+    crowdGeometry=false;
+   }
+  }
+  // A warm concourse and lit roof edge give the night scene a visible horizon.
+  const rear=end+direction*15.4;
+  add('cube',pose(0,13.6,rear,83,3.6,2),C('#122333'));
+  add('cube',pose(0,15.7,rear,86,.42,5),C('#1c303c'));
+  add('cube',pose(0,11.75,rear-direction*1.05,82,.24,.10),C('#d0b475'),'',true);
+  for(let x=-38;x<=38;x+=4){
+   add('cube',pose(x,13.5,rear-direction*1.06,2.9,1.65,.08),C('#645b47'),'',true);
+   add('cube',pose(x,13.5,rear-direction*1.12,.08,1.75,.12),C('#1e2b35'));
+  }
+  for(const x of[-31,31])lamps.push([x,15.45,rear-direction*2.6]);
  }
  // Goal posts, with actual vertical scale.
  for(const z of[3,117]){

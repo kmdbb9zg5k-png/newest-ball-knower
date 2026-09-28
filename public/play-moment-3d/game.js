@@ -1,9 +1,9 @@
 import{RUNS,PASSES,FORMATIONS,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=formation-book-28';
 export{RUNS,PASSES}from'./playbook.js?v=formation-book-28';
-import{Renderer,pose,segment,hex,mul,ry}from'./renderer.js?v=reference-scene-31';
+import{Renderer,pose,segment,hex,mul,ry}from'./renderer.js?v=stadium-presentation-35';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js?v=football-finish-25';
-import{createMeshyAthletes}from'./meshy-athlete.js?v=sentinel-materials-34';
-import{makeStadium}from'./stadium.js?v=reference-scene-31';
+import{createMeshyAthletes}from'./meshy-athlete.js?v=stadium-presentation-35';
+import{makeStadium}from'./stadium.js?v=stadium-presentation-35';
 import{createGameplayReplayRecorder}from'./replay.js';
 import{QB_THROW_RELEASE,quarterbackThrowDuration}from'./quarterback.js?v=football-finish-21';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
@@ -727,7 +727,7 @@ function coverage(dt){
   // Center the pocket and move closer without enlarging athlete geometry.
   // Keep the existing wide/long-flight presentation and receiver-fit guard.
   const runFrame=tracking?runCameraFraming(focus.x,focus.z):null;
-  let desiredEye=tracking?runFrame.eye:[x+(isPocket?0:3.5*mult),(isPocket?5.3:8.0)*mult,(isPocket?snapZ:z)-(isPocket?13.8:24.5)*mult];
+  let desiredEye=tracking?runFrame.eye:[x+(isPocket?0:3.5*mult),(isPocket?3.6:8.0)*mult,(isPocket?snapZ:z)-(isPocket?12.8:24.5)*mult];
   let desiredTarget=tracking?runFrame.target:[x,1.42,phase==='pre'?snapZ-1.8:z];
   if(tracking){const t=smooth(runCameraBlend),offset=[(focus.x-runCameraStart.x)*.96,0,focus.z-runCameraStart.z];desiredEye=desiredEye.map((v,i)=>(runCameraStart.eye[i]+offset[i])*(1-t)+v*t);desiredTarget=desiredTarget.map((v,i)=>(runCameraStart.target[i]+offset[i])*(1-t)+v*t)}
   // Start following the intended receiver while the football is in the air.
