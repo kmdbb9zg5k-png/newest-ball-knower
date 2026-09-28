@@ -4,7 +4,8 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const assetPath=path.join(root,'public/play-moment-3d/assets/ball-knower-gridiron-pro-v3.glb');
+const assetFlag=process.argv.indexOf('--asset');
+const assetPath=assetFlag>=0?path.resolve(process.argv[assetFlag+1]):path.join(root,'public/play-moment-3d/assets/ball-knower-gridiron-pro-v3.glb');
 const bytes=fs.readFileSync(assetPath);
 assert.equal(bytes.readUInt32LE(0),0x46546c67,'Athlete must be GLB');
 assert.equal(bytes.readUInt32LE(4),2,'Athlete must use GLB v2');
@@ -52,5 +53,5 @@ for(const [index,image] of json.images.entries()){
  assert.deepEqual(jpegSize(raw),[2048,2048],`Texture ${index} must remain 2K`);
 }
 assert.ok(bytes.length<8_000_000,`Athlete payload is too large: ${bytes.length}`);
-assert.equal(json.extras?.ballKnowerAthlete?.mobileTriangles,28_988,'Missing athlete build provenance');
-console.log(`Athlete v3 passed: ${positions.spec.count.toLocaleString()} vertices, ${(indices.spec.count/3).toLocaleString()} triangles, ${json.animations.length} football clips, 3×2K PBR maps, ${(bytes.length/1_000_000).toFixed(2)} MB.`);
+assert.equal(json.extras?.ballKnowerAthlete?.mobileTriangles,indices.spec.count/3,'Missing athlete build provenance');
+console.log(`Athlete v${json.extras?.ballKnowerAthlete?.version} passed: ${positions.spec.count.toLocaleString()} vertices, ${(indices.spec.count/3).toLocaleString()} triangles, ${json.animations.length} football clips, 3×2K PBR maps, ${(bytes.length/1_000_000).toFixed(2)} MB.`);

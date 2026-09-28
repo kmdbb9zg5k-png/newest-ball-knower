@@ -1,4 +1,4 @@
-/* Self-contained WebGL2 renderer. No external assets or runtime services.
+/* WebGL2 renderer. Project-owned, same-origin assets; no external runtime services.
    Instanced geometry; one bounded actor-only shadow map; material-aware lights. */
 export const identity=()=>new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]);
 export function mul(a,b){const o=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++)o[c*4+r]=a[r]*b[c*4]+a[4+r]*b[c*4+1]+a[8+r]*b[c*4+2]+a[12+r]*b[c*4+3];return o}
@@ -44,16 +44,18 @@ const vertex=`#version 300 es
 precision highp float;
 layout(location=0) in vec3 p;layout(location=1) in vec3 n;layout(location=2) in vec2 uv;
 layout(location=3) in mat4 model;layout(location=7) in vec4 color;layout(location=8) in float shine;
-uniform mat4 vp;uniform mat4 lightVP;
+uniform mat4 vp;uniform mat4 lightVP;uniform vec3 eye;uniform highp int material;
 out vec3 world;out vec3 normal;out vec3 local;out vec2 tex;out vec4 tint;out float gloss;out vec4 lightSpace;
-void main(){vec4 w=model*vec4(p,1.);world=w.xyz;local=p;
+void main(){vec4 w=model*vec4(p,1.);
+ if(material==6){vec3 forward=normalize(vec3(eye.x-model[3].x,0.,eye.z-model[3].z)),right=vec3(forward.z,0.,-forward.x);w=vec4(model[3].xyz+right*p.x*length(model[0].xyz)+vec3(0.,p.y*length(model[1].xyz),0.),1.);}
+ world=w.xyz;local=p;
  vec3 sq=vec3(dot(model[0].xyz,model[0].xyz),dot(model[1].xyz,model[1].xyz),dot(model[2].xyz,model[2].xyz));
  normal=normalize(mat3(model)*(n/max(sq,vec3(.00001))));tex=uv;tint=color;gloss=shine;lightSpace=lightVP*w;gl_Position=vp*w;}`;
 const fragment=`#version 300 es
 precision highp float;
 in vec3 world;in vec3 normal;in vec3 local;in vec2 tex;in vec4 tint;in float gloss;in vec4 lightSpace;
-uniform vec3 eye;uniform sampler2D image;uniform sampler2D shadowMap;
-uniform int textured;uniform int unlit;uniform int material;uniform int useShadow;uniform float shadowTexel;
+uniform vec3 eye;uniform sampler2D image;uniform sampler2D shadowMap;uniform sampler2D turfDetail;uniform int hasTurfDetail;
+uniform int textured;uniform int unlit;uniform highp int material;uniform int useShadow;uniform float shadowTexel;
 out vec4 outputColor;
 const vec3 KEY=vec3(-.48,.82,-.31);
 float visibility(vec3 N){
@@ -68,7 +70,16 @@ float visibility(vec3 N){
 float hash(vec2 v){return fract(sin(dot(v,vec2(127.1,311.7)))*43758.5453);}
 vec3 film(vec3 v){return clamp((v*(2.51*v+.03))/(v*(2.43*v+.59)+.14),0.,1.);}
 void main(){
- vec4 base=tint;if(textured==1)base*=texture(image,tex);if(base.a<.012)discard;
+ vec4 base=tint;
+ if(material==6){
+  vec2 cell=vec2(mod(floor(gloss+.5),4.),floor(gloss/4.));
+  vec2 atlasUV=(cell+clamp(tex,vec2(.006),vec2(.994)))*.25;
+  base*=texture(image,atlasUV);if(base.a<.48)discard;
+  float falloff=mix(.78,.49,smoothstep(25.,125.,distance(eye,world)));
+  vec3 crowd=base.rgb*falloff;crowd=mix(crowd,vec3(.035,.048,.063),smoothstep(55.,170.,distance(eye,world))*.35);
+  outputColor=vec4(crowd,1.);return;
+ }
+ if(textured==1)base*=texture(image,tex);if(base.a<.012)discard;
  if(unlit==1){outputColor=base;return;}
  vec3 albedo=pow(max(base.rgb,vec3(0.)),vec3(2.2));vec3 N=normalize(normal),V=normalize(eye-world);
  // Cloth and skin stay matte; helmet/visor clearcoat responds to the light banks.
@@ -90,6 +101,20 @@ void main(){
   albedo=mix(albedo,vec3(.76,.72,.59),lace);
   N=normalize(N+vec3(pebble.x,0.,pebble.y)*.075*detail*(1.-lace));rough=.82;g=.08;
  }
+ if(material==4&&hasTurfDetail==1){
+  vec2 grassUV=world.xz*.46;
+  vec3 grass=texture(turfDetail,grassUV).rgb;
+  float grassMask=(1.-smoothstep(.80,.96,base.r/max(base.g,.001)))*smoothstep(.16,.23,base.g);
+  float variation=.92+.08*sin(world.z*3.14159*.2);
+  grass=mix(grass,vec3(dot(grass,vec3(.2126,.7152,.0722))),.30);
+  vec3 turf=pow(grass*vec3(.78,.83,.79),vec3(2.2))*variation;
+  albedo=mix(albedo,turf,grassMask*.94);
+  float fiber=dot(grass,vec3(.3,.6,.1));
+  albedo*=mix(.87,1.10,clamp(fiber*2.,0.,1.));
+  float dx=dot(texture(turfDetail,grassUV+vec2(.001,0.)).rgb,vec3(.3,.6,.1))-fiber;
+  float dz=dot(texture(turfDetail,grassUV+vec2(0.,.001)).rgb,vec3(.3,.6,.1))-fiber;
+  N=normalize(N+vec3(-dx,0.,-dz)*1.4);
+ }
  if(material==4){
   vec2 grid=world.xz*36.;float aa=1.-smoothstep(.6,2.3,max(fwidth(grid.x),fwidth(grid.y)));
   float grain=hash(floor(grid)),crossGrain=hash(floor(world.zx*67.+19.));
@@ -108,7 +133,7 @@ void main(){
  // Slight wrap on skin keeps faces readable without making uniforms luminous.
  if(material==3)diffuse+=vec3(.17,.10,.075)*max(0.,dot(N,L0)+.35);
  // The field is floodlit; the surrounding bowl remains a night environment.
- float exposure=material==4?.38:material==0?.32:1.;
+ float exposure=material==4?.48:material==0?.39:1.;
  vec3 rgb=albedo*diffuse*exposure;
  float nv=max(dot(N,V),0.);vec3 F0=mix(vec3(.025),albedo*.55+vec3(.12),g*.5);
  vec3 fresnel=F0+(1.-F0)*pow(1.-nv,5.);
@@ -122,7 +147,7 @@ void main(){
   rgb+=fresnel*g*crown*.7;
  }
  if(material==4){
-  float mowing=.95+.05*sin(world.z*3.14159*.2);rgb*=mowing;
+  float mowing=.95+.05*sin(world.z*3.14159*.2);rgb*=mowing*mix(.68,1.,lit);
   float paint=smoothstep(.20,.45,albedo.r);rgb=mix(rgb,rgb*1.08,paint);
   float grazing=pow(1.-max(dot(N,V),0.),3.);float dew=pow(max(dot(N,normalize(L1+V)),0.),30.);
   float blade=hash(floor(world.xz*92.));rgb+=vec3(.028,.062,.035)*(grazing*(.42+blade*.20)+dew*.30);
@@ -165,9 +190,9 @@ export class Renderer{
   canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();this.lost=true;const box=document.getElementById('error'),text=document.getElementById('errorText');if(box)box.hidden=false;if(text)text.textContent='Graphics paused. Reload this practice page to restart. Your career is unchanged.'});
   this.program=program(gl,vertex,fragment);this.depthProgram=program(gl,depthVertex,depthFragment);
   this.skyProgram=program(gl,skyVertex,skyFragment);this.skyVao=gl.createVertexArray();
-  this.uniforms=Object.fromEntries(['vp','eye','image','textured','unlit','lightVP','shadowMap','useShadow','shadowTexel','material'].map(k=>[k,gl.getUniformLocation(this.program,k)]));
+  this.uniforms=Object.fromEntries(['vp','eye','image','textured','unlit','lightVP','shadowMap','useShadow','shadowTexel','material','turfDetail','hasTurfDetail'].map(k=>[k,gl.getUniformLocation(this.program,k)]));
   this.depthUniform=gl.getUniformLocation(this.depthProgram,'lightVP');
-  this.shapes={crowd:spectatorBody(),crowdEnd:spectatorBody(),crowdHead:sphere(6,4),football:footballGeometry(),sphere:sphere(),helmet:sphere(28,18,true),cube:cube(),cylinder:cylinder(),plane:{v:[-.5,0,-.5,0,1,0,0,0,.5,0,-.5,0,1,0,1,0,.5,0,.5,0,1,0,1,1,-.5,0,.5,0,1,0,0,1],ix:[0,2,1,0,3,2]}};
+  this.shapes={crowdSprite:{v:[-.5,0,0,0,0,1,0,1,.5,0,0,0,0,1,1,1,.5,1,0,0,0,1,1,0,-.5,1,0,0,0,1,0,0],ix:[0,1,2,0,2,3]},crowd:spectatorBody(),crowdEnd:spectatorBody(),crowdHead:sphere(6,4),football:footballGeometry(),sphere:sphere(),helmet:sphere(28,18,true),cube:cube(),cylinder:cylinder(),plane:{v:[-.5,0,-.5,0,1,0,0,0,.5,0,-.5,0,1,0,1,0,.5,0,.5,0,1,0,1,1,-.5,0,.5,0,1,0,0,1],ix:[0,2,1,0,3,2]}};
   this.textures=new Map();this.anisotropy=gl.getExtension('EXT_texture_filter_anisotropic');
   gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);gl.clearColor(.009,.016,.029,1);
   // Always bind a complete sampler, including the low-power/failure paths.
@@ -179,12 +204,12 @@ export class Renderer{
   this.setQuality('high');
   if(new URLSearchParams(location.search).has('qa')){window.bkSetGraphicsQualityForQA=tier=>this.setQuality(tier);window.bkGraphicsDiagnostics=()=>({quality:this.quality,shadowAvailable:this.shadowAvailable,shadowSize:this.shadowSize,shadowDrawCalls:this.shadowDrawCalls,drawCalls:this.drawCalls,textureCount:this.textures.size,instanceBytes:[...this.batches.values()].reduce((n,b)=>n+b.data.byteLength,0),geometryCount:this.geometry.size,overflows:this.overflows,eye:this.eye,target:this.target,canvas:[canvas.width,canvas.height]})}
  }
- texture(name,canvas){
+ texture(name,canvas,repeat=false){
   const gl=this.gl;const previous=this.textures.get(name);if(previous)gl.deleteTexture(previous);
   const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,canvas);
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.generateMipmap(gl.TEXTURE_2D);
-  const ext=this.anisotropy;if(ext)gl.texParameterf(gl.TEXTURE_2D,ext.TEXTURE_MAX_ANISOTROPY_EXT,Math.min(4,gl.getParameter(ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));this.textures.set(name,t);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,repeat?gl.REPEAT:gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,repeat?gl.REPEAT:gl.CLAMP_TO_EDGE);gl.generateMipmap(gl.TEXTURE_2D);
+  const ext=this.anisotropy;if(ext)gl.texParameterf(gl.TEXTURE_2D,ext.TEXTURE_MAX_ANISOTROPY_EXT,Math.min(8,gl.getParameter(ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));this.textures.set(name,t);
  }
  setQuality(tier){
   if(!Object.prototype.hasOwnProperty.call(GRAPHICS_TIERS,tier))return;this.quality=tier;this.setupShadow(GRAPHICS_TIERS[tier].shadow);this.resize();
@@ -206,7 +231,7 @@ export class Renderer{
   this.shadowBuffer=buffer;this.shadowTexture=texture;this.shadowSize=size;this.shadowAvailable=true;
  }
  resize(){const r=this.canvas.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,GRAPHICS_TIERS[this.quality].dpr);this.width=Math.max(1,r.width);this.height=Math.max(1,r.height);const w=Math.max(1,Math.round(this.width*d)),h=Math.max(1,Math.round(this.height*d));if(this.canvas.width!==w)this.canvas.width=w;if(this.canvas.height!==h)this.canvas.height=h;this.gl.viewport(0,0,this.canvas.width,this.canvas.height)}
- camera(eye,target){this.eye=eye;this.target=target;this.vp=mul(projection(this.width/this.height),view(eye,target))}
+ camera(eye,target){this.eye=eye;this.target=target;this.vp=mul(projection(this.width/this.height,this.fov||50),view(eye,target))}
  project(p){const m=this.vp,x=m[0]*p[0]+m[4]*p[1]+m[8]*p[2]+m[12],y=m[1]*p[0]+m[5]*p[1]+m[9]*p[2]+m[13],w=m[3]*p[0]+m[7]*p[1]+m[11]*p[2]+m[15];return{x:(x/w*.5+.5)*this.width,y:(.5-y/w*.5)*this.height,visible:w>0}}
  begin(){for(const b of this.batches.values())b.count=0;this.actorPass=false;this.overflows=0;this.shadowCasters.length=0;}
  lateBegin(){for(const b of this.batches.values())b.count=0;this.actorPass=false;this.overflows=0;}
@@ -253,6 +278,7 @@ export class Renderer{
   gl.disable(gl.DEPTH_TEST);gl.disable(gl.BLEND);gl.depthMask(false);gl.useProgram(this.skyProgram);gl.bindVertexArray(this.skyVao);gl.drawArrays(gl.TRIANGLES,0,3);gl.enable(gl.DEPTH_TEST);gl.depthMask(true);
   gl.useProgram(this.program);gl.uniformMatrix4fv(this.uniforms.vp,false,this.vp);gl.uniformMatrix4fv(this.uniforms.lightVP,false,this.lightVP);gl.uniform3fv(this.uniforms.eye,this.eye);
   gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.shadowAvailable?this.shadowTexture:this.neutralShadow);gl.uniform1i(this.uniforms.shadowMap,1);gl.uniform1i(this.uniforms.useShadow,this.shadowAvailable?1:0);gl.uniform1f(this.uniforms.shadowTexel,this.shadowSize?1/this.shadowSize:1);
+  gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,this.textures.get('turf-detail')||this.neutralShadow);gl.uniform1i(this.uniforms.turfDetail,2);gl.uniform1i(this.uniforms.hasTurfDetail,this.textures.has('turf-detail')?1:0);
   this.drawCalls=1;
   // Transparent contact shadows and light halos must draw after every opaque batch.
   active.sort((a,b)=>Number(a.blend)-Number(b.blend));

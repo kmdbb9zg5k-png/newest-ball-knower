@@ -1,18 +1,19 @@
-import{identity,mul,translate,scale,rx,ry,rz}from'./renderer.js';
+import{identity,mul,translate,scale,rx,ry,rz}from'./renderer.js?v=reference-scene-31';
 import{quarterbackThrowPose}from'./quarterback.js?v=football-finish-21';
+import{refineAthleteSurface}from'./athlete-surface.js?v=sentinel-materials-34';
 
-const ASSET='/play-moment-3d/assets/ball-knower-gridiron-pro-v3.glb?v=clean-rig-1';
+const ASSET='/play-moment-3d/assets/ball-knower-gridiron-sentinel-v4.glb?v=sentinel-materials-34';
 const MAX_BONES=32;
 // Surface offsets in bind space: torso, shoulder pads, thighs, upper arms.
 // The head, hands and feet retain their original size and attachment points.
 export const PLAYER_BUILDS=Object.freeze({
- OL:{bulk:[.074,.054,.030,.020],scale:[1.04,1.025,1.035]},
- DL:{bulk:[.056,.060,.034,.028],scale:[1.035,1.035,1.04]},
- QB:{bulk:[.008,.012,.002,.002],scale:[.99,1.02,.99]},
- RB:{bulk:[.025,.028,.025,.020],scale:[1.01,.975,1.01]},
+ OL:{bulk:[.074,.033,.030,.020],scale:[1.04,1.025,1.035]},
+ DL:{bulk:[.056,.038,.034,.028],scale:[1.035,1.035,1.04]},
+ QB:{bulk:[.008,-.009,.002,.002],scale:[.99,1.02,.99]},
+ RB:{bulk:[.025,.008,.025,.020],scale:[1.01,.975,1.01]},
  WR:{bulk:[-.012,-.006,-.006,-.005],scale:[.97,1.015,.97]},
- TE:{bulk:[.028,.033,.018,.017],scale:[1.025,1.045,1.025]},
- LB:{bulk:[.035,.040,.025,.022],scale:[1.025,1.025,1.025]},
+ TE:{bulk:[.028,.012,.018,.017],scale:[1.025,1.045,1.025]},
+ LB:{bulk:[.035,.020,.025,.022],scale:[1.025,1.025,1.025]},
  DB:{bulk:[-.008,-.006,-.005,-.004],scale:[.97,1,.97]},
 });
 export function playerBuild(role){return PLAYER_BUILDS[role]||PLAYER_BUILDS.QB}
@@ -290,7 +291,7 @@ const fragment=`#version 300 es
 precision highp float;
 in vec3 world;in vec3 normal;in vec3 tangent;in float handedness;in vec2 uv;in vec3 bindPosition;in vec3 bindNormal;in vec4 lightSpace;
 uniform sampler2D shadowMap;uniform int useShadow;uniform float shadowTexel;
-uniform vec3 eye;uniform sampler2D baseMap;uniform sampler2D normalMap;uniform sampler2D ormMap;uniform sampler2D numberMap;uniform float rival;uniform float controlled;uniform float playerSeed;
+uniform vec3 eye;uniform sampler2D baseMap;uniform sampler2D normalMap;uniform sampler2D ormMap;uniform sampler2D numberMap;uniform float rival;uniform float controlled;uniform float playerSeed;uniform float sourceMaterials;
 out vec4 color;
 vec3 film(vec3 v){return clamp((v*(2.51*v+.03))/(v*(2.43*v+.59)+.14),0.,1.);}
 float playerShadow(vec3 N){
@@ -321,32 +322,44 @@ vec3 brdf(vec3 N,vec3 V,vec3 L,vec3 base,float rough,float metal){
 void main(){vec4 sampleColor=texture(baseMap,uv);if(sampleColor.a<.04)discard;vec3 albedo=pow(sampleColor.rgb,vec3(2.2));
  float navy=smoothstep(.025,.14,sampleColor.b-sampleColor.r)*smoothstep(.02,.12,sampleColor.b-sampleColor.g);
  float gold=smoothstep(.03,.18,sampleColor.r-sampleColor.b)*smoothstep(.015,.10,sampleColor.g-sampleColor.b)*(1.-smoothstep(.12,.28,sampleColor.r-sampleColor.g));vec3 away=mix(vec3(.72,.76,.77),vec3(.98,.985,.96),clamp(dot(sampleColor.rgb,vec3(.333)),0.,1.));albedo=mix(albedo,pow(away,vec3(2.2)),navy*rival*.94);albedo=mix(albedo,pow(vec3(.48,.075,.055),vec3(2.2)),gold*rival*.82);albedo*=mix(.955,1.045,playerSeed);
- // Give the away helmet a painted shell rather than the skin-like copper tint.
- float shell=smoothstep(1.47,1.55,bindPosition.y)*(1.-smoothstep(.12,.22,bindPosition.z))*rival;
- albedo=mix(albedo,pow(vec3(.34,.035,.045),vec3(2.2)),shell*.92);
  // Meshy may bake arbitrary lettering into generated uniforms. Preserve the
  // high-resolution weave/normal response but own the torso and pants colors in
  // shader so the only visible roster number is Ball Knower's live print.
- float torso=smoothstep(.63,.78,bindPosition.y)*(1.-smoothstep(1.34,1.49,bindPosition.y))*(1.-smoothstep(.31,.46,abs(bindPosition.x)));
+ float torso=smoothstep(.63,.78,bindPosition.y)*(1.-smoothstep(1.405,1.475,bindPosition.y))*(1.-smoothstep(.32,.45,abs(bindPosition.x)));
  float pants=smoothstep(.25,.38,bindPosition.y)*(1.-smoothstep(.76,.93,bindPosition.y))*(1.-smoothstep(.42,.58,abs(bindPosition.x)));
- float uniformZone=clamp(max(torso,pants),0.,1.);float clothValue=mix(.82,1.08,clamp(dot(sampleColor.rgb,vec3(.333)),0.,1.));
- vec3 jerseyColor=mix(vec3(.045,.105,.17),vec3(.83,.85,.84),rival),pantsColor=mix(vec3(.023,.040,.064),vec3(.64,.69,.72),rival);
+ float uniformZone=clamp(max(torso,pants),0.,1.);float clothValue=mix(.95,1.035,clamp(dot(sampleColor.rgb,vec3(.333)),0.,1.));
+ vec3 jerseyColor=mix(vec3(.064,.112,.18),vec3(.83,.85,.84),rival),pantsColor=mix(vec3(.042,.071,.115),vec3(.64,.69,.72),rival);
  vec3 cleanUniform=mix(jerseyColor,pantsColor,pants*(1.-torso))*clothValue;
- albedo=mix(albedo,pow(cleanUniform,vec3(2.2)),uniformZone*.97);albedo*=mix(.955,1.045,playerSeed);
+ albedo=mix(albedo,pow(cleanUniform,vec3(2.2)),uniformZone);albedo*=mix(.955,1.045,playerSeed);
+ // Woven side panels and slim team piping follow the bind-pose garment.
+ float sidePanel=smoothstep(.14,.21,abs(bindPosition.x))*torso*(1.-smoothstep(1.25,1.34,bindPosition.y));
+ albedo*=1.-sidePanel*.16;
+ float pantStripe=smoothstep(.43,.72,bindNormal.x*sign(bindPosition.x))*(1.-smoothstep(.016,.029,abs(bindPosition.z+.016)))*pants;
+ float sleeveStripe=(1.-smoothstep(.007,.014,abs(abs(bindPosition.x)-.306)))*smoothstep(1.19,1.24,bindPosition.y)*(1.-smoothstep(1.36,1.405,bindPosition.y));
+ vec3 trim=mix(vec3(.68,.53,.28),vec3(.42,.035,.045),rival);
+ albedo=mix(albedo,pow(trim,vec3(2.2)),max(pantStripe,sleeveStripe)*.88);
  // Project the ink onto the bind-pose jersey, before skeletal deformation.
  // Front/back get readable orientation; sidewalls, sleeves and pants are masked.
  float face=bindNormal.z>=0.?1.:-1.;
- vec2 numberUV=vec2(bindPosition.x*face/.34+.5,(1.22-bindPosition.y)/.36+.5);
+ vec2 numberUV=vec2(bindPosition.x*face/.32+.5,(1.22-bindPosition.y)/.31+.5);
  float printMask=step(0.,numberUV.x)*step(numberUV.x,1.)*step(0.,numberUV.y)*step(numberUV.y,1.)*smoothstep(.35,.65,abs(bindNormal.z))*torso;
  vec4 ink=texture(numberMap,clamp(numberUV,0.,1.));
  albedo=mix(albedo,pow(ink.rgb,vec3(2.2)),ink.a*printMask);
 
  // Clean painted shells and position-specific cloth retain detail without baked noise.
- float helmet=smoothstep(1.47,1.55,bindPosition.y)*(1.-smoothstep(.15,.235,bindPosition.z));
- float stripe=(1.-smoothstep(.022,.033,abs(bindPosition.x)))*helmet;
- vec3 shellColor=mix(vec3(.85,.88,.89),vec3(.48,.025,.035),rival);
+ float head=smoothstep(1.475,1.51,bindPosition.y);
+ float opening=smoothstep(.040,.079,bindPosition.z)*(1.-smoothstep(1.584,1.628,bindPosition.y));
+ float helmet=head*(1.-opening);
+ float stripe=(1.-smoothstep(.012,.017,abs(bindPosition.x)))*helmet;
+ vec3 shellColor=mix(vec3(.67,.51,.255),vec3(.48,.025,.035),rival);
  shellColor=mix(shellColor,mix(vec3(.035,.075,.12),vec3(.89,.90,.87),rival),stripe);
- albedo=mix(albedo,pow(shellColor,vec3(2.2)),helmet*.985);
+ albedo=mix(albedo,pow(shellColor,vec3(2.2)),helmet);
+ // The inset eye shield is distinct from the protruding cage. The source
+ // extends only to z=.13: the old .235 mask incorrectly painted both gold.
+ float visor=opening*head*smoothstep(1.526,1.544,bindPosition.y)*(1.-smoothstep(1.589,1.605,bindPosition.y))*(1.-smoothstep(.101,.117,bindPosition.z));
+ float cage=opening*head*smoothstep(.103,.120,bindPosition.z);
+ albedo=mix(albedo,pow(vec3(.028,.043,.052),vec3(2.2)),visor);
+ albedo=mix(albedo,pow(mix(vec3(.12,.15,.17),vec3(.69,.72,.72),rival),vec3(2.2)),cage);
  // Author material regions in bind space so recoloring follows the skinned limb.
  float armBand=smoothstep(.99,1.06,bindPosition.y)*(1.-smoothstep(1.36,1.42,bindPosition.y));
  float skinMask=smoothstep(.36,.44,abs(bindPosition.x))*(1.-smoothstep(.70,.79,abs(bindPosition.x)))*armBand;
@@ -357,23 +370,57 @@ void main(){vec4 sampleColor=texture(baseMap,uv);if(sampleColor.a<.04)discard;ve
  albedo=mix(albedo,pow(vec3(.83,.85,.84),vec3(2.2)),gloves*.93);
  vec3 bootColor=mix(vec3(.018,.029,.038),vec3(.29,.32,.34),1.-smoothstep(.025,.045,bindPosition.y));
  albedo=mix(albedo,pow(bootColor,vec3(2.2)),cleats*.94);
+ // Sentinel has clean, unnumbered clothing: preserve its authored color detail.
+ // Legacy spatial paint masks were calibrated to a different mesh and erased
+ // the new player's seams, glove cuffs and face-cage materials.
+ if(sourceMaterials>.5){
+  vec3 authored=sampleColor.rgb;
+  float cloth=smoothstep(.012,.075,authored.b-authored.r)*(1.-head)*(1.-cleats);
+  float shellRegion=head*(1.-smoothstep(.015,.06,bindPosition.z)*(1.-smoothstep(1.60,1.635,bindPosition.y)));
+  float garmentTrim=max(torso,pants)*(1.-smoothstep(1.37,1.43,bindPosition.y))*(1.-skinMask);
+  float goldHue=1.-smoothstep(.35,.47,(sampleColor.r-sampleColor.g)/max(sampleColor.r-sampleColor.b,.001));
+  float trimGold=gold*goldHue*max(shellRegion,garmentTrim);
+  vec3 whiteCloth=vec3(.80,.83,.84)*clamp(dot(authored,vec3(.2126,.7152,.0722))/.17,.34,1.15);
+  authored=mix(authored,whiteCloth,cloth*rival);
+  authored=mix(authored,authored*vec3(.85,.14,.19),trimGold*rival);
+  authored*=mix(vec3(1.),vec3(1.,.93,.76),helmet*gold*(1.-rival));
+  albedo=pow(authored,vec3(2.2));
+  // Preserve source skin texture; vary tone only on brown exposed-arm pixels.
+  float exposed=skinMask*smoothstep(.035,.11,sampleColor.r-sampleColor.b)*(1.-smoothstep(.45,.70,sampleColor.b));
+  albedo*=mix(vec3(1.),mix(vec3(.72,.66,.62),vec3(1.18,1.13,1.08),playerSeed),exposed);
+  albedo=mix(albedo,pow(ink.rgb,vec3(2.2)),ink.a*printMask);
+  uniformZone=cloth;
+ }
  vec3 N=normalize(normal),T=normalize(tangent-N*dot(N,tangent)),B=normalize(cross(N,T))*handedness;
- vec3 mapped=texture(normalMap,uv).xyz*2.-1.;mapped.xy*=mix(.80,.38,uniformZone)*(1.-helmet*.88)*(1.-skinMask*.55)*(1.-gloves*.5);
+ vec3 mapped=texture(normalMap,uv).xyz*2.-1.;mapped.xy*=mix(.27,.16,uniformZone)*(1.-helmet*.98)*(1.-skinMask*.50)*(1.-gloves*.5)*(1.-visor*.95);
+ if(sourceMaterials>.5){mapped=texture(normalMap,uv).xyz*2.-1.;mapped.xy*=mix(.38,.30,uniformZone)*(1.-helmet*.78);}
+ // Value 2 is only used by the offline comparison: untouched source maps,
+ // same mesh, pose, lights and camera; never selected by the game.
+ if(sourceMaterials>1.5){albedo=pow(sampleColor.rgb,vec3(2.2));mapped=texture(normalMap,uv).xyz*2.-1.;}
  N=normalize(mat3(T,B,N)*mapped);
  // Weave fades out below a pixel, avoiding sparkling cloth on phone screens.
  vec2 clothUV=uv*360.;float aa=1.-smoothstep(.25,1.,max(fwidth(clothUV.x),fwidth(clothUV.y)));
  float weave=sin(clothUV.x*6.283)*sin(clothUV.y*6.283)*aa*uniformZone;
  albedo*=1.+weave*.028;
  vec3 orm=texture(ormMap,uv).rgb;float rough=mix(clamp(orm.g,.35,.9),.82,uniformZone);
- rough=mix(rough,.21,helmet);rough=mix(rough,.62,skinMask);rough=mix(rough,.70,gloves);rough=mix(rough,.49,cleats);
+ rough=mix(rough,.31,helmet);rough=mix(rough,.20,visor);rough=mix(rough,.45,cage);rough=mix(rough,.66,skinMask);rough=mix(rough,.78,gloves);rough=mix(rough,.53,cleats);
  float metal=clamp(orm.b,0.,.55)*(1.-max(max(uniformZone,helmet),max(skinMask,gloves)));
+ metal=mix(metal,.36,helmet*(1.-rival)*(1.-stripe));metal=mix(metal,.15,cage);metal*=1.-visor;
+ if(sourceMaterials>.5){
+  rough=mix(clamp(orm.g,.45,.94),max(orm.g,.92),uniformZone);
+  rough=max(rough,skinMask*.76);
+  metal=clamp(orm.b,0.,1.)*(1.-uniformZone);
+  // Keep the gold shell painted rather than chrome; don't repaint its vents.
+  rough=mix(rough,.36,helmet*gold);metal=mix(metal,.28,helmet*gold);
+ }
+ if(sourceMaterials>1.5){rough=clamp(orm.g,.04,1.);metal=orm.b;}
  vec3 V=normalize(eye-world),L0=normalize(vec3(-.48,.82,-.31)),L1=normalize(vec3(.62,.69,.38));
- float shadow=playerShadow(normalize(normal)),ao=mix(.72,1.,orm.r);
- vec3 ambient=mix(vec3(.06,.09,.065),vec3(.22,.29,.39),N.y*.5+.5);
+ float shadow=playerShadow(normalize(normal)),ao=mix(.84,1.,orm.r);
+ vec3 ambient=mix(vec3(.08,.11,.085),vec3(.26,.32,.41),N.y*.5+.5);
  vec3 rgb=albedo*ambient*ao+brdf(N,V,L0,albedo,rough,metal)*vec3(4.1,3.9,3.55)*mix(.13,1.,shadow);
  rgb+=brdf(N,V,L1,albedo,rough,metal)*vec3(.9,1.2,1.65);
  vec3 R=reflect(-V,N),F0=mix(vec3(.04),albedo,metal),F=F0+(1.-F0)*pow(1.-max(dot(N,V),0.),5.);
- rgb+=environmentLight(R,rough)*F*mix(.30,1.,helmet)*ao;
+ rgb+=environmentLight(R,rough)*F*mix(.30,1.,max(helmet,visor))*ao;
  // Soft fabric edge response; no full-body outline or glowing skin.
  rgb+=albedo*vec3(.08,.105,.14)*pow(1.-max(dot(N,V),0.),3.)*uniformZone;
  float fog=smoothstep(55.,190.,distance(eye,world));rgb=mix(rgb,vec3(.016,.026,.046),fog*.68);
@@ -394,11 +441,14 @@ export class MeshyAthletes{
   try{
    const url=globalThis.BK_MESHY_GLTF_URL||ASSET,response=await fetch(url,{cache:'force-cache'});if(!response.ok)throw new Error('Detailed player '+response.status);
    const parsed=parseGLB(await response.arrayBuffer()),{json,accessor}=parsed,gl=this.gl,primitive=json.meshes[0].primitives[0];
-   this.program=makeProgram(gl,vertex,fragment);this.depthProgram=makeProgram(gl,depthVertex,depthFragment);this.uniforms=Object.fromEntries(['vp','model','bones','eye','baseMap','normalMap','ormMap','numberMap','rival','controlled','playerSeed','lightVP','shadowMap','shadowTexel','useShadow','bodyProfile'].map(name=>[name,gl.getUniformLocation(this.program,name==='bones'?'bones[0]':name)]));this.depthUniforms=Object.fromEntries(['lightVP','model','bones','bodyProfile'].map(name=>[name,gl.getUniformLocation(this.depthProgram,name==='bones'?'bones[0]':name)]));
+   const indices=accessor(primitive.indices),surface=refineAthleteSurface(accessor(primitive.attributes.POSITION),accessor(primitive.attributes.NORMAL),accessor(primitive.attributes.TANGENT),indices,{regularizeHelmet:json.extras?.ballKnowerAthlete?.surfaceRefinement!=='normals-only'});
+   this.surfaceVertices=surface.weldedVertices;this.sourceMaterials=json.extras?.ballKnowerAthlete?.version>=4?1:0;
+   this.program=makeProgram(gl,vertex,fragment);this.depthProgram=makeProgram(gl,depthVertex,depthFragment);this.uniforms=Object.fromEntries(['vp','model','bones','eye','baseMap','normalMap','ormMap','numberMap','rival','controlled','playerSeed','sourceMaterials','lightVP','shadowMap','shadowTexel','useShadow','bodyProfile'].map(name=>[name,gl.getUniformLocation(this.program,name==='bones'?'bones[0]':name)]));this.depthUniforms=Object.fromEntries(['lightVP','model','bones','bodyProfile'].map(name=>[name,gl.getUniformLocation(this.depthProgram,name==='bones'?'bones[0]':name)]));
    this.vao=gl.createVertexArray();gl.bindVertexArray(this.vao);
-   const attribute=(location,name,size,integer=false)=>{const index=primitive.attributes[name],a=json.accessors[index],data=accessor(index),buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);gl.enableVertexAttribArray(location);if(integer)gl.vertexAttribIPointer(location,size,a.componentType,0,0);else gl.vertexAttribPointer(location,size,a.componentType,Boolean(a.normalized),0,0)};
+   const refined={POSITION:surface.positions,NORMAL:surface.normals,TANGENT:surface.tangents};
+   const attribute=(location,name,size,integer=false)=>{const index=primitive.attributes[name],a=json.accessors[index],data=refined[name]||accessor(index),buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);gl.enableVertexAttribArray(location);if(integer)gl.vertexAttribIPointer(location,size,a.componentType,0,0);else gl.vertexAttribPointer(location,size,a.componentType,Boolean(a.normalized),0,0)};
    attribute(0,'POSITION',3);attribute(1,'NORMAL',3);attribute(2,'TEXCOORD_0',2);attribute(3,'JOINTS_0',4,true);attribute(4,'WEIGHTS_0',4);attribute(5,'TANGENT',4);
-   const positions=accessor(primitive.attributes.POSITION),normals=accessor(primitive.attributes.NORMAL),joints=accessor(primitive.attributes.JOINTS_0),weights=accessor(primitive.attributes.WEIGHTS_0);
+   const positions=surface.positions,normals=surface.normals,joints=accessor(primitive.attributes.JOINTS_0),weights=accessor(primitive.attributes.WEIGHTS_0);
    const skinIndex=json.nodes.find(node=>Number.isInteger(node.skin)).skin,jointNames=json.skins[skinIndex].joints.map(i=>json.nodes[i].name);
    const regions=buildRegions(positions,joints,weights,jointNames),regionBuffer=gl.createBuffer();
    gl.bindBuffer(gl.ARRAY_BUFFER,regionBuffer);gl.bufferData(gl.ARRAY_BUFFER,regions,gl.STATIC_DRAW);gl.enableVertexAttribArray(6);gl.vertexAttribPointer(6,4,gl.FLOAT,false,0,0);
@@ -407,7 +457,7 @@ export class MeshyAthletes{
     const bulk=playerBuild(role).bulk;
     this.bodySupport.set(role,this.supportVertices.map(v=>{const offset=bulk.reduce((sum,n,c)=>sum+n*regions[v.index*4+c],0);return{...v,p:v.p.map((n,c)=>n+normals[v.index*3+c]*offset)}}));
    }
-   const indexAccessor=json.accessors[primitive.indices],indices=accessor(primitive.indices);this.indexType=indexAccessor.componentType;this.indexCount=indexAccessor.count;this.triangles=this.indexCount/3;this.indexBuffer=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,this.indexBuffer);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,indices,gl.STATIC_DRAW);gl.bindVertexArray(null);
+   const indexAccessor=json.accessors[primitive.indices];this.indexType=indexAccessor.componentType;this.indexCount=indexAccessor.count;this.triangles=this.indexCount/3;this.indexBuffer=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,this.indexBuffer);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,indices,gl.STATIC_DRAW);gl.bindVertexArray(null);
    const material=json.materials[primitive.material].pbrMetallicRoughness,normalIndex=json.materials[primitive.material].normalTexture.index;this.textures=[];
    // Decode/upload/close one 2K map at a time to bound mobile startup memory.
    for(const index of[material.baseColorTexture.index,normalIndex,material.metallicRoughnessTexture.index]){const bitmap=await bitmapFor(parsed,index);try{this.textures.push(uploadTexture(gl,bitmap))}finally{bitmap.close?.()}}
@@ -477,6 +527,22 @@ export class MeshyAthletes{
   for(const [side,sign]of[['Left',1],['Right',-1]]){
    const target=qb?[sign*.11,chest[1]-.10,chest[2]+.27]:trench?[sign*.24,chest[1]-.23,chest[2]+.32]:[sign*.23,chest[1]-.28,chest[2]+(receiver?.12:.20)];
    this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],target,[sign*.62,chest[1]-.40,chest[2]-.06]);
+  }
+ }
+ preSnapPose(locals,p){
+  const trench=p.role==='OL'||p.role==='DL',center=p.index===2,receiver=p.role==='WR'||p.role==='TE',qb=p.role==='QB';
+  const crouch=center?.40:trench?.34:qb?.075:receiver?.17:.21;
+  const lean=center?.79:trench?.69:qb?.065:receiver?.31:.32;
+  this.standingPose(locals,p,crouch,lean);
+  const width=trench?.24:qb?.16:.175,stagger=receiver?.15:trench?.07:.05;
+  for(const [side,sign]of[['Left',1],['Right',-1]]){
+   const ankle=pointFromMatrix(this.jointWorld(this.base,this.namedNodes['mixamorig:'+side+'Foot']).m);
+   this.solveLimb(locals,[side+'UpLeg',side+'Leg',side+'Foot'],[sign*width,ankle[1],ankle[2]+sign*stagger],[sign*(width+.035),.40,.72],true);
+  }
+  const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m);
+  for(const [side,sign]of[['Left',1],['Right',-1]]){
+   const hand=qb?[sign*.12,chest[1]-.23,chest[2]+.20]:trench?[sign*.26,chest[1]-.33,chest[2]+.20]:[sign*.20,chest[1]-.36,chest[2]+.11];
+   this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],hand,[sign*.36,chest[1]-.34,chest[2]-.05]);
   }
  }
  /** Sample the moving part of a loop. The GLB's rotations start at 66.7ms,
@@ -832,7 +898,7 @@ export class MeshyAthletes{
   if(choice.state==='rest')this.relaxedPose(locals,p,time);
   if(choice.state==='settle')this.settlePose(locals,p,time);
   if(choice.state==='celebrate')this.celebrationPose(locals,p,time);
-  if(choice.state==='pre')this.readyPose(locals,p);
+  if(choice.state==='pre')this.preSnapPose(locals,p);
   else if(p.engaged&&!p.fallen)this.blockPose(locals,p,time);
   else if(p.hasBall&&(/^carry-|^qb-scramble|break-tackle|stumble/.test(choice.state)||p.fallen))this.carryPose(locals,p);
   if(p.fallen&&/wrap|gang|tackle|hit|pancake/.test(choice.state))this.contactPose(locals,p);
@@ -879,7 +945,7 @@ export class MeshyAthletes{
   this.renderer.queueShadowCaster(lightVP=>{const gl=this.gl;gl.useProgram(this.depthProgram);gl.bindVertexArray(this.vao);gl.uniformMatrix4fv(this.depthUniforms.lightVP,false,lightVP);for(const p of actors){gl.uniform4fv(this.depthUniforms.bodyProfile,playerBuild(p.role).bulk);gl.uniformMatrix4fv(this.depthUniforms.model,false,this.modelFor(p));gl.uniformMatrix4fv(this.depthUniforms.bones,false,this.frameBones.get(p.index));gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0)}gl.bindVertexArray(null);return actors.length});return true;
  }
  draw(actors,phase,time){if(!this.ready)return false;this.phase=phase;this.actorMap=new Map(actors.map(p=>[p.index,p]));const gl=this.gl;this.lastStates=actors.map(p=>meshyAnimationState(p,phase));gl.useProgram(this.program);gl.bindVertexArray(this.vao);gl.uniformMatrix4fv(this.uniforms.vp,false,this.renderer.vp);gl.uniform3fv(this.uniforms.eye,this.renderer.eye);
-  gl.uniformMatrix4fv(this.uniforms.lightVP,false,this.renderer.lightVP);gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,this.renderer.shadowAvailable?this.renderer.shadowTexture:this.renderer.neutralShadow);gl.uniform1i(this.uniforms.shadowMap,4);gl.uniform1i(this.uniforms.useShadow,this.renderer.shadowAvailable?1:0);gl.uniform1f(this.uniforms.shadowTexel,this.renderer.shadowSize?1/this.renderer.shadowSize:1);
+  gl.uniform1f(this.uniforms.sourceMaterials,this.sourceMaterials);gl.uniformMatrix4fv(this.uniforms.lightVP,false,this.renderer.lightVP);gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,this.renderer.shadowAvailable?this.renderer.shadowTexture:this.renderer.neutralShadow);gl.uniform1i(this.uniforms.shadowMap,4);gl.uniform1i(this.uniforms.useShadow,this.renderer.shadowAvailable?1:0);gl.uniform1f(this.uniforms.shadowTexel,this.renderer.shadowSize?1/this.renderer.shadowSize:1);
   for(let i=0;i<3;i++){gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,this.textures[i])}gl.uniform1i(this.uniforms.baseMap,0);gl.uniform1i(this.uniforms.normalMap,1);gl.uniform1i(this.uniforms.ormMap,2);gl.uniform1i(this.uniforms.numberMap,3);gl.disable(gl.BLEND);gl.depthMask(true);
   for(const p of actors){const bones=this.frameBones?.get(p.index)||this.bonesFor(p,phase,time);gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,this.renderer.textures.get('meshy-number-'+p.team+'-'+p.number));gl.uniform4fv(this.uniforms.bodyProfile,playerBuild(p.role).bulk);gl.uniformMatrix4fv(this.uniforms.model,false,this.modelFor(p));gl.uniformMatrix4fv(this.uniforms.bones,false,bones);gl.uniform1f(this.uniforms.rival,p.team?1:0);gl.uniform1f(this.uniforms.controlled,p.hasBall?1:0);gl.uniform1f(this.uniforms.playerSeed,((p.index*37+p.team*11)%17)/16);gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0);this.renderer.drawCalls++}
   this.frameBones=null;gl.bindVertexArray(null);return true;

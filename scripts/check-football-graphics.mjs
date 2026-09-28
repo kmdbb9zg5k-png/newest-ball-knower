@@ -60,7 +60,7 @@ try{
  await page.setViewportSize({width:1108,height:620});
  const motion=await page.evaluate(async()=>{
   const {pose,segment,hex}=await import('/play-moment-3d/renderer.js'),r=window.reviewRenderer,rig=window.reviewAthletes;
-  document.querySelector('#hud').style.display='none';r.resize();r.camera([4,2.35,6],[0,1.0,0]);
+  document.querySelector('#hud').style.display='none';r.resize();r.fov=38;r.camera([2.8,2.0,5.8],[0,1.0,0]);
   const actors=['QB','RB','OL'].map((role,i)=>({role,index:[5,6,0][i],number:[12,24,68][i],team:0,x:(i-1)*1.7,z:0,heading:0,vx:0,vz:0,hasBall:role==='RB',distance:0}));
   window.reviewDraw=(players=actors,phase='pre',time=1)=>{r.begin();r.add('plane',pose(0,0,0,20,1,20),[.18,.36,.21,1],'',false,0,4);rig.queueShadows(players,phase,time);for(const p of players)if(p.hasBall){const b=rig.ballAnchor(p,phase);if(b)r.add('football',segment(b.a,b.b,.105),[1,1,1,1],'',false,.08,5)}r.draw();rig.draw(players,phase,time)};
   window.reviewDraw();const result=[];
@@ -76,5 +76,15 @@ try{
  await page.screenshot({path:out+'/player-builds.png'});
  await page.evaluate(()=>{window.bkSetGraphicsQualityForQA('eco');window.reviewDraw()});assert.equal(await page.evaluate(()=>window.reviewRenderer.gl.getError()),0);
  await page.screenshot({path:out+'/shadow-fallback.png'});
+ // Equipment close-ups use the same skinned geometry and material as gameplay.
+ await page.evaluate(()=>{
+  window.bkSetGraphicsQualityForQA('high');const r=window.reviewRenderer;r.fov=36;
+  window.reviewPlayer={role:'QB',index:5,number:12,team:0,x:0,z:0,heading:0,vx:0,vz:0,distance:0};
+  r.camera([.65,1.85,1.25],[0,1.68,0]);window.reviewDraw([window.reviewPlayer]);
+ });
+ await page.screenshot({path:out+'/helmet-detail.png'});
+ await page.evaluate(()=>{const r=window.reviewRenderer;r.camera([1.2,1.8,-3.5],[0,1.15,0]);window.reviewDraw([window.reviewPlayer])});
+ await page.screenshot({path:out+'/uniform-rear.png'});
+ assert.equal(await page.evaluate(()=>window.reviewRenderer.gl.getError()),0);
  assert.deepEqual(errors,[]);console.log(JSON.stringify({status:'PASS',graphics:data.graphics,athletes:data.game.athletes,surfaces,motion,pageErrors:errors,screenshots:out}));
 }finally{await browser.close();await new Promise(r=>server.close(r))}

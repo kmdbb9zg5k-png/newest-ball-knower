@@ -29,7 +29,7 @@ const dot=(a,b)=>a.reduce((s,v,i)=>s+v*b[i],0);
 function fixture(phase,actors,width,height,carrier=actors[5]){
  const r={width,height,camera(eye,target){this.eye=[...eye];this.target=[...target];},project(p){
   const z=norm(this.eye.map((v,i)=>v-this.target[i])),x=norm(cross([0,1,0],z)),y=cross(z,x);
-  const v=p.map((n,i)=>n-this.eye[i]),depth=-dot(z,v),f=1/Math.tan(25*Math.PI/180);
+  const v=p.map((n,i)=>n-this.eye[i]),depth=-dot(z,v),f=1/Math.tan((this.fov||50)*Math.PI/360);
   return{x:(dot(x,v)*f/(width/height)/depth*.5+.5)*width,y:(.5-dot(y,v)*f/depth*.5)*height,visible:depth>0};
  }};
  const before=JSON.stringify(actors);

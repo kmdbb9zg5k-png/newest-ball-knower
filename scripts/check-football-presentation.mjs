@@ -3,8 +3,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {MeshyAthletes,parseGLB,athleteSupportVertices,skinSupportVertices,meshyAnimationState,ATHLETE_SHADERS} from '../public/play-moment-3d/meshy-athlete.js';
+import {refineAthleteSurface} from '../public/play-moment-3d/athlete-surface.js';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const raw=fs.readFileSync(path.join(root,'public/play-moment-3d/assets/ball-knower-gridiron-pro-v3.glb'));
+const assetFlag=process.argv.indexOf('--asset');
+const raw=fs.readFileSync(assetFlag>=0?path.resolve(process.argv[assetFlag+1]):path.join(root,'public/play-moment-3d/assets/ball-knower-gridiron-sentinel-v4.glb'));
 const parsed=parseGLB(raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength)),{json,accessor}=parsed,primitive=json.meshes[0].primitives[0];
 // Exercise the shipped pose methods and real asset without requiring WebGL.
 const rig=Object.create(MeshyAthletes.prototype);
@@ -13,7 +15,18 @@ rig.namedNodes=Object.fromEntries(json.nodes.map((n,i)=>[n.name,i]));
 rig.base=json.nodes.map(n=>({t:n.translation||[0,0,0],r:n.rotation||[0,0,0,1],s:n.scale||[1,1,1]}));
 rig.joints=json.skins[0].joints;rig.inverseBind=accessor(json.skins[0].inverseBindMatrices);
 rig.poseStates=new Map();rig.handTransforms=new Map();rig.supportPoints=new Map();
-const positions=accessor(primitive.attributes.POSITION),joints=accessor(primitive.attributes.JOINTS_0),weights=accessor(primitive.attributes.WEIGHTS_0);
+const originalPositions=accessor(primitive.attributes.POSITION),surface=refineAthleteSurface(originalPositions,accessor(primitive.attributes.NORMAL),accessor(primitive.attributes.TANGENT),accessor(primitive.indices),{regularizeHelmet:json.extras?.ballKnowerAthlete?.surfaceRefinement!=='normals-only'});
+const positions=surface.positions,joints=accessor(primitive.attributes.JOINTS_0),weights=accessor(primitive.attributes.WEIGHTS_0);
+let maxSurfaceShift=0;
+for(let i=0;i<positions.length/3;i++){
+ const shift=Math.hypot(...[0,1,2].map(k=>positions[i*3+k]-originalPositions[i*3+k]));maxSurfaceShift=Math.max(maxSurfaceShift,shift);
+ if(originalPositions[i*3+1]<1.505)assert.equal(shift,0,'Refinement must preserve neck, limb and contact geometry');
+ assert.ok(Math.abs(Math.hypot(...surface.normals.subarray(i*3,i*3+3))-1)<.001,'Surface normal must remain unit length');
+ assert.ok(Math.abs([0,1,2].reduce((n,k)=>n+surface.normals[i*3+k]*surface.tangents[i*4+k],0))<.002,'Tangent must remain orthogonal to the smoothed normal');
+}
+assert.ok(maxSurfaceShift<.04,'Shell refinement must stay inside the original equipment envelope');
+assert.ok([...positions,...surface.normals,...surface.tangents].every(Number.isFinite),'Refined geometry must be finite');
+console.log(`Surface refinement: ${surface.weldedVertices} shared positions, maximum shift ${maxSurfaceShift.toFixed(4)}m; original ${accessor(primitive.indices).length/3} triangles retained.`);
 rig.supportVertices=athleteSupportVertices(positions,joints,weights);
 const allVertices=Array.from({length:positions.length/3},(_,i)=>({p:[...positions.subarray(i*3,i*3+3)],j:[...joints.subarray(i*4,i*4+4)],w:[...weights.subarray(i*4,i*4+4)]}));
 rig.clips=json.animations.map(a=>{let duration=0;const channels=a.channels.map(c=>{const s=a.samplers[c.sampler],times=accessor(s.input);duration=Math.max(duration,times.at(-1));return{node:c.target.node,path:c.target.path,times,values:accessor(s.output),size:c.target.path==='rotation'?4:3}});return{name:a.name,duration,channels}});
@@ -151,7 +164,7 @@ console.log(`Presentation checks passed: ${checks} real-asset poses; ${rig.suppo
 const flag=process.argv.indexOf('--render-dir');
 if(flag>=0){
  const out=path.resolve(process.argv[flag+1]);fs.mkdirSync(out,{recursive:true});const attrs={};
- for(const [name,idx]of Object.entries(primitive.attributes)){const a=accessor(idx);fs.writeFileSync(path.join(out,name+'.bin'),Buffer.from(a.buffer,a.byteOffset,a.byteLength));attrs[name]={type:json.accessors[idx].componentType,count:json.accessors[idx].count}}
+ for(const [name,idx]of Object.entries(primitive.attributes)){const a=({POSITION:surface.positions,NORMAL:surface.normals,TANGENT:surface.tangents})[name]||accessor(idx);fs.writeFileSync(path.join(out,name+'.bin'),Buffer.from(a.buffer,a.byteOffset,a.byteLength));attrs[name]={type:json.accessors[idx].componentType,count:json.accessors[idx].count}}
  const ix=accessor(primitive.indices);fs.writeFileSync(path.join(out,'indices.bin'),Buffer.from(ix.buffer,ix.byteOffset,ix.byteLength));
  const mat=json.materials[primitive.material];[mat.pbrMetallicRoughness.baseColorTexture.index,mat.normalTexture.index,mat.pbrMetallicRoughness.metallicRoughnessTexture.index].forEach((idx,i)=>{const im=json.images[json.textures[idx].source],v=json.bufferViews[im.bufferView];fs.writeFileSync(path.join(out,'tex'+i+'.jpg'),Buffer.from(parsed.bin,v.byteOffset||0,v.byteLength))});
  let poses=[sample('OL','run',0,null,0,0,{engaged:true,blockStyle:'drive',distance:2}),sample('DL','run',1,null,0,1,{engaged:true,blockStyle:'shed',distance:2}),sample('RB','run',0,null,0,6,{distance:2}),sample('RB','run',0,null,0,6,{distance:3,sprinting:true}),sample('RB','run',0,'cut',.4,6,{fallen:false,distance:2.5}),sample('LB','dead',1,'wrap',1),sample('RB','dead',0,'wrap',1),sample('RB','dead',0,'wrap',.5)];
@@ -177,6 +190,6 @@ if(flag>=0){
    if(sequence.label==='handoff'||sequence.label==='pitch'){assert.ok(maxBallStep<.36,`${sequence.label}: ball jumped ${maxBallStep.toFixed(3)} yards`);console.log(`${sequence.label}: maximum ball travel per frame ${maxBallStep.toFixed(3)} yards`)}
   }
  }
- fs.writeFileSync(path.join(out,'scene.json'),JSON.stringify({...ATHLETE_SHADERS,attrs,indexType:json.accessors[primitive.indices].componentType,indexCount:ix.length,poses}));
+ fs.writeFileSync(path.join(out,'scene.json'),JSON.stringify({...ATHLETE_SHADERS,sourceMaterials:json.extras?.ballKnowerAthlete?.version>=4?1:0,attrs,indexType:json.accessors[primitive.indices].componentType,indexCount:ix.length,poses}));
  console.log('Render scene:',out);
 }
