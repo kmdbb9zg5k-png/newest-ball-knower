@@ -133,6 +133,13 @@ export function touchdownCameraFraming(scorer,players=[]){
  }
  return{eye:[scorer.x+best[0],best[1],scorer.z+best[2]],target:[scorer.x,1.0,scorer.z],offset:[...best]};
 }
+/** Orbit into the scoring shot instead of cutting the lens through the scorer. */
+export function touchdownCameraTravel(eye,target,desiredEye,desiredTarget,dt){
+ const blend=cameraFollowBlend(dt,3),dx=eye[0]-desiredTarget[0],dz=eye[2]-desiredTarget[2],tx=desiredEye[0]-desiredTarget[0],tz=desiredEye[2]-desiredTarget[2];
+ const radius=Math.hypot(dx,dz),desiredRadius=Math.hypot(tx,tz),from=Math.atan2(dx,dz),to=Math.atan2(tx,tz),delta=Math.atan2(Math.sin(to-from),Math.cos(to-from));
+ const maxTurn=18*Math.max(0,dt)/Math.max(radius,desiredRadius,1),angle=from+clamp(delta*blend,-maxTurn,maxTurn),distance=Math.max(4.5,radius+(desiredRadius-radius)*blend);
+ return{eye:[desiredTarget[0]+Math.sin(angle)*distance,eye[1]+(desiredEye[1]-eye[1])*blend,desiredTarget[2]+Math.cos(angle)*distance],target:target.map((v,i)=>v+(desiredTarget[i]-v)*blend)};
+}
 /** Interpolate presentation only. Input, collisions and the replay recorder
  * continue to use the authoritative 60 Hz simulation coordinates. */
 export function interpolatePresentation(previous,current,alpha,out={}){
@@ -764,7 +771,7 @@ function coverage(dt){
   // back through the pursuers standing behind the carrier.
   if(isDead&&typeof pendingDriveEnd!=='undefined'&&pendingDriveEnd?.title==='TOUCHDOWN'&&!activeContact){
    const f=carrier,offset=pendingDriveEnd.cameraOffset||(pendingDriveEnd.cameraOffset=touchdownCameraFraming(f,actors).offset),eye=[f.x+offset[0],offset[1],f.z+offset[2]],target=[f.x,1.0,f.z];
-   const shot=cameraRigTravel(camEye,camTarget,eye,target,dt,3.0,18);camEye=shot.eye;camTarget=shot.target;r.camera(camEye,camTarget);return;
+   const shot=touchdownCameraTravel(camEye,camTarget,eye,target,dt);camEye=shot.eye;camTarget=shot.target;r.camera(camEye,camTarget);return;
   }
   if(isDead){const focus=carrier||actors[5];if(!deadCameraStart)deadCameraStart={eye:[...camEye],target:[...camTarget],x:focus.x,z:focus.z};const offset=[(focus.x-deadCameraStart.x)*.96,0,focus.z-deadCameraStart.z],desiredEye=deadCameraStart.eye.map((v,i)=>v+offset[i]+(i===1?.35:0)),desiredTarget=deadCameraStart.target.map((v,i)=>v+offset[i]);camEye=cameraTravel(camEye,desiredEye,dt,3);camTarget=cameraTravel(camTarget,desiredTarget,dt,3);impactShake=Math.max(0,impactShake-dt*3.8);r.camera(camEye,camTarget);return}
   const tracking=phase==='handoff'||phase==='run',focus=phase==='handoff'?actors[6]:carrier;runCameraBlend=clamp(runCameraBlend+(tracking?dt/.60:-dt/.6),0,1);

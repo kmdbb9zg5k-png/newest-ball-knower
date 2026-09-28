@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {touchdownCameraFraming} from '../public/play-moment-3d/game.js';
+import {touchdownCameraFraming,touchdownCameraTravel} from '../public/play-moment-3d/game.js';
 
 // A foreground pursuer must not determine the celebration's visual focus.
 for (const x of [-24, 0, 24]) {
@@ -16,3 +16,15 @@ for (const x of [-24, 0, 24]) {
   assert.deepEqual(shot,touchdownCameraFraming(scorer,players));
 }
 console.log('Scoring shot: clear sightlines at both sidelines and midfield; deterministic; game state unchanged.');
+
+// Switching from the chase view to a face-on score shot must not cross the body.
+let eye=[.35,4.15,104.5],target=[0,.65,115.2];
+const shot=touchdownCameraFraming({x:0,z:112,team:0});
+for(let frame=0;frame<240;frame++){
+ const next=touchdownCameraTravel(eye,target,shot.eye,shot.target,1/60);
+ assert.ok(Math.hypot(next.eye[0],next.eye[2]-112)>=4.5);
+ assert.ok(Math.hypot(...next.eye.map((v,i)=>v-eye[i]))<.4);
+ eye=next.eye;target=next.target;
+}
+assert.ok(Math.hypot(...eye.map((v,i)=>v-shot.eye[i]))<.01);
+console.log('Scoring camera orbit stays outside the player with bounded travel.');
