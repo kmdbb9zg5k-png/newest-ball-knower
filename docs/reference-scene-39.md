@@ -3,9 +3,10 @@
 Target: the owner's navy/gold stadium reference, with large readable athletes, a low view behind the quarterback, natural turf and compact controls. The September 28 16:32 recording showed distant running and touchdown shots despite the previous short fixtures passing.
 
 Changes:
-- Reduce the lens's vertical field of view from 62 to 52 degrees in landscape. Keep the pocket lower while fitting the actual formation horizontally.
+- Reduce the lens's vertical field of view from 62 to 58 degrees in landscape. Keep the pocket lower while fitting the actual formation horizontally.
 - Remove the running-camera rule that repeatedly increased distance to reserve a full-width 90px HUD strip. Fit pitch instead, with the player centered between the controls; retain actual control-rectangle collision checks.
 - Bring the pass destination and touchdown framing closer, with faster settling for the end-zone shot.
+- Condense shotgun wideout splits to 17 yards and place the back one yard behind the QB, with outside corners following the alignment. This allows a closer formation view without hiding the wideouts. Other formations retain their distinct spacing.
 - Give linemen a broader base and deeper crouch; receivers and backs lean into more deliberate ready stances. Keep the approved Sentinel model and material maps.
 - Integrate fine paint breakup and subtle central wear into turf shading, and slightly lift field illumination.
 - Enlarge the navy/gold score strip on roomy landscape displays. Keep the existing playbook and pre-snap controls.

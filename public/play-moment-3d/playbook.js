@@ -1,7 +1,7 @@
 // Formation coordinates are shared by the menu diagrams and live lineups.
 // Offensive actor order: five OL, QB, HB, X, slot/FB, Z, TE.
 export const FORMATIONS = Object.freeze([
- {id:'shotgun',name:'SHOTGUN',personnel:'11 PERSONNEL',positions:[[0,-5],[-2,-7],[-21,0],[-12,-.6],[21,0],[6.5,-.4]]},
+ {id:'shotgun',name:'SHOTGUN',personnel:'11 PERSONNEL',positions:[[0,-5],[-3,-6],[-17,0],[-12,-.6],[17,0],[6.5,-.4]]},
  {id:'pistol',name:'PISTOL',personnel:'11 PERSONNEL',positions:[[0,-3.6],[0,-7.5],[-21,0],[-11,-.8],[21,0],[6.5,-.4]]},
  {id:'singleback',name:'SINGLEBACK',personnel:'11 PERSONNEL',positions:[[0,-1.6],[0,-6.8],[-21,0],[-10,-.8],[21,0],[6.5,-.4]]},
  {id:'iform',name:'I-FORMATION',personnel:'21 PERSONNEL',positions:[[0,-1.6],[0,-7.5],[-21,0],[0,-4.4],[21,0],[6.5,-.4]],fullback:true},
