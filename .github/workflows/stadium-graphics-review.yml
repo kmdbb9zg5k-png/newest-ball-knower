@@ -5,6 +5,10 @@ on:
       - 'public/play-moment-3d/**'
       - 'public/play-moment-3d-preview.html'
       - 'scripts/check-stadium-presentation.mjs'
+      - 'scripts/check-graphics-followup.mjs'
+      - 'scripts/check-football-graphics.mjs'
+      - 'scripts/check-gameplay-contact.mjs'
+      - 'scripts/check-football-recovery.mjs'
       - 'scripts/check-football-scene.mjs'
       - '.github/workflows/stadium-graphics-review.yml'
   workflow_dispatch:
