@@ -1,4 +1,4 @@
-import{identity,mul,translate,scale,rx,ry,rz}from'./renderer.js?v=gameplay-contact-37';
+import{identity,mul,translate,scale,rx,ry,rz}from'./renderer.js?v=live-camera-38';
 import{quarterbackThrowPose}from'./quarterback.js?v=football-finish-21';
 import{refineAthleteSurface}from'./athlete-surface.js?v=sentinel-materials-34';
 
@@ -711,12 +711,12 @@ export class MeshyAthletes{
  blockPose(locals,p,time){
   const runBlock=this.phase==='handoff'||this.phase==='run',drive=runBlock&&!p.team,reach=p.blockStyle==='reach-block',passAnchor=p.blockStyle==='pass-anchor';
   this.standingPose(locals,p,drive?.21:passAnchor?.20:.16,drive?.34:runBlock?.24:.12);
-  const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m),beat=(p.distance||0)*10+p.index*.83;
+  const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m),beat=(p.distance||0)*10+time*2.4+p.index*.83;
   for(const [side,sign]of[['Left',1],['Right',-1]]){
    const ankle=pointFromMatrix(this.jointWorld(this.base,this.namedNodes['mixamorig:'+side+'Foot']).m),step=Math.sin(beat+(sign>0?0:Math.PI)),width=runBlock?.20:.235;
    const stagger=runBlock?sign*.045:sign*.11,travel=step*(drive?.105:.055);
    this.solveLimb(locals,[side+'UpLeg',side+'Leg',side+'Foot'],[sign*width+(reach?.055:0),ankle[1]+Math.max(0,step)*.035,ankle[2]+stagger+travel],[sign*.25,.43,.66],true);
-   this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],[sign*.20,chest[1]-(drive?.12:.04),chest[2]+(drive?.37:.31)],[sign*.42,chest[1]-.28,chest[2]+.04]);
+   this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],[sign*.20,chest[1]-(drive?.12:.04),chest[2]+(drive?.37:.31)+Math.sin(beat+sign)*.035],[sign*.42,chest[1]-.28,chest[2]+.04]);
   }
   // Shoulders stay square in pass protection; driving hips sit behind the pads.
   this.rotate(locals,'mixamorig:Head',1,0,0,drive?-.12:-.045);

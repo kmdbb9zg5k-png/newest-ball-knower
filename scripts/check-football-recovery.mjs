@@ -26,7 +26,7 @@ assert.equal(meshyAnimationState({fallen:true,role:'LB',vx:8,vz:2},'run'),'tackl
 const source=fs.readFileSync(new URL('../public/play-moment-3d/game.js',import.meta.url),'utf8').replace(/^import.*;\n/gm,'').replace(/^export\{.*;\n/gm,'').replace(/export /g,'');
 function game(width=844,height=335,leavePlaybookOpen=false,assist=true){
  const elements=new Map(),events=new Map(),rendered=new Map();let renderer;
- const element=id=>{if(elements.has(id))return elements.get(id);const el={id,hidden:false,children:[],style:{},dataset:{},classList:{add(){},remove(){},toggle(){}},setAttribute(){},setPointerCapture(){},replaceChildren(){this.children=[]},append(...c){this.children.push(...c);for(const child of c)if(child.id)elements.set(child.id,child)},appendChild(c){this.append(c)},getBoundingClientRect(){return ['pre','plays'].includes(id)?{top:height-105,left:0,width,height:105}:id==='header'?{left:width*.3,right:width*.7,top:8,bottom:58}:id==='stick'?{left:30,top:height-110,width:90,height:90}:{left:0,top:0,width,height,right:width,bottom:height}}};Object.defineProperty(el,'firstElementChild',{get(){return this.children[0]||(this.children[0]={style:{}})}});elements.set(id,el);return el};
+ const element=id=>{if(elements.has(id))return elements.get(id);const el={id,hidden:false,children:[],style:{},dataset:{},classList:{add(){},remove(){},toggle(){}},setAttribute(){},setPointerCapture(){},replaceChildren(){this.children=[]},append(...c){this.children.push(...c);for(const child of c)if(child.id)elements.set(child.id,child)},appendChild(c){this.append(c)},getBoundingClientRect(){return ['pre','plays'].includes(id)?{top:height-105,left:0,width,height:105}:id==='header'?{left:width*.3,right:width*.7,top:8,bottom:58}:id==='moves'?{left:width-190,right:width-18,top:height-110,bottom:height-18,width:172,height:92}:id==='stick'?{left:30,right:120,top:height-110,bottom:height-20,width:90,height:90}:{left:0,top:0,width,height,right:width,bottom:height}}};Object.defineProperty(el,'firstElementChild',{get(){return this.children[0]||(this.children[0]={style:{}})}});elements.set(id,el);return el};
  class HeadlessRenderer{constructor(){renderer=this;this.width=width;this.height=height;this.vp=math.identity();this.gl={getError:()=>0};this.drawCalls=0;this.eye=[0,0,0]}camera=math.Renderer.prototype.camera;project=math.Renderer.prototype.project;begin(){}add(){}draw(){}lateBegin(){}drawLate(){}glow(){}}
  const noop=()=>{},context={...math,...playbook,QB_THROW_RELEASE,quarterbackThrowDuration,Renderer:HeadlessRenderer,drawAthlete:(_r,p,time)=>rendered.set(p.index,{...p,motion:p.motion?{...p.motion}:null,time}),prepareJerseys:noop,advanceMotion,makeStadium:()=>({draw:noop,parts:0}),createMeshyAthletes:()=>({ready:false,ballAnchor:()=>null,draw:noop,diagnostics:()=>({})}),createGameplayReplayRecorder:()=>({event:noop,sample:noop}),console,URLSearchParams,performance:{now:()=>0},location:{search:assist?'?qa&assist=1':'?qa'},navigator:{vibrate:noop},document:{hidden:false,getElementById:element,createElement:()=>element('generated-'+elements.size),querySelector:()=>element('header'),querySelectorAll:()=>[],addEventListener:noop},requestAnimationFrame:()=>1,cancelAnimationFrame:noop,matchMedia:()=>({addEventListener:noop}),innerWidth:width,innerHeight:height,addEventListener:(name,fn)=>events.set(name,fn)};context.window=context;
  vm.createContext(context);vm.runInContext(source.replace('window.bk3dTest={','window.bk3dRenderActors=()=>actors.map(p=>({...p}));window.bk3dFixture={throwTo,finish:endPlay,drive(values){Object.assign(drive,values)},mutate(fn){fn(actors)},touchdown(){endPlay("TOUCHDOWN",100)},seed(value){numSeed=value},present,camera};window.bk3dTest={')+'\nstart();',context);context.bk3dTest.manualFrames();if(!leavePlaybookOpen)element('breakHuddle').onclick();
@@ -365,7 +365,7 @@ for(const target of['x','y','z']){
    const box=g.element('stick').getBoundingClientRect();g.element('stick').onpointerdown({pointerId:1,clientX:box.left+box.width*.8,clientY:box.top+box.height*.5,preventDefault(){}});
   }
   if(d.phase==='run'){
-   caught=true;assert.equal(d.assist,false);assert.equal(g.element('stick').style.pointerEvents,'auto');const index=d.players.findIndex(p=>p.hasBall),before=d.players[index];
+   caught=true;const caughtPlayer=d.players.find(p=>p.hasBall);assert.ok(caughtPlayer.foot.y-caughtPlayer.head.y>39,`Catch too small: ${caughtPlayer.foot.y-caughtPlayer.head.y}`);assert.equal(d.assist,false);assert.equal(g.element('stick').style.pointerEvents,'auto');const index=d.players.findIndex(p=>p.hasBall),before=d.players[index];
    g.context.bk3dFixture.mutate(actors=>actors.filter(p=>p.team===1).forEach(p=>{p.x=24;p.z=100}));g.step(.12);const after=g.read().players[index];
    const fx=d.camera.target[0]-d.camera.eye[0],fz=d.camera.target[2]-d.camera.eye[2];
    assert.ok((after.x-before.x)*(-fz)+(after.z-before.z)*fx>0,'Held joystick did not steer the new receiver');break;
@@ -383,3 +383,20 @@ for(const target of['x','y','z']){
  assert.ok(warned&&sacked);
 }
 console.log('Recording regressions passed: manual catch steering, receiver flight framing, bounded yaw, early pressure and synchronized sack result.');
+
+// Phone recording: rollout body must clear both thumb-control rectangles.
+for(const [width,height]of[[667,320],[844,335],[1108,430]])for(const direction of['ArrowLeft','ArrowRight']){
+ const g=game(width,height,false,false);g.element('passTab').onclick();g.snap();g.step(.35);g.key(direction);
+ for(let frame=0;frame<125;frame++){
+  g.step(1/60);const d=g.read();if(d.phase!=='pass')break;const p=d.players[5];
+  for(const id of['stick','moves']){const b=g.element(id).getBoundingClientRect();assert.ok(!(p.foot.x+16>b.left&&p.foot.x-16<b.right&&p.foot.y>b.top&&p.head.y<b.bottom),`${width} ${direction}: QB hidden by ${id}`)}
+  assert.ok(p.foot.y-p.head.y>height*.10,'Rollout QB too small');
+ }
+}
+{
+ const g=game(844,390,false,false);g.element('passTab').onclick();g.element('plays').children[1].onclick();g.snap();g.step(.8);g.context.bk3dFixture.seed(500);g.key('y');let caught=false;
+ for(let i=0;i<120;i++){g.step(1/60);if(g.read().phase==='run'){caught=true;break}}
+ assert.ok(caught);g.context.bk3dTest.touchdown();g.step(2);
+ const d=g.read(),p=d.players.find(p=>p.hasBall);assert.ok(p.foot.y-p.head.y>70,'Touchdown shot remains too distant');assert.equal(p.action,'celebrate');assert.equal(d.drive.score,30);
+}
+console.log('Phone composition regressions passed: six live rollouts avoid controls; readable touchdown close-up and celebration.');

@@ -33,10 +33,24 @@ try{
  await start();await page.evaluate(()=>{window.bk3dTest.step(.8);window.bk3dTest.seed(500);window.bk3dTest.throwTo(8,'bullet')});let caught=false;
  for(let i=0;i<24;i++){
   await page.evaluate(()=>window.bk3dTest.step(.05));const d=await read();assert.equal(d.glError,0);
+  if(d.phase==='flight'){assert.equal(await page.locator('#stick').isVisible(),true,'Joystick hidden during flight');}
   if(d.phase==='flight')await page.locator('#stick').evaluate(e=>{const b=e.getBoundingClientRect();e.setPointerCapture=()=>{};e.dispatchEvent(new PointerEvent('pointerdown',{pointerId:1,clientX:b.left+b.width*.8,clientY:b.top+b.height*.5,bubbles:true}))});
   if(i%3===0)await page.screenshot({path:`${out}/flight-${i}.png`});
-  if(d.phase==='run'){caught=true;assert.equal(d.assist,false);assert.equal(await page.locator('#stick').evaluate(e=>getComputedStyle(e).pointerEvents),'auto');await page.screenshot({path:`${out}/catch-manual.png`});await page.evaluate(()=>window.bk3dTest.step(.18));await page.screenshot({path:`${out}/catch-steer.png`});break}
+  if(d.phase==='run'){const receiver=d.players.find(p=>p.hasBall);assert.ok(receiver.foot.y-receiver.head.y>39,'Receiver too small at catch');caught=true;assert.equal(d.assist,false);assert.equal(await page.locator('#stick').evaluate(e=>getComputedStyle(e).pointerEvents),'auto');await page.screenshot({path:`${out}/catch-manual.png`});await page.evaluate(()=>window.bk3dTest.step(.18));await page.screenshot({path:`${out}/catch-steer.png`});break}
   assert.notEqual(d.phase,'dead','Seeded catch became an incomplete pass');
  }
- assert.ok(caught);assert.deepEqual(errors,[]);console.log(JSON.stringify({status:'PASS',sack,caught,frames,pageErrors:errors}));
+ assert.ok(caught);
+ assert.equal(await page.evaluate(()=>window.bk3dTest.touchdown()),true);await page.evaluate(()=>window.bk3dTest.step(2));await page.screenshot({path:`${out}/touchdown-close.png`});
+ const td=await read(),scorer=td.players.find(p=>p.hasBall);assert.equal(scorer.action,'celebrate');assert.ok(scorer.foot.y-scorer.head.y>70,'Touchdown too distant');
+ for(const direction of['ArrowLeft','ArrowRight']){
+  await page.setViewportSize({width:667,height:320});await start();await page.evaluate(()=>window.bk3dTest.step(.35));await page.keyboard.down(direction);
+  for(let i=0;i<12;i++){
+   await page.evaluate(()=>window.bk3dTest.step(.1));const d=await read();assert.equal(d.phase,'pass');const p=d.players[5];
+   const rects=await page.evaluate(()=>['stick','moves'].map(id=>{const b=document.getElementById(id).getBoundingClientRect();return{left:b.left,right:b.right,top:b.top,bottom:b.bottom}}));
+   for(const b of rects)assert.ok(!(p.foot.x+16>b.left&&p.foot.x-16<b.right&&p.foot.y>b.top&&p.head.y<b.bottom),'QB under controls');
+   assert.ok(p.foot.y-p.head.y>32,'QB too small');
+  }
+  await page.screenshot({path:`${out}/rollout-${direction}.png`});await page.keyboard.up(direction);
+ }
+ assert.deepEqual(errors,[]);console.log(JSON.stringify({status:'PASS',sack,caught,frames,pageErrors:errors}));
 }finally{await browser.close();await new Promise(r=>server.close(r))}
