@@ -397,7 +397,7 @@ for(const [width,height]of[[667,320],[844,335],[1108,430]])for(const direction o
 {
  const g=game(844,390,false,false);g.element('passTab').onclick();g.element('plays').children[1].onclick();g.snap();g.step(.8);g.context.bk3dFixture.seed(500);g.key('y');let caught=false;
  for(let i=0;i<120;i++){g.step(1/60);if(g.read().phase==='run'){caught=true;break}}
- assert.ok(caught);g.context.bk3dTest.touchdown();g.step(2);
+ assert.ok(caught);g.context.bk3dTest.touchdown();g.step(2);assert.equal(g.element('down').textContent,'TOUCHDOWN · +6 POINTS');
  const d=g.read(),p=d.players.find(p=>p.hasBall);assert.ok(p.foot.y-p.head.y>70,'Touchdown shot remains too distant');assert.equal(p.action,'celebrate');assert.equal(d.drive.score,30);
 }
 console.log('Phone composition regressions passed: six live rollouts avoid controls; readable touchdown close-up and celebration.');

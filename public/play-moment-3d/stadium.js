@@ -1,6 +1,6 @@
 import{stadiumCorners,stadiumDetails}from'./stadium-architecture.js?v=stadium-finish-36';
 import{installSceneMaterials}from'./scene-materials.js?v=reference-scene-31';
-import{pose,mul,rx,rz,translate,scale,segment,hex}from'./renderer.js?v=stadium-finish-36';
+import{pose,mul,rx,rz,translate,scale,segment,hex}from'./renderer.js?v=graphics-followup-40';
 import{installNightStadium}from'./night-stadium.js';
 const C=hex;
 function canvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return[c,c.getContext('2d')]}
@@ -113,7 +113,7 @@ export function makeStadium(r){
  });
  stadiumDetails(add);
  // Per-instance pose reflection, spacing and brightness break the repeated grid.
- for(const fan of fans){fan[0]+=(random()-.5)*.13;fan[2]+=(random()-.5)*.13;fan[5]+=random()>.5?.25:0;fan[6]*=.92+random()*.16;}
+ for(const fan of fans){fan[0]+=(random()-.5)*.13;fan[2]+=(random()-.5)*.13;fan[5]+=random()>.5?.25:0;fan[6]*=.88+random()*.22;fan[3]*=.90+random()*.17;fan[4]*=random()<.24?.83:.96+random()*.10;fan[7]=random();}
  // Goal posts, with actual vertical scale.
  for(const z of[3,117]){
   add('cylinder',segment([0,0,z],[0,3.2,z],.13),C('#d1b254'));add('cylinder',segment([-3.1,3.2,z],[3.1,3.2,z],.09),C('#ead57a'));
@@ -146,7 +146,7 @@ export function makeStadium(r){
  for(const x of[-26.4,26.4])for(const z of[10,110])add('cube',pose(x,.25,z,.20,.50,.20),C('#ef7943'));
  installNightStadium(r,add);
  return{draw(){for(const p of staticParts)r.add(...p);if(!art.crowd)for(const p of crowdFallback)r.add(...p);
-  if(art.crowd)for(const [x,y,z,w,h,cell,shade]of fans)r.add('crowdSprite',pose(x,y,z,w,h,1),[shade,shade,shade,1],'crowd-atlas',false,cell,6);
+  if(art.crowd)for(const [x,y,z,w,h,cell,shade,warm]of fans)r.add('crowdSprite',pose(x,y,z,w,h,1),[shade*(.92+warm*.13),shade*(.96+warm*.04),shade*(1.06-warm*.14),1],'crowd-atlas',false,cell,6);
   if(art.sideline)for(const [x,y,z,h,cell]of staffSprites){r.add('crowdSprite',pose(x,y,z,h,h,1),[1.1,1.1,1.1,1],'sideline-atlas',false,cell,6);r.add('plane',pose(x,.016,z,.7,1,.55),[1,1,1,.42],'shadow',true)}else for(const p of staffFallback)r.add(...p);
   for(const pos of lamps){r.glow(pos,8,[.64,.75,1,.19]);r.glow(pos,2.4,[1,.95,.80,.52]);}},parts:staticParts.length};
 }
