@@ -30,19 +30,19 @@ jobs:
       - name: Render blocking contact and manual catch sequence
         run: node scripts/check-gameplay-contact.mjs
         env:
-          BK_SCENE_OUT: artifacts/gameplay-37/contact
+          BK_SCENE_OUT: artifacts/live-camera-38/contact
       - name: Compare actual goal-line rendering
         run: node scripts/check-stadium-presentation.mjs
         env:
-          BK_BASELINE_REF: 77c309861d08a924556d2f1b41425521b68881b2
-          BK_SCENE_OUT: artifacts/gameplay-37/comparison
+          BK_BASELINE_REF: c079e9b792ff1601ca27e143657bf1164b65581b
+          BK_SCENE_OUT: artifacts/live-camera-38/comparison
       - name: Validate mobile formations and missing-art fallback
         run: node scripts/check-football-scene.mjs
         env:
-          BK_SCENE_OUT: artifacts/gameplay-37/mobile
+          BK_SCENE_OUT: artifacts/live-camera-38/mobile
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: gameplay-37-webgl
-          path: artifacts/gameplay-37
+          name: live-camera-38-webgl
+          path: artifacts/live-camera-38
           retention-days: 14
