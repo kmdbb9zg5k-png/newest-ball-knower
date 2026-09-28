@@ -1,4 +1,4 @@
-import{identity,mul,translate,scale,rx,ry,rz}from'./renderer.js?v=live-camera-38';
+import{identity,mul,translate,scale,rx,ry,rz}from'./renderer.js?v=reference-scene-39';
 import{quarterbackThrowPose}from'./quarterback.js?v=football-finish-21';
 import{refineAthleteSurface}from'./athlete-surface.js?v=sentinel-materials-34';
 
@@ -531,10 +531,10 @@ export class MeshyAthletes{
  }
  preSnapPose(locals,p){
   const trench=p.role==='OL'||p.role==='DL',center=p.index===2,receiver=p.role==='WR'||p.role==='TE',qb=p.role==='QB';
-  const crouch=center?.40:trench?.34:qb?.075:receiver?.17:.21;
-  const lean=center?.79:trench?.69:qb?.065:receiver?.31:.32;
+  const crouch=center?.45:trench?.40:qb?.10:receiver?.21:.25;
+  const lean=center?.86:trench?.76:qb?.09:receiver?.35:.36;
   this.standingPose(locals,p,crouch,lean);
-  const width=trench?.24:qb?.16:.175,stagger=receiver?.15:trench?.07:.05;
+  const width=trench?.29:qb?.18:.20,stagger=receiver?.18:trench?.10:.07;
   for(const [side,sign]of[['Left',1],['Right',-1]]){
    const ankle=pointFromMatrix(this.jointWorld(this.base,this.namedNodes['mixamorig:'+side+'Foot']).m);
    this.solveLimb(locals,[side+'UpLeg',side+'Leg',side+'Foot'],[sign*width,ankle[1],ankle[2]+sign*stagger],[sign*(width+.035),.40,.72],true);

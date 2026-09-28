@@ -27,22 +27,27 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Validate controller recording regressions
         run: node scripts/check-football-recovery.mjs
-      - name: Render blocking contact and manual catch sequence
-        run: node scripts/check-gameplay-contact.mjs
-        env:
-          BK_SCENE_OUT: artifacts/live-camera-38/contact
       - name: Compare actual goal-line rendering
         run: node scripts/check-stadium-presentation.mjs
         env:
-          BK_BASELINE_REF: c079e9b792ff1601ca27e143657bf1164b65581b
-          BK_SCENE_OUT: artifacts/live-camera-38/comparison
+          BK_BASELINE_REF: 3b222fe5e3f5548a76f23758467e69fb6d85f4ca
+          BK_SCENE_OUT: artifacts/reference-scene-39/comparison
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reference-scene-39-comparison
+          path: artifacts/reference-scene-39/comparison
+          retention-days: 14
+      - name: Render blocking contact and manual catch sequence
+        run: node scripts/check-gameplay-contact.mjs
+        env:
+          BK_SCENE_OUT: artifacts/reference-scene-39/contact
       - name: Validate mobile formations and missing-art fallback
         run: node scripts/check-football-scene.mjs
         env:
-          BK_SCENE_OUT: artifacts/live-camera-38/mobile
+          BK_SCENE_OUT: artifacts/reference-scene-39/mobile
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: live-camera-38-webgl
-          path: artifacts/live-camera-38
+          name: reference-scene-39-webgl
+          path: artifacts/reference-scene-39
           retention-days: 14

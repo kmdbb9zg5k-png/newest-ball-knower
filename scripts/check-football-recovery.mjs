@@ -122,9 +122,10 @@ for(const play of[1,3])for(const call of[0,2,4]){
  assert.equal(g.element('live').hidden,true);g.step(3.5);assert.ok(g.read().paused);
 }
 // Require a successful catch, rather than allowing the camera test to pass
-// after an incompletion. Track screen motion at the ownership transition.
+// after an incompletion. Use open receivers to isolate camera continuity from coverage odds.
+// Track screen motion at the ownership transition.
 for(const targetKey of ['x','y','z']){
- const g=game(844,390);g.element('passTab').onclick();g.element('plays').children[1].onclick();g.snap();g.step(.8);g.context.bk3dFixture.seed(500);g.key(targetKey);
+ const g=game(844,390);g.element('passTab').onclick();g.element('plays').children[1].onclick();g.snap();g.step(.8);g.context.bk3dFixture.mutate(actors=>actors.filter(p=>p.team).forEach(p=>p.z+=12));g.context.bk3dFixture.seed(500);g.key(targetKey);
  let previous=g.read(),caught=false,maxEyeStep=0,catchPixels=0;
  for(let frame=0;frame<170;frame++){
   g.step(1/60);const d=g.read();
@@ -354,7 +355,7 @@ console.log('Pre-snap flow: hold/release art, quick audibles, pause running sett
 // joystick is immediately effective without lifting and touching again.
 for(const target of['x','y','z']){
  const g=game(844,390,false,false);assert.equal(g.read().assist,false);
- g.element('passTab').onclick();g.element('plays').children[1].onclick();g.snap();g.step(.8);g.context.bk3dFixture.seed(500);g.key(target);
+ g.element('passTab').onclick();g.element('plays').children[1].onclick();g.snap();g.step(.8);g.context.bk3dFixture.mutate(actors=>actors.filter(p=>p.team).forEach(p=>p.z+=12));g.context.bk3dFixture.seed(500);g.key(target);
  let caught=false,flightFrames=0,maxTurn=0,prior=null;
  for(let frame=0;frame<120;frame++){
   g.step(1/60);const d=g.read(),angle=Math.atan2(d.camera.target[0]-d.camera.eye[0],d.camera.target[2]-d.camera.eye[2]);
@@ -400,3 +401,16 @@ for(const [width,height]of[[667,320],[844,335],[1108,430]])for(const direction o
  const d=g.read(),p=d.players.find(p=>p.hasBall);assert.ok(p.foot.y-p.head.y>70,'Touchdown shot remains too distant');assert.equal(p.action,'celebrate');assert.equal(d.drive.score,30);
 }
 console.log('Phone composition regressions passed: six live rollouts avoid controls; readable touchdown close-up and celebration.');
+
+// Composition target at recording and reference sizes, including a moving carry.
+for(const [width,height] of [[844,390],[1108,430],[1290,590]]){
+ const g=game(width,height,false,false);g.element('passTab').onclick();g.element('plays').children[1].onclick();g.snap();g.step(.8);g.context.bk3dTest.seed(500);g.context.bk3dTest.throwTo(8,'bullet');
+ for(let i=0;i<90&&g.read().phase!=='run';i++)g.step(1/60);
+ assert.equal(g.read().phase,'run');
+ g.context.bk3dFixture.mutate(actors=>{const c=actors.find(p=>p.hasBall);for(const p of actors.filter(p=>p.team)){p.x=25;p.z=c.z-18}});
+ g.key('ArrowUp');g.key('Shift');
+ let checked=0;
+ for(let i=0;i<140;i++){g.step(1/60);const d=g.read(),c=d.players.find(p=>p.hasBall);if(i>60&&d.phase==='run'){assert.ok(c.foot.y-c.head.y>height*.17,`${width}: moving carrier too small`);assert.ok(c.foot.y<height*.79,`${width}: carrier below usable frame`);checked++}}
+ assert.ok(checked>20,'Sustained run must be measured');
+}
+console.log('Reference composition: moving carriers remain at least 17% of viewport height at three landscape sizes.');

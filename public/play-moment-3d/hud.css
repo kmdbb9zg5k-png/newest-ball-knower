@@ -336,3 +336,13 @@ html,body,#game,#hud{min-height:100dvh}
 #hud[data-phase="run"] #instruction,#hud[data-phase="handoff"] #instruction{bottom:max(20px,calc(env(safe-area-inset-bottom) + 12px));max-width:calc(100vw - 340px);font-size:8px;padding:3px 6px}
 #live[data-phase="flight"] #stick{display:block;opacity:1}
 @media(max-width:740px){#hud[data-phase="run"] #instruction,#hud[data-phase="handoff"] #instruction{max-width:calc(100vw - 300px);font-size:7px}}
+
+/* Reference composition: a readable score strip on roomy landscape screens. */
+@media(min-width:1000px) and (min-height:430px){
+ .scorebug{width:460px;grid-template-columns:1fr 144px 1fr;grid-template-rows:48px 20px}
+ .scorebug .club strong{font-size:30px}
+ .scorebug .crest{font-size:28px}
+ .scorebug .game-state b{font-size:29px}
+ .scorebug .club b{font-size:8px}
+ .scorebug .series{font-size:9px}
+}

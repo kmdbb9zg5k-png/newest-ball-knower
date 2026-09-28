@@ -1,9 +1,9 @@
-import{RUNS,PASSES,FORMATIONS,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=formation-book-28';
-export{RUNS,PASSES}from'./playbook.js?v=formation-book-28';
-import{Renderer,pose,segment,hex,mul,ry}from'./renderer.js?v=live-camera-38';
+import{RUNS,PASSES,FORMATIONS,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=reference-scene-39';
+export{RUNS,PASSES}from'./playbook.js?v=reference-scene-39';
+import{Renderer,pose,segment,hex,mul,ry}from'./renderer.js?v=reference-scene-39';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js?v=football-finish-25';
-import{createMeshyAthletes}from'./meshy-athlete.js?v=live-camera-38';
-import{makeStadium}from'./stadium.js?v=live-camera-38';
+import{createMeshyAthletes}from'./meshy-athlete.js?v=reference-scene-39';
+import{makeStadium}from'./stadium.js?v=reference-scene-39';
 import{createGameplayReplayRecorder}from'./replay.js';
 import{QB_THROW_RELEASE,quarterbackThrowDuration}from'./quarterback.js?v=football-finish-21';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
@@ -113,7 +113,7 @@ export function cameraTravel(current,target,dt,rate=3,maxSpeed=24){
  return current.map((v,i)=>v+delta[i]*blend);
 }
 /** Compose a closer, lower live-run camera around the ball carrier. */
-export function runCameraFraming(x,z){return{eye:[x*.96+.7,5.5,z-7.3],target:[x*.96,1.2,z+3.5]}}
+export function runCameraFraming(x,z){return{eye:[x+.35,4.15,z-7.5],target:[x,.65,z+3.2]}}
 /** Interpolate presentation only. Input, collisions and the replay recorder
  * continue to use the authoritative 60 Hz simulation coordinates. */
 export function interpolatePresentation(previous,current,alpha,out={}){
@@ -379,6 +379,9 @@ export function start(){
  function applyFormation(){
   const f=formationForPlay(currentPlay());
   f.positions.forEach(([x,z],i)=>{const p=actors[i+5];p.x=p.startX=x;p.z=p.startZ=snapZ+z});
+  // Condensed shotgun splits match the reference's readable formation.
+  // Move the outside corners with their receiver alignment, not the interior fits.
+  if(f.id==='shotgun')for(const p of actors.filter(p=>p.team&&Math.abs(p.x)>18)){p.x=p.startX=p.x*17/21;}
   if(f.fullback){Object.assign(actors[8],{role:'FB',number:44,lastName:'Nash',ratings:playerRatings('RB',8,0)})}
  }
  function chooseOption(choice){
@@ -735,27 +738,27 @@ function coverage(dt){
    // Only a tackle, sideline, slide or score ends it; endPlay settles the drive.
   }
  }
- function camera(dt){r.fov=r.width/r.height>1.5?62:50;const isPocket=phase==='pre'||phase==='snap'||phase==='pass'||phase==='handoff'||phase==='flight',isDead=phase==='dead';let x=0,z=snapZ+2,mult=1;
+ function camera(dt){r.fov=r.width/r.height>1.5?58:46;const isPocket=phase==='pre'||phase==='snap'||phase==='pass'||phase==='handoff'||phase==='flight',isDead=phase==='dead';let x=0,z=snapZ+2,mult=1;
   if(!isPocket&&!isDead){x=carrier.x*.55;z=carrier.z+5;if(flight){const t=clamp(flight.t,0,1);x=(flight.from[0]+(flight.to[0]-flight.from[0])*t)*.55;z=flight.from[2]+(flight.to[2]-flight.from[2])*t+4}}
   if(phase==='pass'||phase==='flight'){x=actors[5].x*.82;const deep=Math.max(...receiverIndices.map(i=>actors[i].z));z=actors[5].z+clamp((deep-actors[5].z)*.42,6,14);mult=clamp(1+(deep-actors[5].z-20)*.01,1,1.35)}
   // Hold the shot through contact. A whistle must not trigger a second zoom
   // back through the pursuers standing behind the carrier.
   if(isDead&&typeof pendingDriveEnd!=='undefined'&&pendingDriveEnd?.title==='TOUCHDOWN'&&!activeContact){
-   const f=carrier,side=f.x>0?-1:1,eye=[f.x+side*4,3.4,f.z-6.4],target=[f.x,1.05,f.z];
-   const shot=cameraRigTravel(camEye,camTarget,eye,target,dt,2.0,12);camEye=shot.eye;camTarget=shot.target;r.camera(camEye,camTarget);return;
+   const f=carrier,side=f.x>0?-1:1,eye=[f.x+side*3.6,2.65,f.z-4.8],target=[f.x,1.0,f.z];
+   const shot=cameraRigTravel(camEye,camTarget,eye,target,dt,3.0,18);camEye=shot.eye;camTarget=shot.target;r.camera(camEye,camTarget);return;
   }
   if(isDead){const focus=carrier||actors[5];if(!deadCameraStart)deadCameraStart={eye:[...camEye],target:[...camTarget],x:focus.x,z:focus.z};const offset=[(focus.x-deadCameraStart.x)*.96,0,focus.z-deadCameraStart.z],desiredEye=deadCameraStart.eye.map((v,i)=>v+offset[i]+(i===1?.35:0)),desiredTarget=deadCameraStart.target.map((v,i)=>v+offset[i]);camEye=cameraTravel(camEye,desiredEye,dt,3);camTarget=cameraTravel(camTarget,desiredTarget,dt,3);impactShake=Math.max(0,impactShake-dt*3.8);r.camera(camEye,camTarget);return}
   const tracking=phase==='handoff'||phase==='run',focus=phase==='handoff'?actors[6]:carrier;runCameraBlend=clamp(runCameraBlend+(tracking?dt/.60:-dt/.6),0,1);
   if(tracking&&!runCameraStart)runCameraStart={eye:[...camEye],target:[...camTarget],x:focus.x,z:focus.z};
   // Center the pocket and move closer without enlarging athlete geometry.
-  // Keep the existing wide/long-flight presentation and receiver-fit guard.
+  // Fit the formation horizontally; tilt around the athlete before adding distance.
   const runFrame=tracking?runCameraFraming(focus.x,focus.z):null;
-  let desiredEye=tracking?runFrame.eye:[x+(isPocket?0:3.5*mult),(isPocket?3.6:8.0)*mult,(isPocket?snapZ:z)-(isPocket?12.8:24.5)*mult];
-  let desiredTarget=tracking?runFrame.target:[x,1.42,phase==='pre'?snapZ-1.8:z];
+  let desiredEye=tracking?runFrame.eye:[x+(isPocket?0:3.5*mult),(isPocket?4.3:8.0)*mult,(isPocket?snapZ:z)-(isPocket?14.3:24.5)*mult];
+  let desiredTarget=tracking?runFrame.target:[x,1.65,phase==='pre'?snapZ-1.5:z];
   if(tracking){const t=smooth(runCameraBlend),offset=[(focus.x-runCameraStart.x)*.96,0,focus.z-runCameraStart.z];desiredEye=desiredEye.map((v,i)=>(runCameraStart.eye[i]+offset[i])*(1-t)+v*t);desiredTarget=desiredTarget.map((v,i)=>(runCameraStart.target[i]+offset[i])*(1-t)+v*t)}
   // Start following the intended receiver while the football is in the air.
   // Catching continues from the actual camera position, never a new fixed view.
-  if(phase==='flight'&&flight){const start=flightCameraStart||{eye:camEye,target:camTarget},t=smooth(clamp(flight.t*1.5,0,1)),to=flight.to;desiredEye=[to[0],5.8,to[2]-11.8].map((v,i)=>start.eye[i]+(v-start.eye[i])*t);desiredTarget=[to[0],1.0,to[2]+2.4].map((v,i)=>start.target[i]+(v-start.target[i])*t)}
+  if(phase==='flight'&&flight){const start=flightCameraStart||{eye:camEye,target:camTarget},t=smooth(clamp(flight.t*1.5,0,1)),to=flight.to;desiredEye=[to[0]+.35,4.6,to[2]-8.6].map((v,i)=>start.eye[i]+(v-start.eye[i])*t);desiredTarget=[to[0],.65,to[2]+3.2].map((v,i)=>start.target[i]+(v-start.target[i])*t)}
   // Fit actual projected heads/feet above the pre-snap controls. Do not pan the QB away.
   const pocketBottom=phase==='pre'?(playbookOpen?r.height-100:Math.min(r.height-100,$('pre').getBoundingClientRect().top-10)):r.height-100;
   if(isPocket&&!tracking&&phase!=='flight'){
@@ -766,10 +769,15 @@ function coverage(dt){
     // Fit the compact adjustment row and snap button, tilting slightly
     // before shrinking an otherwise well-sized team.
     if(widthFits&&bottom>=pocketBottom&&top>80){desiredTarget[1]-=.25;continue}
-    desiredEye[1]*=1.055;desiredEye[2]=desiredTarget[2]+(desiredEye[2]-desiredTarget[2])*1.055;
+    desiredEye[2]=desiredTarget[2]+(desiredEye[2]-desiredTarget[2])*1.035;
    }
   }
-  if(tracking){for(let trial=0;trial<18;trial++){r.camera(desiredEye,desiredTarget);if(r.project([focus.x,0,focus.z]).y<r.height-90)break;desiredEye[1]*=1.045;desiredEye[2]=desiredTarget[2]+(desiredEye[2]-desiredTarget[2])*1.045}}
+  if(tracking){
+   // Centered runners can use the space BETWEEN the controls. Solve pitch,
+   // not distance: zooming out here made every live carry look miniature.
+   const footLimit=Math.min(r.height*.76,r.height-64);
+   for(let trial=0;trial<32;trial++){r.camera(desiredEye,desiredTarget);if(r.project([focus.x,0,focus.z]).y<footLimit)break;desiredTarget[1]-=.12;}
+  }
   const rate=phase==='flight'?5.5:phase==='pre'||phase==='handoff'?3.5:tracking?5.2:3.2;const rig=cameraRigTravel(camEye,camTarget,desiredEye,desiredTarget,dt,phase==='flight'?12:rate,phase==='pre'?80:phase==='flight'?65:24);camEye=rig.eye;camTarget=rig.target;
   if(phase==='pass'||phase==='run'||phase==='handoff'){
    const player=phase==='pass'?actors[5]:focus,rects=['stick','moves'].map(id=>$(id).getBoundingClientRect()).filter(b=>b.width>0&&b.width<r.width*.6);
