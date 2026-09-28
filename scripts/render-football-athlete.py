@@ -24,7 +24,7 @@ def gen(name):
  obj=u();gl(name,None,i,C.POINTER(u))(1,C.byref(obj));return obj.value
 def data(name):return (D/name).read_bytes()
 animation=scene.get('animation',False)
-W,H=(960,560) if animation else (480,520)
+W,H=scene.get('size', (960,560) if animation else (480,520)); columns=scene.get('columns',4)
 if animation:(D/'frames').mkdir(exist_ok=True)
 fb=gen('glGenFramebuffers');gl('glBindFramebuffer',None,u,u)(0x8D40,fb)
 for kind,internal in [(0x8CE0,0x8058),(0x8D00,0x81A6)]:
@@ -59,7 +59,7 @@ for latitude in range(8):
    phi=a*np.pi/8;theta=b*2*np.pi/12;return [.13*np.sin(phi)*np.cos(theta),.11*np.cos(phi),.22*np.sin(phi)*np.sin(theta)]
   for a,b in [(latitude,longitude),(latitude+1,longitude),(latitude+1,longitude+1),(latitude,longitude),(latitude+1,longitude+1),(latitude,longitude+1)]:vertices.extend(point(a,b))
 buf(0x8892,np.array(vertices,dtype='f4').tobytes());gl('glEnableVertexAttribArray',None,u)(0);gl('glVertexAttribPointer',None,u,i,u,B,i,p)(0,3,0x1406,False,0,None)
-canvas=Image.new('RGB',(480*4,280*3)) if animation else Image.new('RGB',(W*4,H*((len(scene['poses'])+3)//4)))
+canvas=Image.new('RGB',(480*4,280*3)) if animation else Image.new('RGB',(W*columns,H*((len(scene['poses'])+columns-1)//columns)))
 selected=np.linspace(0,len(scene['poses'])-1,12,dtype=int).tolist() if animation else []
 for idx,cell in enumerate(scene['poses']):
  group=cell.get('group',[cell]);pose=group[0];eye=[2.7,1.8,4.0] if idx<6 else [-2.7,1.8,-4.0];target=[0,.85,.3]
@@ -73,11 +73,11 @@ for idx,cell in enumerate(scene['poses']):
  gl('glUseProgram',None,u)(pr);gl('glBindVertexArray',None,u)(vao);mat('vp',vp);e=np.array(eye,dtype='f4');gl('glUniform3fv',None,i,i,p)(loc('eye'),1,e.ctypes.data)
  for actor in group:
   mat('model',actor['model']);mat('bones[0]',actor['bones'])
-  for name,value in [('rival',actor['p']['team']),('controlled',0),('playerSeed',.5)]:gl('glUniform1f',None,i,f)(loc(name),value)
+  for name,value in [('rival',actor['p']['team']),('controlled',0),('playerSeed',.5),('sourceMaterials',cell.get('sourceMaterials',scene.get('sourceMaterials',0)))]:gl('glUniform1f',None,i,f)(loc(name),value)
   number(actor['p']['team'],actor['p'].get('number',24));gl('glDrawElements',None,u,i,u,p)(4,scene['indexCount'],scene['indexType'],None)
  if cell.get('ball'):
   gl('glUseProgram',None,u)(ballPr);gl('glBindVertexArray',None,u)(ballVao);mat('vp',vp,ballPr);center=np.array(cell['ball'],dtype='f4');gl('glUniform3fv',None,i,i,p)(loc('center',ballPr),1,center.ctypes.data);gl('glDrawArrays',None,u,i,i)(4,0,len(vertices)//3)
- pixels=C.create_string_buffer(W*H*4);gl('glReadPixels',None,i,i,i,i,u,u,p)(0,0,W,H,0x1908,0x1401,pixels);im=Image.frombytes('RGBA',(W,H),pixels.raw).transpose(Image.Transpose.FLIP_TOP_BOTTOM).convert('RGB');ImageDraw.Draw(im).text((8,8),cell['label'],fill='white')
+ pixels=C.create_string_buffer(W*H*4);gl('glReadPixels',None,i,i,i,i,u,u,p)(0,0,W,H,0x1908,0x1401,pixels);im=Image.frombytes('RGBA',(W,H),pixels.raw).transpose(Image.Transpose.FLIP_TOP_BOTTOM).convert('RGB');ImageDraw.Draw(im).text((8,8),cell['label'],fill='white',font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',scene.get('labelSize',12)))
  if animation:
   if cell.get('labels'):
    titlefont=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',24)
@@ -85,5 +85,8 @@ for idx,cell in enumerate(scene['poses']):
   im.save(D/'frames'/f'{idx:04d}.png')
   if idx in selected:
    tile=selected.index(idx);canvas.paste(im.resize((480,280)),((tile%4)*480,(tile//4)*280))
- else:canvas.paste(im,((idx%4)*W,(idx//4)*H))
-canvas.save(D/'poses.png');print('Rendered shader and',len(scene['poses']),'pose groups with Mesa; GL error:',gl('glGetError',u)())
+ else:canvas.paste(im,((idx%columns)*W,(idx//columns)*H))
+canvas.save(D/'poses.png')
+if scene.get('saveRows'):
+ for row in range((len(scene['poses'])+columns-1)//columns):canvas.crop((0,row*H,W*columns,(row+1)*H)).save(D/f'row-{row}.png')
+print('Rendered shader and',len(scene['poses']),'pose groups with Mesa; GL error:',gl('glGetError',u)())

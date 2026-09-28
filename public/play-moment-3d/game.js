@@ -1,9 +1,9 @@
 import{RUNS,PASSES,FORMATIONS,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=formation-book-28';
 export{RUNS,PASSES}from'./playbook.js?v=formation-book-28';
-import{Renderer,pose,segment,hex,mul,ry}from'./renderer.js?v=graphics-pass-30';
+import{Renderer,pose,segment,hex,mul,ry}from'./renderer.js?v=reference-scene-31';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js?v=football-finish-25';
-import{createMeshyAthletes}from'./meshy-athlete.js?v=graphics-pass-30';
-import{makeStadium}from'./stadium.js?v=graphics-pass-30';
+import{createMeshyAthletes}from'./meshy-athlete.js?v=sentinel-materials-34';
+import{makeStadium}from'./stadium.js?v=reference-scene-31';
 import{createGameplayReplayRecorder}from'./replay.js';
 import{QB_THROW_RELEASE,quarterbackThrowDuration}from'./quarterback.js?v=football-finish-21';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
@@ -716,7 +716,7 @@ function coverage(dt){
    // Only a tackle, sideline, slide or score ends it; endPlay settles the drive.
   }
  }
- function camera(dt){const isPocket=phase==='pre'||phase==='snap'||phase==='pass'||phase==='handoff'||phase==='flight',isDead=phase==='dead';let x=0,z=snapZ+2,mult=1;
+ function camera(dt){r.fov=r.width/r.height>1.5?62:50;const isPocket=phase==='pre'||phase==='snap'||phase==='pass'||phase==='handoff'||phase==='flight',isDead=phase==='dead';let x=0,z=snapZ+2,mult=1;
   if(!isPocket&&!isDead){x=carrier.x*.55;z=carrier.z+5;if(flight){const t=clamp(flight.t,0,1);x=(flight.from[0]+(flight.to[0]-flight.from[0])*t)*.55;z=flight.from[2]+(flight.to[2]-flight.from[2])*t+4}}
   if(phase==='pass'||phase==='flight'){const deep=Math.max(...receiverIndices.map(i=>actors[i].z));z=actors[5].z+clamp((deep-actors[5].z)*.42,6,14);mult=clamp(1+(deep-actors[5].z-20)*.01,1,1.35)}
   // Hold the shot through contact. A whistle must not trigger a second zoom
@@ -727,8 +727,8 @@ function coverage(dt){
   // Center the pocket and move closer without enlarging athlete geometry.
   // Keep the existing wide/long-flight presentation and receiver-fit guard.
   const runFrame=tracking?runCameraFraming(focus.x,focus.z):null;
-  let desiredEye=tracking?runFrame.eye:[x+(isPocket?0:3.5*mult),(isPocket?5.15:8.0)*mult,(isPocket?snapZ:z)-(isPocket?14.5:24.5)*mult];
-  let desiredTarget=tracking?runFrame.target:[x,1.42,phase==='pre'?snapZ-5:z];
+  let desiredEye=tracking?runFrame.eye:[x+(isPocket?0:3.5*mult),(isPocket?5.3:8.0)*mult,(isPocket?snapZ:z)-(isPocket?13.8:24.5)*mult];
+  let desiredTarget=tracking?runFrame.target:[x,1.42,phase==='pre'?snapZ-1.8:z];
   if(tracking){const t=smooth(runCameraBlend),offset=[(focus.x-runCameraStart.x)*.96,0,focus.z-runCameraStart.z];desiredEye=desiredEye.map((v,i)=>(runCameraStart.eye[i]+offset[i])*(1-t)+v*t);desiredTarget=desiredTarget.map((v,i)=>(runCameraStart.target[i]+offset[i])*(1-t)+v*t)}
   // Start following the intended receiver while the football is in the air.
   // Catching continues from the actual camera position, never a new fixed view.
