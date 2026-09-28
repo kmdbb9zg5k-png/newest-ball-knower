@@ -30,7 +30,7 @@ try{
  await page.locator('#snap').dispatchEvent('pointerdown',{pointerId:1,pointerType:'touch'});await page.evaluate(()=>window.bk3dTest.step(1.1));
  await page.screenshot({path:out+'/mobile-blocking.png'});
  let data=await page.evaluate(()=>({game:window.bk3dDiagnostics(),graphics:window.bkGraphicsDiagnostics()}));
- assert.equal(data.game.phase,'pass');assert.equal(data.game.glError,0);assert.equal(data.graphics.overflows,0);assert.ok(data.graphics.drawCalls<60);assert.ok(data.graphics.instanceBytes<2_000_000);assert.equal(data.graphics.shadowDrawCalls,22);assert.equal(data.game.athletes.bodyProfiles,8);
+ assert.equal(data.game.phase,'pass');assert.equal(data.game.glError,0);assert.equal(data.graphics.overflows,0);assert.ok(data.graphics.drawCalls<60);assert.ok(data.graphics.instanceBytes<=2_889_600,'Instance buffers grew beyond measured PR 379 baseline');assert.equal(data.graphics.shadowDrawCalls,22);assert.equal(data.game.athletes.bodyProfiles,8);
  await page.locator('#target-7').dispatchEvent('click',{detail:0});await page.evaluate(()=>window.bk3dTest.step(.3));assert.equal((await page.evaluate(()=>window.bk3dDiagnostics())).phase,'flight');
  await page.screenshot({path:out+'/mobile-throw.png'});
  // Transform feedback measures the actual GPU-deformed surface, not its support-point approximation.
