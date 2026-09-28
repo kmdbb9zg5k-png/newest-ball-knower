@@ -400,3 +400,16 @@ for(const [width,height]of[[667,320],[844,335],[1108,430]])for(const direction o
  const d=g.read(),p=d.players.find(p=>p.hasBall);assert.ok(p.foot.y-p.head.y>70,'Touchdown shot remains too distant');assert.equal(p.action,'celebrate');assert.equal(d.drive.score,30);
 }
 console.log('Phone composition regressions passed: six live rollouts avoid controls; readable touchdown close-up and celebration.');
+
+// Composition target at recording and reference sizes, including a moving carry.
+for(const [width,height] of [[844,390],[1108,430],[1290,590]]){
+ const g=game(width,height,false,false);g.element('passTab').onclick();g.element('plays').children[1].onclick();g.snap();g.step(.8);g.context.bk3dTest.seed(500);g.context.bk3dTest.throwTo(8,'bullet');
+ for(let i=0;i<90&&g.read().phase!=='run';i++)g.step(1/60);
+ assert.equal(g.read().phase,'run');
+ g.context.bk3dFixture.mutate(actors=>{const c=actors.find(p=>p.hasBall);for(const p of actors.filter(p=>p.team)){p.x=25;p.z=c.z-18}});
+ g.key('ArrowUp');g.key('Shift');
+ let checked=0;
+ for(let i=0;i<140;i++){g.step(1/60);const d=g.read(),c=d.players.find(p=>p.hasBall);if(i>60&&d.phase==='run'){assert.ok(c.foot.y-c.head.y>height*.17,`${width}: moving carrier too small`);assert.ok(c.foot.y<height*.79,`${width}: carrier below usable frame`);checked++}}
+ assert.ok(checked>20,'Sustained run must be measured');
+}
+console.log('Reference composition: moving carriers remain at least 17% of viewport height at three landscape sizes.');

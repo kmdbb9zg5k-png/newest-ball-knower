@@ -124,6 +124,11 @@ void main(){
   float grain=hash(floor(grid)),crossGrain=hash(floor(world.zx*67.+19.));
   float blades=sin(world.z*290.+grain*3.)*sin(world.x*137.+crossGrain*2.);
   albedo*=1.+(grain-.5)*.075*aa+(crossGrain-.5)*.025*aa;
+  float paintFiber=smoothstep(.65,.90,base.r/max(base.g,.001));
+  albedo*=1.-paintFiber*smoothstep(.82,.99,grain)*.12*aa;
+  float traffic=(1.-smoothstep(5.,17.,abs(world.x)))*smoothstep(10.,22.,world.z)*(1.-smoothstep(98.,110.,world.z));
+  float patches=sin(world.x*.72+sin(world.z*.43))*sin(world.z*1.19);
+  albedo=mix(albedo,albedo*vec3(1.13,.98,.84),traffic*smoothstep(.25,.86,patches)*.15*(1.-paintFiber));
   N=normalize(N+vec3((grain-.5)*.06,0.,blades*.045)*aa);
  }
  float lit=visibility(N);vec3 L0=normalize(KEY),L1=normalize(vec3(.62,.69,.38)),L2=normalize(vec3(-.20,.72,.65));
@@ -137,7 +142,7 @@ void main(){
  // Slight wrap on skin keeps faces readable without making uniforms luminous.
  if(material==3)diffuse+=vec3(.17,.10,.075)*max(0.,dot(N,L0)+.35);
  // The field is floodlit; the surrounding bowl remains a night environment.
- float exposure=material==4?.46:material==0?.48:1.;
+ float exposure=material==4?.48:material==0?.48:1.;
  vec3 rgb=albedo*diffuse*exposure;
  float nv=max(dot(N,V),0.);vec3 F0=mix(vec3(.025),albedo*.55+vec3(.12),g*.5);
  vec3 fresnel=F0+(1.-F0)*pow(1.-nv,5.);

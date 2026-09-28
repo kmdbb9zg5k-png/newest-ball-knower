@@ -10,7 +10,7 @@ let baseline=false;
 const server=createServer(async(req,res)=>{try{
  const path=new URL(req.url,'http://local').pathname,name=resolve(root,'.'+path);if(!name.startsWith(root+'/'))throw Error('path');
  let data=baseline?execFileSync('git',['show',(process.env.BK_BASELINE_REF||'04df7efd')+':public'+path],{maxBuffer:12*1024*1024}):await readFile(name);
- if(path.endsWith('/game.js'))data=Buffer.from(data.toString().replace(' setup();camera(1);scene(.016,0);',`window.bkGoalFixture=()=>{drive={...initialDrive,ball:99,down:1,toGo:1};setup(false);}; setup();camera(1);scene(.016,0);`));
+ if(path.endsWith('/game.js'))data=Buffer.from(data.toString().replace(' setup();camera(1);scene(.016,0);',`window.bkGoalFixture=()=>{drive={...initialDrive,ball:85,down:1,toGo:10};setup(false);}; setup();camera(1);scene(.016,0);`));
  res.setHeader('Content-Type',({'.js':'text/javascript','.css':'text/css','.glb':'model/gltf-binary','.html':'text/html','.webp':'image/webp'})[extname(name)]||'application/octet-stream');res.end(data);
  }catch{res.writeHead(404).end()}});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
@@ -25,7 +25,7 @@ try{
   await page.waitForFunction(()=>window.bk3dDiagnostics().athletes.ready&&window.bkSceneArtDiagnostics().crowd,{timeout:45000});
   await page.evaluate(()=>{window.bkGoalFixture();window.bk3dTest.step(3)});
   const d=await page.evaluate(()=>({game:window.bk3dDiagnostics(),graphics:window.bkGraphicsDiagnostics(),art:window.bkSceneArtDiagnostics()}));
-  assert.equal(d.game.glError,0);assert.equal(d.graphics.overflows,0);assert.equal(d.game.drive.ball,99);assert.deepEqual(errors,[]);
+  assert.equal(d.game.glError,0);assert.equal(d.graphics.overflows,0);assert.equal(d.game.drive.ball,85);assert.deepEqual(errors,[]);
   await page.screenshot({path:out+'/'+(before?'before':'after')+'.png'});
   reports.push({before,camera:d.game.camera,graphics:d.graphics,art:d.art});await page.close();
  }
