@@ -1,4 +1,4 @@
-import{identity,mul,translate,scale,rx,ry,rz}from'./renderer.js?v=reference-scene-39';
+import{identity,mul,translate,scale,rx,ry,rz}from'./renderer.js?v=graphics-followup-40';
 import{quarterbackThrowPose}from'./quarterback.js?v=football-finish-21';
 import{refineAthleteSurface}from'./athlete-surface.js?v=sentinel-materials-34';
 
@@ -7,14 +7,14 @@ const MAX_BONES=32;
 // Surface offsets in bind space: torso, shoulder pads, thighs, upper arms.
 // The head, hands and feet retain their original size and attachment points.
 export const PLAYER_BUILDS=Object.freeze({
- OL:{bulk:[.074,.033,.030,.020],scale:[1.04,1.025,1.035]},
- DL:{bulk:[.056,.038,.034,.028],scale:[1.035,1.035,1.04]},
- QB:{bulk:[.008,-.009,.002,.002],scale:[.99,1.02,.99]},
- RB:{bulk:[.025,.008,.025,.020],scale:[1.01,.975,1.01]},
- WR:{bulk:[-.012,-.006,-.006,-.005],scale:[.97,1.015,.97]},
- TE:{bulk:[.028,.012,.018,.017],scale:[1.025,1.045,1.025]},
- LB:{bulk:[.035,.020,.025,.022],scale:[1.025,1.025,1.025]},
- DB:{bulk:[-.008,-.006,-.005,-.004],scale:[.97,1,.97]},
+ OL:{bulk:[.100,.070,.038,.032],scale:[1.07,1.025,1.055]},
+ DL:{bulk:[.080,.075,.041,.040],scale:[1.06,1.035,1.055]},
+ QB:{bulk:[.023,.035,.010,.015],scale:[1.015,1.02,1.005]},
+ RB:{bulk:[.044,.046,.036,.029],scale:[1.04,.975,1.03]},
+ WR:{bulk:[.006,.030,.004,.010],scale:[.99,1.015,.99]},
+ TE:{bulk:[.048,.055,.027,.029],scale:[1.05,1.045,1.04]},
+ LB:{bulk:[.058,.060,.034,.035],scale:[1.05,1.025,1.045]},
+ DB:{bulk:[.009,.030,.005,.011],scale:[.99,1,.99]},
 });
 export function playerBuild(role){return PLAYER_BUILDS[role]||PLAYER_BUILDS.QB}
 function buildRegions(positions,jointIndices,weights,jointNames){
@@ -709,11 +709,11 @@ export class MeshyAthletes{
   for(let i=0;i<locals.length;i++){locals[i].t=lerpArray(landed[i].t,locals[i].t,kneel);locals[i].r=slerp(landed[i].r,locals[i].r,kneel)}
  }
  blockPose(locals,p,time){
-  const runBlock=this.phase==='handoff'||this.phase==='run',drive=runBlock&&!p.team,reach=p.blockStyle==='reach-block',passAnchor=p.blockStyle==='pass-anchor';
-  this.standingPose(locals,p,drive?.21:passAnchor?.20:.16,drive?.34:runBlock?.24:.12);
+  const runBlock=this.phase==='handoff'||this.phase==='run',drive=runBlock&&!p.team,reach=p.blockStyle==='reach'||p.blockStyle==='reach-block',passAnchor=p.blockStyle==='pass-anchor';
+  this.standingPose(locals,p,drive?.27:passAnchor?.255:.23,drive?.40:runBlock?.30:.23);
   const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m),beat=(p.distance||0)*10+time*2.4+p.index*.83;
   for(const [side,sign]of[['Left',1],['Right',-1]]){
-   const ankle=pointFromMatrix(this.jointWorld(this.base,this.namedNodes['mixamorig:'+side+'Foot']).m),step=Math.sin(beat+(sign>0?0:Math.PI)),width=runBlock?.20:.235;
+   const ankle=pointFromMatrix(this.jointWorld(this.base,this.namedNodes['mixamorig:'+side+'Foot']).m),step=Math.sin(beat+(sign>0?0:Math.PI)),width=runBlock?.235:.255;
    const stagger=runBlock?sign*.045:sign*.11,travel=step*(drive?.105:.055);
    this.solveLimb(locals,[side+'UpLeg',side+'Leg',side+'Foot'],[sign*width+(reach?.055:0),ankle[1]+Math.max(0,step)*.035,ankle[2]+stagger+travel],[sign*.25,.43,.66],true);
    this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],[sign*.20,chest[1]-(drive?.12:.04),chest[2]+(drive?.37:.31)+Math.sin(beat+sign)*.035],[sign*.42,chest[1]-.28,chest[2]+.04]);

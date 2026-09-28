@@ -346,3 +346,6 @@ html,body,#game,#hud{min-height:100dvh}
  .scorebug .club b{font-size:8px}
  .scorebug .series{font-size:9px}
 }
+
+/* Keep scoring/catch banners below the enlarged landscape score strip. */
+@media(min-width:1000px) and (min-height:430px){#message{top:calc(max(10px,env(safe-area-inset-top)) + 76px)}}

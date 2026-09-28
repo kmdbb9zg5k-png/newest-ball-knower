@@ -5,6 +5,10 @@ on:
       - 'public/play-moment-3d/**'
       - 'public/play-moment-3d-preview.html'
       - 'scripts/check-stadium-presentation.mjs'
+      - 'scripts/check-graphics-followup.mjs'
+      - 'scripts/check-football-graphics.mjs'
+      - 'scripts/check-gameplay-contact.mjs'
+      - 'scripts/check-football-recovery.mjs'
       - 'scripts/check-football-scene.mjs'
       - '.github/workflows/stadium-graphics-review.yml'
   workflow_dispatch:
@@ -27,27 +31,33 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Validate controller recording regressions
         run: node scripts/check-football-recovery.mjs
+      - name: Validate scoring sightlines
+        run: node scripts/check-graphics-followup.mjs
+      - name: Validate actual GPU player surfaces
+        run: node scripts/check-football-graphics.mjs
+        env:
+          BK_GRAPHICS_OUT: artifacts/graphics-followup-40/players
       - name: Compare actual goal-line rendering
         run: node scripts/check-stadium-presentation.mjs
         env:
-          BK_BASELINE_REF: 3b222fe5e3f5548a76f23758467e69fb6d85f4ca
-          BK_SCENE_OUT: artifacts/reference-scene-39/comparison
+          BK_BASELINE_REF: 2222a9fa7f79ee9c59731926de64c39bebe82236
+          BK_SCENE_OUT: artifacts/graphics-followup-40/comparison
       - uses: actions/upload-artifact@v4
         with:
-          name: reference-scene-39-comparison
-          path: artifacts/reference-scene-39/comparison
+          name: graphics-followup-40-comparison
+          path: artifacts/graphics-followup-40/comparison
           retention-days: 14
       - name: Render blocking contact and manual catch sequence
         run: node scripts/check-gameplay-contact.mjs
         env:
-          BK_SCENE_OUT: artifacts/reference-scene-39/contact
+          BK_SCENE_OUT: artifacts/graphics-followup-40/contact
       - name: Validate mobile formations and missing-art fallback
         run: node scripts/check-football-scene.mjs
         env:
-          BK_SCENE_OUT: artifacts/reference-scene-39/mobile
+          BK_SCENE_OUT: artifacts/graphics-followup-40/mobile
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: reference-scene-39-webgl
-          path: artifacts/reference-scene-39
+          name: graphics-followup-40-webgl
+          path: artifacts/graphics-followup-40
           retention-days: 14

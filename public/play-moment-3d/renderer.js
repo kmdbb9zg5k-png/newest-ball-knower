@@ -133,12 +133,14 @@ void main(){
  }
  float lit=visibility(N);vec3 L0=normalize(KEY),L1=normalize(vec3(.62,.69,.38)),L2=normalize(vec3(-.20,.72,.65));
  float d0=max(dot(N,L0),0.),d1=max(dot(N,L1),0.),d2=max(dot(N,L2),0.);
- vec3 ambient=mix(vec3(.052,.066,.078),vec3(.18,.23,.31),N.y*.5+.5);
+ vec3 ambient=mix(vec3(.052,.066,.078),vec3(.145,.185,.255),N.y*.5+.5);
  // Four real stadium banks add localized highlights instead of a uniform wash.
- vec3 toA=vec3(-35.,23.,8.)-world,toB=vec3(35.,23.,111.)-world;
+ vec3 toA=vec3(-35.,23.,8.)-world,toB=vec3(35.,23.,111.)-world,toC=vec3(35.,23.,8.)-world,toD=vec3(-35.,23.,111.)-world;
  float bankA=max(dot(N,normalize(toA)),0.)/(1.+dot(toA,toA)*.0011);
  float bankB=max(dot(N,normalize(toB)),0.)/(1.+dot(toB,toB)*.0011);
- vec3 diffuse=ambient+vec3(1.63,1.54,1.34)*d0*mix(.22,1.,lit)+vec3(.46,.59,.84)*d1+vec3(.22,.27,.36)*d2+vec3(1.02,1.14,1.28)*(bankA+bankB)*3.2;
+ float bankC=max(dot(N,normalize(toC)),0.)/(1.+dot(toC,toC)*.0015);
+ float bankD=max(dot(N,normalize(toD)),0.)/(1.+dot(toD,toD)*.0015);
+ vec3 diffuse=ambient+vec3(1.63,1.54,1.34)*d0*mix(.22,1.,lit)+vec3(.46,.59,.84)*d1+vec3(.22,.27,.36)*d2+vec3(1.12,1.10,1.02)*(bankA+bankB)*2.55+vec3(.82,1.02,1.30)*(bankC+bankD)*1.25;
  // Slight wrap on skin keeps faces readable without making uniforms luminous.
  if(material==3)diffuse+=vec3(.17,.10,.075)*max(0.,dot(N,L0)+.35);
  // The field is floodlit; the surrounding bowl remains a night environment.

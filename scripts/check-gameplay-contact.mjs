@@ -55,7 +55,7 @@ try{
  }
  await page.keyboard.up('ArrowUp');await page.keyboard.up('Shift');assert.ok(touchdown,'Full carry did not reach the goal line');
  await page.evaluate(()=>window.bk3dTest.step(2));await page.screenshot({path:`${out}/touchdown-close.png`});
- const td=await read(),scorer=td.players.find(p=>p.hasBall);assert.equal(scorer.action,'celebrate');assert.ok(scorer.foot.y-scorer.head.y>430*.27,'Touchdown too distant');
+ const td=await read(),scorer=td.players.find(p=>p.hasBall);assert.equal(scorer.action,'celebrate');assert.equal(await page.locator('#down').textContent(),'TOUCHDOWN · +6 POINTS');const banners=await page.evaluate(()=>({score:document.querySelector('.scorebug').getBoundingClientRect().bottom,message:document.querySelector('#message').getBoundingClientRect().top}));assert.ok(banners.message>banners.score,'Touchdown banner overlaps scoreboard');assert.ok(scorer.foot.y-scorer.head.y>430*.27,'Touchdown too distant');
  for(const direction of['ArrowLeft','ArrowRight']){
   await page.setViewportSize({width:667,height:320});await start();await page.evaluate(()=>window.bk3dTest.step(.35));await page.keyboard.down(direction);
   for(let i=0;i<12;i++){
