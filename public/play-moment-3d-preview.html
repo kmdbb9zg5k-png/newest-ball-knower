@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="robots" content="noindex,nofollow">
 <title>Ball Knower | 3D Practice Preview</title>
-<link rel="stylesheet" href="/play-moment-3d/hud.css?v=stadium-presentation-35">
+<link rel="stylesheet" href="/play-moment-3d/hud.css?v=stadium-finish-36">
 <style>
 /* Keep touch targets practical on phone-sized landscape screens without rewriting the HUD. */
 .icon,.control,.mode button,.dialog button{min-width:44px;min-height:44px}
@@ -68,7 +68,7 @@
 <div id="paused" class="dialog" hidden><div><span class="eyebrow">BALL KNOWER · PRACTICE</span><h1 id="dialogTitle">PAUSED</h1><p id="dialogBody">This preview never changes your career saves or season record.</p><button id="resume">RESUME</button><div class="running-setting"><button id="control" class="secondary" aria-pressed="true" aria-describedby="controlHelp">RUNNING: AUTOMATIC</button><small id="controlHelp">Ball carriers run automatically. You still move the quarterback in the pocket.</small></div><button id="watchReplay" class="secondary" hidden>WATCH LAST PLAY</button><button id="restart" class="secondary">RESTART DRIVE</button><div class="gameplay-report"><textarea id="reportNote" maxlength="500" aria-label="Optional gameplay report note" placeholder="Optional: what felt wrong?"></textarea><button id="sendReport" class="secondary">SEND GAMEPLAY REPORT</button><div id="reportReceipt" class="report-receipt" role="status" hidden><b>REPORT SENT ✓</b><code id="reportCode"></code><button id="copyReportCode" type="button">COPY REPORT CODE</button><small>Codex can now locate this report automatically.</small></div><small id="reportStatus">Sends gameplay inputs and player positions only. No screen, audio, camera, location, or account data.</small></div><a href="/">Return to Ball Knower</a></div></div>
 <div id="rotate"><div><b>TURN THE FIELD SIDEWAYS</b><p>Rotate your phone for the 3D practice preview.</p><a href="/">Back to Ball Knower</a></div></div>
 <script type="module">
-try { const {start}=await import('/play-moment-3d/game.js?v=stadium-presentation-35'); start(); }
+try { const {start}=await import('/play-moment-3d/game.js?v=stadium-finish-36'); start(); }
 catch(error){document.getElementById('loading').hidden=true;document.getElementById('error').hidden=false;document.getElementById('errorText').textContent='The 3D preview could not start. Your saved career is unchanged.';console.error(error);}
 </script>
 </body>

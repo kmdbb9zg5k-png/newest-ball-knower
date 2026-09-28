@@ -9,7 +9,7 @@ const root=resolve('public'),out=resolve(process.env.BK_SCENE_OUT||'/tmp/bk-stad
 let baseline=false;
 const server=createServer(async(req,res)=>{try{
  const path=new URL(req.url,'http://local').pathname,name=resolve(root,'.'+path);if(!name.startsWith(root+'/'))throw Error('path');
- let data=baseline?execFileSync('git',['show','04df7efd:public'+path],{maxBuffer:12*1024*1024}):await readFile(name);
+ let data=baseline?execFileSync('git',['show',(process.env.BK_BASELINE_REF||'04df7efd')+':public'+path],{maxBuffer:12*1024*1024}):await readFile(name);
  if(path.endsWith('/game.js'))data=Buffer.from(data.toString().replace(' setup();camera(1);scene(.016,0);',`window.bkGoalFixture=()=>{drive={...initialDrive,ball:99,down:1,toGo:1};setup(false);}; setup();camera(1);scene(.016,0);`));
  res.setHeader('Content-Type',({'.js':'text/javascript','.css':'text/css','.glb':'model/gltf-binary','.html':'text/html','.webp':'image/webp'})[extname(name)]||'application/octet-stream');res.end(data);
  }catch{res.writeHead(404).end()}});

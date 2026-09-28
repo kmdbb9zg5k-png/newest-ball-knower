@@ -1,4 +1,4 @@
-import{identity,mul,translate,scale,rx,ry,rz}from'./renderer.js?v=stadium-presentation-35';
+import{identity,mul,translate,scale,rx,ry,rz}from'./renderer.js?v=stadium-finish-36';
 import{quarterbackThrowPose}from'./quarterback.js?v=football-finish-21';
 import{refineAthleteSurface}from'./athlete-surface.js?v=sentinel-materials-34';
 

@@ -44,10 +44,11 @@ const vertex=`#version 300 es
 precision highp float;
 layout(location=0) in vec3 p;layout(location=1) in vec3 n;layout(location=2) in vec2 uv;
 layout(location=3) in mat4 model;layout(location=7) in vec4 color;layout(location=8) in float shine;
-uniform mat4 vp;uniform mat4 lightVP;uniform vec3 eye;uniform highp int material;
+uniform mat4 vp;uniform mat4 lightVP;uniform vec3 eye;uniform highp int material;uniform float sceneTime;
 out vec3 world;out vec3 normal;out vec3 local;out vec2 tex;out vec4 tint;out float gloss;out vec4 lightSpace;
 void main(){vec4 w=model*vec4(p,1.);
  if(material==6){vec3 forward=normalize(vec3(eye.x-model[3].x,0.,eye.z-model[3].z)),right=vec3(forward.z,0.,-forward.x);w=vec4(model[3].xyz+right*p.x*length(model[0].xyz)+vec3(0.,p.y*length(model[1].xyz),0.),1.);}
+ if(material==6){float seed=dot(model[3].xz,vec2(1.71,3.19));w.x+=sin(sceneTime*1.15+seed)*.025*p.y*p.y;w.y+=sin(sceneTime*1.7+seed*2.)*.012*p.y;}
  world=w.xyz;local=p;
  vec3 sq=vec3(dot(model[0].xyz,model[0].xyz),dot(model[1].xyz,model[1].xyz),dot(model[2].xyz,model[2].xyz));
  normal=normalize(mat3(model)*(n/max(sq,vec3(.00001))));tex=uv;tint=color;gloss=shine;lightSpace=lightVP*w;gl_Position=vp*w;}`;
@@ -73,7 +74,8 @@ void main(){
  vec4 base=tint;
  if(material==6){
   vec2 cell=vec2(mod(floor(gloss+.5),4.),floor(gloss/4.));
-  vec2 atlasUV=(cell+clamp(tex,vec2(.006),vec2(.994)))*.25;
+  vec2 crowdUV=vec2(fract(gloss)>.1?1.-tex.x:tex.x,tex.y);
+  vec2 atlasUV=(cell+clamp(crowdUV,vec2(.006),vec2(.994)))*.25;
   base*=texture(image,atlasUV);if(base.a<.48)discard;
   float falloff=mix(.91,.64,smoothstep(25.,145.,distance(eye,world)));
   vec3 crowd=base.rgb*falloff;crowd=mix(crowd,vec3(.035,.048,.063),smoothstep(55.,170.,distance(eye,world))*.35);
@@ -105,7 +107,7 @@ void main(){
   vec2 grassUV=world.xz*.38;
   vec3 grass=texture(turfDetail,grassUV).rgb;
   float grassMask=(1.-smoothstep(.80,.96,base.r/max(base.g,.001)))*smoothstep(.16,.23,base.g);
-  float variation=.93+.07*sin(world.z*3.14159*.2);
+  float variation=.92+.08*smoothstep(-.2,.2,sin(world.z*3.14159*.2));
   grass=mix(grass,vec3(dot(grass,vec3(.2126,.7152,.0722))),.30);
   vec3 turf=pow(grass*vec3(.78,.83,.79),vec3(2.2))*variation;
   albedo=mix(albedo,turf,grassMask*.94);
@@ -148,10 +150,11 @@ void main(){
   rgb+=fresnel*g*crown*.7;
  }
  if(material==4){
-  float mowing=.95+.05*sin(world.z*3.14159*.2);rgb*=mowing*mix(.68,1.,lit);
+  float mowing=.96+.04*sin(world.z*3.14159*.2);rgb*=mowing*mix(.68,1.,lit);
   float paint=smoothstep(.20,.45,albedo.r);rgb=mix(rgb,rgb*1.08,paint);
   float grazing=pow(1.-max(dot(N,V),0.),3.);float dew=pow(max(dot(N,normalize(L1+V)),0.),30.);
-  float blade=hash(floor(world.xz*92.));rgb+=vec3(.028,.062,.035)*(grazing*(.42+blade*.20)+dew*.30);
+  float blade=hash(floor(world.xz*92.));float grassSheen=(1.-smoothstep(.80,.96,base.r/max(base.g,.001)))*smoothstep(.16,.23,base.g);
+  rgb+=vec3(.022,.045,.026)*(grazing*(.42+blade*.20)+dew*.30)*grassSheen;
  }
  float groundFill=smoothstep(0.,.72,world.y);if(material>0&&material!=4)rgb*=mix(.68,1.,groundFill);
  // Grounded ambient occlusion gives feet, equipment and stadium seams weight.
@@ -191,7 +194,8 @@ export class Renderer{
   canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();this.lost=true;const box=document.getElementById('error'),text=document.getElementById('errorText');if(box)box.hidden=false;if(text)text.textContent='Graphics paused. Reload this practice page to restart. Your career is unchanged.'});
   this.program=program(gl,vertex,fragment);this.depthProgram=program(gl,depthVertex,depthFragment);
   this.skyProgram=program(gl,skyVertex,skyFragment);this.skyVao=gl.createVertexArray();
-  this.uniforms=Object.fromEntries(['vp','eye','image','textured','unlit','lightVP','shadowMap','useShadow','shadowTexel','material','turfDetail','hasTurfDetail'].map(k=>[k,gl.getUniformLocation(this.program,k)]));
+  this.uniforms=Object.fromEntries(['vp','eye','image','textured','unlit','lightVP','shadowMap','useShadow','shadowTexel','material','turfDetail','hasTurfDetail','sceneTime'].map(k=>[k,gl.getUniformLocation(this.program,k)]));
+  this.reducedCrowdMotion=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false;
   this.depthUniform=gl.getUniformLocation(this.depthProgram,'lightVP');
   this.shapes={crowdSprite:{v:[-.5,0,0,0,0,1,0,1,.5,0,0,0,0,1,1,1,.5,1,0,0,0,1,1,0,-.5,1,0,0,0,1,0,0],ix:[0,1,2,0,2,3]},crowd:spectatorBody(),crowdEnd:spectatorBody(),crowdHead:sphere(6,4),football:footballGeometry(),sphere:sphere(),helmet:sphere(28,18,true),cube:cube(),cylinder:cylinder(),plane:{v:[-.5,0,-.5,0,1,0,0,0,.5,0,-.5,0,1,0,1,0,.5,0,.5,0,1,0,1,1,-.5,0,.5,0,1,0,0,1],ix:[0,2,1,0,3,2]}};
   this.textures=new Map();this.anisotropy=gl.getExtension('EXT_texture_filter_anisotropic');
@@ -277,7 +281,7 @@ export class Renderer{
   }
   gl.viewport(0,0,this.canvas.width,this.canvas.height);gl.depthMask(true);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
   gl.disable(gl.DEPTH_TEST);gl.disable(gl.BLEND);gl.depthMask(false);gl.useProgram(this.skyProgram);gl.bindVertexArray(this.skyVao);gl.drawArrays(gl.TRIANGLES,0,3);gl.enable(gl.DEPTH_TEST);gl.depthMask(true);
-  gl.useProgram(this.program);gl.uniformMatrix4fv(this.uniforms.vp,false,this.vp);gl.uniformMatrix4fv(this.uniforms.lightVP,false,this.lightVP);gl.uniform3fv(this.uniforms.eye,this.eye);
+  gl.useProgram(this.program);gl.uniform1f(this.uniforms.sceneTime,this.reducedCrowdMotion?0:(this.sceneTime||0));gl.uniformMatrix4fv(this.uniforms.vp,false,this.vp);gl.uniformMatrix4fv(this.uniforms.lightVP,false,this.lightVP);gl.uniform3fv(this.uniforms.eye,this.eye);
   gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.shadowAvailable?this.shadowTexture:this.neutralShadow);gl.uniform1i(this.uniforms.shadowMap,1);gl.uniform1i(this.uniforms.useShadow,this.shadowAvailable?1:0);gl.uniform1f(this.uniforms.shadowTexel,this.shadowSize?1/this.shadowSize:1);
   gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,this.textures.get('turf-detail')||this.neutralShadow);gl.uniform1i(this.uniforms.turfDetail,2);gl.uniform1i(this.uniforms.hasTurfDetail,this.textures.has('turf-detail')?1:0);
   this.drawCalls=1;
@@ -294,7 +298,7 @@ export class Renderer{
  drawLate(){
   if(this.lost)return;const gl=this.gl,active=[...this.batches.values()].filter(b=>b.count);if(!active.length)return;
   for(const b of active){gl.bindBuffer(gl.ARRAY_BUFFER,b.instances);gl.bufferSubData(gl.ARRAY_BUFFER,0,b.data.subarray(0,b.count*21));}
-  gl.viewport(0,0,this.canvas.width,this.canvas.height);gl.useProgram(this.program);gl.uniformMatrix4fv(this.uniforms.vp,false,this.vp);gl.uniformMatrix4fv(this.uniforms.lightVP,false,this.lightVP);gl.uniform3fv(this.uniforms.eye,this.eye);
+  gl.viewport(0,0,this.canvas.width,this.canvas.height);gl.useProgram(this.program);gl.uniform1f(this.uniforms.sceneTime,this.reducedCrowdMotion?0:(this.sceneTime||0));gl.uniformMatrix4fv(this.uniforms.vp,false,this.vp);gl.uniformMatrix4fv(this.uniforms.lightVP,false,this.lightVP);gl.uniform3fv(this.uniforms.eye,this.eye);
   gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,this.shadowAvailable?this.shadowTexture:this.neutralShadow);gl.uniform1i(this.uniforms.shadowMap,1);gl.uniform1i(this.uniforms.useShadow,this.shadowAvailable?1:0);gl.uniform1f(this.uniforms.shadowTexel,this.shadowSize?1/this.shadowSize:1);
   active.sort((a,b)=>Number(a.blend)-Number(b.blend));for(const b of active){if(b.blend){gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,b.texture.endsWith('-glow')?gl.ONE:gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false)}else{gl.disable(gl.BLEND);gl.depthMask(true)}gl.bindVertexArray(b.vao);gl.uniform1i(this.uniforms.textured,b.texture?1:0);gl.uniform1i(this.uniforms.unlit,b.unlit?1:0);gl.uniform1i(this.uniforms.material,b.material);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,b.texture?this.textures.get(b.texture):this.neutralShadow);gl.uniform1i(this.uniforms.image,0);gl.drawElementsInstanced(gl.TRIANGLES,b.indices,gl.UNSIGNED_SHORT,0,b.count);this.drawCalls++;}
   gl.depthMask(true);gl.disable(gl.BLEND);gl.bindVertexArray(null);
