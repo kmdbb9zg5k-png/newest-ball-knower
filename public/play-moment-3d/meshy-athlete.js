@@ -780,7 +780,7 @@ export class MeshyAthletes{
   return changed;
  }
  getUpPose(locals,p){
-  const impactYaw=Number.isFinite(p.fallHeading)?p.fallHeading-(p.heading||0):0,rollDistance=Math.abs(Math.atan2(Math.sin(impactYaw),Math.cos(impactYaw))),rollWeight=smooth(rollDistance/(Math.PI/2));
+  const impactDelta=Number.isFinite(p.fallHeading)?p.fallHeading-(p.heading||0):0,impactYaw=Math.atan2(Math.sin(impactDelta),Math.cos(impactDelta)),rollWeight=smooth(Math.abs(impactYaw)/(Math.PI/2));
   const t=clamp(p.actionT||0,0,1),brace=smooth(t/(.38+.18*rollWeight)),rise=smooth((t-.54)/.46),side=p.actionSide||1,plantSide=p.recoverySide||side,hips=this.joints[0];
   this.contactPose(locals,{...p,actionT:1});
   const landed={};for(const name of['LeftFoot','RightFoot','LeftHand','RightHand'])landed[name]=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:'+name]).m);
