@@ -179,7 +179,7 @@ export function blockOutcome(blockRating,shedRating,leverage=0,roll=.5){
 }
 /** A live knockdown has a finite hold and get-up; dead-ball tackles keep their finish. */
 export function knockDownPlayer(p,time,type='miss',duration=.58,side=1){
- p.fallen=true;p.vx=p.vz=0;p.moving=false;p.engaged=false;p.engagedWith=null;p.blockStyle=null;p.liveContact=null;
+ p.fallen=true;p.vx=p.vz=0;p.moving=false;p.engaged=false;p.engagedWith=null;p.blockStyle=null;p.liveContact=null;p.contactWith=null;p.contactRole=null;
  Object.assign(p,{action:type,actionStarted:time,actionUntil:time+duration,actionT:0,actionSide:side});
 }
 /** Clear live-play overlays even when a catch immediately becomes a touchdown. */

@@ -10,7 +10,7 @@ import {knockDownPlayer,advancePlayerAction,blockOutcome,pursuitRole,pursuitTarg
 import {groundedStride,meshyAnimationState} from '../public/play-moment-3d/meshy-athlete.js';
 // Live recovery and dead-ball finishes must take different paths.
 for(const type of['miss','tackle','pancake']){
- const p={vx:7,vz:4,engaged:true};knockDownPlayer(p,0,type,.6);assert.equal(p.vx,0);assert.equal(p.engaged,false);
+ const p={vx:7,vz:4,engaged:true,contactWith:6,contactRole:'tackler',liveContact:{runner:6}};knockDownPlayer(p,0,type,.6);assert.equal(p.vx,0);assert.equal(p.engaged,false);assert.equal(p.contactWith,null);assert.equal(p.contactRole,null);assert.equal(p.liveContact,null);
  advancePlayerAction(p,.7);assert.ok(p.fallen);advancePlayerAction(p,1.06);assert.equal(p.action,'get-up');advancePlayerAction(p,1.5);assert.ok(p.fallen);advancePlayerAction(p,2.2);assert.equal(p.fallen,false);assert.equal(p.action,null);
  knockDownPlayer(p,2,type,.6);advancePlayerAction(p,10,true);assert.ok(p.fallen);assert.equal(p.actionT,1);
 }
