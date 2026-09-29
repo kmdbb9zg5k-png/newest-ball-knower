@@ -64,7 +64,7 @@ float visibility(vec3 N){
  if(q.x<.002||q.x>.998||q.y<.002||q.y>.998||q.z<0.||q.z>1.)return 1.;
  float bias=max(.00030,.00085*(1.-max(dot(N,normalize(KEY)),0.)));float sum=0.;
  for(int x=-1;x<=1;x++)for(int y=-1;y<=1;y++){
-  float depth=texture(shadowMap,q.xy+vec2(float(x),float(y))*shadowTexel).r;
+  float depth=texture(shadowMap,q.xy+vec2(float(x),float(y))*shadowTexel*1.65).r;
   sum+=q.z-bias<=depth?1.:0.;
  }return sum/9.;
 }
@@ -77,9 +77,12 @@ void main(){
   vec2 crowdUV=vec2(fract(gloss)>.1?1.-tex.x:tex.x,tex.y);
   vec2 atlasUV=(cell+clamp(crowdUV,vec2(.006),vec2(.994)))*.25;
   base*=texture(image,atlasUV);if(base.a<.48)discard;
-  float falloff=mix(.91,.64,smoothstep(25.,145.,distance(eye,world)));
-  vec3 crowd=base.rgb*falloff;crowd=mix(crowd,vec3(.035,.048,.063),smoothstep(55.,170.,distance(eye,world))*.35);
-  outputColor=vec4(crowd,1.);return;
+  float depth=smoothstep(28.,155.,distance(eye,world));
+  vec3 crowd=pow(base.rgb,vec3(2.2));
+  crowd=mix(crowd,vec3(dot(crowd,vec3(.2126,.7152,.0722))),.24);
+  crowd*=mix(.46,.24,depth);
+  crowd=mix(crowd,vec3(.006,.012,.021),depth*.25);
+  outputColor=vec4(pow(film(crowd),vec3(1./2.2)),1.);return;
  }
  if(textured==1)base*=texture(image,tex);if(base.a<.012)discard;
  if(unlit==1){outputColor=base;return;}
@@ -108,12 +111,10 @@ void main(){
   vec3 grass=texture(turfDetail,grassUV).rgb;
   grass=mix(grass,vec3(.30,.43,.24),.23);
   float grassMask=(1.-smoothstep(.80,.96,base.r/max(base.g,.001)))*smoothstep(.16,.23,base.g);
-  float variation=.92+.08*smoothstep(-.2,.2,sin(world.z*3.14159*.2));
-  grass=mix(grass,vec3(dot(grass,vec3(.2126,.7152,.0722))),.30);
-  vec3 turf=pow(grass*vec3(.78,.83,.79),vec3(2.2))*variation;
-  albedo=mix(albedo,turf,grassMask*.94);
-  float fiber=dot(grass,vec3(.3,.6,.1));
-  albedo*=mix(.96,1.04,clamp(fiber*2.,0.,1.));
+  // Preserve both broad mowing direction and the fine turf map.
+  float fiber=dot(grass,vec3(.2126,.7152,.0722));
+  vec3 turf=pow(grass*vec3(.73,.78,.72),vec3(2.2));
+  albedo=mix(albedo,turf,grassMask*.82);
   float rawFiber=dot(texture(turfDetail,grassUV).rgb,vec3(.3,.6,.1));
   float dx=dot(texture(turfDetail,grassUV+vec2(.001,0.)).rgb,vec3(.3,.6,.1))-rawFiber;
   float dz=dot(texture(turfDetail,grassUV+vec2(0.,.001)).rgb,vec3(.3,.6,.1))-rawFiber;
@@ -158,7 +159,7 @@ void main(){
   rgb+=fresnel*g*crown*.7;
  }
  if(material==4){
-  float mowing=.96+.04*sin(world.z*3.14159*.2);rgb*=mowing*mix(.68,1.,lit);
+  float mowing=.90+.10*smoothstep(-.08,.08,sin(world.z*3.14159*.2));rgb*=mowing;
   float paint=smoothstep(.20,.45,albedo.r);rgb=mix(rgb,rgb*1.08,paint);
   float grazing=pow(1.-max(dot(N,V),0.),3.);float dew=pow(max(dot(N,normalize(L1+V)),0.),30.);
   float blade=hash(floor(world.xz*92.));float grassSheen=(1.-smoothstep(.80,.96,base.r/max(base.g,.001)))*smoothstep(.16,.23,base.g);

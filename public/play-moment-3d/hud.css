@@ -355,3 +355,18 @@ html,body,#game,#hud{min-height:100dvh}
 
 /* Keep scoring/catch banners below the enlarged landscape score strip. */
 @media(min-width:1000px) and (min-height:430px){#message{top:calc(max(10px,env(safe-area-inset-top)) + 76px)}}
+
+/* Gameplay typography uses the same readable scale as the play calls. */
+#skillPad button{font-size:10px;letter-spacing:0;font-weight:750}
+.play-card-heading b{font-size:13px;letter-spacing:.01em}
+.play-card-formation{font-size:10px;letter-spacing:.025em}
+#formationTabs button{font-size:11px;letter-spacing:0}
+#catchChoices button{font-size:11px;letter-spacing:.01em}
+#catchChoices button small{font-size:8px;letter-spacing:.04em}
+#hud[data-phase="run"] #instruction,#hud[data-phase="handoff"] #instruction{font-size:10px;letter-spacing:0}
+@media(max-height:380px){
+ .play-card-heading b{font-size:12px}
+ .play-card-formation{font-size:9px}
+ #skillPad button{font-size:9px}
+ #hud[data-phase="run"] #instruction,#hud[data-phase="handoff"] #instruction{font-size:9px}
+}

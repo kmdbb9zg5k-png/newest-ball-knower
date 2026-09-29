@@ -10,6 +10,8 @@ on:
       - 'scripts/check-football-motion.mjs'
       - 'scripts/check-contact-possession.mjs'
       - 'scripts/check-contact-finish.mjs'
+      - 'scripts/check-football-foundation.mjs'
+      - 'scripts/review-football-foundation.mjs'
       - 'scripts/check-gameplay-contact.mjs'
       - 'scripts/check-football-recovery.mjs'
       - 'scripts/check-football-scene.mjs'
@@ -20,7 +22,7 @@ permissions:
 jobs:
   actual-webgl:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,45 +36,54 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Validate controller recording regressions
         run: node scripts/check-football-recovery.mjs
+      - name: Validate foot planting and articulated recovery
+        run: |
+          node scripts/check-football-locomotion.mjs
+          node scripts/check-football-foundation.mjs
+      - name: Capture complete run and pass plays
+        run: node scripts/review-football-foundation.mjs
+        env:
+          BK_REVIEW_OUT: artifacts/football-foundation-44/plays
+          BK_REVIEW_FPS: 12
       - name: Validate scoring sightlines
         run: node scripts/check-graphics-followup.mjs
       - name: Validate post-play motion and stationary hand fighting
         run: node scripts/check-football-motion.mjs
         env:
-          BK_MOTION_OUT: artifacts/contact-framing-43/motion
+          BK_MOTION_OUT: artifacts/football-foundation-44/motion
       - name: Validate failed tackles, interceptions and scrolling titles
         run: node scripts/check-contact-possession.mjs
         env:
-          BK_CONTACT_OUT: artifacts/contact-framing-43/possession
+          BK_CONTACT_OUT: artifacts/football-foundation-44/possession
       - name: Validate immediate catch contact, breakups and planted recovery
         run: node scripts/check-contact-finish.mjs
         env:
-          BK_FINISH_OUT: artifacts/contact-framing-43/finish
+          BK_FINISH_OUT: artifacts/football-foundation-44/finish
       - name: Validate actual GPU player surfaces
         run: node scripts/check-football-graphics.mjs
         env:
-          BK_GRAPHICS_OUT: artifacts/contact-framing-43/players
+          BK_GRAPHICS_OUT: artifacts/football-foundation-44/players
       - name: Compare actual goal-line rendering
         run: node scripts/check-stadium-presentation.mjs
         env:
-          BK_BASELINE_REF: 6314f85d214530d868ad7f0b3be898195855f482
-          BK_SCENE_OUT: artifacts/contact-framing-43/comparison
+          BK_BASELINE_REF: ad603c13d2be5ff43a05f9a0f57f732ce7e11f56
+          BK_SCENE_OUT: artifacts/football-foundation-44/comparison
       - uses: actions/upload-artifact@v4
         with:
-          name: contact-framing-43-comparison
-          path: artifacts/contact-framing-43/comparison
+          name: football-foundation-44-comparison
+          path: artifacts/football-foundation-44/comparison
           retention-days: 14
       - name: Render blocking contact and manual catch sequence
         run: node scripts/check-gameplay-contact.mjs
         env:
-          BK_SCENE_OUT: artifacts/contact-framing-43/contact
+          BK_SCENE_OUT: artifacts/football-foundation-44/contact
       - name: Validate mobile formations and missing-art fallback
         run: node scripts/check-football-scene.mjs
         env:
-          BK_SCENE_OUT: artifacts/contact-framing-43/mobile
+          BK_SCENE_OUT: artifacts/football-foundation-44/mobile
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: contact-framing-43-webgl
-          path: artifacts/contact-framing-43
+          name: football-foundation-44-webgl
+          path: artifacts/football-foundation-44
           retention-days: 14
