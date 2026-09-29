@@ -37,7 +37,9 @@ jobs:
       - name: Validate controller recording regressions
         run: node scripts/check-football-recovery.mjs
       - name: Validate foot planting and articulated recovery
-        run: node scripts/check-football-foundation.mjs
+        run: |
+          node scripts/check-football-locomotion.mjs
+          node scripts/check-football-foundation.mjs
       - name: Capture complete run and pass plays
         run: node scripts/review-football-foundation.mjs
         env:

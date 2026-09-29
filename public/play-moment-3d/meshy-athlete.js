@@ -644,7 +644,9 @@ export class MeshyAthletes{
    const point=pointFromMatrix(this.jointWorld(locals,foot).m),turn=Math.abs(Math.atan2(Math.sin((p.heading||0)-entry.heading),Math.cos((p.heading||0)-entry.heading)));
    let plant=entry.feet[name];
    if(!plant||plant.cycle!==id||turn>.22){const world=pointFromMatrix(model,point);plant={cycle:id,world:[world[0],.02+this.jointWorld(this.base,foot).m[13]*1.17*playerBuild(p.role).scale[1],world[2]]};entry.feet[name]=plant;}
-   const weight=smooth(u/.035)*(1-smooth((u-stance+.045)/.045)),target=inverse(plant.world),knee=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:'+name+'Leg']).m);
+   // Release over several simulation frames even at sprint cadence; a short
+   // phase fade yanked the ankle back to the source swing in a single tick.
+   const weight=smooth(u/.075)*(1-smooth((u-stance+.16)/.16)),target=inverse(plant.world),knee=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:'+name+'Leg']).m);
    this.solveLimb(locals,[name+'UpLeg',name+'Leg',name+'Foot'],lerpArray(point,target,weight),knee,true);
   }
   Object.assign(entry,{time,x:p.x,z:p.z,heading:p.heading||0});this.footPlants.set(p.index,entry);
