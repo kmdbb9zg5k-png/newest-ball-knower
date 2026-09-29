@@ -1,4 +1,4 @@
-import{identity,mul,translate,scale,rx,ry,rz}from'./renderer.js?v=graphics-followup-40';
+import{identity,mul,translate,scale,rx,ry,rz}from'./renderer.js?v=graphics-motion-41';
 import{quarterbackThrowPose}from'./quarterback.js?v=football-finish-21';
 import{refineAthleteSurface}from'./athlete-surface.js?v=sentinel-materials-34';
 
@@ -616,13 +616,22 @@ export class MeshyAthletes{
  }
  relaxedPose(locals,p,time=0){
   this.standingPose(locals,p,.035,.015);
-  const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m),breath=Math.sin(time*1.7+p.index*.83)*.006;
-  for(const [side,sign]of[['Left',1],['Right',-1]])this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],[sign*.20,chest[1]-.48+breath,chest[2]+.025],[sign*.27,chest[1]-.35,chest[2]-.09]);
+  const beat=time*(.83+(p.index%4)*.08)+p.index*1.73,breath=Math.sin(time*1.7+p.index*.83)*.008;
+  // Ease the shoulders and look back toward the play with both feet planted.
+  this.rotate(locals,'mixamorig:Spine',0,0,1,Math.sin(beat)*.025);
+  this.rotate(locals,'mixamorig:Spine2',0,1,0,Math.sin(beat*.73)*.035);
+  this.rotate(locals,'mixamorig:Head',0,1,0,Math.sin(beat*.81)*.13);
+  this.rotate(locals,'mixamorig:Head',1,0,0,.025+Math.sin(beat*.67)*.025);
+  const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m);
+  for(const [side,sign]of[['Left',1],['Right',-1]]){
+   const swing=Math.sin(beat+sign*.7),bend=(p.index%3===1&&sign>0)?.055:0;
+   this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],[sign*(.21+.015*swing),chest[1]-.48+breath+bend,chest[2]+.025+.025*swing+bend],[sign*.29,chest[1]-.34,chest[2]-.075]);
+  }
   if(p.hasBall)this.carryPose(locals,p);
  }
  settlePose(locals,p,time){
   this.groundedLocomotion(locals,p,'walk');const walking=locals.map(n=>({t:[...n.t],r:[...n.r],s:[...n.s]}));
-  this.relaxedPose(locals,p,time);const weight=smooth(clamp(Math.hypot(p.vx||0,p.vz||0)/2.4,0,1));
+  this.relaxedPose(locals,p,time);const weight=smooth(clamp(Math.hypot(p.vx||0,p.vz||0)/1.3,0,1));
   for(let i=0;i<locals.length;i++){locals[i].t=lerpArray(locals[i].t,walking[i].t,weight);locals[i].r=slerp(locals[i].r,walking[i].r,weight)}
  }
  celebrationPose(locals,p,time){
@@ -668,7 +677,7 @@ export class MeshyAthletes{
   this.rotate(locals,'mixamorig:Head',1,0,0,p.hasBall?.025:.11*wrap);
   if(p.hasBall)this.carryPose(locals,p);
  }
- worldHandTargets(locals,p,model){
+ worldHandTargets(locals,p,model,time=0){
   const other=this.actorMap?.get(p.contactWith??p.engagedWith),otherHands=other&&this.handTransforms.get(other.index),targetModel=other&&otherHands?this.modelFor(other):null;
   if(!p.ballTarget&&!targetModel)return false;
   if(!p.ballTarget&&p.engaged&&Math.hypot(p.x-other.x,p.z-other.z)>1.45)return false;
@@ -680,8 +689,11 @@ export class MeshyAthletes{
    if(p.ballTarget){const h=p.heading||0;target=inversePoint([p.ballTarget[0]+Math.cos(h)*sign*.055,p.ballTarget[1]+(p.role==='RB'?sign*.045:0),p.ballTarget[2]-Math.sin(h)*sign*.055])}
    else if(p.engaged){
     const swim=p.blockStyle==='rush-swim'&&side===((p.index%2)?'Left':'Right'),rip=p.blockStyle==='rush-rip'&&side===((p.index%2)?'Right':'Left');
-    const move=.5+.5*Math.sin((p.distance||0)*6+p.index*.83);
-    target=inversePoint(pointFromMatrix(mul(targetModel,otherHands.chest),[-sign*(swim?.27:.18),swim?.12+.23*move:rip?-.27+.24*move:-.05,swim?-.035:.13]));
+    // Alternate a brief release/re-seat of each hand even in a stationary anchor.
+    // The opposite hand stays on the pad, rather than both hands pumping together.
+    const beat=time*(3.1+(p.index%3)*.19)+p.index*.83+sign*Math.PI/2,move=.5+.5*Math.sin(beat),reset=Math.pow(Math.max(0,Math.sin(beat)),4);
+    target=inversePoint(pointFromMatrix(mul(targetModel,otherHands.chest),[-sign*(swim?.27:.18),swim?.12+.23*move:rip?-.27+.24*move:-.05-.09*reset,swim?-.035:.13+.055*reset]));
+    weight=1-.32*reset;
    }
    else if(p.contactRole==='tackler'&&p.action!=='get-up'){
     weight=smooth((p.actionT||0)/.10)*(1-smooth(((p.actionT||0)-.84)/.15));
@@ -710,8 +722,11 @@ export class MeshyAthletes{
  }
  blockPose(locals,p,time){
   const runBlock=this.phase==='handoff'||this.phase==='run',drive=runBlock&&!p.team,reach=p.blockStyle==='reach'||p.blockStyle==='reach-block',passAnchor=p.blockStyle==='pass-anchor';
-  this.standingPose(locals,p,drive?.27:passAnchor?.255:.23,drive?.40:runBlock?.30:.23);
-  const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m),beat=(p.distance||0)*10+time*2.4+p.index*.83;
+  const beat=(p.distance||0)*7+time*(3.1+(p.index%3)*.19)+p.index*.83,load=Math.sin(beat);
+  this.standingPose(locals,p,(drive?.27:passAnchor?.255:.23)+.014*load,(drive?.40:runBlock?.30:.23)+.035*load);
+  this.rotate(locals,'mixamorig:Spine2',0,1,0,Math.sin(beat*.7)*.055);
+  this.rotate(locals,'mixamorig:Spine',0,0,1,Math.cos(beat)*.025);
+  const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m);
   for(const [side,sign]of[['Left',1],['Right',-1]]){
    const ankle=pointFromMatrix(this.jointWorld(this.base,this.namedNodes['mixamorig:'+side+'Foot']).m),step=Math.sin(beat+(sign>0?0:Math.PI)),width=runBlock?.235:.255;
    const stagger=runBlock?sign*.045:sign*.11,travel=step*(drive?.105:.055);
@@ -918,7 +933,7 @@ export class MeshyAthletes{
    const bones=new Float32Array(this.joints.length*16);this.joints.forEach((joint,i)=>bones.set(mul(resolve(joint),this.inverseBind.subarray(i*16,i*16+16)),i*16));this.supportPoints.set(p.index,skinSupportVertices(this.bodySupport?.get(p.role)||this.supportVertices,bones));return bones;
   };
   let bones=capture();
-  if(this.worldHandTargets(locals,p,this.modelFor(p))){world=new Array(locals.length);bones=capture()}
+  if(this.worldHandTargets(locals,p,this.modelFor(p),time)){world=new Array(locals.length);bones=capture()}
   return bones;
  }
 

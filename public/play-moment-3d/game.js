@@ -1,9 +1,9 @@
-import{RUNS,PASSES,FORMATIONS,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=graphics-followup-40';
-export{RUNS,PASSES}from'./playbook.js?v=graphics-followup-40';
-import{Renderer,pose,segment,hex,mul,ry}from'./renderer.js?v=graphics-followup-40';
+import{RUNS,PASSES,FORMATIONS,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=graphics-motion-41';
+export{RUNS,PASSES}from'./playbook.js?v=graphics-motion-41';
+import{Renderer,pose,segment,hex,mul,ry}from'./renderer.js?v=graphics-motion-41';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js?v=football-finish-25';
-import{createMeshyAthletes}from'./meshy-athlete.js?v=graphics-followup-40';
-import{makeStadium}from'./stadium.js?v=graphics-followup-40';
+import{createMeshyAthletes}from'./meshy-athlete.js?v=graphics-motion-41';
+import{makeStadium}from'./stadium.js?v=graphics-motion-41';
 import{createGameplayReplayRecorder}from'./replay.js';
 import{QB_THROW_RELEASE,quarterbackThrowDuration}from'./quarterback.js?v=football-finish-21';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
@@ -137,7 +137,7 @@ export function touchdownCameraFraming(scorer,players=[]){
 export function touchdownCameraTravel(eye,target,desiredEye,desiredTarget,dt){
  const blend=cameraFollowBlend(dt,3),dx=eye[0]-desiredTarget[0],dz=eye[2]-desiredTarget[2],tx=desiredEye[0]-desiredTarget[0],tz=desiredEye[2]-desiredTarget[2];
  const radius=Math.hypot(dx,dz),desiredRadius=Math.hypot(tx,tz),from=Math.atan2(dx,dz),to=Math.atan2(tx,tz),delta=Math.atan2(Math.sin(to-from),Math.cos(to-from));
- const maxTurn=18*Math.max(0,dt)/Math.max(radius,desiredRadius,1),angle=from+clamp(delta*blend,-maxTurn,maxTurn),distance=Math.max(4.5,radius+(desiredRadius-radius)*blend);
+ const maxTurn=Math.max(0,dt),angle=from+clamp(delta*blend,-maxTurn,maxTurn),distance=Math.max(4.5,radius+(desiredRadius-radius)*blend);
  return{eye:[desiredTarget[0]+Math.sin(angle)*distance,eye[1]+(desiredEye[1]-eye[1])*blend,desiredTarget[2]+Math.cos(angle)*distance],target:target.map((v,i)=>v+(desiredTarget[i]-v)*blend)};
 }
 /** Interpolate presentation only. Input, collisions and the replay recorder
@@ -184,6 +184,9 @@ export function knockDownPlayer(p,time,type='miss',duration=.58,side=1){
 }
 /** Clear live-play overlays even when a catch immediately becomes a touchdown. */
 export function releasePostPlay(p){
+ // Former blocking pairs take one short backward recovery step after the whistle.
+ // Preserve the step when endPlay also calls endDrive for a score or turnover.
+ if(p.engaged&&!p.fallen&&!p.hasBall)p.disengage={heading:p.heading||0,elapsed:0,delay:.08+(p.index%4)*.045};
  p.engaged=false;p.engagedWith=null;p.blockStyle=null;p.ballTarget=null;p.sprinting=false;
  p.throwT=0;p.throwStyle=null;p.throwStarted=null;p.catchT=0;p.reactionT=0;p.reactionSide=0;p.routeStyle=null;p.coverageStyle=null;
  if(!p.fallen){p.action=null;p.actionT=0;p.contactWith=null;p.contactRole=null}
@@ -516,6 +519,11 @@ export function start(){
   const contactIds=activeContact?new Set([activeContact.tackler,activeContact.helper,carrier?.index]):new Set(),drag=Math.exp(-9*dt);
   for(const p of actors){
    if(p.fallen||contactIds.has(p.index))continue;
+   if(p.disengage){
+    const release=p.disengage,previous=smooth((release.elapsed-release.delay)/.55);release.elapsed+=dt;
+    const progress=smooth((release.elapsed-release.delay)/.55),step=(progress-previous)*.34;
+    if(step>0){move(p,p.x-Math.sin(release.heading)*step,p.z-Math.cos(release.heading)*step,dt,0);if(progress===1)p.disengage=null;continue}
+   }
    p.vx*=drag;p.vz*=drag;if(Math.hypot(p.vx,p.vz)<.08){p.vx=p.vz=0;p.moving=false;continue}
    move(p,p.x+p.vx*dt,p.z+p.vz*dt,dt,7);
   }

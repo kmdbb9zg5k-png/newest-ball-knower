@@ -7,6 +7,7 @@ on:
       - 'scripts/check-stadium-presentation.mjs'
       - 'scripts/check-graphics-followup.mjs'
       - 'scripts/check-football-graphics.mjs'
+      - 'scripts/check-football-motion.mjs'
       - 'scripts/check-gameplay-contact.mjs'
       - 'scripts/check-football-recovery.mjs'
       - 'scripts/check-football-scene.mjs'
@@ -33,31 +34,35 @@ jobs:
         run: node scripts/check-football-recovery.mjs
       - name: Validate scoring sightlines
         run: node scripts/check-graphics-followup.mjs
+      - name: Validate post-play motion and stationary hand fighting
+        run: node scripts/check-football-motion.mjs
+        env:
+          BK_MOTION_OUT: artifacts/graphics-motion-41/motion
       - name: Validate actual GPU player surfaces
         run: node scripts/check-football-graphics.mjs
         env:
-          BK_GRAPHICS_OUT: artifacts/graphics-followup-40/players
+          BK_GRAPHICS_OUT: artifacts/graphics-motion-41/players
       - name: Compare actual goal-line rendering
         run: node scripts/check-stadium-presentation.mjs
         env:
-          BK_BASELINE_REF: 2222a9fa7f79ee9c59731926de64c39bebe82236
-          BK_SCENE_OUT: artifacts/graphics-followup-40/comparison
+          BK_BASELINE_REF: 67c56155473fab4ea8b788831832290c28ca1eaa
+          BK_SCENE_OUT: artifacts/graphics-motion-41/comparison
       - uses: actions/upload-artifact@v4
         with:
-          name: graphics-followup-40-comparison
-          path: artifacts/graphics-followup-40/comparison
+          name: graphics-motion-41-comparison
+          path: artifacts/graphics-motion-41/comparison
           retention-days: 14
       - name: Render blocking contact and manual catch sequence
         run: node scripts/check-gameplay-contact.mjs
         env:
-          BK_SCENE_OUT: artifacts/graphics-followup-40/contact
+          BK_SCENE_OUT: artifacts/graphics-motion-41/contact
       - name: Validate mobile formations and missing-art fallback
         run: node scripts/check-football-scene.mjs
         env:
-          BK_SCENE_OUT: artifacts/graphics-followup-40/mobile
+          BK_SCENE_OUT: artifacts/graphics-motion-41/mobile
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: graphics-followup-40-webgl
-          path: artifacts/graphics-followup-40
+          name: graphics-motion-41-webgl
+          path: artifacts/graphics-motion-41
           retention-days: 14

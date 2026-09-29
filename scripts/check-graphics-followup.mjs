@@ -24,6 +24,8 @@ for(let frame=0;frame<240;frame++){
  const next=touchdownCameraTravel(eye,target,shot.eye,shot.target,1/60);
  assert.ok(Math.hypot(next.eye[0],next.eye[2]-112)>=4.5);
  assert.ok(Math.hypot(...next.eye.map((v,i)=>v-eye[i]))<.4);
+ const before=Math.atan2(eye[0],eye[2]-112),after=Math.atan2(next.eye[0],next.eye[2]-112);
+ assert.ok(Math.abs(Math.atan2(Math.sin(after-before),Math.cos(after-before)))<=1/60+.00001,'Scoring camera turns faster than one radian per second');
  eye=next.eye;target=next.target;
 }
 assert.ok(Math.hypot(...eye.map((v,i)=>v-shot.eye[i]))<.01);
