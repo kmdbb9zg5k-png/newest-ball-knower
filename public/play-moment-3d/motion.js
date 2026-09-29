@@ -45,7 +45,7 @@ export function advanceMotion(p,dt,phase){
  m.gait+=distance*TAU/(heavy?2.25:2.75);
  // Integrate a shared phase, rather than dividing total distance by a changing
  // stride length (which jumps every time the player accelerates or sprints).
- const strideLength=2.15+1.8*smooth((m.speed-2)/3)+.65*smooth((m.speed-7)/3);
+ const strideLength=1.65+1.25*smooth((m.speed-2)/3)+.65*smooth((m.speed-7)/3);
  if(!Number.isFinite(m.stridePhase))m.stridePhase=(p.index*.437+(p.team?.271:0))%1;
  m.stridePhase+=distance/strideLength;
  m.fall=damp(m.fall,p.fallen?1:0,10,dt);

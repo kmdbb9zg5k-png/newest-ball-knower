@@ -1,6 +1,6 @@
 import{stadiumCorners,stadiumDetails}from'./stadium-architecture.js?v=stadium-finish-36';
 import{installSceneMaterials}from'./scene-materials.js?v=reference-scene-31';
-import{pose,mul,rx,rz,translate,scale,segment,hex}from'./renderer.js?v=graphics-motion-41';
+import{pose,mul,rx,rz,translate,scale,segment,hex}from'./renderer.js?v=football-foundation-44';
 import{installNightStadium}from'./night-stadium.js';
 const C=hex;
 function canvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return[c,c.getContext('2d')]}
@@ -12,7 +12,7 @@ export function makeStadium(r){
  const [t,ctx]=canvas(1024*turfScale,2048*turfScale),W=1024,H=2048;ctx.scale(turfScale,turfScale);
  const px=x=>(x+26.6667)/53.3334*W,py=z=>z/120*H;
  const base=ctx.createLinearGradient(0,0,W,0);base.addColorStop(0,'#22482c');base.addColorStop(.5,'#35673c');base.addColorStop(1,'#21452b');ctx.fillStyle=base;ctx.fillRect(0,0,W,H);
- for(let i=0;i<24;i++){ctx.fillStyle=i%2?'rgba(10,45,17,.14)':'rgba(102,146,74,.08)';ctx.fillRect(0,i*H/24,W,H/24)}
+ for(let i=0;i<24;i++){ctx.fillStyle=i%2?'rgba(10,34,17,.22)':'rgba(101,139,81,.13)';ctx.fillRect(0,i*H/24,W,H/24)}
  for(let i=0;i<30000;i++){const bright=random()>.46,k=Math.floor(random()*24+38);ctx.fillStyle=bright?`rgba(${k},${k+38},${k-4},.16)`:`rgba(9,28,12,.11)`;ctx.fillRect(random()*W,random()*H,.6+random()*1.4,1+random()*2.1)}
  for(let i=0;i<820;i++){const z=py(12+random()*96),x=px((random()-.5)*14),radius=3+random()*15,wear=ctx.createRadialGradient(x,z,0,x,z,radius);wear.addColorStop(0,'rgba(156,145,91,.025)');wear.addColorStop(1,'rgba(156,145,91,0)');ctx.fillStyle=wear;ctx.fillRect(x-radius,z-radius,radius*2,radius*2)}
  for(const [a,b]of[[0,10],[110,120]]){const end=ctx.createLinearGradient(0,py(a),0,py(b));end.addColorStop(0,'#10252f');end.addColorStop(.55,'#17333c');end.addColorStop(1,'#0b1b25');ctx.fillStyle=end;ctx.fillRect(0,py(a),W,py(b-a))}
