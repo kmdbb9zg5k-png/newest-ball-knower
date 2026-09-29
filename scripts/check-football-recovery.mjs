@@ -10,7 +10,7 @@ import {knockDownPlayer,advancePlayerAction,blockOutcome,pursuitRole,pursuitTarg
 import {groundedStride,meshyAnimationState} from '../public/play-moment-3d/meshy-athlete.js';
 // Live recovery and dead-ball finishes must take different paths.
 for(const type of['miss','tackle','pancake']){
- const p={vx:7,vz:4,engaged:true};knockDownPlayer(p,0,type,.6);assert.equal(p.vx,0);assert.equal(p.engaged,false);
+ const p={vx:7,vz:4,engaged:true,contactWith:6,contactRole:'tackler',liveContact:{runner:6}};knockDownPlayer(p,0,type,.6);assert.equal(p.vx,0);assert.equal(p.engaged,false);assert.equal(p.contactWith,null);assert.equal(p.contactRole,null);assert.equal(p.liveContact,null);
  advancePlayerAction(p,.7);assert.ok(p.fallen);advancePlayerAction(p,1.06);assert.equal(p.action,'get-up');advancePlayerAction(p,1.5);assert.ok(p.fallen);advancePlayerAction(p,2.2);assert.equal(p.fallen,false);assert.equal(p.action,null);
  knockDownPlayer(p,2,type,.6);advancePlayerAction(p,10,true);assert.ok(p.fallen);assert.equal(p.actionT,1);
 }
@@ -29,7 +29,7 @@ function game(width=844,height=335,leavePlaybookOpen=false,assist=true){
  const element=id=>{if(elements.has(id))return elements.get(id);const el={id,hidden:false,children:[],style:{},dataset:{},classList:{add(){},remove(){},toggle(){}},setAttribute(){},setPointerCapture(){},replaceChildren(){this.children=[]},append(...c){this.children.push(...c);for(const child of c)if(child.id)elements.set(child.id,child)},appendChild(c){this.append(c)},getBoundingClientRect(){return ['pre','plays'].includes(id)?{top:height-105,left:0,width,height:105}:id==='header'?{left:width*.3,right:width*.7,top:8,bottom:58}:id==='moves'?{left:width-190,right:width-18,top:height-110,bottom:height-18,width:172,height:92}:id==='stick'?{left:30,right:120,top:height-110,bottom:height-20,width:90,height:90}:{left:0,top:0,width,height,right:width,bottom:height}}};Object.defineProperty(el,'firstElementChild',{get(){return this.children[0]||(this.children[0]={style:{}})}});elements.set(id,el);return el};
  class HeadlessRenderer{constructor(){renderer=this;this.width=width;this.height=height;this.vp=math.identity();this.gl={getError:()=>0};this.drawCalls=0;this.eye=[0,0,0]}camera=math.Renderer.prototype.camera;project=math.Renderer.prototype.project;begin(){}add(){}draw(){}lateBegin(){}drawLate(){}glow(){}}
  const noop=()=>{},context={...math,...playbook,QB_THROW_RELEASE,quarterbackThrowDuration,Renderer:HeadlessRenderer,drawAthlete:(_r,p,time)=>rendered.set(p.index,{...p,motion:p.motion?{...p.motion}:null,time}),prepareJerseys:noop,advanceMotion,makeStadium:()=>({draw:noop,parts:0}),createMeshyAthletes:()=>({ready:false,ballAnchor:()=>null,draw:noop,diagnostics:()=>({})}),createGameplayReplayRecorder:()=>({event:noop,sample:noop}),console,URLSearchParams,performance:{now:()=>0},location:{search:assist?'?qa&assist=1':'?qa'},navigator:{vibrate:noop},document:{hidden:false,getElementById:element,createElement:()=>element('generated-'+elements.size),querySelector:()=>element('header'),querySelectorAll:()=>[],addEventListener:noop},requestAnimationFrame:()=>1,cancelAnimationFrame:noop,matchMedia:()=>({addEventListener:noop}),innerWidth:width,innerHeight:height,addEventListener:(name,fn)=>events.set(name,fn)};context.window=context;
- vm.createContext(context);vm.runInContext(source.replace('window.bk3dTest={','window.bk3dRenderActors=()=>actors.map(p=>({...p}));window.bk3dFixture={throwTo,finish:endPlay,drive(values){Object.assign(drive,values)},mutate(fn){fn(actors)},touchdown(){endPlay("TOUCHDOWN",100)},seed(value){numSeed=value},present,camera};window.bk3dTest={')+'\nstart();',context);context.bk3dTest.manualFrames();if(!leavePlaybookOpen)element('breakHuddle').onclick();
+ vm.createContext(context);vm.runInContext(source.replace('window.bk3dTest={','window.bk3dRenderActors=()=>actors.map(p=>({...p}));window.bk3dFixture={throwTo,preparePick(){if(!flight)return false;const d=actors[19];flight.to=[d.x,1.6,d.z];flight.t=.995;numSeed=634785765;return true},glance(type,grace=1){const d=actors[19];d.x=carrier.x+.65;d.z=carrier.z-.1;d.heading=carrier.heading;beginGlancingContact(carrier,d,simTime,type);jukeUntil=simTime+grace;return d.index},finish:endPlay,drive(values){Object.assign(drive,values)},mutate(fn){fn(actors)},touchdown(){endPlay("TOUCHDOWN",100)},seed(value){numSeed=value},present,camera};window.bk3dTest={')+'\nstart();',context);context.bk3dTest.manualFrames();if(!leavePlaybookOpen)element('breakHuddle').onclick();
  return{context,element,events,renderer,rendered,step:t=>context.bk3dTest.step(t),read:()=>context.bk3dDiagnostics(),snap:()=>element('snap').onpointerdown({preventDefault:noop}),key:key=>events.get('keydown')({key,code:key,preventDefault:noop})};
 }
 // The ball must follow center -> snap flight -> QB -> exchange -> RB.
@@ -416,3 +416,36 @@ for(const [width,height] of [[844,390],[1108,430],[1290,590]]){
  assert.ok(checked>20,'Sustained run must be measured');
 }
 console.log('Reference composition: moving carriers remain at least 17% of viewport height at three landscape sizes.');
+
+// A failed tackle must keep a readable upright struggle and release before pursuit.
+for(const type of ['broken','stumble','miss']){
+ const g=game();g.snap();g.step(1.6);assert.equal(g.read().phase,'run');
+ const index=g.context.bk3dFixture.glance(type);g.step(.1);let d=g.read();
+ assert.equal(d.players[index].fallen,false);assert.equal(d.players[index].action,'wrap-release');
+ assert.equal(d.players[index].contactWith,6);assert.equal(d.players[6].fallen,false);
+ g.step(.43);d=g.read();assert.equal(d.players[index].contactWith,null);assert.equal(d.players[index].fallen,false);
+}
+// Resolve an actual flight through the interception branch, including endDrive cleanup.
+{
+ const g=game();g.element('passTab').onclick();g.snap();g.step(.7);g.key('x');
+ assert.equal(g.element('catchChoices').hidden,false,'Catch choices must be present during windup');
+ g.key('c');assert.equal(g.read().catchStyle,'secure');g.step(.23);assert.equal(g.read().phase,'flight');
+ assert.equal(g.element('catchChoices').hidden,false);assert.equal(g.context.bk3dFixture.preparePick(),true);
+ g.step(1/60);let d=g.read();assert.equal(d.phase,'dead');assert.equal(d.ended,true);
+ const pick=d.players.find(p=>p.hasBall);assert.equal(pick.team,1);assert.equal(pick.action,'interception');
+ assert.equal(meshyAnimationState(pick,'dead'),'interception');assert.ok(pick.ballTarget);
+ assert.equal(d.players.filter(p=>p.hasBall).length,1);const spot=d.drive.ball;
+ g.step(.45);d=g.read();assert.equal(d.players[19].action,'interception');assert.ok(d.players[19].actionT>.45);
+ g.step(.6);d=g.read();assert.equal(d.players[19].action,null);assert.equal(d.players[19].ballTarget,null);assert.equal(d.players[19].hasBall,true);assert.equal(d.drive.ball,spot);
+}
+console.log('Contact/possession checks passed: upright failed tackles, windup catch choice, intercepted ball kept through catch/tuck/endDrive.');
+
+// A recovering defender cannot count as a gang helper when a fresh tackler arrives.
+for(const recovering of ['latched','released']){
+ const g=game();g.snap();g.step(1.6);g.context.bk3dFixture.mutate(a=>a.filter(p=>p.team).forEach(p=>{p.x=24;p.z=0;p.engaged=false;p.engagedWith=null}));
+ g.context.bk3dFixture.glance('broken',.48);g.step(recovering==='latched'?.50:.90);
+ g.context.bk3dFixture.mutate(a=>{const c=a[6];a[19].x=c.x+.7;a[19].z=c.z;a[15].x=c.x-.5;a[15].z=c.z;a[15].contactReady=0;});
+ let helpers=null;g.context.contactOutcome=(_a,_b,options)=>{helpers=options.gang;return{type:'wrap'}};
+ g.step(1/60);assert.equal(helpers,0,'Recovering defender was counted in the gang outcome');assert.equal(g.read().contact.helper,null);assert.equal(g.read().players[19].fallen,false);
+}
+console.log('Gang helper regression passed: both latched and released defenders respect contact recovery.');
