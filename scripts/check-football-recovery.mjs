@@ -102,8 +102,10 @@ for(const play of[1,3])for(const call of[0,2,4]){
  assert.ok(endedAt>0,'A sideline run must resolve');if(play===3)assert.ok(airborne>5,'Pitch should have a readable flight');
  const atWhistle=g.read(),clock=atWhistle.drive.clock;
  assert.equal(g.element('live').hidden,true,'Live controls must disappear at the whistle');
- g.step(.7);const resting=g.read();
+ // Allow the short, staggered blocker release step, then require a full stop.
+ g.step(1.1);const resting=g.read();
  for(let i=0;i<22;i++)if(!resting.players[i].fallen)assert.ok(Math.hypot(resting.players[i].vx,resting.players[i].vz)<.15,'Upright players stop after whistle');
+ assert.equal(resting.drive.ball,atWhistle.drive.ball,'Post-play steps changed the spot');
  assert.equal(resting.drive.clock,clock);
  console.log(`Sideline ${play}, defense ${call}: spot ${atWhistle.drive.ball}, resolved in ${(endedAt/60).toFixed(2)}s.`);
 }

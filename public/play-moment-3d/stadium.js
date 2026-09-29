@@ -1,6 +1,6 @@
 import{stadiumCorners,stadiumDetails}from'./stadium-architecture.js?v=stadium-finish-36';
 import{installSceneMaterials}from'./scene-materials.js?v=reference-scene-31';
-import{pose,mul,rx,rz,translate,scale,segment,hex}from'./renderer.js?v=graphics-followup-40';
+import{pose,mul,rx,rz,translate,scale,segment,hex}from'./renderer.js?v=graphics-motion-41';
 import{installNightStadium}from'./night-stadium.js';
 const C=hex;
 function canvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return[c,c.getContext('2d')]}
@@ -112,8 +112,25 @@ export function makeStadium(r){
   crowdGeometry=true;add('crowdEnd',pose(x,y+.48,z,.26,.76,.24),C(shirt));add('crowdHead',pose(x,y+.88,z,.12,.15,.12),C('#9c775a'));crowdGeometry=false;
  });
  stadiumDetails(add);
- // Per-instance pose reflection, spacing and brightness break the repeated grid.
- for(const fan of fans){fan[0]+=(random()-.5)*.13;fan[2]+=(random()-.5)*.13;fan[5]+=random()>.5?.25:0;fan[6]*=.88+random()*.22;fan[3]*=.90+random()*.17;fan[4]*=random()<.24?.83:.96+random()*.10;fan[7]=random();}
+ // Break up rows with small seat gaps and avoid repeating the same face nearby.
+ // These groups also account for alternate atlas poses of the same spectator.
+ const identities=[0,1,2,3,4,5,1,6,1,0,7,1,2,3,5,4],recent=[];
+ for(let i=fans.length-1;i>=0;i--)if(random()<.055)fans.splice(i,1);
+ for(const fan of fans){
+  let cell=Math.floor(random()*16);for(let tries=0;tries<32&&recent.includes(identities[cell]);tries++)cell=Math.floor(random()*16);
+  recent.push(identities[cell]);if(recent.length>4)recent.shift();
+  fan[0]+=(random()-.5)*.22;fan[2]+=(random()-.5)*.22;fan[1]+=(random()-.5)*.08;
+  fan[5]=cell+(random()>.5?.25:0);fan[6]*=.84+random()*.25;fan[3]*=.88+random()*.22;
+  fan[4]*=random()<.24?.83:.91+random()*.18;fan[7]=random();
+ }
+ // A sideline has small groups of players and coaches, not one evenly spaced row.
+ const previousStaff=new Map();
+ for(let i=0;i<staffSprites.length;i++){
+  const s=staffSprites[i],side=Math.sign(s[0]),staff=s[4]>=12,start=staff?12:side<0?0:8,count=staff||side>0?4:8,key=side+':'+staff;
+  let cell=start+Math.floor(random()*count);if(cell===previousStaff.get(key))cell=start+(cell-start+1)%count;previousStaff.set(key,cell);
+  s[0]+=side*((i%3)*.30+random()*.18);s[2]+=(random()-.5)*1.15;s[3]=1.92+random()*.23;
+  s[4]=cell+(random()>.5?.25:0);s[5]=.91+random()*.15;s[6]=.90+random()*.17;
+ }
  // Goal posts, with actual vertical scale.
  for(const z of[3,117]){
   add('cylinder',segment([0,0,z],[0,3.2,z],.13),C('#d1b254'));add('cylinder',segment([-3.1,3.2,z],[3.1,3.2,z],.09),C('#ead57a'));
@@ -147,6 +164,6 @@ export function makeStadium(r){
  installNightStadium(r,add);
  return{draw(){for(const p of staticParts)r.add(...p);if(!art.crowd)for(const p of crowdFallback)r.add(...p);
   if(art.crowd)for(const [x,y,z,w,h,cell,shade,warm]of fans)r.add('crowdSprite',pose(x,y,z,w,h,1),[shade*(.92+warm*.13),shade*(.96+warm*.04),shade*(1.06-warm*.14),1],'crowd-atlas',false,cell,6);
-  if(art.sideline)for(const [x,y,z,h,cell]of staffSprites){r.add('crowdSprite',pose(x,y,z,h,h,1),[1.1,1.1,1.1,1],'sideline-atlas',false,cell,6);r.add('plane',pose(x,.016,z,.7,1,.55),[1,1,1,.42],'shadow',true)}else for(const p of staffFallback)r.add(...p);
+  if(art.sideline)for(const [x,y,z,h,cell,width,shade]of staffSprites){r.add('crowdSprite',pose(x,y,z,h*width,h,1),[shade,shade,shade,1],'sideline-atlas',false,cell,6);r.add('plane',pose(x,.016,z,.7,1,.55),[1,1,1,.42],'shadow',true)}else for(const p of staffFallback)r.add(...p);
   for(const pos of lamps){r.glow(pos,8,[.64,.75,1,.19]);r.glow(pos,2.4,[1,.95,.80,.52]);}},parts:staticParts.length};
 }
