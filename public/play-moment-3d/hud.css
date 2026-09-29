@@ -370,3 +370,7 @@ html,body,#game,#hud{min-height:100dvh}
  #skillPad button{font-size:9px}
  #hud[data-phase="run"] #instruction,#hud[data-phase="handoff"] #instruction{font-size:9px}
 }
+
+/* Catch choices are available before the snap; no overlapping instruction ribbon. */
+#instruction{display:none!important}
+#hud[data-phase="pre"] #catchChoices{bottom:max(96px,calc(env(safe-area-inset-bottom) + 88px))}
