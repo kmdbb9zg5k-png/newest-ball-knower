@@ -8,7 +8,7 @@ const MAX_BONES=32;
 // The source asset already includes pads; large normal extrusion inflated it twice.
 // The head, hands and feet retain their original size and attachment points.
 export const PLAYER_BUILDS=Object.freeze({
- OL:{bulk:[.032,.028,.014,.012],scale:[1.055,1.035,1.025]},
+ OL:{bulk:[.040,.028,.022,.012],scale:[1.055,1.035,1.025]},
  DL:{bulk:[.026,.030,.017,.018],scale:[1.04,1.04,1.025]},
  QB:{bulk:[.004,.010,.003,.004],scale:[1.,1.025,1.]},
  RB:{bulk:[.014,.016,.017,.012],scale:[1.02,.985,1.015]},
