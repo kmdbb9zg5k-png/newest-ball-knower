@@ -457,3 +457,11 @@ for(const fourthDown of [false,true]){
  g.context.bk3dFixture.finish('PASS BROKEN UP',g.read().drive.ball,true);g.step(.3);assert.equal(g.read().phase,'dead');assert.equal(g.read().players[19].action,'breakup');assert.equal(g.read().players[8].action,'catch-miss');g.step(.55);assert.equal(g.read().players[19].action,null);assert.equal(g.context.bk3dRenderActors()[19].breakupTarget,null);
 }
 console.log('Incomplete-pass animations survive the whistle and fourth-down endDrive, then expire.');
+
+// Short dive/big-hit finishes must not synchronize on a shared whistle hold.
+for(const type of ['wrap','gang','dive','big-hit']){
+ const g=game();g.key('ArrowUp');g.snap();g.step(1.6);assert.equal(g.context.bk3dTest.forceContact(type),true);let carrierAt=null,defenderAt=null;
+ for(let i=1;i<=210;i++){g.step(1/60);const d=g.read();if(d.players[6].action==='get-up'&&carrierAt===null)carrierAt=i/60;if(d.players[15].action==='get-up'&&defenderAt===null)defenderAt=i/60;}
+ assert.ok(carrierAt!==null&&defenderAt!==null&&carrierAt-defenderAt>.25,`${type}: recovery synchronized`);assert.ok(g.read().players.every(p=>!p.fallen));
+}
+console.log('Wrap, gang, dive and big-hit recoveries stay separate and finish before the next play.');

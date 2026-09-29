@@ -581,7 +581,7 @@ export function start(){
  }
  function setTimedAction(p,type,duration,side=0){p.action=type;p.actionStarted=simTime;p.actionUntil=simTime+duration;p.actionT=0;p.actionSide=side}
  function beginSkillAction(type,duration,side=0){carrier.action=type;carrier.actionStarted=simTime;carrier.actionUntil=simTime+duration;carrier.actionT=0;carrier.actionSide=side}
- function updateSkillAction(){for(const p of actors)advancePlayerAction(p,simTime,phase==='dead'&&postPlayElapsed<1.35)}
+ function updateSkillAction(){for(const p of actors)advancePlayerAction(p,simTime,phase==='dead'&&postPlayElapsed<1.35&&p.recoveryHold==null)}
  function beginContactSequence(tackler,outcome,helpers=[],speed=0){
   const length=Math.hypot(carrier.vx||0,carrier.vz||0),dirX=length>.2?carrier.vx/length:Math.sin(carrier.heading||0),dirZ=length>.2?carrier.vz/length:Math.cos(carrier.heading||0),side=Math.sign((tackler.x-carrier.x)*dirZ-(tackler.z-carrier.z)*dirX)||1,presentation=contactPresentation(outcome.type,speed/9.5,side),helper=presentation.helper?helpers.find(p=>p!==tackler&&!p.fallen&&!p.liveContact&&simTime>=p.contactReady)||null:null;
   activeContact={type:presentation.type,elapsed:0,...presentation,dirX,dirZ,rightX:dirZ,rightZ:-dirX,carrierStart:[carrier.x,carrier.z],tacklerStart:[tackler.x,tackler.z],tackler:tackler.index,tacklerHeading:Math.atan2(carrier.x-tackler.x,carrier.z-tackler.z),helper:helper?.index??null,helperStart:helper?[helper.x,helper.z]:null};

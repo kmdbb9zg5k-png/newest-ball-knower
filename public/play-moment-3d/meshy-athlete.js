@@ -978,7 +978,7 @@ export class MeshyAthletes{
   else if(p.engaged&&!p.fallen)this.blockPose(locals,p,time);
   else if(p.hasBall&&(/^carry-|^qb-scramble|break-tackle|stumble/.test(choice.state)||p.fallen))this.carryPose(locals,p);
   if(p.fallen&&/wrap|gang|tackle|hit|pancake/.test(choice.state))this.contactPose(locals,p);
-  if(choice.state.startsWith('catch-')&&!p.fallen)this.catchPose(locals,p);
+  if(choice.state.startsWith('catch-')&&choice.state!=='catch-miss'&&!p.fallen)this.catchPose(locals,p);
   if(choice.state==='pre'){
    const seed=meshyPlaybackSeed(p.index,p.team),breath=Math.sin(time*(1.25+seed.rate*.22)+seed.offset*Math.PI*2),scan=Math.sin(time*(.38+seed.rate*.08)+seed.offset*Math.PI*2);
    const spine=this.namedNodes['mixamorig:Spine2'],head=this.namedNodes['mixamorig:Head'];
