@@ -719,14 +719,22 @@ export class MeshyAthletes{
   // Roll clear and load a hand/knee first. Keep the low half-kneel through
   // the middle of the action; only then extend the front leg to stand.
   this.contactPose(locals,{...p,actionT:1});const landed=locals.map(n=>({t:[...n.t],r:[...n.r],s:[...n.s]}));
-  this.standingPose(locals,p,.59*(1-stand)+.035,.68*(1-stand)+.015);
+  this.standingPose(locals,p,.65*(1-stand)+.035,(1.55-1.50*(1-smooth(t/.40)))*(1-stand)+.015);
   for(const [side,sign]of[['Left',1],['Right',-1]]){
    const ankle=pointFromMatrix(this.jointWorld(this.base,this.namedNodes['mixamorig:'+side+'Foot']).m),back=sign===plantSide,step=smooth((t-.78)/.22);
    this.solveLimb(locals,[side+'UpLeg',side+'Leg',side+'Foot'],[sign*.16,ankle[1]+(back?.10*(1-stand)+.065*Math.sin(step*Math.PI):0),ankle[2]+(back?-.40*(1-step):.30*(1-stand))],[sign*.18,.18,.88],true);
   }
   const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m);
   const release=smooth((t-.54)/.25);
-  for(const [side,sign]of[['Left',1],['Right',-1]]){const support=sign===plantSide,hand=support?lerpArray([sign*.30,.065,.47],[sign*.22,chest[1]-.46,chest[2]+.025],release):[sign*.22,chest[1]-.41,chest[2]+.18*(1-stand)];this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],hand,[sign*.37,chest[1]-.27,chest[2]+.10])}
+  for(const [side,sign]of[['Left',1],['Right',-1]]){
+   const support=sign===plantSide,hand=support?lerpArray([sign*.24,.045,.47],[sign*.22,chest[1]-.46,chest[2]+.025],release):[sign*.22,chest[1]-.41,chest[2]+.18*(1-stand)];this.solveLimb(locals,[side+'Arm',side+'ForeArm',side+'Hand'],hand,[sign*.37,chest[1]-.27,chest[2]+.10]);
+   if(support){
+    // Lay the glove along the turf. Downward-pointing fingers otherwise lift
+    // the entire body through the ground-support correction.
+    const wrist=this.namedNodes['mixamorig:'+side+'Hand'],tip=this.namedNodes['mixamorig:'+side+'HandMiddle4'],original=[...locals[wrist].r],point=pointFromMatrix(this.jointWorld(locals,wrist).m);
+    this.aimJoint(locals,wrist,tip,[point[0],point[1],point[2]+.22]);locals[wrist].r=slerp(original,locals[wrist].r,1-release);
+   }
+  }
   this.rotate(locals,'mixamorig:Spine2',0,0,1,plantSide*.17*(1-stand));
   if(p.hasBall)this.carryPose(locals,p);
   for(let i=0;i<locals.length;i++){locals[i].t=lerpArray(landed[i].t,locals[i].t,kneel);locals[i].r=slerp(landed[i].r,locals[i].r,kneel)}
