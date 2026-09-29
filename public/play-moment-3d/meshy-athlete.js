@@ -724,17 +724,17 @@ export class MeshyAthletes{
   }
  }
  contactPose(locals,p){
-  const t=clamp(p.actionT||0,0,1),load=smooth(t/.20),fall=smooth((t-.18)/.66),impact=Math.sin(clamp((t-.72)/.28,0,1)*Math.PI);
+  const t=clamp(p.actionT||0,0,1),variant=p.contactVariant,low=variant==='low-wrap',drag=variant==='drag-down',shoulder=variant==='shoulder-hit',load=smooth(t/(drag?.30:.20)),fall=smooth((t-(drag?.32:low?.12:.18))/(drag?.58:low?.70:.66)),accent=Math.sin(Math.PI*t),impact=Math.sin(clamp((t-.72)/.28,0,1)*Math.PI);
   const side=p.actionSide||1,carrier=Boolean(p.hasBall),hips=this.joints[0],impactYaw=Number.isFinite(p.fallHeading)?p.fallHeading-(p.heading||0):0;
   const impactPoint=v=>[v[0]*Math.cos(impactYaw)+v[2]*Math.sin(impactYaw),v[1],v[2]*Math.cos(impactYaw)-v[0]*Math.sin(impactYaw)];
   this.standingPose(locals,p,0,0);
   // Articulate the pelvis, spine and legs independently. The render model
   // stays upright: a tackle is no longer a rigid body tipped around its feet.
-  locals[hips].t[1]=this.base[hips].t[1]-.12*load-.68*fall-.025*impact;
-  const drop=quatMul(axisQuat(0,0,1,side*(carrier?.48:.20)*fall),axisQuat(1,0,0,(carrier?1.40:1.42)*fall));
+  locals[hips].t[1]=this.base[hips].t[1]-.12*load-.68*fall-.025*impact-(low?.18:0)*accent;
+  const drop=quatMul(axisQuat(0,0,1,side*((carrier?.48:.20)*fall+(shoulder?.38:drag?.16:0)*accent)),axisQuat(1,0,0,(carrier?1.40:1.42)*fall+(low?.24:drag?-.18:0)*accent));
   locals[hips].r=quatMul(quatMul(axisQuat(0,1,0,impactYaw),quatMul(drop,axisQuat(0,1,0,-impactYaw))),this.base[hips].r);
   this.rotate(locals,'mixamorig:Spine',1,0,0,.30*load-.12*fall);
-  this.rotate(locals,'mixamorig:Spine2',0,0,1,side*(carrier?.18:-.12)*fall);
+  this.rotate(locals,'mixamorig:Spine2',0,0,1,side*((carrier?.18:-.12)*fall+(shoulder?.22:0)*accent));
   this.rotate(locals,'mixamorig:Head',1,0,0,-.13*fall);
   const chest=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:Spine2']).m);
   for(const [name,sign]of[['Left',1],['Right',-1]]){
@@ -771,7 +771,7 @@ export class MeshyAthletes{
    }
    else if(p.contactRole==='tackler'&&p.action!=='get-up'){
     weight=smooth((p.actionT||0)/.10)*(1-smooth(((p.actionT||0)-.84)/.15));
-    target=inversePoint(pointFromMatrix(mul(targetModel,otherHands.chest),[sign*.24,-.19,-.01]));
+    target=inversePoint(pointFromMatrix(mul(targetModel,otherHands.chest),[sign*.24,p.contactVariant==='low-wrap'?-.55:p.contactVariant==='shoulder-hit'?-.05:-.19,p.contactVariant==='drag-down'?-.18:-.01]));
    }
    if(!target||weight<=0)continue;
    const current=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:'+side+'Hand']).m);
