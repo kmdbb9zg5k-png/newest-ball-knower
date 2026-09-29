@@ -24,12 +24,13 @@ for(const speed of [2,6,9.5]){
  assert.ok(drift<.22,'Planted foot cannot follow the moving root: '+JSON.stringify(report.gaits.at(-1)));
  assert.ok(Math.max(...arm)-Math.min(...arm)>.24,'Imported reciprocal arm drive must survive');
 }
-for(const ball of [false,true]){
- const p={index:8,role:'WR',team:0,x:0,z:0,heading:0,vx:0,vz:0,fallen:true,hasBall:ball,action:'wrap',actionT:1,actionSide:-1,fallHeading:0,recoverySide:-1};
+for(const ball of [false,true])for(const heading of ball?[0]:Array.from({length:8},(_,i)=>i*Math.PI/4))for(const side of [-1,1]){
+ const p={index:8,role:'WR',team:0,x:0,z:0,heading,vx:0,vz:0,fallen:true,hasBall:ball,action:'wrap',actionT:1,actionSide:side,fallHeading:0,recoverySide:ball?-1:side};
  rig.poseStates.clear();rig.supportPoints.clear();rig.actorMap=new Map([[8,p]]);rig.phase='dead';rig.bonesFor(p,'dead',0);
  const landed=point(p,'Head')[1];assert.ok(landed<.5,'Completed contact must finish on the turf');
+ assert.ok(point(p,'Head')[2]-point(p,'Hips')[2]>.35,'Contact must fold along the impact even when the tackler faces the runner');
  let jump=0,last=landed;
  for(let i=0;i<=72;i++){p.action='get-up';p.actionT=i/72;rig.bonesFor(p,'dead',(i+1)/60);const head=point(p,'Head')[1];jump=Math.max(jump,Math.abs(head-last));last=head;}
- assert.ok(jump<.08,'Recovery has a root pop');report.recovery.push({carrier:ball,landedHead:landed,maxHeadStep:jump});
+ assert.ok(jump<.08,`Recovery has a root pop at heading ${heading}, side ${side}: ${jump}`);report.recovery.push({carrier:ball,heading,side,landedHead:landed,maxHeadStep:jump});
 }
 console.log(JSON.stringify({status:'PASS',...report},null,2));

@@ -532,6 +532,14 @@ export class MeshyAthletes{
   this.aimJoint(locals,a,b,joint);this.aimJoint(locals,b,c,end);
   if(keepEndRotation){const parent=this.jointWorld(locals,b).q;locals[c].r=quatMul([-parent[0],-parent[1],-parent[2],parent[3]],endRotation)}
  }
+ groundHand(locals,side,heading,weight){
+  const wrist=this.namedNodes['mixamorig:'+side+'Hand'],tip=this.namedNodes['mixamorig:'+side+'HandMiddle4'];this.groundHandRotations??={};
+  if(!this.groundHandRotations[side]){const flat=this.base.map(n=>({t:[...n.t],r:[...n.r],s:[...n.s]})),point=pointFromMatrix(this.jointWorld(flat,wrist).m);this.aimJoint(flat,wrist,tip,[point[0],point[1],point[2]+.22]);this.groundHandRotations[side]=this.jointWorld(flat,wrist).q}
+  // Fix palm roll in model space. A shortest-arc aim inherited the rotating
+  // elbow's twist and could flip the glove through the turf during recovery.
+  const parent=this.jointWorld(locals,this.parents[wrist]).q,world=quatMul(axisQuat(0,1,0,heading),this.groundHandRotations[side]),target=quatMul([-parent[0],-parent[1],-parent[2],parent[3]],world);
+  locals[wrist].r=slerp(locals[wrist].r,target,weight);
+ }
  readyPose(locals,p){
   const trench=p.role==='OL'||p.role==='DL',qb=p.role==='QB',receiver=p.role==='WR'||p.role==='TE',width=trench?.21:.145;
   for(const [side,sign]of[['Left',1],['Right',-1]]){
@@ -717,12 +725,14 @@ export class MeshyAthletes{
  }
  contactPose(locals,p){
   const t=clamp(p.actionT||0,0,1),load=smooth(t/.20),fall=smooth((t-.18)/.66),impact=Math.sin(clamp((t-.72)/.28,0,1)*Math.PI);
-  const side=p.actionSide||1,carrier=Boolean(p.hasBall),hips=this.joints[0];
+  const side=p.actionSide||1,carrier=Boolean(p.hasBall),hips=this.joints[0],impactYaw=Number.isFinite(p.fallHeading)?p.fallHeading-(p.heading||0):0;
+  const impactPoint=v=>[v[0]*Math.cos(impactYaw)+v[2]*Math.sin(impactYaw),v[1],v[2]*Math.cos(impactYaw)-v[0]*Math.sin(impactYaw)];
   this.standingPose(locals,p,0,0);
   // Articulate the pelvis, spine and legs independently. The render model
   // stays upright: a tackle is no longer a rigid body tipped around its feet.
   locals[hips].t[1]=this.base[hips].t[1]-.12*load-.68*fall-.025*impact;
-  locals[hips].r=quatMul(axisQuat(0,0,1,side*(carrier?.48:.20)*fall),quatMul(axisQuat(1,0,0,(carrier?1.40:1.42)*fall),this.base[hips].r));
+  const drop=quatMul(axisQuat(0,0,1,side*(carrier?.48:.20)*fall),axisQuat(1,0,0,(carrier?1.40:1.42)*fall));
+  locals[hips].r=quatMul(quatMul(axisQuat(0,1,0,impactYaw),quatMul(drop,axisQuat(0,1,0,-impactYaw))),this.base[hips].r);
   this.rotate(locals,'mixamorig:Spine',1,0,0,.30*load-.12*fall);
   this.rotate(locals,'mixamorig:Spine2',0,0,1,side*(carrier?.18:-.12)*fall);
   this.rotate(locals,'mixamorig:Head',1,0,0,-.13*fall);
@@ -730,10 +740,11 @@ export class MeshyAthletes{
   for(const [name,sign]of[['Left',1],['Right',-1]]){
    const ankle=pointFromMatrix(this.jointWorld(this.base,this.namedNodes['mixamorig:'+name+'Foot']).m),fold=sign===side;
    const start=[sign*.18,ankle[1],ankle[2]+sign*.16];
-   const end=[sign*(fold?.27:.17),ankle[1]+(fold?.07:0),fold?-.22:-.66];
-   this.solveLimb(locals,[name+'UpLeg',name+'Leg',name+'Foot'],lerpArray(start,end,fall),[sign*.31,.16,.28],true);
-   const brace=!carrier&&sign===side,hand=brace?lerpArray([sign*.25,chest[1]-.18,chest[2]+.32],[sign*.32,.085,.65],fall):[sign*.24,chest[1]-.12,chest[2]+.20];
+   const end=impactPoint([sign*(fold?.27:.17),ankle[1]+(fold?.07:0),fold?-.22:-.66]);
+   this.solveLimb(locals,[name+'UpLeg',name+'Leg',name+'Foot'],lerpArray(start,end,fall),lerpArray([sign*.31,.16,.28],impactPoint([sign*.31,.16,.28]),fall),true);
+   const brace=!carrier&&sign===side,hand=brace?lerpArray([sign*.25,chest[1]-.18,chest[2]+.32],impactPoint([sign*.32,.085,.65]),fall):[sign*.24,chest[1]-.12,chest[2]+.20];
    this.solveLimb(locals,[name+'Arm',name+'ForeArm',name+'Hand'],hand,[sign*.43,chest[1]-.20,chest[2]-.10]);
+   if(brace)this.groundHand(locals,name,impactYaw,fall);
   }
   if(carrier)this.carryPose(locals,p);
  }
@@ -769,7 +780,8 @@ export class MeshyAthletes{
   return changed;
  }
  getUpPose(locals,p){
-  const t=clamp(p.actionT||0,0,1),brace=smooth(t/.38),rise=smooth((t-.54)/.46),side=p.actionSide||1,plantSide=p.recoverySide||side,hips=this.joints[0];
+  const impactYaw=Number.isFinite(p.fallHeading)?p.fallHeading-(p.heading||0):0,rollDistance=Math.abs(Math.atan2(Math.sin(impactYaw),Math.cos(impactYaw))),rollWeight=smooth(rollDistance/(Math.PI/2));
+  const t=clamp(p.actionT||0,0,1),brace=smooth(t/(.38+.18*rollWeight)),rise=smooth((t-.54)/.46),side=p.actionSide||1,plantSide=p.recoverySide||side,hips=this.joints[0];
   this.contactPose(locals,{...p,actionT:1});
   const landed={};for(const name of['LeftFoot','RightFoot','LeftHand','RightHand'])landed[name]=pointFromMatrix(this.jointWorld(locals,this.namedNodes['mixamorig:'+name]).m);
   // World-space limb targets stay above the field while the pelvis unrolls.
@@ -777,7 +789,8 @@ export class MeshyAthletes{
   // the field and made ground correction lift the whole athlete into a bob.
   this.standingPose(locals,p,0,0);
   locals[hips].t[1]=this.base[hips].t[1]-(.80-.08*brace)*(1-rise)-.035*rise;
-  locals[hips].r=quatMul(axisQuat(0,0,1,side*(p.hasBall?.48:.20)*(1-brace)),quatMul(axisQuat(1,0,0,(p.hasBall?1.40:1.42)*(1-brace)),this.base[hips].r));
+  const drop=quatMul(axisQuat(0,0,1,side*(p.hasBall?.48:.20)*(1-brace)),axisQuat(1,0,0,(p.hasBall?1.40:1.42)*(1-brace)));
+  locals[hips].r=quatMul(quatMul(axisQuat(0,1,0,impactYaw),quatMul(drop,axisQuat(0,1,0,-impactYaw))),this.base[hips].r);
   this.rotate(locals,'mixamorig:Spine',1,0,0,(.18+.96*brace)*(1-rise)+.025*rise);
   this.rotate(locals,'mixamorig:Spine2',0,0,1,side*(p.hasBall?.18:-.12)*(1-brace));
   this.rotate(locals,'mixamorig:Head',1,0,0,-.13*(1-brace));
@@ -790,7 +803,7 @@ export class MeshyAthletes{
   for(const [name,sign]of[['Left',1],['Right',-1]]){
    const support=sign===plantSide,rest=[sign*.23,chest[1]-.46,chest[2]+.025],target=support?lerpArray([sign*.25,.065,.40],rest,release):rest;
    this.solveLimb(locals,[name+'Arm',name+'ForeArm',name+'Hand'],lerpArray(landed[name+'Hand'],target,brace),[sign*.38,chest[1]-.20,chest[2]-.02]);
-   if(support){const wrist=this.namedNodes['mixamorig:'+name+'Hand'],tip=this.namedNodes['mixamorig:'+name+'HandMiddle4'],original=[...locals[wrist].r],point=pointFromMatrix(this.jointWorld(locals,wrist).m);this.aimJoint(locals,wrist,tip,[point[0],point[1],point[2]+.22]);locals[wrist].r=slerp(original,locals[wrist].r,brace*(1-release))}
+   if(support)this.groundHand(locals,name,impactYaw*(1-brace),1-release);
   }
   if(p.hasBall)this.carryPose(locals,p);
  }
