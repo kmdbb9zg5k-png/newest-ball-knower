@@ -24,8 +24,8 @@ for(const speed of [2,6,9.5]){
  assert.ok(drift<.22,'Planted foot cannot follow the moving root: '+JSON.stringify(report.gaits.at(-1)));
  assert.ok(Math.max(...arm)-Math.min(...arm)>.24,'Imported reciprocal arm drive must survive');
 }
-for(const ball of [false,true])for(const heading of ball?[0]:Array.from({length:8},(_,i)=>i*Math.PI/4))for(const side of [-1,1]){
- const p={index:8,role:'WR',team:0,x:0,z:0,heading,vx:0,vz:0,fallen:true,hasBall:ball,action:'wrap',actionT:1,actionSide:side,fallHeading:0,recoverySide:ball?-1:side};
+for(const contactVariant of ['wrap','shoulder-hit','low-wrap','drag-down'])for(const ball of [false,true])for(const heading of ball?[0]:Array.from({length:8},(_,i)=>i*Math.PI/4))for(const side of [-1,1]){
+ const p={contactVariant,index:8,role:'WR',team:0,x:0,z:0,heading,vx:0,vz:0,fallen:true,hasBall:ball,action:'wrap',actionT:1,actionSide:side,fallHeading:0,recoverySide:ball?-1:side};
  rig.poseStates.clear();rig.supportPoints.clear();rig.actorMap=new Map([[8,p]]);rig.phase='dead';rig.bonesFor(p,'dead',0);
  const landed=point(p,'Head')[1];assert.ok(landed<.5,'Completed contact must finish on the turf');
  assert.ok(point(p,'Head')[2]-point(p,'Hips')[2]>.35,'Contact must fold along the impact even when the tackler faces the runner');
