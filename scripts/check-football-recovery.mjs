@@ -449,3 +449,11 @@ for(const recovering of ['latched','released']){
  g.step(1/60);assert.equal(helpers,0,'Recovering defender was counted in the gang outcome');assert.equal(g.read().contact.helper,null);assert.equal(g.read().players[19].fallen,false);
 }
 console.log('Gang helper regression passed: both latched and released defenders respect contact recovery.');
+
+// Incomplete-pass finishes survive both the whistle and fourth-down endDrive.
+for(const fourthDown of [false,true]){
+ const g=game();g.element('passTab').onclick();g.snap();g.step(.5);if(fourthDown)g.context.bk3dFixture.drive({down:4});
+ g.context.bk3dFixture.mutate(actors=>{for(const [index,action]of[[19,'breakup'],[8,'catch-miss']])Object.assign(actors[index],{action,actionStarted:g.read().simTime,actionUntil:g.read().simTime+.8,actionT:0,breakupTarget:index===19?[actors[8].x,1.5,actors[8].z]:null})});
+ g.context.bk3dFixture.finish('PASS BROKEN UP',g.read().drive.ball,true);g.step(.3);assert.equal(g.read().phase,'dead');assert.equal(g.read().players[19].action,'breakup');assert.equal(g.read().players[8].action,'catch-miss');g.step(.55);assert.equal(g.read().players[19].action,null);assert.equal(g.context.bk3dRenderActors()[19].breakupTarget,null);
+}
+console.log('Incomplete-pass animations survive the whistle and fourth-down endDrive, then expire.');

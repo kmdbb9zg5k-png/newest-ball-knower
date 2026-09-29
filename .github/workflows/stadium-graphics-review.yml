@@ -9,6 +9,7 @@ on:
       - 'scripts/check-football-graphics.mjs'
       - 'scripts/check-football-motion.mjs'
       - 'scripts/check-contact-possession.mjs'
+      - 'scripts/check-contact-finish.mjs'
       - 'scripts/check-gameplay-contact.mjs'
       - 'scripts/check-football-recovery.mjs'
       - 'scripts/check-football-scene.mjs'
@@ -38,36 +39,40 @@ jobs:
       - name: Validate post-play motion and stationary hand fighting
         run: node scripts/check-football-motion.mjs
         env:
-          BK_MOTION_OUT: artifacts/contact-possession-42/motion
+          BK_MOTION_OUT: artifacts/contact-framing-43/motion
       - name: Validate failed tackles, interceptions and scrolling titles
         run: node scripts/check-contact-possession.mjs
         env:
-          BK_CONTACT_OUT: artifacts/contact-possession-42/possession
+          BK_CONTACT_OUT: artifacts/contact-framing-43/possession
+      - name: Validate immediate catch contact, breakups and planted recovery
+        run: node scripts/check-contact-finish.mjs
+        env:
+          BK_FINISH_OUT: artifacts/contact-framing-43/finish
       - name: Validate actual GPU player surfaces
         run: node scripts/check-football-graphics.mjs
         env:
-          BK_GRAPHICS_OUT: artifacts/contact-possession-42/players
+          BK_GRAPHICS_OUT: artifacts/contact-framing-43/players
       - name: Compare actual goal-line rendering
         run: node scripts/check-stadium-presentation.mjs
         env:
-          BK_BASELINE_REF: 9c6d946074f1557eff1fa4dbafca8f6605b5cb32
-          BK_SCENE_OUT: artifacts/contact-possession-42/comparison
+          BK_BASELINE_REF: 6314f85d214530d868ad7f0b3be898195855f482
+          BK_SCENE_OUT: artifacts/contact-framing-43/comparison
       - uses: actions/upload-artifact@v4
         with:
-          name: contact-possession-42-comparison
-          path: artifacts/contact-possession-42/comparison
+          name: contact-framing-43-comparison
+          path: artifacts/contact-framing-43/comparison
           retention-days: 14
       - name: Render blocking contact and manual catch sequence
         run: node scripts/check-gameplay-contact.mjs
         env:
-          BK_SCENE_OUT: artifacts/contact-possession-42/contact
+          BK_SCENE_OUT: artifacts/contact-framing-43/contact
       - name: Validate mobile formations and missing-art fallback
         run: node scripts/check-football-scene.mjs
         env:
-          BK_SCENE_OUT: artifacts/contact-possession-42/mobile
+          BK_SCENE_OUT: artifacts/contact-framing-43/mobile
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: contact-possession-42-webgl
-          path: artifacts/contact-possession-42
+          name: contact-framing-43-webgl
+          path: artifacts/contact-framing-43
           retention-days: 14
