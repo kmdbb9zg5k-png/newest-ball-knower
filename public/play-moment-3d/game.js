@@ -133,7 +133,7 @@ export function touchdownCameraFraming(scorer,players=[]){
  }
  return{eye:[scorer.x+best[0],best[1],scorer.z+best[2]],target:[scorer.x,1.0,scorer.z],offset:[...best]};
 }
-/** Orbit into the scoring shot instead of cutting the lens through the scorer. */
+/** Orbit outside the scorer, limited to one radian/second for a calmer reveal. */
 export function touchdownCameraTravel(eye,target,desiredEye,desiredTarget,dt){
  const blend=cameraFollowBlend(dt,3),dx=eye[0]-desiredTarget[0],dz=eye[2]-desiredTarget[2],tx=desiredEye[0]-desiredTarget[0],tz=desiredEye[2]-desiredTarget[2];
  const radius=Math.hypot(dx,dz),desiredRadius=Math.hypot(tx,tz),from=Math.atan2(dx,dz),to=Math.atan2(tx,tz),delta=Math.atan2(Math.sin(to-from),Math.cos(to-from));

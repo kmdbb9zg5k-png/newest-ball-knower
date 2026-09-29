@@ -28,6 +28,8 @@ try{
   }
  }
  assert.ok(samples.every(s=>s.phase==='dead'));assert.ok(samples.every(s=>s.players.every(p=>!p.engaged)));assert.ok(samples.every(s=>s.drive.ball===samples[0].drive.ball));
+ const released=samples.at(-1).players.slice(0,4).map((p,i)=>Math.hypot(p.x-samples[0].players[i].x,p.z-samples[0].players[i].z));
+ assert.ok(released.filter(d=>d>.2&&d<.65).length>=3,'Former blockers must take a bounded recovery step');
  const motion=await page.evaluate(async()=>{
   const {rig,r}= {rig:window.bkMotionReview.rig,r:window.bkMotionReview.renderer}, {pose}=await import('/play-moment-3d/renderer.js');
   const a={index:0,role:'OL',number:68,team:0,x:-1.2,z:0,heading:0,vx:0,vz:0,distance:0,engaged:true,engagedWith:11,blockStyle:'pass-anchor'},b={index:11,role:'DL',number:94,team:1,x:-1.2,z:1.08,heading:Math.PI,vx:0,vz:0,distance:0,engaged:true,engagedWith:0,blockStyle:'bull-rush'},rest={index:7,role:'WR',number:18,team:0,x:1.2,z:0,heading:0,vx:0,vz:0,distance:0};
