@@ -681,7 +681,7 @@ export class MeshyAthletes{
  }
  settlePose(locals,p,time){
   this.groundedLocomotion(locals,p,'walk');const walking=locals.map(n=>({t:[...n.t],r:[...n.r],s:[...n.s]}));
-  this.relaxedPose(locals,p,time);const weight=smooth(clamp(Math.hypot(p.vx||0,p.vz||0)/1.3,0,1));
+  this.relaxedPose(locals,p,time);const weight=smooth(clamp(Math.hypot(p.vx||0,p.vz||0)/1.3,0,1))*(p.disengage?.55:1);
   for(let i=0;i<locals.length;i++){locals[i].t=lerpArray(locals[i].t,walking[i].t,weight);locals[i].r=slerp(locals[i].r,walking[i].r,weight)}
  }
  celebrationPose(locals,p,time){
@@ -1070,7 +1070,7 @@ export class MeshyAthletes{
  modelFor(p){
   const build=playerBuild(p.role).scale,variation=1+((p.index%5)-2)*.006;
   let lift=0,pitch=0,roll=0,yaw=0;if(p.action==='hurdle')lift=Math.sin((p.actionT||0)*Math.PI)*.68;if(p.action==='truck')pitch=.29*Math.sin((p.actionT||0)*Math.PI);if(p.action==='juke')roll=-(p.actionSide||0)*.22*Math.sin((p.actionT||0)*Math.PI);if(p.action==='spin')yaw=(p.actionSide||1)*(p.actionT||0)*Math.PI*2;
-  if(!p.fallen&&!p.engaged&&Math.hypot(p.vx||0,p.vz||0)>1){const direction=Math.atan2(p.vx||0,p.vz||0),turn=Math.atan2(Math.sin(direction-(p.heading||0)),Math.cos(direction-(p.heading||0)));roll+=clamp(-turn*.24,-.16,.16)}
+  if(this.phase!=='dead'&&!p.fallen&&!p.engaged&&Math.hypot(p.vx||0,p.vz||0)>1){const direction=Math.atan2(p.vx||0,p.vz||0),turn=Math.atan2(Math.sin(direction-(p.heading||0)),Math.cos(direction-(p.heading||0)));roll+=clamp(-turn*.24,-.16,.16)}
   if(p.action==='break-tackle')roll+=(p.actionSide||1)*.18*Math.sin((p.actionT||0)*Math.PI);if(p.action==='miss')pitch+=.34*Math.sin((p.actionT||0)*Math.PI);if(p.engaged)pitch+=.11;if(p.reactionT>0)roll+=(p.reactionSide||1)*.12*Math.sin(clamp(p.reactionT,0,1)*Math.PI);
   const articulated=p.action==='get-up'||p.fallen&&/wrap|gang|tackle|hit|pancake|dive/.test(p.action||''),contactFall=p.fallen&&/slide|dive|miss/.test(p.action||''),fallProgress=articulated?0:contactFall?smooth(((p.actionT||0)-(p.hasBall?.24:.34))/(p.hasBall?.70:.62)):p.fallen?1:0;
   const fall=fallProgress*(p.action==='slide'?1.30:p.action==='dive'?1.53:1.43+(p.index%3)*.035),fallRoll=fallProgress*(p.actionSide||1)*(p.hasBall?-.68:.32+(p.index%3)*.08);

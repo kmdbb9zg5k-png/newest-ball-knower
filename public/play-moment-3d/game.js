@@ -2,7 +2,7 @@ import{RUNS,PASSES,FORMATIONS,formationForPlay,matchingPlays,blockingScheme}from
 export{RUNS,PASSES}from'./playbook.js?v=football-foundation-44';
 import{Renderer,pose,segment,hex,mul,ry}from'./renderer.js?v=football-foundation-44';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js?v=football-foundation-44';
-import{createMeshyAthletes}from'./meshy-athlete.js?v=defensive-hits-46';
+import{createMeshyAthletes}from'./meshy-athlete.js?v=gameplay-polish-47';
 import{makeStadium}from'./stadium.js?v=football-foundation-44';
 import{createGameplayReplayRecorder}from'./replay.js';
 import{QB_THROW_RELEASE,quarterbackThrowDuration}from'./quarterback.js?v=football-finish-21';
@@ -270,23 +270,23 @@ export function pursuitTarget(defender,runner,afterCatch=false,pursuitSpeed=null
  const ahead=(defender.x-runner.x)*fx+(defender.z-runner.z)*fz;
  // Deep defenders keep a reachable intercept instead of charging the current
  // ball position. Trailing support keeps its own shoulder until contact range.
- const lead=clamp(intercept,.08,ahead>1.5?4:2.4)*clamp((separation-.65)/3,0,1),collapse=clamp((separation-2.5)/7,0,1);
+ const lead=clamp(intercept,.08,ahead>1.5?4:2.4)*clamp((separation-.65)/3,0,1),collapse=clamp((separation-1.1)/5,.18,1);
  const lateral=(defender.x-runner.x)*fz-(defender.z-runner.z)*fx,side=Math.sign(lateral)||Math.sign(pursuitLaneOffset(defender.index,separation,runner.x))||1;
- const lane=role==='primary'?0:side*(role==='contain'?.55:1.65)*collapse;
+ const lane=role==='primary'?0:side*(role==='contain'?1.3:1.7+(defender.index%3)*.65)*collapse;
  return{x:clamp(runner.x+vx*lead+fz*lane,-25.8,25.8),z:clamp(runner.z+vz*lead-fx*lane,0,112)};
 }
 /** Nearest defender attacks; a deeper outside defender keeps containment. */
 export function pursuitRole(defender,runner,teammates){
  const free=teammates.filter(p=>p.team===defender.team&&!p.fallen&&!p.engaged),distance=p=>Math.hypot(p.x-runner.x,p.z-runner.z),nearest=free.reduce((best,p)=>!best||distance(p)<distance(best)?p:best,null);
- if(nearest===defender||distance(defender)<3)return'primary';
+ if(nearest===defender)return'primary';
  const speed=Math.hypot(runner.vx||0,runner.vz||0),fx=speed>.5?runner.vx/speed:0,fz=speed>.5?runner.vz/speed:1;
  return (defender.x-runner.x)*fx+(defender.z-runner.z)*fz>1.5?'contain':'support';
 }
 /** Avoid teammates before overlap resolution, while converging for a tackle. */
 export function pursuitSteering(defender,runner,teammates,speed,afterCatch=false){
  const role=pursuitRole(defender,runner,teammates),aim=pursuitTarget(defender,runner,afterCatch,speed,role),dx=aim.x-defender.x,dz=aim.z-defender.z,len=Math.hypot(dx,dz)||1;
- let x=dx/len,z=dz/len;const contact=Math.hypot(runner.x-defender.x,runner.z-defender.z),strength=clamp((contact-1)/4,0,.95);
- for(const other of teammates){if(other===defender||other.team!==defender.team||other.fallen||other.engaged)continue;const ox=defender.x-other.x,oz=defender.z-other.z,d=Math.hypot(ox,oz);if(d>.001&&d<2.1){const weight=(1-d/2.1)*strength;x+=ox/d*weight;z+=oz/d*weight}}
+ let x=dx/len,z=dz/len;const contact=Math.hypot(runner.x-defender.x,runner.z-defender.z),strength=clamp((contact-.75)/2,.12,1.25);
+ for(const other of teammates){if(other===defender||other.team!==defender.team||other.fallen||other.engaged)continue;const ox=defender.x-other.x,oz=defender.z-other.z,d=Math.hypot(ox,oz);if(d>.001&&d<2.6){const weight=(1-d/2.6)*strength;x+=ox/d*weight;z+=oz/d*weight}}
  const norm=Math.hypot(x,z)||1;return{x:x/norm,z:z/norm};
 }
 /** Preserve a small amount of earned forward momentum through wrap contact. */
@@ -560,19 +560,21 @@ export function start(){
   move(p,p.x+next.vx*dt,p.z+next.vz*dt,dt,10.5);p.vx=next.vx;p.vz=next.vz;
  }
  function resolvePlayerOverlaps(){
-  for(let sweep=0;sweep<3;sweep++)for(let i=0;i<actors.length;i++)for(let j=i+1;j<actors.length;j++){const a=actors[i],b=actors[j];if((a.fallen&&b.fallen)||a.contactWith===b.index||b.contactWith===a.index||a.engagedWith===b.index||b.engagedWith===a.index||((phase==='snap'||phase==='handoff')&&[5,6].includes(i)&&[5,6].includes(j)))continue;if(phase==='run'&&((a===carrier&&b.team!==a.team)||(b===carrier&&a.team!==b.team)))continue;const correction=separationCorrection(a.x,a.z,b.x,b.z,phase==='dead'?(pendingDriveEnd?.title==='TOUCHDOWN'?1.45:1.12):phase==='run'?(a.team===b.team?1.05:.86):(a.team===b.team?1.08:.88),i*23+j+1);if(!correction.ax&&!correction.az)continue;const fixedA=a.fallen||a.contactWith!=null,fixedB=b.fallen||b.contactWith!=null;if(fixedA&&fixedB)continue;if(!fixedA){a.x=clamp(a.x+correction.ax*(fixedB?2:1),-26.3,26.3);a.z+=correction.az*(fixedB?2:1)}if(!fixedB){b.x=clamp(b.x+correction.bx*(fixedA?2:1),-26.3,26.3);b.z+=correction.bz*(fixedA?2:1)}}
+  for(let sweep=0;sweep<3;sweep++)for(let i=0;i<actors.length;i++)for(let j=i+1;j<actors.length;j++){const a=actors[i],b=actors[j];if((a.fallen&&b.fallen)||a.contactWith===b.index||b.contactWith===a.index||a.engagedWith===b.index||b.engagedWith===a.index||((phase==='snap'||phase==='handoff')&&[5,6].includes(i)&&[5,6].includes(j)))continue;if(phase==='run'&&((a===carrier&&b.team!==a.team)||(b===carrier&&a.team!==b.team)))continue;const correction=separationCorrection(a.x,a.z,b.x,b.z,phase==='dead'?(pendingDriveEnd?.title==='TOUCHDOWN'?1.45:1.12):phase==='run'?(a.team===b.team?1.22:.86):(a.team===b.team?1.08:.88),i*23+j+1);if(!correction.ax&&!correction.az)continue;const fixedA=a.fallen||a.contactWith!=null,fixedB=b.fallen||b.contactWith!=null;if(fixedA&&fixedB)continue;if(!fixedA){a.x=clamp(a.x+correction.ax*(fixedB?2:1),-26.3,26.3);a.z+=correction.az*(fixedB?2:1)}if(!fixedB){b.x=clamp(b.x+correction.bx*(fixedA?2:1),-26.3,26.3);b.z+=correction.bz*(fixedA?2:1)}}
  }
  function settlePlayers(dt){
   const contactIds=activeContact?new Set([activeContact.tackler,activeContact.helper,carrier?.index]):new Set(),drag=Math.exp(-9*dt);
   for(const p of actors){
    if(p.fallen||contactIds.has(p.index))continue;
+   if(p.celebrateTarget){const target=p.celebrateTarget,dx=target.x-p.x,dz=target.z-p.z,len=Math.hypot(dx,dz);if(len>.25){move(p,p.x+dx/len*Math.min(len,5.2*dt),p.z+dz/len*Math.min(len,5.2*dt),dt,6);continue}p.celebrateTarget=null;p.vx=p.vz=0;p.heading=Math.atan2(carrier.x-p.x,carrier.z-p.z);setTimedAction(p,'celebrate',2.8,p.index%2?1:-1);}
+   if(p.action==='celebrate'){p.vx=p.vz=0;p.moving=false;continue}
    if(p.action==='breakup'||p.action==='catch-miss'){p.vx=p.vz=0;continue}
    if(p!==carrier&&!p.wasBlocking&&!p.disengage&&!p.recoveryWatch&&carrier&&Math.hypot(p.x-carrier.x,p.z-carrier.z)<10){const dx=p.x-carrier.x,dz=p.z-carrier.z,len=Math.hypot(dx,dz)||1;p.recoveryWatch={x:p.x+dx/len*(.35+(p.index%3)*.12),z:p.z+dz/len*(.35+(p.index%3)*.12),delay:.12+(p.index%4)*.04}}
    if(p.recoveryWatch&&postPlayElapsed>p.recoveryWatch.delay){const watch=p.recoveryWatch,dx=watch.x-p.x,dz=watch.z-p.z,len=Math.hypot(dx,dz);if(len>.025&&postPlayElapsed<.85){const step=Math.min(len,1.15*dt);move(p,p.x+dx/len*step,p.z+dz/len*step,dt,5);continue}const facing=Math.atan2(carrier.x-p.x,carrier.z-p.z);p.heading+=Math.atan2(Math.sin(facing-p.heading),Math.cos(facing-p.heading))*Math.min(1,dt*2)}
    if(p.disengage){
     const release=p.disengage,previous=smooth((release.elapsed-release.delay)/.55);release.elapsed+=dt;
-    const progress=smooth((release.elapsed-release.delay)/.55),step=(progress-previous)*.34;
-    if(step>0){move(p,p.x-Math.sin(release.heading)*step,p.z-Math.cos(release.heading)*step,dt,0);if(progress===1)p.disengage=null;continue}
+    const progress=smooth((release.elapsed-release.delay)/.55),step=(progress-previous)*.65;
+    if(step>0){move(p,p.x-Math.sin(release.heading)*step,p.z-Math.cos(release.heading)*step,dt,0);if(progress===1){p.disengage=null;p.wasBlocking=false;p.vx=p.vz=0};continue}
    }
    p.vx*=drag;p.vz*=drag;if(Math.hypot(p.vx,p.vz)<.08){p.vx=p.vz=0;p.moving=false;continue}
    move(p,p.x+p.vx*dt,p.z+p.vz*dt,dt,7);
@@ -601,8 +603,8 @@ export function start(){
  function advanceContactSequence(dt){
   const c=activeContact;if(!c)return;c.elapsed=Math.min(c.duration,c.elapsed+dt);const raw=clamp(c.elapsed/c.duration,0,1),t=smooth((raw-.16)/.84),ball=carrier,tackler=actors[c.tackler],carrierX=c.carrierStart[0]+c.dirX*c.carrierDrive*t+c.rightX*c.side*(c.lateral||0)*t,carrierZ=c.carrierStart[1]+c.dirZ*c.carrierDrive*t+c.rightZ*c.side*(c.lateral||0)*t;
  ball.x=clamp(carrierX,-26.3,26.3);ball.z=carrierZ;ball.vx=ball.vz=0;ball.actionT=raw;ball.moving=false;
- const tacklerX=carrierX-c.dirX*(.48-c.tacklerDrive*t)+c.rightX*c.side*(.48+.18*smooth((raw-.75)/.25)),tacklerZ=carrierZ-c.dirZ*(.48-c.tacklerDrive*t)+c.rightZ*c.side*(.48+.18*smooth((raw-.75)/.25));const close=smooth(raw/.24);tackler.x=c.tacklerStart[0]+(tacklerX-c.tacklerStart[0])*close;tackler.z=c.tacklerStart[1]+(tacklerZ-c.tacklerStart[1])*close;tackler.heading=c.tacklerHeading+Math.atan2(Math.sin(ball.heading-c.tacklerHeading),Math.cos(ball.heading-c.tacklerHeading))*smooth((raw-.10)/.42);tackler.actionT=raw;tackler.moving=false;
- if(c.helper!==null){const helper=actors[c.helper],targetX=carrierX-c.dirX*.25-c.rightX*c.side*.62,targetZ=carrierZ-c.dirZ*.25-c.rightZ*c.side*.62;helper.x=c.helperStart[0]+(targetX-c.helperStart[0])*t;helper.z=c.helperStart[1]+(targetZ-c.helperStart[1])*t;const facing=Math.atan2(ball.x-helper.x,ball.z-helper.z);helper.heading=facing+Math.atan2(Math.sin(ball.heading-facing),Math.cos(ball.heading-facing))*smooth((raw-.10)/.42);helper.actionT=raw;helper.moving=false}
+ const tacklerX=carrierX-c.dirX*(.56-c.tacklerDrive*t)+c.rightX*c.side*(.70+.22*smooth((raw-.60)/.40)),tacklerZ=carrierZ-c.dirZ*(.56-c.tacklerDrive*t)+c.rightZ*c.side*(.70+.22*smooth((raw-.60)/.40));const close=smooth(raw/.24);tackler.x=c.tacklerStart[0]+(tacklerX-c.tacklerStart[0])*close;tackler.z=c.tacklerStart[1]+(tacklerZ-c.tacklerStart[1])*close;tackler.heading=c.tacklerHeading+Math.atan2(Math.sin(ball.heading-c.tacklerHeading),Math.cos(ball.heading-c.tacklerHeading))*smooth((raw-.10)/.42);tackler.actionT=raw;tackler.moving=false;
+ if(c.helper!==null){const helper=actors[c.helper],targetX=carrierX-c.dirX*.25-c.rightX*c.side*.88,targetZ=carrierZ-c.dirZ*.25-c.rightZ*c.side*.88;helper.x=c.helperStart[0]+(targetX-c.helperStart[0])*t;helper.z=c.helperStart[1]+(targetZ-c.helperStart[1])*t;const facing=Math.atan2(ball.x-helper.x,ball.z-helper.z);helper.heading=facing+Math.atan2(Math.sin(ball.heading-facing),Math.cos(ball.heading-facing))*smooth((raw-.10)/.42);helper.actionT=raw;helper.moving=false}
   if(c.elapsed>=c.duration){tackler.recoveryOffset=[c.rightX*c.side*.62,c.rightZ*c.side*.62];if(c.helper!==null)actors[c.helper].recoveryOffset=[-c.rightX*c.side*.62,-c.rightZ*c.side*.62];activeContact=null;if(pendingPlayMessage){message(pendingPlayMessage,1.4);pendingPlayMessage=null}}
  }
   function performSkill(action){
@@ -693,6 +695,10 @@ function coverage(dt){
   return new Set(rushers);
  }
  function sustainSupportBlock(blocker,d,dt){blocker.engaged=d.engaged=true;blocker.engagedWith=d.index;d.engagedWith=blocker.index;blocker.blockStyle='stalk';d.blockStyle='shed';const side=Math.sign(d.x-carrier.x)||1,drive=.12*ratingMultiplier(blocker.ratings.strength,.86,1.12);blocker.actionSide=side;chase(blocker,d.x-side*.08,d.z-.98,5.1*ratingMultiplier(blocker.ratings.acceleration,.9,1.08),dt);move(d,d.x+side*.035*dt,d.z+drive*dt,dt,7);const heading=Math.atan2(d.x-blocker.x,d.z-blocker.z);blocker.heading=heading;d.heading=heading+Math.PI}
+ function escortCarrier(p,dt){
+  if(carrier.z<=snapZ+18){chase(p,p.x,Math.max(p.z,snapZ+Math.min(elapsed*5+4,18)),4.5,dt);return}
+  const side=p.x<carrier.x?-1:1;chase(p,clamp(carrier.x+side*(3.2+p.index%2),-24,24),carrier.z-4-(p.index%3),playerRunSpeed(p)*.94,dt);
+ }
  function supportBlockers(dt){
   const handled=new Set(),eligible=actors.filter(p=>p.team===0&&p!==carrier&&!p.fallen&&['RB','WR','TE'].includes(p.role));
   for(const blocker of eligible){
@@ -701,7 +707,7 @@ function coverage(dt){
    if(paired&&paired.engagedWith===blocker.index){paired.engaged=false;paired.engagedWith=null;paired.blockStyle=null}blocker.engaged=false;blocker.engagedWith=null;blocker.blockStyle=null;
    const candidates=actors.filter(d=>d.team===1&&!d.fallen&&!d.liveContact&&!d.engaged&&!handled.has(d.index)&&d.z>=Math.max(carrier.z-1.8,blocker.z+.95));
    const target=candidates.reduce((best,d)=>{const score=Math.hypot(d.x-blocker.x,d.z-blocker.z)+(d.z<carrier.z?3.5:0);return!best||score<best.score?{d,score}:best},null);
-   if(!target||target.score>9.5){blocker.engaged=false;blocker.engagedWith=null;chase(blocker,blocker.x,Math.max(blocker.z,carrier.z+4),4.35,dt);continue}
+   if(!target||target.score>9.5){blocker.engaged=false;blocker.engagedWith=null;escortCarrier(blocker,dt);continue}
    const d=target.d,distance=Math.hypot(d.x-blocker.x,d.z-blocker.z);
    if(distance<1.4){handled.add(d.index);sustainSupportBlock(blocker,d,dt)}
    else{blocker.engaged=false;blocker.engagedWith=null;chase(blocker,d.x,d.z-.85,5.45*ratingMultiplier(blocker.ratings.acceleration,.9,1.08),dt)}
@@ -746,7 +752,7 @@ function coverage(dt){
   function showDriveEnd(){if(!pendingDriveEnd)return;const{title,body}=pendingDriveEnd;pendingDriveEnd=null;paused=true;$('dialogTitle').textContent=title;$('dialogBody').textContent=body;$('resume').hidden=true;$('paused').hidden=false;updateHud();updateControls()}
   function endDrive(title,body){pendingThrow=null;ended=true;phase='dead';actors.forEach(releasePostPlay);pendingDriveEnd={title,body,celebrating:false,showAt:simTime+Math.max(title==='TOUCHDOWN'?3.8:1.35,(activeContact?.duration||0)+2.75)};replay.event('drive-end',{title,ball:drive.ball,score:drive.score});replay.sample(true);updateHud();updateControls()}
   function pause(){if(ended||replaying)return;paused=!paused;prePanel=null;setPlayArt(false);replay.event(paused?'pause':'resume');replay.sample(true);input.x=input.z=0;input.sprint=false;input.pointer=input.sprintPointer=null;keys.clear();$('knob').classList.remove('held');$('knob').style.transform='none';$('dialogTitle').textContent='PAUSED';$('dialogBody').textContent='This preview never changes your career saves or season record.';$('resume').hidden=false;$('watchReplay').hidden=!lastHighlight.length||!['pre','dead'].includes(phase);$('paused').hidden=!paused;updateControls()}
- function tick(dt){transitionFade=Math.max(0,transitionFade-dt*2.5);$('playTransition').style.opacity=transitionFade;if(phase==='dead'){simTime+=dt;postPlayElapsed+=dt;if(activeContact)advanceContactSequence(dt);else updateSkillAction();settlePlayers(dt);if(pendingDriveEnd?.title==='TOUCHDOWN'&&!pendingDriveEnd.celebrating&&!activeContact&&!carrier.fallen&&Math.hypot(carrier.vx,carrier.vz)<.15){setTimedAction(carrier,'celebrate',2.6,0);for(const teammate of actors.filter(p=>!p.team&&p!==carrier&&!p.fallen&&Math.hypot(p.x-carrier.x,p.z-carrier.z)<18).slice(0,2)){teammate.heading=Math.atan2(carrier.x-teammate.x,carrier.z-teammate.z);setTimedAction(teammate,'celebrate',2.4,0)}pendingDriveEnd.celebrating=true;pendingDriveEnd.showAt=Math.max(pendingDriveEnd.showAt,simTime+3.1)}if(pendingDriveEnd&&simTime>=pendingDriveEnd.showAt&&!activeContact){showDriveEnd();return}if(!ended){recoveryLeft-=dt;if(recoveryLeft<.12){transitionFade=clamp(1-recoveryLeft/.12,0,.28);$('playTransition').style.opacity=transitionFade}if(recoveryLeft<=0){transitionFade=.28;setup();camera(1)}}return}if(phase==='pre'){if(receiverMotion&&!playbookOpen){simTime+=dt;advanceReceiverMotion(dt)}return}elapsed+=dt;simTime+=dt;updateSkillAction();for(const p of actors)if(p.reactionT>0){p.reactionT+=dt/.42;if(p.reactionT>=1)p.reactionT=0}drive.clock=Math.max(0,drive.clock-dt);updateHud();const throwingQB=actors[5];if(throwingQB.throwStarted!==null&&throwingQB.throwStarted!==undefined){throwingQB.throwT=clamp((simTime-throwingQB.throwStarted)/throwingQB.throwDuration,.001,1);if(throwingQB.throwT>=1&&!pendingThrow){throwingQB.throwT=0;throwingQB.throwStyle=null;throwingQB.throwStarted=null}}
+ function tick(dt){transitionFade=Math.max(0,transitionFade-dt*2.5);$('playTransition').style.opacity=transitionFade;if(phase==='dead'){simTime+=dt;postPlayElapsed+=dt;if(activeContact)advanceContactSequence(dt);else updateSkillAction();settlePlayers(dt);if(pendingDriveEnd?.title==='TOUCHDOWN'&&!pendingDriveEnd.celebrating&&!activeContact&&!carrier.fallen&&Math.hypot(carrier.vx,carrier.vz)<.15){setTimedAction(carrier,'celebrate',2.6,0);const friends=actors.filter(p=>p.team===carrier.team&&p!==carrier&&!p.fallen).sort((a,b)=>Math.hypot(a.x-carrier.x,a.z-carrier.z)-Math.hypot(b.x-carrier.x,b.z-carrier.z)).slice(0,3);friends.forEach((p,i)=>{p.disengage=null;p.recoveryWatch=null;p.wasBlocking=false;p.celebrateTarget={x:clamp(carrier.x+(i-1)*2.0,-24,24),z:carrier.z+1.8+(i%2)*1.4};p.action=null;});const arrival=friends.length?Math.hypot(friends[0].x-carrier.x,friends[0].z-carrier.z)/5.2:0;pendingDriveEnd.showAt=Math.max(pendingDriveEnd.showAt,simTime+clamp(arrival+2.4,4,7));pendingDriveEnd.celebrating=true;pendingDriveEnd.showAt=Math.max(pendingDriveEnd.showAt,simTime+3.1)}if(pendingDriveEnd&&simTime>=pendingDriveEnd.showAt&&!activeContact){showDriveEnd();return}if(!ended){recoveryLeft-=dt;if(recoveryLeft<.12){transitionFade=clamp(1-recoveryLeft/.12,0,.28);$('playTransition').style.opacity=transitionFade}if(recoveryLeft<=0){transitionFade=.28;setup();camera(1)}}return}if(phase==='pre'){if(receiverMotion&&!playbookOpen){simTime+=dt;advanceReceiverMotion(dt)}return}elapsed+=dt;simTime+=dt;updateSkillAction();for(const p of actors)if(p.reactionT>0){p.reactionT+=dt/.42;if(p.reactionT>=1)p.reactionT=0}drive.clock=Math.max(0,drive.clock-dt);updateHud();const throwingQB=actors[5];if(throwingQB.throwStarted!==null&&throwingQB.throwStarted!==undefined){throwingQB.throwT=clamp((simTime-throwingQB.throwStarted)/throwingQB.throwDuration,.001,1);if(throwingQB.throwT>=1&&!pendingThrow){throwingQB.throwT=0;throwingQB.throwStyle=null;throwingQB.throwStarted=null}}
   if(phase==='snap'){
    const qb=actors[formationForPlay(currentPlay()).snapReceiver||5],center=actors[2],t=clamp(elapsed/.28,0,1),target=[qb.x,1.38,qb.z+.25];
    qb.action='receive-snap';qb.actionT=t;qb.ballTarget=target;center.action='snap';center.actionT=t;
@@ -803,7 +809,7 @@ function coverage(dt){
    if(mode==='run'&&carrier===actors[5]&&currentPlay().option)chase(actors[6],actors[6].x-runDirection*.8,snapZ+3,5,dt);
    if(mode==='run'&&carrier!==actors[5]){const qb=actors[5];accelerate(qb,0,0,0,dt,12,18)}
    const assigned=blockers(dt,mode==='run')||new Set();if(mode==='pass')for(const index of supportBlockers(dt))assigned.add(index);for(const p of actors.filter(p=>p.team===1&&p.role!=='DL'&&!p.engaged&&!p.fallen&&!assigned.has(p.index))){if(mode==='run')runFit(p,dt);else{const separation=Math.hypot(p.x-carrier.x,p.z-carrier.z);pursue(p,carrier,defenderPursuitSpeed(separation,true),dt,true)}}
-   if(mode==='run'){const activeBlockers=new Set([...runBlockAssignments(selected),...perimeterBlockAssignments(selected)].map(([index])=>index));for(const p of actors.filter(p=>p.team===0&&(p.role==='WR'||p.role==='TE')&&p!==carrier&&!p.engaged&&!activeBlockers.has(p.index)))chase(p,p.x,Math.max(p.z,snapZ+Math.min(elapsed*5+4,18)),4.5,dt)}
+   if(mode==='run'){const activeBlockers=new Set([...runBlockAssignments(selected),...perimeterBlockAssignments(selected)].map(([index])=>index));for(const p of actors.filter(p=>p.team===0&&(p.role==='WR'||p.role==='TE')&&p!==carrier&&!p.engaged&&!activeBlockers.has(p.index)))escortCarrier(p,dt)}
    for(const d of actors)if(d.liveContact)advanceGlancingContact(d,actors[d.liveContact.runner],simTime,dt);
    resolvePlayerOverlaps();
    if(carrier.z>=110){endPlay('TOUCHDOWN',100);return}if(Math.abs(carrier.x)>=26){endPlay('OUT OF BOUNDS',carrier.z-10);return}
@@ -835,11 +841,11 @@ function coverage(dt){
   if(isDead&&pendingDriveEnd?.title==='INTERCEPTED'){const focus=carrier,shot=cameraRigTravel(camEye,camTarget,[focus.x+.35,3.5,focus.z-7.8],[focus.x,1.1,focus.z],dt,2.6,12);camEye=shot.eye;camTarget=shot.target;r.camera(camEye,camTarget);return}
   if(isDead){
    const focus=deadBallFocus||carrier||actors[5];
-   if(!deadCameraStart)deadCameraStart=contactCameraFraming(focus,actors);
+   if(!deadCameraStart)deadCameraStart={...contactCameraFraming(focus,actors),eye:[...camEye],target:[...camTarget]};
    const offset=deadCameraStart.offset,desiredEye=[focus.x+offset[0],offset[1],focus.z+offset[2]],desiredTarget=[focus.x,.8,focus.z];
    // Aim reaches the play before the dolly arrives. Both paths stay bounded;
    // coupling their speed here kept sideline tackles at the edge of the shot.
-   camEye=cameraTravel(camEye,desiredEye,dt,4.6,24);camTarget=cameraTravel(camTarget,desiredTarget,dt,6,30);
+   const blend=smooth(postPlayElapsed/1.05),eye=desiredEye.map((v,i)=>deadCameraStart.eye[i]+(v-deadCameraStart.eye[i])*blend),target=desiredTarget.map((v,i)=>deadCameraStart.target[i]+(v-deadCameraStart.target[i])*blend),shot=cameraRigTravel(camEye,camTarget,eye,target,dt,4,14);camEye=shot.eye;camTarget=shot.target;
    impactShake=Math.max(0,impactShake-dt*3.8);r.camera(camEye,camTarget);return;
   }
   const tracking=phase==='handoff'||phase==='run',focus=phase==='handoff'?actors[6]:carrier;runCameraBlend=clamp(runCameraBlend+(tracking?dt/.60:-dt/.6),0,1);
