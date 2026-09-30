@@ -11,6 +11,7 @@ import { homePartners } from './partners';
 import { HomeStadiumHero } from './HomeStadiumHero';
 import { HomeMatchups } from './HomeMatchups';
 import { HomeSoloFeature } from './HomeSoloFeature';
+import { HomeMiniGamesFeature } from './HomeMiniGamesFeature';
 import { buildHomeActivity, homeFeaturedActivity, homeLeagueAction, homeLeaguePhase, homeRatingTier, type HomeActivity } from './homeDashboardState';
 import './homeBroadcast.css';
 import './homeLayout.css';
@@ -123,6 +124,7 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
     </nav>
 
     <HomeSoloFeature onOpen={() => onNavigate('solo')}/>
+    <HomeMiniGamesFeature/>
 
     <HomeMatchups leagues={leagues} currentUser={currentUser} onSelectLeague={onSelectLeague} onViewMemberLocker={onViewMemberLocker} onOpenSettings={() => setSettingsOpen(true)}/>
 
