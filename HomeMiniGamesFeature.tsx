@@ -6,11 +6,14 @@ export function HomeMiniGamesFeature() {
   const dialog = useRef<HTMLDialogElement>(null);
   const [level, setLevel] = useState(() => { try { return miniLevel(localStorage.getItem('bk-mini-level-v1')).id; } catch { return 'rookie'; } });
   const difficulty = miniLevel(level);
-  const [matchup, setMatchup] = useState(() => { try { const saved = JSON.parse(localStorage.getItem('bk-mini-matchup-v1') || 'null'); return miniMatchup(saved?.home || localStorage.getItem('ball-knower-solo-team-v1'), saved?.away); } catch { return miniMatchup(); } });
+  const [matchup, setMatchup] = useState(() => { try { const saved = JSON.parse(localStorage.getItem('bk-mini-matchup-v1') || 'null'); return miniMatchup(saved?.home || MINI_TEAMS[15].abbr, saved?.away || MINI_TEAMS[16].abbr); } catch { return miniMatchup(MINI_TEAMS[15].abbr, MINI_TEAMS[16].abbr); } });
   const [picking, setPicking] = useState<'home' | 'away' | null>(null);
   const [search, setSearch] = useState('');
   const teamButtons = useRef<Partial<Record<'home' | 'away', HTMLButtonElement>>>({});
+  const availableTeams = MINI_TEAMS.filter(team => picking !== 'away' || team.abbr !== matchup.home.abbr);
+  const matchingTeams = availableTeams.filter(team => (team.name + ' ' + team.abbr).toLowerCase().includes(search.toLowerCase()));
   const chooseTeam = (abbr: string) => {
+    if (picking === 'away' && abbr === matchup.home.abbr) return;
     const next = picking === 'home' ? miniMatchup(abbr, abbr === matchup.away.abbr ? matchup.home.abbr : matchup.away.abbr) : miniMatchup(matchup.home.abbr, abbr);
     setMatchup(next); setPicking(null); setSearch(''); if (picking) teamButtons.current[picking]?.focus();
     try { localStorage.setItem('bk-mini-matchup-v1', JSON.stringify({ home: next.home.abbr, away: next.away.abbr })); } catch {}
@@ -51,8 +54,8 @@ export function HomeMiniGamesFeature() {
           })}</div>
           {picking && <div className="bk-mini-team-picker" aria-label={picking === 'home' ? 'Your team options' : 'Opponent options'}>
             <label>Find a Solo team<input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Team or city"/></label>
-            <div>{MINI_TEAMS.filter(team => team.name.toLowerCase().includes(search.toLowerCase()) || team.abbr.toLowerCase().includes(search.toLowerCase())).map(team => <button type="button" key={team.abbr} disabled={picking === 'away' && team.abbr === matchup.home.abbr} aria-pressed={team.abbr === matchup[picking].abbr} onClick={() => chooseTeam(team.abbr)}><span>{team.name}</span><strong>{team.overall} OVR</strong><small>OFF {team.offense} · DEF {team.defense}</small></button>)}</div>
-            {!MINI_TEAMS.some(team => (team.name + ' ' + team.abbr).toLowerCase().includes(search.toLowerCase())) && <p>No matching teams.</p>}
+            <div>{matchingTeams.map(team => <button type="button" key={team.abbr} aria-pressed={team.abbr === matchup[picking].abbr} onClick={() => chooseTeam(team.abbr)}><span>{team.name}</span><strong>{team.overall} OVR</strong><small>OFF {team.offense} · DEF {team.defense}</small></button>)}</div>
+            {matchingTeams.length === 0 && <p>No matching teams.</p>}
           </div>}
           <p className="bk-mini-tip">Solo starting-lineup ratings. Team attributes affect play; difficulty adjusts the defense.</p>
         </section>
