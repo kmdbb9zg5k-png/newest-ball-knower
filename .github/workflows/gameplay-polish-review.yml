@@ -5,6 +5,8 @@ on:
       - 'public/play-moment-3d/**'
       - 'public/play-moment-3d-preview.html'
       - 'scripts/check-gameplay-polish.mjs'
+      - 'scripts/check-carry-control.mjs'
+      - 'scripts/check-catch-controls.mjs'
       - '.github/workflows/gameplay-polish-review.yml'
   workflow_dispatch:
 permissions:
@@ -22,11 +24,18 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
       - run: node scripts/check-football-foundation.mjs
+      - run: node scripts/check-football-pursuit.mjs
+      - run: node scripts/check-catch-controls.mjs
+        env:
+          BK_REVIEW_OUT: artifacts/carry-control-48
+      - run: node scripts/check-carry-control.mjs
+        env:
+          BK_REVIEW_OUT: artifacts/carry-control-48
       - run: node scripts/check-gameplay-polish.mjs
         env:
-          BK_REVIEW_OUT: artifacts/gameplay-polish-47
+          BK_REVIEW_OUT: artifacts/carry-control-48
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: gameplay-polish-47
-          path: artifacts/gameplay-polish-47
+          name: carry-control-48
+          path: artifacts/carry-control-48
