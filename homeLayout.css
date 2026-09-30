@@ -93,6 +93,16 @@
 .bk-mini-games-content li p { margin:5px 0 8px; }
 .bk-mini-games-content li span { color:#e1be65; font-size:12px; }
 .bk-mini-games-close { width:100%; min-height:48px; border:1px solid #d3ad3e; border-radius:9px; background:#d3ad3e; color:#101216; font-weight:800; cursor:pointer; }
+.bk-mini-levels { border:0; padding:0; margin:20px 0 0; min-width:0; }
+.bk-mini-levels legend { font-weight:800; margin-bottom:10px; }
+.bk-mini-levels>div { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+.bk-mini-levels label { position:relative; cursor:pointer; }
+.bk-mini-levels input { position:absolute; opacity:0; width:100%; height:100%; margin:0; }
+.bk-mini-levels label>span { display:flex; align-items:center; justify-content:center; min-height:48px; border:1px solid #66604c; border-radius:8px; font-size:13px; font-weight:800; }
+.bk-mini-levels input:checked+span { background:#d3ad3e; color:#101216; border-color:#f5da93; }
+.bk-mini-levels input:focus-visible+span,.bk-mini-start:focus-visible { outline:3px solid #ffe196; outline-offset:3px; }
+.bk-mini-start { display:flex; align-items:center; justify-content:space-between; min-height:48px; padding:10px 12px; border:1px solid #d3ad3e; border-radius:8px; color:#f4d77d; font-weight:800; font-size:14px; text-decoration:none; }
+.bk-mini-games-content p.bk-mini-tip { font-size:12px; }
 .bk-home-clean .bk-home-rating { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:12px; margin:10px 0 0; padding:11px 13px; min-height:84px; border:1px solid #303632; border-radius:9px; background:#0c1015; }
 .bk-home-clean .bk-home-rating-value>span { display:block; color:#a7afb4; font:700 9px/1.25 Arial,sans-serif; text-transform:uppercase; letter-spacing:.07em; }
 .bk-home-clean .bk-home-rating-value>strong { display:block; margin-top:3px; color:#f2f2ed; font:800 34px/.95 'Barlow Condensed','Arial Narrow',sans-serif; }
