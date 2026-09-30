@@ -18,16 +18,19 @@ try{
    await dialog.getByRole('radio',{name,exact:true}).check();
    assert.equal(await dialog.getByRole('link',{name:'Play Two-Minute Drill'}).getAttribute('href'),`/play-moment-3d-preview.html?mode=two-minute&difficulty=${id}&team=OKC&opponent=OMA`);
   }
-  await dialog.getByRole('button',{name:/Choose your team:/}).click();
+  if (!await dialog.getByRole('region',{name:'Select your team',exact:true}).isVisible()) await dialog.getByRole('button',{name:/Choose your team:/}).click();
+  await dialog.getByRole('button',{name:'Browse all 32 teams'}).click();
   await dialog.getByRole('searchbox',{name:'Find a Solo team'}).fill('Albuquerque');
   await dialog.getByRole('button',{name:/Albuquerque Scorpions.*OVR/}).click();
-  await dialog.getByRole('button',{name:/Choose opponent:/}).click();
+  await dialog.getByRole('button',{name:'Select Scorpions',exact:true}).click();
+  await dialog.getByRole('button',{name:'Browse all 31 teams'}).click();
   assert.equal(await dialog.locator('.bk-mini-team-picker button').count(),31);
   assert.equal(await dialog.locator('.bk-mini-team-picker').getByRole('button',{name:/Albuquerque Scorpions/}).count(),0,'Chosen team is removed from opponents');
   await dialog.getByRole('searchbox',{name:'Find a Solo team'}).fill('Albuquerque');
   assert(await dialog.getByText('No matching teams.',{exact:true}).isVisible());
   await dialog.getByRole('searchbox',{name:'Find a Solo team'}).fill('Austin');
   await dialog.getByRole('button',{name:/Austin Outlaws.*OVR/}).click();
+  await dialog.getByRole('button',{name:'Select Outlaws',exact:true}).click();
   assert((await dialog.getByRole('link',{name:'Play Two-Minute Drill'}).getAttribute('href')).endsWith('&team=ABQ&opponent=AUS'));
   assert.equal(await dialog.getByText('Coming soon',{exact:true}).count(),2);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
