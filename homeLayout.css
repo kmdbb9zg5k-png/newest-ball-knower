@@ -192,3 +192,39 @@
 @font-face { font-family:'BKMiniDisplay'; src:url('/mini-team-selection/display.woff') format('woff'); font-weight:800; font-style:normal; font-display:swap; }
 .bk-mini-star-players strong>span { display:block; white-space:nowrap; }
 .bk-mini-star-players>div>span { display:flex; flex-wrap:nowrap; justify-content:center; align-items:baseline; gap:3px; white-space:nowrap; font-size:26px; }
+
+/* Sequential mini-game team selection and matchup review. */
+.bk-mini-flow-top { display:flex; justify-content:space-between; align-items:center; }
+.bk-mini-flow-top>button { width:44px; height:44px; color:#e7cc83; font-size:30px; cursor:pointer; }
+.bk-mini-flow-progress { display:flex; gap:8px; margin:2px 0 18px; }
+.bk-mini-flow-progress>span { flex:1; padding:8px 0; border-bottom:2px solid #ffffff20; color:#888d97; font-size:10px; text-transform:uppercase; letter-spacing:.07em; }
+.bk-mini-flow-progress>span[aria-current] { color:#edce7a; border-color:#edce7a; }
+.bk-mini-games-content #mini-games-heading { font:800 clamp(32px,8vw,44px)/1 'BKMiniDisplay','Arial Narrow',sans-serif; text-transform:uppercase; outline:none; }
+.bk-mini-games-content .bk-mini-flow-description { font-size:12px; margin:6px 0 14px; }
+.bk-mini-games-content .bk-mini-levels { margin:12px 0 0; }
+.bk-mini-levels legend { font-size:12px; }.bk-mini-levels p { margin:6px 0; font-size:11px; }
+.bk-mini-review { overflow:hidden; border:1px solid #b9943c; border-radius:12px; background:linear-gradient(145deg,#171c27,#080b10 65%); }
+.bk-mini-review-teams { display:grid; grid-template-columns:1fr 1fr; position:relative; }
+.bk-mini-review-team { display:flex; flex-direction:column; align-items:center; min-width:0; padding:16px 8px 14px; text-align:center; background:radial-gradient(ellipse at 50% 35%,var(--mini-team-color),transparent 75%); }
+.bk-mini-review-team+div { border-left:1px solid #c6a96040; }
+.bk-mini-review-team>span { color:#d7c48e; font-size:9px; letter-spacing:.1em; }
+.bk-mini-review-team img { width:100%; height:clamp(115px,34vw,190px); object-fit:contain; mix-blend-mode:screen; }
+.bk-mini-review-team h3 { margin:3px 0 12px; min-height:2.1em; font:800 clamp(20px,5.3vw,29px)/1.05 'BKMiniDisplay',sans-serif; text-transform:uppercase; }
+.bk-mini-review-team>strong { color:#ebc76d; font:800 40px/1 'BKMiniDisplay',sans-serif; }.bk-mini-review-team>strong>small { font-size:12px; }
+.bk-mini-review-vs { position:absolute; top:35%; left:50%; transform:translate(-50%,-50%); color:#e9c674; font:800 24px/1 'BKMiniDisplay',sans-serif; text-shadow:0 2px 8px #000; }
+.bk-mini-comparison { width:calc(100% - 24px); margin:0 12px; border-collapse:collapse; table-layout:fixed; text-align:center; }
+.bk-mini-comparison thead th { padding:8px 0; color:#a49c84; font-size:9px; letter-spacing:.1em; font-weight:500; }
+.bk-mini-comparison th:nth-child(2) { width:48%; }
+.bk-mini-comparison tbody tr { border-top:1px solid #a68c4d45; }
+.bk-mini-comparison tbody th { color:#e6dcc3; text-transform:uppercase; font:700 clamp(14px,3.8vw,19px)/1.2 'BKMiniDisplay',sans-serif; }
+.bk-mini-comparison td { padding:10px 0; color:#f4eee0; font:800 30px/1 'BKMiniDisplay',sans-serif; }
+.bk-mini-comparison td[data-leading=true] { color:#edc66c; }
+.bk-mini-games-content .bk-mini-ratings-note { margin:10px 12px 18px; font-size:9px; text-align:center; color:#9b9c9f; }
+.bk-mini-review-game { text-align:center; color:#ebd59c; letter-spacing:.1em; font:700 14px/1.3 'BKMiniDisplay',sans-serif; }.bk-mini-review-game>span { padding:0 8px; }
+.bk-mini-games-content .bk-mini-review-rules { text-align:center; font-size:10px; margin:6px 10px 14px; }
+.bk-mini-launch { text-decoration:none; width:calc(100% - 24px); margin:0 12px; min-height:52px; font-size:25px; }
+.bk-mini-review-edits { display:grid; grid-template-columns:1fr 1fr; margin:5px 12px 0; gap:8px; }.bk-mini-review-edits button { min-height:44px; color:#e8d49e; font-size:11px; cursor:pointer; }
+.bk-mini-review .bk-mini-tip { margin:4px 12px 14px; font-size:10px; text-align:center; }
+.bk-mini-review-back { display:block; min-height:44px; margin:8px auto 0; color:#cfc3a1; font-size:12px; cursor:pointer; }
+.bk-mini-modes { margin-top:15px; color:#bfb9a9; font-size:12px; }.bk-mini-modes summary { min-height:44px; padding:12px 0; cursor:pointer; }
+.bk-mini-games-dialog button:focus-visible,.bk-mini-launch:focus-visible { outline:2px solid #ffe196; outline-offset:-3px; }

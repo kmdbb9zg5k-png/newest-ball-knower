@@ -45,8 +45,25 @@ try{
   await page.waitForFunction(()=>[...document.querySelectorAll('.bk-mini-carousel-art img')].every(img=>img.complete&&img.naturalWidth>0));
   await selector().scrollIntoViewIfNeeded();await page.screenshot({path:`artifacts/mini-selector/knights-${width}.png`});
   await selector().getByRole('button',{name:'Select Knights',exact:true}).click();assert.equal(await selector().count(),0);
-  assert((await menu.getByRole('link',{name:'Play Two-Minute Drill'}).getAttribute('href')).endsWith('&team=OKC&opponent=JCY'));
-  await menu.getByRole('button',{name:'Back to Home'}).click();await page.getByRole('button',{name:'Explore Mini Games'}).click();assert(await menu.getByRole('button',{name:'Choose opponent: Jersey City Knights'}).isVisible());
+  assert((await menu.getByRole('link',{name:'Start Game'}).getAttribute('href')).endsWith('&team=OKC&opponent=JCY'));
+  assert.equal(await menu.locator('#mini-games-heading').textContent(),'View Matchup');
+  assert.equal(await menu.locator('.bk-mini-team-pair').count(),0);
+  assert.equal(await menu.locator('.bk-mini-comparison tbody tr').count(),3);
+  assert.deepEqual(await menu.locator('.bk-mini-comparison tbody th').allTextContents(),['Offense','Defense','Special Teams']);
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'mini-games-heading');
+  assert.equal(await menu.evaluate(el=>el.scrollTop),0);
+  await page.screenshot({path:`artifacts/mini-selector/matchup-${width}.png`});
+  await menu.getByRole('button',{name:'Change opponent',exact:true}).click();
+  assert.equal(await selector().locator('h4').textContent(),'Jersey City Knights');
+  await selector().getByRole('button',{name:'Select Knights',exact:true}).click();
+  await menu.getByRole('button',{name:'Change my team',exact:true}).click();
+  await selector().getByRole('button',{name:'Browse all 32 teams'}).click();
+  await selector().getByRole('searchbox').fill('Jersey');await selector().getByRole('button',{name:/Jersey City Knights.*OVR/}).click();
+  await selector().getByRole('button',{name:'Select Knights',exact:true}).click();
+  assert.equal(await selector().locator('h4').textContent(),'Oklahoma City Bison','Changing to old opponent swaps teams');
+  await selector().getByRole('button',{name:'Select Bison',exact:true}).click();
+  assert((await menu.getByRole('link',{name:'Start Game'}).getAttribute('href')).endsWith('&team=JCY&opponent=OKC'));
+  await menu.getByRole('button',{name:'Close Mini Games'}).click();await page.getByRole('button',{name:'Explore Mini Games'}).click();assert.equal(await selector().locator('h4').textContent(),'Jersey City Knights');
   assert.deepEqual(errors,[]);await page.close();
  }
  console.log('PASS 320/390/1280: all 32 portraits/logos load, team 16 default, arrows wrap, keyboard, true star labels, 31 opponents exclude home, confirmation and correct launch.');
