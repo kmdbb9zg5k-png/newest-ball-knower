@@ -1,3 +1,4 @@
+import {jerseyIdentityKey,jerseyNameCanvas,jerseySurname} from './jersey-identity.js?v=teams-1';
 import{mul,translate,scale,rx,ry,rz,pose,segment,hex,point}from'./renderer.js';
 import{advanceMotion,samplePose,footTarget,twoBone,readyHandTarget}from'./motion.js?v=football-foundation-44';
 import{createTorsoGeometry,createLimbGeometry,createPlayerDetailGeometry}from'./geometry.js';
@@ -14,18 +15,18 @@ export function prepareJerseys(r,actors){
  if(!r.shapes.limb)r.shapes.limb=createLimbGeometry();
  if(!r.shapes.playerFace)Object.assign(r.shapes,createPlayerDetailGeometry());
  for(const p of actors){
-  const key='jersey-'+p.team+'-'+p.number;if(r.textures.has(key))continue;
+  const key='jersey-'+jerseyIdentityKey(p);if(r.textures.has(key))continue;
   const c=document.createElement('canvas');c.width=256;c.height=256;
-  const ctx=c.getContext('2d'),k=kit[p.team];ctx.scale(2,2);ctx.clearRect(0,0,128,128);
-  ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='800 12px system-ui';ctx.fillStyle=k.ink;ctx.fillText(p.team?'RIVALS':'KNOWERS',64,18);
+  const ctx=c.getContext('2d'),k={...kit[p.team],ink:p.kitInk||kit[p.team].ink};ctx.scale(2,2);ctx.clearRect(0,0,128,128);
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='800 12px system-ui';ctx.fillStyle=k.ink;ctx.fillText(jerseySurname(p),64,18,116);
   ctx.font='900 78px Arial';ctx.lineWidth=3;ctx.strokeStyle=p.team?'#9eaaa4':'#9c834a';ctx.strokeText(String(p.number),64,72);ctx.fillStyle=k.ink;ctx.fillText(String(p.number),64,72);
   r.texture(key,c);
   // The shared Meshy source uniform has a baked-in number. Keep only the live
   // digits in this texture so its transparent edges never form a jersey card.
-  const meshKey='meshy-number-'+p.team+'-'+p.number;if(!r.textures.has(meshKey)){
+  const meshKey='meshy-number-'+jerseyIdentityKey(p);if(!r.textures.has(meshKey)){
    const n=document.createElement('canvas');n.width=n.height=128;const nc=n.getContext('2d'),home=!p.team;
    nc.clearRect(0,0,128,128);
-   nc.textAlign='center';nc.textBaseline='middle';nc.font='900 82px Arial';nc.lineJoin='round';nc.lineWidth=8;nc.strokeStyle=home?'#b7964f':'#8f3c38';nc.strokeText(String(p.number),64,68);nc.fillStyle=home?'#f1ead7':'#9b3f39';nc.fillText(String(p.number),64,68);r.texture(meshKey,n);
+   nc.textAlign='center';nc.textBaseline='middle';nc.font='900 82px Arial';nc.lineJoin='round';nc.lineWidth=8;nc.strokeStyle=p.kitTrim||(home?'#b7964f':'#8f3c38');nc.strokeText(String(p.number),64,68);nc.fillStyle=p.kitInk||(home?'#f1ead7':'#9b3f39');nc.fillText(String(p.number),64,68);r.texture(meshKey,n);r.texture('meshy-name-'+jerseyIdentityKey(p),jerseyNameCanvas(p));
   }
  }
 }
@@ -57,7 +58,7 @@ export function resolveArm(p,q,side,phase,torso=torsoFrame(q)){
 export function drawAthlete(r,p,time,phase){
  const wasActor=r.actorPass;r.actorPass=true;
  try {
-  const k=kit[p.team],q=samplePose(p),build=q.build,skin=skinTones[p.index%skinTones.length];
+  const k=p.kitJersey?{...kit[p.team],jersey:hex(p.kitJersey),pants:hex(p.kitJersey),helmet:hex(p.kitPrimary),trim:hex(p.kitTrim)}:kit[p.team],q=samplePose(p),build=q.build,skin=skinTones[p.index%skinTones.length];
   const height=build.height*(.99+(p.index%3)*.01);
   let root=mul(mul(translate(p.x,.15*q.fall+(q.skillLift||0),p.z),ry((p.heading||0)+(q.skillYaw||0))),rx(q.fall*1.38));
   root=mul(root,scale(build.width,height,1));
@@ -110,7 +111,7 @@ export function drawAthlete(r,p,time,phase){
   if(p.role==='OL'||p.role==='DL')for(const x of[-.055,.055])tube(head,[x,-.044,.244],[x,-.128,.258],.007,dark);
   if(['WR','RB','DB'].includes(p.role))r.add('playerVisor',head,visor,'',false,.70,1);
   // Transparent stitched-number decals: no rectangular cloth cards on the torso.
-  const jersey='jersey-'+p.team+'-'+p.number;
+  const jersey='jersey-'+jerseyIdentityKey(p);
   r.add('plane',mul(mul(chest,translate(0,.318,-.181)),mul(rx(Math.PI/2),scale(-.33,-1,.31))),[1,1,1,1],jersey,false,0,2);
   r.add('plane',mul(mul(chest,translate(0,.318,.181)),mul(rx(-Math.PI/2),scale(.33,-1,-.31))),[1,1,1,1],jersey,false,0,2);
   for(const side of[-1,1]){

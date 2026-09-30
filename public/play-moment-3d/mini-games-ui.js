@@ -1,8 +1,10 @@
-import { miniClock, saveMiniBest } from './mini-games.js?v=mini-games-1';
+import { miniClock, saveMiniBest } from './mini-games.js?v=teams-1';
 
 export function createMiniGamesUI(config, actions) {
   if (!config) return null;
   document.body.classList.add('mini-game');
+  for(const side of ['home','away']){const team=config.matchup[side],club=document.querySelector('.club.'+side);club.querySelector('b').textContent=team.name.split(' ').slice(-1)[0].toUpperCase();club.querySelector('.crest').textContent=team.abbr;club.setAttribute('aria-label',team.name+', '+team.overall+' overall');club.style.borderBottomColor=team.secondary;club.querySelector('.crest').style.color=team.secondary;}
+
   document.title = 'Ball Knower | Two-Minute Drill';
   document.querySelector('#game').setAttribute('aria-label', 'Two-Minute Drill football field');
   document.querySelector('#loading span').textContent = 'Preparing Two-Minute Drill…';
@@ -43,12 +45,12 @@ export function createMiniGamesUI(config, actions) {
       if (!result) return;
       if (savedResult !== result) {
         savedResult = result;
-        try { best = saveMiniBest(localStorage, config.level.id, result); } catch { best = null; }
+        try { best = saveMiniBest(localStorage, config.level.id, result, config.matchup.home.abbr + '-' + config.matchup.away.abbr); } catch { best = null; }
       }
       const stats = document.createElement('p');
-      stats.textContent = `${drive.score}–${result.reason === 'SAFETY' ? 29 : 27} · ${result.plays} ${result.plays === 1 ? 'play' : 'plays'} · ${result.yards} yards · ${miniClock(result.remaining)} left`;
+      stats.textContent = `${config.matchup.home.abbr} ${drive.score}–${result.reason === 'SAFETY' ? 29 : 27} ${config.matchup.away.abbr} · ${result.plays} ${result.plays === 1 ? 'play' : 'plays'} · ${result.yards} yards · ${miniClock(result.remaining)} left`;
       summary.replaceChildren(stats);
-      if (best !== null) { const record = document.createElement('p'); record.textContent = `${config.level.name} best: ${miniClock(best)} remaining`; summary.append(record); }
+      if (best !== null) { const record = document.createElement('p'); record.textContent = `${config.level.name} matchup best: ${miniClock(best)} remaining`; summary.append(record); }
       const details = document.createElement('details'), heading = document.createElement('summary'), list = document.createElement('ol');
       heading.textContent = 'Drive recap'; details.append(heading, list);
       for (const entry of session.log) { const li = document.createElement('li'); li.textContent = `${miniClock(entry.clock)} · ${entry.reason}${entry.gain === null ? '' : ` · ${entry.gain >= 0 ? '+' : ''}${entry.gain} yards`}`; list.append(li); }
