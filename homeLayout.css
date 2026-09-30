@@ -103,6 +103,19 @@
 .bk-mini-levels input:focus-visible+span,.bk-mini-start:focus-visible { outline:3px solid #ffe196; outline-offset:3px; }
 .bk-mini-start { display:flex; align-items:center; justify-content:space-between; min-height:48px; padding:10px 12px; border:1px solid #d3ad3e; border-radius:8px; color:#f4d77d; font-weight:800; font-size:14px; text-decoration:none; }
 .bk-mini-games-content p.bk-mini-tip { font-size:12px; }
+.bk-mini-matchup h3 { font-size:17px; margin:18px 0 10px; }
+.bk-mini-team-pair { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.bk-mini-team-pair>button { display:flex; flex-direction:column; align-items:center; gap:7px; padding:12px 6px; min-width:0; border:1px solid #79705a; border-radius:10px; background:#171b22; color:#f3f0e6; cursor:pointer; }
+.bk-mini-team-pair>button>small { font-size:10px; color:#c5bea9; }
+.bk-mini-badge { display:grid; place-items:center; width:48px; height:48px; border-radius:12px; font-size:17px; font-weight:900; }
+.bk-mini-team-pair strong { font-size:14px; line-height:1.3; min-height:36px; }
+.bk-mini-team-ovr { font-size:26px; font-weight:900; }.bk-mini-team-ovr small { font-size:11px; }
+.bk-mini-team-ratings { font-size:11px; }.bk-mini-team-change { color:#e8c66c; font-size:12px; }
+.bk-mini-team-picker { margin:12px 0; }.bk-mini-team-picker label { font-size:13px; }
+.bk-mini-team-picker input { display:block; width:100%; min-height:44px; padding:8px; margin:7px 0; background:#090e17; color:#fff; border:1px solid #8e8060; border-radius:8px; }
+.bk-mini-team-picker>div { max-height:270px; overflow:auto; overscroll-behavior:contain; }
+.bk-mini-team-picker button { width:100%; display:grid; grid-template-columns:1fr auto; gap:5px; text-align:left; border:1px solid #ffffff21; border-radius:7px; background:#171c24; color:#f2eddf; padding:10px; margin:4px 0; min-height:56px; }
+.bk-mini-team-picker button[aria-pressed="true"] { border-color:#e8c66c; }.bk-mini-team-picker button:disabled { opacity:.4; }.bk-mini-team-picker small { color:#bcbdbb; }.bk-mini-team-picker strong { color:#e8c66c; font-size:12px; }
 .bk-home-clean .bk-home-rating { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:12px; margin:10px 0 0; padding:11px 13px; min-height:84px; border:1px solid #303632; border-radius:9px; background:#0c1015; }
 .bk-home-clean .bk-home-rating-value>span { display:block; color:#a7afb4; font:700 9px/1.25 Arial,sans-serif; text-transform:uppercase; letter-spacing:.07em; }
 .bk-home-clean .bk-home-rating-value>strong { display:block; margin-top:3px; color:#f2f2ed; font:800 34px/.95 'Barlow Condensed','Arial Narrow',sans-serif; }

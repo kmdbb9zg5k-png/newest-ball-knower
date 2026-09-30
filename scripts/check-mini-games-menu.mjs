@@ -16,8 +16,15 @@ try{
   const dialog=page.getByRole('dialog');
   for(const [name,id] of [['Rookie','rookie'],['Pro','pro'],['All-Pro','all-pro']]){
    await dialog.getByRole('radio',{name,exact:true}).check();
-   assert.equal(await dialog.getByRole('link',{name:'Play Two-Minute Drill'}).getAttribute('href'),`/play-moment-3d-preview.html?mode=two-minute&difficulty=${id}`);
+   assert.equal(await dialog.getByRole('link',{name:'Play Two-Minute Drill'}).getAttribute('href'),`/play-moment-3d-preview.html?mode=two-minute&difficulty=${id}&team=JCY&opponent=BRK`);
   }
+  await dialog.getByRole('button',{name:/Choose your team:/}).click();
+  await dialog.getByRole('searchbox',{name:'Find a Solo team'}).fill('Albuquerque');
+  await dialog.getByRole('button',{name:/Albuquerque Scorpions.*OVR/}).click();
+  await dialog.getByRole('button',{name:/Choose opponent:/}).click();
+  await dialog.getByRole('searchbox',{name:'Find a Solo team'}).fill('Austin');
+  await dialog.getByRole('button',{name:/Austin Outlaws.*OVR/}).click();
+  assert((await dialog.getByRole('link',{name:'Play Two-Minute Drill'}).getAttribute('href')).endsWith('&team=ABQ&opponent=AUS'));
   assert.equal(await dialog.getByText('Coming soon',{exact:true}).count(),2);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   await dialog.getByRole('radio',{name:'All-Pro',exact:true}).scrollIntoViewIfNeeded();
@@ -25,10 +32,10 @@ try{
   await dialog.getByRole('button',{name:'Back to Home'}).click();assert.equal(await dialog.isVisible(),false);
   await page.goto('http://127.0.0.1:4199/?miniGames=1');await dialog.waitFor();
   assert(await dialog.getByRole('radio',{name:'All-Pro',exact:true}).isChecked());
-  assert.equal(new URL(page.url()).search,'');
+  assert.equal(new URL(page.url()).search,'');assert(await dialog.getByRole('button',{name:'Choose your team: Albuquerque Scorpions'}).isVisible());assert(await dialog.getByRole('button',{name:'Choose opponent: Austin Outlaws'}).isVisible());
   await page.keyboard.press('Escape');assert.equal(await dialog.isVisible(),false);
   await page.getByRole('button',{name:'Play Solo Mode',exact:true}).click();await page.locator('.bk-mode-card').first().waitFor();
   assert.deepEqual(errors,[]);await page.close();
  }
- console.log('PASS: menu at 320/390/1280, accessible difficulty radios, correct launch URLs, saved level, return to menu, close/Escape, and Solo navigation.');
+ console.log('PASS: menu at 320/390/1280, accessible difficulty radios, searchable team choices and ratings, correct launch URLs, saved level, return to menu, close/Escape, and Solo navigation.');
 }finally{await browser.close();server.kill();}

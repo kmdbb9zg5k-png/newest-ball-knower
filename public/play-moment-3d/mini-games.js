@@ -1,3 +1,4 @@
+import {miniMatchup} from './mini-teams.js?v=teams-1';
 /** Shared mini-game levels. Athlete speed and animation timing stay rating-driven. */
 export const MINI_LEVELS = Object.freeze([
   Object.freeze({ id: 'rookie', name: 'Rookie', description: 'Forgiving coverage, easier tackles to break, slower defensive reads.', defense: -16, readScale: 1.45 }),
@@ -7,7 +8,7 @@ export const MINI_LEVELS = Object.freeze([
 export function miniLevel(id) { return MINI_LEVELS.find(level => level.id === id) || MINI_LEVELS[0]; }
 export function miniGameFromSearch(search = '') {
   const params = new URLSearchParams(search);
-  return params.get('mode') === 'two-minute' ? { mode: 'two-minute', level: miniLevel(params.get('difficulty')) } : null;
+  return params.get('mode') === 'two-minute' ? { mode: 'two-minute', level: miniLevel(params.get('difficulty')), matchup: miniMatchup(params.get('team'), params.get('opponent')) } : null;
 }
 export function miniRatings(ratings, team, level) {
   if (!level || team !== 1) return ratings;
@@ -60,9 +61,9 @@ export function miniFinish(session, drive, title) {
   return session.result = { won: title === 'TOUCHDOWN', reason: title, remaining: Math.max(0, drive.clock), plays: drive.plays, yards: drive.ball - 25 };
 }
 export function miniClock(seconds) { const n = Math.max(0, Math.ceil(seconds)); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; }
-export function saveMiniBest(storage, level, result) {
+export function saveMiniBest(storage, level, result, matchup = '') {
   if (!result?.won) return null;
-  const key = `bk-mini-two-minute-best-v1:${miniLevel(level).id}`;
+  const key = `bk-mini-two-minute-best-v1:${miniLevel(level).id}${matchup ? ':' + matchup : ''}`;
   try {
     const previous = Number(storage.getItem(key));
     const best = Math.max(Number.isFinite(previous) ? previous : 0, result.remaining);

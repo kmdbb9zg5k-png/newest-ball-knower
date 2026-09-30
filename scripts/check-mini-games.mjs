@@ -40,5 +40,7 @@ saveMiniBest(storage, 'rookie', { ...win, remaining: 45 });
 assert.equal(saveMiniBest(storage, 'rookie', { ...win, remaining: 20 }), 45);
 assert.equal(saveMiniBest(storage, 'all-pro', { ...win, remaining: 12 }), 12);
 assert.equal(saveMiniBest(storage, 'rookie', loss), null);
+assert.equal(saveMiniBest(storage, 'rookie', { ...win, remaining: 12 }, 'ABQ-AUS'), 12);
+assert.equal(saveMiniBest(storage, 'rookie', { ...win, remaining: 8 }, 'ABQ-BRK'), 8);
 assert.equal(saveMiniBest({getItem(){throw Error('denied')}}, 'rookie', win), null);
 console.log('PASS: level effects, unchanged speed/offense, in-bounds clock, stopped clock, timeouts, spike, delay penalty, outcomes, and per-level records.');
