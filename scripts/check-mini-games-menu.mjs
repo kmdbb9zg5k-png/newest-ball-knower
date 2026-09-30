@@ -16,12 +16,16 @@ try{
   const dialog=page.getByRole('dialog');assert.equal(await dialog.evaluate(el=>el.scrollTop),0,'Setup opens at the top so difficulty and teams are discoverable');
   for(const [name,id] of [['Rookie','rookie'],['Pro','pro'],['All-Pro','all-pro']]){
    await dialog.getByRole('radio',{name,exact:true}).check();
-   assert.equal(await dialog.getByRole('link',{name:'Play Two-Minute Drill'}).getAttribute('href'),`/play-moment-3d-preview.html?mode=two-minute&difficulty=${id}&team=JCY&opponent=BRK`);
+   assert.equal(await dialog.getByRole('link',{name:'Play Two-Minute Drill'}).getAttribute('href'),`/play-moment-3d-preview.html?mode=two-minute&difficulty=${id}&team=OKC&opponent=OMA`);
   }
   await dialog.getByRole('button',{name:/Choose your team:/}).click();
   await dialog.getByRole('searchbox',{name:'Find a Solo team'}).fill('Albuquerque');
   await dialog.getByRole('button',{name:/Albuquerque Scorpions.*OVR/}).click();
   await dialog.getByRole('button',{name:/Choose opponent:/}).click();
+  assert.equal(await dialog.locator('.bk-mini-team-picker button').count(),31);
+  assert.equal(await dialog.locator('.bk-mini-team-picker').getByRole('button',{name:/Albuquerque Scorpions/}).count(),0,'Chosen team is removed from opponents');
+  await dialog.getByRole('searchbox',{name:'Find a Solo team'}).fill('Albuquerque');
+  assert(await dialog.getByText('No matching teams.',{exact:true}).isVisible());
   await dialog.getByRole('searchbox',{name:'Find a Solo team'}).fill('Austin');
   await dialog.getByRole('button',{name:/Austin Outlaws.*OVR/}).click();
   assert((await dialog.getByRole('link',{name:'Play Two-Minute Drill'}).getAttribute('href')).endsWith('&team=ABQ&opponent=AUS'));
