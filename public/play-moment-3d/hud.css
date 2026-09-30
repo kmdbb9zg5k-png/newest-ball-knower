@@ -373,3 +373,8 @@ html,body,#game,#hud{min-height:100dvh}
 
 /* No overlapping instruction ribbon. */
 #instruction{display:none!important}
+
+/* Fit the complete action label inside a practical touch target. */
+#skillPad{grid-template-columns:repeat(2,58px)}
+#skillPad button{width:58px;padding:0 3px;font-size:10px;letter-spacing:0}
+@media(max-width:740px){#skillPad{grid-template-columns:repeat(2,52px)}#skillPad button{width:52px;font-size:9px}}
