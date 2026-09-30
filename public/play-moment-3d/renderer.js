@@ -108,23 +108,26 @@ void main(){
  }
  if(material==4&&hasTurfDetail==1){
   vec2 grassUV=world.xz*.38;
+  // Blend rotated scales instead of exposing one repeating grass photograph.
   vec3 grass=texture(turfDetail,grassUV).rgb;
-  grass=mix(grass,vec3(.30,.43,.24),.23);
+  vec2 rotated=mat2(.8,-.6,.6,.8)*grassUV*.73+vec2(.37,.61);
+  grass=mix(grass,texture(turfDetail,rotated).rgb,.43);
+  grass=mix(grass,vec3(.24,.36,.20),.52);
   float grassMask=(1.-smoothstep(.80,.96,base.r/max(base.g,.001)))*smoothstep(.16,.23,base.g);
   // Preserve both broad mowing direction and the fine turf map.
   float fiber=dot(grass,vec3(.2126,.7152,.0722));
-  vec3 turf=pow(grass*vec3(.73,.78,.72),vec3(2.2));
-  albedo=mix(albedo,turf,grassMask*.82);
+  vec3 turf=pow(grass*vec3(.72,.77,.71),vec3(2.2));
+  albedo=mix(albedo,turf,grassMask*.72);
   float rawFiber=dot(texture(turfDetail,grassUV).rgb,vec3(.3,.6,.1));
   float dx=dot(texture(turfDetail,grassUV+vec2(.001,0.)).rgb,vec3(.3,.6,.1))-rawFiber;
   float dz=dot(texture(turfDetail,grassUV+vec2(0.,.001)).rgb,vec3(.3,.6,.1))-rawFiber;
-  N=normalize(N+vec3(-dx,0.,-dz)*1.4);
+  N=normalize(N+vec3(-dx,0.,-dz)*.55);
  }
  if(material==4){
   vec2 grid=world.xz*36.;float aa=1.-smoothstep(.6,2.3,max(fwidth(grid.x),fwidth(grid.y)));
   float grain=hash(floor(grid)),crossGrain=hash(floor(world.zx*67.+19.));
   float blades=sin(world.z*290.+grain*3.)*sin(world.x*137.+crossGrain*2.);
-  albedo*=1.+(grain-.5)*.075*aa+(crossGrain-.5)*.025*aa;
+  albedo*=1.+(grain-.5)*.040*aa+(crossGrain-.5)*.012*aa;
   float paintFiber=smoothstep(.65,.90,base.r/max(base.g,.001));
   albedo*=1.-paintFiber*smoothstep(.82,.99,grain)*.12*aa;
   float traffic=(1.-smoothstep(5.,17.,abs(world.x)))*smoothstep(10.,22.,world.z)*(1.-smoothstep(98.,110.,world.z));
@@ -134,7 +137,7 @@ void main(){
  }
  float lit=visibility(N);vec3 L0=normalize(KEY),L1=normalize(vec3(.62,.69,.38)),L2=normalize(vec3(-.20,.72,.65));
  float d0=max(dot(N,L0),0.),d1=max(dot(N,L1),0.),d2=max(dot(N,L2),0.);
- vec3 ambient=mix(vec3(.052,.066,.078),vec3(.145,.185,.255),N.y*.5+.5);
+ vec3 ambient=mix(vec3(.048,.068,.082),vec3(.18,.23,.32),N.y*.5+.5);
  // Four real stadium banks add localized highlights instead of a uniform wash.
  vec3 toA=vec3(-35.,23.,8.)-world,toB=vec3(35.,23.,111.)-world,toC=vec3(35.,23.,8.)-world,toD=vec3(-35.,23.,111.)-world;
  float bankA=max(dot(N,normalize(toA)),0.)/(1.+dot(toA,toA)*.0011);
@@ -145,7 +148,7 @@ void main(){
  // Slight wrap on skin keeps faces readable without making uniforms luminous.
  if(material==3)diffuse+=vec3(.17,.10,.075)*max(0.,dot(N,L0)+.35);
  // The field is floodlit; the surrounding bowl remains a night environment.
- float exposure=material==4?.48:material==0?.48:1.;
+ float exposure=material==4?.53:material==0?.64:1.;
  vec3 rgb=albedo*diffuse*exposure;
  float nv=max(dot(N,V),0.);vec3 F0=mix(vec3(.025),albedo*.55+vec3(.12),g*.5);
  vec3 fresnel=F0+(1.-F0)*pow(1.-nv,5.);
@@ -159,7 +162,7 @@ void main(){
   rgb+=fresnel*g*crown*.7;
  }
  if(material==4){
-  float mowing=.90+.10*smoothstep(-.08,.08,sin(world.z*3.14159*.2));rgb*=mowing;
+  float mowing=.86+.14*smoothstep(-.12,.12,sin(world.z*3.14159*.2));rgb*=mowing;
   float paint=smoothstep(.20,.45,albedo.r);rgb=mix(rgb,rgb*1.08,paint);
   float grazing=pow(1.-max(dot(N,V),0.),3.);float dew=pow(max(dot(N,normalize(L1+V)),0.),30.);
   float blade=hash(floor(world.xz*92.));float grassSheen=(1.-smoothstep(.80,.96,base.r/max(base.g,.001)))*smoothstep(.16,.23,base.g);
@@ -168,7 +171,7 @@ void main(){
  float groundFill=smoothstep(0.,.72,world.y);if(material>0&&material!=4)rgb*=mix(.68,1.,groundFill);
  // Grounded ambient occlusion gives feet, equipment and stadium seams weight.
  float contactAO=1.-(1.-smoothstep(.02,.52,world.y))*(1.-abs(N.y))*.22;rgb*=contactAO;
- float fog=smoothstep(50.,190.,distance(eye,world));rgb=mix(rgb,vec3(.016,.026,.046),fog*.70);
+ float fog=smoothstep(65.,220.,distance(eye,world));rgb=mix(rgb,vec3(.025,.045,.077),fog*.52);
  outputColor=vec4(pow(film(rgb*1.12),vec3(1./2.2)),base.a);
 }`;
 const skyVertex=`#version 300 es
@@ -177,7 +180,7 @@ void main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));uv=p;gl_
 const skyFragment=`#version 300 es
 precision highp float;in vec2 uv;out vec4 outputColor;
 float skyHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-void main(){float y=clamp(uv.y,0.,1.),horizon=pow(1.-y,3.2);vec3 sky=mix(vec3(.020,.032,.058),vec3(.068,.096,.145),horizon);sky+=vec3(.050,.071,.095)*exp(-pow((y-.12)*5.1,2.));vec2 cells=floor(uv*vec2(340.,190.));float star=step(.9970,skyHash(cells))*smoothstep(.46,.05,length(fract(uv*vec2(340.,190.))-.5))*smoothstep(.18,.44,y);sky+=vec3(.61,.70,.82)*star;float cloud=(sin(uv.x*18.+uv.y*7.)+sin(uv.x*31.-uv.y*11.)+sin(uv.x*9.-uv.y*4.))*.36;sky+=vec3(.021,.030,.046)*smoothstep(.48,1.,cloud)*smoothstep(.18,.65,y);vec2 moonP=(uv-vec2(.78,.73))*vec2(1.78,1.);float moon=1.-smoothstep(.027,.035,length(moonP));float moonHalo=exp(-length(moonP)*24.);sky+=vec3(.70,.77,.82)*(moon*.78+moonHalo*.055);float stadiumGlow=exp(-pow((y-.055)*10.,2.));sky+=vec3(.035,.060,.086)*stadiumGlow;vec2 p=uv*2.-1.;sky*=1.-clamp(dot(p,p)*.105,0.,.30);outputColor=vec4(sky,1.);}`;
+void main(){float y=clamp(uv.y,0.,1.),horizon=pow(1.-y,3.2);vec3 sky=mix(vec3(.031,.057,.103),vec3(.12,.17,.235),horizon);sky+=vec3(.050,.071,.095)*exp(-pow((y-.12)*5.1,2.));vec2 cells=floor(uv*vec2(340.,190.));float star=step(.9970,skyHash(cells))*smoothstep(.46,.05,length(fract(uv*vec2(340.,190.))-.5))*smoothstep(.18,.44,y);sky+=vec3(.61,.70,.82)*star;float cloud=(sin(uv.x*18.+uv.y*7.)+sin(uv.x*31.-uv.y*11.)+sin(uv.x*9.-uv.y*4.))*.36;sky+=vec3(.021,.030,.046)*smoothstep(.48,1.,cloud)*smoothstep(.18,.65,y);vec2 moonP=(uv-vec2(.78,.73))*vec2(1.78,1.);float moon=1.-smoothstep(.027,.035,length(moonP));float moonHalo=exp(-length(moonP)*24.);sky+=vec3(.70,.77,.82)*(moon*.78+moonHalo*.055);float stadiumGlow=exp(-pow((y-.055)*10.,2.));sky+=vec3(.035,.060,.086)*stadiumGlow;vec2 p=uv*2.-1.;sky*=1.-clamp(dot(p,p)*.06,0.,.18);outputColor=vec4(sky,1.);}`;
 const depthVertex=`#version 300 es
 precision highp float;layout(location=0)in vec3 p;layout(location=3)in mat4 model;uniform mat4 lightVP;
 void main(){gl_Position=lightVP*model*vec4(p,1.);}`;

@@ -4,7 +4,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {MeshyAthletes,parseGLB,athleteSupportVertices,skinSupportVertices,ATHLETE_SHADERS} from '../public/play-moment-3d/meshy-athlete.js';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const raw=fs.readFileSync(path.join(root,'public/play-moment-3d/assets/ball-knower-gridiron-sentinel-v4.glb'));
+const raw=fs.readFileSync(path.join(root,'public/play-moment-3d/assets/ball-knower-anatomical-athlete-v6.glb'));
 const parsed=parseGLB(raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength)),{json,accessor}=parsed,primitive=json.meshes[0].primitives[0];
 // Exercise the shipped pose methods and real asset without requiring WebGL.
 function makeRig(Type=MeshyAthletes){

@@ -14,7 +14,7 @@ def smooth(a,b,x):
     return t*t*(3-2*t)
 
 
-def compile_study(folder):
+def compile_study(folder, neutral=False, athletic=False):
     provenance=json.loads((folder/'provenance.json').read_text())
     for f in provenance['files']:
         data=(folder/Path(f['path']).name).read_bytes()
@@ -33,6 +33,12 @@ def compile_study(folder):
             words=line.split()
             if not words or words[0].startswith('#'):continue
             index=int(words[0]);rest[index]+=np.asarray(list(map(float,words[1:4])))*.5
+    if athletic:
+        for name,weight in [('universal-male-young-maxmuscle-averageweight.target',.72),('universal-male-young-maxmuscle-maxweight.target',.28)]:
+            for line in (folder/name).read_text().splitlines():
+                words=line.split()
+                if not words or words[0].startswith('#'):continue
+                rest[int(words[0])]+=np.asarray(list(map(float,words[1:4])))*weight
     def joint(name):
         ids=sorted({v[0] for f in groups[name] for v in f})
         return rest[ids].mean(0)
@@ -42,7 +48,7 @@ def compile_study(folder):
     posed=rest.copy()
     for side,label in [(1,'l'),(-1,'r')]:
         shoulder=joints[f'joint-{label}-shoulder'];delta=rest-shoulder
-        angle=-side*np.deg2rad(23);c=np.cos(angle);s=np.sin(angle)
+        angle=-side*np.deg2rad(0 if neutral else 23);c=np.cos(angle);s=np.sin(angle)
         rotated=np.stack([c*delta[:,0]-s*delta[:,1],s*delta[:,0]+c*delta[:,1],delta[:,2]],axis=1)+shoulder
         lower_mask=np.maximum(smooth(1.6,3.1,rest[:,1]),smooth(2.7,3.4,np.abs(rest[:,0])))
         weight=smooth(1.3,2.7,side*rest[:,0])*lower_mask*(1-smooth(6.0,6.8,rest[:,1]))
@@ -68,11 +74,12 @@ def compile_study(folder):
         arm=(abs(x)>1.85 and y>1.8) or abs(x)>3.2
         position=lambda v:float(np.dot(v[:3]-a,axis)/np.dot(axis,axis))
         if source=='body':
+            if y < -7.1:return [('cleats',clip(poly,lambda v:-7.1-v[1]))]
             if arm:return [('skin',clip(poly,lambda v:position(v)-.40))]
             return [('skin',clip(poly,lambda v:v[1]-6.95))]
         if arm:poly=clip(poly,lambda v:.40-position(v))
         return [(key,bands(poly,low,high)) for key,low,high in
-                [('jersey',1.15,7.0),('pants',-3.35,1.15),('socks',-7.25,-3.35)]]
+                [('jersey',1.15,7.0),('pants',-3.35,1.15),('socks',-7.8,-3.35)]]
     for source in ['body','helper-tights']:
         faces=groups[source];coords=final.copy()
         if source=='helper-tights':
@@ -110,7 +117,7 @@ def compile_study(folder):
     for mesh in output.values():
         assert len(mesh['v'])//8<65536 and np.isfinite(mesh['v']).all()
         assert min(mesh['ix'])>=0 and max(mesh['ix'])<len(mesh['v'])//8
-    return {'kind':'single fictional adult player art study; not rigged game integration','meshes':dict(output),'eyes':eyes,'ankles':ankles,'height':float(final[[x[0]for f in groups['body']for x in f],1].max()),'sourceRevision':provenance['revision'],'license':'CC0-1.0 source graphical assets; original conversion','triangles':{k:len(m['ix'])//3 for k,m in output.items()}}
+    return {'kind':'single fictional adult player art study; not rigged game integration','meshes':dict(output),'eyes':eyes,'ankles':ankles,'joints':{k:((v-np.array([0,ground,0]))*factor).tolist() for k,v in joints.items()},'height':float(final[[x[0]for f in groups['body']for x in f],1].max()),'sourceRevision':provenance['revision'],'license':'CC0-1.0 source graphical assets; original conversion','triangles':{k:len(m['ix'])//3 for k,m in output.items()}}
 
 
 def main():

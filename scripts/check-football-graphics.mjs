@@ -9,7 +9,7 @@ const ball=footballGeometry();
 assert.ok(ball.v.every(Number.isFinite));
 assert.ok(ball.ix.every(i=>i>=0&&i<ball.v.length/8));
 for(let i=0;i<ball.v.length;i+=8)assert.ok(Math.abs(Math.hypot(...ball.v.slice(i+3,i+6))-1)<1e-5);
-const root=resolve('public'),out=resolve(process.env.BK_GRAPHICS_OUT||'/tmp/bk-graphics-check');await mkdir(out,{recursive:true});
+const root=resolve(process.env.BK_GRAPHICS_ROOT||'public'),out=resolve(process.env.BK_GRAPHICS_OUT||'/tmp/bk-graphics-check');await mkdir(out,{recursive:true});
 const server=createServer(async(req,res)=>{try{const name=resolve(root,'.'+new URL(req.url,'http://local').pathname);if(!name.startsWith(root+'/'))throw Error('path');const data=await readFile(name);res.setHeader('Content-Type',({'.js':'text/javascript','.css':'text/css','.glb':'model/gltf-binary','.html':'text/html'})[extname(name)]||'application/octet-stream');res.end(data)}catch{res.writeHead(404).end()}});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const browser=await chromium.launch({headless:true,...(process.env.BROWSER_PATH?{executablePath:process.env.BROWSER_PATH}:{}),...(process.env.BK_TEST_URL?{proxy:{server:process.env.HTTPS_PROXY||process.env.HTTP_PROXY}}:{}),args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
@@ -30,7 +30,7 @@ try{
  await page.locator('#snap').dispatchEvent('pointerdown',{pointerId:1,pointerType:'touch'});await page.evaluate(()=>window.bk3dTest.step(1.1));
  await page.screenshot({path:out+'/mobile-blocking.png'});
  let data=await page.evaluate(()=>({game:window.bk3dDiagnostics(),graphics:window.bkGraphicsDiagnostics()}));
- assert.equal(data.game.phase,'pass');assert.equal(data.game.glError,0);assert.equal(data.graphics.overflows,0);assert.ok(data.graphics.drawCalls<60);assert.ok(data.graphics.instanceBytes<=2_889_600,'Instance buffers grew beyond measured PR 379 baseline');assert.equal(data.graphics.shadowDrawCalls,22);assert.equal(data.game.athletes.bodyProfiles,8);
+ assert.equal(data.game.phase,'pass');assert.equal(data.game.glError,0);assert.equal(data.graphics.overflows,0);assert.ok(data.graphics.drawCalls<60);assert.ok(data.graphics.instanceBytes<=4_194_304,'Remodeled bowl exceeded the 4 MiB instance budget');assert.equal(data.graphics.shadowDrawCalls,22);assert.equal(data.game.athletes.bodyProfiles,8);
  await page.locator('#target-7').dispatchEvent('click',{detail:0});await page.evaluate(()=>window.bk3dTest.step(.3));assert.equal((await page.evaluate(()=>window.bk3dDiagnostics())).phase,'flight');
  await page.screenshot({path:out+'/mobile-throw.png'});
  // Transform feedback measures the actual GPU-deformed surface, not its support-point approximation.

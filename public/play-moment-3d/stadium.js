@@ -1,7 +1,8 @@
 import{stadiumCorners,stadiumDetails}from'./stadium-architecture.js?v=stadium-finish-36';
 import{installSceneMaterials}from'./scene-materials.js?v=reference-scene-31';
-import{pose,mul,rx,rz,translate,scale,segment,hex}from'./renderer.js?v=football-foundation-44';
+import{pose,mul,rx,rz,translate,scale,segment,hex}from'./renderer.js?v=full-field-remodel-49';
 import{installNightStadium}from'./night-stadium.js';
+import{installRemodeledBowl}from'./stadium-remodel.js';
 const C=hex;
 function canvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return[c,c.getContext('2d')]}
 let seed=31;function random(){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296}
@@ -11,11 +12,11 @@ export function makeStadium(r){
  const turfScale=Math.min(2,(r.gl?.getParameter?.(r.gl.MAX_TEXTURE_SIZE)||4096)/2048);
  const [t,ctx]=canvas(1024*turfScale,2048*turfScale),W=1024,H=2048;ctx.scale(turfScale,turfScale);
  const px=x=>(x+26.6667)/53.3334*W,py=z=>z/120*H;
- const base=ctx.createLinearGradient(0,0,W,0);base.addColorStop(0,'#22482c');base.addColorStop(.5,'#35673c');base.addColorStop(1,'#21452b');ctx.fillStyle=base;ctx.fillRect(0,0,W,H);
+ const base=ctx.createLinearGradient(0,0,W,0);base.addColorStop(0,'#274a31');base.addColorStop(.5,'#315b37');base.addColorStop(1,'#274a31');ctx.fillStyle=base;ctx.fillRect(0,0,W,H);
  for(let i=0;i<24;i++){ctx.fillStyle=i%2?'rgba(10,34,17,.22)':'rgba(101,139,81,.13)';ctx.fillRect(0,i*H/24,W,H/24)}
  for(let i=0;i<30000;i++){const bright=random()>.46,k=Math.floor(random()*24+38);ctx.fillStyle=bright?`rgba(${k},${k+38},${k-4},.16)`:`rgba(9,28,12,.11)`;ctx.fillRect(random()*W,random()*H,.6+random()*1.4,1+random()*2.1)}
  for(let i=0;i<820;i++){const z=py(12+random()*96),x=px((random()-.5)*14),radius=3+random()*15,wear=ctx.createRadialGradient(x,z,0,x,z,radius);wear.addColorStop(0,'rgba(156,145,91,.025)');wear.addColorStop(1,'rgba(156,145,91,0)');ctx.fillStyle=wear;ctx.fillRect(x-radius,z-radius,radius*2,radius*2)}
- for(const [a,b]of[[0,10],[110,120]]){const end=ctx.createLinearGradient(0,py(a),0,py(b));end.addColorStop(0,'#10252f');end.addColorStop(.55,'#17333c');end.addColorStop(1,'#0b1b25');ctx.fillStyle=end;ctx.fillRect(0,py(a),W,py(b-a))}
+ for(const [a,b]of[[0,10],[110,120]]){const end=ctx.createLinearGradient(0,py(a),0,py(b));end.addColorStop(0,'#0b2133');end.addColorStop(.55,'#193b4a');end.addColorStop(1,'#0b2133');ctx.fillStyle=end;ctx.fillRect(0,py(a),W,py(b-a))}
  ctx.strokeStyle='#eeeadd';ctx.lineCap='round';ctx.lineWidth=3.1;ctx.strokeRect(4,4,W-8,H-8);
  for(let y=10;y<=110;y+=5){ctx.globalAlpha=y%10===0?1:.72;ctx.lineWidth=y%10===0?3.2:2.1;ctx.beginPath();ctx.moveTo(0,py(y));ctx.lineTo(W,py(y));ctx.stroke()}
  ctx.globalAlpha=1;
@@ -29,7 +30,7 @@ export function makeStadium(r){
  halo.addColorStop(0,'rgba(230,242,255,.9)');halo.addColorStop(.12,'rgba(198,220,255,.5)');halo.addColorStop(.38,'rgba(152,191,244,.12)');halo.addColorStop(1,'rgba(100,160,255,0)');gc.fillStyle=halo;gc.fillRect(0,0,128,128);r.texture('lamp-glow',glow);
  const [sh,sc]=canvas(64,64),g=sc.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(0,0,0,.55)');g.addColorStop(.3,'rgba(0,0,0,.38)');g.addColorStop(1,'rgba(0,0,0,0)');sc.fillStyle=g;sc.fillRect(0,0,64,64);r.texture('shadow',sh);
  const [focus,fc]=canvas(128,128),focusGlow=fc.createRadialGradient(64,64,3,64,64,64);focusGlow.addColorStop(0,'rgba(255,223,129,.38)');focusGlow.addColorStop(.34,'rgba(225,188,91,.16)');focusGlow.addColorStop(1,'rgba(204,165,68,0)');fc.fillStyle=focusGlow;fc.fillRect(0,0,128,128);r.texture('player-glow',focus);
- const [dust,dc]=canvas(96,96),dustGlow=dc.createRadialGradient(48,48,2,48,48,46);dustGlow.addColorStop(0,'rgba(255,247,210,.82)');dustGlow.addColorStop(.26,'rgba(196,166,103,.48)');dustGlow.addColorStop(1,'rgba(124,96,54,0)');dc.fillStyle=dustGlow;dc.fillRect(0,0,96,96);for(let i=0;i<28;i++){dc.fillStyle=`rgba(255,239,190,${.12+random()*.28})`;dc.beginPath();dc.arc(18+random()*60,18+random()*60,.7+random()*2.2,0,Math.PI*2);dc.fill()}r.texture('turf-fx',dust);
+ const [dust,dc]=canvas(96,96),dustGlow=dc.createRadialGradient(48,48,2,48,48,46);dustGlow.addColorStop(0,'rgba(125,136,86,.62)');dustGlow.addColorStop(.26,'rgba(94,107,63,.37)');dustGlow.addColorStop(1,'rgba(74,72,47,0)');dc.fillStyle=dustGlow;dc.fillRect(0,0,96,96);for(let i=0;i<28;i++){dc.fillStyle=`rgba(166,172,108,${.10+random()*.20})`;dc.beginPath();dc.arc(18+random()*60,18+random()*60,.7+random()*2.2,0,Math.PI*2);dc.fill()}r.texture('turf-fx',dust);
  const [impact,ic]=canvas(128,128),impactGlow=ic.createRadialGradient(64,64,0,64,64,64);impactGlow.addColorStop(0,'rgba(255,244,187,.86)');impactGlow.addColorStop(.14,'rgba(255,199,78,.46)');impactGlow.addColorStop(.42,'rgba(243,132,40,.12)');impactGlow.addColorStop(1,'rgba(225,102,26,0)');ic.fillStyle=impactGlow;ic.fillRect(0,0,128,128);r.texture('impact-glow',impact);
  const [pool,pc]=canvas(128,128),poolGlow=pc.createRadialGradient(64,64,1,64,64,64);poolGlow.addColorStop(0,'rgba(224,238,242,.24)');poolGlow.addColorStop(.45,'rgba(176,207,220,.095)');poolGlow.addColorStop(1,'rgba(115,160,184,0)');pc.fillStyle=poolGlow;pc.fillRect(0,0,128,128);r.texture('stadium-pool',pool);
  const [ribbon,rc]=canvas(128,2048),ribbonGradient=rc.createLinearGradient(0,0,128,0);ribbonGradient.addColorStop(0,'#07111a');ribbonGradient.addColorStop(.48,'#233843');ribbonGradient.addColorStop(1,'#07111a');rc.fillStyle=ribbonGradient;rc.fillRect(0,0,128,2048);for(let y=0;y<2048;y+=128){const hot=(y/128)%3===0;rc.fillStyle=hot?'#d7b966':'#6f93a7';rc.fillRect(18,y+16,92,5);rc.fillStyle=hot?'#745e2f':'#263f51';rc.fillRect(30,y+34,68,44);rc.fillStyle='#e8edf0';for(let x=37;x<93;x+=14)rc.fillRect(x,y+46,5,18);rc.fillStyle='#0b151e';rc.fillRect(18,y+96,92,3)}r.texture('led-ribbon',ribbon);
@@ -162,6 +163,7 @@ export function makeStadium(r){
  }
  for(const x of[-26.4,26.4])for(const z of[10,110])add('cube',pose(x,.25,z,.20,.50,.20),C('#ef7943'));
  installNightStadium(r,add);
+ installRemodeledBowl(r,add,fans,random);
  return{draw(){for(const p of staticParts)r.add(...p);if(!art.crowd)for(const p of crowdFallback)r.add(...p);
   if(art.crowd)for(const [x,y,z,w,h,cell,shade,warm]of fans)r.add('crowdSprite',pose(x,y,z,w,h,1),[shade*(.92+warm*.13),shade*(.96+warm*.04),shade*(1.06-warm*.14),1],'crowd-atlas',false,cell,6);
   if(art.sideline)for(const [x,y,z,h,cell,width,shade]of staffSprites){r.add('crowdSprite',pose(x,y,z,h*width,h,1),[shade,shade,shade,1],'sideline-atlas',false,cell,6);r.add('plane',pose(x,.016,z,.7,1,.55),[1,1,1,.42],'shadow',true)}else for(const p of staffFallback)r.add(...p);

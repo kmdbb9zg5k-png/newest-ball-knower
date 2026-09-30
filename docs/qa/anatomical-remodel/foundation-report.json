@@ -1,0 +1,526 @@
+{
+  "status": "PASS",
+  "gaits": [
+    {
+      "speed": 2,
+      "plantDrift": 1.28708525260012e-7,
+      "armSwing": 0.5606587251027513
+    },
+    {
+      "speed": 6,
+      "plantDrift": 0.0029228949095772756,
+      "armSwing": 0.6413934707641538
+    },
+    {
+      "speed": 9.5,
+      "plantDrift": 0.0888488795059303,
+      "armSwing": 0.9392016728718993
+    }
+  ],
+  "recovery": [
+    {
+      "carrier": false,
+      "heading": 0,
+      "side": -1,
+      "landedHead": 0.32816585898399353,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 0,
+      "side": 1,
+      "landedHead": 0.3278992176055908,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 0.7853981633974483,
+      "side": -1,
+      "landedHead": 0.3264152407646179,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 0.7853981633974483,
+      "side": 1,
+      "landedHead": 0.4085434079170227,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 1.5707963267948966,
+      "side": -1,
+      "landedHead": 0.3146946132183075,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 1.5707963267948966,
+      "side": 1,
+      "landedHead": 0.34712880849838257,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 2.356194490192345,
+      "side": -1,
+      "landedHead": 0.333877295255661,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 2.356194490192345,
+      "side": 1,
+      "landedHead": 0.39160728454589844,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 3.141592653589793,
+      "side": -1,
+      "landedHead": 0.32891610264778137,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 3.141592653589793,
+      "side": 1,
+      "landedHead": 0.3377704322338104,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 3.9269908169872414,
+      "side": -1,
+      "landedHead": 0.40647873282432556,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 3.9269908169872414,
+      "side": 1,
+      "landedHead": 0.3428288400173187,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 4.71238898038469,
+      "side": -1,
+      "landedHead": 0.352466881275177,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 4.71238898038469,
+      "side": 1,
+      "landedHead": 0.3287227153778076,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 5.497787143782138,
+      "side": -1,
+      "landedHead": 0.4248442053794861,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 5.497787143782138,
+      "side": 1,
+      "landedHead": 0.3341521620750427,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": true,
+      "heading": 0,
+      "side": -1,
+      "landedHead": 0.3557911515235901,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": true,
+      "heading": 0,
+      "side": 1,
+      "landedHead": 0.2976486384868622,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 0,
+      "side": -1,
+      "landedHead": 0.32816585898399353,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 0,
+      "side": 1,
+      "landedHead": 0.3278992176055908,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 0.7853981633974483,
+      "side": -1,
+      "landedHead": 0.3264152407646179,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 0.7853981633974483,
+      "side": 1,
+      "landedHead": 0.4085434079170227,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 1.5707963267948966,
+      "side": -1,
+      "landedHead": 0.3146946132183075,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 1.5707963267948966,
+      "side": 1,
+      "landedHead": 0.34712880849838257,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 2.356194490192345,
+      "side": -1,
+      "landedHead": 0.333877295255661,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 2.356194490192345,
+      "side": 1,
+      "landedHead": 0.39160728454589844,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 3.141592653589793,
+      "side": -1,
+      "landedHead": 0.32891610264778137,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 3.141592653589793,
+      "side": 1,
+      "landedHead": 0.3377704322338104,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 3.9269908169872414,
+      "side": -1,
+      "landedHead": 0.40647873282432556,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 3.9269908169872414,
+      "side": 1,
+      "landedHead": 0.3428288400173187,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 4.71238898038469,
+      "side": -1,
+      "landedHead": 0.352466881275177,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 4.71238898038469,
+      "side": 1,
+      "landedHead": 0.3287227153778076,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 5.497787143782138,
+      "side": -1,
+      "landedHead": 0.4248442053794861,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 5.497787143782138,
+      "side": 1,
+      "landedHead": 0.3341521620750427,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": true,
+      "heading": 0,
+      "side": -1,
+      "landedHead": 0.3557911515235901,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": true,
+      "heading": 0,
+      "side": 1,
+      "landedHead": 0.2976486384868622,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 0,
+      "side": -1,
+      "landedHead": 0.32816585898399353,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 0,
+      "side": 1,
+      "landedHead": 0.3278992176055908,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 0.7853981633974483,
+      "side": -1,
+      "landedHead": 0.3264152407646179,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 0.7853981633974483,
+      "side": 1,
+      "landedHead": 0.4085434079170227,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 1.5707963267948966,
+      "side": -1,
+      "landedHead": 0.3146946132183075,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 1.5707963267948966,
+      "side": 1,
+      "landedHead": 0.34712880849838257,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 2.356194490192345,
+      "side": -1,
+      "landedHead": 0.333877295255661,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 2.356194490192345,
+      "side": 1,
+      "landedHead": 0.39160728454589844,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 3.141592653589793,
+      "side": -1,
+      "landedHead": 0.32891610264778137,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 3.141592653589793,
+      "side": 1,
+      "landedHead": 0.3377704322338104,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 3.9269908169872414,
+      "side": -1,
+      "landedHead": 0.40647873282432556,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 3.9269908169872414,
+      "side": 1,
+      "landedHead": 0.3428288400173187,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 4.71238898038469,
+      "side": -1,
+      "landedHead": 0.352466881275177,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 4.71238898038469,
+      "side": 1,
+      "landedHead": 0.3287227153778076,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 5.497787143782138,
+      "side": -1,
+      "landedHead": 0.4248442053794861,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 5.497787143782138,
+      "side": 1,
+      "landedHead": 0.3341521620750427,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": true,
+      "heading": 0,
+      "side": -1,
+      "landedHead": 0.3557911515235901,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": true,
+      "heading": 0,
+      "side": 1,
+      "landedHead": 0.2976486384868622,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 0,
+      "side": -1,
+      "landedHead": 0.32816585898399353,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 0,
+      "side": 1,
+      "landedHead": 0.3278992176055908,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 0.7853981633974483,
+      "side": -1,
+      "landedHead": 0.3264152407646179,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 0.7853981633974483,
+      "side": 1,
+      "landedHead": 0.4085434079170227,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 1.5707963267948966,
+      "side": -1,
+      "landedHead": 0.3146946132183075,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 1.5707963267948966,
+      "side": 1,
+      "landedHead": 0.34712880849838257,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 2.356194490192345,
+      "side": -1,
+      "landedHead": 0.333877295255661,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 2.356194490192345,
+      "side": 1,
+      "landedHead": 0.39160728454589844,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 3.141592653589793,
+      "side": -1,
+      "landedHead": 0.32891610264778137,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 3.141592653589793,
+      "side": 1,
+      "landedHead": 0.3377704322338104,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 3.9269908169872414,
+      "side": -1,
+      "landedHead": 0.40647873282432556,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 3.9269908169872414,
+      "side": 1,
+      "landedHead": 0.3428288400173187,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 4.71238898038469,
+      "side": -1,
+      "landedHead": 0.352466881275177,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 4.71238898038469,
+      "side": 1,
+      "landedHead": 0.3287227153778076,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": false,
+      "heading": 5.497787143782138,
+      "side": -1,
+      "landedHead": 0.4248442053794861,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": false,
+      "heading": 5.497787143782138,
+      "side": 1,
+      "landedHead": 0.3341521620750427,
+      "maxHeadStep": 0.057988882064819336
+    },
+    {
+      "carrier": true,
+      "heading": 0,
+      "side": -1,
+      "landedHead": 0.3557911515235901,
+      "maxHeadStep": 0.05030405521392822
+    },
+    {
+      "carrier": true,
+      "heading": 0,
+      "side": 1,
+      "landedHead": 0.2976486384868622,
+      "maxHeadStep": 0.05030405521392822
+    }
+  ]
+}
