@@ -150,3 +150,45 @@
 .bk-home-clean .bk-home-partners>button { min-height:44px; width:100%; color:#b8af95; font:600 11px/1.3 Arial,sans-serif; }
 @media (max-width:359px) { .bk-home-clean .bk-home-rating { gap:8px; padding-inline:10px; } .bk-home-clean .bk-home-rating-actions>button { padding-inline:6px; font-size:10px; } .bk-home-clean .bk-home-rating-actions>button svg { display:none; } .bk-home-clean .bk-home-league-top>p { font-size:9px; letter-spacing:.05em; } }
 @media (min-width:640px) { .bk-home-clean .bk-home-shortcuts>button { flex-direction:row; gap:7px; min-height:48px; font-size:12px; } .bk-home-clean .bk-home-current-league { padding:10px 18px 16px; } .bk-home-clean .bk-home-league-name h2 { font-size:30px; } .bk-home-clean .bk-home-rating { padding:12px 18px; } }
+/* Cinematic Mini Games team selection. */
+.bk-mini-games-dialog { width:min(560px,calc(100% - 24px)); }
+.bk-mini-games-content { padding:20px; }
+.bk-mini-team-pair>button { padding:10px 8px; gap:4px; text-align:center; }
+.bk-mini-team-pair .bk-mini-badge { display:none; }
+.bk-mini-team-pair strong { font:800 16px/1.1 'BKMiniDisplay','Arial Narrow',sans-serif; min-height:0; }
+.bk-mini-team-pair .bk-mini-team-ovr { font-size:20px; }
+.bk-mini-team-pair .bk-mini-team-ratings { display:none; }
+.bk-mini-team-pair>button[aria-expanded=true] { border-color:#e8c66c; background:#d3ad3e13; }
+.bk-mini-carousel { margin-top:14px; overflow:hidden; border:1px solid #b9943c; border-radius:12px; background:radial-gradient(ellipse at 50% 35%,var(--mini-team-color),#080b0f 70%); box-shadow:0 10px 36px #0008; }
+.bk-mini-selector-label { padding:15px 12px 0; color:#e1be65; font:700 11px/1.3 'BKMiniDisplay',sans-serif; letter-spacing:.16em; text-align:center; }
+.bk-mini-carousel-heading { display:grid; grid-template-columns:44px minmax(0,1fr) 44px; gap:7px; align-items:center; padding:10px 8px 12px; }
+.bk-mini-carousel-heading>button { display:grid; place-items:center; width:44px; height:44px; border:1px solid #dcc06a; border-radius:50%; background:#090d14b8; color:#edcd78; font:500 34px/1 Arial,sans-serif; cursor:pointer; }
+.bk-mini-carousel-heading h4 { margin:0; color:#fbf3dd; text-align:center; text-transform:uppercase; font:900 clamp(24px,6vw,34px)/.95 'BKMiniDisplay','Arial Narrow',sans-serif; overflow-wrap:normal; }
+.bk-mini-carousel-ratings { display:flex; flex-wrap:wrap; justify-content:center; gap:5px 12px; align-items:center; margin-top:8px; }
+.bk-mini-carousel-ratings>strong { color:#e9c56d; font:900 26px/1 'BKMiniDisplay',sans-serif; }
+.bk-mini-carousel-ratings small { font-size:11px; }.bk-mini-carousel-ratings>span { color:#e3dece; font-size:10px; }
+.bk-mini-carousel-art { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); min-width:0; overflow:hidden; touch-action:pan-y; background-position:center; background-size:cover; }
+.bk-mini-carousel-art img { display:block; width:100%; height:clamp(155px,48vw,235px); object-fit:cover; object-position:50% 25%; min-width:0; user-select:none; }
+.bk-mini-top-players-label { position:relative; margin-top:-1px; padding:9px 0 5px; background:linear-gradient(#0a0d12ea,#080b0f); text-align:center; color:#e6c67e; font:700 10px/1.2 'BKMiniDisplay',sans-serif; letter-spacing:.15em; }
+.bk-mini-star-players { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; padding:4px 8px 10px; background:#080b0f; }
+.bk-mini-star-players>div { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; min-width:0; padding:8px 3px; border:1px solid #bc985562; border-radius:6px; background:linear-gradient(#121821,#080b0f); }
+.bk-mini-star-players strong { display:block; color:#f4eddd; text-align:center; font:800 clamp(13px,3.6vw,18px)/1.15 'BKMiniDisplay','Arial Narrow',sans-serif; text-transform:uppercase; min-height:2.3em; overflow-wrap:anywhere; }
+.bk-mini-star-players>div>span { color:#edc675; font:900 27px/1 'BKMiniDisplay',sans-serif; }.bk-mini-star-players>div>span small { font-size:10px; }
+.bk-mini-star-players>div>small { color:#9eaaae; font-size:10px; }
+.bk-mini-carousel-position { display:grid; gap:5px; padding:4px 8px 12px; background:#080b0f; text-align:center; color:#e1be65; font:700 11px/1.2 'BKMiniDisplay',sans-serif; letter-spacing:.13em; }
+.bk-mini-carousel-position>span { color:#9da4ab; letter-spacing:0; font:400 10px/1.4 Arial,sans-serif; }
+.bk-mini-confirm-team { display:flex; justify-content:center; align-items:center; gap:15px; width:calc(100% - 16px); min-height:48px; margin:0 8px 4px; padding:9px; border:1px solid #f2d08a; border-radius:7px; background:linear-gradient(115deg,#d0a344,#efce7f,#bf963e); color:#11151a; font:900 21px/1.1 'BKMiniDisplay','Arial Narrow',sans-serif; text-transform:uppercase; cursor:pointer; }
+.bk-mini-carousel-footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:3px; padding:0 8px; background:#080b0f; }
+.bk-mini-carousel-footer>button { min-height:44px; color:#d5c7a5; font-size:11px; padding:6px 3px; cursor:pointer; }
+.bk-mini-carousel button:focus-visible { outline:2px solid #ffe196; outline-offset:-3px; }
+.bk-mini-carousel .bk-mini-team-picker { padding:0 8px 8px; }
+@media (max-width:360px) { .bk-mini-games-content { padding:14px; }.bk-mini-carousel-heading { gap:3px; }.bk-mini-star-players { gap:4px; padding-inline:5px; }.bk-mini-star-players strong { font-size:13px; } }
+@media (prefers-reduced-motion:no-preference) { .bk-mini-carousel-art img { animation:bk-mini-team-appear .16s ease-out; } }
+@keyframes bk-mini-team-appear { from { opacity:.6; } to { opacity:1; } }
+.bk-mini-carousel { position:relative; }
+.bk-mini-team-logo-backdrop { position:absolute; top:5px; left:50%; transform:translateX(-50%); width:72%; max-width:330px; height:auto; opacity:.18; pointer-events:none; mix-blend-mode:screen; }
+.bk-mini-carousel>*:not(.bk-mini-team-logo-backdrop) { position:relative; }
+
+@font-face { font-family:'BKMiniDisplay'; src:url('/mini-team-selection/display.woff') format('woff'); font-weight:800; font-style:normal; font-display:swap; }
+.bk-mini-star-players strong>span { display:block; white-space:nowrap; }
+.bk-mini-star-players>div>span { display:flex; flex-wrap:nowrap; justify-content:center; align-items:baseline; gap:3px; white-space:nowrap; font-size:26px; }
