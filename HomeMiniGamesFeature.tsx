@@ -61,7 +61,7 @@ export function HomeMiniGamesFeature() {
           <li><strong>Five-Minute Game</strong><p>Take on the CPU with playable offense and play-by-play simulated defense.</p><span>Coming soon</span></li>
           <li><strong>Combine</strong><p>Test your speed, throwing accuracy, and catching skills.</p><span>Coming soon</span></li>
         </ul>
-        <button type="button" className="bk-mini-games-close" onClick={() => dialog.current?.close()} autoFocus>Back to Home</button>
+        <button type="button" className="bk-mini-games-close" onClick={() => dialog.current?.close()}>Back to Home</button>
       </div>
     </dialog>
   </section>;
