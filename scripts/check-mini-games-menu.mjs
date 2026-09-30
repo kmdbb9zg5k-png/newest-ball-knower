@@ -35,7 +35,7 @@ try{
   assert((await dialog.getByRole('link',{name:'Start Game'}).getAttribute('href')).includes('difficulty=all-pro'));
   await dialog.getByRole('button',{name:'Change my team'}).click();
   await dialog.getByText('Game modes',{exact:true}).click();
-  assert.equal(await dialog.getByText('Coming soon',{exact:true}).count(),2);
+  assert.equal(await dialog.getByText('Coming soon',{exact:true}).count(),1);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   await dialog.getByRole('radio',{name:'All-Pro',exact:true}).scrollIntoViewIfNeeded();
   await page.screenshot({path:`artifacts/mini-games-drill/menu-${width}.png`});
@@ -43,6 +43,11 @@ try{
   await page.goto('http://127.0.0.1:4199/?miniGames=1');await dialog.waitFor();
   assert(await dialog.getByRole('radio',{name:'All-Pro',exact:true}).isChecked());
   assert.equal(new URL(page.url()).search,'');assert.equal(await dialog.locator('.bk-mini-carousel h4').textContent(),'Albuquerque Scorpions');await dialog.getByRole('button',{name:'Select Scorpions',exact:true}).click();assert.equal(await dialog.locator('.bk-mini-carousel h4').textContent(),'Austin Outlaws');
+  await dialog.getByRole('button',{name:'Back to your team'}).click();
+  await dialog.getByRole('radio',{name:'Five-Minute Game',exact:true}).check();
+  await dialog.getByRole('button',{name:'Select Scorpions',exact:true}).click();await dialog.getByRole('button',{name:'Select Outlaws',exact:true}).click();
+  assert((await dialog.getByRole('link',{name:'Start Game'}).getAttribute('href')).includes('mode=five-minute&difficulty=all-pro&team=ABQ&opponent=AUS'));
+  assert.equal(await page.evaluate(()=>localStorage.getItem('bk-mini-mode-v1')),'five-minute');
   await page.keyboard.press('Escape');assert.equal(await dialog.isVisible(),false);
   await page.getByRole('button',{name:'Play Solo Mode',exact:true}).click();await page.locator('.bk-mode-card').first().waitFor();
   assert.deepEqual(errors,[]);await page.close();

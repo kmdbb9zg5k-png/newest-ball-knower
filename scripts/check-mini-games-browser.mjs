@@ -64,8 +64,8 @@ try{
   d=await state();assert.equal(d.mini.result.reason,reason);assert.equal(d.mini.result.won,false);assert.equal(await page.locator('#paused').isVisible(),true);await restart();
  }
  // Phone rotation and a second landscape size.
- await page.setViewportSize({width:390,height:844});assert(await page.locator('#rotate').isVisible());
- await page.setViewportSize({width:667,height:375});await click('resume');await page.screenshot({path:out+'/small-landscape.png'});
+ await page.setViewportSize({width:390,height:844});assert(await page.locator('#rotate').isVisible());await page.waitForFunction(()=>window.bk3dDiagnostics().paused);
+ await page.setViewportSize({width:667,height:375});await page.waitForFunction(()=>innerWidth>innerHeight);if((await state()).paused)await click('resume');await page.waitForFunction(()=>!window.bk3dDiagnostics().paused);await page.screenshot({path:out+'/small-landscape.png'});
  assert(await page.evaluate(()=>{const a=document.querySelector('#miniActions').getBoundingClientRect(),s=document.querySelector('.scorebug').getBoundingClientRect();return a.x>=s.right&&a.right<=innerWidth}));
  await open('?qa=1');d=await state();assert.equal(d.mini,null);assert.equal(d.drive.clock,78);assert.equal(d.drive.score,24);assert.equal(await page.locator('#miniActions').count(),0);
  await snap();await step(.7);assert.notEqual((await state()).phase,'pre');

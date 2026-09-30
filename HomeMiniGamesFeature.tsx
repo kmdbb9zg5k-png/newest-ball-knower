@@ -8,6 +8,8 @@ export function HomeMiniGamesFeature() {
   const dialog = useRef<HTMLDialogElement>(null);
   const [level, setLevel] = useState(() => { try { return miniLevel(localStorage.getItem('bk-mini-level-v1')).id; } catch { return 'rookie'; } });
   const difficulty = miniLevel(level);
+  const [gameMode, setGameMode] = useState<'two-minute' | 'five-minute'>(() => { try { return localStorage.getItem('bk-mini-mode-v1') === 'five-minute' ? 'five-minute' : 'two-minute'; } catch { return 'two-minute'; } });
+  const gameName = gameMode === 'five-minute' ? 'Five-Minute Game' : 'Two-Minute Drill';
   const [menuOpen, setMenuOpen] = useState(false);
   const [matchup, setMatchup] = useState(() => { try { const saved = JSON.parse(localStorage.getItem('bk-mini-matchup-v1') || 'null'); return miniMatchup(saved?.home || MINI_TEAMS[15].abbr, saved?.away || MINI_TEAMS[16].abbr); } catch { return miniMatchup(MINI_TEAMS[15].abbr, MINI_TEAMS[16].abbr); } });
   const [picking, setPicking] = useState<'home' | 'away' | null>('home');
@@ -50,6 +52,7 @@ export function HomeMiniGamesFeature() {
           </label>)}</div>
           <p aria-live="polite">{difficulty.description}</p>
         </fieldset>}
+        {picking === 'home' && <fieldset className="bk-mini-levels bk-mini-mode-choice"><legend>Game mode</legend><div>{(['two-minute', 'five-minute'] as const).map(value => <label key={value}><input type="radio" name="mini-mode" checked={gameMode === value} onChange={() => { setGameMode(value); try { localStorage.setItem('bk-mini-mode-v1', value); } catch {} }}/><span>{value === 'two-minute' ? 'Two-Minute Drill' : 'Five-Minute Game'}</span></label>)}</div><p>{gameMode === 'five-minute' ? 'Full game vs. CPU. Play offense; watch each defensive play.' : 'Down four. Two minutes to score the winning touchdown.'}</p></fieldset>}
         {picking && menuOpen ? <MiniTeamCarousel key={picking + matchup[picking].abbr} side={picking} selected={matchup[picking]} excluded={picking === 'away' ? matchup.home.abbr : undefined} onSelect={chooseTeam} onCancel={() => picking === 'away' ? setPicking('home') : dialog.current?.close()} backLabel={picking === 'away' ? 'Back to your team' : 'Back to Home'}/> : menuOpen ? <section className="bk-mini-review" aria-label="Matchup comparison">
           <div className="bk-mini-review-teams">{(['home', 'away'] as const).map(side => {
             const team = matchup[side];
@@ -63,16 +66,16 @@ export function HomeMiniGamesFeature() {
             {[{ label: 'Offense', home: matchup.home.offense, away: matchup.away.offense }, { label: 'Defense', home: matchup.home.defense, away: matchup.away.defense }, { label: 'Special Teams', home: MINI_SELECTOR_ART[matchup.home.abbr].specialTeams, away: MINI_SELECTOR_ART[matchup.away.abbr].specialTeams }].map(row => <tr key={row.label}><td data-leading={row.home > row.away}>{row.home}</td><th scope="row">{row.label}</th><td data-leading={row.away > row.home}>{row.away}</td></tr>)}
           </tbody></table>
           <p className="bk-mini-ratings-note">Base Solo rosters · Special teams: kicker + punter average</p>
-          <div className="bk-mini-review-game">TWO-MINUTE DRILL <span>•</span> {difficulty.name.toUpperCase()}</div>
-          <p className="bk-mini-review-rules">Own 25. Down four. Two minutes. Three timeouts.</p>
-          <a className="bk-mini-confirm-team bk-mini-launch" href={`/play-moment-3d-preview.html?mode=two-minute&difficulty=${level}&team=${matchup.home.abbr}&opponent=${matchup.away.abbr}`}>Start Game <span aria-hidden="true">→</span></a>
+          <div className="bk-mini-review-game">{gameName.toUpperCase()} <span>•</span> {difficulty.name.toUpperCase()}</div>
+          <p className="bk-mini-review-rules">{gameMode === 'five-minute' ? 'Five-minute clock. Three timeouts each. Equal-possession overtime.' : 'Own 25. Down four. Two minutes. Three timeouts.'}</p>
+          <a className="bk-mini-confirm-team bk-mini-launch" href={`/play-moment-3d-preview.html?mode=${gameMode}&difficulty=${level}&team=${matchup.home.abbr}&opponent=${matchup.away.abbr}`}>Start Game <span aria-hidden="true">→</span></a>
           <div className="bk-mini-review-edits"><button type="button" onClick={() => setPicking('home')}>Change my team</button><button type="button" onClick={() => setPicking('away')}>Change opponent</button></div>
-          <p className="bk-mini-tip">Play in landscape. The clock starts at your first snap. Use timeouts, spikes, and the sidelines.</p>
+          <p className="bk-mini-tip">{gameMode === 'five-minute' ? 'Play in landscape. Simulated kicks, automatic extra points. Pause or step through the defensive play-by-play.' : 'Play in landscape. The clock starts at your first snap. Use timeouts, spikes, and the sidelines.'}</p>
         </section> : null}
         {picking === 'home' && <details className="bk-mini-modes"><summary>Game modes</summary>
         <ul>
           <li><strong>Two-Minute Drill</strong><p>Own 25. Down four. Two minutes and three timeouts to score the winning touchdown.</p><p className="bk-mini-tip">Play in landscape. The clock starts at your first snap. In-bounds plays keep it running; use timeouts, spikes, and the sidelines.</p></li>
-          <li><strong>Five-Minute Game</strong><p>Take on the CPU with playable offense and play-by-play simulated defense.</p><span>Coming soon</span></li>
+          <li><strong>Five-Minute Game</strong><p>Take on the CPU with playable offense, play-by-play simulated defense, punts, field goals, and overtime.</p><span>Ready to play</span></li>
           <li><strong>Combine</strong><p>Test your speed, throwing accuracy, and catching skills.</p><span>Coming soon</span></li>
         </ul></details>}
         {!picking && <button type="button" className="bk-mini-review-back" onClick={() => setPicking('away')}>← Back</button>}
