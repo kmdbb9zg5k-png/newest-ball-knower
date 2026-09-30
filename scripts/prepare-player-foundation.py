@@ -14,6 +14,8 @@ FILES={
  'makehuman/data/3dobjs/base.obj':'d26635e9326e3cca30778fd7b9c00062b03cce09',
  'makehuman/data/targets/macrodetails/caucasian-male-young.target':'c3b82f92c5ced85599199cd184b0faf3b3fc6881',
  'makehuman/data/targets/macrodetails/african-male-young.target':'dd5743e48700267d76596f575bf17b4b5cc3b3e0',
+ 'makehuman/data/targets/macrodetails/universal-male-young-maxmuscle-averageweight.target':'b7c039c7f463fe1f1721b9ab269c7248d9c4f2f7',
+ 'makehuman/data/targets/macrodetails/universal-male-young-maxmuscle-maxweight.target':'a0f12e4b0c0f84f2a6b90badfaf252a125e9e3d1',
  'LICENSE.md':'5d1a49d31ebdaa46b06c52eae2c005c678a63ffa',
  'LICENSE.ASSETS.md':'f3ede1fc3318f8d794e2cb51924186c62f02f71a',
 }

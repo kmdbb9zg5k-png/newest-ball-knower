@@ -1,20 +1,20 @@
-import{identity,mul,translate,scale,rx,ry,rz}from'./renderer.js?v=football-foundation-44';
+import{identity,mul,translate,scale,rx,ry,rz}from'./renderer.js?v=anatomical-athlete-50';
 import{quarterbackThrowPose}from'./quarterback.js?v=football-finish-21';
 import{refineAthleteSurface}from'./athlete-surface.js?v=sentinel-materials-34';
 
-const ASSET='/play-moment-3d/assets/ball-knower-gridiron-sentinel-v4.glb?v=sentinel-materials-34';
+const ASSET='/play-moment-3d/assets/ball-knower-anatomical-athlete-v6.glb?v=anatomical-athlete-50';
 const MAX_BONES=32;
 // Small fit differences in bind space: torso, pads, thighs, upper arms.
 // The source asset already includes pads; large normal extrusion inflated it twice.
 // The head, hands and feet retain their original size and attachment points.
 export const PLAYER_BUILDS=Object.freeze({
- OL:{bulk:[.040,.028,.022,.012],scale:[1.055,1.035,1.025]},
- DL:{bulk:[.026,.030,.017,.018],scale:[1.04,1.04,1.025]},
- QB:{bulk:[.004,.010,.003,.004],scale:[1.,1.025,1.]},
- RB:{bulk:[.014,.016,.017,.012],scale:[1.02,.985,1.015]},
+ OL:{bulk:[.095,.055,.035,.024],scale:[1.055,1.035,1.025]},
+ DL:{bulk:[.065,.055,.028,.030],scale:[1.04,1.04,1.025]},
+ QB:{bulk:[.016,.025,.010,.010],scale:[1.,1.025,1.]},
+ RB:{bulk:[.030,.032,.028,.020],scale:[1.02,.985,1.015]},
  WR:{bulk:[0,.008,0,.003],scale:[.99,1.025,.99]},
- TE:{bulk:[.017,.022,.011,.012],scale:[1.035,1.055,1.02]},
- LB:{bulk:[.019,.025,.016,.016],scale:[1.03,1.03,1.025]},
+ TE:{bulk:[.045,.040,.020,.023],scale:[1.035,1.055,1.02]},
+ LB:{bulk:[.045,.044,.025,.025],scale:[1.03,1.03,1.025]},
  DB:{bulk:[0,.008,.002,.003],scale:[.99,1.005,.99]},
 });
 export function playerBuild(role){return PLAYER_BUILDS[role]||PLAYER_BUILDS.QB}
@@ -288,13 +288,13 @@ function uploadTexture(gl,image,srgb=false){const texture=gl.createTexture();gl.
 const vertex=`#version 300 es
 precision highp float;precision highp int;
 layout(location=0)in vec3 position;layout(location=1)in vec3 normalIn;layout(location=2)in vec2 uvIn;
-layout(location=3)in uvec4 joints;layout(location=4)in vec4 weights;layout(location=5)in vec4 tangentIn;layout(location=6)in vec4 bodyRegions;
+layout(location=3)in uvec4 joints;layout(location=4)in vec4 weights;layout(location=5)in vec4 tangentIn;layout(location=6)in vec4 bodyRegions;layout(location=7)in float equipmentIn;
 uniform mat4 vp;uniform mat4 model;uniform mat4 lightVP;uniform mat4 bones[${MAX_BONES}];uniform vec4 bodyProfile;
-out vec4 garmentRegions;out vec3 world;out vec3 normal;out vec3 tangent;out float handedness;out vec2 uv;out vec3 bindPosition;out vec3 bindNormal;out vec4 lightSpace;
-void main(){mat4 skin=weights.x*bones[joints.x]+weights.y*bones[joints.y]+weights.z*bones[joints.z]+weights.w*bones[joints.w];vec3 shaped=position+normalIn*dot(bodyRegions,bodyProfile);vec4 local=skin*vec4(shaped,1.);vec4 w=model*local;mat3 basis=mat3(model)*mat3(skin);garmentRegions=bodyRegions;world=w.xyz;normal=normalize(transpose(inverse(basis))*normalIn);tangent=normalize(basis*tangentIn.xyz);handedness=tangentIn.w;uv=uvIn;bindPosition=position;bindNormal=normalIn;lightSpace=lightVP*w;gl_Position=vp*w;}`;
+out float equipment;out vec4 garmentRegions;out vec3 world;out vec3 normal;out vec3 tangent;out float handedness;out vec2 uv;out vec3 bindPosition;out vec3 bindNormal;out vec4 lightSpace;
+void main(){mat4 skin=weights.x*bones[joints.x]+weights.y*bones[joints.y]+weights.z*bones[joints.z]+weights.w*bones[joints.w];vec3 shaped=position+normalIn*dot(bodyRegions,bodyProfile);vec4 local=skin*vec4(shaped,1.);vec4 w=model*local;mat3 basis=mat3(model)*mat3(skin);equipment=equipmentIn;garmentRegions=bodyRegions;world=w.xyz;normal=normalize(transpose(inverse(basis))*normalIn);tangent=normalize(basis*tangentIn.xyz);handedness=tangentIn.w;uv=uvIn;bindPosition=position;bindNormal=normalIn;lightSpace=lightVP*w;gl_Position=vp*w;}`;
 const fragment=`#version 300 es
 precision highp float;
-in vec4 garmentRegions;in vec3 world;in vec3 normal;in vec3 tangent;in float handedness;in vec2 uv;in vec3 bindPosition;in vec3 bindNormal;in vec4 lightSpace;
+in float equipment;in vec4 garmentRegions;in vec3 world;in vec3 normal;in vec3 tangent;in float handedness;in vec2 uv;in vec3 bindPosition;in vec3 bindNormal;in vec4 lightSpace;
 uniform sampler2D shadowMap;uniform int useShadow;uniform float shadowTexel;
 uniform vec3 eye;uniform sampler2D baseMap;uniform sampler2D normalMap;uniform sampler2D ormMap;uniform sampler2D numberMap;uniform float rival;uniform float controlled;uniform float playerSeed;uniform float sourceMaterials;
 out vec4 color;
@@ -389,11 +389,19 @@ void main(){vec4 sampleColor=texture(baseMap,uv);if(sampleColor.a<.04)discard;ve
   // The fragmented source atlas bleeds neighboring white/gold islands into
   // navy at gameplay distance. Bone-weight garment regions keep material
   // identity stable; bounded source luminance retains folds without glitter.
-  float clothDetail=clamp(dot(authored,vec3(.2126,.7152,.0722))/.115,.78,1.15);
-  vec3 teamCloth=mix(vec3(.050,.078,.135),vec3(.76,.79,.80),rival)*clothDetail;
+  float clothDetail=clamp(dot(authored,vec3(.2126,.7152,.0722))/.115,.94,1.055);
+  // Authored two-piece kits, readable from the gameplay camera.
+  vec3 jersey=mix(vec3(.055,.095,.160),vec3(.86,.885,.88),rival);
+  vec3 trouser=mix(vec3(.62,.48,.26),vec3(.79,.82,.82),rival);
+  float trouserMask=1.-smoothstep(.79,.91,bindPosition.y);
+  vec3 teamCloth=mix(jersey,trouser,trouserMask)*clothDetail;
   authored=mix(authored,teamCloth,cloth);
   float seam=(1.-smoothstep(.007,.015,abs(abs(bindPosition.x)-.30)))*smoothstep(1.20,1.25,bindPosition.y)*(1.-smoothstep(1.37,1.42,bindPosition.y));
-  authored=mix(authored,mix(vec3(.59,.46,.24),vec3(.46,.025,.035),rival),seam*.85);
+  float shoulderPanel=smoothstep(.16,.25,abs(bindPosition.x))*smoothstep(1.28,1.315,bindPosition.y)*(1.-smoothstep(1.355,1.38,bindPosition.y))*cloth;
+  vec3 teamTrim=mix(vec3(.72,.57,.31),vec3(.57,.035,.055),rival);
+  authored=mix(authored,teamTrim,max(seam*.85,shoulderPanel*.82));
+  float sideStripe=smoothstep(.38,.73,abs(bindNormal.x))*(1.-smoothstep(.032,.048,abs(bindPosition.z+.008)))*trouserMask*cloth;
+  authored=mix(authored,mix(jersey,teamTrim,rival),sideStripe);
   authored=mix(authored,authored*vec3(.85,.14,.19),trimGold*rival);
   float shellDetail=clamp(dot(sampleColor.rgb,vec3(.2126,.7152,.0722))/.46,.82,1.12);
   vec3 cleanShell=mix(vec3(.65,.49,.24),vec3(.51,.028,.042),rival)*shellDetail;
@@ -406,9 +414,44 @@ void main(){vec4 sampleColor=texture(baseMap,uv);if(sampleColor.a<.04)discard;ve
   albedo=mix(albedo,pow(ink.rgb,vec3(2.2)),ink.a*printMask);
   uniformZone=cloth;
  }
+ // Equipment regions are explicit, independent of the old source atlas.
+ if(equipment>.5){
+  uniformZone=0.;helmet=0.;visor=0.;cage=0.;skinMask=0.;gloves=0.;cleats=0.;
+  if(equipment>7.5){
+   vec3 jersey=mix(vec3(.045,.085,.145),vec3(.89,.91,.90),rival);
+   vec3 trim=mix(vec3(.77,.61,.32),vec3(.64,.025,.055),rival);
+   vec3 cloth=jersey;
+   if(equipment<8.5){
+    float shoulder=smoothstep(.18,.23,abs(bindPosition.x))*smoothstep(1.31,1.34,bindPosition.y)*(1.-smoothstep(1.375,1.40,bindPosition.y));
+    float sleeve=(1.-smoothstep(.008,.016,abs(abs(bindPosition.x)-.30)))*smoothstep(1.24,1.30,bindPosition.y);
+    cloth=mix(cloth,trim,max(shoulder,sleeve));
+   }else if(equipment<9.5){
+    cloth=mix(vec3(.68,.53,.29),vec3(.82,.85,.85),rival);
+    float piping=smoothstep(.45,.8,abs(bindNormal.x))*(1.-smoothstep(.025,.04,abs(bindPosition.z+.04)));
+    cloth=mix(cloth,jersey,piping);
+   }else if(equipment<10.5){cloth=vec3(.85,.88,.87);}
+   else if(equipment<11.5){cleats=1.;cloth=vec3(.025,.04,.052);}
+   else{gloves=1.;cloth=vec3(.85,.87,.83);}
+   uniformZone=1.-max(cleats,gloves);
+   albedo=pow(cloth,vec3(2.2));
+   if(equipment<8.5)albedo=mix(albedo,pow(ink.rgb,vec3(2.2)),ink.a*printMask);
+  }else if(equipment<1.5){helmet=1.;vec3 paint=mix(vec3(.73,.56,.28),vec3(.55,.022,.037),rival);
+   float centerStripe=1.-smoothstep(.009,.013,abs(bindPosition.x));
+   paint=mix(paint,mix(vec3(.025,.048,.082),vec3(.88,.90,.87),rival),centerStripe);
+   float ear=1.-smoothstep(.014,.021,length((bindPosition.yz-vec2(1.525,-.009))*vec2(1.,.85)));
+   paint=mix(paint,vec3(.018,.026,.032),ear*smoothstep(.085,.11,abs(bindPosition.x)));
+   float vent=(1.-smoothstep(.003,.007,abs(abs(bindPosition.x)-.042)))*smoothstep(1.656,1.67,bindPosition.y)*(1.-smoothstep(.01,.045,abs(bindPosition.z+.023)));
+   paint=mix(paint,vec3(.032,.040,.044),vent*.86);
+   albedo=pow(paint,vec3(2.2));
+  }else if(equipment<2.5){cage=1.;albedo=pow(mix(vec3(.15,.19,.23),vec3(.67,.70,.71),rival),vec3(2.2));}
+  else if(equipment<3.5){visor=1.;albedo=pow(vec3(.019,.037,.051),vec3(2.2));}
+  else if(equipment<4.5){gloves=1.;albedo=pow(vec3(.84,.85,.80),vec3(2.2));}
+  else{skinMask=1.;albedo=pow(skinColor*(equipment>6.5?.62:1.),vec3(2.2));}
+ }
  vec3 N=normalize(normal),T=normalize(tangent-N*dot(N,tangent)),B=normalize(cross(N,T))*handedness;
  vec3 mapped=texture(normalMap,uv).xyz*2.-1.;mapped.xy*=mix(.27,.16,uniformZone)*(1.-helmet*.98)*(1.-skinMask*.50)*(1.-gloves*.5)*(1.-visor*.95);
  if(sourceMaterials>.5){mapped=texture(normalMap,uv).xyz*2.-1.;mapped.xy*=mix(.48,.52,uniformZone)*(1.-helmet*.78);}
+ if(equipment>.5)mapped=vec3(0.,0.,1.);
  // Value 2 is only used by the offline comparison: untouched source maps,
  // same mesh, pose, lights and camera; never selected by the game.
  if(sourceMaterials>1.5){albedo=pow(sampleColor.rgb,vec3(2.2));mapped=texture(normalMap,uv).xyz*2.-1.;}
@@ -416,7 +459,12 @@ void main(){vec4 sampleColor=texture(baseMap,uv);if(sampleColor.a<.04)discard;ve
  // Weave fades out below a pixel, avoiding sparkling cloth on phone screens.
  vec2 clothUV=uv*360.;float aa=1.-smoothstep(.25,1.,max(fwidth(clothUV.x),fwidth(clothUV.y)));
  float weave=sin(clothUV.x*6.283)*sin(clothUV.y*6.283)*aa*uniformZone;
- albedo*=1.+weave*.028;
+ albedo*=1.+weave*.055;
+ float panel=smoothstep(.14,.21,abs(bindPosition.x))*torso*uniformZone;
+ float fold=sin(bindPosition.y*88.+bindPosition.x*16.)*sin(bindPosition.x*34.);
+ float foldAA=1.-smoothstep(.3,1.4,fwidth(bindPosition.y)*88.);
+ N=normalize(N+T*fold*.028*foldAA*uniformZone);
+ albedo*=1.-panel*.16;
  vec3 orm=texture(ormMap,uv).rgb;float rough=mix(clamp(orm.g,.35,.9),.82,uniformZone);
  rough=mix(rough,.31,helmet);rough=mix(rough,.20,visor);rough=mix(rough,.45,cage);rough=mix(rough,.66,skinMask);rough=mix(rough,.78,gloves);rough=mix(rough,.53,cleats);
  float metal=clamp(orm.b,0.,.55)*(1.-max(max(uniformZone,helmet),max(skinMask,gloves)));
@@ -429,11 +477,17 @@ void main(){vec4 sampleColor=texture(baseMap,uv);if(sampleColor.a<.04)discard;ve
   rough=mix(rough,.36,helmet*gold);metal=mix(metal,.28,helmet*gold);
  }
  if(sourceMaterials>1.5){rough=clamp(orm.g,.04,1.);metal=orm.b;}
+ if(equipment>.5){rough=helmet>.5?.24:visor>.5?.13:cage>.5?.38:skinMask>.5?.72:cleats>.5?.48:.85;metal=helmet>.5?.16:cage>.5?.42:0.;}
  vec3 V=normalize(eye-world),L0=normalize(vec3(-.48,.82,-.31)),L1=normalize(vec3(.62,.69,.38));
  float shadow=playerShadow(normalize(normal)),ao=mix(.84,1.,orm.r);
- vec3 ambient=mix(vec3(.10,.135,.095),vec3(.24,.30,.39),N.y*.5+.5);
+ vec3 ambient=mix(vec3(.055,.082,.063),vec3(.18,.25,.36),N.y*.5+.5);
  vec3 rgb=albedo*ambient*ao+brdf(N,V,L0,albedo,rough,metal)*vec3(4.1,3.9,3.55)*mix(.13,1.,shadow);
- rgb+=brdf(N,V,L1,albedo,rough,metal)*vec3(.9,1.2,1.65);
+ rgb+=brdf(N,V,L1,albedo,rough,metal)*vec3(1.1,1.4,1.9);
+ for(int i=0;i<4;i++){
+  vec3 bank=vec3(i<2?-35.:35.,23.,(i==0||i==2)?6.:111.)-world;
+  float attenuation=1./(1.+dot(bank,bank)*.0018);
+  rgb+=brdf(N,V,normalize(bank),albedo,rough,metal)*vec3(2.1,2.25,2.45)*attenuation;
+ }
  vec3 R=reflect(-V,N),F0=mix(vec3(.04),albedo,metal),F=F0+(1.-F0)*pow(1.-max(dot(N,V),0.),5.);
  rgb+=environmentLight(R,rough)*F*mix(.30,1.,max(helmet,visor))*ao;
  // Soft fabric edge response; no full-body outline or glowing skin.
@@ -460,9 +514,13 @@ export class MeshyAthletes{
    this.surfaceVertices=surface.weldedVertices;this.sourceMaterials=json.extras?.ballKnowerAthlete?.version>=4?1:0;
    this.program=makeProgram(gl,vertex,fragment);this.depthProgram=makeProgram(gl,depthVertex,depthFragment);this.uniforms=Object.fromEntries(['vp','model','bones','eye','baseMap','normalMap','ormMap','numberMap','rival','controlled','playerSeed','sourceMaterials','lightVP','shadowMap','shadowTexel','useShadow','bodyProfile'].map(name=>[name,gl.getUniformLocation(this.program,name==='bones'?'bones[0]':name)]));this.depthUniforms=Object.fromEntries(['lightVP','model','bones','bodyProfile'].map(name=>[name,gl.getUniformLocation(this.depthProgram,name==='bones'?'bones[0]':name)]));
    this.vao=gl.createVertexArray();gl.bindVertexArray(this.vao);
+   const equipmentData=primitive.attributes._EQUIPMENT!==undefined?accessor(primitive.attributes._EQUIPMENT):null;
+   // Exact analytic normals for the newly authored equipment.
+   if(equipmentData){const normals=accessor(primitive.attributes.NORMAL),tangents=accessor(primitive.attributes.TANGENT);for(let i=0;i<equipmentData.length;i++)if(equipmentData[i]>.5){surface.normals.set(normals.subarray(i*3,i*3+3),i*3);surface.tangents.set(tangents.subarray(i*4,i*4+4),i*4);}}
    const refined={POSITION:surface.positions,NORMAL:surface.normals,TANGENT:surface.tangents};
    const attribute=(location,name,size,integer=false)=>{const index=primitive.attributes[name],a=json.accessors[index],data=refined[name]||accessor(index),buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);gl.enableVertexAttribArray(location);if(integer)gl.vertexAttribIPointer(location,size,a.componentType,0,0);else gl.vertexAttribPointer(location,size,a.componentType,Boolean(a.normalized),0,0)};
    attribute(0,'POSITION',3);attribute(1,'NORMAL',3);attribute(2,'TEXCOORD_0',2);attribute(3,'JOINTS_0',4,true);attribute(4,'WEIGHTS_0',4);attribute(5,'TANGENT',4);
+   if(equipmentData)attribute(7,'_EQUIPMENT',1);else{gl.disableVertexAttribArray(7);gl.vertexAttrib1f(7,0);}
    const positions=surface.positions,normals=surface.normals,joints=accessor(primitive.attributes.JOINTS_0),weights=accessor(primitive.attributes.WEIGHTS_0);
    const skinIndex=json.nodes.find(node=>Number.isInteger(node.skin)).skin,jointNames=json.skins[skinIndex].joints.map(i=>json.nodes[i].name);
    const regions=buildRegions(positions,joints,weights,jointNames),regionBuffer=gl.createBuffer();
