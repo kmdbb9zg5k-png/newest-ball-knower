@@ -16,7 +16,7 @@ try{
   const dialog=page.getByRole('dialog');assert.equal(await dialog.evaluate(el=>el.scrollTop),0,'Setup opens at the top so difficulty and teams are discoverable');
   for(const [name,id] of [['Rookie','rookie'],['Pro','pro'],['All-Pro','all-pro']]){
    await dialog.getByRole('radio',{name,exact:true}).check();
-   assert.equal(await dialog.getByRole('link',{name:'Play Two-Minute Drill'}).getAttribute('href'),`/play-moment-3d-preview.html?mode=two-minute&difficulty=${id}&team=OKC&opponent=OMA`);
+   assert.equal(await page.evaluate(()=>localStorage.getItem('bk-mini-level-v1')||'rookie'),id);
   }
   if (!await dialog.getByRole('region',{name:'Select your team',exact:true}).isVisible()) await dialog.getByRole('button',{name:/Choose your team:/}).click();
   await dialog.getByRole('button',{name:'Browse all 32 teams'}).click();
@@ -31,7 +31,10 @@ try{
   await dialog.getByRole('searchbox',{name:'Find a Solo team'}).fill('Austin');
   await dialog.getByRole('button',{name:/Austin Outlaws.*OVR/}).click();
   await dialog.getByRole('button',{name:'Select Outlaws',exact:true}).click();
-  assert((await dialog.getByRole('link',{name:'Play Two-Minute Drill'}).getAttribute('href')).endsWith('&team=ABQ&opponent=AUS'));
+  assert((await dialog.getByRole('link',{name:'Start Game'}).getAttribute('href')).endsWith('&team=ABQ&opponent=AUS'));
+  assert((await dialog.getByRole('link',{name:'Start Game'}).getAttribute('href')).includes('difficulty=all-pro'));
+  await dialog.getByRole('button',{name:'Change my team'}).click();
+  await dialog.getByText('Game modes',{exact:true}).click();
   assert.equal(await dialog.getByText('Coming soon',{exact:true}).count(),2);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   await dialog.getByRole('radio',{name:'All-Pro',exact:true}).scrollIntoViewIfNeeded();
@@ -39,7 +42,7 @@ try{
   await dialog.getByRole('button',{name:'Back to Home'}).click();assert.equal(await dialog.isVisible(),false);
   await page.goto('http://127.0.0.1:4199/?miniGames=1');await dialog.waitFor();
   assert(await dialog.getByRole('radio',{name:'All-Pro',exact:true}).isChecked());
-  assert.equal(new URL(page.url()).search,'');assert(await dialog.getByRole('button',{name:'Choose your team: Albuquerque Scorpions'}).isVisible());assert(await dialog.getByRole('button',{name:'Choose opponent: Austin Outlaws'}).isVisible());
+  assert.equal(new URL(page.url()).search,'');assert.equal(await dialog.locator('.bk-mini-carousel h4').textContent(),'Albuquerque Scorpions');await dialog.getByRole('button',{name:'Select Scorpions',exact:true}).click();assert.equal(await dialog.locator('.bk-mini-carousel h4').textContent(),'Austin Outlaws');
   await page.keyboard.press('Escape');assert.equal(await dialog.isVisible(),false);
   await page.getByRole('button',{name:'Play Solo Mode',exact:true}).click();await page.locator('.bk-mode-card').first().waitFor();
   assert.deepEqual(errors,[]);await page.close();
