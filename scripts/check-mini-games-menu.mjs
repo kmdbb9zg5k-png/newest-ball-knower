@@ -13,7 +13,7 @@ try{
   await page.addInitScript(()=>{localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','1');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off');});
   await page.goto('http://127.0.0.1:4199');
   await page.getByRole('button',{name:'Explore Mini Games'}).click();
-  const dialog=page.getByRole('dialog');
+  const dialog=page.getByRole('dialog');assert.equal(await dialog.evaluate(el=>el.scrollTop),0,'Setup opens at the top so difficulty and teams are discoverable');
   for(const [name,id] of [['Rookie','rookie'],['Pro','pro'],['All-Pro','all-pro']]){
    await dialog.getByRole('radio',{name,exact:true}).check();
    assert.equal(await dialog.getByRole('link',{name:'Play Two-Minute Drill'}).getAttribute('href'),`/play-moment-3d-preview.html?mode=two-minute&difficulty=${id}&team=JCY&opponent=BRK`);
