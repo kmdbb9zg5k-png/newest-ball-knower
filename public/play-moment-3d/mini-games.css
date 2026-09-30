@@ -16,3 +16,25 @@
  .mini-game #miniActions button { font-size:9px; padding:5px; }
  .mini-game #hud header { gap:5px; }
 }
+.full-kicks { display:flex; gap:6px; pointer-events:auto; }
+.full-kicks button { min-height:44px; padding:7px 10px; border:1px solid #d5b66380; border-radius:8px; background:#101b2c; color:#e9cb81; font-size:10px; font-weight:800; }
+.full-kicks button:disabled { opacity:.4; }
+.full-game .playbook-footer { flex-wrap:wrap; }
+.full-game .club.has-possession { box-shadow:inset 0 -2px #e8c66c; }
+#fullDefense { position:fixed; inset:80px max(16px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left)); z-index:12; pointer-events:auto; background:#08121cf5; border:1px solid #a88a49; border-radius:14px; color:#f4eedc; overflow:auto; }
+#fullDefense[hidden] { display:none; }
+#fullDefense>div { max-width:850px; margin:auto; padding:14px 20px; }
+.full-defense-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+#fullDefense h1 { font-size:20px; margin:3px 0; outline:none; }
+#fullDefense p { margin:4px 0; font-size:11px; color:#b8c1ca; }
+#fullDefense button { min-height:44px; border:1px solid #b39753; border-radius:8px; padding:8px 15px; background:#142235; color:#ead294; font-size:11px; font-weight:800; }
+#fullDefense button:disabled { opacity:.4; }
+#fullLatest { padding:12px; margin:10px 0; background:#c5a34717; border-left:3px solid #e8c66c; font-size:14px; font-weight:800; line-height:1.4; }
+#fullFeed { max-height:80px; overflow:auto; padding:0 0 0 20px; margin:8px 0; color:#b8c4cd; font-size:11px; }
+#fullFeed li { margin:7px 0; }
+.full-defense-actions { display:flex; justify-content:space-between; gap:12px; position:sticky; bottom:0; padding:6px 0; background:#08121c; }
+#fullDefense #fullNext { background:linear-gradient(110deg,#d1aa54,#eed28c); color:#111827!important; min-width:190px; }
+.full-final-score { font-size:24px!important; color:#e9c76c!important; font-weight:900; }
+.full-final-stats { width:100%; border-collapse:collapse; text-align:center; }.full-final-stats th { font-size:11px; }.full-final-stats td { font-size:16px; color:#e9c76c; }.full-final-stats td,.full-final-stats th { padding:6px; border-bottom:1px solid #ffffff18; }
+@media(max-height:420px) { #fullDefense { inset-block-start:72px; } #fullDefense>div { padding:10px 16px; } #fullFeed { max-height:45px; } #fullLatest { margin:6px 0; padding:8px; } }
+@media(max-width:700px) { .full-kicks button { font-size:9px; padding:6px; }.full-game .playbook-footer { gap:5px; }.full-game #breakHuddle { min-width:120px; padding:8px; } }

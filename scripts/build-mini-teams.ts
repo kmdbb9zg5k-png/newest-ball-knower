@@ -7,7 +7,7 @@ const teams=SOLO_TEAM_THEMES.map(team=>{
  const used=new Set<string>();
  const pick=(positions:string[])=>{const p=roster.find(p=>positions.includes(p.position)&&!used.has(p.id));if(!p)throw Error(team.abbr+positions);used.add(p.id);return {id:p.id,name:p.name,lastName:p.lastName,number:p.jerseyNumber,overall:p.overall,attributes:p.attributes,speed:p.speed};};
  const lineup=slots.map(pick),fullback=pick(['RB']);
- return {...team,overall:mean(lineup),offense:mean(lineup.slice(0,11)),defense:mean(lineup.slice(11)),lineup,fullback};
+ return {...team,overall:mean(lineup),offense:mean(lineup.slice(0,11)),defense:mean(lineup.slice(11)),lineup,fullback,kicker:pick(['K']),punter:pick(['P'])};
 });
 writeFileSync('public/play-moment-3d/mini-teams-data.js','// Generated from soloUniverse.ts by scripts/build-mini-teams.ts.\nexport const MINI_TEAMS = '+JSON.stringify(teams)+';\n');
 console.log('Generated',teams.length,'Solo team lineups, OVR range',Math.min(...teams.map(t=>t.overall)),Math.max(...teams.map(t=>t.overall)));

@@ -1,4 +1,4 @@
-import {miniMatchup} from './mini-teams.js?v=teams-1';
+import {miniMatchup} from './mini-teams.js?v=five-minute-1';
 /** Shared mini-game levels. Athlete speed and animation timing stay rating-driven. */
 export const MINI_LEVELS = Object.freeze([
   Object.freeze({ id: 'rookie', name: 'Rookie', description: 'Forgiving coverage, easier tackles to break, slower defensive reads.', defense: -16, readScale: 1.45 }),
@@ -8,7 +8,7 @@ export const MINI_LEVELS = Object.freeze([
 export function miniLevel(id) { return MINI_LEVELS.find(level => level.id === id) || MINI_LEVELS[0]; }
 export function miniGameFromSearch(search = '') {
   const params = new URLSearchParams(search);
-  return params.get('mode') === 'two-minute' ? { mode: 'two-minute', level: miniLevel(params.get('difficulty')), matchup: miniMatchup(params.get('team'), params.get('opponent')) } : null;
+  return ['two-minute','five-minute'].includes(params.get('mode')) ? { mode: params.get('mode'), level: miniLevel(params.get('difficulty')), matchup: miniMatchup(params.get('team'), params.get('opponent')) } : null;
 }
 export function miniRatings(ratings, team, level) {
   if (!level || team !== 1) return ratings;
@@ -26,8 +26,8 @@ export function miniWhistle(session, drive, reason, gain, incomplete = false) {
 /** Only dead-ball time runs here; the existing engine owns live-play time. */
 export function miniBetweenPlays(session, drive, phase, dt) {
   if (session.result || !session.started || !['pre', 'dead'].includes(phase)) return null;
-  if (session.running) drive.clock = Math.max(0, drive.clock - dt);
-  if (drive.clock <= 0) return 'TIME EXPIRED';
+  if (session.running && !session.overtime) drive.clock = Math.max(0, drive.clock - dt);
+  if (drive.clock <= 0 && !session.overtime) return 'TIME EXPIRED';
   // The play clock starts once the field is ready for the next snap.
   if (phase === 'pre') {
     session.playClock = Math.max(0, session.playClock - dt);
@@ -36,23 +36,23 @@ export function miniBetweenPlays(session, drive, phase, dt) {
       const actual = Math.min(loss, drive.ball - 1);
       drive.ball -= actual; drive.toGo += actual;
       session.playClock = 40;
-      session.log.push({ reason: 'DELAY OF GAME', gain: -actual, clock: drive.clock, ball: drive.ball });
+      session.log.push({ ...(session.full ? { side: 'home', overtime: session.overtime } : {}), reason: 'DELAY OF GAME', gain: -actual, clock: drive.clock, ball: drive.ball });
       return 'DELAY OF GAME';
     }
   }
   return null;
 }
 export function miniTimeout(session, drive, phase) {
-  if (session.result || !session.started || !session.running || session.timeouts <= 0 || drive.clock <= 0 || !['pre', 'dead'].includes(phase)) return false;
+  if (session.result || !session.started || !session.running || session.timeouts <= 0 || (drive.clock <= 0 && !session.overtime) || !['pre', 'dead'].includes(phase)) return false;
   session.timeouts--; session.running = false; session.playClock = 40;
-  session.log.push({ reason: 'TIMEOUT', gain: null, clock: drive.clock, ball: drive.ball });
+  session.log.push({ ...(session.full ? { side: 'home', overtime: session.overtime } : {}), reason: 'TIMEOUT', gain: null, clock: drive.clock, ball: drive.ball });
   return true;
 }
 export function miniSpike(session, drive, phase) {
-  if (session.result || phase !== 'pre' || drive.clock <= 0) return false;
+  if (session.result || phase !== 'pre' || (drive.clock <= 0 && !session.overtime)) return false;
   session.started = true; session.running = false; session.playClock = 40;
-  drive.clock = Math.max(0, drive.clock - 1); drive.down++; drive.plays++;
-  session.log.push({ reason: 'SPIKE', gain: 0, clock: drive.clock, ball: drive.ball });
+  if (!session.overtime) drive.clock = Math.max(0, drive.clock - 1); drive.down++; drive.plays++;
+  session.log.push({ ...(session.full ? { side: 'home', overtime: session.overtime } : {}), reason: 'SPIKE', gain: 0, clock: drive.clock, ball: drive.ball });
   return true;
 }
 export function miniFinish(session, drive, title) {

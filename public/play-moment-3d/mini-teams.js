@@ -1,4 +1,4 @@
-import { MINI_TEAMS } from './mini-teams-data.js?v=teams-1';
+import { MINI_TEAMS } from './mini-teams-data.js?v=five-minute-1';
 export { MINI_TEAMS };
 export function miniTeam(id) { return MINI_TEAMS.find(team => team.abbr === id) || MINI_TEAMS.find(team => team.abbr === 'JCY'); }
 export function miniMatchup(homeId, awayId) {
