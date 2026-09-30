@@ -1,0 +1,18 @@
+.mini-game #miniActions { justify-self:end; pointer-events:auto; text-align:right; }
+#miniActions>span { display:block; font-size:9px; color:#eed18c; font-weight:800; margin-bottom:3px; }
+#miniActions>div { display:flex; gap:5px; }
+#miniActions button { min-height:44px; padding:5px 8px; border:1px solid #e1c77d66; border-radius:8px; background:#0b1524f5; font-size:10px; font-weight:800; }
+#miniActions button:disabled { opacity:.45; cursor:default; }
+#miniSummary { font-size:12px; }
+#miniResultActions { display:grid; grid-template-columns:1fr 1fr; gap:8px; align-items:center; }
+.mini-game #miniResultActions button,.mini-game #miniResultActions a { min-height:44px; margin:8px 0; font-size:12px; padding:8px; }
+#miniSummary details { margin:12px 0; text-align:left; }
+#miniSummary summary { padding:12px 0; color:#e8c66c; cursor:pointer; }
+#miniSummary ol { padding-left:20px; max-height:150px; overflow:auto; }
+#miniSummary li { margin:8px 0; line-height:1.4; }
+.mini-game #paused .running-setting { margin-top:10px; }
+@media (max-width:740px) and (orientation:landscape) {
+ .mini-game .scorebug { width:300px; grid-template-columns:1fr 96px 1fr; }
+ .mini-game #miniActions button { font-size:9px; padding:5px; }
+ .mini-game #hud header { gap:5px; }
+}
