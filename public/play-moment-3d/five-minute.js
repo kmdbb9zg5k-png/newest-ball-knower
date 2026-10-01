@@ -1,3 +1,4 @@
+import {cpuFourthDown} from './cpu-offense.js?v=cpu-punts-7';
 /** Five-minute arcade rules. Pure state transitions; no timers or DOM. */
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 export const fullInitialDrive = (mode = 'five-minute') => ({ ball: 25, down: 1, toGo: 10, clock: mode === 'two-minute' ? 120 : 300, score: mode === 'two-minute' ? 23 : 0, plays: 0 });
@@ -100,12 +101,20 @@ export function fullKick(s, d, side, kind, team, random = Math.random, kickResul
   }
   return true;
 }
-export function fullCpuKickChoice(s, d) {
- const c=s.cpu, deficit=d.score-s.awayScore;
- const needTD=(!s.overtime&&d.clock<65&&deficit>3)||(s.overtime&&s.otPossessions===1&&deficit>3);
- if((c.down===4||!s.overtime&&d.clock<=8)&&fieldGoalDistance(c.ball)<=60&&!needTD)return 'field-goal';
- if(c.down===4&&c.ball<55&&!(d.clock<60&&deficit>0)&&!s.overtime)return 'punt';
- return null;
+export function fullCpuKickChoice(s,d,kicker=80){
+ const choice=cpuFourthDown({...s.cpu,clock:d.clock,deficit:d.score-s.awayScore,overtime:s.overtime,otPossessions:s.otPossessions,kicker,opponentTimeouts:s.timeouts});
+ return choice==='go'?null:choice;
+}
+/** A live punt resolves the observed landing/return exactly once. */
+export function fullPuntResult(s,d,{kicking,ball=20,seconds=0,touchdown=false,safety=false,interception=false,reason='PUNT'}){
+ if(s.result||s.pending||s.possession!==kicking||s.overtime)return false;
+ if(!s.overtime)d.clock=Math.max(0,d.clock-seconds);
+ fullLog(s,d,kicking,reason);
+ const receiving=other(kicking);
+ if(safety){addScore(s,d,kicking,2);fullPossessionEnd(s,d,receiving,35);return true;}
+ if(interception){fullPossessionEnd(s,d,receiving,100-ball);return true;}
+ if(touchdown){addScore(s,d,receiving,6);s.possession=receiving;s.conversion=receiving;if(receiving==='away')fullConversion(s,d,'extra-point',true);return true;}
+ fullPossessionEnd(s,d,kicking,clamp(ball,1,99));return true;
 }
 /** One CPU snap per call; the UI holds every result so no play disappears. */
 export function fullCpuPlay(s, d, config, random = Math.random) {
@@ -113,11 +122,10 @@ export function fullCpuPlay(s, d, config, random = Math.random) {
   if (fullExpired(s, d)) return true;
   const c = s.cpu, team = config.matchup.away, home = config.matchup.home;
   const deficit = d.score - s.awayScore;
-  const needTouchdown = !s.overtime && d.clock < 65 && deficit > 3 || s.overtime && s.otPossessions === 1 && deficit > 3;
   const desperation = !s.overtime && d.clock < 60 && deficit > 0;
-  if ((c.down === 4 || !s.overtime && d.clock <= 8) && fieldGoalDistance(c.ball) <= 60 && !needTouchdown) return fullKick(s, d, 'away', 'field-goal', team, random);
-  if (c.down === 4 && c.ball < 55 && !desperation && !s.overtime) return fullKick(s, d, 'away', 'punt', team, random);
-  const pass = random() < (c.toGo > 7 || desperation ? .72 : .42);
+  const kick=fullCpuKickChoice(s,d,team.kicker.overall);
+  if(kick)return fullKick(s,d,'away',kick,team,random);
+  const pass = random() < (desperation ? .85 : c.toGo > 7 ? .76 : !s.overtime&&d.clock<90&&deficit<0 ? .25 : .43);
   const edge = clamp((team.offense - home.defense + (config.level.id === 'rookie' ? -7 : config.level.id === 'all-pro' ? 5 : 0)) / 100, -.2, .2);
   const roll = random(), quarterback = team.lineup[5];
   const runner = team.lineup[pass ? 7 + Math.floor(random() * 4) : 6];

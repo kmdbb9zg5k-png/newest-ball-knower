@@ -1,5 +1,5 @@
-import { createFullGameUI } from './five-minute-ui.js?v=conversion-book-5';
-import { miniClock, saveMiniBest } from './mini-games.js?v=conversion-book-5';
+import { createFullGameUI } from './five-minute-ui.js?v=cpu-punts-7';
+import { miniClock, saveMiniBest } from './mini-games.js?v=cpu-punts-7';
 
 export function createMiniGamesUI(config, actions) {
   if (!config) return null;
