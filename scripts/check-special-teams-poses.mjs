@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {MeshyAthletes,parseGLB,meshyAnimationState} from '../public/play-moment-3d/meshy-athlete.js';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const assetFlag=process.argv.indexOf('--asset');
+const raw=fs.readFileSync(assetFlag>=0?path.resolve(process.argv[assetFlag+1]):path.join(root,'public/play-moment-3d/assets/ball-knower-gridiron-sentinel-v4.glb'));
+const parsed=parseGLB(raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength)),{json,accessor}=parsed,primitive=json.meshes[0].primitives[0];
+// Exercise the shipped pose methods and real asset without requiring WebGL.
+const rig=Object.create(MeshyAthletes.prototype);
+rig.parents=new Int16Array(json.nodes.length).fill(-1);json.nodes.forEach((node,i)=>(node.children||[]).forEach(c=>rig.parents[c]=i));
+rig.namedNodes=Object.fromEntries(json.nodes.map((n,i)=>[n.name,i]));
+rig.base=json.nodes.map(n=>({t:n.translation||[0,0,0],r:n.rotation||[0,0,0,1],s:n.scale||[1,1,1]}));
+rig.joints=json.skins[0].joints;rig.inverseBind=accessor(json.skins[0].inverseBindMatrices);
+rig.poseStates=new Map();rig.handTransforms=new Map();rig.supportPoints=new Map();
+// Verify actual joint geometry rather than matching pose constants.
+const actor={role:'QB',index:15,team:0,x:.65,z:88,heading:0,vx:0,vz:0,action:'hold-kick',actionT:0,fallen:false};
+const locals=()=>rig.base.map(n=>({t:[...n.t],r:[...n.r],s:[...n.s]}));
+const point=(pose,name)=>Array.from(rig.jointWorld(pose,rig.namedNodes['mixamorig:'+name]).m).slice(12,15);
+const holder=locals();rig.holderPose(holder,actor);
+assert(point(holder,'RightLeg')[1]<.12,'Holder kneels with rear knee near turf');
+assert(point(holder,'LeftLeg')[1]>.3,'Holder keeps the front knee raised');
+for(const side of ['Left','Right'])assert(point(holder,side+'Foot')[1]<.12,'Holder feet stay near turf');
+const kick=locals();rig.kickPose(kick,{...actor,role:'K',index:16,action:'kick',actionT:.5});const foot=point(kick,'RightFoot');
+assert(Math.hypot(.19+foot[0]*1.17,-.52+foot[2]*1.17)<.18,'Striking foot reaches the held ball horizontally');
+assert(Math.abs(foot[1]*1.17-.3)<.12,'Striking foot reaches ball height');
+const back=locals();rig.kickPose(back,{...actor,action:'kick',actionT:.15});assert(point(back,'RightFoot')[2]<foot[2]-.4,'Leg loads before strike');
+assert.equal(meshyAnimationState({role:'OL',team:1,engaged:true,blockStyle:'pass-anchor'},'unit'),'pass-anchor','Away offensive blockers use protection pose');
+assert.equal(meshyAnimationState({role:'DL',team:0,engaged:true,blockStyle:'bull-rush'},'unit'),'rush-engaged','Home defenders use rush pose');
+console.log('PASS kneeling holder geometry, loaded kick/foot contact, and blocking roles independent of uniform.');
