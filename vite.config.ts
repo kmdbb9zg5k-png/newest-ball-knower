@@ -32,6 +32,7 @@ export default defineConfig(() => {
   const root = path.resolve(__dirname, '.');
   return {
     plugins: [flattenedRepoResolver(root), react(), tailwindcss()],
+    build: { rollupOptions: { input: { app: path.join(root, 'index.html'), combine: path.join(root, 'combine.html') } } },
     resolve: { alias: { '@': root } },
     server: {
       hmr: process.env.DISABLE_HMR !== 'true',

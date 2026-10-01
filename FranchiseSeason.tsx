@@ -1,4 +1,5 @@
 import {SoloPortrait,useSoloRecords} from './solo/SoloPresentation';
+import { FranchiseCombine } from './combine/CombineLauncher';
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ChevronRight, Play, RotateCcw, Trophy, Users } from 'lucide-react';
@@ -191,6 +192,7 @@ export const FranchiseSeason: React.FC<Props> = ({
   });
   const [playoffField, setPlayoffField] = useState<PlayoffSeed[]>(() => Array.isArray(restored?.playoffField) ? restored.playoffField : []);
   const [year, setYear] = useState<number>(restoredYear);
+  const combineProspects = useMemo(() => buildFranchiseRookieClass(year + 1).map(p => ({ ...p, id: `franchise-rookie-${year + 1}-${p.id}` })), [year]);
   const [isSimulating, setIsSimulating] = useState(false);
   const simulationLock = useRef(false);
   const schedule = useMemo(() => {
@@ -467,6 +469,7 @@ export const FranchiseSeason: React.FC<Props> = ({
           </button>
         </div>
 
+        <FranchiseCombine prospects={combineProspects} roster={activeRoster} context={`${seasonKey}:${userTeam.abbr}:combine:${year + 1}`} year={year + 1} />
         {message ? <div className="mb-4 rounded-2xl border border-[var(--bk-team-accent)]/25 bg-[var(--bk-team-accent)]/10 px-4 py-3 text-sm font-bold text-[var(--bk-team-accent)]">{message}</div> : null}
 
         {stage === 'regular' || stage === 'playoffs' ? <FranchiseInteractionCenter state={interactionState} roster={activeRoster} onRespond={respondToScenario} onUpgrade={applyUpgrade} onReadAll={readAllNotifications} /> : null}

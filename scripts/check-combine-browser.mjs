@@ -1,0 +1,36 @@
+import assert from 'node:assert/strict';
+import {createServer} from 'vite';
+import {chromium} from 'playwright';
+import {mkdir} from 'node:fs/promises';
+const out='artifacts/combine';await mkdir(out,{recursive:true});
+// This fixture serves the real production components without the unrelated
+// account/intro flow. It exists only inside the test server.
+const fixture=`import React from 'react';import{createRoot}from'react-dom/client';import{FranchiseSeason}from'/FranchiseSeason.tsx';import{HomeMiniGamesFeature}from'/HomeMiniGamesFeature.tsx';import{SOLO_PLAYERS_DATABASE,SOLO_TEAM_THEMES}from'/soloUniverse.ts';import'/index.css';createRoot(document.getElementById('root')).render(React.createElement('div',null,React.createElement(HomeMiniGamesFeature),React.createElement(FranchiseSeason,{title:'Combine regression',userTeam:SOLO_TEAM_THEMES[0],roster:SOLO_PLAYERS_DATABASE.slice(0,53),saveKey:'bk-qa-combine',onBack:()=>{document.body.dataset.returned='yes'}})));`;
+const server=await createServer({server:{host:'127.0.0.1',port:3057},plugins:[{name:'combine-fixture',configureServer(s){s.middlewares.use(async(req,res,next)=>{if(req.url==='/combine-qa.html'){res.setHeader('Content-Type','text/html');res.end(await s.transformIndexHtml(req.url,'<html><head><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body><div id="root"></div><script type="module" src="/combine-qa.js"></script></body></html>'));}else next();});},resolveId(id){if(id==='/combine-qa.js')return '\0combine-qa';},load(id){if(id==='\0combine-qa')return fixture;}}]});await server.listen();
+const browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_PATH||undefined,args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
+try{
+ const page=await browser.newPage({viewport:{width:844,height:390},hasTouch:true,isMobile:true});page.setDefaultTimeout(45000);const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error('PAGE ERROR:',e.message)});
+ const game=page.locator('.combine-game'),action=page.locator('.combine-action');
+ const press=async()=>{const b=await action.boundingBox();await page.mouse.move(b.x+b.width/2,b.y+b.height/2);await page.mouse.down();};
+ if(!process.env.FRANCHISE_ONLY){
+ await page.goto('http://127.0.0.1:3057/combine.html');await page.waitForFunction(()=>!document.querySelector('.combine-action')?.disabled);await page.screenshot({path:out+'/dash-start-landscape.png'});
+ assert.equal(await page.locator('.vite-error-overlay').count(),0);assert.equal(await game.getAttribute('data-phase'),'idle');
+
+ await press();await page.mouse.up();await page.waitForFunction(()=>document.querySelector('.combine-game').dataset.phase==='ready');await press();
+ await page.waitForFunction(()=>document.querySelector('.combine-game').dataset.phase==='running');await page.screenshot({path:out+'/dash-running.png'});
+ await page.waitForFunction(()=>document.querySelector('.combine-game').dataset.phase==='finished',null,{timeout:60000});await page.mouse.up();await page.screenshot({path:out+'/dash-results.png'});
+ let records=await page.evaluate(()=>JSON.parse(localStorage.getItem('bk-combine-forty-v1')));assert.equal(records.length,1);assert(records[0].splits[2]>4&&records[0].splits[2]<6.5);assert(records[0].splits[0]<records[0].splits[1]);
+ await page.getByRole('button',{name:'SECOND ATTEMPT'}).click();await press();await page.mouse.up();await press();await page.mouse.up();await page.getByRole('heading',{name:'FALSE START'}).waitFor();assert(await page.getByRole('button',{name:'NEW SESSION'}).isVisible());assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('bk-combine-forty-v1')).length),1);
+ await page.reload();await page.waitForFunction(()=>!document.querySelector('.combine-action')?.disabled);assert((await page.locator('.combine-athlete').innerText()).includes('BEST'));
+ await page.setViewportSize({width:390,height:844});await page.screenshot({path:out+'/dash-start-portrait.png'});for(const selector of ['.combine-action','.combine-athlete','.combine-pause','.combine-back']){const b=await page.locator(selector).boundingBox();assert(b.x>=0&&b.y>=0&&b.x+b.width<=391&&b.y+b.height<=845,selector+' clipped');}
+ await page.getByRole('button',{name:'Change athlete'}).click();await page.getByRole('button',{name:/RUN →/}).first().click();assert(!(await page.locator('.combine-athlete').innerText()).includes('BEST'));
+ await press();await page.mouse.up();await page.getByRole('button',{name:'Pause dash'}).click();const before=await page.locator('.combine-timer').innerText();await page.waitForTimeout(350);assert.equal(await page.locator('.combine-timer').innerText(),before);await page.getByRole('button',{name:'RESUME',exact:true}).click();
+ }
+ // Franchise renders in a native modal and returns without remounting season.
+ await page.goto('http://127.0.0.1:3057/combine-qa.html');await page.getByRole('button',{name:'Scout prospects'}).waitFor();const season=await page.evaluate(()=>localStorage.getItem('bk-qa-combine:season'));
+ await page.getByRole('button',{name:'Scout prospects'}).click();await page.waitForFunction(()=>document.querySelector('.combine-action')&&!document.querySelector('.combine-action').disabled);assert((await page.locator('.combine-brand').innerText()).includes('FRANCHISE'));await page.screenshot({path:out+'/franchise-dash.png'});for(const selector of ['.combine-action','.combine-athlete','.combine-back']){const b=await page.locator(selector).boundingBox();const vp=page.viewportSize();assert(b.x>=0&&b.y>=0&&b.x+b.width<=vp.width+1&&b.y+b.height<=vp.height+1,selector+' clipped in franchise');}
+ await press();await page.mouse.up();await page.waitForFunction(()=>document.querySelector('.combine-game').dataset.phase==='ready');await press();await page.waitForFunction(()=>document.querySelector('.combine-game').dataset.phase==='finished',null,{timeout:60000});await page.mouse.up();await page.getByRole('button',{name:'BACK TO FRANCHISE',exact:true}).click();
+ await page.getByRole('table',{name:'Your recorded bests · this Combine'}).waitFor();assert.equal(await page.evaluate(()=>localStorage.getItem('bk-qa-combine:season')),season,'Combine changed season state');assert.equal(await page.locator('.combine-game').count(),0);await page.screenshot({path:out+'/franchise-results.png'});
+ await page.getByRole('button',{name:'Test roster'}).click();await page.waitForFunction(()=>document.querySelector('.combine-action')&&!document.querySelector('.combine-action').disabled);await page.getByRole('button',{name:'Leave Combine'}).click();assert(await page.getByRole('button',{name:'Scout prospects'}).isVisible());
+ await page.getByRole('button',{name:'Explore Mini Games'}).click();await page.getByRole('button',{name:/Combine Drills/}).click();assert.equal(await page.getByRole('link',{name:'40-Yard Dash'}).getAttribute('href'),'/combine.html');assert.deepEqual(errors,[]);console.log(process.env.FRANCHISE_ONLY?'PASS franchise layout, recorded results, return, season integrity and Mini Games link.':'PASS real 3D scene, touch run, both attempts, false start, save/reload, athlete selection, portrait/landscape, pause, franchise result/return/save integrity, standalone link.');
+}finally{await browser.close();await server.close();}
