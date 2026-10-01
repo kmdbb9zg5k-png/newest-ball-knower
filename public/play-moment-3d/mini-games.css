@@ -81,3 +81,51 @@ body.unit-no-movement #stick,body.playing-unit #stamina{display:none!important;}
 #unitPad{bottom:max(24px,env(safe-area-inset-bottom));max-width:280px;flex-wrap:nowrap;}
 
 #unitKick{width:min(340px,48vw);}
+
+/* Defensive call sheet: steel frame, restrained holographic field art. */
+#defenseBook{inset:72px max(18px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));padding:0;display:grid;grid-template-rows:auto 44px minmax(0,1fr) auto;gap:8px;overflow:visible;border:1px solid #7b8991;border-radius:13px;background:linear-gradient(115deg,#0b171eeF,#07121bf5);box-shadow:0 8px 35px #0009,inset 0 0 0 3px #ffffff08;}
+#defenseBook .unit-book-heading,#defenseBook #unitPre{background:repeating-linear-gradient(0deg,#ffffff03 0 1px,#00000004 1px 3px),linear-gradient(105deg,#262e33,#414a51 47%,#252d32);box-shadow:inset 0 1px #d9e4ec44,0 1px #c0d1de22;}
+#defenseBook .unit-book-heading{padding:10px 18px;margin:0;border-radius:12px 12px 0 0;min-width:0;}
+#defenseBook h2{font-size:clamp(19px,2.6vw,32px);line-height:1;margin:0 0 5px;font-weight:900;letter-spacing:1.7px;color:#edf3f6;text-shadow:0 2px 1px #0009;}
+#defensePersonnel{font-size:10px;letter-spacing:1.7px;font-weight:650;color:#b8c5ce;margin:0;text-transform:uppercase;}
+#defenseBook button{border-color:#52636e;color:#e0ebf0;background:linear-gradient(140deg,#27343e,#101b23);border-radius:8px;box-shadow:inset 0 1px #ffffff12,0 2px 4px #0004;font-size:11px;letter-spacing:.3px;}
+#defenseBook button:focus-visible{outline:2px solid #85edff;outline-offset:2px;}
+#defenseBook #unitSimBook{font-weight:500;color:#b7c4cf;white-space:nowrap;padding:8px 14px;min-height:44px;}
+#unitSimBook span{margin-right:7px;color:#a2b5c4;}
+#defenseBook #defenseFormations{margin:0 12px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;overflow:visible;}
+#defenseBook #defenseFormations button{border-radius:0;font-size:12px;text-transform:uppercase;box-shadow:none;background:linear-gradient(#15242d,#0b171f);border:1px solid #33444f;border-right:0;}
+#defenseBook #defenseFormations button:first-child{border-radius:7px 0 0 7px;}
+#defenseBook #defenseFormations button:last-child{border-radius:0 7px 7px 0;border-right:1px solid #33444f;}
+#defenseBook #defenseFormations button[aria-pressed=true]{color:#88e8ef;background:linear-gradient(#1d3440,#14242e);box-shadow:inset 0 -3px #71dce9;}
+#defenseBook #defenseCalls{padding:0 12px;gap:10px;min-height:0;grid-template-columns:repeat(3,minmax(0,1fr));}
+#defenseBook #defenseCalls button{position:relative;display:flex;flex-direction:column;gap:3px;padding:8px 10px;min-height:0;overflow:hidden;background:repeating-linear-gradient(0deg,#c9efff02 0 1px,transparent 1px 4px),linear-gradient(135deg,#13242d,#0a151d);border:1px solid #50616b;box-shadow:inset 0 0 16px #0004;}
+#defenseBook #defenseCalls button[aria-pressed=true]{border-color:#89ecf6;box-shadow:0 0 12px #5edbef30,inset 0 0 16px #58dced15;}
+#defenseBook #defenseCalls svg{width:100%;height:0;min-height:0;max-height:none;flex:1;overflow:visible;}
+#defenseCalls .defense-figure{opacity:.5;}#defenseCalls .holo-field{opacity:0;}
+#defenseCalls [aria-pressed=true] .holo-field{opacity:1;}#defenseCalls [aria-pressed=true] .defense-figure{opacity:.95;}
+#defenseBook #defenseCalls strong{font-size:clamp(12px,1.7vw,22px);line-height:1.12;text-transform:uppercase;letter-spacing:.3px;color:#e4eff3;}
+#defenseBook #defenseCalls span{font-size:clamp(8px,1vw,12px);letter-spacing:.7px;color:#9cb3c1;}
+.defense-check{position:absolute;top:9px;right:9px;display:none;width:23px;height:23px;border:2px solid #63e4ee;border-radius:50%;font-size:16px;font-style:normal;color:#74ecf2;text-align:center;line-height:19px;box-shadow:0 0 9px #73eff64d;background:#102830;}
+#defenseCalls [aria-pressed=true] .defense-check{display:block;}
+#defenseBook #unitPre{position:relative;display:flex;flex-wrap:nowrap;align-items:center;justify-content:flex-start;gap:8px;margin:0;padding:9px 12px;left:auto;right:auto;bottom:auto;border-radius:0 0 12px 12px;min-width:0;}
+#unitPre #unitArt,#unitPre #unitAdjust{white-space:nowrap;min-height:46px;padding:8px 12px;}
+#unitAdjust span{color:#97dbe8;font-size:18px;margin:0 3px;}
+#defenseSelection{margin-left:auto;padding:0 14px;min-width:0;border-left:1px solid #ffffff23;display:flex;flex-direction:column;gap:3px;text-transform:uppercase;}
+#defenseSelection span{font-size:8px;letter-spacing:.7px;color:#9cabb6;}#defenseSelection strong{font-size:11px;color:#edf4f6;}
+#defenseBook #unitCallDefense{background:linear-gradient(110deg,#98702a,#f0d477 53%,#a77b2c);border-color:#eed592;color:#151a1d;min-height:46px;min-width:150px;white-space:nowrap;font-size:13px;font-weight:900;box-shadow:inset 0 1px #fff8,0 2px 5px #0008;text-shadow:0 1px #ffffff36;}
+#unitCallDefense span{font-size:23px;margin-left:12px;line-height:0;vertical-align:middle;}
+#defenseAdjustments{position:absolute;bottom:67px;left:12px;z-index:3;display:flex;flex-wrap:wrap;gap:8px;padding:12px;max-width:calc(100% - 24px);box-sizing:border-box;background:#12212cf7;border:1px solid #718998;border-radius:9px;box-shadow:0 8px 25px #000b;}
+#defenseBook #defenseAdjustments button[aria-pressed=true]{color:#8febf4;border-color:#8febf4;}
+#defensePreview{position:absolute;inset:8px 12px 68px;z-index:4;background:radial-gradient(ellipse at center,#15323f,#0a1722 75%);border:1px solid #5a9cab;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:12px;box-shadow:0 8px 24px #0008;}
+#defensePreviewDiagram{flex:1;min-height:0;width:100%;display:flex;justify-content:center;}#defensePreviewDiagram svg{height:100%;max-width:100%;}
+#closeDefensePreview{position:absolute;right:6px;top:6px;width:44px;min-height:44px;z-index:1;}
+#defensePreviewName{text-transform:uppercase;font-size:12px;margin-top:5px;} .defense-legend{font-size:9px;color:#b4c8d4;margin-top:5px;letter-spacing:.8px;}
+@media(max-height:450px){#defenseBook{top:62px;bottom:max(8px,env(safe-area-inset-bottom));gap:6px;grid-template-rows:48px 44px minmax(0,1fr) 58px;}#defenseBook .unit-book-heading{padding:5px 12px;}#defenseBook h2{font-size:20px;margin-bottom:4px;}#defensePersonnel{font-size:8px;letter-spacing:1.2px;}#defenseBook #unitPre{padding:6px 10px;}#defenseBook #defenseCalls{gap:8px;padding:0 10px;}#defenseBook #defenseCalls button{padding:5px 8px;}#defenseBook #defenseFormations{margin:0 10px;}#defenseBook #defenseCalls strong{font-size:13px;}#defenseBook #defenseCalls span{font-size:8px;}#defensePreview{bottom:64px;}}
+@media(max-width:740px){#defenseSelection{display:none;}#defenseBook #unitCallDefense{margin-left:auto;min-width:148px;}#unitPre #unitAdjust,#unitPre #unitArt{padding:8px 10px;font-size:10px;}#defenseBook #defenseFormations button{font-size:11px;}#defenseBook #defenseCalls strong{font-size:12px;}#defenseBook #defenseCalls span{font-size:7.5px;letter-spacing:.3px;}}
+@media(max-height:340px){#defenseBook{top:58px;gap:4px;grid-template-rows:44px 44px minmax(0,1fr) 54px;}#defenseBook #unitPre{padding:4px 10px;}#defenseBook #defenseCalls strong{font-size:11px;}#defensePersonnel{font-size:7px;}}
+@media(max-width:500px) and (orientation:portrait){#defenseBook{overflow:auto;grid-template-rows:auto 44px minmax(180px,1fr) auto;}#defenseBook #unitPre{flex-wrap:wrap;}#defenseBook #unitCallDefense{flex:1;}#defenseBook h2{font-size:17px;}}
+/* Match the scorebug's compact and full-height breakpoints. */
+@media(min-height:451px){#defenseBook{top:88px;}}
+@media(min-height:381px) and (max-height:450px){#defenseBook{top:82px;}}
+@media(min-height:341px) and (max-height:380px){#defenseBook{top:64px;}}
+@media(max-height:340px){#defenseBook{top:62px;}}

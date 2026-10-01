@@ -26,7 +26,15 @@ export function nearestDefender(actors, target, current = -1) {
 export function defensiveTackleChance(tackler, runner, hit = false) {
  return Math.max(.18,Math.min(.96,(hit?.57:.83)+((tackler.ratings?.tackle||75)-(runner.ratings?.breakTackle||75))*.006));
 }
-export function defensiveDiagram(call) {
- const dots=Array.from({length:11},(_,slot)=>{const [x,z]=defenseAlignment(call,slot);const px=100+x*3,py=96-z*3;const rush=slot<4||call.blitz.includes(11+slot);return `<circle cx="${px}" cy="${py}" r="4" fill="#edce77"/><path d="M${px} ${py} l${rush?'0 23':call.coverage==='man'?'7 -18':'0 -11'}" stroke="${rush?'#e88671':'#a5cbd7'}" stroke-width="2"/>${!rush&&call.coverage==='zone'?`<ellipse cx="${px}" cy="${py-14}" rx="14" ry="8" fill="#86b5ca33" stroke="#a5cbd7"/>`:''}`;}).join('');
- return `<svg viewBox="0 0 200 120" aria-hidden="true"><path d="M5 100H195" stroke="#ffffff55" stroke-dasharray="4 4"/>${dots}</svg>`;
+// Compact SVG field art stays crisp on phones. Each card owns its gradient IDs.
+export function defensiveDiagram(call, variant='card') {
+ const id=call.id+'-'+variant;
+ const zone=(x,y,rx,ry)=>`<g class="coverage-zone"><ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="url(#${id}-zone)" stroke="#75e6f4" stroke-width=".8"/><ellipse cx="${x}" cy="${y}" rx="${rx*.6}" ry="${ry}" fill="none" stroke="#76e7f5" stroke-opacity=".25" stroke-width=".5"/><path d="M${x-rx} ${y}H${x+rx} M${x} ${y-ry}V${y+ry}" stroke="#9becff" stroke-opacity=".3" stroke-width=".5"/></g>`;
+ const figure=(x,y)=>`<g class="defense-figure" transform="translate(${x} ${y})" fill="#99ddeb18" stroke="#a9d6df" stroke-width=".65"><circle cy="-13" r="2.3"/><path d="M-3 -9L-4 -2L-2 0L-3 10L-1 10L1 1L3 10L5 10L3 -2L4 -7L6 -1L7 -2L5 -10Z"/><path d="M-3 -6L3 -6M-2 -2L3 -2M0 -9L1 0M-2 4L3 4" opacity=".6"/></g>`;
+ const marks=Array.from({length:12},(_,i)=>{const y=12+i*12;return `<path d="M10 ${y}h7 M283 ${y}h7 M22 ${y}H278" stroke="#8cbbc5" stroke-opacity="${i%3===0?'.13':'.055'}" stroke-width=".6"/>`;}).join('');
+ const dots=Array.from({length:11},(_,slot)=>{const [x,z]=defenseAlignment(call,slot),px=150+x*5.1,py=125-z*4.6,rush=slot<4||call.blitz.includes(11+slot);
+  if(rush)return `<g class="defense-rush"><path d="M${px} ${py}v22m-3 -5l3 5 3 -5" fill="none" stroke="#f6a36b" stroke-width="1.8"/><ellipse cx="${px}" cy="${py}" rx="5" ry="2.6" fill="#9d632c88" stroke="#ffbc75"/></g>`;
+  return `${call.coverage==='zone'?zone(px,Math.max(17,py-12),slot>=8?29:23,slot>=8?13:10):`<path d="M${px} ${py}l9 -24" stroke="#c4e5ed" stroke-width="1.4"/><circle cx="${px+9}" cy="${py-24}" r="1.8" fill="#e3f6fa"/>`}${figure(px,py+4)}<circle cx="${px}" cy="${py}" r="3.2" fill="#83e6ed" stroke="#d1ffff" stroke-width=".7"/>`;
+ }).join('');
+ return `<svg viewBox="0 0 300 170" aria-hidden="true"><defs><radialGradient id="${id}-zone"><stop stop-color="#70e3f8" stop-opacity=".1"/><stop offset=".8" stop-color="#4bdaef" stop-opacity=".23"/><stop offset="1" stop-color="#9aefff" stop-opacity=".5"/></radialGradient><linearGradient id="${id}-field" x2="0" y2="1"><stop stop-color="#75def2" stop-opacity=".02"/><stop offset="1" stop-color="#75def2" stop-opacity=".13"/></linearGradient></defs><path class="holo-field" d="M34 17H266L247 157H53Z" fill="url(#${id}-field)" stroke="#75d8eb" stroke-opacity=".3"/>${marks}<path d="M16 135H284" stroke="#bdced8" stroke-opacity=".65" stroke-dasharray="4 4" stroke-width=".8"/>${dots}<g fill="#7f99a5" stroke="#d0e1e8" stroke-width=".7"><circle cx="127" cy="152" r="3"/><circle cx="139" cy="152" r="3"/><path d="M147 149h6v6h-6Z"/><circle cx="163" cy="152" r="3"/><circle cx="175" cy="152" r="3"/></g></svg>`;
 }

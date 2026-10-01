@@ -1,15 +1,15 @@
-import {createLiveUnits} from './live-units.js?v=conversion-book-5';
-import {fullInitialDrive,fullSession,fullLog,fullRecord,fullOffenseEnd,fullContinue,fullCpuPlay,fullKick,fullCpuResult,fullConversion,fullKickoffResult,fullCpuKickChoice} from './five-minute.js?v=conversion-book-5';
-import {rosterRatings,rosterIdentity} from './mini-teams.js?v=conversion-book-5';
-import{RUNS,PASSES,FORMATIONS,FIELD_GOAL_PLAY,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=conversion-book-5';
-export{RUNS,PASSES}from'./playbook.js?v=conversion-book-5';
+import {createLiveUnits} from './live-units.js?v=metal-defense-6';
+import {fullInitialDrive,fullSession,fullLog,fullRecord,fullOffenseEnd,fullContinue,fullCpuPlay,fullKick,fullCpuResult,fullConversion,fullKickoffResult,fullCpuKickChoice} from './five-minute.js?v=metal-defense-6';
+import {rosterRatings,rosterIdentity} from './mini-teams.js?v=metal-defense-6';
+import{RUNS,PASSES,FORMATIONS,FIELD_GOAL_PLAY,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=metal-defense-6';
+export{RUNS,PASSES}from'./playbook.js?v=metal-defense-6';
 import{Renderer,pose,segment,hex,mul,ry}from'./renderer.js?v=football-foundation-44';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js?v=teams-1';
-import{createMeshyAthletes}from'./meshy-athlete.js?v=conversion-book-5';
+import{createMeshyAthletes}from'./meshy-athlete.js?v=metal-defense-6';
 import{makeStadium}from'./stadium.js?v=football-foundation-44';
 import{createGameplayReplayRecorder}from'./replay.js';
-import {miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=conversion-book-5';
-import {createMiniGamesUI} from './mini-games-ui.js?v=conversion-book-5';
+import {miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=metal-defense-6';
+import {createMiniGamesUI} from './mini-games-ui.js?v=metal-defense-6';
 import{QB_THROW_RELEASE,quarterbackThrowDuration}from'./quarterback.js?v=football-finish-21';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
 /** The established first-down target, in the drive's 0–100 field coordinates.
