@@ -534,8 +534,13 @@ export class MeshyAthletes{
  mixLocals(base,overlay,weight){return base.map((node,index)=>({t:lerpArray(node.t,overlay[index].t,weight),r:slerp(node.r,overlay[index].r,weight),s:lerpArray(node.s,overlay[index].s,weight)}))}
  rotate(locals,name,x,y,z,angle){const index=this.namedNodes[name];if(Number.isInteger(index))locals[index].r=quatMul(locals[index].r,axisQuat(x,y,z,angle))}
  jointWorld(locals,index){
+  // Bind-pose transforms never change; avoid rewalking the rig for every IK limb.
+  const bind=locals===this.base;
+  if(bind&&this.bindSource!==locals){this.bindSource=locals;this.bindWorld=new Map();}
+  if(bind&&this.bindWorld.has(index))return this.bindWorld.get(index);
   const n=locals[index],parent=this.parents[index],local=compose(n.t,n.r,n.s);
-  if(parent<0)return{m:local,q:n.r};const w=this.jointWorld(locals,parent);return{m:mul(w.m,local),q:quatMul(w.q,n.r)};
+  const w=parent<0?null:this.jointWorld(locals,parent),result=w?{m:mul(w.m,local),q:quatMul(w.q,n.r)}:{m:local,q:n.r};
+  if(bind)this.bindWorld.set(index,result);return result;
  }
  aimJoint(locals,index,child,target){
   const parent=this.parents[index],pw=parent<0?{q:[0,0,0,1]}:this.jointWorld(locals,parent),origin=pointFromMatrix(this.jointWorld(locals,index).m),inverse=[-pw.q[0],-pw.q[1],-pw.q[2],pw.q[3]],desired=pointFromMatrix(quatMatrix(inverse),subtract(target,origin)),current=pointFromMatrix(quatMatrix(locals[index].r),locals[child].t);
@@ -1097,6 +1102,8 @@ export class MeshyAthletes{
   else if(p.hasBall&&(/^carry-|^qb-scramble|break-tackle|stumble/.test(choice.state)||p.fallen))this.carryPose(locals,p);
   if(p.fallen&&/wrap|gang|tackle|hit|pancake|dive/.test(choice.state))this.contactPose(locals,p);
   if(choice.state.startsWith('catch-')&&choice.state!=='catch-miss'&&!p.fallen)this.catchPose(locals,p);
+  if(p.receiving&&!p.fallen&&!p.hasBall)this.catchPose(locals,{...p,catchT:.45,catchStyle:'rac'});
+  if(p.lookTarget&&!p.fallen){const aim=Math.atan2(p.lookTarget[0]-p.x,p.lookTarget[2]-p.z)-(p.heading||0),look=clamp(Math.atan2(Math.sin(aim),Math.cos(aim)),-.7,.7);this.rotate(locals,'mixamorig:Head',0,1,0,look*.7);this.rotate(locals,'mixamorig:Spine2',0,1,0,look*.15);}
   if(choice.state==='pre'){
    const seed=meshyPlaybackSeed(p.index,p.team),breath=Math.sin(time*(1.25+seed.rate*.22)+seed.offset*Math.PI*2),scan=Math.sin(time*(.38+seed.rate*.08)+seed.offset*Math.PI*2);
    const spine=this.namedNodes['mixamorig:Spine2'],head=this.namedNodes['mixamorig:Head'];
@@ -1136,14 +1143,14 @@ export class MeshyAthletes{
  }
 
  queueShadows(actors,phase,time){
-  if(!this.ready||!this.renderer.shadowAvailable)return false;this.phase=phase;this.actorMap=new Map(actors.map(p=>[p.index,p]));this.frameBones=new Map(actors.map(p=>[p.index,this.bonesFor(p,phase,time)]));
-  this.renderer.queueShadowCaster(lightVP=>{const gl=this.gl;gl.useProgram(this.depthProgram);gl.bindVertexArray(this.vao);gl.uniformMatrix4fv(this.depthUniforms.lightVP,false,lightVP);for(const p of actors){gl.uniform4fv(this.depthUniforms.bodyProfile,playerBuild(p.role).bulk);gl.uniformMatrix4fv(this.depthUniforms.model,false,this.modelFor(p));gl.uniformMatrix4fv(this.depthUniforms.bones,false,this.frameBones.get(p.index));gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0)}gl.bindVertexArray(null);return actors.length});return true;
+  if(!this.ready||!this.renderer.shadowAvailable)return false;this.phase=phase;this.actorMap=new Map(actors.map(p=>[p.index,p]));this.frameBones=new Map(actors.map(p=>[p.index,this.bonesFor(p,phase,time)]));this.frameModels=new Map(actors.map(p=>[p.index,this.modelFor(p)]));
+  this.renderer.queueShadowCaster(lightVP=>{const gl=this.gl;gl.useProgram(this.depthProgram);gl.bindVertexArray(this.vao);gl.uniformMatrix4fv(this.depthUniforms.lightVP,false,lightVP);for(const p of actors){gl.uniform4fv(this.depthUniforms.bodyProfile,playerBuild(p.role).bulk);gl.uniformMatrix4fv(this.depthUniforms.model,false,this.frameModels.get(p.index));gl.uniformMatrix4fv(this.depthUniforms.bones,false,this.frameBones.get(p.index));gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0)}gl.bindVertexArray(null);return actors.length});return true;
  }
  draw(actors,phase,time){if(!this.ready)return false;this.phase=phase;this.actorMap=new Map(actors.map(p=>[p.index,p]));const gl=this.gl;this.lastStates=actors.map(p=>meshyAnimationState(p,phase));gl.useProgram(this.program);gl.bindVertexArray(this.vao);gl.uniformMatrix4fv(this.uniforms.vp,false,this.renderer.vp);gl.uniform3fv(this.uniforms.eye,this.renderer.eye);
   gl.uniform1f(this.uniforms.sourceMaterials,this.sourceMaterials);gl.uniformMatrix4fv(this.uniforms.lightVP,false,this.renderer.lightVP);gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,this.renderer.shadowAvailable?this.renderer.shadowTexture:this.renderer.neutralShadow);gl.uniform1i(this.uniforms.shadowMap,4);gl.uniform1i(this.uniforms.useShadow,this.renderer.shadowAvailable?1:0);gl.uniform1f(this.uniforms.shadowTexel,this.renderer.shadowSize?1/this.renderer.shadowSize:1);
   for(let i=0;i<3;i++){gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,this.textures[i])}gl.uniform1i(this.uniforms.baseMap,0);gl.uniform1i(this.uniforms.normalMap,1);gl.uniform1i(this.uniforms.ormMap,2);gl.uniform1i(this.uniforms.numberMap,3);gl.uniform1i(this.uniforms.nameMap,5);gl.disable(gl.BLEND);gl.depthMask(true);
-  for(const p of actors){const bones=this.frameBones?.get(p.index)||this.bonesFor(p,phase,time);gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,this.renderer.textures.get('meshy-number-'+jerseyIdentityKey(p)));gl.activeTexture(gl.TEXTURE5);gl.bindTexture(gl.TEXTURE_2D,this.renderer.textures.get('meshy-name-'+jerseyIdentityKey(p)));const rgb=value=>[1,3,5].map(i=>parseInt((value||'#000000').slice(i,i+2),16)/255);gl.uniform1f(this.uniforms.customKit,p.kitJersey?1:0);gl.uniform3fv(this.uniforms.kitColor,rgb(p.kitJersey));gl.uniform3fv(this.uniforms.kitTrim,rgb(p.kitTrim));gl.uniform3fv(this.uniforms.kitPrimary,rgb(p.kitPrimary));gl.uniform4fv(this.uniforms.bodyProfile,playerBuild(p.role).bulk);gl.uniformMatrix4fv(this.uniforms.model,false,this.modelFor(p));gl.uniformMatrix4fv(this.uniforms.bones,false,bones);gl.uniform1f(this.uniforms.rival,p.team?1:0);gl.uniform1f(this.uniforms.controlled,p.hasBall?1:0);gl.uniform1f(this.uniforms.playerSeed,((p.index*37+p.team*11)%17)/16);gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0);this.renderer.drawCalls++}
-  this.frameBones=null;gl.bindVertexArray(null);return true;
+  for(const p of actors){const bones=this.frameBones?.get(p.index)||this.bonesFor(p,phase,time);gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,this.renderer.textures.get('meshy-number-'+jerseyIdentityKey(p)));gl.activeTexture(gl.TEXTURE5);gl.bindTexture(gl.TEXTURE_2D,this.renderer.textures.get('meshy-name-'+jerseyIdentityKey(p)));const rgb=value=>[1,3,5].map(i=>parseInt((value||'#000000').slice(i,i+2),16)/255);gl.uniform1f(this.uniforms.customKit,p.kitJersey?1:0);gl.uniform3fv(this.uniforms.kitColor,rgb(p.kitJersey));gl.uniform3fv(this.uniforms.kitTrim,rgb(p.kitTrim));gl.uniform3fv(this.uniforms.kitPrimary,rgb(p.kitPrimary));gl.uniform4fv(this.uniforms.bodyProfile,playerBuild(p.role).bulk);gl.uniformMatrix4fv(this.uniforms.model,false,this.frameModels?.get(p.index)||this.modelFor(p));gl.uniformMatrix4fv(this.uniforms.bones,false,bones);gl.uniform1f(this.uniforms.rival,p.team?1:0);gl.uniform1f(this.uniforms.controlled,p.hasBall?1:0);gl.uniform1f(this.uniforms.playerSeed,((p.index*37+p.team*11)%17)/16);gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0);this.renderer.drawCalls++}
+  this.frameBones=null;this.frameModels=null;gl.bindVertexArray(null);return true;
  }
  ballAnchor(p){
   const phase=arguments[1]||this.phase||'run';if(!this.ready||!p)return null;const hands=this.handTransforms.get(p.index);if(!hands)return null;
