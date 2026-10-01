@@ -7,7 +7,7 @@ const root=resolve('public'),out=resolve('artifacts/five-minute');await mkdir(ou
 const server=createServer(async(req,res)=>{try{
  const name=resolve(root,'.'+new URL(req.url,'http://local').pathname);if(!name.startsWith(root+'/'))throw Error('path');let data=await readFile(name);
  // Scenario controls exist only in this test server, never in shipped code.
- if(name.endsWith('/game.js'))data=Buffer.from(data.toString().replace('window.bk3dTest={',"window.bkMiniScenario={inspectGrip(){const p=actors[5];r.camera([p.x+3,2.1,p.z+1.5],[p.x,1.1,p.z]);scene(.016,simTime*1000)},grip(){const p=actors[5],h=meshy.handTransforms.get(5),m=meshy.modelFor(p);return{anchor:meshy.ballAnchor(p),wrists:[h.left,h.right].map(hand=>Array.from(mul(m,hand)).slice(12,15))}},unit(){return liveUnit},startUnit,project(point){return r.project(point)},actors(){return actors},setDrive(values){Object.assign(drive,values);updateHud()},finishPlay(reason,spot,incomplete=false){phase='run';endPlay(reason,spot,incomplete)},endDrive,setup,setSession(values){Object.assign(mini,values);updateHud()},advanceFull};window.bk3dTest={"));
+ if(name.endsWith('/game.js'))data=Buffer.from(data.toString().replace('onResult(result){','onResult(result){window.bkLastUnitResult=result;').replace('window.bk3dTest={',"window.bkMiniScenario={inspectGrip(){const p=actors[5];r.camera([p.x+3,2.1,p.z+1.5],[p.x,1.1,p.z]);scene(.016,simTime*1000)},grip(){const p=actors[5],h=meshy.handTransforms.get(5),m=meshy.modelFor(p);return{anchor:meshy.ballAnchor(p),wrists:[h.left,h.right].map(hand=>Array.from(mul(m,hand)).slice(12,15))}},unit(){return liveUnit},startUnit,project(point){return r.project(point)},actors(){return actors},setDrive(values){Object.assign(drive,values);updateHud()},finishPlay(reason,spot,incomplete=false){phase='run';endPlay(reason,spot,incomplete)},endDrive,setup(){liveUnit?.stop();setup()},showFullState,setSession(values){Object.assign(mini,values);updateHud()},advanceFull};window.bk3dTest={"));
  res.setHeader('Content-Type',({'.js':'text/javascript','.html':'text/html','.css':'text/css','.webp':'image/webp','.glb':'model/gltf-binary'})[extname(name)]||'application/octet-stream');res.end(data);
 }catch{res.writeHead(404).end()}});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
@@ -17,7 +17,7 @@ try{
  const base=`http://127.0.0.1:${server.address().port}/play-moment-3d-preview.html`;
  await page.goto(base+'?mode=five-minute&difficulty=pro&team=JCY&opponent=OKC&qa=1');
  await page.waitForFunction(()=>window.bk3dTest);await page.evaluate(()=>window.bk3dTest.manualFrames());await page.waitForFunction(()=>window.bk3dDiagnostics().athletes.ready);
- const state=()=>page.evaluate(()=>window.bk3dDiagnostics()), step=seconds=>page.evaluate(s=>window.bk3dTest.step(s),seconds), click=id=>page.locator('#'+id).dispatchEvent('click');
+ const state=()=>page.evaluate(()=>({...window.bk3dDiagnostics(),lastResult:window.bkLastUnitResult})), step=seconds=>page.evaluate(s=>window.bk3dTest.step(s),seconds), click=id=>page.locator('#'+id).dispatchEvent('click');
  const setDrive=values=>page.evaluate(v=>window.bkMiniScenario.setDrive(v),values),setSession=values=>page.evaluate(v=>window.bkMiniScenario.setSession(v),values);
  const finish=(reason,spot,incomplete=false)=>page.evaluate(v=>window.bkMiniScenario.finishPlay(...v),[reason,spot,incomplete]);
 
@@ -49,13 +49,13 @@ try{
  assert(d.camera.eye[1]<5,'Close extra-point camera');
  await click('unitKickButton');await step(.75);await click('unitKickButton');await step(.5);
  d=await state();assert.equal(d.unit.stage,'kick-snap');assert(d.players.some(p=>p.engaged),'Kicking lines engage');assert(d.players.slice(0,11).some(p=>Math.abs(p.z-p.startZ)>.3),'Rush moves off line');assert(d.players.slice(11).some(p=>p.engaged),'Protectors defend rush');
- await page.screenshot({path:out+'/kick-protection.png'});await step(2.5);await click('unitContinue');
- assert.equal((await state()).drive.score,7,'Accurate goal kick scores');assert.equal((await state()).mini.kickoff,'home');await click('fullNext');d=await state();assert.equal(d.unit.kind,'kickoff');assert(d.camera.target[2]<d.camera.eye[2],'Coverage faces returner');assert(d.camera.eye[1]<7,'Kickoff camera stays near kicker');
+ await page.screenshot({path:out+'/kick-protection.png'});await step(2.5);
+ assert.equal((await state()).drive.score,7,'Accurate goal kick scores');assert.equal((await state()).mini.kickoff,'home');d=await state();assert.equal(d.unit.kind,'kickoff');assert(d.camera.target[2]<d.camera.eye[2],'Coverage faces returner');assert(d.camera.eye[1]<7,'Kickoff camera stays near kicker');
  await step(.1);await page.screenshot({path:out+'/kickoff-aim.png'});
 
- await click('unitKickButton');await step(.75);await click('unitKickButton');await step(3.6);assert.equal((await state()).unit.stage,'run');
- for(let i=0;i<4&&(await state()).unit.stage!=='end';i++)await step(8);
- assert.equal((await state()).unit.stage,'end');await click('unitContinue');
+ await click('unitKickButton');await step(.75);await click('unitKickButton');await step(1/60);assert((await state()).camera.target[2]>(await state()).camera.eye[2],'Kickoff flips on the first frame after release');await page.screenshot({path:out+'/kickoff-flipped.png'});await step(3.6);assert.equal((await state()).unit.stage,'run');
+ for(let i=0;i<4&&(await state()).unit&&!((await state()).unit.book||(await state()).unit.stage==='kick');i++)await step(8);
+ assert(await page.locator('#unitResult').isHidden());assert.notEqual((await state()).phase,'cpu','Result advances without Continue');assert(await page.locator('#fullDefense').isHidden());
  await setSession({pending:'away',nextBall:25,conversion:null,kickoff:null,possession:'home'});await click('fullPlayDefense');
  d=await state();assert.equal(d.unit.kind,'defense');assert.equal(await page.locator('#defenseCalls button').count(),3);
  await page.getByRole('button',{name:'Nickel',exact:true}).click();
@@ -75,7 +75,7 @@ try{
  await page.setViewportSize({width:844,height:390});await step(.1);
  await page.locator('#defenseCalls button').first().click();await click('unitCallDefense');
  await step(1);
- d=await state();const tapPlayer=d.players.map((p,index)=>({...p,index})).find(p=>p.index>=11&&p.index!==d.unit.controlled&&p.head.visible&&p.head.x>180&&p.head.x<650&&p.head.y>100&&p.foot.y<245);
+ d=await state();assert(d.camera.target[2]>d.camera.eye[2],'Defense looks upfield from offensive side');const tapPlayer=d.players.map((p,index)=>({...p,index})).find(p=>p.index>=11&&p.index!==d.unit.controlled&&p.head.visible&&p.head.x>180&&p.head.x<650&&p.head.y>100&&p.foot.y<245);
  assert(tapPlayer,'A defender is visible for tap selection');
  const beforeSwitch=(await state()).camera.eye;
  await page.mouse.click((tapPlayer.head.x+tapPlayer.foot.x)/2,(tapPlayer.head.y+tapPlayer.foot.y)/2);
@@ -88,55 +88,70 @@ try{
  assert(Math.hypot((await state()).players[16].x-before.x,(await state()).players[16].z-before.z)>.1,'Defensive joystick moves selected player');
  await page.screenshot({path:out+'/live-defense-presnap.png'});
  await step(6.1);
- for(let i=0;i<20&&!['flight','end'].includes((await state()).unit.stage);i++)await step(.25);
+ for(let i=0;i<20&&(await state()).unit&&!((await state()).unit.book||['flight','kick'].includes((await state()).unit.stage));i++)await step(.25);
  d=await state();console.log('DEFENSE',d.unit.stage,d.unit.pass,d.unit.target,d.unit.controlled);
  if(d.unit.stage==='flight'){assert(d.unit.switched);assert(d.unit.controlled>=11);await click('unitPrimary');}
- for(let i=0;i<5&&(await state()).unit.stage!=='end';i++)await step(6);
- assert.equal((await state()).unit.stage,'end');await page.screenshot({path:out+'/live-defense-result.png'});await click('unitContinue');
+ for(let i=0;i<5&&(await state()).unit&&!((await state()).unit.book||(await state()).unit.stage==='kick');i++)await step(6);
+ assert(await page.locator('#unitResult').isHidden());await page.screenshot({path:out+'/live-defense-result.png'});
  // Manual tackle uses the two-button field controls.
  await setSession({pending:'away',nextBall:25,conversion:null,kickoff:null,possession:'home'});await click('fullPlayDefense');await page.locator('#defenseCalls button').first().click();await click('unitCallDefense');await step(6.1);await step(.4);
  await page.evaluate(()=>{const u=window.bkMiniScenario.unit().state,a=window.bkMiniScenario.actors();u.stage='run';u.carrier=6;u.controlled=16;a[6].hasBall=true;a[16].x=a[6].x+.4;a[16].z=a[6].z;a[16].ratings.tackle=99;window.bk3dTest.seed(1);});
  await click('unitPrimary');assert.equal((await state()).unit.stage,'contact');await step(.3);assert.equal((await state()).unit.stage,'contact');assert((await state()).players[6].actionT>0);assert(await page.locator('#unitResult').isHidden());await page.screenshot({path:out+'/tackle-contact.png'});
- for(let i=0;i<5&&(await state()).unit.stage!=='end';i++){await step(1);await click('unitPrimary');}
- assert.equal((await state()).unit.stage,'end');await click('unitContinue');
- await setSession({pending:'away',nextBall:25,conversion:null,kickoff:null,possession:'home'});await click('fullPlayDefense');await click('unitSimBook');assert.equal((await state()).mini.defenseMode,'simulate');
- await setSession({pending:'home',nextBall:25,conversion:null,kickoff:'away',possession:'away'});await click('fullNext');
+ for(let i=0;i<5&&(await state()).unit&&!((await state()).unit.book||(await state()).unit.stage==='kick');i++){await step(1);await click('unitPrimary');}
+ assert(await page.locator('#unitResult').isHidden());assert.notEqual((await state()).phase,'cpu','Result advances without Continue');assert(await page.locator('#fullDefense').isHidden());
+ await setSession({pending:'away',nextBall:25,conversion:null,kickoff:null,possession:'home'});await click('fullPlayDefense');const playsBeforeSim=(await state()).mini.stats.away.plays;await click('unitSimBook');assert.equal((await state()).mini.defenseMode,'play');assert.equal((await state()).mini.stats.away.plays,playsBeforeSim+1);assert.notEqual((await state()).phase,'cpu');
+ await setSession({pending:'home',nextBall:25,conversion:null,kickoff:'away',possession:'away'});await page.evaluate(()=>window.bkMiniScenario.showFullState());
  d=await state();assert.equal(d.unit.kicking,'away');assert(d.camera.target[2]>d.camera.eye[2],'Return camera faces upfield');await click('unitKickButton');await step(3.6);assert.equal((await state()).unit.controlled,6);
  await page.keyboard.down('ArrowUp');await step(2);await page.keyboard.up('ArrowUp');
  await page.screenshot({path:out+'/kick-return.png'});
- for(let i=0;i<5&&(await state()).unit.stage!=='end';i++)await step(6);await click('unitContinue');
+ for(let i=0;i<5&&(await state()).unit&&!((await state()).unit.book||(await state()).unit.stage==='kick');i++)await step(6);
  // Field goals use the same aim controls and observed result, not a second random roll.
  await setSession({possession:'home',pending:null,conversion:null,kickoff:null,result:null});await setDrive({ball:80,clock:100,down:4});await page.evaluate(()=>window.bkMiniScenario.setup());
  await click('fullFieldGoal');assert.equal((await state()).unit.kind,'field-goal');const scoreBefore=(await state()).drive.score;
- await click('unitKickButton');await step(.75);await click('unitKickButton');await step(3);assert((await state()).unit.good);await click('unitContinue');assert.equal((await state()).drive.score,scoreBefore+3);
+ await click('unitKickButton');await step(.75);await click('unitKickButton');await step(3);assert((await state()).lastResult.good);assert.equal((await state()).drive.score,scoreBefore+3);
  // Deliberately wide kicks stay misses through scoring and keep the camera facing the posts.
  await setSession({possession:'home',pending:null,conversion:null,kickoff:null,result:null});await setDrive({ball:80,clock:100,down:4});await page.evaluate(()=>window.bkMiniScenario.setup());await click('fullFieldGoal');
  await page.locator('#kickAimStick').focus();for(let i=0;i<10;i++)await page.keyboard.press('ArrowRight');
- await click('unitKickButton');await step(.75);await click('unitKickButton');await step(3);d=await state();assert(!d.unit.good);assert.match(d.unit.result.reason,/WIDE/);assert(d.camera.target[2]>d.camera.eye[2]);await click('unitContinue');assert.equal((await state()).drive.score,scoreBefore+3);
+ await click('unitKickButton');await step(.75);await click('unitKickButton');await step(3);d=await state();assert(!d.lastResult.good);assert.match(d.lastResult.reason,/WIDE/);assert(d.camera.target[2]>d.camera.eye[2]);assert.equal((await state()).drive.score,scoreBefore+3);
  // A rusher who reaches the ball can block it; this must not award points.
  await setSession({possession:'home',pending:null,conversion:null,kickoff:null,result:null});await setDrive({ball:80,clock:100,down:4});await page.evaluate(()=>window.bkMiniScenario.setup());await click('fullFieldGoal');
  await click('unitKickButton');await step(.75);await click('unitKickButton');await step(.87);
  await page.evaluate(()=>{const u=window.bkMiniScenario.unit().state,a=window.bkMiniScenario.actors();a[0].x=0;a[0].z=u.kickZ+.3;});await step(.04);
- d=await state();assert.equal(d.unit.stage,'end');assert(d.unit.result.blocked);assert(!d.unit.result.good);await click('unitContinue');assert.equal((await state()).drive.score,scoreBefore+3);
+ d=await state();assert(await page.locator('#unitResult').isHidden());assert(d.lastResult.blocked);assert(!d.lastResult.good);assert.equal((await state()).drive.score,scoreBefore+3);
  // A visible free rusher prompts a quick release after the QB's reaction window.
  await setSession({possession:'away',pending:null,conversion:null,kickoff:null,result:null,cpu:{ball:25,down:1,toGo:10}});await click('fullPlayDefense');await page.locator('#defenseCalls button').first().click();await click('unitCallDefense');await click('unitReady');
  await page.evaluate(()=>{const u=window.bkMiniScenario.unit().state;u.pass=true;});await step(.31);
  await page.evaluate(()=>{const u=window.bkMiniScenario.unit().state,a=window.bkMiniScenario.actors();u.snapTime=u.time-.85;u.windup=null;for(const p of a.slice(11)){p.x=24;p.z=90;p.engaged=false;}a[16].x=a[5].x-3;a[16].z=a[5].z;});await step(.04);assert((await state()).unit.quickRelease,'Pressure triggers an accelerated read');await step(.25);assert.equal((await state()).unit.stage,'flight');await page.screenshot({path:out+'/cpu-hot-pass.png'});
- await page.evaluate(()=>{const u=window.bkMiniScenario.unit().state,a=window.bkMiniScenario.actors();u.stage='pass';u.flight=null;u.windup=null;u.throwAway=false;u.snapTime=u.time-.9;a[5].x=10;a[5].hasBall=true;[7,8,9,10,6].forEach((id,i)=>{a[11+i].x=a[id].x;a[11+i].z=a[id].z;a[11+i].engaged=false;});a[16].x=13;a[16].z=a[5].z;});await step(.02);assert((await state()).unit.throwAway,'Covered pressure outside the pocket produces a throwaway');await step(.35);assert.equal((await state()).unit.stage,'flight');await step(2);assert((await state()).unit.result.incomplete);
+ await page.evaluate(()=>{const u=window.bkMiniScenario.unit().state,a=window.bkMiniScenario.actors();u.stage='pass';u.flight=null;u.windup=null;u.throwAway=false;u.snapTime=u.time-.9;a[5].x=10;a[5].hasBall=true;[7,8,9,10,6].forEach((id,i)=>{a[11+i].x=a[id].x;a[11+i].z=a[id].z;a[11+i].engaged=false;});a[16].x=13;a[16].z=a[5].z;});await step(.02);assert((await state()).unit.throwAway,'Covered pressure outside the pocket produces a throwaway');await step(.35);assert.equal((await state()).unit.stage,'flight');await step(2);assert((await state()).lastResult.incomplete);
  await page.evaluate(()=>window.bkMiniScenario.unit().stop());
  // User punts use a real long snap, flight and coverage, preserving the observed spot.
  await setSession({possession:'home',pending:null,conversion:null,kickoff:null,result:null});await setDrive({ball:35,clock:100,down:4,toGo:10});await page.evaluate(()=>window.bkMiniScenario.setup());await click('fullPunt');d=await state();assert.equal(d.unit.kind,'punt');assert.equal(d.unit.kicking,'home');assert(d.camera.target[2]<d.camera.eye[2]);
- await click('unitKickButton');await step(.75);await click('unitKickButton');await step(.3);assert.equal((await state()).unit.stage,'punt-snap');await page.screenshot({path:out+'/punt-snap.png'});await step(1);assert.equal((await state()).unit.stage,'kick-flight');await step(3.5);for(let i=0;i<5&&(await state()).unit.stage!=='end';i++)await step(6);d=await state();assert.equal(d.unit.stage,'end');const puntSpot=d.unit.result.ball;await click('unitContinue');assert.equal((await state()).mini.nextBall,Math.max(1,Math.min(99,puntSpot)));assert((await state()).drive.clock<100);
+ await click('unitKickButton');await step(.75);await click('unitKickButton');await step(.3);assert.equal((await state()).unit.stage,'punt-snap');await page.screenshot({path:out+'/punt-snap.png'});await step(1);assert.equal((await state()).unit.stage,'kick-flight');await step(3.5);for(let i=0;i<5&&(await state()).unit&&!((await state()).unit.book||(await state()).unit.stage==='kick');i++)await step(6);d=await state();assert(await page.locator('#unitResult').isHidden());const puntSpot=d.lastResult.ball;assert.equal((await state()).mini.nextBall,Math.max(1,Math.min(99,puntSpot)));assert((await state()).drive.clock<100);
  // CPU fourth-down choice enters a playable punt-return unit. Fair catch carries no return yardage.
- await setSession({possession:'away',pending:null,conversion:null,kickoff:null,result:null,cpu:{ball:25,down:4,toGo:10}});await setDrive({clock:100});await click('fullPlayDefense');assert.equal((await state()).unit.kind,'punt');assert.equal((await state()).unit.kicking,'away');assert((await state()).camera.target[2]>(await state()).camera.eye[2]);await click('unitFairCatch');await click('unitKickButton');await step(5);d=await state();assert.equal(d.unit.stage,'end');assert(d.unit.result.fairCatch);const fairSpot=d.unit.result.ball;await click('unitContinue');assert.equal((await state()).mini.pending,'home');assert.equal((await state()).mini.nextBall,fairSpot);
+ await setSession({possession:'away',pending:null,conversion:null,kickoff:null,result:null,cpu:{ball:25,down:4,toGo:10}});await setDrive({clock:100});await click('fullPlayDefense');assert.equal((await state()).unit.kind,'punt');assert.equal((await state()).unit.kicking,'away');assert((await state()).camera.target[2]>(await state()).camera.eye[2]);await click('unitFairCatch');await click('unitKickButton');await step(5);d=await state();assert(await page.locator('#unitResult').isHidden());assert(d.lastResult.fairCatch);const fairSpot=d.lastResult.ball;assert.equal((await state()).mini.possession,'home');assert((await state()).playbook.open);assert.equal((await state()).mini.nextBall,fairSpot);
  // Punts through the end zone are touchbacks at the 20, distinct from kickoffs.
- await setSession({possession:'home',pending:null,conversion:null,kickoff:null,result:null});await setDrive({ball:80,clock:100,down:4,toGo:10});await page.evaluate(()=>window.bkMiniScenario.setup());await click('fullPunt');await click('unitKickButton');await step(.75);await click('unitKickButton');await step(5);assert.equal((await state()).unit.result.ball,20);assert.match((await state()).unit.result.reason,/TOUCHBACK/);await click('unitContinue');assert.equal((await state()).mini.nextBall,20);
+ await setSession({possession:'home',pending:null,conversion:null,kickoff:null,result:null});await setDrive({ball:80,clock:100,down:4,toGo:10});await page.evaluate(()=>window.bkMiniScenario.setup());await click('fullPunt');await click('unitKickButton');await step(.75);await click('unitKickButton');await step(5);assert.equal((await state()).lastResult.ball,20);assert.match((await state()).lastResult.reason,/TOUCHBACK/);assert.equal((await state()).mini.nextBall,20);
  // A normal offensive down must return to the full playbook.
- await setSession({possession:'home',pending:null,conversion:null,kickoff:null,result:null});await setDrive({ball:25,clock:100,down:1,toGo:10});await page.evaluate(()=>window.bkMiniScenario.setup());await click('breakHuddle');await finish('TACKLED',28);await step(5);assert((await state()).playbook.open);assert(await page.locator('#playbook').isVisible());
+ await setSession({possession:'home',pending:null,conversion:null,kickoff:null,result:null});await setDrive({ball:25,clock:100,down:1,toGo:10});await page.evaluate(()=>window.bkMiniScenario.setup());await click('breakHuddle');await finish('TACKLED',28);await step(1/60);assert((await state()).playbook.open);assert(await page.locator('#playbook').isVisible());
  // Inspect the actual skinned QB wrist transforms after the snap.
  await page.locator('.play-card[data-mode=pass]').first().click();await click('breakHuddle');await page.locator('#snap').dispatchEvent('pointerdown',{pointerId:2,pointerType:'touch'});await step(.9);
  assert.equal((await state()).phase,'pass');const grip=await page.evaluate(()=>window.bkMiniScenario.grip());assert.equal(grip.anchor.hand,'both');
  const midpoint=grip.wrists[0].map((v,i)=>(v+grip.wrists[1][i])/2),offset=grip.anchor.center.map((v,i)=>v-midpoint[i]);assert(Math.hypot(...offset)<.12,'Ball stays at the hands');assert(offset[1]>=0,'Ball is above wrists, not pulled into forearm');
+
+ await page.evaluate(()=>{const a=window.bkMiniScenario.actors();for(const p of a)if(p.index!==5){p.x=24;p.z=105;p.fallen=true;}a[5].x=11.8;a[5].z=25;});
+ await page.keyboard.down('ArrowLeft');await step(.6);await page.keyboard.up('ArrowLeft');
+ assert((await state()).players[5].x>14,'QB rollout crosses the old 12-yard pocket wall');
+ await page.evaluate(()=>{const p=window.bkMiniScenario.actors()[5];p.x=17;p.z=window.bk3dDiagnostics().field.scrimmage-.1;p.vx=p.vz=0;});
+ await page.keyboard.down('ArrowUp');await step(.65);await page.keyboard.up('ArrowUp');
+ assert.equal((await state()).phase,'run','Crossing the line automatically tucks the ball');assert((await state()).players[5].z>(await state()).field.scrimmage+1,'QB continues through the line');
+ await finish('OUT OF BOUNDS',30);await step(.02);assert((await state()).playbook.open);
+ await click('breakHuddle');await click('snap');await step(.8);await click('scramble');
+ await page.evaluate(()=>{const a=window.bkMiniScenario.actors();for(const p of a)if(p.index!==5){p.x=24;p.z=105;p.fallen=true;}a[5].x=16;});
+ const scrambleZ=(await state()).players[5].z;await page.keyboard.down('ArrowUp');await step(.7);await page.keyboard.up('ArrowUp');assert((await state()).players[5].z>scrambleZ+2,'Scramble button gives continuous QB movement');
+ await page.screenshot({path:out+'/qb-scramble.png'});
+ await page.evaluate(()=>window.bk3dTest.forceContact('wrap'));const tackleDuration=(await state()).contact.duration;await step(.2);assert((await state()).contact,'Finish the actual tackle animation');await step(tackleDuration);assert((await state()).playbook.open,'No idle wait after the tackle finishes');
+ await click('pause');assert((await state()).paused);await step(1);assert((await state()).paused,'Manual pause remains available');await click('resume');
+
  await page.screenshot({path:out+'/qb-hand-grip.png'});await page.evaluate(()=>window.bkMiniScenario.inspectGrip());await page.screenshot({path:out+'/qb-hand-detail.png'});
  await page.goto(base+'?mode=two-minute&difficulty=all-pro&team=JCY&opponent=OKC&qa=1');await page.waitForFunction(()=>window.bk3dTest);await page.evaluate(()=>window.bk3dTest.manualFrames());
  d=await state();assert.equal(d.drive.clock,120);assert.equal(d.drive.score,23);assert.equal(d.mini.awayScore,27);
@@ -151,7 +166,7 @@ try{
   await page.locator('#snap').dispatchEvent('pointerdown',{pointerId:3,pointerType:'touch'});await step(.52);
   d=await state();assert.equal(d.phase,fake);assert(d.players[5].hasBall);assert.equal(d.drive.clock,49);
   if(fake==='pass'){
-   await page.evaluate(()=>window.bk3dTest.throwTo(0));await step(.5);assert(['flight','catch','run','cpu'].includes((await state()).phase),'Holder can release a pass');
+   await page.evaluate(()=>window.bk3dTest.throwTo(0));await step(.5);assert(['flight','catch','run','cpu','unit'].includes((await state()).phase),'Holder can release a pass');
    if((await state()).mini.conversion)await finish('INCOMPLETE',85,true);
    assert.equal((await state()).drive.score,beforeTry,'Failed fake earns no points');
   }else{
@@ -164,7 +179,7 @@ try{
  await setSession({possession:'home',pending:null,conversion:null,kickoff:null,result:null});await setDrive({ball:80,clock:49,down:1,toGo:10});await page.evaluate(()=>window.bkMiniScenario.setup());await finish('TOUCHDOWN',100);
  await page.locator('#formationTabs [data-formation=shotgun]').click();await click('breakHuddle');assert.equal((await state()).drive.ball,98);assert.equal((await state()).formation,'shotgun');await finish('INCOMPLETE',98,true);
  // Small landscape has reachable controls and horizontally contained play cards.
- await setSession({kickoff:'away',pending:'home'});await click('fullNext');await click('unitTouchback');await click('unitContinue');
+ await setSession({kickoff:'away',pending:'home'});await page.evaluate(()=>window.bkMiniScenario.showFullState());await click('unitTouchback');await step(.02);
  await setSession({pending:'away',nextBall:25,conversion:null,kickoff:null,possession:'home'});await click('fullPlayDefense');
  await page.setViewportSize({width:667,height:375});await step(1);
  assert(await page.locator('#defenseBook').evaluate(el=>el.scrollWidth<=el.clientWidth));

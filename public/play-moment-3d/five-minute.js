@@ -1,9 +1,9 @@
-import {cpuFourthDown} from './cpu-offense.js?v=cpu-punts-7';
+import {cpuFourthDown} from './cpu-offense.js?v=continuous-play-8';
 /** Five-minute arcade rules. Pure state transitions; no timers or DOM. */
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 export const fullInitialDrive = (mode = 'five-minute') => ({ ball: 25, down: 1, toGo: 10, clock: mode === 'two-minute' ? 120 : 300, score: mode === 'two-minute' ? 23 : 0, plays: 0 });
 const teamStats = () => ({ plays: 0, yards: 0, passYards: 0, rushYards: 0, completions: 0, attempts: 0, touchdowns: 0, turnovers: 0, sacks: 0, fieldGoals: 0, players: {} });
-export const fullSession = (mode = 'five-minute', interactive = false) => ({ interactive, mode, defenseMode: 'simulate', conversion: null, kickoff: null, timeouts: 3, awayTimeouts: 3, running: false, started: false, playClock: 40, log: [], result: null, full: true, awayScore: mode === 'two-minute' ? 27 : 0, possession: 'home', pending: null, nextBall: 25, cpu: { ball: 25, down: 1, toGo: 10 }, auto: true, wait: 2.8, overtime: 0, otPossessions: 0, stats: { home: teamStats(), away: teamStats() } });
+export const fullSession = (mode = 'five-minute', interactive = false) => ({ interactive, mode, defenseMode: interactive ? 'play' : 'simulate', conversion: null, kickoff: null, timeouts: 3, awayTimeouts: 3, running: false, started: false, playClock: 40, log: [], result: null, full: true, awayScore: mode === 'two-minute' ? 27 : 0, possession: 'home', pending: null, nextBall: 25, cpu: { ball: 25, down: 1, toGo: 10 }, auto: true, wait: 2.8, overtime: 0, otPossessions: 0, stats: { home: teamStats(), away: teamStats() } });
 const other = side => side === 'home' ? 'away' : 'home';
 export function fullLog(s, d, side, reason, gain = null) {
   s.log.push({ side, reason, gain, clock: d.clock, overtime: s.overtime, ball: side === 'home' ? d.ball : s.cpu.ball });

@@ -1,15 +1,15 @@
-import {createLiveUnits} from './live-units.js?v=cpu-punts-7';
-import {fullInitialDrive,fullSession,fullLog,fullRecord,fullOffenseEnd,fullContinue,fullCpuPlay,fullKick,fullCpuResult,fullConversion,fullKickoffResult,fullCpuKickChoice,fullPuntResult} from './five-minute.js?v=cpu-punts-7';
-import {rosterRatings,rosterIdentity} from './mini-teams.js?v=cpu-punts-7';
-import{RUNS,PASSES,FORMATIONS,FIELD_GOAL_PLAY,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=cpu-punts-7';
-export{RUNS,PASSES}from'./playbook.js?v=cpu-punts-7';
+import {createLiveUnits} from './live-units.js?v=continuous-play-8';
+import {fullInitialDrive,fullSession,fullLog,fullRecord,fullOffenseEnd,fullContinue,fullCpuPlay,fullKick,fullCpuResult,fullConversion,fullKickoffResult,fullCpuKickChoice,fullPuntResult} from './five-minute.js?v=continuous-play-8';
+import {rosterRatings,rosterIdentity} from './mini-teams.js?v=continuous-play-8';
+import{RUNS,PASSES,FORMATIONS,FIELD_GOAL_PLAY,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=continuous-play-8';
+export{RUNS,PASSES}from'./playbook.js?v=continuous-play-8';
 import{Renderer,pose,segment,hex,mul,ry}from'./renderer.js?v=football-foundation-44';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js?v=teams-1';
-import{createMeshyAthletes}from'./meshy-athlete.js?v=cpu-punts-7';
+import{createMeshyAthletes}from'./meshy-athlete.js?v=continuous-play-8';
 import{makeStadium}from'./stadium.js?v=football-foundation-44';
 import{createGameplayReplayRecorder}from'./replay.js';
-import {miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=cpu-punts-7';
-import {createMiniGamesUI} from './mini-games-ui.js?v=cpu-punts-7';
+import {miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=continuous-play-8';
+import {createMiniGamesUI} from './mini-games-ui.js?v=continuous-play-8';
 import{QB_THROW_RELEASE,quarterbackThrowDuration}from'./quarterback.js?v=football-finish-21';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
 /** The established first-down target, in the drive's 0–100 field coordinates.
@@ -256,7 +256,7 @@ export function advanceGlancingContact(defender,runner,time,dt){
 export function identifyMikeAssignments(assignments,mikeIndex=16){
  const mike=clamp(Math.trunc(mikeIndex)||16,15,17);return assignments.map(([blocker,defender])=>[blocker,defender===16?mike:defender===mike?16:defender]);
 }
-export const QB_LATERAL_LIMIT=12;
+export const QB_LATERAL_LIMIT=26;
 /** Give each pursuit player a collapsing lane so the defense surrounds a
  * runner instead of forming an artificial single-file chase line. */
 export function pursuitLaneOffset(defenderIndex,separation,runnerX=0){
@@ -766,7 +766,7 @@ function coverage(dt){
   if(drive.ball>=100){drive.score+=6;stadiumSound('touchdown');navigator.vibrate?.([24,35,34]);message('TOUCHDOWN · CROWD ERUPTS',3);endDrive('TOUCHDOWN','You finished the drive. Practice results stay separate from your career.');return}
   if(!incomplete){copy+=' · '+(gain>=0?'+':'')+gain+' YDS'}
   if(gain>=drive.toGo){drive.down=1;drive.toGo=Math.min(10,100-drive.ball);copy=(lineToGain(drive)===100?'FIRST & GOAL':'FIRST DOWN')+' · +'+gain+' YDS'}else{drive.down++;drive.toGo=Math.max(1,drive.toGo-gain)}
-  if(activeContact)pendingPlayMessage=copy;else message(copy,1.4);updateHud();updateControls();if(drive.down>4){endDrive('TURNOVER ON DOWNS','The defense held. Restart this practice drive to try again.');return}if(drive.clock<=0&&!mini?.overtime){endDrive('TIME EXPIRED','The clock reached zero. Your career is unchanged.');return}recoveryLeft=activeContact?Math.max(3.75,activeContact.duration+2.65):1.35;
+  if(activeContact)pendingPlayMessage=copy;else message(copy,1.4);updateHud();updateControls();if(drive.down>4){endDrive('TURNOVER ON DOWNS','The defense held. Restart this practice drive to try again.');return}if(drive.clock<=0&&!mini?.overtime){endDrive('TIME EXPIRED','The clock reached zero. Your career is unchanged.');return}recoveryLeft=fullGame?(activeContact?Math.max(0,activeContact.duration-activeContact.elapsed):0):(activeContact?Math.max(3.75,activeContact.duration+2.65):1.35);
  }
   function showDriveEnd(){if(!pendingDriveEnd)return;const{title,body}=pendingDriveEnd;pendingDriveEnd=null;paused=true;$('dialogTitle').textContent=mini&&title==='TOUCHDOWN'?'DRILL WON':title;$('dialogBody').textContent=body;if(mini)miniUI.result(mini,drive);$('resume').hidden=true;$('paused').hidden=false;updateHud();updateControls()}
   function endDrive(title,body){if(ended)return;if(conversionDrive){finishTry(title==='TOUCHDOWN');return;}if(fullGame){fullOffenseEnd(mini,drive,title,{interceptionSpot:title==='INTERCEPTED'?clamp(Math.round((carrier?.z||35)-10),0,100):drive.ball,quarterback:miniConfig.matchup.home.lineup[5]});showFullState();return}if(mini){if(['INTERCEPTED','TIME EXPIRED','TURNOVER ON DOWNS','SAFETY'].includes(title))mini.log.push({reason:title,gain:null,clock:drive.clock,ball:drive.ball});miniFinish(mini,drive,title);body=title==='TOUCHDOWN'?'You drove 75 yards and scored the winning touchdown.':title==='TIME EXPIRED'?'The clock ran out. Use the sidelines, spikes, and timeouts to save time.':title==='INTERCEPTED'?'The defense picked it off. Your drive ends here.':title==='SAFETY'?'The defense stopped you in your own end zone.':'The defense held on fourth down. Try another drive.';}pendingThrow=null;ended=true;phase='dead';actors.forEach(releasePostPlay);pendingDriveEnd={title,body,celebrating:false,showAt:simTime+Math.max(title==='TOUCHDOWN'?3.8:1.35,(activeContact?.duration||0)+2.75)};replay.event('drive-end',{title,ball:drive.ball,score:drive.score});replay.sample(true);updateHud();updateControls()}
@@ -809,8 +809,10 @@ function coverage(dt){
    resolvePlayerOverlaps();
    if(phase==='pass'){
     if(pendingThrow){const aim=Math.atan2(pendingThrow.to[0]-qb.x,pendingThrow.to[2]-qb.z),heading=qb.heading;accelerate(qb,0,0,0,dt,14,30);qb.heading=heading+Math.atan2(Math.sin(aim-heading),Math.cos(aim-heading))*Math.min(1,dt*20)}else{
-    let x=input.x,z=input.z;const kx=(keys.has('ArrowRight')||keys.has('d')?1:0)-(keys.has('ArrowLeft')||keys.has('a')?1:0),kz=(keys.has('ArrowUp')||keys.has('w')?1:0)-(keys.has('ArrowDown')||keys.has('s')?1:0);if(kx||kz){const len=Math.hypot(kx,kz);x=kx/len;z=kz/len}if(x||z){[x,z]=cameraWorldVector(x,z,camEye,camTarget);const speed=qbMovementSpeed(qb.x,z,qb);accelerate(qb,x,z,speed,dt,14,22);qb.x=clamp(qb.x,-QB_LATERAL_LIMIT,QB_LATERAL_LIMIT);qb.z=clamp(qb.z,snapZ-12,snapZ+.35)}else if(qb.startZ>snapZ-4&&qb.z>snapZ-5&&elapsed<1.45)accelerate(qb,0,-1,3.6,dt,14,25);else accelerate(qb,0,0,qbMovementSpeed(qb.x,0,qb),dt,14,25);
+    let x=input.x,z=input.z;const kx=(keys.has('ArrowRight')||keys.has('d')?1:0)-(keys.has('ArrowLeft')||keys.has('a')?1:0),kz=(keys.has('ArrowUp')||keys.has('w')?1:0)-(keys.has('ArrowDown')||keys.has('s')?1:0);if(kx||kz){const len=Math.hypot(kx,kz);x=kx/len;z=kz/len}if(x||z){[x,z]=cameraWorldVector(x,z,camEye,camTarget);const speed=qbMovementSpeed(qb.x,z,qb);accelerate(qb,x,z,speed,dt,14,22);}else if(qb.startZ>snapZ-4&&qb.z>snapZ-5&&elapsed<1.45)accelerate(qb,0,-1,3.6,dt,14,25);else accelerate(qb,0,0,qbMovementSpeed(qb.x,0,qb),dt,14,25);
     }
+    // End at real field boundaries; the pocket is not a movement cage.
+    if(Math.abs(qb.x)>=QB_LATERAL_LIMIT||qb.z<=0){endPlay(qb.z<=0?'SAFETY':'OUT OF BOUNDS',Math.round(qb.z-10));return}
     if(!pendingThrow&&hasCrossedScrimmage(qb.z,snapZ)){scramble('line');return}
     const rushers=actors.filter(p=>p.team===1&&!p.engaged&&!p.fallen&&(p.role==='DL'||defensiveCall.blitzers.includes(p.index))),nearest=Math.min(...rushers.map(p=>Math.hypot(p.x-qb.x,p.z-qb.z)),8),pressure=pocketThreat(qb,actors.filter(p=>p.team===1),elapsed),throwAwayReady=canThrowAway(qb.x);$('stamina').firstElementChild.style.width=(pressure*100)+'%';$('throwAway').classList.toggle('ready',throwAwayReady);$('throwAway').dataset.ready=String(throwAwayReady);$('throwAway').setAttribute('aria-label',throwAwayReady?'Throw the ball away':'Throwaway unavailable. Leave the pocket first.');$('instruction').textContent=(pendingThrow?'SETTING TO THROW · PRESSURE ':'SCRAMBLE TO RUN · PRESSURE ')+Math.round(pressure*100)+'%';if(nearest<.92){const tackler=rushers.reduce((a,b)=>Math.hypot(a.x-qb.x,a.z-qb.z)<Math.hypot(b.x-qb.x,b.z-qb.z)?a:b),spot=drive.ball-sackLoss(snapZ,qb.z);lastTackler=tackler.index;beginContactSequence(tackler,{type:'wrap'},[],Math.hypot(qb.vx,qb.vz));endPlay('SACK',spot);return}
     if(pendingThrow&&simTime+1e-9>=pendingThrow.releaseAt){
@@ -848,7 +850,7 @@ function coverage(dt){
    // Only a tackle, sideline, slide or score ends it; endPlay settles the drive.
   }
  }
- function camera(dt){if(liveUnit?.state){const view=liveUnit.view();r.fov=view.fov||55;const shot=cameraRigTravel(camEye,camTarget,view.eye,view.target,dt,4,25);camEye=shot.eye;camTarget=shot.target;r.camera(camEye,camTarget);return;}const lens=r.width/r.height>1.5?(['snap','pass'].includes(phase)?58:50):46;r.fov=Number.isFinite(r.fov)?r.fov+(lens-r.fov)*cameraFollowBlend(dt,5):lens;const isPocket=phase==='pre'||phase==='snap'||phase==='pass'||phase==='handoff'||phase==='flight',isDead=phase==='dead';let x=0,z=snapZ+2,mult=1;
+ function camera(dt){if(liveUnit?.state){const view=liveUnit.view();r.fov=view.fov||55;const reverse=(camTarget[2]-camEye[2])*(view.target[2]-view.eye[2])<0;const shot=reverse?{eye:[...view.eye],target:[...view.target]}:cameraRigTravel(camEye,camTarget,view.eye,view.target,dt,4,25);camEye=shot.eye;camTarget=shot.target;r.camera(camEye,camTarget);return;}const lens=r.width/r.height>1.5?(['snap','pass'].includes(phase)?58:50):46;r.fov=Number.isFinite(r.fov)?r.fov+(lens-r.fov)*cameraFollowBlend(dt,5):lens;const isPocket=phase==='pre'||phase==='snap'||phase==='pass'||phase==='handoff'||phase==='flight',isDead=phase==='dead';let x=0,z=snapZ+2,mult=1;
   if(!isPocket&&!isDead){x=carrier.x*.55;z=carrier.z+5;if(flight){const t=clamp(flight.t,0,1);x=(flight.from[0]+(flight.to[0]-flight.from[0])*t)*.55;z=flight.from[2]+(flight.to[2]-flight.from[2])*t+4}}
   if(phase==='pass'||phase==='flight'){x=actors[5].x*.82;const deep=Math.max(...receiverIndices.map(i=>actors[i].z));z=actors[5].z+clamp((deep-actors[5].z)*.42,6,14);mult=clamp(1+(deep-actors[5].z-20)*.01,1,1.35)}
   // A catch may be tackled before the live camera arrives. Continue into a
@@ -1016,6 +1018,14 @@ function coverage(dt){
   phase='cpu';mini.running=false;
   if(mini.result){ended=true;paused=true;$('dialogTitle').textContent=mini.result.reason;$('dialogBody').textContent=(mini.overtime?'Final after overtime. ':'Final whistle. ')+(mini.log.at(-1)?.reason||'');$('resume').hidden=true;miniUI.result(mini,drive);$('paused').hidden=false;}
   if(mini.conversion==='home'&&!mini.result){openConversionPlaybook();return;}
+  if(!mini.result){
+   if(mini.kickoff){startUnit('kickoff');return;}
+   if(mini.pending)fullContinue(mini,drive);
+   if(mini.result){showFullState();return;}
+   if(mini.possession==='home'){setup();camera(1);return;}
+   if(mini.defenseMode==='play'){startUnit('defense');return;}
+   mini.wait=0;
+  }
   updateHud();updateControls();
  }
  function openConversionPlaybook(){
@@ -1056,7 +1066,7 @@ function coverage(dt){
  }
  if(fullGame)liveUnit=createLiveUnits({config:miniConfig,getActors:()=>actors,random:rand,
   inputVector(){let x=input.x,z=input.z;if(keys.has('ArrowLeft')||keys.has('a'))x=-1;if(keys.has('ArrowRight')||keys.has('d'))x=1;if(keys.has('ArrowUp')||keys.has('w'))z=1;if(keys.has('ArrowDown')||keys.has('s'))z=-1;return cameraWorldVector(x,z,camEye,camTarget)},onStatus:message,
-  onSimulate(){mini.defenseMode='simulate';phase='cpu';fullCpuPlay(mini,drive,miniConfig,rand);showFullState();},
+  onSimulate(){phase='cpu';fullCpuPlay(mini,drive,miniConfig,rand);showFullState();},
   onResult(result){
    flight=null;exchange=null;
    if(result.kind==='punt'){fullPuntResult(mini,drive,result);showFullState();return;}
