@@ -58,7 +58,22 @@ try{
  assert.equal((await state()).unit.stage,'end');await click('unitContinue');
  await setSession({pending:'away',nextBall:25,conversion:null,kickoff:null,possession:'home'});await click('fullPlayDefense');
  d=await state();assert.equal(d.unit.kind,'defense');assert.equal(await page.locator('#defenseCalls button').count(),3);
- await page.getByRole('button',{name:'Nickel',exact:true}).click();await page.locator('#defenseCalls button').first().click();
+ await page.getByRole('button',{name:'Nickel',exact:true}).click();
+ assert.match(await page.locator('#defensePersonnel').innerText(),/5 DEFENSIVE BACKS/);
+ await page.locator('#defenseCalls button').nth(1).click();await step(7);assert((await state()).unit.book,'Selecting a card must not start the snap countdown');assert.equal(await page.locator('#defenseCalls [aria-pressed=true]').count(),1);assert.equal(await page.locator('#defenseSelectedName').innerText(),'COVER 2 MAN');
+ await click('unitArt');assert(await page.locator('#defensePreview').isVisible());assert.match(await page.locator('#defensePreviewName').innerText(),/MAN COVERAGE/);await click('closeDefensePreview');
+ await click('unitAdjust');assert(await page.locator('#defenseAdjustments').isVisible());await click('unitPress');assert.equal(await page.locator('#unitPress').getAttribute('aria-pressed'),'true');await click('unitBack');assert.equal(await page.locator('#unitPress').getAttribute('aria-pressed'),'false');await click('unitShift');assert.match(await page.locator('#unitShift').innerText(),/LEFT/);await click('unitShift');await click('unitShift');await click('unitBack');await click('unitAdjust');
+ await page.locator('#defenseCalls button').first().click();
+ for(const viewport of [{width:844,height:390},{width:667,height:375},{width:667,height:320}]){
+  await page.setViewportSize(viewport);await step(.1);
+  assert(await page.locator('#defenseBook').evaluate(el=>el.scrollWidth<=el.clientWidth));
+  assert(await page.evaluate(()=>document.getElementById('defenseBook').getBoundingClientRect().top>=document.querySelector('.scorebug').getBoundingClientRect().bottom),'Scoreboard stays clear of the call sheet');
+  assert(await page.evaluate(()=>['unitArt','unitAdjust','unitCallDefense','unitSimBook'].every(id=>{const r=document.getElementById(id).getBoundingClientRect();return r.width>=44&&r.height>=44&&r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight})), 'Controls stay reachable in small landscape');
+  assert(await page.locator('#defenseCalls button').evaluateAll(els=>els.every(el=>el.scrollHeight<=el.clientHeight+1)),'Cards do not clip content');
+  await page.screenshot({path:out+'/metal-defense-'+viewport.width+'x'+viewport.height+'.png'});
+ }
+ await page.setViewportSize({width:844,height:390});await step(.1);
+ await page.locator('#defenseCalls button').first().click();await click('unitCallDefense');
  await step(1);
  d=await state();const tapPlayer=d.players.map((p,index)=>({...p,index})).find(p=>p.index>=11&&p.index!==d.unit.controlled&&p.head.visible&&p.head.x>180&&p.head.x<650&&p.head.y>100&&p.foot.y<245);
  assert(tapPlayer,'A defender is visible for tap selection');
@@ -79,7 +94,7 @@ try{
  for(let i=0;i<5&&(await state()).unit.stage!=='end';i++)await step(6);
  assert.equal((await state()).unit.stage,'end');await page.screenshot({path:out+'/live-defense-result.png'});await click('unitContinue');
  // Manual tackle uses the two-button field controls.
- await setSession({pending:'away',nextBall:25,conversion:null,kickoff:null,possession:'home'});await click('fullPlayDefense');await page.locator('#defenseCalls button').first().click();await step(6.1);await step(.4);
+ await setSession({pending:'away',nextBall:25,conversion:null,kickoff:null,possession:'home'});await click('fullPlayDefense');await page.locator('#defenseCalls button').first().click();await click('unitCallDefense');await step(6.1);await step(.4);
  await page.evaluate(()=>{const u=window.bkMiniScenario.unit().state,a=window.bkMiniScenario.actors();u.stage='run';u.carrier=6;u.controlled=16;a[6].hasBall=true;a[16].x=a[6].x+.4;a[16].z=a[6].z;a[16].ratings.tackle=99;window.bk3dTest.seed(1);});
  await click('unitPrimary');assert.equal((await state()).unit.stage,'contact');await step(.3);assert.equal((await state()).unit.stage,'contact');assert((await state()).players[6].actionT>0);assert(await page.locator('#unitResult').isHidden());await page.screenshot({path:out+'/tackle-contact.png'});
  for(let i=0;i<5&&(await state()).unit.stage!=='end';i++){await step(1);await click('unitPrimary');}
@@ -140,8 +155,9 @@ try{
  await setSession({pending:'away',nextBall:25,conversion:null,kickoff:null,possession:'home'});await click('fullPlayDefense');
  await page.setViewportSize({width:667,height:375});await step(1);
  assert(await page.locator('#defenseBook').evaluate(el=>el.scrollWidth<=el.clientWidth));
+  assert(await page.evaluate(()=>document.getElementById('defenseBook').getBoundingClientRect().top>=document.querySelector('.scorebug').getBoundingClientRect().bottom),'Scoreboard stays clear of the call sheet');
  await page.screenshot({path:out+'/defense-book-small.png'});
- await page.locator('#defenseCalls button').first().click();await step(1);
+ await page.locator('#defenseCalls button').first().click();await click('unitCallDefense');await step(1);
  assert(await page.evaluate(()=>['unitPrimary','unitSecondary'].every(id=>{const r=document.getElementById(id).getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.bottom<=innerHeight})));
  assert.deepEqual(errors,[]);console.log('PASS continuing two-minute mode, conversion choices, kickoffs, returns, defensive playbook, live CPU play and results.');
 }finally{await browser.close();await new Promise(r=>server.close(r));}
