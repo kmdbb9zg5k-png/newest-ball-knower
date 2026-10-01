@@ -26,17 +26,21 @@
 .combine-comparison span{display:flex;gap:8px}.combine-comparison b{color:#e8c27d}.combine-comparison b[data-faster=true]{color:#b4ef70}.combine-comparison small{flex-basis:100%;text-align:center;color:#aab6bb}
 @media(max-height:500px){.combine-start-lights{top:24%;left:35%}}
 
-/* Rhythm controls reserve a clear thumb area above the athlete card. */
+/* Simple alternating controls and one actual-speed meter. */
 .combine-game[data-phase=running] .combine-athlete{max-width:calc(100% - 24px);left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom))}
 .combine-stride-controls{position:absolute;left:max(22px,env(safe-area-inset-left));right:max(22px,env(safe-area-inset-right));bottom:112px;display:flex;justify-content:space-between;pointer-events:none}
 .combine-stride{pointer-events:auto;touch-action:none!important;width:104px;height:92px;border:2px solid #66797b;border-radius:22px;background:#14262ef2;display:grid;align-content:center;gap:5px;font-size:19px!important;font-weight:800!important;box-shadow:0 4px 20px #0006}
-.combine-stride small{font-size:10px;color:#afc1be}.combine-stride[data-next=true]{border-color:#badea4}.combine-stride[data-next=true][data-window=true]{background:#badea4;color:#14231b}.combine-stride:active{transform:scale(.95)}
-.combine-rhythm{position:absolute;left:50%;transform:translateX(-50%);bottom:220px;width:190px;text-align:center;background:#112028e8;padding:9px 15px;border-radius:9px;font-size:12px;font-weight:800}
-.combine-rhythm small{font-size:9px;color:#c6d5cd}.combine-beat-track,.combine-finish-track{display:block;height:12px;position:relative;background:#ffffff18;border-radius:6px;margin:8px 0;overflow:hidden}.combine-beat-track b{position:absolute;right:0;width:12%;height:100%;background:#badea466}.combine-beat-track i,.combine-finish-track i{position:absolute;width:5px;height:100%;background:#fff;transform:translateX(-50%)}
-.combine-finish{position:absolute;left:50%;transform:translateX(-50%);bottom:118px;width:122px;min-height:80px;border:1px solid #eedba1;border-radius:12px;background:#26312cf2;font-size:12px!important;font-weight:bold!important;padding:8px!important;touch-action:none!important}.combine-finish small{font-size:8px}.combine-finish-track b{position:absolute;left:40%;width:20%;height:100%;background:#c1e896}.combine-finish:disabled{opacity:.65}
+.combine-stride small{font-size:10px;color:#afc1be}.combine-stride[data-next=true]{border-color:#badea4;background:#294737}.combine-stride:active{transform:scale(.95);background:#badea4;color:#14231b}
+.combine-key-hint{display:none}@media(pointer:fine){.combine-key-hint{display:block}}
+.combine-speed{position:absolute;left:50%;transform:translateX(-50%);bottom:225px;width:min(300px,calc(100% - 40px));padding:12px 14px;background:#112028ed;border:1px solid #ffffff25;border-radius:10px}
+.combine-speed-heading{display:flex;justify-content:space-between;align-items:center;font-size:11px;letter-spacing:.07em;margin-bottom:9px}.combine-speed-heading span{font-variant-numeric:tabular-nums;color:#d1dcd9;font-size:12px}.combine-speed[data-max=true] .combine-speed-heading b{color:#b4f477}
+.combine-speed-track{position:relative;height:28px;background:#35434a;border-radius:5px;overflow:hidden;border:1px solid #ffffff20}
+.combine-speed-fill{position:absolute;inset:0 auto 0 0;background:#aec8c8;max-width:100%}
+.combine-speed-max{position:absolute;inset:0 0 0 90%;background:#86c95c;border-left:2px solid #d9ffc3;color:#10210d;display:grid;place-items:center;font-size:8px;font-weight:900}
+.combine-speed-track i{position:absolute;top:0;bottom:0;width:3px;background:#fff;transform:translateX(-100%);box-shadow:0 0 6px #0008}
+.combine-speed[data-max=true] .combine-speed-fill{background:#b4f477}
 .combine-game[data-phase=running] .combine-distance{bottom:310px;left:50%;font-size:16px}
 .combine-skill-scores{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0;padding:10px;background:#ffffff07;border-radius:8px;font-size:10px}.combine-skill-scores span{flex:1;display:grid;gap:4px}.combine-skill-scores b{font-size:18px;color:#c1e896}.combine-skill-scores p{width:100%;margin:0!important;font-size:10px!important}
-@media(max-height:500px){.combine-stride-controls{bottom:85px}.combine-stride{width:94px;height:72px}.combine-rhythm{bottom:84px;width:170px}.combine-finish{bottom:166px;left:78%;min-height:65px}.combine-game[data-phase=running] .combine-distance{bottom:174px}.combine-skill-scores{margin:8px 0;padding:8px}.combine-skill-scores b{font-size:15px}}
-@media(max-width:360px) and (min-height:501px){.combine-stride-controls{left:12px;right:12px}.combine-stride{width:84px}.combine-finish{width:104px}}
-
+@media(max-height:500px){.combine-stride-controls{bottom:85px}.combine-stride{width:94px;height:72px}.combine-speed{bottom:85px;width:min(280px,calc(100% - 280px))}.combine-game[data-phase=running] .combine-distance{bottom:174px}.combine-skill-scores{margin:8px 0;padding:8px}.combine-skill-scores b{font-size:15px}}
+@media(max-width:360px) and (min-height:501px){.combine-stride-controls{left:12px;right:12px}.combine-stride{width:84px}}
 .combine-game:focus{outline:none}
