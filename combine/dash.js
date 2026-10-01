@@ -19,11 +19,9 @@ export function newDash(athlete) {
   return { athlete, phase:'idle',clock:0,distance:0,velocity:0,splits:[null,null,null],cue:0,wait:0,reaction:null,launch:1,
     nextSide:'left',lastTap:0,lastInput:-1,lastPenalty:-1,form:.35,hits:0,mistakes:0,peakVelocity:0 };
 }
-// Tap START, wait for green, then tap GO. Release timing is not scored.
+// One tap starts the countdown. Green launches automatically; extra taps do nothing.
 export function pressDash(s,wait=1.5) {
   if(s.phase==='idle'){s.phase='set';s.wait=clamp(wait,1.1,2.3);s.cue=0;}
-  else if(s.phase==='set')s.phase='false-start';
-  else if(s.phase==='ready'){s.reaction=s.cue;s.launch=clamp(1-Math.max(0,s.reaction-.12)*.45,.65,1);s.phase='running';}
 }
 export function tapStride(s,side) {
   if(s.phase!=='running'||!['left','right'].includes(side))return;
@@ -43,8 +41,7 @@ export function positionRanking(players, athlete, seconds) {
 }
 export function stepDash(s,dt) {
   if(!Number.isFinite(dt)||dt<=0)return;
-  if(s.phase==='set'){s.cue+=dt;if(s.cue>=s.wait){s.phase='ready';s.cue=0;}return;}
-  if(s.phase==='ready'){s.cue+=dt;return;}
+  if(s.phase==='set'){const remaining=Math.max(0,s.wait-s.cue);if(dt+1e-9<remaining){s.cue+=dt;return;}s.phase='running';s.cue=0;dt=Math.max(0,dt-remaining);}
   // Small integration steps keep speed decay stable at different display rates.
   while(dt>1e-9&&s.phase==='running'){const step=Math.min(dt,1/120);integrate(s,step);dt-=step;}
 }
