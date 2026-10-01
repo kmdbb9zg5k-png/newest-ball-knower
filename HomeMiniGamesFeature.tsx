@@ -4,32 +4,27 @@ import { MINI_SELECTOR_ART } from './miniSelectorArt';
 import { MiniTeamCarousel } from './MiniTeamCarousel';
 import { MINI_TEAMS, miniMatchup } from './public/play-moment-3d/mini-teams.js';
 
-const MINI_MODE_TABS = [{ id: 'two-minute', name: 'Two-Minute Drill' }, { id: 'five-minute', name: 'Five-Minute Game' }, { id: 'combine', name: 'Combine' }] as const;
-type MiniModeTab = typeof MINI_MODE_TABS[number]['id'];
-
 export function HomeMiniGamesFeature() {
   const dialog = useRef<HTMLDialogElement>(null);
   const [level, setLevel] = useState(() => { try { return miniLevel(localStorage.getItem('bk-mini-level-v1')).id; } catch { return 'rookie'; } });
   const difficulty = miniLevel(level);
   const [gameMode, setGameMode] = useState<'two-minute' | 'five-minute'>(() => { try { return localStorage.getItem('bk-mini-mode-v1') === 'five-minute' ? 'five-minute' : 'two-minute'; } catch { return 'two-minute'; } });
-  const [activeMode, setActiveMode] = useState<MiniModeTab>(gameMode);
-  const tabButtons = useRef<Partial<Record<MiniModeTab, HTMLButtonElement>>>({});
-  const switchingMode = useRef(false);
-  const gameName = gameMode === 'five-minute' ? 'Five-Minute Game' : 'Two-Minute Drill';
+  const [screen, setScreen] = useState<'modes' | 'difficulty' | 'teams' | 'combine'>('modes');
+  const gameName = gameMode === 'five-minute' ? 'Five-Minute Game' : 'Two-Minute Warning';
   const [menuOpen, setMenuOpen] = useState(false);
   const [matchup, setMatchup] = useState(() => { try { const saved = JSON.parse(localStorage.getItem('bk-mini-matchup-v1') || 'null'); return miniMatchup(saved?.home || MINI_TEAMS[15].abbr, saved?.away || MINI_TEAMS[16].abbr); } catch { return miniMatchup(MINI_TEAMS[15].abbr, MINI_TEAMS[16].abbr); } });
   const [picking, setPicking] = useState<'home' | 'away' | null>('home');
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
-    if (menuOpen) { dialog.current?.scrollTo({ top: 0 }); if (!switchingMode.current) heading.current?.focus({ preventScroll: true }); switchingMode.current = false; }
-  }, [picking, menuOpen, activeMode]);
+    if (menuOpen) { dialog.current?.scrollTo({ top: 0 }); heading.current?.focus({ preventScroll: true }); }
+  }, [picking, menuOpen, screen]);
   const chooseTeam = (abbr: string) => {
     if (picking === 'away' && abbr === matchup.home.abbr) return;
     const next = picking === 'home' ? miniMatchup(abbr, abbr === matchup.away.abbr ? matchup.home.abbr : matchup.away.abbr) : miniMatchup(matchup.home.abbr, abbr);
     setMatchup(next); setPicking(picking === 'home' ? 'away' : null);
     try { localStorage.setItem('bk-mini-matchup-v1', JSON.stringify({ home: next.home.abbr, away: next.away.abbr })); } catch {}
   };
-  const openMenu = () => { setActiveMode(gameMode); setMenuOpen(true); setPicking('home'); dialog.current?.showModal(); };
+  const openMenu = () => { setScreen('modes'); setMenuOpen(true); setPicking('home'); dialog.current?.showModal(); };
   useEffect(() => {
     const url = new URL(location.href);
     if (url.searchParams.get('miniGames') === '1') {
@@ -37,12 +32,9 @@ export function HomeMiniGamesFeature() {
       history.replaceState(history.state, '', url.pathname + url.search + url.hash);
     }
   }, []);
-  const chooseMode = (id: MiniModeTab) => {
-    if (id === activeMode) { tabButtons.current[id]?.focus({ preventScroll: true }); return; }
-    switchingMode.current = true; setActiveMode(id); setPicking('home');
-    if (id !== 'combine') { setGameMode(id); try { localStorage.setItem('bk-mini-mode-v1', id); } catch {} }
-    tabButtons.current[id]?.focus({ preventScroll: true });
-    tabButtons.current[id]?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  const chooseMode = (id: 'two-minute' | 'five-minute') => {
+    setGameMode(id); setPicking('home'); setScreen('difficulty');
+    try { localStorage.setItem('bk-mini-mode-v1', id); } catch {}
   };
   const chooseLevel = (id: typeof level) => { setLevel(id); try { localStorage.setItem('bk-mini-level-v1', id); } catch { /* Still playable when storage is unavailable. */ } };
   return <section className="bk-home-mini-games" aria-label="Mini Games">
@@ -52,34 +44,26 @@ export function HomeMiniGamesFeature() {
     <dialog ref={dialog} className="bk-mini-games-dialog" aria-labelledby="mini-games-heading" aria-describedby="mini-games-description" onClose={() => setMenuOpen(false)} onClick={event => { if (event.target === dialog.current) dialog.current?.close(); }}>
       <div className="bk-mini-games-content">
         <div className="bk-mini-flow-top"><span className="bk-mini-games-eyebrow">MINI GAMES</span><button type="button" aria-label="Close Mini Games" onClick={() => dialog.current?.close()}>×</button></div>
-        <div className="bk-mini-mode-tabs" role="tablist" aria-label="Mini game modes" onKeyDown={event => {
-          const index = MINI_MODE_TABS.findIndex(tab => tab.id === activeMode);
-          const next = event.key === 'ArrowRight' ? (index + 1) % MINI_MODE_TABS.length : event.key === 'ArrowLeft' ? (index + MINI_MODE_TABS.length - 1) % MINI_MODE_TABS.length : event.key === 'Home' ? 0 : event.key === 'End' ? MINI_MODE_TABS.length - 1 : -1;
-          if (next >= 0) { event.preventDefault(); chooseMode(MINI_MODE_TABS[next].id); }
-        }}>
-          {MINI_MODE_TABS.map(tab => <button key={tab.id} ref={node => { tabButtons.current[tab.id] = node; }} type="button" role="tab" id={`mini-tab-${tab.id}`} aria-controls={`mini-panel-${tab.id}`} aria-selected={activeMode === tab.id} tabIndex={activeMode === tab.id ? 0 : -1} onClick={() => chooseMode(tab.id)}>{tab.name}</button>)}
-        </div>
-        <div role="tabpanel" id={`mini-panel-${activeMode}`} aria-labelledby={`mini-tab-${activeMode}`}>
-        {activeMode !== 'combine' && <div className="bk-mini-flow-progress" aria-label={`Step ${picking === 'home' ? 1 : picking === 'away' ? 2 : 3} of 3`}>
+        {screen === 'teams' && <div className="bk-mini-flow-progress" aria-label={`Step ${picking === 'home' ? 1 : picking === 'away' ? 2 : 3} of 3`}>
           {['Your team', 'Opponent', 'Matchup'].map((label, index) => <span key={label} aria-current={index === (picking === 'home' ? 0 : picking === 'away' ? 1 : 2) ? 'step' : undefined}>{index + 1}. {label}</span>)}
         </div>}
-        <h2 ref={heading} tabIndex={-1} id="mini-games-heading">{activeMode === 'combine' ? 'Combine Drills' : picking === 'home' ? 'Pick Your Team' : picking === 'away' ? 'Pick Opponent' : 'View Matchup'}</h2>
-        <p id="mini-games-description" className="bk-mini-flow-description">{activeMode === 'combine' ? 'Test your speed, throwing accuracy, and catching skills.' : picking === 'home' ? 'Choose your squad. Own the field.' : picking === 'away' ? `Who will take on the ${matchup.home.name.split(' ').at(-1)}?` : 'The stage is set. Make your statement.'}</p>
-        {activeMode === 'combine' ? <section className="bk-mini-combine-preview" aria-label="Combine drills">
+        <h2 ref={heading} tabIndex={-1} id="mini-games-heading">{screen === 'modes' ? 'Pick Your Game' : screen === 'difficulty' ? 'Choose Difficulty' : screen === 'combine' ? 'Combine Drills' : picking === 'home' ? 'Pick Your Team' : picking === 'away' ? 'Pick Opponent' : 'View Matchup'}</h2>
+        <p id="mini-games-description" className="bk-mini-flow-description">{screen === 'modes' ? 'Big plays. Quick games. Choose your challenge.' : screen === 'difficulty' ? `${gameName}. How tough do you want it?` : screen === 'combine' ? 'Test your speed, throwing accuracy, and catching skills.' : picking === 'home' ? 'Choose your squad. Own the field.' : picking === 'away' ? `Who will take on the ${matchup.home.name.split(' ').at(-1)}?` : 'The stage is set. Make your statement.'}</p>
+        {screen === 'modes' ? <div className="bk-mini-mode-cards">
+          <button type="button" className="bk-mini-mode-card" onClick={() => chooseMode('two-minute')}><span className="bk-mini-card-time">02:00</span><strong>Two-Minute Warning</strong><span>Down four. One drive. Score the winning touchdown.</span><b>Play now →</b></button>
+          <button type="button" className="bk-mini-mode-card bk-mini-mode-card-full" onClick={() => chooseMode('five-minute')}><span className="bk-mini-card-time">05:00</span><strong>Five-Minute Game</strong><span>You vs. CPU. Run the offense. Watch every defensive play.</span><b>Play now →</b></button>
+          <button type="button" className="bk-mini-mode-card bk-mini-mode-card-combine" onClick={() => setScreen('combine')}><span className="bk-mini-card-time">Coming soon</span><strong>Combine Drills</strong><span>Speed. Accuracy. Hands. Put your skills to the test.</span><b>View drills →</b></button>
+        </div> : screen === 'difficulty' ? <div className="bk-mini-difficulty-screen">
+          <div className="bk-mini-difficulty-options">{MINI_LEVELS.map(option => <button type="button" key={option.id} aria-pressed={level === option.id} onClick={() => { chooseLevel(option.id); setScreen('teams'); }}><strong>{option.name}</strong><span>{option.description}</span><b aria-hidden="true">→</b></button>)}</div>
+          <button type="button" className="bk-mini-review-back" onClick={() => setScreen('modes')}>← Back to game modes</button>
+        </div> : screen === 'combine' ? <section className="bk-mini-combine-preview" aria-label="Combine drills">
           <span className="bk-mini-coming-soon">Coming soon</span>
           <ul><li><strong>Speed Challenge</strong><p>Timed runs and agility drills.</p></li><li><strong>Passing Accuracy</strong><p>Hit targets and sharpen your throws.</p></li><li><strong>Catching Challenge</strong><p>Test your hands and timing.</p></li></ul>
-          <p>Combine drills are in development. Choose another tab to hit the field now.</p>
+          <p>Combine drills are in development. Choose another game mode to hit the field now.</p>
+          <button type="button" className="bk-mini-review-back" onClick={() => setScreen('modes')}>← Back to game modes</button>
         </section> : <>
         <p className="bk-mini-active-mode-description">{gameMode === 'five-minute' ? 'Full game vs. CPU. Play offense; watch each defensive play.' : 'Down four. Two minutes to score the winning touchdown.'}</p>
-        {picking === 'home' && <fieldset className="bk-mini-levels">
-          <legend>Difficulty</legend>
-          <div>{MINI_LEVELS.map(option => <label key={option.id}>
-            <input type="radio" name="mini-difficulty" value={option.id} checked={level === option.id} onChange={() => chooseLevel(option.id)}/>
-            <span>{option.name}</span>
-          </label>)}</div>
-          <p aria-live="polite">{difficulty.description}</p>
-        </fieldset>}
-        {picking && menuOpen ? <MiniTeamCarousel key={picking + matchup[picking].abbr} side={picking} selected={matchup[picking]} excluded={picking === 'away' ? matchup.home.abbr : undefined} onSelect={chooseTeam} onCancel={() => picking === 'away' ? setPicking('home') : dialog.current?.close()} backLabel={picking === 'away' ? 'Back to your team' : 'Back to Home'}/> : menuOpen ? <section className="bk-mini-review" aria-label="Matchup comparison">
+        {picking && menuOpen ? <MiniTeamCarousel key={picking + matchup[picking].abbr} side={picking} selected={matchup[picking]} excluded={picking === 'away' ? matchup.home.abbr : undefined} onSelect={chooseTeam} onCancel={() => picking === 'away' ? setPicking('home') : setScreen('difficulty')} backLabel={picking === 'away' ? 'Back to your team' : 'Back to difficulty'}/> : menuOpen ? <section className="bk-mini-review" aria-label="Matchup comparison">
           <div className="bk-mini-review-teams">{(['home', 'away'] as const).map(side => {
             const team = matchup[side];
             return <div key={side} className="bk-mini-review-team" style={{ '--mini-team-color': team.primary } as React.CSSProperties}>
@@ -100,8 +84,7 @@ export function HomeMiniGamesFeature() {
         </section> : null}
         {!picking && <button type="button" className="bk-mini-review-back" onClick={() => setPicking('away')}>← Back</button>}
         </>}
-        </div>
-        {MINI_MODE_TABS.filter(tab => tab.id !== activeMode).map(tab => <div key={tab.id} role="tabpanel" id={`mini-panel-${tab.id}`} aria-labelledby={`mini-tab-${tab.id}`} hidden/>)}
+
       </div>
     </dialog>
   </section>;

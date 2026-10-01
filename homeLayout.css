@@ -241,3 +241,23 @@
 @media(max-width:360px) { .bk-mini-mode-tabs>button { padding-inline:10px; font-size:15px; } }
 .bk-mini-mode-tabs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); }
 .bk-mini-mode-tabs>button { min-width:0; padding:8px 5px; font-size:clamp(14px,3.8vw,17px); white-space:normal; line-height:1.15; }
+
+/* Stacked game selection and a separate difficulty step. */
+.bk-mini-mode-cards { display: grid; gap: 18px; margin-top: 24px; }
+.bk-mini-mode-card { position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; width: 100%; min-height: 225px; padding: 25px; border: 1px solid #c6a64c; border-radius: 18px; background: linear-gradient(110deg, #11141bea 15%, #11141b80), url('/mini-games-home-cover.webp') center 38% / cover; color: #f6f3e9; text-align: left; cursor: pointer; box-shadow: inset 0 0 35px #0008; }
+.bk-mini-mode-card-full { background-position: center 70%; }
+.bk-mini-mode-card-combine { background: radial-gradient(ellipse at top right, #66532477, transparent 70%), #12161e; }
+.bk-mini-mode-card strong { max-width: 90%; font: 800 clamp(30px, 7vw, 42px)/1 'BKMiniDisplay', sans-serif; text-transform: uppercase; text-shadow: 0 2px 10px #000; }
+.bk-mini-mode-card > span:not(.bk-mini-card-time) { max-width: 32ch; font-size: 15px; line-height: 1.45; text-shadow: 0 2px 4px #000; }
+.bk-mini-card-time { color: #efd582; font-weight: 800; font-size: 13px; letter-spacing: .15em; text-transform: uppercase; }
+.bk-mini-mode-card b { color: #efd582; margin-top: auto; font-size: 15px; }
+.bk-mini-mode-card:hover { border-color: #ffe6a0; }
+.bk-mini-mode-card:focus-visible, .bk-mini-difficulty-options button:focus-visible { outline: 3px solid #ffe6a0; outline-offset: 3px; }
+.bk-mini-difficulty-options { display: grid; gap: 14px; margin: 28px 0 20px; }
+.bk-mini-difficulty-options button { position: relative; display: grid; gap: 8px; padding: 22px 42px 22px 20px; text-align: left; color: #f6f3e9; background: #181c24; border: 1px solid #877645; border-radius: 14px; cursor: pointer; }
+.bk-mini-difficulty-options button[aria-pressed="true"] { border-color: #e4c365; background: linear-gradient(120deg, #5d4b23, #191d24); }
+.bk-mini-difficulty-options strong { font: 800 30px/1.1 'BKMiniDisplay', sans-serif; text-transform: uppercase; }
+.bk-mini-difficulty-options span { color: #d0d0d4; line-height: 1.45; font-size: 14px; }
+.bk-mini-difficulty-options b { position: absolute; right: 18px; top: 25px; color: #e4c365; }
+.bk-mini-mode-card:not(.bk-mini-mode-card-combine) { background-size: auto, 210% auto; background-position: center, right 30%; }
+.bk-mini-mode-card-full:not(.bk-mini-mode-card-combine) { background-position: center, right 65%; }
