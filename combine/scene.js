@@ -21,16 +21,35 @@ function shapedSegment(parent, material, radius, length, profile) {
   const points = profile.map(([y, r]) => new T.Vector2(r * radius, (y - .5) * length));
   return mesh(new T.LatheGeometry(points, 20), material, parent);
 }
+// Continuous ring meshes keep elbows and knees joined through the full stride.
+function flexibleLimb(parent, material, radii) {
+  const rings=17, sides=12, positions=new Float32Array(rings*sides*3), indices=[];
+  for(let r=0;r<rings-1;r++)for(let j=0;j<sides;j++){const a=r*sides+j,b=r*sides+(j+1)%sides;indices.push(a,a+sides,b,b,a+sides,b+sides);}
+  const g=new T.BufferGeometry();g.setAttribute('position',new T.BufferAttribute(positions,3));g.setIndex(indices);
+  const m=mesh(g,material,parent);m.frustumCulled=false;
+  return (a,b,c)=>{
+    const d1=b.clone().sub(a).normalize(),d2=c.clone().sub(b).normalize();
+    const center=new T.Vector3(),axis=new T.Vector3(),x=new T.Vector3(),z=new T.Vector3();
+    for(let r=0;r<rings;r++){
+      const t=r/(rings-1),q=t*2,segment=q<1?0:1,u=q-segment;
+      center.copy(segment===0?a:b).lerp(segment===0?b:c,u);
+      axis.copy(d1).lerp(d2,T.MathUtils.smoothstep(t,.35,.65)).normalize();
+      x.set(1,0,0).addScaledVector(axis,-axis.x).normalize();z.crossVectors(x,axis).normalize();
+      const ri=t*(radii.length-1),i=Math.min(radii.length-2,Math.floor(ri)),radius=T.MathUtils.lerp(radii[i],radii[i+1],ri-i);
+      for(let j=0;j<sides;j++){const angle=j/sides*Math.PI*2,k=(r*sides+j)*3,cs=Math.cos(angle)*radius,sn=Math.sin(angle)*radius*.91;positions[k]=center.x+x.x*cs+z.x*sn;positions[k+1]=center.y+x.y*cs+z.y*sn;positions[k+2]=center.z+x.z*cs+z.z*sn;}
+    }g.attributes.position.needsUpdate=true;g.computeVertexNormals();
+  };
+}
 // A dedicated training body keeps helmets and pads out of the sprint event.
 // Rounded anatomical sections are driven by planted-foot IK, with clothing
 // over the joints rather than visible mechanical pivots.
 function athlete(parent, seed, staff = false) {
   const root = new T.Group(); parent.add(root);
   const skin = mat(['#955f43', '#70462f', '#bc8967', '#54392c'][seed % 4], .88);
-  const shirt = mat(staff ? '#232e37' : '#282e32'), shorts = mat(staff ? '#232d35' : '#183d32');
+  const shirt = mat(staff ? '#344552' : '#15262d'), shorts = mat(staff ? '#232d35' : '#183d32');
   const shoes = mat('#152027', .64), sock = mat('#e7e5da'), hair = mat('#171717');
-  const torso = shapedSegment(root, shirt, .235, .52, [[0,.65],[.10,.80],[.3,.79],[.60,.98],[.82,1.06],[.94,.94],[1,.50]]); torso.scale.z = .60;
-  const pelvis = ellipsoid(root, shorts, [.205,.15,.135]);
+  const torso = shapedSegment(root, shirt, .245, .52, [[0,.69],[.10,.77],[.3,.81],[.60,1.02],[.82,1.09],[.94,.94],[1,.45]]); torso.scale.z = .67;
+  const pelvis = ellipsoid(root, shorts, [.185,.135,.13]);
   const neck = mesh(new T.CylinderGeometry(.058,.073,.12,16),skin,root);
   const head = new T.Group(); root.add(head);
   ellipsoid(head, skin, [.105,.142,.108]);
@@ -46,7 +65,7 @@ function athlete(parent, seed, staff = false) {
   // Instanced short curls retain a natural silhouette at phone resolution.
   const curls = new T.InstancedMesh(new T.SphereGeometry(.018,7,5),hair,58), dummy = new T.Object3D();
   for(let i=0;i<58;i++){const a=i*2.39996,r=.095*Math.sqrt(i/58);dummy.position.set(Math.cos(a)*r,.142-.035*(r/.095)**2,Math.sin(a)*r);dummy.scale.set(1,1.15+(i%4)*.15,1);dummy.updateMatrix();curls.setMatrixAt(i,dummy.matrix);}head.add(curls);
-  const number = mesh(new T.PlaneGeometry(.25,.12),label(staff?'BK':String(10+seed%80),'#aab3b2'),torso,0,.11,-.253);number.rotation.y=Math.PI;
+  const number = mesh(new T.PlaneGeometry(.25,.12),label(staff?'BK':String(10+seed%80),'#aab3b2'),torso,0,.07,-.166);number.rotation.y=Math.PI;
   const limbs = [-1,1].map(side=>{
     const leg = shapedSegment(root,shorts,.115,.30,[[0,.92],[.15,1],[.7,1.03],[1,.8]]);
     const thigh = shapedSegment(root,skin,.102,.48,[[0,.65],[.15,.79],[.5,1.03],[.8,.9],[1,.7]]);
@@ -59,17 +78,27 @@ function athlete(parent, seed, staff = false) {
     const upper = shapedSegment(root,skin,.067,.29,[[0,.63],[.3,.96],[.6,1],[1,.7]]);
     const elbow = ellipsoid(root,skin,[.047,.05,.048]);
     const lower = shapedSegment(root,skin,.052,.28,[[0,.52],[.2,.63],[.7,1],[1,.8]]);
-    const hand = ellipsoid(root,skin,[.041,.067,.028]);
-    return {side,leg,thigh,knee,calf,ankle,foot,sleeve,upper,elbow,lower,hand};
+    const hand = new T.Group();root.add(hand);
+    ellipsoid(hand,skin,[.039,.051,.025]);
+    for(let i=0;i<4;i++)ellipsoid(hand,skin,[.008,.028,.010],[(i-1.5)*.018,-.04,.009]);
+    ellipsoid(hand,skin,[.014,.03,.016],[side*.035,-.012,.014]);
+    const legSkin=flexibleLimb(root,skin,[.086,.112,.095,.067,.078,.069,.037]);
+    const armSkin=flexibleLimb(root,skin,[.073,.078,.063,.045,.058,.043,.030]);
+    for(const part of [thigh,knee,calf,upper,elbow,lower])part.visible=false;
+    ellipsoid(foot,sock,[.064,.014,.139],[0,-.018,.042]);
+    for(let i=0;i<4;i++)box(foot,[.075,.006,.008],sock,[0,.052,.014+i*.022]);
+    box(foot,[.012,.024,.11],mat('#afee5a'),[side*.06,.024,.045]);
+    return {legSkin,armSkin,side,leg,thigh,knee,calf,ankle,foot,sleeve,upper,elbow,lower,hand};
   });
   root.traverse(o=>{if(o.isMesh){o.castShadow=!staff;o.receiveShadow=true;}});
   // Analytic two-bone IK. The bend axis is projected perpendicular to the limb.
   function joint(a,b,l1,l2,bend){const delta=b.clone().sub(a),d=Math.min(delta.length(),l1+l2-.0001),axis=delta.normalize(),along=(l1*l1-l2*l2+d*d)/(2*Math.max(.001,d));const perpendicular=bend.clone().addScaledVector(axis,-bend.dot(axis)).normalize();return a.clone().addScaledVector(axis,along).addScaledVector(perpendicular,Math.sqrt(Math.max(0,l1*l1-along*along)));}
-  function pose(distance,velocity,stance=true,launch=1){
-    const rate=Math.min(1,velocity/7), phase=distance/2.35*Math.PI*2;
+  function pose(distance,velocity,stance=true,launch=1,celebrate=0){
+    const rate=Math.min(1,velocity/7), phase=distance/3.8*Math.PI*2;
     const blend=stance?0:Math.min(1,launch), eased=blend*blend*(3-2*blend);
-    const hip=v(0,.78,-.13).lerp(v(0,1.0+Math.abs(Math.sin(phase))*.025*rate,0),eased);
-    const shoulder=v(0,.66,.39).lerp(hip.clone().add(v(0,.49,.075+.13*rate)),eased);
+    const hip=v(0,.79,-.31).lerp(v(0,(staff?.99:.91)+Math.abs(Math.sin(phase))*.042*rate,0),eased);
+    const drive=(1-Math.min(1,Math.max(0,distance)/24))*.28*rate;
+    const shoulder=v(0,.61,.18).lerp(hip.clone().add(v(0,.49-drive*.5,.065+drive)),eased);
     connect(torso,hip,shoulder,.52);pelvis.position.copy(hip).add(v(0,-.035,0));
     neck.position.copy(shoulder).add(v(0,.065,.10-.085*eased));
     head.position.copy(shoulder).add(v(0,.18+.04*eased,.16-.135*eased));head.rotation.x=.30-.34*eased;
@@ -78,20 +107,22 @@ function athlete(parent, seed, staff = false) {
       const origin=hip.clone().add(v(side*.112,0,0));
       let foot;
       {
-        const cycle=((distance/2.35+(side===1?.5:0))%1+1)%1;
-        const planted=cycle<.55,t=planted?cycle/.55:(cycle-.55)/.45;
-        const z=planted?.56*(1-2*t):-.56+1.12*(t*t*(3-2*t));
-        foot=v(side*.12,.045+(planted?0:Math.sin(t*Math.PI)*.26)*rate,z*rate);
-        foot=v(side*.14,.048,side===1?-.65:-.12).lerp(foot,eased);
+        const cycle=((distance/3.8+(side===1?.5:0))%1+1)%1;
+        const planted=cycle<.30,t=planted?cycle/.30:(cycle-.30)/.70;
+        const z=planted?.43-.98*t:-.55+.98*(t*t*(3-2*t));
+        foot=v(side*.12,.045+(planted?0:Math.sin(t*Math.PI)**1.4*.62)*rate,z*rate);
+        foot=v(side*.14,.048,side===1?-.80:-.25).lerp(foot,eased);
       }
       const knee=joint(origin,foot,.49,.49,v(0,0,1));
-      connect(l.thigh,knee,origin,.48);connect(l.leg,origin.clone().lerp(knee,.56),origin,.30);l.knee.position.copy(knee);
+      l.legSkin(origin,knee,foot);connect(l.thigh,knee,origin,.48);connect(l.leg,origin.clone().lerp(knee,.56),origin,.30);l.knee.position.copy(knee);
       connect(l.calf,foot,knee,.46);l.ankle.position.copy(foot).add(v(0,.035,0));
       l.foot.position.copy(foot);l.foot.rotation.x=stance?-.18:Math.max(0,Math.sin(stride))*.3*rate;
       const armStart=shoulder.clone().add(v(side*.218,-.045,0));
-      const handTarget=(side===1?v(.30,.08,.65):v(-.28,.58,-.13)).lerp(armStart.clone().add(v(side*.025,-.29,Math.sin(stride)*.30*rate)),eased);
+      const handTarget=(side===1?v(.24,.035,.36):v(-.28,.58,-.20)).lerp(armStart.clone().add(v(side*.018,-.17+Math.sin(stride)*.13*rate,Math.sin(stride)*.38*rate)),eased);
+      if(celebrate>0)handTarget.lerp(armStart.clone().add(v(side*.13,.48,.10)),celebrate);
+      if(staff)handTarget.set(side*.24,.96+(seed%3)*.09,.20);
       const elbow=joint(armStart,handTarget,.29,.31,v(0,-.2,-1));
-      connect(l.upper,elbow,armStart,.29);connect(l.sleeve,armStart.clone().lerp(elbow,.55),armStart,.20);l.elbow.position.copy(elbow);connect(l.lower,handTarget,elbow,.28);l.hand.position.copy(handTarget);l.hand.rotation.x=stance&&side===1?Math.PI/2:-.4;
+      l.armSkin(armStart,elbow,handTarget);connect(l.upper,elbow,armStart,.29);connect(l.sleeve,armStart.clone().lerp(elbow,.55),armStart,.20);l.elbow.position.copy(elbow);connect(l.lower,handTarget,elbow,.28);l.hand.position.copy(handTarget);l.hand.rotation.x=stance&&side===1?Math.PI/2:-.4;
     });
   }
   pose(0,0,!staff);return {root,pose};
@@ -104,14 +135,14 @@ export function createCombineScene(host, player, onLost) {
   const lost=e=>{e.preventDefault();onLost();};renderer.domElement.addEventListener('webglcontextlost',lost);
   const scene=new T.Scene();scene.background=new T.Color('#253039');scene.fog=new T.Fog('#253039',48,125);
   const camera=new T.PerspectiveCamera(49,1,.05,160);
-  scene.add(new T.HemisphereLight('#e0e9f5','#3b5032',2.1));
-  const key=new T.DirectionalLight('#fff3df',3.1);key.position.set(-12,24,7);key.castShadow=true;key.shadow.mapSize.set(1024,1024);key.shadow.camera.left=-9;key.shadow.camera.right=9;key.shadow.camera.top=12;key.shadow.camera.bottom=-12;key.shadow.camera.near=1;key.shadow.camera.far=65;key.shadow.normalBias=.025;key.shadow.bias=-.00015;scene.add(key,key.target);
+  scene.add(new T.HemisphereLight('#e0e9f5','#3b5032',1.8));
+  const key=new T.DirectionalLight('#fff3df',3.5);key.position.set(-12,24,7);key.castShadow=true;key.shadow.mapSize.set(1024,1024);key.shadow.camera.left=-9;key.shadow.camera.right=9;key.shadow.camera.top=12;key.shadow.camera.bottom=-12;key.shadow.camera.near=1;key.shadow.camera.far=65;key.shadow.normalBias=.025;key.shadow.bias=-.00015;scene.add(key,key.target);
   const fill=new T.DirectionalLight('#bad3ed',1.3);fill.position.set(15,10,35);scene.add(fill);
   const grass=mat('#607a43');
   const tc=document.createElement('canvas');tc.width=tc.height=256;const ctx=tc.getContext('2d');ctx.fillStyle='#708455';ctx.fillRect(0,0,256,256);
   let rng=71;const random=()=>{rng=(Math.imul(rng,1664525)+1013904223)>>>0;return rng/4294967296;};
   for(let i=0;i<20000;i++){const shade=45+Math.floor(random()*70);ctx.strokeStyle=`rgba(${shade},${shade+20},${shade-14},.52)`;const x=random()*256,y=random()*256;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+random()*2,y-1-random()*3);ctx.stroke();}
-  const tex=new T.CanvasTexture(tc);tex.colorSpace=T.SRGBColorSpace;tex.wrapS=tex.wrapT=T.RepeatWrapping;tex.repeat.set(22,50);tex.anisotropy=4;grass.map=tex;
+  const tex=new T.CanvasTexture(tc);tex.colorSpace=T.SRGBColorSpace;tex.wrapS=tex.wrapT=T.RepeatWrapping;tex.repeat.set(22,50);tex.anisotropy=4;grass.map=tex;grass.bumpMap=tex;grass.bumpScale=.025;
   const floor=mesh(new T.PlaneGeometry(54,110),grass,scene,0,-.012,28);floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;
   const white=mat('#e2e5ce'),orange=mat('#df652e'),metal=mat('#26343a',.55),concrete=mat('#353f45'),seatMat=mat('#263d4b');
   for(let z=-5;z<60;z+=5){const stripe=box(scene,[50,.006,2.5],mat('#476c3d'),[0,-.005,z]);stripe.material.transparent=true;stripe.material.opacity=.15;stripe.receiveShadow=true;}
@@ -128,6 +159,11 @@ export function createCombineScene(host, player, onLost) {
     box(scene,[1,.52,65],concrete,[side*(11+row*.9),row*.62+.15,25]);
     for(let col=0;col<68;col++){o.position.set(side*(11+row*.9),row*.62+.64,col*.86-3);o.updateMatrix();seats.setMatrixAt(si++,o.matrix);}
   }scene.add(seats);
+  const backs=new T.InstancedMesh(new T.BoxGeometry(.52,.48,.10),seatMat,si);
+  for(let i=0;i<si;i++){seats.getMatrixAt(i,o.matrix);o.matrix.decompose(o.position,o.quaternion,o.scale);o.position.y+=.31;o.position.x+=Math.sign(o.position.x)*.20;o.rotation.y=Math.PI/2;o.updateMatrix();backs.setMatrixAt(i,o.matrix);}scene.add(backs);
+  for(const side of [-1,1]){box(scene,[.10,.10,64],metal,[side*9.7,1.0,26]);for(let z=-4;z<58;z+=4)box(scene,[.07,1,.07],metal,[side*9.7,.5,z]);}
+  for(const z of [8,26,44])for(const side of [-1,1]){const sign=mesh(new T.PlaneGeometry(6,.65),label('BK  •  PROSPECT COMBINE','#b8eb7a','#15262d'),scene,side*9.4,1.2,z);sign.rotation.y=side<0?Math.PI/2:-Math.PI/2;}
+
   box(scene,[45,12,.5],mat('#35444c'),[0,5.5,66]);
   const brand=mesh(new T.PlaneGeometry(15,2.1),label('BALL KNOWER  /  COMBINE','#e4ece6','#172a30',1024,128),scene,0,4.1,65.65);brand.rotation.y=Math.PI;
   box(scene,[50,.35,94],mat('#252f36'),[0,15.5,27]);
@@ -143,16 +179,16 @@ export function createCombineScene(host, player, onLost) {
   function disposeObject(object){const geometries=new Set(),materials=new Set(),textures=new Set();object.traverse(o=>{if(o.geometry)geometries.add(o.geometry);for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m){materials.add(m);for(const val of Object.values(m))if(val?.isTexture)textures.add(val);}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());}
   function draw(state,dt){
     const active=state.phase==='running',ended=state.phase==='finished';
-    if(ended){settle+=dt;visualZ=Math.min(FINISH+5,visualZ+Math.max(0,state.velocity-settle*6)*dt);}else{visualZ=state.distance;settle=0;}
-    const speed=active?state.velocity:ended?Math.max(0,state.velocity-settle*6):0;
-    runner.root.position.z=visualZ;runner.pose(visualZ,speed,!active&&!ended,active?state.clock/.62:1);
+    if(ended){settle+=dt;visualZ+=Math.max(0,state.velocity-settle*5)*dt;}else{visualZ=state.distance;settle=0;}
+    const speed=active?state.velocity:ended?Math.max(0,state.velocity-settle*5):0;
+    runner.root.position.z=visualZ;runner.pose(visualZ,speed,!active&&!ended,active?state.clock/.34:1,ended&&settle>1.8?Math.min(1,(settle-1.8)*2):0);
     const portrait=camera.aspect<1;
-    target.set(portrait?-1.15:-1.5,portrait?2.7:2.15,visualZ-(portrait?5.1:4.5));
+    target.set(portrait?-1.0:-1.65,portrait?1.65:1.45,visualZ-(portrait?3.45:3.7));
     if(previousPhase!==state.phase&&state.phase==='idle')camera.position.copy(target);else camera.position.lerp(target,1-Math.exp(-dt*9));
-    look.set(.25,1.05,visualZ+(portrait?3.8:4.7));camera.lookAt(look);
+    look.set(.10,.72,visualZ+(portrait?1.2:2.2));camera.lookAt(look);
     key.position.set(-10,24,visualZ+6);key.target.position.set(0,0,visualZ+3);
     renderer.render(scene,camera);previousPhase=state.phase;
   }
-  camera.position.set(-1.5,2.15,-4.5);
+  camera.position.set(-1,1.65,-3.45);
   return {draw,setAthlete(next){scene.remove(runner.root);disposeObject(runner.root);runner=athlete(scene,next.seed);visualZ=0;settle=0;previousPhase='reset';},dispose(){observer.disconnect();renderer.domElement.removeEventListener('webglcontextlost',lost);disposeObject(scene);renderer.dispose();renderer.domElement.remove();}};
 }
