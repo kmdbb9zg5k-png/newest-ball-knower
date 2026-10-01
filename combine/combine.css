@@ -10,3 +10,5 @@
 .combine-game>div::before{display:none}
 .combine-game>.combine-scene{z-index:0}
 .combine-game>.combine-overlay{position:absolute;z-index:3}
+
+.combine-top h1{font-weight:800}

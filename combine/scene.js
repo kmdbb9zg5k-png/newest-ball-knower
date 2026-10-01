@@ -116,9 +116,9 @@ export function createCombineScene(host, player, onLost) {
   const white=mat('#e2e5ce'),orange=mat('#df652e'),metal=mat('#26343a',.55),concrete=mat('#353f45'),seatMat=mat('#263d4b');
   for(let z=-5;z<60;z+=5){const stripe=box(scene,[50,.006,2.5],mat('#476c3d'),[0,-.005,z]);stripe.material.transparent=true;stripe.material.opacity=.15;stripe.receiveShadow=true;}
   for(const x of [-2.2,2.2])box(scene,[.075,.012,FINISH+10],white,[x,.002,(FINISH+4)/2]);
-  for(let n=0;n<=40;n+=5){const z=n*YARD;box(scene,[4.45,.009,n%10===0?.09:.045],white,[0,.006,z]);if(n>0&&n%10===0){const number=mesh(new T.PlaneGeometry(1.1,.68),label(String(n)),scene,1.37,.017,z-.45);number.rotation.x=-Math.PI/2;}}
-  const startLabel=mesh(new T.PlaneGeometry(2.7,.4),label('START'),scene,0,.018,-1.25);startLabel.rotation.x=-Math.PI/2;
-  const finishLabel=mesh(new T.PlaneGeometry(3.2,.46),label('40 YARD FINISH'),scene,0,.019,FINISH+.6);finishLabel.rotation.x=-Math.PI/2;
+  for(let n=0;n<=40;n+=5){const z=n*YARD;box(scene,[4.45,.009,n%10===0?.09:.045],white,[0,.006,z]);if(n>0&&n%10===0){const number=mesh(new T.PlaneGeometry(1.1,.68),label(String(n)),scene,1.37,.017,z-.45);number.rotation.x=-Math.PI/2;number.rotation.z=Math.PI;}}
+  const startLabel=mesh(new T.PlaneGeometry(2.7,.4),label('START'),scene,0,.018,-1.25);startLabel.rotation.x=-Math.PI/2;startLabel.rotation.z=Math.PI;
+  const finishLabel=mesh(new T.PlaneGeometry(3.2,.46),label('40 YARD FINISH'),scene,0,.019,FINISH+.6);finishLabel.rotation.x=-Math.PI/2;finishLabel.rotation.z=Math.PI;
   for(const side of [-1,1])for(let z=0;z<=FINISH;z+=YARD*5){box(scene,[.3,.03,.3],orange,[side*2.6,.015,z]);mesh(new T.ConeGeometry(.12,.40,18),orange,scene,side*2.6,.23,z);}
   function gate(z){for(const side of [-1,1]){const x=side*2.93;mesh(new T.CylinderGeometry(.018,.022,.95,9),metal,scene,x,.49,z);box(scene,[.17,.23,.10],metal,[x,1.02,z]);const led=mesh(new T.SphereGeometry(.025,10,7),new T.MeshBasicMaterial({color:'#bbf39b'}),scene,x,1.04,z-.06);for(let i=0;i<3;i++){const a=i*Math.PI*2/3,leg=mesh(new T.CylinderGeometry(.012,.014,1,7),metal,scene);connect(leg,v(x,.57,z),v(x+Math.cos(a)*.28,.02,z+Math.sin(a)*.28));}}}
   [10,20,40].forEach(n=>gate(n*YARD));
