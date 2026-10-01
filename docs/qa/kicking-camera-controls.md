@@ -27,3 +27,13 @@ The earlier suspected offensive playbook regression did not reproduce; the exist
 - Added browser assertions for actual line movement/engagement, a forced penetration blocking the ball, unchanged score after a block, two visible defensive buttons, and the skinned QB hand anchor.
 
 Device limitation: automated checks use Chromium at iPhone-sized landscape viewports; a physical iPhone/Safari check remains useful for feel and performance.
+
+## Contact and kick presentation follow-up
+
+- Defensive calls now allow six seconds to select and position a player. The status displays a countdown; pausing freezes it.
+- Tap selection pulses a thicker cyan ring. Live camera focus eases from the previous defender over 0.55 seconds, with the existing camera velocity limit retained.
+- Defensive tackles, kickoff tackles and sacks now finish through a short wrap or shoulder-hit sequence before showing the result. The outcome/spot is captured once at contact. Controls and selection are suspended during the finish; the gameplay clock does not charge extra presentation time.
+- Live-unit blocking uses stable pairs with a brief settling period, bounded rating-based push, and timed sheds. Run-support blockers cannot all engage the same defender. CPU pass blockers have unique assignments. Stationary block foot resets are smaller and share the same cadence as foot planting.
+- Holder uses a grounded rear knee and planted front foot. Kick leg loads before release, reaches the ball at release, then follows through. Goal camera gently pushes toward the posts after launch. Blocking animation roles follow the assignment rather than home/away uniform.
+
+Validation: typecheck/build, five-minute (90 seeded games), mini-game rules, athlete asset/locomotion, special-team joint geometry, and the mobile live-unit browser regression suite. Browser checks include delayed tackle results, continuity of switch-camera movement, six-second setup, made/missed/blocked kicks, score/possession continuation, and controls at 844x390 and 667x375. Physical iPhone performance remains untested.

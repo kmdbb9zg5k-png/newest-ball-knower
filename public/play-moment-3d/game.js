@@ -1,15 +1,15 @@
-import {createLiveUnits} from './live-units.js?v=close-kicks-3';
-import {fullInitialDrive,fullSession,fullLog,fullRecord,fullOffenseEnd,fullContinue,fullCpuPlay,fullKick,fullCpuResult,fullConversion,fullKickoffResult,fullCpuKickChoice} from './five-minute.js?v=close-kicks-3';
-import {rosterRatings,rosterIdentity} from './mini-teams.js?v=close-kicks-3';
+import {createLiveUnits} from './live-units.js?v=contact-polish-4';
+import {fullInitialDrive,fullSession,fullLog,fullRecord,fullOffenseEnd,fullContinue,fullCpuPlay,fullKick,fullCpuResult,fullConversion,fullKickoffResult,fullCpuKickChoice} from './five-minute.js?v=contact-polish-4';
+import {rosterRatings,rosterIdentity} from './mini-teams.js?v=contact-polish-4';
 import{RUNS,PASSES,FORMATIONS,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=football-foundation-44';
 export{RUNS,PASSES}from'./playbook.js?v=football-foundation-44';
 import{Renderer,pose,segment,hex,mul,ry}from'./renderer.js?v=football-foundation-44';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js?v=teams-1';
-import{createMeshyAthletes}from'./meshy-athlete.js?v=close-kicks-3';
+import{createMeshyAthletes}from'./meshy-athlete.js?v=contact-polish-4';
 import{makeStadium}from'./stadium.js?v=football-foundation-44';
 import{createGameplayReplayRecorder}from'./replay.js';
-import {miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=close-kicks-3';
-import {createMiniGamesUI} from './mini-games-ui.js?v=close-kicks-3';
+import {miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=contact-polish-4';
+import {createMiniGamesUI} from './mini-games-ui.js?v=contact-polish-4';
 import{QB_THROW_RELEASE,quarterbackThrowDuration}from'./quarterback.js?v=football-finish-21';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
 /** The established first-down target, in the drive's 0–100 field coordinates.
@@ -905,7 +905,7 @@ function coverage(dt){
   for(const p of actors){r.add('plane',pose(p.x,.038,p.z,.92,1,.66),[0,0,0,meshy.ready?.18:.75],'shadow',true)}
   turfFx=turfFx.filter(f=>simTime-f.born<f.life);for(const fx of turfFx){const age=simTime-fx.born,t=clamp(age/fx.life,0,1),size=fx.size*(1+t*.8);r.add('plane',pose(fx.x+fx.driftX*age,.043,fx.z+fx.driftZ*age,size,1,size*.64),[.61,.50,.28,(1-t)*.55],'turf-fx',true)}
   if(contactFx){const age=simTime-contactFx.born,t=age/.34;if(t<1){const size=(.55+t*2.6)*contactFx.power;r.add('plane',pose(contactFx.x,.055,contactFx.z,size,1,size),[1,.76,.28,(1-t)*.52],'impact-glow',true);for(let i=0;i<7;i++){const angle=i/7*Math.PI*2+.35,radius=t*(.45+i*.06)*contactFx.power,height=.10+Math.sin(t*Math.PI)*(.20+(i%3)*.07);r.add('sphere',pose(contactFx.x+Math.cos(angle)*radius,height,contactFx.z+Math.sin(angle)*radius,.025+(1-t)*.018),[.62,.49,.27,1],'',false,.04)}}else contactFx=null}
-  if(carrier&&(!ended||pendingDriveEnd?.title==='INTERCEPTED')){const selectedPlayer=liveUnit?.state?actors[liveUnit.state.controlled]:carrier,cx=selectedPlayer.x,cz=selectedPlayer.z;r.add('plane',pose(cx,.036,cz,2.35,1,1.65),[1,1,1,.72],'player-glow',true);for(let i=0;i<32;i++){const a=i/32*2*Math.PI,b=(i+1)/32*2*Math.PI;r.add('cylinder',segment([cx+Math.cos(a)*.70,.045,cz+Math.sin(a)*.70],[cx+Math.cos(b)*.70,.045,cz+Math.sin(b)*.70],.025),hex('#ebce7a'),'',true)}}
+  if(carrier&&(!ended||pendingDriveEnd?.title==='INTERCEPTED')){const selectedPlayer=liveUnit?.state?actors[liveUnit.state.controlled]:carrier,cx=selectedPlayer.x,cz=selectedPlayer.z,selectedFlash=liveUnit?.state?Math.max(0,1-(liveUnit.state.time-(liveUnit.state.selectedAt??-10))/.7):0;r.add('plane',pose(cx,.036,cz,2.35,1,1.65),[1,1,1,.72],'player-glow',true);for(let i=0;i<32;i++){const a=i/32*2*Math.PI,b=(i+1)/32*2*Math.PI;r.add('cylinder',segment([cx+Math.cos(a)*.70,.045,cz+Math.sin(a)*.70],[cx+Math.cos(b)*.70,.045,cz+Math.sin(b)*.70],(liveUnit?.state ? .035+selectedFlash*.015 : .025)),hex(liveUnit?.state?'#7be4ed':'#ebce7a'),'',true)}}
   const kickTarget=liveUnit?.aimTarget();
   if(kickTarget){const {point:[x,y,z],vertical}=kickTarget;for(let i=0;i<40;i++){const a=i*Math.PI/20,b=(i+1)*Math.PI/20,rad=vertical?.55:1.6;r.add('cylinder',segment([x+Math.cos(a)*rad,y+(vertical?Math.sin(a)*rad:0),z+(vertical?0:Math.sin(a)*rad)],[x+Math.cos(b)*rad,y+(vertical?Math.sin(b)*rad:0),z+(vertical?0:Math.sin(b)*rad)],.06),hex('#f3d77d'),'',true);}r.add('cylinder',segment([x-.85,y,z],[x+.85,y,z],.035),hex('#ffffff'),'',true);r.add('cylinder',segment(vertical?[x,y-.85,z]:[x,y,z-.85],vertical?[x,y+.85,z]:[x,y,z+.85],.035),hex('#ffffff'),'',true);}
   for(const line of liveUnit?.art||[]){r.add('cylinder',segment([line.from.x,.08,line.from.z],[line.to.x,.08,line.to.z],.045),hex(line.to.type==='rush'?'#e88671':'#a5cbd7'),'',true);if(line.to.type==='zone'){for(let i=0;i<24;i++){const a=i*Math.PI/12,b=(i+1)*Math.PI/12;r.add('cylinder',segment([line.to.x+Math.cos(a)*4,.08,line.to.z+Math.sin(a)*2.5],[line.to.x+Math.cos(b)*4,.08,line.to.z+Math.sin(b)*2.5],.035),hex('#a5cbd7'),'',true);}}}
