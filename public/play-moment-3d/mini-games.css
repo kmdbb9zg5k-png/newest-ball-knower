@@ -75,3 +75,9 @@ body.unit-no-movement #stick,body.playing-unit #stamina{display:none!important;}
 #fullDefense.conversion .full-defense-actions{justify-content:center;}
 .full-game .scorebug #down{font-size:11px;}
 @media(max-height:450px){#kickAimStick{width:90px;height:90px;}#kickAimPad{bottom:16px;}#unitKick{bottom:16px;}#unitTop{top:67px;}#unitStatus{font-size:11px;padding:5px 9px;}#unitPad button{min-width:74px;min-height:48px;font-size:12px;}#unitPad{max-width:245px;bottom:34px;}}
+
+/* Keep adjustments with the call sheet, never across the live field. */
+#defenseBook #unitPre{position:static;justify-content:flex-start;margin-top:10px;}
+#unitPad{bottom:max(24px,env(safe-area-inset-bottom));max-width:280px;flex-wrap:nowrap;}
+
+#unitKick{width:min(340px,48vw);}

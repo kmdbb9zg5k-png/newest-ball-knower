@@ -14,10 +14,12 @@ export function createLiveUnits({config, getActors, inputVector, onResult, onSim
  root.innerHTML='<section id="defenseBook" aria-label="Defensive playbook"><div class="unit-book-heading"><div><span class="eyebrow">DEFENSIVE PLAYBOOK</span><h2>CALL YOUR DEFENSE</h2></div><button id="unitSimBook">SIMULATE THIS PLAY</button></div><div id="defenseFormations" role="group" aria-label="Defensive formations"></div><div id="defenseCalls"></div></section><div id="unitTop"><span id="unitStatus" role="status"></span><button id="unitSim">SIMULATE NEXT PLAY</button></div><div id="unitPre"><button id="unitBook">PLAYBOOK</button><button id="unitArt" aria-pressed="false">SHOW PLAY</button><button id="unitPress">PRESS</button><button id="unitBack">BACK OFF</button><button id="unitShift">SHIFT LINE</button><button id="unitReady">READY</button></div><div id="unitPad"><button id="unitSwitch">SWITCH</button><button id="unitPrimary">TACKLE</button><button id="unitSecondary">HIT STICK</button></div><div id="unitKick"><div id="kickGuide"><span id="kickHelp">MOVE STICK TO AIM</span><div class="kick-meter"><span class="kick-zone"></span><i id="kickPower"></i></div></div><button id="unitKickButton">KICK</button><button id="unitTouchback">TAKE TOUCHBACK</button></div><div id="kickAimPad"><span>AIM KICK</span><div id="kickAimStick" role="slider" tabindex="0" aria-label="Aim kick. Arrow keys move target." aria-valuemin="-24" aria-valuemax="24" aria-valuenow="0"><i id="kickAimKnob"></i></div></div><div id="unitResult" role="status"><h2></h2><button id="unitContinue">CONTINUE →</button></div>';
  document.getElementById('hud').after(root);
  const $=id=>root.querySelector('#'+id);
+ // Adjustments belong inside the playbook; live defense has only two actions.
+ $('defenseBook').append($('unitPre'));$('unitBook').hidden=true;$('unitReady').hidden=true;
  const button=(text,fn)=>{const b=document.createElement('button');b.type='button';b.textContent=text;b.onclick=fn;return b};
  function renderBook(){
   $('defenseFormations').replaceChildren(...DEFENSE_FORMATIONS.map(f=>{const b=button(f,()=>{formation=f;renderBook()});b.setAttribute('aria-pressed',String(f===formation));return b}));
-  $('defenseCalls').replaceChildren(...DEFENSE_PLAYS.filter(p=>p.formation===formation).map(p=>{const b=button('',()=>{call=p;state.book=false;align();refresh()});b.innerHTML=defensiveDiagram(p)+`<strong>${escape(p.name)}</strong><span>${p.coverage==='man'?'MAN COVERAGE':'ZONE COVERAGE'}${p.blitz.length?' · BLITZ':''}</span>`;return b}));
+  $('defenseCalls').replaceChildren(...DEFENSE_PLAYS.filter(p=>p.formation===formation).map(p=>{const b=button('',()=>{call=p;state.book=false;state.readyAt=state.time+2.5;align();refresh()});b.innerHTML=defensiveDiagram(p)+`<strong>${escape(p.name)}</strong><span>${p.coverage==='man'?'MAN COVERAGE':'ZONE COVERAGE'}${p.blitz.length?' · BLITZ':''}</span>`;return b}));
  }
  function align(){const a=getActors();for(let i=11;i<22;i++){const[x,z]=defenseAlignment(call,i-11,press,shift);a[i].x=a[i].startX=x;a[i].z=a[i].startZ=state.snapZ+z;a[i].heading=Math.PI;}}
  function control(index){if(!canSelect(index))return false;state.controlled=index;state.switchUntil=state.time+.24;onStatus?.('CONTROL · '+getActors()[index].lastName);return true;}
@@ -34,7 +36,7 @@ export function createLiveUnits({config, getActors, inputVector, onResult, onSim
  function start(kind,{ball=25,down=1,toGo=10,clock=120,kicking='away',conversion=false}={}){
   const a=getActors();paused=false;press=0;shift=0;art=false;resetAimInput();
   state={kind,stage:kind==='defense'?'pre':'kick',book:kind==='defense',ball,down,toGo,snapZ:ball+10,time:0,liveTime:0,clock,carrier:5,controlled:kind==='defense'?16:kicking==='away'?6:16,flight:null,pass:false,target:null,switched:false,action:null,actionUntil:0,cooldown:0,shedUntil:0,switchUntil:0,kicking,conversion,result:null,simNext:false,route:PASSES[Math.floor(random()*PASSES.length)],power:0,timing:false,aim:{x:0,y:5.5,z:18}};
-  a.forEach(p=>{p.hasBall=false;p.engaged=false;p.fallen=false;p.action=null;p.throwT=0;p.ballTarget=null;p.vx=p.vz=0;});
+  a.forEach(p=>{p.hasBall=false;p.engaged=false;p.fallen=false;p.action=null;p.throwT=0;p.ballTarget=null;p.qbPocket=false;p.kickShed=false;p.vx=p.vz=0;});
   if(kind==='defense') {align();a[2].hasBall=true;state.stagedBall=[a[2].x,.42,state.snapZ-.2];}
   else if(goalKick(kind)) {
    state.snapZ=kind==='extra-point'?95:ball+10;state.kickZ=state.snapZ-7;state.carrier=15;state.controlled=16;
@@ -43,7 +45,7 @@ export function createLiveUnits({config, getActors, inputVector, onResult, onSim
    [11,12,13,14,17,18,19,20,21].forEach((id,j)=>{a[id].x=(j-4)*1.2;a[id].z=state.snapZ-.4;});
    a[15].x=0;a[15].z=state.kickZ;a[15].action='hold-kick';a[16].x=-1.8;a[16].z=state.kickZ-2.5;
    a.slice(0,11).forEach((p,i)=>{p.x=(i-5)*1.25;p.z=state.snapZ+1+(i%2)*.6;p.heading=Math.PI;});
-   state.stagedBall=[0,.25,state.kickZ];a.forEach(p=>{p.startX=p.x;p.startZ=p.z;});
+   state.stagedBall=[0,.45,state.snapZ];a.forEach(p=>{p.startX=p.x;p.startZ=p.z;});
   }
   else {
    state.carrier=16;a.forEach((p,i)=>{p.x=i<11?(i-5)*4:(i-16)*4;p.z=i<11?(i===6?14:29+(i%3)*5):78+(i%2)*2;p.startX=p.x;p.startZ=p.z;p.heading=i<11?0:Math.PI;});
@@ -53,7 +55,7 @@ export function createLiveUnits({config, getActors, inputVector, onResult, onSim
  }
  function refresh(){if(!state)return;
   const pre=state.stage==='pre',end=state.stage==='end',kick=state.stage==='kick';
-  $('defenseBook').hidden=!state.book;$('unitPre').hidden=!pre||state.book;$('unitPad').hidden=state.book||end||kick||goalKick(state.kind)||state.stage==='kick-flight';
+  $('defenseBook').hidden=!state.book;$('unitPre').hidden=!state.book;$('unitPad').hidden=state.book||end||kick||goalKick(state.kind)||state.stage==='kick-flight';
   document.body.classList.toggle('unit-no-movement',state.book||end||kick||goalKick(state.kind));
   document.getElementById('stick').setAttribute('aria-label',state.kind==='kickoff'&&state.kicking==='away'?'Move returner':'Move selected defender');
   $('unitKick').hidden=!kick;$('unitTouchback').hidden=state.kind!=='kickoff'||state.kicking!=='away';
@@ -61,13 +63,13 @@ export function createLiveUnits({config, getActors, inputVector, onResult, onSim
   $('kickAimPad').hidden=!kick||state.kicking==='away';$('kickGuide').hidden=state.kicking==='away';
   $('kickHelp').textContent=state.timing?'KICK IN THE GOLD ZONE':'MOVE STICK TO AIM · THEN START KICK';
   $('unitResult').hidden=!end;$('unitTop').hidden=state.book||end;
-  $('unitSim').hidden=state.kind!=='defense';$('unitSim').textContent=state.simNext?'NEXT PLAY: SIMULATED':'SIMULATE NEXT PLAY';
+  $('unitSim').hidden=true;$('unitSim').textContent=state.simNext?'NEXT PLAY: SIMULATED':'SIMULATE NEXT PLAY';
   $('unitArt').setAttribute('aria-pressed',String(art));$('unitArt').textContent=art?'HIDE PLAY':'SHOW PLAY';
-  const flight=state.stage==='flight',p=getActors()[state.controlled],rush=p.index<15&&state.stage==='pass';
-  $('unitPrimary').textContent=flight?'SWAT':rush?'SHED BLOCK':state.kind==='kickoff'&&state.kicking==='away'?'JUKE':'TACKLE';
-  $('unitSecondary').textContent=flight?'INTERCEPT':state.kind==='kickoff'&&state.kicking==='away'?'SPRINT':'HIT STICK';
-  $('unitSwitch').hidden=state.kind==='kickoff'&&state.kicking==='away';
-  $('unitStatus').textContent=goalKick(state.kind)?`${state.kind==='extra-point'?'EXTRA POINT':'FIELD GOAL'} · ${kick?'AIM BETWEEN THE UPRIGHTS':'WATCH THE KICK'}`:state.kind==='defense'?`${call.name} · ${pre?'Move your defender, then READY':p.lastName+' · '+state.stage.toUpperCase()}`:state.kicking==='away'?'KICK RETURN · STEER YOUR RETURNER':'KICKOFF · KICK, THEN COVER THE RETURN';
+  const p=getActors()[state.controlled];
+  $('unitPrimary').textContent=state.kind==='kickoff'&&state.kicking==='away'?'JUKE':'TACKLE';
+  $('unitSecondary').textContent=state.kind==='kickoff'&&state.kicking==='away'?'SPRINT':'HIT STICK';
+  $('unitSwitch').hidden=true;
+  $('unitStatus').textContent=goalKick(state.kind)?`${state.kind==='extra-point'?'EXTRA POINT':'FIELD GOAL'} · ${kick?'AIM BETWEEN THE UPRIGHTS':'WATCH THE KICK'}`:state.kind==='defense'?`${call.name} · ${pre?'Tap a defender · Snap in 2 seconds':p.lastName+' · '+state.stage.toUpperCase()}`:state.kicking==='away'?'KICK RETURN · STEER YOUR RETURNER':'KICKOFF · KICK, THEN COVER THE RETURN';
  }
  function finish(result){if(!state||state.stage==='end')return;state.result={...result,seconds:state.liveTime,pass:state.pass,runner:state.carrier,simNext:state.simNext};state.stage='end';state.flight=null;getActors().forEach(p=>{p.vx=p.vz=0;p.moving=false;p.engaged=false});$('unitResult').querySelector('h2').textContent=result.reason;refresh();}
  function tackle(hit=false){if(!state||state.time<state.cooldown||!['run','pass'].includes(state.stage))return;const a=getActors(),p=a[state.controlled],runner=a[state.carrier];state.cooldown=state.time+(hit?1.2:.6);if(distance(p,runner)>(hit?2:1.65)){p.action='dive';p.actionT=.1;p.fallen=hit;state.recover=state.time+.75;return;}
@@ -98,19 +100,50 @@ export function createLiveUnits({config, getActors, inputVector, onResult, onSim
   const to=goal?[x,Math.max(.2,aim.y-Math.max(0,.65-power)*16),117]:[clamp(x,-26,26),1.4,clamp(aim.z+(.78-power)*18,7,42)];
   if(goal){state.good=Math.abs(to[0])<3.0&&to[1]>3.3;state.miss=to[1]<=3.3?'SHORT / LOW':to[0]<0?'WIDE RIGHT':'WIDE LEFT';}
   state.stagedBall=null;a[15].action=null;a[16].hasBall=false;a[16].action='kick';a[16].actionT=.1;
-  if(goal){a[16].x=-.6;a[16].z=state.kickZ-.7;}
-  state.stage='kick-flight';state.flight={from:[0,.3,goal?state.kickZ:75],to,t:0,duration:goal?1.8:3.5,arc:goal?7:17,target:6};state.controlled=state.kicking==='away'?6:16;resetAimInput();refresh();
+  if(goal){a[16].action=null;a[15].action='hold-kick';a[17].action='snap';state.kickStarted=state.time;state.stagedBall=[0,.45,state.snapZ];}
+  state.stage=goal?'kick-snap':'kick-flight';state.flight={from:[0,.3,goal?state.kickZ:75],to,t:0,duration:goal?1.8:3.5,arc:goal?7:17,target:6};state.controlled=state.kicking==='away'?6:16;if(goal){state.pendingFlight=state.flight;state.flight=null;}resetAimInput();refresh();
  }
  function move(p,x,z,dt,max=speed(p),smooth=true){const dx=x-p.x,dz=z-p.z,len=Math.hypot(dx,dz)||1;let vx=dx/len*Math.min(max,len/dt),vz=dz/len*Math.min(max,len/dt);if(smooth){const f=Math.min(1,dt*8);vx=p.vx+(vx-p.vx)*f;vz=p.vz+(vz-p.vz)*f}p.x=clamp(p.x+vx*dt,-27,27);p.z+=vz*dt;p.vx=vx;p.vz=vz;p.moving=Math.hypot(vx,vz)>.1;p.distance+=Math.hypot(vx,vz)*dt;if(p.moving)p.heading=Math.atan2(vx,vz);p.sprinting=max>speed(p)*.9;}
+ // Each rusher seeks the kick point; nearby protectors meet and hold their lane.
+ function kickLines(dt){
+  const a=getActors(),blockers=[11,12,13,14,17,18,19,20,21].map(i=>a[i]);
+  for(const p of a){p.engaged=false;p.engagedWith=null;}
+  for(const rusher of a.slice(0,11)){
+   if(rusher.fallen)continue;
+   const protector=blockers[rusher.index-1];
+   const edge=rusher.index===0||rusher.index===10;
+   move(rusher,edge&&rusher.z>state.snapZ-2?Math.sign(rusher.startX)*6.5:0,state.kickZ,dt,speed(rusher)*.8);
+   if(protector&&distance(protector,rusher)<2.2){
+    move(protector,rusher.x,Math.max(state.snapZ-1.3,rusher.z-.8),dt,3.4);
+    if(distance(protector,rusher)<1.25){
+     protector.engaged=rusher.engaged=true;protector.engagedWith=rusher.index;rusher.engagedWith=protector.index;protector.blockStyle='pass';rusher.blockStyle='shed';protector.heading=0;rusher.heading=Math.PI;
+     // Rating advantage can produce a real penetration, never an automatic score roll.
+     if(!rusher.kickShed&&random()<dt*clamp(.04+(rusher.ratings.blockShed-protector.ratings.block)*.006,.01,.28))rusher.kickShed=true;
+     if(rusher.kickShed){rusher.x+=Math.sign(rusher.x||1)*dt*2;protector.z+=dt*.45;}
+     else{rusher.z=Math.max(rusher.z,protector.z+.8);rusher.vz=0;}
+    }
+   }
+   if(state.stage==='kick-flight'&&state.flight?.t<.32){
+    const f=state.flight,t=f.t,ball={x:f.from[0]+(f.to[0]-f.from[0])*t,z:f.from[2]+(f.to[2]-f.from[2])*t},height=f.from[1]+(f.to[1]-f.from[1])*t+Math.sin(t*Math.PI)*f.arc;
+    if(distance(rusher,ball)<1.6){rusher.catchT=.3;rusher.catchStyle='aggressive';if(height<2.8){state.good=false;state.miss='BLOCKED';finish({reason:(state.kind==='extra-point'?'EXTRA POINT':'FIELD GOAL')+' BLOCKED',good:false,blocked:true,kind:state.kind});return;}}
+   }
+  }
+ }
  function controlled(dt){const p=getActors()[state.controlled];if(p.fallen)return;const v=inputVector();const blend=state.time<state.switchUntil?.32:1;move(p,p.x+v[0]*10,p.z+v[1]*10,dt,speed(p)*(state.burst>state.time?1:.9)*Math.min(1,Math.hypot(...v))*blend);if(state.stage==='pre')p.z=Math.max(state.snapZ+.5,p.z);}
- function tick(dt){if(!state||paused||state.stage==='end')return;state.time+=dt;const a=getActors();for(const p of a){if(p.catchT>0)p.catchT=Math.max(0,p.catchT-dt);if(['kick','juke'].includes(p.action)){p.actionT=Math.min(1,(p.actionT||0)+dt*1.8);if(p.actionT>=1)p.action=null;}}
+ function tick(dt){if(!state||paused||state.stage==='end')return;state.time+=dt;const a=getActors();a[5].qbPocket=state.kind==='defense'&&['snap','pass'].includes(state.stage);for(const p of a){if(p.catchT>0)p.catchT=Math.max(0,p.catchT-dt);if(['kick','juke'].includes(p.action)){p.actionT=Math.min(1,(p.actionT||0)+dt*1.8);if(p.actionT>=1)p.action=null;}}
   if(state.recover&&state.time>=state.recover){a[state.controlled].fallen=false;state.recover=0;}
   if(state.book)return;if(state.stage==='kick'){if(state.kicking==='home')adjustAim(...aimInput,dt);if(state.timing){state.meterTime+=dt;state.power=.5-.5*Math.cos(state.meterTime*2.8);}else state.power=0;$('kickPower').style.left=(state.power*100)+'%';return;}
-  if(state.stage==='pre'){controlled(dt);return;}
+  if(state.stage==='pre'){controlled(dt);if(state.time>=state.readyAt)$('unitReady').onclick();return;}
   if(state.kind==='defense'||state.kind==='kickoff'&&state.stage==='run')state.liveTime+=dt;state.clock=Math.max(0,state.clock-dt);
   if(state.stage==='snap'){const t=clamp((state.time-state.startedAt)/.3,0,1);state.stagedBall=[0,.45+t*.9,state.snapZ-5*t];if(t>=1){state.stagedBall=null;a[2].action=null;a[5].action=null;state.stage=state.pass?'pass':'handoff';state.carrier=5;a[5].hasBall=true;state.snapTime=state.time;refresh()}return;}
+  if(state.stage==='kick-snap'){
+   const t=state.time-state.kickStarted;kickLines(dt);
+   state.stagedBall=[0,t<.35?.45+Math.sin(t/.35*Math.PI)*.45:.25,state.snapZ+(state.kickZ-state.snapZ)*clamp(t/.35,0,1)];
+   move(a[16],-.6,state.kickZ-.7,dt,3.7,false);
+   if(t>=.85){a[17].action=null;a[16].action='kick';a[16].actionT=.1;state.stagedBall=null;state.flight=state.pendingFlight;state.pendingFlight=null;state.stage='kick-flight';refresh();}return;
+  }
   if(state.stage==='kick-flight'){
-   const f=state.flight;f.t+=dt/f.duration;if(goalKick(state.kind)){if(f.t>=1)finish({reason:`${state.kind==='extra-point'?'EXTRA POINT':'FIELD GOAL'} ${state.good?'GOOD':'MISSED · '+state.miss}`,good:state.good,kind:state.kind});return;}move(a[6],f.to[0],f.to[2],dt,speed(a[6]));for(let i=11;i<22;i++)if(i!==state.controlled)move(a[i],a[6].x+(i-16)*2,a[6].z+12,dt,speed(a[i])*.85);if(state.kicking==='home')controlled(dt);
+   const f=state.flight;f.t+=dt/f.duration;if(goalKick(state.kind)){kickLines(dt);if(state.stage==='end')return;if(f.t>=1)finish({reason:`${state.kind==='extra-point'?'EXTRA POINT':'FIELD GOAL'} ${state.good?'GOOD':'MISSED · '+state.miss}`,good:state.good,kind:state.kind});return;}move(a[6],f.to[0],f.to[2],dt,speed(a[6]));for(let i=11;i<22;i++)if(i!==state.controlled)move(a[i],a[6].x+(i-16)*2,a[6].z+12,dt,speed(a[i])*.85);if(state.kicking==='home')controlled(dt);
    if(f.t>=1){state.stage='run';state.flight=null;state.carrier=6;a[6].x=f.to[0];a[6].z=f.to[2];a[6].hasBall=true;if(a[6].z<=10){finish({reason:'TOUCHBACK · OWN 25',ball:25});return;}if(state.kicking==='home')control(nearestDefender(a,a[6]));refresh()}return;
   }
   if(state.stage==='handoff'){const t=state.time-state.snapTime;move(a[6],a[5].x,a[5].z-.6,dt,5);a[5].action='handoff';a[5].actionT=clamp(t/.6,0,1);a[6].action='receive-handoff';a[6].actionT=clamp(t/.6,0,1);if(t>.6){a[5].action=null;a[6].action=null;a[5].hasBall=false;a[6].hasBall=true;state.carrier=6;state.stage='run';refresh()}}
@@ -151,15 +184,15 @@ export function createLiveUnits({config, getActors, inputVector, onResult, onSim
  function view(){
   if(!state)return null;const a=getActors();
   // Goal kicks never use the reverse-facing defense camera or chase the landing point.
-  if(goalKick(state.kind))return {eye:[-3,10,state.kickZ-17],target:[-3,1.5,112],fov:50};
+  if(goalKick(state.kind))return {eye:[-1.8,4.8,state.kickZ-12],target:[-1.8,2.6,state.kickZ+14],fov:46};
   const defending=state.kind==='defense'||state.kicking==='home',direction=defending?-1:1;
-  if(state.stage==='kick')return defending?{eye:[0,22,96],target:[0,0,42],fov:55}:{eye:[0,15,0],target:[0,1,35],fov:55};
-  if(state.stage==='pre'||state.book)return {eye:[0,16,state.snapZ+23],target:[0,1,state.snapZ-3],fov:55};
+  if(state.stage==='kick')return defending?{eye:[0,5.8,85],target:[0,1.4,61],fov:48}:{eye:[0,5.8,7],target:[0,1.5,30],fov:48};
+  if(state.stage==='pre'||state.book)return {eye:[a[state.controlled].x*.55,6.5,Math.max(state.snapZ+13,a[state.controlled].z+9)],target:[a[state.controlled].x*.55,1.2,state.snapZ+1],fov:48};
   const player=a[state.controlled],f=state.flight,t=f?clamp(f.t,0,1):0;
   const ball=f?{x:f.from[0]+(f.to[0]-f.from[0])*t,z:f.from[2]+(f.to[2]-f.from[2])*t}:a[state.carrier];
-  const separation=Math.hypot(player.x-ball.x,player.z-ball.z),wide=clamp(separation*.32,0,16);
-  const x=player.x+(ball.x-player.x)*.55,z=player.z+(ball.z-player.z)*.55;
-  return {eye:[x,10+wide,z-direction*(17+wide)],target:[x,1.5,z+direction*4],fov:55};
+  const separation=Math.hypot(player.x-ball.x,player.z-ball.z),wide=clamp(separation*.08,0,2);
+  const x=player.x+clamp(ball.x-player.x,-8,8)*.25,z=player.z+clamp(ball.z-player.z,-10,10)*.25;
+  return {eye:[x,5.8+wide,z-direction*(10+wide)],target:[x,1.2,z+direction*5],fov:48};
  }
  function aimTarget(){return state?.stage==='kick'&&state.kicking==='home'?{point:goalKick(state.kind)?[state.aim.x,state.aim.y,117]:[state.aim.x,.08,state.aim.z],vertical:goalKick(state.kind)}:null;}
  function stop(){root.hidden=true;document.body.classList.remove('playing-unit','unit-no-movement');resetAimInput();state=null;}
