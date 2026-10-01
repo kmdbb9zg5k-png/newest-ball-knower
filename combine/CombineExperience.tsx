@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { bestResult, newDash, pressDash, readResults, saveResult, stepDash, YARD } from './dash.js';
+import { bestResult, newDash, pressDash, releaseDash, tapStride, finishEffort, accuracy, positionRanking, RULESET, readResults, saveResult, stepDash, YARD } from './dash.js';
 import './combine.css';
 
 type Athlete = { id: string; name: string; position: string; speed: number; acceleration: number; seed: number };
@@ -21,9 +21,12 @@ export default function CombineExperience({ players, context, onClose }: Props) 
   const [personalBest, setPersonalBest] = useState(false);
   const [saved, setSaved] = useState(true);
   const [runs, setRuns] = useState<Array<number | null>>([]);
+  const gameRoot=useRef<HTMLElement>(null);
   const host = useRef<HTMLDivElement>(null), action = useRef<HTMLButtonElement>(null), resultHeading = useRef<HTMLHeadingElement>(null);
   const run = useRef(newDash(player)), stopped = useRef(false), pickerOpen = useRef(false), finished = useRef(false);
   const currentContext = useRef(context);
+  const launchPointer = useRef<number | null>(null);
+  const keyHeld = useRef(new Set<string>());
   const scene = useRef<any>(null);
   const phase = view.phase;
   const best = bestResult(rows, context, player.id);
@@ -32,10 +35,12 @@ export default function CombineExperience({ players, context, onClose }: Props) 
     run.current = newDash(next); finished.current = false; setView({ ...run.current }); setPlayer(next); setAttempt(n); setSaved(true);
     scene.current?.setAthlete(next); action.current?.focus();
   };
-  const pause = () => { stopped.current = true; run.current.held = false; setPaused(true); };
+  const pause = () => { stopped.current = true; launchPointer.current=null; keyHeld.current.clear(); if(['set','ready'].includes(run.current.phase))run.current=newDash(run.current.athlete);run.current.held=false;setView({...run.current});setPaused(true); };
   const resume = () => { stopped.current = false; setPaused(false); action.current?.focus(); };
   const press = () => { if (!ready || stopped.current || pickerOpen.current) return; pressDash(run.current, 1.2 + Math.random() * .8); setView({ ...run.current }); };
-  const release = () => { run.current.held = false; };
+  const release = () => { if(stopped.current || pickerOpen.current)return;releaseDash(run.current);launchPointer.current=null;setView({...run.current}); };
+  const stride = (side: string) => {if(!stopped.current&&!pickerOpen.current) {tapStride(run.current,side);setView({...run.current});}};
+  const effort = () => {if(!stopped.current&&!pickerOpen.current){finishEffort(run.current);setView({...run.current});}};
 
   useEffect(() => {
     let gone = false, raf = 0, prior = performance.now(), accumulator = 0, lastDraw = 0, lastHud = 0;
@@ -47,7 +52,7 @@ export default function CombineExperience({ players, context, onClose }: Props) 
       if(s.phase === 'false-start') setShowResults(true);
       setRuns(old => [...old, s.phase === 'finished' ? s.splits[2] : null]);
       if (s.phase === 'finished') {
-        const record = { context: currentContext.current, playerId: s.athlete.id, name: s.athlete.name, position: s.athlete.position, splits: [...s.splits], reaction: s.reaction, date: Date.now() };
+        const record = { ruleset:RULESET, accuracy:accuracy(s), context: currentContext.current, playerId: s.athlete.id, name: s.athlete.name, position: s.athlete.position, splits: [...s.splits], reaction: s.reaction, date: Date.now() };
         const previous = bestResult(readResults(), currentContext.current, s.athlete.id);
         setPersonalBest(!previous || s.splits[2] < previous.splits[2]);
         setSaved(saveResult(record)); setRows(old => [...old, record]);
@@ -67,7 +72,7 @@ export default function CombineExperience({ players, context, onClose }: Props) 
       finish();
       if(run.current.phase === 'finished') { finishElapsed.current += Math.min(delta,.1); if(finishElapsed.current >= 2.8) setShowResults(true); }
       if (now - lastDraw >= 1000 / 60 - .5) { scene.current?.draw(run.current, Math.min((now - lastDraw) / 1000, .05)); lastDraw = now; }
-      if (now - lastHud > 50) { const s = run.current; setView({ ...s, splits: [...s.splits] }); lastHud = now; }
+      if (now - lastHud > (run.current.phase === 'running' ? 16 : 50)) { const s = run.current; setView({ ...s, splits: [...s.splits] }); lastHud = now; }
     };
     import('./scene.js').then(({ createCombineScene }) => {
       if (gone || !host.current) return;
@@ -75,17 +80,29 @@ export default function CombineExperience({ players, context, onClose }: Props) 
       setReady(true); prior = performance.now(); raf = requestAnimationFrame(frame);
     }).catch(() => { if (!gone) setError('This device could not start the 3D Combine. Try reopening it in Safari or Chrome.'); });
     const hidden = () => { if (document.hidden && !['idle', 'finished', 'false-start'].includes(run.current.phase)) pause(); };
-    const blur = () => { release(); if (['set', 'ready', 'running'].includes(run.current.phase)) pause(); };
-    document.addEventListener('visibilitychange', hidden); window.addEventListener('blur', blur); window.addEventListener('pointerup', release); window.addEventListener('pointercancel', release);
-    return () => { gone = true; cancelAnimationFrame(raf); document.removeEventListener('visibilitychange', hidden); window.removeEventListener('blur', blur); window.removeEventListener('pointerup', release); window.removeEventListener('pointercancel', release); scene.current?.dispose(); scene.current = null; };
+    const blur = () => { if (['set', 'ready', 'running'].includes(run.current.phase)) pause(); };
+    const pointerUp = (e: PointerEvent) => {if(e.pointerId===launchPointer.current)release();};
+    const pointerCancel = (e: PointerEvent) => {if(e.pointerId===launchPointer.current)pause();};
+    document.addEventListener('visibilitychange', hidden); window.addEventListener('blur', blur); window.addEventListener('pointerup', pointerUp); window.addEventListener('pointercancel', pointerCancel);
+    return () => { gone = true; cancelAnimationFrame(raf); document.removeEventListener('visibilitychange', hidden); window.removeEventListener('blur', blur); window.removeEventListener('pointerup', pointerUp); window.removeEventListener('pointercancel', pointerCancel); scene.current?.dispose(); scene.current = null; };
   }, []);
+  useEffect(()=>{if(!ready||picker||paused||showResults)return;if(phase==='idle')action.current?.focus();else if(phase==='running')gameRoot.current?.focus();},[phase,ready,picker,paused,showResults]);
   useEffect(() => { if (showResults) resultHeading.current?.focus(); }, [showResults]);
   const openPicker = () => { pickerOpen.current = true; setPicker(true); };
   const closePicker = () => { pickerOpen.current = false; setPicker(false); };
-  const status = phase === 'set' ? 'SET' : phase === 'ready' ? 'GO' : phase === 'running' ? (view.held ? 'FULL STRIDE' : 'HOLD TO SPRINT') : '';
+  const status = phase === 'set' ? 'SET' : phase === 'ready' ? 'RELEASE!' : phase === 'running' ? (view.clock<view.feedbackUntil?view.feedback:'FIND YOUR RHYTHM') : '';
+  const scores=accuracy(view);
+  const ranking=positionRanking(players,player,view.clock);
+  const beatProgress=Math.max(0,Math.min(1,1-(view.nextBeat-view.clock)/view.period));
+  const finishProgress=view.finishAt==null?0:Math.max(0,Math.min(1,(view.clock-(view.finishAt-.75))/1.5));
   const ended = phase === 'finished' || phase === 'false-start';
   const terminal = ended && showResults;
-  return <main className="combine-game" data-phase={phase} aria-label="Ball Knower Combine" onKeyDown={e => {
+  return <main ref={gameRoot} tabIndex={-1} className="combine-game" data-phase={phase} aria-label="Ball Knower Combine" onKeyDown={e => {
+    const code=e.code;
+    if(!paused&&!picker&&!terminal&&ready&&!error&&['KeyA','ArrowLeft','KeyL','ArrowRight','Space'].includes(code)&&!(e.target instanceof HTMLButtonElement&&code==='Space'&&phase!=='running')) {
+      e.preventDefault();if(e.repeat||keyHeld.current.has(code))return;keyHeld.current.add(code);
+      if(code==='Space'){if(phase==='idle')press();else if(phase==='running')effort();}else stride(code==='KeyA'||code==='ArrowLeft'?'left':'right');
+    }
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (picker) closePicker(); else if (paused) resume(); else pause(); }
     if (e.key === 'Tab' && (picker || paused || terminal || !ready || error)) {
       const overlays = e.currentTarget.querySelectorAll<HTMLElement>('.combine-overlay:not([inert])');
@@ -96,7 +113,7 @@ export default function CombineExperience({ players, context, onClose }: Props) 
       if (e.shiftKey && (document.activeElement === first || !overlay.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
       else if (!e.shiftKey && (document.activeElement === last || !overlay.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
     }
-  }}>
+  }} onKeyUp={e=>{keyHeld.current.delete(e.code);if(e.code==='Space'&&run.current.held){e.preventDefault();release();}}}>
     <div ref={host} className="combine-scene" aria-hidden="true" />
     <div className="combine-hud" inert={paused || picker || terminal || !ready || !!error}>
     <header className="combine-top"><button className="combine-back" aria-label="Leave Combine" onClick={onClose}>‹</button><div className="combine-brand"><b>BALL KNOWER</b><span>{context === 'standalone' ? 'COMBINE' : 'FRANCHISE COMBINE'}</span></div><h1>40-YARD DASH</h1><span className="combine-attempt">ATTEMPT {attempt} / 2</span><button className="combine-pause" aria-label="Pause dash" onClick={pause}>Ⅱ</button></header>
@@ -106,20 +123,35 @@ export default function CombineExperience({ players, context, onClose }: Props) 
     {['idle','set','ready'].includes(phase) && <div className="combine-start-lights" aria-label={phase === 'ready' ? 'Green light' : phase === 'set' ? 'Amber light — wait' : 'Ready to start'}><i data-on={phase === 'idle'} /><i data-on={phase === 'set'} /><i data-on={phase === 'ready'} /></div>}
     {status && !terminal && <div className={`combine-cue ${phase === 'ready' ? 'go' : ''}`} role="status">{status}</div>}
     <div className="combine-athlete"><span className="combine-monogram" aria-hidden="true">{player.position}</span><div><b>{player.name}</b><span>{player.position} · SPEED {player.speed}{best ? ` · BEST ${time(best.splits[2])}s` : ''}</span></div>{phase === 'idle' && <button onClick={openPicker} aria-label="Change athlete">↔</button>}</div>
-    {phase === 'idle' && <div className="combine-start-note">Wait for GO. Press and hold to sprint.</div>}
+    {phase === 'idle' && <div className="combine-start-note">Hold START. Release on green. Then alternate LEFT / RIGHT.</div>}
     {phase === 'running' && <div className="combine-distance">{Math.min(40, view.distance / YARD).toFixed(1)} <small>/ 40 YD</small></div>}
-    {!ended && <button ref={action} className="combine-action" data-held={view.held && phase === 'running'} aria-pressed={phase === 'running' ? view.held : undefined} disabled={!ready || !!error} aria-label={phase === 'idle' ? 'Start 40-yard dash' : phase === 'set' ? 'Wait for green' : 'Hold to sprint'}
-      onPointerDown={e => { if (e.button !== 0) return; e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); press(); }} onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release}
-      onKeyDown={e => { if ([' ', 'Enter'].includes(e.key)) { e.preventDefault(); if (!e.repeat) press(); } }} onKeyUp={e => { if ([' ', 'Enter'].includes(e.key)) { e.preventDefault(); release(); } }}
-      onClick={e => { if (e.detail === 0 && !['running', 'set'].includes(run.current.phase)) press(); }}>
-      {phase === 'idle' ? 'START' : phase === 'set' ? 'WAIT' : phase === 'ready' ? 'GO' : 'SPRINT'}<small>{phase === 'running' ? (view.held ? 'HOLDING ●' : 'PRESS + HOLD') : phase === 'ready' ? 'PRESS + HOLD' : ''}</small>
+    {['idle','set','ready'].includes(phase) && <button ref={action} className="combine-action" disabled={!ready || !!error} aria-label={phase === 'idle' ? 'Hold to set' : 'Release on green'}
+      onPointerDown={e=>{if(e.button!==0||launchPointer.current!==null)return;e.preventDefault();launchPointer.current=e.pointerId;e.currentTarget.setPointerCapture(e.pointerId);press();}}
+      onPointerUp={e=>{if(e.pointerId===launchPointer.current)release();}} onPointerCancel={pause}
+      onLostPointerCapture={e=>{if(e.pointerId===launchPointer.current)pause();}}
+      onKeyDown={e=>{if([' ','Enter'].includes(e.key)){e.preventDefault();if(!e.repeat)press();}}}
+      onKeyUp={e=>{if([' ','Enter'].includes(e.key)){e.preventDefault();release();}}}
+      onClick={e=>{if(e.detail===0){if(run.current.phase==='idle')press();else release();}}}>
+      {phase==='idle'?'START':phase==='set'?'HOLD':'RELEASE'}<small>{phase==='idle'?'HOLD TO SET':phase==='set'?'WAIT FOR GREEN':'NOW'}</small>
     </button>}
+    {phase==='running' && <>
+      <div className="combine-rhythm" aria-label="Stride rhythm"><span>{view.beat%2===0?'LEFT':'RIGHT'} NEXT</span><div className="combine-beat-track"><i style={{left:`${beatProgress*100}%`}}/><b/></div><small>{scores.rhythm}% ACCURACY</small></div>
+      <div className="combine-stride-controls">{(['left','right'] as const).map(side=><button key={side} className="combine-stride" data-next={side===(view.beat%2===0?'left':'right')} data-window={Math.abs(view.clock-view.nextBeat)<.115&&!view.judged} aria-label={`${side} stride`}
+        onPointerDown={e=>{if(e.button!==0)return;e.preventDefault();stride(side);}}
+        onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();if(!e.repeat)stride(side);}}}
+        onClick={e=>{if(e.detail===0)stride(side);}}>{side.toUpperCase()}<small>{side==='left'?'A / ←':'L / →'}</small></button>)}</div>
+      {view.finishAt!==null && <button className="combine-finish" aria-label="Final effort" disabled={view.finishQuality!==null} onPointerDown={e=>{if(e.button===0){e.preventDefault();effort();}}} onClick={e=>{if(e.detail===0)effort();}}>
+        {view.finishQuality===null?'FINISH':view.finishQuality>.7?'NAILED IT':'MISSED'}<span className="combine-finish-track"><b/><i style={{left:`${finishProgress*100}%`}}/></span><small>TAP AT CENTER · SPACE</small>
+      </button>}
+    </>}
+
     </div>
-    {terminal && <section className="combine-overlay" inert={picker || paused || !!error} aria-label="Dash results"><div className="combine-result" data-personal-best={personalBest}><span className="combine-eyebrow">{phase === 'false-start' ? 'ATTEMPT USED' : personalBest ? '★ NEW PERSONAL BEST' : 'DRILL RESULT'}</span><h2 ref={resultHeading} tabIndex={-1}>{phase === 'false-start' ? 'FALSE START' : `${time(view.clock)} s`}</h2><p>{phase === 'false-start' ? 'You launched before GO.' : `${player.name} · ${player.position}`}</p>
+    {terminal && <section className="combine-overlay" inert={picker || paused || !!error} aria-label="Dash results"><div className="combine-result" data-personal-best={personalBest}><span className="combine-eyebrow">{phase === 'false-start' ? 'ATTEMPT USED' : personalBest ? '★ NEW PERSONAL BEST' : 'DRILL RESULT'}</span><h2 ref={resultHeading} tabIndex={-1}>{phase === 'false-start' ? 'FALSE START' : `${time(view.clock)} s`}</h2><p>{phase === 'false-start' ? 'You released before green.' : `${player.name} · ${player.position}`}</p>
       {phase === 'finished' && <><div className="combine-result-splits">{[10, 20, 40].map((n, i) => <div key={n}><span>{n} YD</span><b>{time(view.splits[i])}s</b></div>)}</div><p className="combine-scout">{view.clock < 4.5 ? 'Explosive long speed.' : view.clock < 4.85 ? 'Strong straight-line speed.' : 'Build speed through the drive phase.'} {view.reaction != null && view.reaction < .2 ? 'Sharp launch.' : 'Room for a quicker launch.'}</p></>}
+      {phase==='finished' && <div className="combine-skill-scores"><span>LAUNCH <b>{scores.launch}%</b></span><span>RHYTHM <b>{scores.rhythm}%</b></span><span>FINISH <b>{scores.finish}%</b></span><p>Projected {player.position} rank: {ranking.rank} / {ranking.total} · Simulated peer benchmarks</p></div>}
       <div className="combine-attempts">{runs.map((r, i) => <span key={i}>Attempt {i + 1} <b>{r == null ? 'FS' : `${time(r)}s`}</b></span>)}</div>
       {runSplits.length > 1 && runSplits[0] && runSplits[1] && <div className="combine-comparison" aria-label="Attempt split comparison">{[10,20,40].map((yard,i) => { const delta = Number((runSplits[1]![i]-runSplits[0]![i]).toFixed(2)); return <span key={yard}>{yard} YD <b data-faster={delta<0}>{delta>0?'+':''}{delta.toFixed(2)}s</b></span>; })}<small>Attempt 2 compared with attempt 1</small></div>}
-      <p className="combine-save" role="status">{!saved ? 'Could not save on this device. Your result is shown above.' : best ? `Personal best: ${time(best.splits[2])}s · Saved on this device` : 'False starts do not post a time.'}</p>
+      <p className="combine-save" role="status">{!saved ? 'Could not save on this device. Your result is shown above.' : best ? `Rhythm personal best: ${time(best.splits[2])}s · Saved on this device` : 'False starts do not post a time.'}</p>
       <div className="combine-result-actions">{attempt < 2 ? <button onClick={() => reset(player, 2)}>SECOND ATTEMPT</button> : <button onClick={() => { setRuns([]); setRunSplits([]); reset(player, 1); }}>NEW SESSION</button>}<button onClick={openPicker}>ATHLETES & RESULTS</button><button onClick={onClose}>{context === 'standalone' ? 'BACK TO MINI GAMES' : 'BACK TO FRANCHISE'}</button></div>
     </div></section>}
     {picker && <section className="combine-overlay combine-picker" role="dialog" aria-modal="true" aria-label="Choose athlete"><div className="combine-result"><div className="combine-picker-heading"><h2>Athletes & results</h2><button autoFocus onClick={closePicker} aria-label="Close athlete selection">×</button></div><p>{context === 'standalone' ? 'Fictional prospects · your local best times' : 'Franchise scouting · your local best times'}</p><div className="combine-athlete-list">{players.map(p => { const record = bestResult(rows, context, p.id); return <button key={p.id} onClick={() => { closePicker(); setRuns([]); setRunSplits([]); reset(p, 1); }}><span><b>{p.name}</b><small>{p.position} · SPEED {p.speed}</small></span><strong>{record ? `${time(record.splits[2])}s` : 'RUN →'}</strong></button>; })}</div></div></section>}
