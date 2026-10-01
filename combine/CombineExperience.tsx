@@ -86,7 +86,8 @@ export default function CombineExperience({ players, context, onClose }: Props) 
   useEffect(() => { if (showResults) resultHeading.current?.focus(); }, [showResults]);
   const openPicker = () => { pickerOpen.current = true; setPicker(true); };
   const closePicker = () => { pickerOpen.current = false; setPicker(false); };
-  const status = phase === 'set' ? 'SET' : phase === 'ready' ? 'GO' : '';
+  const green=phase==='running'&&view.clock<.8;
+  const status = phase === 'set' ? 'SET' : green ? 'GO' : '';
   const scores=accuracy(view);
   const ranking=positionRanking(players,player,view.clock);
   const speed=speedPercent(view);
@@ -115,16 +116,16 @@ export default function CombineExperience({ players, context, onClose }: Props) 
     <div className="combine-timer" aria-label={`Time ${time(view.clock)} seconds`}>{time(view.clock)}<small>s</small></div>
     <aside className="combine-splits" aria-label="Split times">{[10, 20, 40].map((yards, i) => <div key={yards} data-crossed={view.splits[i] != null}><span>{yards} YD</span><b>{time(view.splits[i])}</b></div>)}</aside>
     {phase === 'finished' && !terminal && <div className="combine-cue go" role="status">FINISH · {time(view.clock)}s</div>}
-    {['idle','set','ready'].includes(phase) && <div className="combine-start-lights" aria-label={phase === 'ready' ? 'Green light' : phase === 'set' ? 'Amber light — wait' : 'Ready to start'}><i data-on={phase === 'idle'} /><i data-on={phase === 'set'} /><i data-on={phase === 'ready'} /></div>}
-    {status && !terminal && <div className={`combine-cue ${phase === 'ready' ? 'go' : ''}`} role="status">{status}</div>}
+    {(['idle','set'].includes(phase)||green) && <div className="combine-start-lights" aria-label={green ? 'Green light' : phase === 'set' ? 'Amber light — wait' : 'Ready to start'}><i data-on={phase === 'idle'} /><i data-on={phase === 'set'} /><i data-on={green} /></div>}
+    {status && !terminal && <div className={`combine-cue ${green ? 'go' : ''}`} role="status">{status}</div>}
     <div className="combine-athlete"><span className="combine-monogram" aria-hidden="true">{player.position}</span><div><b>{player.name}</b><span>{player.position} · SPEED {player.speed}{best ? ` · BEST ${time(best.splits[2])}s` : ''}</span></div>{phase === 'idle' && <button onClick={openPicker} aria-label="Change athlete">↔</button>}</div>
-    {phase === 'idle' && <div className="combine-start-note">Tap GO on green. Then alternate LEFT / RIGHT.</div>}
+    {phase === 'idle' && <div className="combine-start-note">Starts automatically on green. Alternate LEFT / RIGHT.</div>}
     {phase === 'running' && <div className="combine-distance">{Math.min(40, view.distance / YARD).toFixed(1)} <small>/ 40 YD</small></div>}
-    {['idle','set','ready'].includes(phase) && <button ref={action} className="combine-action" disabled={!ready || !!error} aria-label={phase==='idle'?'Start dash':phase==='set'?'Wait for green':'Go'}
+    {['idle','set'].includes(phase) && <button ref={action} className="combine-action" disabled={!ready || !!error || phase==='set'} aria-label={phase==='idle'?'Start dash':'Wait for green'}
       onPointerDown={e=>{if(e.button!==0)return;e.preventDefault();press();}}
       onKeyDown={e=>{if([' ','Enter'].includes(e.key)){e.preventDefault();if(!e.repeat)press();}}}
       onClick={e=>{if(e.detail===0)press();}}>
-      {phase==='idle'?'START':phase==='set'?'WAIT':'GO'}
+      {phase==='idle'?'START':'WAIT'}
     </button>}
     {phase==='running' && <>
       <div className="combine-speed" data-max={speed>=90}>
@@ -142,8 +143,8 @@ export default function CombineExperience({ players, context, onClose }: Props) 
 
     </div>
     {terminal && <section className="combine-overlay" inert={picker || paused || !!error} aria-label="Dash results"><div className="combine-result" data-personal-best={personalBest}><span className="combine-eyebrow">{phase === 'false-start' ? 'ATTEMPT USED' : personalBest ? '★ NEW PERSONAL BEST' : 'DRILL RESULT'}</span><h2 ref={resultHeading} tabIndex={-1}>{phase === 'false-start' ? 'FALSE START' : `${time(view.clock)} s`}</h2><p>{phase === 'false-start' ? 'You tapped before green.' : `${player.name} · ${player.position}`}</p>
-      {phase === 'finished' && <><div className="combine-result-splits">{[10, 20, 40].map((n, i) => <div key={n}><span>{n} YD</span><b>{time(view.splits[i])}s</b></div>)}</div><p className="combine-scout">{view.clock < 4.5 ? 'Explosive long speed.' : view.clock < 4.85 ? 'Strong straight-line speed.' : 'Build speed through the drive phase.'} {view.reaction != null && view.reaction < .2 ? 'Sharp launch.' : 'Room for a quicker launch.'}</p></>}
-      {phase==='finished' && <div className="combine-skill-scores"><span>LAUNCH <b>{scores.launch}%</b></span><span>CLEAN STEPS <b>{scores.flow}%</b></span><span>TOP SPEED <b>{scores.topSpeed.toFixed(1)} mph</b></span><p>Projected {player.position} rank: {ranking.rank} / {ranking.total} · Simulated peer benchmarks</p></div>}
+      {phase === 'finished' && <><div className="combine-result-splits">{[10, 20, 40].map((n, i) => <div key={n}><span>{n} YD</span><b>{time(view.splits[i])}s</b></div>)}</div><p className="combine-scout">{view.clock < 4.5 ? 'Explosive long speed.' : view.clock < 4.85 ? 'Strong straight-line speed.' : 'Build speed through the drive phase.'}</p></>}
+      {phase==='finished' && <div className="combine-skill-scores"><span>CLEAN STEPS <b>{scores.flow}%</b></span><span>TOP SPEED <b>{scores.topSpeed.toFixed(1)} mph</b></span><p>Projected {player.position} rank: {ranking.rank} / {ranking.total} · Simulated peer benchmarks</p></div>}
       <div className="combine-attempts">{runs.map((r, i) => <span key={i}>Attempt {i + 1} <b>{r == null ? 'FS' : `${time(r)}s`}</b></span>)}</div>
       {runSplits.length > 1 && runSplits[0] && runSplits[1] && <div className="combine-comparison" aria-label="Attempt split comparison">{[10,20,40].map((yard,i) => { const delta = Number((runSplits[1]![i]-runSplits[0]![i]).toFixed(2)); return <span key={yard}>{yard} YD <b data-faster={delta<0}>{delta>0?'+':''}{delta.toFixed(2)}s</b></span>; })}<small>Attempt 2 compared with attempt 1</small></div>}
       <p className="combine-save" role="status">{!saved ? 'Could not save on this device. Your result is shown above.' : best ? `Personal best: ${time(best.splits[2])}s · Saved on this device` : 'False starts do not post a time.'}</p>
