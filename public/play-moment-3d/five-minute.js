@@ -1,4 +1,4 @@
-import {cpuFourthDown} from './cpu-offense.js?v=continuous-play-8';
+import {cpuFourthDown} from './cpu-offense.js?v=defense-flow-10';
 /** Five-minute arcade rules. Pure state transitions; no timers or DOM. */
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 export const fullInitialDrive = (mode = 'five-minute') => ({ ball: 25, down: 1, toGo: 10, clock: mode === 'two-minute' ? 120 : 300, score: mode === 'two-minute' ? 23 : 0, plays: 0 });
@@ -156,7 +156,7 @@ export function fullCpuResult(s, d, config, {gain = 0, pass = false, incomplete 
 
   if (live && !s.overtime && !incomplete && !interception && !out && !touchdown && !safety) {
     if (d.clock-seconds<45 && s.awayScore<d.score && s.awayTimeouts>0) {s.awayTimeouts--;reason+=' · CPU TIMEOUT';}
-    else if (!s.defenseTimeout) seconds+=d.clock<60&&s.awayScore<d.score?3:10;
+    // Live units already measured this play. Do not add simulated huddle time.
     s.defenseTimeout=false;
   }
   if (!s.overtime) d.clock = Math.max(0, d.clock - seconds);
