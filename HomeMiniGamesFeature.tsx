@@ -48,18 +48,18 @@ export function HomeMiniGamesFeature() {
           {['Your team', 'Opponent', 'Matchup'].map((label, index) => <span key={label} aria-current={index === (picking === 'home' ? 0 : picking === 'away' ? 1 : 2) ? 'step' : undefined}>{index + 1}. {label}</span>)}
         </div>}
         <h2 ref={heading} tabIndex={-1} id="mini-games-heading">{screen === 'modes' ? 'Pick Your Game' : screen === 'difficulty' ? 'Choose Difficulty' : screen === 'combine' ? 'Combine Drills' : picking === 'home' ? 'Pick Your Team' : picking === 'away' ? 'Pick Opponent' : 'View Matchup'}</h2>
-        <p id="mini-games-description" className="bk-mini-flow-description">{screen === 'modes' ? 'Big plays. Quick games. Choose your challenge.' : screen === 'difficulty' ? `${gameName}. How tough do you want it?` : screen === 'combine' ? 'Test your speed, throwing accuracy, and catching skills.' : picking === 'home' ? 'Choose your squad. Own the field.' : picking === 'away' ? `Who will take on the ${matchup.home.name.split(' ').at(-1)}?` : 'The stage is set. Make your statement.'}</p>
+        <p id="mini-games-description" className="bk-mini-flow-description">{screen === 'modes' ? 'Big plays. Quick games. Choose your challenge.' : screen === 'difficulty' ? `${gameName}. How tough do you want it?` : screen === 'combine' ? 'Run the 40-yard dash and record your splits.' : picking === 'home' ? 'Choose your squad. Own the field.' : picking === 'away' ? `Who will take on the ${matchup.home.name.split(' ').at(-1)}?` : 'The stage is set. Make your statement.'}</p>
         {screen === 'modes' ? <div className="bk-mini-mode-cards">
           <button type="button" className="bk-mini-mode-card" onClick={() => chooseMode('two-minute')}><span className="bk-mini-card-time">02:00</span><strong>Two-Minute Warning</strong><span>Down four. Two minutes. Finish the game.</span><b>Play now →</b></button>
           <button type="button" className="bk-mini-mode-card bk-mini-mode-card-full" onClick={() => chooseMode('five-minute')}><span className="bk-mini-card-time">05:00</span><strong>Five-Minute Game</strong><span>You vs. CPU. Offense, defense, and kick returns.</span><b>Play now →</b></button>
-          <button type="button" className="bk-mini-mode-card bk-mini-mode-card-combine" onClick={() => setScreen('combine')}><span className="bk-mini-card-time">Coming soon</span><strong>Combine Drills</strong><span>Speed. Accuracy. Hands. Put your skills to the test.</span><b>View drills →</b></button>
+          <button type="button" className="bk-mini-mode-card bk-mini-mode-card-combine" onClick={() => setScreen('combine')}><span className="bk-mini-card-time">40 YD</span><strong>Combine Drills</strong><span>Run the 40. Two attempts. Set your personal best.</span><b>View drills →</b></button>
         </div> : screen === 'difficulty' ? <div className="bk-mini-difficulty-screen">
           <div className="bk-mini-difficulty-options">{MINI_LEVELS.map(option => <button type="button" key={option.id} aria-pressed={level === option.id} onClick={() => { chooseLevel(option.id); setScreen('teams'); }}><strong>{option.name}</strong><span>{option.description}</span><b aria-hidden="true">→</b></button>)}</div>
           <button type="button" className="bk-mini-review-back" onClick={() => setScreen('modes')}>← Back to game modes</button>
         </div> : screen === 'combine' ? <section className="bk-mini-combine-preview" aria-label="Combine drills">
-          <span className="bk-mini-coming-soon">Coming soon</span>
-          <ul><li><strong>Speed Challenge</strong><p>Timed runs and agility drills.</p></li><li><strong>Passing Accuracy</strong><p>Hit targets and sharpen your throws.</p></li><li><strong>Catching Challenge</strong><p>Test your hands and timing.</p></li></ul>
-          <p>Combine drills are in development. Choose another game mode to hit the field now.</p>
+          <a className="bk-mini-confirm-team bk-mini-launch" href="/combine.html">40-Yard Dash <span aria-hidden="true">→</span></a>
+          <p>Pick a fictional athlete. Time your launch, hold your sprint, and record 10-, 20-, and 40-yard splits. Two attempts per session.</p>
+          <ul><li><strong>Agility, strength &amp; jumps</strong><p>More Combine events are in development.</p></li><li><strong>Passing &amp; catching</strong><p>Position drills are in development.</p></li></ul>
           <button type="button" className="bk-mini-review-back" onClick={() => setScreen('modes')}>← Back to game modes</button>
         </section> : <>
         <p className="bk-mini-active-mode-description">{gameMode === 'five-minute' ? 'Full game vs. CPU. Play or simulate defense.' : 'Down four. Play until the final whistle.'}</p>
