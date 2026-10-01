@@ -38,3 +38,22 @@
 .full-final-stats { width:100%; border-collapse:collapse; text-align:center; }.full-final-stats th { font-size:11px; }.full-final-stats td { font-size:16px; color:#e9c76c; }.full-final-stats td,.full-final-stats th { padding:6px; border-bottom:1px solid #ffffff18; }
 @media(max-height:420px) { #fullDefense { inset-block-start:72px; } #fullDefense>div { padding:10px 16px; } #fullFeed { max-height:45px; } #fullLatest { margin:6px 0; padding:8px; } }
 @media(max-width:700px) { .full-kicks button { font-size:9px; padding:6px; }.full-game .playbook-footer { gap:5px; }.full-game #breakHuddle { min-width:120px; padding:8px; } }
+/* On-field defense and special teams share the offense field and joystick. */
+#liveUnits { position:fixed; inset:0; z-index:35; pointer-events:none; color:#f5f2e8; font-family:system-ui,sans-serif; }
+#liveUnits[hidden],#liveUnits [hidden] { display:none!important; }
+#liveUnits button,#liveUnits input { pointer-events:auto; touch-action:manipulation; }
+#liveUnits button { color:#f5f2e8; background:#17232eee; border:1px solid #bfa457; border-radius:10px; min-height:44px; padding:10px 16px; font-size:12px; font-weight:800; cursor:pointer; }
+#liveUnits button:focus-visible { outline:3px solid #efd786; outline-offset:3px; }
+#defenseBook { position:absolute; inset:76px max(18px,env(safe-area-inset-right)) 14px max(18px,env(safe-area-inset-left)); background:#0d1722f5; border:1px solid #ad9657; border-radius:16px; padding:16px; overflow:auto; pointer-events:auto; }
+.unit-book-heading { display:flex; justify-content:space-between; gap:14px; align-items:center; }.unit-book-heading h2{margin:4px 0 12px;font-size:22px;}
+#defenseFormations{display:flex;gap:8px;overflow:auto;margin:6px 0 12px;}#defenseFormations button{flex:1;white-space:nowrap;}#defenseFormations button[aria-pressed=true]{background:#c6a84e;color:#0d1420;}
+#defenseCalls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}#defenseCalls button{display:flex;flex-direction:column;text-align:left;gap:7px;padding:10px;min-width:0;}#defenseCalls svg{width:100%;max-height:140px;}#defenseCalls strong{font-size:16px;}#defenseCalls span{font-size:10px;color:#c7d1dc;}
+#unitTop{position:absolute;top:78px;left:20%;right:20%;display:flex;align-items:center;justify-content:center;gap:10px;}#unitStatus{background:#0a1721dc;padding:8px 12px;border-radius:8px;font-size:12px;}
+#unitPre{position:absolute;bottom:20px;left:24%;right:3%;display:flex;justify-content:flex-end;flex-wrap:wrap;gap:7px;}
+#unitPad{position:absolute;right:max(20px,env(safe-area-inset-right));bottom:82px;display:flex;gap:8px;flex-wrap:wrap;max-width:260px;justify-content:flex-end;}#unitPad button{min-width:84px;min-height:54px;}#unitPrimary{background:#b79a44!important;color:#101820!important;}
+#unitKick{position:absolute;left:32%;right:20%;bottom:30px;pointer-events:auto;padding:16px;border:1px solid #b59e59;border-radius:14px;background:#0a1522ef;display:flex;gap:12px;align-items:center;flex-wrap:wrap;}#unitKick label{display:flex;align-items:center;gap:8px;font-size:12px;}#unitKick input{width:120px;}.kick-meter{height:12px;flex:1;min-width:80px;background:#344352;border-radius:8px;overflow:hidden;}.kick-meter i{display:block;height:100%;background:#e1bc50;}
+#unitResult{position:absolute;inset:30% 25% auto;text-align:center;background:#0b1724f5;border:1px solid #c0a957;border-radius:15px;padding:20px;pointer-events:auto;}#unitResult h2{font-size:24px;margin:0 0 15px;}
+body.playing-unit #skillPad,body.playing-unit #pre,body.playing-unit #catchChoices,body.playing-unit #targetLayer,body.playing-unit #miniActions,body.playing-unit #sprint,body.playing-unit #optionChoices,body.playing-unit #passActions,body.playing-unit #playerNames{display:none!important;}
+.full-defense-actions{flex-wrap:wrap;}
+@media(max-height:450px){#defenseBook{top:64px;padding:10px;}#defenseCalls svg{max-height:90px;}.unit-book-heading h2{font-size:18px;margin:2px 0 6px;}#unitTop{top:64px;}#unitPad{bottom:60px;}#unitPre{bottom:12px;}#liveUnits button{padding:8px 10px;} }
+@media(max-width:600px){#defenseCalls{grid-template-columns:1fr;}#unitTop{left:10px;right:10px;}#unitResult{left:10%;right:10%;}}
