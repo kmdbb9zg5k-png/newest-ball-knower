@@ -57,3 +57,21 @@ body.playing-unit #skillPad,body.playing-unit #pre,body.playing-unit #catchChoic
 .full-defense-actions{flex-wrap:wrap;}
 @media(max-height:450px){#defenseBook{top:64px;padding:10px;}#defenseCalls svg{max-height:90px;}.unit-book-heading h2{font-size:18px;margin:2px 0 6px;}#unitTop{top:64px;}#unitPad{bottom:60px;}#unitPre{bottom:12px;}#liveUnits button{padding:8px 10px;} }
 @media(max-width:600px){#defenseCalls{grid-template-columns:1fr;}#unitTop{left:10px;right:10px;}#unitResult{left:10%;right:10%;}}
+/* Kick aiming uses its own stationary analog pad; player steering stays separate. */
+body.unit-no-movement #stick,body.playing-unit #stamina{display:none!important;}
+#kickAimPad{position:absolute;left:max(22px,env(safe-area-inset-left));bottom:max(26px,env(safe-area-inset-bottom));text-align:center;font-size:11px;font-weight:800;color:#f3d77d;}
+#kickAimStick{position:relative;width:106px;height:106px;margin-top:6px;border:1px solid #d8bc7380;border-radius:50%;background:#10202a9c;touch-action:none;pointer-events:auto;}
+#kickAimStick:focus-visible{outline:3px solid #efd786;}
+#kickAimKnob{position:absolute;left:calc(50% - 21px);top:calc(50% - 21px);width:42px;height:42px;border-radius:50%;background:radial-gradient(circle at 35% 25%,#eff0dc,#8198a2);border:1px solid #fff8;pointer-events:none;}
+#unitKick{left:auto;right:max(22px,env(safe-area-inset-right));bottom:max(22px,env(safe-area-inset-bottom));width:min(380px,58vw);padding:10px 12px;gap:10px;flex-wrap:nowrap;}
+#kickGuide{flex:1;min-width:0;}#kickHelp{display:block;min-height:26px;font-size:11px;line-height:1.3;font-weight:750;}
+#unitKickButton{min-width:100px;min-height:48px;}
+.kick-meter{position:relative;height:14px;overflow:visible;margin:8px 3px 2px;min-width:70px;}
+.kick-zone{position:absolute;left:65%;width:25%;top:0;bottom:0;background:#d4b05a;border-radius:2px;}
+.kick-meter i{position:absolute;top:-3px;bottom:-3px;height:auto;width:4px;transform:translateX(-2px);background:#fff;border:1px solid #16202a;border-radius:2px;}
+#unitResult{inset:86px auto auto 50%;transform:translateX(-50%);width:min(420px,72vw);padding:12px 18px;box-sizing:border-box;}#unitResult h2{font-size:18px;margin-bottom:8px;}
+#fullDefense.conversion{inset:90px auto auto 50%;transform:translateX(-50%);width:min(560px,85vw);max-height:calc(100dvh - 110px);}
+#fullDefense.conversion #fullFeed,#fullDefense.conversion #fullLatest,#fullDefense.conversion .eyebrow{display:none;}
+#fullDefense.conversion .full-defense-actions{justify-content:center;}
+.full-game .scorebug #down{font-size:11px;}
+@media(max-height:450px){#kickAimStick{width:90px;height:90px;}#kickAimPad{bottom:16px;}#unitKick{bottom:16px;}#unitTop{top:67px;}#unitStatus{font-size:11px;padding:5px 9px;}#unitPad button{min-width:74px;min-height:48px;font-size:12px;}#unitPad{max-width:245px;bottom:34px;}}

@@ -160,6 +160,7 @@ export const ROLE_STANCE_PROFILES=Object.freeze({
 export function preSnapPoseForRole(role,index=0){const pose=PRE_SNAP_ROLE_POSES[role]||PRE_SNAP_ROLE_POSES.LB;return{clip:pose.clip,time:pose.time+(index%3)*.012}}
 export function meshyPlaybackSeed(index=0,team=0){return{rate:.91+((index*5+(team ? 3 : 0))%7)*.027,offset:(index*.437+(team ? .271 : 0))%1}}
 export function meshyAnimationState(p,phase){
+ if(p.action==='hold-kick')return'hold-kick';
  if(p.action==='kick')return'kick';
  if(p.action==='snap')return'snap';
  if(p.action==='receive-snap')return'receive-snap';
@@ -498,6 +499,7 @@ export class MeshyAthletes{
   const actionTime=clamp(p.actionT||0,0,1),tackleTime=actionTime*this.clips[MESHY_CLIPS.tackle].duration;
  if(state==='get-up')return result(MESHY_CLIPS.idle,0);
   if(state==='rest'||state==='settle'||state==='celebrate'||state==='interception'||state==='wrap-release'||state==='breakup'||state==='catch-miss')return result(MESHY_CLIPS.idle,0);
+  if(state==='hold-kick')return result(MESHY_CLIPS.idle,0);
   if(state==='kick')return result(MESHY_CLIPS.idle,0);
   if(state==='tackle')return result(MESHY_CLIPS.tackle,tackleTime);
   if(state==='wrap-tackle')return result(MESHY_CLIPS.tackle,tackleTime,MESHY_CLIPS.block,.10,actionTime*this.clips[MESHY_CLIPS.block].duration);
@@ -974,7 +976,14 @@ export class MeshyAthletes{
    this.rotate(locals,side>0?'mixamorig:RightShoulder':'mixamorig:LeftShoulder',1,0,0,-.30*pulse);
   }else if(p.action==='stiff-arm'){
    this.rotate(locals,'mixamorig:Spine2',0,0,1,-side*.16*pulse);this.rotate(locals,side>0?'mixamorig:RightArm':'mixamorig:LeftArm',1,0,0,-.82*pulse);this.rotate(locals,side>0?'mixamorig:RightForeArm':'mixamorig:LeftForeArm',1,0,0,.32*pulse);this.rotate(locals,side>0?'mixamorig:RightShoulder':'mixamorig:LeftShoulder',0,1,0,side*.24*pulse);
+  }else if(p.action==='hold-kick'){
+   this.rotate(locals,'mixamorig:LeftArm',0,0,1,-1.04);this.rotate(locals,'mixamorig:RightArm',0,0,1,1.04);
+   locals[hips].t[1]-=.48;
+   this.rotate(locals,'mixamorig:LeftUpLeg',1,0,0,-1.35);this.rotate(locals,'mixamorig:LeftLeg',1,0,0,1.40);
+   this.rotate(locals,'mixamorig:RightUpLeg',1,0,0,-.25);this.rotate(locals,'mixamorig:RightLeg',1,0,0,1.55);
+   this.rotate(locals,'mixamorig:Spine',1,0,0,.30);this.rotate(locals,'mixamorig:RightArm',1,0,0,-.65);this.rotate(locals,'mixamorig:RightForeArm',1,0,0,-.35);
   }else if(p.action==='kick'){
+   this.rotate(locals,'mixamorig:LeftArm',0,0,1,-1.04);this.rotate(locals,'mixamorig:RightArm',0,0,1,1.04);
    this.rotate(locals,'mixamorig:RightUpLeg',1,0,0,-1.15*pulse);this.rotate(locals,'mixamorig:RightLeg',1,0,0,.35*pulse);this.rotate(locals,'mixamorig:Spine2',1,0,0,-.12*pulse);this.rotate(locals,'mixamorig:LeftArm',0,0,1,-.3*pulse);
   }else if(p.action==='hurdle'){
    this.rotate(locals,'mixamorig:LeftUpLeg',1,0,0,-.72*pulse);

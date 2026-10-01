@@ -65,7 +65,8 @@ export function fullContinue(s, d) {
 export function fullOffenseEnd(s, d, reason, { interceptionSpot = d.ball, quarterback } = {}) {
   if (s.result || s.pending) return;
   if (reason === 'TIME EXPIRED') { fullExpired(s, d); return; }
-  fullLog(s, d, 'home', reason);
+  const last=s.log.at(-1);
+  if(!last||last.side!=='home'||last.reason!==reason||last.clock!==d.clock)fullLog(s, d, 'home', reason);
   if (reason === 'TOUCHDOWN') { if (s.interactive) { s.conversion = 'home'; s.running = false; } else { d.score++; fullLog(s, d, 'home', 'EXTRA POINT GOOD · +1'); fullPossessionEnd(s, d, 'home'); } }
   else if (reason === 'SAFETY') { s.awayScore += 2; fullPossessionEnd(s, d, 'home', 35); }
   else {
@@ -78,7 +79,7 @@ export const fieldGoalDistance = ball => 117 - ball;
 export function fieldGoalChance(ball, kickerRating) {
   return clamp(.96 - Math.max(0, fieldGoalDistance(ball) - 30) * .019 + (kickerRating - 80) * .005, .08, .99);
 }
-export function fullKick(s, d, side, kind, team, random = Math.random) {
+export function fullKick(s, d, side, kind, team, random = Math.random, kickResult = null) {
   if (s.result || s.pending || s.possession !== side || (s.overtime && kind === 'punt')) return false;
   const ball = side === 'home' ? d.ball : s.cpu.ball;
   if (kind === 'field-goal' && fieldGoalDistance(ball) > 65) return false;
@@ -91,7 +92,7 @@ export function fullKick(s, d, side, kind, team, random = Math.random) {
     fullLog(s, d, side, `PUNT · ${distance} yards${landing >= 100 ? ' · TOUCHBACK' : ` · ${returnYards}-yard return`}`);
     fullPossessionEnd(s, d, side, landing >= 100 ? 20 : 100 - landing + returnYards);
   } else {
-    const good = random() < fieldGoalChance(ball, team.kicker.overall);
+    const good = typeof kickResult==='boolean'?kickResult:random() < fieldGoalChance(ball, team.kicker.overall);
     fullLog(s, d, side, `${fieldGoalDistance(ball)}-YARD FIELD GOAL ${good ? 'GOOD · +3' : 'MISSED'}`);
     if (good) { addScore(s, d, side, 3); s.stats[side].fieldGoals++; playerStats(s, side, team.kicker).fieldGoals++; }
     fullPossessionEnd(s, d, side, good ? 25 : Math.max(20, 100 - ball + 7));
