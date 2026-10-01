@@ -102,3 +102,18 @@ for(const style of ['rac','secure','aggressive']){
 assert.ok(catchTransitionFrames>20,'Catch entry and exit transitions must be exercised');
 assert.ok(catchLegError<1e-8,`Running catches freeze the leg cycle: ${catchLegError}`);
 console.log(JSON.stringify({runningCatchStyles:3,catchLegError}));
+
+// Optional reproducible CPU profile: identical real-asset poses, with bind
+// transforms recomputed versus reused. No graphics/detail settings change.
+if(process.env.BK_PROFILE==='1'){
+ const jointWorld=rig.jointWorld,measure=cached=>{
+  rig.jointWorld=function(locals,index){if(!cached&&locals===this.base)this.bindWorld?.clear();return jointWorld.call(this,locals,index)};
+  rig.poseStates.clear();rig.footPlants?.clear();
+  const p={index:8,role:'WR',team:0,x:0,z:30,heading:0,vx:0,vz:7,distance:0,hasBall:true};
+  const begin=performance.now();
+  for(let i=0;i<240;i++){p.z+=7/60;p.distance+=7/60;advanceMotion(p,1/60,'run');rig.bonesFor(p,'run',i/60)}
+  return performance.now()-begin;
+ };
+ measure(true);measure(false);const uncachedMs=measure(false),cachedMs=measure(true);rig.jointWorld=jointWorld;
+ console.log(JSON.stringify({profile:'240 real-rig poses',uncachedMs,cachedMs,reductionPercent:100*(1-cachedMs/uncachedMs)}));
+}
