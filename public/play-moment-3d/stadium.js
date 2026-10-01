@@ -6,7 +6,7 @@ const C=hex;
 function canvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return[c,c.getContext('2d')]}
 let seed=31;function random(){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296}
 export function makeStadium(r){
- const art=installSceneMaterials(r),fans=[],staffSprites=[],staffFallback=[],crowdFallback=[],staticParts=[],lamps=[];let crowdGeometry=false;const add=(...args)=>(crowdGeometry?crowdFallback:staticParts).push(args);
+ const art=installSceneMaterials(r),fans=[],staffSprites=[],staffFallback=[],crowdFallback=[],staticParts=[],goalParts=[],lamps=[];let crowdGeometry=false;const add=(...args)=>(crowdGeometry?crowdFallback:staticParts).push(args);
  seed=31;
  const turfScale=Math.min(2,(r.gl?.getParameter?.(r.gl.MAX_TEXTURE_SIZE)||4096)/2048);
  const [t,ctx]=canvas(1024*turfScale,2048*turfScale),W=1024,H=2048;ctx.scale(turfScale,turfScale);
@@ -133,8 +133,10 @@ export function makeStadium(r){
  }
  // Goal posts, with actual vertical scale.
  for(const z of[3,117]){
+  const start=staticParts.length;
   add('cylinder',segment([0,0,z],[0,3.2,z],.13),C('#d1b254'));add('cylinder',segment([-3.1,3.2,z],[3.1,3.2,z],.09),C('#ead57a'));
   for(const x of[-3.1,3.1])add('cylinder',segment([x,3.2,z],[x,10,z],.07),C('#ead57a'));
+  goalParts.push({z,parts:staticParts.splice(start)});
  }
  // Floodlight pylons and white lamp banks.
  for(const x of[-35,35])for(const z of[6,111]){
@@ -161,8 +163,8 @@ export function makeStadium(r){
   }
  }
  for(const x of[-26.4,26.4])for(const z of[10,110])add('cube',pose(x,.25,z,.20,.50,.20),C('#ef7943'));
- installNightStadium(r,add);
- return{draw(){for(const p of staticParts)r.add(...p);if(!art.crowd)for(const p of crowdFallback)r.add(...p);
+ installNightStadium(r,(...part)=>{const goal=part[0]==='cylinder'&&part[1][12]===0&&goalParts.find(g=>g.z===part[1][14]);if(goal)goal.parts.push(part);else add(...part);});
+ return{draw(){for(const {z,parts}of goalParts){const foreground=z===3?r.eye[2]<z&&r.target[2]>z:r.eye[2]>z&&r.target[2]<z;if(!foreground)for(const p of parts)r.add(...p);}for(const p of staticParts)r.add(...p);if(!art.crowd)for(const p of crowdFallback)r.add(...p);
   if(art.crowd)for(const [x,y,z,w,h,cell,shade,warm]of fans)r.add('crowdSprite',pose(x,y,z,w,h,1),[shade*(.92+warm*.13),shade*(.96+warm*.04),shade*(1.06-warm*.14),1],'crowd-atlas',false,cell,6);
   if(art.sideline)for(const [x,y,z,h,cell,width,shade]of staffSprites){r.add('crowdSprite',pose(x,y,z,h*width,h,1),[shade,shade,shade,1],'sideline-atlas',false,cell,6);r.add('plane',pose(x,.016,z,.7,1,.55),[1,1,1,.42],'shadow',true)}else for(const p of staffFallback)r.add(...p);
   for(const pos of lamps){r.glow(pos,8,[.64,.75,1,.19]);r.glow(pos,2.4,[1,.95,.80,.52]);}},parts:staticParts.length};

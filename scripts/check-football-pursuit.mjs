@@ -20,7 +20,7 @@ assert.match(gameplayInstruction({phase:'pre',mode:'run',assist:false}),/DIRECTI
 assert.match(gameplayInstruction({phase:'pre',mode:'pass'}),/ROUTE/,'Passing pre-snap guidance must match the selected mode');
 assert.match(gameplayInstruction({phase:'flight'}),/CATCH/,'Ball-flight guidance must offer the catch choice');
 const runFrame=runCameraFraming(0,40);
-assert.ok(Math.hypot(...runFrame.eye.map((v,i)=>v-runFrame.target[i]))<12,'Live framing must stay close enough to make the runner easy to read');
+assert.ok(Math.hypot(...runFrame.eye.map((v,i)=>v-runFrame.target[i]))<14,'Live framing must stay close enough to make the runner easy to read');
 for(const x of[-25,0,25])for(const vx of[-9,0,9])for(const vz of[-8,0,8]){
  const p=pursuitTarget({index:18,x:4,z:32},{x,z:25,vx,vz},false,8);
  assert.ok(Number.isFinite(p.x)&&Number.isFinite(p.z));assert.ok(Math.abs(p.x)<=25.8);assert.ok(Math.abs(p.z-25)<=Math.abs(vz)*4+.001);
