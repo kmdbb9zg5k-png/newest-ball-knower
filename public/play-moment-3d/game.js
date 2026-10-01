@@ -1,15 +1,15 @@
-import {createLiveUnits} from './live-units.js?v=kick-controls-2';
-import {fullInitialDrive,fullSession,fullLog,fullRecord,fullOffenseEnd,fullContinue,fullCpuPlay,fullKick,fullCpuResult,fullConversion,fullKickoffResult,fullCpuKickChoice} from './five-minute.js?v=kick-controls-2';
-import {rosterRatings,rosterIdentity} from './mini-teams.js?v=kick-controls-2';
+import {createLiveUnits} from './live-units.js?v=close-kicks-3';
+import {fullInitialDrive,fullSession,fullLog,fullRecord,fullOffenseEnd,fullContinue,fullCpuPlay,fullKick,fullCpuResult,fullConversion,fullKickoffResult,fullCpuKickChoice} from './five-minute.js?v=close-kicks-3';
+import {rosterRatings,rosterIdentity} from './mini-teams.js?v=close-kicks-3';
 import{RUNS,PASSES,FORMATIONS,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=football-foundation-44';
 export{RUNS,PASSES}from'./playbook.js?v=football-foundation-44';
 import{Renderer,pose,segment,hex,mul,ry}from'./renderer.js?v=football-foundation-44';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js?v=teams-1';
-import{createMeshyAthletes}from'./meshy-athlete.js?v=kick-controls-2';
+import{createMeshyAthletes}from'./meshy-athlete.js?v=close-kicks-3';
 import{makeStadium}from'./stadium.js?v=football-foundation-44';
 import{createGameplayReplayRecorder}from'./replay.js';
-import {miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=kick-controls-2';
-import {createMiniGamesUI} from './mini-games-ui.js?v=kick-controls-2';
+import {miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=close-kicks-3';
+import {createMiniGamesUI} from './mini-games-ui.js?v=close-kicks-3';
 import{QB_THROW_RELEASE,quarterbackThrowDuration}from'./quarterback.js?v=football-finish-21';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
 /** The established first-down target, in the drive's 0–100 field coordinates.

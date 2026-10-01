@@ -1,5 +1,5 @@
-import { createFullGameUI } from './five-minute-ui.js?v=kick-controls-2';
-import { miniClock, saveMiniBest } from './mini-games.js?v=kick-controls-2';
+import { createFullGameUI } from './five-minute-ui.js?v=close-kicks-3';
+import { miniClock, saveMiniBest } from './mini-games.js?v=close-kicks-3';
 
 export function createMiniGamesUI(config, actions) {
   if (!config) return null;

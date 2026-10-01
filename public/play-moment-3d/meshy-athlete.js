@@ -203,7 +203,7 @@ export function meshyAnimationState(p,phase){
  }
  if(phase==='pre')return p.action==='pre-motion'?(Math.hypot(p.vx||0,p.vz||0)>2.4?'run':'walk'):'pre';
  const speed=Math.hypot(p.vx||0,p.vz||0);
- if(phase==='pass'&&p.role==='QB'){
+ if((phase==='pass'||p.qbPocket)&&p.role==='QB'){
   if(speed<=.2)return'qb-pocket';
   if((p.vz||0)>Math.abs(p.vx||0)*.72)return'qb-climb';
   if(Math.abs(p.x||0)>5.5||Math.abs(p.vx||0)>Math.abs(p.vz||0)*.72)return'qb-rollout';
@@ -1122,7 +1122,7 @@ export class MeshyAthletes{
   const model=this.modelFor(p),worldPoint=(matrix,offset=[0,0,0])=>pointFromMatrix(mul(model,matrix),offset),between=(a,b,t)=>a.map((value,index)=>value+(b[index]-value)*t),normal=(a,b)=>{const v=b.map((value,index)=>value-a[index]),length=Math.hypot(...v)||1;return v.map(value=>value/length)};
   const left=hands.left&&worldPoint(hands.left),right=hands.right&&worldPoint(hands.right),chest=hands.chest&&worldPoint(hands.chest,[0,.055,-.015]);
   if(p.role==='QB'&&p.throwT>0&&p.throwStyle!=='pump'&&right){const center=worldPoint(hands.right,[0,.035,.025]),axis=[Math.sin(p.heading||0),0,Math.cos(p.heading||0)];return{center,a:center.map((v,i)=>v-axis[i]*.16),b:center.map((v,i)=>v+axis[i]*.16),hand:'right'}}
-  if(p.role==='QB'&&['pre','pass','handoff'].includes(phase)&&left&&right){const grip=between(left,right,.5),center=chest?between(grip,chest,.18):grip,axis=normal(left,right),a=center.map((value,index)=>value-axis[index]*.155),b=center.map((value,index)=>value+axis[index]*.175);return{center,a,b,hand:'both'}}
+  if(p.role==='QB'&&(['pre','pass','handoff'].includes(phase)||p.qbPocket)&&left&&right){const grip=between(left,right,.5),center=grip.map((v,i)=>v+([Math.sin(p.heading||0)*.09,.025,Math.cos(p.heading||0)*.09][i])),axis=normal(left,right),a=center.map((value,index)=>value-axis[index]*.155),b=center.map((value,index)=>value+axis[index]*.175);return{center,a,b,hand:'both'}}
   const carryRight=(p.index+p.team)%2===1,handMatrix=(carryRight?hands.right:hands.left)||(carryRight?hands.left:hands.right),forearmMatrix=(carryRight?hands.rightForearm:hands.leftForearm)||(carryRight?hands.leftForearm:hands.rightForearm);if(!handMatrix)return null;
   const hand=worldPoint(handMatrix),elbow=forearmMatrix?worldPoint(forearmMatrix):null,forearmCenter=elbow?between(elbow,hand,.64):hand,center=chest?between(forearmCenter,chest,.12):forearmCenter,axis=elbow?normal(elbow,hand):normal(worldPoint(handMatrix,[0,0,-.2]),worldPoint(handMatrix,[0,0,.2])),a=center.map((value,index)=>value-axis[index]*.155),b=center.map((value,index)=>value+axis[index]*.175);
   if(p.catchT>0&&left&&right){const reach=1-smooth((1-p.catchT/.45)/.75),grip=between(left,right,.5);for(let i=0;i<3;i++){const shift=(grip[i]-center[i])*reach;center[i]+=shift;a[i]+=shift;b[i]+=shift}}

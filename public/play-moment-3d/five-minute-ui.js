@@ -1,5 +1,5 @@
-import { miniClock } from './mini-games.js?v=kick-controls-2';
-import { fieldGoalDistance } from './five-minute.js?v=kick-controls-2';
+import { miniClock } from './mini-games.js?v=close-kicks-3';
+import { fieldGoalDistance } from './five-minute.js?v=close-kicks-3';
 const $ = id => document.getElementById(id);
 const spot = ball => ball < 50 ? `OWN ${ball}` : ball === 50 ? 'MIDFIELD' : `OPP ${100 - ball}`;
 const node = (tag, text, className) => { const el = document.createElement(tag); if (text != null) el.textContent = text; if (className) el.className = className; return el; };
