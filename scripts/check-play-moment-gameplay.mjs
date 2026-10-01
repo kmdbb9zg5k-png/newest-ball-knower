@@ -104,7 +104,7 @@ assert.equal(qbMovementSpeed(0), 4.4);
 assert.equal(qbMovementSpeed(6), 4.4);
 assert.equal(qbMovementSpeed(6.01), 5.8, 'A quarterback outside the tackle box should accelerate into a rollout');
 assert.ok(qbMovementSpeed(0, 1) > 5.09, 'Climbing the pocket should be fast enough to create a fair scramble window');
-assert.equal(QB_LATERAL_LIMIT, 12, 'The quarterback rollout must stay inside a playable camera and pursuit window');
+assert.equal(QB_LATERAL_LIMIT, 26, 'QB movement ends at the sideline, not an invisible pocket wall');
 
 const qbBall=carriedBallAnchor({role:'QB',x:2,z:20,heading:0},'pass');
 assert.deepEqual(qbBall,[2.13,1.4,20.28,0],'The quarterback should hold the ball at chest height before release');
@@ -305,7 +305,7 @@ assert.match(source, /function identifyMike\(/, 'Pre-snap Mike identification mu
 assert.doesNotMatch(preview, /id="pumpFake"/, 'The approved control deck omits pump fake');
 assert.doesNotMatch(source, /passLeadOffset\(input\.x,input\.z\)/, 'Quarterback movement input must not silently alter pass placement');
 assert.match(source, /leadX=0,leadZ=0/, 'Receiver route prediction must own pass placement independently of movement');
-assert.match(source, /QB_LATERAL_LIMIT,QB_LATERAL_LIMIT/, 'Quarterback lateral movement must stay inside the playable rollout boundary');
+assert.doesNotMatch(source, /qb\.z=clamp\(qb\.z,snapZ-12/, 'QB must be free to retreat or cross the line');
 assert.match(source, /function watchReplay\(/, 'Explosive plays must be retained for an in-game replay');
 assert.match(source, /function stadiumSound\(/, 'Snap, collision and touchdown presentation must include stadium audio feedback');
 assert.match(source, /blocker\.blockResult=blockOutcome/, 'Run blocks must resolve individual win, steer, shed or pancake outcomes');
