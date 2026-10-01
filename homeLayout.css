@@ -230,3 +230,14 @@
 .bk-mini-games-dialog button:focus-visible,.bk-mini-launch:focus-visible { outline:2px solid #ffe196; outline-offset:-3px; }
 
 .bk-mini-mode-choice>div { grid-template-columns:repeat(2,minmax(0,1fr)); }.bk-mini-mode-choice label>span { font-size:12px; text-align:center; padding:6px; }
+
+.bk-mini-mode-tabs { display:flex; gap:5px; overflow-x:auto; overscroll-behavior-x:contain; padding:6px 0 10px; margin:4px 0 12px; scrollbar-width:thin; scrollbar-color:#b9943c #171b22; }
+.bk-mini-mode-tabs>button { flex:1 0 auto; min-height:48px; padding:10px 12px; border:1px solid #625941; border-radius:8px; background:#171b22; color:#c5c3bc; font:800 16px/1.1 'BKMiniDisplay','Arial Narrow',sans-serif; text-transform:uppercase; white-space:nowrap; cursor:pointer; }
+.bk-mini-mode-tabs>button[aria-selected=true] { color:#101216; border-color:#f0d58e; background:linear-gradient(110deg,#d2ac4b,#e9ce7d); }
+.bk-mini-games-content .bk-mini-active-mode-description { margin:0 0 12px; color:#d5c395; font-size:11px; }
+.bk-mini-combine-preview { padding:18px 14px; border:1px solid #b9943c; border-radius:12px; background:radial-gradient(ellipse at top,#3f341b,#080b0f 75%); }
+.bk-mini-coming-soon { display:inline-block; padding:6px 9px; border:1px solid #d6b86180; border-radius:5px; color:#e8cc85; font-size:11px; text-transform:uppercase; letter-spacing:.08em; }
+.bk-mini-games-content .bk-mini-combine-preview ul { margin:16px 0 8px; }.bk-mini-games-content .bk-mini-combine-preview p { font-size:12px; }
+@media(max-width:360px) { .bk-mini-mode-tabs>button { padding-inline:10px; font-size:15px; } }
+.bk-mini-mode-tabs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); }
+.bk-mini-mode-tabs>button { min-width:0; padding:8px 5px; font-size:clamp(14px,3.8vw,17px); white-space:normal; line-height:1.15; }
