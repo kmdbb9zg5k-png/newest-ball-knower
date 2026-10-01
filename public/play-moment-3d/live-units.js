@@ -1,5 +1,5 @@
 import {DEFENSE_PLAYS,DEFENSE_FORMATIONS,defenseAlignment,defenseAssignment,nearestDefender,defensiveTackleChance,defensiveDiagram} from './defense-playbook.js?v=complete-game-1';
-import {PASSES} from './playbook.js?v=football-foundation-44';
+import {PASSES} from './playbook.js?v=conversion-book-5';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const goalKick=kind=>kind==='extra-point'||kind==='field-goal';
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
@@ -35,7 +35,7 @@ export function createLiveUnits({config, getActors, inputVector, onResult, onSim
  function adjustAim(x,z,dt){const goal=goalKick(state.kind);state.aim.x=clamp(state.aim.x+x*(goal?-1:1)*dt*(goal?5:16),goal?-8:-24,goal?8:24);if(goal)state.aim.y=clamp(state.aim.y+z*dt*4,1,9);else state.aim.z=clamp(state.aim.z-z*dt*14,11,38);$('kickAimStick').setAttribute('aria-valuenow',state.aim.x.toFixed(1));$('kickAimStick').setAttribute('aria-valuetext',goal?`Target ${Math.abs(state.aim.x).toFixed(1)} yards ${state.aim.x>0?'left':'right'}, ${state.aim.y.toFixed(1)} high`:`Landing at own ${Math.round(state.aim.z-10)}, ${Math.abs(state.aim.x).toFixed(1)} yards ${state.aim.x>0?'right':'left'}`);}
  function start(kind,{ball=25,down=1,toGo=10,clock=120,kicking='away',conversion=false}={}){
   const a=getActors();paused=false;press=0;shift=0;art=false;resetAimInput();
-  state={kind,stage:kind==='defense'?'pre':'kick',book:kind==='defense',ball,down,toGo,snapZ:ball+10,time:0,liveTime:0,clock,carrier:5,controlled:kind==='defense'?16:kicking==='away'?6:16,flight:null,pass:false,target:null,switched:false,action:null,actionUntil:0,cooldown:0,shedUntil:0,switchUntil:0,kicking,conversion,result:null,simNext:false,route:PASSES[Math.floor(random()*PASSES.length)],power:0,timing:false,aim:{x:0,y:5.5,z:18}};
+  state={kind,stage:kind==='defense'?'pre':'kick',book:kind==='defense',ball,down,toGo,snapZ:ball+10,time:0,liveTime:0,clock,carrier:5,controlled:kind==='defense'?16:kicking==='away'?6:16,flight:null,pass:false,target:null,switched:false,action:null,actionUntil:0,cooldown:0,shedUntil:0,switchUntil:0,kicking,conversion,result:null,simNext:false,route:PASSES.filter(p=>!p.fake)[Math.floor(random()*PASSES.filter(p=>!p.fake).length)],power:0,timing:false,aim:{x:0,y:5.5,z:18}};
   a.forEach(p=>{p.hasBall=false;p.engaged=false;p.fallen=false;p.action=null;p.throwT=0;p.ballTarget=null;p.qbPocket=false;p.kickShed=false;p.unitBlock=null;p.contactRole=null;p.contactWith=null;p.actionT=0;p.vx=p.vz=0;});
   if(kind==='defense') {align();a[2].hasBall=true;state.stagedBall=[a[2].x,.42,state.snapZ-.2];}
   else if(goalKick(kind)) {

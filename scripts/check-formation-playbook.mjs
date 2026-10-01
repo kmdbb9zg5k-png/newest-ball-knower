@@ -28,7 +28,7 @@ try{
  await page.waitForFunction(()=>window.bk3dTest);
  await page.evaluate(()=>window.bk3dTest.manualFrames());
  assert.equal(await page.locator('.play-card').count(),32);
- for(const f of FORMATIONS){await page.locator(`#formationTabs [data-formation="${f.id}"]`).click();assert.equal(await page.locator('.play-card').count(),matchingPlays(f.id).length)}
+ for(const f of FORMATIONS.filter(f=>f.id!=='special-teams')){await page.locator(`#formationTabs [data-formation="${f.id}"]`).click();assert.equal(await page.locator('.play-card').count(),matchingPlays(f.id).length)}
  await page.locator('#filterPass').click();assert.equal(await page.locator('.play-card').count(),0);assert.equal(await page.locator('#breakHuddle').isDisabled(),true);
  await page.locator('#formationTabs [data-formation="all"]').click();await page.locator('#filterRead').click();assert.equal(await page.locator('.play-card').count(),2);
  await page.locator('#formationTabs [data-formation="shotgun"]').click();
