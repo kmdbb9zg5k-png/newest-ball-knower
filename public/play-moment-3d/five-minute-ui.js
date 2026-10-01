@@ -1,16 +1,17 @@
-import { miniClock } from './mini-games.js?v=five-minute-1';
-import { fieldGoalDistance, fieldGoalChance } from './five-minute.js?v=five-minute-1';
+import { miniClock } from './mini-games.js?v=complete-game-1';
+import { fieldGoalDistance, fieldGoalChance } from './five-minute.js?v=complete-game-1';
 const $ = id => document.getElementById(id);
 const spot = ball => ball < 50 ? `OWN ${ball}` : ball === 50 ? 'MIDFIELD' : `OPP ${100 - ball}`;
 const node = (tag, text, className) => { const el = document.createElement(tag); if (text != null) el.textContent = text; if (className) el.className = className; return el; };
 export function createFullGameUI(config, actions) {
+  const name = config.mode === 'two-minute' ? 'Two-Minute Warning' : 'Five-Minute Game';
   document.body.classList.add('mini-game', 'full-game');
-  document.title = 'Ball Knower | Five-Minute Game';
-  $('game').setAttribute('aria-label', 'Five-Minute Game football field');
-  $('loading').querySelector('span').textContent = 'Preparing Five-Minute Game…';
-  $('rotate').querySelector('p').textContent = 'Rotate your phone to play Five-Minute Game.';
-  $('pause').setAttribute('aria-label', 'Pause Five-Minute Game');
-  $('paused').querySelector('.eyebrow').textContent = `FIVE-MINUTE GAME · ${config.level.name.toUpperCase()}`;
+  document.title = 'Ball Knower | '+name;
+  $('game').setAttribute('aria-label', name+' football field');
+  $('loading').querySelector('span').textContent = 'Preparing '+name+'…';
+  $('rotate').querySelector('p').textContent = 'Rotate your phone to play '+name+'.';
+  $('pause').setAttribute('aria-label', 'Pause '+name);
+  $('paused').querySelector('.eyebrow').textContent = `${name.toUpperCase()} · ${config.level.name.toUpperCase()}`;
   $('restart').textContent = 'REMATCH';
   for (const side of ['home','away']) {
     const team = config.matchup[side], club = document.querySelector('.club.' + side);
@@ -27,8 +28,9 @@ export function createFullGameUI(config, actions) {
   document.querySelector('.playbook-footer').prepend(kicks);
   const panel = node('section'); panel.id = 'fullDefense'; panel.hidden = true; panel.setAttribute('aria-label','Simulated defense');
   const inner = node('div'); panel.append(inner);
-  inner.innerHTML = '<div class="full-defense-heading"><div><span class="eyebrow">PLAY-BY-PLAY</span><h1 id="fullDefenseTitle" tabindex="-1">YOUR DEFENSE IS UP</h1><p id="fullDefenseSpot"></p></div><button id="fullAuto" type="button" aria-pressed="true">AUTO · ON</button></div><div id="fullLatest" role="status" aria-live="polite"></div><ol id="fullFeed" aria-label="Game play-by-play"></ol><div class="full-defense-actions"><button id="fullDefenseTimeout" type="button">TIMEOUT · 3</button><button id="fullNext" type="button">NEXT PLAY →</button></div>';
+  inner.innerHTML = '<div class="full-defense-heading"><div><span class="eyebrow">PLAY-BY-PLAY</span><h1 id="fullDefenseTitle" tabindex="-1">YOUR DEFENSE IS UP</h1><p id="fullDefenseSpot"></p></div><button id="fullAuto" type="button" aria-pressed="true">AUTO · ON</button></div><div id="fullLatest" role="status" aria-live="polite"></div><ol id="fullFeed" aria-label="Game play-by-play"></ol><div class="full-defense-actions"><button id="fullDefenseTimeout" type="button">TIMEOUT · 3</button><button id="fullPlayDefense" type="button">PLAY DEFENSE</button><button id="fullXP" type="button">KICK EXTRA POINT</button><button id="fullTwo" type="button">GO FOR TWO</button><button id="fullNext" type="button">NEXT PLAY →</button></div>';
   $('hud').after(panel);
+  $('fullPlayDefense').onclick=actions.playDefense;$('fullXP').onclick=actions.extraPoint;$('fullTwo').onclick=actions.twoPoint;
   $('fullAuto').onclick = actions.auto; $('fullNext').onclick = actions.next; $('fullDefenseTimeout').onclick = actions.defenseTimeout;
   const summary = node('section'); summary.id = 'miniSummary';
   const resultActions = node('div'); resultActions.id = 'miniResultActions'; resultActions.append($('restart'), document.querySelector('#paused a'));
@@ -43,7 +45,7 @@ export function createFullGameUI(config, actions) {
       $('miniSpike').disabled = phase !== 'pre' || motion;
       toolbar.querySelector('span').textContent = `${config.level.name.toUpperCase()} · PLAY :${String(Math.ceil(s.playClock)).padStart(2,'0')}`;
       $('clock').textContent = s.overtime ? 'OT' + s.overtime : miniClock(d.clock);
-      document.querySelector('.game-state>span').textContent = ended ? 'FINAL' : s.overtime ? 'EQUAL POSSESSIONS' : '5 MIN GAME';
+      document.querySelector('.game-state>span').textContent = ended ? 'FINAL' : s.overtime ? 'EQUAL POSSESSIONS' : config.mode === 'two-minute' ? '2 MIN WARNING' : '5 MIN GAME';
       document.querySelector('.away strong').textContent = s.awayScore;
       document.querySelector('.club.home').classList.toggle('has-possession',s.possession === 'home');
       document.querySelector('.club.away').classList.toggle('has-possession',s.possession === 'away');
@@ -55,10 +57,11 @@ export function createFullGameUI(config, actions) {
       $('fullPunt').textContent = s.overtime ? 'NO PUNTS IN OT' : 'PUNT';
       panel.hidden = phase !== 'cpu' || paused || ended;
       if (!panel.hidden) {
-        $('fullDefenseTitle').textContent = s.pending === 'home' ? 'YOUR OFFENSE IS UP' : s.pending === 'away' ? 'YOUR DEFENSE IS UP' : 'DEFENSE ON THE FIELD';
+        $('fullPlayDefense').hidden=Boolean(s.conversion||s.kickoff||s.pending==='home');$('fullXP').hidden=s.conversion!=='home';$('fullTwo').hidden=s.conversion!=='home';$('fullNext').hidden=Boolean(s.conversion);$('fullAuto').hidden=Boolean(s.conversion||s.kickoff);
+        $('fullDefenseTitle').textContent = s.conversion ? 'CHOOSE YOUR CONVERSION' : s.kickoff ? (s.kickoff==='home'?'KICKOFF':'RETURN THE KICKOFF') : s.pending === 'home' ? 'YOUR OFFENSE IS UP' : s.pending === 'away' ? 'YOUR DEFENSE IS UP' : 'DEFENSE ON THE FIELD';
         $('fullDefenseSpot').textContent = s.pending ? `${config.matchup[s.pending].name} · ${spot(s.nextBall)}${s.overtime ? ' · OVERTIME' : ''}` : `${config.matchup.away.name} · ${s.cpu.down}${['ST','ND','RD','TH'][s.cpu.down-1] || 'TH'} & ${s.cpu.toGo} · ${spot(s.cpu.ball)}`;
         $('down').textContent = s.pending ? 'POSSESSION CHANGE' : `CPU BALL · ${s.cpu.down} & ${s.cpu.toGo} · ${spot(s.cpu.ball)}`;
-        $('fullNext').textContent = s.pending === 'home' ? 'CALL YOUR PLAY →' : s.pending === 'away' ? 'WATCH DEFENSE →' : 'NEXT PLAY →';
+        $('fullNext').textContent = s.kickoff ? (s.kickoff==='home'?'KICK OFF →':'RETURN KICKOFF →') : s.pending === 'home' ? 'CALL YOUR PLAY →' : s.pending === 'away' ? (s.defenseMode==='play'?'CALL DEFENSE →':'WATCH DEFENSE →') : 'NEXT PLAY →';
         $('fullAuto').textContent = s.auto ? 'AUTO · ON' : 'AUTO · OFF'; $('fullAuto').setAttribute('aria-pressed',String(s.auto));
         $('fullAuto').disabled = Boolean(s.pending);
         $('fullDefenseTimeout').textContent = `TIMEOUT · ${s.timeouts}`; $('fullDefenseTimeout').disabled = Boolean(s.pending) || s.timeouts <= 0 || s.overtime > 0 || s.defenseTimeout;

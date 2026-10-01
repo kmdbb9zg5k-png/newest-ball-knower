@@ -1,8 +1,8 @@
 /** Five-minute arcade rules. Pure state transitions; no timers or DOM. */
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
-export const fullInitialDrive = () => ({ ball: 25, down: 1, toGo: 10, clock: 300, score: 0, plays: 0 });
+export const fullInitialDrive = (mode = 'five-minute') => ({ ball: 25, down: 1, toGo: 10, clock: mode === 'two-minute' ? 120 : 300, score: mode === 'two-minute' ? 23 : 0, plays: 0 });
 const teamStats = () => ({ plays: 0, yards: 0, passYards: 0, rushYards: 0, completions: 0, attempts: 0, touchdowns: 0, turnovers: 0, sacks: 0, fieldGoals: 0, players: {} });
-export const fullSession = () => ({ timeouts: 3, awayTimeouts: 3, running: false, started: false, playClock: 40, log: [], result: null, full: true, awayScore: 0, possession: 'home', pending: null, nextBall: 25, cpu: { ball: 25, down: 1, toGo: 10 }, auto: true, wait: 2.8, overtime: 0, otPossessions: 0, stats: { home: teamStats(), away: teamStats() } });
+export const fullSession = (mode = 'five-minute', interactive = false) => ({ interactive, mode, defenseMode: 'simulate', conversion: null, kickoff: null, timeouts: 3, awayTimeouts: 3, running: false, started: false, playClock: 40, log: [], result: null, full: true, awayScore: mode === 'two-minute' ? 27 : 0, possession: 'home', pending: null, nextBall: 25, cpu: { ball: 25, down: 1, toGo: 10 }, auto: true, wait: 2.8, overtime: 0, otPossessions: 0, stats: { home: teamStats(), away: teamStats() } });
 const other = side => side === 'home' ? 'away' : 'home';
 export function fullLog(s, d, side, reason, gain = null) {
   s.log.push({ side, reason, gain, clock: d.clock, overtime: s.overtime, ball: side === 'home' ? d.ball : s.cpu.ball });
@@ -66,7 +66,7 @@ export function fullOffenseEnd(s, d, reason, { interceptionSpot = d.ball, quarte
   if (s.result || s.pending) return;
   if (reason === 'TIME EXPIRED') { fullExpired(s, d); return; }
   fullLog(s, d, 'home', reason);
-  if (reason === 'TOUCHDOWN') { d.score++; fullLog(s, d, 'home', 'EXTRA POINT GOOD · +1'); fullPossessionEnd(s, d, 'home'); }
+  if (reason === 'TOUCHDOWN') { if (s.interactive) { s.conversion = 'home'; s.running = false; } else { d.score++; fullLog(s, d, 'home', 'EXTRA POINT GOOD · +1'); fullPossessionEnd(s, d, 'home'); } }
   else if (reason === 'SAFETY') { s.awayScore += 2; fullPossessionEnd(s, d, 'home', 35); }
   else {
     if (reason === 'INTERCEPTED') fullRecord(s, 'home', { pass: true, interception: true, quarterback });
@@ -95,8 +95,16 @@ export function fullKick(s, d, side, kind, team, random = Math.random) {
     fullLog(s, d, side, `${fieldGoalDistance(ball)}-YARD FIELD GOAL ${good ? 'GOOD · +3' : 'MISSED'}`);
     if (good) { addScore(s, d, side, 3); s.stats[side].fieldGoals++; playerStats(s, side, team.kicker).fieldGoals++; }
     fullPossessionEnd(s, d, side, good ? 25 : Math.max(20, 100 - ball + 7));
+    if (good && s.interactive && !s.overtime && !s.result && d.clock > 0) s.kickoff = side;
   }
   return true;
+}
+export function fullCpuKickChoice(s, d) {
+ const c=s.cpu, deficit=d.score-s.awayScore;
+ const needTD=(!s.overtime&&d.clock<65&&deficit>3)||(s.overtime&&s.otPossessions===1&&deficit>3);
+ if((c.down===4||!s.overtime&&d.clock<=8)&&fieldGoalDistance(c.ball)<=60&&!needTD)return 'field-goal';
+ if(c.down===4&&c.ball<55&&!(d.clock<60&&deficit>0)&&!s.overtime)return 'punt';
+ return null;
 }
 /** One CPU snap per call; the UI holds every result so no play disappears. */
 export function fullCpuPlay(s, d, config, random = Math.random) {
@@ -121,19 +129,31 @@ export function fullCpuPlay(s, d, config, random = Math.random) {
     if (random() < .055 + edge * .08) gain += Math.round(12 + random() * 22);
     reason = pass ? `${quarterback.name} → ${runner.name}` : `${runner.name} RUN`;
   }
+  const out = !incomplete && !sack && !interception && random() < .13;
+  let seconds = incomplete || interception || out ? 4 + Math.floor(random() * 4) : 12 + Math.floor(random() * 12);
+  if (desperation && !incomplete && !interception && !out && s.awayTimeouts > 0) { seconds = 5; s.awayTimeouts--; reason += ' · CPU TIMEOUT'; }
+  if (s.defenseTimeout) { seconds = 5; s.defenseTimeout = false; }
+  fullCpuResult(s, d, config, {gain, pass, incomplete, sack, interception, out, reason, seconds, quarterback, runner}, random);
+  return true;
+}
+
+/** Shared result path for simulated and on-field CPU snaps. */
+export function fullCpuResult(s, d, config, {gain = 0, pass = false, incomplete = false, sack = false, interception = false, out = false, reason = 'TACKLED', seconds = 0, live = false, quarterback = config.matchup.away.lineup[5], runner = config.matchup.away.lineup[6]}, random = Math.random) {
+  if (s.result || s.pending || s.possession !== 'away') return false;
+  const c = s.cpu;
   const old = c.ball;
   c.ball = clamp(old + gain, 0, 100); gain = c.ball - old;
-  const touchdown = c.ball >= 100, safety = c.ball <= 0;
-  const out = !incomplete && !sack && !interception && random() < .13;
-  if (!s.overtime) {
-    let seconds = incomplete || interception || out ? 4 + Math.floor(random() * 4) : 12 + Math.floor(random() * 12);
-    if (desperation && !incomplete && !interception && !out && s.awayTimeouts > 0) { seconds = 5; s.awayTimeouts--; reason += ' · CPU TIMEOUT'; }
-    if (s.defenseTimeout) { seconds = 5; s.defenseTimeout = false; }
-    d.clock = Math.max(0, d.clock - seconds);
+  const touchdown = !interception && !incomplete && c.ball >= 100, safety = !interception && !incomplete && c.ball <= 0;
+
+  if (live && !s.overtime && !incomplete && !interception && !out && !touchdown && !safety) {
+    if (d.clock-seconds<45 && s.awayScore<d.score && s.awayTimeouts>0) {s.awayTimeouts--;reason+=' · CPU TIMEOUT';}
+    else if (!s.defenseTimeout) seconds+=d.clock<60&&s.awayScore<d.score?3:10;
+    s.defenseTimeout=false;
   }
+  if (!s.overtime) d.clock = Math.max(0, d.clock - seconds);
   fullRecord(s, 'away', { gain, pass, incomplete, sack, interception, touchdown, quarterback, runner });
-  fullLog(s, d, 'away', reason + (touchdown ? ' · TOUCHDOWN +7' : safety ? ' · SAFETY +2' : out ? ' · OUT OF BOUNDS' : ''), interception ? null : gain);
-  if (touchdown) { s.awayScore += 7; fullPossessionEnd(s, d, 'away'); }
+  fullLog(s, d, 'away', reason + (touchdown ? ' · TOUCHDOWN +6' : safety ? ' · SAFETY +2' : out ? ' · OUT OF BOUNDS' : ''), interception ? null : gain);
+  if (touchdown) { s.awayScore += 6; if (s.interactive) { s.conversion = 'away'; fullConversion(s, d, 'extra-point', random() < .95); } else { s.awayScore++; fullPossessionEnd(s, d, 'away'); } }
   else if (safety) { d.score += 2; fullPossessionEnd(s, d, 'away', 35); }
   else if (interception) fullPossessionEnd(s, d, 'away', 100 - c.ball);
   else {
@@ -142,5 +162,28 @@ export function fullCpuPlay(s, d, config, random = Math.random) {
     if (c.down > 4) { s.stats.away.turnovers++; fullLog(s, d, 'away', 'TURNOVER ON DOWNS'); fullPossessionEnd(s, d, 'away', 100 - c.ball); }
     else fullExpired(s, d);
   }
+  return true;
+}
+export function fullConversion(s, d, kind, good) {
+  const side = s.conversion;
+  if (!side || s.result) return false;
+  const points = kind === 'two-point' ? 2 : 1;
+  if (good) addScore(s, d, side, points);
+  fullLog(s, d, side, `${kind === 'two-point' ? 'TWO-POINT TRY' : 'EXTRA POINT'} ${good ? 'GOOD · +' + points : 'NO GOOD'}`);
+  s.conversion = null;
+  fullPossessionEnd(s, d, side);
+  if (!s.overtime && !s.result && d.clock > 0) s.kickoff = side;
+  return true;
+}
+export function fullKickoffResult(s, d, {ball = 25, seconds = 0, touchdown = false}) {
+  const kicking = s.kickoff;
+  if (!kicking || s.result) return false;
+  const receiving = other(kicking); s.kickoff = null;
+  s.pending = receiving; s.nextBall = clamp(ball, 1, 99);
+  fullContinue(s, d);
+  if (!s.overtime) d.clock = Math.max(0, d.clock - seconds);
+  fullLog(s, d, receiving, touchdown ? 'KICK RETURN TOUCHDOWN · +6' : `KICK RETURN · OWN ${Math.round(ball)}`);
+  if (touchdown) { addScore(s, d, receiving, 6); s.conversion = receiving; if (receiving === 'away') fullConversion(s, d, 'extra-point', true); }
+  else fullExpired(s, d);
   return true;
 }

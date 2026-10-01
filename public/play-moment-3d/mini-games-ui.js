@@ -1,9 +1,9 @@
-import { createFullGameUI } from './five-minute-ui.js?v=five-minute-1';
-import { miniClock, saveMiniBest } from './mini-games.js?v=five-minute-1';
+import { createFullGameUI } from './five-minute-ui.js?v=complete-game-1';
+import { miniClock, saveMiniBest } from './mini-games.js?v=complete-game-1';
 
 export function createMiniGamesUI(config, actions) {
   if (!config) return null;
-  if (config.mode === 'five-minute') return createFullGameUI(config, actions);
+  if (config) return createFullGameUI(config, actions);
   document.body.classList.add('mini-game');
   for(const side of ['home','away']){const team=config.matchup[side],club=document.querySelector('.club.'+side);club.querySelector('b').textContent=team.name.split(' ').slice(-1)[0].toUpperCase();club.querySelector('.crest').textContent=team.abbr;club.setAttribute('aria-label',team.name+', '+team.overall+' overall');club.style.borderBottomColor=team.secondary;club.querySelector('.crest').style.color=team.secondary;}
 
