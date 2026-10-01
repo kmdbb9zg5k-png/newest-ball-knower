@@ -36,6 +36,14 @@ export function advanceMotion(p,dt,phase){
   ready:ready?1:0,block:0,turn:0,gait:p.index*.43,stridePhase:(p.index*.437+(p.team?.271:0))%1,fall:0,catch:0,throwTime:1,throwing:false});
  const distance=Math.hypot(p.x-m.x,p.z-m.z),delta=Math.atan2(Math.sin((p.heading||0)-m.heading),Math.cos((p.heading||0)-m.heading));
  const speed=dt>0?clamp(distance/dt,0,12):0;
+ // Use simulation velocity, not overlap corrections, to drive body weight.
+ const vx=Number.isFinite(p.vx)?p.vx:0,vz=Number.isFinite(p.vz)?p.vz:0,oldSpeed=Math.hypot(m.vx||0,m.vz||0);
+ m.vx=damp(m.vx||0,vx,10,dt);m.vz=damp(m.vz||0,vz,10,dt);
+ const forwardAcceleration=dt>0?clamp((Math.hypot(m.vx,m.vz)-oldSpeed)/dt,-24,24):0;
+ m.acceleration=damp(m.acceleration||0,forwardAcceleration,9,dt);
+ m.lean=damp(m.lean||0,clamp(m.acceleration*.006,-.10,.12),9,dt);
+ // Centripetal lean grows with speed; stationary heading changes don't bank.
+ m.bank=damp(m.bank||0,dt>0?clamp(-delta/dt*Math.min(speed,10)*.012,-.22,.22):0,10,dt);
  m.speed=damp(m.speed,speed,12,dt);
  m.run=damp(m.run,!ready&&!p.fallen?clamp(m.speed/4,0,1):0,14,dt);
  m.ready=damp(m.ready,ready?1:0,ready?18:10,dt);
@@ -67,10 +75,10 @@ export function samplePose(p){
  const brace=m.block*(1-m.ready);
  const squat=(1.02-stance.pelvis)*m.ready+.18*brace;
  const drive=m.run*(1-.90*brace)*(1-m.ready);
- const liveLean=lerp(.025,.22+sprint*.10,drive)+.38*brace+.24*power;
+ const liveLean=lerp(.025,.22+sprint*.10+(m.lean||0),drive)+.38*brace+.24*power;
  const lean=lerp(liveLean,stance.lean,m.ready);
  const throwProgress=clamp(m.throwTime/.46,0,1),throwWeight=m.throwTime<.46?Math.sin(throwProgress*Math.PI):0;
- return {build,pelvis:1.02-squat,lean,turn:clamp(-m.turn*.065,-.24,.24)*drive+(p.actionSide||0)*juke*.34,
+ return {build,pelvis:1.02-squat,lean,turn:(m.bank||0)*drive+(p.actionSide||0)*juke*.34,
   twist:Math.sin(m.gait)*.055*drive-throwWeight*.20+(p.actionSide||0)*power*.14,
   ready:m.ready,block:m.block,brace,drive,sprint,gait:m.gait,fall:m.fall,
   catch:m.catch,throwProgress,throwWeight,power,skillYaw:spin*(p.actionSide||1)*actionT*TAU,skillLift:hurdle*.34,skillTuck:hurdle*.24};

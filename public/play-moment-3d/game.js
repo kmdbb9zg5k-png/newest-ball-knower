@@ -5,8 +5,8 @@ import {rosterRatings,rosterIdentity} from './mini-teams.js?v=contact-camera-11'
 import{RUNS,PASSES,FORMATIONS,FIELD_GOAL_PLAY,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=contact-camera-11';
 export{RUNS,PASSES}from'./playbook.js?v=contact-camera-11';
 import{Renderer,pose,segment,hex,mul,ry}from'./renderer.js?v=football-foundation-44';
-import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js?v=teams-1';
-import{createMeshyAthletes}from'./meshy-athlete.js?v=contact-camera-11';
+import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js?v=reference-motion-45';
+import{createMeshyAthletes}from'./meshy-athlete.js?v=reference-motion-45';
 import{makeStadium}from'./stadium.js?v=contact-camera-11';
 import{createGameplayReplayRecorder}from'./replay.js';
 import {miniClock,miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=contact-camera-11';
@@ -124,7 +124,10 @@ export function cameraTravel(current,target,dt,rate=3,maxSpeed=24){
  return current.map((v,i)=>v+delta[i]*blend);
 }
 /** Compose a readable elevated live-run camera around the ball carrier. */
-export function runCameraFraming(x,z){return{eye:[x+.45,4.7,z-9.2],target:[x,1.2,z+3.2]}}
+export function runCameraFraming(x,z,vx=0,vz=0){
+ const pace=clamp(Math.hypot(vx,vz)/10,0,1),leadX=clamp(vx*.22,-1.4,1.4),leadZ=clamp(vz*.16,-1.2,1.6);
+ return{eye:[x+.45+leadX*.35,4.7+pace*.12,z-9.2+leadZ],target:[x+leadX,1.2,z+3.2+leadZ]};
+}
 /** Finish the catch shot after the whistle, keeping the contact centered.
  * Choose once: reacting to moving bystanders every frame makes the view weave. */
 export function contactCameraFraming(focus,players=[]){
@@ -174,7 +177,7 @@ export function interpolatePresentation(previous,current,alpha,out={}){
  for(const key of['x','z','vx','vz','distance','throwT'])if(Number.isFinite(previous[key])&&Number.isFinite(current[key]))out[key]=previous[key]+(current[key]-previous[key])*t;
  out.heading=previous.heading+Math.atan2(Math.sin(current.heading-previous.heading),Math.cos(current.heading-previous.heading))*t;
  if(previous.action===current.action)out.actionT=previous.actionT+(current.actionT-previous.actionT)*t;
- if(previous.motion&&current.motion){out.motion={...current.motion};for(const key of['speed','run','turn','gait','stridePhase','fall','block'])if(Number.isFinite(previous.motion[key])&&Number.isFinite(current.motion[key]))out.motion[key]=previous.motion[key]+(current.motion[key]-previous.motion[key])*t;}
+ if(previous.motion&&current.motion){out.motion={...current.motion};for(const key of['speed','run','turn','gait','stridePhase','fall','block','vx','vz','acceleration','lean','bank'])if(Number.isFinite(previous.motion[key])&&Number.isFinite(current.motion[key]))out.motion[key]=previous.motion[key]+(current.motion[key]-previous.motion[key])*t;}
  return out;
 }
 /** Keep run concepts as coaching for Assist mode; Manual always obeys the player's stick. */
@@ -832,7 +835,7 @@ function coverage(dt){
   if(phase==='run'){
    let x=input.x,z=input.z;const kx=(keys.has('ArrowRight')||keys.has('d')?1:0)-(keys.has('ArrowLeft')||keys.has('a')?1:0),kz=(keys.has('ArrowUp')||keys.has('w')?1:0)-(keys.has('ArrowDown')||keys.has('s')?1:0);if(kx||kz){const len=Math.hypot(kx,kz);x=kx/len;z=kz/len}
    const liveMagnitude=Math.hypot(x,z);if(liveMagnitude>=.12)snapDirectionUntil=0;const concept=mode==='run'?RUNS[selected]:null,guide=concept?runConceptDirection(selected,elapsed,carrier.x,carrier.z,snapZ,runDirection,carrier===actors[5]&&optionChoice==='keep'):null,control=mode==='pass'&&carrier.catchStyle==='rac'?racControlVector(x,z):openingRunControl(assist,x,z,snapDirection.x,snapDirection.z,guide?.x,guide?.z,simTime<snapDirectionUntil);x=control.x;z=control.z;if(control.manual)[x,z]=cameraWorldVector(x,z,camEye,camTarget);
-   const sprintHeld=input.sprint||keys.has('Shift'),boosting=sprintHeld&&stamina>0;carrier.sprinting=boosting||carrier.role==='QB';const cut=cutSeverity(carrier.vx,carrier.vz,x,z);if(cut>.38&&simTime>=plantReady&&carrier.catchT<=0){const agility=ratingMultiplier(carrier.ratings.agility,.82,1.08),retention=clamp(.76-cut*(boosting?.34:.22)+(agility-.82)*.35,.42,.82);carrier.vx*=retention;carrier.vz*=retention;plantReady=simTime+.42;setTimedAction(carrier,'cut',.34,Math.sign(x)||1);stamina=clamp(stamina-(boosting?.06:.025),0,1);if(cut>.68)message(boosting?'SPRINT CUT · SPEED LOST':'PLANT & CUT',.48)}const styleSpeed=mode==='pass'&&carrier.role!=='QB'&&elapsed<1?(CATCH_STYLES[carrier.catchStyle||'rac']?.yac||1):1,cutPenalty=cut>.38?clamp(1-cut*(boosting?.34:.2),.58,1):1,contactSpeed=carrier.action==='break-tackle'&&carrier.actionT<.8?.68:carrier.action==='stumble'?.56:1,baseSpeed=carrierRunSpeed(carrier,boosting)*(carrier.role==='RB'?Math.min(1,styleSpeed):styleSpeed)*cutPenalty*contactSpeed,acceleration=(boosting?19:24)*ratingMultiplier(carrier.ratings.acceleration,.88,1.14)*(concept?.acceleration||1);stamina=clamp(stamina+(boosting?-.24:sprintHeld?0:.09)*dt,0,1);$('stamina').firstElementChild.style.width=(stamina*100)+'%';accelerate(carrier,x,z,baseSpeed,dt,acceleration,26);emitRunFx();carrier.catchT=Math.max(0,carrier.catchT-dt);
+   const sprintHeld=input.sprint||keys.has('Shift'),boosting=sprintHeld&&stamina>0;carrier.sprinting=boosting||carrier.role==='QB';const cut=cutSeverity(carrier.vx,carrier.vz,x,z);if(cut>.38&&simTime>=plantReady&&carrier.catchT<=0){plantReady=simTime+.42;const turnSide=Math.sign(carrier.vz*x-carrier.vx*z)||1;setTimedAction(carrier,'cut',.34,turnSide);stamina=clamp(stamina-(boosting?.06:.025),0,1);if(cut>.68)message(boosting?'SPRINT CUT · SPEED LOST':'PLANT & CUT',.48)}const styleSpeed=mode==='pass'&&carrier.role!=='QB'&&elapsed<1?(CATCH_STYLES[carrier.catchStyle||'rac']?.yac||1):1,cutPenalty=cut>.38?clamp(1-cut*(boosting?.34:.2),.58,1):1,contactSpeed=carrier.action==='break-tackle'&&carrier.actionT<.8?.68:carrier.action==='stumble'?.56:1,baseSpeed=carrierRunSpeed(carrier,boosting)*(carrier.role==='RB'?Math.min(1,styleSpeed):styleSpeed)*cutPenalty*contactSpeed,acceleration=(boosting?19:24)*ratingMultiplier(carrier.ratings.acceleration,.88,1.14)*ratingMultiplier(carrier.ratings.agility,.92,1.08)*(concept?.acceleration||1);stamina=clamp(stamina+(boosting?-.24:sprintHeld?0:.09)*dt,0,1);$('stamina').firstElementChild.style.width=(stamina*100)+'%';accelerate(carrier,x,z,baseSpeed,dt,acceleration,26);emitRunFx();carrier.catchT=Math.max(0,carrier.catchT-dt);
    if(mode==='run'&&carrier===actors[5]&&currentPlay().option)chase(actors[6],actors[6].x-runDirection*.8,snapZ+3,5,dt);
    if(mode==='run'&&carrier!==actors[5]){const qb=actors[5];accelerate(qb,0,0,0,dt,12,18)}
    const assigned=blockers(dt,mode==='run')||new Set();if(mode==='pass')for(const index of supportBlockers(dt))assigned.add(index);for(const p of actors.filter(p=>p.team===1&&p.role!=='DL'&&!p.engaged&&!p.fallen&&!assigned.has(p.index))){if(mode==='run')runFit(p,dt);else{const separation=Math.hypot(p.x-carrier.x,p.z-carrier.z);pursue(p,carrier,defenderPursuitSpeed(separation,true),dt,true)}}
@@ -879,7 +882,7 @@ function coverage(dt){
   if(tracking&&!runCameraStart)runCameraStart={eye:[...camEye],target:[...camTarget],x:focus.x,z:focus.z};
   // Center the pocket and move closer without enlarging athlete geometry.
   // Fit the formation horizontally; tilt around the athlete before adding distance.
-  const runFrame=tracking?runCameraFraming(focus.x+(focus.vx||0)*.17,focus.z+(focus.vz||0)*.17):null;
+  const runFrame=tracking?runCameraFraming(focus.x,focus.z,focus.motion?.vx??focus.vx??0,focus.motion?.vz??focus.vz??0):null;
   let desiredEye=tracking?runFrame.eye:[x+(isPocket?0:3.5*mult),(isPocket?4.3:8.0)*mult,(isPocket?snapZ:z)-(isPocket?14.3:24.5)*mult];
   let desiredTarget=tracking?runFrame.target:[x,1.65,phase==='pre'?snapZ-1.5:z];
   if(tracking){const t=smooth(runCameraBlend),offset=[(focus.x-runCameraStart.x)*.96,0,focus.z-runCameraStart.z];desiredEye=desiredEye.map((v,i)=>(runCameraStart.eye[i]+offset[i])*(1-t)+v*t);desiredTarget=desiredTarget.map((v,i)=>(runCameraStart.target[i]+offset[i])*(1-t)+v*t)}

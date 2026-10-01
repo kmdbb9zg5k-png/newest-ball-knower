@@ -73,3 +73,32 @@ if(outFlag>=0){
  fs.writeFileSync(path.join(out,'scene.json'),JSON.stringify({...ATHLETE_SHADERS,attrs,indexType:json.accessors[primitive.indices].componentType,indexCount:ix.length,poses:frames,animation:true}));
  console.log('Continuous comparison:',out);
 }
+
+// Running catch transitions retain the live hips/legs while the upper body
+// reaches and tucks. Compare blended legs to the unblended real asset pose.
+let catchLegError=0,catchTransitionFrames=0;
+for(const style of ['rac','secure','aggressive']){
+ const p={index:8,role:'WR',team:0,x:0,z:30,heading:0,vx:0,vz:7,distance:0,hasBall:false};
+ rig.poseStates.clear();rig.footPlants?.clear();rig.phase='run';
+ for(let frame=0;frame<65;frame++){
+  p.z+=7/60;p.distance+=7/60;
+  p.hasBall=frame>=15;p.catchStyle=style;p.catchT=frame>=15?Math.max(0,.45-(frame-15)/60):0;
+  advanceMotion(p,1/60,'run');
+  // Foot planting runs after blending; inspect the transition's output before IK.
+  const blend=rig.blendLocals;rig.blendLocals=function(actor,locals,time,state){
+   const out=blend.call(this,actor,locals,time,state),previous=this.poseStates.get(actor.index);
+   if(previous.transitioning&&frame>=15){
+    catchTransitionFrames++;
+    for(const name of ['Hips','LeftUpLeg','LeftLeg','RightUpLeg','RightLeg']){
+     const i=this.namedNodes['mixamorig:'+name];
+     catchLegError=Math.max(catchLegError,...out[i].r.map((v,j)=>Math.abs(v-locals[i].r[j])));
+    }
+   }
+   return out;
+  };
+  try{const bones=rig.bonesFor(p,'run',frame/60);assert.ok([...bones].every(Number.isFinite))}finally{rig.blendLocals=blend}
+ }
+}
+assert.ok(catchTransitionFrames>20,'Catch entry and exit transitions must be exercised');
+assert.ok(catchLegError<1e-8,`Running catches freeze the leg cycle: ${catchLegError}`);
+console.log(JSON.stringify({runningCatchStyles:3,catchLegError}));

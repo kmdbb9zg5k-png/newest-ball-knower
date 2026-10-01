@@ -57,6 +57,8 @@ export function groundedStride(distance,side=0){
  if(phase<stance)return{z:reach*(1-2*phase/stance),lift:0,planted:true};
  const t=(phase-stance)/(1-stance);return{z:reach*(-1+2*smooth(t)),lift:Math.sin(t*Math.PI)*.30,planted:false};
 }
+// Running catches share the leg cycle while their arms reach and tuck.
+export function usesContinuousStride(state){return usesGroundedStride(state)||/^catch-(rac|secure|aggressive)$/.test(state)}
 // The source GLB contains eight full-body clips. These recipes turn that
 // compact mobile asset into a football motion graph by layering low-weight
 // secondary clips over the most appropriate base clip. Gameplay coordinates
@@ -619,11 +621,11 @@ export class MeshyAthletes{
   // Limit the sprint's exaggerated torso pitch in world space; replacing the
   // whole upper body with a standing pose used to make every run rigid.
   const spine=this.namedNodes['mixamorig:Spine'],parent=this.jointWorld(locals,this.parents[spine]).q;
-  const source=this.jointWorld(locals,spine).q,lean=.08+.11*runWeight+.16*sprintWeight+(state==='stumble'?.13*pulse:0);
+  const source=this.jointWorld(locals,spine).q,lean=.08+.11*runWeight+.16*sprintWeight+(p.motion?.lean||0)+(state==='stumble'?.13*pulse:0);
   const controlled=quatMul(axisQuat(1,0,0,lean),axisQuat(0,1,0,Math.sin(phase*Math.PI*2)*.06));
   const desired=slerp(source,controlled,.12+.46*sprintWeight);
   locals[spine].r=quatMul([-parent[0],-parent[1],-parent[2],parent[3]],desired);
-  this.rotate(locals,'mixamorig:Spine2',0,0,1,clamp(-(p.motion?.turn||0)*.045,-.14,.14));
+  this.rotate(locals,'mixamorig:Spine2',0,0,1,clamp(p.motion?.bank||0,-.22,.22));
   if(pedal>0){
    const original=locals.map(n=>({t:[...n.t],r:[...n.r],s:[...n.s]}));
    locals[hips].r=[...this.base[hips].r];locals[hips].t=[...this.base[hips].t];locals[hips].t[1]-=.065;
@@ -652,7 +654,7 @@ export class MeshyAthletes{
 
  plantLocomotion(locals,p,state,time){
   this.footPlants??=new Map();
-  const speed=Math.hypot(p.vx||0,p.vz||0),blocking=p.engaged&&!p.fallen,valid=blocking||usesGroundedStride(state)&&!p.fallen&&speed>.6&&!['spin','hurdle','juke'].includes(p.action);
+  const speed=Math.hypot(p.vx||0,p.vz||0),blocking=p.engaged&&!p.fallen,valid=blocking||usesContinuousStride(state)&&!p.fallen&&speed>.6&&!['spin','hurdle','juke'].includes(p.action);
   if(!valid){this.footPlants.delete(p.index);return}
   const phase=blocking?(time*(2.4+Math.min(speed,1.5)*1.2)+p.index*.83)/(Math.PI*2)+.5:p.motion?.stridePhase??((p.distance||0)/2.9+meshyPlaybackSeed(p.index,p.team).offset),model=this.modelFor(p);
   let entry=this.footPlants.get(p.index);
@@ -1051,6 +1053,13 @@ export class MeshyAthletes{
   if(usesGroundedStride(entry.fromState)&&usesGroundedStride(state)){entry={...entry,fromState:state,transitioning:false}}
   if(!entry.transitioning){this.poseStates.set(p.index,{...entry,time,locals});return locals}
   const rate=meshyTransitionRate(entry.fromState,state),progress=smooth(clamp((time-entry.stateStarted)*rate/2.4,0,1)),blended=locals.map((node,index)=>({t:lerpArray(entry.fromLocals[index].t,node.t,progress),r:slerp(entry.fromLocals[index].r,node.r,progress),s:lerpArray(entry.fromLocals[index].s,node.s,progress)})),transitioning=progress<1;
+  // A full-body state crossfade freezes the last planted leg pose while
+  // the receiver keeps travelling. Blend the catch arms, retain live legs.
+  if(usesContinuousStride(entry.fromState)&&usesContinuousStride(state)&&Math.hypot(p.vx||0,p.vz||0)>.6){
+   for(const name of['Hips','LeftUpLeg','LeftLeg','LeftFoot','LeftToeBase','RightUpLeg','RightLeg','RightFoot','RightToeBase']){
+    const i=this.namedNodes['mixamorig:'+name];if(Number.isInteger(i))blended[i]=locals[i];
+   }
+  }
   this.poseStates.set(p.index,{...entry,actor:p,time,state,locals:blended,transitioning});return blended;
  }
  bonesFor(p,phase,time){
