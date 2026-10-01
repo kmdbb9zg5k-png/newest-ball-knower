@@ -1,15 +1,15 @@
-import {createLiveUnits} from './live-units.js?v=continuous-play-8';
-import {fullInitialDrive,fullSession,fullLog,fullRecord,fullOffenseEnd,fullContinue,fullCpuPlay,fullKick,fullCpuResult,fullConversion,fullKickoffResult,fullCpuKickChoice,fullPuntResult} from './five-minute.js?v=continuous-play-8';
-import {rosterRatings,rosterIdentity} from './mini-teams.js?v=continuous-play-8';
-import{RUNS,PASSES,FORMATIONS,FIELD_GOAL_PLAY,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=continuous-play-8';
-export{RUNS,PASSES}from'./playbook.js?v=continuous-play-8';
+import {createLiveUnits} from './live-units.js?v=defense-flow-10';
+import {fullInitialDrive,fullSession,fullLog,fullRecord,fullOffenseEnd,fullContinue,fullCpuPlay,fullKick,fullCpuResult,fullConversion,fullKickoffResult,fullCpuKickChoice,fullPuntResult} from './five-minute.js?v=defense-flow-10';
+import {rosterRatings,rosterIdentity} from './mini-teams.js?v=defense-flow-10';
+import{RUNS,PASSES,FORMATIONS,FIELD_GOAL_PLAY,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=defense-flow-10';
+export{RUNS,PASSES}from'./playbook.js?v=defense-flow-10';
 import{Renderer,pose,segment,hex,mul,ry}from'./renderer.js?v=football-foundation-44';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js?v=teams-1';
-import{createMeshyAthletes}from'./meshy-athlete.js?v=continuous-play-8';
+import{createMeshyAthletes}from'./meshy-athlete.js?v=defense-flow-10';
 import{makeStadium}from'./stadium.js?v=football-foundation-44';
 import{createGameplayReplayRecorder}from'./replay.js';
-import {miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=continuous-play-8';
-import {createMiniGamesUI} from './mini-games-ui.js?v=continuous-play-8';
+import {miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=defense-flow-10';
+import {createMiniGamesUI} from './mini-games-ui.js?v=defense-flow-10';
 import{QB_THROW_RELEASE,quarterbackThrowDuration}from'./quarterback.js?v=football-finish-21';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
 /** The established first-down target, in the drive's 0–100 field coordinates.
@@ -41,7 +41,7 @@ export function playerRunSpeed(player,sprinting=false){return playerTopSpeed(pla
 /** Carry pace is separate from route speed and the approved running animation. */
 export function carrierRunSpeed(player,sprinting=false){return player.role==='QB'?playerTopSpeed(player):playerRunSpeed(player,sprinting)*(player.role==='RB'?.92:1)}
 export function routeRunSpeed(player){return playerRunSpeed(player)*.86}
-export function defenderRunSpeed(defender){return playerTopSpeed(defender)*.88}
+export function defenderRunSpeed(defender){return playerTopSpeed(defender)*.98}
 export function tackleRadius(possessionSeconds,afterCatch=false){const grace=afterCatch?.18:.25;if(possessionSeconds<grace)return 0;return 1.05}
 /** Require real convergence before a tackle begins so parallel runners do not
  * magnetically snap into contact. Very close body contact still counts. */
@@ -653,9 +653,10 @@ export function start(){
 function coverage(dt){
   receiverIndices.forEach((idx,i)=>{const p=actors[idx],routeSpeed=routeRunSpeed(p),pos=travel(PASSES[selected].routes[i],elapsed*routeSpeed);move(p,p.startX+pos[0]*runDirection,p.startZ+pos[1],dt);p.routeStyle=elapsed<.48?'release':Math.abs(p.motion?.turn||0)>1.05?'cut':'stem'});
   const shell=defensiveCall.coverage,targets=receiverIndices.map(i=>actors[i]),corners=[actors[18],actors[19],actors[20]],safety=actors[21];
-  corners.forEach((d,i)=>{const t=targets[i],speed=playerTopSpeed(d)*(shell==='man'?.64:.57);d.coverageStyle=elapsed<.62+i*.05?'pedal':Math.abs(d.motion?.turn||0)>1?'break':'match';if(elapsed<.18+i*.06)return;if(shell==='quarters'){chase(d,t.x,t.z+2.25,speed,dt)}else if(shell==='zone'){const zoneX=[-15,0,15][i],near=targets.reduce((best,p)=>Math.abs(p.x-zoneX)<Math.abs(best.x-zoneX)?p:best,targets[0]);chase(d,zoneX+(near.x-zoneX)*.4,clamp(near.z+1,snapZ+5,snapZ+18),speed,dt)}else{const undercut=shell==='robber'&&i===1?-.35:1.05;chase(d,t.x+(i===1?-1.1:Math.sign(t.x||1)*-1),t.z+undercut,speed,dt)}});
-  safety.coverageStyle=elapsed<.75?'pedal':'break';if(shell==='quarters'){const deep=targets.reduce((a,b)=>a.z>b.z?a:b);chase(safety,deep.x*.28,deep.z+3.2,playerTopSpeed(safety)*.56,dt)}else if(shell==='zone'){chase(safety,targets[1].x*.25,Math.max(snapZ+14,targets[1].z+3),playerTopSpeed(safety)*.53,dt)}else if(shell==='robber'){chase(safety,targets[1].x,targets[1].z-.8,playerTopSpeed(safety)*.66,dt)}else{const deep=targets.reduce((a,b)=>a.z>b.z?a:b);chase(safety,deep.x*.35,deep.z+2.7,playerTopSpeed(safety)*.58,dt)}
-  const underneathTargets=[targets[3],targets[4],targets[1]];for(let i=15;i<18;i++){if(defensiveCall.blitzers.includes(i))continue;const d=actors[i],t=underneathTargets[i-15],zoneX=[-7,0,7][i-15],speed=playerTopSpeed(d)*(shell==='robber'?.60:.55);d.coverageStyle=elapsed<.52?'pedal':Math.abs(d.motion?.turn||0)>.92?'break':'match';chase(d,shell==='man'?clamp(t.x,-12,12):zoneX,Math.min(t.z+(shell==='robber'?-.4:1),snapZ+12),speed,dt)}
+  const landing=flight&&!flight.throwAway&&flight.t*flight.duration>.24?{x:flight.to[0],z:flight.to[2]}:null,reacting=new Set(landing?[...corners,safety].filter(p=>!p.fallen).sort((a,b)=>Math.hypot(a.x-landing.x,a.z-landing.z)-Math.hypot(b.x-landing.x,b.z-landing.z)).slice(0,2):[]);
+  corners.forEach((d,i)=>{if(reacting.has(d)){chase(d,landing.x,landing.z,playerTopSpeed(d)*.95,dt);return;}const t=targets[i],speed=playerTopSpeed(d)*(shell==='man'?.9:.88);d.coverageStyle=elapsed<.62+i*.05?'pedal':Math.abs(d.motion?.turn||0)>1?'break':'match';if(elapsed<.18+i*.06)return;if(shell==='quarters'){chase(d,t.x,t.z+2.25,speed,dt)}else if(shell==='zone'){const zoneX=[-15,0,15][i],near=targets.reduce((best,p)=>Math.abs(p.x-zoneX)<Math.abs(best.x-zoneX)?p:best,targets[0]);chase(d,zoneX+(near.x-zoneX)*.4,clamp(near.z+1,snapZ+5,110),speed,dt)}else{const undercut=shell==='robber'&&i===1?-.35:1.05;chase(d,t.x+(i===1?-1.1:Math.sign(t.x||1)*-1),t.z+undercut,speed,dt)}});
+  safety.coverageStyle=elapsed<.75?'pedal':'break';if(reacting.has(safety)){chase(safety,landing.x,landing.z,playerTopSpeed(safety)*.95,dt)}else if(shell==='quarters'){const deep=targets.reduce((a,b)=>a.z>b.z?a:b);chase(safety,deep.x,deep.z+3.2,playerTopSpeed(safety)*.9,dt)}else if(shell==='zone'){chase(safety,targets.reduce((a,b)=>a.z>b.z?a:b).x,Math.max(snapZ+14,...targets.map(p=>p.z+3)),playerTopSpeed(safety)*.9,dt)}else if(shell==='robber'){chase(safety,targets[1].x,targets[1].z-.8,playerTopSpeed(safety)*.9,dt)}else{const deep=targets.reduce((a,b)=>a.z>b.z?a:b);chase(safety,deep.x,deep.z+2.7,playerTopSpeed(safety)*.9,dt)}
+  const underneathTargets=[targets[3],targets[4],targets[1]];for(let i=15;i<18;i++){if(defensiveCall.blitzers.includes(i))continue;const d=actors[i],t=underneathTargets[i-15],zoneX=[-7,0,7][i-15],speed=playerTopSpeed(d)*(shell==='robber'?.86:.82);d.coverageStyle=elapsed<.52?'pedal':Math.abs(d.motion?.turn||0)>.92?'break':'match';chase(d,shell==='man'?clamp(t.x,-12,12):zoneX,Math.min(t.z+(shell==='robber'?-.4:1),snapZ+12),speed,dt)}
  }
  function runClock(){return elapsed+(phase==='handoff'?.28:phase==='run'&&mode==='run'?(RUNS[selected].handoff+.83):0)}
  function runFit(defender,dt){
@@ -1064,7 +1065,7 @@ function coverage(dt){
   const view=liveUnit.view();camEye=[...view.eye];camTarget=[...view.target];r.fov=view.fov||55;r.camera(camEye,camTarget);
   carrier=actors[liveUnit.state.carrier];exchange=liveUnit.state.stagedBall?{kind:'snap',ball:liveUnit.state.stagedBall}:null;updateControls();updateHud();
  }
- if(fullGame)liveUnit=createLiveUnits({config:miniConfig,getActors:()=>actors,random:rand,
+ if(fullGame)liveUnit=createLiveUnits({config:miniConfig,getActors:()=>actors,getAspect:()=>r.width/r.height,random:rand,
   inputVector(){let x=input.x,z=input.z;if(keys.has('ArrowLeft')||keys.has('a'))x=-1;if(keys.has('ArrowRight')||keys.has('d'))x=1;if(keys.has('ArrowUp')||keys.has('w'))z=1;if(keys.has('ArrowDown')||keys.has('s'))z=-1;return cameraWorldVector(x,z,camEye,camTarget)},onStatus:message,
   onSimulate(){phase='cpu';fullCpuPlay(mini,drive,miniConfig,rand);showFullState();},
   onResult(result){

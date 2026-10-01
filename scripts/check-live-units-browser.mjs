@@ -74,12 +74,12 @@ try{
  }
  await page.setViewportSize({width:844,height:390});await step(.1);
  await page.locator('#defenseCalls button').first().click();await click('unitCallDefense');
- await step(1);
+ await step(.04);
  d=await state();assert(d.camera.target[2]>d.camera.eye[2],'Defense looks upfield from offensive side');const tapPlayer=d.players.map((p,index)=>({...p,index})).find(p=>p.index>=11&&p.index!==d.unit.controlled&&p.head.visible&&p.head.x>180&&p.head.x<650&&p.head.y>100&&p.foot.y<245);
  assert(tapPlayer,'A defender is visible for tap selection');
  const beforeSwitch=(await state()).camera.eye;
  await page.mouse.click((tapPlayer.head.x+tapPlayer.foot.x)/2,(tapPlayer.head.y+tapPlayer.foot.y)/2);
- assert.equal((await state()).unit.controlled,tapPlayer.index,'Tap switches to selected defender');await step(1/60);assert(Math.hypot(...(await state()).camera.eye.map((v,i)=>v-beforeSwitch[i]))<.6,'Switch camera remains continuous');assert.equal((await state()).unit.stage,'pre','Enough time remains to position defender');
+ assert.equal((await state()).unit.controlled,tapPlayer.index,'Tap switches to selected defender');await step(1/60);assert(Math.hypot(...(await state()).camera.eye.map((v,i)=>v-beforeSwitch[i]))<.6,'Switch camera remains continuous');assert.equal((await state()).unit.stage,'snap','No artificial pre-snap countdown');
  await page.evaluate(()=>window.bkMiniScenario.unit().selectPlayer(16));
  assert(await page.locator('#unitPre').isHidden());assert(await page.locator('#unitSwitch').isHidden());assert(await page.locator('#unitSim').isHidden());
  assert.deepEqual(await page.locator('#unitPad button:visible').allTextContents(),['TACKLE','HIT STICK']);
@@ -87,14 +87,14 @@ try{
  await page.mouse.move(stick.x+stick.width*.8,stick.y+stick.height*.5);await page.mouse.down();await step(.3);await page.mouse.up();
  assert(Math.hypot((await state()).players[16].x-before.x,(await state()).players[16].z-before.z)>.1,'Defensive joystick moves selected player');
  await page.screenshot({path:out+'/live-defense-presnap.png'});
- await step(6.1);
+ await step(.35);
  for(let i=0;i<20&&(await state()).unit&&!((await state()).unit.book||['flight','kick'].includes((await state()).unit.stage));i++)await step(.25);
  d=await state();console.log('DEFENSE',d.unit.stage,d.unit.pass,d.unit.target,d.unit.controlled);
  if(d.unit.stage==='flight'){assert(d.unit.switched);assert(d.unit.controlled>=11);await click('unitPrimary');}
  for(let i=0;i<5&&(await state()).unit&&!((await state()).unit.book||(await state()).unit.stage==='kick');i++)await step(6);
  assert(await page.locator('#unitResult').isHidden());await page.screenshot({path:out+'/live-defense-result.png'});
  // Manual tackle uses the two-button field controls.
- await setSession({pending:'away',nextBall:25,conversion:null,kickoff:null,possession:'home'});await click('fullPlayDefense');await page.locator('#defenseCalls button').first().click();await click('unitCallDefense');await step(6.1);await step(.4);
+ await setSession({pending:'away',nextBall:25,conversion:null,kickoff:null,possession:'home'});await click('fullPlayDefense');await page.locator('#defenseCalls button').first().click();await click('unitCallDefense');await step(.35);await step(.4);
  await page.evaluate(()=>{const u=window.bkMiniScenario.unit().state,a=window.bkMiniScenario.actors();u.stage='run';u.carrier=6;u.controlled=16;a[6].hasBall=true;a[16].x=a[6].x+.4;a[16].z=a[6].z;a[16].ratings.tackle=99;window.bk3dTest.seed(1);});
  await click('unitPrimary');assert.equal((await state()).unit.stage,'contact');await step(.3);assert.equal((await state()).unit.stage,'contact');assert((await state()).players[6].actionT>0);assert(await page.locator('#unitResult').isHidden());await page.screenshot({path:out+'/tackle-contact.png'});
  for(let i=0;i<5&&(await state()).unit&&!((await state()).unit.book||(await state()).unit.stage==='kick');i++){await step(1);await click('unitPrimary');}
