@@ -1,4 +1,4 @@
-import {cpuFourthDown} from './cpu-offense.js?v=defense-flow-10';
+import {cpuFourthDown} from './cpu-offense.js?v=contact-camera-11';
 /** Five-minute arcade rules. Pure state transitions; no timers or DOM. */
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 export const fullInitialDrive = (mode = 'five-minute') => ({ ball: 25, down: 1, toGo: 10, clock: mode === 'two-minute' ? 120 : 300, score: mode === 'two-minute' ? 23 : 0, plays: 0 });

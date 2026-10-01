@@ -133,3 +133,8 @@ body.unit-no-movement #stick,body.playing-unit #stamina{display:none!important;}
 /* Keep the field clear of tutorial copy and transient coaching banners. */
 #unitTop,#instruction,#message,#kickHelp,#kickAimPad>span,#adjustHelp,#controlHelp,
 #scramble>small,#catchChoices small{display:none!important;}
+
+/* Punt returns need one reachable action, not an empty kicking meter panel. */
+#unitKick.return-only{width:auto;min-width:0;padding:0;border:0;background:none;box-shadow:none;}
+#unitKick.return-only #kickGuide{display:none;}
+#unitFairCatch{min-height:48px;min-width:120px;}

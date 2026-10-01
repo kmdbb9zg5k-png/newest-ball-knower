@@ -22,3 +22,10 @@ export function actionFrame(points,aspect=2){
  }
  return {eye,target,fov};
 }
+
+/** Clear the end-zone tunnel and the rising front seating rows without a top-down shot. */
+export function safeFieldCamera(eye,target){
+ const x=clamp(eye[0],-28,28),z=clamp(eye[2],-14,134);
+ const outside=Math.max(0,-z,z-120),clearance=outside>0?4.6+outside*.5:0;
+ return {eye:[x,Math.max(eye[1],clearance),z],target:[...target]};
+}
