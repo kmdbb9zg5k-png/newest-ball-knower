@@ -61,9 +61,8 @@ export default function CombineExperience({ players, context, onClose }: Props) 
       if (gone) return;
       raf = requestAnimationFrame(frame);
       const delta = (now - prior) / 1000; prior = now;
-      // A suspended or badly stalled frame pauses the drill instead of granting
-      // a free instant finish or letting the runner move during a hidden tab.
-      if (delta > .5 && ['set', 'ready', 'running'].includes(run.current.phase)) pause();
+      // Cap foreground stalls below instead of unexpectedly pausing the
+      // countdown. Hidden tabs and focus loss still pause explicitly.
       if (stopped.current || pickerOpen.current || document.hidden) { accumulator = 0; return; }
       accumulator += Math.min(delta, .1);
       while (accumulator >= 1 / 120) { stepDash(run.current, 1 / 120); accumulator -= 1 / 120; }
@@ -75,7 +74,9 @@ export default function CombineExperience({ players, context, onClose }: Props) 
     import('./scene.js').then(({ createCombineScene }) => {
       if (gone || !host.current) return;
       scene.current = createCombineScene(host.current, run.current.athlete, () => { pause(); setError('Graphics were interrupted. Reload the Combine to continue.'); });
-      setReady(true); prior = performance.now(); raf = requestAnimationFrame(frame);
+      // Warm up the first rendered frame before START becomes available.
+      scene.current.draw(run.current, 0);
+      setReady(true); prior = performance.now(); lastDraw = prior; raf = requestAnimationFrame(frame);
     }).catch(() => { if (!gone) setError('This device could not start the 3D Combine. Try reopening it in Safari or Chrome.'); });
     const hidden = () => { if (document.hidden && !['idle', 'finished', 'false-start'].includes(run.current.phase)) pause(); };
     const blur = () => { if (['set', 'ready', 'running'].includes(run.current.phase)) pause(); };
