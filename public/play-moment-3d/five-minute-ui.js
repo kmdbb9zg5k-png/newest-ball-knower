@@ -1,5 +1,5 @@
-import { miniClock } from './mini-games.js?v=contact-polish-4';
-import { fieldGoalDistance } from './five-minute.js?v=contact-polish-4';
+import { miniClock } from './mini-games.js?v=conversion-book-5';
+import { fieldGoalDistance } from './five-minute.js?v=conversion-book-5';
 const $ = id => document.getElementById(id);
 const spot = ball => ball < 50 ? `OWN ${ball}` : ball === 50 ? 'MIDFIELD' : `OPP ${100 - ball}`;
 const node = (tag, text, className) => { const el = document.createElement(tag); if (text != null) el.textContent = text; if (className) el.className = className; return el; };
@@ -40,7 +40,7 @@ export function createFullGameUI(config, actions) {
   return {
     reset() { summary.replaceChildren(); panel.hidden = true; logCount = -1; wasVisible = false; },
     update(s, d, phase, paused, ended, motion) {
-      toolbar.hidden = ended || paused || !['pre','dead'].includes(phase);
+      toolbar.hidden = Boolean(s.conversion) || ended || paused || !['pre','dead'].includes(phase);
       $('miniTimeout').textContent = `TIMEOUT · ${s.timeouts}`; $('miniTimeout').disabled = !s.running || s.timeouts <= 0 || !s.started;
       $('miniSpike').disabled = phase !== 'pre' || motion;
       toolbar.querySelector('span').textContent = `${config.level.name.toUpperCase()} · PLAY :${String(Math.ceil(s.playClock)).padStart(2,'0')}`;
@@ -51,6 +51,7 @@ export function createFullGameUI(config, actions) {
       document.querySelector('.club.away').classList.toggle('has-possession',s.possession === 'away');
       $('watchReplay').hidden = true; document.querySelector('#paused .running-setting').hidden = ended;
       const distance = fieldGoalDistance(d.ball);
+      kicks.hidden=Boolean(s.conversion);
       $('fullFieldGoal').textContent = `KICK FG · ${distance} YD`;
       $('fullFieldGoal').disabled = distance > 65 || phase !== 'pre' || paused || ended || motion;
       $('fullPunt').disabled = Boolean(s.overtime) || phase !== 'pre' || paused || ended || motion;

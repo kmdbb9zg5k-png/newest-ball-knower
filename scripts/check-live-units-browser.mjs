@@ -25,7 +25,14 @@ try{
  await finish('TOUCHDOWN',100);d=await state();assert.equal(d.drive.score,6);assert.equal(d.mini.conversion,'home');assert(!d.ended);
  assert.equal(d.mini.log.filter(e=>e.reason==='TOUCHDOWN').length,1,'One touchdown entry');
  assert.match(await page.locator('#down').innerText(),/CONVERSION/);
- await click('fullXP');d=await state();assert.equal(d.unit.kind,'extra-point');
+ assert(d.playbook.open);assert.equal(d.playbook.formation,'special-teams');
+ assert.deepEqual(await page.locator('#playbookGrid .play-card b').allTextContents(),['FIELD GOAL','FAKE FIELD GOAL PASS','FAKE FIELD GOAL RUN']);
+ await page.setViewportSize({width:667,height:375});await step(.1);
+ assert(await page.locator('#playbookGrid').evaluate(el=>el.scrollWidth<=el.clientWidth));
+ assert(await page.locator('#breakHuddle').evaluate(el=>{const r=el.getBoundingClientRect();return r.width>=44&&r.height>=44&&r.right<=innerWidth&&r.bottom<=innerHeight}));
+ await page.screenshot({path:out+'/conversion-playbook-small.png'});
+ await page.setViewportSize({width:844,height:390});await step(.1);
+ await click('call-kick-0');await click('breakHuddle');d=await state();assert.equal(d.unit.kind,'extra-point');
  assert(d.camera.target[2]>d.camera.eye[2],'Extra point faces uprights');
  assert.equal(d.players[16].team,0,'Kicker wears home uniform');
  assert(d.players.slice(11).every(p=>p.z>85&&p.z<96),'Actual goal-kick formation');
@@ -107,6 +114,27 @@ try{
  d=await state();assert.equal(d.drive.clock,120);assert.equal(d.drive.score,23);assert.equal(d.mini.awayScore,27);
  await setDrive({clock:49});await finish('TOUCHDOWN',100);assert(!(await state()).ended);assert.equal((await state()).mini.conversion,'home');
  await click('fullTwo');assert.equal((await state()).drive.ball,98);await finish('TOUCHDOWN',100);d=await state();assert.equal(d.drive.score,31);assert.equal(d.drive.clock,49);assert.equal(d.mini.kickoff,'home');
+ // Both special-team fakes are playable and score as two-point attempts.
+ for(const fake of ['pass','run']){
+  await setSession({possession:'home',pending:null,conversion:null,kickoff:null,result:null});await setDrive({ball:80,clock:49,down:1,toGo:10});await page.evaluate(()=>window.bkMiniScenario.setup());
+  await finish('TOUCHDOWN',100);const beforeTry=(await state()).drive.score;
+  await page.locator('#playbookGrid .play-card[data-mode='+fake+']').click();await click('breakHuddle');
+  d=await state();assert.equal(d.playId,'fake-fg-'+fake);assert.equal(d.drive.ball,85);assert.equal(d.formation,'special-teams');assert.equal(d.players[5].action,'hold-kick');
+  await page.locator('#snap').dispatchEvent('pointerdown',{pointerId:3,pointerType:'touch'});await step(.52);
+  d=await state();assert.equal(d.phase,fake);assert(d.players[5].hasBall);assert.equal(d.drive.clock,49);
+  if(fake==='pass'){
+   await page.evaluate(()=>window.bk3dTest.throwTo(0));await step(.5);assert(['flight','catch','run','cpu'].includes((await state()).phase),'Holder can release a pass');
+   if((await state()).mini.conversion)await finish('INCOMPLETE',85,true);
+   assert.equal((await state()).drive.score,beforeTry,'Failed fake earns no points');
+  }else{
+   const before=(await state()).players[5];await page.keyboard.down('ArrowRight');await step(.2);await page.keyboard.up('ArrowRight');assert(Math.hypot((await state()).players[5].x-before.x,(await state()).players[5].z-before.z)>.1,'Holder can be moved manually');
+   await finish('TOUCHDOWN',100);assert.equal((await state()).drive.score,beforeTry+2,'Successful fake earns two, never six');
+  }
+  assert.equal((await state()).drive.clock,49);assert.equal((await state()).mini.kickoff,'home');
+ }
+ // Regular offensive formations remain selectable for a standard two-point try.
+ await setSession({possession:'home',pending:null,conversion:null,kickoff:null,result:null});await setDrive({ball:80,clock:49,down:1,toGo:10});await page.evaluate(()=>window.bkMiniScenario.setup());await finish('TOUCHDOWN',100);
+ await page.locator('#formationTabs [data-formation=shotgun]').click();await click('breakHuddle');assert.equal((await state()).drive.ball,98);assert.equal((await state()).formation,'shotgun');await finish('INCOMPLETE',98,true);
  // Small landscape has reachable controls and horizontally contained play cards.
  await setSession({kickoff:'away',pending:'home'});await click('fullNext');await click('unitTouchback');await click('unitContinue');
  await setSession({pending:'away',nextBall:25,conversion:null,kickoff:null,possession:'home'});await click('fullPlayDefense');

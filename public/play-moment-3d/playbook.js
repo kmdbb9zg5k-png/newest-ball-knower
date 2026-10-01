@@ -1,13 +1,14 @@
 // Formation coordinates are shared by the menu diagrams and live lineups.
 // Offensive actor order: five OL, QB, HB, X, slot/FB, Z, TE.
 export const FORMATIONS = Object.freeze([
+ {id:'special-teams',name:'SPECIAL TEAMS',personnel:'FIELD GOAL UNIT',positions:[[0,-7],[-1.8,-9.5],[-5.6,-.4],[-3.8,-.5],[5.6,-.4],[3.8,-.5]]},
  {id:'shotgun',name:'SHOTGUN',personnel:'11 PERSONNEL',positions:[[0,-5],[-3,-6],[-17,0],[-12,-.6],[17,0],[6.5,-.4]]},
  {id:'pistol',name:'PISTOL',personnel:'11 PERSONNEL',positions:[[0,-3.6],[0,-7.5],[-21,0],[-11,-.8],[21,0],[6.5,-.4]]},
  {id:'singleback',name:'SINGLEBACK',personnel:'11 PERSONNEL',positions:[[0,-1.6],[0,-6.8],[-21,0],[-10,-.8],[21,0],[6.5,-.4]]},
  {id:'iform',name:'I-FORMATION',personnel:'21 PERSONNEL',positions:[[0,-1.6],[0,-7.5],[-21,0],[0,-4.4],[21,0],[6.5,-.4]],fullback:true},
  {id:'wildcat',name:'WILDCAT',personnel:'DIRECT SNAP',positions:[[20,-1],[0,-5.5],[-21,0],[-9,-1],[21,0],[6.5,-.4]],snapReceiver:6},
 ].map(f=>Object.freeze({...f,positions:Object.freeze(f.positions.map(Object.freeze))})));
-export function formationForPlay(play){return FORMATIONS.find(f=>f.id===play.formation)||FORMATIONS[0]}
+export function formationForPlay(play){return FORMATIONS.find(f=>f.id===play.formation)||FORMATIONS.find(f=>f.id==='shotgun')}
 const BASE_RUNS=Object.freeze([
  Object.freeze({id:'zone',name:'INSIDE ZONE',path:Object.freeze([[0,0],[-1.2,3],[-3.2,8],[0,17],[2,28]]),handoff:.58,mesh:Object.freeze([-.5,-3.1]),pathSpeed:7,pathLead:3.6,guideSeconds:1.55,steering:.7,speed:.98,acceleration:1.02,blockLeverage:.18,icon:'M24 23L24 13L17 5M17 5L17 11M17 5L23 5'}),
  Object.freeze({id:'stretch',name:'HB STRETCH',path:Object.freeze([[0,0],[5.5,1],[11.5,4],[16,10],[18,25]]),handoff:.5,mesh:Object.freeze([2.8,-3.8]),pathSpeed:7.7,pathLead:4.4,guideSeconds:1.8,steering:.78,speed:1.03,acceleration:1.06,blockLeverage:.34,icon:'M12 23L18 14L36 6M36 6L29 6M36 6L34 13'}),
@@ -48,6 +49,7 @@ export const RUNS=Object.freeze([
  run('wild-sweep','WILDCAT SWEEP','wildcat',1,{direct:true,path:[[0,-5.5],[6,-3],[12,1],[17,10],[18,25]]}),
  run('wild-counter','WILDCAT COUNTER','wildcat',2,{direct:true}),
  run('wild-dive','WILDCAT DIVE','wildcat',0,{direct:true,path:dive}),
+ run('fake-fg-run','FAKE FIELD GOAL RUN','special-teams',1,{fake:'run',direct:true,path:[[0,-7],[4,-6],[8,-2],[8,8],[7,23]],guideSeconds:1.3}),
 ]);
 export const PASSES=Object.freeze([
  ...BASE_PASSES.map(p=>Object.freeze({...p,formation:'shotgun'})),
@@ -61,8 +63,11 @@ export const PASSES=Object.freeze([
  pass('single-levels','DRIVE','singleback',levels),
  pass('i-cross','DEEP CROSS','iform',cross),
  pass('i-out','TE OUT','iform',boot),
+ Object.freeze({...pass('fake-fg-pass','FAKE FIELD GOAL PASS','special-teams',[[[0,0],[-2,3],[-4,17]],[[0,0],[0,3],[9,12]],[[0,0],[2,3],[4,17]],[[0,0],[0,3],[-9,12]],[[0,0],[-5,1],[-8,6]]]),fake:'pass'}),
 ]);
+export const FIELD_GOAL_PLAY=Object.freeze({id:'field-goal',name:'FIELD GOAL',formation:'special-teams',routes:[[[0,0],[0,25]]]});
 export function matchingPlays(formation='all',filter='all'){
- return [['run',RUNS],['pass',PASSES]].flatMap(([mode,plays])=>plays.map((play,index)=>({mode,index,play}))).filter(({mode,play})=>(formation==='all'||play.formation===formation)&&(filter==='all'||filter===mode||(filter==='read'&&play.option)));
+ if(formation==='special-teams')return [{mode:'kick',index:0,play:FIELD_GOAL_PLAY},{mode:'pass',index:PASSES.findIndex(p=>p.fake==='pass'),play:PASSES.find(p=>p.fake==='pass')},{mode:'run',index:RUNS.findIndex(p=>p.fake==='run'),play:RUNS.find(p=>p.fake==='run')}].filter(p=>filter==='all'||filter===p.mode);
+ return [['run',RUNS],['pass',PASSES]].flatMap(([mode,plays])=>plays.map((play,index)=>({mode,index,play}))).filter(({mode,play})=>(formation==='all'?play.formation!=='special-teams':play.formation===formation)&&(filter==='all'||filter===mode||(filter==='read'&&play.option)));
 }
 export function blockingScheme(index){return RUNS[index]?.scheme??0}
