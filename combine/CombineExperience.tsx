@@ -82,7 +82,7 @@ export default function CombineExperience({ players, context, onClose }: Props) 
     document.addEventListener('visibilitychange', hidden); window.addEventListener('blur', blur);
     return () => { gone = true; cancelAnimationFrame(raf); document.removeEventListener('visibilitychange', hidden); window.removeEventListener('blur', blur); scene.current?.dispose(); scene.current = null; };
   }, []);
-  useEffect(()=>{if(!ready||picker||paused||showResults)return;if(phase==='idle')action.current?.focus();else if(phase==='running')gameRoot.current?.focus();},[phase,ready,picker,paused,showResults]);
+  useEffect(()=>{if(!ready||picker||paused||showResults)return;if(phase==='idle')action.current?.focus();else if(phase==='running'||phase==='set')gameRoot.current?.focus();},[phase,ready,picker,paused,showResults]);
   useEffect(() => { if (showResults) resultHeading.current?.focus(); }, [showResults]);
   const openPicker = () => { pickerOpen.current = true; setPicker(true); };
   const closePicker = () => { pickerOpen.current = false; setPicker(false); };
