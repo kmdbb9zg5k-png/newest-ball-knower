@@ -21,11 +21,35 @@ function shapedSegment(parent, material, radius, length, profile) {
   const points = profile.map(([y, r]) => new T.Vector2(r * radius, (y - .5) * length));
   return mesh(new T.LatheGeometry(points, 20), material, parent);
 }
+// Small deterministic material maps add fabric/skin detail without downloads.
+function athleteSurface(color, seed, fabric = false) {
+  const material = mat(color, fabric ? .94 : .72);
+  const canvas = document.createElement('canvas'); canvas.width = canvas.height = 128;
+  const ctx = canvas.getContext('2d');ctx.fillStyle = '#888';ctx.fillRect(0,0,128,128);
+  let state = seed >>> 0;
+  for(let y=0;y<128;y++)for(let x=0;x<128;x++){
+    state=(Math.imul(state,1664525)+1013904223)>>>0;
+    const tone= fabric ? 115+((x+y)%3)*10+(state%12) : 116+(state%25);
+    ctx.fillStyle=`rgb(${tone},${tone},${tone})`;ctx.fillRect(x,y,1,1);
+  }
+  const map = new T.CanvasTexture(canvas);map.wrapS=map.wrapT=T.RepeatWrapping;
+  map.repeat.set(fabric ? 3 : 2,fabric ? 5 : 2);
+  material.bumpMap=map;material.bumpScale=fabric ? .0012 : .0006;
+  return material;
+}
+function torsoGeometry() {
+  // Elliptical cross-sections: fitted waist, rib cage, shoulders and neckline.
+  const sections=[[-.26,.151,.096],[-.22,.155,.099],[-.12,.164,.108],[0,.195,.119],[.12,.227,.117],[.20,.226,.102],[.255,.087,.067]];
+  const positions=[],uv=[],indices=[],sides=32;
+  sections.forEach(([y,rx,rz],r)=>{for(let j=0;j<=sides;j++){const a=j/sides*Math.PI*2;positions.push(Math.sin(a)*rx,y,Math.cos(a)*rz);uv.push(j/sides,r/(sections.length-1));if(r<sections.length-1&&j<sides){const k=r*(sides+1)+j;indices.push(k,k+1,k+sides+1,k+1,k+sides+2,k+sides+1);}}});
+  const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(positions,3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setIndex(indices);g.computeVertexNormals();return g;
+}
 // Continuous ring meshes keep elbows and knees joined through the full stride.
 function flexibleLimb(parent, material, radii) {
-  const rings=17, sides=12, positions=new Float32Array(rings*sides*3), indices=[];
+  const rings=21, sides=16, positions=new Float32Array(rings*sides*3), indices=[],uv=[];
+  for(let r=0;r<rings;r++)for(let j=0;j<sides;j++)uv.push(j/sides,r/(rings-1));
   for(let r=0;r<rings-1;r++)for(let j=0;j<sides;j++){const a=r*sides+j,b=r*sides+(j+1)%sides;indices.push(a,a+sides,b,b,a+sides,b+sides);}
-  const g=new T.BufferGeometry();g.setAttribute('position',new T.BufferAttribute(positions,3));g.setIndex(indices);
+  const g=new T.BufferGeometry();g.setAttribute('position',new T.BufferAttribute(positions,3));g.setIndex(indices);g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));
   const m=mesh(g,material,parent);m.frustumCulled=false;
   return (a,b,c)=>{
     const d1=b.clone().sub(a).normalize(),d2=c.clone().sub(b).normalize();
@@ -45,49 +69,60 @@ function flexibleLimb(parent, material, radii) {
 // over the joints rather than visible mechanical pivots.
 function athlete(parent, seed, staff = false) {
   const root = new T.Group(); parent.add(root);
-  const skin = mat(['#955f43', '#70462f', '#bc8967', '#54392c'][seed % 4], .88);
-  const shirt = mat(staff ? '#344552' : '#15262d'), shorts = mat(staff ? '#232d35' : '#183d32');
+  const skin = staff ? mat(['#955f43', '#70462f', '#bc8967', '#54392c'][seed % 4]) : athleteSurface(['#955f43', '#70462f', '#bc8967', '#54392c'][seed % 4],seed);
+  const shirt = staff ? mat('#344552') : athleteSurface('#1b292e',seed+1,true), shorts = staff ? mat('#232d35') : athleteSurface('#182f2b',seed+2,true);
+  const trim=mat('#9acb65'),seam=mat('#435a54'),rubber=mat('#0c141a',.93);
   const shoes = mat('#152027', .64), sock = mat('#e7e5da'), hair = mat('#171717');
-  const torso = shapedSegment(root, shirt, .245, .52, [[0,.69],[.10,.77],[.3,.81],[.60,1.02],[.82,1.09],[.94,.94],[1,.45]]); torso.scale.z = .67;
-  const pelvis = ellipsoid(root, shorts, [.185,.135,.13]);
+  const torso = mesh(torsoGeometry(),shirt,root);
+  const pelvis = shapedSegment(root,shorts,.16,.18,[[0,0],[.03,.70],[.18,1],[.65,1.04],[1,.94]]);pelvis.scale.z=.66;
+  const waistband=shapedSegment(root,rubber,.158,.035,[[0,1],[1,1]]);waistband.scale.z=.66;
+  const collar=mesh(new T.TorusGeometry(.073,.009,6,24),rubber,torso,0,.253,0);collar.rotation.x=Math.PI/2;collar.scale.y=.84;
+  // Seams follow the tapered back, with a small combine identification print.
+  for(const side of [-1,1]){const curve=new T.CatmullRomCurve3([v(side*.12,-.23,-.062),v(side*.145,-.08,-.074),v(side*.18,.10,-.072),v(side*.19,.19,-.06)]);mesh(new T.TubeGeometry(curve,10,.0025,4,false),seam,torso);}
   const neck = mesh(new T.CylinderGeometry(.058,.073,.12,16),skin,root);
   const head = new T.Group(); root.add(head);
-  ellipsoid(head, skin, [.105,.142,.108]);
-  ellipsoid(head, skin, [.082,.065,.072],[0,-.09,.015]);
-  ellipsoid(head, skin, [.023,.021,.035],[0,-.015,.105]);
+  ellipsoid(head, skin, [.092,.127,.095]);
+  ellipsoid(head, skin, [.071,.058,.071],[0,-.077,.020]);
+  ellipsoid(head, skin, [.050,.029,.033],[0,-.108,.049]);
+  ellipsoid(head, skin, [.018,.032,.027],[0,-.012,.092]);
   for(const side of [-1,1]) {
-    ellipsoid(head, skin, [.022,.043,.025],[side*.104,-.005,0]);
-    ellipsoid(head, hair, [.027,.006,.006],[side*.046,.036,.097]);
-    ellipsoid(head, mat('#ece7da'), [.019,.009,.008],[side*.043,.018,.100]);
-    ellipsoid(head, hair, [.008,.008,.006],[side*.043,.018,.106]);
+    ellipsoid(head, skin, [.016,.030,.019],[side*.091,-.007,0]);
+    ellipsoid(head, hair, [.027,.006,.006],[side*.037,.035,.085]);
+    ellipsoid(head, mat('#ece7da'), [.016,.006,.005],[side*.036,.020,.088]);
+    ellipsoid(head, hair, [.006,.006,.004],[side*.036,.020,.092]);
   }
-  ellipsoid(head,hair,[.106,.068,.107],[0,.105,-.004]);
+  ellipsoid(head,mat('#674139'),[.031,.004,.006],[0,-.068,.091]);
+  ellipsoid(head,hair,[.094,.037,.093],[0,.107,-.008]);
   // Instanced short curls retain a natural silhouette at phone resolution.
-  const curls = new T.InstancedMesh(new T.SphereGeometry(.018,7,5),hair,58), dummy = new T.Object3D();
-  for(let i=0;i<58;i++){const a=i*2.39996,r=.095*Math.sqrt(i/58);dummy.position.set(Math.cos(a)*r,.142-.035*(r/.095)**2,Math.sin(a)*r);dummy.scale.set(1,1.15+(i%4)*.15,1);dummy.updateMatrix();curls.setMatrixAt(i,dummy.matrix);}head.add(curls);
-  const number = mesh(new T.PlaneGeometry(.25,.12),label(staff?'BK':String(10+seed%80),'#aab3b2'),torso,0,.07,-.166);number.rotation.y=Math.PI;
+  const curls = new T.InstancedMesh(new T.SphereGeometry(.010,6,4),hair,82), dummy = new T.Object3D();
+  for(let i=0;i<82;i++){const a=i*2.39996,r=.086*Math.sqrt(i/82);dummy.position.set(Math.cos(a)*r,.130-.032*(r/.086)**2,Math.sin(a)*r);dummy.scale.set(1,1.15+(i%4)*.15,1);dummy.updateMatrix();curls.setMatrixAt(i,dummy.matrix);}head.add(curls);
+  const number = mesh(new T.PlaneGeometry(.17,.085),label(staff?'BK':String(10+seed%80),'#c6d3cc'),torso,0,.065,-.121);number.rotation.y=Math.PI;
   const limbs = [-1,1].map(side=>{
-    const leg = shapedSegment(root,shorts,.115,.30,[[0,.92],[.15,1],[.7,1.03],[1,.8]]);
+    const leg = shapedSegment(root,shorts,.109,.26,[[0,.90],[.07,.94],[.38,1.03],[.8,1.06],[1,.92]]);
+    const hem=shapedSegment(leg,seam,.109,.012,[[0,.91],[1,.91]]);hem.position.y=-.123;
+    const stripe=box(leg,[.006,.20,.013],trim,[side*.111,0,0]);
     const thigh = shapedSegment(root,skin,.102,.48,[[0,.65],[.15,.79],[.5,1.03],[.8,.9],[1,.7]]);
     const knee = ellipsoid(root,skin,[.071,.073,.078]);
     const calf = shapedSegment(root,skin,.075,.46,[[0,.52],[.18,.57],[.5,.9],[.76,1],[1,.72]]);
     const ankle = mesh(new T.CylinderGeometry(.043,.04,.12,16),sock,root);
-    const foot = new T.Group(); root.add(foot);ellipsoid(foot,shoes,[.063,.044,.143],[0,.014,.041]);
+    const foot = new T.Group(); root.add(foot);ellipsoid(foot,shoes,[.055,.041,.137],[0,.014,.043]);
+    ellipsoid(foot,rubber,[.049,.037,.058],[0,.013,-.044]);
+    ellipsoid(foot,shirt,[.041,.015,.057],[0,.046,.034]);
     for(const x of [-.034,.034])for(const z of [-.04,.08])mesh(new T.CylinderGeometry(.013,.01,.016,6),shoes,foot,x,-.02,z);
-    const sleeve = shapedSegment(root,shirt,.089,.20,[[0,.93],[.3,1],[.8,1],[1,.8]]);
+    const sleeve = shapedSegment(root,shirt,.075,.19,[[0,.87],[.15,.93],[.65,1.04],[1,.95]]);
     const upper = shapedSegment(root,skin,.067,.29,[[0,.63],[.3,.96],[.6,1],[1,.7]]);
     const elbow = ellipsoid(root,skin,[.047,.05,.048]);
     const lower = shapedSegment(root,skin,.052,.28,[[0,.52],[.2,.63],[.7,1],[1,.8]]);
     const hand = new T.Group();root.add(hand);
-    ellipsoid(hand,skin,[.039,.051,.025]);
-    for(let i=0;i<4;i++)ellipsoid(hand,skin,[.008,.028,.010],[(i-1.5)*.018,-.04,.009]);
+    ellipsoid(hand,skin,[.036,.046,.024]);
+    for(let i=0;i<4;i++)ellipsoid(hand,skin,[.007,.025+(i===1?.006:0),.009],[(i-1.5)*.016,-.039,.008]);
     ellipsoid(hand,skin,[.014,.03,.016],[side*.035,-.012,.014]);
-    const legSkin=flexibleLimb(root,skin,[.086,.112,.095,.067,.078,.069,.037]);
-    const armSkin=flexibleLimb(root,skin,[.073,.078,.063,.045,.058,.043,.030]);
+    const legSkin=flexibleLimb(root,skin,[.090,.102,.088,.057,.073,.056,.033]);
+    const armSkin=flexibleLimb(root,skin,[.069,.072,.058,.040,.051,.040,.028]);
     for(const part of [thigh,knee,calf,upper,elbow,lower])part.visible=false;
-    ellipsoid(foot,sock,[.064,.014,.139],[0,-.018,.042]);
-    for(let i=0;i<4;i++)box(foot,[.075,.006,.008],sock,[0,.052,.014+i*.022]);
-    box(foot,[.012,.024,.11],mat('#afee5a'),[side*.06,.024,.045]);
+    ellipsoid(foot,sock,[.055,.011,.138],[0,-.018,.042]);
+    for(let i=0;i<4;i++)box(foot,[.061,.004,.005],sock,[0,.052,.014+i*.022]);
+    box(foot,[.012,.024,.11],mat('#afee5a'),[side*.052,.024,.045]);
     return {legSkin,armSkin,side,leg,thigh,knee,calf,ankle,foot,sleeve,upper,elbow,lower,hand};
   });
   root.traverse(o=>{if(o.isMesh){o.castShadow=!staff;o.receiveShadow=true;}});
@@ -99,7 +134,7 @@ function athlete(parent, seed, staff = false) {
     const hip=v(0,.79,-.31).lerp(v(0,(staff?.99:.91)+Math.abs(Math.sin(phase))*.042*rate,0),eased);
     const drive=(1-Math.min(1,Math.max(0,distance)/24))*.28*rate;
     const shoulder=v(0,.61,.18).lerp(hip.clone().add(v(0,.49-drive*.5,.065+drive)),eased);
-    connect(torso,hip,shoulder,.52);pelvis.position.copy(hip).add(v(0,-.035,0));
+    connect(torso,hip,shoulder,.52);pelvis.position.copy(hip).add(v(0,-.015,0));pelvis.quaternion.copy(torso.quaternion);waistband.position.copy(hip).lerp(shoulder,.025);waistband.quaternion.copy(torso.quaternion);
     neck.position.copy(shoulder).add(v(0,.065,.10-.085*eased));
     head.position.copy(shoulder).add(v(0,.18+.04*eased,.16-.135*eased));head.rotation.x=.30-.34*eased;
     limbs.forEach(l=>{
@@ -114,7 +149,7 @@ function athlete(parent, seed, staff = false) {
         foot=v(side*.14,.048,side===1?-.80:-.25).lerp(foot,eased);
       }
       const knee=joint(origin,foot,.49,.49,v(0,0,1));
-      l.legSkin(origin,knee,foot);connect(l.thigh,knee,origin,.48);connect(l.leg,origin.clone().lerp(knee,.56),origin,.30);l.knee.position.copy(knee);
+      l.legSkin(origin,knee,foot);connect(l.thigh,knee,origin,.48);connect(l.leg,origin.clone().lerp(knee,.50),origin,.26);l.knee.position.copy(knee);
       connect(l.calf,foot,knee,.46);l.ankle.position.copy(foot).add(v(0,.035,0));
       l.foot.position.copy(foot);l.foot.rotation.x=stance?-.18:Math.max(0,Math.sin(stride))*.3*rate;
       const armStart=shoulder.clone().add(v(side*.218,-.045,0));
