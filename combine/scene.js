@@ -1,5 +1,6 @@
 import * as T from 'three';
 import { FINISH, YARD } from './dash.js';
+import { loadCombineRunner } from './meshy-runner.js';
 
 const v = (x, y, z) => new T.Vector3(x, y, z);
 const up = v(0, 1, 0);
@@ -163,7 +164,8 @@ function athlete(parent, seed, staff = false) {
   pose(0,0,!staff);return {root,pose};
 }
 
-export function createCombineScene(host, player, onLost) {
+export async function createCombineScene(host, player, onLost) {
+  const detailedRunner=await loadCombineRunner(player);
   const renderer=new T.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.22;
   host.appendChild(renderer.domElement);renderer.domElement.setAttribute('aria-label','Indoor 40-yard dash track');
@@ -207,7 +209,8 @@ export function createCombineScene(host, player, onLost) {
   // Small standing groups and tables stay outside the athlete's lane.
   for(let i=0;i<7;i++){const person=athlete(scene,21+i,true);person.root.position.set((i%2?1:-1)*(5.2+i%3),0,3+i*5);person.root.rotation.y=i%2?-Math.PI/2:Math.PI/2;person.root.scale.setScalar(.96+(i%3)*.025);}
   for(const z of [6,20,37]){box(scene,[1.5,.09,.64],metal,[6,.82,z]);for(const x of [5.4,6.6])for(const dz of [-.22,.22])box(scene,[.05,.78,.05],metal,[x,.39,z+dz]);box(scene,[.44,.3,.045],mat('#111b21'),[6,1.02,z]);}
-  let runner=athlete(scene,player.seed),visualZ=0,previousPhase='idle',settle=0;
+  const runner=detailedRunner;scene.add(runner.root);host.dataset.character='meshy-sentinel';
+  let visualZ=0,previousPhase='idle',settle=0;
   const target=v(),look=v();
   const resize=()=>{const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;camera.aspect=w/h;camera.fov=w<h?53:49;camera.updateProjectionMatrix();renderer.setSize(w,h,false);};
   const observer=new ResizeObserver(resize);observer.observe(host);resize();
@@ -225,5 +228,5 @@ export function createCombineScene(host, player, onLost) {
     renderer.render(scene,camera);previousPhase=state.phase;
   }
   camera.position.set(-1,1.65,-3.45);
-  return {draw,setAthlete(next){scene.remove(runner.root);disposeObject(runner.root);runner=athlete(scene,next.seed);visualZ=0;settle=0;previousPhase='reset';},dispose(){observer.disconnect();renderer.domElement.removeEventListener('webglcontextlost',lost);disposeObject(scene);renderer.dispose();renderer.domElement.remove();}};
+  return {draw,setAthlete(next){runner.setAthlete(next);visualZ=0;settle=0;previousPhase='reset';},dispose(){runner.dispose();delete host.dataset.character;observer.disconnect();renderer.domElement.removeEventListener('webglcontextlost',lost);disposeObject(scene);renderer.dispose();renderer.domElement.remove();}};
 }

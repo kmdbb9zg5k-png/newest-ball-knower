@@ -71,9 +71,11 @@ export default function CombineExperience({ players, context, onClose }: Props) 
       if (now - lastDraw >= 1000 / 60 - .5) { scene.current?.draw(run.current, Math.min((now - lastDraw) / 1000, .05)); lastDraw = now; }
       if (now - lastHud > (run.current.phase === 'running' ? 16 : 50)) { const s = run.current; setView({ ...s, splits: [...s.splits] }); lastHud = now; }
     };
-    import('./scene.js').then(({ createCombineScene }) => {
+    import('./scene.js').then(async ({ createCombineScene }) => {
       if (gone || !host.current) return;
-      scene.current = createCombineScene(host.current, run.current.athlete, () => { pause(); setError('Graphics were interrupted. Reload the Combine to continue.'); });
+      const loadedScene = await createCombineScene(host.current, run.current.athlete, () => { pause(); setError('Graphics were interrupted. Reload the Combine to continue.'); });
+      if(gone){loadedScene.dispose();return;}
+      scene.current=loadedScene;
       // Warm up the first rendered frame before START becomes available.
       scene.current.draw(run.current, 0);
       setReady(true); prior = performance.now(); lastDraw = prior; raf = requestAnimationFrame(frame);
