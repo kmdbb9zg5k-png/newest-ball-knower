@@ -17,6 +17,17 @@ try{
  const bounds=async selectors=>{for(const selector of selectors){const b=await page.locator(selector).boundingBox(),vp=page.viewportSize();assert(b&&b.x>=0&&b.y>=0&&b.x+b.width<=vp.width+1&&b.y+b.height<=vp.height+1,selector+' clipped');}};
  await page.goto('http://127.0.0.1:3057/combine.html');await page.waitForFunction(()=>!document.querySelector('.combine-action')?.disabled);
 
+ assert.equal(await page.locator('.combine-start-note').count(),0);
+ const originalName=await page.locator('.combine-athlete-name').innerText();
+ await page.getByRole('button',{name:'Next athlete',exact:true}).click();assert.notEqual(await page.locator('.combine-athlete-name').innerText(),originalName);
+ await page.getByRole('button',{name:'Previous athlete',exact:true}).click();assert.equal(await page.locator('.combine-athlete-name').innerText(),originalName);
+ for(const size of [{width:320,height:568},{width:390,height:844},{width:844,height:390}]){
+  await page.setViewportSize(size);await bounds(['.combine-action','.combine-athlete','.combine-athlete-nav']);
+  const a=await action.boundingBox(),c=await page.locator('.combine-athlete').boundingBox();assert(a.x>=c.x+c.width||a.y+a.height<=c.y||c.x>=a.x+a.width,'START overlaps player card');
+  await page.screenshot({path:out+'/design-'+size.width+'.png'});
+ }
+ await page.setViewportSize({width:390,height:844});
+
  await launch();assert.equal(await page.evaluate(()=>document.activeElement.className),'combine-game');await page.keyboard.press('a');await drive();await bounds(['.combine-stride:first-child','.combine-stride:last-child','.combine-speed','.combine-athlete']);assert.equal(await page.locator('.combine-finish,.combine-rhythm').count(),0);
  await page.waitForFunction(()=>Number(document.querySelector('[role="meter"]').getAttribute('aria-valuenow'))>=90);await page.evaluate(()=>window.__combineDrive=false);await page.screenshot({path:out+'/flow-max-portrait.png'});
  const high=Number(await meter.getAttribute('aria-valuenow'));await page.locator('.combine-stride[data-next="false"]').dispatchEvent('pointerdown',{button:0,pointerId:79});assert(Number(await meter.getAttribute('aria-valuenow'))<high-5);await page.screenshot({path:out+'/flow-speed-drop.png'});await drive();
