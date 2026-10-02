@@ -17,6 +17,7 @@ try{
  const bounds=async selectors=>{for(const selector of selectors){const b=await page.locator(selector).boundingBox(),vp=page.viewportSize();assert(b&&b.x>=0&&b.y>=0&&b.x+b.width<=vp.width+1&&b.y+b.height<=vp.height+1,selector+' clipped');}};
  await page.goto('http://127.0.0.1:3057/combine.html');await page.waitForFunction(()=>!document.querySelector('.combine-action')?.disabled);
 
+ assert.equal(await page.locator('.combine-scene').getAttribute('data-character'),'meshy-sentinel');
  assert.equal(await page.locator('.combine-start-note').count(),0);
  const originalName=await page.locator('.combine-athlete-name').innerText();
  await page.getByRole('button',{name:'Next athlete',exact:true}).click();assert.notEqual(await page.locator('.combine-athlete-name').innerText(),originalName);
@@ -39,5 +40,9 @@ try{
  await page.goto('http://127.0.0.1:3057/combine-qa.html');await page.getByRole('button',{name:'Scout prospects'}).waitFor();const season=await page.evaluate(()=>localStorage.getItem('bk-qa-combine:season'));await page.getByRole('button',{name:'Scout prospects'}).click();await page.waitForFunction(()=>document.querySelector('.combine-action')&&!document.querySelector('.combine-action').disabled);await launch();await drive();await bounds(['.combine-stride:first-child','.combine-stride:last-child','.combine-speed']);
  await page.getByRole('button',{name:'BACK TO FRANCHISE',exact:true}).waitFor({timeout:60000});await page.getByRole('button',{name:'BACK TO FRANCHISE',exact:true}).click();await page.getByRole('table',{name:'Your recorded bests · this Combine'}).waitFor();assert.equal(await page.evaluate(()=>localStorage.getItem('bk-qa-combine:season')),season);
  await page.getByRole('button',{name:'Test roster'}).click();await page.waitForFunction(()=>document.querySelector('.combine-action')&&!document.querySelector('.combine-action').disabled);await page.getByRole('button',{name:'Leave Combine'}).click();assert(await page.getByRole('button',{name:'Scout prospects'}).isVisible());assert.deepEqual(errors,[]);
+ // A failed detailed-asset request must offer an exit, not silently show the old runner.
+ await page.route('**/ball-knower-gridiron-sentinel-v4.glb*',route=>route.abort());
+ await page.goto('http://127.0.0.1:3057/combine.html');await page.getByRole('heading',{name:'COMBINE UNAVAILABLE'}).waitFor();assert.equal(await page.locator('.combine-scene canvas').count(),0);assert(await page.getByRole('button',{name:'BACK',exact:true}).isVisible());
+
  console.log('PASS one-tap automatic green launch, natural alternation reaches green, wrong-side input drops actual meter, automatic finish, simplified results, keyboard, pause/resume, portrait/landscape, comparison, persistence, both Franchise launchers and season integrity.');
 }finally{await browser.close();await server.close();}
