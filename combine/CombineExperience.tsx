@@ -119,8 +119,14 @@ export default function CombineExperience({ players, context, onClose }: Props) 
     {phase === 'finished' && !terminal && <div className="combine-cue go" role="status">FINISH · {time(view.clock)}s</div>}
     {(['idle','set'].includes(phase)||green) && <div className="combine-start-lights" aria-label={green ? 'Green light' : phase === 'set' ? 'Amber light — wait' : 'Ready to start'}><i data-on={phase === 'idle'} /><i data-on={phase === 'set'} /><i data-on={green} /></div>}
     {status && !terminal && <div className={`combine-cue ${green ? 'go' : ''}`} role="status">{status}</div>}
-    <div className="combine-athlete"><span className="combine-monogram" aria-hidden="true">{player.position}</span><div><b>{player.name}</b><span>{player.position} · SPEED {player.speed}{best ? ` · BEST ${time(best.splits[2])}s` : ''}</span></div>{phase === 'idle' && <button onClick={openPicker} aria-label="Change athlete">↔</button>}</div>
-    {phase === 'idle' && <div className="combine-start-note">Starts automatically on green. Alternate LEFT / RIGHT.</div>}
+    <div className="combine-athlete">
+      <span className="combine-monogram" aria-hidden="true">{player.position}</span>
+      <div className="combine-athlete-info">
+        {phase === 'idle' ? <button className="combine-athlete-name" onClick={openPicker} aria-label="Change athlete">{player.name}</button> : <b>{player.name}</b>}
+        <div className="combine-athlete-stats"><span>SPEED <strong>{player.speed}</strong></span>{best && <span>BEST <strong>{time(best.splits[2])}s</strong></span>}</div>
+      </div>
+      {phase === 'idle' && players.length > 1 && <div className="combine-athlete-nav">{[-1,1].map(direction => <button key={direction} aria-label={direction < 0 ? 'Previous athlete' : 'Next athlete'} onClick={() => { const index = players.findIndex(p => p.id === player.id); setRuns([]); setRunSplits([]); reset(players[(index + direction + players.length) % players.length], 1); }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d={direction < 0 ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'} /></svg></button>)}</div>}
+    </div>
     {phase === 'running' && <div className="combine-distance">{Math.min(40, view.distance / YARD).toFixed(1)} <small>/ 40 YD</small></div>}
     {['idle','set'].includes(phase) && <button ref={action} className="combine-action" disabled={!ready || !!error || phase==='set'} aria-label={phase==='idle'?'Start dash':'Wait for green'}
       onPointerDown={e=>{if(e.button!==0)return;e.preventDefault();press();}}
