@@ -28,16 +28,21 @@ export async function loadCombineRunner(player) {
     aim(a,b,joint);aim(b,c,origin.clone().addScaledVector(axis,d));
     if(keepFoot)c.quaternion.copy(rotation(c.parent).invert().multiply(endQ));body.updateMatrixWorld(true);
   }
-  // Author a three-point start against the imported skeleton, not mesh parts.
-  reset();bones.Hips.position.y-=.36;bones.Hips.position.z-=.25;
-  bones.Hips.quaternion.multiply(new T.Quaternion().setFromAxisAngle(v(1,0,0),1.56));
-  bones.Spine.quaternion.multiply(new T.Quaternion().setFromAxisAngle(v(1,0,0),.06));
-  bones.Spine1.quaternion.multiply(new T.Quaternion().setFromAxisAngle(v(1,0,0),.04));
-  bones.Head.quaternion.multiply(new T.Quaternion().setFromAxisAngle(v(1,0,0),-1.05));body.updateMatrixWorld(true);
+  // Balanced three-point start: staggered feet behind the line, square hips,
+  // one supporting hand and the free arm below the shoulder (never waving).
+  reset();bones.Hips.position.set(0,.63,-.35);
+  bones.Hips.quaternion.setFromAxisAngle(v(1,0,0),1.64);
+  bones.Spine.quaternion.copy(bind.Spine.q);
+  bones.Spine1.quaternion.copy(bind.Spine1.q);
+  bones.Head.quaternion.multiply(new T.Quaternion().setFromAxisAngle(v(1,0,0),-1.02));body.updateMatrixWorld(true);
   for(const [side,sign]of[['Left',1],['Right',-1]]){
-    solve([side+'UpLeg',side+'Leg',side+'Foot'],v(sign*.14,footHeight,side==='Right'?-.53:.08),v(sign*.17,.30,.55),true);
-    bones[side+'Foot'].quaternion.copy(rotation(bones[side+'Foot'].parent).invert().multiply(footRotations[side]));body.updateMatrixWorld(true);
-    solve([side+'Arm',side+'ForeArm',side+'Hand'],side==='Right'?v(sign*.27,.12,.43):v(sign*.29,.62,-.05),v(sign*.40,.36,side==='Right'?.38:-.20));
+    const back=side==='Right';
+    solve([side+'UpLeg',side+'Leg',side+'Foot'],v(sign*.125,footHeight+(back?.045:0),back?-.65:-.18),v(sign*.14,.28,.15),true);
+    const footQ=footRotations[side].clone();if(back)footQ.premultiply(new T.Quaternion().setFromAxisAngle(v(1,0,0),-.25));
+    bones[side+'Foot'].quaternion.copy(rotation(bones[side+'Foot'].parent).invert().multiply(footQ));body.updateMatrixWorld(true);
+    solve([side+'Arm',side+'ForeArm',side+'Hand'],back?v(sign*.25,.115,.32):v(sign*.29,.40,-.11),v(sign*.34,.37,back?.23:-.22));
+    const hand=bones[side+'Hand'],tip=bones[side+'HandMiddle4'];
+    if(tip)aim(hand,tip,position(hand).add(back?v(0,-.07,.12):v(0,-.14,.015)));
   }
   const start=Object.fromEntries(Object.entries(bones).map(([name,b])=>[name,{p:b.position.clone(),q:b.quaternion.clone()}]));
   reset();
