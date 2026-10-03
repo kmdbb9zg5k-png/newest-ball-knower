@@ -222,11 +222,13 @@ export async function createCombineScene(host, player, onLost) {
     const coast=settle<.35?1:Math.exp(-Math.pow((settle-.35)/1.35,1.5));
     const speed=active?state.velocity:ended?state.velocity*coast:0;
     if(ended)visualZ+=speed*dt;
-    runner.root.position.z=visualZ;runner.pose(visualZ,speed,!active&&!ended,active?state.clock/.48:1,ended&&settle>1.8?Math.min(1,(settle-1.8)*2):0,ended);
+    runner.root.position.z=visualZ;runner.pose(visualZ,speed,!active&&!ended,active?state.clock/.72:1,ended&&settle>1.8?Math.min(1,(settle-1.8)*2):0,ended);
     const portrait=camera.aspect<1;
-    target.set(portrait?-1.0:-1.65,portrait?1.65:1.45,visualZ-(portrait?3.45:3.7));
+    // Rise and look down the runout so the far-wall brand clears the HUD.
+    const finishView=ended?T.MathUtils.smoothstep(settle,0,1.2):0;
+    target.set(portrait?-1.0:-1.65,T.MathUtils.lerp(portrait?1.65:1.45,2.9,finishView),visualZ-T.MathUtils.lerp(portrait?3.45:3.7,4.6,finishView));
     if(previousPhase!==state.phase&&state.phase==='idle')camera.position.copy(target);else camera.position.lerp(target,1-Math.exp(-dt*9));
-    look.set(.10,.72,visualZ+(portrait?1.2:2.2));camera.lookAt(look);
+    look.set(.10,.72,visualZ+T.MathUtils.lerp(portrait?1.2:2.2,.3,finishView));camera.lookAt(look);
     key.position.set(-10,24,visualZ+6);key.target.position.set(0,0,visualZ+3);
     renderer.render(scene,camera);previousPhase=state.phase;
   }
