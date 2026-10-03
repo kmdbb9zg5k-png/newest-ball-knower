@@ -42,7 +42,7 @@ ADVANTAGES OF THIS RELEASE OVER THE ORIGINAL CMU DATA:
   makes it much easier (faster) to use the BVH files in MotionBuilder.
 
 - Index files: The release includes consolidated indexes that list
-  the motion filenames and their descriptions.  Both spreadsheet and 
+  the motion filenames and their descriptions.  Both spreadsheet and
   word processor friendly index files are available.
 
 - MotionBuilder-friendly: the joint renaming and the addition of the
@@ -92,9 +92,9 @@ CMU capture sessions.
   is probably closer to what the joint readings would have been when
   the original motion capture actors looked straight ahead.  The
   values in the 2010 release, for the Motionbuilder joints, are:
-  	 Neck:  X rotation = -16 degrees
-	 Neck1: X rotation = 21 degrees
-	 Head:  X rotation = 11 degrees
+     Neck:  X rotation = -16 degrees
+     Neck1: X rotation = 21 degrees
+     Head:  X rotation = 11 degrees
   The net result of this compensation is to rotate the head up by
   about 15 degrees in retargeted animation, compared to use of the
   2008 BVH release.  However, for some of the BVH files you might find
@@ -152,7 +152,7 @@ BVH conversion release fixes the problem by rewriting Frame Time to
 .0083333 in each BVH file, which equates to 120fps.
 
 
-INDEX/INFORMATION FILES: 
+INDEX/INFORMATION FILES:
 
 Each .zip file in this BVH conversion release should include a copy of
 this READMEFIRST.txt file, plus four variations of the same motion
@@ -185,7 +185,7 @@ Here's the relevant paragraph from mocap.cs.cmu.edu:
 
 JOINT RENAMING TEMPLATE
 
-Here's the joint renaming template that my unreleased Python script 
+Here's the joint renaming template that my unreleased Python script
 uses, with a variety of comments that come from my analysis of the skeleton.
 The left column is the original joint name used by the CMU dataset,
 and the right column is the joint name that my script outputs.  Most
