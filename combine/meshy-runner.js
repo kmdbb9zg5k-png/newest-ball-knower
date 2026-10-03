@@ -1,4 +1,5 @@
 import * as T from 'three';
+import { createSprintMotion, SPRINT_CYCLE_DISTANCE } from './sprint-motion.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // The training-clothes athlete preserves the uploaded 312K geometry and skin.
@@ -46,25 +47,24 @@ export async function loadCombineRunner(player) {
   }
   const start=Object.fromEntries(Object.entries(bones).map(([name,b])=>[name,{p:b.position.clone(),q:b.quaternion.clone()}]));
   reset();
-  const clip=gltf.animations.find(c=>c.name.toLowerCase()==='sprint')||gltf.animations.find(c=>/run/i.test(c.name));
-  if(!clip)throw new Error('The Combine sprint animation is missing.');
-  const tracks=clip.tracks.map(track=>{const split=track.name.lastIndexOf('.');return{node:body.getObjectByName(track.name.slice(0,split)),property:track.name.slice(split+1),interpolant:track.createInterpolant()};});
+  const motion=createSprintMotion(body,bones,bind);
   function setAthlete(next){const bulk=['OL','DL'].includes(next.position)?1.10:['TE','LB'].includes(next.position)?1.05:1;body.scale.set(1.08*bulk,1.10,1.08*bulk);}
   setAthlete(player);
   function pose(distance,velocity,stance=true,launch=1,celebrate=0){
-    // Locomotion follows ground covered and cannot run while stopped.
-    const sampleTime=((Math.max(0,distance)/4.8)%1)*clip.duration;
-    for(const track of tracks){const value=track.interpolant.evaluate(sampleTime);track.node?.[track.property]?.fromArray(value);}
-    bones.Hips.quaternion.premultiply(new T.Quaternion().setFromAxisAngle(v(1,0,0),-.20*T.MathUtils.smoothstep(distance,2,20)));
-    bones.Hips.position.x=bind.Hips.p.x;bones.Hips.position.z=bind.Hips.p.z;
+    // Bake the rig-space gait once, then sample by actual distance travelled.
+    // Scale-aware phase keeps each planted foot stationary against the track.
+    const phase=Math.max(0,distance)/(SPRINT_CYCLE_DISTANCE*body.scale.z);
+    const effort=stance?1:T.MathUtils.smoothstep(velocity,0,3);
+    motion.sample(phase,effort);
     const blend=stance?0:T.MathUtils.smoothstep(launch,0,1);
-    for(const [name,b]of Object.entries(bones)){b.position.lerpVectors(start[name].p,b.position,blend);b.quaternion.slerpQuaternions(start[name].q,b.quaternion.clone(),blend);}
-    // Ease into the upright resting skeleton after the run-through.
-    if(!stance&&velocity<1.2&&launch>=1){const settle=1-T.MathUtils.smoothstep(velocity,0,1.2);for(const side of['Left','Right'])for(const part of['UpLeg','Leg','Foot']){const name=side+part;bones[name].quaternion.slerp(bind[name].q,settle);}}
-    if(celebrate>0){bones.Head.quaternion.multiply(new T.Quaternion().setFromAxisAngle(v(1,0,0),-.12*celebrate));}
+    for(const [name,b]of Object.entries(bones)){
+      b.position.lerpVectors(start[name].p,b.position,blend);
+      b.quaternion.slerpQuaternions(start[name].q,b.quaternion.clone(),blend);
+    }
+    if(celebrate>0)bones.Head.quaternion.multiply(new T.Quaternion().setFromAxisAngle(v(1,0,0),-.06*celebrate));
+    // Preserve flight and foot contact instead of snapping the lowest ankle
+    // to the floor on every frame (which caused the previous skating effect).
     body.position.y=0;root.updateMatrixWorld(true);
-    body.position.y=footHeight*body.scale.y-Math.min(position(bones.LeftFoot).y,position(bones.RightFoot).y);
-    root.updateMatrixWorld(true);
   }
   pose(0,0,true);
   return {root,pose,setAthlete,dispose(){const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}};
