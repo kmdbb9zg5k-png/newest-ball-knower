@@ -32,18 +32,37 @@ for(let i=0;i<=count;i++){
  const segments=[['Spine','Spine1'],['Spine1','Spine2'],['Spine2','Neck'],['Neck','Head'],['Head','HeadTop_End']];
  for(const side of ['Left','Right'])segments.push([side+'UpLeg',side+'Leg'],[side+'Leg',side+'Foot'],[side+'Foot',side+'ToeBase'],[side+'Arm',side+'ForeArm'],[side+'ForeArm',side+'Hand'],[side+'Hand',side+'HandMiddle4']);
  for(const [a,b] of segments){const sb=b.endsWith('HandMiddle4')?b.replace('HandMiddle4','HandMiddle1'):b;if(!target[a]||!target[b]||!source[a]||!source[sb])continue;const from=position(target[b]).sub(position(target[a])).normalize(),to=position(source[sb]).sub(position(source[a])).normalize();const desired=new T.Quaternion().setFromUnitVectors(from,to).multiply(world(target[a]));target[a].quaternion.copy(world(target[a].parent).invert().multiply(desired));body.updateMatrixWorld(true);}
+ // Keep the capture's forward lean but damp local trunk twist and clavicle
+ // motion for this broad-shouldered target rig. Legs are separate descendants.
+ if(mode==='sprint'){
+  for(const n of ['Spine','Spine1','Spine2']){
+   const delta=bind[n].q.clone().invert().multiply(target[n].quaternion);
+   const e=new T.Euler().setFromQuaternion(delta,'YXZ');e.y*=.35;e.z*=.45;
+   target[n].quaternion.copy(bind[n].q).multiply(new T.Quaternion().setFromEuler(e));
+  }
+  for(const side of ['Left','Right'])target[side+'Shoulder'].quaternion.copy(bind[side+'Shoulder'].q);
+  body.updateMatrixWorld(true);
+ }
  // Use a consistent elbow-plane basis: shortest-arc aiming alone can flip
  // axial twist between adjacent frames when the source and target binds differ.
  for(const side of ['Left','Right']){
   const arm=side+'Arm',fore=side+'ForeArm',hand=side+'Hand';
   const upper=position(source[fore]).sub(position(source[arm])).normalize();
   const lower=position(source[hand]).sub(position(source[fore])).normalize();
+  if(mode==='sprint'){
+   const angle=.75*Math.tanh(Math.atan2(upper.z,-upper.y)/.75);
+   const bend=T.MathUtils.clamp(upper.clone().negate().angleTo(lower),70*Math.PI/180,105*Math.PI/180);
+   upper.set(side==='Left'?.06:-.06,-Math.cos(angle),Math.sin(angle)).normalize();
+   const foreAngle=angle+Math.PI-bend;
+   lower.set(0,-Math.cos(foreAngle),Math.sin(foreAngle)).normalize();
+  }
   const normal=upper.clone().cross(lower).normalize();
   const internal=upper.clone().negate().angleTo(lower),limit=55*Math.PI/180;
   if(internal<limit)lower.copy(upper).negate().applyAxisAngle(normal,-limit);
   for(const [name,child,dir] of [[arm,fore,upper],[fore,hand,lower]]){
    const localX=bind[child].p.clone().normalize();
-   const localY=new T.Vector3(side==='Left'?1:-1,0,0).applyQuaternion(bind[name].w.clone().invert());
+   const bindDirection=localX.clone().applyQuaternion(bind[name].w);
+   const localY=bindDirection.cross(new T.Vector3(0,0,1)).normalize().applyQuaternion(bind[name].w.clone().invert());
    localY.addScaledVector(localX,-localY.dot(localX)).normalize();
    const localZ=localX.clone().cross(localY).normalize();
    const localBasis=new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(localX,localY,localZ));
@@ -52,11 +71,9 @@ for(let i=0;i<=count;i++){
    const q=desiredBasis.multiply(localBasis.invert());
    target[name].quaternion.copy(world(target[name].parent).invert().multiply(q));body.updateMatrixWorld(true);
   }
-  const tip=target[side+'HandMiddle4'];
-  const handDirection=position(source[side+'HandMiddle1']).sub(position(source[hand])).normalize();
-  const current=position(tip).sub(position(target[hand])).normalize();
-  const handQ=new T.Quaternion().setFromUnitVectors(current,handDirection).multiply(world(target[hand]));
-  target[hand].quaternion.copy(world(target[hand].parent).invert().multiply(handQ));body.updateMatrixWorld(true);
+  // Neutral local wrists keep hands aligned with the forearm instead of
+  // importing the incompatible source hand/palm axes.
+  target[hand].quaternion.copy(bind[hand].q);body.updateMatrixWorld(true);
  }
  minFoot=Math.min(minFoot,position(target.LeftFoot).y,position(target.RightFoot).y);
  frames.push(names.map(n=>[...target[n].position.toArray(),...target[n].quaternion.toArray()]));
