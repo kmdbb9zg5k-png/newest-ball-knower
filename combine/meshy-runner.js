@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { createSprintMotion, SPRINT_CYCLE_DISTANCE } from './sprint-motion.js';
+import { createSprintMotion, SPRINT_CYCLE_DISTANCE, WALK_CYCLE_DISTANCE } from './sprint-motion.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // The training-clothes athlete preserves the uploaded 312K geometry and skin.
@@ -48,14 +48,19 @@ export async function loadCombineRunner(player) {
   const start=Object.fromEntries(Object.entries(bones).map(([name,b])=>[name,{p:b.position.clone(),q:b.quaternion.clone()}]));
   reset();
   const motion=createSprintMotion(body,bones,bind);
-  function setAthlete(next){const bulk=['OL','DL'].includes(next.position)?1.10:['TE','LB'].includes(next.position)?1.05:1;body.scale.set(1.08*bulk,1.10,1.08*bulk);}
+  let gaitPhase=0,lastDistance=0;
+  function setAthlete(next){gaitPhase=0;lastDistance=0;const bulk=['OL','DL'].includes(next.position)?1.10:['TE','LB'].includes(next.position)?1.05:1;body.scale.set(1.08*bulk,1.10,1.08*bulk);}
   setAthlete(player);
-  function pose(distance,velocity,stance=true,launch=1,celebrate=0){
+  function pose(distance,velocity,stance=true,launch=1,celebrate=0,recovering=false){
     // Bake the rig-space gait once, then sample by actual distance travelled.
     // Scale-aware phase keeps each planted foot stationary against the track.
-    const phase=Math.max(0,distance)/(SPRINT_CYCLE_DISTANCE*body.scale.z);
-    const effort=stance?1:T.MathUtils.smoothstep(velocity,0,3);
-    motion.sample(phase,effort);
+    const walk=recovering?1-T.MathUtils.smoothstep(velocity,1.4,5):0;
+    if(stance||distance<lastDistance)gaitPhase=0;
+    else gaitPhase+=Math.max(0,distance-lastDistance)/(T.MathUtils.lerp(SPRINT_CYCLE_DISTANCE,WALK_CYCLE_DISTANCE,walk)*body.scale.z);
+    lastDistance=distance;
+    const effort=stance?1:T.MathUtils.smoothstep(velocity,0,.8);
+    const drive=1-T.MathUtils.smoothstep(distance,0,12);
+    motion.sample(gaitPhase,effort,drive*(1-walk),walk);
     const blend=stance?0:T.MathUtils.smoothstep(launch,0,1);
     for(const [name,b]of Object.entries(bones)){
       b.position.lerpVectors(start[name].p,b.position,blend);

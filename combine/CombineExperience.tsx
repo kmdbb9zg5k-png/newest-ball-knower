@@ -67,7 +67,7 @@ export default function CombineExperience({ players, context, onClose }: Props) 
       accumulator += Math.min(delta, .1);
       while (accumulator >= 1 / 120) { stepDash(run.current, 1 / 120); accumulator -= 1 / 120; }
       finish();
-      if(run.current.phase === 'finished') { finishElapsed.current += Math.min(delta,.1); if(finishElapsed.current >= 2.8) setShowResults(true); }
+      if(run.current.phase === 'finished') { finishElapsed.current += Math.min(delta,.1); if(finishElapsed.current >= 3.8) setShowResults(true); }
       if (now - lastDraw >= 1000 / 60 - .5) { scene.current?.draw(run.current, Math.min((now - lastDraw) / 1000, .05)); lastDraw = now; }
       if (now - lastHud > (run.current.phase === 'running' ? 16 : 50)) { const s = run.current; setView({ ...s, splits: [...s.splits] }); lastHud = now; }
     };

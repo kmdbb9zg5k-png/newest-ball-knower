@@ -32,3 +32,15 @@ motion.sample(.63,0);root.updateMatrixWorld(true);
 for(const [n,b]of Object.entries(bones)){assert(b.position.distanceTo(motion.rest[n].p)<1e-7);assert(b.quaternion.clone().normalize().angleTo(motion.rest[n].q.clone().normalize())<1e-6,`${n} stays in run pose at rest`);}
 const neck=pos('Neck').sub(pos('Hips'));assert(Math.abs(neck.z)<.05&&Math.abs(neck.x)<.03,'Rest torso not upright');
 console.log('PASS rig-space sprint contacts, torso stability, bent elbows, and full-body rest', {maxSlip,maxRoll,minElbow,maxElbow,minFoot,shoulderYawRange:maxShoulderYaw-minShoulderYaw,maxKnee});
+
+// All locomotion banks must loop continuously and keep the ankle above turf.
+for(const [drive,walk] of [[1,0],[0,1],[.5,.5]]){
+ for(let i=0;i<128;i++){
+  motion.sample(i/128,1,drive,walk);root.updateMatrixWorld(true);
+  for(const side of ['Left','Right'])assert(pos(side+'Foot').y>floor-.025,'Transition ankle below track');
+ }
+ motion.sample(0,1,drive,walk);const seam=Object.fromEntries(Object.entries(bones).map(([n,b])=>[n,b.quaternion.clone()]));
+ motion.sample(1-1e-6,1,drive,walk);
+ for(const [n,b] of Object.entries(bones))assert(b.quaternion.angleTo(seam[n])<.001,`${n} cycle seam`);
+}
+console.log('PASS drive, walk and blended transition clearance and loop continuity');
