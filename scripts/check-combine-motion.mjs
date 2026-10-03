@@ -19,18 +19,22 @@ for(let i=0;i<96;i++)for(let j=0;j<captured.names.length;j++){
  const b=new T.Quaternion().fromArray(captured.frames[(i+1)%96][j],3).normalize();
  assert(a.angleTo(b)<Math.PI/9,`${captured.names[j]} abrupt frame ${i}`);
 }
-let maxSlip=0,maxRoll=0,minFoot=10,minElbow=180,maxElbow=0;
+let maxSlip=0,maxRoll=0,minFoot=10,minElbow=180,maxElbow=0,maxWrist=0;
 for(let i=0;i<512;i++){
  const phase=i/512;motion.sample(phase);root.updateMatrixWorld(true);
  const torso=pos('Neck').sub(pos('Hips'));maxRoll=Math.max(maxRoll,Math.abs(Math.atan2(torso.x,torso.y))*180/Math.PI);
  for(const side of ['Left','Right']){
   const foot=pos(side+'Foot');minFoot=Math.min(minFoot,foot.y);
+  const shoulder=pos(side+'Arm'),elbow=pos(side+'ForeArm'),hand=pos(side+'Hand');
+  assert(elbow.y<shoulder.y-.15,'Elbow rises toward shoulder');
+  assert(Math.abs(elbow.x-shoulder.x)<.06,'Elbow flares outward');
+  maxWrist=Math.max(maxWrist,hand.clone().sub(elbow).angleTo(pos(side+'HandMiddle4').sub(hand))*180/Math.PI);
   const e=pos(side+'ForeArm'),angle=pos(side+'Arm').sub(e).angleTo(pos(side+'Hand').sub(e))*180/Math.PI;minElbow=Math.min(minElbow,angle);maxElbow=Math.max(maxElbow,angle);
  }
  for(const c of captured.contacts)if(phase>c.start+.035&&phase<c.end-.035){const foot=pos(c.side+'Foot');maxSlip=Math.max(maxSlip,Math.abs(foot.z+SPRINT_CYCLE_DISTANCE*(phase-c.center)-c.z),Math.abs(foot.y-floor));}
 }
-console.log({maxSlip,maxRoll,minFoot,minElbow,maxElbow});
-assert(maxSlip<.03,'Captured support foot slides');assert(minFoot>floor-.025,'Captured ankle penetrates track');assert(maxRoll<12,'Excessive torso roll');assert(minElbow>30&&maxElbow<150,'Invalid elbow retarget');
+console.log({maxSlip,maxRoll,minFoot,minElbow,maxElbow,maxWrist});
+assert(maxSlip<.03,'Captured support foot slides');assert(minFoot>floor-.025,'Captured ankle penetrates track');assert(maxWrist<25,'Wrist bends away from forearm');assert(maxRoll<8,'Excessive torso roll');assert(minElbow>30&&maxElbow<150,'Invalid elbow retarget');
 for(const walk of [0,.5,1]){
  for(let i=0;i<128;i++){motion.sample(i/128,1,walk);root.updateMatrixWorld(true);for(const side of ['Left','Right'])assert(pos(side+'Foot').y>floor-.025,'Transition ankle below track');}
  motion.sample(0,1,walk);const seam=Object.fromEntries(Object.entries(bones).map(([n,b])=>[n,b.quaternion.clone()]));motion.sample(1-1e-6,1,walk);
