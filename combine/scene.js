@@ -202,7 +202,7 @@ export async function createCombineScene(host, player, onLost) {
   for(const z of [8,26,44])for(const side of [-1,1]){const sign=mesh(new T.PlaneGeometry(6,.65),label('BK  •  PROSPECT COMBINE','#b8eb7a','#15262d'),scene,side*9.4,1.2,z);sign.rotation.y=side<0?Math.PI/2:-Math.PI/2;}
 
   box(scene,[45,12,.5],mat('#35444c'),[0,5.5,66]);
-  const brand=mesh(new T.PlaneGeometry(15,2.1),label('BALL KNOWER  /  COMBINE','#e4ece6','#172a30',1024,128),scene,0,4.1,65.65);brand.rotation.y=Math.PI;
+  const brand=mesh(new T.PlaneGeometry(15,2.1),label('BALL KNOWER  /  COMBINE','#e4ece6','#172a30',1024,128),scene,0,4.1,65.65);brand.rotation.y=Math.PI;brand.material.transparent=true;
   box(scene,[50,.35,94],mat('#252f36'),[0,15.5,27]);
   const lamps=new T.InstancedMesh(new T.BoxGeometry(2.4,.08,.45),new T.MeshBasicMaterial({color:'#f7f1dc'}),24);let li=0;
   for(let z=-5;z<65;z+=12){box(scene,[44,.32,.24],metal,[0,14.8,z]);for(const x of [-16,-7,7,16]){o.position.set(x,14.55,z);o.updateMatrix();lamps.setMatrixAt(li++,o.matrix);}for(const side of [-1,1])box(scene,[.25,15,.28],metal,[side*21,7.4,z]);}scene.add(lamps);
@@ -223,6 +223,7 @@ export async function createCombineScene(host, player, onLost) {
     const speed=active?state.velocity:ended?state.velocity*coast:0;
     if(ended)visualZ+=speed*dt;
     runner.root.position.z=visualZ;runner.pose(visualZ,speed,!active&&!ended,active?state.clock/.72:1,ended&&settle>1.8?Math.min(1,(settle-1.8)*2):0,ended);
+    brand.material.opacity=1-T.MathUtils.smoothstep(visualZ,FINISH-6,FINISH);
     const portrait=camera.aspect<1;
     // Rise and look down the runout so the far-wall brand clears the HUD.
     const finishView=ended?T.MathUtils.smoothstep(settle,0,1.2):0;
