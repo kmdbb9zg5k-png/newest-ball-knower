@@ -2,13 +2,13 @@ import * as T from 'three';
 
 // One left/right stride in model-space metres. Contact motion has exactly
 // the opposite ground speed; the airborne recovery clears the planted leg.
-export const SPRINT_CYCLE_DISTANCE = 3.9;
-export const SPRINT_CONTACT = .18;
+export const SPRINT_CYCLE_DISTANCE = 4.3;
+export const SPRINT_CONTACT = .165;
 const TAU = Math.PI * 2;
 const vec = (x=0,y=0,z=0) => new T.Vector3(x,y,z);
 
 export function createSprintMotion(body, bones, bind) {
-  const names=Object.keys(bones), count=64;
+  const names=Object.keys(bones), count=96;
   const world=o=>o.getWorldPosition(vec());
   const rotation=o=>o.getWorldQuaternion(new T.Quaternion());
   const update=()=>body.updateMatrixWorld(true);
@@ -44,7 +44,7 @@ export function createSprintMotion(body, bones, bind) {
   reset();
   for(const side of ['Left','Right'])arm(side,-.03,.15);
   const rest=capture();
-  const keys=[[-.422,0],[-.46,.40],[.36,.34],[.28,0]];
+  const keys=[[.28-SPRINT_CYCLE_DISTANCE*SPRINT_CONTACT,0],[-.48,.32],[.37,.25],[.28,0]];
   const slopes=[[-SPRINT_CYCLE_DISTANCE*(1-SPRINT_CONTACT),0],[1.1,.4],[.6,-.7],[-SPRINT_CYCLE_DISTANCE*(1-SPRINT_CONTACT),0]];
   function recovery(u){
     const stops=[0,.34,.70,1];let i=0;while(i<2&&u>stops[i+1])i++;
@@ -53,9 +53,13 @@ export function createSprintMotion(body, bones, bind) {
   }
   function makeFrame(phase){
     reset();
-    const pitch=.14,twist=.025*Math.sin(TAU*phase);
-    bones.Hips.position.y=bind.Hips.p.y-.08+.012*Math.cos(2*TAU*phase);
-    bones.Hips.quaternion.copy(new T.Quaternion().setFromEuler(new T.Euler(pitch,twist,0))).multiply(bind.Hips.q);update();
+    const swing=Math.sin(TAU*phase),pitch=.18+.018*Math.sin(2*TAU*phase);
+    // Compress over each support foot and rise through flight, rather than
+    // holding a permanent crouch. Small opposing trunk motion relaxes the gait.
+    bones.Hips.position.y=bind.Hips.p.y-.062-.018*Math.cos(2*TAU*(phase-.08));
+    bones.Hips.quaternion.copy(new T.Quaternion().setFromEuler(new T.Euler(pitch,.055*swing,.018*swing))).multiply(bind.Hips.q);
+    bones.Spine1.quaternion.copy(bind.Spine1.q).multiply(new T.Quaternion().setFromEuler(new T.Euler(.016*Math.sin(2*TAU*phase),-.105*swing,-.033*swing)));
+    bones.Head.quaternion.copy(bind.Head.q).multiply(new T.Quaternion().setFromAxisAngle(vec(0,1,0),.035*swing));update();
     for(const [side,offset,sign] of [['Left',0,1],['Right',.5,-1]]){
       const p=(phase+offset)%1;
       let z,y;
@@ -67,7 +71,7 @@ export function createSprintMotion(body, bones, bind) {
       const q=new T.Quaternion().setFromAxisAngle(vec(1,0,0),-.25*lift).multiply(footQ[side]);
       foot.quaternion.copy(rotation(foot.parent).invert().multiply(q));update();
       // Arm drive opposes the same-side leg; elbows remain flexed throughout.
-      arm(side,-.65*Math.cos(TAU*(p-.06)),Math.PI/2+.08*Math.sin(TAU*p));
+      arm(side,-.88*Math.cos(TAU*(p-.075)),Math.PI/2-.28*Math.cos(TAU*(p-.025)));
     }
     return capture();
   }
