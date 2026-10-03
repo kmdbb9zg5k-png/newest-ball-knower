@@ -1,8 +1,8 @@
 import * as T from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-// The same authored character and texture set used by the football game.
-export const COMBINE_CHARACTER_URL = '/play-moment-3d/assets/ball-knower-gridiron-sentinel-v4.glb?v=sentinel-materials-34';
+// The training-clothes athlete preserves the uploaded 312K geometry and skin.
+export const COMBINE_CHARACTER_URL = '/play-moment-3d/assets/combine-training-athlete-v1.glb?v=training-1';
 const v=(x=0,y=0,z=0)=>new T.Vector3(x,y,z);
 const position=o=>o.getWorldPosition(v());
 const rotation=o=>o.getWorldQuaternion(new T.Quaternion());

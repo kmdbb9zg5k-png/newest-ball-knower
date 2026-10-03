@@ -9,15 +9,15 @@ const fixture=`import React from 'react';import{createRoot}from'react-dom/client
 const server=await createServer({server:{host:'127.0.0.1',port:3057},plugins:[{name:'combine-fixture',configureServer(s){s.middlewares.use(async(req,res,next)=>{if(req.url==='/combine-qa.html'){res.setHeader('Content-Type','text/html');res.end(await s.transformIndexHtml(req.url,'<html><head><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body><div id="root"></div><script type="module" src="/combine-qa.js"></script></body></html>'));}else next();});},resolveId(id){if(id==='/combine-qa.js')return '\0combine-qa';},load(id){if(id==='\0combine-qa')return fixture;}}]});await server.listen();
 const browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_PATH||undefined,args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
 try{
- const page=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true});page.setDefaultTimeout(45000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ const page=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true,deviceScaleFactor:Number(process.env.TEST_DPR||1)});page.setDefaultTimeout(45000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const action=page.locator('.combine-action'),meter=page.getByRole('meter',{name:'Sprint speed'});
  const launch=async()=>{await action.click();await page.waitForFunction(()=>document.querySelector('.combine-action')?.disabled);await page.waitForFunction(()=>document.querySelector('.combine-game').dataset.phase==='running').catch(async e=>{console.error(await page.locator('.combine-game').innerText());throw e;});assert(await page.getByLabel('Green light').isVisible());assert.equal(await page.getByRole('button',{name:'Go',exact:true}).count(),0);};
  // Follow only the requested side at a natural pace, not a timing target.
  const drive=async()=>page.evaluate(()=>{window.__combineDrive=true;let last=-1;function input(){if(!window.__combineDrive||document.querySelector('.combine-game')?.dataset.phase!=='running')return;const t=parseFloat(document.querySelector('.combine-timer').textContent);if(t-last>=.24){document.querySelector('.combine-stride[data-next="true"]').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerId:77}));last=t;}requestAnimationFrame(input);}requestAnimationFrame(input);});
  const bounds=async selectors=>{for(const selector of selectors){const b=await page.locator(selector).boundingBox(),vp=page.viewportSize();assert(b&&b.x>=0&&b.y>=0&&b.x+b.width<=vp.width+1&&b.y+b.height<=vp.height+1,selector+' clipped');}};
- await page.goto('http://127.0.0.1:3057/combine.html');await page.waitForFunction(()=>!document.querySelector('.combine-action')?.disabled);
+ console.log('Loading standalone');await page.goto('http://127.0.0.1:3057/combine.html');await page.waitForFunction(()=>!document.querySelector('.combine-action')?.disabled);
 
- assert.equal(await page.locator('.combine-scene').getAttribute('data-character'),'meshy-sentinel');
+ assert.equal(await page.locator('.combine-scene').getAttribute('data-character'),'meshy-training');
  assert.equal(await page.locator('.combine-start-note').count(),0);
  const originalName=await page.locator('.combine-athlete-name').innerText();
  await page.getByRole('button',{name:'Next athlete',exact:true}).click();assert.notEqual(await page.locator('.combine-athlete-name').innerText(),originalName);
@@ -29,8 +29,8 @@ try{
  }
  await page.setViewportSize({width:390,height:844});
 
- await launch();assert.equal(await page.evaluate(()=>document.activeElement.className),'combine-game');await page.keyboard.press('a');await drive();await bounds(['.combine-stride:first-child','.combine-stride:last-child','.combine-speed','.combine-athlete']);assert.equal(await page.locator('.combine-finish,.combine-rhythm').count(),0);
- await page.waitForFunction(()=>Number(document.querySelector('[role="meter"]').getAttribute('aria-valuenow'))>=90);await page.evaluate(()=>window.__combineDrive=false);await page.screenshot({path:out+'/flow-max-portrait.png'});
+ console.log('Starting run');await launch();console.log('Running');assert.equal(await page.evaluate(()=>document.activeElement.className),'combine-game');await page.keyboard.press('a');await drive();await bounds(['.combine-stride:first-child','.combine-stride:last-child','.combine-speed','.combine-athlete']);assert.equal(await page.locator('.combine-finish,.combine-rhythm').count(),0);
+ console.log('Waiting for max speed');await page.waitForFunction(()=>Number(document.querySelector('[role="meter"]').getAttribute('aria-valuenow'))>=90);await page.evaluate(()=>window.__combineDrive=false);await page.screenshot({path:out+'/flow-max-portrait.png'});
  const high=Number(await meter.getAttribute('aria-valuenow'));await page.locator('.combine-stride[data-next="false"]').dispatchEvent('pointerdown',{button:0,pointerId:79});assert(Number(await meter.getAttribute('aria-valuenow'))<high-5);await page.screenshot({path:out+'/flow-speed-drop.png'});await drive();
  await page.getByRole('button',{name:'SECOND ATTEMPT'}).waitFor({timeout:60000});let records=await page.evaluate(()=>JSON.parse(localStorage.getItem('bk-combine-forty-v1')));assert.equal(records.length,1);assert.equal(records[0].ruleset,'flow-v3');assert(records[0].accuracy.flow>70);assert(await page.getByText(/Simulated peer benchmarks/).isVisible());assert.equal(await page.getByRole('button',{name:'Final effort'}).count(),0);await page.screenshot({path:out+'/flow-results.png'});
  await page.getByRole('button',{name:'SECOND ATTEMPT'}).click();await page.setViewportSize({width:844,height:390});await launch();await drive();await page.getByRole('button',{name:'Pause dash'}).click();const before=await page.locator('.combine-timer').innerText();await page.waitForTimeout(250);assert.equal(await page.locator('.combine-timer').innerText(),before);await page.getByRole('button',{name:'RESUME',exact:true}).click();await bounds(['.combine-stride:first-child','.combine-stride:last-child','.combine-speed','.combine-athlete']);await page.screenshot({path:out+'/flow-landscape.png'});
@@ -41,8 +41,8 @@ try{
  await page.getByRole('button',{name:'BACK TO FRANCHISE',exact:true}).waitFor({timeout:60000});await page.getByRole('button',{name:'BACK TO FRANCHISE',exact:true}).click();await page.getByRole('table',{name:'Your recorded bests · this Combine'}).waitFor();assert.equal(await page.evaluate(()=>localStorage.getItem('bk-qa-combine:season')),season);
  await page.getByRole('button',{name:'Test roster'}).click();await page.waitForFunction(()=>document.querySelector('.combine-action')&&!document.querySelector('.combine-action').disabled);await page.getByRole('button',{name:'Leave Combine'}).click();assert(await page.getByRole('button',{name:'Scout prospects'}).isVisible());assert.deepEqual(errors,[]);
  // A failed detailed-asset request must offer an exit, not silently show the old runner.
- await page.route('**/ball-knower-gridiron-sentinel-v4.glb*',route=>route.abort());
+ await page.route('**/combine-training-athlete-v1.glb*',route=>route.abort());
  await page.goto('http://127.0.0.1:3057/combine.html');await page.getByRole('heading',{name:'COMBINE UNAVAILABLE'}).waitFor();assert.equal(await page.locator('.combine-scene canvas').count(),0);assert(await page.getByRole('button',{name:'BACK',exact:true}).isVisible());
 
  console.log('PASS one-tap automatic green launch, natural alternation reaches green, wrong-side input drops actual meter, automatic finish, simplified results, keyboard, pause/resume, portrait/landscape, comparison, persistence, both Franchise launchers and season integrity.');
-}finally{await browser.close();await server.close();}
+}catch(error){console.error(error);for(const p of browser.contexts().flatMap(c=>c.pages()))console.error(await p.locator('body').innerText().catch(()=>'<unavailable>'));throw error;}finally{await browser.close();await server.close();}
