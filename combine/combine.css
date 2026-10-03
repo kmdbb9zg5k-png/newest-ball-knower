@@ -67,3 +67,18 @@
 @media(max-width:600px) and (min-height:501px){.combine-athlete{left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));bottom:max(18px,env(safe-area-inset-bottom));gap:9px;padding:10px}.combine-action{width:124px;height:124px;bottom:calc(max(18px,env(safe-area-inset-bottom)) + 110px);right:max(28px,env(safe-area-inset-right))}.combine-monogram{width:43px;height:52px;font-size:18px}.combine-athlete .combine-athlete-name,.combine-athlete-info>b{font-size:16px}.combine-athlete-nav{gap:4px!important}.combine-athlete-stats{gap:7px}.combine-athlete-stats span+span{padding-left:7px}.combine-athlete-stats strong{font-size:12px;margin-left:3px}}
 @media(max-width:360px) and (min-height:501px){.combine-athlete{gap:7px;padding:8px}.combine-monogram{width:34px;font-size:15px}.combine-athlete .combine-athlete-name,.combine-athlete-info>b{font-size:14px}.combine-athlete-stats{gap:4px}.combine-athlete-stats span+span{padding-left:4px}.combine-athlete .combine-athlete-stats span{font-size:8px}.combine-athlete-stats strong{font-size:11px}}
 @media(max-height:500px){.combine-athlete{min-height:62px;padding:7px 10px}.combine-monogram{width:40px;height:44px;font-size:16px}.combine-athlete .combine-athlete-name,.combine-athlete-info>b{font-size:16px}.combine-athlete>.combine-athlete-info{gap:3px}.combine-action{right:max(28px,env(safe-area-inset-right));bottom:max(25px,env(safe-area-inset-bottom));font-size:21px!important}}
+
+/* Keep the runner visible; group pace with the clock. */
+.combine-speed{top:140px;bottom:auto;width:180px;padding:7px 9px;border-radius:7px}
+.combine-speed-heading{font-size:10px;margin-bottom:5px}.combine-speed-heading span{font-size:12px}
+.combine-speed-track{height:9px}.combine-speed-max{font-size:0;border-left-width:1px}
+.combine-game[data-phase=running] .combine-cue{top:207px}
+.combine-game[data-phase=running] .combine-distance{bottom:214px}
+.combine-overlay[aria-label="Dash results"] .combine-result h2{font-size:52px;margin:10px 0}
+.combine-result-splits b{font-size:24px}.combine-result-splits span{font-size:12px}
+.combine-result-actions{display:grid;grid-template-columns:1fr 1fr}
+.combine-result-actions button:first-child{grid-column:1 / -1;font-size:15px;min-height:50px}
+.combine-result button{font-size:12px}.combine-result p.combine-save{font-size:12px}
+.combine-skill-scores p{font-size:12px!important}.combine-attempts{font-size:13px}
+@media(max-width:600px) and (min-height:501px){.combine-speed{top:169px;width:170px}.combine-game[data-phase=running] .combine-cue{top:226px;left:64%}.combine-splits{top:226px;width:96px}.combine-splits div{padding:8px}}
+@media(max-height:500px){.combine-speed{top:90px;bottom:auto;width:160px}.combine-game[data-phase=running] .combine-cue{top:143px}.combine-game[data-phase=running] .combine-distance{bottom:170px}.combine-overlay[aria-label="Dash results"] .combine-result h2{font-size:38px}.combine-result-splits b{font-size:21px}}

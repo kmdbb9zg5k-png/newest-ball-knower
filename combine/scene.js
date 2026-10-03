@@ -217,9 +217,12 @@ export async function createCombineScene(host, player, onLost) {
   function disposeObject(object){const geometries=new Set(),materials=new Set(),textures=new Set();object.traverse(o=>{if(o.geometry)geometries.add(o.geometry);for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m){materials.add(m);for(const val of Object.values(m))if(val?.isTexture)textures.add(val);}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());}
   function draw(state,dt){
     const active=state.phase==='running',ended=state.phase==='finished';
-    if(ended){settle+=dt;visualZ+=Math.max(0,state.velocity-settle*5)*dt;}else{visualZ=state.distance;settle=0;}
-    const speed=active?state.velocity:ended?Math.max(0,state.velocity-settle*5):0;
-    runner.root.position.z=visualZ;runner.pose(visualZ,speed,!active&&!ended,active?state.clock/.34:1,ended&&settle>1.8?Math.min(1,(settle-1.8)*2):0);
+    if(ended)settle+=dt;else{visualZ=state.distance;settle=0;}
+    // Cross the line at speed, ease into a jog, then take walking steps.
+    const coast=settle<.35?1:Math.exp(-Math.pow((settle-.35)/1.35,1.5));
+    const speed=active?state.velocity:ended?state.velocity*coast:0;
+    if(ended)visualZ+=speed*dt;
+    runner.root.position.z=visualZ;runner.pose(visualZ,speed,!active&&!ended,active?state.clock/.48:1,ended&&settle>1.8?Math.min(1,(settle-1.8)*2):0,ended);
     const portrait=camera.aspect<1;
     target.set(portrait?-1.0:-1.65,portrait?1.65:1.45,visualZ-(portrait?3.45:3.7));
     if(previousPhase!==state.phase&&state.phase==='idle')camera.position.copy(target);else camera.position.lerp(target,1-Math.exp(-dt*9));
