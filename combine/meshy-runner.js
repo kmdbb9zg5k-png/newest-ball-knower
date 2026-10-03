@@ -65,6 +65,14 @@ export async function loadCombineRunner(player) {
       b.position.lerpVectors(start[name].p,b.position,blend);
       b.quaternion.slerpQuaternions(start[name].q,b.quaternion.clone(),blend);
     }
+    // Maintain a forward drive through the opening metres after the crouch
+    // releases. Rotate only the trunk so support-foot placement stays intact.
+    const drive=(!stance&&!recovering)?.20*(1-T.MathUtils.smoothstep(distance,0,12))*blend:0;
+    if(drive>0){
+      body.updateMatrixWorld(true);
+      const spine=bones.Spine,q=new T.Quaternion().setFromAxisAngle(v(1,0,0),drive).multiply(rotation(spine));
+      spine.quaternion.copy(rotation(spine.parent).invert().multiply(q));
+    }
     if(celebrate>0)bones.Head.quaternion.multiply(new T.Quaternion().setFromAxisAngle(v(1,0,0),-.06*celebrate));
     // Preserve flight and foot contact instead of snapping the lowest ankle
     // to the floor on every frame (which caused the previous skating effect).

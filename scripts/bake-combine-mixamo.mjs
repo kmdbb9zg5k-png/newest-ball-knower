@@ -50,7 +50,7 @@ for(let i=0;i<=count;i++){
   const upper=position(source[fore]).sub(position(source[arm])).normalize();
   const lower=position(source[hand]).sub(position(source[fore])).normalize();
   if(mode==='sprint'){
-   const angle=.75*Math.tanh(Math.atan2(upper.z,-upper.y)/.75);
+   const angle=.95*Math.tanh(Math.atan2(upper.z,-upper.y)/.75);
    const bend=T.MathUtils.clamp(upper.clone().negate().angleTo(lower),70*Math.PI/180,105*Math.PI/180);
    upper.set(side==='Left'?.06:-.06,-Math.cos(angle),Math.sin(angle)).normalize();
    const foreAngle=angle+Math.PI-bend;
