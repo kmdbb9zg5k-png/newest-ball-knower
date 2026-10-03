@@ -59,8 +59,7 @@ export async function loadCombineRunner(player) {
     else gaitPhase+=Math.max(0,distance-lastDistance)/(T.MathUtils.lerp(SPRINT_CYCLE_DISTANCE,WALK_CYCLE_DISTANCE,walk)*body.scale.z);
     lastDistance=distance;
     const effort=stance?1:T.MathUtils.smoothstep(velocity,0,.8);
-    const drive=1-T.MathUtils.smoothstep(distance,0,12);
-    motion.sample(gaitPhase,effort,drive*(1-walk),walk);
+    motion.sample(gaitPhase,effort,walk,recovering?Infinity:launch*.48);
     const blend=stance?0:T.MathUtils.smoothstep(launch,0,1);
     for(const [name,b]of Object.entries(bones)){
       b.position.lerpVectors(start[name].p,b.position,blend);
