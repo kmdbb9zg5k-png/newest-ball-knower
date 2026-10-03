@@ -11,21 +11,24 @@ const bones=Object.fromEntries(nodes.filter(n=>n.name.startsWith('mixamorig:')).
 const bind=Object.fromEntries(Object.entries(bones).map(([n,b])=>[n,{p:b.position.clone(),q:b.quaternion.clone()}]));
 const pos=n=>bones[n].getWorldPosition(new T.Vector3());
 root.updateMatrixWorld(true);const floor=pos('LeftFoot').y;
-const motion=createSprintMotion(root,bones,bind);let maxSlip=0,maxRoll=0,minElbow=180,maxElbow=0,minFoot=10;
+const motion=createSprintMotion(root,bones,bind);let maxSlip=0,maxRoll=0,minElbow=180,maxElbow=0,minFoot=10,minShoulderYaw=180,maxShoulderYaw=-180,maxKnee=0;
 for(let i=0;i<=512;i++){
  const phase=i/512;motion.sample(phase);root.updateMatrixWorld(true);
+ const shoulders=pos('LeftArm').sub(pos('RightArm')),yaw=Math.atan2(shoulders.z,shoulders.x)*180/Math.PI;minShoulderYaw=Math.min(minShoulderYaw,yaw);maxShoulderYaw=Math.max(maxShoulderYaw,yaw);
  const torso=pos('Neck').sub(pos('Hips'));maxRoll=Math.max(maxRoll,Math.abs(Math.atan2(torso.x,torso.y))*180/Math.PI);
  for(const [side,offset]of[['Left',0],['Right',.5]]){
   const p=(phase+offset)%1,foot=pos(side+'Foot');minFoot=Math.min(minFoot,foot.y);
   if(p<SPRINT_CONTACT-.01)maxSlip=Math.max(maxSlip,Math.abs(foot.z+SPRINT_CYCLE_DISTANCE*p-.28),Math.abs(foot.y-floor));
+  const k=pos(side+'Leg');maxKnee=Math.max(maxKnee,pos(side+'UpLeg').sub(k).angleTo(pos(side+'Foot').sub(k))*180/Math.PI);
   const e=pos(side+'ForeArm'),upper=pos(side+'Arm').sub(e),lower=pos(side+'Hand').sub(e),angle=upper.angleTo(lower)*180/Math.PI;
   minElbow=Math.min(minElbow,angle);maxElbow=Math.max(maxElbow,angle);
   assert(Number.isFinite(foot.x+foot.y+foot.z));
  }
 }
 assert(maxSlip<.025,`Foot contact drift ${maxSlip}`);assert(maxRoll<6,`Sideways lean ${maxRoll}`);
-assert(minElbow>75&&maxElbow<105,`Elbows ${minElbow}–${maxElbow}`);assert(minFoot>floor-.02,'Ankle below the track');
+assert(maxShoulderYaw-minShoulderYaw>4,'Shoulder rotation is locked');assert(maxElbow-minElbow>20,'Elbow swing is locked');
+assert(minElbow>65&&maxElbow<115,`Elbows ${minElbow}–${maxElbow}`);assert(minFoot>floor-.02,'Ankle below the track');
 motion.sample(.63,0);root.updateMatrixWorld(true);
 for(const [n,b]of Object.entries(bones)){assert(b.position.distanceTo(motion.rest[n].p)<1e-7);assert(b.quaternion.clone().normalize().angleTo(motion.rest[n].q.clone().normalize())<1e-6,`${n} stays in run pose at rest`);}
 const neck=pos('Neck').sub(pos('Hips'));assert(Math.abs(neck.z)<.05&&Math.abs(neck.x)<.03,'Rest torso not upright');
-console.log('PASS rig-space sprint contacts, torso stability, bent elbows, and full-body rest', {maxSlip,maxRoll,minElbow,maxElbow,minFoot});
+console.log('PASS rig-space sprint contacts, torso stability, bent elbows, and full-body rest', {maxSlip,maxRoll,minElbow,maxElbow,minFoot,shoulderYawRange:maxShoulderYaw-minShoulderYaw,maxKnee});
