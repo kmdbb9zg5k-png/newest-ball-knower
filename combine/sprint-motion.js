@@ -1,9 +1,10 @@
+import launchCapture from './captured-launch.json' with {type:'json'};
+import captured from './captured-sprint.json' with {type:'json'};
 import * as T from 'three';
 
 // One left/right stride in model-space metres. Contact motion has exactly
 // the opposite ground speed; the airborne recovery clears the planted leg.
-export const SPRINT_CYCLE_DISTANCE = 4.3;
-export const SPRINT_CONTACT = .168;
+export const SPRINT_CYCLE_DISTANCE = captured.cycleDistance;
 export const WALK_CYCLE_DISTANCE = 1.65;
 const TAU = Math.PI * 2;
 const vec = (x=0,y=0,z=0) => new T.Vector3(x,y,z);
@@ -45,55 +46,43 @@ export function createSprintMotion(body, bones, bind) {
   reset();
   for(const side of ['Left','Right'])arm(side,-.03,.15);
   const rest=capture();
-  const keys=[[.28-SPRINT_CYCLE_DISTANCE*SPRINT_CONTACT,0],[-.48,.32],[.37,.25],[.28,0]];
-  const slopes=[[-SPRINT_CYCLE_DISTANCE*(1-SPRINT_CONTACT),0],[1.1,.4],[.6,-.7],[-SPRINT_CYCLE_DISTANCE*(1-SPRINT_CONTACT),0]];
-  function recovery(u){
-    const stops=[0,.34,.70,1];let i=0;while(i<2&&u>stops[i+1])i++;
-    const span=stops[i+1]-stops[i],t=(u-stops[i])/span,t2=t*t,t3=t2*t;
-    return [0,1].map(k=>(2*t3-3*t2+1)*keys[i][k]+(t3-2*t2+t)*span*slopes[i][k]+(-2*t3+3*t2)*keys[i+1][k]+(t3-t2)*span*slopes[i+1][k]);
-  }
-  function makeFrame(phase,drive=0,walk=false){
+  function makeWalkFrame(phase){
     reset();
-    const swing=Math.sin(TAU*phase),pitch=(walk?.04:.18+drive*.28)+.018*Math.sin(2*TAU*phase);
+    const swing=Math.sin(TAU*phase),pitch=.04+.018*Math.sin(2*TAU*phase);
     // Compress over each support foot and rise through flight, rather than
     // holding a permanent crouch. Small opposing trunk motion relaxes the gait.
-    bones.Hips.position.y=bind.Hips.p.y-(walk?.025:.062+drive*.045)-(walk?.009:.018)*Math.cos(2*TAU*(phase-.08));
+    bones.Hips.position.y=bind.Hips.p.y-.025-.009*Math.cos(2*TAU*(phase-.08));
     bones.Hips.quaternion.copy(new T.Quaternion().setFromEuler(new T.Euler(pitch,.055*swing,.018*swing))).multiply(bind.Hips.q);
     bones.Spine1.quaternion.copy(bind.Spine1.q).multiply(new T.Quaternion().setFromEuler(new T.Euler(.016*Math.sin(2*TAU*phase),-.105*swing,-.033*swing)));
     bones.Head.quaternion.copy(bind.Head.q).multiply(new T.Quaternion().setFromAxisAngle(vec(0,1,0),.035*swing));update();
     for(const [side,offset,sign] of [['Left',0,1],['Right',.5,-1]]){
       const p=(phase+offset)%1;
       let z,y;
-      if(walk){
-        const contact=.6;
-        if(p<contact){z=.495-WALK_CYCLE_DISTANCE*p;y=0;}
-        else{const u=(p-contact)/(1-contact);z=-.495+.99*(u*u*(3-2*u));y=.085*Math.sin(Math.PI*u)**2;}
-      }
-      else if(p<SPRINT_CONTACT){z=.28-SPRINT_CYCLE_DISTANCE*p;y=0;}
-      else [z,y]=recovery((p-SPRINT_CONTACT)/(1-SPRINT_CONTACT));
+      const contact=.6;
+      if(p<contact){z=.495-WALK_CYCLE_DISTANCE*p;y=0;}
+      else{const u=(p-contact)/(1-contact);z=-.495+.99*(u*u*(3-2*u));y=.085*Math.sin(Math.PI*u)**2;}
       const foot=bones[side+'Foot'];
       solve(bones[side+'UpLeg'],bones[side+'Leg'],foot,vec(sign*.105,ankleY+y,z),vec(sign*.11,.65,1));
-      const lift=p<SPRINT_CONTACT?0:Math.sin(Math.PI*(p-SPRINT_CONTACT)/(1-SPRINT_CONTACT));
-      // Heel rises late in support; the foot releases behind the hip.
-      const toeOff=walk?0:T.MathUtils.smoothstep(p,SPRINT_CONTACT*.55,SPRINT_CONTACT)*(1-T.MathUtils.smoothstep(p,SPRINT_CONTACT,SPRINT_CONTACT+.14));
-      const q=new T.Quaternion().setFromAxisAngle(vec(1,0,0),-.48*toeOff-.20*lift).multiply(footQ[side]);
+      const lift=p<contact?0:Math.sin(Math.PI*(p-contact)/(1-contact));
+      const q=new T.Quaternion().setFromAxisAngle(vec(1,0,0),-.20*lift).multiply(footQ[side]);
       foot.quaternion.copy(rotation(foot.parent).invert().multiply(q));update();
       // Arm drive opposes the same-side leg; elbows remain flexed throughout.
-      arm(side,(walk?-.32:-1.02)*Math.cos(TAU*(p-.075)),walk?.35:Math.PI/2-.32*Math.cos(TAU*(p-.025)));
+      arm(side,-.32*Math.cos(TAU*(p-.075)),.35);
     }
     return capture();
   }
-  const frames=Array.from({length:count},(_,i)=>makeFrame(i/count));
-  const driveFrames=Array.from({length:count},(_,i)=>makeFrame(i/count,1));
-  const walkFrames=Array.from({length:count},(_,i)=>makeFrame(i/count,0,true));
+  const frames=Array.from({length:count},(_,i)=>Object.fromEntries(captured.names.map((n,j)=>[n,{p:new T.Vector3().fromArray(captured.frames[i][j]),q:new T.Quaternion().fromArray(captured.frames[i][j],3).normalize()}])));
+  const launchFrames=launchCapture.frames.map(frame=>Object.fromEntries(launchCapture.names.map((n,j)=>[n,{p:new T.Vector3().fromArray(frame[j]),q:new T.Quaternion().fromArray(frame[j],3).normalize()}])));
+  const walkFrames=Array.from({length:count},(_,i)=>makeWalkFrame(i/count));
   const q=new T.Quaternion(),p=vec();
   reset();
   return {
     rest,
-    sample(phase,effort=1,drive=0,walk=0){
+    sample(phase,effort=1,walk=0,launchTime=Infinity){
       const t=((phase%1)+1)%1*count,i=Math.floor(t),alpha=t-i,a=frames[i],b=frames[(i+1)%count];
       for(const name of names){const bone=bones[name];bone.position.lerpVectors(a[name].p,b[name].p,alpha);bone.quaternion.slerpQuaternions(a[name].q,b[name].q,alpha);
-        for(const [bank,weight] of [[driveFrames,drive],[walkFrames,walk]])if(weight>0){p.lerpVectors(bank[i][name].p,bank[(i+1)%count][name].p,alpha);q.slerpQuaternions(bank[i][name].q,bank[(i+1)%count][name].q,alpha);bone.position.lerp(p,weight);bone.quaternion.slerp(q,weight);}
+        for(const [bank,weight] of [[walkFrames,walk]])if(weight>0){p.lerpVectors(bank[i][name].p,bank[(i+1)%count][name].p,alpha);q.slerpQuaternions(bank[i][name].q,bank[(i+1)%count][name].q,alpha);bone.position.lerp(p,weight);bone.quaternion.slerp(q,weight);}
+        if(launchTime<launchCapture.end){const t=T.MathUtils.clamp(launchTime/launchCapture.end,0,1)*(launchFrames.length-1),li=Math.floor(t),la=launchFrames[li],lb=launchFrames[Math.min(li+1,launchFrames.length-1)],weight=1-T.MathUtils.smoothstep(launchTime,launchCapture.end*.55,launchCapture.end);p.lerpVectors(la[name].p,lb[name].p,t-li);q.slerpQuaternions(la[name].q,lb[name].q,t-li);bone.position.lerp(p,weight);bone.quaternion.slerp(q,weight);}
         if(effort<1){bone.position.lerp(rest[name].p,1-effort);bone.quaternion.slerp(rest[name].q,1-effort);}
       }
       // Quaternion blends between gaits can shorten support-leg height.

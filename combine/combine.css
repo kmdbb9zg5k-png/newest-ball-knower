@@ -82,3 +82,8 @@
 .combine-skill-scores p{font-size:12px!important}.combine-attempts{font-size:13px}
 @media(max-width:600px) and (min-height:501px){.combine-speed{top:169px;width:170px}.combine-game[data-phase=running] .combine-cue{top:226px;left:64%}.combine-splits{top:226px;width:96px}.combine-splits div{padding:8px}}
 @media(max-height:500px){.combine-speed{top:90px;bottom:auto;width:160px}.combine-game[data-phase=running] .combine-cue{top:143px}.combine-game[data-phase=running] .combine-distance{bottom:170px}.combine-overlay[aria-label="Dash results"] .combine-result h2{font-size:38px}.combine-result-splits b{font-size:21px}}
+
+/* Keep finish confirmation beside the clock, clear of the athlete. */
+.combine-game[data-phase=finished] .combine-cue{top:143px;left:50%;font-size:15px;letter-spacing:.08em;padding:6px 12px}
+@media(max-width:600px) and (min-height:501px){.combine-game[data-phase=finished] .combine-cue{top:170px}}
+@media(max-height:500px){.combine-game[data-phase=finished] .combine-cue{top:90px}}
