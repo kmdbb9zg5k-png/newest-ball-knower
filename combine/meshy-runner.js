@@ -1,5 +1,6 @@
 import * as T from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createPlayerAppearance } from './player-appearance.js';
 
 // Native 52-bone athlete and its own captured clips; no cross-rig retargeting.
 export const COMBINE_CHARACTER_URL = '/play-moment-3d/assets/combine-native-athlete-v1.glb?v=native-1';
@@ -21,6 +22,7 @@ export async function loadCombineRunner(player) {
   const bones={};body.traverse(o=>{if(o.isBone)bones[o.name.replace('mixamorig','').replace(':','')]=o;if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;for(const m of(Array.isArray(o.material)?o.material:[o.material])){if(m.map)m.map.anisotropy=4;}}});
   const required=['Hips','Spine','Spine1','Spine2','Neck','Head','LeftUpLeg','LeftLeg','LeftFoot','RightUpLeg','RightLeg','RightFoot','LeftArm','LeftForeArm','LeftHand','RightArm','RightForeArm','RightHand'];
   if(required.some(name=>!bones[name]))throw new Error('The Combine character rig is incomplete.');
+  const appearance=createPlayerAppearance(body,bones);
   const bind=Object.fromEntries(Object.entries(bones).map(([name,b])=>[name,{p:b.position.clone(),q:b.quaternion.clone()}]));
   body.updateMatrixWorld(true);
   const footRotations={Left:rotation(bones.LeftFoot),Right:rotation(bones.RightFoot)};
@@ -57,6 +59,7 @@ export async function loadCombineRunner(player) {
     gaitPhase=0;lastDistance=0;idleTime=0;walkWeight=0;idleWeight=0;
     const bulk=['OL','DL'].includes(next.position)?1.06:['TE','LB'].includes(next.position)?1.03:1;
     asset.scale.copy(baseScale);asset.scale.x*=bulk;
+    appearance.apply(next);root.userData.playerId=next.id;root.userData.playerName=next.name;
   }
   setAthlete(player);
   function pose(distance,velocity,stance=true,launch=1,celebrate=0,recovering=false,dt=1/60){
@@ -87,5 +90,5 @@ export async function loadCombineRunner(player) {
     body.position.y=0;root.updateMatrixWorld(true);
   }
   pose(0,0,true);
-  return {root,pose,setAthlete,dispose(){mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}};
+  return {root,pose,setAthlete,dispose(){appearance.dispose();mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}};
 }
