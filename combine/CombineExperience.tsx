@@ -151,13 +151,27 @@ export default function CombineExperience({ players, context, onClose }: Props) 
     </>}
 
     </div>
-    {terminal && <section className="combine-overlay" inert={picker || paused || !!error} aria-label="Dash results"><div className="combine-result" data-personal-best={personalBest}><span className="combine-eyebrow">{phase === 'false-start' ? 'ATTEMPT USED' : personalBest ? '★ NEW PERSONAL BEST' : 'DRILL RESULT'}</span><h2 ref={resultHeading} tabIndex={-1}>{phase === 'false-start' ? 'FALSE START' : `${time(view.clock)} s`}</h2><p>{phase === 'false-start' ? 'You tapped before green.' : `${player.name} · ${player.position}`}</p>
-      {phase === 'finished' && <><div className="combine-result-splits">{[10, 20, 40].map((n, i) => <div key={n}><span>{n} YD</span><b>{time(view.splits[i])}s</b></div>)}</div><p className="combine-scout">{view.clock < 4.5 ? 'Explosive long speed.' : view.clock < 4.85 ? 'Strong straight-line speed.' : 'Build speed through the drive phase.'}</p></>}
-      {phase==='finished' && <div className="combine-skill-scores"><span>CLEAN STEPS <b>{scores.flow}%</b></span><span>TOP SPEED <b>{scores.topSpeed.toFixed(1)} mph</b></span><p>Projected {player.position} rank: {ranking.rank} / {ranking.total} · Simulated peer benchmarks</p></div>}
-      <div className="combine-attempts">{runs.map((r, i) => <span key={i}>Attempt {i + 1} <b>{r == null ? 'FS' : `${time(r)}s`}</b></span>)}</div>
+    {terminal && <section className="combine-overlay combine-results-overlay" inert={picker || paused || !!error} aria-label="Dash results"><div className="combine-result combine-finish-card" data-personal-best={personalBest} data-false-start={phase === 'false-start'}>
+      <header className="combine-finish-header"><span>BK <b>COMBINE</b></span><span>40 YARD DASH</span></header>
+      <div className="combine-finish-hero">
+        <span className="combine-finish-watermark" aria-hidden="true">40</span>
+        <span className="combine-finish-badge">{phase === 'false-start' ? 'ATTEMPT USED' : personalBest ? '★ PERSONAL BEST' : 'RUN COMPLETE'}</span>
+        <h2 ref={resultHeading} tabIndex={-1}>{phase === 'false-start' ? 'FALSE START' : <>{time(view.clock)}<small>SEC</small></>}</h2>
+        <div className="combine-finish-player"><span>{player.position}</span><strong>{player.name}</strong></div>
+        {phase === 'false-start' && <p>You tapped before green.</p>}
+      </div>
+      <div className="combine-finish-details">
+      {phase === 'finished' && <>
+        <div className="combine-section-label"><span>SPLIT TIMES</span><span>START → FINISH</span></div>
+        <div className="combine-result-splits">{[10, 20, 40].map((n, i) => <div key={n}><span>{n} <small>YD</small></span><b>{time(view.splits[i])}<small>s</small></b></div>)}</div>
+        <div className="combine-skill-scores"><span>CLEAN STEPS <b>{scores.flow}<small>%</small></b></span><span>TOP SPEED <b>{scores.topSpeed.toFixed(1)}<small>mph</small></b></span></div>
+        <div className="combine-finish-rank"><span>{player.position} BENCHMARK <small>Simulated peers</small></span><strong>{ranking.rank}<small> / {ranking.total}</small></strong></div>
+      </>}
+      <div className="combine-attempts">{runs.map((r, i) => <span key={i}>ATTEMPT {String(i + 1).padStart(2, '0')} <b>{r == null ? 'FS' : `${time(r)}s`}</b></span>)}</div>
       {runSplits.length > 1 && runSplits[0] && runSplits[1] && <div className="combine-comparison" aria-label="Attempt split comparison">{[10,20,40].map((yard,i) => { const delta = Number((runSplits[1]![i]-runSplits[0]![i]).toFixed(2)); return <span key={yard}>{yard} YD <b data-faster={delta<0}>{delta>0?'+':''}{delta.toFixed(2)}s</b></span>; })}<small>Attempt 2 compared with attempt 1</small></div>}
-      <p className="combine-save" role="status">{!saved ? 'Could not save on this device. Your result is shown above.' : best ? `Personal best: ${time(best.splits[2])}s · Saved on this device` : 'False starts do not post a time.'}</p>
-      <div className="combine-result-actions">{attempt < 2 ? <button onClick={() => reset(player, 2)}>SECOND ATTEMPT</button> : <button onClick={() => { setRuns([]); setRunSplits([]); reset(player, 1); }}>NEW SESSION</button>}<button onClick={openPicker}>ATHLETES & RESULTS</button><button onClick={onClose}>{context === 'standalone' ? 'BACK TO MINI GAMES' : 'BACK TO FRANCHISE'}</button></div>
+      <div className="combine-result-actions">{attempt < 2 ? <button onClick={() => reset(player, 2)}><span>RUN AGAIN <small>SECOND ATTEMPT</small></span><span aria-hidden="true">↗</span></button> : <button onClick={() => { setRuns([]); setRunSplits([]); reset(player, 1); }}><span>NEW SESSION <small>BACK TO THE LINE</small></span><span aria-hidden="true">↗</span></button>}<button onClick={openPicker}>ATHLETES & RESULTS</button><button onClick={onClose}>{context === 'standalone' ? 'BACK TO MINI GAMES' : 'BACK TO FRANCHISE'}</button></div>
+      <p className="combine-save" role="status">{!saved ? 'Could not save on this device. Your result is shown above.' : best ? `Best ${time(best.splits[2])}s · Saved on this device` : 'False starts do not post a time.'}</p>
+      </div>
     </div></section>}
     {picker && <section className="combine-overlay combine-picker" role="dialog" aria-modal="true" aria-label="Choose athlete"><div className="combine-result"><div className="combine-picker-heading"><h2>Athletes & results</h2><button autoFocus onClick={closePicker} aria-label="Close athlete selection">×</button></div><p>{context === 'standalone' ? 'Fictional prospects · your local best times' : 'Franchise scouting · your local best times'}</p><div className="combine-athlete-list">{players.map(p => { const record = bestResult(rows, context, p.id); return <button key={p.id} onClick={() => { closePicker(); setRuns([]); setRunSplits([]); reset(p, 1); }}><span><b>{p.name}</b><small>{p.position} · SPEED {p.speed}</small></span><strong>{record ? `${time(record.splits[2])}s` : 'RUN →'}</strong></button>; })}</div></div></section>}
     {paused && !error && <section className="combine-overlay" role="dialog" aria-modal="true" aria-label="Dash paused"><div className="combine-result"><h2>PAUSED</h2><p>Your attempt is held here.</p><div className="combine-result-actions"><button autoFocus onClick={resume}>RESUME</button><button onClick={onClose}>LEAVE COMBINE</button></div></div></section>}
