@@ -864,7 +864,7 @@ function coverage(dt){
  }
  function referenceCamera(dt){r.fov=50;const isPocket=phase==='pre'||phase==='snap'||phase==='pass'||phase==='handoff',isDead=phase==='dead';let x=0,z=snapZ+2,mult=1;
   if(!isPocket&&!isDead){x=carrier.x*.55;z=carrier.z+5;if(flight){const t=clamp(flight.t,0,1);x=(flight.from[0]+(flight.to[0]-flight.from[0])*t)*.55;z=flight.from[2]+(flight.to[2]-flight.from[2])*t+4}}
-  if(phase==='pass'){const deep=Math.max(...receiverIndices.map(i=>actors[i].z));z=(deep+actors[5].z)*.5;mult=clamp(1+(deep-actors[5].z-16)*.018,1,1.7)}
+  if(phase==='pass'){x=actors[5].x*.75;const deep=Math.max(...receiverIndices.map(i=>actors[i].z));z=(deep+actors[5].z)*.5;mult=clamp(1+(deep-actors[5].z-16)*.018,1,1.7)}
   // Let the camera settle around the finish instead of freezing at the whistle.
   if(isDead){const focus=carrier||actors[5],settle=clamp(postPlayElapsed/.75,0,1),desiredEye=[focus.x*.76+1.2,4.85+settle*.3,focus.z-6.95-settle*.75],desiredTarget=[focus.x*.82,.92,focus.z+2.35+settle*.35],blend=cameraFollowBlend(dt,2.7);camEye=camEye.map((v,i)=>v+(desiredEye[i]-v)*blend);camTarget=camTarget.map((v,i)=>v+(desiredTarget[i]-v)*blend);const strength=impactShake*.12;impactShake=Math.max(0,impactShake-dt*3.8);fieldCamera([camEye[0]+Math.sin(simTime*91)*strength,camEye[1]+Math.cos(simTime*73)*strength*.45,camEye[2]],camTarget);return}
   const tracking=phase==='run';
