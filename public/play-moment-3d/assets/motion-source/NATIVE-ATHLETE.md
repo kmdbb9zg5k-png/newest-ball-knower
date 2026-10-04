@@ -8,6 +8,14 @@ The export normalizes skin weights after the web loader's four-influence limit, 
 
 Skin, fabric and rubber remain nonmetallic. The supplied roughness map controls highlights; normal strength is reduced to avoid harsh surface noise. No face, tattoos, clothing or shoes were regenerated.
 
+## Player variation
+
+`combine/player-appearance.js` reads the existing `simulatedPlayerIdentity` record used by Solo artwork. Skin tone, hair color, hairstyle family and facial hair are deterministic for each player ID; team/name/rating changes and reloads do not reroll them. The selected roster name remains the displayed name.
+
+Exposed warm-colored skin pixels are tinted in the material shader; neutral clothing/shoes and dark tattoo ink are preserved. Hair and facial-hair meshes are fitted from the actual source head surface, with tapered coverage at their edges, and parented to the head bone. Curl/twist clumps and braid geometry add silhouette variation. These are lightweight procedural interpretations of the identity's hairstyle, not individually authored portrait-matching grooms. The shared source facial geometry and tattoo layout remain the same.
+
+`node scripts/check-combine-appearance.mjs` verifies multiple skin/hair variants, head attachment, names and IDs, pixel-identical A→B→A switching and reloads, and independence from team/name/rating changes. Review the generated full-body and close-up renders as well as mobile picker/running captures.
+
 To rebuild, extract the source ZIP and nested animation/texture ZIPs to a temporary directory, flatten the filenames, then run:
 
 ```
