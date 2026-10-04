@@ -209,7 +209,7 @@ export async function createCombineScene(host, player, onLost) {
   // Small standing groups and tables stay outside the athlete's lane.
   for(let i=0;i<7;i++){const person=athlete(scene,21+i,true);person.root.position.set((i%2?1:-1)*(5.2+i%3),0,3+i*5);person.root.rotation.y=i%2?-Math.PI/2:Math.PI/2;person.root.scale.setScalar(.96+(i%3)*.025);}
   for(const z of [6,20,37]){box(scene,[1.5,.09,.64],metal,[6,.82,z]);for(const x of [5.4,6.6])for(const dz of [-.22,.22])box(scene,[.05,.78,.05],metal,[x,.39,z+dz]);box(scene,[.44,.3,.045],mat('#111b21'),[6,1.02,z]);}
-  const runner=detailedRunner;scene.add(runner.root);host.dataset.character='meshy-training';
+  const runner=detailedRunner;scene.add(runner.root);host.dataset.character='native-athlete';
   let visualZ=0,previousPhase='idle',settle=0;
   const target=v(),look=v();
   const resize=()=>{const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;camera.aspect=w/h;camera.fov=w<h?53:49;camera.updateProjectionMatrix();renderer.setSize(w,h,false);};
@@ -222,7 +222,7 @@ export async function createCombineScene(host, player, onLost) {
     const coast=settle<.35?1:Math.exp(-Math.pow((settle-.35)/1.35,1.5));
     const speed=active?state.velocity:ended?state.velocity*coast:0;
     if(ended)visualZ+=speed*dt;
-    runner.root.position.z=visualZ;runner.pose(visualZ,speed,!active&&!ended,active?state.clock/.72:1,ended&&settle>1.8?Math.min(1,(settle-1.8)*2):0,ended);
+    runner.root.position.z=visualZ;runner.pose(visualZ,speed,!active&&!ended,active?state.clock/.72:1,ended&&settle>1.8?Math.min(1,(settle-1.8)*2):0,ended,dt);
     brand.material.opacity=1-T.MathUtils.smoothstep(visualZ,FINISH-6,FINISH);
     const portrait=camera.aspect<1;
     // Rise and look down the runout so the far-wall brand clears the HUD.
