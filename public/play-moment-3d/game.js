@@ -1,3 +1,4 @@
+import {referenceCameraTravel} from './reference-camera.js?v=coherent-players-50';
 import {routePoint,pursuitRead,passSetPoint,contactImpact,pocketSpeedFactor,renderDue} from './football-flow.js?v=complete-flow-46';
 import {safeFieldCamera} from './field-awareness.js?v=contact-camera-11';
 import {createLiveUnits} from './live-units.js?v=complete-flow-46';
@@ -8,7 +9,7 @@ export{RUNS,PASSES}from'./playbook.js?v=contact-camera-11';
 import{Renderer,pose,segment,hex,mul,ry}from'./renderer.js?v=football-foundation-44';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js?v=reference-motion-45';
 import{createMeshyAthletes}from'./meshy-athlete.js?v=complete-flow-46';
-import{createMeshyAthletes as createReferenceAthletes}from'./reference-athlete.js?v=reference-helmets-49';
+import{createMeshyAthletes as createReferenceAthletes}from'./reference-athlete.js?v=coherent-players-50';
 import{makeStadium}from'./stadium.js?v=contact-camera-11';
 import{createGameplayReplayRecorder}from'./replay.js';
 import {miniClock,miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=contact-camera-11';
@@ -862,20 +863,26 @@ function coverage(dt){
    // Only a tackle, sideline, slide or score ends it; endPlay settles the drive.
   }
  }
- function referenceCamera(dt){r.fov=50;const isPocket=phase==='pre'||phase==='snap'||phase==='pass'||phase==='handoff',isDead=phase==='dead';let x=0,z=snapZ+2,mult=1;
-  if(!isPocket&&!isDead){x=carrier.x*.55;z=carrier.z+5;if(flight){const t=clamp(flight.t,0,1);x=(flight.from[0]+(flight.to[0]-flight.from[0])*t)*.55;z=flight.from[2]+(flight.to[2]-flight.from[2])*t+4}}
+ function referenceCamera(dt){
+  r.fov=50;
+  const isPocket=['pre','snap','pass'].includes(phase),tracking=phase==='handoff'||phase==='run',focus=phase==='handoff'?actors[6]:carrier;
+  let x=0,z=snapZ+2,mult=1;
   if(phase==='pass'){x=actors[5].x*.75;const deep=Math.max(...receiverIndices.map(i=>actors[i].z));z=(deep+actors[5].z)*.5;mult=clamp(1+(deep-actors[5].z-16)*.018,1,1.7)}
-  // Let the camera settle around the finish instead of freezing at the whistle.
-  if(isDead){const focus=carrier||actors[5],settle=clamp(postPlayElapsed/.75,0,1),desiredEye=[focus.x*.76+1.2,4.85+settle*.3,focus.z-6.95-settle*.75],desiredTarget=[focus.x*.82,.92,focus.z+2.35+settle*.35],blend=cameraFollowBlend(dt,2.7);camEye=camEye.map((v,i)=>v+(desiredEye[i]-v)*blend);camTarget=camTarget.map((v,i)=>v+(desiredTarget[i]-v)*blend);const strength=impactShake*.12;impactShake=Math.max(0,impactShake-dt*3.8);fieldCamera([camEye[0]+Math.sin(simTime*91)*strength,camEye[1]+Math.cos(simTime*73)*strength*.45,camEye[2]],camTarget);return}
-  const tracking=phase==='run';
-  // Center the pocket and move closer without enlarging athlete geometry.
-  // Keep the existing wide/long-flight presentation and receiver-fit guard.
-  const desiredEye=tracking?[carrier.x*.97+.9,4.55,carrier.z-6.15]:[x+(isPocket?0:3.5*mult),(isPocket?5.55:8.0)*mult,(isPocket?snapZ:z)-(isPocket?18:24.5)*mult];
-  const desiredTarget=tracking?[carrier.x*.97,.94,carrier.z+4.2]:[x,1.42,z];
-  // Fit actual projected heads/feet above the pre-snap controls. Do not pan the QB away.
+  let desiredEye=[x,5.55*mult,snapZ-18*mult],desiredTarget=[x,1.42,z];
+  if(tracking||phase==='dead'){
+   const f=focus||actors[5];desiredEye=[f.x*.97+.9,4.55,f.z-6.15];desiredTarget=[f.x*.97,.94,f.z+4.2];
+  }
+  if(phase==='flight'&&flight){
+   // Begin the same receiver-follow shot during flight. The catch continues
+   // from the current rig, without selecting a new angle or sudden close-up.
+   const start=flightCameraStart||{eye:camEye,target:camTarget},t=smooth(clamp(flight.t,0,1)),to=flight.to;
+   desiredEye=[to[0]*.97+.9,4.55,to[2]-6.15].map((v,i)=>start.eye[i]+(v-start.eye[i])*t);
+   desiredTarget=[to[0]*.97,.94,to[2]+4.2].map((v,i)=>start.target[i]+(v-start.target[i])*t);
+  }
   if(isPocket){for(let trial=0;trial<8;trial++){fieldCamera(desiredEye,desiredTarget);const watch=phase==='pre'?actors.filter(p=>!p.team):[actors[5],...receiverIndices.map(i=>actors[i])];const fits=watch.every(p=>{const h=r.project([p.x,2.1,p.z]),f=r.project([p.x,0,p.z]);return h.y>65&&f.y<r.height-(phase==='pre'?85:22)&&h.x>24&&h.x<r.width-24});if(fits)break;desiredEye[1]*=1.055;desiredEye[2]=desiredTarget[2]+(desiredEye[2]-desiredTarget[2])*1.055}}
-  if(tracking){for(let trial=0;trial<6;trial++){fieldCamera(desiredEye,desiredTarget);if(r.project([carrier.x,0,carrier.z]).y<r.height-90)break;desiredEye[1]*=1.045;desiredEye[2]=desiredTarget[2]+(desiredEye[2]-desiredTarget[2])*1.045}}
-  const blend=cameraFollowBlend(dt,phase==='pre'?10:phase==='handoff'?4.2:3.8);camEye=camEye.map((v,i)=>v+(desiredEye[i]-v)*blend);camTarget=camTarget.map((v,i)=>v+(desiredTarget[i]-v)*blend);const strength=impactShake*.12;impactShake=Math.max(0,impactShake-dt*3.8);fieldCamera([camEye[0]+Math.sin(simTime*91)*strength,camEye[1]+Math.cos(simTime*73)*strength*.45,camEye[2]],camTarget);
+  if(tracking){for(let trial=0;trial<6;trial++){fieldCamera(desiredEye,desiredTarget);if(r.project([focus.x,0,focus.z]).y<r.height-90)break;desiredEye[1]*=1.045;desiredEye[2]=desiredTarget[2]+(desiredEye[2]-desiredTarget[2])*1.045}}
+  const shot=cameraReset?{eye:desiredEye,target:desiredTarget}:referenceCameraTravel(camEye,camTarget,desiredEye,desiredTarget,dt);cameraReset=false;camEye=shot.eye;camTarget=shot.target;
+  const strength=impactShake*.12;impactShake=Math.max(0,impactShake-dt*3.8);fieldCamera([camEye[0]+Math.sin(simTime*91)*strength,camEye[1]+Math.cos(simTime*73)*strength*.45,camEye[2]],camTarget);
  }
  function camera(dt){if(liveUnit?.state){const view=liveUnit.view();r.fov=view.fov||55;const reverse=(camTarget[2]-camEye[2])*(view.target[2]-view.eye[2])<0;const shot=reverse?{eye:[...view.eye],target:[...view.target]}:cameraRigTravel(camEye,camTarget,view.eye,view.target,dt,4,25);camEye=shot.eye;camTarget=shot.target;fieldCamera(camEye,camTarget);return;}if(fullGame){referenceCamera(dt);return;}const lens=r.width/r.height>1.5?(['snap','pass'].includes(phase)?58:50):46;r.fov=Number.isFinite(r.fov)?r.fov+(lens-r.fov)*cameraFollowBlend(dt,5):lens;const isPocket=phase==='pre'||phase==='snap'||phase==='pass'||phase==='handoff'||phase==='flight',isDead=phase==='dead';let x=0,z=snapZ+2,mult=1;
   if(!isPocket&&!isDead){x=carrier.x*.55;z=carrier.z+5;if(flight){const t=clamp(flight.t,0,1);x=(flight.from[0]+(flight.to[0]-flight.from[0])*t)*.55;z=flight.from[2]+(flight.to[2]-flight.from[2])*t+4}}
@@ -960,7 +967,7 @@ function coverage(dt){
   if(!stagedBall&&carrier?.hasBall&&!flight){const rigged=meshy.ballAnchor(carrier);if(rigged)r.add('football',segment(rigged.a,rigged.b,.105),[1,1,1,1],'',false,.08,5);else{const[x,y,z,heading]=carriedBallAnchor(carrier,phase),fx=Math.sin(heading)*.17,fz=Math.cos(heading)*.17;r.add('football',segment([x-fx,y,z-fz],[x+fx,y,z+fz],.105),[1,1,1,1],'',false,.08,5)}}
   if(flight){const t=clamp(flight.t,0,1),p=flight.from.map((v,i)=>v+(flight.to[i]-flight.from[i])*t),dx=flight.to[0]-flight.from[0],dz=flight.to[2]-flight.from[2];p[1]+=Math.sin(Math.PI*t)*flight.arc;const axis=[dx,flight.to[1]-flight.from[1]+Math.cos(Math.PI*t)*Math.PI*flight.arc,dz],axisLength=Math.hypot(...axis)||1,a=p.map((v,i)=>v-axis[i]/axisLength*.19),b=p.map((v,i)=>v+axis[i]/axisLength*.19);r.add('football',mul(segment(a,b,.112),ry(simTime*22)),[1,1,1,1],'',false,.08,5);r.add('plane',pose(p[0],.06,p[2],.52,1,.40),[0,0,0,.65],'shadow',true)}
   if(looseBall){const age=simTime-looseBall.born,t=clamp(age/looseBall.life,0,1);if(t>=1)looseBall=null;else{const fall=Math.sqrt(Math.max(0,(looseBall.y-.16)/7)),bounce=Math.abs(Math.sin(Math.max(0,age-fall)*16))*.24*(1-t),x=looseBall.x+age*.85*looseBall.side,z=looseBall.z+age*.42,y=age<fall?Math.max(.16,looseBall.y-7*age*age):.16+bounce;const tilt=Math.sin(age*14)*.075;r.add('football',mul(segment([x-.17,y-tilt,z-.08],[x+.17,y+tilt,z+.08],.112),ry(age*9)),[1,1,1,1],'',false,.08,5);r.add('plane',pose(x,.06,z,.48,1,.36),[0,0,0,.58],'shadow',true)}}
-  r.draw();meshy.draw(actors,liveUnit?.state&&(liveUnit.state.stage==='pre'||['extra-point','field-goal'].includes(liveUnit.state.kind)&&liveUnit.state.stage==='kick')?'pre':liveUnit?.state?.stage==='end'?'dead':phase,now/1000);if(fullGame)meshy.drawJerseyNumbers(actors);
+  r.draw();meshy.draw(actors,liveUnit?.state&&(liveUnit.state.stage==='pre'||['extra-point','field-goal'].includes(liveUnit.state.kind)&&liveUnit.state.stage==='kick')?'pre':liveUnit?.state?.stage==='end'?'dead':phase,now/1000);
   positionPlayerNames();
   if(phase==='pass'){
    const header=document.querySelector('header').getBoundingClientRect();
