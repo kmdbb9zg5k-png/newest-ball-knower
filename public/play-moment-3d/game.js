@@ -125,8 +125,9 @@ export function cameraTravel(current,target,dt,rate=3,maxSpeed=24){
  return current.map((v,i)=>v+delta[i]*blend);
 }
 /** Compose a readable elevated live-run camera around the ball carrier. */
-export function runCameraFraming(x,z,vx=0,vz=0){
+export function runCameraFraming(x,z,vx=0,vz=0,fullGame=false){
  const pace=clamp(Math.hypot(vx,vz)/10,0,1),leadX=clamp(vx*.22,-1.4,1.4),leadZ=clamp(vz*.16,-1.2,1.6);
+ if(fullGame)return{eye:[x+leadX*.35,7.8,z-12.5+leadZ],target:[x+leadX,1.0,z+4+leadZ]};
  return{eye:[x+.45+leadX*.35,4.7+pace*.12,z-9.2+leadZ],target:[x+leadX,1.2,z+3.2+leadZ]};
 }
 /** Finish the catch shot after the whistle, keeping the contact centered.
@@ -861,11 +862,13 @@ function coverage(dt){
    // Only a tackle, sideline, slide or score ends it; endPlay settles the drive.
   }
  }
- function camera(dt){if(liveUnit?.state){const view=liveUnit.view();r.fov=view.fov||55;const reverse=(camTarget[2]-camEye[2])*(view.target[2]-view.eye[2])<0;const shot=reverse?{eye:[...view.eye],target:[...view.target]}:cameraRigTravel(camEye,camTarget,view.eye,view.target,dt,4,25);camEye=shot.eye;camTarget=shot.target;fieldCamera(camEye,camTarget);return;}const lens=r.width/r.height>1.5?(['snap','pass'].includes(phase)?58:50):46;r.fov=Number.isFinite(r.fov)?r.fov+(lens-r.fov)*cameraFollowBlend(dt,5):lens;const isPocket=phase==='pre'||phase==='snap'||phase==='pass'||phase==='handoff'||phase==='flight',isDead=phase==='dead';let x=0,z=snapZ+2,mult=1;
+ function camera(dt){if(liveUnit?.state){const view=liveUnit.view();r.fov=view.fov||55;const reverse=(camTarget[2]-camEye[2])*(view.target[2]-view.eye[2])<0;const shot=reverse?{eye:[...view.eye],target:[...view.target]}:cameraRigTravel(camEye,camTarget,view.eye,view.target,dt,4,25);camEye=shot.eye;camTarget=shot.target;fieldCamera(camEye,camTarget);return;}const lens=fullGame?52:r.width/r.height>1.5?(['snap','pass'].includes(phase)?58:50):46;r.fov=Number.isFinite(r.fov)?r.fov+(lens-r.fov)*cameraFollowBlend(dt,5):lens;const isPocket=phase==='pre'||phase==='snap'||phase==='pass'||phase==='handoff'||phase==='flight',isDead=phase==='dead';let x=0,z=snapZ+2,mult=1;
   if(!isPocket&&!isDead){x=carrier.x*.55;z=carrier.z+5;if(flight){const t=clamp(flight.t,0,1);x=(flight.from[0]+(flight.to[0]-flight.from[0])*t)*.55;z=flight.from[2]+(flight.to[2]-flight.from[2])*t+4}}
   if(phase==='pass'||phase==='flight'){x=actors[5].x*.82;const deep=Math.max(...receiverIndices.map(i=>actors[i].z));z=actors[5].z+clamp((deep-actors[5].z)*.42,6,14);mult=clamp(1+(deep-actors[5].z-20)*.01,1,1.35)}
   // A catch may be tackled before the live camera arrives. Continue into a
   // centered contact shot instead of freezing the unfinished flight view.
+  // Full games keep the field view after the whistle instead of diving into bodies.
+  if(isDead&&fullGame){const focus=deadBallFocus||carrier||actors[5],frame=runCameraFraming(focus.x,focus.z,0,0,true),shot=cameraRigTravel(camEye,camTarget,frame.eye,frame.target,dt,4,24);camEye=shot.eye;camTarget=shot.target;fieldCamera(camEye,camTarget);return;}
   if(isDead&&typeof pendingDriveEnd!=='undefined'&&pendingDriveEnd?.title==='TOUCHDOWN'&&!activeContact){
    const f=carrier,offset=pendingDriveEnd.cameraOffset||(pendingDriveEnd.cameraOffset=touchdownCameraFraming(f,actors).offset),eye=[f.x+offset[0],offset[1],f.z+offset[2]],target=[f.x,1.0,f.z];
    const shot=touchdownCameraTravel(camEye,camTarget,eye,target,dt);camEye=shot.eye;camTarget=shot.target;fieldCamera(camEye,camTarget);return;
@@ -884,13 +887,13 @@ function coverage(dt){
   if(tracking&&!runCameraStart)runCameraStart={eye:[...camEye],target:[...camTarget],x:focus.x,z:focus.z};
   // Center the pocket and move closer without enlarging athlete geometry.
   // Fit the formation horizontally; tilt around the athlete before adding distance.
-  const runFrame=tracking?runCameraFraming(focus.x,focus.z,focus.motion?.vx??focus.vx??0,focus.motion?.vz??focus.vz??0):null;
-  let desiredEye=tracking?runFrame.eye:[x+(isPocket?0:3.5*mult),(isPocket?4.3:8.0)*mult,(isPocket?snapZ:z)-(isPocket?14.3:24.5)*mult];
+  const runFrame=tracking?runCameraFraming(focus.x,focus.z,focus.motion?.vx??focus.vx??0,focus.motion?.vz??focus.vz??0,fullGame):null;
+  let desiredEye=tracking?runFrame.eye:[x+(isPocket?0:3.5*mult),(isPocket?(fullGame?7.8:4.3):8.0)*mult,(isPocket?snapZ:z)-(isPocket?(fullGame?16:14.3):24.5)*mult];
   let desiredTarget=tracking?runFrame.target:[x,1.65,phase==='pre'?snapZ-1.5:z];
   if(tracking){const t=smooth(runCameraBlend),offset=[(focus.x-runCameraStart.x)*.96,0,focus.z-runCameraStart.z];desiredEye=desiredEye.map((v,i)=>(runCameraStart.eye[i]+offset[i])*(1-t)+v*t);desiredTarget=desiredTarget.map((v,i)=>(runCameraStart.target[i]+offset[i])*(1-t)+v*t)}
   // Start following the intended receiver while the football is in the air.
   // Catching continues from the actual camera position, never a new fixed view.
-  if(phase==='flight'&&flight){const start=flightCameraStart||{eye:camEye,target:camTarget},t=smooth(clamp(flight.t*1.18,0,1)),to=flight.to;desiredEye=[to[0]+.45,5.25,to[2]-7.2].map((v,i)=>start.eye[i]+(v-start.eye[i])*t);desiredTarget=[to[0],.9,to[2]+2.2].map((v,i)=>start.target[i]+(v-start.target[i])*t)}
+  if(phase==='flight'&&flight){const start=flightCameraStart||{eye:camEye,target:camTarget},t=smooth(clamp(flight.t*1.18,0,1)),to=flight.to;desiredEye=(fullGame?runCameraFraming(to[0],to[2],0,0,true).eye:[to[0]+.45,5.25,to[2]-7.2]).map((v,i)=>start.eye[i]+(v-start.eye[i])*t);desiredTarget=[to[0],fullGame?1:.9,to[2]+(fullGame?4:2.2)].map((v,i)=>start.target[i]+(v-start.target[i])*t)}
   // Fit actual projected heads/feet above the pre-snap controls. Do not pan the QB away.
   const pocketBottom=phase==='pre'?(playbookOpen?r.height-100:Math.min(r.height-100,$('pre').getBoundingClientRect().top-10)):r.height-100;
   if(isPocket&&!tracking&&phase!=='flight'){
