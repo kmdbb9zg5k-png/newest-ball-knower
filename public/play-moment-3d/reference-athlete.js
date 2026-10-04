@@ -2,7 +2,8 @@
 import {jerseyIdentityKey} from './jersey-identity.js?v=teams-1';
 import{identity,mul,translate,scale,rx,ry,rz}from'./renderer.js?v=football-foundation-44';
 
-const ASSET='/play-moment-3d/assets/tripo-gridiron-pro.glb';
+// Helmeted reference body: saved Sentinel equipment shares the original head bone.
+const ASSET='/play-moment-3d/assets/reference-helmeted-athlete-v1.glb';
 const MAX_BONES=32;
 const COMPONENTS={SCALAR:1,VEC2:2,VEC3:3,VEC4:4,MAT4:16};
 const CTORS={5120:Int8Array,5121:Uint8Array,5122:Int16Array,5123:Uint16Array,5125:Uint32Array,5126:Float32Array};
@@ -233,15 +234,27 @@ void main(){mat4 skin=weights.x*bones[joints.x]+weights.y*bones[joints.y]+weight
 const fragment=`#version 300 es
 precision highp float;
 in vec3 world;in vec3 normal;in vec3 tangent;in float handedness;in vec2 uv;in vec3 bindPosition;
-uniform vec3 eye;uniform sampler2D baseMap;uniform sampler2D normalMap;uniform sampler2D ormMap;uniform float rival;uniform float controlled;uniform float playerSeed;uniform float customKit;uniform vec3 kitColor;uniform vec3 kitTrim;
+uniform vec3 eye;uniform sampler2D baseMap;uniform sampler2D normalMap;uniform sampler2D ormMap;uniform float rival;uniform float controlled;uniform float playerSeed;uniform float customKit;uniform vec3 kitColor;uniform vec3 kitTrim;uniform vec3 kitPrimary;
 out vec4 color;
 vec3 film(vec3 v){return clamp((v*(2.51*v+.03))/(v*(2.43*v+.59)+.14),0.,1.);}
 void main(){vec4 sampleColor=texture(baseMap,uv);if(sampleColor.a<.04)discard;vec3 albedo=pow(sampleColor.rgb,vec3(2.2));
  float navy=smoothstep(.025,.14,sampleColor.b-sampleColor.r)*smoothstep(.02,.12,sampleColor.b-sampleColor.g);
  float gold=smoothstep(.03,.18,sampleColor.r-sampleColor.b)*smoothstep(.015,.10,sampleColor.g-sampleColor.b)*(1.-smoothstep(.12,.28,sampleColor.r-sampleColor.g));vec3 away=mix(vec3(.72,.76,.77),vec3(.98,.985,.96),clamp(dot(sampleColor.rgb,vec3(.333)),0.,1.));albedo=mix(albedo,pow(away,vec3(2.2)),navy*rival*.94);albedo=mix(albedo,pow(vec3(.48,.075,.055),vec3(2.2)),gold*rival*.82);albedo=mix(albedo,pow(kitColor,vec3(2.2))*mix(.65,1.15,sampleColor.b),navy*customKit);albedo=mix(albedo,pow(kitTrim,vec3(2.2)),gold*customKit);albedo*=mix(.955,1.045,playerSeed);
- vec3 N=normalize(normal),T=normalize(tangent-N*dot(N,tangent)),B=normalize(cross(N,T))*handedness;vec3 mapped=texture(normalMap,uv).xyz*2.-1.;N=normalize(mat3(T,B,N)*mapped);
+ // Equipment occupies the right half of the compact material atlas. Paint
+ // its shell independently from the skin/cloth and retain the open face cage.
+ float equipment=step(.5,uv.x);
+ vec3 helmetBind=(bindPosition-vec3(0.,1.598,.01))/1.14+vec3(0.,1.585,-.01);
+ float opening=smoothstep(.040,.079,helmetBind.z)*(1.-smoothstep(1.584,1.628,helmetBind.y));
+ float shell=equipment*(1.-opening);
+ float stripe=(1.-smoothstep(.012,.017,abs(helmetBind.x)))*shell;
+ vec3 shellColor=mix(mix(vec3(.67,.51,.255),vec3(.48,.025,.035),rival),kitPrimary,customKit);
+ shellColor=mix(shellColor,mix(vec3(.035,.075,.12),vec3(.89,.90,.87),rival),stripe);
+ albedo=mix(albedo,pow(shellColor,vec3(2.2)),shell);
+ float cage=equipment*opening*smoothstep(.103,.120,helmetBind.z);
+ albedo=mix(albedo,pow(vec3(.32,.35,.38),vec3(2.2)),cage);
+ vec3 N=normalize(normal),T=normalize(tangent-N*dot(N,tangent)),B=normalize(cross(N,T))*handedness;vec3 mapped=texture(normalMap,uv).xyz*2.-1.;mapped.xy*=mix(1.,.18,equipment);N=normalize(mat3(T,B,N)*mapped);
  vec3 V=normalize(eye-world),L0=normalize(vec3(-.48,.82,-.31)),L1=normalize(vec3(.62,.69,.38)),L2=normalize(vec3(-.20,.72,.65));float d0=max(dot(N,L0),0.),d1=max(dot(N,L1),0.),d2=max(dot(N,L2),0.);vec3 ambient=mix(vec3(.075,.09,.105),vec3(.20,.25,.34),N.y*.5+.5);vec3 lit=ambient+vec3(1.52,1.43,1.24)*d0+vec3(.38,.50,.72)*d1+vec3(.20,.24,.33)*d2;
- vec3 orm=texture(ormMap,uv).rgb;float rough=clamp(orm.g,.18,.96),metal=orm.b;vec3 H=normalize(L0+V),F0=mix(vec3(.028),albedo,metal),fresnel=F0+(1.-F0)*pow(1.-max(dot(N,V),0.),5.);float spec=pow(max(dot(N,H),0.),mix(90.,10.,rough)),rim=pow(1.-max(dot(N,V),0.),2.6);vec3 rimColor=mix(vec3(.22,.31,.42),vec3(.42,.18,.14),rival);vec3 rgb=albedo*lit+fresnel*spec*(.35+1.35*(1.-rough))+rimColor*rim*(.105+controlled*.11);float heroRim=pow(1.-max(dot(N,V),0.),4.2)*controlled;rgb+=vec3(.46,.31,.09)*heroRim;float fog=smoothstep(55.,190.,distance(eye,world));rgb=mix(rgb,vec3(.016,.026,.046),fog*.68);color=vec4(pow(film(rgb*1.08),vec3(1./2.2)),1.);}`;
+ vec3 orm=texture(ormMap,uv).rgb;float rough=clamp(orm.g,.18,.96),metal=mix(orm.b,.3,equipment);rough=mix(rough,.34,equipment);vec3 H=normalize(L0+V),F0=mix(vec3(.028),albedo,metal),fresnel=F0+(1.-F0)*pow(1.-max(dot(N,V),0.),5.);float spec=pow(max(dot(N,H),0.),mix(90.,10.,rough)),rim=pow(1.-max(dot(N,V),0.),2.6);vec3 rimColor=mix(vec3(.22,.31,.42),vec3(.42,.18,.14),rival);vec3 rgb=albedo*lit+fresnel*spec*(.35+1.35*(1.-rough))+rimColor*rim*(.105+controlled*.11);float heroRim=pow(1.-max(dot(N,V),0.),4.2)*controlled;rgb+=vec3(.46,.31,.09)*heroRim;float fog=smoothstep(55.,190.,distance(eye,world));rgb=mix(rgb,vec3(.016,.026,.046),fog*.68);color=vec4(pow(film(rgb*1.08),vec3(1./2.2)),1.);}`;
 
 const depthVertex=`#version 300 es
 precision highp float;precision highp int;
@@ -257,7 +270,7 @@ export class MeshyAthletes{
   try{
    const url=globalThis.BK_MESHY_GLTF_URL||ASSET,response=await fetch(url,{cache:'force-cache'});if(!response.ok)throw new Error('Detailed player '+response.status);
    const jsonAsset=response.headers.get('content-type')?.includes('application/json')?await response.json():null,assetBuffer=jsonAsset?.encoding==='base64'?Uint8Array.from(atob(jsonAsset.content.replace(/\\s/g,'')),character=>character.charCodeAt(0)).buffer:await response.arrayBuffer(),parsed=parseGLB(assetBuffer),{json,accessor}=parsed,gl=this.gl,primitive=json.meshes[0].primitives[0];this.parsed=parsed;
-   this.program=makeProgram(gl,vertex,fragment);this.depthProgram=makeProgram(gl,depthVertex,depthFragment);this.uniforms=Object.fromEntries(['vp','model','bones','eye','baseMap','normalMap','ormMap','rival','controlled','playerSeed','customKit','kitColor','kitTrim'].map(name=>[name,gl.getUniformLocation(this.program,name==='bones'?'bones[0]':name)]));this.depthUniforms=Object.fromEntries(['lightVP','model','bones'].map(name=>[name,gl.getUniformLocation(this.depthProgram,name==='bones'?'bones[0]':name)]));
+   this.program=makeProgram(gl,vertex,fragment);this.depthProgram=makeProgram(gl,depthVertex,depthFragment);this.uniforms=Object.fromEntries(['vp','model','bones','eye','baseMap','normalMap','ormMap','rival','controlled','playerSeed','customKit','kitColor','kitTrim','kitPrimary'].map(name=>[name,gl.getUniformLocation(this.program,name==='bones'?'bones[0]':name)]));this.depthUniforms=Object.fromEntries(['lightVP','model','bones'].map(name=>[name,gl.getUniformLocation(this.depthProgram,name==='bones'?'bones[0]':name)]));
    this.vao=gl.createVertexArray();gl.bindVertexArray(this.vao);
    const attribute=(location,name,size,integer=false)=>{const index=primitive.attributes[name],a=json.accessors[index],data=accessor(index),buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);gl.enableVertexAttribArray(location);if(integer)gl.vertexAttribIPointer(location,size,a.componentType,0,0);else gl.vertexAttribPointer(location,size,a.componentType,Boolean(a.normalized),0,0)};
    attribute(0,'POSITION',3);attribute(1,'NORMAL',3);attribute(2,'TEXCOORD_0',2);attribute(3,'JOINTS_0',4,true);attribute(4,'WEIGHTS_0',4);attribute(5,'TANGENT',4);
@@ -468,7 +481,7 @@ export class MeshyAthletes{
   this.renderer.queueShadowCaster(lightVP=>{const gl=this.gl;gl.useProgram(this.depthProgram);gl.bindVertexArray(this.vao);gl.uniformMatrix4fv(this.depthUniforms.lightVP,false,lightVP);for(const p of actors){gl.uniformMatrix4fv(this.depthUniforms.model,false,this.modelFor(p));gl.uniformMatrix4fv(this.depthUniforms.bones,false,this.frameBones.get(p.index));gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0)}gl.bindVertexArray(null);return actors.length});return true;
  }
  draw(actors,phase,time){if(!this.ready)return false;this.phase=phase;const gl=this.gl;this.lastStates=actors.map(p=>meshyAnimationState(p,phase));gl.useProgram(this.program);gl.bindVertexArray(this.vao);gl.uniformMatrix4fv(this.uniforms.vp,false,this.renderer.vp);gl.uniform3fv(this.uniforms.eye,this.renderer.eye);for(let i=0;i<3;i++){gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,this.textures[i])}gl.uniform1i(this.uniforms.baseMap,0);gl.uniform1i(this.uniforms.normalMap,1);gl.uniform1i(this.uniforms.ormMap,2);gl.disable(gl.BLEND);gl.depthMask(true);
-  for(const p of actors){const rgb=value=>[1,3,5].map(i=>parseInt((value||'#000000').slice(i,i+2),16)/255);gl.uniform1f(this.uniforms.customKit,p.kitJersey?1:0);gl.uniform3fv(this.uniforms.kitColor,rgb(p.kitJersey));gl.uniform3fv(this.uniforms.kitTrim,rgb(p.kitTrim));gl.uniformMatrix4fv(this.uniforms.model,false,this.modelFor(p));gl.uniformMatrix4fv(this.uniforms.bones,false,this.frameBones?.get(p.index)||this.bonesFor(p,phase,time));gl.uniform1f(this.uniforms.rival,p.team?1:0);gl.uniform1f(this.uniforms.controlled,p.hasBall?1:0);gl.uniform1f(this.uniforms.playerSeed,((p.index*37+p.team*11)%17)/16);gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0);this.renderer.drawCalls++}
+  for(const p of actors){const rgb=value=>[1,3,5].map(i=>parseInt((value||'#000000').slice(i,i+2),16)/255);gl.uniform1f(this.uniforms.customKit,p.kitJersey?1:0);gl.uniform3fv(this.uniforms.kitColor,rgb(p.kitJersey));gl.uniform3fv(this.uniforms.kitTrim,rgb(p.kitTrim));gl.uniform3fv(this.uniforms.kitPrimary,rgb(p.kitPrimary));gl.uniformMatrix4fv(this.uniforms.model,false,this.modelFor(p));gl.uniformMatrix4fv(this.uniforms.bones,false,this.frameBones?.get(p.index)||this.bonesFor(p,phase,time));gl.uniform1f(this.uniforms.rival,p.team?1:0);gl.uniform1f(this.uniforms.controlled,p.hasBall?1:0);gl.uniform1f(this.uniforms.playerSeed,((p.index*37+p.team*11)%17)/16);gl.drawElements(gl.TRIANGLES,this.indexCount,this.indexType,0);this.renderer.drawCalls++}
   this.frameBones=null;gl.bindVertexArray(null);return true;
  }
  drawJerseyNumbers(actors){
