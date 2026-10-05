@@ -1,0 +1,224 @@
+{
+  "status": "PASS",
+  "date": "2026-10-05",
+  "simulationHz": 60,
+  "viewports": {
+    "two-minute": {
+      "width": 844,
+      "height": 390
+    },
+    "five-minute": {
+      "width": 1108,
+      "height": 512
+    }
+  },
+  "limits": "Local mobile touch emulation and software GPU; not a physical iPhone or native frame-rate certification. Scale excludes first scenario second and 0.3 seconds after selection changes. Field-goal scale is not part of carry framing measurements.",
+  "results": [
+    {
+      "mode": "two-minute",
+      "kind": "run",
+      "frames": 42,
+      "phases": [
+        "snap",
+        "handoff",
+        "run",
+        "dead",
+        "pre"
+      ],
+      "minHeight": 70.32026082812354,
+      "visibleRatio": 1,
+      "sampledFps": 10
+    },
+    {
+      "mode": "two-minute",
+      "kind": "scramble",
+      "frames": 36,
+      "phases": [
+        "snap",
+        "pass",
+        "run",
+        "dead",
+        "pre"
+      ],
+      "minHeight": 66.54302288874166,
+      "visibleRatio": 1,
+      "sampledFps": 10
+    },
+    {
+      "mode": "two-minute",
+      "kind": "pass",
+      "frames": 63,
+      "phases": [
+        "snap",
+        "pass",
+        "flight",
+        "run",
+        "dead",
+        "pre"
+      ],
+      "minHeight": 61.67655938272745,
+      "visibleRatio": 1,
+      "sampledFps": 10
+    },
+    {
+      "mode": "five-minute",
+      "kind": "run",
+      "frames": 42,
+      "phases": [
+        "snap",
+        "handoff",
+        "run",
+        "dead",
+        "pre"
+      ],
+      "minHeight": 92.31788088204931,
+      "visibleRatio": 1,
+      "sampledFps": 10
+    },
+    {
+      "mode": "five-minute",
+      "kind": "scramble",
+      "frames": 36,
+      "phases": [
+        "snap",
+        "pass",
+        "run",
+        "dead",
+        "pre"
+      ],
+      "minHeight": 87.35904543342497,
+      "visibleRatio": 1,
+      "sampledFps": 10
+    },
+    {
+      "mode": "five-minute",
+      "kind": "pass",
+      "frames": 63,
+      "phases": [
+        "snap",
+        "pass",
+        "flight",
+        "run",
+        "dead",
+        "pre"
+      ],
+      "minHeight": 84.31181646291611,
+      "visibleRatio": 1,
+      "sampledFps": 10
+    },
+    {
+      "mode": "two-minute",
+      "kind": "field-goal",
+      "frames": 27,
+      "phases": [
+        "kick-snap",
+        "kick-flight",
+        "kick"
+      ],
+      "minHeight": null,
+      "visibleRatio": null,
+      "sampledFps": 10
+    },
+    {
+      "mode": "five-minute",
+      "kind": "field-goal",
+      "frames": 27,
+      "phases": [
+        "kick-snap",
+        "kick-flight",
+        "kick"
+      ],
+      "minHeight": null,
+      "visibleRatio": null,
+      "sampledFps": 10
+    },
+    {
+      "mode": "two-minute",
+      "kind": "defense",
+      "sampledFps": 5,
+      "frames": 24,
+      "phases": [
+        "snap",
+        "pass",
+        "flight",
+        "run",
+        "contact",
+        "pre"
+      ],
+      "minHeight": 72.22460119760163,
+      "visibleRatio": 1
+    },
+    {
+      "mode": "two-minute",
+      "kind": "return",
+      "sampledFps": 5,
+      "frames": 40,
+      "phases": [
+        "kick-flight",
+        "run",
+        "contact",
+        "pre"
+      ],
+      "minHeight": 69.14895484578426,
+      "visibleRatio": 1
+    },
+    {
+      "mode": "two-minute",
+      "kind": "coverage",
+      "sampledFps": 5,
+      "frames": 34,
+      "phases": [
+        "kick-flight",
+        "run",
+        "contact",
+        "pre"
+      ],
+      "minHeight": 70.32349927196552,
+      "visibleRatio": 1
+    },
+    {
+      "mode": "five-minute",
+      "kind": "defense",
+      "sampledFps": 5,
+      "frames": 24,
+      "phases": [
+        "snap",
+        "pass",
+        "flight",
+        "run",
+        "contact",
+        "pre"
+      ],
+      "minHeight": 94.81793798249237,
+      "visibleRatio": 1
+    },
+    {
+      "mode": "five-minute",
+      "kind": "return",
+      "sampledFps": 5,
+      "frames": 40,
+      "phases": [
+        "kick-flight",
+        "run",
+        "contact",
+        "pre"
+      ],
+      "minHeight": 90.78016636164497,
+      "visibleRatio": 1
+    },
+    {
+      "mode": "five-minute",
+      "kind": "coverage",
+      "sampledFps": 5,
+      "frames": 34,
+      "phases": [
+        "kick-flight",
+        "run",
+        "contact",
+        "pre"
+      ],
+      "minHeight": 92.32213237755471,
+      "visibleRatio": 1
+    }
+  ]
+}
