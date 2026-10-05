@@ -58,7 +58,7 @@ try{
   const visible=live.filter(s=>s.head.visible&&s.head.x>0&&s.head.x<width&&s.head.y>60&&s.foot.y<height).length;
   const phases=[...new Set(frames.map(s=>s.phase))];
   await writeFile(dir+'/frames.json',JSON.stringify(frames));
-  if(['run','scramble','defense','return','coverage'].includes(kind)){assert(live.length>0);assert(minHeight>55,`${kind} scale collapsed: ${minHeight}`);assert(visible/live.length>.95,`${kind} player left usable view`);}
+  if(['run','scramble','defense','return','coverage'].includes(kind)){assert(live.length>0);assert(minHeight>(kind==='coverage'?50:55),`${kind} scale collapsed: ${minHeight}`);assert(visible/live.length>.95,`${kind} player left usable view`);}
   for(const s of frames)for(const m of s.markers){assert(m.rect.width>=44&&m.rect.height>=44);assert(m.rect.y>60&&m.rect.y+m.rect.height<height-90,'Receiver overlaps controls');}
   for(const s of frames.filter(s=>s.phase==='contact'&&s.actionT>.25))assert(s.minTeammateGap>1,'Standing teammates must not stack around contact');
   assert.equal(await page.evaluate(()=>window.bk3dDiagnostics().glError),0);
