@@ -1,0 +1,113 @@
+{
+  "results": [
+    {
+      "mode": "two-minute",
+      "stage": "ready",
+      "layout": [
+        844,
+        390
+      ],
+      "projection": [
+        844,
+        780
+      ],
+      "buffer": [
+        1688,
+        1560
+      ],
+      "stretch": 2,
+      "glError": 0
+    },
+    {
+      "mode": "two-minute",
+      "stage": "handoff",
+      "layout": [
+        844,
+        390
+      ],
+      "projection": [
+        844,
+        780
+      ],
+      "buffer": [
+        1688,
+        1560
+      ],
+      "stretch": 2,
+      "glError": 0
+    },
+    {
+      "mode": "two-minute",
+      "stage": "run",
+      "layout": [
+        844,
+        390
+      ],
+      "projection": [
+        844,
+        780
+      ],
+      "buffer": [
+        1688,
+        1560
+      ],
+      "stretch": 2,
+      "glError": 0
+    },
+    {
+      "mode": "five-minute",
+      "stage": "ready",
+      "layout": [
+        844,
+        390
+      ],
+      "projection": [
+        844,
+        780
+      ],
+      "buffer": [
+        1688,
+        1560
+      ],
+      "stretch": 2,
+      "glError": 0
+    },
+    {
+      "mode": "five-minute",
+      "stage": "handoff",
+      "layout": [
+        844,
+        390
+      ],
+      "projection": [
+        844,
+        780
+      ],
+      "buffer": [
+        1688,
+        1560
+      ],
+      "stretch": 2,
+      "glError": 0
+    },
+    {
+      "mode": "five-minute",
+      "stage": "run",
+      "layout": [
+        844,
+        390
+      ],
+      "projection": [
+        844,
+        780
+      ],
+      "buffer": [
+        1688,
+        1560
+      ],
+      "stretch": 2,
+      "glError": 0
+    }
+  ],
+  "errors": []
+}
