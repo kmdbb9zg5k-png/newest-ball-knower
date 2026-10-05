@@ -62,7 +62,7 @@
     "check:ios-release": "node scripts/ios-app-store-release-check.mjs",
     "check:build7-native": "node --import tsx scripts/build7-native-release-check.ts",
     "check:nfl-news": "node --import tsx scripts/nfl-news-release-check.ts",
-    "check:native-auth": "node --import tsx scripts/native-auth-release-check.ts",
+    "check:native-auth": "node --import tsx scripts/native-auth-release-check.ts && npm run check:native-auth-session",
     "check:auth-provider-config": "node --import tsx scripts/auth-provider-config-check.ts",
     "check:bk-auth-email": "node --import tsx scripts/bk-auth-email-check.ts",
     "check:post-intro-auth": "node --import tsx scripts/post-intro-auth-check.ts",
@@ -80,10 +80,12 @@
     "check:fantasy-reconciliation-browser": "node scripts/fantasy-reconciliation-browser-check.mjs",
     "check:gameplay-3d": "node --import tsx scripts/gameplay-3d-player-check.ts",
     "check:play-moment-athlete": "node scripts/check-play-moment-athlete-v3.mjs",
-    "check:gameplay-report": "node scripts/check-play-moment-replay.mjs"
+    "check:gameplay-report": "node scripts/check-play-moment-replay.mjs",
+    "check:native-auth-session": "node scripts/native-auth-session-check.mjs"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.191",
+    "@ball-knower/native-auth-session": "file:packages/native-auth-session",
     "@capacitor/app": "^8.0.0",
     "@capacitor/browser": "^8.0.0",
     "@capacitor/core": "^8.0.0",
