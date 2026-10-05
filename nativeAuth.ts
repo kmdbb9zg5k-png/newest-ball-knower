@@ -1,6 +1,7 @@
 import {App as CapacitorApp} from '@capacitor/app';
 import {Browser} from '@capacitor/browser';
 import {Capacitor} from '@capacitor/core';
+import {NativeAuthSession} from '@ball-knower/native-auth-session';
 import {supabase} from './supabase';
 
 export const NATIVE_AUTH_CALLBACK='ballknower://auth/callback';
@@ -16,20 +17,34 @@ const emitNativeAuthResult=(detail:NativeAuthResultDetail)=>{
 
 export async function openNativeAuthUrl(url:string):Promise<boolean>{
   if(!isNativeBallKnower())return false;
+  if(nativeBrowserPending)throw new Error('A sign-in is already in progress.');
   nativeBrowserPending=true;
   try{
-    await Browser.open({url,presentationStyle:'popover'});
+    if(Capacitor.getPlatform()==='ios'){
+      const result=await NativeAuthSession.authenticate({url});
+      if(!await consumeAuthCallback(result.url))throw new Error('Invalid sign-in callback.');
+      window.location.reload();
+    }else{
+      await Browser.open({url,presentationStyle:'fullscreen'});
+    }
     return true;
   }catch(error){
     nativeBrowserPending=false;
+    if((error as {code?:string})?.code==='AUTH_CANCELLED'){
+      emitNativeAuthResult({status:'cancelled'});
+      return false;
+    }
     throw error;
   }
 }
 
 async function consumeAuthCallback(url:string):Promise<boolean>{
-  if(!supabase||!url.startsWith(NATIVE_AUTH_CALLBACK))return false;
-  const parsed=new URL(url);
-  const errorDescription=parsed.searchParams.get('error_description')||parsed.searchParams.get('error');
+  if(!supabase)return false;
+  let parsed:URL;
+  try{parsed=new URL(url)}catch{return false}
+  if(parsed.protocol!=='ballknower:'||parsed.hostname!=='auth'||parsed.pathname!=='/callback'||parsed.username||parsed.password||parsed.port)return false;
+  const hash=new URLSearchParams(parsed.hash.replace(/^#/,''));
+  const errorDescription=parsed.searchParams.get('error_description')||parsed.searchParams.get('error')||hash.get('error_description')||hash.get('error');
   if(errorDescription)throw new Error('The sign-in provider did not complete authentication.');
 
   const code=parsed.searchParams.get('code');
@@ -37,7 +52,6 @@ async function consumeAuthCallback(url:string):Promise<boolean>{
     const exchanged=await supabase.auth.exchangeCodeForSession(code);
     if(exchanged.error)throw new Error('The sign-in session could not be verified.');
   }else{
-    const hash=new URLSearchParams(parsed.hash.replace(/^#/,''));
     const accessToken=hash.get('access_token');
     const refreshToken=hash.get('refresh_token');
     if(!accessToken||!refreshToken)throw new Error('The sign-in callback did not contain a valid session.');
@@ -46,7 +60,7 @@ async function consumeAuthCallback(url:string):Promise<boolean>{
   }
 
   nativeBrowserPending=false;
-  await Browser.close().catch(()=>undefined);
+  if(Capacitor.getPlatform()!=='ios')await Browser.close().catch(()=>undefined);
   return true;
 }
 
@@ -55,9 +69,9 @@ async function finishNativeCallback(url:string|undefined|null):Promise<void>{
   try{
     if(await consumeAuthCallback(url))window.location.reload();
   }catch(error){
-    console.error('Native authentication callback failed',error);
+    console.error('Native authentication callback failed');
     nativeBrowserPending=false;
-    await Browser.close().catch(()=>undefined);
+    if(Capacitor.getPlatform()!=='ios')await Browser.close().catch(()=>undefined);
     emitNativeAuthResult({status:'failed'});
   }
 }
