@@ -1,5 +1,5 @@
 // Full-game reference body with skinned team materials and distance-matched motion.
-import {contactFallProgress,contactFacing,contactBodyPose} from './contact-motion.js?v=motion-contact-55';
+import {contactFallProgress,contactFacing,contactBodyPose} from './contact-motion.js?v=full-game-review-56';
 import {refineAthleteSurface} from './athlete-surface.js?v=sentinel-materials-34';
 import {referenceGarmentRegions,referenceRunPhase} from './reference-appearance.js?v=coherent-players-50';
 import {jerseyIdentityKey} from './jersey-identity.js?v=teams-1';
@@ -281,7 +281,7 @@ const depthFragment=`#version 300 es
 precision highp float;void main(){}`;
 
 export class MeshyAthletes{
- constructor(renderer){this.renderer=renderer;this.gl=renderer.gl;this.ready=false;this.error='';this.triangles=0;this.clipNames=[];this.lastStates=[];this.poseStates=new Map();this.handTransforms=new Map();this.supports=new Map();this.frameBones=null;this.loadPromise=this.load()}
+ constructor(renderer){this.renderer=renderer;this.gl=renderer.gl;this.ready=false;this.error='';this.triangles=0;this.clipNames=[];this.lastStates=[];this.poseStates=new Map();this.handTransforms=new Map();this.supports=new Map();this.frameBones=null;this.frameModels=new Map();this.loadPromise=this.load()}
  async load(){
   try{
    const url=globalThis.BK_MESHY_GLTF_URL||ASSET,response=await fetch(url,{cache:'force-cache'});if(!response.ok)throw new Error('Detailed player '+response.status);
@@ -308,6 +308,8 @@ export class MeshyAthletes{
   const state=meshyAnimationState(p,phase),seed=meshyPlaybackSeed(p.index,p.team),profile=ROLE_MOTION_PROFILES[p.role]||ROLE_MOTION_PROFILES.LB,roleRate=profile.cadence,phaseTime=(clip,rate=1)=>clip===MESHY_CLIPS.run?referenceRunPhase(p)*this.clips[clip].duration:(time*seed.rate*roleRate*rate+seed.offset*this.clips[clip].duration)%this.clips[clip].duration;
   const result=(base,baseTime,overlay=null,overlayWeight=0,overlayTime=0)=>({state,base,baseTime,overlay,overlayWeight,overlayTime});
   const actionTime=clamp(p.actionT||0,0,1),tackleTime=actionTime*this.clips[MESHY_CLIPS.tackle].duration;
+  if(state==='handoff')return Math.hypot(p.vx||0,p.vz||0)>.4?result(MESHY_CLIPS.walk,phaseTime(MESHY_CLIPS.walk,.8)):result(MESHY_CLIPS.rest,0);
+  if(state==='receive-handoff')return result(MESHY_CLIPS.run,phaseTime(MESHY_CLIPS.run));
   if(phase==='pre'||p.engaged||p.fallen||state==='idle'||state==='qb-pocket'||['kick','hold-kick','snap','receive-snap'].includes(p.action))return result(MESHY_CLIPS.rest,0);
   if(state==='tackle')return result(MESHY_CLIPS.tackle,tackleTime);
   if(state==='wrap-tackle')return result(MESHY_CLIPS.tackle,tackleTime,MESHY_CLIPS.block,.10,actionTime*this.clips[MESHY_CLIPS.block].duration);
@@ -353,12 +355,31 @@ export class MeshyAthletes{
   let q=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0],1+u.reduce((n,x,k)=>n+x*v[k],0)];const length=Math.hypot(...q);if(length<.00001)return;q=q.map(x=>x/length);
   const inverse=[-parent[0],-parent[1],-parent[2],parent[3]];locals[i].r=quatMul(quatMul(quatMul(inverse,q),parent),locals[i].r);
  }
- plantLegs(locals,p){
+ plantLegs(locals,p,time=0){
   const wide=['OL','DL'].includes(p.role)?.28:p.role==='LB'?.25:.18,stagger=ROLE_STANCE_PROFILES[p.role]?.stagger||0;
   for(const side of ['Left','Right']){
-   const sign=side==='Left'?1:-1,hipName=side+'UpLeg',kneeName=side+'Leg',footName=side+'Foot',hip=pointFromMatrix(this.worldPose(locals,this.namedNodes['mixamorig:'+hipName])),target=[sign*wide,.075,sign*stagger],l1=Math.hypot(...locals[this.namedNodes['mixamorig:'+kneeName]].t),l2=Math.hypot(...locals[this.namedNodes['mixamorig:'+footName]].t),delta=target.map((v,i)=>v-hip[i]),distance=Math.hypot(...delta),axis=delta.map(v=>v/distance),d=clamp(distance,.05,l1+l2-.001),along=(l1*l1-l2*l2+d*d)/(2*d),height=Math.sqrt(Math.max(0,l1*l1-along*along)),pole=[0,0,1],dot=axis[2],bend=pole.map((v,i)=>v-axis[i]*dot),bl=Math.hypot(...bend)||1,knee=hip.map((v,i)=>v+axis[i]*along+bend[i]/bl*height);
+   const sign=side==='Left'?1:-1,beat=time*(4.8+(p.index%3)*.27)+p.index*1.7+(sign<0?Math.PI:0),step=p.engaged?Math.max(0,Math.sin(beat)):0,hipName=side+'UpLeg',kneeName=side+'Leg',footName=side+'Foot',hip=pointFromMatrix(this.worldPose(locals,this.namedNodes['mixamorig:'+hipName])),target=[sign*wide,.075+step*.055,sign*stagger+(p.engaged?Math.cos(beat)*.095:0)],l1=Math.hypot(...locals[this.namedNodes['mixamorig:'+kneeName]].t),l2=Math.hypot(...locals[this.namedNodes['mixamorig:'+footName]].t),delta=target.map((v,i)=>v-hip[i]),distance=Math.hypot(...delta),axis=delta.map(v=>v/distance),d=clamp(distance,.05,l1+l2-.001),along=(l1*l1-l2*l2+d*d)/(2*d),height=Math.sqrt(Math.max(0,l1*l1-along*along)),pole=[0,0,1],dot=axis[2],bend=pole.map((v,i)=>v-axis[i]*dot),bl=Math.hypot(...bend)||1,knee=hip.map((v,i)=>v+axis[i]*along+bend[i]/bl*height);
    this.aimJoint(locals,hipName,kneeName,knee);this.aimJoint(locals,kneeName,footName,target);
    const foot=pointFromMatrix(this.worldPose(locals,this.namedNodes['mixamorig:'+footName]));this.aimJoint(locals,footName,side+'ToeBase',[foot[0],foot[1]-.035,foot[2]+.16]);
+  }
+ }
+ contactPose(locals,p){
+  const t=p.actionT||0,fall=contactFallProgress(p),load=smooth(t/.22),tackler=p.contactRole==='tackler',side=p.actionSide||1;
+  const drag=p.contactVariant==='drag-down',hips=this.joints[0];
+  // Lower and rotate the pelvis inside the skeleton. Feet and knees have
+  // their own targets, so contact cannot tip a rigid standing pose over.
+  locals[hips].t[1]=this.base[hips].t[1]-(tackler?.20:.07)*load-(tackler?.48:.68)*fall;
+  locals[hips].r=quatMul(axisQuat(0,0,1,side*(tackler?-.32:.46)*fall),quatMul(axisQuat(1,0,0,(tackler?1.18:1.32)*fall),this.base[hips].r));
+  this.rotate(locals,'mixamorig:Spine',1,0,0,(tackler?.30:.16)*load*(1-fall));
+  this.rotate(locals,'mixamorig:Spine2',0,0,1,side*.12*Math.sin(t*Math.PI));
+  this.rotate(locals,'mixamorig:Head',1,0,0,-.12*fall);
+  for(const name of ['Left','Right']){
+   const sign=name==='Left'?1:-1,hipName=name+'UpLeg',kneeName=name+'Leg',footName=name+'Foot';
+   const hip=pointFromMatrix(this.worldPose(locals,this.namedNodes['mixamorig:'+hipName]));
+   const target=[sign*(.19+.08*fall),.075+(sign===side?.04*fall:0),sign*.12-(tackler?.62:drag?.64:.52)*fall];
+   const l1=Math.hypot(...locals[this.namedNodes['mixamorig:'+kneeName]].t),l2=Math.hypot(...locals[this.namedNodes['mixamorig:'+footName]].t),delta=target.map((v,i)=>v-hip[i]),length=Math.hypot(...delta)||1,axis=delta.map(v=>v/length),d=clamp(length,.05,l1+l2-.001),along=(l1*l1-l2*l2+d*d)/(2*d),height=Math.sqrt(Math.max(0,l1*l1-along*along));
+   const pole=[sign*.15,0,1],dot=pole.reduce((n,v,i)=>n+v*axis[i],0),bend=pole.map((v,i)=>v-axis[i]*dot),bl=Math.hypot(...bend)||1,knee=hip.map((v,i)=>v+axis[i]*along+bend[i]/bl*height);
+   this.aimJoint(locals,hipName,kneeName,knee);this.aimJoint(locals,kneeName,footName,target);
   }
  }
  readyArms(locals,p,contact=false){
@@ -387,8 +408,12 @@ export class MeshyAthletes{
   }else if(p.fallen&&p.contactRole==='carrier'){
    // Keep the ball tucked against the ribs during the hit and landing.
    const right=(p.index+p.team)%2===1;
-   this.reachArm(locals,right?'Right':'Left',[right?-.18:.18,1.10,.23]);
-   this.reachArm(locals,right?'Left':'Right',[right?-.03:.03,1.17,.30]);
+   const chest=pointFromMatrix(this.worldPose(locals,this.namedNodes['mixamorig:Spine2']));
+   this.reachArm(locals,right?'Right':'Left',[chest[0]+(right?-.18:.18),chest[1]-.17,chest[2]+.18]);
+   this.reachArm(locals,right?'Left':'Right',[chest[0]+(right?-.03:.03),chest[1]-.10,chest[2]+.24]);
+  }else if(p.engaged&&p.blockHands){
+   const targets=p.blockHands.map(point=>this.actorPoint(p,point)).sort((a,b)=>b[0]-a[0]);
+   this.reachArm(locals,'Left',targets[0]);this.reachArm(locals,'Right',targets[1]);
   }else if(p.action==='snap'||this.phase==='pre'&&p.index===2&&p.team===(p.offenseTeam??0)){
    const target=this.actorPoint(p,p.ballTarget||[p.x,.42,p.z-.2]);
    this.reachArm(locals,'Right',target);this.reachArm(locals,'Left',[.30,.32,.26]);
@@ -421,9 +446,10 @@ export class MeshyAthletes{
   }
   if(state==='snap'||phase==='pre'&&p.index===2&&p.team===(p.offenseTeam??0)){
    const rise=state==='snap'?smooth(((p.actionT||0)-.25)/.75):0;
-   locals[hips].t[1]-=.23*(1-rise);this.rotate(locals,'mixamorig:Spine',1,0,0,.65*(1-rise));
+   const stance=state==='snap'?ROLE_STANCE_PROFILES.OL:null;
+   locals[hips].t[1]-=(.23+(stance?.crouch||0))*(1-rise);this.rotate(locals,'mixamorig:Spine',1,0,0,(.65+(stance?.lean||0))*(1-rise));
   }else if(state==='receive-snap'){
-   locals[hips].t[1]-=.075+.045*pulse;
+   locals[hips].t[1]-=.075;
    this.rotate(locals,'mixamorig:Spine',1,0,0,.08);
    this.readyArms(locals,p);
   }else if(state==='qb-pocket'||state==='qb-drop'||state==='qb-climb'||state==='qb-rollout'){
@@ -573,12 +599,9 @@ export class MeshyAthletes{
    if(Number.isInteger(spine))locals[spine].r=quatMul(locals[spine].r,axisQuat(1,0,0,breath*.012));
    if(Number.isInteger(head))locals[head].r=quatMul(locals[head].r,axisQuat(0,1,0,scan*((p.role==='QB'||p.role==='LB') ? .09 : .045)));
   }
-  if(phase==='pre'||p.engaged||['snap','receive-snap'].includes(p.action))this.plantLegs(locals,p);
-  else if(p.fallen&&p.contactRole){
-   const weight=1-smooth(((p.actionT||0)-.30)/.38);
-   if(weight>0){const free=locals.map(n=>({t:[...n.t],r:[...n.r],s:[...n.s]}));this.plantLegs(locals,p);locals=this.mixLocals(free,locals,weight);}
-  }
-  if(phase==='pre'||p.engaged||p.fallen||choice.state==='idle'||choice.state==='qb-pocket')this.readyArms(locals,p,p.fallen);
+  if(p.fallen&&p.contactRole)this.contactPose(locals,p);
+  else if(phase==='pre'||p.engaged||['snap','receive-snap'].includes(p.action))this.plantLegs(locals,p,time);
+  if((phase==='pre'||p.engaged||p.fallen||choice.state==='idle'||choice.state==='qb-pocket')&&!p.ballTarget&&!p.blockHands&&!(p.fallen&&p.contactRole))this.readyArms(locals,p,p.fallen);
   locals=this.blendLocals(p,locals,time,choice.state);
   // Apply interaction targets after the transition blend so hands track the
   // ball/body this frame rather than trailing a cached generic animation.
@@ -591,25 +614,30 @@ export class MeshyAthletes{
   const world=new Array(locals.length),resolve=index=>world[index]||(world[index]=this.parents[index]<0?compose(locals[index].t,locals[index].r,locals[index].s):mul(resolve(this.parents[index]),compose(locals[index].t,locals[index].r,locals[index].s)));
   const left=this.namedNodes['mixamorig:LeftHand'],right=this.namedNodes['mixamorig:RightHand'],leftForearm=this.namedNodes['mixamorig:LeftForeArm'],rightForearm=this.namedNodes['mixamorig:RightForeArm'],chest=this.namedNodes['mixamorig:Spine2'],head=this.namedNodes['mixamorig:Head'];this.handTransforms.set(p.index,{head:Number.isInteger(head)?resolve(head):null,left:Number.isInteger(left)?resolve(left):null,right:Number.isInteger(right)?resolve(right):null,leftForearm:Number.isInteger(leftForearm)?resolve(leftForearm):null,rightForearm:Number.isInteger(rightForearm)?resolve(rightForearm):null,chest:Number.isInteger(chest)?resolve(chest):null});
   const supportNames=p.fallen?[['LeftFoot',.07],['RightFoot',.07],['LeftLeg',.10],['RightLeg',.10],['Hips',.16],['Spine2',.18],['Head',.17],['LeftForeArm',.07],['RightForeArm',.07]]:[['LeftFoot',.065],['RightFoot',.065],['LeftToeBase',.04],['RightToeBase',.04]];this.supports.set(p.index,supportNames.map(([name,radius])=>({point:pointFromMatrix(resolve(this.namedNodes['mixamorig:'+name])),radius})));
+  this.frameModels.delete(p.index);
   const bones=new Float32Array(this.joints.length*16);this.joints.forEach((joint,i)=>bones.set(mul(resolve(joint),this.inverseBind.subarray(i*16,i*16+16)),i*16));return bones;
  }
  modelFor(p){
+  const cached=this.frameModels.get(p.index);if(cached?.actor===p)return cached.model;
   const builds={OL:[1.14,1.025,1.09],DL:[1.12,1.035,1.10],QB:[.98,1.02,.98],RB:[1.04,.985,1.02],WR:[.94,1.015,.94],TE:[1.07,1.045,1.05],LB:[1.075,1.025,1.06],DB:[.93,1,.94]},build=builds[p.role]||[1,1,1],variation=1+((p.index%5)-2)*.006;
   let lift=0,pitch=0,roll=0,yaw=0;if(p.action==='hurdle')lift=Math.sin((p.actionT||0)*Math.PI)*.68;if(p.action==='truck')pitch=.29*Math.sin((p.actionT||0)*Math.PI);if(p.action==='juke')roll=-(p.actionSide||0)*.22*Math.sin((p.actionT||0)*Math.PI);if(p.action==='spin')yaw=(p.actionSide||1)*(p.actionT||0)*Math.PI*2;
   if(p.action==='break-tackle')roll+=(p.actionSide||1)*.18*Math.sin((p.actionT||0)*Math.PI);if(p.action==='miss')pitch+=.34*Math.sin((p.actionT||0)*Math.PI);if(p.engaged)pitch+=.11;if(p.reactionT>0)roll+=(p.reactionSide||1)*.12*Math.sin(clamp(p.reactionT,0,1)*Math.PI);
-  const progress=contactFallProgress(p);
-  const body=contactBodyPose(p),fall=body.pitch,fallRoll=body.roll;
+  const body=contactBodyPose(p),articulated=p.fallen&&p.contactRole,fall=articulated?0:body.pitch,fallRoll=articulated?0:body.roll;
   const heading=contactFacing(p);
   const basis=mul(ry(heading+yaw),mul(rx(fall+pitch),mul(rz(roll+fallRoll),scale(1.17*build[0]*variation,1.17*build[1]/variation,1.17*build[2]*variation))));
   const supports=this.supports.get(p.index),floor=supports?.length?Math.min(...supports.map(s=>pointFromMatrix(basis,s.point)[1]-s.radius)):0;
-  return mul(translate(p.x,lift+.025-floor,p.z),basis);
+  const model=mul(translate(p.x,lift+.025-floor,p.z),basis);this.frameModels.set(p.index,{actor:p,model});return model;
 
  }
  queueShadows(actors,phase,time){
-  if(!this.ready)return false;this.phase=phase;this.frameBones=new Map();
+  if(!this.ready)return false;this.phase=phase;this.frameBones=new Map();this.frameModels.clear();
   // Resolve the runner first, then wrap around his actual ribs in this frame.
   // A guessed point above the actor origin drifts away as the body turns down.
-  for(const p of actors.filter(p=>p.contactRole!=='tackler'))this.frameBones.set(p.index,this.bonesFor(p,phase,time));
+  for(const p of actors.filter(p=>p.contactRole!=='tackler')){
+   const other=p.engaged&&actors[p.engagedWith],chest=other&&this.handTransforms.get(other.index)?.chest;
+   p.blockHands=chest?[-1,1].map(side=>{const beat=time*(4.2+(p.index%3)*.19)+p.index*.83+side*Math.PI/2,reset=Math.max(0,Math.sin(beat))**3,swim=p.blockStyle==='rush-swim'&&side===1,rip=p.blockStyle==='rush-rip'&&side===-1;return pointFromMatrix(mul(this.modelFor(other),chest),[side*.19,swim?.10+.20*reset:rip?-.22+.18*reset:-.10-.07*reset,.14+.06*reset]);}):null;
+   this.frameBones.set(p.index,this.bonesFor(p,phase,time));
+  }
   for(const p of actors.filter(p=>p.contactRole==='tackler')){
    const runner=actors.find(a=>a.index===p.contactWith),chest=runner&&this.handTransforms.get(runner.index)?.chest;
    p.contactHands=chest?[-1,1].map(side=>pointFromMatrix(mul(this.modelFor(runner),chest),[side*.24,-.16,.04])):null;

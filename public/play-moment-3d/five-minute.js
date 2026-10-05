@@ -113,12 +113,12 @@ export function fullPuntResult(s,d,{kicking,ball=20,seconds=0,touchdown=false,sa
  const receiving=other(kicking);
  if(safety){addScore(s,d,kicking,2);fullPossessionEnd(s,d,receiving,35);return true;}
  if(interception){fullPossessionEnd(s,d,receiving,100-ball);return true;}
- if(touchdown){addScore(s,d,receiving,6);s.possession=receiving;s.conversion=receiving;if(receiving==='away')fullConversion(s,d,'extra-point',true);return true;}
+ if(touchdown){addScore(s,d,receiving,6);s.possession=receiving;s.conversion=receiving;return true;}
  fullPossessionEnd(s,d,kicking,clamp(ball,1,99));return true;
 }
 /** One CPU snap per call; the UI holds every result so no play disappears. */
 export function fullCpuPlay(s, d, config, random = Math.random) {
-  if (s.result || s.pending || s.possession !== 'away') return false;
+  if (s.result || s.pending || s.conversion || s.possession !== 'away') return false;
   if (fullExpired(s, d)) return true;
   const c = s.cpu, team = config.matchup.away, home = config.matchup.home;
   const deficit = d.score - s.awayScore;
@@ -148,7 +148,7 @@ export function fullCpuPlay(s, d, config, random = Math.random) {
 
 /** Shared result path for simulated and on-field CPU snaps. */
 export function fullCpuResult(s, d, config, {gain = 0, pass = false, incomplete = false, sack = false, interception = false, out = false, reason = 'TACKLED', seconds = 0, live = false, quarterback = config.matchup.away.lineup[5], runner = config.matchup.away.lineup[6]}, random = Math.random) {
-  if (s.result || s.pending || s.possession !== 'away') return false;
+  if (s.result || s.pending || s.conversion || s.possession !== 'away') return false;
   const c = s.cpu;
   const old = c.ball;
   c.ball = clamp(old + gain, 0, 100); gain = c.ball - old;
@@ -162,7 +162,7 @@ export function fullCpuResult(s, d, config, {gain = 0, pass = false, incomplete 
   if (!s.overtime) d.clock = Math.max(0, d.clock - seconds);
   fullRecord(s, 'away', { gain, pass, incomplete, sack, interception, touchdown, quarterback, runner });
   fullLog(s, d, 'away', reason + (touchdown ? ' · TOUCHDOWN +6' : safety ? ' · SAFETY +2' : out ? ' · OUT OF BOUNDS' : ''), interception ? null : gain);
-  if (touchdown) { s.awayScore += 6; if (s.interactive) { s.conversion = 'away'; fullConversion(s, d, 'extra-point', random() < .95); } else { s.awayScore++; fullPossessionEnd(s, d, 'away'); } }
+  if (touchdown) { s.awayScore += 6; if (s.interactive) { s.conversion = 'away'; s.running = false; } else { s.awayScore++; fullPossessionEnd(s, d, 'away'); } }
   else if (safety) { d.score += 2; fullPossessionEnd(s, d, 'away', 35); }
   else if (interception) fullPossessionEnd(s, d, 'away', 100 - c.ball);
   else {
@@ -192,7 +192,7 @@ export function fullKickoffResult(s, d, {ball = 25, seconds = 0, touchdown = fal
   fullContinue(s, d);
   if (!s.overtime) d.clock = Math.max(0, d.clock - seconds);
   fullLog(s, d, receiving, touchdown ? 'KICK RETURN TOUCHDOWN · +6' : `KICK RETURN · OWN ${Math.round(ball)}`);
-  if (touchdown) { addScore(s, d, receiving, 6); s.conversion = receiving; if (receiving === 'away') fullConversion(s, d, 'extra-point', true); }
+  if (touchdown) { addScore(s, d, receiving, 6); s.conversion = receiving; }
   else fullExpired(s, d);
   return true;
 }
