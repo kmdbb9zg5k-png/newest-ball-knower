@@ -1,4 +1,5 @@
 // Full-game reference body with skinned team materials and distance-matched motion.
+import {contactFallProgress,contactFacing} from './contact-motion.js?v=contact-control-53';
 import {refineAthleteSurface} from './athlete-surface.js?v=sentinel-materials-34';
 import {referenceGarmentRegions,referenceRunPhase} from './reference-appearance.js?v=coherent-players-50';
 import {jerseyIdentityKey} from './jersey-identity.js?v=teams-1';
@@ -359,6 +360,30 @@ export class MeshyAthletes{
    this.aimJoint(locals,side+'Arm',side+'ForeArm',elbow);this.aimJoint(locals,side+'ForeArm',side+'Hand',hand);
   }
  }
+ actorPoint(p,point){
+  const m=this.modelFor(p),d=point.map((n,i)=>n-m[12+i]);
+  // The model basis is an orthogonal rotation with independent body scales.
+  return [0,4,8].map(k=>(m[k]*d[0]+m[k+1]*d[1]+m[k+2]*d[2])/(m[k]*m[k]+m[k+1]*m[k+1]+m[k+2]*m[k+2]));
+ }
+ reachArm(locals,side,target){
+  const arm=side+'Arm',forearm=side+'ForeArm',hand=side+'Hand',sign=side==='Left'?1:-1;
+  const shoulder=pointFromMatrix(this.worldPose(locals,this.namedNodes['mixamorig:'+arm])),l1=Math.hypot(...locals[this.namedNodes['mixamorig:'+forearm]].t),l2=Math.hypot(...locals[this.namedNodes['mixamorig:'+hand]].t),delta=target.map((v,i)=>v-shoulder[i]),length=Math.hypot(...delta)||1,axis=delta.map(v=>v/length),d=clamp(length,.025,l1+l2-.001),along=(l1*l1-l2*l2+d*d)/(2*d),height=Math.sqrt(Math.max(0,l1*l1-along*along)),pole=[sign*.65,-1,0],dot=pole.reduce((n,v,i)=>n+v*axis[i],0),bend=pole.map((v,i)=>v-axis[i]*dot),bl=Math.hypot(...bend)||1,elbow=shoulder.map((v,i)=>v+axis[i]*along+bend[i]/bl*height);
+  this.aimJoint(locals,arm,forearm,elbow);this.aimJoint(locals,forearm,hand,shoulder.map((v,i)=>v+axis[i]*d));
+ }
+ interactionArms(locals,p){
+  if(p.contactRole==='tackler'&&p.contactTarget){
+   const center=this.actorPoint(p,p.contactTarget);
+   for(const side of ['Left','Right']){const sign=side==='Left'?1:-1;this.reachArm(locals,side,[center[0]+sign*.24,center[1],center[2]+.12]);}
+  }else if(p.fallen&&p.contactRole==='carrier'){
+   // Keep the ball tucked against the ribs during the hit and landing.
+   const right=(p.index+p.team)%2===1;
+   this.reachArm(locals,right?'Right':'Left',[right?-.18:.18,1.10,.23]);
+   this.reachArm(locals,right?'Left':'Right',[right?-.03:.03,1.17,.30]);
+  }else if(p.ballTarget&&(p.receiving||['handoff','receive-handoff','receive-snap','hold-kick'].includes(p.action))){
+   const center=this.actorPoint(p,p.ballTarget);
+   for(const side of ['Left','Right'])this.reachArm(locals,side,[center[0]+(side==='Left'?.085:-.085),center[1]-.025,center[2]]);
+  }
+ }
  applyFootballPose(locals,p,phase,time,state){
   const pulse=Math.sin(clamp(p.actionT||0,0,1)*Math.PI),side=p.actionSide||0,mirror=(p.index+p.team)%2?1:-1,hips=this.joints[0],beat=Math.sin(time*(6.4+(p.index%4)*.31)+p.index*.83),profile=ROLE_MOTION_PROFILES[p.role]||ROLE_MOTION_PROFILES.LB,speed=clamp(Math.hypot(p.vx||0,p.vz||0)/9,0,1),pilotPhase=authenticityPilotPhase(state,p,time);
   if(phase==='pre'){
@@ -521,9 +546,12 @@ export class MeshyAthletes{
    if(Number.isInteger(spine))locals[spine].r=quatMul(locals[spine].r,axisQuat(1,0,0,breath*.012));
    if(Number.isInteger(head))locals[head].r=quatMul(locals[head].r,axisQuat(0,1,0,scan*((p.role==='QB'||p.role==='LB') ? .09 : .045)));
   }
-  if(phase==='pre'||p.engaged)this.plantLegs(locals,p);
+  if(phase==='pre'||p.engaged||p.fallen&&p.contactRole&&(p.actionT||0)<.30)this.plantLegs(locals,p);
   if(phase==='pre'||p.engaged||p.fallen||choice.state==='idle'||choice.state==='qb-pocket')this.readyArms(locals,p,p.fallen);
   locals=this.blendLocals(p,locals,time,choice.state);
+  // Apply interaction targets after the transition blend so hands track the
+  // ball/body this frame rather than trailing a cached generic animation.
+  this.interactionArms(locals,p);
   // The source scan reads slightly mascot-like at gameplay distance. A subtle
   // head correction restores football proportions without changing the mesh.
   const proportionHead=this.namedNodes['mixamorig:Head'];if(Number.isInteger(proportionHead))locals[proportionHead].s=locals[proportionHead].s.map(value=>value*.92);
@@ -538,9 +566,9 @@ export class MeshyAthletes{
   const builds={OL:[1.14,1.025,1.09],DL:[1.12,1.035,1.10],QB:[.98,1.02,.98],RB:[1.04,.985,1.02],WR:[.94,1.015,.94],TE:[1.07,1.045,1.05],LB:[1.075,1.025,1.06],DB:[.93,1,.94]},build=builds[p.role]||[1,1,1],variation=1+((p.index%5)-2)*.006;
   let lift=0,pitch=0,roll=0,yaw=0;if(p.action==='hurdle')lift=Math.sin((p.actionT||0)*Math.PI)*.68;if(p.action==='truck')pitch=.29*Math.sin((p.actionT||0)*Math.PI);if(p.action==='juke')roll=-(p.actionSide||0)*.22*Math.sin((p.actionT||0)*Math.PI);if(p.action==='spin')yaw=(p.actionSide||1)*(p.actionT||0)*Math.PI*2;
   if(p.action==='break-tackle')roll+=(p.actionSide||1)*.18*Math.sin((p.actionT||0)*Math.PI);if(p.action==='miss')pitch+=.34*Math.sin((p.actionT||0)*Math.PI);if(p.engaged)pitch+=.11;if(p.reactionT>0)roll+=(p.reactionSide||1)*.12*Math.sin(clamp(p.reactionT,0,1)*Math.PI);
-  const contactFall=p.fallen&&/tackle|hit|gang|wrap|slide|dive|pancake/.test(p.action||''),progress=p.action==='get-up'?1-smooth(p.actionT||0):contactFall?smooth(((p.actionT||0)-.12)/.76):p.fallen?1:0;
+  const progress=contactFallProgress(p);
   const fall=progress*(p.action==='slide'?-.95:p.action==='big-hit'?1.42:p.action==='dive'?1.46:1.32),fallRoll=progress*(p.contactRole==='tackler'?-.20:.16)*(p.actionSide||1);
-  const heading=p.fallen&&Number.isFinite(p.fallHeading)?p.fallHeading:p.heading||0;
+  const heading=contactFacing(p);
   const basis=mul(ry(heading+yaw),mul(rx(fall+pitch),mul(rz(roll+fallRoll),scale(1.17*build[0]*variation,1.17*build[1]/variation,1.17*build[2]*variation))));
   const supports=this.supports.get(p.index),floor=supports?.length?Math.min(...supports.map(s=>pointFromMatrix(basis,s.point)[1]-s.radius)):0;
   return mul(translate(p.x,lift+.025-floor,p.z),basis);

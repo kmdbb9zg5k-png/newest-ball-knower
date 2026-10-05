@@ -1,7 +1,8 @@
-import {referenceCameraTravel,referencePocketFrame,referenceCarryFrame} from './reference-camera.js?v=full-possession-52';
+import {contactFallProgress,updateContactTarget,handoffRunnerPoint} from './contact-motion.js?v=contact-control-53';
+import {referenceCameraTravel,referencePocketFrame,referenceCarryFrame} from './reference-camera.js?v=contact-control-53';
 import {routePoint,pursuitRead,passSetPoint,contactImpact,pocketSpeedFactor,renderDue} from './football-flow.js?v=complete-flow-46';
 import {safeFieldCamera} from './field-awareness.js?v=contact-camera-11';
-import {createLiveUnits} from './live-units.js?v=full-possession-52';
+import {createLiveUnits} from './live-units.js?v=contact-control-53';
 import {fullInitialDrive,fullSession,fullLog,fullRecord,fullOffenseEnd,fullContinue,fullCpuPlay,fullKick,fullCpuResult,fullConversion,fullKickoffResult,fullCpuKickChoice,fullPuntResult} from './five-minute.js?v=contact-camera-11';
 import {rosterRatings,rosterIdentity} from './mini-teams.js?v=contact-camera-11';
 import{RUNS,PASSES,FORMATIONS,FIELD_GOAL_PLAY,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=contact-camera-11';
@@ -9,7 +10,7 @@ export{RUNS,PASSES}from'./playbook.js?v=contact-camera-11';
 import{Renderer,pose,segment,hex,mul,ry,translate,scale}from'./renderer.js?v=football-foundation-44';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js?v=reference-motion-45';
 import{createMeshyAthletes}from'./meshy-athlete.js?v=complete-flow-46';
-import{createMeshyAthletes as createReferenceAthletes}from'./reference-athlete.js?v=full-possession-52';
+import{createMeshyAthletes as createReferenceAthletes}from'./reference-athlete.js?v=contact-control-53';
 import{makeStadium}from'./stadium.js?v=contact-camera-11';
 import{createGameplayReplayRecorder}from'./replay.js';
 import {miniClock,miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=contact-camera-11';
@@ -237,9 +238,9 @@ export function advancePlayerAction(p,time,dead=false){
  if(time<p.actionUntil)return;
  if(p.fallen){
   if(dead){p.actionT=1;return}
-  if(p.action==='get-up'){p.fallen=false;p.contactVariant=null;p.fallHeading=undefined;p.recoveryStart=null;p.recoveryOffset=null;p.contactWith=null;p.contactRole=null;p.contactReady=time+.2;p.action=null;p.actionT=0;p.actionSide=0;return}
+  if(p.action==='get-up'){p.fallen=false;p.contactVariant=null;p.fallHeading=undefined;p.contactStartHeading=undefined;p.contactTarget=null;p.recoveryStart=null;p.recoveryOffset=null;p.contactWith=null;p.contactRole=null;p.contactReady=time+.2;p.action=null;p.actionT=0;p.actionSide=0;return}
   if(time<p.actionUntil+(p.recoveryHold??(.36+(p.index%4||0)*.065))){p.actionT=1;return}
-  p.recoveryStart=[p.x,p.z];p.recoverySide=p.hasBall?((p.index+p.team)%2?1:-1):(p.actionSide||1);p.recoveryRole=p.contactRole;p.contactWith=null;p.contactRole=null;p.action='get-up';p.actionStarted=time;p.actionUntil=time+(p.hasBall?1.20:p.recoveryRole==='tackler'?1.02:1.02+(p.index%3||0)*.085);p.actionT=0;return;
+  p.recoveryStart=[p.x,p.z];p.recoverySide=p.hasBall?((p.index+p.team)%2?1:-1):(p.actionSide||1);p.recoveryRole=p.contactRole;p.contactWith=null;p.contactRole=null;p.contactTarget=null;p.contactStartHeading=undefined;p.action='get-up';p.actionStarted=time;p.actionUntil=time+(p.hasBall?1.20:p.recoveryRole==='tackler'?1.02:1.02+(p.index%3||0)*.085);p.actionT=0;return;
  }
  p.action=null;p.actionT=0;p.actionSide=0;p.contactRole=null;p.contactWith=null;p.breakupTarget=null;
 }
@@ -626,15 +627,15 @@ export function start(){
   const impact=contactImpact(carrier,tackler),dirX=impact.x,dirZ=impact.z,side=impact.side,presentation=contactPresentation(outcome.type==='wrap'?impact.variant:outcome.type,Math.max(speed/9.5,impact.energy),side),helper=presentation.helper?helpers.find(p=>p!==tackler&&!p.fallen&&!p.liveContact&&simTime>=p.contactReady&&Math.hypot(p.x-carrier.x,p.z-carrier.z)<1.8)||null:null;
   activeContact={type:presentation.type,elapsed:0,...presentation,dirX,dirZ,rightX:dirZ,rightZ:-dirX,carrierStart:[carrier.x,carrier.z],tacklerStart:[tackler.x,tackler.z],tackler:tackler.index,tacklerHeading:Math.atan2(carrier.x-tackler.x,carrier.z-tackler.z),helper:helper?.index??null,helperStart:helper?[helper.x,helper.z]:null};
   contactFx={x:carrier.x,z:carrier.z,born:simTime,power:presentation.shake};
-  const action=['shoulder-hit','low-wrap','drag-down'].includes(presentation.type)?'wrap':presentation.type;carrier.contactVariant=tackler.contactVariant=presentation.type;setTimedAction(tackler,action,presentation.duration,side);setTimedAction(carrier,action,presentation.duration,-side);carrier.fallen=true;tackler.fallen=true;carrier.heading=Math.atan2(dirX,dirZ);carrier.fallHeading=tackler.fallHeading=carrier.heading;carrier.contactRole='carrier';carrier.recoveryHold=.55;carrier.contactWith=tackler.index;tackler.recoveryHold=.16;tackler.contactRole='tackler';tackler.contactWith=carrier.index;carrier.vx=carrier.vz=0;tackler.vx=tackler.vz=0;
-  if(helper){setTimedAction(helper,'gang',presentation.duration,-side);helper.vx=helper.vz=0;helper.fallen=true;helper.fallHeading=carrier.heading;helper.contactRole='tackler';helper.recoveryHold=.34;helper.contactWith=carrier.index}
+  const action=['shoulder-hit','low-wrap','drag-down'].includes(presentation.type)?'wrap':presentation.type;carrier.contactVariant=tackler.contactVariant=presentation.type;setTimedAction(tackler,action,presentation.duration,side);setTimedAction(carrier,action,presentation.duration,-side);carrier.contactStartHeading=carrier.heading;tackler.contactStartHeading=tackler.heading;carrier.fallen=true;tackler.fallen=true;carrier.heading=Math.atan2(dirX,dirZ);carrier.fallHeading=tackler.fallHeading=carrier.heading;carrier.contactRole='carrier';carrier.recoveryHold=.55;carrier.contactWith=tackler.index;tackler.recoveryHold=.16;tackler.contactRole='tackler';tackler.contactWith=carrier.index;carrier.vx=carrier.vz=0;tackler.vx=tackler.vz=0;updateContactTarget(tackler,carrier);
+  if(helper){setTimedAction(helper,'gang',presentation.duration,-side);helper.vx=helper.vz=0;helper.contactStartHeading=helper.heading;helper.fallen=true;helper.fallHeading=carrier.heading;helper.contactRole='tackler';helper.recoveryHold=.34;helper.contactWith=carrier.index}
   impactShake=presentation.shake;recoveryLeft=presentation.duration+.34;
  }
  function advanceContactSequence(dt){
   const c=activeContact;if(!c)return;c.elapsed=Math.min(c.duration,c.elapsed+dt);const raw=clamp(c.elapsed/c.duration,0,1),t=smooth((raw-.16)/.84),ball=carrier,tackler=actors[c.tackler],carrierX=c.carrierStart[0]+c.dirX*c.carrierDrive*t+c.rightX*c.side*(c.lateral||0)*t,carrierZ=c.carrierStart[1]+c.dirZ*c.carrierDrive*t+c.rightZ*c.side*(c.lateral||0)*t;
  ball.x=clamp(carrierX,-26.3,26.3);ball.z=carrierZ;ball.vx=ball.vz=0;ball.actionT=raw;ball.moving=false;
- const tacklerX=carrierX-c.dirX*(.56-c.tacklerDrive*t)+c.rightX*c.side*(.70+.22*smooth((raw-.60)/.40)),tacklerZ=carrierZ-c.dirZ*(.56-c.tacklerDrive*t)+c.rightZ*c.side*(.70+.22*smooth((raw-.60)/.40));const close=smooth(raw/.24);tackler.x=c.tacklerStart[0]+(tacklerX-c.tacklerStart[0])*close;tackler.z=c.tacklerStart[1]+(tacklerZ-c.tacklerStart[1])*close;tackler.heading=c.tacklerHeading+Math.atan2(Math.sin(ball.heading-c.tacklerHeading),Math.cos(ball.heading-c.tacklerHeading))*smooth((raw-.10)/.42);tackler.actionT=raw;tackler.moving=false;
- if(c.helper!==null){const helper=actors[c.helper],targetX=carrierX-c.dirX*.25-c.rightX*c.side*.88,targetZ=carrierZ-c.dirZ*.25-c.rightZ*c.side*.88;helper.x=c.helperStart[0]+(targetX-c.helperStart[0])*t;helper.z=c.helperStart[1]+(targetZ-c.helperStart[1])*t;const facing=Math.atan2(ball.x-helper.x,ball.z-helper.z);helper.heading=facing+Math.atan2(Math.sin(ball.heading-facing),Math.cos(ball.heading-facing))*smooth((raw-.10)/.42);helper.actionT=raw;helper.moving=false}
+ const ox=c.tacklerStart[0]-c.carrierStart[0],oz=c.tacklerStart[1]-c.carrierStart[1],length=Math.hypot(ox,oz)||1,fall=contactFallProgress(ball),nearX=ox/length*.67,nearZ=oz/length*.67,endX=-c.dirX*.25+c.rightX*c.side*.88,endZ=-c.dirZ*.25+c.rightZ*c.side*.88,tacklerX=carrierX+nearX+(endX-nearX)*fall,tacklerZ=carrierZ+nearZ+(endZ-nearZ)*fall;const close=smooth(raw/.22);tackler.x=c.tacklerStart[0]+(tacklerX-c.tacklerStart[0])*close;tackler.z=c.tacklerStart[1]+(tacklerZ-c.tacklerStart[1])*close;tackler.heading=c.tacklerHeading+Math.atan2(Math.sin(ball.heading-c.tacklerHeading),Math.cos(ball.heading-c.tacklerHeading))*smooth((raw-.10)/.42);tackler.actionT=raw;tackler.moving=false;updateContactTarget(tackler,ball);
+ if(c.helper!==null){const helper=actors[c.helper],targetX=carrierX-c.dirX*.25-c.rightX*c.side*.88,targetZ=carrierZ-c.dirZ*.25-c.rightZ*c.side*.88;helper.x=c.helperStart[0]+(targetX-c.helperStart[0])*t;helper.z=c.helperStart[1]+(targetZ-c.helperStart[1])*t;const facing=Math.atan2(ball.x-helper.x,ball.z-helper.z);helper.heading=facing+Math.atan2(Math.sin(ball.heading-facing),Math.cos(ball.heading-facing))*smooth((raw-.10)/.42);helper.actionT=raw;helper.moving=false;updateContactTarget(helper,ball)}
   if(c.elapsed>=c.duration){tackler.recoveryOffset=[c.rightX*c.side*.62,c.rightZ*c.side*.62];if(c.helper!==null)actors[c.helper].recoveryOffset=[-c.rightX*c.side*.62,-c.rightZ*c.side*.62];activeContact=null;if(pendingPlayMessage){message(pendingPlayMessage,1.4);pendingPlayMessage=null}}
  }
   function performSkill(action){
@@ -806,11 +807,11 @@ function coverage(dt){
   if(phase==='handoff'){
    const qb=actors[5],rb=actors[6],concept=RUNS[selected],duration=concept.handoff+.55,t=clamp(elapsed/duration,0,1),meshX=concept.mesh[0]*runDirection,meshZ=snapZ+concept.mesh[1],pitch=Boolean(concept.pitch),keep=concept.option&&optionChoice==='keep',side=Math.sign(meshX-qb.startX)||runDirection;
    if(concept.option&&t>.7){$('option-give').disabled=true;$('option-keep').disabled=true}
-   const arrive=smooth(t/.84),qbHeading=qb.heading,qbX=pitch?side*.8:meshX-side*.76,qbZ=pitch?snapZ-4.65:meshZ-.12;
+   const guide=runConceptDirection(selected,0,meshX,meshZ,snapZ,runDirection,keep),control=openingRunControl(assist,input.x,input.z,snapDirection.x,snapDirection.z,guide.x,guide.z,true),world=control.manual?cameraWorldVector(control.x,control.z,camEye,camTarget):[control.x,control.z],exit=Math.hypot(...world)>.1?world:[guide.x,guide.z],exitSpeed=control.manual?4.8:4.6,qbHeading=qb.heading,qbX=pitch?side*.8:meshX-side*.76,qbZ=pitch?snapZ-4.65:meshZ-.12;
    move(qb,exchange.qbStart[0]+(qbX-exchange.qbStart[0])*smooth(t/.72),exchange.qbStart[1]+(qbZ-exchange.qbStart[1])*smooth(t/.72),dt,10);
-   move(rb,exchange.rbStart[0]+(meshX-exchange.rbStart[0])*arrive,exchange.rbStart[1]+(meshZ-exchange.rbStart[1])*arrive,dt,10);
-   const guide=runConceptDirection(selected,0,keep?qb.x:rb.x,keep?qb.z:rb.z,snapZ,runDirection,keep),control=openingRunControl(assist,input.x,input.z,snapDirection.x,snapDirection.z,guide.x,guide.z,true),world=control.manual?cameraWorldVector(control.x,control.z,camEye,camTarget):[control.x,control.z];
-   const facing=Math.atan2(rb.x-qb.x,rb.z-qb.z);qb.heading=qbHeading+Math.atan2(Math.sin(facing-qbHeading),Math.cos(facing-qbHeading))*(1-Math.exp(-9*dt));rb.heading=Math.atan2(meshX-exchange.rbStart[0],meshZ-exchange.rbStart[1]);
+   const rbPoint=handoffRunnerPoint(exchange.rbStart,[meshX,meshZ],t,duration,exit,exitSpeed);move(rb,...rbPoint,dt,10);
+   if(keep&&t>.78){const n=Math.hypot(...exit)||1;move(qb,qbX+exit[0]/n*exitSpeed*(t-.78)*duration,qbZ+exit[1]/n*exitSpeed*(t-.78)*duration,dt,10);}
+   const facing=Math.atan2(rb.x-qb.x,rb.z-qb.z);qb.heading=qbHeading+Math.atan2(Math.sin(facing-qbHeading),Math.cos(facing-qbHeading))*(1-Math.exp(-9*dt));if(t<.72)rb.heading=Math.atan2(meshX-exchange.rbStart[0],meshZ-exchange.rbStart[1]);
    const carrySide=(rb.index+rb.team)%2?-1:1,carryPoint=[rb.x+Math.cos(rb.heading)*carrySide*.22+Math.sin(rb.heading)*.22,1.30,rb.z-Math.sin(rb.heading)*carrySide*.22+Math.cos(rb.heading)*.22],meshPoint=[rb.x-Math.sin(qb.heading)*.16,1.30,rb.z-Math.cos(qb.heading)*.16],catchPoint=meshPoint.map((v,i)=>v+(carryPoint[i]-v)*smooth((t-.88)/.12)),grip=[qb.x+Math.sin(qb.heading)*.36,1.38,qb.z+Math.cos(qb.heading)*.36],reach=smooth((t-.45)/.40);
    if(pitch){
     // Freeze the release point once. Ownership is empty throughout the airborne pitch.
@@ -826,7 +827,7 @@ function coverage(dt){
    rb.ballTarget=t>.40?(t>.76?exchange.ball:catchPoint):null;
    if(rb.hasBall)carrier=rb;
    blockers(dt,true);resolvePlayerOverlaps();
-   if(t>=1){qb.hasBall=Boolean(keep);qb.ballTarget=null;qb.action=null;qb.actionT=0;qb.vx=qb.vz=0;rb.hasBall=!keep;rb.ballTarget=null;rb.action=null;rb.actionT=0;carrier=keep?qb:rb;const speed=control.manual?4.8:assist?4.6:0;carrier.vx=world[0]*speed;carrier.vz=world[1]*speed;snapDirectionUntil=simTime+.75;phase='run';exchange=null;elapsed=0;updateControls()}
+   if(t>=1){qb.hasBall=Boolean(keep);qb.ballTarget=null;qb.action=null;qb.actionT=0;qb.vx=qb.vz=0;rb.hasBall=!keep;rb.ballTarget=null;rb.action=null;rb.actionT=0;carrier=keep?qb:rb;const n=Math.hypot(...exit)||1;carrier.vx=exit[0]/n*exitSpeed;carrier.vz=exit[1]/n*exitSpeed;carrier.moving=true;snapDirectionUntil=simTime+.75;phase='run';exchange=null;elapsed=0;updateControls()}
    return;
   }
   if(phase==='pass'||phase==='flight'){coverage(dt);blockers(dt,false);const qb=actors[5];
@@ -945,7 +946,7 @@ function coverage(dt){
   }
   const strength=impactShake*.12;impactShake=Math.max(0,impactShake-dt*3.8);fieldCamera([camEye[0]+Math.sin(simTime*91)*strength,camEye[1]+Math.cos(simTime*73)*strength*.45,camEye[2]],camTarget);
  }
- function athletePhase(){const u=liveUnit?.state;if(!u)return phase;return u.stage==='end'||u.stage==='contact'?'dead':u.stage==='pre'||u.stage==='kick'?'pre':u.stage==='flight'?'flight':u.stage==='pass'?'pass':u.stage==='snap'||u.stage==='kick-snap'||u.stage==='punt-snap'?'snap':'run'}
+ function athletePhase(){const u=liveUnit?.state;if(!u)return phase;return u.stage==='end'||u.stage==='contact'?'dead':u.stage==='pre'||u.stage==='kick'?'pre':u.stage==='flight'?'flight':u.stage==='pass'?'pass':u.stage==='handoff'?'handoff':u.stage==='snap'||u.stage==='kick-snap'||u.stage==='punt-snap'?'snap':'run'}
  function scene(dt,now){const renderPhase=athletePhase();for(const p of actors)p.offenseTeam=liveUnit?.state&&['extra-point','field-goal'].includes(liveUnit.state.kind)?0:liveUnit?.state?.kind==='defense'||liveUnit?.state?.kicking==='home'?1:0;r.sceneTime=now/1000;r.begin();stadium.draw();
   // Keep both snap markers fixed through contact; reset together for the next down.
   if(!liveUnit?.state||liveUnit.state.kind==='defense'){
@@ -955,7 +956,7 @@ function coverage(dt){
   for(const [z,color,label]of[[snapZ,'#ef7e38',false],[snapGainZ,'#f4cc57',true]]){r.add('cylinder',segment([-27.25,.08,z],[-27.25,2.05,z],.055),hex(color),'',true);r.add('cube',pose(-27.25,label?2.02:1.62,z,label?.42:.58,label?.42:.34,.12),hex(color),'',true)}
   }
   for(const p of actors){
-   const fall=fullGame&&p.fallen?smooth(p.action==='get-up'?1-(p.actionT||0):((p.actionT||0)-.12)/.76):0,heading=Number.isFinite(p.fallHeading)?p.fallHeading:p.heading||0;
+   const fall=fullGame?contactFallProgress(p):0,heading=Number.isFinite(p.fallHeading)?p.fallHeading:p.heading||0;
    const shadow=mul(translate(p.x+Math.sin(heading)*fall*.8,.038,p.z+Math.cos(heading)*fall*.8),mul(ry(heading),scale(.92+fall*.12,1,.66+fall*1.5)));
    r.add('plane',shadow,[0,0,0,meshy.ready?.22:.75],'shadow',true);
   }
