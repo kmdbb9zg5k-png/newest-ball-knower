@@ -204,7 +204,19 @@ export function createLiveUnits({config, getActors, inputVector, onResult, onSim
    }
   }
  }
- function controlled(dt){const p=getActors()[state.controlled];if(p.fallen)return;const v=inputVector();move(p,p.x+v[0]*10,p.z+v[1]*10,dt,speed(p)*(state.burst>state.time?1:.9)*Math.min(1,Math.hypot(...v)));if(state.stage==='pre')p.z=Math.max(state.snapZ+.5,p.z);}
+ function controlled(dt){
+  const a=getActors(),p=a[state.controlled];if(p.fallen)return;const v=inputVector(),magnitude=Math.hypot(...v);
+  if(magnitude>=.12)state.manualMovement=true;
+  // Until the user steers, a selected coverage player keeps participating in
+  // the play. Freezing him made auto-selection jump to a new defender every
+  // second as the runner passed each stationary selected player.
+  if(!state.manualMovement&&magnitude<.12&&p.index>=11&&['flight','run','kick-flight'].includes(state.stage)){
+   const runner=state.stage==='kick-flight'?a[6]:state.stage==='flight'?a[state.flight.target]:a[state.carrier];
+   const aim=state.stage==='kick-flight'?{x:runner.x,z:runner.z+12}:interceptPoint(p,runner,speed(p)*.98);
+   move(p,aim.x,aim.z,dt,speed(p)*.98);return;
+  }
+  move(p,p.x+v[0]*10,p.z+v[1]*10,dt,speed(p)*(state.burst>state.time?1:.9)*Math.min(1,magnitude));if(state.stage==='pre')p.z=Math.max(state.snapZ+.5,p.z);
+ }
  function tick(dt){if(!state||paused)return;if(state.stage==='end'){const result=state.result;stop();onResult(result);return;}state.time+=dt;const a=getActors();a[5].qbPocket=state.kind==='defense'&&['snap','pass'].includes(state.stage);for(const p of a){if(p.catchT>0)p.catchT=Math.max(0,p.catchT-dt);if(['kick','juke'].includes(p.action)&&!(p.action==='kick'&&state.stage==='kick-snap')){p.actionT=Math.min(1,(p.actionT||0)+dt*1.8);if(p.actionT>=1)p.action=null;}}
   if(state.recover&&state.time>=state.recover){a[state.recoverPlayer??state.controlled].fallen=false;a[state.recoverPlayer??state.controlled].action=null;state.recover=0;}
   if(state.stage==='contact'){tackleFrame(dt);return;}if(state.book)return;if(state.stage==='kick'){if(state.kicking==='home')adjustAim(...aimInput,dt);if(state.timing){state.meterTime+=dt;state.power=.5-.5*Math.cos(state.meterTime*2.8);}else state.power=0;$('kickPower').style.left=(state.power*100)+'%';return;}
@@ -265,7 +277,7 @@ export function createLiveUnits({config, getActors, inputVector, onResult, onSim
   }
   if(state.stage==='run'){
    const runner=a[state.carrier],manual=returnKick(state.kind)&&state.kicking==='away';
-   if(!manual&&Math.hypot(...inputVector())<.12&&state.time-(state.manualSelectionAt??-10)>.8){const nearest=nearestDefender(a,runner),current=a[state.controlled];if(current.fallen||distance(current,runner)>10&&distance(a[nearest],runner)+6<distance(current,runner))autoSelect(runner);}
+   if(!manual&&!state.manualMovement&&Math.hypot(...inputVector())<.12&&state.time-(state.manualSelectionAt??-10)>.8){const nearest=nearestDefender(a,runner),current=a[state.controlled];if(current.fallen||distance(current,runner)>10&&distance(a[nearest],runner)+6<distance(current,runner))autoSelect(runner);}
    if(!manual){const nearest=defense.filter(p=>!p.fallen).sort((x,y)=>distance(x,runner)-distance(y,runner))[0];const avoid=nearest&&distance(nearest,runner)<4?(runner.x<nearest.x?-1:1)*3:0;move(runner,clamp(runner.x+avoid,-24,24),runner.z+12,dt,speed(runner)*.92);}
    for(const p of defense){p.engaged=false;if(p.index===state.controlled||p.fallen)continue;const aim=pursuitRead(p,runner,interceptPoint(p,runner,speed(p)*.98),state.time);move(p,aim.x,aim.z,dt,speed(p)*.98);if(distance(p,runner)<1&&state.time>(state.contactGrace||0)){if(random()<defensiveTackleChance(p,runner)-(state.jukeUntil>state.time?.35:0)){beginTackle(p,runner,false,{reason:'TACKLED',gain:Math.round(runner.z-state.snapZ),ball:clamp(Math.round(runner.z-10),0,100)});return;}state.contactGrace=state.time+.6;p.x+=p.x<runner.x?-1:1;}}
    for(const p of offense){if(p===runner)continue;const target=defense.filter(d=>!d.fallen&&!d.engaged).sort((x,y)=>distance(x,p)-distance(y,p))[0];if(target){move(p,target.x,target.z-.8,dt,speed(p)*.75);if(distance(p,target)<1.2&&target.index!==state.controlled){engageBlock(p,target,dt,true);}}}
@@ -282,23 +294,20 @@ export function createLiveUnits({config, getActors, inputVector, onResult, onSim
   const defending=state.kind==='defense'||state.kicking==='home';
   if(state.kind==='punt'&&['kick','punt-snap'].includes(state.stage))return defending?{eye:[0,6,Math.min(128,state.puntZ+12)],target:[0,1.2,state.puntZ-6],fov:48}:{eye:[0,5.8,Math.max(2,a[6].z-10)],target:[0,1.5,a[6].z+12],fov:48};
   if(state.stage==='kick')return defending?{eye:[0,5.8,85],target:[0,1.4,61],fov:48}:{eye:[0,5.8,7],target:[0,1.5,30],fov:48};
-  const selected=a[state.controlled],f=state.flight,t=f?clamp(f.t,0,1):0;
-  const ball=f?f.from.map((v,i)=>v+(f.to[i]-v)*t+(i===1?Math.sin(Math.PI*t)*f.arc:0)):[a[state.carrier].x,1.3,a[state.carrier].z];
+  const selected=a[state.controlled],contact=state.stage==='contact';
   if(returnKick(state.kind)){
-   // Returners retain one shot through the catch. On kick coverage the
-   // selected defender stays in view, looking toward the returner; fitting
-   // both ends of a 60-yard kick would make every athlete miniature.
-   if(state.kicking==='away')return referenceCarryFrame(a[6]);
-   const focus=state.stage==='contact'?a[6]:selected;
-   return {eye:[focus.x,4.8,focus.z+6.6],target:[focus.x,.9,focus.z-2.4],fov:56};
+   // Keep the controlled athlete readable throughout flight and possession.
+   // The coverage view faces the returner without fitting the entire kick.
+   if(state.kicking==='away')return referenceCarryFrame(a[6],1,contact);
+   return referenceCarryFrame(contact?a[6]:selected,-1,contact);
   }
-  if(state.kind==='defense'&&(state.book||['pre','snap','handoff','pass'].includes(state.stage))){
-   const qb=a[5],view=referencePocketFrame(qb,state.snapZ,getAspect(),qb.z,17,state.book);
-   // Pan toward a selected edge defender without changing the camera distance.
-   const shift=clamp((selected.x-qb.x)*.35,-5,5);view.eye[0]+=shift;view.target[0]+=shift;return view;
+  if(state.kind==='defense'){
+   if(state.book)return referencePocketFrame(a[5],state.snapZ,getAspect(),a[5].z,17,true);
+   // Defense is played from behind the selected defender. The camera follows
+   // selection, not a ball that can leave a manually controlled player behind.
+   return referenceCarryFrame(contact?a[state.carrier]:selected,-1,contact);
   }
-  const focus=f?{x:ball[0],z:ball[2]}:a[state.carrier];
-  return referenceCarryFrame(focus);
+  return referenceCarryFrame(a[state.carrier]);
  }
  function aimTarget(){return state?.stage==='kick'&&state.kicking==='home'?{point:goalKick(state.kind)?[state.aim.x,state.aim.y,117]:[state.aim.x,.08,state.aim.z],vertical:goalKick(state.kind)}:null;}
  function stop(){root.hidden=true;document.body.classList.remove('playing-unit','unit-no-movement');resetAimInput();state=null;}

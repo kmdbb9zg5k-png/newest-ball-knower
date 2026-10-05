@@ -6,7 +6,7 @@ import {fullInitialDrive,fullSession,fullLog,fullRecord,fullOffenseEnd,fullConti
 import {rosterRatings,rosterIdentity} from './mini-teams.js?v=contact-camera-11';
 import{RUNS,PASSES,FORMATIONS,FIELD_GOAL_PLAY,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=contact-camera-11';
 export{RUNS,PASSES}from'./playbook.js?v=contact-camera-11';
-import{Renderer,pose,segment,hex,mul,ry}from'./renderer.js?v=football-foundation-44';
+import{Renderer,pose,segment,hex,mul,ry,translate,scale}from'./renderer.js?v=football-foundation-44';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js?v=reference-motion-45';
 import{createMeshyAthletes}from'./meshy-athlete.js?v=complete-flow-46';
 import{createMeshyAthletes as createReferenceAthletes}from'./reference-athlete.js?v=full-possession-52';
@@ -880,7 +880,7 @@ function coverage(dt){
   if(['pre','snap','pass'].includes(phase)){
    const back=phase==='pre'||phase==='snap'?Math.min(qb.z,actors[6].z):qb.z;
    view=referencePocketFrame(qb,phase==='pass'?qb.z+5:snapZ,r.width/r.height,back,phase==='pre'||phase==='snap'?Math.max(...actors.filter(p=>!p.team).map(p=>Math.abs(p.x))):17,phase==='pre'&&(playArtVisible||prePanel==='adjust'));
-  }else view=referenceCarryFrame(focus);
+  }else view=referenceCarryFrame(focus,1,phase==='dead'&&focus.fallen);
   if(phase==='flight'&&flight){
    const start=flightCameraStart||{eye:camEye,target:camTarget},t=smooth(clamp(flight.t,0,1)),end=referenceCarryFrame({x:flight.to[0],z:flight.to[2]});
    view={eye:end.eye.map((v,i)=>start.eye[i]+(v-start.eye[i])*t),target:end.target.map((v,i)=>start.target[i]+(v-start.target[i])*t),fov:56};
@@ -889,7 +889,7 @@ function coverage(dt){
   const shot=cameraReset?{eye:view.eye,target:view.target}:referenceCameraTravel(camEye,camTarget,view.eye,view.target,dt);cameraReset=false;camEye=shot.eye;camTarget=shot.target;
   const strength=impactShake*.06;impactShake=Math.max(0,impactShake-dt*3.8);fieldCamera([camEye[0]+Math.sin(simTime*91)*strength,camEye[1],camEye[2]],camTarget);
  }
- function camera(dt){if(liveUnit?.state){const view=liveUnit.view();r.fov=view.fov||55;const reverse=(camTarget[2]-camEye[2])*(view.target[2]-view.eye[2])<0;const shot=reverse?{eye:[...view.eye],target:[...view.target]}:referenceCameraTravel(camEye,camTarget,view.eye,view.target,dt);camEye=shot.eye;camTarget=shot.target;fieldCamera(camEye,camTarget);return;}if(fullGame){referenceCamera(dt);return;}const lens=r.width/r.height>1.5?(['snap','pass'].includes(phase)?58:50):46;r.fov=Number.isFinite(r.fov)?r.fov+(lens-r.fov)*cameraFollowBlend(dt,5):lens;const isPocket=phase==='pre'||phase==='snap'||phase==='pass'||phase==='handoff'||phase==='flight',isDead=phase==='dead';let x=0,z=snapZ+2,mult=1;
+ function camera(dt){if(liveUnit?.state){const view=liveUnit.view(),lens=view.fov||55;r.fov=Number.isFinite(r.fov)?r.fov+(lens-r.fov)*(1-Math.exp(-Math.max(0,dt)*8)):lens;const reverse=(camTarget[2]-camEye[2])*(view.target[2]-view.eye[2])<0;const shot=reverse?{eye:[...view.eye],target:[...view.target]}:referenceCameraTravel(camEye,camTarget,view.eye,view.target,dt);camEye=shot.eye;camTarget=shot.target;fieldCamera(camEye,camTarget);return;}if(fullGame){referenceCamera(dt);return;}const lens=r.width/r.height>1.5?(['snap','pass'].includes(phase)?58:50):46;r.fov=Number.isFinite(r.fov)?r.fov+(lens-r.fov)*cameraFollowBlend(dt,5):lens;const isPocket=phase==='pre'||phase==='snap'||phase==='pass'||phase==='handoff'||phase==='flight',isDead=phase==='dead';let x=0,z=snapZ+2,mult=1;
   if(!isPocket&&!isDead){x=carrier.x*.55;z=carrier.z+5;if(flight){const t=clamp(flight.t,0,1);x=(flight.from[0]+(flight.to[0]-flight.from[0])*t)*.55;z=flight.from[2]+(flight.to[2]-flight.from[2])*t+4}}
   if(phase==='pass'||phase==='flight'){x=actors[5].x*.82;const deep=Math.max(...receiverIndices.map(i=>actors[i].z));z=actors[5].z+clamp((deep-actors[5].z)*.42,6,14);mult=clamp(1+(deep-actors[5].z-20)*.01,1,1.35)}
   // A catch may be tackled before the live camera arrives. Continue into a
@@ -954,7 +954,11 @@ function coverage(dt){
   // Chain crew anchors the broadcast view to the live down and distance.
   for(const [z,color,label]of[[snapZ,'#ef7e38',false],[snapGainZ,'#f4cc57',true]]){r.add('cylinder',segment([-27.25,.08,z],[-27.25,2.05,z],.055),hex(color),'',true);r.add('cube',pose(-27.25,label?2.02:1.62,z,label?.42:.58,label?.42:.34,.12),hex(color),'',true)}
   }
-  for(const p of actors){r.add('plane',pose(p.x,.038,p.z,.92,1,.66),[0,0,0,meshy.ready?.18:.75],'shadow',true)}
+  for(const p of actors){
+   const fall=fullGame&&p.fallen?smooth(p.action==='get-up'?1-(p.actionT||0):((p.actionT||0)-.12)/.76):0,heading=Number.isFinite(p.fallHeading)?p.fallHeading:p.heading||0;
+   const shadow=mul(translate(p.x+Math.sin(heading)*fall*.8,.038,p.z+Math.cos(heading)*fall*.8),mul(ry(heading),scale(.92+fall*.12,1,.66+fall*1.5)));
+   r.add('plane',shadow,[0,0,0,meshy.ready?.22:.75],'shadow',true);
+  }
   turfFx=turfFx.filter(f=>simTime-f.born<f.life);for(const fx of turfFx){const age=simTime-fx.born,t=clamp(age/fx.life,0,1),size=fx.size*(1+t*.8);r.add('plane',pose(fx.x+fx.driftX*age,.043,fx.z+fx.driftZ*age,size,1,size*.64),[.61,.50,.28,(1-t)*.55],'turf-fx',true)}
   if(contactFx){const age=simTime-contactFx.born,t=age/.34;if(t<1){const size=(.55+t*2.6)*contactFx.power;r.add('plane',pose(contactFx.x,.055,contactFx.z,size,1,size),[1,.76,.28,(1-t)*.52],'impact-glow',true);for(let i=0;i<7;i++){const angle=i/7*Math.PI*2+.35,radius=t*(.45+i*.06)*contactFx.power,height=.10+Math.sin(t*Math.PI)*(.20+(i%3)*.07);r.add('sphere',pose(contactFx.x+Math.cos(angle)*radius,height,contactFx.z+Math.sin(angle)*radius,.025+(1-t)*.018),[.62,.49,.27,1],'',false,.04)}}else contactFx=null}
   if(carrier&&(!ended||pendingDriveEnd?.title==='INTERCEPTED')){const selectedPlayer=liveUnit?.state?actors[liveUnit.state.controlled]:carrier,cx=selectedPlayer.x,cz=selectedPlayer.z,selectedFlash=liveUnit?.state?Math.max(0,1-(liveUnit.state.time-(liveUnit.state.selectedAt??-10))/.7):0;r.add('plane',pose(cx,.036,cz,2.35,1,1.65),[1,1,1,.72],'player-glow',true);for(let i=0;i<32;i++){const a=i/32*2*Math.PI,b=(i+1)/32*2*Math.PI;r.add('cylinder',segment([cx+Math.cos(a)*.70,.045,cz+Math.sin(a)*.70],[cx+Math.cos(b)*.70,.045,cz+Math.sin(b)*.70],(liveUnit?.state ? .035+selectedFlash*.015 : .025)),hex(liveUnit?.state?'#7be4ed':'#ebce7a'),'',true)}}

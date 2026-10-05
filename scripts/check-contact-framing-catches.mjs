@@ -7,16 +7,18 @@ import {chromium} from 'playwright';
 const root=resolve('public'),out=resolve('artifacts/contact-framing');await mkdir(out,{recursive:true});
 const injection=`window.bkRegression={
  render(){present(1/60,1)},
+ settleLens(){for(let i=0;i<120;i++)camera(1/60);return r.fov;},
  step(seconds){for(let i=0;i<Math.ceil(seconds*60);i++){if(!paused||activeContact)simulate(1/60);camera(1/60);}present(1/60,1)},
  release(){let n=0;while(phase==='pass'&&n++<60){simulate(1/60);camera(1/60);}present(1/60,1)},
  body(index){const p=actors[index],h=meshy.handTransforms.get(index),m=meshy.modelFor(p);return{chest:[...mul(m,h.chest)].slice(12,15),fallen:p.fallen,action:p.action,t:p.actionT}},
  reset(){liveUnit?.stop();conversionDrive=null;mini=fullSession(miniConfig.mode,true);drive={...initialDrive};paused=false;ended=false;$('paused').hidden=true;miniUI.reset();mode='run';selected=0;setup(false);phase='run';playbookOpen=false;carrier=actors[6];actors.forEach(p=>{p.hasBall=p===carrier;p.x=(p.index-11)*2;p.z=30;p.vx=p.vz=0;});Object.assign(carrier,{x:0,z:40,vz:7});elapsed=1;cameraReset=true;camera(1);updateControls();},
  terminal(kind){if(kind==='fourth'){drive.down=4;drive.toGo=25;}if(kind==='clock')drive.clock=0;if(kind==='conversion'){conversionDrive={...drive};mini.conversion='home';drive.ball=98;}},
  unit(kind,kicking='away'){liveUnit?.stop();conversionDrive=null;mini=fullSession(miniConfig.mode,true);Object.assign(mini,{possession:kind==='defense'?'away':'home',kickoff:kind==='kickoff'?kicking:null,conversion:null});drive={...initialDrive};paused=false;ended=false;$('paused').hidden=true;miniUI.reset();startUnit(kind);},
+ manualCoverage(){const u=liveUnit.state,a=actors;u.book=false;u.stage='run';u.carrier=6;u.controlled=16;u.manualMovement=false;for(const p of a){p.x=(p.index-11)*2;p.z=110;p.vx=p.vz=0;p.fallen=false;}Object.assign(a[6],{x:0,z:40});Object.assign(a[16],{x:0,z:60});input.x=input.z=0;const before=a[16].z;for(let i=0;i<12;i++)liveUnit.tick(1/60);const participated=a[16].z<before-.1;input.x=1;for(let i=0;i<6;i++)liveUnit.tick(1/60);input.x=0;for(let i=0;i<60;i++)liveUnit.tick(1/60);const stopped=[a[16].x,a[16].z];for(let i=0;i<60;i++)liveUnit.tick(1/60);return{participated,manual:u.manualMovement,selected:u.controlled,drift:Math.hypot(a[16].x-stopped[0],a[16].z-stopped[1])};},
  unitContact(){const u=liveUnit.state;u.book=false;u.stage='run';u.carrier=6;u.controlled=16;for(const p of actors){p.x=(p.index-11)*2;p.z=45;p.hasBall=p.index===6;}Object.assign(actors[6],{x:0,z:60,vz:7});Object.assign(actors[16],{x:.65,z:59.8,vz:7});liveUnit.forceContact(actors[16],actors[6]);},
  unitView(stage,x=0,z=60){const u=liveUnit.state;u.book=false;u.stage=stage;u.carrier=6;u.controlled=16;u.flight=null;Object.assign(actors[6],{x,z,hasBall:true});Object.assign(actors[16],{x:x+1.2,z:z-1});liveUnit.refresh();const v=liveUnit.view();camEye=[...v.eye];camTarget=[...v.target];r.fov=v.fov;fieldCamera(camEye,camTarget);scene(.016,simTime*1000);return v;},
  defenseFlight(x,t,qbZ=30){const u=liveUnit.state;u.stage='flight';u.book=false;u.carrier=5;u.controlled=16;u.flight={from:[0,1.8,30],to:[x,1.6,75],t,duration:1,arc:3,target:7};Object.assign(actors[5],{x:0,z:qbZ,hasBall:false});Object.assign(actors[7],{x,z:75});Object.assign(actors[16],{x:x+1,z:74});flight=u.flight;liveUnit.refresh();return liveUnit.view();},
- kickFlight(t){const u=liveUnit.state;u.stage='kick-flight';u.book=false;u.carrier=16;u.controlled=u.kicking==='away'?6:16;u.flight={from:[0,.3,75],to:[0,1,18],t,duration:3.5,arc:17,target:6};actors[6].x=0;actors[6].z=18;actors[16].x=0;actors[16].z=75;flight=u.flight;liveUnit.refresh();camera(1/60);return {view:liveUnit.view(),camera:{eye:[...r.eye],target:[...r.target]}};},
+ kickFlight(t){const u=liveUnit.state;u.stage='kick-flight';u.book=false;u.carrier=16;u.controlled=u.kicking==='away'?6:16;u.flight={from:[0,.3,75],to:[0,1,18],t,duration:3.5,arc:17,target:6};actors[6].x=0;actors[6].z=18;actors[16].x=0;actors[16].z=75;flight=u.flight;liveUnit.refresh();camera(1/60);return {view:liveUnit.view(),camera:{eye:[...r.eye],target:[...r.target],fov:r.fov}};},
  pass(kind='bullet'){liveUnit?.stop();mini=fullSession(miniConfig.mode,true);drive={...initialDrive};paused=false;ended=false;$('paused').hidden=true;miniUI.reset();mode='pass';selected=PASSES.findIndex(p=>p.id==='verts');setup(false);playbookOpen=false;phase='pass';elapsed=.8;carrier=actors[5];carrier.hasBall=true;for(const p of actors.filter(p=>p.team===1)){p.x=25;p.z=105;p.startX=25;p.startZ=105;}rand=()=>.99;cameraReset=true;camera(1);updateControls();throwTo(7,kind);},
  snapshot(){return {phase,postPlayElapsed,pendingWhistle:pendingWhistle?{...pendingWhistle}:null,flight:flight?{t:flight.t,duration:flight.duration,catchChosen:flight.catchChosen}:null,catchVisible:!$('catchChoices').hidden,clock:drive.clock,carrier:carrier?.index,unitStage:liveUnit?.state?.stage,view:liveUnit?.view(),down:drive.down,ball:drive.ball,score:drive.score,conversion:mini.conversion,result:mini.result,log:mini.log.length}},
 };`;
@@ -47,6 +49,7 @@ try{
    await step(.25);s=await shot();assert(!s.pendingWhistle,'Result must settle exactly once after contact');assert(s.log>before.log||kind==='conversion');
    results.push({mode,contact:kind,chestHeight:b.chest[1],settled:true});console.log('PASS contact',mode,kind);
   }
+  await page.evaluate(()=>window.bkRegression.unit('defense'));const manual=await page.evaluate(()=>window.bkRegression.manualCoverage());assert(manual.participated&&manual.manual);assert.equal(manual.selected,16,'Manual defender must not be automatically replaced');assert(manual.drift<.05,'Releasing manual input must stop pursuit');results.push({mode,manualCoverage:manual});
   for(const kind of ['defense','kickoff']){
    await page.evaluate(k=>{window.bkRegression.unit(k);window.bkRegression.unitContact()},kind);await step(1.16);
    let s=await shot();assert.equal(s.unitStage,'contact');const b=await page.evaluate(()=>window.bkRegression.body(6));assert(b.chest[1]<.75);await step(.2);s=await shot();assert.notEqual(s.unitStage,'contact');
@@ -69,14 +72,15 @@ try{
    results.push({mode,defenseFlightX:x,quarterbackExcluded:true});
   }
   for(const kicking of ['home','away']){
-   await page.evaluate(k=>window.bkRegression.unit('kickoff',k),kicking);let previous=null,maxBoom=0;
+   await page.evaluate(k=>window.bkRegression.unit('kickoff',k),kicking);let previous=null,maxBoom=0,previousLens=await page.evaluate(()=>window.bkRegression.settleLens()),maxLens=0;
    for(let i=0;i<=210;i++){
     const {view,camera}=await page.evaluate(t=>window.bkRegression.kickFlight(t),i/210),boom=camera.eye.map((v,j)=>v-camera.target[j]);
+    maxLens=Math.max(maxLens,Math.abs(camera.fov-previousLens));previousLens=camera.fov;
     assert(Math.hypot(...view.eye.map((v,j)=>v-view.target[j]))<15,'Kick apex must not zoom out the field');
     if(previous&&i>1)maxBoom=Math.max(maxBoom,Math.hypot(...boom.map((v,j)=>v-previous[j])));previous=boom;
     if(i===175){await page.evaluate(()=>window.bkRegression.render());const d=await page.evaluate(()=>window.bk3dDiagnostics());const focus=kicking==='home'?16:6;assert(d.players[focus].head.visible&&d.players[focus].foot.visible,'Controlled coverage player or returner must stay visible during kick flight');assert(d.players[focus].foot.y-d.players[focus].head.y>45,'Controlled athlete remains readable');await page.screenshot({path:out+'/'+mode+'-kick-'+kicking+'.png'});}
    }
-   assert(maxBoom<=7/60+.001);results.push({mode,kick:kicking,frames:211,maxBoom});
+   assert(maxBoom<=7/60+.001);assert(maxLens<1.1,'Kick lens must ease through release');results.push({mode,kick:kicking,frames:211,maxBoom,maxLens});
   }
   for(const style of ['rac','secure','aggressive']){
    await page.evaluate(()=>window.bkRegression.pass());assert.equal((await shot()).catchVisible,false,'No catch choices before release');

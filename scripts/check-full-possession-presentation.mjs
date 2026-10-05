@@ -4,7 +4,7 @@ import {createServer} from 'node:http';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
 import {resolve,extname} from 'node:path';
 import {chromium} from 'playwright';
-const root=resolve('public'),out=resolve('artifacts/full-possession-final');await mkdir(out,{recursive:true});
+const root=resolve('public'),out=resolve('artifacts/full-possession-reviewed');await mkdir(out,{recursive:true});
 const injection=`window.possessionReview={
  reset(kind,seed=175){liveUnit?.stop();conversionDrive=null;mini=fullSession(miniConfig.mode,true);drive={...initialDrive};paused=false;ended=false;miniUI.reset();$('paused').hidden=true;mode=kind==='run'?'run':'pass';selected=kind==='run'?0:PASSES.findIndex(p=>p.id==='verts');numSeed=seed;assist=false;setup(false);camera(1);present(1/30,1);},
  startUnit(kind,kicking='away'){liveUnit?.stop();mini=fullSession(miniConfig.mode,true);Object.assign(mini,{possession:kind==='defense'?'away':'home',kickoff:kind==='kickoff'?kicking:null,conversion:null});drive={...initialDrive};paused=false;ended=false;miniUI.reset();$('paused').hidden=true;startUnit(kind);present(1/30,1);},
@@ -47,16 +47,17 @@ try{
    // Preserve a low-frame-rate full sequence, independent of headless wall time.
    if(process.env.FILM&&frame%2===0)await page.screenshot({path:dir+'/film-'+String(frame/2).padStart(3,'0')+'.jpg',type:'jpeg',quality:82});
    if(frame>12&&s.book)break;
-   if(frame>20&&s.kind!==kind&&['defense','return','coverage','field-goal'].includes(kind)&&s.kind!=='kickoff')break;
+   if(frame>20&&['defense','return','coverage','field-goal'].includes(kind)&&s.kind!==(['return','coverage'].includes(kind)?'kickoff':kind))break;
   }
-  const live=frames.filter((s,i)=>i>9&&!s.book&&['run','pass','handoff'].includes(s.phase)&&!s.fallen),minHeight=live.length?Math.min(...live.map(s=>s.height)):null;
+  let selectionFrame=-100;frames.forEach((s,i)=>{if(i&&s.focus!==frames[i-1].focus)selectionFrame=i;s.selectionSettled=i-selectionFrame>=3;});
+  const live=frames.filter((s,i)=>s.selectionSettled&&i>9&&!s.book&&['run','pass','handoff'].includes(s.phase)&&!s.fallen),minHeight=live.length?Math.min(...live.map(s=>s.height)):null;
   const visible=live.filter(s=>s.head.visible&&s.head.x>0&&s.head.x<width&&s.head.y>60&&s.foot.y<height).length;
   const phases=[...new Set(frames.map(s=>s.phase))];
   await writeFile(dir+'/frames.json',JSON.stringify(frames));
-  if(['run','scramble'].includes(kind)){assert(live.length>0);assert(minHeight>55,`${kind} scale collapsed: ${minHeight}`);assert(visible/live.length>.95,`${kind} player left usable view`);}
+  if(['run','scramble','defense','return','coverage'].includes(kind)){assert(live.length>0);assert(minHeight>55,`${kind} scale collapsed: ${minHeight}`);assert(visible/live.length>.95,`${kind} player left usable view`);}
   for(const s of frames)for(const m of s.markers){assert(m.rect.width>=44&&m.rect.height>=44);assert(m.rect.y>60&&m.rect.y+m.rect.height<height-90,'Receiver overlaps controls');}
   assert.equal(await page.evaluate(()=>window.bk3dDiagnostics().glError),0);
-  const result={mode,kind,frames:frames.length,phases,minHeight,visibleRatio:live.length?visible/live.length:null};results.push(result);await writeFile(dir+'/frames.json',JSON.stringify(frames));console.log(JSON.stringify(result));
+  const result={mode,kind,frames:frames.length,phases,minHeight,visibleRatio:live.length?visible/live.length:null};results.push(result);await writeFile(dir+'/frames.json',JSON.stringify(frames));await writeFile(dir+'/result.json',JSON.stringify(result));console.log(JSON.stringify(result));
  }
  await page.close();
  }

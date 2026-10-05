@@ -21,6 +21,6 @@ export function referencePocketFrame(qb,snapZ,aspect=2,backZ=qb.z,halfWidth=17,o
  const fov=Math.max(58,Math.min(70,Math.atan((halfWidth+1.1)/(lineDepth*Math.max(1.6,aspect)*.92))*360/Math.PI));
  return {eye,target,fov};
 }
-export function referenceCarryFrame(player){
- return {eye:[player.x,4.8,player.z-6.6],target:[player.x,.9,player.z+2.4],fov:56};
+export function referenceCarryFrame(player,direction=1,contact=false){
+ return {eye:[player.x+(contact?2.5:0),contact?3.8:4.8,player.z-direction*(contact?5.8:6.6)],target:[player.x,contact?.55:.9,player.z+direction*(contact?.6:2.4)],fov:56};
 }
