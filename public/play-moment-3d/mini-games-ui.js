@@ -1,4 +1,4 @@
-import { createFullGameUI } from './five-minute-ui.js?v=contact-camera-11';
+import { createFullGameUI } from './five-minute-ui.js?v=motion-contact-55';
 import { miniClock, saveMiniBest } from './mini-games.js?v=contact-camera-11';
 
 export function createMiniGamesUI(config, actions) {

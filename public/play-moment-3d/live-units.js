@@ -1,4 +1,5 @@
-import {contactFallProgress,updateContactTarget,handoffRunnerPoint} from './contact-motion.js?v=contact-control-53';
+import {snapExchange} from './snap-motion.js?v=motion-contact-55';
+import {contactFallProgress,updateContactTarget,handoffRunnerPoint} from './contact-motion.js?v=motion-contact-55';
 import {referenceCarryFrame,referencePocketFrame,referenceDefenseFrame} from './reference-camera.js?v=contact-control-53';
 import {routePoint,pursuitRead,contactImpact} from './football-flow.js?v=complete-flow-46';
 import {QB_THROW_RELEASE} from './quarterback.js?v=football-finish-21';
@@ -223,7 +224,7 @@ export function createLiveUnits({config, getActors, inputVector, onResult, onSim
   if(state.stage==='contact'){tackleFrame(dt);return;}if(state.book)return;if(state.stage==='kick'){if(state.kicking==='home')adjustAim(...aimInput,dt);if(state.timing){state.meterTime+=dt;state.power=.5-.5*Math.cos(state.meterTime*2.8);}else state.power=0;$('kickPower').style.left=(state.power*100)+'%';return;}
   if(state.stage==='pre'){controlled(dt);refresh();if(state.time>=state.readyAt)$('unitReady').onclick();return;}
   if(state.kind==='defense'||state.kind==='punt'||state.kind==='kickoff'&&state.stage==='run')state.liveTime+=dt;state.clock=Math.max(0,state.clock-dt);
-  if(state.stage==='snap'){const t=clamp((state.time-state.startedAt)/.3,0,1);state.stagedBall=[a[2].x+(a[5].x-a[2].x)*t,.45+t*.9,state.snapZ+(a[5].z-state.snapZ)*t];if(t>=1){state.stagedBall=null;a[2].action=null;a[5].action=null;state.stage=state.pass?'pass':'handoff';state.carrier=5;a[5].hasBall=true;state.snapTime=state.time;refresh()}return;}
+  if(state.stage==='snap'){const motion=snapExchange(a[2],a[5],state.time-state.startedAt),t=motion.progress;state.stagedBall=motion.ball;a[2].actionT=a[5].actionT=t;a[2].ballTarget=motion.centerTarget;a[5].ballTarget=motion.target;if(t>=1){state.stagedBall=null;a[2].action=null;a[5].action=null;a[2].ballTarget=a[5].ballTarget=null;state.stage=state.pass?'pass':'handoff';state.carrier=5;a[5].hasBall=true;state.snapTime=state.time;refresh()}return;}
   if(state.stage==='punt-snap'){
    const t=state.time-state.kickStarted;state.stagedBall=[0,t<.45?.45+Math.sin(t/.45*Math.PI)*.7:1,state.puntLine+(state.puntZ-state.puntLine)*clamp(t/.45,0,1)];
    for(let i=0;i<5;i++){move(a[i],a[16].x,a[16].z,dt,speed(a[i])*.8);const blocker=a[[11,12,13,14,18][i]];move(blocker,a[i].x,a[i].z+.7,dt,4);if(distance(blocker,a[i])<1.5)engageBlock(blocker,a[i],dt);}

@@ -1,0 +1,198 @@
+{
+  "status": "PASS",
+  "errors": [],
+  "scenarios": [
+    {
+      "mode": "two-minute",
+      "kind": "shotgun",
+      "bench": {
+        "poseMs": 4.9000000059604645,
+        "hudMs": 0,
+        "textMutations": 0
+      },
+      "frames": 9,
+      "phases": [
+        "snap",
+        "pass"
+      ],
+      "quality": "balanced",
+      "canvasPixels": 740610,
+      "shadowSize": 1024,
+      "maxPalmDistance": 0.10091546560074768
+    },
+    {
+      "mode": "two-minute",
+      "kind": "iform",
+      "bench": {
+        "poseMs": 2.4000000059604645,
+        "hudMs": 0,
+        "textMutations": 0
+      },
+      "frames": 9,
+      "phases": [
+        "snap",
+        "pass"
+      ],
+      "quality": "balanced",
+      "canvasPixels": 740610,
+      "shadowSize": 1024,
+      "maxPalmDistance": 0.10091546560118028
+    },
+    {
+      "mode": "two-minute",
+      "kind": "offense-wrap",
+      "frames": 12,
+      "phases": [
+        "dead"
+      ],
+      "quality": "balanced",
+      "canvasPixels": 740610,
+      "shadowSize": 1024,
+      "maxLandingProgressDifference": 0.22927685015469296,
+      "maxNearestWrapHandDistance": 0.30019133299517475
+    },
+    {
+      "mode": "two-minute",
+      "kind": "offense-big-hit",
+      "frames": 10,
+      "phases": [
+        "dead",
+        "pre"
+      ],
+      "quality": "balanced",
+      "canvasPixels": 740610,
+      "shadowSize": 1024,
+      "maxLandingProgressDifference": 0.16768133399114404,
+      "maxNearestWrapHandDistance": 0.30574303490105814
+    },
+    {
+      "mode": "two-minute",
+      "kind": "defense-wrap",
+      "frames": 12,
+      "phases": [
+        "contact"
+      ],
+      "quality": "balanced",
+      "canvasPixels": 740610,
+      "shadowSize": 1024,
+      "maxLandingProgressDifference": 0.2307174813642806,
+      "maxNearestWrapHandDistance": 0.30363636346393075
+    },
+    {
+      "mode": "two-minute",
+      "kind": "defense-big-hit",
+      "frames": 12,
+      "phases": [
+        "contact",
+        "pre"
+      ],
+      "quality": "balanced",
+      "canvasPixels": 740610,
+      "shadowSize": 1024,
+      "maxLandingProgressDifference": 0.1652704644486331,
+      "maxNearestWrapHandDistance": 0.30523855963561375
+    },
+    {
+      "mode": "two-minute",
+      "kind": "cadence",
+      "callbacks": 6,
+      "draws": 6
+    },
+    {
+      "mode": "five-minute",
+      "kind": "shotgun",
+      "bench": {
+        "poseMs": 5.199999995529652,
+        "hudMs": 0,
+        "textMutations": 0
+      },
+      "frames": 9,
+      "phases": [
+        "snap",
+        "pass"
+      ],
+      "quality": "balanced",
+      "canvasPixels": 740610,
+      "shadowSize": 1024,
+      "maxPalmDistance": 0.10091546560074768
+    },
+    {
+      "mode": "five-minute",
+      "kind": "iform",
+      "bench": {
+        "poseMs": 7,
+        "hudMs": 0.10000000149011612,
+        "textMutations": 0
+      },
+      "frames": 9,
+      "phases": [
+        "snap",
+        "pass"
+      ],
+      "quality": "balanced",
+      "canvasPixels": 740610,
+      "shadowSize": 1024,
+      "maxPalmDistance": 0.10091546560118028
+    },
+    {
+      "mode": "five-minute",
+      "kind": "offense-wrap",
+      "frames": 12,
+      "phases": [
+        "dead"
+      ],
+      "quality": "balanced",
+      "canvasPixels": 740610,
+      "shadowSize": 1024,
+      "maxLandingProgressDifference": 0.22927685015469296,
+      "maxNearestWrapHandDistance": 0.30019133299517475
+    },
+    {
+      "mode": "five-minute",
+      "kind": "offense-big-hit",
+      "frames": 10,
+      "phases": [
+        "dead",
+        "pre"
+      ],
+      "quality": "balanced",
+      "canvasPixels": 740610,
+      "shadowSize": 1024,
+      "maxLandingProgressDifference": 0.16768133399114404,
+      "maxNearestWrapHandDistance": 0.30574303490105814
+    },
+    {
+      "mode": "five-minute",
+      "kind": "defense-wrap",
+      "frames": 12,
+      "phases": [
+        "contact"
+      ],
+      "quality": "balanced",
+      "canvasPixels": 740610,
+      "shadowSize": 1024,
+      "maxLandingProgressDifference": 0.2307174813642806,
+      "maxNearestWrapHandDistance": 0.30363636346393075
+    },
+    {
+      "mode": "five-minute",
+      "kind": "defense-big-hit",
+      "frames": 12,
+      "phases": [
+        "contact",
+        "pre"
+      ],
+      "quality": "balanced",
+      "canvasPixels": 740610,
+      "shadowSize": 1024,
+      "maxLandingProgressDifference": 0.1652704644486331,
+      "maxNearestWrapHandDistance": 0.30523855963561375
+    },
+    {
+      "mode": "five-minute",
+      "kind": "cadence",
+      "callbacks": 6,
+      "draws": 6
+    }
+  ]
+}

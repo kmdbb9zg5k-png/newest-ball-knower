@@ -6,10 +6,28 @@ export function contactFallProgress(p){
  if(p.action==='get-up')return 1-smooth(p.actionT||0);
  if(!p.fallen)return 0;
  if(!/tackle|hit|gang|wrap|slide|dive|pancake/.test(p.action||''))return 1;
- const start=p.action==='big-hit'?.22:p.action==='dive'?.18:.34;
+ // The defender establishes a low wrap before the runner loses his base.
+ // Separate timing keeps contact from reading as two identical forward falls.
+ const start=p.action==='big-hit'?(p.contactRole==='tackler'?.32:.19):p.action==='dive'?.18:p.contactRole==='tackler'?.48:.34;
  return smooth(((p.actionT||0)-start)/(.94-start));
 }
+export function contactBodyPose(p){
+ if(!p.fallen)return{pitch:0,roll:0,kneel:0};
+ const fall=contactFallProgress(p),t=p.actionT||0,tackler=p.contactRole==='tackler';
+ if(!p.contactRole)return{pitch:fall*(p.action==='slide'?-.95:p.action==='big-hit'?1.42:p.action==='dive'?1.46:1.32),roll:fall*.16*(p.actionSide||1),kneel:0};
+ const side=p.actionSide||1,brace=smooth(t/.20)*(1-smooth((t-.48)/.52));
+ return tackler
+  ?{pitch:.24*brace+.98*fall,roll:-side*.42*fall,kneel:.20*brace}
+  :{pitch:.10*brace+1.20*fall,roll:side*.46*fall,kneel:.055*brace};
+}
 export function contactFacing(p){
+ if(p.contactRole==='tackler'&&p.contactTarget&&p.fallen){
+  const target=p.contactHands?p.contactHands[0].map((v,i)=>(v+p.contactHands[1][i])*.5):p.contactTarget;
+  // Keep the chest facing the runner throughout the wrap. Turning to face
+  // downfield too early put both arms behind the defender's shoulders.
+  const facing=Math.atan2(target[0]-p.x,target[2]-p.z),start=p.contactStartHeading??p.heading??facing;
+  return start+Math.atan2(Math.sin(facing-start),Math.cos(facing-start))*smooth((p.actionT||0)/.18);
+ }
  const end=Number.isFinite(p.fallHeading)?p.fallHeading:p.heading||0;
  if(!p.fallen||!Number.isFinite(p.contactStartHeading))return p.fallen?end:p.heading||0;
  const t=smooth(((p.actionT||0)-.18)/.52),start=p.contactStartHeading;
