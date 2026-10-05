@@ -24,3 +24,15 @@ export function referencePocketFrame(qb,snapZ,aspect=2,backZ=qb.z,halfWidth=17,o
 export function referenceCarryFrame(player,direction=1,contact=false){
  return {eye:[player.x+(contact?2.5:0),contact?3.8:4.8,player.z-direction*(contact?5.8:6.6)],target:[player.x,contact?.55:.9,player.z+direction*(contact?.6:2.4)],fov:56};
 }
+
+// Offensive-side defense: the camera sits behind the ball, with the controlled
+// defender ahead of it. Fit these two athletes, never all 22 or a released QB.
+export function referenceDefenseFrame(selected,ball,aspect=2,includeForegroundFeet=false){
+ const x=(selected.x+ball.x)/2,near=Math.min(selected.z,ball.z),depth=Math.abs(selected.z-ball.z),width=Math.abs(selected.x-ball.x);
+ const long=includeForegroundFeet?1:Math.max(0,Math.min(1,(depth-20)/24)),height=3.8+long,fov=42+14*long;
+ const back=Math.max(4.6+2*long,width*.58/(Math.tan(fov*.5*Math.PI/180)*Math.max(1.5,aspect)));
+ // At long range, keep the foreground ball and the selected defender readable;
+ // the quarterback's feet need not dictate the entire defensive lens.
+ const nearHeight=selected.z<=ball.z?0:Math.min(1.2,depth*.12)*(1-long),pitch=(Math.atan2(height-nearHeight,back)+Math.atan2(height-2.15,back+depth))*.5;
+ return {eye:[x,height,near-back],target:[x,.9,near-back+(height-.9)/Math.tan(pitch)],fov};
+}

@@ -1,0 +1,170 @@
+{
+  "status": "PASS",
+  "results": [
+    {
+      "mode": "two-minute",
+      "case": "kickoff-flip",
+      "passed": true
+    },
+    {
+      "mode": "two-minute",
+      "case": "automatic-run",
+      "passed": true
+    },
+    {
+      "mode": "two-minute",
+      "case": "automatic-pass",
+      "passed": true
+    },
+    {
+      "mode": "two-minute",
+      "case": "missed-and-outside-reach",
+      "passed": true
+    },
+    {
+      "mode": "two-minute",
+      "case": "swat",
+      "passed": true
+    },
+    {
+      "mode": "two-minute",
+      "case": "intercept",
+      "passed": true
+    },
+    {
+      "mode": "two-minute",
+      "case": "interception-height-limit",
+      "passed": true
+    },
+    {
+      "mode": "two-minute",
+      "case": "reach-wrap-drive-land",
+      "passed": true
+    },
+    {
+      "mode": "two-minute",
+      "case": "cpu-handoff",
+      "minExitSpeed": 4.597197691177023,
+      "passed": true
+    },
+    {
+      "mode": "two-minute",
+      "case": "handoff-zone",
+      "minExitSpeed": 4.730941077106746,
+      "passed": true
+    },
+    {
+      "mode": "two-minute",
+      "case": "handoff-stretch",
+      "minExitSpeed": 4.66731114383283,
+      "passed": true
+    },
+    {
+      "mode": "two-minute",
+      "case": "handoff-single-zone",
+      "minExitSpeed": 4.799999999999996,
+      "passed": true
+    },
+    {
+      "mode": "two-minute",
+      "case": "handoff-i-dive",
+      "minExitSpeed": 4.799999999999787,
+      "passed": true
+    },
+    {
+      "mode": "two-minute",
+      "case": "handoff-pistol-read",
+      "minExitSpeed": 4.8,
+      "passed": true
+    },
+    {
+      "mode": "two-minute",
+      "case": "handoff-toss",
+      "minExitSpeed": 4.507246508800533,
+      "passed": true
+    },
+    {
+      "mode": "five-minute",
+      "case": "kickoff-flip",
+      "passed": true
+    },
+    {
+      "mode": "five-minute",
+      "case": "automatic-run",
+      "passed": true
+    },
+    {
+      "mode": "five-minute",
+      "case": "automatic-pass",
+      "passed": true
+    },
+    {
+      "mode": "five-minute",
+      "case": "missed-and-outside-reach",
+      "passed": true
+    },
+    {
+      "mode": "five-minute",
+      "case": "swat",
+      "passed": true
+    },
+    {
+      "mode": "five-minute",
+      "case": "intercept",
+      "passed": true
+    },
+    {
+      "mode": "five-minute",
+      "case": "interception-height-limit",
+      "passed": true
+    },
+    {
+      "mode": "five-minute",
+      "case": "reach-wrap-drive-land",
+      "passed": true
+    },
+    {
+      "mode": "five-minute",
+      "case": "cpu-handoff",
+      "minExitSpeed": 4.597197691177023,
+      "passed": true
+    },
+    {
+      "mode": "five-minute",
+      "case": "handoff-zone",
+      "minExitSpeed": 4.730941077106746,
+      "passed": true
+    },
+    {
+      "mode": "five-minute",
+      "case": "handoff-stretch",
+      "minExitSpeed": 4.66731114383283,
+      "passed": true
+    },
+    {
+      "mode": "five-minute",
+      "case": "handoff-single-zone",
+      "minExitSpeed": 4.799999999999996,
+      "passed": true
+    },
+    {
+      "mode": "five-minute",
+      "case": "handoff-i-dive",
+      "minExitSpeed": 4.799999999999787,
+      "passed": true
+    },
+    {
+      "mode": "five-minute",
+      "case": "handoff-pistol-read",
+      "minExitSpeed": 4.8,
+      "passed": true
+    },
+    {
+      "mode": "five-minute",
+      "case": "handoff-toss",
+      "minExitSpeed": 4.507246508800533,
+      "passed": true
+    }
+  ],
+  "errors": []
+}

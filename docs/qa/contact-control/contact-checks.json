@@ -1,0 +1,234 @@
+{
+  "status": "PASS",
+  "cases": 38,
+  "results": [
+    {
+      "mode": "two-minute",
+      "contact": "wrap",
+      "chestHeight": 0.3483423888683319,
+      "settled": true
+    },
+    {
+      "mode": "two-minute",
+      "contact": "big-hit",
+      "chestHeight": 0.25500163435935974,
+      "settled": true
+    },
+    {
+      "mode": "two-minute",
+      "contact": "gang",
+      "chestHeight": 0.3483423590660095,
+      "settled": true
+    },
+    {
+      "mode": "two-minute",
+      "contact": "dive",
+      "chestHeight": 0.27801015973091125,
+      "settled": true
+    },
+    {
+      "mode": "two-minute",
+      "contact": "drag-down",
+      "chestHeight": 0.3483423888683319,
+      "settled": true
+    },
+    {
+      "mode": "two-minute",
+      "contact": "fourth",
+      "chestHeight": 0.3483423888683319,
+      "settled": true
+    },
+    {
+      "mode": "two-minute",
+      "contact": "clock",
+      "chestHeight": 0.3483423888683319,
+      "settled": true
+    },
+    {
+      "mode": "two-minute",
+      "contact": "conversion",
+      "chestHeight": 0.3483423888683319,
+      "settled": true
+    },
+    {
+      "mode": "two-minute",
+      "manualCoverage": {
+        "participated": true,
+        "manual": true,
+        "selected": 16,
+        "drift": 0.00015873284172816048
+      }
+    },
+    {
+      "mode": "two-minute",
+      "unitContact": "defense",
+      "chestHeight": 0.3483423888683319
+    },
+    {
+      "mode": "two-minute",
+      "unitContact": "kickoff",
+      "chestHeight": 0.3483423888683319
+    },
+    {
+      "mode": "two-minute",
+      "defenseFlightX": -20,
+      "quarterbackExcluded": true
+    },
+    {
+      "mode": "two-minute",
+      "defenseFlightX": 0,
+      "quarterbackExcluded": true
+    },
+    {
+      "mode": "two-minute",
+      "defenseFlightX": 20,
+      "quarterbackExcluded": true
+    },
+    {
+      "mode": "two-minute",
+      "kick": "home",
+      "frames": 211,
+      "maxBoom": 0,
+      "maxLens": 0.9986134476564175
+    },
+    {
+      "mode": "two-minute",
+      "kick": "away",
+      "frames": 211,
+      "maxBoom": 0,
+      "maxLens": 0
+    },
+    {
+      "mode": "two-minute",
+      "catch": "rac",
+      "lateSelectionSeconds": 0.85,
+      "clockElapsed": 0.7829761904764894
+    },
+    {
+      "mode": "two-minute",
+      "catch": "secure",
+      "lateSelectionSeconds": 0.85,
+      "clockElapsed": 0.7829761904764894
+    },
+    {
+      "mode": "two-minute",
+      "catch": "aggressive",
+      "lateSelectionSeconds": 0.85,
+      "clockElapsed": 0.7829761904764894
+    },
+    {
+      "mode": "five-minute",
+      "contact": "wrap",
+      "chestHeight": 0.3483423888683319,
+      "settled": true
+    },
+    {
+      "mode": "five-minute",
+      "contact": "big-hit",
+      "chestHeight": 0.25500163435935974,
+      "settled": true
+    },
+    {
+      "mode": "five-minute",
+      "contact": "gang",
+      "chestHeight": 0.3483423590660095,
+      "settled": true
+    },
+    {
+      "mode": "five-minute",
+      "contact": "dive",
+      "chestHeight": 0.27801015973091125,
+      "settled": true
+    },
+    {
+      "mode": "five-minute",
+      "contact": "drag-down",
+      "chestHeight": 0.3483423888683319,
+      "settled": true
+    },
+    {
+      "mode": "five-minute",
+      "contact": "fourth",
+      "chestHeight": 0.3483423888683319,
+      "settled": true
+    },
+    {
+      "mode": "five-minute",
+      "contact": "clock",
+      "chestHeight": 0.3483423888683319,
+      "settled": true
+    },
+    {
+      "mode": "five-minute",
+      "contact": "conversion",
+      "chestHeight": 0.3483423888683319,
+      "settled": true
+    },
+    {
+      "mode": "five-minute",
+      "manualCoverage": {
+        "participated": true,
+        "manual": true,
+        "selected": 16,
+        "drift": 0.00015873284172816048
+      }
+    },
+    {
+      "mode": "five-minute",
+      "unitContact": "defense",
+      "chestHeight": 0.3483423888683319
+    },
+    {
+      "mode": "five-minute",
+      "unitContact": "kickoff",
+      "chestHeight": 0.3483423888683319
+    },
+    {
+      "mode": "five-minute",
+      "defenseFlightX": -20,
+      "quarterbackExcluded": true
+    },
+    {
+      "mode": "five-minute",
+      "defenseFlightX": 0,
+      "quarterbackExcluded": true
+    },
+    {
+      "mode": "five-minute",
+      "defenseFlightX": 20,
+      "quarterbackExcluded": true
+    },
+    {
+      "mode": "five-minute",
+      "kick": "home",
+      "frames": 211,
+      "maxBoom": 0,
+      "maxLens": 0.9986134476564175
+    },
+    {
+      "mode": "five-minute",
+      "kick": "away",
+      "frames": 211,
+      "maxBoom": 0,
+      "maxLens": 0
+    },
+    {
+      "mode": "five-minute",
+      "catch": "rac",
+      "lateSelectionSeconds": 0.85,
+      "clockElapsed": 0.7829761904768588
+    },
+    {
+      "mode": "five-minute",
+      "catch": "secure",
+      "lateSelectionSeconds": 0.85,
+      "clockElapsed": 0.7829761904768588
+    },
+    {
+      "mode": "five-minute",
+      "catch": "aggressive",
+      "lateSelectionSeconds": 0.85,
+      "clockElapsed": 0.7829761904768588
+    }
+  ]
+}
