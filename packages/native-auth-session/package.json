@@ -1,0 +1,12 @@
+{
+  "name": "@ball-knower/native-auth-session",
+  "version": "1.0.0",
+  "description": "Ball Knower iOS authentication session bridge",
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "UNLICENSED",
+  "private": true,
+  "peerDependencies": { "@capacitor/core": ">=8.0.0" },
+  "capacitor": { "ios": { "src": "ios" } }
+}

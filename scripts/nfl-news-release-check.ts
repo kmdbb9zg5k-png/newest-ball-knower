@@ -23,7 +23,7 @@ assert.match(ui,/rel="noreferrer noopener"/);
 assert.match(ui,/data\?\.available===false/);
 assert.match(ui,/setItems\(\[\]\)/,'failed refresh must clear old stories rather than present them as current');
 assert.doesNotMatch(ui,/setError\([^\n]*message/,'raw provider/network exceptions must not be rendered');
-assert.match(home,/label="NFL News"/,'Mobile Home must expose a discoverable NFL News destination');
+assert.match(home,/accessibleLabel="NFL News"/,'Mobile Home must expose a discoverable NFL News destination');
 assert.match(home,/onNavigate\('news'\)/);
 
 // Build 7 restores discoverability without adding a sixth permanent bottom tab.

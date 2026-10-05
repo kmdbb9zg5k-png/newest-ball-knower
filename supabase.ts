@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
+import { Capacitor } from '@capacitor/core';
 import {
   BALL_KNOWER_SUPABASE_PUBLISHABLE_KEY,
   BALL_KNOWER_SUPABASE_URL,
@@ -61,7 +62,7 @@ const resilientSupabaseFetch=async(input:RequestInfo|URL,init?:RequestInit):Prom
 
 export const supabase: SupabaseClient | null = isCloudConfigured
   ? createClient(url!, key!, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: Capacitor.isNativePlatform() ? 'pkce' : 'implicit' },
       global: { fetch: resilientSupabaseFetch as typeof fetch },
     })
   : null;
@@ -76,14 +77,18 @@ export type AuthProviderAvailability = Record<PermanentAuthProvider, boolean | n
  */
 export async function fetchAuthProviderAvailability(): Promise<AuthProviderAvailability> {
   if (!url || !key) return { google: false, apple: false };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
   try {
-    const response = await fetch(`${url}/auth/v1/settings`, { headers: { apikey: key } });
+    const response = await fetch(`${url}/auth/v1/settings`, { headers: { apikey: key }, signal: controller.signal });
     if (!response.ok) throw new Error(`Auth settings returned ${response.status}`);
     const settings = await response.json() as { external?: Partial<Record<PermanentAuthProvider, boolean>> };
     return { google: Boolean(settings.external?.google), apple: Boolean(settings.external?.apple) };
   } catch (error) {
     console.warn('Could not verify social sign-in availability', error);
     return { google: null, apple: null };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

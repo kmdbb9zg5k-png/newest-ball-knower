@@ -173,6 +173,8 @@ export const SportsbookHub:React.FC=()=>{
       <div className="bk-picks-week-select-wrap"><CalendarDays size={17}/><select aria-label="NFL week" value={slate} onChange={event=>{setSlate(event.target.value);setFilter('all')}}>{slates.map(game=><option key={slateKey(game)} value={slateKey(game)}>{slateLabel(game)}</option>)}</select><ChevronDown size={15}/></div>
     </div>
 
+    <p className="mb-3 text-xs leading-5 text-zinc-300" aria-label="Free play rules">Free to play. No entry fees, cash bets, payouts or prizes. Picks only track your football prediction record.</p>
+
     <section className="bk-picks-controls" aria-label="Matchup navigation">
       <div className="bk-picks-filters" role="group" aria-label="Game status">{(['all','upcoming','live','final'] as PicksFilter[]).map(value=><button type="button" key={value} onClick={()=>setFilter(value)} aria-pressed={filter===value}>{value==='all'?'All Games':value==='final'?'Completed':value==='live'?'Live':'Upcoming'}</button>)}</div>
       <div className="bk-picks-toolbar"><label className="bk-picks-search"><Search size={19}/><input aria-label="Search teams" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search team…" type="search"/></label>{query&&<button type="button" className="bk-picks-icon" onClick={()=>setQuery('')} aria-label="Clear team search"><X size={17}/></button>}</div>
