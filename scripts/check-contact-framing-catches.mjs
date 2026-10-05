@@ -74,7 +74,7 @@ try{
     const {view,camera}=await page.evaluate(t=>window.bkRegression.kickFlight(t),i/210),boom=camera.eye.map((v,j)=>v-camera.target[j]);
     assert(Math.hypot(...view.eye.map((v,j)=>v-view.target[j]))<15,'Kick apex must not zoom out the field');
     if(previous&&i>1)maxBoom=Math.max(maxBoom,Math.hypot(...boom.map((v,j)=>v-previous[j])));previous=boom;
-    if(i===175){await page.evaluate(()=>window.bkRegression.render());const d=await page.evaluate(()=>window.bk3dDiagnostics());assert(d.players[6].head.visible&&d.players[6].foot.visible,'Returner must stay visible during kick flight');assert(d.players[6].foot.y-d.players[6].head.y>45,'Returner remains readable');await page.screenshot({path:out+'/'+mode+'-kick-'+kicking+'.png'});}
+    if(i===175){await page.evaluate(()=>window.bkRegression.render());const d=await page.evaluate(()=>window.bk3dDiagnostics());const focus=kicking==='home'?16:6;assert(d.players[focus].head.visible&&d.players[focus].foot.visible,'Controlled coverage player or returner must stay visible during kick flight');assert(d.players[focus].foot.y-d.players[focus].head.y>45,'Controlled athlete remains readable');await page.screenshot({path:out+'/'+mode+'-kick-'+kicking+'.png'});}
    }
    assert(maxBoom<=7/60+.001);results.push({mode,kick:kicking,frames:211,maxBoom});
   }

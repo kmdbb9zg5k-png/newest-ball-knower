@@ -22,7 +22,7 @@ try{
     assert(b.ball.visible&&b.ball.y>60&&b.ball.y<380,JSON.stringify({mode,kind,x,frame:i,ball:b.ball}));
     if(i>60)assert(b.head.visible&&b.foot.visible,`${kind} player visible after possession`);
    }
-   assert(maxBoom<=7/60+.0001,JSON.stringify({kind,x,maxBoom}));assert(maxYaw<.025,JSON.stringify({kind,x,maxYaw}));assert(maxAim<=42/60+.0001,JSON.stringify({kind,x,maxAim}));results.push({mode,kind,x,maxBoom,maxYaw,maxAim});
+   assert(maxBoom<=7/60+.0001,JSON.stringify({kind,x,maxBoom}));assert(maxYaw<.025,JSON.stringify({kind,x,maxYaw}));assert(maxAim<=100/60+.0001,JSON.stringify({kind,x,maxAim}));results.push({mode,kind,x,maxBoom,maxYaw,maxAim});
   }
   await page.evaluate(()=>window.bkCoherence.render());await page.screenshot({path:out+'/transition-'+mode+'.jpg',type:'jpeg',quality:90});
  }

@@ -1,4 +1,4 @@
-import {referenceActionFrame} from './reference-camera.js?v=contact-framing-51';
+import {referenceCarryFrame,referencePocketFrame} from './reference-camera.js?v=full-possession-52';
 import {routePoint,pursuitRead,contactImpact} from './football-flow.js?v=complete-flow-46';
 import {QB_THROW_RELEASE} from './quarterback.js?v=football-finish-21';
 import {interceptPoint} from './field-awareness.js?v=contact-camera-11';
@@ -110,12 +110,12 @@ export function createLiveUnits({config, getActors, inputVector, onResult, onSim
   state.contact={started:state.time,duration:hit?.8:1.15,runner:runner.index,tackler:tackler.index,x:runner.x,z:runner.z,dx:Math.sin(heading)*travel,dz:Math.cos(heading)*travel,result};
   state.stage='contact';state.flight=null;runner.hasBall=true;runner.qbPocket=false;
   for(const [p,other,role]of[[runner,tackler,'carrier'],[tackler,runner,'tackler']]){p.engaged=false;p.fallen=true;p.action=hit?'big-hit':'wrap';p.actionT=.001;p.contactWith=other.index;p.contactRole=role;p.contactVariant=hit?'shoulder-hit':impact.variant;p.actionSide=role==='carrier'?-impact.side:impact.side;p.fallHeading=heading;p.vx=p.vz=0;}
-  state.contact.offset={x:tackler.x-runner.x,z:tackler.z-runner.z};refresh();
+  state.contact.offset={x:tackler.x-runner.x,z:tackler.z-runner.z};runner.fallHeading=tackler.fallHeading=heading;refresh();
  }
  function tackleFrame(dt){
   const c=state.contact,a=getActors(),t=clamp((state.time-c.started)/c.duration,0,1),ease=1-(1-t)**3;
   for(const p of a){p.vx*=Math.exp(-dt*9);p.vz*=Math.exp(-dt*9);p.moving=false;p.engaged=false;}
-  const runner=a[c.runner],tackler=a[c.tackler];runner.x=c.x+c.dx*ease;runner.z=c.z+c.dz*ease;tackler.x=runner.x+c.offset.x;tackler.z=runner.z+c.offset.z;
+  const runner=a[c.runner],tackler=a[c.tackler];runner.x=c.x+c.dx*ease;runner.z=c.z+c.dz*ease;const side=Math.sign(c.offset.x*Math.cos(runner.fallHeading)-c.offset.z*Math.sin(runner.fallHeading))||1,separate=.62+.28*ease,close=clamp(t/.3,0,1),dx=Math.cos(runner.fallHeading)*side*separate-Math.sin(runner.fallHeading)*.32,dz=-Math.sin(runner.fallHeading)*side*separate-Math.cos(runner.fallHeading)*.32;tackler.x=runner.x+c.offset.x+(dx-c.offset.x)*close;tackler.z=runner.z+c.offset.z+(dz-c.offset.z)*close;
   runner.actionT=tackler.actionT=Math.max(.001,t);
   if(state.time-c.started>=c.duration+.12)finish(c.result);
  }
@@ -284,16 +284,21 @@ export function createLiveUnits({config, getActors, inputVector, onResult, onSim
   if(state.stage==='kick')return defending?{eye:[0,5.8,85],target:[0,1.4,61],fov:48}:{eye:[0,5.8,7],target:[0,1.5,30],fov:48};
   const selected=a[state.controlled],f=state.flight,t=f?clamp(f.t,0,1):0;
   const ball=f?f.from.map((v,i)=>v+(f.to[i]-v)*t+(i===1?Math.sin(Math.PI*t)*f.arc:0)):[a[state.carrier].x,1.3,a[state.carrier].z];
-  if(returnKick(state.kind)&&f){
-   // Establish the receiving-side view immediately and keep the returner and
-   // landing area readable instead of zooming out to fit the kick's apex.
-   const focus=a[6];
-   return referenceActionFrame([[focus.x,0,focus.z],[focus.x,2.2,focus.z],[f.to[0],0,f.to[2]]],getAspect());
+  if(returnKick(state.kind)){
+   // Returners retain one shot through the catch. On kick coverage the
+   // selected defender stays in view, looking toward the returner; fitting
+   // both ends of a 60-yard kick would make every athlete miniature.
+   if(state.kicking==='away')return referenceCarryFrame(a[6]);
+   const focus=state.stage==='contact'?a[6]:selected;
+   return {eye:[focus.x,4.8,focus.z+6.6],target:[focus.x,.9,focus.z-2.4],fov:56};
   }
-  const points=[ball,[selected.x,0,selected.z],[selected.x,2.2,selected.z]];
-  if(!f)points.push([a[state.carrier].x,0,a[state.carrier].z]);
-  if(state.kind==='defense'&&(state.book||['pre','snap','handoff','pass'].includes(state.stage)))points.push([a[5].x,0,a[5].z],[a[5].x,2.2,a[5].z]);
-  return referenceActionFrame(points,getAspect());
+  if(state.kind==='defense'&&(state.book||['pre','snap','handoff','pass'].includes(state.stage))){
+   const qb=a[5],view=referencePocketFrame(qb,state.snapZ,getAspect(),qb.z,17,state.book);
+   // Pan toward a selected edge defender without changing the camera distance.
+   const shift=clamp((selected.x-qb.x)*.35,-5,5);view.eye[0]+=shift;view.target[0]+=shift;return view;
+  }
+  const focus=f?{x:ball[0],z:ball[2]}:a[state.carrier];
+  return referenceCarryFrame(focus);
  }
  function aimTarget(){return state?.stage==='kick'&&state.kicking==='home'?{point:goalKick(state.kind)?[state.aim.x,state.aim.y,117]:[state.aim.x,.08,state.aim.z],vertical:goalKick(state.kind)}:null;}
  function stop(){root.hidden=true;document.body.classList.remove('playing-unit','unit-no-movement');resetAimInput();state=null;}
