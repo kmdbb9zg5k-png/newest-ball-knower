@@ -1,0 +1,128 @@
+{
+  "checkedCommit": "38ae6f2cb59791fb5a1deb4df44991a48318a6ec",
+  "baseline": "PR #438 / df6d54ac9a86682266a9bf4a7709f44a425196b3",
+  "assessment": "Same failure signatures as the previously audited baseline; not a green repository-wide CI claim.",
+  "jobs": [
+    {
+      "id": 111619069998,
+      "name": "home-browser",
+      "step": "Run npm run lint && npm run check:home-dashboard && node --import tsx scripts/home-broadcast-check.ts",
+      "run": 37264749512,
+      "workflow": "Home broadcast preview regressions",
+      "signatures": [
+        "2026-10-05T04:44:12.3579975Z AssertionError [ERR_ASSERTION]: the Universe artwork and all approved road cards must live inside the Solo Mode page",
+        "2026-10-05T04:44:12.3581574Z     at <anonymous> (/home/runner/work/newest-ball-knower/newest-ball-knower/scripts/home-dashboard-check.ts:72:8)"
+      ]
+    },
+    {
+      "id": 111619069777,
+      "name": "actual-webgl",
+      "step": "Validate controller recording regressions",
+      "run": 37264749475,
+      "workflow": "Stadium graphics review",
+      "signatures": [
+        "2026-10-05T04:44:19.8343002Z ReferenceError: miniGameFromSearch is not defined",
+        "2026-10-05T04:44:19.8345093Z     at game (file:///home/runner/work/newest-ball-knower/newest-ball-knower/scripts/check-football-recovery.mjs:32:31)",
+        "2026-10-05T04:44:19.8345937Z     at file:///home/runner/work/newest-ball-knower/newest-ball-knower/scripts/check-football-recovery.mjs:37:10"
+      ]
+    },
+    {
+      "id": 111619070289,
+      "name": "football-motion-regressions",
+      "step": "Full stride, contact and recovery poses",
+      "run": 37264749493,
+      "workflow": "3D practice night stadium",
+      "signatures": [
+        "2026-10-05T04:43:33.9440507Z AssertionError [ERR_ASSERTION]: Block hands should reach forward",
+        "2026-10-05T04:43:33.9442096Z     at file:///home/runner/work/newest-ball-knower/newest-ball-knower/scripts/check-football-presentation.mjs:54:51"
+      ]
+    },
+    {
+      "id": 111619070383,
+      "name": "gameplay-recordings (pass)",
+      "step": "Record WebGL gameplay review sessions",
+      "run": 37264749493,
+      "workflow": "3D practice night stadium",
+      "signatures": [
+        "2026-10-05T04:44:33.0678877Z {\\\"mode\\\": \\\"pass\\\", \\\"status\\\": \\\"failed\\\", \\\"phonePerformanceCertified\\\": false, \\\"error\\\": \\\"AssertionError: \\\", \\\"pageErrors\\\": []}"
+      ]
+    },
+    {
+      "id": 111619070505,
+      "name": "presentation-fixtures",
+      "step": "Camera framing and clustered receiver markers",
+      "run": 37264749493,
+      "workflow": "3D practice night stadium",
+      "signatures": [
+        "2026-10-05T04:43:37.4869178Z ReferenceError: routePoint is not defined",
+        "2026-10-05T04:43:37.4870501Z     at Object.travel (eval at <anonymous> (file:///home/runner/work/newest-ball-knower/newest-ball-knower/scripts/check-play-moment-framing.mjs:15:29), <anonymous>:3:32)",
+        "2026-10-05T04:43:37.4871812Z     at file:///home/runner/work/newest-ball-knower/newest-ball-knower/scripts/check-play-moment-framing.mjs:19:87"
+      ]
+    },
+    {
+      "id": 111619070297,
+      "name": "profile-mobile",
+      "step": "Exercise the real Profile page with isolated backend fixtures",
+      "run": 37264749515,
+      "workflow": "Profile locker fidelity",
+      "signatures": [
+        "2026-10-05T04:44:56.1598285Z AssertionError [ERR_ASSERTION]: The reference's receipts panel must be visible above navigation: {\\\"receipts\\\":{\\\"x\\\":10,\\\"y\\\":770,\\\"width\\\":370,\\\"height\\\":126,\\\"bottom\\\":896},\\\"nav\\\":{\\\"x\\\":0,\\\"y\\\":779,\\\"width\\\":390,\\\"height\\\":65,\\\"bottom\\\":844},\\\"identity\\\":{\\\"x\\\":10,\\\"y\\\":146.390625,\\\"width\\\":370,\\\"height\\\":126,\\\"bot"
+      ]
+    },
+    {
+      "id": 111619069851,
+      "name": "visual-navigation",
+      "step": "Inspect real pages with isolated accounts and explicit news fixtures",
+      "run": 37264749467,
+      "workflow": "All-screen broadcast regressions",
+      "signatures": [
+        "2026-10-05T04:44:57.0543678Z   const primary=async name=>{const buttons=page.getByRole('button',{name,exact:true});for(const button of await buttons.all()){if(await button.isVisible()){await button.click();return}}throw Error('Missing visible navigation '+name)};",
+        "2026-10-05T04:44:57.0547313Z Error: Missing visible navigation Trivia"
+      ]
+    },
+    {
+      "id": 111619070019,
+      "name": "fantasy-mobile-browser",
+      "step": "Verify fantasy mobile layouts",
+      "run": 37264749520,
+      "workflow": "Ball Knower Hardening",
+      "signatures": [
+        "2026-10-05T04:44:55.3986812Z     at /home/runner/work/newest-ball-knower/newest-ball-knower/scripts/fantasy-mobile-browser-check.mjs:166:19 {",
+        "2026-10-05T04:44:55.3988085Z   name: 'TimeoutError'"
+      ]
+    },
+    {
+      "id": 111619070237,
+      "name": "hardening",
+      "step": "Home dashboard",
+      "run": 37264749520,
+      "workflow": "Ball Knower Hardening",
+      "signatures": [
+        "2026-10-05T04:44:17.0115674Z AssertionError [ERR_ASSERTION]: the Universe artwork and all approved road cards must live inside the Solo Mode page",
+        "2026-10-05T04:44:17.0116485Z     at <anonymous> (/home/runner/work/newest-ball-knower/newest-ball-knower/scripts/home-dashboard-check.ts:72:8)"
+      ]
+    },
+    {
+      "id": 111619069852,
+      "name": "mobile-gameplay",
+      "step": "Run node scripts/check-catch-controls.mjs",
+      "run": 37264749450,
+      "workflow": "Gameplay polish review",
+      "signatures": [
+        "2026-10-05T04:44:57.5811950Z AssertionError [ERR_ASSERTION]: Expected completed pass",
+        "2026-10-05T04:44:57.5812667Z     at file:///home/runner/work/newest-ball-knower/newest-ball-knower/scripts/check-catch-controls.mjs:36:9 {"
+      ]
+    },
+    {
+      "id": 111619069994,
+      "name": "community-safety-and-consent",
+      "step": "Exercise favorite-team logos, mobile footer and selection persistence",
+      "run": 37264749462,
+      "workflow": "App Store remediation regressions",
+      "signatures": [
+        "2026-10-05T04:45:54.1070266Z     at /home/runner/work/newest-ball-knower/newest-ball-knower/scripts/favorite-team-browser-check.mjs:46:18 {",
+        "2026-10-05T04:45:54.1072541Z   name: 'TimeoutError'"
+      ]
+    }
+  ]
+}

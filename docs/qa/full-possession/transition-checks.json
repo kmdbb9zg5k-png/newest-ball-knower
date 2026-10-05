@@ -1,0 +1,102 @@
+{
+  "status": "PASS",
+  "checks": "both modes: left/center/right handoffs and catches, 2,172 transition frames, ball/player visibility, bounded zoom and yaw",
+  "results": [
+    {
+      "mode": "two-minute",
+      "kind": "handoff",
+      "x": -18,
+      "maxBoom": 0.11666666666666671,
+      "maxYaw": 0,
+      "maxAim": 0.4001642022005492
+    },
+    {
+      "mode": "two-minute",
+      "kind": "handoff",
+      "x": 0,
+      "maxBoom": 0.11666666666666671,
+      "maxYaw": 0,
+      "maxAim": 0.39699627603431104
+    },
+    {
+      "mode": "two-minute",
+      "kind": "handoff",
+      "x": 18,
+      "maxBoom": 0.11666666666666671,
+      "maxYaw": 0,
+      "maxAim": 0.4001642022005492
+    },
+    {
+      "mode": "two-minute",
+      "kind": "catch",
+      "x": -18,
+      "maxBoom": 0.07472256115615289,
+      "maxYaw": 0,
+      "maxAim": 0.7255668464035345
+    },
+    {
+      "mode": "two-minute",
+      "kind": "catch",
+      "x": 0,
+      "maxBoom": 0.07472256115615289,
+      "maxYaw": 0,
+      "maxAim": 0.5804607324234875
+    },
+    {
+      "mode": "two-minute",
+      "kind": "catch",
+      "x": 18,
+      "maxBoom": 0.07472256115615289,
+      "maxYaw": 0,
+      "maxAim": 0.7255668464035345
+    },
+    {
+      "mode": "five-minute",
+      "kind": "handoff",
+      "x": -18,
+      "maxBoom": 0.11666666666666671,
+      "maxYaw": 0,
+      "maxAim": 0.4001642022005492
+    },
+    {
+      "mode": "five-minute",
+      "kind": "handoff",
+      "x": 0,
+      "maxBoom": 0.11666666666666671,
+      "maxYaw": 0,
+      "maxAim": 0.39699627603431104
+    },
+    {
+      "mode": "five-minute",
+      "kind": "handoff",
+      "x": 18,
+      "maxBoom": 0.11666666666666671,
+      "maxYaw": 0,
+      "maxAim": 0.4001642022005492
+    },
+    {
+      "mode": "five-minute",
+      "kind": "catch",
+      "x": -18,
+      "maxBoom": 0.07472256115615289,
+      "maxYaw": 0,
+      "maxAim": 0.7255668464035345
+    },
+    {
+      "mode": "five-minute",
+      "kind": "catch",
+      "x": 0,
+      "maxBoom": 0.07472256115615289,
+      "maxYaw": 0,
+      "maxAim": 0.5804607324234875
+    },
+    {
+      "mode": "five-minute",
+      "kind": "catch",
+      "x": 18,
+      "maxBoom": 0.07472256115615289,
+      "maxYaw": 0,
+      "maxAim": 0.7255668464035345
+    }
+  ]
+}
