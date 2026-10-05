@@ -28,6 +28,13 @@ requireText('codemagic.yaml',[
 ]);
 requireText('nativeRuntime.ts',['https://ballknowerofficial.com','/api/','Capacitor.isNativePlatform','nativeApiUrl']);
 requireText('nativeAuth.ts',['ballknower://auth/callback','appUrlOpen','getLaunchUrl','exchangeCodeForSession','browserFinished','setSession']);
+requireText('nativeAuth.ts',['NativeAuthSession.authenticate','AUTH_CANCELLED']);
+requireText('packages/native-auth-session/ios/Sources/NativeAuthSessionPlugin/NativeAuthSessionPlugin.swift',[
+  'ASWebAuthenticationSession(url:', 'presentationContextProvider = self',
+  'viewController?.view.window', 'AUTH_START_FAILED', 'AUTH_CANCELLED',
+]);
+if(read('nativeAuth.ts').includes("presentationStyle:'popover'"))failures.push('iOS OAuth must not use a generic Safari popover');
+requireText('SportsbookHub.tsx',['No entry fees, cash bets, payouts or prizes']);
 requireText('main.tsx',['installNativeApiBridge();']);
 requireText('supabase.ts',['persistSession: true','autoRefreshToken: true','providerRefreshToken']);
 requireText('api/account-delete.ts',['auth.admin.deleteUser','confirmation','Bearer ','appleid.apple.com/auth/revoke','manualAppleRevokeRequired']);
