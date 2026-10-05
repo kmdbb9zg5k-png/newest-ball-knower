@@ -1,0 +1,150 @@
+{
+  "status": "PASS",
+  "results": [
+    {
+      "mode": "two-minute",
+      "kind": "run",
+      "sampledFps": 5,
+      "frames": 22,
+      "phases": [
+        "snap",
+        "handoff",
+        "run",
+        "dead",
+        "pre"
+      ],
+      "minHeight": 70.69835641377216,
+      "visibleRatio": 1
+    },
+    {
+      "mode": "two-minute",
+      "kind": "pass",
+      "sampledFps": 5,
+      "frames": 32,
+      "phases": [
+        "snap",
+        "pass",
+        "flight",
+        "run",
+        "dead",
+        "pre"
+      ],
+      "minHeight": 65.9492875018953,
+      "visibleRatio": 1
+    },
+    {
+      "mode": "two-minute",
+      "kind": "defense",
+      "sampledFps": 5,
+      "frames": 19,
+      "phases": [
+        "snap",
+        "pass",
+        "contact",
+        "pre"
+      ],
+      "minHeight": 72.41181263551302,
+      "visibleRatio": 1
+    },
+    {
+      "mode": "two-minute",
+      "kind": "return",
+      "sampledFps": 5,
+      "frames": 37,
+      "phases": [
+        "kick-flight",
+        "run",
+        "contact",
+        "pre"
+      ],
+      "minHeight": 71.12775916514724,
+      "visibleRatio": 1
+    },
+    {
+      "mode": "two-minute",
+      "kind": "field-goal",
+      "sampledFps": 5,
+      "frames": 14,
+      "phases": [
+        "kick-snap",
+        "kick-flight",
+        "kick"
+      ],
+      "minHeight": null,
+      "visibleRatio": null
+    },
+    {
+      "mode": "five-minute",
+      "kind": "run",
+      "sampledFps": 5,
+      "frames": 22,
+      "phases": [
+        "snap",
+        "handoff",
+        "run",
+        "dead",
+        "pre"
+      ],
+      "minHeight": 92.8142525226958,
+      "visibleRatio": 1
+    },
+    {
+      "mode": "five-minute",
+      "kind": "pass",
+      "sampledFps": 5,
+      "frames": 32,
+      "phases": [
+        "snap",
+        "pass",
+        "flight",
+        "run",
+        "dead",
+        "pre"
+      ],
+      "minHeight": 86.57957743838566,
+      "visibleRatio": 1
+    },
+    {
+      "mode": "five-minute",
+      "kind": "defense",
+      "sampledFps": 5,
+      "frames": 19,
+      "phases": [
+        "snap",
+        "pass",
+        "contact",
+        "pre"
+      ],
+      "minHeight": 95.06371299841709,
+      "visibleRatio": 1
+    },
+    {
+      "mode": "five-minute",
+      "kind": "return",
+      "sampledFps": 5,
+      "frames": 37,
+      "phases": [
+        "kick-flight",
+        "run",
+        "contact",
+        "pre"
+      ],
+      "minHeight": 93.37798126296258,
+      "visibleRatio": 1
+    },
+    {
+      "mode": "five-minute",
+      "kind": "field-goal",
+      "sampledFps": 5,
+      "frames": 14,
+      "phases": [
+        "kick-snap",
+        "kick-flight",
+        "kick"
+      ],
+      "minHeight": null,
+      "visibleRatio": null
+    }
+  ],
+  "errors": []
+}

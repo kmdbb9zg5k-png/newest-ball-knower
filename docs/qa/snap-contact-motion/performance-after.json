@@ -1,0 +1,17 @@
+{
+  "baseline": false,
+  "results": [
+    {
+      "mode": "five-minute",
+      "kind": "performance",
+      "bench": {
+        "poseMs": 3.2000000029802322,
+        "hudMs": 0,
+        "textMutations": 0
+      },
+      "draws": 6,
+      "callbacks": 6
+    }
+  ],
+  "errors": []
+}
