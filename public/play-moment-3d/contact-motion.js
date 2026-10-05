@@ -43,6 +43,22 @@ export function updateContactTarget(tackler,runner){
 export function handoffRunnerPoint(start,mesh,progress,duration,direction,speed=4.6){
  const pickup=.88,t=clamp(progress,0,1),seconds=Math.max(.1,duration),length=Math.hypot(...direction)||1,v=direction.map(n=>n/length*speed);
  if(t>=pickup)return mesh.map((n,i)=>n+v[i]*(t-pickup)*seconds);
- const u=t/pickup,h=3*u*u-2*u*u*u,tangent=u*u*u-u*u;
- return start.map((n,i)=>n+(mesh[i]-n)*h+v[i]*seconds*pickup*tangent);
+ const u=t/pickup,h=3*u*u-2*u*u*u,tangent=u*u*u-u*u,entry=u*u*u-2*u*u+u;
+ const gap=Math.hypot(...mesh.map((n,i)=>n-start[i]))||1;
+ // Start with a short first step instead of stopping completely at the snap.
+ const entrySpeed=Math.min(2.2,gap/(seconds*pickup));
+ return start.map((n,i)=>n+(mesh[i]-n)*h+seconds*pickup*(v[i]*tangent+(mesh[i]-n)/gap*entrySpeed*entry));
+}
+
+export function handoffDuration(concept){return concept.handoff+(concept.option?.30:.38)}
+
+// Open the QB's hips and keep a pocket for the ball on the near side of the RB.
+// World-space hand targets stay within the two athletes' shared reach.
+export function handoffBall(qb,rb,t,keep=false){
+ const dx=rb.x-qb.x,dz=rb.z-qb.z,gap=Math.hypot(dx,dz)||1,nx=dx/gap,nz=dz/gap;
+ const grip=[qb.x+nx*.34,1.30,qb.z+nz*.34];
+ const pocket=[rb.x-nx*.22,1.25,rb.z-nz*.22];
+ const reach=smooth((t-.38)/.42),withdraw=keep?smooth((t-.70)/.18):0;
+ const ball=grip.map((v,i)=>v+(pocket[i]-v)*reach*(1-withdraw));
+ return{ball,qbTarget:t<.88?ball:grip,rbTarget:t>.38&&!keep?ball:null};
 }

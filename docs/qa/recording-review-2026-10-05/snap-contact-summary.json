@@ -1,0 +1,45 @@
+{
+  "errors": [],
+  "checks": [
+    {
+      "mode": "five-minute",
+      "kind": "shotgun",
+      "bench": {
+        "poseMs": 4.899999991059303,
+        "hudMs": 0.09999999403953552,
+        "textMutations": 0
+      }
+    },
+    {
+      "mode": "five-minute",
+      "kind": "iform",
+      "bench": {
+        "poseMs": 5.699999988079071,
+        "hudMs": 0.09999999403953552,
+        "textMutations": 0
+      }
+    },
+    {
+      "mode": "five-minute",
+      "kind": "offense-wrap"
+    },
+    {
+      "mode": "five-minute",
+      "kind": "offense-big-hit"
+    },
+    {
+      "mode": "five-minute",
+      "kind": "defense-wrap"
+    },
+    {
+      "mode": "five-minute",
+      "kind": "defense-big-hit"
+    },
+    {
+      "mode": "five-minute",
+      "kind": "cadence",
+      "callbacks": 6,
+      "draws": 6
+    }
+  ]
+}

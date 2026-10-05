@@ -22,7 +22,9 @@ export function referencePocketFrame(qb,snapZ,aspect=2,backZ=qb.z,halfWidth=17,o
  return {eye,target,fov};
 }
 export function referenceCarryFrame(player,direction=1,contact=false){
- return {eye:[player.x+(contact?2.5:0),contact?3.8:4.8,player.z-direction*(contact?5.8:6.6)],target:[player.x,contact?.55:.9,player.z+direction*(contact?.6:2.4)],fov:56};
+ // Keep the running lens through contact. A lateral dolly at the whistle
+ // looked like a camera snap and changed joystick orientation under the thumb.
+ return {eye:[player.x,4.8,player.z-direction*6.6],target:[player.x,contact?.7:.9,player.z+direction*2.4],fov:56};
 }
 
 // Offensive-side defense: the camera sits behind the ball, with the controlled
