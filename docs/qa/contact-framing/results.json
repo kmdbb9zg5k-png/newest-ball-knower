@@ -1,0 +1,182 @@
+{
+  "status": "PASS",
+  "results": [
+    {
+      "mode": "two-minute",
+      "contact": "wrap",
+      "chestHeight": 0.429934561252594,
+      "settled": true
+    },
+    {
+      "mode": "two-minute",
+      "contact": "big-hit",
+      "chestHeight": -0.06260531395673752,
+      "settled": true
+    },
+    {
+      "mode": "two-minute",
+      "contact": "gang",
+      "chestHeight": 0.5117760896682739,
+      "settled": true
+    },
+    {
+      "mode": "two-minute",
+      "contact": "dive",
+      "chestHeight": 0.39716118574142456,
+      "settled": true
+    },
+    {
+      "mode": "two-minute",
+      "contact": "drag-down",
+      "chestHeight": 0.429934561252594,
+      "settled": true
+    },
+    {
+      "mode": "two-minute",
+      "contact": "fourth",
+      "chestHeight": 0.429934561252594,
+      "settled": true
+    },
+    {
+      "mode": "two-minute",
+      "contact": "clock",
+      "chestHeight": 0.429934561252594,
+      "settled": true
+    },
+    {
+      "mode": "two-minute",
+      "contact": "conversion",
+      "chestHeight": 0.429934561252594,
+      "settled": true
+    },
+    {
+      "mode": "two-minute",
+      "unitContact": "defense",
+      "chestHeight": 0.6095488667488098
+    },
+    {
+      "mode": "two-minute",
+      "unitContact": "kickoff",
+      "chestHeight": 0.429934561252594
+    },
+    {
+      "mode": "two-minute",
+      "kick": "home",
+      "frames": 211,
+      "maxBoom": 0
+    },
+    {
+      "mode": "two-minute",
+      "kick": "away",
+      "frames": 211,
+      "maxBoom": 0.11666666666666693
+    },
+    {
+      "mode": "two-minute",
+      "catch": "rac",
+      "lateSelectionSeconds": 0.85,
+      "clockElapsed": 0.7829761904764894
+    },
+    {
+      "mode": "two-minute",
+      "catch": "secure",
+      "lateSelectionSeconds": 0.85,
+      "clockElapsed": 0.7829761904764894
+    },
+    {
+      "mode": "two-minute",
+      "catch": "aggressive",
+      "lateSelectionSeconds": 0.85,
+      "clockElapsed": 0.7829761904764894
+    },
+    {
+      "mode": "five-minute",
+      "contact": "wrap",
+      "chestHeight": 0.429934561252594,
+      "settled": true
+    },
+    {
+      "mode": "five-minute",
+      "contact": "big-hit",
+      "chestHeight": -0.06260531395673752,
+      "settled": true
+    },
+    {
+      "mode": "five-minute",
+      "contact": "gang",
+      "chestHeight": 0.5117760896682739,
+      "settled": true
+    },
+    {
+      "mode": "five-minute",
+      "contact": "dive",
+      "chestHeight": 0.39716118574142456,
+      "settled": true
+    },
+    {
+      "mode": "five-minute",
+      "contact": "drag-down",
+      "chestHeight": 0.429934561252594,
+      "settled": true
+    },
+    {
+      "mode": "five-minute",
+      "contact": "fourth",
+      "chestHeight": 0.429934561252594,
+      "settled": true
+    },
+    {
+      "mode": "five-minute",
+      "contact": "clock",
+      "chestHeight": 0.429934561252594,
+      "settled": true
+    },
+    {
+      "mode": "five-minute",
+      "contact": "conversion",
+      "chestHeight": 0.429934561252594,
+      "settled": true
+    },
+    {
+      "mode": "five-minute",
+      "unitContact": "defense",
+      "chestHeight": 0.6095488667488098
+    },
+    {
+      "mode": "five-minute",
+      "unitContact": "kickoff",
+      "chestHeight": 0.429934561252594
+    },
+    {
+      "mode": "five-minute",
+      "kick": "home",
+      "frames": 211,
+      "maxBoom": 0
+    },
+    {
+      "mode": "five-minute",
+      "kick": "away",
+      "frames": 211,
+      "maxBoom": 0.11666666666666693
+    },
+    {
+      "mode": "five-minute",
+      "catch": "rac",
+      "lateSelectionSeconds": 0.85,
+      "clockElapsed": 0.7829761904768588
+    },
+    {
+      "mode": "five-minute",
+      "catch": "secure",
+      "lateSelectionSeconds": 0.85,
+      "clockElapsed": 0.7829761904768588
+    },
+    {
+      "mode": "five-minute",
+      "catch": "aggressive",
+      "lateSelectionSeconds": 0.85,
+      "clockElapsed": 0.7829761904768588
+    }
+  ],
+  "errors": []
+}
