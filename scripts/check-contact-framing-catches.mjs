@@ -15,6 +15,7 @@ const injection=`window.bkRegression={
  unit(kind,kicking='away'){liveUnit?.stop();conversionDrive=null;mini=fullSession(miniConfig.mode,true);Object.assign(mini,{possession:kind==='defense'?'away':'home',kickoff:kind==='kickoff'?kicking:null,conversion:null});drive={...initialDrive};paused=false;ended=false;$('paused').hidden=true;miniUI.reset();startUnit(kind);},
  unitContact(){const u=liveUnit.state;u.book=false;u.stage='run';u.carrier=6;u.controlled=16;for(const p of actors){p.x=(p.index-11)*2;p.z=45;p.hasBall=p.index===6;}Object.assign(actors[6],{x:0,z:60,vz:7});Object.assign(actors[16],{x:.65,z:59.8,vz:7});liveUnit.forceContact(actors[16],actors[6]);},
  unitView(stage,x=0,z=60){const u=liveUnit.state;u.book=false;u.stage=stage;u.carrier=6;u.controlled=16;u.flight=null;Object.assign(actors[6],{x,z,hasBall:true});Object.assign(actors[16],{x:x+1.2,z:z-1});liveUnit.refresh();const v=liveUnit.view();camEye=[...v.eye];camTarget=[...v.target];r.fov=v.fov;fieldCamera(camEye,camTarget);scene(.016,simTime*1000);return v;},
+ defenseFlight(x,t,qbZ=30){const u=liveUnit.state;u.stage='flight';u.book=false;u.carrier=5;u.controlled=16;u.flight={from:[0,1.8,30],to:[x,1.6,75],t,duration:1,arc:3,target:7};Object.assign(actors[5],{x:0,z:qbZ,hasBall:false});Object.assign(actors[7],{x,z:75});Object.assign(actors[16],{x:x+1,z:74});flight=u.flight;liveUnit.refresh();return liveUnit.view();},
  kickFlight(t){const u=liveUnit.state;u.stage='kick-flight';u.book=false;u.carrier=16;u.controlled=u.kicking==='away'?6:16;u.flight={from:[0,.3,75],to:[0,1,18],t,duration:3.5,arc:17,target:6};actors[6].x=0;actors[6].z=18;actors[16].x=0;actors[16].z=75;flight=u.flight;liveUnit.refresh();camera(1/60);return {view:liveUnit.view(),camera:{eye:[...r.eye],target:[...r.target]}};},
  pass(kind='bullet'){liveUnit?.stop();mini=fullSession(miniConfig.mode,true);drive={...initialDrive};paused=false;ended=false;$('paused').hidden=true;miniUI.reset();mode='pass';selected=PASSES.findIndex(p=>p.id==='verts');setup(false);playbookOpen=false;phase='pass';elapsed=.8;carrier=actors[5];carrier.hasBall=true;for(const p of actors.filter(p=>p.team===1)){p.x=25;p.z=105;p.startX=25;p.startZ=105;}rand=()=>.99;cameraReset=true;camera(1);updateControls();throwTo(7,kind);},
  snapshot(){return {phase,postPlayElapsed,pendingWhistle:pendingWhistle?{...pendingWhistle}:null,flight:flight?{t:flight.t,duration:flight.duration,catchChosen:flight.catchChosen}:null,catchVisible:!$('catchChoices').hidden,clock:drive.clock,carrier:carrier?.index,unitStage:liveUnit?.state?.stage,view:liveUnit?.view(),down:drive.down,ball:drive.ball,score:drive.score,conversion:mini.conversion,result:mini.result,log:mini.log.length}},
@@ -58,6 +59,15 @@ try{
    for(const i of [6,16]){assert(d.players[i].head.visible&&d.players[i].foot.visible);assert(d.players[i].head.y>60&&d.players[i].foot.y<365);assert(d.players[i].foot.y-d.players[i].head.y>45,'Players must be readable on mobile');}
   }
   assert.equal(await page.locator('#paused').isVisible(),false);await page.screenshot({path:out+'/'+mode+'-defense.png'});
+  for(const x of [-20,0,20]){
+   for(const t of [.2,.7,.95]){
+    const normal=await page.evaluate(v=>window.bkRegression.defenseFlight(v.x,v.t),{x,t});
+    const distant=await page.evaluate(v=>window.bkRegression.defenseFlight(v.x,v.t,-20),{x,t});
+    assert.deepEqual(distant,normal,'Released quarterback must not widen defensive pass framing');
+    if(t===.95)assert(Math.hypot(...normal.eye.map((v,i)=>v-normal.target[i]))<15,'Deep catch coverage must stay close');
+   }
+   results.push({mode,defenseFlightX:x,quarterbackExcluded:true});
+  }
   for(const kicking of ['home','away']){
    await page.evaluate(k=>window.bkRegression.unit('kickoff',k),kicking);let previous=null,maxBoom=0;
    for(let i=0;i<=210;i++){

@@ -290,7 +290,8 @@ export function createLiveUnits({config, getActors, inputVector, onResult, onSim
    const focus=a[6];
    return referenceActionFrame([[focus.x,0,focus.z],[focus.x,2.2,focus.z],[f.to[0],0,f.to[2]]],getAspect());
   }
-  const points=[ball,[a[state.carrier].x,0,a[state.carrier].z],[selected.x,0,selected.z],[selected.x,2.2,selected.z]];
+  const points=[ball,[selected.x,0,selected.z],[selected.x,2.2,selected.z]];
+  if(!f)points.push([a[state.carrier].x,0,a[state.carrier].z]);
   if(state.kind==='defense'&&(state.book||['pre','snap','handoff','pass'].includes(state.stage)))points.push([a[5].x,0,a[5].z],[a[5].x,2.2,a[5].z]);
   return referenceActionFrame(points,getAspect());
  }
