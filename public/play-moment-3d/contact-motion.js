@@ -20,6 +20,22 @@ export function contactBodyPose(p){
   ?{pitch:.24*brace+.98*fall,roll:-side*.42*fall,kneel:.20*brace}
   :{pitch:.10*brace+1.20*fall,roll:side*.46*fall,kneel:.055*brace};
 }
+
+// Distinct skeletal finishes. Values are pelvis rotations, not whole-model tips.
+export function contactFinishPose(p){
+ const tackler=p.contactRole==='tackler',variant=p.contactVariant||p.action,side=p.actionSide||1;
+ const profiles={
+  wrap:[1.28,1.32,.35,.70,.52,.68],
+  'drag-down':[1.16,1.02,.45,1.12,.54,.66],
+  'low-wrap':[1.40,1.25,.30,.80,.58,.66],
+  'shoulder-hit':[1.24,.75,.50,1.40,.52,.66],
+  'big-hit':[1.24,.75,.50,1.40,.52,.66],
+  gang:[1.24,1.10,.55,1.10,.54,.66],
+  dive:[1.42,1.18,.15,.40,.58,.66]
+ };
+ const v=profiles[variant]||profiles.wrap;
+ return {pitch:v[tackler?0:1],roll:side*v[tackler?2:3]*(tackler?-1:1),drop:v[tackler?4:5],load:tackler?(variant==='low-wrap'?.34:.20):.09,footBack:tackler?.62:variant==='drag-down'?.68:.48};
+}
 export function contactFacing(p){
  if(p.contactRole==='tackler'&&p.contactTarget&&p.fallen){
   const target=p.contactHands?p.contactHands[0].map((v,i)=>(v+p.contactHands[1][i])*.5):p.contactTarget;

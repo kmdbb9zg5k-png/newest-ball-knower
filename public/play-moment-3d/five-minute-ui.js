@@ -1,5 +1,5 @@
 import { miniClock } from './mini-games.js?v=contact-camera-11';
-import { fieldGoalDistance } from './five-minute.js?v=contact-camera-11';
+import { fieldGoalDistance } from './five-minute.js?v=contact-possession-57';
 const $ = id => document.getElementById(id);
 const setHudText=(node,value)=>{const text=String(value);if(node.textContent!==text)node.textContent=text};
 const spot = ball => ball < 50 ? `OWN ${ball}` : ball === 50 ? 'MIDFIELD' : `OPP ${100 - ball}`;

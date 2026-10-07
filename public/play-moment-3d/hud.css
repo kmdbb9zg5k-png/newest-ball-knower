@@ -387,3 +387,16 @@ html,body,#game,#hud{min-height:100dvh}
  .play-card-formation{font-size:10px;}
  .play-card .play-diagram{min-height:70px;}
 }
+
+/* Fit whole rows between the tabs and footer; the next row is reached by swipe. */
+@media (orientation:landscape) and (max-height:650px){
+ #playbookGrid{height:100%;grid-template-rows:none;grid-auto-rows:calc((100% - 8px)/2);gap:8px;padding:0;}
+ .play-card{min-height:0;overflow:hidden;padding:6px 8px 3px;}
+ .play-card .play-diagram{min-height:0;flex:1 1 0;height:0;}
+ .play-card-heading{position:static;min-height:24px;}
+ .play-card-formation{padding-bottom:0;}
+ .playbook-footer{position:relative;background:#0c1b27;}
+}
+@media (orientation:landscape) and (max-height:479px){
+ #playbookGrid{grid-auto-rows:100%;}
+}

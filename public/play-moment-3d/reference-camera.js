@@ -31,10 +31,10 @@ export function referenceCarryFrame(player,direction=1,contact=false){
 // defender ahead of it. Fit these two athletes, never all 22 or a released QB.
 export function referenceDefenseFrame(selected,ball,aspect=2,includeForegroundFeet=false){
  const x=(selected.x+ball.x)/2,near=Math.min(selected.z,ball.z),depth=Math.abs(selected.z-ball.z),width=Math.abs(selected.x-ball.x);
- const long=includeForegroundFeet?1:Math.max(0,Math.min(1,(depth-20)/24)),height=3.8+long,fov=42+14*long;
- const back=Math.max(4.6+2*long,width*.58/(Math.tan(fov*.5*Math.PI/180)*Math.max(1.5,aspect)));
+ const long=includeForegroundFeet?1:Math.max(0,Math.min(1,(depth-20)/24)),height=5.6+long,fov=54+4*long;
+ const back=Math.max(8.2+2*long,width*.65/(Math.tan(fov*.5*Math.PI/180)*Math.max(1.5,aspect)));
  // At long range, keep the foreground ball and the selected defender readable;
  // the quarterback's feet need not dictate the entire defensive lens.
- const nearHeight=selected.z<=ball.z?0:Math.min(1.2,depth*.12)*(1-long),pitch=(Math.atan2(height-nearHeight,back)+Math.atan2(height-2.15,back+depth))*.5;
+ const nearHeight=0,pitch=(Math.atan2(height-nearHeight,back)+Math.atan2(height-2.15,back+depth))*.5;
  return {eye:[x,height,near-back],target:[x,.9,near-back+(height-.9)/Math.tan(pitch)],fov};
 }

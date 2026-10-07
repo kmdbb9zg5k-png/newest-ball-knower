@@ -26,8 +26,8 @@ try{
  await setDrive({ball:1,down:1,toGo:10,clock:243.2});await page.evaluate(()=>window.bkMiniScenario.setup());await click('breakHuddle');await step(.2);
  let d=await state();assert(d.camera.eye[2]>=-14);assert(d.players[5].head.visible);await page.screenshot({path:out+'/polish-own-one.png'});assert(d.players[5].head.y>65&&d.players[5].foot.y<350,'Own-goal QB must remain visible');
  await page.screenshot({path:out+'/polish-own-one.png'});
- // Matched-speed rear contact is eligible; lateral parallel runners remain separate.
- const contact=await page.evaluate(async()=>{const {tackleContactEligible}=await import('/play-moment-3d/game.js?v=contact-camera-11');const runner={x:0,z:20,vx:0,vz:8};return [tackleContactEligible({x:0,z:19,vx:0,vz:8},runner,1.05),tackleContactEligible({x:1,z:20,vx:0,vz:8},runner,1.05),tackleContactEligible({x:0,z:18,vx:0,vz:8},runner,1.05)];});assert.deepEqual(contact,[true,false,false]);
+ // Matched-speed rear and shoulder contact are eligible; distant runners remain separate.
+ const contact=await page.evaluate(async()=>{const {tackleContactEligible}=await import('/play-moment-3d/game.js?v=contact-camera-11');const runner={x:0,z:20,vx:0,vz:8};return [tackleContactEligible({x:0,z:19,vx:0,vz:8},runner,1.05),tackleContactEligible({x:1,z:20,vx:0,vz:8},runner,1.05),tackleContactEligible({x:0,z:18,vx:0,vz:8},runner,1.05)];});assert.deepEqual(contact,[true,true,false]);
  await page.evaluate(()=>window.bkMiniScenario.rearChase());await step(1/60);d=await state();assert.equal(d.lastTackler,15,'Trailing defender must initiate real contact');
  // Return clock must never gain a displayed second when its result settles.
  await setSession({kickoff:'away',possession:'away',pending:null,conversion:null,result:null});await setDrive({clock:246.2});await page.evaluate(()=>window.bkMiniScenario.startUnit('kickoff'));
