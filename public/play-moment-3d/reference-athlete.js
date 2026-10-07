@@ -161,7 +161,7 @@ export function meshyAnimationState(p,phase){
  }
  if((phase==='pass'||phase==='flight')&&offense&&['WR','TE','RB'].includes(p.role)&&speed>.2)return p.routeStyle==='release'?'route-release':p.routeStyle==='cut'||Math.abs(p.motion?.turn||0)>1.05?'route-cut':'route-stem';
  if((phase==='pass'||phase==='flight')&&!offense&&['LB','DB'].includes(p.role)&&speed>.2&&speed<7.7)return p.coverageStyle==='pedal'?'coverage-pedal':p.coverageStyle==='break'?'coverage-break':speed>2.4?'coverage-run':'coverage';
- if((phase==='pass'||phase==='flight')&&!offense&&p.role==='DL'&&speed>.2)return p.blockStyle==='rush-rip'?'rush-rip':p.blockStyle==='rush-swim'?'rush-swim':p.blockStyle==='edge-rush'?'edge-rush':p.blockStyle==='bull-rush'?'bull-rush':'rush';
+ if((phase==='pass'||phase==='flight')&&!offense&&p.role==='DL'&&speed>.2)return Math.abs(p.x||0)>4?'edge-rush':'rush';
  if(phase==='run'&&p.hasBall&&p.role==='QB'&&speed>.2)return'qb-scramble';
  if(phase==='run'&&p.hasBall&&Math.abs(p.motion?.turn||0)>1.12)return'carry-cut';
  if(phase==='run'&&p.hasBall&&p.sprinting)return'carry-sprint';
@@ -366,6 +366,8 @@ export class MeshyAthletes{
  contactPose(locals,p){
   const t=p.actionT||0,fall=contactFallProgress(p),load=smooth(t/.22),tackler=p.contactRole==='tackler',side=p.actionSide||1;
   const finish=contactFinishPose(p),hips=this.joints[0];
+  // This authored contact pose owns the skeleton; do not stack a second generic tackle bend.
+  for(const i of this.joints){locals[i]={t:[...this.base[i].t],r:[...this.base[i].r],s:[...this.base[i].s]};}
   // Lower and rotate the pelvis inside the skeleton. Feet and knees have
   // their own targets, so contact cannot tip a rigid standing pose over.
   locals[hips].t[1]=this.base[hips].t[1]-finish.load*load-finish.drop*fall;
@@ -376,10 +378,12 @@ export class MeshyAthletes{
   for(const name of ['Left','Right']){
    const sign=name==='Left'?1:-1,hipName=name+'UpLeg',kneeName=name+'Leg',footName=name+'Foot';
    const hip=pointFromMatrix(this.worldPose(locals,this.namedNodes['mixamorig:'+hipName]));
-   const target=[sign*(.19+.08*fall),.075+(sign===side?.04*fall:0),sign*.12-finish.footBack*fall];
+   const target=[sign*(.19+.08*fall),.075+(sign===side?.04*fall:0),sign*.12-(finish.footBack+.35)*fall];
    const l1=Math.hypot(...locals[this.namedNodes['mixamorig:'+kneeName]].t),l2=Math.hypot(...locals[this.namedNodes['mixamorig:'+footName]].t),delta=target.map((v,i)=>v-hip[i]),length=Math.hypot(...delta)||1,axis=delta.map(v=>v/length),d=clamp(length,.05,l1+l2-.001),along=(l1*l1-l2*l2+d*d)/(2*d),height=Math.sqrt(Math.max(0,l1*l1-along*along));
    const pole=[sign*.15,0,1],dot=pole.reduce((n,v,i)=>n+v*axis[i],0),bend=pole.map((v,i)=>v-axis[i]*dot),bl=Math.hypot(...bend)||1,knee=hip.map((v,i)=>v+axis[i]*along+bend[i]/bl*height);
    this.aimJoint(locals,hipName,kneeName,knee);this.aimJoint(locals,kneeName,footName,target);
+   const foot=pointFromMatrix(this.worldPose(locals,this.namedNodes['mixamorig:'+footName]));
+   this.aimJoint(locals,footName,name+'ToeBase',[foot[0],foot[1]-.025,foot[2]+.16-.28*fall]);
   }
  }
  readyArms(locals,p,contact=false){
@@ -408,9 +412,9 @@ export class MeshyAthletes{
   }else if(p.fallen&&p.contactRole==='carrier'){
    // Keep the ball tucked against the ribs during the hit and landing.
    const right=(p.index+p.team)%2===1;
-   const chest=pointFromMatrix(this.worldPose(locals,this.namedNodes['mixamorig:Spine2']));
-   this.reachArm(locals,right?'Right':'Left',[chest[0]+(right?-.18:.18),chest[1]-.17,chest[2]+.18]);
-   this.reachArm(locals,right?'Left':'Right',[chest[0]+(right?-.03:.03),chest[1]-.10,chest[2]+.24]);
+   const chest=this.worldPose(locals,this.namedNodes['mixamorig:Spine2']);
+   this.reachArm(locals,right?'Right':'Left',pointFromMatrix(chest,[right?-.18:.18,-.17,.18]));
+   this.reachArm(locals,right?'Left':'Right',pointFromMatrix(chest,[right?-.03:.03,-.10,.24]));
   }else if(p.engaged&&p.blockHands){
    const targets=p.blockHands.map(point=>this.actorPoint(p,point)).sort((a,b)=>b[0]-a[0]);
    this.reachArm(locals,'Left',targets[0]);this.reachArm(locals,'Right',targets[1]);
