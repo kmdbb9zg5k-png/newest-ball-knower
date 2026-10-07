@@ -51,7 +51,7 @@ try{
   const complete=pass.filter(f=>f.stage==='run');assert(complete.length>5,'Short pass must complete');assert(complete.every(f=>f.carrier===6&&f.players[6].hasBall&&f.players.filter(p=>p.hasBall).length===1));assert.equal(complete.at(-1).players[5].throwT,0,'Throw pose must finish after a short completion');assert(complete.every(f=>f.button==='TACKLE'));
   await page.evaluate(()=>window.oct6.tick(1,true));await page.screenshot({path:out+'/'+mode+'-completion.jpg'});
   const contact=[];
-  for(const variant of ['wrap','drag-down','low-wrap','shoulder-hit']){
+  for(const variant of ['wrap','drag-down','low-wrap','shoulder-hit','dive','gang','big-hit']){
    await page.evaluate(v=>window.oct6.contact(v),variant);
    for(const frame of [12,20,35]){const s=await page.evaluate(n=>window.oct6.tick(n,true),frame);assert.equal(s.gl,0);assert.equal(s.stage,'contact');for(const id of [6,16]){const p=s.players[id];assert(p.head.y>50&&p.foot.y<512-55,JSON.stringify({variant,id,head:p.head,foot:p.foot}));}contact.push({variant,time:s.time,bones:await page.evaluate(()=>window.oct6.bones())});if(frame===35){const bones=await page.evaluate(()=>window.oct6.bones());assert(bones[0].chest[1]<.5,'Runner must land on the turf: '+JSON.stringify(bones));}if(frame===35)await page.screenshot({path:out+'/'+mode+'-'+variant+'.jpg'});}
   }
