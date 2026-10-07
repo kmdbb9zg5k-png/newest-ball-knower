@@ -1,0 +1,48 @@
+[
+  {
+    "mode": "two-minute",
+    "frames": 24,
+    "phases": [
+      "snap",
+      "handoff",
+      "run",
+      "dead",
+      "pre"
+    ],
+    "contactTypes": [
+      "dive"
+    ],
+    "finalDrive": {
+      "ball": 33,
+      "down": 2,
+      "toGo": 2,
+      "clock": 116.86666666666684,
+      "score": 23,
+      "plays": 1
+    },
+    "errors": []
+  },
+  {
+    "mode": "five-minute",
+    "frames": 24,
+    "phases": [
+      "snap",
+      "handoff",
+      "run",
+      "dead",
+      "pre"
+    ],
+    "contactTypes": [
+      "dive"
+    ],
+    "finalDrive": {
+      "ball": 33,
+      "down": 2,
+      "toGo": 2,
+      "clock": 296.8666666666695,
+      "score": 0,
+      "plays": 1
+    },
+    "errors": []
+  }
+]

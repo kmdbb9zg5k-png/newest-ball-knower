@@ -1,6 +1,8 @@
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
 
+const CONTACT_FALL_TIMING={wrap:[.34,.46,.94],'drag-down':[.42,.58,.98],'low-wrap':[.20,.43,.94],'shoulder-hit':[.26,.36,.92],gang:[.34,.48,.96],dive:[.12,.30,.92],'big-hit':[.22,.30,.92]};
+
 // Reach and establish contact before taking either athlete off his feet.
 export function contactFallProgress(p){
  if(p.action==='get-up')return 1-smooth(p.actionT||0);
@@ -8,8 +10,9 @@ export function contactFallProgress(p){
  if(!/tackle|hit|gang|wrap|slide|dive|pancake/.test(p.action||''))return 1;
  // The defender establishes a low wrap before the runner loses his base.
  // Separate timing keeps contact from reading as two identical forward falls.
- const start=p.action==='big-hit'?(p.contactRole==='tackler'?.22:.30):p.action==='dive'?(p.contactRole==='tackler'?.12:.30):p.contactRole==='tackler'?.34:.42;
- return smooth(((p.actionT||0)-start)/(.92-start));
+ const variant=p.contactVariant||p.action,tackler=p.contactRole==='tackler';
+ const schedule=CONTACT_FALL_TIMING[variant]||CONTACT_FALL_TIMING.wrap,start=schedule[tackler?0:1];
+ return smooth(((p.actionT||0)-start)/(schedule[2]-start));
 }
 export function contactBodyPose(p){
  if(!p.fallen)return{pitch:0,roll:0,kneel:0};
@@ -78,4 +81,14 @@ export function handoffBall(qb,rb,t,keep=false){
  const reach=smooth((t-.38)/.42),withdraw=keep?smooth((t-.70)/.18):0;
  const ball=grip.map((v,i)=>v+(pocket[i]-v)*reach*(1-withdraw));
  return{ball,qbTarget:t<.88?ball:grip,rbTarget:t>.38&&!keep?ball:null};
+}
+
+// One planted push and recovery step while the wrap loads. The carrier's
+// staggered recovery is later than the tackler's drive; both settle at landing.
+export function contactFootTarget(p,sign){
+ const t=clamp(p.actionT||0,0,1),fall=contactFallProgress(p),finish=contactFinishPose(p),tackler=p.contactRole==='tackler',side=p.actionSide||1,variant=p.contactVariant||p.action;
+ const lead=sign===side,start=tackler?(lead?.08:.28):(lead?.22:.40),end=start+.30;
+ const step=smooth((t-start)/(end-start)),lift=Math.sin(Math.PI*clamp((t-start)/(end-start),0,1)),drive=(1-fall)*(variant==='dive'?.25:1);
+ const travel=(tackler?.24:.18)*drive,stagger=lead?.16:-.16;
+ return [sign*(.19+.08*fall),.075+(lead?.04*fall:0)+lift*(tackler?.07:.10)*drive,stagger*(1-fall)+travel*(2*step-1)-(finish.footBack+.35)*fall];
 }

@@ -1,5 +1,5 @@
 // Full-game reference body with skinned team materials and distance-matched motion.
-import {contactFallProgress,contactFacing,contactBodyPose,contactFinishPose} from './contact-motion.js?v=contact-blocking-59';
+import {contactFallProgress,contactFacing,contactBodyPose,contactFinishPose,contactFootTarget} from './contact-motion.js?v=tackle-drive-61';
 import {refineAthleteSurface} from './athlete-surface.js?v=sentinel-materials-34';
 import {referenceGarmentRegions,referenceRunPhase} from './reference-appearance.js?v=coherent-players-50';
 import {jerseyIdentityKey} from './jersey-identity.js?v=teams-1';
@@ -372,13 +372,16 @@ export class MeshyAthletes{
   // their own targets, so contact cannot tip a rigid standing pose over.
   locals[hips].t[1]=this.base[hips].t[1]-finish.load*load-finish.drop*fall;
   locals[hips].r=quatMul(axisQuat(0,0,1,finish.roll*fall),quatMul(axisQuat(1,0,0,finish.pitch*fall),this.base[hips].r));
-  this.rotate(locals,'mixamorig:Spine',1,0,0,(tackler?.30:.16)*load*(1-fall));
+  // Keep the defender's pads driving through the wrap before the hips turn down.
+  const drive=load*(1-fall),variant=p.contactVariant||p.action;
+  this.rotate(locals,'mixamorig:Spine',1,0,0,(tackler?(variant==='low-wrap'?.43:.30):.16)*drive);
+  this.rotate(locals,'mixamorig:Spine2',0,1,0,side*(variant==='drag-down'?.24:.10)*drive);
   this.rotate(locals,'mixamorig:Spine2',0,0,1,side*.12*Math.sin(t*Math.PI));
   this.rotate(locals,'mixamorig:Head',1,0,0,-.12*fall);
   for(const name of ['Left','Right']){
    const sign=name==='Left'?1:-1,hipName=name+'UpLeg',kneeName=name+'Leg',footName=name+'Foot';
    const hip=pointFromMatrix(this.worldPose(locals,this.namedNodes['mixamorig:'+hipName]));
-   const target=[sign*(.19+.08*fall),.075+(sign===side?.04*fall:0),sign*.12-(finish.footBack+.35)*fall];
+   const target=contactFootTarget(p,sign);
    const l1=Math.hypot(...locals[this.namedNodes['mixamorig:'+kneeName]].t),l2=Math.hypot(...locals[this.namedNodes['mixamorig:'+footName]].t),delta=target.map((v,i)=>v-hip[i]),length=Math.hypot(...delta)||1,axis=delta.map(v=>v/length),d=clamp(length,.05,l1+l2-.001),along=(l1*l1-l2*l2+d*d)/(2*d),height=Math.sqrt(Math.max(0,l1*l1-along*along));
    const pole=[sign*.15,0,1],dot=pole.reduce((n,v,i)=>n+v*axis[i],0),bend=pole.map((v,i)=>v-axis[i]*dot),bl=Math.hypot(...bend)||1,knee=hip.map((v,i)=>v+axis[i]*along+bend[i]/bl*height);
    this.aimJoint(locals,hipName,kneeName,knee);this.aimJoint(locals,kneeName,footName,target);
@@ -398,14 +401,15 @@ export class MeshyAthletes{
   return [0,4,8].map(k=>(m[k]*d[0]+m[k+1]*d[1]+m[k+2]*d[2])/(m[k]*m[k]+m[k+1]*m[k+1]+m[k+2]*m[k+2]));
  }
  reachArm(locals,side,target,grounded=false){
-  const arm=side+'Arm',forearm=side+'ForeArm',hand=side+'Hand',sign=side==='Left'?1:-1;
-  const shoulder=pointFromMatrix(this.worldPose(locals,this.namedNodes['mixamorig:'+arm])),l1=Math.hypot(...locals[this.namedNodes['mixamorig:'+forearm]].t),l2=Math.hypot(...locals[this.namedNodes['mixamorig:'+hand]].t),delta=target.map((v,i)=>v-shoulder[i]),length=Math.hypot(...delta)||1,axis=delta.map(v=>v/length),d=clamp(length,.025,l1+l2-.001),along=(l1*l1-l2*l2+d*d)/(2*d),height=Math.sqrt(Math.max(0,l1*l1-along*along)),pole=grounded==='carry'?[sign*.12,-1,-.6]:grounded?[sign*.9,.25,-.45]:[sign*.65,-1,0],dot=pole.reduce((n,v,i)=>n+v*axis[i],0),bend=pole.map((v,i)=>v-axis[i]*dot),bl=Math.hypot(...bend)||1,elbow=shoulder.map((v,i)=>v+axis[i]*along+bend[i]/bl*height);
+  const arm=side+'Arm',forearm=side+'ForeArm',hand=side+'Hand',sign=side==='Left'?1:-1,ground=typeof grounded==='number'?clamp(grounded,0,1):grounded?1:0;
+  const shoulder=pointFromMatrix(this.worldPose(locals,this.namedNodes['mixamorig:'+arm])),l1=Math.hypot(...locals[this.namedNodes['mixamorig:'+forearm]].t),l2=Math.hypot(...locals[this.namedNodes['mixamorig:'+hand]].t),delta=target.map((v,i)=>v-shoulder[i]),length=Math.hypot(...delta)||1,axis=delta.map(v=>v/length),d=clamp(length,.025,l1+l2-.001),along=(l1*l1-l2*l2+d*d)/(2*d),height=Math.sqrt(Math.max(0,l1*l1-along*along)),pole=grounded==='carry'?[sign*.12,-1,-.6]:[sign*(.65+.25*ground),-1+1.25*ground,-.45*ground],dot=pole.reduce((n,v,i)=>n+v*axis[i],0),bend=pole.map((v,i)=>v-axis[i]*dot),bl=Math.hypot(...bend)||1,elbow=shoulder.map((v,i)=>v+axis[i]*along+bend[i]/bl*height);
   this.aimJoint(locals,arm,forearm,elbow);this.aimJoint(locals,forearm,hand,shoulder.map((v,i)=>v+axis[i]*d));
  }
  interactionArms(locals,p){
   if(p.contactRole==='tackler'&&p.contactHands){
    const targets=p.contactHands.map(point=>this.actorPoint(p,point)).sort((a,b)=>b[0]-a[0]);
-   this.reachArm(locals,'Left',targets[0],Boolean(p.fallen));this.reachArm(locals,'Right',targets[1],Boolean(p.fallen));
+   const ground=smooth((contactFallProgress(p)-.35)/.50);
+   this.reachArm(locals,'Left',targets[0],ground);this.reachArm(locals,'Right',targets[1],ground);
   }else if(p.contactRole==='tackler'&&p.contactTarget){
    const center=this.actorPoint(p,p.contactTarget);
    for(const side of ['Left','Right']){const sign=side==='Left'?1:-1;this.reachArm(locals,side,[center[0]+sign*.24,center[1],center[2]+.12]);}
@@ -670,7 +674,8 @@ export class MeshyAthletes{
   for(const p of actors.filter(p=>p.contactRole==='tackler')){
    const runner=actors.find(a=>a.index===p.contactWith),chest=runner&&this.handTransforms.get(runner.index)?.chest;
    if(chest){const model=this.modelFor(runner),ribs=pointFromMatrix(mul(model,chest)),hips=pointFromMatrix(mul(model,this.handTransforms.get(runner.index).hips)),center=ribs.map((v,i)=>v*.7+hips[i]*.3),heading=runner.fallHeading??runner.heading??0;
-    p.contactHands=[-1,1].map(side=>[center[0]+Math.cos(heading)*side*.22,center[1]-(p.contactVariant==='low-wrap'?.20:0),center[2]-Math.sin(heading)*side*.22]);
+    const clasp=smooth(((p.actionT||0)-.06)/.26),width=.34-.12*clasp;
+    p.contactHands=[-1,1].map(side=>[center[0]+Math.cos(heading)*side*width,center[1]-(p.contactVariant==='low-wrap'?.20:0),center[2]-Math.sin(heading)*side*width]);
    }else p.contactHands=null;
    this.frameBones.set(p.index,this.bonesFor(p,phase,time,prepared.get(p.index)));
   }

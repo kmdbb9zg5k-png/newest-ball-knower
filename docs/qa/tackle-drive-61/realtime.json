@@ -1,0 +1,62 @@
+{
+  "wallSeconds": 10.419,
+  "simulationSeconds": 1.0666666666666633,
+  "renderedFrames": 23,
+  "capturedFrames": 5,
+  "timestamps": [
+    1791385634.820992,
+    1791385636.546654,
+    1791385638.227372,
+    1791385640.066681,
+    1791385641.67573
+  ],
+  "state": {
+    "phase": "handoff",
+    "mode": "run",
+    "play": "gun-draw",
+    "time": 4.949999999999988,
+    "drive": {
+      "ball": 33,
+      "down": 2,
+      "toGo": 2,
+      "clock": 295.8000000000038,
+      "score": 0,
+      "plays": 2
+    },
+    "unit": null,
+    "contact": null,
+    "book": {
+      "open": false,
+      "filter": "run",
+      "formation": "all",
+      "choice": {
+        "mode": "run",
+        "index": 5
+      }
+    },
+    "owners": [
+      {
+        "i": 5,
+        "role": "QB",
+        "x": -0.41853477336742295,
+        "z": 38.75997103585137
+      }
+    ],
+    "gl": 0,
+    "rig": [
+      {
+        "index": 5,
+        "action": "handoff",
+        "t": 0.5246093750000117,
+        "fall": 0,
+        "chest": [
+          -0.44395944476127625,
+          1.553502082824707,
+          38.71995162963867
+        ],
+        "pose": "handoff"
+      }
+    ],
+    "errors": []
+  }
+}

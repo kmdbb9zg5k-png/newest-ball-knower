@@ -53,3 +53,14 @@ for(const index of [6,7])for(const heading of [0,1.7,3.1]){
  assert(points.length>100,'Inspect the actual hand mesh');const center=[0,1,2].map(c=>points.reduce((n,p)=>n+p[c],0)/points.length),tip=rig.ballAnchor(p,'run').b,gap=Math.hypot(...tip.map((v,i)=>v-center[i]));maxGripGap=Math.max(maxGripGap,gap);assert(gap<.18,'Visible fingers must reach the ball tip: '+gap);
 }
 console.log(JSON.stringify({skinGripCases:6,maxGripGap}));
+
+// Drive-phase articulation must move the visible feet before the torso lands.
+const driveReport=[];
+for(const variant of ['wrap','drag-down','low-wrap'])for(const role of ['carrier','tackler']){
+ const p={index:role==='carrier'?6:16,team:role==='carrier'?0:1,role:role==='carrier'?'RB':'LB',x:0,z:0,heading:0,fallen:true,action:'wrap',contactRole:role,contactVariant:variant,actionSide:1};
+ const feet=[];
+ for(const t of [.10,.22,.34,.46]){p.actionT=t;const locals=rig.base.map(n=>({t:[...n.t],r:[...n.r],s:[...n.s]}));rig.contactPose(locals,p);feet.push([...rig.worldPose(locals,rig.namedNodes['mixamorig:LeftFoot'])].slice(12,15));}
+ const travel=Math.max(...feet.map(a=>Math.hypot(...a.map((v,i)=>v-feet[0][i]))));
+ assert(travel>.10,variant+' '+role+' must articulate a contact step');driveReport.push({variant,role,travel});
+}
+console.log(JSON.stringify({driveReport}));

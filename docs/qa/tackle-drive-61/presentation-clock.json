@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "report": [
+    {
+      "mode": "two-minute",
+      "frames": 36,
+      "rewinds": 0,
+      "simulationAdvance": 0.08564079624060938
+    },
+    {
+      "mode": "five-minute",
+      "frames": 36,
+      "rewinds": 0,
+      "simulationAdvance": 0.08564079624060938
+    }
+  ],
+  "errors": []
+}

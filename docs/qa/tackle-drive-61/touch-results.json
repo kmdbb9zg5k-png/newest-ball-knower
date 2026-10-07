@@ -1,0 +1,483 @@
+{
+  "report": [
+    {
+      "mode": "two-minute",
+      "hold": 40,
+      "selected": {
+        "releaseAt": 1.3600000000000008
+      },
+      "phase": "flight",
+      "kind": "bullet",
+      "log": [
+        {
+          "event": "pointerdown",
+          "target": "target-6",
+          "id": 6
+        },
+        {
+          "event": "pointercancel",
+          "target": "target-6",
+          "id": 6
+        },
+        {
+          "event": "lostpointercapture",
+          "target": "target-6",
+          "id": 6
+        },
+        {
+          "event": "pointerdown",
+          "target": "knob",
+          "id": 7
+        },
+        {
+          "event": "pointerdown",
+          "target": "target-6",
+          "id": 8
+        },
+        {
+          "event": "pointerup",
+          "target": "stick",
+          "id": 7
+        },
+        {
+          "event": "lostpointercapture",
+          "target": "stick",
+          "id": 7
+        },
+        {
+          "event": "pointerup",
+          "target": "target-6",
+          "id": 8
+        },
+        {
+          "event": "lostpointercapture",
+          "id": 8
+        }
+      ]
+    },
+    {
+      "mode": "two-minute",
+      "hold": 300,
+      "selected": {
+        "releaseAt": 2.7766027822970174
+      },
+      "phase": "flight",
+      "kind": "touch",
+      "log": [
+        {
+          "event": "pointerdown",
+          "target": "knob",
+          "id": 15
+        },
+        {
+          "event": "pointerdown",
+          "target": "knob",
+          "id": 15
+        },
+        {
+          "event": "pointerdown",
+          "target": "target-6",
+          "id": 16
+        },
+        {
+          "event": "pointerdown",
+          "target": "target-6",
+          "id": 16
+        },
+        {
+          "event": "pointerup",
+          "target": "stick",
+          "id": 15
+        },
+        {
+          "event": "pointerup",
+          "target": "stick",
+          "id": 15
+        },
+        {
+          "event": "lostpointercapture",
+          "target": "stick",
+          "id": 15
+        },
+        {
+          "event": "lostpointercapture",
+          "target": "stick",
+          "id": 15
+        },
+        {
+          "event": "pointerup",
+          "target": "target-6",
+          "id": 16
+        },
+        {
+          "event": "pointerup",
+          "target": "target-6",
+          "id": 16
+        },
+        {
+          "event": "lostpointercapture",
+          "id": 16
+        },
+        {
+          "event": "lostpointercapture",
+          "id": 16
+        }
+      ]
+    },
+    {
+      "mode": "two-minute",
+      "hold": 600,
+      "selected": {
+        "releaseAt": 4.2218231246555815
+      },
+      "phase": "flight",
+      "kind": "lob",
+      "log": [
+        {
+          "event": "pointerdown",
+          "target": "knob",
+          "id": 23
+        },
+        {
+          "event": "pointerdown",
+          "target": "knob",
+          "id": 23
+        },
+        {
+          "event": "pointerdown",
+          "target": "knob",
+          "id": 23
+        },
+        {
+          "event": "pointerdown",
+          "target": "target-6",
+          "id": 24
+        },
+        {
+          "event": "pointerdown",
+          "target": "target-6",
+          "id": 24
+        },
+        {
+          "event": "pointerdown",
+          "target": "target-6",
+          "id": 24
+        },
+        {
+          "event": "pointerup",
+          "target": "stick",
+          "id": 23
+        },
+        {
+          "event": "pointerup",
+          "target": "stick",
+          "id": 23
+        },
+        {
+          "event": "pointerup",
+          "target": "stick",
+          "id": 23
+        },
+        {
+          "event": "lostpointercapture",
+          "target": "stick",
+          "id": 23
+        },
+        {
+          "event": "lostpointercapture",
+          "target": "stick",
+          "id": 23
+        },
+        {
+          "event": "lostpointercapture",
+          "target": "stick",
+          "id": 23
+        },
+        {
+          "event": "pointerup",
+          "target": "target-6",
+          "id": 24
+        },
+        {
+          "event": "pointerup",
+          "target": "target-6",
+          "id": 24
+        },
+        {
+          "event": "pointerup",
+          "target": "target-6",
+          "id": 24
+        },
+        {
+          "event": "lostpointercapture",
+          "id": 24
+        },
+        {
+          "event": "lostpointercapture",
+          "id": 24
+        },
+        {
+          "event": "lostpointercapture",
+          "id": 24
+        }
+      ]
+    },
+    {
+      "mode": "two-minute",
+      "scenario": "body-hit-test",
+      "role": "WR",
+      "x": 831.9225985648446,
+      "y": 164.34045535274072,
+      "visible": true
+    },
+    {
+      "mode": "two-minute",
+      "scenario": "receiver-body",
+      "phase": "flight"
+    },
+    {
+      "mode": "two-minute",
+      "scenario": "click-fallback"
+    },
+    {
+      "mode": "five-minute",
+      "hold": 40,
+      "selected": {
+        "releaseAt": 1.3600000000000008
+      },
+      "phase": "flight",
+      "kind": "bullet",
+      "log": [
+        {
+          "event": "pointerdown",
+          "target": "target-6",
+          "id": 6
+        },
+        {
+          "event": "pointercancel",
+          "target": "target-6",
+          "id": 6
+        },
+        {
+          "event": "lostpointercapture",
+          "target": "target-6",
+          "id": 6
+        },
+        {
+          "event": "pointerdown",
+          "target": "knob",
+          "id": 7
+        },
+        {
+          "event": "pointerdown",
+          "target": "target-6",
+          "id": 8
+        },
+        {
+          "event": "pointerup",
+          "target": "stick",
+          "id": 7
+        },
+        {
+          "event": "lostpointercapture",
+          "target": "stick",
+          "id": 7
+        },
+        {
+          "event": "pointerup",
+          "target": "target-6",
+          "id": 8
+        },
+        {
+          "event": "lostpointercapture",
+          "id": 8
+        }
+      ]
+    },
+    {
+      "mode": "five-minute",
+      "hold": 300,
+      "selected": {
+        "releaseAt": 2.7766027822970174
+      },
+      "phase": "flight",
+      "kind": "touch",
+      "log": [
+        {
+          "event": "pointerdown",
+          "target": "knob",
+          "id": 15
+        },
+        {
+          "event": "pointerdown",
+          "target": "knob",
+          "id": 15
+        },
+        {
+          "event": "pointerdown",
+          "target": "target-6",
+          "id": 16
+        },
+        {
+          "event": "pointerdown",
+          "target": "target-6",
+          "id": 16
+        },
+        {
+          "event": "pointerup",
+          "target": "stick",
+          "id": 15
+        },
+        {
+          "event": "pointerup",
+          "target": "stick",
+          "id": 15
+        },
+        {
+          "event": "lostpointercapture",
+          "target": "stick",
+          "id": 15
+        },
+        {
+          "event": "lostpointercapture",
+          "target": "stick",
+          "id": 15
+        },
+        {
+          "event": "pointerup",
+          "target": "target-6",
+          "id": 16
+        },
+        {
+          "event": "pointerup",
+          "target": "target-6",
+          "id": 16
+        },
+        {
+          "event": "lostpointercapture",
+          "id": 16
+        },
+        {
+          "event": "lostpointercapture",
+          "id": 16
+        }
+      ]
+    },
+    {
+      "mode": "five-minute",
+      "hold": 600,
+      "selected": {
+        "releaseAt": 4.2218231246555815
+      },
+      "phase": "flight",
+      "kind": "lob",
+      "log": [
+        {
+          "event": "pointerdown",
+          "target": "knob",
+          "id": 23
+        },
+        {
+          "event": "pointerdown",
+          "target": "knob",
+          "id": 23
+        },
+        {
+          "event": "pointerdown",
+          "target": "knob",
+          "id": 23
+        },
+        {
+          "event": "pointerdown",
+          "target": "target-6",
+          "id": 24
+        },
+        {
+          "event": "pointerdown",
+          "target": "target-6",
+          "id": 24
+        },
+        {
+          "event": "pointerdown",
+          "target": "target-6",
+          "id": 24
+        },
+        {
+          "event": "pointerup",
+          "target": "stick",
+          "id": 23
+        },
+        {
+          "event": "pointerup",
+          "target": "stick",
+          "id": 23
+        },
+        {
+          "event": "pointerup",
+          "target": "stick",
+          "id": 23
+        },
+        {
+          "event": "lostpointercapture",
+          "target": "stick",
+          "id": 23
+        },
+        {
+          "event": "lostpointercapture",
+          "target": "stick",
+          "id": 23
+        },
+        {
+          "event": "lostpointercapture",
+          "target": "stick",
+          "id": 23
+        },
+        {
+          "event": "pointerup",
+          "target": "target-6",
+          "id": 24
+        },
+        {
+          "event": "pointerup",
+          "target": "target-6",
+          "id": 24
+        },
+        {
+          "event": "pointerup",
+          "target": "target-6",
+          "id": 24
+        },
+        {
+          "event": "lostpointercapture",
+          "id": 24
+        },
+        {
+          "event": "lostpointercapture",
+          "id": 24
+        },
+        {
+          "event": "lostpointercapture",
+          "id": 24
+        }
+      ]
+    },
+    {
+      "mode": "five-minute",
+      "scenario": "body-hit-test",
+      "role": "WR",
+      "x": 831.9225985648446,
+      "y": 164.34045535274072,
+      "visible": true
+    },
+    {
+      "mode": "five-minute",
+      "scenario": "receiver-body",
+      "phase": "flight"
+    },
+    {
+      "mode": "five-minute",
+      "scenario": "click-fallback"
+    }
+  ],
+  "errors": []
+}
