@@ -138,3 +138,10 @@ body.unit-no-movement #stick,body.playing-unit #stamina{display:none!important;}
 #unitKick.return-only{width:auto;min-width:0;padding:0;border:0;background:none;box-shadow:none;}
 #unitKick.return-only #kickGuide{display:none;}
 #unitFairCatch{min-height:48px;min-width:120px;}
+
+/* A deliberate defensive setup window, separate from live action controls. */
+#defensePreSnap{position:absolute;right:max(18px,env(safe-area-inset-right));bottom:max(20px,env(safe-area-inset-bottom));display:flex;align-items:center;gap:8px;pointer-events:auto}
+#defensePreSnap[hidden]{display:none}
+#defensePreSnap button{min-height:48px;min-width:82px;border:1px solid #9bb5c366;border-radius:10px;background:#142b38ed;color:#f3f5ec;font-size:12px;font-weight:850;touch-action:none}
+#defenseReady{background:#dfc878!important;color:#15212a!important}
+#defenseSnapClock{padding:10px;border-radius:8px;background:#081821e8;color:#f4df9b;font-size:13px;font-weight:850;font-variant-numeric:tabular-nums}

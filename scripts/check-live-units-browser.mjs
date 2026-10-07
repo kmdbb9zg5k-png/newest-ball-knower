@@ -73,13 +73,13 @@ try{
   await page.screenshot({path:out+'/metal-defense-'+viewport.width+'x'+viewport.height+'.png'});
  }
  await page.setViewportSize({width:844,height:390});await step(.1);
- await page.locator('#defenseCalls button').first().click();await click('unitCallDefense');
+ await page.locator('#defenseCalls button').first().click();await click('unitCallDefense');await click('defenseReady');
  await step(.04);
  d=await state();assert(d.camera.target[2]>d.camera.eye[2],'Defense looks upfield from offensive side');const tapPlayer=d.players.map((p,index)=>({...p,index})).find(p=>p.index>=11&&p.index!==d.unit.controlled&&p.head.visible&&p.head.x>180&&p.head.x<650&&p.head.y>100&&p.foot.y<245);
  assert(tapPlayer,'A defender is visible for tap selection');
  const beforeSwitch=(await state()).camera.eye;
  await page.mouse.click((tapPlayer.head.x+tapPlayer.foot.x)/2,(tapPlayer.head.y+tapPlayer.foot.y)/2);
- assert.equal((await state()).unit.controlled,tapPlayer.index,'Tap switches to selected defender');await step(1/60);assert(Math.hypot(...(await state()).camera.eye.map((v,i)=>v-beforeSwitch[i]))<.6,'Switch camera remains continuous');assert.equal((await state()).unit.stage,'snap','No artificial pre-snap countdown');
+ assert.equal((await state()).unit.controlled,tapPlayer.index,'Tap switches to selected defender');await step(1/60);assert(Math.hypot(...(await state()).camera.eye.map((v,i)=>v-beforeSwitch[i]))<.6,'Switch camera remains continuous');assert.equal((await state()).unit.stage,'snap','Ready starts the snap');
  await page.evaluate(()=>window.bkMiniScenario.unit().selectPlayer(16));
  assert(await page.locator('#unitPre').isHidden());assert(await page.locator('#unitSwitch').isHidden());assert(await page.locator('#unitSim').isHidden());
  assert.deepEqual(await page.locator('#unitPad button:visible').allTextContents(),['TACKLE','HIT STICK']);
@@ -94,7 +94,7 @@ try{
  for(let i=0;i<5&&(await state()).unit&&!((await state()).unit.book||(await state()).unit.stage==='kick');i++)await step(6);
  assert(await page.locator('#unitResult').isHidden());await page.screenshot({path:out+'/live-defense-result.png'});
  // Manual tackle uses the two-button field controls.
- await setSession({pending:'away',nextBall:25,conversion:null,kickoff:null,possession:'home'});await click('fullPlayDefense');await page.locator('#defenseCalls button').first().click();await click('unitCallDefense');await step(.35);await step(.4);
+ await setSession({pending:'away',nextBall:25,conversion:null,kickoff:null,possession:'home'});await click('fullPlayDefense');await page.locator('#defenseCalls button').first().click();await click('unitCallDefense');await click('defenseReady');await step(.35);await step(.4);
  await page.evaluate(()=>{const u=window.bkMiniScenario.unit().state,a=window.bkMiniScenario.actors();u.stage='run';u.carrier=6;u.controlled=16;a[6].hasBall=true;a[16].x=a[6].x+.4;a[16].z=a[6].z;a[16].ratings.tackle=99;window.bk3dTest.seed(1);});
  await click('unitPrimary');assert.equal((await state()).unit.stage,'contact');await step(.3);assert.equal((await state()).unit.stage,'contact');assert((await state()).players[6].actionT>0);assert(await page.locator('#unitResult').isHidden());await page.screenshot({path:out+'/tackle-contact.png'});
  for(let i=0;i<5&&(await state()).unit&&!((await state()).unit.book||(await state()).unit.stage==='kick');i++){await step(1);await click('unitPrimary');}
@@ -119,7 +119,7 @@ try{
  await page.evaluate(()=>{const u=window.bkMiniScenario.unit().state,a=window.bkMiniScenario.actors();a[0].x=0;a[0].z=u.kickZ+.3;});await step(.04);
  d=await state();assert(await page.locator('#unitResult').isHidden());assert(d.lastResult.blocked);assert(!d.lastResult.good);assert.equal((await state()).drive.score,scoreBefore+3);
  // A visible free rusher prompts a quick release after the QB's reaction window.
- await setSession({possession:'away',pending:null,conversion:null,kickoff:null,result:null,cpu:{ball:25,down:1,toGo:10}});await click('fullPlayDefense');await page.locator('#defenseCalls button').first().click();await click('unitCallDefense');await click('unitReady');
+ await setSession({possession:'away',pending:null,conversion:null,kickoff:null,result:null,cpu:{ball:25,down:1,toGo:10}});await click('fullPlayDefense');await page.locator('#defenseCalls button').first().click();await click('unitCallDefense');await click('defenseReady');await click('unitReady');
  await page.evaluate(()=>{const u=window.bkMiniScenario.unit().state;u.pass=true;});await step(.31);
  await page.evaluate(()=>{const u=window.bkMiniScenario.unit().state,a=window.bkMiniScenario.actors();u.snapTime=u.time-.85;u.windup=null;for(const p of a.slice(11)){p.x=24;p.z=90;p.engaged=false;}a[16].x=a[5].x-3;a[16].z=a[5].z;});await step(.04);assert((await state()).unit.quickRelease,'Pressure triggers an accelerated read');await step(.25);assert.equal((await state()).unit.stage,'flight');await page.screenshot({path:out+'/cpu-hot-pass.png'});
  await page.evaluate(()=>{const u=window.bkMiniScenario.unit().state,a=window.bkMiniScenario.actors();u.stage='pass';u.flight=null;u.windup=null;u.throwAway=false;u.snapTime=u.time-.9;a[5].x=10;a[5].hasBall=true;[7,8,9,10,6].forEach((id,i)=>{a[11+i].x=a[id].x;a[11+i].z=a[id].z;a[11+i].engaged=false;});a[16].x=13;a[16].z=a[5].z;});await step(.02);assert((await state()).unit.throwAway,'Covered pressure outside the pocket produces a throwaway');await step(.35);assert.equal((await state()).unit.stage,'flight');await step(2);assert((await state()).lastResult.incomplete);
@@ -185,7 +185,7 @@ try{
  assert(await page.locator('#defenseBook').evaluate(el=>el.scrollWidth<=el.clientWidth));
   assert(await page.evaluate(()=>document.getElementById('defenseBook').getBoundingClientRect().top>=document.querySelector('.scorebug').getBoundingClientRect().bottom),'Scoreboard stays clear of the call sheet');
  await page.screenshot({path:out+'/defense-book-small.png'});
- await page.locator('#defenseCalls button').first().click();await click('unitCallDefense');await step(1);
+ await page.locator('#defenseCalls button').first().click();await click('unitCallDefense');await click('defenseReady');await step(1);
  assert(await page.evaluate(()=>['unitPrimary','unitSecondary'].every(id=>{const r=document.getElementById(id).getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.bottom<=innerHeight})));
  assert.deepEqual(errors,[]);console.log('PASS continuing two-minute mode, conversion choices, kickoffs, returns, defensive playbook, live CPU play and results.');
 }finally{await browser.close();await new Promise(r=>server.close(r));}

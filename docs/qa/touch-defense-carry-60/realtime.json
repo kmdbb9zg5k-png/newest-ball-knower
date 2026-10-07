@@ -1,0 +1,47 @@
+{
+  "wallSeconds": 12.834,
+  "simulationSeconds": 0.866666666666664,
+  "renderedFrames": 22,
+  "capturedFrames": 4,
+  "timestamps": [
+    1791354859.445943,
+    1791354861.523707,
+    1791354863.563666,
+    1791354865.464183
+  ],
+  "state": {
+    "phase": "handoff",
+    "mode": "run",
+    "play": "zone",
+    "time": 4.3666666666666565,
+    "drive": {
+      "ball": 32,
+      "down": 2,
+      "toGo": 3,
+      "clock": 116.5000000000002,
+      "score": 23,
+      "plays": 2
+    },
+    "unit": null,
+    "contact": null,
+    "book": {
+      "open": false,
+      "filter": "all",
+      "formation": "all",
+      "choice": {
+        "mode": "run",
+        "index": 0
+      }
+    },
+    "owners": [
+      {
+        "i": 5,
+        "role": "QB",
+        "x": 0.1313541448982982,
+        "z": 37.89927068430374
+      }
+    ],
+    "gl": 0,
+    "errors": []
+  }
+}

@@ -399,7 +399,7 @@ export class MeshyAthletes{
  }
  reachArm(locals,side,target,grounded=false){
   const arm=side+'Arm',forearm=side+'ForeArm',hand=side+'Hand',sign=side==='Left'?1:-1;
-  const shoulder=pointFromMatrix(this.worldPose(locals,this.namedNodes['mixamorig:'+arm])),l1=Math.hypot(...locals[this.namedNodes['mixamorig:'+forearm]].t),l2=Math.hypot(...locals[this.namedNodes['mixamorig:'+hand]].t),delta=target.map((v,i)=>v-shoulder[i]),length=Math.hypot(...delta)||1,axis=delta.map(v=>v/length),d=clamp(length,.025,l1+l2-.001),along=(l1*l1-l2*l2+d*d)/(2*d),height=Math.sqrt(Math.max(0,l1*l1-along*along)),pole=grounded?[sign*.9,.25,-.45]:[sign*.65,-1,0],dot=pole.reduce((n,v,i)=>n+v*axis[i],0),bend=pole.map((v,i)=>v-axis[i]*dot),bl=Math.hypot(...bend)||1,elbow=shoulder.map((v,i)=>v+axis[i]*along+bend[i]/bl*height);
+  const shoulder=pointFromMatrix(this.worldPose(locals,this.namedNodes['mixamorig:'+arm])),l1=Math.hypot(...locals[this.namedNodes['mixamorig:'+forearm]].t),l2=Math.hypot(...locals[this.namedNodes['mixamorig:'+hand]].t),delta=target.map((v,i)=>v-shoulder[i]),length=Math.hypot(...delta)||1,axis=delta.map(v=>v/length),d=clamp(length,.025,l1+l2-.001),along=(l1*l1-l2*l2+d*d)/(2*d),height=Math.sqrt(Math.max(0,l1*l1-along*along)),pole=grounded==='carry'?[sign*.12,-1,-.6]:grounded?[sign*.9,.25,-.45]:[sign*.65,-1,0],dot=pole.reduce((n,v,i)=>n+v*axis[i],0),bend=pole.map((v,i)=>v-axis[i]*dot),bl=Math.hypot(...bend)||1,elbow=shoulder.map((v,i)=>v+axis[i]*along+bend[i]/bl*height);
   this.aimJoint(locals,arm,forearm,elbow);this.aimJoint(locals,forearm,hand,shoulder.map((v,i)=>v+axis[i]*d));
  }
  interactionArms(locals,p){
@@ -428,6 +428,10 @@ export class MeshyAthletes{
   }else if(p.ballTarget&&(p.receiving||['handoff','receive-handoff','receive-snap','hold-kick'].includes(p.action))){
    const center=this.actorPoint(p,p.ballTarget);
    for(const side of ['Left','Right'])this.reachArm(locals,side,[center[0]+(side==='Left'?.085:-.085),center[1]-.025,center[2]]);
+  }else if(p.hasBall&&!p.fallen&&!(p.role==='QB'&&['pre','pass','handoff','snap'].includes(this.phase))){
+   const right=(p.index+p.team)%2===1,chest=pointFromMatrix(this.worldPose(locals,this.namedNodes['mixamorig:Spine2']));
+   const side=right?'Right':'Left';this.reachArm(locals,side,[chest[0]+(right?-.22:.22),chest[1]-.17,chest[2]+.32],'carry');
+   const hand=pointFromMatrix(this.worldPose(locals,this.namedNodes['mixamorig:'+side+'Hand']));this.aimJoint(locals,side+'Hand',side+'HandMiddle4',[hand[0],hand[1]+.12,hand[2]+.05]);
   }
  }
  applyFootballPose(locals,p,phase,time,state){
@@ -685,7 +689,13 @@ export class MeshyAthletes{
   const left=hands.left&&worldPoint(hands.left),right=hands.right&&worldPoint(hands.right),chest=hands.chest&&worldPoint(hands.chest,[0,.055,-.015]);
   if(p.role==='QB'&&['pre','pass','handoff'].includes(phase)&&left&&right){const grip=between(left,right,.5),center=chest?between(grip,chest,.18):grip,axis=normal(left,right),a=center.map((value,index)=>value-axis[index]*.155),b=center.map((value,index)=>value+axis[index]*.175);return{center,a,b,hand:'both'}}
   const carryRight=(p.index+p.team)%2===1,handMatrix=(carryRight?hands.right:hands.left)||(carryRight?hands.left:hands.right),forearmMatrix=(carryRight?hands.rightForearm:hands.leftForearm)||(carryRight?hands.leftForearm:hands.rightForearm);if(!handMatrix)return null;
-  const hand=worldPoint(handMatrix),elbow=forearmMatrix?worldPoint(forearmMatrix):null,forearmCenter=elbow?between(elbow,hand,.64):hand,center=chest?between(forearmCenter,chest,.12):forearmCenter,axis=elbow?normal(elbow,hand):normal(worldPoint(handMatrix,[0,0,-.2]),worldPoint(handMatrix,[0,0,.2])),a=center.map((value,index)=>value-axis[index]*.155),b=center.map((value,index)=>value+axis[index]*.175);
+  const hand=worldPoint(handMatrix),elbow=forearmMatrix?worldPoint(forearmMatrix):null,axis=elbow?normal(elbow,hand):normal(worldPoint(handMatrix,[0,0,-.2]),worldPoint(handMatrix,[0,0,.2]));
+  // The palm covers the front tip; the belly rests outside the forearm.
+  // Project the outward rib-to-arm direction off the long axis so the ball
+  // cannot intersect the bone even as the wrist rotates during a cut or hit.
+  const radial=p.fallen&&chest?hand.map((v,i)=>v-chest[i]):[0,1,0],dot=radial.reduce((n,v,i)=>n+v*axis[i],0),outward=radial.map((v,i)=>v-dot*axis[i]);
+  let length=Math.hypot(...outward);if(length<.001){const fallback=Math.abs(axis[1])<.9?[0,1,0]:[1,0,0],d=fallback.reduce((n,v,i)=>n+v*axis[i],0);for(let i=0;i<3;i++)outward[i]=fallback[i]-d*axis[i];length=Math.hypot(...outward);}
+  const center=hand.map((v,i)=>v-axis[i]*.125+outward[i]/length*.145),a=center.map((v,i)=>v-axis[i]*.155),b=center.map((v,i)=>v+axis[i]*.175);
   if(!center.every(Number.isFinite)||!a.every(Number.isFinite)||!b.every(Number.isFinite))return null;
   return{center,a,b,hand:carryRight?'right':'left'};
  }

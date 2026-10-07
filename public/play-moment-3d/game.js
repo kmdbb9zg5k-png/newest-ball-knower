@@ -1,10 +1,10 @@
 import {snapExchange} from './snap-motion.js?v=motion-contact-55';
 import {syncGameViewport} from './game-viewport.js?v=viewport-sync-54';
-import {contactFallProgress,updateContactTarget,handoffRunnerPoint,handoffDuration,handoffBall} from './contact-motion.js?v=contact-blocking-59';
+import {contactFallProgress,updateContactTarget,handoffRunnerPoint,handoffDuration,handoffBall} from './contact-motion.js?v=touch-defense-carry-60';
 import {referenceCameraTravel,referencePocketFrame,referenceCarryFrame} from './reference-camera.js?v=contact-possession-57';
 import {routePoint,pursuitRead,passSetPoint,contactImpact,pocketSpeedFactor,renderDue} from './football-flow.js?v=complete-flow-46';
 import {safeFieldCamera} from './field-awareness.js?v=contact-camera-11';
-import {createLiveUnits} from './live-units.js?v=contact-blocking-59';
+import {createLiveUnits} from './live-units.js?v=touch-defense-carry-60';
 import {fullInitialDrive,fullSession,fullLog,fullRecord,fullOffenseEnd,fullContinue,fullCpuPlay,fullKick,fullCpuResult,fullConversion,fullKickoffResult,fullCpuKickChoice,fullPuntResult} from './five-minute.js?v=contact-possession-57';
 import {rosterRatings,rosterIdentity} from './mini-teams.js?v=contact-camera-11';
 import{RUNS,PASSES,FORMATIONS,FIELD_GOAL_PLAY,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=contact-camera-11';
@@ -12,7 +12,7 @@ export{RUNS,PASSES}from'./playbook.js?v=contact-camera-11';
 import{Renderer,pose,segment,hex,mul,ry,translate,scale}from'./renderer.js?v=football-foundation-44';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js?v=reference-motion-45';
 import{createMeshyAthletes}from'./meshy-athlete.js?v=complete-flow-46';
-import{createMeshyAthletes as createReferenceAthletes}from'./reference-athlete.js?v=contact-blocking-59';
+import{createMeshyAthletes as createReferenceAthletes}from'./reference-athlete.js?v=touch-defense-carry-60';
 import{makeStadium}from'./stadium.js?v=contact-camera-11';
 import{createGameplayReplayRecorder}from'./replay.js';
 import {miniClock,miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=contact-camera-11';
@@ -428,14 +428,14 @@ export function layoutReceiverMarkers(points,width,height,bounds={}){
  return points.map(p=>{
   if(!p.visible||!Number.isFinite(p.x)||!Number.isFinite(p.y))return{...p,visible:false};
   const x=clamp(p.x,left,right),y=clamp(p.y-28,top,bottom),candidates=[];
-  for(const dy of[0,-48,-96,48,96])for(const dx of[0,-48,48,-96,96]){
+  for(const dy of[0,-56,-112,56,112])for(const dx of[0,-56,56,-112,112]){
    const q={x:clamp(x+dx,left,right),y:clamp(y+dy,top,bottom)};
    // Prefer above/alongside the receiver over obscuring the body below its head.
    q.cost=(q.x-x)**2+(q.y-y)**2+(q.y>p.y-18?10000:0);
    candidates.push(q);
   }
   candidates.sort((a,b)=>a.cost-b.cost);
-  const q=candidates.find(q=>placed.every(o=>Math.abs(q.x-o.x)>=48||Math.abs(q.y-o.y)>=48))||{x,y};
+  const q=candidates.find(q=>placed.every(o=>Math.abs(q.x-o.x)>=56||Math.abs(q.y-o.y)>=56))||{x,y};
   const edge=p.x<left?'left':p.x>right?'right':p.y<top?'up':p.y>bottom?'down':'';
   placed.push(q);return{...p,x:q.x,y:q.y,edge};
  });
@@ -579,7 +579,7 @@ export function start(){
   $('instruction').textContent=optionActive?'READ THE EDGE · GIVE TO HB OR KEEP WITH QB':gameplayInstruction({phase:pendingThrow&&!pendingThrow.throwAway?'flight':phase,mode,assist,qbRunner});
   $('airMove').textContent=qbRunner?'SLIDE':'HURDLE';$('airMove').dataset.skill=qbRunner?'slide':'hurdle';$('power').textContent='TRUCK';$('throwAway').classList.remove('ready');$('throwAway').dataset.ready='false';$('throwAway').setAttribute('aria-label','Throwaway unavailable. Leave the pocket first.');$('control').textContent='RUNNING: '+(assist?'AUTOMATIC':'MANUAL');$('controlHelp').textContent=assist?'Ball carriers run automatically. You still move the quarterback in the pocket.':'Steer the quarterback and ball carrier with the joystick or arrow keys.';$('control').setAttribute('aria-pressed',String(assist));$('control').setAttribute('aria-label','Running control: '+(assist?'automatic':'manual')+'. Tap to change.');const stickDisabled=assist&&(phase==='run'||phase==='handoff');$('stick').style.opacity=stickDisabled?'.3':'1';$('stick').style.pointerEvents=stickDisabled?'none':'auto';$('targetLayer').replaceChildren();
   $('scramble').hidden=phase!=='pass'||Boolean(pendingThrow);
-  if(phase==='pass'&&!pendingThrow)receiverIndices.forEach((index,i)=>{const b=document.createElement('button');b.className='target';b.id='target-'+index;const badge=document.createElement('span');badge.className='target-label';badge.textContent=actors[index].role;const tether=document.createElement('span');tether.className='target-tether';tether.setAttribute('aria-hidden','true');b.append(tether,badge);b.setAttribute('aria-label','Throw to '+actors[index].role+' number '+actors[index].number+'. Keyboard '+receiverKeys[i]+'. Tap for bullet, hold for touch or lob.');let pressedAt=null;b.onpointerdown=e=>{pressedAt=performance.now();b.setPointerCapture(e.pointerId);e.preventDefault()};b.onpointerup=e=>{if(pressedAt===null)return;const held=performance.now()-pressedAt;pressedAt=null;throwTo(index,throwKindForHold(held));e.preventDefault()};b.onpointercancel=()=>{pressedAt=null};b.onclick=e=>{if(e.detail===0)throwTo(index,'bullet')};$('targetLayer').appendChild(b)})
+  if(phase==='pass'&&!pendingThrow)receiverIndices.forEach((index,i)=>{const b=document.createElement('button');b.className='target';b.id='target-'+index;const badge=document.createElement('span');badge.className='target-label';badge.textContent=actors[index].role;const tether=document.createElement('span');tether.className='target-tether';tether.setAttribute('aria-hidden','true');b.append(tether,badge);b.setAttribute('aria-label','Throw to '+actors[index].role+' number '+actors[index].number+'. Keyboard '+receiverKeys[i]+'. Tap for bullet, hold for touch or lob.');let press=null,lastRelease=-Infinity;const clear=()=>{press=null;delete b.dataset.pressed;b.classList.remove('pressed')};b.onpointerdown=e=>{if(press||e.button>0)return;press={id:e.pointerId,at:performance.now()};b.dataset.pressed='true';b.classList.add('pressed');b.setPointerCapture(e.pointerId);replay.event('receiver-press',{target:index,pointer:e.pointerType});e.preventDefault()};b.onpointerup=e=>{if(!press||e.pointerId!==press.id)return;const held=performance.now()-press.at;lastRelease=performance.now();clear();throwTo(index,throwKindForHold(held));e.preventDefault()};b.onpointercancel=e=>{if(press?.id===e.pointerId){lastRelease=performance.now();replay.event('receiver-cancel',{target:index});clear()}};b.onlostpointercapture=e=>{if(press?.id===e.pointerId)clear()};b.onclick=()=>{if(performance.now()-lastRelease>700)throwTo(index,'bullet')};$('targetLayer').appendChild(b)})
  }
  let lastSkillButtonState=null;
  function updateSkillButtons(){const ready=phase==='run'&&simTime>=jukeReady,state=phase==='run'?(ready?'ready':'cooldown'):'idle';if(state===lastSkillButtonState)return;lastSkillButtonState=state;document.querySelectorAll('#skillPad button').forEach(button=>{button.classList.toggle('cooldown',phase==='run'&&!ready);button.classList.toggle('ready',ready);button.setAttribute('aria-disabled',String(!ready))})}
@@ -997,6 +997,8 @@ function coverage(dt){
    const projected=receiverIndices.map(i=>{const p=actors[i],head=meshy.handTransforms?.get(i)?.head;const point=head?[...mul(meshy.modelFor(p),head)].slice(12,15):[p.x,2.1,p.z];return{id:i,...r.project(point)}});
    const markers=layoutReceiverMarkers(projected,r.width,r.height,{left:header.left+22,right:header.right-22,top:header.bottom+28,bottom:r.height-140});
    markers.forEach((q,n)=>{const p=actors[q.id],button=$('target-'+q.id);if(!button)return;
+    // Keep the pressed target under the finger even when its route crosses an edge.
+    if(button.dataset.pressed)return;
     button.hidden=!q.visible;if(!q.visible)return;
     button.style.left=q.x+'px';button.style.top=q.y+'px';button.dataset.edge=q.edge||'';
     const dx=projected[n].x-q.x,dy=projected[n].y-q.y,tether=button.firstElementChild;
@@ -1061,11 +1063,16 @@ function coverage(dt){
   $('playArt').onclick=togglePlayArt;
   document.addEventListener('pointerdown',e=>{if(prePanel&&!e.target?.closest?.('#pre'))closePrePanel()});
   let playerTap=null;
-  $('game').addEventListener('pointerdown',e=>{if(!liveUnit?.state||paused)return;playerTap={id:e.pointerId,x:e.clientX,y:e.clientY};});
+  $('game').addEventListener('pointerdown',e=>{if(paused||(!liveUnit?.state&&(phase!=='pass'||pendingThrow)))return;playerTap={id:e.pointerId,x:e.clientX,y:e.clientY};});
   $('game').addEventListener('pointercancel',()=>{playerTap=null;});
   $('game').addEventListener('pointerup',e=>{
-   const tap=playerTap;playerTap=null;if(!tap||tap.id!==e.pointerId||paused||!liveUnit?.state||Math.hypot(tap.x-e.clientX,tap.y-e.clientY)>12)return;
+   const tap=playerTap;playerTap=null;if(!tap||tap.id!==e.pointerId||paused||Math.hypot(tap.x-e.clientX,tap.y-e.clientY)>12)return;
    const rect=$('game').getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;
+   if(!liveUnit?.state){
+    if(phase!=='pass'||pendingThrow)return;
+    const receivers=receiverIndices.map(index=>{const p=actors[index],head=r.project([p.x,2.1,p.z]),foot=r.project([p.x,0,p.z]);return{index,head,foot,cx:(head.x+foot.x)/2};}).filter(h=>h.head.visible&&h.foot.visible&&Math.abs(x-h.cx)<=26&&y>=Math.min(h.head.y,h.foot.y)-12&&y<=Math.max(h.head.y,h.foot.y)+12).sort((a,b)=>Math.hypot(x-a.cx,y-(a.head.y+a.foot.y)/2)-Math.hypot(x-b.cx,y-(b.head.y+b.foot.y)/2));
+    if(receivers[0])throwTo(receivers[0].index,'bullet');return;
+   }
    const hits=actors.filter(p=>liveUnit.canSelect(p.index)).map(p=>{const head=r.project([p.x,2.1,p.z]),foot=r.project([p.x,0,p.z]);const cx=(head.x+foot.x)/2,cy=(head.y+foot.y)/2;return {p,head,foot,cx,cy,radius:Math.max(22,Math.abs(foot.y-head.y)/2+8)};}).filter(h=>h.head.visible&&h.foot.visible&&Math.abs(x-h.cx)<=Math.max(22,h.radius*.55)&&Math.abs(y-h.cy)<=h.radius).sort((a,b)=>Math.hypot(x-a.cx,y-a.cy)-Math.hypot(x-b.cx,y-b.cy));
    if(hits[0]){liveUnit.selectPlayer(hits[0].p.index);navigator.vibrate?.(7);}
   });
