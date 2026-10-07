@@ -1,18 +1,18 @@
 import {snapExchange} from './snap-motion.js?v=motion-contact-55';
 import {syncGameViewport} from './game-viewport.js?v=viewport-sync-54';
-import {contactFallProgress,updateContactTarget,handoffRunnerPoint,handoffDuration,handoffBall} from './contact-motion.js?v=full-game-review-56';
-import {referenceCameraTravel,referencePocketFrame,referenceCarryFrame} from './reference-camera.js?v=full-game-review-56';
+import {contactFallProgress,updateContactTarget,handoffRunnerPoint,handoffDuration,handoffBall} from './contact-motion.js?v=contact-possession-57';
+import {referenceCameraTravel,referencePocketFrame,referenceCarryFrame} from './reference-camera.js?v=contact-possession-57';
 import {routePoint,pursuitRead,passSetPoint,contactImpact,pocketSpeedFactor,renderDue} from './football-flow.js?v=complete-flow-46';
 import {safeFieldCamera} from './field-awareness.js?v=contact-camera-11';
-import {createLiveUnits} from './live-units.js?v=full-game-review-56';
-import {fullInitialDrive,fullSession,fullLog,fullRecord,fullOffenseEnd,fullContinue,fullCpuPlay,fullKick,fullCpuResult,fullConversion,fullKickoffResult,fullCpuKickChoice,fullPuntResult} from './five-minute.js?v=full-game-review-56';
+import {createLiveUnits} from './live-units.js?v=contact-possession-57';
+import {fullInitialDrive,fullSession,fullLog,fullRecord,fullOffenseEnd,fullContinue,fullCpuPlay,fullKick,fullCpuResult,fullConversion,fullKickoffResult,fullCpuKickChoice,fullPuntResult} from './five-minute.js?v=contact-possession-57';
 import {rosterRatings,rosterIdentity} from './mini-teams.js?v=contact-camera-11';
 import{RUNS,PASSES,FORMATIONS,FIELD_GOAL_PLAY,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=contact-camera-11';
 export{RUNS,PASSES}from'./playbook.js?v=contact-camera-11';
 import{Renderer,pose,segment,hex,mul,ry,translate,scale}from'./renderer.js?v=football-foundation-44';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js?v=reference-motion-45';
 import{createMeshyAthletes}from'./meshy-athlete.js?v=complete-flow-46';
-import{createMeshyAthletes as createReferenceAthletes}from'./reference-athlete.js?v=full-game-review-56';
+import{createMeshyAthletes as createReferenceAthletes}from'./reference-athlete.js?v=contact-possession-57';
 import{makeStadium}from'./stadium.js?v=contact-camera-11';
 import{createGameplayReplayRecorder}from'./replay.js';
 import {miniClock,miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=contact-camera-11';
@@ -50,13 +50,13 @@ export function playerRunSpeed(player,sprinting=false){return playerTopSpeed(pla
 export function carrierRunSpeed(player,sprinting=false){return player.role==='QB'?playerTopSpeed(player):playerRunSpeed(player,sprinting)*(player.role==='RB'?.92:1)}
 export function routeRunSpeed(player){return playerRunSpeed(player)*.86}
 export function defenderRunSpeed(defender){return playerTopSpeed(defender)*.98}
-export function tackleRadius(possessionSeconds,afterCatch=false){const grace=afterCatch?.18:.25;if(possessionSeconds<grace)return 0;return 1.05}
+export function tackleRadius(possessionSeconds,afterCatch=false){const grace=afterCatch?.18:.25;if(possessionSeconds<grace)return 0;return 1.22}
 /** Require real convergence before a tackle begins so parallel runners do not
  * magnetically snap into contact. Very close body contact still counts. */
 export function tackleContactEligible(defender,runner,radius){
  const dx=(runner.x||0)-(defender.x||0),dz=(runner.z||0)-(defender.z||0),distance=Math.hypot(dx,dz);
  if(!radius||distance>=radius)return false;
- if(distance<=.9)return true;
+ if(distance<=1.05)return true;
  // An arm-length chase from behind can initiate a wrap even at matched pace.
  const pace=Math.hypot(runner.vx||0,runner.vz||0),behind=pace>.5&&(dx*(runner.vx||0)+dz*(runner.vz||0))/(distance*pace)>.65;
  if(behind)return true;
@@ -716,6 +716,7 @@ function coverage(dt){
    const d=actors[defenderIndex],p=i<5?actors[rushers.length===4?[0,1,3,4][i]:i]:null,edge=Math.abs(d.startX)>3;
    d.engaged=false;d.engagedWith=null;d.blockStyle=null;
    if(d.fallen||d.liveContact){if(p)chase(p,p.startX,desiredZ,2.8,dt);return}
+   if(p&&phase==='run'&&(carrier.z>p.z+.4||Math.hypot(carrier.x-p.x,carrier.z-p.z)>8)){p.passHoldUntil=-1;p.passRecovered=true;p.engaged=false;p.engagedWith=null;chase(p,p.x,p.z,0,dt);pursue(d,carrier,defenderRunSpeed(d),dt,true);return}
    if(!p){if(elapsed<.9){chase(d,d.startX,d.startZ,.8,dt);d.heading=Math.PI}else pursue(d,carrier,5.65*ratingMultiplier(d.ratings.speed,.92,1.1),dt);return}
    if(p.passHoldUntil==null){const edge=(p.ratings.block-d.ratings.blockShed)*.035;p.passHoldUntil=clamp(1.85+edge+rand()*1.65,1.25,4.2)}const release=p.passHoldUntil+((d.passHelpUntil||0)>simTime?.22:0);
    if(elapsed<release){
@@ -742,13 +743,14 @@ function coverage(dt){
   const handled=new Set(),eligible=actors.filter(p=>p.team===0&&p!==carrier&&!p.fallen&&['RB','WR','TE'].includes(p.role));
   for(const blocker of eligible){
    const paired=Number.isInteger(blocker.engagedWith)?actors[blocker.engagedWith]:null;
+   if(paired&&paired.engagedWith===blocker.index&&phase==='run'&&(simTime-(blocker.supportHeldAt??simTime)>clamp(.75+(blocker.ratings.block-paired.ratings.blockShed)*.014,.45,1.5)||carrier.z>paired.z+1)){paired.engaged=false;paired.engagedWith=null;paired.supportShedUntil=simTime+.9;blocker.engaged=false;blocker.engagedWith=null;blocker.supportHeldAt=null;}
    if(paired&&paired.engagedWith===blocker.index&&!paired.fallen&&!paired.liveContact&&Math.hypot(paired.x-blocker.x,paired.z-blocker.z)<2.35){handled.add(paired.index);sustainSupportBlock(blocker,paired,dt);continue}
    if(paired&&paired.engagedWith===blocker.index){paired.engaged=false;paired.engagedWith=null;paired.blockStyle=null}blocker.engaged=false;blocker.engagedWith=null;blocker.blockStyle=null;
-   const candidates=actors.filter(d=>d.team===1&&!d.fallen&&!d.liveContact&&!d.engaged&&!handled.has(d.index)&&d.z>=Math.max(carrier.z-1.8,blocker.z+.95));
+   const candidates=actors.filter(d=>d.team===1&&!d.fallen&&!d.liveContact&&!d.engaged&&simTime>=(d.supportShedUntil||0)&&!handled.has(d.index)&&d.z>=Math.max(carrier.z-1.8,blocker.z+.95));
    const target=candidates.reduce((best,d)=>{const score=Math.hypot(d.x-blocker.x,d.z-blocker.z)+(d.z<carrier.z?3.5:0);return!best||score<best.score?{d,score}:best},null);
    if(!target||target.score>9.5){blocker.engaged=false;blocker.engagedWith=null;escortCarrier(blocker,dt);continue}
    const d=target.d,distance=Math.hypot(d.x-blocker.x,d.z-blocker.z);
-   if(distance<1.4){handled.add(d.index);sustainSupportBlock(blocker,d,dt)}
+   if(distance<1.4){blocker.supportHeldAt=simTime;handled.add(d.index);sustainSupportBlock(blocker,d,dt)}
    else{blocker.engaged=false;blocker.engagedWith=null;chase(blocker,d.x,d.z-.85,5.45*ratingMultiplier(blocker.ratings.acceleration,.9,1.08),dt)}
   }
   return handled;
@@ -1124,7 +1126,7 @@ function coverage(dt){
   if(goal){const team=miniConfig.matchup[goalSide];[11,12,13,14,17,18,19,20,21,15].forEach((index,j)=>{const source=team.lineup[[0,1,2,3,4,10,6,7,8,5][j]];Object.assign(actors[index],rosterIdentity(source,team,goalSide==='away'));actors[index].role=j===9?'QB':j<5?'OL':'TE';});}
   const offset=mini.cpu.ball-drive.ball;actors.forEach(p=>{p.z+=offset;p.startZ+=offset;});if(kind==='kickoff'||kind==='punt'||goal){const side=kind==='punt'?puntSide:goal?goalSide:mini.kickoff,kicking=miniConfig.matchup[side];Object.assign(actors[16],rosterIdentity(kind==='punt'?kicking.punter:kicking.kicker,kicking,side==='away'));actors[16].role='K';}
   prepareJerseys(r,actors);snapZ=10+mini.cpu.ball;snapGainZ=Math.min(110,snapZ+mini.cpu.toGo);
-  liveUnit.start(kind,{ball:goal||kind==='punt'&&puntSide==='home'?drive.ball:mini.cpu.ball,down:mini.cpu.down,toGo:mini.cpu.toGo,clock:drive.clock,deficit:drive.score-mini.awayScore,kicking:kind==='punt'?puntSide:goal?goalSide:mini.kickoff});
+  liveUnit.start(kind,{ball:goal||kind==='punt'&&puntSide==='home'?drive.ball:mini.cpu.ball,down:mini.cpu.down,toGo:mini.cpu.toGo,clock:drive.clock,deficit:drive.score-mini.awayScore,overtime:mini.overtime,kicking:kind==='punt'?puntSide:goal?goalSide:mini.kickoff});
   // Establish the new facing before accepting movement; never orbit through the stands.
   const view=liveUnit.view();camEye=[...view.eye];camTarget=[...view.target];r.fov=view.fov||55;fieldCamera(camEye,camTarget);
   carrier=actors[liveUnit.state.carrier];exchange=liveUnit.state.stagedBall?{kind:'snap',ball:liveUnit.state.stagedBall}:null;updateControls();updateHud();

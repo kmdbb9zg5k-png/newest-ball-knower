@@ -1,4 +1,9 @@
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+// A trailing offense is already in its final-drive offense inside two minutes.
+export function cpuPassProbability({clock=120,deficit=0,toGo=10,overtime=0}={}){
+ if(!overtime&&clock<=120&&deficit>0)return toGo<=2&&clock>35?.65:.92;
+ return toGo>7?.76:!overtime&&clock<90&&deficit<0?.25:.43;
+}
 /** Decisions use visible player positions and closing speed, never the user's input. */
 export function cpuRead(actors,{snapZ,elapsed,toGo,level='pro',clock=120,deficit=0}){
  const qb=actors[5],defenders=actors.slice(11).filter(p=>!p.fallen),awareness=qb.ratings.awareness||75;
@@ -22,11 +27,11 @@ export function cpuRead(actors,{snapZ,elapsed,toGo,level='pro',clock=120,deficit
 export function cpuFourthDown({ball,down,toGo,clock,deficit,overtime=0,otPossessions=0,kicker=80,opponentTimeouts=3}){
  const distance=117-ball,range=clamp(49+(kicker-70)*.35,47,60),make=clamp(.96-Math.max(0,distance-30)*.019+(kicker-80)*.005,.08,.99);
  const lastTry=overtime&&otPossessions===1;
- const needTD=(lastTry&&deficit>3)||(!overtime&&clock<65&&deficit>3);
+ const needTD=(lastTry&&deficit>3)||(!overtime&&clock<=120&&deficit>3);
  if(!overtime&&clock<=8&&deficit>=0&&deficit<=3&&distance<=range)return 'field-goal';
  if(down!==4)return null;
  if(needTD||lastTry&&deficit>0&&distance>range)return 'go';
- if(!overtime&&clock<65&&deficit>0){if(deficit<=3&&distance<=range)return 'field-goal';return 'go';}
+ if(!overtime&&clock<=120&&deficit>0){if(deficit<=3&&distance<=range)return 'field-goal';return 'go';}
  // A first down can finish a late lead; avoid surrendering a short field early.
  if(!overtime&&deficit<0&&clock<90&&opponentTimeouts===0&&toGo<=2&&ball>=40)return 'go';
  if(lastTry&&deficit<=0&&distance<=range)return 'field-goal';

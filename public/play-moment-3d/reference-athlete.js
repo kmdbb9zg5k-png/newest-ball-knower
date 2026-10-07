@@ -1,5 +1,5 @@
 // Full-game reference body with skinned team materials and distance-matched motion.
-import {contactFallProgress,contactFacing,contactBodyPose} from './contact-motion.js?v=full-game-review-56';
+import {contactFallProgress,contactFacing,contactBodyPose,contactFinishPose} from './contact-motion.js?v=contact-possession-57';
 import {refineAthleteSurface} from './athlete-surface.js?v=sentinel-materials-34';
 import {referenceGarmentRegions,referenceRunPhase} from './reference-appearance.js?v=coherent-players-50';
 import {jerseyIdentityKey} from './jersey-identity.js?v=teams-1';
@@ -365,18 +365,18 @@ export class MeshyAthletes{
  }
  contactPose(locals,p){
   const t=p.actionT||0,fall=contactFallProgress(p),load=smooth(t/.22),tackler=p.contactRole==='tackler',side=p.actionSide||1;
-  const drag=p.contactVariant==='drag-down',hips=this.joints[0];
+  const finish=contactFinishPose(p),hips=this.joints[0];
   // Lower and rotate the pelvis inside the skeleton. Feet and knees have
   // their own targets, so contact cannot tip a rigid standing pose over.
-  locals[hips].t[1]=this.base[hips].t[1]-(tackler?.20:.07)*load-(tackler?.48:.68)*fall;
-  locals[hips].r=quatMul(axisQuat(0,0,1,side*(tackler?-.32:.46)*fall),quatMul(axisQuat(1,0,0,(tackler?1.18:1.32)*fall),this.base[hips].r));
+  locals[hips].t[1]=this.base[hips].t[1]-finish.load*load-finish.drop*fall;
+  locals[hips].r=quatMul(axisQuat(0,0,1,finish.roll*fall),quatMul(axisQuat(1,0,0,finish.pitch*fall),this.base[hips].r));
   this.rotate(locals,'mixamorig:Spine',1,0,0,(tackler?.30:.16)*load*(1-fall));
   this.rotate(locals,'mixamorig:Spine2',0,0,1,side*.12*Math.sin(t*Math.PI));
   this.rotate(locals,'mixamorig:Head',1,0,0,-.12*fall);
   for(const name of ['Left','Right']){
    const sign=name==='Left'?1:-1,hipName=name+'UpLeg',kneeName=name+'Leg',footName=name+'Foot';
    const hip=pointFromMatrix(this.worldPose(locals,this.namedNodes['mixamorig:'+hipName]));
-   const target=[sign*(.19+.08*fall),.075+(sign===side?.04*fall:0),sign*.12-(tackler?.62:drag?.64:.52)*fall];
+   const target=[sign*(.19+.08*fall),.075+(sign===side?.04*fall:0),sign*.12-finish.footBack*fall];
    const l1=Math.hypot(...locals[this.namedNodes['mixamorig:'+kneeName]].t),l2=Math.hypot(...locals[this.namedNodes['mixamorig:'+footName]].t),delta=target.map((v,i)=>v-hip[i]),length=Math.hypot(...delta)||1,axis=delta.map(v=>v/length),d=clamp(length,.05,l1+l2-.001),along=(l1*l1-l2*l2+d*d)/(2*d),height=Math.sqrt(Math.max(0,l1*l1-along*along));
    const pole=[sign*.15,0,1],dot=pole.reduce((n,v,i)=>n+v*axis[i],0),bend=pole.map((v,i)=>v-axis[i]*dot),bl=Math.hypot(...bend)||1,knee=hip.map((v,i)=>v+axis[i]*along+bend[i]/bl*height);
    this.aimJoint(locals,hipName,kneeName,knee);this.aimJoint(locals,kneeName,footName,target);
@@ -640,7 +640,7 @@ export class MeshyAthletes{
   }
   for(const p of actors.filter(p=>p.contactRole==='tackler')){
    const runner=actors.find(a=>a.index===p.contactWith),chest=runner&&this.handTransforms.get(runner.index)?.chest;
-   p.contactHands=chest?[-1,1].map(side=>pointFromMatrix(mul(this.modelFor(runner),chest),[side*.24,-.16,.04])):null;
+   p.contactHands=chest?[-1,1].map(side=>pointFromMatrix(mul(this.modelFor(runner),chest),[side*.24,p.contactVariant==='low-wrap'?-.43:-.16,.04])):null;
    this.frameBones.set(p.index,this.bonesFor(p,phase,time));
   }
   // Pose, ground support, ball and labels must use this frame even when the

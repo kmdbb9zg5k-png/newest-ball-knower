@@ -1,4 +1,4 @@
-import {cpuFourthDown} from './cpu-offense.js?v=contact-camera-11';
+import {cpuFourthDown,cpuPassProbability} from './cpu-offense.js?v=contact-possession-57';
 /** Five-minute arcade rules. Pure state transitions; no timers or DOM. */
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 export const fullInitialDrive = (mode = 'five-minute') => ({ ball: 25, down: 1, toGo: 10, clock: mode === 'two-minute' ? 120 : 300, score: mode === 'two-minute' ? 23 : 0, plays: 0 });
@@ -122,10 +122,10 @@ export function fullCpuPlay(s, d, config, random = Math.random) {
   if (fullExpired(s, d)) return true;
   const c = s.cpu, team = config.matchup.away, home = config.matchup.home;
   const deficit = d.score - s.awayScore;
-  const desperation = !s.overtime && d.clock < 60 && deficit > 0;
+  const desperation = !s.overtime && d.clock <= 120 && deficit > 0;
   const kick=fullCpuKickChoice(s,d,team.kicker.overall);
   if(kick)return fullKick(s,d,'away',kick,team,random);
-  const pass = random() < (desperation ? .85 : c.toGo > 7 ? .76 : !s.overtime&&d.clock<90&&deficit<0 ? .25 : .43);
+  const pass = random() < cpuPassProbability({clock:d.clock,deficit,toGo:c.toGo,overtime:s.overtime});
   const edge = clamp((team.offense - home.defense + (config.level.id === 'rookie' ? -7 : config.level.id === 'all-pro' ? 5 : 0)) / 100, -.2, .2);
   const roll = random(), quarterback = team.lineup[5];
   const runner = team.lineup[pass ? 7 + Math.floor(random() * 4) : 6];
