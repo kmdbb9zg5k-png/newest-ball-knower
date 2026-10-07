@@ -125,3 +125,8 @@ When the task is an audit/review, report findings first with severity and affect
 
 ## Product direction
 Ball Knower should feel polished, cinematic, football-focused, and simple to use. Preserve existing working functionality while improving reliability. Avoid unnecessary rewrites or generic template styling.
+
+## Full-game motion changes
+For two-minute/five-minute gameplay changes, use `scripts/play-game-review.mjs` to play and record normal-control sequences as you work. Review the complete snap, exchange, contact, landing and next-play transition; a final screenshot or geometry assertion alone is insufficient. Use `realtime` to exercise the real requestAnimationFrame loop as well as deterministic `record` sequences. Report software-renderer limits honestly; do not certify physical iPhone FPS from emulation.
+
+Run the focused normal-control, reference-rig and presentation-clock regressions when changing their paths. Test the actual `reference-helmeted-athlete-v1.glb` rig for full games. Preserve helmets, the approved running cycle and Combine. Do not ask the owner for routine recordings when the issue can be reproduced in the review harness.
