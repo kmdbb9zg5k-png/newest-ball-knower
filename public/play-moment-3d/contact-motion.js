@@ -8,8 +8,8 @@ export function contactFallProgress(p){
  if(!/tackle|hit|gang|wrap|slide|dive|pancake/.test(p.action||''))return 1;
  // The defender establishes a low wrap before the runner loses his base.
  // Separate timing keeps contact from reading as two identical forward falls.
- const start=p.action==='big-hit'?(p.contactRole==='tackler'?.32:.19):p.action==='dive'?.18:p.contactRole==='tackler'?.48:.34;
- return smooth(((p.actionT||0)-start)/(.94-start));
+ const start=p.action==='big-hit'?(p.contactRole==='tackler'?.22:.30):p.action==='dive'?(p.contactRole==='tackler'?.12:.30):p.contactRole==='tackler'?.34:.42;
+ return smooth(((p.actionT||0)-start)/(.92-start));
 }
 export function contactBodyPose(p){
  if(!p.fallen)return{pitch:0,roll:0,kneel:0};
@@ -25,13 +25,13 @@ export function contactBodyPose(p){
 export function contactFinishPose(p){
  const tackler=p.contactRole==='tackler',variant=p.contactVariant||p.action,side=p.actionSide||1;
  const profiles={
-  wrap:[1.28,1.32,.35,.70,.52,.68],
-  'drag-down':[1.16,1.02,.45,1.12,.54,.66],
+  wrap:[1.25,1.10,.65,1.18,.57,.72],
+  'drag-down':[1.10,.92,.75,1.38,.59,.73],
   'low-wrap':[1.40,1.25,.30,.80,.58,.66],
   'shoulder-hit':[1.24,.75,.50,1.40,.52,.66],
   'big-hit':[1.24,.75,.50,1.40,.52,.66],
   gang:[1.24,1.10,.55,1.10,.54,.66],
-  dive:[1.42,1.18,.15,.40,.58,.66]
+  dive:[1.42,1.50,.30,.70,.58,.74]
  };
  const v=profiles[variant]||profiles.wrap;
  return {pitch:v[tackler?0:1],roll:side*v[tackler?2:3]*(tackler?-1:1),drop:v[tackler?4:5],load:tackler?(variant==='low-wrap'?.34:.20):.09,footBack:tackler?.62:variant==='drag-down'?.68:.48};
@@ -39,10 +39,11 @@ export function contactFinishPose(p){
 export function contactFacing(p){
  if(p.contactRole==='tackler'&&p.contactTarget&&p.fallen){
   const target=p.contactHands?p.contactHands[0].map((v,i)=>(v+p.contactHands[1][i])*.5):p.contactTarget;
-  // Keep the chest facing the runner throughout the wrap. Turning to face
-  // downfield too early put both arms behind the defender's shoulders.
+  // Face the runner while establishing the wrap, then align with the impact.
+  // Chasing a moving hand target after landing made the grounded body rotate.
   const facing=Math.atan2(target[0]-p.x,target[2]-p.z),start=p.contactStartHeading??p.heading??facing;
-  return start+Math.atan2(Math.sin(facing-start),Math.cos(facing-start))*smooth((p.actionT||0)/.18);
+  const wrap=start+Math.atan2(Math.sin(facing-start),Math.cos(facing-start))*smooth((p.actionT||0)/.18),finish=Number.isFinite(p.fallHeading)?p.fallHeading:wrap;
+  return wrap+Math.atan2(Math.sin(finish-wrap),Math.cos(finish-wrap))*smooth(((p.actionT||0)-.42)/.40);
  }
  const end=Number.isFinite(p.fallHeading)?p.fallHeading:p.heading||0;
  if(!p.fallen||!Number.isFinite(p.contactStartHeading))return p.fallen?end:p.heading||0;
