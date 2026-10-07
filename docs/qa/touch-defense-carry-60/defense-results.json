@@ -1,0 +1,19 @@
+{
+  "report": [
+    {
+      "mode": "two-minute",
+      "chosen": "43-blitz",
+      "countdownHeld": true,
+      "snap": "automatic",
+      "layouts": 3
+    },
+    {
+      "mode": "five-minute",
+      "chosen": "43-blitz",
+      "countdownHeld": true,
+      "snap": "ready",
+      "layouts": 3
+    }
+  ],
+  "errors": []
+}

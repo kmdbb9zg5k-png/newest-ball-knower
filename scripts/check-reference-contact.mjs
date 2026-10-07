@@ -12,6 +12,7 @@ for(const variant of ['wrap','drag-down','low-wrap','shoulder-hit','dive','gang'
  if(['wrap','drag-down','dive'].includes(variant))assert(head[1]<.45,variant+' must not be lifted by a buried elbow: '+head[1]);
  for(const k of ['left','right'])assert(world(k)[1]>=.025,'Carrying hand below turf');
  const anchor=rig.ballAnchor(p,'dead');assert(anchor.center.every(Number.isFinite));assert(Math.hypot(...anchor.center.map((v,i)=>v-chest[i]))<.5,'Ball must stay at the ribs');
+ assert(Math.min(anchor.a[1],anchor.b[1])-.105>.02,'Carried ball must stay above the turf');
  const tackler={...p,index:16,team:1,role:'LB',hasBall:false,x:.60*side,z:-.12,contactRole:'tackler',contactWith:6,contactTarget:[0,.3,0],actionSide:-side};rig.queueShadows([p,tackler],'dead',1.1);
  const th=rig.handTransforms.get(16),tm=rig.modelFor(tackler),wrapGap=Math.max(...['left','right'].map(k=>{const hand=[...mul(tm,th[k])].slice(12,15);return Math.min(...tackler.contactHands.map(target=>Math.hypot(...target.map((v,i)=>v-hand[i]))));}));
  assert(wrapGap<.42,'Wrap must remain within reach of the ribs: '+variant+' '+wrapGap);
@@ -29,3 +30,26 @@ for(let frame=0;frame<30;frame++){
 }
 assert(maxHandGap<.3,'Block hands must stay on opposing pads: '+maxHandGap);
 console.log(JSON.stringify({status:'PASS',asset:'reference-helmeted-athlete-v1.glb',cases:report,maxBlockHandGap:maxHandGap},null,2));
+
+// Carry grip stays outside the forearm with the forward tip covered by the hand.
+let carrySamples=0,minClearance=Infinity;
+for(const index of [6,7])for(const phase of ['run','dead'])for(const heading of [0,1.7,3.1]){
+ const p={index,team:0,role:'RB',hasBall:true,x:0,z:35,heading,vx:0,vz:7,distance:0};
+ for(let frame=0;frame<30;frame++){p.distance+=7/60;rig.queueShadows([p],phase,frame/60+10);const anchor=rig.ballAnchor(p,phase),h=rig.handTransforms.get(index),m=rig.modelFor(p),right=(index%2)===1,hand=[...mul(m,right?h.right:h.left)].slice(12,15),elbow=[...mul(m,right?h.rightForearm:h.leftForearm)].slice(12,15),axis=hand.map((v,i)=>v-elbow[i]),length=Math.hypot(...axis),v=anchor.center.map((v,i)=>v-elbow[i]),dot=v.reduce((n,x,i)=>n+x*axis[i]/length,0),gap=Math.hypot(...v.map((x,i)=>x-dot*axis[i]/length));minClearance=Math.min(minClearance,gap);assert(gap>.14,'Ball center must be outside the forearm surface');assert(Math.hypot(...anchor.b.map((v,i)=>v-hand[i]))<.17,'Palm must cover forward tip');carrySamples++;}
+}
+console.log(JSON.stringify({carrySamples,minClearance}));
+
+// Verify the visible skinned hand, not only the wrist bone: source hand rotations
+// can leave the fingers below a numerically correct ball anchor.
+const primitive=json.meshes[0].primitives[0],positions=accessor(primitive.attributes.POSITION),jointIndices=accessor(primitive.attributes.JOINTS_0),weightAccessor=json.accessors[primitive.attributes.WEIGHTS_0],rawWeights=accessor(primitive.attributes.WEIGHTS_0),weights=Float32Array.from(rawWeights,v=>weightAccessor.normalized?v/({5121:255,5123:65535}[weightAccessor.componentType]||1):v);
+let maxGripGap=0;
+for(const index of [6,7])for(const heading of [0,1.7,3.1]){
+ const p={index,team:0,role:'RB',hasBall:true,x:0,z:35,heading,vx:0,vz:7,distance:3};rig.queueShadows([p],'run',30);const m=rig.modelFor(p),bones=rig.frameBones.get(index),handJoint=rig.joints.indexOf(rig.namedNodes['mixamorig:'+(index%2?'Right':'Left')+'Hand']),points=[];
+ for(let i=0;i<positions.length/3;i++){
+  if(![0,1,2,3].some(k=>jointIndices[i*4+k]===handJoint&&weights[i*4+k]>.5))continue;
+  const v=[0,0,0];for(let k=0;k<4;k++){const offset=jointIndices[i*4+k]*16,w=weights[i*4+k];for(let c=0;c<3;c++)v[c]+=w*(bones[offset+c]*positions[i*3]+bones[offset+c+4]*positions[i*3+1]+bones[offset+c+8]*positions[i*3+2]+bones[offset+c+12]);}
+  points.push([0,1,2].map(c=>m[c]*v[0]+m[c+4]*v[1]+m[c+8]*v[2]+m[c+12]));
+ }
+ assert(points.length>100,'Inspect the actual hand mesh');const center=[0,1,2].map(c=>points.reduce((n,p)=>n+p[c],0)/points.length),tip=rig.ballAnchor(p,'run').b,gap=Math.hypot(...tip.map((v,i)=>v-center[i]));maxGripGap=Math.max(maxGripGap,gap);assert(gap<.18,'Visible fingers must reach the ball tip: '+gap);
+}
+console.log(JSON.stringify({skinGripCases:6,maxGripGap}));

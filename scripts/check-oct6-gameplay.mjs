@@ -42,6 +42,7 @@ try{
   const page=await browser.newPage({viewport:{width:1108,height:512},isMobile:true,hasTouch:true});page.setDefaultTimeout(90000);page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:'+server.address().port+'/play-moment-3d-preview.html?qa=1&mode='+mode+'&team=SAC&opponent=OMA');await page.waitForFunction(()=>window.bk3dTest);await page.evaluate(()=>window.bk3dTest.manualFrames());await page.waitForFunction(()=>window.bk3dDiagnostics().athletes.ready);
   await page.evaluate(()=>window.oct6.start(false));await page.locator('#unitConfirm').count().then(async n=>{if(n)await page.locator('#unitConfirm').dispatchEvent('click');else await page.getByRole('button',{name:'CALL DEFENSE',exact:false}).dispatchEvent('click');});
+  await page.locator('#defenseReady').click();
   const run=await page.evaluate(()=>{const frames=[];for(let i=0;i<125;i++)frames.push(window.oct6.tick());return frames;});
   assert(run.some(f=>f.stage==='handoff'));const carrying=run.filter(f=>f.stage==='run');assert(carrying.length>2);assert(carrying.every(f=>f.carrier===6&&f.players.filter(p=>p.hasBall).length===1&&f.players[6].hasBall));
   assert(Math.hypot(carrying.at(-1).players[5].x-carrying[0].players[5].x,carrying.at(-1).players[5].z-carrying[0].players[5].z)<.2,'Released QB must stay out of the tackle scrum');

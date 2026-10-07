@@ -29,7 +29,7 @@ try{
   if(['run','scramble','pass'].includes(kind)){
    const pre=await page.evaluate(()=>window.possessionReview.sample());assert(pre.height>65,'Quarterback must be readable before snap');
    await page.locator('#snap').dispatchEvent('pointerdown',{pointerType:'touch',pointerId:1});
-  }else if(kind==='defense')await page.locator('#unitCallDefense').click();
+  }else if(kind==='defense'){await page.locator('#unitCallDefense').click();await page.locator('#defenseReady').click();}
   else if(kind==='coverage'||kind==='field-goal'){
    // Kicking power is chosen through the actual meter and touch button.
    await page.locator('#unitKickButton').click();for(let i=0;i<Math.round(.9*fps);i++)await page.evaluate(()=>window.possessionReview.frame());await page.locator('#unitKickButton').click();

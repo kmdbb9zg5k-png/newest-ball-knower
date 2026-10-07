@@ -15,11 +15,12 @@
 @media(max-height:380px){.mode{flex-direction:row}.mode button{min-height:44px}.icon{width:44px;height:44px}}
 @media(max-width:740px){.icon{width:44px;height:44px}.mode button{width:44px;min-height:44px}}
 /* Smaller visible badges, unchanged finger-sized hit areas, clear helmet tethers. */
-.target{width:44px;min-width:44px;height:44px;padding:0;border:0;background:transparent;box-shadow:none;display:grid;place-items:center;isolation:isolate}
+.target{width:56px;min-width:56px;height:56px;touch-action:none;-webkit-user-select:none;user-select:none;padding:0;border:0;background:transparent;box-shadow:none;display:grid;place-items:center;isolation:isolate}
 .target.open{background:transparent}
-.target-label{display:grid;place-items:center;width:30px;height:30px;border:1px solid #f5da8f;border-radius:50%;background:#0a1626ed;box-shadow:0 2px 5px #0007;color:#f9d984;font-size:11px;line-height:1;font-weight:900;pointer-events:none;z-index:1}
+.target.pressed .target-label{background:#e6cf80;color:#15212b;box-shadow:0 0 0 4px #e6cf8044}
+.target-label{display:grid;place-items:center;width:34px;height:34px;border:1px solid #f5da8f;border-radius:50%;background:#0a1626ed;box-shadow:0 2px 5px #0007;color:#f9d984;font-size:11px;line-height:1;font-weight:900;pointer-events:none;z-index:1}
 .target.open .target-label{border-color:#b7efbd;color:#cdf5d3;background:#163c2ded}
-.target-tether{position:absolute;left:21.5px;top:22px;width:1px;background:currentColor;opacity:.5;transform-origin:50% 0;pointer-events:none;z-index:0}
+.target-tether{position:absolute;left:27.5px;top:28px;width:1px;background:currentColor;opacity:.5;transform-origin:50% 0;pointer-events:none;z-index:0}
 .target[data-edge]:not([data-edge=""]) .target-label::after{position:absolute;color:#fff;font-size:13px}
 .target[data-edge="left"] .target-label::after{content:"‹";left:0}
 .target[data-edge="right"] .target-label::after{content:"›";right:0}
@@ -29,7 +30,7 @@
 #live[data-phase="snap"] #moves,#live[data-phase="snap"] #stamina{display:none}
 #live[data-phase="snap"] #stick{opacity:1!important;pointer-events:auto!important}
 </style>
-<link rel="stylesheet" href="/play-moment-3d/mini-games.css?v=contact-camera-11">
+<link rel="stylesheet" href="/play-moment-3d/mini-games.css?v=touch-defense-carry-60">
 </head>
 <body>
 <canvas id="game" aria-label="Three-dimensional football practice field"></canvas>
@@ -74,7 +75,7 @@
 <div id="paused" class="dialog" hidden><div><span class="eyebrow">BALL KNOWER · PRACTICE</span><h1 id="dialogTitle">PAUSED</h1><p id="dialogBody">This preview never changes your career saves or season record.</p><button id="resume">RESUME</button><div class="running-setting"><button id="control" class="secondary" aria-pressed="true" aria-describedby="controlHelp">RUNNING: AUTOMATIC</button><small id="controlHelp">Ball carriers run automatically. You still move the quarterback in the pocket.</small></div><button id="watchReplay" class="secondary" hidden>WATCH LAST PLAY</button><button id="restart" class="secondary">RESTART DRIVE</button><div class="gameplay-report"><textarea id="reportNote" maxlength="500" aria-label="Optional gameplay report note" placeholder="Optional: what felt wrong?"></textarea><button id="sendReport" class="secondary">SEND GAMEPLAY REPORT</button><div id="reportReceipt" class="report-receipt" role="status" hidden><b>REPORT SENT ✓</b><code id="reportCode"></code><button id="copyReportCode" type="button">COPY REPORT CODE</button><small>Codex can now locate this report automatically.</small></div><small id="reportStatus">Sends gameplay inputs and player positions only. No screen, audio, camera, location, or account data.</small></div><a href="/">Return to Ball Knower</a></div></div>
 <div id="rotate"><div><b>TURN THE FIELD SIDEWAYS</b><p>Rotate your phone for the 3D practice preview.</p><a href="/">Back to Ball Knower</a></div></div>
 <script type="module">
-try { const {start}=await import('/play-moment-3d/game.js?v=contact-blocking-59'); start(); }
+try { const {start}=await import('/play-moment-3d/game.js?v=touch-defense-carry-60'); start(); }
 catch(error){document.getElementById('loading').hidden=true;document.getElementById('error').hidden=false;document.getElementById('errorText').textContent='The 3D preview could not start. Your saved career is unchanged.';console.error(error);}
 </script>
 </body>

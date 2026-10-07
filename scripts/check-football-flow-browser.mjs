@@ -26,7 +26,7 @@ try{
  const visibleAction=async(label)=>{const d=await state();const u=d.unit;const pts=await page.evaluate(()=>{const u=window.bkMiniScenario.unit().state,a=window.bkMiniScenario.actors();return [a[u.controlled],a[u.carrier]].flatMap(p=>[[p.x,0,p.z],[p.x,2.2,p.z]]).map(p=>window.bkMiniScenario.project(p));});assert(pts.every(p=>p.visible&&p.x>8&&p.x<844-8&&p.y>65&&p.y<380),label+' '+JSON.stringify(pts));};
  // Exercise the real block solver after the usual early-snap window.
  const late=await page.evaluate(()=>window.bkMiniScenario.lateBlock());assert(late.engaged&&late.age===0,'Late-arriving block expires before contact');
- await start('defense');await click('unitCallDefense');
+ await start('defense');await click('unitCallDefense');await click('defenseReady');
  await page.evaluate(()=>{const u=window.bkMiniScenario.unit().state,a=window.bkMiniScenario.actors();u.stage='pass';u.snapTime=u.time-.8;u.target=8;u.windup=u.time||.01;u.quickRelease=true;u.controlled=21;for(const p of a.slice(11)){p.x=25;p.z=95;p.fallen=true;}a[8].x=4;a[8].z=55;a[5].hasBall=true;});
  let release=false,lastProgress=0,followFrames=0;
  for(let i=0;i<35;i++){
@@ -39,7 +39,7 @@ try{
  assert(release&&followFrames>5,'CPU release and follow-through not exercised');
  await page.screenshot({path:out+'/complete-flow-cpu-throw.png'});
  // Receiver reaches before ownership, then catches without teleporting.
- await start('defense');await click('unitCallDefense');
+ await start('defense');await click('unitCallDefense');await click('defenseReady');
  await page.evaluate(()=>{const u=window.bkMiniScenario.unit().state,a=window.bkMiniScenario.actors();for(const p of a.slice(11)){p.x=-25;p.z=90;p.fallen=true;}Object.assign(a[8],{x:4,z:50,vx:0,vz:0,hasBall:false});a[5].ratings.throw=99;u.stage='flight';u.snapTime=u.time;u.windup=u.time-.3;u.target=8;u.carrier=5;u.controlled=21;u.throwAway=false;u.releaseAt=u.time;u.flight={from:[0,1.5,40],to:[4,1.6,50],t:.9,duration:1,arc:1,target:8};window.bk3dTest.seed(1);});
  await step(1/60);
  const reach=await page.evaluate(()=>{const p=window.bkMiniScenario.actors()[8];return{receiving:p.receiving,hasBall:p.hasBall,target:p.ballTarget}});assert(reach.receiving&&!reach.hasBall&&reach.target,'Receiver should track/reach before possession');

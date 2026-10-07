@@ -1,0 +1,22 @@
+{
+  "status": "PASS",
+  "report": [
+    {
+      "scenario": "scramble",
+      "before": 1.9799999999999978,
+      "after": 2.0799999999999974,
+      "phase": "run"
+    },
+    {
+      "scenario": "short-pass",
+      "flightFrames": 18,
+      "chosen": true
+    },
+    {
+      "scenario": "punt-to-defense",
+      "stage": "pass",
+      "ball": 36
+    }
+  ],
+  "errors": []
+}
