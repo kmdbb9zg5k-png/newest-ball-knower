@@ -1,0 +1,108 @@
+{
+  "status": "PASS",
+  "asset": "reference-helmeted-athlete-v1.glb",
+  "cases": [
+    {
+      "variant": "wrap",
+      "side": -1,
+      "chest": 0.3112866282463074,
+      "head": 0.35491880774497986,
+      "wrapGap": 0.04450985938312201
+    },
+    {
+      "variant": "wrap",
+      "side": 1,
+      "chest": 0.3139145076274872,
+      "head": 0.3614155650138855,
+      "wrapGap": 0.0069965648742601645
+    },
+    {
+      "variant": "drag-down",
+      "side": -1,
+      "chest": 0.28315749764442444,
+      "head": 0.3079151213169098,
+      "wrapGap": 0.030458103220770038
+    },
+    {
+      "variant": "drag-down",
+      "side": 1,
+      "chest": 0.2857125699520111,
+      "head": 0.3145786225795746,
+      "wrapGap": 0.01094966200885145
+    },
+    {
+      "variant": "low-wrap",
+      "side": -1,
+      "chest": 0.36178842186927795,
+      "head": 0.42891332507133484,
+      "wrapGap": 0.13211474390988598
+    },
+    {
+      "variant": "low-wrap",
+      "side": 1,
+      "chest": 0.3649393618106842,
+      "head": 0.43506601452827454,
+      "wrapGap": 0.06786951585821634
+    },
+    {
+      "variant": "shoulder-hit",
+      "side": -1,
+      "chest": 0.32433557510375977,
+      "head": 0.34908613562583923,
+      "wrapGap": 0.19218747749703338
+    },
+    {
+      "variant": "shoulder-hit",
+      "side": 1,
+      "chest": 0.3268156945705414,
+      "head": 0.35568973422050476,
+      "wrapGap": 0.13538407997486976
+    },
+    {
+      "variant": "dive",
+      "side": -1,
+      "chest": 0.23486429452896118,
+      "head": 0.2783670127391815,
+      "wrapGap": 0.01810739316380112
+    },
+    {
+      "variant": "dive",
+      "side": 1,
+      "chest": 0.23670703172683716,
+      "head": 0.2829053997993469,
+      "wrapGap": 0.0006206586960725778
+    },
+    {
+      "variant": "gang",
+      "side": -1,
+      "chest": 0.36071309447288513,
+      "head": 0.4131081700325012,
+      "wrapGap": 0.027196783802184238
+    },
+    {
+      "variant": "gang",
+      "side": 1,
+      "chest": 0.3629305362701416,
+      "head": 0.4190547466278076,
+      "wrapGap": 0.011713103056742351
+    },
+    {
+      "variant": "big-hit",
+      "side": -1,
+      "chest": 0.32433557510375977,
+      "head": 0.34908613562583923,
+      "wrapGap": 0.14798337749614165
+    },
+    {
+      "variant": "big-hit",
+      "side": 1,
+      "chest": 0.3268156945705414,
+      "head": 0.35568973422050476,
+      "wrapGap": 0.13538407997486976
+    }
+  ],
+  "maxBlockHandGap": 0.0000019159091111827646
+}
+{"carrySamples":360,"minClearance":0.14499999999999866}
+{"skinGripCases":6,"maxGripGap":0.0932209813281982}
+{"driveReport":[{"variant":"wrap","role":"carrier","travel":0.3229721384829543},{"variant":"wrap","role":"tackler","travel":0.4507749184320883},{"variant":"drag-down","role":"carrier","travel":0.3229721384829543},{"variant":"drag-down","role":"tackler","travel":0.45413005179183163},{"variant":"low-wrap","role":"carrier","travel":0.3117453647140116},{"variant":"low-wrap","role":"tackler","travel":0.3246289658160294}]}
