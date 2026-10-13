@@ -60,7 +60,7 @@ export function HomeMiniGamesFeature() {
           <a className="bk-mini-confirm-team bk-mini-launch" href="/combine.html">40-Yard Dash <span aria-hidden="true">→</span></a>
           <p>Pick a fictional athlete. Alternate your strides and record 10-, 20-, and 40-yard splits. Two attempts per session.</p>
           <a className="bk-mini-confirm-team bk-mini-launch" href="/combine.html?drill=broad-jump">Broad Jump <span aria-hidden="true">→</span></a>
-          <p>Tap to build power. Time your jump. Stick the landing. Three attempts with the same Combine athletes.</p>
+          <p>Tap to build power. Time your jump. Land in green. Two attempts with the same Combine athletes.</p>
           <ul><li><strong>Agility &amp; strength</strong><p>More Combine events are in development.</p></li><li><strong>Passing &amp; catching</strong><p>Position drills are in development.</p></li></ul>
           <button type="button" className="bk-mini-review-back" onClick={() => setScreen('modes')}>← Back to game modes</button>
         </section> : <>
