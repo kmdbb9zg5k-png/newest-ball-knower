@@ -96,22 +96,23 @@ export async function loadCombineRunner(player) {
     const phase=state.phase,t=Math.min(1,state.elapsed/state.flight);
     const load=phase==='power'?T.MathUtils.smoothstep(state.elapsed,0,.25)*(.5+.08*Math.sin(state.elapsed*12)*Math.sin(Math.PI*state.elapsed/3)):phase==='aim'?.5:0;
     const airborne=phase==='flight',landing=phase==='landed';
+    const stumble=landing&&state.stumble?Math.sin(Math.min(1,state.elapsed/1.5)*Math.PI):0;
     const compress=landing?.5*(1-T.MathUtils.smoothstep(state.elapsed,0,1)):load;
     const jumpCompress=airborne?.5*(1-Math.sin(t*Math.PI)):compress;
     const hipY=.98-jumpCompress*.48;
     bones.Hips.position.set(0,hipY/sourceScale,0);
-    bones.Hips.quaternion.copy(bind.Hips.q).multiply(new T.Quaternion().setFromAxisAngle(v(1,0,0),jumpCompress*.65));
+    bones.Hips.quaternion.copy(bind.Hips.q).multiply(new T.Quaternion().setFromAxisAngle(v(1,0,0),jumpCompress*.65-stumble*.3));
     body.updateMatrixWorld(true);
     for(const [side,sign] of [['Left',1],['Right',-1]]) {
       const reach=airborne?Math.sin(t*Math.PI):0;
-      const foot=v(sign*.14,footHeight+reach*.3,.06+reach*.5);
+      const foot=v(sign*.14,footHeight+reach*.3+(side==='Right'?stumble*.12:0),.06+reach*.5-(side==='Right'?stumble*.45:0));
       solve([side+'UpLeg',side+'Leg',side+'Foot'],foot,v(sign*.17,.5,.85));
       bones[side+'Foot'].quaternion.copy(rotation(bones[side+'Foot'].parent).invert().multiply(footRotations[side]));
       body.updateMatrixWorld(true);
       const armZ=airborne?-.325+Math.sin(t*Math.PI)*.78: -compress*.65;
-      solve([side+'Arm',side+'ForeArm',side+'Hand'],v(sign*.29,.8+reach*.35,armZ),v(sign*.4,.85,armZ-.2));
+      solve([side+'Arm',side+'ForeArm',side+'Hand'],v(sign*(.29+stumble*.18),.8+reach*.35+stumble*.25,armZ-stumble*.2),v(sign*.4,.85,armZ-.2));
     }
-    body.position.y=0;root.position.set(0,state.height,state.visualDistance);root.updateMatrixWorld(true);
+    body.position.y=0;root.position.set(0,state.height,state.visualDistance-stumble*.15);root.updateMatrixWorld(true);
   }
   pose(0,0,true);
   return {root,pose,poseJump,setAthlete,dispose(){appearance.dispose();mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}};
