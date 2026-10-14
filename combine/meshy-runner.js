@@ -94,9 +94,9 @@ export async function loadCombineRunner(player) {
   function poseJump(state) {
     root.position.set(0,0,0);root.updateMatrixWorld(true);reset();
     const phase=state.phase,t=Math.min(1,state.elapsed/state.flight);
-    const load=phase==='power'?T.MathUtils.smoothstep(state.elapsed,0,.25)*(.5+.08*Math.sin(state.elapsed*12)*Math.sin(Math.PI*state.elapsed/3)):phase==='aim'?(.5+.08*T.MathUtils.smoothstep(state.elapsed,.35,3.35)):0;
+    const load=phase==='power'?T.MathUtils.smoothstep(state.elapsed,0,.25)*(.5+.08*Math.sin(state.elapsed*12)*Math.sin(Math.PI*state.elapsed/2)):phase==='aim'?(.5+.08*T.MathUtils.smoothstep(state.elapsed,.2,1.8)):0;
     const airborne=phase==='flight',landing=phase==='landed';
-    const stumble=landing&&state.stumble?Math.sin(Math.min(1,state.elapsed/1.5)*Math.PI):0;
+    const stumble=landing&&state.stumble?Math.sin(Math.min(1,state.elapsed/1)*Math.PI):0;
     const compress=landing?.5*(1-T.MathUtils.smoothstep(state.elapsed,0,1)):load;
     const jumpCompress=airborne?.5*(1-Math.sin(t*Math.PI)):compress;
     const hipY=.98-jumpCompress*.48;

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { newJump, pressJump, stepJump, jumpMarker, formatJump, readJumps, saveJump, JUMP_ATTEMPTS, REP_SECONDS, LAND_GREEN_START, LAND_GREEN_END, isLandingGreen, landingProgress, inputReady, launchSeconds, landingFeedback } from './broad-jump.js';
+import { newJump, pressJump, stepJump, jumpMarker, formatJump, readJumps, saveJump, JUMP_ATTEMPTS, REP_SECONDS, POWER_SECONDS, LAND_GREEN_START, LAND_GREEN_END, isLandingGreen, landingProgress, inputReady, launchSeconds, landingFeedback } from './broad-jump.js';
 import './combine.css';
 type Athlete = {id:string;name:string;position:string;speed:number;acceleration:number;seed:number};
 export default function BroadJumpExperience({players,context,onClose}:{players:Athlete[];context:string;onClose:()=>void}) {
@@ -67,7 +67,7 @@ export default function BroadJumpExperience({players,context,onClose}:{players:A
       <div className="jump-best">BEST <b>{best?formatJump(best):'—'}</b></div>
       <div className="jump-athlete"><b>{player.name}</b><span>{player.position}</span>{phase==='idle'&&players.length>1&&<><button aria-label="Previous athlete" onClick={()=>reset(players[(players.indexOf(player)-1+players.length)%players.length],true)}>‹</button><button aria-label="Next athlete" onClick={()=>reset(players[(players.indexOf(player)+1)%players.length],true)}>›</button></>}</div>
       <div className="jump-controls">
-        <div className="jump-meter" hidden={!powerPhase&&phase!=='aim'}><div className="jump-meter-heading"><b>{phase==='idle'?'BUILD YOUR POWER':phase==='power'?'POWER':phase==='aim'?'LAUNCH TIMING':'LANDING'}</b><span>{phase==='power'?`${Math.max(0,REP_SECONDS-view.elapsed).toFixed(1)}s`:phase==='aim'?`${launchSeconds(view).toFixed(1)}s`:''}</span></div>
+        <div className="jump-meter" hidden={!powerPhase&&phase!=='aim'}><div className="jump-meter-heading"><b>{phase==='idle'?'BUILD YOUR POWER':phase==='power'?'POWER':phase==='aim'?'LAUNCH TIMING':'LANDING'}</b><span>{phase==='power'?`${Math.max(0,POWER_SECONDS-view.elapsed).toFixed(1)}s`:phase==='aim'?`${launchSeconds(view).toFixed(1)}s`:''}</span></div>
         <div className="jump-track" role="meter" aria-label={phase==='power'?'Jump power':'Jump timing'} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(meter*100)}>{powerPhase?<div className="jump-fill" style={{width:`${meter*100}%`}}/>:<><div className="jump-zone" style={{left:phase==='aim'?'65%':`${LAND_GREEN_START*100}%`,width:phase==='aim'?'20%':`${(LAND_GREEN_END-LAND_GREEN_START)*100}%`}}/><i style={{left:`${meter*100}%`}}/></>}</div>
         <small>{phase==='idle'?'Tap either button to start':phase==='power'?'TAP BOTH • BUILD POWER':phase==='aim'?'TAP IN GREEN':phase==='flight'?(view.landing===null?(green?'LAND NOW':'WAIT FOR GREEN'):'LANDING LOCKED'):view.stumble?'STUMBLE · DISTANCE LOST':'PERFECT LANDING'}</small></div>
         <div className={`jump-buttons ${powerPhase?'':'jump-centered'}`}>
@@ -95,7 +95,7 @@ export default function BroadJumpExperience({players,context,onClose}:{players:A
       <span className="combine-eyebrow">BK / BROAD JUMP</span>
       <h2>{error?'UNAVAILABLE':!ready?'PREPARING':paused?'PAUSED':view.distance?formatJump(view.distance):'NO JUMP'}</h2>
       {error?<p role="alert">{error}</p>:!ready?<p>Loading your Combine athlete…</p>:paused?<p>Your attempt is held here.</p>:<>
-        <p>{view.distance?`${view.distance.toFixed(2)} m · ${feedback} · ${view.landing===1?'Perfect landing':`Stumbled · −${view.penalty.toFixed(2)} m`}`:'3-second launch timer expired. Failed rep — attempt used.'}</p>
+        <p>{view.distance?`${view.distance.toFixed(2)} m · ${feedback} · ${view.landing===1?'Perfect landing':`Stumbled · −${view.penalty.toFixed(2)} m`}`:`${REP_SECONDS}-second launch timer expired. Failed rep — attempt used.`}</p>
         <div className="jump-attempts">{attempts.map((distance,i)=><div key={i}><span>ATTEMPT {i+1}</span><b>{distance?formatJump(distance):'NO JUMP'}</b></div>)}</div>
         <p>SESSION BEST · {formatJump(Math.max(0,...attempts))}</p><p role="status">{!saved?'Could not save on this device.':view.distance?'Best distances saved on this device.':'No distance recorded.'}</p>
       </>}
