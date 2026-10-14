@@ -128,3 +128,12 @@
 .jump-countdown{position:absolute;top:114px;left:18px;display:grid;gap:3px;background:#102027ed;border:1px solid #e9bf64;border-radius:8px;padding:9px 12px;color:#ffe3aa}.jump-countdown b{font-size:28px;font-variant-numeric:tabular-nums}.jump-countdown small{font-size:13px;margin-left:3px}.jump-countdown span{font-size:9px;font-weight:bold;letter-spacing:.05em}
 @media(min-width:601px){.jump-countdown{top:75px}}
 @media(max-height:500px){.jump-countdown{top:62px;padding:7px 10px}.jump-countdown b{font-size:23px}}
+
+/* Fixed, separate targets prevent power taps from becoming timing inputs. */
+.broad-jump .jump-controls{display:grid;grid-template-columns:1fr;gap:12px;width:auto}
+.jump-buttons{display:flex;justify-content:space-between;gap:24px}
+.jump-buttons .jump-action{width:80px;height:80px;font-size:15px!important}
+.jump-buttons .jump-action:disabled{opacity:.4}
+.jump-buttons .jump-action[data-landing=miss]:disabled,.jump-buttons .jump-action[data-landing=perfect]:disabled{opacity:1}
+@media(min-width:601px){.broad-jump .jump-controls{width:380px}}
+@media(max-height:500px){.broad-jump .jump-controls{width:48%;gap:8px}.jump-buttons .jump-action{width:64px;height:64px;font-size:12px!important}.broad-jump .jump-meter{padding:6px}.broad-jump .jump-track{margin:6px 0}}
