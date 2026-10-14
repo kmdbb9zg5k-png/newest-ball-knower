@@ -11,7 +11,7 @@ try{
   assert(boxes[0].right<boxes[1].x);for(const b of boxes){assert(b.x>=0&&b.y>=0&&b.right<=viewport.width&&b.bottom<=viewport.height);}
  }
  await page.evaluate(()=>{const buttons=document.querySelectorAll('.jump-power');buttons.forEach((b,i)=>b.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,isPrimary:i===0,pointerId:i+1})));});
- await page.waitForFunction(()=>Number(document.querySelector('.jump-track').getAttribute('aria-valuenow'))===8);
+ await page.waitForFunction(()=>Number(document.querySelector('.jump-track').getAttribute('aria-valuenow'))===6);
  await page.evaluate(()=>{for(const id of [1,2])window.dispatchEvent(new PointerEvent('pointerup',{pointerId:id}));});
 
  const result=await page.evaluate(()=>new Promise((resolve,reject)=>{
@@ -42,5 +42,5 @@ try{
  }));
  assert(result.aimSeen&&result.flightSeen&&result.heldTest,JSON.stringify(result));await page.getByRole('dialog',{name:'Broad jump results'}).waitFor();assert.match(await page.locator('.combine-result').innerText(),/Perfect landing/);
  console.log('PASS two power buttons, centered replacement, held-input rejection, landing ring, green landing and permanent lock');
- await page.getByRole('button',{name:'NEXT ATTEMPT'}).click();await page.getByRole('button',{name:'Left power',exact:true}).click();await page.getByRole('button',{name:'NEW SESSION'}).waitFor();assert.equal(await page.locator('.jump-attempts>div').count(),2);assert.match(await page.locator('.combine-result').innerText(),/3-second launch timer expired/);console.log('PASS launch expiry and two attempts');
+ await page.getByRole('button',{name:'NEXT ATTEMPT'}).click();await page.getByRole('button',{name:'Left power',exact:true}).click();await page.getByRole('button',{name:'NEW SESSION'}).waitFor();assert.equal(await page.locator('.jump-attempts>div').count(),2);assert.match(await page.locator('.combine-result').innerText(),/1.6-second launch timer expired/);console.log('PASS launch expiry and two attempts');
 }finally{await browser.close();}
