@@ -208,7 +208,7 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
   const lamps=new T.InstancedMesh(new T.BoxGeometry(2.4,.08,.45),new T.MeshBasicMaterial({color:'#f7f1dc'}),24);let li=0;
   for(let z=-5;z<65;z+=12){box(scene,[44,.32,.24],metal,[0,14.8,z]);for(const x of [-16,-7,7,16]){o.position.set(x,14.55,z);o.updateMatrix();lamps.setMatrixAt(li++,o.matrix);}for(const side of [-1,1])box(scene,[.25,15,.28],metal,[side*21,7.4,z]);}scene.add(lamps);
   // Small standing groups and tables stay outside the athlete's lane.
-  for(let i=0;i<7;i++){const person=athlete(scene,21+i,true);person.root.position.set((i%2?1:-1)*(5.2+i%3),0,3+i*5);person.root.rotation.y=i%2?-Math.PI/2:Math.PI/2;person.root.scale.setScalar(.96+(i%3)*.025);}
+
   for(const z of [6,20,37]){box(scene,[1.5,.09,.64],metal,[6,.82,z]);for(const x of [5.4,6.6])for(const dz of [-.22,.22])box(scene,[.05,.78,.05],metal,[x,.39,z+dz]);box(scene,[.44,.3,.045],mat('#111b21'),[6,1.02,z]);}
   if(drill==='jump') {
     box(scene,[3,.012,.07],white,[0,.006,0]);
@@ -219,8 +219,9 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
   }
   const runner=detailedRunner;
   runner.poseJump({phase:'idle',elapsed:0,flight:1.2,height:0,visualDistance:0});
-  const background=createCombineBackground(scene,runner.root);
-  host.dataset.scouts=String(background.counts.scouts);host.dataset.waitingAthletes=String(background.counts.waitingAthletes);
+  let background;
+  try{background=await createCombineBackground(scene,runner.root);}catch(error){runner.dispose();disposeObject(scene);renderer.domElement.removeEventListener('webglcontextlost',lost);renderer.dispose();renderer.domElement.remove();throw error;}
+  host.dataset.backgroundVersion='detailed-v2';host.dataset.scouts=String(background.counts.scouts);host.dataset.waitingAthletes=String(background.counts.waitingAthletes);
   scene.add(runner.root);host.dataset.character='native-athlete';
   let visualZ=0,previousPhase='idle',settle=0;
   const target=v(),look=v();
@@ -254,5 +255,5 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
     renderer.render(scene,camera);previousPhase=state.phase;
   }
   camera.position.set(-1,1.65,-3.45);
-  return {draw,setAthlete(next){runner.setAthlete(next);visualZ=0;settle=0;previousPhase='reset';},dispose(){background.dispose();runner.dispose();delete host.dataset.scouts;delete host.dataset.waitingAthletes;delete host.dataset.character;observer.disconnect();renderer.domElement.removeEventListener('webglcontextlost',lost);disposeObject(scene);renderer.dispose();renderer.domElement.remove();}};
+  return {draw,setAthlete(next){runner.setAthlete(next);visualZ=0;settle=0;previousPhase='reset';},dispose(){background.dispose();runner.dispose();delete host.dataset.backgroundVersion;delete host.dataset.scouts;delete host.dataset.waitingAthletes;delete host.dataset.character;observer.disconnect();renderer.domElement.removeEventListener('webglcontextlost',lost);disposeObject(scene);renderer.dispose();renderer.domElement.remove();}};
 }
