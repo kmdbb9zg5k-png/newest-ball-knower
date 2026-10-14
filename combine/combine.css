@@ -137,3 +137,24 @@
 .jump-buttons .jump-action[data-landing=miss]:disabled,.jump-buttons .jump-action[data-landing=perfect]:disabled{opacity:1}
 @media(min-width:601px){.broad-jump .jump-controls{width:380px}}
 @media(max-height:500px){.broad-jump .jump-controls{width:48%;gap:8px}.jump-buttons .jump-action{width:64px;height:64px;font-size:12px!important}.broad-jump .jump-meter{padding:6px}.broad-jump .jump-track{margin:6px 0}}
+
+/* Two-thumb power becomes one centered timing target. */
+.broad-jump .jump-controls{left:max(16px,env(safe-area-inset-left));right:max(16px,env(safe-area-inset-right));width:auto}
+.jump-buttons .jump-action{width:104px;height:104px;font-size:17px!important}
+.jump-power span{display:block;font-size:10px;letter-spacing:.15em;margin-top:5px}
+.jump-centered{justify-content:center}
+.jump-center-control{position:relative;display:flex;align-items:center;flex-direction:column;gap:7px;min-width:150px}
+.jump-cue{font-weight:900;font-size:13px;text-shadow:0 2px 4px #000;background:#102027e8;border-radius:5px;padding:5px 10px}
+.jump-local-timer{font-size:21px;font-weight:900;font-variant-numeric:tabular-nums;background:#102027e8;padding:4px 10px;border-radius:5px;color:#ffe3aa}
+.jump-local-timer span{font-size:9px;margin-left:5px}
+.jump-ring-wrap{position:relative;width:124px;height:124px;display:grid;place-items:center}
+.jump-ring{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.jump-ring circle{fill:none;stroke-width:7;transform:rotate(-90deg);transform-origin:60px 60px}
+.jump-ring .jump-ring-track{stroke:#243d42}
+.jump-ring .jump-ring-zone{stroke:#a5ef5b;stroke-width:10}
+.jump-ring .jump-ring-progress{stroke:#fff;stroke-width:3}
+.jump-ring .jump-ring-marker{fill:white;stroke:#102027;stroke-width:2;transform:none}
+.jump-buttons .jump-timing{width:94px;height:94px;font-size:14px!important;padding:8px;line-height:1.15;box-shadow:none}
+.jump-slow-label{font-size:9px;letter-spacing:.12em;background:#102027e8;padding:4px 8px;border-radius:4px}
+@media(min-width:601px) and (min-height:501px){.broad-jump .jump-controls{max-width:500px;margin:auto;bottom:100px}}
+@media(max-height:500px){.broad-jump .jump-controls{left:28%;right:28%;width:auto;bottom:80px;gap:5px}.jump-buttons .jump-power{width:80px;height:80px;font-size:14px!important}.jump-ring-wrap{width:104px;height:104px}.jump-buttons .jump-timing{width:80px;height:80px;font-size:12px!important}.jump-center-control{gap:3px}.jump-cue{font-size:10px}.jump-local-timer{font-size:16px}.jump-slow-label{font-size:8px}.broad-jump .jump-athlete{max-width:none;right:max(16px,env(safe-area-inset-right))}}
