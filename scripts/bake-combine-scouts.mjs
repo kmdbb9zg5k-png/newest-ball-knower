@@ -1,0 +1,5 @@
+import {createServer} from 'vite';
+import {chromium} from 'playwright';
+import {writeFile} from 'node:fs/promises';
+import {gzipSync} from 'node:zlib';
+const server=await createServer({server:{host:'127.0.0.1',port:3079},plugins:[{name:'bake',configureServer(s){s.middlewares.use(async(req,res,next)=>{if(req.url==='/bake.html'){res.setHeader('Content-Type','text/html');res.end(await s.transformIndexHtml(req.url,'<script type="module" src="/scripts/fixtures/bake-combine-scouts.js"></script>'));}else next();});}}]});await server.listen();const browser=await chromium.launch({executablePath:'/tmp/chromium',args:['--no-sandbox']});try{const page=await browser.newPage();page.on('pageerror',e=>console.error(e));await page.goto('http://127.0.0.1:3079/bake.html');await page.waitForFunction(()=>window.done,{},{timeout:240000});await writeFile('public/play-moment-3d/assets/combine-scout-poses-v1.json.gz',gzipSync(JSON.stringify(await page.evaluate(()=>window.baked),(key,value)=>typeof value==='number'?Math.round(value*10000)/10000:value),{level:9}));console.log('Baked four detailed scout poses');}finally{await browser.close();await server.close();}
