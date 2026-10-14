@@ -1,6 +1,7 @@
 import * as T from 'three';
 import { FINISH, YARD } from './dash.js';
 import { loadCombineRunner } from './meshy-runner.js';
+import { createCombineBackground } from './background-people.js';
 
 const v = (x, y, z) => new T.Vector3(x, y, z);
 const up = v(0, 1, 0);
@@ -216,13 +217,18 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
       const number=mesh(new T.PlaneGeometry(.3,.2),label(String(feet)+"′"),scene,1.4,.02,z);number.rotation.x=-Math.PI/2;
     }
   }
-  const runner=detailedRunner;scene.add(runner.root);host.dataset.character='native-athlete';
+  const runner=detailedRunner;
+  runner.poseJump({phase:'idle',elapsed:0,flight:1.2,height:0,visualDistance:0});
+  const background=createCombineBackground(scene,runner.root);
+  host.dataset.scouts=String(background.counts.scouts);host.dataset.waitingAthletes=String(background.counts.waitingAthletes);
+  scene.add(runner.root);host.dataset.character='native-athlete';
   let visualZ=0,previousPhase='idle',settle=0;
   const target=v(),look=v();
   const resize=()=>{const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;camera.aspect=w/h;camera.fov=w<h?53:49;camera.updateProjectionMatrix();renderer.setSize(w,h,false);};
   const observer=new ResizeObserver(resize);observer.observe(host);resize();
   function disposeObject(object){const geometries=new Set(),materials=new Set(),textures=new Set();object.traverse(o=>{if(o.geometry)geometries.add(o.geometry);for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m){materials.add(m);for(const val of Object.values(m))if(val?.isTexture)textures.add(val);}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());}
   function draw(state,dt){
+    background.update(dt);
     if(drill==='jump') {
       runner.poseJump(state);
       const portrait=camera.aspect<1;
@@ -248,5 +254,5 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
     renderer.render(scene,camera);previousPhase=state.phase;
   }
   camera.position.set(-1,1.65,-3.45);
-  return {draw,setAthlete(next){runner.setAthlete(next);visualZ=0;settle=0;previousPhase='reset';},dispose(){runner.dispose();delete host.dataset.character;observer.disconnect();renderer.domElement.removeEventListener('webglcontextlost',lost);disposeObject(scene);renderer.dispose();renderer.domElement.remove();}};
+  return {draw,setAthlete(next){runner.setAthlete(next);visualZ=0;settle=0;previousPhase='reset';},dispose(){background.dispose();runner.dispose();delete host.dataset.scouts;delete host.dataset.waitingAthletes;delete host.dataset.character;observer.disconnect();renderer.domElement.removeEventListener('webglcontextlost',lost);disposeObject(scene);renderer.dispose();renderer.domElement.remove();}};
 }
