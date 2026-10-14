@@ -1,6 +1,6 @@
 // All durations use active simulation time; backgrounding cannot consume a turn.
-export const JUMP_RULESET = 'broad-jump-v2';
-export const JUMP_STORAGE = 'bk-combine-broad-jump-v2';
+export const JUMP_RULESET = 'broad-jump-v3';
+export const JUMP_STORAGE = 'bk-combine-broad-jump-v3';
 export const JUMP_ATTEMPTS = 2;
 export const REP_SECONDS = 3;
 export const INPUT_PAUSE = .35;
@@ -12,17 +12,19 @@ export const STUMBLE_PENALTY = .45;
 export const landingProgress = s => Math.max(0, Math.min(1, s.elapsed / s.flight));
 export const isLandingGreen = s => s.phase === 'flight' && s.landing === null && landingProgress(s) >= LAND_GREEN_START && landingProgress(s) <= LAND_GREEN_END;
 const clamp = n => Math.max(0, Math.min(1, n));
-export const jumpMarker = s => (Math.sin(Math.max(0,s.elapsed-INPUT_PAUSE) * Math.PI * 2 / 1.2 - Math.PI / 2) + 1) / 2;
-export function newJump(athlete) { return { athlete, phase:'idle', elapsed:0, power:0, taps:0, lastTap:-1, launch:0, landing:null, landingAt:null, stumble:false, penalty:0, distance:0, target:0, visualDistance:0, flight:0.9, height:0 }; }
+export const jumpMarker = s => clamp((s.elapsed-INPUT_PAUSE)/REP_SECONDS);
+export const landingFeedback = s => s.landing===null?'':s.landing===1?'PERFECT':s.landingAt===1?'MISSED':s.landingAt<LAND_GREEN_START?'TOO EARLY':'TOO LATE';
+export function newJump(athlete) { return { athlete, phase:'idle', elapsed:0, power:0, taps:0, lastTap:-1, lastPower:{}, launch:0, landing:null, landingAt:null, stumble:false, penalty:0, distance:0, target:0, visualDistance:0, flight:1.8, height:0 }; }
 export function pressJump(s,control = 'auto') {
-  if(control==='power' && !['idle','power'].includes(s.phase))return;
+  if(control.startsWith('power') && !['idle','power'].includes(s.phase))return;
   if(control==='timing' && !['aim','flight'].includes(s.phase))return;
   if(!inputReady(s))return;
   if(s.phase==='idle'){s.phase='power';s.elapsed=0;}
   if(s.phase==='power') {
     // One physical press per impulse, bounded at 20/second; holding adds nothing.
-    if(s.elapsed-s.lastTap < .05)return;
-    s.lastTap=s.elapsed;s.taps++;s.power=clamp(s.taps/24);
+    const side=control==='power-right'?'right':'left';
+    if(s.elapsed-(s.lastPower[side]??-1) < .05)return;
+    s.lastPower[side]=s.elapsed;s.lastTap=s.elapsed;s.taps++;s.power=clamp(s.taps/24);
   } else if(s.phase==='aim') {
     s.launch=clamp(1-Math.abs(jumpMarker(s)-.75)/.55);
     s.target=1.25+s.power*1.25+s.launch*.65;
