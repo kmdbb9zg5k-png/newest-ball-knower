@@ -15,7 +15,7 @@ const server=await createServer({server:{host:'127.0.0.1',port:3081},plugins:[{n
 const browser=await chromium.launch({executablePath:process.env.BROWSER_PATH||'/tmp/chromium',args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
 try{
  const page=await browser.newPage({viewport:{width:900,height:600}}),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
- await page.goto('http://127.0.0.1:3081/reactions.html');await page.waitForFunction(()=>window.ready,{timeout:60000});
+ await page.goto('http://127.0.0.1:3081/reactions.html');await page.waitForFunction(()=>window.ready,undefined,{timeout:60000});
  await page.evaluate(()=>window.step('idle',1));
  const idle=await page.evaluate(()=>window.inspect());assert(idle.every(p=>Number.isFinite(p.gap)),'idle arms must have finite joints');assert.equal(new Set(idle.map(p=>p.appearance.skinTone)).size,3);assert.equal(new Set(idle.map(p=>p.hair.join())).size,3);assert(idle.every(p=>!p.clapping&&Math.abs(p.yaw-p.desired)<.02));
  await page.screenshot({path:'artifacts/combine-reactions/watching.png'});
