@@ -221,7 +221,7 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
   runner.poseJump({phase:'idle',elapsed:0,flight:1.2,height:0,visualDistance:0});
   let background;
   try{background=await createCombineBackground(scene,runner.root);}catch(error){runner.dispose();disposeObject(scene);renderer.domElement.removeEventListener('webglcontextlost',lost);renderer.dispose();renderer.domElement.remove();throw error;}
-  host.dataset.backgroundVersion='detailed-v2';host.dataset.scouts=String(background.counts.scouts);host.dataset.waitingAthletes=String(background.counts.waitingAthletes);
+  host.dataset.backgroundVersion='reactive-v3';host.dataset.scouts=String(background.counts.scouts);host.dataset.waitingAthletes=String(background.counts.waitingAthletes);
   scene.add(runner.root);host.dataset.character='native-athlete';
   let visualZ=0,previousPhase='idle',settle=0;
   const target=v(),look=v();
@@ -229,9 +229,9 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
   const observer=new ResizeObserver(resize);observer.observe(host);resize();
   function disposeObject(object){const geometries=new Set(),materials=new Set(),textures=new Set();object.traverse(o=>{if(o.geometry)geometries.add(o.geometry);for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m){materials.add(m);for(const val of Object.values(m))if(val?.isTexture)textures.add(val);}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());}
   function draw(state,dt){
-    background.update(dt);
     if(drill==='jump') {
       runner.poseJump(state);
+      background.update(dt,state,runner.root.position);
       const portrait=camera.aspect<1;
       // Fixed side view keeps the takeoff and landing in frame without snapping.
       camera.position.set(portrait?-8.8:-6,portrait?4.2:2.8,portrait?-4:-.4);
@@ -244,6 +244,7 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
     const speed=active?state.velocity:ended?state.velocity*coast:0;
     if(ended)visualZ+=speed*dt;
     runner.root.position.z=visualZ;runner.pose(visualZ,speed,!active&&!ended,active?state.clock/.72:1,ended&&settle>1.8?Math.min(1,(settle-1.8)*2):0,ended,dt);
+    background.update(dt,state,runner.root.position);
     brand.material.opacity=1-T.MathUtils.smoothstep(visualZ,FINISH-6,FINISH);
     const portrait=camera.aspect<1;
     // Rise and look down the runout so the far-wall brand clears the HUD.
