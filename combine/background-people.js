@@ -1,6 +1,5 @@
 import * as T from 'three';
-import {clone} from 'three/addons/utils/SkeletonUtils.js';
-import {backgroundMasks} from './background-rig.js';
+import {createWatchingAthlete} from './background-athlete.js';
 const SKINS=['#ae764e','#ceaa88','#684330','#986340'];
 const v=(x=0,y=0,z=0)=>new T.Vector3(x,y,z);
 export async function createCombineBackground(scene,source){
@@ -27,24 +26,23 @@ export async function createCombineBackground(scene,source){
  const material=new T.MeshStandardMaterial({color:'#5f4c33',roughness:.9}),paperMaterial=new T.MeshStandardMaterial({color:'#d8dbcf',roughness:1}),penMaterial=new T.MeshStandardMaterial({color:'#16232e'});
  const boards=new T.InstancedMesh(new T.BoxGeometry(.29,.016,.23),material,scouts.length),paper=new T.InstancedMesh(new T.BoxGeometry(.25,.005,.20),paperMaterial,scouts.length),pens=new T.InstancedMesh(new T.CylinderGeometry(.005,.005,.09,6),penMaterial,scouts.length);boards.name='scout-clipboards';pens.name='scout-pens';group.add(boards,paper,pens);for(const m of[boards,paper,pens])m.frustumCulled=false;
  const dummy=new T.Object3D(),local=new T.Object3D(),matrix=new T.Matrix4();
- function personMatrix(s,index,time){dummy.position.set(s.x,s.y,s.z);dummy.rotation.set(Math.sin(time*.3+index)*.006,s.angle+(index%3-1)*.04,0);dummy.scale.set(1+(index%3-1)*.045,1,1);dummy.updateMatrix();}
+ function personMatrix(s,index,time){dummy.position.set(s.x,s.y,s.z);dummy.rotation.set(Math.sin(time*.3+index)*.006,s.angle+(index%3-1)*.04,0);dummy.scale.set(.9+(index%5)*.055,.95+(index%4)*.035,.94+(index%3)*.055);dummy.updateMatrix();}
  function prop(mesh,i,p,size,angle){local.position.set(...p);local.rotation.set(angle,0,0);local.scale.set(...size);local.updateMatrix();matrix.multiplyMatrices(dummy.matrix,local.matrix);mesh.setMatrixAt(i,matrix);}
  function updateScouts(time){for(const {people,meshes}of batches){people.forEach((s,i)=>{personMatrix(s,scouts.indexOf(s),time);for(const m of meshes)m.setMatrixAt(i,dummy.matrix);});for(const m of meshes)m.instanceMatrix.needsUpdate=true;}
   scouts.forEach((s,i)=>{personMatrix(s,i,time);const hip=s.seated?.11:.98,note=Math.sin(time*2+i)*.01;prop(boards,i,[0,hip+.13,.35],[1,1,1],-.08);prop(paper,i,[0,hip+.142,.35],[1,1,1],-.08);prop(pens,i,[.08+note,hip+.205,.37+note],[1,1,1],-.3);});for(const m of[boards,paper,pens])m.instanceMatrix.needsUpdate=true;
  }
- const waiting=[];
- for(let i=0;i<3;i++){
-  const root=clone(source);root.name=`waiting-athlete-${i+1}`;root.position.set([4.2,5.1,4.65][i],0,[2.2,3.1,4.65][i]);root.rotation.y=[-1.05,-1.65,-.75][i];root.scale.set(.94+i*.045,.97+i*.025,1);
-  const materials=new Map(),bones=[];
-  root.traverse(o=>{if(o.isSkinnedMesh)o.geometry=backgroundMasks(o);if(o.isMesh){o.castShadow=false;o.frustumCulled=false;const copy=m=>{if(!materials.has(m)){const material=m.clone();material.vertexColors=!!o.geometry.attributes.color;material.onBeforeCompile=shader=>{m.onBeforeCompile(shader);if(shader.uniforms.bkSkinTint){const tint=new T.Color(SKINS[i]),reference=new T.Color('#b17b4b');shader.uniforms.bkSkinTint={value:v(tint.r/reference.r,tint.g/reference.g,tint.b/reference.b)};regionShader(shader);shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
-    // Arm weights identify the inked surface independently of ink pixel color.
-    diffuseColor.rgb=mix(diffuseColor.rgb,vec3(${reference.r.toFixed(6)},${reference.g.toFixed(6)},${reference.b.toFixed(6)}),smoothstep(.03,.12,bkRegion.r));`);}};material.customProgramCacheKey=()=>m.customProgramCacheKey()+'-clean-arms-v2';materials.set(m,material);}return materials.get(m);};o.material=Array.isArray(o.material)?o.material.map(copy):copy(o.material);}
-   if(o.name==='CombineHair'){if(i===1)o.visible=false;else o.scale.setScalar(i===0?.96:1.04);}
-   if(o.isBone&&/Head$|Spine2$|LeftArm$|RightArm$|LeftForeArm$|RightForeArm$/.test(o.name))bones.push({bone:o,q:o.quaternion.clone()});
-  });group.add(root);waiting.push({root,bones});
+ const waiting=Array.from({length:3},(_,i)=>{const person=createWatchingAthlete(source,i);group.add(person.root);return person;});
+ let time=0,last=-1,previousPhase='idle',reactionStart=-Infinity;
+ function update(dt,state={},target=v()){
+  dt=Number.isFinite(dt)?T.MathUtils.clamp(dt,0,.1):0;time+=dt;
+  if(state.phase==='idle'||state.phase==='power'||state.phase==='running')reactionStart=-Infinity;
+  // Landed is the jump's completion; finished is the sprint's completion.
+  // A timed-out jump has zero distance and must not trigger applause.
+  if((state.phase==='landed'&&previousPhase!=='landed')||(state.phase==='finished'&&previousPhase!=='finished'&&previousPhase!=='landed'&&state.distance>0))reactionStart=time;
+  previousPhase=state.phase;
+  if(time-last<1/30)return;const step=last<0?dt:time-last;last=time;
+  updateScouts(time);waiting.forEach(person=>person.update(time,step,target,time-reactionStart));
  }
- let time=0,last=-1;
- function update(dt){time+=Math.min(.1,Math.max(0,dt));if(time-last<1/15)return;last=time;updateScouts(time);waiting.forEach(({bones},i)=>{for(const {bone,q}of bones){bone.quaternion.copy(q);if(/Head$/.test(bone.name))bone.rotateY(Math.sin(time*.4+i*2)*.13);else if(/Spine2$/.test(bone.name))bone.rotateZ(Math.sin(time*.65+i)*.014);else if(/ForeArm$/.test(bone.name))bone.rotateX(i===1?-.45:Math.sin(time*.6+i)*.07);else bone.rotateZ((/Left/.test(bone.name)?1:-1)*(i===1?.18:.03+Math.sin(time*.7+i)*.025));}});}
- updateScouts(0);group.userData={scouts:scouts.length,waitingAthletes:waiting.length,detailedScouts:true,cleanArms:true};
- return {update,counts:group.userData,dispose(){for(const {root}of waiting)root.traverse(o=>o.skeleton?.dispose());}};
+ updateScouts(0);group.userData={scouts:scouts.length,waitingAthletes:waiting.length,detailedScouts:true,cleanArms:true,reactiveAthletes:true};
+ return {update,counts:group.userData,dispose(){for(const person of waiting)person.dispose();}};
 }
