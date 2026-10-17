@@ -5,8 +5,9 @@ export const RECEIVER={id:'combine-receiver-miles-41',name:'Miles Rivers',positi
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export {newManSession as newDBSession};
 export function newDBRep(athlete,index=0,session=newManSession()){
- const s=newManRep(athlete,index,session),random=randomSource(session.seed^Math.imul(index+1,2654435761));
- s.mode='db';s.receiver=RECEIVER;s.speed=4.35+random()*.25;s.aiPoint=1;s.releaseSide=random()<.5?-1:1;s.receiverFlight=null;
+ const random=randomSource(session.seed^Math.imul(index+1,2654435761));
+ const s={...newManRep(athlete,index,session),receiver:RECEIVER,aiPoint:1,releaseSide:random()<.5?-1:1,receiverFlight:null,playChoice:null,playAt:null,coverageTime:0,coverageSamples:0};
+ s.mode='db';s.receiver=RECEIVER;s.speed=4.35+random()*.25;s.aiPoint=1;s.receiverFlight=null;
  s.db={...s.db,...athlete,x:0,z:3.2,vx:0,vz:0,speed:5.25,heading:Math.PI,style:'MAN COVERAGE',action:'backpedal'};
  s.latestThrowAt=Math.max(3.3,routeLength(s.route)/s.speed+.35);s.readAt=Math.max(1.2,routeLength(s.route)/s.speed-.8);
  s.playChoice=null;s.playAt=null;s.coverageTime=0;s.coverageSamples=0;s.separation=3.2;s.ballHeight=1.45;
@@ -44,7 +45,7 @@ function movePlayer(s,h,input){
  const speed=Math.hypot(d.vx,d.vz);d.action=d.z>s.z+1.2&&s.phase!=='settle'?'backpedal':'trail';
  let face=d.action==='backpedal'||speed<.15?Math.atan2(s.x-d.x,s.z-d.z):Math.atan2(d.vx,d.vz);
  d.ballAware=s.phase==='flight'&&s.clock-s.throwAt>.15;d.lookAtBall=d.ballAware;
- if(d.ballAware&&s.playChoice){const b=manBall(s);if(Math.hypot(b[0]-d.x,b[2]-d.z)<2.5){face=Math.atan2(b[0]-d.x,b[2]-d.z);d.action='playball';}}
+ if(d.ballAware&&s.playChoice){const b=manBall(s);face=Math.atan2(b[0]-d.x,b[2]-d.z);d.action='playball';}
  const turn=Math.atan2(Math.sin(face-d.heading),Math.cos(face-d.heading));d.heading+=clamp(turn,-h*10,h*10);
  // Resolve overlap gently; never lock the stick or pin either player in place.
  const gap=Math.hypot(d.x-s.x,d.z-s.z);if(gap<.45){const dx=(d.x-s.x)/Math.max(.001,gap),dz=(d.z-s.z)/Math.max(.001,gap),push=Math.min(.45-gap,h*.7);d.x+=dx*push*.5;d.z+=dz*push*.5;s.x-=dx*push*.5;s.z-=dz*push*.5;}

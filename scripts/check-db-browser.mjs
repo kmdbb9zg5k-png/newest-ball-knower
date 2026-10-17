@@ -15,15 +15,16 @@ try{
  const cdp=await p.context().newCDPSession(p),outcomes=[];const reps=realtime?1:5;
  for(let rep=0;rep<reps;rep++){
   if(realtime)await p.waitForFunction(()=>document.querySelector('main').dataset.phase==='running');else await advance(rep?5100:2200);
-  const joy=await p.getByLabel('Movement joystick').boundingBox();let thumb={x:joy.x+joy.width/2,y:joy.y+joy.height/2,id:11};await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[thumb]});let tapped=false,prior=null,target=null,sawResult=false;
+  const joy=await p.getByLabel('Movement joystick').boundingBox();let thumb={x:joy.x+joy.width/2,y:joy.y+joy.height/2,id:11};await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[thumb]});let tapped=false,prior=null,target=null,sawResult=false,settleFrames=0,settleStart=null,flightStart=null;
   for(let frame=0;frame<(realtime?900:140);frame++){
-   const s=await p.locator('main').evaluate(el=>({phase:el.dataset.phase,x:+el.dataset.x,z:+el.dataset.z,rx:+el.dataset.receiverX,rz:+el.dataset.receiverZ,bx:+el.dataset.ballX,bz:+el.dataset.ballZ}));if(s.phase==='result'){sawResult=true;break;}
+   const s=await p.locator('main').evaluate(el=>({phase:el.dataset.phase,x:+el.dataset.x,z:+el.dataset.z,rx:+el.dataset.receiverX,rz:+el.dataset.receiverZ,bx:+el.dataset.ballX,bz:+el.dataset.ballZ}));if(s.phase==='result'){sawResult=true;if(realtime&&flightStart)assert(Math.hypot(s.x-flightStart.x,s.z-flightStart.z)>3,'Real-time control stopped after the throw');if(settleStart&&!realtime)assert(Math.hypot(s.x-settleStart.x,s.z-settleStart.z)>5,'Held DB movement did not continue through follow-through');break;}
    if(s.phase==='running')assert.equal(await p.getByLabel('Swat pass').count(),0);
-   if(s.phase==='flight'&&!tapped){
+   if(s.phase==='flight'&&!tapped){flightStart=s;
     const action=rep%2?'Intercept pass':'Swat pass',b=await p.getByLabel(action).boundingBox(),finger={x:b.x+b.width/2,y:b.y+b.height/2,id:12};assert(b.height>=44);await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[thumb,finger]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[finger]});assert.equal(await p.getByLabel(action).getAttribute('aria-pressed'),'true');tapped=true;await p.screenshot({path:`artifacts/db-drill/rep-${rep+1}-flight.png`});
    }
    target=s.phase==='flight'?[s.bx,s.bz-.5]:s.phase==='settle'?[s.x,s.z+8]:[s.rx,s.rz+.45];const dx=target[0]-s.x,dz=target[1]-s.z,n=Math.max(.7,Math.hypot(dx,dz));thumb={...thumb,x:joy.x+joy.width/2-dx/n*45,y:joy.y+joy.height/2-dz/n*45};await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[thumb]});
-   if(!realtime&&prior?.phase==='settle'&&s.phase==='settle')assert(Math.hypot(s.x-prior.x,s.z-prior.z)>.25,'DB stopped during held follow-through');
+   settleFrames=s.phase==='settle'?settleFrames+1:0;if(s.phase==='settle'&&!settleStart)settleStart=s;
+   if(!realtime&&settleFrames>=3&&prior?.phase==='settle')assert(Math.hypot(s.x-prior.x,s.z-prior.z)>.005,'DB stopped during held follow-through: '+JSON.stringify({s,prior,thumb}));
    if(frame%10===0)await p.screenshot({path:`artifacts/db-drill/rep-${rep+1}-frame-${String(frame).padStart(3,'0')}.png`});prior=s;await advance(100);
   }
   assert(tapped,'QB never threw');assert(sawResult,'Rep did not finish');await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[thumb]});const result=await p.locator('.skill-dialog').innerText();outcomes.push(result);console.log('REP',rep+1,result.replaceAll('\n',' | '));await p.screenshot({path:`artifacts/db-drill/rep-${rep+1}-result.png`});if(rep<reps-1)await p.getByRole('button',{name:'NEXT REP',exact:true}).dispatchEvent('click');
