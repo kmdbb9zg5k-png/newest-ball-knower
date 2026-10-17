@@ -210,7 +210,7 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
   for(let z=-5;z<65;z+=12){box(scene,[44,.32,.24],metal,[0,14.8,z]);for(const x of [-16,-7,7,16]){o.position.set(x,14.55,z);o.updateMatrix();lamps.setMatrixAt(li++,o.matrix);}for(const side of [-1,1])box(scene,[.25,15,.28],metal,[side*21,7.4,z]);}scene.add(lamps);
   // Small standing groups and tables stay outside the athlete's lane.
 
-  for(const z of [6,20,37]){box(scene,[1.5,.09,.64],metal,[6,.82,z]);for(const x of [5.4,6.6])for(const dz of [-.22,.22])box(scene,[.05,.78,.05],metal,[x,.39,z+dz]);box(scene,[.44,.3,.045],mat('#111b21'),[6,1.02,z]);}
+  if(drill!=='routes')for(const z of [6,20,37]){box(scene,[1.5,.09,.64],metal,[6,.82,z]);for(const x of [5.4,6.6])for(const dz of [-.22,.22])box(scene,[.05,.78,.05],metal,[x,.39,z+dz]);box(scene,[.44,.3,.045],mat('#111b21'),[6,1.02,z]);}
   if(drill==='jump') {
     box(scene,[3,.012,.07],white,[0,.006,0]);
     for(let feet=1;feet<=12;feet++){
@@ -239,7 +239,7 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
   const runner=detailedRunner;
   runner.poseJump({phase:'idle',elapsed:0,flight:1.2,height:0,visualDistance:0});
   let background;
-  try{background=await createCombineBackground(scene,runner.root);}catch(error){runner.dispose();disposeObject(scene);renderer.domElement.removeEventListener('webglcontextlost',lost);renderer.dispose();renderer.domElement.remove();throw error;}
+  try{background=await createCombineBackground(scene,runner.root,{fieldPeople:drill!=='routes'});}catch(error){runner.dispose();disposeObject(scene);renderer.domElement.removeEventListener('webglcontextlost',lost);renderer.dispose();renderer.domElement.remove();throw error;}
   host.dataset.backgroundVersion='reactive-v3';host.dataset.scouts=String(background.counts.scouts);host.dataset.waitingAthletes=String(background.counts.waitingAthletes);
   scene.add(runner.root);host.dataset.character='native-athlete';
   let routePresentation;

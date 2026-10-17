@@ -16,3 +16,6 @@ const s=newRoute(athlete);startRoute(s);stepRoute(s,5);stepRoute(s,.2,{x:1,y:-1}
 globalThis.localStorage={getItem:()=>'{bad',setItem(){throw Error('blocked')}};assert.deepEqual(readRouteScores(),[]);assert.equal(saveRouteScore(athlete,[{score:50,caught:false}]),false);
 console.log('PASS five routes at 15–120 Hz, exact frozen preview, manual movement, catch gating, clean catches, early/off-target/missed catches, scoring and blocked storage');
 let storage='[]';globalThis.localStorage={getItem:()=>storage,setItem:(key,value)=>{storage=value;}};assert(saveRouteScore(athlete,ROUTES.map(r=>({score:100,caught:true}))));assert.equal(readRouteScores()[0].score,100);assert.equal(readRouteScores()[0].catches,5);console.log('PASS five-route session persistence');
+
+// Catch actions and the throw must never cancel manual movement.
+const moving=newRoute(athlete,4);startRoute(moving);stepRoute(moving,5);while(moving.phase!=='flight')stepRoute(moving,.01,{x:0,y:-1});const before=moving.z;catchRoute(moving);stepRoute(moving,.2,{x:0,y:-1});assert(moving.z>before+.8);while(moving.phase!=='settle')stepRoute(moving,.01,{x:0,y:-1});const after=moving.z;stepRoute(moving,.2,{x:0,y:-1});assert(moving.z>after+.8);console.log('PASS continuous manual movement through throw, catch input and follow-through');

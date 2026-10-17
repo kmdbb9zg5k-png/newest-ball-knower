@@ -159,7 +159,7 @@ export async function loadCombineRunner(player) {
     root.position.set(0,0,0);root.rotation.set(0,0,0);root.updateMatrixWorld(true);
     const moving=Math.hypot(state.vx,state.vz);
     pose(state.distance,moving,false,1,0,moving<1,dt);
-    const caught=state.result?.caught,reach=state.phase==='flight'&&state.catchAt!==null;
+    const caught=state.result?.caught,reach=state.phase==='flight'&&state.catchAt!==null&&state.arrival-state.clock<.4;
     if(caught||reach){
       const tuck=caught?T.MathUtils.smoothstep(state.settle,0,.5):0;
       for(const [side,sign]of [['Left',1],['Right',-1]]){
