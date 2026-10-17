@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { newJump, pressJump, stepJump, jumpMarker, formatJump, readJumps, saveJump, JUMP_ATTEMPTS, REP_SECONDS, POWER_SECONDS, LAND_GREEN_START, LAND_GREEN_END, isLandingGreen, landingProgress, inputReady, launchSeconds, landingFeedback } from './broad-jump.js';
 import './combine.css';
+import './broad-jump-premium.css';
 type Athlete = {id:string;name:string;position:string;speed:number;acceleration:number;seed:number};
 export default function BroadJumpExperience({players,context,onClose}:{players:Athlete[];context:string;onClose:()=>void}) {
   const [player,setPlayer]=useState(players[0]),[view,setView]=useState(()=>newJump(players[0]));
@@ -62,14 +63,17 @@ export default function BroadJumpExperience({players,context,onClose}:{players:A
   }}>
     <div ref={host} className="combine-scene" aria-hidden="true"/>
     <div className="combine-hud" inert={blocked}>
-      <header className="combine-top"><button className="combine-back" onClick={onClose} aria-label="Leave Combine">‹</button><div className="combine-brand"><b>BALL KNOWER</b><span>COMBINE</span></div><h1>BROAD JUMP</h1><span className="combine-attempt">{Math.min(JUMP_ATTEMPTS,attempts.length+1)} / {JUMP_ATTEMPTS}</span><button className="combine-pause" onClick={pause} aria-label="Pause broad jump">Ⅱ</button></header>
-
-      <div className="jump-best">BEST <b>{best?formatJump(best):'—'}</b></div>
-      <div className="jump-athlete"><b>{player.name}</b><span>{player.position}</span>{phase==='idle'&&players.length>1&&<><button aria-label="Previous athlete" onClick={()=>reset(players[(players.indexOf(player)-1+players.length)%players.length],true)}>‹</button><button aria-label="Next athlete" onClick={()=>reset(players[(players.indexOf(player)+1)%players.length],true)}>›</button></>}</div>
+      <header className="combine-top"><button className="combine-back" onClick={onClose} aria-label="Leave Combine">‹</button><div className="combine-brand"><b>BK</b><span>COMBINE</span></div><button className="combine-pause" onClick={pause} aria-label="Pause broad jump">Ⅱ</button></header>
+      <section className="jump-scoreboard" aria-label="Drill progress">
+        <div className="jump-title"><h1>BROAD JUMP</h1><p>POWER · TIMING · LANDING</p></div>
+        <div className="jump-stat"><span>ATTEMPT</span><b className="combine-attempt">{Math.min(JUMP_ATTEMPTS,attempts.length+1)} / {JUMP_ATTEMPTS}</b></div>
+        <div className="jump-stat jump-best"><span>PERSONAL BEST</span><b>{best?formatJump(best):'—'}</b></div>
+      </section>
+      <div className="jump-athlete"><div className="jump-avatar" aria-hidden="true">{player.name.split(' ').map(n=>n[0]).slice(0,2).join('')}</div><div className="jump-player-info"><div><b>{player.name}</b><span className="jump-position">{player.position}</span></div><small>{phase==='idle'?'SELECT ATHLETE':'CURRENT ATHLETE'}</small></div>{phase==='idle'&&players.length>1&&<><button aria-label="Previous athlete" onClick={()=>reset(players[(players.indexOf(player)-1+players.length)%players.length],true)}>‹</button><button aria-label="Next athlete" onClick={()=>reset(players[(players.indexOf(player)+1)%players.length],true)}>›</button></>}</div>
       <div className="jump-controls">
         <div className="jump-meter" hidden={!powerPhase&&phase!=='aim'}><div className="jump-meter-heading"><b>{phase==='idle'?'BUILD YOUR POWER':phase==='power'?'POWER':phase==='aim'?'LAUNCH TIMING':'LANDING'}</b><span>{phase==='power'?`${Math.max(0,POWER_SECONDS-view.elapsed).toFixed(1)}s`:phase==='aim'?`${launchSeconds(view).toFixed(1)}s`:''}</span></div>
         <div className="jump-track" role="meter" aria-label={phase==='power'?'Jump power':'Jump timing'} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(meter*100)}>{powerPhase?<div className="jump-fill" style={{width:`${meter*100}%`}}/>:<><div className="jump-zone" style={{left:phase==='aim'?'65%':`${LAND_GREEN_START*100}%`,width:phase==='aim'?'20%':`${(LAND_GREEN_END-LAND_GREEN_START)*100}%`}}/><i style={{left:`${meter*100}%`}}/></>}</div>
-        <small>{phase==='idle'?'Tap either button to start':phase==='power'?'TAP BOTH • BUILD POWER':phase==='aim'?'TAP IN GREEN':phase==='flight'?(view.landing===null?(green?'LAND NOW':'WAIT FOR GREEN'):'LANDING LOCKED'):view.stumble?'STUMBLE · DISTANCE LOST':'PERFECT LANDING'}</small></div>
+        <small>{phase==='idle'?'Alternate left and right to build power':phase==='power'?'KEEP TAPPING • BUILD POWER':phase==='aim'?'TAP IN GREEN':phase==='flight'?(view.landing===null?(green?'LAND NOW':'WAIT FOR GREEN'):'LANDING LOCKED'):view.stumble?'STUMBLE · DISTANCE LOST':'PERFECT LANDING'}</small></div>
         <div className={`jump-buttons ${powerPhase?'':'jump-centered'}`}>
           {powerPhase?<>
             <button ref={button} className="jump-action jump-power" aria-label="Left power" {...inputHandlers('power-left')}>POWER<span>LEFT</span></button>
