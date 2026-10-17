@@ -114,6 +114,30 @@ export async function loadCombineRunner(player) {
     }
     body.position.y=0;root.position.set(0,state.height,state.visualDistance-stumble*.15);root.updateMatrixWorld(true);
   }
+  // Bench targets use the native skeleton at the origin, with a supported
+  // back, planted feet and a shared hand/bar height throughout each repetition.
+  function poseBench(state) {
+    root.position.set(0,0,0);root.rotation.set(0,0,0);root.updateMatrixWorld(true);reset();
+    bones.Hips.position.set(0,.65/sourceScale,.25/sourceScale);
+    bones.Hips.quaternion.copy(bind.Hips.q).multiply(new T.Quaternion().setFromAxisAngle(v(1,0,0),-Math.PI/2));
+    body.updateMatrixWorld(true);
+    const barY=.99+state.lift*.36;
+    for(const [side,sign] of [['Left',1],['Right',-1]]) {
+      solve([side+'UpLeg',side+'Leg',side+'Foot'],v(sign*.28,footHeight,.85),v(sign*.3,.75,1.1));
+      bones[side+'Foot'].quaternion.copy(rotation(bones[side+'Foot'].parent).invert().multiply(footRotations[side]));body.updateMatrixWorld(true);
+      solve([side+'Arm',side+'ForeArm',side+'Hand'],v(sign*.34,barY,-.24),v(sign*.65,.72,-.20));
+      const hand=bones[side+'Hand'],tip=bones[side+'HandMiddle4'];
+      if(tip)aim(hand,tip,position(hand).add(v(0,0,-.12)));
+      for(const finger of ['Index','Middle','Ring','Pinky'])for(let joint=1;joint<=3;joint++) {
+        const bone=bones[side+'Hand'+finger+joint];
+        if(bone)bone.quaternion.multiply(new T.Quaternion().setFromAxisAngle(v(1,0,0),joint===1?.7:1.15));
+      }
+      const thumb=bones[side+'HandThumb2'];if(thumb)thumb.quaternion.multiply(new T.Quaternion().setFromAxisAngle(v(1,0,0),.65));
+    }
+    body.position.y=0;root.updateMatrixWorld(true);
+    const grip=side=>position(bones[side+'Hand']).lerp(position(bones[side+'HandMiddle1']),.75);
+    return grip('Left').add(grip('Right')).multiplyScalar(.5);
+  }
   pose(0,0,true);
-  return {root,pose,poseJump,setAthlete,dispose(){appearance.dispose();mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}};
+  return {root,pose,poseJump,poseBench,setAthlete,dispose(){appearance.dispose();mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}};
 }
