@@ -177,6 +177,21 @@ export async function loadCombineRunner(player) {
     root.updateMatrixWorld(true);
     return palm('Left').add(palm('Right')).multiplyScalar(.5);
   }
+  function poseDefender(state,dt){
+    const pace=Math.hypot(state.vx,state.vz),ready=['press','backpedal','plant'].includes(state.action)||['idle','preview'].includes(state.phase);
+    const hand=poseReceiver({distance:state.distance,vx:state.vx,vz:state.vz,phase:state.phase,arrival:state.arrival,clock:state.clock,catchAt:state.lookAtBall?state.clock:null,catchStyle:'chest',settle:state.settle,result:state.intercepted?{caught:true}:null},dt);
+    if(ready&&!state.intercepted){
+      reset();const cycle=state.distance/1.25*Math.PI*2;
+      bones.Hips.position.y=.87/sourceScale;bones.Spine.quaternion.multiply(new T.Quaternion().setFromAxisAngle(v(1,0,0),.12));body.updateMatrixWorld(true);
+      for(const [side,sign]of [['Left',1],['Right',-1]]){
+        const step=Math.sin(cycle+(side==='Left'?0:Math.PI)),lift=Math.max(0,Math.cos(cycle+(side==='Left'?0:Math.PI)))*Math.min(.09,pace*.04);
+        solve([side+'UpLeg',side+'Leg',side+'Foot'],v(sign*.21,footHeight+lift,step*Math.min(.22,pace*.10)),v(sign*.24,.42,.6),true);
+        solve([side+'Arm',side+'ForeArm',side+'Hand'],v(sign*.31,1.13,state.pressUntil>state.clock?.55:.32),v(sign*.48,.95,.12));
+      }
+    }
+    if(state.lookAtBall){const dx=state.ball[0]-state.x,dz=state.ball[2]-state.z,angle=Math.atan2(Math.sin(Math.atan2(dx,dz)-state.heading),Math.cos(Math.atan2(dx,dz)-state.heading));bones.Head.quaternion.multiply(new T.Quaternion().setFromAxisAngle(v(0,1,0),T.MathUtils.clamp(angle,-1.1,1.1)));}
+    root.updateMatrixWorld(true);return state.intercepted?hand:palm('Left').add(palm('Right')).multiplyScalar(.5);
+  }
   function poseQuarterback(t){
     root.position.set(0,0,0);root.rotation.set(0,0,0);root.updateMatrixWorld(true);reset();
     const wind=T.MathUtils.smoothstep(t,-.22,0),follow=T.MathUtils.smoothstep(t,0,.35);
@@ -191,5 +206,5 @@ export async function loadCombineRunner(player) {
     return grip.addScaledVector(inward,.075);
   }
   pose(0,0,true);
-  return {root,pose,poseJump,poseBench,poseShuttleTurn,poseReceiver,poseQuarterback,setAthlete,dispose(){appearance.dispose();mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}};
+  return {root,pose,poseJump,poseBench,poseShuttleTurn,poseReceiver,poseDefender,poseQuarterback,setAthlete,dispose(){appearance.dispose();mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}};
 }
