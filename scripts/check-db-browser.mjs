@@ -16,6 +16,11 @@ try{
  assert.equal(await p.getByRole('heading',{name:'PAUSED',exact:true}).count(),1);await advance(500);assert.equal(await p.locator('main').getAttribute('data-phase'),'preview');await p.getByRole('button',{name:'RESUME',exact:true}).dispatchEvent('click');
  await p.getByLabel('Hold to pause').dispatchEvent('click',{detail:0});await advance(500);await p.getByRole('button',{name:'RESUME',exact:true}).dispatchEvent('click');
  const cdp=await p.context().newCDPSession(p),outcomes=[];const reps=realtime?1:5;
+ // Exercise a touch device that emits Pointer Events but no legacy Touch Events.
+ await p.evaluate(()=>{window.blockLegacyTouch=e=>e.stopImmediatePropagation();for(const name of ['touchstart','touchmove','touchend','touchcancel'])document.addEventListener(name,window.blockLegacyTouch,true);});
+ const fallbackBox=await p.getByLabel('Movement joystick').boundingBox(),fallbackFinger={x:fallbackBox.x+fallbackBox.width/2,y:fallbackBox.y+8,id:31};
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[fallbackFinger]});assert.doesNotMatch(await p.locator('.route-stick i').getAttribute('style'),/translate\(0px, 0px\)/,'Pointer-only touch was ignored');await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});assert.match(await p.locator('.route-stick i').getAttribute('style'),/translate\(0px, 0px\)/);
+ await p.evaluate(()=>{for(const name of ['touchstart','touchmove','touchend','touchcancel'])document.removeEventListener(name,window.blockLegacyTouch,true);delete window.blockLegacyTouch;});
  for(let rep=0;rep<reps;rep++){
   if(realtime)await p.waitForFunction(()=>document.querySelector('main').dataset.phase==='running');else await advance(rep?5100:2200);
   const joy=await p.getByLabel('Movement joystick').boundingBox();let thumb={x:joy.x+joy.width/2,y:joy.y+joy.height/2,id:11};await p.getByLabel('Movement joystick').evaluate(el=>el.addEventListener('pointerdown',e=>el.dataset.testPointer=String(e.pointerId),{once:true}));await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[thumb]});let tapped=false,prior=null,target=null,sawResult=false,settleFrames=0,settleStart=null,flightStart=null;
