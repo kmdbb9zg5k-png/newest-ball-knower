@@ -215,6 +215,40 @@ export async function loadCombineRunner(player) {
     if(state.lookAtBall){const dx=state.ball[0]-state.x,dz=state.ball[2]-state.z,angle=Math.atan2(Math.sin(Math.atan2(dx,dz)-state.heading),Math.cos(Math.atan2(dx,dz)-state.heading));bones.Head.quaternion.multiply(new T.Quaternion().setFromAxisAngle(v(0,1,0),T.MathUtils.clamp(angle,-1.1,1.1)));}
     root.updateMatrixWorld(true);return state.intercepted?hand:palm('Left').add(palm('Right')).multiplyScalar(.5);
   }
+  function poseRB(state,dt,defender=false){
+    root.position.set(0,0,0);root.rotation.set(0,0,0);root.updateMatrixWorld(true);
+    const actor=defender?state.db:state,pace=Math.hypot(actor.vx,actor.vz),age=state.clock-state.moveAt;
+    pose(actor.distance,pace,false,1,0,pace<1,dt);
+    const tackled=state.result?.reason==='TACKLED',fall=tackled?T.MathUtils.smoothstep(state.settle,defender?.08:0,defender?.78:.65):0;
+    if(fall){
+      reset();bones.Hips.position.y=T.MathUtils.lerp(.90,.28,fall)/sourceScale;
+      bones.Hips.quaternion.multiply(new T.Quaternion().setFromAxisAngle(v(1,0,0),(defender?1.32:1.10)*fall));bones.Hips.quaternion.multiply(new T.Quaternion().setFromAxisAngle(v(0,0,1),(defender?-.35:.28)*fall));body.updateMatrixWorld(true);
+      for(const [side,sign]of [['Left',1],['Right',-1]])solve([side+'UpLeg',side+'Leg',side+'Foot'],v(sign*.19,footHeight,-.65*fall),v(sign*.25,.30,-.15),true);
+    }
+    if(defender){
+      const reaching=actor.lunge>0||fall>0;
+      if(reaching)for(const [side,sign]of [['Left',1],['Right',-1]])solve([side+'Arm',side+'ForeArm',side+'Hand'],v(sign*.32,T.MathUtils.lerp(.92,.40,fall),.52),v(sign*.50,.65,.20));
+      if(actor.stumble>0&&!fall){bones.Spine.quaternion.multiply(new T.Quaternion().setFromAxisAngle(v(0,0,1),Math.sin(actor.stumble*10)*.18));for(const [side,sign]of [['Left',1],['Right',-1]])solve([side+'Arm',side+'ForeArm',side+'Hand'],v(sign*.65,1.12,.15),v(sign*.6,.9,.1));}
+    }else{
+      if(state.move==='juke'&&age<.55)bones.Spine.quaternion.multiply(new T.Quaternion().setFromAxisAngle(v(0,0,1),state.moveSide*.25*Math.sin(Math.PI*Math.min(1,age/.55))));
+      body.updateMatrixWorld(true);
+      const exchange=state.phase==='idle'||state.phase==='preview'||state.phase==='handoff';
+      const target=exchange?v(.12,1.05,.38):v(-.17,T.MathUtils.lerp(1.06,.35,fall),T.MathUtils.lerp(.18,.50,fall));
+      solve(['RightArm','RightForeArm','RightHand'],target,v(-.42,T.MathUtils.lerp(.86,.3,fall),.08));
+      if(exchange)solve(['LeftArm','LeftForeArm','LeftHand'],v(.24,1.05,.38),v(.46,.9,.10));
+      if(state.move==='stiff'&&age<.65&&!fall){const reach=Math.sin(Math.PI*Math.min(1,age/.65));solve(['LeftArm','LeftForeArm','LeftHand'],v(.26,1.20,.25+reach*.55),v(.43,1.04,.34));}
+      if(state.move==='spin'&&age<.65&&!fall)solve(['LeftArm','LeftForeArm','LeftHand'],v(.20,1.10,.20),v(.4,.91,.10));
+    }
+    root.updateMatrixWorld(true);return palm('Right');
+  }
+  function poseHandoff(released=false){
+    root.position.set(0,0,0);root.rotation.set(0,0,0);root.updateMatrixWorld(true);reset();bones.Hips.position.y=.92/sourceScale;body.updateMatrixWorld(true);
+    for(const [side,sign]of [['Left',1],['Right',-1]]){
+      solve([side+'UpLeg',side+'Leg',side+'Foot'],v(sign*.16,footHeight,0),v(sign*.20,.40,.30),true);
+      solve([side+'Arm',side+'ForeArm',side+'Hand'],released?v(sign*.26,.83,.08):v(sign*.10,1.05,.58),v(sign*.36,.88,.25));
+    }
+    root.updateMatrixWorld(true);return palm('Left').add(palm('Right')).multiplyScalar(.5);
+  }
   function poseQuarterback(t){
     root.position.set(0,0,0);root.rotation.set(0,0,0);root.updateMatrixWorld(true);reset();
     const wind=T.MathUtils.smoothstep(t,-.22,0),follow=T.MathUtils.smoothstep(t,0,.35);
@@ -229,5 +263,5 @@ export async function loadCombineRunner(player) {
     return grip.addScaledVector(inward,.075);
   }
   pose(0,0,true);
-  return {root,pose,poseJump,poseBench,poseShuttleTurn,poseReceiver,poseDefender,poseQuarterback,setAthlete,dispose(){appearance.dispose();mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}};
+  return {root,pose,poseJump,poseBench,poseShuttleTurn,poseReceiver,poseDefender,poseRB,poseHandoff,poseQuarterback,setAthlete,dispose(){appearance.dispose();mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}};
 }

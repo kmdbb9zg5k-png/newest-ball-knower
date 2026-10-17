@@ -1,3 +1,4 @@
+import RBExperience from './RBExperience';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import DBExperience from './DBExperience';
@@ -11,4 +12,4 @@ const positions = ['WR', 'RB', 'CB', 'QB', 'TE', 'LB'];
 const players = positions.flatMap(pos => SOLO_PLAYERS_DATABASE.filter(p => p.position === pos).slice(0, 3)).map(combineAthlete);
 const drill = new URLSearchParams(location.search).get('drill');
 const Drill = drill === 'broad-jump' ? BroadJumpExperience : CombineExperience;
-createRoot(document.getElementById('root')!).render(drill === 'db' ? <DBExperience players={players.filter(p=>p.position==='CB')} onClose={() => { location.href = '/?miniGames=1&combine=1'; }} /> : drill === 'routes' || drill === 'one-on-one' ? <RouteExperience man={drill === 'one-on-one'} players={players.filter(p=>['WR','TE','RB'].includes(p.position))} onClose={() => { location.href = '/?miniGames=1&combine=1'; }} /> : drill === 'shuttle' || drill === 'bench' ? <AgilityStrengthExperience drill={drill} players={players} context="standalone" onClose={() => { location.href = '/?miniGames=1&combine=1'; }} /> : <Drill players={players} context="standalone" onClose={() => { location.href = '/?miniGames=1&combine=1'; }} />);
+createRoot(document.getElementById('root')!).render(drill === 'rb' ? <RBExperience players={players.filter(p=>p.position==='RB')} onClose={() => { location.href = '/?miniGames=1&combine=1'; }} /> : drill === 'db' ? <DBExperience players={players.filter(p=>p.position==='CB')} onClose={() => { location.href = '/?miniGames=1&combine=1'; }} /> : drill === 'routes' || drill === 'one-on-one' ? <RouteExperience man={drill === 'one-on-one'} players={players.filter(p=>['WR','TE','RB'].includes(p.position))} onClose={() => { location.href = '/?miniGames=1&combine=1'; }} /> : drill === 'shuttle' || drill === 'bench' ? <AgilityStrengthExperience drill={drill} players={players} context="standalone" onClose={() => { location.href = '/?miniGames=1&combine=1'; }} /> : <Drill players={players} context="standalone" onClose={() => { location.href = '/?miniGames=1&combine=1'; }} />);
