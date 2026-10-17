@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';import {createServer} from 'vite';import {chromium} from 'playwright';import {mkdir} from 'node:fs/promises';
+await mkdir('artifacts/combine-polish',{recursive:true});const server=await createServer({server:{host:'127.0.0.1',port:3077}});await server.listen();const browser=await chromium.launch({executablePath:process.env.BROWSER_PATH||'/tmp/bk-browser/chromium',args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
+try{
+ const p=await browser.newPage({viewport:{width:390,height:680},isMobile:true,hasTouch:true,deviceScaleFactor:.5});p.setDefaultTimeout(90000);const errors=[];p.on('pageerror',e=>errors.push(e.message));
+ const ready=()=>p.waitForFunction(()=>document.querySelector('.skill-hud')&&!document.querySelector('.skill-hud').inert);
+ if(process.env.DRILL_FILTER!=='shuttle'){
+ await p.goto('http://127.0.0.1:3077/combine.html?drill=bench');await ready();
+ for(const size of [{width:320,height:568},{width:390,height:680},{width:844,height:390}]){await p.setViewportSize(size);for(const sel of ['.skill-top','.skill-score','.skill-live','.skill-bottom']){const b=await p.locator(sel).boundingBox();assert(b.x>=0&&b.y>=0&&b.x+b.width<=size.width+1&&b.y+b.height<=size.height+1,sel+' clipped');}await p.screenshot({path:`artifacts/combine-polish/bench-${size.width}.png`});}
+ await p.setViewportSize({width:390,height:680});await p.getByLabel('Hold to pause').tap();assert.equal(await p.getByRole('dialog',{name:'Drill paused'}).count(),0);
+ const pause=await p.getByLabel('Hold to pause').boundingBox();await p.mouse.move(pause.x+pause.width/2,pause.y+pause.height/2);await p.mouse.down();await p.waitForTimeout(650);await p.mouse.up();await p.getByRole('dialog',{name:'Drill paused'}).waitFor();await p.getByRole('button',{name:'RESUME',exact:true}).click();
+ await p.getByRole('button',{name:'START SET →',exact:true}).tap();await p.waitForFunction(()=>document.querySelector('main').dataset.phase==='running');
+ await p.evaluate(()=>{window.dispatchEvent(new Event('blur'));const end=performance.now()+1100;while(performance.now()<end){}});await p.waitForTimeout(100);assert.equal(await p.getByRole('dialog',{name:'Drill paused'}).count(),0);
+ const button=await p.getByLabel('Hold to press').boundingBox();await p.mouse.move(button.x+button.width/2,button.y+button.height/2);await p.mouse.down();await p.waitForFunction(()=>document.querySelector('.skill-cue').textContent.includes('LOWER · RELEASE'));await p.screenshot({path:'artifacts/combine-polish/bench-lockout.png'});
+ await p.waitForFunction(()=>document.querySelector('.skill-cue').textContent.includes('RELEASE TO RESET'));await p.screenshot({path:'artifacts/combine-polish/bench-chest.png'});assert.equal(await p.getByRole('meter',{name:'Bar extension'}).getAttribute('aria-valuenow'),'0');assert.equal(parseInt(await p.locator('.skill-live>b').innerText()),1);await p.waitForTimeout(500);assert.equal(parseInt(await p.locator('.skill-live>b').innerText()),1);await p.mouse.up();await p.waitForFunction(()=>document.querySelector('.skill-cue').textContent.includes('RECOVER'));console.log('PASS guarded pause, 1.1s slow frame and blur without pause, overhold chest return, no held-input extra reps, release rearm');
+ }
+ await p.clock.install();
+ await p.goto('http://127.0.0.1:3077/combine.html?drill=shuttle');await ready();
+ for(const size of [{width:320,height:568},{width:390,height:680},{width:844,height:390}]){await p.setViewportSize(size);await p.screenshot({path:`artifacts/combine-polish/shuttle-${size.width}.png`});}
+ await p.setViewportSize({width:390,height:680});// Virtual frame time isolates input/scoring from software-GPU stalls. Bench above uses wall time.
+ await p.getByRole('button',{name:'START SHUTTLE →',exact:true}).tap();
+ const drive=p.evaluate(()=>new Promise(resolve=>{const tick=()=>{const root=document.querySelector('main');if(root.dataset.phase==='finished'){resolve();return;}if(root.dataset.phase==='cut'){const value=Number(document.querySelector('[aria-label="Cut timing"]').getAttribute('aria-valuenow'));if(value>=50&&value<=85)document.querySelector('.skill-controls button[data-active="true"]')?.click();}requestAnimationFrame(tick);};requestAnimationFrame(tick);}));await p.clock.runFor(10000);await drive;
+ await p.getByRole('dialog',{name:'Drill results'}).waitFor();assert.match(await p.locator('.skill-dialog').innerText(),/Cut 1: (PERFECT|CLEAN) · Cut 2: (PERFECT|CLEAN)/);await p.screenshot({path:'artifacts/combine-polish/shuttle-results.png'});assert.deepEqual(errors,[]);console.log('PASS revised shuttle controls and saved result; mobile/in-app/landscape layouts; no page errors');
+}finally{await browser.close();await server.close();}

@@ -114,6 +114,23 @@ export async function loadCombineRunner(player) {
     }
     body.position.y=0;root.position.set(0,state.height,state.visualDistance-stumble*.15);root.updateMatrixWorld(true);
   }
+  // A planted lunge reaches the line before the body turns and pushes away.
+  function poseShuttleTurn(state){
+    root.position.set(0,0,0);root.rotation.set(0,0,0);root.updateMatrixWorld(true);reset();
+    const t=T.MathUtils.clamp(state.cutElapsed/.8,0,1);
+    const load=T.MathUtils.smoothstep(t,0,.32)*(1-T.MathUtils.smoothstep(t,.58,1));
+    bones.Hips.position.set(0,(.98-load*.58)/sourceScale,-load*.13/sourceScale);
+    bones.Hips.quaternion.copy(bind.Hips.q).multiply(new T.Quaternion().setFromAxisAngle(v(1,0,0),load*1.05));body.updateMatrixWorld(true);
+    for(const [side,sign]of [['Left',1],['Right',-1]]){
+      const front=side==='Left';
+      solve([side+'UpLeg',side+'Leg',side+'Foot'],v(sign*.18,footHeight,front?.10:-.48*load),v(sign*.2,.40,.7));
+      bones[side+'Foot'].quaternion.copy(rotation(bones[side+'Foot'].parent).invert().multiply(footRotations[side]));body.updateMatrixWorld(true);
+      const hand=front?v(.25,.8-load*.71,.07+load*.03):v(-.3,.8-load*.12,-.2-load*.18);
+      solve([side+'Arm',side+'ForeArm',side+'Hand'],hand,v(sign*.4,.55,-.2));
+      if(front&&bones.LeftHandMiddle4)aim(bones.LeftHand,bones.LeftHandMiddle4,position(bones.LeftHand).add(v(0,-.13,.025)));
+    }
+    body.position.y=0;root.updateMatrixWorld(true);
+  }
   // Bench targets use the native skeleton at the origin, with a supported
   // back, planted feet and a shared hand/bar height throughout each repetition.
   function poseBench(state) {
@@ -121,7 +138,7 @@ export async function loadCombineRunner(player) {
     bones.Hips.position.set(0,.65/sourceScale,.25/sourceScale);
     bones.Hips.quaternion.copy(bind.Hips.q).multiply(new T.Quaternion().setFromAxisAngle(v(1,0,0),-Math.PI/2));
     body.updateMatrixWorld(true);
-    const barY=.99+state.lift*.36;
+    const barY=.84+state.lift*.55;
     for(const [side,sign] of [['Left',1],['Right',-1]]) {
       solve([side+'UpLeg',side+'Leg',side+'Foot'],v(sign*.28,footHeight,.85),v(sign*.3,.75,1.1));
       bones[side+'Foot'].quaternion.copy(rotation(bones[side+'Foot'].parent).invert().multiply(footRotations[side]));body.updateMatrixWorld(true);
@@ -139,5 +156,5 @@ export async function loadCombineRunner(player) {
     return grip('Left').add(grip('Right')).multiplyScalar(.5);
   }
   pose(0,0,true);
-  return {root,pose,poseJump,poseBench,setAthlete,dispose(){appearance.dispose();mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}};
+  return {root,pose,poseJump,poseBench,poseShuttleTurn,setAthlete,dispose(){appearance.dispose();mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}};
 }
