@@ -1,0 +1,15 @@
+// Real requestAnimationFrame and touch input: no virtual clock or simulation injection.
+import assert from 'node:assert/strict';import {chromium} from 'playwright';import {createServer} from 'vite';import {mkdir} from 'node:fs/promises';
+const server=process.env.MAN_URL?null:await createServer({server:{host:'127.0.0.1',port:3090}});await server?.listen();const base=process.env.MAN_URL||'http://127.0.0.1:3090';await mkdir('artifacts/man-coverage',{recursive:true});
+const browser=await chromium.launch({executablePath:'/tmp/bk-browser/chromium',args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
+try{
+ const p=await browser.newPage({viewport:{width:390,height:680},deviceScaleFactor:.6,isMobile:true,hasTouch:true});p.setDefaultTimeout(90000);const errors=[];p.on('pageerror',e=>errors.push(e.message));await p.goto(base+'/combine.html?drill=one-on-one');await p.waitForFunction(()=>document.querySelector('.skill-hud')&&!document.querySelector('.skill-hud').inert);await p.getByRole('button',{name:'START ROUTE →'}).click();
+ const cdp=await p.context().newCDPSession(p),joy=await p.getByLabel('Movement joystick').boundingBox();let thumb={x:joy.x+joy.width/2,y:joy.y+joy.height/2-45,id:11};await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[thumb]});await p.waitForFunction(()=>document.querySelector('main').dataset.phase==='running');let flight=null,last=null,tapped=false,move={x:0,y:-1};const start=Date.now();
+ while(Date.now()-start<120000){
+  const s=await p.locator('main').evaluate(el=>({phase:el.dataset.phase,x:+el.dataset.x,z:+el.dataset.z}));if(s.phase==='result'){last=s;break;}
+  if(s.phase==='running'){move=s.z<4?{x:0,y:-1}:s.x> -3?{x:.707,y:-.707}:{x:0,y:-1};thumb={...thumb,x:joy.x+joy.width/2+move.x*45,y:joy.y+joy.height/2+move.y*45};await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[thumb]});}
+  if(s.phase==='flight'&&!tapped){flight=s;const b=await p.getByLabel('Catch ball').boundingBox(),finger={x:b.x+b.width/2,y:b.y+b.height/2,id:12};await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[thumb,finger]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[finger]});assert.equal(await p.getByLabel('Catch ball').getAttribute('aria-pressed'),'true');tapped=true;await p.screenshot({path:'artifacts/man-coverage/realtime-flight.png'});}
+  await p.waitForTimeout(100);
+ }
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[thumb]});assert(tapped&&last,'Real-time rep did not throw and finish');assert(Math.hypot(last.x-flight.x,last.z-flight.z)>3,'Held stick stopped after release');const result=await p.locator('.skill-dialog').innerText();await p.screenshot({path:'artifacts/man-coverage/realtime-result.png'});assert.deepEqual(errors,[]);console.log('PASS real RAF / real two-finger touch: pre-snap held input, free-form release, QB pass, catch button, continuous WR movement, completed rep and no errors',JSON.stringify({base,result,realSeconds:(Date.now()-start)/1000}));
+}finally{await browser.close();await server?.close();}
