@@ -1,4 +1,5 @@
 import React,{useEffect,useRef,useState} from 'react';
+import {flushSync} from 'react-dom';
 import {newSkill,startSkill,stepSkill,cutSkill,cutProgress,readSkills,saveSkill,BENCH_SECONDS} from './agility-strength.js';
 import './combine.css';
 import './skills.css';
@@ -23,7 +24,8 @@ export default function AgilityStrengthExperience({players,context,onClose,drill
     // Consume all active time; the fixed plant phase makes cuts readable.
     stepSkill(run.current,dt);loaded.draw(run.current,Math.min(dt,.1));
     if(run.current.phase==='finished'&&!recorded.current){recorded.current=true;setAttempts(a=>[...a,run.current.score]);setSaved(saveSkill(run.current,context));setRows(readSkills());}
-    if(now-hud>30){setView({...run.current});hud=now;}
+    // Commit the timing cue before the next input task; no stale green window.
+    if(now-hud>30){flushSync(()=>setView({...run.current}));hud=now;}
    };raf=requestAnimationFrame(frame);
   }).catch(()=>{if(!gone)setError('Could not load the athlete. Reopen this drill to try again.');});
   const hide=()=>{if(document.hidden&&['countdown','running','cut'].includes(run.current.phase))pause();};
