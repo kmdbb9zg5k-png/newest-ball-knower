@@ -2,7 +2,7 @@ import * as T from 'three';
 import {createWatchingAthlete} from './background-athlete.js';
 const SKINS=['#ae764e','#ceaa88','#684330','#986340'];
 const v=(x=0,y=0,z=0)=>new T.Vector3(x,y,z);
-export async function createCombineBackground(scene,source,{fieldPeople=true}={}){
+export async function createCombineBackground(scene,source,{fieldPeople=true,standOffset=0}={}){
  const response=await fetch('/play-moment-3d/assets/combine-scout-poses-v1.json.gz');if(!response.ok)throw Error('Could not load Combine staff');
  const bytes=new Uint8Array(await response.arrayBuffer());const text=bytes[0]===31&&bytes[1]===139?await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text():new TextDecoder().decode(bytes);
  const poses=JSON.parse(text),loader=new T.BufferGeometryLoader(),group=new T.Group();group.name='combine-background-people';scene.add(group);
@@ -20,7 +20,7 @@ export async function createCombineBackground(scene,source,{fieldPeople=true}={}
  }
  const scouts=[];
  const clusters=[[0,1,7],[2,6,7],[4,5,12],[3,10,11]];
- for(const side of [-1,1])for(let row=0;row<4;row++)for(const col of clusters[row])scouts.push({x:side*(11+row*.9),y:row*.62+.83,z:col*.86-3,angle:side<0?Math.PI/2:-Math.PI/2,variant:scouts.length%3,seated:true});
+ for(const side of [-1,1])for(let row=0;row<4;row++)for(const col of clusters[row])scouts.push({x:side*(11+standOffset+row*.9),y:row*.62+.83,z:col*.86-3,angle:side<0?Math.PI/2:-Math.PI/2,variant:scouts.length%3,seated:true});
  if(fieldPeople)for(let i=0;i<3;i++)scouts.push({x:6.6+i*.65,y:0,z:2.2+i*1.2,angle:-Math.PI/2+(i-1)*.16,variant:3,seated:false});
  const batches=poses.map((pose,index)=>{const people=scouts.filter(s=>s.variant===index);return {people,meshes:pose.geometries.map(json=>{const geometry=loader.parse(json),batch=new T.InstancedMesh(geometry,scoutMaterial(index),people.length);batch.name=`scout-detailed-${index}`;batch.frustumCulled=false;batch.receiveShadow=true;group.add(batch);return batch;})};});
  const material=new T.MeshStandardMaterial({color:'#5f4c33',roughness:.9}),paperMaterial=new T.MeshStandardMaterial({color:'#d8dbcf',roughness:1}),penMaterial=new T.MeshStandardMaterial({color:'#16232e'});

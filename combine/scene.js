@@ -193,15 +193,15 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
   function gate(z){for(const side of [-1,1]){const x=side*2.93;mesh(new T.CylinderGeometry(.018,.022,.95,9),metal,scene,x,.49,z);box(scene,[.17,.23,.10],metal,[x,1.02,z]);const led=mesh(new T.SphereGeometry(.025,10,7),new T.MeshBasicMaterial({color:'#bbf39b'}),scene,x,1.04,z-.06);for(let i=0;i<3;i++){const a=i*Math.PI*2/3,leg=mesh(new T.CylinderGeometry(.012,.014,1,7),metal,scene);connect(leg,v(x,.57,z),v(x+Math.cos(a)*.28,.02,z+Math.sin(a)*.28));}}}
   if(drill==='dash') [10,20,40].forEach(n=>gate(n*YARD));
   // Repeated seats and roof fixtures use instancing to bound mobile draw calls.
-  const seats=new T.InstancedMesh(new T.BoxGeometry(.52,.38,.58),seatMat,2*9*68),o=new T.Object3D();let si=0;
+  const seats=new T.InstancedMesh(new T.BoxGeometry(.52,.38,.58),seatMat,2*9*68),o=new T.Object3D();let si=0;const standOffset=drill==='routes'?8:0;
   for(const side of [-1,1])for(let row=0;row<9;row++){
-    box(scene,[1,.52,65],concrete,[side*(11+row*.9),row*.62+.15,25]);
-    for(let col=0;col<68;col++){o.position.set(side*(11+row*.9),row*.62+.64,col*.86-3);o.updateMatrix();seats.setMatrixAt(si++,o.matrix);}
+    box(scene,[1,.52,65],concrete,[side*(11+standOffset+row*.9),row*.62+.15,25]);
+    for(let col=0;col<68;col++){o.position.set(side*(11+standOffset+row*.9),row*.62+.64,col*.86-3);o.updateMatrix();seats.setMatrixAt(si++,o.matrix);}
   }scene.add(seats);
   const backs=new T.InstancedMesh(new T.BoxGeometry(.52,.48,.10),seatMat,si);
   for(let i=0;i<si;i++){seats.getMatrixAt(i,o.matrix);o.matrix.decompose(o.position,o.quaternion,o.scale);o.position.y+=.31;o.position.x+=Math.sign(o.position.x)*.20;o.rotation.y=Math.PI/2;o.updateMatrix();backs.setMatrixAt(i,o.matrix);}scene.add(backs);
-  for(const side of [-1,1]){box(scene,[.10,.10,64],metal,[side*9.7,1.0,26]);for(let z=-4;z<58;z+=4)box(scene,[.07,1,.07],metal,[side*9.7,.5,z]);}
-  for(const z of [8,26,44])for(const side of [-1,1]){const sign=mesh(new T.PlaneGeometry(6,.65),label('BK  •  PROSPECT COMBINE','#b8eb7a','#15262d'),scene,side*9.4,1.2,z);sign.rotation.y=side<0?Math.PI/2:-Math.PI/2;}
+  for(const side of [-1,1]){box(scene,[.10,.10,64],metal,[side*(9.7+standOffset),1.0,26]);for(let z=-4;z<58;z+=4)box(scene,[.07,1,.07],metal,[side*(9.7+standOffset),.5,z]);}
+  for(const z of [8,26,44])for(const side of [-1,1]){const sign=mesh(new T.PlaneGeometry(6,.65),label('BK  •  PROSPECT COMBINE','#b8eb7a','#15262d'),scene,side*(9.4+standOffset),1.2,z);sign.rotation.y=side<0?Math.PI/2:-Math.PI/2;}
 
   box(scene,[45,12,.5],mat('#35444c'),[0,5.5,66]);
   const brand=mesh(new T.PlaneGeometry(15,2.1),label('BALL KNOWER  /  COMBINE','#e4ece6','#172a30',1024,128),scene,0,4.1,65.65);brand.rotation.y=Math.PI;brand.material.transparent=true;
@@ -239,7 +239,7 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
   const runner=detailedRunner;
   runner.poseJump({phase:'idle',elapsed:0,flight:1.2,height:0,visualDistance:0});
   let background;
-  try{background=await createCombineBackground(scene,runner.root,{fieldPeople:drill!=='routes'});}catch(error){runner.dispose();disposeObject(scene);renderer.domElement.removeEventListener('webglcontextlost',lost);renderer.dispose();renderer.domElement.remove();throw error;}
+  try{background=await createCombineBackground(scene,runner.root,{fieldPeople:drill!=='routes',standOffset});}catch(error){runner.dispose();disposeObject(scene);renderer.domElement.removeEventListener('webglcontextlost',lost);renderer.dispose();renderer.domElement.remove();throw error;}
   host.dataset.backgroundVersion='reactive-v3';host.dataset.scouts=String(background.counts.scouts);host.dataset.waitingAthletes=String(background.counts.waitingAthletes);
   scene.add(runner.root);host.dataset.character='native-athlete';
   let routePresentation;
