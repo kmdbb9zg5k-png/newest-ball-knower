@@ -67,6 +67,8 @@ export function HomeMiniGamesFeature() {
           <p>Press, lower and recover. Manage your strength for the most reps in 30 seconds.</p>
           <a className="bk-mini-confirm-team bk-mini-launch" href="/combine.html?drill=routes">Receiver Routes <span aria-hidden="true">→</span></a>
           <p>Study your route for five seconds. Run it yourself and tap CATCH after the throw. Eight routes, including deep balls. No defenders.</p>
+          <a className="bk-mini-confirm-team bk-mini-launch" href="/combine.html?drill=one-on-one">1-on-1 Receiver <span aria-hidden="true">→</span></a>
+          <p>Beat a live-reacting DB in press or soft man. Create separation, track the pass and win the catch. Five reps. Watch for interceptions.</p>
           <button type="button" className="bk-mini-review-back" onClick={() => setScreen('modes')}>← Back to game modes</button>
         </section> : <>
         <p className="bk-mini-active-mode-description">{gameMode === 'five-minute' ? 'Full game vs. CPU. Play or simulate defense.' : 'Down four. Play until the final whistle.'}</p>

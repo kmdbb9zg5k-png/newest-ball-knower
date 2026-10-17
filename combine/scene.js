@@ -167,10 +167,11 @@ function athlete(parent, seed, staff = false) {
 }
 
 export async function createCombineScene(host, player, onLost, drill = 'dash') {
+  const isRoutes=drill==='routes'||drill==='one-on-one';
   const detailedRunner=await loadCombineRunner(player);
   const renderer=new T.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.22;
-  host.appendChild(renderer.domElement);renderer.domElement.setAttribute('aria-label',({jump:'Indoor broad jump lane',shuttle:'Indoor shuttle lane',bench:'Combine weight bench',routes:'Receiver routes field'})[drill]||'Indoor 40-yard dash track');
+  host.appendChild(renderer.domElement);renderer.domElement.setAttribute('aria-label',({jump:'Indoor broad jump lane',shuttle:'Indoor shuttle lane',bench:'Combine weight bench',routes:'Receiver routes field','one-on-one':'One-on-one man coverage field'})[drill]||'Indoor 40-yard dash track');
   const lost=e=>{e.preventDefault();onLost();};renderer.domElement.addEventListener('webglcontextlost',lost);
   const scene=new T.Scene();scene.background=new T.Color('#253039');scene.fog=new T.Fog('#253039',48,125);
   const camera=new T.PerspectiveCamera(49,1,.05,160);
@@ -182,19 +183,19 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
   let rng=71;const random=()=>{rng=(Math.imul(rng,1664525)+1013904223)>>>0;return rng/4294967296;};
   for(let i=0;i<20000;i++){const shade=45+Math.floor(random()*70);ctx.strokeStyle=`rgba(${shade},${shade+20},${shade-14},.52)`;const x=random()*256,y=random()*256;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+random()*2,y-1-random()*3);ctx.stroke();}
   const tex=new T.CanvasTexture(tc);tex.colorSpace=T.SRGBColorSpace;tex.wrapS=tex.wrapT=T.RepeatWrapping;tex.repeat.set(22,50);tex.anisotropy=4;grass.map=tex;grass.bumpMap=tex;grass.bumpScale=.025;
-  const floor=mesh(new T.PlaneGeometry(drill==='routes'?160:54,drill==='routes'?200:110),grass,scene,0,-.012,28);floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;
+  const floor=mesh(new T.PlaneGeometry(isRoutes?160:54,isRoutes?200:110),grass,scene,0,-.012,28);floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;
   const white=mat('#e2e5ce'),orange=mat('#df652e'),metal=mat('#26343a',.55),concrete=mat('#353f45'),seatMat=mat('#263d4b');
   for(let z=-5;z<60;z+=5){const stripe=box(scene,[50,.006,2.5],mat('#476c3d'),[0,-.005,z]);stripe.material.transparent=true;stripe.material.opacity=.15;stripe.receiveShadow=true;}
   if(drill==='dash'||drill==='jump')for(const x of [-2.2,2.2])box(scene,[.075,.012,FINISH+10],white,[x,.002,(FINISH+4)/2]);
-  if(drill==='routes'){const fieldLine=mat('#bcc9af');fieldLine.transparent=true;fieldLine.opacity=.3;for(let n=0;n<=60;n+=5)box(scene,[49,.008,.045],fieldLine,[0,.007,n*YARD]);for(const x of [-24.5,24.5])box(scene,[.06,.008,75],fieldLine,[x,.007,27]);}
+  if(isRoutes){const fieldLine=mat('#bcc9af');fieldLine.transparent=true;fieldLine.opacity=.3;for(let n=0;n<=60;n+=5)box(scene,[49,.008,.045],fieldLine,[0,.007,n*YARD]);for(const x of [-24.5,24.5])box(scene,[.06,.008,75],fieldLine,[x,.007,27]);}
   if(drill==='dash') for(let n=0;n<=40;n+=5){const z=n*YARD;box(scene,[4.45,.009,n%10===0?.09:.045],white,[0,.006,z]);if(n>0&&n%10===0){const number=mesh(new T.PlaneGeometry(1.1,.68),label(String(n)),scene,1.37,.017,z-.45);number.rotation.x=-Math.PI/2;number.rotation.z=Math.PI;}}
-  const startLabel=mesh(new T.PlaneGeometry(2.7,.4),label(({jump:'BROAD JUMP',bench:'STRENGTH',shuttle:'5 – 10 – 5',routes:'RECEIVER ROUTES'})[drill]||'START'),scene,0,.018,-1.25);startLabel.rotation.x=-Math.PI/2;startLabel.rotation.z=Math.PI;
+  const startLabel=mesh(new T.PlaneGeometry(2.7,.4),label(({jump:'BROAD JUMP',bench:'STRENGTH',shuttle:'5 – 10 – 5',routes:'RECEIVER ROUTES','one-on-one':'1 ON 1'})[drill]||'START'),scene,0,.018,-1.25);startLabel.rotation.x=-Math.PI/2;startLabel.rotation.z=Math.PI;
   const finishLabel=mesh(new T.PlaneGeometry(3.2,.46),label('40 YARD FINISH'),scene,0,.019,FINISH+.6);finishLabel.rotation.x=-Math.PI/2;finishLabel.rotation.z=Math.PI;
   if(drill==='dash'||drill==='jump')for(const side of [-1,1])for(let z=0;z<=FINISH;z+=YARD*5){box(scene,[.3,.03,.3],orange,[side*2.6,.015,z]);mesh(new T.ConeGeometry(.12,.40,18),orange,scene,side*2.6,.23,z);}
   function gate(z){for(const side of [-1,1]){const x=side*2.93;mesh(new T.CylinderGeometry(.018,.022,.95,9),metal,scene,x,.49,z);box(scene,[.17,.23,.10],metal,[x,1.02,z]);const led=mesh(new T.SphereGeometry(.025,10,7),new T.MeshBasicMaterial({color:'#bbf39b'}),scene,x,1.04,z-.06);for(let i=0;i<3;i++){const a=i*Math.PI*2/3,leg=mesh(new T.CylinderGeometry(.012,.014,1,7),metal,scene);connect(leg,v(x,.57,z),v(x+Math.cos(a)*.28,.02,z+Math.sin(a)*.28));}}}
   if(drill==='dash') [10,20,40].forEach(n=>gate(n*YARD));
   // Repeated seats and roof fixtures use instancing to bound mobile draw calls.
-  const seats=new T.InstancedMesh(new T.BoxGeometry(.52,.38,.58),seatMat,2*9*68),o=new T.Object3D();let si=0;const standOffset=drill==='routes'?60:0;
+  const seats=new T.InstancedMesh(new T.BoxGeometry(.52,.38,.58),seatMat,2*9*68),o=new T.Object3D();let si=0;const standOffset=isRoutes?60:0;
   for(const side of [-1,1])for(let row=0;row<9;row++){
     box(scene,[1,.52,65],concrete,[side*(11+standOffset+row*.9),row*.62+.15,25]);
     for(let col=0;col<68;col++){o.position.set(side*(11+standOffset+row*.9),row*.62+.64,col*.86-3);o.updateMatrix();seats.setMatrixAt(si++,o.matrix);}
@@ -204,14 +205,14 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
   for(const side of [-1,1]){box(scene,[.10,.10,64],metal,[side*(9.7+standOffset),1.0,26]);for(let z=-4;z<58;z+=4)box(scene,[.07,1,.07],metal,[side*(9.7+standOffset),.5,z]);}
   for(const z of [8,26,44])for(const side of [-1,1]){const sign=mesh(new T.PlaneGeometry(6,.65),label('BK  •  PROSPECT COMBINE','#b8eb7a','#15262d'),scene,side*(9.4+standOffset),1.2,z);sign.rotation.y=side<0?Math.PI/2:-Math.PI/2;}
 
-  box(scene,[drill==='routes'?160:45,12,.5],mat('#35444c'),[0,5.5,66]);
+  box(scene,[isRoutes?160:45,12,.5],mat('#35444c'),[0,5.5,66]);
   const brand=mesh(new T.PlaneGeometry(15,2.1),label('BALL KNOWER  /  COMBINE','#e4ece6','#172a30',1024,128),scene,0,4.1,65.65);brand.rotation.y=Math.PI;brand.material.transparent=true;
-  box(scene,[drill==='routes'?160:50,.35,drill==='routes'?200:94],mat('#252f36'),[0,15.5,27]);
+  box(scene,[isRoutes?160:50,.35,isRoutes?200:94],mat('#252f36'),[0,15.5,27]);
   const lamps=new T.InstancedMesh(new T.BoxGeometry(2.4,.08,.45),new T.MeshBasicMaterial({color:'#f7f1dc'}),24);let li=0;
-  for(let z=-5;z<65;z+=12){box(scene,[drill==='routes'?150:44,.32,.24],metal,[0,14.8,z]);for(const x of [-16,-7,7,16]){o.position.set(x,14.55,z);o.updateMatrix();lamps.setMatrixAt(li++,o.matrix);}for(const side of [-1,1])box(scene,[.25,15,.28],metal,[side*(drill==='routes'?78:21),7.4,z]);}scene.add(lamps);
+  for(let z=-5;z<65;z+=12){box(scene,[isRoutes?150:44,.32,.24],metal,[0,14.8,z]);for(const x of [-16,-7,7,16]){o.position.set(x,14.55,z);o.updateMatrix();lamps.setMatrixAt(li++,o.matrix);}for(const side of [-1,1])box(scene,[.25,15,.28],metal,[side*(isRoutes?78:21),7.4,z]);}scene.add(lamps);
   // Small standing groups and tables stay outside the athlete's lane.
 
-  if(drill!=='routes')for(const z of [6,20,37]){box(scene,[1.5,.09,.64],metal,[6,.82,z]);for(const x of [5.4,6.6])for(const dz of [-.22,.22])box(scene,[.05,.78,.05],metal,[x,.39,z+dz]);box(scene,[.44,.3,.045],mat('#111b21'),[6,1.02,z]);}
+  if(!isRoutes)for(const z of [6,20,37]){box(scene,[1.5,.09,.64],metal,[6,.82,z]);for(const x of [5.4,6.6])for(const dz of [-.22,.22])box(scene,[.05,.78,.05],metal,[x,.39,z+dz]);box(scene,[.44,.3,.045],mat('#111b21'),[6,1.02,z]);}
   if(drill==='jump') {
     box(scene,[3,.012,.07],white,[0,.006,0]);
     for(let feet=1;feet<=12;feet++){
@@ -240,11 +241,11 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
   const runner=detailedRunner;
   runner.poseJump({phase:'idle',elapsed:0,flight:1.2,height:0,visualDistance:0});
   let background;
-  try{background=await createCombineBackground(scene,runner.root,{fieldPeople:drill!=='routes',standOffset});}catch(error){runner.dispose();disposeObject(scene);renderer.domElement.removeEventListener('webglcontextlost',lost);renderer.dispose();renderer.domElement.remove();throw error;}
+  try{background=await createCombineBackground(scene,runner.root,{fieldPeople:!isRoutes,standOffset});}catch(error){runner.dispose();disposeObject(scene);renderer.domElement.removeEventListener('webglcontextlost',lost);renderer.dispose();renderer.domElement.remove();throw error;}
   host.dataset.backgroundVersion='reactive-v3';host.dataset.scouts=String(background.counts.scouts);host.dataset.waitingAthletes=String(background.counts.waitingAthletes);
   scene.add(runner.root);host.dataset.character='native-athlete';
   let routePresentation;
-  if(drill==='routes'){try{routePresentation=await createRoutePresentation(scene,runner,camera,host,player);}catch(error){background.dispose();runner.dispose();disposeObject(scene);renderer.dispose();renderer.domElement.remove();throw error;}}
+  if(isRoutes){try{routePresentation=await createRoutePresentation(scene,runner,camera,host,player,drill==='one-on-one');}catch(error){background.dispose();runner.dispose();disposeObject(scene);renderer.dispose();renderer.domElement.remove();throw error;}}
   let visualZ=0,previousPhase='idle',settle=0;
   const target=v(),look=v();
   const resize=()=>{const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;camera.aspect=w/h;camera.fov=w<h?53:49;camera.updateProjectionMatrix();renderer.setSize(w,h,false);};
