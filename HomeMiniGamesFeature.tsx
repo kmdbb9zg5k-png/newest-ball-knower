@@ -28,7 +28,7 @@ export function HomeMiniGamesFeature() {
   useEffect(() => {
     const url = new URL(location.href);
     if (url.searchParams.get('miniGames') === '1') {
-      openMenu(); url.searchParams.delete('miniGames');
+      openMenu(); if (url.searchParams.get('combine') === '1') setScreen('combine'); url.searchParams.delete('combine'); url.searchParams.delete('miniGames');
       history.replaceState(history.state, '', url.pathname + url.search + url.hash);
     }
   }, []);
@@ -48,11 +48,11 @@ export function HomeMiniGamesFeature() {
           {['Your team', 'Opponent', 'Matchup'].map((label, index) => <span key={label} aria-current={index === (picking === 'home' ? 0 : picking === 'away' ? 1 : 2) ? 'step' : undefined}>{index + 1}. {label}</span>)}
         </div>}
         <h2 ref={heading} tabIndex={-1} id="mini-games-heading">{screen === 'modes' ? 'Pick Your Game' : screen === 'difficulty' ? 'Choose Difficulty' : screen === 'combine' ? 'Combine Drills' : picking === 'home' ? 'Pick Your Team' : picking === 'away' ? 'Pick Opponent' : 'View Matchup'}</h2>
-        <p id="mini-games-description" className="bk-mini-flow-description">{screen === 'modes' ? 'Big plays. Quick games. Choose your challenge.' : screen === 'difficulty' ? `${gameName}. How tough do you want it?` : screen === 'combine' ? 'Test your speed and explosiveness. Set your personal best.' : picking === 'home' ? 'Choose your squad. Own the field.' : picking === 'away' ? `Who will take on the ${matchup.home.name.split(' ').at(-1)}?` : 'The stage is set. Make your statement.'}</p>
+        <p id="mini-games-description" className="bk-mini-flow-description">{screen === 'modes' ? 'Big plays. Quick games. Choose your challenge.' : screen === 'difficulty' ? `${gameName}. How tough do you want it?` : screen === 'combine' ? 'Test your speed, power, agility and strength. Set your personal best.' : picking === 'home' ? 'Choose your squad. Own the field.' : picking === 'away' ? `Who will take on the ${matchup.home.name.split(' ').at(-1)}?` : 'The stage is set. Make your statement.'}</p>
         {screen === 'modes' ? <div className="bk-mini-mode-cards">
           <button type="button" className="bk-mini-mode-card" onClick={() => chooseMode('two-minute')}><span className="bk-mini-card-time">02:00</span><strong>Two-Minute Warning</strong><span>Down four. Two minutes. Finish the game.</span><b>Play now →</b></button>
           <button type="button" className="bk-mini-mode-card bk-mini-mode-card-full" onClick={() => chooseMode('five-minute')}><span className="bk-mini-card-time">05:00</span><strong>Five-Minute Game</strong><span>You vs. CPU. Offense, defense, and kick returns.</span><b>Play now →</b></button>
-          <button type="button" className="bk-mini-mode-card bk-mini-mode-card-combine" onClick={() => setScreen('combine')}><span className="bk-mini-card-time">40 YD</span><strong>Combine Drills</strong><span>40-yard dash & broad jump. Set your personal best.</span><b>View drills →</b></button>
+          <button type="button" className="bk-mini-mode-card bk-mini-mode-card-combine" onClick={() => setScreen('combine')}><span className="bk-mini-card-time">40 YD</span><strong>Combine Drills</strong><span>Speed, power, agility & strength. Set your personal best.</span><b>View drills →</b></button>
         </div> : screen === 'difficulty' ? <div className="bk-mini-difficulty-screen">
           <div className="bk-mini-difficulty-options">{MINI_LEVELS.map(option => <button type="button" key={option.id} aria-pressed={level === option.id} onClick={() => { chooseLevel(option.id); setScreen('teams'); }}><strong>{option.name}</strong><span>{option.description}</span><b aria-hidden="true">→</b></button>)}</div>
           <button type="button" className="bk-mini-review-back" onClick={() => setScreen('modes')}>← Back to game modes</button>
@@ -61,7 +61,11 @@ export function HomeMiniGamesFeature() {
           <p>Pick a fictional athlete. Alternate your strides and record 10-, 20-, and 40-yard splits. Two attempts per session.</p>
           <a className="bk-mini-confirm-team bk-mini-launch" href="/combine.html?drill=broad-jump">Broad Jump <span aria-hidden="true">→</span></a>
           <p>Tap to build power. Time your jump. Land in green. Two attempts with the same Combine athletes.</p>
-          <ul><li><strong>Agility &amp; strength</strong><p>More Combine events are in development.</p></li><li><strong>Passing &amp; catching</strong><p>Position drills are in development.</p></li></ul>
+          <a className="bk-mini-confirm-team bk-mini-launch" href="/combine.html?drill=shuttle">20-Yard Shuttle <span aria-hidden="true">→</span></a>
+          <p>Time your left and right cuts. Hit green, avoid penalties and chase your fastest time.</p>
+          <a className="bk-mini-confirm-team bk-mini-launch" href="/combine.html?drill=bench">Bench Press <span aria-hidden="true">→</span></a>
+          <p>Press, lower and recover. Manage your strength for the most reps in 30 seconds.</p>
+          <ul><li><strong>Passing &amp; catching</strong><p>Position drills are in development.</p></li></ul>
           <button type="button" className="bk-mini-review-back" onClick={() => setScreen('modes')}>← Back to game modes</button>
         </section> : <>
         <p className="bk-mini-active-mode-description">{gameMode === 'five-minute' ? 'Full game vs. CPU. Play or simulate defense.' : 'Down four. Play until the final whistle.'}</p>
