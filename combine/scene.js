@@ -255,9 +255,9 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
       }else{
         runner.root.rotation.y=0;runner.root.position.set(0,0,0);runner.root.updateMatrixWorld(true);
         if(state.phase==='running')runner.pose(state.distance,state.velocity,false,Math.min(1,state.clock/.35),0,false,dt);
-        else runner.poseJump({phase:'idle',elapsed:0,flight:1,height:0,visualDistance:0});
+        else runner.poseJump({phase:state.phase==='cut'?'power':'idle',elapsed:state.cutElapsed||0,flight:1,height:0,visualDistance:0});
         runner.root.rotation.y=state.turn===1?Math.PI:0;runner.root.position.z=state.z;
-        camera.position.set(portrait?-11:-9,portrait?7:6,-7);camera.lookAt(portrait?0:1,.65,0);
+        camera.position.set(portrait?-11:-9,portrait?7:6,-7);camera.lookAt(portrait?0:1,portrait&&host.clientHeight<650?-.6:.65,0);
       }
       background.update(dt,drill==='bench'?{...state,distance:state.reps}:state,runner.root.position);renderer.render(scene,camera);return;
     }
