@@ -16,8 +16,16 @@ export async function createDefender(scene,player=DEFENDER){
   sleeve.name='DB compression sleeve';sleeve.position.copy(end).multiplyScalar(.5);sleeve.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),end.normalize());bone.add(sleeve);sleeve.castShadow=true;
  }
  const ring=new T.Mesh(new T.RingGeometry(.39,.44,32),new T.MeshBasicMaterial({color:'#e0806c',side:T.DoubleSide,transparent:true,opacity:.65}));ring.rotation.x=-Math.PI/2;ring.position.y=.028;scene.add(ring);
+ let swat=null,lastClock=0;
  return {root:db.root,setAthlete:db.setAthlete,draw(s,dt){const d=s.db,b=s.ballContact||(s.phase==='flight'?manBall(s):[s.x,1.4,s.z]);
- const hand=db.poseDefender({...d,swatting:s.mode==='db'&&s.playChoice==='swat',catchStyle:b[1]>1.65?'high':b[1]<1.1?'low':'chest',attemptAllowed:s.mode!=='db'||!!s.playChoice,phase:s.phase,clock:s.clock,arrival:s.phase==='flight'&&s.db.ballAware?s.clock+Math.min(s.arrival-s.clock,Math.hypot(b[0]-d.x,b[2]-d.z)/10):s.arrival,settle:s.settle,intercepted:s.result?.intercepted,ball:b},dt);
+ if(s.clock<lastClock||['idle','preview'].includes(s.phase))swat=null;lastClock=s.clock;
+ const swatting=s.mode==='db'&&s.playChoice==='swat';
+ const now=s.clock+(s.phase==='settle'?s.settle:0);
+ if(swatting&&!swat&&((s.phase==='flight'&&d.ballAware&&(Math.hypot(b[0]-d.x,b[2]-d.z)<3||s.arrival-s.clock<.32))||(s.phase==='settle'&&s.result?.brokenUp))){
+  const localX=(b[0]-d.x)*Math.cos(d.heading)-(b[2]-d.z)*Math.sin(d.heading);
+  swat={start:now,side:localX>=0?'Left':'Right',height:Math.max(.8,Math.min(2.15,b[1]))};
+ }
+ const hand=db.poseDefender({...d,swatting,swatTime:swat?now-swat.start:null,swatSide:swat?.side,swatHeight:swat?.height,catchStyle:b[1]>1.65?'high':b[1]<1.1?'low':'chest',attemptAllowed:s.mode!=='db'||!!s.playChoice,phase:s.phase,clock:s.clock,arrival:s.phase==='flight'&&s.db.ballAware?s.clock+Math.min(s.arrival-s.clock,Math.hypot(b[0]-d.x,b[2]-d.z)/10):s.arrival,settle:s.settle,intercepted:s.result?.intercepted,ball:b},dt);
  db.root.rotation.y=d.heading;db.root.position.set(d.x,0,d.z);db.root.updateMatrixWorld(true);ring.position.set(d.x,.028,d.z);ring.visible=s.mode==='db'||s.phase==='idle'||s.phase==='preview';if(s.mode==='db')ring.material.color.set('#f0cf7b');
  return db.root.localToWorld(hand.clone());},dispose(){db.dispose();}};
 }
