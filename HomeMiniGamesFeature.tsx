@@ -69,6 +69,8 @@ export function HomeMiniGamesFeature() {
           <p>Study your route for five seconds. Run it yourself and tap CATCH after the throw. Eight routes, including deep balls. No defenders.</p>
           <a className="bk-mini-confirm-team bk-mini-launch" href="/combine.html?drill=one-on-one">1-on-1 Receiver <span aria-hidden="true">→</span></a>
           <p>Beat a live-reacting DB in press or soft man. Create separation, track the pass and win the catch. Five reps. Watch for interceptions.</p>
+          <a className="bk-mini-confirm-team bk-mini-launch" href="/combine.html?drill=db">DB 1-on-1 <span aria-hidden="true">→</span></a>
+          <p>You cover the receiver. Read his cuts, stay in phase and choose SWAT or PICK after the throw. Five reps of man coverage.</p>
           <button type="button" className="bk-mini-review-back" onClick={() => setScreen('modes')}>← Back to game modes</button>
         </section> : <>
         <p className="bk-mini-active-mode-description">{gameMode === 'five-minute' ? 'Full game vs. CPU. Play or simulate defense.' : 'Down four. Play until the final whistle.'}</p>

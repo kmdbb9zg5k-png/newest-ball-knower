@@ -178,8 +178,8 @@ export async function loadCombineRunner(player) {
     return palm('Left').add(palm('Right')).multiplyScalar(.5);
   }
   function poseDefender(state,dt){
-    const pace=Math.hypot(state.vx,state.vz),ready=['press','backpedal','plant'].includes(state.action)||['idle','preview'].includes(state.phase);
-    const hand=poseReceiver({distance:state.distance,vx:state.vx,vz:state.vz,phase:state.phase,arrival:state.arrival,clock:state.clock,catchAt:state.lookAtBall?state.clock:null,catchStyle:'chest',settle:state.settle,result:state.intercepted?{caught:true}:null},dt);
+    const pace=Math.hypot(state.vx,state.vz),backward=state.vx*Math.sin(state.heading)+state.vz*Math.cos(state.heading)<-.3,ready=backward||['press','backpedal','plant'].includes(state.action)||['idle','preview'].includes(state.phase);
+    const hand=poseReceiver({distance:state.distance,vx:state.vx,vz:state.vz,phase:state.phase,arrival:state.arrival,clock:state.clock,catchAt:state.lookAtBall&&state.attemptAllowed!==false?state.clock:null,catchStyle:state.catchStyle||'chest',settle:state.settle,result:state.intercepted?{caught:true}:null},dt);
     if(ready&&!state.intercepted){
       reset();const cycle=state.distance/1.25*Math.PI*2;
       bones.Hips.position.y=.87/sourceScale;bones.Spine.quaternion.multiply(new T.Quaternion().setFromAxisAngle(v(1,0,0),.12));body.updateMatrixWorld(true);
@@ -188,6 +188,13 @@ export async function loadCombineRunner(player) {
         solve([side+'UpLeg',side+'Leg',side+'Foot'],v(sign*.21,footHeight+lift,step*Math.min(.22,pace*.10)),v(sign*.24,.42,.6),true);
         solve([side+'Arm',side+'ForeArm',side+'Hand'],v(sign*.31,1.13,state.pressUntil>state.clock?.55:.32),v(sign*.48,.95,.12));
       }
+    }
+    if(ready&&state.lookAtBall&&state.attemptAllowed!==false&&state.arrival-state.clock<.5&&!state.intercepted){
+      for(const [side,sign]of [['Left',1],['Right',-1]])solve([side+'Arm',side+'ForeArm',side+'Hand'],v(sign*.14,T.MathUtils.clamp(state.ball[1],.8,2.12),.48),v(sign*.4,1.2,.2));
+    }
+    if(state.swatting&&state.lookAtBall&&state.arrival-state.clock<.5&&!state.intercepted){
+      solve(['LeftArm','LeftForeArm','LeftHand'],v(.26,1.04,.16),v(.42,.95,.1));
+      solve(['RightArm','RightForeArm','RightHand'],v(-.15,Math.min(2.12,state.ball[1]),.55),v(-.42,1.3,.28));
     }
     if(state.lookAtBall){const dx=state.ball[0]-state.x,dz=state.ball[2]-state.z,angle=Math.atan2(Math.sin(Math.atan2(dx,dz)-state.heading),Math.cos(Math.atan2(dx,dz)-state.heading));bones.Head.quaternion.multiply(new T.Quaternion().setFromAxisAngle(v(0,1,0),T.MathUtils.clamp(angle,-1.1,1.1)));}
     root.updateMatrixWorld(true);return state.intercepted?hand:palm('Left').add(palm('Right')).multiplyScalar(.5);
