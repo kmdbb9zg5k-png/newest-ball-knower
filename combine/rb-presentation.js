@@ -14,9 +14,9 @@ export async function createRBPresentation(scene,runner,camera){
  for(const x of [-WIDTH,WIDTH]){const line=new T.Mesh(new T.BoxGeometry(.10,.025,GOAL+3),new T.MeshBasicMaterial({color:'#e9ddc2'}));line.position.set(x,.025,GOAL/2);scene.add(line);}
  const goal=new T.Mesh(new T.BoxGeometry(WIDTH*2,.025,.16),new T.MeshBasicMaterial({color:'#f3cf7d'}));goal.position.set(0,.03,GOAL);scene.add(goal);
  const endzone=new T.Mesh(new T.PlaneGeometry(WIDTH*2,3),new T.MeshBasicMaterial({color:'#c8a654',transparent:true,opacity:.20}));endzone.rotation.x=-Math.PI/2;endzone.position.set(0,.015,GOAL+1.5);scene.add(endzone);
- let anchor={x:0,z:0},index=-1;
+ let anchor={x:0,z:0},index=-1,lookAhead=.7;
  function draw(s,dt){
-  if(s.index!==index||s.phase==='idle'){index=s.index;anchor={x:0,z:0};}
+  if(s.index!==index||s.phase==='idle'){index=s.index;anchor={x:0,z:0};lookAhead=.7;}
   const hand=runner.poseRB(s,dt),age=s.clock-s.moveAt,spin=s.move==='spin'?T.MathUtils.smoothstep(age,0,.65)*Math.PI*2*s.moveSide:0;
   runner.root.rotation.y=s.heading+spin;runner.root.position.set(s.x,0,s.z);runner.root.updateMatrixWorld(true);
   lb.poseRB(s,dt,true);lb.root.rotation.y=s.db.heading;lb.root.position.set(s.db.x,0,s.db.z);
@@ -27,7 +27,7 @@ export async function createRBPresentation(scene,runner,camera){
   const transfer=s.phase==='idle'||s.phase==='preview'?0:s.phase==='handoff'?T.MathUtils.smoothstep(s.handoff,.15,.55):1;
   ball.position.lerpVectors(start,end,transfer);ball.rotation.set(.15,T.MathUtils.lerp(-Math.PI/2,s.heading+spin,transfer),.3);ball.userData.owner=transfer<1?'quarterback':'runner';
   qb.root.visible=s.z<9;ring.position.set(s.x,.025,s.z);
-  stepRouteCamera(anchor,s,dt);const portrait=camera.aspect<1;camera.position.set(anchor.x,portrait?7.0:6,anchor.z-(portrait?10.5:10));camera.lookAt(anchor.x,1,anchor.z+(['idle','preview','handoff'].includes(s.phase)?.7:2));
+  stepRouteCamera(anchor,s,dt);const portrait=camera.aspect<1;camera.position.set(anchor.x,portrait?7.0:6,anchor.z-(portrait?10.5:10));lookAhead+=((['idle','preview','handoff'].includes(s.phase)?.7:2)-lookAhead)*(1-Math.exp(-Math.min(.1,Math.max(0,dt))*5));camera.lookAt(anchor.x,1,anchor.z+lookAhead);
  }
  return {draw,dispose(){lb.dispose();qb.dispose();}};
 }
