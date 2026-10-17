@@ -182,10 +182,11 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
   let rng=71;const random=()=>{rng=(Math.imul(rng,1664525)+1013904223)>>>0;return rng/4294967296;};
   for(let i=0;i<20000;i++){const shade=45+Math.floor(random()*70);ctx.strokeStyle=`rgba(${shade},${shade+20},${shade-14},.52)`;const x=random()*256,y=random()*256;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+random()*2,y-1-random()*3);ctx.stroke();}
   const tex=new T.CanvasTexture(tc);tex.colorSpace=T.SRGBColorSpace;tex.wrapS=tex.wrapT=T.RepeatWrapping;tex.repeat.set(22,50);tex.anisotropy=4;grass.map=tex;grass.bumpMap=tex;grass.bumpScale=.025;
-  const floor=mesh(new T.PlaneGeometry(54,110),grass,scene,0,-.012,28);floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;
+  const floor=mesh(new T.PlaneGeometry(drill==='routes'?160:54,drill==='routes'?200:110),grass,scene,0,-.012,28);floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;
   const white=mat('#e2e5ce'),orange=mat('#df652e'),metal=mat('#26343a',.55),concrete=mat('#353f45'),seatMat=mat('#263d4b');
   for(let z=-5;z<60;z+=5){const stripe=box(scene,[50,.006,2.5],mat('#476c3d'),[0,-.005,z]);stripe.material.transparent=true;stripe.material.opacity=.15;stripe.receiveShadow=true;}
   if(drill==='dash'||drill==='jump')for(const x of [-2.2,2.2])box(scene,[.075,.012,FINISH+10],white,[x,.002,(FINISH+4)/2]);
+  if(drill==='routes'){const fieldLine=mat('#bcc9af');fieldLine.transparent=true;fieldLine.opacity=.3;for(let n=0;n<=60;n+=5)box(scene,[49,.008,.045],fieldLine,[0,.007,n*YARD]);for(const x of [-24.5,24.5])box(scene,[.06,.008,75],fieldLine,[x,.007,27]);}
   if(drill==='dash') for(let n=0;n<=40;n+=5){const z=n*YARD;box(scene,[4.45,.009,n%10===0?.09:.045],white,[0,.006,z]);if(n>0&&n%10===0){const number=mesh(new T.PlaneGeometry(1.1,.68),label(String(n)),scene,1.37,.017,z-.45);number.rotation.x=-Math.PI/2;number.rotation.z=Math.PI;}}
   const startLabel=mesh(new T.PlaneGeometry(2.7,.4),label(({jump:'BROAD JUMP',bench:'STRENGTH',shuttle:'5 – 10 – 5',routes:'RECEIVER ROUTES'})[drill]||'START'),scene,0,.018,-1.25);startLabel.rotation.x=-Math.PI/2;startLabel.rotation.z=Math.PI;
   const finishLabel=mesh(new T.PlaneGeometry(3.2,.46),label('40 YARD FINISH'),scene,0,.019,FINISH+.6);finishLabel.rotation.x=-Math.PI/2;finishLabel.rotation.z=Math.PI;
@@ -193,7 +194,7 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
   function gate(z){for(const side of [-1,1]){const x=side*2.93;mesh(new T.CylinderGeometry(.018,.022,.95,9),metal,scene,x,.49,z);box(scene,[.17,.23,.10],metal,[x,1.02,z]);const led=mesh(new T.SphereGeometry(.025,10,7),new T.MeshBasicMaterial({color:'#bbf39b'}),scene,x,1.04,z-.06);for(let i=0;i<3;i++){const a=i*Math.PI*2/3,leg=mesh(new T.CylinderGeometry(.012,.014,1,7),metal,scene);connect(leg,v(x,.57,z),v(x+Math.cos(a)*.28,.02,z+Math.sin(a)*.28));}}}
   if(drill==='dash') [10,20,40].forEach(n=>gate(n*YARD));
   // Repeated seats and roof fixtures use instancing to bound mobile draw calls.
-  const seats=new T.InstancedMesh(new T.BoxGeometry(.52,.38,.58),seatMat,2*9*68),o=new T.Object3D();let si=0;const standOffset=drill==='routes'?8:0;
+  const seats=new T.InstancedMesh(new T.BoxGeometry(.52,.38,.58),seatMat,2*9*68),o=new T.Object3D();let si=0;const standOffset=drill==='routes'?60:0;
   for(const side of [-1,1])for(let row=0;row<9;row++){
     box(scene,[1,.52,65],concrete,[side*(11+standOffset+row*.9),row*.62+.15,25]);
     for(let col=0;col<68;col++){o.position.set(side*(11+standOffset+row*.9),row*.62+.64,col*.86-3);o.updateMatrix();seats.setMatrixAt(si++,o.matrix);}
@@ -203,11 +204,11 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
   for(const side of [-1,1]){box(scene,[.10,.10,64],metal,[side*(9.7+standOffset),1.0,26]);for(let z=-4;z<58;z+=4)box(scene,[.07,1,.07],metal,[side*(9.7+standOffset),.5,z]);}
   for(const z of [8,26,44])for(const side of [-1,1]){const sign=mesh(new T.PlaneGeometry(6,.65),label('BK  •  PROSPECT COMBINE','#b8eb7a','#15262d'),scene,side*(9.4+standOffset),1.2,z);sign.rotation.y=side<0?Math.PI/2:-Math.PI/2;}
 
-  box(scene,[45,12,.5],mat('#35444c'),[0,5.5,66]);
+  box(scene,[drill==='routes'?160:45,12,.5],mat('#35444c'),[0,5.5,66]);
   const brand=mesh(new T.PlaneGeometry(15,2.1),label('BALL KNOWER  /  COMBINE','#e4ece6','#172a30',1024,128),scene,0,4.1,65.65);brand.rotation.y=Math.PI;brand.material.transparent=true;
-  box(scene,[50,.35,94],mat('#252f36'),[0,15.5,27]);
+  box(scene,[drill==='routes'?160:50,.35,drill==='routes'?200:94],mat('#252f36'),[0,15.5,27]);
   const lamps=new T.InstancedMesh(new T.BoxGeometry(2.4,.08,.45),new T.MeshBasicMaterial({color:'#f7f1dc'}),24);let li=0;
-  for(let z=-5;z<65;z+=12){box(scene,[44,.32,.24],metal,[0,14.8,z]);for(const x of [-16,-7,7,16]){o.position.set(x,14.55,z);o.updateMatrix();lamps.setMatrixAt(li++,o.matrix);}for(const side of [-1,1])box(scene,[.25,15,.28],metal,[side*21,7.4,z]);}scene.add(lamps);
+  for(let z=-5;z<65;z+=12){box(scene,[drill==='routes'?150:44,.32,.24],metal,[0,14.8,z]);for(const x of [-16,-7,7,16]){o.position.set(x,14.55,z);o.updateMatrix();lamps.setMatrixAt(li++,o.matrix);}for(const side of [-1,1])box(scene,[.25,15,.28],metal,[side*(drill==='routes'?78:21),7.4,z]);}scene.add(lamps);
   // Small standing groups and tables stay outside the athlete's lane.
 
   if(drill!=='routes')for(const z of [6,20,37]){box(scene,[1.5,.09,.64],metal,[6,.82,z]);for(const x of [5.4,6.6])for(const dz of [-.22,.22])box(scene,[.05,.78,.05],metal,[x,.39,z+dz]);box(scene,[.44,.3,.045],mat('#111b21'),[6,1.02,z]);}
@@ -250,7 +251,7 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
   const observer=new ResizeObserver(resize);observer.observe(host);resize();
   function disposeObject(object){const geometries=new Set(),materials=new Set(),textures=new Set();object.traverse(o=>{if(o.geometry)geometries.add(o.geometry);for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m){materials.add(m);for(const val of Object.values(m))if(val?.isTexture)textures.add(val);}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());}
   function draw(state,dt){
-    if(routePresentation){routePresentation.draw(state,dt);background.update(dt,{...state,distance:state.distance,phase:state.phase==='result'?'finished':state.phase},runner.root.position);renderer.render(scene,camera);return;}
+    if(routePresentation){key.position.set(state.x-12,24,state.z+7);key.target.position.set(state.x,0,state.z);key.target.updateMatrixWorld();routePresentation.draw(state,dt);background.update(dt,{...state,distance:state.distance,phase:state.phase==='result'?'finished':state.phase},runner.root.position);renderer.render(scene,camera);return;}
     if(drill==='bench'||drill==='shuttle') {
       const portrait=camera.aspect<1;
       if(drill==='bench') {

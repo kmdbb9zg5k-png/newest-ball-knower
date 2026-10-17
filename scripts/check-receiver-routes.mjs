@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {ROUTES,newRoute,startRoute,stepRoute,catchRoute,readRouteScores,saveRouteScore} from '../combine/routes.js';
+import {ROUTES,newRoute,startRoute,stepRoute,routeFrameDelta,catchRoute,readRouteScores,saveRouteScore} from '../combine/routes.js';
 const athlete={id:'test',name:'Test',position:'WR'};
 for(const fps of [15,30,60,120])for(let index=0;index<ROUTES.length;index++){
  const s=newRoute(athlete,index);startRoute(s);stepRoute(s,4.9,{x:1,y:-1});assert.equal(s.x,0);assert.equal(s.z,0);assert.equal(s.phase,'preview');assert.equal(catchRoute(s),false);stepRoute(s,.1);assert.equal(s.phase,'running');
@@ -55,3 +55,21 @@ for(const index of ROUTES.keys()){
 }
 for(const index of [1,3]){const s=newRoute(athlete,index);startRoute(s);stepRoute(s,5);while(s.phase==='running'&&s.clock<6)stepRoute(s,1/120,{x:0,y:-1});assert.equal(s.phase,'flight','Restore approach release without requiring an exact cut');}
 console.log('PASS lateral runout and forgiving throws for wide/stationary approaches on all eight routes');
+
+// Reproduce the recording's missed cut: every rep must still produce a pass.
+for(const index of ROUTES.keys())for(const control of [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:0}]){
+ const s=newRoute(athlete,index);startRoute(s);stepRoute(s,5);let threw=false;
+ while(s.phase!=='result'){
+  if(s.phase==='flight'){threw=true;if(s.catchAt===null)catchRoute(s);}
+  const before={x:s.x,z:s.z,phase:s.phase};stepRoute(s,.05,control);
+  if(s.phase!=='result'&&s.clock>.5&&(control.x||control.y))assert(Math.hypot(s.x-before.x,s.z-before.z)>.22,'Held stick hit an invisible boundary');
+  assert(s.clock<=s.latestThrowAt+.23+s.flight+.05,'Pass never arrived');
+ }
+ assert(threw,s.route.name+' failed to throw on missed cut');assert.notEqual(s.result.reason,'ROUTE TIMEOUT');
+}
+console.log('PASS guaranteed passes on every route with missed cuts, wrong direction or no movement; no hard-boundary stops');
+
+const stalled=newRoute(athlete,0);startRoute(stalled);stepRoute(stalled,5);let flightFrames=0;
+while(stalled.phase!=='result'){stepRoute(stalled,routeFrameDelta(2),{x:1,y:0});if(stalled.phase==='flight')flightFrames++;}
+assert(flightFrames>=10,'A long foreground frame must not skip the visible catch window');
+console.log('PASS foreground frame stalls preserve at least ten visible catch frames');
