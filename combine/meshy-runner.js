@@ -234,8 +234,9 @@ export async function loadCombineRunner(player) {
       body.updateMatrixWorld(true);
       const exchange=state.phase==='idle'||state.phase==='preview'||state.phase==='handoff';
       const target=exchange?v(.12,1.05,.38):v(-.17,T.MathUtils.lerp(1.06,.35,fall),T.MathUtils.lerp(.18,.50,fall));
+      const tuck=T.MathUtils.smoothstep(state.clock,0,.25);if(!exchange&&!fall)target.lerpVectors(v(.12,1.05,.38),target,tuck);
       solve(['RightArm','RightForeArm','RightHand'],target,v(-.42,T.MathUtils.lerp(.86,.3,fall),.08));
-      if(exchange)solve(['LeftArm','LeftForeArm','LeftHand'],v(.24,1.05,.38),v(.46,.9,.10));
+      if(exchange||tuck<1)solve(['LeftArm','LeftForeArm','LeftHand'],v(.24,1.05,.38).lerp(position(bones.LeftHand),exchange?0:tuck),v(.46,.9,.10));
       if(state.move==='stiff'&&age<.65&&!fall){const reach=Math.sin(Math.PI*Math.min(1,age/.65));solve(['LeftArm','LeftForeArm','LeftHand'],v(.26,1.20,.25+reach*.55),v(.43,1.04,.34));}
       if(state.move==='spin'&&age<.65&&!fall)solve(['LeftArm','LeftForeArm','LeftHand'],v(.20,1.10,.20),v(.4,.91,.10));
     }
