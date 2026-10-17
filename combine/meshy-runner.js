@@ -155,11 +155,13 @@ export async function loadCombineRunner(player) {
     const grip=side=>position(bones[side+'Hand']).lerp(position(bones[side+'HandMiddle1']),.75);
     return grip('Left').add(grip('Right')).multiplyScalar(.5);
   }
+  const palm=side=>position(bones[side+'Hand']).lerp(position(bones[side+'HandMiddle1']),.65);
   function poseReceiver(state,dt){
     root.position.set(0,0,0);root.rotation.set(0,0,0);root.updateMatrixWorld(true);
     const moving=Math.hypot(state.vx,state.vz);
     pose(state.distance,moving,false,1,0,moving<1,dt);
-    const caught=state.result?.caught,reach=state.phase==='flight'&&state.catchAt!==null&&state.arrival-state.clock<.4;
+    const caught=state.result?.caught,remaining=state.arrival-state.clock,reach=state.phase==='flight'&&state.catchAt!==null&&remaining<.55;
+    const reachBlend=caught?1:1-T.MathUtils.smoothstep(remaining,.1,.55);
     if(caught||reach){
       const tuck=caught?T.MathUtils.smoothstep(state.settle,0,.5):0;
       for(const [side,sign]of [['Left',1],['Right',-1]]){
@@ -168,18 +170,25 @@ export async function loadCombineRunner(player) {
         const lateral=style==='side'?.38:style==='shoulder'?.24:0;
         const forward=style==='shoulder'?.06:.48;
         const target=v(T.MathUtils.lerp(lateral+sign*.13,sign*.12,tuck),T.MathUtils.lerp(height,1.02,tuck),T.MathUtils.lerp(forward,.26,tuck));
+        target.lerpVectors(position(bones[side+'Hand']),target,reachBlend);
         solve([side+'Arm',side+'ForeArm',side+'Hand'],target,v(sign*.38,1.05,.20));
       }
     }
     root.updateMatrixWorld(true);
-    return position(bones.LeftHand).add(position(bones.RightHand)).multiplyScalar(.5);
+    return palm('Left').add(palm('Right')).multiplyScalar(.5);
   }
   function poseQuarterback(t){
     root.position.set(0,0,0);root.rotation.set(0,0,0);root.updateMatrixWorld(true);reset();
-    const wind=T.MathUtils.smoothstep(t,-.5,0),follow=T.MathUtils.smoothstep(t,0,.35);
-    solve(['RightArm','RightForeArm','RightHand'],v(.25,1.3+wind*.4-follow*.35,.25-wind*.4+follow*.8),v(.5,1.45,0));
-    solve(['LeftArm','LeftForeArm','LeftHand'],v(-.20,1.15,.28),v(-.4,1.1,.1));
-    return position(bones.RightHand);
+    const wind=T.MathUtils.smoothstep(t,-.22,0),follow=T.MathUtils.smoothstep(t,0,.35);
+    solve(['RightArm','RightForeArm','RightHand'],v(.16,1.28+wind*.4-follow*.35,.32-wind*.4+follow*.8),v(.5,1.45,0));
+    solve(['LeftArm','LeftForeArm','LeftHand'],v(-.04-wind*.16,1.28-wind*.13,.32),v(-.4,1.1,.1));
+    for(const side of ['Left','Right'])for(const finger of ['Index','Middle','Ring','Pinky'])for(let joint=1;joint<=3;joint++){
+      const bone=bones[side+'Hand'+finger+joint];if(bone)bone.quaternion.multiply(new T.Quaternion().setFromAxisAngle(v(1,0,0),joint===1?.35:.75));
+    }
+    root.updateMatrixWorld(true);
+    // Palm/finger grip, offset inward by the football's minor radius.
+    const grip=palm('Right'),inward=palm('Left').sub(grip).normalize();
+    return grip.addScaledVector(inward,.075);
   }
   pose(0,0,true);
   return {root,pose,poseJump,poseBench,poseShuttleTurn,poseReceiver,poseQuarterback,setAthlete,dispose(){appearance.dispose();mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}};
