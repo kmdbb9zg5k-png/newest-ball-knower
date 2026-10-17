@@ -1,7 +1,7 @@
-import {ROUTES,newRoute} from './routes.js';
+import {ROUTES,newRoute,CATCH_RADIUS} from './routes.js';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export const MAN_REPS=5,MAN_KEY='bk-man-coverage-v1';
-export const DEFENDER={id:'combine-db-darius-26',name:'Darius Cole',position:'CB',heightInches:72,weightLbs:192};
+export const DEFENDER={id:'combine-db-darius-29',name:'Darius Cole',position:'CB',heightInches:72,weightLbs:192};
 export function randomSource(seed){let n=seed>>>0;return()=>{n=(Math.imul(n,1664525)+1013904223)>>>0;return n/4294967296;};}
 export function newManSession(seed=Math.floor(Math.random()*4294967296)){
  const random=randomSource(seed),order=ROUTES.map((_,i)=>i);for(let i=order.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[order[i],order[j]]=[order[j],order[i]];}
@@ -52,7 +52,8 @@ function moveDefender(s,h){
  const targetSpeed=s.clock<d.turnUntil?speed*.35:speed;
  let ax=ux*targetSpeed-d.vx,az=uz*targetSpeed-d.vz,delta=Math.hypot(ax,az),limit=8.5*h;
  if(delta>limit){ax*=limit/delta;az*=limit/delta;}d.vx+=ax;d.vz+=az;d.x+=d.vx*h;d.z+=d.vz*h;d.distance+=Math.hypot(d.vx,d.vz)*h;
- const face=d.action==='backpedal'||d.action==='press'?Math.atan2(seen.x-d.x,seen.z-d.z):Math.atan2(d.vx,d.vz);
+ let face=d.action==='backpedal'||d.action==='press'?Math.atan2(seen.x-d.x,seen.z-d.z):Math.atan2(d.vx,d.vz);
+ if(d.ballAware){const ball=manBall(s);if(ball[1]<2.6&&Math.hypot(ball[0]-d.x,ball[2]-d.z)<2.3)face=Math.atan2(ball[0]-d.x,ball[2]-d.z);}
  const angle=Math.atan2(Math.sin(face-d.heading),Math.cos(face-d.heading));d.heading+=clamp(angle,-h*7,h*7);
  d.lookAtBall=d.ballAware;
  // One brief legal release jam. A lateral release avoids it; never locks movement.
@@ -86,14 +87,15 @@ export function stepMan(s,dt,input={x:0,y:0}){
   if(s.phase==='flight'){
    const b=manBall(s),d=s.db,dist=Math.hypot(b[0]-d.x,b[2]-d.z),nearWR=Math.hypot(b[0]-s.x,b[2]-s.z),late=s.clock-s.throwAt>.25;
    // Reach and ball height govern contact; a defender across the field cannot roll an interception.
-   if(late&&d.ballAware&&b[1]>=.65&&b[1]<=2.25&&dist<.72){
+   const bearing=Math.atan2(b[0]-d.x,b[2]-d.z),facing=Math.abs(Math.atan2(Math.sin(bearing-d.heading),Math.cos(bearing-d.heading)))<1.45;
+   if(late&&d.ballAware&&facing&&b[1]>=.65&&b[1]<=2.25&&dist<.72){
     const clean=dist<.5&&nearWR>1.05&&Math.hypot(d.vx,d.vz)<5;
     s.ballContact=b;d.play=clean?1:2;finish(s,clean?'INTERCEPTED':'PASS BROKEN UP',false,clean);continue;
    }
    if(s.clock>=s.arrival){
     const error=Math.hypot(s.x-s.ballTarget[0],s.z-s.ballTarget[1]);
-    const caught=error<=1.9&&s.catchAt!==null;
-    finish(s,caught?(s.separation<1.2?'CONTESTED CATCH':'CLEAN CATCH'):error>1.9?'OFF TARGET':'NO CATCH ATTEMPT',caught);
+    const caught=error<=CATCH_RADIUS&&s.catchAt!==null;
+    finish(s,caught?(s.separation<1.2?'CONTESTED CATCH':'CLEAN CATCH'):error>CATCH_RADIUS?'OFF TARGET':'NO CATCH ATTEMPT',caught);
    }
   }
  }

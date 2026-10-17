@@ -16,7 +16,7 @@ export async function createRoutePresentation(scene,runner,camera,host,player,ma
  const marker=new T.Mesh(new T.RingGeometry(.65,.70,40),new T.MeshBasicMaterial({color:'#eac979',side:T.DoubleSide,transparent:true,opacity:.6}));marker.rotation.x=-Math.PI/2;marker.position.y=.025;scene.add(marker);
  const routeGroup=new T.Group();scene.add(routeGroup);let routeIndex=-1,origin=new T.Vector3(3,1.6,-3),flightEnd=new T.Vector3(),flightStamp=null;
  const flightOrientation=new T.Quaternion(),heldOrientation=new T.Quaternion(),axis=new T.Vector3(0,0,1);
- const qbPosition=new T.Vector3(3,0,-3),qbYaw=Math.atan2(-3,12);let cameraAnchor=null;
+ const qbPosition=new T.Vector3(3,0,-3);let qbYaw=Math.atan2(-3,12),cameraAnchor=null;
  function draw(s,dt){
   if(s.index!==routeIndex){routeIndex=s.index;cameraAnchor=newRouteCamera(s.route,camera.aspect<1);for(const o of [...routeGroup.children]){o.geometry.dispose();o.material.dispose();routeGroup.remove(o);}for(let i=1;i<s.route.points.length;i++){const a=s.route.points[i-1],b=s.route.points[i],dx=b[0]-a[0],dz=b[1]-a[1];const line=new T.Mesh(new T.BoxGeometry(.10,.015,Math.hypot(dx,dz)),new T.MeshBasicMaterial({color:'#efce7e',transparent:true}));line.position.set((a[0]+b[0])/2,.03,(a[1]+b[1])/2);line.rotation.y=Math.atan2(dx,dz);routeGroup.add(line);}const end=s.route.points.at(-1);marker.position.set(end[0],.025,end[1]);}
   const preview=s.phase==='idle'||s.phase==='preview';routeGroup.visible=s.phase==='preview'||s.phase==='running'&&s.clock<.35;for(const line of routeGroup.children)line.material.opacity=s.phase==='preview'?1:Math.max(0,1-s.clock/.35);if(s.phase==='flight'&&s.ballTarget)marker.position.set(s.ballTarget[0],.025,s.ballTarget[1]);marker.material.color.set(s.phase==='flight'?'#b8f397':'#eac979');marker.visible=s.phase==='preview'||s.phase==='flight';
@@ -25,6 +25,7 @@ export async function createRoutePresentation(scene,runner,camera,host,player,ma
   runner.root.rotation.y=s.heading;runner.root.position.set(s.x,0,s.z);runner.root.updateMatrixWorld(true);
   const held=s.phase==='running'||preview||s.result?.reason==='ROUTE TIMEOUT';
   if(held)flightStamp=null;
+  if(man&&held)qbYaw=Math.atan2(s.x-qbPosition.x,s.z-qbPosition.z);
   const throwTime=s.clock-s.throwAt;
   const qbHand=qb.poseQuarterback(held?(s.windupAt===null||s.windupAt===undefined?-.5:s.clock-s.windupAt-.22):throwTime);qb.root.position.copy(qbPosition);qb.root.rotation.y=qbYaw;qb.root.updateMatrixWorld(true);
   const qbGrip=qb.root.localToWorld(qbHand.clone());
