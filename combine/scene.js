@@ -1,3 +1,4 @@
+import {RECEIVER} from './db-drill.js';
 import * as T from 'three';
 import { FINISH, YARD } from './dash.js';
 import { loadCombineRunner } from './meshy-runner.js';
@@ -167,11 +168,11 @@ function athlete(parent, seed, staff = false) {
 }
 
 export async function createCombineScene(host, player, onLost, drill = 'dash') {
-  const isRoutes=drill==='routes'||drill==='one-on-one';
-  const detailedRunner=await loadCombineRunner(player);
+  const defensive=drill==='db',isRoutes=drill==='routes'||drill==='one-on-one'||defensive;
+  const detailedRunner=await loadCombineRunner(defensive?RECEIVER:player);
   const renderer=new T.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.22;
-  host.appendChild(renderer.domElement);renderer.domElement.setAttribute('aria-label',({jump:'Indoor broad jump lane',shuttle:'Indoor shuttle lane',bench:'Combine weight bench',routes:'Receiver routes field','one-on-one':'One-on-one man coverage field'})[drill]||'Indoor 40-yard dash track');
+  host.appendChild(renderer.domElement);renderer.domElement.setAttribute('aria-label',({jump:'Indoor broad jump lane',shuttle:'Indoor shuttle lane',bench:'Combine weight bench',routes:'Receiver routes field','one-on-one':'One-on-one man coverage field',db:'Defensive back coverage field'})[drill]||'Indoor 40-yard dash track');
   const lost=e=>{e.preventDefault();onLost();};renderer.domElement.addEventListener('webglcontextlost',lost);
   const scene=new T.Scene();scene.background=new T.Color('#253039');scene.fog=new T.Fog('#253039',48,125);
   const camera=new T.PerspectiveCamera(49,1,.05,160);
@@ -189,7 +190,7 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
   if(drill==='dash'||drill==='jump')for(const x of [-2.2,2.2])box(scene,[.075,.012,FINISH+10],white,[x,.002,(FINISH+4)/2]);
   if(isRoutes){const fieldLine=mat('#bcc9af');fieldLine.transparent=true;fieldLine.opacity=.3;for(let n=0;n<=60;n+=5)box(scene,[49,.008,.045],fieldLine,[0,.007,n*YARD]);for(const x of [-24.5,24.5])box(scene,[.06,.008,75],fieldLine,[x,.007,27]);}
   if(drill==='dash') for(let n=0;n<=40;n+=5){const z=n*YARD;box(scene,[4.45,.009,n%10===0?.09:.045],white,[0,.006,z]);if(n>0&&n%10===0){const number=mesh(new T.PlaneGeometry(1.1,.68),label(String(n)),scene,1.37,.017,z-.45);number.rotation.x=-Math.PI/2;number.rotation.z=Math.PI;}}
-  const startLabel=mesh(new T.PlaneGeometry(2.7,.4),label(({jump:'BROAD JUMP',bench:'STRENGTH',shuttle:'5 – 10 – 5',routes:'RECEIVER ROUTES','one-on-one':'1 ON 1'})[drill]||'START'),scene,0,.018,-1.25);startLabel.rotation.x=-Math.PI/2;startLabel.rotation.z=Math.PI;
+  const startLabel=mesh(new T.PlaneGeometry(2.7,.4),label(({jump:'BROAD JUMP',bench:'STRENGTH',shuttle:'5 – 10 – 5',routes:'RECEIVER ROUTES','one-on-one':'1 ON 1',db:'DB 1 ON 1'})[drill]||'START'),scene,0,.018,-1.25);startLabel.rotation.x=-Math.PI/2;startLabel.rotation.z=Math.PI;
   const finishLabel=mesh(new T.PlaneGeometry(3.2,.46),label('40 YARD FINISH'),scene,0,.019,FINISH+.6);finishLabel.rotation.x=-Math.PI/2;finishLabel.rotation.z=Math.PI;
   if(drill==='dash'||drill==='jump')for(const side of [-1,1])for(let z=0;z<=FINISH;z+=YARD*5){box(scene,[.3,.03,.3],orange,[side*2.6,.015,z]);mesh(new T.ConeGeometry(.12,.40,18),orange,scene,side*2.6,.23,z);}
   function gate(z){for(const side of [-1,1]){const x=side*2.93;mesh(new T.CylinderGeometry(.018,.022,.95,9),metal,scene,x,.49,z);box(scene,[.17,.23,.10],metal,[x,1.02,z]);const led=mesh(new T.SphereGeometry(.025,10,7),new T.MeshBasicMaterial({color:'#bbf39b'}),scene,x,1.04,z-.06);for(let i=0;i<3;i++){const a=i*Math.PI*2/3,leg=mesh(new T.CylinderGeometry(.012,.014,1,7),metal,scene);connect(leg,v(x,.57,z),v(x+Math.cos(a)*.28,.02,z+Math.sin(a)*.28));}}}
@@ -245,14 +246,14 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
   host.dataset.backgroundVersion='reactive-v3';host.dataset.scouts=String(background.counts.scouts);host.dataset.waitingAthletes=String(background.counts.waitingAthletes);
   scene.add(runner.root);host.dataset.character='native-athlete';
   let routePresentation;
-  if(isRoutes){try{routePresentation=await createRoutePresentation(scene,runner,camera,host,player,drill==='one-on-one');}catch(error){background.dispose();runner.dispose();disposeObject(scene);renderer.dispose();renderer.domElement.remove();throw error;}}
+  if(isRoutes){try{routePresentation=await createRoutePresentation(scene,runner,camera,host,defensive?RECEIVER:player,drill==='one-on-one'||defensive,defensive?player:null);}catch(error){background.dispose();runner.dispose();disposeObject(scene);renderer.dispose();renderer.domElement.remove();throw error;}}
   let visualZ=0,previousPhase='idle',settle=0;
   const target=v(),look=v();
   const resize=()=>{const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;camera.aspect=w/h;camera.fov=w<h?53:49;camera.updateProjectionMatrix();renderer.setSize(w,h,false);};
   const observer=new ResizeObserver(resize);observer.observe(host);resize();
   function disposeObject(object){const geometries=new Set(),materials=new Set(),textures=new Set();object.traverse(o=>{if(o.geometry)geometries.add(o.geometry);for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m){materials.add(m);for(const val of Object.values(m))if(val?.isTexture)textures.add(val);}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());}
   function draw(state,dt){
-    if(routePresentation){key.position.set(state.x-12,24,state.z+7);key.target.position.set(state.x,0,state.z);key.target.updateMatrixWorld();routePresentation.draw(state,dt);background.update(dt,{...state,distance:state.distance,phase:state.phase==='result'?'finished':state.phase},runner.root.position);renderer.render(scene,camera);return;}
+    if(routePresentation){const focus=defensive?state.db:state;key.position.set(focus.x-12,24,focus.z+7);key.target.position.set(focus.x,0,focus.z);key.target.updateMatrixWorld();routePresentation.draw(state,dt);background.update(dt,{...state,distance:state.distance,phase:state.phase==='result'?'finished':state.phase},runner.root.position);renderer.render(scene,camera);return;}
     if(drill==='bench'||drill==='shuttle') {
       const portrait=camera.aspect<1;
       if(drill==='bench') {
@@ -298,5 +299,5 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
     renderer.render(scene,camera);previousPhase=state.phase;
   }
   camera.position.set(-1,1.65,-3.45);
-  return {draw,setAthlete(next){runner.setAthlete(next);visualZ=0;settle=0;previousPhase='reset';},dispose(){routePresentation?.dispose();background.dispose();runner.dispose();delete host.dataset.backgroundVersion;delete host.dataset.scouts;delete host.dataset.waitingAthletes;delete host.dataset.character;observer.disconnect();renderer.domElement.removeEventListener('webglcontextlost',lost);disposeObject(scene);renderer.dispose();renderer.domElement.remove();}};
+  return {draw,setAthlete(next){if(defensive)routePresentation?.setDefender(next);else runner.setAthlete(next);visualZ=0;settle=0;previousPhase='reset';},dispose(){routePresentation?.dispose();background.dispose();runner.dispose();delete host.dataset.backgroundVersion;delete host.dataset.scouts;delete host.dataset.waitingAthletes;delete host.dataset.character;observer.disconnect();renderer.domElement.removeEventListener('webglcontextlost',lost);disposeObject(scene);renderer.dispose();renderer.domElement.remove();}};
 }

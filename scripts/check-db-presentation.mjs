@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';import {createServer} from 'vite';import {chromium} from 'playwright';import {mkdir} from 'node:fs/promises';
+await mkdir('artifacts/db-drill',{recursive:true});const server=await createServer({server:{host:'127.0.0.1',port:3092}});await server.listen();const browser=await chromium.launch({executablePath:'/tmp/bk-browser/chromium',args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
+try{
+ const p=await browser.newPage(),errors=[];p.on('pageerror',e=>errors.push(e.message));p.on('console',m=>{if(m.type()==='error')errors.push(m.text());});await p.route('**/db-rig',r=>r.fulfill({contentType:'text/html',body:'<body></body>'}));await p.goto('http://127.0.0.1:3092/db-rig');
+ const result=await p.evaluate(async()=>{
+  const T=await import('/node_modules/three/build/three.module.js'),{loadCombineRunner}=await import('/combine/meshy-runner.js'),{createRoutePresentation}=await import('/combine/route-presentation.js'),{newDBRep,RECEIVER}=await import('/combine/db-drill.js');
+  const player={id:'db-native-qa',name:'Corner',position:'CB'},runner=await loadCombineRunner(RECEIVER),scene=new T.Scene(),camera=new T.PerspectiveCamera(53,390/680,.05,160);scene.add(runner.root,new T.HemisphereLight(0xffffff,0x555555,3));const pres=await createRoutePresentation(scene,runner,camera,document.body,RECEIVER,true,player),s=newDBRep(player);pres.draw(s,.1);
+  const d=scene.getObjectByName('man-coverage-defender'),identity=d.userData.playerId,receiverId=runner.root.userData.playerId;
+  const routeGroups=scene.children.filter(o=>o.isGroup&&o.children.some(c=>c.geometry?.type==='BoxGeometry'&&c.material?.transparent));
+  const hidden=routeGroups.length>0&&routeGroups.every(o=>!o.visible);pres.setDefender({id:'db-second-qa',name:'Second',position:'CB'});const swapped=d.userData.playerId;
+  Object.assign(s,{phase:'running',x:0,z:8});s.db.x=20;s.db.z=15;for(let i=0;i<60;i++)pres.draw(s,.1);camera.updateMatrixWorld();const pos=new T.Vector3(s.db.x,1,s.db.z).project(camera),followsDB=Math.abs(pos.x)<.95&&Math.abs(pos.y)<.95&&camera.position.x>15;
+  Object.assign(s,{phase:'flight',clock:3,throwAt:2,arrival:3.5,flight:1.5,ballTarget:[s.db.x,s.db.z],playChoice:'swat'});s.db.ballAware=true;s.db.lookAtBall=true;pres.draw(s,.1);
+  const renderer=new T.WebGLRenderer();renderer.setSize(390,680);document.body.appendChild(renderer.domElement);renderer.render(scene,camera);
+  const football=scene.getObjectByName('receiver-drill-football');const point=football.position.clone();s.ballContact=point.toArray();s.result={intercepted:true,caught:false};s.phase='settle';s.settle=0;pres.draw(s,.1);const contactJump=point.distanceTo(football.position);s.settle=.6;pres.draw(s,.1);const owner=football.userData.owner;renderer.render(scene,camera);
+  return {identity,receiverId,swapped,hidden,followsDB,contactJump,owner};
+ });assert.equal(result.identity,'db-native-qa');assert.equal(result.swapped,'db-second-qa');assert.notEqual(result.identity,result.receiverId);assert(result.hidden);assert(result.followsDB);assert(result.contactJump<.01);assert.equal(result.owner,'defender');assert.deepEqual(errors,[]);await p.screenshot({path:'artifacts/db-drill/native-pick.png'});console.log('PASS native DB appearance swap, hidden route, camera follows user DB, shader compile, continuous ball contact and DB possession',result);
+}finally{await browser.close();await server.close();}
