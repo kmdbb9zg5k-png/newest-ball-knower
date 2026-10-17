@@ -12,13 +12,14 @@ export const ROUTES=[
 export const ROUTE_KEY='bk-receiver-routes-v2';
 export const FLIGHT=1.3;
 export const CATCH_RADIUS=2.4;
-export const ROUTE_SIDELINE=16;
+// Never skip a visible throw/catch opportunity after a foreground render stall.
+export const routeFrameDelta=dt=>Number.isFinite(dt)?Math.max(0,Math.min(dt,.1)):0;
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 export const routeLength=r=>r.points.slice(1).reduce((d,p,i)=>d+Math.hypot(p[0]-r.points[i][0],p[1]-r.points[i][1]),0);
 export function newRoute(athlete,index=0){
  const route=ROUTES[index],speed=4.8,flight=routeLength(route)>22?1.8:FLIGHT;
  return {athlete,index,route,speed,flight,phase:'idle',preview:5,clock:0,x:0,z:0,vx:0,vz:0,distance:0,heading:0,
-  throwAt:Infinity,arrival:Infinity,windupAt:null,deadline:routeLength(route)/speed+8,catchAt:null,catchStyle:route.catchStyle||'chest',
+  throwAt:Infinity,arrival:Infinity,windupAt:null,latestThrowAt:Math.max(3.5,routeLength(route)/speed+2),passToReceiver:false,catchAt:null,catchStyle:route.catchStyle||'chest',
   ballTarget:[...route.points.at(-1)],checkpoint:1,pathError:0,samples:0,result:null,settle:0};
 }
 export function startRoute(s){if(s.phase==='idle')s.phase='preview';}
@@ -32,9 +33,9 @@ export function stepRoute(s,dt,input={x:0,y:0}){
   const settling=s.phase==='settle';
   if(!settling)s.clock+=h;const ix=Number.isFinite(input.x)?input.x:0,iy=Number.isFinite(input.y)?input.y:0,n=Math.max(1,Math.hypot(ix,iy));
   const blend=1-Math.exp(-h*16);s.vx+=(-ix/n*s.speed-s.vx)*blend;s.vz+=(-iy/n*s.speed-s.vz)*blend;
-  const px=s.x,pz=s.z;s.x=clamp(s.x+s.vx*h,-ROUTE_SIDELINE,ROUTE_SIDELINE);s.z=clamp(s.z+s.vz*h,-1,38);s.distance+=Math.hypot(s.x-px,s.z-pz);
+  const px=s.x,pz=s.z;s.x+=s.vx*h;s.z+=s.vz*h;s.distance+=Math.hypot(s.x-px,s.z-pz);
   if(Math.hypot(s.vx,s.vz)>.1)s.heading=Math.atan2(s.vx,s.vz);
-  if(settling){s.settle+=h;if(s.settle>=1.2)s.phase='result';continue;}
+  if(settling){s.settle+=h;if(s.settle>=2)s.phase='result';continue;}
   const point=s.route.points[s.checkpoint];if(point&&Math.hypot(s.x-point[0],s.z-point[1])<1.6)s.checkpoint++;
   s.pathError+=pathDistance(s)*h;s.samples+=h;
   if(s.phase==='running'){
@@ -44,15 +45,14 @@ export function stepRoute(s,dt,input={x:0,y:0}){
    const pace=Math.hypot(s.vx,s.vz);
    // Restore forgiving approach-based throws; route accuracy is scored separately.
    const ready=(s.checkpoint>=s.route.points.length-1||distance<=CATCH_RADIUS)&&distance<=Math.max(1.8,pace*s.flight);
-   if(ready&&s.windupAt===null)s.windupAt=s.clock;
+   if((ready||s.clock>=s.latestThrowAt)&&s.windupAt===null){s.windupAt=s.clock;s.passToReceiver=!ready;}
    if(s.windupAt!==null&&s.clock>=s.windupAt+.22){
     s.flight=clamp(Math.max(0,length-along)/Math.max(1,pace),1.1,s.flight);
     // Freeze a modest lead at release. The ball never homes toward late input.
     const lead=s.vx*ux+s.vz*uz>0?clamp(along+pace*s.flight-length,0,1.8):0;
-    s.ballTarget=[end[0]+ux*lead,end[1]+uz*lead];
+    s.ballTarget=s.passToReceiver?[s.x+s.vx*s.flight,s.z+s.vz*s.flight]:[end[0]+ux*lead,end[1]+uz*lead];
     s.throwAt=s.clock;s.arrival=s.clock+s.flight;s.phase='flight';
    }
-   else if(s.clock>=s.deadline){s.result={positionError:distance,name:s.route.name,caught:false,routeScore:0,timing:null,reason:'ROUTE TIMEOUT',score:0};s.phase='settle';}
   }
   if(s.clock>=s.arrival){
    const end=s.ballTarget,error=Math.hypot(s.x-end[0],s.z-end[1]);

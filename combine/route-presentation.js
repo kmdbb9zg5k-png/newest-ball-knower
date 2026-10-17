@@ -1,5 +1,6 @@
 import * as T from 'three';
 import {loadCombineRunner} from './meshy-runner.js';
+import {newRouteCamera,stepRouteCamera} from './route-camera.js';
 export async function createRoutePresentation(scene,runner,camera,host,player){
  const qb=await loadCombineRunner({id:'combine-quarterback-114',name:'Marcus • Passing Coach',position:'QB',heightInches:75,weightLbs:220});scene.add(qb.root);
  qb.root.traverse(o=>{if(!o.isSkinnedMesh)return;for(const m of(Array.isArray(o.material)?o.material:[o.material])){const before=m.onBeforeCompile,cache=m.customProgramCacheKey.bind(m);m.onBeforeCompile=shader=>{before.call(m,shader);shader.vertexShader='varying vec3 bkQBPosition;\n'+shader.vertexShader.replace('#include <worldpos_vertex>','#include <worldpos_vertex>\nbkQBPosition=(modelMatrix*vec4(transformed,1.)).xyz;');shader.fragmentShader='varying vec3 bkQBPosition;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
@@ -12,9 +13,9 @@ export async function createRoutePresentation(scene,runner,camera,host,player){
  const marker=new T.Mesh(new T.RingGeometry(.65,.70,40),new T.MeshBasicMaterial({color:'#eac979',side:T.DoubleSide,transparent:true,opacity:.6}));marker.rotation.x=-Math.PI/2;marker.position.y=.025;scene.add(marker);
  const routeGroup=new T.Group();scene.add(routeGroup);let routeIndex=-1,origin=new T.Vector3(3,1.6,-3),flightEnd=new T.Vector3(),flightStamp=null;
  const flightOrientation=new T.Quaternion(),heldOrientation=new T.Quaternion(),axis=new T.Vector3(0,0,1);
- const qbPosition=new T.Vector3(3,0,-3),qbYaw=Math.atan2(-3,12);let cam=new T.Vector3(),look=new T.Vector3(),initialized=false;
+ const qbPosition=new T.Vector3(3,0,-3),qbYaw=Math.atan2(-3,12);let cameraAnchor=null;
  function draw(s,dt){
-  if(s.index!==routeIndex){routeIndex=s.index;initialized=false;for(const o of [...routeGroup.children]){o.geometry.dispose();o.material.dispose();routeGroup.remove(o);}for(let i=1;i<s.route.points.length;i++){const a=s.route.points[i-1],b=s.route.points[i],dx=b[0]-a[0],dz=b[1]-a[1];const line=new T.Mesh(new T.BoxGeometry(.10,.015,Math.hypot(dx,dz)),new T.MeshBasicMaterial({color:'#efce7e',transparent:true}));line.position.set((a[0]+b[0])/2,.03,(a[1]+b[1])/2);line.rotation.y=Math.atan2(dx,dz);routeGroup.add(line);}const end=s.route.points.at(-1);marker.position.set(end[0],.025,end[1]);}
+  if(s.index!==routeIndex){routeIndex=s.index;cameraAnchor=newRouteCamera(s.route,camera.aspect<1);for(const o of [...routeGroup.children]){o.geometry.dispose();o.material.dispose();routeGroup.remove(o);}for(let i=1;i<s.route.points.length;i++){const a=s.route.points[i-1],b=s.route.points[i],dx=b[0]-a[0],dz=b[1]-a[1];const line=new T.Mesh(new T.BoxGeometry(.10,.015,Math.hypot(dx,dz)),new T.MeshBasicMaterial({color:'#efce7e',transparent:true}));line.position.set((a[0]+b[0])/2,.03,(a[1]+b[1])/2);line.rotation.y=Math.atan2(dx,dz);routeGroup.add(line);}const end=s.route.points.at(-1);marker.position.set(end[0],.025,end[1]);}
   const preview=s.phase==='idle'||s.phase==='preview';routeGroup.visible=s.phase==='preview'||s.phase==='running'&&s.clock<.35;for(const line of routeGroup.children)line.material.opacity=s.phase==='preview'?1:Math.max(0,1-s.clock/.35);if(s.phase==='flight'&&s.ballTarget)marker.position.set(s.ballTarget[0],.025,s.ballTarget[1]);marker.material.color.set(s.phase==='flight'?'#b8f397':'#eac979');marker.visible=s.phase==='preview'||s.phase==='flight';
   const hand=runner.poseReceiver(s,dt);
   runner.root.rotation.y=s.heading;runner.root.position.set(s.x,0,s.z);runner.root.updateMatrixWorld(true);
@@ -49,12 +50,9 @@ export async function createRoutePresentation(scene,runner,camera,host,player){
   }
   halo.visible=s.phase==='flight';halo.quaternion.copy(camera.quaternion);ball.visible=true;
   const portrait=camera.aspect<1;
-  const trackingPass=(s.phase==='flight'||s.phase==='running'&&s.windupAt!==null)&&!s.result;
-  const framingX=portrait?(trackingPass?T.MathUtils.clamp(((s.ballTarget||s.route.points.at(-1))[0]-s.x)*.5,-3,3):T.MathUtils.clamp(s.route.points.at(-1)[0]*.35,-2.5,2.5)*Math.exp(-s.distance/8)):0;
-  const nextCam=new T.Vector3(T.MathUtils.clamp(s.x+framingX,-12,12),portrait?7.5:6,s.z-(portrait?11:10));
-  const nextLook=new T.Vector3(s.x+framingX,1,s.z+4);
-  if(!initialized){cam.copy(nextCam);look.copy(nextLook);initialized=true;}else{const a=1-Math.exp(-dt*5);cam.lerp(nextCam,a);look.lerp(nextLook,a);}
-  camera.position.copy(cam);camera.lookAt(look);
+  stepRouteCamera(cameraAnchor,s,dt);
+  camera.position.set(cameraAnchor.x,portrait?7.5:6,cameraAnchor.z-(portrait?11:10));
+  camera.lookAt(cameraAnchor.x,1,cameraAnchor.z+4);
  }
  return {draw,dispose(){qb.dispose();}};
 }

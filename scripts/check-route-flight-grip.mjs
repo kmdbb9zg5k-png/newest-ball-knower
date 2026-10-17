@@ -21,7 +21,7 @@ try{
    s.clock=s.arrival-1e-5;pres.draw(s,.01);const contact=ball.position.clone();s.clock=s.arrival;s.phase='settle';s.settle=0;s.result={caught:true};pres.draw(s,.01);const contactJump=ball.position.distanceTo(contact);
    s.settle=.6;pres.draw(s,.05);const carryQ=ball.quaternion.clone();s.settle=1;pres.draw(s,.05);const carryStable=ball.quaternion.angleTo(carryQ)<1e-6;
    camera.aspect=390/680;camera.updateProjectionMatrix();let cameraSafe=true,receiverVisible=true;
-   for(const x of [-14,-8,0,8,14]){s.x=x;s.z=24;for(let i=0;i<35;i++)pres.draw(s,.1);cameraSafe&&=Math.abs(camera.position.x)<=12.001;const projected=new T.Vector3(x,1,24).project(camera);receiverVisible&&=Math.abs(projected.x)<.95&&Math.abs(projected.y)<.95;}
+   for(const x of [-45,-14,-8,0,8,14,45]){s.x=x;s.z=24;for(let i=0;i<35;i++)pres.draw(s,.1);cameraSafe&&=Math.abs(camera.position.x)<60;const projected=new T.Vector3(x,1,24).project(camera);receiverVisible&&=Math.abs(projected.x)<.95&&Math.abs(projected.y)<.95;}
    return {fixedFlight,contactJump,carryStable,cameraSafe,receiverVisible};
   };
   window.cleanup=()=>{pres.dispose();runner.dispose();renderer.dispose();};return {heldStable,gripDistance};
