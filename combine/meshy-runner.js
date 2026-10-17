@@ -155,6 +155,28 @@ export async function loadCombineRunner(player) {
     const grip=side=>position(bones[side+'Hand']).lerp(position(bones[side+'HandMiddle1']),.75);
     return grip('Left').add(grip('Right')).multiplyScalar(.5);
   }
+  function poseReceiver(state,dt){
+    root.position.set(0,0,0);root.rotation.set(0,0,0);root.updateMatrixWorld(true);
+    const moving=Math.hypot(state.vx,state.vz);
+    pose(state.distance,moving,false,1,0,moving<1,dt);
+    const caught=state.result?.caught,reach=state.phase==='flight'&&state.catchAt!==null;
+    if(caught||reach){
+      const tuck=caught?T.MathUtils.smoothstep(state.settle,0,.5):0;
+      for(const [side,sign]of [['Left',1],['Right',-1]]){
+        const target=v(sign*T.MathUtils.lerp(.13,.12,tuck),T.MathUtils.lerp(1.35,1.02,tuck),T.MathUtils.lerp(.48,.26,tuck));
+        solve([side+'Arm',side+'ForeArm',side+'Hand'],target,v(sign*.38,1.05,.20));
+      }
+    }
+    root.updateMatrixWorld(true);
+    return position(bones.LeftHand).add(position(bones.RightHand)).multiplyScalar(.5);
+  }
+  function poseQuarterback(t){
+    root.position.set(0,0,0);root.rotation.set(0,0,0);root.updateMatrixWorld(true);reset();
+    const wind=T.MathUtils.smoothstep(t,-.5,0),follow=T.MathUtils.smoothstep(t,0,.35);
+    solve(['RightArm','RightForeArm','RightHand'],v(.25,1.3+wind*.4-follow*.35,.25-wind*.4+follow*.8),v(.5,1.45,0));
+    solve(['LeftArm','LeftForeArm','LeftHand'],v(-.20,1.15,.28),v(-.4,1.1,.1));
+    return position(bones.RightHand);
+  }
   pose(0,0,true);
-  return {root,pose,poseJump,poseBench,poseShuttleTurn,setAthlete,dispose(){appearance.dispose();mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}};
+  return {root,pose,poseJump,poseBench,poseShuttleTurn,poseReceiver,poseQuarterback,setAthlete,dispose(){appearance.dispose();mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}};
 }
