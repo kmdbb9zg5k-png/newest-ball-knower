@@ -4,7 +4,7 @@ await mkdir('artifacts/combine-skills',{recursive:true});const server=await crea
 const browser=await chromium.launch({executablePath:process.env.BROWSER_PATH||'/tmp/bk-browser/chromium',args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
 try{
  const page=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true});page.setDefaultTimeout(90000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
- for(const drill of ['bench','shuttle']){
+ for(const drill of (process.env.DRILL_FILTER?[process.env.DRILL_FILTER]:['bench','shuttle'])){
   await page.goto(`http://127.0.0.1:3075/combine.html?drill=${drill}`);await page.waitForFunction(()=>document.querySelector('.skill-hud')&&!document.querySelector('.skill-hud').inert);
   assert.equal(await page.locator('.combine-scene').getAttribute('data-character'),'native-athlete');
   const name=await page.locator('.skill-athlete b').innerText();await page.getByLabel('Next athlete').click();assert.notEqual(await page.locator('.skill-athlete b').innerText(),name);await page.getByLabel('Previous athlete').click();
@@ -17,6 +17,7 @@ try{
   }requestAnimationFrame(drive);}requestAnimationFrame(drive);}),drill);
   await page.getByRole('dialog',{name:'Drill results',exact:true}).waitFor();await page.screenshot({path:`artifacts/combine-skills/${drill}-result.png`});const result=await page.locator('.skill-dialog h2').innerText();if(drill==='bench')assert(parseInt(result)>1,result);else {assert(parseFloat(result)>3&&parseFloat(result)<10,result);assert.match(await page.locator('.skill-dialog').innerText(),/Cut 1: PERFECT · Cut 2: PERFECT/);}
   assert.equal(await page.locator('.skill-attempts span').count(),1);await page.getByRole('button',{name:'NEXT ATTEMPT'}).click();await page.getByRole('button',{name:drill==='bench'?'START SET →':'START SHUTTLE →',exact:true}).click();
+  await page.evaluate(()=>new Promise(resolve=>{function tick(){const resume=[...document.querySelectorAll('button')].find(b=>b.textContent==='RESUME');if(resume)resume.click();if(document.querySelector('.skill-game').dataset.phase==='finished'){resolve();return;}requestAnimationFrame(tick);}requestAnimationFrame(tick);}));
   await page.getByRole('dialog',{name:'Drill results',exact:true}).waitFor();assert.equal(await page.locator('.skill-attempts span').count(),2);await page.getByRole('button',{name:'NEW SESSION'}).click();assert.match(await page.locator('.skill-stats').innerText(),/1 \/ 2/);await page.reload();await page.waitForFunction(()=>document.querySelector('.skill-hud')&&!document.querySelector('.skill-hud').inert);assert(!(await page.locator('.skill-stats').innerText()).includes('—'));
  }
  assert.deepEqual(errors,[]);await page.route('**/combine-native-athlete-v1.glb*',r=>r.abort());await page.reload();await page.getByRole('heading',{name:'UNAVAILABLE'}).waitFor();assert(await page.getByRole('button',{name:'BACK TO COMBINE'}).isVisible());console.log('PASS both native 3D drills, 3 mobile sizes, athlete selection, pause, normal controls, two attempts, reset, saved best, asset failure exit, no page errors');
