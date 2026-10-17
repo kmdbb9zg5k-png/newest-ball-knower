@@ -8,6 +8,7 @@ export const ROUTES=[
 ];
 export const ROUTE_KEY='bk-receiver-routes-v1';
 export const FLIGHT=1.3;
+export const CATCH_WINDOW=.35;
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 export const routeLength=r=>r.points.slice(1).reduce((d,p,i)=>d+Math.hypot(p[0]-r.points[i][0],p[1]-r.points[i][1]),0);
 export function newRoute(athlete,index=0){const route=ROUTES[index];const speed=4.8;return {athlete,index,route,speed,phase:'idle',preview:5,clock:0,x:0,z:0,vx:0,vz:0,distance:0,heading:0,throwAt:routeLength(route)/speed+.28-FLIGHT,arrival:routeLength(route)/speed+.28,catchAt:null,checkpoint:1,pathError:0,samples:0,result:null,settle:0};}
@@ -19,19 +20,20 @@ export function stepRoute(s,dt,input={x:0,y:0}){
  let left=dt;while(left>1e-8){const h=Math.min(left,1/120);left-=h;
   if(s.phase==='idle'||s.phase==='result')return;
   if(s.phase==='preview'){s.preview=Math.max(0,s.preview-h);if(s.preview<1e-8)s.phase='running';continue;}
-  if(s.phase==='settle'){s.settle+=h;if(s.settle>=1)s.phase='result';continue;}
-  s.clock+=h;const ix=Number.isFinite(input.x)?input.x:0,iy=Number.isFinite(input.y)?input.y:0,n=Math.max(1,Math.hypot(ix,iy));
+  const settling=s.phase==='settle';
+  if(!settling)s.clock+=h;const ix=Number.isFinite(input.x)?input.x:0,iy=Number.isFinite(input.y)?input.y:0,n=Math.max(1,Math.hypot(ix,iy));
   const blend=1-Math.exp(-h*16);s.vx+=(-ix/n*s.speed-s.vx)*blend;s.vz+=(-iy/n*s.speed-s.vz)*blend;
   const px=s.x,pz=s.z;s.x=clamp(s.x+s.vx*h,-8,8);s.z=clamp(s.z+s.vz*h,-1,20);s.distance+=Math.hypot(s.x-px,s.z-pz);
   if(Math.hypot(s.vx,s.vz)>.1)s.heading=Math.atan2(s.vx,s.vz);
+  if(settling){s.settle+=h;if(s.settle>=1.2)s.phase='result';continue;}
   const point=s.route.points[s.checkpoint];if(point&&Math.hypot(s.x-point[0],s.z-point[1])<1.05)s.checkpoint++;
   s.pathError+=pathDistance(s)*h;s.samples+=h;
   if(s.phase==='running'&&s.clock>=s.throwAt)s.phase='flight';
   if(s.clock>=s.arrival){
    const end=s.route.points.at(-1),error=Math.hypot(s.x-end[0],s.z-end[1]);
-   const timing=s.catchAt===null?Infinity:Math.abs(s.arrival-s.catchAt);const caught=error<=1.05&&timing<=.24;
+   const timing=s.catchAt===null?Infinity:Math.abs(s.arrival-s.catchAt);const caught=error<=1.05&&timing<=CATCH_WINDOW;
    const routeScore=Math.round(100*(.5*clamp(1-s.pathError/Math.max(.001,s.samples)/2.5,0,1)+.5*(s.checkpoint-1)/(s.route.points.length-1)));
-   s.result={name:s.route.name,caught,routeScore,timing:timing===Infinity?null:Math.round(timing*1000),reason:caught?'CLEAN CATCH':error>1.05?'OFF TARGET':s.catchAt===null?'NO CATCH ATTEMPT':'EARLY HANDS',score:Math.round(routeScore*.5+(caught?50:0))};s.phase='settle';s.vx=s.vz=0;
+   s.result={positionError:error,name:s.route.name,caught,routeScore,timing:timing===Infinity?null:Math.round(timing*1000),reason:caught?'CLEAN CATCH':error>1.05?'OFF TARGET':s.catchAt===null?'NO CATCH ATTEMPT':'EARLY HANDS',score:Math.round(routeScore*.5+(caught?50:0))};s.phase='settle';
   }
  }
 }

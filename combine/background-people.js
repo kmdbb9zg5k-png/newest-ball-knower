@@ -2,7 +2,7 @@ import * as T from 'three';
 import {createWatchingAthlete} from './background-athlete.js';
 const SKINS=['#ae764e','#ceaa88','#684330','#986340'];
 const v=(x=0,y=0,z=0)=>new T.Vector3(x,y,z);
-export async function createCombineBackground(scene,source){
+export async function createCombineBackground(scene,source,{fieldPeople=true}={}){
  const response=await fetch('/play-moment-3d/assets/combine-scout-poses-v1.json.gz');if(!response.ok)throw Error('Could not load Combine staff');
  const bytes=new Uint8Array(await response.arrayBuffer());const text=bytes[0]===31&&bytes[1]===139?await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text():new TextDecoder().decode(bytes);
  const poses=JSON.parse(text),loader=new T.BufferGeometryLoader(),group=new T.Group();group.name='combine-background-people';scene.add(group);
@@ -21,7 +21,7 @@ export async function createCombineBackground(scene,source){
  const scouts=[];
  const clusters=[[0,1,7],[2,6,7],[4,5,12],[3,10,11]];
  for(const side of [-1,1])for(let row=0;row<4;row++)for(const col of clusters[row])scouts.push({x:side*(11+row*.9),y:row*.62+.83,z:col*.86-3,angle:side<0?Math.PI/2:-Math.PI/2,variant:scouts.length%3,seated:true});
- for(let i=0;i<3;i++)scouts.push({x:6.6+i*.65,y:0,z:2.2+i*1.2,angle:-Math.PI/2+(i-1)*.16,variant:3,seated:false});
+ if(fieldPeople)for(let i=0;i<3;i++)scouts.push({x:6.6+i*.65,y:0,z:2.2+i*1.2,angle:-Math.PI/2+(i-1)*.16,variant:3,seated:false});
  const batches=poses.map((pose,index)=>{const people=scouts.filter(s=>s.variant===index);return {people,meshes:pose.geometries.map(json=>{const geometry=loader.parse(json),batch=new T.InstancedMesh(geometry,scoutMaterial(index),people.length);batch.name=`scout-detailed-${index}`;batch.frustumCulled=false;batch.receiveShadow=true;group.add(batch);return batch;})};});
  const material=new T.MeshStandardMaterial({color:'#5f4c33',roughness:.9}),paperMaterial=new T.MeshStandardMaterial({color:'#d8dbcf',roughness:1}),penMaterial=new T.MeshStandardMaterial({color:'#16232e'});
  const boards=new T.InstancedMesh(new T.BoxGeometry(.29,.016,.23),material,scouts.length),paper=new T.InstancedMesh(new T.BoxGeometry(.25,.005,.20),paperMaterial,scouts.length),pens=new T.InstancedMesh(new T.CylinderGeometry(.005,.005,.09,6),penMaterial,scouts.length);boards.name='scout-clipboards';pens.name='scout-pens';group.add(boards,paper,pens);for(const m of[boards,paper,pens])m.frustumCulled=false;
@@ -31,7 +31,7 @@ export async function createCombineBackground(scene,source){
  function updateScouts(time){for(const {people,meshes}of batches){people.forEach((s,i)=>{personMatrix(s,scouts.indexOf(s),time);for(const m of meshes)m.setMatrixAt(i,dummy.matrix);});for(const m of meshes)m.instanceMatrix.needsUpdate=true;}
   scouts.forEach((s,i)=>{personMatrix(s,i,time);const hip=s.seated?.11:.98,note=Math.sin(time*2+i)*.01;prop(boards,i,[0,hip+.13,.35],[1,1,1],-.08);prop(paper,i,[0,hip+.142,.35],[1,1,1],-.08);prop(pens,i,[.08+note,hip+.205,.37+note],[1,1,1],-.3);});for(const m of[boards,paper,pens])m.instanceMatrix.needsUpdate=true;
  }
- const waiting=Array.from({length:3},(_,i)=>{const person=createWatchingAthlete(source,i);group.add(person.root);return person;});
+ const waiting=Array.from({length:fieldPeople?3:0},(_,i)=>{const person=createWatchingAthlete(source,i);group.add(person.root);return person;});
  let time=0,last=-1,previousPhase='idle',reactionStart=-Infinity;
  function update(dt,state={},target=v()){
   dt=Number.isFinite(dt)?T.MathUtils.clamp(dt,0,.1):0;time+=dt;
