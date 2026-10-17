@@ -66,7 +66,7 @@ export function HomeMiniGamesFeature() {
           <a className="bk-mini-confirm-team bk-mini-launch" href="/combine.html?drill=bench">Bench Press <span aria-hidden="true">→</span></a>
           <p>Press, lower and recover. Manage your strength for the most reps in 30 seconds.</p>
           <a className="bk-mini-confirm-team bk-mini-launch" href="/combine.html?drill=routes">Receiver Routes <span aria-hidden="true">→</span></a>
-          <p>Study your route for five seconds. Run it yourself, then time the catch. Five routes. No defenders.</p>
+          <p>Study your route for five seconds. Run it yourself and tap CATCH after the throw. Eight routes, including deep balls. No defenders.</p>
           <button type="button" className="bk-mini-review-back" onClick={() => setScreen('modes')}>← Back to game modes</button>
         </section> : <>
         <p className="bk-mini-active-mode-description">{gameMode === 'five-minute' ? 'Full game vs. CPU. Play or simulate defense.' : 'Down four. Play until the final whistle.'}</p>
