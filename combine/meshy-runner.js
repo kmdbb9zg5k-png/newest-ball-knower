@@ -163,7 +163,11 @@ export async function loadCombineRunner(player) {
     if(caught||reach){
       const tuck=caught?T.MathUtils.smoothstep(state.settle,0,.5):0;
       for(const [side,sign]of [['Left',1],['Right',-1]]){
-        const target=v(sign*T.MathUtils.lerp(.13,.12,tuck),T.MathUtils.lerp(1.35,1.02,tuck),T.MathUtils.lerp(.48,.26,tuck));
+        const style=state.catchStyle||'chest';
+        const height=style==='high'?1.9:style==='low'?.85:style==='shoulder'?1.65:1.35;
+        const lateral=style==='side'?.38:style==='shoulder'?.24:0;
+        const forward=style==='shoulder'?.06:.48;
+        const target=v(T.MathUtils.lerp(lateral+sign*.13,sign*.12,tuck),T.MathUtils.lerp(height,1.02,tuck),T.MathUtils.lerp(forward,.26,tuck));
         solve([side+'Arm',side+'ForeArm',side+'Hand'],target,v(sign*.38,1.05,.20));
       }
     }
