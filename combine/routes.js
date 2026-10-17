@@ -40,15 +40,15 @@ export function stepRoute(s,dt,input={x:0,y:0}){
   if(s.phase==='running'){
    const end=s.route.points.at(-1),distance=Math.hypot(s.x-end[0],s.z-end[1]);
    const start=s.route.points.at(-2),dx=end[0]-start[0],dz=end[1]-start[1],length=Math.hypot(dx,dz),ux=dx/length,uz=dz/length;
-   const along=(s.x-start[0])*ux+(s.z-start[1])*uz,cross=Math.abs((s.x-start[0])*uz-(s.z-start[1])*ux);
-   const pace=Math.hypot(s.vx,s.vz),direction=pace>.1?(s.vx*ux+s.vz*uz)/pace:0;
-   // A nearby endpoint is not proof of a cut: wait for actual final-leg travel.
-   const ready=s.checkpoint>=s.route.points.length-1&&along>=.3&&cross<1.6&&direction>.75&&Math.max(0,length-along)<=Math.max(1.8,pace*s.flight);
+   const along=(s.x-start[0])*ux+(s.z-start[1])*uz;
+   const pace=Math.hypot(s.vx,s.vz);
+   // Restore forgiving approach-based throws; route accuracy is scored separately.
+   const ready=(s.checkpoint>=s.route.points.length-1||distance<=CATCH_RADIUS)&&distance<=Math.max(1.8,pace*s.flight);
    if(ready&&s.windupAt===null)s.windupAt=s.clock;
    if(s.windupAt!==null&&s.clock>=s.windupAt+.22){
     s.flight=clamp(Math.max(0,length-along)/Math.max(1,pace),1.1,s.flight);
     // Freeze a modest lead at release. The ball never homes toward late input.
-    const lead=clamp(along+pace*s.flight-length,0,1.8);
+    const lead=s.vx*ux+s.vz*uz>0?clamp(along+pace*s.flight-length,0,1.8):0;
     s.ballTarget=[end[0]+ux*lead,end[1]+uz*lead];
     s.throwAt=s.clock;s.arrival=s.clock+s.flight;s.phase='flight';
    }

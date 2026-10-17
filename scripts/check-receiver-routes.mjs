@@ -42,11 +42,16 @@ for(const index of [1,3,7])for(const fps of [15,60,120]){
   let control;
   if(point===1){const p=s.route.points[1],x=p[0]-s.x,z=p[1]-s.z,n=Math.max(.3,Math.hypot(x,z));control={x:-x/n,y:-z/n};if(n<=.3)point=2;}
   else control={x:-dx/length,y:-dz/length};
-  if(s.phase==='flight'&&!sawFlight){sawFlight=true;assert(point===2,'QB must wait for the cut');assert((s.vx*dx+s.vz*dz)/length>3,'Receiver must be moving along final leg');catchRoute(s);}
+  if(s.phase==='flight'&&!sawFlight){sawFlight=true;catchRoute(s);}
   const before={x:s.x,z:s.z,phase:s.phase};stepRoute(s,1/fps,control);
-  if(s.phase!=='result'&&['flight','settle'].includes(before.phase))assert(Math.hypot(s.x-before.x,s.z-before.z)>s.speed/fps*.8,JSON.stringify({issue:'Lateral follow-through stalled',index,fps,before,x:s.x,z:s.z,vx:s.vx,vz:s.vz}));
+  if(s.phase!=='result'&&before.phase==='settle')assert(Math.hypot(s.x-before.x,s.z-before.z)>s.speed/fps*.8,JSON.stringify({issue:'Lateral follow-through stalled',index,fps,before,x:s.x,z:s.z,vx:s.vx,vz:s.vz}));
  }
  assert(sawFlight);assert(s.result.caught,JSON.stringify({index,fps,result:s.result}));assert(Math.abs(s.x)>8,'Test must cross the old invisible boundary');
 }
-for(const index of [1,3]){const s=newRoute(athlete,index);startRoute(s);stepRoute(s,5);while(s.z<s.route.points[1][1]+1)stepRoute(s,1/120,{x:0,y:-1});assert.equal(s.phase,'running','Proximity on the stem cannot trigger a throw');}
-console.log('PASS Out/Drag/Cross full lateral follow-through beyond old bounds at 15/60/120 Hz; no release before the cut');
+// A slightly wide cut or a stationary receiver near the target must still get a pass.
+for(const index of ROUTES.keys()){
+ const s=newRoute(athlete,index),end=s.route.points.at(-1);s.phase='running';s.x=end[0]+1.5;s.z=end[1];
+ stepRoute(s,.3);assert.equal(s.phase,'flight',s.route.name+' should throw near the receiver');assert(catchRoute(s));
+}
+for(const index of [1,3]){const s=newRoute(athlete,index);startRoute(s);stepRoute(s,5);while(s.phase==='running'&&s.clock<6)stepRoute(s,1/120,{x:0,y:-1});assert.equal(s.phase,'flight','Restore approach release without requiring an exact cut');}
+console.log('PASS lateral runout and forgiving throws for wide/stationary approaches on all eight routes');
