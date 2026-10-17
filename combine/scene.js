@@ -251,13 +251,17 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
       const portrait=camera.aspect<1;
       if(drill==='bench') {
         bar.position.copy(runner.poseBench(state));
-        camera.position.set(portrait?-3.8:-3.1,portrait?2.7:2.5,portrait?3.2:2.7);camera.lookAt(portrait?0:.7,.65,0);
+        camera.position.set(portrait?-3.8:-3.1,portrait?2.7:2.5,portrait?3.2:2.7);camera.lookAt(portrait?0:.7,portrait?.25:.65,0);
       }else{
         runner.root.rotation.y=0;runner.root.position.set(0,0,0);runner.root.updateMatrixWorld(true);
         if(state.phase==='running')runner.pose(state.distance,state.velocity,false,Math.min(1,state.clock/.35),0,false,dt);
-        else runner.poseJump({phase:state.phase==='cut'?'power':'idle',elapsed:state.cutElapsed||0,flight:1,height:0,visualDistance:0});
-        runner.root.rotation.y=state.turn===1?Math.PI:0;runner.root.position.z=state.z;
-        camera.position.set(portrait?-11:-9,portrait?7:6,-7);camera.lookAt(portrait?0:1,portrait&&host.clientHeight<650?-.6:.65,0);
+        else if(state.phase==='cut')runner.poseShuttleTurn(state);
+        else runner.poseJump({phase:'idle',elapsed:0,flight:1,height:0,visualDistance:0});
+        const facing=state.turn===1?Math.PI:0;
+        runner.root.rotation.y=facing+(state.phase==='cut'?Math.PI*T.MathUtils.smoothstep(state.cutElapsed/.8,.45,1):0);runner.root.position.z=state.z;
+        // Look along the lane so neither turn can escape the narrow phone viewport.
+        const compact=portrait&&host.clientHeight<700;
+        camera.position.set(portrait?(compact?-6:-5):-9,portrait?(compact?13:10):6,portrait?(compact?-19:-15):-7);camera.lookAt(portrait?0:1,portrait?(compact?-2:-.7):.65,0);
       }
       background.update(dt,drill==='bench'?{...state,distance:state.reps}:state,runner.root.position);renderer.render(scene,camera);return;
     }
