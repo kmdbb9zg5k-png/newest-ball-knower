@@ -2,7 +2,8 @@ export const config = { api: { bodyParser: false } };
 
 const DESTINATION = 'BallKnowerOfficial@gmail.com';
 const SAFE_FIELDS = ['id', 'kind', 'message', 'stack', 'componentStack', 'url', 'route', 'userAgent', 'viewport', 'occurredAt', 'note'] as const;
-const SECRET_PATTERN = /(bearer\s+[a-z0-9._-]+|access[_-]?token|refresh[_-]?token|authorization|password|api[_-]?key|anon[_-]?key|secret)(\s*[:=]\s*|\s+)([^\s,;]+)/gi;
+const SECRET_PATTERN = /((?:["']?)(?:access[_-]?token|refresh[_-]?token|authorization|password|api[_-]?key|anon[_-]?key|secret)(?:["']?)(?:\s*[:=]\s*|\s+))(?:("(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*')|([^\s,;&}]+))/gi;
+const BEARER_PATTERN = /\bBearer\s+[a-z0-9._~+\/-]+=*/gi;
 const MAX_BODY_BYTES = 32_000;
 const REPORT_WINDOW_MS = 60_000;
 const REPORTS_PER_WINDOW = 3;
@@ -14,7 +15,9 @@ const rateLimit = new Map<string, RateEntry>();
 
 /** Redacts common secret-shaped values and bounds user supplied report fields. */
 function clean(value: unknown, limit = 6000) {
-  return String(value ?? '').replace(SECRET_PATTERN, '$1$2[REDACTED]').slice(0, limit);
+  return String(value ?? '').replace(BEARER_PATTERN, 'Bearer [REDACTED]')
+    .replace(SECRET_PATTERN, '$1[REDACTED]').replace(/[A-Za-z0-9_-]{24,}\.[A-Za-z0-9_-]{24,}\.[A-Za-z0-9_-]{20,}/g, '[REDACTED_TOKEN]')
+    .slice(0, limit);
 }
 
 /** Resolves the best available caller key from Vercel's trusted forwarding headers. */

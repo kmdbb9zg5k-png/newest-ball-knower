@@ -13,11 +13,13 @@ export type IssueDiagnostic = {
 };
 
 const CONTACT_EMAIL = 'BallKnowerOfficial@gmail.com';
-const SECRET_PATTERN = /(bearer\s+[a-z0-9._-]+|access[_-]?token|refresh[_-]?token|authorization|password|api[_-]?key|anon[_-]?key|secret)(\s*[:=]\s*|\s+)([^\s,;]+)/gi;
+const SECRET_PATTERN = /((?:["']?)(?:access[_-]?token|refresh[_-]?token|authorization|password|api[_-]?key|anon[_-]?key|secret)(?:["']?)(?:\s*[:=]\s*|\s+))(?:("(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*')|([^\s,;&}]+))/gi;
+const BEARER_PATTERN = /\bBearer\s+[a-z0-9._~+\/-]+=*/gi;
 
 export function redactDiagnostic(value: unknown, maxLength = 6000) {
   return String(value ?? '')
-    .replace(SECRET_PATTERN, '$1$2[REDACTED]')
+    .replace(BEARER_PATTERN, 'Bearer [REDACTED]')
+    .replace(SECRET_PATTERN, '$1[REDACTED]')
     .replace(/[A-Za-z0-9_-]{24,}\.[A-Za-z0-9_-]{24,}\.[A-Za-z0-9_-]{20,}/g, '[REDACTED_TOKEN]')
     .slice(0, maxLength);
 }
@@ -62,6 +64,7 @@ export async function submitIssueReport(report: IssueDiagnostic) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(report),
+      signal: AbortSignal.timeout(12_000),
     });
     const result = await response.json().catch(() => ({}));
     if (response.ok && result.sent) return { sent: true, fallback: false };
