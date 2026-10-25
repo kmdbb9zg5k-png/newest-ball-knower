@@ -16,7 +16,7 @@ assert.ok(ticker.includes('AbortController')&&ticker.includes("'visibilitychange
 assert.ok(ticker.includes('aria-live="off"')&&ticker.includes('onFocusCapture')&&ticker.includes('aria-expanded={!hidden}'));
 assert.ok(hero.includes('data-motion="off"')&&hero.includes('onError={()=>setFailed(true)}'));
 assert.ok(!hero.includes('bk-home-motion')&&!hero.includes('Motion ')&&!hero.includes('localStorage'));
-assert.ok(hero.includes('ball-knower-legacy-hero.webp')&&hero.includes('Explore Modes')&&hero.includes('My Leagues'));
+assert.ok(hero.includes('ball-knower-legacy-hero.webp')&&!hero.includes('<button'));
 assert.ok(css.includes('[data-motion="off"] :is(.bk-home-light,.bk-home-haze,.bk-home-floodlight)'));
 assert.ok(!hero.includes('<video')&&!hero.includes('<canvas')&&!hero.includes('setInterval'));
 assert.ok(nav.includes("showNews&&<Suspense")&&nav.includes("lazy(()=>import('./HomeNewsTicker')"));
