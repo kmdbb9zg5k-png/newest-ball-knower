@@ -68,11 +68,12 @@ try{
    const box=await control.boundingBox();assert(box&&box.height>=(await control.evaluate(e=>!!e.closest('.bk-home-hero-mode-links'))?31.5:43.5)&&box.width>=43.5,'Practical touch targets');
    assert(box.x>=0&&box.x+box.width<=width+1,'Hero control stays on screen');
   }
-  const hitLabels=await hero.evaluate(el=>{const r=el.querySelector('img').getBoundingClientRect();return [[.27,.821],[.735,.821],[.16,.928],[.38,.928],[.60,.928],[.82,.928]].map(([x,y])=>document.elementFromPoint(r.x+x*r.width,r.y+y*r.height)?.closest('button,a')?.textContent?.trim());});
-  if(width<768)assert.deepEqual(hitLabels,['Explore Modes','My Leagues','Fantasy','Solo','Combine','Trivia'],'Printed targets must resolve to the intended action');
+  const hitLabels=await hero.evaluate(el=>{const r=el.querySelector('img').getBoundingClientRect();return [[.27,.821],[.735,.821]].map(([x,y])=>document.elementFromPoint(r.x+x*r.width,r.y+y*r.height)?.closest('button,a')?.textContent?.trim());});
+  if(width<768)assert.deepEqual(hitLabels,['Explore Modes','My Leagues'],'Printed targets must resolve to the intended action');
   const ratio=await hero.locator('img').evaluate(e=>e.getBoundingClientRect().width/e.getBoundingClientRect().height);
   assert(Math.abs(ratio-1354/1162)<.01,'Cover must not crop or stretch');
-  assert.equal(await hero.getByRole('link',{name:'Combine',exact:true}).getAttribute('href'),'/?miniGames=1&combine=1');
+  assert.equal(await hero.locator('button,a').count(),2,'Only the two main hero actions remain');
+  assert.equal(Math.round(geometry.heroHeight),width<360?350:width<640?378:440,'Original hero height restored');
   await page.screenshot({path:`${out}/home-${width}.png`,fullPage:false});
   await hero.getByRole('button',{name:'Explore Modes',exact:true}).click();
   assert.equal(await page.evaluate(()=>document.activeElement?.closest('section')?.id),'home-primary-destinations');
@@ -106,16 +107,6 @@ try{
    await page.getByRole('button',{name:'Ball Knower home',exact:true}).click();await hero.waitFor();
    await page.getByRole('button',{name:'Open NFL News',exact:true}).click();await page.locator('.bk-app-shell[data-tab="news"]').waitFor();
    assert.equal(await page.locator('.bk-home-news-strip').count(),1,'News retains access to the shared headline strip');
-  }
-  if(width===430){
-   await hero.getByRole('button',{name:'Solo',exact:true}).click();await page.locator('.bk-app-shell[data-tab="solo"]').waitFor();
-   await page.getByRole('button',{name:'Ball Knower home',exact:true}).click();await hero.waitFor();
-   await hero.getByRole('button',{name:'Trivia',exact:true}).click();await page.locator('.bk-app-shell[data-tab="challenges"]').waitFor();
-   const closeGuide=page.getByRole('button',{name:'Close instructions',exact:true});if(await closeGuide.count())await closeGuide.click();
-   await page.getByRole('button',{name:'Ball Knower home',exact:true}).click();await hero.waitFor();
-   await hero.getByRole('link',{name:'Combine',exact:true}).click();
-   await page.getByRole('heading',{name:'Combine Drills',exact:true}).waitFor();
-   await page.getByRole('button',{name:'Close Mini Games',exact:true}).click();
   }
   await page.getByRole('button',{name:'Ball Knower home',exact:true}).click();await hero.waitFor();
   await hero.locator('img').evaluate(e=>e.dispatchEvent(new Event('error')));
