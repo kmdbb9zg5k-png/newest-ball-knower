@@ -90,3 +90,27 @@
    compact without changing any other mode's navigation. */
 nav[data-home-broadcast="true"] button { font-family: inherit; font-size: 9px; font-weight: 800; line-height: 1.25; letter-spacing: .06em; }
 nav[data-home-broadcast="true"] button svg { width: 21px; height: 21px; }
+
+/* Approved cover art: preserve its complete composition at every viewport. */
+.bk-home-stadium.bk-home-legacy-hero { height: auto; aspect-ratio: 1354 / 1162; margin-inline: 0; overflow: visible; background: #080b0c; }
+.bk-home-legacy-art { display: block; width: 100%; height: auto; border: 0; }
+.bk-home-hero-hit { position: absolute; top: 82.1%; transform: translateY(-50%); height: 10%; min-height: 44px; border: 0; border-radius: 12px; background: transparent; cursor: pointer; }
+.bk-home-explore-hit { left: 5.6%; width: 44.1%; }
+.bk-home-leagues-hit { left: 52.4%; width: 42.1%; }
+.bk-home-hero-mode-links { position: absolute; left: 5.6%; right: 5.6%; top: 92.8%; transform: translateY(-50%); display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); }
+.bk-home-hero-mode-links :is(button,a) { display: flex; align-items: center; justify-content: center; min-height: 44px; border: 0; background: transparent; border-radius: 4px; cursor: pointer; }
+.bk-home-hero-hit:focus-visible,.bk-home-hero-mode-links :is(button,a):focus-visible { outline: 3px solid #fff0b0; outline-offset: 2px; box-shadow: 0 0 0 5px #090c10; }
+.bk-home-hero-hit:hover { box-shadow: inset 0 0 0 2px rgba(255,238,180,.6); }
+.bk-home-legacy-fallback { padding: 24px 16px; display: flex; flex-wrap: wrap; gap: 12px; aspect-ratio: auto !important; color: #f3e1b2; }
+.bk-home-legacy-fallback-copy { width: 100%; }
+.bk-home-legacy-fallback-copy h2 { font-size: 30px; font-weight: 900; line-height: 1.1; margin-block: 12px; }
+.bk-home-legacy-fallback .bk-home-hero-hit { position: static; transform: none; width: auto; flex: 1; min-height: 48px; padding: 8px; border: 1px solid #c7a459; background: #d1ad61; color: #080b0c; font-weight: 800; }
+.bk-home-legacy-fallback .bk-home-hero-mode-links { position: static; transform: none; width: 100%; }
+.bk-home-primary-modes { scroll-margin-top: 150px; }
+@media (max-width: 480px) {
+  /* Enlarge the printed CTA hit areas without letting them steal footer taps. */
+  .bk-home-stadium.bk-home-legacy-hero { margin-bottom: 10px; }
+  .bk-home-hero-hit { top: 81%; }
+  .bk-home-hero-mode-links { top: 96.5%; }
+  .bk-home-hero-mode-links :is(button,a) { min-height: 32px; }
+}
