@@ -1,3 +1,4 @@
+import {createDrillFootball} from './football.js';
 import * as T from 'three';
 import {loadCombineRunner} from './meshy-runner.js';
 import {createDefender} from './defender-presentation.js';
@@ -10,8 +11,7 @@ export async function createRoutePresentation(scene,runner,camera,host,player,ma
  float shirt=grey*smoothstep(.88,.98,bkQBPosition.y)*(1.-smoothstep(1.48,1.57,bkQBPosition.y));
  diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.10,.32,.62)*(.45+dot(diffuseColor.rgb,vec3(.333))),shirt);`);};m.customProgramCacheKey=()=>cache()+'-route-coach-blue';m.needsUpdate=true;}});
  const defender=man?await createDefender(scene,dbPlayer||undefined):null;
- const ball=new T.Mesh(new T.SphereGeometry(.115,20,12),new T.MeshStandardMaterial({color:'#804320',roughness:.8}));ball.name='receiver-drill-football';ball.scale.set(.72,.72,1.65);scene.add(ball);ball.castShadow=true;
- const lace=new T.Mesh(new T.BoxGeometry(.025,.012,.14),new T.MeshBasicMaterial({color:'#fff4df'}));lace.position.y=.115;ball.add(lace);
+ const ball=createDrillFootball('receiver-drill-football');scene.add(ball);
  const halo=new T.Mesh(new T.RingGeometry(.17,.21,24),new T.MeshBasicMaterial({color:'#fff3c7',side:T.DoubleSide,depthTest:false,transparent:true,opacity:.8}));ball.add(halo);halo.renderOrder=4;
  const marker=new T.Mesh(new T.RingGeometry(.65,.70,40),new T.MeshBasicMaterial({color:'#eac979',side:T.DoubleSide,transparent:true,opacity:.6}));marker.rotation.x=-Math.PI/2;marker.position.y=.025;scene.add(marker);
  const routeGroup=new T.Group();scene.add(routeGroup);let routeIndex=-1,origin=new T.Vector3(3,1.6,-3),flightEnd=new T.Vector3(),flightStamp=null;

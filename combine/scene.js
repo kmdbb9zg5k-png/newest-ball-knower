@@ -184,15 +184,27 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
   const tc=document.createElement('canvas');tc.width=tc.height=256;const ctx=tc.getContext('2d');ctx.fillStyle='#708455';ctx.fillRect(0,0,256,256);
   let rng=71;const random=()=>{rng=(Math.imul(rng,1664525)+1013904223)>>>0;return rng/4294967296;};
   for(let i=0;i<20000;i++){const shade=45+Math.floor(random()*70);ctx.strokeStyle=`rgba(${shade},${shade+20},${shade-14},.52)`;const x=random()*256,y=random()*256;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+random()*2,y-1-random()*3);ctx.stroke();}
-  const tex=new T.CanvasTexture(tc);tex.colorSpace=T.SRGBColorSpace;tex.wrapS=tex.wrapT=T.RepeatWrapping;tex.repeat.set(22,50);tex.anisotropy=4;grass.map=tex;grass.bumpMap=tex;grass.bumpScale=.025;
+  const tex=new T.CanvasTexture(tc);tex.colorSpace=T.SRGBColorSpace;tex.wrapS=tex.wrapT=T.RepeatWrapping;tex.repeat.set((isRoutes?160:54)/2.45,(isRoutes?200:110)/2.2);tex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());grass.map=tex;grass.bumpMap=tex;grass.bumpScale=.025;
   const floor=mesh(new T.PlaneGeometry(isRoutes?160:54,isRoutes?200:110),grass,scene,0,-.012,28);floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;
   const white=mat('#e2e5ce'),orange=mat('#df652e'),metal=mat('#26343a',.55),concrete=mat('#353f45'),seatMat=mat('#263d4b');
-  for(let z=-5;z<60;z+=5){const stripe=box(scene,[50,.006,2.5],mat('#476c3d'),[0,-.005,z]);stripe.material.transparent=true;stripe.material.opacity=.15;stripe.receiveShadow=true;}
+  for(let z=-5*YARD;z<60;z+=5*YARD){const stripe=box(scene,[isRoutes?49:50,.006,2.5*YARD],mat('#476c3d'),[0,-.005,z]);stripe.material.transparent=true;stripe.material.opacity=.15;stripe.receiveShadow=true;}
   if(drill==='dash'||drill==='jump')for(const x of [-2.2,2.2])box(scene,[.075,.012,FINISH+10],white,[x,.002,(FINISH+4)/2]);
-  if(isRoutes){const fieldLine=mat('#bcc9af');fieldLine.transparent=true;fieldLine.opacity=.3;for(let n=0;n<=60;n+=5)box(scene,[49,.008,.045],fieldLine,[0,.007,n*YARD]);for(const x of [-24.5,24.5])box(scene,[.06,.008,75],fieldLine,[x,.007,27]);}
+  if(isRoutes){
+    const fieldLine=mat('#d6deca');fieldLine.transparent=true;fieldLine.opacity=.64;
+    for(let n=0;n<=60;n+=5)box(scene,[49,.008,.065],fieldLine,[0,.007,n*YARD]);
+    for(const x of [-24.5,24.5])box(scene,[.10,.008,75],fieldLine,[x,.007,27]);
+    // NFL-width hash positions, batched into a single draw call.
+    const marks=new T.InstancedMesh(new T.BoxGeometry(.55,.008,.065),fieldLine,4*48),mark=new T.Object3D();let count=0;
+    for(let yard=1;yard<60;yard++)if(yard%5)for(const x of [-24,-2.82,2.82,24]){mark.position.set(x,.009,yard*YARD);mark.updateMatrix();marks.setMatrixAt(count++,mark.matrix);}
+    marks.name='combine-yard-hashes';marks.receiveShadow=true;scene.add(marks);
+    for(let yard=10;yard<=50;yard+=10)for(const side of [-1,1]){
+      const number=mesh(new T.PlaneGeometry(2.2,1.5),label(String(yard),'#d6deca'),scene,side*18,.021,yard*YARD);
+      number.rotation.x=-Math.PI/2;number.rotation.z=side<0?Math.PI/2:-Math.PI/2;
+    }
+  }
   if(drill==='dash') for(let n=0;n<=40;n+=5){const z=n*YARD;box(scene,[4.45,.009,n%10===0?.09:.045],white,[0,.006,z]);if(n>0&&n%10===0){const number=mesh(new T.PlaneGeometry(1.1,.68),label(String(n)),scene,1.37,.017,z-.45);number.rotation.x=-Math.PI/2;number.rotation.z=Math.PI;}}
   const startLabel=mesh(new T.PlaneGeometry(2.7,.4),label(({jump:'BROAD JUMP',bench:'STRENGTH',shuttle:'5 – 10 – 5',routes:'RECEIVER ROUTES','one-on-one':'1 ON 1',db:'DB 1 ON 1',rb:'RB 1 ON 1'})[drill]||'START'),scene,0,.018,-1.25);startLabel.rotation.x=-Math.PI/2;startLabel.rotation.z=Math.PI;
-  const finishLabel=mesh(new T.PlaneGeometry(3.2,.46),label('40 YARD FINISH'),scene,0,.019,FINISH+.6);finishLabel.rotation.x=-Math.PI/2;finishLabel.rotation.z=Math.PI;
+  const finishLabel=mesh(new T.PlaneGeometry(3.2,.46),label('40 YARD FINISH'),scene,0,.019,FINISH+.6);finishLabel.rotation.x=-Math.PI/2;finishLabel.rotation.z=Math.PI;finishLabel.visible=drill==='dash';
   if(drill==='dash'||drill==='jump')for(const side of [-1,1])for(let z=0;z<=FINISH;z+=YARD*5){box(scene,[.3,.03,.3],orange,[side*2.6,.015,z]);mesh(new T.ConeGeometry(.12,.40,18),orange,scene,side*2.6,.23,z);}
   function gate(z){for(const side of [-1,1]){const x=side*2.93;mesh(new T.CylinderGeometry(.018,.022,.95,9),metal,scene,x,.49,z);box(scene,[.17,.23,.10],metal,[x,1.02,z]);const led=mesh(new T.SphereGeometry(.025,10,7),new T.MeshBasicMaterial({color:'#bbf39b'}),scene,x,1.04,z-.06);for(let i=0;i<3;i++){const a=i*Math.PI*2/3,leg=mesh(new T.CylinderGeometry(.012,.014,1,7),metal,scene);connect(leg,v(x,.57,z),v(x+Math.cos(a)*.28,.02,z+Math.sin(a)*.28));}}}
   if(drill==='dash') [10,20,40].forEach(n=>gate(n*YARD));

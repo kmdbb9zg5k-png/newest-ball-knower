@@ -1,3 +1,4 @@
+import {createDrillFootball} from './football.js';
 import * as T from 'three';
 import {loadCombineRunner} from './meshy-runner.js';
 import {LINEBACKER,GOAL,WIDTH} from './rb-drill.js';
@@ -8,8 +9,7 @@ export async function createRBPresentation(scene,runner,camera){
  for(const [actor,tint]of [[lb,'vec3(.43,.055,.07)'],[qb,'vec3(.08,.23,.43)']])actor.root.traverse(o=>{if(!o.isSkinnedMesh)return;for(const m of(Array.isArray(o.material)?o.material:[o.material])){const prev=m.onBeforeCompile,key=m.customProgramCacheKey.bind(m);m.onBeforeCompile=shader=>{prev.call(m,shader);shader.vertexShader='varying vec3 rbPos;\n'+shader.vertexShader.replace('#include <worldpos_vertex>','#include <worldpos_vertex>\nrbPos=(modelMatrix*vec4(position,1.)).xyz;');shader.fragmentShader='varying vec3 rbPos;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
  float neutral=1.-smoothstep(.03,.10,max(diffuseColor.r,max(diffuseColor.g,diffuseColor.b))-min(diffuseColor.r,min(diffuseColor.g,diffuseColor.b)));
  diffuseColor.rgb=mix(diffuseColor.rgb,${tint},neutral*smoothstep(.85,.98,rbPos.y)*(1.-smoothstep(1.47,1.58,rbPos.y)));`);};m.customProgramCacheKey=()=>key()+'-rb-shirt-'+tint;m.needsUpdate=true;}});
- const ball=new T.Mesh(new T.SphereGeometry(.115,20,12),new T.MeshStandardMaterial({color:'#804320',roughness:.8}));ball.scale.set(.72,.72,1.65);ball.name='rb-football';ball.castShadow=true;scene.add(ball);
- const lace=new T.Mesh(new T.BoxGeometry(.025,.012,.14),new T.MeshBasicMaterial({color:'#fff4df'}));lace.position.y=.115;ball.add(lace);
+ const ball=createDrillFootball('rb-football');scene.add(ball);
  const ring=new T.Mesh(new T.RingGeometry(.39,.44,32),new T.MeshBasicMaterial({color:'#f0cf7b',side:T.DoubleSide,transparent:true,opacity:.85}));ring.rotation.x=-Math.PI/2;ring.position.y=.025;scene.add(ring);
  for(const x of [-WIDTH,WIDTH]){const line=new T.Mesh(new T.BoxGeometry(.10,.025,GOAL+3),new T.MeshBasicMaterial({color:'#e9ddc2'}));line.position.set(x,.025,GOAL/2);scene.add(line);}
  const goal=new T.Mesh(new T.BoxGeometry(WIDTH*2,.025,.16),new T.MeshBasicMaterial({color:'#f3cf7d'}));goal.position.set(0,.03,GOAL);scene.add(goal);
