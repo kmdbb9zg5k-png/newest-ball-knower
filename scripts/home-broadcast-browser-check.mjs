@@ -64,20 +64,11 @@ try{
   assert.equal(await page.locator('.bk-home-floodlight').count(),0,'Approved cover has no flicker overlays');
   const photo=await page.locator('.bk-home-legacy-art').evaluate(e=>({w:e.naturalWidth,h:e.naturalHeight}));assert.deepEqual(photo,{w:1354,h:1162});
   assert.equal(await page.locator('.bk-home-motion').count(),0,'Home must not render a motion button');
-  for(const control of await hero.locator('button,a').all()){
-   const box=await control.boundingBox();assert(box&&box.height>=(await control.evaluate(e=>!!e.closest('.bk-home-hero-mode-links'))?31.5:43.5)&&box.width>=43.5,'Practical touch targets');
-   assert(box.x>=0&&box.x+box.width<=width+1,'Hero control stays on screen');
-  }
-  const hitLabels=await hero.evaluate(el=>{const r=el.querySelector('img').getBoundingClientRect();return [[.27,.821],[.735,.821]].map(([x,y])=>document.elementFromPoint(r.x+x*r.width,r.y+y*r.height)?.closest('button,a')?.textContent?.trim());});
-  if(width<768)assert.deepEqual(hitLabels,['Explore Modes','My Leagues'],'Printed targets must resolve to the intended action');
   const ratio=await hero.locator('img').evaluate(e=>e.getBoundingClientRect().width/e.getBoundingClientRect().height);
   assert(Math.abs(ratio-1354/1162)<.01,'Cover must not crop or stretch');
-  assert.equal(await hero.locator('button,a').count(),2,'Only the two main hero actions remain');
+  assert.equal(await hero.locator('button,a').count(),0,'Artwork has no invisible actions');
   assert.equal(Math.round(geometry.heroHeight),width<360?350:width<640?378:440,'Original hero height restored');
   await page.screenshot({path:`${out}/home-${width}.png`,fullPage:false});
-  await hero.getByRole('button',{name:'Explore Modes',exact:true}).click();
-  assert.equal(await page.evaluate(()=>document.activeElement?.closest('section')?.id),'home-primary-destinations');
-  await hero.scrollIntoViewIfNeeded();
   if(width===390){
    const before=await strip.locator('a').getAttribute('href');await page.clock.runFor(10_050);
    assert.notEqual(await strip.locator('a').getAttribute('href'),before,'Headlines rotate');
@@ -93,7 +84,7 @@ try{
    assert.equal(await hero.evaluate(e=>getComputedStyle(e).animationName),'none');
    assert.equal(await page.locator('.bk-home-floodlight').count(),0);
    await page.emulateMedia({reducedMotion:'no-preference'});
-   await page.getByRole('button',{name:'My Leagues',exact:true}).click();await page.locator('.bk-app-shell[data-tab="fantasy"]').waitFor();
+   await page.locator('.bk-home-primary-modes').getByRole('button',{name:'Fantasy',exact:true}).click();await page.locator('.bk-app-shell[data-tab="fantasy"]').waitFor();
    // The destination shell mounts before its lazy-loaded first-visit guide.
    // Wait for the real guide and close it normally, never click through it.
    const guideClose=page.getByRole('button',{name:'Close instructions',exact:true});
@@ -111,7 +102,7 @@ try{
   await page.getByRole('button',{name:'Ball Knower home',exact:true}).click();await hero.waitFor();
   await hero.locator('img').evaluate(e=>e.dispatchEvent(new Event('error')));
   await hero.getByRole('heading',{name:'Know ball. Play ball. Build your legacy.'}).waitFor();
-  assert(await hero.getByRole('button',{name:'Explore Modes',exact:true}).isVisible());
+  assert.equal(await hero.locator('button,a').count(),0);
   assert.deepEqual(crashes,[]);results.push({width,...geometry,articleCount:news.articles.length});await context.close();
  }
  if(live){

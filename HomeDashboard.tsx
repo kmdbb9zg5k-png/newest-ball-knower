@@ -110,11 +110,7 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
   }, [leagueMenuOpen]);
 
   return <div className="bk-home-dashboard bk-home-broadcast bk-home-clean mx-auto max-w-5xl pb-5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pb-8 sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
-    <HomeStadiumHero onMyLeagues={() => onNavigate('fantasy')} onExploreModes={() => {
-      const destinations=document.getElementById('home-primary-destinations');
-      destinations?.scrollIntoView({block:'start',behavior:'auto'});
-      destinations?.querySelector<HTMLButtonElement>('button')?.focus({preventScroll:true});
-    }}/>
+    <HomeStadiumHero/>
     <section id="home-primary-destinations" aria-label="Primary destinations" className="bk-home-primary-modes">
       <ModeCard icon={<Trophy/>} label="Fantasy" onClick={() => onNavigate('fantasy')}/>
       <ModeCard icon={<Target/>} label="Picks" onClick={() => onNavigate('sportsbook')}/>
