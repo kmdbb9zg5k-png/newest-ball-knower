@@ -1,42 +1,28 @@
-import React,{useEffect,useRef,useState} from 'react';
-import {ArrowRight} from 'lucide-react';
+import React, {useState} from 'react';
 
-const readReduced=()=>typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+type HeroDestination = 'fantasy' | 'solo' | 'challenges';
 
-/** Decorative Home-only scene. No video, timers, player data or sound. */
-export function HomeStadiumHero({onMyLeagues}:{onMyLeagues:()=>void}){
-  const [reduced,setReduced]=useState(readReduced);
-  const [visible,setVisible]=useState(()=>!document.hidden);
-  const [onScreen,setOnScreen]=useState(true);
-  const scene=useRef<HTMLElement>(null);
-  useEffect(()=>{
-    const media=window.matchMedia('(prefers-reduced-motion: reduce)');
-    const sync=()=>setReduced(media.matches);
-    const visibility=()=>setVisible(!document.hidden);
-    media.addEventListener('change',sync);document.addEventListener('visibilitychange',visibility);
-    const observer=typeof IntersectionObserver==='undefined'?null:new IntersectionObserver(([entry])=>setOnScreen(entry.isIntersecting));
-    if(scene.current)observer?.observe(scene.current);
-    return()=>{media.removeEventListener('change',sync);document.removeEventListener('visibilitychange',visibility);observer?.disconnect()};
-  },[]);
-  const moving=!reduced&&visible&&onScreen;
-  return <section ref={scene} className="bk-home-stadium" aria-labelledby="home-stadium-title" data-motion={moving?'on':'off'}>
-    <div className="bk-home-stadium-art" aria-hidden="true">
-      <img src="/atmosphere/home-stadium.webp" alt="" width="249" height="158" fetchPriority="high" decoding="async"/>
-      <div className="bk-home-team-tint"/>
-      <div className="bk-home-light bk-home-light-one"/>
-      <div className="bk-home-light bk-home-light-two"/>
-      <div className="bk-home-floodlights">
-        <i className="bk-home-floodlight"/><i className="bk-home-floodlight"/><i className="bk-home-floodlight"/>
-        <i className="bk-home-floodlight"/><i className="bk-home-floodlight"/><i className="bk-home-floodlight"/>
-      </div>
-      <div className="bk-home-haze"/>
-      <div className="bk-home-stadium-shade"/>
+/** The approved artwork stays intact; real controls sit over its printed buttons. */
+export function HomeStadiumHero({onMyLeagues,onExploreModes,onNavigate}:{
+  onMyLeagues:()=>void;
+  onExploreModes:()=>void;
+  onNavigate:(destination:HeroDestination)=>void;
+}) {
+  const [failed,setFailed]=useState(false);
+  return <section className={`bk-home-stadium bk-home-legacy-hero${failed?' bk-home-legacy-fallback':''}`} aria-labelledby="home-stadium-title" data-motion="off">
+    {!failed&&<img className="bk-home-legacy-art" src="/atmosphere/ball-knower-legacy-hero.webp" alt="" width="1354" height="1162" fetchPriority="high" decoding="async" draggable={false} onError={()=>setFailed(true)}/>}
+    <div className={failed?'bk-home-legacy-fallback-copy':'sr-only'}>
+      <p>Ball Knower. Your game. Your legacy.</p>
+      <h2 id="home-stadium-title">Know ball. Play ball. Build your legacy.</h2>
+      <p>Run your league. Build your franchise. Prove it on the field.</p>
     </div>
-    <div className="bk-home-hero-copy">
-      <p className="bk-home-hero-eyebrow">Your game. Your legacy.</p>
-      <h2 id="home-stadium-title">IT’S MORE<br/><span>THAN FANTASY.</span></h2>
-      <p className="bk-home-hero-tagline">IT’S BALL KNOWLEDGE.</p>
-      <button type="button" className="bk-home-gold-button" onClick={onMyLeagues}>My Leagues <ArrowRight size={16}/></button>
-    </div>
+    <button type="button" className="bk-home-hero-hit bk-home-explore-hit" onClick={onExploreModes}><span className={failed?'':'sr-only'}>Explore Modes</span></button>
+    <button type="button" className="bk-home-hero-hit bk-home-leagues-hit" onClick={onMyLeagues}><span className={failed?'':'sr-only'}>My Leagues</span></button>
+    <nav className="bk-home-hero-mode-links" aria-label="Featured game modes">
+      <button type="button" onClick={()=>onNavigate('fantasy')}><span className={failed?'':'sr-only'}>Fantasy</span></button>
+      <button type="button" onClick={()=>onNavigate('solo')}><span className={failed?'':'sr-only'}>Solo</span></button>
+      <a href="/?miniGames=1&combine=1"><span className={failed?'':'sr-only'}>Combine</span></a>
+      <button type="button" onClick={()=>onNavigate('challenges')}><span className={failed?'':'sr-only'}>Trivia</span></button>
+    </nav>
   </section>;
 }

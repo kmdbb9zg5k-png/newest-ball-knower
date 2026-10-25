@@ -46,7 +46,7 @@ try{
   await page.goto(base,{waitUntil:'domcontentloaded'});
   const hero=page.locator('.bk-home-stadium');const strip=page.getByRole('region',{name:'NFL headlines'});
   await hero.waitFor();await strip.locator('a').waitFor();
-  await page.waitForFunction(()=>document.querySelector('.bk-home-stadium-art img')?.naturalWidth>0);
+  await page.waitForFunction(()=>document.querySelector('.bk-home-legacy-art')?.naturalWidth>0);
   // Real app fonts, not a separate mockup typography layer.
   await page.evaluate(()=>document.fonts.ready);
   const geometry=await page.evaluate(()=>{
@@ -61,10 +61,22 @@ try{
    assert.ok((await buttons.evaluateAll(items=>items.map(e=>parseFloat(getComputedStyle(e).fontSize)))).every(size=>size>=8&&size<=11),'Bottom labels must remain compact and readable');
   }
   assert.equal(await page.locator('.bk-home-primary-modes button').count(),4);
-  assert.equal(await page.locator('.bk-home-floodlight').count(),6,'Six independent stadium floodlights render');
-  const photo=await page.locator('.bk-home-stadium-art img').evaluate(e=>({w:e.naturalWidth,h:e.naturalHeight}));assert.deepEqual(photo,{w:249,h:158});
+  assert.equal(await page.locator('.bk-home-floodlight').count(),0,'Approved cover has no flicker overlays');
+  const photo=await page.locator('.bk-home-legacy-art').evaluate(e=>({w:e.naturalWidth,h:e.naturalHeight}));assert.deepEqual(photo,{w:1354,h:1162});
   assert.equal(await page.locator('.bk-home-motion').count(),0,'Home must not render a motion button');
+  for(const control of await hero.locator('button,a').all()){
+   const box=await control.boundingBox();assert(box&&box.height>=(await control.evaluate(e=>!!e.closest('.bk-home-hero-mode-links'))?31.5:43.5)&&box.width>=43.5,'Practical touch targets');
+   assert(box.x>=0&&box.x+box.width<=width+1,'Hero control stays on screen');
+  }
+  const hitLabels=await hero.evaluate(el=>{const r=el.querySelector('img').getBoundingClientRect();return [[.27,.821],[.735,.821],[.16,.928],[.38,.928],[.60,.928],[.82,.928]].map(([x,y])=>document.elementFromPoint(r.x+x*r.width,r.y+y*r.height)?.closest('button,a')?.textContent?.trim());});
+  if(width<768)assert.deepEqual(hitLabels,['Explore Modes','My Leagues','Fantasy','Solo','Combine','Trivia'],'Printed targets must resolve to the intended action');
+  const ratio=await hero.locator('img').evaluate(e=>e.getBoundingClientRect().width/e.getBoundingClientRect().height);
+  assert(Math.abs(ratio-1354/1162)<.01,'Cover must not crop or stretch');
+  assert.equal(await hero.getByRole('link',{name:'Combine',exact:true}).getAttribute('href'),'/?miniGames=1&combine=1');
   await page.screenshot({path:`${out}/home-${width}.png`,fullPage:false});
+  await hero.getByRole('button',{name:'Explore Modes',exact:true}).click();
+  assert.equal(await page.evaluate(()=>document.activeElement?.closest('section')?.id),'home-primary-destinations');
+  await hero.scrollIntoViewIfNeeded();
   if(width===390){
    const before=await strip.locator('a').getAttribute('href');await page.clock.runFor(10_050);
    assert.notEqual(await strip.locator('a').getAttribute('href'),before,'Headlines rotate');
@@ -77,8 +89,8 @@ try{
    await page.getByRole('button',{name:'Show headlines',exact:true}).click();await strip.locator('a').waitFor();
    await page.emulateMedia({reducedMotion:'reduce'});await page.waitForFunction(()=>document.querySelector('.bk-home-stadium')?.getAttribute('data-motion')==='off');
    assert.equal(await hero.getAttribute('data-motion'),'off');
-   assert.equal(await page.locator('.bk-home-light-one').evaluate(e=>getComputedStyle(e).animationName),'none');
-   assert.equal(await page.locator('.bk-home-floodlight').first().evaluate(e=>getComputedStyle(e).animationName),'none');
+   assert.equal(await hero.evaluate(e=>getComputedStyle(e).animationName),'none');
+   assert.equal(await page.locator('.bk-home-floodlight').count(),0);
    await page.emulateMedia({reducedMotion:'no-preference'});
    await page.getByRole('button',{name:'My Leagues',exact:true}).click();await page.locator('.bk-app-shell[data-tab="fantasy"]').waitFor();
    // The destination shell mounts before its lazy-loaded first-visit guide.
@@ -95,6 +107,20 @@ try{
    await page.getByRole('button',{name:'Open NFL News',exact:true}).click();await page.locator('.bk-app-shell[data-tab="news"]').waitFor();
    assert.equal(await page.locator('.bk-home-news-strip').count(),1,'News retains access to the shared headline strip');
   }
+  if(width===430){
+   await hero.getByRole('button',{name:'Solo',exact:true}).click();await page.locator('.bk-app-shell[data-tab="solo"]').waitFor();
+   await page.getByRole('button',{name:'Ball Knower home',exact:true}).click();await hero.waitFor();
+   await hero.getByRole('button',{name:'Trivia',exact:true}).click();await page.locator('.bk-app-shell[data-tab="challenges"]').waitFor();
+   const closeGuide=page.getByRole('button',{name:'Close instructions',exact:true});if(await closeGuide.count())await closeGuide.click();
+   await page.getByRole('button',{name:'Ball Knower home',exact:true}).click();await hero.waitFor();
+   await hero.getByRole('link',{name:'Combine',exact:true}).click();
+   await page.getByRole('heading',{name:'Combine Drills',exact:true}).waitFor();
+   await page.getByRole('button',{name:'Close Mini Games',exact:true}).click();
+  }
+  await page.getByRole('button',{name:'Ball Knower home',exact:true}).click();await hero.waitFor();
+  await hero.locator('img').evaluate(e=>e.dispatchEvent(new Event('error')));
+  await hero.getByRole('heading',{name:'Know ball. Play ball. Build your legacy.'}).waitFor();
+  assert(await hero.getByRole('button',{name:'Explore Modes',exact:true}).isVisible());
   assert.deepEqual(crashes,[]);results.push({width,...geometry,articleCount:news.articles.length});await context.close();
  }
  if(live){
