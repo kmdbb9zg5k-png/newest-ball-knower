@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {createRequestGate,matchSecondsLeft,matchOutcome,messageDay} from '../communityState';
+const gate=createRequestGate();const slow=gate.next();const fast=gate.next();
+assert.equal(gate.isCurrent(slow),false,'Late conversation response must not replace the current one');
+assert.equal(gate.isCurrent(fast),true);gate.invalidate();assert.equal(gate.isCurrent(fast),false,'Unmount/account change must invalidate reads');
+const start='2026-10-26T12:00:00Z';const at=Date.parse(start);
+assert.equal(matchSecondsLeft(start,60,at),60);
+assert.equal(matchSecondsLeft(start,60,at+59001),1);
+assert.equal(matchSecondsLeft(start,60,at+60000),0);
+assert.equal(matchSecondsLeft(start,60,at-5000),60,'Clock skew must not produce more than a match duration');
+assert.equal(matchSecondsLeft('invalid',60,at),0,'Malformed timestamps must not produce NaN');
+assert.equal(matchSecondsLeft(start,90,at+30000),60,'Use the server duration');
+const match={status:'completed',winnerId:'me'} as any;
+assert.equal(matchOutcome(match,'me'),'Win');assert.equal(matchOutcome(match,'other'),'Loss');
+assert.equal(matchOutcome({...match,winnerId:undefined},'me'),'Tie');
+assert.equal(matchOutcome({...match,status:'cancelled'},'me'),null,'Cancelled matches are not ties');
+assert.equal(messageDay('invalid'),'');
+console.log('Community state checks passed: scoped reads, timer boundaries, server duration and outcomes.');
