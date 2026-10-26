@@ -24,8 +24,13 @@ const n=(value:unknown)=>Number(value)||0;
 const person=(x:any):CommunityPerson=>({userId:String(x.user_id||''),displayName:String(x.display_name||'Ball Knower'),bkRating:n(x.bk_rating),h2hRating:x.h2h_rating==null?1000:n(x.h2h_rating),h2hWins:n(x.h2h_wins),h2hLosses:n(x.h2h_losses),h2hTies:n(x.h2h_ties)});
 const match=(x:any):CommunityMatch=>({id:String(x.id),challengerId:String(x.challenger_id),opponentId:x.opponent_id?String(x.opponent_id):undefined,challengerName:String(x.challenger_name||'Ball Knower'),opponentName:x.opponent_name?String(x.opponent_name):undefined,matchType:x.match_type,status:x.status,challengerScore:n(x.challenger_score),opponentScore:n(x.opponent_score),winnerId:x.winner_id?String(x.winner_id):undefined,startedAt:x.started_at?String(x.started_at):undefined,finishedAt:x.finished_at?String(x.finished_at):undefined,createdAt:String(x.created_at||'')});
 
-export async function fetchCommunityHome():Promise<CommunityHome>{
-  const data=await rpc('get_ball_knower_community_home') as any;
+// Public browse uses a deliberately narrow, read-only RPC. It does not create an auth session.
+const publicPreview=async()=>{
+  const response=await requiredClient().rpc('get_ball_knower_community_preview').abortSignal(AbortSignal.timeout(12000));
+  if(response.error)throw new Error(response.status===402?'Community data is temporarily unavailable. Please try again later.':response.error.message);return response.data as any;
+};
+export async function fetchCommunityHome(readOnly=false):Promise<CommunityHome>{
+  const data=readOnly?await publicPreview():await rpc('get_ball_knower_community_home') as any;
   return {
     leaderboard:(data?.leaderboard||[]).map((x:any)=>({...person(x),rank:n(x.rank),level:n(x.level)||1})),
     friends:(data?.friends||[]).map((x:any)=>({...person(x),friendshipId:String(x.friendship_id),status:x.status,direction:x.direction})),
@@ -41,8 +46,8 @@ export const sendFriendRequest=(userId:string)=>rpc('send_ball_knower_friend_req
 export const respondFriendRequest=(friendshipId:string,accept:boolean)=>rpc('respond_ball_knower_friend_request',{p_friendship_id:friendshipId,p_accept:accept});
 export const removeFriend=(friendshipId:string)=>rpc('remove_ball_knower_friend',{p_friendship_id:friendshipId});
 
-export async function fetchGlobalMessages():Promise<CommunityMessage[]>{
-  const data=await rpc('get_ball_knower_global_messages',{p_before:null}) as any[];
+export async function fetchGlobalMessages(readOnly=false):Promise<CommunityMessage[]>{
+  const data=(readOnly?(await publicPreview())?.messages:await rpc('get_ball_knower_global_messages',{p_before:null})) as any[];
   return (data||[]).map(x=>({id:String(x.id),authorId:String(x.author_id),displayName:String(x.display_name||'Ball Knower'),body:String(x.body),createdAt:String(x.created_at)})).reverse();
 }
 export const postGlobalMessage=(body:string)=>rpc('post_ball_knower_global_message',{p_body:body});
@@ -67,13 +72,13 @@ export async function submitH2HAnswer(matchId:string,ordinal:number,selectedInde
 export async function finishH2H(matchId:string):Promise<H2HMatch>{const x=await rpc('finish_ball_knower_h2h',{p_match_id:matchId}) as any;return {...match(x),durationSeconds:n(x.duration_seconds)||60,questions:(x.questions||[]).map((q:any)=>({ordinal:n(q.ordinal),tier:String(q.tier),question:String(q.question),answers:Array.isArray(q.answers)?q.answers.map(String):[],answered:Boolean(q.answered)}))};}
 
 // Visible-page polling also covers DELETE events/RLS and unavailable Realtime replication.
-export function subscribeCommunity(kind:'messages'|'matches'|'friends',refresh:()=>void,intervalMs=15000):()=>void{
-  const client=requiredClient();let closed=false;let queued:ReturnType<typeof setTimeout>|undefined;
+export function subscribeCommunity(kind:'messages'|'matches'|'friends'|'public',refresh:()=>void,intervalMs=15000):()=>void{
+  const client=kind==='public'?null:requiredClient();let closed=false;let queued:ReturnType<typeof setTimeout>|undefined;
   const schedule=()=>{if(closed||document.visibilityState==='hidden'||queued)return;
     queued=setTimeout(()=>{queued=undefined;if(!closed)refresh();},150);};
   const table=kind==='messages'?'ball_knower_community_messages':kind==='friends'?'ball_knower_friendships':'ball_knower_h2h_matches';
-  const channel:RealtimeChannel=client.channel(`bk-community-${kind}-${crypto.randomUUID()}`)
-    .on('postgres_changes',{event:'*',schema:'public',table},schedule).subscribe();
+  const channel:RealtimeChannel|null=client?client.channel(`bk-community-${kind}-${crypto.randomUUID()}`)
+    .on('postgres_changes',{event:'*',schema:'public',table},schedule).subscribe():null;
   const poll=setInterval(schedule,intervalMs);
   window.addEventListener('focus',schedule);window.addEventListener('online',schedule);
   document.addEventListener('visibilitychange',schedule);
@@ -82,5 +87,5 @@ export function subscribeCommunity(kind:'messages'|'matches'|'friends',refresh:(
     window.removeEventListener('focus',schedule);window.removeEventListener('online',schedule);
     document.removeEventListener('visibilitychange',schedule);
     window.removeEventListener('ball-knower-community-safety-changed',schedule);
-    void client.removeChannel(channel);};
+    if(client&&channel)void client.removeChannel(channel);};
 }

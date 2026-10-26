@@ -20,7 +20,7 @@ for(const table of ['ball_knower_friendships','ball_knower_community_messages','
 assert.match(migration,/require_permanent_community_user/);
 assert.match(migration,/not coalesce\(u\.is_anonymous,false\)/);
 assert.match(permanentRls,/is_permanent_community_user/);
-assert.equal((permanentRls.match(/is_permanent_community_user\(\)/g)||[]).length,6,'Every Arena read policy must reject anonymous authenticated sessions');
+assert.equal((permanentRls.match(/is_permanent_community_user\(\)/g)||[]).length,6,'Direct-table Arena read policies must reject anonymous sessions; public browse uses a separate RPC');
 assert.match(migration,/duration_seconds integer not null default 60 check\(duration_seconds=60\)/);
 assert.match(migration,/ball_knower_private\.h2h_answers/);
 assert.match(migration,/Question already answered/);
@@ -52,3 +52,9 @@ assert.match(profile,/h2hWins/);
 assert.doesNotMatch(hub,/type=["']file["']|accept=["']image/,'Community v1 must stay text-only');
 
 console.log('Community arena checks passed.');
+
+const preview=source('migrations/20261026170319_community_guest_browsing.sql');
+assert.match(preview,/grant execute on function public\.get_ball_knower_community_preview\(\) to anon,authenticated/);
+assert.match(preview,/c\.kind='global' and c\.removed_at is null/);
+assert.match(preview,/'friends','\[\]'::jsonb,'matches','\[\]'::jsonb/);
+assert.doesNotMatch(preview,/grant .* on (table )?public\.ball_knower_community_messages/);

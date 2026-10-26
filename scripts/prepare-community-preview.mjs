@@ -11,13 +11,13 @@ await writeFile('__community-preview.tsx',`import React from 'react';import{crea
 await writeFile('__community-fixture.ts',`
 export type * from './communityCloud';
 const me='00000000-0000-4000-8000-000000000001';const a='00000000-0000-4000-8000-000000000002';const b='00000000-0000-4000-8000-000000000003';
-const user={id:me,name:'Eli',isAnonymous:false};
+const user=new URLSearchParams(location.search).has('guest')?null:{id:me,name:'Eli',isAnonymous:false};
 export const useBallKnower=()=>({currentUser:user,showToast:(message:string)=>{document.getElementById('fixture-toast')?.remove();const el=document.createElement('p');el.id='fixture-toast';el.textContent=message;document.body.append(el);}});
 const person=(id:string,name:string,rank=1)=>({userId:id,displayName:name,bkRating:97-rank,h2hRating:1200,h2hWins:12,h2hLosses:4,h2hTies:1,rank,level:8});
 let home={leaderboard:[person(a,'Gridiron Guru'),person(me,'Eli',2),person(b,'Fourth Down Club',3)],friends:[{...person(a,'Gridiron Guru'),friendshipId:'friend-a',status:'accepted',direction:'outgoing'},{...person(b,'Fourth Down Club'),friendshipId:'friend-b',status:'accepted',direction:'incoming'},{...person('00000000-0000-4000-8000-000000000004','Sunday Scout'),friendshipId:'friend-c',status:'pending',direction:'incoming'}],matches:[] as any[]};
 const delay=(ms:number)=>new Promise(resolve=>setTimeout(resolve,ms));let blocks:string[]=[];let messages=[{id:'msg-a',authorId:a,displayName:'Gridiron Guru',body:'Who are you starting this week? That fourth-quarter comeback was wild.',createdAt:new Date().toISOString()},{id:'msg-b',authorId:me,displayName:'Eli',body:'I like the matchup. Time to prove who knows ball.',createdAt:new Date().toISOString()}];
 export const fetchProgressionProfile=async()=>({});
-export const fetchCommunityHome=async()=>{await delay(100);return structuredClone(home);};
+export const fetchCommunityHome=async(readOnly=false)=>{await delay(100);return structuredClone(readOnly?{...home,friends:[],matches:[]}:home);};
 export const searchCommunityUsers=async(query:string)=>home.leaderboard.filter(p=>p.userId!==me&&p.displayName.toLowerCase().includes(query.toLowerCase())).map(p=>({...p,isFriend:false,requestPending:false}));
 export const fetchGlobalMessages=async()=>{await delay(100);return [...messages];};
 export const postGlobalMessage=async(body:string)=>{messages.push({id:'fixture-'+Date.now(),authorId:me,displayName:'Eli',body,createdAt:new Date().toISOString()});};
@@ -36,4 +36,4 @@ export const supabase={auth:{getSession:async()=>({data:{session:{user:{id:me}}}
 `);
 console.log('Local fixture preview ready at /__community-preview.html. No production requests.');
 
-await writeFile('__community-mobile.html',`<!doctype html><html><body style="margin:0;background:#20242d;display:flex;justify-content:center"><iframe title="Mobile Community" src="/__community-preview.html" style="width:320px;height:844px;border:0;max-width:100%"></iframe></body></html>`);
+await writeFile('__community-mobile.html',`<!doctype html><html><body style="margin:0;background:#20242d;display:flex;justify-content:center"><iframe title="Mobile Community" src="/__community-preview.html?guest=1" style="width:320px;height:844px;border:0;max-width:100%"></iframe></body></html>`);
