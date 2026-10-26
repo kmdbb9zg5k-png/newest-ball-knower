@@ -40,9 +40,9 @@ const publicMatch=migration.match(/create function public\.get_ball_knower_h2h_m
 assert.ok(publicMatch);
 assert.doesNotMatch(publicMatch[0],/correct_index|explanation/,'H2H payload must not expose answer keys');
 assert.match(cloud,/removeChannel\(channel\)/,'Realtime subscriptions must clean up');
-assert.match(hub,/maxLength=\{300\}/);
+assert.match(hub,/maxLength=\{friend\?1000:300\}/);
 assert.match(hub,/Text only · public · moderated/);
-assert.match(hub,/Same questions\. Server scoring/);
+assert.match(hub,/Same questions\. Server scoring|Settle it in the Arena/);
 assert.match(app,/const CommunityHub=lazy/,'Community must remain out of the initial bundle');
 assert.match(nav,/nav-tab-community/);
 assert.match(nav,/setCurrentTab\('community'\)[\s\S]+Community/);
