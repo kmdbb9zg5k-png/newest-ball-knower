@@ -35,6 +35,7 @@ export function stepSkill(s,dt){
   if(s.distance>=end-1e-8){if(s.turn<2){s.phase='cut';s.cutElapsed=0;s.velocity=0;}else{s.phase='finished';s.score=Number((s.clock+s.penalty).toFixed(3));}}
  }else{
   h=Math.min(h,BENCH_SECONDS-s.clock);s.clock+=h;
+  const careerStrength=Number.isFinite(s.athlete.careerStrength)?clamp(1+(s.athlete.careerStrength-72)*.006,.84,1.16):1;
   if(s.forcedLower){
    s.lift=clamp(s.lift-h*.7);s.energy=clamp(s.energy-h*.08);
    if(s.lift===0){s.forcedLower=false;s.needsRelease=true;}
@@ -47,7 +48,7 @@ export function stepSkill(s,dt){
    s.lift=clamp(s.lift-h*1.1);s.energy=clamp(s.energy+h*(s.lift===0?.20:.04));s.topHold=0;
    if(s.lift===0)s.lowering=false;
   }else if(s.energy>0){
-   s.lift=clamp(s.lift+h*(.45+s.energy*.8));s.energy=clamp(s.energy-h*.30);
+   s.lift=clamp(s.lift+h*(.45+s.energy*.8)*careerStrength);s.energy=clamp(s.energy-h*.30/careerStrength);
    if(s.lift>=1){s.reps++;s.lowering=true;s.topHold=0;}
   }else{s.forcedLower=true;}
   if(s.clock>=BENCH_SECONDS-1e-8){s.phase='finished';s.score=s.reps;s.pressing=false;}
