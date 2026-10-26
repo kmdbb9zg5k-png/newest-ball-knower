@@ -2,7 +2,7 @@
   --auth-gold: #d8b757;
   position: fixed;
   inset: 0;
-  z-index: 70;
+  z-index: 150;
   min-height: 100dvh;
   overflow-x: hidden;
   overflow-y: auto;

@@ -1,4 +1,5 @@
 import React,{useEffect,useId,useState}from'react';
+import {createPortal} from 'react-dom';
 import{useBallKnower}from'./BallKnowerContext';
 import{X,Mail,ArrowRight,CheckCircle2,Loader2,LockKeyhole}from'lucide-react';
 import{attachEmailToAnonymousUser,ensureOnlineSession,fetchAuthProviderAvailability,sendEmailMagicLink,type AuthProviderAvailability,type PermanentAuthProvider}from'./supabase';
@@ -173,7 +174,7 @@ export const AuthModal:React.FC<AuthModalProps>=({isOpen,onClose,onOpenLegal,pre
     }
   };
 
-  return <div className={`bk-auth-stage bk-auth-stage--${presentation}`} data-auth-presentation={presentation}>
+  return createPortal(<div className={`bk-auth-stage bk-auth-stage--${presentation}`} data-auth-presentation={presentation}>
     <div className="bk-auth-sky" aria-hidden="true"><span/><span/><span/><AuthArenaArt/></div>
     <section className="bk-auth-console" role="dialog" aria-modal="true" aria-labelledby={titleId}>
       {presentation==='modal'&&<button id="close-auth-modal-btn" onClick={onClose} className="bk-auth-close" aria-label="Close sign in"><X/></button>}
@@ -202,5 +203,5 @@ export const AuthModal:React.FC<AuthModalProps>=({isOpen,onClose,onOpenLegal,pre
 
       <p className="bk-auth-legal">By continuing, you agree to our <button type="button" onClick={()=>onOpenLegal?.('terms')}>Terms</button> and acknowledge our <button type="button" onClick={()=>onOpenLegal?.('privacy')}>Privacy Policy</button>.</p>
     </section>
-  </div>;
+  </div>,document.body);
 };
