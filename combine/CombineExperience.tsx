@@ -4,10 +4,10 @@ import { bestResult, newDash, pressDash, tapStride, speedPercent, accuracy, posi
 import './combine.css';
 
 type Athlete = { id: string; name: string; position: string; speed: number; acceleration: number; seed: number };
-type Props = { players: Athlete[]; context: string; onClose: () => void };
+type Props = { players: Athlete[]; context: string; onClose: () => void; onResult?: (stats:Record<string,number>)=>void };
 const time = (n: number | null | undefined) => n == null ? '—' : `${n.toFixed(2)}`;
 
-export default function CombineExperience({ players, context, onClose }: Props) {
+export default function CombineExperience({ players, context, onClose, onResult }: Props) {
   const [player, setPlayer] = useState(players[0]);
   const [attempt, setAttempt] = useState(1);
   const [view, setView] = useState(() => ({ ...newDash(players[0]) }));
@@ -47,7 +47,8 @@ export default function CombineExperience({ players, context, onClose }: Props) 
       const s = run.current;
       if (finished.current || !['finished', 'false-start'].includes(s.phase)) return;
       finished.current = true;
-      reportMiniChallenge(s.phase === 'finished' ? {time:Number(s.splits[2].toFixed(3)),split10:Number(s.splits[0].toFixed(3)),split20:Number(s.splits[1].toFixed(3))} : {time:60,dnf:1});
+      const resultStats = s.phase === 'finished' ? {time:Number(s.splits[2].toFixed(3)),split10:Number(s.splits[0].toFixed(3)),split20:Number(s.splits[1].toFixed(3))} : {time:60,dnf:1};
+      reportMiniChallenge(resultStats);onResult?.(resultStats);
       setRunSplits(old => [...old, s.phase === 'finished' ? [...s.splits] : null]);
       if(s.phase === 'false-start') setShowResults(true);
       setRuns(old => [...old, s.phase === 'finished' ? s.splits[2] : null]);
@@ -117,7 +118,7 @@ export default function CombineExperience({ players, context, onClose }: Props) 
   }} onKeyUp={e=>{keyHeld.current.delete(e.code);}}>
     <div ref={host} className="combine-scene" aria-hidden="true" />
     <div className="combine-hud" inert={paused || picker || terminal || !ready || !!error}>
-    <header className="combine-top"><button className="combine-back" aria-label="Leave Combine" onClick={onClose}>‹</button><div className="combine-brand"><b>BALL KNOWER</b><span>{context === 'standalone' ? 'COMBINE' : 'FRANCHISE COMBINE'}</span></div><h1>40-YARD DASH</h1><span className="combine-attempt">ATTEMPT {attempt} / 2</span><button className="combine-pause" aria-label="Pause dash" onClick={pause}>Ⅱ</button></header>
+    <header className="combine-top"><button className="combine-back" aria-label="Leave Combine" onClick={onClose}>‹</button><div className="combine-brand"><b>BALL KNOWER</b><span>{context === 'standalone' ? 'COMBINE' : context.startsWith('my-player-draft:') ? 'DRAFT COMBINE' : 'FRANCHISE COMBINE'}</span></div><h1>40-YARD DASH</h1><span className="combine-attempt">ATTEMPT {attempt} / 2</span><button className="combine-pause" aria-label="Pause dash" onClick={pause}>Ⅱ</button></header>
     <div className="combine-timer" aria-label={`Time ${time(view.clock)} seconds`}>{time(view.clock)}<small>s</small></div>
     <aside className="combine-splits" aria-label="Split times">{[10, 20, 40].map((yards, i) => <div key={yards} data-crossed={view.splits[i] != null}><span>{yards} YD</span><b>{time(view.splits[i])}</b></div>)}</aside>
     {phase === 'finished' && !terminal && <div className="combine-cue go" role="status">FINISH · {time(view.clock)}s</div>}
@@ -171,7 +172,7 @@ export default function CombineExperience({ players, context, onClose }: Props) 
       </>}
       <div className="combine-attempts">{runs.map((r, i) => <span key={i}>ATTEMPT {String(i + 1).padStart(2, '0')} <b>{r == null ? 'FS' : `${time(r)}s`}</b></span>)}</div>
       {runSplits.length > 1 && runSplits[0] && runSplits[1] && <div className="combine-comparison" aria-label="Attempt split comparison">{[10,20,40].map((yard,i) => { const delta = Number((runSplits[1]![i]-runSplits[0]![i]).toFixed(2)); return <span key={yard}>{yard} YD <b data-faster={delta<0}>{delta>0?'+':''}{delta.toFixed(2)}s</b></span>; })}<small>Attempt 2 compared with attempt 1</small></div>}
-      <div className="combine-result-actions">{attempt < 2 ? <button onClick={() => reset(player, 2)}><span>RUN AGAIN <small>SECOND ATTEMPT</small></span><span aria-hidden="true">↗</span></button> : <button onClick={() => { setRuns([]); setRunSplits([]); reset(player, 1); }}><span>NEW SESSION <small>BACK TO THE LINE</small></span><span aria-hidden="true">↗</span></button>}<button onClick={openPicker}>ATHLETES & RESULTS</button><button onClick={onClose}>{context === 'standalone' ? 'BACK TO MINI GAMES' : 'BACK TO FRANCHISE'}</button></div>
+      <div className="combine-result-actions">{attempt < 2 ? <button onClick={() => reset(player, 2)}><span>RUN AGAIN <small>SECOND ATTEMPT</small></span><span aria-hidden="true">↗</span></button> : <button onClick={() => { setRuns([]); setRunSplits([]); reset(player, 1); }}><span>NEW SESSION <small>BACK TO THE LINE</small></span><span aria-hidden="true">↗</span></button>}<button onClick={openPicker}>ATHLETES & RESULTS</button><button onClick={onClose}>{context === 'standalone' ? 'BACK TO MINI GAMES' : context.startsWith('my-player-draft:') ? 'BACK TO DRAFT COMBINE' : 'BACK TO FRANCHISE'}</button></div>
       <p className="combine-save" role="status">{!saved ? 'Could not save on this device. Your result is shown above.' : best ? `Best ${time(best.splits[2])}s · Saved on this device` : 'False starts do not post a time.'}</p>
       </div>
     </div></section>}

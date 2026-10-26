@@ -1,4 +1,4 @@
-import {reportDrillSession,challengeSeed} from '../public/mini-challenge-bridge.js';
+import {reportDrillSession,drillSessionStats,challengeSeed} from '../public/mini-challenge-bridge.js';
 import React,{useEffect,useRef,useState} from 'react';
 import {flushSync} from 'react-dom';
 import {startRoute,routeFrameDelta} from './routes.js';
@@ -6,7 +6,7 @@ import {DB_REPS,newDBSession,newDBRep,stepDB,playDBBall,readDBScores,saveDBScore
 import HoldPauseButton from './HoldPauseButton';
 import './combine.css';import './skills.css';import './routes.css';
 type Player={id:string;name:string;position:string;[key:string]:any};
-export default function DBExperience({players,onClose}:{players:Player[];onClose:()=>void}){
+export default function DBExperience({players,onClose,onResult}:{players:Player[];onClose:()=>void;onResult?:(stats:Record<string,number>)=>void}){
  const session=useRef(newDBSession(challengeSeed()));
  const makeRun=(p:Player,index=0)=>newDBRep(p,index,session.current);
  const step=stepDB,readScores=readDBScores,saveScore=saveDBScore;
@@ -20,7 +20,7 @@ export default function DBExperience({players,onClose}:{players:Player[];onClose
  useEffect(()=>{let gone=false,raf=0,last=0;
  import('./scene.js').then(async({createCombineScene})=>{if(!host.current||gone)return;const s=await createCombineScene(host.current,run.current.athlete,()=>{pause();setError('Graphics were interrupted. Reopen the drill.');},'db');if(gone){s.dispose();return;}scene.current=s;setReady(true);last=performance.now();
  const frame=(now:number)=>{if(gone)return;raf=requestAnimationFrame(frame);const dt=(now-last)/1000;last=now;if(!stopped.current&&!document.hidden){if(dt>5&&['preview','running','flight'].includes(run.current.phase)){pause();return;}step(run.current,routeFrameDelta(dt),input.current);}
- s.draw(run.current,Math.min(dt,.1));if(run.current.phase==='result'&&!recorded.current){recorded.current=true;const next=[...completed.current,run.current.result];completed.current=next;setResults(next);if(next.length===total){reportDrillSession(next);setSaved(saveScore(run.current.athlete,next));setRecords(readScores());}}flushSync(()=>setView({...run.current}));};raf=requestAnimationFrame(frame);
+ s.draw(run.current,Math.min(dt,.1));if(run.current.phase==='result'&&!recorded.current){recorded.current=true;const next=[...completed.current,run.current.result];completed.current=next;setResults(next);if(next.length===total){reportDrillSession(next);onResult?.(drillSessionStats(next));setSaved(saveScore(run.current.athlete,next));setRecords(readScores());}}flushSync(()=>setView({...run.current}));};raf=requestAnimationFrame(frame);
  }).catch(()=>{if(!gone)setError('Could not load the athlete. Reopen the drill to try again.');});
  const hide=()=>{release();if(document.hidden&&['preview','running','flight'].includes(run.current.phase))pause();};const blur=()=>{if(['preview','running','flight','settle'].includes(run.current.phase))pause();else release();};
  // Track the actual finger independently of Safari's pointer-capture lifecycle.

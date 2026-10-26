@@ -6,7 +6,7 @@ import HoldPauseButton from './HoldPauseButton';
 import './combine.css';
 import './skills.css';
 type Athlete={id:string;name:string;position:string;speed:number;acceleration:number;seed:number};
-export default function AgilityStrengthExperience({players,context,onClose,drill}:{players:Athlete[];context:string;onClose:()=>void;drill:'shuttle'|'bench'}){
+export default function AgilityStrengthExperience({players,context,onClose,drill,onResult}:{players:Athlete[];context:string;onClose:()=>void;drill:'shuttle'|'bench';onResult?:(stats:Record<string,number>)=>void}){
  const [player,setPlayer]=useState(players[0]),[view,setView]=useState(()=>newSkill(players[0],drill));
  const [ready,setReady]=useState(false),[error,setError]=useState(''),[paused,setPaused]=useState(false),[pauseReason,setPauseReason]=useState('manual'),[attempts,setAttempts]=useState<number[]>([]),[saved,setSaved]=useState(true),[rows,setRows]=useState(readSkills);
  const run=useRef(newSkill(players[0],drill)),host=useRef<HTMLDivElement>(null),scene=useRef<any>(null),stopped=useRef(false),recorded=useRef(false),modal=useRef<HTMLDivElement>(null),start=useRef<HTMLButtonElement>(null),held=useRef(new Set<string>());
@@ -25,7 +25,7 @@ export default function AgilityStrengthExperience({players,context,onClose,drill
     if(dt>5&&['running','cut','countdown'].includes(run.current.phase)){pause('interruption');return;}
     // Consume all active time; the fixed plant phase makes cuts readable.
     stepSkill(run.current,dt);loaded.draw(run.current,Math.min(dt,.1));
-    if(run.current.phase==='finished'&&!recorded.current){recorded.current=true;reportMiniChallenge(drill==='shuttle'?{time:Number(run.current.score.toFixed(3)),penalty:Number(run.current.penalty.toFixed(3))}:{reps:run.current.score});setAttempts(a=>[...a,run.current.score]);setSaved(saveSkill(run.current,context));setRows(readSkills());}
+    if(run.current.phase==='finished'&&!recorded.current){recorded.current=true;const resultStats=drill==='shuttle'?{time:Number(run.current.score.toFixed(3)),penalty:Number(run.current.penalty.toFixed(3))}:{reps:run.current.score};reportMiniChallenge(resultStats);onResult?.(resultStats);setAttempts(a=>[...a,run.current.score]);setSaved(saveSkill(run.current,context));setRows(readSkills());}
     // Commit the timing cue before the next input task; no stale green window.
     if(now-hud>30){flushSync(()=>setView({...run.current}));hud=now;}
    };raf=requestAnimationFrame(frame);

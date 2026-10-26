@@ -4,7 +4,7 @@ import { newJump, pressJump, stepJump, jumpMarker, formatJump, readJumps, saveJu
 import './combine.css';
 import './broad-jump-premium.css';
 type Athlete = {id:string;name:string;position:string;speed:number;acceleration:number;seed:number};
-export default function BroadJumpExperience({players,context,onClose}:{players:Athlete[];context:string;onClose:()=>void}) {
+export default function BroadJumpExperience({players,context,onClose,onResult}:{players:Athlete[];context:string;onClose:()=>void;onResult?:(stats:Record<string,number>)=>void}) {
   const [player,setPlayer]=useState(players[0]),[view,setView]=useState(()=>newJump(players[0]));
   const [ready,setReady]=useState(false),[error,setError]=useState(''),[paused,setPaused]=useState(false);
   const [attempts,setAttempts]=useState<number[]>([]),[rows,setRows]=useState(readJumps),[saved,setSaved]=useState(true);
@@ -36,7 +36,7 @@ export default function BroadJumpExperience({players,context,onClose}:{players:A
         // Launch countdown uses real active time; keep the one-shot landing
         // window visible even if a rendering frame stalls.
         stepJump(run.current,run.current.phase==='flight'?Math.min(dt,1/30):dt);loaded.draw(run.current,dt);
-        if(run.current.phase==='finished'&&!recorded.current){recorded.current=true;reportMiniChallenge({distance:Number(run.current.distance.toFixed(3))});setAttempts(a=>[...a,run.current.distance]);if(run.current.distance>0){setSaved(saveJump(run.current,context));setRows(readJumps());}}
+        if(run.current.phase==='finished'&&!recorded.current){recorded.current=true;const resultStats={distance:Number(run.current.distance.toFixed(3))};reportMiniChallenge(resultStats);onResult?.(resultStats);setAttempts(a=>[...a,run.current.distance]);if(run.current.distance>0){setSaved(saveJump(run.current,context));setRows(readJumps());}}
         if(now-hud>32){setView({...run.current});hud=now;}
       };raf=requestAnimationFrame(frame);
     }).catch(()=>{if(!gone)setError('Could not load the Combine athlete. Reopen this drill to try again.');});
