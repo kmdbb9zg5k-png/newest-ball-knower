@@ -22,7 +22,9 @@ export type SimulatedArtManifest = {
 const REQUESTS=new Map<string,Promise<SimulatedArtManifest>>();
 const MEMORY=new Map<string,SimulatedArtManifest>();
 const BLOB_URLS=new Map<string,string>();
-const CACHE_PREFIX=`ball-knower-simulated-art-manifest-v${SIMULATED_ART_VERSION}:`;
+// Older manifests can point at superseded uploads removed during storage cleanup.
+// Refresh the manifest on the next app load; retain the offline image cache.
+const CACHE_PREFIX=`ball-knower-simulated-art-manifest-v${SIMULATED_ART_VERSION}-r2:`;
 const IMAGE_CACHE=`ball-knower-simulated-art-v${SIMULATED_ART_VERSION}`;
 
 const stableKey=(player:AppearancePlayer,variant:UniformVariant,look:Appearance)=>[

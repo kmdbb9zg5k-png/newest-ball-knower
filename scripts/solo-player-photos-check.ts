@@ -3,7 +3,7 @@ import {existsSync,readFileSync,statSync} from 'node:fs';
 import sharp from 'sharp';
 import {defaultAppearance,CREATOR_EASTER_EGG_ID} from '../solo/appearance';
 import {simulatedIdentityFingerprint,simulatedPlayerIdentity,SIMULATED_ART_VERSION} from '../solo/artIdentity';
-import {localApprovedArtwork,simulatedArtRequestKey} from '../solo/simulatedArt';
+import {localApprovedArtwork,requestSimulatedArtwork,simulatedArtRequestKey} from '../solo/simulatedArt';
 import {SOLO_PLAYERS_DATABASE,SOLO_TEAM_THEMES} from '../soloUniverse';
 
 const eli=SOLO_PLAYERS_DATABASE.find(player=>player.id===CREATOR_EASTER_EGG_ID)!;
@@ -78,4 +78,20 @@ assert(!presentation.includes('<canvas'),'Production Solo rendering cannot use t
 assert(!presentation.includes('/solo-characters/v1'),'Production Solo rendering cannot request prototype art');
 assert.match(presentation,/loading="lazy"/);assert.match(presentation,/useNearViewport/);assert.match(presentation,/cacheSimulatedArtwork/);
 assert.match(presentation,/recoverCachedSimulatedArtwork/);assert(!presentation.includes('data-helmet-requested'),'A control cannot claim a helmet variant that the approved image does not provide');
+// A device with a previously approved manifest must refresh retired upload URLs.
+const previousWindow=globalThis.window,previousFetch=globalThis.fetch;
+const manifestCache=new Map<string,string>();
+const cachePlayer=SOLO_PLAYERS_DATABASE.find(player=>player.id==='solo-abq-01')!;
+const cacheKey=simulatedArtRequestKey(cachePlayer,'home',defaultAppearance(cachePlayer));
+manifestCache.set(`ball-knower-simulated-art-manifest-v4:${cacheKey}`,JSON.stringify({status:'approved',artVersion:4,urls:{avatar:'https://example.invalid/retired.webp'}}));
+let manifestRequests=0;
+try {
+  globalThis.window={localStorage:{getItem:(key:string)=>manifestCache.get(key)??null,setItem:(key:string,value:string)=>manifestCache.set(key,value)}} as unknown as Window & typeof globalThis;
+  globalThis.fetch=async()=>{manifestRequests++;return new Response(JSON.stringify({status:'approved',urls:{avatar:'https://example.invalid/current.webp'}}),{status:200})};
+  const [first,parallel]=await Promise.all([requestSimulatedArtwork(cachePlayer),requestSimulatedArtwork(cachePlayer)]);
+  assert.equal(first.urls?.avatar,'https://example.invalid/current.webp','Retired manifest URLs must not survive the cleanup cache revision');
+  assert.deepEqual(parallel,first);assert.equal(manifestRequests,1,'Concurrent manifest refreshes must coalesce');
+  assert.deepEqual(await requestSimulatedArtwork(cachePlayer),first);assert.equal(manifestRequests,1,'Current manifests remain cached');
+  assert([...manifestCache.entries()].some(([key,value])=>key!==`ball-knower-simulated-art-manifest-v4:${cacheKey}`&&value.includes('current.webp')),'Refreshed manifest must persist under the revised cache namespace');
+} finally {globalThis.window=previousWindow;globalThis.fetch=previousFetch;}
 console.log(JSON.stringify({players:SOLO_PLAYERS_DATABASE.length,teamAssignments,uniqueSeeds:seeds.size,appearanceCombinations:appearances.size,approvedLeagueIdentities:SOLO_PLAYERS_DATABASE.length,approvedMyPlayerPresets:4,eliSource:{portrait:eliManifest.sourcePortrait,fullBody:eliManifest.sourceFullBody},productionRenderer:'responsive images; no canvas',visualFidelityApprovedFor:'all-canonical-simulated-players',fullCatalogVisualReleaseApproved:true},null,2));
