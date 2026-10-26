@@ -67,5 +67,3 @@ begin
 end $$;
 revoke all on function public.start_ball_knower_h2h(uuid) from public,anon;
 grant execute on function public.start_ball_knower_h2h(uuid) to authenticated;
-
-
