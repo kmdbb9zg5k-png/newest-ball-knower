@@ -53,7 +53,9 @@ try{
   }
 
   await primary('Picks');await capture('picks','studio');
-  await primary('Trivia');await capture('trivia','studio');
+  if(width<768){await primary('Community');await capture('arena','studio');await page.getByRole('button',{name:'Play solo trivia instead',exact:true}).click();}
+  else await primary('Trivia');
+  await capture('trivia','studio');
   await page.getByTestId('gauntlet-mode-grid').getByRole('button',{name:/Classic Trivia/i}).click();
   const difficulty=page.getByRole('dialog',{name:'TRIVIA difficulty',exact:true});
   await difficulty.waitFor();

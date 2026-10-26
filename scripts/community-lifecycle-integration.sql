@@ -36,6 +36,18 @@ begin
   perform public.finish_ball_knower_h2h(m);
   assert (select h2h_ties=1 from public.ball_knower_progress_profiles where user_id=a),'Repeated finish must be idempotent';
   perform public.cancel_ball_knower_h2h(other);
+  -- Caller C did not participate in A/B's prior game: inviting A must still recover it.
+  m:=public.start_ball_knower_h2h(b);
+  perform set_config('request.jwt.claim.sub',b::text,true);
+  perform public.respond_ball_knower_h2h(m,true);
+  update public.ball_knower_h2h_matches set started_at=now()-interval '70 seconds' where id=m;
+  perform set_config('request.jwt.claim.sub',c::text,true);
+  other:=public.start_ball_knower_h2h(a);
+  assert (select status='completed' from public.ball_knower_h2h_matches where id=m),'Invited friend expired game must settle';
+  perform public.cancel_ball_knower_h2h(other);
+  perform set_config('request.jwt.claim.sub',a::text,true);
+  assert not has_function_privilege('authenticated','ball_knower_private.complete_h2h_match(uuid)','execute'),'Internal completion must not be executable by clients';
+
   m:=public.start_ball_knower_h2h(b);
   update public.ball_knower_h2h_matches set created_at=now()-interval '11 minutes' where id=m;
   perform set_config('request.jwt.claim.sub',b::text,true);
