@@ -22,7 +22,10 @@ export type SimulatedArtManifest = {
 const REQUESTS=new Map<string,Promise<SimulatedArtManifest>>();
 const MEMORY=new Map<string,SimulatedArtManifest>();
 const BLOB_URLS=new Map<string,string>();
-const CACHE_PREFIX=`ball-knower-simulated-art-manifest-v${SIMULATED_ART_VERSION}:`;
+// Older manifests can point at superseded uploads removed during storage cleanup.
+// Refresh the manifest on the next app load; retain the offline image cache.
+const CACHE_PREFIX=`ball-knower-simulated-art-manifest-v${SIMULATED_ART_VERSION}-r2:`;
+const LEGACY_CACHE_PREFIX=`ball-knower-simulated-art-manifest-v${SIMULATED_ART_VERSION}:`;
 const IMAGE_CACHE=`ball-knower-simulated-art-v${SIMULATED_ART_VERSION}`;
 
 const stableKey=(player:AppearancePlayer,variant:UniformVariant,look:Appearance)=>[
@@ -31,9 +34,9 @@ const stableKey=(player:AppearancePlayer,variant:UniformVariant,look:Appearance)
 
 const browserStore=()=>{try{return typeof window==='undefined'?null:window.localStorage}catch{return null}};
 
-function readStored(key:string):SimulatedArtManifest|null {
+function readStored(key:string,prefix=CACHE_PREFIX):SimulatedArtManifest|null {
   try {
-    const raw=browserStore()?.getItem(CACHE_PREFIX+key);if(!raw)return null;
+    const raw=browserStore()?.getItem(prefix+key);if(!raw)return null;
     const parsed=JSON.parse(raw) as SimulatedArtManifest;
     return parsed.artVersion===SIMULATED_ART_VERSION&&parsed.status==='approved'&&parsed.urls?parsed:null;
   } catch { return null; }
@@ -64,6 +67,11 @@ export async function requestSimulatedArtwork(player:AppearancePlayer,variant:Un
     };
     if(manifest.status==='approved'&&manifest.urls){MEMORY.set(key,manifest);saveStored(key,manifest);}
     return manifest;
+  }).catch(error=>{
+    // Keep offline artwork available while the backend is unreachable. Do not
+    // promote legacy URLs into the current cache: the next request must retry.
+    const legacy=readStored(key,LEGACY_CACHE_PREFIX);if(legacy)return legacy;
+    throw error;
   }).finally(()=>{if(REQUESTS.get(key)===request)REQUESTS.delete(key);});
   REQUESTS.set(key,request);return request;
 }
@@ -71,13 +79,14 @@ export async function requestSimulatedArtwork(player:AppearancePlayer,variant:Un
 export function useSimulatedArtwork(player:AppearancePlayer,variant:UniformVariant='home',look?:Appearance,enabled=true) {
   const resolvedLook=look??defaultAppearance(player);
   const key=stableKey(player,variant,resolvedLook);
-  const initial=useMemo(()=>MEMORY.get(key)??readStored(key),[key]);
+  const initial=useMemo(()=>MEMORY.get(key)??readStored(key)??readStored(key,LEGACY_CACHE_PREFIX),[key]);
   const [result,setResult]=useState<{key:string;manifest:SimulatedArtManifest|null;state:'loading'|'ready'|'missing'|'error'}>(()=>({key,manifest:initial,state:initial?'ready':'loading'}));
   useEffect(()=>{
     if(!enabled)return;
     const cached=MEMORY.get(key)??readStored(key);
     if(cached){setResult({key,manifest:cached,state:'ready'});return;}
-    let cancelled=false;setResult({key,manifest:null,state:'loading'});
+    const legacy=readStored(key,LEGACY_CACHE_PREFIX);
+    let cancelled=false;setResult({key,manifest:legacy,state:legacy?'ready':'loading'});
     requestSimulatedArtwork(player,variant,resolvedLook).then(manifest=>{
       if(cancelled)return;
       setResult({key,manifest,state:manifest.status==='approved'?'ready':'missing'});
