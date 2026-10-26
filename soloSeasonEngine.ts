@@ -86,7 +86,7 @@ export function simulateInjuries(roster:Player[],week:number,setting:InjurySetti
  const roll=r(); const weeks=roll<.58?1:roll<.86?2:roll<.97?3:5;
  return [{playerId:p.id,playerName:p.name,position:p.position,weeks,week,severity:weeks===1?'Minor':weeks<=3?'Moderate':'Major'}];
 }
-export function generatePlayerLines(roster:Player[],game:SimulationGame,userHome:boolean,week:number):PlayerLine[]{
+export function generatePlayerLines(roster:Player[],game:SimulationGame,userHome:boolean,week:number,focusPlayerId?:string):PlayerLine[]{
  const pts=userHome?game.homeScore:game.awayScore; const r=seeded(hash(`stats:${week}:${game.id}`));
  const qb=roster.find(p=>p.position==='QB'), rb=roster.find(p=>['RB','FB'].includes(p.position));
  const wr=roster.filter(p=>p.position==='WR'), te=roster.find(p=>p.position==='TE');
@@ -97,7 +97,7 @@ export function generatePlayerLines(roster:Player[],game:SimulationGame,userHome
  if(rb){const y=Math.round(45+(rb.ovr-70)*2.2+r()*55);const td=Math.max(0,totalTD-passTD>0?Math.round(r()*(totalTD-passTD+1)):0);lines.push({playerId:rb.id,name:rb.name,position:'RB',rushYds:y,rushTD:td,receptions:Math.round(2+r()*4),recYds:Math.round(10+r()*45),fantasyScore:Math.round((y/10+td*6)*10)/10})}
  const targets=[...wr,...(te?[te]:[])];
  targets.forEach((p,i)=>{const y=Math.round(25+(p.ovr-70)*1.8+r()*70);const td=i<passTD?1:0;lines.push({playerId:p.id,name:p.name,position:p.position,receptions:Math.max(1,Math.round(2+r()*6)),recYds:y,recTD:td,fantasyScore:Math.round((y/10+td*6)*10)/10})});
- def.sort((a,b)=>b.ovr-a.ovr).slice(0,4).forEach((p,i)=>{const sacks=['EDGE','DT','DE','NT','LB'].includes(p.position)?Math.round(r()*2):0;const picks=['CB','S','FS','SS','LB'].includes(p.position)&&r()>.65?1:0;lines.push({playerId:p.id,name:p.name,position:p.position,tackles:Math.round(3+r()*7),sacks,picks,fantasyScore:sacks*4+picks*6})});
+ def.sort((a,b)=>Number(b.id===focusPlayerId)-Number(a.id===focusPlayerId)||b.ovr-a.ovr).slice(0,4).forEach((p,i)=>{const sacks=['EDGE','DT','DE','NT','LB'].includes(p.position)?Math.round(r()*2):0;const picks=['CB','S','FS','SS','LB'].includes(p.position)&&r()>.65?1:0;lines.push({playerId:p.id,name:p.name,position:p.position,tackles:Math.round(3+r()*7),sacks,picks,fantasyScore:sacks*4+picks*6})});
  if(k){const att=Math.max(1,Math.round(pts/10));const made=Math.max(0,att-(r()<.78?0:1));lines.push({playerId:k.id,name:k.name,position:'K',fgMade:made,fgAtt:att,fantasyScore:made*3})}
  if(punter) lines.push({playerId:punter.id,name:punter.name,position:'P',puntsInside20:Math.round(1+r()*3),fantasyScore:Math.round(r()*3)});
  return lines;

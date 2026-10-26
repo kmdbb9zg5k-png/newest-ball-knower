@@ -1,3 +1,4 @@
+import {myPlayerStatOpportunity,mergeMyPlayerProgress,type MyPlayerRole} from './myPlayerOpportunity';
 import {SoloPortrait,useSoloRecords} from './solo/SoloPresentation';
 import { FranchiseCombine } from './combine/CombineLauncher';
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
@@ -53,7 +54,9 @@ type Props = {
   opponentRosters?: Record<string, Player[]>;
   difficulty?: SoloDifficulty;
   myPlayerId?: string;
-  onMyPlayerGame?: (fantasyScore: number, won: boolean) => void;
+  myPlayerRole?: MyPlayerRole;
+  myPlayerProgress?: Pick<Player,'ovr'|'speed'|'strength'|'awareness'>;
+  onMyPlayerGame?: (fantasyScore: number, won: boolean,progress?:Player) => void;
   onRosterChange?: (roster: Player[]) => void;
   gamePlan?: string;
   draftPickAssets?: FranchiseDraftPick[];
@@ -163,6 +166,8 @@ export const FranchiseSeason: React.FC<Props> = ({
   opponentRosters,
   difficulty = 'pro',
   myPlayerId,
+  myPlayerRole,
+  myPlayerProgress,
   onMyPlayerGame,
   onRosterChange,
   gamePlan = 'Balanced attack',
@@ -207,7 +212,7 @@ export const FranchiseSeason: React.FC<Props> = ({
       return JSON.stringify(next.map(player => player.id)) === JSON.stringify(current.map(player => player.id)) ? current : next;
     });
   }, [roster]);
-  const activeRoster = seasonRoster;
+  const activeRoster = useMemo(()=>mergeMyPlayerProgress(seasonRoster,myPlayerId,myPlayerProgress),[seasonRoster,myPlayerId,myPlayerProgress]);
   useSoloRecords(activeRoster,weeks,interactionState,year);
   const ratings = useMemo(() => ratingsWithFranchiseMorale(calculateTeamRatings(activeRoster), interactionState, activeRoster), [activeRoster, interactionState]);
   const wins = weeks.filter(week => week.won).length;
@@ -248,6 +253,10 @@ export const FranchiseSeason: React.FC<Props> = ({
     setIsSimulating(false);
   }, 400);
 
+  const generateMyPlayerLines=(roster:Player[],game:Parameters<typeof generatePlayerLines>[1],home:boolean,week:number)=>{
+    const opportunity=myPlayerStatOpportunity(roster,myPlayerId,myPlayerRole,week);
+    return generatePlayerLines(opportunity.roster,game,home,week,opportunity.focusPlayerId);
+  };
   const playWeek = () => {
     const weekNumber = weeks.length + 1;
     if (weekNumber > 17 || simulationLock.current || interactionState.pendingScenario) return;
@@ -273,7 +282,7 @@ export const FranchiseSeason: React.FC<Props> = ({
     const nextLosses = losses + (won ? 0 : 1);
     const snapshot = playoffSnapshot(nextWins, nextLosses, weekNumber);
     const newInjuries = simulateInjuries(activeRoster, weekNumber, 'normal', activeInjuries);
-    const playerLines = applyFranchiseOpportunities(interactionState, activeRoster, generatePlayerLines(activeRoster, game, userHome, weekNumber), weekNumber);
+    const playerLines = applyFranchiseOpportunities(interactionState, activeRoster, generateMyPlayerLines(activeRoster,game,userHome,weekNumber), weekNumber);
     const interactionOutcome = resolveFranchiseWeek(interactionState, activeRoster, playerLines, weekNumber, newInjuries, won);
     const nextInteractions = weekNumber < 17
       ? ensureFranchiseWeek(interactionOutcome.state, interactionOutcome.roster, weekNumber + 1, myPlayerId)
@@ -294,7 +303,7 @@ export const FranchiseSeason: React.FC<Props> = ({
     }]);
     setInjuries(previous => [...previous.map(injury => ({ ...injury, weeks: Math.max(0, injury.weeks - 1) })), ...newInjuries]);
     const myLine = myPlayerId ? playerLines.find(line => line.playerId === myPlayerId) : null;
-    if (myPlayerId && onMyPlayerGame) onMyPlayerGame(myLine?.fantasyScore ?? 2, won);
+    if (myPlayerId && onMyPlayerGame) onMyPlayerGame(myLine?.fantasyScore ?? 2, won,interactionOutcome.roster.find(player=>player.id===myPlayerId));
     setMessage(newInjuries.length
       ? `${newInjuries[0].playerName} suffered a ${newInjuries[0].severity.toLowerCase()} injury.`
       : `${won ? 'WIN' : 'LOSS'} — ${nextWins}-${nextLosses}`);
@@ -347,14 +356,14 @@ export const FranchiseSeason: React.FC<Props> = ({
     const you = userHome ? game.homeScore : game.awayScore;
     const them = userHome ? game.awayScore : game.homeScore;
     const won = game.winnerId === 'franchise-user';
-    const playerLines = applyFranchiseOpportunities(interactionState, activeRoster, generatePlayerLines(activeRoster, game, userHome, 18 + playoffs.length), 18 + playoffs.length);
+    const playerLines = applyFranchiseOpportunities(interactionState, activeRoster, generateMyPlayerLines(activeRoster,game,userHome,18+playoffs.length), 18 + playoffs.length);
     const interactionOutcome = resolveFranchiseWeek(interactionState, activeRoster, playerLines, 18 + playoffs.length, [], won);
     setInteractionState(interactionOutcome.state);
     setSeasonRoster(interactionOutcome.roster);
     onRosterChange?.(interactionOutcome.roster);
     if (myPlayerId && onMyPlayerGame) {
       const myLine = playerLines.find(line => line.playerId === myPlayerId);
-      onMyPlayerGame(myLine?.fantasyScore ?? 3, won);
+      onMyPlayerGame(myLine?.fantasyScore ?? 3, won,interactionOutcome.roster.find(player=>player.id===myPlayerId));
     }
     const next = [...playoffs, { round, opponent: opponentTeam.name, you, them, won }];
     setPlayoffs(next);

@@ -1,8 +1,10 @@
-import {MyPlayerDraftCombine} from './MyPlayerDraftCombine';
+import {MyPlayerJourney,MyPlayerDraftNight} from './MyPlayerJourney';
+import {chooseJourney,cleanJourney,journeyOptions,nextJourneyChapter,resolveJourneyDraft,type JourneyChapter,type JourneyState} from './myPlayerJourney';
+import {currentCareerRole,type MyPlayerRole} from './myPlayerOpportunity';
 import {calculatePlayedCombine,cleanDraftCombine,recordDraftDrill,type DraftCombinePerformance,type DraftDrill} from './myPlayerDraftCombine';
 export {calculateCombineResults} from './myPlayerCombine';
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Play, RotateCcw, Sparkles, Upload } from 'lucide-react';
 import { FranchiseSeason } from './FranchiseSeason';
 import { buildSoloTeamRoster, SOLO_FRANCHISE_SAVE_KEYS } from './soloFranchiseEngine';
@@ -22,6 +24,8 @@ type MyPlayerProfile = {
   version: 1;
   combineId?: string;
   combinePerformance?: DraftCombinePerformance;
+  draftJourney?: JourneyState;
+  rookieRole?: MyPlayerRole;
   stage: StoryStage;
   name: string;
   position: Position;
@@ -105,19 +109,10 @@ function restoreProfile() {
     const saved = JSON.parse(raw);
     if (saved?.version !== 1 || !POSITIONS.includes(saved.position) || !['creator', 'combine', 'drafted', 'season'].includes(saved.stage)) return EMPTY_PROFILE;
     if (['drafted', 'season'].includes(saved.stage) && !SOLO_TEAM_THEMES.some(team => team.abbr === saved.teamAbbr)) return EMPTY_PROFILE;
-    return { ...EMPTY_PROFILE, ...saved, combinePerformance:cleanDraftCombine(saved.combinePerformance) } as MyPlayerProfile;
+    return { ...EMPTY_PROFILE, ...saved, combinePerformance:cleanDraftCombine(saved.combinePerformance),draftJourney:saved.draftJourney?cleanJourney(saved.draftJourney,{...EMPTY_PROFILE,...saved}):undefined,rookieRole:['starter','rotation','development'].includes(saved.rookieRole)?saved.rookieRole:undefined } as MyPlayerProfile;
   } catch {
     return EMPTY_PROFILE;
   }
-}
-
-function hash(value: string) {
-  let result = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    result ^= value.charCodeAt(index);
-    result = Math.imul(result, 16777619);
-  }
-  return result >>> 0;
 }
 
 async function compressImage(source: File | string, maxSize = 640, quality = 0.76) {
@@ -159,7 +154,7 @@ function playerFromProfile(profile: MyPlayerProfile): Player {
     weightLbs: profile.weightLbs,
     simulatedPortraitUrl: profile.faceImage || myPlayerPresetPortrait(profile.presetFaceId),
     simulatedFullBodyUrl: profile.renderImage || undefined,
-    starter: true,
+    starter: profile.rookieRole ? currentCareerRole(profile.rookieRole,profile.overall,profile.gamesPlayed)==='starter' : true,
     active: true,
     ovr: profile.overall,
     overall: profile.overall,
@@ -192,10 +187,10 @@ function rosterWithMyPlayer(profile: MyPlayerProfile) {
   const replaceable = roster
     .map((player, index) => ({ player, index }))
     .filter(item => getDraftPositionGroup(item.player) === group)
-    .sort((first, second) => first.player.ovr - second.player.ovr)[0];
+    .sort((first, second) => created.starter&&profile.rookieRole ? Number(Boolean(second.player.starter))-Number(Boolean(first.player.starter))||first.player.ovr-second.player.ovr : first.player.ovr-second.player.ovr)[0];
   if (replaceable) roster[replaceable.index] = created;
   else roster[roster.length - 1] = created;
-  return roster;
+  return profile.rookieRole&&created.starter?[created,...roster.filter(player=>player.id!==created.id)]:roster;
 }
 
 const feetAndInches = (inches: number) => `${Math.floor(inches / 12)}'${inches % 12}\"`;
@@ -207,6 +202,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
   const [isRendering, setIsRendering] = useState(false);
   const [aiConsent, setAiConsent] = useState(false);
   const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
+  const draftOutcome=useMemo(()=>profile.draftJourney?.draftBaseGrade!==undefined?resolveJourneyDraft(profile.draftJourney,profile,profile.draftJourney.draftBaseGrade):null,[profile.draftJourney?.draftBaseGrade,profile.draftJourney?.seed,JSON.stringify(profile.draftJourney?.choices),profile.name,profile.position,profile.combineId]);
   const draftedTeam = SOLO_TEAM_THEMES.find(team => team.abbr === profile.teamAbbr) ?? null;
 
   useEffect(() => {
@@ -309,31 +305,48 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
     setMessage('You have been invited to the Ball Knower Combine.');
   };
 
+  const chooseStory=(chapter:JourneyChapter,id:string)=>setProfile(current=>{
+    if(current.stage!=='combine')return current;
+    const before=cleanJourney(current.draftJourney,current),complete=Boolean(calculatePlayedCombine(current.position,current.combinePerformance));
+    const next=chooseJourney(before,current,chapter,id,complete);
+    if(next.choices[chapter]===before.choices[chapter])return current;
+    const attributes=journeyOptions(chapter,current).find(option=>option.id===id)?.attributes||{};
+    return {...current,draftJourney:next,speed:Math.max(45,Math.min(99,current.speed+(attributes.speed||0))),power:Math.max(45,Math.min(99,current.power+(attributes.power||0))),awareness:Math.max(45,Math.min(99,current.awareness+(attributes.awareness||0)))};
+  });
   const enterDraft = () => {
-    const combine = calculatePlayedCombine(profile.position,profile.combinePerformance);
-    if(profile.stage!=='combine'||!combine){setMessage('Complete your draft Combine workouts before entering the draft.');return;}
-    const value = hash(`${profile.name}:${profile.position}:${profile.number}:${profile.heightInches}:${profile.weightLbs}:${combine.score}`);
-    const team = SOLO_TEAM_THEMES[value % SOLO_TEAM_THEMES.length];
-    const draftRound = combine.draftRound;
-    const draftPick = 1 + ((value >>> 5) % 32);
-    const overallChange = combine.overallChange;
-    setProfile(current => current.stage!=='combine'?current:({ ...current, stage: 'drafted', teamAbbr: team.abbr, draftRound, draftPick, combineScore: combine.score, overall: Math.max(60, Math.min(99, current.overall + overallChange)) }));
-    setMessage(`${combine.label} Combine performance moved your stock to Round ${draftRound}. ${team.name} made the call.`);
+    const combine=calculatePlayedCombine(profile.position,profile.combinePerformance);
+    const journey=cleanJourney(profile.draftJourney,profile);
+    if(profile.stage!=='combine'||!combine||nextJourneyChapter(journey,true)!=='ready'){setMessage('Finish your workouts and draft-story decisions first.');return;}
+    const locked={...journey,draftBaseGrade:combine.score,cursor:0};const outcome=resolveJourneyDraft(locked,profile,combine.score);
+    setProfile(current=>current.stage!=='combine'?current:({...current,stage:'drafted',draftJourney:locked,teamAbbr:outcome.team,draftRound:outcome.round,draftPick:outcome.pick,combineScore:outcome.grade,overall:Math.max(60,Math.min(99,current.overall+combine.overallChange)),rookieRole:outcome.role==='Starter candidate'?'starter':outcome.role==='Rotation prospect'?'rotation':'development'}));
+    setMessage('Draft night is live. Your work is on the board.');
   };
+  const advanceDraft=(cursor:number)=>setProfile(current=>{
+    if(current.stage!=='drafted'||!current.draftJourney||!draftOutcome||!Number.isFinite(cursor))return current;
+    const limit=Math.min(224,draftOutcome.overall);return {...current,draftJourney:{...current.draftJourney,cursor:Math.max(current.draftJourney.cursor,Math.min(limit,Math.floor(cursor)))}};
+  });
+  const signOffer=(team:string)=>setProfile(current=>{
+    if(current.stage!=='drafted'||!current.draftJourney||!draftOutcome||draftOutcome.kind!=='undrafted'||current.draftJourney.cursor<224)return current;
+    if(draftOutcome.offers.some(o=>o.team===current.draftJourney?.signedTeam))return current;
+    const offer=draftOutcome.offers.find(o=>o.team===team);if(!offer)return current;
+    return {...current,teamAbbr:team,rookieRole:offer.role==='Starter candidate'?'starter':offer.role==='Rotation prospect'?'rotation':'development',draftJourney:{...current.draftJourney,signedTeam:team}};
+  });
 
   const recordCombineResult=(drill:DraftDrill,stats:Record<string,number>)=>setProfile(current=>current.stage==='combine'?{...current,combinePerformance:recordDraftDrill(current.combinePerformance,drill,stats)}:current);
 
   const beginSeason = () => {
+    if(profile.stage!=='drafted')return;
+    if(draftOutcome&&(profile.draftJourney!.cursor<Math.min(224,draftOutcome.overall)||draftOutcome.kind==='undrafted'&&!draftOutcome.offers.some(o=>o.team===profile.draftJourney?.signedTeam))){setMessage('Finish draft night and choose your camp offer first.');return;}
     try { localStorage.removeItem(`${SOLO_FRANCHISE_SAVE_KEYS.player}:season`); } catch (error) { console.warn('Unable to clear My Player season', error); }
-    setProfile(current => ({ ...current, stage: 'season' }));
+    setProfile(current=>current.stage!=='drafted'?current:({...current,stage:'season',upgradePoints:current.upgradePoints+(draftOutcome?.developmentPoints||0)}));
   };
 
-  const awardXp = (fantasyScore: number, won: boolean) => {
+  const awardXp = (fantasyScore: number, won: boolean,progress?:Player) => {
     setProfile(current => {
       const earned = Math.max(12, Math.round(fantasyScore * 4) + (won ? 10 : 0));
       const total = current.xp + earned;
       const points = Math.floor(total / 100);
-      return { ...current, xp: total % 100, upgradePoints: current.upgradePoints + points, gamesPlayed: current.gamesPlayed + 1 };
+      return { ...current, ...(current.rookieRole&&progress?{overall:Math.max(current.overall,progress.ovr),speed:Math.max(current.speed,progress.speed||0),power:Math.max(current.power,progress.strength||0),awareness:Math.max(current.awareness,progress.awareness||0)}:{}), xp: total % 100, upgradePoints: current.upgradePoints + points, gamesPlayed: current.gamesPlayed + 1 };
     });
   };
 
@@ -371,11 +384,12 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
                 <div className="mt-1 text-2xl font-black">{profile.name} • #{profile.number} • {profile.position}</div>
                 <div className="mt-1 text-xs font-bold text-zinc-500">{feetAndInches(profile.heightInches)} • {profile.weightLbs} LB • {profile.overall} OVR • {draftedTeam.name}</div>
                 <ViewSlider value={profile.viewRotation} onChange={value => updateSlider('viewRotation', value)} />
+                {profile.rookieRole&&<p className="mt-3 text-xs text-[var(--bk-team-accent)]">Career role: {currentCareerRole(profile.rookieRole,profile.overall,profile.gamesPlayed)} · Baseline featured reps: rotation in odd weeks, development every fourth week. Coach promises can create extra opportunities. Reach 70 OVR after 3 games for rotation, or 78 OVR after 4 games for a starting opportunity.</p>}
               </div>
             </div>
           </div>
         </div>
-        <FranchiseSeason title="MY PLAYER STORY" userTeam={draftedTeam} roster={roster} saveKey={SOLO_FRANCHISE_SAVE_KEYS.player} onBack={onBack} myPlayerId="my-player-user" onMyPlayerGame={awardXp} />
+        <FranchiseSeason title="MY PLAYER STORY" userTeam={draftedTeam} roster={roster} saveKey={SOLO_FRANCHISE_SAVE_KEYS.player} onBack={onBack} myPlayerId="my-player-user" myPlayerProgress={profile.rookieRole?{ovr:profile.overall,speed:profile.speed,strength:profile.power,awareness:profile.awareness}:undefined} myPlayerRole={profile.rookieRole?currentCareerRole(profile.rookieRole,profile.overall,profile.gamesPlayed):undefined} onMyPlayerGame={awardXp} />
         <button type="button" onClick={newCareer} style={{ bottom: 'calc(max(1rem, env(safe-area-inset-bottom)) + 4.5rem)' }} className="fixed right-4 z-30 flex min-h-10 items-center gap-2 rounded-full border border-white/10 bg-black/95 px-3 text-[10px] font-black shadow-xl"><RotateCcw size={14} /> NEW PLAYER</button>
         <div className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-xl items-center gap-2 rounded-2xl border border-white/10 bg-black/95 p-2 shadow-2xl">
           <div className="min-w-0 flex-1 px-2"><div className="truncate text-xs font-black">{profile.name} • {profile.overall} OVR</div><div className="text-[10px] text-zinc-500">XP {profile.xp}/100 • {profile.upgradePoints} UPGRADE POINT{profile.upgradePoints === 1 ? '' : 'S'}</div></div>
@@ -442,21 +456,21 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
 
         {profile.stage === 'combine' ? (
           <div className="mt-5 grid gap-5 lg:grid-cols-[.8fr_1.2fr]">
-            <div><PlayerRender profile={profile} /><ViewSlider value={profile.viewRotation} onChange={value => updateSlider('viewRotation', value)} /></div>
-            <MyPlayerDraftCombine profile={profile} onDraft={enterDraft} onResult={recordCombineResult} />
+            <div className="order-2 lg:order-1"><PlayerRender profile={profile} /><ViewSlider value={profile.viewRotation} onChange={value => updateSlider('viewRotation', value)} /></div>
+            <div className="order-1 min-w-0 lg:order-2"><MyPlayerJourney profile={profile} onChoice={chooseStory} onDraft={enterDraft} onResult={recordCombineResult} /></div>
           </div>
         ) : null}
 
         {profile.stage === 'drafted' && draftedTeam ? (
           <div className="mt-5 grid gap-5 lg:grid-cols-[.8fr_1.2fr]">
-            <div><PlayerRender profile={profile} /><ViewSlider value={profile.viewRotation} onChange={value => updateSlider('viewRotation', value)} /></div>
-            <div className="rounded-[2rem] border border-white/10 bg-[#10151d] p-7 text-center">
+            <div className="order-2 lg:order-1"><PlayerRender profile={profile} /><ViewSlider value={profile.viewRotation} onChange={value => updateSlider('viewRotation', value)} /></div>
+            <div className="order-1 min-w-0 lg:order-2">{draftOutcome?<MyPlayerDraftNight profile={profile} outcome={draftOutcome} onAdvance={advanceDraft} onSign={signOffer} onBegin={beginSeason}/>:<div className="rounded-[2rem] border border-white/10 bg-[#10151d] p-7 text-center">
               <div className="text-[10px] font-black tracking-[.25em] text-[var(--bk-team-accent)]">WITH THE #{profile.draftPick} PICK IN ROUND {profile.draftRound}</div>
               <img src={soloTeamLogoUrl(draftedTeam.abbr)} alt="" aria-hidden="true" className="mx-auto mt-5 h-28 w-28 object-contain" />
               <h2 className="mt-4 text-4xl font-black">{draftedTeam.name}</h2>
               <p className="mt-2 text-zinc-400">The selection is {profile.name}, {profile.position}, {feetAndInches(profile.heightInches)}, {profile.weightLbs} lbs. Your Ball Knower League story starts now.</p>
               <button type="button" onClick={beginSeason} className="mt-6 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)]"><Play className="mr-2 inline" /> BEGIN ROOKIE SEASON</button>
-            </div>
+            </div>}</div>
           </div>
         ) : null}
       </div>
