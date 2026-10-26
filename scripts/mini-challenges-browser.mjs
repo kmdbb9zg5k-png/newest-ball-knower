@@ -1,0 +1,43 @@
+import assert from 'node:assert/strict';
+import {createServer} from 'vite';
+import {chromium} from 'playwright';
+import {mkdir} from 'node:fs/promises';
+const fixture=`import React from 'react';import{createRoot}from'react-dom/client';import MiniGames from '/CommunityMiniGames.tsx';import '/index.css';createRoot(document.getElementById('root')).render(React.createElement(MiniGames,{me:location.search.includes('guest')?'':'me',friends:[{userId:'friend',displayName:'Fourth Down Club'}],onOpenAuth:()=>{document.body.dataset.auth='requested'}}));`;
+const adapter=`export const miniChallengeAction=async(action,args={})=>{const r=await fetch('/__mini-rpc',{method:'POST',body:JSON.stringify({action,args})});const d=await r.json();if(!r.ok)throw new Error(d.message);return d};export const subscribeCommunity=()=>()=>{};`;
+const server=await createServer({cacheDir:'/tmp/bk-mini-vite-cache',server:{host:'127.0.0.1',port:3058,strictPort:true,watch:null,hmr:false},plugins:[{name:'mini-fixture',enforce:'pre',transform(code,id){if(id.endsWith('/CommunityMiniGames.tsx'))return code.replaceAll("'./communityCloud'","'/__mini-adapter.js'");},configureServer(s){s.middlewares.use(async(req,res,next)=>{if(req.url?.startsWith('/mini-qa.html')){res.setHeader('Content-Type','text/html');res.end(await s.transformIndexHtml(req.url,'<html><head><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body style="margin:0;background:#06090d;color:white"><div id="root"></div><script type="module" src="/mini-qa.tsx"></script></body></html>'));}else next();});},resolveId(id,importer){if(id==='/mini-qa.tsx')return '\0mini-qa.tsx';if(id==='/__mini-adapter.js')return '\0mini-adapter.ts';},load(id){if(id==='\0mini-qa.tsx')return fixture;if(id==='\0mini-adapter.ts')return adapter;}}]});
+await server.listen();await mkdir('artifacts/mini-challenges',{recursive:true});
+const browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_PATH||undefined,args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
+const base='http://127.0.0.1:3058';
+try{
+ for(const width of [320,390,1280]){
+  const context=await browser.newContext({viewport:{width,height:844},hasTouch:width<768,isMobile:width<768});const page=await context.newPage();const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.log('PAGE ERROR',e.message);});page.on('requestfailed',r=>console.log('FAILED',r.url(),r.failure()?.errorText));page.on('console',m=>{if(m.type()==='error')console.log('CONSOLE',m.text());});let rows=[],calls=[],failSubmit=true;
+  await page.route('**/*.supabase.co/**',r=>r.abort());
+  await page.route('**/__mini-rpc',async route=>{
+   const {action,args}=route.request().postDataJSON();calls.push({action,args});let result={};
+   if(action==='list')result=rows;
+   if(action==='create'){rows=[{id:'test-match',game:args.game,challenger_id:'me',opponent_id:'friend',challenger_name:'Eli with a very long display name',opponent_name:'Fourth Down Club',status:'active',seed:3456,expires_at:new Date(Date.now()+86400000).toISOString(),challenger_stats:null,opponent_stats:{time:4.8,split10:1.8,split20:3},winner_id:null,created_at:new Date().toISOString()}];}
+   if(action==='begin')result={token:'test-token'};
+   if(action==='submit'){if(failSubmit){failSubmit=false;await route.fulfill({status:503,json:{message:'Connection interrupted. Retry your result.'}});return;}rows[0]={...rows[0],challenger_stats:args.stats,status:'completed',winner_id:'me'};result={saved:true};}
+   await route.fulfill({json:result});
+  });
+  await page.goto(base+'/mini-qa.html?guest');await page.getByRole('button',{name:'Sign in to challenge'}).click();assert.equal(await page.locator('body').getAttribute('data-auth'),'requested');assert.equal(calls.length,0,'Guests never call private RPC');
+  assert.equal(await page.getByRole('button',{pressed:true}).count(),1);
+  await page.goto(base+'/mini-qa.html');await page.getByLabel('Choose your opponent').selectOption('friend');await page.getByRole('button',{name:'Create challenge',exact:true}).click();await page.getByRole('button',{name:'Play your turn'}).waitFor();
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'No horizontal overflow at '+width);
+  await page.screenshot({path:`artifacts/mini-challenges/lobby-${width}.png`,fullPage:true});
+  if(width===390){
+   await page.getByRole('button',{name:'Play your turn'}).click();const iframe=page.frameLocator('iframe');await iframe.locator('.combine-action').waitFor({timeout:60000});
+   await page.evaluate(()=>window.postMessage({type:'bk-mini-result',challengeId:'test-match',token:'test-token',stats:{time:1}},location.origin));await page.waitForTimeout(150);assert(!calls.some(c=>c.action==='submit'),'Ignore same-page spoofed result');
+   const gameFrame=page.frames().find(f=>f.url().includes('/combine.html'));await gameFrame.waitForFunction(()=>!document.querySelector('.combine-action')?.disabled,{},{timeout:60000});
+   assert.equal(await gameFrame.locator('.combine-athlete-stats').innerText(),'SPEED 85');
+   await gameFrame.locator('.combine-action').click();await gameFrame.waitForFunction(()=>document.querySelector('.combine-game')?.dataset.phase==='running',{},{timeout:30000});
+   await gameFrame.evaluate(()=>{let last=-1;function step(){if(document.querySelector('.combine-game')?.dataset.phase!=='running')return;const t=parseFloat(document.querySelector('.combine-timer').textContent);if(t-last>=.24){document.querySelector('.combine-stride[data-next="true"]')?.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerId:77}));last=t;}requestAnimationFrame(step);}requestAnimationFrame(step);});
+   await page.getByRole('button',{name:'Retry saving result'}).waitFor({timeout:45000});assert(calls.find(c=>c.action==='submit').args.stats.time>3,'Real game reports completed time');
+   await page.getByRole('button',{name:'Retry saving result'}).click();await page.getByRole('heading',{name:'RESULT LOCKED'}).waitFor();await page.screenshot({path:'artifacts/mini-challenges/locked-result.png'});
+   await page.getByRole('button',{name:'Back to challenges'}).click();await page.getByText('You win',{exact:true}).waitFor();await page.getByText('Compare all stats').click();assert(await page.getByRole('table').isVisible());
+   assert.deepEqual(calls.filter(c=>c.action==='submit')[0].args,calls.filter(c=>c.action==='submit')[1].args,'Retry preserves same stats and token');
+  }
+  assert.deepEqual(errors,[]);await context.close();
+ }
+ console.log('PASS: 320/390/1280 layouts, guest auth gate, friend challenge, real 3D dash → iframe bridge → save retry → locked result → comparison; spoofed parent message rejected.');
+}finally{await browser.close();await server.close();}

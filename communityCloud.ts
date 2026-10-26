@@ -89,3 +89,5 @@ export function subscribeCommunity(kind:'messages'|'matches'|'friends'|'public',
     window.removeEventListener('ball-knower-community-safety-changed',schedule);
     if(client&&channel)void client.removeChannel(channel);};
 }
+
+export const miniChallengeAction=(action:string,args:Record<string,unknown>={})=>rpc('ball_knower_mini_challenges',{p_action:action,p_args:args});

@@ -1,3 +1,4 @@
+import {reportMiniChallenge} from '../public/mini-challenge-bridge.js';
 import React,{useEffect,useRef,useState} from 'react';
 import {flushSync} from 'react-dom';
 import {newSkill,startSkill,stepSkill,cutSkill,cutProgress,readSkills,saveSkill,BENCH_SECONDS,benchCue,SHUTTLE_RULESET} from './agility-strength.js';
@@ -24,7 +25,7 @@ export default function AgilityStrengthExperience({players,context,onClose,drill
     if(dt>5&&['running','cut','countdown'].includes(run.current.phase)){pause('interruption');return;}
     // Consume all active time; the fixed plant phase makes cuts readable.
     stepSkill(run.current,dt);loaded.draw(run.current,Math.min(dt,.1));
-    if(run.current.phase==='finished'&&!recorded.current){recorded.current=true;setAttempts(a=>[...a,run.current.score]);setSaved(saveSkill(run.current,context));setRows(readSkills());}
+    if(run.current.phase==='finished'&&!recorded.current){recorded.current=true;reportMiniChallenge(drill==='shuttle'?{time:Number(run.current.score.toFixed(3)),penalty:Number(run.current.penalty.toFixed(3))}:{reps:run.current.score});setAttempts(a=>[...a,run.current.score]);setSaved(saveSkill(run.current,context));setRows(readSkills());}
     // Commit the timing cue before the next input task; no stale green window.
     if(now-hud>30){flushSync(()=>setView({...run.current}));hud=now;}
    };raf=requestAnimationFrame(frame);

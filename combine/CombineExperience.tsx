@@ -1,3 +1,4 @@
+import {reportMiniChallenge,challengeSeed} from '../public/mini-challenge-bridge.js';
 import React, { useEffect, useRef, useState } from 'react';
 import { bestResult, newDash, pressDash, tapStride, speedPercent, accuracy, positionRanking, RULESET, readResults, saveResult, stepDash, YARD } from './dash.js';
 import './combine.css';
@@ -36,7 +37,7 @@ export default function CombineExperience({ players, context, onClose }: Props) 
   };
   const pause = () => { stopped.current = true; keyHeld.current.clear(); if(['set','ready'].includes(run.current.phase))run.current=newDash(run.current.athlete);setView({...run.current});setPaused(true); };
   const resume = () => { stopped.current = false; setPaused(false); action.current?.focus(); };
-  const press = () => { if (!ready || stopped.current || pickerOpen.current) return; pressDash(run.current, 1.2 + Math.random() * .8); setView({ ...run.current }); };
+  const press = () => { if (!ready || stopped.current || pickerOpen.current) return; pressDash(run.current, challengeSeed()===undefined?1.2 + Math.random() * .8:1.6); setView({ ...run.current }); };
   const stride = (side: string) => {if(!stopped.current&&!pickerOpen.current) {tapStride(run.current,side);setView({...run.current});}};
 
 
@@ -46,6 +47,7 @@ export default function CombineExperience({ players, context, onClose }: Props) 
       const s = run.current;
       if (finished.current || !['finished', 'false-start'].includes(s.phase)) return;
       finished.current = true;
+      reportMiniChallenge(s.phase === 'finished' ? {time:Number(s.splits[2].toFixed(3)),split10:Number(s.splits[0].toFixed(3)),split20:Number(s.splits[1].toFixed(3))} : {time:60,dnf:1});
       setRunSplits(old => [...old, s.phase === 'finished' ? [...s.splits] : null]);
       if(s.phase === 'false-start') setShowResults(true);
       setRuns(old => [...old, s.phase === 'finished' ? s.splits[2] : null]);
