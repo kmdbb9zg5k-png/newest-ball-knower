@@ -1,3 +1,4 @@
+import {reportMiniChallenge} from '../mini-challenge-bridge.js';
 import { miniClock } from './mini-games.js?v=contact-camera-11';
 import { fieldGoalDistance } from './five-minute.js?v=contact-possession-57';
 const $ = id => document.getElementById(id);
@@ -79,6 +80,7 @@ export function createFullGameUI(config, actions) {
       wasVisible = !panel.hidden;
     },
     result(s, d) {
+      reportMiniChallenge({points:d.score,yards:Math.round(s.stats.home.yards),passYards:Math.round(s.stats.home.passYards),rushYards:Math.round(s.stats.home.rushYards),turnovers:s.stats.home.turnovers,touchdowns:s.stats.home.touchdowns,plays:s.stats.home.plays});
       const score = node('p',`${config.matchup.home.abbr} ${d.score} — ${s.awayScore} ${config.matchup.away.abbr}`, 'full-final-score');
       const table = node('table',null,'full-final-stats');
       const head = node('thead'), tr = node('tr');
