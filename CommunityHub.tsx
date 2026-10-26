@@ -26,21 +26,23 @@ const CommunitySession:React.FC<Props>=({onOpenAuth,onOpenTrivia,onViewLocker})=
 
   const [activeMatchId,setActiveMatchId]=useState('');
   const [messageFriendId,setMessageFriendId]=useState('');
+  const [guestPerson,setGuestPerson]=useState<CommunityPerson|null>(null);
   const profileEnsuredFor=useRef('');
   const permanent=Boolean(currentUser&&!currentUser.isAnonymous);
   const resource=useCommunityResource<CommunityHome>(async()=>{
-    if(!permanent)return {leaderboard:[],friends:[],matches:[]};
+    if(!permanent)return fetchCommunityHome(true);
     if(profileEnsuredFor.current!==currentUser?.id){await fetchProgressionProfile(currentUser?.name);profileEnsuredFor.current=currentUser?.id||'';}
     return fetchCommunityHome();
   });
   const {data:home,loading,error,refresh:load}=resource;
   const [pending,setPending]=useState(false);const actionLock=useRef(false);
-  useEffect(()=>{if(!permanent)return;
+  useEffect(()=>{if(!permanent)return subscribeCommunity('public',()=>void load());
     const matches=subscribeCommunity('matches',()=>void load());
     const friends=subscribeCommunity('friends',()=>void load());
     return()=>{matches();friends();};
   },[load,permanent]);
   const act=async(work:()=>Promise<unknown>,success?:string)=>{
+    if(!permanent){onOpenAuth();return;}
     if(actionLock.current)return;actionLock.current=true;setPending(true);
     try{await work();if(success)showToast(success);await load(true);}
     catch(reason){showToast(reason instanceof Error?reason.message:'That action could not be completed.');}
@@ -49,39 +51,39 @@ const CommunitySession:React.FC<Props>=({onOpenAuth,onOpenTrivia,onViewLocker})=
   const friends=home?.friends.filter(friend=>friend.status==='accepted')||[];
   const incoming=home?.friends.filter(friend=>friend.status==='pending'&&friend.direction==='incoming')||[];
 
-  if(!permanent)return <BroadcastStage scene="studio" page="arena" className="bk-arena min-h-[calc(100dvh-7rem)] px-4 py-8 sm:px-6"><div className="mx-auto max-w-xl">
-    <section className={`${card} overflow-hidden p-6 text-center sm:p-8`}><div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-[#d9b43b]/35 bg-[#d9b43b]/10"><Globe2 className="h-8 w-8 text-[#e8ca62]"/></div><p className="mt-5 text-[10px] font-black uppercase tracking-[.25em] text-[#d9b43b]">BK Arena</p><h1 className="mt-2 text-3xl font-black uppercase tracking-tight">Know ball together</h1><p className="mx-auto mt-3 max-w-md text-sm leading-6 text-zinc-400">Save your account to enter worldwide rankings, challenge real people, join global chat, add friends and send private messages.</p><button type="button" onClick={onOpenAuth} className={`${button} mt-6 w-full bg-[#d9b43b] text-black`}>Save or sign in</button><button type="button" onClick={onOpenTrivia} className="mt-3 min-h-11 w-full text-xs font-bold text-zinc-400 underline">Play solo trivia instead</button></section>
-  </div></BroadcastStage>;
-
   return <BroadcastStage scene="studio" page="arena" className="bk-arena min-h-[calc(100dvh-7rem)] px-3 pb-10 pt-4 sm:px-6 sm:pt-7"><div className="mx-auto max-w-5xl">
     <header className="mb-4 flex items-end justify-between gap-3"><div><p className="text-[9px] font-black uppercase tracking-[.28em] text-[#d9b43b]">Worldwide football community</p><h1 className="mt-1 text-3xl font-black uppercase tracking-[-.04em] sm:text-5xl">BK Arena</h1><p className="mt-1 text-xs font-bold text-zinc-500">Rank. Debate. Challenge. Prove it.</p></div><button type="button" aria-label="Refresh Community" disabled={loading} onClick={()=>void load()} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/5"><RefreshCcw className={`h-4 w-4 ${loading?'animate-spin':''}`}/></button></header>
     <nav aria-label="Community sections" className="no-scrollbar mb-5 flex gap-2 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">{([
       ['home','Arena',Globe2],['rankings','Rankings',Trophy],['h2h','H2H',Swords],['chat','Global chat',MessageCircle],['friends','Friends',UserPlus],['messages','Messages',Send],
     ] as const).map(([key,label,Icon])=><button type="button" key={key} onClick={()=>setView(key)} aria-current={view===key?'page':undefined} className={`flex min-h-11 shrink-0 items-center gap-2 rounded-xl border px-3 text-[9px] font-black uppercase tracking-[.1em] ${view===key?'border-[#d9b43b]/60 bg-[#d9b43b]/15 text-[#ecd67d]':'border-white/10 bg-[#0b1016] text-zinc-500'}`}><Icon className="h-3.5 w-3.5"/>{label}{key==='friends'&&incoming.length>0&&<span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[8px] text-white">{incoming.length}</span>}</button>)}</nav>
+    {!permanent&&<section aria-label="Guest browsing" className={`${card} mb-4 flex items-center justify-between gap-3 p-3`}><strong className="text-xs text-[#ecd67d]">Browsing as a guest</strong><button type="button" onClick={onOpenAuth} className={button}>Sign in</button></section>}
     {error&&<div role="alert" className="mb-4 rounded-xl border border-red-400/25 bg-red-500/10 p-3 text-xs text-red-200">{error} <button type="button" className="min-h-11 px-3 underline" onClick={()=>void load()}>Retry Community</button></div>}
     {loading&&!home?<div className={`${card} grid min-h-64 place-items-center`}><Loader2 className="h-7 w-7 animate-spin text-[#d9b43b]"/></div>:<fieldset disabled={pending} aria-busy={pending} className="min-w-0 border-0 p-0">
-      {view==='home'&&<ArenaHome me={currentUser!.id} home={home} onView={setView} onTrivia={onOpenTrivia} onOpenMatch={setActiveMatchId}/>}
-      {view==='rankings'&&<Rankings home={home} me={currentUser!.id} onViewLocker={onViewLocker}/>}
-      {view==='chat'&&<GlobalChat/>}
-      {view==='friends'&&<Friends home={home} onViewLocker={onViewLocker} onAction={act} onMessage={id=>{setMessageFriendId(id);setView('messages')}} onChallenge={id=>void act(async()=>{await startH2H(id);setView('h2h');},'Challenge sent')}/>}
-      {view==='messages'&&<Messages friends={friends} initialFriendId={messageFriendId}/>}
-      {view==='h2h'&&<H2HLobby home={home} me={currentUser!.id} onAction={act} onOpenMatch={setActiveMatchId} onSolo={onOpenTrivia}/>}
+      {view==='home'&&<ArenaHome guest={!permanent} me={currentUser?.id||''} home={home} onView={setView} onTrivia={onOpenTrivia} onOpenMatch={setActiveMatchId}/>}
+      {view==='rankings'&&<Rankings home={home} me={currentUser?.id||''} onViewLocker={person=>permanent?onViewLocker(person):setGuestPerson(person)}/>}
+      {view==='chat'&&<GlobalChat readOnly={!permanent} onOpenAuth={onOpenAuth}/>}
+      {view==='friends'&&!permanent&&<GuestParticipation title="Build your football circle" onOpenAuth={onOpenAuth}>Sign in to find friends, send requests and challenge your rivals.</GuestParticipation>}
+      {view==='friends'&&permanent&&<Friends home={home} onViewLocker={onViewLocker} onAction={act} onMessage={id=>{setMessageFriendId(id);setView('messages')}} onChallenge={id=>void act(async()=>{await startH2H(id);setView('h2h');},'Challenge sent')}/>}
+      {view==='messages'&&!permanent&&<GuestParticipation title="Private conversations" onOpenAuth={onOpenAuth}>Messages are private between accepted friends. Sign in to start a conversation.</GuestParticipation>}
+      {view==='messages'&&permanent&&<Messages friends={friends} initialFriendId={messageFriendId}/>}
+      {view==='h2h'&&<H2HLobby home={home} me={currentUser?.id||''} onAction={act} onOpenMatch={setActiveMatchId} onSolo={onOpenTrivia}/>}
     </fieldset>}
-    {activeMatchId&&<H2HGame matchId={activeMatchId} me={currentUser!.id} onClose={()=>{setActiveMatchId('');void load()}}/>}
+    {guestPerson&&<GuestPerson person={guestPerson} onClose={()=>setGuestPerson(null)} onOpenAuth={onOpenAuth}/>}
+    {activeMatchId&&<H2HGame matchId={activeMatchId} me={currentUser?.id||''} onClose={()=>{setActiveMatchId('');void load()}}/>}
   </div></BroadcastStage>;
 };
 
-function ArenaHome({home,me,onView,onTrivia,onOpenMatch}:{home:CommunityHome|null;me:string;onView:(view:View)=>void;onTrivia:()=>void;onOpenMatch:(id:string)=>void}){
+function ArenaHome({guest,home,me,onView,onTrivia,onOpenMatch}:{guest:boolean;home:CommunityHome|null;me:string;onView:(view:View)=>void;onTrivia:()=>void;onOpenMatch:(id:string)=>void}){
   const leader=home?.leaderboard[0];const active=home?.matches.find(match=>match.status==='active');
   const myRank=home?.leaderboard.find(person=>person.userId===me);
   const friends=home?.friends.filter(person=>person.status==='accepted').length||0;
   const invites=(home?.friends.filter(person=>person.status==='pending'&&person.direction==='incoming').length||0)+(home?.matches.filter(match=>match.status==='pending'&&match.opponentId===me).length||0);
   return <div className="space-y-4">
     <section className="arena-hero"><div className="arena-hero-content"><span className="arena-kicker">THE GAME IS BETTER TOGETHER</span><h2>YOUR PEOPLE.<br/><em>YOUR PROVING GROUND.</em></h2><p>Find your football circle. Talk your game. Settle it in the Arena.</p><div className="flex flex-wrap gap-3"><button type="button" onClick={()=>active?onOpenMatch(active.id):onView('h2h')} className={`${button} arena-primary`}><Swords className="mr-2 inline h-4 w-4"/>{active?'Rejoin live match':'Enter H2H Arena'}</button><button type="button" onClick={()=>onView('chat')} className={button}>Join the conversation <ChevronRight className="inline h-4 w-4"/></button></div></div><div className="arena-field" aria-hidden="true"><span>BK</span><i/><i/><i/></div></section>
-    <div className="arena-stats"><button type="button" onClick={()=>onView('rankings')}><span>Your world rank</span><strong>{myRank?`#${myRank.rank}`:'—'}</strong><small>{myRank?`${myRank.bkRating} BK Rating`:'Top 50 rankings'}</small></button><button type="button" onClick={()=>onView('friends')}><span>Your circle</span><strong>{friends}</strong><small>{friends===1?'Accepted friend':'Accepted friends'}</small></button><button type="button" onClick={()=>onView('friends')}><span>Friend requests</span><strong>{home?.friends.filter(p=>p.status==='pending'&&p.direction==='incoming').length||0}</strong><small>{invites?'Check your invitations':'Build your football circle'}</small></button></div>
+    {!guest&&<div className="arena-stats"><button type="button" onClick={()=>onView('rankings')}><span>Your world rank</span><strong>{myRank?`#${myRank.rank}`:'—'}</strong><small>{myRank?`${myRank.bkRating} BK Rating`:'Top 50 rankings'}</small></button><button type="button" onClick={()=>onView('friends')}><span>Your circle</span><strong>{friends}</strong><small>{friends===1?'Accepted friend':'Accepted friends'}</small></button><button type="button" onClick={()=>onView('friends')}><span>Friend requests</span><strong>{home?.friends.filter(p=>p.status==='pending'&&p.direction==='incoming').length||0}</strong><small>{invites?'Check your invitations':'Build your football circle'}</small></button></div>}
     <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2"><button type="button" onClick={()=>onView('rankings')} className={`${card} arena-feature p-5 text-left`}><Trophy className="text-[#d9b43b]"/><span className="arena-kicker">THE STANDARD</span><h2 className="text-xl font-black uppercase">World rankings</h2><p className="mt-2 text-sm text-zinc-400">See where your football knowledge stands.</p>{leader?<div className="arena-leader"><span className="arena-avatar">01</span><span className="min-w-0 flex-1 truncate font-bold">{leader.displayName}</span><strong className="text-xl text-[#ecd67d]">{leader.bkRating}<small className="ml-1 text-[10px]">BK</small></strong></div>:<p className="mt-4 text-xs text-zinc-400">No rankings yet. Start building your legacy.</p>}</button>
     <button type="button" onClick={()=>onView('friends')} className={`${card} arena-feature p-5 text-left`}><Users className="text-[#d9b43b]"/><span className="arena-kicker">BRING YOUR RIVALS</span><h2 className="text-xl font-black uppercase">Build your circle</h2><p className="mt-2 text-sm leading-6 text-zinc-400">Find friends by name, send a challenge, and keep the football talk going in private messages.</p><span className="mt-5 inline-flex items-center text-xs font-black uppercase text-[#ecd67d]">Find Ball Knowers <ChevronRight className="ml-2 h-4 w-4"/></span></button></div>
-    <button type="button" onClick={onTrivia} className={`${card} flex min-h-16 w-full items-center gap-3 p-4 text-left`}><Brain className="shrink-0 text-[#d9b43b]"/><span className="flex-1"><strong className="block text-sm">Warm up with solo trivia</strong><span className="text-xs text-zinc-400">Sharpen your knowledge before the next showdown.</span></span><ChevronRight className="shrink-0"/></button>
+    <button type="button" onClick={onTrivia} aria-label="Play solo trivia instead" className={`${card} flex min-h-16 w-full items-center gap-3 p-4 text-left`}><Brain className="shrink-0 text-[#d9b43b]"/><span className="flex-1"><strong className="block text-sm">Play solo trivia instead</strong><span className="text-xs text-zinc-400">Sharpen your knowledge before the next showdown.</span></span><ChevronRight className="shrink-0"/></button>
   </div>;
 }
 
@@ -102,23 +104,33 @@ function EmptyState({icon:Icon=MessageCircle,title,children}:{icon?:typeof Messa
   return <div className="arena-empty"><Icon className="mx-auto mb-3 h-8 w-8 text-[#d9b43b]"/><h3 className="text-base font-black text-zinc-200">{title}</h3><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-zinc-400">{children}</p></div>;
 }
 
-function GlobalChat(){
-  const safety=useCommunitySafety();
-  return <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]"><Conversation safety={safety}/><aside className={`${card} h-fit p-4`}><ShieldCheck className="mb-3 h-6 w-6 text-[#d9b43b]"/><h3 className="text-sm font-black uppercase">Good rivals. Good football.</h3><p className="mt-2 text-sm leading-6 text-zinc-400">Keep it football-focused. Slurs and profanity are censored. Threats are rejected. Use Report / Block on any message to flag abuse or stop contact.</p></aside></div>;
+function GuestPerson({person,onClose,onOpenAuth}:{person:CommunityPerson;onClose:()=>void;onOpenAuth:()=>void}){
+  const dialog=useRef<HTMLDialogElement>(null);useEffect(()=>{dialog.current?.showModal();},[]);
+  return <dialog ref={dialog} aria-label="Community manager" onCancel={event=>{event.preventDefault();onClose();}} className="bk-arena m-auto w-[calc(100%-2rem)] max-w-sm rounded-2xl border border-[#d9b43b]/35 bg-[#0b1016] p-5 text-white backdrop:bg-black/70"><div className="flex items-center justify-between gap-3"><h2 className="min-w-0 break-words text-xl font-black">{person.displayName}</h2><button type="button" aria-label="Close manager" onClick={onClose} className="grid h-11 w-11 shrink-0 place-items-center"><X/></button></div><p className="mt-4 text-3xl font-black text-[#ecd67d]">{person.bkRating} <span className="text-sm">BK Rating</span></p><p className="mt-3 text-sm text-zinc-300">H2H record {record(person)} · {person.h2hRating} RTG</p><p className="mt-4 text-xs leading-5 text-zinc-400">Sign in to add friends, message and challenge other Ball Knowers.</p><button type="button" onClick={()=>{onClose();onOpenAuth();}} className={`${button} mt-4 w-full`}>Sign in to participate</button></dialog>;
 }
 
-function Conversation({friend,safety}:{friend?:CommunityFriend;safety:ReturnType<typeof useCommunitySafety>}){
+function GuestParticipation({title,children,onOpenAuth}:{title:string;children:React.ReactNode;onOpenAuth:()=>void}){
+  return <section className={`${card} p-5`}><EmptyState icon={LockKeyhole} title={title}>{children}</EmptyState><button type="button" onClick={onOpenAuth} className={`${button} w-full`}>Sign in to participate</button></section>;
+}
+
+function GlobalChat({readOnly,onOpenAuth}:{readOnly:boolean;onOpenAuth:()=>void}){
+  const safety=useCommunitySafety();
+  return <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]"><Conversation safety={safety} readOnly={readOnly} onOpenAuth={onOpenAuth}/><aside className={`${card} h-fit p-4`}><ShieldCheck className="mb-3 h-6 w-6 text-[#d9b43b]"/><h3 className="text-sm font-black uppercase">Good rivals. Good football.</h3><p className="mt-2 text-sm leading-6 text-zinc-400">Keep it football-focused. Slurs and profanity are censored. Threats are rejected. {readOnly?'Sign in to report abuse or block a manager.':'Use Report / Block on any message to flag abuse or stop contact.'}</p></aside></div>;
+}
+
+function Conversation({friend,safety,readOnly=false,onOpenAuth}:{friend?:CommunityFriend;safety:ReturnType<typeof useCommunitySafety>;readOnly?:boolean;onOpenAuth?:()=>void}){
   const {currentUser,showToast}=useBallKnower();
-  const {data,loading,error,refresh}=useCommunityResource(()=>friend?fetchDirectMessages(friend.userId):fetchGlobalMessages());
+  const {data,loading,error,refresh}=useCommunityResource(()=>friend?fetchDirectMessages(friend.userId):fetchGlobalMessages(readOnly));
   const [body,setBody]=useState('');const [sending,setSending]=useState(false);const sendLock=useRef(false);
   const [sendError,setSendError]=useState('');const [atBottom,setAtBottom]=useState(true);
   const scroll=useRef<HTMLDivElement>(null);const stick=useRef(true);const alive=useRef(true);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
-  useEffect(()=>subscribeCommunity('messages',()=>void refresh()),[refresh]);
+  useEffect(()=>subscribeCommunity(readOnly?'public':'messages',()=>void refresh()),[refresh,readOnly]);
   const messages=(data||[]).filter(message=>!safety.isBlocked(message.authorId));
   const lastId=messages.at(-1)?.id;
   useEffect(()=>{if(stick.current&&scroll.current)scroll.current.scrollTop=scroll.current.scrollHeight;},[lastId,loading]);
   const send=async()=>{
+    if(readOnly){onOpenAuth?.();return;}
     const next=body.trim();if(!next||sendLock.current||safety.isBlocked(friend?.userId))return;
     sendLock.current=true;setSending(true);setSendError('');
     try{
@@ -137,14 +149,14 @@ function Conversation({friend,safety}:{friend?:CommunityFriend;safety:ReturnType
         {(index===0||messageDay(message.createdAt)!==messageDay(messages[index-1].createdAt))&&<p className="py-3 text-center text-[10px] font-bold uppercase tracking-widest text-zinc-400">{messageDay(message.createdAt)}</p>}
         <article className={`arena-bubble ${message.authorId===currentUser?.id?'arena-bubble-mine':''}`}>
           <div className="flex min-w-0 items-baseline justify-between gap-3"><strong className="min-w-0 truncate text-xs text-[#ecd67d]">{message.authorId===currentUser?.id?'You':message.displayName||friend?.displayName||'Ball Knower'}</strong><time dateTime={message.createdAt} title={new Date(message.createdAt).toLocaleString()} className="shrink-0 text-[10px] text-zinc-400">{formatTime(message.createdAt)}</time></div>
-          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 [overflow-wrap:anywhere]">{message.body}</p><MessageSafety contentType={friend?'community_dm':'global_message'} contentId={message.id} authorId={message.authorId} safety={safety}/>
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 [overflow-wrap:anywhere]">{message.body}</p>{!readOnly&&<MessageSafety contentType={friend?'community_dm':'global_message'} contentId={message.id} authorId={message.authorId} safety={safety}/>}
         </article></React.Fragment>)}
     </div>
     {!atBottom&&<button type="button" onClick={()=>{stick.current=true;setAtBottom(true);if(scroll.current)scroll.current.scrollTop=scroll.current.scrollHeight;}} className={`${button} mx-auto my-2`}>Jump to latest</button>}
     {friend&&<div className="max-h-44 overflow-y-auto px-3"><CommunitySafetySettings safety={safety} names={{[friend.userId]:friend.displayName}}/></div>}
     {sendError&&<p role="alert" className="px-4 py-2 text-xs text-red-200">{sendError}</p>}
-    <form className="arena-composer" onSubmit={event=>{event.preventDefault();void send();}}><div className="flex gap-2"><label className="sr-only" htmlFor={friend?'private-message':'global-chat-message'}>{friend?'Private message':'Global message'}</label><input id={friend?'private-message':'global-chat-message'} maxLength={friend?1000:300} value={body} disabled={sending||safety.isBlocked(friend?.userId)} onChange={event=>setBody(event.target.value)} placeholder={safety.isBlocked(friend?.userId)?'Unblock this friend to message':friend?'Message friend…':'Talk football…'} className="arena-input min-w-0 flex-1"/><button type="submit" aria-label={friend?'Send private message':'Send message'} disabled={sending||!body.trim()||safety.isBlocked(friend?.userId)} className={`${button} grid w-12 shrink-0 place-items-center px-0`}>{sending?<Loader2 className="h-4 w-4 animate-spin"/>:<Send className="h-4 w-4"/>}</button></div><p className="mt-2 text-right text-[10px] tabular-nums text-zinc-400">{body.length}/{friend?1000:300}</p></form>
-    {!friend&&<div className="max-h-44 overflow-y-auto px-3"><CommunitySafetySettings safety={safety} names={names}/></div>}
+    {readOnly?<div className="arena-composer"><p className="mb-3 text-xs text-zinc-400">You’re viewing public chat. Sign in to join the conversation.</p><button type="button" onClick={onOpenAuth} className={`${button} w-full`}>Sign in to post</button></div>:<form className="arena-composer" onSubmit={event=>{event.preventDefault();void send();}}><div className="flex gap-2"><label className="sr-only" htmlFor={friend?'private-message':'global-chat-message'}>{friend?'Private message':'Global message'}</label><input id={friend?'private-message':'global-chat-message'} maxLength={friend?1000:300} value={body} disabled={sending||safety.isBlocked(friend?.userId)} onChange={event=>setBody(event.target.value)} placeholder={safety.isBlocked(friend?.userId)?'Unblock this friend to message':friend?'Message friend…':'Talk football…'} className="arena-input min-w-0 flex-1"/><button type="submit" aria-label={friend?'Send private message':'Send message'} disabled={sending||!body.trim()||safety.isBlocked(friend?.userId)} className={`${button} grid w-12 shrink-0 place-items-center px-0`}>{sending?<Loader2 className="h-4 w-4 animate-spin"/>:<Send className="h-4 w-4"/>}</button></div><p className="mt-2 text-right text-[10px] tabular-nums text-zinc-400">{body.length}/{friend?1000:300}</p></form>}
+    {!friend&&!readOnly&&<div className="max-h-44 overflow-y-auto px-3"><CommunitySafetySettings safety={safety} names={names}/></div>}
   </section>;
 }
 

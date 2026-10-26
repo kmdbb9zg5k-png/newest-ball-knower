@@ -19,12 +19,16 @@ jobs:
       - run: npm run lint && node --import tsx scripts/all-screens-broadcast-check.ts
       - run: npx playwright install --with-deps chromium
       - run: npm run build && npm run check:root-bundle
+      - name: Verify guest Community browsing and account-only actions
+        run: npm run check:community-arena && npm run check:community-browser
       - name: Inspect real pages with isolated accounts and explicit news fixtures
         run: node scripts/all-screens-broadcast-browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: all-screen-broadcast
-          path: artifacts/all-screens
+          path: |
+            artifacts/all-screens
+            artifacts/community-guest
           if-no-files-found: ignore
           retention-days: 3
