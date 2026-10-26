@@ -1,8 +1,9 @@
-import {calculateCombineResults} from './myPlayerCombine';
+import {MyPlayerDraftCombine} from './MyPlayerDraftCombine';
+import {calculatePlayedCombine,cleanDraftCombine,recordDraftDrill,type DraftCombinePerformance,type DraftDrill} from './myPlayerDraftCombine';
 export {calculateCombineResults} from './myPlayerCombine';
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Dumbbell, Play, RotateCcw, Sparkles, Upload } from 'lucide-react';
+import { ArrowLeft, Play, RotateCcw, Sparkles, Upload } from 'lucide-react';
 import { FranchiseSeason } from './FranchiseSeason';
 import { buildSoloTeamRoster, SOLO_FRANCHISE_SAVE_KEYS } from './soloFranchiseEngine';
 import { getDraftPositionGroup } from './rosterRules';
@@ -19,6 +20,8 @@ type BodySliderKey = 'heightInches' | 'weightLbs' | 'bodyBuild' | 'shoulderWidth
 
 type MyPlayerProfile = {
   version: 1;
+  combineId?: string;
+  combinePerformance?: DraftCombinePerformance;
   stage: StoryStage;
   name: string;
   position: Position;
@@ -102,7 +105,7 @@ function restoreProfile() {
     const saved = JSON.parse(raw);
     if (saved?.version !== 1 || !POSITIONS.includes(saved.position) || !['creator', 'combine', 'drafted', 'season'].includes(saved.stage)) return EMPTY_PROFILE;
     if (['drafted', 'season'].includes(saved.stage) && !SOLO_TEAM_THEMES.some(team => team.abbr === saved.teamAbbr)) return EMPTY_PROFILE;
-    return { ...EMPTY_PROFILE, ...saved } as MyPlayerProfile;
+    return { ...EMPTY_PROFILE, ...saved, combinePerformance:cleanDraftCombine(saved.combinePerformance) } as MyPlayerProfile;
   } catch {
     return EMPTY_PROFILE;
   }
@@ -200,6 +203,7 @@ const feetAndInches = (inches: number) => `${Math.floor(inches / 12)}'${inches %
 export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
   const [profile, setProfile] = useState<MyPlayerProfile>(restoreProfile);
   const [message, setMessage] = useState('');
+  const [saveError,setSaveError]=useState('');
   const [isRendering, setIsRendering] = useState(false);
   const [aiConsent, setAiConsent] = useState(false);
   const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
@@ -227,8 +231,10 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
       const untouched = profile.stage === 'creator' && !creatorCustomized;
       if (untouched) localStorage.removeItem(SOLO_FRANCHISE_SAVE_KEYS.player);
       else localStorage.setItem(SOLO_FRANCHISE_SAVE_KEYS.player, JSON.stringify(profile));
+      setSaveError('');
     } catch (error) {
       console.warn('Unable to save My Player career', error);
+      setSaveError('Your career could not be saved on this device. Keep this page open until storage is available.');
     }
   }, [profile]);
 
@@ -299,20 +305,23 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
 
   const enterCombine = () => {
     if (!profile.name.trim()) return setMessage('Give your player a name.');
-    setProfile(current => ({ ...current, name: current.name.trim(), stage: 'combine' }));
+    setProfile(current => ({ ...current, name: current.name.trim(), stage: 'combine', combineId:current.combineId||crypto.randomUUID() }));
     setMessage('You have been invited to the Ball Knower Combine.');
   };
 
   const enterDraft = () => {
-    const combine = calculateCombineResults(profile);
+    const combine = calculatePlayedCombine(profile.position,profile.combinePerformance);
+    if(profile.stage!=='combine'||!combine){setMessage('Complete your draft Combine workouts before entering the draft.');return;}
     const value = hash(`${profile.name}:${profile.position}:${profile.number}:${profile.heightInches}:${profile.weightLbs}:${combine.score}`);
     const team = SOLO_TEAM_THEMES[value % SOLO_TEAM_THEMES.length];
-    const draftRound = combine.score >= 90 ? 1 : combine.score >= 82 ? 2 : combine.score >= 74 ? 3 : combine.score >= 66 ? 4 : combine.score >= 58 ? 5 : 6 + (value % 2);
+    const draftRound = combine.draftRound;
     const draftPick = 1 + ((value >>> 5) % 32);
-    const overallChange = combine.score >= 90 ? 4 : combine.score >= 80 ? 2 : combine.score < 58 ? -2 : 0;
-    setProfile(current => ({ ...current, stage: 'drafted', teamAbbr: team.abbr, draftRound, draftPick, combineScore: combine.score, overall: Math.max(60, Math.min(99, current.overall + overallChange)) }));
+    const overallChange = combine.overallChange;
+    setProfile(current => current.stage!=='combine'?current:({ ...current, stage: 'drafted', teamAbbr: team.abbr, draftRound, draftPick, combineScore: combine.score, overall: Math.max(60, Math.min(99, current.overall + overallChange)) }));
     setMessage(`${combine.label} Combine performance moved your stock to Round ${draftRound}. ${team.name} made the call.`);
   };
+
+  const recordCombineResult=(drill:DraftDrill,stats:Record<string,number>)=>setProfile(current=>current.stage==='combine'?{...current,combinePerformance:recordDraftDrill(current.combinePerformance,drill,stats)}:current);
 
   const beginSeason = () => {
     try { localStorage.removeItem(`${SOLO_FRANCHISE_SAVE_KEYS.player}:season`); } catch (error) { console.warn('Unable to clear My Player season', error); }
@@ -388,6 +397,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
           <button type="button" onClick={newCareer} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Create a new player"><RotateCcw size={17} /></button>
         </div>
 
+        {saveError&&<div role="alert" className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-200">{saveError}</div>}
         {message ? <div className="mt-4 rounded-2xl border border-[var(--bk-team-accent)]/25 bg-[var(--bk-team-accent)]/10 px-4 py-3 text-sm font-bold text-[var(--bk-team-accent)]">{message}</div> : null}
 
         {profile.stage === 'creator' ? (
@@ -433,7 +443,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
         {profile.stage === 'combine' ? (
           <div className="mt-5 grid gap-5 lg:grid-cols-[.8fr_1.2fr]">
             <div><PlayerRender profile={profile} /><ViewSlider value={profile.viewRotation} onChange={value => updateSlider('viewRotation', value)} /></div>
-            <Combine profile={profile} onDraft={enterDraft} />
+            <MyPlayerDraftCombine profile={profile} onDraft={enterDraft} onResult={recordCombineResult} />
           </div>
         ) : null}
 
@@ -476,21 +486,3 @@ const ViewSlider = ({ value, onChange }: { value: number; onChange: (value: numb
 const PresetFace = ({ face, small = false }: { face: typeof FACE_PRESETS[number]; small?: boolean }) => (
   <img src={myPlayerPresetPortrait(face.id)} width="640" height="800" loading="lazy" decoding="async" alt="" className={`mx-auto rounded-[42%] object-cover ${small ? 'h-14 w-12' : 'h-full w-full'}`} aria-hidden="true" />
 );
-
-
-const Combine = ({ profile, onDraft }: { profile: MyPlayerProfile; onDraft: () => void }) => {
-  const combine = calculateCombineResults(profile);
-  return (
-    <div className="rounded-[2rem] border border-white/10 bg-[#10151d] p-6 sm:p-8">
-      <div className="flex items-center gap-3 text-[var(--bk-team-accent)]"><Dumbbell /><span className="text-[10px] font-black tracking-[.25em]">BALL KNOWER COMBINE</span></div>
-      <h2 className="mt-3 text-4xl font-black">PROVE YOU BELONG</h2>
-      <div className="mt-2 text-xs font-bold text-zinc-500">{feetAndInches(profile.heightInches)} • {profile.weightLbs} LB • {profile.position}</div>
-      <div className="mt-6 grid grid-cols-3 gap-2"><CombineStat label="40-YARD" value={`${combine.forty.toFixed(2)}s`} /><CombineStat label="BENCH" value={`${combine.bench}`} /><CombineStat label="VERTICAL" value={`${combine.vertical}”`} /></div>
-      <div className="mt-3 rounded-2xl border border-[var(--bk-team-accent)]/25 bg-[var(--bk-team-accent)]/10 p-4"><div className="text-[10px] font-black tracking-widest text-[var(--bk-team-accent)]">DRAFT STOCK · {combine.label}</div><div className="mt-1 text-3xl font-black">{combine.score}/100</div><p className="mt-1 text-xs font-semibold text-zinc-400">These drill results now determine your draft round and can raise or lower your starting overall.</p></div>
-      <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 p-4"><div className="text-xs font-black text-[var(--bk-team-accent)]">SCOUTING REPORT</div><p className="mt-2 text-sm leading-relaxed text-zinc-400">Explosive {profile.position} prospect with a {profile.overall} OVR foundation. At {feetAndInches(profile.heightInches)} and {profile.weightLbs} pounds, scouts see immediate upside, but every snap will determine how quickly the ratings climb.</p></div>
-      <button type="button" onClick={onDraft} className="mt-6 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)]"><Sparkles className="mr-2 inline" /> ENTER THE PRO DRAFT</button>
-    </div>
-  );
-};
-
-const CombineStat = ({ label, value }: { label: string; value: string }) => <div className="rounded-2xl border border-white/10 bg-[#111] p-4 text-center"><div className="text-[9px] font-black tracking-widest text-zinc-500">{label}</div><div className="mt-1 text-2xl font-black">{value}</div></div>;

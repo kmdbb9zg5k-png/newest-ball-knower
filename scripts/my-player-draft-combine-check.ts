@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {calculatePlayedCombine,cleanDraftCombine,recordDraftDrill,requiredDraftDrills,type DraftCombinePerformance} from '../myPlayerDraftCombine';
+const empty=cleanDraftCombine(undefined);assert.equal(calculatePlayedCombine('QB',empty),null);
+assert.deepEqual(requiredDraftDrills('QB'),['dash','broad-jump','shuttle','bench']);assert.equal(requiredDraftDrills('WR').at(-1),'routes');assert.equal(requiredDraftDrills('TE').at(-1),'routes');assert.equal(requiredDraftDrills('RB').at(-1),'rb');assert.equal(requiredDraftDrills('CB').at(-1),'db');assert.equal(requiredDraftDrills('S').at(-1),'db');
+let career:DraftCombinePerformance=empty;
+career=recordDraftDrill(career,'dash',{time:4.9});career=recordDraftDrill(career,'dash',{time:4.6});career=recordDraftDrill(career,'dash',{time:5.1});assert.deepEqual(career.results.dash,{best:4.6,last:5.1,attempts:3});
+assert.deepEqual(recordDraftDrill(career,'dash',{time:60,dnf:1}),career);assert.deepEqual(recordDraftDrill(career,'dash',{time:NaN}),career);assert.deepEqual(recordDraftDrill(career,'dash',{time:0}),career);
+career=recordDraftDrill(career,'broad-jump',{distance:2.7});career=recordDraftDrill(career,'broad-jump',{distance:0});assert.equal(career.results['broad-jump']?.best,2.7);
+career=recordDraftDrill(career,'shuttle',{time:4.5});career=recordDraftDrill(career,'bench',{reps:22});
+assert(calculatePlayedCombine('QB',career));assert.equal(calculatePlayedCombine('WR',career),null,'Position workout required');
+const incomplete=recordDraftDrill(career,'routes',{score:100,reps:1});assert(!incomplete.results.routes);
+career=recordDraftDrill(career,'routes',{score:80,reps:8});const result=calculatePlayedCombine('WR',career)!;assert(result.score>=0&&result.score<=100);assert.equal(result.forty,4.6);assert.equal(result.bench,22);assert.equal(result.broadJump,2.7);assert.equal(result.shuttle,4.5);
+const restored=cleanDraftCombine(JSON.parse(JSON.stringify(career)));assert.deepEqual(restored,career);
+assert(!cleanDraftCombine({version:1,results:{dash:{best:NaN,last:4.5,attempts:1},bench:{best:22,last:22,attempts:-1}}}).results.dash);
+const fill=(time:number,jump:number,bench:number,shuttle:number,score:number)=>{let p=recordDraftDrill(undefined,'dash',{time});p=recordDraftDrill(p,'broad-jump',{distance:jump});p=recordDraftDrill(p,'bench',{reps:bench});p=recordDraftDrill(p,'shuttle',{time:shuttle});p=recordDraftDrill(p,'routes',{score,reps:8});return p;};
+const elite=calculatePlayedCombine('WR',fill(4.3,3.1,25,4,100))!,poor=calculatePlayedCombine('WR',fill(5.8,1.3,0,7,0))!;assert.equal(elite.score,100);assert.equal(elite.draftRound,1);assert.equal(elite.overallChange,4);assert.equal(poor.score,0);assert.equal(poor.draftRound,7);assert.equal(poor.overallChange,-2);
+assert.deepEqual(cleanDraftCombine({version:2,results:career.results}),empty,'Reject unsupported saved ruleset');
+console.log('PASS: required position workouts, completed-session gating, valid/invalid marks, best/last attempts, false starts, zero marks, save restoration, score weighting, round and OVR effects.');

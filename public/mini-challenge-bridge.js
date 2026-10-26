@@ -8,9 +8,11 @@ export function reportMiniChallenge(stats){
   posted=true;
   window.parent.postMessage({type:'bk-mini-result',challengeId:params.get('bkChallenge'),token:params.get('bkToken'),stats},window.location.origin);
 }
-export function reportDrillSession(results){
-  reportMiniChallenge({score:Math.round(results.reduce((n,r)=>n+r.score,0)/results.length),reps:results.length,catches:results.filter(r=>r.caught).length,stops:results.filter(r=>r.stop).length,picks:results.filter(r=>r.intercepted).length,yards:Math.round(results.reduce((n,r)=>n+(r.yards||0),0)),touchdowns:results.filter(r=>r.touchdown).length});
+export function drillSessionStats(results){
+  return {score:Math.round(results.reduce((n,r)=>n+r.score,0)/results.length),reps:results.length,catches:results.filter(r=>r.caught).length,stops:results.filter(r=>r.stop).length,picks:results.filter(r=>r.intercepted).length,yards:Math.round(results.reduce((n,r)=>n+(r.yards||0),0)),touchdowns:results.filter(r=>r.touchdown).length};
 }
+
+export function reportDrillSession(results){reportMiniChallenge(drillSessionStats(results));}
 
 export function exitMiniChallenge(){
   if(!inMiniChallenge())return false;

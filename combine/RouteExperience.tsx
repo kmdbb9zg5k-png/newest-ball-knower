@@ -1,4 +1,4 @@
-import {reportDrillSession,challengeSeed} from '../public/mini-challenge-bridge.js';
+import {reportDrillSession,drillSessionStats,challengeSeed} from '../public/mini-challenge-bridge.js';
 import React,{useEffect,useRef,useState} from 'react';
 import {flushSync} from 'react-dom';
 import {ROUTES,newRoute,startRoute,stepRoute,routeFrameDelta,catchRoute,readRouteScores,saveRouteScore} from './routes.js';
@@ -6,7 +6,7 @@ import {MAN_REPS,newManSession,newManRep,stepMan,readManScores,saveManScore} fro
 import HoldPauseButton from './HoldPauseButton';
 import './combine.css';import './skills.css';import './routes.css';
 type Player={id:string;name:string;position:string;[key:string]:any};
-export default function RouteExperience({players,onClose,man=false}:{players:Player[];onClose:()=>void;man?:boolean}){
+export default function RouteExperience({players,onClose,onResult,man=false}:{players:Player[];onClose:()=>void;onResult?:(stats:Record<string,number>)=>void;man?:boolean}){
  const session=useRef(newManSession(challengeSeed()));
  const makeRun=(p:Player,index=0)=>man?newManRep(p,index,session.current):newRoute(p,index);
  const step=man?stepMan:stepRoute,readScores=man?readManScores:readRouteScores,saveScore=man?saveManScore:saveRouteScore;
@@ -20,7 +20,7 @@ export default function RouteExperience({players,onClose,man=false}:{players:Pla
  useEffect(()=>{let gone=false,raf=0,last=0;
  import('./scene.js').then(async({createCombineScene})=>{if(!host.current||gone)return;const s=await createCombineScene(host.current,run.current.athlete,()=>{pause();setError('Graphics were interrupted. Reopen the drill.');},man?'one-on-one':'routes');if(gone){s.dispose();return;}scene.current=s;setReady(true);last=performance.now();
  const frame=(now:number)=>{if(gone)return;raf=requestAnimationFrame(frame);const dt=(now-last)/1000;last=now;if(!stopped.current&&!document.hidden){if(dt>5&&['preview','running','flight'].includes(run.current.phase)){pause();return;}step(run.current,routeFrameDelta(dt),input.current);}
- s.draw(run.current,Math.min(dt,.1));if(run.current.phase==='result'&&!recorded.current){recorded.current=true;const next=[...completed.current,run.current.result];completed.current=next;setResults(next);if(next.length===total){reportDrillSession(next);setSaved(saveScore(run.current.athlete,next));setRecords(readScores());}}flushSync(()=>setView({...run.current}));};raf=requestAnimationFrame(frame);
+ s.draw(run.current,Math.min(dt,.1));if(run.current.phase==='result'&&!recorded.current){recorded.current=true;const next=[...completed.current,run.current.result];completed.current=next;setResults(next);if(next.length===total){reportDrillSession(next);onResult?.(drillSessionStats(next));setSaved(saveScore(run.current.athlete,next));setRecords(readScores());}}flushSync(()=>setView({...run.current}));};raf=requestAnimationFrame(frame);
  }).catch(()=>{if(!gone)setError('Could not load the athlete. Reopen the drill to try again.');});
  const hide=()=>{release();if(document.hidden&&['preview','running','flight'].includes(run.current.phase))pause();};const blur=()=>release();
  const key=(e:KeyboardEvent,down:boolean)=>{if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d'].includes(e.key))return;e.preventDefault();if(down)keys.current.add(e.key);else keys.current.delete(e.key);const k=keys.current;input.current={x:Number(k.has('ArrowRight')||k.has('d'))-Number(k.has('ArrowLeft')||k.has('a')),y:Number(k.has('ArrowDown')||k.has('s'))-Number(k.has('ArrowUp')||k.has('w'))};};const kd=(e:KeyboardEvent)=>key(e,true),ku=(e:KeyboardEvent)=>key(e,false);
