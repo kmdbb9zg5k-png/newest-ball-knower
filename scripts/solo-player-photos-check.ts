@@ -93,5 +93,12 @@ try {
   assert.deepEqual(parallel,first);assert.equal(manifestRequests,1,'Concurrent manifest refreshes must coalesce');
   assert.deepEqual(await requestSimulatedArtwork(cachePlayer),first);assert.equal(manifestRequests,1,'Current manifests remain cached');
   assert([...manifestCache.entries()].some(([key,value])=>key!==`ball-knower-simulated-art-manifest-v4:${cacheKey}`&&value.includes('current.webp')),'Refreshed manifest must persist under the revised cache namespace');
+  const offlinePlayer=SOLO_PLAYERS_DATABASE.find(player=>player.id==='solo-abq-02')!;
+  const offlineKey=simulatedArtRequestKey(offlinePlayer,'home',defaultAppearance(offlinePlayer));
+  manifestCache.set(`ball-knower-simulated-art-manifest-v4:${offlineKey}`,JSON.stringify({status:'approved',artVersion:4,urls:{avatar:'https://example.invalid/offline.webp'}}));
+  globalThis.fetch=async()=>{throw new Error('Network unavailable')};
+  assert.equal((await requestSimulatedArtwork(offlinePlayer)).urls?.avatar,'https://example.invalid/offline.webp','Network failure must preserve offline artwork');
+  globalThis.fetch=async()=>new Response(JSON.stringify({status:'approved',urls:{avatar:'https://example.invalid/recovered.webp'}}),{status:200});
+  assert.equal((await requestSimulatedArtwork(offlinePlayer)).urls?.avatar,'https://example.invalid/recovered.webp','Legacy fallback must not prevent the next network retry');
 } finally {globalThis.window=previousWindow;globalThis.fetch=previousFetch;}
 console.log(JSON.stringify({players:SOLO_PLAYERS_DATABASE.length,teamAssignments,uniqueSeeds:seeds.size,appearanceCombinations:appearances.size,approvedLeagueIdentities:SOLO_PLAYERS_DATABASE.length,approvedMyPlayerPresets:4,eliSource:{portrait:eliManifest.sourcePortrait,fullBody:eliManifest.sourceFullBody},productionRenderer:'responsive images; no canvas',visualFidelityApprovedFor:'all-canonical-simulated-players',fullCatalogVisualReleaseApproved:true},null,2));
