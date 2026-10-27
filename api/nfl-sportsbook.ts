@@ -26,7 +26,7 @@ export default async function handler(req:any,res:any){
         week:game.week||null,
         seasonType:game.seasonType||null,
         date:Number.isFinite(kickoffMs)?new Date(kickoffMs).toISOString():null,
-        status:game.final?'Final':game.status||(Number.isFinite(kickoffMs)&&kickoffMs<=now?'Live':'Scheduled'),
+        status:game.final?'Final':game.status||(Number.isFinite(kickoffMs)&&kickoffMs<=now?'Status unavailable':'Scheduled'),
         away:game.away,
         home:game.home,
         awayAbbr:game.awayAbbr,

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {isPicksGameLocked,gradePick} from '../picksEngine';
 import {withPicksDeadline} from '../picksRequest';
 import {createPicksMutationQueue} from '../picksMutationQueue';
 import {gamePhase,hasKickoff,initialSlate,parsePicksBoard,scheduleLabel,slateKey,slateLabel,visiblePicksGames} from '../picksBoard';
@@ -54,6 +55,30 @@ assert.equal(visiblePicksGames([game,live,final],slateKey(game),'live','',now)[0
 assert.equal(visiblePicksGames([game,live,final],slateKey(game),'final','',now)[0].id,'final');
 assert.deepEqual(parsePicksBoard({available:true,games:[]}),[]);
 for(const invalid of [{},null,{games:{}},{games:[{id:'bad'}]},{games:[game,game]},{games:[{...game,homeSpread:'3'}]}])assert.throws(()=>parsePicksBoard(invalid));
+
+// A stale schedule or provider live flag must not pin Picks to last week.
+const auditNow=Date.parse('2026-10-27T23:00:00Z');
+const oldGame={...game,id:'old-week',date:'2026-10-22T00:00:00Z',scheduleDate:'2026-10-22',week:7};
+const upcomingGame={...game,id:'next-week',date:'2026-10-29T00:00:00Z',scheduleDate:'2026-10-29',week:8};
+for(const status of ['Scheduled','Live','In Progress','Halftime','', 'Postponed','Suspended']){
+  const stale={...oldGame,status};
+  assert.equal(gamePhase(stale,auditNow),'unknown',status);
+  assert.equal(isPicksGameLocked(stale,auditNow),true,'stale games remain locked');
+  const pick={id:'pick',gameId:stale.id,label:'Home',market:'spread' as const,selection:stale.home,lockedLine:0,lockedAt:'2026-10-21T00:00:00Z'};
+  assert.equal(gradePick(pick,{...stale,awayScore:0,homeScore:7}).result,undefined,'do not invent a final result');
+  assert.equal(initialSlate([stale,upcomingGame],auditNow),slateKey(upcomingGame));
+  assert.deepEqual(visiblePicksGames([stale],slateKey(stale),'live','',auditNow),[]);
+  assert.deepEqual(visiblePicksGames([stale],slateKey(stale),'final','',auditNow),[]);
+  assert.equal(visiblePicksGames([stale],slateKey(stale),'all','',auditNow).length,1);
+}
+assert.equal(gamePhase({...oldGame,date:null},auditNow),'unknown');
+assert.equal(gamePhase({...oldGame,status:'Final'},auditNow),'final');
+const active={...oldGame,status:'In Progress',date:new Date(auditNow-60*60*1000).toISOString()};
+assert.equal(gamePhase(active,auditNow),'live');
+assert.equal(initialSlate([active,upcomingGame],auditNow),slateKey(active));
+assert.equal(gamePhase({...active,status:'Scheduled'},auditNow),'unknown','kickoff alone is not live evidence');
+assert.equal(gamePhase({...active,status:'Delayed'},auditNow),'unknown');
+assert.equal(gamePhase({...active,date:new Date(auditNow-12*60*60*1000).toISOString()},auditNow),'unknown');
 
 const originalFetch=globalThis.fetch;const originalNow=Date.now;const key=process.env.TANK01_API_KEY;const rapid=process.env.RAPIDAPI_KEY;
 try{

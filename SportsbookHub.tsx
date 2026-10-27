@@ -25,10 +25,11 @@ const mergeVerifiedPicks=(local:Pick[],verified:VerifiedPredictionPick[]):Pick[]
 const displayAbbr=(abbr?:string,name?:string)=>abbr||String(name||'').split(/\s+/).map(part=>part[0]).join('').slice(0,3).toUpperCase();
 const gameDay=(game:Game)=>game.scheduleDate||game.date?.slice(0,10)||'TBD';
 const dayHeading=(day:string)=>day==='TBD'?'DATE TBD':new Date(`${day}T12:00:00Z`).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric',year:'numeric',timeZone:'UTC'}).toUpperCase();
-const kickoffParts=(game:Game)=>{
-  if(!hasKickoff(game))return {time:'Time TBD',meta:'Kickoff pending'};
+const kickoffParts=(game:Game,now:number)=>{
+  const phase=gamePhase(game,now);
+  if(!hasKickoff(game))return {time:'Time TBD',meta:phase==='unknown'?'Status unavailable':'Kickoff pending'};
   const date=new Date(game.date!);
-  return {time:date.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}),meta:gamePhase(game)==='final'?'Final':gamePhase(game)==='live'?'Live':'NFL'};
+  return {time:date.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}),meta:phase==='final'?'Final':phase==='live'?'Live':phase==='unknown'?'Status unavailable':'NFL'};
 };
 
 export const SportsbookHub:React.FC=()=>{
@@ -198,7 +199,7 @@ export const SportsbookHub:React.FC=()=>{
       :!games.length?<div className="bk-picks-empty"><strong>No NFL matchups scheduled right now.</strong><span>Check back when the next slate is available.</span><button type="button" onClick={refresh}>Refresh schedule</button></div>
       :!visible.length?<div className="bk-picks-empty"><strong>{query.trim()?'No teams match your search.':`No ${filter==='final'?'completed':filter==='all'?'matching':filter} games in this week.`}</strong><button type="button" onClick={()=>{setQuery('');setFilter('all')}}>Show all games this week</button></div>
       :grouped.map(([day,dayGames])=><div className="bk-picks-day" key={day}><h2 className="bk-picks-day-title">{dayHeading(day)}</h2><div className="bk-picks-day-list">{dayGames.map(game=>{
-        const normalized=normalizeSpread(game.spread);const homeLine=game.homeSpread??normalized.home;const awayLine=game.awaySpread??normalized.away;const phase=gamePhase(game,now);const locked=phase!=='upcoming'||isPicksGameLocked(game,now);const pendingTime=!hasKickoff(game);const kickoff=kickoffParts(game);
+        const normalized=normalizeSpread(game.spread);const homeLine=game.homeSpread??normalized.home;const awayLine=game.awaySpread??normalized.away;const phase=gamePhase(game,now);const locked=phase!=='upcoming'||isPicksGameLocked(game,now);const pendingTime=!hasKickoff(game);const kickoff=kickoffParts(game,now);
         const awayAbbr=displayAbbr(game.awayAbbr,game.away);const homeAbbr=displayAbbr(game.homeAbbr,game.home);
         const awayId=`${game.id}-spread-away-${awayLine}`;const homeId=`${game.id}-spread-home-${homeLine}`;
         const pickDisabled=locked||pendingTime||Boolean(busyGame)||loading;

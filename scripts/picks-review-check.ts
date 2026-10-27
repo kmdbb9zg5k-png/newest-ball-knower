@@ -11,6 +11,7 @@ assert.equal(nextPicksKickoffDelay([game],now),null);
 assert.equal(nextPicksKickoffDelay([{...game,date:new Date(now+1000).toISOString()}],now),1001);
 assert.equal(nextPicksKickoffDelay([{...game,date:new Date(now-1000).toISOString()}],now),null);
 assert.equal(nextPicksKickoffDelay([{...game,date:new Date(now+90*86400_000).toISOString()}],now),2_147_483_647,'far-away kickoff must not overflow the browser timer');
+assert.equal(nextPicksKickoffDelay([{...game,status:'Live',date:new Date(now-3600_000).toISOString()}],now),11*3600_000+1,'expire stale live labels without a permanent polling timer');
 const screen=readFileSync('SportsbookHub.tsx','utf8');
 assert.match(screen,/setPicks\(next\)/,'state updater must not mutate the ref during React render');
 assert.doesNotMatch(screen,/setPicks\(current=>/);
