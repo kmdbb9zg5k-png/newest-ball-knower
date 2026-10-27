@@ -65,7 +65,7 @@ begin
  for k,v in select * from jsonb_each(p_stats) loop
   if not k=any(allowed) or jsonb_typeof(v)<>'number' then raise exception 'Invalid stat'; end if;
   n:=v::text::numeric;
-  if n<case when k='yards' then -200 else 0 end or n>case when k='yards' then 2000 when k in ('time','penalty','split10','split20') then 120 when k='distance' then 5 when k='dnf' then 1 else 200 end then raise exception 'Stat outside supported range'; end if;
+  if n<(case when k='yards' then -200 else 0 end) or n>(case when k='yards' then 2000 when k in ('time','penalty','split10','split20') then 120 when k='distance' then 5 when k='dnf' then 1 else 200 end) then raise exception 'Stat outside supported range'; end if;
   if k not in ('time','penalty','split10','split20','distance') and n<>trunc(n) then raise exception 'Counts must be whole numbers'; end if;
  end loop;
  if p_game='dash' then
@@ -80,7 +80,7 @@ begin
  elsif p_game='broad-jump' then
   if not p_stats?'distance' then raise exception 'Distance required'; end if; result:=(p_stats->>'distance')::numeric*25;
  else
-  if not p_stats ?& array['score','reps'] or (p_stats->>'score')::numeric>100 or (p_stats->>'reps')::int<>case when p_game='routes' then 8 else 5 end then raise exception 'Complete every rep'; end if;
+  if not p_stats ?& array['score','reps'] or (p_stats->>'score')::numeric>100 or (p_stats->>'reps')::int<>(case when p_game='routes' then 8 else 5 end) then raise exception 'Complete every rep'; end if;
   result:=(p_stats->>'score')::numeric;
  end if;
  return round(greatest(0,least(100,result)),3);
