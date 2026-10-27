@@ -159,7 +159,9 @@ void main(){
   rgb+=fresnel*g*crown*.7;
  }
  if(material==4){
-  float mowing=.90+.10*smoothstep(-.08,.08,sin(world.z*3.14159*.2));rgb*=mowing;
+  float grassOnly=(1.-smoothstep(.80,.96,base.r/max(base.g,.001)))*smoothstep(.16,.23,base.g);
+  float mowing=mix(.84,1.08,smoothstep(-.035,.035,sin((world.z-10.)*3.14159*.2)));
+  rgb*=mix(1.,mowing,grassOnly);
   float paint=smoothstep(.20,.45,albedo.r);rgb=mix(rgb,rgb*1.08,paint);
   float grazing=pow(1.-max(dot(N,V),0.),3.);float dew=pow(max(dot(N,normalize(L1+V)),0.),30.);
   float blade=hash(floor(world.xz*92.));float grassSheen=(1.-smoothstep(.80,.96,base.r/max(base.g,.001)))*smoothstep(.16,.23,base.g);

@@ -1,3 +1,4 @@
+import {playerPresence} from './player-presence.js?v=visual-upgrade-1';
 // Full-game reference body with skinned team materials and distance-matched motion.
 import {contactFallProgress,contactFacing,contactBodyPose,contactFinishPose,contactFootTarget} from './contact-motion.js?v=tackle-drive-61';
 import {refineAthleteSurface} from './athlete-surface.js?v=sentinel-materials-34';
@@ -248,6 +249,14 @@ void main(){vec4 sampleColor=texture(baseMap,uv);if(sampleColor.a<.04)discard;ve
  float pantStripe=(1.-smoothstep(.012,.021,abs(bindPosition.z+.012)))*smoothstep(.5,.8,abs(bindNormal.x))*pants;
  float sleeveStripe=(1.-smoothstep(.008,.016,abs(bindPosition.y-1.30)))*smoothstep(.19,.27,abs(bindPosition.x))*jersey;
  albedo=mix(albedo,pow(trim,vec3(2.2)),max(pantStripe,sleeveStripe));
+ // Fine knit and stitched neck/sleeve edges use bind space, so they follow
+ // the rig without swimming. Derivative filtering removes distant shimmer.
+ vec2 knitUV=bindPosition.xy*vec2(310.,360.);
+ float knitAA=1.-smoothstep(.35,1.1,max(fwidth(knitUV.x),fwidth(knitUV.y)));
+ float knit=sin(knitUV.x*6.283)*sin(knitUV.y*6.283);
+ albedo*=1.+knit*.035*knitAA*cloth;
+ float collar=(1.-smoothstep(.006,.014,abs(bindPosition.y-1.415)))*(1.-smoothstep(.075,.115,abs(bindPosition.x)))*jersey;
+ albedo=mix(albedo,pow(trim*.65,vec3(2.2)),collar*.8);
  // Ink is shaded on the jersey's own triangles before skeletal deformation.
  // It shares the exact torso surface and cannot float or cut through it.
  float face=bindNormal.z>=0.?1.:-1.;
@@ -270,7 +279,13 @@ void main(){vec4 sampleColor=texture(baseMap,uv);if(sampleColor.a<.04)discard;ve
  albedo=mix(albedo,pow(vec3(.32,.35,.38),vec3(2.2)),cage);
  vec3 N=normalize(normal),T=normalize(tangent-N*dot(N,tangent)),B=normalize(cross(N,T))*handedness;vec3 mapped=texture(normalMap,uv).xyz*2.-1.;mapped.xy*=mix(mix(.55,.22,cloth),.18,equipment);N=normalize(mat3(T,B,N)*mapped);
  vec3 V=normalize(eye-world),L0=normalize(vec3(-.48,.82,-.31)),L1=normalize(vec3(.62,.69,.38)),L2=normalize(vec3(-.20,.72,.65));float d0=max(dot(N,L0),0.),d1=max(dot(N,L1),0.),d2=max(dot(N,L2),0.);vec3 ambient=mix(vec3(.075,.09,.105),vec3(.20,.25,.34),N.y*.5+.5);vec3 lit=ambient+vec3(1.52,1.43,1.24)*d0+vec3(.38,.50,.72)*d1+vec3(.20,.24,.33)*d2;
- vec3 orm=texture(ormMap,uv).rgb;float rough=clamp(orm.g,.18,.96),metal=mix(orm.b,0.,cloth);metal=mix(metal,.3,equipment);rough=mix(rough,.86,cloth);rough=mix(rough,.34,equipment);vec3 H=normalize(L0+V),F0=mix(vec3(.028),albedo,metal),fresnel=F0+(1.-F0)*pow(1.-max(dot(N,V),0.),5.);float spec=pow(max(dot(N,H),0.),mix(90.,10.,rough)),rim=pow(1.-max(dot(N,V),0.),2.6);vec3 rimColor=mix(vec3(.22,.31,.42),vec3(.42,.18,.14),rival);vec3 rgb=albedo*lit+fresnel*spec*(.35+1.35*(1.-rough))+rimColor*rim*(.105+controlled*.11);float heroRim=pow(1.-max(dot(N,V),0.),4.2)*controlled;rgb+=vec3(.46,.31,.09)*heroRim;float fog=smoothstep(55.,190.,distance(eye,world));rgb=mix(rgb,vec3(.016,.026,.046),fog*.68);color=vec4(pow(film(rgb*1.08),vec3(1./2.2)),1.);}`;
+ vec3 orm=texture(ormMap,uv).rgb;float rough=clamp(orm.g,.18,.96),metal=mix(orm.b,0.,cloth);metal=mix(metal,.08,equipment);rough=mix(rough,.86,cloth);rough=mix(rough,.25,shell);rough=mix(rough,.38,cage);vec3 H=normalize(L0+V),F0=mix(vec3(.028),albedo,metal),fresnel=F0+(1.-F0)*pow(1.-max(dot(N,V),0.),5.);float spec=pow(max(dot(N,H),0.),mix(90.,10.,rough)),rim=pow(1.-max(dot(N,V),0.),2.6);vec3 rimColor=mix(vec3(.22,.31,.42),vec3(.42,.18,.14),rival);vec3 rgb=albedo*lit+fresnel*spec*(.35+1.35*(1.-rough))+rimColor*rim*(.105+controlled*.11);// Dielectric helmet clearcoat reflects the stadium banks. Fabric stays matte.
+ vec3 reflection=reflect(-V,N);
+ float bankReflection=pow(max(dot(reflection,L0),0.),100.)+pow(max(dot(reflection,L1),0.),80.)*.65;
+ float coatFresnel=.045+.22*pow(1.-max(dot(N,V),0.),5.);
+ rgb+=vec3(.87,.94,1.)*bankReflection*coatFresnel*shell;
+ rgb+=pow(jerseyColor,vec3(2.2))*.055*pow(1.-max(dot(N,V),0.),3.)*cloth;
+ float heroRim=pow(1.-max(dot(N,V),0.),4.2)*controlled;rgb+=vec3(.46,.31,.09)*heroRim;float fog=smoothstep(55.,190.,distance(eye,world));rgb=mix(rgb,vec3(.016,.026,.046),fog*.68);color=vec4(pow(film(rgb*1.08),vec3(1./2.2)),1.);}`;
 
 const depthVertex=`#version 300 es
 precision highp float;precision highp int;
@@ -609,12 +624,10 @@ export class MeshyAthletes{
   // crouches, catches and skills. This keeps feet believable on mobile.
   const hips=this.joints[0],baseY=this.base[hips].t[1],profile=ROLE_MOTION_PROFILES[p.role]||ROLE_MOTION_PROFILES.LB;locals[hips].t[1]=baseY+clamp(locals[hips].t[1]-baseY,-.10,.14)*profile.root;
   this.applyFootballPose(locals,p,phase,time,choice.state);
-  if(phase==='pre'){
-   const seed=meshyPlaybackSeed(p.index,p.team),breath=Math.sin(time*(1.25+seed.rate*.22)+seed.offset*Math.PI*2),scan=Math.sin(time*(.38+seed.rate*.08)+seed.offset*Math.PI*2);
-   const spine=this.namedNodes['mixamorig:Spine2'],head=this.namedNodes['mixamorig:Head'];
-   if(Number.isInteger(spine))locals[spine].r=quatMul(locals[spine].r,axisQuat(1,0,0,breath*.012));
-   if(Number.isInteger(head))locals[head].r=quatMul(locals[head].r,axisQuat(0,1,0,scan*((p.role==='QB'||p.role==='LB') ? .09 : .045)));
-  }
+  const presence=playerPresence(p,phase,time);
+  this.rotate(locals,'mixamorig:Spine2',1,0,0,presence.breath);
+  this.rotate(locals,'mixamorig:Head',0,1,0,presence.scan);
+  this.rotate(locals,'mixamorig:Head',1,0,0,presence.nod);
   if(p.engaged){
    for(const i of this.joints)locals[i]={t:[...this.base[i].t],r:[...this.base[i].r],s:[...this.base[i].s]};
    locals[hips].t[1]-=p.team===(p.offenseTeam??0)?.19:.23;

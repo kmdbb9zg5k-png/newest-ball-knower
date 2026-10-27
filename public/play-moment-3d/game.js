@@ -9,10 +9,10 @@ import {fullInitialDrive,fullSession,fullLog,fullRecord,fullOffenseEnd,fullConti
 import {rosterRatings,rosterIdentity} from './mini-teams.js?v=contact-camera-11';
 import{RUNS,PASSES,FORMATIONS,FIELD_GOAL_PLAY,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=contact-camera-11';
 export{RUNS,PASSES}from'./playbook.js?v=contact-camera-11';
-import{Renderer,pose,segment,hex,mul,ry,translate,scale}from'./renderer.js?v=football-foundation-44';
+import{Renderer,pose,segment,hex,mul,ry,translate,scale}from'./renderer.js?v=field-visual-45';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js?v=reference-motion-45';
 import{createMeshyAthletes}from'./meshy-athlete.js?v=complete-flow-46';
-import{createMeshyAthletes as createReferenceAthletes}from'./reference-athlete.js?v=tackle-drive-61';
+import{createMeshyAthletes as createReferenceAthletes}from'./reference-athlete.js?v=uniform-visual-62';
 import{makeStadium}from'./stadium.js?v=contact-camera-11';
 import{createGameplayReplayRecorder}from'./replay.js';
 import {miniClock,miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=contact-camera-11';

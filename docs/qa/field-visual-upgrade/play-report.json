@@ -1,0 +1,743 @@
+{
+  "five-minute-realtime": {
+    "wallSeconds": 18.85,
+    "simulationSeconds": 1.6833333333333322,
+    "renderedFrames": 21,
+    "capturedFrames": 2,
+    "timestamps": [
+      1793111053.111877,
+      1793111055.564976
+    ],
+    "state": {
+      "phase": "run",
+      "mode": "run",
+      "play": "zone",
+      "time": 1.6833333333333322,
+      "drive": {
+        "ball": 25,
+        "down": 1,
+        "toGo": 10,
+        "clock": 298.3166666666682,
+        "score": 0,
+        "plays": 1
+      },
+      "unit": null,
+      "contact": null,
+      "book": {
+        "open": false,
+        "filter": "all",
+        "formation": "all",
+        "choice": {
+          "mode": "run",
+          "index": 0
+        }
+      },
+      "owners": [
+        {
+          "i": 6,
+          "role": "RB",
+          "x": -0.6612957601862669,
+          "z": 32.83062839524402
+        }
+      ],
+      "gl": 0,
+      "rig": [
+        {
+          "index": 6,
+          "action": null,
+          "t": 0,
+          "fall": 0,
+          "chest": [
+            -0.6662276983261108,
+            1.430853009223938,
+            32.976043701171875
+          ],
+          "pose": "idle"
+        }
+      ],
+      "errors": []
+    }
+  },
+  "five-minute-realtime-contact": {
+    "wallSeconds": 35.121,
+    "simulationSeconds": 3.333333333333322,
+    "renderedFrames": 30,
+    "capturedFrames": 11,
+    "timestamps": [
+      1793111158.782006,
+      1793111161.853445,
+      1793111164.617869,
+      1793111167.557792,
+      1793111169.445061,
+      1793111171.456457,
+      1793111173.328556,
+      1793111175.470002,
+      1793111177.341743,
+      1793111179.281851,
+      1793111181.307984
+    ],
+    "state": {
+      "phase": "dead",
+      "mode": "run",
+      "play": "zone",
+      "time": 7.016666666666647,
+      "drive": {
+        "ball": 23,
+        "down": 2,
+        "toGo": 12,
+        "clock": 292.35000000000696,
+        "score": 0,
+        "plays": 2
+      },
+      "unit": null,
+      "contact": {
+        "type": "shoulder-hit",
+        "elapsed": 0.6333333333333336,
+        "duration": 0.86,
+        "tackler": 17,
+        "helper": null
+      },
+      "book": {
+        "open": false,
+        "filter": "all",
+        "formation": "all",
+        "choice": {
+          "mode": "run",
+          "index": 0
+        }
+      },
+      "owners": [
+        {
+          "i": 6,
+          "role": "RB",
+          "x": -1.2526444306305708,
+          "z": 30.74821790518613
+        }
+      ],
+      "gl": 0,
+      "rig": [
+        {
+          "index": 6,
+          "action": "wrap",
+          "t": 0.7177131782946524,
+          "fall": 0.702815271704839,
+          "chest": [
+            -1.6069135665893555,
+            0.6885267496109009,
+            30.79567527770996
+          ],
+          "pose": "wrap-tackle"
+        },
+        {
+          "index": 17,
+          "action": "wrap",
+          "t": 0.7177131782946524,
+          "fall": 0.7757659907790776,
+          "chest": [
+            -1.651526689529419,
+            0.6661272644996643,
+            31.017675399780273
+          ],
+          "pose": "wrap-tackle"
+        }
+      ],
+      "errors": []
+    }
+  },
+  "five-minute-realtime-next": {
+    "wallSeconds": 13.23,
+    "simulationSeconds": 0.36666666666666536,
+    "renderedFrames": 21,
+    "capturedFrames": 3,
+    "timestamps": [
+      1793111223.514188,
+      1793111225.353734,
+      1793111227.161844
+    ],
+    "state": {
+      "phase": "pre",
+      "mode": "run",
+      "play": "zone",
+      "time": 7.383333333333312,
+      "drive": {
+        "ball": 21,
+        "down": 3,
+        "toGo": 14,
+        "clock": 290.9666666666749,
+        "score": 0,
+        "plays": 2
+      },
+      "unit": null,
+      "contact": null,
+      "book": {
+        "open": true,
+        "filter": "all",
+        "formation": "all",
+        "choice": {
+          "mode": "run",
+          "index": 0
+        }
+      },
+      "owners": [
+        {
+          "i": 2,
+          "role": "OL",
+          "x": 0,
+          "z": 30.65
+        }
+      ],
+      "gl": 0,
+      "rig": [
+        {
+          "index": 2,
+          "action": null,
+          "t": 0,
+          "fall": 0,
+          "chest": [
+            0.0005880098324269056,
+            0.9765253663063049,
+            30.894262313842773
+          ],
+          "pose": "pre"
+        }
+      ],
+      "errors": []
+    }
+  },
+  "two-minute-play": {
+    "fps": 4,
+    "errors": [],
+    "frames": [
+      {
+        "phase": "snap",
+        "simTime": 0.24999999999999997,
+        "contact": null,
+        "drive": {
+          "ball": 25,
+          "down": 1,
+          "toGo": 10,
+          "clock": 119.75000000000001,
+          "score": 23,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "handoff",
+        "simTime": 0.49999999999999994,
+        "contact": null,
+        "drive": {
+          "ball": 25,
+          "down": 1,
+          "toGo": 10,
+          "clock": 119.50000000000003,
+          "score": 23,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "handoff",
+        "simTime": 0.7500000000000007,
+        "contact": null,
+        "drive": {
+          "ball": 25,
+          "down": 1,
+          "toGo": 10,
+          "clock": 119.25000000000004,
+          "score": 23,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "handoff",
+        "simTime": 1.0000000000000013,
+        "contact": null,
+        "drive": {
+          "ball": 25,
+          "down": 1,
+          "toGo": 10,
+          "clock": 119.00000000000006,
+          "score": 23,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "handoff",
+        "simTime": 1.2500000000000004,
+        "contact": null,
+        "drive": {
+          "ball": 25,
+          "down": 1,
+          "toGo": 10,
+          "clock": 118.75000000000007,
+          "score": 23,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "run",
+        "simTime": 1.4999999999999996,
+        "contact": null,
+        "drive": {
+          "ball": 25,
+          "down": 1,
+          "toGo": 10,
+          "clock": 118.50000000000009,
+          "score": 23,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "run",
+        "simTime": 1.7499999999999987,
+        "contact": null,
+        "drive": {
+          "ball": 25,
+          "down": 1,
+          "toGo": 10,
+          "clock": 118.2500000000001,
+          "score": 23,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "run",
+        "simTime": 1.9999999999999978,
+        "contact": null,
+        "drive": {
+          "ball": 25,
+          "down": 1,
+          "toGo": 10,
+          "clock": 118.00000000000011,
+          "score": 23,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "run",
+        "simTime": 2.249999999999997,
+        "contact": null,
+        "drive": {
+          "ball": 25,
+          "down": 1,
+          "toGo": 10,
+          "clock": 117.75000000000013,
+          "score": 23,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "run",
+        "simTime": 2.499999999999996,
+        "contact": null,
+        "drive": {
+          "ball": 25,
+          "down": 1,
+          "toGo": 10,
+          "clock": 117.50000000000014,
+          "score": 23,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "dead",
+        "simTime": 2.749999999999995,
+        "contact": {
+          "type": "shoulder-hit",
+          "elapsed": 0.06666666666666667,
+          "duration": 0.86,
+          "tackler": 15,
+          "helper": null
+        },
+        "drive": {
+          "ball": 25,
+          "down": 1,
+          "toGo": 10,
+          "clock": 117.31666666666682,
+          "score": 23,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "dead",
+        "simTime": 2.9999999999999942,
+        "contact": {
+          "type": "shoulder-hit",
+          "elapsed": 0.31666666666666665,
+          "duration": 0.86,
+          "tackler": 15,
+          "helper": null
+        },
+        "drive": {
+          "ball": 25,
+          "down": 1,
+          "toGo": 10,
+          "clock": 117.31666666666682,
+          "score": 23,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "dead",
+        "simTime": 3.2499999999999933,
+        "contact": {
+          "type": "shoulder-hit",
+          "elapsed": 0.5666666666666668,
+          "duration": 0.86,
+          "tackler": 15,
+          "helper": null
+        },
+        "drive": {
+          "ball": 25,
+          "down": 1,
+          "toGo": 10,
+          "clock": 117.31666666666682,
+          "score": 23,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "dead",
+        "simTime": 3.4999999999999925,
+        "contact": {
+          "type": "shoulder-hit",
+          "elapsed": 0.8166666666666675,
+          "duration": 0.86,
+          "tackler": 15,
+          "helper": null
+        },
+        "drive": {
+          "ball": 25,
+          "down": 1,
+          "toGo": 10,
+          "clock": 117.31666666666682,
+          "score": 23,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "pre",
+        "simTime": 3.683333333333325,
+        "contact": null,
+        "drive": {
+          "ball": 23,
+          "down": 2,
+          "toGo": 12,
+          "clock": 117.23333333333349,
+          "score": 23,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "pre",
+        "simTime": 3.683333333333325,
+        "contact": null,
+        "drive": {
+          "ball": 23,
+          "down": 2,
+          "toGo": 12,
+          "clock": 116.9833333333335,
+          "score": 23,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "pre",
+        "simTime": 3.683333333333325,
+        "contact": null,
+        "drive": {
+          "ball": 23,
+          "down": 2,
+          "toGo": 12,
+          "clock": 116.73333333333352,
+          "score": 23,
+          "plays": 1
+        },
+        "glError": 0
+      }
+    ]
+  },
+  "five-minute-play": {
+    "fps": 4,
+    "errors": [],
+    "frames": [
+      {
+        "phase": "run",
+        "simTime": 1.9333333333333313,
+        "contact": null,
+        "drive": {
+          "ball": 25,
+          "down": 1,
+          "toGo": 10,
+          "clock": 298.0666666666684,
+          "score": 0,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "run",
+        "simTime": 2.1833333333333305,
+        "contact": null,
+        "drive": {
+          "ball": 25,
+          "down": 1,
+          "toGo": 10,
+          "clock": 297.81666666666865,
+          "score": 0,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "run",
+        "simTime": 2.4333333333333296,
+        "contact": null,
+        "drive": {
+          "ball": 25,
+          "down": 1,
+          "toGo": 10,
+          "clock": 297.5666666666689,
+          "score": 0,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "dead",
+        "simTime": 2.6833333333333287,
+        "contact": {
+          "type": "shoulder-hit",
+          "elapsed": 0,
+          "duration": 0.86,
+          "tackler": 15,
+          "helper": null
+        },
+        "drive": {
+          "ball": 25,
+          "down": 1,
+          "toGo": 10,
+          "clock": 297.3166666666691,
+          "score": 0,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "dead",
+        "simTime": 2.933333333333328,
+        "contact": {
+          "type": "shoulder-hit",
+          "elapsed": 0.24999999999999997,
+          "duration": 0.86,
+          "tackler": 15,
+          "helper": null
+        },
+        "drive": {
+          "ball": 25,
+          "down": 1,
+          "toGo": 10,
+          "clock": 297.3166666666691,
+          "score": 0,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "dead",
+        "simTime": 3.183333333333327,
+        "contact": {
+          "type": "shoulder-hit",
+          "elapsed": 0.49999999999999994,
+          "duration": 0.86,
+          "tackler": 15,
+          "helper": null
+        },
+        "drive": {
+          "ball": 25,
+          "down": 1,
+          "toGo": 10,
+          "clock": 297.3166666666691,
+          "score": 0,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "dead",
+        "simTime": 3.433333333333326,
+        "contact": {
+          "type": "shoulder-hit",
+          "elapsed": 0.7500000000000007,
+          "duration": 0.86,
+          "tackler": 15,
+          "helper": null
+        },
+        "drive": {
+          "ball": 25,
+          "down": 1,
+          "toGo": 10,
+          "clock": 297.3166666666691,
+          "score": 0,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "pre",
+        "simTime": 3.683333333333325,
+        "contact": null,
+        "drive": {
+          "ball": 23,
+          "down": 2,
+          "toGo": 12,
+          "clock": 297.30000000000246,
+          "score": 0,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "pre",
+        "simTime": 3.683333333333325,
+        "contact": null,
+        "drive": {
+          "ball": 23,
+          "down": 2,
+          "toGo": 12,
+          "clock": 297.0500000000027,
+          "score": 0,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "pre",
+        "simTime": 3.683333333333325,
+        "contact": null,
+        "drive": {
+          "ball": 23,
+          "down": 2,
+          "toGo": 12,
+          "clock": 296.8000000000029,
+          "score": 0,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "pre",
+        "simTime": 3.683333333333325,
+        "contact": null,
+        "drive": {
+          "ball": 23,
+          "down": 2,
+          "toGo": 12,
+          "clock": 296.55000000000314,
+          "score": 0,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "pre",
+        "simTime": 3.683333333333325,
+        "contact": null,
+        "drive": {
+          "ball": 23,
+          "down": 2,
+          "toGo": 12,
+          "clock": 296.30000000000337,
+          "score": 0,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "pre",
+        "simTime": 3.683333333333325,
+        "contact": null,
+        "drive": {
+          "ball": 23,
+          "down": 2,
+          "toGo": 12,
+          "clock": 296.0500000000036,
+          "score": 0,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "pre",
+        "simTime": 3.683333333333325,
+        "contact": null,
+        "drive": {
+          "ball": 23,
+          "down": 2,
+          "toGo": 12,
+          "clock": 295.8000000000038,
+          "score": 0,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "pre",
+        "simTime": 3.683333333333325,
+        "contact": null,
+        "drive": {
+          "ball": 23,
+          "down": 2,
+          "toGo": 12,
+          "clock": 295.55000000000405,
+          "score": 0,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "pre",
+        "simTime": 3.683333333333325,
+        "contact": null,
+        "drive": {
+          "ball": 23,
+          "down": 2,
+          "toGo": 12,
+          "clock": 295.3000000000043,
+          "score": 0,
+          "plays": 1
+        },
+        "glError": 0
+      },
+      {
+        "phase": "pre",
+        "simTime": 3.683333333333325,
+        "contact": null,
+        "drive": {
+          "ball": 23,
+          "down": 2,
+          "toGo": 12,
+          "clock": 295.0500000000045,
+          "score": 0,
+          "plays": 1
+        },
+        "glError": 0
+      }
+    ]
+  }
+}
