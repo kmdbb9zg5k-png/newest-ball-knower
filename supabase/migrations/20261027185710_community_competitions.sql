@@ -119,7 +119,7 @@ begin
  elsif p_action='join_crew' then
   if crew is not null then raise exception 'Leave your current crew first'; end if;
   select * into c from bk_competition_private.crews where join_code=upper(trim(p_args->>'code')) and archived_at is null for update;
-  if not found or not bk_minigames_private.available(c.captain) then raise exception 'Crew code unavailable'; end if;
+  if not found or c.captain is null or not coalesce(bk_minigames_private.available(c.captain),false) then raise exception 'Crew code unavailable'; end if;
   if exists(select 1 from public.ball_knower_user_blocks b join bk_competition_private.members m on m.crew_id=c.id and (b.blocker_id=m.user_id or b.blocked_id=m.user_id) where (b.blocker_id=me or b.blocked_id=me)) then raise exception 'Crew unavailable'; end if;
   if (select count(*) from bk_competition_private.members where crew_id=c.id)>=32 then raise exception 'Crew is full'; end if;
   insert into bk_competition_private.members(user_id,crew_id) values(me,c.id);return '{}'::jsonb;
@@ -180,6 +180,14 @@ begin
       group by x.crew_id,x.user_id
     )t join bk_competition_private.crews c on c.id=t.crew_id where t.slot<=5 group by c.id,c.name order by points desc,c.id limit 30)z),'[]'::jsonb),
    'standings',coalesce((select jsonb_agg(z order by z.points desc,z.name) from(select x.user_id,coalesce(p.display_name,'Ball Knower') name,sum(coalesce(a.score,0)) points,count(a.submitted_at) completed,x.final_rank,c.name crew_name,(select r.badge from bk_competition_private.equipment q join bk_competition_private.rewards r using(user_id,event_id) where q.user_id=x.user_id) badge from bk_competition_private.entries x left join bk_competition_private.attempts a using(event_id,user_id) left join public.ball_knower_progress_profiles p on p.user_id=x.user_id left join bk_competition_private.crews c on c.id=x.crew_id where x.event_id=e.id and bk_minigames_private.available(x.user_id) and not exists(select 1 from public.ball_knower_user_blocks b where (b.blocker_id=me and b.blocked_id=x.user_id) or (b.blocked_id=me and b.blocker_id=x.user_id)) group by x.user_id,p.display_name,x.final_rank,c.name order by points desc,x.user_id limit 100)z),'[]'::jsonb));
+ end if;
+ -- A lost-response retry may retrieve its own immutable result after closure/removal.
+ if p_action='submit' then
+  select * into a from bk_competition_private.attempts where event_id=e.id and user_id=me and game=p_args->>'game';
+  if a.submitted_at is not null then
+   if a.token is distinct from (p_args->>'token')::uuid then raise exception 'Start the drill first';end if;
+   return jsonb_build_object('score',a.score,'stats',a.stats);
+  end if;
  end if;
  if e.crew_id is not null and exists(select 1 from public.ball_knower_user_blocks b join bk_competition_private.members m on m.crew_id=e.crew_id and (b.blocker_id=m.user_id or b.blocked_id=m.user_id) where b.blocker_id=me or b.blocked_id=me) then raise exception 'Crew competition unavailable while a member is blocked';end if;
  if e.finalized_at is not null or clock_timestamp()<e.starts_at or clock_timestamp()>=e.ends_at then raise exception 'Event is closed'; end if;

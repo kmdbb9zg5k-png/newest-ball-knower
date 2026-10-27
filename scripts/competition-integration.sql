@@ -1,0 +1,64 @@
+begin;
+set local statement_timeout='30s';
+-- All users, crews, event rows and results below roll back. Never modifies a real user's score.
+do $$
+declare a uuid:=gen_random_uuid();b uuid:=gen_random_uuid();outsider uuid:=gen_random_uuid();guest uuid:=gen_random_uuid();c uuid;e uuid;w uuid;code text;r jsonb;t text;g text;tokens jsonb:='{}';rejected boolean;before_count integer;
+begin
+ insert into auth.users(id,aud,role,email,is_anonymous,raw_app_meta_data,raw_user_meta_data)
+ select x,'authenticated','authenticated',x::text||'@competition-fixture.invalid',x=guest,'{}'::jsonb,'{}'::jsonb from unnest(array[a,b,outsider,guest])x;
+ insert into public.ball_knower_progress_profiles(user_id,display_name) values(a,'Crew fixture A'),(b,'Crew fixture B'),(outsider,'Crew fixture outsider') on conflict(user_id) do nothing;
+ perform set_config('request.jwt.claim.sub',guest::text,true);perform set_config('role','authenticated',true);
+ rejected:=false;begin perform public.ball_knower_competitions('home');exception when others then rejected:=true;end;assert rejected,'Guest must be rejected';
+ perform set_config('request.jwt.claim.sub',a::text,true);
+ r:=public.ball_knower_competitions('create_crew','{"name":"Fixture Falcons","emblem":"shield","color":"green"}');c:=(r->>'id')::uuid;
+ r:=public.ball_knower_competitions('home');code:=r->'crew'->>'join_code';assert length(code)=12,'Crew join code';
+ w:=(r->'events'->0->>'id')::uuid;
+ rejected:=false;begin perform public.ball_knower_competitions('create_night','{"title":"Duplicates","games":["dash","dash","bench"],"hours":1}');exception when others then rejected:=true;end;assert rejected,'No duplicate games';
+ r:=public.ball_knower_competitions('create_night','{"title":"Fixture combine night","games":["dash","bench","broad-jump"],"hours":1}');e:=(r->>'id')::uuid;
+ perform set_config('request.jwt.claim.sub',outsider::text,true);
+ rejected:=false;begin perform public.ball_knower_competitions('event',jsonb_build_object('id',e));exception when others then rejected:=true;end;assert rejected,'Private event isolation';
+ rejected:=false;begin perform public.ball_knower_competitions('join_event',jsonb_build_object('id',e));exception when others then rejected:=true;end;assert rejected,'Private entry isolation';
+ perform set_config('request.jwt.claim.sub',b::text,true);perform public.ball_knower_competitions('join_crew',jsonb_build_object('code',lower(code)));
+ rejected:=false;begin perform public.ball_knower_competitions('rotate_code');exception when others then rejected:=true;end;assert rejected,'Captain permissions';
+ perform set_config('request.jwt.claim.sub',a::text,true);
+ rejected:=false;begin perform public.ball_knower_competitions('leave_crew');exception when others then rejected:=true;end;assert rejected,'Captain must transfer before leaving members';
+ perform public.ball_knower_competitions('join_event',jsonb_build_object('id',e));perform public.ball_knower_competitions('join_event',jsonb_build_object('id',e));
+ perform set_config('role','none',true);select count(*) into before_count from bk_competition_private.entries where event_id=e and user_id=a;assert before_count=1,'Idempotent join';
+ perform set_config('role','authenticated',true);
+ foreach g in array array['dash','bench','broad-jump'] loop
+  r:=public.ball_knower_competitions('begin',jsonb_build_object('id',e,'game',g));t:=r->>'token';tokens:=tokens||jsonb_build_object(g,t);
+  assert t=(public.ball_knower_competitions('begin',jsonb_build_object('id',e,'game',g))->>'token'),'Stable attempt token';
+  rejected:=false;begin perform public.ball_knower_competitions('submit',jsonb_build_object('id',e,'game',g,'token',gen_random_uuid(),'stats','{}'::jsonb));exception when others then rejected:=true;end;assert rejected,'Wrong token rejected';
+  perform set_config('role','none',true);update bk_competition_private.attempts set started_at=clock_timestamp()-interval '5 seconds' where event_id=e and user_id=a and game=g;perform set_config('role','authenticated',true);
+  r:=public.ball_knower_competitions('submit',jsonb_build_object('id',e,'game',g,'token',t,'stats',case g when 'dash' then '{"time":4.5,"split10":1.5,"split20":2.6}'::jsonb when 'bench' then '{"reps":30}'::jsonb else '{"distance":3}'::jsonb end));
+  assert (r->>'score')::numeric=case g when 'dash' then 87.5 when 'bench' then 60 else 75 end,'Server score normalization';
+  assert public.ball_knower_competitions('submit',jsonb_build_object('id',e,'game',g,'token',t,'stats','{"score":999}'::jsonb))=r,'Locked result retry ignores new input';
+ end loop;
+ r:=public.ball_knower_competitions('event',jsonb_build_object('id',e));assert (r->'standings'->0->>'points')::numeric=222.5,'Three-drill total';assert (r->'crew_standings'->0->>'points')::numeric=44.5,'Crew top-five denominator';
+ assert jsonb_array_length(public.ball_knower_competitions('home')->'rewards')=0,'No premature rewards';
+ perform set_config('request.jwt.claim.sub',b::text,true);perform public.ball_knower_competitions('join_event',jsonb_build_object('id',e));
+ perform set_config('role','none',true);
+ insert into public.ball_knower_user_blocks(blocker_id,blocked_id) values(a,b);
+ perform set_config('role','authenticated',true);
+ rejected:=false;begin perform public.ball_knower_competitions('begin',jsonb_build_object('id',e,'game','dash'));exception when others then rejected:=true;end;assert rejected,'Blocks stop crew competition';
+ perform set_config('request.jwt.claim.sub',a::text,true);r:=public.ball_knower_competitions('home');assert r->'crew'->'members' @> jsonb_build_array(jsonb_build_object('user_id',b,'name','Unavailable member')),'Block redacts member identity';
+ perform set_config('role','none',true);delete from public.ball_knower_user_blocks where blocker_id=a and blocked_id=b;
+ insert into ball_knower_private.community_suspensions(auth_user_id,expires_at,reason) values(b,now()+interval '1 hour','fixture');
+ perform set_config('role','authenticated',true);perform public.ball_knower_competitions('remove_member',jsonb_build_object('user_id',b));
+ perform set_config('role','none',true);assert not exists(select 1 from bk_competition_private.members where user_id=b),'Captain can remove suspended member';
+ delete from ball_knower_private.community_suspensions where auth_user_id=b;
+ update bk_competition_private.events set starts_at=now()-interval '2 hours',ends_at=clock_timestamp()-interval '1 minute' where id=e;
+ perform set_config('role','authenticated',true);r:=public.ball_knower_competitions('event',jsonb_build_object('id',e));assert r->'event'->>'finalized_at' is not null,'First finalization response current';
+ assert (r->'standings'->0->>'final_rank')::integer=1,'Champion rank';
+ r:=public.ball_knower_competitions('home');assert jsonb_array_length(r->'rewards')=1 and r->'rewards'->0->>'badge'='champion','Champion reward issued';
+ perform public.ball_knower_competitions('equip',jsonb_build_object('id',e));
+ r:=public.ball_knower_competitions('submit',jsonb_build_object('id',e,'game','dash','token',tokens->>'dash','stats','{}'::jsonb));assert (r->>'score')::numeric=87.5,'Lost response retry survives deadline';
+ rejected:=false;begin perform public.ball_knower_competitions('begin',jsonb_build_object('id',e,'game','dash'));exception when others then rejected:=true;end;assert rejected,'No new attempts after deadline';
+ perform public.ball_knower_competitions('leave_crew');
+ perform set_config('role','none',true);assert exists(select 1 from bk_competition_private.crews where id=c and archived_at is not null),'Crew archives';assert exists(select 1 from bk_competition_private.rewards where event_id=e and user_id=a),'Archive preserves earned reward';assert exists(select 1 from bk_competition_private.equipment where user_id=a),'Archive preserves equipped badge';
+ perform set_config('request.jwt.claim.sub',outsider::text,true);perform set_config('role','authenticated',true);rejected:=false;begin perform public.ball_knower_competitions('join_crew',jsonb_build_object('code',code));exception when others then rejected:=true;end;assert rejected,'Archived code cannot join';
+ perform set_config('role','none',true);
+ assert not has_table_privilege('authenticated','bk_competition_private.attempts','INSERT'),'No direct score writes';assert not has_function_privilege('anon','public.ball_knower_competitions(text,jsonb)','EXECUTE'),'No anonymous RPC';
+ raise notice 'PASS competition integration: auth, crews, captain controls, private isolation, blocks, scores, tokens, idempotency, deadlines, rewards and archive preservation';
+end $$;
+rollback;
