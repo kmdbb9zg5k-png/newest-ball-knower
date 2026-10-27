@@ -71,3 +71,23 @@ creator remain in use; no custom-face mesh or voiced cutscenes are introduced.
 Screenshots: `origin-390.webp` is a fresh, unscouted career; `ready-390.webp` shows
 committed choices and team interest; `outcome-1280.webp` shows the undrafted signing
 branch. Player identity controls remain accessible below the story on small screens.
+
+## Follow-up presentation audit — 2026-10-27
+
+Reviewed the actual rendered journey, draft outcomes, and playable dash at phone
+and desktop sizes. Fixed three presentation defects: three-digit pick numbers
+wrapped mid-number; signing a camp offer dimmed the selected offer too heavily;
+and the rookie-season action lacked separation from its summary. These are scoped
+CSS changes, with no scoring, save, or simulation changes.
+
+Corrected both browser fixtures to load the application's Solo and broadcast
+stylesheets. The focused journey fixture now checks outcome overflow, pick-label
+fit and signed-offer visibility, and waits for the reveal animation before its
+screenshot. Updated ready-390 and outcome-1280 captures reflect these styles;
+origin-390 is the earlier release capture.
+
+Rechecked the 96-case journey model, TypeScript, production build, complete QB
+workout flow, and story flow at 320/390/1280. Saved decisions, irreversible training,
+resumed draft picks, undrafted signing, and the first rookie week passed. Build
+retains existing bundle-size warnings. Browser checks use Chromium with software
+rendering; physical-device Safari performance remains unverified.
