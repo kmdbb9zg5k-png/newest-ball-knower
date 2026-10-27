@@ -1,3 +1,5 @@
+import {CareerRivalry,CareerOffseason} from './MyPlayerArc';
+import {createCareerArc,cleanCareerArc,chooseRival,completeArcWeek,finishArcSeason,type CareerArc,type RivalChoice} from './myPlayerArc';
 import {CareerCamp,CareerWeek} from './MyPlayerCareer';
 import {createCareerLife,cleanCareerLife,chooseCamp,campScore,finishCamp,chooseWeek,recordWeekMoment,weekReady,completeCareerWeek,careerGameBoost,type CareerLife} from './myPlayerCareer';
 import {MyPlayerJourney,MyPlayerDraftNight} from './MyPlayerJourney';
@@ -29,6 +31,7 @@ type MyPlayerProfile = {
   draftJourney?: JourneyState;
   rookieRole?: MyPlayerRole;
   careerLife?: CareerLife;
+  careerArc?: CareerArc;
   stage: StoryStage;
   name: string;
   position: Position;
@@ -112,7 +115,7 @@ function restoreProfile() {
     const saved = JSON.parse(raw);
     if (saved?.version !== 1 || !POSITIONS.includes(saved.position) || !['creator', 'combine', 'drafted', 'camp', 'season'].includes(saved.stage)) return EMPTY_PROFILE;
     if (['drafted', 'camp', 'season'].includes(saved.stage) && !SOLO_TEAM_THEMES.some(team => team.abbr === saved.teamAbbr)) return EMPTY_PROFILE;
-    return { ...EMPTY_PROFILE, ...saved, careerLife:cleanCareerLife(saved.careerLife,{...EMPTY_PROFILE,...saved},saved.draftJourney),combinePerformance:cleanDraftCombine(saved.combinePerformance),draftJourney:saved.draftJourney?cleanJourney(saved.draftJourney,{...EMPTY_PROFILE,...saved}):undefined,rookieRole:['starter','rotation','development'].includes(saved.rookieRole)?saved.rookieRole:undefined } as MyPlayerProfile;
+    return { ...EMPTY_PROFILE, ...saved, careerArc:cleanCareerArc(saved.careerArc,{...EMPTY_PROFILE,...saved}),careerLife:cleanCareerLife(saved.careerLife,{...EMPTY_PROFILE,...saved},saved.draftJourney),combinePerformance:cleanDraftCombine(saved.combinePerformance),draftJourney:saved.draftJourney?cleanJourney(saved.draftJourney,{...EMPTY_PROFILE,...saved}):undefined,rookieRole:['starter','rotation','development'].includes(saved.rookieRole)?saved.rookieRole:undefined } as MyPlayerProfile;
   } catch {
     return EMPTY_PROFILE;
   }
@@ -163,8 +166,8 @@ function playerFromProfile(profile: MyPlayerProfile): Player {
     overall: profile.overall,
     overallRating: profile.overall,
     ratingSource: 'Ball Knower Career',
-    ratingSeason: 2026,
-    salary: 1.1,
+    ratingSeason: profile.careerArc?.year||2026,
+    salary: profile.careerArc?.contract.annual??1.1,
     salaryType: 'estimated',
     archetype: 'Created Player',
     speed: profile.speed,
@@ -346,14 +349,15 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
     setProfile(current=>current.stage!=='drafted'?current:({...current,stage:draftOutcome?'camp':'season',careerLife:draftOutcome?createCareerLife(current,current.draftJourney,current.rookieRole):undefined,upgradePoints:current.upgradePoints+(draftOutcome?.developmentPoints||0)}));
   };
 
-  const awardXp = (fantasyScore: number, won: boolean,progress?:Player,careerKey?:string) => {
+  const awardXp = (fantasyScore: number, won: boolean,progress?:Player,careerKey?:string,opponentAbbr?:string) => {
     setProfile(current => {
       if(current.careerLife&&careerKey&&!weekReady(current.careerLife,careerKey))return current;
-      const careerLife=current.careerLife&&careerKey?completeCareerWeek(current.careerLife,careerKey,won):current.careerLife;
+      let careerLife=current.careerLife&&careerKey?completeCareerWeek(current.careerLife,careerKey,won):current.careerLife;
+      let careerArc=current.careerArc;if(careerLife&&careerKey){const result=completeArcWeek(careerArc||createCareerArc(current,Number(careerKey.split(':')[0])),careerLife,careerKey,won,opponentAbbr||'');careerArc=result.arc;careerLife=result.life;}
       const earned = Math.max(12, Math.round(fantasyScore * 4) + (won ? 10 : 0))+(current.careerLife?.turn?.score!==undefined?Math.round(current.careerLife.turn.score/5):0);
       const total = current.xp + earned;
       const points = Math.floor(total / 100);
-      return { ...current, careerLife,rookieRole:careerLife?.role||current.rookieRole, ...(current.rookieRole&&progress?{overall:Math.max(current.overall,progress.ovr),speed:Math.max(current.speed,progress.speed||0),power:Math.max(current.power,progress.strength||0),awareness:Math.max(current.awareness,progress.awareness||0)}:{}), xp: total % 100, upgradePoints: current.upgradePoints + points, gamesPlayed: current.gamesPlayed + 1 };
+      return { ...current, careerLife,careerArc,rookieRole:careerLife?.role||current.rookieRole, ...(current.rookieRole&&progress?{overall:Math.max(current.overall,progress.ovr),speed:Math.max(current.speed,progress.speed||0),power:Math.max(current.power,progress.strength||0),awareness:Math.max(current.awareness,progress.awareness||0)}:{}), xp: total % 100, upgradePoints: current.upgradePoints + points, gamesPlayed: current.gamesPlayed + 1 };
     });
   };
 
@@ -378,6 +382,12 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
     setMessage('');
   };
 
+  const initialArcYear=useMemo(()=>{try{const year=JSON.parse(localStorage.getItem(`${SOLO_FRANCHISE_SAVE_KEYS.player}:season`)||'null')?.year;return Number.isInteger(year)&&year>=2026?year:2026;}catch{return 2026;}},[]);
+  const arc=useMemo(()=>profile.careerArc||createCareerArc(profile,profile.careerLife?.camp.legacy||profile.gamesPlayed>0?initialArcYear:2026),[profile.careerArc,profile.combineId,profile.name,profile.teamAbbr,profile.draftRound,profile.draftPick,profile.draftJourney,initialArcYear,Boolean(profile.careerLife?.camp.legacy||profile.gamesPlayed>0)]);
+  const commitRival=(key:string,id:RivalChoice)=>setProfile(current=>{if(!current.careerLife)return current;const result=chooseRival(current.careerArc||createCareerArc(current,Number(key.split(':')[0])),current.careerLife,key,id);return {...current,careerArc:result.arc,careerLife:result.life};});
+  const advanceLock=useRef(false);
+  const advanceCareer=(year:number,wins:number,champion:boolean,offerId?:string)=>{if(advanceLock.current||!profile.careerLife)return;const result=finishArcSeason(profile.careerArc||createCareerArc(profile,year),profile.careerLife,profile,year,wins,champion,offerId);if(!result)return;const next={...profile,teamAbbr:result.team,careerArc:result.arc,careerLife:result.life,rookieRole:result.life.role};try{localStorage.setItem(SOLO_FRANCHISE_SAVE_KEYS.player,JSON.stringify(next));advanceLock.current=true;setProfile(next);window.scrollTo({top:0,behavior:'instant'});}catch{setSaveError('Your next season could not be saved. Free up device storage and try again; your current season is still here.');}};
+  useEffect(()=>{advanceLock.current=false;},[profile.careerArc?.year]);
   const campLife=profile.careerLife||createCareerLife(profile,profile.draftJourney,profile.rookieRole);
   const commitCamp=(kind:'prep'|'response',id:string)=>setProfile(current=>current.stage!=='camp'?current:{...current,careerLife:chooseCamp(current.careerLife||createCareerLife(current,current.draftJourney,current.rookieRole),kind,id)});
   const recordCamp=(index:number,score:number)=>setProfile(current=>current.stage!=='camp'?current:{...current,careerLife:campScore(current.careerLife||createCareerLife(current,current.draftJourney,current.rookieRole),index,score)});
@@ -406,9 +416,9 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
         </div>
         {saveError&&<p role="alert" className="mx-auto max-w-5xl p-4 text-red-300">{saveError}</p>}
         {!profile.careerLife&&<div className="mx-auto max-w-5xl p-4"><button className="career-primary" onClick={()=>setProfile(current=>{if(current.careerLife)return current;const life=createCareerLife(current,current.draftJourney,current.rookieRole?currentCareerRole(current.rookieRole,current.overall,current.gamesPlayed):'starter');const ids=new Set(rosterWithMyPlayer(current).map(p=>p.id));const rosterSlotId=buildSoloTeamRoster(current.teamAbbr).find(p=>!ids.has(p.id))?.id;return {...current,careerLife:{...life,rosterSlotId,camp:{scores:[],complete:true,legacy:true},games:current.gamesPlayed}};})}>ENABLE LIVING CAREER</button><p className="career-note">Keep your season and add weekly conversations, playable moments and evolving relationships. No training-camp replay required.</p></div>}
-        <FranchiseSeason title="MY PLAYER STORY" userTeam={draftedTeam} roster={roster} saveKey={SOLO_FRANCHISE_SAVE_KEYS.player} onBack={onBack} myPlayerId="my-player-user" myPlayerProgress={profile.rookieRole?{ovr:profile.overall,speed:profile.speed,strength:profile.power,awareness:profile.awareness}:undefined} myPlayerRole={profile.careerLife?.role||(profile.rookieRole?currentCareerRole(profile.rookieRole,profile.overall,profile.gamesPlayed):undefined)} careerPanel={profile.careerLife?context=><CareerWeek life={profile.careerLife!} profile={profile} context={context} onChoice={commitWeek} onMoment={recordMoment}/>:undefined} careerReady={profile.careerLife?key=>weekReady(profile.careerLife,key):undefined} careerBoost={profile.careerLife?key=>careerGameBoost(profile.careerLife,key):undefined} onMyPlayerGame={awardXp} />
-        <button type="button" onClick={newCareer} style={{ bottom: 'calc(max(1rem, env(safe-area-inset-bottom)) + 4.5rem)' }} className="fixed right-4 z-30 flex min-h-10 items-center gap-2 rounded-full border border-white/10 bg-black/95 px-3 text-[10px] font-black shadow-xl"><RotateCcw size={14} /> NEW PLAYER</button>
-        <div className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-xl items-center gap-2 rounded-2xl border border-white/10 bg-black/95 p-2 shadow-2xl">
+        <FranchiseSeason key={profile.careerLife?`${arc.year}:${profile.teamAbbr}`:'legacy'} careerStartYear={profile.careerLife?arc.year:undefined} onCareerSeasonYearChange={profile.careerLife?year=>setProfile(current=>{if(!current.careerLife||current.careerArc&&current.careerArc.year>=year)return current;const previous=current.careerArc||createCareerArc(current,year-1);return {...current,careerArc:{...previous,year,seasonOwn:0,seasonRival:0,seasonGames:0}};}):undefined} careerOffseason={profile.careerLife?(year,wins,champion)=><CareerOffseason arc={arc} life={profile.careerLife!} profile={profile} year={year} wins={wins} champion={champion} onAdvance={advanceCareer}/>:undefined} title="MY PLAYER STORY" userTeam={draftedTeam} roster={roster} saveKey={SOLO_FRANCHISE_SAVE_KEYS.player} onBack={onBack} myPlayerId="my-player-user" myPlayerProgress={profile.rookieRole?{ovr:profile.overall,speed:profile.speed,strength:profile.power,awareness:profile.awareness}:undefined} myPlayerRole={profile.careerLife?.role||(profile.rookieRole?currentCareerRole(profile.rookieRole,profile.overall,profile.gamesPlayed):undefined)} careerPanel={profile.careerLife?context=><><CareerRivalry arc={arc} life={profile.careerLife!} name={profile.name} context={context} onChoice={commitRival}/><CareerWeek life={profile.careerLife!} profile={profile} context={context} onChoice={commitWeek} onMoment={recordMoment}/></>:undefined} careerReady={profile.careerLife?key=>weekReady(profile.careerLife,key):undefined} careerBoost={profile.careerLife?key=>careerGameBoost(profile.careerLife,key):undefined} onMyPlayerGame={awardXp} />
+        <button type="button" onClick={newCareer} style={{ bottom: 'calc(max(1rem, env(safe-area-inset-bottom)) + 4.5rem)' }} className="my-player-restart fixed right-4 z-30 flex min-h-10 items-center gap-2 rounded-full border border-white/10 bg-black/95 px-3 text-[10px] font-black shadow-xl"><RotateCcw size={14} /> NEW PLAYER</button>
+        <div className="my-player-upgrades fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-xl items-center gap-2 rounded-2xl border border-white/10 bg-black/95 p-2 shadow-2xl">
           <div className="min-w-0 flex-1 px-2"><div className="truncate text-xs font-black">{profile.name} • {profile.overall} OVR</div><div className="text-[10px] text-zinc-500">XP {profile.xp}/100 • {profile.upgradePoints} UPGRADE POINT{profile.upgradePoints === 1 ? '' : 'S'}</div></div>
           {(['speed', 'power', 'awareness'] as UpgradeAttribute[]).map(attribute => <button key={attribute} type="button" disabled={!profile.upgradePoints || profile.overall >= 99} onClick={() => upgrade(attribute)} className="min-h-10 rounded-xl border border-[var(--bk-team-accent)]/30 px-2 text-[9px] font-black uppercase text-[var(--bk-team-accent)] disabled:opacity-30">+ {attribute}</button>)}
         </div>
