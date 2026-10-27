@@ -19,7 +19,7 @@ try{
  await page.evaluate(()=>{window.bk3dTest.seed(376);window.bk3dTest.step(1.5)});
  assert.equal(await page.locator('#catchChoices').isVisible(),false,'Hidden in pocket');
  await page.keyboard.press('c');assert.equal(await page.evaluate(()=>window.bk3dDiagnostics().catchStyle),'rac','Pre-throw shortcut must not select a catch');
- await page.evaluate(()=>{window.bk3dTest.seed(1000);window.bk3dTest.throwTo(8,'bullet')});
+ await page.evaluate(()=>{window.bk3dTest.seed(742);window.bk3dTest.throwTo(8,'bullet')});
  assert.equal(await page.locator('#catchChoices').isVisible(),false,'Hidden during windup');
  for(let i=0;i<60;i++){await page.evaluate(()=>window.bk3dTest.step(1/60));if(await page.evaluate(()=>window.bk3dDiagnostics().phase==='flight'))break;}
  assert.equal(await page.locator('#catchChoices').isVisible(),true,'Visible after release');

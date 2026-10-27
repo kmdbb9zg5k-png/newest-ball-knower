@@ -105,8 +105,10 @@ def record(browser, origin, out, mode):
                 timeline.append({'frame': frame, 'phase': state['phase'], 'assist': state['assist'], 'camera': state['camera'], 'carrier': holder, 'states': state['athletes']['states']})
             frame += 1
     try:
-        page.goto(origin + '/play-moment-3d-preview.html?qa', wait_until='domcontentloaded')
-        page.wait_for_function('window.bk3dDiagnostics && bk3dDiagnostics().athletes.ready', timeout=45000)
+        page.goto(origin + '/play-moment-3d-preview.html?qa&assist=1', wait_until='domcontentloaded')
+        page.wait_for_function('window.bk3dTest', timeout=45000)
+        page.evaluate('bk3dTest.manualFrames()')
+        page.wait_for_function('bk3dDiagnostics().athletes.ready', timeout=45000)
         page.evaluate('bk3dTest.manualFrames(); bk3dTest.step(2)')
         loaded = read()
         assert (loaded['athletes']['triangles'], loaded['athletes']['bones'], loaded['athletes']['clips']) == (31070, 28, 8)

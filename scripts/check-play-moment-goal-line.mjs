@@ -33,6 +33,7 @@ const endSource=between(' function endPlay(', ' function endDrive(');
 function fixture(initial){
  const create=Function('initial','lineToGain',`
  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+ const fullGame=false,conversionDrive=null,mini=null,controlSettings={pulse(){}},stadiumSound=()=>{},captureHighlight=()=>{},releasePostPlay=()=>{},$=()=>({hidden:false,classList:{remove(){}}});let pendingThrow=null,postPlayElapsed=0,lastFlightEnd=null,lastHighlight=[],highlightFrames=[],pendingPlayMessage=null;
  let drive={clock:63,score:24,plays:1,...initial},phase='run',ended=false,flight=null;
  let input={x:1,z:1,sprint:true},keys=new Set(['w']),recoveryLeft=0,activeContact=null;
  let carrier={fallen:false,moving:true,engaged:false},actors=[carrier],messages=[],ending=null;
@@ -46,7 +47,7 @@ function fixture(initial){
 }
 let f=fixture({ball:85,down:1,toGo:10});f.end('TACKLED',98);let d=f.state();
 assert.equal(downDistanceLabel(d.drive),'1ST & GOAL');assert.equal(d.drive.score,24);assert.equal(d.carrier.fallen,true);
-assert.equal(d.messages.at(-1),'FIRST & GOAL · +13 YDS');assert.equal(d.recoveryLeft,1.2);
+assert.equal(d.messages.at(-1),'FIRST & GOAL · +13 YDS');assert.equal(d.recoveryLeft,1.35);
 const settled=structuredClone(d);f.end('TACKLED',99);assert.deepEqual(f.state(),settled,'Duplicate finish changed the result');
 f=fixture({ball:98,down:1,toGo:2});f.end('SACK',92);assert.equal(downDistanceLabel(f.state().drive),'2ND & GOAL');
 f=fixture({ball:92,down:2,toGo:8});f.end('SACK',86);assert.equal(downDistanceLabel(f.state().drive),'3RD & GOAL');

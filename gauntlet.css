@@ -338,7 +338,7 @@
 .bk-gauntlet-daily-card:disabled { opacity: .72; }
 .bk-gauntlet-daily-card-top { display: flex; width: 100%; align-items: center; justify-content: flex-end; gap: 4px; color: #c3a96d; font-size: 6.5px; font-weight: 850; letter-spacing: .04em; text-transform: uppercase; }
 .bk-gauntlet-daily-card-top > svg { position: absolute; top: 17px; left: 14px; width: 34px; height: 34px; color: #efcc7b; stroke-width: 1.7; }
-.bk-gauntlet-daily-card > strong { margin-top: 12px; font-family: "Barlow Condensed", "Arial Narrow", Impact, sans-serif; font-size: clamp(17px, 5vw, 23px); font-weight: 900; line-height: .95; text-transform: uppercase; }
+.bk-gauntlet-daily-card > strong { max-width: 100%; overflow-wrap: anywhere; margin-top: 12px; font-family: "Barlow Condensed", "Arial Narrow", Impact, sans-serif; font-size: clamp(17px, 5vw, 23px); font-weight: 900; line-height: .95; text-transform: uppercase; }
 .bk-gauntlet-daily-card > small { margin-top: 5px; color: #b5b0a4; font-size: 9px; font-weight: 600; line-height: 1.25; }
 .bk-gauntlet-daily-card .bk-gauntlet-mode-action svg { width: 13px; height: 13px; fill: currentColor; }
 

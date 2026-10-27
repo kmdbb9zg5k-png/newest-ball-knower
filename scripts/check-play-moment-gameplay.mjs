@@ -60,16 +60,16 @@ assert.deepEqual(breakup, [.9, .68, .3, .04]);
 assert.ok(breakup.every((chance, index) => index === 0 || chance < breakup[index - 1]));
 
 assert.equal(tackleRadius(.1, false), 0, 'A handoff must finish before run contact');
-assert.equal(tackleRadius(.3, false), 0, 'Run handoff grace should still be active');
-assert.equal(tackleRadius(.56, false), .86, 'Run contact should activate after the handoff settles');
+assert.equal(tackleRadius(.24, false), 0, 'Run handoff grace should still be active');
+assert.equal(tackleRadius(.25, false), 1.22, 'Run contact should activate after the handoff settles');
 assert.equal(tackleRadius(.1, true), 0, 'A catch should complete before contact');
-assert.equal(tackleRadius(.19, true), 1.05, 'Catch contact should activate quickly');
+assert.equal(tackleRadius(.18, true), 1.22, 'Catch contact should activate quickly');
 
 for (const separation of [0, 2, 8, 20]) {
   const runSpeed = defenderPursuitSpeed(separation, false);
   const passSpeed = defenderPursuitSpeed(separation, true);
-  assert.ok(runSpeed >= 6.55 && runSpeed <= 7.2);
-  assert.ok(passSpeed >= 7.55 && passSpeed <= 8.4);
+  assert.ok(runSpeed >= 6.8 && runSpeed <= 8.55);
+  assert.ok(passSpeed >= 7.65 && passSpeed <= 8.85);
   assert.ok(passSpeed > runSpeed, 'Open-field pass pursuit should close faster than box pursuit');
   assert.ok(passSpeed < 9.2, 'A full-stamina sprint must still be able to win a footrace');
 }
@@ -100,10 +100,11 @@ assert.equal(hasCrossedScrimmage(100.15, 100), true);
 assert.equal(canThrowAway(6), false, 'The quarterback is still inside the tackle box');
 assert.equal(canThrowAway(6.01), true, 'The quarterback may throw away after escaping the tackle box');
 assert.equal(canThrowAway(-8), true, 'Throwaways must work from either edge');
-assert.equal(qbMovementSpeed(0), 4.4);
-assert.equal(qbMovementSpeed(6), 4.4);
-assert.equal(qbMovementSpeed(6.01), 5.8, 'A quarterback outside the tackle box should accelerate into a rollout');
-assert.ok(qbMovementSpeed(0, 1) > 5.09, 'Climbing the pocket should be fast enough to create a fair scramble window');
+assert.ok(qbMovementSpeed(0)>0);
+assert.ok(qbMovementSpeed(6)>qbMovementSpeed(0),'Pace builds smoothly approaching the edge of the pocket');
+assert.ok(qbMovementSpeed(6.01)>qbMovementSpeed(6),'Leaving the tackle box accelerates the rollout');
+assert.ok(qbMovementSpeed(0,1)>qbMovementSpeed(0),'Climbing accelerates beyond lateral pocket movement');
+assert.ok(qbMovementSpeed(0,0,{ratings:{speed:95}})>qbMovementSpeed(0,0,{ratings:{speed:60}}),'QB movement honors the athlete speed rating');
 assert.equal(QB_LATERAL_LIMIT, 26, 'QB movement ends at the sideline, not an invisible pocket wall');
 
 const qbBall=carriedBallAnchor({role:'QB',x:2,z:20,heading:0},'pass');

@@ -52,7 +52,7 @@ const layoutSnapshot=page=>page.evaluate(()=>{
       parent=parent.parentElement;
     }
     if(rect.left>=-1&&rect.right<=window.innerWidth+1)return[];
-    return[`${element.tagName.toLowerCase()}.${[...element.classList].slice(0,2).join('.')} [${Math.round(rect.left)}, ${Math.round(rect.right)}]`];
+    return[`${element.tagName.toLowerCase()}.${[...element.classList].slice(0,2).join('.')} in ${element.parentElement?.className}: ${element.textContent?.slice(0,80)} [${Math.round(rect.left)}, ${Math.round(rect.right)}]`];
   }).slice(0,12):[];
   return{
     viewport:{width:window.innerWidth,height:window.innerHeight},
@@ -135,7 +135,7 @@ await mkdir(artifactDir,{recursive:true});
 let browser;
 try{
   await waitForServer();
-  browser=await chromium.launch({headless:true});
+  browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_PATH||undefined});
   for(const size of sizes){
     const context=await browser.newContext({viewport:{width:size.width,height:size.height},deviceScaleFactor:2,isMobile:true,hasTouch:true});
     const page=await context.newPage();
@@ -154,6 +154,7 @@ try{
     await page.route('**/_vercel/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:''}));
     await page.addInitScript(()=>{
       localStorage.setItem('ball-knower-team-setup-v2','complete');
+      localStorage.setItem('ball-knower-intro-completed-v1','1');
       localStorage.setItem('ball-knower-intro-sound-v1','off');
       localStorage.setItem('bk-guide-fantasy-hq-v3','seen');
       localStorage.setItem('bk-guide-the-gauntlet-v4','seen');
@@ -198,7 +199,8 @@ try{
     await page.waitForTimeout(50);
     assertContained(await layoutSnapshot(page),`${size.label} scrolled Cheat Sheet`);
 
-    await primary.getByRole('button',{name:'Trivia',exact:true}).click();
+    await primary.getByRole('button',{name:'Community',exact:true}).click();
+    await page.getByRole('button',{name:'Play solo trivia instead',exact:true}).click();
     await page.locator('[data-testid="gauntlet-arena"]').waitFor({state:'visible'});
     const gauntletSnapshot=await layoutSnapshot(page);
     assertContained(gauntletSnapshot,`${size.label} Trivia`);

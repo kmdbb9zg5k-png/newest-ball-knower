@@ -2,6 +2,7 @@
  * No renderer mocks are counted as rendered or device tests; see the .py suite.
  */
 import assert from 'node:assert/strict';
+import {routePoint} from '../public/play-moment-3d/football-flow.js';
 import {PASSES} from '../public/play-moment-3d/playbook.js';
 import {cameraRigTravel,cameraTravel,runCameraFraming,normalizeControlKey as normalize,layoutReceiverMarkers as layout,predictPassDestination as predict} from '../public/play-moment-3d/game.js';
 import {readFileSync} from 'node:fs';
@@ -12,7 +13,7 @@ assert.equal(normalize('W'),'w');assert.equal(normalize('A'),'a');assert.equal(n
 const cameraSource=between(' function camera(dt)',' function scene(dt');
 const specs=Function('return '+between(' const specs=',';\n const receiverIndices=').split('const specs=')[1])();
 const routeSource=between('function travel(','export function runConceptDirection');
-const routes={PASSES,travel:Function(routeSource+';return travel;')()};
+const routes={PASSES,travel:Function('routePoint',routeSource+';return travel;')(routePoint)};
 let passLeadSamples=0;
 for(const pass of routes.PASSES)for(let i=0;i<3;i++)for(const elapsed of[.2,.9,1.8]){
  const duration=.72,speed=6.3+i*.2,startX=[-21,-12,21][i],startZ=[95,94.4,95][i];
@@ -34,7 +35,7 @@ function fixture(phase,actors,width,height,carrier=actors[5]){
  }};
  const before=JSON.stringify(actors);
  const cameraFollowBlend=(dt,rate=5)=>1-Math.exp(-Math.max(0,Number(rate)||0)*clamp(Number(dt)||0,0,.25));
- Function('r','phase','actors','carrier','clamp','cameraFollowBlend','cameraTravel','runCameraFraming','cameraRigTravel',`const playbookOpen=false;let camEye=[0,0,0],camTarget=[0,0,0],impactShake=0,simTime=0,postPlayElapsed=0,runCameraBlend=0,runCameraStart=null,flightCameraStart=null,deadCameraStart=null;const smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)},$=()=>({getBoundingClientRect:()=>({top:r.height-100})});const snapZ=95,receiverIndices=[7,8,9,10,6],flight=null;${cameraSource};for(let frame=0;frame<240;frame++)camera(1/60);`)(r,phase,actors,carrier,clamp,cameraFollowBlend,cameraTravel,runCameraFraming,cameraRigTravel);
+ Function('r','phase','actors','carrier','clamp','cameraFollowBlend','cameraTravel','runCameraFraming','cameraRigTravel',`const fullGame=false,liveUnit=null;const fieldCamera=(eye,target)=>r.camera(eye,target);const playbookOpen=false;let cameraReset=false;let camEye=[0,0,0],camTarget=[0,0,0],impactShake=0,simTime=0,postPlayElapsed=0,runCameraBlend=0,runCameraStart=null,flightCameraStart=null,deadCameraStart=null;const smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)},$=()=>({getBoundingClientRect:()=>({top:r.height-100})});const snapZ=95,receiverIndices=[7,8,9,10,6],flight=null;${cameraSource};for(let frame=0;frame<240;frame++)camera(1/60);`)(r,phase,actors,carrier,clamp,cameraFollowBlend,cameraTravel,runCameraFraming,cameraRigTravel);
  assert.equal(JSON.stringify(actors),before,'Camera changed player state');return r;
 }
 let samples=0;

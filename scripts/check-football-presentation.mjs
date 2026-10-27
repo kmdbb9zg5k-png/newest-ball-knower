@@ -46,14 +46,24 @@ for(const team of[0,1])for(const role of['QB','RB','WR','TE','OL','DL','LB','DB'
  }
  checks++;
 }
-// Sample engaged linemen over a complete step cycle, with real skinning.
-for(const team of[0,1])for(let i=0;i<12;i++){
- const p={role:team?'DL':'OL',team,index:100+team,x:0,z:0,heading:0,vx:0,vz:.3,distance:i*.04,engaged:true,blockStyle:team?'shed':'drive'};
- rig.phase='run';rig.poseStates.clear();const bones=rig.bonesFor(p,'run',i/12),model=rig.modelFor(p),hands=rig.handTransforms.get(p.index);
- assert.ok([...bones,...model].every(Number.isFinite),'Block pose must remain finite');
- for(const hand of[hands.left,hands.right])assert.ok(hand[14]>hands.chest[14]+.15,'Block hands should reach forward');
- const points=skinSupportVertices(allVertices,bones);let floor=Infinity;for(const v of points)floor=Math.min(floor,model[1]*v[0]+model[5]*v[1]+model[9]*v[2]+model[13]);
- assert.ok(floor>=-.04,'Blocking steps must not penetrate the turf');checks++;
+// Sample a complete reset/re-punch cycle: the resetting hand may withdraw,
+// but stays ahead of the chest while the opposite hand keeps pad contact.
+for(const team of[0,1]){
+ const reach=[[],[]],cycleSeconds=2*Math.PI/(2.4+.3*1.2);
+ for(let i=0;i<=48;i++){
+  const p={role:team?'DL':'OL',team,index:100+team,x:0,z:0,heading:0,vx:0,vz:.3,distance:i*.04,engaged:true,blockStyle:team?'shed':'drive'};
+  rig.phase='run';rig.poseStates.clear();const bones=rig.bonesFor(p,'run',i/48*cycleSeconds),model=rig.modelFor(p),hands=rig.handTransforms.get(p.index);
+  assert.ok([...bones,...model].every(Number.isFinite),'Block pose must remain finite');
+  const forward=[hands.left,hands.right].map(hand=>hand[14]-hands.chest[14]);
+  forward.forEach((value,side)=>{reach[side].push(value);assert.ok(value>.05,'Resetting block hand must remain ahead of chest');});
+  assert.ok(Math.max(...forward)>.28,'At least one block hand must maintain forward pad contact');
+  const points=skinSupportVertices(allVertices,bones);let floor=Infinity;for(const v of points)floor=Math.min(floor,model[1]*v[0]+model[5]*v[1]+model[9]*v[2]+model[13]);
+  assert.ok(floor>=-.04,'Blocking steps must not penetrate the turf');checks++;
+ }
+ for(const hand of reach){
+  assert.ok(Math.max(...hand)>.28,'Both block hands must re-extend during the cycle');
+  assert.ok(Math.max(...hand)-Math.min(...hand)>.15,'Each hand must reset instead of freezing against the pads');
+ }
 }
 // Sweep complete run/sprint and get-up sequences, not just representative stills.
 for(const role of['QB','RB','WR','TE','OL','DL','LB','DB'])for(const speed of[5.5,8.4]){
@@ -91,7 +101,9 @@ for(const role of['RB','QB','LB','DL']){
 }
 for(const heading of[0,Math.PI/2,Math.PI]){
  const pose=sample('DL','dead',1,'wrap',1,224,{heading,fallHeading:0});
- assert.ok(pose.model[6]/Math.hypot(pose.model[4],pose.model[5],pose.model[6])>.85,'Defender must fall with impact regardless of facing');checks++;
+ // Contact is articulated in the skeleton; the model deliberately stays upright.
+ const m=pose.model,chest=rig.handTransforms.get(224).chest,axis=[0,1,2].map(i=>m[i]*chest[4]+m[4+i]*chest[5]+m[8+i]*chest[6]);
+ assert.ok(axis[2]/Math.hypot(...axis)>.85,'Defender torso must fall with impact regardless of facing');checks++;
 }
 // QB hands must remain around the ball in both idle pocket and movement states.
 for(const velocity of[[0,0],[0,-2],[2,0],[0,3]]){
@@ -106,12 +118,19 @@ for(const heading of[0,Math.PI/2,-Math.PI/2]){
 {
  const pair=[{index:0,role:'OL',team:0,x:0,z:0,heading:0,engaged:true,engagedWith:11,blockStyle:'drive',distance:0},{index:11,role:'DL',team:1,x:0,z:.92,heading:Math.PI,engaged:true,engagedWith:0,blockStyle:'shed',distance:0}];
  rig.phase='run';rig.actorMap=new Map(pair.map(p=>[p.index,p]));rig.poseStates.clear();rig.handTransforms.clear();
- for(let frame=0;frame<6;frame++)for(const p of pair){p.distance=frame*.025;rig.bonesFor(p,'run',frame/60)}
- for(const p of pair){
-  const other=pair.find(q=>q!==p),hands=rig.handTransforms.get(p.index),target=rig.handTransforms.get(other.index).chest,m=rig.modelFor(p),n=rig.modelFor(other);
-  const world=(model,h)=>[0,1,2].map(i=>model[i]*h[12]+model[4+i]*h[13]+model[8+i]*h[14]+model[12+i]),chest=world(n,target);
-  for(const hand of[hands.left,hands.right]){const h=world(m,hand);assert.ok(Math.hypot(...h.map((v,i)=>v-chest[i]))<.42,'Blocker hands miss opposing pads')}checks++;
+ const closest=new Map(pair.map(p=>[p.index,[Infinity,Infinity]]));
+ for(let frame=0;frame<120;frame++){
+  for(const p of pair){p.distance=frame*.025;rig.bonesFor(p,'run',frame/60)}
+  if(frame<2)continue; // Warm both opponent skeleton transforms before paired contact.
+  for(const p of pair){
+   const other=pair.find(q=>q!==p),hands=rig.handTransforms.get(p.index),target=rig.handTransforms.get(other.index).chest,m=rig.modelFor(p),n=rig.modelFor(other);
+   const world=(model,h)=>[0,1,2].map(i=>model[i]*h[12]+model[4+i]*h[13]+model[8+i]*h[14]+model[12+i]),chest=world(n,target);
+   const distances=[hands.left,hands.right].map(hand=>{const h=world(m,hand);return Math.hypot(...h.map((v,i)=>v-chest[i]));});
+   assert.ok(Math.min(...distances)<.42,'An engaged hand must stay on opposing pads while the other resets');
+   distances.forEach((distance,side)=>closest.get(p.index)[side]=Math.min(closest.get(p.index)[side],distance));checks++;
+  }
  }
+ for(const distances of closest.values())assert.ok(distances.every(distance=>distance<.42),'Both hands must re-seat on opposing pads during the cycle');
  rig.actorMap=null;
 }
 

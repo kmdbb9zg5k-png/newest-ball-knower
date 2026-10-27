@@ -10,7 +10,7 @@ const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','
 let browser;const results=[];
 try{
  let ready=false;for(let i=0;i<100;i++){try{if((await fetch(base)).ok){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,200))}assert.ok(ready);
- await mkdir(out,{recursive:true});browser=await chromium.launch({headless:true});
+ await mkdir(out,{recursive:true});browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_PATH||undefined});
  for(const width of [320,390,1280]){
   const context=await browser.newContext({viewport:{width,height:width===1280?900:844},deviceScaleFactor:2,isMobile:width<768,hasTouch:width<768,...(live&&width===390?{recordVideo:{dir:`${out}/video`,size:{width,height:844}}}:{})});
   const page=await context.newPage();const crashes=[];let calls=0;
@@ -74,7 +74,7 @@ try{
   assert.equal(await page.getByText('Session only.',{exact:false}).count(),1,'Ask BK must show session-only privacy disclosure');
   await page.screenshot({path:`${out}/ask-${width}.png`,fullPage:false});results.push({screen:'ask',scene:'trophy',width,...askGeometry});
   await primary('Profile');await capture('profile','locker');
-  await home();await page.getByRole('button',{name:'Solo Mode',exact:true}).click();await capture('solo','field');
+  await home();await page.getByRole('button',{name:'Play Solo Mode',exact:true}).click();await capture('solo','field');
   await page.locator('.bk-mode-card').filter({hasText:'Agent Mode'}).click();await capture('agent','office');
   await page.getByRole('button',{name:'BACK',exact:true}).click();await page.locator('.bk-mode-card').filter({hasText:'Owner Office'}).click();await capture('owner','suite');
   await page.emulateMedia({reducedMotion:'reduce'});await page.waitForFunction(()=>document.querySelector('.bk-screen')?.getAttribute('data-motion')==='off');
@@ -90,7 +90,7 @@ try{
   const avatar=page.locator('body>header button').filter({has:page.locator('img[alt="Ball Knower Guest"]')});
   await avatar.click();await page.getByRole('button',{name:'Hall of Fame',exact:true}).click();await capture('legacy','legacy');
   await home();await page.getByRole('button',{name:'View All Partners',exact:true}).click();await capture('partners','studio');
-  await home();await page.getByRole('button',{name:'Solo Mode',exact:true}).click();
+  await home();await page.getByRole('button',{name:'Play Solo Mode',exact:true}).click();
   await page.locator('.bk-mode-card').filter({hasText:'FANTASY DRAFT'}).click();await capture('fantasy-franchise','tunnel','fantasy-franchise-creator');assert.equal(await page.locator('.bk-home-news-strip').count(),0);
   await page.getByLabel('League name').fill('Browser Test League');
   await page.getByLabel('Your team name').fill('Test City Captains');
