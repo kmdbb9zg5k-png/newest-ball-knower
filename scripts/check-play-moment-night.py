@@ -47,6 +47,13 @@ def until(page,predicate,limit=4,interval=.1,observe=None):
     raise AssertionError(('State did not arrive',diag(page)))
 
 
+def expected_contact(page,kind):
+    if kind!='wrap': return kind
+    # forceContact puts LB15 on the carrier's shoulder; wraps then use the live
+    # impact classifier (low wrap, shoulder hit, or drag-down), not a fixed label.
+    return page.evaluate("""async()=>{const d=bk3dDiagnostics(),ball=d.players.find(p=>p.hasBall),tackler={...d.players[15],x:ball.x+.64,z:ball.z-.22};const {contactImpact}=await import('/play-moment-3d/football-flow.js');return contactImpact(ball,tackler).variant}""")
+
+
 def diag(page): return page.evaluate('bk3dDiagnostics()')
 def graphics(page): return page.evaluate('bkGraphicsDiagnostics()')
 def step(page,s): page.evaluate('(s)=>bk3dTest.step(s)',s)
@@ -219,13 +226,15 @@ if __name__=='__main__':
             before_juke=diag(page)['players'][6]
             cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':juke['x']+juke['width']/2,'y':juke['y']+juke['height']/2,'id':31}]})
             cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]})
+            launched_juke=diag(page)['players'][6]
+            assert (launched_juke['vx']**2+launched_juke['vz']**2)**.5>6.5,launched_juke
             step(page,.04)
             after_juke=diag(page)['players'][6]
             # A juke now plants into a short lateral cut and carries the rest of the
             # burst through velocity instead of teleporting the runner 1.8 yards.
             # Verify both halves of that motion contract.
             assert ((after_juke['x']-before_juke['x'])**2+(after_juke['z']-before_juke['z'])**2)**.5>.32,(before_juke,after_juke)
-            assert after_juke['action']=='juke' and (after_juke['vx']**2+after_juke['vz']**2)**.5>6.5,(before_juke,after_juke)
+            assert after_juke['action']=='juke' and (after_juke['vx']**2+after_juke['vz']**2)>(before_juke['vx']**2+before_juke['vz']**2),(before_juke,after_juke)
             assert abs(after_juke['heading']-before_juke['heading'])>.35,(before_juke,after_juke)
             assert diag(page)['lastSkill']=='juke'
             if diag(page)['athletes']['ready']:
@@ -241,7 +250,7 @@ if __name__=='__main__':
                 expected_states={'spin-right':{'carry-spin'},'truck':{'carry-truck','carry-stiff-arm'},'hurdle':{'carry-hurdle'}}[name]
                 if moved['athletes']['ready']:
                     assert expected_states.intersection(moved['athletes']['states']),(name,moved['athletes'])
-            page.screenshot(path=str(OUT/f'night-run-{w}x{h}.png'))
+            page.screenshot(path=str(OUT/f'night-run-{w}x{h}.png'),timeout=90000)
             result['checks'].append('fixed-position pre-snap stick with held input; five-man run assignments; simultaneous stick+sprint; tap juke; dedicated spin, truck and hurdle buttons')
         if active_stage('cuts'):
             for key,screen_side in [('ArrowRight',1),('ArrowLeft',-1)]:
@@ -259,9 +268,11 @@ if __name__=='__main__':
             for contact_type in ['wrap','dive','gang','big-hit']:
                 restart(page);choose(page,'run');page.click('#snap');until(page,lambda d:d['phase']=='run')
                 assert diag(page)['phase']=='run'
+                expected=expected_contact(page,contact_type)
                 assert page.evaluate('(kind)=>bk3dTest.forceContact(kind)',contact_type)
                 started=diag(page);carrier_index=6
-                assert started['phase']=='dead' and started['contact']['type']==contact_type,started
+                assert started['phase']=='dead' and started['contact']['type']==expected,started
+                assert started['players'][carrier_index]['contactVariant']==expected
                 assert started['players'][carrier_index]['fallen'] and started['players'][carrier_index]['action']==contact_type,started
                 start_z=started['players'][carrier_index]['z'];start_time=started['simTime']
                 step(page,.28);middle=diag(page)
@@ -271,14 +282,15 @@ if __name__=='__main__':
                 tackler=middle['players'][middle['contact']['tackler']]
                 assert ((tackler['x']-middle['players'][carrier_index]['x'])**2+(tackler['z']-middle['players'][carrier_index]['z'])**2)**.5<1.5,(contact_type,tackler,middle['players'][carrier_index])
                 if contact_type=='gang':assert middle['contact']['helper'] is not None and middle['players'][middle['contact']['helper']]['action']=='gang',middle
-                if contact_type=='wrap':page.screenshot(path=str(OUT/f'night-contact-{w}x{h}.png'))
-                contact_samples.append({'type':contact_type,'duration':middle['contact']['duration'],'carrierDrive':middle['players'][carrier_index]['z']-start_z})
+                if contact_type=='wrap':page.screenshot(path=str(OUT/f'night-contact-{w}x{h}.png'),timeout=90000)
+                contact_samples.append({'requested':contact_type,'type':expected,'duration':middle['contact']['duration'],'carrierDrive':middle['players'][carrier_index]['z']-start_z})
             result['contactSamples']=contact_samples
             result['checks'].append('wrap, diving, gang and big-hit sequences continue after the whistle; carrier, tackler and gang helper finish contact instead of freezing on impact')
         if active_stage('drive_end'):
             restart(page);choose(page,'run');page.click('#snap');until(page,lambda d:d['phase']=='run')
+            expected=expected_contact(page,'wrap')
             assert page.evaluate("bk3dTest.forceContact('wrap',true)")
-            drive_end=diag(page);assert not drive_end['paused'] and drive_end['ended'] and drive_end['contact']['type']=='wrap',drive_end
+            drive_end=diag(page);assert not drive_end['paused'] and drive_end['ended'] and drive_end['contact']['type']==expected,drive_end
             drive_end_finished=until(page,lambda d:d['contact'] is None)
             assert drive_end_finished['ended'] and drive_end_finished['contact'] is None,drive_end_finished
             assert drive_end_finished['players'][6]['action']=='wrap' and drive_end_finished['players'][6]['actionT']>=.99,drive_end_finished['players'][6]

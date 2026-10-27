@@ -54,7 +54,9 @@ def main():
             assert pre['athletes']['authenticityPilot'] == ['pass-set', 'drive-block', 'edge-rush', 'carry-cut', 'wrap-tackle']
             assert len(pre['players']) == 22 and pre['drawCalls'] < 80 and pre['glError'] == 0, pre
             assert any('/ball-knower-gridiron-sentinel-v4.glb' in url and status == 200 for url, status in responses), responses
-            page.screenshot(path=str(args.output / 'detailed-presnap-932x430.png'))
+            # Software GPU readback can exceed Playwright's 30s action default
+            # on CI; keep the full-resolution capture and all scene assertions.
+            page.screenshot(path=str(args.output / 'detailed-presnap-932x430.png'), timeout=90_000)
             report['views'].append({'name': 'presnap', 'phase': pre['phase'], 'drawCalls': pre['drawCalls'], 'athletes': pre['athletes']})
 
             page.click('#breakHuddle');page.click('#snap')
@@ -71,7 +73,7 @@ def main():
             for i,p in enumerate(run['players'][:11]):
                 if p['role']=='WR' and p['engaged']:
                     assert run['athletes']['states'][i]=='stalk-block',run['athletes']
-            page.screenshot(path=str(args.output / 'detailed-run-932x430.png'))
+            page.screenshot(path=str(args.output / 'detailed-run-932x430.png'), timeout=90_000)
             report['views'].append({'name': 'run', 'phase': run['phase'], 'drawCalls': run['drawCalls']})
 
             page.click('#juke')
@@ -82,7 +84,7 @@ def main():
             page.evaluate('bk3dTest.step(.12)')
             contact = page.evaluate('bk3dDiagnostics()')
             assert contact['contact']['type'] == 'dive' and 'dive-tackle' in contact['athletes']['states'], contact
-            page.screenshot(path=str(args.output / 'detailed-skill-contact-932x430.png'))
+            page.screenshot(path=str(args.output / 'detailed-skill-contact-932x430.png'), timeout=90_000)
             report['views'].append({'name': 'skill-contact', 'phase': contact['phase'], 'drawCalls': contact['drawCalls']})
 
             page.click('#pause')
@@ -101,7 +103,7 @@ def main():
             assert flight['phase'] == 'flight' and flight['throwKind'] == 'bullet', flight
             assert flight['glError'] == 0 and flight['drawCalls'] < 80
             assert 'throw-bullet' in flight['athletes']['states'], flight['athletes']
-            page.screenshot(path=str(args.output / 'detailed-pass-932x430.png'))
+            page.screenshot(path=str(args.output / 'detailed-pass-932x430.png'), timeout=90_000)
             report['views'].append({'name': 'pass', 'phase': flight['phase'], 'drawCalls': flight['drawCalls']})
 
             assert not errors and not console_errors, {'pageErrors': errors, 'consoleErrors': console_errors}
