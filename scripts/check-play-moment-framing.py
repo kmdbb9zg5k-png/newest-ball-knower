@@ -52,11 +52,11 @@ def choose(page,mode='run',index=0):
     page.click('#filterRun' if mode=='run' else '#filterPass')
     page.click(f'#call-{mode}-{index}');page.click('#breakHuddle')
 
-def until(page,predicate,limit=8):
-    for _ in range(round(limit/.1)):
+def until(page,predicate,limit=8,interval=.1):
+    for _ in range(round(limit/interval)):
         d=state(page)
         if predicate(d):return d
-        page.evaluate('bk3dTest.step(.1)')
+        page.evaluate('(dt)=>bk3dTest.step(dt)',interval)
     raise AssertionError(('State did not arrive',state(page)))
 
 def graphics_check(page):
@@ -144,7 +144,7 @@ def main():
                     page.evaluate('bk3dTest.step(1)')
                     assert state(page)['phase'] in ['run', 'dead', 'pre']
                 if state(page)['ended']:
-                    until(page,lambda d:d['paused'],limit=14)
+                    until(page,lambda d:d['paused'],limit=14,interval=1)
                 else:page.click('#pause')
                 link = page.locator('#paused a');link.scroll_into_view_if_needed()
                 if variant == 'after':
@@ -162,6 +162,7 @@ def main():
                     page.set_viewport_size({'width': 390, 'height': 844})
                     box = page.locator('#rotate a').bounding_box();assert box and box['height'] >= 44
                 assert not errors and not [u for u in requests if u.startswith(('http:', 'https:')) and not u.startswith(ORIGIN+'/')], {'errors': errors, 'requests': requests}
+                print(f'PASS framing {variant} {w}x{h}',flush=True)
                 results[variant] = {'qbScreenHeight': pixels, 'graphics': g, 'markers': markers, 'errors': errors}
                 page.close()
             if 'before' in snapshots:

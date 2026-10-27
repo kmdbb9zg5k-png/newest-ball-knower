@@ -50,7 +50,7 @@ def main():
             assert label()=='1ST & GOAL · OPP 2'
             assert page.locator('#message').inner_text()=='FIRST & GOAL · +13 YDS'
             assert framing.state(page)['field']==before,'Series marker jumped while the completed play was held'
-            framing.until(page,lambda d:d['phase']=='pre')
+            framing.until(page,lambda d:d['phase']=='pre',interval=.5)
             assert framing.state(page)['field']=={'scrimmage':108,'lineToGain':110}
             framing.choose(page,'pass')
             box=page.locator('#down').evaluate('(e)=>({fits:e.scrollWidth<=e.clientWidth,width:e.clientWidth,text:e.textContent})')
@@ -58,32 +58,33 @@ def main():
             framing.capture(page,args.output/f'first-goal-{w}x{h}.png')
             # A real timed sack preserves the goal-line target, whatever its actual spot.
             page.click('#snap')
-            sack=framing.until(page,lambda d:d['phase']=='dead',limit=12)
+            sack=framing.until(page,lambda d:d['phase']=='dead',limit=12,interval=.25)
             assert sack['contact'] and sack['drive']['down']==2 and sack['field']['lineToGain']==110,sack
             assert label().startswith('2ND & GOAL'),label()
             # Exact loss/series cases use controlled spots through the real endPlay path.
             set_case(92,2,8);framing.choose(page,'pass');page.click('#snap');finish(86,'SACK')
             assert label()=='3RD & GOAL · OPP 14'
             framing.capture(page,args.output/f'long-goal-{w}x{h}.png')
-            framing.until(page,lambda d:d['phase']=='pre');framing.choose(page);page.click('#snap');finish(93)
+            framing.until(page,lambda d:d['phase']=='pre',interval=.5);framing.choose(page);page.click('#snap');finish(93)
             assert label()=='4TH & GOAL · OPP 7'
-            framing.until(page,lambda d:d['phase']=='pre');framing.choose(page);page.click('#snap');finish(93,'INCOMPLETE',True)
+            framing.until(page,lambda d:d['phase']=='pre',interval=.5);framing.choose(page);page.click('#snap');finish(93,'INCOMPLETE',True)
             assert framing.state(page)['ended']
-            framing.until(page,lambda d:d['paused'],limit=14)
+            framing.until(page,lambda d:d['paused'],limit=14,interval=1)
             assert page.locator('#dialogTitle').inner_text()=='TURNOVER ON DOWNS'
             # Being inside the ten alone is NOT sufficient to say goal-to-go.
             set_case(93,3,2);assert label()=='3RD & 2 · OPP 7';assert framing.state(page)['field']['lineToGain']==105
             # Ordinary first-down/loss target stays still through the dead-ball hold.
             set_case(25,1,10);framing.choose(page);page.click('#snap');old=framing.state(page)['field'];finish(29)
-            assert framing.state(page)['field']==old;framing.until(page,lambda d:d['phase']=='pre')
+            assert framing.state(page)['field']==old;framing.until(page,lambda d:d['phase']=='pre',interval=.5)
             assert framing.state(page)['field']=={'scrimmage':39,'lineToGain':45}
             # Actual touchdown completion and duplicate delivery do not award twice.
             set_case(98,1,2);framing.choose(page);page.click('#snap');finish(100,'TOUCHDOWN');assert framing.state(page)['drive']['score']==30
             finish(100,'TOUCHDOWN');assert framing.state(page)['drive']['score']==30
-            framing.until(page,lambda d:d['paused'],limit=14);page.click('#restart');tick();assert label()=='1ST & 10 · OPP 15'
+            framing.until(page,lambda d:d['paused'],limit=14,interval=1);page.click('#restart');tick();assert label()=='1ST & 10 · OPP 15'
             diag=framing.state(page);g=framing.graphics_check(page)
             assert diag['glError']==0,g
             assert not errors and not [u for u in requests if u.startswith(('http:','https:')) and not u.startswith(framing.ORIGIN+'/')],(errors,requests)
+            print(f'PASS goal-line {w}x{h}',flush=True)
             reports.append({'viewport':[w,h],'status':'PASS','goalLabelFits':box,'graphics':g,'errors':errors})
             page.close()
         browser.close()

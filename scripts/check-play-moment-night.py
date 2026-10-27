@@ -66,16 +66,18 @@ def snap_canvas(page,path):
 
 STAGES=['renderer', 'fronts', 'quality', 'passes', 'scramble', 'throwaway', 'runs', 'touch', 'cuts', 'contact', 'drive_end', 'assist', 'sack', 'report', 'shadow', 'portrait', 'fallback']
 START=os.environ.get('BK_NIGHT_FROM',STAGES[0])
+THROUGH=os.environ.get('BK_NIGHT_THROUGH',STAGES[-1])
+assert START in STAGES and THROUGH in STAGES, f'Unknown night stage range: {START}..{THROUGH}'
+assert STAGES.index(START)<=STAGES.index(THROUGH), f'Reversed night stage range: {START}..{THROUGH}'
 def active_stage(name):
-    assert START in STAGES, f'Unknown night stage: {START}'
-    return STAGES.index(name)>=STAGES.index(START)
+    return STAGES.index(START)<=STAGES.index(name)<=STAGES.index(THROUGH)
 
 if __name__=='__main__':
     w,h=map(int,sys.argv[1:3] or ['932','430'])
     class Checks(list):
         def append(self,value):
             super().append(value);print('PASS:',value,flush=True)
-    result={'viewport':[w,h],'renderer':'Chromium/SwiftShader WebGL2; not real-phone FPS or touch certification','checks':Checks()}
+    result={'viewport':[w,h],'stageRange':{'from':START,'through':THROUGH,'stages':STAGES[STAGES.index(START):STAGES.index(THROUGH)+1]},'renderer':'Chromium/SwiftShader WebGL2; not real-phone FPS or touch certification','checks':Checks()}
     with sync_playwright() as p:
         browser=p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH'),headless=True,
             args=['--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ozone-platform=headless'],env={**os.environ,'DISPLAY':''})
@@ -288,7 +290,7 @@ if __name__=='__main__':
             result['checks'].append('assisted run movement')
         if active_stage('sack'):
             restart(page);choose(page,'pass');page.click('#snap');step(page,6.5)
-            until(page,lambda d:d['phase']=='pre',limit=12)
+            until(page,lambda d:d['phase']=='pre',limit=12,interval=.5)
             assert diag(page)['drive']['down']==2 and diag(page)['playbook']['open']
             page.click('#breakHuddle');assert page.locator('#snap').is_visible()
             result['checks'].append('sack, next-down reset and controls recovery')
