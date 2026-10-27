@@ -20,7 +20,7 @@ try{
    if(action==='submit'){if(failSubmit){failSubmit=false;await route.fulfill({status:503,json:{message:'Connection interrupted. Retry your result.'}});return;}rows[0]={...rows[0],challenger_stats:args.stats,status:'completed',winner_id:'me'};result={saved:true};}
    await route.fulfill({json:result});
   });
-  await page.goto(base+'/mini-qa.html?guest');await page.getByRole('button',{name:'Sign in to challenge'}).click();assert.equal(await page.locator('body').getAttribute('data-auth'),'requested');assert.equal(calls.length,0,'Guests never call private RPC');
+  await page.goto(base+'/mini-qa.html?guest');await page.getByRole('button',{name:'Sign in to challenge'}).click();assert.equal(await page.locator('body').getAttribute('data-auth'),'requested');assert.equal(calls.length,0,'Guests never call private RPC');assert.equal(await page.getByRole('link',{name:/Practice 40-Yard Dash/}).getAttribute('href'),'/combine.html?drill=dash');
   assert.equal(await page.getByRole('button',{pressed:true}).count(),1);
   await page.goto(base+'/mini-qa.html');await page.getByLabel('Choose your opponent').selectOption('friend');await page.getByRole('button',{name:'Create challenge',exact:true}).click();await page.getByRole('button',{name:'Play your turn'}).waitFor();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'No horizontal overflow at '+width);
@@ -33,8 +33,8 @@ try{
    await gameFrame.locator('.combine-action').click();await gameFrame.waitForFunction(()=>document.querySelector('.combine-game')?.dataset.phase==='running',{},{timeout:30000});
    await gameFrame.evaluate(()=>{let last=-1;function step(){if(document.querySelector('.combine-game')?.dataset.phase!=='running')return;const t=parseFloat(document.querySelector('.combine-timer').textContent);if(t-last>=.24){document.querySelector('.combine-stride[data-next="true"]')?.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerId:77}));last=t;}requestAnimationFrame(step);}requestAnimationFrame(step);});
    await page.getByRole('button',{name:'Retry saving result'}).waitFor({timeout:45000});assert(calls.find(c=>c.action==='submit').args.stats.time>3,'Real game reports completed time');
-   await page.getByRole('button',{name:'Retry saving result'}).click();await page.getByRole('heading',{name:'RESULT LOCKED'}).waitFor();await page.screenshot({path:'artifacts/mini-challenges/locked-result.png'});
-   await page.getByRole('button',{name:'Back to challenges'}).click();await page.getByText('You win',{exact:true}).waitFor();await page.getByText('Compare all stats').click();assert(await page.getByRole('table').isVisible());
+   await page.getByRole('button',{name:'Retry saving result'}).click();await page.getByRole('heading',{name:'RESULT LOCKED'}).waitFor();assert(await page.getByRole('complementary',{name:'Scouting report'}).isVisible());const download=page.waitForEvent('download');await page.getByRole('button',{name:'Download result card'}).click();assert.equal((await download).suggestedFilename(),'ball-knower-dash-result.png');await page.screenshot({path:'artifacts/mini-challenges/locked-result.png'});
+   await page.getByRole('button',{name:'Back to challenges'}).click();await page.getByText('You win',{exact:true}).waitFor();await page.getByText('Compare all stats').click();assert(await page.getByRole('table').isVisible());assert(await page.getByRole('region',{name:'Rivalry records'}).isVisible());await page.getByRole('button',{name:'Challenge to rematch'}).click();await page.getByRole('button',{name:'Play your turn'}).waitFor();assert.deepEqual(calls.filter(c=>c.action==='create').at(-1).args,{game:'dash',opponent:'friend'});
    assert.deepEqual(calls.filter(c=>c.action==='submit')[0].args,calls.filter(c=>c.action==='submit')[1].args,'Retry preserves same stats and token');
   }
   assert.deepEqual(errors,[]);await context.close();
