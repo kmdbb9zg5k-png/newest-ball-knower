@@ -15,7 +15,7 @@ begin
  perform set_config('request.jwt.claim.sub',guest::text,true);perform set_config('role','authenticated',true);
  assert pg_temp.must_reject('create','{"game":"dash"}'), 'Anonymous auth must not compete';
  perform set_config('role','none',true);
- foreach game in array array['dash','broad-jump','shuttle','bench','routes','one-on-one','rb','db','two-minute','five-minute'] loop
+ foreach game in array array['dash','broad-jump','shuttle','bench','routes','one-on-one','rb','db','two-minute','five-minute','career'] loop
   perform set_config('request.jwt.claim.sub',a::text,true);perform set_config('role','authenticated',true);
   assert pg_temp.must_reject('create',jsonb_build_object('game',game,'opponent',outsider)), 'A friend invite must require friendship';
   response:=public.ball_knower_mini_challenges('create',jsonb_build_object('game',game,'opponent',b));id:=(response->>'id')::uuid;
@@ -32,8 +32,9 @@ begin
   assert tok=public.ball_knower_mini_challenges('begin',jsonb_build_object('id',id))->>'token', 'Resume uses same attempt';
   perform set_config('role','none',true);
   update bk_minigames_private.attempts set started_at=now()-interval '10 minutes' where challenge_id=id;
-  leftstats:=case when game='dash' then '{"time":4.523,"split10":1.882,"split20":2.991}'::jsonb when game='shuttle' then '{"time":4.512,"penalty":0.12}'::jsonb when game='bench' then '{"reps":25}'::jsonb when game='broad-jump' then '{"distance":2.789}'::jsonb when game in('two-minute','five-minute') then '{"points":30,"yards":180,"turnovers":1}'::jsonb else jsonb_build_object('score',80,'reps',case when game='routes' then 8 else 5 end) end;
-  rightstats:=case when game='dash' then '{"time":4.8,"split10":2.0,"split20":3.2}'::jsonb when game='shuttle' then '{"time":4.9,"penalty":0.2}'::jsonb when game='bench' then '{"reps":20}'::jsonb when game='broad-jump' then '{"distance":2.5}'::jsonb when game in('two-minute','five-minute') then '{"points":30,"yards":180,"turnovers":2}'::jsonb else jsonb_build_object('score',70,'reps',case when game='routes' then 8 else 5 end) end;
+  if game='career' then update bk_minigames_private.challenges set seed=100 where challenges.id=fixture.id; end if;
+  leftstats:=case when game='career' then '{"raw0":80,"raw1":80,"raw2":80,"prep0":0,"prep1":1,"prep2":2,"film0":0,"film1":2,"film2":1}'::jsonb when game='dash' then '{"time":4.523,"split10":1.882,"split20":2.991}'::jsonb when game='shuttle' then '{"time":4.512,"penalty":0.12}'::jsonb when game='bench' then '{"reps":25}'::jsonb when game='broad-jump' then '{"distance":2.789}'::jsonb when game in('two-minute','five-minute') then '{"points":30,"yards":180,"turnovers":1}'::jsonb else jsonb_build_object('score',80,'reps',case when game='routes' then 8 else 5 end) end;
+  rightstats:=case when game='career' then leftstats||'{"raw0":70,"raw1":70,"raw2":70}'::jsonb when game='dash' then '{"time":4.8,"split10":2.0,"split20":3.2}'::jsonb when game='shuttle' then '{"time":4.9,"penalty":0.2}'::jsonb when game='bench' then '{"reps":20}'::jsonb when game='broad-jump' then '{"distance":2.5}'::jsonb when game in('two-minute','five-minute') then '{"points":30,"yards":180,"turnovers":2}'::jsonb else jsonb_build_object('score',70,'reps',case when game='routes' then 8 else 5 end) end;
   perform set_config('role','authenticated',true);
   assert pg_temp.must_reject('submit',jsonb_build_object('id',id,'token',gen_random_uuid(),'stats',leftstats)), 'Reject wrong attempt token';
   assert pg_temp.must_reject('submit',jsonb_build_object('id',id,'token',tok,'stats',leftstats||'{"rating":999}'::jsonb)), 'Reject unrecognized stats';
@@ -41,7 +42,18 @@ begin
   if game in('routes','one-on-one','rb','db') then
    assert pg_temp.must_reject('submit',jsonb_build_object('id',id,'token',tok,'stats',leftstats||'{"reps":1}'::jsonb)), 'Cannot post incomplete session';
   end if;
-  perform public.ball_knower_mini_challenges('submit',jsonb_build_object('id',id,'token',tok,'stats',leftstats));
+  if game='career' then
+   assert pg_temp.must_reject('submit',jsonb_build_object('id',id,'token',tok,'stats',leftstats-'raw2')), 'Reject unfinished career';
+   assert pg_temp.must_reject('submit',jsonb_build_object('id',id,'token',tok,'stats',leftstats||'{"raw2":101}'::jsonb)), 'Reject impossible tape';
+   assert pg_temp.must_reject('submit',jsonb_build_object('id',id,'token',tok,'stats',leftstats||'{"prep2":3}'::jsonb)), 'Reject unknown decision';
+   assert pg_temp.must_reject('submit',jsonb_build_object('id',id,'token',tok,'stats',leftstats||'{"film2":1.5}'::jsonb)), 'Reject fractional decision';
+   assert pg_temp.must_reject('submit',jsonb_build_object('id',id,'token',tok,'stats',leftstats||'{"score":100,"validated":1}'::jsonb)), 'Cannot self-verify or choose final score';
+  end if;
+  response:=public.ball_knower_mini_challenges('submit',jsonb_build_object('id',id,'token',tok,'stats',leftstats));
+  if game='career' then
+    assert response->'stats'->>'score'='85' and response->'stats'->>'correct'='3' and response->'stats'->>'validated'='1', 'Server arithmetic must match client';
+    leftstats:=response->'stats';
+  end if;
   perform public.ball_knower_mini_challenges('submit',jsonb_build_object('id',id,'token',tok,'stats',rightstats));
   perform set_config('request.jwt.claim.sub',b::text,true);
   tok:=public.ball_knower_mini_challenges('begin',jsonb_build_object('id',id))->>'token';

@@ -1,4 +1,5 @@
 export const MINI_CHALLENGE_GAMES = [
+  {id:'career',name:'Career Proving Ground',rule:'Three-week audition · highest evaluation wins',metric:'score',unit:'/100'},
   {id:'dash',name:'40-Yard Dash',rule:'Fastest time wins',metric:'time',unit:'s',lower:true},
   {id:'broad-jump',name:'Broad Jump',rule:'Longest jump wins',metric:'distance',unit:'m'},
   {id:'shuttle',name:'20-Yard Shuttle',rule:'Fastest time including penalties wins',metric:'time',unit:'s',lower:true},
@@ -15,6 +16,7 @@ export type MiniStats=Record<string,number>;
 export type MiniChallenge={id:string;game:MiniGameId;challenger_id:string;opponent_id:string|null;challenger_name:string;opponent_name:string|null;status:'open'|'pending'|'active'|'completed'|'cancelled'|'declined'|'expired';seed:number;expires_at:string;challenger_stats:MiniStats|null;opponent_stats:MiniStats|null;winner_id:string|null;created_at:string};
 export const miniGame=(id:string)=>MINI_CHALLENGE_GAMES.find(g=>g.id===id)!;
 export function miniChallengeUrl(match:MiniChallenge,token:string){
+  if(match.game==='career')throw new Error('Career challenges use the native career session.');
   const football=match.game==='two-minute'||match.game==='five-minute';
   const params=new URLSearchParams({bkChallenge:match.id,bkToken:token,seed:String(match.seed)});
   if(football){params.set('mode',match.game);params.set('difficulty','pro');params.set('team','JCY');params.set('opponent','BRK');}
@@ -22,7 +24,7 @@ export function miniChallengeUrl(match:MiniChallenge,token:string){
   return `${football?'/play-moment-3d-preview.html':'/combine.html'}?${params}`;
 }
 export function miniStatLabel(game:MiniGameId,stats:MiniStats|null){
-  if(!stats)return 'Waiting for result';if(stats.dnf)return 'Did not finish';
+  if(!stats)return 'Waiting for result';if(game==='career'&&stats.score===undefined)return 'Completed · awaiting score check';if(stats.dnf)return 'Did not finish';
   const g=miniGame(game),value=stats[g.metric];
   return `${g.metric==='time'||g.metric==='distance'?value.toFixed(3):value} ${g.unit}`;
 }
