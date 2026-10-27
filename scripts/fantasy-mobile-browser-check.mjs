@@ -146,6 +146,13 @@ try{
     page.on('pageerror',error=>pageErrors.push(error.message));
     page.on('console',message=>{if(message.type()==='error'&&!message.text().startsWith('Failed to load resource:'))consoleErrors.push(message.text());});
     page.on('response',response=>{if(response.status()>=400&&new URL(response.url()).origin===firstPartyOrigin)failedFirstPartyResponses.push(`${response.status()} ${response.url()}`);});
+    // Explicit isolated anonymous identity; never connect to a real account/backend.
+    const user={id:'00000000-0000-4000-8000-000000000375',aud:'authenticated',role:'authenticated',is_anonymous:true,user_metadata:{name:'Fixture Guest',full_name:'Fixture Guest'},app_metadata:{provider:'anonymous'},created_at:'2026-01-01T00:00:00Z'};
+    const token=[Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url'),Buffer.from(JSON.stringify({sub:user.id,aud:'authenticated',role:'authenticated',exp:Math.floor(Date.now()/1000)+86400,is_anonymous:true})).toString('base64url'),'fixture-only'].join('.');
+    const session={user,access_token:token,refresh_token:'fixture-only',token_type:'bearer',expires_in:86400,expires_at:Math.floor(Date.now()/1000)+86400};
+    await page.route('**/*.supabase.co/**',route=>{const path=new URL(route.request().url()).pathname;const body=path==='/auth/v1/user'?user:path.startsWith('/auth/')?session:path.endsWith('/ball_knower_user_profiles')?null:path.includes('/rpc/')?null:[];return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});});
+    await page.routeWebSocket(/supabase\.co/,socket=>socket.close());
+    await page.addInitScript(session=>localStorage.setItem('sb-gpnboygoosrmeydwjpvk-auth-token',JSON.stringify(session)),session);
     await page.route('**/api/**',async route=>{
       const pathname=new URL(route.request().url()).pathname;
       const body=pathname==='/api/media'?{tracks:[],introUrl:null}:{ok:true};

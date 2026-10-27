@@ -25,7 +25,7 @@ try{
   });
   await page.goto(base,{waitUntil:'domcontentloaded'});await page.locator('.bk-home-stadium').waitFor();
   const home=async()=>{await page.getByRole('button',{name:'Ball Knower home',exact:true}).click();await page.locator('.bk-home-stadium').waitFor()};
-  const primary=async name=>{const buttons=page.getByRole('button',{name,exact:true});for(const button of await buttons.all()){if(await button.isVisible()){await button.click();return}}throw Error('Missing visible navigation '+name)};
+  const primary=async name=>{await page.getByRole('button',{name,exact:true}).filter({visible:true}).first().click()};
   const capture=async(name,scene,label=name)=>{
    const stage=page.locator(`.bk-screen[data-page="${name}"]`).first();await stage.waitFor();
    assert.equal(await stage.getAttribute('data-scene'),scene);
@@ -73,6 +73,27 @@ try{
   if(width<768)assert.ok(askGeometry.composer&&askGeometry.nav&&askGeometry.composer.bottom<=askGeometry.nav.top,`Ask BK composer must be visible above mobile navigation: ${JSON.stringify(askGeometry)}`);
   assert.equal(await page.getByText('Session only.',{exact:false}).count(),1,'Ask BK must show session-only privacy disclosure');
   await page.screenshot({path:`${out}/ask-${width}.png`,fullPage:false});results.push({screen:'ask',scene:'trophy',width,...askGeometry});
+  if(width<768){
+   await page.getByRole('textbox',{name:'Ask BK question',exact:true}).fill('Who should I start?');
+   await page.setViewportSize({width,height:540});
+   const resized=await page.evaluate(()=>{const c=document.querySelector('[data-testid="ask-bk-composer"]').getBoundingClientRect(),n=document.querySelector('nav[aria-label="Primary navigation"]').getBoundingClientRect();return{top:c.top,bottom:c.bottom,nav:n.top}});
+   assert(resized.top>=0&&resized.bottom<=resized.nav,'Ask BK composer remains usable in a shortened keyboard-sized viewport');
+   assert.equal(await page.getByRole('textbox',{name:'Ask BK question',exact:true}).inputValue(),'Who should I start?');
+   const image=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFElEQVR42mP8z8AARAwMjDAGAC0KA/2BHvtYAAAAAElFTkSuQmCC','base64');
+   await page.locator('input[type="file"]').setInputFiles({name:'lineup.png',mimeType:'image/png',buffer:image});
+   await page.getByRole('button',{name:'Remove screenshot 1',exact:true}).waitFor();
+   await page.locator('input[type="file"]').setInputFiles({name:'My football lineup screenshot from the latest fantasy matchup with detailed injury updates.png',mimeType:'image/png',buffer:Buffer.alloc(0)});
+   await page.getByRole('alert').filter({hasText:'is empty.'}).waitFor();
+   const input=page.getByRole('textbox',{name:'Ask BK question',exact:true});await input.scrollIntoViewIfNeeded();
+   const send=page.getByTestId('ask-bk-composer').getByRole('button',{name:'Ask BK',exact:true});await send.scrollIntoViewIfNeeded();
+   const sendBox=await send.boundingBox(),navBox=await page.getByRole('navigation',{name:'Primary navigation'}).boundingBox();
+   assert(sendBox&&navBox&&sendBox.y>=0&&sendBox.y+sendBox.height<=navBox.y,'Attachments and long errors keep send reachable above navigation');
+   assert.equal(await input.inputValue(),'Who should I start?');
+   await page.getByRole('button',{name:'Remove screenshot 1',exact:true}).click();
+
+   await page.getByRole('textbox',{name:'Ask BK question',exact:true}).blur();
+   await page.setViewportSize({width,height:844});
+  }
   await primary('Profile');await capture('profile','locker');
   await home();await page.getByRole('button',{name:'Play Solo Mode',exact:true}).click();await capture('solo','field');
   await page.locator('.bk-mode-card').filter({hasText:'Agent Mode'}).click();await capture('agent','office');

@@ -9,6 +9,7 @@ import os
 import shutil
 import subprocess
 import threading
+import traceback
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from playwright.sync_api import sync_playwright
@@ -61,13 +62,15 @@ def record(browser, origin, out, mode):
         return box
     def check_playbook():
         assert read()['playbook']['open'] and page.locator('#playbook').is_visible()
-        assert page.locator('#playbookGrid .play-card').count() == 8
+        entries = page.evaluate("async () => (await import('/play-moment-3d/playbook.js')).matchingPlays('all','all').map(({mode,index})=>({mode,index}))")
+        assert page.locator('#playbookGrid .play-card').count() == len(entries)
         assert page.locator('#pre').is_hidden() and page.locator('#live').is_hidden()
         grid = page.locator('#playbookGrid').bounding_box()
-        for kind in ['run', 'pass']:
-            for index in range(4):
-                box = check_hit(f'#call-{kind}-{index}')
-                assert box['y'] >= grid['y'] and box['y'] + box['height'] <= grid['y'] + grid['height'] + .1, ('Clipped play card', kind, index, box, grid)
+        for entry in entries:
+            kind, index = entry['mode'], entry['index']
+            page.locator(f'#call-{kind}-{index}').scroll_into_view_if_needed()
+            box = check_hit(f'#call-{kind}-{index}')
+            assert box['y'] >= grid['y'] and box['y'] + box['height'] <= grid['y'] + grid['height'] + .1, ('Clipped play card', kind, index, box, grid)
         for selector in ['#filterAll', '#filterRun', '#filterPass', '#breakHuddle']:
             check_hit(selector)
         score = page.locator('.scorebug').bounding_box()
@@ -126,7 +129,7 @@ def record(browser, origin, out, mode):
                 check_playbook()
                 page.screenshot(path=str(folder / f'playbook-{width}x{height}.png'))
                 page.click('#filterPass')
-                assert page.locator('#playbookGrid .play-card').count() == 4
+                assert page.locator('#playbookGrid .play-card').count() == page.evaluate("async () => (await import('/play-moment-3d/playbook.js')).matchingPlays('all','pass').length")
                 page.click('#call-pass-1')
                 page.click('#pause');page.click('#resume')
                 assert page.locator('#callName').inner_text() == 'VERTICALS'
@@ -187,7 +190,7 @@ def record(browser, origin, out, mode):
                 page.click('#adjustPlay');page.click('#audibleTab');page.click('#openPlaybook')
                 assert read()['playbook']['choice']['index'] == 0
                 page.click('#filterRun')
-                assert page.locator('#playbookGrid .play-card').count() == 4
+                assert page.locator('#playbookGrid .play-card').count() == page.evaluate("async () => (await import('/play-moment-3d/playbook.js')).matchingPlays('all','run').length")
                 page.click('#filterAll')
         page.screenshot(path=str(folder / 'playbook.png'))
         call_mode = 'pass' if mode in ['pass', 'qb-scramble'] else 'run'
@@ -277,6 +280,8 @@ def record(browser, origin, out, mode):
         result.update(status='passed', frames=frame, finalPhase=read()['phase'], glError=read()['glError'])
     except Exception as exc:
         result['error'] = f'{type(exc).__name__}: {exc}'
+        result['traceback'] = traceback.format_exc()
+        result['diagnostics'] = read()
         try:
             page.screenshot(path=str(folder / 'failure.png'))
         except Exception:

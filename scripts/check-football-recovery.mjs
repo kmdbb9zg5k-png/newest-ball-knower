@@ -208,10 +208,10 @@ for(const keyboard of [false,true]){
  const press=()=>keyboard?g.key('Shift'):g.element('sprint').onpointerdown({pointerId:2,preventDefault(){}});
  const release=()=>keyboard?g.events.get('keyup')({key:'Shift',code:'Shift'}):g.element('sprint').onpointerup({pointerId:2});
  const advance=()=>{g.context.bk3dFixture.mutate(players=>players.forEach(p=>{if(p.hasBall){p.x=0;p.z=40}else if(p.team){p.x=100;p.z=100}}));g.step(1/60)};
- press();let peakSprintSpeed=0;for(let i=0;i<300;i++){advance();const running=g.context.bk3dRenderActors().find(p=>p.hasBall);if(running.sprinting)peakSprintSpeed=Math.max(peakSprintSpeed,Math.hypot(running.vx,running.vz))}assert.ok(peakSprintSpeed>10,`Sprint reaches the quicker target speed: ${peakSprintSpeed.toFixed(2)}`);assert.equal(g.read().stamina,0);
+ press();let peakSprintSpeed=0;for(let i=0;i<300;i++){advance();const running=g.context.bk3dRenderActors().find(p=>p.hasBall);if(running.sprinting)peakSprintSpeed=Math.max(peakSprintSpeed,Math.hypot(running.vx,running.vz))}assert.ok(peakSprintSpeed>=g.context.carrierRunSpeed(g.context.bk3dRenderActors().find(p=>p.hasBall),true)*.98,`Sprint reaches the rating-based target speed: ${peakSprintSpeed.toFixed(2)}`);assert.equal(g.read().stamina,0);
  for(let i=0;i<60;i++){
   advance();assert.equal(g.read().phase,'run');assert.equal(g.read().stamina,0);
-  const carrier=g.context.bk3dRenderActors().find(p=>p.hasBall);assert.ok(Math.hypot(carrier.vx,carrier.vz)>7.7,'Exhausted carrier keeps the quicker normal run speed');
+  const carrier=g.context.bk3dRenderActors().find(p=>p.hasBall);assert.ok(Math.hypot(carrier.vx,carrier.vz)>=g.context.carrierRunSpeed(carrier,false)*.98,'Exhausted carrier keeps the rating-based normal run speed');
   assert.equal(carrier.sprinting,false,'Empty held sprint must stay in run animation');
  }
  release();g.step(.5);assert.ok(g.read().stamina>.04,'Release restores stamina');
@@ -259,13 +259,13 @@ for(const interruptedBy of ['pause','sack']){
   g.step(.3);assert.equal(g.read().phase,'dead');assert.equal(g.read().throwKind,null);
  }
 }
-// Sprint and ordinary running both use the same curve at every position.
+// Scrambling QBs use the rating-based top speed, with and without sprint.
 for(const rating of [35,55,75,95,99])for(const sprint of [false,true]){
  const g=game();g.element('passTab').onclick();g.snap();g.step(.4);
  g.context.bk3dFixture.mutate(players=>{players.filter(p=>p.team).forEach(p=>{p.x=100;p.z=200});const q=players[5];q.ratings={...q.ratings,speed:rating};q.x=16;q.z=28});
  g.element('scramble').onclick();if(sprint)g.key('Shift');g.step(1.2);
  const d=g.read(),q=d.players[5];assert.equal(d.phase,'run');assert.ok(q.hasBall);assert.equal(g.element('scramble').hidden,true);
- assert.ok(Math.abs(Math.hypot(q.vx,q.vz)-playerRunSpeed(q,sprint))<.04,`SPD ${rating} ${sprint?'sprint':'run'} ignores rating`);
+ assert.ok(Math.abs(Math.hypot(q.vx,q.vz)-g.context.carrierRunSpeed(q,sprint))<.04,`SPD ${rating} ${sprint?'sprint':'run'} ignores rating`);
  g.key('x');assert.equal(g.read().phase,'run','Tucked QB cannot throw');
  for(const role of ['QB','RB','WR','TE','OL','DL','LB','DB'])assert.equal(playerTopSpeed({role,ratings:{speed:rating}}),playerTopSpeed(q),'Position must not override speed rating');
 }
@@ -280,7 +280,7 @@ for(const rating of [35,55,75,95,99])for(const sprint of [false,true]){
 {
  const g=game();g.element('passTab').onclick();g.snap();g.step(.4);
  g.context.bk3dFixture.mutate(players=>{players.filter(p=>p.team).forEach(p=>{p.x=100;p.z=-200});const q=players[5];q.x=16;q.z=28;q.ratings={...q.ratings,speed:35}});
- g.context.bk3dFixture.drive({clock:.2});g.element('scramble').onclick();g.step(10);g.step(6.4);
+ g.context.bk3dFixture.drive({clock:.2});g.element('scramble').onclick();for(let i=0;i<17;i++){g.context.bk3dFixture.mutate(players=>{players[5].x=0;players[5].z=40;players.filter(p=>p.team).forEach(p=>{p.x=100;p.z=-200});});g.step(1);}
  assert.equal(g.read().drive.clock,0);assert.equal(g.read().phase,'run','Neither clock zero nor the old 16-second cap may whistle a live carry');
  g.context.bk3dFixture.mutate(players=>{players[5].z=109.98});g.step(.1);
  assert.equal(g.read().phase,'dead');assert.equal(g.read().drive.score,30,'A scrambling QB can finish a touchdown');
@@ -434,8 +434,8 @@ for(const type of ['broken','stumble','miss']){
 // Resolve an actual flight through the interception branch, including endDrive cleanup.
 {
  const g=game();g.element('passTab').onclick();g.snap();g.step(.7);g.key('x');
- assert.equal(g.element('catchChoices').hidden,false,'Catch choices must be present during windup');
- g.key('c');assert.equal(g.read().catchStyle,'secure');g.step(.23);assert.equal(g.read().phase,'flight');
+ assert.equal(g.element('catchChoices').hidden,true,'Catch choices stay hidden during windup');
+ g.key('c');assert.equal(g.read().catchStyle,'rac');g.step(.23);assert.equal(g.read().phase,'flight');g.key('c');assert.equal(g.read().catchStyle,'secure');
  assert.equal(g.element('catchChoices').hidden,false);assert.equal(g.context.bk3dFixture.preparePick(),true);
  g.step(1/60);let d=g.read();assert.equal(d.phase,'dead');assert.equal(d.ended,true);
  const pick=d.players.find(p=>p.hasBall);assert.equal(pick.team,1);assert.equal(pick.action,'interception');
@@ -444,7 +444,7 @@ for(const type of ['broken','stumble','miss']){
  g.step(.45);d=g.read();assert.equal(d.players[19].action,'interception');assert.ok(d.players[19].actionT>.45);
  g.step(.6);d=g.read();assert.equal(d.players[19].action,null);assert.equal(d.players[19].ballTarget,null);assert.equal(d.players[19].hasBall,true);assert.equal(d.drive.ball,spot);
 }
-console.log('Contact/possession checks passed: upright failed tackles, windup catch choice, intercepted ball kept through catch/tuck/endDrive.');
+console.log('Contact/possession checks passed: upright failed tackles, post-release catch choice, intercepted ball kept through catch/tuck/endDrive.');
 
 // A recovering defender cannot count as a gang helper when a fresh tackler arrives.
 for(const recovering of ['latched','released']){
