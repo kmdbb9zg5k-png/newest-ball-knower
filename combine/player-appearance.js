@@ -67,8 +67,18 @@ export function createPlayerAppearance(body,bones) {
           float skinMask=smoothstep(.018,.09,diffuseColor.r-diffuseColor.b)
             *smoothstep(.008,.045,diffuseColor.g-diffuseColor.b)
             *smoothstep(.018,.065,max(diffuseColor.r,max(diffuseColor.g,diffuseColor.b)));
-          diffuseColor.rgb*=mix(vec3(1.0),bkSkinTint,skinMask);`);
-      };material.customProgramCacheKey=()=> 'combine-skin-v1';material.needsUpdate=true;
+          diffuseColor.rgb*=mix(vec3(1.0),bkSkinTint,skinMask);`).replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
+          // A soft skin response and dry compression fabric stay distinct under
+          // the overhead banks; derivative-filtered knit avoids distant shimmer.
+          roughnessFactor=mix(.92,.64,skinMask);
+          #ifdef USE_MAP
+          vec2 weaveUV=vMapUv*vec2(360.,420.);
+          float weaveAA=1.-smoothstep(.35,1.2,max(fwidth(weaveUV.x),fwidth(weaveUV.y)));
+          float weave=sin(weaveUV.x*6.283)*sin(weaveUV.y*6.283);
+          diffuseColor.rgb*=1.+.025*weave*weaveAA*(1.-skinMask);
+          #endif
+        `);
+      };material.customProgramCacheKey=()=> 'combine-skin-knit-v2';material.needsUpdate=true;
     }
   });
   head.add(group);

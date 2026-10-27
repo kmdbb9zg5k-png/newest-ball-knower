@@ -1,3 +1,4 @@
+import {addFacilityPresentation} from './facility-presentation.js';
 import {createRBPresentation} from './rb-presentation.js';
 import {RECEIVER} from './db-drill.js';
 import * as T from 'three';
@@ -172,19 +173,21 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
   const defensive=drill==='db',isRoutes=drill==='routes'||drill==='one-on-one'||defensive||drill==='rb';
   const detailedRunner=await loadCombineRunner(defensive?RECEIVER:player);
   const renderer=new T.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});
-  renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.22;
+  renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;
   host.appendChild(renderer.domElement);renderer.domElement.setAttribute('aria-label',({jump:'Indoor broad jump lane',shuttle:'Indoor shuttle lane',bench:'Combine weight bench',routes:'Receiver routes field','one-on-one':'One-on-one man coverage field',db:'Defensive back coverage field',rb:'Running back one-on-one field'})[drill]||'Indoor 40-yard dash track');
   const lost=e=>{e.preventDefault();onLost();};renderer.domElement.addEventListener('webglcontextlost',lost);
   const scene=new T.Scene();scene.background=new T.Color('#253039');scene.fog=new T.Fog('#253039',48,125);
   const camera=new T.PerspectiveCamera(49,1,.05,160);
-  scene.add(new T.HemisphereLight('#e0e9f5','#3b5032',1.8));
-  const key=new T.DirectionalLight('#fff3df',3.5);key.position.set(-12,24,7);key.castShadow=true;key.shadow.mapSize.set(1024,1024);key.shadow.camera.left=-9;key.shadow.camera.right=9;key.shadow.camera.top=12;key.shadow.camera.bottom=-12;key.shadow.camera.near=1;key.shadow.camera.far=65;key.shadow.normalBias=.025;key.shadow.bias=-.00015;scene.add(key,key.target);
+  scene.add(new T.HemisphereLight('#dce8f2','#30482e',1.2));
+  const key=new T.DirectionalLight('#fff2dc',3.1);key.position.set(-12,24,7);key.castShadow=true;key.shadow.mapSize.set(1024,1024);key.shadow.camera.left=-9;key.shadow.camera.right=9;key.shadow.camera.top=12;key.shadow.camera.bottom=-12;key.shadow.camera.near=1;key.shadow.camera.far=65;key.shadow.normalBias=.025;key.shadow.bias=-.00015;scene.add(key,key.target);
   const fill=new T.DirectionalLight('#bad3ed',1.3);fill.position.set(15,10,35);scene.add(fill);
-  const grass=mat('#607a43');
-  const tc=document.createElement('canvas');tc.width=tc.height=256;const ctx=tc.getContext('2d');ctx.fillStyle='#708455';ctx.fillRect(0,0,256,256);
+  const rim=new T.DirectionalLight('#d5e5f1',.85);rim.position.set(0,12,-24);scene.add(rim);
+  addFacilityPresentation(scene,isRoutes);
+  const grass=mat('#a1b39a',.96);
+  const tc=document.createElement('canvas');tc.width=tc.height=256;const ctx=tc.getContext('2d');ctx.fillStyle='#547653';ctx.fillRect(0,0,256,256);
   let rng=71;const random=()=>{rng=(Math.imul(rng,1664525)+1013904223)>>>0;return rng/4294967296;};
-  for(let i=0;i<20000;i++){const shade=45+Math.floor(random()*70);ctx.strokeStyle=`rgba(${shade},${shade+20},${shade-14},.52)`;const x=random()*256,y=random()*256;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+random()*2,y-1-random()*3);ctx.stroke();}
-  const tex=new T.CanvasTexture(tc);tex.colorSpace=T.SRGBColorSpace;tex.wrapS=tex.wrapT=T.RepeatWrapping;tex.repeat.set((isRoutes?160:54)/2.45,(isRoutes?200:110)/2.2);tex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());grass.map=tex;grass.bumpMap=tex;grass.bumpScale=.025;
+  for(let i=0;i<20000;i++){const shade=45+Math.floor(random()*70);ctx.strokeStyle=`rgba(${shade},${shade+34},${shade-7},.52)`;const x=random()*256,y=random()*256;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+random()*2,y-1-random()*3);ctx.stroke();}
+  const tex=new T.CanvasTexture(tc);tex.colorSpace=T.SRGBColorSpace;tex.wrapS=tex.wrapT=T.RepeatWrapping;tex.repeat.set((isRoutes?160:54)/2.45,(isRoutes?200:110)/2.2);tex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());grass.map=tex;grass.bumpMap=tex;grass.bumpScale=.007;
   const floor=mesh(new T.PlaneGeometry(isRoutes?160:54,isRoutes?200:110),grass,scene,0,-.012,28);floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;
   const white=mat('#e2e5ce'),orange=mat('#df652e'),metal=mat('#26343a',.55),concrete=mat('#353f45'),seatMat=mat('#263d4b');
   for(let z=-5*YARD;z<60;z+=5*YARD){const stripe=box(scene,[isRoutes?49:50,.006,2.5*YARD],mat('#476c3d'),[0,-.005,z]);stripe.material.transparent=true;stripe.material.opacity=.15;stripe.receiveShadow=true;}
