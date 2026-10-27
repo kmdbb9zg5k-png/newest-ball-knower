@@ -36,6 +36,12 @@ export default function CommunityMiniGames({me,friends,onOpenAuth}:{me:string;fr
       <p className="bk-mini-casual">Casual competition · game results are device-reported. Trivia rating is separate.</p>
     </section>
     {(error||actionError)&&<div className="bk-mini-error" role="alert">{actionError||error}<button type="button" onClick={()=>void refresh()}>Refresh challenges</button></div>}
+    {me&&mine.some(m=>m.status==='completed')&&<section className="bk-mini-challenge-feed" aria-label="Rivalry records"><header><h3>Your rivalry records</h3></header><p>Completed challenges in the loaded history · wins / losses / ties.</p>{Array.from(new Set(mine.filter(m=>m.status==='completed').map(m=>m.challenger_id===me?m.opponent_id:m.challenger_id))).filter(Boolean).map(id=>{
+      const series=mine.filter(m=>m.status==='completed'&&(m.challenger_id===id||m.opponent_id===id));
+      const latest=series[0],name=latest.challenger_id===id?latest.challenger_name:latest.opponent_name;
+      const wins=series.filter(m=>m.winner_id===me).length,ties=series.filter(m=>!m.winner_id).length;
+      return <article className="bk-mini-challenge-card" key={id}><div className="bk-mini-card-title"><strong>{name||'Your rival'}</strong><span>{wins} / {series.length-wins-ties} / {ties}</span></div><p>{series.length} completed challenge{series.length===1?'':'s'}</p></article>;
+    })}</section>}
     <section className="bk-mini-challenge-feed" aria-label="Your mini game challenges"><header><h3>Your challenges</h3><button type="button" aria-label="Refresh mini game challenges" disabled={loading} onClick={()=>void refresh()}><RefreshCcw className={loading?'animate-spin':''}/></button></header>
       {!me?<p className="bk-mini-empty">Browse the games above. Sign in to compete and see your challenges.</p>:loading&&!data?<p className="bk-mini-empty" role="status">Loading challenges…</p>:!mine.length?<p className="bk-mini-empty">Your next rivalry starts here. Choose a game above.</p>:mine.map(m=>{
         const incoming=m.status==='pending'&&m.opponent_id===me;
