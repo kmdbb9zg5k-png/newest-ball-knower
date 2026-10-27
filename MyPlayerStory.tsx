@@ -1,10 +1,12 @@
+import {CareerCamp,CareerWeek} from './MyPlayerCareer';
+import {createCareerLife,cleanCareerLife,chooseCamp,campScore,finishCamp,chooseWeek,recordWeekMoment,weekReady,completeCareerWeek,careerGameBoost,type CareerLife} from './myPlayerCareer';
 import {MyPlayerJourney,MyPlayerDraftNight} from './MyPlayerJourney';
 import {chooseJourney,cleanJourney,journeyOptions,nextJourneyChapter,resolveJourneyDraft,type JourneyChapter,type JourneyState} from './myPlayerJourney';
 import {currentCareerRole,type MyPlayerRole} from './myPlayerOpportunity';
 import {calculatePlayedCombine,cleanDraftCombine,recordDraftDrill,type DraftCombinePerformance,type DraftDrill} from './myPlayerDraftCombine';
 export {calculateCombineResults} from './myPlayerCombine';
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { ArrowLeft, Play, RotateCcw, Sparkles, Upload } from 'lucide-react';
 import { FranchiseSeason } from './FranchiseSeason';
 import { buildSoloTeamRoster, SOLO_FRANCHISE_SAVE_KEYS } from './soloFranchiseEngine';
@@ -16,7 +18,7 @@ import { AiPhotoConsent, AI_PHOTO_CONSENT_VERSION } from './AiPhotoConsent';
 import { MyPlayerSharedRender as PlayerRender, myPlayerPresetPortrait } from './solo/MyPlayerSharedRender';
 
 type Props = { onBack: () => void };
-type StoryStage = 'creator' | 'combine' | 'drafted' | 'season';
+type StoryStage = 'creator' | 'combine' | 'drafted' | 'camp' | 'season';
 type UpgradeAttribute = 'speed' | 'power' | 'awareness';
 type BodySliderKey = 'heightInches' | 'weightLbs' | 'bodyBuild' | 'shoulderWidth' | 'armSize' | 'legSize' | 'viewRotation';
 
@@ -26,6 +28,7 @@ type MyPlayerProfile = {
   combinePerformance?: DraftCombinePerformance;
   draftJourney?: JourneyState;
   rookieRole?: MyPlayerRole;
+  careerLife?: CareerLife;
   stage: StoryStage;
   name: string;
   position: Position;
@@ -107,9 +110,9 @@ function restoreProfile() {
     const raw = localStorage.getItem(SOLO_FRANCHISE_SAVE_KEYS.player);
     if (!raw) return EMPTY_PROFILE;
     const saved = JSON.parse(raw);
-    if (saved?.version !== 1 || !POSITIONS.includes(saved.position) || !['creator', 'combine', 'drafted', 'season'].includes(saved.stage)) return EMPTY_PROFILE;
-    if (['drafted', 'season'].includes(saved.stage) && !SOLO_TEAM_THEMES.some(team => team.abbr === saved.teamAbbr)) return EMPTY_PROFILE;
-    return { ...EMPTY_PROFILE, ...saved, combinePerformance:cleanDraftCombine(saved.combinePerformance),draftJourney:saved.draftJourney?cleanJourney(saved.draftJourney,{...EMPTY_PROFILE,...saved}):undefined,rookieRole:['starter','rotation','development'].includes(saved.rookieRole)?saved.rookieRole:undefined } as MyPlayerProfile;
+    if (saved?.version !== 1 || !POSITIONS.includes(saved.position) || !['creator', 'combine', 'drafted', 'camp', 'season'].includes(saved.stage)) return EMPTY_PROFILE;
+    if (['drafted', 'camp', 'season'].includes(saved.stage) && !SOLO_TEAM_THEMES.some(team => team.abbr === saved.teamAbbr)) return EMPTY_PROFILE;
+    return { ...EMPTY_PROFILE, ...saved, careerLife:cleanCareerLife(saved.careerLife,{...EMPTY_PROFILE,...saved},saved.draftJourney),combinePerformance:cleanDraftCombine(saved.combinePerformance),draftJourney:saved.draftJourney?cleanJourney(saved.draftJourney,{...EMPTY_PROFILE,...saved}):undefined,rookieRole:['starter','rotation','development'].includes(saved.rookieRole)?saved.rookieRole:undefined } as MyPlayerProfile;
   } catch {
     return EMPTY_PROFILE;
   }
@@ -154,7 +157,7 @@ function playerFromProfile(profile: MyPlayerProfile): Player {
     weightLbs: profile.weightLbs,
     simulatedPortraitUrl: profile.faceImage || myPlayerPresetPortrait(profile.presetFaceId),
     simulatedFullBodyUrl: profile.renderImage || undefined,
-    starter: profile.rookieRole ? currentCareerRole(profile.rookieRole,profile.overall,profile.gamesPlayed)==='starter' : true,
+    starter: profile.careerLife ? profile.careerLife.role==='starter' : profile.rookieRole ? currentCareerRole(profile.rookieRole,profile.overall,profile.gamesPlayed)==='starter' : true,
     active: true,
     ovr: profile.overall,
     overall: profile.overall,
@@ -187,16 +190,18 @@ function rosterWithMyPlayer(profile: MyPlayerProfile) {
   const replaceable = roster
     .map((player, index) => ({ player, index }))
     .filter(item => getDraftPositionGroup(item.player) === group)
-    .sort((first, second) => created.starter&&profile.rookieRole ? Number(Boolean(second.player.starter))-Number(Boolean(first.player.starter))||first.player.ovr-second.player.ovr : first.player.ovr-second.player.ovr)[0];
+    .sort((first, second) => profile.careerLife ? Number(second.player.id===profile.careerLife.rosterSlotId)-Number(first.player.id===profile.careerLife.rosterSlotId)||first.player.ovr-second.player.ovr : created.starter&&profile.rookieRole ? Number(Boolean(second.player.starter))-Number(Boolean(first.player.starter))||first.player.ovr-second.player.ovr : first.player.ovr-second.player.ovr)[0];
   if (replaceable) roster[replaceable.index] = created;
   else roster[roster.length - 1] = created;
-  return profile.rookieRole&&created.starter?[created,...roster.filter(player=>player.id!==created.id)]:roster;
+  return profile.careerLife||profile.rookieRole&&created.starter?[created,...roster.filter(player=>player.id!==created.id)]:roster;
 }
 
 const feetAndInches = (inches: number) => `${Math.floor(inches / 12)}'${inches % 12}\"`;
 
 export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
   const [profile, setProfile] = useState<MyPlayerProfile>(restoreProfile);
+  const previousStage=useRef(profile.stage);
+  useEffect(()=>{if(previousStage.current!==profile.stage){previousStage.current=profile.stage;window.scrollTo({top:0,behavior:'instant'});}},[profile.stage]);
   const [message, setMessage] = useState('');
   const [saveError,setSaveError]=useState('');
   const [isRendering, setIsRendering] = useState(false);
@@ -338,15 +343,17 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
     if(profile.stage!=='drafted')return;
     if(draftOutcome&&(profile.draftJourney!.cursor<Math.min(224,draftOutcome.overall)||draftOutcome.kind==='undrafted'&&!draftOutcome.offers.some(o=>o.team===profile.draftJourney?.signedTeam))){setMessage('Finish draft night and choose your camp offer first.');return;}
     try { localStorage.removeItem(`${SOLO_FRANCHISE_SAVE_KEYS.player}:season`); } catch (error) { console.warn('Unable to clear My Player season', error); }
-    setProfile(current=>current.stage!=='drafted'?current:({...current,stage:'season',upgradePoints:current.upgradePoints+(draftOutcome?.developmentPoints||0)}));
+    setProfile(current=>current.stage!=='drafted'?current:({...current,stage:draftOutcome?'camp':'season',careerLife:draftOutcome?createCareerLife(current,current.draftJourney,current.rookieRole):undefined,upgradePoints:current.upgradePoints+(draftOutcome?.developmentPoints||0)}));
   };
 
-  const awardXp = (fantasyScore: number, won: boolean,progress?:Player) => {
+  const awardXp = (fantasyScore: number, won: boolean,progress?:Player,careerKey?:string) => {
     setProfile(current => {
-      const earned = Math.max(12, Math.round(fantasyScore * 4) + (won ? 10 : 0));
+      if(current.careerLife&&careerKey&&!weekReady(current.careerLife,careerKey))return current;
+      const careerLife=current.careerLife&&careerKey?completeCareerWeek(current.careerLife,careerKey,won):current.careerLife;
+      const earned = Math.max(12, Math.round(fantasyScore * 4) + (won ? 10 : 0))+(current.careerLife?.turn?.score!==undefined?Math.round(current.careerLife.turn.score/5):0);
       const total = current.xp + earned;
       const points = Math.floor(total / 100);
-      return { ...current, ...(current.rookieRole&&progress?{overall:Math.max(current.overall,progress.ovr),speed:Math.max(current.speed,progress.speed||0),power:Math.max(current.power,progress.strength||0),awareness:Math.max(current.awareness,progress.awareness||0)}:{}), xp: total % 100, upgradePoints: current.upgradePoints + points, gamesPlayed: current.gamesPlayed + 1 };
+      return { ...current, careerLife,rookieRole:careerLife?.role||current.rookieRole, ...(current.rookieRole&&progress?{overall:Math.max(current.overall,progress.ovr),speed:Math.max(current.speed,progress.speed||0),power:Math.max(current.power,progress.strength||0),awareness:Math.max(current.awareness,progress.awareness||0)}:{}), xp: total % 100, upgradePoints: current.upgradePoints + points, gamesPlayed: current.gamesPlayed + 1 };
     });
   };
 
@@ -371,6 +378,14 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
     setMessage('');
   };
 
+  const campLife=profile.careerLife||createCareerLife(profile,profile.draftJourney,profile.rookieRole);
+  const commitCamp=(kind:'prep'|'response',id:string)=>setProfile(current=>current.stage!=='camp'?current:{...current,careerLife:chooseCamp(current.careerLife||createCareerLife(current,current.draftJourney,current.rookieRole),kind,id)});
+  const recordCamp=(index:number,score:number)=>setProfile(current=>current.stage!=='camp'?current:{...current,careerLife:campScore(current.careerLife||createCareerLife(current,current.draftJourney,current.rookieRole),index,score)});
+  const enterRookie=()=>setProfile(current=>{if(current.stage!=='camp'||!current.careerLife||current.careerLife.camp.scores.length!==3)return current;const life=finishCamp(current.careerLife);return {...current,stage:'season',careerLife:life,rookieRole:life.role};});
+  const commitWeek=(key:string,kind:'prep'|'response',id:string)=>setProfile(current=>current.stage!=='season'||!current.careerLife?current:{...current,careerLife:chooseWeek(current.careerLife,key,kind,id)});
+  const recordMoment=(key:string,score:number)=>setProfile(current=>current.stage!=='season'||!current.careerLife?current:{...current,careerLife:recordWeekMoment(current.careerLife,key,score)});
+  if(profile.stage==='camp')return <BroadcastStage scene="locker" page="my-player" quiet>{saveError&&<p role="alert">{saveError}</p>}<CareerCamp life={campLife} profile={profile} onChoice={commitCamp} onScore={recordCamp} onFinish={enterRookie} onBack={onBack}/></BroadcastStage>;
+
   if (profile.stage === 'season' && draftedTeam) {
     const roster = rosterWithMyPlayer(profile);
     return (
@@ -384,12 +399,14 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
                 <div className="mt-1 text-2xl font-black">{profile.name} • #{profile.number} • {profile.position}</div>
                 <div className="mt-1 text-xs font-bold text-zinc-500">{feetAndInches(profile.heightInches)} • {profile.weightLbs} LB • {profile.overall} OVR • {draftedTeam.name}</div>
                 <ViewSlider value={profile.viewRotation} onChange={value => updateSlider('viewRotation', value)} />
-                {profile.rookieRole&&<p className="mt-3 text-xs text-[var(--bk-team-accent)]">Career role: {currentCareerRole(profile.rookieRole,profile.overall,profile.gamesPlayed)} · Baseline featured reps: rotation in odd weeks, development every fourth week. Coach promises can create extra opportunities. Reach 70 OVR after 3 games for rotation, or 78 OVR after 4 games for a starting opportunity.</p>}
+                {!profile.careerLife&&profile.rookieRole&&<p className="mt-3 text-xs text-[var(--bk-team-accent)]">Career role: {currentCareerRole(profile.rookieRole,profile.overall,profile.gamesPlayed)} · Baseline featured reps: rotation in odd weeks, development every fourth week. Coach promises can create extra opportunities. Reach 70 OVR after 3 games for rotation, or 78 OVR after 4 games for a starting opportunity.</p>}
               </div>
             </div>
           </div>
         </div>
-        <FranchiseSeason title="MY PLAYER STORY" userTeam={draftedTeam} roster={roster} saveKey={SOLO_FRANCHISE_SAVE_KEYS.player} onBack={onBack} myPlayerId="my-player-user" myPlayerProgress={profile.rookieRole?{ovr:profile.overall,speed:profile.speed,strength:profile.power,awareness:profile.awareness}:undefined} myPlayerRole={profile.rookieRole?currentCareerRole(profile.rookieRole,profile.overall,profile.gamesPlayed):undefined} onMyPlayerGame={awardXp} />
+        {saveError&&<p role="alert" className="mx-auto max-w-5xl p-4 text-red-300">{saveError}</p>}
+        {!profile.careerLife&&<div className="mx-auto max-w-5xl p-4"><button className="career-primary" onClick={()=>setProfile(current=>{if(current.careerLife)return current;const life=createCareerLife(current,current.draftJourney,current.rookieRole?currentCareerRole(current.rookieRole,current.overall,current.gamesPlayed):'starter');const ids=new Set(rosterWithMyPlayer(current).map(p=>p.id));const rosterSlotId=buildSoloTeamRoster(current.teamAbbr).find(p=>!ids.has(p.id))?.id;return {...current,careerLife:{...life,rosterSlotId,camp:{scores:[],complete:true,legacy:true},games:current.gamesPlayed}};})}>ENABLE LIVING CAREER</button><p className="career-note">Keep your season and add weekly conversations, playable moments and evolving relationships. No training-camp replay required.</p></div>}
+        <FranchiseSeason title="MY PLAYER STORY" userTeam={draftedTeam} roster={roster} saveKey={SOLO_FRANCHISE_SAVE_KEYS.player} onBack={onBack} myPlayerId="my-player-user" myPlayerProgress={profile.rookieRole?{ovr:profile.overall,speed:profile.speed,strength:profile.power,awareness:profile.awareness}:undefined} myPlayerRole={profile.careerLife?.role||(profile.rookieRole?currentCareerRole(profile.rookieRole,profile.overall,profile.gamesPlayed):undefined)} careerPanel={profile.careerLife?context=><CareerWeek life={profile.careerLife!} profile={profile} context={context} onChoice={commitWeek} onMoment={recordMoment}/>:undefined} careerReady={profile.careerLife?key=>weekReady(profile.careerLife,key):undefined} careerBoost={profile.careerLife?key=>careerGameBoost(profile.careerLife,key):undefined} onMyPlayerGame={awardXp} />
         <button type="button" onClick={newCareer} style={{ bottom: 'calc(max(1rem, env(safe-area-inset-bottom)) + 4.5rem)' }} className="fixed right-4 z-30 flex min-h-10 items-center gap-2 rounded-full border border-white/10 bg-black/95 px-3 text-[10px] font-black shadow-xl"><RotateCcw size={14} /> NEW PLAYER</button>
         <div className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-xl items-center gap-2 rounded-2xl border border-white/10 bg-black/95 p-2 shadow-2xl">
           <div className="min-w-0 flex-1 px-2"><div className="truncate text-xs font-black">{profile.name} • {profile.overall} OVR</div><div className="text-[10px] text-zinc-500">XP {profile.xp}/100 • {profile.upgradePoints} UPGRADE POINT{profile.upgradePoints === 1 ? '' : 'S'}</div></div>

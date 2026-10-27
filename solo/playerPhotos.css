@@ -10,3 +10,8 @@
 .bk-solo-art-fallback{position:absolute;inset:0;display:grid;place-items:center;align-content:center;gap:2px;background:radial-gradient(circle at 50% 35%,rgba(222,187,94,.18),transparent 50%),linear-gradient(145deg,#19202b,#080b10);color:#e8c96e;text-shadow:0 1px 10px #000}
 .bk-solo-art-fallback b{font:900 clamp(13px,3vw,24px)/1 ui-sans-serif,sans-serif;letter-spacing:-.04em}.bk-solo-art-fallback small{font:800 5px/1 ui-sans-serif,sans-serif;letter-spacing:.12em;color:#788494}
 .bk-my-player-shared-character>img{width:100%;height:auto;display:block}
+
+/* Keep the career header portrait inside its compact frame. */
+[data-my-player-render="shared"][data-compact="true"] .bk-solo-character{min-height:0;height:180px;aspect-ratio:auto}
+[data-my-player-render="shared"][data-compact="true"] .bk-solo-character-fallback{padding:8px;gap:6px;font-size:8px}
+[data-my-player-render="shared"][data-compact="true"] .bk-solo-custom-face-fallback{height:120px;width:96px}
