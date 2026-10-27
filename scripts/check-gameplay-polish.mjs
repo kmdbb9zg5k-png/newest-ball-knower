@@ -21,7 +21,10 @@ try{
   await page.setViewportSize({width:844,height:390});await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));await page.evaluate(()=>window.bk3dTest.step(1/60));await page.screenshot({path:`${out}/controls.png`});
   await page.keyboard.up('ArrowUp');assert.equal(await page.evaluate(type=>window.bk3dTest.forceContact(type),type),true);
   assert.equal(await page.evaluate(()=>window.bk3dDiagnostics().contact.type),type);
-  for(const [stage,dt] of [['load',.22],['impact',.32],['ground',.85],['recover',.8]]){await page.evaluate(dt=>window.bk3dTest.step(dt),dt);const d=await page.evaluate(()=>window.bk3dDiagnostics());assert.equal(d.glError,0);assert.ok(d.players.every(p=>!p.engaged));if(d.contact&&stage==='impact'){const runner=d.players.find(p=>p.hasBall),tackler=d.players[d.contact.tackler];assert.ok(Math.hypot(runner.x-tackler.x,runner.z-tackler.z)>.68,'Contact bodies too close');}assert.ok(d.players.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.z)));await page.screenshot({path:`${out}/${type}-${stage}.png`});}
+  for(const [stage,dt] of [['load',.22],['impact',.32],['ground',.85],['recover',.8]]){await page.evaluate(dt=>window.bk3dTest.step(dt),dt);const d=await page.evaluate(()=>window.bk3dDiagnostics());assert.equal(d.glError,0);assert.ok(d.players.every(p=>!p.engaged));if(d.contact&&stage==='impact'){const runner=d.players.find(p=>p.hasBall),tackler=d.players[d.contact.tackler];
+   // Paired tackles close from .67 m to a grounded .60 m lateral/.12 m
+   // trailing offset (e2a791fd); the former >.68 m rule rejected a valid wrap.
+   const gap=Math.hypot(runner.x-tackler.x,runner.z-tackler.z);assert.ok(gap>=.60&&gap<=.72,`Impact must remain a close, separated wrap: ${type} ${gap} m`);assert.equal(runner.contactRole,'carrier');assert.equal(tackler.contactRole,'tackler');assert.equal(runner.contactWith,d.contact.tackler);assert.equal(tackler.contactWith,d.players.indexOf(runner));}assert.ok(d.players.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.z)));await page.screenshot({path:`${out}/${type}-${stage}.png`});}
   await page.evaluate(()=>window.bk3dTest.step(3));assert.equal(await page.evaluate(()=>window.bk3dDiagnostics().phase),'pre');
  }
  // A natural pocket sack: inspect every simulation frame through the camera transition.
