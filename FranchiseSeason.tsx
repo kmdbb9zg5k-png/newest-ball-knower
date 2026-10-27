@@ -1,3 +1,6 @@
+import {syncMyPlayerRole} from './myPlayerOpportunity';
+import {applyCareerRatings} from './myPlayerCareer';
+import type {CareerWeekContext} from './MyPlayerCareer';
 import {myPlayerStatOpportunity,mergeMyPlayerProgress,type MyPlayerRole} from './myPlayerOpportunity';
 import {SoloPortrait,useSoloRecords} from './solo/SoloPresentation';
 import { FranchiseCombine } from './combine/CombineLauncher';
@@ -56,7 +59,10 @@ type Props = {
   myPlayerId?: string;
   myPlayerRole?: MyPlayerRole;
   myPlayerProgress?: Pick<Player,'ovr'|'speed'|'strength'|'awareness'>;
-  onMyPlayerGame?: (fantasyScore: number, won: boolean,progress?:Player) => void;
+  onMyPlayerGame?: (fantasyScore: number, won: boolean,progress?:Player,careerKey?:string) => void;
+  careerPanel?: (context:CareerWeekContext)=>React.ReactNode;
+  careerReady?: (key:string)=>boolean;
+  careerBoost?: (key:string)=>number;
   onRosterChange?: (roster: Player[]) => void;
   gamePlan?: string;
   draftPickAssets?: FranchiseDraftPick[];
@@ -169,6 +175,7 @@ export const FranchiseSeason: React.FC<Props> = ({
   myPlayerRole,
   myPlayerProgress,
   onMyPlayerGame,
+  careerPanel,careerReady,careerBoost,
   onRosterChange,
   gamePlan = 'Balanced attack',
   draftPickAssets,
@@ -209,10 +216,12 @@ export const FranchiseSeason: React.FC<Props> = ({
     setSeasonRoster(current => {
       const rookies = current.filter(player => player.id.startsWith('franchise-rookie-'));
       const next = [...roster, ...rookies.filter(rookie => !roster.some(player => player.id === rookie.id))];
-      return JSON.stringify(next.map(player => player.id)) === JSON.stringify(current.map(player => player.id)) ? current : next;
+      const sameMembers=next.length===current.length&&next.every(player=>current.some(saved=>saved.id===player.id));
+      return (careerPanel?sameMembers:JSON.stringify(next.map(player => player.id)) === JSON.stringify(current.map(player => player.id))) ? current : next;
     });
   }, [roster]);
-  const activeRoster = useMemo(()=>mergeMyPlayerProgress(seasonRoster,myPlayerId,myPlayerProgress),[seasonRoster,myPlayerId,myPlayerProgress]);
+  const livingCareer=Boolean(careerPanel);
+  const activeRoster = useMemo(()=>{const roster=mergeMyPlayerProgress(seasonRoster,myPlayerId,myPlayerProgress);return livingCareer?syncMyPlayerRole(roster,myPlayerId,myPlayerRole):roster;},[seasonRoster,myPlayerId,myPlayerProgress,myPlayerRole,livingCareer]);
   useSoloRecords(activeRoster,weeks,interactionState,year);
   const ratings = useMemo(() => ratingsWithFranchiseMorale(calculateTeamRatings(activeRoster), interactionState, activeRoster), [activeRoster, interactionState]);
   const wins = weeks.filter(week => week.won).length;
@@ -247,6 +256,8 @@ export const FranchiseSeason: React.FC<Props> = ({
     }
   }, [seasonKey, stage, weeks, playoffs, injuries, message, draftRound, draftedProspects, seasonRoster, playoffField, year, interactionState]);
 
+  const careerKey=`${year}:${stage==='playoffs'?'playoffs':'regular'}:${stage==='playoffs'?playoffs.length+1:weeks.length+1}`;
+  const careerBlocked=Boolean(careerReady&&!careerReady(careerKey));
   const rosterFor = (team: TeamTheme) => opponentRosters?.[team.abbr] ?? buildSoloTeamRoster(team.abbr);
   const unlockSimulation = () => window.setTimeout(() => {
     simulationLock.current = false;
@@ -259,7 +270,7 @@ export const FranchiseSeason: React.FC<Props> = ({
   };
   const playWeek = () => {
     const weekNumber = weeks.length + 1;
-    if (weekNumber > 17 || simulationLock.current || interactionState.pendingScenario) return;
+    if (weekNumber > 17 || simulationLock.current || interactionState.pendingScenario || careerBlocked) return;
     simulationLock.current = true;
     setIsSimulating(true);
     try {
@@ -273,7 +284,7 @@ export const FranchiseSeason: React.FC<Props> = ({
       isCommissioner: true,
       status: 'ready',
       roster: activeRoster,
-      teamRatings: myRatings,
+      teamRatings: applyCareerRatings(myRatings,careerBoost?.(careerKey)),
     };
     const userHome = weekNumber % 2 === 1;
     const game = userHome ? simulateGame(weekNumber, me, opponent) : simulateGame(weekNumber, opponent, me);
@@ -303,7 +314,7 @@ export const FranchiseSeason: React.FC<Props> = ({
     }]);
     setInjuries(previous => [...previous.map(injury => ({ ...injury, weeks: Math.max(0, injury.weeks - 1) })), ...newInjuries]);
     const myLine = myPlayerId ? playerLines.find(line => line.playerId === myPlayerId) : null;
-    if (myPlayerId && onMyPlayerGame) onMyPlayerGame(myLine?.fantasyScore ?? 2, won,interactionOutcome.roster.find(player=>player.id===myPlayerId));
+    if (myPlayerId && onMyPlayerGame) onMyPlayerGame(myLine?.fantasyScore ?? 2, won,interactionOutcome.roster.find(player=>player.id===myPlayerId),careerKey);
     setMessage(newInjuries.length
       ? `${newInjuries[0].playerName} suffered a ${newInjuries[0].severity.toLowerCase()} injury.`
       : `${won ? 'WIN' : 'LOSS'} — ${nextWins}-${nextLosses}`);
@@ -335,7 +346,7 @@ export const FranchiseSeason: React.FC<Props> = ({
   const round = nextPlayoffMatchup?.round ?? null;
 
   const playRound = () => {
-    if (!round || simulationLock.current) return;
+    if (!round || simulationLock.current || careerBlocked) return;
     simulationLock.current = true;
     setIsSimulating(true);
     try {
@@ -349,7 +360,7 @@ export const FranchiseSeason: React.FC<Props> = ({
       isCommissioner: true,
       status: 'ready',
       roster: activeRoster,
-      teamRatings: applyFranchiseGamePlan(ratingsWithFranchiseMorale(ratingsWithInjuries(activeRoster, activeInjuries), interactionState, activeRoster), gamePlan),
+      teamRatings: applyCareerRatings(applyFranchiseGamePlan(ratingsWithFranchiseMorale(ratingsWithInjuries(activeRoster, activeInjuries), interactionState, activeRoster), gamePlan),careerBoost?.(careerKey)),
     };
     const userHome = playoffs.length % 2 === 0;
     const game = userHome ? simulateGame(18 + playoffs.length, me, opponent) : simulateGame(18 + playoffs.length, opponent, me);
@@ -363,7 +374,7 @@ export const FranchiseSeason: React.FC<Props> = ({
     onRosterChange?.(interactionOutcome.roster);
     if (myPlayerId && onMyPlayerGame) {
       const myLine = playerLines.find(line => line.playerId === myPlayerId);
-      onMyPlayerGame(myLine?.fantasyScore ?? 3, won,interactionOutcome.roster.find(player=>player.id===myPlayerId));
+      onMyPlayerGame(myLine?.fantasyScore ?? 3, won,interactionOutcome.roster.find(player=>player.id===myPlayerId),careerKey);
     }
     const next = [...playoffs, { round, opponent: opponentTeam.name, you, them, won }];
     setPlayoffs(next);
@@ -481,6 +492,7 @@ export const FranchiseSeason: React.FC<Props> = ({
         <FranchiseCombine prospects={combineProspects} roster={activeRoster} context={`${seasonKey}:${userTeam.abbr}:combine:${year + 1}`} year={year + 1} />
         {message ? <div className="mb-4 rounded-2xl border border-[var(--bk-team-accent)]/25 bg-[var(--bk-team-accent)]/10 px-4 py-3 text-sm font-bold text-[var(--bk-team-accent)]">{message}</div> : null}
 
+        {careerPanel&&((stage==='regular'&&weeks.length<17)||(stage==='playoffs'&&round))?careerPanel({key:careerKey,label:stage==='playoffs'?String(round):`Week ${weeks.length+1}`,week:stage==='playoffs'?18+playoffs.length:weeks.length+1,opponent:stage==='playoffs'?(SOLO_TEAM_THEMES.find(t=>t.abbr===nextPlayoffMatchup?.opponentAbbr)?.name||'Playoff opponent'):currentOpponent.name}):null}
         {stage === 'regular' || stage === 'playoffs' ? <FranchiseInteractionCenter state={interactionState} roster={activeRoster} onRespond={respondToScenario} onUpgrade={applyUpgrade} onReadAll={readAllNotifications} /> : null}
 
         {stage === 'regular' ? (
@@ -503,8 +515,8 @@ export const FranchiseSeason: React.FC<Props> = ({
                     <div className="text-2xl font-black text-zinc-600">VS</div>
                     <TeamMatchup team={currentOpponent} label="CPU" />
                   </div>
-                  <button type="button" onClick={playWeek} disabled={isSimulating || Boolean(interactionState.pendingScenario)} aria-busy={isSimulating} className="mt-6 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)] disabled:cursor-wait disabled:opacity-60">
-                    <Play className="mr-2 inline" size={20} /> {isSimulating ? 'SIMULATING…' : interactionState.pendingScenario ? 'RESPOND TO TEAM FIRST' : `SIMULATE WEEK ${weeks.length + 1}`}
+                  <button type="button" onClick={playWeek} disabled={isSimulating || Boolean(interactionState.pendingScenario) || careerBlocked} aria-busy={isSimulating} className="mt-6 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)] disabled:cursor-wait disabled:opacity-60">
+                    <Play className="mr-2 inline" size={20} /> {isSimulating ? 'SIMULATING…' : careerBlocked?'COMPLETE YOUR CAREER WEEK':interactionState.pendingScenario ? 'RESPOND TO TEAM FIRST' : `${careerPanel?'RESOLVE':'SIMULATE'} WEEK ${weeks.length + 1}`}
                   </button>
                 </div>
               ) : (
@@ -566,7 +578,7 @@ export const FranchiseSeason: React.FC<Props> = ({
                 return <div key={label} className="rounded-2xl border border-white/10 bg-black/20 p-3 text-left"><div className="text-[9px] font-black text-[var(--bk-team-accent)]">{label === 'CONFERENCE CHAMPIONSHIP' ? 'CONFERENCE' : label}</div><div className="mt-2 font-black">{bye ? 'FIRST-ROUND BYE' : result ? `${result.won ? 'WIN' : 'LOSS'} ${result.you}-${result.them}` : scheduled ? `VS #${scheduled.opponentSeed}` : 'TBD'}</div>{result ? <div className="truncate text-xs text-zinc-500">{result.opponent}</div> : opponent ? <div className="truncate text-xs text-zinc-500">{opponent.name}</div> : null}</div>;
               })}
             </div>
-            {round ? <button type="button" onClick={playRound} disabled={isSimulating} aria-busy={isSimulating} className="mt-6 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)] disabled:cursor-wait disabled:opacity-60">{isSimulating ? 'SIMULATING…' : `PLAY ${round}`}</button> : null}
+            {round ? <button type="button" onClick={playRound} disabled={isSimulating || careerBlocked} aria-busy={isSimulating} className="mt-6 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)] disabled:cursor-wait disabled:opacity-60">{isSimulating ? 'SIMULATING…' : careerBlocked?'COMPLETE YOUR CAREER WEEK':`PLAY ${round}`}</button> : null}
           </div>
         ) : null}
 
