@@ -34,7 +34,7 @@ window.render=(camera='game',frames=1)=>{
   for(const p of players)r.add('plane',pose(p.x+.13,.038,p.z-.12,1.65,1,1.15),[0,0,0,.75],'shadow',true);
   r.actorPass=true;for(const p of players)drawAthlete(r,p,0,'pre');r.actorPass=false;r.draw();
  }
- return {players:players.length,parts:stadium.parts,drawCalls:r.drawCalls,shadowDrawCalls:r.shadowDrawCalls,textures:r.textures.size,newUploads:uploads-before,glError:r.gl.getError(),maxBatch:Math.max(...[...r.batches.values()].map(b=>b.count)),coordinatesUnchanged:JSON.stringify(originals)===JSON.stringify(players.map(p=>[p.x,p.z,p.heading]))};
+ return {players:players.length,parts:stadium.parts,drawCalls:r.drawCalls,shadowDrawCalls:r.shadowDrawCalls,textures:r.textures.size,newUploads:uploads-before,glError:r.gl.getError(),maxBatch:Math.max(...[...r.batches.values()].map(b=>b.count)),batchesWithinCapacity:[...r.batches.values()].every(b=>b.count<=b.capacity&&b.capacity<=8192&&b.data.length===21*b.capacity),coordinatesUnchanged:JSON.stringify(originals)===JSON.stringify(players.map(p=>[p.x,p.z,p.heading]))};
 };
 window.result=window.render();
 </script></body></html>'''
@@ -69,12 +69,12 @@ def offline_bundle(baseline):
         'const {hex,mul,pose,rx,scale,segment,translate}=R;', ['installNightStadium']) + ';')
     out.append('const S=' + module('stadium.js',
         'const {pose,mul,rx,rz,translate,scale,segment,hex}=R;const {stadiumCorners,stadiumDetails}=Architecture;'
-        'const installSceneMaterials=(renderer)=>{const state=Art.installSceneMaterials(renderer);window.sceneReady=state.ready;return state;};' +
+        'const installSceneMaterials=(renderer)=>{const state=Art.installSceneMaterials(renderer);window.sceneReady=state.ready;window.sceneArt=state;return state;};' +
         ('const installNightStadium=()=>{};' if baseline else 'const {installNightStadium}=N;'),
         ['makeStadium']) + ';')
     scene = HTML.split('<script type="module">')[1].split('</script>')[0]
     scene = scene[scene.index("const r=new Renderer"):]
-    scene = scene.replace('window.result=window.render();', 'await window.sceneReady;window.result=window.render();')
+    scene = scene.replace('window.result=window.render();', "await window.sceneReady;if(!window.sceneArt.turf||!window.sceneArt.crowd||!window.sceneArt.sideline)throw new Error('Shipped scene textures failed to load');window.result=window.render();")
     return 'async () => {' + ''.join(out) + 'const {Renderer,pose,segment,hex}=R;const {prepareJerseys,drawAthlete,advanceMotion}=A;const {makeStadium}=S;' + scene + 'return window.result;}'
 
 
@@ -103,7 +103,7 @@ def main():
                 page.evaluate(offline_bundle(baseline))
                 result = page.evaluate("window.render('game', 2)")
                 assert result['players'] == 22 and result['glError'] == 0, result
-                assert result['maxBatch'] < 4096, result
+                assert result['batchesWithinCapacity'], result
                 assert result['newUploads'] == 0 and result['coordinatesUnchanged'], result
                 key = 'before' if baseline else 'after';results[key] = result
                 for camera in ['game', 'sideline', 'bowl']:
