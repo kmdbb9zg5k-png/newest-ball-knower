@@ -29,7 +29,17 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - run: npx playwright install --with-deps chromium
+      - name: Use installed Chrome or install Chromium
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          browser_path="$(command -v google-chrome || command -v google-chrome-stable || true)"
+          if [ -n "$browser_path" ]; then
+            "$browser_path" --version
+            echo "BROWSER_PATH=$browser_path" >> "$GITHUB_ENV"
+          else
+            npx playwright install --with-deps chromium
+          fi
       - run: npm run lint
       - run: node --import tsx scripts/mini-challenges-check.ts
       - name: Exercise mobile layouts, real dash, result retry and rematches
