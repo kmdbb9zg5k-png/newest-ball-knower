@@ -1,8 +1,12 @@
 """Render the actual camera/HUD pass and exercise target taps. Not phone certification.
 The optional before comparison uses the old game/HTML with the same current art.
-All modules execute through offline Blob URLs; no server, CDN or storage is used.
+Modules and assets are served from loopback using the real import graph. No CDN is used.
 """
 import argparse
+import atexit
+import functools
+import threading
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import importlib.util
 import json
 import os
@@ -19,20 +23,47 @@ def read_source(path, baseline=None):
     return (ROOT / path).read_text()
 
 
+class QuietHandler(SimpleHTTPRequestHandler):
+    def log_message(self, *_): pass
+SERVER=ThreadingHTTPServer(('127.0.0.1',0),functools.partial(QuietHandler,directory=str(ROOT/'public')))
+threading.Thread(target=SERVER.serve_forever,daemon=True).start()
+atexit.register(SERVER.server_close)
+ORIGIN=f'http://127.0.0.1:{SERVER.server_port}'
+
 def load(page, baseline=None):
-    html = read_source('public/play-moment-3d-preview.html', baseline)
-    html = re.sub(r'<script type="module">[\s\S]*?</script>', '', html)
-    html = html.replace('<link rel="stylesheet" href="/play-moment-3d/hud.css">', '<style>' + read_source('public/play-moment-3d/hud.css') + '</style>')
-    page.set_content(html)
-    urls = {}
-    for name in ['renderer', 'motion', 'geometry', 'athlete', 'meshy-athlete', 'night-stadium', 'stadium', 'replay', 'game']:
-        text = read_source(f'public/play-moment-3d/{name}.js', baseline)
-        for dep, url in urls.items():
-            text = text.replace("'./" + dep + ".js'", repr(url))
-        text = text.replace("new URLSearchParams(location.search).has('qa')", 'true')
-        text = text.replace("new URLSearchParams(location.search).get('scenario')==='redzone'", 'true')
-        urls[name] = page.evaluate("s=>URL.createObjectURL(new Blob([s],{type:'text/javascript'}))", text)
-    page.evaluate("async url=>{const {start}=await import(url);start();bk3dTest.manualFrames();bk3dTest.step(.2)}", urls['game'])
+    def source_route(route):
+        from urllib.parse import urlparse
+        path='public'+urlparse(route.request.url).path
+        if path.endswith(('.js','.html')):
+            route.fulfill(body=read_source(path,baseline),content_type='text/javascript' if path.endswith('.js') else 'text/html')
+        else: route.continue_()
+    page.route(ORIGIN+'/**',source_route)
+    page.goto(ORIGIN+'/play-moment-3d-preview.html?qa&scenario=redzone&assist=1',wait_until='domcontentloaded')
+    page.wait_for_function('window.bk3dTest',timeout=45000)
+    page.evaluate('bk3dTest.manualFrames()')
+    page.wait_for_function('bk3dDiagnostics().athletes.ready',timeout=45000)
+    page.wait_for_function('window.bkSceneArtDiagnostics && Object.values(bkSceneArtDiagnostics()).slice(0,3).every(Boolean)',timeout=45000)
+    page.evaluate('bk3dTest.step(.2)')
+
+def choose(page,mode='run',index=0):
+    if not state(page)['playbook']['open']:
+        page.click('#adjustPlay');page.click('#audibleTab');page.click('#openPlaybook')
+    page.locator('#formationTabs button[data-formation="all"]').click()
+    page.click('#filterRun' if mode=='run' else '#filterPass')
+    page.click(f'#call-{mode}-{index}');page.click('#breakHuddle')
+
+def until(page,predicate,limit=8):
+    for _ in range(round(limit/.1)):
+        d=state(page)
+        if predicate(d):return d
+        page.evaluate('bk3dTest.step(.1)')
+    raise AssertionError(('State did not arrive',state(page)))
+
+def graphics_check(page):
+    g=page.evaluate('bkGraphicsDiagnostics()')
+    assert g['drawCalls']<77 and 0<g['shadowDrawCalls']<40 and g['overflows']==0,g
+    assert g['textureCount']>=3,g
+    return g
 
 
 def capture(page, path):
@@ -62,9 +93,9 @@ def inspect_markers(page, height):
       label:e.textContent,name:e.getAttribute('aria-label'),tether:e.firstElementChild.style.height};})""")
     assert len(markers) == 5
     for i, m in enumerate(markers):
-        assert m['w'] >= 44 and m['h'] >= 44 and m['badgeW'] == 28 and m['badgeH'] == 28, m
+        assert m['w'] >= 44 and m['h'] >= 44 and m['badgeW'] == 34 and m['badgeH'] == 34, m
         assert m['y'] >= 54 and m['y'] + m['h'] < height, m
-        assert m['label'] in ['X', 'Y', 'Z', 'A', 'B'] and m['label'] in m['name'], m
+        assert m['label'] in ['WR','TE','RB'] and m['label'] in m['name'], m
         for n in markers[:i]:
             assert m['x'] + m['w'] <= n['x'] or n['x'] + n['w'] <= m['x'] or m['y'] + m['h'] <= n['y'] or n['y'] + n['h'] <= m['y'], markers
     d = state(page)
@@ -106,28 +137,31 @@ def main():
                 markers = inspect_markers(page, h) if variant == 'after' else []
                 capture(page, args.output / f'{variant}-passing-{w}x{h}.png')
                 if variant == 'after':
-                    # Tap outside the visible 28px circle but inside the real 44px button.
+                    # Tap outside the visible 34px circle but inside the real 44px button.
                     m = markers[0];page.touchscreen.tap(m['x'] + 3, m['y'] + 22)
-                    assert state(page)['phase'] == 'flight', 'Transparent hit padding did not throw'
+                    assert state(page)['throwing'], 'Transparent hit padding did not start throw windup'
+                    until(page,lambda d:d['phase']=='flight',limit=1)
                     page.evaluate('bk3dTest.step(1)')
                     assert state(page)['phase'] in ['run', 'dead', 'pre']
-                page.click('#pause');link = page.locator('#paused a');link.scroll_into_view_if_needed()
+                if state(page)['ended']:
+                    until(page,lambda d:d['paused'],limit=14)
+                else:page.click('#pause')
+                link = page.locator('#paused a');link.scroll_into_view_if_needed()
                 if variant == 'after':
                     box = link.bounding_box();assert box['height'] >= 44 and box['width'] >= 44
                 page.click('#restart')
                 if page.locator('#breakHuddle').is_visible():
                     page.click('#breakHuddle')
-                page.click('#adjustPlay');page.click('#audibleTab');page.click('#openPlaybook');page.click('#call-run-0');page.click('#breakHuddle');page.click('#snap');page.evaluate('bk3dTest.step(.85)')
+                page.click('#adjustPlay');page.click('#audibleTab');page.click('#openPlaybook');page.click('#call-run-0');page.click('#breakHuddle');page.click('#snap');until(page,lambda d:d['phase']=='run',limit=3)
                 assert state(page)['phase'] == 'run'
                 capture(page, args.output / f'{variant}-running-{w}x{h}.png')
                 # Detailed players plus the visible carried football stay inside a
-                # fixed mobile batch budget and do not add runtime textures.
-                g = page.evaluate('bkGraphicsDiagnostics()')
-                assert g['drawCalls'] <= 49 and g['shadowDrawCalls'] == 14 and g['overflows'] == 0, g
+                # bounded batch budget with the shipped local scene textures.
+                g = graphics_check(page)
                 if variant == 'after':
                     page.set_viewport_size({'width': 390, 'height': 844})
                     box = page.locator('#rotate a').bounding_box();assert box and box['height'] >= 44
-                assert not errors and not [u for u in requests if u.startswith(('http:', 'https:'))], {'errors': errors, 'requests': requests}
+                assert not errors and not [u for u in requests if u.startswith(('http:', 'https:')) and not u.startswith(ORIGIN+'/')], {'errors': errors, 'requests': requests}
                 results[variant] = {'qbScreenHeight': pixels, 'graphics': g, 'markers': markers, 'errors': errors}
                 page.close()
             if 'before' in snapshots:

@@ -90,7 +90,10 @@ try {
       }, { session, user });
       await page.goto(base, { waitUntil: 'domcontentloaded' });
       await page.locator('.bk-home-stadium').waitFor();
-      const homeBrandSize = await page.getByRole('button', { name: 'Ball Knower home', exact: true }).locator('h1').evaluate(element => getComputedStyle(element).fontSize);
+      // Font loading and WebKit's deferred layout must settle before measuring the baseline.
+      await page.evaluate(async () => { await document.fonts.ready; await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); });
+      const homeBrandSize = await page.getByRole('button', { name: 'Ball Knower home', exact: true }).locator('h1').evaluate(element => { element.getBoundingClientRect(); return getComputedStyle(element).fontSize; });
+      assert.ok(parseFloat(homeBrandSize)>0,'Home baseline must show its live text logo');
       await page.getByRole('button', { name: 'Profile', exact: true }).first().waitFor({ state: 'attached' });
       for (const button of await page.getByRole('button', { name: 'Profile', exact: true }).all()) { if (await button.isVisible()) { await button.click(); break; } }
       const profile = page.getByTestId('locker-profile');
@@ -196,14 +199,19 @@ try {
       assert.equal(equipCalls, 1);
       await page.getByRole('button', { name: 'Ball Knower home', exact: true }).click();
       await page.locator('.bk-home-stadium').waitFor();
-      // Home commits before the browser finishes invalidating the ancestor :has() rule.
-      // Check the settled value, not the prior Profile style in that transition frame.
+      // Force layout before reading the ancestor :has() styles: WebKit can otherwise
+      // report the prior font-size until a paint/screenshot flushes the restored Home layout.
       await page.waitForFunction(expected => {
         const brand = document.querySelector('header button[aria-label="Ball Knower home"] h1');
+        if(!brand)return false;
+        brand.getBoundingClientRect();
+        const style=getComputedStyle(brand);
         return document.querySelector('.bk-app-shell')?.getAttribute('data-tab') === 'home'
-          && brand && getComputedStyle(brand).fontSize === expected;
+          && style.fontSize === expected && style.backgroundImage === 'none';
       }, homeBrandSize, { timeout: 5000 });
       assert.equal(await page.getByRole('button', { name: 'Ball Knower home', exact: true }).locator('h1').evaluate(element => getComputedStyle(element).fontSize), homeBrandSize, 'Profile cosmetics must not leak into Home');
+      assert.equal(await page.getByRole('button',{name:'Ball Knower home',exact:true}).locator('h1').evaluate(el=>getComputedStyle(el).backgroundImage),'none','Profile atlas must not leak into Home');
+      console.log('PASS restored Home header',engine,width,homeBrandSize);
       assert.deepEqual(crashes, []);
       results.push({ engine, width, geometry, visual, ratings: 6, initialTrophies: 6, extendedTrophies: 7, photoCrop: 'passed', xpZeroAndRollover: 'passed', refreshRecovery: 'passed', collectionAndEquip: 'passed', source: 'isolated network fixtures', physicalIphone: false });
       await context.close();
@@ -212,7 +220,7 @@ try {
     await browser.close(); browser = null;
   }
   await writeFile(`${output}/results.json`, JSON.stringify(results, null, 2));
-  console.log('Profile locker browser checks passed: Chromium 320/390/430/1280 and WebKit 390; loaded data, zero XP, earned/locked trophies, signed receipts, outage/retry, photo crop, collection and equip. No production writes.');
+  console.log(`Profile locker browser checks passed: ${process.env.PROFILE_CHROMIUM_ONLY?'Chromium 320/390/430/1280':'Chromium 320/390/430/1280 and WebKit 390'}; loaded data, zero XP, earned/locked trophies, signed receipts, outage/retry, photo crop, collection and equip. No production writes.`);
 } catch (error) {
   if (activePage && !activePage.isClosed()) {
     await activePage.screenshot({ path: `${output}/failure.png`, fullPage: true }).catch(() => {});
