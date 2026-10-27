@@ -21,3 +21,17 @@ export function careerFieldScore(kind:string,stats:Record<string,number>):number
  if(!['receiver','rb','coverage'].includes(kind)||stats.reps!==3||stats.score<0||stats.score>100||!Number.isFinite(stats.score))return;
  return Math.round(stats.score);
 }
+
+export function careerFieldReview(kind:string,stats:Record<string,number>){
+ const score=careerFieldScore(kind,stats);if(score===undefined)return;
+ const band=score>=85?'standout':score>=65?'solid':'development';
+ const headline=band==='standout'?'YOU PUT IT ON TAPE.':band==='solid'?'A FOUNDATION TO BUILD ON.':'THE NEXT REP STARTS HERE.';
+ const common={score,band,headline};
+ if(kind==='drive'){
+  const points=stats.points-23,yards=Math.max(0,stats.yards)*.35,scoring=points*5,turnovers=stats.turnovers*18;
+  return {...common,focus:'QB / POSSESSION & PRODUCTION',summary:points>0?`${points} new points from your team showcase.`:'No new points in this team showcase.',cue:stats.turnovers>0?'Protect the next possession. Identify the outlet before committing to a tight throwing window.':points===0?'Turn field position into points. Check the clock and choose a play that keeps a scoring opportunity alive.':'Keep the drive organized: identify pressure, work through your reads and protect possession.',metrics:[{label:'New points',value:String(points)},{label:'Team yards',value:String(stats.yards)},{label:'Turnovers',value:String(stats.turnovers)}],formula:`25 base + ${yards.toFixed(1)} yards bonus + ${scoring} points bonus − ${turnovers} turnover penalty. Rounded and capped between 0 and 100. Starting scoreboard points are excluded.`};
+ }
+ if(kind==='receiver')return {...common,focus:'RECEIVER / SEPARATION & HANDS',summary:`${stats.catches} of 3 contested catches secured.`,cue:stats.catches<3?'Create space before the throw, then keep moving through the catch. Track the defender as you make your break.':'Repeat the same discipline against a different coverage look. Keep your route and catch timing consistent.',metrics:[{label:'Catches',value:`${stats.catches}/3`},{label:'Completed reps',value:'3'},{label:'Raw tape',value:`${score}/100`}],formula:'Your three-rep average execution score, rounded to the nearest whole number.'};
+ if(kind==='rb')return {...common,focus:'RUNNING BACK / SPACE & FINISH',summary:`${stats.touchdowns} of 3 runs reached the goal line.`,cue:stats.touchdowns<3?'Read the linebacker before choosing your move. Make one decisive cut into space instead of steering back into contact.':'Keep your cuts controlled and repeat the finish. Test a different move when the defender changes leverage.',metrics:[{label:'Touchdowns',value:`${stats.touchdowns}/3`},{label:'Completed reps',value:'3'},{label:'Raw tape',value:`${score}/100`}],formula:'Your three-rep average execution score, rounded to the nearest whole number.'};
+ return {...common,focus:'DEFENSE / LEVERAGE & BALL SKILLS',summary:`${stats.stops} stops and ${stats.picks} interceptions across 3 reps.`,cue:stats.stops<3?'Keep your coverage leverage before attacking the ball. A well-timed swat is the safer choice when you cannot get into interception position.':'Stay disciplined after the stop. Keep the same leverage and choose interceptions only when you have position.',metrics:[{label:'Stops',value:`${stats.stops}/3`},{label:'Interceptions',value:String(stats.picks)},{label:'Raw tape',value:`${score}/100`}],formula:'Your three-rep average coverage score, rounded to the nearest whole number.'};
+}

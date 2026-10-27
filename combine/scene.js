@@ -263,6 +263,15 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
   scene.add(runner.root);host.dataset.character='native-athlete';
   let routePresentation;
   if(isRoutes){try{routePresentation=drill==='rb'?await createRBPresentation(scene,runner,camera):await createRoutePresentation(scene,runner,camera,host,defensive?RECEIVER:player,drill==='one-on-one'||defensive,defensive?player:null);}catch(error){background.dispose();runner.dispose();disposeObject(scene);renderer.dispose();renderer.domElement.remove();throw error;}}
+  let ghostRunner=null,ghostState=null;
+  function setGhost(next){
+    if(ghostRunner){scene.remove(ghostRunner.root);disposeObject(ghostRunner.root);ghostRunner=null;}
+    ghostState=null;if(!next)return;
+    ghostRunner=athlete(scene,next.seed||0);
+    const oldMaterials=new Set(),oldTextures=new Set(),ghostMaterial=new T.MeshBasicMaterial({color:'#69e5e1',transparent:true,opacity:.35,depthWrite:false});
+    ghostRunner.root.traverse(o=>{if(o.isMesh){for(const material of(Array.isArray(o.material)?o.material:[o.material]))if(material){oldMaterials.add(material);for(const value of Object.values(material))if(value?.isTexture)oldTextures.add(value);}o.material=ghostMaterial;o.castShadow=false;o.receiveShadow=false;}});
+    oldMaterials.forEach(m=>m.dispose());oldTextures.forEach(t=>t.dispose());ghostRunner.root.position.x=.55;
+  }
   let visualZ=0,previousPhase='idle',settle=0;
   const target=v(),look=v();
   const resize=()=>{const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;camera.aspect=w/h;camera.fov=w<h?53:49;camera.updateProjectionMatrix();renderer.setSize(w,h,false);};
@@ -303,6 +312,7 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
     const speed=active?state.velocity:ended?state.velocity*coast:0;
     if(ended)visualZ+=speed*dt;
     runner.root.position.z=visualZ;runner.pose(visualZ,speed,!active&&!ended,active?state.clock/.72:1,ended&&settle>1.8?Math.min(1,(settle-1.8)*2):0,ended,dt);
+    if(ghostRunner&&ghostState){ghostRunner.root.position.set(.55,0,ghostState.distance);ghostRunner.pose(ghostState.distance,ghostState.velocity,ghostState.phase==='idle',Math.min(1,ghostState.clock/.72));}
     background.update(dt,state,runner.root.position);
     brand.material.opacity=1-T.MathUtils.smoothstep(visualZ,FINISH-6,FINISH);
     const portrait=camera.aspect<1;
@@ -315,5 +325,5 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
     renderer.render(scene,camera);previousPhase=state.phase;
   }
   camera.position.set(-1,1.65,-3.45);
-  return {draw,setAthlete(next){if(defensive)routePresentation?.setDefender(next);else runner.setAthlete(next);visualZ=0;settle=0;previousPhase='reset';},dispose(){routePresentation?.dispose();background.dispose();runner.dispose();delete host.dataset.backgroundVersion;delete host.dataset.scouts;delete host.dataset.waitingAthletes;delete host.dataset.character;observer.disconnect();renderer.domElement.removeEventListener('webglcontextlost',lost);disposeObject(scene);renderer.dispose();renderer.domElement.remove();}};
+  return {draw,setGhost,setGhostState(state){ghostState=state;},setAthlete(next){if(defensive)routePresentation?.setDefender(next);else runner.setAthlete(next);visualZ=0;settle=0;previousPhase='reset';},dispose(){routePresentation?.dispose();background.dispose();runner.dispose();delete host.dataset.backgroundVersion;delete host.dataset.scouts;delete host.dataset.waitingAthletes;delete host.dataset.character;observer.disconnect();renderer.domElement.removeEventListener('webglcontextlost',lost);disposeObject(scene);renderer.dispose();renderer.domElement.remove();}};
 }

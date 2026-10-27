@@ -4,7 +4,7 @@ import { simulatedPlayerIdentity } from '../solo/artIdentity.ts';
 // Use the same immutable identity as Solo portraits; never seed by roster order,
 // name, team, rating, current attempt or a random number.
 export function combineAppearance(player) {
-  return simulatedPlayerIdentity(player);
+  return simulatedPlayerIdentity(player.cosmeticIdentityId?{...player,id:player.cosmeticIdentityId}:player);
 }
 const SKIN = {
   'deep ebony':'#51352b','dark brown':'#684330','rich brown':'#805338',

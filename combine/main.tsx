@@ -1,3 +1,4 @@
+import {readAthletePassport,withAthleteIdentity} from '../athletePassport';
 import {inMiniChallenge,exitMiniChallenge} from '../public/mini-challenge-bridge.js';
 import RBExperience from './RBExperience';
 import React from 'react';
@@ -13,6 +14,6 @@ const positions = ['WR', 'RB', 'CB', 'QB', 'TE', 'LB'];
 const allPlayers = positions.flatMap(pos => SOLO_PLAYERS_DATABASE.filter(p => p.position === pos).slice(0, 3)).map(combineAthlete);
 const drill = new URLSearchParams(location.search).get('drill');
 const pool = drill==='db'?allPlayers.filter(p=>p.position==='CB'):drill==='rb'?allPlayers.filter(p=>p.position==='RB'):['routes','one-on-one'].includes(drill||'')?allPlayers.filter(p=>p.position==='WR'):allPlayers;
-const players = inMiniChallenge() ? pool.slice(0,1).map(p=>({...p,speed:85,acceleration:85})) : allPlayers;
+const players = inMiniChallenge() ? pool.slice(0,1).map(p=>withAthleteIdentity({...p,speed:85,acceleration:85},readAthletePassport())) : allPlayers;
 const Drill = drill === 'broad-jump' ? BroadJumpExperience : CombineExperience;
 createRoot(document.getElementById('root')!).render(drill === 'rb' ? <RBExperience players={players.filter(p=>p.position==='RB')} onClose={() => { if(!exitMiniChallenge())location.href = '/?miniGames=1&combine=1'; }} /> : drill === 'db' ? <DBExperience players={players.filter(p=>p.position==='CB')} onClose={() => { if(!exitMiniChallenge())location.href = '/?miniGames=1&combine=1'; }} /> : drill === 'routes' || drill === 'one-on-one' ? <RouteExperience man={drill === 'one-on-one'} players={players.filter(p=>['WR','TE','RB'].includes(p.position))} onClose={() => { if(!exitMiniChallenge())location.href = '/?miniGames=1&combine=1'; }} /> : drill === 'shuttle' || drill === 'bench' ? <AgilityStrengthExperience drill={drill} players={players} context="standalone" onClose={() => { if(!exitMiniChallenge())location.href = '/?miniGames=1&combine=1'; }} /> : <Drill players={players} context="standalone" onClose={() => { if(!exitMiniChallenge())location.href = '/?miniGames=1&combine=1'; }} />);

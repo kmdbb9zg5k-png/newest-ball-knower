@@ -3,12 +3,22 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'CommunityMiniGames.tsx'
-      - 'ChallengeShareCard.tsx'
-      - 'miniScouting.ts'
-      - 'miniChallenges.ts'
+      - '*.tsx'
+      - '*.ts'
+      - '*.css'
       - 'combine/**'
+      - 'public/play-moment-3d/**'
+      - 'public/play-moment-3d-preview.html'
+      - 'public/player-controls.js'
+      - 'scripts/*athlete*'
+      - 'scripts/*competition*'
+      - 'scripts/*control*'
+      - 'scripts/*ghost*'
       - 'scripts/mini-challenges-browser.mjs'
+      - 'scripts/my-player-field*'
+      - 'scripts/full-game-control-settings-browser.mjs'
+      - 'scripts/check-presentation-clock.mjs'
+      - 'scripts/check-reference-contact.mjs'
       - '.github/workflows/community-mini-games.yml'
   workflow_dispatch:
 permissions:
@@ -17,9 +27,37 @@ concurrency:
   group: community-mini-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - name: Check progression, challenge rules, controls and replay validation
+        run: |
+          node --import tsx scripts/mini-challenges-check.ts
+          node --import tsx scripts/athlete-passport-check.ts
+          node --import tsx scripts/control-preferences-check.ts
+          node --import tsx scripts/competition-rules-check.ts
+          node scripts/check-reference-contact.mjs
+          node scripts/dash-ghost-check.mjs
+          node --import tsx scripts/my-player-field-check.ts
   mobile-browser:
+    needs: rules
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        suite: [mini-challenges, athlete-locker, control-settings, dash-ghost, competition-arena, my-player-field, full-game-control-settings, presentation-clock]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,14 +78,18 @@ jobs:
           else
             npx playwright install --with-deps chromium
           fi
-      - run: npm run lint
-      - run: node --import tsx scripts/mini-challenges-check.ts
-      - name: Exercise mobile layouts, real dash, result retry and rematches
-        run: node scripts/mini-challenges-browser.mjs
+      - name: Exercise mobile layouts and feature interactions
+        shell: bash
+        run: |
+          if [ "${{ matrix.suite }}" = presentation-clock ]; then
+            node scripts/check-presentation-clock.mjs
+          else
+            node scripts/${{ matrix.suite }}-browser.mjs
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: community-mini-game-screenshots
-          path: artifacts/mini-challenges
+          name: community-${{ matrix.suite }}-screenshots
+          path: artifacts/
           if-no-files-found: ignore
           retention-days: 7

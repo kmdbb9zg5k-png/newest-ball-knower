@@ -7,6 +7,7 @@ const match={id:'match',game:'dash',seed:12345} as MiniChallenge;
 assert.throws(()=>miniChallengeUrl({...match,game:'career'},'token'),/native career session/);
 for(const game of MINI_CHALLENGE_GAMES.filter(g=>g.id!=='career')){const url=new URL(miniChallengeUrl({...match,game:game.id},'token'), 'https://example.invalid');assert.equal(url.searchParams.get('bkToken'),'token');assert.equal(url.searchParams.get('bkChallenge'),'match');if(game.id.endsWith('minute')){assert.equal(url.searchParams.get('difficulty'),'pro');assert.equal(url.searchParams.get('team'),'JCY');assert.equal(url.searchParams.get('opponent'),'BRK');}else assert.equal(url.searchParams.get('drill'),game.id);}
 assert.equal(miniStatLabel('dash',{time:4.523}),'4.523 s');assert.equal(miniStatLabel('dash',{time:60,dnf:1}),'Did not finish');assert.equal(miniStatLabel('bench',null),'Waiting for result');
+assert.equal(miniStatLabel('dash',{}),'Result unavailable');assert.equal(miniStatLabel('dash',{time:NaN}),'Result unavailable');
 const athlete={id:'same',speed:85,acceleration:85,position:'WR'};
 for(const [session,rep] of [[newManSession,newManRep],[newDBSession,newDBRep],[newRBSession,newRBRep]] as Array<[(seed:number)=>any,(athlete:any,index:number,session:any)=>any]>){assert.deepEqual(session(12345),session(12345));for(let i=0;i<5;i++)assert.deepEqual(rep(athlete,i,session(12345)),rep(athlete,i,session(12345)));}
 const sent:any[]=[];const parent={postMessage:(...args:any[])=>sent.push(args)};

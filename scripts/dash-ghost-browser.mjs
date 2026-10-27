@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import {createServer} from 'vite';
+import {chromium} from 'playwright';
+import {mkdir,readFile} from 'node:fs/promises';
+
+const server=await createServer({server:{host:'127.0.0.1',port:3068,strictPort:true,hmr:false,watch:null}});await server.listen();
+await mkdir('artifacts/dash-ghost',{recursive:true});
+const browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_PATH||undefined,args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
+try{
+  const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});const page=await context.newPage();page.setDefaultTimeout(120000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto('http://127.0.0.1:3068/combine.html?drill=dash');await page.waitForFunction(()=>document.querySelector('.combine-action')&&!document.querySelector('.combine-action').disabled);
+  for(const width of [320,390]){await page.setViewportSize({width,height:844});await page.getByRole('button',{name:'GHOST RACE',exact:true}).click();assert(await page.getByRole('button',{name:'Import friend replay'}).isVisible());assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:`artifacts/dash-ghost/setup-${width}.png`});await page.getByRole('button',{name:'BACK TO DASH'}).click();}
+  console.log('Starting actual dash');await page.getByRole('button',{name:'Start dash',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.combine-game').dataset.phase==='running');
+  await page.evaluate(()=>{let last=-1;function drive(){if(document.querySelector('.combine-game')?.dataset.phase!=='running')return;const t=parseFloat(document.querySelector('.combine-timer').textContent);if(t-last>=.24){document.querySelector('.combine-stride[data-next="true"]')?.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerId:7}));last=t;}requestAnimationFrame(drive);}requestAnimationFrame(drive);});
+  console.log('Recording run');await page.getByRole('button',{name:'Share this run'}).waitFor().catch(async error=>{console.error('DASH STATE',await page.locator('.combine-game').innerText());await page.screenshot({path:'artifacts/dash-ghost/failure.png'});throw error;});const raw=await page.evaluate(()=>JSON.parse(localStorage.getItem('bk-dash-ghosts-v1')).best);assert(raw.inputs.length>10);assert(raw.time>3&&raw.time<12);
+  await page.evaluate(()=>Object.defineProperty(navigator,'canShare',{configurable:true,value:()=>false}));const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Share this run'}).click();const download=await downloadPromise;assert.equal(download.suggestedFilename(),'ball-knower-dash.bkghost.json');const downloaded=JSON.parse(await readFile(await download.path(),'utf8'));assert.deepEqual(downloaded,raw);
+  console.log('Replay exported');await page.reload();await page.waitForFunction(()=>document.querySelector('.combine-action')&&!document.querySelector('.combine-action').disabled);await page.getByRole('button',{name:'GHOST RACE',exact:true}).click();
+  await page.getByLabel('Choose dash replay file').setInputFiles({name:'bad.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({...raw,time:raw.time-.4}))});await page.getByText('Replay is incompatible or its recorded inputs do not match its finish time.').waitFor();
+  await page.getByLabel('Choose dash replay file').setInputFiles({name:'friend.bkghost.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(raw))});await page.getByText('Friend replay loaded. It is ready to race offline.').waitFor();await page.getByRole('button',{name:'BACK TO DASH'}).click();
+  // Every asset is already loaded. No network is needed for the imported race.
+  await context.setOffline(true);await page.getByRole('button',{name:'Start dash',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.combine-game').dataset.phase==='running');await page.locator('.combine-ghost-progress').waitFor();await page.waitForTimeout(900);await page.screenshot({path:'artifacts/dash-ghost/race-offline.png'});
+  await page.getByRole('button',{name:'Pause dash'}).click();const paused=await page.locator('.combine-timer').innerText();await page.waitForTimeout(250);assert.equal(await page.locator('.combine-timer').innerText(),paused);await page.getByRole('button',{name:'RESUME',exact:true}).click();
+  await page.locator('.combine-ghost-result').waitFor();assert((await page.locator('.combine-ghost-result').innerText()).includes('Ghost finished ahead'));await page.screenshot({path:'artifacts/dash-ghost/result.png'});assert.deepEqual(errors,[]);
+  console.log('PASS 320/390 mobile ghost setup, real dash input recording, export file round-trip, tampered replay rejection, friend import, offline race and pause/resume, visible result comparison.');
+}finally{await browser.close();await server.close();}

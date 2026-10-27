@@ -1,13 +1,23 @@
-import {reportMiniChallenge,challengeSeed} from '../public/mini-challenge-bridge.js';
+import {reportMiniChallenge,challengeSeed,inMiniChallenge} from '../public/mini-challenge-bridge.js';
 import React, { useEffect, useRef, useState } from 'react';
 import { bestResult, newDash, pressDash, tapStride, speedPercent, accuracy, positionRanking, RULESET, readResults, saveResult, stepDash, YARD } from './dash.js';
 import './combine.css';
+import ControlSettings,{useDrillControls} from './ControlSettings';
+import {controlPulse} from './controlPreferences';
+import GhostRacePanel, {type DashReplay} from './GhostRacePanel';
+import {createGhostPlayback, readGhosts, recordGhost, saveGhost} from './dash-ghost.js';
 
 type Athlete = { id: string; name: string; position: string; speed: number; acceleration: number; seed: number };
 type Props = { players: Athlete[]; context: string; onClose: () => void; onResult?: (stats:Record<string,number>)=>void };
 const time = (n: number | null | undefined) => n == null ? '—' : `${n.toFixed(2)}`;
 
 export default function CombineExperience({ players, context, onClose, onResult }: Props) {
+  const {controls,ref:controlsRef,change:changeControls,saved:controlsSaved}=useDrillControls();
+  const ghostAllowed=context==='standalone'&&!inMiniChallenge();
+  const [ghosts,setGhosts]=useState(()=>readGhosts());
+  const [selectedGhost,setSelectedGhost]=useState<DashReplay|null>(null),[latestGhost,setLatestGhost]=useState<DashReplay|null>(null),[ghostOpen,setGhostOpen]=useState(false),[ghostWarning,setGhostWarning]=useState('');
+  const ghostDistance=useRef(0);
+  const ghostRef=useRef<DashReplay|null>(null),ghostPlayback=useRef<ReturnType<typeof createGhostPlayback>|null>(null),recordedInputs=useRef<number[][]>([]);
   const [player, setPlayer] = useState(players[0]);
   const [attempt, setAttempt] = useState(1);
   const [view, setView] = useState(() => ({ ...newDash(players[0]) }));
@@ -31,6 +41,9 @@ export default function CombineExperience({ players, context, onClose, onResult 
   const phase = view.phase;
   const best = bestResult(rows, context, player.id);
   const reset = (next: Athlete, n: number) => {
+    recordedInputs.current=[];setLatestGhost(null);setGhostWarning('');
+    if(ghostRef.current&&(ghostRef.current.athlete.id!==next.id||ghostRef.current.athlete.speed!==next.speed||ghostRef.current.athlete.acceleration!==next.acceleration)){ghostRef.current=null;ghostPlayback.current=null;setSelectedGhost(null);scene.current?.setGhost(null);}
+    else if(ghostRef.current)ghostPlayback.current=createGhostPlayback(ghostRef.current);
     setShowResults(false); finishElapsed.current = 0; setPersonalBest(false);
     run.current = newDash(next); finished.current = false; setView({ ...run.current }); setPlayer(next); setAttempt(n); setSaved(true);
     scene.current?.setAthlete(next); action.current?.focus();
@@ -38,7 +51,7 @@ export default function CombineExperience({ players, context, onClose, onResult 
   const pause = () => { stopped.current = true; keyHeld.current.clear(); if(['set','ready'].includes(run.current.phase))run.current=newDash(run.current.athlete);setView({...run.current});setPaused(true); };
   const resume = () => { stopped.current = false; setPaused(false); action.current?.focus(); };
   const press = () => { if (!ready || stopped.current || pickerOpen.current) return; pressDash(run.current, challengeSeed()===undefined?1.2 + Math.random() * .8:1.6); setView({ ...run.current }); };
-  const stride = (side: string) => {if(!stopped.current&&!pickerOpen.current) {tapStride(run.current,side);setView({...run.current});}};
+  const stride = (side: string) => {if(!stopped.current&&!pickerOpen.current) {if(ghostAllowed&&run.current.phase==='running'&&recordedInputs.current.length<=500)recordedInputs.current.push([run.current.clock,side==='left'?0:1]);tapStride(run.current,side);controlPulse(controlsRef.current.vibration);setView({...run.current});}};
 
 
   useEffect(() => {
@@ -53,6 +66,7 @@ export default function CombineExperience({ players, context, onClose, onResult 
       if(s.phase === 'false-start') setShowResults(true);
       setRuns(old => [...old, s.phase === 'finished' ? s.splits[2] : null]);
       if (s.phase === 'finished') {
+        if(ghostAllowed){const replay=recordGhost(s.athlete,recordedInputs.current,s.splits[2]);if(replay){setLatestGhost(replay);if(saveGhost(replay))setGhosts(readGhosts());else setGhostWarning('Replay is available to share for this visit, but device storage could not save it.');}else setGhostWarning('This run could not be recorded as a replay. Its dash result is unchanged.');}
         const record = { ruleset:RULESET, accuracy:accuracy(s), context: currentContext.current, playerId: s.athlete.id, name: s.athlete.name, position: s.athlete.position, splits: [...s.splits], reaction: s.reaction, date: Date.now() };
         const previous = bestResult(readResults(), currentContext.current, s.athlete.id);
         setPersonalBest(!previous || s.splits[2] < previous.splits[2]);
@@ -71,7 +85,8 @@ export default function CombineExperience({ players, context, onClose, onResult 
       while (accumulator >= 1 / 120) { stepDash(run.current, 1 / 120); accumulator -= 1 / 120; }
       finish();
       if(run.current.phase === 'finished') { finishElapsed.current += Math.min(delta,.1); if(finishElapsed.current >= 3.8) setShowResults(true); }
-      if (now - lastDraw >= 1000 / 60 - .5) { scene.current?.draw(run.current, Math.min((now - lastDraw) / 1000, .05)); lastDraw = now; }
+      if(ghostPlayback.current){const g=ghostPlayback.current.at(run.current.clock);ghostDistance.current=g.distance;scene.current?.setGhostState({...g,phase:run.current.phase==='idle'||run.current.phase==='set'?'idle':g.phase});}
+      if (now - lastDraw >= 1000 / controlsRef.current.frames - .5) { scene.current?.draw(run.current, Math.min((now - lastDraw) / 1000, .05)); lastDraw = now; }
       if (now - lastHud > (run.current.phase === 'running' ? 16 : 50)) { const s = run.current; setView({ ...s, splits: [...s.splits] }); lastHud = now; }
     };
     import('./scene.js').then(async ({ createCombineScene }) => {
@@ -88,10 +103,14 @@ export default function CombineExperience({ players, context, onClose, onResult 
     document.addEventListener('visibilitychange', hidden); window.addEventListener('blur', blur);
     return () => { gone = true; cancelAnimationFrame(raf); document.removeEventListener('visibilitychange', hidden); window.removeEventListener('blur', blur); scene.current?.dispose(); scene.current = null; };
   }, []);
-  useEffect(()=>{if(!ready||picker||paused||showResults)return;if(phase==='idle')action.current?.focus();else if(phase==='running'||phase==='set')gameRoot.current?.focus();},[phase,ready,picker,paused,showResults]);
+  useEffect(()=>{if(!ready||picker||ghostOpen||paused||showResults)return;if(phase==='idle')action.current?.focus();else if(phase==='running'||phase==='set')gameRoot.current?.focus();},[phase,ready,picker,ghostOpen,paused,showResults]);
   useEffect(() => { if (showResults) resultHeading.current?.focus(); }, [showResults]);
   const openPicker = () => { pickerOpen.current = true; setPicker(true); };
   const closePicker = () => { pickerOpen.current = false; setPicker(false); };
+  const selectGhost=(replay:DashReplay|null)=>{ghostRef.current=replay;ghostPlayback.current=replay?createGhostPlayback(replay):null;setSelectedGhost(replay);scene.current?.setGhost(replay?.athlete||null);reset(replay?.athlete||player,1);setRuns([]);setRunSplits([]);};
+  const openGhosts=()=>{pickerOpen.current=true;setGhostOpen(true);};
+  const closeGhosts=()=>{pickerOpen.current=false;setGhostOpen(false);action.current?.focus();};
+  const importGhost=(replay:DashReplay)=>{const persisted=saveGhost(replay,'imported');setGhosts(old=>({...old,imported:replay}));return persisted;};
   const green=phase==='running'&&view.clock<.8;
   const status = phase === 'set' ? 'SET' : green ? 'GO' : '';
   const scores=accuracy(view);
@@ -99,14 +118,14 @@ export default function CombineExperience({ players, context, onClose, onResult 
   const speed=speedPercent(view);
   const ended = phase === 'finished' || phase === 'false-start';
   const terminal = ended && showResults;
-  return <main ref={gameRoot} tabIndex={-1} className="combine-game" data-phase={phase} aria-label="Ball Knower Combine" onKeyDown={e => {
+  return <main ref={gameRoot} tabIndex={-1} className="combine-game" data-control-size={controls.size} data-control-height={controls.height} data-phase={phase} aria-label="Ball Knower Combine" onKeyDown={e => {
     const code=e.code;
-    if(!paused&&!picker&&!terminal&&ready&&!error&&['KeyA','ArrowLeft','KeyL','ArrowRight','Space'].includes(code)&&!(e.target instanceof HTMLButtonElement&&code==='Space')) {
+    if(!paused&&!picker&&!ghostOpen&&!terminal&&ready&&!error&&['KeyA','ArrowLeft','KeyL','ArrowRight','Space'].includes(code)&&!(e.target instanceof HTMLButtonElement&&code==='Space')) {
       e.preventDefault();if(e.repeat||keyHeld.current.has(code))return;keyHeld.current.add(code);
       if(code==='Space'){if(['idle','set','ready'].includes(phase))press();}else stride(code==='KeyA'||code==='ArrowLeft'?'left':'right');
     }
-    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (picker) closePicker(); else if (paused) resume(); else pause(); }
-    if (e.key === 'Tab' && (picker || paused || terminal || !ready || error)) {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (ghostOpen) closeGhosts(); else if (picker) closePicker(); else if (paused) resume(); else pause(); }
+    if (e.key === 'Tab' && (picker || ghostOpen || paused || terminal || !ready || error)) {
       const overlays = e.currentTarget.querySelectorAll<HTMLElement>('.combine-overlay:not([inert])');
       const overlay = overlays[overlays.length - 1];
       const buttons = overlay?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)');
@@ -117,9 +136,11 @@ export default function CombineExperience({ players, context, onClose, onResult 
     }
   }} onKeyUp={e=>{keyHeld.current.delete(e.code);}}>
     <div ref={host} className="combine-scene" aria-hidden="true" />
-    <div className="combine-hud" inert={paused || picker || terminal || !ready || !!error}>
+    <div className="combine-hud" inert={paused || picker || ghostOpen || terminal || !ready || !!error}>
     <header className="combine-top"><button className="combine-back" aria-label="Leave Combine" onClick={onClose}>‹</button><div className="combine-brand"><b>BALL KNOWER</b><span>{context === 'standalone' ? 'COMBINE' : context.startsWith('my-player-draft:') ? 'DRAFT COMBINE' : 'FRANCHISE COMBINE'}</span></div><h1>40-YARD DASH</h1><span className="combine-attempt">ATTEMPT {attempt} / 2</span><button className="combine-pause" aria-label="Pause dash" onClick={pause}>Ⅱ</button></header>
     <div className="combine-timer" aria-label={`Time ${time(view.clock)} seconds`}>{time(view.clock)}<small>s</small></div>
+    {ghostAllowed&&phase==='idle'&&<button type="button" className="combine-ghost-toggle" onClick={openGhosts}>GHOST RACE</button>}
+    {selectedGhost&&phase==='running'&&<div className="combine-ghost-progress">GHOST · {selectedGhost.time.toFixed(3)}s · {(Math.abs(view.distance-ghostDistance.current)/YARD).toFixed(1)} yd {view.distance>=ghostDistance.current?'ahead':'behind'}</div>}
     <aside className="combine-splits" aria-label="Split times">{[10, 20, 40].map((yards, i) => <div key={yards} data-crossed={view.splits[i] != null}><span>{yards} YD</span><b>{time(view.splits[i])}</b></div>)}</aside>
     {phase === 'finished' && !terminal && <div className="combine-cue go" role="status">FINISH · {time(view.clock)}s</div>}
     {(['idle','set'].includes(phase)||green) && <div className="combine-start-lights" aria-label={green ? 'Green light' : phase === 'set' ? 'Amber light — wait' : 'Ready to start'}><i data-on={phase === 'idle'} /><i data-on={phase === 'set'} /><i data-on={green} /></div>}
@@ -130,7 +151,7 @@ export default function CombineExperience({ players, context, onClose, onResult 
         {phase === 'idle' ? <button className="combine-athlete-name" onClick={openPicker} aria-label="Change athlete">{player.name}</button> : <b>{player.name}</b>}
         <div className="combine-athlete-stats"><span>SPEED <strong>{player.speed}</strong></span>{best && <span>BEST <strong>{time(best.splits[2])}s</strong></span>}</div>
       </div>
-      {phase === 'idle' && players.length > 1 && <div className="combine-athlete-nav">{[-1,1].map(direction => <button key={direction} aria-label={direction < 0 ? 'Previous athlete' : 'Next athlete'} onClick={() => { const index = players.findIndex(p => p.id === player.id); setRuns([]); setRunSplits([]); reset(players[(index + direction + players.length) % players.length], 1); }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d={direction < 0 ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'} /></svg></button>)}</div>}
+      {phase === 'idle' && players.length > 1 && <div className="combine-athlete-nav">{[-1,1].map(direction => <button key={direction} aria-label={direction < 0 ? 'Previous athlete' : 'Next athlete'} onClick={() => { const foundIndex = players.findIndex(p => p.id === player.id), index=foundIndex<0?(direction>0?-1:0):foundIndex; setRuns([]); setRunSplits([]); reset(players[(index + direction + players.length) % players.length], 1); }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d={direction < 0 ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'} /></svg></button>)}</div>}
     </div>
     {phase === 'running' && <div className="combine-distance">{Math.min(40, view.distance / YARD).toFixed(1)} <small>/ 40 YD</small></div>}
     {['idle','set'].includes(phase) && <button ref={action} className="combine-action" disabled={!ready || !!error || phase==='set'} aria-label={phase==='idle'?'Start dash':'Wait for green'}
@@ -154,7 +175,7 @@ export default function CombineExperience({ players, context, onClose, onResult 
     </>}
 
     </div>
-    {terminal && <section className="combine-overlay combine-results-overlay" inert={picker || paused || !!error} aria-label="Dash results"><div className="combine-result combine-finish-card" data-personal-best={personalBest} data-false-start={phase === 'false-start'}>
+    {terminal && <section className="combine-overlay combine-results-overlay" inert={picker || ghostOpen || paused || !!error} aria-label="Dash results"><div className="combine-result combine-finish-card" data-personal-best={personalBest} data-false-start={phase === 'false-start'}>
       <header className="combine-finish-header"><span>BK <b>COMBINE</b></span><span>40 YARD DASH</span></header>
       <div className="combine-finish-hero">
         <span className="combine-finish-watermark" aria-hidden="true">40</span>
@@ -172,12 +193,16 @@ export default function CombineExperience({ players, context, onClose, onResult 
       </>}
       <div className="combine-attempts">{runs.map((r, i) => <span key={i}>ATTEMPT {String(i + 1).padStart(2, '0')} <b>{r == null ? 'FS' : `${time(r)}s`}</b></span>)}</div>
       {runSplits.length > 1 && runSplits[0] && runSplits[1] && <div className="combine-comparison" aria-label="Attempt split comparison">{[10,20,40].map((yard,i) => { const delta = Number((runSplits[1]![i]-runSplits[0]![i]).toFixed(2)); return <span key={yard}>{yard} YD <b data-faster={delta<0}>{delta>0?'+':''}{delta.toFixed(2)}s</b></span>; })}<small>Attempt 2 compared with attempt 1</small></div>}
+      {selectedGhost&&phase==='finished'&&<p className="combine-ghost-result">{Math.abs(view.clock-selectedGhost.time)<.001?'Even with the ghost':view.clock<selectedGhost.time?'You beat the ghost':'Ghost finished ahead'} · {Math.abs(view.clock-selectedGhost.time).toFixed(3)}s difference</p>}
+      {ghostWarning&&<p role="status">{ghostWarning}</p>}
+      {ghostAllowed&&<GhostRacePanel best={ghosts.best} imported={ghosts.imported} selected={selectedGhost} latest={latestGhost} onSelect={selectGhost} onImport={importGhost}/>}
       <div className="combine-result-actions">{attempt < 2 ? <button onClick={() => reset(player, 2)}><span>RUN AGAIN <small>SECOND ATTEMPT</small></span><span aria-hidden="true">↗</span></button> : <button onClick={() => { setRuns([]); setRunSplits([]); reset(player, 1); }}><span>NEW SESSION <small>BACK TO THE LINE</small></span><span aria-hidden="true">↗</span></button>}<button onClick={openPicker}>ATHLETES & RESULTS</button><button onClick={onClose}>{context === 'standalone' ? 'BACK TO MINI GAMES' : context.startsWith('my-player-draft:') ? 'BACK TO DRAFT COMBINE' : 'BACK TO FRANCHISE'}</button></div>
       <p className="combine-save" role="status">{!saved ? 'Could not save on this device. Your result is shown above.' : best ? `Best ${time(best.splits[2])}s · Saved on this device` : 'False starts do not post a time.'}</p>
       </div>
     </div></section>}
+    {ghostOpen&&<section className="combine-overlay" role="dialog" aria-modal="true" aria-label="Choose ghost race"><div className="combine-result combine-ghost-dialog"><button autoFocus type="button" onClick={closeGhosts}>BACK TO DASH</button><GhostRacePanel best={ghosts.best} imported={ghosts.imported} selected={selectedGhost} onSelect={selectGhost} onImport={importGhost}/></div></section>}
     {picker && <section className="combine-overlay combine-picker" role="dialog" aria-modal="true" aria-label="Choose athlete"><div className="combine-result"><div className="combine-picker-heading"><h2>Athletes & results</h2><button autoFocus onClick={closePicker} aria-label="Close athlete selection">×</button></div><p>{context === 'standalone' ? 'Fictional prospects · your local best times' : 'Franchise scouting · your local best times'}</p><div className="combine-athlete-list">{players.map(p => { const record = bestResult(rows, context, p.id); return <button key={p.id} onClick={() => { closePicker(); setRuns([]); setRunSplits([]); reset(p, 1); }}><span><b>{p.name}</b><small>{p.position} · SPEED {p.speed}</small></span><strong>{record ? `${time(record.splits[2])}s` : 'RUN →'}</strong></button>; })}</div></div></section>}
-    {paused && !error && <section className="combine-overlay" role="dialog" aria-modal="true" aria-label="Dash paused"><div className="combine-result"><h2>PAUSED</h2><p>Your attempt is held here.</p><div className="combine-result-actions"><button autoFocus onClick={resume}>RESUME</button><button onClick={onClose}>LEAVE COMBINE</button></div></div></section>}
+    {paused && !error && <section className="combine-overlay" role="dialog" aria-modal="true" aria-label="Dash paused"><div className="combine-result"><h2>PAUSED</h2><p>Your attempt is held here. Movement-stick side applies to other drills.</p><ControlSettings controls={controls} onChange={changeControls} saved={controlsSaved}/><div className="combine-result-actions"><button autoFocus onClick={resume}>RESUME</button><button onClick={onClose}>LEAVE COMBINE</button></div></div></section>}
     {(!ready || error) && <section className="combine-overlay"><div className="combine-result"><h2>{error ? 'COMBINE UNAVAILABLE' : 'PREPARING COMBINE'}</h2><p role="status">{error || 'Setting the track…'}</p><button onClick={onClose}>BACK</button></div></section>}
   </main>;
 }
