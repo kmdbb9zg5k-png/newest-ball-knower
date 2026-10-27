@@ -6,7 +6,7 @@ const out='artifacts/picks-screen',base='http://127.0.0.1:4184';
 const future=new Date(Date.now()+86400_000).toISOString();
 const day=future.slice(0,10);
 const game={id:'picks-fixture-1',away:'Dallas Cowboys',home:'Philadelphia Eagles',awayAbbr:'DAL',homeAbbr:'PHI',season:2026,week:1,seasonType:'REG',date:future,scheduleDate:day,status:'Scheduled',homeSpread:-3.5,awaySpread:3.5,overUnder:44.5};
-const fixture={available:true,linesAvailable:true,games:[game,{...game,id:'picks-fixture-final',away:'Baltimore Ravens',awayAbbr:'BAL',home:'Buffalo Bills',homeAbbr:'BUF',status:'Final',awayScore:20,homeScore:24},{...game,id:'picks-fixture-live',away:'New York Giants',awayAbbr:'NYG',home:'New York Jets',homeAbbr:'NYJ',status:'Live'},{...game,id:'picks-fixture-week2',week:2,scheduleDate:new Date(Date.now()+8*86400_000).toISOString().slice(0,10),date:null}]};
+const fixture={available:true,linesAvailable:true,games:[game,{...game,id:'picks-fixture-final',away:'Baltimore Ravens',awayAbbr:'BAL',home:'Buffalo Bills',homeAbbr:'BUF',status:'Final',awayScore:20,homeScore:24},{...game,id:'picks-fixture-live',away:'New York Giants',awayAbbr:'NYG',home:'New York Jets',homeAbbr:'NYJ',status:'Live',date:new Date(Date.now()-3600_000).toISOString()},{...game,id:'picks-fixture-week2',week:2,scheduleDate:new Date(Date.now()+8*86400_000).toISOString().slice(0,10),date:null}]};
 const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port','4184','--strictPort'],{stdio:'inherit'});
 const results=[];let browser;
 async function contextFor(engine,width,{hungSync=false}={}){
