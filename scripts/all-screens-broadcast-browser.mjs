@@ -86,9 +86,10 @@ try{
    await page.getByRole('alert').filter({hasText:'is empty.'}).waitFor();
    const input=page.getByRole('textbox',{name:'Ask BK question',exact:true});await input.scrollIntoViewIfNeeded();
    const send=page.getByTestId('ask-bk-composer').getByRole('button',{name:'Ask BK',exact:true});await send.scrollIntoViewIfNeeded();
-   const sendBox=await send.boundingBox(),navBox=await page.getByRole('navigation',{name:'Primary navigation'}).boundingBox();
-   assert(sendBox&&navBox&&sendBox.y>=0&&sendBox.y+sendBox.height<=navBox.y,'Attachments and long errors keep send reachable above navigation');
+   const sendBox=await send.boundingBox(),bottom=await page.evaluate(()=>{const nav=document.querySelector('nav[aria-label="Primary navigation"]');return nav&&getComputedStyle(nav).visibility!=='hidden'&&getComputedStyle(nav).display!=='none'?Math.min(innerHeight,nav.getBoundingClientRect().top):innerHeight});
+   assert(sendBox&&sendBox.y>=0&&sendBox.y+sendBox.height<=bottom,'Attachments and long errors keep send reachable in the keyboard viewport');
    assert.equal(await input.inputValue(),'Who should I start?');
+   await page.screenshot({path:`${out}/ask-keyboard-error-${width}.png`});
    await page.getByRole('button',{name:'Remove screenshot 1',exact:true}).click();
 
    await page.getByRole('textbox',{name:'Ask BK question',exact:true}).blur();

@@ -44,6 +44,11 @@ def offline_bundle(baseline):
     folder = PUBLIC / 'play-moment-3d'
     def module(name, prefix, exports):
         source = (folder / name).read_text()
+        if name == 'scene-materials.js':
+            # Use the shipped textures without external requests in this offline fixture.
+            for asset in re.findall(r"'/play-moment-3d/assets/([^']+\.webp)'", source):
+                data = base64.b64encode((folder / 'assets' / asset).read_bytes()).decode()
+                source = source.replace('/play-moment-3d/assets/' + asset, 'data:image/webp;base64,' + data)
         source = re.sub(r"(?m)^import[^\n]+;\n", '', source)
         source = re.sub(r"(?m)^export\{[^}]+\};\n", '', source)
         source = re.sub(r"(?m)^export(?=\s+(?:function|class|const))\s*", '', source)
@@ -53,18 +58,24 @@ def offline_bundle(baseline):
     out.append('const G=' + module('geometry.js','',['createTorsoGeometry','createLimbGeometry','createPlayerDetailGeometry']) + ';')
     motion_exports = ['advanceMotion','samplePose','footTarget','twoBone','readyHandTarget']
     out.append('const M=' + module('motion.js','',motion_exports) + ';')
+    out.append('const J=' + module('jersey-identity.js','',['jerseyIdentityKey','jerseyNameCanvas','jerseySurname']) + ';')
+    out.append('const Art=' + module('scene-materials.js','',['installSceneMaterials']) + ';')
+    out.append('const Architecture=' + module('stadium-architecture.js',
+        'const {pose,mul,ry,translate,scale,segment,hex}=R;', ['stadiumCorners','stadiumDetails']) + ';')
     out.append('const A=' + module('athlete.js',
-        'const {'+','.join(renderer_exports)+'}=R;const {'+','.join(motion_exports)+'}=M;const {createTorsoGeometry,createLimbGeometry,createPlayerDetailGeometry}=G;',
+        'const {jerseyIdentityKey,jerseyNameCanvas,jerseySurname}=J;const {'+','.join(renderer_exports)+'}=R;const {'+','.join(motion_exports)+'}=M;const {createTorsoGeometry,createLimbGeometry,createPlayerDetailGeometry}=G;',
         ['prepareJerseys','drawAthlete','advanceMotion']) + ';')
     out.append('const N=' + module('night-stadium.js',
         'const {hex,mul,pose,rx,scale,segment,translate}=R;', ['installNightStadium']) + ';')
     out.append('const S=' + module('stadium.js',
-        'const {pose,mul,rx,rz,translate,scale,segment,hex}=R;' +
+        'const {pose,mul,rx,rz,translate,scale,segment,hex}=R;const {stadiumCorners,stadiumDetails}=Architecture;'
+        'const installSceneMaterials=(renderer)=>{const state=Art.installSceneMaterials(renderer);window.sceneReady=state.ready;return state;};' +
         ('const installNightStadium=()=>{};' if baseline else 'const {installNightStadium}=N;'),
         ['makeStadium']) + ';')
     scene = HTML.split('<script type="module">')[1].split('</script>')[0]
     scene = scene[scene.index("const r=new Renderer"):]
-    return '() => {' + ''.join(out) + 'const {Renderer,pose,segment,hex}=R;const {prepareJerseys,drawAthlete,advanceMotion}=A;const {makeStadium}=S;' + scene + 'return window.result;}'
+    scene = scene.replace('window.result=window.render();', 'await window.sceneReady;window.result=window.render();')
+    return 'async () => {' + ''.join(out) + 'const {Renderer,pose,segment,hex}=R;const {prepareJerseys,drawAthlete,advanceMotion}=A;const {makeStadium}=S;' + scene + 'return window.result;}'
 
 
 def capture_canvas(page, path, camera):

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import * as playbook from '../public/play-moment-3d/playbook.js';
 import {QB_THROW_RELEASE,quarterbackThrowDuration} from '../public/play-moment-3d/quarterback.js';
-import {playerTopSpeed,playerRunSpeed} from '../public/play-moment-3d/game.js';
+import {playerTopSpeed} from '../public/play-moment-3d/game.js';
 import * as math from '../public/play-moment-3d/renderer.js';
 import {advanceMotion} from '../public/play-moment-3d/athlete.js';
 import {knockDownPlayer,advancePlayerAction,blockOutcome,pursuitRole,pursuitTarget} from '../public/play-moment-3d/game.js';
