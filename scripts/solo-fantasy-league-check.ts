@@ -49,9 +49,10 @@ for (const requirement of ['MADDEN-STYLE FANTASY FRANCHISE', 'League name', 'You
 for (const logoName of ['flight-collective.jpeg', 'gridiron-shield.jpeg', 'champions-circle.jpeg', 'neon-guardians.jpeg']) {
   assert.ok(screen.includes(logoName), 'Solo Fantasy must expose stock logo ' + logoName + '.');
 }
-for (const seasonRequirement of ['SIMULATE WEEK', 'SELECTION SUNDAY', 'BK LEAGUE PLAYOFFS', 'LEGACY BOWL', 'ENTER OFFSEASON DRAFT', 'userLogoUrl']) {
+for (const seasonRequirement of ['SELECTION SUNDAY', 'BK LEAGUE PLAYOFFS', 'LEGACY BOWL', 'ENTER OFFSEASON DRAFT', 'userLogoUrl']) {
   assert.ok(season.includes(seasonRequirement), 'Madden-style season is missing ' + seasonRequirement + '.');
 }
+assert.ok(season.includes('SIMULATE WEEK') || /careerPanel\s*\?\s*['"]RESOLVE['"]\s*:\s*['"]SIMULATE['"]\s*}\s*WEEK/.test(season), 'Normal Solo mode must retain the simulate-week action alongside career resolve-week wording.');
 assert.ok(cloudSync.includes("localKey: 'ballknower_solo_fantasy_v2', cloudKey: 'solo_fantasy'"), 'The current Solo Fantasy save must be included in cloud sync.');
 assert.ok(cloudSync.includes("localKey: 'ballknower_solo_fantasy_v2:season', cloudKey: 'solo_fantasy_season'"), 'The Madden-style season must be included in cloud sync.');
 

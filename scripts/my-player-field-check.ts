@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {careerFieldAssignment,careerFieldScore,careerFieldSeed} from '../myPlayerField';
+import {careerFieldAssignment,careerFieldScore,careerFieldSeed,careerFieldReview} from '../myPlayerField';
 import {careerNews} from '../myPlayerNews';
 import {createCareerLife,chooseWeek,recordWeekMoment,completeCareerWeek,cleanCareerLife,careerGameBoost} from '../myPlayerCareer';
 const profile={name:'Eli Test',position:'WR' as const,overall:72,speed:82,power:80,awareness:72,combineId:'field-check'};
@@ -9,6 +9,15 @@ assert.equal(careerFieldSeed('a','1'),careerFieldSeed('a','1'));assert.notEqual(
 assert.equal(careerFieldScore('drive',{points:23,plays:3,yards:0,turnovers:0}),25);assert.equal(careerFieldScore('drive',{points:30,plays:3,yards:75,turnovers:0}),86);
 assert.equal(careerFieldScore('drive',{points:30,plays:0,yards:75,turnovers:0}),undefined);
 assert.equal(careerFieldScore('receiver',{reps:2,score:90}),undefined);assert.equal(careerFieldScore('receiver',{reps:3,score:NaN}),undefined);assert.equal(careerFieldScore('receiver',{reps:3,score:101}),undefined);
+assert.equal(careerFieldReview('drive',{points:23,plays:3,yards:0,turnovers:0})?.metrics[0].value,'0');
+assert.equal(careerFieldReview('drive',{points:30,plays:3,yards:75,turnovers:0})?.band,'standout');
+assert.match(careerFieldReview('drive',{points:23,plays:3,yards:0,turnovers:1})!.cue,/Protect/);
+assert.equal(careerFieldReview('receiver',{reps:3,score:86,catches:3})?.summary,'3 of 3 contested catches secured.');
+assert.equal(careerFieldReview('receiver',{reps:2,score:86,catches:2}),undefined);
+assert.equal(careerFieldReview('coverage',{reps:3,score:50,stops:1,picks:0})?.band,'development');
+assert.match(careerFieldReview('coverage',{reps:3,score:50,stops:1,picks:0})!.cue,/swat/);
+assert.equal(careerFieldReview('rb',{reps:3,score:70,touchdowns:1})?.band,'solid');
+assert.equal(careerFieldReview('unknown',{reps:3,score:70,touchdowns:1}),undefined);
 assert.equal(careerNews(life,profile.name).length,1);
 for(let week=1;week<=3;week++){const key=`2026:regular:${week}`;life=chooseWeek(life,key,'prep','film');life=chooseWeek(life,key,'response','business');const pending=careerNews(life,profile.name);assert.match(pending[0].headline,/agent/);life=recordWeekMoment(life,key,week===3?20:90);const once=recordWeekMoment(life,key,0);assert.deepEqual(once,life);assert.equal(careerGameBoost(life,key)>0,week!==3);life=completeCareerWeek(life,key,week!==2);assert.deepEqual(completeCareerWeek(life,key,true),life);}
 const news=careerNews(life,profile.name);assert.equal(new Set(news.map(n=>n.id)).size,news.length);assert(news.some(n=>n.headline.includes('rotation to starter')));assert(news.some(n=>n.headline.includes('team falls short')));assert(news.some(n=>n.headline==='Team wins; your execution remains under review'));assert(news.some(n=>n.headline.includes('stronger tape')));

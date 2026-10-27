@@ -26,5 +26,6 @@ export function miniChallengeUrl(match:MiniChallenge,token:string){
 export function miniStatLabel(game:MiniGameId,stats:MiniStats|null){
   if(!stats)return 'Waiting for result';if(game==='career'&&stats.score===undefined)return 'Completed · awaiting score check';if(stats.dnf)return 'Did not finish';
   const g=miniGame(game),value=stats[g.metric];
+  if(typeof value!=='number'||!Number.isFinite(value))return 'Result unavailable';
   return `${g.metric==='time'||g.metric==='distance'?value.toFixed(3):value} ${g.unit}`;
 }

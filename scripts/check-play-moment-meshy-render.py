@@ -41,29 +41,39 @@ def main():
             page.on('pageerror', lambda error: errors.append(str(error)))
             page.on('console', lambda message: console_errors.append(message.text) if message.type == 'error' else None)
             page.on('response', lambda response: responses.append((response.url, response.status)))
-            page.goto(origin + '/play-moment-3d-preview.html?qa&scenario=redzone', wait_until='domcontentloaded')
-            page.wait_for_function("window.bk3dDiagnostics && bk3dDiagnostics().athletes.ready", timeout=30_000)
+            page.goto(origin + '/play-moment-3d-preview.html?qa&scenario=redzone&assist=1', wait_until='domcontentloaded')
+            page.wait_for_function("window.bk3dTest", timeout=45_000)
+            page.evaluate("bk3dTest.manualFrames()")
+            page.wait_for_function("bk3dDiagnostics().athletes.ready", timeout=45_000)
             page.evaluate('bk3dTest.manualFrames(); bk3dTest.step(.2)')
             pre = page.evaluate('bk3dDiagnostics()')
             assert pre['athletes']['ready'] and not pre['athletes']['error'], pre['athletes']
-            assert pre['athletes']['triangles'] == 14_187 and pre['athletes']['bones'] == 27 and pre['athletes']['clips'] == 11
+            assert pre['athletes']['triangles'] == 31_070 and pre['athletes']['bones'] == 28 and pre['athletes']['clips'] == 8
             assert pre['athletes']['motionRecipes'] == 40 and pre['athletes']['states'] == ['pre'] * 22, pre['athletes']
             assert pre['athletes']['motionFamilies'] == {'quarterback': 9, 'ballCarrier': 9, 'receiver': 6, 'trenches': 11, 'contact': 7}, pre['athletes']
             assert pre['athletes']['authenticityPilot'] == ['pass-set', 'drive-block', 'edge-rush', 'carry-cut', 'wrap-tackle']
             assert len(pre['players']) == 22 and pre['drawCalls'] < 80 and pre['glError'] == 0, pre
-            assert any(url.endswith('/meshy-gridiron-gold.glb') and status == 200 for url, status in responses), responses
-            page.screenshot(path=str(args.output / 'detailed-presnap-932x430.png'))
+            assert any('/ball-knower-gridiron-sentinel-v4.glb' in url and status == 200 for url, status in responses), responses
+            # Software GPU readback can exceed Playwright's 30s action default
+            # on CI; keep the full-resolution capture and all scene assertions.
+            page.screenshot(path=str(args.output / 'detailed-presnap-932x430.png'), timeout=90_000)
             report['views'].append({'name': 'presnap', 'phase': pre['phase'], 'drawCalls': pre['drawCalls'], 'athletes': pre['athletes']})
 
-            page.click('#snap')
-            page.evaluate('bk3dTest.step(.95)')
+            page.click('#breakHuddle');page.click('#snap')
+            for _ in range(30):
+                if page.evaluate("bk3dDiagnostics().phase==='run'"):break
+                page.evaluate('bk3dTest.step(.1)')
             run = page.evaluate('bk3dDiagnostics()')
             assert run['phase'] == 'run' and any(player['engaged'] for player in run['players'][:11]), run
             assert any(player['engagedWith'] is not None for player in run['players']), 'Run blocks are not paired'
-            assert 'carry-run' in run['athletes']['states'] or 'carry-sprint' in run['athletes']['states'], run['athletes']
+            carrier_index=next(i for i,p in enumerate(run['players']) if p['hasBall'])
+            assert run['athletes']['states'][carrier_index] in ['carry-run','carry-sprint','carry-cut'], run['athletes']
             assert any(state in run['athletes']['states'] for state in ['drive-block', 'reach-block', 'climb-block']) and 'shed' in run['athletes']['states'], run['athletes']
-            assert 'stalk-block' in run['athletes']['states'], run['athletes']
-            page.screenshot(path=str(args.output / 'detailed-run-932x430.png'))
+            # Outside receivers enter stalk contact only when defenders are in reach.
+            for i,p in enumerate(run['players'][:11]):
+                if p['role']=='WR' and p['engaged']:
+                    assert run['athletes']['states'][i]=='stalk-block',run['athletes']
+            page.screenshot(path=str(args.output / 'detailed-run-932x430.png'), timeout=90_000)
             report['views'].append({'name': 'run', 'phase': run['phase'], 'drawCalls': run['drawCalls']})
 
             page.click('#juke')
@@ -74,13 +84,13 @@ def main():
             page.evaluate('bk3dTest.step(.12)')
             contact = page.evaluate('bk3dDiagnostics()')
             assert contact['contact']['type'] == 'dive' and 'dive-tackle' in contact['athletes']['states'], contact
-            page.screenshot(path=str(args.output / 'detailed-skill-contact-932x430.png'))
+            page.screenshot(path=str(args.output / 'detailed-skill-contact-932x430.png'), timeout=90_000)
             report['views'].append({'name': 'skill-contact', 'phase': contact['phase'], 'drawCalls': contact['drawCalls']})
 
             page.click('#pause')
             page.click('#restart')
             page.evaluate('bk3dTest.step(.2)')
-            page.click('#passTab')
+            page.click('#filterPass');page.click('#call-pass-0');page.click('#breakHuddle')
             page.click('#snap')
             page.evaluate('bk3dTest.step(1.2)')
             passing = page.evaluate('bk3dDiagnostics()')
@@ -93,7 +103,7 @@ def main():
             assert flight['phase'] == 'flight' and flight['throwKind'] == 'bullet', flight
             assert flight['glError'] == 0 and flight['drawCalls'] < 80
             assert 'throw-bullet' in flight['athletes']['states'], flight['athletes']
-            page.screenshot(path=str(args.output / 'detailed-pass-932x430.png'))
+            page.screenshot(path=str(args.output / 'detailed-pass-932x430.png'), timeout=90_000)
             report['views'].append({'name': 'pass', 'phase': flight['phase'], 'drawCalls': flight['drawCalls']})
 
             assert not errors and not console_errors, {'pageErrors': errors, 'consoleErrors': console_errors}

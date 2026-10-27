@@ -86,9 +86,9 @@ export function AskBkHub(){
     }finally{if(mountedRef.current){setIsAnswering(false);requestRef.current=null}}
   };
 
-  return <section className="mx-auto flex min-h-[calc(100dvh-9rem)] w-full max-w-5xl flex-col px-3 pb-5 pt-4 sm:px-5 md:min-h-[calc(100dvh-8rem)] md:pt-6">
-    <div className="bk-glass overflow-hidden border-[var(--bk-team-accent)]/20">
-      <div className="relative overflow-hidden border-b border-white/10 px-4 py-3 sm:px-6 sm:py-5">
+  return <section className="mx-auto flex h-[calc(100dvh-9rem)] min-h-0 w-full max-w-5xl flex-col px-3 pb-5 pt-4 sm:px-5 md:h-[calc(100dvh-8rem)] md:pt-6">
+    <div className="bk-glass flex min-h-0 flex-1 flex-col overflow-hidden border-[var(--bk-team-accent)]/20">
+      <div className="relative max-h-[30dvh] shrink-0 overflow-y-auto border-b border-white/10 px-4 py-3 sm:px-6 sm:py-5">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_90%_10%,rgb(var(--bk-team-accent-rgb)/.2),transparent_42%)]" aria-hidden="true"/>
         <div className="relative flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1"><div className="flex items-center gap-2.5"><div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-[var(--bk-team-accent)]/35 bg-[var(--bk-team-accent)]/10 sm:h-11 sm:w-11"><Sparkles className="h-4.5 w-4.5 text-[var(--bk-team-accent)] sm:h-5 sm:w-5"/></div><div><div className="bk-overline text-[8px] sm:text-[9px]">Football-first sports intelligence</div><h2 className="font-display text-[1.7rem] font-black uppercase leading-none tracking-tight sm:text-3xl">Ask <span className="text-[var(--bk-team-accent)]">BK</span></h2></div></div><p className="mt-1.5 max-w-xl text-[10px] font-semibold leading-4 text-zinc-400 sm:mt-2 sm:text-xs sm:leading-5">Fantasy decisions, injuries, matchups, news and screenshot breakdowns.</p></div>
@@ -97,7 +97,7 @@ export function AskBkHub(){
         <div className="relative mt-2.5 flex items-start gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/[.06] px-3 py-2 text-[9px] font-bold leading-4 text-emerald-100 sm:mt-4 sm:py-2.5 sm:text-[10px]"><LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400"/><span><b>Session only.</b> Chats and screenshots aren’t saved. They clear when you leave Ask BK or tap Clear.</span></div>
       </div>
 
-      <div className="flex min-h-[52dvh] flex-col bg-[#080b10]/90 sm:min-h-[56dvh]">
+      <div className="flex min-h-0 flex-1 flex-col bg-[#080b10]/90">
         <Conversation className="min-h-0 flex-1">
           <ConversationContent className="mx-auto w-full max-w-3xl px-3 py-2 sm:px-5 sm:py-5">
             {messages.length===0&&<div className="flex flex-col items-center justify-center px-1 py-1 text-center sm:min-h-[30dvh] sm:px-2"><div className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/[.035] sm:h-14 sm:w-14 sm:rounded-2xl"><ShieldCheck className="h-5 w-5 text-[var(--bk-team-accent)] sm:h-6 sm:w-6"/></div><h3 className="mt-2.5 font-display text-xl font-black uppercase sm:mt-4 sm:text-2xl">What do you need to know?</h3><p className="mt-1 max-w-md text-[10px] leading-4 text-zinc-500 sm:text-xs sm:leading-5">Live search only runs for current information. Advice can use your active league and roster.</p><div className="mt-3 grid w-full grid-cols-2 gap-2 sm:mt-5">{suggestions.map(suggestion=><button key={suggestion} type="button" onClick={()=>setDraft(suggestion)} className="min-h-11 rounded-xl border border-white/10 bg-white/[.025] px-2 py-2 text-left text-[10px] font-bold leading-4 text-zinc-300 hover:border-[var(--bk-team-accent)]/30 hover:bg-[var(--bk-team-accent)]/[.06] sm:min-h-12 sm:px-3 sm:text-[11px]">{suggestion}</button>)}</div></div>}
@@ -113,7 +113,7 @@ export function AskBkHub(){
           </ConversationContent>
         </Conversation>
 
-        <div className="border-t border-white/10 bg-[#0b0e13] p-3 sm:p-4">
+        <div className="max-h-full shrink-0 overflow-y-auto border-t border-white/10 bg-[#0b0e13] p-3 sm:p-4">
           <div className="mx-auto max-w-3xl">
             {attachments.length>0&&<div className="mb-3 flex gap-2 overflow-x-auto pb-1">{attachments.map((image,index)=><div key={image.id} className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black"><img src={image.dataUrl} alt={`Screenshot ${index+1}`} className="h-full w-full object-cover"/><button type="button" aria-label={`Remove screenshot ${index+1}`} onClick={()=>setAttachments(current=>current.filter(item=>item.id!==image.id))} className="absolute right-1 top-1 grid h-7 w-7 min-h-0 place-items-center rounded-full bg-black/80 text-white"><X className="h-3.5 w-3.5"/></button></div>)}</div>}
             {error&&<div role="alert" className="mb-3 flex items-start gap-2 rounded-xl border border-red-400/20 bg-red-400/[.07] px-3 py-2.5 text-xs font-bold leading-5 text-red-100"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0"/>{error}</div>}

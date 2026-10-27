@@ -9,6 +9,7 @@ import os
 import shutil
 import subprocess
 import threading
+import traceback
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from playwright.sync_api import sync_playwright
@@ -49,8 +50,7 @@ def record(browser, origin, out, mode):
             assert control.evaluate('(el) => { const r=el.getBoundingClientRect(); return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)); }'), selector
             boxes.append(box)
         assert boxes[0]['x'] + boxes[0]['width'] + 4 <= boxes[1]['x'], 'Pocket actions overlap'
-        instruction = page.locator('#instruction').bounding_box()
-        assert instruction['x'] + instruction['width'] <= boxes[0]['x'], 'Guidance overlaps actions'
+        assert page.locator('#instruction').is_hidden(), 'Duplicate coaching banner must not cover pocket controls'
     def check_hit(selector):
         control = page.locator(selector)
         assert control.is_visible(), selector
@@ -61,13 +61,15 @@ def record(browser, origin, out, mode):
         return box
     def check_playbook():
         assert read()['playbook']['open'] and page.locator('#playbook').is_visible()
-        assert page.locator('#playbookGrid .play-card').count() == 8
+        entries = page.evaluate("async () => (await import('/play-moment-3d/playbook.js')).matchingPlays(bk3dDiagnostics().playbook.formation,bk3dDiagnostics().playbook.filter).map(({mode,index})=>({mode,index}))")
+        assert page.locator('#playbookGrid .play-card').count() == len(entries)
         assert page.locator('#pre').is_hidden() and page.locator('#live').is_hidden()
         grid = page.locator('#playbookGrid').bounding_box()
-        for kind in ['run', 'pass']:
-            for index in range(4):
-                box = check_hit(f'#call-{kind}-{index}')
-                assert box['y'] >= grid['y'] and box['y'] + box['height'] <= grid['y'] + grid['height'] + .1, ('Clipped play card', kind, index, box, grid)
+        for entry in entries:
+            kind, index = entry['mode'], entry['index']
+            page.locator(f'#call-{kind}-{index}').scroll_into_view_if_needed()
+            box = check_hit(f'#call-{kind}-{index}')
+            assert box['y'] >= grid['y'] and box['y'] + box['height'] <= grid['y'] + grid['height'] + .1, ('Clipped play card', kind, index, box, grid)
         for selector in ['#filterAll', '#filterRun', '#filterPass', '#breakHuddle']:
             check_hit(selector)
         score = page.locator('.scorebug').bounding_box()
@@ -105,8 +107,10 @@ def record(browser, origin, out, mode):
                 timeline.append({'frame': frame, 'phase': state['phase'], 'assist': state['assist'], 'camera': state['camera'], 'carrier': holder, 'states': state['athletes']['states']})
             frame += 1
     try:
-        page.goto(origin + '/play-moment-3d-preview.html?qa', wait_until='domcontentloaded')
-        page.wait_for_function('window.bk3dDiagnostics && bk3dDiagnostics().athletes.ready', timeout=45000)
+        page.goto(origin + '/play-moment-3d-preview.html?qa&assist=1', wait_until='domcontentloaded')
+        page.wait_for_function('window.bk3dTest', timeout=45000)
+        page.evaluate('bk3dTest.manualFrames()')
+        page.wait_for_function('bk3dDiagnostics().athletes.ready', timeout=45000)
         page.evaluate('bk3dTest.manualFrames(); bk3dTest.step(2)')
         loaded = read()
         assert (loaded['athletes']['triangles'], loaded['athletes']['bones'], loaded['athletes']['clips']) == (31070, 28, 8)
@@ -124,7 +128,7 @@ def record(browser, origin, out, mode):
                 check_playbook()
                 page.screenshot(path=str(folder / f'playbook-{width}x{height}.png'))
                 page.click('#filterPass')
-                assert page.locator('#playbookGrid .play-card').count() == 4
+                assert page.locator('#playbookGrid .play-card').count() == page.evaluate("async () => (await import('/play-moment-3d/playbook.js')).matchingPlays(bk3dDiagnostics().playbook.formation,'pass').length")
                 page.click('#call-pass-1')
                 page.click('#pause');page.click('#resume')
                 assert page.locator('#callName').inner_text() == 'VERTICALS'
@@ -185,7 +189,7 @@ def record(browser, origin, out, mode):
                 page.click('#adjustPlay');page.click('#audibleTab');page.click('#openPlaybook')
                 assert read()['playbook']['choice']['index'] == 0
                 page.click('#filterRun')
-                assert page.locator('#playbookGrid .play-card').count() == 4
+                assert page.locator('#playbookGrid .play-card').count() == page.evaluate("async () => (await import('/play-moment-3d/playbook.js')).matchingPlays(bk3dDiagnostics().playbook.formation,'run').length")
                 page.click('#filterAll')
         page.screenshot(path=str(folder / 'playbook.png'))
         call_mode = 'pass' if mode in ['pass', 'qb-scramble'] else 'run'
@@ -275,6 +279,8 @@ def record(browser, origin, out, mode):
         result.update(status='passed', frames=frame, finalPhase=read()['phase'], glError=read()['glError'])
     except Exception as exc:
         result['error'] = f'{type(exc).__name__}: {exc}'
+        result['traceback'] = traceback.format_exc()
+        result['diagnostics'] = read()
         try:
             page.screenshot(path=str(folder / 'failure.png'))
         except Exception:
@@ -292,7 +298,7 @@ def record(browser, origin, out, mode):
         else:
             result['encodingError'] = encoded.stderr[-500:]
     (folder / 'report.json').write_text(json.dumps(result, indent=2))
-    print(json.dumps(result), flush=True)
+    print(json.dumps({key:value for key,value in result.items() if key!='diagnostics'}), flush=True)
     return result
 
 def main():

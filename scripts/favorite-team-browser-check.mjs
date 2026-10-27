@@ -2,9 +2,16 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { chromium } from 'playwright';
+import { createServer } from 'vite';
 
 const baseURL = 'http://127.0.0.1:4175';
 const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', '4175', '--strictPort'], { stdio: 'inherit' });
+// The release intentionally disables NFL branding. Keep the complete selector
+// regression in an isolated fixture, and verify the real release gate separately.
+const fixtureURL='http://127.0.0.1:4176/selector-qa.html';
+const fixtureCode=`import React from 'react';import{createRoot}from'react-dom/client';import{FavoriteTeamExperience}from'/FavoriteTeamExperience.tsx';import'/index.css';function Fixture(){const[done,setDone]=React.useState(false);return done?React.createElement('p',null,'Selection finished'):React.createElement(FavoriteTeamExperience,{onDone:()=>setDone(true)})}createRoot(document.getElementById('root')).render(React.createElement(Fixture));`;
+const fixtureServer=await createServer({server:{host:'127.0.0.1',port:4176,strictPort:true,watch:null,hmr:false},plugins:[{name:'selector-fixture',configureServer(s){s.middlewares.use(async(req,res,next)=>{if(req.url==='/selector-qa.html'){res.setHeader('Content-Type','text/html');res.end(await s.transformIndexHtml(req.url,'<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div><script type="module" src="/selector-qa.tsx"></script></body></html>'))}else next()})},resolveId(id){if(id==='/selector-qa.tsx')return '\0selector-qa'},load(id){if(id==='\0selector-qa')return fixtureCode}}]});
+await fixtureServer.listen();
 let browser;
 async function ready() {
   for (let attempt = 0; attempt < 80; attempt++) {
@@ -17,7 +24,7 @@ async function ready() {
 try {
   await ready();
   await mkdir('artifacts/favorite-team', { recursive: true });
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({ headless: true, executablePath:process.env.BROWSER_PATH||undefined });
   for (const width of [320, 390, 430]) {
     const context = await browser.newContext({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true });
     const page = await context.newPage();
@@ -41,7 +48,10 @@ try {
       localStorage.setItem('ball-knower-intro-completed-v1', '1');
       localStorage.setItem('ball-knower-intro-sound-v1', 'off');
     });
-    await page.goto(`${baseURL}/?teamsetup=1`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${baseURL}/?teamsetup=1`, { waitUntil:'domcontentloaded' });
+    await page.locator('.bk-home-stadium').waitFor();
+    assert.equal(await page.getByTestId('favorite-team-notice').count(),0,'Release gate keeps licensed branding disabled even with teamsetup query');
+    await page.goto(fixtureURL, { waitUntil: 'domcontentloaded' });
     const notice = page.getByTestId('favorite-team-notice');
     await notice.waitFor();
     assert.equal(await page.locator('button img[data-favorite-team-logo]').count(), 5, 'Preserve neighboring cards');
@@ -85,11 +95,12 @@ try {
     assert.equal(await page.evaluate(() => localStorage.getItem('ball-knower-favorite-team')), 'San Francisco 49ers');
     assert.equal(await page.evaluate(() => localStorage.getItem('ball-knower-team-setup-v2')), 'complete');
     const requestCount = logoRequests.length;
-    await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
-    await page.locator('.bk-app-shell[data-tab="home"]').waitFor();
+    await page.goto('http://127.0.0.1:4176/', { waitUntil: 'domcontentloaded' });
+    await page.locator('.bk-home-stadium').waitFor();
+    assert.equal(await page.evaluate(()=>localStorage.getItem('ball-knower-favorite-team')),'San Francisco 49ers');
     assert.equal(await notice.count(), 0, 'Confirmed choice survives reload');
     assert.equal(logoRequests.length, requestCount, 'Official logo restoration must remain scoped to the selector');
-    await page.goto(`${baseURL}/?teamsetup=1`, { waitUntil: 'domcontentloaded' });
+    await page.goto(fixtureURL, { waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: 'SKIP FOR NOW', exact: true }).click();
     await notice.waitFor({ state: 'detached' });
     assert.equal(await page.evaluate(() => localStorage.getItem('ball-knower-team-setup-v2')), 'skipped');
@@ -100,4 +111,5 @@ try {
 } finally {
   await browser?.close();
   server.kill('SIGTERM');
+  await fixtureServer.close();
 }

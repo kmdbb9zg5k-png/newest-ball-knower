@@ -10,7 +10,7 @@ const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','
 let browser;const results=[];
 try{
  let ready=false;for(let i=0;i<100;i++){try{if((await fetch(base)).ok){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,200))}assert.ok(ready);
- await mkdir(out,{recursive:true});browser=await chromium.launch({headless:true});
+ await mkdir(out,{recursive:true});browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_PATH||undefined});
  for(const width of [320,390,1280]){
   const context=await browser.newContext({viewport:{width,height:width===1280?900:844},deviceScaleFactor:2,isMobile:width<768,hasTouch:width<768,...(live&&width===390?{recordVideo:{dir:`${out}/video`,size:{width,height:844}}}:{})});
   const page=await context.newPage();const crashes=[];let calls=0;
@@ -25,7 +25,7 @@ try{
   });
   await page.goto(base,{waitUntil:'domcontentloaded'});await page.locator('.bk-home-stadium').waitFor();
   const home=async()=>{await page.getByRole('button',{name:'Ball Knower home',exact:true}).click();await page.locator('.bk-home-stadium').waitFor()};
-  const primary=async name=>{const buttons=page.getByRole('button',{name,exact:true});for(const button of await buttons.all()){if(await button.isVisible()){await button.click();return}}throw Error('Missing visible navigation '+name)};
+  const primary=async name=>{await page.getByRole('button',{name,exact:true}).filter({visible:true}).first().click()};
   const capture=async(name,scene,label=name)=>{
    const stage=page.locator(`.bk-screen[data-page="${name}"]`).first();await stage.waitFor();
    assert.equal(await stage.getAttribute('data-scene'),scene);
@@ -73,8 +73,30 @@ try{
   if(width<768)assert.ok(askGeometry.composer&&askGeometry.nav&&askGeometry.composer.bottom<=askGeometry.nav.top,`Ask BK composer must be visible above mobile navigation: ${JSON.stringify(askGeometry)}`);
   assert.equal(await page.getByText('Session only.',{exact:false}).count(),1,'Ask BK must show session-only privacy disclosure');
   await page.screenshot({path:`${out}/ask-${width}.png`,fullPage:false});results.push({screen:'ask',scene:'trophy',width,...askGeometry});
+  if(width<768){
+   await page.getByRole('textbox',{name:'Ask BK question',exact:true}).fill('Who should I start?');
+   await page.setViewportSize({width,height:540});
+   const resized=await page.evaluate(()=>{const c=document.querySelector('[data-testid="ask-bk-composer"]').getBoundingClientRect(),n=document.querySelector('nav[aria-label="Primary navigation"]').getBoundingClientRect();return{top:c.top,bottom:c.bottom,nav:n.top}});
+   assert(resized.top>=0&&resized.bottom<=resized.nav,'Ask BK composer remains usable in a shortened keyboard-sized viewport');
+   assert.equal(await page.getByRole('textbox',{name:'Ask BK question',exact:true}).inputValue(),'Who should I start?');
+   const image=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFElEQVR42mP8z8AARAwMjDAGAC0KA/2BHvtYAAAAAElFTkSuQmCC','base64');
+   await page.locator('input[type="file"]').setInputFiles({name:'lineup.png',mimeType:'image/png',buffer:image});
+   await page.getByRole('button',{name:'Remove screenshot 1',exact:true}).waitFor();
+   await page.locator('input[type="file"]').setInputFiles({name:'My football lineup screenshot from the latest fantasy matchup with detailed injury updates.png',mimeType:'image/png',buffer:Buffer.alloc(0)});
+   await page.getByRole('alert').filter({hasText:'is empty.'}).waitFor();
+   const input=page.getByRole('textbox',{name:'Ask BK question',exact:true});await input.scrollIntoViewIfNeeded();
+   const send=page.getByTestId('ask-bk-composer').getByRole('button',{name:'Ask BK',exact:true});await send.scrollIntoViewIfNeeded();
+   const sendBox=await send.boundingBox(),bottom=await page.evaluate(()=>{const nav=document.querySelector('nav[aria-label="Primary navigation"]');return nav&&getComputedStyle(nav).visibility!=='hidden'&&getComputedStyle(nav).display!=='none'?Math.min(innerHeight,nav.getBoundingClientRect().top):innerHeight});
+   assert(sendBox&&sendBox.y>=0&&sendBox.y+sendBox.height<=bottom,'Attachments and long errors keep send reachable in the keyboard viewport');
+   assert.equal(await input.inputValue(),'Who should I start?');
+   await page.screenshot({path:`${out}/ask-keyboard-error-${width}.png`});
+   await page.getByRole('button',{name:'Remove screenshot 1',exact:true}).click();
+
+   await page.getByRole('textbox',{name:'Ask BK question',exact:true}).blur();
+   await page.setViewportSize({width,height:844});
+  }
   await primary('Profile');await capture('profile','locker');
-  await home();await page.getByRole('button',{name:'Solo Mode',exact:true}).click();await capture('solo','field');
+  await home();await page.getByRole('button',{name:'Play Solo Mode',exact:true}).click();await capture('solo','field');
   await page.locator('.bk-mode-card').filter({hasText:'Agent Mode'}).click();await capture('agent','office');
   await page.getByRole('button',{name:'BACK',exact:true}).click();await page.locator('.bk-mode-card').filter({hasText:'Owner Office'}).click();await capture('owner','suite');
   await page.emulateMedia({reducedMotion:'reduce'});await page.waitForFunction(()=>document.querySelector('.bk-screen')?.getAttribute('data-motion')==='off');
@@ -90,7 +112,7 @@ try{
   const avatar=page.locator('body>header button').filter({has:page.locator('img[alt="Ball Knower Guest"]')});
   await avatar.click();await page.getByRole('button',{name:'Hall of Fame',exact:true}).click();await capture('legacy','legacy');
   await home();await page.getByRole('button',{name:'View All Partners',exact:true}).click();await capture('partners','studio');
-  await home();await page.getByRole('button',{name:'Solo Mode',exact:true}).click();
+  await home();await page.getByRole('button',{name:'Play Solo Mode',exact:true}).click();
   await page.locator('.bk-mode-card').filter({hasText:'FANTASY DRAFT'}).click();await capture('fantasy-franchise','tunnel','fantasy-franchise-creator');assert.equal(await page.locator('.bk-home-news-strip').count(),0);
   await page.getByLabel('League name').fill('Browser Test League');
   await page.getByLabel('Your team name').fill('Test City Captains');

@@ -84,13 +84,14 @@ assert.equal(meshyAnimationState({ role: 'QB', throwT: .3, throwStyle: 'lob' }, 
 assert.equal(meshyAnimationState({ role: 'WR', team: 0, vx: 5, vz: 0, routeStyle: 'cut', motion: { turn: 1.4 } }, 'pass'), 'route-cut');
 assert.equal(meshyAnimationState({ role: 'WR', team: 0, vx: 6, vz: 0, routeStyle: 'release', motion: { turn: .2 } }, 'pass'), 'route-release');
 assert.equal(meshyAnimationState({ role: 'WR', team: 0, vx: 6, vz: 0, routeStyle: 'stem', motion: { turn: .2 } }, 'pass'), 'route-stem');
-assert.equal(meshyAnimationState({ role: 'RB', team: 0, hasBall: true, vx: 8, vz: 0 }, 'run'), 'carry-sprint');
+assert.equal(meshyAnimationState({ role: 'RB', team: 0, hasBall: true, sprinting: true, vx: 8, vz: 0 }, 'run'), 'carry-sprint');
+assert.equal(meshyAnimationState({ role: 'RB', team: 0, hasBall: true, vx: 8, vz: 0 }, 'run'), 'carry-run');
 assert.equal(meshyAnimationState({ role: 'RB', team: 0, hasBall: true, vx: 6, vz: 0, motion: { turn: 1.3 } }, 'run'), 'carry-cut');
 assert.equal(meshyAnimationState({ role: 'QB', team: 0, hasBall: true, vx: 5, vz: 0 }, 'run'), 'qb-scramble');
 assert.equal(meshyAnimationState({ role: 'DB', team: 1, vx: 5, vz: 0 }, 'pass'), 'coverage');
 assert.equal(meshyAnimationState({ role: 'DB', team: 1, vx: 5, vz: 0, coverageStyle: 'pedal' }, 'pass'), 'coverage-pedal');
 assert.equal(meshyAnimationState({ role: 'DB', team: 1, vx: 5, vz: 0, coverageStyle: 'break' }, 'pass'), 'coverage-break');
-assert.equal(meshyAnimationState({ role: 'DL', team: 1, vx: 6, vz: 0, blockStyle: 'edge-rush' }, 'pass'), 'edge-rush');
+assert.equal(meshyAnimationState({ role: 'DL', team: 1, x: 5, vx: 6, vz: 0, blockStyle: 'edge-rush' }, 'pass'), 'edge-rush');
 assert.equal(meshyAnimationState({ role: 'DL', team: 1, engaged: true, blockStyle: 'rush-rip' }, 'pass'), 'rush-rip');
 assert.equal(meshyAnimationState({ role: 'DL', team: 1, engaged: true, blockStyle: 'rush-swim' }, 'pass'), 'rush-swim');
 assert.equal(meshyAnimationState({ role: 'DB', vx: 8, vz: 0 }, 'run'), 'sprint');
@@ -109,18 +110,18 @@ assert.match(rendererSource, /using built-in players/, 'Asset or GPU failure mus
 assert.match(rendererSource, /blendLocals\(p,locals,time,choice\.state\)/, 'Clip changes must use state-aware blending instead of snapping between poses');
 assert.match(rendererSource, /fromLocals:previous\.locals/, 'State changes must crossfade from the exact outgoing skeleton pose');
 assert.match(rendererSource, /mixLocals\(locals,this\.poseLocals/, 'Football recipes must layer shipped clips without another model download');
-assert.match(rendererSource, /const locked=state==='pass-set'\|\|state==='drive-block'/, 'Engaged linemen must use planted contact frames instead of looping the source leg flourish');
+assert.match(rendererSource, /const locked=p\.engaged\|\|state==='pass-set'\|\|state==='drive-block'/, 'Engaged linemen must use planted contact frames instead of looping the source leg flourish');
 assert.match(rendererSource, /reach=smooth\(clamp\(contact\/\.42/, 'Wrap tackles must use staged reach, clasp and finish motion');
 assert.match(rendererSource, /gait=Number\.isFinite\(p\.motion\?\.gait\)/, 'Edge rush footwork must remain distance-coupled');
 assert.match(rendererSource, /p\.reactionT>0/, 'Defenders need a visible reaction to nearby skill moves');
 assert.match(rendererSource, /catch-'\+\(p\.catchStyle/, 'Catch choice must select a contextual animation state');
 assert.match(rendererSource, /break-tackle/, 'Contact outcomes must select a contextual animation state');
-assert.match(gameSource, /a\.action='handoff'.*b\.action='receive-handoff'/, 'The exchange must drive distinct quarterback and runner poses');
+assert.match(gameSource, /qb\.action='handoff'[\s\S]*rb\.action='receive-handoff'/, 'The exchange must drive distinct quarterback and runner poses');
 assert.match(gameSource, /beginContactSequence\(d,outcome,helpers,speed\)/, 'The tackler must receive the actual wrap, gang or big-hit sequence');
 assert.match(gameSource, /advanceContactSequence\(dt\)/, 'Dead-ball contact must keep advancing instead of freezing on impact');
 assert.match(gameSource, /updateSkillAction\(\)\{for\(const p of actors\)/, 'Every actor action must advance instead of freezing non-carriers on one frame');
 assert.match(gameSource, /if\(!meshy\.ready\)for\(const p of actors\)drawAthlete/, 'The existing players must stay visible until the detailed asset is ready');
-assert.match(gameSource, /meshy\.draw\(actors,phase,now\/1000\)/, 'The shared skinned player must be wired into the live scene with presentation time');
+assert.match(gameSource, /meshy\.draw\(actors,renderPhase,now\/1000\)/, 'The shared skinned player must be wired into the live scene with presentation time');
 
 console.log(JSON.stringify({
   status: 'PASS',

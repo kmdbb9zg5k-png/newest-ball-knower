@@ -15,7 +15,8 @@ await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const browser=await chromium.launch({headless:true,...(process.env.BROWSER_PATH?{executablePath:process.env.BROWSER_PATH}:{}),...(process.env.BK_TEST_URL?{proxy:{server:process.env.HTTPS_PROXY||process.env.HTTP_PROXY}}:{}),args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
 try{
  const page=await browser.newPage({viewport:{width:844,height:390},deviceScaleFactor:1,hasTouch:true,isMobile:true,ignoreHTTPSErrors:true});page.setDefaultTimeout(90000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto(process.env.BK_TEST_URL||`http://127.0.0.1:${server.address().port}/play-moment-3d-preview.html?qa=1`,{waitUntil:'networkidle'});
+ await page.goto(process.env.BK_TEST_URL||`http://127.0.0.1:${server.address().port}/play-moment-3d-preview.html?qa=1`,{waitUntil:'domcontentloaded'});
+ await page.waitForFunction(()=>window.bk3dTest);await page.evaluate(()=>window.bk3dTest.manualFrames());
  await page.waitForFunction(()=>window.bk3dDiagnostics?.().athletes.ready,{timeout:30000});
  await page.evaluate(async()=>{
   window.bk3dTest.manualFrames();const source=await(await fetch('/play-moment-3d/game.js')).text(),url=name=>new URL(source.match(new RegExp("from'([^']*"+name+"\\.js[^']*)'"))[1],location.origin+'/play-moment-3d/game.js').href;

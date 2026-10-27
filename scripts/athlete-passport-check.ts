@@ -1,0 +1,40 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+import {transformSync} from 'esbuild';
+import {athletePassport,withAthleteIdentity,careerAthleteIdentity} from '../athletePassport';
+import {combineAppearance} from '../combine/player-appearance.js';
+const base={version:1,name:'Elijah',position:'WR',stage:'season',combineId:'career-a',number:10,overall:82,teamAbbr:'JCY',draftRound:1,draftPick:10,gamesPlayed:20,presetFaceId:'malik',combinePerformance:{version:1,results:{dash:{best:4.5,last:4.6,attempts:2}}},careerLife:{camp:{complete:true}},careerArc:{own:{firstStart:1,awards:2},seasons:[{year:2026,champion:true},{year:2026,champion:true},{year:NaN,champion:true},{year:2027,champion:false}]}};
+const original=JSON.stringify(base),card=athletePassport(base)!;
+assert.equal(card.id,'career-a');assert.equal(card.marks[0].value,'4.500s');assert.equal(card.draft,'Round 1 · Pick 10');assert.equal(card.trophies.filter(t=>t.id.startsWith('champion-')).length,1);assert.equal(JSON.stringify(base),original,'Reading the locker never mutates career progression');
+assert.equal(athletePassport(null),null);assert.equal(athletePassport({...base,version:2}),null);assert.equal(athletePassport({...base,name:' '}),null);
+assert.equal(athletePassport({...base,faceImage:'https://evil.invalid/photo.jpg'})!.portrait,card.portrait,'Save content cannot make arbitrary remote requests');
+assert.equal(athletePassport({...base,faceImage:'data:image/svg+xml;base64,PHN2Zz4='})!.portrait,card.portrait,'Reject active image formats');
+assert.equal(athletePassport({...base,number:Infinity,overall:Infinity})!.number,0);
+assert.equal(athletePassport({...base,stage:'combine',draftRound:7,draftPick:32})!.draft,'Draft ahead','Draft trophy only after actual career stage transition');
+assert.equal(athletePassport({...base,combineId:'career-b',careerArc:undefined,combinePerformance:undefined,gamesPlayed:0,careerLife:undefined,stage:'creator'})!.trophies.length,0,'A new player does not inherit the previous trophy room');
+assert.equal(athletePassport({...base,combinePerformance:{version:1,results:{dash:{best:NaN,last:4.6,attempts:1}}}})!.marks.length,0);
+
+// Exercise the actual cloud transformation/restore helpers with isolated storage.
+const source=readFileSync(new URL('../CloudSyncProvider.tsx',import.meta.url),'utf8');
+const helpers=source.slice(source.indexOf('function cloudValue('),source.indexOf('function clearSyncedLocalState('));
+const storage=new Map<string,string>();
+const context=vm.createContext({localStorage:{getItem:(k:string)=>storage.get(k)??null,setItem:(k:string,v:string)=>storage.set(k,v),removeItem:(k:string)=>storage.delete(k)},console,MAX_CLOUD_RAW_LENGTH:220000});
+vm.runInContext(transformSync(helpers,{loader:'ts',format:'cjs'}).code,context);
+const entry={localKey:'ballknower_solo_my_player_v2',cloudKey:'solo_my_player_v2',privateImages:true};
+const raw={...base,faceImage:'private selfie',renderImage:'private render'};
+const envelope=context.cloudValue(entry,JSON.stringify(raw));assert.equal(JSON.parse(envelope.raw).faceImage,'');assert.equal(JSON.parse(envelope.raw).renderImage,'');
+storage.set(entry.localKey,JSON.stringify(raw));context.applyRemote(entry,{raw:JSON.stringify({...base,overall:84})});assert.equal(JSON.parse(storage.get(entry.localKey)!).faceImage,'private selfie','Same athlete retains local-only photo');
+context.applyRemote(entry,{raw:JSON.stringify({...base,combineId:'career-b'})});assert.equal(JSON.parse(storage.get(entry.localKey)!).faceImage,'','Different athlete must not inherit previous selfie');
+context.applyRemote(entry,{raw:null});assert.equal(storage.has(entry.localKey),false);
+assert(source.includes("localKey: 'ballknower_solo_my_player_v2:season', cloudKey: 'solo_my_player_season_v2'"));
+assert(source.includes('for (const entry of CLOUD_STORAGE) localStorage.removeItem(entry.localKey);'),'Account-switch cleanup includes active v2 athlete save');
+console.log('PASS athlete identity, real combine records, deduplicated career trophies, new-player isolation, unsafe images, cloud photo stripping and same-athlete-only restoration.');
+
+const fixed={id:'fixed-event-athlete',name:'Fixed rookie',position:'WR',speed:85,acceleration:85,seed:1234};
+const connected=withAthleteIdentity(fixed,card);
+assert.equal(connected.name,'Elijah');assert.equal(connected.jerseyNumber,10);
+for(const key of ['id','position','speed','acceleration','seed'] as const)assert.equal(connected[key],fixed[key],'Cosmetic mapping must not change '+key);
+const career={...fixed,id:'my-player-user',cosmeticIdentityId:`my-player-${careerAthleteIdentity({...base,position:'WR'}).id}`};
+assert.deepEqual(combineAppearance(connected),combineAppearance(career),'Community and career share deterministic appearance identity');
+console.log('PASS shared career/Community cosmetic identity with fixed competitive stats and simulation seed.');

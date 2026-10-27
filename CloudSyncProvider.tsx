@@ -32,6 +32,8 @@ const CLOUD_STORAGE: StorageEntry[] = [
   { localKey: 'ballknower_solo_real_team_v1:season', cloudKey: 'solo_real_team_season' },
   { localKey: 'ballknower_solo_my_player_v1', cloudKey: 'solo_my_player', privateImages: true },
   { localKey: 'ballknower_solo_my_player_v1:season', cloudKey: 'solo_my_player_season' },
+  { localKey: 'ballknower_solo_my_player_v2', cloudKey: 'solo_my_player_v2', privateImages: true },
+  { localKey: 'ballknower_solo_my_player_v2:season', cloudKey: 'solo_my_player_season_v2' },
   { localKey: AGENT_LOCAL_KEY, cloudKey: 'player_agent_career' },
   { localKey: 'ballknower_owner_career_v3', cloudKey: 'owner_business_career_v1', directJson: true },
 ];
@@ -138,8 +140,8 @@ function applyRemote(entry: StorageEntry, value: unknown): boolean {
           const remoteProfile = JSON.parse(envelope.raw);
           restored = JSON.stringify({
             ...remoteProfile,
-            faceImage: typeof localProfile?.faceImage === 'string' ? localProfile.faceImage : '',
-            renderImage: typeof localProfile?.renderImage === 'string' ? localProfile.renderImage : '',
+            faceImage: (entry.localKey !== 'ballknower_solo_my_player_v2' || localProfile?.combineId && localProfile.combineId === remoteProfile?.combineId) && typeof localProfile?.faceImage === 'string' ? localProfile.faceImage : '',
+            renderImage: (entry.localKey !== 'ballknower_solo_my_player_v2' || localProfile?.combineId && localProfile.combineId === remoteProfile?.combineId) && typeof localProfile?.renderImage === 'string' ? localProfile.renderImage : '',
           });
         } catch {
           restored = envelope.raw;

@@ -1,3 +1,4 @@
+import {careerAthleteIdentity} from './athletePassport';
 import React,{lazy,Suspense,useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {Dumbbell,Play,Sparkles,X} from 'lucide-react';
@@ -26,7 +27,7 @@ export function MyPlayerDraftCombine({profile,onResult,onDraft,storyMode=false,o
  const records=cleanDraftCombine(profile.combinePerformance).results;
  const required=requiredDraftDrills(profile.position),complete=required.filter(drill=>records[drill]).length;
  const result=calculatePlayedCombine(profile.position,profile.combinePerformance);
- const athlete=useMemo(()=>({...combineAthlete({id:'my-player-user',name:profile.name,position:profile.position,speed:profile.speed,grade:profile.overall}),heightInches:profile.heightInches,weightLbs:profile.weightLbs,jerseyNumber:profile.number,careerStrength:profile.power}),[profile.name,profile.position,profile.speed,profile.power,profile.overall,profile.heightInches,profile.weightLbs,profile.number]);
+ const athlete=useMemo(()=>({...combineAthlete({id:'my-player-user',name:profile.name,position:profile.position,speed:profile.speed,grade:profile.overall}),heightInches:profile.heightInches,weightLbs:profile.weightLbs,jerseyNumber:profile.number,cosmeticIdentityId:`my-player-${careerAthleteIdentity(profile).id}`,careerStrength:profile.power}),[profile.combineId,profile.name,profile.position,profile.speed,profile.power,profile.overall,profile.heightInches,profile.weightLbs,profile.number]);
  return <section className="rounded-[2rem] border border-white/10 bg-[#10151d] p-4 sm:p-7" aria-label="My Player draft Combine">
   <div className="flex items-center gap-3 text-[var(--bk-team-accent)]"><Dumbbell/><span className="text-[10px] font-black tracking-[.25em]">PLAYABLE DRAFT COMBINE</span></div>
   <h2 className="mt-3 text-3xl font-black sm:text-4xl">PROVE YOU BELONG</h2><p className="mt-3 text-sm leading-6 text-zinc-400">{profile.name} · {profile.position}. Complete your drills, then enter the draft. Your performance determines draft stock and can raise or lower your starting overall.</p>

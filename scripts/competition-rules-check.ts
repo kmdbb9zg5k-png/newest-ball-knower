@@ -1,0 +1,7 @@
+import assert from 'node:assert/strict';
+import {validCompetitionGames,competitionScorePreview,competitionWeek,competitionRankings} from '../competitionRules';
+assert(validCompetitionGames(['dash','bench','db']));assert(!validCompetitionGames(['dash','dash','db']));assert(!validCompetitionGames(['dash','career','db']));assert(!validCompetitionGames(['dash']));
+assert.equal(competitionScorePreview('dash',{time:4.5}),87.5);assert.equal(competitionScorePreview('dash',{dnf:1}),0);assert.equal(competitionScorePreview('shuttle',{time:5.25,penalty:.25}),95);assert.equal(competitionScorePreview('broad-jump',{distance:3}),75);assert.equal(competitionScorePreview('bench',{reps:60}),100);assert.equal(competitionScorePreview('db',{score:75}),75);assert.equal(competitionScorePreview('dash',{}),null);assert.equal(competitionScorePreview('career',{score:80}),null);
+assert.deepEqual(competitionWeek(new Date('2026-10-25T23:59:59Z')),{start:'2026-10-19T00:00:00.000Z',end:'2026-10-26T00:00:00.000Z'});assert.equal(competitionWeek(new Date('2026-10-26T00:00:00Z')).start,'2026-10-26T00:00:00.000Z');
+const ranks=competitionRankings([{userId:'a',points:200,completed:3},{userId:'b',points:200,completed:3},{userId:'c',points:199,completed:3},{userId:'d',points:250,completed:2}]);assert.deepEqual(ranks.map(r=>[r.userId,r.rank,r.badge]),[['a',1,'champion'],['b',1,'champion'],['c',3,'finisher']]);
+console.log('PASS competition rules: three unique supported drills, score normalization, UTC rollover, incomplete exclusions and shared first-place rewards.');

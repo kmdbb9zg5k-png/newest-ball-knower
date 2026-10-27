@@ -66,7 +66,9 @@ jobs:
           node scripts/check-play-moment-replay.mjs
   presentation-fixtures:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    # The shipped skinned athletes and three before/after viewport renders use
+    # SwiftShader in CI; keep the full suite and allow its final artifact upload.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -94,8 +96,6 @@ jobs:
       - run: python -m playwright install --with-deps chromium
       - name: Render offline stadium fixtures at three screen sizes
         run: python scripts/check-play-moment-night-stadium.py --output artifacts/night-stadium
-      - name: Exercise playable camera-relative cuts and night renderer
-        run: BK_NIGHT_RESULTS=artifacts/night-game python scripts/check-play-moment-night.py 932 430
       - name: Render shipped skinned players in run and pass gameplay
         run: python scripts/check-play-moment-meshy-render.py --output artifacts/meshy-player
       - name: Render goal-line HUD, series markers and completion states
@@ -116,6 +116,48 @@ jobs:
         with:
           name: night-stadium-fixtures
           path: artifacts
+          if-no-files-found: ignore
+          retention-days: 14
+  night-gameplay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - first: renderer
+            last: quality
+          - first: passes
+            last: throwaway
+          - first: runs
+            last: touch
+          - first: cuts
+            last: assist
+          - first: sack
+            last: fallback
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install playwright==1.57.0 pillow
+      - run: python -m playwright install --with-deps chromium
+      # Each group uses the shipped renderer and the same assertions as the full
+      # local suite. Separate jobs prevent software-rendered frames exhausting
+      # the shared presentation job's budget before later checks can execute.
+      - name: Exercise night gameplay and rendering
+        run: python scripts/check-play-moment-night.py 932 430
+        env:
+          BK_NIGHT_FROM: ${{ matrix.first }}
+          BK_NIGHT_THROUGH: ${{ matrix.last }}
+          BK_NIGHT_RESULTS: artifacts/night-game
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: night-gameplay-${{ matrix.first }}-${{ matrix.last }}
+          path: artifacts/night-game
           if-no-files-found: ignore
           retention-days: 14
   gameplay-recordings:
