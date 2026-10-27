@@ -1,0 +1,43 @@
+name: Community mini-game browser checks
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'CommunityMiniGames.tsx'
+      - 'ChallengeShareCard.tsx'
+      - 'miniScouting.ts'
+      - 'miniChallenges.ts'
+      - 'combine/**'
+      - 'scripts/mini-challenges-browser.mjs'
+      - '.github/workflows/community-mini-games.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: community-mini-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  mobile-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run lint
+      - run: node --import tsx scripts/mini-challenges-check.ts
+      - name: Exercise mobile layouts, real dash, result retry and rematches
+        run: node scripts/mini-challenges-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: community-mini-game-screenshots
+          path: artifacts/mini-challenges
+          if-no-files-found: ignore
+          retention-days: 7
