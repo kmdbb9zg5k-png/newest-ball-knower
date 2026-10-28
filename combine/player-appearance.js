@@ -153,11 +153,14 @@ export function createPlayerAppearance(body,bones) {
       }
       if(braids){
         // Fit each row to this skull instead of burying a fixed arc inside it.
-        const scalp=triangles.flat().filter(v=>v.p.y>hairline(v.p));
-        for(let x=-4;x<=4;x+=1){const points=[];for(let i=0;i<=20;i++){
-          const z=5.4-i/20*9.2;
-          const nearest=scalp.reduce((best,v)=>Math.hypot(v.p.x-x,v.p.z-z)<Math.hypot(best.p.x-x,best.p.z-z)?v:best,scalp[0]);
-          if(nearest)points.push(new T.Vector3(x,nearest.p.y+.28,z));
+        for(let x=-3.6;x<=3.61;x+=.9){const points=[];for(let i=0;i<=60;i++){
+          const z=6-i/60*10.6,ray=new T.Ray(new T.Vector3(x,20,z),new T.Vector3(0,-1,0));
+          let top=null;
+          for(const tri of triangles){
+            const hit=ray.intersectTriangle(tri[0].p,tri[1].p,tri[2].p,false,new T.Vector3());
+            if(hit&&hit.y>hairline(hit)&&(!top||hit.y>top.y))top=hit;
+          }
+          if(top)points.push(top.add(new T.Vector3(0,.18,0)));
         }if(points.length>1){
           const curve=new T.CatmullRomCurve3(points),radius=style==='cornrows'?.22:.28;
           for(let strand=0;strand<3;strand++){
