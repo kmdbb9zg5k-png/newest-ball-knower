@@ -24,7 +24,7 @@ export async function createCreatorScene(host:HTMLElement,initial:any){
   function resize(){
     const width=host.clientWidth,height=host.clientHeight;if(!width||!height)return;
     renderer.setSize(width,height,false);camera.aspect=width/height;
-    camera.position.set(0,1.07,Math.max(4.15,2.1/camera.aspect));camera.lookAt(0,1.02,0);camera.updateProjectionMatrix();draw();
+    camera.position.set(0,1.07,Math.max(3.6,1.9/camera.aspect));camera.lookAt(0,1.02,0);camera.updateProjectionMatrix();draw();
   }
   function update(profile:any){runner.setAthlete(profile);runner.poseCreator(profile);runner.root.rotation.y=angle;draw();}
   function rotate(value:number){angle=value;runner.root.rotation.y=angle;draw();}

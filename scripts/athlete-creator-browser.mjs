@@ -16,7 +16,15 @@ try{
     await page.locator('[data-render-state=ready]').waitFor({timeout:60000});
     assert.equal(await preview.locator('canvas').count(),1);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-    await preview.screenshot({path:`artifacts/athlete-creator/front-${width}.png`});
+    const front=await preview.screenshot({path:`artifacts/athlete-creator/front-${width}.png`});
+    await page.getByRole('button',{name:'Bald',exact:true}).click();
+    const bald=await preview.screenshot({path:`artifacts/athlete-creator/bald-${width}.png`});
+    assert(!front.equals(bald),'Hair choices visibly change the rendered athlete');
+    await page.getByRole('button',{name:'Both Arms',exact:true}).click();
+    const ink=await preview.screenshot({path:`artifacts/athlete-creator/ink-${width}.png`});
+    assert(!bald.equals(ink),'Tattoo choices visibly change the rendered athlete');
+    await page.getByRole('button',{name:'None',exact:true}).click();
+    assert(bald.equals(await preview.screenshot()),'Removing tattoos restores clean arm skin');
     await page.getByLabel('ARMS',{exact:true}).press('End');
     await page.getByRole('button',{name:'Fair',exact:true}).click();
     await page.getByRole('button',{name:'Braids',exact:true}).click();
