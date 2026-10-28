@@ -36,6 +36,7 @@ function surfaceGeometry(triangles,field,thickness) {
 }
 function hairMaterial(color,density=1){
   const material=new T.MeshStandardMaterial({color,roughness:.94,metalness:0});
+  if(density<.5){material.transparent=true;material.opacity=density;material.depthWrite=false;}
   material.onBeforeCompile=shader=>{
     shader.vertexShader='attribute float bkCoverage; varying float bkHairCoverage; varying vec3 bkHairPosition;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nbkHairPosition=position;bkHairCoverage=bkCoverage;');
     shader.fragmentShader='varying float bkHairCoverage; varying vec3 bkHairPosition;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
