@@ -17,7 +17,7 @@ export const routeFrameDelta=dt=>Number.isFinite(dt)?Math.max(0,Math.min(dt,.1))
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 export const routeLength=r=>r.points.slice(1).reduce((d,p,i)=>d+Math.hypot(p[0]-r.points[i][0],p[1]-r.points[i][1]),0);
 export function newRoute(athlete,index=0){
- const route=ROUTES[index],speed=4.8,flight=routeLength(route)>22?1.8:FLIGHT;
+ const route=ROUTES[index],speed=clamp(4.8+((athlete.speed??85)-85)*.025,4.15,5.3),flight=routeLength(route)>22?1.8:FLIGHT;
  return {athlete,index,route,speed,flight,phase:'idle',preview:5,clock:0,x:0,z:0,vx:0,vz:0,distance:0,heading:0,
   throwAt:Infinity,arrival:Infinity,windupAt:null,latestThrowAt:Math.max(3.5,routeLength(route)/speed+2),passToReceiver:false,catchAt:null,catchStyle:route.catchStyle||'chest',
   ballTarget:[...route.points.at(-1)],checkpoint:1,pathError:0,samples:0,result:null,settle:0};
@@ -32,7 +32,7 @@ export function stepRoute(s,dt,input={x:0,y:0}){
   if(s.phase==='preview'){s.preview=Math.max(0,s.preview-h);if(s.preview<1e-8)s.phase='running';continue;}
   const settling=s.phase==='settle';
   if(!settling)s.clock+=h;const ix=Number.isFinite(input.x)?input.x:0,iy=Number.isFinite(input.y)?input.y:0,n=Math.max(1,Math.hypot(ix,iy));
-  const blend=1-Math.exp(-h*16);s.vx+=(-ix/n*s.speed-s.vx)*blend;s.vz+=(-iy/n*s.speed-s.vz)*blend;
+  const blend=1-Math.exp(-h*clamp(16+((s.athlete.acceleration??85)-85)*.18,11,19));s.vx+=(-ix/n*s.speed-s.vx)*blend;s.vz+=(-iy/n*s.speed-s.vz)*blend;
   const px=s.x,pz=s.z;s.x+=s.vx*h;s.z+=s.vz*h;s.distance+=Math.hypot(s.x-px,s.z-pz);
   if(Math.hypot(s.vx,s.vz)>.1)s.heading=Math.atan2(s.vx,s.vz);
   if(settling){s.settle+=h;if(s.settle>=2)s.phase='result';continue;}

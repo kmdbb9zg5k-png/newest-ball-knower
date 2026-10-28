@@ -8,7 +8,7 @@ export function newDBRep(athlete,index=0,session=newManSession()){
  const random=randomSource(session.seed^Math.imul(index+1,2654435761));
  const s={...newManRep(athlete,index,session),receiver:RECEIVER,aiPoint:1,releaseSide:random()<.5?-1:1,receiverFlight:null,playChoice:null,playAt:null,coverageTime:0,coverageSamples:0};
  s.mode='db';s.receiver=RECEIVER;s.speed=4.35+random()*.25;s.aiPoint=1;s.receiverFlight=null;
- s.db={...s.db,...athlete,x:0,z:3.2,vx:0,vz:0,speed:5.25,heading:Math.PI,style:'MAN COVERAGE',action:'backpedal'};
+ s.db={...s.db,...athlete,x:0,z:3.2,vx:0,vz:0,speed:clamp(5.25+((athlete.speed??85)-85)*.025,4.65,5.75),heading:Math.PI,style:'MAN COVERAGE',action:'backpedal'};
  s.latestThrowAt=Math.max(3.3,routeLength(s.route)/s.speed+.35);s.readAt=Math.max(1.2,routeLength(s.route)/s.speed-.8);
  s.playChoice=null;s.playAt=null;s.coverageTime=0;s.coverageSamples=0;s.separation=3.2;s.ballHeight=1.45;
  return s;
@@ -40,7 +40,7 @@ function moveReceiver(s,h,settling){
  s.x+=s.vx*h;s.z+=s.vz*h;s.distance+=Math.hypot(s.vx,s.vz)*h;if(Math.hypot(s.vx,s.vz)>.1)s.heading=Math.atan2(s.vx,s.vz);
 }
 function movePlayer(s,h,input){
- const d=s.db,ix=Number.isFinite(input.x)?input.x:0,iy=Number.isFinite(input.y)?input.y:0,n=Math.max(1,Math.hypot(ix,iy)),blend=1-Math.exp(-h*14);
+ const d=s.db,ix=Number.isFinite(input.x)?input.x:0,iy=Number.isFinite(input.y)?input.y:0,n=Math.max(1,Math.hypot(ix,iy)),blend=1-Math.exp(-h*clamp(14+((d.agility??85)-85)*.16,9,17));
  d.vx+=(-ix/n*d.speed-d.vx)*blend;d.vz+=(-iy/n*d.speed-d.vz)*blend;d.x+=d.vx*h;d.z+=d.vz*h;d.distance+=Math.hypot(d.vx,d.vz)*h;
  const speed=Math.hypot(d.vx,d.vz);d.action=d.z>s.z+1.2&&s.phase!=='settle'?'backpedal':'trail';
  let face=d.action==='backpedal'||speed<.15?Math.atan2(s.x-d.x,s.z-d.z):Math.atan2(d.vx,d.vz);

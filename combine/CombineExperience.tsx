@@ -148,7 +148,7 @@ export default function CombineExperience({ players, context, onClose, onResult 
     <div className="combine-athlete">
       <span className="combine-monogram" aria-hidden="true">{player.position}</span>
       <div className="combine-athlete-info">
-        {phase === 'idle' ? <button className="combine-athlete-name" onClick={openPicker} aria-label="Change athlete">{player.name}</button> : <b>{player.name}</b>}
+        {phase === 'idle' && players.length>1 ? <button className="combine-athlete-name" onClick={openPicker} aria-label="Change athlete">{player.name}</button> : <b>{player.name}</b>}
         <div className="combine-athlete-stats"><span>SPEED <strong>{player.speed}</strong></span>{best && <span>BEST <strong>{time(best.splits[2])}s</strong></span>}</div>
       </div>
       {phase === 'idle' && players.length > 1 && <div className="combine-athlete-nav">{[-1,1].map(direction => <button key={direction} aria-label={direction < 0 ? 'Previous athlete' : 'Next athlete'} onClick={() => { const foundIndex = players.findIndex(p => p.id === player.id), index=foundIndex<0?(direction>0?-1:0):foundIndex; setRuns([]); setRunSplits([]); reset(players[(index + direction + players.length) % players.length], 1); }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d={direction < 0 ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'} /></svg></button>)}</div>}

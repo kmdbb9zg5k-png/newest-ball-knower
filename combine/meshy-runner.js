@@ -58,7 +58,11 @@ export async function loadCombineRunner(player) {
   function setAthlete(next){
     gaitPhase=0;lastDistance=0;idleTime=0;walkWeight=0;idleWeight=0;
     const bulk=['OL','DL'].includes(next.position)?1.06:['TE','LB'].includes(next.position)?1.03:1;
-    asset.scale.copy(baseScale);asset.scale.x*=bulk;
+    const height=T.MathUtils.clamp((next.heightInches||72)/72,.91,1.12);
+    const frame=Number.isFinite(next.bodyBuild)?(next.bodyBuild+next.shoulderWidth+next.armSize+next.legSize)/400:.5;
+    const weight=T.MathUtils.clamp(((next.weightLbs||205)-180)/180,0,1);
+    const width=T.MathUtils.clamp(.91+frame*.17+weight*.12,.89,1.19);
+    asset.scale.copy(baseScale);asset.scale.x*=bulk*width;asset.scale.z*=width;asset.scale.y*=height;
     appearance.apply(next);root.userData.playerId=next.id;root.userData.playerName=next.name;
   }
   setAthlete(player);
