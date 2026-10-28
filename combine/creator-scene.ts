@@ -30,8 +30,12 @@ export async function createCreatorScene(host:HTMLElement,initial:any){
   function rotate(value:number){angle=value;runner.root.rotation.y=angle;draw();}
   update(initial);
   const observer=new ResizeObserver(resize);observer.observe(host);resize();
+  // Mobile appearance controls scroll the canvas out of view. Redraw when it
+  // returns, including browsers that discard offscreen WebGL compositor tiles.
+  const visibility=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting))requestAnimationFrame(draw);});
+  visibility.observe(host);
   return {update,rotate,dispose(){
-    disposed=true;observer.disconnect();
+    disposed=true;observer.disconnect();visibility.disconnect();
     const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>(),textures=new Set<T.Texture>();
     scene.traverse(object=>{const mesh=object as T.Mesh;if(mesh.geometry)geometries.add(mesh.geometry);for(const material of Array.isArray(mesh.material)?mesh.material:[mesh.material])if(material){materials.add(material);for(const value of Object.values(material))if(value instanceof T.Texture)textures.add(value);}});
     runner.dispose();for(const geometry of geometries)geometry.dispose();for(const material of materials)material.dispose();for(const texture of textures)texture.dispose();renderer.dispose();renderer.domElement.remove();

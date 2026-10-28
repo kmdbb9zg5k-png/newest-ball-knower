@@ -13,6 +13,11 @@ try{
     page.on('console',message=>{if(message.type()==='error'&&/shader|WebGL|THREE/.test(message.text()))errors.push(message.text());});
     await page.goto('http://127.0.0.1:3061/combine.html?drill=dash');
     const preview=page.locator('[data-athlete-live-preview=true]');
+    const capture=async path=>{
+      await preview.scrollIntoViewIfNeeded();
+      await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+      return preview.screenshot({path});
+    };
     await page.locator('[data-render-state=ready]').waitFor({timeout:60000});
     assert.equal(await preview.locator('canvas').count(),1);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
@@ -43,10 +48,10 @@ try{
     if(width===390){
       await page.getByLabel('HEIGHT',{exact:true}).press('End');
       await page.getByLabel('WEIGHT',{exact:true}).press('End');
-      await preview.screenshot({path:'artifacts/athlete-creator/largest-390.png'});
+      await capture('artifacts/athlete-creator/largest-390.png');
       await page.getByLabel('HEIGHT',{exact:true}).press('Home');
       await page.getByLabel('WEIGHT',{exact:true}).press('Home');
-      await preview.screenshot({path:'artifacts/athlete-creator/smallest-390.png'});
+      await capture('artifacts/athlete-creator/smallest-390.png');
     }
     assert.deepEqual(errors,[]);
     await page.close();
