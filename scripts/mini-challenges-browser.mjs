@@ -22,6 +22,8 @@ try{
   });
   await page.goto(base+'/mini-qa.html?guest');await page.getByRole('button',{name:'Sign in to challenge'}).click();assert.equal(await page.locator('body').getAttribute('data-auth'),'requested');assert.equal(calls.length,0,'Guests never call private RPC');assert.equal(await page.getByRole('link',{name:/Practice 40-Yard Dash/}).getAttribute('href'),'/combine.html?drill=dash');
   assert.equal(await page.locator('.bk-mini-game-list').getByRole('button',{pressed:true}).count(),1);
+  await page.goto(base+'/combine.html?drill=dash');await page.getByRole('region',{name:'Mini game athlete builder'}).waitFor();assert.equal(await page.getByRole('button',{name:'Start dash',exact:true}).count(),0,'The drill cannot start before athlete setup');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'No setup overflow at '+width);await page.screenshot({path:`artifacts/mini-challenges/athlete-setup-${width}.png`,fullPage:true});
+  if(width===390){await page.getByLabel('Mini game player name').fill('Combine Creator');await page.getByRole('button',{name:/^MUSCULAR/}).click();await page.getByLabel('HEIGHT').fill('74');await page.getByRole('button',{name:'Save & start 40-Yard Dash',exact:true}).click();await page.locator('.combine-action').waitFor({timeout:60000});const savedAthlete=await page.evaluate(()=>JSON.parse(localStorage.getItem('ballknower_solo_my_player_v2')));assert.equal(savedAthlete.name,'Combine Creator');assert.equal(savedAthlete.bodyPresetId,'custom');assert.equal(savedAthlete.heightInches,74);}
   await page.goto(base+'/mini-qa.html');await page.getByLabel('Choose your opponent').selectOption('friend');await page.getByRole('button',{name:'Create challenge',exact:true}).click();await page.getByRole('button',{name:'Play your turn'}).waitFor();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'No horizontal overflow at '+width);
   await page.screenshot({path:`artifacts/mini-challenges/lobby-${width}.png`,fullPage:true});
@@ -39,5 +41,5 @@ try{
   }
   assert.deepEqual(errors,[]);await context.close();
  }
- console.log('PASS: 320/390/1280 layouts, guest auth gate, friend challenge, real 3D dash → iframe bridge → save retry → locked result → comparison; spoofed parent message rejected.');
+ console.log('PASS: direct athlete setup at 320/390/1280, saved build → 3D practice dash, guest auth gate, friend challenge, real 3D dash → iframe bridge → save retry → locked result → comparison; spoofed parent message rejected.');
 }finally{await browser.close();await server.close();}
