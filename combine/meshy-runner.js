@@ -267,6 +267,20 @@ export async function loadCombineRunner(player) {
     const grip=palm('Right'),inward=palm('Left').sub(grip).normalize();
     return grip.addScaledVector(inward,.075);
   }
+  function poseCreator(build){
+    root.position.set(0,0,0);root.rotation.set(0,0,0);reset();
+    for(const bone of Object.values(bones))bone.scale.set(1,1,1);
+    const arm=.82+(build.armSize??50)*.0036,leg=.85+(build.legSize??50)*.003;
+    for(const side of ['Left','Right']){bones[side+'Arm'].scale.set(arm,1,arm);bones[side+'UpLeg'].scale.set(leg,1,leg);}
+    bones.Spine2.scale.x=.9+(build.shoulderWidth??50)*.002;
+    body.updateMatrixWorld(true);
+    const height=T.MathUtils.clamp((build.heightInches||72)/72,.91,1.12);
+    for(const [side,sign]of [['Left',1],['Right',-1]]){
+      solve([side+'UpLeg',side+'Leg',side+'Foot'],v(sign*.14,footHeight*height,.015),v(sign*.16,.5*height,.4),true);
+      solve([side+'Arm',side+'ForeArm',side+'Hand'],v(sign*(.29+(build.shoulderWidth??50)*.0006),.88*height,.05),v(sign*.47,1.12*height,-.08));
+    }
+    root.updateMatrixWorld(true);
+  }
   pose(0,0,true);
-  return {root,pose,poseJump,poseBench,poseShuttleTurn,poseReceiver,poseDefender,poseRB,poseHandoff,poseQuarterback,setAthlete,dispose(){appearance.dispose();mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}};
+  return {root,pose,poseCreator,poseJump,poseBench,poseShuttleTurn,poseReceiver,poseDefender,poseRB,poseHandoff,poseQuarterback,setAthlete,dispose(){appearance.dispose();mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}};
 }

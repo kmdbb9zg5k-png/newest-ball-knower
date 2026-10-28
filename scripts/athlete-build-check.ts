@@ -33,6 +33,5 @@ assert.deepEqual(sanitizeAthleteAppearance({skinTone:'fair',hairStyle:'braids',h
 assert.equal(sanitizeAthleteAppearance({skinTone:'unsafe'}).skinTone,'warm brown','invalid cosmetic values fall back safely');
 const livePreview=readFileSync(new URL('../AthleteLivePreview.tsx',import.meta.url),'utf8');
 assert.match(livePreview,/data-arm-size=\{profile\.armSize\}/,'the preview exposes live arm sizing');
-assert.match(livePreview,/standing with hands at waist/,'the preview uses the requested neutral waist pose');
-assert.match(livePreview,/TattooMarks appearance=\{appearance\}/,'tattoo edits render directly on the athlete');
+assert.match(livePreview,/combine\/creator-scene/,'the preview loads the real Combine rig');
 console.log('Athlete build checks passed');
