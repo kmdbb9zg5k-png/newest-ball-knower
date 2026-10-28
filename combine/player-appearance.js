@@ -54,36 +54,57 @@ export function createPlayerAppearance(body,bones) {
     const geometry=mesh.geometry,indices=geometry.index,positions=geometry.attributes.position,normals=geometry.attributes.normal;
     const skinIndex=geometry.attributes.skinIndex,weights=geometry.attributes.skinWeight;
     const headIndex=mesh.skeleton.bones.indexOf(head),transform=headInverse.clone().multiply(mesh.matrixWorld),normalTransform=new T.Matrix3().getNormalMatrix(transform);
-    const vertices=[];
+    const vertices=[],armMask=[];
     for(let i=0;i<positions.count;i++){
       let influence=0;for(let k=0;k<4;k++)if(skinIndex.getComponent(i,k)===headIndex)influence+=weights.getComponent(i,k);
+      let arm=0;for(let k=0;k<4;k++)if(/(Arm|ForeArm|Hand)/.test(mesh.skeleton.bones[skinIndex.getComponent(i,k)]?.name||''))arm+=weights.getComponent(i,k);
+      armMask.push(smooth(.15,.85,arm)*smooth(9,12,Math.abs(positions.getX(i))));
       vertices.push({p:new T.Vector3().fromBufferAttribute(positions,i).applyMatrix4(transform),n:new T.Vector3().fromBufferAttribute(normals,i).applyMatrix3(normalTransform).normalize(),influence});
     }
+    geometry.setAttribute('bkArmSkin',new T.Float32BufferAttribute(armMask,1));
     for(let i=0;i<(indices?.count||positions.count);i+=3){const tri=[0,1,2].map(k=>vertices[indices?indices.getX(i+k):i+k]);if(tri.every(v=>v.influence>.5))triangles.push(tri);}
     for(const material of(Array.isArray(mesh.material)?mesh.material:[mesh.material])){
       const tint={value:new T.Vector3(1,1,1)},tattooCoverage={value:0},tattooStyle={value:0};skinUniforms.push({tint,tattooCoverage,tattooStyle});
       material.onBeforeCompile=shader=>{
         shader.uniforms.bkSkinTint=tint;shader.uniforms.bkTattooCoverage=tattooCoverage;shader.uniforms.bkTattooStyle=tattooStyle;
-        shader.vertexShader='varying vec3 bkTattooPosition;\n'+shader.vertexShader.replace('#include <project_vertex>','bkTattooPosition=transformed;\n#include <project_vertex>');
-        shader.fragmentShader='uniform vec3 bkSkinTint; uniform float bkTattooCoverage; uniform float bkTattooStyle; varying vec3 bkTattooPosition;\n'+shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
+        shader.vertexShader='attribute float bkArmSkin; varying float bkArmMask; varying vec3 bkTattooPosition;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nbkTattooPosition=position;bkArmMask=bkArmSkin;');
+        shader.fragmentShader='uniform vec3 bkSkinTint; uniform float bkTattooCoverage; uniform float bkTattooStyle; varying float bkArmMask; varying vec3 bkTattooPosition;\n'+shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
+          // The supplied model has permanent sleeve ink in its albedo. Replace
+          // only exposed arm skin before applying optional ink. Bind-space
+          // coordinates keep the selected pattern attached during animation.
+          vec3 sourceSkin=diffuseColor.rgb;
+          vec3 cleanSkin=vec3(.43966,.19807,.07036);
+          float pores=.985+.015*sin(bkTattooPosition.x*54.0)*sin(bkTattooPosition.y*47.0);
+          diffuseColor.rgb=mix(diffuseColor.rgb,cleanSkin*pores,bkArmMask);
           // Source exposed skin is warm/chromatic; kit and shoe pixels are
           // neutral. Dark tattoo ink/eyes remain untinted and retain contrast.
           float skinMask=smoothstep(.018,.09,diffuseColor.r-diffuseColor.b)
             *smoothstep(.008,.045,diffuseColor.g-diffuseColor.b)
             *smoothstep(.018,.065,max(diffuseColor.r,max(diffuseColor.g,diffuseColor.b)));
+          skinMask=max(skinMask,bkArmMask);
           diffuseColor.rgb*=mix(vec3(1.0),bkSkinTint,skinMask);
-          float arm=step(14.0,abs(bkTattooPosition.x))*smoothstep(31.0,39.0,bkTattooPosition.y)*(1.0-smoothstep(76.0,82.0,bkTattooPosition.y));
+          float along=abs(bkTattooPosition.x);
+          float arm=bkArmMask*(1.0-smoothstep(36.0,39.0,along));
           float left=step(bkTattooPosition.x,0.0),both=step(5.5,bkTattooCoverage);
           float side=mix(left,1.0,both),vertical=1.0;
-          if(bkTattooCoverage>1.5&&bkTattooCoverage<2.5)vertical=smoothstep(54.0,62.0,bkTattooPosition.y);
-          if(bkTattooCoverage>2.5&&bkTattooCoverage<3.5)vertical=1.0-smoothstep(55.0,63.0,bkTattooPosition.y);
-          if(bkTattooCoverage>3.5&&bkTattooCoverage<4.5)vertical=smoothstep(44.0,51.0,bkTattooPosition.y);
-          float grain=.5+.5*sin(bkTattooPosition.y*(bkTattooStyle<.5?1.8:.72)+sin(bkTattooPosition.x*.58)*3.0);
-          if(bkTattooStyle>.5&&bkTattooStyle<1.5)grain=step(.42,fract((abs(bkTattooPosition.x)+bkTattooPosition.y)*.19));
-          if(bkTattooStyle>1.5&&bkTattooStyle<2.5)grain=smoothstep(.66,.9,sin(bkTattooPosition.y*.72+sin(bkTattooPosition.x*.24)*5.0));
-          if(bkTattooStyle>2.5&&bkTattooStyle<3.5)grain=step(.52,.5+.5*sin(length(bkTattooPosition.xy)*.9));
-          float ink=step(.5,bkTattooCoverage)*arm*side*vertical*mix(.42,1.0,grain);
-          diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*.27,ink*skinMask*.82);`).replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
+          if(bkTattooCoverage<1.5)vertical=smoothstep(18.0,19.0,along)*(1.0-smoothstep(21.0,22.0,along));
+          if(bkTattooCoverage>1.5&&bkTattooCoverage<2.5)vertical=1.0-smoothstep(22.0,24.0,along);
+          if(bkTattooCoverage>2.5&&bkTattooCoverage<3.5)vertical=smoothstep(24.0,26.0,along);
+          if(bkTattooCoverage>3.5&&bkTattooCoverage<4.5)vertical=1.0-smoothstep(26.0,28.0,along);
+          // Preserve the source's detailed ink drawing for blackwork, while
+          // geometric ink uses fine diamond outlines rather than broad bands.
+          float sourceInk=1.0-smoothstep(.10,.32,sourceSkin.r);
+          vec2 inkUV=vec2(along*.32,(bkTattooPosition.y+bkTattooPosition.z*.7)*.32);
+          vec2 cell=abs(fract(vec2(inkUV.x+inkUV.y,inkUV.x-inkUV.y))-.5);
+          float edge=min(cell.x,cell.y),aa=max(fwidth(edge),.012);
+          float geometric=1.0-smoothstep(.035-aa,.035+aa,edge);
+          float grain=sourceInk;
+          if(bkTattooStyle>.5&&bkTattooStyle<1.5)grain=geometric;
+          if(bkTattooStyle>1.5&&bkTattooStyle<2.5)grain=1.0-smoothstep(.07,.16,abs(sin(along*.8+sin(bkTattooPosition.y*.7)*2.0)));
+          if(bkTattooStyle>2.5&&bkTattooStyle<3.5)grain=sourceInk;
+          if(bkTattooStyle>3.5)grain=max(sourceInk,geometric*.65);
+          float ink=step(.5,bkTattooCoverage)*arm*side*vertical*grain;
+          diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.012,.018,.022),ink*.88);`).replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
           // A soft skin response and dry compression fabric stay distinct under
           // the overhead banks; derivative-filtered knit avoids distant shimmer.
           roughnessFactor=mix(.92,.64,skinMask);
@@ -94,7 +115,7 @@ export function createPlayerAppearance(body,bones) {
           diffuseColor.rgb*=1.+.025*weave*weaveAA*(1.-skinMask);
           #endif
         `);
-      };material.customProgramCacheKey=()=> 'combine-skin-knit-v2';material.needsUpdate=true;
+      };material.customProgramCacheKey=()=> 'combine-custom-skin-v3';material.needsUpdate=true;
     }
   });
   head.add(group);
@@ -130,7 +151,13 @@ export function createPlayerAppearance(body,bones) {
         }mesh.name='Hair strands '+style;mesh.castShadow=true;group.add(mesh);
       }
       if(braids){
-        for(let x=-3;x<=3;x+=1){const f=Math.sqrt(1-x*x/23),points=[];for(let i=0;i<=20;i++){const a=.46+i/20*2.5;points.push(new T.Vector3(x,5.5+5.9*Math.sin(a)*f,1+6.1*Math.cos(a)*f));}add(new T.TubeGeometry(new T.CatmullRomCurve3(points),28,.14,5,false),'Braid');}
+        // Fit each row to this skull instead of burying a fixed arc inside it.
+        const scalp=triangles.flat().filter(v=>v.p.y>hairline(v.p));
+        for(let x=-3;x<=3;x+=1){const points=[];for(let i=0;i<=20;i++){
+          const z=5.4-i/20*9.2;
+          const nearest=scalp.reduce((best,v)=>Math.hypot(v.p.x-x,v.p.z-z)<Math.hypot(best.p.x-x,best.p.z-z)?v:best,scalp[0]);
+          if(nearest)points.push(new T.Vector3(x,nearest.p.y+.28,z));
+        }if(points.length>1)add(new T.TubeGeometry(new T.CatmullRomCurve3(points),48,style==='cornrows'?.19:.28,7,false),'Braid');}
       }
     }
     if(look.facialHair!=='clean shaven'){
