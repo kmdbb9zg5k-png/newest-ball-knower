@@ -21,7 +21,7 @@ const hairline=p=>3.7+4.15*smooth(-2,5.8,p.z)+.35*smooth(2.8,4.5,Math.abs(p.x));
 // Clip the source head's actual surface against a curved hairline. This fits the
 // skull/face rather than placing an ellipsoid or opaque helmet over the head.
 function surfaceGeometry(triangles,field,thickness) {
-  const points=[],coverage=[];
+  const points=[],coverage=[],normals=[];
   for(const tri of triangles){
     let polygon=[];
     for(let i=0;i<3;i++){
@@ -29,20 +29,22 @@ function surfaceGeometry(triangles,field,thickness) {
       if(da>=0)polygon.push(a);
       if((da>=0)!==(db>=0)){const t=da/(da-db);polygon.push({p:a.p.clone().lerp(b.p,t),n:a.n.clone().lerp(b.n,t).normalize()});}
     }
-    const emit=a=>{const p=a.p.clone().addScaledVector(a.n,thickness(a.p));points.push(p.x,p.y,p.z);coverage.push(smooth(0,.45,field(a.p)));};
+    const emit=a=>{const p=a.p.clone().addScaledVector(a.n,thickness(a.p));points.push(p.x,p.y,p.z);normals.push(a.n.x,a.n.y,a.n.z);coverage.push(smooth(0,.45,field(a.p)));};
     for(let i=1;i+1<polygon.length;i++){emit(polygon[0]);emit(polygon[i]);emit(polygon[i+1]);}
   }
-  const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(points,3));geometry.setAttribute('bkCoverage',new T.Float32BufferAttribute(coverage,1));geometry.computeVertexNormals();return geometry;
+  const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(points,3));geometry.setAttribute('normal',new T.Float32BufferAttribute(normals,3));geometry.setAttribute('bkCoverage',new T.Float32BufferAttribute(coverage,1));return geometry;
 }
 function hairMaterial(color,density=1){
   const material=new T.MeshStandardMaterial({color,roughness:.94,metalness:0});
+  if(density<.5){material.transparent=true;material.opacity=density;material.depthWrite=false;}
   material.onBeforeCompile=shader=>{
     shader.vertexShader='attribute float bkCoverage; varying float bkHairCoverage; varying vec3 bkHairPosition;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nbkHairPosition=position;bkHairCoverage=bkCoverage;');
     shader.fragmentShader='varying float bkHairCoverage; varying vec3 bkHairPosition;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
       float grain=fract(sin(dot(floor(bkHairPosition*38.0),vec3(12.9898,78.233,39.425)))*43758.5453);
-      if(grain>bkHairCoverage*${density.toFixed(3)})discard;
-      diffuseColor.rgb*=mix(.72,1.16,grain);`);
-  };material.customProgramCacheKey=()=> 'combine-hair-grain-v2-'+density;return material;
+      if(bkHairCoverage<.025)discard;
+      float strand=.5+.5*sin(bkHairPosition.y*110.0+sin(bkHairPosition.x*70.0));
+      diffuseColor.rgb*=mix(.85,1.12,strand)*mix(1.8,1.0,${density.toFixed(3)});`);
+  };material.customProgramCacheKey=()=> 'combine-hair-strands-v3-'+density;return material;
 }
 
 export function createPlayerAppearance(body,bones) {
@@ -136,7 +138,7 @@ export function createPlayerAppearance(body,bones) {
     if(!['bald','shaved'].includes(style)){
       const curls=/curl|afro/.test(style),locs=/loc|twist/.test(style),braids=/braid|cornrow/.test(style);
       const tall=/medium|long|afro/.test(style),length=curls?(tall?1.5:.65):locs?(tall?1.1:.55):braids?.12:/crop|crew/.test(style)?.38:.17;
-      add(surfaceGeometry(triangles,p=>p.y-hairline(p),p=>{
+      if(!braids)add(surfaceGeometry(triangles,p=>p.y-hairline(p),p=>{
         const fade=smooth(hairline(p),10.2,p.y),noise=.5+.5*Math.sin(p.x*13+p.z*4)*Math.sin(p.z*16-p.y*3);
         return .055+fade*length*(.65+.35*noise);
       }),'Scalp '+style);
@@ -152,21 +154,48 @@ export function createPlayerAppearance(body,bones) {
       }
       if(braids){
         // Fit each row to this skull instead of burying a fixed arc inside it.
-        const scalp=triangles.flat().filter(v=>v.p.y>hairline(v.p));
-        for(let x=-3;x<=3;x+=1){const points=[];for(let i=0;i<=20;i++){
-          const z=5.4-i/20*9.2;
-          const nearest=scalp.reduce((best,v)=>Math.hypot(v.p.x-x,v.p.z-z)<Math.hypot(best.p.x-x,best.p.z-z)?v:best,scalp[0]);
-          if(nearest)points.push(new T.Vector3(x,nearest.p.y+.28,z));
-        }if(points.length>1)add(new T.TubeGeometry(new T.CatmullRomCurve3(points),48,style==='cornrows'?.19:.28,7,false),'Braid');}
+        for(let x=-3.6;x<=3.61;x+=.9){const points=[];for(let i=0;i<=60;i++){
+          const z=6-i/60*10.6,ray=new T.Ray(new T.Vector3(x,20,z),new T.Vector3(0,-1,0));
+          let top=null;
+          for(const tri of triangles){
+            const hit=ray.intersectTriangle(tri[0].p,tri[1].p,tri[2].p,false,new T.Vector3());
+            if(hit&&hit.y>hairline(hit)&&(!top||hit.y>top.y))top=hit;
+          }
+          if(top)points.push(top.add(new T.Vector3(0,.18,0)));
+        }if(points.length>1){
+          const curve=new T.CatmullRomCurve3(points),radius=style==='cornrows'?.22:.28;
+          for(let strand=0;strand<3;strand++){
+            const woven=[];
+            for(let i=0;i<=120;i++){
+              const t=i/120,p=curve.getPoint(t),phase=t*Math.PI*2*15+strand*Math.PI*2/3;
+              p.x+=Math.cos(phase)*radius;p.y+=Math.sin(phase)*radius+.12;woven.push(p);
+            }
+            add(new T.TubeGeometry(new T.CatmullRomCurve3(woven),120,radius*.72,5,false),'Woven braid strand');
+          }
+        }}
       }
     }
     if(look.facialHair!=='clean shaven'){
       const beard=look.facialHair,stubble=beard.includes('stubble'),goatee=beard==='goatee',mustache=beard==='mustache';
       const beardMaterial=hairMaterial(HAIR[look.hairColor],stubble?(beard==='light stubble'?.22:.4):.86);
-      if(!mustache)add(surfaceGeometry(triangles,p=>Math.min(p.y+1.5,1.5+1.7*smooth(1.3,3.5,Math.abs(p.x))-p.y,p.z-1.6,4.15-Math.abs(p.x),goatee?1.65-Math.abs(p.x):10),()=>stubble?.045:beard==='full beard'?.20:.10),'Facial hair '+beard,beardMaterial);
+      if(!mustache)add(surfaceGeometry(triangles,p=>Math.min(p.y+1.5,1.5+1.7*smooth(1.3,3.5,Math.abs(p.x))-p.y,p.z-1.0,4.35-Math.abs(p.x),goatee?1.65-Math.abs(p.x):10,Math.max(Math.abs(p.x)/1.5,Math.abs(p.y-1.3)/.55)-1),p=>stubble?.025:beard==='full beard'?.25+.6*(1-smooth(-1.5,2,p.y)):.12),'Facial hair '+beard,beardMaterial);
       if(!stubble)add(surfaceGeometry(triangles,p=>Math.min(1.65-Math.abs(p.x),.22*(1-p.x*p.x/2.8)-Math.abs(p.y-(2.3-.08*Math.abs(p.x))),p.z-6.3),()=>.055),'Mustache',beardMaterial);
     }
     if(!group.children.length)material.dispose();
+    // Fine tapered fibers break up beard edges without stochastic pixel holes.
+    const beardSurface=group.children.find(mesh=>mesh.name.startsWith('Facial hair'));
+    if(beardSurface&&!look.facialHair.includes('stubble')){
+      const p=beardSurface.geometry.attributes.position,n=beardSurface.geometry.attributes.normal;
+      const fiber=new T.ConeGeometry(.018,.17,3);fiber.setAttribute('bkCoverage',new T.Float32BufferAttribute(new Float32Array(fiber.attributes.position.count).fill(1),1));
+      const count=Math.min(2400,p.count),fibers=new T.InstancedMesh(fiber,beardSurface.material,count),dummy=new T.Object3D();
+      for(let i=0;i<count;i++){
+        const j=(i*7919)%p.count,normal=new T.Vector3().fromBufferAttribute(n,j);
+        dummy.position.fromBufferAttribute(p,j).addScaledVector(normal,.025);
+        dummy.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),normal.add(new T.Vector3(0,-1,.1)).normalize());
+        dummy.updateMatrix();fibers.setMatrixAt(i,dummy.matrix);
+      }
+      fibers.name='Beard fibers';group.add(fibers);
+    }
   }
   return {apply,dispose:clear};
 }
