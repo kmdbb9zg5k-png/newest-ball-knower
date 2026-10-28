@@ -21,7 +21,7 @@ try{
    await route.fulfill({json:result});
   });
   await page.goto(base+'/mini-qa.html?guest');await page.getByRole('button',{name:'Sign in to challenge'}).click();assert.equal(await page.locator('body').getAttribute('data-auth'),'requested');assert.equal(calls.length,0,'Guests never call private RPC');assert.equal(await page.getByRole('link',{name:/Practice 40-Yard Dash/}).getAttribute('href'),'/combine.html?drill=dash');
-  assert.equal(await page.getByRole('button',{pressed:true}).count(),1);
+  assert.equal(await page.locator('.bk-mini-game-list').getByRole('button',{pressed:true}).count(),1);
   await page.goto(base+'/mini-qa.html');await page.getByLabel('Choose your opponent').selectOption('friend');await page.getByRole('button',{name:'Create challenge',exact:true}).click();await page.getByRole('button',{name:'Play your turn'}).waitFor();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'No horizontal overflow at '+width);
   await page.screenshot({path:`artifacts/mini-challenges/lobby-${width}.png`,fullPage:true});

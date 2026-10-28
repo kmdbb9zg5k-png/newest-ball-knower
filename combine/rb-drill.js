@@ -5,7 +5,7 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function newRBSession(seed=Math.floor(Math.random()*0xffffffff)){return {seed};}
 export function newRBRep(athlete,index=0,session=newRBSession()){
  const rand=randomSource(session.seed^Math.imul(index+1,2654435761)),side=rand()<.5?-1:1;
- return {mode:'rb',athlete,index,phase:'idle',preview:3,clock:0,handoff:0,settle:0,x:0,z:0,vx:0,vz:0,heading:0,distance:0,speed:5.6,result:null,
+ return {mode:'rb',athlete,index,phase:'idle',preview:3,clock:0,handoff:0,settle:0,x:0,z:0,vx:0,vz:0,heading:0,distance:0,speed:clamp(5.6+((athlete.speed??85)-85)*.025,4.9,6.1),result:null,
   move:null,moveAt:-10,moveSide:1,cooldown:0,broken:0,immuneUntil:0,contact:null,
   db:{...LINEBACKER,x:side*(1.5+rand()*2),z:8.5+rand()*2.5,vx:0,vz:0,heading:Math.PI,distance:0,speed:5.05,readIn:.18,targetX:0,targetZ:0,stumble:0,lunge:0,lungeX:0,lungeZ:0,attempted:false},separation:10};
 }
@@ -45,13 +45,13 @@ export function stepRB(s,dt,input={x:0,y:0}){
   let tx=-ix/n*s.speed,tz=-iy/n*s.speed;
   if(s.move==='juke'&&age<.28){tx+=s.moveSide*3.4;const len=Math.max(s.speed,Math.hypot(tx,tz));tx*=s.speed/len;tz*=s.speed/len;}
   if(s.move==='spin'&&age<.55){tx*=.85;tz*=.85;}
-  const blend=1-Math.exp(-h*12);s.vx+=(tx-s.vx)*blend;s.vz+=(tz-s.vz)*blend;s.x+=s.vx*h;s.z+=s.vz*h;s.distance+=Math.hypot(s.vx,s.vz)*h;
+  const blend=1-Math.exp(-h*clamp(12+((s.athlete.agility??85)-85)*.15,8,15));s.vx+=(tx-s.vx)*blend;s.vz+=(tz-s.vz)*blend;s.x+=s.vx*h;s.z+=s.vz*h;s.distance+=Math.hypot(s.vx,s.vz)*h;
   if(Math.hypot(s.vx,s.vz)>.15)s.heading=Math.atan2(s.vx,s.vz);
   linebacker(s,h);const d=s.db;s.separation=Math.hypot(s.x-d.x,s.z-d.z);
   const facing=((d.x-s.x)*Math.sin(s.heading)+(d.z-s.z)*Math.cos(s.heading))/Math.max(.01,s.separation);
   const stiff=s.move==='stiff'&&age>=0&&age<.5&&facing>-.1;
   if(s.clock>s.immuneUntil&&d.stumble===0&&s.separation<(stiff?1.22:.70)&&d.lunge>0){
-   const beats=stiff||(s.move==='spin'&&age>=0&&age<.50)||(s.move==='juke'&&age>=0&&age<.28&&Math.abs(s.vx-d.vx)>2.4);
+   const beats=(stiff&&((s.athlete.contact??85)>=78||age<.32))||(s.move==='spin'&&age>=0&&age<.50)||(s.move==='juke'&&age>=0&&age<.28&&Math.abs(s.vx-d.vx)>2.4);
    if(beats){s.broken++;s.immuneUntil=s.clock+.9;d.stumble=.95;d.lunge=0;d.vx=(d.x-s.x)/Math.max(.01,s.separation)*2;d.vz=(d.z-s.z)/Math.max(.01,s.separation)*2;}
    else {finish(s,'TACKLED');continue;}
   }

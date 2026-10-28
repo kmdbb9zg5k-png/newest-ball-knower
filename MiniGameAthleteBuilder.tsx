@@ -1,0 +1,17 @@
+import React,{useState} from 'react';
+import AthleteBuildEditor from './AthleteBuildEditor';
+import {ATHLETE_POSITIONS,recommendedAthleteBuild,sanitizeAthleteBuild,type AthleteBuild} from './athleteBuild';
+import {ATHLETE_CHANGED,ATHLETE_SAVE_KEY} from './athletePassport';
+import {MyPlayerSharedRender} from './solo/MyPlayerSharedRender';
+import type {Position} from './types';
+
+const defaults={version:1,stage:'creator',name:'My Player',position:'WR' as Position,number:17,faceImage:'',presetFaceId:'malik',bodyPresetId:'balanced',renderImage:'',appearancePrompt:'',teamAbbr:'',draftRound:0,draftPick:0,combineScore:0,overall:68,xp:0,upgradePoints:0,gamesPlayed:0,speed:78,power:72,awareness:65,heightInches:72,weightLbs:195,bodyBuild:50,shoulderWidth:54,armSize:48,legSize:52,viewRotation:0};
+function restore(){try{const saved=JSON.parse(localStorage.getItem(ATHLETE_SAVE_KEY)||'null');return saved?.version===1?{...defaults,...saved,name:typeof saved.name==='string'&&saved.name.trim()?saved.name.slice(0,40):defaults.name,...sanitizeAthleteBuild(saved)}:defaults;}catch{return defaults;}}
+
+export default function MiniGameAthleteBuilder(){
+  const [profile,setProfile]=useState(restore),[saved,setSaved]=useState(false);
+  const setBuild=(build:AthleteBuild)=>{setSaved(false);setProfile(current=>({...current,...build,renderImage:''}));};
+  const save=()=>{try{const next={...profile,name:profile.name.trim().slice(0,40)||defaults.name};localStorage.setItem(ATHLETE_SAVE_KEY,JSON.stringify(next));window.dispatchEvent(new Event(ATHLETE_CHANGED));setProfile(next);setSaved(true);}catch{setSaved(false);}};
+  const careerLocked=profile.stage!=='creator';
+  return <section className="bk-mini-challenge-feed" aria-label="Mini game athlete builder"><header><h3>Your mini-game athlete</h3><span>{saved?'SAVED':'LIVE PREVIEW'}</span></header><p>Build this athlete once. Practice drills load the same face and physique automatically—no player carousel.</p><div className="grid gap-4 lg:grid-cols-[220px_1fr]"><MyPlayerSharedRender profile={profile} compact/><div><div className="grid grid-cols-2 gap-3"><label>Player name<input aria-label="Mini game player name" value={profile.name} maxLength={40} onChange={event=>{setSaved(false);setProfile(current=>({...current,name:event.target.value}));}}/></label><label>Jersey number<input aria-label="Mini game jersey number" type="number" min="0" max="99" value={profile.number} onChange={event=>{setSaved(false);setProfile(current=>({...current,number:Math.max(0,Math.min(99,Number(event.target.value)||0))}));}}/></label></div><div className="mt-3"><span className="text-[10px] font-black uppercase text-zinc-500">Position {careerLocked?'· career locked':''}</span><div className="mt-2 flex flex-wrap gap-2">{ATHLETE_POSITIONS.map(position=><button type="button" key={position} disabled={careerLocked} aria-pressed={profile.position===position} onClick={()=>setBuild(recommendedAthleteBuild(position))}>{position}</button>)}</div></div><div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4"><AthleteBuildEditor value={sanitizeAthleteBuild(profile)} onChange={setBuild}/></div><button type="button" className="bk-mini-primary mt-4" onClick={save}>{saved?'Athlete saved':'Save athlete for every mini game'}</button></div></div></section>;
+}

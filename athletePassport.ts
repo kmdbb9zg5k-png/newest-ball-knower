@@ -1,4 +1,5 @@
 import {cleanDraftCombine, draftDrillMark, type DraftDrill} from './myPlayerDraftCombine';
+import {athleteMovement,sanitizeAthleteBuild,type AthleteBuild,type AthleteMovement} from './athleteBuild';
 
 // This is the existing career save, not a second athlete or a second progression ledger.
 export const ATHLETE_SAVE_KEY = 'ballknower_solo_my_player_v2';
@@ -10,7 +11,7 @@ const text = (v:unknown,max=80) => typeof v==='string'?v.trim().slice(0,max):'';
 export type AthleteTrophy = {id:string;title:string;detail:string};
 export type AthletePassport = {
  id:string;name:string;position:string;number:number;overall:number;stage:string;team:string;
- portrait:string;games:number;draft:string;marks:{id:string;label:string;value:string}[];trophies:AthleteTrophy[];
+ portrait:string;games:number;draft:string;build:AthleteBuild;movement:AthleteMovement;marks:{id:string;label:string;value:string}[];trophies:AthleteTrophy[];
 };
 const labels:Record<DraftDrill,string>={dash:'40-yard dash','broad-jump':'Broad jump',shuttle:'20-yard shuttle',bench:'Bench press',routes:'Receiver routes',rb:'Running back',db:'Defensive back'};
 export function athletePassport(raw:unknown):AthletePassport|null {
@@ -36,15 +37,16 @@ export function athletePassport(raw:unknown):AthletePassport|null {
  const preset=['mason','nico','malik','darius'].includes(p.presetFaceId)?p.presetFaceId:'malik';
  // Never fetch an arbitrary remote image supplied by a save file.
  const localPhoto=typeof p.faceImage==='string'&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(p.faceImage)&&p.faceImage.length<2000000?p.faceImage:'';
- return {id:text(p.combineId,120)||`legacy:${text(p.name)}:${p.position}`,name:text(p.name),position:p.position,number:count(p.number,99),overall:count(p.overall,99),stage:p.stage,team:text(p.teamAbbr,4),portrait:localPhoto||`/solo-characters/v2/my-player-presets/${preset}/portrait.webp`,games,draft,marks,trophies};
+ const build=sanitizeAthleteBuild(p);
+ return {id:text(p.combineId,120)||`legacy:${text(p.name)}:${p.position}`,name:text(p.name),position:p.position,number:count(p.number,99),overall:count(p.overall,99),stage:p.stage,team:text(p.teamAbbr,4),portrait:localPhoto||`/solo-characters/v2/my-player-presets/${preset}/portrait.webp`,games,draft,build,movement:athleteMovement(build),marks,trophies};
 }
 export function readAthletePassport():AthletePassport|null {
  try{return athletePassport(JSON.parse(localStorage.getItem(ATHLETE_SAVE_KEY)||'null'));}catch{return null;}
 }
 
 /** Cosmetic identity only: never replace a competitive simulation seed, position or ratings. */
-export function withAthleteIdentity<T extends {name:string}>(athlete:T, identity:{id:string;name:string;number:number}|null):T & {cosmeticIdentityId?:string;jerseyNumber?:number} {
- return identity?{...athlete,name:identity.name,jerseyNumber:identity.number,cosmeticIdentityId:`my-player-${identity.id}`}:{...athlete};
+export function withAthleteIdentity<T extends {name:string}>(athlete:T, identity:{id:string;name:string;number:number;build?:AthleteBuild}|null):T & {cosmeticIdentityId?:string;jerseyNumber?:number;heightInches?:number;weightLbs?:number;bodyBuild?:number;shoulderWidth?:number;armSize?:number;legSize?:number} {
+ return identity?{...athlete,name:identity.name,jerseyNumber:identity.number,cosmeticIdentityId:`my-player-${identity.id}`,...(identity.build?{heightInches:identity.build.heightInches,weightLbs:identity.build.weightLbs,bodyBuild:identity.build.bodyBuild,shoulderWidth:identity.build.shoulderWidth,armSize:identity.build.armSize,legSize:identity.build.legSize}:{})}:{...athlete};
 }
 export function careerAthleteIdentity(profile:{combineId?:string;name:string;number:number;position:string}) {
  return {id:profile.combineId||`legacy:${profile.name}:${profile.position}`,name:profile.name,number:profile.number};

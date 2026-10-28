@@ -22,11 +22,13 @@ import { Player, Position } from './types';
 import { ensureOnlineSession, supabase } from './supabase';
 import { AiPhotoConsent, AI_PHOTO_CONSENT_VERSION } from './AiPhotoConsent';
 import { MyPlayerSharedRender as PlayerRender, myPlayerPresetPortrait } from './solo/MyPlayerSharedRender';
+import AthleteBuildEditor from './AthleteBuildEditor';
+import {ATHLETE_POSITIONS,feetAndInches,recommendedAthleteBuild,sanitizeAthleteBuild,type AthleteBuild} from './athleteBuild';
 
 type Props = { onBack: () => void };
 type StoryStage = 'creator' | 'combine' | 'drafted' | 'camp' | 'season';
 type UpgradeAttribute = 'speed' | 'power' | 'awareness';
-type BodySliderKey = 'heightInches' | 'weightLbs' | 'bodyBuild' | 'shoulderWidth' | 'armSize' | 'legSize' | 'viewRotation';
+type BodySliderKey = 'viewRotation';
 
 type MyPlayerProfile = {
   version: 1;
@@ -65,20 +67,13 @@ type MyPlayerProfile = {
   viewRotation: number;
 };
 
-const POSITIONS: Position[] = ['QB', 'RB', 'WR', 'TE', 'EDGE', 'LB', 'CB', 'S'];
+const POSITIONS: Position[] = ATHLETE_POSITIONS;
 
 const FACE_PRESETS = [
   { id: 'mason', name: 'Mason' },
   { id: 'nico', name: 'Nico' },
   { id: 'malik', name: 'Malik' },
   { id: 'darius', name: 'Darius' },
-] as const;
-
-const BODY_PRESETS = [
-  { id: 'lean', label: 'LEAN', detail: 'Speed build', heightInches: 71, weightLbs: 185, bodyBuild: 28, shoulderWidth: 40, armSize: 34, legSize: 44 },
-  { id: 'balanced', label: 'BALANCED', detail: 'All-around', heightInches: 72, weightLbs: 210, bodyBuild: 50, shoulderWidth: 54, armSize: 48, legSize: 52 },
-  { id: 'power', label: 'POWER', detail: 'Strong frame', heightInches: 73, weightLbs: 240, bodyBuild: 72, shoulderWidth: 70, armSize: 68, legSize: 66 },
-  { id: 'lineman', label: 'LINEMAN', detail: 'Trench build', heightInches: 76, weightLbs: 315, bodyBuild: 90, shoulderWidth: 88, armSize: 76, legSize: 82 },
 ] as const;
 
 const EMPTY_PROFILE: MyPlayerProfile = {
@@ -119,7 +114,7 @@ function restoreProfile() {
     const saved = JSON.parse(raw);
     if (saved?.version !== 1 || !POSITIONS.includes(saved.position) || !['creator', 'combine', 'drafted', 'camp', 'season'].includes(saved.stage)) return EMPTY_PROFILE;
     if (['drafted', 'camp', 'season'].includes(saved.stage) && !SOLO_TEAM_THEMES.some(team => team.abbr === saved.teamAbbr)) return EMPTY_PROFILE;
-    return { ...EMPTY_PROFILE, ...saved, careerArc:cleanCareerArc(saved.careerArc,{...EMPTY_PROFILE,...saved}),careerLife:cleanCareerLife(saved.careerLife,{...EMPTY_PROFILE,...saved},saved.draftJourney),combinePerformance:cleanDraftCombine(saved.combinePerformance),draftJourney:saved.draftJourney?cleanJourney(saved.draftJourney,{...EMPTY_PROFILE,...saved}):undefined,rookieRole:['starter','rotation','development'].includes(saved.rookieRole)?saved.rookieRole:undefined } as MyPlayerProfile;
+    return { ...EMPTY_PROFILE, ...saved, ...sanitizeAthleteBuild(saved), careerArc:cleanCareerArc(saved.careerArc,{...EMPTY_PROFILE,...saved}),careerLife:cleanCareerLife(saved.careerLife,{...EMPTY_PROFILE,...saved},saved.draftJourney),combinePerformance:cleanDraftCombine(saved.combinePerformance),draftJourney:saved.draftJourney?cleanJourney(saved.draftJourney,{...EMPTY_PROFILE,...saved}):undefined,rookieRole:['starter','rotation','development'].includes(saved.rookieRole)?saved.rookieRole:undefined } as MyPlayerProfile;
   } catch {
     return EMPTY_PROFILE;
   }
@@ -203,8 +198,6 @@ function rosterWithMyPlayer(profile: MyPlayerProfile) {
   return profile.careerLife||profile.rookieRole&&created.starter?[created,...roster.filter(player=>player.id!==created.id)]:roster;
 }
 
-const feetAndInches = (inches: number) => `${Math.floor(inches / 12)}'${inches % 12}\"`;
-
 export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
   const [profile, setProfile] = useState<MyPlayerProfile>(restoreProfile);
   const previousStage=useRef(profile.stage);
@@ -260,9 +253,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
     setProfile(current => ({ ...current, [key]: value, bodyPresetId: key === 'viewRotation' ? current.bodyPresetId : 'custom', renderImage: key === 'viewRotation' ? current.renderImage : '' }));
   };
 
-  const chooseBodyPreset = (preset: typeof BODY_PRESETS[number]) => {
-    setProfile(current => ({ ...current, ...preset, bodyPresetId: preset.id, renderImage: '' }));
-  };
+  const updateBuild = (build: AthleteBuild) => setProfile(current=>({...current,...sanitizeAthleteBuild(build),renderImage:''}));
 
   const onFace = async (file?: File) => {
     setAiConsent(false);
@@ -469,17 +460,10 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
                 <label className="text-[10px] font-black text-zinc-500">PLAYER NAME<input value={profile.name} onChange={event => setProfile(current => ({ ...current, name: event.target.value }))} className="mt-1 w-full rounded-xl border border-white/10 bg-[#151515] p-3 text-sm text-white outline-none" placeholder="Your name" /></label>
                 <label className="text-[10px] font-black text-zinc-500">JERSEY NUMBER<input type="number" min="0" max="99" value={profile.number} onChange={event => setProfile(current => ({ ...current, number: Math.max(0, Math.min(99, Number(event.target.value) || 0)) }))} className="mt-1 w-full rounded-xl border border-white/10 bg-[#151515] p-3 text-sm text-white outline-none" /></label>
               </div>
-              <div className="mt-4"><div className="text-[10px] font-black text-zinc-500">POSITION</div><div className="mt-2 flex flex-wrap gap-2">{POSITIONS.map(position => <button key={position} type="button" aria-pressed={profile.position===position} onClick={() => setProfile(current => ({ ...current, position, renderImage: '' }))} className={`min-h-10 rounded-xl border px-3 text-xs font-black ${profile.position === position ? 'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)]/10 text-[var(--bk-team-accent)]' : 'border-white/10 bg-[#151515] text-zinc-400'}`}>{position}</button>)}</div></div>
+              <div className="mt-4"><div className="text-[10px] font-black text-zinc-500">POSITION</div><div className="mt-2 flex flex-wrap gap-2">{POSITIONS.map(position => <button key={position} type="button" aria-pressed={profile.position===position} onClick={() => setProfile(current => ({ ...current, ...recommendedAthleteBuild(position), renderImage: '' }))} className={`min-h-10 rounded-xl border px-3 text-xs font-black ${profile.position === position ? 'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)]/10 text-[var(--bk-team-accent)]' : 'border-white/10 bg-[#151515] text-zinc-400'}`}>{position}</button>)}</div></div>
 
               <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
-                <div className="mb-3 flex items-center justify-between"><span className="text-[10px] font-black tracking-[.18em] text-[var(--bk-team-accent)]">BODY BUILDER</span><span className="text-[10px] font-bold text-zinc-500">LIVE PREVIEW</span></div>
-                <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">{BODY_PRESETS.map(preset => <button type="button" key={preset.id} aria-pressed={profile.bodyPresetId === preset.id} onClick={() => chooseBodyPreset(preset)} className={`min-h-14 rounded-xl border px-2 text-left ${profile.bodyPresetId === preset.id ? 'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)]/10' : 'border-white/10 bg-[#111]'}`}><span className="block text-[9px] font-black text-white">{preset.label}</span><span className="mt-0.5 block text-[8px] font-bold text-zinc-500">{preset.detail}</span></button>)}</div>
-                <BodySlider label="HEIGHT" value={profile.heightInches} min={66} max={80} display={feetAndInches(profile.heightInches)} onChange={value => updateSlider('heightInches', value)} />
-                <BodySlider label="WEIGHT" value={profile.weightLbs} min={165} max={360} display={`${profile.weightLbs} LB`} onChange={value => updateSlider('weightLbs', value)} />
-                <BodySlider label="BODY BUILD" value={profile.bodyBuild} min={0} max={100} display={profile.bodyBuild < 34 ? 'LEAN' : profile.bodyBuild < 67 ? 'ATHLETIC' : 'POWER'} onChange={value => updateSlider('bodyBuild', value)} />
-                <BodySlider label="SHOULDERS" value={profile.shoulderWidth} min={0} max={100} display={`${profile.shoulderWidth}%`} onChange={value => updateSlider('shoulderWidth', value)} />
-                <BodySlider label="ARMS" value={profile.armSize} min={0} max={100} display={`${profile.armSize}%`} onChange={value => updateSlider('armSize', value)} />
-                <BodySlider label="LEGS" value={profile.legSize} min={0} max={100} display={`${profile.legSize}%`} onChange={value => updateSlider('legSize', value)} />
+                <AthleteBuildEditor value={sanitizeAthleteBuild(profile)} onChange={updateBuild}/>
               </div>
 
               <label className="mt-4 block text-[10px] font-black text-zinc-500">DESCRIBE YOUR LOOK<textarea value={profile.appearancePrompt} onChange={event => setProfile(current => ({ ...current, appearancePrompt: event.target.value.slice(0, 280), renderImage: '' }))} className="mt-1 min-h-24 w-full rounded-xl border border-white/10 bg-[#151515] p-3 text-sm text-white outline-none" placeholder="Add a tattoo sleeve, dark visor, white gloves…" /></label>
