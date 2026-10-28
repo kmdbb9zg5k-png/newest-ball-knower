@@ -14,6 +14,8 @@ assert.equal(athletePassport({...base,number:Infinity,overall:Infinity})!.number
 assert.equal(athletePassport({...base,stage:'combine',draftRound:7,draftPick:32})!.draft,'Draft ahead','Draft trophy only after actual career stage transition');
 assert.equal(athletePassport({...base,combineId:'career-b',careerArc:undefined,combinePerformance:undefined,gamesPlayed:0,careerLife:undefined,stage:'creator'})!.trophies.length,0,'A new player does not inherit the previous trophy room');
 assert.equal(athletePassport({...base,combinePerformance:{version:1,results:{dash:{best:NaN,last:4.6,attempts:1}}}})!.marks.length,0);
+const customized=athletePassport({...base,skinTone:'fair',hairStyle:'braids',hairColor:'auburn',facialHair:'goatee',tattooCoverage:'both-arms',tattooStyle:'geometric'})!;
+assert.deepEqual(customized.appearance,{skinTone:'fair',hairStyle:'braids',hairColor:'auburn',facialHair:'goatee',tattooCoverage:'both-arms',tattooStyle:'geometric'});
 
 // Exercise the actual cloud transformation/restore helpers with isolated storage.
 const source=readFileSync(new URL('../CloudSyncProvider.tsx',import.meta.url),'utf8');
@@ -35,10 +37,12 @@ const fixed={id:'fixed-event-athlete',name:'Fixed rookie',position:'WR',speed:85
 const connected=withAthleteIdentity(fixed,card);
 assert.equal(connected.name,'Elijah');assert.equal(connected.jerseyNumber,10);
 for(const key of ['id','position','speed','acceleration','seed'] as const)assert.equal(connected[key],fixed[key],'Cosmetic mapping must not change '+key);
-const career={...fixed,id:'my-player-user',cosmeticIdentityId:`my-player-${careerAthleteIdentity({...base,position:'WR'}).id}`};
+const careerIdentityRecord=careerAthleteIdentity({...base,position:'WR',...card.appearance}),career={...fixed,id:'my-player-user',cosmeticIdentityId:`my-player-${careerIdentityRecord.id}`,athleteAppearance:careerIdentityRecord.appearance};
 const connectedLook=combineAppearance(connected),careerLook=combineAppearance(career);
 const {heightInches:_connectedHeight,weightLbs:_connectedWeight,...connectedIdentity}=connectedLook;
-const {heightInches:_careerHeight,weightLbs:_careerWeight,...careerIdentity}=careerLook;
-assert.deepEqual(connectedIdentity,careerIdentity,'Community and career share deterministic face and cosmetic identity');
+const {heightInches:_careerHeight,weightLbs:_careerWeight,...careerAppearanceIdentity}=careerLook;
+assert.deepEqual(connectedIdentity,careerAppearanceIdentity,'Community and career share deterministic face and cosmetic identity');
 assert.equal(connected.heightInches,card.build.heightInches);assert.equal(connected.weightLbs,card.build.weightLbs);
+const customizedPlayer=withAthleteIdentity(fixed,customized),customizedLook=combineAppearance(customizedPlayer);
+assert.equal(customizedLook.skinTone,'fair');assert.equal(customizedLook.hairStyle,'braids');assert.equal(customizedLook.hairColor,'auburn');assert.equal(customizedLook.facialHair,'goatee');assert.equal(customizedLook.tattooProfile,'both arms');
 console.log('PASS shared career/Community cosmetic identity with fixed competitive stats and simulation seed.');

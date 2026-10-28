@@ -5,6 +5,7 @@ import {Dumbbell,Play,Sparkles,X} from 'lucide-react';
 import {combineAthlete} from './combine/dash.js';
 import {calculatePlayedCombine,cleanDraftCombine,draftDrillMark,requiredDraftDrills,type DraftCombinePerformance,type DraftDrill} from './myPlayerDraftCombine';
 import type {Position} from './types';
+import type {AthleteAppearance} from './athleteAppearance';
 const Dash=lazy(()=>import('./combine/CombineExperience'));
 const Jump=lazy(()=>import('./combine/BroadJumpExperience'));
 const Skill=lazy(()=>import('./combine/AgilityStrengthExperience'));
@@ -20,14 +21,14 @@ const events:Record<DraftDrill,{name:string;rule:string}>={
  rb:{name:'Running Back Workout',rule:'Beat the linebacker through five reps. Highest average score counts.'},
  db:{name:'Defensive Back Workout',rule:'Cover the receiver through five reps. Highest average score counts.'},
 };
-type Profile={name:string;position:Position;number:number;speed:number;power:number;overall:number;heightInches:number;weightLbs:number;combinePerformance?:DraftCombinePerformance;combineId?:string};
+type Profile={name:string;position:Position;number:number;speed:number;power:number;overall:number;heightInches:number;weightLbs:number;combinePerformance?:DraftCombinePerformance;combineId?:string}&Partial<AthleteAppearance>;
 type Props={profile:Profile;onResult:(drill:DraftDrill,stats:Record<string,number>)=>void;onDraft:()=>void;storyMode?:boolean;onWorkoutClose?:()=>void};
 export function MyPlayerDraftCombine({profile,onResult,onDraft,storyMode=false,onWorkoutClose}:Props){
  const [playing,setPlaying]=useState<DraftDrill|null>(null);
  const records=cleanDraftCombine(profile.combinePerformance).results;
  const required=requiredDraftDrills(profile.position),complete=required.filter(drill=>records[drill]).length;
  const result=calculatePlayedCombine(profile.position,profile.combinePerformance);
- const athlete=useMemo(()=>({...combineAthlete({id:'my-player-user',name:profile.name,position:profile.position,speed:profile.speed,grade:profile.overall}),heightInches:profile.heightInches,weightLbs:profile.weightLbs,jerseyNumber:profile.number,cosmeticIdentityId:`my-player-${careerAthleteIdentity(profile).id}`,careerStrength:profile.power}),[profile.combineId,profile.name,profile.position,profile.speed,profile.power,profile.overall,profile.heightInches,profile.weightLbs,profile.number]);
+ const athlete=useMemo(()=>{const identity=careerAthleteIdentity(profile);return{...combineAthlete({id:'my-player-user',name:profile.name,position:profile.position,speed:profile.speed,grade:profile.overall}),heightInches:profile.heightInches,weightLbs:profile.weightLbs,jerseyNumber:profile.number,cosmeticIdentityId:`my-player-${identity.id}`,athleteAppearance:identity.appearance,careerStrength:profile.power};},[profile]);
  return <section className="rounded-[2rem] border border-white/10 bg-[#10151d] p-4 sm:p-7" aria-label="My Player draft Combine">
   <div className="flex items-center gap-3 text-[var(--bk-team-accent)]"><Dumbbell/><span className="text-[10px] font-black tracking-[.25em]">PLAYABLE DRAFT COMBINE</span></div>
   <h2 className="mt-3 text-3xl font-black sm:text-4xl">PROVE YOU BELONG</h2><p className="mt-3 text-sm leading-6 text-zinc-400">{profile.name} · {profile.position}. Complete your drills, then enter the draft. Your performance determines draft stock and can raise or lower your starting overall.</p>

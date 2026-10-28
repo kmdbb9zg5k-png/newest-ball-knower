@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {athleteMovement,BODY_PRESETS,limitsFor,presetAthleteBuild,sanitizeAthleteBuild} from '../athleteBuild';
+import {sanitizeAthleteAppearance} from '../athleteAppearance';
 import {newRoute} from '../combine/routes.js';
 import {newRBRep,newRBSession} from '../combine/rb-drill.js';
 import {newDBRep,newDBSession} from '../combine/db-drill.js';
@@ -28,4 +29,10 @@ assert.match(entry,/Save & start \$\{name\}/,'the direct Combine entry requires 
 assert.match(entry,/function playersForDrill\(\)/,'the drill reads the saved athlete only after setup completes');
 assert.match(entry,/if\(competitive\)return\[withAthleteIdentity/,'challenge entry uses one normalized athlete');
 assert.match(readFileSync(new URL('../combine/meshy-runner.js',import.meta.url),'utf8'),/asset\.scale\.y\*=height/,'the actual 3D rig changes with height');
+assert.deepEqual(sanitizeAthleteAppearance({skinTone:'fair',hairStyle:'braids',hairColor:'auburn',facialHair:'goatee',tattooCoverage:'both-arms',tattooStyle:'geometric'}),{skinTone:'fair',hairStyle:'braids',hairColor:'auburn',facialHair:'goatee',tattooCoverage:'both-arms',tattooStyle:'geometric'});
+assert.equal(sanitizeAthleteAppearance({skinTone:'unsafe'}).skinTone,'warm brown','invalid cosmetic values fall back safely');
+const livePreview=readFileSync(new URL('../AthleteLivePreview.tsx',import.meta.url),'utf8');
+assert.match(livePreview,/data-arm-size=\{profile\.armSize\}/,'the preview exposes live arm sizing');
+assert.match(livePreview,/standing with hands at waist/,'the preview uses the requested neutral waist pose');
+assert.match(livePreview,/TattooMarks appearance=\{appearance\}/,'tattoo edits render directly on the athlete');
 console.log('Athlete build checks passed');
