@@ -1,6 +1,7 @@
 import * as T from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createPlayerAppearance } from './player-appearance.js';
+import {createBodyShape,bodyMass} from './body-shape.js';
 
 // Native 52-bone athlete and its own captured clips; no cross-rig retargeting.
 export const COMBINE_CHARACTER_URL = '/play-moment-3d/assets/combine-native-athlete-v1.glb?v=native-1';
@@ -23,6 +24,7 @@ export async function loadCombineRunner(player) {
   const required=['Hips','Spine','Spine1','Spine2','Neck','Head','LeftUpLeg','LeftLeg','LeftFoot','RightUpLeg','RightLeg','RightFoot','LeftArm','LeftForeArm','LeftHand','RightArm','RightForeArm','RightHand'];
   if(required.some(name=>!bones[name]))throw new Error('The Combine character rig is incomplete.');
   const appearance=createPlayerAppearance(body,bones);
+  const shape=createBodyShape(body);
   const bind=Object.fromEntries(Object.entries(bones).map(([name,b])=>[name,{p:b.position.clone(),q:b.quaternion.clone()}]));
   body.updateMatrixWorld(true);
   const footRotations={Left:rotation(bones.LeftFoot),Right:rotation(bones.RightFoot)};
@@ -56,6 +58,7 @@ export async function loadCombineRunner(player) {
   reset();
   let gaitPhase=0,lastDistance=0,idleTime=0,walkWeight=0,idleWeight=0;
   function setAthlete(next){
+    shape(next);
     gaitPhase=0;lastDistance=0;idleTime=0;walkWeight=0;idleWeight=0;
     const bulk=['OL','DL'].includes(next.position)?1.06:['TE','LB'].includes(next.position)?1.03:1;
     const height=T.MathUtils.clamp((next.heightInches||72)/72,.91,1.12);
@@ -277,7 +280,7 @@ export async function loadCombineRunner(player) {
     const height=T.MathUtils.clamp((build.heightInches||72)/72,.91,1.12);
     for(const [side,sign]of [['Left',1],['Right',-1]]){
       solve([side+'UpLeg',side+'Leg',side+'Foot'],v(sign*.14,footHeight*height,.015),v(sign*.16,.5*height,.4),true);
-      solve([side+'Arm',side+'ForeArm',side+'Hand'],v(sign*(.29+(build.shoulderWidth??50)*.0006),.88*height,.05),v(sign*.47,1.12*height,-.08));
+      solve([side+'Arm',side+'ForeArm',side+'Hand'],v(sign*(.29+(build.shoulderWidth??50)*.0006+bodyMass(build)*.15),.88*height,.05),v(sign*(.47+bodyMass(build)*.12),1.12*height,-.08));
     }
     root.updateMatrixWorld(true);
   }

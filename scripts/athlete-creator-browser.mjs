@@ -8,7 +8,7 @@ const browser=await chromium.launch({headless:true,executablePath:process.env.BR
 await mkdir('artifacts/athlete-creator',{recursive:true});
 try{
   for(const width of [320,390,1280]){
-    const page=await browser.newPage({viewport:{width,height:844},isMobile:width<768,hasTouch:width<768});
+    const page=await browser.newPage({viewport:{width,height:844},deviceScaleFactor:2,isMobile:width<768,hasTouch:width<768});
     const errors=[];page.on('pageerror',error=>errors.push(error.message));
     page.on('console',message=>{if(message.type()==='error'&&/shader|WebGL|THREE/.test(message.text()))errors.push(message.text());});
     await page.goto('http://127.0.0.1:3061/combine.html?drill=dash');
@@ -46,6 +46,14 @@ try{
     assert.equal(await preview.getAttribute('data-skin-tone'),'fair');
     assert.equal(await preview.getAttribute('data-hair-style'),'braids');
     if(width===390){
+      await page.getByRole('button',{name:'Cornrows',exact:true}).click();
+      await page.getByRole('button',{name:'Full Beard',exact:true}).click();
+      await capture('artifacts/athlete-creator/cornrows-beard.png');
+      await page.getByRole('button',{name:/^HEAVY/}).click();
+      await capture('artifacts/athlete-creator/heavy-front.png');
+      await page.getByLabel('Rotate athlete',{exact:true}).press('Home');
+      for(let turn=0;turn<90;turn++)await page.getByLabel('Rotate athlete',{exact:true}).press('ArrowRight');
+      await capture('artifacts/athlete-creator/heavy-side.png');
       await page.getByLabel('HEIGHT',{exact:true}).press('End');
       await page.getByLabel('WEIGHT',{exact:true}).press('End');
       await capture('artifacts/athlete-creator/largest-390.png');

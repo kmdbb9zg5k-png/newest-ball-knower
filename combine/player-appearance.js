@@ -40,9 +40,10 @@ function hairMaterial(color,density=1){
     shader.vertexShader='attribute float bkCoverage; varying float bkHairCoverage; varying vec3 bkHairPosition;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nbkHairPosition=position;bkHairCoverage=bkCoverage;');
     shader.fragmentShader='varying float bkHairCoverage; varying vec3 bkHairPosition;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
       float grain=fract(sin(dot(floor(bkHairPosition*38.0),vec3(12.9898,78.233,39.425)))*43758.5453);
-      if(grain>bkHairCoverage*${density.toFixed(3)})discard;
-      diffuseColor.rgb*=mix(.72,1.16,grain);`);
-  };material.customProgramCacheKey=()=> 'combine-hair-grain-v2-'+density;return material;
+      if(bkHairCoverage<.025)discard;
+      float strand=.5+.5*sin(bkHairPosition.y*110.0+sin(bkHairPosition.x*70.0));
+      diffuseColor.rgb*=mix(.85,1.12,strand)*mix(1.8,1.0,${density.toFixed(3)});`);
+  };material.customProgramCacheKey=()=> 'combine-hair-strands-v3-'+density;return material;
 }
 
 export function createPlayerAppearance(body,bones) {
@@ -136,7 +137,7 @@ export function createPlayerAppearance(body,bones) {
     if(!['bald','shaved'].includes(style)){
       const curls=/curl|afro/.test(style),locs=/loc|twist/.test(style),braids=/braid|cornrow/.test(style);
       const tall=/medium|long|afro/.test(style),length=curls?(tall?1.5:.65):locs?(tall?1.1:.55):braids?.12:/crop|crew/.test(style)?.38:.17;
-      add(surfaceGeometry(triangles,p=>p.y-hairline(p),p=>{
+      if(!braids)add(surfaceGeometry(triangles,p=>p.y-hairline(p),p=>{
         const fade=smooth(hairline(p),10.2,p.y),noise=.5+.5*Math.sin(p.x*13+p.z*4)*Math.sin(p.z*16-p.y*3);
         return .055+fade*length*(.65+.35*noise);
       }),'Scalp '+style);
@@ -157,13 +158,23 @@ export function createPlayerAppearance(body,bones) {
           const z=5.4-i/20*9.2;
           const nearest=scalp.reduce((best,v)=>Math.hypot(v.p.x-x,v.p.z-z)<Math.hypot(best.p.x-x,best.p.z-z)?v:best,scalp[0]);
           if(nearest)points.push(new T.Vector3(x,nearest.p.y+.28,z));
-        }if(points.length>1)add(new T.TubeGeometry(new T.CatmullRomCurve3(points),48,style==='cornrows'?.19:.28,7,false),'Braid');}
+        }if(points.length>1){
+          const curve=new T.CatmullRomCurve3(points),radius=style==='cornrows'?.15:.21;
+          for(let strand=0;strand<3;strand++){
+            const woven=[];
+            for(let i=0;i<=120;i++){
+              const t=i/120,p=curve.getPoint(t),phase=t*Math.PI*2*15+strand*Math.PI*2/3;
+              p.x+=Math.cos(phase)*radius;p.y+=Math.sin(phase)*radius+.12;woven.push(p);
+            }
+            add(new T.TubeGeometry(new T.CatmullRomCurve3(woven),120,radius*.72,5,false),'Woven braid strand');
+          }
+        }}
       }
     }
     if(look.facialHair!=='clean shaven'){
       const beard=look.facialHair,stubble=beard.includes('stubble'),goatee=beard==='goatee',mustache=beard==='mustache';
       const beardMaterial=hairMaterial(HAIR[look.hairColor],stubble?(beard==='light stubble'?.22:.4):.86);
-      if(!mustache)add(surfaceGeometry(triangles,p=>Math.min(p.y+1.5,1.5+1.7*smooth(1.3,3.5,Math.abs(p.x))-p.y,p.z-1.6,4.15-Math.abs(p.x),goatee?1.65-Math.abs(p.x):10),()=>stubble?.045:beard==='full beard'?.20:.10),'Facial hair '+beard,beardMaterial);
+      if(!mustache)add(surfaceGeometry(triangles,p=>Math.min(p.y+1.5,1.5+1.7*smooth(1.3,3.5,Math.abs(p.x))-p.y,p.z-1.0,4.35-Math.abs(p.x),goatee?1.65-Math.abs(p.x):10,Math.max(Math.abs(p.x)/1.5,Math.abs(p.y-1.3)/.55)-1),p=>stubble?.025:beard==='full beard'?.25+.6*(1-smooth(-1.5,2,p.y)):.12),'Facial hair '+beard,beardMaterial);
       if(!stubble)add(surfaceGeometry(triangles,p=>Math.min(1.65-Math.abs(p.x),.22*(1-p.x*p.x/2.8)-Math.abs(p.y-(2.3-.08*Math.abs(p.x))),p.z-6.3),()=>.055),'Mustache',beardMaterial);
     }
     if(!group.children.length)material.dispose();
