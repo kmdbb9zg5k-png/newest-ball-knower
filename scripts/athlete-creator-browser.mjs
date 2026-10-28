@@ -40,6 +40,14 @@ try{
     assert.equal(await preview.getAttribute('data-arm-size'),'100');
     assert.equal(await preview.getAttribute('data-skin-tone'),'fair');
     assert.equal(await preview.getAttribute('data-hair-style'),'braids');
+    if(width===390){
+      await page.getByLabel('HEIGHT',{exact:true}).press('End');
+      await page.getByLabel('WEIGHT',{exact:true}).press('End');
+      await preview.screenshot({path:'artifacts/athlete-creator/largest-390.png'});
+      await page.getByLabel('HEIGHT',{exact:true}).press('Home');
+      await page.getByLabel('WEIGHT',{exact:true}).press('Home');
+      await preview.screenshot({path:'artifacts/athlete-creator/smallest-390.png'});
+    }
     assert.deepEqual(errors,[]);
     await page.close();
   }
