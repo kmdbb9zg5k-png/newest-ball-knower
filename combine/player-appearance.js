@@ -21,7 +21,7 @@ const hairline=p=>3.7+4.15*smooth(-2,5.8,p.z)+.35*smooth(2.8,4.5,Math.abs(p.x));
 // Clip the source head's actual surface against a curved hairline. This fits the
 // skull/face rather than placing an ellipsoid or opaque helmet over the head.
 function surfaceGeometry(triangles,field,thickness) {
-  const points=[],coverage=[];
+  const points=[],coverage=[],normals=[];
   for(const tri of triangles){
     let polygon=[];
     for(let i=0;i<3;i++){
@@ -29,10 +29,10 @@ function surfaceGeometry(triangles,field,thickness) {
       if(da>=0)polygon.push(a);
       if((da>=0)!==(db>=0)){const t=da/(da-db);polygon.push({p:a.p.clone().lerp(b.p,t),n:a.n.clone().lerp(b.n,t).normalize()});}
     }
-    const emit=a=>{const p=a.p.clone().addScaledVector(a.n,thickness(a.p));points.push(p.x,p.y,p.z);coverage.push(smooth(0,.45,field(a.p)));};
+    const emit=a=>{const p=a.p.clone().addScaledVector(a.n,thickness(a.p));points.push(p.x,p.y,p.z);normals.push(a.n.x,a.n.y,a.n.z);coverage.push(smooth(0,.45,field(a.p)));};
     for(let i=1;i+1<polygon.length;i++){emit(polygon[0]);emit(polygon[i]);emit(polygon[i+1]);}
   }
-  const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(points,3));geometry.setAttribute('bkCoverage',new T.Float32BufferAttribute(coverage,1));geometry.computeVertexNormals();return geometry;
+  const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(points,3));geometry.setAttribute('normal',new T.Float32BufferAttribute(normals,3));geometry.setAttribute('bkCoverage',new T.Float32BufferAttribute(coverage,1));return geometry;
 }
 function hairMaterial(color,density=1){
   const material=new T.MeshStandardMaterial({color,roughness:.94,metalness:0});
@@ -154,12 +154,12 @@ export function createPlayerAppearance(body,bones) {
       if(braids){
         // Fit each row to this skull instead of burying a fixed arc inside it.
         const scalp=triangles.flat().filter(v=>v.p.y>hairline(v.p));
-        for(let x=-3;x<=3;x+=1){const points=[];for(let i=0;i<=20;i++){
+        for(let x=-4;x<=4;x+=1){const points=[];for(let i=0;i<=20;i++){
           const z=5.4-i/20*9.2;
           const nearest=scalp.reduce((best,v)=>Math.hypot(v.p.x-x,v.p.z-z)<Math.hypot(best.p.x-x,best.p.z-z)?v:best,scalp[0]);
           if(nearest)points.push(new T.Vector3(x,nearest.p.y+.28,z));
         }if(points.length>1){
-          const curve=new T.CatmullRomCurve3(points),radius=style==='cornrows'?.15:.21;
+          const curve=new T.CatmullRomCurve3(points),radius=style==='cornrows'?.22:.28;
           for(let strand=0;strand<3;strand++){
             const woven=[];
             for(let i=0;i<=120;i++){
@@ -178,6 +178,20 @@ export function createPlayerAppearance(body,bones) {
       if(!stubble)add(surfaceGeometry(triangles,p=>Math.min(1.65-Math.abs(p.x),.22*(1-p.x*p.x/2.8)-Math.abs(p.y-(2.3-.08*Math.abs(p.x))),p.z-6.3),()=>.055),'Mustache',beardMaterial);
     }
     if(!group.children.length)material.dispose();
+    // Fine tapered fibers break up beard edges without stochastic pixel holes.
+    const beardSurface=group.children.find(mesh=>mesh.name.startsWith('Facial hair'));
+    if(beardSurface&&!look.facialHair.includes('stubble')){
+      const p=beardSurface.geometry.attributes.position,n=beardSurface.geometry.attributes.normal;
+      const fiber=new T.ConeGeometry(.018,.17,3);fiber.setAttribute('bkCoverage',new T.Float32BufferAttribute(new Float32Array(fiber.attributes.position.count).fill(1),1));
+      const count=Math.min(2400,p.count),fibers=new T.InstancedMesh(fiber,beardSurface.material,count),dummy=new T.Object3D();
+      for(let i=0;i<count;i++){
+        const j=(i*7919)%p.count,normal=new T.Vector3().fromBufferAttribute(n,j);
+        dummy.position.fromBufferAttribute(p,j).addScaledVector(normal,.025);
+        dummy.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),normal.add(new T.Vector3(0,-1,.1)).normalize());
+        dummy.updateMatrix();fibers.setMatrixAt(i,dummy.matrix);
+      }
+      fibers.name='Beard fibers';group.add(fibers);
+    }
   }
   return {apply,dispose:clear};
 }
