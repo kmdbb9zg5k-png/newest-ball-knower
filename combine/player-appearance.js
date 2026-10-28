@@ -72,6 +72,7 @@ export function createPlayerAppearance(body,bones) {
           // The supplied model has permanent sleeve ink in its albedo. Replace
           // only exposed arm skin before applying optional ink. Bind-space
           // coordinates keep the selected pattern attached during animation.
+          vec3 sourceSkin=diffuseColor.rgb;
           vec3 cleanSkin=vec3(.43966,.19807,.07036);
           float pores=.985+.015*sin(bkTattooPosition.x*54.0)*sin(bkTattooPosition.y*47.0);
           diffuseColor.rgb=mix(diffuseColor.rgb,cleanSkin*pores,bkArmMask);
@@ -90,12 +91,20 @@ export function createPlayerAppearance(body,bones) {
           if(bkTattooCoverage>1.5&&bkTattooCoverage<2.5)vertical=1.0-smoothstep(22.0,24.0,along);
           if(bkTattooCoverage>2.5&&bkTattooCoverage<3.5)vertical=smoothstep(24.0,26.0,along);
           if(bkTattooCoverage>3.5&&bkTattooCoverage<4.5)vertical=1.0-smoothstep(26.0,28.0,along);
-          float grain=.5+.5*sin(bkTattooPosition.y*(bkTattooStyle<.5?1.8:.72)+sin(bkTattooPosition.x*.58)*3.0);
-          if(bkTattooStyle>.5&&bkTattooStyle<1.5)grain=step(.42,fract((abs(bkTattooPosition.x)+bkTattooPosition.y)*.19));
-          if(bkTattooStyle>1.5&&bkTattooStyle<2.5)grain=smoothstep(.66,.9,sin(bkTattooPosition.y*.72+sin(bkTattooPosition.x*.24)*5.0));
-          if(bkTattooStyle>2.5&&bkTattooStyle<3.5)grain=step(.52,.5+.5*sin(length(bkTattooPosition.xy)*.9));
-          float ink=step(.5,bkTattooCoverage)*arm*side*vertical*mix(.42,1.0,grain);
-          diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*.27,ink*skinMask*.82);`).replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
+          // Preserve the source's detailed ink drawing for blackwork, while
+          // geometric ink uses fine diamond outlines rather than broad bands.
+          float sourceInk=1.0-smoothstep(.10,.32,sourceSkin.r);
+          vec2 inkUV=vec2(along*.32,(bkTattooPosition.y+bkTattooPosition.z*.7)*.32);
+          vec2 cell=abs(fract(vec2(inkUV.x+inkUV.y,inkUV.x-inkUV.y))-.5);
+          float edge=min(cell.x,cell.y),aa=max(fwidth(edge),.012);
+          float geometric=1.0-smoothstep(.035-aa,.035+aa,edge);
+          float grain=sourceInk;
+          if(bkTattooStyle>.5&&bkTattooStyle<1.5)grain=geometric;
+          if(bkTattooStyle>1.5&&bkTattooStyle<2.5)grain=1.0-smoothstep(.07,.16,abs(sin(along*.8+sin(bkTattooPosition.y*.7)*2.0)));
+          if(bkTattooStyle>2.5&&bkTattooStyle<3.5)grain=sourceInk;
+          if(bkTattooStyle>3.5)grain=max(sourceInk,geometric*.65);
+          float ink=step(.5,bkTattooCoverage)*arm*side*vertical*grain;
+          diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.012,.018,.022),ink*.88);`).replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
           // A soft skin response and dry compression fabric stay distinct under
           // the overhead banks; derivative-filtered knit avoids distant shimmer.
           roughnessFactor=mix(.92,.64,skinMask);
