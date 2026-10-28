@@ -2,13 +2,14 @@ import React, { useMemo } from 'react';
 import type { Position } from '../types';
 import type { Appearance, AppearancePlayer, BodyBuild, GloveStyle, SleeveStyle, TattooCoverage, TattooStyle } from './appearance';
 import { appearanceSeed, defaultAppearance } from './appearance';
+import type {AthleteAppearance} from '../athleteAppearance';
 import { SoloCharacter } from './SoloPresentation';
 
 type Profile = {
   name:string; position:Position; number:number; faceImage:string; presetFaceId:string; renderImage:string;
   appearancePrompt:string; teamAbbr:string; heightInches:number; weightLbs:number; bodyBuild:number;
   shoulderWidth:number; armSize:number; legSize:number; viewRotation:number;
-};
+} & Partial<AthleteAppearance>;
 const FACE_BY_PRESET:Record<string,number>={mason:0,nico:2,malik:5,darius:7};
 export const myPlayerPresetPortrait=(presetId:string)=>`/solo-characters/v2/my-player-presets/${['mason','nico','malik','darius'].includes(presetId)?presetId:'malik'}/portrait.webp`;
 const clamp=(v:number,min:number,max:number)=>Math.max(min,Math.min(max,v));
@@ -23,7 +24,7 @@ function promptAppearance(value:string):Pick<Appearance,'sleeves'|'gloves'|'tatt
   return{sleeves,gloves,tattooCoverage,tattooStyle};
 }
 function sharedPlayer(profile:Profile):AppearancePlayer{return{id:'my-player-user',name:profile.name||'My Player',position:profile.position,team:profile.teamAbbr||'BK',teamName:profile.teamAbbr?undefined:'Ball Knower Training',jerseyNumber:clamp(Math.round(profile.number),0,99),heightInches:profile.heightInches,weightLbs:profile.weightLbs,simulatedPortraitUrl:profile.faceImage||myPlayerPresetPortrait(profile.presetFaceId),simulatedFullBodyUrl:profile.renderImage||undefined};}
-function sharedAppearance(profile:Profile,player:AppearancePlayer):Appearance{const base=defaultAppearance(player);return{...base,face:FACE_BY_PRESET[profile.presetFaceId]??base.face,build:buildFor(profile),number:clamp(Math.round(profile.number),0,99),...promptAppearance(profile.appearancePrompt),tattooSeed:appearanceSeed(`my-player:${profile.name}:${profile.presetFaceId}:${profile.appearancePrompt}`)&0x7fffffff};}
+function sharedAppearance(profile:Profile,player:AppearancePlayer):Appearance{const base=defaultAppearance(player),prompt=promptAppearance(profile.appearancePrompt);return{...base,face:FACE_BY_PRESET[profile.presetFaceId]??base.face,build:buildFor(profile),number:clamp(Math.round(profile.number),0,99),...prompt,tattooCoverage:profile.tattooCoverage??prompt.tattooCoverage,tattooStyle:profile.tattooStyle??prompt.tattooStyle,tattooSeed:appearanceSeed(`my-player:${profile.name}:${profile.presetFaceId}:${profile.appearancePrompt}:${profile.tattooCoverage}:${profile.tattooStyle}`)&0x7fffffff};}
 export function MyPlayerSharedRender({profile,compact=false}:{profile:Profile;compact?:boolean}){
   const player=useMemo(()=>sharedPlayer(profile),[profile.name,profile.position,profile.teamAbbr,profile.number,profile.heightInches,profile.weightLbs]);
   const look=useMemo(()=>sharedAppearance(profile,player),[player,profile.presetFaceId,profile.bodyBuild,profile.weightLbs,profile.appearancePrompt]);

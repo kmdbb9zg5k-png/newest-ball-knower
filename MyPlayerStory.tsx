@@ -24,6 +24,7 @@ import { AiPhotoConsent, AI_PHOTO_CONSENT_VERSION } from './AiPhotoConsent';
 import { MyPlayerSharedRender as PlayerRender, myPlayerPresetPortrait } from './solo/MyPlayerSharedRender';
 import AthleteBuildEditor from './AthleteBuildEditor';
 import {ATHLETE_POSITIONS,feetAndInches,recommendedAthleteBuild,sanitizeAthleteBuild,type AthleteBuild} from './athleteBuild';
+import {DEFAULT_ATHLETE_APPEARANCE,sanitizeAthleteAppearance,type AthleteAppearance} from './athleteAppearance';
 
 type Props = { onBack: () => void };
 type StoryStage = 'creator' | 'combine' | 'drafted' | 'camp' | 'season';
@@ -65,7 +66,7 @@ type MyPlayerProfile = {
   armSize: number;
   legSize: number;
   viewRotation: number;
-};
+} & AthleteAppearance;
 
 const POSITIONS: Position[] = ATHLETE_POSITIONS;
 
@@ -105,6 +106,7 @@ const EMPTY_PROFILE: MyPlayerProfile = {
   armSize: 46,
   legSize: 50,
   viewRotation: 0,
+  ...DEFAULT_ATHLETE_APPEARANCE,
 };
 
 function restoreProfile() {
@@ -114,7 +116,7 @@ function restoreProfile() {
     const saved = JSON.parse(raw);
     if (saved?.version !== 1 || !POSITIONS.includes(saved.position) || !['creator', 'combine', 'drafted', 'camp', 'season'].includes(saved.stage)) return EMPTY_PROFILE;
     if (['drafted', 'camp', 'season'].includes(saved.stage) && !SOLO_TEAM_THEMES.some(team => team.abbr === saved.teamAbbr)) return EMPTY_PROFILE;
-    return { ...EMPTY_PROFILE, ...saved, ...sanitizeAthleteBuild(saved), careerArc:cleanCareerArc(saved.careerArc,{...EMPTY_PROFILE,...saved}),careerLife:cleanCareerLife(saved.careerLife,{...EMPTY_PROFILE,...saved},saved.draftJourney),combinePerformance:cleanDraftCombine(saved.combinePerformance),draftJourney:saved.draftJourney?cleanJourney(saved.draftJourney,{...EMPTY_PROFILE,...saved}):undefined,rookieRole:['starter','rotation','development'].includes(saved.rookieRole)?saved.rookieRole:undefined } as MyPlayerProfile;
+    return { ...EMPTY_PROFILE, ...saved, ...sanitizeAthleteBuild(saved),...sanitizeAthleteAppearance(saved), careerArc:cleanCareerArc(saved.careerArc,{...EMPTY_PROFILE,...saved}),careerLife:cleanCareerLife(saved.careerLife,{...EMPTY_PROFILE,...saved},saved.draftJourney),combinePerformance:cleanDraftCombine(saved.combinePerformance),draftJourney:saved.draftJourney?cleanJourney(saved.draftJourney,{...EMPTY_PROFILE,...saved}):undefined,rookieRole:['starter','rotation','development'].includes(saved.rookieRole)?saved.rookieRole:undefined } as MyPlayerProfile;
   } catch {
     return EMPTY_PROFILE;
   }
