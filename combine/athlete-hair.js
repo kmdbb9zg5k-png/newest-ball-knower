@@ -119,7 +119,7 @@ export function buildAthleteHair({style,triangles,add,material,surfaceGeometry,s
     }
   }
   if(curls||style==='textured crop'){
-    const count=curls?1200:1100,geometry=new T.IcosahedronGeometry(1,0),dummy=new T.Object3D();
+    const count=curls?1000:1100,geometry=curls?new T.SphereGeometry(1,8,6):new T.IcosahedronGeometry(1,0),dummy=new T.Object3D();
     geometry.setAttribute('bkCoverage',new T.Float32BufferAttribute(new Float32Array(geometry.attributes.position.count).fill(1),1));
     const mesh=new T.InstancedMesh(geometry,material,count);
     const candidates=scalpTriangles.filter(tri=>tri.every(v=>v.p.y>Math.max(hairline(v.p)+.15,style==='textured crop'?8.0:-100)));
