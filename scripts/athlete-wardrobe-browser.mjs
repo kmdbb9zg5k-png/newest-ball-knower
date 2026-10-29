@@ -11,7 +11,7 @@ await server.listen();await mkdir('artifacts/athlete-wardrobe',{recursive:true})
 try{
  for(const [scene,width,url] of [['profile',320,'/outfit.html?scene=profile'],['camp',390,'/outfit.html?scene=camp'],['field',390,'/outfit.html?scene=field'],['practice',390,'/combine.html?drill=dash&bkChallenge=wardrobe-test&bkToken=fixture'],['community-db',390,'/outfit-frame.html'],['paid-practice',390,'/outfit-paid.html?drill=dash&bkChallenge=wardrobe-test&bkToken=fixture']].filter(([scene])=>!process.env.WARDROBE_SCENES||process.env.WARDROBE_SCENES.split(',').includes(scene))){
   const browser=await chromium.launch({executablePath:process.env.BROWSER_PATH||undefined,args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
-  try{const page=await browser.newPage({viewport:{width,height:900},serviceWorkers:'block'});page.setDefaultTimeout(90000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  try{const page=await browser.newPage({viewport:{width,height:900},serviceWorkers:'block'});page.setDefaultTimeout(90000);const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&/THREE.WebGLProgram|shader error|VALIDATE_STATUS/i.test(m.text()))errors.push(m.text());});
   await page.route('**/*',route=>{const req=route.request(),u=new URL(req.url());if(u.origin!=='http://127.0.0.1:3095')return route.abort();if(u.pathname.startsWith('/api/'))return route.fulfill({json:scene==='paid-practice'?{available:true,mode:'test',owned:['top-gold'],outfit:{top:'top-gold',shorts:'shorts-slate',shoes:'shoes-white',wrist:'wrist-white'},prices:{}}:{available:false}});return req.method()==='GET'?route.continue():route.abort();});
   await page.addInitScript(()=>{localStorage.setItem('ballknower_player_wardrobe_v1',JSON.stringify({top:'top-forest',shorts:'shorts-slate',shoes:'shoes-white',wrist:'wrist-white'}));localStorage.setItem('ballknower_solo_my_player_v2',JSON.stringify({version:1,name:'Outfit Athlete',position:'WR',stage:'camp',number:21,combineId:'outfit-test'}));});
   await page.goto('http://127.0.0.1:3095'+url);
@@ -25,7 +25,7 @@ try{
   if(scene==='practice'||scene==='paid-practice')await view.locator('button[aria-label="Start dash"]:not(:disabled)').waitFor().catch(async error=>{console.log(await view.locator('body').innerText());console.log(errors);throw error;});
   const materials=await view.evaluate(()=>window.__outfitMaterials);
   const own=materials['Outfit Athlete'];assert.equal(own.wardrobe.shorts,'shorts-slate');assert(own.materials.every(m=>m.top===expectedTop&&m.shorts==='597082'&&m.shoes==='ece8df'&&m.wrist==='ece8df'));
-  if(scene==='community-db'){assert.equal(own.speed,85);assert.equal(own.position,'CB');}
+  if(scene==='community-db'){assert.equal(own.speed,85);assert.equal(own.position,'CB');await view.getByText('YOU ARE THE DB · GOLD RING',{exact:true}).waitFor();}
   for(const [name,v] of Object.entries(materials))if(name!=='Outfit Athlete')assert(v.materials.every(m=>m.enabled===0),`${name}: NPC clothing must stay independent`);
   if(scene==='profile'){
    assert.equal(await view.locator('[data-my-player-render="created"]').count(),1,'Career body stays live even with an optional portrait selected');
