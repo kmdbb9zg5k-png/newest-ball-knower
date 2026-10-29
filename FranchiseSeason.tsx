@@ -1,3 +1,4 @@
+import {CareerSection,CareerTabLink} from './CareerTabs';
 import {syncMyPlayerRole} from './myPlayerOpportunity';
 import {applyCareerRatings} from './myPlayerCareer';
 import type {CareerWeekContext} from './MyPlayerCareer';
@@ -63,6 +64,7 @@ type Props = {
   careerStartYear?: number;
   onCareerSeasonYearChange?: (year:number)=>void;
   careerOffseason?: (year:number,wins:number,champion:boolean)=>React.ReactNode;
+  careerTabbed?: boolean;
   careerPanel?: (context:CareerWeekContext)=>React.ReactNode;
   careerReady?: (key:string)=>boolean;
   careerBoost?: (key:string)=>number;
@@ -178,7 +180,7 @@ export const FranchiseSeason: React.FC<Props> = ({
   myPlayerRole,
   myPlayerProgress,
   onMyPlayerGame,
-  careerPanel,careerReady,careerBoost,careerStartYear,careerOffseason,onCareerSeasonYearChange,
+  careerTabbed,careerPanel,careerReady,careerBoost,careerStartYear,careerOffseason,onCareerSeasonYearChange,
   onRosterChange,
   gamePlan = 'Balanced attack',
   draftPickAssets,
@@ -487,7 +489,7 @@ export const FranchiseSeason: React.FC<Props> = ({
   return (
     <BroadcastStage scene="field" page="season" quiet={true} className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <CareerSection tab="career"><div className="mb-4 flex items-center justify-between gap-3">
           <button type="button" onClick={onBack} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Back to Solo Franchise Hub">
             <ArrowLeft size={19} />
           </button>
@@ -503,8 +505,9 @@ export const FranchiseSeason: React.FC<Props> = ({
         <FranchiseCombine prospects={combineProspects} roster={activeRoster} context={`${seasonKey}:${userTeam.abbr}:combine:${year + 1}`} year={year + 1} />
         {message ? <div className="mb-4 rounded-2xl border border-[var(--bk-team-accent)]/25 bg-[var(--bk-team-accent)]/10 px-4 py-3 text-sm font-bold text-[var(--bk-team-accent)]">{message}</div> : null}
 
-        {careerPanel&&((stage==='regular'&&weeks.length<17)||(stage==='playoffs'&&round))?careerPanel({key:careerKey,label:stage==='playoffs'?String(round):`Week ${weeks.length+1}`,week:stage==='playoffs'?18+playoffs.length:weeks.length+1,opponentAbbr:stage==='playoffs'?nextPlayoffMatchup?.opponentAbbr:currentOpponent.abbr,opponent:stage==='playoffs'?(SOLO_TEAM_THEMES.find(t=>t.abbr===nextPlayoffMatchup?.opponentAbbr)?.name||'Playoff opponent'):currentOpponent.name}):null}
-        {stage === 'regular' || stage === 'playoffs' ? <FranchiseInteractionCenter state={interactionState} roster={activeRoster} onRespond={respondToScenario} onUpgrade={applyUpgrade} onReadAll={readAllNotifications} /> : null}
+        </CareerSection>{careerPanel&&((stage==='regular'&&weeks.length<17)||(stage==='playoffs'&&round))?careerPanel({key:careerKey,label:stage==='playoffs'?String(round):`Week ${weeks.length+1}`,week:stage==='playoffs'?18+playoffs.length:weeks.length+1,opponentAbbr:stage==='playoffs'?nextPlayoffMatchup?.opponentAbbr:currentOpponent.abbr,opponent:stage==='playoffs'?(SOLO_TEAM_THEMES.find(t=>t.abbr===nextPlayoffMatchup?.opponentAbbr)?.name||'Playoff opponent'):currentOpponent.name}):null}
+        {careerTabbed&&<CareerSection tab="story">{!careerBlocked&&<div className="career-scene"><h3>{stage==='finished'?'Season complete':stage==='regular'?`Week ${Math.min(weeks.length+1,17)} · Game day`:'Playoff game day'}</h3><p>Your next team game, conversations and season results are in the Career tab.</p><CareerTabLink tab="career">CONTINUE TO CAREER</CareerTabLink></div>}</CareerSection>}
+        <CareerSection tab="career">{stage === 'regular' || stage === 'playoffs' ? <FranchiseInteractionCenter state={interactionState} roster={activeRoster} onRespond={respondToScenario} onUpgrade={applyUpgrade} onReadAll={readAllNotifications} /> : null}
 
         {stage === 'regular' ? (
           <div className="grid gap-5 lg:grid-cols-[1.35fr_.65fr]">
@@ -603,7 +606,7 @@ export const FranchiseSeason: React.FC<Props> = ({
         ) : null}
 
         {stage === 'draft' ? <OffseasonDraft year={year + 1} round={draftRound} wins={wins} selected={draftedProspects} ownedRounds={ownedDraftRounds} onSelect={selectProspect} /> : null}
-      </div>
+      </CareerSection></div>
     </BroadcastStage>
   );
 };

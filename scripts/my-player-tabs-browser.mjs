@@ -1,0 +1,38 @@
+import assert from 'node:assert/strict';
+import {createServer} from 'vite';
+import {chromium} from 'playwright';
+import {mkdir} from 'node:fs/promises';
+import {createCareerLife,chooseCamp,campScore,finishCamp} from '../myPlayerCareer.ts';
+const key='ballknower_solo_my_player_v2';
+const fixture=`import React from'react';import{createRoot}from'react-dom/client';import{MyPlayerStory}from'/MyPlayerStory.tsx';import'/index.css';createRoot(document.getElementById('root')).render(React.createElement(MyPlayerStory,{onBack:()=>{}}));`;
+const server=await createServer({server:{host:'127.0.0.1',port:3081,strictPort:true,watch:null,hmr:false},plugins:[{name:'tabs-fixture',configureServer(s){s.middlewares.use(async(req,res,next)=>{if(req.url==='/tabs.html'){res.setHeader('Content-Type','text/html');res.end(await s.transformIndexHtml(req.url,'<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div><script type="module" src="/tabs.js"></script></body></html>'));}else next();});},resolveId(id){if(id==='/tabs.js')return'\0tabs';},load(id){if(id==='\0tabs')return fixture;}}]});
+await server.listen();await mkdir('artifacts/my-player-tabs',{recursive:true});
+try{for(const width of [320,390,1280]){
+ const browser=await chromium.launch({executablePath:process.env.BROWSER_PATH||undefined,args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
+ try{
+ const page=await browser.newPage({viewport:{width,height:844}});page.setDefaultTimeout(60000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.route('**/*',route=>{const url=new URL(route.request().url());if(url.origin!=='http://127.0.0.1:3081')return route.abort();if(url.pathname.startsWith('/api/'))return route.fulfill({json:{available:false,tracks:[]}});return route.continue();});
+ const profile={version:1,stage:'camp',name:'Eli Tabs',position:'WR',speed:82,power:80,awareness:72,overall:72,number:17,heightInches:72,weightLbs:210,teamAbbr:'JCY',rookieRole:'rotation',combineId:'tabs-'+width,upgradePoints:2};
+ profile.careerLife=campScore(chooseCamp(createCareerLife(profile),'prep','film'),0,85);
+ await page.addInitScript(({key,profile})=>{if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify(profile));},{key,profile});
+ const read=()=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)),key),tab=name=>page.getByRole('tab',{name,exact:true}).click();
+ await page.goto('http://127.0.0.1:3081/tabs.html');await page.getByRole('heading',{name:'Response',exact:true}).waitFor();
+ await page.screenshot({path:`artifacts/my-player-tabs/before-${width}.png`});
+ assert((await page.getByRole('heading',{name:'Response',exact:true}).boundingBox()).y<350,'Active question starts at top');
+ assert.equal(await page.getByRole('region',{name:'Evolving player card'}).isVisible(),false);
+ const before=(await read()).careerLife;await tab('My Player');await page.getByRole('region',{name:'Player attributes'}).waitFor();assert.equal(await page.getByRole('heading',{name:'Response',exact:true}).isVisible(),false);
+ await tab('Career');await page.getByText('CAMP BENCHMARK',{exact:false}).waitFor();await tab('Story');assert.deepEqual((await read()).careerLife,before);
+ await page.getByRole('button',{name:/^Put the room first/}).click();await page.getByRole('button',{name:'Lock in response',exact:true}).click();await page.getByRole('button',{name:'PLAY FIRST-TEAM AUDITION',exact:true}).waitFor();
+ await page.screenshot({path:`artifacts/my-player-tabs/story-${width}.png`});
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);const status=await page.getByRole('contentinfo',{name:'Career relationship stats'}).boundingBox();assert(status.y>=0&&status.y+status.height<=844);
+ await page.reload();await page.getByRole('button',{name:'PLAY FIRST-TEAM AUDITION',exact:true}).waitFor();assert.equal((await read()).careerLife.camp.response,'team');
+ // Keyboard navigation retains progress and gives the active tab focus.
+ await page.getByRole('tab',{name:'Story',exact:true}).focus();await page.keyboard.press('ArrowRight');await page.getByRole('region',{name:'Player attributes'}).waitFor();await page.keyboard.press('End');assert.equal(await page.getByRole('tab',{name:'Career',exact:true}).getAttribute('aria-selected'),'true');
+ // Season round trips preserve the mounted simulation and saved weekly choices.
+ const season={...(await read()),stage:'season',careerLife:finishCamp(campScore(campScore((await read()).careerLife,1,80),2,80))};await page.evaluate(({key,season})=>localStorage.setItem(key,JSON.stringify(season)),{key,season});await page.reload();await page.getByRole('heading',{name:'Preparation',exact:true}).waitFor();
+ await page.getByRole('button',{name:/^Study with the position coach/}).click();await page.getByRole('button',{name:'Lock in preparation',exact:true}).click();await page.getByRole('heading',{name:'Response',exact:true}).waitFor();const weekly=(await read()).careerLife.turn;
+ await tab('Career');await page.getByRole('button',{name:'COMPLETE YOUR CAREER WEEK',exact:true}).waitFor();await tab('My Player');await tab('Story');assert.deepEqual((await read()).careerLife.turn,weekly);await page.reload();await page.getByRole('heading',{name:'Response',exact:true}).waitFor();
+ const prospect={...profile,stage:'combine',careerLife:undefined,draftJourney:undefined};await page.evaluate(({key,prospect})=>localStorage.setItem(key,JSON.stringify(prospect)),{key,prospect});await page.reload();await page.getByRole('heading',{name:'Before the cameras find you.',exact:true}).waitFor();assert((await page.getByRole('heading',{name:'Before the cameras find you.',exact:true}).boundingBox()).y<350);await tab('My Player');await page.getByRole('button',{name:'Edit player · height, weight & appearance',exact:true}).waitFor();await tab('Career');await page.getByRole('navigation',{name:'Draft story chapters'}).waitFor();await tab('Story');await page.getByRole('button',{name:/^The captain/}).click();await page.getByRole('button',{name:'Commit this decision',exact:true}).click();await page.getByRole('heading',{name:'Six weeks. One plan.',exact:true}).waitFor();await page.reload();await page.getByRole('heading',{name:'Six weeks. One plan.',exact:true}).waitFor();
+ assert.deepEqual(errors,[]);console.log(`PASS ${width}px: focused camp question, profile/history tabs, visible metrics, keyboard, saved choices, season round trip`);
+ }finally{await browser.close();}
+}}finally{await server.close();}

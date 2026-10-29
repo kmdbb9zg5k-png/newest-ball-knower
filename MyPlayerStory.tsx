@@ -1,3 +1,4 @@
+import {CareerTabs,CareerSection} from './CareerTabs';
 import AthleteLocker from './AthleteLocker';
 import {ATHLETE_CHANGED,athletePortrait,usesPresetAthletePortrait} from './athletePassport';
 import {CareerScheme,CareerFilm,CareerLegacy} from './MyPlayerDecisions';
@@ -7,7 +8,7 @@ import {createCareerArc,cleanCareerArc,chooseRival,completeArcWeek,finishArcSeas
 import {CareerCamp,CareerWeek} from './MyPlayerCareer';
 import {createCareerLife,cleanCareerLife,chooseCamp,campScore,finishCamp,chooseWeek,weekReady,completeCareerWeek,careerGameBoost,type CareerLife} from './myPlayerCareer';
 import {MyPlayerJourney,MyPlayerDraftNight} from './MyPlayerJourney';
-import {chooseJourney,cleanJourney,journeyOptions,nextJourneyChapter,resolveJourneyDraft,type JourneyChapter,type JourneyState} from './myPlayerJourney';
+import {journeyMetrics,chooseJourney,cleanJourney,journeyOptions,nextJourneyChapter,resolveJourneyDraft,type JourneyChapter,type JourneyState} from './myPlayerJourney';
 import {currentCareerRole,type MyPlayerRole} from './myPlayerOpportunity';
 import {calculatePlayedCombine,cleanDraftCombine,recordDraftDrill,type DraftCombinePerformance,type DraftDrill} from './myPlayerDraftCombine';
 export {calculateCombineResults} from './myPlayerCombine';
@@ -406,13 +407,16 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
   const enterRookie=()=>setProfile(current=>{if(current.stage!=='camp'||!current.careerLife||current.careerLife.camp.scores.length!==3)return current;const life=finishCamp(current.careerLife);return {...current,stage:'season',careerLife:life,rookieRole:life.role};});
   const commitWeek=(key:string,kind:'prep'|'response',id:string)=>setProfile(current=>current.stage!=='season'||!current.careerLife?current:{...current,careerLife:chooseWeek(current.careerLife,key,kind,id)});
   const recordMoment=(key:string,score:number)=>setProfile(current=>current.stage!=='season'||!current.careerLife?current:{...current,careerLife:recordFilmMoment(current.careerArc||arc,current.careerLife,key,score)});
-  if(profile.stage==='camp')return <BroadcastStage scene="locker" page="my-player" quiet>{saveError&&<p role="alert">{saveError}</p>}<AthleteLocker profile={profile}/><CareerCamp life={campLife} profile={profile} onChoice={commitCamp} onScore={recordCamp} onFinish={enterRookie} onBack={onBack}/></BroadcastStage>;
+  const storyStep=JSON.stringify([profile.stage,campLife.camp.plan,campLife.camp.response,campLife.camp.scores.length,campLife.turn?.key,campLife.turn?.prep,campLife.turn?.response,campLife.turn?.score,profile.draftJourney?.choices]);
+  const playerStats=<section className="life-metrics" aria-label="Player attributes">{[['Overall',profile.overall],['Speed',profile.speed],['Power',profile.power],['Awareness',profile.awareness],['Height',feetAndInches(profile.heightInches)],['Weight',`${profile.weightLbs} lb`],['XP',profile.xp],['Upgrade points',profile.upgradePoints]].map(([label,value])=><div key={label}><span>{label}</span><b>{value}</b></div>)}</section>;
+  const relationshipMetrics:[string,number][]=[['Coach trust',campLife.trust],['Chemistry',campLife.chemistry],['Agent',campLife.agent],['Fatigue',campLife.fatigue]];
+  if(profile.stage==='camp')return <BroadcastStage scene="locker" page="my-player" quiet>{saveError&&<p role="alert">{saveError}</p>}<CareerTabs stepKey={storyStep} title="Training camp" onBack={onBack} metrics={relationshipMetrics}><CareerSection tab="player">{playerStats}<PlayerRender profile={profile} onPortrait={savePortrait} compact/><AthleteLocker profile={profile}/></CareerSection><CareerCamp life={campLife} profile={profile} onChoice={commitCamp} onScore={recordCamp} onFinish={enterRookie} onBack={onBack}/></CareerTabs></BroadcastStage>;
 
   if (profile.stage === 'season' && draftedTeam) {
     const roster = rosterWithMyPlayer(profile);
     return (
       <BroadcastStage scene="locker" page="my-player" quiet className="relative pb-20">
-        <div className="px-4 pt-4 sm:px-8">
+        {saveError&&<p role="alert" className="mx-auto max-w-5xl p-4 text-red-300">{saveError}</p>}<CareerTabs stepKey={storyStep} title="My Player · Season" onBack={onBack} metrics={relationshipMetrics}><CareerSection tab="player">{playerStats}<div className="px-4 pt-4 sm:px-8">
           <div className="mx-auto max-w-7xl rounded-[2rem] border border-white/10 bg-black/25 p-3 sm:p-4">
             <div className="grid gap-3 sm:grid-cols-[220px_1fr] sm:items-center">
               <PlayerRender onPortrait={savePortrait} profile={profile} compact />
@@ -426,16 +430,15 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
             </div>
           </div>
         </div>
-        {saveError&&<p role="alert" className="mx-auto max-w-5xl p-4 text-red-300">{saveError}</p>}
         {!profile.careerLife&&<div className="mx-auto max-w-5xl p-4"><button className="career-primary" onClick={()=>setProfile(current=>{if(current.careerLife)return current;const life=createCareerLife(current,current.draftJourney,current.rookieRole?currentCareerRole(current.rookieRole,current.overall,current.gamesPlayed):'starter');const ids=new Set(rosterWithMyPlayer(current).map(p=>p.id));const rosterSlotId=buildSoloTeamRoster(current.teamAbbr).find(p=>!ids.has(p.id))?.id;return {...current,careerLife:{...life,rosterSlotId,camp:{scores:[],complete:true,legacy:true},games:current.gamesPlayed}};})}>ENABLE LIVING CAREER</button><p className="career-note">Keep your season and add weekly conversations, playable moments and evolving relationships. No training-camp replay required.</p></div>}
         <AthleteLocker profile={profile}/>
-        <FranchiseSeason key={profile.careerLife?`${arc.year}:${profile.teamAbbr}`:'legacy'} careerStartYear={profile.careerLife?arc.year:undefined} onCareerSeasonYearChange={profile.careerLife?year=>setProfile(current=>{if(!current.careerLife||current.careerArc&&current.careerArc.year>=year)return current;const previous=current.careerArc||createCareerArc(current,year-1);return {...current,careerArc:{...previous,year,seasonOwn:0,seasonRival:0,seasonGames:0}};}):undefined} careerOffseason={profile.careerLife?(year,wins,champion)=><CareerOffseason arc={arc} life={profile.careerLife!} profile={profile} year={year} wins={wins} champion={champion} onAdvance={advanceCareer} onCounter={commitCounter}/>:undefined} title="MY PLAYER STORY" userTeam={draftedTeam} roster={roster} saveKey={SOLO_FRANCHISE_SAVE_KEYS.player} onBack={onBack} myPlayerId="my-player-user" myPlayerProgress={profile.rookieRole?{ovr:profile.overall,speed:profile.speed,strength:profile.power,awareness:profile.awareness}:undefined} myPlayerRole={profile.careerLife?.role||(profile.rookieRole?currentCareerRole(profile.rookieRole,profile.overall,profile.gamesPlayed):undefined)} careerPanel={profile.careerLife?context=><><CareerLegacy arc={arc} profile={profile}/><CareerScheme arc={arc} life={profile.careerLife!} profile={profile} onChoice={commitCoach}/><CareerRivalry arc={arc} life={profile.careerLife!} name={profile.name} context={context} onChoice={commitRival}/><CareerWeek life={profile.careerLife!} profile={profile} context={context} onChoice={commitWeek} onMoment={recordMoment} filmRoom={<CareerFilm arc={arc} life={profile.careerLife!} position={profile.position} weekKey={context.key} onAnswer={answer=>commitFilm(context.key,answer)}/>}/></>:undefined} careerReady={profile.careerLife?key=>weekReady(profile.careerLife,key):undefined} careerBoost={profile.careerLife?key=>careerGameBoost(profile.careerLife,key):undefined} onMyPlayerGame={awardXp} />
-        <button type="button" onClick={newCareer} style={{ bottom: 'calc(max(1rem, env(safe-area-inset-bottom)) + 4.5rem)' }} className="my-player-restart fixed right-4 z-30 flex min-h-10 items-center gap-2 rounded-full border border-white/10 bg-black/95 px-3 text-[10px] font-black shadow-xl"><RotateCcw size={14} /> NEW PLAYER</button>
+        </CareerSection><FranchiseSeason careerTabbed key={profile.careerLife?`${arc.year}:${profile.teamAbbr}`:'legacy'} careerStartYear={profile.careerLife?arc.year:undefined} onCareerSeasonYearChange={profile.careerLife?year=>setProfile(current=>{if(!current.careerLife||current.careerArc&&current.careerArc.year>=year)return current;const previous=current.careerArc||createCareerArc(current,year-1);return {...current,careerArc:{...previous,year,seasonOwn:0,seasonRival:0,seasonGames:0}};}):undefined} careerOffseason={profile.careerLife?(year,wins,champion)=><CareerOffseason arc={arc} life={profile.careerLife!} profile={profile} year={year} wins={wins} champion={champion} onAdvance={advanceCareer} onCounter={commitCounter}/>:undefined} title="MY PLAYER STORY" userTeam={draftedTeam} roster={roster} saveKey={SOLO_FRANCHISE_SAVE_KEYS.player} onBack={onBack} myPlayerId="my-player-user" myPlayerProgress={profile.rookieRole?{ovr:profile.overall,speed:profile.speed,strength:profile.power,awareness:profile.awareness}:undefined} myPlayerRole={profile.careerLife?.role||(profile.rookieRole?currentCareerRole(profile.rookieRole,profile.overall,profile.gamesPlayed):undefined)} careerPanel={profile.careerLife?context=><><CareerSection tab="career"><CareerLegacy arc={arc} profile={profile}/><CareerScheme arc={arc} life={profile.careerLife!} profile={profile} onChoice={commitCoach}/><CareerRivalry arc={arc} life={profile.careerLife!} name={profile.name} context={context} onChoice={commitRival}/></CareerSection><CareerWeek life={profile.careerLife!} profile={profile} context={context} onChoice={commitWeek} onMoment={recordMoment} filmRoom={<CareerFilm arc={arc} life={profile.careerLife!} position={profile.position} weekKey={context.key} onAnswer={answer=>commitFilm(context.key,answer)}/>}/></>:undefined} careerReady={profile.careerLife?key=>weekReady(profile.careerLife,key):undefined} careerBoost={profile.careerLife?key=>careerGameBoost(profile.careerLife,key):undefined} onMyPlayerGame={awardXp} />
+        <CareerSection tab="player"><button type="button" onClick={newCareer} style={{ bottom: 'calc(max(1rem, env(safe-area-inset-bottom)) + 4.5rem)' }} className="my-player-restart fixed right-4 z-30 flex min-h-10 items-center gap-2 rounded-full border border-white/10 bg-black/95 px-3 text-[10px] font-black shadow-xl"><RotateCcw size={14} /> NEW PLAYER</button>
         <div className="my-player-upgrades fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-xl items-center gap-2 rounded-2xl border border-white/10 bg-black/95 p-2 shadow-2xl">
           <div className="min-w-0 flex-1 px-2"><div className="truncate text-xs font-black">{profile.name} • {profile.overall} OVR</div><div className="text-[10px] text-zinc-500">XP {profile.xp}/100 • {profile.upgradePoints} UPGRADE POINT{profile.upgradePoints === 1 ? '' : 'S'}</div></div>
           {(['speed', 'power', 'awareness'] as UpgradeAttribute[]).map(attribute => <button key={attribute} type="button" disabled={!profile.upgradePoints || profile.overall >= 99} onClick={() => upgrade(attribute)} className="min-h-10 rounded-xl border border-[var(--bk-team-accent)]/30 px-2 text-[9px] font-black uppercase text-[var(--bk-team-accent)] disabled:opacity-30">+ {attribute}</button>)}
         </div>
-      </BroadcastStage>
+      </CareerSection></CareerTabs></BroadcastStage>
     );
   }
 
@@ -456,43 +459,44 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
     </CareerCreatorDialog>
   </BroadcastStage>;
 
+  const draftMetrics=journeyMetrics(cleanJourney(profile.draftJourney,profile),profile);
   const stageTitle = profile.stage === 'combine' ? 'PRO COMBINE' : 'DRAFT NIGHT';
 
   return (
     <BroadcastStage scene="locker" page="my-player" quiet className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
-      <div className="mx-auto max-w-5xl">
-        <AthleteLocker profile={profile}/>
-        <BroadcastMasthead eyebrow="My Player story" title="Your Career Starts Here" subtitle="Create your player. Earn your place." compact/>
+      <CareerTabs stepKey={storyStep} title={stageTitle} onBack={onBack} metrics={[["Coach trust",draftMetrics.trust],["Preparation",draftMetrics.readiness],["Exposure",draftMetrics.visibility],["Recovery",draftMetrics.medical]]}><div className="mx-auto max-w-5xl">
+        <CareerSection tab="player">{playerStats}<AthleteLocker profile={profile}/>
+        </CareerSection><CareerSection tab="career"><BroadcastMasthead eyebrow="My Player story" title="Your Career Starts Here" subtitle="Create your player. Earn your place." compact/>
         <div className="flex items-center justify-between">
           <button type="button" onClick={onBack} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Back to Solo Franchise Hub"><ArrowLeft size={19} /></button>
           <div className="text-center"><div className="text-[10px] font-black tracking-[.22em] text-[var(--bk-team-accent)]">MY PLAYER STORY</div><div className="text-sm font-black">{stageTitle}</div></div>
           <button type="button" onClick={newCareer} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Create a new player"><RotateCcw size={17} /></button>
         </div>
 
-        {saveError&&<div role="alert" className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-200">{saveError}</div>}
+        </CareerSection>{saveError&&<div role="alert" className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-200">{saveError}</div>}
         {message ? <div className="mt-4 rounded-2xl border border-[var(--bk-team-accent)]/25 bg-[var(--bk-team-accent)]/10 px-4 py-3 text-sm font-bold text-[var(--bk-team-accent)]">{message}</div> : null}
 
-        {profile.stage==='combine'&&<button type="button" className="career-primary mt-4" onClick={()=>setEditing(true)}>Edit player · height, weight & appearance</button>}
+        <CareerSection tab="player">{profile.stage==='combine'&&<button type="button" className="career-primary mt-4" onClick={()=>setEditing(true)}>Edit player · height, weight & appearance</button>}</CareerSection>
         {profile.stage === 'combine' ? (
-          <div className="mt-5 grid gap-5 lg:grid-cols-[.8fr_1.2fr]">
-            <div className="order-2 lg:order-1"><AthleteLivePreview profile={profile} onPortrait={savePortrait}/></div>
+          <div className="mt-5 grid gap-5">
+            <CareerSection tab="player"><AthleteLivePreview profile={profile} onPortrait={savePortrait}/></CareerSection>
             <div className="order-1 min-w-0 lg:order-2"><MyPlayerJourney profile={profile} onChoice={chooseStory} onDraft={enterDraft} onResult={recordCombineResult} /></div>
           </div>
         ) : null}
 
         {profile.stage === 'drafted' && draftedTeam ? (
-          <div className="mt-5 grid gap-5 lg:grid-cols-[.8fr_1.2fr]">
-            <div className="order-2 lg:order-1"><AthleteLivePreview profile={profile} onPortrait={savePortrait}/></div>
-            <div className="order-1 min-w-0 lg:order-2">{draftOutcome?<MyPlayerDraftNight profile={profile} outcome={draftOutcome} onAdvance={advanceDraft} onSign={signOffer} onBegin={beginSeason}/>:<div className="rounded-[2rem] border border-white/10 bg-[#10151d] p-7 text-center">
+          <div className="mt-5 grid gap-5">
+            <CareerSection tab="player"><AthleteLivePreview profile={profile} onPortrait={savePortrait}/></CareerSection>
+            <CareerSection tab="story"><div className="min-w-0">{draftOutcome?<MyPlayerDraftNight profile={profile} outcome={draftOutcome} onAdvance={advanceDraft} onSign={signOffer} onBegin={beginSeason}/>:<div className="rounded-[2rem] border border-white/10 bg-[#10151d] p-7 text-center">
               <div className="text-[10px] font-black tracking-[.25em] text-[var(--bk-team-accent)]">WITH THE #{profile.draftPick} PICK IN ROUND {profile.draftRound}</div>
               <img src={soloTeamLogoUrl(draftedTeam.abbr)} alt="" aria-hidden="true" className="mx-auto mt-5 h-28 w-28 object-contain" />
               <h2 className="mt-4 text-4xl font-black">{draftedTeam.name}</h2>
               <p className="mt-2 text-zinc-400">The selection is {profile.name}, {profile.position}, {feetAndInches(profile.heightInches)}, {profile.weightLbs} lbs. Your Ball Knower League story starts now.</p>
               <button type="button" onClick={beginSeason} className="mt-6 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)]"><Play className="mr-2 inline" /> BEGIN ROOKIE SEASON</button>
-            </div>}</div>
+            </div>}</div></CareerSection>
           </div>
         ) : null}
-      </div>
+      </div></CareerTabs>
     </BroadcastStage>
   );
 };
