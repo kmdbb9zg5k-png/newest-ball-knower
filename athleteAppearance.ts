@@ -2,6 +2,7 @@ import type {TattooCoverage,TattooStyle} from './solo/appearance';
 import type {SimulatedFacialHair,SimulatedHairStyle,SimulatedSkinTone} from './solo/artIdentity';
 
 export type AthleteHairColor='black'|'dark brown'|'brown'|'auburn'|'blond';
+export type TattooArms='left'|'right'|'both';
 export type AthleteAppearance={
   skinTone:SimulatedSkinTone;
   hairStyle:SimulatedHairStyle;
@@ -9,6 +10,7 @@ export type AthleteAppearance={
   facialHair:SimulatedFacialHair;
   tattooCoverage:TattooCoverage;
   tattooStyle:TattooStyle;
+  tattooArms:TattooArms;
 };
 
 export const SKIN_TONES=[
@@ -37,7 +39,7 @@ export const HAIR_COLORS=[
 export const FACIAL_HAIR=['clean shaven','light stubble','short boxed beard','full beard','goatee','mustache'] as const;
 export const TATTOO_COVERAGE:TattooCoverage[]=['none','minimal','upper-arm','forearm','half-sleeve','full-sleeve','both-arms'];
 export const TATTOO_STYLES:TattooStyle[]=['blackwork','geometric','script','traditional','mixed'];
-export const DEFAULT_ATHLETE_APPEARANCE:AthleteAppearance={skinTone:'warm brown',hairStyle:'low fade',hairColor:'black',facialHair:'clean shaven',tattooCoverage:'none',tattooStyle:'blackwork'};
+export const DEFAULT_ATHLETE_APPEARANCE:AthleteAppearance={skinTone:'warm brown',hairStyle:'low fade',hairColor:'black',facialHair:'clean shaven',tattooCoverage:'none',tattooStyle:'blackwork',tattooArms:'right'};
 
 const oneOf=<T extends string>(value:unknown,allowed:readonly T[],fallback:T):T=>allowed.includes(value as T)?value as T:fallback;
 export function sanitizeAthleteAppearance(value:unknown):AthleteAppearance{
@@ -47,8 +49,9 @@ export function sanitizeAthleteAppearance(value:unknown):AthleteAppearance{
     hairStyle:oneOf(raw.hairStyle,HAIR_STYLES,DEFAULT_ATHLETE_APPEARANCE.hairStyle),
     hairColor:oneOf(raw.hairColor,HAIR_COLORS.map(item=>item.id),DEFAULT_ATHLETE_APPEARANCE.hairColor),
     facialHair:oneOf(raw.facialHair,FACIAL_HAIR,DEFAULT_ATHLETE_APPEARANCE.facialHair),
-    tattooCoverage:oneOf(raw.tattooCoverage,TATTOO_COVERAGE,DEFAULT_ATHLETE_APPEARANCE.tattooCoverage),
+    tattooCoverage:raw.tattooCoverage==='both-arms'?'full-sleeve':oneOf(raw.tattooCoverage,TATTOO_COVERAGE,DEFAULT_ATHLETE_APPEARANCE.tattooCoverage),
     tattooStyle:oneOf(raw.tattooStyle,TATTOO_STYLES,DEFAULT_ATHLETE_APPEARANCE.tattooStyle),
+    tattooArms:oneOf(raw.tattooArms,['left','right','both'],raw.tattooCoverage==='both-arms'?'both':'right'),
   };
 }
 
