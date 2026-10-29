@@ -34,11 +34,12 @@ const DatabaseVerificationModal=lazy(()=>import('./DatabaseVerificationModal').t
 const MobileRosterBrowser=lazy(()=>import('./MobileRosterBrowser').then(module=>({default:module.MobileRosterBrowser})));
 const ChallengesHub=lazy(()=>import('./ChallengesHub').then(module=>({default:module.ChallengesHub})));
 const AskBkHub=lazy(()=>import('./AskBkHub').then(module=>({default:module.AskBkHub})));
+const PlayerClothingLocker=lazy(()=>import('./PlayerClothingLocker'));
 const LockerHub=lazy(()=>import('./LockerHub').then(module=>({default:module.LockerHub})));
 const PartnersPage=lazy(()=>import('./PartnersPage').then(module=>({default:module.PartnersPage})));
 const CommunityHub=lazy(()=>import('./CommunityHub').then(module=>({default:module.CommunityHub})));
 
-export type AppTab='home'|'solo'|'news'|'fantasy'|'sportsbook'|'legacy'|'challenges'|'community'|'ask'|'locker'|'partners'|'lobby'|'draft'|'simulation';
+export type AppTab='home'|'solo'|'news'|'fantasy'|'sportsbook'|'legacy'|'challenges'|'community'|'ask'|'locker'|'wardrobe'|'partners'|'lobby'|'draft'|'simulation';
 
 const INTRO_COMPLETED_KEY='ball-knower-intro-completed-v1';
 const introEligible=()=>{try{return !localStorage.getItem(INTRO_COMPLETED_KEY)}catch{return true}};
@@ -114,6 +115,7 @@ function BallKnowerApp(){
         {currentTab==='challenges'&&<ChallengesHub/>}
         {currentTab==='community'&&<CommunityHub onOpenAuth={()=>setIsAuthOpen(true)} onOpenTrivia={()=>goToTab('challenges')} onViewLocker={openCommunityLocker}/>}
         {currentTab==='ask'&&<AskBkHub/>}
+        {currentTab==='wardrobe'&&<PlayerClothingLocker onCreatePlayer={()=>{setSoloExperience('player');goToTab('solo');}}/>}
         {currentTab==='locker'&&<LockerHub onOpenAuth={()=>setIsAuthOpen(true)} viewedMember={viewedLockerMember} onBack={viewedLockerMember?closeMemberLocker:undefined}/>}
         {currentTab==='partners'&&<PartnersPage onBack={()=>setCurrentTab('home')}/>}
         {currentTab==='lobby'&&activeLeague&&<LeagueLobby league={activeLeague} onBack={goBack} onGoToDraft={()=>goToTab('draft')} onGoToSimulation={()=>goToTab('simulation')} onViewMemberLocker={openMemberLocker}/>}
