@@ -44,6 +44,8 @@ jobs:
         run: |
           node --import tsx scripts/mini-challenges-check.ts
           node --import tsx scripts/athlete-passport-check.ts
+          node --import tsx scripts/athlete-build-check.ts
+          node --import tsx scripts/career-athlete-build-check.ts
           node --import tsx scripts/control-preferences-check.ts
           node --import tsx scripts/competition-rules-check.ts
           node scripts/check-reference-contact.mjs

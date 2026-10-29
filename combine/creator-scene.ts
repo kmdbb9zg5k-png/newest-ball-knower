@@ -37,7 +37,15 @@ export async function createCreatorScene(host:HTMLElement,initial:any){
   // returns, including browsers that discard offscreen WebGL compositor tiles.
   const visibility=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting))requestAnimationFrame(draw);});
   visibility.observe(host);
-  return {update,rotate,setView(next:'body'|'head'){view=next;resize();},dispose(){
+  return {update,rotate,capturePortrait(){
+    const previousView=view,previousAngle=angle,ratio=renderer.getPixelRatio();
+    try{
+      view='head';angle=.16;runner.root.rotation.y=angle;
+      renderer.setPixelRatio(1);renderer.setSize(256,320,false);camera.aspect=.8;
+      const scale=athleteHeight/72;camera.position.set(0,1.78*scale,1.3*scale);camera.lookAt(0,1.60*scale,0);camera.updateProjectionMatrix();draw();
+      return renderer.domElement.toDataURL('image/png');
+    }finally{view=previousView;angle=previousAngle;runner.root.rotation.y=angle;renderer.setPixelRatio(ratio);resize();}
+  },setView(next:'body'|'head'){view=next;resize();},dispose(){
     disposed=true;observer.disconnect();visibility.disconnect();
     const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>(),textures=new Set<T.Texture>();
     scene.traverse(object=>{const mesh=object as T.Mesh;if(mesh.geometry)geometries.add(mesh.geometry);for(const material of Array.isArray(mesh.material)?mesh.material:[mesh.material])if(material){materials.add(material);for(const value of Object.values(material))if(value instanceof T.Texture)textures.add(value);}});

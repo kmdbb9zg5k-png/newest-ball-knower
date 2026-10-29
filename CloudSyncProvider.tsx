@@ -108,7 +108,7 @@ function cloudValue(entry: StorageEntry, raw: string | null): unknown {
   if (entry.privateImages) {
     try {
       const profile = JSON.parse(raw);
-      safeRaw = JSON.stringify({ ...profile, faceImage: '', renderImage: '' });
+      safeRaw = JSON.stringify({ ...profile, faceImage: '', renderImage: '', athletePortrait: '' });
     } catch {
       return undefined;
     }
@@ -141,6 +141,7 @@ function applyRemote(entry: StorageEntry, value: unknown): boolean {
           restored = JSON.stringify({
             ...remoteProfile,
             faceImage: (entry.localKey !== 'ballknower_solo_my_player_v2' || localProfile?.combineId && localProfile.combineId === remoteProfile?.combineId) && typeof localProfile?.faceImage === 'string' ? localProfile.faceImage : '',
+            athletePortrait: '', // Regenerate from synced appearance; never reuse a stale body snapshot.
             renderImage: (entry.localKey !== 'ballknower_solo_my_player_v2' || localProfile?.combineId && localProfile.combineId === remoteProfile?.combineId) && typeof localProfile?.renderImage === 'string' ? localProfile.renderImage : '',
           });
         } catch {

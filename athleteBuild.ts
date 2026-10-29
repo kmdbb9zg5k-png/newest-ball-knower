@@ -38,9 +38,9 @@ export function presetAthleteBuild(position:Position,preset:typeof BODY_PRESETS[
 export const recommendedAthleteBuild=(position:Position)=>presetAthleteBuild(position,BODY_PRESETS[2]);
 export function athleteMovement(value:Partial<AthleteBuild>&{position?:Position},competitive=false):AthleteMovement{
   if(competitive)return{speed:85,acceleration:85,agility:85,strength:85,contact:85,stamina:85};
-  const build=sanitizeAthleteBuild(value),limits=limitsFor(build.position);
-  const weight=(build.weightLbs-limits.weight[0])/(limits.weight[1]-limits.weight[0]);
-  const height=(build.heightInches-limits.height[0])/(limits.height[1]-limits.height[0]);
+  const build=sanitizeAthleteBuild(value);
+  const weight=(build.weightLbs-160)/160;
+  const height=(build.heightInches-65)/16;
   const muscle=(build.bodyBuild+build.armSize+build.legSize+build.shoulderWidth)/400;
   const rate=(n:number)=>clamp(n,60,96);
   return {speed:rate(94-weight*18-height*2+build.legSize*.025),acceleration:rate(94-weight*16-height*3+build.legSize*.035),agility:rate(95-weight*17-height*4+(100-build.bodyBuild)*.025),strength:rate(64+weight*19+muscle*13),contact:rate(65+weight*16+muscle*14+build.shoulderWidth*.025),stamina:rate(91-weight*9+(100-build.bodyBuild)*.02)};
