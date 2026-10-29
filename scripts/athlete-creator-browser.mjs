@@ -51,7 +51,7 @@ try{
           await capture(`artifacts/athlete-creator/style-${style.toLowerCase().replaceAll(' ','-')}-${angle}.png`);
         }
       }
-      await page.getByLabel('Rotate athlete',{exact:true}).fill('0');
+      await page.getByLabel('Rotate athlete',{exact:true}).fill('9');
       await page.getByRole('button',{name:'Bald',exact:true}).click();
       await page.getByRole('button',{name:'Full body',exact:true}).click();
     }
