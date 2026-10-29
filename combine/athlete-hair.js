@@ -22,7 +22,7 @@ export function buildAthleteHair({style,triangles,add,material,surfaceGeometry,s
   // of merely moving the corners of the source model's large triangles.
   const midpoint=(a,b)=>({p:a.p.clone().lerp(b.p,.5),n:a.n.clone().lerp(b.n,.5).normalize()});
   let scalpTriangles=triangles.filter(tri=>tri.some(v=>v.p.y>hairline(v.p)-.5));
-  for(let level=0;level<3;level++)scalpTriangles=scalpTriangles.flatMap(([a,b,c])=>{const ab=midpoint(a,b),bc=midpoint(b,c),ca=midpoint(c,a);return [[a,ab,ca],[ab,b,bc],[ca,bc,c],[ab,bc,ca]];});
+  for(let level=0;level<(style==='waves'?2:1);level++)scalpTriangles=scalpTriangles.flatMap(([a,b,c])=>{const ab=midpoint(a,b),bc=midpoint(b,c),ca=midpoint(c,a);return [[a,ab,ca],[ab,b,bc],[ca,bc,c],[ab,bc,ca]];});
   const capField=p=>(p.y-(fade===null?hairline(p):Math.max(hairline(p),fade)))/(fade===null?1:3);
   if(!hanging&&style!=='cornrows'){
     let capMaterial=material;
@@ -34,7 +34,12 @@ export function buildAthleteHair({style,triangles,add,material,surfaceGeometry,s
     if(style==='shaved'){
       capMaterial=material.clone();capMaterial.transparent=true;capMaterial.opacity=.28;capMaterial.depthWrite=false;
     }
-    add(surfaceGeometry(scalpTriangles,capField,p=>{
+    if(style==='waves'){
+      capMaterial=material.clone();capMaterial.roughness=.8;
+      capMaterial.onBeforeCompile=shader=>{material.onBeforeCompile(shader);shader.fragmentShader=shader.fragmentShader.replace('#include <alphatest_fragment>',`float ripple=.5+.5*cos(bkHairPosition.y*8.0+sin(atan(bkHairPosition.x,bkHairPosition.z)*3.0)*.6);diffuseColor.rgb*=mix(.55,1.35,pow(ripple,3.0));\n#include <alphatest_fragment>`);};
+      capMaterial.customProgramCacheKey=()=> 'athlete-waves-v1';
+    }
+    const cap=surfaceGeometry(scalpTriangles,capField,p=>{
       const top=smooth(7.8,10.5,p.y);
       if(style==='shaved')return .018;
       if(style==='waves')return .045+.10*Math.pow(.5+.5*Math.cos(p.y*8+Math.sin(Math.atan2(p.x,p.z)*3)*.6),4);
@@ -42,7 +47,9 @@ export function buildAthleteHair({style,triangles,add,material,surfaceGeometry,s
       if(style==='textured crop')return .06+top*.32;
       if(curls)return .10+top*(style==='short curls'?.32:.65);
       return .04+smooth(fade,10.2,p.y)*.38;
-    }),'Scalp '+style,capMaterial);
+    });
+    if(style==='waves')cap.computeVertexNormals();
+    add(cap,'Scalp '+style,capMaterial);
   }
   if(hanging||style==='cornrows'){
     const spacing=style==='braids'?1.28:style.includes('twists')?1.05:1.12;
@@ -50,7 +57,7 @@ export function buildAthleteHair({style,triangles,add,material,surfaceGeometry,s
     roots.onBeforeCompile=shader=>{material.onBeforeCompile(shader);shader.fragmentShader=shader.fragmentShader.replace('#include <alphatest_fragment>',`
       vec2 part=abs(fract((bkHairPosition.xz+vec2(3.9,4.6))/${spacing.toFixed(2)})-.5)*${spacing.toFixed(2)};
       float separation=${style==='cornrows'?'abs(fract((bkHairPosition.x+3.6)/.9)-.5)*.9':'min(part.x,part.y)'};
-      diffuseColor.a *= smoothstep(.025,.09,separation)*smoothstep(0.02,.95,bkHairCoverage);
+      diffuseColor.a *= mix(1.0,smoothstep(.025,.075,separation),smoothstep(7.0,9.0,bkHairPosition.y))*smoothstep(0.02,.95,bkHairCoverage);
       #include <alphatest_fragment>`);};
     roots.customProgramCacheKey=()=> 'athlete-parted-roots-'+style;
     add(surfaceGeometry(scalpTriangles,p=>(p.y-hairline(p))/2,()=>.025),'Parted roots '+style,roots);
@@ -89,7 +96,20 @@ export function buildAthleteHair({style,triangles,add,material,surfaceGeometry,s
         else{bend.x=side*Math.max(5.2,Math.abs(bend.x));end.x=side*Math.max(5.0,Math.abs(end.x));}
       }
       const mid=bend.clone().lerp(end,.55);mid.addScaledVector(outward,.35);
-      const points=[root.clone().add(new T.Vector3(0,.10,0)),bend,mid,end];
+      let points=[root.clone().add(new T.Vector3(0,.10,0)),bend,mid,end];
+      if(long){
+        // Drape along the skull before falling; a single raised control point
+        // makes the roots arch up like handles and leaves a gap above the scalp.
+        points=[];
+        for(let step=0;step<=12;step++){
+          const t=step/12,p=project(T.MathUtils.lerp(root.x,bend.x,t),T.MathUtils.lerp(root.z,bend.z,t));
+          if(p)points.push(p.add(new T.Vector3(0,.22,0)));
+        }
+        const last=points.at(-1)||root;
+        if(back)end.x+=(random()-.5)*.6;else end.z+=(random()-.5)*.6;
+        const shoulder=end.clone();shoulder.y=last.y-.8;
+        points.push(shoulder,end.clone().lerp(shoulder,.25),end);
+      }
       if(braid||twist)weave(points,braid?.23:.18,braid?3:2,long?13:7);
       else{
         // Rounded, irregular cylinders, with gravity-curved ends rather than cones.
@@ -99,7 +119,7 @@ export function buildAthleteHair({style,triangles,add,material,surfaceGeometry,s
     }
   }
   if(curls||style==='textured crop'){
-    const count=curls?1500:1700,geometry=new T.IcosahedronGeometry(1,1),dummy=new T.Object3D();
+    const count=curls?1200:1100,geometry=new T.IcosahedronGeometry(1,0),dummy=new T.Object3D();
     geometry.setAttribute('bkCoverage',new T.Float32BufferAttribute(new Float32Array(geometry.attributes.position.count).fill(1),1));
     const mesh=new T.InstancedMesh(geometry,material,count);
     const candidates=scalpTriangles.filter(tri=>tri.every(v=>v.p.y>Math.max(hairline(v.p)+.15,style==='textured crop'?8.0:-100)));
