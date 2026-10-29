@@ -193,7 +193,7 @@ try {
       await page.locator('.bk-profile-extras > summary').click();
       await page.getByRole('button', { name: 'Collection', exact: true }).click();
       assert.ok(await page.getByText('Fixture Collectible', { exact: true }).isVisible());
-      await page.getByRole('button', { name: 'Locker', exact: true }).click();
+      await page.getByLabel('Locker and collection').getByRole('button', { name: 'Locker', exact: true }).click();
       await page.getByRole('button', { name: 'Equip', exact: true }).click();
       await page.waitForFunction(() => document.querySelector('.bk-profile-extras')?.textContent.includes('qa-frame'));
       assert.equal(equipCalls, 1);

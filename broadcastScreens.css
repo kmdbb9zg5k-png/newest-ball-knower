@@ -122,3 +122,4 @@
 .bk-scene-actions>.bk-mode-guide-button { min-width:40px; padding-inline:0; justify-content:center; font-size:0; gap:0; }
 /* Seven primary destinations keep full touch targets on narrow phones. */
 @media(max-width:380px){body nav.bk-broadcast-nav button{font-size:8px!important;letter-spacing:0!important;white-space:nowrap;padding-inline:0}}
+@media(max-width:430px){.bk-broadcast-nav .bk-community-nav-label{transform:scaleX(.75);transform-origin:center;white-space:nowrap}}
