@@ -22,9 +22,9 @@ import { Player, Position } from './types';
 import { ensureOnlineSession, supabase } from './supabase';
 import { AiPhotoConsent, AI_PHOTO_CONSENT_VERSION } from './AiPhotoConsent';
 import { MyPlayerSharedRender as PlayerRender, myPlayerPresetPortrait } from './solo/MyPlayerSharedRender';
-import AthleteBuildEditor from './AthleteBuildEditor';
-import JerseyNumberInput from './JerseyNumberInput';
-import {ATHLETE_POSITIONS,feetAndInches,sanitizeAthleteBuild,type AthleteBuild} from './athleteBuild';
+import AthleteCreatorStudio from './AthleteCreatorStudio';
+import CareerCreatorDialog from './CareerCreatorDialog';
+import {ATHLETE_POSITIONS,feetAndInches,sanitizeAthleteBuild} from './athleteBuild';
 import {DEFAULT_ATHLETE_APPEARANCE,sanitizeAthleteAppearance,type AthleteAppearance} from './athleteAppearance';
 
 type Props = { onBack: () => void };
@@ -69,7 +69,6 @@ type MyPlayerProfile = {
   viewRotation: number;
 } & AthleteAppearance;
 
-const POSITIONS: Position[] = ATHLETE_POSITIONS;
 
 const FACE_PRESETS = [
   { id: 'mason', name: 'Mason' },
@@ -115,7 +114,7 @@ function restoreProfile() {
     const raw = localStorage.getItem(SOLO_FRANCHISE_SAVE_KEYS.player);
     if (!raw) return EMPTY_PROFILE;
     const saved = JSON.parse(raw);
-    if (saved?.version !== 1 || !POSITIONS.includes(saved.position) || !['creator', 'combine', 'drafted', 'camp', 'season'].includes(saved.stage)) return EMPTY_PROFILE;
+    if (saved?.version !== 1 || !ATHLETE_POSITIONS.includes(saved.position) || !['creator', 'combine', 'drafted', 'camp', 'season'].includes(saved.stage)) return EMPTY_PROFILE;
     if (['drafted', 'camp', 'season'].includes(saved.stage) && !SOLO_TEAM_THEMES.some(team => team.abbr === saved.teamAbbr)) return EMPTY_PROFILE;
     return { ...EMPTY_PROFILE, ...saved, ...sanitizeAthleteBuild(saved),...sanitizeAthleteAppearance(saved), careerArc:cleanCareerArc(saved.careerArc,{...EMPTY_PROFILE,...saved}),careerLife:cleanCareerLife(saved.careerLife,{...EMPTY_PROFILE,...saved},saved.draftJourney),combinePerformance:cleanDraftCombine(saved.combinePerformance),draftJourney:saved.draftJourney?cleanJourney(saved.draftJourney,{...EMPTY_PROFILE,...saved}):undefined,rookieRole:['starter','rotation','development'].includes(saved.rookieRole)?saved.rookieRole:undefined } as MyPlayerProfile;
   } catch {
@@ -230,7 +229,8 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
         profile.shoulderWidth !== EMPTY_PROFILE.shoulderWidth ||
         profile.armSize !== EMPTY_PROFILE.armSize ||
         profile.legSize !== EMPTY_PROFILE.legSize ||
-        profile.viewRotation !== EMPTY_PROFILE.viewRotation
+        profile.viewRotation !== EMPTY_PROFILE.viewRotation ||
+        (Object.keys(DEFAULT_ATHLETE_APPEARANCE) as (keyof AthleteAppearance)[]).some(key=>profile[key]!==DEFAULT_ATHLETE_APPEARANCE[key])
       );
       const untouched = profile.stage === 'creator' && !creatorCustomized;
       if (untouched) localStorage.removeItem(SOLO_FRANCHISE_SAVE_KEYS.player);
@@ -256,7 +256,6 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
     setProfile(current => ({ ...current, [key]: value, bodyPresetId: key === 'viewRotation' ? current.bodyPresetId : 'custom', renderImage: key === 'viewRotation' ? current.renderImage : '' }));
   };
 
-  const updateBuild = (build: AthleteBuild) => setProfile(current=>({...current,...sanitizeAthleteBuild(build),renderImage:''}));
 
   const onFace = async (file?: File) => {
     setAiConsent(false);
@@ -265,7 +264,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
     try {
       const faceImage = await compressImage(file, 512, 0.78);
       setProfile(current => ({ ...current, faceImage, renderImage: '' }));
-      setMessage('Face uploaded. Shape your player with the sliders, then describe the details you want.');
+      setMessage('Selfie uploaded for your optional career portrait. Your 3D athlete stays as customized above.');
     } catch {
       setMessage('That photo could not be opened. Try a clear selfie.');
     }
@@ -308,7 +307,9 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
 
   const enterCombine = () => {
     if (!profile.name.trim()) return setMessage('Give your player a name.');
-    setProfile(current => ({ ...current, name: current.name.trim(), stage: 'combine', combineId:current.combineId||crypto.randomUUID() }));
+    const next:MyPlayerProfile={...profile,name:profile.name.trim(),stage:'combine',combineId:profile.combineId||crypto.randomUUID()};
+    try{localStorage.setItem(SOLO_FRANCHISE_SAVE_KEYS.player,JSON.stringify(next));}catch{setSaveError('Your player could not be saved. Free some browser storage and try again.');return;}
+    setProfile(next);
     setMessage('You have been invited to the Ball Knower Combine.');
   };
 
@@ -429,12 +430,29 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
     );
   }
 
-  const stageTitle = profile.stage === 'creator' ? 'CREATE' : profile.stage === 'combine' ? 'PRO COMBINE' : 'DRAFT NIGHT';
+  if(profile.stage==='creator')return <BroadcastStage scene="locker" page="my-player" quiet>
+    <CareerCreatorDialog onBack={onBack} onReset={newCareer}>
+      <AthleteCreatorStudio profile={profile} onChange={patch=>{setMessage('');setProfile(current=>({...current,...patch,renderImage:patch.name!==undefined||patch.number!==undefined?current.renderImage:''}));}} onSave={enterCombine} actionLabel="Save & enter the Combine" ariaLabel="Career athlete builder" nameLabel="Career player name" jerseyLabel="Career jersey number" error={saveError} message={message} note="Create your athlete, then earn your draft spot in the Combine. Changing position keeps your custom build and appearance." faceExtras={
+        <details className="bk-career-portrait"><summary>Optional career portrait</summary>
+          <p>Choose a portrait or use a selfie for your career cards. Your 3D athlete uses the appearance controls above.</p>
+          <div className="bk-portrait-options">{FACE_PRESETS.map(face=><button key={face.id} type="button" aria-label={`${face.name} career portrait`} aria-pressed={!profile.faceImage&&profile.presetFaceId===face.id} onClick={()=>setProfile(current=>({...current,presetFaceId:face.id,faceImage:'',renderImage:''}))}><PresetFace face={face} small/><span>{face.name}</span></button>)}</div>
+          <label className="mt-3 flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 p-3"><Upload size={15}/>{profile.faceImage?'CHANGE YOUR SELFIE':'OPTIONAL: USE YOUR SELFIE'}<input type="file" accept="image/jpeg,image/png,image/webp" capture="user" onChange={event=>onFace(event.target.files?.[0])} className="sr-only"/></label>
+          <label className="mt-4 block">Describe your portrait<textarea value={profile.appearancePrompt} onChange={event=>setProfile(current=>({...current,appearancePrompt:event.target.value.slice(0,280),renderImage:''}))} className="mt-1 rounded-xl border border-white/10 bg-[#151515] p-3" placeholder="Describe the outfit and details for your career portrait…"/></label>
+          <AiPhotoConsent checked={aiConsent} onChange={setAiConsent} disabled={isRendering}/>
+          <button type="button" disabled={isRendering||!aiConsent||!profile.faceImage||aiAvailable===false} onClick={createRender} className="mt-3 min-h-11 w-full rounded-xl border border-white/20 p-3 text-sm font-bold disabled:opacity-40"><Sparkles className="mr-2 inline" size={18}/>{isRendering?'CREATING PORTRAIT…':!profile.faceImage?'SELFIE PORTRAIT (OPTIONAL)':aiAvailable===false?'AI PORTRAIT NEEDS CONNECTION':'CREATE AI PLAYER PORTRAIT'}</button>
+          {aiAvailable===false&&<p>Your 3D athlete and career work without the optional portrait service.</p>}
+          <PlayerRender profile={profile}/><ViewSlider value={profile.viewRotation} onChange={value=>updateSlider('viewRotation',value)}/>
+        </details>
+      }/>
+    </CareerCreatorDialog>
+  </BroadcastStage>;
+
+  const stageTitle = profile.stage === 'combine' ? 'PRO COMBINE' : 'DRAFT NIGHT';
 
   return (
-    <BroadcastStage scene="locker" page="my-player" quiet={profile.stage!=='creator'} className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
+    <BroadcastStage scene="locker" page="my-player" quiet className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
       <div className="mx-auto max-w-5xl">
-        {profile.stage!=='creator'&&<AthleteLocker profile={profile}/>}
+        <AthleteLocker profile={profile}/>
         <BroadcastMasthead eyebrow="My Player story" title="Your Career Starts Here" subtitle="Create your player. Earn your place." compact/>
         <div className="flex items-center justify-between">
           <button type="button" onClick={onBack} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Back to Solo Franchise Hub"><ArrowLeft size={19} /></button>
@@ -444,39 +462,6 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
 
         {saveError&&<div role="alert" className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-200">{saveError}</div>}
         {message ? <div className="mt-4 rounded-2xl border border-[var(--bk-team-accent)]/25 bg-[var(--bk-team-accent)]/10 px-4 py-3 text-sm font-bold text-[var(--bk-team-accent)]">{message}</div> : null}
-
-        {profile.stage === 'creator' ? (
-          <div className="mt-5 grid gap-5 lg:grid-cols-[.8fr_1.2fr]">
-            <div>
-              <PlayerRender profile={profile} />
-              <ViewSlider value={profile.viewRotation} onChange={value => updateSlider('viewRotation', value)} />
-            </div>
-            <div className="rounded-[2rem] border border-white/10 bg-[#10151d] p-5 sm:p-7">
-              <h2 className="text-3xl font-black">BUILD YOUR PLAYER</h2>
-              <p className="mt-2 text-sm font-semibold leading-relaxed text-zinc-400"><strong className="text-white">What you do:</strong> pick a face and body, enter a name, then choose a position. A selfie is optional. When you are happy, enter the Combine and your career begins.</p>
-
-              <div className="mt-5"><div className="flex items-end justify-between"><div><div className="text-[10px] font-black tracking-[.18em] text-[var(--bk-team-accent)]">CHOOSE A FACE</div><div className="mt-1 text-[10px] font-bold text-zinc-500">Four original Ball Knower rookies</div></div><span className="text-[9px] font-black text-zinc-600">REQUIRED</span></div>
-                <div className="mt-3 grid grid-cols-4 gap-2">{FACE_PRESETS.map(face => <button key={face.id} type="button" aria-pressed={!profile.faceImage && profile.presetFaceId === face.id} onClick={() => setProfile(current => ({ ...current, presetFaceId: face.id, faceImage: '', renderImage: '' }))} className={`rounded-2xl border p-2 ${!profile.faceImage && profile.presetFaceId === face.id ? 'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)]/10' : 'border-white/10 bg-black/20'}`}><PresetFace face={face} small /><span className="mt-1 block text-[8px] font-black text-zinc-400">{face.name}</span></button>)}</div>
-              </div>
-              <label className="mt-3 flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[.03] text-xs font-black text-zinc-400"><Upload size={15} /> {profile.faceImage ? 'CHANGE YOUR SELFIE' : 'OPTIONAL: USE YOUR SELFIE'}<input type="file" accept="image/jpeg,image/png,image/webp" capture="user" onChange={event => onFace(event.target.files?.[0])} className="sr-only" /></label>
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <label className="text-[10px] font-black text-zinc-500">PLAYER NAME<input value={profile.name} onChange={event => setProfile(current => ({ ...current, name: event.target.value }))} className="mt-1 w-full rounded-xl border border-white/10 bg-[#151515] p-3 text-sm text-white outline-none" placeholder="Your name" /></label>
-                <label className="text-[10px] font-black text-zinc-500">JERSEY NUMBER<JerseyNumberInput value={profile.number} onChange={number => setProfile(current => ({ ...current, number }))} className="mt-1 w-full rounded-xl border border-white/10 bg-[#151515] p-3 text-sm text-white outline-none" /></label>
-              </div>
-              <div className="mt-4"><div className="text-[10px] font-black text-zinc-500">POSITION</div><div className="mt-2 flex flex-wrap gap-2">{POSITIONS.map(position => <button key={position} type="button" aria-pressed={profile.position===position} onClick={() => setProfile(current => ({ ...current, position, renderImage: '' }))} className={`min-h-10 rounded-xl border px-3 text-xs font-black ${profile.position === position ? 'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)]/10 text-[var(--bk-team-accent)]' : 'border-white/10 bg-[#151515] text-zinc-400'}`}>{position}</button>)}</div></div>
-
-              <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
-                <AthleteBuildEditor value={sanitizeAthleteBuild(profile)} onChange={updateBuild}/>
-              </div>
-
-              <label className="mt-4 block text-[10px] font-black text-zinc-500">DESCRIBE YOUR LOOK<textarea value={profile.appearancePrompt} onChange={event => setProfile(current => ({ ...current, appearancePrompt: event.target.value.slice(0, 280), renderImage: '' }))} className="mt-1 min-h-24 w-full rounded-xl border border-white/10 bg-[#151515] p-3 text-sm text-white outline-none" placeholder="Add a tattoo sleeve, dark visor, white gloves…" /></label>
-              <AiPhotoConsent checked={aiConsent} onChange={setAiConsent} disabled={isRendering}/>
-              <button type="button" disabled={isRendering || !aiConsent || !profile.faceImage || aiAvailable === false} onClick={createRender} className="mt-3 w-full rounded-2xl border border-[var(--bk-team-accent)]/40 py-3 font-black text-[var(--bk-team-accent)] disabled:opacity-40"><Sparkles className="mr-2 inline" size={18} /> {isRendering ? 'CREATING RENDER…' : !profile.faceImage ? 'SELFIE RENDER (OPTIONAL)' : aiAvailable === false ? 'AI RENDER NEEDS CONNECTION' : 'CREATE AI PLAYER RENDER'}</button>
-              {aiAvailable === false ? <p className="mt-2 text-center text-[10px] font-bold text-zinc-500">The built-in third-person preview and full career still work while the photorealistic image service is offline.</p> : null}
-              <button type="button" onClick={enterCombine} className="mt-3 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)]"><Play className="mr-2 inline" /> ENTER THE COMBINE</button>
-            </div>
-          </div>
-        ) : null}
 
         {profile.stage === 'combine' ? (
           <div className="mt-5 grid gap-5 lg:grid-cols-[.8fr_1.2fr]">
