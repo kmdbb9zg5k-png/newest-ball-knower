@@ -1,4 +1,5 @@
 import * as T from 'three';
+import {buildAthleteHair} from './athlete-hair.js';
 import { simulatedPlayerIdentity } from '../solo/artIdentity.ts';
 
 // Use the same immutable identity as Solo portraits; never seed by roster order,
@@ -41,7 +42,7 @@ function mustacheGeometry(triangles){
   const ray=new T.Ray(),hit=new T.Vector3(),direction=new T.Vector3(0,0,-1);
   for(let j=0;j<=rows;j++)for(let i=0;i<=cols;i++){
     const u=i/cols,v=j/rows,x=(u*2-1)*1.9,edge=Math.abs(x)/1.9;
-    const center=2.22-.17*edge,half=.30*Math.sqrt(Math.max(0,1-edge*edge));
+    const center=1.80-.13*edge,half=.25*Math.sqrt(Math.max(0,1-edge*edge));
     const y=center+(v*2-1)*half;
     ray.set(new T.Vector3(x,y,20),direction);let nearest=null,normal=new T.Vector3(0,0,1);
     for(const tri of triangles)if(ray.intersectTriangle(tri[0].p,tri[1].p,tri[2].p,false,hit)&&hit.z>2.5&&(!nearest||hit.z>nearest.z)){
@@ -62,9 +63,9 @@ function hairMaterial(color,density=1){
     shader.fragmentShader='varying float bkHairCoverage; varying vec3 bkHairPosition;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
       float grain=fract(sin(dot(floor(bkHairPosition*38.0),vec3(12.9898,78.233,39.425)))*43758.5453);
       if(bkHairCoverage<.025)discard;
-      float strand=.5+.5*sin(bkHairPosition.y*110.0+sin(bkHairPosition.x*70.0));
+      float strand=.5+.5*sin(bkHairPosition.x*135.0+bkHairPosition.z*95.0+sin(bkHairPosition.y*31.0)*2.0);
       diffuseColor.rgb*=mix(.85,1.12,strand)*mix(1.8,1.0,${density.toFixed(3)});`);
-  };material.customProgramCacheKey=()=> 'combine-hair-strands-v3-'+density;return material;
+  };material.customProgramCacheKey=()=> 'combine-hair-strands-v4-'+density;return material;
 }
 
 export function createPlayerAppearance(body,bones) {
@@ -155,46 +156,7 @@ export function createPlayerAppearance(body,bones) {
     clear();const material=hairMaterial(HAIR[look.hairColor]);
     function add(geometry,name,mat=material){if(!geometry.attributes.position?.count){geometry.dispose();return;}if(!geometry.attributes.bkCoverage)geometry.setAttribute('bkCoverage',new T.Float32BufferAttribute(new Float32Array(geometry.attributes.position.count).fill(1),1));const mesh=new T.Mesh(geometry,mat);mesh.name=name;mesh.castShadow=true;group.add(mesh);}
     const style=look.hairStyle;
-    if(!['bald','shaved'].includes(style)){
-      const curls=/curl|afro/.test(style),locs=/loc|twist/.test(style),braids=/braid|cornrow/.test(style);
-      const tall=/medium|long|afro/.test(style),length=curls?(tall?1.5:.65):locs?(tall?1.1:.55):braids?.12:/crop|crew/.test(style)?.38:.17;
-      if(!braids)add(surfaceGeometry(triangles,p=>p.y-hairline(p),p=>{
-        const fade=smooth(hairline(p),10.2,p.y),noise=.5+.5*Math.sin(p.x*13+p.z*4)*Math.sin(p.z*16-p.y*3);
-        return .055+fade*length*(.65+.35*noise);
-      }),'Scalp '+style);
-      if(curls||locs){
-        let seed=look.identitySeed;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
-        const candidates=triangles.filter(t=>t.every(v=>v.p.y>hairline(v.p)+.4));
-        const count=curls?850:100,geometry=new T.IcosahedronGeometry(1,1);geometry.setAttribute('bkCoverage',new T.Float32BufferAttribute(new Float32Array(geometry.attributes.position.count).fill(1),1));const mesh=new T.InstancedMesh(geometry,material,count),dummy=new T.Object3D();
-        for(let i=0;i<count;i++){
-          const tri=candidates[Math.floor(random()*candidates.length)];const u=random(),w=random()*(1-u),p=tri[0].p.clone().multiplyScalar(1-u-w).addScaledVector(tri[1].p,u).addScaledVector(tri[2].p,w),n=tri[0].n.clone().add(tri[1].n).add(tri[2].n).normalize();
-          const fade=smooth(hairline(p),10,p.y),radius=.12+fade*(curls?.26:.17),extent=locs?length*(.8+random()*.7):radius;
-          dummy.position.copy(p).addScaledVector(n,.07+fade*length*.72);dummy.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),n);dummy.scale.set(radius,extent,radius);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);
-        }mesh.name='Hair strands '+style;mesh.castShadow=true;group.add(mesh);
-      }
-      if(braids){
-        // Fit each row to this skull instead of burying a fixed arc inside it.
-        for(let x=-3.6;x<=3.61;x+=.9){const points=[];for(let i=0;i<=60;i++){
-          const z=6-i/60*10.6,ray=new T.Ray(new T.Vector3(x,20,z),new T.Vector3(0,-1,0));
-          let top=null;
-          for(const tri of triangles){
-            const hit=ray.intersectTriangle(tri[0].p,tri[1].p,tri[2].p,false,new T.Vector3());
-            if(hit&&hit.y>hairline(hit)&&(!top||hit.y>top.y))top=hit;
-          }
-          if(top)points.push(top.add(new T.Vector3(0,.18,0)));
-        }if(points.length>1){
-          const curve=new T.CatmullRomCurve3(points),radius=style==='cornrows'?.22:.28;
-          for(let strand=0;strand<3;strand++){
-            const woven=[];
-            for(let i=0;i<=120;i++){
-              const t=i/120,p=curve.getPoint(t),phase=t*Math.PI*2*15+strand*Math.PI*2/3;
-              p.x+=Math.cos(phase)*radius;p.y+=Math.sin(phase)*radius+.12;woven.push(p);
-            }
-            add(new T.TubeGeometry(new T.CatmullRomCurve3(woven),120,radius*.72,5,false),'Woven braid strand');
-          }
-        }}
-      }
-    }
+    buildAthleteHair({style,triangles,material,surfaceGeometry,seed:look.identitySeed,add:(geometry,name,mat)=>{if(geometry.isMesh){group.add(geometry);return;}add(geometry,name,mat);}});
     if(look.facialHair!=='clean shaven'){
       const beard=look.facialHair,stubble=beard.includes('stubble'),goatee=beard==='goatee',mustache=beard==='mustache';
       const beardMaterial=hairMaterial(HAIR[look.hairColor],stubble?(beard==='light stubble'?.22:.4):.86);

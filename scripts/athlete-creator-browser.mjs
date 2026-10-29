@@ -36,6 +36,25 @@ try{
     await preview.screenshot({path:`artifacts/athlete-creator/bald-${width}.png`});
     const bald=await rendered();
     assert(!front.equals(bald),'Hair choices visibly change the rendered athlete');
+    if(width===390){
+      await page.getByRole('button',{name:'Close-up',exact:true}).click();
+      const seen=new Map();
+      for(const style of ['Bald','Shaved','Low Fade','High Fade','Waves','Short Curls','Medium Curls','Braids','Cornrows','Short Twists','Long Twists','Short Locs','Medium Locs','Tapered Afro','Crew Cut','Textured Crop']){
+        await page.getByRole('button',{name:style,exact:true}).click();
+        const rotation=page.getByLabel('Rotate athlete',{exact:true});
+        await rotation.fill('0');
+        const shot=await rendered();
+        for(const [other,buffer] of seen)assert(!shot.equals(buffer),`${style} must not duplicate ${other}`);
+        seen.set(style,shot);
+        for(const angle of [0,90,180]){
+          await rotation.fill(String(angle));
+          await capture(`artifacts/athlete-creator/style-${style.toLowerCase().replaceAll(' ','-')}-${angle}.png`);
+        }
+      }
+      await page.getByLabel('Rotate athlete',{exact:true}).fill('9');
+      await page.getByRole('button',{name:'Bald',exact:true}).click();
+      await page.getByRole('button',{name:'Full body',exact:true}).click();
+    }
     await tab('Tattoos');
     await page.getByRole('button',{name:'Both Arms',exact:true}).click();
     await preview.screenshot({path:`artifacts/athlete-creator/ink-${width}.png`});
