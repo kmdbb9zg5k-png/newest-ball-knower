@@ -10,7 +10,7 @@ const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','
 let browser;const results=[];
 try{
  let ready=false;for(let i=0;i<100;i++){try{if((await fetch(base)).ok){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,200))}assert.ok(ready);
- await mkdir(out,{recursive:true});browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_PATH||undefined});
+ await mkdir(out,{recursive:true});browser=await chromium.launch({args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader'],headless:true,executablePath:process.env.BROWSER_PATH||undefined});
  for(const width of [320,390,1280]){
   const context=await browser.newContext({viewport:{width,height:width===1280?900:844},deviceScaleFactor:2,isMobile:width<768,hasTouch:width<768,...(live&&width===390?{recordVideo:{dir:`${out}/video`,size:{width,height:844}}}:{})});
   const page=await context.newPage();const crashes=[];let calls=0;
@@ -24,7 +24,7 @@ try{
    for(const key of ['bk-guide-fantasy-hq-v3','bk-guide-picks-v3','bk-guide-the-gauntlet-v4','bk-guide-franchise-command-v1'])localStorage.setItem(key,'seen');
   });
   await page.goto(base,{waitUntil:'domcontentloaded'});await page.locator('.bk-home-stadium').waitFor();
-  const home=async()=>{await page.getByRole('button',{name:'Ball Knower home',exact:true}).click();await page.locator('.bk-home-stadium').waitFor()};
+  const home=async()=>{const creator=page.getByRole('dialog',{name:'Create your career player',exact:true});if(await creator.isVisible())await creator.getByRole('button',{name:'Back to Solo Franchise Hub',exact:true}).click();await page.getByRole('button',{name:'Ball Knower home',exact:true}).click();await page.locator('.bk-home-stadium').waitFor()};
   const primary=async name=>{await page.getByRole('button',{name,exact:true}).filter({visible:true}).first().click()};
   const capture=async(name,scene,label=name)=>{
    const stage=page.locator(`.bk-screen[data-page="${name}"]`).first();await stage.waitFor();
@@ -34,7 +34,8 @@ try{
    const geometry=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,headerBottom:document.querySelector('body>header')?.getBoundingClientRect().bottom??0,stageTop:document.querySelector('.bk-screen')?.getBoundingClientRect().top}));
    assert.ok(geometry.scroll<=width+1,`${name} overflow at ${width}: ${geometry.scroll}`);
    assert.ok(geometry.stageTop>=geometry.headerBottom-1,`${name} covered by fixed header`);
-   if(width<768)assert.equal(await page.getByRole('navigation',{name:'Primary navigation'}).locator('button').count(),6);
+   if(name==='my-player'){const creator=page.getByRole('dialog',{name:'Create your career player',exact:true});assert(await creator.isVisible());assert.equal(await creator.getByRole('tab').count(),5);assert(await creator.getByRole('button',{name:'Save & enter the Combine',exact:true}).isVisible());}
+   else if(width<768)assert.equal(await page.getByRole('navigation',{name:'Primary navigation'}).locator('button').count(),6);
    console.log('Captured',name,width);
    await page.screenshot({path:`${out}/${label}-${width}.png`,fullPage:false});results.push({screen:label,scene,width,...geometry});
   };

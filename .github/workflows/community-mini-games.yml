@@ -57,7 +57,7 @@ jobs:
       fail-fast: false
       max-parallel: 2
       matrix:
-        suite: [athlete-creator, mini-challenges, athlete-locker, control-settings, dash-ghost, competition-arena, my-player-field, full-game-control-settings, presentation-clock]
+        suite: [athlete-creator, career-athlete-creator, mini-challenges, athlete-locker, control-settings, dash-ghost, competition-arena, my-player-field, full-game-control-settings, presentation-clock]
     steps:
       - uses: actions/checkout@v4
         with:

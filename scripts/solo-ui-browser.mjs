@@ -8,7 +8,7 @@ let browser;const results=[];
 try{
  for(let i=0;i<100;i++){try{if((await fetch(base)).ok)break}catch{}await new Promise(r=>setTimeout(r,200))}
  await mkdir(out,{recursive:true});
- browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_PATH||process.env.CHROMIUM_PATH||undefined});
+ browser=await chromium.launch({args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader'],headless:true,executablePath:process.env.BROWSER_PATH||process.env.CHROMIUM_PATH||undefined});
  for(const width of [390,320,1280]){
   const context=await browser.newContext({viewport:{width,height:844},deviceScaleFactor:1,isMobile:width<768,hasTouch:width<768,reducedMotion:'reduce'});
   const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -17,7 +17,7 @@ try{
   await page.route('**/api/**',r=>{const path=new URL(r.request().url()).pathname;const data=path==='/api/media'?{tracks:[],introUrl:null}:path==='/api/nfl-news'?{available:true,articles:[]}:{available:false,ok:true,games:[]};return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)})});
   await page.addInitScript(()=>{localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','1');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off');localStorage.setItem('bk-guide-franchise-command-v1','seen')});
   await page.goto(base,{waitUntil:'domcontentloaded'});await page.locator('.bk-home-stadium').waitFor({timeout:45000});
-  const hub=async()=>{await page.getByRole('button',{name:'Ball Knower home',exact:true}).click();await page.locator('.bk-home-stadium').waitFor();await page.getByRole('button',{name:'Play Solo Mode',exact:true}).click();await page.locator('.bk-mode-card').first().waitFor()};
+  const hub=async()=>{const creator=page.getByRole('dialog',{name:'Create your career player',exact:true});if(await creator.isVisible())await creator.getByRole('button',{name:'Back to Solo Franchise Hub',exact:true}).click();await page.getByRole('button',{name:'Ball Knower home',exact:true}).click();await page.locator('.bk-home-stadium').waitFor();await page.getByRole('button',{name:'Play Solo Mode',exact:true}).click();await page.locator('.bk-mode-card').first().waitFor()};
   const shot=async name=>{await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(100);const w=await page.evaluate(()=>document.documentElement.scrollWidth);assert(w<=width+1,`${name} overflow ${w} at ${width}`);await page.screenshot({path:`${out}/${name}-${width}.png`});results.push({screen:name,width})};
   await hub();await shot('hub');await page.locator('.bk-mode-card').filter({hasText:'CAP CHALLENGE'}).click();await page.getByPlaceholder('Search players...').fill('Eli Rodriguez');const open=page.locator('button.bk-solo-player-link[data-solo-player-id="bk-001-eli-rodriguez"]');await open.waitFor();await open.click();
   const dialog=page.locator('.bk-solo-profile');await dialog.waitFor();await dialog.locator('.bk-solo-hero-art [data-render-state="ready"]').waitFor();await shot('profile');
