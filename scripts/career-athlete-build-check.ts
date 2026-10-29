@@ -10,7 +10,7 @@ const trained={...created,stage:'combine',speed:created.speed+3,power:created.po
 const heavier=applyCareerBuild(trained,{weightLbs:270});
 assert.equal(heavier.speed,athleteMovement(heavier).speed+3,'Keep story training bonus');
 assert.equal(heavier.power,athleteMovement(heavier).strength+2);
-assert.deepEqual(heavier.combinePerformance.results,{},'Old workout marks do not carry to a different build');
+assert.deepEqual(heavier.combinePerformance,trained.combinePerformance,'Body edits cannot reopen a completed official session');
 assert.deepEqual(heavier.draftJourney,trained.draftJourney,'Story choices persist');
 assert.deepEqual(applyCareerBuild(trained,{name:'New name'}).combinePerformance,trained.combinePerformance,'Cosmetic edits preserve marks');
 assert.deepEqual(applyCareerBuild(heavier),heavier,'Repeated saves cannot farm ratings');
@@ -22,7 +22,7 @@ assert.equal(athletePortrait({presetFaceId:'malik'}),'','No unrelated default po
 assert.equal(athletePortrait({athletePortrait:picture}),picture);
 assert.equal(athletePortrait({athletePortrait:'https://evil.invalid/pic'}),'');
 assert.equal(athletePortrait({portraitSource:'preset',presetFaceId:'nico'}),'/solo-characters/v2/my-player-presets/nico/portrait.webp');
-console.log('PASS build-based career ratings, position invariance, legacy bonuses, idempotent saves, workout invalidation, story preservation, full dimensions and actual-athlete portrait.');
+console.log('PASS build-based career ratings, position invariance, legacy bonuses, idempotent saves, official workout locks, story preservation, full dimensions and actual-athlete portrait.');
 
 for(const presetFaceId of ['mason','nico','darius']){
  assert.equal(athletePortrait({presetFaceId}),`/solo-characters/v2/my-player-presets/${presetFaceId}/portrait.webp`,'Keep identifiable legacy portrait choices');
