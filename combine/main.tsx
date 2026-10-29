@@ -43,7 +43,7 @@ function CombineEntry(){
   const [started,setStarted]=useState(competitive);
   if(started)return <Drill/>;
   const name=drillNames[drill||'dash']||drillNames.dash;
-  return <main className="combine-entry" aria-label={`${name} athlete setup`}><header><button type="button" onClick={exit} aria-label="Back to Mini Games">‹</button><div><span>BALL KNOWER / MINI COMBINE</span><h1>Create your athlete before the {name}</h1><p>Set your body and movement style now. The drill will not load until you save and start.</p></div></header><MiniGameAthleteBuilder actionLabel={`Save & start ${name}`} onContinue={()=>setStarted(true)}/></main>;
+  return <main className="combine-entry" aria-label={`${name} athlete setup`}><header><button type="button" onClick={exit} aria-label="Back to Mini Games">‹</button><div><span>BALL KNOWER / MINI COMBINE</span><h1>{name}</h1></div></header><MiniGameAthleteBuilder actionLabel={`Save & start ${name}`} onContinue={()=>setStarted(true)}/></main>;
 }
 
 createRoot(document.getElementById('root')!).render(<CombineEntry/>);

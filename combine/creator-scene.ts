@@ -19,14 +19,17 @@ export async function createCreatorScene(host:HTMLElement,initial:any){
   let runner:Awaited<ReturnType<typeof loadCombineRunner>>;
   try{runner=await loadCombineRunner(initial);}catch(error){renderer.dispose();renderer.domElement.remove();floor.geometry.dispose();floor.material.dispose();throw error;}
   scene.add(runner.root);
-  let angle=.16,disposed=false;
+  let angle=.16,disposed=false,view:'body'|'head'='body',athleteHeight=initial.heightInches||72;
   function draw(){if(!disposed)renderer.render(scene,camera);}
   function resize(){
     const width=host.clientWidth,height=host.clientHeight;if(!width||!height)return;
     renderer.setSize(width,height,false);camera.aspect=width/height;
-    camera.position.set(0,1.07,Math.max(3.9,1.9/camera.aspect));camera.lookAt(0,1.02,0);camera.updateProjectionMatrix();draw();
+    const head=1.72*athleteHeight/72;
+    if(view==='head'){camera.position.set(0,head,Math.max(1.05,.65/camera.aspect));camera.lookAt(0,head-.12,0);}
+    else{camera.position.set(0,1.07,Math.max(3.9,1.9/camera.aspect));camera.lookAt(0,1.02,0);}
+    camera.updateProjectionMatrix();draw();
   }
-  function update(profile:any){runner.setAthlete(profile);runner.poseCreator(profile);runner.root.rotation.y=angle;draw();}
+  function update(profile:any){athleteHeight=profile.heightInches||72;runner.setAthlete(profile);runner.poseCreator(profile);runner.root.rotation.y=angle;resize();}
   function rotate(value:number){angle=value;runner.root.rotation.y=angle;draw();}
   update(initial);
   const observer=new ResizeObserver(resize);observer.observe(host);resize();
@@ -34,7 +37,7 @@ export async function createCreatorScene(host:HTMLElement,initial:any){
   // returns, including browsers that discard offscreen WebGL compositor tiles.
   const visibility=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting))requestAnimationFrame(draw);});
   visibility.observe(host);
-  return {update,rotate,dispose(){
+  return {update,rotate,setView(next:'body'|'head'){view=next;resize();},dispose(){
     disposed=true;observer.disconnect();visibility.disconnect();
     const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>(),textures=new Set<T.Texture>();
     scene.traverse(object=>{const mesh=object as T.Mesh;if(mesh.geometry)geometries.add(mesh.geometry);for(const material of Array.isArray(mesh.material)?mesh.material:[mesh.material])if(material){materials.add(material);for(const value of Object.values(material))if(value instanceof T.Texture)textures.add(value);}});
