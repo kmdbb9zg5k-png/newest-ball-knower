@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import {officialSessionResult,recordOfficialDraftDrill,recordDraftDrill,cleanDraftCombine,calculatePlayedCombine,type DraftDrill} from '../myPlayerDraftCombine';
+import {officialCombineStandings} from '../officialCombine';
+import {journeyProspects,cleanJourney} from '../myPlayerJourney';
+const profile={name:'Eli Official',position:'WR' as const,combineId:'locked-class'};
+assert.equal(officialSessionResult('dash',[{time:4.75}]),null);
+assert.deepEqual(officialSessionResult('dash',[{time:4.75},{time:4.8}]),{time:4.75,attempt1:4.75,attempt2:4.8});
+assert.deepEqual(officialSessionResult('dash',[{time:60,dnf:1},{time:4.75}]),{time:4.75,attempt1:-1,attempt2:4.75});
+assert.deepEqual(officialSessionResult('broad-jump',[{distance:0},{distance:2.8}]),{distance:2.8,attempt1:0,attempt2:2.8});
+assert.deepEqual(officialSessionResult('bench',[{reps:17},{reps:20}]),{reps:20,attempt1:17,attempt2:20});
+assert.equal(officialSessionResult('routes',[{score:90,reps:1}]),null);
+let record=recordOfficialDraftDrill(undefined,'dash',{time:4.75});
+assert.deepEqual(recordOfficialDraftDrill(record,'dash',{time:4.2}),record,'No second official session');
+record=cleanDraftCombine(JSON.parse(JSON.stringify(record)));
+assert.deepEqual(recordOfficialDraftDrill(record,'dash',{time:4.1}),record,'Lock survives reload');
+assert.equal(recordDraftDrill(record,'dash',{time:4.2}).results.dash!.best,4.2,'Generic practice recorder remains replayable');
+const dnf=recordOfficialDraftDrill(undefined,'dash',officialSessionResult('dash',[{time:60,dnf:1},{time:60,dnf:1}])!);
+assert(dnf.results.dash!.dnf);assert(cleanDraftCombine(JSON.parse(JSON.stringify(dnf))).results.dash!.dnf);
+assert.deepEqual(recordOfficialDraftDrill(dnf,'dash',{time:4.2}),dnf,'Both false starts consume the official session');
+let finished=dnf;for(const [drill,stats] of [['shuttle',{time:4.5}],['broad-jump',{distance:2.8}],['bench',{reps:20}]] as [DraftDrill,Record<string,number>][])finished=recordOfficialDraftDrill(finished,drill,stats);
+assert(calculatePlayedCombine('QB',finished),'DNF does not trap draft progression');
+const rows=officialCombineStandings(profile,'dash',record.results.dash!);
+assert.equal(rows.length,257);assert(rows.find(r=>r.mine)!.rank>5);assert(rows.slice(0,5).every(r=>r.mark<4.75&&!r.mine));
+const identities=new Set(journeyProspects(cleanJourney(undefined,profile).seed).map(p=>p.id+':'+p.name));
+assert(rows.filter(r=>!r.mine).every(r=>identities.has(r.id+':'+r.name)),'Same prospects as draft night');
+assert.deepEqual(officialCombineStandings(profile,'dash',record.results.dash!),rows,'Reload cannot reroll peers');
+const elite=officialCombineStandings(profile,'dash',{best:4.1,last:4.1,attempts:2});assert(elite[0].mine);
+const tied=officialCombineStandings(profile,'dash',{best:rows[0].mark,last:rows[0].mark,attempts:2});assert.equal(tied.find(r=>r.mine)!.rank,1);
+for(const drill of ['shuttle','bench','broad-jump','routes','rb','db'] as DraftDrill[]){const r=officialCombineStandings(profile,drill,{best:0,last:0,attempts:2});assert(r.length>=6);for(let i=1;i<r.length;i++)assert(drill==='shuttle'?r[i-1].mark<=r[i].mark:r[i-1].mark>=r[i].mark);}
+console.log('PASS official session aggregation, immutable records/reloads, DNF progression, practice replay, same draft identities, stable top five, outside rank, ties and all event directions.');
+
+const detailed=recordOfficialDraftDrill(undefined,'dash',officialSessionResult('dash',[{time:4.75,split10:1.6,split20:2.7},{time:4.8,split10:1.7,split20:2.8}])!);assert.deepEqual(detailed.results.dash!.marks,[4.75,4.8]);assert.deepEqual(detailed.results.dash!.details,{split10:1.6,split20:2.7});assert.deepEqual(cleanDraftCombine(JSON.parse(JSON.stringify(detailed))),detailed);

@@ -10,7 +10,7 @@ import {createCareerLife,cleanCareerLife,chooseCamp,campScore,finishCamp,chooseW
 import {MyPlayerJourney,MyPlayerDraftNight} from './MyPlayerJourney';
 import {journeyMetrics,chooseJourney,cleanJourney,journeyOptions,nextJourneyChapter,resolveJourneyDraft,type JourneyChapter,type JourneyState} from './myPlayerJourney';
 import {currentCareerRole,type MyPlayerRole} from './myPlayerOpportunity';
-import {calculatePlayedCombine,cleanDraftCombine,recordDraftDrill,type DraftCombinePerformance,type DraftDrill} from './myPlayerDraftCombine';
+import {calculatePlayedCombine,cleanDraftCombine,recordOfficialDraftDrill,type DraftCombinePerformance,type DraftDrill} from './myPlayerDraftCombine';
 export {calculateCombineResults} from './myPlayerCombine';
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
@@ -349,7 +349,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
     return {...current,teamAbbr:team,rookieRole:offer.role==='Starter candidate'?'starter':offer.role==='Rotation prospect'?'rotation':'development',draftJourney:{...current.draftJourney,signedTeam:team}};
   });
 
-  const recordCombineResult=(drill:DraftDrill,stats:Record<string,number>)=>setProfile(current=>current.stage==='combine'?{...current,combinePerformance:recordDraftDrill(current.combinePerformance,drill,stats)}:current);
+  const recordCombineResult=(drill:DraftDrill,stats:Record<string,number>)=>setProfile(current=>current.stage==='combine'?{...current,combinePerformance:recordOfficialDraftDrill(current.combinePerformance,drill,stats)}:current);
 
   const beginSeason = () => {
     if(profile.stage!=='drafted')return;
@@ -444,7 +444,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
 
   if(profile.stage==='creator'||editing)return <BroadcastStage scene="locker" page="my-player" quiet>
     <CareerCreatorDialog onBack={editing?()=>setEditing(false):onBack} onReset={newCareer}>
-      <AthleteCreatorStudio profile={profile} onPortrait={savePortrait} positionLocked={profile.stage!=='creator'} buildNote={editing?'Changing measurements clears previous workout marks. Your story choices stay saved.':undefined} onChange={patch=>{setMessage('');setProfile(current=>applyCareerBuild<MyPlayerProfile>(current,patch));}} onSave={enterCombine} actionLabel={editing?"Save & return to Combine":"Save & enter the Combine"} ariaLabel="Career athlete builder" nameLabel="Career player name" jerseyLabel="Career jersey number" error={saveError} message={message} note={editing?"Adjust your athlete before draft night. Changing your body resets workout marks so you can test your new build. Story choices stay saved.":"Create your athlete, then earn your draft spot in the Combine. Changing position keeps your custom build, speed and appearance."} faceExtras={
+      <AthleteCreatorStudio profile={profile} onPortrait={savePortrait} positionLocked={profile.stage!=='creator'} buildNote={editing?'Completed Combine results stay locked when you edit your player.':undefined} onChange={patch=>{setMessage('');setProfile(current=>applyCareerBuild<MyPlayerProfile>(current,patch));}} onSave={enterCombine} actionLabel={editing?"Save & return to Combine":"Save & enter the Combine"} ariaLabel="Career athlete builder" nameLabel="Career player name" jerseyLabel="Career jersey number" error={saveError} message={message} note={editing?"Adjust your athlete before draft night. Completed Combine results and story choices stay saved.":"Create your athlete, then earn your draft spot in the Combine. Changing position keeps your custom build, speed and appearance."} faceExtras={
         <details className="bk-career-portrait"><summary>Optional career portrait</summary>
           <p>Choose a portrait or use a selfie for your career cards. Your 3D athlete uses the appearance controls above.</p>
           <button type="button" className="career-secondary" onClick={()=>setProfile(current=>({...current,portraitSource:'created',faceImage:'',renderImage:''}))}>Use my created athlete</button><div className="bk-portrait-options">{FACE_PRESETS.map(face=><button key={face.id} type="button" aria-label={`${face.name} career portrait`} aria-pressed={usesPresetAthletePortrait(profile)&&!profile.faceImage&&profile.presetFaceId===face.id} onClick={()=>setProfile(current=>({...current,presetFaceId:face.id,portraitSource:'preset',faceImage:'',renderImage:''}))}><PresetFace face={face} small/><span>{face.name}</span></button>)}</div>

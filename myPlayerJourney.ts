@@ -91,9 +91,12 @@ export function careerTeamInterest(raw:JourneyState|undefined,profile:JourneyPro
 }
 const firstNames=['Mason','Darius','Nico','Jalen','Cameron','Roman','Blake','Tyrell','Miles','Adrian','Devin','Kai','Malik','Cole','Julian','Andre'];
 const lastNames=['Hayes','Bennett','Carter','Reed','Brooks','Walker','Morgan','Price','Hughes','Coleman','Foster','Grant','Rivera','Mitchell','Ross'];
+export function journeyProspects(seed:number){
+ const positions=['QB','RB','RB','WR','WR','WR','WR','TE','TE','OT','OT','OT','OG','OG','C','EDGE','EDGE','EDGE','DT','DT','LB','LB','CB','CB','CB','S','S','K','P'];return Array.from({length:256},(_,i)=>{const h=journeyHash(`${seed}:prospect:${i}`);return {id:`prospect-${i}`,name:`${firstNames[i%16]} ${lastNames[Math.floor(i/16)%15]}${i>=240?' Jr.':''}`,position:positions[h%positions.length],grade:35+(h%610)/10-(['K','P'].includes(positions[h%positions.length])?12:0)};});
+}
 export function resolveJourneyDraft(raw:JourneyState|undefined,profile:JourneyProfile,combineGrade:number):JourneyDraft{
  const state=cleanJourney(raw,profile);const frozen=state.draftBaseGrade??combineGrade;const grade=journeyGrade(state,profile,frozen);const interests=careerTeamInterest(state,profile,frozen);
- const positions=['QB','RB','RB','WR','WR','WR','WR','TE','TE','OT','OT','OT','OG','OG','C','EDGE','EDGE','EDGE','DT','DT','LB','LB','CB','CB','CB','S','S','K','P'];const pool=Array.from({length:256},(_,i)=>{const h=journeyHash(`${state.seed}:prospect:${i}`);return {id:`prospect-${i}`,name:`${firstNames[i%16]} ${lastNames[Math.floor(i/16)%15]}${i>=240?' Jr.':''}`,position:positions[h%positions.length],grade:35+(h%610)/10-(['K','P'].includes(positions[h%positions.length])?12:0)};});
+ const pool=journeyProspects(state.seed);
  pool.push({id:'me',name:profile.name,position:profile.position,grade:grade.grade});
  const available=new Set(pool.map(p=>p.id));const board:DraftPick[]=[];let myPick:DraftPick|undefined;
  const order=[...SOLO_TEAM_THEMES].sort((a,b)=>journeyHash(`${state.seed}:order:${a.abbr}`)-journeyHash(`${state.seed}:order:${b.abbr}`));const draftedBy=new Map<string,string[]>();
