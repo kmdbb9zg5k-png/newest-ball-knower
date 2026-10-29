@@ -56,7 +56,7 @@ try{
       await page.getByRole('button',{name:'Full body',exact:true}).click();
     }
     await tab('Tattoos');
-    await page.getByRole('button',{name:'Both Arms',exact:true}).click();
+    await page.getByRole('button',{name:'Full Sleeve',exact:true}).click();await page.getByRole('button',{name:'Both Arms',exact:true}).click();
     await preview.screenshot({path:`artifacts/athlete-creator/ink-${width}.png`});
     const ink=await rendered();
     assert(!bald.equals(ink),'Tattoo choices visibly change the rendered athlete');
@@ -73,7 +73,7 @@ try{
     await tab('Hair');
     await page.getByRole('button',{name:'Braids',exact:true}).click();
     await tab('Tattoos');
-    await page.getByRole('button',{name:'Both Arms',exact:true}).click();
+    await page.getByRole('button',{name:'Full Sleeve',exact:true}).click();await page.getByRole('button',{name:'Both Arms',exact:true}).click();
     await page.getByRole('button',{name:'Geometric',exact:true}).click();
     await preview.screenshot({path:`artifacts/athlete-creator/custom-${width}.png`});
     await page.getByLabel('Rotate athlete',{exact:true}).press('End');

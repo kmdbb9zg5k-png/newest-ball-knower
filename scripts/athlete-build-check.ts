@@ -31,7 +31,7 @@ assert.match(entry,/Save & start \$\{name\}/,'the direct Combine entry requires 
 assert.match(entry,/function playersForDrill\(\)/,'the drill reads the saved athlete only after setup completes');
 assert.match(entry,/if\(competitive\)return\[dressMyAthlete\(withAthleteIdentity/,'challenge entry uses one normalized athlete');
 assert.match(readFileSync(new URL('../combine/meshy-runner.js',import.meta.url),'utf8'),/asset\.scale\.y\*=height/,'the actual 3D rig changes with height');
-assert.deepEqual(sanitizeAthleteAppearance({skinTone:'fair',hairStyle:'braids',hairColor:'auburn',facialHair:'goatee',tattooCoverage:'both-arms',tattooStyle:'geometric'}),{skinTone:'fair',hairStyle:'braids',hairColor:'auburn',facialHair:'goatee',tattooCoverage:'both-arms',tattooStyle:'geometric'});
+assert.deepEqual(sanitizeAthleteAppearance({skinTone:'fair',hairStyle:'braids',hairColor:'auburn',facialHair:'goatee',tattooCoverage:'both-arms',tattooStyle:'geometric'}),{skinTone:'fair',hairStyle:'braids',hairColor:'auburn',facialHair:'goatee',tattooCoverage:'full-sleeve',tattooStyle:'geometric',tattooArms:'both'});
 assert.equal(sanitizeAthleteAppearance({skinTone:'unsafe'}).skinTone,'warm brown','invalid cosmetic values fall back safely');
 const livePreview=readFileSync(new URL('../AthleteLivePreview.tsx',import.meta.url),'utf8');
 assert.match(livePreview,/data-arm-size=\{profile\.armSize\}/,'the preview exposes live arm sizing');

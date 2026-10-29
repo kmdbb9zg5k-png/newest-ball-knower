@@ -1,5 +1,6 @@
 import * as T from 'three';
 import {outfitLook} from '../playerWardrobe.ts';
+import {armTattooUV} from './arm-tattoo-uv.js';
 import {buildAthleteHair} from './athlete-hair.js';
 import { simulatedPlayerIdentity } from '../solo/artIdentity.ts';
 
@@ -8,8 +9,8 @@ import { simulatedPlayerIdentity } from '../solo/artIdentity.ts';
 export function combineAppearance(player) {
   const identity=simulatedPlayerIdentity(player.cosmeticIdentityId?{...player,id:player.cosmeticIdentityId}:player),custom=player.athleteAppearance;
   if(!custom)return identity;
-  const tattooProfile=custom.tattooCoverage==='none'?'none':custom.tattooCoverage==='minimal'?'minimal':custom.tattooCoverage==='both-arms'?'both arms':custom.tattooCoverage==='half-sleeve'?'half sleeve':custom.tattooCoverage==='full-sleeve'?'full sleeve':'one arm';
-  return {...identity,skinTone:custom.skinTone,hairStyle:custom.hairStyle,hairColor:custom.hairColor,facialHair:custom.facialHair,tattooProfile,tattooStyle:custom.tattooStyle,tattooCoverage:custom.tattooCoverage};
+  const tattooProfile=custom.tattooCoverage==='none'?'none':custom.tattooArms==='both'?'both arms':custom.tattooCoverage==='minimal'?'minimal':custom.tattooCoverage==='both-arms'?'both arms':custom.tattooCoverage==='half-sleeve'?'half sleeve':custom.tattooCoverage==='full-sleeve'?'full sleeve':'one arm';
+  return {...identity,skinTone:custom.skinTone,hairStyle:custom.hairStyle,hairColor:custom.hairColor,facialHair:custom.facialHair,tattooProfile,tattooStyle:custom.tattooStyle,tattooCoverage:custom.tattooCoverage,tattooArms:custom.tattooArms};
 }
 const SKIN = {
   'deep ebony':'#51352b','dark brown':'#684330','rich brown':'#805338',
@@ -86,16 +87,17 @@ export function createPlayerAppearance(body,bones) {
       vertices.push({p:new T.Vector3().fromBufferAttribute(positions,i).applyMatrix4(transform),n:new T.Vector3().fromBufferAttribute(normals,i).applyMatrix3(normalTransform).normalize(),influence});
     }
     geometry.setAttribute('bkArmSkin',new T.Float32BufferAttribute(armMask,1));
+    geometry.setAttribute('bkInkUV',new T.Float32BufferAttribute(armTattooUV(geometry,armMask),2));
     for(let i=0;i<(indices?.count||positions.count);i+=3){const tri=[0,1,2].map(k=>vertices[indices?indices.getX(i+k):i+k]);if(tri.every(v=>v.influence>.5))triangles.push(tri);}
     for(const material of(Array.isArray(mesh.material)?mesh.material:[mesh.material])){
-      const tint={value:new T.Vector3(1,1,1)},tattooCoverage={value:0},tattooStyle={value:0};
+      const tint={value:new T.Vector3(1,1,1)},tattooCoverage={value:0},tattooStyle={value:0},tattooArms={value:0};
       const kit={enabled:{value:0},top:{value:new T.Color()},shorts:{value:new T.Color()},shoes:{value:new T.Color()},wrist:{value:new T.Color()},bands:{value:0},pattern:{value:0},accent:{value:new T.Color()}};
-      skinUniforms.push({tint,tattooCoverage,tattooStyle,kit});
+      skinUniforms.push({tint,tattooCoverage,tattooStyle,tattooArms,kit});
       material.onBeforeCompile=shader=>{
         for(const [name,uniform] of Object.entries(kit))shader.uniforms['bkKit_'+name]=uniform;
-        shader.uniforms.bkSkinTint=tint;shader.uniforms.bkTattooCoverage=tattooCoverage;shader.uniforms.bkTattooStyle=tattooStyle;
-        shader.vertexShader='attribute float bkArmSkin; varying float bkArmMask; varying vec3 bkTattooPosition;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nbkTattooPosition=position;bkArmMask=bkArmSkin;');
-        shader.fragmentShader='uniform float bkKit_enabled; uniform vec3 bkKit_top; uniform vec3 bkKit_shorts; uniform vec3 bkKit_shoes; uniform vec3 bkKit_wrist; uniform float bkKit_bands; uniform float bkKit_pattern; uniform vec3 bkKit_accent; uniform vec3 bkSkinTint; uniform float bkTattooCoverage; uniform float bkTattooStyle; varying float bkArmMask; varying vec3 bkTattooPosition;\n'+shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
+        shader.uniforms.bkSkinTint=tint;shader.uniforms.bkTattooCoverage=tattooCoverage;shader.uniforms.bkTattooStyle=tattooStyle;shader.uniforms.bkTattooArms=tattooArms;
+        shader.vertexShader='attribute vec2 bkInkUV; varying vec2 bkTattooUV; attribute float bkArmSkin; varying float bkArmMask; varying vec3 bkTattooPosition;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nbkTattooPosition=position;bkArmMask=bkArmSkin;bkTattooUV=bkInkUV;');
+        shader.fragmentShader='uniform float bkTattooArms; varying vec2 bkTattooUV; uniform float bkKit_enabled; uniform vec3 bkKit_top; uniform vec3 bkKit_shorts; uniform vec3 bkKit_shoes; uniform vec3 bkKit_wrist; uniform float bkKit_bands; uniform float bkKit_pattern; uniform vec3 bkKit_accent; uniform vec3 bkSkinTint; uniform float bkTattooCoverage; uniform float bkTattooStyle; varying float bkArmMask; varying vec3 bkTattooPosition;\n'+shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
           // The supplied model has permanent sleeve ink in its albedo. Replace
           // only exposed arm skin before applying optional ink. Bind-space
           // coordinates keep the selected pattern attached during animation.
@@ -112,15 +114,15 @@ export function createPlayerAppearance(body,bones) {
           diffuseColor.rgb*=mix(vec3(1.0),bkSkinTint,skinMask);
           float along=abs(bkTattooPosition.x);
           float arm=bkArmMask*(1.0-smoothstep(36.0,39.0,along));
-          float left=step(bkTattooPosition.x,0.0),both=step(5.5,bkTattooCoverage);
-          float side=mix(left,1.0,both),vertical=1.0;
+          float right=step(bkTattooPosition.x,0.0);
+          float side=bkTattooArms>1.5?1.0:(bkTattooArms>.5?1.0-right:right),vertical=1.0;
           if(bkTattooCoverage<1.5)vertical=smoothstep(18.0,19.0,along)*(1.0-smoothstep(21.0,22.0,along));
           if(bkTattooCoverage>1.5&&bkTattooCoverage<2.5)vertical=1.0-smoothstep(22.0,24.0,along);
           if(bkTattooCoverage>2.5&&bkTattooCoverage<3.5)vertical=smoothstep(24.0,26.0,along);
           if(bkTattooCoverage>3.5&&bkTattooCoverage<4.5)vertical=1.0-smoothstep(26.0,28.0,along);
           // Preserve the source's detailed ink drawing for blackwork, while
           // geometric ink uses fine diamond outlines rather than broad bands.
-          float sourceInk=1.0-smoothstep(.10,.32,sourceSkin.r);
+          float sourceInk=1.0-smoothstep(.10,.32,texture2D(map,bkTattooUV).r);
           vec2 inkUV=vec2(along*.32,(bkTattooPosition.y+bkTattooPosition.z*.7)*.32);
           vec2 cell=abs(fract(vec2(inkUV.x+inkUV.y,inkUV.x-inkUV.y))-.5);
           float edge=min(cell.x,cell.y),aa=max(fwidth(edge),.012);
@@ -160,7 +162,7 @@ export function createPlayerAppearance(body,bones) {
           diffuseColor.rgb*=1.+.025*weave*weaveAA*(1.-skinMask);
           #endif
         `);
-      };material.customProgramCacheKey=()=> 'combine-custom-skin-wardrobe-v1';material.needsUpdate=true;
+      };material.customProgramCacheKey=()=> 'combine-custom-skin-wardrobe-arms-v2';material.needsUpdate=true;
     }
   });
   head.add(group);
@@ -169,14 +171,14 @@ export function createPlayerAppearance(body,bones) {
   function apply(player){
     const outfit=player.wardrobe?outfitLook(player.wardrobe):null;
     for(const u of skinUniforms){u.kit.enabled.value=outfit?1:0;if(outfit){for(const slot of ['top','shorts','shoes','wrist'])u.kit[slot].value.set(outfit[slot].color);u.kit.bands.value=outfit.wrist.id==='wrist-none'?0:1;u.kit.pattern.value=outfit.top.pattern?1:0;u.kit.accent.value.set(outfit.top.accent||outfit.top.color);}}
-    const look=combineAppearance(player),key=[look.skinTone,look.hairStyle,look.hairColor,look.facialHair,look.tattooProfile,look.tattooStyle,look.tattooCoverage].join('|');
+    const look=combineAppearance(player),key=[look.skinTone,look.hairStyle,look.hairColor,look.facialHair,look.tattooProfile,look.tattooStyle,look.tattooCoverage,look.tattooArms].join('|');
     body.userData.playerId=player.id;body.userData.playerName=player.name;body.userData.appearance=look;
     if(currentKey===key)return;currentKey=key;
     const reference=new T.Color('#b17b4b'),color=new T.Color(SKIN[look.skinTone]);
     const coverageCodes={none:0,minimal:1,'upper-arm':2,forearm:3,'half-sleeve':4,'full-sleeve':5,'both-arms':6};
     const styleCodes={blackwork:0,geometric:1,script:2,traditional:3,mixed:4};
     const coverage=look.tattooCoverage||({none:'none',minimal:'minimal','one arm':'upper-arm','half sleeve':'half-sleeve','full sleeve':'full-sleeve','both arms':'both-arms'}[look.tattooProfile]||'none');
-    for(const u of skinUniforms){u.tint.value.set(color.r/reference.r,color.g/reference.g,color.b/reference.b);u.tattooCoverage.value=coverageCodes[coverage]??0;u.tattooStyle.value=styleCodes[look.tattooStyle]??4;}
+    for(const u of skinUniforms){u.tint.value.set(color.r/reference.r,color.g/reference.g,color.b/reference.b);u.tattooCoverage.value=coverageCodes[coverage]??0;u.tattooStyle.value=styleCodes[look.tattooStyle]??4;u.tattooArms.value=look.tattooArms==='both'||!look.tattooArms&&coverage==='both-arms'?2:look.tattooArms==='left'?1:0;}
     clear();const material=hairMaterial(HAIR[look.hairColor]);
     function add(geometry,name,mat=material){if(!geometry.attributes.position?.count){geometry.dispose();return;}if(!geometry.attributes.bkCoverage)geometry.setAttribute('bkCoverage',new T.Float32BufferAttribute(new Float32Array(geometry.attributes.position.count).fill(1),1));const mesh=new T.Mesh(geometry,mat);mesh.name=name;mesh.castShadow=true;group.add(mesh);}
     const style=look.hairStyle;

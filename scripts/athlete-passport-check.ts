@@ -15,7 +15,7 @@ assert.equal(athletePassport({...base,stage:'combine',draftRound:7,draftPick:32}
 assert.equal(athletePassport({...base,combineId:'career-b',careerArc:undefined,combinePerformance:undefined,gamesPlayed:0,careerLife:undefined,stage:'creator'})!.trophies.length,0,'A new player does not inherit the previous trophy room');
 assert.equal(athletePassport({...base,combinePerformance:{version:1,results:{dash:{best:NaN,last:4.6,attempts:1}}}})!.marks.length,0);
 const customized=athletePassport({...base,skinTone:'fair',hairStyle:'braids',hairColor:'auburn',facialHair:'goatee',tattooCoverage:'both-arms',tattooStyle:'geometric'})!;
-assert.deepEqual(customized.appearance,{skinTone:'fair',hairStyle:'braids',hairColor:'auburn',facialHair:'goatee',tattooCoverage:'both-arms',tattooStyle:'geometric'});
+assert.deepEqual(customized.appearance,{skinTone:'fair',hairStyle:'braids',hairColor:'auburn',facialHair:'goatee',tattooCoverage:'full-sleeve',tattooStyle:'geometric',tattooArms:'both'});
 
 // Exercise the actual cloud transformation/restore helpers with isolated storage.
 const source=readFileSync(new URL('../CloudSyncProvider.tsx',import.meta.url),'utf8');
