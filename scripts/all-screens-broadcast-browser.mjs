@@ -27,14 +27,15 @@ try{
   const home=async()=>{const creator=page.getByRole('dialog',{name:'Create your career player',exact:true});if(await creator.isVisible())await creator.getByRole('button',{name:'Back to Solo Franchise Hub',exact:true}).click();await page.getByRole('button',{name:'Ball Knower home',exact:true}).click();await page.locator('.bk-home-stadium').waitFor()};
   const primary=async name=>{await page.getByRole('button',{name,exact:true}).filter({visible:true}).first().click()};
   const capture=async(name,scene,label=name)=>{
-   const stage=page.locator(`.bk-screen[data-page="${name}"]`).first();await stage.waitFor();
+   const stage=page.locator(`.bk-screen[data-page="${name}"]`).first();await stage.waitFor({state:name==='my-player'?'attached':'visible'});
+   if(name==='my-player'){await page.getByRole('dialog',{name:'Create your career player',exact:true}).waitFor();await page.locator('[data-athlete-live-preview][data-render-state="ready"]').waitFor();}
    assert.equal(await stage.getAttribute('data-scene'),scene);
    assert.equal(await stage.locator('.bk-scene-motion').count(),0,`${name} must not render a motion button`);
    await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(200);
    const geometry=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,headerBottom:document.querySelector('body>header')?.getBoundingClientRect().bottom??0,stageTop:document.querySelector('.bk-screen')?.getBoundingClientRect().top}));
    assert.ok(geometry.scroll<=width+1,`${name} overflow at ${width}: ${geometry.scroll}`);
-   assert.ok(geometry.stageTop>=geometry.headerBottom-1,`${name} covered by fixed header`);
-   if(name==='my-player'){const creator=page.getByRole('dialog',{name:'Create your career player',exact:true});assert(await creator.isVisible());assert.equal(await creator.getByRole('tab').count(),5);assert(await creator.getByRole('button',{name:'Save & enter the Combine',exact:true}).isVisible());}
+   if(name!=='my-player')assert.ok(geometry.stageTop>=geometry.headerBottom-1,`${name} covered by fixed header`);
+   if(name==='my-player'){const creator=page.getByRole('dialog',{name:'Create your career player',exact:true});assert(await creator.isVisible());const bounds=await creator.boundingBox();assert(bounds.y===0&&bounds.width===width,'Career creator fills the visible screen');assert.equal(await creator.getByRole('tab').count(),5);assert(await creator.getByRole('button',{name:'Save & enter the Combine',exact:true}).isVisible());}
    else if(width<768)assert.equal(await page.getByRole('navigation',{name:'Primary navigation'}).locator('button').count(),6);
    console.log('Captured',name,width);
    await page.screenshot({path:`${out}/${label}-${width}.png`,fullPage:false});results.push({screen:label,scene,width,...geometry});

@@ -15,6 +15,7 @@ try{
   await page.goto('http://127.0.0.1:3076/career-creator-qa.html');
   const dialog=page.getByRole('dialog',{name:'Create your career player',exact:true}),preview=dialog.locator('[data-athlete-live-preview]');
   await dialog.waitFor();await preview.locator('canvas').waitFor();await page.locator('[data-render-state=ready]').waitFor();
+  const stageBox=await preview.locator('.bk-athlete-3d-stage').boundingBox(),toggleBox=await preview.locator('.bk-athlete-view-toggle').boundingBox();assert(stageBox.y>=toggleBox.y+toggleBox.height,'Camera controls must not cover the athlete');
   assert.equal(await dialog.getByRole('tab').first().innerText(),'Player');assert.equal(await dialog.getByRole('tab',{name:'Player',exact:true}).getAttribute('aria-selected'),'true');
   const tab=name=>dialog.getByRole('tab',{name,exact:true}).click(),read=()=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)),key);
   await dialog.getByRole('button',{name:'Save & enter the Combine',exact:true}).click();await dialog.getByText('Give your player a name.',{exact:true}).waitFor();assert(await dialog.isVisible());
