@@ -34,6 +34,26 @@ function surfaceGeometry(triangles,field,thickness) {
   }
   const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(points,3));geometry.setAttribute('normal',new T.Float32BufferAttribute(normals,3));geometry.setAttribute('bkCoverage',new T.Float32BufferAttribute(coverage,1));return geometry;
 }
+// Sample the actual upper lip: clipping only source triangle vertices loses
+// a narrow mustache when the entire band falls inside large face triangles.
+function mustacheGeometry(triangles){
+  const points=[],normals=[],coverage=[],indices=[],cols=48,rows=10;
+  const ray=new T.Ray(),hit=new T.Vector3(),direction=new T.Vector3(0,0,-1);
+  for(let j=0;j<=rows;j++)for(let i=0;i<=cols;i++){
+    const u=i/cols,v=j/rows,x=(u*2-1)*1.9,edge=Math.abs(x)/1.9;
+    const center=2.22-.17*edge,half=.30*Math.sqrt(Math.max(0,1-edge*edge));
+    const y=center+(v*2-1)*half;
+    ray.set(new T.Vector3(x,y,20),direction);let nearest=null,normal=new T.Vector3(0,0,1);
+    for(const tri of triangles)if(ray.intersectTriangle(tri[0].p,tri[1].p,tri[2].p,false,hit)&&hit.z>2.5&&(!nearest||hit.z>nearest.z)){
+      nearest=hit.clone();normal.copy(tri[0].n).add(tri[1].n).add(tri[2].n).normalize();
+    }
+    const p=nearest||new T.Vector3(x,y,0);p.addScaledVector(normal,.09);
+    points.push(p.x,p.y,p.z);normals.push(normal.x,normal.y,normal.z);
+    coverage.push(nearest?Math.min(1,Math.min(u,1-u,v,1-v)*20):0);
+    if(i<cols&&j<rows){const a=j*(cols+1)+i,b=a+1,c=a+cols+1;indices.push(a,b,c,b,c+1,c);}
+  }
+  const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(points,3));geometry.setAttribute('normal',new T.Float32BufferAttribute(normals,3));geometry.setAttribute('bkCoverage',new T.Float32BufferAttribute(coverage,1));geometry.setIndex(indices);return geometry;
+}
 function hairMaterial(color,density=1){
   const material=new T.MeshStandardMaterial({color,roughness:.94,metalness:0});
   if(density<.5){material.transparent=true;material.opacity=density;material.depthWrite=false;}
@@ -179,12 +199,11 @@ export function createPlayerAppearance(body,bones) {
       const beard=look.facialHair,stubble=beard.includes('stubble'),goatee=beard==='goatee',mustache=beard==='mustache';
       const beardMaterial=hairMaterial(HAIR[look.hairColor],stubble?(beard==='light stubble'?.22:.4):.86);
       if(!mustache)add(surfaceGeometry(triangles,p=>Math.min(p.y+1.5,1.5+1.7*smooth(1.3,3.5,Math.abs(p.x))-p.y,p.z-1.0,4.35-Math.abs(p.x),goatee?1.65-Math.abs(p.x):10,Math.max(Math.abs(p.x)/1.5,Math.abs(p.y-1.3)/.55)-1),p=>stubble?.025:beard==='full beard'?.25+.6*(1-smooth(-1.5,2,p.y)):.12),'Facial hair '+beard,beardMaterial);
-      if(!stubble)add(surfaceGeometry(triangles,p=>Math.min(1.65-Math.abs(p.x),.22*(1-p.x*p.x/2.8)-Math.abs(p.y-(2.3-.08*Math.abs(p.x))),p.z-6.3),()=>.055),'Mustache',beardMaterial);
+      add(mustacheGeometry(triangles),'Mustache',beardMaterial);
     }
     if(!group.children.length)material.dispose();
     // Fine tapered fibers break up beard edges without stochastic pixel holes.
-    const beardSurface=group.children.find(mesh=>mesh.name.startsWith('Facial hair'));
-    if(beardSurface&&!look.facialHair.includes('stubble')){
+    for(const beardSurface of group.children.filter(mesh=>mesh.name.startsWith('Facial hair')||mesh.name==='Mustache'))if(!look.facialHair.includes('stubble')){
       const p=beardSurface.geometry.attributes.position,n=beardSurface.geometry.attributes.normal;
       const fiber=new T.ConeGeometry(.018,.17,3);fiber.setAttribute('bkCoverage',new T.Float32BufferAttribute(new Float32Array(fiber.attributes.position.count).fill(1),1));
       const count=Math.min(2400,p.count),fibers=new T.InstancedMesh(fiber,beardSurface.material,count),dummy=new T.Object3D();

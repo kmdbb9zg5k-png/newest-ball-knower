@@ -1,8 +1,9 @@
 import React,{useId,useRef,useState} from 'react';
+import JerseyNumberInput from './JerseyNumberInput';
 import AthleteBuildEditor from './AthleteBuildEditor';
 import AthleteAppearanceEditor from './AthleteAppearanceEditor';
 import AthleteLivePreview from './AthleteLivePreview';
-import {ATHLETE_POSITIONS,recommendedAthleteBuild,sanitizeAthleteBuild,type AthleteBuild} from './athleteBuild';
+import {ATHLETE_POSITIONS,sanitizeAthleteBuild,type AthleteBuild} from './athleteBuild';
 import {DEFAULT_ATHLETE_APPEARANCE,sanitizeAthleteAppearance,type AthleteAppearance} from './athleteAppearance';
 import {ATHLETE_CHANGED,ATHLETE_SAVE_KEY} from './athletePassport';
 import type {Position} from './types';
@@ -11,8 +12,8 @@ const defaults={version:1,stage:'creator',name:'My Player',position:'WR' as Posi
 function restore(){try{const saved=JSON.parse(localStorage.getItem(ATHLETE_SAVE_KEY)||'null');return saved?.version===1?{...defaults,...saved,name:typeof saved.name==='string'&&saved.name.trim()?saved.name.slice(0,40):defaults.name,...sanitizeAthleteBuild(saved),...sanitizeAthleteAppearance(saved)}:defaults;}catch{return defaults;}}
 
 export default function MiniGameAthleteBuilder({onContinue,actionLabel}:{onContinue?:()=>void;actionLabel?:string}={}){
-  const tabs=['Build','Hair','Face','Tattoos','Player'] as const;
-  const [tab,setTab]=useState<typeof tabs[number]>('Build'),[view,setView]=useState<'body'|'head'>('body');
+  const tabs=['Player','Build','Hair','Face','Tattoos'] as const;
+  const [tab,setTab]=useState<typeof tabs[number]>('Player'),[view,setView]=useState<'body'|'head'>('body');
   const panel=useRef<HTMLDivElement>(null),id=useId();
   const selectTab=(next:typeof tabs[number])=>{setTab(next);setView(next==='Hair'||next==='Face'?'head':'body');panel.current?.scrollTo(0,0);};
   const [profile,setProfile]=useState(restore),[saved,setSaved]=useState(false),[error,setError]=useState('');
@@ -27,7 +28,7 @@ export default function MiniGameAthleteBuilder({onContinue,actionLabel}:{onConti
     <div className="bk-studio-panel bk-athlete-builder-controls" ref={panel} role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${tab}`} tabIndex={0}>
       {tab==='Build'&&<AthleteBuildEditor compact value={sanitizeAthleteBuild(profile)} onChange={setBuild}/>}
       {(tab==='Hair'||tab==='Face'||tab==='Tattoos')&&<AthleteAppearanceEditor value={sanitizeAthleteAppearance(profile)} onChange={setAppearance} section={tab.toLowerCase() as 'hair'|'face'|'tattoos'}/>}
-      {tab==='Player'&&<><h4 className="bk-studio-panel-title">PLAYER DETAILS</h4><div className="grid grid-cols-2 gap-3"><label>Player name<input aria-label="Mini game player name" value={profile.name} maxLength={40} onChange={event=>{setSaved(false);setError('');setProfile(current=>({...current,name:event.target.value}));}}/></label><label>Jersey number<input aria-label="Mini game jersey number" type="number" min="0" max="99" value={profile.number} onChange={event=>{setSaved(false);setError('');setProfile(current=>({...current,number:Math.max(0,Math.min(99,Number(event.target.value)||0))}));}}/></label></div><div className="bk-studio-position"><span>Position {careerLocked?'· career locked':''}</span><div>{ATHLETE_POSITIONS.map(position=><button type="button" key={position} disabled={careerLocked} aria-pressed={profile.position===position} onClick={()=>setBuild(recommendedAthleteBuild(position))}>{position}</button>)}</div></div><p className="bk-studio-note">Your athlete carries into every practice drill. Position changes reset your build to its recommended frame.</p></>}
+      {tab==='Player'&&<><h4 className="bk-studio-panel-title">PLAYER DETAILS</h4><div className="grid grid-cols-2 gap-3"><label>Player name<input aria-label="Mini game player name" value={profile.name} maxLength={40} onChange={event=>{setSaved(false);setError('');setProfile(current=>({...current,name:event.target.value}));}}/></label><label>Jersey number<JerseyNumberInput ariaLabel="Mini game jersey number" value={profile.number} onChange={number=>{setSaved(false);setError('');setProfile(current=>({...current,number}));}}/></label></div><div className="bk-studio-position"><span>Position {careerLocked?'· career locked':''}</span><div>{ATHLETE_POSITIONS.map(position=><button type="button" key={position} disabled={careerLocked} aria-pressed={profile.position===position} onClick={()=>setBuild({...sanitizeAthleteBuild(profile),position})}>{position}</button>)}</div></div><p className="bk-studio-note">Your athlete carries into every practice drill. Changing position keeps your custom build and appearance.</p></>}
     </div>
     <footer className="bk-studio-save">{error&&<p className="bk-mini-error" role="alert">{error}</p>}<button type="button" className="bk-mini-primary" onClick={save}>{actionLabel||(saved?'Athlete saved':onContinue?'Save & Play':'Save athlete')}</button></footer>
   </section>;

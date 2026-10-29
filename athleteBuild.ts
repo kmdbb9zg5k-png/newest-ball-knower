@@ -14,6 +14,8 @@ export const POSITION_LIMITS:Record<string,Limits>={
   EDGE:{height:[70,81],weight:[225,320],recommended:[76,265]}, LB:{height:[68,79],weight:[205,285],recommended:[73,235]},
   CB:{height:[65,77],weight:[160,225],recommended:[71,188]}, S:{height:[66,78],weight:[175,240],recommended:[72,205]},
 };
+// A role change must never discard a player's chosen body dimensions.
+export const ATHLETE_BODY_LIMITS={height:[65,81] as [number,number],weight:[160,320] as [number,number]};
 export const BODY_PRESETS=[
   {id:'lean',label:'LEAN',detail:'Long-stride speed',bodyBuild:24,shoulderWidth:36,armSize:30,legSize:38,weightOffset:-24},
   {id:'compact',label:'COMPACT',detail:'Low center of gravity',bodyBuild:46,shoulderWidth:52,armSize:48,legSize:62,weightOffset:-4},
@@ -27,11 +29,11 @@ export const limitsFor=(position:string)=>POSITION_LIMITS[position]||POSITION_LI
 export function sanitizeAthleteBuild(value:Partial<AthleteBuild>&{position?:Position}):AthleteBuild{
   const position=ATHLETE_POSITIONS.includes(value.position as Position)?value.position as Position:'WR';
   const limits=limitsFor(position);
-  return {position,heightInches:clamp(value.heightInches??limits.recommended[0],...limits.height),weightLbs:clamp(value.weightLbs??limits.recommended[1],...limits.weight),bodyBuild:clamp(value.bodyBuild??50,0,100),shoulderWidth:clamp(value.shoulderWidth??54,0,100),armSize:clamp(value.armSize??48,0,100),legSize:clamp(value.legSize??52,0,100),bodyPresetId:typeof value.bodyPresetId==='string'?value.bodyPresetId:'balanced'};
+  return {position,heightInches:clamp(value.heightInches??limits.recommended[0],...ATHLETE_BODY_LIMITS.height),weightLbs:clamp(value.weightLbs??limits.recommended[1],...ATHLETE_BODY_LIMITS.weight),bodyBuild:clamp(value.bodyBuild??50,0,100),shoulderWidth:clamp(value.shoulderWidth??54,0,100),armSize:clamp(value.armSize??48,0,100),legSize:clamp(value.legSize??52,0,100),bodyPresetId:typeof value.bodyPresetId==='string'?value.bodyPresetId:'balanced'};
 }
 export function presetAthleteBuild(position:Position,preset:typeof BODY_PRESETS[number]):AthleteBuild{
   const limits=limitsFor(position),[height,weight]=limits.recommended;
-  return sanitizeAthleteBuild({position,heightInches:height+(preset.id==='lean'?1:preset.id==='compact'?-1:preset.id==='heavy'?1:0),weightLbs:weight+preset.weightOffset,bodyBuild:preset.bodyBuild,shoulderWidth:preset.shoulderWidth,armSize:preset.armSize,legSize:preset.legSize,bodyPresetId:preset.id});
+  return sanitizeAthleteBuild({position,heightInches:clamp(height+(preset.id==='lean'?1:preset.id==='compact'?-1:preset.id==='heavy'?1:0),...limits.height),weightLbs:clamp(weight+preset.weightOffset,...limits.weight),bodyBuild:preset.bodyBuild,shoulderWidth:preset.shoulderWidth,armSize:preset.armSize,legSize:preset.legSize,bodyPresetId:preset.id});
 }
 export const recommendedAthleteBuild=(position:Position)=>presetAthleteBuild(position,BODY_PRESETS[2]);
 export function athleteMovement(value:Partial<AthleteBuild>&{position?:Position},competitive=false):AthleteMovement{

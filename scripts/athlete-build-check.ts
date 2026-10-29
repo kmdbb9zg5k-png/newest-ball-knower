@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {athleteMovement,BODY_PRESETS,limitsFor,presetAthleteBuild,sanitizeAthleteBuild} from '../athleteBuild';
+import {athleteMovement,ATHLETE_BODY_LIMITS,BODY_PRESETS,limitsFor,presetAthleteBuild,sanitizeAthleteBuild} from '../athleteBuild';
 import {sanitizeAthleteAppearance} from '../athleteAppearance';
 import {newRoute} from '../combine/routes.js';
 import {newRBRep,newRBSession} from '../combine/rb-drill.js';
@@ -20,7 +20,9 @@ assert.ok(newDBRep(fast,0,newDBSession(1)).db.speed>newDBRep(power,0,newDBSessio
 
 for(const position of ['QB','RB','WR','TE','EDGE','LB','CB','S'] as const){
   const limits=limitsFor(position),clean=sanitizeAthleteBuild({position,heightInches:-999,weightLbs:9999,bodyBuild:999,shoulderWidth:-1,armSize:NaN,legSize:101,bodyPresetId:'custom'});
-  assert.equal(clean.heightInches,limits.height[0]);assert.equal(clean.weightLbs,limits.weight[1]);
+  assert.equal(clean.heightInches,ATHLETE_BODY_LIMITS.height[0]);assert.equal(clean.weightLbs,ATHLETE_BODY_LIMITS.weight[1]);
+  const custom={heightInches:81,weightLbs:300,bodyBuild:83,shoulderWidth:76,armSize:81,legSize:79,bodyPresetId:'custom'};
+  assert.deepEqual(sanitizeAthleteBuild({...custom,position}),{...custom,position},'Position changes preserve every custom body setting');
   assert.equal(clean.bodyBuild,100);assert.equal(clean.shoulderWidth,0);assert.equal(clean.armSize,0);assert.equal(clean.legSize,100);
 }
 const entry=readFileSync(new URL('../combine/main.tsx',import.meta.url),'utf8');
