@@ -87,7 +87,7 @@ try{
       await page.mouse.move(stage.x+stage.width*.4,stage.y+stage.height*.6);
       await page.mouse.down();await page.mouse.move(stage.x+stage.width*.7,stage.y+stage.height*.6,{steps:8});await page.mouse.up();
       assert.notEqual(await page.getByLabel('Rotate athlete',{exact:true}).inputValue(),rotation,'Dragging rotates athlete');
-      for(const viewport of [{width:390,height:600},{width:844,height:390}]){
+      for(const viewport of [{width:390,height:600},{width:390,height:480},{width:844,height:390}]){
         await page.setViewportSize(viewport);
         await tab('Hair');
         await page.screenshot({path:`artifacts/athlete-creator/studio-${viewport.width}x${viewport.height}.png`});
