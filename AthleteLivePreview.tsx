@@ -3,12 +3,13 @@ import {careerAthleteIdentity} from './athletePassport';
 import type {AthleteBuild} from './athleteBuild';
 import {sanitizeAthleteAppearance,type AthleteAppearance} from './athleteAppearance';
 
-type Profile=AthleteBuild&AthleteAppearance&{name:string;number:number;combineId?:string};
+type Profile=AthleteBuild&AthleteAppearance&{name:string;number:number;combineId?:string;athletePortrait?:string};
 type Scene=Awaited<ReturnType<typeof import('./combine/creator-scene').createCreatorScene>>;
 const asPlayer=(profile:Profile)=>({...profile,id:'my-player-user',cosmeticIdentityId:`my-player-${careerAthleteIdentity(profile).id}`,jerseyNumber:profile.number,athleteAppearance:sanitizeAthleteAppearance(profile)});
 
 export default function AthleteLivePreview({profile,view='body',onViewChange,onPortrait}:{profile:Profile;view?:'body'|'head';onViewChange?:(view:'body'|'head')=>void;onPortrait?:(portrait:string)=>void}){
   const host=useRef<HTMLDivElement>(null),scene=useRef<Scene|null>(null),latest=useRef(profile),latestView=useRef(view),angle=useRef(9),drag=useRef<{id:number;x:number;start:number}|null>(null);
+  const capturedKey=useRef('');
   const portraitCallback=useRef(onPortrait);portraitCallback.current=onPortrait;
   const appearanceKey=JSON.stringify([profile.name,profile.number,profile.combineId,profile.position,profile.heightInches,profile.weightLbs,profile.bodyBuild,profile.shoulderWidth,profile.armSize,profile.legSize,sanitizeAthleteAppearance(profile)]);
   latestView.current=view;
@@ -27,7 +28,7 @@ export default function AthleteLivePreview({profile,view='body',onViewChange,onP
   },[attempt]);
   useEffect(()=>{scene.current?.update(asPlayer(profile));},[profile]);
   useEffect(()=>{scene.current?.setView(view);},[view]);
-  useEffect(()=>{if(state!=='ready'||!portraitCallback.current)return;const timer=setTimeout(()=>{try{const portrait=scene.current?.capturePortrait();if(portrait)portraitCallback.current?.(portrait);}catch{/* Preview and controls remain usable if image export is unavailable. */}},180);return()=>clearTimeout(timer);},[state,appearanceKey]);
+  useEffect(()=>{if(state!=='ready'||!portraitCallback.current||(capturedKey.current===appearanceKey&&profile.athletePortrait))return;const timer=setTimeout(()=>{try{const portrait=scene.current?.capturePortrait();if(portrait){capturedKey.current=appearanceKey;portraitCallback.current?.(portrait);}}catch{/* Preview and controls remain usable if image export is unavailable. */}},180);return()=>clearTimeout(timer);},[state,appearanceKey,Boolean(profile.athletePortrait)]);
   const rotate=(value:number)=>{const normalized=((value+180)%360+360)%360-180;angle.current=normalized;setRotation(normalized);scene.current?.rotate(normalized*Math.PI/180);};
   return <figure className="bk-athlete-live-preview bk-athlete-3d-preview" aria-label={`${profile.name||'Created athlete'} ${view==='head'?'close-up':'full-body'} live preview`} data-athlete-live-preview="true" data-render-state={state} data-view={view} data-arm-size={profile.armSize} data-skin-tone={profile.skinTone} data-hair-style={profile.hairStyle} data-tattoo-coverage={profile.tattooCoverage}>
     <figcaption>YOUR ATHLETE <span>3D PREVIEW</span></figcaption>
