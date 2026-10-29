@@ -1,8 +1,11 @@
+import {dressMyAthlete} from '../athleteWardrobe';
+import {refreshLocker} from '../lockerCommerceClient';
+import LockerAccountSync from '../LockerAccountSync';
 import {readAthletePassport,withAthleteIdentity} from '../athletePassport';
 import {inMiniChallenge,exitMiniChallenge} from '../public/mini-challenge-bridge.js';
 import MiniGameAthleteBuilder from '../MiniGameAthleteBuilder';
 import RBExperience from './RBExperience';
-import React,{useState} from 'react';
+import React,{useEffect,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import DBExperience from './DBExperience';
 import RouteExperience from './RouteExperience';
@@ -26,12 +29,13 @@ const exit=()=>{if(!exitMiniChallenge())location.href='/?miniGames=1&combine=1';
 function playersForDrill(){
   const pool=drill==='db'?allPlayers.filter(p=>p.position==='CB'):drill==='rb'?allPlayers.filter(p=>p.position==='RB'):['routes','one-on-one'].includes(drill||'')?allPlayers.filter(p=>p.position==='WR'):allPlayers;
   const passport=readAthletePassport(),base=pool[0]||allPlayers[0];
-  if(competitive)return[withAthleteIdentity({...base,speed:85,acceleration:85,agility:85,careerStrength:85,contact:85},passport)];
-  return[passport?withAthleteIdentity({...base,speed:passport.movement.speed,acceleration:passport.movement.acceleration,agility:passport.movement.agility,careerStrength:passport.movement.strength,contact:passport.movement.contact},passport):{...base,name:'My Player'}];
+  if(competitive)return[dressMyAthlete(withAthleteIdentity({...base,speed:85,acceleration:85,agility:85,careerStrength:85,contact:85},passport),'workout')];
+  return[dressMyAthlete(passport?withAthleteIdentity({...base,speed:passport.movement.speed,acceleration:passport.movement.acceleration,agility:passport.movement.agility,careerStrength:passport.movement.strength,contact:passport.movement.contact},passport):{...base,name:'My Player'},'workout')];
 }
 
 function Drill(){
-  const players=playersForDrill(),Experience=drill==='broad-jump'?BroadJumpExperience:CombineExperience;
+  const [players]=useState(playersForDrill);
+  const Experience=drill==='broad-jump'?BroadJumpExperience:CombineExperience;
   if(drill==='rb')return <RBExperience players={players.filter(p=>p.position==='RB')} onClose={exit}/>;
   if(drill==='db')return <DBExperience players={players.filter(p=>p.position==='CB')} onClose={exit}/>;
   if(drill==='routes'||drill==='one-on-one')return <RouteExperience man={drill==='one-on-one'} players={players.filter(p=>['WR','TE','RB'].includes(p.position))} onClose={exit}/>;
@@ -40,10 +44,11 @@ function Drill(){
 }
 
 function CombineEntry(){
-  const [started,setStarted]=useState(competitive);
-  if(started)return <Drill/>;
+  const [started,setStarted]=useState(competitive),[outfitReady,setOutfitReady]=useState(false);
+  useEffect(()=>{let active=true;void refreshLocker().catch(()=>{}).finally(()=>{if(active)setOutfitReady(true);});return()=>{active=false;};},[]);
+  if(!outfitReady)return <main className="combine-entry" role="status">Loading your saved outfit…</main>;
   const name=drillNames[drill||'dash']||drillNames.dash;
-  return <main className="combine-entry" aria-label={`${name} athlete setup`}><header><button type="button" onClick={exit} aria-label="Back to Mini Games">‹</button><div><span>BALL KNOWER / MINI COMBINE</span><h1>{name}</h1></div></header><MiniGameAthleteBuilder actionLabel={`Save & start ${name}`} onContinue={()=>setStarted(true)}/></main>;
+  return <><LockerAccountSync/>{started?<Drill/>:<main className="combine-entry" aria-label={`${name} athlete setup`}><header><button type="button" onClick={exit} aria-label="Back to Mini Games">‹</button><div><span>BALL KNOWER / MINI COMBINE</span><h1>{name}</h1></div></header><MiniGameAthleteBuilder actionLabel={`Save & start ${name}`} onContinue={()=>setStarted(true)}/></main>}</>;
 }
 
 createRoot(document.getElementById('root')!).render(<CombineEntry/>);

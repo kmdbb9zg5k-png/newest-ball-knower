@@ -112,6 +112,7 @@
     "react-dom": "^19.0.1",
     "sharp": "0.34.4",
     "streamdown": "^2.6.0",
+    "stripe": "23.1.0",
     "tailwind-merge": "^3.6.0",
     "three": "^0.180.0",
     "use-stick-to-bottom": "^1.1.6"

@@ -1,3 +1,5 @@
+import {dressMyAthlete} from './athleteWardrobe';
+import {usePlayerOutfit} from './usePlayerOutfit';
 import {careerAthleteIdentity} from './athletePassport';
 import React,{lazy,Suspense,useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
@@ -11,6 +13,7 @@ const Runner=lazy(()=>import('./combine/RBExperience'));
 const Coverage=lazy(()=>import('./combine/DBExperience'));
 class FieldError extends React.Component<{children:React.ReactNode;onClose:()=>void},{failed:boolean}>{state={failed:false};static getDerivedStateFromError(){return {failed:true};}render(){return this.state.failed?<div className="career-field-loading" role="alert"><h2>The field could not load.</h2><p>Your career score has not changed. Reopen the field or use the tactical assignment.</p><button onClick={this.props.onClose}>Back to career</button></div>:this.props.children;}}
 export function CareerField({profile,weekKey,opponent,onComplete,onClose}:{profile:AthleteProfile;weekKey:string;opponent:string;onComplete:(score:number)=>void;onClose:()=>void}){
+ const outfit=usePlayerOutfit();
  const assignment=careerFieldAssignment(profile.position)!;
  const dialog=useRef<HTMLDialogElement>(null),frame=useRef<HTMLIFrameElement>(null),locked=useRef(false);
  const [result,setResult]=useState<{score:number;stats:Record<string,number>}|null>(null),[error,setError]=useState('');
@@ -19,7 +22,7 @@ export function CareerField({profile,weekKey,opponent,onComplete,onClose}:{profi
  useEffect(()=>{if(result)resultHeading.current?.focus();},[result]);
  const callbacks=useRef({onComplete,onClose});callbacks.current={onComplete,onClose};
  const seed=careerFieldSeed(profile.combineId||profile.name,weekKey),id=`career:${weekKey}`;
- const athlete=useMemo(()=>{const identity=careerAthleteIdentity(profile);return{...combineAthlete({id:'my-player-user',name:profile.name,position:profile.position,speed:profile.speed,grade:profile.overall}),...identity.build,jerseyNumber:profile.number,cosmeticIdentityId:`my-player-${identity.id}`,athleteAppearance:identity.appearance,careerStrength:profile.power};},[profile]);
+ const athlete=useMemo(()=>{const identity=careerAthleteIdentity(profile);return dressMyAthlete({...combineAthlete({id:'my-player-user',name:profile.name,position:profile.position,speed:profile.speed,grade:profile.overall}),...identity.build,jerseyNumber:profile.number,cosmeticIdentityId:`my-player-${identity.id}`,athleteAppearance:identity.appearance,careerStrength:profile.power},assignment.kind==='drive'?'game':'workout',outfit);},[profile,outfit,assignment.kind]);
  const finish=(stats:Record<string,number>)=>{if(locked.current)return;const score=careerFieldScore(assignment.kind,stats);if(score===undefined){setError('The session did not return a complete result. Exit and try again; no score was saved.');return;}locked.current=true;setResult({score,stats});callbacks.current.onComplete(score);};
  const receiveResult=useRef(finish);receiveResult.current=finish;
  useEffect(()=>{dialog.current?.showModal();const overflow=document.body.style.overflow;document.body.style.overflow='hidden';const receive=(event:MessageEvent)=>{if(event.origin!==location.origin||event.source!==frame.current?.contentWindow||event.data?.challengeId!==id||event.data?.token!==token)return;if(event.data.type==='bk-mini-exit')callbacks.current.onClose();if(event.data.type==='bk-mini-result')receiveResult.current(event.data.stats);};window.addEventListener('message',receive);return()=>{document.body.style.overflow=overflow;window.removeEventListener('message',receive);};},[id,token]);

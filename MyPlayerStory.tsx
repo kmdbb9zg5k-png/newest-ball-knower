@@ -453,7 +453,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
           <AiPhotoConsent checked={aiConsent} onChange={setAiConsent} disabled={isRendering}/>
           <button type="button" disabled={isRendering||!aiConsent||!profile.faceImage||aiAvailable===false} onClick={createRender} className="mt-3 min-h-11 w-full rounded-xl border border-white/20 p-3 text-sm font-bold disabled:opacity-40"><Sparkles className="mr-2 inline" size={18}/>{isRendering?'CREATING PORTRAIT…':!profile.faceImage?'SELFIE PORTRAIT (OPTIONAL)':aiAvailable===false?'AI PORTRAIT NEEDS CONNECTION':'CREATE AI PLAYER PORTRAIT'}</button>
           {aiAvailable===false&&<p>Your 3D athlete and career work without the optional portrait service.</p>}
-          {(profile.faceImage||profile.renderImage||usesPresetAthletePortrait(profile))&&<><PlayerRender profile={profile}/><ViewSlider value={profile.viewRotation} onChange={value=>updateSlider('viewRotation',value)}/></>}
+          {(profile.faceImage||profile.renderImage||usesPresetAthletePortrait(profile))&&<><PlayerRender profile={profile} portraitPreview/><ViewSlider value={profile.viewRotation} onChange={value=>updateSlider('viewRotation',value)}/></>}
         </details>
       }/>
     </CareerCreatorDialog>

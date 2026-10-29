@@ -1,6 +1,8 @@
+import {dressMyAthlete} from './athleteWardrobe';
+import {usePlayerOutfit} from './usePlayerOutfit';
 import {CareerSection} from './CareerTabs';
 import {careerAthleteIdentity} from './athletePassport';
-import React,{useEffect,useRef,useState} from 'react';
+import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {Phone,Shield,Star,Volume2,VolumeX,X,ChevronRight} from 'lucide-react';
 import {combineAthlete} from './combine/dash.js';
@@ -23,7 +25,8 @@ export function CareerCard({life,name,position,overall}:{life:CareerLife;name:st
 export function CareerCamp({life,profile,onChoice,onScore,onFinish,onBack}:{life:CareerLife;profile:AthleteProfile;onChoice:(kind:'prep'|'response',id:string)=>void;onScore:(index:number,score:number)=>void;onFinish:()=>void;onBack:()=>void}){
  const [playing,setPlaying]=useState<'drill'|'moment'|null>(null);const index=life.camp.scores.length;
  const drill:DraftDrill=draftPositionDrill(profile.position)||(['EDGE','LB'].includes(profile.position)?'bench':'shuttle');
- const identity=careerAthleteIdentity(profile),athlete={...combineAthlete({id:'my-player-user',name:profile.name,position:profile.position,speed:profile.speed,grade:profile.overall}),careerStrength:profile.power,...identity.build,jerseyNumber:profile.number,cosmeticIdentityId:`my-player-${identity.id}`,athleteAppearance:identity.appearance};
+ const outfit=usePlayerOutfit();
+ const athlete=useMemo(()=>{const identity=careerAthleteIdentity(profile);return dressMyAthlete({...combineAthlete({id:'my-player-user',name:profile.name,position:profile.position,speed:profile.speed,grade:profile.overall}),careerStrength:profile.power,...identity.build,jerseyNumber:profile.number,cosmeticIdentityId:`my-player-${identity.id}`,athleteAppearance:identity.appearance},'workout',outfit);},[profile,outfit]);
  const evaluation=campEvaluation(life),names=['Position workout','First-team audition','Preseason spotlight'];
  return <main className="bk-career-story life-shell" aria-label="Training camp career"><CareerSection tab="career"><header className="career-story-hero"><span className="career-eyebrow">CHAPTER TWO / TRAINING CAMP</span><h2>A NUMBER.<br/><em>NOT A GUARANTEE.</em></h2><p>Three evaluations. One position battle. Your draft slot opened the door; your tape earns the reps.</p></header></CareerSection><CareerSection tab="player"><CareerCard life={life} name={profile.name} position={profile.position} overall={profile.overall}/></CareerSection><CareerSection tab="career"><CareerDialogue person="coach" title="Welcome to your position room.">Dante Cross is competing for the same reps. Beat his {life.rival}-point camp evaluation and earn my trust to win the starting opportunity. A score within 15 points earns rotation reps. Everyone else begins in development.</CareerDialogue><div className="life-camp-board"><CareerPortrait person="rival"/><div><span>DANTE CROSS · {profile.position}</span><strong>{life.rival} CAMP BENCHMARK</strong><small>A fixed rival evaluation for this career. Your grade: 80% playable evaluations, 15% coach trust, 5% room chemistry.</small></div></div>
  <ol className="life-evaluations">{names.map((n,i)=><li key={n} data-active={index===i}><span>0{i+1} · {n}</span><b>{life.camp.scores[i]===undefined?'UP NEXT':`${life.camp.scores[i]}/100`}</b></li>)}</ol></CareerSection>

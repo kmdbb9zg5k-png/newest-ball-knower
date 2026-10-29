@@ -1,18 +1,21 @@
-import {readOutfit,type Outfit} from './playerWardrobe';
-import React,{useEffect,useRef,useState} from 'react';
+import {usePlayerOutfit} from './usePlayerOutfit';
+import {type Outfit} from './playerWardrobe';
+import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {careerAthleteIdentity} from './athletePassport';
 import type {AthleteBuild} from './athleteBuild';
 import {sanitizeAthleteAppearance,type AthleteAppearance} from './athleteAppearance';
 
 type Profile=AthleteBuild&AthleteAppearance&{name:string;number:number;combineId?:string;athletePortrait?:string;wardrobe?:Outfit};
 type Scene=Awaited<ReturnType<typeof import('./combine/creator-scene').createCreatorScene>>;
-const asPlayer=(profile:Profile)=>({...profile,id:'my-player-user',cosmeticIdentityId:`my-player-${careerAthleteIdentity(profile).id}`,jerseyNumber:profile.number,athleteAppearance:sanitizeAthleteAppearance(profile),wardrobe:profile.wardrobe||readOutfit()});
+const asPlayer=(profile:Profile)=>({...profile,id:'my-player-user',cosmeticIdentityId:`my-player-${careerAthleteIdentity(profile).id}`,jerseyNumber:profile.number,athleteAppearance:sanitizeAthleteAppearance(profile),wardrobe:profile.wardrobe});
 
-export default function AthleteLivePreview({profile,view='body',onViewChange,onPortrait}:{profile:Profile;view?:'body'|'head';onViewChange?:(view:'body'|'head')=>void;onPortrait?:(portrait:string)=>void}){
+export default function AthleteLivePreview({profile:inputProfile,view='body',onViewChange,onPortrait,previewOutfit}:{profile:Profile;previewOutfit?:Outfit;view?:'body'|'head';onViewChange?:(view:'body'|'head')=>void;onPortrait?:(portrait:string)=>void}){
+  const equipped=usePlayerOutfit();
+  const profile=useMemo(()=>({...inputProfile,wardrobe:previewOutfit||equipped}),[inputProfile,previewOutfit,equipped]);
   const host=useRef<HTMLDivElement>(null),scene=useRef<Scene|null>(null),latest=useRef(profile),latestView=useRef(view),angle=useRef(9),drag=useRef<{id:number;x:number;start:number}|null>(null);
   const capturedKey=useRef('');
   const portraitCallback=useRef(onPortrait);portraitCallback.current=onPortrait;
-  const appearanceKey=JSON.stringify([profile.name,profile.number,profile.combineId,profile.position,profile.heightInches,profile.weightLbs,profile.bodyBuild,profile.shoulderWidth,profile.armSize,profile.legSize,sanitizeAthleteAppearance(profile),profile.wardrobe||readOutfit()]);
+  const appearanceKey=JSON.stringify([profile.name,profile.number,profile.combineId,profile.position,profile.heightInches,profile.weightLbs,profile.bodyBuild,profile.shoulderWidth,profile.armSize,profile.legSize,sanitizeAthleteAppearance(profile),profile.wardrobe]);
   latestView.current=view;
   latest.current=profile;
   const [state,setState]=useState<'loading'|'ready'|'error'>('loading'),[attempt,setAttempt]=useState(0),[rotation,setRotation]=useState(9);

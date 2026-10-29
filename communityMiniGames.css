@@ -29,3 +29,5 @@
 .bk-athlete-3d-preview .bk-athlete-preview-footer label{display:block;font-size:11px;line-height:1.4;color:#abb7c4}
 .bk-athlete-3d-preview .bk-athlete-preview-footer label>span{display:block}
 .bk-athlete-3d-preview .bk-athlete-preview-footer input[type=range]{display:block;width:100%}
+
+.bk-career-created-compact{min-width:0}.bk-career-created-compact .bk-athlete-live-preview{margin-inline:0;max-width:100%}

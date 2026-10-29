@@ -1,3 +1,4 @@
+import LockerAccountSync from './LockerAccountSync';
 import {wantsNewsStrip} from './broadcastFocus';
 import React,{lazy,Suspense,useCallback,useEffect,useRef,useState} from 'react';
 import {BallKnowerProvider,useBallKnower} from './BallKnowerContext';
@@ -50,7 +51,7 @@ function BallKnowerApp(){
   const {activeLeague,currentUser,setActiveLeagueId,toastMessage,joinLeague}=useBallKnower();
   const {setIntroActive}=useSoundtrack();
   const setIntroActiveRef=useRef(setIntroActive);
-  const [currentTab,setCurrentTab]=useState<AppTab>('home');
+  const [currentTab,setCurrentTab]=useState<AppTab>(()=>new URLSearchParams(window.location.search).has('locker_checkout')?'wardrobe':'home');
   const tabHistory=useRef<AppTab[]>([]);
   const goToTab=useCallback((tab:AppTab)=>{setCurrentTab(current=>{if(current===tab)return current;tabHistory.current.push(current);if(tabHistory.current.length>24)tabHistory.current.shift();return tab})},[]);
   const goBack=useCallback(()=>{setCurrentTab(current=>{let previous=tabHistory.current.pop();while(previous===current)previous=tabHistory.current.pop();return previous||'home'})},[]);
@@ -137,4 +138,4 @@ function BallKnowerApp(){
   </div>;
 }
 
-export default function App(){return <AppErrorBoundary><CloudSyncProvider><SoundtrackProvider><BallKnowerProvider><BallKnowerApp/></BallKnowerProvider></SoundtrackProvider></CloudSyncProvider></AppErrorBoundary>}
+export default function App(){return <AppErrorBoundary><CloudSyncProvider><LockerAccountSync/><SoundtrackProvider><BallKnowerProvider><BallKnowerApp/></BallKnowerProvider></SoundtrackProvider></CloudSyncProvider></AppErrorBoundary>}

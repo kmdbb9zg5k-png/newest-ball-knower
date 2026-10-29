@@ -20,12 +20,25 @@ export const CLOTHING_SLOTS:ClothingSlot[]=['top','shorts','shoes','wrist'];
 export type Outfit=Record<ClothingSlot,string>;
 export const DEFAULT_OUTFIT:Outfit={top:'top-standard',shorts:'shorts-standard',shoes:'shoes-standard',wrist:'wrist-none'};
 export const WARDROBE_KEY='ballknower_player_wardrobe_v1',WARDROBE_CHANGED='ballknower:wardrobe-changed';
-// This release has no paid ownership. Local storage must never grant premium items.
-// Future purchases require verified account entitlements, not an "owned" flag here.
+// Device saves are free-only. Paid ownership comes from the authenticated server.
+let verified:{owned:string[];outfit:Outfit|null;expires:number}|null=null;
+let expiry:ReturnType<typeof setTimeout>|undefined;
+export function setVerifiedWardrobe(value:{owned:string[];outfit:Outfit|null}|null){
+ if(expiry)clearTimeout(expiry);
+ verified=value?{...value,expires:Date.now()+120000}:null;
+ if(value)expiry=setTimeout(()=>setVerifiedWardrobe(null),120000);
+ if(typeof window!=='undefined')window.dispatchEvent(new Event(WARDROBE_CHANGED));
+}
 export function cleanOutfit(raw:unknown):Outfit{
  const value=raw&&typeof raw==='object'?raw as Record<string,unknown>:{};
  return Object.fromEntries(CLOTHING_SLOTS.map(slot=>[slot,CLOTHING.find(item=>item.id===value[slot]&&item.slot===slot&&!item.premium)?.id||DEFAULT_OUTFIT[slot]])) as Outfit;
 }
-export function readOutfit():Outfit{try{return cleanOutfit(JSON.parse(localStorage.getItem(WARDROBE_KEY)||'{}'));}catch{return {...DEFAULT_OUTFIT};}}
+export function readOutfit():Outfit{
+ let free:Outfit;try{free=cleanOutfit(JSON.parse(localStorage.getItem(WARDROBE_KEY)||'{}'));}catch{free={...DEFAULT_OUTFIT};}
+ if(!verified||verified.expires<=Date.now()||!verified.outfit)return free;
+ const result=cleanOutfit(verified.outfit);
+ for(const slot of CLOTHING_SLOTS){const item=CLOTHING.find(v=>v.id===verified!.outfit![slot]&&v.slot===slot);if(item?.premium&&verified.owned.includes(item.id))result[slot]=item.id;}
+ return result;
+}
 export function saveOutfit(outfit:Outfit){const clean=cleanOutfit(outfit);localStorage.setItem(WARDROBE_KEY,JSON.stringify(clean));window.dispatchEvent(new Event(WARDROBE_CHANGED));return clean;}
 export function outfitLook(outfit:Outfit){return Object.fromEntries(CLOTHING_SLOTS.map(slot=>[slot,CLOTHING.find(item=>item.id===outfit[slot]&&item.slot===slot)||CLOTHING.find(item=>item.id===DEFAULT_OUTFIT[slot])!])) as Record<ClothingSlot,ClothingItem>;}
