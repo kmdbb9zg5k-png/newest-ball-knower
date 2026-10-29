@@ -24,7 +24,7 @@ import { AiPhotoConsent, AI_PHOTO_CONSENT_VERSION } from './AiPhotoConsent';
 import { MyPlayerSharedRender as PlayerRender, myPlayerPresetPortrait } from './solo/MyPlayerSharedRender';
 import AthleteCreatorStudio from './AthleteCreatorStudio';
 import CareerCreatorDialog from './CareerCreatorDialog';
-import {feetAndInches,sanitizeAthleteBuild} from './athleteBuild';
+import {ATHLETE_POSITIONS,feetAndInches,sanitizeAthleteBuild} from './athleteBuild';
 import {DEFAULT_ATHLETE_APPEARANCE,sanitizeAthleteAppearance,type AthleteAppearance} from './athleteAppearance';
 
 type Props = { onBack: () => void };
@@ -114,7 +114,7 @@ function restoreProfile() {
     const raw = localStorage.getItem(SOLO_FRANCHISE_SAVE_KEYS.player);
     if (!raw) return EMPTY_PROFILE;
     const saved = JSON.parse(raw);
-    if (saved?.version !== 1 || !POSITIONS.includes(saved.position) || !['creator', 'combine', 'drafted', 'camp', 'season'].includes(saved.stage)) return EMPTY_PROFILE;
+    if (saved?.version !== 1 || !ATHLETE_POSITIONS.includes(saved.position) || !['creator', 'combine', 'drafted', 'camp', 'season'].includes(saved.stage)) return EMPTY_PROFILE;
     if (['drafted', 'camp', 'season'].includes(saved.stage) && !SOLO_TEAM_THEMES.some(team => team.abbr === saved.teamAbbr)) return EMPTY_PROFILE;
     return { ...EMPTY_PROFILE, ...saved, ...sanitizeAthleteBuild(saved),...sanitizeAthleteAppearance(saved), careerArc:cleanCareerArc(saved.careerArc,{...EMPTY_PROFILE,...saved}),careerLife:cleanCareerLife(saved.careerLife,{...EMPTY_PROFILE,...saved},saved.draftJourney),combinePerformance:cleanDraftCombine(saved.combinePerformance),draftJourney:saved.draftJourney?cleanJourney(saved.draftJourney,{...EMPTY_PROFILE,...saved}):undefined,rookieRole:['starter','rotation','development'].includes(saved.rookieRole)?saved.rookieRole:undefined } as MyPlayerProfile;
   } catch {
@@ -432,7 +432,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
 
   if(profile.stage==='creator')return <BroadcastStage scene="locker" page="my-player" quiet>
     <CareerCreatorDialog onBack={onBack} onReset={newCareer}>
-      <AthleteCreatorStudio profile={profile} onChange={patch=>{setMessage('');setProfile(current=>({...current,...patch,renderImage:''}));}} onSave={enterCombine} actionLabel="Save & enter the Combine" ariaLabel="Career athlete builder" nameLabel="Career player name" jerseyLabel="Career jersey number" error={saveError} message={message} note="Create your athlete, then earn your draft spot in the Combine. Changing position keeps your custom build and appearance." faceExtras={
+      <AthleteCreatorStudio profile={profile} onChange={patch=>{setMessage('');setProfile(current=>({...current,...patch,renderImage:patch.name!==undefined||patch.number!==undefined?current.renderImage:''}));}} onSave={enterCombine} actionLabel="Save & enter the Combine" ariaLabel="Career athlete builder" nameLabel="Career player name" jerseyLabel="Career jersey number" error={saveError} message={message} note="Create your athlete, then earn your draft spot in the Combine. Changing position keeps your custom build and appearance." faceExtras={
         <details className="bk-career-portrait"><summary>Optional career portrait</summary>
           <p>Choose a portrait or use a selfie for your career cards. Your 3D athlete uses the appearance controls above.</p>
           <div className="bk-portrait-options">{FACE_PRESETS.map(face=><button key={face.id} type="button" aria-label={`${face.name} career portrait`} aria-pressed={!profile.faceImage&&profile.presetFaceId===face.id} onClick={()=>setProfile(current=>({...current,presetFaceId:face.id,faceImage:'',renderImage:''}))}><PresetFace face={face} small/><span>{face.name}</span></button>)}</div>
