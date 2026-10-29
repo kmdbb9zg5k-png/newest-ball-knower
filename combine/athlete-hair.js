@@ -16,31 +16,44 @@ export function buildAthleteHair({style,triangles,add,material,surfaceGeometry,s
     for(const tri of triangles){const hit=ray.intersectTriangle(tri[0].p,tri[1].p,tri[2].p,false,new T.Vector3());if(hit&&hit.y>hairline(hit)&&(!top||hit.y>top.y))top=hit;}
     return top;
   };
-  const fade=style==='high fade'?8.1:style==='low fade'?5.0:null;
+  const fade=style==='high fade'?8.1:style==='low fade'?5.0:style==='textured crop'?7.0:style==='crew cut'?6.0:null;
   const curls=/curl|afro/.test(style),hanging=/braids|locs|twists/.test(style);
-  const capField=p=>p.y-(fade===null?hairline(p):Math.max(hairline(p),fade));
+  // Subdivide before displacement so short hair detail follows the skull instead
+  // of merely moving the corners of the source model's large triangles.
+  const midpoint=(a,b)=>({p:a.p.clone().lerp(b.p,.5),n:a.n.clone().lerp(b.n,.5).normalize()});
+  let scalpTriangles=triangles.filter(tri=>tri.some(v=>v.p.y>hairline(v.p)-.5));
+  for(let level=0;level<3;level++)scalpTriangles=scalpTriangles.flatMap(([a,b,c])=>{const ab=midpoint(a,b),bc=midpoint(b,c),ca=midpoint(c,a);return [[a,ab,ca],[ab,b,bc],[ca,bc,c],[ab,bc,ca]];});
+  const capField=p=>(p.y-(fade===null?hairline(p):Math.max(hairline(p),fade)))/(fade===null?1:3);
   if(!hanging&&style!=='cornrows'){
     let capMaterial=material;
+    if(fade!==null){
+      capMaterial=material.clone();capMaterial.transparent=true;capMaterial.depthWrite=false;
+      capMaterial.onBeforeCompile=shader=>{material.onBeforeCompile(shader);shader.fragmentShader=shader.fragmentShader.replace('#include <alphatest_fragment>','diffuseColor.a *= smoothstep(0.02, 0.95, bkHairCoverage);\n#include <alphatest_fragment>');};
+      capMaterial.customProgramCacheKey=()=> 'athlete-scalp-fade-v1';
+    }
     if(style==='shaved'){
       capMaterial=material.clone();capMaterial.transparent=true;capMaterial.opacity=.28;capMaterial.depthWrite=false;
     }
-    add(surfaceGeometry(triangles,capField,p=>{
+    add(surfaceGeometry(scalpTriangles,capField,p=>{
       const top=smooth(7.8,10.5,p.y);
       if(style==='shaved')return .018;
-      if(style==='waves')return .07+.085*Math.pow(.5+.5*Math.cos(Math.hypot(p.x,p.z+1)*9),4);
+      if(style==='waves')return .045+.10*Math.pow(.5+.5*Math.cos(p.y*8+Math.sin(Math.atan2(p.x,p.z)*3)*.6),4);
       if(style==='crew cut')return .06+top*.60;
-      if(style==='textured crop')return .12+top*(.85+.22*Math.sin(p.x*3+p.z*2));
+      if(style==='textured crop')return .06+top*.32;
       if(curls)return .10+top*(style==='short curls'?.32:.65);
       return .04+smooth(fade,10.2,p.y)*.38;
     }),'Scalp '+style,capMaterial);
   }
-  if(style==='waves'){
-    // Concentric ridges remain readable at phone size without a helmet silhouette.
-    for(let ring=1;ring<=14;ring++){
-      const r=ring*.43,points=[];
-      for(let i=0;i<=100;i++){const angle=i/100*Math.PI*2,p=project(Math.sin(angle)*r,Math.cos(angle)*r-1);if(p)points.push(p.add(new T.Vector3(0,.12,0)));else if(points.length>1){tube(points.splice(0),.035,36,4);}}
-      if(points.length>1)tube(points,.035,36,4);
-    }
+  if(hanging||style==='cornrows'){
+    const spacing=style==='braids'?1.28:style.includes('twists')?1.05:1.12;
+    const roots=material.clone();roots.transparent=true;roots.depthWrite=false;
+    roots.onBeforeCompile=shader=>{material.onBeforeCompile(shader);shader.fragmentShader=shader.fragmentShader.replace('#include <alphatest_fragment>',`
+      vec2 part=abs(fract((bkHairPosition.xz+vec2(3.9,4.6))/${spacing.toFixed(2)})-.5)*${spacing.toFixed(2)};
+      float separation=${style==='cornrows'?'abs(fract((bkHairPosition.x+3.6)/.9)-.5)*.9':'min(part.x,part.y)'};
+      diffuseColor.a *= smoothstep(.025,.09,separation)*smoothstep(0.02,.95,bkHairCoverage);
+      #include <alphatest_fragment>`);};
+    roots.customProgramCacheKey=()=> 'athlete-parted-roots-'+style;
+    add(surfaceGeometry(scalpTriangles,p=>(p.y-hairline(p))/2,()=>.025),'Parted roots '+style,roots);
   }
   if(style==='cornrows'){
     for(let x=-3.6;x<=3.61;x+=.9){const points=[];
@@ -70,7 +83,11 @@ export function buildAthleteHair({style,triangles,add,material,surfaceGeometry,s
       const length=long?8.0+random()*2:style==='short locs'?3.0+random()*1.4:1.6+random()*.9;
       const bend=root.clone().addScaledVector(outward,long?2.1:1.0).add(new T.Vector3(0,.65,0));
       const end=root.clone().addScaledVector(outward,long?2.6:1.5);end.y=Math.max(-3.0,root.y-length);
-      if(long){if(back)end.z=Math.min(-5.1,end.z);else end.x=side*Math.max(5.0,Math.abs(end.x));}
+      if(long){
+        end.y=-2.1-random()*.9;
+        if(back){bend.z=Math.min(-5.7,bend.z);end.z=Math.min(-5.5,end.z);}
+        else{bend.x=side*Math.max(5.2,Math.abs(bend.x));end.x=side*Math.max(5.0,Math.abs(end.x));}
+      }
       const mid=bend.clone().lerp(end,.55);mid.addScaledVector(outward,.35);
       const points=[root.clone().add(new T.Vector3(0,.10,0)),bend,mid,end];
       if(braid||twist)weave(points,braid?.23:.18,braid?3:2,long?13:7);
@@ -82,16 +99,16 @@ export function buildAthleteHair({style,triangles,add,material,surfaceGeometry,s
     }
   }
   if(curls||style==='textured crop'){
-    const count=curls?1000:240,geometry=new T.IcosahedronGeometry(1,1),dummy=new T.Object3D();
+    const count=curls?1500:1700,geometry=new T.IcosahedronGeometry(1,1),dummy=new T.Object3D();
     geometry.setAttribute('bkCoverage',new T.Float32BufferAttribute(new Float32Array(geometry.attributes.position.count).fill(1),1));
     const mesh=new T.InstancedMesh(geometry,material,count);
-    const candidates=triangles.filter(tri=>tri.every(v=>v.p.y>hairline(v.p)+.15));
+    const candidates=scalpTriangles.filter(tri=>tri.every(v=>v.p.y>Math.max(hairline(v.p)+.15,style==='textured crop'?8.0:-100)));
     if(candidates.length){for(let i=0;i<count;i++){
       const tri=candidates[Math.floor(random()*candidates.length)];let u=random(),v=random();if(u+v>1){u=1-u;v=1-v;}
       const p=tri[0].p.clone().multiplyScalar(1-u-v).addScaledVector(tri[1].p,u).addScaledVector(tri[2].p,v),n=tri[0].n.clone().add(tri[1].n).add(tri[2].n).normalize();
       const top=smooth(hairline(p),11,p.y),radius=style==='short curls'?.18+top*.18:style==='textured crop'?.14+top*.16:.22+top*.33;
       const lift=style==='tapered afro'?top*2.0:style==='medium curls'?top*1.0:top*.4;
-      dummy.position.copy(p).addScaledVector(n,radius*.5+lift);dummy.rotation.set(random()*3,random()*3,random()*3);dummy.scale.set(radius,radius*.8,radius);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);
+      dummy.position.copy(p).addScaledVector(n,radius*.5+lift);dummy.rotation.set(random()*.4,random()*.6,random()*.4);dummy.scale.set(radius,radius*.8,radius);if(style==='textured crop'){dummy.scale.set(.10,.16,.42+random()*.18);dummy.position.z+=.20;}dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);
     }mesh.name='Hair curls '+style;mesh.castShadow=true;add(mesh,null);}
     else geometry.dispose();
   }
