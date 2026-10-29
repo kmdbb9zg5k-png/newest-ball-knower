@@ -96,7 +96,7 @@ export function makeCommerce(db:SupabaseClient,stripe:Stripe,config:NonNullable<
    const session=order.session_id?await stripe.checkout.sessions.retrieve(order.session_id):await stripe.checkout.sessions.create({
     mode:'payment',client_reference_id:userId,line_items:[{price:order.price_id,quantity:1}],metadata,payment_intent_data:{metadata},
     success_url:'https://ballknowerofficial.com/?locker_checkout=return',cancel_url:'https://ballknowerofficial.com/?locker_checkout=cancel',
-    adaptive_pricing:{enabled:false},expires_at:Math.floor(Date.parse(order.created_at)/1000)+1800,
+    adaptive_pricing:{enabled:false},expires_at:Math.floor(Date.parse(order.created_at)/1000)+24*60*60,
    },{idempotencyKey:`bk-locker-test-${order.id}`});
    await reconcile(order,session.id);
    if(session.status!=='open'||!session.url||new URL(session.url).hostname!=='checkout.stripe.com'||new URL(session.url).protocol!=='https:')fail(409,'Checkout is processing. Restore your purchases shortly.');
