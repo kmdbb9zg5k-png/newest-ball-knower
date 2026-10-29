@@ -82,6 +82,21 @@ try{
       await page.getByLabel('HEIGHT',{exact:true}).press('Home');
       await page.getByLabel('WEIGHT',{exact:true}).press('Home');
       await capture('artifacts/athlete-creator/smallest-390.png');
+      const stage=await preview.locator('.bk-athlete-3d-stage').boundingBox();
+      const rotation=await page.getByLabel('Rotate athlete',{exact:true}).inputValue();
+      await page.mouse.move(stage.x+stage.width*.4,stage.y+stage.height*.6);
+      await page.mouse.down();await page.mouse.move(stage.x+stage.width*.7,stage.y+stage.height*.6,{steps:8});await page.mouse.up();
+      assert.notEqual(await page.getByLabel('Rotate athlete',{exact:true}).inputValue(),rotation,'Dragging rotates athlete');
+      for(const viewport of [{width:390,height:600},{width:844,height:390}]){
+        await page.setViewportSize(viewport);
+        await tab('Hair');
+        await page.screenshot({path:`artifacts/athlete-creator/studio-${viewport.width}x${viewport.height}.png`});
+        const bounds=await page.getByRole('button',{name:'Save & start 40-Yard Dash',exact:true}).boundingBox();
+        assert(bounds.y+ bounds.height<=viewport.height,'Save remains reachable on short screens');
+        const model=await preview.boundingBox();assert(model.height>100&&model.y>=0);
+        assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+      }
+
     }
     assert.deepEqual(errors,[]);
     await page.close();
