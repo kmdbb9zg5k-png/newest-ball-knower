@@ -35,12 +35,9 @@ export function athletePassport(raw:unknown):AthletePassport|null {
  if(awards)trophies.push({id:'class-awards',title:'Draft-class honors',detail:`${awards} career award${awards===1?'':'s'}`});
  const games=count(p.gamesPlayed);
  if(games>=17)trophies.push({id:'17-games',title:'Seasoned pro',detail:`${games} career games played`});
- const preset=['mason','nico','malik','darius'].includes(p.presetFaceId)?p.presetFaceId:'malik';
- // Never fetch an arbitrary remote image supplied by a save file.
- const localPhoto=typeof p.faceImage==='string'&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(p.faceImage)&&p.faceImage.length<2000000?p.faceImage:'';
  const build=sanitizeAthleteBuild(p);
  const appearance=sanitizeAthleteAppearance(p);
- return {id:text(p.combineId,120)||`legacy:${text(p.name)}:${p.position}`,name:text(p.name),position:p.position,number:count(p.number,99),overall:count(p.overall,99),stage:p.stage,team:text(p.teamAbbr,4),portrait:localPhoto||`/solo-characters/v2/my-player-presets/${preset}/portrait.webp`,games,draft,build,movement:athleteMovement(build),appearance,marks,trophies};
+ return {id:text(p.combineId,120)||`legacy:${text(p.name)}:${p.position}`,name:text(p.name),position:p.position,number:count(p.number,99),overall:count(p.overall,99),stage:p.stage,team:text(p.teamAbbr,4),portrait:athletePortrait(p),games,draft,build,movement:athleteMovement(build),appearance,marks,trophies};
 }
 export function readAthletePassport():AthletePassport|null {
  try{return athletePassport(JSON.parse(localStorage.getItem(ATHLETE_SAVE_KEY)||'null'));}catch{return null;}
@@ -50,6 +47,18 @@ export function readAthletePassport():AthletePassport|null {
 export function withAthleteIdentity<T extends {name:string}>(athlete:T, identity:{id:string;name:string;number:number;build?:AthleteBuild;appearance?:AthleteAppearance}|null):T & {cosmeticIdentityId?:string;jerseyNumber?:number;heightInches?:number;weightLbs?:number;bodyBuild?:number;shoulderWidth?:number;armSize?:number;legSize?:number;athleteAppearance?:AthleteAppearance} {
  return identity?{...athlete,name:identity.name,jerseyNumber:identity.number,cosmeticIdentityId:`my-player-${identity.id}`,...(identity.build?{heightInches:identity.build.heightInches,weightLbs:identity.build.weightLbs,bodyBuild:identity.build.bodyBuild,shoulderWidth:identity.build.shoulderWidth,armSize:identity.build.armSize,legSize:identity.build.legSize}:{}),...(identity.appearance?{athleteAppearance:identity.appearance}:{})}:{...athlete};
 }
-export function careerAthleteIdentity(profile:{combineId?:string;name:string;number:number;position:string}&Partial<AthleteAppearance>) {
- return {id:profile.combineId||`legacy:${profile.name}:${profile.position}`,name:profile.name,number:profile.number,appearance:sanitizeAthleteAppearance(profile)};
+export function careerAthleteIdentity(profile:{combineId?:string;name:string;number:number;position:string}&Partial<AthleteAppearance>&Partial<AthleteBuild>) {
+ return {id:profile.combineId||`legacy:${profile.name}:${profile.position}`,name:profile.name,number:profile.number,build:sanitizeAthleteBuild(profile as Partial<AthleteBuild>),appearance:sanitizeAthleteAppearance(profile)};
+}
+
+type PortraitProfile={faceImage?:unknown;athletePortrait?:unknown;portraitSource?:unknown;presetFaceId?:unknown};
+/** Older saves only identify explicit selections when they differ from the Malik default. */
+export function usesPresetAthletePortrait(profile:PortraitProfile):boolean {
+ return ['mason','nico','malik','darius'].includes(String(profile.presetFaceId))&&
+  (profile.portraitSource==='preset'||profile.portraitSource===undefined&&profile.presetFaceId!=='malik');
+}
+/** Only explicitly selected portraits or the creator's actual rendered athlete. */
+export function athletePortrait(profile:PortraitProfile):string {
+ const safe=(v:unknown)=>typeof v==='string'&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v)&&v.length<2000000?v:'';
+ return safe(profile.faceImage)||(usesPresetAthletePortrait(profile)?`/solo-characters/v2/my-player-presets/${profile.presetFaceId}/portrait.webp`:safe(profile.athletePortrait));
 }

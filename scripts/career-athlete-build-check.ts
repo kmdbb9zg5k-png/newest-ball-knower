@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import {applyCareerBuild} from '../careerAthleteBuild';
+import {athleteMovement,sanitizeAthleteBuild,ATHLETE_POSITIONS} from '../athleteBuild';
+import {athletePortrait,careerAthleteIdentity} from '../athletePassport';
+const base={...sanitizeAthleteBuild({position:'WR',heightInches:72,weightLbs:205}),stage:'creator',name:'Eli',speed:78,power:72,renderImage:'',draftJourney:{choices:{origin:'local'}}};
+const created=applyCareerBuild(base);
+assert.equal(created.speed,athleteMovement(base).speed);
+for(const position of ATHLETE_POSITIONS){const changed=applyCareerBuild(created,{position});assert.equal(changed.speed,created.speed);assert.equal(changed.power,created.power);assert.deepEqual(athleteMovement({...base,position}),athleteMovement(base));}
+const trained={...created,stage:'combine',speed:created.speed+3,power:created.power+2,combinePerformance:{version:1 as const,results:{dash:{best:4.5,last:4.6,attempts:1}}}};
+const heavier=applyCareerBuild(trained,{weightLbs:270});
+assert.equal(heavier.speed,athleteMovement(heavier).speed+3,'Keep story training bonus');
+assert.equal(heavier.power,athleteMovement(heavier).strength+2);
+assert.deepEqual(heavier.combinePerformance.results,{},'Old workout marks do not carry to a different build');
+assert.deepEqual(heavier.draftJourney,trained.draftJourney,'Story choices persist');
+assert.deepEqual(applyCareerBuild(trained,{name:'New name'}).combinePerformance,trained.combinePerformance,'Cosmetic edits preserve marks');
+assert.deepEqual(applyCareerBuild(heavier),heavier,'Repeated saves cannot farm ratings');
+const legacy=applyCareerBuild({...base,stage:'combine',speed:81,power:74});assert.equal(legacy.speed,athleteMovement(base).speed+3);assert.equal(legacy.power,athleteMovement(base).strength+2);
+const veteran={...trained,stage:'season',speed:98};assert.equal(applyCareerBuild(veteran,{weightLbs:300}).speed,98,'Post-draft upgrades are not rebased');
+const identity=careerAthleteIdentity({...base,number:21,shoulderWidth:77,armSize:82,legSize:79});assert.equal(identity.build.shoulderWidth,77);assert.equal(identity.build.armSize,82);assert.equal(identity.build.legSize,79);
+const picture='data:image/png;base64,aGVsbG8=';
+assert.equal(athletePortrait({presetFaceId:'malik'}),'','No unrelated default portrait');
+assert.equal(athletePortrait({athletePortrait:picture}),picture);
+assert.equal(athletePortrait({athletePortrait:'https://evil.invalid/pic'}),'');
+assert.equal(athletePortrait({portraitSource:'preset',presetFaceId:'nico'}),'/solo-characters/v2/my-player-presets/nico/portrait.webp');
+console.log('PASS build-based career ratings, position invariance, legacy bonuses, idempotent saves, workout invalidation, story preservation, full dimensions and actual-athlete portrait.');
+
+for(const presetFaceId of ['mason','nico','darius']){
+ assert.equal(athletePortrait({presetFaceId}),`/solo-characters/v2/my-player-presets/${presetFaceId}/portrait.webp`,'Keep identifiable legacy portrait choices');
+ assert.equal(athletePortrait({presetFaceId,portraitSource:'created',athletePortrait:picture}),picture,'Explicitly returning to the creator overrides a legacy choice');
+}

@@ -3,10 +3,14 @@ import type { Position } from '../types';
 import type { Appearance, AppearancePlayer, BodyBuild, GloveStyle, SleeveStyle, TattooCoverage, TattooStyle } from './appearance';
 import { appearanceSeed, defaultAppearance } from './appearance';
 import type {AthleteAppearance} from '../athleteAppearance';
+import {usesPresetAthletePortrait} from '../athletePassport';
+import AthleteLivePreview from '../AthleteLivePreview';
+import {sanitizeAthleteBuild} from '../athleteBuild';
+import {sanitizeAthleteAppearance} from '../athleteAppearance';
 import { SoloCharacter } from './SoloPresentation';
 
 type Profile = {
-  name:string; position:Position; number:number; faceImage:string; presetFaceId:string; renderImage:string;
+  combineId?:string;portraitSource?:string;name:string; position:Position; number:number; faceImage:string; presetFaceId:string; renderImage:string;
   appearancePrompt:string; teamAbbr:string; heightInches:number; weightLbs:number; bodyBuild:number;
   shoulderWidth:number; armSize:number; legSize:number; viewRotation:number;
 } & Partial<AthleteAppearance>;
@@ -25,9 +29,10 @@ function promptAppearance(value:string):Pick<Appearance,'sleeves'|'gloves'|'tatt
 }
 function sharedPlayer(profile:Profile):AppearancePlayer{return{id:'my-player-user',name:profile.name||'My Player',position:profile.position,team:profile.teamAbbr||'BK',teamName:profile.teamAbbr?undefined:'Ball Knower Training',jerseyNumber:clamp(Math.round(profile.number),0,99),heightInches:profile.heightInches,weightLbs:profile.weightLbs,simulatedPortraitUrl:profile.faceImage||myPlayerPresetPortrait(profile.presetFaceId),simulatedFullBodyUrl:profile.renderImage||undefined};}
 function sharedAppearance(profile:Profile,player:AppearancePlayer):Appearance{const base=defaultAppearance(player),prompt=promptAppearance(profile.appearancePrompt);return{...base,face:FACE_BY_PRESET[profile.presetFaceId]??base.face,build:buildFor(profile),number:clamp(Math.round(profile.number),0,99),...prompt,tattooCoverage:profile.tattooCoverage??prompt.tattooCoverage,tattooStyle:profile.tattooStyle??prompt.tattooStyle,tattooSeed:appearanceSeed(`my-player:${profile.name}:${profile.presetFaceId}:${profile.appearancePrompt}:${profile.tattooCoverage}:${profile.tattooStyle}`)&0x7fffffff};}
-export function MyPlayerSharedRender({profile,compact=false}:{profile:Profile;compact?:boolean}){
-  const player=useMemo(()=>sharedPlayer(profile),[profile.name,profile.position,profile.teamAbbr,profile.number,profile.heightInches,profile.weightLbs]);
-  const look=useMemo(()=>sharedAppearance(profile,player),[player,profile.presetFaceId,profile.bodyBuild,profile.weightLbs,profile.appearancePrompt]);
+export function MyPlayerSharedRender({profile,compact=false,onPortrait}:{profile:Profile;compact?:boolean;onPortrait?:(portrait:string)=>void}){
+  const player=useMemo(()=>sharedPlayer(profile),[profile]);
+  const look=useMemo(()=>sharedAppearance(profile,player),[player,profile]);
+  if(!profile.renderImage&&!profile.faceImage&&!usesPresetAthletePortrait(profile))return <div data-my-player-render="created" data-compact={compact} className={compact?'bk-career-created-compact':''}><AthleteLivePreview profile={{...profile,...sanitizeAthleteBuild(profile),...sanitizeAthleteAppearance(profile)}} onPortrait={onPortrait}/></div>;
   if(profile.renderImage)return <div className={`relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#111] ${compact?'h-[260px]':''}`} data-my-player-render="ai"><img src={profile.renderImage} alt={`${profile.name||'Created player'} render`} className={`${compact?'h-full':'aspect-[4/5] h-full'} w-full object-cover`} style={{transform:`perspective(900px) rotateY(${profile.viewRotation*.12}deg) scale(${compact?1.05:1})`,transition:'transform 120ms ease-out'}}/><div className="absolute bottom-3 left-3 rounded-full bg-black/70 px-3 py-1 text-[9px] font-black">{feetAndInches(profile.heightInches)} • {profile.weightLbs} LB</div></div>;
   const heightScale=clamp(profile.heightInches/72,.9,1.12),frame=(profile.bodyBuild+profile.shoulderWidth+profile.armSize+profile.legSize)/400;
   const widthScale=.88+frame*.26+clamp((profile.weightLbs-190)/220,0,.12);

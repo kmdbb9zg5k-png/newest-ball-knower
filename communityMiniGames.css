@@ -19,3 +19,13 @@
 .bk-studio-presets summary{min-height:32px;color:#c6d0dc;cursor:pointer;font-size:12px}.bk-studio-presets[open] summary{margin-bottom:8px}.bk-studio-panel [data-athlete-build-editor]>label>span{font-size:12px}.bk-studio-panel [data-athlete-build-editor]>label{margin-top:8px}.bk-studio-panel input[type=range]{min-height:44px;accent-color:#e6c568}
 .bk-studio-panel input:not([type=range]){font-size:16px}
 @media(max-height:560px) and (orientation:portrait){.bk-mini-challenge-feed.bk-athlete-studio{min-height:0;grid-template-rows:36px minmax(80px,1fr) 44px minmax(70px,1fr) auto}.bk-studio-save{padding:6px}.bk-studio-save .bk-mini-primary{min-height:44px}.bk-studio-preview .bk-athlete-3d-stage{inset:4px 0 40px}.bk-studio-heading h3{font-size:12px!important}}
+
+.bk-studio-build-link{display:block;width:100%;min-height:44px;margin-top:14px;padding:10px;border:1px solid #e6c56866;border-radius:10px;color:#efd17c;background:#e6c56812;font-size:12px;font-weight:800;text-align:left}
+.athlete-portrait-placeholder{display:grid;place-items:center;width:96px;height:120px;border-radius:12px;background:#143647;color:#e6c568;font-size:28px;font-weight:900;flex:none}
+
+.bk-career-created-compact .bk-athlete-3d-preview{height:300px}
+
+.bk-athlete-3d-preview .bk-athlete-preview-footer>strong{display:block;line-height:1.4}
+.bk-athlete-3d-preview .bk-athlete-preview-footer label{display:block;font-size:11px;line-height:1.4;color:#abb7c4}
+.bk-athlete-3d-preview .bk-athlete-preview-footer label>span{display:block}
+.bk-athlete-3d-preview .bk-athlete-preview-footer input[type=range]{display:block;width:100%}
