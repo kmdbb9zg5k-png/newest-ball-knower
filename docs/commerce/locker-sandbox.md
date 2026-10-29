@@ -1,6 +1,6 @@
 # Locker sandbox checkout
 
-This change prepares **web-only, private sandbox testing**, not live sales. The public Locker keeps ten free choices and four premium try-on previews. A configured, signed-in test account can buy the four test items, restore ownership, and equip them in the player preview and draft Combine. Cosmetics never affect ratings or speed. Native builds do not open web checkout.
+This change prepares **web-only, private sandbox testing**, not live sales. The public Locker keeps ten free choices and four premium try-on previews. A configured, signed-in test account can buy the four test items, restore ownership, and equip them throughout the 3D career profiles, training camp, position workouts, draft Combine, standalone practice and Community Combine. Full football games retain team uniforms. Cosmetics never affect ratings or speed. Native builds do not open web checkout.
 
 ## Provisioned
 
@@ -62,3 +62,13 @@ Then use an allowed account on the web app:
 ## Live release is separate
 
 This code cannot be switched to live by changing one environment variable. Live account activation, approved retail prices, production entitlements, refund/support terms, deployment/payment verification and native-store purchase support remain future work. Do not present this sandbox as a revenue-ready launch.
+
+## Persistent off-field outfits
+
+`dressMyAthlete` is the shared workout/game boundary. Camp and weekly position workouts, official draft drills, standalone practice and Community drills receive the equipped outfit. It never changes the original template, competitive ID, seed, position or ratings. Full-game callers strip any wardrobe override and keep team uniforms without overwriting the saved outfit.
+
+Career body previews always use the customized live athlete, including when a user has selected a separate selfie/preset/AI portrait. Optional portrait previews and portrait cards remain available; existing photos are not edited to change their clothing. Questions/objective pages retain their focused layout.
+
+Standalone/Community Combine restores verified account clothing before constructing its session athlete. A running drill uses a stable appearance snapshot; changing outfits takes effect on the next workout, without restarting or resetting an attempt. Regular player previews update immediately.
+
+Additional checks: `scripts/athlete-wardrobe-check.ts` exercises workout → game → workout persistence, fixed competitive ratings, NPC isolation and premium grant clearing. `scripts/athlete-wardrobe-browser.mjs` checks actual material uniforms in the real renderer across career, camp, weekly workouts, practice and the player-controlled Community defender, plus a mocked verified-purchase restoration on entry. Browser instrumentation exists only in the test Vite plugin.
