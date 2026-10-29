@@ -1,11 +1,11 @@
 import React,{useMemo} from 'react';
-import {athleteMovement,BODY_PRESETS,feetAndInches,limitsFor,presetAthleteBuild,type AthleteBuild} from './athleteBuild';
+import {athleteMovement,ATHLETE_BODY_LIMITS,BODY_PRESETS,feetAndInches,presetAthleteBuild,type AthleteBuild} from './athleteBuild';
 
 type Props={value:AthleteBuild;onChange:(build:AthleteBuild)=>void;compact?:boolean};
 const Slider=({label,value,min,max,display,onChange}:{label:string;value:number;min:number;max:number;display:string;onChange:(value:number)=>void})=><label className="mt-3 block"><span className="mb-1 flex justify-between text-[10px] font-black"><span className="text-zinc-500">{label}</span><b>{display}</b></span><input aria-label={label} type="range" min={min} max={max} value={value} onChange={event=>onChange(Number(event.target.value))} className="h-11 w-full cursor-pointer accent-[var(--bk-team-accent)]"/></label>;
 
 export default function AthleteBuildEditor({value,onChange,compact=false}:Props){
-  const limits=limitsFor(value.position),movement=useMemo(()=>athleteMovement(value),[value]);
+  const limits=ATHLETE_BODY_LIMITS,movement=useMemo(()=>athleteMovement(value),[value]);
   const set=(key:keyof AthleteBuild,next:number|string)=>onChange({...value,[key]:next,bodyPresetId:'custom'});
   return <div data-athlete-build-editor="madden-style">
     <div className="mb-3 flex items-center justify-between"><span className="text-[10px] font-black tracking-[.18em] text-[var(--bk-team-accent)]">PHYSIQUE & MOVEMENT</span><span className="text-[10px] font-bold text-zinc-500">LIVE BUILD</span></div>

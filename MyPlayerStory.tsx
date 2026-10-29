@@ -23,7 +23,8 @@ import { ensureOnlineSession, supabase } from './supabase';
 import { AiPhotoConsent, AI_PHOTO_CONSENT_VERSION } from './AiPhotoConsent';
 import { MyPlayerSharedRender as PlayerRender, myPlayerPresetPortrait } from './solo/MyPlayerSharedRender';
 import AthleteBuildEditor from './AthleteBuildEditor';
-import {ATHLETE_POSITIONS,feetAndInches,recommendedAthleteBuild,sanitizeAthleteBuild,type AthleteBuild} from './athleteBuild';
+import JerseyNumberInput from './JerseyNumberInput';
+import {ATHLETE_POSITIONS,feetAndInches,sanitizeAthleteBuild,type AthleteBuild} from './athleteBuild';
 import {DEFAULT_ATHLETE_APPEARANCE,sanitizeAthleteAppearance,type AthleteAppearance} from './athleteAppearance';
 
 type Props = { onBack: () => void };
@@ -460,9 +461,9 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
               <label className="mt-3 flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[.03] text-xs font-black text-zinc-400"><Upload size={15} /> {profile.faceImage ? 'CHANGE YOUR SELFIE' : 'OPTIONAL: USE YOUR SELFIE'}<input type="file" accept="image/jpeg,image/png,image/webp" capture="user" onChange={event => onFace(event.target.files?.[0])} className="sr-only" /></label>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <label className="text-[10px] font-black text-zinc-500">PLAYER NAME<input value={profile.name} onChange={event => setProfile(current => ({ ...current, name: event.target.value }))} className="mt-1 w-full rounded-xl border border-white/10 bg-[#151515] p-3 text-sm text-white outline-none" placeholder="Your name" /></label>
-                <label className="text-[10px] font-black text-zinc-500">JERSEY NUMBER<input type="number" min="0" max="99" value={profile.number} onChange={event => setProfile(current => ({ ...current, number: Math.max(0, Math.min(99, Number(event.target.value) || 0)) }))} className="mt-1 w-full rounded-xl border border-white/10 bg-[#151515] p-3 text-sm text-white outline-none" /></label>
+                <label className="text-[10px] font-black text-zinc-500">JERSEY NUMBER<JerseyNumberInput value={profile.number} onChange={number => setProfile(current => ({ ...current, number }))} className="mt-1 w-full rounded-xl border border-white/10 bg-[#151515] p-3 text-sm text-white outline-none" /></label>
               </div>
-              <div className="mt-4"><div className="text-[10px] font-black text-zinc-500">POSITION</div><div className="mt-2 flex flex-wrap gap-2">{POSITIONS.map(position => <button key={position} type="button" aria-pressed={profile.position===position} onClick={() => setProfile(current => ({ ...current, ...recommendedAthleteBuild(position), renderImage: '' }))} className={`min-h-10 rounded-xl border px-3 text-xs font-black ${profile.position === position ? 'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)]/10 text-[var(--bk-team-accent)]' : 'border-white/10 bg-[#151515] text-zinc-400'}`}>{position}</button>)}</div></div>
+              <div className="mt-4"><div className="text-[10px] font-black text-zinc-500">POSITION</div><div className="mt-2 flex flex-wrap gap-2">{POSITIONS.map(position => <button key={position} type="button" aria-pressed={profile.position===position} onClick={() => setProfile(current => ({ ...current, position, renderImage: '' }))} className={`min-h-10 rounded-xl border px-3 text-xs font-black ${profile.position === position ? 'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)]/10 text-[var(--bk-team-accent)]' : 'border-white/10 bg-[#151515] text-zinc-400'}`}>{position}</button>)}</div></div>
 
               <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
                 <AthleteBuildEditor value={sanitizeAthleteBuild(profile)} onChange={updateBuild}/>
