@@ -39,7 +39,7 @@ try{
    assert.ok(geometry.scroll<=width+1,`${name} overflow at ${width}: ${geometry.scroll}`);
    if(name!=='my-player')assert.ok(geometry.stageTop>=geometry.headerBottom-1,`${name} covered by fixed header`);
    if(name==='my-player'){const creator=page.getByRole('dialog',{name:'Create your career player',exact:true});assert(await creator.isVisible());const bounds=await creator.boundingBox();assert(bounds.y===0&&bounds.width===width,'Career creator fills the visible screen');assert.equal(await creator.getByRole('tab').count(),5);assert(await creator.getByRole('button',{name:'Save & enter the Combine',exact:true}).isVisible());}
-   else if(width<768)assert.equal(await page.getByRole('navigation',{name:'Primary navigation'}).locator('button').count(),6);
+   else if(width<768)assert.equal(await page.getByRole('navigation',{name:'Primary navigation'}).locator('button').count(),7);
    console.log('Captured',name,width);
    await page.screenshot({path:`${out}/${label}-${width}.png`,fullPage:false});results.push({screen:label,scene,width,...geometry});
   };
