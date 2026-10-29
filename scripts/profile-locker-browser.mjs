@@ -113,7 +113,7 @@ try {
       const geometry = await page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth, profileWidth: document.querySelector('.bk-profile-page')?.getBoundingClientRect().width }));
       assert.ok(geometry.scrollWidth <= width + 1, `Profile overflow at ${engine} ${width}: ${JSON.stringify(geometry)}`);
       assert.ok(await profile.locator('.bk-locker-hex').evaluateAll(elements => elements.every(element => element.getBoundingClientRect().width >= 44 && element.getBoundingClientRect().height >= 44)));
-      if (width < 768) assert.equal(await page.getByRole('navigation', { name: 'Primary navigation' }).locator('button').count(), 6);
+      if (width < 768) assert.equal(await page.getByRole('navigation', { name: 'Primary navigation' }).locator('button').count(), 7);
       await page.screenshot({ path: `${output}/${engine}-${width}-profile.png` });
       await page.screenshot({ path: `${output}/${engine}-${width}-full.png`, fullPage: true });
       const visual = await page.evaluate(() => { const rect = selector => { const box = document.querySelector(selector)?.getBoundingClientRect(); return box ? { x: box.x, y: box.y, width: box.width, height: box.height, bottom: box.bottom } : null; }; return { receipts: rect('.bk-locker-receipts'), nav: rect('nav[aria-label="Primary navigation"]'), identity: rect('.bk-profile-identity'), heading: rect('.bk-locker-masthead'), trophyTargets: [...document.querySelectorAll('.bk-locker-trophy')].slice(0,6).map(element => {const b=element.getBoundingClientRect(); return {x:b.x,right:b.right,width:b.width,height:b.height};}), badges: [...document.querySelectorAll('.bk-locker-badge')].slice(0,6).map(element => {const b=element.getBoundingClientRect(); return {x:b.x,right:b.right,width:b.width,height:b.height};}) }; });
@@ -193,7 +193,7 @@ try {
       await page.locator('.bk-profile-extras > summary').click();
       await page.getByRole('button', { name: 'Collection', exact: true }).click();
       assert.ok(await page.getByText('Fixture Collectible', { exact: true }).isVisible());
-      await page.getByRole('button', { name: 'Locker', exact: true }).click();
+      await page.getByLabel('Locker and collection').getByRole('button', { name: 'Locker', exact: true }).click();
       await page.getByRole('button', { name: 'Equip', exact: true }).click();
       await page.waitForFunction(() => document.querySelector('.bk-profile-extras')?.textContent.includes('qa-frame'));
       assert.equal(equipCalls, 1);
