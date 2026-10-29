@@ -46,3 +46,8 @@ assert.equal(connected.heightInches,card.build.heightInches);assert.equal(connec
 const customizedPlayer=withAthleteIdentity(fixed,customized),customizedLook=combineAppearance(customizedPlayer);
 assert.equal(customizedLook.skinTone,'fair');assert.equal(customizedLook.hairStyle,'braids');assert.equal(customizedLook.hairColor,'auburn');assert.equal(customizedLook.facialHair,'goatee');assert.equal(customizedLook.tattooProfile,'both arms');
 console.log('PASS shared career/Community cosmetic identity with fixed competitive stats and simulation seed.');
+
+for(const stage of ['creator','combine','drafted','camp','season']){
+ assert.equal(athletePassport({...base,stage,presetFaceId:'nico'})!.portrait,'/solo-characters/v2/my-player-presets/nico/portrait.webp','Legacy selection persists at '+stage);
+ assert.equal(athletePassport({...base,stage,presetFaceId:'nico',portraitSource:'created',athletePortrait:'data:image/png;base64,aGVsbG8='})!.portrait,'data:image/png;base64,aGVsbG8=');
+}

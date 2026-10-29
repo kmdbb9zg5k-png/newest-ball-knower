@@ -51,8 +51,14 @@ export function careerAthleteIdentity(profile:{combineId?:string;name:string;num
  return {id:profile.combineId||`legacy:${profile.name}:${profile.position}`,name:profile.name,number:profile.number,build:sanitizeAthleteBuild(profile as Partial<AthleteBuild>),appearance:sanitizeAthleteAppearance(profile)};
 }
 
+type PortraitProfile={faceImage?:unknown;athletePortrait?:unknown;portraitSource?:unknown;presetFaceId?:unknown};
+/** Older saves only identify explicit selections when they differ from the Malik default. */
+export function usesPresetAthletePortrait(profile:PortraitProfile):boolean {
+ return ['mason','nico','malik','darius'].includes(String(profile.presetFaceId))&&
+  (profile.portraitSource==='preset'||profile.portraitSource===undefined&&profile.presetFaceId!=='malik');
+}
 /** Only explicitly selected portraits or the creator's actual rendered athlete. */
-export function athletePortrait(profile:{faceImage?:unknown;athletePortrait?:unknown;portraitSource?:unknown;presetFaceId?:unknown}):string {
+export function athletePortrait(profile:PortraitProfile):string {
  const safe=(v:unknown)=>typeof v==='string'&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v)&&v.length<2000000?v:'';
- return safe(profile.faceImage)||(profile.portraitSource==='preset'&&['mason','nico','malik','darius'].includes(String(profile.presetFaceId))?`/solo-characters/v2/my-player-presets/${profile.presetFaceId}/portrait.webp`:safe(profile.athletePortrait));
+ return safe(profile.faceImage)||(usesPresetAthletePortrait(profile)?`/solo-characters/v2/my-player-presets/${profile.presetFaceId}/portrait.webp`:safe(profile.athletePortrait));
 }

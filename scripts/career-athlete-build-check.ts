@@ -23,3 +23,8 @@ assert.equal(athletePortrait({athletePortrait:picture}),picture);
 assert.equal(athletePortrait({athletePortrait:'https://evil.invalid/pic'}),'');
 assert.equal(athletePortrait({portraitSource:'preset',presetFaceId:'nico'}),'/solo-characters/v2/my-player-presets/nico/portrait.webp');
 console.log('PASS build-based career ratings, position invariance, legacy bonuses, idempotent saves, workout invalidation, story preservation, full dimensions and actual-athlete portrait.');
+
+for(const presetFaceId of ['mason','nico','darius']){
+ assert.equal(athletePortrait({presetFaceId}),`/solo-characters/v2/my-player-presets/${presetFaceId}/portrait.webp`,'Keep identifiable legacy portrait choices');
+ assert.equal(athletePortrait({presetFaceId,portraitSource:'created',athletePortrait:picture}),picture,'Explicitly returning to the creator overrides a legacy choice');
+}

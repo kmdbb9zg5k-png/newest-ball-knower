@@ -3,6 +3,7 @@ import type { Position } from '../types';
 import type { Appearance, AppearancePlayer, BodyBuild, GloveStyle, SleeveStyle, TattooCoverage, TattooStyle } from './appearance';
 import { appearanceSeed, defaultAppearance } from './appearance';
 import type {AthleteAppearance} from '../athleteAppearance';
+import {usesPresetAthletePortrait} from '../athletePassport';
 import AthleteLivePreview from '../AthleteLivePreview';
 import {sanitizeAthleteBuild} from '../athleteBuild';
 import {sanitizeAthleteAppearance} from '../athleteAppearance';
@@ -31,7 +32,7 @@ function sharedAppearance(profile:Profile,player:AppearancePlayer):Appearance{co
 export function MyPlayerSharedRender({profile,compact=false,onPortrait}:{profile:Profile;compact?:boolean;onPortrait?:(portrait:string)=>void}){
   const player=useMemo(()=>sharedPlayer(profile),[profile]);
   const look=useMemo(()=>sharedAppearance(profile,player),[player,profile]);
-  if(!profile.renderImage&&!profile.faceImage&&profile.portraitSource!=='preset')return <div data-my-player-render="created" data-compact={compact} className={compact?'bk-career-created-compact':''}><AthleteLivePreview profile={{...profile,...sanitizeAthleteBuild(profile),...sanitizeAthleteAppearance(profile)}} onPortrait={onPortrait}/></div>;
+  if(!profile.renderImage&&!profile.faceImage&&!usesPresetAthletePortrait(profile))return <div data-my-player-render="created" data-compact={compact} className={compact?'bk-career-created-compact':''}><AthleteLivePreview profile={{...profile,...sanitizeAthleteBuild(profile),...sanitizeAthleteAppearance(profile)}} onPortrait={onPortrait}/></div>;
   if(profile.renderImage)return <div className={`relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#111] ${compact?'h-[260px]':''}`} data-my-player-render="ai"><img src={profile.renderImage} alt={`${profile.name||'Created player'} render`} className={`${compact?'h-full':'aspect-[4/5] h-full'} w-full object-cover`} style={{transform:`perspective(900px) rotateY(${profile.viewRotation*.12}deg) scale(${compact?1.05:1})`,transition:'transform 120ms ease-out'}}/><div className="absolute bottom-3 left-3 rounded-full bg-black/70 px-3 py-1 text-[9px] font-black">{feetAndInches(profile.heightInches)} • {profile.weightLbs} LB</div></div>;
   const heightScale=clamp(profile.heightInches/72,.9,1.12),frame=(profile.bodyBuild+profile.shoulderWidth+profile.armSize+profile.legSize)/400;
   const widthScale=.88+frame*.26+clamp((profile.weightLbs-190)/220,0,.12);
