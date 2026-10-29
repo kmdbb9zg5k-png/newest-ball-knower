@@ -10,8 +10,11 @@ const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','
 let browser;const results=[];
 try{
  let ready=false;for(let i=0;i<100;i++){try{if((await fetch(base)).ok){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,200))}assert.ok(ready);
- await mkdir(out,{recursive:true});browser=await chromium.launch({args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader'],headless:true,executablePath:process.env.BROWSER_PATH||undefined});
+ await mkdir(out,{recursive:true});
  for(const width of [320,390,1280]){
+  // Isolate each device's GPU resources; allow WebGL fallback without forcing
+  // the entire multi-page compositor through SwiftShader.
+  browser=await chromium.launch({args:['--no-sandbox','--enable-unsafe-swiftshader'],headless:true,executablePath:process.env.BROWSER_PATH||undefined});
   const context=await browser.newContext({viewport:{width,height:width===1280?900:844},deviceScaleFactor:2,isMobile:width<768,hasTouch:width<768,...(live&&width===390?{recordVideo:{dir:`${out}/video`,size:{width,height:844}}}:{})});
   const page=await context.newPage();const crashes=[];let calls=0;
   page.on('pageerror',e=>crashes.push(e.message));
@@ -136,7 +139,7 @@ try{
   assert.equal(await page.evaluate(()=>window.scrollY),0,`Solo Fantasy Draft inherited the hub scroll position at ${width}px`);
 
   await page.getByRole('button',{name:'Back to Solo Franchise Hub',exact:true}).click();await page.locator('.bk-mode-card').filter({hasText:'CAP CHALLENGE'}).click();await capture('cap','tunnel');assert.equal(await page.locator('.bk-home-news-strip').count(),0);
-  assert.deepEqual(crashes,[]);await context.close();
+  assert.deepEqual(crashes,[]);await context.close();await browser.close();browser=undefined;
  }
  await writeFile(`${out}/results.json`,JSON.stringify({checkedAt:new Date().toISOString(),source:live?'Captured public provider responses; no protected accounts':'Explicit synthetic news fixture',screens:results,physicalIphoneTest:false,productionMutations:false},null,2));
  console.log('All-screen actual browser render, route access, readable geometry, shared motion and quiet-game checks passed.');
