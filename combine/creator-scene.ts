@@ -25,7 +25,7 @@ export async function createCreatorScene(host:HTMLElement,initial:any){
     const width=host.clientWidth,height=host.clientHeight;if(!width||!height)return;
     renderer.setSize(width,height,false);camera.aspect=width/height;
     const head=1.72*athleteHeight/72;
-    if(view==='head'){camera.position.set(0,head,Math.max(1.05,.65/camera.aspect));camera.lookAt(0,head-.12,0);}
+    if(view==='head'){const scale=athleteHeight/72;camera.position.set(0,head+.06*scale,Math.max(1.18,.72/camera.aspect)*scale);camera.lookAt(0,head-.06*scale,0);}
     else{camera.position.set(0,1.07,Math.max(3.9,1.9/camera.aspect));camera.lookAt(0,1.02,0);}
     camera.updateProjectionMatrix();draw();
   }
