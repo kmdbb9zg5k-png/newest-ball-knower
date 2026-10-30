@@ -1,4 +1,6 @@
-import React,{useState} from 'react';
+import {GAME_GEAR_CHANGED} from './playerGameGear';
+import {readAthletePassport} from './athletePassport';
+import React,{useState,useEffect} from 'react';
 import AthleteCreatorStudio from './AthleteCreatorStudio';
 import {sanitizeAthleteBuild} from './athleteBuild';
 import {DEFAULT_ATHLETE_APPEARANCE,sanitizeAthleteAppearance} from './athleteAppearance';
@@ -10,6 +12,7 @@ function restore(){try{const saved=JSON.parse(localStorage.getItem(ATHLETE_SAVE_
 
 export default function MiniGameAthleteBuilder({onContinue,actionLabel}:{onContinue?:()=>void;actionLabel?:string}={}){
   const [profile,setProfile]=useState(restore),[saved,setSaved]=useState(false),[error,setError]=useState('');
+  useEffect(()=>{const syncGear=()=>{const athlete=readAthletePassport();setProfile(current=>athlete&&athlete.id===(current.combineId||`legacy:${current.name}:${current.position}`)?{...current,gameGear:athlete.gameGear}:current);};window.addEventListener(GAME_GEAR_CHANGED,syncGear);return()=>window.removeEventListener(GAME_GEAR_CHANGED,syncGear);},[]);
   const save=()=>{try{const next={...profile,name:profile.name.trim().slice(0,40)||defaults.name};localStorage.setItem(ATHLETE_SAVE_KEY,JSON.stringify(next));window.dispatchEvent(new Event(ATHLETE_CHANGED));setProfile(next);setSaved(true);setError('');onContinue?.();}catch{setSaved(false);setError('Your athlete could not be saved on this device. Free some browser storage and try again.');}};
   return <AthleteCreatorStudio profile={profile} onPortrait={athletePortrait=>setProfile(current=>current.athletePortrait===athletePortrait?current:{...current,athletePortrait})} onChange={patch=>{setSaved(false);setError('');setProfile(current=>({...current,...patch,renderImage:patch.name!==undefined||patch.number!==undefined?current.renderImage:''}));}} onSave={save} actionLabel={actionLabel||(saved?'Athlete saved':onContinue?'Save & Play':'Save athlete')} positionLocked={profile.stage!=='creator'} badge={saved?'SAVED':'BK'} error={error}/>;
 }

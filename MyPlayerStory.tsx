@@ -1,3 +1,5 @@
+import {GAME_GEAR_CHANGED} from './playerGameGear';
+import {readAthletePassport} from './athletePassport';
 import {CareerTabs,CareerSection} from './CareerTabs';
 import AthleteLocker from './AthleteLocker';
 import {ATHLETE_CHANGED,athletePortrait,usesPresetAthletePortrait} from './athletePassport';
@@ -208,6 +210,7 @@ function rosterWithMyPlayer(profile: MyPlayerProfile) {
 
 export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
   const [profile, setProfile] = useState<MyPlayerProfile>(restoreProfile);
+  useEffect(()=>{const syncGear=()=>{const athlete=readAthletePassport();setProfile(current=>athlete&&athlete.id===(current.combineId||`legacy:${current.name}:${current.position}`)?{...current,gameGear:athlete.gameGear}:current);};window.addEventListener(GAME_GEAR_CHANGED,syncGear);return()=>window.removeEventListener(GAME_GEAR_CHANGED,syncGear);},[]);
   const previousStage=useRef(profile.stage);
   useEffect(()=>{if(previousStage.current!==profile.stage){previousStage.current=profile.stage;window.scrollTo({top:0,behavior:'instant'});}},[profile.stage]);
   const [editing,setEditing]=useState(false);
