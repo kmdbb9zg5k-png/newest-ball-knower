@@ -1,5 +1,5 @@
 export type ClothingSlot='top'|'shorts'|'shoes'|'wrist';
-export type ClothingItem={id:string;name:string;slot:ClothingSlot;color:string;accent?:string;pattern?:boolean;premium?:boolean;description:string};
+export type ClothingItem={id:string;name:string;slot:ClothingSlot;color:string;style?:'tee'|'long-sleeve'|'hoodie'|'jeans'|'sweats';accent?:string;pattern?:boolean;premium?:boolean;description:string};
 export const CLOTHING:ClothingItem[]=[
  {id:'top-standard',name:'BK Original',slot:'top',color:'#242a30',description:'The original charcoal training top.'},
  {id:'top-bone',name:'Bone Training Top',slot:'top',color:'#e4dfd2',description:'A clean, warm-white training essential.'},
@@ -51,6 +51,21 @@ export const CLOTHING:ClothingItem[]=[
  {id:'wrist-lavender',name:'Lavender Wristbands',slot:'wrist',color:'#a195c5',description:'A pair of lavender fabric wristbands for both wrists.'},
  {id:'wrist-ice',name:'Ice Blue Wristbands',slot:'wrist',color:'#a4c9dc',description:'A pair of ice blue fabric wristbands for both wrists.'},
  {id:'wrist-orange',name:'Sunset Orange Wristbands',slot:'wrist',color:'#dc7633',description:'A pair of sunset orange fabric wristbands for both wrists.'},
+ {id:'top-tee-chalk',name:'Chalk Tee',slot:'top',style:'tee',color:'#ece8df',description:'Tee with a relaxed athletic fit. Free to mix into your everyday outfit.'},
+ {id:'top-tee-black',name:'Black Tee',slot:'top',style:'tee',color:'#20262c',description:'Tee with a relaxed athletic fit. Free to mix into your everyday outfit.'},
+ {id:'top-tee-crimson',name:'Crimson Tee',slot:'top',style:'tee',color:'#a52e40',description:'Tee with a relaxed athletic fit. Free to mix into your everyday outfit.'},
+ {id:'top-long-sleeve-navy',name:'Navy Long Sleeve',slot:'top',style:'long-sleeve',color:'#172b48',description:'Long Sleeve with a relaxed athletic fit. Free to mix into your everyday outfit.'},
+ {id:'top-long-sleeve-bone',name:'Bone Long Sleeve',slot:'top',style:'long-sleeve',color:'#e4dfd2',description:'Long Sleeve with a relaxed athletic fit. Free to mix into your everyday outfit.'},
+ {id:'top-long-sleeve-forest',name:'Forest Long Sleeve',slot:'top',style:'long-sleeve',color:'#19604f',description:'Long Sleeve with a relaxed athletic fit. Free to mix into your everyday outfit.'},
+ {id:'top-hoodie-grey',name:'Grey Hoodie',slot:'top',style:'hoodie',color:'#8c9093',description:'Hoodie with a relaxed athletic fit. Free to mix into your everyday outfit.'},
+ {id:'top-hoodie-black',name:'Black Hoodie',slot:'top',style:'hoodie',color:'#20262c',description:'Hoodie with a relaxed athletic fit. Free to mix into your everyday outfit.'},
+ {id:'top-hoodie-lavender',name:'Lavender Hoodie',slot:'top',style:'hoodie',color:'#a195c5',description:'Hoodie with a relaxed athletic fit. Free to mix into your everyday outfit.'},
+ {id:'shorts-jeans-indigo',name:'Indigo Jeans',slot:'shorts',style:'jeans',color:'#324c6d',description:'Jeans with a denim finish. Free to mix into your everyday outfit.'},
+ {id:'shorts-jeans-black',name:'Black Jeans',slot:'shorts',style:'jeans',color:'#292d33',description:'Jeans with a denim finish. Free to mix into your everyday outfit.'},
+ {id:'shorts-jeans-stonewash',name:'Stonewash Jeans',slot:'shorts',style:'jeans',color:'#7998b4',description:'Jeans with a denim finish. Free to mix into your everyday outfit.'},
+ {id:'shorts-sweats-grey',name:'Grey Sweats',slot:'shorts',style:'sweats',color:'#8c9093',description:'Sweats with a relaxed athletic fit. Free to mix into your everyday outfit.'},
+ {id:'shorts-sweats-black',name:'Black Sweats',slot:'shorts',style:'sweats',color:'#20262c',description:'Sweats with a relaxed athletic fit. Free to mix into your everyday outfit.'},
+ {id:'shorts-sweats-sand',name:'Sand Sweats',slot:'shorts',style:'sweats',color:'#bcaa86',description:'Sweats with a relaxed athletic fit. Free to mix into your everyday outfit.'},
  {id:'top-gold',name:'Gold Standard',slot:'top',color:'#29231a',accent:'#d9b05b',pattern:true,premium:true,description:'Gold diagonal striping on a dark training top.'},
  {id:'top-electric',name:'Electric Blue',slot:'top',color:'#163866',accent:'#65d3ed',pattern:true,premium:true,description:'Bright blue striping for the spotlight.'},
  {id:'shoes-gold',name:'Gold Rush Trainers',slot:'shoes',color:'#c6a04d',premium:true,description:'A gold colorway for your training shoes.'},

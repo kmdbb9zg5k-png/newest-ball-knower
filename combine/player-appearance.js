@@ -1,4 +1,5 @@
 import * as T from 'three';
+import {createAthleteGarments} from './athlete-garments.js';
 import {outfitLook} from '../playerWardrobe.ts';
 import {armTattooUV} from './arm-tattoo-uv.js';
 import {buildAthleteHair} from './athlete-hair.js';
@@ -165,11 +166,13 @@ export function createPlayerAppearance(body,bones) {
       };material.customProgramCacheKey=()=> 'combine-custom-skin-wardrobe-arms-v2';material.needsUpdate=true;
     }
   });
+  const garments=createAthleteGarments(body);
   head.add(group);
   let currentKey='';
   function clear(){group.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});group.clear();}
   function apply(player){
     const outfit=player.wardrobe?outfitLook(player.wardrobe):null;
+    garments.apply(outfit);
     for(const u of skinUniforms){u.kit.enabled.value=outfit?1:0;if(outfit){for(const slot of ['top','shorts','shoes','wrist'])u.kit[slot].value.set(outfit[slot].color);u.kit.bands.value=outfit.wrist.id==='wrist-none'?0:1;u.kit.pattern.value=outfit.top.pattern?1:0;u.kit.accent.value.set(outfit.top.accent||outfit.top.color);}}
     const look=combineAppearance(player),key=[look.skinTone,look.hairStyle,look.hairColor,look.facialHair,look.tattooProfile,look.tattooStyle,look.tattooCoverage,look.tattooArms].join('|');
     body.userData.playerId=player.id;body.userData.playerName=player.name;body.userData.appearance=look;
@@ -204,5 +207,5 @@ export function createPlayerAppearance(body,bones) {
       fibers.name='Beard fibers';group.add(fibers);
     }
   }
-  return {apply,dispose:clear};
+  return {apply,dispose(){garments.dispose();clear();}};
 }
