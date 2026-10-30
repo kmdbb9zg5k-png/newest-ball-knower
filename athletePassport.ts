@@ -1,3 +1,4 @@
+import {sanitizeGameGear,type GameGear} from './public/play-moment-3d/game-gear.js';
 import {cleanDraftCombine, draftDrillMark, type DraftDrill} from './myPlayerDraftCombine';
 import {athleteMovement,sanitizeAthleteBuild,type AthleteBuild,type AthleteMovement} from './athleteBuild';
 import {sanitizeAthleteAppearance,type AthleteAppearance} from './athleteAppearance';
@@ -12,7 +13,7 @@ const text = (v:unknown,max=80) => typeof v==='string'?v.trim().slice(0,max):'';
 export type AthleteTrophy = {id:string;title:string;detail:string};
 export type AthletePassport = {
  id:string;name:string;position:string;number:number;overall:number;stage:string;team:string;
- portrait:string;games:number;draft:string;build:AthleteBuild;movement:AthleteMovement;appearance:AthleteAppearance;marks:{id:string;label:string;value:string}[];trophies:AthleteTrophy[];
+ gameGear:GameGear;portrait:string;games:number;draft:string;build:AthleteBuild;movement:AthleteMovement;appearance:AthleteAppearance;marks:{id:string;label:string;value:string}[];trophies:AthleteTrophy[];
 };
 const labels:Record<DraftDrill,string>={dash:'40-yard dash','broad-jump':'Broad jump',shuttle:'20-yard shuttle',bench:'Bench press',routes:'Receiver routes',rb:'Running back',db:'Defensive back'};
 export function athletePassport(raw:unknown):AthletePassport|null {
@@ -37,7 +38,7 @@ export function athletePassport(raw:unknown):AthletePassport|null {
  if(games>=17)trophies.push({id:'17-games',title:'Seasoned pro',detail:`${games} career games played`});
  const build=sanitizeAthleteBuild(p);
  const appearance=sanitizeAthleteAppearance(p);
- return {id:text(p.combineId,120)||`legacy:${text(p.name)}:${p.position}`,name:text(p.name),position:p.position,number:count(p.number,99),overall:count(p.overall,99),stage:p.stage,team:text(p.teamAbbr,4),portrait:athletePortrait(p),games,draft,build,movement:athleteMovement(build),appearance,marks,trophies};
+ return {gameGear:sanitizeGameGear(p.gameGear),id:text(p.combineId,120)||`legacy:${text(p.name)}:${p.position}`,name:text(p.name),position:p.position,number:count(p.number,99),overall:count(p.overall,99),stage:p.stage,team:text(p.teamAbbr,4),portrait:athletePortrait(p),games,draft,build,movement:athleteMovement(build),appearance,marks,trophies};
 }
 export function readAthletePassport():AthletePassport|null {
  try{return athletePassport(JSON.parse(localStorage.getItem(ATHLETE_SAVE_KEY)||'null'));}catch{return null;}

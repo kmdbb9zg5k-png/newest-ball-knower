@@ -25,3 +25,20 @@ export function referenceRunPhase(player){
  const phase=Number.isFinite(player.motion?.stridePhase)?player.motion.stridePhase:(player.distance||0)/3.1+(player.index||0)*.437;
  return ((phase%1)+1)%1;
 }
+
+// Bone membership prevents equipment leaking onto the torso or helmet.
+export function referenceGearRegions(positions,joints,weights,names,bodyVertices){
+ const arms=new Float32Array(positions.length/3*4),feet=new Float32Array(positions.length/3);
+ for(let i=0;i<bodyVertices;i++){
+  for(let c=0;c<4;c++){
+   const name=names[joints[i*4+c]]||'',w=weights[i*4+c];
+   if(/Left(?:Arm|ForeArm|Hand)/.test(name))arms[i*4]+=w;
+   if(/Right(?:Arm|ForeArm|Hand)/.test(name))arms[i*4+1]+=w;
+   if(/LeftHand/.test(name))arms[i*4+2]+=w;
+   if(/RightHand/.test(name))arms[i*4+3]+=w;
+   if(/Foot|Toe/.test(name))feet[i]+=w;
+  }
+  feet[i]*=1-smooth(.10,.15,positions[i*3+1]);
+ }
+ return {arms,feet};
+}

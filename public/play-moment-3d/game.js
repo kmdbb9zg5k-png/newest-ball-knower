@@ -1,3 +1,4 @@
+import {readGameGearProfile,sanitizeGameGear,gameGearRosterId} from './game-gear.js';
 import {installControlSettings} from './control-settings.js';
 import {snapExchange} from './snap-motion.js?v=motion-contact-55';
 import {syncGameViewport} from './game-viewport.js?v=viewport-sync-54';
@@ -13,7 +14,7 @@ export{RUNS,PASSES}from'./playbook.js?v=contact-camera-11';
 import{Renderer,pose,segment,hex,mul,ry,translate,scale}from'./renderer.js?v=field-visual-45';
 import{drawAthlete,prepareJerseys,advanceMotion}from'./athlete.js?v=reference-motion-45';
 import{createMeshyAthletes}from'./meshy-athlete.js?v=complete-flow-46';
-import{createMeshyAthletes as createReferenceAthletes}from'./reference-athlete.js?v=uniform-visual-62';
+import{createMeshyAthletes as createReferenceAthletes}from'./reference-athlete.js?v=game-gear-1';
 import{makeStadium}from'./stadium.js?v=contact-camera-11';
 import{createGameplayReplayRecorder}from'./replay.js';
 import {miniClock,miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=contact-camera-11';
@@ -462,6 +463,7 @@ export function start(){
  const controlSettings=installControlSettings($('controlSettings'));
  // Keep the detailed mesh/materials while bounding phone pixel and shadow work.
  if(fullGame&&matchMedia('(pointer: coarse)').matches)r.setQuality('balanced');
+ const gearProfile=readGameGearProfile(),gearPlayerId=gameGearRosterId(gearProfile,miniConfig?.matchup.home),savedGameGear=sanitizeGameGear(gearProfile?.gameGear);
  const stadium=makeStadium(r),meshy=fullGame?createReferenceAthletes(r):createMeshyAthletes(r);let actors=[],frameId=0,elapsed=0,last=0,raf=0,messageUntil=0,recoveryLeft=0,postPlayElapsed=0,deadBallFocus=null,exchange=null,transitionFade=0,activeContact=null,pendingWhistle=null,pendingPlayMessage=null,pendingDriveEnd=null,soundContext=null,highlightFrames=[],lastHighlight=[],highlightSampleAt=-1,replaying=false,replayCursor=0,replayEndPhase='dead';
  let playbookOpen=true,bookFilter='all',bookFormation='all',optionChoice='give',bookChoice={mode:'run',index:0};
  let mode='run',selected=0,assist=initialAssistMode(location.search),phase='pre',paused=false,ended=false,flight=null,lastFlightEnd=null,looseBall=null,carrier=null,jukeUntil=0,jukeReady=0,simTime=0,lastSkill=null,lastSkillAt=-10,impactShake=0,catchStyle='rac',runDirection=1,mikeIndex=16,motioned=false,receiverMotion=null,prePanel=null,playArtVisible=false,plantReady=0,turfFx=[],nextTurfFx=0,contactFx=null;
@@ -961,7 +963,7 @@ function coverage(dt){
   const strength=impactShake*.12;impactShake=Math.max(0,impactShake-dt*3.8);fieldCamera([camEye[0]+Math.sin(simTime*91)*strength,camEye[1]+Math.cos(simTime*73)*strength*.45,camEye[2]],camTarget);
  }
  function athletePhase(){const u=liveUnit?.state;if(!u)return phase;return u.stage==='end'||u.stage==='contact'?'dead':u.stage==='pre'||u.stage==='kick'?'pre':u.stage==='flight'?'flight':u.stage==='pass'?'pass':u.stage==='handoff'?'handoff':u.stage==='snap'||u.stage==='kick-snap'||u.stage==='punt-snap'?'snap':'run'}
- function scene(dt,now){const renderPhase=athletePhase();for(const p of actors)p.offenseTeam=liveUnit?.state&&['extra-point','field-goal'].includes(liveUnit.state.kind)?actors[16].team:liveUnit?.state?.kind==='defense'||liveUnit?.state?.kicking==='home'?1:0;r.sceneTime=now/1000;r.begin();stadium.draw();
+ function scene(dt,now){for(const p of actors)p.gameGear=gearPlayerId&&p.playerId===gearPlayerId?savedGameGear:null;const renderPhase=athletePhase();for(const p of actors)p.offenseTeam=liveUnit?.state&&['extra-point','field-goal'].includes(liveUnit.state.kind)?actors[16].team:liveUnit?.state?.kind==='defense'||liveUnit?.state?.kicking==='home'?1:0;r.sceneTime=now/1000;r.begin();stadium.draw();
   // Keep both snap markers fixed through contact; reset together for the next down.
   if(!liveUnit?.state||liveUnit.state.kind==='defense'){
   r.add('plane',pose(0,.025,snapZ,53.15,1,.11),hex('#4599ba'),'',true);
