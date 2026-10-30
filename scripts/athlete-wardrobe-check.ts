@@ -6,7 +6,7 @@ const storage=new Map<string,string>();
 Object.assign(globalThis,{localStorage:{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value)},window:{dispatchEvent(){}}});
 const base={id:'competitive-seed-1',name:'Fixed athlete',position:'WR',speed:85,agility:85,acceleration:85,careerStrength:85,contact:85};
 const identity={id:'my-career',name:'Elijah',number:21};
-const outfit={...DEFAULT_OUTFIT,top:'top-forest',shorts:'shorts-slate',shoes:'shoes-white',wrist:'wrist-white'};
+const outfit={...DEFAULT_OUTFIT,top:'top-mint',shorts:'shorts-navy',shoes:'shoes-lavender',wrist:'wrist-teal'};
 saveOutfit(outfit);
 const player=dressMyAthlete(withAthleteIdentity(base,identity),'workout');
 assert.deepEqual(player.wardrobe,outfit);assert.equal(player.name,'Elijah');

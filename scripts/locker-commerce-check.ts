@@ -48,6 +48,8 @@ await assert.rejects(()=>service.checkout(buyer,'top-standard'),/Unknown/);
 await service.checkout(buyer,'top-gold');await service.checkout(buyer,'top-gold');assert.equal(createCalls,1);
 assert.equal(createdParams.success_url,'https://ballknowerofficial.com/?locker_checkout=return');assert.equal(createdParams.mode,'payment');assert.equal(createdParams.adaptive_pricing.enabled,false);
 assert.deepEqual((await service.state(buyer)).owned,[]);
+const freeOutfit={top:'top-mint',shorts:'shorts-navy',shoes:'shoes-lavender',wrist:'wrist-teal'};
+await service.equip(buyer,freeOutfit);assert.deepEqual((await service.state(buyer)).outfit,freeOutfit,'New free gear must sync without paid ownership');
 await assert.rejects(()=>service.equip(buyer,{...DEFAULT_OUTFIT,top:'top-gold'}),/do not own/);
 fakeSession=clone(session);
 await service.webhook({type:'checkout.session.completed',livemode:false,data:{object:session}} as any);
