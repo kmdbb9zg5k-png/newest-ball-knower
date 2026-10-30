@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {clipGarment,trouserGeometry} from './garment-geometry.js';
+import {clipGarment,trouserGeometry,topGeometry} from './garment-geometry.js';
 import {bodyMass,createBodyShape} from './body-shape.js';
 
 // Garments reuse the athlete's bind-space skin weights so sleeves and trouser
@@ -13,33 +13,10 @@ export function createAthleteGarments(body) {
     const style=item.style;if(!style)return;
     const top=item.slot==='top',hood=style==='hoodie',short=style==='tee'||style==='jersey',denim=style==='jeans';
     const length=short?21:34;
-    const g=top?clipGarment(source.geometry,[p=>p.y-54,p=>83-p.y,p=>length-p.x,p=>length+p.x]):trouserGeometry();
-    const p=g.attributes.position,n=g.attributes.normal;
-    const averaged=new Map();
-    const vertexKey=i=>[p.getX(i),p.getY(i),p.getZ(i)].map(v=>v.toFixed(3)).join(',');
-    for(let i=0;i<p.count;i++){const k=vertexKey(i);if(!averaged.has(k))averaged.set(k,new T.Vector3());averaged.get(k).add(new T.Vector3().fromBufferAttribute(n,i));}
-    for(const normal of averaged.values())normal.normalize();
-    const offsets=Array.from({length:p.count},(_,i)=>averaged.get(vertexKey(i)));
-    for(let i=0;i<p.count;i++){
-      const x=Math.abs(p.getX(i)),y=p.getY(i);
-      let ease=top?(hood?1.15:.65):(denim?.6:1.05);
-      // Sleeves and joggers taper into their cuffs, with room through the body.
-      if(top&&x>length-2||!top&&y<13)ease=.35;
-      if(top)p.setXYZ(i,p.getX(i)+offsets[i].x*ease,p.getY(i)+offsets[i].y*ease,p.getZ(i)+offsets[i].z*ease);
-      // Smooth the silhouette into fabric while retaining the exact source
-      // skin weights and seams; fabric no longer follows individual muscles.
-      if(top&&x>11&&x<length&&y>65){
-        const t=T.MathUtils.clamp((x-11)/23,0,1),cy=74.9,cz=T.MathUtils.lerp(-3.5,-1.5,t),dy=p.getY(i)-cy,dz=p.getZ(i)-cz;
-        const radius=Math.max(Math.hypot(dy,dz),T.MathUtils.lerp(5.5,3.1,t));const angle=Math.atan2(dz,dy);p.setY(i,cy+Math.cos(angle)*radius);p.setZ(i,cz+Math.sin(angle)*radius);
-      }
-
-
-    }
-    g.computeVertexNormals();
-    const smoothNormals=new Map(),gn=g.attributes.normal;
-    for(let i=0;i<p.count;i++){const k=vertexKey(i);if(!smoothNormals.has(k))smoothNormals.set(k,new T.Vector3());smoothNormals.get(k).add(new T.Vector3().fromBufferAttribute(gn,i));}
-    for(const normal of smoothNormals.values())normal.normalize();
-    for(let i=0;i<p.count;i++){const normal=smoothNormals.get(vertexKey(i));gn.setXYZ(i,normal.x,normal.y,normal.z);}
+    const base=top?topGeometry():trouserGeometry();
+    const g=top?clipGarment(base,[p=>length-p.x,p=>length+p.x]):base;
+    if(top)base.dispose();
+    const p=g.attributes.position;
     const material=new T.MeshStandardMaterial({color:item.color,roughness:denim?.93:.88,side:T.DoubleSide});
     let jerseyTexture=null;
     if(item.jersey){
@@ -69,7 +46,7 @@ export function createAthleteGarments(body) {
       `);
     };
     material.customProgramCacheKey=()=>`garment-${style}`;
-    const mesh=new T.SkinnedMesh(g,material);mesh.name=`Wardrobe ${style}`;mesh.position.copy(source.position);mesh.quaternion.copy(source.quaternion);mesh.scale.copy(source.scale);mesh.bindMode=source.bindMode;mesh.bind(source.skeleton,source.bindMatrix);if(!top)createBodyShape(mesh)(player);mesh.castShadow=true;mesh.frustumCulled=false;source.parent.add(mesh);parts.push(mesh);
+    const mesh=new T.SkinnedMesh(g,material);mesh.name=`Wardrobe ${style}`;mesh.position.copy(source.position);mesh.quaternion.copy(source.quaternion);mesh.scale.copy(source.scale);mesh.bindMode=source.bindMode;mesh.bind(source.skeleton,source.bindMatrix);createBodyShape(mesh)(player);mesh.castShadow=true;mesh.frustumCulled=false;source.parent.add(mesh);parts.push(mesh);
     if(hood){
       // An open, folded hood behind the neck; a separate skinned piece gives
       // the hoodie an actual silhouette rather than a painted-on collar.

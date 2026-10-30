@@ -1,8 +1,9 @@
 import * as T from 'three';
 import trousers from './casual-trousers.json';
-export function trouserGeometry(){
+import top from './casual-top.json';
+export function trouserGeometry(data=trousers){
  const decode=(s,Type)=>new Type(Uint8Array.from(atob(s),c=>c.charCodeAt(0)).buffer);
- const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(Array.from(decode(trousers.position,Int16Array),n=>n/100),3));g.setIndex(new T.BufferAttribute(decode(trousers.index,Uint16Array),1));g.setAttribute('skinIndex',new T.BufferAttribute(decode(trousers.skinIndex,Uint16Array),4));g.setAttribute('skinWeight',new T.BufferAttribute(decode(trousers.skinWeight,Float32Array),4));g.computeVertexNormals();return g;
+ const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(Array.from(decode(data.position,Int16Array),n=>n/100),3));g.setIndex(new T.BufferAttribute(decode(data.index,Uint16Array),1));g.setAttribute('skinIndex',new T.BufferAttribute(decode(data.skinIndex,Uint16Array),4));g.setAttribute('skinWeight',new T.BufferAttribute(decode(data.skinWeight,Float32Array),4));g.computeVertexNormals();return g;
 }
 // Clip crossing triangles at the actual hem plane and interpolate bone weights.
 export function clipGarment(source,planes){
@@ -13,3 +14,5 @@ export function clipGarment(source,planes){
  for(let i=0;i<(idx?.count||p.count);i+=3){let poly=[0,1,2].map(k=>vertex(idx?idx.getX(i+k):i+k));for(const plane of planes){const next=[];for(let j=0;j<poly.length;j++){const a=poly[j],b=poly[(j+1)%poly.length],da=plane(a.p),db=plane(b.p);if(da>=0)next.push(a);if((da>=0)!==(db>=0))next.push(mix(a,b,da/(da-db)));}poly=next;if(!poly.length)break;}for(let j=1;j+1<poly.length;j++){emit(poly[0]);emit(poly[j]);emit(poly[j+1]);}}
  const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(positions,3));g.setAttribute('normal',new T.Float32BufferAttribute(normals,3));g.setAttribute('skinIndex',new T.Uint16BufferAttribute(joints,4));g.setAttribute('skinWeight',new T.Float32BufferAttribute(weights,4));return g;
 }
+
+export function topGeometry(){return trouserGeometry(top);}

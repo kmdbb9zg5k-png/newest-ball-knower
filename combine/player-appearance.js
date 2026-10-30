@@ -92,17 +92,18 @@ export function createPlayerAppearance(body,bones) {
     for(let i=0;i<(indices?.count||positions.count);i+=3){const tri=[0,1,2].map(k=>vertices[indices?indices.getX(i+k):i+k]);if(tri.every(v=>v.influence>.5))triangles.push(tri);}
     for(const material of(Array.isArray(mesh.material)?mesh.material:[mesh.material])){
       const tint={value:new T.Vector3(1,1,1)},tattooCoverage={value:0},tattooStyle={value:0},tattooArms={value:0};
-      const kit={trousers:{value:0},enabled:{value:0},top:{value:new T.Color()},shorts:{value:new T.Color()},shoes:{value:new T.Color()},wrist:{value:new T.Color()},bands:{value:0},pattern:{value:0},accent:{value:new T.Color()}};
+      const kit={sleeve:{value:0},trousers:{value:0},enabled:{value:0},top:{value:new T.Color()},shorts:{value:new T.Color()},shoes:{value:new T.Color()},wrist:{value:new T.Color()},bands:{value:0},pattern:{value:0},accent:{value:new T.Color()}};
       skinUniforms.push({tint,tattooCoverage,tattooStyle,tattooArms,kit});
       material.onBeforeCompile=shader=>{
         for(const [name,uniform] of Object.entries(kit))shader.uniforms['bkKit_'+name]=uniform;
         shader.uniforms.bkSkinTint=tint;shader.uniforms.bkTattooCoverage=tattooCoverage;shader.uniforms.bkTattooStyle=tattooStyle;shader.uniforms.bkTattooArms=tattooArms;
         shader.vertexShader='attribute vec2 bkInkUV; varying vec2 bkTattooUV; attribute float bkArmSkin; varying float bkArmMask; varying vec3 bkTattooPosition;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nbkTattooPosition=position;bkArmMask=bkArmSkin;bkTattooUV=bkInkUV;');
-        shader.fragmentShader='uniform float bkKit_trousers; uniform float bkTattooArms; varying vec2 bkTattooUV; uniform float bkKit_enabled; uniform vec3 bkKit_top; uniform vec3 bkKit_shorts; uniform vec3 bkKit_shoes; uniform vec3 bkKit_wrist; uniform float bkKit_bands; uniform float bkKit_pattern; uniform vec3 bkKit_accent; uniform vec3 bkSkinTint; uniform float bkTattooCoverage; uniform float bkTattooStyle; varying float bkArmMask; varying vec3 bkTattooPosition;\n'+shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
+        shader.fragmentShader='uniform float bkKit_sleeve; uniform float bkKit_trousers; uniform float bkTattooArms; varying vec2 bkTattooUV; uniform float bkKit_enabled; uniform vec3 bkKit_top; uniform vec3 bkKit_shorts; uniform vec3 bkKit_shoes; uniform vec3 bkKit_wrist; uniform float bkKit_bands; uniform float bkKit_pattern; uniform vec3 bkKit_accent; uniform vec3 bkSkinTint; uniform float bkTattooCoverage; uniform float bkTattooStyle; varying float bkArmMask; varying vec3 bkTattooPosition;\n'+shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
           // The supplied model has permanent sleeve ink in its albedo. Replace
           // only exposed arm skin before applying optional ink. Bind-space
           // coordinates keep the selected pattern attached during animation.
-          if(bkKit_enabled>.5&&bkKit_trousers>.5&&bkTattooPosition.y>10.2&&bkTattooPosition.y<54.3&&abs(bkTattooPosition.x)<16.)discard;
+          if(bkKit_enabled>.5&&bkKit_trousers>.5&&bkTattooPosition.y>10.2&&bkTattooPosition.y<56.3)discard;
+          if(bkKit_enabled>.5&&bkKit_sleeve>.5&&bkTattooPosition.y>53.6&&bkTattooPosition.y<82.9&&abs(bkTattooPosition.x)<bkKit_sleeve-.1)discard;
           vec3 sourceSkin=diffuseColor.rgb;
           vec3 cleanSkin=vec3(.43966,.19807,.07036);
           float pores=.985+.015*sin(bkTattooPosition.x*54.0)*sin(bkTattooPosition.y*47.0);
@@ -174,7 +175,7 @@ export function createPlayerAppearance(body,bones) {
   function apply(player){
     const outfit=player.wardrobe?outfitLook(player.wardrobe):null;
     garments.apply(outfit,player);
-    for(const u of skinUniforms){u.kit.enabled.value=outfit?1:0;u.kit.trousers.value=outfit?.shorts.style?1:0;if(outfit){for(const slot of ['top','shorts','shoes','wrist'])u.kit[slot].value.set(outfit[slot].color);u.kit.bands.value=outfit.wrist.id==='wrist-none'?0:1;u.kit.pattern.value=outfit.top.pattern?1:0;u.kit.accent.value.set(outfit.top.accent||outfit.top.color);}}
+    for(const u of skinUniforms){u.kit.enabled.value=outfit?1:0;u.kit.sleeve.value=outfit?.top.style?(['tee','jersey'].includes(outfit.top.style)?21:34):0;u.kit.trousers.value=outfit?.shorts.style?1:0;if(outfit){for(const slot of ['top','shorts','shoes','wrist'])u.kit[slot].value.set(outfit[slot].color);u.kit.bands.value=outfit.wrist.id==='wrist-none'?0:1;u.kit.pattern.value=outfit.top.pattern?1:0;u.kit.accent.value.set(outfit.top.accent||outfit.top.color);}}
     const look=combineAppearance(player),key=[look.skinTone,look.hairStyle,look.hairColor,look.facialHair,look.tattooProfile,look.tattooStyle,look.tattooCoverage,look.tattooArms].join('|');
     body.userData.playerId=player.id;body.userData.playerName=player.name;body.userData.appearance=look;
     if(currentKey===key)return;currentKey=key;
