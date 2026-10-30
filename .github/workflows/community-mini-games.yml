@@ -45,6 +45,7 @@ jobs:
           node --import tsx scripts/game-gear-check.ts
           node --import tsx scripts/player-wardrobe-check.ts
           node --import tsx scripts/athlete-wardrobe-check.ts
+          node --import tsx scripts/career-jersey-check.ts
           node --import tsx scripts/athlete-tattoos-check.ts
           node --import tsx scripts/locker-commerce-check.ts
           node --import tsx scripts/official-combine-check.ts

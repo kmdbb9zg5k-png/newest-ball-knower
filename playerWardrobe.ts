@@ -1,5 +1,6 @@
+import {careerJersey,type CareerJersey} from './careerJersey';
 export type ClothingSlot='top'|'shorts'|'shoes'|'wrist';
-export type ClothingItem={id:string;name:string;slot:ClothingSlot;color:string;style?:'tee'|'long-sleeve'|'hoodie'|'jeans'|'sweats';accent?:string;pattern?:boolean;premium?:boolean;description:string};
+export type ClothingItem={id:string;name:string;slot:ClothingSlot;color:string;style?:'jersey'|'tee'|'long-sleeve'|'hoodie'|'jeans'|'sweats';jersey?:CareerJersey;accent?:string;pattern?:boolean;premium?:boolean;description:string};
 export const CLOTHING:ClothingItem[]=[
  {id:'top-standard',name:'BK Original',slot:'top',color:'#242a30',description:'The original charcoal training top.'},
  {id:'top-bone',name:'Bone Training Top',slot:'top',color:'#e4dfd2',description:'A clean, warm-white training essential.'},
@@ -66,6 +67,7 @@ export const CLOTHING:ClothingItem[]=[
  {id:'shorts-sweats-grey',name:'Grey Sweats',slot:'shorts',style:'sweats',color:'#8c9093',description:'Sweats with a relaxed athletic fit. Free to mix into your everyday outfit.'},
  {id:'shorts-sweats-black',name:'Black Sweats',slot:'shorts',style:'sweats',color:'#20262c',description:'Sweats with a relaxed athletic fit. Free to mix into your everyday outfit.'},
  {id:'shorts-sweats-sand',name:'Sand Sweats',slot:'shorts',style:'sweats',color:'#bcaa86',description:'Sweats with a relaxed athletic fit. Free to mix into your everyday outfit.'},
+ {id:'top-career-jersey',name:'My Team Jersey',slot:'top',style:'jersey',color:'#242a30',description:'Your current career team jersey, without shoulder pads. Uses your name and number; updates when you change teams.'},
  {id:'top-gold',name:'Gold Standard',slot:'top',color:'#29231a',accent:'#d9b05b',pattern:true,premium:true,description:'Gold diagonal striping on a dark training top.'},
  {id:'top-electric',name:'Electric Blue',slot:'top',color:'#163866',accent:'#65d3ed',pattern:true,premium:true,description:'Bright blue striping for the spotlight.'},
  {id:'shoes-gold',name:'Gold Rush Trainers',slot:'shoes',color:'#c6a04d',premium:true,description:'A gold colorway for your training shoes.'},
@@ -96,4 +98,5 @@ export function readOutfit():Outfit{
  return result;
 }
 export function saveOutfit(outfit:Outfit){const clean=cleanOutfit(outfit);localStorage.setItem(WARDROBE_KEY,JSON.stringify(clean));window.dispatchEvent(new Event(WARDROBE_CHANGED));return clean;}
-export function outfitLook(outfit:Outfit){return Object.fromEntries(CLOTHING_SLOTS.map(slot=>[slot,CLOTHING.find(item=>item.id===outfit[slot]&&item.slot===slot)||CLOTHING.find(item=>item.id===DEFAULT_OUTFIT[slot])!])) as Record<ClothingSlot,ClothingItem>;}
+export function wardrobeCatalog():ClothingItem[]{return CLOTHING.map(item=>{if(item.id!=='top-career-jersey')return item;const jersey=careerJersey();return {...item,color:jersey.color,accent:jersey.accent,jersey,description:`${jersey.teamName} · #${jersey.number} ${jersey.playerName}. Unpadded. ${jersey.team==='BK'?'Your team appears after you join a roster.':'Automatically follows your current career team.'}`};});}
+export function outfitLook(outfit:Outfit){const catalog=wardrobeCatalog();return Object.fromEntries(CLOTHING_SLOTS.map(slot=>[slot,catalog.find(item=>item.id===outfit[slot]&&item.slot===slot)||CLOTHING.find(item=>item.id===DEFAULT_OUTFIT[slot])!])) as Record<ClothingSlot,ClothingItem>;}

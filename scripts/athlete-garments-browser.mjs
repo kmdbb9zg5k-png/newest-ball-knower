@@ -7,9 +7,17 @@ const server=await createServer({server:{host:'127.0.0.1',port:3091,strictPort:t
 await server.listen();await mkdir('artifacts/player-clothing-locker',{recursive:true});
 try{for(const width of [320,390,1280]){
  const browser=await chromium.launch({executablePath:process.env.BROWSER_PATH||undefined,args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
- try{const page=await browser.newPage({viewport:{width,height:900}});page.setDefaultTimeout(60000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ try{const page=await browser.newPage({viewport:{width,height:900}});page.setDefaultTimeout(60000);const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&/THREE.WebGLProgram|shader error|VALIDATE_STATUS/i.test(m.text()))errors.push(m.text());});
  await page.route('**/*',route=>new URL(route.request().url()).origin==='http://127.0.0.1:3091'?route.continue():route.abort());
  await page.goto('http://127.0.0.1:3091/locker.html');await page.locator('[data-render-state="ready"]').waitFor();
+ await page.evaluate(()=>{localStorage.setItem('ballknower_solo_my_player_v2',JSON.stringify({version:1,stage:'season',combineId:'jersey-qa',position:'WR',name:'Elijah Delgadillo',number:21,teamAbbr:'JCY'}));window.dispatchEvent(new Event('ballknower:athlete-changed'));});
+ await page.getByRole('button',{name:'Try on My Team Jersey',exact:true}).click();await page.getByRole('button',{name:'Equip free item'}).click();assert.match(await page.getByRole('region',{name:'Selected clothing'}).innerText(),/Jersey City Knights/);
+ await page.locator('.clothing-preview').screenshot({path:`artifacts/player-clothing-locker/jersey-front-${width}.png`});
+ await page.evaluate(()=>{const p=JSON.parse(localStorage.getItem('ballknower_solo_my_player_v2'));p.teamAbbr='ABQ';p.number=0;localStorage.setItem('ballknower_solo_my_player_v2',JSON.stringify(p));window.dispatchEvent(new Event('ballknower:athlete-changed'));});
+ assert.match(await page.getByRole('region',{name:'Selected clothing'}).innerText(),/Albuquerque Scorpions.*#0/);
+ await page.locator('.clothing-preview').screenshot({path:`artifacts/player-clothing-locker/jersey-transfer-${width}.png`});
+ await page.getByRole('slider').press('End');await page.locator('.clothing-preview').screenshot({path:`artifacts/player-clothing-locker/jersey-back-${width}.png`});
+ await page.reload();await page.locator('[data-render-state="ready"]').waitFor();
  const styles=width===390?[['Chalk Tee','top-tee-chalk'],['Bone Long Sleeve','top-long-sleeve-bone'],['Grey Hoodie','top-hoodie-grey']]:[['Grey Hoodie','top-hoodie-grey']];
  for(const [name,id] of styles){await page.getByRole('button',{name:'Tops',exact:true}).click();await page.getByRole('button',{name:'Try on '+name,exact:true}).click();await page.getByRole('button',{name:'Equip free item'}).click();assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('ballknower_player_wardrobe_v1')).top),id);await page.locator('.clothing-preview').screenshot({path:`artifacts/player-clothing-locker/garment-${id}-${width}.png`});}
  for(const [name,id] of [['Indigo Jeans','shorts-jeans-indigo'],['Grey Sweats','shorts-sweats-grey']]){await page.getByRole('button',{name:'Bottoms',exact:true}).click();await page.getByRole('button',{name:'Try on '+name,exact:true}).click();await page.getByRole('button',{name:'Equip free item'}).click();assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('ballknower_player_wardrobe_v1')).shorts),id);await page.locator('.clothing-preview').screenshot({path:`artifacts/player-clothing-locker/garment-${id}-${width}.png`});}
