@@ -14,6 +14,7 @@ for(const width of [320,390,844]){
  await page.route('**/*',r=>{const u=new URL(r.request().url());if(u.origin!==origin)return r.abort();if(u.pathname.startsWith('/api/'))return r.fulfill({json:{available:false}});return r.continue();});
  await page.addInitScript(()=>{if(!localStorage.getItem('gear-fixture')){localStorage.setItem('gear-fixture','yes');localStorage.setItem('ballknower_solo_my_player_v2',JSON.stringify({version:1,stage:'season',combineId:'gear-player',position:'QB',name:'Gear Athlete',number:12,teamAbbr:'JCY',overall:77,speed:82,careerLife:{games:2},tattooArms:'both'}));}});
  await page.goto(origin+'/gear-test.html');await page.getByRole('button',{name:'Game Gear',exact:true}).click();
+ assert(await page.locator('.clothing-modes button').evaluateAll(bs=>bs.every(b=>b.scrollWidth<=b.clientWidth+1)),'All Locker tab labels fit their touch targets');
  let frame=page.frameLocator('iframe[title="Game gear 3D preview"]');await frame.locator('#status').waitFor({state:'hidden'});
  const shot=()=>page.locator('iframe[title="Game gear 3D preview"]').screenshot();
  const base=await shot();

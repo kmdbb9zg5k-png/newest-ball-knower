@@ -13,4 +13,4 @@ export function gameGearRosterId(profile,home){
  const index={QB:5,RB:6,WR:7,TE:10,EDGE:11,LB:15,CB:18,S:21}[profile?.position];
  return profile?.version===1&&typeof profile.name==='string'&&profile.name.trim()&&Number.isInteger(index)?home?.lineup?.[index]?.id||null:null;
 }
-export function readGameGearProfile(storage){try{return JSON.parse(storage.getItem('ballknower_solo_my_player_v2')||'null');}catch{return null;}}
+export function readGameGearProfile(storage){try{storage??=globalThis.localStorage;return JSON.parse(storage.getItem('ballknower_solo_my_player_v2')||'null');}catch{return null;}}

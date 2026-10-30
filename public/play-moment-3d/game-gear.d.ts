@@ -5,4 +5,4 @@ export const GAME_GEAR_OPTIONS:Record<keyof GameGear,readonly GearColor[]>;
 export function sanitizeGameGear(raw:unknown):GameGear;
 export function gearColor(value:GearColor,team?:string):number[];
 export function gameGearRosterId(profile:unknown,home:unknown):string|null;
-export function readGameGearProfile(storage:Storage):Record<string,unknown>|null;
+export function readGameGearProfile(storage?:Storage):Record<string,unknown>|null;
