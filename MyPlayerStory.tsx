@@ -1,3 +1,4 @@
+import MyPlayerCareerStats from './MyPlayerCareerStats';
 import {GAME_GEAR_CHANGED} from './playerGameGear';
 import {readAthletePassport} from './athletePassport';
 import {CareerTabs,CareerSection} from './CareerTabs';
@@ -413,13 +414,13 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
   const storyStep=JSON.stringify([profile.stage,campLife.camp.plan,campLife.camp.response,campLife.camp.scores.length,campLife.turn?.key,campLife.turn?.prep,campLife.turn?.response,campLife.turn?.score,profile.draftJourney?.choices]);
   const playerStats=<section className="life-metrics" aria-label="Player attributes">{[['Overall',profile.overall],['Speed',profile.speed],['Power',profile.power],['Awareness',profile.awareness],['Height',feetAndInches(profile.heightInches)],['Weight',`${profile.weightLbs} lb`],['XP',profile.xp],['Upgrade points',profile.upgradePoints]].map(([label,value])=><div key={label}><span>{label}</span><b>{value}</b></div>)}</section>;
   const relationshipMetrics:[string,number][]=[['Coach trust',campLife.trust],['Chemistry',campLife.chemistry],['Agent',campLife.agent],['Fatigue',campLife.fatigue]];
-  if(profile.stage==='camp')return <BroadcastStage scene="locker" page="my-player" quiet>{saveError&&<p role="alert">{saveError}</p>}<CareerTabs stepKey={storyStep} title="Training camp" onBack={onBack} metrics={relationshipMetrics}><CareerSection tab="player">{playerStats}<PlayerRender profile={profile} onPortrait={savePortrait} compact/><AthleteLocker profile={profile}/></CareerSection><CareerCamp life={campLife} profile={profile} onChoice={commitCamp} onScore={recordCamp} onFinish={enterRookie} onBack={onBack}/></CareerTabs></BroadcastStage>;
+  if(profile.stage==='camp')return <BroadcastStage scene="locker" page="my-player" quiet>{saveError&&<p role="alert">{saveError}</p>}<CareerTabs stats={<MyPlayerCareerStats/>} stepKey={storyStep} title="Training camp" onBack={onBack} metrics={relationshipMetrics}><CareerSection tab="player">{playerStats}<PlayerRender profile={profile} onPortrait={savePortrait} compact/><AthleteLocker profile={profile}/></CareerSection><CareerCamp life={campLife} profile={profile} onChoice={commitCamp} onScore={recordCamp} onFinish={enterRookie} onBack={onBack}/></CareerTabs></BroadcastStage>;
 
   if (profile.stage === 'season' && draftedTeam) {
     const roster = rosterWithMyPlayer(profile);
     return (
       <BroadcastStage scene="locker" page="my-player" quiet className="relative pb-20">
-        {saveError&&<p role="alert" className="mx-auto max-w-5xl p-4 text-red-300">{saveError}</p>}<CareerTabs stepKey={storyStep} title="My Player · Season" onBack={onBack} metrics={relationshipMetrics}><CareerSection tab="player">{playerStats}<div className="px-4 pt-4 sm:px-8">
+        {saveError&&<p role="alert" className="mx-auto max-w-5xl p-4 text-red-300">{saveError}</p>}<CareerTabs stats={<MyPlayerCareerStats/>} stepKey={storyStep} title="My Player · Season" onBack={onBack} metrics={relationshipMetrics}><CareerSection tab="player">{playerStats}<div className="px-4 pt-4 sm:px-8">
           <div className="mx-auto max-w-7xl rounded-[2rem] border border-white/10 bg-black/25 p-3 sm:p-4">
             <div className="grid gap-3 sm:grid-cols-[220px_1fr] sm:items-center">
               <PlayerRender onPortrait={savePortrait} profile={profile} compact />
@@ -467,7 +468,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
 
   return (
     <BroadcastStage scene="locker" page="my-player" quiet className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
-      <CareerTabs stepKey={storyStep} title={stageTitle} onBack={onBack} metrics={[["Coach trust",draftMetrics.trust],["Preparation",draftMetrics.readiness],["Exposure",draftMetrics.visibility],["Recovery",draftMetrics.medical]]}><div className="mx-auto max-w-5xl">
+      <CareerTabs stats={<MyPlayerCareerStats/>} stepKey={storyStep} title={stageTitle} onBack={onBack} metrics={[["Coach trust",draftMetrics.trust],["Preparation",draftMetrics.readiness],["Exposure",draftMetrics.visibility],["Recovery",draftMetrics.medical]]}><div className="mx-auto max-w-5xl">
         <CareerSection tab="player">{playerStats}<AthleteLocker profile={profile}/>
         </CareerSection><CareerSection tab="career"><BroadcastMasthead eyebrow="My Player story" title="Your Career Starts Here" subtitle="Create your player. Earn your place." compact/>
         <div className="flex items-center justify-between">
