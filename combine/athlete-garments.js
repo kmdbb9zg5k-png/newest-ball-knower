@@ -36,6 +36,11 @@ export function createAthleteGarments(body) {
       if(!top&&y<36){const t=T.MathUtils.clamp((36-y)/26,0,1),cx=Math.sign(p.getX(i))*T.MathUtils.lerp(6.7,8.6,t),cz=T.MathUtils.lerp(0,-2.3,t),dx=p.getX(i)-cx,dz=p.getZ(i)-cz;const radius=Math.max(Math.hypot(dx,dz),T.MathUtils.lerp(5.8,3.1,t));const angle=Math.atan2(dz,dx);p.setX(i,cx+Math.cos(angle)*radius);p.setZ(i,cz+Math.sin(angle)*radius);}
 
     }
+    g.computeVertexNormals();
+    const smoothNormals=new Map(),gn=g.attributes.normal;
+    for(let i=0;i<p.count;i++){const k=vertexKey(i);if(!smoothNormals.has(k))smoothNormals.set(k,new T.Vector3());smoothNormals.get(k).add(new T.Vector3().fromBufferAttribute(gn,i));}
+    for(const normal of smoothNormals.values())normal.normalize();
+    for(let i=0;i<p.count;i++){const normal=smoothNormals.get(vertexKey(i));gn.setXYZ(i,normal.x,normal.y,normal.z);}
     const material=new T.MeshStandardMaterial({color:item.color,roughness:denim?.93:.88,side:T.DoubleSide});
     material.onBeforeCompile=shader=>{
       shader.vertexShader='varying vec3 garmentPosition;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\ngarmentPosition=position;');
