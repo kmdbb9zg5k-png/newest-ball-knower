@@ -4,7 +4,7 @@ import {chromium} from 'playwright';
 import {mkdir} from 'node:fs/promises';
 import {createCareerLife,chooseCamp,campScore,finishCamp} from '../myPlayerCareer.ts';
 const key='ballknower_solo_my_player_v2';
-const fixture=`import React from'react';import{createRoot}from'react-dom/client';import{MyPlayerStory}from'/MyPlayerStory.tsx';import'/index.css';createRoot(document.getElementById('root')).render(React.createElement(MyPlayerStory,{onBack:()=>{}}));`;
+const fixture=`import React from'react';import{createRoot}from'react-dom/client';import{MyPlayerStory}from'/MyPlayerStory.tsx';import{SoloFranchiseHub}from'/SoloFranchiseHub.tsx';import'/index.css';createRoot(document.getElementById('root')).render(location.search.includes('hub')?React.createElement(SoloFranchiseHub,{onOpen:()=>{}}):React.createElement(MyPlayerStory,{onBack:()=>{}}));`;
 const server=await createServer({server:{host:'127.0.0.1',port:3081,strictPort:true,watch:null,hmr:false},plugins:[{name:'tabs-fixture',configureServer(s){s.middlewares.use(async(req,res,next)=>{if(req.url==='/tabs.html'){res.setHeader('Content-Type','text/html');res.end(await s.transformIndexHtml(req.url,'<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div><script type="module" src="/tabs.js"></script></body></html>'));}else next();});},resolveId(id){if(id==='/tabs.js')return'\0tabs';},load(id){if(id==='\0tabs')return fixture;}}]});
 await server.listen();await mkdir('artifacts/my-player-tabs',{recursive:true});
 try{for(const width of [320,390,1280]){
@@ -16,11 +16,12 @@ try{for(const width of [320,390,1280]){
  profile.careerLife=campScore(chooseCamp(createCareerLife(profile),'prep','film'),0,85);
  await page.addInitScript(({key,profile})=>{if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify(profile));},{key,profile});
  const read=()=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)),key),tab=name=>page.getByRole('tab',{name,exact:true}).click();
+ await page.goto('http://127.0.0.1:3081/tabs.html?hub');await page.getByRole('heading',{name:'YOUR FOOTBALL CAREER',exact:true}).waitFor();assert.equal(await page.getByText(/BK Level/).count(),0);assert.equal(await page.getByText('Career Status',{exact:true}).count(),0);
  await page.goto('http://127.0.0.1:3081/tabs.html');await page.getByRole('heading',{name:'Response',exact:true}).waitFor();
  await page.screenshot({path:`artifacts/my-player-tabs/before-${width}.png`});
  assert((await page.getByRole('heading',{name:'Response',exact:true}).boundingBox()).y<350,'Active question starts at top');
  assert.equal(await page.getByRole('region',{name:'Evolving player card'}).isVisible(),false);
- const before=(await read()).careerLife;await tab('My Player');await page.getByRole('region',{name:'Player attributes'}).waitFor();assert.equal(await page.getByRole('heading',{name:'Response',exact:true}).isVisible(),false);
+ const before=(await read()).careerLife;await tab('Stats');await page.getByRole('region',{name:'Career stats',exact:true}).waitFor();assert(await page.getByText(/BK Level/).isVisible());assert(await page.getByText('Career Status',{exact:true}).isVisible());assert.equal(await page.getByRole('heading',{name:'Response',exact:true}).isVisible(),false);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:`artifacts/my-player-tabs/stats-${width}.png`});await page.getByRole('tab',{name:'Stats',exact:true}).press('Home');assert.equal(await page.getByRole('tab',{name:'Story',exact:true}).getAttribute('aria-selected'),'true');await page.getByRole('tab',{name:'Story',exact:true}).press('End');assert.equal(await page.getByRole('tab',{name:'Stats',exact:true}).getAttribute('aria-selected'),'true');await tab('My Player');await page.getByRole('region',{name:'Player attributes'}).waitFor();assert.equal(await page.getByRole('heading',{name:'Response',exact:true}).isVisible(),false);
  await tab('Career');await page.getByText('CAMP BENCHMARK',{exact:false}).waitFor();await tab('Story');assert.deepEqual((await read()).careerLife,before);
  await page.getByRole('button',{name:/^Put the room first/}).click();await page.getByRole('button',{name:'Lock in response',exact:true}).click();await page.getByRole('button',{name:'PLAY FIRST-TEAM AUDITION',exact:true}).waitFor();
  await page.screenshot({path:`artifacts/my-player-tabs/story-${width}.png`});
