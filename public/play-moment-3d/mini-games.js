@@ -1,3 +1,4 @@
+import { MINI_TEAMS as ARENA_TEAMS } from './arena-teams-v1.js';
 import {miniMatchup} from './mini-teams.js?v=five-minute-1';
 /** Shared mini-game levels. Athlete speed and animation timing stay rating-driven. */
 export const MINI_LEVELS = Object.freeze([
@@ -8,6 +9,7 @@ export const MINI_LEVELS = Object.freeze([
 export function miniLevel(id) { return MINI_LEVELS.find(level => level.id === id) || MINI_LEVELS[0]; }
 export function miniGameFromSearch(search = '') {
   const params = new URLSearchParams(search);
+  if (params.get('mode') === 'arena') return { mode: 'arena', level: miniLevel('pro'), driveNumber: Math.max(1, Math.min(3, Number(params.get('drive')) || 1)), matchup: { home: ARENA_TEAMS.find(t => t.abbr === params.get('team')) || ARENA_TEAMS[0], away: ARENA_TEAMS.find(t => t.abbr === params.get('opponent')) || ARENA_TEAMS[1] } };
   return ['two-minute','five-minute'].includes(params.get('mode')) ? { mode: params.get('mode'), level: miniLevel(params.get('difficulty')), matchup: miniMatchup(params.get('team'), params.get('opponent')) } : null;
 }
 export function miniRatings(ratings, team, level) {

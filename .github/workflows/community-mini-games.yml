@@ -12,6 +12,8 @@ on:
       - 'public/player-controls.js'
       - 'scripts/*athlete*'
       - 'scripts/*competition*'
+      - 'scripts/football-arena*'
+      - 'public/football-arena-bridge.js'
       - 'scripts/*control*'
       - 'scripts/*ghost*'
       - 'scripts/mini-challenges-browser.mjs'
@@ -56,6 +58,7 @@ jobs:
           node --import tsx scripts/career-athlete-build-check.ts
           node --import tsx scripts/control-preferences-check.ts
           node --import tsx scripts/competition-rules-check.ts
+          node scripts/football-arena-check.mjs
           node scripts/check-reference-contact.mjs
           node scripts/dash-ghost-check.mjs
           node --import tsx scripts/my-player-field-check.ts
@@ -67,7 +70,7 @@ jobs:
       fail-fast: false
       max-parallel: 2
       matrix:
-        suite: [athlete-garments, game-gear, athlete-tattoos, athlete-wardrobe, locker-commerce, player-clothing-locker, official-combine-results, my-player-draft-combine, my-player-tabs, athlete-creator, career-athlete-creator, mini-challenges, athlete-locker, control-settings, dash-ghost, competition-arena, my-player-field, full-game-control-settings, presentation-clock]
+        suite: [football-arena, athlete-garments, game-gear, athlete-tattoos, athlete-wardrobe, locker-commerce, player-clothing-locker, official-combine-results, my-player-draft-combine, my-player-tabs, athlete-creator, career-athlete-creator, mini-challenges, athlete-locker, control-settings, dash-ghost, competition-arena, my-player-field, full-game-control-settings, presentation-clock]
     steps:
       - uses: actions/checkout@v4
         with:
