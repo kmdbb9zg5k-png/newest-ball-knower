@@ -11,9 +11,9 @@ export default function GlobalFootballMatchmaking({me,team,onOpenAuth,onMatched}
  const [rival,setRival]=useState<Rival|null>(null),[scores,setScores]=useState<number[]>([]),[playing,setPlaying]=useState(false);
  const mounted=useRef(true),locked=useRef(false),cancelled=useRef(false),pending=useRef<string|null>(null);
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;cancelled.current=true;const id=pending.current;if(id)void footballArenaAction('cancel',{id}).catch(()=>{});};},[]);
- const cpu=()=>{setScores([]);setRival({name:pick(names),ownTeam:team,team:pick(FOOTBALL_ARENA_TEAMS.filter(t=>t.abbr!==team)).abbr,scores:[0,0,0].map(()=>pick([0,0,3,3,7,7,7,8])),id:crypto.randomUUID(),seed:crypto.getRandomValues(new Uint32Array(1))[0]%2147483647});setNotice('No player matched. Your CPU opponent is ready.');};
+ const cpu=()=>{setScores([]);setRival({name:pick(names),ownTeam:team,team:pick(FOOTBALL_ARENA_TEAMS.filter(t=>t.abbr!==team)).abbr,scores:[0,0,0].map(()=>pick([0,0,3,3,7,7,7,8])),id:crypto.randomUUID(),seed:crypto.getRandomValues(new Uint32Array(1))[0]%2147483647});setNotice(me?'No player matched. Your CPU opponent is ready.':'Your CPU opponent is ready. No login needed.');};
  async function search(){
-  if(!me){onOpenAuth();return;}if(locked.current)return;
+  if(!me){cpu();return;}if(locked.current)return;
   locked.current=true;cancelled.current=false;setSearching(true);setRival(null);setNotice('Searching worldwide for an open opponent…');setSeconds(30);
   const deadline=Date.now()+30000;
   const timer=window.setInterval(()=>{if(mounted.current)setSeconds(Math.max(0,Math.ceil((deadline-Date.now())/1000)));},250);
@@ -36,8 +36,8 @@ export default function GlobalFootballMatchmaking({me,team,onOpenAuth,onMatched}
   finally{clearInterval(timer);locked.current=false;if(mounted.current){setSearching(false);onMatched();}}
  }
  const total=scores.reduce((a,b)=>a+b,0),opponent=rival?.scores.reduce((a,b)=>a+b,0)||0;
- return <section className="football-card" aria-label="Global matchmaking"><span className="football-eyebrow">GLOBAL QUICK MATCH</span><h3>There’s always a game.</h3><p>Find a player worldwide. After a 30-second search, play a named CPU rival. Matches use three offensive drives against CPU defense.</p>
- <div className="football-match-actions"><button disabled={searching} onClick={()=>void search()}>{searching?`Finding opponent · ${seconds}s`:'Find global opponent'}</button>{searching&&<button className="secondary" onClick={()=>{cancelled.current=true;setNotice('Closing your search…');}}>Cancel search</button>}</div>
+ return <section className="football-card" aria-label="Global matchmaking"><span className="football-eyebrow">{me?'GLOBAL QUICK MATCH':'GUEST PLAY · NO LOGIN'}</span><h3>There’s always a game.</h3><p>{me?'Find a player worldwide. After a 30-second search, play a named CPU rival. Matches use three offensive drives against CPU defense.':'Play three offensive drives against a named CPU rival right away. Guest games are unranked and last for this session.'}</p>
+ <div className="football-match-actions"><button disabled={searching} onClick={()=>void search()}>{searching?`Finding opponent · ${seconds}s`:me?'Find global opponent':'Play now — no login'}</button>{searching&&<button className="secondary" onClick={()=>{cancelled.current=true;setNotice('Closing your search…');}}>Cancel search</button>}</div>
  <p className="football-note" role="status">{notice}</p>
  {rival&&<div><span className="football-eyebrow">CPU OPPONENT · UNRANKED</span><h3>{rival.name}</h3><p>{FOOTBALL_ARENA_TEAMS.find(t=>t.abbr===rival.team)?.name}</p><p>{scores.length===3?`${total===opponent?'TIE GAME':total>opponent?'YOU WIN':'OPPONENT WINS'} · ${total} – ${opponent}`:`Your score: ${total} · ${scores.length}/3 drives complete`}</p><p className="football-note">Simulated rival. Results do not affect global player standings.</p>{scores.length<3&&<button onClick={()=>setPlaying(true)}>Play CPU drive {scores.length+1} of 3</button>}</div>}
  {playing&&rival&&createPortal(<CpuDrive key={`${rival.id}:${scores.length}`} rival={rival} team={rival.ownTeam} drive={scores.length+1} onDone={points=>{setScores(s=>[...s,points]);setPlaying(false);}}/>,document.body)}
