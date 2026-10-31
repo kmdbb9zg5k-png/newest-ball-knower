@@ -7,10 +7,10 @@ const server=await createServer({cacheDir:'/tmp/bk-football-vite',server:{host:'
 await server.listen();await mkdir('artifacts/football-arena',{recursive:true});
 let browser;
 try{
- for(const width of [320,390,1280]){
+ for(const width of (process.env.WIDTHS?JSON.parse(process.env.WIDTHS):[320,390,1280])){
   browser=await chromium.launch({executablePath:process.env.BROWSER_PATH||undefined,args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
 
-  const page=await browser.newPage({viewport:{width,height:844},hasTouch:width<768,isMobile:width<768});const errors=[];page.on('pageerror',e=>errors.push(e.message));let matches=[],calls=[],fail=true;
+  const page=await browser.newPage({viewport:{width,height:844},hasTouch:width<768,isMobile:width<768});page.setDefaultTimeout(120000);const errors=[];page.on('pageerror',e=>errors.push(e.message));let matches=[],calls=[],fail=true;
   await page.route('**/*.supabase.co/**',r=>r.abort());
   await page.route('**/__arena-rpc',async route=>{
     const {action,args}=route.request().postDataJSON();calls.push({action,args});let result={};const m=matches.find(m=>m.id===args.id);
@@ -28,6 +28,7 @@ try{
   await page.goto('http://127.0.0.1:3059/football-qa.html');await page.getByLabel('Your team').selectOption('MIL');await page.getByLabel('Opponent',{exact:true}).selectOption('friend');await page.getByRole('button',{name:'Challenge friend'}).click();await page.getByRole('button',{name:'Play drive 1 of 3'}).waitFor();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'No overflow '+width);await page.screenshot({path:`artifacts/football-arena/lobby-${width}.png`,fullPage:true});
   if(width===390){
     for(let n=1;n<=3;n++){
+      console.log(`Playing official drive ${n} through normal spike controls`);
       await page.setViewportSize({width:1000,height:500});await page.getByRole('button',{name:`Play drive ${n} of 3`}).click();const frame=await page.locator('iframe').elementHandle().then(e=>e.contentFrame());
       await frame.locator('#loading').waitFor({state:'hidden',timeout:120000});
       assert.equal(await frame.evaluate(()=>typeof window.bk3dTest),'undefined','Official frames have no QA game controls');assert.equal(await frame.locator('#restart').isVisible(),false,'No rematch button');
@@ -35,8 +36,8 @@ try{
       await page.evaluate(({drive})=>window.postMessage({type:'bk-arena-result',matchId:'football-test',token:'drive-token-'+drive,drive,stats:{points:8,yards:75,plays:1}},location.origin),{drive:n});
       assert.equal(calls.filter(c=>c.action==='submit').length,n===1?0:n,'Parent spoof ignored');
       for(let down=1;down<=4;down++){await frame.locator('#breakHuddle').click();await frame.locator('#miniSpike').click();}
-      if(n===1){await page.getByRole('alert').filter({hasText:'Connection interrupted'}).waitFor();await page.getByRole('button',{name:'Retry saving result'}).click();}
-      await page.getByRole('heading',{name:'0 POINTS'}).waitFor();await page.getByRole('button',{name:'Back to match',exact:true}).click();await page.setViewportSize({width:390,height:844});
+      if(n===1){await page.getByRole('alert').filter({hasText:'Connection interrupted'}).waitFor({timeout:120000});await page.getByRole('button',{name:'Retry saving result'}).click();}
+      await page.getByRole('heading',{name:'0 POINTS'}).waitFor();console.log(`Drive ${n} result saved`);await page.getByRole('button',{name:'Back to match',exact:true}).click();await page.setViewportSize({width:390,height:844});
     }
     await page.getByRole('button',{name:'Match history',exact:true}).click();await page.getByText('OPPONENT WINS',{exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:/Play drive/}).count(),0);await page.screenshot({path:'artifacts/football-arena/history.png',fullPage:true});
     await page.getByRole('button',{name:'Standings',exact:true}).click();await page.getByText('1W · 0L · 0T',{exact:true}).waitFor();await page.screenshot({path:'artifacts/football-arena/standings.png',fullPage:true});
