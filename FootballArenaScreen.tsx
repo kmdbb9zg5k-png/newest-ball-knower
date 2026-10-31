@@ -1,6 +1,5 @@
 import React from 'react';
 import {useBallKnower} from './BallKnowerContext';
-import {BroadcastStage} from './BroadcastScene';
 import CommunityFootballArena from './CommunityFootballArena';
 import {fetchCommunityHome,type CommunityHome} from './communityCloud';
 import {fetchProgressionProfile} from './progressionCloud';
@@ -20,9 +19,19 @@ function FootballArenaSession({onOpenAuth,onBack}:Props){
     await fetchProgressionProfile(currentUser?.name);
     return fetchCommunityHome();
   });
-  return <BroadcastStage scene="studio" page="football" className="min-h-[calc(100dvh-7rem)] px-3 pb-10 pt-4 sm:px-6 sm:pt-7"><div className="mx-auto max-w-5xl">
-    <header className="mb-5"><button type="button" onClick={onBack} className="mb-4 min-h-11 rounded-xl border border-[#d9b43b]/35 px-4 text-xs font-bold text-[#ecd67d]">← Back to Game Modes</button><p className="text-[10px] font-black uppercase tracking-[.2em] text-[#d9b43b]">Game Modes · Online</p><h1 className="mt-2 text-3xl font-black uppercase sm:text-5xl">Online Head-to-Head</h1><p className="mt-2 text-xs text-zinc-400">Your Football H2H matches, friends and record—also available in Community.</p></header>
+  return <section className="football-showdown-page" aria-labelledby="football-showdown-title"><div className="football-showdown-shell">
+    <header className="football-showdown-header">
+      <div className="football-showdown-copy">
+        <button type="button" onClick={onBack} className="football-showdown-back">← Back to Game Modes</button>
+        <p className="football-showdown-eyebrow">Game Modes · Online</p>
+        <h1 id="football-showdown-title">Online Head-to-Head</h1>
+        <p className="football-showdown-description">Your Football H2H matches, friends and record—also available in Community.</p>
+      </div>
+      <img className="football-showdown-art" src="/images/football-showdown-v1.webp" width={1536} height={1024} alt="" fetchPriority="high" decoding="async"/>
+    </header>
+    <div className="football-showdown-lobby">
     {error&&<div role="alert" className="mb-4 rounded-xl border border-red-400/25 p-3 text-sm text-red-200">Could not load your friends: {error}<button type="button" className="ml-2 min-h-11 px-3 underline" onClick={()=>void refresh()}>Retry friends</button></div>}
     <CommunityFootballArena me={permanent?currentUser?.id||'':''} friends={data?.friends.filter(friend=>friend.status==='accepted')||[]} onOpenAuth={onOpenAuth}/>
-  </div></BroadcastStage>;
+    </div>
+  </div></section>;
 }
