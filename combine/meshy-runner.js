@@ -1,3 +1,4 @@
+import {loadCombineAsset} from './asset-loading.js';
 import * as T from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createPlayerAppearance } from './player-appearance.js';
@@ -10,9 +11,8 @@ const position=o=>o.getWorldPosition(v());
 const rotation=o=>o.getWorldQuaternion(new T.Quaternion());
 
 export async function loadCombineRunner(player) {
-  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),30000);
-  let gltf;
-  try{const response=await fetch(COMBINE_CHARACTER_URL,{signal:controller.signal,cache:'force-cache'});if(!response.ok)throw new Error('Character request failed');gltf=await new GLTFLoader().parseAsync(await response.arrayBuffer(),'/play-moment-3d/assets/');}finally{clearTimeout(timeout);}
+  const bytes=await loadCombineAsset(COMBINE_CHARACTER_URL);
+  const gltf=await new GLTFLoader().parseAsync(bytes.slice(0),'/play-moment-3d/assets/');
   const root=new T.Group(),body=gltf.scene;root.add(body);
   const asset=body.getObjectByName('CombineAthlete'),baseScale=asset.scale.clone();
   const strides=asset.userData.strides;

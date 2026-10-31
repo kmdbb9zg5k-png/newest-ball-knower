@@ -99,7 +99,7 @@ export default function BroadJumpExperience({players,context,onClose,onResult}:{
     {blocked&&<section className="combine-overlay" role="dialog" aria-modal="true" aria-label={error?'Combine unavailable':terminal?'Broad jump results':paused?'Broad jump paused':'Loading athlete'}><div ref={modal} className="combine-result">
       <span className="combine-eyebrow">BK / BROAD JUMP</span>
       <h2>{error?'UNAVAILABLE':!ready?'PREPARING':paused?'PAUSED':view.distance?formatJump(view.distance):'NO JUMP'}</h2>
-      {error?<p role="alert">{error}</p>:!ready?<p>Loading your Combine athlete…</p>:paused?<p>Your attempt is held here.</p>:<>
+      {error?<><p role="alert">{error}</p><button onClick={()=>window.location.reload()}>RETRY DRILL</button></>:!ready?<p>Loading your Combine athlete…</p>:paused?<p>Your attempt is held here.</p>:<>
         <p>{view.distance?`${view.distance.toFixed(2)} m · ${feedback} · ${view.landing===1?'Perfect landing':`Stumbled · −${view.penalty.toFixed(2)} m`}`:`${REP_SECONDS}-second launch timer expired. Failed rep — attempt used.`}</p>
         <div className="jump-attempts">{attempts.map((distance,i)=><div key={i}><span>ATTEMPT {i+1}</span><b>{distance?formatJump(distance):'NO JUMP'}</b></div>)}</div>
         <p>SESSION BEST · {formatJump(Math.max(0,...attempts))}</p><p role="status">{!saved?'Could not save on this device.':view.distance?'Best distances saved on this device.':'No distance recorded.'}</p>

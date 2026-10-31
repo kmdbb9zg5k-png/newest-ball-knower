@@ -45,7 +45,14 @@ function Drill(){
 
 function CombineEntry(){
   const [started,setStarted]=useState(competitive),[outfitReady,setOutfitReady]=useState(false);
-  useEffect(()=>{let active=true;void refreshLocker().catch(()=>{}).finally(()=>{if(active)setOutfitReady(true);});return()=>{active=false;};},[]);
+  useEffect(()=>{
+    let active=true;
+    // Account sync must never strand a guest or an expired session on loading.
+    const finish=()=>{if(active)setOutfitReady(true);};
+    const timeout=window.setTimeout(finish,4000);
+    void refreshLocker().catch(()=>{}).finally(()=>{window.clearTimeout(timeout);finish();});
+    return()=>{active=false;window.clearTimeout(timeout);};
+  },[]);
   if(!outfitReady)return <main className="combine-entry" role="status">Loading your saved outfit…</main>;
   const name=drillNames[drill||'dash']||drillNames.dash;
   return <><LockerAccountSync/>{started?<Drill/>:<main className="combine-entry" aria-label={`${name} athlete setup`}><header><button type="button" onClick={exit} aria-label="Back to Mini Games">‹</button><div><span>BALL KNOWER / MINI COMBINE</span><h1>{name}</h1></div></header><MiniGameAthleteBuilder actionLabel={`Save & start ${name}`} onContinue={()=>setStarted(true)}/></main>}</>;

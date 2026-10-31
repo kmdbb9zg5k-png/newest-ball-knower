@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {loadCombineAsset} from '../combine/asset-loading.js';
+let calls=0;
+globalThis.fetch=async()=>{calls++;return {ok:true,arrayBuffer:async()=>new Uint8Array([1,2,3]).buffer};};
+const [a,b]=await Promise.all([loadCombineAsset('/shared'),loadCombineAsset('/shared')]);
+assert.equal(calls,1);assert.equal(a,b);assert.deepEqual([...new Uint8Array(a)],[1,2,3]);
+let signal;
+globalThis.fetch=async(_url,options)=>{signal=options.signal;return new Promise(()=>{});};
+await assert.rejects(loadCombineAsset('/stalled',10),/timed out/);assert(signal.aborted);
+globalThis.fetch=async()=>({ok:true,arrayBuffer:async()=>new ArrayBuffer(2)});
+assert.equal((await loadCombineAsset('/stalled')).byteLength,2);
+globalThis.fetch=async()=>({ok:true,arrayBuffer:()=>new Promise(()=>{})});
+await assert.rejects(loadCombineAsset('/stalled-body',10),/timed out/);
+globalThis.fetch=async()=>({ok:false});
+await assert.rejects(loadCombineAsset('/http-error'),/Could not download/);
+globalThis.fetch=async()=>({ok:true,arrayBuffer:async()=>new ArrayBuffer(3)});
+assert.equal((await loadCombineAsset('/http-error')).byteLength,3);
+console.log('PASS shared downloads, hung fetch/body timeout, abort, and retry after HTTP/timeout failure');
