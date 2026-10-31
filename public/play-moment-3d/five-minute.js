@@ -1,7 +1,7 @@
 import {cpuFourthDown,cpuPassProbability} from './cpu-offense.js?v=contact-possession-57';
 /** Five-minute arcade rules. Pure state transitions; no timers or DOM. */
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
-export const fullInitialDrive = (mode = 'five-minute') => ({ ball: 25, down: 1, toGo: 10, clock: mode === 'two-minute' ? 120 : 300, score: mode === 'two-minute' ? 23 : 0, plays: 0 });
+export const fullInitialDrive = (mode = 'five-minute') => ({ ball: 25, down: 1, toGo: 10, clock: mode === 'two-minute' || mode === 'arena' ? 120 : 300, score: mode === 'two-minute' ? 23 : 0, plays: 0 });
 const teamStats = () => ({ plays: 0, yards: 0, passYards: 0, rushYards: 0, completions: 0, attempts: 0, touchdowns: 0, turnovers: 0, sacks: 0, fieldGoals: 0, players: {} });
 export const fullSession = (mode = 'five-minute', interactive = false) => ({ interactive, mode, defenseMode: interactive ? 'play' : 'simulate', conversion: null, kickoff: null, timeouts: 3, awayTimeouts: 3, running: false, started: false, playClock: 40, log: [], result: null, full: true, awayScore: mode === 'two-minute' ? 27 : 0, possession: 'home', pending: null, nextBall: 25, cpu: { ball: 25, down: 1, toGo: 10 }, auto: true, wait: 2.8, overtime: 0, otPossessions: 0, stats: { home: teamStats(), away: teamStats() } });
 const other = side => side === 'home' ? 'away' : 'home';
@@ -27,6 +27,10 @@ export function fullRecord(s, side, { gain = 0, pass = false, incomplete = false
   if (touchdown) { stats.touchdowns++; if (carrier) carrier.touchdowns++; if (pass && qb && qb !== carrier) qb.touchdowns++; }
 }
 function addScore(s, d, side, points) { if (side === 'home') d.score += points; else s.awayScore += points; }
+function finishArenaDrive(s, d) {
+  s.running = false; s.pending = 'final'; s.conversion = null; s.kickoff = null;
+  s.result = { won: d.score > 0, reason: 'DRIVE COMPLETE', remaining: d.clock, mvp: null, mvpSide: 'home' };
+}
 function finish(s, d) {
   s.running = false; s.pending = 'final';
   const won = d.score > s.awayScore, side = won ? 'home' : 'away';
@@ -43,11 +47,13 @@ function startOvertime(s, d) {
 }
 export function fullExpired(s, d) {
   if (s.result || s.overtime || d.clock > 0) return false;
+  if (s.mode === 'arena') { finishArenaDrive(s, d); return true; }
   if (d.score === s.awayScore) startOvertime(s, d); else finish(s, d);
   return true;
 }
 /** Called once when a possession ends. Both sides get a possession in each OT round. */
 export function fullPossessionEnd(s, d, side, nextBall = 25) {
+  if (s.mode === 'arena') { finishArenaDrive(s, d); return; }
   s.running = false; s.wait = 2.8; s.defenseTimeout = false;
   if (s.overtime) {
     s.otPossessions++;
@@ -110,6 +116,7 @@ export function fullPuntResult(s,d,{kicking,ball=20,seconds=0,touchdown=false,sa
  if(s.result||s.pending||s.possession!==kicking||s.overtime)return false;
  if(!s.overtime)d.clock=Math.max(0,d.clock-seconds);
  fullLog(s,d,kicking,reason);
+ if(s.mode==='arena'){fullPossessionEnd(s,d,kicking);return true;}
  const receiving=other(kicking);
  if(safety){addScore(s,d,kicking,2);fullPossessionEnd(s,d,receiving,35);return true;}
  if(interception){fullPossessionEnd(s,d,receiving,100-ball);return true;}
