@@ -1,5 +1,5 @@
 /** No auth credentials enter the game frame. Parent validates source + attempt token. */
-const params = new URLSearchParams(location.search);
+const params = new URLSearchParams(globalThis.location?.search || '');
 let sent = false;
 function post(type, stats) {
   if (!params.get('bkArena') || !params.get('token') || window.parent === window) return;

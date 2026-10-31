@@ -9,6 +9,7 @@ const teamName=(id:string|null)=>FOOTBALL_ARENA_TEAMS.find(t=>t.abbr===id)?.name
 const message=(error:unknown)=>error instanceof Error?error.message:'Could not connect. Please try again.';
 export default function CommunityFootballArena({me,friends,onOpenAuth}:{me:string;friends:CommunityFriend[];onOpenAuth:()=>void}){
   const [tab,setTab]=useState<'play'|'history'|'standings'>('play');
+  const [lastPlayed,setLastPlayed]=useState('');
   const [team,setTeam]=useState('JCY'),[opponent,setOpponent]=useState('');
   const [busy,setBusy]=useState(false),[error,setError]=useState('');
   const lock=useRef(false),launches=useRef(new Map<string,string>());
@@ -25,7 +26,7 @@ export default function CommunityFootballArena({me,friends,onOpenAuth}:{me:strin
     void act(async()=>{const attempt=await footballArenaAction<FootballAttempt>('begin',{id:match.id,drive,launch:launches.current.get(key)});setPlaying({match,attempt});});
   }
   const matches=data?.matches||[],mine=matches.filter(m=>m.challenger_id===me||m.opponent_id===me);
-  const visible=tab==='history'?mine.filter(m=>!['open','pending','active'].includes(m.status)):matches.filter(m=>['open','pending','active'].includes(m.status));
+  const visible=tab==='history'?mine.filter(m=>!['open','pending','active'].includes(m.status)):matches.filter(m=>['open','pending','active'].includes(m.status)||(m.id===lastPlayed&&m.status==='completed'));
   return <section className="football-arena" aria-label="Football H2H">
     <header className="football-hero"><span className="football-eyebrow">SEASON 1 · THREE-DRIVE ARENA</span><h2>YOUR OFFENSE.<br/><em>THEIR DEFENSE.</em></h2><p>Three drives each. Play offense against your rival’s CPU defense. Highest total wins.</p><div className="football-rules"><span>3 DRIVES</span><span>OWN 25</span><span>PRO DIFFICULTY</span></div></header>
     <nav aria-label="Football H2H sections" className="football-tabs">{(['play','history','standings'] as const).map(t=><button type="button" key={t} aria-current={tab===t?'page':undefined} onClick={()=>setTab(t)}>{t==='play'?'Play football':t==='history'?'Match history':'Standings'}</button>)}</nav>
@@ -49,7 +50,7 @@ export default function CommunityFootballArena({me,friends,onOpenAuth}:{me:strin
     })}</div>}
     </>}
     <details className="football-card football-help"><summary>How Football H2H works</summary><p>Each player chooses a season 1 team, then gets three offensive drives from their own 25 against the other team’s CPU defense. Each drive has a two-minute game clock, with three timeouts. Touchdowns score 6, followed by a 1- or 2-point try. Field goals score 3. Turnovers, punts, safeties and expired clocks end the drive.</p><p>Leaving an unfinished drive records 0; a closed app or disconnected session can’t restart the drive. After all six drives, the higher total wins. Equal totals stay tied. At the 24-hour match deadline, unfinished drives count as 0.</p></details>
-    {playing&&createPortal(<FootballDrivePlayer key={`${playing.match.id}:${playing.attempt.drive}`} match={playing.match} attempt={playing.attempt} onClose={()=>{setPlaying(null);void refresh();}}/>,document.body)}
+    {playing&&createPortal(<FootballDrivePlayer key={`${playing.match.id}:${playing.attempt.drive}`} match={playing.match} attempt={playing.attempt} onClose={()=>{setLastPlayed(playing.match.id);setPlaying(null);void refresh();}}/>,document.body)}
   </section>;
 }
 function FootballDrivePlayer({match,attempt,onClose}:{match:FootballMatch;attempt:FootballAttempt;onClose:()=>void}){
