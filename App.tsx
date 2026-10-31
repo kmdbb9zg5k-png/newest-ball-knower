@@ -38,9 +38,10 @@ const AskBkHub=lazy(()=>import('./AskBkHub').then(module=>({default:module.AskBk
 const PlayerClothingLocker=lazy(()=>import('./PlayerClothingLocker'));
 const LockerHub=lazy(()=>import('./LockerHub').then(module=>({default:module.LockerHub})));
 const PartnersPage=lazy(()=>import('./PartnersPage').then(module=>({default:module.PartnersPage})));
+const FootballArenaScreen=lazy(()=>import('./FootballArenaScreen'));
 const CommunityHub=lazy(()=>import('./CommunityHub').then(module=>({default:module.CommunityHub})));
 
-export type AppTab='home'|'solo'|'news'|'fantasy'|'sportsbook'|'legacy'|'challenges'|'community'|'ask'|'locker'|'wardrobe'|'partners'|'lobby'|'draft'|'simulation';
+export type AppTab='football'|'home'|'solo'|'news'|'fantasy'|'sportsbook'|'legacy'|'challenges'|'community'|'ask'|'locker'|'wardrobe'|'partners'|'lobby'|'draft'|'simulation';
 
 const INTRO_COMPLETED_KEY='ball-knower-intro-completed-v1';
 const introEligible=()=>{try{return !localStorage.getItem(INTRO_COMPLETED_KEY)}catch{return true}};
@@ -51,7 +52,8 @@ function BallKnowerApp(){
   const {activeLeague,currentUser,setActiveLeagueId,toastMessage,joinLeague}=useBallKnower();
   const {setIntroActive}=useSoundtrack();
   const setIntroActiveRef=useRef(setIntroActive);
-  const [currentTab,setCurrentTab]=useState<AppTab>(()=>new URLSearchParams(window.location.search).has('locker_checkout')?'wardrobe':'home');
+  const [currentTab,setCurrentTab]=useState<AppTab>(()=>new URLSearchParams(window.location.search).has('locker_checkout')?'wardrobe':new URLSearchParams(window.location.search).get('footballH2H')==='1'?'football':'home');
+  useEffect(()=>{const url=new URL(location.href);if(url.searchParams.has('footballH2H')){url.searchParams.delete('footballH2H');history.replaceState(history.state,'',url.pathname+url.search+url.hash);}},[]);
   const tabHistory=useRef<AppTab[]>([]);
   const goToTab=useCallback((tab:AppTab)=>{setCurrentTab(current=>{if(current===tab)return current;tabHistory.current.push(current);if(tabHistory.current.length>24)tabHistory.current.shift();return tab})},[]);
   const goBack=useCallback(()=>{setCurrentTab(current=>{let previous=tabHistory.current.pop();while(previous===current)previous=tabHistory.current.pop();return previous||'home'})},[]);
@@ -98,6 +100,7 @@ function BallKnowerApp(){
   const openCommunityLocker=useCallback((person:CommunityPerson)=>openMemberLocker({id:`community-${person.userId}`,userId:person.userId,userName:person.displayName,isCommissioner:false,status:'ready'}),[openMemberLocker]);
   const closeMemberLocker=useCallback(()=>{setViewedLockerMember(null);setCurrentTab(lockerReturnTab)},[lockerReturnTab]);
   const openCheatSheet=useCallback(()=>{setFantasyView('cheatsheet');goToTab('fantasy')},[goToTab]);
+  const returnToGameModes=()=>{const url=new URL(location.href);url.searchParams.set('miniGames','1');history.replaceState(history.state,'',url.pathname+url.search+url.hash);goToTab('home');};
   const showProductChrome=!isIntroOpen&&!showFavoriteTeam&&!isLaunchAuth;
 
   return <div data-tab={currentTab} className="bk-app-shell relative min-h-[100dvh] overflow-x-clip text-white font-sans antialiased selection:bg-[var(--bk-team-accent)]/30 selection:text-[var(--bk-team-accent)]">
@@ -114,6 +117,7 @@ function BallKnowerApp(){
         {currentTab==='sportsbook'&&<SportsbookHub/>}
         {currentTab==='legacy'&&<HallOfFame/>}
         {currentTab==='challenges'&&<ChallengesHub/>}
+        {currentTab==='football'&&<FootballArenaScreen onOpenAuth={()=>setIsAuthOpen(true)} onBack={returnToGameModes}/>}
         {currentTab==='community'&&<CommunityHub onOpenAuth={()=>setIsAuthOpen(true)} onOpenTrivia={()=>goToTab('challenges')} onViewLocker={openCommunityLocker}/>}
         {currentTab==='ask'&&<AskBkHub/>}
         {currentTab==='wardrobe'&&<PlayerClothingLocker onCreatePlayer={()=>{setSoloExperience('player');goToTab('solo');}}/>}

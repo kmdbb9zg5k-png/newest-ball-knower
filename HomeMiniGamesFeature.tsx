@@ -4,7 +4,7 @@ import { MINI_SELECTOR_ART } from './miniSelectorArt';
 import { MiniTeamCarousel } from './MiniTeamCarousel';
 import { MINI_TEAMS, miniMatchup } from './public/play-moment-3d/mini-teams.js';
 
-export function HomeMiniGamesFeature() {
+export function HomeMiniGamesFeature({onOpenFootball=()=>location.assign('/?footballH2H=1')}:{onOpenFootball?:()=>void}={}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [level, setLevel] = useState(() => { try { return miniLevel(localStorage.getItem('bk-mini-level-v1')).id; } catch { return 'rookie'; } });
   const difficulty = miniLevel(level);
@@ -43,13 +43,14 @@ export function HomeMiniGamesFeature() {
     </button>
     <dialog ref={dialog} className="bk-mini-games-dialog" aria-labelledby="mini-games-heading" aria-describedby="mini-games-description" onClose={() => setMenuOpen(false)} onClick={event => { if (event.target === dialog.current) dialog.current?.close(); }}>
       <div className="bk-mini-games-content">
-        <div className="bk-mini-flow-top"><span className="bk-mini-games-eyebrow">MINI GAMES</span><button type="button" aria-label="Close Mini Games" onClick={() => dialog.current?.close()}>×</button></div>
+        <div className="bk-mini-flow-top"><span className="bk-mini-games-eyebrow">GAME MODES</span><button type="button" aria-label="Close Mini Games" onClick={() => dialog.current?.close()}>×</button></div>
         {screen === 'teams' && <div className="bk-mini-flow-progress" aria-label={`Step ${picking === 'home' ? 1 : picking === 'away' ? 2 : 3} of 3`}>
           {['Your team', 'Opponent', 'Matchup'].map((label, index) => <span key={label} aria-current={index === (picking === 'home' ? 0 : picking === 'away' ? 1 : 2) ? 'step' : undefined}>{index + 1}. {label}</span>)}
         </div>}
         <h2 ref={heading} tabIndex={-1} id="mini-games-heading">{screen === 'modes' ? 'Pick Your Game' : screen === 'difficulty' ? 'Choose Difficulty' : screen === 'combine' ? 'Combine Drills' : picking === 'home' ? 'Pick Your Team' : picking === 'away' ? 'Pick Opponent' : 'View Matchup'}</h2>
         <p id="mini-games-description" className="bk-mini-flow-description">{screen === 'modes' ? 'Big plays. Quick games. Choose your challenge.' : screen === 'difficulty' ? `${gameName}. How tough do you want it?` : screen === 'combine' ? 'Test your speed, power, agility and strength. Set your personal best.' : picking === 'home' ? 'Choose your squad. Own the field.' : picking === 'away' ? `Who will take on the ${matchup.home.name.split(' ').at(-1)}?` : 'The stage is set. Make your statement.'}</p>
         {screen === 'modes' ? <div className="bk-mini-mode-cards">
+          <button type="button" aria-label="Online Head-to-Head" className="bk-mini-mode-card bk-mini-mode-card-online" onClick={() => { dialog.current?.close(); onOpenFootball(); }}><span className="bk-mini-card-time">3 DRIVES</span><strong>Online Head-to-Head</strong><span>Challenge friends or find an opponent. Play three drives against their CPU defense.</span><b>Enter online arena →</b></button>
           <button type="button" className="bk-mini-mode-card" onClick={() => chooseMode('two-minute')}><span className="bk-mini-card-time">02:00</span><strong>Two-Minute Warning</strong><span>Down four. Two minutes. Finish the game.</span><b>Play now →</b></button>
           <button type="button" className="bk-mini-mode-card bk-mini-mode-card-full" onClick={() => chooseMode('five-minute')}><span className="bk-mini-card-time">05:00</span><strong>Five-Minute Game</strong><span>You vs. CPU. Offense, defense, and kick returns.</span><b>Play now →</b></button>
           <button type="button" className="bk-mini-mode-card bk-mini-mode-card-combine" onClick={() => setScreen('combine')}><span className="bk-mini-card-time">40 YD</span><strong>Combine Drills</strong><span>Speed, power, agility & strength. Set your personal best.</span><b>View drills →</b></button>

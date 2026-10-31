@@ -4,20 +4,40 @@ import {mkdir} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port','4212',...(process.env.MINI_PREVIEW_DIR?['--outDir',process.env.MINI_PREVIEW_DIR]:[])],{stdio:'ignore'});
 for(let i=0;i<50;i++){try{if((await fetch('http://127.0.0.1:4212')).ok)break;}catch{}await new Promise(r=>setTimeout(r,200));}
-const browser=await chromium.launch({executablePath:process.env.BROWSER_PATH||undefined,headless:true,args:['--no-sandbox']});
+let browser;
 await mkdir('artifacts/mini-mode-tabs',{recursive:true});
 try {
  for (const width of [320,390,1280]) {
+  browser=await chromium.launch({executablePath:process.env.BROWSER_PATH||undefined,headless:true,args:['--no-sandbox']});
   const page=await browser.newPage({viewport:{width,height:844},hasTouch:true});page.setDefaultTimeout(45000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.route('**/*.supabase.co/**',route=>{const rpc=new URL(route.request().url()).pathname.split('/rpc/')[1];return route.fulfill({status:rpc==='get_ball_knower_community_preview'?200:403,json:rpc==='get_ball_knower_community_preview'?{leaderboard:[],friends:[],matches:[],messages:[]}:{message:'Guest navigation test'}});});
   await page.route('**/api/**',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({tracks:[],introUrl:null,available:false,articles:[],games:[]})}));
   await page.addInitScript(()=>{localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','1');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off');});
   await page.goto('http://127.0.0.1:4212');await page.getByRole('button',{name:'Explore Mini Games'}).click();const menu=page.getByRole('dialog');
   assert.equal(await menu.getByRole('tab').count(),0);
-  assert.equal(await menu.locator('.bk-mini-mode-card').count(),3);
+  assert.equal(await menu.locator('.bk-mini-mode-card').count(),4);
   assert.equal(await menu.getByText('Rookie',{exact:true}).count(),0);
   const boxes=await menu.locator('.bk-mini-mode-card').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,width:r.width}}));
-  assert(boxes[1].top>boxes[0].bottom && boxes[2].top>boxes[1].bottom);
+  assert(boxes.slice(1).every((box,i)=>box.top>boxes[i].bottom));
   await page.evaluate(()=>document.fonts.ready);await page.screenshot({path:`artifacts/mini-mode-tabs/cards-${width}.png`});
+  await menu.getByRole('button',{name:'Online Head-to-Head',exact:true}).click();
+  await page.getByRole('heading',{name:'Online Head-to-Head',exact:true}).waitFor();
+  assert.equal(await page.getByRole('dialog').count(),0,'Game Modes closes before opening the shared lobby');
+  assert(await page.getByRole('region',{name:'Football H2H',exact:true}).isVisible());
+  await page.getByRole('button',{name:'Sign in to play',exact:true}).click();await page.locator('.bk-auth-console').waitFor();await page.getByRole('button',{name:'Close sign in',exact:true}).click();
+  await page.evaluate(()=>window.scrollTo({top:0,behavior:"instant"}));
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),"Online lobby fits the screen");
+  const back=await page.getByRole("button",{name:"Back to Game Modes",exact:false}).boundingBox();
+  const chrome=await page.locator("body > header").boundingBox();
+  assert(back&&chrome&&back.y>=chrome.y+chrome.height,"Return button stays below fixed navigation");
+  await page.screenshot({path:`artifacts/mini-mode-tabs/online-${width}.png`});
+  await page.getByRole('button',{name:'Back to Game Modes',exact:false}).click();await menu.getByRole('heading',{name:'Pick Your Game'}).waitFor();
+  await menu.getByRole('button',{name:'Close Mini Games'}).click();
+  const navigate=async name=>{for(const button of await page.getByRole('button',{name,exact:true}).all())if(await button.isVisible()){await button.click();return;}throw Error('Missing navigation '+name);};
+  await navigate('Community');await page.getByRole('button',{name:'Football H2H',exact:true}).click();
+  await page.getByRole('region',{name:'Football H2H',exact:true}).waitFor();await page.getByRole('button',{name:'Match history',exact:true}).click();await page.getByRole('button',{name:'Standings',exact:true}).click();
+  assert(await page.getByRole('button',{name:'Sign in to play',exact:true}).isVisible(),'Community uses the same guest participation gate');
+  await navigate('Home');await page.getByRole('button',{name:'Explore Mini Games'}).click();
   await menu.getByRole('button',{name:/Combine Drills/}).click();assert.equal(await menu.getByRole('link',{name:'Start Game'}).count(),0);
   await menu.getByRole('button',{name:'Back to game modes'}).click();
   for (const [name,id] of [['Five-Minute Game','five-minute'],['Two-Minute Warning','two-minute']]) {
@@ -38,7 +58,7 @@ try {
   assert(await menu.evaluate(el=>el.scrollWidth<=el.clientWidth),'Dialog never overflows horizontally');
   await menu.getByRole('button',{name:'Close Mini Games'}).click();await page.getByRole('button',{name:'Explore Mini Games'}).click();
   await menu.getByRole('heading',{name:'Pick Your Game'}).waitFor();
-  assert.deepEqual(errors,[]);await page.close();
+  assert.deepEqual(errors,[]);await browser.close();console.log('PASS width',width);
  }
- console.log('PASS stacked cards 320/390/1280: separate difficulty, both launch URLs, team/review flow, back navigation, Combine preview and reopen.');
+ console.log('PASS stacked cards 320/390/1280: Game Modes + Community H2H, guest gate and return flow, separate difficulty, both launch URLs, team/review flow, back navigation, Combine preview and reopen.');
 } finally { await browser.close();server.kill(); }
