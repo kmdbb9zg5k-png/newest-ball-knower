@@ -8,12 +8,12 @@ const base=process.env.BK_BROWSER_URL||'http://127.0.0.1:4173';
 const server=process.env.BK_BROWSER_URL?null:spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port','4173','--strictPort'],{stdio:'inherit'});
 const userId='00000000-0000-4000-8000-000000000901';
 const preview={leaderboard:[{user_id:userId,display_name:'Guest Browse Manager',bk_rating:82,level:4,h2h_rating:1048,h2h_wins:4,h2h_losses:1,h2h_ties:0,rank:1}],friends:[],matches:[],messages:[{id:'00000000-0000-4000-8000-000000000902',author_id:userId,display_name:'Guest Browse Manager',body:'Public football conversation for visitors.',created_at:new Date().toISOString()}]};
-const privateCommunity=new Set(['ball_knower_mini_challenges','get_ball_knower_community_home','get_ball_knower_global_messages','get_ball_knower_direct_messages','search_ball_knower_community_users','post_ball_knower_global_message','send_ball_knower_direct_message','send_ball_knower_friend_request','start_ball_knower_h2h']);
+const privateCommunity=new Set(['ball_knower_football_arena','ball_knower_mini_challenges','get_ball_knower_community_home','get_ball_knower_global_messages','get_ball_knower_direct_messages','search_ball_knower_community_users','post_ball_knower_global_message','send_ball_knower_direct_message','send_ball_knower_friend_request','start_ball_knower_h2h']);
 let browser;
 try{
   let ready=false;for(let i=0;i<100;i++){try{if((await fetch(base)).ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,150));}assert.ok(ready,'Preview server must be ready');
   await mkdir('artifacts/community-guest',{recursive:true});
-  browser=await chromium.launch({headless:true});
+  browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_PATH||undefined});
   for(const width of [320,390,1280]){
     const context=await browser.newContext({viewport:{width,height:844},isMobile:width<768,hasTouch:width<768});
     const calls=[];const errors=[];const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
@@ -47,7 +47,12 @@ try{
     await arena.getByRole('button',{name:'Sign in to post',exact:true}).click();
     await page.locator('.bk-auth-console').waitFor();
     await page.getByRole('button',{name:'Close sign in',exact:true}).click();
-    await arena.getByRole('button',{name:'H2H',exact:true}).click();
+    await arena.getByRole('button',{name:'Football H2H',exact:true}).click();
+    await arena.getByRole('heading',{name:/YOUR OFFENSE/}).waitFor();
+    await arena.getByRole('button',{name:'Sign in to play',exact:true}).click();
+    await page.locator('.bk-auth-console').waitFor();
+    await page.getByRole('button',{name:'Close sign in',exact:true}).click();
+    await arena.getByRole('button',{name:'Trivia H2H',exact:true}).click();
     await arena.getByRole('button',{name:'Quick match',exact:true}).click();
     await page.locator('.bk-auth-console').waitFor();
     await page.getByRole('button',{name:'Close sign in',exact:true}).click();
