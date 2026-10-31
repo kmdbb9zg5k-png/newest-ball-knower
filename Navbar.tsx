@@ -52,7 +52,7 @@ export const Navbar:React.FC<NavbarProps>=({currentTab,newsEnabled=currentTab===
   },[]);
 
   const handleSignOut=async()=>{if(isSigningOut)return;setIsSigningOut(true);try{await signOutOnline();setCurrentUser(null);setActiveLeagueId(null);setIsUserMenuOpen(false);localStorage.removeItem('ballknower_user_v1');localStorage.removeItem('ballknower_active_league_id_v1');if(isCloudConfigured){showToast('Signed out. Starting a fresh guest session...');window.setTimeout(()=>window.location.reload(),100)}else{showToast('Signed out successfully');setIsSigningOut(false)}}catch(err:any){showToast(err?.message||'Could not sign out.');setIsSigningOut(false)}};
-  const primaryTab:AppTab=['lobby','draft','simulation'].includes(currentTab)?'fantasy':currentTab;
+  const primaryTab:AppTab=['lobby','draft','simulation'].includes(currentTab)?'fantasy':currentTab==='football'?'home':currentTab;
   const tabClass=(tab:AppTab)=>`relative h-full min-w-[5.25rem] shrink-0 flex items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-2 text-[10px] sm:min-w-[6rem] sm:text-[11px] font-black uppercase tracking-[.1em] transition-colors ${primaryTab===tab?'border-[var(--bk-team-accent)] text-[var(--bk-team-accent)]':'border-transparent text-zinc-500 hover:text-white'}`;
   const mobileTabClass=(tab:AppTab)=>`relative flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-[8px] font-black uppercase tracking-[.08em] transition-colors ${primaryTab===tab?'text-[#E7C75A]':'text-zinc-500'}`;
   const menuClass='flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[10px] font-black uppercase tracking-wide text-zinc-300 hover:bg-white/5';

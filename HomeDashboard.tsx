@@ -124,7 +124,7 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
     </nav>
 
     <HomeSoloFeature onOpen={() => onNavigate('solo')}/>
-    <HomeMiniGamesFeature/>
+    <HomeMiniGamesFeature onOpenFootball={()=>onNavigate('football')}/>
 
     <HomeMatchups leagues={leagues} currentUser={currentUser} onSelectLeague={onSelectLeague} onViewMemberLocker={onViewMemberLocker} onOpenSettings={() => setSettingsOpen(true)}/>
 
