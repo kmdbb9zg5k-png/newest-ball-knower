@@ -163,7 +163,7 @@ assert.ok(
   cloudSync.includes('directJsonPayload(row.value) !== directJsonPayload(localRaw)')&&!cloudSync.includes('remoteRaw !== localRaw'),
   'equal-revision Owner snapshots must compare canonical payloads instead of JSON property order',
 );
-assert.ok(cloudSync.includes('restoredServerWinner')&&cloudSync.includes('remoteRevision > localRevision'),'cloud sync must apply the server winner on stale Owner saves');
+assert.ok(cloudSync.includes('if (!accepted) window.dispatchEvent(new CustomEvent(OWNER_CLOUD_CONFLICT_EVENT))')&&cloudSync.includes('remoteRevision > localRevision'),'cloud sync must apply the server winner on stale Owner saves');
 const ownerBaselineFlush=owner.indexOf('await flushAllCloudState();');
 const ownerAtomicCall=owner.indexOf('await advanceVerifiedOwnerStep(');
 const ownerCommittedPersist=owner.indexOf('setState(nextState);persist(nextState);',ownerAtomicCall);
@@ -241,7 +241,7 @@ assert.ok(
 );
 assert.ok(
   cloudSync.includes("export const OWNER_CLOUD_SYNC_EVENT = 'ballknower:owner-cloud-saved'")&&
-  cloudSync.includes('if (accepted) {')&&
+  cloudSync.includes('if (!accepted) window.dispatchEvent(new CustomEvent(OWNER_CLOUD_CONFLICT_EVENT))')&&
   cloudSync.includes('new CustomEvent(OWNER_CLOUD_SYNC_EVENT, { detail: savedRow.value })')&&
   owner.includes('window.addEventListener(OWNER_CLOUD_SYNC_EVENT,handleOwnerCloudSaved)')&&
   owner.includes('if(synced.cloudRevision<local.cloudRevision)return local;'),

@@ -188,6 +188,16 @@ jobs:
         run: npm run check:root-bundle
       - name: Verify fantasy mobile layouts
         run: npm run check:fantasy-mobile-browser
+      - name: Verify cloud refresh preserves active career gameplay
+        run: node --import tsx scripts/my-player-cloud-refresh-browser.mjs
+      - name: Upload cloud refresh regression screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: career-cloud-refresh-ui
+          path: artifacts/my-player-career
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Upload mobile screenshots
         if: always()
         uses: actions/upload-artifact@v4

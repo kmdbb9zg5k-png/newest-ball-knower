@@ -19,13 +19,30 @@ assert.deepEqual(customized.appearance,{skinTone:'fair',hairStyle:'braids',hairC
 
 // Exercise the actual cloud transformation/restore helpers with isolated storage.
 const source=readFileSync(new URL('../CloudSyncProvider.tsx',import.meta.url),'utf8');
-const helpers=source.slice(source.indexOf('function cloudValue('),source.indexOf('function clearSyncedLocalState('));
+const helpers=source.slice(source.indexOf('function stableJson('),source.indexOf('function clearSyncedLocalState('));
 const storage=new Map<string,string>();
 const context=vm.createContext({localStorage:{getItem:(k:string)=>storage.get(k)??null,setItem:(k:string,v:string)=>storage.set(k,v),removeItem:(k:string)=>storage.delete(k)},console,MAX_CLOUD_RAW_LENGTH:220000});
 vm.runInContext(transformSync(helpers,{loader:'ts',format:'cjs'}).code,context);
 const entry={localKey:'ballknower_solo_my_player_v2',cloudKey:'solo_my_player_v2',privateImages:true};
 const raw={...base,faceImage:'private selfie',renderImage:'private render'};
 const envelope=context.cloudValue(entry,JSON.stringify(raw));assert.equal(JSON.parse(envelope.raw).faceImage,'');assert.equal(JSON.parse(envelope.raw).renderImage,'');
+// A cloud echo must not rewrite private art or treat JSONB key order as progress.
+const localWithArt={...raw,athletePortrait:'data:image/png;base64,bG9jYWw='};
+const localSerialized=JSON.stringify(localWithArt);
+storage.set(entry.localKey,localSerialized);
+const reordered=Object.fromEntries(Object.entries(JSON.parse(context.cloudValue(entry,localSerialized).raw)).reverse());
+assert.equal(context.applyRemote(entry,{raw:JSON.stringify(reordered)}),false,'Equivalent cloud echo does not request an app remount');
+assert.equal(storage.get(entry.localKey),localSerialized,'Cloud echo preserves local-only art and original serialization');
+assert.equal(context.applyRemote(entry,{raw:JSON.stringify({...reordered,overall:99})},true),true,'Preview detects real remote progress');
+assert.equal(storage.get(entry.localKey),localSerialized,'Pending remote progress must not overwrite an active career');
+assert.equal(context.applyRemote(entry,{raw:null},true),true);
+assert.equal(storage.get(entry.localKey),localSerialized,'Pending cloud deletion must not erase an active save');
+const direct={localKey:'owner-test',cloudKey:'owner-test',directJson:true};
+storage.set(direct.localKey,JSON.stringify({cloudRevision:2,nested:{a:1,b:2},roster:['a','b']}));
+assert.equal(context.applyRemote(direct,{roster:['a','b'],nested:{b:2,a:1},cloudRevision:2}),false);
+assert.equal(context.applyRemote(direct,{cloudRevision:3,nested:{a:1,b:2},roster:['a','b']},true),true);
+assert.equal(context.applyRemote(direct,{cloudRevision:2,nested:{a:1,b:2},roster:['b','a']},true),true,'Array order remains meaningful');
+console.log('PASS cloud echo equality, private artwork preservation, deferred updates/deletions and revision-sensitive Owner comparisons.');
 storage.set(entry.localKey,JSON.stringify(raw));context.applyRemote(entry,{raw:JSON.stringify({...base,overall:84})});assert.equal(JSON.parse(storage.get(entry.localKey)!).faceImage,'private selfie','Same athlete retains local-only photo');
 context.applyRemote(entry,{raw:JSON.stringify({...base,combineId:'career-b'})});assert.equal(JSON.parse(storage.get(entry.localKey)!).faceImage,'','Different athlete must not inherit previous selfie');
 context.applyRemote(entry,{raw:null});assert.equal(storage.has(entry.localKey),false);
