@@ -3,7 +3,7 @@ import {mkdir,writeFile} from 'node:fs/promises';
 import {spawn} from 'node:child_process';
 import {chromium} from 'playwright';
 const live=process.argv.includes('--live');
-let news={available:true,provider:'Tank01',fetchedAt:new Date().toISOString(),articles:[
+let news={available:true,provider:'Currents',fetchedAt:new Date().toISOString(),articles:[
  {headline:'Example headline for the Home regression test',url:'https://publisher.example/one'},
  {headline:'Another headline tests rotation without moving the page',url:'https://publisher.example/two'},
  {headline:'Third headline tests next and pause controls',url:'https://publisher.example/three'},
@@ -45,7 +45,8 @@ try{
   await page.clock.install();
   await page.goto(base,{waitUntil:'domcontentloaded'});
   const hero=page.locator('.bk-home-stadium');const strip=page.getByRole('region',{name:'NFL headlines'});
-  await hero.waitFor();await strip.locator('a').waitFor();
+  await hero.waitFor();await strip.locator('a[title]').waitFor();
+  if(news.provider==='Currents'){const attribution=strip.getByRole('link',{name:'Powered by Currents News API',exact:true});await attribution.waitFor();assert.equal(await attribution.getAttribute('href'),'https://currentsapi.services/');const bounds=await attribution.evaluate(element=>{const link=element.getBoundingClientRect(),strip=element.closest('.bk-home-news-strip').getBoundingClientRect();return{top:link.top,bottom:link.bottom,left:link.left,right:link.right,stripTop:strip.top,stripBottom:strip.bottom,stripLeft:strip.left,stripRight:strip.right}});assert.ok(bounds.top>=bounds.stripTop&&bounds.bottom<=bounds.stripBottom&&bounds.left>=bounds.stripLeft&&bounds.right<=bounds.stripRight,'Currents attribution remains visible inside ticker');}
   await page.waitForFunction(()=>document.querySelector('.bk-home-legacy-art')?.naturalWidth>0);
   // Real app fonts, not a separate mockup typography layer.
   await page.evaluate(()=>document.fonts.ready);
@@ -70,15 +71,15 @@ try{
   assert.equal(Math.round(geometry.heroHeight),width<360?350:width<640?378:440,'Original hero height restored');
   await page.screenshot({path:`${out}/home-${width}.png`,fullPage:false});
   if(width===390){
-   const before=await strip.locator('a').getAttribute('href');await page.clock.runFor(10_050);
-   assert.notEqual(await strip.locator('a').getAttribute('href'),before,'Headlines rotate');
+   const before=await strip.locator('a[title]').getAttribute('href');await page.clock.runFor(10_050);
+   assert.notEqual(await strip.locator('a[title]').getAttribute('href'),before,'Headlines rotate');
    await page.getByRole('button',{name:'Pause headline rotation',exact:true}).click();
-   const frozen=await strip.locator('a').getAttribute('href');await page.clock.runFor(20_100);
-   assert.equal(await strip.locator('a').getAttribute('href'),frozen,'Pause holds the current headline');
-   await page.getByRole('button',{name:'Next headline',exact:true}).click();assert.notEqual(await strip.locator('a').getAttribute('href'),frozen);
+   const frozen=await strip.locator('a[title]').getAttribute('href');await page.clock.runFor(20_100);
+   assert.equal(await strip.locator('a[title]').getAttribute('href'),frozen,'Pause holds the current headline');
+   await page.getByRole('button',{name:'Next headline',exact:true}).click();assert.notEqual(await strip.locator('a[title]').getAttribute('href'),frozen);
    await page.getByRole('button',{name:'Hide headlines',exact:true}).click();
    const hiddenCalls=calls();await page.clock.runFor(240_100);assert.equal(calls(),hiddenCalls,'Hidden headlines must not poll');
-   await page.getByRole('button',{name:'Show headlines',exact:true}).click();await strip.locator('a').waitFor();
+   await page.getByRole('button',{name:'Show headlines',exact:true}).click();await strip.locator('a[title]').waitFor();
    await page.emulateMedia({reducedMotion:'reduce'});await page.waitForFunction(()=>document.querySelector('.bk-home-stadium')?.getAttribute('data-motion')==='off');
    assert.equal(await hero.getAttribute('data-motion'),'off');
    assert.equal(await hero.evaluate(e=>getComputedStyle(e).animationName),'none');
@@ -109,10 +110,10 @@ try{
   // Uninterrupted capture of the real built app; no fabricated leagues or scores.
   const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:2,isMobile:true,hasTouch:true,recordVideo:{dir:`${out}/video`,size:{width:390,height:844}}});
   const {page}=await configure(context);await page.goto(base,{waitUntil:'domcontentloaded'});
-  await page.locator('.bk-home-news-strip a').waitFor();await page.evaluate(()=>document.fonts.ready);
+  await page.locator('.bk-home-news-strip a[title]').waitFor();await page.evaluate(()=>document.fonts.ready);
   await page.waitForTimeout(1200);await page.screenshot({path:`${out}/home-live-390.png`});
   await page.waitForTimeout(11_500);await context.close();
  }
- await writeFile(`${out}/results.json`,JSON.stringify({source:live?'actual public Tank01 feed captured for browser verification':'explicit synthetic regression fixture',checkedAt:new Date().toISOString(),results,physicalIphoneTest:false,productionAccountMutations:false},null,2));
+ await writeFile(`${out}/results.json`,JSON.stringify({source:live?'actual public news feed captured for browser verification':'explicit synthetic regression fixture',checkedAt:new Date().toISOString(),results,physicalIphoneTest:false,productionAccountMutations:false},null,2));
  console.log('Home broadcast: phone/desktop rendering, nav, no motion control, reduced motion, rotation/pause/next/hide, cache and unmount passed.');
 }finally{await browser?.close();server.kill('SIGTERM')}

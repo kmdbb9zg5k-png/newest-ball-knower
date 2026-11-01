@@ -13,10 +13,11 @@ export function verifyNews(response,payload,now=Date.now()){
   assert.equal(response.status,200,'News request failed');
   assert.match(response.headers.get('content-type')||'',/application\/json/i,'News must return JSON');
   assert.equal(payload?.available,true,'Live News is unavailable; do not ship an empty-feed build');
-  assert.equal(payload?.provider,'Tank01','Unexpected News provider');
+  assert.equal(payload?.provider,'Currents','Unexpected News provider');
+  assert.equal(payload?.attribution,'https://currentsapi.services/','Currents attribution is required');
   assert.ok(Array.isArray(payload?.articles)&&payload.articles.length>0&&payload.articles.length<=20,'Live News must contain actual headline links');
   const retrieved=Date.parse(payload.fetchedAt);
-  assert.ok(Number.isFinite(retrieved)&&retrieved<=now+60_000&&now-retrieved<=300_000,'News retrieval timestamp is invalid or stale');
+  assert.ok(Number.isFinite(retrieved)&&retrieved<=now+60_000&&now-retrieved<=660_000,'News retrieval timestamp is invalid or stale');
   const ids=new Set();
   for(const item of payload.articles){
     assert.ok(typeof item.headline==='string'&&item.headline.trim()&&typeof item.source==='string'&&item.source.trim(),'Headline/source missing');
@@ -51,9 +52,11 @@ if(process.argv[1]&&import.meta.url===new URL(`file://${process.argv[1]}`).href)
     verifyHealth(good,data);
     assert.throws(()=>verifyHealth({...good,headers:new Headers({'content-type':'text/html'})},data));
     assert.throws(()=>verifyHealth(good,{...data,service:'baseball'}));
-    const news={available:true,provider:'Tank01',fetchedAt:new Date().toISOString(),articles:[{id:'https://publisher.example/story',url:'https://publisher.example/story',headline:'Test story',source:'Test publisher',published:null,image:null,description:''}]};
+    const news={available:true,provider:'Currents',attribution:'https://currentsapi.services/',fetchedAt:new Date().toISOString(),articles:[{id:'https://publisher.example/story',url:'https://publisher.example/story',headline:'Test story',source:'Test publisher',published:null,image:null,description:''}]};
     verifyNews(good,news);
-    for(const invalid of [{...news,available:false},{...news,articles:[]},{...news,fetchedAt:'2000-01-01T00:00:00Z'},{...news,articles:[{...news.articles[0],url:'javascript:alert(1)'}]},{...news,articles:[{...news.articles[0],description:'Unapproved article body'}]}])assert.throws(()=>verifyNews(good,invalid));
+    verifyNews(good,{...news,fetchedAt:new Date(Date.now()-600_000).toISOString()});
+    assert.throws(()=>verifyNews(good,{...news,fetchedAt:new Date(Date.now()-661_000).toISOString()}),'Expired cache must not pass release preflight');
+    for(const invalid of [{...news,provider:'Unapproved provider'},{...news,attribution:undefined},{...news,available:false},{...news,articles:[]},{...news,fetchedAt:'2000-01-01T00:00:00Z'},{...news,articles:[{...news.articles[0],url:'javascript:alert(1)'}]},{...news,articles:[{...news.articles[0],description:'Unapproved article body'}]}])assert.throws(()=>verifyNews(good,invalid));
     assert.throws(()=>verifyNews({...good,headers:new Headers({'content-type':'text/html'})},news));
     console.log('Backend guards reject HTML-200, wrong service, empty/unavailable/stale News and unsafe content.');
   }else{

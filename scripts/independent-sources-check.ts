@@ -6,7 +6,7 @@ import legacy from '../data/legacy-player-identities.json';
 import {PLAYERS_DATABASE,KNOWN_PLAYERS_DATABASE,RATINGS_VALIDATION_REPORT} from '../players';
 import {INDEPENDENT_FOOTBALL_INPUTS} from '../currentSeasonRoster';
 import {independentRating,independentProjection,type FootballInput} from '../independentPlayerRatings';
-import {normalizeNews,default as newsHandler} from '../api/nfl-news';
+import {normalizeNews,createNewsHandler} from '../api/nfl-news';
 import {nativeApiUrl} from '../nativeRuntime';
 
 const ids=new Set(KNOWN_PLAYERS_DATABASE.map(p=>p.id));
@@ -41,8 +41,8 @@ assert.match(migration,/unfinished Draft Order Game/);
 assert.doesNotMatch(migration,/sleeper\.app|gamedai|draftai\.live|thesharpbook/i);
 assert.doesNotMatch(migration,/delete from public\.ball_knower_(?:league_members|player_week_scores|live_drafts)/);
 for(const filename of ['maddenRatings.ts','madden27CurrentRoster.ts'])assert.equal(existsSync(filename),false);
-const articles=normalizeNews({body:[{title:'Example headline',link:'https://publisher.example/a'},
-  {title:'Same link',link:'https://publisher.example/a'},{title:'Bad link',link:'javascript:alert(1)'}]}).articles;
+const articles=normalizeNews({status:'ok',news:[{title:'Example NFL headline',url:'https://publisher.example/a'},
+  {title:'Same NFL link',url:'https://publisher.example/a'},{title:'Bad NFL link',url:'javascript:alert(1)'}]}).articles;
 assert.equal(articles.length,1);assert.equal(articles[0].image,null);assert.equal(articles[0].description,'');assert.equal(articles[0].published,null);
 const canonical=PLAYERS_DATABASE.find(p=>p.position==='QB')!;
 const legacySaved={...canonical,name:'Do not restore saved identity',salary:1.1,ovr:99};
@@ -52,13 +52,13 @@ assert.equal(restored.name,canonical.name);assert.equal(restored.ovr,canonical.o
 assert.equal(restoreSoloPlayer(restored,canonical,false)!.salary,1.1,'Budget compatibility must survive a second reload');
 assert.equal(restoreSoloPlayer(legacySaved,canonical,false)!.salary,canonical.salary,'New runs use independent pricing');
 assert.equal(restoreSoloPlayer(legacySaved,undefined,true),undefined,'Unknown identities must not be invented');
-const originalFetch=globalThis.fetch;const originalKey=process.env.TANK01_API_KEY;
-try{
-  process.env.TANK01_API_KEY='test-key-not-real';let calls=0;
-  globalThis.fetch=(async (url:any)=>{calls++;assert.match(String(url),/getNFLNews/);return new Response(JSON.stringify({body:[{title:'A',link:'https://publisher.example/b'}]}),{headers:{'content-type':'application/json'}})}) as typeof fetch;
-  const makeRes=()=>({headers:{},code:0,body:null as any,setHeader(k:string,v:string){this.headers[k]=v},status(n:number){this.code=n;return this},json(body:any){this.body=body;return this}});
-  const a=makeRes(),b=makeRes();await Promise.all([newsHandler({method:'GET'},a),newsHandler({method:'GET'},b)]);
-  assert.equal(calls,1,'Concurrent news requests must share one upstream request');assert.equal(a.body.available,true);
-  const post=makeRes();await newsHandler({method:'POST'},post);assert.equal(post.code,405);
-}finally{globalThis.fetch=originalFetch;if(originalKey===undefined)delete process.env.TANK01_API_KEY;else process.env.TANK01_API_KEY=originalKey}
+let newsCalls=0;
+const newsHandler=createNewsHandler({getKey:()=>'test-key-not-real',fetchImpl:async(url)=>{
+  newsCalls++;const endpoint=new URL(String(url));assert.equal(endpoint.origin,'https://api.currentsapi.services');assert.equal(endpoint.searchParams.get('keywords'),'NFL');
+  return new Response(JSON.stringify({status:'ok',news:[{title:'NFL headline',url:'https://publisher.example/b'}]}),{headers:{'content-type':'application/json'}});
+}});
+const makeRes=()=>({headers:{} as Record<string,string>,code:0,body:null as any,setHeader(k:string,v:string){this.headers[k]=v},status(n:number){this.code=n;return this},json(body:any){this.body=body;return this}});
+const a=makeRes(),b=makeRes();await Promise.all([newsHandler({method:'GET'},a),newsHandler({method:'GET'},b)]);
+assert.equal(newsCalls,1,'Concurrent news requests must share one upstream request');assert.equal(a.body.available,true);assert.equal(a.body.provider,'Currents');
+const post=makeRes();await newsHandler({method:'POST'},post);assert.equal(post.code,405);
 console.log(`Independent sources passed: ${legacy.length} saved IDs preserved, ${PLAYERS_DATABASE.length} active records, bounded model estimates, news and native origin guards.`);

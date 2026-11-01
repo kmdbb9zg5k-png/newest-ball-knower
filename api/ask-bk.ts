@@ -1,15 +1,10 @@
 import {createClient} from '@supabase/supabase-js';
 import type {GatewayProviderOptions} from '@ai-sdk/gateway';
 import {gateway,generateText,stepCountIs,type ModelMessage} from 'ai';
-// Vercel runs compiled API functions as native ESM. Keep the runtime extension
-// explicit so Node resolves the sibling function module after TypeScript emits JS.
-import {normalizeNews} from './nfl-news.js';
-
 const BALL_KNOWER_SUPABASE_URL='https://gpnboygoosrmeydwjpvk.supabase.co';
 const BALL_KNOWER_SUPABASE_PUBLISHABLE_KEY='sb_publishable_tgnOH0RUtswLI58isL5Qfw_Pq3xaV9h';
 const PRIMARY_MODEL='google/gemini-3.1-flash-lite';
 const FALLBACK_MODEL='openai/gpt-5.4-nano';
-const TANK01_HOST='tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com';
 const MAX_IMAGES=5;
 const MAX_IMAGE_DATA_CHARS=3_200_000;
 const MAX_MESSAGE_CHARS=2_000;
@@ -70,19 +65,6 @@ function parseLeagueContext(value:unknown){
   return context.leagueName||context.roster.length?context:null;
 }
 
-async function latestNflContext(lastQuestion:string){
-  if(!/(latest|today|tonight|news|injur|waiver|trade|start\s*\/\s*sit|start or sit|lineup|depth chart|inactive)/i.test(lastQuestion))return'';
-  const key=process.env.TANK01_API_KEY||process.env.RAPIDAPI_KEY;
-  if(!key)return'';
-  try{
-    const response=await fetch(`https://${TANK01_HOST}/getNFLNews?topNews=true&maxItems=8`,{headers:{'x-rapidapi-key':key,'x-rapidapi-host':TANK01_HOST},signal:AbortSignal.timeout(6_000),redirect:'error'});
-    if(!response.ok)return'';
-    const raw=await response.text();if(raw.length>600_000)return'';
-    const normalized=normalizeNews(JSON.parse(raw));
-    return normalized.articles.slice(0,8).map(article=>`- ${article.headline} (${article.source}${article.published?`, ${article.published}`:''}) ${article.url}`).join('\n');
-  }catch{return''}
-}
-
 function collectSources(result:any):SafeSource[]{
   const found=new Map<string,SafeSource>();
   const add=(urlValue:unknown,titleValue:unknown)=>{const url=safeUrl(urlValue);if(!url||found.has(url)||found.size>=6)return;found.set(url,{url,title:plain(titleValue,120)||new URL(url).hostname.replace(/^www\./,'')})};
@@ -131,7 +113,6 @@ export default async function handler(req:any,res:any){
     const liveSearchRequested=needsAskBkLiveSearch(lastQuestion);
     const liveSearchEnabled=process.env.ASK_BK_LIVE_SEARCH_ENABLED!=='false';
     const allowLiveSearch=liveSearchRequested&&liveSearchEnabled;
-    const nflNews=await latestNflContext(lastQuestion);
     const now=new Date().toISOString();
     const system=`You are Ask BK, Ball Knower's sharp, plain-spoken sports assistant. Football and fantasy football are your specialty, but you can answer questions about any sport. Today is ${now}.
 
@@ -144,8 +125,7 @@ Accuracy rules:
 - Keep answers useful on a phone: lead with the answer, use short sections or bullets, and normally stay under 550 words.
 - Do not claim to remember a prior session. Ball Knower does not save this conversation.
 
-${leagueContext?`Current Ball Knower league context:\n${JSON.stringify(leagueContext)}`:'No Ball Knower league is currently attached.'}
-${nflNews?`\nRecent Tank01 NFL headlines (verify with search before treating as decisive):\n${nflNews}`:''}`;
+${leagueContext?`Current Ball Knower league context:\n${JSON.stringify(leagueContext)}`:'No Ball Knower league is currently attached.'}`;
     const modelMessages:ModelMessage[]=messages.map((message,index)=>{
       if(message.role==='assistant')return{role:'assistant',content:message.text};
       const isLatest=index===lastUserIndex;

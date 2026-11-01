@@ -1,20 +1,23 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const api=fs.readFileSync('api/nfl-news.ts','utf8');
+const route=fs.readFileSync('api/nfl-news.ts','utf8');
+const api=fs.readFileSync('server/bk/currents-news.ts','utf8');
 const ui=fs.readFileSync('NewsHub.tsx','utf8');
 const client=fs.readFileSync('sportsApiClient.ts','utf8');
 const home=fs.readFileSync('HomeDashboard.tsx','utf8');
 const navbar=fs.readFileSync('Navbar.tsx','utf8');
 
-assert.match(api,/getNFLNews/,'News must use the configured provider headline endpoint');
+assert.match(route,/currents-news\.js/,'Legacy news route must use the shared Currents service');
+assert.match(api,/api\.currentsapi\.services/,'News must use the approved Currents endpoint');
+assert.doesNotMatch(route+api,/tank01|rapidapi|getNFLNews/i,'News must have no Tank01 request or fallback');
 assert.doesNotMatch(api,/news\.google\.com|a\.espncdn\.com/,'No unapproved fallback feeds or images');
 assert.match(api,/\.sort\(/,'News must explicitly sort newest first');
-assert.match(api,/source,/,'News payload must include source');
+assert.match(api,/source[, :]/,'News payload must include source');
 assert.match(api,/published[, :]/,'News payload must include publication time');
 assert.match(api,/description:/,'News payload must include a short description when meaningful');
-assert.match(api,/available:false/,'Upstream outage must be explicit');
-assert.match(api,/s-maxage=120/,'News feed must use a lightweight short server cache');
+assert.match(api,/available:\s*false/,'Upstream outage must be explicit');
+// currents-news-check verifies fresh and aged responses use only their remaining cache lifetime.
 assert.doesNotMatch(api,/stale-while-revalidate/,'News must not silently represent stale cached stories as current during outage');
 
 assert.match(ui,/item\.source/);
@@ -34,3 +37,4 @@ assert.ok(mobileLabels.length>0,'Navbar must remain present for the existing mob
 console.log('NFL News regression gate passed.');
 
 await import("./news-provider-contract-check");
+await import("./currents-news-check");

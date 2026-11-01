@@ -3,7 +3,7 @@ import {mkdir,writeFile,readFile} from 'node:fs/promises';
 import {spawn} from 'node:child_process';
 import {chromium} from 'playwright';
 const live=process.argv.includes('--live'),out='artifacts/all-screens',base='http://127.0.0.1:4180';
-let news={available:true,provider:'Tank01',fetchedAt:new Date().toISOString(),articles:[{id:'https://publisher.example/story1',url:'https://publisher.example/story1',headline:'Example NFL headline for regression testing',source:'Test publisher',published:null,image:null,description:''},{id:'https://publisher.example/story2',url:'https://publisher.example/story2',headline:'Second example tests shared headline rotation',source:'Test publisher',published:null,image:null,description:''}]};
+let news={available:true,provider:'Currents',fetchedAt:new Date().toISOString(),articles:[{id:'https://publisher.example/story1',url:'https://publisher.example/story1',headline:'Example NFL headline for regression testing',source:'Test publisher',published:null,image:null,description:''},{id:'https://publisher.example/story2',url:'https://publisher.example/story2',headline:'Second example tests shared headline rotation',source:'Test publisher',published:null,image:null,description:''}]};
 let picks={available:false,games:[]};
 if(live){const r=await fetch('https://ballknowerofficial.com/api/nfl-news',{signal:AbortSignal.timeout(12000)});assert.equal(r.status,200);news=await r.json();assert.equal(news.available,true);assert.ok(news.articles.length>1);try{const p=await fetch('https://ballknowerofficial.com/api/nfl-sportsbook',{signal:AbortSignal.timeout(12000)});if(p.ok)picks=await p.json()}catch{}}
 const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port','4180','--strictPort'],{stdio:'inherit'});
@@ -49,6 +49,7 @@ try{
   await page.getByRole('button',{name:'League HQ',exact:true}).click();await page.getByRole('region',{name:'NFL headlines'}).waitFor();
   await page.getByRole('button',{name:'Open NFL News',exact:true}).click();await capture('news','studio');
   assert.equal(await page.locator('.bk-news-story').count(),news.articles.length);assert.equal(await page.locator('.bk-news-story img').count(),0);
+  if(news.provider==='Currents'){await page.locator('[data-page="news"]').getByRole('link',{name:'Powered by Currents News API',exact:true}).waitFor();await page.getByRole('region',{name:'NFL headlines',exact:true}).getByRole('link',{name:'Powered by Currents News API',exact:true}).waitFor();}
   if(width<768&&news.articles.length>10){
    await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
    const backdrop=await page.locator('.bk-scene-backdrop').boundingBox();
