@@ -403,3 +403,24 @@ export function isValidFantasyDraftState(value: unknown, requireComplete = false
   }
   return true;
 }
+
+/** Higher seeds host conference playoff games; retain the existing title-game designation. */
+export function franchisePlayoffHomeField(userSeed: number, opponentSeed: number, round: string, completedRounds = 0): boolean {
+  return round === 'LEGACY BOWL' ? completedRounds % 2 === 0 : userSeed < opponentSeed;
+}
+
+/** Saved brackets must contain seven unique, correctly seeded teams per conference. */
+export function isValidFranchisePlayoffField(value: unknown): boolean {
+  if (!Array.isArray(value) || value.length !== 14) return false;
+  const seen = new Set<string>();
+  for (const row of value) {
+    const index = SOLO_TEAM_THEMES.findIndex(team => team.abbr === row?.abbr);
+    if (index < 0 || seen.has(row.abbr) || row.conference !== (index < 16 ? 'AFC' : 'NFC')
+      || !Number.isInteger(row.seed) || row.seed < 1 || row.seed > 7) return false;
+    seen.add(row.abbr);
+  }
+  return ['AFC', 'NFC'].every(conference => {
+    const seeds = value.filter(row => row.conference === conference).map(row => row.seed);
+    return seeds.length === 7 && new Set(seeds).size === 7;
+  });
+}

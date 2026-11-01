@@ -1,3 +1,4 @@
+import {advanceAgentCalendar} from "./agentSeasonCalendar";
 import {agentTradeWindowMessage,canResolveAgentTradeRequest,isAgentTradeWindowOpen,TRADE_DEADLINE_WEEK,type SeasonPhase} from './agentTradeRules';
 export {agentTradeWindowMessage,canResolveAgentTradeRequest,isAgentTradeWindowOpen} from './agentTradeRules';
 import {SoloPlayerIdentity,SoloPlayerLink,SoloPortrait,SoloQuickView} from './solo/SoloPresentation';
@@ -68,7 +69,6 @@ const LEGACY_SAVE_KEYS = [
   "ballknower_player_agent_v1",
 ];
 const RECRUIT_COOLDOWN_DAYS = 7;
-const REGULAR_SEASON_WEEKS = 18;
 const AGENT_POSITION_FILTERS = ["QB", "RB", "WR", "TE", "OT", "EDGE", "DT", "LB", "CB", "S", "K", "P"] as const;
 
 const agentPositionGroup = (player: Player) => {
@@ -1001,36 +1001,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
 
   const advanceWeek = () => {
     if (verifyingAgentSigning) return;
-    let nextWeek = agency.seasonWeek + 1;
-    let nextYear = agency.seasonYear;
-    let nextPhase: SeasonPhase = agency.phase;
-    let nextDate = addDays(agency.simulatedDate, 7);
-    const events: string[] = [];
-
-    if (agency.phase === "preseason") {
-      nextPhase = "regular";
-      nextWeek = 1;
-      events.push(`The ${nextYear} regular season has begun.`);
-    } else if (agency.phase === "regular" && nextWeek > REGULAR_SEASON_WEEKS) {
-      nextPhase = "postseason";
-      nextWeek = 1;
-      events.push(
-        "The regular season is over. Postseason and end-of-year contract decisions begin.",
-      );
-    } else if (agency.phase === "postseason" && nextWeek > 5) {
-      nextPhase = "offseason";
-      nextWeek = 1;
-      events.push(
-        "The offseason has begun. Teams are preparing for the new league year.",
-      );
-    } else if (agency.phase === "offseason" && nextWeek > 4) {
-      nextYear += 1;
-      nextPhase = "preseason";
-      nextWeek = 0;
-      events.push(
-        `The ${nextYear} league year is open. Contract markets reset and every relationship matters again.`,
-      );
-    }
+    const {nextWeek,nextYear,nextPhase,nextDate,events}=advanceAgentCalendar(agency);
 
     const updatedClients = agency.clients.map((client) => {
       const p = SOLO_KNOWN_PLAYERS_DATABASE.find((x) => x.id === client.playerId);
@@ -1910,7 +1881,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
               onClick={verifyingAgentSigning ? () => { void retryAgentSigningVerification(); } : advanceWeek}
               className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-violet-400 px-5 font-black text-black"
             >
-              <FastForward size={18} /> {verifyingAgentSigning ? "RETRY CLOUD VERIFICATION" : "ADVANCE ONE WEEK"}
+              <FastForward size={18} /> {verifyingAgentSigning ? "RETRY CLOUD VERIFICATION" : agency.phase === "offseason" && agency.seasonWeek >= 4 ? "BEGIN NEXT SEASON" : "ADVANCE ONE WEEK"}
             </button>
           </div>
         </section>

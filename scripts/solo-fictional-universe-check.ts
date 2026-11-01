@@ -126,3 +126,18 @@ assert.match(agentSource, /WHO WILL YOU REPRESENT\?/);
 assert.doesNotMatch(agentSource, /playerPortraitUrl\(/, 'Agent Mode may not resolve real-player portrait licenses.');
 
 console.log(`Solo full-flow checks passed: ${SOLO_TEAM_THEMES.length} original teams, ${SOLO_PLAYERS_DATABASE.length} simulated players, legal Cap roster, 17-game season, awards/career persistence, complete 53-round Fantasy Draft, Franchise schedule/rookies, and My Player combine.`);
+
+// Playoff hosting follows seeds, including the first-round bye path.
+const { franchisePlayoffHomeField } = await import('../soloFranchiseEngine');
+for (let seed = 1; seed <= 7; seed++) for (let rival = 1; rival <= 7; rival++) {
+  if (seed === rival) continue;
+  for (const round of ['WILD CARD', 'DIVISIONAL', 'CONFERENCE CHAMPIONSHIP'])
+    assert.equal(franchisePlayoffHomeField(seed, rival, round), seed < rival);
+}
+assert.equal(franchisePlayoffHomeField(1, 2, 'LEGACY BOWL', 2), true);
+assert.equal(franchisePlayoffHomeField(7, 1, 'LEGACY BOWL', 3), false);
+
+const { isValidFranchisePlayoffField } = await import('../soloFranchiseEngine');
+const validField = [0,16].flatMap(offset => SOLO_TEAM_THEMES.slice(offset,offset+7).map((team,index)=>({abbr:team.abbr,conference:offset?'NFC':'AFC',seed:index+1})));
+assert(isValidFranchisePlayoffField(validField));
+for (const broken of [undefined, [], validField.slice(1), [...validField.slice(1),validField[1]], validField.map(row=>({...row,seed:1})), validField.map(row=>({...row,conference:'AFC'})), [null,...validField.slice(1)]]) assert.equal(isValidFranchisePlayoffField(broken),false);

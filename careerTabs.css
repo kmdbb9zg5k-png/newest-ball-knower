@@ -2,3 +2,6 @@
 .career-tab-section:not([hidden])>.life-dialogue{padding:12px;gap:10px;margin-bottom:12px}.career-tab-section>.life-dialogue .career-portrait{width:36px;height:42px}.career-tab-section>.life-dialogue h3{font-size:16px;line-height:1.35;margin:4px 0}.career-tab-section>.life-dialogue p{font-size:12px;line-height:1.5}.career-tab-hub .life-choice-section{padding:14px}.career-tab-hub .career-choices{gap:8px}.career-tab-hub .career-choices button{padding:12px;min-height:64px}.career-tab-hub .career-choices span{font-size:12px;line-height:1.45}.career-tab-section:not([hidden]){min-width:0}.career-tab-section>.life-card,.career-tab-section>.life-metrics{margin-bottom:16px}
 .career-tab-nav{position:sticky;top:calc(72px + env(safe-area-inset-top,0px));z-index:36;box-shadow:0 8px 20px #0006}@media(min-width:768px){.career-tab-nav{top:calc(116px + env(safe-area-inset-top,0px))}}
 .career-tab-hub [data-career-current]{scroll-margin-top:calc(150px + env(safe-area-inset-top,0px))}@media(min-width:768px){.career-tab-hub [data-career-current]{scroll-margin-top:calc(194px + env(safe-area-inset-top,0px))}}
+
+/* Relationship metrics follow the active panel instead of covering career choices. */
+.career-tab-status{position:relative;inset:auto;z-index:auto;max-width:none;margin:20px 0 0}

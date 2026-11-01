@@ -347,7 +347,7 @@ export function recordGauntletAnswer(progress:GauntletProgress,correct:boolean,x
   const sync=ledgerFrom(progress);const details=eventMeta(progress,'answer',meta);const event:GauntletAnswerEvent={...details,kind:'answer',correct,xp:correct?Math.max(0,xp):0};
   return deriveProgress({...sync,events:{...sync.events,[event.id]:event}});
 }
-export function recordGauntletRun(progress:GauntletProgress,key:string,score:number,total:number,dateKey?:string,meta?:GauntletEventMeta){
-  const sync=ledgerFrom(progress);const details=eventMeta(progress,'run',meta);const event:GauntletRunEvent={...details,kind:'run',key,score,total,dateKey,bonusXp:score===total?50:0};
+export function recordGauntletRun(progress:GauntletProgress,key:string,score:number,total:number,dateKey?:string,meta?:GauntletEventMeta,awardPerfectBonus=true){
+  const sync=ledgerFrom(progress);const details=eventMeta(progress,'run',meta);const event:GauntletRunEvent={...details,kind:'run',key,score,total,dateKey,bonusXp:awardPerfectBonus&&score===total?50:0};
   return deriveProgress({...sync,events:{...sync.events,[event.id]:event}});
 }

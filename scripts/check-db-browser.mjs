@@ -1,15 +1,16 @@
-import assert from 'node:assert/strict';import {createServer} from 'vite';import {chromium} from 'playwright';import {mkdir,writeFile} from 'node:fs/promises';
+import {enterCombineSetup,createServer} from './combine-browser-entry.mjs';
+import assert from 'node:assert/strict';import {chromium} from 'playwright';import {mkdir,writeFile} from 'node:fs/promises';
 await mkdir('artifacts/db-drill',{recursive:true});const remote=process.env.DB_URL,realtime=!!process.env.DB_REALTIME;
 const server=remote?null:await createServer({server:{host:'127.0.0.1',port:3091}});await server?.listen();const base=remote||'http://127.0.0.1:3091';
-const browser=await chromium.launch({executablePath:'/tmp/bk-browser/chromium',...(remote&&process.env.HTTPS_PROXY?{proxy:{server:process.env.HTTPS_PROXY}}:{}),args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
+const browser=await chromium.launch({executablePath:process.env.BROWSER_PATH||'/tmp/bk-browser/chromium',...(remote&&process.env.HTTPS_PROXY?{proxy:{server:process.env.HTTPS_PROXY}}:{}),args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
 try{
  const p=await browser.newPage({viewport:{width:390,height:680},deviceScaleFactor:.6,isMobile:true,hasTouch:true,ignoreHTTPSErrors:!!remote});p.setDefaultTimeout(90000);const errors=[];p.on('pageerror',e=>errors.push(e.message));
  if(!realtime){await p.clock.install();await p.addInitScript(()=>{window.requestAnimationFrame=cb=>setTimeout(()=>cb(performance.now()),100);window.cancelAnimationFrame=clearTimeout;});}
- await p.goto(base+'/combine.html?drill=db');await p.waitForFunction(()=>document.querySelector('.skill-hud')&&!document.querySelector('.skill-hud').inert);
+ await p.goto(base+'/combine.html?drill=db');await enterCombineSetup(p);await p.waitForFunction(()=>document.querySelector('.skill-hud')&&!document.querySelector('.skill-hud').inert);
  if(realtime)await p.evaluate(()=>{window.dbMotion=[];setInterval(()=>{const el=document.querySelector('main'),stick=document.querySelector('.route-stick i');if(el)window.dbMotion.push({phase:el.dataset.phase,x:+el.dataset.x,z:+el.dataset.z,stick:stick?.style.transform});},50);});
  const advance=ms=>realtime?p.waitForTimeout(ms):p.clock.runFor(ms);if(!realtime)await p.clock.pauseAt(await p.evaluate(()=>Date.now()+100));
  for(const size of [{width:320,height:568},{width:844,height:390},{width:390,height:680}]){await p.setViewportSize(size);await advance(500);for(const sel of ['.skill-top','.route-title','.route-bottom']){const b=await p.locator(sel).boundingBox();assert(b.x>=0&&b.y>=0&&b.x+b.width<=size.width+1&&b.y+b.height<=size.height+1,sel+' clipped');}await p.screenshot({path:`artifacts/db-drill/idle-${size.width}.png`});}
- const original=await p.locator('.route-athlete span').innerText();await p.getByLabel('Next athlete').click();assert.notEqual(await p.locator('.route-athlete span').innerText(),original);
+ assert.match(await p.locator('.route-athlete span').innerText(),/\S/);
  await p.getByRole('button',{name:'START COVERAGE →'}).dispatchEvent('click');assert.equal(await p.getByLabel('Swat pass').count(),0);assert.equal(await p.getByLabel('Intercept pass').count(),0);
  await advance(3000);assert.equal(await p.locator('main').getAttribute('data-phase'),'preview');assert.equal(await p.locator('main').getAttribute('data-x'),'0');await p.screenshot({path:'artifacts/db-drill/preview.png'});
  // A genuine OS touch cancellation pauses the rep rather than silently losing movement.
@@ -46,5 +47,5 @@ try{
   assert(tapped,'QB never threw');assert(sawResult,'Rep did not finish');await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});assert.match(await p.locator('.route-stick i').getAttribute('style'),/translate\(0px, 0px\)/,'Lift did not clear stick');const result=await p.locator('.skill-dialog').innerText();outcomes.push(result);console.log('REP',rep+1,result.replaceAll('\n',' | '));await p.screenshot({path:`artifacts/db-drill/rep-${rep+1}-result.png`});if(rep<reps-1)await p.getByRole('button',{name:'NEXT REP',exact:true}).dispatchEvent('click');
  }
  if(!realtime){assert.match(outcomes.at(-1),/SESSION COMPLETE/);assert.equal(await p.evaluate(()=>JSON.parse(localStorage.getItem('bk-db-drill-v1')).length),1);await p.getByRole('button',{name:'NEW SESSION',exact:true}).dispatchEvent('click');assert.equal(await p.locator('main').getAttribute('data-phase'),'idle');}
- assert.deepEqual(errors,[]);await writeFile('artifacts/db-drill/playthrough.json',JSON.stringify(outcomes,null,2));console.log('PASS DB touch controls, swat/pick gating, athlete selection, mobile layouts, preview/pause and completed reps',JSON.stringify({base,realtime,reps}));
+ assert.deepEqual(errors,[]);await writeFile('artifacts/db-drill/playthrough.json',JSON.stringify(outcomes,null,2));console.log('PASS DB touch controls, swat/pick gating, saved athlete identity, mobile layouts, preview/pause and completed reps',JSON.stringify({base,realtime,reps}));
 }finally{await browser.close();await server?.close();}
