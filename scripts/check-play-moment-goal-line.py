@@ -16,7 +16,7 @@ ORIGINAL_READ=framing.read_source
 def fixture_source(path,baseline=None):
     text=ORIGINAL_READ(path,baseline)
     if path=='public/play-moment-3d/game.js':
-        anchor=' setup();camera(1);scene(.016,0);'
+        anchor='scene(.016,0);'
         assert text.count(anchor)==1
         hook="""
  window.bkGoalFixture={
