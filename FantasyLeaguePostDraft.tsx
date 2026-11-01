@@ -1438,6 +1438,10 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
         </div>
       </div>
 
+      <p role="status" data-testid="fantasy-scoring-paused" className="rounded-xl border border-amber-300/20 bg-amber-300/5 px-3 py-2 text-xs leading-relaxed text-amber-100">
+        Live scoring paused. Saved scores are preserved.
+      </p>
+
       {error && (
         <div className="rounded-xl border border-red-500/25 bg-red-500/5 p-3 text-xs text-red-300">
           {error}
@@ -1665,7 +1669,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                             <span className={mine ? "text-[#D4AF37]" : "text-zinc-600"}>
                               {mine ? "Your Matchup" : "League Matchup"}
                             </span>
-                            <span className={isLive ? "text-amber-300" : "text-zinc-500"}>{status}</span>
+                            <span className={isLive ? "text-amber-300" : "text-zinc-500"}>{status === "Live" ? "Saved score" : status}</span>
                           </div>
                           <div className="space-y-3">
                             {matchupRow(away, awayTotal, awayRecord)}
@@ -1802,7 +1806,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                               ? "Win"
                               : "Loss"
                           : hasLiveScore
-                            ? "Live"
+                            ? "Saved score"
                             : "Scheduled"}
                       </span>
                     </button>
@@ -1889,7 +1893,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                     </div>
                     <div className={`truncate text-[7px] font-bold ${availability === "waiver" ? "text-amber-300" : "text-zinc-600"}`}>
                       {gameLockedFor(player)
-                        ? `${game?.isFinal ? "Final" : game?.isLive ? "Live" : "Locked"} · Waivers`
+                        ? `${game?.isFinal ? "Final" : game?.isLive ? "Saved score" : "Locked"} · Waivers`
                         : playerWaiver
                           ? `Waivers · ${new Date(playerWaiver.clearsAt).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}`
                           : context?.kickoffText || "Kickoff TBD"}
@@ -3242,7 +3246,7 @@ const scoreIndicatesStarted = (score?: WeeklyScore) => Boolean(
 const matchupTotal = (score: WeeklyScore | undefined, status: "Scheduled" | "Live" | "Final") => {
   return {
     value: score ? score.livePoints.toFixed(2) : "—",
-    label: status === "Final" ? "Final" : status === "Live" ? "Live" : "Current",
+    label: status === "Final" ? "Final" : status === "Live" ? "Saved score" : "Current",
     projection: score?.hasProjectedTotal === true ? score.projectedPoints.toFixed(2) : "—",
     projectionLabel: score?.hasProjectedTotal === true ? "Projected" : "Projection unavailable",
   };
@@ -3400,7 +3404,7 @@ const MatchupPlayerSide = ({
   const gameLabel = player.isFinal
     ? "Final"
     : player.isLive
-      ? player.status
+      ? "Saved score"
       : player.isBye
         ? "Bye"
         : formatKickoff(player.kickoffAt);

@@ -17,6 +17,7 @@ try {
       await writeFile(join(temp, folder, file.replace(/\.ts$/, '.js')), compiled.outputText);
     }
   }
+  await writeFile(join(temp, 'server/nflPredictionFeed.js'), await readFile('server/nflPredictionFeed.js', 'utf8'));
   const legacy = await readFile('api/nfl-news.ts', 'utf8');
   await writeFile(join(temp, 'api/nfl-news.js'), ts.transpileModule(legacy, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText);
   const check = `
@@ -29,7 +30,10 @@ try {
       await handler({method:'POST'},res);
       assert.equal(status,405); assert.equal(headers.allow,'GET'); assert.equal(body.error,'method_not_allowed');
     }
-    console.log('Compiled Node ESM: all five API handlers load and reject mutations.');
+    const picks = await import('./server/nflPredictionFeed.js');
+    assert.equal(typeof picks.fetchCanonicalPredictionGames, 'function');
+    assert.throws(() => picks.normalizeNflversePredictionRows([]), /invalid_source_schema/);
+    console.log('Compiled Node ESM: all five read-only API handlers and the Picks provider load.');
   `;
   await writeFile(join(temp, 'check.mjs'), check);
   const result = spawnSync(process.execPath, ['check.mjs'], { cwd: temp, encoding: 'utf8', timeout: 15000 });

@@ -10,17 +10,21 @@ When enabled, the client tries `/api/bk/v1/news` first. HTTP failures, unavailab
 
 The UI shows the actual reported provider and feed retrieval time separately from each publisher's publication time. Missing publication times remain unknown. Per-story license and attribution fields are preserved when supplied; attribution links allow only HTTP(S) without credentials. No images, article bodies, descriptions, or invented news are added. Native builds retain the shared `/api/` origin bridge.
 
+## Current schedule and Picks migration
+
+See `BK_FREE_SCHEDULES_PICKS.md` for published-line semantics, saved-pick identity reconciliation and the isolated fantasy schedule worker. No independent live player-stat adapter is enabled.
+
 ## Compatibility gates before further migration
 
 | Consumer | Existing contract | Why v1 cannot replace it yet | Acceptance gate |
 | --- | --- | --- | --- |
 | NewsHub | `/api/nfl-news`, `{available, articles, fetchedAt}` | v1 uses `{available, kind, items, updatedAt}` and needs an authorized source | Authorized headline/link scope, truthful retrieval/publication metadata, deployment availability, mobile rendering and outage recovery |
 | Ask BK | Independent current web search; no Tank01/Currents headline context | Current v1 player/game snapshots are not current-news evidence | Optional source adapter must label dates and delayed data; preserve live-search guard, auth, rate and spending limits; never use retrieval as publication date |
-| Picks | `/api/nfl-sportsbook` plus server-validated picks | v1 games lack current odds/locked-line semantics and are not live scoring | Preserve kickoff locks, saved lines, both spread sides, outcomes and grading; verify schedule/status/timezone coverage independently |
+| Picks | `/api/nfl-sportsbook` plus server-validated picks | Separate nflverse published-line adapter; no live bookmaker-price promise | Preserve kickoff locks, saved lines, both spread sides, historical IDs and completed-result grading |
 | Player details and roster lookup | `PLAYERS_DATABASE`, `ball_knower_player_id`, `provider_player_id`, position/team/history mappings | nflverse identifiers are not Ball Knower or Tank01 identifiers | Explicit one-to-one crosswalk, collision/unmapped handling, current-season roster completeness, historical identity tests; no name-only replacement |
 | Fantasy scoring | `ball_knower_nfl_games`, `ball_knower_player_week_scores`, rich stats and correction lifecycle | v1 score snapshots omit individual stats, projections, DST semantics and verified live timing | Parallel shadow ingestion, reconciliation across all positions and DST, finalization/correction idempotency, locked-lineup and saved-league regressions; never write partial snapshots over scoring tables |
 
-The new routes do not mutate existing fantasy rows, saved rosters, IDs, scores, picks or game saves. No automatic migration of those consumers is enabled. Current-season data availability and source rights still require validation by the provider workstream.
+The new routes do not mutate existing fantasy rows, saved rosters, IDs, scores, picks or game saves. Picks and the authenticated fantasy schedule worker use separate adapters; the public routes do not trigger these writes. Current-season data availability and source rights still require validation by the provider workstream.
 
 ## Validation
 

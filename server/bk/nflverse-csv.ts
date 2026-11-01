@@ -52,38 +52,41 @@ const pending = new Map<string, Promise<Snapshot<unknown>>>();
 const failures = new Map<string, number>();
 export function resetNflverseCache() { snapshots.clear(); pending.clear(); failures.clear(); }
 const nflverseUrl = /^https:\/\/github\.com\/nflverse\/nflverse-data\/releases\/download\/(schedules\/games\.csv|rosters\/roster_\d{4}\.csv|injuries\/injuries_\d{4}\.csv)$/;
-export async function nflverseCsv<T>(url: string, parse: (rows: Record<string, string>[]) => T[], maxAge = 86_400_000, fetchImpl: typeof fetch = fetch, now: () => number = Date.now): Promise<Snapshot<T>> {
-  if (!nflverseUrl.test(url)) throw new Error('invalid_nflverse_source');
-  const cached = snapshots.get(url);
+export async function nflverseCsv<T>(url: string, parse: (rows: Record<string, string>[]) => T[], maxAge = 86_400_000, fetchImpl: typeof fetch = fetch, now: () => number = Date.now, parserNamespace = 'default'): Promise<Snapshot<T>> {
+  const completedManifest = url === 'https://api.github.com/repos/nflverse/nflverse-pbp-internal/contents/released_games.csv?ref=main';
+  if (!nflverseUrl.test(url) && !completedManifest) throw new Error('invalid_nflverse_source');
+  if (!/^[a-z0-9-]{1,80}$/.test(parserNamespace)) throw new Error('invalid_parser_namespace');
+  const cacheKey = `${parserNamespace}:${url}`;
+  const cached = snapshots.get(cacheKey);
   if (cached && cached.until > now()) return cached as Snapshot<T>;
-  const existing = pending.get(url);
+  const existing = pending.get(cacheKey);
   if (existing) return existing as Promise<Snapshot<T>>;
-  if ((failures.get(url) ?? 0) > now()) throw new Error('upstream_backoff');
+  if ((failures.get(cacheKey) ?? 0) > now()) throw new Error('upstream_backoff');
   const kind = url.includes('/rosters/') ? 'players' : url.includes('/injuries/') ? 'injuries' : 'games';
-  const providerKey = `nflverse-v2:${url}`;
+  const providerKey = parserNamespace === 'default' ? `nflverse-v2:${url}` : `nflverse-v3:${parserNamespace}:${url}`;
   const work = (async () => {
     const saved = await readSportsSnapshot(kind, providerKey, maxAge);
     if (saved) {
       const result = { ...saved, items: saved.items as T[], until: Date.parse(saved.updatedAt) + maxAge };
-      snapshots.set(url, result);
+      snapshots.set(cacheKey, result);
       return result;
     }
     const requestStartedAt = now();
     const response = await fetchBoundedText(url, {
-      maxBytes: 8_000_000, timeoutMs: 12_000, accept: 'text/csv', fetchImpl,
-      allowedRedirectHosts: ['github.com', 'release-assets.githubusercontent.com'],
+      maxBytes: completedManifest ? 500_000 : 8_000_000, timeoutMs: completedManifest ? 6_000 : 12_000, accept: completedManifest ? 'application/vnd.github.raw+json' : 'text/csv', fetchImpl,
+      allowedRedirectHosts: completedManifest ? [] : ['github.com', 'release-assets.githubusercontent.com'],
     });
     const items = parse(csvRecords(response.text));
     if (!items.length) throw new Error('empty_source');
     const result = { until: now() + maxAge, items, updatedAt: new Date(now()).toISOString(), sourceUpdatedAt: response.sourceUpdatedAt };
-    snapshots.set(url, result);
+    snapshots.set(cacheKey, result);
     await writeSportsSnapshot(kind, providerKey, result, requestStartedAt);
     return result;
   })();
-  pending.set(url, work);
+  pending.set(cacheKey, work);
   try { return await work; }
-  catch (error) { failures.set(url, now() + 30_000); throw error; }
-  finally { pending.delete(url); }
+  catch (error) { failures.set(cacheKey, now() + 30_000); throw error; }
+  finally { pending.delete(cacheKey); }
 }
 export const attribution = {
   provider: 'nflverse', attribution: 'https://github.com/nflverse/nflverse-data',

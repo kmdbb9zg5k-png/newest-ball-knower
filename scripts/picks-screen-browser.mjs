@@ -5,14 +5,14 @@ import {chromium,webkit} from 'playwright';
 const out='artifacts/picks-screen',base='http://127.0.0.1:4184';
 const future=new Date(Date.now()+86400_000).toISOString();
 const day=future.slice(0,10);
-const game={id:'picks-fixture-1',away:'Dallas Cowboys',home:'Philadelphia Eagles',awayAbbr:'DAL',homeAbbr:'PHI',season:2026,week:1,seasonType:'REG',date:future,scheduleDate:day,status:'Scheduled',homeSpread:-3.5,awaySpread:3.5,overUnder:44.5};
-const fixture={available:true,linesAvailable:true,games:[game,{...game,id:'picks-fixture-final',away:'Baltimore Ravens',awayAbbr:'BAL',home:'Buffalo Bills',homeAbbr:'BUF',status:'Final',awayScore:20,homeScore:24},{...game,id:'picks-fixture-live',away:'New York Giants',awayAbbr:'NYG',home:'New York Jets',homeAbbr:'NYJ',status:'Live',date:new Date(Date.now()-3600_000).toISOString()},{...game,id:'picks-fixture-week2',week:2,scheduleDate:new Date(Date.now()+8*86400_000).toISOString().slice(0,10),date:null}]};
+const game={id:'2026_01_DAL_PHI',aliases:['espn-401fixture','legacy-saved-fixture'],away:'Dallas Cowboys',home:'Philadelphia Eagles',awayAbbr:'DAL',homeAbbr:'PHI',season:2026,week:1,seasonType:'REG',date:future,scheduleDate:day,status:'Scheduled',homeSpread:-3.5,awaySpread:3.5,overUnder:44.5};
+const fixture={available:true,linesAvailable:true,source:'nflverse',live:false,freshness:'periodic',fetchedAt:new Date(Date.now()-3600_000).toISOString(),games:[game,{...game,aliases:[],id:'picks-fixture-final',away:'Baltimore Ravens',awayAbbr:'BAL',home:'Buffalo Bills',homeAbbr:'BUF',status:'Final',awayScore:20,homeScore:24},{...game,aliases:[],id:'picks-fixture-live',away:'New York Giants',awayAbbr:'NYG',home:'New York Jets',homeAbbr:'NYJ',status:'Live',date:new Date(Date.now()-3600_000).toISOString()},{...game,aliases:[],id:'picks-fixture-week2',week:2,scheduleDate:new Date(Date.now()+8*86400_000).toISOString().slice(0,10),date:null}]};
 const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port','4184','--strictPort'],{stdio:'inherit'});
 const results=[];let browser;
-async function contextFor(engine,width,{hungSync=false}={}){
+async function contextFor(engine,width,{hungSync=false,legacyPick=false}={}){
   const context=await engine.newContext({viewport:{width,height:844},deviceScaleFactor:1,isMobile:width<768,hasTouch:width<768});
   const page=await context.newPage();const crashes=[];page.on('pageerror',error=>crashes.push(error.message));
-  let boardMode='ok',saved=[],saves=0,deletes=0;
+  let boardMode='ok',saved=legacyPick?[{id:'original-pick-id',gameId:'legacy-saved-fixture',label:'Philadelphia Eagles -2.5',market:'spread',selection:'Philadelphia Eagles',lockedLine:-2.5,lockedAt:'2026-01-01T00:00:00Z',kickoffAt:future,awayTeam:game.away,homeTeam:game.home}]:[],saves=0,deletes=0;
   await page.route('**/*.supabase.co/**',route=>route.fulfill({status:403,contentType:'application/json',body:'{"message":"Isolated browser test. No account access."}'}));
   await page.route('**/_vercel/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:''}));
   await page.route('https://a.espncdn.com/**',route=>route.fulfill({status:200,contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64')}));
@@ -29,7 +29,7 @@ async function contextFor(engine,width,{hungSync=false}={}){
       const body=route.request().method()==='POST'?route.request().postDataJSON():{};
       if(body.action==='save'){
         saves++;await new Promise(resolve=>setTimeout(resolve,180));
-        saved=[{...body.pick,lockedAt:new Date().toISOString()}];
+        saved=[{...saved.find(pick=>pick.gameId===body.pick.gameId),...body.pick,lockedAt:new Date().toISOString()}];
       }else if(body.action==='delete'){deletes++;saved=[]}
       data={ok:true,picks:saved};
     }else if(path==='/api/nfl-news')data={available:true,articles:[]};
@@ -56,6 +56,8 @@ try{
       const stage=page.locator('.bk-picks-screen');
       assert.equal(await stage.locator('.bk-scene-motion').count(),0,'Picks must not render a motion control');
       await page.evaluate(()=>document.fonts.ready);
+      assert.ok(await page.getByRole('link',{name:'nflverse published lines',exact:true}).isVisible());
+      assert.ok((await page.locator('.bk-picks-refreshline').textContent()).includes('Data retrieved'));
       const geometry=await page.evaluate(()=>{
         const header=document.querySelector('.bk-picks-screen .bk-scene-masthead');const input=document.querySelector('.bk-picks-search input');const toolbar=document.querySelector('.bk-picks-toolbar');
         const primary=[...document.querySelectorAll('.bk-picks-filters button')].map(button=>button.getBoundingClientRect().height);
@@ -113,6 +115,22 @@ try{
       assert.deepEqual(c.crashes,[]);results.push({engine:name,width,geometry,explicitSubmit:true,filters:true,outageRecovery:true,validEmpty:true,reducedMotion:true});await c.context.close();
     }
     if(name==='chromium'){
+      for(const width of [320,390]){
+        const legacy=await contextFor(browser,width,{legacyPick:true});const {page}=legacy;
+        await page.waitForFunction(()=>document.querySelector('.bk-picks-summary-heading')?.textContent.includes('1 submitted'));
+        const card=page.locator(`[data-game-id="${game.id}"]`);
+        assert.equal(await card.getByRole('button',{name:'Philadelphia Eagles -3.5',exact:true}).getAttribute('aria-pressed'),'true','new provider card retains the original saved selection');
+        assert.ok(await card.getByText('Submitted: Philadelphia Eagles -2.5',{exact:true}).isVisible(),'the locked line remains visible even when the published line differs');
+        assert.equal(legacy.saves(),0,'loading a replacement provider cannot rewrite a pick');
+        assert.equal(legacy.saved()[0].id,'original-pick-id');assert.equal(legacy.saved()[0].lockedLine,-2.5);
+        await page.screenshot({path:`${out}/chromium-${width}-saved-legacy.png`,fullPage:false});
+        await card.getByRole('button',{name:'Dallas Cowboys +3.5',exact:true}).click();
+        await page.getByRole('button',{name:'Submit Picks (1)',exact:true}).click();
+        await page.waitForFunction(()=>document.querySelector('.bk-picks-summary-heading')?.textContent.includes('1 submitted'));
+        assert.equal(legacy.saves(),1);assert.equal(legacy.saved().length,1);assert.equal(legacy.saved()[0].gameId,'legacy-saved-fixture','explicit pregame changes preserve the original game ID');
+        assert.equal(legacy.saved()[0].selection,'Dallas Cowboys');assert.deepEqual(legacy.crashes,[]);
+        results.push({width,legacySavedSelection:true,originalLockedLineVisible:true,originalIdOnChange:true});await legacy.context.close();
+      }
       const c=await contextFor(browser,390,{hungSync:true});
       assert.ok(await c.page.locator(`[data-game-id="${game.id}"]`).isVisible(),'hung grading must not block the matchup request');
       await c.page.clock.install();c.setMode('hang');await c.page.getByRole('button',{name:'Refresh picks',exact:true}).click();

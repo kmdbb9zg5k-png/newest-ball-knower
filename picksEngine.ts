@@ -1,3 +1,4 @@
+import {predictionTeam} from './server/predictionIdentity.js';
 export type PickResult = 'win' | 'loss' | 'push';
 export type PicksGame = {
   id: string;
@@ -11,6 +12,7 @@ export type PicksGame = {
   overUnder?: number | null;
   awayScore?: number | null;
   homeScore?: number | null;
+  aliases?: string[];
 };
 
 export type SavedPick = {
@@ -25,6 +27,9 @@ export type SavedPick = {
   gradedAt?: string;
   finalAwayScore?: number;
   finalHomeScore?: number;
+  kickoffAt?: string;
+  awayTeam?: string;
+  homeTeam?: string;
 };
 
 export function normalizeSpread(raw: number | null | undefined) {
@@ -53,9 +58,11 @@ export function gradePick(pick: SavedPick, game: PicksGame, gradedAt = new Date(
   const home = Number(game.homeScore);
   let margin: number;
   if (pick.market === 'total') {
+    if(!['over','under'].includes(pick.selection))return pick;
     margin = pick.selection === 'over' ? away + home - pick.lockedLine : pick.lockedLine - (away + home);
   } else {
-    const selectedHome = pick.selection === game.home;
+    const selectedHome = predictionTeam(pick.selection) === predictionTeam(game.home);
+    if(!selectedHome&&predictionTeam(pick.selection)!==predictionTeam(game.away))return pick;
     const selectedScore = selectedHome ? home : away;
     const opponentScore = selectedHome ? away : home;
     margin = selectedScore + pick.lockedLine - opponentScore;

@@ -5,7 +5,7 @@ import {withPicksDeadline} from '../picksRequest';
 import {createPicksMutationQueue} from '../picksMutationQueue';
 import {gamePhase,hasKickoff,initialSlate,parsePicksBoard,scheduleLabel,slateKey,slateLabel,visiblePicksGames} from '../picksBoard';
 import {normalizeNflDataRows,matchPredictionKickoff} from '../server/nflPredictionFeed.js';
-import handler from '../api/nfl-sportsbook';
+import {createSportsbookHandler} from '../api/nfl-sportsbook';
 
 const never=()=>new Promise<never>(()=>{});
 let signal:AbortSignal;
@@ -80,41 +80,27 @@ assert.equal(gamePhase({...active,status:'Scheduled'},auditNow),'unknown','kicko
 assert.equal(gamePhase({...active,status:'Delayed'},auditNow),'unknown');
 assert.equal(gamePhase({...active,date:new Date(auditNow-12*60*60*1000).toISOString()},auditNow),'unknown');
 
-const originalFetch=globalThis.fetch;const originalNow=Date.now;const key=process.env.TANK01_API_KEY;const rapid=process.env.RAPIDAPI_KEY;
-try{
-  delete process.env.TANK01_API_KEY;delete process.env.RAPIDAPI_KEY;Date.now=()=>now;
-  let payload:unknown={data:[{...row,game_id:'late',week:18,gameday:'2027-01-10'},row]};
-  globalThis.fetch=(async()=>new Response(JSON.stringify(payload),{status:200})) as typeof fetch;
-  const response=async(query={})=>{
-    let body:any;let status:number;const headers:Record<string,string>={};
-    const res={setHeader:(name:string,value:string)=>{headers[name]=value},status:(value:number)=>{status=value;return res},json:(value:unknown)=>{body=value;return res}};
-    await handler({query},res);return {body,status:status!,headers};
-  };
-  let result=await response();assert.equal(result.status,200);assert.equal(result.body.available,true);
-  assert.equal(result.body.games[0].id,row.game_id,'Week 18 must not appear before Week 1 when times are missing');
-  assert.equal(result.body.games[0].date,null);assert.equal(result.body.games[0].scheduleDate,'2026-09-10');
-  const history=Array.from({length:110},(_,i)=>({...row,game_id:`saved-${i}`,gameday:'2026-01-01'}));
-  payload={data:[...history,row]};result=await response({gameIds:history.map(g=>g.game_id).join(',')});
-  assert.equal(result.body.games.length,111,'all requested saved IDs survive the rolling window');
-  payload={data:[]};result=await response();assert.equal(result.body.available,true);assert.deepEqual(result.body.games,[]);
-  payload={unexpected:'provider schema drift'};result=await response();assert.equal(result.body.available,false,'malformed/outage responses are not valid empty schedules');
-
-  // Exercise the real canonical enrichment path without network or paid credentials.
-  process.env.TANK01_API_KEY='isolated-test-fixture';let tankCalls=0;
-  globalThis.fetch=(async input=>{
-    const url=String(input);
-    if(url.includes('api.nfldata.org'))return new Response(JSON.stringify({data:[row]}));
-    assert.ok(url.includes('/getNFLGamesForWeek'));
-    tankCalls++;assert.ok(url.includes('week=1'));assert.ok(url.includes('season=2026'));
-    return new Response(JSON.stringify({body:[tank]}));
-  }) as typeof fetch;
-  result=await response();assert.equal(result.body.games[0].id,row.game_id);assert.equal(result.body.games[0].date,'2026-09-11T00:20:00.000Z');
-  await response();assert.equal(tankCalls,1,'a warm refresh must reuse schedule-only enrichment');
-}finally{
-  globalThis.fetch=originalFetch;Date.now=originalNow;
-  if(key===undefined)delete process.env.TANK01_API_KEY;else process.env.TANK01_API_KEY=key;
-  if(rapid===undefined)delete process.env.RAPIDAPI_KEY;else process.env.RAPIDAPI_KEY=rapid;
-}
+// Endpoint-window tests inject normalized rows; the provider adapter has its own
+// CSV/provenance tests and never contacts a paid enrichment service.
+let payload:any[]=normalizeNflDataRows([{...row,game_id:'late',week:18,gameday:'2027-01-10'},row]);
+let fail=false;
+const snapshot='2026-09-07T19:30:00.000Z';
+const handler=createSportsbookHandler({now:()=>now,fetchGames:async()=>{if(fail)throw new Error('fixture outage');return Object.assign(payload,{fetchedAt:snapshot,source:'nflverse'})}});
+const response=async(query={})=>{
+  let body:any;let status:number;const headers:Record<string,string>={};
+  const res={setHeader:(name:string,value:string)=>{headers[name]=value},status:(value:number)=>{status=value;return res},json:(value:unknown)=>{body=value;return res}};
+  await handler({query},res);return {body,status:status!,headers};
+};
+let result=await response();assert.equal(result.status,200);assert.equal(result.body.available,true);
+assert.equal(result.body.games[0].id,row.game_id,'Week 18 must not appear before Week 1 when times are missing');
+assert.equal(result.body.games[0].date,null);assert.equal(result.body.games[0].scheduleDate,'2026-09-10');
+assert.equal(result.body.fetchedAt,snapshot,'handler time cannot replace upstream retrieval time');
+assert.equal(result.body.live,false);assert.equal(result.body.source,'nflverse');
+const history=Array.from({length:110},(_,i)=>({...row,game_id:`saved-${i}`,gameday:'2026-01-01'}));
+payload=normalizeNflDataRows([...history,row]);result=await response({gameIds:history.map(g=>g.game_id).join(',')});
+assert.equal(result.body.games.length,111,'all requested saved IDs survive the rolling window');
+payload=[];result=await response();assert.equal(result.body.available,true);assert.deepEqual(result.body.games,[]);
+fail=true;result=await response();assert.equal(result.body.available,false,'provider failure is not a valid empty schedule');
 const screen=readFileSync('SportsbookHub.tsx','utf8');
 assert.doesNotMatch(screen,/MotionControl|showMotionControl/);assert.match(screen,/void load\(\);void syncPicks\(\)/);
 assert.match(screen,/version===revision.current/,'late sync must not overwrite newer choices');
