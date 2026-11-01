@@ -22,15 +22,15 @@ s=fullSession();d={...fullInitialDrive(),clock:40,score:7};s.possession='away';s
 // Completed passes, rushes, sacks, and incomplete passes stay separate.
 s=fullSession();fullRecord(s,'home',{gain:12,pass:true,quarterback:config.matchup.home.lineup[5],runner:config.matchup.home.lineup[7]});fullRecord(s,'home',{gain:5,runner:config.matchup.home.lineup[6]});fullRecord(s,'home',{gain:-4,sack:true,quarterback:config.matchup.home.lineup[5]});fullRecord(s,'home',{incomplete:true,pass:true,quarterback:config.matchup.home.lineup[5]});assert.equal(s.stats.home.yards,13);assert.equal(s.stats.home.passYards,8);assert.equal(s.stats.home.attempts,2);assert.equal(s.stats.home.completions,1);assert.equal(s.stats.home.sacks,1);
 // Deterministic full CPU games across levels never produce invalid spots/down/clock.
-for(const difficulty of ['rookie','pro','all-pro'])for(let seed=1;seed<=30;seed++){
+for(const mode of ['two-minute','five-minute'])for(const difficulty of ['rookie','pro','all-pro'])for(let seed=1;seed<=30;seed++){
  let n=seed;const random=()=>{n=(Math.imul(n,1664525)+1013904223)>>>0;return n/4294967296};
- s=fullSession();d=fullInitialDrive();s.possession='away';const c={...config,level:{...config.level,id:difficulty}};
+ s=fullSession(mode);d=fullInitialDrive(mode);s.possession='away';const c={...config,mode,level:{...config.level,id:difficulty}};
  for(let i=0;i<250&&!s.result;i++){
   if(s.pending)fullContinue(s,d);
   if(s.possession==='home'){d.clock=Math.max(0,d.clock-18);d.ball=80;fullKick(s,d,'home','field-goal',config.matchup.home,random);}
   else fullCpuPlay(s,d,c,random);
-  assert(d.clock>=0&&d.clock<=300);assert(s.cpu.ball>=0&&s.cpu.ball<=100);assert(s.cpu.down>=1&&s.cpu.down<=5);
+  assert(d.clock>=0&&d.clock<=(mode==='two-minute'?120:300));assert(s.cpu.ball>=0&&s.cpu.ball<=100);assert(s.cpu.down>=1&&s.cpu.down<=5);
  }
  assert(s.result,'Game must complete');assert.notEqual(d.score,s.awayScore);assert(s.log.length>0);
 }
-console.log('PASS full-game regulation, scoring, possession spots, FG/punts, timeouts/OT clocks, paired overtime, CPU decisions, player stats and 90 seeded complete games.');
+console.log('PASS full-game regulation, scoring, possession spots, FG/punts, timeouts/OT clocks, paired overtime, CPU decisions, player stats and 180 seeded complete two- and five-minute games.');

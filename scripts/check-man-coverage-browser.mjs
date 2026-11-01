@@ -1,14 +1,15 @@
+import {enterCombineSetup,createServer} from './combine-browser-entry.mjs';
 import assert from 'node:assert/strict';
-import {createServer} from 'vite';import {chromium} from 'playwright';import {mkdir,writeFile} from 'node:fs/promises';
+import {chromium} from 'playwright';import {mkdir,writeFile} from 'node:fs/promises';
 import {ROUTES} from '../combine/routes.js';
 await mkdir('artifacts/man-coverage',{recursive:true});
 const server=process.env.MAN_URL?null:await createServer({server:{host:'127.0.0.1',port:3088}});await server?.listen();
 const base=process.env.MAN_URL||'http://127.0.0.1:3088';
-const browser=await chromium.launch({executablePath:'/tmp/bk-browser/chromium',args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
+const browser=await chromium.launch({executablePath:process.env.BROWSER_PATH||'/tmp/bk-browser/chromium',args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
 try{
  const p=await browser.newPage({viewport:{width:390,height:680},deviceScaleFactor:.75,isMobile:true,hasTouch:true});p.setDefaultTimeout(90000);const errors=[];p.on('pageerror',e=>errors.push(e.message));
  await p.clock.install();await p.addInitScript(()=>{window.requestAnimationFrame=cb=>setTimeout(()=>cb(performance.now()),100);window.cancelAnimationFrame=clearTimeout;});
- await p.goto(base+'/combine.html?drill=one-on-one');await p.waitForFunction(()=>document.querySelector('.skill-hud')&&!document.querySelector('.skill-hud').inert);await p.clock.pauseAt(await p.evaluate(()=>Date.now()+100));
+ await p.goto(base+'/combine.html?drill=one-on-one');await enterCombineSetup(p);await p.waitForFunction(()=>document.querySelector('.skill-hud')&&!document.querySelector('.skill-hud').inert);await p.clock.pauseAt(await p.evaluate(()=>Date.now()+100));
  for(const size of [{width:320,height:568},{width:844,height:390},{width:390,height:680}]){await p.setViewportSize(size);await p.clock.runFor(500);for(const sel of ['.skill-top','.route-title','.route-bottom']){const b=await p.locator(sel).boundingBox();assert(b.x>=0&&b.y>=0&&b.x+b.width<=size.width+1&&b.y+b.height<=size.height+1,sel+' clipped');}await p.screenshot({path:`artifacts/man-coverage/idle-${size.width}.png`});}
  assert.equal(await p.getByLabel('Catch ball').count(),0);await p.getByRole('button',{name:'START ROUTE →'}).dispatchEvent('click');await p.clock.runFor(4000);assert.equal(await p.locator('main').getAttribute('data-phase'),'preview');assert.equal(await p.locator('main').getAttribute('data-z'),'0');await p.screenshot({path:'artifacts/man-coverage/preview.png'});
  await p.getByLabel('Hold to pause').dispatchEvent('click',{detail:0});await p.clock.runFor(1000);await p.getByRole('button',{name:'RESUME',exact:true}).dispatchEvent('click');await p.clock.runFor(1100);

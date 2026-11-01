@@ -31,3 +31,6 @@
 .bk-athlete-3d-preview .bk-athlete-preview-footer input[type=range]{display:block;width:100%}
 
 .bk-career-created-compact{min-width:0}.bk-career-created-compact .bk-athlete-live-preview{margin-inline:0;max-width:100%}
+
+/* Keep the full recap and retry/share actions reachable on short phone screens. */
+.bk-mini-post-result{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;width:100%;margin:0 auto;align-content:start;flex-shrink:1}

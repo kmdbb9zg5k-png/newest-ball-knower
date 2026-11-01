@@ -11,8 +11,9 @@ const server=await createServer({cacheDir:'/tmp/bk-football-vite',server:{host:'
 await server.listen();await mkdir('artifacts/football-arena',{recursive:true});
 let browser,currentPage,currentWidth,currentCalls,currentErrors;
 const consoleErrors=[],networkFailures=[];
+const widths=process.env.WIDTHS?JSON.parse(process.env.WIDTHS):[320,390,1280];
 try{
- for(const width of (process.env.WIDTHS?JSON.parse(process.env.WIDTHS):[320,390,1280])){
+ for(const width of widths){
   browser=await chromium.launch({executablePath:process.env.BROWSER_PATH||undefined,args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
 
   const page=await browser.newPage({viewport:{width,height:844},hasTouch:width<768,isMobile:width<768});page.setDefaultTimeout(120000);const errors=[];page.on('pageerror',e=>errors.push(e.message));let matches=[],calls=[],fail=true,opponentFinished=true,releaseQuickMatch;
@@ -91,7 +92,8 @@ try{
       await frame.waitForFunction(()=>window.bkObservedKickoffs?.length>0,{},{timeout:30000});
       assert.deepEqual(await frame.evaluate(()=>window.bkObservedKickoffs.map(({loadingVisible,unitVisible})=>({loadingVisible,unitVisible}))),[{loadingVisible:false,unitVisible:true}],'Every drive visibly presents its kickoff after loading');
       assert.equal(await frame.locator('#unitTouchback').isVisible(),false,'Opening kickoff cannot be skipped');
-      await frame.locator('#breakHuddle').waitFor({state:'visible',timeout:45000});
+      // Software rendering may take longer than 45 wall seconds to show a complete return.
+      await frame.locator('#breakHuddle').waitFor({state:'visible',timeout:120000});
       assert.match(await frame.locator('.club.away').getAttribute('aria-label'),/Brooklyn/);
       assert.doesNotMatch(await frame.locator('#hud').innerText(),/CPU|simulated/i);
       const before=calls.filter(c=>c.action==='submit').length;
@@ -177,7 +179,7 @@ try{
   }
   assert.deepEqual(errors,[]);await browser.close();
  }
- console.log('PASS browser: 320/390/1280 selection and results, all 32 teams, three automatic official kickoffs/drives, bridge source/token validation, exact save retry, offensive comparison, history and standings.');
+ console.log(JSON.stringify({status:'PASS',widths,officialDrives:widths.includes(390)?3:0,coverage:widths.includes(390)?'Selection, all 32 teams, three automatic official kickoffs/drives, bridge source/token validation, save retry, comparison, history, standings, guest matchmaking and pending-result/cancel fixtures':'Team selection and lobby mobile layouts'}));
 }catch(error){
  const prefix=`artifacts/football-arena/failure-${currentWidth||'startup'}`;
  if(currentPage&&!currentPage.isClosed()){

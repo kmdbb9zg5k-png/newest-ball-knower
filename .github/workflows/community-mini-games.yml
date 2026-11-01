@@ -60,6 +60,8 @@ jobs:
           node --import tsx scripts/control-preferences-check.ts
           node --import tsx scripts/competition-rules-check.ts
           node scripts/football-arena-check.mjs
+          node scripts/check-five-minute.mjs
+          node scripts/check-football-flow.mjs
           node scripts/check-reference-contact.mjs
           node scripts/dash-ghost-check.mjs
           node --import tsx scripts/my-player-field-check.ts

@@ -20,7 +20,7 @@ import {
   SoloDifficulty,
   SoloWeek,
 } from './soloSeasonEngine';
-import { buildFranchiseRookieClass, buildSoloTeamRoster, FranchiseRookieProspect, franchiseSchedule, makeFranchiseOpponent, replaceFranchisePlayersWithRookies } from './soloFranchiseEngine';
+import { buildFranchiseRookieClass, buildSoloTeamRoster, franchisePlayoffHomeField, isValidFranchisePlayoffField, FranchiseRookieProspect, franchiseSchedule, makeFranchiseOpponent, replaceFranchisePlayersWithRookies } from './soloFranchiseEngine';
 import { TeamTheme } from './teamTheme';
 import { SOLO_TEAM_THEMES, soloTeamLogoUrl } from './soloUniverse';
 import { LeagueMember, Player, TeamRatings } from './types';
@@ -129,6 +129,7 @@ export function buildFranchisePlayoffField(userTeam: TeamTheme, userWins: number
 }
 
 export function buildFranchisePlayoffPath(field: PlayoffSeed[], userAbbr: string): PlayoffMatchup[] {
+  if (!isValidFranchisePlayoffField(field)) return [];
   const user = field.find(team => team.abbr === userAbbr);
   if (!user) return [];
   const conference = field.filter(team => team.conference === user.conference).sort((a, b) => a.seed - b.seed);
@@ -211,7 +212,7 @@ export const FranchiseSeason: React.FC<Props> = ({
       ? syncFranchiseInteractions(restoredInteractions, seedRoster)
       : createFranchiseInteractions(seedRoster, (restored?.weeks?.length ?? 0) + 1, myPlayerId, (restored?.stage ?? 'regular') === 'regular' && (restored?.weeks?.length ?? 0) < 17);
   });
-  const [playoffField, setPlayoffField] = useState<PlayoffSeed[]>(() => Array.isArray(restored?.playoffField) ? restored.playoffField : []);
+  const [playoffField, setPlayoffField] = useState<PlayoffSeed[]>(() => isValidFranchisePlayoffField(restored?.playoffField) ? restored.playoffField : []);
   const [year, setYear] = useState<number>(restoredYear);
   const reportedCareerYear=useRef(restoredYear);
   const combineProspects = useMemo(() => buildFranchiseRookieClass(year + 1).map(p => ({ ...p, id: `franchise-rookie-${year + 1}-${p.id}` })), [year]);
@@ -350,6 +351,11 @@ export const FranchiseSeason: React.FC<Props> = ({
       setMessage(`Season complete at ${wins}-${losses}. You missed the playoffs.`);
       return;
     }
+    if (playoffs.some(game => !game.won) || playoffs.length >= buildFranchisePlayoffPath(field, userTeam.abbr).length) {
+      setStage('finished');
+      setMessage('Saved postseason results restored. Your season is complete.');
+      return;
+    }
     setStage('playoffs');
     setMessage(userSeed.seed === 1 ? `#1 seed clinched at ${wins}-${losses}. You earned a Wild Card bye.` : `#${userSeed.seed} seed clinched at ${wins}-${losses}.`);
   };
@@ -375,7 +381,7 @@ export const FranchiseSeason: React.FC<Props> = ({
       roster: activeRoster,
       teamRatings: applyCareerRatings(applyFranchiseGamePlan(ratingsWithFranchiseMorale(ratingsWithInjuries(activeRoster, activeInjuries), interactionState, activeRoster), gamePlan),careerBoost?.(careerKey)),
     };
-    const userHome = playoffs.length % 2 === 0;
+    const userHome = franchisePlayoffHomeField(playoffField.find(team => team.abbr === userTeam.abbr)?.seed ?? 7, nextPlayoffMatchup!.opponentSeed, round, playoffs.length);
     const game = userHome ? simulateGame(18 + playoffs.length, me, opponent) : simulateGame(18 + playoffs.length, opponent, me);
     const you = userHome ? game.homeScore : game.awayScore;
     const them = userHome ? game.awayScore : game.homeScore;
@@ -592,6 +598,7 @@ export const FranchiseSeason: React.FC<Props> = ({
                 return <div key={label} className="rounded-2xl border border-white/10 bg-black/20 p-3 text-left"><div className="text-[9px] font-black text-[var(--bk-team-accent)]">{label === 'CONFERENCE CHAMPIONSHIP' ? 'CONFERENCE' : label}</div><div className="mt-2 font-black">{bye ? 'FIRST-ROUND BYE' : result ? `${result.won ? 'WIN' : 'LOSS'} ${result.you}-${result.them}` : scheduled ? `VS #${scheduled.opponentSeed}` : 'TBD'}</div>{result ? <div className="truncate text-xs text-zinc-500">{result.opponent}</div> : opponent ? <div className="truncate text-xs text-zinc-500">{opponent.name}</div> : null}</div>;
               })}
             </div>
+            {!round && <div className="mt-5 rounded-2xl border border-amber-400/30 bg-amber-400/5 p-4" role="status"><p className="text-sm leading-6 text-zinc-300">Your saved playoff bracket is incomplete. Rebuild it from your season record to continue. Completed games and player progress stay saved.</p><button type="button" onClick={enterPlayoffs} className="mt-3 min-h-12 rounded-xl bg-[var(--bk-team-accent)] px-5 py-3 font-black text-[var(--bk-on-accent)]">REBUILD PLAYOFF BRACKET</button></div>}
             {round ? <button type="button" onClick={playRound} disabled={isSimulating || careerBlocked} aria-busy={isSimulating} className="mt-6 w-full rounded-2xl bg-[var(--bk-team-accent)] py-4 text-lg font-black text-[var(--bk-on-accent)] disabled:cursor-wait disabled:opacity-60">{isSimulating ? 'SIMULATING…' : careerBlocked?'COMPLETE YOUR CAREER WEEK':`PLAY ${round}`}</button> : null}
           </div>
         ) : null}

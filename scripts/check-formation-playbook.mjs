@@ -4,6 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {extname,resolve} from 'node:path';
 import {chromium} from 'playwright';
 import {FORMATIONS,RUNS,PASSES,matchingPlays} from '../public/play-moment-3d/playbook.js';
+import {handoffDuration} from '../public/play-moment-3d/contact-motion.js';
 import {runConceptDirection,runBlockAssignments,perimeterBlockAssignments} from '../public/play-moment-3d/game.js';
 const all=matchingPlays();
 assert.equal(all.length,32);assert.equal(new Set(all.map(e=>e.play.id)).size,32);
@@ -24,7 +25,7 @@ const base=process.env.BK_TEST_URL||`http://127.0.0.1:${server.address().port}/p
 try{
  const page=await browser.newPage({viewport:{width:844,height:390},deviceScaleFactor:1,isMobile:true,hasTouch:true});
  page.on('pageerror',e=>errors.push(String(e)));
- await page.goto(base+(base.includes('?')?'&':'?')+'qa=1',{waitUntil:'networkidle'});
+ await page.goto(base+(base.includes('?')?'&':'?')+'qa=1&manualFrames=1',{waitUntil:'networkidle'});
  await page.waitForFunction(()=>window.bk3dTest);
  await page.evaluate(()=>window.bk3dTest.manualFrames());
  assert.equal(await page.locator('.play-card').count(),32);
@@ -59,7 +60,8 @@ try{
   let d=await page.evaluate(()=>window.bk3dDiagnostics());
   assert.equal(d.phase,play.direct?'run':mode==='run'?'handoff':'pass',play.id);
   if(play.direct){assert.equal(d.players[6].hasBall,true);assert.equal(d.players[5].hasBall,false)}
-  if(mode==='run'&&!play.direct){await page.evaluate(t=>window.bk3dTest.step(t),play.handoff+.56);d=await page.evaluate(()=>window.bk3dDiagnostics());assert.equal(d.phase,'run',play.id);assert.equal(d.players[6].hasBall,true,play.id)}
+  // Check the exchange at its completion, before a legitimate defensive tackle.
+  if(mode==='run'&&!play.direct){await page.evaluate(t=>window.bk3dTest.step(t),Math.max(0,handoffDuration(play)-d.elapsed)+1/60);d=await page.evaluate(()=>window.bk3dDiagnostics());assert.equal(d.phase,'run',play.id);assert.equal(d.players[6].hasBall,true,play.id)}
   assert.equal(d.players.filter(p=>p.hasBall).length,1,play.id+' ownership');
   assert.ok(d.players.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.z)));
   calls++;
@@ -69,7 +71,8 @@ try{
   await choose('run',index,play.formation);
   await page.locator('#snap').dispatchEvent('pointerdown',{pointerId:45,pointerType:'touch'});
   await page.evaluate(()=>window.bk3dTest.step(.5));await page.locator('#option-keep').click();
-  await page.evaluate(()=>window.bk3dTest.step(1));
+  const mesh=await page.evaluate(()=>window.bk3dDiagnostics());
+  await page.evaluate(t=>window.bk3dTest.step(t),Math.max(0,handoffDuration(play)-mesh.elapsed)+1/60);
   const kept=await page.evaluate(()=>window.bk3dDiagnostics());assert.equal(kept.phase,'run');assert.equal(kept.players[5].hasBall,true);assert.equal(kept.players[6].hasBall,false);assert.equal(await page.locator('#optionChoices').isHidden(),true);
  }
  // Same-formation audibles must retain lineup and dismiss the panel.
