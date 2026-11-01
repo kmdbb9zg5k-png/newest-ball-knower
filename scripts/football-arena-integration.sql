@@ -5,7 +5,7 @@ begin perform public.ball_knower_football_arena(action,args);return false;except
 do $$
 <<fixture>>
 declare a uuid:=gen_random_uuid();b uuid:=gen_random_uuid();outsider uuid:=gen_random_uuid();guest uuid:=gen_random_uuid();
- mid uuid;tieid uuid;expiryid uuid;tok text;launch uuid;response jsonb;row jsonb;n integer;who uuid;allowed boolean;
+ mid uuid;tieid uuid;expiryid uuid;queued uuid;detail jsonb;tok text;launch uuid;response jsonb;row jsonb;n integer;who uuid;allowed boolean;
 begin
  insert into auth.users(id,aud,role,email,is_anonymous,raw_app_meta_data,raw_user_meta_data)
  select x,'authenticated','authenticated',x::text||'@football-arena-fixture.invalid',x=guest,'{}'::jsonb,'{}'::jsonb from unnest(array[a,b,outsider,guest]) x;
@@ -13,6 +13,7 @@ begin
  insert into public.ball_knower_friendships(requester_id,recipient_id,status) values(a,b,'accepted');
  perform set_config('request.jwt.claim.sub',guest::text,true);perform set_config('role','authenticated',true);
  assert pg_temp.arena_reject('home','{}'), 'Anonymous auth cannot participate';
+ assert pg_temp.arena_reject('quick_match','{"team":"JCY"}'), 'Guest cannot enter online queue';
  perform set_config('request.jwt.claim.sub',a::text,true);
  assert pg_temp.arena_reject('create','{"team":"INVALID"}'), 'Unknown roster rejected';
  assert pg_temp.arena_reject('create',jsonb_build_object('team','JCY','opponent',outsider)), 'Friendship required';
@@ -42,7 +43,16 @@ begin
      assert pg_temp.arena_reject('submit',jsonb_build_object('id',mid,'drive',n,'token',tok,'stats','{"points":24,"yards":75,"plays":1}'::jsonb)), 'Impossible single-drive score';
      assert pg_temp.arena_reject('submit',jsonb_build_object('id',mid,'drive',n,'token',tok,'stats','{"points":8,"yards":75}'::jsonb)), 'Missing stats';
      assert pg_temp.arena_reject('submit',jsonb_build_object('id',mid,'drive',n,'token',tok,'stats','{"points":8,"yards":75,"plays":1.5}'::jsonb)), 'Fractional count';
-     response:=public.ball_knower_football_arena('submit',jsonb_build_object('id',mid,'drive',n,'token',tok,'stats',jsonb_build_object('points',case when who=a then 7 else 3 end,'yards',75,'plays',5)));
+     detail:=jsonb_build_object('points',case when who=a then 7 else 3 end,'yards',75,'plays',5);
+     if who=a then
+       detail:=detail||'{"passingYards":60,"rushingYards":15,"passAttempts":3,"completions":2,"touchdowns":1,"turnovers":0,"returnTouchdowns":0}'::jsonb;
+       assert pg_temp.arena_reject('submit',jsonb_build_object('id',mid,'drive',n,'token',tok,'stats',detail-'completions')), 'No partial detail set';
+       assert pg_temp.arena_reject('submit',jsonb_build_object('id',mid,'drive',n,'token',tok,'stats',detail||'{"completions":4}'::jsonb)), 'Completions bounded by attempts';
+       assert pg_temp.arena_reject('submit',jsonb_build_object('id',mid,'drive',n,'token',tok,'stats',detail||'{"turnovers":-1}'::jsonb)), 'No negative count';
+       assert pg_temp.arena_reject('submit',jsonb_build_object('id',mid,'drive',n,'token',tok,'stats',detail||'{"passingYards":501}'::jsonb)), 'Bounded detail yards';
+       if n=3 then detail:='{"points":7,"yards":0,"plays":0,"passingYards":0,"rushingYards":0,"passAttempts":0,"completions":0,"touchdowns":0,"turnovers":0,"returnTouchdowns":1}';end if;
+     end if;
+     response:=public.ball_knower_football_arena('submit',jsonb_build_object('id',mid,'drive',n,'token',tok,'stats',detail));
      response:=public.ball_knower_football_arena('submit',jsonb_build_object('id',mid,'drive',n,'token',tok,'stats','{"points":8,"yards":100,"plays":6}'::jsonb));
      assert (response->>'points')::int=case when who=a then 7 else 3 end, 'Result immutable';
      assert pg_temp.arena_reject('begin',jsonb_build_object('id',mid,'drive',n,'launch',launch)), 'Finished drive cannot relaunch';
@@ -50,6 +60,9 @@ begin
  end loop;
  response:=public.ball_knower_football_arena('home');select x into row from jsonb_array_elements(response->'matches') x where x->>'id'=mid::text;
  assert row->>'status'='completed' and row->>'winner_id'=a::text, '21 to 9 winner';
+ assert exists(select 1 from jsonb_array_elements(row->'drives') x where x->>'user_id'=a::text and x->>'ordinal'='1' and x->>'passingYards'='60'), 'Details persisted and immutable';
+ assert exists(select 1 from jsonb_array_elements(row->'drives') x where x->>'user_id'=b::text and x->>'passingYards' is null), 'Legacy details remain unavailable';
+ assert exists(select 1 from jsonb_array_elements(row->'drives') x where x->>'user_id'=a::text and x->>'ordinal'='3' and x->>'plays'='0' and x->>'returnTouchdowns'='1'), 'Kickoff touchdown has no fabricated offensive play';
  assert jsonb_array_length(row->'drives')=6 and not (row->'drives'->0)?'token' and not (row->'drives'->0)?'launch_id', 'Only safe drive data';
  select x into row from jsonb_array_elements(response->'standings') x where x->>'user_id'=a::text;
  assert row->>'wins'='1' and row->>'rating'='3', 'Standings derived once';
@@ -71,12 +84,23 @@ begin
  perform set_config('role','none',true);update bk_football_private.matches set expires_at=now()-interval '1 minute' where id=tieid;perform set_config('role','authenticated',true);
  response:=public.ball_knower_football_arena('home');select x into row from jsonb_array_elements(response->'matches') x where x->>'id'=tieid::text;
  assert row->>'status'='completed' and row->>'winner_id' is null and jsonb_array_length(row->'drives')=6,'Expired missing drives become zeros and tie';
+ -- Queue retries reuse slots; the next eligible player joins atomically.
+ perform set_config('request.jwt.claim.sub',a::text,true);
+ assert pg_temp.arena_reject('quick_match','{"team":"INVALID"}'), 'Queue validates roster';
+ response:=public.ball_knower_football_arena('quick_match','{"team":"JCY"}');queued:=(response->>'id')::uuid;
+ assert response->>'status'='open','First player waits';
+ assert public.ball_knower_football_arena('quick_match','{"team":"JCY"}')->>'id'=queued::text,'Repeated search reuses open slot';
+ perform set_config('request.jwt.claim.sub',b::text,true);
+ response:=public.ball_knower_football_arena('quick_match','{"team":"MIL"}');
+ assert response->>'id'=queued::text and response->>'status'='active','Second player pairs with waiting player';
+ assert public.ball_knower_football_arena('quick_match','{"team":"MIL"}')->>'id'=queued::text,'Retry reuses active match';
  -- Block lists protect reads and new actions; raw tables are inaccessible.
  perform set_config('role','none',true);
  insert into public.ball_knower_user_blocks(blocker_id,blocked_id) values(a,b);
  perform set_config('role','authenticated',true);perform set_config('request.jwt.claim.sub',a::text,true);
  assert pg_temp.arena_reject('create',jsonb_build_object('team','JCY','opponent',b)), 'Blocked friend unavailable';
  response:=public.ball_knower_football_arena('home');assert not exists(select 1 from jsonb_array_elements(response->'matches') x where x->>'id'=mid::text),'Blocked history hidden';
+ response:=public.ball_knower_football_arena('quick_match','{"team":"JCY"}');assert response->>'id'<>queued::text and response->>'status'='open','Blocked active match not reused by queue';
  begin perform count(*) from bk_football_private.drives;allowed:=true;exception when insufficient_privilege then allowed:=false;end;
  assert not allowed,'No direct attempt read';
  begin update bk_football_private.matches set winner_id=a where id=mid;allowed:=true;exception when insufficient_privilege then allowed:=false;end;

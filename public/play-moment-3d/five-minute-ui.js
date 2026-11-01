@@ -1,7 +1,7 @@
 import {reportArenaDrive, exitArenaDrive} from '../football-arena-bridge.js';
 import {reportMiniChallenge} from '../mini-challenge-bridge.js';
-import { miniClock } from './mini-games.js?v=football-arena-1';
-import { fieldGoalDistance } from './five-minute.js?v=football-arena-1';
+import { miniClock } from './mini-games.js?v=football-arena-2';
+import { fieldGoalDistance } from './five-minute.js?v=football-arena-2';
 const $ = id => document.getElementById(id);
 const setHudText=(node,value)=>{const text=String(value);if(node.textContent!==text)node.textContent=text};
 const spot = ball => ball < 50 ? `OWN ${ball}` : ball === 50 ? 'MIDFIELD' : `OPP ${100 - ball}`;
@@ -85,8 +85,9 @@ export function createFullGameUI(config, actions) {
     },
     result(s, d) {
       if(arena) {
-        reportArenaDrive({points:d.score,yards:Math.round(s.stats.home.yards),plays:s.stats.home.plays});
-        summary.replaceChildren(node('p',`${d.score} POINTS · ${Math.round(s.stats.home.yards)} YARDS`, 'full-final-score'),node('p','Drive finished. Return to the match to save your score and see the next drive.'));
+        const stats=s.stats.home;
+        reportArenaDrive({points:d.score,yards:Math.round(stats.yards),plays:stats.plays,passingYards:Math.round(stats.passYards),rushingYards:Math.round(stats.rushYards),passAttempts:stats.attempts,completions:stats.completions,touchdowns:stats.touchdowns,turnovers:stats.turnovers,returnTouchdowns:stats.returnTouchdowns});
+        summary.replaceChildren(node('p',`${d.score} POINTS · ${Math.round(s.stats.home.yards)} YARDS`, 'full-final-score'),node('p','Drive finished. Saving your score and preparing the next drive…'));
         return;
       }
       reportMiniChallenge({points:d.score,yards:Math.round(s.stats.home.yards),passYards:Math.round(s.stats.home.passYards),rushYards:Math.round(s.stats.home.rushYards),turnovers:s.stats.home.turnovers,touchdowns:s.stats.home.touchdowns,plays:s.stats.home.plays});
