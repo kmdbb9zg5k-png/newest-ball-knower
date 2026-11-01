@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {normalizeNflverseSchedule,getNflverseGames,NFLVERSE_SCHEDULE_URL} from '../api/bk/v1/games';
+const csv='game_id,season,week,gameday,gametime,away_team,home_team,away_score,home_score\n2026_01_DAL_PHI,2026,1,2026-09-10,20:20,DAL,PHI,17,24\n2026_02_KC_BUF,2026,2,2026-09-20,13:00,KC,BUF,,\n2025_01_DAL_PHI,2025,1,2025-09-10,20:20,DAL,PHI,1,2\n';
+const games=normalizeNflverseSchedule(csv);
+assert.equal(games.length,2);
+assert.equal(games[0].home,'PHI');
+assert.equal(games[0].homeScore,24);
+assert.equal(games[0].status,'final');
+assert.equal(games[1].homeScore,null);
+assert.equal(games[1].status,'scheduled');
+assert.equal(games[1].startTime,'2026-09-20T13:00:00');
+assert.equal(NFLVERSE_SCHEDULE_URL,'https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv');
+const rows=[csv.trim(),...Array.from({length:220},(_,i)=>'2026_'+(i+3)+'_A_B,2026,'+((i%18)+1)+',2026-10-01,13:00,A,B,,')].join('\n')+'\n';
+const data=await getNflverseGames(async()=>new Response(rows,{status:200}),()=>Date.parse('2026-10-31T10:00:00Z'));
+assert.equal(data.items.length,222);
+console.log('nflverse schedule adapter contract checks passed');
