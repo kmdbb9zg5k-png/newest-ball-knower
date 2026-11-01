@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import{loadNewsFeed,parseNewsFeed}from'../sportsApiClient';
-const article={headline:'Contract test headline',url:'https://publisher.example/story',published:null,source:'Test publisher'};
+const article={headline:'Synthetic NFL contract test headline',url:'https://publisher.example/story',published:null,source:'Test publisher'};
 const legacy={available:true,provider:'Currents',attribution:'https://currentsapi.services/',articles:[article],fetchedAt:new Date().toISOString()};
 const versioned={available:true,provider:'Currents',source:'Currents',attribution:'https://currentsapi.services/',kind:'news',items:[article],updatedAt:new Date().toISOString()};
 const calls:string[]=[];

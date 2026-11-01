@@ -10,7 +10,7 @@ The deployed source must be tested with the real key before release. Confirm NFL
 
 ## Display and usage
 
-The adapter requests a fixed English NFL query and bounded recent date window. It exposes only headline, publisher, original URL and publication metadata. The app displays `Powered by Currents News API` linked to https://currentsapi.services/ beside Currents content and links stories to original publishers. Article bodies, previews, images and end-user AI summaries are excluded. Ask BK retains its independent live-search capability and existing cost controls, but no longer fetches Tank01 headline context or receives Currents content for summaries.
+The adapter requests a fixed English NFL query and bounded recent date window. A conservative headline/link filter rejects unrelated full-text matches (including school-game and other-league reports). It can omit player-only headlines without clear NFL/team context; it does not infer relevance from hidden article descriptions. It exposes only headline, publisher, original URL and publication metadata. The app displays `Powered by Currents News API` linked to https://currentsapi.services/ beside Currents content and links stories to original publishers. Article bodies, previews, images and end-user AI summaries are excluded. Ask BK retains its independent live-search capability and existing cost controls, but no longer fetches Tank01 headline context or receives Currents content for summaries.
 
 This is an app backend for Ball Knower, not a standalone licensed redistribution feed. These sources document the intended headline/link app workflow and limits:
 

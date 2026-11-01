@@ -27,6 +27,27 @@ const publicationTime = (value: unknown) => {
   const time = typeof value === 'string' && value.trim() ? Date.parse(value) : NaN;
   return Number.isFinite(time) && time > 0 ? time : null;
 };
+// Provider search includes article bodies, so an incidental NFL mention is not
+// enough. Use only the displayed title and original link, never the description.
+function isNflStory(title: string, url: string) {
+  const path = new URL(url).pathname.toLowerCase();
+  const nflTitle = /\b(?:NFL|National Football League)\b/i.test(title);
+  const nflPath = /(?:^|\/)nfl(?:\/|$)/i.test(path);
+  if (/^(?:HOCKEY|BASKETBALL|BASEBALL|SOCCER)[- /](?:NHL|NBA|MLB|MLS)\b/i.test(title)) return false;
+  // Family connections do not turn a school player's game report into NFL news.
+  if (/\b(?:son|daughter|nephew|niece|grandson|granddaughter) of (?:a |an |the )?(?:former |ex[- ])?NFL\b/i.test(title)
+      && /\b(?:rush\w*|touchdowns?|TDs?|playoffs?|school|college)\b/i.test(title)) return false;
+  const otherCompetition = /\b(?:high[- ]school|prep football|varsity|NCAA|CFB|college football|NHL|NBA|MLB|MLS)\b/i.test(title)
+    || /\/(?:high-school|prep-sports|college-football|ncaa|nhl|nba|mlb|mls)(?:\/|$)/.test(path);
+  // Keep explicit NFL reports discussing college backgrounds, research or other
+  // leagues; only reject these categories when the title has no NFL subject.
+  if (otherCompetition && !nflTitle) return false;
+  if (nflTitle || nflPath) return true;
+  if (/\b(?:49ers|Niners|Bengals|Buccaneers|Packers|Ravens|Seahawks|Steelers)\b/i.test(title)) return true;
+  // These nicknames also identify teams in other sports (or everyday nouns).
+  return /\b(?:Bears|Bills|Broncos|Browns|Cardinals|Chargers|Chiefs|Colts|Commanders|Cowboys|Dolphins|Eagles|Falcons|Giants|Jaguars|Jets|Lions|Panthers|Patriots|Raiders|Rams|Saints|Texans|Titans|Vikings)\b/i.test(title)
+    && /\b(?:football|quarterbacks?|QBs?|touchdowns?|TDs?|D\/ST|IDP|fantasy|gridiron|linebackers?|receivers?|running backs?|defensive|offensive|fine[ds]?|sacks?|end zone|Super Bowl)\b/i.test(title);
+}
 export function normalizeNews(payload: unknown, nowMs = Date.now()) {
   const data = payload as { status?: unknown; news?: unknown } | null;
   if (!data || data.status !== 'ok') throw new NewsFailure('provider_status');
@@ -36,7 +57,7 @@ export function normalizeNews(payload: unknown, nowMs = Date.now()) {
     if (!row || typeof row !== 'object' || Array.isArray(row)) return [];
     const item = row as Record<string, unknown>;
     const headline = plain(item.title, 240), url = publicHttpsUrl(item.url);
-    if (!headline || !url || seen.has(url)) return [];
+    if (!headline || !url || seen.has(url) || !isNflStory(headline, url)) return [];
     const time = publicationTime(item.published);
     // Retrieval time must not make old articles look newly published.
     if (time !== null && (time < nowMs - RECENT_WINDOW || time > nowMs + 300_000)) return [];

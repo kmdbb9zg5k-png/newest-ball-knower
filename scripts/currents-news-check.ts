@@ -13,6 +13,33 @@ const run = async (handler: ReturnType<typeof createNewsHandler>, req: any = { m
 };
 const quiet = () => {};
 
+// Synthetic metadata examples: no publisher feed or article bodies are archived.
+const relevanceCases: [string, string, boolean][] = [
+  ['NFL weekly injury update', '/sport/story', true],
+  ['A quarterback returns to practice', '/nfl/story', true],
+  ['Fantasy football: Buccaneers defensive outlook', '/sport/story', true],
+  ['Workers rally as Ravens arrive', '/local/story', true],
+  ['Giants running back receives a fine', '/sport/story', true],
+  ['NFL player discusses university research on concussions', '/sport/story', true],
+  ['NFL rookie reflects on college football career', '/sport/story', true],
+  ['Former NFL player discusses high school concussion research', '/sport/story', true],
+  ['High school football and hockey players discuss risks', '/local/story', false],
+  ['HOCKEY-NHL-AAA-BBB/', '/nfl/photo', false],
+  ['Nephew of former NFL player rushes for five TDs in playoff win', '/sport/story', false],
+  ['College football playoff preview', '/nfl/story', false],
+  ['NCAA Eagles football playoff preview', '/sport/story', false],
+  ['Giants win baseball series', '/sport/story', false],
+  ['Dolphins spotted near the beach', '/local/story', false],
+  ['General entertainment update', '/sport/story?section=nfl', false],
+  ['General entertainment update', '/not-nfl/story', false],
+];
+for (const [title, path, expected] of relevanceCases) {
+  const row = { ...story, title, url: `https://publisher.example${path}`, description: 'NFL hidden body mention' };
+  const result = normalizeNews(payload([{ ...story, url: 'https://publisher.example/nfl/control' }, row]), clock);
+  assert.equal(result.articles.some(item => item.headline === title), expected, `relevance: ${title}`);
+}
+assert.throws(() => normalizeNews(payload([{ ...story, title: 'Unrelated news', url: 'https://publisher.example/local' }]), clock), /no_valid_links/);
+
 const normalized = normalizeNews(payload([
   { ...story, title: '<b>NFL</b>\u0000 test', description: 'DO NOT DISPLAY', content: 'FULL BODY', image: 'https://image.example/photo' },
   { ...story, url: `${story.url}#fragment` },
