@@ -1,9 +1,9 @@
-# Free NFL data adapter status
-- `GET /api/bk/v1/games` now reads the public nflverse/nfldata schedules CSV. No token required. 2026 season games only.
-- Produces season, week, matchup, game day/time (source-local, without invented timezone), final scores when present. Do **not** treat this as live in-game scoring.
-- Credits nflverse under CC BY 4.0 in each API response; user-facing screens that show this data should link to https://github.com/nflverse/nflverse-data and https://creativecommons.org/licenses/by/4.0/.
-- Origin: https://github.com/nflverse/nflverse-data/releases/download/schedules/games.csv ; canonical source used in code: https://github.com/nflverse/nflverse-data/releases/download/schedules/games.csv .
-- In-memory five-minute cache is per function instance; no persistent sync or Supabase mirroring yet.
-- Contract check: `node --import tsx scripts/bk-nflverse-schedule-check.ts`.
-- Existing main app scores, fantasy, news, and picks unchanged, pending validation.
-- News requires an independently licensed feed. Player/injury integrations require separately verified release formats and licenses. Do not switch current production UI before checking compatibility.
+# Free NFL adapter status
+
+Versioned games, players and injuries routes use fixed public nflverse CSV releases without provider keys. The schedule source is `https://github.com/nflverse/nflverse-data/releases/download/schedules/games.csv`; roster/injury modules export the exact 2026 asset URLs.
+
+Adapters validate actual release schemas and team coverage, bound downloads and allow only approved GitHub redirects. Kickoffs are UTC conversions from US Eastern. Injuries represent the latest reported week; missing source update times remain null. Responses retain nflverse attribution and license metadata.
+
+These are periodically published datasets, not live fantasy scoring. Existing scores, Picks, identity mappings and Ask BK remain unchanged. News has no verified default free replacement. Optional snapshots and news migration remain off until configured and validated.
+
+Run `node --import tsx scripts/bk-free-upstream-smoke.mjs` for real downloads through production handlers. See `BALL_KNOWER_SPORTS_API.md` and PR #522 for configuration and release status.

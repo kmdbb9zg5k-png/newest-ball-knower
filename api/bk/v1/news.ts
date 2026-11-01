@@ -1,2 +1,2 @@
-import {handlerFor} from '../lib/sports-feed';
+import {handlerFor} from '../../../server/bk/sports-feed';
 export default handlerFor('news');
