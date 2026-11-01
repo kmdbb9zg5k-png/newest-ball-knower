@@ -1,5 +1,5 @@
-import { createFullGameUI } from './five-minute-ui.js?v=football-arena-3';
-import { miniClock, saveMiniBest } from './mini-games.js?v=football-arena-3';
+import { createFullGameUI } from './five-minute-ui.js?v=football-arena-4';
+import { miniClock, saveMiniBest } from './mini-games.js?v=football-arena-4';
 
 export function createMiniGamesUI(config, actions) {
   if (!config) return null;

@@ -1,7 +1,7 @@
 import {reportArenaDrive, exitArenaDrive} from '../football-arena-bridge.js';
 import {reportMiniChallenge} from '../mini-challenge-bridge.js';
-import { miniClock } from './mini-games.js?v=football-arena-3';
-import { fieldGoalDistance } from './five-minute.js?v=football-arena-3';
+import { miniClock } from './mini-games.js?v=football-arena-4';
+import { fieldGoalDistance } from './five-minute.js?v=football-arena-4';
 const $ = id => document.getElementById(id);
 const setHudText=(node,value)=>{const text=String(value);if(node.textContent!==text)node.textContent=text};
 const spot = ball => ball < 50 ? `OWN ${ball}` : ball === 50 ? 'MIDFIELD' : `OPP ${100 - ball}`;
@@ -51,8 +51,8 @@ export function createFullGameUI(config, actions) {
       $('miniSpike').disabled = phase !== 'pre' || motion;
       setHudText(toolbar.querySelector('span'),`${config.level.name.toUpperCase()} · PLAY :${String(Math.ceil(s.playClock)).padStart(2,'0')}`);
       setHudText($('clock'),s.overtime ? 'OT' + s.overtime : miniClock(d.clock));
-      setHudText(document.querySelector('.game-state>span'),arena ? `DRIVE ${config.driveNumber}/3 · CPU DEFENSE` : ended ? 'FINAL' : s.overtime ? 'EQUAL POSSESSIONS' : config.mode === 'two-minute' ? '2 MIN WARNING' : '5 MIN GAME');
-      setHudText(document.querySelector('.away strong'),arena?'CPU':s.awayScore);
+      setHudText(document.querySelector('.game-state>span'),arena ? `DRIVE ${config.driveNumber}/3` : ended ? 'FINAL' : s.overtime ? 'EQUAL POSSESSIONS' : config.mode === 'two-minute' ? '2 MIN WARNING' : '5 MIN GAME');
+      setHudText(document.querySelector('.away strong'),arena?'—':s.awayScore);
       document.querySelector('.club.home').classList.toggle('has-possession',s.possession === 'home');
       document.querySelector('.club.away').classList.toggle('has-possession',s.possession === 'away');
       $('watchReplay').hidden = true; document.querySelector('#paused .running-setting').hidden = ended;

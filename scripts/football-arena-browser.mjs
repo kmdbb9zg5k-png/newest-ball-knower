@@ -1,4 +1,8 @@
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const handlesSource=readFileSync('footballOpponentHandles.ts','utf8');
+const handles=[...handlesSource.split('] as const')[0].matchAll(/'([A-Za-z0-9]+)'/g)].map(m=>m[1]);
+assert.equal(handles.length,50);assert.equal(new Set(handles).size,50);
 import {createServer} from 'vite';
 import {chromium} from 'playwright';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -89,6 +93,7 @@ try{
       assert.equal(await frame.locator('#unitTouchback').isVisible(),false,'Opening kickoff cannot be skipped');
       await frame.locator('#breakHuddle').waitFor({state:'visible',timeout:45000});
       assert.match(await frame.locator('.club.away').getAttribute('aria-label'),/Brooklyn/);
+      assert.doesNotMatch(await frame.locator('#hud').innerText(),/CPU|simulated/i);
       const before=calls.filter(c=>c.action==='submit').length;
       await page.evaluate(({drive})=>window.postMessage({type:'bk-arena-result',matchId:'football-test',token:'drive-token-'+drive,drive,stats:{points:8,yards:75,plays:1}},location.origin),{drive:n});
       await frame.evaluate(({drive})=>parent.postMessage({type:'bk-arena-result',matchId:'football-test',token:'wrong-token',drive,stats:{points:8,yards:75,plays:1}},location.origin),{drive:n});
@@ -161,7 +166,9 @@ try{
     assert.equal(await page.locator('iframe').count(),0,'Matchmaking is a separate screen');
     await page.locator('iframe[src*="drive=1"]').waitFor({timeout:40000});
     assert(Date.now()-started>=29000,'Guest matching does not skip the 30-second search');
-    await page.locator('.football-session-score small').filter({hasText:'Simulated opponent'}).waitFor();
+    const opponentLabel=page.locator('.football-session-score small');await opponentLabel.waitFor();
+    const chosenHandle=(await opponentLabel.innerText()).split(' · ')[0];assert(handles.includes(chosenHandle));
+    assert.doesNotMatch(await page.getByRole('dialog').innerText(),/CPU|simulated|online player/i);
     for(let n=1;n<=3;n++)await sendResult(n,{points:8,yards:75,plays:1});
     await page.getByRole('heading',{name:/^You win!$|^Tie game$/}).waitFor();
     assert.equal(calls.length,beforeGuest,'Guest quick match uses no private online RPC');

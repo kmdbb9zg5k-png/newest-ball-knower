@@ -25,7 +25,7 @@ export default function CommunityFootballArena({me,friends,onOpenAuth}:{me:strin
   const matches=data?.matches||[],mine=matches.filter(m=>m.challenger_id===me||m.opponent_id===me);
   const visible=tab==='history'?mine.filter(m=>!['open','pending','active'].includes(m.status)):matches.filter(m=>['open','pending','active'].includes(m.status)||(m.id===lastPlayed&&m.status==='completed'));
   return <section className="football-arena" aria-label="Football H2H">
-    <header className="football-hero"><span className="football-eyebrow">SEASON 1 · THREE-DRIVE ARENA</span><h2>YOUR OFFENSE.<br/><em>THEIR DEFENSE.</em></h2><p>Three drives each. Play offense against your rival’s CPU defense. Highest total wins.</p><div className="football-rules"><span>3 DRIVES</span><span>KICKOFFS</span><span>PRO DIFFICULTY</span></div></header>
+    <header className="football-hero"><span className="football-eyebrow">SEASON 1 · THREE-DRIVE ARENA</span><h2>YOUR OFFENSE.<br/><em>THEIR DEFENSE.</em></h2><p>Three drives each. Play offense against your rival’s defense. Highest total wins.</p><div className="football-rules"><span>3 DRIVES</span><span>KICKOFFS</span><span>PRO DIFFICULTY</span></div></header>
     <nav aria-label="Football H2H sections" className="football-tabs">{(['play','history','standings'] as const).map(t=><button type="button" key={t} aria-current={tab===t?'page':undefined} onClick={()=>setTab(t)}>{t==='play'?'Play football':t==='history'?'Match history':'Standings'}</button>)}</nav>
     <p className="football-note">Casual online competition · device-reported results. You play at your own pace; both players don’t need to be online together.</p>
     {tab==='play'&&<>
@@ -50,7 +50,7 @@ export default function CommunityFootballArena({me,friends,onOpenAuth}:{me:strin
       </article>;
     })}</div>}
     </>}
-    <details className="football-card football-help"><summary>How Football H2H works</summary><p>Each player chooses a season 1 team, then gets three offensive drives, each beginning with a kickoff, against the other team’s CPU defense. Each drive has a two-minute game clock, with three timeouts. Touchdowns score 6, followed by a 1- or 2-point try. Field goals score 3. Turnovers, punts, safeties and expired clocks end the drive.</p><p>Leaving an unfinished drive records 0; a closed app or disconnected session can’t restart the drive. After all six drives, the higher total wins. Equal totals stay tied. At the 24-hour match deadline, unfinished drives count as 0.</p></details>
+    <details className="football-card football-help"><summary>How Football H2H works</summary><p>Each player chooses a season 1 team, then gets three offensive drives, each beginning with a kickoff, against the other team’s defense. Each drive has a two-minute game clock, with three timeouts. Touchdowns score 6, followed by a 1- or 2-point try. Field goals score 3. Turnovers, punts, safeties and expired clocks end the drive.</p><p>Leaving an unfinished drive records 0; a closed app or disconnected session can’t restart the drive. After all six drives, the higher total wins. Equal totals stay tied. At the 24-hour match deadline, unfinished drives count as 0.</p></details>
     {playing&&<FootballH2HSession key={playing.id} me={me} initialMatch={playing} onClose={()=>{setLastPlayed(playing.id);setPlaying(null);void refresh();}}/>}
   </section>;
 }
