@@ -52,6 +52,7 @@ export const ChallengesHub: React.FC = () => {
   const questionRequestRef = useRef(0);
   const triviaSessionRef = useRef(0);
   const serverSessionRef = useRef<TriviaSession | null>(null);
+  const practiceRoundRef = useRef(false);
   const progressCloudQueueRef=useRef<Promise<void>>(Promise.resolve());
   const dailyDate=utcDateKey();
   const levelFloor=Math.max(0,(progress.level-1)*250);
@@ -116,6 +117,7 @@ export const ChallengesHub: React.FC = () => {
     questionRequestRef.current += 1;
     triviaSessionRef.current += 1;
     serverSessionRef.current = null;
+    practiceRoundRef.current = false;
     advancingRef.current = false;
     setTriviaOpen(false);
     setLoading(false);
@@ -133,6 +135,7 @@ export const ChallengesHub: React.FC = () => {
     const sessionId = triviaSessionRef.current + 1;
     triviaSessionRef.current = sessionId;
     serverSessionRef.current = null;
+    practiceRoundRef.current = false;
     advancingRef.current = false;
     trackBallKnowerEvent('Trivia Started', { tier: nextTier });
     setTier(nextTier);
@@ -180,7 +183,8 @@ export const ChallengesHub: React.FC = () => {
       advancingRef.current = false;
       setResult(receipt);
       if (receipt.isCorrect) setScore(current => current + 1);
-      const nextProgress=recordGauntletAnswer(loadGauntletProgress(userId),receipt.isCorrect,receipt.xpAwarded||({ROOKIE:15,PRO:25,'ALL-PRO':40,'HALL OF FAME':60}[answeredTier]));
+      if(answeredQuestion.practiceOnly)practiceRoundRef.current=true;
+      const nextProgress=recordGauntletAnswer(loadGauntletProgress(userId),receipt.isCorrect,receipt.xpAwarded);
       applyProgress(nextProgress);
     } catch (err) {
       if (sessionId !== triviaSessionRef.current) return;
@@ -198,7 +202,7 @@ export const ChallengesHub: React.FC = () => {
     advancingRef.current = true;
     clearAdvanceTimer();
     if (questionNumber >= 10) {
-      const nextProgress=recordGauntletRun(loadGauntletProgress(userId),`TRIVIA:${tier}`,score,10);
+      const nextProgress=recordGauntletRun(loadGauntletProgress(userId),`TRIVIA:${tier}`,score,10,undefined,undefined,!practiceRoundRef.current);
       applyProgress(nextProgress);
       setRoundComplete(true);
       setQuestion(null);

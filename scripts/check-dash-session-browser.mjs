@@ -17,6 +17,7 @@ try{
   for(const selector of ['.combine-action','.combine-athlete']){const b=await p.locator(selector).boundingBox();assert(b&&b.x>=0&&b.y>=0&&b.x+b.width<=size.width+1&&b.y+b.height<=size.height+1,selector+' clipped');}
  }
  for(let attempt=0;attempt<2;attempt++){
+  console.log('Starting dash attempt',attempt+1);
   await p.locator('.combine-action').dispatchEvent('click');
   for(let t=0;t<80&&(await p.locator('.combine-game').getAttribute('data-phase'))!=='running';t++)await p.clock.runFor(100);
   assert.equal(await p.locator('.combine-game').getAttribute('data-phase'),'running');
@@ -24,7 +25,10 @@ try{
    await p.locator('.combine-stride[data-next="true"]').dispatchEvent('pointerdown',{bubbles:true,button:0,pointerId:77,pointerType:'touch'});
    await p.clock.runFor(250);
   }
-  const next=p.getByRole('button',{name:attempt===0?'SECOND ATTEMPT':'NEW SESSION',exact:true});await next.waitFor();
+  console.log('Finish reached',await p.locator('.combine-game').getAttribute('data-phase'));
+  // Preserve the normal 3.8-second finish celebration before the results open.
+  await p.clock.runFor(4200);
+  const next=p.getByRole('button',{name:attempt===0?/SECOND ATTEMPT/:/NEW SESSION/});await next.waitFor();
   await p.screenshot({path:`artifacts/dash-session/result-${attempt+1}.png`});
   const records=await p.evaluate(()=>JSON.parse(localStorage.getItem('bk-combine-forty-v1')));
   assert.equal(records.length,attempt+1);assert(records.at(-1).splits[2]>3&&records.at(-1).splits[2]<10);
@@ -32,4 +36,4 @@ try{
  }
  assert.equal(await p.locator('.combine-game').getAttribute('data-phase'),'idle');assert.deepEqual(errors,[]);
  console.log('PASS dash saved-athlete entry, three mobile sizes, two control-driven complete runs, saved splits and New Session reset');
-}finally{await browser.close();await server.close();}
+}catch(error){for(const p of browser.contexts().flatMap(c=>c.pages())){console.error(await p.locator('body').innerText().catch(()=>'<unavailable>'));await p.screenshot({path:'artifacts/dash-session/failure.png'}).catch(()=>{});}throw error;}finally{await browser.close();await server.close();}

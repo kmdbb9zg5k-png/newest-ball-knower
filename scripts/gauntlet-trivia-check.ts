@@ -64,6 +64,14 @@ assert.equal(dailyIndex,5,'Daily must reach question five even when Survivor is 
 assert.equal(shouldEliminateGauntletRun('SURVIVOR',false),true,'A standalone Survivor miss must end that run.');
 
 const empty:GauntletProgress={xp:0,level:1,currentStreak:0,longestStreak:0,totalCorrect:0,totalAnswered:0,highScores:{},daily:{}};
+let practice=empty;
+for(let i=0;i<10;i++)practice=recordGauntletAnswer(practice,true,0);
+practice=recordGauntletRun(practice,'TRIVIA:ROOKIE',10,10,undefined,undefined,false);
+assert.equal(practice.xp,0,'Offline perfect rounds must not award answer or completion XP');
+assert.equal(practice.highScores['TRIVIA:ROOKIE'],10,'Practice still records the score');
+assert.equal(practice.totalCorrect,10,'Practice accuracy is preserved');
+const verified=recordGauntletRun(recordGauntletAnswer(empty,true,15),'TRIVIA:ROOKIE',10,10);
+assert.equal(verified.xp,65,'Verified answer XP and normal perfect-round bonus remain intact');
 const streaked=recordGauntletAnswer(recordGauntletAnswer(empty,true,50),true,50);assert.equal(streaked.currentStreak,2);assert.equal(streaked.longestStreak,2);assert.equal(streaked.totalCorrect,2);
 const reset=recordGauntletAnswer(streaked,false,50);assert.equal(reset.currentStreak,0);assert.equal(reset.longestStreak,2);
 const completed=recordGauntletRun(reset,'FILM ROOM:HALL OF FAME',10,10,'2026-08-28');assert.equal(completed.highScores['FILM ROOM:HALL OF FAME'],10);assert.equal(completed.daily['2026-08-28'].completed,true);
@@ -109,4 +117,4 @@ const selector=readFileSync(new URL('../migrations/20260825_zzzzzzzzzz_trivia_du
 assert(selector.includes('limit 20')&&selector.includes('recent_family.family=coalesce(q.repeat_family,q.question_key)'),'Verified trivia must suppress recent question families across a full round.');
 assert(selector.includes('recent_template.template_family=q.template_family'),'Verified trivia must rotate prompt templates.');
 
-console.log(`Gauntlet/trivia check passed: ${GAUNTLET_CATALOG.length} distinct tier-specific situations, Daily completion, idempotent event-ledger sync, strict answer validation, and 1,000+ unique server prompts.`);
+console.log(`Gauntlet/trivia check passed (including offline zero-XP perfect rounds): ${GAUNTLET_CATALOG.length} distinct tier-specific situations, Daily completion, idempotent event-ledger sync, strict answer validation, and 1,000+ unique server prompts.`);
