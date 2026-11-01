@@ -36,7 +36,7 @@ assert.ok(card.includes('target="_blank"') && card.includes('noopener noreferrer
 assert.ok(card.includes('object-contain') && !card.includes('object-cover'), 'the supplied logo must display without cropping');
 assert.ok(home.includes('Our Partners') && home.includes('<PartnerCard') && home.indexOf('Our Partners') > home.indexOf('Quick Links'), 'the subtle partner card must appear below primary home content');
 assert.ok(card.includes('grid-cols-[56px_minmax(0,1fr)_auto]') && card.includes('h-14 w-14'), 'the Home partner treatment must stay compact on iPhone');
-assert.match(home,/homePartners\.length\s*>\s*1\s*&&\s*<button/, 'the Home screen must offer the full directory when multiple featured partners are present');
+assert.match(home,/activePartners\.length\s*>\s*1\s*&&\s*<button/, 'the Home screen must offer the full directory when the directory contains additional partners or data sources');
 assert.ok(page.includes('partnerSections.map') && app.includes("currentTab==='partners'"), 'the generic grouped Partners page must be reachable');
 assert.ok(page.includes('section.partners.map'), 'each partner category must render from shared partner data');
 assert.ok(page.includes('title="Partners & Data Sources"') && page.includes('published data sources used by Ball Knower'), 'directory wording must distinguish data sources from partnerships');
