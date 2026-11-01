@@ -14,7 +14,7 @@ function summary(d){return {phase:d.phase,mode:d.mode,play:d.playId,time:d.simTi
 async function command(c){
  if(c.action==='load'){
   await page?.close();errors=[];page=await browser.newPage({viewport:{width:1108,height:444},isMobile:true,hasTouch:true,ignoreHTTPSErrors:Boolean(process.env.REVIEW_URL&&process.env.HTTPS_PROXY)});page.on('pageerror',e=>errors.push(e.message));
-  await page.goto(`${process.env.REVIEW_URL||'http://127.0.0.1:'+server.address().port+'/play-moment-3d-preview.html'}?qa=1&mode=${c.mode||'two-minute'}&team=MIL&opponent=SLC`);
+  await page.goto(`${process.env.REVIEW_URL||'http://127.0.0.1:'+server.address().port+'/play-moment-3d-preview.html'}?qa=1&manualFrames=1&mode=${c.mode||'two-minute'}&team=MIL&opponent=SLC`);
   await page.waitForFunction(()=>window.bk3dDiagnostics?.().athletes.ready);await page.evaluate(()=>{window.bk3dTest.manualFrames();window.bk3dTest.seed(742)});
   cdp=await page.context().newCDPSession(page);
  } else if(c.action==='tap')await page.locator(c.selector).tap();

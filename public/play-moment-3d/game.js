@@ -7,7 +7,7 @@ import {referenceCameraTravel,referencePocketFrame,referenceCarryFrame} from './
 import {routePoint,pursuitRead,passSetPoint,contactImpact,pocketSpeedFactor,renderDue} from './football-flow.js?v=complete-flow-46';
 import {safeFieldCamera} from './field-awareness.js?v=contact-camera-11';
 import {createLiveUnits} from './live-units.js?v=tackle-drive-61';
-import {fullInitialDrive,fullSession,fullLog,fullRecord,fullOffenseEnd,fullContinue,fullCpuPlay,fullKick,fullCpuResult,fullConversion,fullKickoffResult,fullCpuKickChoice,fullPuntResult} from './five-minute.js?v=football-arena-1';
+import {fullInitialDrive,fullSession,fullLog,fullRecord,fullOffenseEnd,fullContinue,fullCpuPlay,fullKick,fullCpuResult,fullConversion,fullKickoffResult,fullCpuKickChoice,fullPuntResult} from './five-minute.js?v=football-arena-3';
 import {rosterRatings,rosterIdentity} from './mini-teams.js?v=contact-camera-11';
 import{RUNS,PASSES,FORMATIONS,FIELD_GOAL_PLAY,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=contact-camera-11';
 export{RUNS,PASSES}from'./playbook.js?v=contact-camera-11';
@@ -17,8 +17,8 @@ import{createMeshyAthletes}from'./meshy-athlete.js?v=complete-flow-46';
 import{createMeshyAthletes as createReferenceAthletes}from'./reference-athlete.js?v=game-gear-1';
 import{makeStadium}from'./stadium.js?v=contact-camera-11';
 import{createGameplayReplayRecorder}from'./replay.js';
-import {miniClock,miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=football-arena-1';
-import {createMiniGamesUI} from './mini-games-ui.js?v=football-arena-1';
+import {miniClock,miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=football-arena-3';
+import {createMiniGamesUI} from './mini-games-ui.js?v=football-arena-3';
 import{QB_THROW_RELEASE,quarterbackThrowDuration}from'./quarterback.js?v=football-finish-21';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
 const setHudText=(node,value)=>{const text=String(value);if(node.textContent!==text)node.textContent=text};
@@ -456,7 +456,7 @@ function playDiagram(play,kind,direction=1){
 function travel(path,distance){return routePoint(path,distance)}
 export function runConceptDirection(runIndex,seconds,runnerX,runnerZ,scrimmageZ,direction=1,keep=false){const concept=RUNS[clamp(Math.trunc(runIndex)||0,0,RUNS.length-1)],point=travel(keep&&concept.keepPath?concept.keepPath:concept.path,Math.max(0,seconds)*concept.pathSpeed+concept.pathLead),side=Math.sign(direction)||1,targetX=point[0]*side,dx=targetX-runnerX,dz=scrimmageZ+point[1]-runnerZ,length=Math.hypot(dx,dz)||1;return{x:dx/length,z:dz/length,targetX,targetZ:scrimmageZ+point[1]}}
 export function predictPassDestination(path,startX,startZ,elapsed,duration,speed){const p=travel(path,Math.max(0,elapsed+duration)*speed);return[clamp(startX+p[0],-26.3,26.3),1.6,startZ+p[1]]}
-export function start(){
+export async function start(){
  const miniConfig=miniGameFromSearch(location.search),fullGame=Boolean(miniConfig);let mini=fullGame?fullSession(miniConfig.mode,true):miniConfig?miniSession():null;
  function fieldCamera(eye,target){const shot=safeFieldCamera(eye,target);r.camera(shot.eye,shot.target);}
  const r=new Renderer($('game'));
@@ -471,7 +471,9 @@ export function start(){
  const initialDrive=fullGame?fullInitialDrive(miniConfig.mode):miniConfig?miniInitialDrive():{ball:redZone?85:25,down:1,toGo:10,clock:redZone?63:78,score:24,plays:0};
  let drive={...initialDrive},snapZ=10+initialDrive.ball,snapGainZ=10+lineToGain(initialDrive),stamina=1;
  let input={x:0,z:0,sprint:false,pointer:null,sprintPointer:null},snapDirection={x:0,z:0},snapDirectionUntil=0,camEye=[14,16,10],camTarget=[0,0,40],cameraReset=true,runCameraBlend=0,runCameraStart=null,flightCameraStart=null,deadCameraStart=null,defensiveCallIndex=0,defensiveCall=DEFENSIVE_CALLS[0],lastTackler=null;const keys=new Set();
- let qaStepping=false;let accumulator=0;let numSeed=miniConfig?.mode==='arena'?(Number(new URLSearchParams(location.search).get('seed'))>>>0)||175:175;const rand=()=>{numSeed=(Math.imul(numSeed,1664525)+1013904223)>>>0;return numSeed/4294967296};
+ // QA recordings may freeze the first frame before a fast opening return finishes.
+ const qaParams=new URLSearchParams(location.search);
+ let qaStepping=qaParams.get('qa')==='1'&&!qaParams.has('bkArena')&&qaParams.get('manualFrames')==='1';let accumulator=0;let numSeed=miniConfig?.mode==='arena'?(Number(new URLSearchParams(location.search).get('seed'))>>>0)||175:175;const rand=()=>{numSeed=(Math.imul(numSeed,1664525)+1013904223)>>>0;return numSeed/4294967296};
  let pendingThrow=null,liveUnit=null,conversionDrive=null;
  let previousPresentation=null,previousPresentationPhase=null,previousPresentationTime=0,lastPresentationTime=0,previousExchange=null,previousFlight=null,presentationSource=null,presentationActors=[];
  // Stable fictional identities for this isolated practice roster.
@@ -1159,7 +1161,12 @@ function coverage(dt){
    showFullState();
   }
  });
- setup();camera(1);scene(.016,0);$('loading').hidden=true;raf=requestAnimationFrame(loop);
+ // Arena opens directly into a live return, so loading time cannot consume it.
+ // The athlete loader settles on error too, retaining the existing fallback rig.
+ if(miniConfig?.mode==='arena')await meshy.loadPromise;
+ last=performance.now();accumulator=0;
+ // Each arena iframe is one drive: receive the opening kick before choosing offense.
+ if(mini?.kickoff)showFullState();else{setup();camera(1);}scene(.016,0);$('loading').hidden=true;raf=requestAnimationFrame(loop);
  // Test controls exist only on an explicitly requested QA URL. This isolated
  // practice renderer never reads or writes career saves or result payloads.
  if(new URLSearchParams(location.search).has('qa')&&!new URLSearchParams(location.search).has('bkArena')){window.bk3dTest={unitAction(action){liveUnit?.action(action)},unitSwitch(){liveUnit?.switchPlayer()},touchdown(){if(phase!=='run')return false;const delta=110-carrier.z;for(const p of actors)p.z+=delta;camEye[2]+=delta;camTarget[2]+=delta;carrier.z=110;endPlay('TOUCHDOWN',100);return true},throwTo,seed(value){numSeed=Number(value)||1},manualFrames(){qaStepping=true;accumulator=0;cancelAnimationFrame(raf)},resumeFrames(){if(!qaStepping)return;qaStepping=false;accumulator=0;last=performance.now();lastDraw=NaN;raf=requestAnimationFrame(loop)},step(seconds){const n=Math.ceil(clamp(seconds,0,10)*60);for(let i=0;i<n;i++){if(replaying)advanceReplay(1/60);else if(!paused||activeContact)simulate(1/60);if(i<n-1)camera(1/60)}present(1/60,1);updateSkillButtons()},setSnapNumber(value){if(phase!=='pre')return false;drive.plays=Math.max(0,Math.trunc(Number(value)||0));setup(playbookOpen);camera(1);scene(.016,simTime*1000);return true},forceContact,flipPlay,motionReceiver,identifyMike,watchReplay};window.bk3dDiagnostics=()=>{const qb=actors[5],nearest=Math.min(...actors.filter(p=>p.team===1&&!p.engaged&&!p.fallen&&(p.role==='DL'||defensiveCall.blitzers.includes(p.index))).map(p=>Math.hypot(p.x-qb.x,p.z-qb.z)),8);return({unit:liveUnit?.state?{...liveUnit.state}:null,mini:mini?{...mini,level:miniConfig.level.id}:null,phase,mode,selected,assist,playbook:{open:playbookOpen,filter:bookFilter,formation:bookFormation,choice:{...bookChoice}},formation:currentPlay().formation,playId:currentPlay().id,optionChoice,throwing:pendingThrow?{releaseAt:pendingThrow.releaseAt}:null,camera:{eye:[...r.eye],target:[...r.target]},exchange:exchange?{kind:exchange.kind,ball:[...exchange.ball]}:null,transitionFade,elapsed,simTime,presentationTime:lastPresentationTime,paused,ended,lastSkill,lastTackler,catchStyle,preSnap:{runDirection,mikeIndex,motioned,moving:Boolean(receiverMotion),panel:prePanel,playArt:playArtVisible},replay:{available:lastHighlight.length,replaying},defense:{index:defensiveCallIndex,id:defensiveCall.id,name:defensiveCall.name,coverage:defensiveCall.coverage,blitzers:[...defensiveCall.blitzers]},contact:activeContact?{type:activeContact.type,elapsed:activeContact.elapsed,duration:activeContact.duration,tackler:activeContact.tackler,helper:activeContact.helper}:null,effects:{turf:turfFx.length,contact:Boolean(contactFx)},throwKind:flight?.kind||null,protectionAge:simTime-(qb.protectionStartedAt??simTime),pocketPressure:phase==='pass'?pocketThreat(qb,actors.filter(p=>p.team===1),elapsed):0,frames:frameId,drawCalls:r.drawCalls,glError:r.gl.getError(),athletes:meshy.diagnostics(),players:actors.map(p=>({role:p.role,lastName:p.lastName,number:p.number,playerId:p.playerId,teamAbbr:p.teamAbbr,overall:p.overall,kitJersey:p.kitJersey,team:p.team,ratings:p.ratings,x:p.x,z:p.z,startX:p.startX,startZ:p.startZ,vx:p.vx,vz:p.vz,distance:p.distance,heading:p.heading,hasBall:p.hasBall,engaged:p.engaged,engagedWith:p.engagedWith,blockStyle:p.blockStyle,blockResult:p.blockResult,routeStyle:p.routeStyle,coverageStyle:p.coverageStyle,fallen:p.fallen,action:p.action,actionT:p.actionT,actionSide:p.actionSide,fallHeading:p.fallHeading,contactWith:p.contactWith,contactRole:p.contactRole,contactVariant:p.contactVariant,ballTarget:p.ballTarget,lookTarget:p.lookTarget,receiving:p.receiving,catchStyle:p.catchStyle,throwT:p.throwT,throwStyle:p.throwStyle,topSpeed:playerTopSpeed(p),pose:p.motion?{speed:p.motion.speed,run:p.motion.run,ready:p.motion.ready,block:p.motion.block,turn:p.motion.turn,gait:p.motion.gait,fall:p.motion.fall}:null,head:r.project([p.x,2.1,p.z]),foot:r.project([p.x,0,p.z])})),drive:{...drive},field:{scrimmage:snapZ,lineToGain:snapGainZ},stamina,worldObjects:stadium.parts})};}

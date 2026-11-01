@@ -49,9 +49,13 @@ try{
     await page.getByRole('button',{name:'Close sign in',exact:true}).click();
     await arena.getByRole('button',{name:'Football H2H',exact:true}).click();
     await arena.getByRole('heading',{name:/YOUR OFFENSE/}).waitFor();
-    await arena.getByRole('button',{name:'Play now',exact:true}).click();
-    await arena.getByRole('button',{name:'Play drive 1 of 3',exact:true}).waitFor();
-    assert.equal(await page.getByRole('dialog').count(),0,'Guest football must start without login');
+    await arena.getByRole('button',{name:'Pick your team',exact:true}).click();
+    const selection=page.getByRole('dialog');
+    await selection.getByRole('heading',{name:'Pick your team.'}).waitFor();
+    assert.equal(await selection.locator('.bk-h2h-select-stars article').count(),3,'Team selection shows the top three players');
+    assert.equal(await page.locator('.bk-auth-console').count(),0,'Guest football opens team selection without authentication');
+    await selection.getByRole('button',{name:'‹ Back',exact:true}).click();
+    assert.equal(await page.getByRole('dialog').count(),0,'Leaving selection returns to Community');
     assert.deepEqual(calls.filter(name=>privateCommunity.has(name)),[],'Guest football must not call private Community RPCs');
     await arena.getByRole('button',{name:'Keep records',exact:true}).click();
     await page.locator('.bk-auth-console').waitFor();

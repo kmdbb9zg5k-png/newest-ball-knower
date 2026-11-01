@@ -24,8 +24,13 @@ try {
   await page.getByRole('heading',{name:'Online Head-to-Head',exact:true}).waitFor();
   assert.equal(await page.getByRole('dialog').count(),0,'Game Modes closes before opening the shared lobby');
   assert(await page.getByRole('region',{name:'Football H2H',exact:true}).isVisible());
-  await page.getByRole('button',{name:'Play now',exact:true}).click();await page.getByRole('button',{name:'Play drive 1 of 3',exact:true}).waitFor();
-  assert.equal(await page.getByRole('dialog').count(),0,'Guest football starts without login');
+  await page.getByRole('button',{name:'Pick your team',exact:true}).click();
+  await page.getByRole('dialog').getByRole('heading',{name:'Pick your team.'}).waitFor();
+  assert.equal(await page.locator('.bk-h2h-select-stars article').count(),3);
+  assert.equal(await page.locator('.bk-auth-console').count(),0,'Guest football opens its own team selection');
+  assert(await page.getByRole('dialog').evaluate(el=>el.scrollWidth<=el.clientWidth),'Team selector fits the screen');
+  await page.screenshot({path:`artifacts/mini-mode-tabs/h2h-teams-${width}.png`});
+  await page.getByRole('dialog').getByRole('button',{name:'‹ Back',exact:true}).click();
   await page.getByRole('button',{name:'Keep records',exact:true}).click();await page.locator('.bk-auth-console').waitFor();await page.getByRole('button',{name:'Close sign in',exact:true}).click();
   await page.evaluate(()=>window.scrollTo({top:0,behavior:"instant"}));
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),"Online lobby fits the screen");
@@ -39,8 +44,10 @@ try {
   await navigate('Community');await page.getByRole('button',{name:'Football H2H',exact:true}).click();
   await page.getByRole('region',{name:'Football H2H',exact:true}).waitFor();await page.getByRole('button',{name:'Match history',exact:true}).click();await page.getByRole('button',{name:'Standings',exact:true}).click();
   assert(await page.getByRole('button',{name:'Keep records',exact:true}).isVisible(),'Community preserves account-only saved records');
-  await page.getByRole('button',{name:'Play football',exact:true}).click();await page.getByRole('button',{name:'Play now',exact:true}).click();await page.getByRole('button',{name:'Play drive 1 of 3',exact:true}).waitFor();
-  assert.equal(await page.getByRole('dialog').count(),0,'Community uses the same no-login football lobby');
+  await page.getByRole('button',{name:'Play football',exact:true}).click();await page.getByRole('button',{name:'Pick your team',exact:true}).click();
+  await page.getByRole('dialog').getByRole('heading',{name:'Pick your team.'}).waitFor();
+  assert.equal(await page.locator('.bk-auth-console').count(),0,'Community opens the shared team selection');
+  await page.getByRole('dialog').getByRole('button',{name:'‹ Back',exact:true}).click();
   await navigate('Home');await page.getByRole('button',{name:'Explore Mini Games'}).click();
   await menu.getByRole('button',{name:/Combine Drills/}).click();assert.equal(await menu.getByRole('link',{name:'Start Game'}).count(),0);
   await menu.getByRole('button',{name:'Back to game modes'}).click();
