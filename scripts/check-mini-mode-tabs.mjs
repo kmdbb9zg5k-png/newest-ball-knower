@@ -24,9 +24,9 @@ try {
   await page.getByRole('heading',{name:'Online Head-to-Head',exact:true}).waitFor();
   assert.equal(await page.getByRole('dialog').count(),0,'Game Modes closes before opening the shared lobby');
   assert(await page.getByRole('region',{name:'Football H2H',exact:true}).isVisible());
-  await page.getByRole('button',{name:'Play now — no login',exact:true}).click();await page.getByRole('button',{name:'Play drive 1 of 3',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Play now',exact:true}).click();await page.getByRole('button',{name:'Play drive 1 of 3',exact:true}).waitFor();
   assert.equal(await page.getByRole('dialog').count(),0,'Guest football starts without login');
-  await page.getByRole('button',{name:'Sign in to keep records',exact:true}).click();await page.locator('.bk-auth-console').waitFor();await page.getByRole('button',{name:'Close sign in',exact:true}).click();
+  await page.getByRole('button',{name:'Keep records',exact:true}).click();await page.locator('.bk-auth-console').waitFor();await page.getByRole('button',{name:'Close sign in',exact:true}).click();
   await page.evaluate(()=>window.scrollTo({top:0,behavior:"instant"}));
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),"Online lobby fits the screen");
   const back=await page.getByRole("button",{name:"Back to Game Modes",exact:false}).boundingBox();
@@ -38,8 +38,8 @@ try {
   const navigate=async name=>{for(const button of await page.getByRole('button',{name,exact:true}).all())if(await button.isVisible()){await button.click();return;}throw Error('Missing navigation '+name);};
   await navigate('Community');await page.getByRole('button',{name:'Football H2H',exact:true}).click();
   await page.getByRole('region',{name:'Football H2H',exact:true}).waitFor();await page.getByRole('button',{name:'Match history',exact:true}).click();await page.getByRole('button',{name:'Standings',exact:true}).click();
-  assert(await page.getByRole('button',{name:'Sign in to keep records',exact:true}).isVisible(),'Community preserves account-only saved records');
-  await page.getByRole('button',{name:'Play football',exact:true}).click();await page.getByRole('button',{name:'Play now — no login',exact:true}).click();await page.getByRole('button',{name:'Play drive 1 of 3',exact:true}).waitFor();
+  assert(await page.getByRole('button',{name:'Keep records',exact:true}).isVisible(),'Community preserves account-only saved records');
+  await page.getByRole('button',{name:'Play football',exact:true}).click();await page.getByRole('button',{name:'Play now',exact:true}).click();await page.getByRole('button',{name:'Play drive 1 of 3',exact:true}).waitFor();
   assert.equal(await page.getByRole('dialog').count(),0,'Community uses the same no-login football lobby');
   await navigate('Home');await page.getByRole('button',{name:'Explore Mini Games'}).click();
   await menu.getByRole('button',{name:/Combine Drills/}).click();assert.equal(await menu.getByRole('link',{name:'Start Game'}).count(),0);
