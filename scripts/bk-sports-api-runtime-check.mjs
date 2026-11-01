@@ -17,17 +17,19 @@ try {
       await writeFile(join(temp, folder, file.replace(/\.ts$/, '.js')), compiled.outputText);
     }
   }
+  const legacy = await readFile('api/nfl-news.ts', 'utf8');
+  await writeFile(join(temp, 'api/nfl-news.js'), ts.transpileModule(legacy, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText);
   const check = `
     import assert from 'node:assert/strict';
     globalThis.fetch = async () => { throw new Error('unexpected upstream call'); };
-    for (const kind of ['games','players','injuries','news']) {
-      const {default:handler} = await import('./api/bk/v1/' + kind + '.js');
+    for (const path of ['games','players','injuries','news'].map(kind=>'./api/bk/v1/'+kind+'.js').concat('./api/nfl-news.js')) {
+      const {default:handler} = await import(path);
       let status, body; const headers = {};
       const res = {setHeader(k,v){headers[k.toLowerCase()]=v;},status(s){status=s;return this;},json(b){body=b;}};
       await handler({method:'POST'},res);
       assert.equal(status,405); assert.equal(headers.allow,'GET'); assert.equal(body.error,'method_not_allowed');
     }
-    console.log('Compiled Node ESM: all four API handlers load and reject mutations.');
+    console.log('Compiled Node ESM: all five API handlers load and reject mutations.');
   `;
   await writeFile(join(temp, 'check.mjs'), check);
   const result = spawnSync(process.execPath, ['check.mjs'], { cwd: temp, encoding: 'utf8', timeout: 15000 });

@@ -3,9 +3,18 @@ on:
   pull_request:
     paths:
       - 'api/bk/**'
+      - 'api/nfl-news.ts'
+      - 'api/ask-bk.ts'
       - 'server/bk/**'
       - 'scripts/bk-*'
+      - 'scripts/currents-news-check.ts'
+      - 'scripts/news-provider-contract-check.ts'
+      - 'scripts/nfl-news-release-check.ts'
+      - 'scripts/ask-bk-check.ts'
+      - 'scripts/release-backend-preflight.mjs'
       - 'NewsHub.tsx'
+      - 'HomeNewsTicker.tsx'
+      - 'AskBkPrivacy.tsx'
       - 'sportsApiClient.ts'
       - 'supabase/migrations/*sports_api_snapshots*'
       - '.github/workflows/bk-free-sports-api.yml'
@@ -31,6 +40,9 @@ jobs:
       - run: node --import tsx scripts/bk-sports-api-security-check.ts
       - run: node scripts/bk-sports-api-runtime-check.mjs
       - run: node --import tsx scripts/bk-news-client-check.ts
+      - run: node --import tsx scripts/nfl-news-release-check.ts
+      - run: node --import tsx scripts/ask-bk-check.ts
+      - run: node scripts/release-backend-preflight.mjs --self-test
       - run: node --import tsx scripts/bk-sports-snapshot-check.ts
       - name: Verify snapshot permissions and refresh ordering in isolated PostgreSQL
         run: |

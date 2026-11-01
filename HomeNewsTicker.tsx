@@ -1,11 +1,12 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {ChevronRight,ChevronDown,Pause,Play} from 'lucide-react';
+import {newsProviderLabel} from './sportsApiClient';
 
 const INTERVAL=120_000;
 const ROTATION=10_000;
 const HIDDEN_KEY='bk-home-headlines-hidden-v1';
 type Story={id:string;headline:string;url:string};
-let cache:{at:number;stories:Story[]}|null=null;
+let cache:{at:number;stories:Story[];provider:string}|null=null;
 const readHidden=()=>{try{return localStorage.getItem(HIDDEN_KEY)==='yes'}catch{return false}};
 export function validTickerStories(payload:any):Story[]{
   if(payload?.available!==true||!Array.isArray(payload.articles))return[];
@@ -22,6 +23,7 @@ export function validTickerStories(payload:any):Story[]{
 export function HomeNewsTicker({onOpenNews}:{onOpenNews:()=>void}){
   const [hidden,setHidden]=useState(readHidden);
   const [stories,setStories]=useState<Story[]>(()=>cache&&Date.now()-cache.at<INTERVAL?cache.stories:[]);
+  const [provider,setProvider]=useState(()=>cache&&Date.now()-cache.at<INTERVAL?cache.provider:'News provider');
   const [selected,setSelected]=useState('');
   const [loading,setLoading]=useState(true);
   const [paused,setPaused]=useState(false);
@@ -45,16 +47,18 @@ export function HomeNewsTicker({onOpenNews}:{onOpenNews:()=>void}){
     const load=async()=>{
       if(document.hidden||hidden||!alive)return;
       const id=++requestId;
-      if(cache&&Date.now()-cache.at<INTERVAL){setStories(cache.stories);setLoading(false);timer=setTimeout(load,Math.max(500,INTERVAL-(Date.now()-cache.at)));return}
+      if(cache&&Date.now()-cache.at<INTERVAL){setStories(cache.stories);setProvider(cache.provider);setLoading(false);timer=setTimeout(load,Math.max(500,INTERVAL-(Date.now()-cache.at)));return}
       controller=new AbortController();const own=controller;
       const timeout=setTimeout(()=>own.abort(),10_000);
       try{
         const response=await fetch('/api/nfl-news',{cache:'no-store',signal:own.signal});
         if(!response.ok)throw Error('Unavailable');
-        const next=validTickerStories(await response.json());
+        const payload=await response.json();
+        const next=validTickerStories(payload);
         if(!next.length)throw Error('No stories');
         if(!alive||id!==requestId||document.hidden)return;
-        cache={at:Date.now(),stories:next};setStories(next);
+        const nextProvider=newsProviderLabel(payload.provider);
+        cache={at:Date.now(),stories:next,provider:nextProvider};setStories(next);setProvider(nextProvider);
         setSelected(previous=>next.some(item=>item.id===previous)?previous:next[0].id);
       }catch{
         if(alive&&id===requestId&&!document.hidden){cache=null;setStories([])}
@@ -85,10 +89,10 @@ export function HomeNewsTicker({onOpenNews}:{onOpenNews:()=>void}){
   const toggleHidden=()=>setHidden(value=>{try{localStorage.setItem(HIDDEN_KEY,value?'no':'yes')}catch{}return!value});
   return <div className="bk-home-news-strip" role="region" aria-label="NFL headlines" onMouseEnter={()=>setHovered(true)} onMouseLeave={()=>setHovered(false)} onFocusCapture={event=>{if(!(event.target as HTMLElement).closest('[data-rotation-control]'))setPaused(true)}}>
     <button type="button" className="bk-home-news-label" onClick={onOpenNews} aria-label="Open NFL News">NFL NEWS <ChevronRight size={10}/></button>
-    {hidden?<span className="bk-home-news-empty">Headlines hidden</span>:<div className="bk-home-news-story" aria-live="off" data-rotating={rotating?'true':'false'}
+    {hidden?<span className="bk-home-news-empty">Headlines hidden</span>:<div className="bk-home-news-story" aria-live="off" data-rotating={rotating?'true':'false'} style={story&&provider==='Currents'?{flexDirection:'column',justifyContent:'center',alignItems:'stretch'}:undefined}
       onTouchStart={event=>{touch.current={x:event.touches[0].clientX,y:event.touches[0].clientY};dragged.current=false}}
       onTouchEnd={event=>{if(!touch.current)return;const dx=event.changedTouches[0].clientX-touch.current.x;const dy=event.changedTouches[0].clientY-touch.current.y;if(Math.abs(dx)>40&&Math.abs(dx)>Math.abs(dy)){dragged.current=true;step(dx<0?1:-1)}touch.current=null}}>
-      {story?<a key={story.id} href={story.url} target="_blank" rel="noopener noreferrer" title={story.headline} onClick={event=>{if(dragged.current){event.preventDefault();dragged.current=false}}}>{story.headline}</a>:<button type="button" onClick={onOpenNews}>{loading?'Loading headlines…':'News unavailable · Open feed'}</button>}
+      {story?<><a key={story.id} href={story.url} target="_blank" rel="noopener noreferrer" title={story.headline} style={provider==='Currents'?{lineHeight:'18px'}:undefined} onClick={event=>{if(dragged.current){event.preventDefault();dragged.current=false}}}>{story.headline}</a>{provider==='Currents'&&<a href="https://currentsapi.services/" target="_blank" rel="noopener noreferrer" style={{fontSize:'10px',lineHeight:'12px',whiteSpace:'normal',color:'#b9aa83',textDecoration:'underline',animation:'none'}}>Powered by Currents News API</a>}</>:<button type="button" onClick={onOpenNews}>{loading?'Loading headlines…':'News unavailable · Open feed'}</button>}
     </div>}
     {!hidden&&stories.length>1&&<><button type="button" data-rotation-control className="bk-home-news-control" onClick={()=>setPaused(value=>!value)} disabled={reduced} aria-label={reduced?'Automatic headlines off: Reduce Motion':paused?'Resume headline rotation':'Pause headline rotation'}>{paused||reduced?<Play size={12}/>:<Pause size={12}/>}</button><button type="button" className="bk-home-news-control bk-home-news-next" onClick={()=>step(1)} aria-label="Next headline"><ChevronRight size={14}/></button></>}
     <button type="button" className="bk-home-news-control" aria-expanded={!hidden} onClick={toggleHidden} aria-label={hidden?'Show headlines':'Hide headlines'}><ChevronDown size={13} style={{transform:hidden?'rotate(-90deg)':undefined}}/></button>

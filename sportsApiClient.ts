@@ -1,6 +1,8 @@
 /** Optional read-only news migration. Never changes fantasy/player identities. */
 export type NewsItem={id:string;headline:string;source:string;published:string|null;url:string;license?:string;licenseUrl?:string;attribution?:string};
 export type NewsFeed={articles:NewsItem[];provider:string;fetchedAt:string|null;stale:boolean;fallback:boolean};
+/** Only an explicitly reported, known source gets provider branding. */
+export const newsProviderLabel=(value:unknown)=>value==='Currents'||value==='Currents News API'?'Currents':'News provider';
 const text=(value:unknown,max:number)=>typeof value==='string'?value.trim().slice(0,max):'';
 const date=(value:unknown)=>typeof value==='string'&&Number.isFinite(Date.parse(value))?new Date(value).toISOString():null;
 const link=(value:unknown)=>{try{const url=new URL(String(value));return ['http:','https:'].includes(url.protocol)&&!url.username&&!url.password?url.href:''}catch{return''}};
@@ -21,7 +23,7 @@ export function parseNewsFeed(data:any,versioned:boolean,now=Date.now()):NewsFee
   const fetchedAt=date(versioned?(data.fetchedAt??data.updatedAt):data.fetchedAt);
   const fetchedMs=fetchedAt?Date.parse(fetchedAt):NaN;
   if(versioned&&(!Number.isFinite(fetchedMs)||fetchedMs>now+60_000||now-fetchedMs>15*60_000||data.stale===true))throw new Error('news_stale');
-  return{articles,provider:versioned?'Ball Knower Sports API':'Tank01',fetchedAt,
+  return{articles,provider:newsProviderLabel(data.provider),fetchedAt,
     stale:data.stale===true||(Number.isFinite(fetchedMs)&&now-fetchedMs>15*60_000),fallback:false};
 }
 

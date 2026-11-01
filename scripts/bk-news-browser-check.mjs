@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {spawn} from 'node:child_process';
 import {chromium} from 'playwright';
-const news={available:true,provider:'Tank01',fetchedAt:new Date().toISOString(),articles:[{id:'https://publisher.example/story',url:'https://publisher.example/story',headline:'Example headline used only in automated testing',source:'Test publisher',published:null,image:null,description:''}]};
+const news={available:true,provider:'Currents',fetchedAt:new Date().toISOString(),articles:[{id:'https://publisher.example/story',url:'https://publisher.example/story',headline:'Example headline used only in automated testing',source:'Test publisher',published:null,image:null,description:''}]};
 const base='http://127.0.0.1:4176';
 const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port','4176','--strictPort','--outDir','/tmp/bk-news-opt-in'],{stdio:'inherit'});
 let browser;
@@ -23,7 +23,7 @@ try{
     await page.route('**/api/**',async route=>{
       const path=new URL(route.request().url()).pathname;
       requested.push(path);
-      if(path==='/api/bk/v1/news'){const payload=v1State==='outage'?{available:false,items:[]}:{available:true,kind:'news',items:news.articles,updatedAt:new Date(Date.now()-(v1State==='stale'?16*60_000:0)).toISOString()};return route.fulfill({status:v1State==='outage'?503:200,contentType:'application/json',body:JSON.stringify(payload)});}
+      if(path==='/api/bk/v1/news'){const payload=v1State==='outage'?{available:false,items:[]}:{available:true,kind:'news',provider:v1State==='unknown'?'Unrecognized test provider':'Currents',items:news.articles,updatedAt:new Date(Date.now()-(v1State==='stale'?16*60_000:0)).toISOString()};return route.fulfill({status:v1State==='outage'?503:200,contentType:'application/json',body:JSON.stringify(payload)});}
       const payload=path==='/api/nfl-news'?(outage?{available:false,articles:[]}:news):path==='/api/media'?{tracks:[],introUrl:null}:{ok:true};
       await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(payload)});
     });
@@ -36,7 +36,7 @@ try{
     });
     await page.goto(base,{waitUntil:'domcontentloaded'});
     await page.locator('.bk-app-shell[data-tab="home"]').waitFor();
-    // Home's independent ticker intentionally remains on Tank01. Wait for its
+    // Home's independent ticker intentionally uses the compatibility endpoint. Wait for its
     // initial load, then measure only requests made by the NewsHub migration.
     await page.getByRole('region',{name:'NFL headlines',exact:true}).getByRole('link',{name:news.articles[0].headline,exact:true}).waitFor();
     const homeLegacyRequests=requested.filter(path=>path==='/api/nfl-news').length;
@@ -49,9 +49,12 @@ try{
     assert.equal(await page.locator('article img').count(),0);
     await page.screenshot({path:`artifacts/bk-news-review/news-opt-in-${width}.png`,fullPage:false});
     assert.ok(requested.includes('/api/bk/v1/news'),'opt-in build must request v1');
-    assert.equal(requested.filter(path=>path==='/api/nfl-news').length,homeLegacyRequests,'healthy NewsHub v1 must not add Tank01 requests');
-    await page.getByText('Headlines supplied by Ball Knower Sports API.',{exact:false}).waitFor();
-    for(const state of ['outage','stale']){v1State=state;await page.getByRole('button',{name:'Refresh',exact:true}).click();await page.getByText('Backup feed in use.',{exact:false}).waitFor();assert.equal(await page.locator('article').count(),news.articles.length);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),true);}
+    assert.equal(requested.filter(path=>path==='/api/nfl-news').length,homeLegacyRequests,'healthy NewsHub v1 must not add compatibility requests');
+    await page.locator('[data-page="news"]').getByRole('link',{name:'Powered by Currents News API',exact:true}).waitFor();
+    const providerLink=page.locator('[data-page="news"]').getByRole('link',{name:'Powered by Currents News API',exact:true});
+    assert.equal(await providerLink.getAttribute('href'),'https://currentsapi.services/');
+    v1State='unknown';await page.getByRole('button',{name:'Refresh',exact:true}).click();await page.locator('[data-page="news"]').getByText('Headlines supplied by News provider.',{exact:false}).waitFor();assert.equal(await providerLink.count(),0,'Unrecognized provider must not receive Currents branding');
+    for(const state of ['outage','stale']){v1State=state;const before=requested.filter(path=>path==='/api/nfl-news').length;const compatibilityResponse=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/nfl-news');await page.getByRole('button',{name:'Refresh',exact:true}).click();await compatibilityResponse;await providerLink.waitFor();assert.ok(requested.filter(path=>path==='/api/nfl-news').length>before,'Unavailable v1 recovers through the compatibility endpoint');assert.equal(await page.locator('article').count(),news.articles.length);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),true);}
     v1State='outage';outage=true;await page.getByRole('button',{name:'Refresh',exact:true}).click();
     await page.getByText('NFL news is temporarily unavailable. Use Refresh to try again.').waitFor();
     assert.equal(await page.locator('article').count(),0,'Outage must clear stale articles');
