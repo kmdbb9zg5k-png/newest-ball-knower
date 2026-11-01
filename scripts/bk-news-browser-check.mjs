@@ -36,6 +36,10 @@ try{
     });
     await page.goto(base,{waitUntil:'domcontentloaded'});
     await page.locator('.bk-app-shell[data-tab="home"]').waitFor();
+    // Home's independent ticker intentionally remains on Tank01. Wait for its
+    // initial load, then measure only requests made by the NewsHub migration.
+    await page.getByRole('region',{name:'NFL headlines',exact:true}).getByRole('link',{name:news.articles[0].headline,exact:true}).waitFor();
+    const homeLegacyRequests=requested.filter(path=>path==='/api/nfl-news').length;
     await page.getByRole('button',{name:'NFL News',exact:true}).click();
     await page.locator('article').first().waitFor();
     assert.equal(await page.locator('article').count(),news.articles.length);
@@ -45,7 +49,7 @@ try{
     assert.equal(await page.locator('article img').count(),0);
     await page.screenshot({path:`artifacts/bk-news-review/news-opt-in-${width}.png`,fullPage:false});
     assert.ok(requested.includes('/api/bk/v1/news'),'opt-in build must request v1');
-    assert.ok(!requested.includes('/api/nfl-news'),'healthy v1 must not consume Tank01');
+    assert.equal(requested.filter(path=>path==='/api/nfl-news').length,homeLegacyRequests,'healthy NewsHub v1 must not add Tank01 requests');
     await page.getByText('Headlines supplied by Ball Knower Sports API.',{exact:false}).waitFor();
     for(const state of ['outage','stale']){v1State=state;await page.getByRole('button',{name:'Refresh',exact:true}).click();await page.getByText('Backup feed in use.',{exact:false}).waitFor();assert.equal(await page.locator('article').count(),news.articles.length);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),true);}
     v1State='outage';outage=true;await page.getByRole('button',{name:'Refresh',exact:true}).click();
