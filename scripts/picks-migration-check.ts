@@ -67,4 +67,18 @@ const board=createSportsbookHandler({fetchGames:async()=>snapshot,now:()=>now});
 let output:any;const response={setHeader(){},status(){return response},json(value:any){output=value;return response}};
 await board({method:'GET',query:{gameRefs:JSON.stringify([{gameId:'unknown-old-id',awayTeam:game.away,homeTeam:game.home,kickoffAt:oldGame.kickoffAt}])}},response);
 assert.equal(output.games.length,1,'saved metadata retrieves history outside display window');assert.equal(output.games[0].id,game.id);assert.deepEqual(output.games[0].aliases,game.aliases);assert.equal(output.fetchedAt,fetchedAt,'warm handler must not label snapshot as freshly fetched');assert.equal(output.live,false);
+// Large history travels in a read-only POST body rather than an oversized URL.
+const history=Array.from({length:500},(_,i)=>({...oldGame,id:`history-${i}`,aliases:[]}));
+let historyFetches=0;
+const historyHandler=createSportsbookHandler({fetchGames:async()=>{historyFetches++;return Object.assign(history,{fetchedAt,source:'nflverse'})},now:()=>now});
+const historyRequest=async(method:string,body?:any,query?:any)=>{let status=0,payload:any;const headers:Record<string,string>={};const res={setHeader(key:string,value:string){headers[key]=value},status(value:number){status=value;return res},json(value:any){payload=value;return res}};await historyHandler({method,body,query},res);return{status,payload,headers};};
+const gameRefs=history.map(game=>({gameId:game.id,awayTeam:game.away,homeTeam:game.home,kickoffAt:game.kickoffAt}));
+let historyResponse=await historyRequest('POST',{gameIds:history.map(game=>game.id),gameRefs});
+assert.equal(historyResponse.status,200);assert.equal(historyResponse.payload.games.length,500);assert.equal(historyResponse.payload.games.at(-1).id,'history-499');
+assert.equal(historyResponse.headers['Cache-Control'],'private, no-store, max-age=0');assert.equal(historyResponse.payload.fetchedAt,fetchedAt);
+for(const body of [{gameIds:Array(501).fill('id')},{gameRefs:Array(501).fill({})},{gameIds:'invalid'},{gameRefs:'not json'},null,[]]){
+  const before=historyFetches;const result=await historyRequest('POST',body);assert.equal(result.status,400);assert.equal(historyFetches,before,'invalid history cannot trigger a provider fetch');assert.equal(result.headers['Cache-Control'],'private, no-store, max-age=0');
+}
+historyResponse=await historyRequest('DELETE');assert.equal(historyResponse.status,405);assert.equal(historyResponse.headers.Allow,'GET, POST');
+historyResponse=await historyRequest('GET',undefined,{gameIds:'history-0'});assert.equal(historyResponse.status,200);assert.equal(historyResponse.payload.games.length,1);assert.equal(historyResponse.headers['Cache-Control'],'public, s-maxage=60, max-age=0');
 console.log('Picks migration: saved IDs/lines/history, aliases, ambiguity, duplicate prevention, authentic writes, board history and snapshot age passed.');

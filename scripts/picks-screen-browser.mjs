@@ -9,10 +9,12 @@ const game={id:'2026_01_DAL_PHI',aliases:['espn-401fixture','legacy-saved-fixtur
 const fixture={available:true,linesAvailable:true,source:'nflverse',live:false,freshness:'periodic',fetchedAt:new Date(Date.now()-3600_000).toISOString(),games:[game,{...game,aliases:[],id:'picks-fixture-final',away:'Baltimore Ravens',awayAbbr:'BAL',home:'Buffalo Bills',homeAbbr:'BUF',status:'Final',awayScore:20,homeScore:24},{...game,aliases:[],id:'picks-fixture-live',away:'New York Giants',awayAbbr:'NYG',home:'New York Jets',homeAbbr:'NYJ',status:'Live',date:new Date(Date.now()-3600_000).toISOString()},{...game,aliases:[],id:'picks-fixture-week2',week:2,scheduleDate:new Date(Date.now()+8*86400_000).toISOString().slice(0,10),date:null}]};
 const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port','4184','--strictPort'],{stdio:'inherit'});
 const results=[];let browser;
-async function contextFor(engine,width,{hungSync=false,legacyPick=false}={}){
+async function contextFor(engine,width,{hungSync=false,legacyPick=false,historyCount=0}={}){
   const context=await engine.newContext({viewport:{width,height:844},deviceScaleFactor:1,isMobile:width<768,hasTouch:width<768});
   const page=await context.newPage();const crashes=[];page.on('pageerror',error=>crashes.push(error.message));
   let boardMode='ok',saved=legacyPick?[{id:'original-pick-id',gameId:'legacy-saved-fixture',label:'Philadelphia Eagles -2.5',market:'spread',selection:'Philadelphia Eagles',lockedLine:-2.5,lockedAt:'2026-01-01T00:00:00Z',kickoffAt:future,awayTeam:game.away,homeTeam:game.home}]:[],saves=0,deletes=0;
+  if(historyCount)saved=Array.from({length:historyCount},(_,i)=>({id:`old-pick-${i}`,gameId:`legacy-game-${i}`,label:'Arizona Cardinals +2.5',market:'spread',selection:'Arizona Cardinals',lockedLine:2.5,lockedAt:'2026-01-01T00:00:00Z',kickoffAt:new Date(Date.UTC(2026,0,1+i,18)).toISOString(),awayTeam:'Arizona Cardinals',homeTeam:'Buffalo Bills'}));
+  const boardRequests=[];
   await page.route('**/*.supabase.co/**',route=>route.fulfill({status:403,contentType:'application/json',body:'{"message":"Isolated browser test. No account access."}'}));
   await page.route('**/_vercel/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:''}));
   await page.route('https://a.espncdn.com/**',route=>route.fulfill({status:200,contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64')}));
@@ -20,6 +22,7 @@ async function contextFor(engine,width,{hungSync=false,legacyPick=false}={}){
     const path=new URL(route.request().url()).pathname;
     let data={ok:true};let status=200;
     if(path==='/api/nfl-sportsbook'){
+      boardRequests.push({url:route.request().url(),method:route.request().method(),body:route.request().method()==='POST'?route.request().postDataJSON():null});
       if(boardMode==='hang')return;
       if(boardMode==='failure'){status=503;data={available:false,games:[]}}
       else if(boardMode==='empty')data={available:true,linesAvailable:false,games:[]};
@@ -36,15 +39,16 @@ async function contextFor(engine,width,{hungSync=false,legacyPick=false}={}){
     else if(path==='/api/media')data={tracks:[],introUrl:null};
     await route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
   });
-  await page.addInitScript(()=>{
+  await page.addInitScript(initialSaved=>{
+    localStorage.setItem('ball-knower-weekly-picks-v3',JSON.stringify(initialSaved));
     localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','1');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off');localStorage.setItem('bk-guide-picks-v3','seen');
     const user={id:'00000000-0000-4000-8000-000000000001',aud:'authenticated',role:'authenticated',is_anonymous:true,app_metadata:{provider:'anonymous'},user_metadata:{},created_at:'2026-01-01T00:00:00Z'};
     localStorage.setItem('sb-gpnboygoosrmeydwjpvk-auth-token',JSON.stringify({access_token:'isolated-browser-fixture',refresh_token:'isolated-refresh-fixture',token_type:'bearer',expires_at:Math.floor(Date.now()/1000)+86400,expires_in:86400,user}));
-  });
+  },saved);
   await page.goto(base,{waitUntil:'domcontentloaded'});await page.locator('.bk-home-stadium').waitFor();
   for(const button of await page.getByRole('button',{name:'Picks',exact:true}).all())if(await button.isVisible()){await button.click();break}
   await page.locator('.bk-picks-game').first().waitFor({timeout:5000});
-  return {context,page,crashes,setMode:mode=>{boardMode=mode},saved:()=>saved,saves:()=>saves,deletes:()=>deletes};
+  return {context,page,crashes,boardRequests,setMode:mode=>{boardMode=mode},saved:()=>saved,saves:()=>saves,deletes:()=>deletes};
 }
 try{
   let ready=false;for(let i=0;i<100;i++){try{if((await fetch(base)).ok){ready=true;break}}catch{}await new Promise(resolve=>setTimeout(resolve,200))}assert.ok(ready);
@@ -87,6 +91,7 @@ try{
       const pick=first.getByRole('button',{name:'Philadelphia Eagles -3.5',exact:true});
       await pick.evaluate(button=>{button.click();button.click()});
       await page.waitForFunction(()=>document.querySelector('.bk-picks-summary-heading')?.textContent.includes('1 selected')&&document.querySelector('.bk-picks-summary-heading')?.textContent.includes('1 unsent'));
+      assert.equal(c.boardRequests[0].method,'GET','default board keeps its GET request');
       assert.equal(c.saves(),0,'selecting a pick must not write to the server before Submit Picks');
       const submit=page.getByRole('button',{name:'Submit Picks (1)',exact:true});
       assert.ok(await submit.isEnabled(),'a staged pick must enable Submit Picks');
@@ -115,6 +120,13 @@ try{
       assert.deepEqual(c.crashes,[]);results.push({engine:name,width,geometry,explicitSubmit:true,filters:true,outageRecovery:true,validEmpty:true,reducedMotion:true});await c.context.close();
     }
     if(name==='chromium'){
+      const history=await contextFor(browser,390,{historyCount:111});
+      assert.equal(history.boardRequests[0].method,'POST','large saved history uses a read-only POST request');
+      assert.equal(new URL(history.boardRequests[0].url).search,'','large saved history cannot overflow the URL');
+      assert.equal(history.boardRequests[0].body.gameIds.length,111);assert.equal(history.boardRequests[0].body.gameRefs.length,111);
+      assert.equal(history.boardRequests[0].body.gameRefs.at(-1).gameId,'legacy-game-110');
+      assert.equal(history.saves(),0);assert.equal(history.deletes(),0);assert.equal(history.saved().length,111);assert.deepEqual(history.crashes,[]);
+      results.push({largeSavedHistoryReadOnlyPost:true,savedRecords:111});await history.context.close();
       for(const width of [320,390]){
         const legacy=await contextFor(browser,width,{legacyPick:true});const {page}=legacy;
         await page.waitForFunction(()=>document.querySelector('.bk-picks-summary-heading')?.textContent.includes('1 submitted'));

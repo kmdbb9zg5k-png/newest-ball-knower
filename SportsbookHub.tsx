@@ -74,8 +74,9 @@ export const SportsbookHub:React.FC=()=>{
       const ungradedIds=[...new Set(picksRef.current.filter(pick=>!pick.result).map(pick=>pick.gameId))];
       const references=picksRef.current.filter(pick=>!pick.result&&pick.awayTeam&&pick.homeTeam&&pick.kickoffAt).map(({gameId,awayTeam,homeTeam,kickoffAt})=>({gameId,awayTeam,homeTeam,kickoffAt}));
       const params=ungradedIds.length?`?gameIds=${encodeURIComponent(ungradedIds.join(','))}${references.length?`&gameRefs=${encodeURIComponent(JSON.stringify(references))}`:''}`:'';
+      const largeHistory=params.length>6000;
       const data=await withPicksDeadline(async signal=>{
-        const response=await fetch(`/api/nfl-sportsbook${params}`,{cache:'no-store',signal});
+        const response=await fetch(`/api/nfl-sportsbook${largeHistory?'':params}`,{cache:'no-store',signal,...(largeHistory?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gameIds:ungradedIds,gameRefs:references})}:{})});
         if(!response.ok)throw new Error('feed');
         return response.json();
       },20_000,controller.signal);

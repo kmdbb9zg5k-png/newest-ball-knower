@@ -8,17 +8,26 @@ const sendUnavailable=(res:any)=>{
 
 export function createSportsbookHandler({fetchGames=fetchCanonicalPredictionGames,now:clock=Date.now}:{fetchGames?:()=>Promise<any[]>;now?:()=>number}={}){
 return async function handler(req:any,res:any){
-  if(req.method&&req.method!=='GET'){res.setHeader('Allow','GET');return res.status(405).json({error:'Method not allowed'});}
+  const method=req.method||'GET';
+  // POST only transports a large saved-history lookup. It never writes picks.
+  res.setHeader('Cache-Control','private, no-store, max-age=0');
+  if(!['GET','POST'].includes(method)){res.setHeader('Allow','GET, POST');return res.status(405).json({error:'Method not allowed'});}
+  let requestedIds:Set<string>;let references:any[]=[];
+  try{
+    let input:any=method==='POST'?req.body:req.query||{};
+    if(typeof input==='string'){if(input.length>256_000)throw Error('size');input=JSON.parse(input);}
+    if(!input||typeof input!=='object'||Array.isArray(input)||JSON.stringify(input).length>256_000)throw Error('shape');
+    const ids=method==='POST'?(input.gameIds??[]):String(input.gameIds||'').split(',').filter(Boolean);
+    if(!Array.isArray(ids)||ids.length>500||ids.some(value=>typeof value!=='string'||value.length>120))throw Error('ids');
+    requestedIds=new Set(ids.map((value:string)=>value.trim()).filter(Boolean));
+    let parsed=input.gameRefs??[];
+    if(typeof parsed==='string')parsed=JSON.parse(parsed);
+    if(!Array.isArray(parsed)||parsed.length>500||parsed.some(value=>!value||typeof value!=='object'||Array.isArray(value)))throw Error('refs');
+    references=parsed.map(value=>({gameId:String(value.gameId||'').slice(0,120),awayTeam:String(value.awayTeam||'').slice(0,120),homeTeam:String(value.homeTeam||'').slice(0,120),kickoffAt:String(value.kickoffAt||'').slice(0,80)}));
+  }catch{return res.status(400).json({error:'Invalid saved matchups'});}
   try{
     const rows:any=await fetchGames();
     const now=clock();
-    const requestedIds=new Set(String(req?.query?.gameIds||'').split(',').map((value:string)=>value.trim()).filter(Boolean));
-    let references:any[]=[];
-    if(req?.query?.gameRefs){
-      const raw=String(req.query.gameRefs);if(raw.length>64_000)return res.status(400).json({error:'Too many saved matchups'});
-      const parsed=JSON.parse(raw);if(!Array.isArray(parsed)||parsed.length>500)return res.status(400).json({error:'Invalid saved matchups'});
-      references=parsed.map(value=>({gameId:String(value?.gameId||'').slice(0,120),awayTeam:String(value?.awayTeam||'').slice(0,120),homeTeam:String(value?.homeTeam||'').slice(0,120),kickoffAt:String(value?.kickoffAt||'').slice(0,80)}));
-    }
     const resolve=createPredictionGameResolver(rows);
     const requestedCanonicalIds=new Set([...requestedIds].flatMap(gameId=>{const match=resolve({gameId});return match.game?[match.game.id]:[]}));
     for(const reference of references){const match=resolve(reference);if(match.game)requestedCanonicalIds.add(match.game.id);}
@@ -58,7 +67,7 @@ return async function handler(req:any,res:any){
     const linesAvailable=games.some((game:any)=>game.lineAvailable);
     // These are periodically published dataset lines, not live bookmaker prices.
     // Preserve the upstream snapshot timestamp even on a warm cache hit.
-    res.setHeader('Cache-Control','public, s-maxage=60, max-age=0');
+    if(method==='GET')res.setHeader('Cache-Control','public, s-maxage=60, max-age=0');
     return res.status(200).json({
       games,
       available:true,

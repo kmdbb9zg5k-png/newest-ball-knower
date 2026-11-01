@@ -12,7 +12,7 @@ Completion evidence: [publisher FINAL filter](https://github.com/nflverse/nflver
 
 Source documentation: [dataset definitions](https://github.com/nflverse/nfldata/blob/master/DATASETS.md), [update schedule](https://nflreadr.nflverse.com/articles/nflverse_data_schedule.html). Source retrieval and HTTP modification timestamps are retained across cache hits. The UI identifies **nflverse published lines**, with attribution; it does not claim live bookmaker prices.
 
-Saved game IDs, pick IDs, original kickoff locks and locked lines are preserved. Explicit provider aliases or a unique saved away/home/Eastern-date match attach historical picks to the new board. Ambiguous or conflicting matches cannot create replacements or grade results. Changing a still-unlocked selection uses the existing stored game ID. Server verification remains authoritative; client-supplied matchup metadata cannot redirect a save.
+Saved game IDs, pick IDs, original kickoff locks and locked lines are preserved. Explicit provider aliases or a unique saved away/home/Eastern-date match attach historical picks to the new board. Ambiguous or conflicting matches cannot create replacements or grade results. Changing a still-unlocked selection uses the existing stored game ID. Server verification remains authoritative; client-supplied matchup metadata cannot redirect a save. Large saved-history lookups use a bounded read-only POST body on `/api/nfl-sportsbook` instead of an oversized URL; POST responses are private and never cached. Saving and deleting picks remain separate authenticated actions.
 
 ## Fantasy schedule worker
 
