@@ -15,6 +15,28 @@ try{
   currentPage=page;currentWidth=width;currentCalls=calls;currentErrors=errors;
   page.on('console',message=>{if(message.type()==='error')consoleErrors.push({width,text:message.text()});});
   page.on('requestfailed',request=>networkFailures.push({width,url:request.url(),failure:request.failure()}));
+  // Passively observe the short kickoff presentation inside each newly loaded frame.
+  // Software rendering can finish a return while automation makes cross-process calls.
+  await page.addInitScript(()=>{
+    if(window===window.top)return;
+    const visible=element=>{
+      if(!element||!element.getClientRects().length)return false;
+      for(let node=element;node instanceof Element;node=node.parentElement){
+        const style=getComputedStyle(node);
+        if(node.hidden||style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse'||Number(style.opacity)===0)return false;
+      }
+      return true;
+    };
+    const observations=[];
+    Object.defineProperty(window,'bkObservedKickoffs',{value:observations});
+    const observe=()=>{
+      const status=document.querySelector('#unitStatus'),loading=document.querySelector('#loading');
+      if(observations.length||!status?.textContent?.includes('KICK RETURN')||visible(loading)||!visible(status))return;
+      observations.push({text:status.textContent,at:performance.now(),loadingVisible:false,statusVisible:true});
+    };
+    new MutationObserver(observe).observe(document,{subtree:true,childList:true,attributes:true,characterData:true});
+    document.addEventListener('DOMContentLoaded',observe);
+  });
   await page.route('**/*.supabase.co/**',r=>r.abort());
   await page.route('**/__arena-rpc',async route=>{
     const {action,args}=route.request().postDataJSON();calls.push({action,args});let result={};const m=matches.find(m=>m.id===args.id);
@@ -62,7 +84,8 @@ try{
       await frame.locator('#loading').waitFor({state:'hidden',timeout:120000});
       assert.equal(await frame.evaluate(()=>typeof window.bk3dTest),'undefined','Official frames have no QA game controls');
       assert.equal(await frame.locator('#restart').isVisible(),false,'No rematch button');
-      await frame.locator('#unitStatus').filter({hasText:'KICK RETURN'}).waitFor();
+      await frame.waitForFunction(()=>window.bkObservedKickoffs?.length>0,{},{timeout:30000});
+      assert.deepEqual(await frame.evaluate(()=>window.bkObservedKickoffs.map(({loadingVisible,statusVisible})=>({loadingVisible,statusVisible}))),[{loadingVisible:false,statusVisible:true}],'Every drive visibly presents its kickoff after loading');
       assert.equal(await frame.locator('#unitTouchback').isVisible(),false,'Opening kickoff cannot be skipped');
       await frame.locator('#breakHuddle').waitFor({state:'visible',timeout:45000});
       assert.match(await frame.locator('.club.away').getAttribute('aria-label'),/Brooklyn/);
@@ -153,7 +176,7 @@ try{
  if(currentPage&&!currentPage.isClosed()){
   await currentPage.screenshot({path:prefix+'.png',fullPage:true,timeout:10000}).catch(()=>{});
   const frames=await Promise.all(currentPage.frames().map(async frame=>{
-   try{return await frame.evaluate(()=>({url:location.href,title:document.title,text:document.body?.innerText,loading:document.querySelector('#loading')?.outerHTML,unitStatus:document.querySelector('#unitStatus')?.outerHTML,visibleButtons:[...document.querySelectorAll('button')].filter(button=>button.getBoundingClientRect().width&&button.getBoundingClientRect().height).map(button=>({id:button.id,text:button.innerText,disabled:button.disabled})),diagnostics:typeof window.bk3dDiagnostics==='function'?window.bk3dDiagnostics():null}));}
+   try{return await frame.evaluate(()=>({url:location.href,title:document.title,text:document.body?.innerText,loading:document.querySelector('#loading')?.outerHTML,unitStatus:document.querySelector('#unitStatus')?.outerHTML,observedKickoffs:window.bkObservedKickoffs,visibleButtons:[...document.querySelectorAll('button')].filter(button=>button.getBoundingClientRect().width&&button.getBoundingClientRect().height).map(button=>({id:button.id,text:button.innerText,disabled:button.disabled})),diagnostics:typeof window.bk3dDiagnostics==='function'?window.bk3dDiagnostics():null}));}
    catch(reason){return {url:frame.url(),error:String(reason)};}
   }));
   await writeFile(prefix+'.json',JSON.stringify({failure:String(error.stack||error),width:currentWidth,calls:currentCalls,pageErrors:currentErrors,consoleErrors,networkFailures,frames},null,2)).catch(()=>{});

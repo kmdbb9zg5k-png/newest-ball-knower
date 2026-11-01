@@ -471,7 +471,9 @@ export async function start(){
  const initialDrive=fullGame?fullInitialDrive(miniConfig.mode):miniConfig?miniInitialDrive():{ball:redZone?85:25,down:1,toGo:10,clock:redZone?63:78,score:24,plays:0};
  let drive={...initialDrive},snapZ=10+initialDrive.ball,snapGainZ=10+lineToGain(initialDrive),stamina=1;
  let input={x:0,z:0,sprint:false,pointer:null,sprintPointer:null},snapDirection={x:0,z:0},snapDirectionUntil=0,camEye=[14,16,10],camTarget=[0,0,40],cameraReset=true,runCameraBlend=0,runCameraStart=null,flightCameraStart=null,deadCameraStart=null,defensiveCallIndex=0,defensiveCall=DEFENSIVE_CALLS[0],lastTackler=null;const keys=new Set();
- let qaStepping=false;let accumulator=0;let numSeed=miniConfig?.mode==='arena'?(Number(new URLSearchParams(location.search).get('seed'))>>>0)||175:175;const rand=()=>{numSeed=(Math.imul(numSeed,1664525)+1013904223)>>>0;return numSeed/4294967296};
+ // QA recordings may freeze the first frame before a fast opening return finishes.
+ const qaParams=new URLSearchParams(location.search);
+ let qaStepping=qaParams.get('qa')==='1'&&!qaParams.has('bkArena')&&qaParams.get('manualFrames')==='1';let accumulator=0;let numSeed=miniConfig?.mode==='arena'?(Number(new URLSearchParams(location.search).get('seed'))>>>0)||175:175;const rand=()=>{numSeed=(Math.imul(numSeed,1664525)+1013904223)>>>0;return numSeed/4294967296};
  let pendingThrow=null,liveUnit=null,conversionDrive=null;
  let previousPresentation=null,previousPresentationPhase=null,previousPresentationTime=0,lastPresentationTime=0,previousExchange=null,previousFlight=null,presentationSource=null,presentationActors=[];
  // Stable fictional identities for this isolated practice roster.
