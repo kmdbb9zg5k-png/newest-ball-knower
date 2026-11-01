@@ -1,5 +1,5 @@
-import { fetchBoundedText } from './bounded-fetch';
-import { readSportsSnapshot, writeSportsSnapshot } from './sports-snapshot';
+import { fetchBoundedText } from './bounded-fetch.js';
+import { readSportsSnapshot, writeSportsSnapshot } from './sports-snapshot.js';
 
 /** Delimited nflverse release reader, server-only; reject malformed or oversized tables. */
 export function csvRecords(raw: string): Record<string, string>[] {

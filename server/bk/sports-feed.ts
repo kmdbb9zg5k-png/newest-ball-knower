@@ -1,7 +1,7 @@
 /** Server-configured, authorized JSON sources only. Request inputs never select a URL. */
-import { fetchBoundedText, publicHttpsUrl } from './bounded-fetch';
-import { cleanField } from './nflverse-csv';
-import { readSportsSnapshot, writeSportsSnapshot } from './sports-snapshot';
+import { fetchBoundedText, publicHttpsUrl } from './bounded-fetch.js';
+import { cleanField } from './nflverse-csv.js';
+import { readSportsSnapshot, writeSportsSnapshot } from './sports-snapshot.js';
 export type FeedKind = 'news' | 'games' | 'players' | 'injuries';
 type Result = { items: unknown[]; updatedAt: string; sourceUpdatedAt: string | null; source: string };
 const cache = new Map<string, { until: number; result: Result }>();

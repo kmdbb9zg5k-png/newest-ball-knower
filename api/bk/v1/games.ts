@@ -1,4 +1,4 @@
-import { attribution, csvRecords, nflverseCsv, normalizeTeam, readOnly, requireColumns } from '../../../server/bk/nflverse-csv';
+import { attribution, csvRecords, nflverseCsv, normalizeTeam, readOnly, requireColumns } from '../../../server/bk/nflverse-csv.js';
 
 /** nflverse schedules/scores are periodically published, not a live scoring feed. */
 export const NFLVERSE_SCHEDULE_URL = 'https://github.com/nflverse/nflverse-data/releases/download/schedules/games.csv';

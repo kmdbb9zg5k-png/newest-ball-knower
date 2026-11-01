@@ -29,6 +29,7 @@ jobs:
       - run: node --import tsx scripts/bk-nflverse-schedule-check.ts
       - run: node --import tsx scripts/bk-nflverse-roster-injury-check.ts
       - run: node --import tsx scripts/bk-sports-api-security-check.ts
+      - run: node scripts/bk-sports-api-runtime-check.mjs
       - run: node --import tsx scripts/bk-news-client-check.ts
       - run: node --import tsx scripts/bk-sports-snapshot-check.ts
       - name: Verify snapshot permissions and refresh ordering in isolated PostgreSQL
@@ -44,3 +45,12 @@ jobs:
         run: |
           VITE_BK_NEWS_API_ENABLED=true npm run build -- --outDir /tmp/bk-news-opt-in
           node scripts/bk-news-browser-check.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sports-api-news-mobile
+          path: |
+            artifacts/news-release
+            artifacts/bk-news-review
+          if-no-files-found: ignore
+          retention-days: 3

@@ -1,4 +1,4 @@
-import { attribution, cleanField, nflverseCsv, normalizeTeam, readOnly, requireColumns } from '../../../server/bk/nflverse-csv';
+import { attribution, cleanField, nflverseCsv, normalizeTeam, readOnly, requireColumns } from '../../../server/bk/nflverse-csv.js';
 export const NFLVERSE_INJURY_URL = 'https://github.com/nflverse/nflverse-data/releases/download/injuries/injuries_2026.csv';
 export function normalizeInjuries(rows: Record<string, string>[], season = 2026) {
   requireColumns(rows, ['gsis_id', 'full_name', 'team', 'season', 'week', 'report_status']);
