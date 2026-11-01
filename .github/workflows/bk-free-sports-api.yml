@@ -20,5 +20,6 @@ jobs:
       - run: node --import tsx scripts/bk-sports-api-check.ts
       - run: node --import tsx scripts/bk-nflverse-schedule-check.ts
       - run: node --import tsx scripts/bk-nflverse-roster-injury-check.ts
+      - run: node scripts/bk-free-upstream-smoke.mjs
       - run: npm run lint
       - run: npm run build
