@@ -7,7 +7,7 @@ import {referenceCameraTravel,referencePocketFrame,referenceCarryFrame} from './
 import {routePoint,pursuitRead,passSetPoint,contactImpact,pocketSpeedFactor,renderDue} from './football-flow.js?v=complete-flow-46';
 import {safeFieldCamera} from './field-awareness.js?v=contact-camera-11';
 import {createLiveUnits} from './live-units.js?v=tackle-drive-61';
-import {fullInitialDrive,fullSession,fullLog,fullRecord,fullOffenseEnd,fullContinue,fullCpuPlay,fullKick,fullCpuResult,fullConversion,fullKickoffResult,fullCpuKickChoice,fullPuntResult} from './five-minute.js?v=football-arena-2';
+import {fullInitialDrive,fullSession,fullLog,fullRecord,fullOffenseEnd,fullContinue,fullCpuPlay,fullKick,fullCpuResult,fullConversion,fullKickoffResult,fullCpuKickChoice,fullPuntResult} from './five-minute.js?v=football-arena-3';
 import {rosterRatings,rosterIdentity} from './mini-teams.js?v=contact-camera-11';
 import{RUNS,PASSES,FORMATIONS,FIELD_GOAL_PLAY,formationForPlay,matchingPlays,blockingScheme}from'./playbook.js?v=contact-camera-11';
 export{RUNS,PASSES}from'./playbook.js?v=contact-camera-11';
@@ -17,8 +17,8 @@ import{createMeshyAthletes}from'./meshy-athlete.js?v=complete-flow-46';
 import{createMeshyAthletes as createReferenceAthletes}from'./reference-athlete.js?v=game-gear-1';
 import{makeStadium}from'./stadium.js?v=contact-camera-11';
 import{createGameplayReplayRecorder}from'./replay.js';
-import {miniClock,miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=football-arena-2';
-import {createMiniGamesUI} from './mini-games-ui.js?v=football-arena-2';
+import {miniClock,miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=football-arena-3';
+import {createMiniGamesUI} from './mini-games-ui.js?v=football-arena-3';
 import{QB_THROW_RELEASE,quarterbackThrowDuration}from'./quarterback.js?v=football-finish-21';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
 const setHudText=(node,value)=>{const text=String(value);if(node.textContent!==text)node.textContent=text};
@@ -456,7 +456,7 @@ function playDiagram(play,kind,direction=1){
 function travel(path,distance){return routePoint(path,distance)}
 export function runConceptDirection(runIndex,seconds,runnerX,runnerZ,scrimmageZ,direction=1,keep=false){const concept=RUNS[clamp(Math.trunc(runIndex)||0,0,RUNS.length-1)],point=travel(keep&&concept.keepPath?concept.keepPath:concept.path,Math.max(0,seconds)*concept.pathSpeed+concept.pathLead),side=Math.sign(direction)||1,targetX=point[0]*side,dx=targetX-runnerX,dz=scrimmageZ+point[1]-runnerZ,length=Math.hypot(dx,dz)||1;return{x:dx/length,z:dz/length,targetX,targetZ:scrimmageZ+point[1]}}
 export function predictPassDestination(path,startX,startZ,elapsed,duration,speed){const p=travel(path,Math.max(0,elapsed+duration)*speed);return[clamp(startX+p[0],-26.3,26.3),1.6,startZ+p[1]]}
-export function start(){
+export async function start(){
  const miniConfig=miniGameFromSearch(location.search),fullGame=Boolean(miniConfig);let mini=fullGame?fullSession(miniConfig.mode,true):miniConfig?miniSession():null;
  function fieldCamera(eye,target){const shot=safeFieldCamera(eye,target);r.camera(shot.eye,shot.target);}
  const r=new Renderer($('game'));
@@ -1159,6 +1159,10 @@ function coverage(dt){
    showFullState();
   }
  });
+ // Arena opens directly into a live return, so loading time cannot consume it.
+ // The athlete loader settles on error too, retaining the existing fallback rig.
+ if(miniConfig?.mode==='arena')await meshy.loadPromise;
+ last=performance.now();accumulator=0;
  // Each arena iframe is one drive: receive the opening kick before choosing offense.
  if(mini?.kickoff)showFullState();else{setup();camera(1);}scene(.016,0);$('loading').hidden=true;raf=requestAnimationFrame(loop);
  // Test controls exist only on an explicitly requested QA URL. This isolated

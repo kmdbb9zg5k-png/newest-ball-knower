@@ -1,7 +1,7 @@
 import {reportArenaDrive, exitArenaDrive} from '../football-arena-bridge.js';
 import {reportMiniChallenge} from '../mini-challenge-bridge.js';
-import { miniClock } from './mini-games.js?v=football-arena-2';
-import { fieldGoalDistance } from './five-minute.js?v=football-arena-2';
+import { miniClock } from './mini-games.js?v=football-arena-3';
+import { fieldGoalDistance } from './five-minute.js?v=football-arena-3';
 const $ = id => document.getElementById(id);
 const setHudText=(node,value)=>{const text=String(value);if(node.textContent!==text)node.textContent=text};
 const spot = ball => ball < 50 ? `OWN ${ball}` : ball === 50 ? 'MIDFIELD' : `OPP ${100 - ball}`;

@@ -1,16 +1,20 @@
 import assert from 'node:assert/strict';
 import {createServer} from 'vite';
 import {chromium} from 'playwright';
-import {mkdir} from 'node:fs/promises';
+import {mkdir,writeFile} from 'node:fs/promises';
 const fixture=`import React from 'react';import{createRoot}from'react-dom/client';import Arena from '/CommunityFootballArena.tsx';import '/index.css';createRoot(document.getElementById('root')).render(React.createElement(Arena,{me:location.search.includes('guest')?'':'me',friends:[{userId:'friend',displayName:'Fourth Down Club'}],onOpenAuth:()=>{document.body.dataset.auth='requested'}}));`;
 const server=await createServer({cacheDir:'/tmp/bk-football-vite',server:{host:'127.0.0.1',port:3059,strictPort:true,watch:null,hmr:false},plugins:[{name:'football-fixture',enforce:'pre',transform(code,id){if(id.endsWith('/footballArena.ts')){const a=code.indexOf('export async function footballArenaAction'),b=code.indexOf('export const footballTotal');return code.slice(0,a)+`export async function footballArenaAction(action,args={}){const r=await fetch('/__arena-rpc',{method:'POST',body:JSON.stringify({action,args})});const data=await r.json();if(!r.ok)throw new Error(data.message);return data;}\n`+code.slice(b);}},configureServer(s){s.middlewares.use(async(req,res,next)=>{if(req.url?.startsWith('/football-qa.html')){res.setHeader('Content-Type','text/html');res.end(await s.transformIndexHtml(req.url,'<html><head><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body style="margin:0;background:#06090d;color:white"><div id="root"></div><script type="module" src="/football-qa.tsx"></script></body></html>'));}else next();});},resolveId(id){if(id==='/football-qa.tsx')return '\0football-qa.tsx';},load(id){if(id==='\0football-qa.tsx')return fixture;}}]});
 await server.listen();await mkdir('artifacts/football-arena',{recursive:true});
-let browser;
+let browser,currentPage,currentWidth,currentCalls,currentErrors;
+const consoleErrors=[],networkFailures=[];
 try{
  for(const width of (process.env.WIDTHS?JSON.parse(process.env.WIDTHS):[320,390,1280])){
   browser=await chromium.launch({executablePath:process.env.BROWSER_PATH||undefined,args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
 
   const page=await browser.newPage({viewport:{width,height:844},hasTouch:width<768,isMobile:width<768});page.setDefaultTimeout(120000);const errors=[];page.on('pageerror',e=>errors.push(e.message));let matches=[],calls=[],fail=true,opponentFinished=true,releaseQuickMatch;
+  currentPage=page;currentWidth=width;currentCalls=calls;currentErrors=errors;
+  page.on('console',message=>{if(message.type()==='error')consoleErrors.push({width,text:message.text()});});
+  page.on('requestfailed',request=>networkFailures.push({width,url:request.url(),failure:request.failure()}));
   await page.route('**/*.supabase.co/**',r=>r.abort());
   await page.route('**/__arena-rpc',async route=>{
     const {action,args}=route.request().postDataJSON();calls.push({action,args});let result={};const m=matches.find(m=>m.id===args.id);
@@ -144,4 +148,15 @@ try{
   assert.deepEqual(errors,[]);await browser.close();
  }
  console.log('PASS browser: 320/390/1280 selection and results, all 32 teams, three automatic official kickoffs/drives, bridge source/token validation, exact save retry, offensive comparison, history and standings.');
+}catch(error){
+ const prefix=`artifacts/football-arena/failure-${currentWidth||'startup'}`;
+ if(currentPage&&!currentPage.isClosed()){
+  await currentPage.screenshot({path:prefix+'.png',fullPage:true,timeout:10000}).catch(()=>{});
+  const frames=await Promise.all(currentPage.frames().map(async frame=>{
+   try{return await frame.evaluate(()=>({url:location.href,title:document.title,text:document.body?.innerText,loading:document.querySelector('#loading')?.outerHTML,unitStatus:document.querySelector('#unitStatus')?.outerHTML,visibleButtons:[...document.querySelectorAll('button')].filter(button=>button.getBoundingClientRect().width&&button.getBoundingClientRect().height).map(button=>({id:button.id,text:button.innerText,disabled:button.disabled})),diagnostics:typeof window.bk3dDiagnostics==='function'?window.bk3dDiagnostics():null}));}
+   catch(reason){return {url:frame.url(),error:String(reason)};}
+  }));
+  await writeFile(prefix+'.json',JSON.stringify({failure:String(error.stack||error),width:currentWidth,calls:currentCalls,pageErrors:currentErrors,consoleErrors,networkFailures,frames},null,2)).catch(()=>{});
+ }
+ throw error;
 }finally{await browser?.close();await server.close();}
