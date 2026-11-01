@@ -1,0 +1,24 @@
+name: Ball Knower free sports API checks
+on:
+  pull_request:
+    paths:
+      - 'api/bk/**'
+      - 'scripts/bk-*'
+      - '.github/workflows/bk-free-sports-api.yml'
+  workflow_dispatch:
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: node --import tsx scripts/bk-sports-api-check.ts
+      - run: node --import tsx scripts/bk-nflverse-schedule-check.ts
+      - run: node --import tsx scripts/bk-nflverse-roster-injury-check.ts
+      - run: npm run lint
+      - run: npm run build
