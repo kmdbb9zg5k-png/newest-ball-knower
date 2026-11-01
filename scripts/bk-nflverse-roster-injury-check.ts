@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {csvRecords} from '../api/bk/lib/nflverse-csv';
+import {normalizeRosters} from '../api/bk/v1/players';
+import {normalizeInjuries} from '../api/bk/v1/injuries';
+const parsed=csvRecords('gsis_id,full_name,team,position\n00-1,"Smith, John",PHI,QB\n');
+assert.equal(parsed[0].full_name,'Smith, John');
+assert.deepEqual(normalizeRosters(parsed),[{id:'00-1',name:'Smith, John',team:'PHI',position:'QB',jerseyNumber:null}]);
+const injury=normalizeInjuries([{gsis_id:'00-1',full_name:'Smith, John',team:'PHI',week:'8',report_status:'Questionable',report_primary_injury:'Ankle',date_modified:'2026-10-30'}]);
+assert.equal(injury[0].status,'Questionable');
+assert.equal(injury[0].week,8);
+assert.equal(injury[0].detail,'Ankle');
+console.log('Free rosters/injuries parsing contract passed');
