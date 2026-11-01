@@ -1,0 +1,56 @@
+name: Ball Knower free sports API checks
+on:
+  pull_request:
+    paths:
+      - 'api/bk/**'
+      - 'server/bk/**'
+      - 'scripts/bk-*'
+      - 'NewsHub.tsx'
+      - 'sportsApiClient.ts'
+      - 'supabase/migrations/*sports_api_snapshots*'
+      - '.github/workflows/bk-free-sports-api.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: node --import tsx scripts/bk-sports-api-check.ts
+      - run: node --import tsx scripts/bk-nflverse-schedule-check.ts
+      - run: node --import tsx scripts/bk-nflverse-roster-injury-check.ts
+      - run: node --import tsx scripts/bk-sports-api-security-check.ts
+      - run: node scripts/bk-sports-api-runtime-check.mjs
+      - run: node --import tsx scripts/bk-news-client-check.ts
+      - run: node --import tsx scripts/bk-sports-snapshot-check.ts
+      - name: Verify snapshot permissions and refresh ordering in isolated PostgreSQL
+        run: |
+          npm install --prefix /tmp/bk-snapshot-sql --no-save @electric-sql/pglite@0.3.14
+          BK_PGLITE_MODULE=/tmp/bk-snapshot-sql/node_modules/@electric-sql/pglite/dist/index.js node scripts/bk-sports-snapshot-sql-check.mjs
+      - run: node --import tsx scripts/bk-free-upstream-smoke.mjs
+      - run: npm run lint
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/news-browser-check.mjs --fixture
+      - name: Build and check the optional news migration
+        run: |
+          VITE_BK_NEWS_API_ENABLED=true npm run build -- --outDir /tmp/bk-news-opt-in
+          node scripts/bk-news-browser-check.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sports-api-news-mobile
+          path: |
+            artifacts/news-release
+            artifacts/bk-news-review
+          if-no-files-found: ignore
+          retention-days: 3

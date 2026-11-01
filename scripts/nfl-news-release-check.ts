@@ -3,6 +3,7 @@ import fs from 'node:fs';
 
 const api=fs.readFileSync('api/nfl-news.ts','utf8');
 const ui=fs.readFileSync('NewsHub.tsx','utf8');
+const client=fs.readFileSync('sportsApiClient.ts','utf8');
 const home=fs.readFileSync('HomeDashboard.tsx','utf8');
 const navbar=fs.readFileSync('Navbar.tsx','utf8');
 
@@ -20,7 +21,7 @@ assert.match(ui,/item\.source/);
 assert.match(ui,/publishedLabel\(item\.published\)/);
 assert.doesNotMatch(ui,/<img/,'Headline-only News must not reintroduce publisher images');
 assert.match(ui,/rel="noreferrer noopener"/);
-assert.match(ui,/data\?\.available===false/);
+assert.match(client,/data\?\.available!==true/);
 assert.match(ui,/setItems\(\[\]\)/,'failed refresh must clear old stories rather than present them as current');
 assert.doesNotMatch(ui,/setError\([^\n]*message/,'raw provider/network exceptions must not be rendered');
 assert.match(home,/accessibleLabel="NFL News"/,'Mobile Home must expose a discoverable NFL News destination');
