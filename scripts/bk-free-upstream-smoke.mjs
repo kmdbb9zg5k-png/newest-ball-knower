@@ -1,6 +1,6 @@
 /** Verify upstream release downloads, not just sample fixtures. No credentials. */
 const sources={
- games:'https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv',
+ games:'https://github.com/nflverse/nflverse-data/releases/download/schedules/games.csv',
  players:'https://github.com/nflverse/nflverse-data/releases/download/rosters/roster_2026.csv',
  injuries:'https://github.com/nflverse/nflverse-data/releases/download/injuries/injuries_2026.csv'
 };
