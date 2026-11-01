@@ -40,7 +40,7 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npx playwright install --with-deps chromium
-      - run: node scripts/news-browser-check.mjs
+      - run: node scripts/news-browser-check.mjs --fixture
       - name: Build and check the optional news migration
         run: |
           VITE_BK_NEWS_API_ENABLED=true npm run build -- --outDir /tmp/bk-news-opt-in
