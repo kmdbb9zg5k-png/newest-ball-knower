@@ -1,3 +1,4 @@
+import {completeInviteJoin,watchInviteInteraction} from './inviteNavigation';
 import LockerAccountSync from './LockerAccountSync';
 import {wantsNewsStrip} from './broadcastFocus';
 import React,{lazy,Suspense,useCallback,useEffect,useRef,useState} from 'react';
@@ -52,7 +53,9 @@ function BallKnowerApp(){
   const {activeLeague,currentUser,setActiveLeagueId,toastMessage,joinLeague}=useBallKnower();
   const {setIntroActive}=useSoundtrack();
   const setIntroActiveRef=useRef(setIntroActive);
-  const [currentTab,setCurrentTab]=useState<AppTab>(()=>new URLSearchParams(window.location.search).has('locker_checkout')?'wardrobe':new URLSearchParams(window.location.search).get('footballH2H')==='1'?'football':'home');
+  const [currentTab,setCurrentTabState]=useState<AppTab>(()=>new URLSearchParams(window.location.search).has('locker_checkout')?'wardrobe':new URLSearchParams(window.location.search).get('footballH2H')==='1'?'football':'home');
+  const navigationRevision=useRef(0);
+  const setCurrentTab=useCallback((next:React.SetStateAction<AppTab>)=>{navigationRevision.current++;setCurrentTabState(next);},[]);
   useEffect(()=>{const url=new URL(location.href);if(url.searchParams.has('footballH2H')){url.searchParams.delete('footballH2H');history.replaceState(history.state,'',url.pathname+url.search+url.hash);}},[]);
   const tabHistory=useRef<AppTab[]>([]);
   const goToTab=useCallback((tab:AppTab)=>{setCurrentTab(current=>{if(current===tab)return current;tabHistory.current.push(current);if(tabHistory.current.length>24)tabHistory.current.shift();return tab})},[]);
@@ -75,7 +78,16 @@ function BallKnowerApp(){
   const isDraftOrderGame=Boolean(activeLeague&&activeLeague.settings?.draftOrderMethod==='game'&&!activeLeague.seasonResult?.draftOrder?.length&&!activeLeague.liveDraft);
 
   useEffect(()=>{setIntroActiveRef.current=setIntroActive},[setIntroActive]);
-  useEffect(()=>{setIntroActiveRef.current(isIntroOpen||showFavoriteTeam);try{const savedTheme=FAVORITE_NFL_TEAM_BRANDING_ENABLED?getSavedTeamTheme():BALL_KNOWER_THEME;setFavoriteTheme(savedTheme);applyTeamCssVariables(savedTheme);const params=new URLSearchParams(window.location.search);const joinCode=params.get('join');if(joinCode)joinLeague(joinCode).then(res=>{if(res.success&&res.league)setCurrentTab('lobby')})}catch(e){console.error(e)}},[]);
+  useEffect(()=>{setIntroActiveRef.current(isIntroOpen||showFavoriteTeam);try{const savedTheme=FAVORITE_NFL_TEAM_BRANDING_ENABLED?getSavedTeamTheme():BALL_KNOWER_THEME;setFavoriteTheme(savedTheme);applyTeamCssVariables(savedTheme);}catch(e){console.error(e)}},[]);
+  useEffect(()=>{
+    const code=new URLSearchParams(window.location.search).get('join');
+    if(!code)return;
+    let mounted=true;
+    const startedAt=navigationRevision.current;
+    const interaction=watchInviteInteraction(window);
+    void completeInviteJoin({code,join:joinLeague,isCurrent:()=>mounted&&interaction.isUntouched()&&currentTab==='home'&&navigationRevision.current===startedAt,onReady:league=>{setActiveLeagueId(league.id);setCurrentTab('lobby');}}).catch(error=>console.error('Invite join failed',error)).finally(interaction.dispose);
+    return()=>{mounted=false;interaction.dispose();};
+  },[]);
   useEffect(()=>{let media:MediaQueryList|null=null;try{media=window.matchMedia('(max-width: 767px)');const sync=()=>setIsMobileDraftViewport(media?.matches??false);sync();media.addEventListener?.('change',sync);return()=>media?.removeEventListener?.('change',sync)}catch{return undefined}},[]);
   useEffect(()=>{try{const previous=window.history.scrollRestoration;window.history.scrollRestoration='manual';return()=>{window.history.scrollRestoration=previous}}catch{return undefined}},[]);
   useEffect(()=>{if(['lobby','draft','simulation'].includes(currentTab))return;const resetHomeScroll=()=>window.scrollTo({top:0,left:0,behavior:'auto'});resetHomeScroll();const frame=window.requestAnimationFrame(resetHomeScroll);const timer=window.setTimeout(resetHomeScroll,200);return()=>{window.cancelAnimationFrame(frame);window.clearTimeout(timer)}},[currentTab]);

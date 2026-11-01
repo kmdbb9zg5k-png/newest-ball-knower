@@ -159,6 +159,16 @@ const CapChallenge:React.FC<{onBack:()=>void}>=({onBack})=>{
 
  useEffect(()=>{const saved=restoreRun();if(saved){setStage(saved.stage);setRoster(saved.roster);setBench(saved.bench);setWeeks(saved.weeks);setInjuries(saved.injuries);setPlayoffs(saved.playoffs);setSettings(saved.settings);setInteractions(saved.interactions);setMessage('Restored your last Solo Mode run.')}setDidRestore(true)},[]);
  useEffect(()=>{if(!didRestore)return;if(stage==='finished'||(stage==='draft'&&!roster.length&&!bench.length)){try{localStorage.removeItem(RUN_KEY)}catch(error){console.warn('Unable to clear Solo run',error)}return}try{localStorage.setItem(RUN_KEY,JSON.stringify({independentSourceVersion:1,stage,roster,bench,weeks,injuries,playoffs,settings,interactions}))}catch(error){console.warn('Unable to save Solo run',error)}},[didRestore,stage,roster,bench,weeks,injuries,playoffs,settings,interactions]);
+ useEffect(()=>{
+  const applyMoment=(event:Event)=>{
+   const detail=(event as CustomEvent<{seasonKey:string;week:number}>).detail;
+   if(detail?.seasonKey!==RUN_KEY||detail.week!==weeks.length)return;
+   const saved=restoreRun();if(!saved||saved.weeks.length!==detail.week)return;
+   setWeeks(saved.weeks);setInteractions(saved.interactions);setMessage(saved.message||'Playable moment completed.');
+  };
+  window.addEventListener('bk-play-moment-applied',applyMoment);
+  return()=>window.removeEventListener('bk-play-moment-applied',applyMoment);
+ },[weeks.length]);
  useEffect(()=>{setVisiblePlayerCount(INITIAL_PLAYER_BATCH)},[query,position]);
 
  const spent=useMemo(()=>[...roster,...bench].reduce((n,p)=>n+p.salary,0),[roster,bench]), remaining=DEFAULT_SALARY_CAP-spent;
@@ -275,7 +285,7 @@ const CapChallenge:React.FC<{onBack:()=>void}>=({onBack})=>{
    try{if(navigator.share)await navigator.share({title:'Ball Knower Result',text});else{await navigator.clipboard.writeText(text);setMessage('Result card copied to clipboard.')}}catch{}
  };
 
- return <BroadcastStage scene="tunnel" page="cap" quiet={true} className="min-h-[100dvh] bg-transparent text-white px-4 sm:px-8 pt-4 pb-8"><div className="mx-auto max-w-7xl">
+ return <BroadcastStage scene="tunnel" page="cap" quiet={true} className="min-h-[100dvh] bg-transparent text-white px-4 sm:px-8 pt-4 pb-8"><div className="mx-auto max-w-7xl" data-bk-moment-season={RUN_KEY} data-bk-moment-user="solo-user" data-bk-moment-year="cap">
   <button type="button" onClick={onBack} aria-label="Back to Solo Franchise Hub" className="mb-3 grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#111]"><ArrowLeft size={19}/></button>
   <div className="flex items-center justify-between gap-3 mb-4"><div className="min-w-0"><div className="text-[var(--bk-team-accent)] text-[10px] font-black tracking-[.28em]">SOLO MODE</div><h2 className="text-2xl sm:text-4xl font-black leading-none mt-1">{stage==='draft'?'BUILD YOUR ROSTER':<>ROAD TO THE <span className="text-[var(--bk-team-accent)]">LEGACY BOWL</span></>}</h2></div><div className="flex shrink-0 gap-2"><button onClick={share} aria-label="Share Solo Mode" className="flex gap-2 items-center justify-center min-h-11 min-w-11 border border-white/10 px-3 sm:px-4 bg-[#151515]"><Share2 size={16}/><span className="hidden sm:inline">Share</span></button><button onClick={reset} disabled={isAutoDrafting} aria-label="Start a new Solo run" className="flex gap-2 items-center justify-center min-h-11 min-w-11 border border-white/10 px-3 sm:px-4 bg-[#151515] disabled:cursor-wait disabled:opacity-40"><RotateCcw size={16}/><span className="hidden sm:inline">New Run</span></button></div></div>
   {message&&<div className="mb-5 border border-[var(--bk-team-accent)]/30 bg-[var(--bk-team-accent)]/10 text-[var(--bk-team-accent)] px-4 py-3 font-bold">{message}</div>}

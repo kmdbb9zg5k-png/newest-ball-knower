@@ -9,7 +9,8 @@ const vibrate=ms=>{try{navigator.vibrate?.(ms)}catch{}};
 
 const params=new URLSearchParams(location.search);
 const base=readJson('ballknower_solo_franchise_v2')||{};
-const season=readJson('ballknower_solo_franchise_v2:season')||{};
+const requestedSeasonKey=params.get('seasonKey');
+const season=readJson(requestedSeasonKey?.startsWith('ballknower_solo_')?requestedSeasonKey:'ballknower_solo_franchise_v2:season')||{};
 const week=Math.max(1,Number(params.get('week'))||((season.weeks||[]).length+1));
 const roster=Array.isArray(season.roster)&&season.roster.length?season.roster:(Array.isArray(base.roster)?base.roster:[]);
 

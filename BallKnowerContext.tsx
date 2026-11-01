@@ -40,7 +40,7 @@ interface BallKnowerContextType {
   activeLeague: League | null;
   setActiveLeagueId: (id: string | null) => void;
   createLeague: (name: string, maxMembers: number, draftSchedule: { draftScheduledAt: string; draftTimezone: string }, salaryCap?: number, initialSettings?: import('./types').LeagueSettings) => Promise<League>;
-  joinLeague: (code: string) => Promise<{ success: boolean; message: string; league?: League }>;
+  joinLeague: (code: string, options?: { activate?: boolean }) => Promise<{ success: boolean; message: string; league?: League }>;
   joinPublicLeague: () => Promise<{ success: boolean; message: string; league?: League }>;
   currentRoster: Player[];
   isRosterLocked: boolean;
@@ -632,14 +632,14 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
-  const joinLeague = async (code: string): Promise<{ success: boolean; message: string; league?: League }> => {
+  const joinLeague = async (code: string, options: { activate?: boolean } = {}): Promise<{ success: boolean; message: string; league?: League }> => {
     const cleanCode = code.trim().toUpperCase();
     const user = currentUser || DEFAULT_USER;
     try {
       if (isCloudConfigured) {
         const targetLeague = await joinCloudLeague(cleanCode, user);
         setLeagues(prev => [targetLeague, ...prev.filter(l => l.id !== targetLeague.id)]);
-        setActiveLeagueId(targetLeague.id);
+        if(options.activate!==false)setActiveLeagueId(targetLeague.id);
         setCloudSyncError(null);
         trackBallKnowerEvent('League Joined', { member_count: targetLeague.members.length, league_type: 'online' });
         showToast(`Joined \"${targetLeague.name}\" online!`);
@@ -647,7 +647,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
       const targetLeague = leagues.find(l => l.code.toUpperCase() === cleanCode);
       if (!targetLeague) return { success: false, message: 'League code not found locally. Online multiplayer has not been configured on this deployment.' };
-      setActiveLeagueId(targetLeague.id);
+      if(options.activate!==false)setActiveLeagueId(targetLeague.id);
       trackBallKnowerEvent('League Joined', { member_count: targetLeague.members.length, league_type: 'local' });
       return { success: true, message: `Joined ${targetLeague.name}`, league: targetLeague };
     } catch (err:any) {

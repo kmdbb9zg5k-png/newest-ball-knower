@@ -157,7 +157,7 @@ assert.ok(
   'legacy and generic clients must be blocked from bypassing the Owner revision RPC',
 );
 assert.ok(userState.includes("stateKey === OWNER_STATE_KEY")&&userState.includes("save_ball_knower_revisioned_user_state"),'all direct and batched Owner saves must use the revisioned RPC');
-assert.ok(owner.includes('cloudRevision:number')&&owner.includes('cloud.cloudRevision>local.cloudRevision'),'Owner careers must carry and prefer server-issued revisions');
+assert.ok(owner.includes('cloudRevision:number')&&owner.includes('if(synced.cloudRevision<local.cloudRevision)return local;')&&cloudSync.includes('remoteRevision > localRevision'),'Owner careers must carry and prefer server-issued revisions');
 assert.ok(cloudSync.includes('function directJsonRevision')&&!cloudSync.includes('directJsonUpdatedAt'),'Owner conflict ordering must not depend on client wall clocks');
 assert.ok(
   cloudSync.includes('directJsonPayload(row.value) !== directJsonPayload(localRaw)')&&!cloudSync.includes('remoteRaw !== localRaw'),

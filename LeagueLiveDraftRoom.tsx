@@ -82,6 +82,9 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
   const [rankingsReady,setRankingsReady]=useState(false);
   const [preferences,setPreferences]=useState<DraftPreferences>(EMPTY_PREFERENCES);
   const [preferencesReady,setPreferencesReady]=useState(false);
+  const [preferencesEdited,setPreferencesEdited]=useState(false);
+  const preferencesReadyRef=useRef(false);
+  const pendingPreferenceEdits=useRef<Array<(value:DraftPreferences)=>DraftPreferences>>([]);
   const [now,setNow]=useState(()=>Date.now());
   const [chatOpen,setChatOpen]=useState(false);
   const [chatMessage,setChatMessage]=useState('');
@@ -199,19 +202,35 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
 
   useEffect(()=>{
     let alive=true;
+    preferencesReadyRef.current=false;
+    pendingPreferenceEdits.current=[];
     setPreferencesReady(false);
-    if(!activeLeague?.id||!myMember?.id){setPreferences(EMPTY_PREFERENCES);return ()=>{alive=false;};}
+    setPreferencesEdited(false);
+    setPreferences(EMPTY_PREFERENCES);
+    if(!activeLeague?.id||!myMember?.id)return ()=>{alive=false;};
     void loadMyCloudDraftPreferences(activeLeague.id,myMember.id)
-      .then(value=>{if(alive){setPreferences(value);setPreferencesReady(true);}})
-      .catch(error=>{console.warn('Draft preferences could not be loaded.',error);if(alive)setPreferencesReady(true);});
+      .then(value=>{
+        if(!alive)return;
+        const edits=pendingPreferenceEdits.current;
+        setPreferences(edits.reduce((next,edit)=>edit(next),value));
+        pendingPreferenceEdits.current=[];
+        preferencesReadyRef.current=true;
+        setPreferencesReady(true);
+      })
+      .catch(error=>{
+        console.warn('Draft preferences could not be loaded.',error);
+        if(alive){preferencesReadyRef.current=true;setPreferencesReady(true);}
+      });
     return ()=>{alive=false;};
   },[activeLeague?.id,myMember?.id]);
 
   useEffect(()=>{
-    if(!preferencesReady||!activeLeague?.id||!myMember?.id)return;
+    // Merely opening a draft (especially after a failed read) must not write an
+    // empty/default preference record over the manager's saved queue.
+    if(!preferencesReady||!preferencesEdited||!activeLeague?.id||!myMember?.id)return;
     const timer=window.setTimeout(()=>{void saveMyCloudDraftPreferences(activeLeague.id,myMember.id,preferences).catch(error=>console.warn('Draft preferences could not be saved.',error));},350);
     return ()=>window.clearTimeout(timer);
-  },[preferences,preferencesReady,activeLeague?.id,myMember?.id]);
+  },[preferences,preferencesReady,preferencesEdited,activeLeague?.id,myMember?.id]);
 
   useEffect(()=>{
     const timer=window.setInterval(()=>setNow(Date.now()),1000);
@@ -242,18 +261,28 @@ export const LeagueLiveDraftRoom:React.FC<Props>=({onBackToLobby})=>{
     return()=>{cancelled=true;if(retryTimer)window.clearTimeout(retryTimer);};
   },[activeLeague?.id,draft?.pickIndex,draft?.status,draft?.recoveryEnabled,draftSecondsLeft,currentMember?.isAi,myMember?.id,timeoutRetryVersion]);
 
-  const togglePreference=(key:'favorites'|'doNotDraft'|'preRankings',playerId:string)=>setPreferences(value=>{
-    const present=value[key].includes(playerId);
-    const next={...value,[key]:present?value[key].filter(id=>id!==playerId):[...value[key],playerId]};
-    if(key==='doNotDraft'&&!present)next.queue=value.queue.filter(id=>id!==playerId);
-    return next;
-  });
-  const toggleQueue=(playerId:string)=>setPreferences(value=>({
-    ...value,
-    queue:value.queue.includes(playerId)?value.queue.filter(id=>id!==playerId):[...value.queue,playerId],
-    doNotDraft:value.doNotDraft.filter(id=>id!==playerId),
-  }));
-  const moveQueue=(playerId:string,direction:-1|1)=>setPreferences(value=>{
+  const editPreferences=(edit:(value:DraftPreferences)=>DraftPreferences)=>{
+    if(!preferencesReadyRef.current)pendingPreferenceEdits.current.push(edit);
+    setPreferencesEdited(true);
+    setPreferences(edit);
+  };
+  const togglePreference=(key:'favorites'|'doNotDraft'|'preRankings',playerId:string)=>{
+    const wanted=!preferences[key].includes(playerId);
+    editPreferences(value=>{
+      const next={...value,[key]:wanted?[...new Set([...value[key],playerId])]:value[key].filter(id=>id!==playerId)};
+      if(key==='doNotDraft'&&wanted)next.queue=value.queue.filter(id=>id!==playerId);
+      return next;
+    });
+  };
+  const toggleQueue=(playerId:string)=>{
+    const wanted=!preferences.queue.includes(playerId);
+    editPreferences(value=>({
+      ...value,
+      queue:wanted?[...new Set([...value.queue,playerId])]:value.queue.filter(id=>id!==playerId),
+      doNotDraft:value.doNotDraft.filter(id=>id!==playerId),
+    }));
+  };
+  const moveQueue=(playerId:string,direction:-1|1)=>editPreferences(value=>{
     const queue=[...value.queue];const from=queue.indexOf(playerId);const to=from+direction;
     if(from<0||to<0||to>=queue.length)return value;
     [queue[from],queue[to]]=[queue[to],queue[from]];return {...value,queue};

@@ -114,6 +114,16 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
       return [];
     }
   });
+  const watchlistValue = useRef(watchlist);
+  const watchlistReady = useRef(false);
+  const pendingWatchEdits = useRef(new Map<string, boolean>());
+  const storeWatchlist = (next: string[], save = false) => {
+    watchlistValue.current = next;
+    setWatchlist(next);
+    try { localStorage.setItem("bk-fantasy-watchlist-v1", JSON.stringify(next)); } catch {}
+    if (save) void saveUserState("fantasy_watchlist", next).catch(error =>
+      console.warn("Fantasy watchlist cloud save failed", error));
+  };
   const fantasyPositions = ["QB", "RB", "WR", "TE", "K", "DST"];
   const ranked = useMemo(() => {
     return fantasyRankings
@@ -156,23 +166,27 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
   useEffect(() => {
     let active = true;
     void loadUserState<string[]>("fantasy_watchlist")
-      .then((cloud) => {
-        if (!active || !Array.isArray(cloud)) return;
-        const clean = cloud.filter((id) => typeof id === "string");
-        setWatchlist(clean);
-        try {
-          localStorage.setItem(
-            "bk-fantasy-watchlist-v1",
-            JSON.stringify(clean),
-          );
-        } catch {}
+      .then(cloud => {
+        if (!active) return;
+        // Replay choices made while this read was in flight over the restored
+        // list. A slow response must not undo a star the user just tapped.
+        let next = Array.isArray(cloud) ? cloud.filter(id => typeof id === 'string') : watchlistValue.current;
+        const edited = pendingWatchEdits.current.size > 0;
+        for (const [id, wanted] of pendingWatchEdits.current) {
+          next = wanted ? [...new Set([...next, id])] : next.filter(item => item !== id);
+        }
+        watchlistReady.current = true;
+        pendingWatchEdits.current.clear();
+        storeWatchlist(next, edited);
       })
-      .catch((error) =>
-        console.warn("Fantasy watchlist cloud restore failed", error),
-      );
-    return () => {
-      active = false;
-    };
+      .catch(error => {
+        console.warn("Fantasy watchlist cloud restore failed", error);
+        if (!active) return;
+        watchlistReady.current = true;
+        if (pendingWatchEdits.current.size) storeWatchlist(watchlistValue.current, true);
+        pendingWatchEdits.current.clear();
+      });
+    return () => { active = false; };
   }, []);
   useEffect(() => {
     setVisibleRankingCount(RANKINGS_PAGE_SIZE);
@@ -203,19 +217,13 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
       active = false;
     };
   }, []);
-  const toggleWatch = (id: string) =>
-    setWatchlist((current) => {
-      const next = current.includes(id)
-        ? current.filter((item) => item !== id)
-        : [...current, id];
-      try {
-        localStorage.setItem("bk-fantasy-watchlist-v1", JSON.stringify(next));
-      } catch {}
-      void saveUserState("fantasy_watchlist", next).catch((error) =>
-        console.warn("Fantasy watchlist cloud save failed", error),
-      );
-      return next;
-    });
+  const toggleWatch = (id: string) => {
+    const current = watchlistValue.current;
+    const wanted = !current.includes(id);
+    const next = wanted ? [...current, id] : current.filter(item => item !== id);
+    if (!watchlistReady.current) pendingWatchEdits.current.set(id, wanted);
+    storeWatchlist(next, true);
+  };
   const enterPublicLeague = async () => {
     if (publicMatchBusy) return;
     if (resumablePublicLeague) {

@@ -268,6 +268,20 @@ export const FranchiseSeason: React.FC<Props> = ({
     }
   }, [seasonKey, stage, weeks, playoffs, injuries, message, draftRound, draftedProspects, seasonRoster, playoffField, year, interactionState]);
 
+  useEffect(() => {
+    const applyMoment = (event: Event) => {
+      const detail = (event as CustomEvent<{seasonKey:string;week:number}>).detail;
+      if (detail?.seasonKey !== seasonKey || detail.week !== weeks.length) return;
+      const saved = restoreSeason(seasonKey);
+      if (!saved || saved.weeks.length !== detail.week || saved.year !== year || saved.teamAbbr !== userTeam.abbr) return;
+      setWeeks(saved.weeks);
+      setMessage(saved.message || 'Playable moment completed.');
+      if (isFranchiseInteractionState(saved.interactions)) setInteractionState(saved.interactions);
+    };
+    window.addEventListener('bk-play-moment-applied', applyMoment);
+    return () => window.removeEventListener('bk-play-moment-applied', applyMoment);
+  }, [seasonKey, weeks.length, year, userTeam.abbr]);
+
   useEffect(()=>{if(reportedCareerYear.current!==year){reportedCareerYear.current=year;onCareerSeasonYearChange?.(year);}},[year,onCareerSeasonYearChange]);
 
   const careerKey=`${year}:${stage==='playoffs'?'playoffs':'regular'}:${stage==='playoffs'?playoffs.length+1:weeks.length+1}`;
@@ -494,7 +508,7 @@ export const FranchiseSeason: React.FC<Props> = ({
 
   return (
     <BroadcastStage scene="field" page="season" quiet={true} className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-6xl" data-bk-moment-season={careerPanel ? undefined : seasonKey} data-bk-moment-user="franchise-user" data-bk-moment-year={year}>
         <CareerSection tab="career"><div className="mb-4 flex items-center justify-between gap-3">
           <button type="button" onClick={onBack} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Back to Solo Franchise Hub">
             <ArrowLeft size={19} />

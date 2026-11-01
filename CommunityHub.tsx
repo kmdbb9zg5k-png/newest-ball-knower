@@ -1,3 +1,4 @@
+import {nextSessionBoundary} from './sessionBoundary';
 import CommunityFootballArena from './CommunityFootballArena';
 import CommunityMiniGames from './CommunityMiniGames';
 import React,{useCallback,useEffect,useRef,useState} from 'react';
@@ -20,7 +21,10 @@ const record=(person:Pick<CommunityPerson,'h2hWins'|'h2hLosses'|'h2hTies'>)=>`${
 
 export const CommunityHub:React.FC<Props>=(props)=>{
   const {currentUser}=useBallKnower();
-  return <CommunitySession key={`${currentUser?.id}:${currentUser?.isAnonymous}`} {...props}/>;
+  const [boundary,setBoundary]=useState(()=>({identity:currentUser?.id||'guest',anonymous:currentUser?.isAnonymous!==false,revision:0}));
+  const next=nextSessionBoundary(boundary,currentUser);
+  if(next!==boundary)setBoundary(next);
+  return <CommunitySession key={next.revision} {...props}/>;
 };
 const CommunitySession:React.FC<Props>=({onOpenAuth,onOpenTrivia,onViewLocker})=>{
   const {currentUser,showToast}=useBallKnower();
