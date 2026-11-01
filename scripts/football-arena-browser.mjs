@@ -30,9 +30,9 @@ try{
     const observations=[];
     Object.defineProperty(window,'bkObservedKickoffs',{value:observations});
     const observe=()=>{
-      const status=document.querySelector('#unitStatus'),loading=document.querySelector('#loading');
-      if(observations.length||!status?.textContent?.includes('KICK RETURN')||visible(loading)||!visible(status))return;
-      observations.push({text:status.textContent,at:performance.now(),loadingVisible:false,statusVisible:true});
+      const status=document.querySelector('#unitStatus'),loading=document.querySelector('#loading'),unit=document.querySelector('#liveUnits');
+      if(observations.length||!status?.textContent?.includes('KICK RETURN')||visible(loading)||!visible(unit))return;
+      observations.push({text:status.textContent,at:performance.now(),loadingVisible:false,unitVisible:true});
     };
     new MutationObserver(observe).observe(document,{subtree:true,childList:true,attributes:true,characterData:true});
     document.addEventListener('DOMContentLoaded',observe);
@@ -85,7 +85,7 @@ try{
       assert.equal(await frame.evaluate(()=>typeof window.bk3dTest),'undefined','Official frames have no QA game controls');
       assert.equal(await frame.locator('#restart').isVisible(),false,'No rematch button');
       await frame.waitForFunction(()=>window.bkObservedKickoffs?.length>0,{},{timeout:30000});
-      assert.deepEqual(await frame.evaluate(()=>window.bkObservedKickoffs.map(({loadingVisible,statusVisible})=>({loadingVisible,statusVisible}))),[{loadingVisible:false,statusVisible:true}],'Every drive visibly presents its kickoff after loading');
+      assert.deepEqual(await frame.evaluate(()=>window.bkObservedKickoffs.map(({loadingVisible,unitVisible})=>({loadingVisible,unitVisible}))),[{loadingVisible:false,unitVisible:true}],'Every drive visibly presents its kickoff after loading');
       assert.equal(await frame.locator('#unitTouchback').isVisible(),false,'Opening kickoff cannot be skipped');
       await frame.locator('#breakHuddle').waitFor({state:'visible',timeout:45000});
       assert.match(await frame.locator('.club.away').getAttribute('aria-label'),/Brooklyn/);
