@@ -3,7 +3,7 @@
  * Attribution required: https://github.com/nflverse/nflverse-data/blob/main/LICENSE.md
  * This is NOT a live-play scoring feed.
  */
-export const NFLVERSE_SCHEDULE_URL='https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv';
+export const NFLVERSE_SCHEDULE_URL='https://github.com/nflverse/nflverse-data/releases/download/schedules/games.csv';
 const TTL=300_000;
 type Game={id:string;season:number;week:number;home:string;away:string;startTime:string|null;status:'scheduled'|'final'|'unknown';homeScore:number|null;awayScore:number|null};
 let cache:{until:number;items:Game[];updatedAt:string}|null=null;
