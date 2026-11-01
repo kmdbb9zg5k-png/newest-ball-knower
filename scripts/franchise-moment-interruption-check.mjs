@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import { chromium } from 'playwright';
 const bridge=fs.readFileSync(new URL('../public/franchise-play-moment-bridge.js',import.meta.url),'utf8');
 assert(!/location\.(reload|href)|back\.click\(/.test(bridge),'Bridge must never navigate the application');
-const browser=await chromium.launch({executablePath:process.env.BROWSER_PATH||'/tmp/chromium',headless:true,args:['--no-sandbox']});
+const browser=await chromium.launch({executablePath:process.env.BROWSER_PATH||process.env.CHROMIUM_PATH||undefined,headless:true,args:['--no-sandbox']});
 try {
 for(const viewport of [{width:390,height:844},{width:844,height:390}]){
  const page=await browser.newPage({viewport});let loads=0;
