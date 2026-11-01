@@ -49,11 +49,11 @@ try{
     await page.getByRole('button',{name:'Close sign in',exact:true}).click();
     await arena.getByRole('button',{name:'Football H2H',exact:true}).click();
     await arena.getByRole('heading',{name:/YOUR OFFENSE/}).waitFor();
-    await arena.getByRole('button',{name:'Play now — no login',exact:true}).click();
+    await arena.getByRole('button',{name:'Play now',exact:true}).click();
     await arena.getByRole('button',{name:'Play drive 1 of 3',exact:true}).waitFor();
     assert.equal(await page.getByRole('dialog').count(),0,'Guest football must start without login');
     assert.deepEqual(calls.filter(name=>privateCommunity.has(name)),[],'Guest football must not call private Community RPCs');
-    await arena.getByRole('button',{name:'Sign in to keep records',exact:true}).click();
+    await arena.getByRole('button',{name:'Keep records',exact:true}).click();
     await page.locator('.bk-auth-console').waitFor();
     await page.getByRole('button',{name:'Close sign in',exact:true}).click();
     await arena.getByRole('button',{name:'Trivia H2H',exact:true}).click();
