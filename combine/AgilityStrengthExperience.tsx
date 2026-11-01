@@ -7,6 +7,7 @@ import './combine.css';
 import './skills.css';
 type Athlete={id:string;name:string;position:string;speed:number;acceleration:number;seed:number};
 export default function AgilityStrengthExperience({players,context,onClose,drill,onResult}:{players:Athlete[];context:string;onClose:()=>void;drill:'shuttle'|'bench';onResult?:(stats:Record<string,number>)=>void}){
+  const [sceneAttempt,setSceneAttempt]=useState(0);
  const [player,setPlayer]=useState(players[0]),[view,setView]=useState(()=>newSkill(players[0],drill));
  const [ready,setReady]=useState(false),[error,setError]=useState(''),[paused,setPaused]=useState(false),[pauseReason,setPauseReason]=useState('manual'),[attempts,setAttempts]=useState<number[]>([]),[saved,setSaved]=useState(true),[rows,setRows]=useState(readSkills);
  const run=useRef(newSkill(players[0],drill)),host=useRef<HTMLDivElement>(null),scene=useRef<any>(null),stopped=useRef(false),recorded=useRef(false),modal=useRef<HTMLDivElement>(null),start=useRef<HTMLButtonElement>(null),held=useRef(new Set<string>());
@@ -19,7 +20,7 @@ export default function AgilityStrengthExperience({players,context,onClose,drill
  useEffect(()=>{
   let gone=false,raf=0,last=0,hud=0;
   import('./scene.js').then(async({createCombineScene})=>{
-   if(gone||!host.current)return;const loaded=await createCombineScene(host.current,run.current.athlete,()=>{pause();setError('Graphics were interrupted. Reopen the drill to continue.');},drill);
+   if(gone||!host.current)return;const loaded=await createCombineScene(host.current,run.current.athlete,()=>{if(gone)return;pause();setError('Graphics were interrupted. Retry to resume your session.');},drill);
    if(gone){loaded.dispose();return;}scene.current=loaded;loaded.draw(run.current,0);setReady(true);last=performance.now();
    const frame=(now:number)=>{if(gone)return;raf=requestAnimationFrame(frame);const dt=(now-last)/1000;last=now;if(stopped.current||document.hidden)return;
     if(dt>5&&['running','cut','countdown'].includes(run.current.phase)){pause('interruption');return;}
@@ -29,7 +30,7 @@ export default function AgilityStrengthExperience({players,context,onClose,drill
     // Commit the timing cue before the next input task; no stale green window.
     if(now-hud>30){flushSync(()=>setView({...run.current}));hud=now;}
    };raf=requestAnimationFrame(frame);
-  }).catch(()=>{if(!gone)setError('Could not load the athlete. Reopen this drill to try again.');});
+  }).catch(()=>{if(!gone)setError('Could not load the athlete. Your session is held; tap Retry Drill.');});
   const hide=()=>{if(document.hidden&&['countdown','running','cut'].includes(run.current.phase))pause('background');};
   // Browser chrome/keyboard focus changes release a held press; only hiding the app pauses.
   const blur=()=>release();
@@ -37,7 +38,7 @@ export default function AgilityStrengthExperience({players,context,onClose,drill
   const keyup=(e:KeyboardEvent)=>{held.current.delete(`k${e.key}`);run.current.pressing=held.current.size>0;};
   document.addEventListener('visibilitychange',hide);window.addEventListener('blur',blur);window.addEventListener('pointerup',up);window.addEventListener('pointercancel',up);window.addEventListener('keyup',keyup);
   return()=>{gone=true;cancelAnimationFrame(raf);scene.current?.dispose();scene.current=null;document.removeEventListener('visibilitychange',hide);window.removeEventListener('blur',blur);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',up);window.removeEventListener('keyup',keyup);};
- },[]);
+ },[sceneAttempt]);
  useEffect(()=>{if(blocked)modal.current?.querySelector('button')?.focus();else if(view.phase==='idle')start.current?.focus();},[blocked,view.phase]);
  const press=(id:string)=>{if(stopped.current||!ready||error||run.current.phase!=='running')return;held.current.add(id);run.current.pressing=true;};
  const cut=(side:string)=>{if(!blocked)cutSkill(run.current,side);};
@@ -61,7 +62,7 @@ export default function AgilityStrengthExperience({players,context,onClose,drill
    <div className="skill-athlete"><div><b>{player.name}</b><span>{player.position}</span></div>{players.length>1&&<><button disabled={view.phase!=='idle'} aria-label="Previous athlete" onClick={()=>reset(players[(players.indexOf(player)-1+players.length)%players.length],true)}>‹</button><button disabled={view.phase!=='idle'} aria-label="Next athlete" onClick={()=>reset(players[(players.indexOf(player)+1)%players.length],true)}>›</button></>}</div>
   </section>
  </div>
- {blocked&&<section className="combine-overlay" role="dialog" aria-modal="true" aria-label={error?'Drill unavailable':paused?'Drill paused':terminal?'Drill results':'Loading athlete'}><div className="skill-dialog" ref={modal}><small>BK / {title}</small><h2>{error?'UNAVAILABLE':!ready?'PREPARING':paused?'PAUSED':format(view.score)}</h2>{error?<><p role="alert">{error}</p><button onClick={()=>window.location.reload()}>RETRY DRILL</button></>:!ready?<p>Loading your Combine athlete…</p>:paused?<p>{pauseReason==='background'?'The app moved into the background. Your attempt is held.':pauseReason==='interruption'?'A long interruption stopped play. Your attempt is held.':'Your attempt is held. Resume when you’re ready.'}</p>:<><p>{shuttle?`Run ${view.clock.toFixed(2)}s + penalties ${view.penalty.toFixed(2)}s`:'Set complete. Full extensions counted.'}</p>{shuttle&&<p>{view.cuts.map((c,i)=>`Cut ${i+1}: ${c}`).join(' · ')}</p>}<div className="skill-attempts">{attempts.map((n,i)=><span key={i}>ATTEMPT {i+1}<b>{format(n)}</b></span>)}</div><p>{saved?'Results saved on this device.':'Could not save on this device. Your result is shown above.'}</p></>}
+ {blocked&&<section className="combine-overlay" role="dialog" aria-modal="true" aria-label={error?'Drill unavailable':paused?'Drill paused':terminal?'Drill results':'Loading athlete'}><div className="skill-dialog" ref={modal}><small>BK / {title}</small><h2>{error?'UNAVAILABLE':!ready?'PREPARING':paused?'PAUSED':format(view.score)}</h2>{error?<><p role="alert">{error}</p><button onClick={()=>{pause();setReady(false);setError('');setSceneAttempt(n=>n+1);}}>RETRY DRILL</button></>:!ready?<p>Loading your Combine athlete…</p>:paused?<p>{pauseReason==='background'?'The app moved into the background. Your attempt is held.':pauseReason==='interruption'?'A long interruption stopped play. Your attempt is held.':'Your attempt is held. Resume when you’re ready.'}</p>:<><p>{shuttle?`Run ${view.clock.toFixed(2)}s + penalties ${view.penalty.toFixed(2)}s`:'Set complete. Full extensions counted.'}</p>{shuttle&&<p>{view.cuts.map((c,i)=>`Cut ${i+1}: ${c}`).join(' · ')}</p>}<div className="skill-attempts">{attempts.map((n,i)=><span key={i}>ATTEMPT {i+1}<b>{format(n)}</b></span>)}</div><p>{saved?'Results saved on this device.':'Could not save on this device. Your result is shown above.'}</p></>}
  <div className="skill-dialog-actions">{ready&&!error&&(paused?<button onClick={()=>{release();stopped.current=false;setPaused(false);}}>RESUME</button>:<button onClick={()=>reset(player,attempts.length>=2)}>{attempts.length<2?'NEXT ATTEMPT':'NEW SESSION'}</button>)}<button onClick={onClose}>BACK TO COMBINE</button></div></div></section>}
  </main>;
 }

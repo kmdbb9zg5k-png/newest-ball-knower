@@ -5,6 +5,7 @@ import './combine.css';
 import './broad-jump-premium.css';
 type Athlete = {id:string;name:string;position:string;speed:number;acceleration:number;seed:number};
 export default function BroadJumpExperience({players,context,onClose,onResult}:{players:Athlete[];context:string;onClose:()=>void;onResult?:(stats:Record<string,number>)=>void}) {
+  const [sceneAttempt,setSceneAttempt]=useState(0);
   const [player,setPlayer]=useState(players[0]),[view,setView]=useState(()=>newJump(players[0]));
   const [ready,setReady]=useState(false),[error,setError]=useState(''),[paused,setPaused]=useState(false);
   const [attempts,setAttempts]=useState<number[]>([]),[rows,setRows]=useState(readJumps),[saved,setSaved]=useState(true);
@@ -28,7 +29,7 @@ export default function BroadJumpExperience({players,context,onClose,onResult}:{
     let gone=false,raf=0,last=performance.now(),hud=0;
     import('./scene.js').then(async({createCombineScene})=>{
       if(gone||!host.current)return;
-      const loaded=await createCombineScene(host.current,run.current.athlete,()=>{pause();setError('Graphics were interrupted. Reopen this drill to continue.');},'jump');
+      const loaded=await createCombineScene(host.current,run.current.athlete,()=>{if(gone)return;pause();setError('Graphics were interrupted. Retry to resume your session.');},'jump');
       if(gone){loaded.dispose();return;}scene.current=loaded;loaded.draw(run.current,0);setReady(true);last=performance.now();
       const frame=(now:number)=>{
         if(gone)return;raf=requestAnimationFrame(frame);const dt=Math.max(0,(now-last)/1000);last=now;
@@ -39,12 +40,12 @@ export default function BroadJumpExperience({players,context,onClose,onResult}:{
         if(run.current.phase==='finished'&&!recorded.current){recorded.current=true;const resultStats={distance:Number(run.current.distance.toFixed(3))};reportMiniChallenge(resultStats);onResult?.(resultStats);setAttempts(a=>[...a,run.current.distance]);if(run.current.distance>0){setSaved(saveJump(run.current,context));setRows(readJumps());}}
         if(now-hud>32){setView({...run.current});hud=now;}
       };raf=requestAnimationFrame(frame);
-    }).catch(()=>{if(!gone)setError('Could not load the Combine athlete. Reopen this drill to try again.');});
+    }).catch(()=>{if(!gone)setError('Could not load the Combine athlete. Your session is held; tap Retry Drill.');});
     const hide=()=>{if(document.hidden&& !['idle','finished'].includes(run.current.phase))pause();};
     const blur=()=>{if(!['idle','finished'].includes(run.current.phase))pause();};
     document.addEventListener('visibilitychange',hide);window.addEventListener('blur',blur);
     return()=>{gone=true;cancelAnimationFrame(raf);scene.current?.dispose();scene.current=null;document.removeEventListener('visibilitychange',hide);window.removeEventListener('blur',blur);};
-  },[]);
+  },[sceneAttempt]);
   useEffect(()=>{if(blocked)modal.current?.querySelector('button')?.focus();else button.current?.focus();},[blocked]);
   const armed=inputReady(view);
   const inputHandlers=(control:Control)=>({
@@ -99,7 +100,7 @@ export default function BroadJumpExperience({players,context,onClose,onResult}:{
     {blocked&&<section className="combine-overlay" role="dialog" aria-modal="true" aria-label={error?'Combine unavailable':terminal?'Broad jump results':paused?'Broad jump paused':'Loading athlete'}><div ref={modal} className="combine-result">
       <span className="combine-eyebrow">BK / BROAD JUMP</span>
       <h2>{error?'UNAVAILABLE':!ready?'PREPARING':paused?'PAUSED':view.distance?formatJump(view.distance):'NO JUMP'}</h2>
-      {error?<><p role="alert">{error}</p><button onClick={()=>window.location.reload()}>RETRY DRILL</button></>:!ready?<p>Loading your Combine athlete…</p>:paused?<p>Your attempt is held here.</p>:<>
+      {error?<><p role="alert">{error}</p><button onClick={()=>{pause();held.current.clear();setReady(false);setError('');setSceneAttempt(n=>n+1);}}>RETRY DRILL</button></>:!ready?<p>Loading your Combine athlete…</p>:paused?<p>Your attempt is held here.</p>:<>
         <p>{view.distance?`${view.distance.toFixed(2)} m · ${feedback} · ${view.landing===1?'Perfect landing':`Stumbled · −${view.penalty.toFixed(2)} m`}`:`${REP_SECONDS}-second launch timer expired. Failed rep — attempt used.`}</p>
         <div className="jump-attempts">{attempts.map((distance,i)=><div key={i}><span>ATTEMPT {i+1}</span><b>{distance?formatJump(distance):'NO JUMP'}</b></div>)}</div>
         <p>SESSION BEST · {formatJump(Math.max(0,...attempts))}</p><p role="status">{!saved?'Could not save on this device.':view.distance?'Best distances saved on this device.':'No distance recorded.'}</p>

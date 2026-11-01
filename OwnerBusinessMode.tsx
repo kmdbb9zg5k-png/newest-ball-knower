@@ -3,7 +3,6 @@ import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import React,{useEffect,useMemo,useState}from'react';
 import{ArrowLeft,Building2,CalendarDays,ChevronRight,Crown,DollarSign,Gavel,Landmark,MapPin,Trophy,Users}from'lucide-react';
 import{nextOwnerDecision,OWNER_DECISIONS,unseenOwnerStoryCount,type OwnerChoice,type OwnerDecision}from'./ownerStoryEngine';
-import{loadUserState}from'./userStateCloud';
 import{OWNER_CLOUD_CONFLICT_EVENT,OWNER_CLOUD_SYNC_EVENT}from'./CloudSyncProvider';
 import{advanceOwnerSeason,migrateOwnerLegacyWeek,normalizeOwnerAbbr,ownerCalendarWeek,ownerStageLabel,type OwnerSeasonStage}from'./ownerSeasonEngine';
 import{advanceVerifiedOwnerStep,claimPendingVerifiedModeMilestones}from'./modeProgressionCloud';
@@ -11,7 +10,6 @@ import{flushAllCloudState,markCloudStateCommitted}from'./cloudSyncCoordinator';
 import{SOLO_OWNER_TEAMS,SOLO_PLAYERS_DATABASE,SOLO_TEAM_THEMES,SOLO_UNIVERSE_VERSION}from'./soloUniverse';
 import{OWNER_PORTRAITS,staffPortraitPlayer,staffPortraitProfile}from'./solo/staffPortraits';
 const SAVE_KEY='ballknower_owner_career_v3';
-const CLOUD_SAVE_KEY='owner_business_career_v1';
 type Staff={id:string;name:string;role:string;football:number;culture:number;costM:number;tone:string};
 type State={universeVersion:number;ownerName:string;portraitId:string;abbr:string;week:number;stage:OwnerSeasonStage;season:number;cashM:number;approval:number;staffMorale:number;leagueInfluence:number;legacy:number;wins:number;losses:number;careerWins:number;careerLosses:number;seasonsCompleted:number;playoffAppearances:number;conferenceTitles:number;championships:number;playoffSeed:number;seasonRevenueM:number;seasonExpensesM:number;seasonStaffCommitmentsM:number;careerRevenueM:number;careerExpensesM:number;gmHires:number;gmFires:number;coachHires:number;coachFires:number;stadium:number;fanTrust:number;ticketPrice:number;parkingPrice:number;facilityLevel:number;relocationMarket:string;relocationProgress:number;gm?:Staff;coach?:Staff;currentDecision?:number;usedDecisionIds:string[];lastOutcome?:string;history:string[];cloudRevision:number;updatedAt:number};
 const TEAMS=SOLO_OWNER_TEAMS.map(team=>[team.abbr,team.name,team.stadium,team.capacity,team.marketValueB] as const);
@@ -42,20 +40,8 @@ export const OwnerBusinessMode:React.FC<{onBack:()=>void}>=({onBack})=>{
  const[cloudConflict,setCloudConflict]=useState(false);
  const[cloudPaused,setCloudPaused]=useState(false);
 
- useEffect(()=>{
-  let cancelled=false;
-  void loadUserState<State>(CLOUD_SAVE_KEY).then(cloudValue=>{
-   if(cancelled||!cloudValue)return;
-   const cloud=normalize(cloudValue);
-   setState(local=>{
-    const newest=cloud.cloudRevision>local.cloudRevision||(cloud.cloudRevision===local.cloudRevision&&cloud.updatedAt>local.updatedAt)?cloud:local;
-    const older=newest===cloud?local:cloud;
-    const merged:State={...newest,usedDecisionIds:[...new Set([...newest.usedDecisionIds,...older.usedDecisionIds])],history:[...new Set([...newest.history,...older.history])].slice(0,500)};
-    persist(merged);setName(merged.ownerName);setTeamPick(merged.abbr);setPortraitPick(merged.portraitId);if(merged.ownerName)setIntro(3);return merged;
-   });
-  }).catch(error=>console.warn('Owner career cloud load failed',error));
-  return()=>{cancelled=true;};
- },[]);
+ // Initial restoration and remote update staging belong to CloudSyncProvider.
+ // Authoritative saves/conflicts below update this mode without restarting navigation.
 
  useEffect(()=>{
   const handleOwnerCloudSaved=(event:Event)=>{

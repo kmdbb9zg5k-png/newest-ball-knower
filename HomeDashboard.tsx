@@ -1,3 +1,4 @@
+import {nextSessionBoundary} from './sessionBoundary';
 import React, { lazy, Suspense, useEffect, useId, useRef, useState } from 'react';
 import { ArrowRight, Bell, Brain, ChevronDown, ClipboardList, Flag, Newspaper, Plus, RefreshCcw, Target, Trophy, UserPlus } from 'lucide-react';
 import { useBallKnower } from './BallKnowerContext';
@@ -37,7 +38,10 @@ const formatActivityTime = (value?: string) => {
 
 export const HomeDashboard: React.FC<HomeDashboardProps> = props => {
   const { currentUser } = useBallKnower();
-  return <HomeSession key={currentUser?.id || 'guest'} {...props}/>;
+  const [boundary,setBoundary]=useState(()=>({identity:currentUser?.id||'guest',anonymous:currentUser?.isAnonymous!==false,revision:0}));
+  const next=nextSessionBoundary(boundary,currentUser);
+  if(next!==boundary)setBoundary(next);
+  return <HomeSession key={next.revision} {...props}/>;
 };
 
 function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onNavigate, onOpenCheatSheet, onViewMemberLocker, teamTheme }: HomeDashboardProps) {
