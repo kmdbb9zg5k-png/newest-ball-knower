@@ -9,7 +9,7 @@ assert.equal(games[0].status,'final');
 assert.equal(games[1].homeScore,null);
 assert.equal(games[1].status,'scheduled');
 assert.equal(games[1].startTime,'2026-09-20T13:00:00');
-assert.equal(NFLVERSE_SCHEDULE_URL,'https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv');
+assert.equal(NFLVERSE_SCHEDULE_URL,'https://github.com/nflverse/nflverse-data/releases/download/schedules/games.csv');
 const rows=[csv.trim(),...Array.from({length:220},(_,i)=>'2026_'+(i+3)+'_A_B,2026,'+((i%18)+1)+',2026-10-01,13:00,A,B,,')].join('\n')+'\n';
 const data=await getNflverseGames(async()=>new Response(rows,{status:200}),()=>Date.parse('2026-10-31T10:00:00Z'));
 assert.equal(data.items.length,222);
