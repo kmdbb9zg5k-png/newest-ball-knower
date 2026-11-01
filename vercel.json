@@ -8,7 +8,7 @@
   "crons": [
     {
       "path": "/api/fantasy-live-scoring",
-      "schedule": "* * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/fantasy-transactions",

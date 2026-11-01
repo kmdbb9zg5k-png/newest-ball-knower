@@ -54,10 +54,9 @@ run('feed',()=>{
   });
   assert.deepEqual(line,{awaySpread:3.5,homeSpread:-3.5,total:47.5,source:'FanDuel'});
   const feed=fs.readFileSync('server/nflPredictionFeed.js','utf8');
-  assert.match(feed,/TANK01_API_KEY\|\|process\.env\.RAPIDAPI_KEY/,'Tank01 fallback must reuse the existing server-only integration key');
+  assert.doesNotMatch(feed,/TANK01_API_KEY|RAPIDAPI_KEY|fetchTank01FallbackGames|\/getNFLBettingOdds/,'Picks network access must be independent of Tank01');
+  assert.match(feed,/nflverseCsv/,'Picks must use the bounded, namespaced published-data reader');
   assert.match(feed,/JAC:'JAX'/,'Jacksonville provider alias must normalize correctly');
-  assert.match(feed,/fetchTank01FallbackGames/);
-  assert.match(feed,/\/getNFLBettingOdds/,'Tank01 fallback must request actual betting lines, not schedule only');
   assert.match(feed,/awayTeamSpread/);
   assert.match(feed,/totalOver/);
 });

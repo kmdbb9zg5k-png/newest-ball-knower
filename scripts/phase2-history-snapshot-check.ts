@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const api = readFileSync(new URL('../api/fantasy-live-scoring.ts', import.meta.url), 'utf8');
+const schedule = readFileSync(new URL('../server/bk/fantasy-schedule-sync.ts', import.meta.url), 'utf8');
 const migration = readFileSync(new URL('../migrations/20260831_preserve_fantasy_history_snapshots.sql', import.meta.url), 'utf8');
 const matchupFollowUp = readFileSync(new URL('../migrations/20260831_freeze_fantasy_matchup_snapshot.sql', import.meta.url), 'utf8');
 const cloud = readFileSync(new URL('../fantasyPlayerDetailsCloud.ts', import.meta.url), 'utf8');
@@ -29,9 +30,11 @@ assert.match(api, /games\.length!==rawGames\.length/);
 assert.match(api, /if\(!isFinalGameStatus\(status\)\) throw new Tank01Error/);
 assert.match(api, /if\(malformedPlayerRow\) throw new Tank01Error/);
 assert.match(api, /if\(!rows\.length\) throw new Tank01Error/);
-assert.match(api, /historical backfill remains active/);
+assert.match(schedule, /historyBackfill:\s*'paused'/,'Unavailable independent statistics must pause historical ingestion');
 assert.match(api, /if\(!cronSecret\|\|req\.headers\?\.authorization!==`Bearer \$\{cronSecret\}`\) return res\.status\(401\)/);
-assert.doesNotMatch(api, /scheduleOnly|db\.auth\.getUser/);
+assert.doesNotMatch(api, /db\.auth\.getUser/);
+assert.match(api, /export default createFantasyScheduleHandler/,'Default cron must use the score-preserving independent schedule gate');
+assert.doesNotMatch(api, /export (?:default )?async function legacyTank01ScoringHandler/,'Paid legacy ingestion must remain unreachable');
 
 assert.match(cloud, /pregame_projected_points/);
 assert.match(cloud, /row\.pregame_projection_captured_at \? \(row\.pregame_projected_points \|\| \{\}\) : \{\}/);

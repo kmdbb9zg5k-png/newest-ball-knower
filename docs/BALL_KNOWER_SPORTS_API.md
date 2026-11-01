@@ -1,6 +1,6 @@
 # Ball Knower Sports API v1
 
-This read-only API adds free schedule/roster/injury feeds and Currents news. Fantasy and Picks still have Tank01 dependencies. No player IDs, leagues, scores or saved careers are migrated.
+This read-only API adds free schedule/roster/injury feeds and Currents news. Picks uses a separate nflverse adapter for published lines and completed results. Fantasy synchronizes schedule metadata only; complete independent player/DST scoring is still unavailable. Existing player IDs, league scores and saved careers are preserved. See `BK_FREE_SCHEDULES_PICKS.md`.
 
 | GET route | Source | Origin cache TTL | Meaning |
 | --- | --- | --- | --- |

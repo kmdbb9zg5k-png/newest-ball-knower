@@ -365,7 +365,7 @@ assert.ok(
 assert.ok(bridge.includes('IDLE_CLAIM_INTERVAL_MS=60_000')&&!bridge.includes('setInterval(()=>void claimVerifiedMilestones(),4000)'),'idle milestone replay must avoid four-second polling');
 
 assert.ok(migration.includes('verified_prediction_picks'),'verified Picks must have private pregame storage');
-assert.ok(predictionApi.includes('Date.now()>=kickoffMs'),'server must reject Picks at/after kickoff');
+assert.ok(predictionApi.includes('now()>=kickoffMs'),'server must reject Picks at/after kickoff');
 assert.ok(predictionApi.includes('That line moved'),'server must verify the exact posted line');
 assert.ok(predictionApi.includes('gradeCanonicalPrediction'),'server must grade from canonical finals');
 assert.ok(predictionApi.includes("from'../server/nflPredictionFeed.js'"),'Prediction serverless runtime import must be explicit ESM .js');

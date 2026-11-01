@@ -5,6 +5,15 @@ on:
       - 'api/bk/**'
       - 'api/nfl-news.ts'
       - 'api/ask-bk.ts'
+      - 'api/fantasy-live-scoring.ts'
+      - 'api/prediction-picks.ts'
+      - 'api/nfl-sportsbook.ts'
+      - 'server/nflPredictionFeed.js'
+      - 'server/predictionIdentity.js'
+      - 'scripts/picks-*'
+      - 'scripts/fantasy-schedule-*'
+      - 'scripts/fantasy-scoring-status-check.ts'
+      - 'FantasyLeaguePostDraft.tsx'
       - 'server/bk/**'
       - 'scripts/bk-*'
       - 'scripts/currents-news-check.ts'
@@ -44,6 +53,11 @@ jobs:
       - run: node --import tsx scripts/ask-bk-check.ts
       - run: node scripts/release-backend-preflight.mjs --self-test
       - run: node --import tsx scripts/bk-sports-snapshot-check.ts
+      - run: node --import tsx scripts/bk-nflverse-cache-isolation-check.ts
+      - run: node --import tsx scripts/picks-nflverse-provider-check.ts
+      - run: node --import tsx scripts/picks-migration-check.ts
+      - run: node --import tsx scripts/fantasy-schedule-independence-check.ts
+      - run: node --import tsx scripts/fantasy-scoring-status-check.ts
       - name: Verify snapshot permissions and refresh ordering in isolated PostgreSQL
         run: |
           npm install --prefix /tmp/bk-snapshot-sql --no-save @electric-sql/pglite@0.3.14

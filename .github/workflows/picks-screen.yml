@@ -10,6 +10,9 @@ on:
       - modeProgressionCloud.ts
       - server/nflPredictionFeed.js
       - api/nfl-sportsbook.ts
+      - api/prediction-picks.ts
+      - server/predictionIdentity.js
+      - server/bk/**
       - scripts/picks-*
       - .github/workflows/picks-screen.yml
   push:
@@ -33,6 +36,8 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: npm run lint && npm run check:picks && node --import tsx scripts/picks-screen-check.ts && node --import tsx scripts/picks-review-check.ts
+      - run: node --import tsx scripts/picks-nflverse-provider-check.ts
+      - run: node --import tsx scripts/picks-migration-check.ts
       - run: npm run build && npm run check:root-bundle
       - run: npx playwright install --with-deps chromium webkit
       - run: node scripts/picks-screen-browser.mjs

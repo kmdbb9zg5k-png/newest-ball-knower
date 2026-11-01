@@ -2,10 +2,9 @@ import { createClient } from '@supabase/supabase-js';
 
 export const maxDuration=30;
 
-// Keep this route self-contained. Vercel's TypeScript function runtime has
-// failed to package modules imported from outside api/ for this project.
-// These scoring rules mirror fantasyLiveScoring.ts, which remains the tested
-// browser/shared implementation.
+// These scoring rules mirror fantasyLiveScoring.ts. They are retained for the
+// future independent statistics adapter; the default route currently performs
+// schedule synchronization only and cannot invoke the legacy paid worker.
 type FantasyScoringFormat = 'standard' | 'half_ppr' | 'ppr';
 type FantasyStatLine = {
   passingAttempts?: number;
@@ -272,6 +271,7 @@ function scoreWithLeagueOverrides(rawStats:unknown,format:FantasyScoringFormat,c
 }
 
 export const config = { maxDuration: 60 };
+import { createFantasyScheduleHandler } from '../server/bk/fantasy-schedule-sync.js';
 
 type Json = Record<string, any>;
 type RosterPlayer = { id:string; name:string; team:string; position:string; ovr?:number };
@@ -606,7 +606,10 @@ export function createScoringDatabaseFetch(supabaseUrl:string, deps:{
   };
 }
 
-export default async function handler(req:any,res:any){
+// Unreachable legacy ingestion reference: no export, route or environment switch
+// can activate it. Reuse scoring rules only after an independent stats adapter
+// proves complete coverage and preserves the existing identity/score contracts.
+async function legacyTank01ScoringHandler(req:any,res:any){
   if(req.method!=='GET') return res.status(405).json({ok:false,error:'Method not allowed'});
   res.setHeader('Cache-Control','no-store');
   const cronSecret=process.env.CRON_SECRET;
@@ -1042,3 +1045,15 @@ export default async function handler(req:any,res:any){
     return res.status(500).json({ok:false,code:'live_scoring_internal',error:error?.message||'Live scoring update failed'});
   }
 }
+
+
+// The only deployed entry point. Even an existing RapidAPI key cannot activate
+// paid scoring, incomplete aggregation, history backfill or league progression.
+export default createFantasyScheduleHandler({getDb:()=>{
+  const supabaseUrl=process.env.SUPABASE_URL
+    ||process.env.VITE_SUPABASE_URL
+    ||'https://gpnboygoosrmeydwjpvk.supabase.co';
+  const serviceKey=process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if(!serviceKey) throw new Error('scoring_database_unconfigured');
+  return createClient(supabaseUrl,serviceKey,{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:createScoringDatabaseFetch(supabaseUrl)}});
+}});

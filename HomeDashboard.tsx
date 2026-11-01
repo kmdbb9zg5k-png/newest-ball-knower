@@ -7,7 +7,7 @@ import type { League, LeagueMember } from './types';
 import type { TeamTheme } from './teamTheme';
 import type { AppTab } from './App';
 import { PartnerCard } from './PartnerCard';
-import { homePartners } from './partners';
+import { activePartners, homePartners } from './partners';
 import { HomeStadiumHero } from './HomeStadiumHero';
 import { HomeMatchups } from './HomeMatchups';
 import { HomeSoloFeature } from './HomeSoloFeature';
@@ -171,7 +171,7 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
       {activityFailed && <button type="button" className="bk-home-activity-retry" onClick={() => setActivityRetry(value => value + 1)}>Retry updates</button>}
     </section>
 
-    {homePartners.length > 0 && <section aria-labelledby="home-partners-heading" className="bk-home-partners"><h3 id="home-partners-heading">Our Partners</h3><div>{homePartners.map(partner => <PartnerCard key={partner.name} partner={partner} compact/>)}</div>{homePartners.length > 1 && <button type="button" onClick={() => onNavigate('partners')}>View All Partners</button>}</section>}
+    {homePartners.length > 0 && <section aria-labelledby="home-partners-heading" className="bk-home-partners"><h3 id="home-partners-heading">Our Partners</h3><div>{homePartners.map(partner => <PartnerCard key={partner.name} partner={partner} compact/>)}</div>{activePartners.length > 1 && <button type="button" onClick={() => onNavigate('partners')}>View All Partners</button>}</section>}
     {settingsOpen && <Suspense fallback={null}><FantasySettingsHub isOpen onClose={() => setSettingsOpen(false)} onOpenLeague={league => { setSettingsOpen(false); onSelectLeague(league, 'lobby'); }} onManageLeague={league => { setSettingsOpen(false); setManagedLeagueId(league.id); }}/></Suspense>}
     {managedLeagueId && <Suspense fallback={null}><LeagueManagementModal leagueId={managedLeagueId} onClose={() => setManagedLeagueId('')}/></Suspense>}
   </div>;
