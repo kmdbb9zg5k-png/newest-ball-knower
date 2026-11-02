@@ -30,11 +30,22 @@ export default function FootballH2HSession({me,initialTeam='JCY',initialMatch,on
  const [team,setTeam]=useState(initialMatch?(initialMatch.challenger_id===me?initialMatch.challenger_team:initialMatch.opponent_team||initialTeam):initialTeam);
  const [elapsed,setElapsed]=useState(0),[rival,setRival]=useState<Rival|null>(null),[match,setMatch]=useState<FootballMatch|null>(initialMatch||null);
  const [ours,setOurs]=useState<DetailStats[]>([]),[theirs,setTheirs]=useState<DetailStats[]>([]);
+ const [frameRevision,setFrameRevision]=useState(0),[frameFailure,setFrameFailure]=useState('');
  const [attempt,setAttempt]=useState<FootballAttempt|null>(null),[error,setError]=useState(''),[leaving,setLeaving]=useState(false),[busy,setBusy]=useState(false);
  const dialog=useRef<HTMLDialogElement>(null),frame=useRef<HTMLIFrameElement>(null),mounted=useRef(true),generation=useRef(0),pendingSearch=useRef<string|null>(null);
  const currentMatch=useRef<FootballMatch|null>(initialMatch||null),currentAttempt=useRef<FootballAttempt|null>(null),currentRival=useRef<Rival|null>(null),currentTeam=useRef(team);
  const accepted=useRef(false),saving=useRef(false),pendingResult=useRef<DetailStats|null>(null),launches=useRef(new Map<string,string>()),timers=useRef<ReturnType<typeof setTimeout>[]>([]);
  const searchCreation=useRef<Promise<{id:string;status:string}>|null>(null);
+ const frameWatch=useRef<ReturnType<typeof setTimeout>|null>(null);
+ const clearFrameWatch=()=>{if(frameWatch.current){clearTimeout(frameWatch.current);frameWatch.current=null;}};
+ const retryFrame=()=>{clearFrameWatch();setFrameFailure('');setFrameRevision(n=>n+1);};
+ const failFrame=(message:string)=>{clearFrameWatch();setFrameFailure(message);};
+ const checkFrame=()=>{clearFrameWatch();const expected=currentAttempt.current,el=frame.current;if(!expected||!el)return;
+  frameWatch.current=setTimeout(()=>{if(!mounted.current||currentAttempt.current?.token!==expected.token)return;
+   try{const doc=el.contentDocument;if(!doc||!doc.querySelector('#hud, #loading, #liveUnits'))failFrame('The football field did not load. Retry this drive without losing your score.');}
+   catch{failFrame('The football field could not be verified. Retry this drive.');}
+  },7000);
+ };
  const leavingRef=useRef(false),deferred=useRef<(()=>void)|null>(null),starting=useRef(false);
  currentTeam.current=team;
  function requestExit(){leavingRef.current=true;setLeaving(true);}
@@ -45,11 +56,11 @@ export default function FootballH2HSession({me,initialTeam='JCY',initialMatch,on
  useEffect(()=>{
   mounted.current=true;const prior=document.activeElement as HTMLElement|null,overflow=document.body.style.overflow;
   dialog.current?.showModal();document.body.style.overflow='hidden';
-  return()=>{mounted.current=false;generation.current++;timers.current.forEach(clearTimeout);document.body.style.overflow=overflow;prior?.focus();const id=pendingSearch.current;if(id)void footballArenaAction('cancel',{id}).catch(()=>{});};
+  return()=>{mounted.current=false;generation.current++;timers.current.forEach(clearTimeout);clearFrameWatch();document.body.style.overflow=overflow;prior?.focus();const id=pendingSearch.current;if(id)void footballArenaAction('cancel',{id}).catch(()=>{});};
  },[]);
  async function readMatch(id:string){const home=await footballArenaAction<FootballHome>('home');const m=home.matches.find(m=>m.id===id);if(!m)throw Error('Could not load this match. Retry to reconnect.');return m;}
  async function beginDrive(m:FootballMatch|null,r:Rival,ordinal:number){
-  if(!mounted.current||starting.current)return;if(leavingRef.current){deferred.current=()=>void beginDrive(m,r,ordinal);return;}const run=generation.current;starting.current=true;setBusy(true);setPhase('loading');setError('');accepted.current=false;pendingResult.current=null;currentAttempt.current=null;setAttempt(null);
+  if(!mounted.current||starting.current)return;if(leavingRef.current){deferred.current=()=>void beginDrive(m,r,ordinal);return;}const run=generation.current;starting.current=true;setBusy(true);setPhase('loading');setError('');setFrameFailure('');clearFrameWatch();accepted.current=false;pendingResult.current=null;currentAttempt.current=null;setAttempt(null);
   try{
    let next:FootballAttempt;
    if(r.simulated)next={token:crypto.randomUUID(),drive:ordinal,seed:r.seed+ordinal,team:currentTeam.current,opponent:r.team,deadline:new Date(Date.now()+720000).toISOString()};
@@ -119,7 +130,7 @@ export default function FootballH2HSession({me,initialTeam='JCY',initialMatch,on
    let m=currentMatch.current;
    if(r.simulated){setOurs(rows=>[...rows,stats]);setTheirs(rows=>[...rows,simulateDrive(r.team)]);}
    else{if(!m)throw Error('Match unavailable.');await footballArenaAction(expired?'forfeit':'submit',{id:m.id,drive:a.drive,token:a.token,...(expired?{}:{stats})});m=await readMatch(m.id);if(!mounted.current)return;updateMatch(m);}
-   pendingResult.current=null;currentAttempt.current=null;setAttempt(null);
+   pendingResult.current=null;currentAttempt.current=null;setAttempt(null);clearFrameWatch();setFrameFailure('');
    if(!mounted.current)return;
    later(()=>{if(a.drive<3)void beginDrive(m,r,a.drive+1);else setPhase('results');},1300);
   }catch(e){if(mounted.current)setError(e instanceof Error?e.message:'Could not save your drive. Retry to continue.');}
@@ -153,14 +164,15 @@ export default function FootballH2HSession({me,initialTeam='JCY',initialMatch,on
  const pending=phase==='results'&&!rival?.simulated&&match?.status!=='completed'&&!closed;
  const ourScore=scoreSum(ours),theirScore=scoreSum(theirs);
  const outcome=closed?'Match closed':pending?'Waiting for your opponent':ourScore>theirScore?'You win!':ourScore<theirScore?'You lose':'Tie game';
- const retry=()=>{if(pendingResult.current)void finishDrive(pendingResult.current,!!currentAttempt.current&&Date.now()>=Date.parse(currentAttempt.current.deadline));else if(currentRival.current)void beginDrive(currentMatch.current,currentRival.current,ours.length+1);};
+ const retry=()=>{if(frameFailure&&currentAttempt.current){retryFrame();return;}if(pendingResult.current)void finishDrive(pendingResult.current,!!currentAttempt.current&&Date.now()>=Date.parse(currentAttempt.current.deadline));else if(currentRival.current)void beginDrive(currentMatch.current,currentRival.current,ours.length+1);};
  return createPortal(<dialog ref={dialog} className="football-session" data-phase={phase} aria-label="Football match" onCancel={e=>{e.preventDefault();close();}}>
   <header className="football-session-header"><div><span className="football-eyebrow">BALL KNOWER · HEAD-TO-HEAD</span><strong>{phase==='team'?'Build your matchup':phase==='search'?'Matchmaking':phase==='results'?'Match results':`Drive ${attempt?.drive||Math.min(3,ours.length+1)} of 3`}</strong></div><button type="button" className="secondary" disabled={busy} onClick={close}>{phase==='team'?'Back':phase==='results'?'Back to main screen':'Exit'}</button></header>
   {phase==='team'&&<FootballH2HTeamSelect selectedTeam={team} onSelect={setTeam} onContinue={()=>void search()} onBack={onClose}/>}
   {phase==='search'&&<section className="football-session-stage" aria-label="Matchmaking"><span className="football-eyebrow">{teamInfo(team).name}</span><h1>Finding your matchup</h1><div className="football-search-clock" role="timer" aria-label="Matchmaking seconds">{elapsed}<small>/ 30 seconds</small></div><p>Your next matchup is on the way. Get ready to take the field.</p>{error&&<p role="alert">{error}</p>}<button type="button" className="secondary" disabled={busy} onClick={()=>void cancelSearch()}>{busy?'Closing search…':'Cancel search'}</button></section>}
   {phase==='intro'&&rival&&<section className="football-session-stage" role="status"><span className="football-eyebrow">OPPONENT FOUND</span><h1>{teamInfo(team).name}<em>VS</em>{teamInfo(rival.team).name}</h1><p>{rival.name}</p><p>Three drives. Each begins with a kickoff.</p></section>}
   {phase==='loading'&&<section className="football-session-stage"><h1>Preparing kickoff</h1>{error?<><p role="alert">{error}</p><button type="button" onClick={retry}>Retry next drive</button></>:<p role="status">Loading your next drive…</p>}</section>}
-  {(phase==='game'||phase==='intermission')&&attempt&&rival&&<><div className="football-session-score"><span>You <b>{ourScore}</b></span><small>{rival.name} · {theirs.length}/3 opponent drives</small><span><b>{theirScore}</b> {teamInfo(rival.team).abbr}</span></div><iframe ref={frame} key={`${rival.id}:${attempt.drive}`} title={`Football H2H offensive drive ${attempt.drive}`} src={footballDriveUrl(rival.id,attempt)} allow="fullscreen" className={phase==='intermission'||leaving?'football-session-frame hidden-frame':'football-session-frame'}/></>}
+  {(phase==='game'||phase==='intermission')&&attempt&&rival&&<><div className="football-session-score"><span>You <b>{ourScore}</b></span><small>{rival.name} · {theirs.length}/3 opponent drives</small><span><b>{theirScore}</b> {teamInfo(rival.team).abbr}</span></div><iframe ref={frame} key={`${rival.id}:${attempt.drive}:${frameRevision}`} title={`Football H2H offensive drive ${attempt.drive}`} src={footballDriveUrl(rival.id,attempt)} onLoad={checkFrame} onError={()=>failFrame('The football field could not load. Retry this drive.')} allow="fullscreen" className={phase==='intermission'||leaving||!!frameFailure?'football-session-frame hidden-frame':'football-session-frame'}/></>}
+  {phase==='game'&&frameFailure&&<section className="football-session-stage" role="alert"><h1>Drive interrupted</h1><p>{frameFailure}</p><p>Your completed drives are still recorded. This retry keeps the same drive attempt.</p><button type="button" onClick={retryFrame}>Retry drive</button></section>}
   {phase==='intermission'&&<section className="football-session-stage" aria-live="polite"><h1>{busy?'Saving drive…':error?'Save interrupted':'Drive complete'}</h1>{error?<><p role="alert">{error}</p><button type="button" disabled={busy} onClick={retry}>Retry saving result</button></>:<p>{(attempt?.drive||ours.length)<3?'The next kickoff starts automatically.':'Preparing your scoreboard…'}</p>}</section>}
   {phase==='results'&&rival&&<section className="football-session-results"><span className="football-eyebrow">{closed?'MATCH CLOSED':pending?'YOUR DRIVES ARE COMPLETE':'FINAL SCORE'}</span><h1>{outcome}</h1><div className="football-final-score"><div><strong>You</strong><span>{teamInfo(team).name}</span><b>{ourScore}</b></div><em>—</em><div><strong>{rival.name}</strong><span>{teamInfo(rival.team).name}</span><b>{theirScore}</b></div></div>{closed&&<p role="status">This match expired or closed before both players finished. Completed drive totals are shown below.</p>}{pending&&<p role="status">Your score is saved. Your opponent has finished {theirs.length} of 3 drives. This screen updates automatically; you can also return later from Match history.</p>}{error&&<p role="alert">{error}</p>}<OffensiveComparison ours={ours} theirs={theirs}/><p className="football-session-fine">{rival.simulated?'Quick match · does not affect standings.':'Device-reported results · final after both players finish.'}</p><button type="button" onClick={onClose}>Back to main screen</button></section>}
   {leaving&&<section className="football-session-exit" role="alertdialog" aria-modal="true" aria-label="Leave match?"><h2>Leave this match?</h2><p>{phase==='game'?'The current drive will be recorded as zero.':'Completed drives stay recorded. You can return to online matches from the lobby.'}</p>{error&&<p role="alert">{error}</p>}<button type="button" disabled={busy} onClick={()=>void leaveGame()}>Leave match</button><button type="button" className="secondary" disabled={busy} onClick={resume}>Keep playing</button></section>}
