@@ -1,8 +1,9 @@
+import {createDrillRenderer,releaseDrillRenderer} from './startup.js';
 import * as T from 'three';
 import {loadCombineRunner} from './meshy-runner.js';
 
 export async function createCreatorScene(host:HTMLElement,initial:any){
-  const renderer=new T.WebGLRenderer({antialias:true,alpha:true,powerPreference:'low-power'});
+  const renderer=createDrillRenderer(T.WebGLRenderer,{alpha:true,powerPreference:'low-power'});
   renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
   renderer.outputColorSpace=T.SRGBColorSpace;
   renderer.toneMapping=T.ACESFilmicToneMapping;
@@ -17,7 +18,7 @@ export async function createCreatorScene(host:HTMLElement,initial:any){
   const floor=new T.Mesh(new T.CylinderGeometry(.7,.72,.035,64),new T.MeshStandardMaterial({color:0x19242b,roughness:.7,metalness:.25}));
   floor.position.y=-.045;scene.add(floor);
   let runner:Awaited<ReturnType<typeof loadCombineRunner>>;
-  try{runner=await loadCombineRunner(initial);}catch(error){renderer.dispose();renderer.domElement.remove();floor.geometry.dispose();floor.material.dispose();throw error;}
+  try{runner=await loadCombineRunner(initial);}catch(error){releaseDrillRenderer(renderer);floor.geometry.dispose();floor.material.dispose();throw error;}
   scene.add(runner.root);
   let angle=.16,disposed=false,view:'body'|'head'='body',athleteHeight=initial.heightInches||72;
   function draw(){if(!disposed)renderer.render(scene,camera);}
@@ -46,9 +47,9 @@ export async function createCreatorScene(host:HTMLElement,initial:any){
       return renderer.domElement.toDataURL('image/png');
     }finally{view=previousView;angle=previousAngle;runner.root.rotation.y=angle;renderer.setPixelRatio(ratio);resize();}
   },setView(next:'body'|'head'){view=next;resize();},dispose(){
-    disposed=true;observer.disconnect();visibility.disconnect();
+    if(disposed)return;disposed=true;observer.disconnect();visibility.disconnect();
     const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>(),textures=new Set<T.Texture>();
     scene.traverse(object=>{const mesh=object as T.Mesh;if(mesh.geometry)geometries.add(mesh.geometry);for(const material of Array.isArray(mesh.material)?mesh.material:[mesh.material])if(material){materials.add(material);for(const value of Object.values(material))if(value instanceof T.Texture)textures.add(value);}});
-    runner.dispose();for(const geometry of geometries)geometry.dispose();for(const material of materials)material.dispose();for(const texture of textures)texture.dispose();renderer.dispose();renderer.domElement.remove();
+    runner.dispose();for(const geometry of geometries)geometry.dispose();for(const material of materials)material.dispose();for(const texture of textures)texture.dispose();releaseDrillRenderer(renderer);
   }};
 }

@@ -1,3 +1,4 @@
+import {combineStartupMessage} from './startup.js';
 import {reportDrillSession,drillSessionStats,challengeSeed} from '../public/mini-challenge-bridge.js';
 import React,{useEffect,useRef,useState} from 'react';
 import {flushSync} from 'react-dom';
@@ -24,7 +25,7 @@ export default function RBExperience({players,onClose,onResult,career}:{players:
   let gone=false,raf=0,last=0;const present=createPresentationGate();
   import('./scene.js').then(async({createCombineScene})=>{if(!host.current||gone)return;const s=await createCombineScene(host.current,run.current.athlete,()=>{if(gone)return;pause();setError('Graphics were interrupted. Retry to resume your session.');},'rb');if(gone){s.dispose();return;}scene.current=s;setReady(true);last=performance.now();
    const frame=(now:number)=>{if(gone)return;raf=requestAnimationFrame(frame);const dt=(now-last)/1000;last=now;if(!stopped.current&&!document.hidden){if(dt>5&&['preview','handoff','running'].includes(run.current.phase)){pause();return;}stepRB(run.current,routeFrameDelta(dt),input.current);}const drawDelta=present(now,document.hidden,controlRef.current.frames);if(drawDelta!==null)s.draw(run.current,drawDelta);if(run.current.phase==='result'&&!recorded.current){recorded.current=true;const next=[...completed.current,run.current.result];completed.current=next;setResults(next);if(next.length===total){if(!career){reportDrillSession(next);setSaved(saveRBScore(run.current.athlete,next));setRecords(readRBScores());}onResult?.(drillSessionStats(next));}}if(drawDelta!==null)flushSync(()=>setView({...run.current}));};raf=requestAnimationFrame(frame);
-  }).catch(()=>{if(!gone)setError('Could not load the drill. Your session is held; tap Retry Drill.');});
+  }).catch(error=>{if(!gone){scene.current?.dispose();scene.current=null;setReady(false);setError(combineStartupMessage(error));}});
   const usable=()=>!stopped.current&&['preview','handoff','running','settle'].includes(run.current.phase);
   const update=(t:Touch)=>{const owner=touch.current;if(!owner)return;const dx=(t.clientX-owner.cx)/45,dy=(t.clientY-owner.cy)/45,n=Math.max(1,Math.hypot(dx,dy));input.current={x:dx/n,y:dy/n};setStick(input.current);};
   const ts=(e:TouchEvent)=>{if(!usable()||touch.current)return;const el=e.target instanceof Element?e.target.closest('.rb-game .route-stick'):null,t=e.changedTouches[0];if(!el||!t)return;const r=el.getBoundingClientRect();pointer.current=null;touch.current={id:t.identifier,cx:r.x+r.width/2,cy:r.y+r.height/2};e.preventDefault();update(t);};

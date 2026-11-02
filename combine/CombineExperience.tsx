@@ -1,3 +1,4 @@
+import {combineStartupMessage} from './startup.js';
 import {reportMiniChallenge,challengeSeed,inMiniChallenge} from '../public/mini-challenge-bridge.js';
 import React, { useEffect, useRef, useState } from 'react';
 import { bestResult, newDash, pressDash, tapStride, speedPercent, accuracy, positionRanking, RULESET, readResults, saveResult, stepDash, YARD } from './dash.js';
@@ -99,7 +100,7 @@ export default function CombineExperience({ players, context, onClose, onResult 
       // Warm up the first rendered frame before START becomes available.
       scene.current.draw(run.current, 0);
       setReady(true); prior = performance.now(); lastDraw = prior; raf = requestAnimationFrame(frame);
-    }).catch(() => { if (!gone) setError('This device could not start the 3D Combine. Try reopening it in Safari or Chrome.'); });
+    }).catch(error=>{if(!gone){scene.current?.dispose();scene.current=null;setReady(false);setError(combineStartupMessage(error));}});
     const hidden = () => { if (document.hidden && !['idle', 'finished', 'false-start'].includes(run.current.phase)) pause(); };
     const blur = () => { if (['set', 'ready', 'running'].includes(run.current.phase)) pause(); };
     document.addEventListener('visibilitychange', hidden); window.addEventListener('blur', blur);

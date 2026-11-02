@@ -1,0 +1,25 @@
+name: Combine startup recovery
+on:
+  pull_request:
+    paths: ['combine/**', 'scripts/combine-*', '.github/workflows/combine-startup.yml']
+  push:
+    branches: [main]
+    paths: ['combine/**', 'scripts/combine-*', '.github/workflows/combine-startup.yml']
+permissions:
+  contents: read
+jobs:
+  startup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: node scripts/combine-loading-check.mjs && node scripts/combine-startup-check.mjs
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/combine-startup-browser.mjs
+      - run: npm run build
+      - run: node scripts/drill-retry-browser.mjs

@@ -1,3 +1,4 @@
+import {createDrillRenderer,releaseDrillRenderer,combineStartupError} from './startup.js';
 import {addFacilityPresentation} from './facility-presentation.js';
 import {createRBPresentation} from './rb-presentation.js';
 import {RECEIVER} from './db-drill.js';
@@ -171,12 +172,34 @@ function athlete(parent, seed, staff = false) {
 
 export async function createCombineScene(host, player, onLost, drill = 'dash') {
   const defensive=drill==='db',isRoutes=drill==='routes'||drill==='one-on-one'||defensive||drill==='rb';
-  const detailedRunner=await loadCombineRunner(defensive?RECEIVER:player);
-  const renderer=new T.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});
+  let renderer, runner, background, routePresentation, observer;
+  let stage='graphics', disposed=false, contextLost=false;
+  const scene=new T.Scene();
+  function disposeObject(object){const geometries=new Set(),materials=new Set(),textures=new Set();object.traverse(o=>{if(o.geometry)geometries.add(o.geometry);for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m){materials.add(m);for(const val of Object.values(m))if(val?.isTexture)textures.add(val);}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());}
+  const lost=e=>{e.preventDefault();contextLost=true;onLost();};
+  function dispose(){
+    if(disposed)return;disposed=true;
+    observer?.disconnect();
+    renderer?.domElement.removeEventListener('webglcontextlost',lost);
+    try {
+      routePresentation?.dispose();background?.dispose();runner?.dispose();
+      scene.traverse(object=>object.disposeCombineRunner?.());
+      disposeObject(scene);
+    } finally {
+      releaseDrillRenderer(renderer);
+      for(const key of ['backgroundVersion','scouts','waitingAthletes','character'])delete host.dataset[key];
+    }
+  }
+  try {
+  renderer=createDrillRenderer(T.WebGLRenderer);
+  stage='athlete';
+  runner=await loadCombineRunner(defensive?RECEIVER:player);
+  scene.add(runner.root);
+  stage='field';
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;
   host.appendChild(renderer.domElement);renderer.domElement.setAttribute('aria-label',({jump:'Indoor broad jump lane',shuttle:'Indoor shuttle lane',bench:'Combine weight bench',routes:'Receiver routes field','one-on-one':'One-on-one man coverage field',db:'Defensive back coverage field',rb:'Running back one-on-one field'})[drill]||'Indoor 40-yard dash track');
-  const lost=e=>{e.preventDefault();onLost();};renderer.domElement.addEventListener('webglcontextlost',lost);
-  const scene=new T.Scene();scene.background=new T.Color('#253039');scene.fog=new T.Fog('#253039',48,125);
+  renderer.domElement.addEventListener('webglcontextlost',lost);
+  scene.background=new T.Color('#253039');scene.fog=new T.Fog('#253039',48,125);
   const camera=new T.PerspectiveCamera(49,1,.05,160);
   scene.add(new T.HemisphereLight('#dce8f2','#30482e',1.2));
   const key=new T.DirectionalLight('#fff2dc',3.1);key.position.set(-12,24,7);key.castShadow=true;key.shadow.mapSize.set(1024,1024);key.shadow.camera.left=-9;key.shadow.camera.right=9;key.shadow.camera.top=12;key.shadow.camera.bottom=-12;key.shadow.camera.near=1;key.shadow.camera.far=65;key.shadow.normalBias=.025;key.shadow.bias=-.00015;scene.add(key,key.target);
@@ -255,14 +278,13 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
     for(const side of [-1,1])for(let i=0;i<2;i++){const plate=mesh(new T.CylinderGeometry(.22,.22,.075,32),rubber,bar,side*(.73+i*.08),0,0);plate.rotation.z=Math.PI/2;const hub=mesh(new T.CylinderGeometry(.055,.055,.08,16),gold,bar,side*(.73+i*.08),0,0);hub.rotation.z=Math.PI/2;}
     bar.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
   }
-  const runner=detailedRunner;
   runner.poseJump({phase:'idle',elapsed:0,flight:1.2,height:0,visualDistance:0});
-  let background;
-  try{background=await createCombineBackground(scene,runner.root,{fieldPeople:!isRoutes,standOffset});}catch(error){runner.dispose();disposeObject(scene);renderer.domElement.removeEventListener('webglcontextlost',lost);renderer.dispose();renderer.domElement.remove();throw error;}
+  stage='background';
+  background=await createCombineBackground(scene,runner.root,{fieldPeople:!isRoutes,standOffset});
   host.dataset.backgroundVersion='reactive-v3';host.dataset.scouts=String(background.counts.scouts);host.dataset.waitingAthletes=String(background.counts.waitingAthletes);
   scene.add(runner.root);host.dataset.character='native-athlete';
-  let routePresentation;
-  if(isRoutes){try{routePresentation=drill==='rb'?await createRBPresentation(scene,runner,camera):await createRoutePresentation(scene,runner,camera,host,defensive?RECEIVER:player,drill==='one-on-one'||defensive,defensive?player:null);}catch(error){background.dispose();runner.dispose();disposeObject(scene);renderer.dispose();renderer.domElement.remove();throw error;}}
+  stage='field';
+  if(isRoutes)routePresentation=drill==='rb'?await createRBPresentation(scene,runner,camera):await createRoutePresentation(scene,runner,camera,host,defensive?RECEIVER:player,drill==='one-on-one'||defensive,defensive?player:null);
   let ghostRunner=null,ghostState=null;
   function setGhost(next){
     if(ghostRunner){scene.remove(ghostRunner.root);disposeObject(ghostRunner.root);ghostRunner=null;}
@@ -275,8 +297,8 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
   let visualZ=0,previousPhase='idle',settle=0;
   const target=v(),look=v();
   const resize=()=>{const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;camera.aspect=w/h;camera.fov=w<h?53:49;camera.updateProjectionMatrix();renderer.setSize(w,h,false);};
-  const observer=new ResizeObserver(resize);observer.observe(host);resize();
-  function disposeObject(object){const geometries=new Set(),materials=new Set(),textures=new Set();object.traverse(o=>{if(o.geometry)geometries.add(o.geometry);for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m){materials.add(m);for(const val of Object.values(m))if(val?.isTexture)textures.add(val);}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());}
+  observer=new ResizeObserver(resize);observer.observe(host);resize();
+
   function draw(state,dt){
     if(routePresentation){const focus=defensive?state.db:state;key.position.set(focus.x-12,24,focus.z+7);key.target.position.set(focus.x,0,focus.z);key.target.updateMatrixWorld();routePresentation.draw(state,dt);background.update(dt,{...state,distance:state.distance,phase:state.phase==='result'?'finished':state.phase},runner.root.position);renderer.render(scene,camera);return;}
     if(drill==='bench'||drill==='shuttle') {
@@ -325,5 +347,11 @@ export async function createCombineScene(host, player, onLost, drill = 'dash') {
     renderer.render(scene,camera);previousPhase=state.phase;
   }
   camera.position.set(-1,1.65,-3.45);
-  return {draw,setGhost,setGhostState(state){ghostState=state;},setAthlete(next){if(defensive)routePresentation?.setDefender(next);else runner.setAthlete(next);visualZ=0;settle=0;previousPhase='reset';},dispose(){routePresentation?.dispose();background.dispose();runner.dispose();delete host.dataset.backgroundVersion;delete host.dataset.scouts;delete host.dataset.waitingAthletes;delete host.dataset.character;observer.disconnect();renderer.domElement.removeEventListener('webglcontextlost',lost);disposeObject(scene);renderer.dispose();renderer.domElement.remove();}};
+  stage='graphics';
+  if(contextLost||renderer.getContext().isContextLost())throw new Error('Graphics context was lost during startup.');
+  return {draw(state,dt){try{draw(state,dt);}catch(error){throw combineStartupError(error,'render');}},setGhost,setGhostState(state){ghostState=state;},setAthlete(next){if(defensive)routePresentation?.setDefender(next);else runner.setAthlete(next);visualZ=0;settle=0;previousPhase='reset';},dispose};
+  } catch(error) {
+    try { dispose(); } catch(cleanupError) { console.warn('Combine cleanup failed',cleanupError); }
+    throw combineStartupError(error,stage);
+  }
 }

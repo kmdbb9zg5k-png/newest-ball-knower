@@ -1,3 +1,4 @@
+import {combineStartupMessage} from './startup.js';
 import {reportMiniChallenge} from '../public/mini-challenge-bridge.js';
 import React,{useEffect,useRef,useState} from 'react';
 import {flushSync} from 'react-dom';
@@ -30,7 +31,7 @@ export default function AgilityStrengthExperience({players,context,onClose,drill
     // Commit the timing cue before the next input task; no stale green window.
     if(now-hud>30){flushSync(()=>setView({...run.current}));hud=now;}
    };raf=requestAnimationFrame(frame);
-  }).catch(()=>{if(!gone)setError('Could not load the athlete. Your session is held; tap Retry Drill.');});
+  }).catch(error=>{if(!gone){scene.current?.dispose();scene.current=null;setReady(false);setError(combineStartupMessage(error));}});
   const hide=()=>{if(document.hidden&&['countdown','running','cut'].includes(run.current.phase))pause('background');};
   // Browser chrome/keyboard focus changes release a held press; only hiding the app pauses.
   const blur=()=>release();

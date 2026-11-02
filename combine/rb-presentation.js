@@ -4,7 +4,7 @@ import {loadCombineRunner} from './meshy-runner.js';
 import {LINEBACKER,GOAL,WIDTH} from './rb-drill.js';
 import {stepRouteCamera} from './route-camera.js';
 export async function createRBPresentation(scene,runner,camera){
- const lb=await loadCombineRunner(LINEBACKER),qb=await loadCombineRunner({id:'combine-rb-coach-18',name:'Marcus Reed',position:'QB',heightInches:75,weightLbs:220});scene.add(lb.root,qb.root);lb.root.name='rb-linebacker';qb.root.name='rb-handoff-qb';
+ const lb=await loadCombineRunner(LINEBACKER);scene.add(lb.root);const qb=await loadCombineRunner({id:'combine-rb-coach-18',name:'Marcus Reed',position:'QB',heightInches:75,weightLbs:220});scene.add(lb.root,qb.root);lb.root.name='rb-linebacker';qb.root.name='rb-handoff-qb';
  // Distinct opponent top; identity, build and hair are supplied by persistent player IDs.
  for(const [actor,tint]of [[lb,'vec3(.43,.055,.07)'],[qb,'vec3(.08,.23,.43)']])actor.root.traverse(o=>{if(!o.isSkinnedMesh)return;for(const m of(Array.isArray(o.material)?o.material:[o.material])){const prev=m.onBeforeCompile,key=m.customProgramCacheKey.bind(m);m.onBeforeCompile=shader=>{prev.call(m,shader);shader.vertexShader='varying vec3 rbPos;\n'+shader.vertexShader.replace('#include <worldpos_vertex>','#include <worldpos_vertex>\nrbPos=(modelMatrix*vec4(position,1.)).xyz;');shader.fragmentShader='varying vec3 rbPos;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
  float neutral=1.-smoothstep(.03,.10,max(diffuseColor.r,max(diffuseColor.g,diffuseColor.b))-min(diffuseColor.r,min(diffuseColor.g,diffuseColor.b)));
