@@ -1,3 +1,4 @@
+import {combineStartupMessage} from './startup.js';
 import {reportMiniChallenge} from '../public/mini-challenge-bridge.js';
 import React, { useEffect, useRef, useState } from 'react';
 import { newJump, pressJump, stepJump, jumpMarker, formatJump, readJumps, saveJump, JUMP_ATTEMPTS, REP_SECONDS, POWER_SECONDS, LAND_GREEN_START, LAND_GREEN_END, isLandingGreen, landingProgress, inputReady, launchSeconds, landingFeedback } from './broad-jump.js';
@@ -40,7 +41,7 @@ export default function BroadJumpExperience({players,context,onClose,onResult}:{
         if(run.current.phase==='finished'&&!recorded.current){recorded.current=true;const resultStats={distance:Number(run.current.distance.toFixed(3))};reportMiniChallenge(resultStats);onResult?.(resultStats);setAttempts(a=>[...a,run.current.distance]);if(run.current.distance>0){setSaved(saveJump(run.current,context));setRows(readJumps());}}
         if(now-hud>32){setView({...run.current});hud=now;}
       };raf=requestAnimationFrame(frame);
-    }).catch(()=>{if(!gone)setError('Could not load the Combine athlete. Your session is held; tap Retry Drill.');});
+    }).catch(error=>{if(!gone){scene.current?.dispose();scene.current=null;setReady(false);setError(combineStartupMessage(error));}});
     const hide=()=>{if(document.hidden&& !['idle','finished'].includes(run.current.phase))pause();};
     const blur=()=>{if(!['idle','finished'].includes(run.current.phase))pause();};
     document.addEventListener('visibilitychange',hide);window.addEventListener('blur',blur);

@@ -1,3 +1,4 @@
+import {combineStartupMessage} from './startup.js';
 import {reportDrillSession,drillSessionStats,challengeSeed} from '../public/mini-challenge-bridge.js';
 import React,{useEffect,useRef,useState} from 'react';
 import {flushSync} from 'react-dom';
@@ -26,7 +27,7 @@ export default function DBExperience({players,onClose,onResult,career}:{players:
  import('./scene.js').then(async({createCombineScene})=>{if(!host.current||gone)return;const s=await createCombineScene(host.current,run.current.athlete,()=>{if(gone)return;pause();setError('Graphics were interrupted. Retry to resume your session.');},'db');if(gone){s.dispose();return;}scene.current=s;setReady(true);last=performance.now();
  const frame=(now:number)=>{if(gone)return;raf=requestAnimationFrame(frame);const dt=(now-last)/1000;last=now;if(!stopped.current&&!document.hidden){if(dt>5&&['preview','running','flight'].includes(run.current.phase)){pause();return;}step(run.current,routeFrameDelta(dt),input.current);}
  const drawDelta=present(now,document.hidden,controlRef.current.frames);if(drawDelta!==null)s.draw(run.current,drawDelta);if(run.current.phase==='result'&&!recorded.current){recorded.current=true;const next=[...completed.current,run.current.result];completed.current=next;setResults(next);if(next.length===total){if(!career){reportDrillSession(next);setSaved(saveScore(run.current.athlete,next));setRecords(readScores());}onResult?.(drillSessionStats(next));}}if(drawDelta!==null)flushSync(()=>setView({...run.current}));};raf=requestAnimationFrame(frame);
- }).catch(()=>{if(!gone)setError('Could not load the athlete. Your session is held; tap Retry Drill.');});
+ }).catch(error=>{if(!gone){scene.current?.dispose();scene.current=null;setReady(false);setError(combineStartupMessage(error));}});
  const hide=()=>{release();if(document.hidden&&['preview','running','flight'].includes(run.current.phase))pause();};const blur=()=>{if(['preview','running','flight','settle'].includes(run.current.phase))pause();else release();};
  // Track the actual finger independently of Safari's pointer-capture lifecycle.
  // A lost capture must not turn a held touch into a stop. Keep the drag origin

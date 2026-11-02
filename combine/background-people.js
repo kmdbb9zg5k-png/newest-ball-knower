@@ -1,11 +1,17 @@
-import {loadCombineAsset} from './asset-loading.js';
+import {loadCombineAsset,invalidateCombineAsset} from './asset-loading.js';
 import * as T from 'three';
 import {createWatchingAthlete} from './background-athlete.js';
 const SKINS=['#ae764e','#ceaa88','#684330','#986340'];
 const v=(x=0,y=0,z=0)=>new T.Vector3(x,y,z);
 export async function createCombineBackground(scene,source,{fieldPeople=true,standOffset=0}={}){
- const bytes=new Uint8Array(await loadCombineAsset('/play-moment-3d/assets/combine-scout-poses-v1.json.gz')); const text=bytes[0]===31&&bytes[1]===139?await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text():new TextDecoder().decode(bytes);
- const poses=JSON.parse(text),loader=new T.BufferGeometryLoader(),group=new T.Group();group.name='combine-background-people';scene.add(group);
+ const url='/play-moment-3d/assets/combine-scout-poses-v1.json.gz';
+ let poses;
+ try {
+  const bytes=new Uint8Array(await loadCombineAsset(url));
+  const text=bytes[0]===31&&bytes[1]===139?await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text():new TextDecoder().decode(bytes);
+  poses=JSON.parse(text);
+ } catch(error) {invalidateCombineAsset(url);throw error;}
+ const loader=new T.BufferGeometryLoader(),group=new T.Group();group.name='combine-background-people';scene.add(group);
  let sourceMaterial;source.traverse(o=>{if(o.isSkinnedMesh&&!sourceMaterial)sourceMaterial=Array.isArray(o.material)?o.material[0]:o.material;});
  const regionShader=shader=>{shader.vertexShader='varying vec3 bkRegion;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nbkRegion=color;');shader.fragmentShader='varying vec3 bkRegion;\n'+shader.fragmentShader.replace('#include <color_fragment>','');};
  function scoutMaterial(index){const m=new T.MeshStandardMaterial({map:sourceMaterial.map,roughness:.91,vertexColors:true});

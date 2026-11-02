@@ -1,4 +1,4 @@
-import {loadCombineAsset} from './asset-loading.js';
+import {loadCombineAsset,invalidateCombineAsset} from './asset-loading.js';
 import * as T from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createPlayerAppearance } from './player-appearance.js';
@@ -12,7 +12,9 @@ const rotation=o=>o.getWorldQuaternion(new T.Quaternion());
 
 export async function loadCombineRunner(player) {
   const bytes=await loadCombineAsset(COMBINE_CHARACTER_URL);
-  const gltf=await new GLTFLoader().parseAsync(bytes.slice(0),'/play-moment-3d/assets/');
+  let gltf;
+  try { gltf=await new GLTFLoader().parseAsync(bytes.slice(0),'/play-moment-3d/assets/'); }
+  catch(error) { invalidateCombineAsset(COMBINE_CHARACTER_URL); throw error; }
   const root=new T.Group(),body=gltf.scene;root.add(body);
   const asset=body.getObjectByName('CombineAthlete'),baseScale=asset.scale.clone();
   const strides=asset.userData.strides;
@@ -285,5 +287,8 @@ export async function loadCombineRunner(player) {
     root.updateMatrixWorld(true);
   }
   pose(0,0,true);
-  return {root,pose,poseCreator,poseJump,poseBench,poseShuttleTurn,poseReceiver,poseDefender,poseRB,poseHandoff,poseQuarterback,setAthlete,dispose(){appearance.dispose();mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}};
+  let disposed=false;
+  root.disposeCombineRunner=disposeRunner;
+  return {root,pose,poseCreator,poseJump,poseBench,poseShuttleTurn,poseReceiver,poseDefender,poseRB,poseHandoff,poseQuarterback,setAthlete,dispose:disposeRunner};
+  function disposeRunner(){if(disposed)return;disposed=true;appearance.dispose();mixer.stopAllAction();mixer.uncacheRoot(body);const images=new Set();body.traverse(o=>{o.skeleton?.dispose();for(const m of(Array.isArray(o.material)?o.material:[o.material]))if(m)for(const value of Object.values(m))if(value?.isTexture&&value.image)images.add(value.image);});for(const image of images)image.close?.();}
 }

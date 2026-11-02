@@ -16,3 +16,14 @@ await assert.rejects(loadCombineAsset('/http-error'),/Could not download/);
 globalThis.fetch=async()=>({ok:true,arrayBuffer:async()=>new ArrayBuffer(3)});
 assert.equal((await loadCombineAsset('/http-error')).byteLength,3);
 console.log('PASS shared downloads, hung fetch/body timeout, abort, and retry after HTTP/timeout failure');
+// HTTP 200 does not imply a valid model: never cache HTML or truncated GLBs.
+const model=new ArrayBuffer(12),header=new DataView(model);header.setUint32(0,0x46546c67,true);header.setUint32(4,2,true);header.setUint32(8,12,true);
+let cacheMode;
+globalThis.fetch=async(_url,options)=>{cacheMode=options.cache;return{ok:true,arrayBuffer:async()=>new TextEncoder().encode('<html>temporary failure</html>').buffer};};
+await assert.rejects(loadCombineAsset('/bad-model.glb?v=1'),/incomplete or invalid/);assert.equal(cacheMode,'force-cache');
+globalThis.fetch=async(_url,options)=>{cacheMode=options.cache;return{ok:true,arrayBuffer:async()=>model};};
+assert.equal(await loadCombineAsset('/bad-model.glb?v=1'),model);assert.equal(cacheMode,'reload');
+const truncated=model.slice(0);new DataView(truncated).setUint32(8,500,true);
+globalThis.fetch=async()=>({ok:true,arrayBuffer:async()=>truncated});
+await assert.rejects(loadCombineAsset('/truncated.glb'),/incomplete or invalid/);
+console.log('PASS invalid/truncated model rejection and fresh HTTP download on retry');
