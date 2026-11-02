@@ -1,11 +1,23 @@
 // Retry context creation with a smaller framebuffer when the preferred GPU
 // configuration is unavailable. Keep the same athlete, scene and gameplay.
 export function createDrillRenderer(Renderer, options = {}) {
+  const attempt = settings => {
+    const canvas = document.createElement('canvas');
+    try { return new Renderer({...settings, canvas}); }
+    catch (error) {
+      // Three.js may create a default context while diagnosing rejected
+      // attributes, then throw without returning a renderer. Own the canvas
+      // so that this hidden context is released before trying the fallback.
+      try { canvas.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext(); }
+      finally { canvas.remove(); }
+      throw error;
+    }
+  };
   try {
-    return new Renderer({antialias: true, alpha: false, powerPreference: 'high-performance', ...options});
+    return attempt({antialias: true, alpha: false, powerPreference: 'high-performance', ...options});
   } catch (preferredError) {
     try {
-      return new Renderer({alpha: false, ...options, antialias: false, powerPreference: 'default'});
+      return attempt({alpha: false, ...options, antialias: false, powerPreference: 'default'});
     } catch (cause) {
       throw new Error('Graphics context creation failed.', {cause});
     }

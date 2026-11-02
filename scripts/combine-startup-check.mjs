@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import {createDrillRenderer,releaseDrillRenderer,combineStartupError,combineStartupMessage} from '../combine/startup.js';
-const calls=[];
+const calls=[];let failedContextsReleased=0;
+globalThis.document={createElement(){return{getContext(){return{getExtension(){return{loseContext(){failedContextsReleased++;}};}};},remove(){}};}};
 class Renderer {constructor(options){calls.push(options);if(options.antialias)throw Error('GPU configuration unavailable');this.options=options;}}
 const renderer=createDrillRenderer(Renderer,{alpha:true,powerPreference:'low-power'});
-assert.equal(calls.length,2);assert.equal(calls[0].powerPreference,'low-power');assert.equal(renderer.options.antialias,false);assert.equal(renderer.options.alpha,true);assert.equal(renderer.options.powerPreference,'default');
+assert.equal(calls.length,2);assert.equal(failedContextsReleased,1);assert.equal(calls[0].powerPreference,'low-power');assert.equal(renderer.options.antialias,false);assert.equal(renderer.options.alpha,true);assert.equal(renderer.options.powerPreference,'default');
 assert.throws(()=>createDrillRenderer(class{constructor(){throw Error('No GPU');}}),error=>error.cause.message==='No GPU');
 const cleanup=[];
 releaseDrillRenderer({dispose(){cleanup.push('dispose');},forceContextLoss(){cleanup.push('release');},domElement:{remove(){cleanup.push('remove');}}});
