@@ -84,8 +84,8 @@ try{
   await page.goto('http://127.0.0.1:3059/football-qa.html');await page.getByLabel('Your team',{exact:true}).selectOption('MIL');await page.getByLabel('Opponent',{exact:true}).selectOption('friend');await page.getByRole('button',{name:'Challenge friend'}).click();await page.getByRole('button',{name:'Play drive 1 of 3'}).waitFor();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'No overflow '+width);
   await page.screenshot({path:`artifacts/football-arena/lobby-${width}.png`,fullPage:true});
-  if(width===390){
-    await page.setViewportSize({width:1000,height:500});
+  if(width===390||(width>=1024&&process.env.DESKTOP_FULL==='1')){
+    await page.setViewportSize(width>=1024?{width:1280,height:720}:{width:1000,height:500});
     await page.getByRole('button',{name:'Play drive 1 of 3'}).click();
     for(let n=1;n<=3;n++){
       console.log(`Playing automatically launched official drive ${n} through kickoff and normal spike controls`);
@@ -116,8 +116,8 @@ try{
     const statsTable=page.getByRole('table',{name:'Offensive stats'});await statsTable.waitFor();
     assert.match(await statsTable.innerText(),/Total yards/);
     assert.match(await statsTable.innerText(),/—/,'Old opponent drives without detailed stats are unavailable, not zero');
-    await page.setViewportSize({width:390,height:844});
-    assert(await page.getByRole('dialog').evaluate(el=>el.scrollWidth<=el.clientWidth),'Final comparison fits mobile');
+    await page.setViewportSize({width,height:844});
+    assert(await page.getByRole('dialog').evaluate(el=>el.scrollWidth<=el.clientWidth),'Final comparison fits viewport '+width);
     await page.screenshot({path:'artifacts/football-arena/results.png',fullPage:true});
     await page.getByRole('button',{name:'Back to main screen',exact:true}).last().click();
     await page.getByRole('button',{name:'Match history',exact:true}).click();await page.getByText('OPPONENT WINS',{exact:true}).waitFor();
@@ -215,7 +215,7 @@ try{
   }
   assert.deepEqual(errors,[]);await browser.close();
  }
- console.log(JSON.stringify({status:'PASS',widths,officialDrives:widths.includes(390)?3:0,coverage:widths.includes(390)?'Selection, all 32 teams, three automatic official kickoffs/drives, bridge source/token validation, save retry, comparison, history, standings, guest matchmaking and pending-result/cancel fixtures':'Team selection and lobby mobile layouts'}));
+ console.log(JSON.stringify({status:'PASS',widths,officialDrives:widths.includes(390)||process.env.DESKTOP_FULL==='1'?3:0,coverage:widths.includes(390)||process.env.DESKTOP_FULL==='1'?'Selection, all 32 teams, three automatic official kickoffs/drives, bridge source/token validation, save retry, comparison, history, standings, guest matchmaking and pending-result/cancel fixtures':'Team selection and lobby mobile layouts'}));
 }catch(error){
  const prefix=`artifacts/football-arena/failure-${currentWidth||'startup'}`;
  if(currentPage&&!currentPage.isClosed()){
