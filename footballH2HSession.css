@@ -11,3 +11,8 @@
  .football-session[data-phase="game"]>.football-session-score small{min-width:0;overflow-wrap:anywhere}
  .football-session[data-phase="game"]>.football-session-frame{grid-column:1/-1;grid-row:2;height:100%;min-width:0}
 }
+
+/* A failed 3D frame must show its recovery screen even in landscape grid mode. */
+.football-session[data-phase="game"][data-frame-failed="true"]>.football-session-stage{
+ position:absolute;inset:48px 0 0;z-index:2;min-height:0;background:#080d16;
+}
