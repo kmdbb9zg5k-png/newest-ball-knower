@@ -36,6 +36,14 @@ export default function FootballH2HSession({me,initialTeam='JCY',initialMatch,on
  const currentMatch=useRef<FootballMatch|null>(initialMatch||null),currentAttempt=useRef<FootballAttempt|null>(null),currentRival=useRef<Rival|null>(null),currentTeam=useRef(team);
  const accepted=useRef(false),saving=useRef(false),pendingResult=useRef<DetailStats|null>(null),launches=useRef(new Map<string,string>()),timers=useRef<ReturnType<typeof setTimeout>[]>([]);
  const searchCreation=useRef<Promise<{id:string;status:string}>|null>(null);
+ // A reload must reuse the backend's original launch UUID to resume the same attempt.
+ // Scope to user and match to avoid resuming another account's game.
+ const launchStorageKey=(matchId:string,drive:number)=>`bk-h2h-launch:${me}:${matchId}:${drive}`;
+ const getLaunch=(matchId:string,drive:number)=>{const key=`${matchId}:${drive}`;let launch=launches.current.get(key);
+  if(!launch){try{launch=window.sessionStorage.getItem(launchStorageKey(matchId,drive))||undefined;}catch{}if(launch)launches.current.set(key,launch);}
+  return launch;
+ };
+ const storeLaunch=(matchId:string,drive:number,launch:string)=>{launches.current.set(`${matchId}:${drive}`,launch);try{window.sessionStorage.setItem(launchStorageKey(matchId,drive),launch);}catch{}};
  const frameWatch=useRef<ReturnType<typeof setTimeout>|null>(null);
  const clearFrameWatch=()=>{if(frameWatch.current){clearTimeout(frameWatch.current);frameWatch.current=null;}};
  const retryFrame=()=>{clearFrameWatch();setFrameFailure('');setFrameRevision(n=>n+1);};
@@ -68,16 +76,18 @@ export default function FootballH2HSession({me,initialTeam='JCY',initialMatch,on
     if(!m)throw Error('Match unavailable.');
     if(['expired','cancelled','declined'].includes(m.status)||Date.parse(m.expires_at)<=Date.now())throw Error('This match has expired or closed. Return to the lobby to start another match.');
     const unfinished=m.drives.find(d=>d.user_id===me&&!d.finished_at);
-    if(unfinished)throw Error('An earlier drive was interrupted. Return to your matches to record it before continuing.');
-    const key=`${m.id}:${ordinal}`;if(!launches.current.has(key))launches.current.set(key,crypto.randomUUID());
-    next=await footballArenaAction<FootballAttempt>('begin',{id:m.id,drive:ordinal,launch:launches.current.get(key)});
+    if(unfinished&&unfinished.ordinal!==ordinal)throw Error('Finish the interrupted drive before starting another.');
+    let launch=getLaunch(m.id,ordinal);
+    if(unfinished&&!launch)throw Error('This drive was interrupted on another session. The original attempt cannot be recovered here.');
+    if(!launch){launch=crypto.randomUUID();storeLaunch(m.id,ordinal,launch);}
+    next=await footballArenaAction<FootballAttempt>('begin',{id:m.id,drive:ordinal,launch});
    }
-   if(!mounted.current||run!==generation.current){if(!r.simulated)void footballArenaAction('forfeit',{id:r.id,drive:next.drive,token:next.token}).catch(()=>{});return;}currentAttempt.current=next;setAttempt(next);transition(()=>setPhase('game'));
+   if(!mounted.current||run!==generation.current)return;currentAttempt.current=next;setAttempt(next);transition(()=>setPhase('game'));
   }catch(e){if(mounted.current&&run===generation.current)setError(e instanceof Error?e.message:'Could not start the next drive.');}finally{starting.current=false;if(mounted.current)setBusy(false);}
  }
  function introduce(m:FootballMatch|null,r:Rival){
   currentRival.current=r;setRival(r);if(m){const ownTeam=m.challenger_id===me?m.challenger_team:m.opponent_team!;currentTeam.current=ownTeam;setTeam(ownTeam);updateMatch(m);}else{setOurs([]);setTheirs([]);}
-  setPhase('intro');setError('');later(()=>{const complete=m?matchRows(m,me).length:0;if(complete>=3)setPhase('results');else void beginDrive(m,r,complete+1);},1800);
+  setPhase('intro');setError('');later(()=>{const complete=m?matchRows(m,me).length:0;if(complete>=3)setPhase('results');else {const interrupted=m?.drives.find(d=>d.user_id===me&&!d.finished_at);void beginDrive(m,r,interrupted?.ordinal||complete+1);}},1800);
  }
  useEffect(()=>{if(initialMatch){const other=initialMatch.challenger_id===me?initialMatch.opponent_id:initialMatch.challenger_id;if(!other){setError('This match is waiting for an opponent.');return;}introduce(initialMatch,{id:initialMatch.id,team:initialMatch.challenger_id===me?initialMatch.opponent_team!:initialMatch.challenger_team,name:initialMatch.challenger_id===me?initialMatch.opponent_name:initialMatch.challenger_name,simulated:false,seed:0});}},[]);
  async function search(){
@@ -164,7 +174,7 @@ export default function FootballH2HSession({me,initialTeam='JCY',initialMatch,on
  const pending=phase==='results'&&!rival?.simulated&&match?.status!=='completed'&&!closed;
  const ourScore=scoreSum(ours),theirScore=scoreSum(theirs);
  const outcome=closed?'Match closed':pending?'Waiting for your opponent':ourScore>theirScore?'You win!':ourScore<theirScore?'You lose':'Tie game';
- const retry=()=>{if(frameFailure&&currentAttempt.current){retryFrame();return;}if(pendingResult.current)void finishDrive(pendingResult.current,!!currentAttempt.current&&Date.now()>=Date.parse(currentAttempt.current.deadline));else if(currentRival.current)void beginDrive(currentMatch.current,currentRival.current,ours.length+1);};
+ const retry=()=>{if(frameFailure&&currentAttempt.current){retryFrame();return;}if(pendingResult.current)void finishDrive(pendingResult.current,!!currentAttempt.current&&Date.now()>=Date.parse(currentAttempt.current.deadline));else if(currentRival.current){const m=currentMatch.current,interrupted=m?.drives.find(d=>d.user_id===me&&!d.finished_at);void beginDrive(m,currentRival.current,interrupted?.ordinal||ours.length+1);}};
  return createPortal(<dialog ref={dialog} className="football-session" data-phase={phase} aria-label="Football match" onCancel={e=>{e.preventDefault();close();}}>
   <header className="football-session-header"><div><span className="football-eyebrow">BALL KNOWER · HEAD-TO-HEAD</span><strong>{phase==='team'?'Build your matchup':phase==='search'?'Matchmaking':phase==='results'?'Match results':`Drive ${attempt?.drive||Math.min(3,ours.length+1)} of 3`}</strong></div><button type="button" className="secondary" disabled={busy} onClick={close}>{phase==='team'?'Back':phase==='results'?'Back to main screen':'Exit'}</button></header>
   {phase==='team'&&<FootballH2HTeamSelect selectedTeam={team} onSelect={setTeam} onContinue={()=>void search()} onBack={onClose}/>}
