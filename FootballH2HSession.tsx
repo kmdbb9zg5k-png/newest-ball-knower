@@ -5,6 +5,7 @@ import {FOOTBALL_ARENA_TEAMS} from './footballArenaTeams';
 import {FootballH2HTeamSelect} from './FootballH2HTeamSelect';
 import './footballH2HSession.css';
 import {pickFootballOpponentHandle} from './footballOpponentHandles';
+import {trackBallKnowerEvent} from './analytics';
 
 type Phase='team'|'search'|'intro'|'loading'|'game'|'intermission'|'results';
 type DetailStats=FootballStats;
@@ -50,9 +51,11 @@ export default function FootballH2HSession({me,initialTeam='JCY',initialMatch,on
  const failFrame=(message:string)=>{
   clearFrameWatch();
   const active=currentAttempt.current;
-  if(active&&Date.now()<Date.parse(active.deadline)&&!frameAutoRetried.current.has(active.token)){
-   frameAutoRetried.current.add(active.token);retryFrame();return;
-  }
+  const canAutoRetry=!!active&&Date.now()<Date.parse(active.deadline)&&!frameAutoRetried.current.has(active.token);
+  // Client-side renderer failures are invisible to server runtime logs.
+  // Only share a fixed category and drive number, never names, tokens or match IDs.
+  trackBallKnowerEvent('H2H Drive Frame Failure',{drive:active?.drive||0,reason:message.includes('graphics')?'graphics':message.includes('navigated')?'navigation':'frame',autoRetry:canAutoRetry});
+  if(active&&canAutoRetry){frameAutoRetried.current.add(active.token);retryFrame();return;}
   setFrameFailure(message);
  };
  const checkFrame=()=>{clearFrameWatch();const expected=currentAttempt.current,el=frame.current;if(!expected||!el)return;
