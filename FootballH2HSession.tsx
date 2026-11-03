@@ -44,14 +44,27 @@ export default function FootballH2HSession({me,initialTeam='JCY',initialMatch,on
   return launch;
  };
  const storeLaunch=(matchId:string,drive:number,launch:string)=>{launches.current.set(`${matchId}:${drive}`,launch);try{window.sessionStorage.setItem(launchStorageKey(matchId,drive),launch);}catch{}};
- const frameWatch=useRef<ReturnType<typeof setTimeout>|null>(null);
+ const frameWatch=useRef<ReturnType<typeof setTimeout>|null>(null),frameAutoRetried=useRef(new Set<string>());
  const clearFrameWatch=()=>{if(frameWatch.current){clearTimeout(frameWatch.current);frameWatch.current=null;}};
  const retryFrame=()=>{clearFrameWatch();setFrameFailure('');setFrameRevision(n=>n+1);};
- const failFrame=(message:string)=>{clearFrameWatch();setFrameFailure(message);};
+ const failFrame=(message:string)=>{
+  clearFrameWatch();
+  const active=currentAttempt.current;
+  if(active&&Date.now()<Date.parse(active.deadline)&&!frameAutoRetried.current.has(active.token)){
+   frameAutoRetried.current.add(active.token);retryFrame();return;
+  }
+  setFrameFailure(message);
+ };
  const checkFrame=()=>{clearFrameWatch();const expected=currentAttempt.current,el=frame.current;if(!expected||!el)return;
   frameWatch.current=setTimeout(()=>{if(!mounted.current||currentAttempt.current?.token!==expected.token)return;
-   try{const doc=el.contentDocument;if(!doc||!doc.querySelector('#hud, #loading, #liveUnits'))failFrame('The football field did not load. Retry this drive without losing your score.');}
-   catch{failFrame('The football field could not be verified. Retry this drive.');}
+   try{
+    const doc=el.contentDocument;
+    if(!doc||el.contentWindow?.location.pathname!=='/play-moment-3d-preview.html'||!doc.querySelector('#hud, #loading, #liveUnits')){
+     failFrame('The football field navigated away or failed to load. Retry this drive without losing your score.');return;
+    }
+    const gameError=doc.querySelector('#error');
+    if(gameError&&!(gameError as HTMLElement).hidden)failFrame('The graphics engine could not start. Retry this drive.');
+   }catch{failFrame('The football field could not be verified. Retry this drive.');}
   },7000);
  };
  const leavingRef=useRef(false),deferred=useRef<(()=>void)|null>(null),starting=useRef(false);
