@@ -52,7 +52,12 @@ try{
       await new Promise(resolve=>{releaseQuickMatch=resolve;});result={id:'late-search',status:'open'};
     }
     if(action==='cancel'){if(m)m.status='cancelled';result={cancelled:true};}
-    if(action==='begin'){m.drives.push({user_id:'me',ordinal:args.drive,points:null,yards:null,plays:null,finished_at:null,deadline:new Date(Date.now()+720000).toISOString()});result={token:'drive-token-'+args.drive,drive:args.drive,deadline:new Date(Date.now()+720000).toISOString(),seed:42+args.drive,team:m.challenger_team,opponent:m.opponent_team};}
+    if(action==='begin'){
+      let existing=m.drives.find(d=>d.user_id==='me'&&d.ordinal===args.drive);
+      if(existing)assert.equal(args.launch,existing.launch_id,'A resumed drive must reuse its original launch UUID');
+      else{existing={user_id:'me',ordinal:args.drive,launch_id:args.launch,points:null,yards:null,plays:null,finished_at:null,deadline:new Date(Date.now()+720000).toISOString()};m.drives.push(existing);}
+      result={token:'drive-token-'+args.drive,drive:args.drive,deadline:existing.deadline,seed:42+args.drive,team:m.challenger_team,opponent:m.opponent_team};
+    }
     if(action==='submit'||action==='forfeit'){
       if(action==='submit'&&fail){fail=false;await route.fulfill({status:503,json:{message:'Connection interrupted. Retry saving this result.'}});return;}
       const drive=m.drives.find(d=>d.user_id==='me'&&d.ordinal===args.drive);Object.assign(drive,action==='submit'?args.stats:{points:0,yards:0,plays:0},{finished_at:new Date().toISOString(),forfeited:action==='forfeit'});
@@ -148,6 +153,37 @@ try{
     const pending=matches[0];pending.drives.push(...[1,2,3].map(ordinal=>({user_id:'friend',ordinal,points:7,yards:60,plays:7,finished_at:new Date().toISOString(),forfeited:false})));
     pending.status='completed';pending.winner_id='friend';
     await page.getByRole('heading',{name:'You lose',exact:true}).waitFor({timeout:30000});
+    await page.getByRole('button',{name:'Back to main screen',exact:true}).last().click();
+    // A bad drive-frame response should recover without losing the original server attempt.
+    // This reproduces the user-observed Home/white-screen transition on a 390px phone.
+    await page.unroute('**/play-moment-3d-preview.html?**');
+    let badDriveFrame=true;
+    await page.route('**/play-moment-3d-preview.html?**',route=>route.fulfill({contentType:'text/html',body:badDriveFrame?'<html><body><h1>Ball Knower Home fallback</h1></body></html>':'<html><body><div id="hud">Football game loaded</div></body></html>'}));
+    matches=[];opponentFinished=true;
+    await page.goto('http://127.0.0.1:3059/football-qa.html');
+    await page.getByLabel('Opponent',{exact:true}).selectOption('friend');
+    await page.getByRole('button',{name:'Challenge friend'}).click();
+    await page.getByRole('button',{name:'Play drive 1 of 3'}).click();
+    const startRecover=calls.length;
+    await page.getByRole('button',{name:'Retry drive',exact:true}).waitFor({timeout:30000});
+    assert.equal(calls.slice(0,startRecover).filter(c=>c.action==='forfeit').length,0,'Frame retry never forfeits a drive');
+    assert.equal(matches[0].drives.filter(d=>d.user_id==='me').length,1,'Auto retry cannot start another server drive');
+    assert.equal(await page.getByRole('dialog').getAttribute('data-frame-failed'),'true','Recovery overlay appears above failed game frame');
+    await page.screenshot({path:'artifacts/football-arena/frame-recovery.png'});
+    badDriveFrame=false;
+    await page.getByRole('button',{name:'Retry drive',exact:true}).click();
+    await page.locator('iframe').contentFrame().locator('#hud').waitFor();
+    const originalLaunch=calls.filter(c=>c.action==='begin').at(-1).args.launch;
+    await page.reload();
+    await page.getByRole('button',{name:'Play drive 1 of 3'}).click();
+    await page.locator('iframe').contentFrame().locator('#hud').waitFor();
+    const resumedLaunch=calls.filter(c=>c.action==='begin').at(-1).args.launch;
+    assert.equal(resumedLaunch,originalLaunch,'Reload must recover the exact original backend attempt');
+    assert.equal(matches[0].drives.filter(d=>d.user_id==='me').length,1,'Reload must not create a duplicate drive');
+    for(let n=1;n<=3;n++)await sendResult(n,{points:3,yards:35,plays:6});
+    await page.getByRole('heading',{name:'Tie game',exact:true}).waitFor();
+    assert.equal(matches[0].drives.filter(d=>d.user_id==='me'&&d.finished_at).length,3,'Recovered match completes all three drives');
+    assert.equal(calls.slice(startRecover).filter(c=>c.action==='forfeit').length,0,'Frame failure and reload cannot forfeit drives');
     await page.getByRole('button',{name:'Back to main screen',exact:true}).last().click();
     // Cancel before the quick-match response arrives: the late queue row must still close.
     matches=[];await page.goto('http://127.0.0.1:3059/football-qa.html');
