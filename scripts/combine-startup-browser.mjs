@@ -8,7 +8,7 @@ import {newDash} from '/combine/dash.js';
 const player={id:'startup-regression',name:'Test runner',position:'WR',speed:85,acceleration:85,seed:10};
 const host=document.getElementById('host');
 window.runStartup=async()=>{
- try{const scene=await createCombineScene(host,player,()=>{});scene.draw(newDash(player),0);scene.dispose();return{ok:true};}
+ try{const scene=await createCombineScene(host,player,()=>{});scene.draw(newDash(player),0);window.lastScenery={scouts:host.dataset.scouts,waiting:host.dataset.waitingAthletes};scene.dispose();return{ok:true};}
  catch(error){return{ok:false,stage:error.combineStage,message:error.cause?.message||error.message};}
 };
 window.runCreator=async()=>{const scene=await createCreatorScene(host,player);scene.dispose();return true;};
@@ -47,10 +47,18 @@ try{
  assert.deepEqual(await page.evaluate(()=>window.runStartup()),{ok:true},'Non-antialiased fallback must render real scene');
  const stats=await page.evaluate(()=>window.contextStats);assert.equal(stats.created,stats.released);assert.deepEqual(errors,[]);
  console.log('PASS real mobile-size scene, bad download recovery, four creator/drill cycles, explicit context release, fallback graphics',stats);
- // A failed scenery parse must also release the scene and be retried with new bytes.
+ // A failed scenery parse must recover automatically or keep the drill playable.
  await page.reload();await page.waitForFunction(()=>window.ready);let brokenScenery=true;
  await page.route('**/combine-scout-poses-v1.json.gz',route=>brokenScenery?route.fulfill({status:200,body:'invalid scenery'}):route.continue());
- const scenery=await page.evaluate(()=>window.runStartup());assert.equal(scenery.stage,'background');assert.equal(await page.evaluate(()=>window.contextStats.live),0);
+ const scenery=await page.evaluate(()=>window.runStartup());assert.deepEqual(scenery,{ok:true});assert.equal(await page.evaluate(()=>window.contextStats.live),0);
+ assert.deepEqual(await page.evaluate(()=>window.lastScenery),{scouts:'0',waiting:'3'},'Keep waiting athletes when the scout download is unavailable');
  brokenScenery=false;assert.deepEqual(await page.evaluate(()=>window.runStartup()),{ok:true});assert.equal(await page.evaluate(()=>window.contextStats.live),0);
- console.log('PASS scenery failure cleanup and fresh retry');
+ assert.deepEqual(await page.evaluate(()=>window.lastScenery),{scouts:'27',waiting:'3'});
+ await page.addInitScript(()=>{window.DecompressionStream=undefined;});
+ await page.reload();await page.waitForFunction(()=>window.ready);
+ assert.deepEqual(await page.evaluate(()=>window.runStartup()),{ok:true});
+ assert.deepEqual(await page.evaluate(()=>window.lastScenery),{scouts:'27',waiting:'3'});
+ assert.equal(await page.evaluate(()=>window.contextStats.live),0);
+ assert.deepEqual(errors,[]);
+ console.log('PASS playable scenery fallback, retained athletes, restored scouts, native-decoder independence and context cleanup');
 }finally{await browser.close();await server.close();}

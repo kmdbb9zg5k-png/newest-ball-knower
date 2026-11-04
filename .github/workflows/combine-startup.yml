@@ -18,7 +18,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - run: node scripts/combine-loading-check.mjs && node scripts/combine-startup-check.mjs
+      - run: node scripts/combine-loading-check.mjs && node scripts/combine-startup-check.mjs && node scripts/combine-scenery-check.mjs
       - run: npx playwright install --with-deps chromium
       - run: node scripts/combine-startup-browser.mjs
       - run: npm run build
