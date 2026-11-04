@@ -1,16 +1,16 @@
-import {loadCombineAsset,invalidateCombineAsset} from './asset-loading.js';
+import {loadScoutPoses} from './scout-poses.js';
 import * as T from 'three';
 import {createWatchingAthlete} from './background-athlete.js';
 const SKINS=['#ae764e','#ceaa88','#684330','#986340'];
 const v=(x=0,y=0,z=0)=>new T.Vector3(x,y,z);
 export async function createCombineBackground(scene,source,{fieldPeople=true,standOffset=0}={}){
- const url='/play-moment-3d/assets/combine-scout-poses-v1.json.gz';
- let poses;
- try {
-  const bytes=new Uint8Array(await loadCombineAsset(url));
-  const text=bytes[0]===31&&bytes[1]===139?await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text():new TextDecoder().decode(bytes);
-  poses=JSON.parse(text);
- } catch(error) {invalidateCombineAsset(url);throw error;}
+ let poses=[];
+ try { poses=await loadScoutPoses(); }
+ catch(error) {
+  // Scouts are decorative. Keep the facility, athlete, waiting athletes and
+  // drill playable after bounded retries; the next visit retries fresh bytes.
+  console.warn('[Combine scenery: scout download unavailable]',error);
+ }
  const loader=new T.BufferGeometryLoader(),group=new T.Group();group.name='combine-background-people';scene.add(group);
  let sourceMaterial;source.traverse(o=>{if(o.isSkinnedMesh&&!sourceMaterial)sourceMaterial=Array.isArray(o.material)?o.material[0]:o.material;});
  const regionShader=shader=>{shader.vertexShader='varying vec3 bkRegion;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nbkRegion=color;');shader.fragmentShader='varying vec3 bkRegion;\n'+shader.fragmentShader.replace('#include <color_fragment>','');};
@@ -26,8 +26,8 @@ export async function createCombineBackground(scene,source,{fieldPeople=true,sta
  }
  const scouts=[];
  const clusters=[[0,1,7],[2,6,7],[4,5,12],[3,10,11]];
- for(const side of [-1,1])for(let row=0;row<4;row++)for(const col of clusters[row])scouts.push({x:side*(11+standOffset+row*.9),y:row*.62+.83,z:col*.86-3,angle:side<0?Math.PI/2:-Math.PI/2,variant:scouts.length%3,seated:true});
- if(fieldPeople)for(let i=0;i<3;i++)scouts.push({x:6.6+i*.65,y:0,z:2.2+i*1.2,angle:-Math.PI/2+(i-1)*.16,variant:3,seated:false});
+ if(poses.length)for(const side of [-1,1])for(let row=0;row<4;row++)for(const col of clusters[row])scouts.push({x:side*(11+standOffset+row*.9),y:row*.62+.83,z:col*.86-3,angle:side<0?Math.PI/2:-Math.PI/2,variant:scouts.length%3,seated:true});
+ if(poses.length&&fieldPeople)for(let i=0;i<3;i++)scouts.push({x:6.6+i*.65,y:0,z:2.2+i*1.2,angle:-Math.PI/2+(i-1)*.16,variant:3,seated:false});
  const batches=poses.map((pose,index)=>{const people=scouts.filter(s=>s.variant===index);return {people,meshes:pose.geometries.map(json=>{const geometry=loader.parse(json),batch=new T.InstancedMesh(geometry,scoutMaterial(index),people.length);batch.name=`scout-detailed-${index}`;batch.frustumCulled=false;batch.receiveShadow=true;group.add(batch);return batch;})};});
  const material=new T.MeshStandardMaterial({color:'#5f4c33',roughness:.9}),paperMaterial=new T.MeshStandardMaterial({color:'#d8dbcf',roughness:1}),penMaterial=new T.MeshStandardMaterial({color:'#16232e'});
  const boards=new T.InstancedMesh(new T.BoxGeometry(.29,.016,.23),material,scouts.length),paper=new T.InstancedMesh(new T.BoxGeometry(.25,.005,.20),paperMaterial,scouts.length),pens=new T.InstancedMesh(new T.CylinderGeometry(.005,.005,.09,6),penMaterial,scouts.length);boards.name='scout-clipboards';pens.name='scout-pens';group.add(boards,paper,pens);for(const m of[boards,paper,pens])m.frustumCulled=false;
@@ -49,6 +49,6 @@ export async function createCombineBackground(scene,source,{fieldPeople=true,sta
   if(time-last<1/30)return;const step=last<0?dt:time-last;last=time;
   updateScouts(time);waiting.forEach(person=>person.update(time,step,target,time-reactionStart));
  }
- updateScouts(0);group.userData={scouts:scouts.length,waitingAthletes:waiting.length,detailedScouts:true,cleanArms:true,reactiveAthletes:true};
+ updateScouts(0);group.userData={scouts:scouts.length,waitingAthletes:waiting.length,detailedScouts:poses.length>0,cleanArms:true,reactiveAthletes:true};
  return {update,counts:group.userData,dispose(){for(const person of waiting)person.dispose();}};
 }
