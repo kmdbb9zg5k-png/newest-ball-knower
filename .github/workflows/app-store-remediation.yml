@@ -7,7 +7,9 @@ permissions:
 jobs:
   community-safety-and-consent:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Browser system dependencies can spend several minutes on the runner's
+    # Ubuntu mirror before the build and all three UI suites can begin.
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:17
