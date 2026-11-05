@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {createLocalId} from '../localIdentity';
+const id='4d50c5fa-3cbb-4c9b-a9a1-4f86e802ec5e';
+assert.equal(createLocalId({randomUUID:()=>id}),id,'Use the native UUID when supported');
+const fallback=createLocalId({getRandomValues:bytes=>{bytes.fill(255);return bytes;}});
+assert.equal(fallback,'ffffffff-ffff-4fff-bfff-ffffffffffff','Insecure-context API fallback retains valid UUID version/variant bits');
+assert.match(createLocalId({randomUUID:()=>{throw Error('Unsupported');},getRandomValues:bytes=>bytes.fill(0)}),/^00000000-0000-4000-8000-000000000000$/);
+const unavailable={getRandomValues:()=>{throw Error('Unavailable');}};
+const ids=Array.from({length:1000},()=>createLocalId(unavailable));
+assert.equal(new Set(ids).size,ids.length,'Local-only fallback must distinguish rapid creations');
+assert.ok(ids.every(value=>value.startsWith('local-')),'Noncryptographic fallback is distinguishable and local-only');
+assert.match(createLocalId({}),/^local-/,'Missing crypto must not crash local customization');
+console.log('Local identity compatibility passed: native UUID, getRandomValues-only, throwing provider and absent crypto.');

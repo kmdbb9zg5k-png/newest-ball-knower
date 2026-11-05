@@ -19,3 +19,5 @@
 @media(max-width:400px){.career-mode-nav button{padding-inline:12px;font-size:12px}.career-mode-nav{gap:3px}}
 @media(min-width:768px){.career-mode-nav{top:calc(116px + env(safe-area-inset-top,0px))}}
 @media(prefers-reduced-motion:no-preference){.career-mode-nav button{transition:background-color .15s,color .15s}}
+
+.bk-screen[data-page="owner"] .career-owner-intro-title{font-family:"Barlow Condensed","Arial Narrow",sans-serif;font-size:30px;line-height:1.05;color:#f0e2c0}

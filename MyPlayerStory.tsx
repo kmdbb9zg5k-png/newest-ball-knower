@@ -1,3 +1,4 @@
+import {createLocalId} from './localIdentity';
 import MyPlayerCareerStats from './MyPlayerCareerStats';
 import {GAME_GEAR_CHANGED} from './playerGameGear';
 import {readAthletePassport} from './athletePassport';
@@ -121,13 +122,13 @@ const EMPTY_PROFILE: MyPlayerProfile = {
 function restoreProfile() {
   try {
     const raw = localStorage.getItem(SOLO_FRANCHISE_SAVE_KEYS.player);
-    if (!raw) return {...EMPTY_PROFILE,combineId:crypto.randomUUID()};
+    if (!raw) return {...EMPTY_PROFILE,combineId:createLocalId()};
     const saved = JSON.parse(raw);
-    if (saved?.version !== 1 || !ATHLETE_POSITIONS.includes(saved.position) || !['creator', 'combine', 'drafted', 'camp', 'season'].includes(saved.stage)) return {...EMPTY_PROFILE,combineId:crypto.randomUUID()};
-    if (['drafted', 'camp', 'season'].includes(saved.stage) && !SOLO_TEAM_THEMES.some(team => team.abbr === saved.teamAbbr)) return {...EMPTY_PROFILE,combineId:crypto.randomUUID()};
-    return { ...EMPTY_PROFILE, ...saved, combineId:saved.combineId||crypto.randomUUID(), ...sanitizeAthleteBuild(saved),...sanitizeAthleteAppearance(saved), careerArc:cleanCareerArc(saved.careerArc,{...EMPTY_PROFILE,...saved}),careerLife:cleanCareerLife(saved.careerLife,{...EMPTY_PROFILE,...saved},saved.draftJourney),combinePerformance:cleanDraftCombine(saved.combinePerformance),draftJourney:saved.draftJourney?cleanJourney(saved.draftJourney,{...EMPTY_PROFILE,...saved}):undefined,rookieRole:['starter','rotation','development'].includes(saved.rookieRole)?saved.rookieRole:undefined } as MyPlayerProfile;
+    if (saved?.version !== 1 || !ATHLETE_POSITIONS.includes(saved.position) || !['creator', 'combine', 'drafted', 'camp', 'season'].includes(saved.stage)) return {...EMPTY_PROFILE,combineId:createLocalId()};
+    if (['drafted', 'camp', 'season'].includes(saved.stage) && !SOLO_TEAM_THEMES.some(team => team.abbr === saved.teamAbbr)) return {...EMPTY_PROFILE,combineId:createLocalId()};
+    return { ...EMPTY_PROFILE, ...saved, combineId:saved.combineId||createLocalId(), ...sanitizeAthleteBuild(saved),...sanitizeAthleteAppearance(saved), careerArc:cleanCareerArc(saved.careerArc,{...EMPTY_PROFILE,...saved}),careerLife:cleanCareerLife(saved.careerLife,{...EMPTY_PROFILE,...saved},saved.draftJourney),combinePerformance:cleanDraftCombine(saved.combinePerformance),draftJourney:saved.draftJourney?cleanJourney(saved.draftJourney,{...EMPTY_PROFILE,...saved}):undefined,rookieRole:['starter','rotation','development'].includes(saved.rookieRole)?saved.rookieRole:undefined } as MyPlayerProfile;
   } catch {
-    return {...EMPTY_PROFILE,combineId:crypto.randomUUID()};
+    return {...EMPTY_PROFILE,combineId:createLocalId()};
   }
 }
 
@@ -319,7 +320,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
 
   const enterCombine = () => {
     if (!profile.name.trim()) return setMessage('Give your player a name.');
-    const next:MyPlayerProfile={...applyCareerBuild(profile),name:profile.name.trim(),stage:'combine',combineId:profile.combineId||crypto.randomUUID()};
+    const next:MyPlayerProfile={...applyCareerBuild(profile),name:profile.name.trim(),stage:'combine',combineId:profile.combineId||createLocalId()};
     try{localStorage.setItem(SOLO_FRANCHISE_SAVE_KEYS.player,JSON.stringify(next));}catch{setSaveError('Your player could not be saved. Free some browser storage and try again.');return;}
     setProfile(next);
     setEditing(false);
@@ -392,7 +393,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
       console.warn('Unable to clear My Player career', error);
     }
     setEditing(false);
-    setProfile({...EMPTY_PROFILE,combineId:crypto.randomUUID()});
+    setProfile({...EMPTY_PROFILE,combineId:createLocalId()});
     setMessage('');
   };
 

@@ -1670,7 +1670,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           >
             <ArrowLeft size={16} /> BACK
           </button>
-          <BroadcastMasthead eyebrow="Player representation" title="Agent Mode" subtitle="Build your legacy. Every relationship starts with you."/>
+          <BroadcastMasthead compact eyebrow="Player representation" title="Agent Mode" subtitle="Build your legacy. Every relationship starts with you."/>
           <div className="bk-agent-intro-copy flex flex-1 items-center justify-center py-8">
             <div className="w-full max-w-3xl">
               {introStep < 2 && (

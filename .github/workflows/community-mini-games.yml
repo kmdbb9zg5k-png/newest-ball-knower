@@ -99,6 +99,9 @@ jobs:
           else
             npx playwright install --with-deps chromium
           fi
+      - name: Recover real WebGL fields after runtime and context failures
+        if: matrix.suite == 'football-arena'
+        run: node scripts/game-failure-browser.mjs
       - name: Exercise mobile layouts and feature interactions
         shell: bash
         run: |
@@ -106,7 +109,6 @@ jobs:
             npm run build
             node scripts/check-mini-mode-tabs.mjs
           elif [ "${{ matrix.suite }}" = football-arena ]; then
-            node scripts/game-failure-browser.mjs
             node scripts/football-arena-browser.mjs
             node scripts/football-arena-review.mjs
           elif [ "${{ matrix.suite }}" = presentation-clock ]; then

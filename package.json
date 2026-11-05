@@ -83,7 +83,7 @@
     "check:gameplay-report": "node scripts/check-play-moment-replay.mjs",
     "check:native-auth-session": "node scripts/native-auth-session-check.mjs",
     "check:issue-report-privacy": "node --import tsx scripts/issue-report-privacy-check.ts",
-    "check:app-polish": "node --import tsx scripts/browser-persistence-check.ts && node --import tsx scripts/career-profile-state-check.ts && node scripts/expected-user-state-check.mjs && node --import tsx scripts/fantasy-watchlist-session-check.ts && node --import tsx scripts/community-resource-lifecycle-check.ts && node scripts/check-game-failure.mjs && node scripts/check-football-recovery.mjs && node scripts/supabase-timeout-check.mjs"
+    "check:app-polish": "node --import tsx scripts/browser-persistence-check.ts && node --import tsx scripts/career-profile-state-check.ts && node scripts/expected-user-state-check.mjs && node --import tsx scripts/fantasy-watchlist-session-check.ts && node --import tsx scripts/community-resource-lifecycle-check.ts && node scripts/check-game-failure.mjs && node scripts/check-football-recovery.mjs && node scripts/supabase-timeout-check.mjs && node --import tsx scripts/local-identity-check.ts"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.191",

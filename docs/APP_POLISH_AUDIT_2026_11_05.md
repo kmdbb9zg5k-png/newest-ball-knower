@@ -51,6 +51,14 @@ launch. It does not enable a paid service or change production data/schema.
 - No messages were posted to Community, no real purchases were made, and no
   authenticated user league data was modified during browser review. Career
   testing used a disposable local guest profile.
+- CI captured 18 screens at 320px, 390px and 1280px, plus guest Community views.
+  Human visual inspection of those artifacts found clipped Trivia headings,
+  Profile overlaps, News decoration crossing attribution, a blank Picks week
+  selector, crowded fantasy draft rows and oversized career introductions.
+  Follow-up corrections are included; new captures must validate their final layout.
+- An HTTP browser check exposed unavailable `crypto.randomUUID` during athlete
+  creation. Local athlete identities and Community subscription labels now use
+  a compatible helper. Authentication and game attempt tokens are unchanged.
 
 ## Release blockers / remaining acceptance
 

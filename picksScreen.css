@@ -86,3 +86,5 @@
   .bk-picks-game{grid-template-columns:minmax(0,1fr) 72px}.bk-picks-time{display:none}.bk-picks-team-buttons{grid-column:2}
 }
 @media(prefers-reduced-motion:reduce){.bk-picks-spin{animation:none}}
+.bk-picks-week-select-wrap[data-empty="true"] { width: min(100%, 240px); }
+.bk-picks-week-select-wrap select:disabled { opacity: 1; color: #aebac4; }

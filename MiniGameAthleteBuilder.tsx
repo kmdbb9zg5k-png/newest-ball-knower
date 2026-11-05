@@ -1,3 +1,4 @@
+import {createLocalId} from './localIdentity';
 import {GAME_GEAR_CHANGED} from './playerGameGear';
 import {readAthletePassport} from './athletePassport';
 import React,{useState,useEffect} from 'react';
@@ -8,7 +9,7 @@ import {ATHLETE_CHANGED,ATHLETE_SAVE_KEY} from './athletePassport';
 import type {Position} from './types';
 
 const defaults={version:1,stage:'creator',name:'My Player',position:'WR' as Position,number:17,faceImage:'',presetFaceId:'malik',bodyPresetId:'balanced',athletePortrait:'',renderImage:'',appearancePrompt:'',teamAbbr:'',draftRound:0,draftPick:0,combineScore:0,overall:68,xp:0,upgradePoints:0,gamesPlayed:0,speed:78,power:72,awareness:65,heightInches:72,weightLbs:195,bodyBuild:50,shoulderWidth:54,armSize:48,legSize:52,viewRotation:0,...DEFAULT_ATHLETE_APPEARANCE};
-function restore(){try{const saved=JSON.parse(localStorage.getItem(ATHLETE_SAVE_KEY)||'null');return saved?.version===1?{...defaults,...saved,combineId:saved.combineId||crypto.randomUUID(),name:typeof saved.name==='string'&&saved.name.trim()?saved.name.slice(0,40):defaults.name,...sanitizeAthleteBuild(saved),...sanitizeAthleteAppearance(saved)}:{...defaults,combineId:crypto.randomUUID()};}catch{return {...defaults,combineId:crypto.randomUUID()};}}
+function restore(){try{const saved=JSON.parse(localStorage.getItem(ATHLETE_SAVE_KEY)||'null');return saved?.version===1?{...defaults,...saved,combineId:saved.combineId||createLocalId(),name:typeof saved.name==='string'&&saved.name.trim()?saved.name.slice(0,40):defaults.name,...sanitizeAthleteBuild(saved),...sanitizeAthleteAppearance(saved)}:{...defaults,combineId:createLocalId()};}catch{return {...defaults,combineId:createLocalId()};}}
 
 export default function MiniGameAthleteBuilder({onContinue,actionLabel,previewActive=true}:{onContinue?:()=>void;actionLabel?:string;previewActive?:boolean}={}){
   const [profile,setProfile]=useState(restore),[saved,setSaved]=useState(false),[error,setError]=useState('');

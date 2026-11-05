@@ -444,3 +444,18 @@
   .bk-gauntlet-screen *::before,
   .bk-gauntlet-screen *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+
+/* Phone cards need the full title width below their icon/status row. */
+@media (max-width: 479px) {
+  .bk-gauntlet-mode-card,
+  .bk-gauntlet-daily-card { padding: 12px 12px 32px; }
+  .bk-gauntlet-mode-top,
+  .bk-gauntlet-daily-card-top { min-height: 34px; align-items: flex-start; }
+  .bk-gauntlet-mode-top > svg,
+  .bk-gauntlet-daily-card-top > svg { position: static; flex: none; width: 28px; height: 28px; }
+  .bk-gauntlet-mode-top > span { text-align: right; }
+  .bk-gauntlet-mode-card > strong,
+  .bk-gauntlet-daily-card > strong { max-width: 100%; margin-top: 9px; overflow-wrap: anywhere; }
+  .bk-gauntlet-mode-card > small,
+  .bk-gauntlet-daily-card > small { font-size: 10px; line-height: 1.4; }
+}
