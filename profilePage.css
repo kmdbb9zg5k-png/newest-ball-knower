@@ -80,3 +80,6 @@
 @media(min-width:768px){.bk-profile-page.bk-screen{padding:28px 24px 40px}.bk-profile-page.bk-screen .bk-profile-identity>section{grid-template-columns:96px minmax(0,1fr)}.bk-profile-page.bk-screen .bk-profile-identity>section>button,.bk-profile-page.bk-screen .bk-profile-identity>section.bk-member-locker-identity>.bk-member-locker-portrait{width:96px;height:96px;max-width:96px}.bk-profile-page.bk-screen .bk-profile-identity .bk-profile-identity-actions{max-width:390px}.bk-profile-page.bk-screen .bk-locker-trophy-rail{grid-template-columns:repeat(6,minmax(0,1fr))}.bk-profile-page.bk-screen .bk-locker-trophy-rail[data-extended="true"]>li{flex-basis:calc((100% - 40px)/6)}}
 
 .bk-profile-page.bk-screen .bk-locker-rating-stack{order:-1}
+
+.bk-profile-page.bk-screen .bk-profile-identity>section.bk-member-locker-identity .bk-member-locker-photo-trigger{inset:0;width:100%;height:100%;min-height:44px;border-radius:50%;overflow:visible}
+.bk-profile-page.bk-screen .bk-profile-identity>section.bk-member-locker-identity .bk-member-locker-photo-trigger>span{width:24px;height:24px;right:-2px;bottom:-2px}
