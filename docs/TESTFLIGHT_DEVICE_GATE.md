@@ -19,6 +19,13 @@ Run this checklist against the exact build number intended for App Review. A reb
 - Guest-to-permanent-account merge preserves leagues/progress.
 - Logout returns to the expected guest/account state.
 
+## GM alert feedback
+
+- Install the updated native plugin in the exact signed build; a web deployment alone does not add native haptics to older binaries.
+- On a real iPhone, a new important GM alert requests one UIKit warning pulse. Reopening the same alert does not repeat it; the next new event can pulse.
+- Close, review and save a decision while feedback is unavailable; every control remains usable. Inactive/background delivery stays silent.
+- Record device/OS and feedback settings. JavaScript mocks and source checks do not establish a physical pulse.
+
 ## Native networking
 
 - Home data loads.

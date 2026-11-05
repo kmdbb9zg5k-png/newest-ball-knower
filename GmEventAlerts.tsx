@@ -3,6 +3,8 @@ import { BellRing, ChevronRight, X } from 'lucide-react';
 import { ModalPortal } from './ModalPortal';
 import { SoloPortrait } from './solo/SoloPresentation';
 import type { Player } from './types';
+import { pulseGmEvent } from './gmEventHaptics';
+export { pulseGmEvent } from './gmEventHaptics';
 import './gmEventAlerts.css';
 
 export type GmImportantEvent = {
@@ -21,10 +23,6 @@ function readPresented(key: string): Set<string> {
     const saved: unknown = JSON.parse(localStorage.getItem(key) || '[]');
     return new Set(Array.isArray(saved) ? saved.filter((id): id is string => typeof id === 'string') : []);
   } catch { return new Set(); }
-}
-
-export function pulseGmEvent() {
-  try { navigator.vibrate?.([80, 60, 120]); } catch { /* Haptics are optional on unsupported devices. */ }
 }
 
 /** One interruption at a time. Closing preserves the decision and its review button. */

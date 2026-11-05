@@ -2,7 +2,7 @@ name: GM important events
 on:
   pull_request:
     branches: [main]
-    paths: ['GmEventAlerts.tsx', 'gmEventAlerts.css', 'gmTradeOffers.ts', 'RealTeamFranchise.tsx', 'FranchiseSeason.tsx', 'FranchiseInteractionCenter.tsx', 'scripts/gm-*', '.github/workflows/gm-events.yml']
+    paths: ['GmEventAlerts.tsx', 'gmEventHaptics.ts', 'gmEventAlerts.css', 'gmTradeOffers.ts', 'RealTeamFranchise.tsx', 'FranchiseSeason.tsx', 'FranchiseInteractionCenter.tsx', 'packages/native-auth-session/**', 'scripts/gm-*', '.github/workflows/gm-events.yml']
 permissions:
   contents: read
 concurrency:
@@ -11,7 +11,7 @@ concurrency:
 jobs:
   gm-events:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,6 +22,7 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: npm run lint && npm run check:franchise-interactions && node --import tsx scripts/gm-trade-offers-check.ts
+      - run: node scripts/gm-event-haptics-check.mjs
       - run: npm run build && npm run check:root-bundle
       - run: npx playwright install --with-deps chromium webkit
       - run: node scripts/gm-events-browser.mjs

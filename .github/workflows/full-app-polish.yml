@@ -25,6 +25,7 @@ jobs:
       - run: node --import tsx scripts/account-flow-boundary-check.mjs
       - run: node --import tsx scripts/account-deletion-recovery-check.mjs && node --import tsx scripts/account-deletion-client-check.mjs
       - run: npm run check:native-auth
+      - run: node scripts/gm-event-haptics-check.mjs
       - run: node --import tsx scripts/abortable-task-check.ts && npm run check:ask-bk
       - run: node --import tsx scripts/career-depth-check.ts && npm run check:franchise-interactions && node --import tsx scripts/gm-trade-offers-check.ts
       - run: node scripts/combine-input-check.mjs && node --import tsx scripts/combine-appearance-identity-check.mjs
@@ -94,7 +95,7 @@ jobs:
           retention-days: 7
   polish-football:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with: {persist-credentials: false}

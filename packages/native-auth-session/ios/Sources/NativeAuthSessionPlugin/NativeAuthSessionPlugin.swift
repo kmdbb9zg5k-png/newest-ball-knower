@@ -10,13 +10,29 @@ public class NativeAuthSessionPlugin: CAPPlugin, CAPBridgedPlugin, ASWebAuthenti
     public let jsName = "NativeAuthSession"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "authenticate", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "authorizeAppleForDeletion", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "authorizeAppleForDeletion", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "notifyGmEvent", returnType: CAPPluginReturnPromise)
     ]
     private var session: ASWebAuthenticationSession?
     private var presentationWindow: UIWindow?
     private var deletionCall: CAPPluginCall?
     private var deletionState: String?
     private var deletionController: ASAuthorizationController?
+    private var gmEventFeedback: UINotificationFeedbackGenerator?
+
+    @objc func notifyGmEvent(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, UIApplication.shared.applicationState == .active else {
+                call.resolve()
+                return
+            }
+            let feedback = self.gmEventFeedback ?? UINotificationFeedbackGenerator()
+            self.gmEventFeedback = feedback
+            feedback.notificationOccurred(.warning)
+            feedback.prepare()
+            call.resolve()
+        }
+    }
 
     @objc func authenticate(_ call: CAPPluginCall) {
         DispatchQueue.main.async { [weak self] in

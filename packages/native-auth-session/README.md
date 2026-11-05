@@ -1,4 +1,4 @@
-# Native authentication session
+# Native authentication and GM feedback
 
 Private Capacitor 8 iOS plugin for Ball Knower. It is installed through the root
 `file:packages/native-auth-session` dependency and discovered by `cap sync ios`.
@@ -30,3 +30,11 @@ Apple access tokens and refresh tokens are never persisted or logged.
 and Supabase services. An Xcode build and actual iPhone/iPad sign-in are separate
 required release checks. Native deletion additionally requires server Apple key
 configuration and the iOS App ID grouped with the Supabase web Services ID.
+
+`notifyGmEvent()` requests UIKit warning notification feedback on the main thread
+while the app is active. It does not acquire or modify either auth session. GM
+alerts start it without awaiting feedback; older binaries with no such method
+fall back to the optional browser vibration call. UIKit/system/device settings
+determine whether a physical pulse occurs. `node scripts/gm-event-haptics-check.mjs`
+checks the JavaScript routing, failure safety and native registration contract;
+it does not replace an Xcode compile and real-iPhone feedback check.
