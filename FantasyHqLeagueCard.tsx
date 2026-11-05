@@ -32,7 +32,7 @@ export function LeagueDestinationCard({league,currentUserId,featured,onSelect,on
       </div>
     </article>
     <aside className="bk-hq-league-status-panel" aria-label={`${league.name} league status`}>
-      <h3>League status</h3><p>{league.name}</p>
+      <h3>League status</h3>
       <div className="bk-hq-status-hexes">
         <div><small>Draft pick</small><strong>{facts.pick===null?'Not set':`#${facts.pick}`}</strong></div>
         <div><small>Roster</small><strong>{facts.roster}</strong></div>

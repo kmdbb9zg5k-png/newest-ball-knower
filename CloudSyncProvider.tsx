@@ -211,11 +211,13 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     let authSubscription: { unsubscribe: () => void } | null = null;
 
     const flushDirty = (): Promise<void> => {
+      if (stopped || identitySwitchRunning || !activeUserId) return writeChain;
       if (uploadRunning || dirtyKeys.size === 0) return writeChain;
       const entries = CLOUD_STORAGE.filter(entry => dirtyKeys.has(entry.localKey) && !isCloudUploadBlocked(entry));
       if (entries.length === 0) return writeChain;
       uploadRunning = true;
       const snapshots = new Map(entries.map(entry => [entry.localKey, localStorage.getItem(entry.localKey)]));
+      const snapshotOwner = activeUserId;
       const rows = entries.flatMap(entry => {
         const value = cloudValue(entry, snapshots.get(entry.localKey) ?? null);
         return value !== undefined ? [{ stateKey: entry.cloudKey, value }] : [];
@@ -223,7 +225,8 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       writeChain = (async () => {
         if (rows.length !== entries.length) throw new Error('Cloud save could not serialize every changed state.');
-        const saved = await saveUserStates(rows);
+        const saved = await saveUserStates(rows, snapshotOwner);
+        if (stopped || identitySwitchRunning || activeUserId !== snapshotOwner) return;
         const savedByKey = new Map(saved.map(row => [row.state_key, row]));
         const submittedByKey = new Map(rows.map(row => [row.stateKey, row.value]));
         for (const entry of entries) {
@@ -292,7 +295,7 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         })
         .finally(() => {
           uploadRunning = false;
-          if (!stopped && dirtyKeys.size > 0) {
+          if (!stopped && !identitySwitchRunning && dirtyKeys.size > 0) {
             window.clearTimeout(retryTimer);
             retryTimer = window.setTimeout(() => { void flushDirty().catch(() => undefined); }, 5_000);
           }
@@ -306,6 +309,7 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
 
     const captureLocalChanges = () => {
+      if (stopped || identitySwitchRunning || !activeUserId) return;
       const changed: StorageEntry[] = [];
       const changedAt = Date.now();
       for (const entry of CLOUD_STORAGE) {
@@ -328,7 +332,7 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const flushAllLocalState = async () => {
       captureLocalChanges();
-      while (hasFlushableDirty()) {
+      while (!stopped && !identitySwitchRunning && hasFlushableDirty()) {
         await flushDirty();
         captureLocalChanges();
       }
@@ -347,8 +351,10 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
 
     const pullRemote = async (initial = false, applyUpdates = false) => {
-      const rows = await loadUserStates<unknown>(CLOUD_STORAGE.map(entry => entry.cloudKey));
-      if (stopped) return;
+      if (stopped || identitySwitchRunning || !activeUserId) return;
+      const snapshotOwner = activeUserId;
+      const rows = await loadUserStates<unknown>(CLOUD_STORAGE.map(entry => entry.cloudKey), snapshotOwner);
+      if (stopped || identitySwitchRunning || activeUserId !== snapshotOwner) return;
       // A local decision may have completed while the network request was in flight.
       if (!initial) captureLocalChanges();
       const byKey = new Map(rows.map(row => [row.state_key, row]));
@@ -470,8 +476,6 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       localStorage.setItem(OWNER_KEY, activeUserId);
       meta = readMeta(activeUserId);
       const handleIdentityChange = async (nextUser?: User) => {
-        if (identitySwitchRunning) return;
-        identitySwitchRunning = true;
         try {
           if (nextUser) await claimGuestStateOrContinue(nextUser);
           clearSyncedLocalState();
@@ -486,13 +490,18 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       };
       const { data } = supabase!.auth.onAuthStateChange((_event, session) => {
         const nextUserId = session?.user?.id || '';
-        if (!activeUserId || nextUserId === activeUserId) return;
+        if (!activeUserId || nextUserId === activeUserId || identitySwitchRunning) return;
+        // Stop snapshots/polling immediately, before the deferred auth work.
+        identitySwitchRunning = true;
         // Supabase warns against awaiting client calls inside the auth callback.
         // Defer the claim so token refresh/OAuth callbacks cannot deadlock.
         window.setTimeout(() => { void handleIdentityChange(session?.user); }, 0);
       });
       authSubscription = data.subscription;
       await pullRemote(true);
+      // Account ownership and restore are settled. Optional upload completion
+      // must not keep the entire app behind the connecting screen.
+      if (!stopped && !identitySwitchRunning) setReady(true);
       await flushDirty();
     };
 

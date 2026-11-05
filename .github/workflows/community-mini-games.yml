@@ -13,6 +13,9 @@ on:
       - 'scripts/*athlete*'
       - 'scripts/*competition*'
       - 'scripts/football-arena*'
+      - 'scripts/game-failure-browser.mjs'
+      - 'scripts/check-game-failure.mjs'
+      - 'scripts/check-football-recovery.mjs'
       - 'public/football-arena-bridge.js'
       - 'scripts/*control*'
       - 'scripts/*ghost*'
@@ -62,6 +65,8 @@ jobs:
           node scripts/football-arena-check.mjs
           node scripts/check-five-minute.mjs
           node scripts/check-football-flow.mjs
+          node scripts/check-game-failure.mjs
+          node scripts/check-football-recovery.mjs
           node scripts/check-reference-contact.mjs
           node scripts/dash-ghost-check.mjs
           node --import tsx scripts/my-player-field-check.ts
@@ -101,6 +106,7 @@ jobs:
             npm run build
             node scripts/check-mini-mode-tabs.mjs
           elif [ "${{ matrix.suite }}" = football-arena ]; then
+            node scripts/game-failure-browser.mjs
             node scripts/football-arena-browser.mjs
             node scripts/football-arena-review.mjs
           elif [ "${{ matrix.suite }}" = presentation-clock ]; then

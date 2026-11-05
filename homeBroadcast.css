@@ -86,11 +86,6 @@
 }
 
 
-/* The base stylesheet has an unlayered button font reset. Keep Home labels
-   compact without changing any other mode's navigation. */
-nav[data-home-broadcast="true"] button { font-family: inherit; font-size: 9px; font-weight: 800; line-height: 1.25; letter-spacing: .06em; }
-nav[data-home-broadcast="true"] button svg { width: 21px; height: 21px; }
-
 /* Approved cover art: preserve its complete composition at every viewport. */
 .bk-home-stadium.bk-home-legacy-hero { height: auto; aspect-ratio: 1354 / 1162; margin-inline: 0; overflow: visible; background: #080b0c; }
 .bk-home-legacy-art { display: block; width: 100%; height: auto; border: 0; }

@@ -34,3 +34,15 @@
 
 /* Keep the full recap and retry/share actions reachable on short phone screens. */
 .bk-mini-post-result{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;width:100%;margin:0 auto;align-content:start;flex-shrink:1}
+
+/* Keep choosing a game ahead of the optional, resource-heavy creator. */
+.bk-mini-game-categories{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:16px;padding:5px;border:1px solid #ffffff15;border-radius:14px;background:#05090f}
+.bk-mini-arena .bk-mini-game-categories button{min-width:0;border-color:transparent;background:transparent;color:#b4bdca;padding:10px 6px}
+.bk-mini-arena .bk-mini-game-categories button[aria-pressed=true]{border-color:#d9b43b55;background:#d9b43b1c;color:#ecd67d}
+.bk-mini-create-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.bk-mini-create-actions>a,.bk-mini-create-actions>button{min-height:48px;padding:12px 16px;border-radius:12px;font-size:12px;font-weight:800;text-align:center}
+.bk-mini-practice{display:inline-flex;align-items:center;justify-content:center;border:1px solid #ffffff30;background:#ffffff06;color:#e2e8f0}
+.bk-mini-practice:focus-visible,.bk-mini-challenge-card summary:focus-visible{outline:2px solid #ecd67d;outline-offset:3px}
+.bk-mini-challenge-feed button[aria-expanded=true]{background:#d9b43b15;border-color:#d9b43b88;color:#ecd67d}
+#community-creator-panel,#community-athlete-panel,#community-competition-panel{margin-top:18px;min-width:0}
+@media(max-width:420px){.bk-mini-game-list{grid-template-columns:repeat(2,minmax(0,1fr))}.bk-mini-game-list button{padding:12px 9px}.bk-mini-game-list svg{display:none}.bk-mini-game-list strong{font-size:12px}.bk-mini-game-list small{font-size:11px}.bk-mini-create-actions>a,.bk-mini-create-actions>button{width:100%}}

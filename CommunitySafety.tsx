@@ -19,7 +19,7 @@ async function safetyRequest(expectedUserId: string, operation: string, args: Re
 
 export function useCommunitySafety() {
   const { currentUser } = useBallKnower();
-  const userId = currentUser?.id || '';
+  const userId = currentUser && !currentUser.isAnonymous ? currentUser.id : '';
   const [snapshot, setSnapshot] = useState<{ userId: string; ids: string[] }>({ userId: '', ids: [] });
   const [error, setError] = useState('');
   const generation = useRef(0);
@@ -27,7 +27,7 @@ export function useCommunitySafety() {
   identityRef.current = userId;
   const reload = useCallback(async () => {
     const version = ++generation.current;
-    if (!supabase || !userId) { setSnapshot({ userId, ids: [] }); return; }
+    if (!supabase || !userId) { setSnapshot({ userId, ids: [] }); setError(''); return; }
     try {
       const { data, error: queryError } = await supabase.from('ball_knower_user_blocks')
         .select('blocked_id').eq('blocker_id', userId).abortSignal(AbortSignal.timeout(8000));
@@ -72,7 +72,7 @@ export function MessageSafety({ contentType, contentId, authorId, safety }: {
   const scopeRef = useRef(scope);
   scopeRef.current = scope;
   useEffect(() => { setOpen(false); setStatus(''); setDetails(''); setBusy(false); }, [scope]);
-  if (!currentUser || !authorId || authorId === currentUser.id) return null;
+  if (!currentUser || currentUser.isAnonymous || !authorId || authorId === currentUser.id) return null;
   const submit = async (work: () => Promise<unknown>, success: string) => {
     if (busy) return;
     const expectedScope = scope;

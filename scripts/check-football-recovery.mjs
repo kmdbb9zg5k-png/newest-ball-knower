@@ -35,7 +35,7 @@ function game(width=844,height=335,leavePlaybookOpen=false,assist=true){
  const element=id=>{if(elements.has(id))return elements.get(id);const el={id,hidden:false,children:[],style:{},dataset:{},classList:{add(){},remove(){},toggle(){}},addEventListener(){},setAttribute(){},setPointerCapture(){},replaceChildren(){this.children=[]},append(...c){this.children.push(...c);for(const child of c)if(child.id)elements.set(child.id,child)},appendChild(c){this.append(c)},getBoundingClientRect(){return ['pre','plays'].includes(id)?{top:height-105,left:0,width,height:105}:id==='header'?{left:width*.3,right:width*.7,top:8,bottom:58}:id==='moves'?{left:width-190,right:width-18,top:height-110,bottom:height-18,width:172,height:92}:id==='stick'?{left:30,right:120,top:height-110,bottom:height-20,width:90,height:90}:{left:0,top:0,width,height,right:width,bottom:height}}};Object.defineProperty(el,'firstElementChild',{get(){return this.children[0]||(this.children[0]={style:{}})}});elements.set(id,el);return el};
  class HeadlessRenderer{constructor(){renderer=this;this.width=width;this.height=height;this.vp=math.identity();this.gl={getError:()=>0};this.drawCalls=0;this.eye=[0,0,0]}camera=math.Renderer.prototype.camera;project=math.Renderer.prototype.project;begin(){}add(){}draw(){}lateBegin(){}drawLate(){}glow(){}}
  const noop=()=>{},context={...imported,...math,...playbook,QB_THROW_RELEASE,quarterbackThrowDuration,installControlSettings:()=>({get:()=>({frames:60}),pulse:noop}),Renderer:HeadlessRenderer,drawAthlete:(_r,p,time)=>rendered.set(p.index,{...p,motion:p.motion?{...p.motion}:null,time}),prepareJerseys:noop,advanceMotion,makeStadium:()=>({draw:noop,parts:0}),createMeshyAthletes:()=>({ready:false,ballAnchor:()=>null,draw:noop,diagnostics:()=>({})}),createGameplayReplayRecorder:()=>({event:noop,sample:noop}),console,URLSearchParams,performance:{now:()=>0},location:{search:assist?'?qa&assist=1':'?qa'},navigator:{vibrate:noop},document:{hidden:false,getElementById:element,createElement:()=>element('generated-'+elements.size),querySelector:()=>element('header'),querySelectorAll:()=>[],addEventListener:noop},requestAnimationFrame:()=>1,cancelAnimationFrame:noop,matchMedia:()=>({addEventListener:noop}),innerWidth:width,innerHeight:height,addEventListener:(name,fn)=>events.set(name,fn)};context.window=context;
- vm.createContext(context);vm.runInContext(source.replace('window.bk3dTest={','window.bk3dRenderActors=()=>actors.map(p=>({...p}));window.bk3dFixture={throwTo,preparePick(){if(!flight)return false;const d=actors[19];flight.to=[d.x,1.6,d.z];flight.t=.995;numSeed=634785765;return true},glance(type,grace=1){const d=actors[19];d.x=carrier.x+.65;d.z=carrier.z-.1;d.heading=carrier.heading;beginGlancingContact(carrier,d,simTime,type);jukeUntil=simTime+grace;return d.index},finish:endPlay,drive(values){Object.assign(drive,values)},mutate(fn){fn(actors)},touchdown(){endPlay("TOUCHDOWN",100)},seed(value){numSeed=value},present,camera};window.bk3dTest={')+'\nstart();',context);context.bk3dTest.manualFrames();if(!leavePlaybookOpen)element('breakHuddle').onclick();
+ vm.createContext(context);vm.runInContext(source.replace('window.bk3dTest={','window.bk3dRenderActors=()=>actors.map(p=>({...p}));window.bk3dFixture={frame:loop,throwTo,preparePick(){if(!flight)return false;const d=actors[19];flight.to=[d.x,1.6,d.z];flight.t=.995;numSeed=634785765;return true},glance(type,grace=1){const d=actors[19];d.x=carrier.x+.65;d.z=carrier.z-.1;d.heading=carrier.heading;beginGlancingContact(carrier,d,simTime,type);jukeUntil=simTime+grace;return d.index},finish:endPlay,drive(values){Object.assign(drive,values)},mutate(fn){fn(actors)},touchdown(){endPlay("TOUCHDOWN",100)},seed(value){numSeed=value},present,camera};window.bk3dTest={')+'\nstart();',context);context.bk3dTest.manualFrames();if(!leavePlaybookOpen)element('breakHuddle').onclick();
  return{context,element,events,renderer,rendered,step:t=>context.bk3dTest.step(t),read:()=>context.bk3dDiagnostics(),snap:()=>element('snap').onpointerdown({preventDefault:noop}),key:key=>events.get('keydown')({key,code:key,preventDefault:noop})};
 }
 // The ball must follow center -> snap flight -> QB -> exchange -> RB.
@@ -471,3 +471,23 @@ for(const type of ['wrap','gang','dive','big-hit']){
  assert.ok(carrierAt!==null&&defenderAt!==null&&carrierAt-defenderAt>.25,`${type}: recovery synchronized`);assert.ok(g.read().players.every(p=>!p.fallen));
 }
 console.log('Wrap, gang, dive and big-hit recoveries stay separate and finish before the next play.');
+
+// A real render exception used to leave a frozen field and throw every RAF.
+// Exercise the production callback with the same controller, not a mock loop.
+{
+ const g=game();g.snap();g.step(.5);g.context.bk3dTest.resumeFrames();
+ const failure=Error('Injected render failure'),logs=[],cancelled=[];let scheduled=0;
+ g.context.console={...console,error:(...args)=>logs.push(args)};
+ g.context.requestAnimationFrame=()=>++scheduled;
+ g.context.cancelAnimationFrame=id=>cancelled.push(id);
+ g.renderer.draw=()=>{throw failure};
+ g.context.bk3dFixture.frame(17);
+ assert.equal(g.element('error').hidden,false,'A failed frame must expose parent-visible recovery');
+ for(const id of ['hud','paused','rotate','loading'])assert.equal(g.element(id).hidden,true,`${id} obscures recovery`);
+ assert.match(g.element('errorText').textContent,/Retry/);
+ assert.equal(g.read().paused,true);assert.deepEqual(cancelled,[1]);assert.equal(logs.length,1);assert.equal(logs[0][1],failure);
+ const stopped=g.read();g.context.bk3dFixture.frame(34);g.context.bk3dFixture.frame(51);
+ assert.equal(scheduled,1,'Failed frames must not schedule a second loop');
+ assert.equal(logs.length,1,'Failure must be reported once');assert.equal(g.read().simTime,stopped.simTime,'An invisible game must not continue');
+}
+console.log('Runtime failure stops RAF and simulation, reports once, and exposes reachable field recovery.');

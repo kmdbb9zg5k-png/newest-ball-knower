@@ -31,6 +31,11 @@ const gauntletModes:{name:GauntletModeName;description:string;icon:typeof Brain}
 
 export const ChallengesHub: React.FC = () => {
   const {currentUser}=useBallKnower();
+  return <ChallengesSession key={currentUser?.id||'guest'}/>;
+};
+
+const ChallengesSession: React.FC = () => {
+  const {currentUser}=useBallKnower();
   const userId=currentUser?.id;
   const [tier, setTier] = useState<TriviaTier>('ROOKIE');
   const [triviaOpen, setTriviaOpen] = useState(false);
@@ -54,6 +59,10 @@ export const ChallengesHub: React.FC = () => {
   const serverSessionRef = useRef<TriviaSession | null>(null);
   const practiceRoundRef = useRef(false);
   const progressCloudQueueRef=useRef<Promise<void>>(Promise.resolve());
+  const progressIdentityRef=useRef({userId,revision:0});
+  if(progressIdentityRef.current.userId!==userId)progressIdentityRef.current={userId,revision:progressIdentityRef.current.revision+1};
+  const progressMountedRef=useRef(true);
+  useEffect(()=>{progressMountedRef.current=true;return()=>{progressMountedRef.current=false;progressIdentityRef.current.revision++;};},[]);
   const dailyDate=utcDateKey();
   const levelFloor=Math.max(0,(progress.level-1)*250);
   const levelProgress=Math.max(0,Math.min(100,((progress.xp-levelFloor)/250)*100));
@@ -61,22 +70,29 @@ export const ChallengesHub: React.FC = () => {
   const dailyScenarios=useMemo(()=>buildDailyGauntlet(dailyDate),[dailyDate]);
   const runScenarios=useMemo(()=>activeRun?buildGauntletRound(activeRun.mode,activeRun.tier,10,`${activeRun.nonce}:${Date.now()}`):[],[activeRun]);
   const applyProgress=useCallback((next:GauntletProgress)=>{
+    const revision=progressIdentityRef.current.revision;
+    const isCurrent=()=>progressMountedRef.current&&progressIdentityRef.current.userId===userId&&progressIdentityRef.current.revision===revision;
+    if(!isCurrent())return;
     const local=mergeGauntletProgress(loadGauntletProgress(userId),next);
     setProgress(local);saveGauntletProgress(local,userId);
+    if(!userId)return;
     progressCloudQueueRef.current=progressCloudQueueRef.current.then(async()=>{
+      if(!isCurrent())return;
       const latestLocal=loadGauntletProgress(userId);
       const localEvents=Object.values(latestLocal.sync?.events||{});
-      await saveGauntletProgressEvents(localEvents);
+      await saveGauntletProgressEvents(localEvents,userId);
+      if(!isCurrent())return;
       const [v2,legacy,remoteEvents]=await Promise.all([
-        loadUserState<GauntletProgress>('gauntlet_progress_v2'),
-        loadUserState<GauntletProgress>('gauntlet_progress_v1'),
-        loadGauntletProgressEvents(),
+        loadUserState<GauntletProgress>('gauntlet_progress_v2',userId),
+        loadUserState<GauntletProgress>('gauntlet_progress_v1',userId),
+        loadGauntletProgressEvents(userId),
       ]);
+      if(!isCurrent())return;
       const cloud=v2||legacy;const withCloud=cloud?mergeGauntletProgress(latestLocal,cloud):latestLocal;
       const merged=mergeGauntletProgressEvents(withCloud,remoteEvents);
       saveGauntletProgress(merged,userId);setProgress(merged);
-      await saveUserState('gauntlet_progress_v2',compactGauntletProgressForCloud(merged));
-    }).catch(error=>console.warn('Gauntlet cloud merge failed',error));
+      await saveUserState('gauntlet_progress_v2',compactGauntletProgressForCloud(merged),userId);
+    }).catch(error=>{if(isCurrent())console.warn('Gauntlet cloud merge failed',error)});
   },[userId]);
   useEffect(()=>{const local=loadGauntletProgress(userId);setProgress(local);applyProgress(local);},[applyProgress,userId]);
 
@@ -128,6 +144,13 @@ export const ChallengesHub: React.FC = () => {
     setError('');
     setRoundComplete(false);
   }, [clearAdvanceTimer]);
+
+  useEffect(() => {
+    if (!triviaOpen) return;
+    const dismiss = (event: KeyboardEvent) => { if (event.key === 'Escape') closeTrivia(); };
+    window.addEventListener('keydown', dismiss);
+    return () => window.removeEventListener('keydown', dismiss);
+  }, [triviaOpen, closeTrivia]);
 
   const openTrivia = (nextTier: TriviaTier) => {
     clearAdvanceTimer();
@@ -328,8 +351,8 @@ export const ChallengesHub: React.FC = () => {
               </section>
             )}
 
-            {!roundComplete && loading && <div className="flex min-h-56 items-center justify-center text-zinc-500"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading challenge…</div>}
-            {!loading && error && <div className="mt-4 rounded-xl border border-red-400/20 bg-red-400/5 p-4 text-sm font-semibold text-red-200">{error}<button onClick={() => void loadQuestion(tier, serverSessionRef.current)} className="ml-2 min-h-11 underline">Retry</button></div>}
+            {!roundComplete && loading && <div role="status" className="flex min-h-56 items-center justify-center text-zinc-500"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading challenge…</div>}
+            {!loading && error && <div role="alert" className="mt-4 rounded-xl border border-red-400/20 bg-red-400/5 p-4 text-sm font-semibold text-red-200">{error}<button onClick={() => void loadQuestion(tier, serverSessionRef.current)} className="ml-2 min-h-11 underline">Retry</button></div>}
             {!loading && question && (
               <section className="mt-4 rounded-2xl border border-white/10 bg-[#0b0e13] p-4 sm:p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">

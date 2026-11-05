@@ -298,7 +298,7 @@ assert.ok(
   userState.includes("export const AGENT_PENDING_SIGNING_KEY = 'ballknower_player_agent_signing_pending_v1'")&&
   cloudSync.includes('!isCloudUploadBlocked(entry)')&&
   cloudSync.includes('if (isCloudUploadBlocked(entry)) continue;')&&
-  cloudSync.includes('while (hasFlushableDirty())')&&
+  cloudSync.includes('while (!stopped && !identitySwitchRunning && hasFlushableDirty())')&&
   agent.includes('const flushAgentSigningBaseline = async ()')&&
   agent.includes('Agent baseline cloud save timed out.')&&
   agentBaselineFlush>=0&&agentBaselineFlush<agentStagePending&&

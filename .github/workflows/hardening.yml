@@ -75,6 +75,8 @@ jobs:
           git diff --check "$BASE"...HEAD
       - name: TypeScript
         run: npm run lint
+      - name: App polish recovery and session regressions
+        run: npm run check:app-polish
       - name: Integrity
         run: npm run check:integrity
       - name: Draft reliability

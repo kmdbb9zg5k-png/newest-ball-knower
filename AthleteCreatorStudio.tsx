@@ -8,16 +8,16 @@ import {sanitizeAthleteAppearance,type AthleteAppearance} from './athleteAppeara
 import './communityMiniGames.css';
 
 export type CreatorAthlete=AthleteBuild&AthleteAppearance&{name:string;number:number};
-type Props={profile:CreatorAthlete;onChange:(patch:Partial<CreatorAthlete>)=>void;onSave:()=>void;actionLabel:string;onPortrait?:(portrait:string)=>void;positionLocked?:boolean;buildNote?:string;ariaLabel?:string;nameLabel?:string;jerseyLabel?:string;badge?:string;error?:string;message?:string;note?:string;faceExtras?:React.ReactNode};
+type Props={previewActive?:boolean;profile:CreatorAthlete;onChange:(patch:Partial<CreatorAthlete>)=>void;onSave:()=>void;actionLabel:string;onPortrait?:(portrait:string)=>void;positionLocked?:boolean;buildNote?:string;ariaLabel?:string;nameLabel?:string;jerseyLabel?:string;badge?:string;error?:string;message?:string;note?:string;faceExtras?:React.ReactNode};
 
-export default function AthleteCreatorStudio({profile,onChange,onSave,actionLabel,onPortrait,positionLocked=false,buildNote,ariaLabel='Mini game athlete builder',nameLabel='Mini game player name',jerseyLabel='Mini game jersey number',badge='BK',error='',message='',note='Your athlete carries into every practice drill. Changing position keeps your custom build and appearance.',faceExtras}:Props){
+export default function AthleteCreatorStudio({profile,onChange,onSave,actionLabel,onPortrait,previewActive=true,positionLocked=false,buildNote,ariaLabel='Mini game athlete builder',nameLabel='Mini game player name',jerseyLabel='Mini game jersey number',badge='BK',error='',message='',note='Your athlete carries into every practice drill. Changing position keeps your custom build and appearance.',faceExtras}:Props){
   const tabs=['Player','Build','Hair','Face','Tattoos'] as const;
   const [tab,setTab]=useState<typeof tabs[number]>('Player'),[view,setView]=useState<'body'|'head'>('body');
   const panel=useRef<HTMLDivElement>(null),id=useId();
   const selectTab=(next:typeof tabs[number])=>{setTab(next);setView(next==='Hair'||next==='Face'?'head':'body');panel.current?.scrollTo(0,0);};
   return <section className="bk-mini-challenge-feed bk-athlete-studio" aria-label={ariaLabel}>
     <header className="bk-studio-heading"><h3>Create player</h3><span>{badge}</span></header>
-    <div className="bk-studio-preview"><AthleteLivePreview profile={profile} view={view} onViewChange={setView} onPortrait={onPortrait}/></div>
+    <div className="bk-studio-preview">{previewActive&&<AthleteLivePreview profile={profile} view={view} onViewChange={setView} onPortrait={onPortrait}/>}</div>
     <div className="bk-studio-tabs" role="tablist" aria-label="Player customization">{tabs.map((item,index)=><button key={item} type="button" role="tab" id={`${id}-${item}`} aria-controls={`${id}-panel`} aria-selected={tab===item} tabIndex={tab===item?0:-1} onClick={()=>selectTab(item)} onKeyDown={event=>{let next=index;if(event.key==='ArrowRight')next=(index+1)%tabs.length;else if(event.key==='ArrowLeft')next=(index+tabs.length-1)%tabs.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=tabs.length-1;else return;event.preventDefault();selectTab(tabs[next]);document.getElementById(`${id}-${tabs[next]}`)?.focus();}}>{item}</button>)}</div>
     <div className="bk-studio-panel bk-athlete-builder-controls" ref={panel} role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${tab}`} tabIndex={0}>
       {tab==='Build'&&<>{buildNote&&<p className="bk-studio-note">{buildNote}</p>}<AthleteBuildEditor compact value={sanitizeAthleteBuild(profile)} onChange={build=>onChange(build)}/></>}

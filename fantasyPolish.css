@@ -1,0 +1,80 @@
+/* Fantasy keeps its gold identity, with readable controls at phone widths. */
+.bk-hq-premium .bk-fantasy-league-pair {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  flex-basis: min(100%, 480px);
+}
+.bk-hq-premium .bk-fantasy-league-summary {
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 12px;
+  padding: 16px;
+  min-height: 100px;
+}
+.bk-hq-premium .bk-fantasy-league-crest { width: 58px; height: 68px; background-size: 232px 66.286px; font-size: 42px; }
+.bk-hq-premium .bk-fantasy-league-copy h4 { font-size: 18px; line-height: 1.25; margin-bottom: 6px; }
+.bk-hq-premium .bk-fantasy-league-copy p,
+.bk-hq-premium .bk-fantasy-league-copy > small,
+.bk-hq-premium .bk-fantasy-league-status { font-size: 12px; line-height: 1.4; }
+.bk-hq-premium .bk-fantasy-league-code { margin-inline: 16px; padding-block: 12px; }
+.bk-hq-premium .bk-fantasy-league-code small,
+.bk-hq-premium .bk-fantasy-league-code button { font-size: 11px; }
+.bk-hq-premium .bk-fantasy-league-code strong { font-size: 18px; }
+.bk-hq-premium .bk-fantasy-league-facts { margin-inline: 16px; padding-block: 12px; }
+.bk-hq-premium .bk-fantasy-league-facts strong { font-size: 13px; }
+.bk-hq-premium .bk-fantasy-league-facts small { font-size: 12px; }
+.bk-hq-premium .bk-fantasy-league-actions { padding: 0 16px 16px; gap: 8px; }
+.bk-hq-premium .bk-fantasy-league-actions > button { min-height: 46px; font-size: 12px; padding: 8px; }
+.bk-hq-premium .bk-fantasy-league-actions svg { width: 16px; height: 16px; }
+.bk-hq-premium .bk-hq-league-status-panel { padding: 12px 16px; text-align: left; border-color: #cdb16d45; box-shadow: none; background: #11171d; }
+.bk-hq-premium .bk-hq-league-status-panel h3 { font-size: 11px; letter-spacing: .08em; margin: 0 0 10px; }
+.bk-hq-premium .bk-hq-status-hexes { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: none; margin: 0; gap: 8px; }
+.bk-hq-premium .bk-hq-status-hexes > div,
+.bk-hq-premium .bk-hq-status-hexes > div:first-child { grid-column: auto; width: 100%; min-height: 54px; aspect-ratio: auto; margin: 0; padding: 8px 4px; border: 1px solid #ffffff12; border-radius: 8px; background: #ffffff04; filter: none; }
+.bk-hq-premium .bk-hq-status-hexes > div::before,
+.bk-hq-premium .bk-hq-status-hexes > div::after { content: none; }
+.bk-hq-premium .bk-hq-status-hexes small { font-size: 11px; }
+.bk-hq-premium .bk-hq-status-hexes strong { font-size: 14px; font-variant-numeric: tabular-nums; }
+.bk-hq-premium .bk-fantasy-section-heading { margin-top: 16px; margin-bottom: 8px; }
+.bk-hq-premium .bk-fantasy-tool-grid > button:not(.bk-hq-public-tool) { min-height: 84px; padding: 10px; }
+.bk-hq-premium .bk-fantasy-tool-grid > button > strong { font-size: 13px; line-height: 1.3; }
+.bk-hq-premium .bk-fantasy-tool-grid > button > span { border: 0; box-shadow: none; background: none; color: #c9c3b5; font-size: 11px; padding: 0; justify-content: flex-start; text-transform: none; }
+.bk-hq-premium .bk-fantasy-tool-grid > .bk-hq-public-tool { top: 0; }
+.bk-hq-premium .bk-hq-activity { margin-top: 18px; padding: 14px 16px; }
+.bk-hq-premium .bk-hq-activity p,
+.bk-hq-premium .bk-hq-activity li { font-size: 12px; line-height: 1.6; }
+.bk-hq-premium .bk-fantasy-help-card { margin-top: 12px; padding: 12px; }
+.bk-hq-premium .bk-fantasy-help-card strong { font-size: 13px; }
+.bk-hq-premium .bk-fantasy-help-card small { font-size: 12px; }
+
+.bk-cheatsheet-panel { margin-top: 16px; }
+.bk-cheatsheet-panel button { touch-action: manipulation; }
+.bk-cheatsheet-panel button:focus-visible,
+.bk-cheatsheet-panel input:focus-visible { outline: 2px solid #edcf85; outline-offset: 3px; }
+.bk-cheatsheet-panel input[type="search"] { min-height: 46px; min-width: 0; font-size: 16px; }
+.bk-fantasy-watch-filter { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 14px; border: 1px solid #d4af3755; border-radius: 999px; background: #d4af370a; color: #e6cc83; font-size: 13px; font-weight: 700; }
+.bk-fantasy-watch-filter > svg { width: 16px; height: 16px; }
+.bk-fantasy-watch-filter > span { font-variant-numeric: tabular-nums; }
+.bk-fantasy-watch-filter[aria-pressed="true"] { background: #d4af37; color: #0b0e12; }
+.bk-fantasy-watch-filter[aria-pressed="true"] > svg { fill: currentColor; }
+.bk-fantasy-position-filters { padding: 4px 3px; }
+.bk-fantasy-position-filters button { min-height: 44px; font-size: 12px; }
+.bk-fantasy-results-count { color: #a1a1aa; font-size: 11px; line-height: 1.5; }
+.bk-fantasy-ranking-row { min-width: 0; }
+.bk-fantasy-ranking-row > div:first-child { grid-template-columns: 1.75rem 2.75rem minmax(0, 1fr) auto; gap: 8px; }
+.bk-fantasy-ranking-row .text-zinc-600 { color: #a1a1aa; }
+.bk-fantasy-ranking-row .text-\[8px\] { font-size: 10px; line-height: 1.4; }
+.bk-fantasy-ranking-row .text-\[10px\] { font-size: 12px; }
+.bk-fantasy-ranking-row > button { font-variant-numeric: tabular-nums; }
+.bk-fantasy-search-empty { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 36px 16px; text-align: center; }
+.bk-fantasy-search-empty > svg { width: 28px; height: 28px; color: #d4af37; }
+.bk-fantasy-search-empty h3 { margin: 0; font-size: 18px; font-weight: 750; }
+.bk-fantasy-search-empty p { margin: 0; max-width: 32rem; color: #a1a1aa; font-size: 14px; line-height: 1.6; }
+.bk-fantasy-retry { min-height: 44px; margin-top: 12px; padding: 10px 16px; border: 1px solid #d4af3770; border-radius: 10px; background: #d4af3714; color: #e6cc83; font-size: 13px; font-weight: 700; }
+@media (min-width: 640px) {
+  .bk-hq-premium .bk-fantasy-tool-grid > button > strong { font-size: 16px; }
+  .bk-hq-premium .bk-fantasy-tool-grid > button > span { font-size: 12px; }
+}
+@media (max-width: 359px) {
+  .bk-hq-premium .bk-fantasy-tool-grid { grid-template-columns: minmax(0, 1fr); }
+  .bk-hq-premium .bk-fantasy-tool-grid > button:not(.bk-hq-public-tool) { grid-template-columns: 42px minmax(0, 1fr); }
+}

@@ -16,6 +16,7 @@ export const isCloudConfigured = Boolean(url && key && !url.includes('YOUR_PROJE
 
 const RETRYABLE_STATUS_CODES=new Set([408,425,429,500,502,503,504]);
 const READ_TIMEOUT_MS=8000;
+const AUTH_TIMEOUT_MS=15000;
 const READ_ATTEMPTS=3;
 const sleep=(ms:number)=>new Promise(resolve=>setTimeout(resolve,ms));
 
@@ -27,22 +28,24 @@ export const ballKnowerEmailRedirect=()=>{
   return BALL_KNOWER_PRODUCTION_ORIGIN;
 };
 
-const resilientSupabaseFetch=async(input:RequestInfo|URL,init?:RequestInit):Promise<Response>=>{
+export const resilientSupabaseFetch=async(input:RequestInfo|URL,init?:RequestInit):Promise<Response>=>{
   const options=init??{};
   const method=String(options.method||'GET').toUpperCase();
   const canRetry=method==='GET'||method==='HEAD';
+  const requestUrl=typeof input==='string'?input:input instanceof URL?input.href:input.url;
+  const isAuthRequest=requestUrl.startsWith(`${url}/auth/v1/`);
   const attempts=canRetry?READ_ATTEMPTS:1;
   let lastError:unknown;
 
   for(let attempt=1;attempt<=attempts;attempt++){
-    const controller=canRetry?new AbortController():null;
+    const controller=canRetry||isAuthRequest?new AbortController():null;
     const upstreamSignal=options.signal;
     const relayAbort=()=>controller?.abort();
     if(controller&&upstreamSignal){
       if(upstreamSignal.aborted) controller.abort();
       else upstreamSignal.addEventListener('abort',relayAbort,{once:true});
     }
-    const timeout=controller?setTimeout(()=>controller.abort(),READ_TIMEOUT_MS):null;
+    const timeout=controller?setTimeout(()=>controller.abort(),canRetry?READ_TIMEOUT_MS:AUTH_TIMEOUT_MS):null;
     try{
       const response=await globalThis.fetch(input,{...options,signal:controller?.signal||upstreamSignal});
       if(!canRetry||!RETRYABLE_STATUS_CODES.has(response.status)||attempt===attempts) return response;

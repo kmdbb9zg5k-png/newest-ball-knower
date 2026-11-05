@@ -102,7 +102,7 @@ function MatchupAnalysis({league}: {league:League}) {
   },[league,week,weeks,ready,retry]);
   const points=(value:number|null|undefined)=>value!=null&&Number.isFinite(value)?value.toFixed(1):'—';
   return <div className="bk-hq-matchup-analysis">
-    <p>Compare the league's regular-season matchups using published weekly scores and projections. Unavailable totals stay blank; no games are simulated.</p>
+    <p>Compare saved regular-season scores and published projections. Live scoring is paused; unavailable totals stay blank and no games are simulated.</p>
     {!ready?<p className="bk-hq-tool-empty">Matchups become available after the fantasy draft is complete and the league has an even number of teams.</p>:<>
       <label className="bk-hq-tool-league-picker">Week<select aria-label="Week" value={week} onChange={event=>setWeek(Number(event.target.value))}>{Array.from({length:weeks},(_,i)=><option key={i} value={i+1}>Week {i+1}</option>)}</select></label>
       {busy?<p role="status">Loading Week {week}…</p>:error?<div role="alert"><p>{error}</p><button type="button" onClick={()=>setRetry(value=>value+1)}>Retry matchups</button></div>:data?.pairings.map(game=>{
@@ -110,7 +110,7 @@ function MatchupAnalysis({league}: {league:League}) {
         const hp=hqPublishedProjection(home),ap=hqPublishedProjection(away);
         const homeName=league.members.find(member=>member.id===game.homeMemberId)?.userName||'Home',awayName=league.members.find(member=>member.id===game.awayMemberId)?.userName||'Away';
         const final=Boolean(home?.isFinal&&away?.isFinal);
-        return <article key={game.id} className="bk-hq-matchup"><header><strong>{awayName}</strong><span>vs</span><strong>{homeName}</strong></header><div><span>{points(away?.livePoints)}</span><small>{final?'Final':'Posted points'}</small><span>{points(home?.livePoints)}</span></div><p>Projected: {points(ap)} — {points(hp)}</p>{!final&&hp!==null&&ap!==null&&<small>{hp===ap?'Even projection':`${hp>ap?homeName:awayName} has a ${Math.abs(hp-ap).toFixed(1)}-point projected edge.`}</small>}</article>;
+        return <article key={game.id} className="bk-hq-matchup"><header><strong>{awayName}</strong><span>vs</span><strong>{homeName}</strong></header><div><span>{points(away?.livePoints)}</span><small>{final?'Final':'Saved score'}</small><span>{points(home?.livePoints)}</span></div><p>Projected: {points(ap)} — {points(hp)}</p>{!final&&hp!==null&&ap!==null&&<small>{hp===ap?'Even projection':`${hp>ap?homeName:awayName} has a ${Math.abs(hp-ap).toFixed(1)}-point projected edge.`}</small>}</article>;
       })}
     </>}
   </div>;

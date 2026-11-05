@@ -127,8 +127,10 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
       <Action label="Cheat Sheet" accessibleLabel="Cheat Sheet" icon={<ClipboardList/>} onClick={onOpenCheatSheet}/>
     </nav>
 
-    <HomeSoloFeature onOpen={() => onNavigate('solo')}/>
-    <HomeMiniGamesFeature onOpenFootball={()=>onNavigate('football')}/>
+    <div className="bk-home-play-grid" aria-label="Play football">
+      <HomeSoloFeature onOpen={() => onNavigate('solo')}/>
+      <HomeMiniGamesFeature onOpenFootball={()=>onNavigate('football')}/>
+    </div>
 
     <HomeMatchups leagues={leagues} currentUser={currentUser} onSelectLeague={onSelectLeague} onViewMemberLocker={onViewMemberLocker} onOpenSettings={() => setSettingsOpen(true)}/>
 

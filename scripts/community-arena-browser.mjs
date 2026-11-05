@@ -34,6 +34,27 @@ try{
     await arena.getByRole('button',{name:'Mini games',exact:true}).click();
     await arena.getByRole('heading',{name:'Pick your challenge',exact:true}).waitFor();
     assert.equal(await page.getByRole('dialog').count(),0,'Browsing mini games must not open login');
+    assert.equal(await arena.locator('#community-creator-panel').count(),0,'The 3D creator stays unloaded until requested');
+    const categories=arena.getByRole('group',{name:'Game categories'});
+    for(const [category,game] of [['Skills','Receiver Routes'],['Football','Two-Minute Warning'],['Career','Career Proving Ground'],['Combine','40-Yard Dash']]){
+      await categories.getByRole('button',{name:category,exact:true}).click();
+      assert.equal(await arena.locator('.bk-mini-game-list').getByRole('button',{pressed:true}).count(),1,'One selected challenge per category');
+      await arena.locator('.bk-mini-game-list').getByRole('button',{name:new RegExp('^'+game)}).waitFor();
+    }
+    assert.equal(await arena.getByRole('link',{name:/Practice 40-Yard Dash/}).getAttribute('href'),'/combine.html?drill=dash');
+    if(width===390){
+      const customize=arena.getByRole('button',{name:'Customize my athlete',exact:true});
+      await customize.click();
+      await arena.getByRole('textbox',{name:'Mini game player name',exact:true}).fill('Unsaved community draft');
+      await customize.click();
+      assert.equal(await arena.locator('#community-creator-panel').getAttribute('hidden'),'','Collapsed creator stays mounted');
+      assert.equal(await arena.locator('#community-creator-panel [data-athlete-live-preview]').count(),0,'Hidden creator releases its renderer');
+      await customize.click();
+      assert.equal(await arena.getByRole('textbox',{name:'Mini game player name',exact:true}).inputValue(),'Unsaved community draft','Collapsing must preserve unsaved edits');
+      await customize.click();
+    }
+
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth)<=1,'Mini-game selection must fit narrow screens');
     await arena.getByRole('button',{name:'Rankings',exact:true}).click();
     await arena.getByRole('heading',{name:'Worldwide BK Rating',exact:true}).waitFor();
     await arena.getByRole('button',{name:'Guest Browse Manager H2H 4-1 · 1048 RTG',exact:true}).click();

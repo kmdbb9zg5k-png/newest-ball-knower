@@ -114,18 +114,20 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
         {/* Close Button */}
         <button
           id="close-create-league-modal-btn"
+          type="button"
+          aria-label="Close create league"
           onClick={() => {
             onClose();
             setCreatedLeague(null);
           }}
-          className="absolute right-4 top-4 rounded-sm p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+          className="absolute right-3 top-3 grid h-11 w-11 place-items-center rounded-lg text-zinc-400 hover:bg-zinc-800 hover:text-white"
         >
           <X className="h-5 w-5" />
         </button>
 
         {!createdLeague ? (
           <div>
-            <div className="flex items-center gap-3 mb-6">
+            <div className="flex items-center gap-3 mb-6 pr-9">
               <div className="flex h-10 w-10 items-center justify-center rounded-sm bg-[#D4AF37] text-black">
                 <Shield className="h-5 w-5 fill-black" />
               </div>
@@ -162,21 +164,22 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
               <div className={`rounded-sm border px-3 py-2 text-[11px] font-bold uppercase tracking-wider ${
                 onlineInvitesReady ? 'border-green-500/30 bg-green-500/10 text-green-400' : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
               }`}>
-                {onlineInvitesReady ? 'ONLINE INVITES ACTIVE — codes work across devices' : 'LOCAL MODE — connect Supabase to activate cross-device invites'}
+                {onlineInvitesReady ? 'ONLINE INVITES ACTIVE — codes work across devices' : 'Offline league — invites work on this device only'}
               </div>
               {(createError || cloudSyncError) && <div className="text-xs text-red-400">{createError || cloudSyncError}</div>}
               {/* League Name */}
               <div>
-                <label className="block text-xs font-black uppercase tracking-wider text-zinc-300 mb-1.5">
+                <label htmlFor="fantasy-create-league-name" className="block text-xs font-black uppercase tracking-wider text-zinc-300 mb-1.5">
                   League Name
                 </label>
                 <input
+                  id="fantasy-create-league-name"
                   type="text"
                   required
                   placeholder="e.g. Sunday Gridiron Champions"
                   value={leagueName}
                   onChange={e => setLeagueName(e.target.value)}
-                  className="w-full rounded-sm border border-white/10 bg-[#1A1A1A] px-4 py-3 text-sm text-white placeholder-zinc-500 focus:border-[#D4AF37] focus:outline-none"
+                  className="w-full rounded-sm border border-white/10 bg-[#1A1A1A] px-4 py-3 text-base text-white placeholder-zinc-500 focus:border-[#D4AF37] focus:outline-none"
                   autoFocus
                 />
               </div>

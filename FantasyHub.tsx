@@ -19,7 +19,6 @@ import {
 import { League, Player } from "./types";
 import { useBallKnower } from "./BallKnowerContext";
 import { ModeGuide } from "./ModeGuide";
-import { loadUserState, saveUserState } from "./userStateCloud";
 import { ModalPortal } from "./ModalPortal";
 import { loadFantasyRankings } from "./fantasyRankingsCloud";
 import type { FantasyRanking } from "./fantasyRankingsCloud";
@@ -30,6 +29,8 @@ import { FantasyAvailabilityBadge } from "./FantasyAvailabilityBadge";
 import { availabilityForPlayer, FantasyPlayerAvailability, loadFantasyPlayerAvailability, playerAvailabilityKey } from "./fantasyPlayerAvailability";
 import "./fantasyHub.css";
 import "./fantasyHqPremium.css";
+import "./fantasyPolish.css";
+import { useFantasyWatchlist } from "./useFantasyWatchlist";
 import { LeagueDestinationCard } from './FantasyHqLeagueCard';
 import { FantasyHqActivity, FantasyHqWorkspace } from './FantasyHqTools';
 import { ClipboardList, Flag, Swords } from 'lucide-react';
@@ -70,7 +71,12 @@ interface FantasyHubProps {
   ) => void;
 }
 
-export const FantasyHub: React.FC<FantasyHubProps> = ({
+export const FantasyHub: React.FC<FantasyHubProps> = (props) => {
+  const { currentUser } = useBallKnower();
+  return <FantasyHubSession key={currentUser?.id || 'guest'} {...props} />;
+};
+
+const FantasyHubSession: React.FC<FantasyHubProps> = ({
   view,
   onViewChange,
   onOpenCreateLeague,
@@ -99,41 +105,26 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [fantasyRankings, setFantasyRankings] = useState<FantasyRanking[]>([]);
   const [rankingsBusy, setRankingsBusy] = useState(true);
+  const [rankingsAttempt, setRankingsAttempt] = useState(0);
+  const [onlyWatched, setOnlyWatched] = useState(false);
   const [rankingsError, setRankingsError] = useState<string | null>(null);
   const [liveAvailability, setLiveAvailability] = useState<FantasyPlayerAvailability[]>([]);
   const [visibleRankingCount, setVisibleRankingCount] =
     useState(RANKINGS_PAGE_SIZE);
   const [publicMatchBusy, setPublicMatchBusy] = useState(false);
   const [publicMatchError, setPublicMatchError] = useState<string | null>(null);
-  const [watchlist, setWatchlist] = useState<string[]>(() => {
-    try {
-      return JSON.parse(
-        localStorage.getItem("bk-fantasy-watchlist-v1") || "[]",
-      );
-    } catch {
-      return [];
-    }
-  });
-  const watchlistValue = useRef(watchlist);
-  const watchlistReady = useRef(false);
-  const pendingWatchEdits = useRef(new Map<string, boolean>());
-  const storeWatchlist = (next: string[], save = false) => {
-    watchlistValue.current = next;
-    setWatchlist(next);
-    try { localStorage.setItem("bk-fantasy-watchlist-v1", JSON.stringify(next)); } catch {}
-    if (save) void saveUserState("fantasy_watchlist", next).catch(error =>
-      console.warn("Fantasy watchlist cloud save failed", error));
-  };
+  const { watchlist, toggleWatch } = useFantasyWatchlist(currentUser?.id);
   const fantasyPositions = ["QB", "RB", "WR", "TE", "K", "DST"];
   const ranked = useMemo(() => {
     return fantasyRankings
       .filter((player) => position === "ALL" || player.position === position)
+      .filter((player) => !onlyWatched || watchlist.includes(player.player_key))
       .filter((player) =>
         `${player.player_name} ${player.team} ${player.position}`
           .toLowerCase()
-          .includes(search.toLowerCase()),
+          .includes(search.trim().toLowerCase()),
       );
-  }, [fantasyRankings, position, search]);
+  }, [fantasyRankings, position, search, onlyWatched, watchlist]);
   const visibleRanked = useMemo(
     () => ranked.slice(0, visibleRankingCount),
     [ranked, visibleRankingCount],
@@ -164,36 +155,12 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
     };
   }, []);
   useEffect(() => {
-    let active = true;
-    void loadUserState<string[]>("fantasy_watchlist")
-      .then(cloud => {
-        if (!active) return;
-        // Replay choices made while this read was in flight over the restored
-        // list. A slow response must not undo a star the user just tapped.
-        let next = Array.isArray(cloud) ? cloud.filter(id => typeof id === 'string') : watchlistValue.current;
-        const edited = pendingWatchEdits.current.size > 0;
-        for (const [id, wanted] of pendingWatchEdits.current) {
-          next = wanted ? [...new Set([...next, id])] : next.filter(item => item !== id);
-        }
-        watchlistReady.current = true;
-        pendingWatchEdits.current.clear();
-        storeWatchlist(next, edited);
-      })
-      .catch(error => {
-        console.warn("Fantasy watchlist cloud restore failed", error);
-        if (!active) return;
-        watchlistReady.current = true;
-        if (pendingWatchEdits.current.size) storeWatchlist(watchlistValue.current, true);
-        pendingWatchEdits.current.clear();
-      });
-    return () => { active = false; };
-  }, []);
-  useEffect(() => {
     setVisibleRankingCount(RANKINGS_PAGE_SIZE);
-  }, [position, search, view]);
+  }, [position, search, view, onlyWatched]);
   useEffect(() => {
     let active = true;
     setRankingsBusy(true);
+    setRankingsError(null);
     void loadFantasyRankings()
       .then((rows) => {
         if (!active) return;
@@ -216,14 +183,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
     return () => {
       active = false;
     };
-  }, []);
-  const toggleWatch = (id: string) => {
-    const current = watchlistValue.current;
-    const wanted = !current.includes(id);
-    const next = wanted ? [...current, id] : current.filter(item => item !== id);
-    if (!watchlistReady.current) pendingWatchEdits.current.set(id, wanted);
-    storeWatchlist(next, true);
-  };
+  }, [rankingsAttempt]);
   const enterPublicLeague = async () => {
     if (publicMatchBusy) return;
     if (resumablePublicLeague) {
@@ -406,24 +366,28 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
                   football case behind every move.
                 </p>
               </div>
-              <div className="rounded-full border border-white/10 px-3 py-2 text-[10px] font-black text-zinc-400">
-                {watchlist.length} MY GUYS
-              </div>
+              <button type="button" className="bk-fantasy-watch-filter" aria-pressed={onlyWatched} onClick={() => setOnlyWatched(value => !value)}>
+                <Star aria-hidden="true" /> My Guys <span>{watchlist.length}</span>
+              </button>
             </div>
             <div className="mt-4 space-y-2 border-y border-white/10 bg-black/90 py-3">
               <label className="flex min-h-11 items-center gap-2 rounded-xl border border-white/10 bg-[#111] px-3">
                 <Search className="h-4 w-4 text-zinc-500" />
                 <input
+                  aria-label="Search fantasy players"
+                  type="search"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Search player, team or position"
                   className="w-full bg-transparent text-sm outline-none"
                 />
               </label>
-              <div className="flex gap-2 overflow-x-auto">
+              <div className="bk-fantasy-position-filters flex gap-2 overflow-x-auto" role="group" aria-label="Filter by position">
                 {["ALL", ...fantasyPositions].map((item) => (
                   <button
                     key={item}
+                    type="button"
+                    aria-pressed={position === item}
                     onClick={() => setPosition(item)}
                     className={`min-h-10 shrink-0 rounded-full px-4 text-[10px] font-black ${position === item ? "bg-[#D4AF37] text-black" : "border border-white/10 text-zinc-400"}`}
                   >
@@ -431,17 +395,17 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
                   </button>
                 ))}
               </div>
-              <div className="px-1 text-[9px] font-black uppercase tracking-wider text-zinc-600">
+              <div className="bk-fantasy-results-count px-1 text-[9px] font-black uppercase tracking-wider text-zinc-600" role="status" aria-live="polite">
                 Showing {Math.min(visibleRankingCount, ranked.length)} of{" "}
                 {ranked.length} players
               </div>
             </div>
             {rankingsBusy ? (
-              <div className="grid min-h-48 place-items-center">
-                <LoaderCircle className="h-7 w-7 animate-spin text-[#D4AF37]" />
+              <div className="grid min-h-48 place-items-center" role="status" aria-label="Loading fantasy rankings">
+                <LoaderCircle aria-hidden="true" className="h-7 w-7 animate-spin text-[#D4AF37]" />
               </div>
             ) : rankingsError ? (
-              <div className="mt-5 rounded-2xl border border-red-400/25 bg-red-400/5 p-5 text-red-200">
+              <div className="mt-5 rounded-2xl border border-red-400/25 bg-red-400/5 p-5 text-red-200" role="alert">
                 <AlertTriangle className="h-6 w-6" />
                 <h3 className="mt-3 font-black uppercase">
                   Rankings unavailable
@@ -449,6 +413,14 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
                 <p className="mt-2 text-xs leading-5 text-red-100/70">
                   {rankingsError}
                 </p>
+                <button type="button" onClick={() => setRankingsAttempt(value => value + 1)} className="bk-fantasy-retry">Try again</button>
+              </div>
+            ) : ranked.length === 0 ? (
+              <div className="bk-fantasy-search-empty" role="status">
+                <Search aria-hidden="true" />
+                <h3>{onlyWatched && watchlist.length === 0 ? 'Build your watchlist' : 'No players match these filters'}</h3>
+                <p>{onlyWatched && watchlist.length === 0 ? 'Star players on the Cheat Sheet to keep your draft targets together.' : 'Try another name, team, or position to find your next pick.'}</p>
+                <button type="button" className="bk-fantasy-retry" onClick={() => { setSearch(''); setPosition('ALL'); setOnlyWatched(false); }}>Show all players</button>
               </div>
             ) : (
               <>
@@ -457,7 +429,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
                     const up = player.point_change !== null && player.point_change >= 0;
                     const fantasyPlayer = fantasyPlayerFromRanking(player) || undefined;
                     return (
-                      <article key={player.player_key} className="py-4">
+                      <article key={player.player_key} className="bk-fantasy-ranking-row py-4">
                         <div className="grid grid-cols-[2.2rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3">
                           <div className="text-center text-base font-black text-zinc-500">
                             {player.overall_rank}
@@ -483,6 +455,8 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
                             </div>
                           </button>
                           <button
+                            type="button"
+                            aria-pressed={watchlist.includes(player.player_key)}
                             onClick={() => toggleWatch(player.player_key)}
                             className="grid h-11 w-11 place-items-center rounded-xl border border-white/10"
                             aria-label={`${watchlist.includes(player.player_key) ? "Remove" : "Add"} ${player.player_name} ${watchlist.includes(player.player_key) ? "from" : "to"} My Guys`}

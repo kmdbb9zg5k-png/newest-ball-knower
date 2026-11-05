@@ -29,6 +29,12 @@
 .dialog a,#rotate a{display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;padding:8px}
 #live[data-phase="snap"] #moves,#live[data-phase="snap"] #stamina{display:none}
 #live[data-phase="snap"] #stick{opacity:1!important;pointer-events:auto!important}
+/* Recovery must remain above portrait guidance and reachable on short phones. */
+#error{z-index:40;overflow:auto;padding:max(20px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left));gap:12px}
+#error h1{font-size:clamp(22px,4vw,30px);line-height:1.15;margin:0}
+#error p{font-size:14px;line-height:1.6;margin:0;max-width:36ch;color:#bdc9d6}
+#error button{min-height:48px;min-width:180px;border:1px solid #f3d68b;border-radius:10px;background:var(--gold);color:#09121d;font-family:inherit;font-size:14px;font-weight:800;line-height:1.2;padding:12px 20px}
+#error a{min-height:44px;background:transparent;color:#c3ced9;text-decoration:underline;text-underline-offset:4px}
 </style>
 <link rel="stylesheet" href="/play-moment-3d/mini-games.css?v=tackle-drive-61">
 <link rel="stylesheet" href="/play-moment-3d/control-settings.css">
@@ -37,7 +43,7 @@
 <canvas id="game" aria-label="Three-dimensional football practice field"></canvas>
 <div id="playTransition" aria-hidden="true" style="position:fixed;inset:0;background:#08131c;pointer-events:none;z-index:1;opacity:0"></div>
 <div id="loading"><b>BALL KNOWER</b><span>Preparing practice field…</span></div>
-<div id="error" hidden><h1>3D preview unavailable</h1><p id="errorText">This browser could not start the graphics renderer.</p><a href="/">Return to Ball Knower</a></div>
+<div id="error" role="alertdialog" aria-modal="true" aria-labelledby="errorTitle" aria-describedby="errorText" hidden><h1 id="errorTitle">The field could not load</h1><p id="errorText">This browser could not start the graphics renderer. Retry to reload this field.</p><button id="retryGame" type="button">Retry field</button><a href="/">Return to Ball Knower</a></div>
 <div id="hud">
  <header>
   <div class="utility"><a class="icon" href="/" aria-label="Return to Ball Knower">‹</a><button class="icon" id="pause" aria-label="Pause practice">Ⅱ</button></div>
@@ -76,8 +82,9 @@
 <div id="paused" class="dialog" hidden><div><span class="eyebrow">BALL KNOWER · PRACTICE</span><h1 id="dialogTitle">PAUSED</h1><p id="dialogBody">This preview never changes your career saves or season record.</p><button id="resume">RESUME</button><div class="running-setting"><button id="control" class="secondary" aria-pressed="true" aria-describedby="controlHelp">RUNNING: AUTOMATIC</button><small id="controlHelp">Ball carriers run automatically. You still move the quarterback in the pocket.</small></div><div id="controlSettings"></div><button id="watchReplay" class="secondary" hidden>WATCH LAST PLAY</button><button id="restart" class="secondary">RESTART DRIVE</button><div class="gameplay-report"><textarea id="reportNote" maxlength="500" aria-label="Optional gameplay report note" placeholder="Optional: what felt wrong?"></textarea><button id="sendReport" class="secondary">SEND GAMEPLAY REPORT</button><div id="reportReceipt" class="report-receipt" role="status" hidden><b>REPORT SENT ✓</b><code id="reportCode"></code><button id="copyReportCode" type="button">COPY REPORT CODE</button><small>Codex can now locate this report automatically.</small></div><small id="reportStatus">Sends gameplay inputs and player positions only. No screen, audio, camera, location, or account data.</small></div><a href="/">Return to Ball Knower</a></div></div>
 <div id="rotate"><div><b>TURN THE FIELD SIDEWAYS</b><p>Rotate your phone for the 3D practice preview.</p><a href="/">Back to Ball Knower</a></div></div>
 <script type="module">
+document.getElementById('retryGame').onclick=()=>location.reload();
 try { const {start}=await import('/play-moment-3d/game.js?v=full-mode-audit-1'); await start(); }
-catch(error){document.getElementById('loading').hidden=true;document.getElementById('error').hidden=false;document.getElementById('errorText').textContent='The 3D preview could not start. Your saved career is unchanged.';console.error(error);}
+catch(error){for(const id of ['loading','hud','paused','rotate'])document.getElementById(id).hidden=true;document.getElementById('error').hidden=false;document.getElementById('errorText').textContent='The field could not start. Retry to reload it.';document.getElementById('retryGame').focus({preventScroll:true});console.error(error);}
 </script>
 </body>
 </html>
