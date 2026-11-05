@@ -1,0 +1,8 @@
+/* Keep the composer readable and the help actions clear of the title. */
+.bk-ask-hub textarea{font:500 16px/1.5 var(--bk-font-body,"Plus Jakarta Sans",system-ui,sans-serif)}
+.bk-ask-header{min-width:0}
+@media(max-width:539px){
+  .bk-ask-header{flex-direction:column;align-items:stretch;gap:10px}
+  .bk-ask-actions{justify-content:flex-start}
+  .bk-ask-header .bk-overline{font-size:9px;line-height:1.5;letter-spacing:.12em}
+}

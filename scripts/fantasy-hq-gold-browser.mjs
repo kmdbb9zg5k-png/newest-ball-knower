@@ -74,7 +74,11 @@ try{
     if(path.endsWith('/rpc/mark_ball_knower_notification_read'))return failNotificationReceipts?send({message:'Explicit read-receipt fixture outage'},503):send(null);
     // An optional archive outage must never disable otherwise valid weekly scores.
     if(path.endsWith('/ball_knower_season_archive'))return send({message:'Fixture optional archive outage'},503);
-    if(path.endsWith('/ball_knower_weekly_scores'))return failScores?send({message:'Fixture score outage'},503):send([1,2].flatMap(week=>members.map((m,i)=>({league_id:leagues[0].id,member_id:m.id,week_number:week,live_points:i===0?5.6:i===9?0:80-i,projected_points:120-i,is_final:week===2,score_details:{hasProjectedTotal:i!==8,players:week===1?matchupPlayers(i,i===0):[]},updated_at:stamp}))));
+    if(path.endsWith('/ball_knower_weekly_scores')){
+     // The scaffold renders before an asynchronous stored-score read completes.
+     await new Promise(resolve=>setTimeout(resolve,120));
+     return failScores?send({message:'Fixture score outage'},503):send([1,2].flatMap(week=>members.map((m,i)=>({league_id:leagues[0].id,member_id:m.id,week_number:week,live_points:i===0?5.6:i===9?0:80-i,projected_points:120-i,is_final:week===2,score_details:{hasProjectedTotal:i!==8,players:week===1?matchupPlayers(i,i===0):[]},updated_at:stamp}))));
+    }
     if(path.endsWith('/ball_knower_transactions'))return failActivity?send({message:'Fixture activity outage'},503):send(activityContent?[{id:'qa-txn',summary:'QA trade receipt',created_at:stamp}]:[]);
     if(path.endsWith('/ball_knower_league_messages'))return send(activityContent?[{id:'qa-notice',body:'QA commissioner announcement',kind:'announcement',created_at:stamp},{id:'qa-chat',body:'QA chat must not appear here',kind:'chat',created_at:stamp}]:[]);
     if(path.includes('join_or_create_ball_knower_public_league'))return send({message:'Explicit public-matchmaking fixture outage'},503);
@@ -99,7 +103,22 @@ try{
    assert.ok(bounds.scroll<=width+1);assert.ok(bounds.tools.every(b=>b.left>=0&&b.right<=width+1&&b.height>=44&&b.width>=44));if(width<640)assert.ok(bounds.hero<=210);
    await writeFile(`${out}/${engine}-${width}-geometry.json`,JSON.stringify(bounds,null,2));await page.screenshot({path:`${out}/${engine}-${width}-hq.png`});await page.screenshot({path:`${out}/${engine}-${width}-full.png`,fullPage:true});
    await page.getByRole('button',{name:'Manage Golden Arm League',exact:true}).click();let manage=page.getByRole('dialog',{name:'Golden Arm League',exact:true});await manage.waitFor();assert.match(await manage.innerText(),/JOIN CODE[\s\S]*BK-QATEST/);await manage.getByLabel('Custom code').fill('SUNDAY CREW');await manage.getByRole('button',{name:'Save custom code',exact:true}).click();await manage.getByText('SUNDAY-CREW',{exact:true}).waitFor();await manage.getByRole('button',{name:'Delete league',exact:true}).click();await manage.getByText('This deletes the league for all 10 members.',{exact:false}).waitFor();const permanentDelete=manage.getByRole('button',{name:'Permanently delete',exact:true});assert.equal(await permanentDelete.isDisabled(),true,'League deletion must stay disabled until the exact name is entered');await manage.getByLabel('Type league name to confirm deletion').fill('Golden Arm League');assert.equal(await permanentDelete.isEnabled(),true,'Exact league name must unlock the final delete action');await manage.getByRole('button',{name:'Cancel',exact:true}).click();await manage.getByRole('button',{name:'Close league management',exact:true}).click();
-   await page.getByRole('button',{name:'My team',exact:true}).first().click();await page.getByRole('button',{name:'Matchup',exact:true}).click();const scoreboard=page.getByTestId('matchup-scoreboard');await scoreboard.waitFor();await page.getByTestId('fantasy-scoring-paused').waitFor();const pausedText=await page.getByTestId('fantasy-scoring-paused').innerText();assert.ok(pausedText.startsWith('Live scoring paused. Saved scores are preserved.'));assert.match(pausedText,/Latest saved score:/);assert.match(pausedText,/Refreshing this page does not update NFL statistics\./);const myScore=scoreboard.locator('[data-matchup-member="m0"]');await myScore.locator('[data-matchup-current]').filter({hasText:'5.60'}).waitFor();assert.match(await myScore.innerText(),/saved score/i,`${engine}-${width}: loaded unfinished fixture points must be labeled as saved`);assert.equal(await myScore.locator('[data-matchup-current]').innerText(),'5.60',`${engine}-${width}: earned points must occupy the primary score position after a player finishes`);assert.equal(await myScore.locator('[data-matchup-projected]').innerText(),'120.00 PROJ',`${engine}-${width}: projected total must remain secondary`);assert.match(await scoreboard.innerText(),/PROJECTED WIN CHANCE/);assert.equal(await page.locator('html').evaluate(node=>node.scrollWidth<=innerWidth+1),true,`${engine}-${width}: matchup comparison overflows horizontally`);await page.screenshot({path:`${out}/${engine}-${width}-matchup.png`,fullPage:true});
+   await page.getByRole('button',{name:'My team',exact:true}).first().click();
+   await page.getByRole('button',{name:'Matchup',exact:true}).click();
+   const scoreboard=page.getByTestId('matchup-scoreboard');await scoreboard.waitFor();
+   const myScore=scoreboard.locator('[data-matchup-member="m0"]');
+   await myScore.locator('[data-matchup-current]').filter({hasText:'5.60'}).waitFor();
+   const pausedText=await page.getByTestId('fantasy-scoring-paused').innerText();
+   assert.ok(pausedText.startsWith('Live scoring paused. Saved scores are preserved.'));
+   const storedTime=await page.evaluate(value=>new Date(value).toLocaleString(),stamp);
+   assert.ok(pausedText.includes(`Latest saved score: ${storedTime}.`),`${engine}-${width}: loaded-score freshness must display the stored updated_at, never the retrieval clock`);
+   assert.match(pausedText,/Refreshing this page does not update NFL statistics\./);
+   assert.match(await myScore.innerText(),/saved score/i,`${engine}-${width}: loaded unfinished fixture points must be labeled as saved`);
+   assert.equal(await myScore.locator('[data-matchup-current]').innerText(),'5.60',`${engine}-${width}: earned points must occupy the primary score position after a player finishes`);
+   assert.equal(await myScore.locator('[data-matchup-projected]').innerText(),'120.00 PROJ',`${engine}-${width}: projected total must remain secondary`);
+   assert.match(await scoreboard.innerText(),/PROJECTED WIN CHANCE/);
+   assert.equal(await page.locator('html').evaluate(node=>node.scrollWidth<=innerWidth+1),true,`${engine}-${width}: matchup comparison overflows horizontally`);
+   await page.screenshot({path:`${out}/${engine}-${width}-matchup.png`,fullPage:true});
    const inbox=page.locator('details').filter({has:page.locator('summary',{hasText:'Notifications'})});await inbox.locator('summary').click();
    await inbox.getByRole('button',{name:'Open Messages: QA message alert',exact:true}).waitFor();assert.equal(await inbox.getByText('QA unrelated league alert',{exact:true}).count(),0,'the selected league must hide another league alerts');
    failNotificationReceipts=true;await inbox.getByRole('button',{name:'Open Messages: QA message alert',exact:true}).click();await page.getByRole('heading',{name:'Messages',exact:true}).waitFor();

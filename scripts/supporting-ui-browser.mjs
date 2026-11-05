@@ -18,7 +18,9 @@ try{
   browser=await engine.launch({headless:true});
   for(const width of widths){
    const page=await browser.newPage({viewport:{width,height:844}});const errors=[];page.on('pageerror',error=>errors.push(error.message));
-   await page.goto('http://127.0.0.1:4190/');const help=page.getByRole('button',{name:'How it works',exact:true});await help.click();const dialog=page.getByRole('dialog',{name:'Franchise Command instructions',exact:true});await dialog.waitFor();
+   // Functional fixtures must not wait for unrelated third-party fonts/assets.
+   await page.route(/^https?:\/\/(?!127\.0\.0\.1(?::|\/)|localhost(?::|\/))/,route=>route.abort());
+   await page.goto('http://127.0.0.1:4190/',{waitUntil:'domcontentloaded'});const help=page.getByRole('button',{name:'How it works',exact:true});await help.click();const dialog=page.getByRole('dialog',{name:'Franchise Command instructions',exact:true});await dialog.waitFor();
    assert.equal(await page.evaluate(()=>document.body.style.position),'fixed');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),width);
    await page.keyboard.press('Shift+Tab');assert(await dialog.evaluate(node=>node.contains(document.activeElement)));
    await page.screenshot({path:`${supportingOut}/help-${name}-${width}.png`});await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});assert(await help.evaluate(node=>node===document.activeElement));assert.equal(await page.evaluate(()=>document.body.style.position),'');

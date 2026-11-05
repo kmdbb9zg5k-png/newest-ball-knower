@@ -16,7 +16,7 @@ const mocks = {
   supabase: `export const supabase=null,isCloudConfigured=false;export const ensureOnlineSession=async()=>null;export const signOutOnline=async()=>{};`,
   progressionCloud: `${dataImport} export const fetchProgressionProfile=async()=>{if(scenario()==='offline')throw Error('Offline fixture');return {profile,events:[],achievements:[]}};`,
   fantasySeasonCloud: `export const fetchSeasonOperations=async()=>({transactions:[],trades:[],claims:[],messages:[]});`,
-  fantasyLeagueParityCloud: `export const fetchHomeWeeklyScores=async()=>[];`,
+  fantasyLeagueParityCloud: `export const fetchHomeWeeklyScores=async()=>[];export const subscribeToFantasyParity=()=>()=>{};`,
   FantasySettingsHub: `export const FantasySettingsHub=()=>null;`,
   LeagueManagementModal: `export const LeagueManagementModal=()=>null;`,
   HomeNewsTicker: `export const HomeNewsTicker=()=>null;`,

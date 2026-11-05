@@ -65,6 +65,16 @@ try {
     await page.getByRole('button', { name: 'All', exact: true }).click();
     await page.screenshot({ path: `${directory}/profile-${width}.png`, fullPage: true });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${width}: no horizontal page overflow`);
+    await page.getByRole('button', { name: 'Explore Ball Knower', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Explore Ball Knower', exact: true }).getByRole('button', { name: /^Ask BK/ }).click();
+    const composer = page.getByTestId('ask-bk-composer');
+    await composer.waitFor();
+    const composerBox = await composer.boundingBox();
+    const navBox = await primary.boundingBox();
+    assert.ok(composerBox && composerBox.y >= 0 && composerBox.y + composerBox.height <= (width < 768 ? navBox.y : 900), `${width}: Ask BK composer stays above navigation`);
+    assert.ok(await page.getByRole('textbox', { name: 'Ask BK question' }).evaluate(element => parseFloat(getComputedStyle(element).fontSize) >= 16), 'Readable composer text');
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${width}: Ask BK does not overflow`);
+    await page.screenshot({ path: `${directory}/ask-${width}.png`, fullPage: true });
     assert.deepEqual(errors, [], `${width}: no component runtime errors`);
     await page.close();
   }

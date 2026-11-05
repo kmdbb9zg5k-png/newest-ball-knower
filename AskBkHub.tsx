@@ -7,6 +7,7 @@ import {Conversation,ConversationContent} from './components/ai-elements/convers
 import {Message,MessageContent,MessageResponse} from './components/ai-elements/message';
 import {ModeHelp} from './ModeHelp';
 import {abortableTask} from './abortableTask';
+import './askBkPolish.css';
 
 type AskBkSource={title:string;url:string};
 type AskBkMessage={id:string;role:'user'|'assistant';text:string;attachments?:AskBkAttachment[];attachmentCount?:number;sources?:AskBkSource[]};
@@ -84,6 +85,7 @@ export function AskBkHub(){
     const timeout=window.setTimeout(()=>{timedOut=true;controller.abort()},60_000);
     const isCurrent=()=>mountedRef.current&&requestRef.current===controller;
     try{
+      if(!supabase)throw new Error('Ask BK needs an online session. Please try again in a moment.');
       await abortableTask(ensureOnlineSession(),controller.signal);
       const {data:sessionData}=await abortableTask(supabase!.auth.getSession(),controller.signal);
       const accessToken=sessionData.session?.access_token;
@@ -105,13 +107,13 @@ export function AskBkHub(){
     }finally{window.clearTimeout(timeout);if(isCurrent()){setIsAnswering(false);requestRef.current=null;pendingMessageRef.current=null}}
   };
 
-  return <section className="mx-auto flex h-[calc(100dvh-9rem)] min-h-0 w-full max-w-5xl flex-col px-3 pb-5 pt-4 sm:px-5 md:h-[calc(100dvh-8rem)] md:pt-6">
+  return <section className="bk-ask-hub mx-auto flex h-[calc(100dvh-9rem)] min-h-0 w-full max-w-5xl flex-col px-3 pb-5 pt-4 sm:px-5 md:h-[calc(100dvh-8rem)] md:pt-6">
     <div className="bk-glass flex min-h-0 flex-1 flex-col overflow-hidden border-[var(--bk-team-accent)]/20">
       <div className="relative max-h-[30dvh] shrink-0 overflow-y-auto border-b border-white/10 px-4 py-3 sm:px-6 sm:py-5">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_90%_10%,rgb(var(--bk-team-accent-rgb)/.2),transparent_42%)]" aria-hidden="true"/>
-        <div className="relative flex items-start justify-between gap-3">
+        <div className="bk-ask-header relative flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1"><div className="flex items-center gap-2.5"><div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-[var(--bk-team-accent)]/35 bg-[var(--bk-team-accent)]/10 sm:h-11 sm:w-11"><Sparkles className="h-4.5 w-4.5 text-[var(--bk-team-accent)] sm:h-5 sm:w-5"/></div><div><div className="bk-overline text-[8px] sm:text-[11px]">Football-first sports intelligence</div><h2 className="font-display text-[1.7rem] font-black uppercase leading-none tracking-tight sm:text-3xl">Ask <span className="text-[var(--bk-team-accent)]">BK</span></h2></div></div><p className="mt-1.5 max-w-xl text-xs font-semibold leading-4 text-zinc-400 sm:mt-2 sm:text-xs sm:leading-5">Fantasy decisions, injuries, matchups, news and screenshot breakdowns.</p></div>
-          <div className="flex shrink-0 flex-wrap justify-end gap-2"><ModeHelp mode="ask"/>{(messages.length>0||draft.length>0||attachments.length>0||isPreparingImages)&&<button type="button" onClick={clearSession} aria-label="Clear chat" className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border border-white/10 bg-black/20 px-3 text-xs font-bold text-zinc-300"><Trash2 className="h-3.5 w-3.5"/><span className="hidden sm:inline">Clear chat</span></button>}</div>
+          <div className="bk-ask-actions flex shrink-0 flex-wrap justify-end gap-2"><ModeHelp mode="ask"/>{(messages.length>0||draft.length>0||attachments.length>0||isPreparingImages)&&<button type="button" onClick={clearSession} aria-label="Clear chat" className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border border-white/10 bg-black/20 px-3 text-xs font-bold text-zinc-300"><Trash2 className="h-3.5 w-3.5"/><span className="hidden sm:inline">Clear chat</span></button>}</div>
         </div>
         <div className="relative mt-2.5 flex items-start gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/[.06] px-3 py-2 text-[11px] font-bold leading-4 text-emerald-100 sm:mt-4 sm:py-2.5 sm:text-xs"><LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400"/><span><b>Session only.</b> Chats and screenshots aren’t saved. They clear when you leave Ask BK or tap Clear.</span></div>
       </div>

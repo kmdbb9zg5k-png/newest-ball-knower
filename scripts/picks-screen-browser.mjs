@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {spawn} from 'node:child_process';
 import {chromium,webkit} from 'playwright';
+import {navigateFromExplore} from './assert-app-navigation.mjs';
 const out='artifacts/picks-screen',base='http://127.0.0.1:4184';
 const future=new Date(Date.now()+86400_000).toISOString();
 const day=future.slice(0,10);
@@ -46,7 +47,7 @@ async function contextFor(engine,width,{hungSync=false,legacyPick=false,historyC
     localStorage.setItem('sb-gpnboygoosrmeydwjpvk-auth-token',JSON.stringify({access_token:'isolated-browser-fixture',refresh_token:'isolated-refresh-fixture',token_type:'bearer',expires_at:Math.floor(Date.now()/1000)+86400,expires_in:86400,user}));
   },saved);
   await page.goto(base,{waitUntil:'domcontentloaded'});await page.locator('.bk-home-stadium').waitFor();
-  for(const button of await page.getByRole('button',{name:'Picks',exact:true}).all())if(await button.isVisible()){await button.click();break}
+  await navigateFromExplore(page,'NFL picks','sportsbook');
   await page.locator('.bk-picks-game').first().waitFor({timeout:5000});
   return {context,page,crashes,boardRequests,setMode:mode=>{boardMode=mode},saved:()=>saved,saves:()=>saves,deletes:()=>deletes};
 }

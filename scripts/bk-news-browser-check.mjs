@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {spawn} from 'node:child_process';
 import {chromium} from 'playwright';
+import {navigateFromExplore} from './assert-app-navigation.mjs';
 const news={available:true,provider:'Currents',fetchedAt:new Date().toISOString(),articles:[{id:'https://publisher.example/story',url:'https://publisher.example/story',headline:'Example headline used only in automated testing',source:'Test publisher',published:null,image:null,description:''}]};
 const base='http://127.0.0.1:4176';
 const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port','4176','--strictPort','--outDir','/tmp/bk-news-opt-in'],{stdio:'inherit'});
@@ -40,7 +41,7 @@ try{
     // initial load, then measure only requests made by the NewsHub migration.
     await page.getByRole('region',{name:'NFL headlines',exact:true}).getByRole('link',{name:news.articles[0].headline,exact:true}).waitFor();
     const homeLegacyRequests=requested.filter(path=>path==='/api/nfl-news').length;
-    await page.getByRole('button',{name:'NFL News',exact:true}).click();
+    await navigateFromExplore(page,'NFL news','news');
     await page.locator('article').first().waitFor();
     assert.equal(await page.locator('article').count(),news.articles.length);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),true,'News must not overflow on mobile');
