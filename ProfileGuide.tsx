@@ -40,8 +40,8 @@ export function ProfileGuide() {
         <header className="bk-profile-guide-header"><div><p>THE PROFILE PLAYBOOK</p><h2 id={`${id}-title`}>Make every game count.</h2></div><button type="button" aria-label="Close Profile guide" onClick={close}><X aria-hidden="true"/></button></header>
         <div className="bk-profile-guide-scroll">
           <p className="bk-profile-guide-intro">Your identity, your progress, your football résumé. Here’s what everything on your Profile means.</p>
-          <nav aria-label="Profile guide topics">{PROFILE_GUIDE_SECTIONS.map((section, index) => <button type="button" key={section.id} onClick={() => document.getElementById(`${id}-${section.id}`)?.scrollIntoView({ block: 'start', behavior: 'auto' })}><span>{String(index + 1).padStart(2, '0')}</span>{section.title}<ChevronRight aria-hidden="true"/></button>)}</nav>
-          {PROFILE_GUIDE_SECTIONS.map((section, index) => <section key={section.id} id={`${id}-${section.id}`} className="bk-profile-guide-topic"><p>CHAPTER {String(index + 1).padStart(2, '0')}</p><h3>{section.title}</h3><p>{section.body}</p></section>)}
+          <nav aria-label="Profile guide topics">{PROFILE_GUIDE_SECTIONS.map((section, index) => <button type="button" key={section.id} onClick={() => { const topic = document.getElementById(`${id}-${section.id}`); topic?.scrollIntoView({ block: 'start', behavior: 'auto' }); topic?.focus({ preventScroll: true }); }}><span>{String(index + 1).padStart(2, '0')}</span>{section.title}<ChevronRight aria-hidden="true"/></button>)}</nav>
+          {PROFILE_GUIDE_SECTIONS.map((section, index) => <section key={section.id} id={`${id}-${section.id}`} className="bk-profile-guide-topic" tabIndex={-1}><p>CHAPTER {String(index + 1).padStart(2, '0')}</p><h3>{section.title}</h3><p>{section.body}</p></section>)}
           <button type="button" className="bk-profile-guide-done" onClick={close}>Got it — view Profile</button>
         </div>
       </section>
