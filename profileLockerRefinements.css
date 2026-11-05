@@ -29,3 +29,15 @@ body:has(.bk-app-shell[data-tab="locker"])>nav.bk-broadcast-nav button:last-chil
 .bk-profile-page .bk-locker-account>summary{min-height:44px;margin-bottom:-20px;align-items:flex-start;padding-top:6px}
 .bk-profile-page .bk-locker-account[open]>summary{margin-bottom:0}
 .bk-profile-page .bk-locker-trophy-arrows button{width:44px;min-width:44px}
+
+/* Keep profile actions readable without painting decorative art behind them. */
+@media (max-width: 639px) {
+  .bk-profile-page .bk-profile-identity .bk-locker-manager { display: none; }
+  .bk-profile-page .bk-profile-identity > section > div { padding-right: 8px; }
+  .bk-profile-page .bk-profile-identity > section > div > div:nth-child(2) { white-space: normal; overflow-wrap: anywhere; }
+  .bk-profile-page .bk-profile-identity .bk-profile-identity-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bk-profile-page .bk-profile-identity .bk-profile-identity-actions > button { white-space: normal; font-size: 9px; line-height: 1.35; padding: 7px 5px; }
+  .bk-profile-page .bk-locker-account,
+  .bk-profile-page .bk-locker-account[open] { position: relative; inset: auto; margin: 6px 10px 0 36%; padding: 0; }
+  .bk-profile-page .bk-locker-account > summary { margin-bottom: 0; align-items: center; padding-block: 6px; }
+}

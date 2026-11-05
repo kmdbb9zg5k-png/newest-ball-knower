@@ -4,16 +4,16 @@ import { fetchProgressionProfile, fetchPublicProgressionProfile, type Achievemen
 import { gradeVerifiedPredictionPicks, loadVerifiedPredictionPicks, type VerifiedPredictionPick } from './modeProgressionCloud';
 import { ProfileLockerView } from './ProfileLockerView';
 
-type Props = { targetUserId?: string; targetDisplayName?: string };
+type Props = { targetUserId?: string; targetDisplayName?: string; identity?: React.ReactNode };
 
-export const ProgressionProfileCard: React.FC<Props> = ({ targetUserId, targetDisplayName }) => {
+export const ProgressionProfileCard: React.FC<Props> = ({ targetUserId, targetDisplayName, identity }) => {
   const { currentUser } = useBallKnower();
   // Remount on identity changes: never show another account's receipts while loading.
-  if (targetUserId) return <AccountProgression key={targetUserId} displayName={targetDisplayName} targetUserId={targetUserId}/>;
-  return <AccountProgression key={currentUser?.id || 'guest'} displayName={currentUser?.name}/>;
+  if (targetUserId) return <AccountProgression key={targetUserId} displayName={targetDisplayName} targetUserId={targetUserId} identity={identity}/>;
+  return <AccountProgression key={currentUser?.id || 'guest'} displayName={currentUser?.name} identity={identity}/>;
 };
 
-function AccountProgression({ displayName, targetUserId }: { displayName?: string; targetUserId?: string }) {
+function AccountProgression({ displayName, targetUserId, identity }: { displayName?: string; targetUserId?: string; identity?: React.ReactNode }) {
   const [profile, setProfile] = useState<ProgressProfile | null>(null);
   const [events, setEvents] = useState<ProgressEvent[]>([]);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
@@ -51,5 +51,5 @@ function AccountProgression({ displayName, targetUserId }: { displayName?: strin
     return () => { requestVersion.current += 1; };
   }, [refresh]);
 
-  return <ProfileLockerView profile={profile} events={events} achievements={achievements} predictionPicks={predictionPicks} profileOwnerName={targetUserId ? displayName : undefined} error={error} loading={loading} onRefresh={() => void refresh()}/>;
+  return <ProfileLockerView identity={identity} profile={profile} events={events} achievements={achievements} predictionPicks={predictionPicks} profileOwnerName={targetUserId ? displayName : undefined} error={error} loading={loading} onRefresh={() => void refresh()}/>;
 }
