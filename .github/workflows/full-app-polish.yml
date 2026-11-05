@@ -22,11 +22,16 @@ jobs:
       - run: node --import tsx scripts/request-reliability-check.ts
       - run: node scripts/cloud-recovery-check.mjs
       - run: node scripts/user-state-account-boundary-check.mjs
+      - run: node --import tsx scripts/account-flow-boundary-check.mjs
+      - run: node --import tsx scripts/account-deletion-recovery-check.mjs && node --import tsx scripts/account-deletion-client-check.mjs
+      - run: npm run check:native-auth
       - run: node --import tsx scripts/abortable-task-check.ts && npm run check:ask-bk
       - run: node --import tsx scripts/career-depth-check.ts && npm run check:franchise-interactions && node --import tsx scripts/gm-trade-offers-check.ts
       - run: node scripts/combine-input-check.mjs && node --import tsx scripts/combine-appearance-identity-check.mjs
       - run: node --import tsx scripts/community-session-recovery-check.ts && npm run check:community-arena
       - run: npm run check:fantasy-live-scoring && npm run check:phase2-lineups && npm run check:matchup-head-to-head && npm run check:picks
+      - run: node scripts/soundtrack-lifecycle-check.mjs && node scripts/media-library-check.mjs
+      - run: node scripts/trivia-grading-runtime-check.mjs && node --import tsx scripts/fantasy-notification-routing-check.ts
   polish-browser:
     runs-on: ubuntu-latest
     timeout-minutes: 22
@@ -39,11 +44,14 @@ jobs:
       - run: npm run build && npm run check:root-bundle
       - run: npx playwright install --with-deps chromium webkit
       - name: Build and serve actual navigation component review
+        id: navigationSetup
+        continue-on-error: true
         run: |
           node scripts/navigation-polish-fixture.mjs
           python3 -m http.server 4173 --bind 127.0.0.1 --directory dist > /tmp/navigation-review-server.log 2>&1 &
       - name: Navigation, Home and Profile
         id: navigation
+        if: steps.navigationSetup.outcome == 'success'
         continue-on-error: true
         run: BK_NAV_REVIEW_ORIGIN=http://127.0.0.1:4173 node scripts/navigation-polish-browser.mjs
       - name: Accessible instructions and Ask BK recovery
@@ -69,7 +77,7 @@ jobs:
       - name: Require all browser suites to pass
         if: always()
         env:
-          OUTCOMES: '${{ steps.navigation.outcome }} ${{ steps.supporting.outcome }} ${{ steps.community.outcome }} ${{ steps.careers.outcome }} ${{ steps.gm.outcome }} ${{ steps.season.outcome }}'
+          OUTCOMES: '${{ steps.navigationSetup.outcome }} ${{ steps.navigation.outcome }} ${{ steps.supporting.outcome }} ${{ steps.community.outcome }} ${{ steps.careers.outcome }} ${{ steps.gm.outcome }} ${{ steps.season.outcome }}'
         run: node -e 'if(process.env.OUTCOMES.split(" ").some(value=>value!=="success"))process.exit(1)'
       - uses: actions/upload-artifact@v4
         if: always()
@@ -93,6 +101,8 @@ jobs:
         with: {node-version: 22, cache: npm}
       - run: npm ci --no-audit --no-fund
       - run: npx playwright install --with-deps chromium
+      - name: Use the installed browser for legacy review harnesses
+        run: node --input-type=module -e 'import {appendFileSync} from "node:fs"; import {chromium} from "playwright"; appendFileSync(process.env.GITHUB_ENV, "BROWSER_PATH="+chromium.executablePath()+"\n")'
       - run: node scripts/check-reference-contact.mjs
       - run: node scripts/check-combine-appearance.mjs
       - run: node scripts/check-rb-browser.mjs

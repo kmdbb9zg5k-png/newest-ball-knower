@@ -1,4 +1,4 @@
-import React,{lazy,Suspense,useState} from 'react';
+import React,{lazy,Suspense,useRef,useState} from 'react';
 import {Bug, ExternalLink, Loader2, Mail, Rocket, ShieldCheck, Trash2, X} from 'lucide-react';
 import {ModalPortal} from './ModalPortal';
 const PhotoCreditsContent=lazy(()=>import('./PhotoCredits').then(module=>({default:module.PhotoCreditsContent})));
@@ -16,16 +16,18 @@ export function LaunchCenter({panel,onClose}:{panel:LaunchPanel|null;onClose:()=
   const [confirmDelete,setConfirmDelete]=useState(false);
   const [deleting,setDeleting]=useState(false);
   const [deleteError,setDeleteError]=useState<string|null>(null);
+  const deleteTarget=useRef<string|null>(null);
   if(!panel)return null;
   const reportBug=`mailto:${CONTACT}?subject=${encodeURIComponent('[BALL KNOWER BETA] Bug report')}&body=${encodeURIComponent('What screen were you on?\n\nWhat did you tap?\n\nWhat happened?\n\nDevice/browser: ')}`;
   const deleteAccount=async()=>{
     if(deleting)return;
-    if(!confirmDelete){setConfirmDelete(true);setDeleteError(null);return;}
+    if(!confirmDelete){deleteTarget.current=currentUser?.id||null;setConfirmDelete(true);setDeleteError(null);return;}
+    if(!deleteTarget.current||deleteTarget.current!==currentUser?.id){setConfirmDelete(false);setDeleteError('Your account changed. Confirm the current account before trying again.');return;}
     setDeleting(true);setDeleteError(null);
     try{
-      await deleteBallKnowerAccount();
-      logout();
-      showToast('Your Ball Knower account and personal data were deleted.');
+      const result=await deleteBallKnowerAccount(deleteTarget.current);
+      if(!result.sessionChanged)logout();
+      showToast(result.manualAppleRevokeRequired?'Your Ball Knower account was deleted. Remove Ball Knower from your Apple Account’s Sign in with Apple settings.':'Your Ball Knower account and personal data were deleted.');
       onClose();
     }catch(error:any){
       setDeleteError(error?.message||'Your account could not be deleted.');

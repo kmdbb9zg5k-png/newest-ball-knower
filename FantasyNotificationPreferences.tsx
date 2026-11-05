@@ -27,6 +27,7 @@ export const FantasyNotificationPreferences: React.FC<{userId?:string}> = ({user
 
   const load=async()=>{
     const requestId=++requestRef.current;
+    setReady(false);setError("");
     try{
       const next=await fetchMyNotificationPreferences();
       if(requestId!==requestRef.current)return;

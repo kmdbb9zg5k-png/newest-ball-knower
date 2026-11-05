@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {spawn} from 'node:child_process';
 import {chromium} from 'playwright';
+import {assertAppNavigation} from './assert-app-navigation.mjs';
 const live=process.argv.includes('--live');
 let news={available:true,provider:'Currents',fetchedAt:new Date().toISOString(),articles:[
  {headline:'Example headline for the Home regression test',url:'https://publisher.example/one'},
@@ -58,9 +59,10 @@ try{
   assert.ok(geometry.heroTop>=geometry.headerBottom-1,'Fixed headline strip must not cover hero');
   if(width<768){
    const buttons=page.getByRole('navigation',{name:'Primary navigation'}).locator('button');
-   assert.equal(await buttons.count(),7);
+   assert.equal(await buttons.count(),5);
    assert.ok((await buttons.evaluateAll(items=>items.map(e=>parseFloat(getComputedStyle(e).fontSize)))).every(size=>size>=8&&size<=11),'Bottom labels must remain compact and readable');
   }
+  await assertAppNavigation(page,{mobile:width<768});
   assert.equal(await page.locator('.bk-home-primary-modes button').count(),4);
   assert.equal(await page.locator('.bk-home-floodlight').count(),0,'Approved cover has no flicker overlays');
   const photo=await page.locator('.bk-home-legacy-art').evaluate(e=>({w:e.naturalWidth,h:e.naturalHeight}));assert.deepEqual(photo,{w:1354,h:1162});
@@ -68,7 +70,9 @@ try{
   const ratio=await hero.locator('img').evaluate(e=>e.getBoundingClientRect().width/e.getBoundingClientRect().height);
   assert(Math.abs(ratio-1354/1162)<.01,'Cover must not crop or stretch');
   assert.equal(await hero.locator('button,a').count(),0,'Artwork has no invisible actions');
-  assert.equal(Math.round(geometry.heroHeight),width<360?350:width<640?378:440,'Original hero height restored');
+  const renderedArtHeight=await hero.locator('img').evaluate(element=>element.getBoundingClientRect().height);
+  assert.ok(geometry.heroHeight>=150&&geometry.heroHeight<=440,'The cinematic cover must remain readable without an oversized empty panel');
+  assert.ok(Math.abs(geometry.heroHeight-renderedArtHeight)<=8,'The hero panel must follow the uncropped artwork height');
   await page.screenshot({path:`${out}/home-${width}.png`,fullPage:false});
   if(width===390){
    const before=await strip.locator('a[title]').getAttribute('href');await page.clock.runFor(10_050);

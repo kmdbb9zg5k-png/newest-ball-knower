@@ -7,6 +7,7 @@ import { PlayHub } from '../../PlayHub';
 import { ProfileLockerView } from '../../ProfileLockerView';
 import { BALL_KNOWER_THEME } from '../../teamTheme';
 import { achievements, profile, scenario } from './navigation-data';
+import '../../profilePage.css';
 
 function Review() {
   const [tab, setTab] = useState<AppTab>('home');

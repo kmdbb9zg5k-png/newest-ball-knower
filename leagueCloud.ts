@@ -475,11 +475,14 @@ export async function deleteCloudMember(leagueId:string,memberId:string) {
 
 export function subscribeToCloudLeague(leagueId:string,onChange:()=>void) {
   if(!supabase) return ()=>{};
+  let active=true;
+  const refresh=()=>{if(active)onChange();};
   const channel=supabase.channel(`ball-knower-${leagueId}`)
-    .on('postgres_changes',{event:'*',schema:'public',table:'ball_knower_leagues',filter:`id=eq.${leagueId}`},onChange)
-    .on('postgres_changes',{event:'*',schema:'public',table:'ball_knower_league_members',filter:`league_id=eq.${leagueId}`},onChange)
-    .on('postgres_changes',{event:'*',schema:'public',table:'ball_knower_live_drafts',filter:`league_id=eq.${leagueId}`},onChange)
-    .on('postgres_changes',{event:'*',schema:'public',table:'ball_knower_league_events',filter:`league_id=eq.${leagueId}`},onChange)
-    .subscribe();
-  return ()=>{ supabase.removeChannel(channel); };
+    .on('postgres_changes',{event:'*',schema:'public',table:'ball_knower_leagues',filter:`id=eq.${leagueId}`},refresh)
+    .on('postgres_changes',{event:'*',schema:'public',table:'ball_knower_league_members',filter:`league_id=eq.${leagueId}`},refresh)
+    .on('postgres_changes',{event:'*',schema:'public',table:'ball_knower_live_drafts',filter:`league_id=eq.${leagueId}`},refresh)
+    .on('postgres_changes',{event:'*',schema:'public',table:'ball_knower_league_events',filter:`league_id=eq.${leagueId}`},refresh)
+    // Rejoining does not replay picks/events missed while the device was offline.
+    .subscribe(status=>{if(status==='SUBSCRIBED')refresh();});
+  return ()=>{ active=false;supabase.removeChannel(channel); };
 }

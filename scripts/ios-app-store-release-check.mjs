@@ -27,7 +27,8 @@ requireText('codemagic.yaml',[
   'submit_to_app_store: false',
 ]);
 requireText('nativeRuntime.ts',['https://ballknowerofficial.com','/api/','Capacitor.isNativePlatform','nativeApiUrl']);
-requireText('nativeAuth.ts',['ballknower://auth/callback','appUrlOpen','getLaunchUrl','exchangeCodeForSession','browserFinished','setSession']);
+requireText('nativeAuth.ts',['ballknower://auth/callback','appUrlOpen','getLaunchUrl','exchangeCodeForSession','browserFinished','authorizeAppleForDeletion']);
+if(read('nativeAuth.ts').includes('auth.setSession'))failures.push('Native callbacks must not accept unbound implicit-token sessions');
 requireText('nativeAuth.ts',['NativeAuthSession.authenticate','AUTH_CANCELLED']);
 requireText('packages/native-auth-session/ios/Sources/NativeAuthSessionPlugin/NativeAuthSessionPlugin.swift',[
   'ASWebAuthenticationSession(url:', 'presentationContextProvider = self',

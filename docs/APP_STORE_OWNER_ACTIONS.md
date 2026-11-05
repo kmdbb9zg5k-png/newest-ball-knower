@@ -6,7 +6,7 @@ These are the remaining actions that require account-holder access, device acces
 2. Supabase dashboard: add `ballknower://auth/callback` to allowed authentication redirect URLs.
 3. Vercel project settings: confirm a server-only `SUPABASE_SERVICE_ROLE_KEY` or `SUPABASE_SECRET_KEY` exists for production and preview as appropriate.
 4. Codemagic: confirm the App Store Connect integration `BallKnowerApple` and `code-signing` environment group are connected to the correct Apple team.
-5. Sign in with Apple: provide/configure the Apple key/client-secret material needed to meet Apple's token-revocation requirement on account deletion.
+5. Sign in with Apple: configure the server-only Apple key/client-secret material (`APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, `APPLE_NATIVE_CLIENT_ID=com.ballknower.ios`, and `APPLE_OAUTH_CLIENT_ID` for the web Services ID). Group the native App ID and web Services ID under the same Apple primary App ID, then verify fresh native deletion reauthorization and token revocation using the exact signed candidate. A manual-removal notice is an accurate fallback, not evidence that automatic revocation passed.
 6. Run the signed iOS workflow and install the exact build through TestFlight on a real iPhone.
 7. Complete the real-device checklist and capture App Store screenshots from the tested build.
 8. Complete App Store Connect privacy/age-rating/content-rights/export-compliance/review-contact fields.

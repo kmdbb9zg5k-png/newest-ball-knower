@@ -23,5 +23,6 @@ Terms URL: https://ballknowerofficial.com/terms.html
 - Replace rejected build 9 with the newly compiled candidate; do not resubmit build 9.
 - Compile the local `@ball-knower/native-auth-session` plugin with Capacitor 8 in Codemagic.
 - On a real iPhone and iPad, test Apple success, cancel/retry, and cold-launch callback; confirm guest league/progress migration and returning account sign-in. Test Google and email callback regression as well.
+- Verify Apple-backed deletion reauthorizes the same linked Apple account and confirms revocation. Cancelled or failed native reauthorization must retain the account; missing server configuration must never be recorded as a passed revocation gate. See `docs/qa/native-release-readiness-2026-11-05.md`.
 - Record the exact tested build number and commit. Static/JS tests do not establish that native Apple sign-in works on-device.
 - Submit the candidate and above notes only after native QA. Do not claim Apple accepted the 5.3.4 clarification until a review response confirms it.

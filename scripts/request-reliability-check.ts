@@ -28,4 +28,17 @@ await assert.rejects(aborted, { name: 'AbortError' });
 assert.equal(calls, 1, 'Request signals are retained and cancellation is not retried');
 const stalledBody = createResilientFetch({ ...policy, readAttempts: 1, fetch: (async () => new Response(new ReadableStream({ start() {} }))) as typeof fetch });
 await assert.rejects(stalledBody('https://example.invalid/read'), { name: 'AbortError' }, 'Headers without a completed body cannot hang cloud recovery');
+let finishOld: (response: Response) => void;
+const committed: string[] = [];
+const ordered = createResilientFetch({ ...policy, fetch: (async (_url, init) => {
+  const value = String(init?.body);
+  if (value === 'old') return new Promise<Response>(resolve => { finishOld = response => { committed.push(value); resolve(response); }; });
+  committed.push(value); return new Response('{}');
+}) as typeof fetch });
+await assert.rejects(ordered('https://example.invalid/state?select=value', { method: 'POST', body: 'old' }), { name: 'AbortError' });
+await assert.rejects(ordered('https://example.invalid/state', { method: 'POST', body: 'new' }), { name: 'AbortError' });
+assert.deepEqual(committed, [], 'A timed-out native write cannot be overtaken by its provider retry');
+finishOld!(new Response('{}')); await new Promise(resolve => setImmediate(resolve));
+await ordered('https://example.invalid/state', { method: 'POST', body: 'new' });
+assert.deepEqual(committed, ['old', 'new']);
 console.log('PASS bounded API reads/bodies, native abort fallback, mutation method detection, cancellation and no mutation replay.');

@@ -5,6 +5,7 @@ import { ensureOnlineSession, isCloudConfigured, supabase } from './supabase';
 import { claimPendingGuestAccountMerge, hasPendingGuestAccountMerge } from './accountIdentity';
 import { cloudStateFingerprint, registerCloudStateCommitted, registerFullCloudStateFlush } from './cloudSyncCoordinator';
 import { AGENT_PENDING_RECRUIT_ACTION_KEY, AGENT_PENDING_SIGNING_KEY, loadUserStates, saveUserStates, UserStateRow } from './userStateCloud';
+import { AccountDeletionRecoveryNotice } from './AccountDeletionRecoveryNotice';
 
 type CloudSyncStatus = 'connecting' | 'online' | 'error' | 'unconfigured';
 type CloudEnvelope = { raw: string | null };
@@ -16,6 +17,7 @@ type StorageEntry = {
 };
 
 const META_KEY = 'ballknower_cloud_meta_v1';
+const DIRTY_KEY = 'ballknower_cloud_dirty_v1';
 const OWNER_KEY = 'ballknower_cloud_owner_v1';
 const AGENT_LOCAL_KEY = 'ballknower_player_agent_v4';
 export const OWNER_CLOUD_SYNC_EVENT = 'ballknower:owner-cloud-saved';
@@ -55,6 +57,17 @@ function readMeta(userId: string): Record<string, number> {
 
 function writeMeta(userId: string, meta: Record<string, number>) {
   try { localStorage.setItem(metaKey(userId), JSON.stringify(meta)); } catch {}
+}
+
+function readDirty(userId: string): string[] {
+  try {
+    const value = JSON.parse(localStorage.getItem(`${DIRTY_KEY}:${userId}`) || '[]');
+    return Array.isArray(value) ? value.filter(key => CLOUD_STORAGE.some(entry => entry.localKey === key)) : [];
+  } catch { return []; }
+}
+
+function writeDirty(userId: string, dirty: Iterable<string>) {
+  try { localStorage.setItem(`${DIRTY_KEY}:${userId}`, JSON.stringify([...dirty])); } catch {}
 }
 
 function directJsonRevision(entry: StorageEntry, value: string | unknown): number {
@@ -178,9 +191,15 @@ function applyRemote(entry: StorageEntry, value: unknown, preview = false): bool
 }
 
 function clearSyncedLocalState() {
+  const previousOwner = localStorage.getItem(OWNER_KEY);
+  if (previousOwner) {
+    localStorage.removeItem(metaKey(previousOwner));
+    localStorage.removeItem(`${DIRTY_KEY}:${previousOwner}`);
+  }
   for (const entry of CLOUD_STORAGE) localStorage.removeItem(entry.localKey);
   localStorage.removeItem(AGENT_PENDING_RECRUIT_ACTION_KEY);
   localStorage.removeItem(AGENT_PENDING_SIGNING_KEY);
+  localStorage.removeItem('bk-fantasy-watchlist-v1');
 }
 
 export function useCloudSyncStatus() {
@@ -203,6 +222,8 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     let retryTimer = 0;
     let shellTimer = 0;
     let activeUserId = '';
+    let bootstrapUserId = '';
+    let latestAuthUser: User | null | undefined;
     let meta: Record<string, number> = {};
     const startupOwner = localStorage.getItem(OWNER_KEY);
     const lastValues = new Map<string, string | null>(CLOUD_STORAGE.map(entry => [entry.localKey, localStorage.getItem(entry.localKey)]));
@@ -300,6 +321,7 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           meta[entry.localKey] = Date.parse(savedRow.updated_at) || meta[entry.localKey] || 0;
         }
         writeMeta(writeUserId, meta);
+        writeDirty(writeUserId, dirtyKeys);
         if (!stopped && dirtyKeys.size === 0) setStatus('online');
       })()
         .catch(error => {
@@ -319,6 +341,7 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const queueUpload = (changed: StorageEntry[]) => {
       for (const entry of changed) dirtyKeys.add(entry.localKey);
+      if (activeUserId) writeDirty(activeUserId, dirtyKeys);
       void flushDirty().catch(() => undefined);
     };
 
@@ -329,15 +352,20 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         // request or assuming that owner is the next authenticated account.
         if (stopped || ownerEstablished || identityInvalidated || identitySwitchRunning || !startupOwner || localStorage.getItem(OWNER_KEY) !== startupOwner) return;
         const offlineMeta = readMeta(startupOwner);
+        const offlineDirty = new Set(readDirty(startupOwner));
         let changed = false;
         for (const entry of CLOUD_STORAGE) {
           const raw = localStorage.getItem(entry.localKey);
           if (lastValues.get(entry.localKey) === raw) continue;
           lastValues.set(entry.localKey, raw);
           offlineMeta[entry.localKey] = Date.now();
+          offlineDirty.add(entry.localKey);
           changed = true;
         }
-        if (changed) writeMeta(startupOwner, offlineMeta);
+        if (changed) {
+          writeMeta(startupOwner, offlineMeta);
+          writeDirty(startupOwner, offlineDirty);
+        }
         return;
       }
       const changed: StorageEntry[] = [];
@@ -378,6 +406,7 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (raw === null || cloudStateFingerprint(raw) !== fingerprint) return;
       lastValues.set(localKey, raw);
       dirtyKeys.delete(localKey);
+      writeDirty(activeUserId, dirtyKeys);
       if (localKey === 'ballknower_owner_career_v3') {
         try { window.dispatchEvent(new CustomEvent(OWNER_CLOUD_SYNC_EVENT, { detail: JSON.parse(raw) })); } catch {}
       }
@@ -432,12 +461,9 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         } else if (initial && localRaw !== null && localChangedAt === 0) {
           meta[entry.localKey] = Date.now();
           upload.push(entry);
-        } else if (row && remoteChangedAt >= localChangedAt) {
+        } else if (row && (localRaw === null || remoteChangedAt >= localChangedAt)) {
           restore(entry, row);
-        } else if (localRaw !== null || localChangedAt > remoteChangedAt) {
-          // dirtyKeys is in memory, but a newer owner-scoped timestamp also
-          // records a deletion made offline before this process restarted.
-          // An untouched empty device has no timestamp and cannot erase cloud.
+        } else if (localRaw !== null) {
           meta[entry.localKey] = Date.now();
           upload.push(entry);
         }
@@ -517,6 +543,11 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const epoch = identityEpoch;
         const user = await ensureOnlineSession();
         if (stopped || epoch !== identityEpoch || identitySwitchRunning || identityInvalidated) return;
+        if (latestAuthUser !== undefined && latestAuthUser?.id !== user.id) {
+          await handleIdentityChange(latestAuthUser || undefined);
+          return;
+        }
+        bootstrapUserId = user.id;
         captureLocalChanges();
         const previousOwner = localStorage.getItem(OWNER_KEY);
         if (!user.is_anonymous) await claimGuestStateOrContinue(user);
@@ -531,6 +562,7 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (previousOwner && previousOwner !== activeUserId) clearSyncedLocalState();
         localStorage.setItem(OWNER_KEY, activeUserId);
         meta = readMeta(activeUserId);
+        for (const localKey of readDirty(activeUserId)) dirtyKeys.add(localKey);
         for (const entry of CLOUD_STORAGE) lastValues.set(entry.localKey, localStorage.getItem(entry.localKey));
         ownerEstablished = true;
       }
@@ -568,8 +600,10 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
     };
     const { data } = supabase!.auth.onAuthStateChange((_event, session) => {
+        latestAuthUser = session?.user || null;
         const nextUserId = session?.user?.id || '';
-        if (!activeUserId || nextUserId === activeUserId) return;
+        const expectedUserId = activeUserId || bootstrapUserId;
+        if (!expectedUserId || nextUserId === expectedUserId) return;
         // Stop stale responses immediately, before the deferred claim/reload.
         identityInvalidated = true;
         identityEpoch += 1;
@@ -646,6 +680,7 @@ export const CloudSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }
 
   return <CloudSyncContext.Provider value={status}>
+    <AccountDeletionRecoveryNotice />
     <React.Fragment key={syncRevision}>{children}</React.Fragment>
     {updatesAvailable && <aside aria-label="Cloud save available" className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-3 right-3 z-[110] mx-auto flex max-w-lg flex-wrap items-center gap-3 rounded-xl border border-[#D4AF37]/40 bg-[#11151c] p-3 text-sm text-white shadow-xl">
       <p className="min-w-0 flex-1">Cloud updates are available. Loading them returns you to Home. Finish your game first.</p>

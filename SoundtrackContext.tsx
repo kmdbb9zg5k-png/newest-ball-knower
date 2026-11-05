@@ -3,7 +3,7 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { globalSoundtrackEngine, SoundtrackTrack } from './soundtrackEngine';
 import { loadUserState, saveUserState } from './userStateCloud';
-import { keepActiveSoundtrackTrack } from './soundtrackPolicy';
+import { keepActiveSoundtrackTrack, soundtrackVolume } from './soundtrackPolicy';
 
 type MediaTrack = SoundtrackTrack & { url?: string; manualOnly?: boolean };
 
@@ -64,24 +64,32 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const tracksRef = useRef<MediaTrack[]>([]);
   const shouldPlayRef = useRef(false);
   const introActiveRef = useRef(true);
-  const appActiveRef = useRef(true);
+  const appActiveRef = useRef(document.visibilityState==='visible');
+  const nativeActiveRef = useRef(true);
   const currentTrackIndexRef = useRef(0);
   const recoveredTrackUrlsRef = useRef<Map<string,string>>(new Map());
   const recoveryInFlightRef = useRef(false);
+  const playbackVersionRef = useRef(0);
+  const preferencesEditedRef = useRef(false);
+  const [preferencesReady,setPreferencesReady] = useState(false);
   const [tracks, setTracks] = useState<MediaTrack[]>([]);
-  const [isMuted, setIsMuted] = useState<boolean>(() => { try { const v=localStorage.getItem(STORAGE_KEY_MUTED); return v!==null ? JSON.parse(v) : false; } catch { return false; } });
-  const [volume, setVolumeState] = useState<number>(() => { try { const v=localStorage.getItem(STORAGE_KEY_VOLUME); return v!==null ? parseFloat(v) : .22; } catch { return .22; } });
+  const [isMuted, setIsMuted] = useState<boolean>(() => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY_MUTED)||'false')===true; } catch { return false; } });
+  const [volume, setVolumeState] = useState<number>(() => { try { const v=localStorage.getItem(STORAGE_KEY_VOLUME); return v!==null ? soundtrackVolume(v) : .22; } catch { return .22; } });
   const [currentTrackIndex, setCurrentTrackIndex] = useState<number>(() => { try { return parseInt(localStorage.getItem(STORAGE_KEY_TRACK)||'0',10)||0; } catch { return 0; } });
   const [isPlaying, setIsPlaying] = useState(false);
   const [isIntroActive, setIsIntroActiveState] = useState(true);
+  const preferencesOwner = useRef<string | null>((()=>{try{return localStorage.getItem('ballknower_cloud_owner_v1');}catch{return null;}})());
 
   useEffect(() => {
     let active = true;
-    void loadUserState<{ muted?: boolean; volume?: number }>('soundtrack_preferences').then(preferences => {
-      if (!active || !preferences) return;
+    const owner=preferencesOwner.current;
+    // Local/offline soundtrack controls must not bootstrap a cloud account.
+    if(!owner){setPreferencesReady(true);return;}
+    void loadUserState<{ muted?: boolean; volume?: number }>('soundtrack_preferences',owner).then(preferences => {
+      if (!active || !preferences || preferencesEditedRef.current) return;
       if (typeof preferences.muted === 'boolean') setIsMuted(preferences.muted);
-      if (typeof preferences.volume === 'number') setVolumeState(Math.max(0, Math.min(1, preferences.volume)));
-    }).catch(error => console.warn('Soundtrack preference cloud restore failed', error));
+      if (typeof preferences.volume === 'number') setVolumeState(soundtrackVolume(preferences.volume));
+    }).catch(error => console.warn('Soundtrack preference cloud restore failed', error)).finally(()=>{if(active)setPreferencesReady(true);});
     return () => { active = false; };
   }, []);
 
@@ -111,37 +119,52 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       audio.preload = 'metadata';
       const handlePlay = () => setIsPlaying(true);
       const handlePause = () => setIsPlaying(false);
+      const advance = () => {
+        const loaded=tracksRef.current,nextIndex=randomTrackIndex(loaded,currentTrackIndexRef.current),track=loaded[nextIndex];
+        currentTrackIndexRef.current=nextIndex;setCurrentTrackIndex(nextIndex);playbackVersionRef.current+=1;
+        // Browsers may emit pause before ended. Start the next track from the
+        // user's playback intent instead of the transient isPlaying state.
+        if(!track?.url||!shouldPlayRef.current||introActiveRef.current||!appActiveRef.current)return;
+        audio.src=recoveredTrackUrlsRef.current.get(track.url)||absoluteTrackUrl(track.url);
+        audio.play().catch(()=>setIsPlaying(false));
+      };
       const handleEnded = () => {
         const loaded = tracksRef.current;
         const track = loaded[currentTrackIndexRef.current % Math.max(1, loaded.length)];
-        if (track?.url && audio.currentTime < 30 && !recoveryInFlightRef.current) {
+        if (track?.url && audio.currentTime < 30 && !recoveryInFlightRef.current && !recoveredTrackUrlsRef.current.has(track.url)) {
           recoveryInFlightRef.current = true;
           const resumeAt = audio.currentTime;
+          const version=playbackVersionRef.current;
+          const isCurrent=()=>audioRef.current===audio&&playbackVersionRef.current===version;
           void (async () => {
             try {
               let playableUrl = recoveredTrackUrlsRef.current.get(track.url);
               if (!playableUrl) {
                 const response = await fetch(track.url, { cache: 'reload' });
                 if (!response.ok) throw new Error(`Soundtrack recovery failed (${response.status})`);
-                playableUrl = URL.createObjectURL(await response.blob());
+                const blob=await response.blob();
+                if(!isCurrent())return;
+                playableUrl = URL.createObjectURL(blob);
                 recoveredTrackUrlsRef.current.set(track.url, playableUrl);
               }
+              if(!isCurrent())return;
               audio.src = playableUrl;
               audio.addEventListener('loadedmetadata', () => {
+                if(!isCurrent()||audio.src!==playableUrl)return;
                 audio.currentTime = Math.min(resumeAt, Math.max(0, audio.duration - .25));
                 if (shouldPlayRef.current && !introActiveRef.current && appActiveRef.current) audio.play().catch(()=>setIsPlaying(false));
               }, { once: true });
               audio.load();
             } catch (error) {
               console.warn('Soundtrack premature-end recovery failed', error);
-              setCurrentTrackIndex(i => randomTrackIndex(loaded, i));
+              if(isCurrent())advance();
             } finally {
               recoveryInFlightRef.current = false;
             }
           })();
           return;
         }
-        setCurrentTrackIndex(i => randomTrackIndex(loaded, i));
+        advance();
       };
       audio.addEventListener('play', handlePlay);
       audio.addEventListener('pause', handlePause);
@@ -152,6 +175,7 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         audio.removeEventListener('pause', handlePause);
         audio.removeEventListener('ended', handleEnded);
         audio.pause();
+        audioRef.current=null;playbackVersionRef.current+=1;
         recoveredTrackUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
         recoveredTrackUrlsRef.current.clear();
       };
@@ -172,11 +196,18 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [volume,isMuted,currentTrackIndex,tracks]);
 
   useEffect(() => {
+    if(!preferencesReady||!preferencesEditedRef.current)return;
+    let owner=preferencesOwner.current;
+    if(!owner){try{owner=localStorage.getItem('ballknower_cloud_owner_v1');}catch{return;}}
+    if(!owner)return;
+    preferencesOwner.current=owner;
+    // Capture the originating owner with the debounce; account switches must
+    // reject this write rather than applying an earlier user's preferences.
     const timer = window.setTimeout(() => {
-      void saveUserState('soundtrack_preferences', { muted: isMuted, volume }).catch(error => console.warn('Soundtrack preference cloud save failed', error));
+      void saveUserState('soundtrack_preferences', { muted: isMuted, volume },owner).catch(error => console.warn('Soundtrack preference cloud save failed', error));
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [isMuted, volume]);
+  }, [isMuted, volume, preferencesReady]);
 
   const startIndex = useCallback((idx:number) => {
     shouldPlayRef.current = true;
@@ -185,9 +216,10 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const track = tracks[normalized];
     const a = audioRef.current;
     if (!a || !track?.url) return;
+    playbackVersionRef.current+=1;
     currentTrackIndexRef.current = normalized;
     setCurrentTrackIndex(normalized);
-    const nextUrl = absoluteTrackUrl(track.url);
+    const nextUrl = recoveredTrackUrlsRef.current.get(track.url)||absoluteTrackUrl(track.url);
     if (a.src !== nextUrl) a.src = nextUrl;
     a.volume = volume; a.muted = isMuted;
     a.play().then(()=>setIsPlaying(true)).catch(()=>setIsPlaying(false));
@@ -200,10 +232,10 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   useEffect(() => {
     const a = audioRef.current;
-    if (!a || isIntroActive || !tracks.length || !isPlaying) return;
+    if (!a || isIntroActive || !appActiveRef.current || !shouldPlayRef.current || !tracks.length || !isPlaying) return;
     const track = tracks[currentTrackIndex % tracks.length];
     if (track?.url) {
-      const nextUrl = absoluteTrackUrl(track.url);
+      const nextUrl = recoveredTrackUrlsRef.current.get(track.url)||absoluteTrackUrl(track.url);
       if (a.src !== nextUrl) { a.src = nextUrl; a.play().catch(()=>{}); }
     }
   }, [currentTrackIndex, tracks, isIntroActive, isPlaying]);
@@ -212,8 +244,8 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const play = useCallback(() => startIndex(currentTrackIndex), [startIndex,currentTrackIndex]);
   const pause = useCallback(() => { shouldPlayRef.current = false; audioRef.current?.pause(); setIsPlaying(false); }, []);
-  const toggleMute = useCallback(() => setIsMuted(v=>!v), []);
-  const setVolume = useCallback((v:number) => setVolumeState(Math.max(0,Math.min(1,v))), []);
+  const toggleMute = useCallback(() => {preferencesEditedRef.current=true;setIsMuted(v=>!v);}, []);
+  const setVolume = useCallback((v:number) => {preferencesEditedRef.current=true;setVolumeState(soundtrackVolume(v));}, []);
   const selectTrack = useCallback((i:number) => startIndex(i), [startIndex]);
   const nextTrack = useCallback(() => startIndex(randomTrackIndex(tracks, currentTrackIndex)), [startIndex,tracks,currentTrackIndex]);
   const prevTrack = useCallback(() => startIndex(adjacentTrackIndex(tracks, currentTrackIndex, -1)), [startIndex,tracks,currentTrackIndex]);
@@ -241,7 +273,7 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
     };
     const resumeWhenVisible = () => {
-      appActiveRef.current = document.visibilityState === 'visible';
+      appActiveRef.current = nativeActiveRef.current && document.visibilityState === 'visible';
       if (appActiveRef.current) resume();
       else audioRef.current?.pause();
     };
@@ -252,18 +284,22 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     document.addEventListener('visibilitychange', resumeWhenVisible);
 
     let removeNativeListener:(()=>Promise<void>)|null=null;
+    let nativeListenerActive=true;
     if (Capacitor.isNativePlatform()) {
       void CapacitorApp.addListener('appStateChange', ({isActive}) => {
-        appActiveRef.current = isActive;
-        if (isActive) resume();
+        if(!nativeListenerActive)return;
+        nativeActiveRef.current=isActive;
+        appActiveRef.current = isActive && document.visibilityState==='visible';
+        if (appActiveRef.current) resume();
         else {
           audioRef.current?.pause();
           setIsPlaying(false);
         }
-      }).then(handle => { removeNativeListener = () => handle.remove(); });
+      }).then(handle => { if(nativeListenerActive)removeNativeListener = () => handle.remove();else void handle.remove(); });
     }
 
     return () => {
+      nativeListenerActive=false;
       window.removeEventListener('pointerdown', resume);
       window.removeEventListener('touchend', resume);
       window.removeEventListener('keydown', resume);

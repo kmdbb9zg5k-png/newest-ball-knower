@@ -13,7 +13,7 @@ const bundled=await build({entryPoints:['CloudSyncProvider.tsx'],bundle:true,wri
  path==='lucide-react'?`export const Cloud='cloud',CloudOff='off',Loader2='loading';`:
  path==='./AccountDeletionRecoveryNotice'?`export const AccountDeletionRecoveryNotice=()=>null;`:
  path==='./supabase'?`export const isCloudConfigured=true;export const ensureOnlineSession=()=>s.ensure();export const supabase={auth:{onAuthStateChange:fn=>{s.auth=fn;return{data:{subscription:{unsubscribe:()=>{s.unsubscribed=true}}}}}}};`:
- path==='./accountIdentity'?`export const hasPendingGuestAccountMerge=()=>s.pendingMerge;export const claimPendingGuestAccountMerge=()=>s.claim();`:
+ path==='./accountIdentity'?`export const hasPendingGuestAccountMerge=()=>s.pendingMerge;export const claimPendingGuestAccountMerge=user=>s.claim(user);`:
  path==='./cloudSyncCoordinator'?`export const cloudStateFingerprint=raw=>raw;export const registerFullCloudStateFlush=fn=>{s.flush=fn;return()=>{s.flush=null}};export const registerCloudStateCommitted=fn=>{s.committed=fn;return()=>{s.committed=null}};`:
  `export const AGENT_PENDING_RECRUIT_ACTION_KEY='pending-recruit',AGENT_PENDING_SIGNING_KEY='pending-signing';export const loadUserStates=(keys,user)=>{s.reads.push(user);return s.load()};export const saveUserStates=(rows,user)=>{s.writes.push({rows,user});return s.save(rows)};`
  }`}));
@@ -49,8 +49,16 @@ function fixture(initial={},overrides={}){
 }
 // An offline local deletion remains a tombstone across a process restart.
 {
- const now=Date.now(),f=fixture({[ownerKey]:userA.id,[`ballknower_cloud_meta_v1:${userA.id}`]:JSON.stringify({[key]:now})},{load:async()=>[{state_key:'solo_my_player_v2',value:{raw:'{"score":9}'},updated_at:new Date(now-5000).toISOString()}]});await settle();
+ const now=Date.now(),f=fixture({[ownerKey]:userA.id,[`ballknower_cloud_meta_v1:${userA.id}`]:JSON.stringify({[key]:now}),[`ballknower_cloud_dirty_v1:${userA.id}`]:JSON.stringify([key])},{load:async()=>[{state_key:'solo_my_player_v2',value:{raw:'{"score":9}'},updated_at:new Date(now-5000).toISOString()}]});await settle();
  assert.equal(f.storage.has(key),false);assert.equal(f.writes.length,1);assert.equal(f.writes[0].rows.find(row=>row.stateKey==='solo_my_player_v2').value.raw,null);f.cleanup();
+}
+// Account isolation removes old intent; absence on return means restore.
+{
+ const oldTime=Date.now()-5000,f=fixture({[ownerKey]:userA.id,[key]:'{"score":1}'},{load:async()=>[{state_key:'solo_my_player_v2',value:{raw:'{"score":1}'},updated_at:new Date(oldTime).toISOString()}]});await settle();
+ f.storage.set(key,'{"score":2}');f.save=async()=>{throw new Error('offline')};f.tick();await settle();f.auth('SIGNED_IN',{user:userB});f.tick();await settle();
+ const carried=Object.fromEntries(f.storage);f.cleanup();
+ const returned=fixture(carried,{load:async()=>[{state_key:'solo_my_player_v2',value:{raw:'{"score":1}'},updated_at:new Date(oldTime).toISOString()}]});await settle();
+ assert.equal(JSON.parse(returned.storage.get(key)).score,1,'Returning account restores its saved cloud career, never an isolation-generated tombstone');assert.equal(returned.writes.length,0);returned.cleanup();
 }
 // Local choices made during hydration survive the late response.
 {
@@ -87,6 +95,17 @@ function fixture(initial={},overrides={}){
  assert.equal(f.writes.length,1);f.storage.set(key,'{"score":2}');f.tick();await settle();assert.equal(f.writes.length,1,'Only one upload runs at a time');
  write.resolve([{state_key:'solo_my_player_v2',value:{raw:'{"score":1}'},updated_at:new Date().toISOString()}]);await settle();f.save=async rows=>rows.map(row=>({state_key:row.stateKey,value:row.value,updated_at:new Date().toISOString()}));f.tick();await settle();
  assert.equal(JSON.parse(f.writes.at(-1).rows.find(row=>row.stateKey==='solo_my_player_v2').value.raw).score,2);assert.equal(f.reloads,0);f.cleanup();
+}
+// An old revisioned save response cannot restore data into a new account.
+{
+ const claim=deferred(),f=fixture({[ownerKey]:userA.id,[key]:'account-a private career'},{pendingMerge:true,claim:user=>user.id===userA.id?claim.promise:Promise.resolve()});await settle();
+ f.auth('SIGNED_IN',{user:userB});f.tick();await settle();claim.resolve();await settle();
+ assert.equal(f.storage.get(ownerKey),userB.id);assert.equal(f.storage.has(key),false);assert.equal(f.reads.length,0,'An account switch during guest claiming invalidates bootstrap before hydration');assert.equal(f.writes.length,0);f.cleanup();
+}
+{
+ const session=deferred(),f=fixture({[ownerKey]:userA.id,[key]:'account-a private career'},{ensure:()=>session.promise});
+ f.auth('SIGNED_IN',{user:userB});session.resolve(userA);await settle();
+ assert.equal(f.storage.get(ownerKey),userB.id);assert.equal(f.storage.has(key),false);assert.equal(f.reads.length,0);f.cleanup();
 }
 // An old revisioned save response cannot restore data into a new account.
 {

@@ -17,6 +17,15 @@ try {
     const primary = page.getByRole('navigation', { name: width < 768 ? 'Primary navigation' : 'Desktop primary navigation', exact: true });
     await primary.getByRole('button', { name: 'Play', exact: true }).waitFor();
     assert.equal(await primary.getByRole('button').count(), 5);
+    assert.ok(await page.locator('.bk-header-brand').evaluate(element => {
+      const wordmark = element.querySelector('h1');
+      const controls = element.parentElement.querySelector('.bk-header-controls');
+      const text = document.createRange(); text.selectNodeContents(wordmark);
+      const textBox = text.getBoundingClientRect();
+      return textBox.right <= controls.getBoundingClientRect().left + 1 && textBox.right <= innerWidth;
+    }), `${width}: the complete wordmark must clear the controls`);
+    assert.equal(await page.locator('.bk-home-league-top').evaluate(element => getComputedStyle(element).display), 'flex', 'shared Home layout styles must be present');
+    assert.equal(await page.locator('.bk-home-league-cta').evaluate(element => getComputedStyle(element).display), 'flex', 'the current action must retain its full button styling');
     for (const button of await primary.getByRole('button').all()) {
       const box = await button.boundingBox();
       assert.ok(box && box.width >= 44 && box.height >= 44, `${width}: practical primary targets`);
@@ -28,6 +37,11 @@ try {
     await page.screenshot({ path: `${directory}/home-${width}.png`, fullPage: true });
     await primary.getByRole('button', { name: 'Play', exact: true }).click();
     await page.getByTestId('play-hub').waitFor();
+    assert.ok(await page.locator('.bk-mini-games-compact').evaluate(element => {
+      const parent = element.closest('.bk-play-hub'); const style = getComputedStyle(parent);
+      const available = parent.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      return element.getBoundingClientRect().width >= available - 1;
+    }), `${width}: the compact game card must fill its content column`);
     assert.equal(await primary.getByRole('button', { name: 'Play', exact: true }).getAttribute('aria-current'), 'page');
     await page.getByRole('button', { name: 'Explore Mini Games', exact: true }).click();
     const games = page.getByRole('dialog', { name: 'Pick Your Game', exact: true });

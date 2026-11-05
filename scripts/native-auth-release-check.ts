@@ -14,10 +14,12 @@ assert.match(nativeAuth,/ballknower:\/\/auth\/callback/);
 assert.match(nativeAuth,/appUrlOpen/);
 assert.match(nativeAuth,/getLaunchUrl/);
 assert.match(nativeAuth,/exchangeCodeForSession/);
-assert.match(nativeAuth,/setSession/);
+assert.doesNotMatch(nativeAuth,/auth\.setSession/,'native callbacks must verify a local PKCE transaction rather than accept unbound implicit tokens');
 assert.match(nativeAuth,/browserFinished/,'native browser cancellation must be handled');
 assert.match(nativeAuth,/status:'cancelled'/);
 assert.match(nativeAuth,/status:'failed'/);
+assert.match(nativeAuth,/authorizeAppleForDeletion/);
+assert.match(nativeAuth,/appStateChange/);
 
 assert.match(supabase,/persistSession:\s*true/);
 assert.match(supabase,/autoRefreshToken:\s*true/);

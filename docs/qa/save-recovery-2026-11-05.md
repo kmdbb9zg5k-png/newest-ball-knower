@@ -14,20 +14,34 @@ changes immediately, reconnect requests coalesce, and missing write receipts
 fail the account-transition flush rather than spinning. Stale responses cannot
 write metadata, restore an Owner save or emit save events after an account
 boundary. Each user-state batch pins its bearer token to its original owner.
-Offline deletions retain their owner-scoped timestamps across process restarts.
-Edits made while Auth itself is unavailable also record that timestamp under the
-unchanged startup owner, so a later reconnect cannot baseline away new progress.
+An owner-scoped durable dirty ledger preserves offline edits and explicit
+deletions across process restarts. Account isolation clears that outgoing intent;
+missing local data after a later account switch restores the existing cloud save
+instead of inferring a deletion from a stale timestamp. Edits made while Auth is
+unavailable retain the unchanged startup owner. Bootstrap observes identity
+changes during both session creation and delayed guest claiming.
 
 The shared fetch policy bounds reads, response bodies and mutations even if a
 native transport ignores abort. Only GET/HEAD retry; unknown mutation commits do
 not replay at this layer. Existing dirty-state retries remain serialized and use
-the latest local snapshot.
+the latest local snapshot. Timed-out, unsettled mutations remain serialized with
+later writes to the same endpoint, so a native transport that ignores abort
+cannot deliver an old save after its newer retry. Requests waiting for that
+transport also time out without dispatching a duplicate. A backend transaction
+that outlives a rejected connection still needs server revision protection for
+an absolute ordering guarantee; Owner already has that protocol.
+
+Gauntlet queues, guest merge steps, Fantasy watchlists and soundtrack preferences
+retain their producing account identity through deferred reads and writes. A
+late soundtrack restore also preserves mute/volume choices made while loading,
+and an untouched failed read never uploads default preferences.
 
 Focused checks:
 
 - `node --import tsx scripts/request-reliability-check.ts`
 - `node scripts/cloud-recovery-check.mjs`
 - `node scripts/user-state-account-boundary-check.mjs`
+- `node --import tsx scripts/account-flow-boundary-check.mjs`
 - `node --import tsx scripts/account-identity-check.ts`
 - `node --import tsx scripts/athlete-passport-check.ts`
 

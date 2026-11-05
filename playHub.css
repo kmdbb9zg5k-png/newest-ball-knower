@@ -6,7 +6,7 @@
 .bk-play-hub button{cursor:pointer;touch-action:manipulation}
 .bk-play-hub button:focus-visible{outline:2px solid #f6d78d;outline-offset:4px}
 .bk-play-hub .bk-home-mini-games{margin-bottom:16px}
-.bk-play-hub .bk-mini-games-compact{position:relative;isolation:isolate;display:flex;min-height:310px;align-items:center;padding:28px 22px;overflow:hidden;border:1px solid #d0ae5f80;border-radius:20px;text-align:left;background:#071017;box-shadow:0 15px 40px #0004}
+.bk-play-hub .bk-mini-games-compact{width:100%;max-width:none;position:relative;isolation:isolate;display:flex;min-height:310px;align-items:center;padding:28px 22px;overflow:hidden;border:1px solid #d0ae5f80;border-radius:20px;text-align:left;background:#071017;box-shadow:0 15px 40px #0004}
 .bk-play-hub .bk-mini-games-compact>img{position:absolute;inset:0;z-index:-2;width:100%;height:100%;object-fit:cover;object-position:65% 35%;aspect-ratio:auto}
 .bk-play-hub .bk-mini-games-compact::before{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#050c13f5 1%,#050c13ba 47%,#050c1310),linear-gradient(0deg,#050c1380,transparent)}
 .bk-mini-games-compact-copy{display:flex;max-width:65%;flex-direction:column;align-items:flex-start}

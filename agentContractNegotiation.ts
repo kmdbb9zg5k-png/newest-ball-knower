@@ -2,12 +2,17 @@ import { contractStrategyModifiers, type ClientCareer, type ContractStrategy } f
 import { contractFeeK } from './agentAgencyGrowth';
 import type { Player } from './types';
 
-export type AgentFutureDeal = { totalM: number; annualM: number; guaranteedM: number; years: number; negotiatedAt: string; signingYear?: number; startYear?: number; endYear?: number; playerId?: string; team?: string };
+export type AgentFutureDeal = { totalM: number; annualM: number; guaranteedM: number; years: number; negotiatedAt: string; signingYear?: number; startYear?: number; endYear?: number; playerId?: string; team?: string; inferredTiming?: boolean };
 export function normalizeAgentDeal(raw: AgentFutureDeal | undefined, seasonYear: number): AgentFutureDeal | undefined {
   if (!raw || ![raw.totalM, raw.annualM, raw.guaranteedM ?? 0, raw.years].every(value => Number.isFinite(value) && value >= 0) || !Number.isInteger(raw.years) || raw.years < 1 || raw.years > 5) return undefined;
-  const signingYear = Number.isInteger(raw.signingYear) ? raw.signingYear! : seasonYear;
+  const signingYear = Number.isInteger(raw.signingYear) ? raw.signingYear! : Number.isInteger(raw.startYear) ? raw.startYear! - 1 : seasonYear;
   const startYear = Number.isInteger(raw.startYear) ? raw.startYear! : signingYear + 1;
-  return { ...raw, guaranteedM: raw.guaranteedM ?? 0, signingYear, startYear, endYear: startYear + raw.years - 1 };
+  return { ...raw, guaranteedM: raw.guaranteedM ?? 0, signingYear, startYear, endYear: startYear + raw.years - 1, ...(raw.inferredTiming || !Number.isInteger(raw.signingYear) && !Number.isInteger(raw.startYear) ? { inferredTiming: true } : {}) };
+}
+/** A renewal is a future agreement; it must not replace this season's salary. */
+export function agentDealForSeason(client: { playerId: string; activeDeal?: AgentFutureDeal; futureDeal?: AgentFutureDeal }, history: AgentFutureDeal[], seasonYear: number): AgentFutureDeal | undefined {
+  const candidates = [client.activeDeal, client.futureDeal, ...history.filter(deal => deal?.playerId === client.playerId)].filter((deal): deal is AgentFutureDeal => Boolean(deal && Number.isInteger(deal.startYear) && Number.isInteger(deal.endYear) && deal.startYear! <= seasonYear && deal.endYear! >= seasonYear && Number.isFinite(deal.annualM)));
+  return candidates.sort((a, b) => b.startYear! - a.startYear! || (b.signingYear ?? 0) - (a.signingYear ?? 0))[0];
 }
 export const canNegotiateAgentDeal = (deal: AgentFutureDeal | undefined, seasonYear: number) => !deal || seasonYear >= (deal.endYear ?? Infinity) && seasonYear > (deal.signingYear ?? seasonYear);
 export type AgentNegotiationAsk = { years: number; annualM: number; guaranteedPct: number; gmPatience: number; strategy: ContractStrategy };

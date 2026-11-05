@@ -6,12 +6,12 @@ const out='artifacts/picks-screen',base='http://127.0.0.1:4184';
 const future=new Date(Date.now()+86400_000).toISOString();
 const day=future.slice(0,10);
 const game={id:'2026_01_DAL_PHI',aliases:['espn-401fixture','legacy-saved-fixture'],away:'Dallas Cowboys',home:'Philadelphia Eagles',awayAbbr:'DAL',homeAbbr:'PHI',season:2026,week:1,seasonType:'REG',date:future,scheduleDate:day,status:'Scheduled',homeSpread:-3.5,awaySpread:3.5,overUnder:44.5};
-const fixture={available:true,linesAvailable:true,source:'nflverse',live:false,freshness:'periodic',fetchedAt:new Date(Date.now()-3600_000).toISOString(),games:[game,{...game,aliases:[],id:'picks-fixture-final',away:'Jacksonville Jaguars',awayAbbr:'JAX',home:'New England Patriots',homeAbbr:'NE',status:'Final',awayScore:20,homeScore:24},{...game,aliases:[],id:'picks-fixture-live',away:'New York Giants',awayAbbr:'NYG',home:'New York Jets',homeAbbr:'NYJ',status:'Live',date:new Date(Date.now()-3600_000).toISOString()},{...game,aliases:[],id:'picks-fixture-week2',week:2,scheduleDate:new Date(Date.now()+8*86400_000).toISOString().slice(0,10),date:null}]};
+const fixture={available:true,linesAvailable:true,source:'nflverse',live:false,freshness:'periodic',sourceUpdatedAt:new Date(Date.now()-3600_000).toISOString(),games:[game,{...game,aliases:[],id:'picks-fixture-final',away:'Jacksonville Jaguars',awayAbbr:'JAX',home:'New England Patriots',homeAbbr:'NE',status:'Final',awayScore:20,homeScore:24},{...game,aliases:[],id:'picks-fixture-live',away:'New York Giants',awayAbbr:'NYG',home:'New York Jets',homeAbbr:'NYJ',status:'Live',date:new Date(Date.now()-3600_000).toISOString()},{...game,aliases:[],id:'picks-fixture-week2',week:2,scheduleDate:new Date(Date.now()+8*86400_000).toISOString().slice(0,10),date:null}]};
 const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port','4184','--strictPort'],{stdio:'inherit'});
 const results=[];let browser;
-async function contextFor(engine,width,{hungSync=false,legacyPick=false,historyCount=0}={}){
+async function contextFor(engine,width,{hungSync=false,legacyPick=false,historyCount=0,controlledClock=false}={}){
   const context=await engine.newContext({viewport:{width,height:844},deviceScaleFactor:1,isMobile:width<768,hasTouch:width<768});
-  const page=await context.newPage();const crashes=[];page.on('pageerror',error=>crashes.push(error.message));
+  const page=await context.newPage();if(controlledClock)await page.clock.install();const crashes=[];page.on('pageerror',error=>crashes.push(error.message));
   let boardMode='ok',saved=legacyPick?[{id:'original-pick-id',gameId:'legacy-saved-fixture',label:'Philadelphia Eagles -2.5',market:'spread',selection:'Philadelphia Eagles',lockedLine:-2.5,lockedAt:'2026-01-01T00:00:00Z',kickoffAt:future,awayTeam:game.away,homeTeam:game.home}]:[],saves=0,deletes=0;
   if(historyCount)saved=Array.from({length:historyCount},(_,i)=>({id:`old-pick-${i}`,gameId:`legacy-game-${i}`,label:'Arizona Cardinals +2.5',market:'spread',selection:'Arizona Cardinals',lockedLine:2.5,lockedAt:'2026-01-01T00:00:00Z',kickoffAt:new Date(Date.UTC(2026,0,1+i,18)).toISOString(),awayTeam:'Arizona Cardinals',homeTeam:'Buffalo Bills'}));
   const boardRequests=[];
@@ -26,7 +26,7 @@ async function contextFor(engine,width,{hungSync=false,legacyPick=false,historyC
       if(boardMode==='hang')return;
       if(boardMode==='failure'){status=503;data={available:false,games:[]}}
       else if(boardMode==='empty')data={available:true,linesAvailable:false,games:[]};
-      else data=fixture;
+      else data={...fixture,fetchedAt:new Date(Date.now()-(boardMode==='stale'?16*60_000:0)).toISOString()};
     }else if(path==='/api/prediction-picks'){
       if(hungSync)return;
       const body=route.request().method()==='POST'?route.request().postDataJSON():{};
@@ -62,6 +62,7 @@ try{
       await page.evaluate(()=>document.fonts.ready);
       assert.ok(await page.getByRole('link',{name:'nflverse published lines',exact:true}).isVisible());
       assert.ok((await page.locator('.bk-picks-refreshline').textContent()).includes('Data retrieved'));
+      await page.getByText('Source last updated:',{exact:false}).waitFor();
       const geometry=await page.evaluate(()=>{
         const header=document.querySelector('.bk-picks-screen .bk-scene-masthead');const input=document.querySelector('.bk-picks-search input');const toolbar=document.querySelector('.bk-picks-toolbar');
         const primary=[...document.querySelectorAll('.bk-picks-filters button')].map(button=>button.getBoundingClientRect().height);
@@ -125,6 +126,21 @@ try{
       assert.deepEqual(c.crashes,[]);results.push({engine:name,width,geometry,explicitSubmit:true,filters:true,outageRecovery:true,validEmpty:true,reducedMotion:true});await c.context.close();
     }
     if(name==='chromium'){
+      const stale=await contextFor(browser,390,{controlledClock:true});
+      const stalePick=stale.page.locator(`[data-game-id="${game.id}"]`).getByRole('button',{name:'Philadelphia Eagles -3.5',exact:true});
+      await stalePick.click();await stale.page.getByRole('button',{name:'Submit Picks (1)',exact:true}).waitFor();
+      stale.setMode('stale');await stale.page.getByRole('button',{name:'Refresh picks',exact:true}).click();
+      await stale.page.getByText('This matchup snapshot needs a refresh before you can change or submit picks. Your choices are preserved.').waitFor();
+      assert.ok(await stalePick.isDisabled());assert.ok(await stale.page.getByRole('button',{name:'Submit Picks (1)',exact:true}).isDisabled());
+      assert.match(await stale.page.locator('.bk-picks-summary-heading').innerText(),/1 selected · 1 unsent/);assert.equal(stale.saves(),0);
+      await stale.page.screenshot({path:`${out}/chromium-stale-snapshot.png`,fullPage:false});
+      stale.setMode('ok');await stale.page.getByRole('button',{name:'Refresh picks',exact:true}).click();
+      await stale.page.waitForFunction(()=>!document.querySelector('.bk-picks-submit-row button')?.disabled);
+      assert.equal(stale.saves(),0,'refreshing a stale snapshot must preserve a staged pick without submitting it');
+      await stale.page.clock.fastForward(16*60_000);
+      await stale.page.getByText('This matchup snapshot needs a refresh before you can change or submit picks. Your choices are preserved.').waitFor();
+      assert.ok(await stalePick.isDisabled());assert.ok(await stale.page.getByRole('button',{name:'Submit Picks (1)',exact:true}).isDisabled());
+      assert.deepEqual(stale.crashes,[]);results.push({staleServerSnapshotBlocksChanges:true,refreshPreservesUnsentChoice:true,heldOpenSnapshotExpires:true});await stale.context.close();
       const history=await contextFor(browser,390,{historyCount:111});
       assert.equal(history.boardRequests[0].method,'POST','large saved history uses a read-only POST request');
       assert.equal(new URL(history.boardRequests[0].url).search,'','large saved history cannot overflow the URL');
@@ -148,9 +164,9 @@ try{
         assert.equal(legacy.saved()[0].selection,'Dallas Cowboys');assert.deepEqual(legacy.crashes,[]);
         results.push({width,legacySavedSelection:true,originalLockedLineVisible:true,originalIdOnChange:true});await legacy.context.close();
       }
-      const c=await contextFor(browser,390,{hungSync:true});
+      const c=await contextFor(browser,390,{hungSync:true,controlledClock:true});
       assert.ok(await c.page.locator(`[data-game-id="${game.id}"]`).isVisible(),'hung grading must not block the matchup request');
-      await c.page.clock.install();c.setMode('hang');await c.page.getByRole('button',{name:'Refresh picks',exact:true}).click();
+      c.setMode('hang');await c.page.getByRole('button',{name:'Refresh picks',exact:true}).click();
       await c.page.clock.runFor(21_000);await c.page.getByRole('button',{name:'Retry matchups',exact:true}).waitFor({timeout:5000});
       c.setMode('ok');await c.page.getByRole('button',{name:'Retry matchups',exact:true}).click();await c.page.locator('.bk-picks-game').first().waitFor();
       results.push({hungCloudDoesNotBlockBoard:true,hungFeedHasRetryAfterDeadline:true});await c.context.close();

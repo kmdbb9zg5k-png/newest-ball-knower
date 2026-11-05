@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 import {spawn} from 'node:child_process';
 import {chromium} from 'playwright';
+import {assertAppNavigation} from './assert-app-navigation.mjs';
 
 const baseURL=process.env.BK_BROWSER_BASE_URL||'http://127.0.0.1:4173';
 const artifactDir=process.env.BK_BROWSER_ARTIFACT_DIR||'artifacts/fantasy-mobile-ui';
@@ -89,7 +90,7 @@ const assertContained=(snapshot,label)=>{
   assert.ok(snapshot.shellWidth<=width+1,`${label}: app shell clips ${snapshot.shellWidth-width}px of horizontal content`);
   assert.ok(snapshot.mainWidth<=width+1,`${label}: main content clips ${snapshot.mainWidth-width}px horizontally`);
   assert.deepEqual(snapshot.horizontallyClippedMainContent,[],`${label}: visible controls/content escape the viewport:\n${snapshot.horizontallyClippedMainContent.join('\n')}`);
-  assert.equal(snapshot.primaryButtons,7,`${label}: mobile bottom navigation lost a destination`);
+  assert.equal(snapshot.primaryButtons,5,`${label}: mobile navigation must show Home, Play, Fantasy, Community and Profile`);
   assert.ok(snapshot.primaryRect,`${label}: mobile bottom navigation is missing`);
   assert.ok(snapshot.primaryRect.left>=-1&&snapshot.primaryRect.right<=width+1,`${label}: bottom navigation is clipped horizontally`);
   assert.ok(snapshot.primaryRect.top>=0&&snapshot.primaryRect.bottom<=height+1,`${label}: bottom navigation is outside the viewport`);
@@ -172,6 +173,7 @@ try{
     await page.locator('.bk-app-shell[data-tab="home"]').waitFor({state:'visible'});
     const primary=page.getByRole('navigation',{name:'Primary navigation'});
     await primary.waitFor({state:'visible'});
+    await assertAppNavigation(page,{mobile:true});
     assertContained(await layoutSnapshot(page),`${size.label} home`);
 
     await primary.getByRole('button',{name:'Fantasy',exact:true}).click();

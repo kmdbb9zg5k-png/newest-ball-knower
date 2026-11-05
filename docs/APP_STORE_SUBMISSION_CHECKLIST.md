@@ -7,7 +7,7 @@
 - [ ] Account deletion migration applied to production after matching API/UI deploy.
 - [ ] Production account-delete endpoint has server-only Supabase admin key.
 - [ ] `ballknower://auth/callback` added to Supabase redirect allowlist.
-- [ ] Sign in with Apple token-revocation handling resolved.
+- [ ] Native Apple deletion reauthorization/revocation verified with server-only Apple credentials and App ID/Services ID grouping (see `docs/qa/native-release-readiness-2026-11-05.md`).
 - [ ] Codemagic signed IPA generated for `com.ballknower.ios` version 1.0.0.
 - [ ] Exact IPA passes `docs/TESTFLIGHT_DEVICE_GATE.md`.
 

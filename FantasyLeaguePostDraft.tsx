@@ -98,6 +98,9 @@ import {
 import { resolveMyLeagueMember } from "./leagueMemberDisplay";
 import { ManagerAvatar } from "./ManagerAvatar";
 import { ModeHelp } from "./ModeHelp";
+import { FantasyNotificationInbox } from "./FantasyNotificationInbox";
+import { visibleLeagueNotifications, type FantasyNotificationDestination } from "./fantasyNotificationRouting";
+import { fetchMyNotifications, markNotificationRead, type LeagueNotification } from "./leagueCloud";
 
 type Tab = "team" | "matchup" | "players" | "league";
 type LeagueView = "standings" | "playoffs" | "power" | "trades" | "activity" | "settings";
@@ -109,6 +112,7 @@ type IntelView = "awards" | "allbk";
 type Props = {
   league: League;
   onBack: () => void;
+  onGoToDraft: () => void;
   onGoToSimulation: () => void;
   onViewMemberLocker: (member: LeagueMember) => void;
 };
@@ -148,6 +152,7 @@ const buildFantasyLineup = (
 export const FantasyLeaguePostDraft: React.FC<Props> = ({
   league,
   onBack,
+  onGoToDraft,
   onGoToSimulation,
   onViewMemberLocker,
 }) => {
@@ -236,6 +241,12 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [syncIssues, setSyncIssues] = useState<string[]>([]);
+  const notificationScope = `${league.id}:${currentUser?.id || ""}`;
+  const [notificationState, setNotificationState] = useState<{scope:string;items:LeagueNotification[];loading:boolean;error:string}>({scope:"",items:[],loading:false,error:""});
+  const notificationRequestRef = useRef(0);
+  const notificationScopeRef = useRef(notificationScope);
+  notificationScopeRef.current = notificationScope;
+  const notifications = notificationState.scope === notificationScope ? notificationState.items : [];
   const lineupDraftRef = useRef<{key:string;starters:Record<string,string>}>({key:"",starters:{}});
   const [detailPlayer, setDetailPlayer] = useState<Player | null>(null);
   const [detailOwnerName, setDetailOwnerName] = useState<string | undefined>();
@@ -277,6 +288,40 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const seasonFinalizeRef = useRef("");
   const parityRequestRef = useRef(0);
   const parityViewCacheRef = useRef(new Map<string, any>());
+
+  const refreshNotifications = async () => {
+    if (!isCloudConfigured || !currentUser?.id || !me) return;
+    const request = ++notificationRequestRef.current;
+    const scope = notificationScope;
+    setNotificationState(previous => ({scope,items:previous.scope === scope ? previous.items : [],loading:true,error:""}));
+    try {
+      const items = await fetchMyNotifications();
+      if (request === notificationRequestRef.current && notificationScopeRef.current === scope) setNotificationState({scope,items,loading:false,error:""});
+    } catch (err: any) {
+      if (request === notificationRequestRef.current && notificationScopeRef.current === scope) setNotificationState(previous => ({...previous,loading:false,error:err?.message || "Notifications could not refresh. Try again."}));
+    }
+  };
+  useEffect(() => {
+    setNotificationState({scope:notificationScope,items:[],loading:false,error:""});
+    void refreshNotifications();
+    return () => { notificationRequestRef.current++; };
+  }, [league.id, currentUser?.id, me?.id]);
+
+  const openNotification = (destination: FantasyNotificationDestination) => {
+    if (destination === "draft") { onGoToDraft(); return; }
+    if (destination === "results") { onGoToSimulation(); return; }
+    if (destination === "roster") { openTab("team"); return; }
+    if (destination === "matchup") { openTab("matchup"); return; }
+    if (destination === "waivers") { setPlayerPoolView("waivers"); setWeek(currentTransactionWeek); openTab("players"); return; }
+    openTab("league");
+    setLeagueView(destination === "trades" ? "trades" : destination === "league" ? "standings" : "activity");
+    setActivityView(destination === "trades" ? "trades" : destination === "messages" ? "messages" : "moves");
+  };
+  const readNotification = async (id: string) => {
+    const scope = notificationScope;
+    await markNotificationRead(id);
+    if (notificationScopeRef.current === scope) setNotificationState(previous => previous.scope === scope ? {...previous,items:previous.items.map(item => item.id === id ? {...item,readAt:new Date().toISOString()} : item)} : previous);
+  };
 
   const rankingsByName = useMemo(() => {
     const map = new Map<string, FantasyRanking>();
@@ -1467,6 +1512,15 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
         {scores.some(score => Number.isFinite(Date.parse(score.updatedAt))) && <span className="mt-1 block text-[11px] text-amber-100/75">Latest saved score: {new Date(Math.max(...scores.map(score => Date.parse(score.updatedAt)).filter(Number.isFinite))).toLocaleString()}. Refreshing this page does not update NFL statistics.</span>}
       </p>
       <ModeHelp mode="fantasy" />
+
+      <details className="rounded-xl border border-white/10 bg-black/20 px-3" onToggle={event => { if (event.currentTarget.open) void refreshNotifications(); }}>
+        <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-xs font-bold"><Bell className="h-4 w-4 text-[var(--bk-team-accent)]" />Notifications{visibleLeagueNotifications(notifications,league.id).some(item => !item.readAt) && <span className="text-[var(--bk-team-accent)]">({visibleLeagueNotifications(notifications,league.id).filter(item => !item.readAt).length} unread)</span>}</summary>
+        <div className="pb-3">
+          <button type="button" disabled={notificationState.loading || !isCloudConfigured || !me} onClick={() => void refreshNotifications()} className="mb-2 min-h-11 text-xs font-bold text-[var(--bk-team-accent)] disabled:opacity-50">{notificationState.loading ? "Refreshing notifications…" : "Refresh notifications"}</button>
+          {notificationState.error && <p role="status" className="mb-2 text-xs text-amber-200">{notificationState.error}</p>}
+          <FantasyNotificationInbox leagueId={league.id} notifications={notifications} onMarkRead={readNotification} onOpenDestination={openNotification} onError={message => showToast(message)} />
+        </div>
+      </details>
 
       {syncIssues.length > 0 && <p role="status" className="rounded-xl border border-amber-300/20 bg-amber-300/5 px-3 py-2 text-xs leading-relaxed text-amber-100">Some league data could not refresh ({syncIssues.join(", ")}). Showing the last saved data where available.</p>}
 

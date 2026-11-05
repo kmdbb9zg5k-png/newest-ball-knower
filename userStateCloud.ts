@@ -25,15 +25,22 @@ export async function flushPendingUserStateWrites(): Promise<void> {
   }
 }
 
-async function userStateSession(expectedUserId?: string) {
-  const user = await ensureOnlineSession();
+export async function assertUserStateAccount(expectedUserId: string) {
+  if (!supabase || !expectedUserId) throw new Error('Your account changed. Reopen this screen.');
   const { data, error } = await supabase!.auth.getSession();
-  if (error || !data.session?.access_token || data.session.user.id !== user.id || expectedUserId && user.id !== expectedUserId) {
+  if (error || !data.session?.access_token || data.session.user.id !== expectedUserId) {
     throw new Error('Your account changed. Reopen this screen.');
   }
+  return data.session;
+}
+
+async function userStateSession(expectedUserId?: string) {
+  const user = await ensureOnlineSession();
+  if (expectedUserId && user.id !== expectedUserId) throw new Error('Your account changed. Reopen this screen.');
+  const session = await assertUserStateAccount(user.id);
   // Pin the bearer token to the same identity as the payload. PostgREST would
   // otherwise ask for the latest session only when the request is dispatched.
-  return { user, authorization: `Bearer ${data.session.access_token}` };
+  return { user, authorization: `Bearer ${session.access_token}` };
 }
 
 export async function loadUserStates<T = unknown>(stateKeys: string[], expectedUserId?: string): Promise<UserStateRow<T>[]> {
@@ -46,6 +53,7 @@ export async function loadUserStates<T = unknown>(stateKeys: string[], expectedU
     .in('state_key', stateKeys)
     .setHeader('Authorization', authorization);
   if (error) throw error;
+  await assertUserStateAccount(user.id);
   return (data ?? []) as UserStateRow<T>[];
 }
 
@@ -79,9 +87,9 @@ export function saveUserStates(entries: Array<{ stateKey: string; value: unknown
   })());
 }
 
-export async function loadUserState<T>(stateKey: string): Promise<T | null> {
+export async function loadUserState<T>(stateKey: string, expectedUserId?: string): Promise<T | null> {
   if (!supabase) return null;
-  const { user, authorization } = await userStateSession();
+  const { user, authorization } = await userStateSession(expectedUserId);
   const { data, error } = await supabase
     .from('ball_knower_user_state')
     .select('value')
@@ -90,13 +98,14 @@ export async function loadUserState<T>(stateKey: string): Promise<T | null> {
     .maybeSingle()
     .setHeader('Authorization', authorization);
   if (error) throw error;
+  await assertUserStateAccount(user.id);
   return (data?.value as T | undefined) ?? null;
 }
 
-export function saveUserState(stateKey: string, value: unknown): Promise<void> {
+export function saveUserState(stateKey: string, value: unknown, expectedUserId?: string): Promise<void> {
   if (!supabase) return Promise.resolve();
   return trackUserStateWrite((async () => {
-    const { user, authorization } = await userStateSession();
+    const { user, authorization } = await userStateSession(expectedUserId);
     if (stateKey === OWNER_STATE_KEY) {
       const { error } = await supabase.rpc('save_ball_knower_revisioned_user_state', {
         p_state_key: stateKey,
@@ -136,9 +145,9 @@ export function commitAgentSigningForExpectedUser(
   })());
 }
 
-export async function loadGauntletProgressEvents(): Promise<GauntletProgressEvent[]> {
+export async function loadGauntletProgressEvents(expectedUserId?: string): Promise<GauntletProgressEvent[]> {
   if (!supabase) return [];
-  const { user, authorization } = await userStateSession();
+  const { user, authorization } = await userStateSession(expectedUserId);
   const { data, error } = await supabase
     .from('ball_knower_gauntlet_progress_events')
     .select('payload')
@@ -146,12 +155,13 @@ export async function loadGauntletProgressEvents(): Promise<GauntletProgressEven
     .order('occurred_at', { ascending: true })
     .setHeader('Authorization', authorization);
   if (error) throw error;
+  await assertUserStateAccount(user.id);
   return (data ?? []).map(row => row.payload as GauntletProgressEvent);
 }
 
-export async function saveGauntletProgressEvents(events: GauntletProgressEvent[]): Promise<void> {
+export async function saveGauntletProgressEvents(events: GauntletProgressEvent[], expectedUserId?: string): Promise<void> {
   if (!supabase || events.length === 0) return;
-  const { user, authorization } = await userStateSession();
+  const { user, authorization } = await userStateSession(expectedUserId);
   for (let index = 0; index < events.length; index += 250) {
     const rows = events.slice(index, index + 250).map(event => ({
       user_id: user.id,

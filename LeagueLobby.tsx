@@ -84,7 +84,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onBack, onGoTo
         <OwnerCareerSync league={league} />
         <div className="mx-auto max-w-6xl px-2 py-0 sm:px-6 sm:py-5">
           <ModeErrorBoundary key={`postdraft-${lazyVersion}`} onRetry={retryMode}>
-            <FantasyLeaguePostDraft league={postDraftLeague} onBack={onBack} onGoToSimulation={onGoToSimulation} onViewMemberLocker={onViewMemberLocker} />
+            <FantasyLeaguePostDraft league={postDraftLeague} onBack={onBack} onGoToDraft={onGoToDraft} onGoToSimulation={onGoToSimulation} onViewMemberLocker={onViewMemberLocker} />
           </ModeErrorBoundary>
         </div>
       </BroadcastStage>

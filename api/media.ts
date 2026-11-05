@@ -9,8 +9,8 @@ const keepActiveSoundtrackTrack = (track: { title?: string; url?: string; pathna
   !isRetiredSoundtrackTrack([track.title, track.url, track.pathname].filter(Boolean).join(' '));
 
 const HIDDEN_TRACK_TITLES = new Set([
-  'After Party',
-  'On The South',
+  'after party',
+  'on the south',
 ]);
 
 const BUNDLED_TRACKS = [
@@ -26,16 +26,21 @@ const BUNDLED_TRACKS = [
 ] as const;
 
 function cleanTitle(pathname: string) {
-  return pathname
-    .split('/').pop()!
-    .replace(/\.(mp3|m4a|wav|aac|ogg)$/i, '')
-    .replace(/[-_]?\(?remaster(?:ed)?[^)]*\)?/ig, '')
-    .replace(/\(\d+\)$/g, '')
+  let title=pathname.split('/').pop()||'';
+  try{title=decodeURIComponent(title);}catch{/* Keep a usable title if an upload contains a literal percent sign. */}
+  title=title.replace(/\.(mp3|m4a|wav|aac|ogg)$/i,'').trim();
+  // Copy markers and mastering/version suffixes can appear in either order.
+  for(let pass=0;pass<4;pass++)title=title
+    .replace(/\s*\(\d+\)\s*$/,'')
+    .replace(/[-_\s]*[([]?(?:remaster(?:ed)?(?:[-_\s]*\d{2,4})?|v(?:ersion)?[-_\s]*\d+(?:\.\d+)*)[)\]]?\s*$/i,'').trim();
+  return title
     .replace(/[-_]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/\b\w/g, c => c.toUpperCase());
 }
+
+const titleKey=(title:string)=>title.toLowerCase().replace(/[^a-z0-9]+/g,'');
 
 export default async function handler(_req: any, res: any) {
   try {
@@ -48,16 +53,16 @@ export default async function handler(_req: any, res: any) {
     const byTitle = new Map<string, any>();
     for (const blob of audio) {
       const title = cleanTitle(blob.pathname);
-      if (HIDDEN_TRACK_TITLES.has(title) || isRetiredSoundtrackTrack(`${title} ${blob.pathname}`)) continue;
+      if (!title || HIDDEN_TRACK_TITLES.has(title.toLowerCase()) || isRetiredSoundtrackTrack(`${title} ${blob.pathname}`)) continue;
 
-      const prev = byTitle.get(title);
+      const key=titleKey(title),prev = byTitle.get(key)?.blob;
       const isRemaster = /remaster/i.test(blob.pathname);
       const prevIsRemaster = prev ? /remaster/i.test(prev.pathname) : false;
-      if (!prev || (isRemaster && !prevIsRemaster)) byTitle.set(title, blob);
+      if (!prev || (isRemaster && !prevIsRemaster)) byTitle.set(key, {title,blob});
     }
 
-    const tracks = Array.from(byTitle.entries()).map(([title, blob], index) => ({
-      id: `blob-${index + 1}`,
+    const tracks = Array.from(byTitle.values()).map(({title,blob}) => ({
+      id: `blob-${titleKey(title)}`,
       title,
       subtitle: 'Ball Knower Original Soundtrack',
       tempoBpm: 0,
@@ -68,7 +73,7 @@ export default async function handler(_req: any, res: any) {
     }));
 
     for (const [title, url, manualOnly] of BUNDLED_TRACKS) {
-      const existing = tracks.findIndex(track => track.title.toLowerCase() === title.toLowerCase());
+      const existing = tracks.findIndex(track => titleKey(track.title) === titleKey(title));
       const bundled = {
         id: `bundled-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
         title,
