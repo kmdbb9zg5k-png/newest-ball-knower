@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,mkdtempSync,mkdirSync,writeFileSync,copyFileSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {pathToFileURL} from 'node:url';
+import {spawnSync} from 'node:child_process';
 import {createScoringProviderProbe,selectProbeGame,summarizeProviderCoverage,type ProbeChoice} from '../server/bk/scoring-provider-probe';
 
 const now=Date.parse('2026-11-05T23:00:00Z'),stamp=new Date(now).toISOString();
@@ -52,4 +56,16 @@ assert.equal(result.headers['Cache-Control'],'private, no-store');assert.ok(!JSO
 const denied=await run(createScoringProviderProbe({...deps,env:{VERCEL_ENV:'preview',TANK01_API_KEY:'fixture-private-key'},fetchImpl:(async()=>new Response('SECRET PRIVATE ERROR',{status:401})) as typeof fetch}));
 assert.equal(denied.body.boxRequest.reason,'provider_authentication_failed');assert.equal(denied.body.projectionRequest.reason,'provider_authentication_failed');assert.ok(!JSON.stringify(denied.body).includes('SECRET PRIVATE ERROR'));
 const route=readFileSync(new URL('../api/scoring-provider-probe.ts',import.meta.url),'utf8');assert.ok(!route.includes('supabase'));assert.ok(!route.includes('createClient'));
+// TSX can mask native Node JSON loading failures. Import the unchanged route in
+// a plain ESM child process, with only its handler dependency isolated.
+const nativeRoot=mkdtempSync(join(tmpdir(),'bk-probe-esm-'));
+try{
+ for(const directory of ['api','data','server/bk'])mkdirSync(join(nativeRoot,directory),{recursive:true});
+ writeFileSync(join(nativeRoot,'package.json'),'{"type":"module"}');
+ writeFileSync(join(nativeRoot,'api/scoring-provider-probe.mjs'),route);
+ copyFileSync(new URL('../data/independent-football-inputs.json',import.meta.url),join(nativeRoot,'data/independent-football-inputs.json'));
+ writeFileSync(join(nativeRoot,'server/bk/scoring-provider-probe.js'),'export const createScoringProviderProbe=()=>()=>{};');
+ const native=spawnSync(process.execPath,['--input-type=module','--eval',`const route=await import(${JSON.stringify(pathToFileURL(join(nativeRoot,'api/scoring-provider-probe.mjs')).href)});if(typeof route.default!=='function')process.exit(1);`],{encoding:'utf8'});
+ assert.equal(native.status,0,`Native ESM route startup failed: ${native.stderr}`);
+}finally{rmSync(nativeRoot,{recursive:true,force:true});}
 console.log('Preview scoring probe: production 404, fixed completed-game selection, two bounded fixed-host provider requests, missing/zero/identity coverage, secret/raw-body redaction and zero database access passed.');
