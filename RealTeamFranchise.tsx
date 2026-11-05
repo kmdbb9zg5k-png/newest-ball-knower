@@ -1,6 +1,6 @@
 import {SoloPlayerIdentity,SoloPlayerLink} from './solo/SoloPresentation';
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRightLeft,
@@ -34,14 +34,19 @@ import {
   transferFranchiseDraftPicks,
 } from "./franchiseDraftPicks";
 
+import { GmEventAlerts, type GmImportantEvent } from './GmEventAlerts';
+import { emptyGmTradeInbox, finishGmTradeOffer, generateGmTradeOffer, restoreGmTradeInbox, validateGmTradeOffer, type GmTradeInbox } from './gmTradeOffers';
+
 type Props = { onBack: () => void };
 type RealFranchiseSave = {
   version: 5;
+  careerId: string;
   teamAbbr: string;
   roster: Player[];
   draftPickAssets: FranchiseDraftPick[];
   gamePlan: string;
   opponentRosters: Record<string, Player[]>;
+  tradeInbox?: GmTradeInbox;
 };
 
 function migrateLegacyDraftPicks(saved: any): FranchiseDraftPick[] {
@@ -85,6 +90,7 @@ function restoreFranchise(): RealFranchiseSave | null {
         : {};
     return {
       version: 5,
+      careerId: typeof saved.careerId === 'string' && saved.careerId ? saved.careerId : `legacy:${saved.teamAbbr}`,
       teamAbbr: saved.teamAbbr,
       roster: validateFranchiseRoster(savedRoster).length
         ? baseRoster
@@ -97,6 +103,7 @@ function restoreFranchise(): RealFranchiseSave | null {
           ? saved.gamePlan
           : "Balanced attack",
       opponentRosters,
+      tradeInbox: restoreGmTradeInbox(saved.tradeInbox, saved.teamAbbr),
     };
   } catch {
     return null;
@@ -116,6 +123,14 @@ function restoredFranchiseYear() {
   }
 }
 
+function restoredGmWeek() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(`${SOLO_FRANCHISE_SAVE_KEYS.real}:season`) || 'null');
+    if (saved && saved.stage !== 'regular') return 18;
+    return Array.isArray(saved?.weeks) ? saved.weeks.length + 1 : 1;
+  } catch { return 1; }
+}
+
 export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
   const restored = useMemo(restoreFranchise, []);
   const [teamAbbr, setTeamAbbr] = useState<string | null>(
@@ -125,6 +140,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
     () => teamAbbr ?? getSavedSoloTeamTheme().abbr,
   );
   const [message, setMessage] = useState("");
+  const [careerId, setCareerId] = useState(restored?.careerId ?? "");
   const [seasonOpen, setSeasonOpen] = useState(false);
   const [commandTab, setCommandTab] = useState<"week" | "trade" | "roster">(
     "week",
@@ -146,6 +162,10 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
   const [outgoingIds, setOutgoingIds] = useState<string[]>([]);
   const [outgoingPicks, setOutgoingPicks] = useState<string[]>([]);
   const [franchiseYear, setFranchiseYear] = useState(restoredFranchiseYear);
+  const [gmWeek, setGmWeek] = useState(restoredGmWeek);
+  const [tradeInbox, setTradeInbox] = useState<GmTradeInbox>(() => restored?.tradeInbox ?? emptyGmTradeInbox());
+  const handledOffers = useRef(new Set<string>());
+  const onGmWeekChange = useCallback((week: number, year: number) => { setGmWeek(week); setFranchiseYear(year); }, []);
   const team = teamByAbbr(teamAbbr ?? selectedAbbr);
   const baseRoster = useMemo(
     () => (teamAbbr ? buildSoloTeamRoster(teamAbbr) : []),
@@ -185,25 +205,73 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
         SOLO_FRANCHISE_SAVE_KEYS.real,
         JSON.stringify({
           version: 5,
+          careerId,
           teamAbbr,
           roster,
           draftPickAssets,
           gamePlan,
           opponentRosters,
+          tradeInbox,
         } satisfies RealFranchiseSave),
       );
     } catch (error) {
       console.warn("Unable to persist Franchise Command changes", error);
     }
-  }, [draftPickAssets, gamePlan, opponentRosters, roster, teamAbbr]);
+  }, [careerId, draftPickAssets, gamePlan, opponentRosters, roster, teamAbbr, tradeInbox]);
+
+  useEffect(() => {
+    if (!teamAbbr || !roster.length) return;
+    setTradeInbox(current => {
+      const pending = current.pending;
+      if (pending && (pending.week !== gmWeek || pending.year !== franchiseYear || draftInProgress)) return finishGmTradeOffer(current, pending, 'expired');
+      if (pending) return current;
+      const offer = generateGmTradeOffer(teamAbbr, roster, leagueRosters, gmWeek, franchiseYear, draftInProgress, current.decisions);
+      return offer ? { ...current, pending: offer } : current;
+    });
+  }, [teamAbbr, roster, leagueRosters, gmWeek, franchiseYear, draftInProgress, tradeInbox.pending]);
+
+  const respondToIncomingTrade = (accept: boolean) => {
+    const offer = tradeInbox.pending;
+    if (!offer || !teamAbbr || handledOffers.current.has(offer.id) || tradeInbox.decisions.some(item => item.id === offer.id)) return;
+    const result = accept ? validateGmTradeOffer(offer, teamAbbr, roster, leagueRosters, gmWeek, franchiseYear, draftInProgress) : null;
+    if (result?.errors.length) throw new Error(`${result.errors[0]} You can decline this offer and keep your roster.`);
+    const nextInbox = finishGmTradeOffer(tradeInbox, offer, accept ? 'accepted' : 'declined');
+    const nextRoster = result?.userRoster ?? roster;
+    const nextOpponents = result ? { ...opponentRosters, [offer.partner]: result.partnerRoster } : opponentRosters;
+    // Save all sides of the decision together before applying it to the UI.
+    try {
+      localStorage.setItem(SOLO_FRANCHISE_SAVE_KEYS.real, JSON.stringify({ version: 5, careerId, teamAbbr, roster: nextRoster, draftPickAssets, gamePlan, opponentRosters: nextOpponents, tradeInbox: nextInbox } satisfies RealFranchiseSave));
+    } catch { throw new Error('Your decision could not be saved. Try again before leaving this page.'); }
+    handledOffers.current.add(offer.id);
+    setTradeInbox(nextInbox);
+    if (result) { setRosterOverride(nextRoster); setOpponentRosters(nextOpponents); }
+    setMessage(accept ? `Trade completed with ${teamByAbbr(offer.partner).name}. Both rosters are updated.` : `You declined ${teamByAbbr(offer.partner).name}'s offer. Your roster is unchanged.`);
+  };
+  const incomingOffer = tradeInbox.pending;
+  const incomingPlayer = incomingOffer ? leagueRosters[incomingOffer.partner]?.find(player => player.id === incomingOffer.incomingId) : undefined;
+  const outgoingPlayer = incomingOffer ? roster.find(player => player.id === incomingOffer.outgoingId) : undefined;
+  const gmEvents: GmImportantEvent[] = incomingOffer && incomingOffer.week === gmWeek && incomingOffer.year === franchiseYear && !draftInProgress ? [{
+    id: incomingOffer.id,
+    eyebrow: `TRADE REQUEST · WEEK ${incomingOffer.week}`,
+    title: `${teamByAbbr(incomingOffer.partner).name} is calling`,
+    detail: incomingPlayer && outgoingPlayer
+      ? `They offer ${incomingPlayer.name} (${incomingPlayer.position}, ${incomingPlayer.ovr} OVR, $${incomingPlayer.salary.toFixed(2)}M) for ${outgoingPlayer.name} (${outgoingPlayer.position}, ${outgoingPlayer.ovr} OVR, $${outgoingPlayer.salary.toFixed(2)}M). This is a one-for-one player trade with no draft picks. The offer expires when you advance the week. In-season trade calls close after Week 9.`
+      : 'This offer involves a player who is no longer available. Decline it to clear the request.',
+    choices: [
+      ...(incomingPlayer && outgoingPlayer ? [{ id: 'accept', label: 'Accept trade', detail: `Send ${outgoingPlayer.name} and receive ${incomingPlayer.name}. Both rosters change immediately.`, onSelect: () => respondToIncomingTrade(true) }] : []),
+      { id: 'decline', label: 'Decline offer', detail: 'Keep your players and close this negotiation.', onSelect: () => respondToIncomingTrade(false) },
+    ],
+  }] : [];
 
   const start = () => {
+    const nextCareerId = globalThis.crypto?.randomUUID?.() ?? `career-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     try {
       const startingRoster = buildSoloTeamRoster(selectedAbbr);
       localStorage.setItem(
         SOLO_FRANCHISE_SAVE_KEYS.real,
         JSON.stringify({
           version: 5,
+          careerId: nextCareerId,
           teamAbbr: selectedAbbr,
           roster: startingRoster,
           draftPickAssets: createFranchiseDraftPicks(
@@ -221,6 +289,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
         "Franchise started, but Safari could not save it. Keep this page open.",
       );
     }
+    setCareerId(nextCareerId);
     setTeamAbbr(selectedAbbr);
     setSeasonOpen(false);
     setRosterOverride(buildSoloTeamRoster(selectedAbbr));
@@ -231,6 +300,9 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
       ),
     );
     setFranchiseYear(2026);
+    setGmWeek(1);
+    setTradeInbox(emptyGmTradeInbox());
+    handledOffers.current.clear();
     setGamePlan("Balanced attack");
     setOpponentRosters({});
   };
@@ -242,11 +314,15 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
     } catch (error) {
       console.warn("Unable to clear Real Team Franchise", error);
     }
+    setCareerId("");
     setTeamAbbr(null);
     setSeasonOpen(false);
     setRosterOverride(null);
     setDraftPickAssets([]);
     setFranchiseYear(2026);
+    setGmWeek(1);
+    setTradeInbox(emptyGmTradeInbox());
+    handledOffers.current.clear();
     setGamePlan("Balanced attack");
     setOpponentRosters({});
   };
@@ -273,6 +349,9 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
           draftPickAssets={draftPickAssets}
           onDraftPickAssetsChange={setDraftPickAssets}
           onSeasonYearChange={setFranchiseYear}
+          onGmWeekChange={onGmWeekChange}
+          gmEvents={gmEvents}
+          gmAlertScopeKey={`${SOLO_FRANCHISE_SAVE_KEYS.real}:${team.abbr}:${careerId}`}
         />
       </BroadcastStage>
     );
@@ -384,6 +463,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
     return (
       <BroadcastStage scene="suite" page="franchise" quiet={seasonOpen} className="min-h-[100dvh] px-4 pb-24 pt-4 text-white sm:px-8">
         <div className="mx-auto max-w-6xl">
+          <GmEventAlerts events={tradeTarget ? [] : gmEvents} scopeKey={`${SOLO_FRANCHISE_SAVE_KEYS.real}:${team.abbr}:${careerId}:${franchiseYear}`} />
           <BroadcastMasthead eyebrow="Football operations" title="Franchise Command" subtitle="Build the roster. Set your game plan. Make the next move."/>
           <div className="flex items-center justify-between gap-3">
             <button

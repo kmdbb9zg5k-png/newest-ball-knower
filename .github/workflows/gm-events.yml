@@ -1,0 +1,36 @@
+name: GM important events
+on:
+  pull_request:
+    branches: [main]
+    paths: ['GmEventAlerts.tsx', 'gmEventAlerts.css', 'gmTradeOffers.ts', 'RealTeamFranchise.tsx', 'FranchiseSeason.tsx', 'FranchiseInteractionCenter.tsx', 'scripts/gm-*', '.github/workflows/gm-events.yml']
+permissions:
+  contents: read
+concurrency:
+  group: gm-events-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+jobs:
+  gm-events:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint && npm run check:franchise-interactions && node --import tsx scripts/gm-trade-offers-check.ts
+      - run: npm run build && npm run check:root-bundle
+      - run: npx playwright install --with-deps chromium webkit
+      - run: node scripts/gm-events-browser.mjs
+      - run: node scripts/franchise-full-season-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gm-events-${{ github.sha }}
+          path: |
+            artifacts/gm-events
+            artifacts/franchise-full-season
+          retention-days: 7
