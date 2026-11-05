@@ -243,7 +243,8 @@ try{
     await page.unroute(supabasePattern);
 
     await primary.getByRole('button',{name:'Profile',exact:true}).click();
-    await page.getByRole('heading',{name:'Your Locker',exact:true}).waitFor({state:'visible'});
+    await page.getByRole('heading',{name:'Profile',exact:true}).waitFor({state:'visible'});
+    await page.getByRole('dialog',{name:'Make every game count.',exact:true}).getByRole('button',{name:'Close Profile guide',exact:true}).click();
     assertContained(await layoutSnapshot(page),`${size.label} Profile`);
     await page.getByRole('button',{name:'Add profile photo',exact:true}).click();
     await page.getByRole('button',{name:'Take Photo',exact:true}).waitFor({state:'visible'});
