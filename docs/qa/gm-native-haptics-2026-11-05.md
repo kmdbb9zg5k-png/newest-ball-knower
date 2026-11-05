@@ -3,7 +3,7 @@
 GM alerts previously requested only `navigator.vibrate`. The existing private
 Capacitor plugin now exposes `notifyGmEvent()`, which requests UIKit warning
 notification feedback on the main thread while the app is active. Both native
-authentication methods and their state remain unchanged. No dependency,
+authentication methods and their state remain unchanged. No new package,
 permission, paid asset or provider configuration is added.
 
 The shared alert helper starts the iOS request without awaiting it. Browser and
@@ -22,8 +22,11 @@ Checks run:
   and preservation of both authentication methods.
 - Existing native authentication/session and iOS release source gates pass.
 
-The JavaScript fixtures and Swift source contracts do not compile UIKit or
-establish physical feedback. Build the updated plugin in Xcode/Codemagic and
+The JavaScript fixtures and Swift source contracts do not establish physical
+feedback. The native package workflow separately compiles the actual plugin for
+an iOS Simulator target without signing. Its package declares both Capacitor
+and Cordova framework products, as required by the SDK's imported headers.
+Build the updated app in Xcode/Codemagic and
 install that exact signed build on a real iPhone. Verify one warning pulse for a
 new GM alert, no additional pulse on review, another pulse for the next new
 event, and usable decisions/closing when device feedback is unavailable. Verify
@@ -31,7 +34,7 @@ background/inactive delivery stays silent. System settings and device hardware
 determine whether UIKit actually produces a pulse.
 
 A web deployment cannot add this method to an already installed binary; older
-binaries remain safe through the optional fallback. There is no claim of a
-successful native compile, TestFlight install or physical-device vibration here.
+binaries remain safe through the optional fallback. An unsigned package compile
+does not establish a TestFlight install or physical-device vibration.
 
 Primary API: [Apple UINotificationFeedbackGenerator](https://developer.apple.com/documentation/uikit/uinotificationfeedbackgenerator).

@@ -13,8 +13,8 @@ export async function prepareSupportingFixture() {
   if(params.has('shortDeadline')){const timeout=window.setTimeout.bind(window);window.setTimeout=(fn,ms,...args)=>timeout(fn,ms===60000?80:ms,...args)}
   const release=()=>{window.qaAuthReleased=true;for(const resolve of window.qaAuthWaiters||[])resolve();window.qaAuthWaiters=[]};
   createRoot(document.getElementById('root')).render(<React.StrictMode><main>{params.get('mode')==='ask'?<Suspense fallback={<p role="status">Loading Ask BK fixture…</p>}><button onClick={release}>Release authentication</button><AskBkHub/></Suspense>:<><h1>Mode instructions test</h1><ModeHelp mode="gm"/><button>Outside help</button></>}</main></React.StrictMode>);`;
-  // Match the app's split module graph. Inlining every optional syntax grammar
-  // and Mermaid renderer made the help-only page parse a 19 MB module in WebKit.
+  // Match the app's split module graph. The previous fixture inlined every
+  // optional syntax grammar and Mermaid renderer in a single 19 MB module.
   // Development React and StrictMode remain enabled for the lifecycle checks.
   const result = await build({
     stdin: { contents: fixture, resolveDir: process.cwd(), loader: 'tsx', sourcefile: 'fixture.tsx' }, bundle: true, format: 'esm', outdir: supportingOut, entryNames: 'fixture', chunkNames: 'chunks/[name]-[hash]', splitting: true, minify: true, metafile: true, jsx: 'automatic',

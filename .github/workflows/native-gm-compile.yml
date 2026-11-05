@@ -1,5 +1,8 @@
 name: Native GM package compile
 on:
+  pull_request:
+    branches: [main]
+    paths: ['packages/native-auth-session/**', '.github/workflows/native-gm-compile.yml']
   push:
     branches: [codex/native-compile-issue546]
 permissions:

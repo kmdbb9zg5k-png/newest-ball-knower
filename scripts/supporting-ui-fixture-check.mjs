@@ -4,8 +4,11 @@ import { readFile } from 'node:fs/promises';
 import { startSupportingServer } from './supporting-ui-server.mjs';
 import { supportingOut } from './supporting-ui-fixture.mjs';
 
-const { server, origin } = await startSupportingServer({ port: 0 });
+// Exercise the identical default origin used by the browser suite. Overriding
+// the port here would miss a forbidden default even with valid static files.
+const { server, origin } = await startSupportingServer();
 try {
+  assert.notEqual(new URL(origin).port, '4190', 'The default must avoid the Fetch/WebKit Sieve port restriction.');
   const html = await (await fetch(origin)).text();
   const meta = JSON.parse(await readFile(`${supportingOut}/bundle-meta.json`, 'utf8'));
   const files = new Map(Object.entries(meta.outputs).map(([file, output]) => [`/${file}`, output.bytes]));

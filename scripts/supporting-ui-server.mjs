@@ -5,7 +5,9 @@ import { pathToFileURL } from 'node:url';
 import { prepareSupportingFixture, supportingOut } from './supporting-ui-fixture.mjs';
 
 /** No browser or external service is started by this review server. */
-export async function startSupportingServer({ port = 4190, host = '127.0.0.1' } = {}) {
+// Let the OS choose an unoccupied ephemeral port. 4190 (Sieve) is forbidden by
+// Fetch and WebKit even when a local HTTP server is listening successfully.
+export async function startSupportingServer({ port = 0, host = '127.0.0.1' } = {}) {
   const html = await prepareSupportingFixture();
   const requests = [];
   const server = createServer(async (req, res) => {
@@ -48,6 +50,6 @@ export async function startSupportingServer({ port = 4190, host = '127.0.0.1' } 
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  const { origin } = await startSupportingServer({ port: Number(process.env.PORT || 4190), host: process.env.HOST || '127.0.0.1' });
+  const { origin } = await startSupportingServer({ port: Number(process.env.PORT || 0), host: process.env.HOST || '127.0.0.1' });
   console.log(`Supporting UI review ready: ${origin}/ (instructions), ${origin}/?mode=ask (Ask BK)`);
 }
