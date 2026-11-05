@@ -48,7 +48,7 @@ const PublicLocker: React.FC<{ member: LeagueMember; onBack?: () => void }> = ({
         <h1>{possessiveLockerTitle(name)}</h1>
         <ProfileGuide/>
       </header>
-      <div className="bk-profile-identity" data-testid="locker-identity">
+      <ProgressionProfileCard targetUserId={member.userId} targetDisplayName={name} identity={<div className="bk-profile-identity" data-testid="locker-identity">
         <section className="bk-member-locker-identity" aria-label={`${name}'s Ball Knower profile`}>
           <div className="bk-member-locker-portrait">
             {name.slice(0, 2).toUpperCase()}
@@ -59,8 +59,7 @@ const PublicLocker: React.FC<{ member: LeagueMember; onBack?: () => void }> = ({
           </div>
           <div className="bk-member-locker-copy"><div>{name}</div><div>League manager · verified Ball Knower profile</div></div>
         </section>
-      </div>
-      <ProgressionProfileCard targetUserId={member.userId} targetDisplayName={name}/>
+      </div>}/>
     </div>
   </BroadcastStage>
   {photoOpen && avatar && <ExpandedProfilePhoto name={name} src={avatar} onClose={() => setPhotoOpen(false)} onError={closeUnavailablePhoto}/>}
@@ -126,15 +125,14 @@ const LockerSession: React.FC<{ onOpenAuth?: () => void }> = ({ onOpenAuth }) =>
 
   return <BroadcastStage scene="locker" page="profile" className="bk-profile-page relative isolate min-h-[calc(100dvh-7rem)] overflow-hidden px-3 pb-8 pt-4 sm:px-6 sm:pt-6">
     <div className="mx-auto max-w-5xl">
-      <header className="bk-locker-masthead"><div><p className="bk-profile-eyebrow">Your Ball Knower identity</p><h1>Profile</h1></div><ProfileGuide/></header>
-      <div className="bk-profile-identity" data-testid="locker-identity">
+      <header className="bk-locker-masthead"><div><h1>Profile</h1></div><ProfileGuide/></header>
+      <ProgressionProfileCard identity={<div className="bk-profile-identity" data-testid="locker-identity">
         <ProfilePhotoEditor onOpenAuth={onOpenAuth}/>
-        {currentUser?.id && <details className="bk-locker-account"><summary>Account ID · …{currentUser.id.slice(-8)}</summary><code>{currentUser.id}</code></details>}
-      </div>
-      <ProgressionProfileCard/>
+      </div>}/>
       <details className="bk-profile-extras">
         <summary className="bk-profile-extras-heading">Locker &amp; collection</summary>
         <div aria-label="Locker and collection">
+        {currentUser?.id && <details className="bk-locker-account"><summary>Account ID · …{currentUser.id.slice(-8)}</summary><code>{currentUser.id}</code></details>}
         <div className="flex gap-1 overflow-x-auto rounded-xl border border-white/10 bg-black/30 p-1.5 no-scrollbar">{tabs.map(([id, label]) => <button key={id} aria-pressed={tab === id} onClick={() => setTab(id)} className={`min-h-11 shrink-0 rounded-lg px-3 text-[10px] font-black uppercase tracking-wider transition ${tab === id ? 'bg-[var(--bk-team-accent)] text-[var(--bk-on-accent)]' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}>{label}</button>)}</div>
         {error && <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-xs font-bold text-red-300"><span>{error}</span><button onClick={() => void refresh()} className="min-h-11 rounded-lg border border-red-400/30 px-4 text-[10px] font-black uppercase">Retry</button></div>}
         {tab === 'locker' && <div className="mt-3 space-y-3"><div className="grid grid-cols-3 gap-2"><Stat label="Owned" value={String(owned.size)}/><Stat label="Pass Lv" value={pass ? String(pass.level) : '—'}/><Stat label="Pass XP" value={pass ? String(pass.xp) : '—'}/></div><div className="rounded-2xl border border-white/10 bg-black/30 p-4"><div className="text-[10px] font-black uppercase">Equipped</div><div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">{Object.entries(locker).map(([key, value]) => <div key={key} className="rounded-xl border border-white/5 bg-black/25 p-3"><div className="text-[9px] font-black uppercase text-zinc-400">{key.replace('equipped', '').replace(/([A-Z])/g, ' $1')}</div><div className="mt-1 truncate text-[11px] font-black">{value || 'Default'}</div></div>)}</div></div><ItemGrid items={ownedItems} owned={owned} onEquip={equip} equippingSku={equippingSku}/></div>}

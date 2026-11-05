@@ -15,9 +15,9 @@ const CATEGORIES = [
   { key: 'ownerRating', label: 'Owner', Icon: Crown, description: 'Your server-recorded Owner rating. Verified career milestones contribute to this score.' },
 ] as const;
 
-type Props = { profile: ProgressProfile | null; events: ProgressEvent[]; achievements: Achievement[]; predictionPicks: VerifiedPredictionPick[]; profileOwnerName?: string; loading: boolean; error: string; onRefresh: () => void };
+type Props = { profile: ProgressProfile | null; events: ProgressEvent[]; achievements: Achievement[]; predictionPicks: VerifiedPredictionPick[]; profileOwnerName?: string; loading: boolean; error: string; onRefresh: () => void; identity?: React.ReactNode };
 
-export function ProfileLockerView({ profile, events, achievements, predictionPicks, profileOwnerName, loading, error, onRefresh }: Props) {
+export function ProfileLockerView({ profile, events, achievements, predictionPicks, profileOwnerName, loading, error, onRefresh, identity }: Props) {
   const [category, setCategory] = useState<string | null>(null);
   const [selectedTrophy, setSelectedTrophy] = useState<string | null>(null);
   const [predictionHistoryOpen, setPredictionHistoryOpen] = useState(false);
@@ -44,10 +44,17 @@ export function ProfileLockerView({ profile, events, achievements, predictionPic
   const status = loading ? `Syncing ${ownerPossessive} profile…` : error ? (profile ? `Showing ${ownerPossessive} last synced profile.` : 'Profile data is unavailable.') : 'Server verified';
 
   return <div className="bk-locker-profile" data-testid="locker-profile" aria-busy={loading}>
-    <section className="bk-locker-overview" aria-label="Universal Ball Knower Profile">
-      <div className="bk-locker-progress-heading"><h2>{profileOwnerName ? "Progression" : "Your progression"}</h2><div className="bk-locker-championships"><Trophy aria-hidden="true"/><span>Championships <strong>{profileNumber(profile?.championships)}</strong></span></div></div>
+    <section className="bk-profile-hero" aria-label="Build your legacy">
+      <img className="bk-profile-hero-art" src="/profile/cinematic/player-hero.webp" alt="" width="1536" height="1024" fetchPriority="high"/>
+      <div className="bk-profile-hero-title"><h2>Build<br/>your<br/>legacy.</h2><span aria-hidden="true"/></div>
+      {identity}
+      <div className="bk-profile-hero-progress">
       {progress ? <div className="bk-locker-xp" role="progressbar" aria-label="Progress to next profile level" aria-valuemin={0} aria-valuemax={progress.required} aria-valuenow={progress.earned} aria-valuetext={`${profile!.xp} total XP. ${progress.earned} of ${progress.required} XP toward level ${progress.nextLevel}.`}><span style={{ width: `${progress.percent}%` }}/></div> : <div className="bk-locker-xp bk-locker-xp-unavailable" aria-hidden="true"/>}
       <div className="bk-locker-levels"><strong>Level {profileNumber(profile?.level)}</strong><span>{profileNumber(profile?.xp)} XP</span><span>{progress ? `Level ${progress.nextLevel} at ${profileNumber(progress.nextTotal)} XP` : 'Verified XP progression'}</span></div>
+      </div>
+    </section>
+    <section className="bk-locker-overview" aria-label="Universal Ball Knower Profile">
+      <div className="bk-locker-progress-heading"><h2>{profileOwnerName ? "Progression" : "Your progression"}</h2><div className="bk-locker-championships"><Trophy aria-hidden="true"/><span>Championships <strong>{profileNumber(profile?.championships)}</strong></span></div></div>
       <div className="bk-locker-xp-scale" aria-hidden="true">{[0,20,40,60,80,100].map(value => <span key={value}>{value}%</span>)}</div>
       <div className="bk-locker-ratings-layout">
         <div className="bk-locker-hex-grid" aria-label="Profile ratings">{CATEGORIES.map(({ key, label, Icon }) => <button type="button" key={key} className="bk-locker-hex" aria-label={`${label} rating: ${profileNumber(profile?.[key])}. Show details`} aria-expanded={category === key} aria-controls={`${id}-category`} onClick={() => setCategory(category === key ? null : key)}>
@@ -89,9 +96,9 @@ export function ProfileLockerView({ profile, events, achievements, predictionPic
       <LockerReceiptScene/>
       <div className="bk-locker-section-heading"><h2 id={`${id}-receipts`}><ClipboardList aria-hidden="true"/>Verified activity</h2><span className="bk-locker-receipt-tagline">Trust builds legacies</span></div>
       <div className="bk-locker-receipt-rail" aria-hidden="true" data-empty={events.length === 0}>{Array.from({length:17},(_,index)=><i key={index}/>)}</div>
-      {events.length > 0 ? <><ul className="bk-locker-event-list">{events.slice(0, showAllReceipts ? events.length : 6).map(event => <li key={event.id}><ShieldCheck aria-hidden="true"/><div><strong>{event.eventType.replaceAll('_', ' ')}</strong><span>{event.category.replaceAll('_', ' ')}{profileDate(event.occurredAt) ? ` · ${profileDate(event.occurredAt)}` : ''}</span></div><p>{signedProfileDelta(event.xpAwarded)} XP{event.ratingDelta !== 0 && <small>{signedProfileDelta(event.ratingDelta)} RTG</small>}</p></li>)}</ul>{events.length > 6 && <button type="button" className="bk-locker-receipts-more" aria-expanded={showAllReceipts} onClick={() => setShowAllReceipts(!showAllReceipts)}>{showAllReceipts ? 'Show fewer receipts' : `Show all ${events.length} recent receipts`}</button>}</> : <div className="bk-locker-receipts-empty"><BriefcaseBusiness aria-hidden="true"/><p>{loading ? 'Loading verified progression receipts…' : error ? 'Verified receipts are temporarily unavailable. Retry profile sync above.' : `No verified progression receipts yet.${profileOwnerName ? '' : ' Your trusted Trivia, League, Agent, Owner and Prediction events will appear here.'}`}</p><small>Only server-verified events count toward this profile.</small></div>}
+      {events.length > 0 ? <><ul className="bk-locker-event-list">{events.slice(0, showAllReceipts ? events.length : 6).map(event => <li key={event.id}><ShieldCheck aria-hidden="true"/><div><strong>{event.eventType.replaceAll('_', ' ')}</strong><span>{event.category.replaceAll('_', ' ')}{profileDate(event.occurredAt) ? ` · ${profileDate(event.occurredAt)}` : ''}</span></div><p>{signedProfileDelta(event.xpAwarded)} XP{event.ratingDelta !== 0 && <small>{signedProfileDelta(event.ratingDelta)} RTG</small>}</p></li>)}</ul>{events.length > 6 && <button type="button" className="bk-locker-receipts-more" aria-expanded={showAllReceipts} onClick={() => setShowAllReceipts(!showAllReceipts)}>{showAllReceipts ? 'Show fewer receipts' : `Show all ${events.length} recent receipts`}</button>}</> : <div className="bk-locker-receipts-empty"><BriefcaseBusiness aria-hidden="true"/>{!loading && !error && <strong>{profileOwnerName ? 'No recent activity' : 'Your story starts here.'}</strong>}<p>{loading ? 'Loading verified progression receipts…' : error ? 'Verified receipts are temporarily unavailable. Retry profile sync above.' : 'No verified progression receipts yet.'}</p><small>Only server-verified events count toward this profile.</small></div>}
     </section>
-      <div className="mt-4 grid grid-cols-[1fr_auto] items-center gap-4 rounded-2xl border border-[#d9b43b]/25 bg-black/25 p-4" aria-label="Head-to-head trivia record">
+      <div className="bk-profile-h2h mt-4 grid grid-cols-[1fr_auto] items-center gap-4 rounded-2xl border border-[#d9b43b]/25 bg-black/25 p-4" aria-label="Head-to-head trivia record">
         <div><div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[.16em] text-[#e4c77f]"><Swords className="h-4 w-4" aria-hidden="true"/>H2H Trivia</div><strong className="mt-2 block text-2xl text-white">{profileNumber(profile?.h2hWins)}-{profileNumber(profile?.h2hLosses)}{profile?.h2hTies ? `-${profileNumber(profile.h2hTies)}` : ''}</strong><span className="text-[9px] font-bold uppercase text-zinc-500">Best win streak {profileNumber(profile?.h2hBestStreak)}</span></div>
         <div className="text-right"><strong className="block text-3xl text-[#ecd67d]">{profile?.h2hRating ?? 1000}</strong><span className="text-[9px] font-black uppercase text-zinc-500">H2H rating</span></div>
       </div>

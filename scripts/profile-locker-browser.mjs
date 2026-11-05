@@ -116,6 +116,8 @@ try {
       await page.waitForFunction(() => document.querySelector('[data-testid="bk-rating"]')?.textContent === '50');
       await page.evaluate(() => document.fonts.ready);
       await page.evaluate(async () => { const image = new Image(); image.src = '/profile/locker-reference-atlas.webp'; await image.decode(); });
+      await page.locator('.bk-profile-hero-art').evaluate(image => image.decode());
+      assert.equal(await page.locator('.bk-profile-hero').getByTestId('locker-identity').count(),1,'Live identity belongs inside the cinematic hero');
       await page.waitForTimeout(250);
       assert.equal(await profile.locator('.bk-locker-hex').count(), 6);
       assert.equal(await profile.locator('.bk-locker-trophy').count(), 6);
@@ -226,12 +228,12 @@ try {
       assert.ok(await rail.evaluate(element => element.scrollLeft > 0), 'Larger catalogs remain scrollable');
       await profile.getByRole('button', { name: /^Seventh Milestone:/ }).click();
       assert.match(await profile.locator('.bk-locker-detail').innerText(), /Additional verified catalog entry/);
+      await page.locator('.bk-profile-extras > summary').click();
       const accountBox = await page.locator('.bk-locker-account > summary').boundingBox();
       assert.ok(accountBox && accountBox.width >= 44 && accountBox.height >= 44, 'Account disclosure needs a practical phone target');
       await page.locator('.bk-locker-account > summary').click();
       assert.equal(await page.locator('.bk-locker-account code').innerText(), userId);
       await page.locator('.bk-locker-account > summary').click();
-      await page.locator('.bk-profile-extras > summary').click();
       await page.getByRole('button', { name: 'Collection', exact: true }).click();
       assert.ok(await page.getByText('Fixture Collectible', { exact: true }).isVisible());
       await page.getByLabel('Locker and collection').getByRole('button', { name: 'Locker', exact: true }).click();
