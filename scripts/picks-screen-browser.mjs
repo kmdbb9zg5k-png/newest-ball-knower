@@ -6,7 +6,7 @@ const out='artifacts/picks-screen',base='http://127.0.0.1:4184';
 const future=new Date(Date.now()+86400_000).toISOString();
 const day=future.slice(0,10);
 const game={id:'2026_01_DAL_PHI',aliases:['espn-401fixture','legacy-saved-fixture'],away:'Dallas Cowboys',home:'Philadelphia Eagles',awayAbbr:'DAL',homeAbbr:'PHI',season:2026,week:1,seasonType:'REG',date:future,scheduleDate:day,status:'Scheduled',homeSpread:-3.5,awaySpread:3.5,overUnder:44.5};
-const fixture={available:true,linesAvailable:true,source:'nflverse',live:false,freshness:'periodic',fetchedAt:new Date(Date.now()-3600_000).toISOString(),games:[game,{...game,aliases:[],id:'picks-fixture-final',away:'Baltimore Ravens',awayAbbr:'BAL',home:'Buffalo Bills',homeAbbr:'BUF',status:'Final',awayScore:20,homeScore:24},{...game,aliases:[],id:'picks-fixture-live',away:'New York Giants',awayAbbr:'NYG',home:'New York Jets',homeAbbr:'NYJ',status:'Live',date:new Date(Date.now()-3600_000).toISOString()},{...game,aliases:[],id:'picks-fixture-week2',week:2,scheduleDate:new Date(Date.now()+8*86400_000).toISOString().slice(0,10),date:null}]};
+const fixture={available:true,linesAvailable:true,source:'nflverse',live:false,freshness:'periodic',fetchedAt:new Date(Date.now()-3600_000).toISOString(),games:[game,{...game,aliases:[],id:'picks-fixture-final',away:'Jacksonville Jaguars',awayAbbr:'JAX',home:'New England Patriots',homeAbbr:'NE',status:'Final',awayScore:20,homeScore:24},{...game,aliases:[],id:'picks-fixture-live',away:'New York Giants',awayAbbr:'NYG',home:'New York Jets',homeAbbr:'NYJ',status:'Live',date:new Date(Date.now()-3600_000).toISOString()},{...game,aliases:[],id:'picks-fixture-week2',week:2,scheduleDate:new Date(Date.now()+8*86400_000).toISOString().slice(0,10),date:null}]};
 const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port','4184','--strictPort'],{stdio:'inherit'});
 const results=[];let browser;
 async function contextFor(engine,width,{hungSync=false,legacyPick=false,historyCount=0}={}){
@@ -76,6 +76,11 @@ try{
       assert.ok(geometry.cardHeights.every(height=>height>=80),'matchup rows must retain the approved compact card height');
       assert.ok(geometry.submitHeight>=44,'Submit Picks must retain a practical tap target');
       if(width<768)assert.ok(geometry.submitWidth>=width-60,'Submit Picks should be prominent and nearly full-width on phones');
+      assert.ok(await page.locator('.bk-picks-team span').evaluateAll(names=>names.every(name=>name.clientWidth>=120&&name.scrollWidth<=name.clientWidth+1&&getComputedStyle(name).textOverflow!=='ellipsis')), 'Full team names must remain readable, never squeezed into an icon column');
+      if(width<=560){
+        assert.ok(geometry.compactPickButtons.every(height=>height>=44),'Phone team selections need full touch targets');
+        assert.ok(await page.locator('.bk-picks-time').first().isVisible(),'Kickoff must remain visible on narrow phones');
+      }
       await page.screenshot({path:`${out}/${name}-${width}.png`,fullPage:false});
       const first=page.locator(`[data-game-id="${game.id}"]`);
       await page.getByRole('button',{name:'Upcoming',exact:true}).click();assert.equal(await page.locator('.bk-picks-game').count(),1);
