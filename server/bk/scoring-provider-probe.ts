@@ -4,6 +4,7 @@ import {normalizeFantasySchedule} from './fantasy-schedule-sync.js';
 import {NFLVERSE_PREDICTION_URL,NFLVERSE_COMPLETED_URL,normalizeNflversePredictionRows,normalizeCompletedPredictionIds} from '../nflPredictionFeed.js';
 
 const HOST='tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com',SEASON=2026;
+const VERCEL_TRANSPORT_QUERY_KEYS=new Set(['x-vercel-protection-bypass','x-vercel-set-bypass-cookie','_vercel_share']);
 type Json=Record<string,any>;
 export type ProbeIdentity={id:string;name:string;sourceName?:string;team:string;position:string;providerId?:string|null;gsisId?:string|null;active?:boolean};
 export type ProbeChoice={id:string;providerGameId:string;week:number;away:string;home:string;date:string};
@@ -123,7 +124,9 @@ export function createScoringProviderProbe(deps:{identities:ProbeIdentity[];env?
   if(env.VERCEL_ENV!=='preview')return res.status(404).json({error:'Not found'});
   if(req.method!=='GET'){res.setHeader('Allow','GET');return res.status(405).json({error:'Method not allowed'});}
   const requestedId=req.query?.gameId;
-  if(Object.keys(req.query||{}).some(key=>key!=='gameId')||requestedId!==undefined&&(typeof requestedId!=='string'||!/^2026_(?:0[1-9]|1[0-8])_[A-Z]{2,3}_[A-Z]{2,3}$/.test(requestedId)))return res.status(400).json({error:'Invalid completed-game choice'});
+  // Deployment protection validates these transport credentials before routing.
+  // Ignore their values; never copy them into a provider request or response.
+  if(Object.keys(req.query||{}).some(key=>key!=='gameId'&&!VERCEL_TRANSPORT_QUERY_KEYS.has(key))||requestedId!==undefined&&(typeof requestedId!=='string'||!/^2026_(?:0[1-9]|1[0-8])_[A-Z]{2,3}_[A-Z]{2,3}$/.test(requestedId)))return res.status(400).json({error:'Invalid completed-game choice'});
   const base={mode:'preview_read_only_provider_probe',scoringAvailable:false,activationCertified:false,writes:0,season:SEASON};
   const key=env.TANK01_API_KEY||env.RAPIDAPI_KEY;
   if(!key)return res.status(503).json({...base,providerConfigured:false,providerRequests:0,reason:'existing_server_key_unavailable'});

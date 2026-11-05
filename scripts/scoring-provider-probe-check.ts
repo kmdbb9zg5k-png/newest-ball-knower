@@ -48,11 +48,14 @@ for(const VERCEL_ENV of ['production','development',undefined]){
 assert.equal(network,0);assert.equal(selections,0,'non-preview routes must not touch inputs or provider');
 const missing=await run(createScoringProviderProbe({...deps,env:{VERCEL_ENV:'preview'}}));assert.equal(missing.statusCode,503);assert.equal(missing.body.providerConfigured,false);assert.equal(network,0);
 const handler=createScoringProviderProbe({...deps,env:{VERCEL_ENV:'preview',RAPIDAPI_KEY:'fixture-private-key',TANK01_RAPIDAPI_HOST:'malicious.invalid'}});
-for(const request of [{method:'POST',query:{}},{method:'GET',query:{gameId:'2025_01_ARI_WAS'}},{method:'GET',query:{gameId:[choice.id]}},{method:'GET',query:{url:'https://malicious.invalid'}}])assert.ok([400,405].includes((await run(handler,request)).statusCode));
+for(const request of [{method:'POST',query:{}},{method:'GET',query:{gameId:'2025_01_ARI_WAS'}},{method:'GET',query:{gameId:[choice.id]}},{method:'GET',query:{url:'https://malicious.invalid',_vercel_share:'fixture-transport-secret'}}])assert.ok([400,405].includes((await run(handler,request)).statusCode));
 assert.equal(network,0);assert.equal(selections,0);
 const result=await run(handler,{method:'GET',query:{gameId:choice.id}});
 assert.equal(result.statusCode,200);assert.equal(result.body.providerRequests,2);assert.equal(network,2);assert.equal(selections,1);assert.equal(result.body.writes,0);assert.equal(result.body.activationCertified,false);assert.equal(result.body.scoringAvailable,false);
 assert.equal(result.headers['Cache-Control'],'private, no-store');assert.ok(!JSON.stringify(result.body).includes('fixture-private-key'));assert.ok(!JSON.stringify(result.body).includes('PRIVATE RAW NAME'));
+const shared=await run(handler,{method:'GET',query:{'x-vercel-protection-bypass':'fixture-transport-secret','x-vercel-set-bypass-cookie':'fixture-cookie-secret',_vercel_share:'fixture-share-secret'}});
+assert.equal(shared.statusCode,200);assert.equal(shared.body.providerRequests,2);assert.equal(network,4);assert.equal(selections,2);
+for(const token of ['fixture-transport-secret','fixture-cookie-secret','fixture-share-secret'])assert.ok(!JSON.stringify(shared.body).includes(token),'deployment transport values must never be returned');
 const denied=await run(createScoringProviderProbe({...deps,env:{VERCEL_ENV:'preview',TANK01_API_KEY:'fixture-private-key'},fetchImpl:(async()=>new Response('SECRET PRIVATE ERROR',{status:401})) as typeof fetch}));
 assert.equal(denied.body.boxRequest.reason,'provider_authentication_failed');assert.equal(denied.body.projectionRequest.reason,'provider_authentication_failed');assert.ok(!JSON.stringify(denied.body).includes('SECRET PRIVATE ERROR'));
 const route=readFileSync(new URL('../api/scoring-provider-probe.ts',import.meta.url),'utf8');assert.ok(!route.includes('supabase'));assert.ok(!route.includes('createClient'));
