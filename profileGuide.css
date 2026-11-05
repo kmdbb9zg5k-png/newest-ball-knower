@@ -1,0 +1,25 @@
+
+.bk-profile-help{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:none;min-height:44px;padding:10px 12px;border:1px solid #3d4a5b;border-radius:12px;background:#17212e;color:#e4c77f;font:700 11px/1.4 var(--bk-font-body,"Plus Jakarta Sans",sans-serif)}
+.bk-profile-help svg{width:17px;height:17px;flex:none}
+.bk-profile-help:focus-visible,.bk-profile-guide :is(a,button):focus-visible{outline:2px solid #e4c77f;outline-offset:3px}
+.bk-profile-guide-backdrop{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom));background:#03060bd9;backdrop-filter:blur(10px)}
+.bk-profile-guide{display:flex;flex-direction:column;width:100%;max-width:760px;max-height:100%;min-height:0;border:1px solid #364253;border-radius:22px;background:#101721;color:#edf1f6;box-shadow:0 24px 80px #0009;font-family:var(--bk-font-body,"Plus Jakarta Sans",sans-serif)}
+.bk-profile-guide-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex:none;padding:22px;border-bottom:1px solid #293342}
+.bk-profile-guide-header p{margin:0 0 8px;font-size:10px;letter-spacing:.15em;font-weight:750;color:#e4c77f}
+.bk-profile-guide-header h2{margin:0;font:800 clamp(27px,6vw,38px)/1.1 var(--bk-font-display,"Barlow Condensed",sans-serif);color:#fff6df}
+.bk-profile-guide-header button{display:grid;place-items:center;flex:none;width:44px;min-height:44px;border:1px solid #3d4a5b;border-radius:50%;background:#1b2634;color:#eaf0f7}
+.bk-profile-guide-scroll{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:22px;scroll-padding-top:20px}
+.bk-profile-guide-intro{margin:0 0 20px;color:#b7c4d6;font-size:14px;line-height:1.75}
+.bk-profile-guide nav{display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:28px}
+.bk-profile-guide nav button{display:flex;align-items:center;gap:10px;min-width:0;min-height:48px;padding:10px 12px;border:1px solid #2b394b;border-radius:12px;background:#182331;color:#eaf0f7;text-decoration:none;font-size:12px;line-height:1.5;font-weight:650}
+.bk-profile-guide nav button span{font-size:10px;color:#e4c77f;font-variant-numeric:tabular-nums}
+.bk-profile-guide nav button svg{width:15px;height:15px;flex:none;margin-left:auto}
+.bk-profile-guide-topic{padding:22px 0;border-top:1px solid #293342;scroll-margin-top:16px}
+.bk-profile-guide-topic>p:first-child{margin:0 0 8px;color:#e4c77f;font-size:10px;letter-spacing:.12em;font-weight:750}
+.bk-profile-guide-topic h3{margin:0 0 12px;font-size:18px;line-height:1.4;font-weight:750;color:#f6f3eb}
+.bk-profile-guide-topic>p:last-child{margin:0;font-size:14px;line-height:1.8;color:#b7c4d6}
+.bk-profile-guide-done{width:100%;min-height:48px;margin:8px 0 0;padding:12px;border:0;border-radius:12px;background:#e4c77f;color:#17130a;font-size:14px;font-weight:800}
+@media(min-width:640px){.bk-profile-guide nav{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){.bk-profile-guide-scroll{scroll-behavior:auto}}
+
+.bk-profile-guide-topic:focus-visible{outline:2px solid #e4c77f;outline-offset:4px;border-radius:8px}

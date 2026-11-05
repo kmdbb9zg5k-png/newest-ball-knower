@@ -1,5 +1,6 @@
 import React,{lazy,Suspense,useEffect} from 'react';
 import App from './App';
+import {ScreenErrorBoundary,ScreenLoading} from './ScreenErrorBoundary';
 import {trackBallKnowerEvent} from './analytics';
 import {initializeNativeAuthCallback} from './nativeAuth';
 
@@ -10,5 +11,5 @@ export const PublicEntryRouter:React.FC=()=>{
  useEffect(()=>{void initializeNativeAuthCallback().catch(error=>console.error('Native auth bridge could not start',error))},[]);
  useEffect(()=>{if(slug)trackBallKnowerEvent('Spectator View Opened')},[slug]);
  if(!slug)return <App/>;
- return <Suspense fallback={<div className="min-h-[100dvh] bg-[#07090c] grid place-items-center text-xs font-black uppercase tracking-[.2em] text-zinc-500">Loading Ball Knower broadcast…</div>}><SpectatorLeagueView slug={slug}/></Suspense>;
+ return <ScreenErrorBoundary onHome={()=>window.location.assign('/')}><Suspense fallback={<ScreenLoading onHome={()=>window.location.assign('/')}/>}><SpectatorLeagueView slug={slug}/></Suspense></ScreenErrorBoundary>;
 };

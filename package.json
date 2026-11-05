@@ -46,7 +46,7 @@
     "check:partners": "node --import tsx scripts/partners-check.ts",
     "check:profile-photo": "node --import tsx scripts/profile-photo-release-check.ts",
     "check:member-locker": "node --import tsx scripts/member-locker-check.ts",
-    "check:community-arena": "node --import tsx scripts/community-arena-check.ts && node --import tsx scripts/community-state-check.ts",
+    "check:community-arena": "node --import tsx scripts/community-arena-check.ts && node --import tsx scripts/community-state-check.ts && node --import tsx scripts/community-resource-lifecycle-check.ts",
     "check:community-browser": "node scripts/community-arena-browser.mjs",
     "check:profile-rating": "node --import tsx scripts/profile-rating-zero-check.ts",
     "check:fantasy-availability": "node --import tsx scripts/fantasy-player-availability-check.ts",
@@ -82,7 +82,8 @@
     "check:play-moment-athlete": "node scripts/check-play-moment-athlete-v3.mjs",
     "check:gameplay-report": "node scripts/check-play-moment-replay.mjs",
     "check:native-auth-session": "node scripts/native-auth-session-check.mjs",
-    "check:issue-report-privacy": "node --import tsx scripts/issue-report-privacy-check.ts"
+    "check:issue-report-privacy": "node --import tsx scripts/issue-report-privacy-check.ts",
+    "check:app-polish": "node --import tsx scripts/browser-persistence-check.ts && node --import tsx scripts/career-profile-state-check.ts && node scripts/expected-user-state-check.mjs && node --import tsx scripts/fantasy-watchlist-session-check.ts && node --import tsx scripts/community-resource-lifecycle-check.ts && node scripts/check-game-failure.mjs && node scripts/check-football-recovery.mjs && node scripts/supabase-timeout-check.mjs && node --import tsx scripts/local-identity-check.ts"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.191",

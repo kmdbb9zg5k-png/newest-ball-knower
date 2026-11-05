@@ -1,3 +1,4 @@
+import { persistBrowserValue } from './browserPersistence';
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   UserProfile,
@@ -241,8 +242,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     currentUserIdRef.current = user?.id;
     invalidatePendingAutoDraft();
     setCurrentUserState(user);
-    if (user) localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
-    else localStorage.removeItem(STORAGE_KEYS.USER);
+    persistBrowserValue(STORAGE_KEYS.USER, user ? JSON.stringify(user) : null);
   };
 
   const updateCurrentUserAvatar = (avatarUrl?: string, avatarPath?: string) => {
@@ -250,7 +250,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setCurrentUserState(previous => {
       if (!previous) return previous;
       const next = { ...previous, avatarUrl: avatarUrl || '', avatarPath };
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(next));
+      persistBrowserValue(STORAGE_KEYS.USER, JSON.stringify(next));
       return next;
     });
     const userId = currentUserIdRef.current;
@@ -269,7 +269,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setCurrentUserState(previous => {
       if (!previous) return previous;
       const next = { ...previous, name };
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(next));
+      persistBrowserValue(STORAGE_KEYS.USER, JSON.stringify(next));
       return next;
     });
     if (!userId) return;
@@ -329,7 +329,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             avatarUrl: photo.hasOverride ? (photo.avatarUrl || '') : providerAvatar,
             createdAt: authUser.created_at || base.createdAt,
           };
-          localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(synced));
+          persistBrowserValue(STORAGE_KEYS.USER, JSON.stringify(synced));
           return synced;
         });
         const cloudLeagues = await loadMyCloudLeagues();
@@ -371,8 +371,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     activeLeagueIdRef.current = id;
     invalidatePendingAutoDraft();
     setActiveLeagueIdState(id);
-    if (id) localStorage.setItem(STORAGE_KEYS.ACTIVE_LEAGUE_ID, id);
-    else localStorage.removeItem(STORAGE_KEYS.ACTIVE_LEAGUE_ID);
+    persistBrowserValue(STORAGE_KEYS.ACTIVE_LEAGUE_ID, id);
   };
 
   const showToast = (msg: string) => {

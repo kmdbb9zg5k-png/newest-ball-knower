@@ -352,6 +352,40 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
           </section>
         )}
 
+        <section className="mb-6" aria-label="Career modes">
+          <div className="mb-3">
+            <div className="text-[9px] font-black uppercase tracking-[.22em] text-zinc-500">Choose Your Road</div>
+            <h2 className="mt-1 text-xl font-black uppercase">{sortedSaves.length ? 'Start Or Enter A Mode' : 'Start Your First Career'}</h2>
+          </div>
+          <div className="bk-mode-grid bk-solo-universe-grid">
+            {MODES.map(mode => {
+              const Icon = mode.icon;
+              const saved = modeHasSave(mode.id) || universe.saves.some(save => save.mode === mode.id);
+
+              return (
+                <button
+                  key={mode.id}
+                  type="button"
+                  className="bk-mode-card"
+                  onClick={() => openMode(mode.id)}
+                >
+                  <Icon style={{ zIndex: 2 }} />
+                  <ModeSceneArt seed={mode.id} />
+                  <div>
+                    <small style={MODE_EYEBROW_STYLE}>{mode.eyebrow}</small>
+                    <strong style={MODE_TITLE_STYLE}>{mode.title}</strong>
+                    <p style={MODE_DESCRIPTION_STYLE}>{mode.description}</p>
+                    <span className="bk-mode-continue" style={MODE_CONTINUE_STYLE}>
+                      {saved ? 'CONTINUE CAREER' : 'NEW CAREER'}
+                    </span>
+                  </div>
+                  <ChevronRight size={17} style={{ zIndex: 2 }} />
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
         {activeSave && activeEvent && (
           <section className="mb-4 rounded-[28px] border border-white/10 bg-[#0a0d13]/96 p-4 shadow-xl sm:p-5">
             <div className="flex items-start gap-3">
@@ -436,39 +470,7 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
           </section>
         )}
 
-        <section>
-          <div className="mb-3">
-            <div className="text-[9px] font-black uppercase tracking-[.22em] text-zinc-500">Choose Your Road</div>
-            <h2 className="mt-1 text-xl font-black uppercase">{sortedSaves.length ? 'Start Or Enter A Mode' : 'Start Your First Career'}</h2>
-          </div>
-          <div className="bk-mode-grid bk-solo-universe-grid">
-            {MODES.map(mode => {
-              const Icon = mode.icon;
-              const saved = modeHasSave(mode.id) || universe.saves.some(save => save.mode === mode.id);
 
-              return (
-                <button
-                  key={mode.id}
-                  type="button"
-                  className="bk-mode-card"
-                  onClick={() => openMode(mode.id)}
-                >
-                  <Icon style={{ zIndex: 2 }} />
-                  <ModeSceneArt seed={mode.id} />
-                  <div>
-                    <small style={MODE_EYEBROW_STYLE}>{mode.eyebrow}</small>
-                    <strong style={MODE_TITLE_STYLE}>{mode.title}</strong>
-                    <p style={MODE_DESCRIPTION_STYLE}>{mode.description}</p>
-                    <span className="bk-mode-continue" style={MODE_CONTINUE_STYLE}>
-                      {saved ? 'CONTINUE CAREER' : 'NEW CAREER'}
-                    </span>
-                  </div>
-                  <ChevronRight size={17} style={{ zIndex: 2 }} />
-                </button>
-              );
-            })}
-          </div>
-        </section>
       </div>
     </BroadcastStage>
   );

@@ -1420,15 +1420,17 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
       </header>
 
       <div className="bk-fantasy-sticky-nav -mx-2 sm:-mx-1">
-        <div aria-label="Fantasy league sections" className="bk-fantasy-subnav grid grid-cols-4 overflow-visible">
+        <div role="navigation" aria-label="Fantasy league sections" className="bk-fantasy-subnav grid grid-cols-4 overflow-visible">
           {navItems.map((item) => (
             <button
               key={item.id}
+              type="button"
+              aria-current={tab === item.id ? "page" : undefined}
               onClick={() => {
                 if (item.id === "players") setWeek(currentTransactionWeek);
                 openTab(item.id);
               }}
-              className={`relative flex min-h-10 min-w-0 items-center justify-center gap-1 px-1 text-[9px] font-black uppercase min-[390px]:text-[10px] ${tab === item.id ? "text-[var(--bk-team-accent)] after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:bg-[var(--bk-team-accent)]" : "text-zinc-500"}`}
+              className={`relative flex min-h-11 min-w-0 items-center justify-center gap-1 px-1 text-[11px] font-black uppercase ${tab === item.id ? "text-[var(--bk-team-accent)] after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:bg-[var(--bk-team-accent)]" : "text-zinc-500"}`}
             >
               <span className="hidden sm:inline">{item.icon}</span>
               <span>{item.label}</span>
@@ -1984,17 +1986,18 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
             <LeaguePageBackButton onBack={backFromTab} />
             <div className="min-w-0"><div className="text-[9px] font-black uppercase tracking-[.18em] text-[var(--bk-team-accent)]">League HQ</div><h2 className="mt-0.5 text-base font-black uppercase">League</h2></div>
           </div>
-          <div aria-label="League tools" className="bk-fantasy-subnav bk-fantasy-subnav-scroll">
+          <div role="navigation" aria-label="League tools" className="bk-fantasy-subnav bk-fantasy-subnav-scroll">
             {leagueNavItems.map((item) => (
               <button
                 key={item.id}
                 type="button"
+                aria-current={leagueView === item.id ? "page" : undefined}
                 onClick={() => {
                   setLeagueView(item.id);
                   if (item.id === "trades") setActivityView("trades");
                   if (item.id === "activity" && activityView === "trades") setActivityView("moves");
                 }}
-                className={`relative min-h-9 shrink-0 px-3 text-[9px] font-black uppercase ${leagueView === item.id ? "text-[var(--bk-team-accent)] after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:bg-[var(--bk-team-accent)]" : "text-zinc-500"}`}
+                className={`relative min-h-11 shrink-0 px-3 text-[11px] font-black uppercase ${leagueView === item.id ? "text-[var(--bk-team-accent)] after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:bg-[var(--bk-team-accent)]" : "text-zinc-500"}`}
               >
                 {item.label}
                 {item.id === "trades" && receivedTrades.length > 0 ? ` (${receivedTrades.length})` : ""}

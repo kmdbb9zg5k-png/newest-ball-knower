@@ -1,5 +1,6 @@
 import {readGameGearProfile,sanitizeGameGear,gameGearRosterId} from './game-gear.js';
 import {installControlSettings} from './control-settings.js';
+import {showGameFailure} from './game-failure.js';
 import {snapExchange} from './snap-motion.js?v=motion-contact-55';
 import {syncGameViewport} from './game-viewport.js?v=viewport-sync-54';
 import {contactFallProgress,updateContactTarget,handoffRunnerPoint,handoffDuration,handoffBall} from './contact-motion.js?v=tackle-drive-61';
@@ -1049,9 +1050,11 @@ function coverage(dt){
   if(flight&&previousFlight)flight={...flight,t:previousFlight.t+(flight.t-previousFlight.t)*alpha};
   try{camera(dt);lastPresentationTime=previousPresentationTime+(simTime-previousPresentationTime)*clamp(alpha,0,1);scene(dt,lastPresentationTime*1000)}finally{actors=authoritative;carrier=holder;exchange=liveExchange;flight=liveFlight}
  }
- let lastDraw=NaN;
+ let lastDraw=NaN,runtimeFailed=false;
  function loop(now){
+  if(runtimeFailed)return;
   raf=requestAnimationFrame(loop);const dt=Math.min(.25,Math.max(0,(now-last)/1000)||.016);last=now;
+  try{
   if(document.hidden||r.lost||(paused&&!activeContact&&!replaying))return;
   if(replaying)advanceReplay(dt);else if((!paused||activeContact)&&!qaStepping){accumulator+=dt;let steps=0;while(accumulator>=1/60&&steps++<15){simulate(1/60);accumulator-=1/60;if(paused&&!activeContact)break}}
   // Full games follow display callbacks; a near-60Hz threshold skipped jittered frames.
@@ -1059,6 +1062,13 @@ function coverage(dt){
   // then immediately resume display-rate drawing when a play is called.
   if(fullGame&&(playbookOpen||liveUnit?.state?.book)&&Number.isFinite(lastDraw)&&now-lastDraw<125)return;
   if(!fullGame&&!renderDue(now,lastDraw)||controlSettings.get().frames===30&&Number.isFinite(lastDraw)&&now-lastDraw<1000/30-.5)return;const drawDt=Number.isFinite(lastDraw)?Math.min(.1,(now-lastDraw)/1000):dt;lastDraw=now;present(drawDt,replaying?1:accumulator*60);updateSkillButtons();if(now>messageUntil)$('message').classList.remove('show');frameId++;
+  }catch(error){
+   // A callback is already queued above. Stop it before exposing recovery so a
+   // failed render/physics step cannot throw repeatedly or advance an unseen game.
+   runtimeFailed=true;paused=true;cancelAnimationFrame(raf);keys.clear();
+   input.x=input.z=0;input.sprint=false;input.pointer=input.sprintPointer=null;
+   showGameFailure(document);console.error('[Ball Knower game stopped]',error);
+  }
  }
   function setMode(v){if(phase!=='pre'||playbookOpen||paused)return;mode=v;selected=0;replay.event('mode',{mode:v});setup(false)}
   for(const f of [{id:'all',name:'ALL FORMATIONS'},...FORMATIONS]){const button=document.createElement('button');button.type='button';button.dataset.formation=f.id;button.textContent=f.name;button.onclick=()=>{if(!playbookOpen||paused)return;bookFormation=f.id;bookFilter='all';$('playbookGrid').scrollTop=0;renderPlaybook();$('playbookGrid').querySelector('.selected')?.scrollIntoView({block:'nearest',inline:'nearest'})};$('formationTabs').appendChild(button)}

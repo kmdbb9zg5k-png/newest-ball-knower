@@ -1,4 +1,4 @@
-import {SoloPlayerIdentity,SoloPlayerLink,SoloPortrait,SoloQuickView} from './solo/SoloPresentation';
+import {SoloPlayerLink,SoloPortrait,SoloQuickView} from './solo/SoloPresentation';
 import { BroadcastStage } from './BroadcastScene';
 import React, { useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, MapPin, Play, RotateCcw, Search, Shuffle, Upload } from 'lucide-react';
@@ -254,11 +254,11 @@ const DraftPlayer = ({ player, disabled, onSelect }: { key?: React.Key; player: 
       onClick={onSelect}
       disabled={disabled}
       aria-label={`Draft ${player.name}, ${player.position}, ${player.ovr} overall`}
-      className="grid w-full min-w-0 grid-cols-[48px_minmax(0,1fr)_72px] items-center gap-3 rounded-2xl border border-white/10 bg-[#111] p-3 text-left transition hover:border-[var(--bk-team-accent)]/45 hover:bg-white/[.06] disabled:cursor-wait disabled:opacity-50 active:scale-[.99]"
+      className="grid w-full min-w-0 grid-cols-[48px_minmax(0,1fr)] items-center gap-x-3 gap-y-2 rounded-2xl sm:grid-cols-[48px_minmax(0,1fr)_72px] border border-white/10 bg-[#111] p-3 text-left transition hover:border-[var(--bk-team-accent)]/45 hover:bg-white/[.06] disabled:cursor-wait disabled:opacity-50 active:scale-[.99]"
     >
-      <SoloPortrait player={player}/>
-      <div className="min-w-0"><div className="truncate font-black"><SoloPlayerIdentity player={player} showPortrait={false}/></div><div className="truncate text-xs text-zinc-500">{player.team} • {player.position}</div></div>
-      <span className="grid min-h-11 place-items-center rounded-xl bg-[var(--bk-team-accent)] px-2 text-center text-[10px] font-black leading-tight text-[var(--bk-on-accent)]">DRAFT<br />{player.ovr}</span>
+      <span className="row-span-2 self-start sm:row-span-1 sm:self-center"><SoloPortrait player={player}/></span>
+      <div className="min-w-0"><div className="break-words font-black leading-tight">{player.name}</div><div className="truncate text-xs text-zinc-500">{player.team} • {player.position}</div></div>
+      <span className="col-start-2 grid min-h-11 place-items-center rounded-xl bg-[var(--bk-team-accent)] px-2 text-center text-[10px] font-black leading-tight text-[var(--bk-on-accent)] sm:col-start-auto">DRAFT · {player.ovr}</span>
     </button><SoloQuickView player={player}/></div>
   );
 };

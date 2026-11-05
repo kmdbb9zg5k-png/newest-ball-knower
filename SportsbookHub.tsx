@@ -187,7 +187,7 @@ export const SportsbookHub:React.FC=()=>{
   return <BroadcastStage scene="studio" page="picks" className="bk-picks-screen min-h-[calc(100dvh-7rem)] px-3 py-4 sm:px-6 sm:py-6"><div className="mx-auto max-w-5xl">
     <div className="bk-picks-headrow">
       <BroadcastMasthead eyebrow="Make the call" title="Daily Picks" subtitle="One outcome per NFL game. No wagering. Just football knowledge." compact/>
-      <div className="bk-picks-week-select-wrap"><CalendarDays size={17}/><select aria-label="NFL week" value={slate} onChange={event=>{setSlate(event.target.value);setFilter('all')}}>{slates.map(game=><option key={slateKey(game)} value={slateKey(game)}>{slateLabel(game)}</option>)}</select><ChevronDown size={15}/></div>
+      <div className="bk-picks-week-select-wrap" data-empty={slates.length===0?'true':undefined}><CalendarDays size={17}/><select aria-label="NFL week" disabled={slates.length===0} value={slate} onChange={event=>{setSlate(event.target.value);setFilter('all')}}>{slates.length===0&&<option value={slate}>{loading?'Loading weeks…':'No games available'}</option>}{slates.map(game=><option key={slateKey(game)} value={slateKey(game)}>{slateLabel(game)}</option>)}</select><ChevronDown size={15}/></div>
     </div>
 
     <p className="mb-3 text-xs leading-5 text-zinc-300" aria-label="Free play rules">Free to play. No entry fees, cash bets, payouts or prizes. Picks only track your football prediction record.</p>

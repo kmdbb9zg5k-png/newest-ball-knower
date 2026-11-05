@@ -4,6 +4,7 @@ export {agentTradeWindowMessage,canResolveAgentTradeRequest,isAgentTradeWindowOp
 import {SoloPlayerIdentity,SoloPlayerLink,SoloPortrait,SoloQuickView} from './solo/SoloPresentation';
 import {playerOnSoloTeam} from './solo/presentationPlayer';
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
+import {CareerModeNav} from './CareerModeNav';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -778,6 +779,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
   const [negotiationRoom, setNegotiationRoom] =
     useState<NegotiationState | null>(null);
   const [filter, setFilter] = useState("ALL");
+  const [workspace, setWorkspace] = useState<"recruit" | "clients" | "agency">("recruit");
   const [levelUp, setLevelUp] = useState<{ from: number; to: number } | null>(
     null,
   );
@@ -1668,7 +1670,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           >
             <ArrowLeft size={16} /> BACK
           </button>
-          <BroadcastMasthead eyebrow="Player representation" title="Agent Mode" subtitle="Build your legacy. Every relationship starts with you."/>
+          <BroadcastMasthead compact eyebrow="Player representation" title="Agent Mode" subtitle="Build your legacy. Every relationship starts with you."/>
           <div className="bk-agent-intro-copy flex flex-1 items-center justify-center py-8">
             <div className="w-full max-w-3xl">
               {introStep < 2 && (
@@ -1739,6 +1741,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                       NAME
                       <input
                         aria-label="Agent name"
+                        maxLength={60}
                         value={draftName}
                         onChange={(e) => setDraftName(e.target.value)}
                         className="mt-2 min-h-12 w-full rounded-2xl border border-white/10 bg-black/40 px-4 text-base font-bold text-white"
@@ -1759,6 +1762,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                       HOME CITY
                       <input
                         aria-label="Home city"
+                        maxLength={80}
                         list="agent-cities"
                         value={draftLocation}
                         onChange={(e) => setDraftLocation(e.target.value)}
@@ -1800,6 +1804,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                     onClick={createAgent}
                     disabled={
                       !draftName.trim() ||
+                      !Number.isFinite(Number(draftAge)) ||
                       Number(draftAge) < 18 ||
                       !draftLocation.trim()
                     }
@@ -1829,7 +1834,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           >
             <ArrowLeft size={16} /> SOLO
           </button>
-          <div className="flex items-center gap-3 text-right">
+          <div className="flex min-w-0 items-center gap-3 text-right">
             <SoloPortrait
               player={staffPortraitPlayer(agentPortrait, agency.profile.name)}
               size="avatar"
@@ -1839,7 +1844,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
               <div className="text-[10px] font-black tracking-[.25em] text-violet-300">
                 AGENT CAREER
               </div>
-              <div className="text-lg font-black">{agency.profile.name}</div>
+              <div className="break-words text-lg font-black">{agency.profile.name}</div>
             </div>
           </div>
         </div>
@@ -1886,6 +1891,11 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           </div>
         </section>
 
+        <CareerModeNav<"recruit" | "clients" | "agency"> label="Agent workspace" value={workspace} onChange={setWorkspace} items={[
+          {id:'recruit',label:'Recruit'},
+          {id:'clients',label:'Clients',count:clients.length},
+          {id:'agency',label:'My Agency'},
+        ]}/>
         {agency.timeline.length > 0 && (
           <details className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4">
             <summary className="cursor-pointer text-[10px] font-black tracking-[.2em] text-zinc-400">
@@ -1897,6 +1907,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           </details>
         )}
 
+        <div className="career-workspace-panel" role="region" aria-label="My agency" hidden={workspace!=='agency'}>
         <section className="mt-5 overflow-hidden rounded-[2rem] border border-violet-300/20 bg-[#0c1018] p-5 sm:p-7">
           <div className="grid gap-5 lg:grid-cols-[1.2fr_.8fr]">
             <div>
@@ -1992,6 +2003,13 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           </div>
         </section>
 
+        </div>
+        <div className="career-workspace-panel" role="region" aria-label="Agency clients" hidden={workspace!=='clients'}>
+        {clients.length === 0 && <section className="career-workspace-empty">
+          <h2>Your first client starts here.</h2>
+          <p>Meet a prospect on the recruiting board. Once they sign, their contracts, requests and weekly decisions will appear here.</p>
+          <button type="button" onClick={()=>setWorkspace('recruit')}>Find a prospect</button>
+        </section>}
         {clients.length > 0 && (
           <section className="mt-5 rounded-[2rem] border border-white/10 bg-[#0d121b] p-5 sm:p-6">
             <div className="mb-4 flex items-center gap-2">
@@ -2156,11 +2174,13 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           </section>
         )}
 
+        </div>
+        <div className="career-workspace-panel" role="region" aria-label="Recruiting board" hidden={workspace!=='recruit'}>
         <section className="mt-5 rounded-[2rem] border border-white/10 bg-[#0d121b] p-5 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="text-[10px] font-black tracking-[.22em] text-violet-300">
-                FIRST CLIENT BOARD
+                RECRUITING BOARD
               </div>
               <h2 className="mt-1 text-3xl font-black">
                 WHO WILL YOU REPRESENT?
@@ -2189,6 +2209,11 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
               ))}
             </select>
           </div>
+          {prospects.length===0&&<div className="career-workspace-empty" role="status">
+            <h2>No prospects in this position.</h2>
+            <p>Try another position to see available players. Recruiting options expand as your reputation grows.</p>
+            {filter!=='ALL'&&<button type="button" onClick={()=>setFilter('ALL')}>Show all positions</button>}
+          </div>}
           <div className="mt-5 grid gap-3 md:grid-cols-2">
             {prospects.map((p) => {
               const [low, high] = salaryRange(p);
@@ -2228,6 +2253,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           </div>
         </section>
 
+        </div>
         {selected && recruit && (
           <ModalPortal>
             <div
@@ -2262,6 +2288,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                       persist(agency);
                       setRecruit(null);
                       setSelectedId(null);
+                      if (recruit.completed) setWorkspace('clients');
                     }}
                     className="min-h-11 shrink-0 rounded-xl bg-white/5 px-3 text-xs font-black disabled:opacity-40"
                   >

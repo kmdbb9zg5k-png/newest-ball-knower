@@ -55,7 +55,7 @@ export class AppErrorBoundary extends Component<Props, State> {
   };
 
   render() {
-    if (!this.state.error) return <>{this.props.children}{this.state.report ? <button type="button" onClick={this.reportIssue} className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-[120] flex min-h-11 items-center gap-2 rounded-full border border-red-400/30 bg-[#17191f]/95 px-4 text-[10px] font-black tracking-wider text-red-200 shadow-2xl"><Bug size={15} /> {this.state.reportState === 'sent' ? 'ISSUE SENT' : this.state.reportState === 'sending' ? 'SENDING…' : 'REPORT ISSUE'}</button> : null}</>;
+    if (!this.state.error) return <>{this.props.children}{this.state.report ? <button type="button" onClick={this.reportIssue} disabled={this.state.reportState === 'sending'} className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] md:bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-[120] flex min-h-11 items-center gap-2 rounded-full border border-red-400/30 bg-[#17191f]/95 px-4 text-[10px] font-black tracking-wider text-red-200 shadow-2xl"><Bug size={15} /> {this.state.reportState === 'sent' ? 'ISSUE SENT' : this.state.reportState === 'sending' ? 'SENDING…' : 'REPORT ISSUE'}</button> : null}</>;
 
     return (
       <div className="min-h-[100dvh] bg-[#07090d] px-4 py-12 text-white">

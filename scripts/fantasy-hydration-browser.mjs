@@ -6,11 +6,9 @@ import {chromium} from 'playwright';
 
 // Execute the real components' hydration hooks and edit handlers in a small
 // React fixture. Deferred reads reproduce edits made while the cloud is slow.
-const hub=await readFile('FantasyHub.tsx','utf8'),draft=await readFile('LeagueLiveDraftRoom.tsx','utf8');
+const watchHook=await readFile('useFantasyWatchlist.ts','utf8'),watchHelpers=await readFile('fantasyWatchlist.ts','utf8'),draft=await readFile('LeagueLiveDraftRoom.tsx','utf8');
 const section=(s,a,b)=>s.slice(s.indexOf(a),s.indexOf(b,s.indexOf(a)));
 const effectAt=(s,needle)=>s.lastIndexOf('useEffect(',s.indexOf(needle));
-const watchEffectStart=effectAt(hub,'void loadUserState<string[]>');
-const watchEffect=hub.slice(watchEffectStart,hub.indexOf('}, []);',watchEffectStart)+7);
 const draftEffectStart=effectAt(draft,'void loadMyCloudDraftPreferences');
 const draftEffects=draft.slice(draftEffectStart,draft.indexOf('  useEffect(()=>{\n    const timer=window.setInterval',draftEffectStart));
 const source=`import React,{useState,useRef,useEffect}from'react';import{createRoot}from'react-dom/client';
@@ -21,10 +19,10 @@ const loadMyCloudDraftPreferences=(league:string,member:string)=>new Promise((re
 const saveMyCloudDraftPreferences=async(league:string,member:string,value:any)=>{w.saves.push({key:league,value});};
 type DraftPreferences={queue:string[],favorites:string[],doNotDraft:string[],preRankings:string[]};
 const EMPTY_PREFERENCES:DraftPreferences={queue:[],favorites:[],doNotDraft:[],preRankings:[]};
+${watchHelpers.replaceAll('export ', '')}
+${watchHook.slice(watchHook.indexOf('export function useFantasyWatchlist')).replace('export function', 'function')}
 function Watch(){
-${section(hub,'  const [watchlist, setWatchlist]','  const fantasyPositions')}
-${watchEffect}
-${section(hub,'  const toggleWatch =','  const enterPublicLeague')}
+const {watchlist,toggleWatch}=useFantasyWatchlist('fixture-user');
 return <><button onClick={()=>toggleWatch('local')}>Toggle local watch</button><output id="watch">{JSON.stringify(watchlist)}</output></>;
 }
 function Draft({scope}:{scope:string}){const activeLeague={id:scope},myMember={id:'manager'};

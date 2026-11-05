@@ -1,3 +1,4 @@
+import {createLocalId} from './localIdentity';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { ensureOnlineSession, supabase } from './supabase';
 
@@ -77,7 +78,7 @@ export function subscribeCommunity(kind:'messages'|'matches'|'friends'|'public',
   const schedule=()=>{if(closed||document.visibilityState==='hidden'||queued)return;
     queued=setTimeout(()=>{queued=undefined;if(!closed)refresh();},150);};
   const table=kind==='messages'?'ball_knower_community_messages':kind==='friends'?'ball_knower_friendships':'ball_knower_h2h_matches';
-  const channel:RealtimeChannel|null=client?client.channel(`bk-community-${kind}-${crypto.randomUUID()}`)
+  const channel:RealtimeChannel|null=client?client.channel(`bk-community-${kind}-${createLocalId()}`)
     .on('postgres_changes',{event:'*',schema:'public',table},schedule).subscribe():null;
   const poll=setInterval(schedule,intervalMs);
   window.addEventListener('focus',schedule);window.addEventListener('online',schedule);

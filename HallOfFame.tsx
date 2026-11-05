@@ -5,6 +5,7 @@ import { fetchLeaderboard, publishCareer } from './leaderboardCloud';
 import { defaultCareer, CareerProfile } from './soloSeasonEngine';
 import { useBallKnower } from './BallKnowerContext';
 import { CloudSyncBadge, useCloudSyncStatus } from './CloudSyncProvider';
+import { normalizeCareerProfile } from './careerProfileState';
 
 const CAREER_KEY='ballknower_solo_career_v1';
 const RIVAL_POOL = [
@@ -27,20 +28,26 @@ export const HallOfFame:React.FC=()=>{
  const {currentUser}=useBallKnower();
  const cloudStatus=useCloudSyncStatus();
  const [rows,setRows]=useState<any[]>([]);
- const [career]=useState<CareerProfile>(()=>{try{return JSON.parse(localStorage.getItem(CAREER_KEY)||'null')||defaultCareer()}catch{return defaultCareer()}});
+ const [career]=useState<CareerProfile>(()=>{try{return normalizeCareerProfile(JSON.parse(localStorage.getItem(CAREER_KEY)||'null'))}catch{return defaultCareer()}});
  const [loading,setLoading]=useState(cloudStatus==='connecting');
+ const [error,setError]=useState('');
+ const [retry,setRetry]=useState(0);
  useEffect(()=>{
   let active=true;
   const rivals=simulatedRivals();
-  if(cloudStatus!=='online'){setRows(rivals);setLoading(false);return()=>{active=false};}
+  if(cloudStatus!=='online'){setRows(rivals);setError('');setLoading(false);return()=>{active=false};}
   setLoading(true);
-  publishCareer(currentUser?.name||'Ball Knower GM',career)
-   .then(()=>fetchLeaderboard())
+  setError('');
+  // Reading public standings must remain possible when a profile write fails.
+  void publishCareer(currentUser?.name||'Ball Knower GM',career).catch(()=>{
+   if(active)setError(previous=>previous||'Your career could not sync. Published standings are still available.');
+  });
+  fetchLeaderboard()
    .then(real=>{if(active)setRows([...real,...rivals].sort((a,b)=>b.championships-a.championships||b.best_ball_knower_score-a.best_ball_knower_score).slice(0,50))})
-   .catch(()=>{if(active)setRows(rivals)})
+   .catch(()=>{if(active){setRows(rivals);setError('Live standings are unavailable. Showing AI rivals until you retry.');}})
    .finally(()=>{if(active)setLoading(false)});
   return()=>{active=false};
- },[cloudStatus,currentUser?.id,currentUser?.name]);
+ },[cloudStatus,currentUser?.id,currentUser?.name,retry,career]);
  return <BroadcastStage scene="legacy" page="legacy" className="min-h-[100dvh] bg-[#090909] text-white px-4 sm:px-8 py-10"><div className="max-w-5xl mx-auto">
   <BroadcastMasthead eyebrow="Ball Knower legacy" title="Hall of Fame" subtitle="Championships. Career wins. The names that earned their place."/>
 
@@ -49,12 +56,13 @@ export const HallOfFame:React.FC=()=>{
   </div>
   <div className="bg-[#111] border border-white/10">
    <div className="p-4 border-b border-white/10 flex flex-wrap justify-between items-center gap-3"><h3 className="font-black text-xl flex gap-2 items-center"><Trophy className="text-[#D4AF37]"/>GLOBAL LEADERBOARD</h3><CloudSyncBadge/></div>
+   {error&&<div role="status" className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-300/20 bg-amber-300/5 px-4 py-3 text-xs leading-5 text-amber-100"><p>{error}</p><button type="button" onClick={()=>setRetry(value=>value+1)} className="min-h-11 rounded-lg border border-amber-300/30 px-4 font-semibold">Retry</button></div>}
    {loading?<div className="p-10 text-center text-zinc-500">Loading legends...</div>:rows.length===0?<div className="p-10 text-center text-zinc-500">No published runs yet. Be the first.</div>:
-   <div className="divide-y divide-white/5">{rows.map((r,i)=><div key={r.auth_user_id} className="grid grid-cols-[42px_1fr_repeat(3,auto)] gap-2 sm:gap-4 items-center p-3 sm:p-4"><div className="text-lg sm:text-xl font-black text-[#D4AF37]">{i===0?'👑':i===1?'🥈':i===2?'🥉':`#${i+1}`}</div><div className="min-w-0"><div className="truncate font-black">{r.display_name} {r.is_ai_rival&&<span className="ml-1 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-1.5 py-0.5 text-[8px] text-cyan-300">AI RIVAL</span>}</div><div className="text-xs text-zinc-500">{r.best_record} best record</div></div><Cell l="RINGS" v={r.championships}/><Cell l="WINS" v={r.career_wins}/><Cell l="BK" v={r.best_ball_knower_score}/></div>)}</div>}
-   <div className="border-t border-white/10 px-4 py-3 text-[10px] font-bold text-zinc-500"><Bot className="mr-1 inline h-3 w-3"/> AI RIVALS are simulated opponents—not human accounts. Verified players publish through Supabase.</div>
+   <div className="divide-y divide-white/5">{rows.map((r,i)=><div key={r.auth_user_id} className="grid grid-cols-[32px_repeat(3,minmax(0,1fr))] sm:grid-cols-[42px_minmax(0,1fr)_repeat(3,auto)] gap-2 sm:gap-4 items-center p-3 sm:p-4"><div className="row-span-2 self-start pt-1 text-lg sm:row-span-1 sm:self-center sm:pt-0 sm:text-xl font-black text-[#D4AF37]">{i===0?'👑':i===1?'🥈':i===2?'🥉':`#${i+1}`}</div><div className="col-span-3 min-w-0 sm:col-span-1"><div title={r.display_name} className="truncate font-black">{r.display_name} {r.is_ai_rival&&<span className="ml-1 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-1.5 py-0.5 text-[8px] text-cyan-300">AI RIVAL</span>}</div><div className="text-xs text-zinc-500">{r.best_record} best record</div></div><Cell l="RINGS" v={r.championships}/><Cell l="WINS" v={r.career_wins}/><Cell l="BK" v={r.best_ball_knower_score}/></div>)}</div>}
+   <div className="border-t border-white/10 px-4 py-3 text-[10px] font-bold text-zinc-500"><Bot className="mr-1 inline h-3 w-3"/> AI RIVALS are simulated opponents—not human accounts. Published player careers appear alongside these marked rivals.</div>
   </div>
   {career.achievements.length>0&&<div className="mt-8 bg-[#111] border border-white/10 p-5"><h3 className="font-black text-[#D4AF37] mb-3">YOUR TROPHY CASE</h3><div className="flex flex-wrap gap-2">{career.achievements.map(a=><span key={a} className="border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-3 py-2 text-xs font-black">🏆 {a}</span>)}</div></div>}
  </div></BroadcastStage>
 }
-const Stat=({l,v}:{l:string,v:any})=><div className="bg-[#121212] border border-white/10 p-3"><div className="text-[9px] text-zinc-500 font-black">{l}</div><div className="text-xl font-black">{v}</div></div>;
-const Cell=({l,v}:{l:string,v:any})=><div className="text-right min-w-[55px]"><div className="text-[8px] text-zinc-600 font-black">{l}</div><div className="font-black">{v}</div></div>;
+const Stat=({l,v}:{l:string,v:any})=><div className="bg-[#121212] border border-white/10 p-3"><div className="text-[10px] text-zinc-400 font-bold">{l}</div><div className="text-xl font-black">{v}</div></div>;
+const Cell=({l,v}:{l:string,v:any})=><div className="min-w-0 text-left sm:min-w-[55px] sm:text-right"><div className="text-[10px] text-zinc-400 font-bold">{l}</div><div className="font-black">{v}</div></div>;

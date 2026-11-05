@@ -76,6 +76,11 @@ try{
       assert.ok(geometry.cardHeights.every(height=>height>=80),'matchup rows must retain the approved compact card height');
       assert.ok(geometry.submitHeight>=44,'Submit Picks must retain a practical tap target');
       if(width<768)assert.ok(geometry.submitWidth>=width-60,'Submit Picks should be prominent and nearly full-width on phones');
+      assert.ok(await page.locator('.bk-picks-team span').evaluateAll(names=>names.every(name=>name.clientWidth>=120&&name.scrollWidth<=name.clientWidth+1&&getComputedStyle(name).textOverflow!=='ellipsis')), 'Full team names must remain readable, never squeezed into an icon column');
+      if(width<=560){
+        assert.ok(geometry.compactPickButtons.every(height=>height>=44),'Phone team selections need full touch targets');
+        assert.ok(await page.locator('.bk-picks-time').first().isVisible(),'Kickoff must remain visible on narrow phones');
+      }
       await page.screenshot({path:`${out}/${name}-${width}.png`,fullPage:false});
       const first=page.locator(`[data-game-id="${game.id}"]`);
       await page.getByRole('button',{name:'Upcoming',exact:true}).click();assert.equal(await page.locator('.bk-picks-game').count(),1);

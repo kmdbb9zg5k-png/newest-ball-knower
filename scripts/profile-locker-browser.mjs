@@ -98,9 +98,26 @@ try {
       for (const button of await page.getByRole('button', { name: 'Profile', exact: true }).all()) { if (await button.isVisible()) { await button.click(); break; } }
       const profile = page.getByTestId('locker-profile');
       await profile.waitFor();
+      const guide = page.getByRole('dialog', { name: 'Make every game count.', exact: true });
+      await guide.waitFor();
+      assert.equal(await guide.getByRole('navigation', { name: 'Profile guide topics' }).getByRole('button').count(), 9);
+      await guide.getByRole('button', { name: /Verified activity & receipts/ }).click();
+      assert.ok(await guide.getByRole('heading', { name: 'Verified activity & receipts', exact: true }).isVisible());
+      await page.keyboard.press('Escape');
+      await guide.waitFor({ state: 'detached' });
+      assert.equal(await page.evaluate(() => localStorage.getItem('bk-guide-profile-v1')), 'seen');
+      await page.getByRole('heading', { name: 'Profile', exact: true }).waitFor();
+      const help = page.getByRole('button', { name: 'How it works', exact: true });
+      await help.click();
+      await guide.waitFor();
+      await guide.getByRole('button', { name: 'Close Profile guide', exact: true }).click();
+      assert.ok(await help.evaluate(element => element === document.activeElement), 'Closing the guide restores focus to its trigger');
+
       await page.waitForFunction(() => document.querySelector('[data-testid="bk-rating"]')?.textContent === '50');
       await page.evaluate(() => document.fonts.ready);
       await page.evaluate(async () => { const image = new Image(); image.src = '/profile/locker-reference-atlas.webp'; await image.decode(); });
+      await page.locator('.bk-profile-hero-art').evaluate(image => image.decode());
+      assert.equal(await page.locator('.bk-profile-hero').getByTestId('locker-identity').count(),1,'Live identity belongs inside the cinematic hero');
       await page.waitForTimeout(250);
       assert.equal(await profile.locator('.bk-locker-hex').count(), 6);
       assert.equal(await profile.locator('.bk-locker-trophy').count(), 6);
@@ -117,8 +134,34 @@ try {
       await page.screenshot({ path: `${output}/${engine}-${width}-profile.png` });
       await page.screenshot({ path: `${output}/${engine}-${width}-full.png`, fullPage: true });
       const visual = await page.evaluate(() => { const rect = selector => { const box = document.querySelector(selector)?.getBoundingClientRect(); return box ? { x: box.x, y: box.y, width: box.width, height: box.height, bottom: box.bottom } : null; }; return { receipts: rect('.bk-locker-receipts'), nav: rect('nav[aria-label="Primary navigation"]'), identity: rect('.bk-profile-identity'), heading: rect('.bk-locker-masthead'), trophyTargets: [...document.querySelectorAll('.bk-locker-trophy')].slice(0,6).map(element => {const b=element.getBoundingClientRect(); return {x:b.x,right:b.right,width:b.width,height:b.height};}), badges: [...document.querySelectorAll('.bk-locker-badge')].slice(0,6).map(element => {const b=element.getBoundingClientRect(); return {x:b.x,right:b.right,width:b.width,height:b.height};}) }; });
-      if (width === 390 || width === 430) {
-        assert.ok(visual.receipts && visual.nav && visual.receipts.bottom <= visual.nav.y, `The reference's receipts panel must be visible above navigation: ${JSON.stringify(visual)}`);
+      if (width < 768) {
+        // Profile identity and 44px account actions may extend the page. Require
+        // the entire receipts panel to be reachable, without fixed chrome
+        // covering its content, rather than squeezing everything into one fold.
+        await profile.locator('.bk-locker-receipts').evaluate(element => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        const reachableReceipts = await page.evaluate(() => {
+          const panel = document.querySelector('.bk-locker-receipts');
+          const rect = panel?.getBoundingClientRect();
+          const header = document.querySelector('body > header')?.getBoundingClientRect();
+          const nav = document.querySelector('nav[aria-label="Primary navigation"]')?.getBoundingClientRect();
+          if (!panel || !rect || !header || !nav) return null;
+          const x = rect.left + rect.width / 2;
+          return {
+            top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right,
+            headerBottom: header.bottom, navTop: nav.top,
+            unobstructed: [rect.top + 8, rect.top + rect.height / 2, rect.bottom - 8]
+              .every(y => panel.contains(document.elementFromPoint(x, y))),
+          };
+        });
+        assert.ok(reachableReceipts && reachableReceipts.top >= reachableReceipts.headerBottom - 1
+          && reachableReceipts.bottom <= reachableReceipts.navTop + 1
+          && reachableReceipts.left >= 0 && reachableReceipts.right <= width + 1
+          && reachableReceipts.unobstructed,
+          `Receipts must scroll fully into view without fixed header/nav obstruction at ${engine} ${width}: ${JSON.stringify(reachableReceipts)}`);
+        await page.screenshot({ path: `${output}/${engine}-${width}-receipts-reachable.png` });
+        await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       }
       assert.equal(visual.badges.length, 6);
       assert.ok(visual.badges.every(b => b.x >= 0 && b.right <= width + 1 && b.width >= 44 && b.height >= 44), 'All six decorative badges must actually be visible');
@@ -185,12 +228,12 @@ try {
       assert.ok(await rail.evaluate(element => element.scrollLeft > 0), 'Larger catalogs remain scrollable');
       await profile.getByRole('button', { name: /^Seventh Milestone:/ }).click();
       assert.match(await profile.locator('.bk-locker-detail').innerText(), /Additional verified catalog entry/);
+      await page.locator('.bk-profile-extras > summary').click();
       const accountBox = await page.locator('.bk-locker-account > summary').boundingBox();
       assert.ok(accountBox && accountBox.width >= 44 && accountBox.height >= 44, 'Account disclosure needs a practical phone target');
       await page.locator('.bk-locker-account > summary').click();
       assert.equal(await page.locator('.bk-locker-account code').innerText(), userId);
       await page.locator('.bk-locker-account > summary').click();
-      await page.locator('.bk-profile-extras > summary').click();
       await page.getByRole('button', { name: 'Collection', exact: true }).click();
       assert.ok(await page.getByText('Fixture Collectible', { exact: true }).isVisible());
       await page.getByLabel('Locker and collection').getByRole('button', { name: 'Locker', exact: true }).click();

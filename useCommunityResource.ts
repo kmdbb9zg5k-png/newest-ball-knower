@@ -6,21 +6,29 @@ export function useCommunityResource<T>(fetcher:()=>Promise<T>) {
   const fetchRef=useRef(fetcher);fetchRef.current=fetcher;
   const gate=useRef(createRequestGate());
   const running=useRef<Promise<void>|null>(null);
+  const lifecycle=useRef(0);
+  const mounted=useRef(false);
   const [data,setData]=useState<T|null>(null);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
+  const [refreshing,setRefreshing]=useState(false);
   const refresh=useCallback(async function refresh(force=false):Promise<void>{
-    if(running.current){const current=running.current;await current;if(!force)return;}
+    if(!mounted.current)return;
+    const scope=lifecycle.current;
+    // Forced post-mutation reads wait for earlier requests without racing each other.
+    while(running.current){const current=running.current;await current;if(!force||!mounted.current||scope!==lifecycle.current)return;}
+    if(!mounted.current||scope!==lifecycle.current)return;
+    setRefreshing(true);
     const version=gate.current.next();
     const request=(async()=>{
       try {const next=await fetchRef.current();if(gate.current.isCurrent(version)){setData(next);setError('');}}
       catch(reason){if(gate.current.isCurrent(version))setError(reason instanceof Error?reason.message:'Could not refresh. Please retry.');}
-      finally{if(gate.current.isCurrent(version))setLoading(false);}
+      finally{if(gate.current.isCurrent(version)){setLoading(false);setRefreshing(false);}}
     })();
     running.current=request;
     void request.finally(()=>{if(running.current===request)running.current=null;});
     return request;
   },[]);
-  useEffect(()=>{void refresh();return()=>{gate.current.invalidate();running.current=null;};},[refresh]);
-  return {data,loading,error,refresh};
+  useEffect(()=>{mounted.current=true;void refresh();return()=>{mounted.current=false;lifecycle.current+=1;gate.current.invalidate();running.current=null;};},[refresh]);
+  return {data,loading,refreshing,error,refresh};
 }

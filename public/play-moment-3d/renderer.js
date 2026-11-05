@@ -1,5 +1,6 @@
 /* WebGL2 renderer. Project-owned, same-origin assets; no external runtime services.
    Instanced geometry; one bounded actor-only shadow map; material-aware lights. */
+import {showGameFailure} from './game-failure.js';
 export const identity=()=>new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]);
 export function mul(a,b){const o=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++)o[c*4+r]=a[r]*b[c*4]+a[4+r]*b[c*4+1]+a[8+r]*b[c*4+2]+a[12+r]*b[c*4+3];return o}
 export function translate(x=0,y=0,z=0){const m=identity();m[12]=x;m[13]=y;m[14]=z;return m}
@@ -202,7 +203,7 @@ export class Renderer{
   if(!gl)throw new Error('WebGL2 unavailable');this.gl=gl;this.batches=new Map();this.geometry=new Map();this.actorPass=false;
   this.eye=[0,18,0];this.target=[0,0,40];this.vp=identity();this.lightVP=identity();this.drawCalls=0;this.shadowDrawCalls=0;this.lost=false;
   this.shadowTexture=null;this.shadowBuffer=null;this.shadowAvailable=false;this.shadowSize=0;this.quality='high';this.overflows=0;this.shadowCasters=[];
-  canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();this.lost=true;const box=document.getElementById('error'),text=document.getElementById('errorText');if(box)box.hidden=false;if(text)text.textContent='Graphics paused. Reload this practice page to restart. Your career is unchanged.'});
+  canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();this.lost=true;showGameFailure(document,'graphics');});
   this.program=program(gl,vertex,fragment);this.depthProgram=program(gl,depthVertex,depthFragment);
   this.skyProgram=program(gl,skyVertex,skyFragment);this.skyVao=gl.createVertexArray();
   this.uniforms=Object.fromEntries(['vp','eye','image','textured','unlit','lightVP','shadowMap','useShadow','shadowTexel','material','turfDetail','hasTurfDetail','sceneTime'].map(k=>[k,gl.getUniformLocation(this.program,k)]));
