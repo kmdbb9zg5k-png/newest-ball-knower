@@ -10,13 +10,14 @@ type Props = {
   onRespond: (choiceId: string) => void;
   onUpgrade: (playerId: string, focus: UpgradeFocus) => void;
   onReadAll: () => void;
+  fullScreenDecisions?: boolean;
 };
 
 const KIND_COLOR = {
   story: 'text-sky-300', morale: 'text-amber-300', breakout: 'text-emerald-300', injury: 'text-red-300', upgrade: 'text-violet-300',
 } as const;
 
-export const FranchiseInteractionCenter: React.FC<Props> = ({ state, roster, onRespond, onUpgrade, onReadAll }) => {
+export const FranchiseInteractionCenter: React.FC<Props> = ({ state, roster, onRespond, onUpgrade, onReadAll, fullScreenDecisions = false }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUpgrades, setShowUpgrades] = useState(false);
   const playerById = useMemo(() => new Map(roster.map(player => [player.id, player])), [roster]);
@@ -55,7 +56,7 @@ export const FranchiseInteractionCenter: React.FC<Props> = ({ state, roster, onR
 
     {showUpgrades ? <div className="rounded-2xl border border-violet-400/20 bg-violet-400/[.04] p-3"><div className="mb-2 flex items-center gap-2 text-xs font-black uppercase text-violet-300"><Sparkles className="h-4 w-4" />Player upgrades</div>{upgrades.length ? <div className="space-y-2">{upgrades.slice(0, 6).map(development => { const player = playerById.get(development.playerId)!; return <div key={player.id} className="rounded-xl border border-white/10 bg-black/25 p-3"><div className="flex items-center justify-between gap-2"><div className="min-w-0"><div className="truncate text-sm font-black"><SoloPlayerLink player={player} development={development}/></div><div className="text-[10px] text-zinc-500">{player.position} · {player.ovr} OVR · {development.xp}/100 XP</div></div><b className="text-violet-300">{development.upgradePoints} PT</b></div><div className="mt-2 grid grid-cols-3 gap-1">{([['physical', 'Physical'], ['awareness', 'Awareness'], ['position', 'Position']] as Array<[UpgradeFocus, string]>).map(([focus, label]) => <button key={focus} type="button" onClick={() => onUpgrade(player.id, focus)} className="min-h-10 rounded-lg border border-violet-300/20 bg-violet-300/[.06] px-1 text-[8px] font-black uppercase text-violet-200">+1 {label}</button>)}</div></div>; })}</div> : <p className="text-xs leading-5 text-zinc-500">Players earn XP from weekly production, promises and breakout performances. Every 100 XP becomes an upgrade point.</p>}</div> : null}
 
-    {scenario && scenarioPlayer ? <article className="overflow-hidden rounded-2xl border border-[var(--bk-team-accent)]/35 bg-[#10151d] shadow-xl">
+    {!fullScreenDecisions && scenario && scenarioPlayer ? <article className="overflow-hidden rounded-2xl border border-[var(--bk-team-accent)]/35 bg-[#10151d] shadow-xl">
       <div className="border-b border-white/10 bg-[var(--bk-team-accent)]/10 p-4"><div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[.18em] text-[var(--bk-team-accent)]"><CircleAlert className="h-4 w-4" />Decision required · Week {scenario.week}</div><h3 className="mt-2 text-xl font-black uppercase">{scenario.title}</h3><p className="mt-1 text-sm leading-5 text-zinc-300">{scenario.message}</p><div className="mt-2 text-[10px] font-black uppercase text-zinc-500">{scenarioPlayer.position} · {scenarioPlayer.ovr} OVR · Morale {state.development[scenarioPlayer.id]?.morale ?? 75}</div></div>
       <div className="grid gap-2 p-3 sm:grid-cols-3">{scenario.choices.map(choice => <button key={choice.id} type="button" onClick={() => onRespond(choice.id)} className="min-h-20 rounded-xl border border-white/10 bg-black/25 p-3 text-left active:scale-[.99]"><div className="text-xs font-black uppercase text-white">{choice.label}</div><div className="mt-1 text-[10px] leading-4 text-zinc-500">{choice.detail}</div></button>)}</div>
     </article> : null}

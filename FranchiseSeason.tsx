@@ -26,6 +26,7 @@ import { SOLO_TEAM_THEMES, soloTeamLogoUrl } from './soloUniverse';
 import { LeagueMember, Player, TeamRatings } from './types';
 import { ensureFranchiseDraftYear, FranchiseDraftPick, ownedFranchiseDraftRounds } from './franchiseDraftPicks';
 import { FranchiseInteractionCenter } from './FranchiseInteractionCenter';
+import { GmEventAlerts, type GmImportantEvent } from './GmEventAlerts';
 import {
   createFranchiseInteractions,
   applyFranchiseOpportunities,
@@ -73,6 +74,9 @@ type Props = {
   draftPickAssets?: FranchiseDraftPick[];
   onDraftPickAssetsChange?: (picks: FranchiseDraftPick[]) => void;
   onSeasonYearChange?: (year: number) => void;
+  gmEvents?: GmImportantEvent[];
+  gmAlertScopeKey?: string;
+  onGmWeekChange?: (week: number, year: number) => void;
 };
 
 const EASTERN_CONFERENCE = new Set(SOLO_TEAM_THEMES.slice(0, 16).map(team => team.abbr));
@@ -187,6 +191,9 @@ export const FranchiseSeason: React.FC<Props> = ({
   draftPickAssets,
   onDraftPickAssetsChange,
   onSeasonYearChange,
+  gmEvents,
+  gmAlertScopeKey,
+  onGmWeekChange,
 }) => {
   const seasonKey = `${saveKey}:season`;
   const savedSeason=useMemo(()=>restoreSeason(seasonKey),[seasonKey,careerStartYear,userTeam.abbr]);
@@ -227,13 +234,20 @@ export const FranchiseSeason: React.FC<Props> = ({
     setSeasonRoster(current => {
       const rookies = current.filter(player => player.id.startsWith('franchise-rookie-'));
       if(careerPanel&&rookies.length)return current.length===roster.length?current:replaceFranchisePlayersWithRookies(roster.map(p=>current.find(c=>c.id===p.id)||p),rookies);
-      const next = [...roster, ...rookies.filter(rookie => !roster.some(player => player.id === rookie.id))];
+      const next = gmEvents !== undefined ? roster : [...roster, ...rookies.filter(rookie => !roster.some(player => player.id === rookie.id))];
       const sameMembers=next.length===current.length&&next.every(player=>current.some(saved=>saved.id===player.id));
       return (careerPanel?sameMembers:JSON.stringify(next.map(player => player.id)) === JSON.stringify(current.map(player => player.id))) ? current : next;
     });
   }, [roster]);
   const livingCareer=Boolean(careerPanel);
   const activeRoster = useMemo(()=>{const roster=mergeMyPlayerProgress(seasonRoster,myPlayerId,myPlayerProgress);return livingCareer?syncMyPlayerRole(roster,myPlayerId,myPlayerRole):roster;},[seasonRoster,myPlayerId,myPlayerProgress,myPlayerRole,livingCareer]);
+  const gmAlertsEnabled = gmEvents !== undefined;
+  useEffect(() => {
+    onGmWeekChange?.(stage === 'regular' ? weeks.length + 1 : 18, year);
+  }, [onGmWeekChange, stage, weeks.length, year]);
+  useEffect(() => {
+    if (gmAlertsEnabled) setInteractionState(current => syncFranchiseInteractions(current, activeRoster));
+  }, [gmAlertsEnabled, activeRoster]);
   useSoloRecords(activeRoster,weeks,interactionState,year);
   const ratings = useMemo(() => ratingsWithFranchiseMorale(calculateTeamRatings(activeRoster), interactionState, activeRoster), [activeRoster, interactionState]);
   const wins = weeks.filter(week => week.won).length;
@@ -496,6 +510,29 @@ export const FranchiseSeason: React.FC<Props> = ({
     notifications: current.notifications.map(notification => ({ ...notification, read: true })),
   }));
 
+  const gmDecisionEvents: GmImportantEvent[] = [...(gmEvents ?? [])];
+  const pendingMeeting = interactionState.pendingScenario;
+  if (pendingMeeting && activeRoster.some(player => player.id === pendingMeeting.playerId)) {
+    const player = activeRoster.find(item => item.id === pendingMeeting.playerId)!;
+    gmDecisionEvents.push({
+      id: `meeting:${pendingMeeting.id}`,
+      eyebrow: `Player meeting · Week ${pendingMeeting.week}`,
+      title: pendingMeeting.title,
+      detail: `${pendingMeeting.message}\n\n${player.name} · ${player.position} · ${player.ovr} OVR · Morale ${interactionState.development[player.id]?.morale ?? 75}`,
+      choices: pendingMeeting.choices.map(choice => ({ ...choice, onSelect: () => respondToScenario(choice.id) })),
+    });
+  }
+  for (const notice of interactionState.notifications) {
+    if (notice.read || !(notice.kind === 'injury' || (notice.kind === 'morale' && notice.id.startsWith('promise-')))) continue;
+    gmDecisionEvents.push({
+      id: `notice:${notice.id}`,
+      eyebrow: `${notice.kind === 'injury' ? 'Medical update' : 'Locker room update'} · Week ${notice.week}`,
+      title: notice.title,
+      detail: notice.body,
+      choices: [{ id: 'acknowledge', label: 'Acknowledge update', detail: 'Keep this report in your team inbox.', onSelect: () => setInteractionState(current => ({ ...current, notifications: current.notifications.map(item => item.id === notice.id ? { ...item, read: true } : item) })) }],
+    });
+  }
+
   useEffect(() => {
     if (stage !== 'draft') return;
     if (draftedProspects.length >= ownedDraftRounds.length) {
@@ -527,7 +564,8 @@ export const FranchiseSeason: React.FC<Props> = ({
 
         </CareerSection>{careerPanel&&((stage==='regular'&&weeks.length<17)||(stage==='playoffs'&&round))?careerPanel({key:careerKey,label:stage==='playoffs'?String(round):`Week ${weeks.length+1}`,week:stage==='playoffs'?18+playoffs.length:weeks.length+1,opponentAbbr:stage==='playoffs'?nextPlayoffMatchup?.opponentAbbr:currentOpponent.abbr,opponent:stage==='playoffs'?(SOLO_TEAM_THEMES.find(t=>t.abbr===nextPlayoffMatchup?.opponentAbbr)?.name||'Playoff opponent'):currentOpponent.name}):null}
         {careerTabbed&&<CareerSection tab="story">{(!careerBlocked||stage==='finished'||stage==='draft'||(stage==='regular'&&weeks.length>=17)||(stage==='playoffs'&&!round))&&<div className="career-scene"><h3>{stage==='finished'?'Season complete':stage==='regular'?`Week ${Math.min(weeks.length+1,17)} · Game day`:'Playoff game day'}</h3><p>Your next team game, conversations and season results are in the Career tab.</p><CareerTabLink tab="career">CONTINUE TO CAREER</CareerTabLink></div>}</CareerSection>}
-        <CareerSection tab="career">{stage === 'regular' || stage === 'playoffs' ? <FranchiseInteractionCenter state={interactionState} roster={activeRoster} onRespond={respondToScenario} onUpgrade={applyUpgrade} onReadAll={readAllNotifications} /> : null}
+        {gmAlertsEnabled && <GmEventAlerts scopeKey={`${gmAlertScopeKey ?? `${saveKey}:${userTeam.abbr}`}:${year}`} events={gmDecisionEvents} />}
+        <CareerSection tab="career">{stage === 'regular' || stage === 'playoffs' ? <FranchiseInteractionCenter state={interactionState} roster={activeRoster} onRespond={respondToScenario} onUpgrade={applyUpgrade} onReadAll={readAllNotifications} fullScreenDecisions={gmAlertsEnabled} /> : null}
 
         {stage === 'regular' ? (
           <div className="grid gap-5 lg:grid-cols-[1.35fr_.65fr]">
