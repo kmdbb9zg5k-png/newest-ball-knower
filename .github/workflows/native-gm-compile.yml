@@ -1,0 +1,36 @@
+name: Native GM package compile
+on:
+  push:
+    branches: [codex/native-compile-issue546]
+permissions:
+  contents: read
+concurrency:
+  group: native-gm-compile-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  ios-package-compile:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: packages/native-auth-session
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - name: Xcode and Swift versions
+        run: |
+          xcodebuild -version
+          swift --version
+      - name: Inspect native package schemes
+        run: xcodebuild -list -json
+      - name: Compile the real plugin for iOS Simulator without signing
+        run: |
+          set -o pipefail
+          xcodebuild -scheme BallKnowerNativeAuthSession -destination 'generic/platform=iOS Simulator' -configuration Debug CODE_SIGNING_ALLOWED=NO build 2>&1 | tee "$RUNNER_TEMP/native-gm-compile.log"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-gm-compile-${{ github.sha }}
+          path: ${{ runner.temp }}/native-gm-compile.log
+          retention-days: 7
