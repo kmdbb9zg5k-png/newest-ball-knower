@@ -47,9 +47,9 @@
 .bk-picks-day-list{display:grid;gap:6px}
 .bk-picks-game{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 112px 94px;gap:12px;align-items:center;min-height:88px;padding:12px 12px 12px 14px;border:1px solid #34414c;border-radius:17px;background:linear-gradient(180deg,#101820,#0c141b)}
 .bk-picks-teams{display:grid;gap:7px;min-width:0}
-.bk-picks-team{display:grid;grid-template-columns:34px minmax(0,1fr);gap:9px;align-items:center;min-width:0}
+.bk-picks-team{display:grid;grid-template-columns:minmax(0,1fr);gap:9px;align-items:center;min-width:0}
 .bk-picks-team img{width:32px;height:32px;object-fit:contain;filter:drop-shadow(0 1px 2px #0008)}
-.bk-picks-team span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f6f7f8;font-size:15px;font-weight:750}
+.bk-picks-team span{min-width:0;white-space:normal;overflow-wrap:anywhere;color:#f6f7f8;font-size:15px;font-weight:750}
 .bk-picks-time{min-height:58px;padding-left:13px;border-left:1px solid #394651;display:flex;flex-direction:column;justify-content:center;align-items:flex-start}
 .bk-picks-time strong{font-size:14px;color:#f4f6f7}.bk-picks-time span{margin-top:4px;color:#9da8b3;font-size:12px}
 .bk-picks-team-buttons{display:grid;gap:6px}
@@ -76,7 +76,7 @@
   .bk-picks-submit-row{align-items:stretch;flex-direction:column;gap:8px}
   .bk-picks-submit-row>button{width:100%;min-width:0;min-height:48px;font-size:12px}
   .bk-picks-game{grid-template-columns:minmax(0,1fr) 82px 74px;gap:8px;min-height:82px;padding:10px 9px 10px 11px;border-radius:15px}
-  .bk-picks-team{grid-template-columns:28px minmax(0,1fr);gap:7px}.bk-picks-team img{width:27px;height:27px}.bk-picks-team span{font-size:13px}
+  .bk-picks-team{grid-template-columns:minmax(0,1fr);gap:7px}.bk-picks-team img{width:27px;height:27px}.bk-picks-team span{font-size:13px}
   .bk-picks-time{min-height:52px;padding-left:9px}.bk-picks-time strong{font-size:12px}.bk-picks-time span{font-size:10px}
   .bk-picks-team-buttons button{min-height:32px;padding:0 7px;border-radius:10px}.bk-picks-team-buttons button b{font-size:10px}.bk-picks-team-buttons button small{font-size:8px}
   .bk-picks-day-title{font-size:11px}
@@ -88,3 +88,15 @@
 @media(prefers-reduced-motion:reduce){.bk-picks-spin{animation:none}}
 .bk-picks-week-select-wrap[data-empty="true"] { width: min(100%, 240px); }
 .bk-picks-week-select-wrap select:disabled { opacity: 1; color: #aebac4; }
+
+/* Full team names get the card width; kickoff never competes with them. */
+@media(max-width:560px){
+  .bk-picks-game{grid-template-columns:minmax(0,1fr) 86px;gap:10px}
+  .bk-picks-time{display:flex;grid-column:1/-1;grid-row:1;flex-direction:row;justify-content:space-between;align-items:center;min-height:0;padding:0 0 8px;border-left:0;border-bottom:1px solid #394651}
+  .bk-picks-time span{margin:0}
+  .bk-picks-teams{grid-column:1;grid-row:2;gap:8px}
+  .bk-picks-team{min-height:48px}
+  .bk-picks-team span{font-size:14px;line-height:1.3}
+  .bk-picks-team-buttons{grid-column:2;grid-row:2;gap:8px}
+  .bk-picks-team-buttons button{min-height:48px}
+}
