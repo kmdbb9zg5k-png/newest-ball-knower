@@ -6,8 +6,9 @@ import { useBallKnower } from './BallKnowerContext';
 import { ModalPortal } from './ModalPortal';
 import { ProgressionProfileCard } from './ProgressionProfileCard';
 import { ProfilePhotoEditor } from './ProfilePhotoEditor';
-import { LockerManagerIllustration } from './ProfileLockerArt';
+import { ProfileGuide } from './ProfileGuide';
 import './profileLocker.css';
+import './profilePage.css';
 import type { LeagueMember } from './types';
 
 type Tab='locker'|'collections';
@@ -16,7 +17,7 @@ const getLockerSlot = (item: StoreItem) => lockerSlots[String(item.metadata.slot
 
 type LockerHubProps = { onOpenAuth?: () => void; viewedMember?: LeagueMember | null; onBack?: () => void };
 
-const possessiveLockerTitle = (name: string) => `${name}${name.trim().toLowerCase().endsWith('s') ? "'" : "'s"} Locker`;
+const possessiveLockerTitle = (name: string) => `${name}${name.trim().toLowerCase().endsWith('s') ? "'" : "'s"} Profile`;
 
 export const LockerHub: React.FC<LockerHubProps> = ({ onOpenAuth, viewedMember, onBack }) => {
   const { currentUser } = useBallKnower();
@@ -45,7 +46,7 @@ const PublicLocker: React.FC<{ member: LeagueMember; onBack?: () => void }> = ({
       <header className="bk-locker-masthead">
         <button type="button" onClick={onBack} aria-label="Back to league" className="bk-locker-back"><ArrowLeft aria-hidden="true"/></button>
         <h1>{possessiveLockerTitle(name)}</h1>
-        <span>Football minds build more<i aria-hidden="true"/></span>
+        <ProfileGuide/>
       </header>
       <div className="bk-profile-identity" data-testid="locker-identity">
         <section className="bk-member-locker-identity" aria-label={`${name}'s Ball Knower profile`}>
@@ -58,7 +59,6 @@ const PublicLocker: React.FC<{ member: LeagueMember; onBack?: () => void }> = ({
           </div>
           <div className="bk-member-locker-copy"><div>{name}</div><div>League manager · verified Ball Knower profile</div></div>
         </section>
-        <LockerManagerIllustration/>
       </div>
       <ProgressionProfileCard targetUserId={member.userId} targetDisplayName={name}/>
     </div>
@@ -126,10 +126,9 @@ const LockerSession: React.FC<{ onOpenAuth?: () => void }> = ({ onOpenAuth }) =>
 
   return <BroadcastStage scene="locker" page="profile" className="bk-profile-page relative isolate min-h-[calc(100dvh-7rem)] overflow-hidden px-3 pb-8 pt-4 sm:px-6 sm:pt-6">
     <div className="mx-auto max-w-5xl">
-      <header className="bk-locker-masthead"><h1>Your Locker</h1><span>Football minds build more<i aria-hidden="true"/></span></header>
+      <header className="bk-locker-masthead"><div><p className="bk-profile-eyebrow">Your Ball Knower identity</p><h1>Profile</h1></div><ProfileGuide/></header>
       <div className="bk-profile-identity" data-testid="locker-identity">
         <ProfilePhotoEditor onOpenAuth={onOpenAuth}/>
-        <LockerManagerIllustration/>
         {currentUser?.id && <details className="bk-locker-account"><summary>Account ID · …{currentUser.id.slice(-8)}</summary><code>{currentUser.id}</code></details>}
       </div>
       <ProgressionProfileCard/>

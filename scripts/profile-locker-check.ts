@@ -43,7 +43,7 @@ assert.match(html, /Level 2 at 1,000 XP/);
 assert.match(html, /-1 RTG/);
 assert.doesNotMatch(html, /\+-1/);
 assert.match(html, /Fixture trophy 6/);
-assert.match(html, /Server controlled/);
+assert.match(html, /Verified rating · 0–99/);
 assert.match(html, /role="img" aria-label="Rating: 50"/);
 assert.match(html, /clipPathUnits="userSpaceOnUse"/);
 const zero = render({ profile: { ...profile, xp: 0, championships: 0 }, events: [], achievements: [], predictionPicks: [] });
@@ -71,5 +71,8 @@ assert.ok(statSync(new URL('../public/profile/locker-reference-atlas.webp', impo
 assert.ok(statSync(new URL('../public/profile/locker-manager-face.webp', import.meta.url)).size < 8192, 'Manager face overlay must remain a small local asset');
 assert.match(source('ProfileLockerArt.tsx'), /LockerReceiptScene/);
 assert.match(source('LockerHub.tsx'), /<details className="bk-profile-extras"/);
-assert.match(source('profileLocker.css'), /body:has\(\.bk-app-shell\[data-tab="locker"\]\)/);
+assert.ok(source('LockerHub.tsx').includes('<h1>Profile</h1>'));
+assert.doesNotMatch(source('LockerHub.tsx'), /Your Locker/);
+assert.ok(source('LockerHub.tsx').includes('<ProfileGuide/>'));
+assert.match(source('ProfileGuide.tsx'), /ModalPortal/);
 console.log('Profile locker contracts passed: true XP thresholds, 6 ratings, prediction record history, full trophy catalog, signed receipts, loading/errors, unchanged photo entrypoint, scoped art and account reads.');

@@ -98,6 +98,21 @@ try {
       for (const button of await page.getByRole('button', { name: 'Profile', exact: true }).all()) { if (await button.isVisible()) { await button.click(); break; } }
       const profile = page.getByTestId('locker-profile');
       await profile.waitFor();
+      const guide = page.getByRole('dialog', { name: 'Make every game count.', exact: true });
+      await guide.waitFor();
+      assert.equal(await guide.getByRole('navigation', { name: 'Profile guide topics' }).getByRole('button').count(), 9);
+      await guide.getByRole('button', { name: /Verified activity & receipts/ }).click();
+      assert.ok(await guide.getByRole('heading', { name: 'Verified activity & receipts', exact: true }).isVisible());
+      await page.keyboard.press('Escape');
+      await guide.waitFor({ state: 'detached' });
+      assert.equal(await page.evaluate(() => localStorage.getItem('bk-guide-profile-v1')), 'seen');
+      await page.getByRole('heading', { name: 'Profile', exact: true }).waitFor();
+      const help = page.getByRole('button', { name: 'How it works', exact: true });
+      await help.click();
+      await guide.waitFor();
+      await guide.getByRole('button', { name: 'Close Profile guide', exact: true }).click();
+      assert.ok(await help.evaluate(element => element === document.activeElement), 'Closing the guide restores focus to its trigger');
+
       await page.waitForFunction(() => document.querySelector('[data-testid="bk-rating"]')?.textContent === '50');
       await page.evaluate(() => document.fonts.ready);
       await page.evaluate(async () => { const image = new Image(); image.src = '/profile/locker-reference-atlas.webp'; await image.decode(); });
