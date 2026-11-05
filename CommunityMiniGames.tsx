@@ -5,6 +5,7 @@ import {miniChallengeAction,subscribeCommunity,type CommunityFriend} from './com
 import {useCommunityResource} from './useCommunityResource';
 import {MINI_CHALLENGE_GAMES,miniGame,miniChallengeUrl,miniStatLabel,type MiniChallenge,type MiniGameId,type MiniStats} from './miniChallenges';
 import './communityMiniGames.css';
+import {readMiniResult,saveMiniResult,clearMiniResult,validMiniResultStats} from './communityResultRecovery';
 import {scoutingAdvice} from './miniScouting';
 import ChallengeShareCard from './ChallengeShareCard';
 const CommunityCompetitionArena=lazy(()=>import('./CommunityCompetitionArena'));
@@ -27,7 +28,8 @@ export default function CommunityMiniGames({me,friends,onOpenAuth}:{me:string;fr
     finally{lock.current=false;setPending(false);}
   };
   const play=(match:MiniChallenge)=>void act(async()=>{
-    const attempt=await miniChallengeAction('begin',{id:match.id}) as {token:string};
+    const cached=readMiniResult(me,`challenge:${match.id}`);
+    const attempt=cached||await miniChallengeAction('begin',{id:match.id}) as {token:string};
     setPlaying({match,token:attempt.token});
   });
   const matches=data||[];
@@ -45,7 +47,7 @@ export default function CommunityMiniGames({me,friends,onOpenAuth}:{me:string;fr
       {game==='dash'&&<p className="bk-mini-explanation">Open practice, finish a dash, then share your ghost replay. A friend can import it and race your recorded run—even without a live opponent.</p>}
       <p className="bk-mini-casual">Casual competition · game results are device-reported. Trivia rating is separate.</p>
     </section>
-    {(error||actionError)&&<div className="bk-mini-error" role="alert">{actionError||error}<button type="button" onClick={()=>void refresh()}>Refresh challenges</button></div>}
+    {(error||actionError)&&<div className="bk-mini-error" role="alert">{actionError||error}<button type="button" disabled={pending||loading} onClick={()=>void act(async()=>{})}>Refresh challenges</button></div>}
     {me&&mine.some(m=>m.status==='completed')&&<section className="bk-mini-challenge-feed" aria-label="Rivalry records"><header><h3>Your rivalry records</h3></header><p>Completed challenges in the loaded history · wins / losses / ties.</p>{Array.from(new Set(mine.filter(m=>m.status==='completed').map(m=>m.challenger_id===me?m.opponent_id:m.challenger_id))).filter(Boolean).map(id=>{
       const series=mine.filter(m=>m.status==='completed'&&(m.challenger_id===id||m.opponent_id===id));
       const latest=series[0],name=latest.challenger_id===id?latest.challenger_name:latest.opponent_name;
@@ -53,12 +55,13 @@ export default function CommunityMiniGames({me,friends,onOpenAuth}:{me:string;fr
       return <article className="bk-mini-challenge-card" key={id}><div className="bk-mini-card-title"><strong>{name||'Your rival'}</strong><span>{wins} / {series.length-wins-ties} / {ties}</span></div><p>{series.length} completed challenge{series.length===1?'':'s'}</p></article>;
     })}</section>}
     <section className="bk-mini-challenge-feed" aria-label="Your mini game challenges"><header><h3>Your challenges</h3><button type="button" aria-label="Refresh mini game challenges" disabled={loading} onClick={()=>void refresh()}><RefreshCcw className={loading?'animate-spin':''}/></button></header>
-      {!me?<p className="bk-mini-empty">Browse the games above. Sign in to compete and see your challenges.</p>:loading&&!data?<p className="bk-mini-empty" role="status">Loading challenges…</p>:!mine.length?<p className="bk-mini-empty">Your next rivalry starts here. Choose a game above.</p>:mine.map(m=>{
+      {!me?<p className="bk-mini-empty">Browse the games above. Sign in to compete and see your challenges.</p>:loading&&!data?<p className="bk-mini-empty" role="status">Loading challenges…</p>:!mine.length?error?<p className="bk-mini-empty">Your challenges have not loaded. Refresh challenges to try again.</p>:<p className="bk-mini-empty">Your next rivalry starts here. Choose a game above.</p>:mine.map(m=>{
         const incoming=m.status==='pending'&&m.opponent_id===me;
         const myStats=m.challenger_id===me?m.challenger_stats:m.opponent_stats;
+        const recoverable=!myStats&&!!readMiniResult(me,`challenge:${m.id}`);
         return <ChallengeCard key={m.id} match={m} me={me}>
           {incoming&&<><button disabled={pending} className="bk-mini-primary" onClick={()=>void act(()=>miniChallengeAction('accept',{id:m.id}))}>Accept challenge</button><button disabled={pending} onClick={()=>void act(()=>miniChallengeAction('decline',{id:m.id}))}>Decline</button></>}
-          {m.status==='active'&&!myStats&&<button disabled={pending} className="bk-mini-primary" onClick={()=>play(m)}>Play your turn</button>}
+          {(m.status==='active'||recoverable)&&!myStats&&<button disabled={pending} className="bk-mini-primary" onClick={()=>play(m)}>{recoverable?'Retry result save':'Play your turn'}</button>}
           {m.status==='active'&&myStats&&<span className="bk-mini-locked">Your result is locked · waiting for your rival</span>}
           {['pending','open'].includes(m.status)&&m.challenger_id===me&&<button disabled={pending} onClick={()=>void act(()=>miniChallengeAction('cancel',{id:m.id}))}>Cancel challenge</button>}
           {m.status==='completed'&&<button disabled={pending||!friends.some(f=>f.userId===(m.challenger_id===me?m.opponent_id:m.challenger_id))} onClick={()=>void act(()=>miniChallengeAction('create',{game:m.game,opponent:m.challenger_id===me?m.opponent_id:m.challenger_id}))}>Challenge to rematch</button>}
@@ -66,8 +69,8 @@ export default function CommunityMiniGames({me,friends,onOpenAuth}:{me:string;fr
         </ChallengeCard>;
       })}
     </section>
-    {me&&<section className="bk-mini-challenge-feed" aria-label="Open mini game challenges"><header><h3>Open challenges</h3></header>{!open.length?<p className="bk-mini-empty">No open challenges yet. Post one and let someone step up.</p>:open.map(m=><ChallengeCard key={m.id} match={m} me={me}><button disabled={pending} className="bk-mini-primary" onClick={()=>void act(()=>miniChallengeAction('accept',{id:m.id}))}>Take this challenge</button></ChallengeCard>)}</section>}
-    {playing&&createPortal(<MiniChallengePlayer key={playing.token} match={playing.match} token={playing.token} onClose={()=>{setPlaying(null);void refresh();}}/>,document.body)}
+    {me&&<section className="bk-mini-challenge-feed" aria-label="Open mini game challenges"><header><h3>Open challenges</h3></header>{!open.length?error?<p className="bk-mini-empty">Open challenges have not loaded.</p>:<p className="bk-mini-empty">No open challenges yet. Post one and let someone step up.</p>:open.map(m=><ChallengeCard key={m.id} match={m} me={me}><button disabled={pending} className="bk-mini-primary" onClick={()=>void act(()=>miniChallengeAction('accept',{id:m.id}))}>Take this challenge</button></ChallengeCard>)}</section>}
+    {playing&&createPortal(<MiniChallengePlayer key={playing.token} me={me} match={playing.match} token={playing.token} onClose={()=>{setPlaying(null);void refresh();}}/>,document.body)}
   </div>;
 }
 const statNames:Record<string,string>={rounds:'Completed weeks',correct:'Correct film reads',raw0:'Week 1 raw tape',raw1:'Week 2 raw tape',raw2:'Week 3 raw tape',time:'Time (sec)',distance:'Distance (m)',split10:'10-yard split (sec)',split20:'20-yard split (sec)',penalty:'Penalty (sec)',score:'Average score',reps:'Reps',catches:'Catches',stops:'Stops',picks:'Interceptions',points:'Points',yards:'Total yards',passYards:'Passing yards',rushYards:'Rushing yards',turnovers:'Turnovers',touchdowns:'Touchdowns',plays:'Plays'};
@@ -77,27 +80,30 @@ function ChallengeCard({match:m,me,children}:{match:MiniChallenge;me:string;chil
     {m.game==='career'&&m.status==='completed'&&m.challenger_stats?.validated===1&&m.opponent_stats?.validated===1&&<span className="bk-mini-verified">Completion checked · both results locked</span>}{(m.challenger_stats||m.opponent_stats)&&<details><summary>Compare all stats</summary><table><thead><tr><th>Stat</th><th>{m.challenger_name}</th><th>{m.opponent_name||'Opponent'}</th></tr></thead><tbody>{Array.from(new Set([...Object.keys(m.challenger_stats||{}),...Object.keys(m.opponent_stats||{})])).filter(k=>k!=='dnf'&&k!=='validated'&&!k.startsWith('prep')&&!k.startsWith('film')).map(k=><tr key={k}><th>{statNames[k]||k}</th><td>{m.challenger_stats?.[k]??'—'}</td><td>{m.opponent_stats?.[k]??'—'}</td></tr>)}</tbody></table></details>}
     {['open','pending','active'].includes(m.status)&&<p className="bk-mini-expiry">Finish by {new Date(m.expires_at).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</p>}<div className="bk-mini-card-actions">{children}</div></article>;
 }
-function MiniChallengePlayer({match,token,onClose}:{match:MiniChallenge;token:string;onClose:()=>void}){
+function MiniChallengePlayer({me,match,token,onClose}:{me:string;match:MiniChallenge;token:string;onClose:()=>void}){
   const frame=useRef<HTMLIFrameElement>(null),dialog=useRef<HTMLDialogElement>(null);
-  const [result,setResult]=useState<MiniStats|null>(null),[saving,setSaving]=useState(false),[saved,setSaved]=useState(false),[error,setError]=useState('');
+  const scope=`challenge:${match.id}`;const [recovered]=useState(()=>readMiniResult(me,scope));
+  const [retained,setRetained]=useState(!!recovered);
+  const [result,setResult]=useState<MiniStats|null>(recovered?.stats||null),[saving,setSaving]=useState(false),[saved,setSaved]=useState(false),[error,setError]=useState('');
   const locked=useRef(false),mounted=useRef(true);
-  const requestClose=()=>{if(saving)return;if(result&&!saved&&!window.confirm('Your result has not been saved. Leave and discard it?'))return;onClose();};
+  const requestClose=()=>{if(locked.current)return;if(result&&!saved&&!retained&&!window.confirm('Your result has not saved and browser storage is unavailable. Leave and discard it?'))return;onClose();};
   const submit=async(stats:MiniStats)=>{
     if(locked.current)return;locked.current=true;setSaving(true);setError('');
-    try{const response=await miniChallengeAction('submit',{id:match.id,token,stats}) as {stats?:MiniStats};if(mounted.current){if(response.stats)setResult(response.stats);setSaved(true);}}
+    setRetained(saveMiniResult(me,scope,{token,seed:match.seed,stats,expiresAt:new Date(Math.max(Date.now(),Date.parse(match.expires_at))+86400000).toISOString()}));
+    try{const response=await miniChallengeAction('submit',{id:match.id,token,stats}) as {stats?:MiniStats};if(mounted.current){clearMiniResult(me,scope);if(response.stats)setResult(response.stats);setSaved(true);}}
     catch(e){if(mounted.current)setError(e instanceof Error?e.message:'Result could not be saved. Retry below.');}
     finally{locked.current=false;if(mounted.current)setSaving(false);}
   };
   useEffect(()=>{
-    mounted.current=true;dialog.current?.showModal();const overflow=document.body.style.overflow;document.body.style.overflow='hidden';
+    mounted.current=true;dialog.current?.showModal();const prior=document.activeElement as HTMLElement|null;const overflow=document.body.style.overflow;document.body.style.overflow='hidden';
     let received=false;
     const receive=(e:MessageEvent)=>{
       if(received||e.origin!==location.origin||e.source!==frame.current?.contentWindow||!['bk-mini-result','bk-mini-exit'].includes(e.data?.type)||e.data.challengeId!==match.id||e.data.token!==token)return;
       if(e.data.type==='bk-mini-exit'){onClose();return;}
-      if(!e.data.stats||typeof e.data.stats!=='object'||Object.values(e.data.stats).some(v=>typeof v!=='number'||!Number.isFinite(v)))return;
+      if(!validMiniResultStats(e.data.stats))return;
       received=true;setResult(e.data.stats);void submit(e.data.stats);
     };
-    window.addEventListener('message',receive);return()=>{mounted.current=false;document.body.style.overflow=overflow;window.removeEventListener('message',receive);};
+    window.addEventListener('message',receive);return()=>{mounted.current=false;document.body.style.overflow=overflow;prior?.focus();window.removeEventListener('message',receive);};
   },[match.id,token]);
-  return <dialog ref={dialog} className="bk-mini-play-dialog" aria-label={`${miniGame(match.game).name} head to head`} onCancel={e=>{e.preventDefault();requestClose();}}><header><span><b>{miniGame(match.game).name}</b><small>Community challenge · fixed settings</small></span><button type="button" aria-label="Leave mini game challenge" disabled={saving} onClick={requestClose}><X/></button></header>{result?<section className="bk-mini-post-result"><Trophy/><h2>{saved?'RESULT LOCKED':saving?'POSTING YOUR RESULT':'RESULT READY'}</h2><strong>{miniStatLabel(match.game,result)}</strong><aside aria-label="Scouting report"><h3>Next rep focus</h3><p>{scoutingAdvice(match.game,result)}</p></aside><p role="status">{saved?'Your result is saved. Compare stats in Community.':saving?'Saving your challenge result…':error}</p>{error&&<button className="bk-mini-primary" disabled={saving} onClick={()=>void submit(result)}>Retry saving result</button>}<button disabled={saving} onClick={requestClose}>Back to challenges</button>{saved&&<ChallengeShareCard game={match.game} stats={result}/>}</section>:match.game==='career'?<Suspense fallback={<p role="status">Loading career challenge…</p>}><CareerCommunityChallenge seed={match.seed} token={token} onComplete={stats=>{setResult(stats);void submit(stats);}}/></Suspense>:<iframe ref={frame} title={`${miniGame(match.game).name} challenge game`} src={miniChallengeUrl(match,token)} allow="fullscreen; autoplay"/>}</dialog>;
+  return <dialog ref={dialog} className="bk-mini-play-dialog" aria-label={`${miniGame(match.game).name} head to head`} onCancel={e=>{e.preventDefault();requestClose();}}><header><span><b>{miniGame(match.game).name}</b><small>Community challenge · fixed settings</small></span><button type="button" aria-label="Leave mini game challenge" disabled={saving} onClick={requestClose}><X/></button></header>{result?<section className="bk-mini-post-result"><Trophy/><h2>{saved?'RESULT LOCKED':saving?'POSTING YOUR RESULT':'RESULT READY'}</h2><strong>{miniStatLabel(match.game,result)}</strong><aside aria-label="Scouting report"><h3>Next rep focus</h3><p>{scoutingAdvice(match.game,result)}</p></aside><p role="status">{saved?'Your result is saved. Compare stats in Community.':saving?'Saving your challenge result…':error}</p>{!saved&&retained&&<p>Your result is retained on this device. Reopen this challenge to retry without playing again.</p>}{!saved&&!saving&&<button className="bk-mini-primary" disabled={saving} onClick={()=>void submit(result)}>Retry saving result</button>}<button disabled={saving} onClick={requestClose}>Back to challenges</button>{saved&&<ChallengeShareCard game={match.game} stats={result}/>}</section>:match.game==='career'?<Suspense fallback={<p role="status">Loading career challenge…</p>}><CareerCommunityChallenge seed={match.seed} token={token} onComplete={stats=>{setResult(stats);void submit(stats);}}/></Suspense>:<iframe ref={frame} title={`${miniGame(match.game).name} challenge game`} src={miniChallengeUrl(match,token)} allow="fullscreen; autoplay"/>}</dialog>;
 }

@@ -25,21 +25,34 @@ export async function flushPendingUserStateWrites(): Promise<void> {
   }
 }
 
-export async function loadUserStates<T = unknown>(stateKeys: string[]): Promise<UserStateRow<T>[]> {
+async function userStateSession(expectedUserId?: string) {
+  const user = await ensureOnlineSession();
+  const { data, error } = await supabase!.auth.getSession();
+  if (error || !data.session?.access_token || data.session.user.id !== user.id || expectedUserId && user.id !== expectedUserId) {
+    throw new Error('Your account changed. Reopen this screen.');
+  }
+  // Pin the bearer token to the same identity as the payload. PostgREST would
+  // otherwise ask for the latest session only when the request is dispatched.
+  return { user, authorization: `Bearer ${data.session.access_token}` };
+}
+
+export async function loadUserStates<T = unknown>(stateKeys: string[], expectedUserId?: string): Promise<UserStateRow<T>[]> {
   if (!supabase || stateKeys.length === 0) return [];
-  await ensureOnlineSession();
+  const { user, authorization } = await userStateSession(expectedUserId);
   const { data, error } = await supabase
     .from('ball_knower_user_state')
     .select('state_key,value,updated_at')
-    .in('state_key', stateKeys);
+    .eq('user_id', user.id)
+    .in('state_key', stateKeys)
+    .setHeader('Authorization', authorization);
   if (error) throw error;
   return (data ?? []) as UserStateRow<T>[];
 }
 
-export function saveUserStates(entries: Array<{ stateKey: string; value: unknown }>): Promise<UserStateRow[]> {
+export function saveUserStates(entries: Array<{ stateKey: string; value: unknown }>, expectedUserId?: string): Promise<UserStateRow[]> {
   if (!supabase || entries.length === 0) return Promise.resolve([]);
   return trackUserStateWrite((async () => {
-    const user = await ensureOnlineSession();
+    const { user, authorization } = await userStateSession(expectedUserId);
     const rows: UserStateRow[] = [];
     const regularEntries = entries.filter(entry => entry.stateKey !== OWNER_STATE_KEY);
     if (regularEntries.length > 0) {
@@ -50,7 +63,7 @@ export function saveUserStates(entries: Array<{ stateKey: string; value: unknown
           value: entry.value,
         })),
         { onConflict: 'user_id,state_key' },
-      ).select('state_key,value,updated_at');
+      ).select('state_key,value,updated_at').setHeader('Authorization', authorization);
       if (error) throw error;
       rows.push(...((data ?? []) as UserStateRow[]));
     }
@@ -58,7 +71,7 @@ export function saveUserStates(entries: Array<{ stateKey: string; value: unknown
       const { data, error } = await supabase.rpc('save_ball_knower_revisioned_user_state', {
         p_state_key: entry.stateKey,
         p_value: entry.value,
-      });
+      }).setHeader('Authorization', authorization);
       if (error) throw error;
       rows.push(...((data ?? []) as UserStateRow[]));
     }
@@ -68,13 +81,14 @@ export function saveUserStates(entries: Array<{ stateKey: string; value: unknown
 
 export async function loadUserState<T>(stateKey: string): Promise<T | null> {
   if (!supabase) return null;
-  const user = await ensureOnlineSession();
+  const { user, authorization } = await userStateSession();
   const { data, error } = await supabase
     .from('ball_knower_user_state')
     .select('value')
     .eq('user_id', user.id)
     .eq('state_key', stateKey)
-    .maybeSingle();
+    .maybeSingle()
+    .setHeader('Authorization', authorization);
   if (error) throw error;
   return (data?.value as T | undefined) ?? null;
 }
@@ -82,12 +96,12 @@ export async function loadUserState<T>(stateKey: string): Promise<T | null> {
 export function saveUserState(stateKey: string, value: unknown): Promise<void> {
   if (!supabase) return Promise.resolve();
   return trackUserStateWrite((async () => {
-    const user = await ensureOnlineSession();
+    const { user, authorization } = await userStateSession();
     if (stateKey === OWNER_STATE_KEY) {
       const { error } = await supabase.rpc('save_ball_knower_revisioned_user_state', {
         p_state_key: stateKey,
         p_value: value,
-      });
+      }).setHeader('Authorization', authorization);
       if (error) throw error;
       return;
     }
@@ -95,7 +109,7 @@ export function saveUserState(stateKey: string, value: unknown): Promise<void> {
       user_id: user.id,
       state_key: stateKey,
       value,
-    }, { onConflict: 'user_id,state_key' });
+    }, { onConflict: 'user_id,state_key' }).setHeader('Authorization', authorization);
     if (error) throw error;
   })());
 }
@@ -124,19 +138,20 @@ export function commitAgentSigningForExpectedUser(
 
 export async function loadGauntletProgressEvents(): Promise<GauntletProgressEvent[]> {
   if (!supabase) return [];
-  const user = await ensureOnlineSession();
+  const { user, authorization } = await userStateSession();
   const { data, error } = await supabase
     .from('ball_knower_gauntlet_progress_events')
     .select('payload')
     .eq('user_id', user.id)
-    .order('occurred_at', { ascending: true });
+    .order('occurred_at', { ascending: true })
+    .setHeader('Authorization', authorization);
   if (error) throw error;
   return (data ?? []).map(row => row.payload as GauntletProgressEvent);
 }
 
 export async function saveGauntletProgressEvents(events: GauntletProgressEvent[]): Promise<void> {
   if (!supabase || events.length === 0) return;
-  const user = await ensureOnlineSession();
+  const { user, authorization } = await userStateSession();
   for (let index = 0; index < events.length; index += 250) {
     const rows = events.slice(index, index + 250).map(event => ({
       user_id: user.id,
@@ -144,7 +159,7 @@ export async function saveGauntletProgressEvents(events: GauntletProgressEvent[]
       occurred_at: new Date(event.occurredAt).toISOString(),
       payload: event,
     }));
-    const { error } = await supabase.from('ball_knower_gauntlet_progress_events').upsert(rows, { onConflict: 'user_id,event_id', ignoreDuplicates: true });
+    const { error } = await supabase.from('ball_knower_gauntlet_progress_events').upsert(rows, { onConflict: 'user_id,event_id', ignoreDuplicates: true }).setHeader('Authorization', authorization);
     if (error) throw error;
   }
 }

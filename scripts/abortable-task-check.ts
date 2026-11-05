@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import { abortableTask } from '../abortableTask';
+
+const resolved = new AbortController();
+assert.equal(await abortableTask(Promise.resolve('ready'), resolved.signal), 'ready');
+await assert.rejects(abortableTask(Promise.reject(new Error('auth failed')), resolved.signal), /auth failed/);
+const stopped = new AbortController();
+let rejectLate!: (reason: Error) => void;
+const unhandled: unknown[] = [];
+const observe = (reason: unknown) => unhandled.push(reason);
+process.on('unhandledRejection', observe);
+const waiting = abortableTask(new Promise((_resolve, reject) => { rejectLate = reject; }), stopped.signal);
+stopped.abort();
+await assert.rejects(waiting, { name: 'AbortError' });
+rejectLate(new Error('late old request failure'));
+await new Promise(resolve => setImmediate(resolve));
+assert.deepEqual(unhandled, [], 'Late auth failure after Stop must remain handled');
+const alreadyStopped = new AbortController();
+alreadyStopped.abort();
+await assert.rejects(abortableTask(Promise.resolve('obsolete'), alreadyStopped.signal), { name: 'AbortError' });
+process.removeListener('unhandledRejection', observe);
+console.log('Abortable task checks passed: auth completion, failure, immediate stop and late rejection recovery.');

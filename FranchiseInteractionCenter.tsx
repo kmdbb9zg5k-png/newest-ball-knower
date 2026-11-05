@@ -1,7 +1,7 @@
-import {SoloPlayerLink} from './solo/SoloPresentation';
+import {SoloPortrait,SoloPlayerLink} from './solo/SoloPresentation';
 import React, { useMemo, useState } from 'react';
 import { Bell, ChevronDown, ChevronUp, CircleAlert, Sparkles, TrendingUp, Users } from 'lucide-react';
-import type { FranchiseInteractionState, UpgradeFocus } from './franchiseInteractions';
+import { franchiseWeeklyBriefing, type FranchiseInteractionState, type UpgradeFocus } from './franchiseInteractions';
 import type { Player } from './types';
 
 type Props = {
@@ -29,6 +29,7 @@ export const FranchiseInteractionCenter: React.FC<Props> = ({ state, roster, onR
     .filter(item => playerById.has(item.playerId))
     .sort((first, second) => first.morale - second.morale)
     .slice(0, 3);
+  const briefing = useMemo(() => franchiseWeeklyBriefing(state, roster), [state, roster]);
   const scenario = state.pendingScenario;
   const scenarioPlayer = scenario ? playerById.get(scenario.playerId) : null;
 
@@ -39,6 +40,13 @@ export const FranchiseInteractionCenter: React.FC<Props> = ({ state, roster, onR
   };
 
   return <section aria-label="Franchise interactions" className="mb-4 space-y-3">
+    <details className="rounded-2xl border border-sky-300/20 bg-[#0c1620] p-4" aria-label="Weekly briefing">
+      <summary className="cursor-pointer list-none"><span className="text-[10px] font-black uppercase tracking-[.16em] text-sky-200">Weekly briefing</span><strong className="mt-1 block text-sm">{scenario ? scenario.title : 'Team decisions are up to date'} <span className="font-normal text-zinc-400">· {briefing.promises.length} active promise{briefing.promises.length === 1 ? '' : 's'} · {briefing.points} upgrade point{briefing.points === 1 ? '' : 's'}</span></strong><span className="mt-1 block text-xs text-zinc-400">Open your relationship watch, goals and next steps.</span></summary>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-xl bg-black/25 p-3"><h3 className="text-xs font-black text-sky-200">Before the next game</h3><p className="mt-2 text-xs leading-5 text-zinc-300">{scenario ? `Resolve ${scenario.title.toLowerCase()} before advancing. ${scenario.relatedTo ? 'This conversation follows a saved outcome.' : 'Your response is recorded in the team inbox.'}` : 'No meeting is blocking the next game.'} Team morale: {briefing.morale}/99. {briefing.points ? 'Spend earned upgrades before simulating.' : 'Weekly production earns development XP.'}</p>{briefing.promises.map(promise => <p key={promise.id} className="mt-2 text-xs leading-5 text-amber-200">Week {promise.dueWeek} · {playerById.get(promise.playerId)?.name}: {promise.goal.description}</p>)}{briefing.followUps.length > 0 && <p className="mt-2 text-xs text-zinc-400">{briefing.followUps.length} connected follow-up{briefing.followUps.length === 1 ? '' : 's'} remain in the coach’s calendar.</p>}</div>
+        <div className="rounded-xl bg-black/25 p-3"><h3 className="text-xs font-black text-amber-200">Relationship watch</h3><p className="mt-1 text-[10px] leading-4 text-zinc-400">Trust remembers meetings and kept or missed promises across seasons.</p>{briefing.relationships.slice(0, 3).map(relationship => { const player = playerById.get(relationship.playerId)!; return <article key={relationship.playerId} className="mt-3 flex items-start gap-2"><SoloPortrait player={player} size="avatar" className="!h-10 !w-10 !rounded-lg"/><div className="min-w-0 flex-1"><strong className="block text-xs">{player.name} · {Math.round(relationship.trust)} trust</strong><p className="mt-1 text-[10px] leading-4 text-zinc-400">{relationship.promisesKept} kept · {relationship.promisesBroken} missed · {relationship.meetings} meetings</p>{relationship.lastOutcome && <p className="mt-1 text-[10px] leading-4 text-zinc-300">{relationship.lastOutcome}</p>}</div></article>; })}</div>
+      </div>
+    </details>
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
       <button type="button" onClick={openNotifications} aria-expanded={showNotifications} className="flex min-h-12 items-center justify-between rounded-xl border border-white/10 bg-[#111] px-3 text-left">
         <span className="flex items-center gap-2 text-[10px] font-black uppercase"><Bell className="h-4 w-4 text-[var(--bk-team-accent)]" />Inbox</span>

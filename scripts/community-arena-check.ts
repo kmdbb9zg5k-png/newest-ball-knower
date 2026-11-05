@@ -9,7 +9,8 @@ const payloadLimits=source('migrations/20260912142500_bk_arena_payload_limits.sq
 const cloud=source('communityCloud.ts');
 const hub=source('CommunityHub.tsx');
 const app=source('App.tsx');
-const nav=source('Navbar.tsx');
+const nav=source('PrimaryNavigation.tsx');
+const destinations=source('appNavigation.ts');
 const safety=source('CommunitySafety.tsx');
 const profile=source('progressionCloud.ts');
 
@@ -44,8 +45,10 @@ assert.match(hub,/maxLength=\{friend\?1000:300\}/);
 assert.match(hub,/Text only · public · moderated/);
 assert.match(hub,/Same questions\. Server scoring|Settle it in the Arena/);
 assert.match(app,/const CommunityHub=lazy/,'Community must remain out of the initial bundle');
-assert.match(nav,/nav-tab-community/);
-assert.match(nav,/setCurrentTab\('community'\)[\s\S]+Community/);
+assert.match(destinations,/tab:\s*['"]community['"][\s\S]{0,40}label:\s*['"]Community['"]/);
+assert.match(nav,/PRIMARY_DESTINATIONS\.map/);
+assert.match(nav,/nav-tab-\$\{tab\}/);
+assert.match(nav,/onNavigate\(tab\)/);
 assert.match(hub,/Play solo trivia instead|Solo trivia/,'Mobile Community must retain a path to solo trivia');
 assert.match(safety,/global_message.*community_dm/);
 assert.match(profile,/h2hWins/);

@@ -9,10 +9,12 @@ type Props = {
   onSelect: (team: string) => void;
   onContinue: () => void;
   onBack: () => void;
+  continueLabel?: string;
+  description?: string;
 };
 
 /** Full-screen team selection using the same fictional roster and artwork as Game Modes. */
-export function FootballH2HTeamSelect({ selectedTeam, onSelect, onContinue, onBack }: Props) {
+export function FootballH2HTeamSelect({ selectedTeam, onSelect, onContinue, onBack, continueLabel='Find opponent', description='Three drives. Make every possession count.' }: Props) {
   const [showTeams, setShowTeams] = useState(false);
   const [query, setQuery] = useState('');
   const touch = useRef<{ x: number; y: number } | null>(null);
@@ -33,7 +35,7 @@ export function FootballH2HTeamSelect({ selectedTeam, onSelect, onContinue, onBa
     }
   }}>
     <header className="bk-h2h-select-header"><button type="button" onClick={onBack}>‹ Back</button><span>FOOTBALL H2H</span><span>01 / 03</span></header>
-    <div className="bk-h2h-select-title"><p>BUILD YOUR MATCHUP</p><h1>Pick your team.</h1><span>Three drives. Make every possession count.</span></div>
+    <div className="bk-h2h-select-title"><p>BUILD YOUR MATCHUP</p><h1>Pick your team.</h1><span>{description}</span></div>
     <div className="bk-h2h-select-stage">
       <img className="bk-h2h-select-watermark" src={art.logo} alt="" aria-hidden="true" />
       <div className="bk-h2h-select-team" aria-live="polite" aria-atomic="true"><img src={art.logo} alt="" /><div><h2>{team.name}</h2><p><strong>{team.overall} <small>OVR</small></strong><span>OFF {roster.offense} · DEF {roster.defense}</span></p></div></div>
@@ -55,7 +57,7 @@ export function FootballH2HTeamSelect({ selectedTeam, onSelect, onContinue, onBa
         <button type="button" onClick={() => move(1)} aria-label={`Next team: ${next.name}`}><span>{next.abbr}</span><img src={MINI_SELECTOR_ART[next.abbr].logo} alt="" /><span aria-hidden="true">›</span></button>
       </nav>
     </div>
-    <div className="bk-h2h-select-actions"><button className="bk-h2h-select-confirm" type="button" onClick={onContinue}>Find opponent <span aria-hidden="true">→</span></button><button type="button" aria-expanded={showTeams} aria-controls="h2h-all-teams" onClick={() => setShowTeams(value => !value)}>Browse all 32 teams</button></div>
+    <div className="bk-h2h-select-actions"><button className="bk-h2h-select-confirm" type="button" onClick={onContinue}>{continueLabel} <span aria-hidden="true">→</span></button><button type="button" aria-expanded={showTeams} aria-controls="h2h-all-teams" onClick={() => setShowTeams(value => !value)}>Browse all 32 teams</button></div>
     {showTeams && <div id="h2h-all-teams" className="bk-h2h-select-list"><label>Find your team<input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Team or city" /></label><div>{matches.map(item => <button type="button" key={item.abbr} aria-pressed={item.abbr === team.abbr} onClick={() => { onSelect(item.abbr); setShowTeams(false); setQuery(''); }}><img src={MINI_SELECTOR_ART[item.abbr].logo} alt="" /><span>{item.name}</span><strong>{item.overall}</strong></button>)}</div>{matches.length === 0 && <p>No matching teams.</p>}</div>}
   </section>;
 }

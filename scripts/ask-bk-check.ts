@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {ASK_BK_MAX_IMAGES,validateAskBkImageFile} from '../askBkImages';
 import {needsAskBkLiveSearch} from '../api/ask-bk';
+import {PRIMARY_DESTINATIONS, SECONDARY_DESTINATIONS, primaryDestinationForTab} from '../appNavigation';
 
 const root=process.cwd();
 const read=(file:string)=>fs.readFileSync(path.join(root,file),'utf8');
@@ -17,10 +18,8 @@ const check=(condition:boolean,message:string)=>{if(!condition)failures.push(mes
 check(ASK_BK_MAX_IMAGES===5,'Ask BK must accept exactly five screenshots per question.');
 check(app.includes("const AskBkHub=lazy("), 'Ask BK must remain lazy-loaded.');
 check(app.includes("currentTab==='ask'&&<AskBkHub/>"), 'Ask BK route is missing.');
-const triviaIndex=nav.indexOf("setCurrentTab('challenges')");
-const askIndex=nav.indexOf("setCurrentTab('ask')",triviaIndex);
-const profileIndex=nav.indexOf("setCurrentTab('locker')",askIndex);
-check(triviaIndex>=0&&askIndex>triviaIndex&&profileIndex>askIndex,'Ask BK must appear between Trivia and Profile.');
+check(SECONDARY_DESTINATIONS.some(item=>item.tab==='ask')&&nav.includes('SECONDARY_DESTINATIONS'),'Ask BK must be reachable through the shared Explore menu.');
+check(PRIMARY_DESTINATIONS.some(item=>item.tab==='locker')&&primaryDestinationForTab('ask')==='home','Ask BK and Profile must retain coherent navigation groups.');
 check(/type="file" multiple/.test(hub),'Screenshot picker must allow multiple images.');
 check(hub.includes('requestRef.current?.abort()'),'Leaving or clearing Ask BK must abort in-flight work.');
 check(hub.includes('imagePreparationRef.current++'),'Clearing Ask BK must invalidate screenshot preparation.');

@@ -1,0 +1,109 @@
+name: Full app polish integration
+on:
+  pull_request:
+    branches: [main]
+    paths: ['**.tsx', '**.ts', '**.css', 'combine/**', 'scripts/**', 'packages/native-auth-session/**', '.github/workflows/full-app-polish.yml']
+permissions:
+  contents: read
+concurrency:
+  group: full-app-polish-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+jobs:
+  polish-state:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm}
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: node --import tsx scripts/request-reliability-check.ts
+      - run: node scripts/cloud-recovery-check.mjs
+      - run: node scripts/user-state-account-boundary-check.mjs
+      - run: node --import tsx scripts/abortable-task-check.ts && npm run check:ask-bk
+      - run: node --import tsx scripts/career-depth-check.ts && npm run check:franchise-interactions && node --import tsx scripts/gm-trade-offers-check.ts
+      - run: node scripts/combine-input-check.mjs && node --import tsx scripts/combine-appearance-identity-check.mjs
+      - run: node --import tsx scripts/community-session-recovery-check.ts && npm run check:community-arena
+      - run: npm run check:fantasy-live-scoring && npm run check:phase2-lineups && npm run check:matchup-head-to-head && npm run check:picks
+  polish-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm}
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build && npm run check:root-bundle
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Build and serve actual navigation component review
+        run: |
+          node scripts/navigation-polish-fixture.mjs
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory dist > /tmp/navigation-review-server.log 2>&1 &
+      - name: Navigation, Home and Profile
+        id: navigation
+        continue-on-error: true
+        run: BK_NAV_REVIEW_ORIGIN=http://127.0.0.1:4173 node scripts/navigation-polish-browser.mjs
+      - name: Accessible instructions and Ask BK recovery
+        id: supporting
+        continue-on-error: true
+        run: node scripts/supporting-ui-browser.mjs
+      - name: Community and online session recovery
+        id: community
+        continue-on-error: true
+        run: node scripts/community-session-reliability-browser.mjs
+      - name: Career decisions, finances and continuity
+        id: careers
+        continue-on-error: true
+        run: node scripts/career-depth-browser.mjs
+      - name: GM alert queue and persistence
+        id: gm
+        continue-on-error: true
+        run: node scripts/gm-events-browser.mjs
+      - name: Complete franchise season, postseason and rollover
+        id: season
+        continue-on-error: true
+        run: node scripts/franchise-full-season-browser.mjs
+      - name: Require all browser suites to pass
+        if: always()
+        env:
+          OUTCOMES: '${{ steps.navigation.outcome }} ${{ steps.supporting.outcome }} ${{ steps.community.outcome }} ${{ steps.careers.outcome }} ${{ steps.gm.outcome }} ${{ steps.season.outcome }}'
+        run: node -e 'if(process.env.OUTCOMES.split(" ").some(value=>value!=="success"))process.exit(1)'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: full-app-polish-${{ github.sha }}
+          path: |
+            artifacts/navigation-polish
+            artifacts/supporting-ui
+            artifacts/community-session-reliability
+            artifacts/career-depth
+            artifacts/gm-events
+            artifacts/franchise-full-season
+          retention-days: 7
+  polish-football:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm}
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/check-reference-contact.mjs
+      - run: node scripts/check-combine-appearance.mjs
+      - run: node scripts/check-rb-browser.mjs
+      - run: RB_REALTIME=1 node scripts/check-rb-browser.mjs
+      - run: node scripts/check-receiver-routes-browser.mjs
+      - run: node scripts/check-man-coverage-browser.mjs
+      - run: node scripts/check-full-game-appearance.mjs
+      - run: node scripts/check-presentation-clock.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: full-app-football-${{ github.sha }}
+          path: artifacts
+          retention-days: 7

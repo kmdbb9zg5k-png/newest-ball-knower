@@ -170,20 +170,23 @@ export function createPlayerAppearance(body,bones) {
   });
   const garments=createAthleteGarments(body);
   head.add(group);
-  let currentKey='';
+  let currentHairKey='';
   function clear(){group.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});group.clear();}
   function apply(player){
     const outfit=player.wardrobe?outfitLook(player.wardrobe):null;
     garments.apply(outfit,player);
     for(const u of skinUniforms){u.kit.enabled.value=outfit?1:0;u.kit.sleeve.value=outfit?.top.style?(['tee','jersey'].includes(outfit.top.style)?21:34):0;u.kit.trousers.value=outfit?.shorts.style?1:0;if(outfit){for(const slot of ['top','shorts','shoes','wrist'])u.kit[slot].value.set(outfit[slot].color);u.kit.bands.value=outfit.wrist.id==='wrist-none'?0:1;u.kit.pattern.value=outfit.top.pattern?1:0;u.kit.accent.value.set(outfit.top.accent||outfit.top.color);}}
-    const look=combineAppearance(player),key=[look.skinTone,look.hairStyle,look.hairColor,look.facialHair,look.tattooProfile,look.tattooStyle,look.tattooCoverage,look.tattooArms].join('|');
+    const look=combineAppearance(player);
     body.userData.playerId=player.id;body.userData.playerName=player.name;body.userData.appearance=look;
-    if(currentKey===key)return;currentKey=key;
     const reference=new T.Color('#b17b4b'),color=new T.Color(SKIN[look.skinTone]);
     const coverageCodes={none:0,minimal:1,'upper-arm':2,forearm:3,'half-sleeve':4,'full-sleeve':5,'both-arms':6};
     const styleCodes={blackwork:0,geometric:1,script:2,traditional:3,mixed:4};
     const coverage=look.tattooCoverage||({none:'none',minimal:'minimal','one arm':'upper-arm','half sleeve':'half-sleeve','full sleeve':'full-sleeve','both arms':'both-arms'}[look.tattooProfile]||'none');
     for(const u of skinUniforms){u.tint.value.set(color.r/reference.r,color.g/reference.g,color.b/reference.b);u.tattooCoverage.value=coverageCodes[coverage]??0;u.tattooStyle.value=styleCodes[look.tattooStyle]??4;u.tattooArms.value=look.tattooArms==='both'||!look.tattooArms&&coverage==='both-arms'?2:look.tattooArms==='left'?1:0;}
+    // Strands are seeded by immutable identity. Skin and ink are uniforms and
+    // must not rebuild thousands of unchanged hair vertices on every edit.
+    const hairKey=[look.identitySeed,look.hairStyle,look.hairColor,look.facialHair].join('|');
+    if(currentHairKey===hairKey)return;currentHairKey=hairKey;
     clear();const material=hairMaterial(HAIR[look.hairColor]);
     function add(geometry,name,mat=material){if(!geometry.attributes.position?.count){geometry.dispose();return;}if(!geometry.attributes.bkCoverage)geometry.setAttribute('bkCoverage',new T.Float32BufferAttribute(new Float32Array(geometry.attributes.position.count).fill(1),1));const mesh=new T.Mesh(geometry,mat);mesh.name=name;mesh.castShadow=true;group.add(mesh);}
     const style=look.hairStyle;

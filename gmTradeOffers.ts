@@ -2,8 +2,8 @@ import { buildFranchiseTradeResult } from './soloFranchiseEngine';
 import { getDraftPositionGroup } from './rosterRules';
 import { DEFAULT_SALARY_CAP, type Player } from './types';
 
-export type GmTradeOffer = { id: string; team: string; partner: string; year: number; week: number; incomingId: string; outgoingId: string };
-export type GmTradeDecision = { id: string; status: 'accepted' | 'declined' | 'expired'; year: number; week: number };
+export type GmTradeOffer = { id: string; team: string; partner: string; year: number; week: number; incomingId: string; outgoingId: string; counterOf?: string };
+export type GmTradeDecision = { id: string; status: 'accepted' | 'declined' | 'expired' | 'countered'; year: number; week: number };
 export type GmTradeInbox = { pending: GmTradeOffer | null; decisions: GmTradeDecision[] };
 export const emptyGmTradeInbox = (): GmTradeInbox => ({ pending: null, decisions: [] });
 export const gmTradeWindowOpen = (week: number, draft: boolean) => !draft && Number.isInteger(week) && week >= 1 && week <= 9;
@@ -12,7 +12,7 @@ const hash = (key: string) => Array.from(key).reduce((n, ch) => Math.imul(n ^ ch
 export function restoreGmTradeInbox(value: unknown, team: string): GmTradeInbox {
   if (!value || typeof value !== 'object') return emptyGmTradeInbox();
   const raw = value as Partial<GmTradeInbox>;
-  const decisions = Array.isArray(raw.decisions) ? raw.decisions.filter(item => item && typeof item.id === 'string' && ['accepted', 'declined', 'expired'].includes(item.status) && Number.isInteger(item.year) && Number.isInteger(item.week)).slice(-90) : [];
+  const decisions = Array.isArray(raw.decisions) ? raw.decisions.filter(item => item && typeof item.id === 'string' && ['accepted', 'declined', 'expired', 'countered'].includes(item.status) && Number.isInteger(item.year) && Number.isInteger(item.week)).slice(-90) : [];
   const p = raw.pending;
   const pending = p && p.team === team && typeof p.id === 'string' && typeof p.partner === 'string' && p.partner !== team && typeof p.incomingId === 'string' && typeof p.outgoingId === 'string' && Number.isInteger(p.year) && Number.isInteger(p.week) && gmTradeWindowOpen(p.week, false) && !decisions.some(item => item.id === p.id) ? p : null;
   return { pending, decisions };
@@ -52,4 +52,31 @@ export function generateGmTradeOffer(team: string, roster: Player[], league: Rec
     }
   }
   return null;
+}
+
+
+export const gmTradeValue = (player: Player) => Math.max(4, Math.round((player.ovr - 62) * 2.25 - player.salary * .2));
+
+/** A counter changes the requested player; every option must work for both clubs. */
+export function gmTradeCounterOptions(offer: GmTradeOffer, team: string, roster: Player[], league: Record<string, Player[]>, week: number, year: number, draft: boolean): GmTradeOffer[] {
+  if (offer.counterOf || validateGmTradeOffer(offer, team, roster, league, week, year, draft).errors.length) return [];
+  const outgoing = roster.find(player => player.id === offer.outgoingId)!;
+  const original = league[offer.partner]?.find(player => player.id === offer.incomingId)!;
+  return league[offer.partner].filter(player => player.id !== original.id && getDraftPositionGroup(player) === getDraftPositionGroup(outgoing)
+    && (player.ovr > original.ovr || player.salary < original.salary)
+    && gmTradeValue(outgoing) >= gmTradeValue(player) * .92)
+    .sort((a, b) => b.ovr - a.ovr || a.salary - b.salary || a.id.localeCompare(b.id))
+    .map(player => ({ ...offer, id: `${offer.id}:counter:${player.id}`, incomingId: player.id, counterOf: offer.id }))
+    .filter(counter => !validateGmTradeOffer(counter, team, roster, league, week, year, draft).errors.length).slice(0, 2);
+}
+
+export function counterGmTradeOffer(inbox: GmTradeInbox, counter: GmTradeOffer): GmTradeInbox {
+  if (!inbox.pending || counter.counterOf !== inbox.pending.id || inbox.decisions.some(decision => decision.id === counter.counterOf)) return inbox;
+  return { ...finishGmTradeOffer(inbox, inbox.pending, 'countered'), pending: counter };
+}
+
+export function gmTradeRosterPreview(before: Player[], after: Player[]) {
+  const cost = (players: Player[]) => players.reduce((sum, player) => sum + player.salary, 0);
+  const average = (players: Player[]) => players.length ? players.reduce((sum, player) => sum + player.ovr, 0) / players.length : 0;
+  return { beforeCost: cost(before), afterCost: cost(after), capRoom: DEFAULT_SALARY_CAP - cost(after), rosterSize: after.length, ovrDelta: average(after) - average(before) };
 }

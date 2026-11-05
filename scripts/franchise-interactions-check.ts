@@ -43,7 +43,7 @@ for (let week = 1; week <= 17; week += 1) {
   roster = outcome.roster;
 }
 
-assert.deepEqual([...scenarioKinds].sort(), ['breakout', 'mentor', 'playing_time']);
+for (const kind of ['breakout', 'mentor', 'playing_time', 'leadership', 'media_pressure']) assert.ok(scenarioKinds.has(kind), `Season should vary meetings: missing ${kind}`);
 assert.ok(state.notifications.some(notification => notification.kind === 'injury'));
 assert.ok(state.notifications.some(notification => notification.kind === 'breakout' && notification.title === 'Goal achieved'));
 assert.ok(Object.values(state.development).some(player => player.upgradePoints > 0), 'Weekly performance must create upgrade points.');

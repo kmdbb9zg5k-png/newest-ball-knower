@@ -212,7 +212,8 @@ export function normalizePlayerName(value: unknown): string {
 
 export function isFinalGameStatus(value: unknown): boolean {
   const status = String(value || '').trim().toLowerCase();
-  return status === 'final' || status === 'completed' || status.includes('game over');
+  return /^final(?:\s*(?:[/:\-]\s*)?(?:\d*ot|overtime))?$/.test(status)
+    || status === 'completed' || status === 'closed' || status === 'game over';
 }
 
 export function isLiveGameStatus(value: unknown): boolean {

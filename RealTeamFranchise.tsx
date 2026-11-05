@@ -22,7 +22,7 @@ import {
 import { SoloTeamPicker } from "./SoloTeamPicker";
 import { getSavedSoloTeamTheme, SOLO_TEAM_THEMES, soloTeamLogoUrl } from "./soloUniverse";
 import { Player } from "./types";
-import { ModeGuide } from "./ModeGuide";
+import { ModeHelp } from "./ModeHelp";
 import { ModalPortal } from "./ModalPortal";
 import {
   createFranchiseDraftPicks,
@@ -35,7 +35,7 @@ import {
 } from "./franchiseDraftPicks";
 
 import { GmEventAlerts, type GmImportantEvent } from './GmEventAlerts';
-import { emptyGmTradeInbox, finishGmTradeOffer, generateGmTradeOffer, restoreGmTradeInbox, validateGmTradeOffer, type GmTradeInbox } from './gmTradeOffers';
+import { counterGmTradeOffer, emptyGmTradeInbox, finishGmTradeOffer, generateGmTradeOffer, gmTradeCounterOptions, gmTradeRosterPreview, restoreGmTradeInbox, validateGmTradeOffer, type GmTradeOffer, type GmTradeInbox } from './gmTradeOffers';
 
 type Props = { onBack: () => void };
 type RealFranchiseSave = {
@@ -142,6 +142,13 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
   const [message, setMessage] = useState("");
   const [careerId, setCareerId] = useState(restored?.careerId ?? "");
   const [seasonOpen, setSeasonOpen] = useState(false);
+  const [confirmNewCareer, setConfirmNewCareer] = useState(false);
+  useEffect(() => {
+    if (!confirmNewCareer) return;
+    const cancel = (event: KeyboardEvent) => { if (event.key === 'Escape') setConfirmNewCareer(false); };
+    document.addEventListener('keydown', cancel);
+    return () => document.removeEventListener('keydown', cancel);
+  }, [confirmNewCareer]);
   const [commandTab, setCommandTab] = useState<"week" | "trade" | "roster">(
     "week",
   );
@@ -247,18 +254,37 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
     if (result) { setRosterOverride(nextRoster); setOpponentRosters(nextOpponents); }
     setMessage(accept ? `Trade completed with ${teamByAbbr(offer.partner).name}. Both rosters are updated.` : `You declined ${teamByAbbr(offer.partner).name}'s offer. Your roster is unchanged.`);
   };
+  const proposeIncomingCounter = (counter: GmTradeOffer) => {
+    if (!teamAbbr || !tradeInbox.pending || handledOffers.current.has(tradeInbox.pending.id)) return;
+    const choices = gmTradeCounterOptions(tradeInbox.pending, teamAbbr, roster, leagueRosters, gmWeek, franchiseYear, draftInProgress);
+    if (!choices.some(choice => choice.id === counter.id)) throw new Error('That counter is no longer available. Review the current offer.');
+    const nextInbox = counterGmTradeOffer(tradeInbox, counter);
+    try { localStorage.setItem(SOLO_FRANCHISE_SAVE_KEYS.real, JSON.stringify({ version: 5, careerId, teamAbbr, roster, draftPickAssets, gamePlan, opponentRosters, tradeInbox: nextInbox } satisfies RealFranchiseSave)); }
+    catch { throw new Error('Your counter could not be saved. Try again.'); }
+    handledOffers.current.add(tradeInbox.pending.id);
+    setTradeInbox(nextInbox);
+    setMessage(`${teamByAbbr(counter.partner).name} is willing to revise the package. Review the new player and cap impact before accepting.`);
+  };
   const incomingOffer = tradeInbox.pending;
   const incomingPlayer = incomingOffer ? leagueRosters[incomingOffer.partner]?.find(player => player.id === incomingOffer.incomingId) : undefined;
   const outgoingPlayer = incomingOffer ? roster.find(player => player.id === incomingOffer.outgoingId) : undefined;
+  const incomingResult = incomingOffer && teamAbbr ? validateGmTradeOffer(incomingOffer, teamAbbr, roster, leagueRosters, gmWeek, franchiseYear, draftInProgress) : null;
+  const incomingPreview = incomingResult ? gmTradeRosterPreview(roster, incomingResult.userRoster) : null;
+  const partnerPreview = incomingResult && incomingOffer ? gmTradeRosterPreview(leagueRosters[incomingOffer.partner] ?? [], incomingResult.partnerRoster) : null;
+  const counterOptions = incomingOffer && teamAbbr ? gmTradeCounterOptions(incomingOffer, teamAbbr, roster, leagueRosters, gmWeek, franchiseYear, draftInProgress) : [];
   const gmEvents: GmImportantEvent[] = incomingOffer && incomingOffer.week === gmWeek && incomingOffer.year === franchiseYear && !draftInProgress ? [{
     id: incomingOffer.id,
     eyebrow: `TRADE REQUEST · WEEK ${incomingOffer.week}`,
-    title: `${teamByAbbr(incomingOffer.partner).name} is calling`,
+    title: `${teamByAbbr(incomingOffer.partner).name} ${incomingOffer.counterOf ? 'revises the offer' : 'is calling'}`,
+    tone: 'trade',
+    people: [...(incomingPlayer ? [{ player: incomingPlayer, label: 'You receive' }] : []), ...(outgoingPlayer ? [{ player: outgoingPlayer, label: 'You send' }] : [])],
+    facts: incomingPreview && partnerPreview ? [{ label: 'Your cap room after', value: `$${incomingPreview.capRoom.toFixed(2)}M` }, { label: 'Partner cap room after', value: `$${partnerPreview.capRoom.toFixed(2)}M` }, { label: 'Your roster after', value: `${incomingPreview.rosterSize} players · ${incomingPreview.ovrDelta >= 0 ? '+' : ''}${incomingPreview.ovrDelta.toFixed(2)} average OVR` }] : [],
     detail: incomingPlayer && outgoingPlayer
-      ? `They offer ${incomingPlayer.name} (${incomingPlayer.position}, ${incomingPlayer.ovr} OVR, $${incomingPlayer.salary.toFixed(2)}M) for ${outgoingPlayer.name} (${outgoingPlayer.position}, ${outgoingPlayer.ovr} OVR, $${outgoingPlayer.salary.toFixed(2)}M). This is a one-for-one player trade with no draft picks. The offer expires when you advance the week. In-season trade calls close after Week 9.`
+      ? `They offer ${incomingPlayer.name} (${incomingPlayer.position}, ${incomingPlayer.ovr} OVR, $${incomingPlayer.salary.toFixed(2)}M) for ${outgoingPlayer.name} (${outgoingPlayer.position}, ${outgoingPlayer.ovr} OVR, $${outgoingPlayer.salary.toFixed(2)}M). This is a one-for-one player trade with no draft picks. The offer expires when you advance the week. In-season trade calls close after Week 9.${incomingResult?.errors.length ? `\n\nUnable to accept: ${incomingResult.errors[0]}` : ''}`
       : 'This offer involves a player who is no longer available. Decline it to clear the request.',
     choices: [
-      ...(incomingPlayer && outgoingPlayer ? [{ id: 'accept', label: 'Accept trade', detail: `Send ${outgoingPlayer.name} and receive ${incomingPlayer.name}. Both rosters change immediately.`, onSelect: () => respondToIncomingTrade(true) }] : []),
+      ...(incomingPlayer && outgoingPlayer && !incomingResult?.errors.length ? [{ id: 'accept', label: 'Accept trade', detail: `Send ${outgoingPlayer.name} and receive ${incomingPlayer.name}. Both rosters change immediately.`, onSelect: () => respondToIncomingTrade(true) }] : []),
+      ...counterOptions.map(counter => { const player = leagueRosters[counter.partner].find(player => player.id === counter.incomingId)!; return { id: counter.id, label: `Counter for ${player.name}`, detail: `${player.ovr} OVR · $${player.salary.toFixed(2)}M. Request this player instead and review the revised offer. Your outgoing player stays the same; no roster changes yet.`, onSelect: () => proposeIncomingCounter(counter) }; }),
       { id: 'decline', label: 'Decline offer', detail: 'Keep your players and close this negotiation.', onSelect: () => respondToIncomingTrade(false) },
     ],
   }] : [];
@@ -308,6 +334,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
   };
 
   const newCareer = () => {
+    setConfirmNewCareer(false);
     try {
       localStorage.removeItem(SOLO_FRANCHISE_SAVE_KEYS.real);
       localStorage.removeItem(`${SOLO_FRANCHISE_SAVE_KEYS.real}:season`);
@@ -327,12 +354,15 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
     setOpponentRosters({});
   };
 
+  const resetConfirmation = confirmNewCareer ? <ModalPortal><div role="dialog" aria-modal="true" aria-label="Start a new franchise" className="fixed inset-0 z-[10000] grid place-items-center bg-black/90 p-5"><section className="w-full max-w-md rounded-3xl border border-amber-300/30 bg-[#0d121b] p-6 text-white"><h2 className="text-2xl font-black">Start a new franchise?</h2><p className="mt-3 text-sm leading-6 text-zinc-300">This replaces your {team.name} career, roster, draft assets, season and relationship history. Choose Keep my franchise to return to the current save.</p><button type="button" onClick={() => setConfirmNewCareer(false)} className="mt-5 min-h-12 w-full rounded-xl bg-emerald-300 px-4 text-sm font-black text-black">KEEP MY FRANCHISE</button><button type="button" onClick={newCareer} className="mt-3 min-h-12 w-full rounded-xl border border-red-300/30 px-4 text-sm font-black text-red-200">REPLACE CAREER & CHOOSE TEAM</button></section></div></ModalPortal> : null;
+
   if (teamAbbr && seasonOpen) {
     return (
       <BroadcastStage scene="suite" page="franchise" quiet={seasonOpen} className="relative">
+        {resetConfirmation}
         <button
           type="button"
-          onClick={newCareer}
+          onClick={() => setConfirmNewCareer(true)}
           className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-30 flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/90 px-4 text-xs font-black shadow-xl"
         >
           <RotateCcw size={15} /> NEW TEAM
@@ -385,6 +415,10 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
         0,
       );
     const requestedValue = tradeTarget ? tradeValue(tradeTarget) : 0;
+    const builderResult = tradeTarget && outgoingIds.length === 1 ? buildFranchiseTradeResult(roster, team.abbr, leagueRosters[tradeTarget.team] ?? [], tradeTarget.team, tradeTarget.id, outgoingIds) : null;
+    const builderPreview = builderResult ? gmTradeRosterPreview(roster, builderResult.userRoster) : null;
+    const builderPartnerPreview = builderResult && tradeTarget ? gmTradeRosterPreview(leagueRosters[tradeTarget.team] ?? [], builderResult.partnerRoster) : null;
+    const builderErrors = [...(builderResult?.errors ?? []), ...(builderPreview && builderPreview.capRoom < -.001 ? ['Your roster would exceed the salary cap.'] : []), ...(builderPartnerPreview && builderPartnerPreview.capRoom < -.001 ? ['The other roster would exceed the salary cap.'] : [])];
     const submitOffer = () => {
       if (draftInProgress) {
         setMessage('Finish the active rookie draft before trading.');
@@ -404,6 +438,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
         setOutgoingPicks([]);
         return;
       }
+      if (builderErrors.length) { setMessage(builderErrors[0]); return; }
       if (offeredValue < requestedValue * 0.92) {
         setMessage(
           `${tradeTarget.team} declined. Your offer is short by ${Math.ceil(requestedValue * 0.92 - offeredValue)} value points.`,
@@ -463,6 +498,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
     return (
       <BroadcastStage scene="suite" page="franchise" quiet={seasonOpen} className="min-h-[100dvh] px-4 pb-24 pt-4 text-white sm:px-8">
         <div className="mx-auto max-w-6xl">
+          {resetConfirmation}
           <GmEventAlerts events={tradeTarget ? [] : gmEvents} scopeKey={`${SOLO_FRANCHISE_SAVE_KEYS.real}:${team.abbr}:${careerId}:${franchiseYear}`} />
           <BroadcastMasthead eyebrow="Football operations" title="Franchise Command" subtitle="Build the roster. Set your game plan. Make the next move."/>
           <div className="flex items-center justify-between gap-3">
@@ -474,16 +510,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
             >
               <ArrowLeft />
             </button>
-            <ModeGuide
-              storageKey="bk-guide-franchise-command-v1"
-              title="Franchise Command"
-              summary="You control the football side of a simulated Ball Knower League team. Build the roster, listen to your coaches and then play the season."
-              steps={[
-                "Pick a weekly game plan.",
-                "Trade players and future picks to improve weak spots.",
-                "Start the week and see whether your choices helped you win.",
-              ]}
-            />
+            <ModeHelp mode="gm" />
           </div>
           <section className="mt-4 overflow-hidden rounded-[2rem] border border-emerald-300/20 bg-[#0c1117] p-5 sm:p-7">
             <div className="flex items-center gap-4">
@@ -768,6 +795,8 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
                       You traded every pick in this draft.
                     </div>
                   )}
+                  {builderPreview && builderPartnerPreview && <section aria-label="Trade impact preview" className="mt-4 rounded-2xl border border-sky-300/20 bg-sky-300/5 p-4"><h3 className="text-sm font-black text-sky-200">TRADE IMPACT</h3><dl className="mt-2 grid grid-cols-2 gap-2 text-xs"><div><dt className="text-zinc-400">Your cap room</dt><dd className="mt-1 font-black">${builderPreview.capRoom.toFixed(2)}M</dd></div><div><dt className="text-zinc-400">Partner cap room</dt><dd className="mt-1 font-black">${builderPartnerPreview.capRoom.toFixed(2)}M</dd></div><div><dt className="text-zinc-400">Your roster</dt><dd className="mt-1 font-black">{builderPreview.rosterSize} players</dd></div><div><dt className="text-zinc-400">Average OVR change</dt><dd className="mt-1 font-black">{builderPreview.ovrDelta >= 0 ? '+' : ''}{builderPreview.ovrDelta.toFixed(2)}</dd></div></dl>{builderErrors.map(error => <p key={error} className="mt-2 text-xs text-red-300">{error}</p>)}</section>}
+                  {message && <p role="status" className="mt-3 text-sm leading-5 text-amber-200">{message}</p>}
                   <div className="mt-5 flex items-center justify-between rounded-2xl bg-black/30 p-4">
                     <div>
                       <div className="text-[9px] font-black text-zinc-500">
@@ -781,7 +810,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
                     </div>
                     <button
                       onClick={submitOffer}
-                      disabled={outgoingIds.length !== 1}
+                      disabled={outgoingIds.length !== 1 || builderErrors.length > 0}
                       className="min-h-12 rounded-xl bg-emerald-300 px-5 text-xs font-black text-black disabled:opacity-30"
                     >
                       PROPOSE TRADE
@@ -815,6 +844,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
         >
           <ArrowLeft size={19} />
         </button>
+        <div className="mt-3"><ModeHelp mode="gm" /></div>
         <div className="bk-franchise-panel mt-5 rounded-[2rem] border border-white/10 bg-[#10151d] p-5 sm:p-8">
           <div className="text-[10px] font-black tracking-[.25em] text-[var(--bk-team-accent)]">
             BALL KNOWER LEAGUE ROSTERS

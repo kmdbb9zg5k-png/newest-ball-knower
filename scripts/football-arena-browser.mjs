@@ -1,8 +1,4 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
-const handlesSource=readFileSync('footballOpponentHandles.ts','utf8');
-const handles=[...handlesSource.split('] as const')[0].matchAll(/'([A-Za-z0-9]+)'/g)].map(m=>m[1]);
-assert.equal(handles.length,50);assert.equal(new Set(handles).size,50);
 import {createServer} from 'vite';
 import {chromium} from 'playwright';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -62,7 +58,7 @@ try{
   });
   await page.goto('http://127.0.0.1:3059/football-qa.html?guest');
   await page.getByRole('button',{name:'Pick your team',exact:true}).waitFor();
-  assert.doesNotMatch(await page.getByRole('region',{name:'Football H2H',exact:true}).innerText(),/log\s?in|sign\s?in/i);
+  assert.match(await page.getByRole('region',{name:'Football H2H',exact:true}).innerText(),/AUTOMATED PRACTICE/,'Guests are told their quick match uses a CPU');
   await page.getByRole('button',{name:'Pick your team',exact:true}).click();
   const selection=page.getByRole('dialog');
   await selection.getByRole('heading',{name:'Pick your team.'}).waitFor();
@@ -153,7 +149,7 @@ try{
     matches=[];await page.goto('http://127.0.0.1:3059/football-qa.html');
     await page.getByRole('button',{name:'Pick your team',exact:true}).click();
     const queued=page.waitForRequest(r=>r.url().endsWith('/__arena-rpc')&&r.postDataJSON().action==='quick_match');
-    await page.getByRole('button',{name:'Find opponent',exact:true}).click();await queued;
+    await page.getByRole('button',{name:'Find online player',exact:true}).click();await queued;
     await page.getByRole('button',{name:'Cancel search',exact:true}).click();
     const cancelled=page.waitForRequest(r=>r.url().endsWith('/__arena-rpc')&&r.postDataJSON().action==='cancel');
     assert.equal(typeof releaseQuickMatch,'function');releaseQuickMatch();await cancelled;
@@ -164,17 +160,21 @@ try{
     await page.goto('http://127.0.0.1:3059/football-qa.html?guest');
     const beforeGuest=calls.length;
     await page.getByRole('button',{name:'Pick your team',exact:true}).click();
-    const started=Date.now();await page.getByRole('button',{name:'Find opponent',exact:true}).click();
+    const started=Date.now();await page.getByRole('button',{name:'Start quick practice',exact:true}).click();
     assert.equal(await page.locator('iframe').count(),0,'Matchmaking is a separate screen');
     await page.locator('iframe[src*="drive=1"]').waitFor({timeout:40000});
     assert(Date.now()-started>=29000,'Guest matching does not skip the 30-second search');
     const opponentLabel=page.locator('.football-session-score small');await opponentLabel.waitFor();
-    const chosenHandle=(await opponentLabel.innerText()).split(' · ')[0];assert(handles.includes(chosenHandle));
-    assert.doesNotMatch(await page.getByRole('dialog').innerText(),/CPU|simulated|online player/i);
+    assert.match(await opponentLabel.innerText(),/CPU · automated practice/,'Simulated scores are never attributed to a human handle');
+    assert.match(await page.getByRole('dialog').innerText(),/automated practice/i);
     for(let n=1;n<=3;n++)await sendResult(n,{points:8,yards:75,plays:1});
     await page.getByRole('heading',{name:/^You win!$|^Tie game$/}).waitFor();
     assert.equal(calls.length,beforeGuest,'Guest quick match uses no private online RPC');
     await page.screenshot({path:'artifacts/football-arena/guest-results.png'});
+    await page.getByRole('button',{name:'Play automated rematch',exact:true}).click();
+    await page.locator('iframe[src*="drive=1"]').waitFor();
+    assert.match(await page.locator('.football-session-score').innerText(),/You 0/,'A practice rematch begins with a fresh scorecard');
+    assert.equal(calls.length,beforeGuest,'Automated rematch never writes online standings');
 
   }
   assert.deepEqual(errors,[]);await browser.close();

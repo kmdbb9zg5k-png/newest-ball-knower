@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Bird, Brain, CalendarDays, CheckCircle2, ChevronRight, Film, Flame, Loader2, Medal, MessageSquare, Play, RotateCcw, ShieldCheck, Sparkles, Star, Target, Trophy, WifiOff, X, XCircle } from 'lucide-react';
 import { beginTriviaSession, fetchTriviaQuestion, submitTriviaAnswer, TriviaAnswerResult, TriviaQuestion, TriviaSession } from './progressionCloud';
 import { ModeGuide } from './ModeGuide';
+import { MODE_HELP } from './modeHelpContent';
 import { ModalPortal } from './ModalPortal';
 import { trackBallKnowerEvent } from './analytics';
 import { useBallKnower } from './BallKnowerContext';
@@ -251,7 +252,7 @@ export const ChallengesHub: React.FC = () => {
           <img src="/atmosphere/home-stadium.webp" alt="" aria-hidden="true"/>
           <div className="bk-gauntlet-hero-shade" aria-hidden="true"/>
           <div className="bk-gauntlet-arena-label">Football IQ Arena</div>
-          <ModeGuide storageKey="bk-guide-the-gauntlet-v4" title="The Gauntlet" summary="Choose a challenge, select a difficulty, and build verified football IQ." steps={["Pick one of five challenge modes.","Choose Rookie, Pro, All-Pro, or Hall of Fame for challenge modes.","Predictions opens real NFL picks that lock before kickoff and grade after games finish."]}/>
+          <ModeGuide storageKey="bk-guide-the-gauntlet-v4" title="The Gauntlet" summary="Choose a challenge, select a difficulty, and build verified football IQ." steps={["Pick one of five challenge modes.","Choose Rookie, Pro, All-Pro, or Hall of Fame for challenge modes.","Predictions opens real NFL picks that lock before kickoff and grade after games finish."]} sections={MODE_HELP.trivia.sections}/>
           <div className="bk-gauntlet-crest" aria-hidden="true">
             <span className="bk-gauntlet-wing bk-gauntlet-wing-left"/><span className="bk-gauntlet-wing bk-gauntlet-wing-right"/>
             <div className="bk-gauntlet-eagle"><Bird/></div>

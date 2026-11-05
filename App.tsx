@@ -21,6 +21,7 @@ import {LaunchCenter,LaunchFooter,type LaunchPanel} from './LaunchCenter';
 import type {CommunityPerson} from './communityCloud';
 
 const AuthModal=lazy(()=>import('./AuthModal').then(module=>({default:module.AuthModal})));
+const PlayHub=lazy(()=>import('./PlayHub').then(module=>({default:module.PlayHub})));
 const HomeDashboard=lazy(()=>import('./HomeDashboard').then(module=>({default:module.HomeDashboard})));
 const SoloMode=lazy(()=>import('./SoloMode').then(module=>({default:module.SoloMode})));
 const NewsHub=lazy(()=>import('./NewsHub').then(module=>({default:module.NewsHub})));
@@ -42,7 +43,7 @@ const PartnersPage=lazy(()=>import('./PartnersPage').then(module=>({default:modu
 const FootballArenaScreen=lazy(()=>import('./FootballArenaScreen'));
 const CommunityHub=lazy(()=>import('./CommunityHub').then(module=>({default:module.CommunityHub})));
 
-export type AppTab='football'|'home'|'solo'|'news'|'fantasy'|'sportsbook'|'legacy'|'challenges'|'community'|'ask'|'locker'|'wardrobe'|'partners'|'lobby'|'draft'|'simulation';
+export type AppTab='play'|'football'|'home'|'solo'|'news'|'fantasy'|'sportsbook'|'legacy'|'challenges'|'community'|'ask'|'locker'|'wardrobe'|'partners'|'lobby'|'draft'|'simulation';
 
 const INTRO_COMPLETED_KEY='ball-knower-intro-completed-v1';
 const introEligible=()=>{try{return !localStorage.getItem(INTRO_COMPLETED_KEY)}catch{return true}};
@@ -123,6 +124,7 @@ function BallKnowerApp(){
     {showProductChrome&&<main className={`relative z-[3] w-full pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-[env(safe-area-inset-bottom)] ${currentTab==='draft'?'bk-live-draft-viewport':''}`}>
       {currentTab==='home'&&<Suspense fallback={<ScreenFallback/>}><HomeDashboard teamTheme={favoriteTheme} onNavigate={navigateToTab} onOpenCheatSheet={openCheatSheet} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague} onViewMemberLocker={openMemberLocker}/></Suspense>}
       <Suspense fallback={<ScreenFallback/>}>
+        {currentTab==='play'&&<PlayHub onNavigate={navigateToTab}/>}
         {currentTab==='solo'&&<SoloMode initialExperience={soloExperience}/>}
         {currentTab==='news'&&<NewsHub/>}
         {currentTab==='fantasy'&&<FantasyHub view={fantasyView} onViewChange={setFantasyView} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague}/>}
@@ -135,6 +137,7 @@ function BallKnowerApp(){
         {currentTab==='wardrobe'&&<PlayerClothingLocker onCreatePlayer={()=>{setSoloExperience('player');goToTab('solo');}}/>}
         {currentTab==='locker'&&<LockerHub onOpenAuth={()=>setIsAuthOpen(true)} viewedMember={viewedLockerMember} onBack={viewedLockerMember?closeMemberLocker:undefined}/>}
         {currentTab==='partners'&&<PartnersPage onBack={()=>setCurrentTab('home')}/>}
+        {(currentTab==='lobby'||currentTab==='simulation')&&!activeLeague&&<div className="mx-auto flex min-h-[50dvh] max-w-xl items-center justify-center px-4 text-center"><div className="rounded-2xl border border-white/10 bg-[#0d141f] p-6"><h2 className="text-2xl font-black">Choose a league to continue</h2><p className="mt-3 text-sm leading-6 text-zinc-400">Your league lobby and results are available inside Fantasy.</p><button type="button" onClick={()=>navigateToTab('fantasy')} className="mt-5 min-h-12 w-full rounded-xl bg-[#D9B43B] px-5 text-sm font-bold text-black">Open Fantasy</button></div></div>}
         {currentTab==='lobby'&&activeLeague&&<LeagueLobby league={activeLeague} onBack={goBack} onGoToDraft={()=>goToTab('draft')} onGoToSimulation={()=>goToTab('simulation')} onViewMemberLocker={openMemberLocker}/>}
         {currentTab==='draft'&&(activeLeague?(isDraftOrderGame?(isMobileDraftViewport?<MobileDraftRoom onBackToLobby={()=>setCurrentTab('lobby')} onSubmitSuccess={()=>setCurrentTab('simulation')}/>:<DraftRoom onBackToLobby={()=>setCurrentTab('lobby')} onSubmitSuccess={()=>setCurrentTab('simulation')}/>):<LeagueLiveDraftRoom onBackToLobby={()=>setCurrentTab('lobby')}/>):<div className="mx-auto flex min-h-[60dvh] max-w-xl items-center justify-center px-4 text-center"><div className="rounded-2xl border border-white/10 bg-[#0d1015] p-6"><h2 className="text-2xl font-black uppercase">Choose A Fantasy League First</h2><p className="mt-2 text-sm text-zinc-500">League drafts live inside League HQ. Select a league before opening its draft room.</p><button onClick={()=>setCurrentTab('fantasy')} className="mt-5 min-h-12 w-full rounded-xl bg-[var(--bk-team-accent)] px-5 text-xs font-black uppercase text-[var(--bk-on-accent)]">Go To Fantasy</button></div></div>)}
         {currentTab==='simulation'&&activeLeague&&<SimulationView league={activeLeague} onBackToLobby={()=>setCurrentTab('lobby')} onOpenDraft={()=>setCurrentTab('draft')}/>}

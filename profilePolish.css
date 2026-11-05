@@ -1,0 +1,35 @@
+/* Preserve the approved cinematic composition while clarifying live progression. */
+.bk-profile-page.bk-screen .bk-locker-profile .bk-profile-hero-progress{padding-bottom:10px}
+.bk-profile-xp-summary{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:5px 12px;color:#d8c38c;font-size:12px;line-height:1.5;font-variant-numeric:tabular-nums}
+.bk-profile-xp-summary>strong{font-size:12px;font-weight:750}
+.bk-profile-xp-summary>span{color:#aab8c7;font-size:11px}
+.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-levels{font-size:12px;line-height:1.5}
+.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-levels>span:last-child{font-size:10px;color:#afbdcb}
+.bk-profile-section-note{margin:10px 0 0;color:#aebccd;font-size:12px;line-height:1.6}
+.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-hex>span{font-size:12px;line-height:1.4}
+.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-hex>strong{font-size:24px}
+.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-sync{font-size:11px;line-height:1.5}
+.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-section-heading>span{font-size:11px;line-height:1.6}
+.bk-profile-trophy-tools{padding:0 14px 14px}
+.bk-profile-trophy-tools>[role="group"]{display:flex;gap:6px;max-width:340px}
+.bk-profile-trophy-tools button{flex:1;min-height:44px;padding:8px 12px;border:1px solid #aab7c232;border-radius:10px;background:#0e1924;color:#b7c4d4;font-size:12px;font-weight:700}
+.bk-profile-trophy-tools button[aria-pressed="true"]{border-color:#e7c77a99;background:#d9b43b16;color:#f0d697}
+.bk-profile-trophy-tools p{margin:9px 0 0;color:#b0bdcb;font-size:11px;line-height:1.6}
+.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-trophy-case{padding:16px 12px 18px;background:linear-gradient(#060c14a6,#060c14aa),url('/profile/cinematic/trophy-vault.webp') center/cover}
+.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-trophy-rail{gap:10px}
+.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-trophy{min-height:166px;padding:10px 6px;gap:7px;border:1px solid #aab7c229;background:#0a1420d9;border-radius:12px}
+.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-trophy>strong{min-height:34px;font:750 12px/1.4 var(--bk-font-body,"Plus Jakarta Sans",sans-serif);color:#f5efdf;overflow-wrap:anywhere}
+.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-trophy>small{font-size:11px;line-height:1.4;color:#bec9d3}
+.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-trophy[data-unlocked="true"]{border-color:#d8ba6b66;background:#2b281bd9}
+.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-trophy[aria-expanded="true"]{border-color:#f0d38b;box-shadow:inset 0 0 0 1px #f0d38b}
+.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-trophy-rail[data-extended="true"]>li{flex-basis:calc((100% - 20px)/3)}
+.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-badge{width:58px;max-width:58px}
+.bk-profile-trophies-empty{display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px 12px 24px;text-align:center}
+.bk-profile-trophies-empty>svg{width:26px;height:26px;color:#d4ba76}
+.bk-profile-trophies-empty>strong{color:#f1e5c8;font-size:15px;font-weight:750;line-height:1.5}
+.bk-profile-trophies-empty>p{max-width:300px;margin:0;color:#b5c1cf;font-size:12px;line-height:1.6}
+.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-event-list span,.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-event-list small{font-size:12px;line-height:1.5}
+.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-event-list strong{font-size:14px;line-height:1.5}
+@media(min-width:640px){.bk-profile-trophy-tools{padding-inline:20px}.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-trophy-case{padding:20px}.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-trophy{min-height:184px}.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-trophy>strong{font-size:13px}.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-badge{width:70px;max-width:70px}.bk-profile-xp-summary>strong{font-size:14px}.bk-profile-xp-summary>span{font-size:12px}}
+@media(min-width:768px){.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-trophy-rail{grid-template-columns:repeat(4,minmax(0,1fr))}.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-trophy-rail[data-extended="true"]>li{flex-basis:calc((100% - 30px)/4)}}
+@media(max-width:359px){.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-trophy-rail{grid-template-columns:repeat(2,minmax(0,1fr))}.bk-profile-page.bk-screen .bk-locker-profile .bk-locker-trophy-rail[data-extended="true"]>li{flex-basis:calc((100% - 10px)/2)}}

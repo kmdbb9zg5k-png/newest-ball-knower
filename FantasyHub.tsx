@@ -19,6 +19,7 @@ import {
 import { League, Player } from "./types";
 import { useBallKnower } from "./BallKnowerContext";
 import { ModeGuide } from "./ModeGuide";
+import { MODE_HELP } from "./modeHelpContent";
 import { loadUserState, saveUserState } from "./userStateCloud";
 import { ModalPortal } from "./ModalPortal";
 import { loadFantasyRankings } from "./fantasyRankingsCloud";
@@ -281,6 +282,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
           <ModeGuide
             triggerRef={guideTriggerRef}
             storageKey="bk-guide-fantasy-hq-v3"
+            sections={MODE_HELP.fantasy.sections}
             title="Fantasy"
             summary="League HQ is where you create, join, resume, and manage leagues. The Cheat Sheet keeps your full-PPR player board close by."
             steps={[
