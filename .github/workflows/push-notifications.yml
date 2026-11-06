@@ -42,3 +42,23 @@ jobs:
       - name: Verify PostgreSQL queue and account lifecycle
         env: {PGPASSWORD: postgres}
         run: psql -h 127.0.0.1 -U postgres -d postgres -f scripts/postgres-push-integration.sql
+  browser-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: 22}
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Render settings and exercise actual App push taps
+        run: node scripts/push-browser-check.mjs
+      - name: Preserve screenshots and exact fixture scope
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: push-notifications-browser
+          path: artifacts/push-notifications
+          if-no-files-found: ignore
+          retention-days: 7
