@@ -13,10 +13,6 @@
     {
       "path": "/api/fantasy-transactions",
       "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/fantasy-scoring-readiness",
-      "schedule": "*/15 * * * *"
     }
   ],
   "redirects": [
