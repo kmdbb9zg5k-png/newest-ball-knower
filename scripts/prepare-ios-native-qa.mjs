@@ -25,14 +25,8 @@ const storyboardPath=`${app}/Base.lproj/Main.storyboard`;
 const storyboard=await fs.readFile(storyboardPath,'utf8');
 if(!storyboard.includes('customClass="CAPBridgeViewController"'))throw new Error('Expected the generated Capacitor storyboard');
 await fs.writeFile(storyboardPath,storyboard.replace('customClass="CAPBridgeViewController" customModule="Capacitor"','customClass="NativeQAViewController" customModule="App"'));
-execFileSync('python3',['-c',String.raw`
-import importlib.util, pathlib, plistlib
-spec=importlib.util.spec_from_file_location('configure_ios','scripts/configure-ios-project.py')
-module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
-path=pathlib.Path('ios/App/App.xcodeproj/project.pbxproj')
-path.write_bytes(plistlib.dumps(module.configure_project(module.read_project(path),qa=True),sort_keys=False))
-`],{stdio:'inherit'});
-await fs.writeFile(`${app}/public/__bk_native_qa.html`,'<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Ball Knower native QA</title><style>body{background:#050608;color:#f6f6f6;font:13px monospace;padding:30px 16px}pre{white-space:pre-wrap}</style></head><body><h1>Ball Knower native QA</h1><pre id="report">Starting real iOS bridge checks…</pre><script type="module" src="/__bk_native_qa.js"></script></body></html>');
+execFileSync('python3',['scripts/configure-ios-native-qa.py'],{stdio:'inherit'});
+await fs.writeFile(`${app}/public/__bk_native_qa.html`,'<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Ball Knower native QA</title><style>body{background:#050608;color:#f6f6f6;font:13px monospace;padding:30px 16px}pre{white-space:pre-wrap}</style></head><body><h1>Ball Knower native QA</h1><p id="phase-status" role="status">Native QA running</p><pre id="report">Starting real iOS bridge checks…</pre><script type="module" src="/__bk_native_qa.js"></script></body></html>');
 await build({
   entryPoints:['scripts/fixtures/native-ios-qa.ts'],bundle:true,format:'esm',target:'safari17',outfile:`${app}/public/__bk_native_qa.js`,
   plugins:[{name:'native-qa-service-boundary',setup(builder){

@@ -32,7 +32,12 @@ class NativeQAViewController: CAPBridgeViewController, WKScriptMessageHandler {
         guard message.name == "bkNativeQA", var report = message.body as? [String: Any] else { return }
         report["cameraAuthorization"] = AVCaptureDevice.authorizationStatus(for: .video).rawValue
         report["photosAuthorization"] = PHPhotoLibrary.authorizationStatus(for: .readWrite).rawValue
+        report["nativeProcessIdentifier"] = ProcessInfo.processInfo.processIdentifier
         writeReport(report, filename: "native-qa-report.json")
+        if report["ready"] as? Bool == true, let phase = report["phase"] as? String,
+           let filename = ["initial": "initial-bridge-report.json", "warm": "warm-callback-report.json", "cold": "cold-callback-report.json"][phase] {
+            writeReport(report, filename: filename)
+        }
     }
 
     private func writeReport(_ report: [String: Any], filename: String) {

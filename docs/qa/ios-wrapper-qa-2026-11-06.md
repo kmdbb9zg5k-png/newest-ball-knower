@@ -48,6 +48,8 @@ so no real identity exchange, upload or deletion occurs. It checks:
   corrupted-JPEG rejection.
 - Actual warm and cold custom-scheme delivery through the App plugin. Token-only
   callbacks are rejected by the production handler without a session exchange.
+  A fixture-only XCUITest target accepts the normal system “Open in Ball Knower?”
+  confirmation when shown; no OS security/permission setting is disabled.
 - Camera/photo authorization remains undetermined without a user action.
 
 The workflow retains exact source and lockfile hashes, Xcode/Swift versions,

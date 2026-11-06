@@ -16,6 +16,7 @@ on:
       - 'scripts/*ios*'
       - 'scripts/fixtures/native-ios-qa.ts'
       - 'scripts/fixtures/NativeQAViewController.swift'
+      - 'scripts/fixtures/NativeURLConsentTests.swift'
   push:
     branches: [codex/launch-native-20261105]
   workflow_dispatch:
@@ -64,4 +65,6 @@ jobs:
             artifacts/native/*.log
             artifacts/native/*.json
             artifacts/native/*.png
+            artifacts/native/native-url-ui-test.xcresult/**
+            artifacts/native/ui-attachments/**
           retention-days: 14

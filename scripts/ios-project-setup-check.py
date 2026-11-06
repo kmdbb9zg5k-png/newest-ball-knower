@@ -3,6 +3,8 @@
 import importlib.util
 import plistlib
 import tempfile
+import copy
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 spec = importlib.util.spec_from_file_location("configure_ios", Path(__file__).with_name("configure-ios-project.py"))
@@ -16,7 +18,9 @@ with tempfile.TemporaryDirectory() as directory:
     app.mkdir(parents=True)
     project.parent.mkdir()
     fixture = {"rootObject": "project", "objects": {
-        "project": {"isa": "PBXProject", "attributes": {}},
+        "project": {"isa": "PBXProject", "attributes": {}, "targets": ["target"], "mainGroup": "main-group", "productRefGroup": "products"},
+        "main-group": {"isa": "PBXGroup", "children": []},
+        "products": {"isa": "PBXGroup", "children": []},
         "target": {"isa": "PBXNativeTarget", "name": "App", "buildConfigurationList": "configs"},
         "configs": {"buildConfigurations": ["debug", "release"]},
         "debug": {"name": "Debug", "buildSettings": {"PRESERVE_ME": "yes"}},
@@ -42,4 +46,20 @@ with tempfile.TemporaryDirectory() as directory:
         raise AssertionError("Partial APNs forwarding must fail before a candidate is built")
     except ValueError as error:
         assert "partial push hooks" in str(error)
+    qa_spec = importlib.util.spec_from_file_location("configure_ios_qa", Path(__file__).with_name("configure-ios-native-qa.py"))
+    qa_module = importlib.util.module_from_spec(qa_spec)
+    qa_spec.loader.exec_module(qa_module)
+    qa_project = plistlib.loads(project.read_bytes())
+    target_id = qa_module.add_ui_test_target(qa_project)
+    before = copy.deepcopy(qa_project)
+    assert qa_module.add_ui_test_target(qa_project) == target_id and qa_project == before
+    assert qa_project["objects"][target_id]["productType"] == "com.apple.product-type.bundle.ui-testing"
+    scheme_path = root / "ios/App/App.xcodeproj/xcshareddata/xcschemes/App.xcscheme"
+    qa_module.configure_scheme(scheme_path, target_id, "target")
+    before = scheme_path.read_bytes()
+    qa_module.configure_scheme(scheme_path, target_id, "target")
+    assert before == scheme_path.read_bytes(), "Repeated UI-test scheme setup changed the scheme"
+    scheme = ET.parse(scheme_path)
+    assert scheme.find("TestAction/Testables/TestableReference/BuildableReference").get("BlueprintIdentifier") == target_id
 print("iOS project setup passed: repeatability, preserved settings, permissions, URL types, capabilities and profile-specific APNs.")
+print("Native QA UI-test target and shared scheme passed: fixture-only product, references and repeatability.")

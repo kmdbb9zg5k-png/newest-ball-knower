@@ -19,7 +19,11 @@ function callback(source:string,value:string){
   report();
 }
 function report(){
-  const value={ready,platform:Capacitor.getPlatform(),native:Capacitor.isNativePlatform(),results,callbacks,failedAuthCallbacks,exchanges};
+  const phase=callbacks.some(item=>item.source==='cold')?'cold':callbacks.length?'warm':'initial';
+  const passed=ready&&results.length>=8&&results.every(item=>item.passed)&&exchanges===0;
+  const status=passed?(phase==='cold'&&failedAuthCallbacks>0?'Cold callback rejected':phase==='warm'&&failedAuthCallbacks>0?'Warm callback rejected':'Native QA ready'):'Native QA running';
+  const value={ready,phase,status,platform:Capacitor.getPlatform(),native:Capacitor.isNativePlatform(),results,callbacks,failedAuthCallbacks,exchanges};
+  document.getElementById('phase-status')!.textContent=status;
   document.getElementById('report')!.textContent=JSON.stringify(value,null,2);
   window.webkit.messageHandlers.bkNativeQA.postMessage(value);
 }
