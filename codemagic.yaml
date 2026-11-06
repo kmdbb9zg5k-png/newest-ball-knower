@@ -66,7 +66,7 @@ definitions:
 
     - name: Set iOS version and build number
       script: |
-        IOS_BUILD_NUMBER="$(python3 scripts/ios_build_number.py)"
+        IOS_BUILD_NUMBER="$(python3 scripts/ios_build_number.py)" || exit 1
         cd ios/App
         xcrun agvtool new-marketing-version "$MARKETING_VERSION"
         xcrun agvtool new-version -all "$IOS_BUILD_NUMBER"

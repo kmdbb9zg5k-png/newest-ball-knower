@@ -67,7 +67,6 @@ counter data stops the build rather than falling back to a restarted workflow
 counter. Codemagic supplies this variable; the owner does not set a source PIN or
 a separate number for the build-only workflow.
 
-
 `ios-app-store` remains the default Codemagic workflow and now produces artifacts
 only. It uses the existing `BallKnowerApple` integration and `code-signing` group,
 fetches existing signing files without creating certificates/profiles, and does
