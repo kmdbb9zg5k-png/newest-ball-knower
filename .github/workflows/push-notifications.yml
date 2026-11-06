@@ -19,6 +19,9 @@ on:
       - 'scripts/*push*'
       - '.github/workflows/push-notifications.yml'
       - 'package*.json'
+concurrency:
+  group: push-notifications-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:

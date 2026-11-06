@@ -52,8 +52,9 @@ async function newPage(viewport,{permission='default',configured=true,anonymous=
        if(url.searchParams.get('resource')==='notification')return foreign?json({error:'This notification is no longer available in your leagues.'},404):json({notificationId,leagueId:leagueRow.id,destination:'draft'});
      }
      const body=request.postDataJSON();writes.push(body);
+     if(body.action==='installation')return json({epoch:null,revision:0});
      if(body.action==='settings')settings={quietEnabled:body.quietEnabled,timeZone:body.timeZone,startMinute:body.startMinute,endMinute:body.endMinute};
-     return json(body.action==='settings'?settings:{ok:true});
+     return json(body.action==='settings'?settings:{ok:true,epoch:'00000000-0000-4000-8000-000000000104'});
    }
    if(url.origin===base&&path.startsWith('/api/'))return json({tracks:[],introUrl:null,articles:[],data:[]});
    if(url.origin===base)return route.continue();

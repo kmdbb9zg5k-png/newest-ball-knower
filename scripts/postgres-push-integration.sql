@@ -29,10 +29,10 @@ set local role service_role;
 do $test$
 declare
  u1 uuid:='00000000-0000-4000-8000-000000000001'; u2 uuid:='00000000-0000-4000-8000-000000000002'; s1 uuid:='00000000-0000-4000-8000-000000000011'; s2 uuid:='00000000-0000-4000-8000-000000000012';
- install uuid:='00000000-0000-4000-8000-000000000021'; device uuid; n uuid; q record; c record; response jsonb; original_token uuid; original_time timestamptz; data jsonb; step integer; attempt_time timestamptz; instant timestamptz:=clock_timestamp();
+ install uuid:='00000000-0000-4000-8000-000000000021'; device uuid; n uuid; q record; c record; response jsonb; original_token uuid; original_time timestamptz; data jsonb; stale_data jsonb; fence jsonb; first_install uuid; step integer; attempt_time timestamptz; instant timestamptz:=clock_timestamp();
 begin
- data:=jsonb_build_object('sessionId',s1,'installationId',install,'installationSecretHash',repeat('a',64),'transport','web','payload',jsonb_build_object('endpoint','https://fcm.googleapis.com/fcm/send/synthetic-token','keys',jsonb_build_object('p256dh','synthetic','auth','synthetic')),'label','Synthetic browser');
- device:=(public.manage_ball_knower_push(u1,'subscribe',data)->>'id')::uuid;
+ data:=jsonb_build_object('sessionId',s1,'installationId',install,'intentRevision',1,'intentId',gen_random_uuid(),'expectedEpoch',null,'installationSecretHash',repeat('a',64),'transport','web','payload',jsonb_build_object('endpoint','https://fcm.googleapis.com/fcm/send/synthetic-token','keys',jsonb_build_object('p256dh','synthetic','auth','synthetic')),'label','Synthetic browser');
+ response:=public.manage_ball_knower_push(u1,'subscribe',data); device:=(response->>'id')::uuid; data:=data||jsonb_build_object('expectedEpoch',response->'epoch');
  if (select count(*) from ball_knower_private.push_deliveries)<>0 then raise exception 'registering blasted old history'; end if;
  if (public.manage_ball_knower_push(u1,'subscribe',data)->>'id')::uuid<>device then raise exception 'registration not idempotent'; end if;
  begin perform public.manage_ball_knower_push(u1,'subscribe',data||jsonb_build_object('installationSecretHash',repeat('b',64)));raise exception 'guessed installation secret accepted';exception when insufficient_privilege then null;end;
@@ -40,6 +40,19 @@ begin
  begin perform public.manage_ball_knower_push(u2,'settings',jsonb_build_object('sessionId',s1));raise exception 'cross-owner session accepted';exception when invalid_authorization_specification then null;end;
  begin perform public.manage_ball_knower_push(u1,'settings',jsonb_build_object('sessionId',gen_random_uuid()));raise exception 'deleted session accepted';exception when invalid_authorization_specification then null;end;
  begin perform public.manage_ball_knower_push('00000000-0000-4000-8000-000000000003','settings',jsonb_build_object('sessionId','00000000-0000-4000-8000-000000000013'));raise exception 'anonymous push account accepted';exception when insufficient_privilege then null;end;
+ -- A timed-out old Disable may commit after a newer Enable: the persisted fence wins.
+ stale_data:=data||jsonb_build_object('intentRevision',2,'intentId',gen_random_uuid());
+ data:=data||jsonb_build_object('intentRevision',3,'intentId',gen_random_uuid());
+ perform public.manage_ball_knower_push(u1,'subscribe',data);
+ begin perform public.manage_ball_knower_push(u1,'unsubscribe',stale_data);raise exception 'old timed-out disable revoked newer enable';exception when sqlstate 'BK002' then null;end;
+ begin perform public.manage_ball_knower_push(u1,'unsubscribe',data||jsonb_build_object('intentId',gen_random_uuid()));raise exception 'equal revision intent collision accepted';exception when sqlstate 'BK002' then null;end;
+ if (select revoked_at from ball_knower_private.push_devices where id=device) is not null then raise exception 'newer enable did not survive late disable';end if;
+ -- A later Disable has a tombstone even before the first in-flight Subscribe creates a device.
+ first_install:=gen_random_uuid();
+ stale_data:=data||jsonb_build_object('installationId',first_install,'intentRevision',1,'intentId',gen_random_uuid(),'expectedEpoch',null,'payload',jsonb_build_object('endpoint','https://fcm.googleapis.com/fcm/send/never-created','keys',jsonb_build_object('p256dh','synthetic','auth','synthetic')));
+ perform public.manage_ball_knower_push(u1,'unsubscribe',stale_data||jsonb_build_object('intentRevision',2,'intentId',gen_random_uuid()));
+ begin perform public.manage_ball_knower_push(u1,'subscribe',stale_data);raise exception 'first delayed subscribe ignored disable tombstone';exception when sqlstate 'BK002' then null;end;
+ if exists(select 1 from ball_knower_private.push_devices where installation_id=first_install) then raise exception 'disabled first installation created a device';end if;
  insert into public.ball_knower_notifications(auth_user_id,league_id) values(u1,'league-a') returning id into n;
  if (select count(*) from ball_knower_private.push_deliveries where notification_id=n)<>1 then raise exception 'missing unique queued event'; end if;
  select * into q from public.claim_ball_knower_push(12,array['web'],instant+interval '1 second');
@@ -82,13 +95,18 @@ begin
  -- The same physical installation may explicitly change owner, but old leases cannot follow it.
  insert into public.ball_knower_notifications(auth_user_id,league_id) values(u1,'league-a');
  select * into q from public.claim_ball_knower_push(1,array['web'],instant+interval '9 seconds');
+ data:=data||jsonb_build_object('intentRevision',(data->>'intentRevision')::bigint+1,'intentId',gen_random_uuid());
  perform public.manage_ball_knower_push(u2,'subscribe',data||jsonb_build_object('sessionId',s2));
  if public.finish_ball_knower_push(q.id,q.claim_token,'{"state":"accepted","code":"provider_accepted"}',instant+interval '10 seconds') then raise exception 'owner-rebound lease accepted'; end if;
  if (select state from ball_knower_private.push_deliveries where id=q.id)<>'suppressed' then raise exception 'rebound old queue not suppressed'; end if;
  perform public.manage_ball_knower_push(u1,'revoke-device',jsonb_build_object('sessionId',s1,'deviceId',device));
  if (select revoked_at from ball_knower_private.push_devices where id=device) is not null then raise exception 'another owner revoked device'; end if;
+ stale_data:=data||jsonb_build_object('sessionId',s2,'intentRevision',(data->>'intentRevision')::bigint+1,'intentId',gen_random_uuid());
  perform public.manage_ball_knower_push(u2,'revoke-device',jsonb_build_object('sessionId',s2,'deviceId',device));
+ begin perform public.manage_ball_knower_push(u2,'subscribe',stale_data);raise exception 'captured explicit request undid remote revocation';exception when sqlstate 'BK002' then null;end;
  begin perform public.manage_ball_knower_push(u2,'subscribe',data||jsonb_build_object('sessionId',s2,'restore',true));raise exception 'automatic restore undid remote revocation';exception when sqlstate 'BK001' then null;end;
+ fence:=public.manage_ball_knower_push(u1,'installation',data);
+ data:=data||jsonb_build_object('intentRevision',(fence->>'revision')::bigint+1,'intentId',gen_random_uuid(),'expectedEpoch',fence->'epoch');
  perform public.manage_ball_knower_push(u1,'subscribe',data);
 
  -- Draft state and schedule changes invalidate pending reminders and turns.
@@ -162,11 +180,11 @@ begin
  if not exists(select 1 from ball_knower_private.push_deliveries where notification_id=n and state='failed' and attempts=5) then raise exception 'five-attempt retry limit not enforced'; end if;
 
  -- Account deletion cascades private settings, devices and pending receipts.
- perform public.manage_ball_knower_push(u2,'subscribe',data||jsonb_build_object('sessionId',s2,'installationId',gen_random_uuid(),'transport','apns','payload',jsonb_build_object('token',repeat('f',64))));
+ perform public.manage_ball_knower_push(u2,'subscribe',data||jsonb_build_object('sessionId',s2,'installationId',gen_random_uuid(),'intentRevision',1,'intentId',gen_random_uuid(),'expectedEpoch',null,'transport','apns','payload',jsonb_build_object('token',repeat('f',64))));
  perform public.manage_ball_knower_push(u2,'save-settings',jsonb_build_object('sessionId',s2,'quietEnabled',true,'timeZone','UTC','startMinute',1320,'endMinute',420));
  insert into public.ball_knower_notifications(auth_user_id,league_id) values(u2,'league-a');
  delete from auth.users where id=u2;
- if exists(select 1 from ball_knower_private.push_devices where auth_user_id=u2) or exists(select 1 from ball_knower_private.push_settings where auth_user_id=u2) or exists(select 1 from ball_knower_private.push_deliveries where auth_user_id=u2) then raise exception 'deleted account retained private push data'; end if;
+ if exists(select 1 from ball_knower_private.push_installation_intents where auth_user_id=u2) or exists(select 1 from ball_knower_private.push_devices where auth_user_id=u2) or exists(select 1 from ball_knower_private.push_settings where auth_user_id=u2) or exists(select 1 from ball_knower_private.push_deliveries where auth_user_id=u2) then raise exception 'deleted account retained private push data'; end if;
 
  -- Invalid providers revoke devices; sign-out removes device and pending queue via active session FK.
  insert into public.ball_knower_notifications(auth_user_id,league_id) values(u1,'league-a');
@@ -174,12 +192,14 @@ begin
  perform public.prepare_ball_knower_push(q.id,q.claim_token,instant+interval '19 seconds');
  perform public.finish_ball_knower_push(q.id,q.claim_token,'{"state":"invalid","code":"subscription_invalid"}',instant+interval '20 seconds');
  if (select revoked_at from ball_knower_private.push_devices where id=device) is null then raise exception 'invalid endpoint not revoked'; end if;
+ fence:=public.manage_ball_knower_push(u1,'installation',data);
+ data:=data||jsonb_build_object('intentRevision',(fence->>'revision')::bigint+1,'intentId',gen_random_uuid(),'expectedEpoch',fence->'epoch');
  perform public.manage_ball_knower_push(u1,'subscribe',data);
  delete from auth.sessions where id=s1;
- if exists(select 1 from ball_knower_private.push_devices where id=device) then raise exception 'signed-out device survived'; end if;
+ if exists(select 1 from ball_knower_private.push_devices where id=device) or exists(select 1 from ball_knower_private.push_installation_intents where session_id=s1) then raise exception 'signed-out device/intent survived'; end if;
  begin perform public.manage_ball_knower_push(u1,'subscribe',data);raise exception 'old JWT session re-registered after sign-out';exception when invalid_authorization_specification then null;end;
  if has_function_privilege('anon','public.manage_ball_knower_push(uuid,text,jsonb)','EXECUTE') or has_function_privilege('authenticated','public.claim_ball_knower_push(integer,text[],timestamptz)','EXECUTE') or has_function_privilege('authenticated','public.prepare_ball_knower_push(uuid,uuid,timestamptz)','EXECUTE') or has_function_privilege('authenticated','public.finish_ball_knower_push(uuid,uuid,jsonb,timestamptz)','EXECUTE') then raise exception 'service-only RPC exposed'; end if;
- if has_table_privilege('anon','ball_knower_private.push_devices','SELECT') or has_table_privilege('authenticated','ball_knower_private.push_deliveries','SELECT') then raise exception 'raw device/queue table exposed'; end if;
+ if has_table_privilege('authenticated','ball_knower_private.push_installation_intents','SELECT') or has_table_privilege('anon','ball_knower_private.push_devices','SELECT') or has_table_privilege('authenticated','ball_knower_private.push_deliveries','SELECT') then raise exception 'raw device/queue table exposed'; end if;
 end $test$;
 rollback;
 select 'Push PostgreSQL integration passed: permanent owner/session binding, registration uniqueness, restore/revocation, delivery fences, current-access and draft suppression, backoff, quiet deferral, acceptance receipts and sign-out cascade.' as result;
