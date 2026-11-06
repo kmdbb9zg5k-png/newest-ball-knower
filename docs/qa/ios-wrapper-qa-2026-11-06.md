@@ -59,6 +59,15 @@ containing fixture assets or the fixture bundle ID fails the built-app audit.
 
 ## Distribution stages
 
+Both signed workflows use Codemagic's app-wide `PROJECT_BUILD_NUMBER` for the
+iOS build number. `BUILD_NUMBER` is specific to a workflow and can restart when
+the separate upload workflow is first selected. The versioning step and exported
+IPA audit share one validated project-counter helper. Missing/invalid project
+counter data stops the build rather than falling back to a restarted workflow
+counter. Codemagic supplies this variable; the owner does not set a source PIN or
+a separate number for the build-only workflow.
+
+
 `ios-app-store` remains the default Codemagic workflow and now produces artifacts
 only. It uses the existing `BallKnowerApple` integration and `code-signing` group,
 fetches existing signing files without creating certificates/profiles, and does

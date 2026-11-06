@@ -20,6 +20,8 @@ requireText('codemagic.yaml',[
   'python3 scripts/configure-ios-project.py',
   'npx --no-install cap add ios --packagemanager SPM',
   'python3 scripts/verify-ios-ipa.py',
+  'IOS_BUILD_NUMBER="$(python3 scripts/ios_build_number.py)"',
+  'xcrun agvtool new-version -all "$IOS_BUILD_NUMBER"',
   'BK_APPROVED_UPLOAD_SHA',
   'Build signed IPA',
   'submit_to_testflight: false',
@@ -31,6 +33,7 @@ requireText('scripts/configure-ios-project.py',[
   'aps-environment','$(APS_ENVIRONMENT)','"development" if config["name"] == "Debug" else "production"',
   '.capacitorDidRegisterForRemoteNotifications','.capacitorDidFailToRegisterForRemoteNotifications',
 ]);
+requireText('scripts/verify-ios-ipa.py',['verify_ios_build_number(manifest["buildNumber"])']);
 const codemagic=read('codemagic.yaml');
 if(/npm install --no-save|--create\b/.test(codemagic))failures.push('Native builds must use locked dependencies and existing signing credentials');
 const buildOnlyWorkflow=codemagic.split('\n  ios-app-store:\n')[1]?.split('\n  ios-app-store-upload:\n')[0];
