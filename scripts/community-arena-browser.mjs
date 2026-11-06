@@ -10,6 +10,19 @@ const userId='00000000-0000-4000-8000-000000000901';
 const preview={leaderboard:[{user_id:userId,display_name:'Guest Browse Manager',bk_rating:82,level:4,h2h_rating:1048,h2h_wins:4,h2h_losses:1,h2h_ties:0,rank:1}],friends:[],matches:[],messages:[{id:'00000000-0000-4000-8000-000000000902',author_id:userId,display_name:'Guest Browse Manager',body:'Public football conversation for visitors.',created_at:new Date().toISOString()}]};
 const privateCommunity=new Set(['ball_knower_football_arena','ball_knower_mini_challenges','get_ball_knower_community_home','get_ball_knower_global_messages','get_ball_knower_direct_messages','search_ball_knower_community_users','post_ball_knower_global_message','send_ball_knower_direct_message','send_ball_knower_friend_request','start_ball_knower_h2h']);
 let browser;
+async function checkSectionArt(page,container,label,width,minimumPhotos=1){
+  await container.waitFor({state:'visible'});
+  const photos=container.locator('img[src*="/community/"],img[src*="/profile/cinematic/"]');
+  assert.ok(await photos.count()>=minimumPhotos,`${label} must include artwork for each featured card`);
+  for(const photo of await photos.all()){
+    await photo.scrollIntoViewIfNeeded();
+    await photo.evaluate(image=>image.decode());
+    assert.ok(await photo.evaluate(image=>image.complete&&image.naturalWidth>0),`${label} artwork must load at ${width}px`);
+  }
+  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
+  assert.ok(overflow<=1,`${label} overflows by ${overflow}px at ${width}px`);
+  await page.screenshot({path:`artifacts/community-guest/${label}-${width}.png`});
+}
 try{
   let ready=false;for(let i=0;i<100;i++){try{if((await fetch(base)).ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,150));}assert.ok(ready,'Preview server must be ready');
   await mkdir('artifacts/community-guest',{recursive:true});
@@ -45,6 +58,7 @@ try{
     await page.screenshot({path:`artifacts/community-guest/cards-${width}.png`});
     await arena.getByRole('button',{name:'View leaderboard',exact:true}).click();
     await arena.getByRole('heading',{name:'Worldwide BK Rating',exact:true}).waitFor();
+    await checkSectionArt(page,arena.locator('.arena-rankings-page'),'rankings',width);
     await arena.getByRole('button',{name:'Arena',exact:true}).click();
     await arena.getByRole('button',{name:'Find Ball Knowers',exact:true}).click();
     await arena.getByRole('heading',{name:'Build your football circle',exact:true}).waitFor();
@@ -80,6 +94,8 @@ try{
     await arena.getByText(preview.leaderboard[0].display_name,{exact:true}).waitFor();
     await arena.getByRole('button',{name:'Mini games',exact:true}).click();
     await arena.getByRole('heading',{name:'Pick your challenge',exact:true}).waitFor();
+    await checkSectionArt(page,arena.locator('.bk-mini-arena-hero'),'mini-games',width);
+    await checkSectionArt(page,arena.getByRole('region',{name:'More ways to play',exact:true}),'mini-world',width,2);
     assert.equal(await page.getByRole('dialog').count(),0,'Browsing mini games must not open login');
     await arena.getByRole('button',{name:'Rankings',exact:true}).click();
     await arena.getByRole('heading',{name:'Worldwide BK Rating',exact:true}).waitFor();
@@ -96,6 +112,7 @@ try{
     await page.getByRole('button',{name:'Close sign in',exact:true}).click();
     await arena.getByRole('button',{name:'Football H2H',exact:true}).click();
     await arena.getByRole('heading',{name:/YOUR OFFENSE/}).waitFor();
+    await checkSectionArt(page,arena.locator('.football-arena'),'football-h2h',width,3);
     await arena.getByRole('button',{name:'Pick your team',exact:true}).click();
     const selection=page.getByRole('dialog');
     await selection.getByRole('heading',{name:'Pick your team.'}).waitFor();
@@ -108,6 +125,7 @@ try{
     await page.locator('.bk-auth-console').waitFor();
     await page.getByRole('button',{name:'Close sign in',exact:true}).click();
     await arena.getByRole('button',{name:'Trivia H2H',exact:true}).click();
+    await checkSectionArt(page,arena.locator('.arena-trivia-lobby'),'trivia-h2h',width,2);
     await arena.getByRole('button',{name:'Quick match',exact:true}).click();
     await page.locator('.bk-auth-console').waitFor();
     await page.getByRole('button',{name:'Close sign in',exact:true}).click();

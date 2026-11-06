@@ -123,3 +123,28 @@ body:has(.bk-arena) {min-width:0}
 .bk-arena .arena-button {font-size:11px;font-weight:900;letter-spacing:.08em;line-height:1.4}
 .bk-arena nav[aria-label="Community sections"] button {font-size:11px;font-weight:800}
 .bk-arena .arena-friend-actions button {min-width:0;font-size:10px;font-weight:900;letter-spacing:.025em;padding-inline:6px}
+
+/* Section artwork continues the Arena's photographic identity beyond the home cards. */
+.arena-rankings-banner,.arena-trivia-photo,.arena-results-photo {position:relative;isolation:isolate;overflow:hidden;background:#090d12}
+.arena-rankings-banner {height:clamp(180px,28vw,300px)}
+.arena-rankings-banner img,.arena-trivia-photo img,.arena-results-photo img {display:block;width:100%;height:100%;object-fit:cover}
+.arena-rankings-banner img {object-position:center 45%}
+.arena-rankings-banner::after,.arena-trivia-photo::after,.arena-results-photo::after {content:'';position:absolute;inset:0;background:linear-gradient(0deg,#0b1016,transparent 65%);pointer-events:none}
+.arena-rankings-banner>.arena-kicker,.arena-trivia-photo>.arena-kicker {position:absolute;z-index:1;bottom:18px;left:20px;right:16px;line-height:1.6}
+.arena-rankings-page>header h2,.arena-trivia-content h2,.arena-trivia-results h2 {font-family:'Barlow Condensed','Arial Narrow',Impact,sans-serif;font-size:clamp(28px,6vw,38px);font-weight:800;font-style:italic;line-height:1.05}
+.arena-rankings-page>header>p:last-child {font-size:12px;line-height:1.8;max-width:650px}
+.arena-podium {background:radial-gradient(ellipse at top,#d9b43b18,transparent 75%)}
+.arena-podium>button {position:relative;overflow:hidden;background:linear-gradient(160deg,#202018,#0a0f15);border-color:#d9b43b44;min-height:174px}
+.arena-podium>button:first-child {border-color:#e6c65a88;background:linear-gradient(150deg,#d9b43b24,#0a0f15 80%)}
+.arena-podium>button::after {content:'';position:absolute;top:0;left:18%;right:18%;height:2px;background:linear-gradient(90deg,transparent,#ecd67d,transparent)}
+.arena-podium .arena-avatar {border-radius:50%;box-shadow:0 0 0 4px #d9b43b0d}
+.arena-trivia-card {overflow:hidden}
+.arena-trivia-photo {height:clamp(190px,30vw,270px)}
+.arena-trivia-photo img {object-position:65% 35%}
+.arena-trivia-content {padding:20px}
+.arena-trivia-content>div:first-child>div:first-child {flex-shrink:0}
+.bk-arena .arena-match-primary {background:linear-gradient(110deg,#efcd64,#e7bd4c);border-color:#f1d57f;color:#101113}
+.bk-arena .arena-match-primary:hover {background:#f3d778}
+.arena-results-photo {height:180px}
+.arena-results-photo img {object-position:center 48%}
+@media(max-width:359px){.arena-trivia-content{padding:16px}.arena-trivia-content h2{font-size:27px}.arena-podium>button{padding:10px 6px}.arena-podium .arena-avatar{width:36px;height:36px}}

@@ -1,6 +1,6 @@
 import React,{lazy,Suspense,useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {Gamepad2,Loader2,RefreshCcw,Swords,Trophy,X} from 'lucide-react';
+import {ChevronRight,Gamepad2,Loader2,RefreshCcw,Swords,Trophy,Users,X} from 'lucide-react';
 import {miniChallengeAction,subscribeCommunity,type CommunityFriend} from './communityCloud';
 import {useCommunityResource} from './useCommunityResource';
 import {MINI_CHALLENGE_GAMES,miniGame,miniChallengeUrl,miniStatLabel,type MiniChallenge,type MiniGameId,type MiniStats} from './miniChallenges';
@@ -36,8 +36,24 @@ export default function CommunityMiniGames({me,friends,onOpenAuth}:{me:string;fr
   const mine=matches.filter(m=>m.challenger_id===me||m.opponent_id===me);
   const open=matches.filter(m=>m.status==='open'&&m.challenger_id!==me);
   return <div className="bk-mini-arena">
-    <section className="bk-mini-arena-hero"><span className="arena-kicker">COMMUNITY / MINI GAMES</span><Gamepad2 aria-hidden="true"/><h2>YOUR GAME.<br/><em>THEIR SCORE TO BEAT.</em></h2><p>Pick a game. Bring a rival. Let the stats settle it.</p><div className="bk-mini-rule-strip"><span>Same athlete or teams</span><span>One submitted result each</span><span>24 hours to finish</span></div></section>
-    <section className="bk-mini-challenge-feed" aria-label="More ways to play"><header><h3>Your football world</h3></header><div className="bk-mini-card-actions"><button type="button" aria-expanded={expanded==='competitions'} aria-controls="community-competition-panel" onClick={()=>setExpanded(expanded==='competitions'?null:'competitions')}>Crews, events & challenge nights</button><button type="button" aria-expanded={expanded==='athlete'} aria-controls="community-athlete-panel" onClick={()=>setExpanded(expanded==='athlete'?null:'athlete')}>My athlete & trophy room</button></div>{expanded==='competitions'&&<div id="community-competition-panel"><Suspense fallback={<p role="status">Loading competitions…</p>}><CommunityCompetitionArena key={me||'guest'} me={me} onOpenAuth={onOpenAuth}/></Suspense></div>}{expanded==='athlete'&&<div id="community-athlete-panel"><Suspense fallback={<p role="status">Opening your locker…</p>}><AthleteLocker community/></Suspense></div>}</section>
+    <section className="bk-mini-arena-hero">
+      <img className="bk-mini-hero-art" src="/community/arena-mini-games-v1.webp" alt="" width="640" height="427" decoding="async"/>
+      <div className="bk-mini-hero-copy"><span className="arena-kicker">COMMUNITY / MINI GAMES</span><span className="bk-mini-hero-badge" aria-hidden="true"><Gamepad2/></span><h2>YOUR GAME.<br/><em>THEIR SCORE TO BEAT.</em></h2><p>Pick a game. Bring a rival. Let the stats settle it.</p><div className="bk-mini-rule-strip"><span>Same athlete or teams</span><span>One submitted result each</span><span>24 hours to finish</span></div></div>
+    </section>
+    <section className="bk-mini-challenge-feed bk-mini-football-world" aria-label="More ways to play">
+      <header><h3>Your football world</h3></header>
+      <div className="bk-mini-world-grid">
+        <button className="bk-mini-world-card" type="button" aria-expanded={expanded==='competitions'} aria-controls="community-competition-panel" onClick={()=>setExpanded(expanded==='competitions'?null:'competitions')}>
+          <img src="/community/arena-mini-games-v1.webp" alt="" width="640" height="427" loading="lazy" decoding="async"/>
+          <span className="bk-mini-world-icon" aria-hidden="true"><Users/></span><span className="bk-mini-world-title">Crews, events & challenge nights</span><ChevronRight className="bk-mini-world-arrow" aria-hidden="true"/>
+        </button>
+        <button className="bk-mini-world-card bk-mini-world-locker" type="button" aria-expanded={expanded==='athlete'} aria-controls="community-athlete-panel" onClick={()=>setExpanded(expanded==='athlete'?null:'athlete')}>
+          <img src="/profile/cinematic/trophy-vault.webp" alt="" width="1536" height="1024" loading="lazy" decoding="async"/>
+          <span className="bk-mini-world-icon" aria-hidden="true"><Trophy/></span><span className="bk-mini-world-title">My athlete & trophy room</span><ChevronRight className="bk-mini-world-arrow" aria-hidden="true"/>
+        </button>
+      </div>
+      {expanded==='competitions'&&<div id="community-competition-panel"><Suspense fallback={<p role="status">Loading competitions…</p>}><CommunityCompetitionArena key={me||'guest'} me={me} onOpenAuth={onOpenAuth}/></Suspense></div>}{expanded==='athlete'&&<div id="community-athlete-panel"><Suspense fallback={<p role="status">Opening your locker…</p>}><AthleteLocker community/></Suspense></div>}
+    </section>
     <Suspense fallback={<p role="status">Loading athlete builder…</p>}><MiniGameAthleteBuilder/></Suspense>
     <section className="bk-mini-challenge-builder" aria-label="Create mini game challenge"><h3>Pick your challenge</h3><div className="bk-mini-game-list">{MINI_CHALLENGE_GAMES.map(g=><button type="button" key={g.id} aria-pressed={game===g.id} onClick={()=>setGame(g.id)}><span><strong>{g.name}</strong><small>{g.rule}</small></span><Swords aria-hidden="true"/></button>)}</div>
       <label htmlFor="mini-challenge-opponent">Choose your opponent</label><select id="mini-challenge-opponent" value={opponent} onChange={e=>setOpponent(e.target.value)}><option value="">Open challenge · any Ball Knower</option>{friends.map(f=><option key={f.userId} value={f.userId}>{f.displayName}</option>)}</select>
