@@ -11,8 +11,13 @@ for(const [index,entry] of contents.images.entries()){
   const scale=Number(entry.scale?.replace('x','')||1);
   if(!Number.isFinite(size)||!Number.isFinite(scale))throw new Error('Unsupported iOS app-icon template');
   const filename=`ball-knower-${size*scale}-${index}.png`;
+  const previousFilename=entry.filename;
   await sharp('public/ball-knower-icon.svg').resize(size*scale,size*scale).flatten({background:'#050608'}).png().toFile(path.join(appIcon,filename));
   entry.filename=filename;
+  if(previousFilename&&previousFilename!==filename){
+    if(path.basename(previousFilename)!==previousFilename)throw new Error('Unsupported app-icon filename');
+    await fs.rm(path.join(appIcon,previousFilename),{force:true});
+  }
 }
 await fs.writeFile(path.join(appIcon,'Contents.json'),JSON.stringify(contents,null,2)+'\n');
 console.log('Generated opaque iOS app icons from the approved Ball Knower artwork.');

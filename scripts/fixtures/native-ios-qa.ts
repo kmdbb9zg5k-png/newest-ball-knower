@@ -25,6 +25,7 @@ function report(){
 }
 async function check(name:string,test:()=>unknown|Promise<unknown>){
   try{await test();results.push({name,passed:true})}catch(error){results.push({name,passed:false,detail:String(error)})}
+  report();
 }
 function assert(value:unknown,message:string){if(!value)throw new Error(message)}
 async function rejectedWith(task:Promise<unknown>,code:string){
@@ -34,6 +35,7 @@ window.addEventListener(NATIVE_AUTH_RESULT_EVENT,event=>{
   if((event as CustomEvent).detail?.status==='failed')failedAuthCallbacks++;
   report();
 });
+report();
 await App.addListener('appUrlOpen',({url})=>callback('warm',url));
 const launch=await App.getLaunchUrl();
 if(launch?.url)callback('cold',launch.url);
