@@ -18,3 +18,49 @@
 .football-showdown-page .football-card{background:linear-gradient(145deg,#10171eed,#090e14);border-color:#ffffff20}
 .football-showdown-page :focus-visible{outline:2px solid #ffdf87;outline-offset:3px}
 @media(min-width:768px){.football-showdown-page{padding-top:8px}.football-showdown-back{font-size:16px;margin-bottom:24px}.football-showdown-eyebrow{font-size:12px}.football-showdown-lobby{margin-top:-24px}.football-showdown-page .football-hero p{font-size:16px}.football-showdown-page .football-note{font-size:13px}}
+
+/* Community football photography keeps copy and actions on a solid reading surface. */
+.football-arena .football-hero--illustrated{position:relative;isolation:isolate;overflow:hidden;padding:0;border-color:#c9a64f66;background:#090e14;box-shadow:0 18px 48px #0004}
+.football-hero-art{display:block;width:100%;height:190px;object-fit:cover;object-position:65% 49%;pointer-events:none}
+.football-hero-copy{position:relative;padding:20px;background:linear-gradient(#090e14,#0d141d)}
+.football-hero-copy::before{content:"";position:absolute;inset:-46px 0 auto;height:46px;background:linear-gradient(transparent,#090e14);pointer-events:none}
+.football-hero-copy h2{font-family:'Barlow Condensed','Arial Narrow',Impact,sans-serif;font-style:italic;font-size:clamp(38px,8vw,58px);line-height:.98;letter-spacing:-.01em;margin:14px 0}
+.football-hero-copy p{font-size:14px;color:#c0c5ce;margin:0;line-height:1.65}
+.football-hero-copy .football-eyebrow{font-size:10px;line-height:1.7;letter-spacing:.16em}
+.football-hero-copy .football-rules{margin-top:18px}
+.football-hero-copy .football-rules span{border-color:#e7c66d38;background:#080d1399;color:#e7d99f;line-height:1.4}
+.football-arena .football-matchmaking-card,.football-arena .football-records-card{padding:0;overflow:hidden;border-color:#d2b36138;background:#0c121a;box-shadow:0 12px 32px #0002}
+.football-matchmaking-visual{position:relative;isolation:isolate;height:154px;overflow:hidden;background:#070b0e}
+.football-matchmaking-art{display:block;width:100%;height:100%;object-fit:cover;object-position:center 61%;pointer-events:none}
+.football-matchmaking-visual::after{content:"";position:absolute;inset:0;background:linear-gradient(transparent 22%,#0c121a99 70%,#0c121a);pointer-events:none}
+.football-matchmaking-visual .football-eyebrow{position:absolute;z-index:1;bottom:4px;left:20px;right:20px;font-size:10px;line-height:1.7;letter-spacing:.18em}
+.football-card-copy{position:relative;padding:20px}
+.football-card-copy h3{margin:0 0 12px;font-family:'Barlow Condensed','Arial Narrow',Impact,sans-serif;font-weight:800;font-size:clamp(27px,5.4vw,38px);line-height:1.08;letter-spacing:-.01em}
+.football-card-copy p{margin:0 0 20px;color:#bfc6cf;font-size:14px;line-height:1.65}
+.football-card-copy button{min-height:48px;font-size:13px;padding:13px 20px}
+.football-records-art{display:block;width:100%;height:126px;object-fit:cover;object-position:center 48%;pointer-events:none;border-bottom:1px solid #d2b36125}
+.football-records-card .football-card-copy{background:linear-gradient(#10171d,#0c121a)}
+.football-arena .football-help{border-color:#d2b36128;background:linear-gradient(135deg,#121a21,#0b1118)}
+.football-arena .football-help summary{min-height:44px;align-content:center;color:#eee8d5;font-size:14px;line-height:1.5}
+@media(min-width:640px){
+ .football-hero-art{position:absolute;inset:0 0 0 auto;width:65%;height:100%;object-position:65% center}
+ .football-hero-copy{padding:32px;min-height:340px;background:linear-gradient(90deg,#090e14 28%,#090e14e8 48%,#090e1426 80%)}
+ .football-hero-copy::before{display:none}
+ .football-hero-copy h2{font-size:clamp(46px,5vw,62px)}
+ .football-hero-copy p{max-width:27em;width:55%;min-width:245px}
+ .football-hero-copy .football-rules{max-width:55%}
+ .football-matchmaking-visual{height:190px}
+ .football-matchmaking-visual .football-eyebrow{left:28px;right:28px}
+ .football-card-copy{padding:24px 28px 28px}
+ .football-records-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,.65fr)}
+ .football-records-art{grid-column:2;grid-row:1;height:100%;min-height:220px;border:0;object-position:85% center}
+ .football-records-card .football-card-copy{grid-column:1;grid-row:1;align-content:center}
+}
+@media(max-width:359px){
+ .football-hero-art{height:164px}
+ .football-hero-copy,.football-card-copy{padding:18px 16px}
+ .football-hero-copy .football-eyebrow{font-size:9px;letter-spacing:.13em}
+ .football-matchmaking-visual .football-eyebrow{left:16px;right:16px;font-size:9px}
+ .football-hero-copy .football-rules{gap:6px}
+ .football-hero-copy .football-rules span{font-size:8px;padding:7px 8px}
+}

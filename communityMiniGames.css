@@ -34,3 +34,30 @@
 
 /* Keep the full recap and retry/share actions reachable on short phone screens. */
 .bk-mini-post-result{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;width:100%;margin:0 auto;align-content:start;flex-shrink:1}
+.bk-mini-arena .bk-mini-arena-hero{isolation:isolate;padding:0;background:#080d12;box-shadow:0 14px 40px #0003}
+.bk-mini-hero-art{position:absolute;inset:0;z-index:-2;width:100%;height:100%;object-fit:cover;object-position:70% 55%}
+.bk-mini-arena-hero::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#060a0fdb,#060a0f85 62%,#060a0f36),linear-gradient(0deg,#080d12fa,transparent 80%);pointer-events:none}
+.bk-mini-hero-copy{position:relative;padding:clamp(22px,4vw,38px);min-height:320px;display:flex;flex-direction:column;align-items:flex-start}
+.bk-mini-hero-copy .arena-kicker{max-width:calc(100% - 42px);font-size:10px;line-height:1.6;letter-spacing:.2em;color:#ecd67d}
+.bk-mini-hero-badge{position:absolute;top:22px;right:22px;display:grid;place-items:center;width:34px;height:34px;border:1px solid #e6c56855;border-radius:10px;background:#080d1280;color:#ecd67d}
+.bk-mini-hero-badge svg{width:19px;height:19px}
+.bk-mini-arena-hero .bk-mini-hero-copy h2{margin:48px 0 15px;font-size:clamp(27px,5.4vw,50px);max-width:21ch;letter-spacing:-.045em;line-height:1.07;color:#fff;text-shadow:0 2px 20px #0008}
+.bk-mini-arena-hero .bk-mini-hero-copy p{max-width:36ch;margin:0;color:#d4d9dd;font-size:14px;line-height:1.65}
+.bk-mini-hero-copy .bk-mini-rule-strip{position:relative;margin-top:24px;gap:7px}
+.bk-mini-hero-copy .bk-mini-rule-strip span{background:#070d14bf;border-color:#dfc98730;color:#e3e5e7;font-size:10px;line-height:1.4;padding:8px 10px}
+.bk-mini-football-world>header h3{margin:0 0 16px}
+.bk-mini-world-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.bk-mini-arena .bk-mini-world-card{position:relative;isolation:isolate;overflow:hidden;display:flex;align-items:flex-end;gap:12px;width:100%;min-height:210px;padding:18px;border:1px solid #d7bc6438;border-radius:15px;background:#080d12;text-align:left;color:#fff}
+.bk-mini-world-card>img{position:absolute;inset:0;z-index:-2;width:100%;height:100%;object-fit:cover;object-position:68% 45%;transition:transform .25s ease}
+.bk-mini-world-card::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(0deg,#070c12 2%,#070c12e8 24%,#070c1240 75%);pointer-events:none}
+.bk-mini-world-card.bk-mini-world-locker>img{object-position:50% 42%}
+.bk-mini-world-icon{position:absolute;top:16px;left:16px;display:grid;place-items:center;width:38px;height:38px;color:#ecd67d;background:#080d12b8;border:1px solid #e6c56855;border-radius:11px}
+.bk-mini-world-icon svg{width:21px;height:21px}
+.bk-mini-world-title{flex:1;min-width:0;max-width:22ch;font-size:16px;font-weight:900;line-height:1.35}
+.bk-mini-world-arrow{flex:none;width:21px;height:21px;margin-bottom:2px;color:#ecd67d;transition:transform .2s ease}
+.bk-mini-world-card[aria-expanded=true]{border-color:#e1c96b!important;box-shadow:inset 0 0 0 1px #e1c96b33}
+.bk-mini-world-card[aria-expanded=true] .bk-mini-world-arrow{transform:rotate(90deg)}
+.bk-mini-football-world>#community-competition-panel,.bk-mini-football-world>#community-athlete-panel{margin-top:20px;min-width:0}
+@media(hover:hover){.bk-mini-world-card:hover>img{transform:scale(1.035)}.bk-mini-world-card:hover{border-color:#e1c96b88}}
+@media(max-width:600px){.bk-mini-world-grid{grid-template-columns:1fr}.bk-mini-arena .bk-mini-world-card{min-height:188px}.bk-mini-hero-copy{min-height:350px}.bk-mini-hero-art{object-position:74% 50%}.bk-mini-arena-hero::after{background:linear-gradient(90deg,#060a0fbd,#060a0f50),linear-gradient(0deg,#080d12 1%,#080d12a6 57%,transparent)}.bk-mini-world-title{max-width:23ch}.bk-mini-hero-copy .arena-kicker{font-size:9px;letter-spacing:.15em}}
+@media(prefers-reduced-motion:reduce){.bk-mini-world-card>img,.bk-mini-world-arrow{transition:none}}
