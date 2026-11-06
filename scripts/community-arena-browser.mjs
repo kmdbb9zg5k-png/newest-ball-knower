@@ -14,16 +14,21 @@ try{
   let ready=false;for(let i=0;i<100;i++){try{if((await fetch(base)).ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,150));}assert.ok(ready,'Preview server must be ready');
   await mkdir('artifacts/community-guest',{recursive:true});
   browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_PATH||undefined});
-  for(const width of [320,390,1280]){
+  for(const width of [320,390,430,1280]){
     const context=await browser.newContext({viewport:{width,height:844},isMobile:width<768,hasTouch:width<768});
+    let currentPreview=structuredClone(preview);
     const calls=[];const errors=[];const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
     await context.route('**/*.supabase.co/**',route=>{
       const path=new URL(route.request().url()).pathname;const rpc=path.split('/rpc/')[1];if(rpc)calls.push(rpc);
-      return route.fulfill({status:rpc==='get_ball_knower_community_preview'?200:403,contentType:'application/json',body:JSON.stringify(rpc==='get_ball_knower_community_preview'?preview:{message:'No session in guest regression'})});
+      return route.fulfill({status:rpc==='get_ball_knower_community_preview'?200:403,contentType:'application/json',body:JSON.stringify(rpc==='get_ball_knower_community_preview'?currentPreview:{message:'No session in guest regression'})});
     });
     await context.route('**/api/**',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({tracks:[],introUrl:null,available:false,games:[],articles:[]})}));
     await context.route('**/_vercel/**',route=>route.fulfill({status:200,contentType:'application/javascript',body:''}));
     await page.addInitScript(()=>{localStorage.setItem('ball-knower-intro-completed-v1','1');localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-sound-v1','off');});
+    await page.addInitScript(()=>{
+      window.__communityShared=[];
+      Object.defineProperty(navigator,'share',{configurable:true,value:async data=>{window.__communityShared.push(data);}});
+    });
     await page.goto(base,{waitUntil:'domcontentloaded'});
     await page.locator('.bk-home-stadium').waitFor();
     for(const button of await page.getByRole('button',{name:'Community',exact:true}).all()){if(await button.isVisible()){await button.click();break;}}
@@ -31,6 +36,48 @@ try{
     await arena.getByText('Browsing as a guest',{exact:true}).waitFor();
     await arena.getByRole('heading',{name:'YOUR PEOPLE. YOUR PROVING GROUND.'}).waitFor();
     assert.equal(await page.getByRole('dialog').count(),0,'Browsing must not open login');
+    await arena.locator('.arena-feature-grid').scrollIntoViewIfNeeded();
+    await page.waitForFunction(()=>[...document.querySelectorAll('.arena-feature img')].every(image=>image.complete&&image.naturalWidth>0));
+    assert.equal(await arena.locator('.arena-leader-name').innerText(),preview.leaderboard[0].display_name,'Rank preview must use the actual service response');
+    assert.ok(await arena.getByRole('button',{name:'View leaderboard',exact:true}).isVisible());
+    const featureOverflow=await arena.locator('.arena-feature-grid').evaluate(element=>element.scrollWidth-element.clientWidth);
+    assert.ok(featureOverflow<=1,`Community cards overflow by ${featureOverflow}px at ${width}`);
+    await page.screenshot({path:`artifacts/community-guest/cards-${width}.png`});
+    await arena.getByRole('button',{name:'View leaderboard',exact:true}).click();
+    await arena.getByRole('heading',{name:'Worldwide BK Rating',exact:true}).waitFor();
+    await arena.getByRole('button',{name:'Arena',exact:true}).click();
+    await arena.getByRole('button',{name:'Find Ball Knowers',exact:true}).click();
+    await arena.getByRole('heading',{name:'Build your football circle',exact:true}).waitFor();
+    assert.equal(await page.getByRole('dialog').count(),0,'Friend discovery must preserve the guest participation screen');
+    await arena.getByRole('button',{name:'Arena',exact:true}).click();
+    await arena.getByRole('button',{name:'Invite friends',exact:true}).click();
+    await page.waitForFunction(()=>window.__communityShared.length===1);
+    assert.equal(await page.evaluate(()=>window.__communityShared[0].url),'https://ballknowerofficial.com/','Invites must share the public app, never a preview/session URL');
+    await page.evaluate(()=>Object.defineProperty(navigator,'share',{configurable:true,value:async()=>{throw new DOMException('Cancelled','AbortError');}}));
+    await arena.getByRole('button',{name:'Invite friends',exact:true}).click();
+    assert.equal(await arena.locator('#arena-invite-link').count(),0,'Cancelling the share sheet must remain quiet');
+    await page.evaluate(()=>{
+      Object.defineProperty(navigator,'share',{configurable:true,value:undefined});
+      Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.__communityCopied=value;}}});
+    });
+    await arena.getByRole('button',{name:'Invite friends',exact:true}).click();
+    await page.waitForFunction(()=>window.__communityCopied==='https://ballknowerofficial.com/');
+    await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw new Error('Clipboard denied');}}}));
+    await arena.getByRole('button',{name:'Invite friends',exact:true}).click();
+    await arena.getByRole('textbox',{name:'Copy this link to invite your friends',exact:true}).waitFor();
+    assert.equal(await arena.locator('#arena-invite-link').inputValue(),'https://ballknowerofficial.com/','Unavailable sharing must leave a copyable link');
+    currentPreview={...preview,leaderboard:[]};
+    await arena.getByRole('button',{name:'Refresh Community',exact:true}).click();
+    await arena.getByText('No rankings yet. Start building your legacy.',{exact:true}).waitFor();
+    assert.equal(await arena.locator('.arena-feature-leader').count(),0,'Empty rankings must not fabricate a leader');
+    currentPreview=structuredClone(preview);currentPreview.leaderboard[0].display_name='A very long football manager name that must remain inside the rankings card';currentPreview.leaderboard[0].bk_rating=0;
+    await arena.getByRole('button',{name:'Refresh Community',exact:true}).click();
+    await arena.getByText(currentPreview.leaderboard[0].display_name,{exact:true}).waitFor();
+    assert.equal(await arena.locator('.arena-feature-leader>strong').innerText(),'0BK','A real zero rating must remain zero');
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1),'Long manager names must not widen the viewport');
+    currentPreview=structuredClone(preview);
+    await arena.getByRole('button',{name:'Refresh Community',exact:true}).click();
+    await arena.getByText(preview.leaderboard[0].display_name,{exact:true}).waitFor();
     await arena.getByRole('button',{name:'Mini games',exact:true}).click();
     await arena.getByRole('heading',{name:'Pick your challenge',exact:true}).waitFor();
     assert.equal(await page.getByRole('dialog').count(),0,'Browsing mini games must not open login');

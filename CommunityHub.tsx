@@ -11,7 +11,7 @@ import {useBallKnower} from './BallKnowerContext';
 import {CommunitySafetySettings,MessageSafety,useCommunitySafety} from './CommunitySafety';
 import {fetchProgressionProfile} from './progressionCloud';
 import {cancelH2H,fetchCommunityHome,fetchDirectMessages,fetchGlobalMessages,fetchH2HMatch,finishH2H,postGlobalMessage,removeFriend,respondFriendRequest,respondH2H,searchCommunityUsers,sendDirectMessage,sendFriendRequest,startH2H,submitH2HAnswer,subscribeCommunity,type CommunityFriend,type CommunityHome,type CommunityPerson,type CommunitySearchPerson,type H2HMatch} from './communityCloud';
-import {ArrowRight,Brain,ChevronRight,Clock3,Gamepad2,Globe2,Loader2,LockKeyhole,MessageCircle,RefreshCcw,Search,Send,ShieldCheck,Swords,Trophy,UserPlus,Users,X} from 'lucide-react';
+import {ArrowRight,Brain,ChevronRight,Clock3,Gamepad2,Globe2,Loader2,LockKeyhole,MessageCircle,RefreshCcw,Search,Send,ShieldCheck,Swords,Trophy,UserPlus,X} from 'lucide-react';
 
 type View='football'|'mini'|'home'|'rankings'|'h2h'|'chat'|'friends'|'messages';
 type Props={onOpenAuth:()=>void;onOpenTrivia:()=>void;onViewLocker:(person:CommunityPerson)=>void};
@@ -83,6 +83,19 @@ const CommunitySession:React.FC<Props>=({onOpenAuth,onOpenTrivia,onViewLocker})=
 };
 
 function ArenaHome({guest,home,me,onView,onTrivia,onOpenMatch}:{guest:boolean;home:CommunityHome|null;me:string;onView:(view:View)=>void;onTrivia:()=>void;onOpenMatch:(id:string)=>void}){
+  const {showToast}=useBallKnower();
+  const [inviteLinkVisible,setInviteLinkVisible]=useState(false);
+  const [inviting,setInviting]=useState(false);const inviteLock=useRef(false);
+  const inviteUrl='https://ballknowerofficial.com/';
+  const inviteFriends=async()=>{
+    if(inviteLock.current)return;inviteLock.current=true;setInviting(true);
+    try{
+      if(navigator.share)await navigator.share({title:'Ball Knower',text:'Talk football. Challenge your crew. Join me on Ball Knower.',url:inviteUrl});
+      else if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(inviteUrl);showToast('Ball Knower invite link copied.');}
+      else setInviteLinkVisible(true);
+    }catch(reason){if(!(reason instanceof Error&&reason.name==='AbortError'))setInviteLinkVisible(true);}
+    finally{inviteLock.current=false;setInviting(false);}
+  };
   const leader=home?.leaderboard[0];const active=home?.matches.find(match=>match.status==='active');
   const myRank=home?.leaderboard.find(person=>person.userId===me);
   const friends=home?.friends.filter(person=>person.status==='accepted').length||0;
@@ -98,9 +111,21 @@ function ArenaHome({guest,home,me,onView,onTrivia,onOpenMatch}:{guest:boolean;ho
     </nav>
     {active&&<button type="button" onClick={()=>onOpenMatch(active.id)} className={`${button} arena-resume`}><Swords aria-hidden="true"/><span>Rejoin live match</span><ChevronRight aria-hidden="true"/></button>}
     {!guest&&<div className="arena-stats"><button type="button" onClick={()=>onView('rankings')}><span>Your world rank</span><strong>{myRank?`#${myRank.rank}`:'—'}</strong><small>{myRank?`${myRank.bkRating} BK Rating`:'Top 50 rankings'}</small></button><button type="button" onClick={()=>onView('friends')}><span>Your circle</span><strong>{friends}</strong><small>{friends===1?'Accepted friend':'Accepted friends'}</small></button><button type="button" onClick={()=>onView('friends')}><span>Friend requests</span><strong>{home?.friends.filter(p=>p.status==='pending'&&p.direction==='incoming').length||0}</strong><small>{invites?'Check your invitations':'Build your football circle'}</small></button></div>}
-    <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2"><button type="button" onClick={()=>onView('rankings')} className={`${card} arena-feature p-5 text-left`}><Trophy className="text-[#d9b43b]"/><span className="arena-kicker">THE STANDARD</span><h2 className="text-xl font-black uppercase">World rankings</h2><p className="mt-2 text-sm text-zinc-400">See where your football knowledge stands.</p>{leader?<div className="arena-leader"><span className="arena-avatar">01</span><span className="min-w-0 flex-1 truncate font-bold">{leader.displayName}</span><strong className="text-xl text-[#ecd67d]">{leader.bkRating}<small className="ml-1 text-[10px]">BK</small></strong></div>:<p className="mt-4 text-xs text-zinc-400">No rankings yet. Start building your legacy.</p>}</button>
-    <button type="button" onClick={()=>onView('friends')} className={`${card} arena-feature p-5 text-left`}><Users className="text-[#d9b43b]"/><span className="arena-kicker">BRING YOUR RIVALS</span><h2 className="text-xl font-black uppercase">Build your circle</h2><p className="mt-2 text-sm leading-6 text-zinc-400">Find friends by name, send a challenge, and keep the football talk going in private messages.</p><span className="mt-5 inline-flex items-center text-xs font-black uppercase text-[#ecd67d]">Find Ball Knowers <ChevronRight className="ml-2 h-4 w-4"/></span></button></div>
-    <button type="button" onClick={onTrivia} aria-label="Play solo trivia instead" className={`${card} flex min-h-16 w-full items-center gap-3 p-4 text-left`}><Brain className="shrink-0 text-[#d9b43b]"/><span className="flex-1"><strong className="block text-sm">Play solo trivia instead</strong><span className="text-xs text-zinc-400">Sharpen your knowledge before the next showdown.</span></span><ChevronRight className="shrink-0"/></button>
+    <div className="arena-feature-grid">
+      <button type="button" onClick={()=>onView('rankings')} aria-label="View leaderboard" className="arena-feature arena-rankings-card">
+        <div className="arena-rankings-hero">
+          <img src="/community/arena-rankings-v1.webp" srcSet="/community/arena-rankings-mobile-v1.webp 768w, /community/arena-rankings-v1.webp 1280w" sizes="(min-width:1072px) 504px, (min-width:900px) calc((100vw - 64px) / 2), (min-width:640px) calc(100vw - 48px), calc(100vw - 24px)" width={1280} height={853} loading="lazy" decoding="async" alt=""/>
+          <div className="arena-rankings-copy"><span className="arena-kicker">THE STANDARD</span><h2>World<br/>rankings</h2><p>See where your knowledge stands.</p></div>
+        </div>
+        {leader?<div className="arena-leader arena-feature-leader"><span className="arena-avatar">{String(leader.rank).padStart(2,'0')}</span><span className="arena-leader-initials" aria-hidden="true">{leader.displayName.slice(0,2).toUpperCase()}</span><span className="arena-leader-name" title={leader.displayName}>{leader.displayName}</span><strong>{leader.bkRating}<small>BK</small></strong></div>:<p className="arena-feature-empty">No rankings yet. Start building your legacy.</p>}
+        <span className="arena-leaderboard-action">View leaderboard <ChevronRight aria-hidden="true"/></span>
+      </button>
+      <section className="arena-feature arena-circle-card" aria-labelledby="arena-circle-title">
+        <div className="arena-circle-photo"><img src="/community/arena-circle-v1.webp" srcSet="/community/arena-circle-mobile-v1.webp 768w, /community/arena-circle-v1.webp 1280w" sizes="(min-width:1072px) 504px, (min-width:900px) calc((100vw - 64px) / 2), (min-width:640px) calc(100vw - 48px), calc(100vw - 24px)" width={1280} height={853} loading="lazy" decoding="async" alt="Three football teammates laughing together over a phone on the sideline"/></div>
+        <div className="arena-circle-content"><span className="arena-kicker">BRING YOUR RIVALS</span><h2 id="arena-circle-title">Build your circle</h2><p>Find friends. Talk football. Challenge your crew.</p><div className="arena-circle-actions"><button type="button" onClick={()=>onView('friends')} className="arena-find-friends">Find Ball Knowers <ChevronRight aria-hidden="true"/></button><button type="button" onClick={()=>void inviteFriends()} disabled={inviting} className="arena-invite-friends">Invite friends</button></div>{inviteLinkVisible&&<div className="arena-invite-fallback"><label htmlFor="arena-invite-link">Copy this link to invite your friends</label><input id="arena-invite-link" readOnly value={inviteUrl} onFocus={event=>event.currentTarget.select()}/></div>}</div>
+      </section>
+    </div>
+    <button type="button" onClick={onTrivia} aria-label="Play solo trivia instead" className="arena-solo-tile"><Brain aria-hidden="true"/><span><strong>Play solo trivia</strong><span>Sharpen up for the next showdown.</span></span><ChevronRight aria-hidden="true"/></button>
   </div>;
 }
 
