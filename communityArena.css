@@ -1,19 +1,55 @@
 .bk-arena {--arena-gold:#ecd67d; color:#f4f4f5}
+/* Community's photography supplies the scene; keep the header clean and quiet. */
+.bk-arena[data-page="arena"] {background:#07090c}
+.bk-arena[data-page="arena"]>.bk-scene-backdrop {display:none}
+.arena-masthead {display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 10px;margin:0 0 16px}
+.arena-eyebrow {grid-column:1/-1;margin:0;font-size:9px;line-height:1.6;font-weight:800;letter-spacing:.23em;text-transform:uppercase;color:var(--arena-gold)}
+.arena-title {min-width:0}
+.arena-title h1 {margin:0;font-family:'Barlow Condensed','Arial Narrow',Impact,sans-serif;font-size:clamp(40px,8vw,58px);font-weight:800;font-style:italic;line-height:.98;letter-spacing:-.015em;text-transform:uppercase}
+.arena-subtitle {grid-column:1/-1;margin:0;font-size:12px;line-height:1.5;color:#b7bbc5}
+.arena-header-actions {display:flex;align-items:center;gap:4px;align-self:start}
+.arena-header-actions .bk-mode-guide-button,.arena-refresh {display:grid;place-items:center;width:44px;height:44px;min-height:44px;flex-shrink:0;border:1px solid #ffffff20;border-radius:50%;background:#0d1117;padding:0;color:#dddfe5}
+/* The help button keeps its accessible text and dialog, in a compact icon form. */
+.arena-header-actions .bk-mode-guide-button {font-size:0;gap:0}
+.arena-header-actions .bk-mode-guide-button svg {width:20px;height:20px}
+.arena-refresh:disabled {opacity:.5;cursor:wait}
+.arena-sections {display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;padding:0 0 12px;margin:0 0 12px;border-bottom:1px solid #ffffff24;-webkit-overflow-scrolling:touch;scroll-padding-inline:3px;scrollbar-width:none}
+.arena-sections::-webkit-scrollbar {display:none}
+.arena-sections>button {display:flex;align-items:center;justify-content:center;gap:7px;flex-shrink:0;min-height:44px;padding:8px 12px;border:1px solid transparent;border-radius:999px;background:transparent;color:#afb3c0;font-weight:800;white-space:nowrap;letter-spacing:.015em}
+.arena-sections>button[aria-current="page"] {border-color:#e6c65a;background:linear-gradient(120deg,#d9b43b2b,#d9b43b10);color:var(--arena-gold)}
+.arena-guest {display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;padding:4px 6px 4px 12px;margin:0 0 14px;border:1px solid #ffffff20;border-radius:12px;background:linear-gradient(110deg,#11161b,#0a0e13)}
+.arena-guest strong {font-size:12px;line-height:1.5;font-weight:600;color:#c6cbd5}
+.arena-guest button {min-height:44px;padding:8px 14px}
 .bk-arena button {transition:background-color .15s,border-color .15s,transform .15s}
 .bk-arena button:focus-visible,.bk-arena input:focus-visible,.bk-arena select:focus-visible {outline:2px solid var(--arena-gold);outline-offset:3px}
 .bk-arena .text-zinc-600 {color:#9299a5}
 .bk-arena .text-zinc-500 {color:#a1a1aa}
 .bk-arena fieldset:disabled button {opacity:.5;cursor:wait}
-.arena-hero {position:relative;isolation:isolate;overflow:hidden;border:1px solid #d9b43b55;border-radius:24px;background:#0c131b url('/atmosphere/home-stadium.webp') center 57%/cover;min-height:320px}
-.arena-hero::before {content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#070c13f5 0%,#070c13e8 40%,#070c1366),linear-gradient(0deg,#060a10dd,transparent)}
-.arena-hero-content {position:relative;z-index:2;max-width:720px;padding:36px}
+.arena-hero {position:relative;isolation:isolate;overflow:hidden;border:1px solid #d9b43b88;border-radius:24px;background:#07090c;box-shadow:0 14px 36px #0003}
+.arena-hero-photo {position:relative;width:100%;aspect-ratio:3/2;max-height:480px;background:#10151b;overflow:hidden}
+.arena-hero-photo img {display:block;width:100%;height:100%;object-fit:cover;object-position:center top}
+.arena-hero-photo::after {content:'';position:absolute;inset:auto 0 0;height:22%;background:linear-gradient(0deg,#07090c,transparent);pointer-events:none}
+.arena-hero-content {position:relative;z-index:1;margin-top:-12px;padding:0 28px 28px}
 .arena-kicker {display:block;font-size:10px;font-weight:900;letter-spacing:.2em;color:var(--arena-gold)}
-.arena-hero h2 {font-size:clamp(28px,4.5vw,49px);line-height:1.04;letter-spacing:-.045em;font-weight:950;margin:16px 0}
-.arena-hero h2 em {color:var(--arena-gold);font-style:normal}
-.arena-hero p {font-size:14px;line-height:1.7;color:#c8cdd6;max-width:350px;margin:0 0 24px}
+.arena-hero h2 {font-family:'Barlow Condensed','Arial Narrow',Impact,sans-serif;font-size:clamp(32px,5.6vw,56px);font-style:italic;line-height:1.02;letter-spacing:-.01em;font-weight:800;margin:10px 0;text-wrap:wrap}
+.arena-hero h2 em {color:#edcb63;font-style:inherit}
+.arena-hero p {font-size:14px;line-height:1.6;color:#c6cad4;margin:0 0 20px}
 .bk-arena .arena-primary {background:#e6c65a;color:#101216;border-color:#e6c65a}
-.arena-field {position:absolute;right:-25px;top:5%;width:40%;height:95%;transform:rotate(-15deg);border:1px solid #ecd67d44;background:repeating-linear-gradient(0deg,transparent 0 45px,#ecd67d22 46px 47px);opacity:.35;z-index:-1}
-.arena-field span {position:absolute;inset:30% 0;text-align:center;font-weight:950;font-size:100px;color:#ecd67d}
+.arena-conversation-action {display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:52px;padding:12px 18px;border:1px solid #f1d57f;border-radius:14px;background:linear-gradient(105deg,#efcd64,#e7bd4c);color:#101113;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;box-shadow:inset 0 1px 0 #ffffff30}
+.arena-conversation-action span {flex:1;text-align:left}
+.arena-conversation-action svg {width:23px;height:23px;flex-shrink:0}
+.arena-conversation-action:hover {background:#f3d778}
+.arena-play-cards {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.arena-play-card {position:relative;isolation:isolate;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;min-width:0;min-height:138px;padding:18px;overflow:hidden;border:1px solid #d9b43b88;border-radius:18px;background:#0b1016;text-align:left;color:#f4f4f5}
+.arena-play-card img {position:absolute;inset:0;z-index:-2;width:100%;height:100%;object-fit:cover;object-position:center}
+.arena-play-card::before {content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#05080ce6,#05080c77 58%,#05080c18),linear-gradient(0deg,#05080c88,transparent 85%);pointer-events:none}
+.arena-play-card>svg {width:24px;height:24px;margin-bottom:10px;color:#edcb63}
+.arena-play-card strong {font-family:'Barlow Condensed','Arial Narrow',Impact,sans-serif;font-size:28px;font-weight:800;line-height:1.05;letter-spacing:.015em;text-transform:uppercase}
+.arena-play-card>span {display:block;margin-top:5px;font-size:12px;line-height:1.5;color:#c6cad4}
+.arena-play-card:hover {border-color:#edcb63;background-color:#151b23}
+.arena-resume {display:flex;align-items:center;gap:12px;width:100%;padding:14px 18px;text-align:left}
+.arena-resume span {flex:1}
+.arena-resume svg {width:20px;height:20px;flex-shrink:0}
 .arena-stats {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid #ffffff18;border-radius:18px;background:#0b1016e8;overflow:hidden}
 .arena-stats button {min-width:0;padding:20px;text-align:left;border-right:1px solid #ffffff15}
 .arena-stats button:last-child {border-right:0}
@@ -34,7 +70,8 @@
 .arena-input {min-height:48px;border:1px solid #ffffff22;border-radius:12px;background:#0004;padding:10px 12px;font-size:16px;color:#f4f4f5;outline:none}
 .arena-input:focus {border-color:#d9b43b88}
 .arena-conversations {display:flex;flex-direction:column;max-height:500px;overflow:auto}
-@media(max-width:767px){.arena-hero-content{padding:24px}.arena-hero{min-height:330px}.arena-hero h2{font-size:32px}.arena-stats button{padding:14px 10px}.arena-stats span,.arena-stats small{font-size:10px}.arena-stats strong{font-size:27px}.arena-conversations{flex-direction:row;max-height:none;overflow-x:auto}.arena-conversations button{max-width:220px;border-right:1px solid #ffffff18}.arena-conversation{height:72dvh;min-height:420px}}
+@media(max-width:767px){.arena-hero-content{padding:0 18px 20px}.arena-hero h2{font-size:clamp(32px,8.6vw,42px)}.arena-hero .arena-kicker{font-size:8px;letter-spacing:.16em}.arena-hero p{font-size:12px;margin-bottom:16px}.arena-conversation-action{min-height:48px;padding:11px 13px;font-size:10px;letter-spacing:.07em;gap:10px}.arena-conversation-action svg{width:20px;height:20px}.arena-play-cards{gap:10px}.arena-play-card{min-height:114px;padding:14px 12px;border-radius:15px}.arena-play-card strong{font-size:23px}.arena-play-card>span{font-size:10px}.arena-play-card>svg{width:21px;height:21px;margin-bottom:8px}.arena-stats button{padding:14px 10px}.arena-stats span,.arena-stats small{font-size:10px}.arena-stats strong{font-size:27px}.arena-conversations{flex-direction:row;max-height:none;overflow-x:auto}.arena-conversations button{max-width:220px;border-right:1px solid #ffffff18}.arena-conversation{height:72dvh;min-height:420px}}
+@media(min-width:768px){.arena-masthead{gap:10px 16px;margin-bottom:20px}.arena-eyebrow{font-size:11px}.arena-subtitle{font-size:14px}.arena-hero-content{margin-top:-22px}.arena-conversation-action{max-width:520px}.arena-guest{margin-bottom:18px}.arena-play-card{min-height:160px}}
 @media(prefers-reduced-motion:reduce){.bk-arena button{transition:none}}
 
 .bk-arena input,.bk-arena textarea,.bk-arena select {font-size:16px}
