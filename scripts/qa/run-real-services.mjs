@@ -81,7 +81,7 @@ export async function runRealServices(statusPath, outputDirectory, cleanupPath) 
       assert.match(payload.id, /^[a-f0-9-]{36}$/);
       manifest.leagueId = payload.id; saveManifest();
     }
-    const pending = originalFetch(input, init).then(async response => {
+    const pending = originalFetch(input, { ...init, redirect: 'error' }).then(async response => {
       const bytes = await response.arrayBuffer();
       return new Response(response.status === 204 || response.status === 205 || init?.method === 'HEAD' ? null : bytes, { status: response.status, statusText: response.statusText, headers: response.headers });
     });

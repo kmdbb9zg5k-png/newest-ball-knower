@@ -4,7 +4,7 @@ import { assertLoopbackUrl, assertLoopbackDatabase, makeManifest, ownsUser, QA_O
 import { compareSchema, renderSchema, validateSnapshot } from './schema-contract.mjs';
 
 for (const url of ['https://gpnboygoosrmeydwjpvk.supabase.co', 'http://127.0.0.1.evil.test:54321', 'http://evil.test@127.0.0.1:54321', 'http://127.0.0.1:54321/api', 'http://127.0.0.1:54321?remote=1']) assert.throws(() => assertLoopbackUrl(url));
-for (const url of ['postgresql://user:pass@gpnboygoosrmeydwjpvk.supabase.co/postgres', 'postgresql://user:pass@127.0.0.1/not-postgres']) assert.throws(() => assertLoopbackDatabase(url));
+for (const url of ['postgresql://user:pass@gpnboygoosrmeydwjpvk.supabase.co/postgres', 'postgresql://user:pass@127.0.0.1/not-postgres', 'postgresql://user:pass@127.0.0.1/postgres?host=remote.example', 'postgresql://user:pass@127.0.0.1/postgres#remote']) assert.throws(() => assertLoopbackDatabase(url));
 assert.equal(assertLoopbackUrl('http://127.0.0.1:54321/'), 'http://127.0.0.1:54321');
 assert.throws(() => readStackConfig({ API_URL: 'http://127.0.0.1:54321', DB_URL: 'postgres://postgres:postgres@127.0.0.1:54322/postgres', ANON_KEY: 'same', SERVICE_ROLE_KEY: 'same' }));
 const manifest = makeManifest('a'.repeat(40));

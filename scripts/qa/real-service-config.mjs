@@ -9,7 +9,7 @@ export function assertLoopbackUrl(raw, protocols = ['http:']) {
 }
 export function assertLoopbackDatabase(raw) {
   const url = new URL(raw);
-  if (!['postgres:', 'postgresql:'].includes(url.protocol) || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) || url.pathname !== '/postgres') throw new Error('isolated_loopback_database_required');
+  if (!['postgres:', 'postgresql:'].includes(url.protocol) || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) || url.pathname !== '/postgres' || url.search || url.hash) throw new Error('isolated_loopback_database_required');
   return raw;
 }
 export function readStackConfig(status) {
