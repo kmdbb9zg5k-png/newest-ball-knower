@@ -29,7 +29,8 @@ try{
     const tab=async name=>page.getByRole('tab',{name,exact:true}).click();
     await tab('Hair');
     await page.getByRole('button',{name:'Full body',exact:true}).click();
-    const rendered=async()=>{await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));return preview.locator('canvas').screenshot();};
+    // Scroll before waiting so the visibility observer can redraw the preview.
+    const rendered=async()=>{await preview.scrollIntoViewIfNeeded();await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));return preview.locator('canvas').screenshot();};
     await preview.screenshot({path:`artifacts/athlete-creator/front-${width}.png`});
     const front=await rendered();
     await page.getByRole('button',{name:'Bald',exact:true}).click();
