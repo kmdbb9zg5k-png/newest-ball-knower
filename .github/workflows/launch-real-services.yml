@@ -29,9 +29,11 @@ jobs:
     timeout-minutes: 25
     env:
       BK_QA_OUTPUT: artifacts/launch-real-services
-      BK_QA_LOCAL_STATUS: ${{ runner.temp }}/bk-launch-local-status.json
       BK_QA_EXTRA_MIGRATIONS: ${{ inputs.extra_migrations || '' }}
     steps:
+      - name: Set private runner status path
+        shell: bash
+        run: echo "BK_QA_LOCAL_STATUS=$RUNNER_TEMP/bk-launch-local-status.json" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
