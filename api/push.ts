@@ -1,8 +1,8 @@
 import type {Request,Response} from 'express';
-import {notificationDestination} from '../fantasyNotificationRouting';
-import {UUID_PATTERN,validPushSettings,quietHoursRuntimeReady} from '../pushContracts';
-import {createPushDatabase,pushRpc,type PushDatabase} from '../server/pushDatabase';
-import {readTransportConfiguration,transportReadiness,secretHash,validApnsToken,validWebSubscription,type TransportConfiguration} from '../server/pushTransport';
+import {notificationDestination} from '../fantasyNotificationRouting.js';
+import {UUID_PATTERN,validPushSettings,quietHoursRuntimeReady} from '../pushContracts.js';
+import {createPushDatabase,pushRpc,type PushDatabase} from '../server/pushDatabase.js';
+import {readTransportConfiguration,transportReadiness,secretHash,validApnsToken,validWebSubscription,type TransportConfiguration} from '../server/pushTransport.js';
 
 type Dependencies={database?:PushDatabase|null;configuration?:()=>TransportConfiguration};
 const validInstallation=(value:any)=>value&&UUID_PATTERN.test(value.installationId)&&typeof value.installationSecret==='string'&&/^[A-Za-z0-9_-]{43}$/.test(value.installationSecret);

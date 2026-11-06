@@ -2,7 +2,7 @@ import {createECDH,createHash,createPrivateKey,sign, type KeyObject} from 'node:
 import {request as httpsRequest} from 'node:https';
 import {connect as http2Connect} from 'node:http2';
 import webPush from 'web-push';
-import {quietHoursRuntimeReady,type PushReadiness} from '../pushContracts';
+import {quietHoursRuntimeReady,type PushReadiness} from '../pushContracts.js';
 
 export type WebSubscription={endpoint:string;keys:{p256dh:string;auth:string}};
 export type PushPayload={notificationId:string;title:string;body:string;expiresAt:string;tag:string};

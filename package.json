@@ -83,7 +83,7 @@
     "check:gameplay-report": "node scripts/check-play-moment-replay.mjs",
     "check:native-auth-session": "node scripts/native-auth-session-check.mjs",
     "check:issue-report-privacy": "node --import tsx scripts/issue-report-privacy-check.ts",
-    "check:push": "node --import tsx scripts/push-notifications-check.ts && node --import tsx scripts/push-client-lifecycle-check.mjs"
+    "check:push": "node scripts/push-emitted-runtime-check.mjs && node --import tsx scripts/push-notifications-check.ts && node --import tsx scripts/push-client-lifecycle-check.mjs"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.191",
