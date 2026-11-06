@@ -1,0 +1,88 @@
+name: Isolated real Supabase launch validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      extra_migrations:
+        description: Comma-separated reviewed repository SQL feature migrations to apply after base parity
+        type: string
+        required: false
+        default: ''
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/launch-real-services.yml'
+      - 'scripts/qa/**'
+      - 'leagueCloud.ts'
+      - 'communityCloud.ts'
+      - 'footballArena.ts'
+      - 'fantasyLeagueParityCloud.ts'
+      - 'supabase.ts'
+      - 'resilientFetch.ts'
+
+permissions:
+  contents: read
+
+jobs:
+  two-account-real-services:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      BK_QA_OUTPUT: artifacts/launch-real-services
+      BK_QA_LOCAL_STATUS: ${{ runner.temp }}/bk-launch-local-status.json
+      BK_QA_EXTRA_MIGRATIONS: ${{ inputs.extra_migrations || '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - name: Offline isolation and ownership gates
+        run: node scripts/qa/real-service-guards-check.mjs
+      # Fixed CLI: v3 changed defaults and removed legacy config sections.
+      - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13
+        with:
+          version: 2.122.1
+      - name: Inspect pinned command interface
+        run: |
+          supabase --version
+          supabase start --help
+          supabase status --help
+          supabase stop --help
+      - name: Start isolated Auth, PostgREST, Realtime and PostgreSQL services
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bk-launch-stack/supabase"
+          cp scripts/qa/local-stack.config.toml "$RUNNER_TEMP/bk-launch-stack/supabase/config.toml"
+          supabase start --workdir "$RUNNER_TEMP/bk-launch-stack" > "$RUNNER_TEMP/bk-launch-stack-start.log" 2>&1
+          supabase status --workdir "$RUNNER_TEMP/bk-launch-stack" --output json > "$BK_QA_LOCAL_STATUS"
+          chmod 600 "$BK_QA_LOCAL_STATUS"
+      - name: Record running service image identities without container environment
+        run: node scripts/qa/record-local-services.mjs
+      - name: Install scoped production schema and verify definition/permission parity
+        run: node --import tsx scripts/qa/bootstrap-real-services.ts
+      - name: Exercise actual app adapters with two separate real auth sessions
+        run: node --import tsx scripts/qa/run-real-services.mjs
+      - name: Retry owned fixture cleanup if the scenario was interrupted
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          if [ -f "$BK_QA_LOCAL_STATUS" ] && [ -f "$BK_QA_OUTPUT/run-manifest.json" ]; then
+            BK_QA_CLEANUP_MANIFEST="$BK_QA_OUTPUT/run-manifest.json" BK_QA_OUTPUT="artifacts/launch-real-services-cleanup" node --import tsx scripts/qa/run-real-services.mjs
+          fi
+      - name: Destroy disposable stack including synthetic catalog/schedule
+        if: ${{ always() }}
+        run: supabase stop --workdir "$RUNNER_TEMP/bk-launch-stack" --no-backup > "$RUNNER_TEMP/bk-launch-stack-stop.log" 2>&1
+      - name: Upload sanitized receipts only
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: launch-real-services-${{ github.sha }}
+          path: |
+            artifacts/launch-real-services/*.json
+            artifacts/launch-real-services-cleanup/*.json
+          if-no-files-found: warn
+          retention-days: 14
