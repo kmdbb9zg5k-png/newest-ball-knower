@@ -1,7 +1,7 @@
 import {CareerSection,CareerTabLink} from './CareerTabs';
 import {syncMyPlayerRole} from './myPlayerOpportunity';
 import {applyCareerRatings} from './myPlayerCareer';
-import type {CareerWeekContext} from './MyPlayerCareer';
+import type {CareerWeekContext} from './MyPlayerCareer.tsx';
 import {myPlayerStatOpportunity,mergeMyPlayerProgress,type MyPlayerRole} from './myPlayerOpportunity';
 import {SoloPortrait,useSoloRecords} from './solo/SoloPresentation';
 import { FranchiseCombine } from './combine/CombineLauncher';

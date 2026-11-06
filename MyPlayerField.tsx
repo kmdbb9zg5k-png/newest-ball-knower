@@ -6,7 +6,7 @@ import {createPortal} from 'react-dom';
 import {X} from 'lucide-react';
 import {combineAthlete} from './combine/dash.js';
 import {careerFieldAssignment,careerFieldScore,careerFieldSeed,careerFieldReview} from './myPlayerField';
-import type {AthleteProfile} from './MyPlayerCareer';
+import type {AthleteProfile} from './MyPlayerCareer.tsx';
 import './careerFieldPresentation.css';
 const Receiver=lazy(()=>import('./combine/RouteExperience'));
 const Runner=lazy(()=>import('./combine/RBExperience'));
