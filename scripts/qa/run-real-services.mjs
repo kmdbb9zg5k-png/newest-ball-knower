@@ -158,9 +158,18 @@ export async function runRealServices(statusPath, outputDirectory, cleanupPath) 
       draft = await a.app.startCloudLiveFantasyDraft(league.id);
       assert.equal(draft.pickIndex, 0);
       let aCallbacks = 0, bCallbacks = 0, reloadedIndex = -1, evidenceSubscribed = false, observedPickIndex = -1;
+      const readiness = { evidence: false, managerA: false, managerB: false };
+      const diagnostics = { postgresExtensionStates: { evidence: [], managerA: [], managerB: [] }, evidenceChannelStates: [], observedPickIndex: -1 };
+      receipt.realtimeDiagnostics = diagnostics;
+      const observeSystem = slot => payload => {
+        if (payload.extension !== 'postgres_changes' || !['ok', 'error', 'timeout'].includes(payload.status)) return;
+        diagnostics.postgresExtensionStates[slot].push(payload.status);
+        readiness[slot] = payload.status === 'ok';
+      };
       const evidenceChannel = a.app.supabase.channel(`qa-draft-evidence-${manifest.runId}`)
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'ball_knower_live_drafts', filter: `league_id=eq.${league.id}` }, payload => { observedPickIndex = payload.new.pick_index; })
-        .subscribe(status => { evidenceSubscribed = status === 'SUBSCRIBED'; });
+        .on('system', {}, observeSystem('evidence'))
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'ball_knower_live_drafts', filter: `league_id=eq.${league.id}` }, payload => { observedPickIndex = payload.new.pick_index; diagnostics.observedPickIndex = observedPickIndex; })
+        .subscribe(status => { evidenceSubscribed = status === 'SUBSCRIBED'; if (['SUBSCRIBED', 'CHANNEL_ERROR', 'CLOSED', 'TIMED_OUT'].includes(status)) diagnostics.evidenceChannelStates.push(status); });
       unsubscribers.push(() => { void a.app.supabase.removeChannel(evidenceChannel); });
       unsubscribers.push(a.app.subscribeToCloudLeague(league.id, () => { aCallbacks++; }));
       unsubscribers.push(b.app.subscribeToCloudLeague(league.id, () => {
@@ -168,9 +177,22 @@ export async function runRealServices(statusPath, outputDirectory, cleanupPath) 
         const pending = b.app.fetchCloudLeague(league.id).then(value => { reloadedIndex = value?.liveDraft?.pickIndex ?? -1; }).catch(() => {});
         backgroundTasks.add(pending); void pending.finally(() => backgroundTasks.delete(pending));
       }));
+      for (const [person, slot] of [[a, 'managerA'], [b, 'managerB']]) {
+        const channel = person.app.supabase.getChannels().find(channel => channel.topic === `realtime:ball-knower-${league.id}`);
+        assert.ok(channel, 'actual application adapter channel must exist');
+        channel.on('system', {}, observeSystem(slot));
+      }
       await until(() => aCallbacks > 0 && bCallbacks > 0 && evidenceSubscribed, 'realtime_initial_subscription_failed');
+      // SUBSCRIBED can precede the backend replication listener. Require its
+      // actual system confirmation on all three real channels before writing.
+      await until(() => Object.values(readiness).every(Boolean), 'realtime_postgres_extension_not_ready', 30_000);
       await b.app.supabase.realtime.disconnect();
       assert.equal(b.app.supabase.realtime.isConnected(), false);
+      // Drain reads from the initial subscription before the missed pick. A
+      // pre-disconnect request returning late must not count as rejoin recovery.
+      await Promise.allSettled([...backgroundTasks]);
+      assert.equal(reloadedIndex, 0);
+      reloadedIndex = -1;
       const missedAt = bCallbacks;
       const firstQb = requireOk(await admin.from('ball_knower_fantasy_player_groups').select('player_id').eq('draft_group', 'QB').order('player_id').limit(1))[0];
       const player = a.app.PLAYERS_DATABASE.find(player => player.id === firstQb.player_id);
@@ -182,7 +204,7 @@ export async function runRealServices(statusPath, outputDirectory, cleanupPath) 
       await until(() => bCallbacks > missedAt && reloadedIndex === 1, 'realtime_rejoin_did_not_reload_ledger');
       await rejects(() => a.app.makeCloudLiveFantasyDraftPick(league.id, player.id, 'QB'));
       assert.equal((await b.app.fetchCloudLeague(league.id)).liveDraft.picks.length, 1);
-      return { actualWebSocketDisconnect: true, postgresChangeObserved: true, missedPickRecoveredWithoutLaterPick: true, duplicatePickRejected: true };
+      return { actualWebSocketDisconnect: true, actualPostgresExtensionReady: true, postgresChangeObserved: true, preDisconnectReadsDrained: true, missedPickRecoveredWithoutLaterPick: true, duplicatePickRejected: true };
     });
     await check('fantasy.fresh_auth_session_preserves_saved_draft', async () => {
       requireOk(await b.app.supabase.auth.signOut({ scope: 'local' }));
