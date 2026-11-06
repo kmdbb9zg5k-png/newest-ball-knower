@@ -12,7 +12,7 @@ import { verifyRealPushSessions } from './push-real-services.ts';
 import { sha256 } from './schema-contract.mjs';
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
-const safeCode = error => error?.qaCode || (/^[A-Z0-9_]{4,12}$/.test(error?.code || '') ? `database_${error.code}` : 'real_service_step_failed');
+const safeCode = error => error?.qaCode || (/^[a-z0-9_]{3,64}$/i.test(error?.code || '') ? `service_${error.code}` : 'real_service_step_failed');
 const requireOk = response => { if (response.error) throw response.error; return response.data; };
 const uuid = value => { if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(value)) throw new Error('invalid_fixture_uuid'); return value; };
 const sqlLiteral = value => `'${String(value).replaceAll("'", "''")}'`;

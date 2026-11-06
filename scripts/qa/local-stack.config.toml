@@ -42,7 +42,9 @@ enable_signup = false
 enable_anonymous_sign_ins = false
 
 [auth.email]
-enable_signup = false
+# CLI v2 maps this to the email provider switch, including password sign-in.
+# The global auth.enable_signup=false above still prohibits public signup.
+enable_signup = true
 enable_confirmations = false
 
 [edge_runtime]
