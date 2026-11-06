@@ -159,11 +159,15 @@ export async function runRealServices(statusPath, outputDirectory, cleanupPath) 
       assert.equal(draft.pickIndex, 0);
       let aCallbacks = 0, bCallbacks = 0, reloadedIndex = -1, evidenceSubscribed = false, observedPickIndex = -1;
       const readiness = { evidence: false, managerA: false, managerB: false };
-      const diagnostics = { postgresExtensionStates: { evidence: [], managerA: [], managerB: [] }, evidenceChannelStates: [], observedPickIndex: -1 };
+      const diagnostics = { postgresExtensionStates: { evidence: [], managerA: [], managerB: [] }, postgresExtensionErrors: { evidence: [], managerA: [], managerB: [] }, evidenceChannelStates: [], observedPickIndex: -1 };
       receipt.realtimeDiagnostics = diagnostics;
       const observeSystem = slot => payload => {
         if (payload.extension !== 'postgres_changes' || !['ok', 'error', 'timeout'].includes(payload.status)) return;
         diagnostics.postgresExtensionStates[slot].push(payload.status);
+        if (payload.status !== 'ok') {
+          const message = String(payload.message || '');
+          diagnostics.postgresExtensionErrors[slot].push(/publication|given parameters|realtime.*(?:enable|disabled)/i.test(message) ? 'configuration' : /permission|unauthor|rls|42501/i.test(message) ? 'authorization' : /timeout|timed out/i.test(message) ? 'timeout' : 'unclassified');
+        }
         readiness[slot] = payload.status === 'ok';
       };
       const evidenceChannel = a.app.supabase.channel(`qa-draft-evidence-${manifest.runId}`)

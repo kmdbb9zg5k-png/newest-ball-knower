@@ -7,7 +7,7 @@ on:
         description: Comma-separated reviewed SQL feature paths after base parity, or none for the base schema only
         type: string
         required: false
-        default: 'migrations/20261106021753_atomic_validated_fantasy_scoring.sql,migrations/20261106023523_secure_fantasy_lineup_writes.sql,supabase/migrations/20261106021520_fantasy_push_delivery.sql'
+        default: 'migrations/20261106021753_atomic_validated_fantasy_scoring.sql,migrations/20261106023523_secure_fantasy_lineup_writes.sql,supabase/migrations/20261106021520_fantasy_push_delivery.sql,migrations/20261106034800_publish_league_event_realtime.sql'
   pull_request:
     branches: [main]
     paths:
@@ -20,6 +20,7 @@ on:
       - 'supabase.ts'
       - 'resilientFetch.ts'
       - 'migrations/*fantasy*.sql'
+      - 'migrations/*realtime*.sql'
       - 'supabase/migrations/*fantasy_push_delivery.sql'
       - 'api/push*.ts'
       - 'server/push*.ts'
@@ -39,7 +40,7 @@ jobs:
     timeout-minutes: 25
     env:
       BK_QA_OUTPUT: artifacts/launch-real-services
-      BK_QA_EXTRA_MIGRATIONS: ${{ inputs.extra_migrations || 'migrations/20261106021753_atomic_validated_fantasy_scoring.sql,migrations/20261106023523_secure_fantasy_lineup_writes.sql,supabase/migrations/20261106021520_fantasy_push_delivery.sql' }}
+      BK_QA_EXTRA_MIGRATIONS: ${{ inputs.extra_migrations || 'migrations/20261106021753_atomic_validated_fantasy_scoring.sql,migrations/20261106023523_secure_fantasy_lineup_writes.sql,supabase/migrations/20261106021520_fantasy_push_delivery.sql,migrations/20261106034800_publish_league_event_realtime.sql' }}
     steps:
       - name: Set private runner status path
         shell: bash
