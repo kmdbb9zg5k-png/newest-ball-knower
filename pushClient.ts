@@ -3,7 +3,8 @@ import {supabase} from './supabase';
 import {PUSH_OPEN_EVENT,PUSH_STATE_EVENT,UUID_PATTERN,type PushDevice,type PushReadiness,type PushSettings,type PushTarget} from './pushContracts';
 
 const INSTALLATION_KEY='ballknower_push_installation_v1';
-type Installation={installationId:string;installationSecret:string;ownerId?:string;enabled?:boolean};
+type Installation={installationId:string;installationSecret:string;ownerId?:string;pendingOwnerId?:string;enabled?:boolean;intentRevision?:number;intentId?:string;epoch?:string|null};
+type Intent=Installation&{intentRevision:number;intentId:string};
 type DeviceState={installationId?:string;supported:boolean;permission:'default'|'granted'|'denied'|'unavailable';enabled:boolean;native:boolean;detail?:string};
 let nativeToken='';
 let nativeListeners:Promise<void>|null=null;
@@ -13,9 +14,14 @@ let explicitGeneration=0;
 let authGeneration=0;
 let nativeRegistration:Promise<string>|null=null;
 let localTransportOperations:Promise<unknown>=Promise.resolve();
+let serverDeviceOperations:Promise<unknown>=Promise.resolve();
 function withLocalTransport<T>(operation:()=>Promise<T>):Promise<T>{
-  const result=localTransportOperations.catch(()=>undefined).then(operation);
+  const result=localTransportOperations.catch(()=>undefined).then(()=>navigator.locks?.request?navigator.locks.request('ballknower-push-transport',operation):operation());
   localTransportOperations=result.catch(()=>undefined);return result;
+}
+function withServerDeviceMutation<T>(operation:()=>Promise<T>):Promise<T>{
+  const result=serverDeviceOperations.catch(()=>undefined).then(operation);
+  serverDeviceOperations=result.catch(()=>undefined);return result;
 }
 const changed=()=>window.dispatchEvent(new Event(PUSH_STATE_EVENT));
 function installation(create=false):Installation|null{
@@ -29,6 +35,13 @@ function installation(create=false):Installation|null{
   }catch{if(create)throw new Error('Allow device storage before enabling push notifications.');return null;}
 }
 const save=(value:Installation)=>{localStorage.setItem(INSTALLATION_KEY,JSON.stringify(value));changed();};
+function allocateIntent(owner:string):Intent{
+  const device=installation(true)!;
+  const intent={...device,pendingOwnerId:owner,intentRevision:Math.max(Number.isSafeInteger(device.intentRevision)?device.intentRevision!+1:1,Date.now()),intentId:crypto.randomUUID()};
+  save(intent);return intent;
+}
+const stillExplicit=(generation:number)=>{if(generation!==explicitGeneration)throw new Error('Push settings changed while this request was in progress. Check this device and try again.');};
+const isLatestIntent=(intent:Intent)=>installation()?.intentId===intent.intentId;
 async function session(expectedOwner?:string){
   const result=await supabase?.auth.getSession();
   const current=result?.data.session;
@@ -50,8 +63,28 @@ export async function getPushReadiness():Promise<PushReadiness>{
 export const getPushSettings=(owner:string)=>request<PushSettings>('resource=settings',undefined,owner);
 export const savePushSettings=(settings:PushSettings,owner:string)=>request<PushSettings>('',{action:'settings',...settings},owner);
 export const getPushDevices=(owner:string)=>request<PushDevice[]>('resource=devices',undefined,owner);
-export const revokePushDevice=(deviceId:string,owner:string)=>request<{ok:boolean}>('',{action:'revoke-device',deviceId},owner);
+export const revokePushDevice=(deviceId:string,owner:string)=>withServerDeviceMutation(()=>request<{ok:boolean}>('',{action:'revoke-device',deviceId},owner));
 export const resolvePushTarget=(id:string,owner:string)=>request<PushTarget>(`resource=notification&id=${encodeURIComponent(id)}`,undefined,owner);
+
+async function mutateInstallation(intent:Intent,owner:string,body:Record<string,unknown>,accessToken?:string,isCurrent?:()=>void){
+  return withServerDeviceMutation(async()=>{
+    isCurrent?.();
+    if(!isLatestIntent(intent))throw Object.assign(new Error('Device settings changed. Check this device and try again.'),{code:'push_state_changed'});
+    const fence=await request<{epoch:string|null;revision:number}>('',{action:'installation',installationId:intent.installationId,installationSecret:intent.installationSecret},owner,accessToken);
+    isCurrent?.();
+    if(!isLatestIntent(intent))throw Object.assign(new Error('Device settings changed. Check this device and try again.'),{code:'push_state_changed'});
+    const local=installation();
+    // Never promote a delayed action over a newer server intent. A fresh gesture can reconcile.
+    if(fence.revision>=intent.intentRevision){
+      if(local?.intentId===intent.intentId)save({...local,intentRevision:fence.revision});
+      throw Object.assign(new Error('Device settings changed. Check this device and try again.'),{code:'push_state_changed'});
+    }
+    const next={...intent,epoch:fence.epoch};
+    if(local?.intentId===intent.intentId)save({...local,epoch:fence.epoch});
+    const result=await request<{epoch:string}>('',{...body,installationId:intent.installationId,installationSecret:intent.installationSecret,intentRevision:intent.intentRevision,intentId:intent.intentId,expectedEpoch:fence.epoch},owner,accessToken);
+    return {...next,epoch:result.epoch};
+  });
+}
 
 const iosInstalled=()=>!(/iPad|iPhone|iPod/.test(navigator.userAgent))||window.matchMedia('(display-mode: standalone)').matches||Boolean((navigator as Navigator&{standalone?:boolean}).standalone);
 async function worker(){
@@ -105,22 +138,30 @@ export async function enablePush(owner:string,readiness:PushReadiness){
   // Safari requires requestPermission while the Enable click still has transient activation.
   const browserPermission=!Capacitor.isNativePlatform()&&readiness.web.ready&&'Notification' in window&&Notification.permission==='default'?Notification.requestPermission():null;
   const current=await session(owner),state=await getPushDeviceState(owner);
+  stillExplicit(generation);
   if(!state.supported)throw new Error(state.detail||'Push is unavailable on this device.');
   if(state.permission==='denied')throw new Error('Notifications are blocked. Allow them in your device or browser settings, then try again.');
   if(state.native?!readiness.apns.ready:!readiness.web.ready)throw new Error('Push delivery is not configured for this device yet.');
-  const device=installation(true)!;
+  const device=allocateIntent(owner);
+  const currentIntent=()=>{stillExplicit(generation);if(!isLatestIntent(device))throw Object.assign(new Error('Device settings changed. Check this device and try again.'),{code:'push_state_changed'});};
+  let registered:Intent;
   try{
   if(state.native){
     const {PushNotifications}=await import('@capacitor/push-notifications');
     const permission=await PushNotifications.requestPermissions();
     if(permission.receive!=='granted'){changed();throw new Error('Notifications are not allowed. You can change this in iPhone Settings.');}
-    const token=await withLocalTransport(registerNative);
-    await request('',{action:'subscribe',installationId:device.installationId,installationSecret:device.installationSecret,transport:'apns',token,label:deviceLabel()},owner);
+    currentIntent();
+    const token=await withLocalTransport(()=>{currentIntent();return registerNative();});
+    registered=await mutateInstallation(device,owner,{action:'subscribe',transport:'apns',token,label:deviceLabel()},undefined,currentIntent);
   }else{
     if(browserPermission&&await browserPermission!=='granted'){changed();throw new Error('Notifications are not allowed. You can change this in browser settings.');}
+    currentIntent();
     const subscription=await withLocalTransport(async()=>{
+    currentIntent();
     const registration=await worker();
+    currentIntent();
     let subscription=await registration.pushManager.getSubscription();
+    currentIntent();
     const key=readiness.web.publicKey!;
     const keyBytes=Uint8Array.from(atob(key.replace(/-/g,'+').replace(/_/g,'/')),character=>character.charCodeAt(0));
     if(subscription){
@@ -130,35 +171,43 @@ export async function enablePush(owner:string,readiness:PushReadiness){
     if(!subscription)subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:keyBytes});
     return subscription;
     });
-    await request('',{action:'subscribe',installationId:device.installationId,installationSecret:device.installationSecret,transport:'web',subscription:subscription.toJSON(),label:deviceLabel()},owner);
+    registered=await mutateInstallation(device,owner,{action:'subscribe',transport:'web',subscription:subscription.toJSON(),label:deviceLabel()},undefined,currentIntent);
   }
   await session(current.user.id);
-  if(generation===explicitGeneration)save({...device,ownerId:owner,enabled:true});
+  if(generation===explicitGeneration&&isLatestIntent(device))save({...registered,ownerId:owner,pendingOwnerId:undefined,enabled:true});
   }catch(error){
-    if(generation===explicitGeneration)await Promise.allSettled([request('',{action:'unsubscribe',installationId:device.installationId,installationSecret:device.installationSecret},owner,current.access_token),withLocalTransport(unsubscribeLocal)]);
+    if(generation===explicitGeneration&&isLatestIntent(device)){
+      const off=allocateIntent(owner),conflict=(error as {code?:string})?.code==='push_state_changed';
+      await Promise.allSettled([...(conflict?[]:[mutateInstallation(off,owner,{action:'unsubscribe'},current.access_token,()=>stillExplicit(generation))]),withLocalTransport(()=>unsubscribeLocal(()=>generation===explicitGeneration&&isLatestIntent(off)))]);
+      if(generation===explicitGeneration&&isLatestIntent(off)){const latest=installation();if(latest)save({...latest,ownerId:undefined,pendingOwnerId:undefined,enabled:false});}
+    }
     throw error;
   }
 }
 function BufferlessBase64(buffer:ArrayBuffer){return btoa(String.fromCharCode(...new Uint8Array(buffer))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');}
-async function unsubscribeLocal(){
+async function unsubscribeLocal(isCurrent:()=>boolean=()=>true){
+  if(!isCurrent())return;
   if(Capacitor.isNativePlatform()){
-    if(Capacitor.getPlatform()==='ios'){const {PushNotifications}=await import('@capacitor/push-notifications');await PushNotifications.unregister();await PushNotifications.removeAllDeliveredNotifications();nativeToken='';}
+    if(Capacitor.getPlatform()==='ios'){const {PushNotifications}=await import('@capacitor/push-notifications');if(!isCurrent())return;await PushNotifications.unregister();if(isCurrent())await PushNotifications.removeAllDeliveredNotifications();nativeToken='';}
   }else if('serviceWorker' in navigator){
     const registration=await navigator.serviceWorker.getRegistration('/push-worker.js');
-    const subscription=await registration?.pushManager.getSubscription();if(subscription)await subscription.unsubscribe();
-    for(const notification of await registration?.getNotifications()||[])notification.close();
+    if(!isCurrent())return;
+    const subscription=await registration?.pushManager.getSubscription();if(subscription&&isCurrent())await subscription.unsubscribe();
+    const notifications=await registration?.getNotifications()||[];
+    if(isCurrent())for(const notification of notifications)notification.close();
   }
 }
 export async function disablePush(owner:string,accessToken?:string){
   const generation=++explicitGeneration;
-  const device=installation();if(!device||device.ownerId!==owner||!device.enabled)return;
+  const device=installation();if(!device||device.ownerId!==owner&&device.pendingOwnerId!==owner)return;
+  const intent=allocateIntent(owner);
   const outcomes=await Promise.allSettled([
-    request('',{action:'unsubscribe',installationId:device.installationId,installationSecret:device.installationSecret},owner,accessToken),
-    withLocalTransport(unsubscribeLocal),
+    mutateInstallation(intent,owner,{action:'unsubscribe'},accessToken,()=>stillExplicit(generation)),
+    withLocalTransport(()=>unsubscribeLocal(()=>generation===explicitGeneration&&isLatestIntent(intent))),
   ]);
-  if(generation!==explicitGeneration)return;
+  if(generation!==explicitGeneration||!isLatestIntent(intent))return;
   if(outcomes.every(result=>result.status==='rejected'))throw new Error('Push could not be disabled. Try again before changing accounts.');
-  save({...device,ownerId:undefined,enabled:false});
+  const latest=installation();if(latest)save({...latest,ownerId:undefined,pendingOwnerId:undefined,enabled:false});
 }
 export async function beforePushSignOut(){
   const result=await supabase?.auth.getSession();
@@ -176,21 +225,31 @@ export async function initializePushClient(){
   if(Capacitor.isNativePlatform()&&Capacitor.getPlatform()==='ios')await addNativeListeners();
   let previousToken='',previousOwner='';
   const synchronize=async(accessToken:string,owner:string,anonymous=false)=>{
+    const generation=authGeneration,explicit=explicitGeneration;
     const device=installation();
+    const current=()=>generation===authGeneration&&explicit===explicitGeneration&&installation()?.intentId===device?.intentId;
     if(device?.enabled&&device.ownerId&&(device.ownerId!==owner||anonymous)){
-      await disablePush(device.ownerId,previousOwner===device.ownerId?previousToken:undefined).catch(()=>withLocalTransport(unsubscribeLocal).catch(()=>undefined));
+      const disabling=disablePush(device.ownerId,previousOwner===device.ownerId?previousToken:undefined),off=installation();
+      await disabling.catch(()=>withLocalTransport(()=>unsubscribeLocal(()=>installation()?.intentId===off?.intentId&&installation()?.ownerId===device.ownerId)).catch(()=>undefined));
     }
     previousToken=accessToken;previousOwner=owner;
     if(!device?.enabled||device.ownerId!==owner||anonymous)return;
+    if(!Number.isSafeInteger(device.intentRevision)||!device.intentId||!device.epoch){save({...device,enabled:false});return;}
     const state=await getPushDeviceState(owner);
+    if(!current())return;
     if(state.permission!=='granted'){await disablePush(owner,accessToken);return;}
     const readiness=await getPushReadiness();
+    if(!current())return;
+    const restore=(body:Record<string,unknown>)=>withServerDeviceMutation(async()=>{
+      if(!current())return;
+      await request('',{...body,action:'subscribe',restore:true,installationId:device.installationId,installationSecret:device.installationSecret,intentRevision:device.intentRevision,intentId:device.intentId,expectedEpoch:device.epoch,label:deviceLabel()},owner,accessToken);
+    });
     if(state.native&&readiness.apns.ready){
-      const token=await withLocalTransport(registerNative);
-      await request('',{action:'subscribe',restore:true,installationId:device.installationId,installationSecret:device.installationSecret,transport:'apns',token,label:deviceLabel()},owner,accessToken);
+      const token=await withLocalTransport(()=>{if(!current())return Promise.resolve('');return registerNative();});
+      if(current()&&token)await restore({transport:'apns',token});
     }else if(!state.native&&readiness.web.ready){
       const registration=await worker(),subscription=await registration.pushManager.getSubscription();
-      if(subscription)await request('',{action:'subscribe',restore:true,installationId:device.installationId,installationSecret:device.installationSecret,transport:'web',subscription:subscription.toJSON(),label:deviceLabel()},owner,accessToken);
+      if(subscription&&current())await restore({transport:'web',subscription:subscription.toJSON()});
     }
   };
   let synchronizations=Promise.resolve();
@@ -202,7 +261,7 @@ export async function initializePushClient(){
       try{await synchronize(current?.access_token||'',attemptedOwner,Boolean(current?.user.is_anonymous));}
       catch(error:any){
         const device=installation();
-        if(error?.code==='push_reenable_required'&&generation===authGeneration&&explicit===explicitGeneration&&device?.ownerId===attemptedOwner&&device?.installationId===attemptedDevice?.installationId)save({...device,enabled:false});
+        if(error?.code==='push_reenable_required'&&generation===authGeneration&&explicit===explicitGeneration&&device?.ownerId===attemptedOwner&&device?.installationId===attemptedDevice?.installationId&&device?.intentId===attemptedDevice?.intentId)save({...device,enabled:false});
       }
     });},0);
   });

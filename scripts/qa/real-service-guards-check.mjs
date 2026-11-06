@@ -32,6 +32,8 @@ const missingPublication = structuredClone(snapshot); missingPublication.realtim
 assert.equal(compareSchema(snapshot, missingPublication).matched, false, 'realtime publication drift must fail parity');
 const changedSchemaGrant = structuredClone(snapshot); changedSchemaGrant.schemaAcl = [];
 assert.equal(compareSchema(snapshot, changedSchemaGrant).matched, false, 'private schema grant drift must fail parity');
+const extraRpc = structuredClone(snapshot); extraRpc.functions.push({ ...extraRpc.functions[0], name: 'bk_unexpected_qa_rpc' });
+assert.equal(compareSchema(snapshot, extraRpc).matched, false, 'unexpected application RPCs must fail the empty-stack parity check');
 for (const material of ['https://example.test', 'net.http_post', 'cron.schedule', 'vault.decrypted_secrets', 'sb_secret_1234567890123456']) {
   const unsafe = structuredClone(snapshot); unsafe.functions[0].definition += `\n-- ${material}`;
   assert.throws(() => validateSnapshot(unsafe));

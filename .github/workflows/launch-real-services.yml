@@ -93,7 +93,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: launch-real-services-${{ github.sha }}
+          name: launch-real-services-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             artifacts/launch-real-services/*.json
             artifacts/launch-real-services-cleanup/*.json

@@ -66,7 +66,9 @@ export function bootstrap(statusPath: string, outputDirectory: string) {
   for (let index = 0; index < NFL_TEAMS.length; index += 2) sql.push(`insert into public.ball_knower_nfl_games(provider_game_id,season,season_type,week_number,away_team,home_team,kickoff_at) values ('qa-synthetic-week18-${index}',2026,'reg',18,${literal(NFL_TEAMS[index].code)},${literal(NFL_TEAMS[index + 1].code)},now()+interval '7 days');`);
   sql.push('commit;');
   localSql(config.databaseUrl, sql.join('\n'));
-  const receipt = { mode: 'isolated_real_supabase_services', schemaSnapshotSha256: sha256(snapshot), canonicalFixturePlayers: players.length, syntheticScheduleGames: 16, authUsersWrittenBySql: 0, productionWrites: 0, providerDataVerified: false, appliedOverlays };
+  localSql(config.databaseUrl, "notify pgrst, 'reload schema';", 'reload_overlay_schema');
+  const postgresServerVersion = localSql(config.databaseUrl, "select current_setting('server_version');", 'server_version');
+  const receipt = { mode: 'isolated_real_supabase_services', schemaSnapshotSha256: sha256(snapshot), postgresServerVersion, canonicalFixturePlayers: players.length, syntheticScheduleGames: 16, authUsersWrittenBySql: 0, productionWrites: 0, providerDataVerified: false, appliedOverlays };
   writeFileSync(resolve(outputDirectory, 'bootstrap.json'), JSON.stringify(receipt, null, 2));
   return receipt;
 }

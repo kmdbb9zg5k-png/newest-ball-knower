@@ -77,11 +77,13 @@ export function compareSchema(expected, actual) {
     }
     return value;
   };
+  const keyFor = (row, kind) => `${row.schema}.${row.name}${kind === 'functions' ? `(${row.arguments})` : ''}`;
   for (const kind of ['tables', 'functions']) for (const object of expected[kind]) {
-    const key = row => `${row.schema}.${row.name}${kind === 'functions' ? `(${row.arguments})` : ''}`;
+    const key = row => keyFor(row, kind);
     const counterpart = actual[kind]?.find(row => key(row) === key(object));
     if (!counterpart || sha256(canonical(object, kind)) !== sha256(canonical(counterpart, kind))) differences.push(key(object));
   }
+  for (const kind of ['tables', 'functions']) for (const object of actual[kind] || []) if (!expected[kind].some(row => keyFor(row, kind) === keyFor(object, kind))) differences.push(`unexpected:${keyFor(object, kind)}`);
   const schemas = new Set(expected.tables.map(table => table.schema));
   if (sha256(sorted(expected.schemaAcl.filter(entry => schemas.has(entry.schema)))) !== sha256(sorted(actual.schemaAcl?.filter(entry => schemas.has(entry.schema))))) differences.push('scoped_schema_grants');
   const tables = new Set(expected.tables.map(table => `${table.schema}.${table.name}`));

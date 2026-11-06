@@ -9,11 +9,25 @@ create table if not exists ball_knower_private.push_settings (
   updated_at timestamptz not null default clock_timestamp(),
   check (start_minute <> end_minute)
 );
+-- Intents retain disabled tombstones even when no first subscription was created.
+create table if not exists ball_knower_private.push_installation_intents (
+  installation_id uuid primary key,
+  installation_secret_hash text not null check (installation_secret_hash ~ '^[a-f0-9]{64}$'),
+  auth_user_id uuid not null references auth.users(id) on delete cascade,
+  session_id uuid not null references auth.sessions(id) on delete cascade,
+  revision bigint not null check (revision between 1 and 9007199254740991),
+  intent_id uuid not null,
+  enabled boolean not null,
+  epoch uuid not null default gen_random_uuid(),
+  epoch_required boolean not null default false
+);
+create index if not exists push_intents_session_idx on ball_knower_private.push_installation_intents(session_id);
+create index if not exists push_intents_owner_idx on ball_knower_private.push_installation_intents(auth_user_id);
 create table if not exists ball_knower_private.push_devices (
   id uuid primary key default gen_random_uuid(),
   auth_user_id uuid not null references auth.users(id) on delete cascade,
   session_id uuid not null references auth.sessions(id) on delete cascade,
-  installation_id uuid not null unique,
+  installation_id uuid not null unique references ball_knower_private.push_installation_intents(installation_id) on delete cascade,
   installation_secret_hash text not null check (installation_secret_hash ~ '^[a-f0-9]{64}$'),
   transport text not null check (transport in ('web','apns')),
   endpoint_hash text not null unique check (endpoint_hash ~ '^[a-f0-9]{64}$'),
@@ -49,10 +63,11 @@ create index if not exists push_deliveries_device_idx on ball_knower_private.pus
 create index if not exists push_deliveries_owner_idx on ball_knower_private.push_deliveries(auth_user_id);
 alter table ball_knower_private.push_settings enable row level security;
 alter table ball_knower_private.push_devices enable row level security;
+alter table ball_knower_private.push_installation_intents enable row level security;
 alter table ball_knower_private.push_deliveries enable row level security;
-revoke all on ball_knower_private.push_settings, ball_knower_private.push_devices, ball_knower_private.push_deliveries from public, anon, authenticated;
+revoke all on ball_knower_private.push_settings, ball_knower_private.push_installation_intents, ball_knower_private.push_devices, ball_knower_private.push_deliveries from public, anon, authenticated;
 grant usage on schema ball_knower_private to service_role;
-grant all on ball_knower_private.push_settings, ball_knower_private.push_devices, ball_knower_private.push_deliveries to service_role;
+grant all on ball_knower_private.push_settings, ball_knower_private.push_installation_intents, ball_knower_private.push_devices, ball_knower_private.push_deliveries to service_role;
 -- Invoker RPCs below are callable only by the trusted server after auth.getUser.
 grant select on public.ball_knower_notifications, public.ball_knower_notification_preferences, public.ball_knower_league_members, public.ball_knower_live_drafts, public.ball_knower_leagues to service_role;
 grant select (id,is_anonymous) on auth.users to service_role;
@@ -60,7 +75,7 @@ grant select (id,user_id) on auth.sessions to service_role;
 
 create or replace function public.manage_ball_knower_push(p_owner uuid,p_action text,p_data jsonb default '{}')
 returns jsonb language plpgsql security invoker set search_path='' as $function$
-declare v_device ball_knower_private.push_devices%rowtype; v_id uuid; v_settings ball_knower_private.push_settings%rowtype; v_result jsonb; v_hash text;
+declare v_device ball_knower_private.push_devices%rowtype; v_id uuid; v_settings ball_knower_private.push_settings%rowtype; v_result jsonb; v_hash text; v_intent ball_knower_private.push_installation_intents%rowtype; v_revision bigint; v_intent_id uuid;
 begin
   if current_user <> 'service_role' then raise exception 'Service role required' using errcode='42501'; end if;
   if not exists(select 1 from auth.users where id=p_owner and not coalesce(is_anonymous,false)) then raise exception 'Permanent account required' using errcode='42501'; end if;
@@ -78,10 +93,28 @@ begin
   elsif p_action='devices' then
     select coalesce(jsonb_agg(jsonb_build_object('id',id,'installationId',installation_id,'transport',transport,'label',label,'lastSeenAt',last_seen_at,'revokedAt',revoked_at) order by last_seen_at desc),'[]') into v_result from ball_knower_private.push_devices where auth_user_id=p_owner;
     return v_result;
-  elsif p_action='subscribe' then
-    if (p_data->>'installationSecretHash') !~ '^[a-f0-9]{64}$' or p_data->>'transport' not in ('web','apns') or length(p_data->>'label') not between 1 and 60 then raise exception 'Invalid installation' using errcode='22023'; end if;
+  elsif p_action in ('installation','subscribe','unsubscribe') then
+    if (p_data->>'installationSecretHash') !~ '^[a-f0-9]{64}$' then raise exception 'Invalid installation' using errcode='22023'; end if;
     perform pg_advisory_xact_lock(hashtextextended('bk-push-owner:'||p_owner::text,0));
     perform pg_advisory_xact_lock(hashtextextended(p_data->>'installationId',0));
+    select * into v_intent from ball_knower_private.push_installation_intents where installation_id=(p_data->>'installationId')::uuid for update;
+    if found and v_intent.installation_secret_hash is distinct from p_data->>'installationSecretHash' then raise exception 'Installation access denied' using errcode='42501'; end if;
+    if p_action='installation' then return jsonb_build_object('epoch',v_intent.epoch,'revision',coalesce(v_intent.revision,0)); end if;
+    if jsonb_typeof(p_data->'intentRevision') is distinct from 'number' or (p_data->>'intentRevision') !~ '^[0-9]{1,16}$' or (p_data->>'intentRevision')::numeric not between 1 and 9007199254740991 or p_data->>'intentId' is null then raise exception 'Invalid installation intent' using errcode='22023'; end if;
+    v_revision:=(p_data->>'intentRevision')::bigint; v_intent_id:=(p_data->>'intentId')::uuid;
+    -- An old account's pending logout cannot alter a newer owner's installation.
+    if p_action='unsubscribe' and v_intent.auth_user_id is not null and v_intent.auth_user_id<>p_owner then return jsonb_build_object('ok',true); end if;
+    if coalesce((p_data->>'restore')::boolean,false) and (v_intent.installation_id is null or not v_intent.enabled or v_intent.auth_user_id<>p_owner or v_intent.session_id<>(p_data->>'sessionId')::uuid or v_intent.revision<>v_revision or v_intent.intent_id<>v_intent_id or v_intent.epoch is distinct from (p_data->>'expectedEpoch')::uuid) then raise exception 'Explicit re-enable required' using errcode='BK001'; end if;
+    if v_intent.installation_id is not null and (v_revision<v_intent.revision or (v_revision=v_intent.revision and v_intent_id<>v_intent.intent_id) or ((v_intent.epoch_required or p_data->>'expectedEpoch' is not null) and v_intent.epoch is distinct from (p_data->>'expectedEpoch')::uuid)) then raise exception 'Installation intent changed' using errcode='BK002'; end if;
+    if v_intent.installation_id is not null and v_revision=v_intent.revision and v_intent.enabled is distinct from (p_action='subscribe') then raise exception 'Installation intent changed' using errcode='BK002'; end if;
+    insert into ball_knower_private.push_installation_intents(installation_id,installation_secret_hash,auth_user_id,session_id,revision,intent_id,enabled) values((p_data->>'installationId')::uuid,p_data->>'installationSecretHash',p_owner,(p_data->>'sessionId')::uuid,v_revision,v_intent_id,p_action='subscribe')
+    on conflict(installation_id) do update set auth_user_id=excluded.auth_user_id,session_id=excluded.session_id,revision=excluded.revision,intent_id=excluded.intent_id,enabled=excluded.enabled returning * into v_intent;
+    if p_action='unsubscribe' then
+      update ball_knower_private.push_devices set revoked_at=clock_timestamp() where installation_id=v_intent.installation_id and auth_user_id=p_owner returning id into v_id;
+      if v_id is not null then update ball_knower_private.push_deliveries set state='suppressed',outcome_code='device_revoked',claim_token=null,lease_until=null where device_id=v_id and state in ('pending','leased'); end if;
+      return jsonb_build_object('ok',true,'epoch',v_intent.epoch);
+    end if;
+    if (p_data->>'installationSecretHash') !~ '^[a-f0-9]{64}$' or p_data->>'transport' not in ('web','apns') or length(p_data->>'label') not between 1 and 60 then raise exception 'Invalid installation' using errcode='22023'; end if;
     select * into v_device from ball_knower_private.push_devices where installation_id=(p_data->>'installationId')::uuid for update;
     if found and v_device.installation_secret_hash is distinct from p_data->>'installationSecretHash' then raise exception 'Installation access denied' using errcode='42501'; end if;
     if coalesce((p_data->>'restore')::boolean,false) and (v_device.id is null or v_device.revoked_at is not null or v_device.auth_user_id<>p_owner or v_device.session_id<>(p_data->>'sessionId')::uuid) then raise exception 'Explicit re-enable required' using errcode='BK001'; end if;
@@ -92,10 +125,15 @@ begin
     if v_device.id is not null and (v_device.auth_user_id<>p_owner or v_device.session_id<>(p_data->>'sessionId')::uuid or v_device.endpoint_hash<>v_hash or v_device.payload is distinct from p_data->'payload') then update ball_knower_private.push_deliveries set state='suppressed',outcome_code='device_rebound',claim_token=null,lease_until=null where device_id=v_device.id and state in ('pending','leased'); end if;
     insert into ball_knower_private.push_devices(auth_user_id,session_id,installation_id,installation_secret_hash,transport,endpoint_hash,payload,label) values(p_owner,(p_data->>'sessionId')::uuid,(p_data->>'installationId')::uuid,p_data->>'installationSecretHash',p_data->>'transport',v_hash,p_data->'payload',p_data->>'label')
     on conflict(installation_id) do update set auth_user_id=excluded.auth_user_id,session_id=excluded.session_id,transport=excluded.transport,endpoint_hash=excluded.endpoint_hash,payload=excluded.payload,label=excluded.label,last_seen_at=clock_timestamp(),revoked_at=null returning id into v_id;
-    return jsonb_build_object('id',v_id);
-  elsif p_action in ('unsubscribe','revoke-device') then
-    update ball_knower_private.push_devices set revoked_at=clock_timestamp()
-    where auth_user_id=p_owner and (case when p_action='revoke-device' then id=(p_data->>'deviceId')::uuid else installation_id=(p_data->>'installationId')::uuid and installation_secret_hash=p_data->>'installationSecretHash' end) returning id into v_id;
+    return jsonb_build_object('id',v_id,'epoch',v_intent.epoch);
+  elsif p_action='revoke-device' then
+    -- Match the mutation lock order; changing epoch invalidates previously prepared explicit requests.
+    select * into v_device from ball_knower_private.push_devices where id=(p_data->>'deviceId')::uuid and auth_user_id=p_owner;
+    if not found then return jsonb_build_object('ok',true); end if;
+    perform pg_advisory_xact_lock(hashtextextended('bk-push-owner:'||p_owner::text,0));
+    perform pg_advisory_xact_lock(hashtextextended(v_device.installation_id::text,0));
+    update ball_knower_private.push_installation_intents set enabled=false,epoch=gen_random_uuid(),epoch_required=true where installation_id=v_device.installation_id and auth_user_id=p_owner;
+    update ball_knower_private.push_devices set revoked_at=clock_timestamp() where id=v_device.id and auth_user_id=p_owner returning id into v_id;
     if v_id is not null then update ball_knower_private.push_deliveries set state='suppressed',outcome_code='device_revoked',claim_token=null,lease_until=null where device_id=v_id and state in ('pending','leased'); end if;
     return jsonb_build_object('ok',true);
   elsif p_action='notification' then

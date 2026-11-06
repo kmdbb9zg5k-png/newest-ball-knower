@@ -6,6 +6,7 @@ import {readTransportConfiguration,transportReadiness,secretHash,validApnsToken,
 
 type Dependencies={database?:PushDatabase|null;configuration?:()=>TransportConfiguration};
 const validInstallation=(value:any)=>value&&UUID_PATTERN.test(value.installationId)&&typeof value.installationSecret==='string'&&/^[A-Za-z0-9_-]{43}$/.test(value.installationSecret);
+const validIntent=(value:any)=>Number.isSafeInteger(value.intentRevision)&&value.intentRevision>0&&typeof value.intentId==='string'&&UUID_PATTERN.test(value.intentId)&&(value.expectedEpoch===null||typeof value.expectedEpoch==='string'&&UUID_PATTERN.test(value.expectedEpoch));
 const knownKeys=(value:Record<string,unknown>,allowed:string[])=>Object.keys(value).every(key=>allowed.includes(key));
 export const maxDuration=30;
 
@@ -52,29 +53,35 @@ export function createPushHandler(dependencies:Dependencies={}){
       }
       if(!validInstallation(body))return res.status(400).json({error:'Invalid installation.'});
       const installation={installationId:body.installationId,installationSecretHash:secretHash(body.installationSecret)};
-      if(body.action==='unsubscribe'){
+      if(body.action==='installation'){
         if(!knownKeys(body,['action','installationId','installationSecret']))return res.status(400).json({error:'Invalid push request.'});
-        return res.status(200).json(await manage('unsubscribe',installation));
+        return res.status(200).json(await manage('installation',installation));
+      }
+      const intent={intentRevision:body.intentRevision,intentId:body.intentId,expectedEpoch:body.expectedEpoch};
+      if(body.action==='unsubscribe'){
+        if(!validIntent(body)||!knownKeys(body,['action','installationId','installationSecret','intentRevision','intentId','expectedEpoch']))return res.status(400).json({error:'Invalid push request.'});
+        return res.status(200).json(await manage('unsubscribe',{...installation,...intent}));
       }
       if(body.action==='subscribe'){
         if(!quietHoursRuntimeReady())return res.status(503).json({error:'Push delivery is awaiting a server update.'});
-        if(!knownKeys(body,['action','installationId','installationSecret','transport','subscription','token','label','restore'])||body.restore!==undefined&&typeof body.restore!=='boolean'||typeof body.label!=='string'||body.label.trim().length<1||body.label.length>60)return res.status(400).json({error:'Invalid device details.'});
+        if(!validIntent(body)||!knownKeys(body,['action','installationId','installationSecret','transport','subscription','token','label','restore','intentRevision','intentId','expectedEpoch'])||body.restore!==undefined&&typeof body.restore!=='boolean'||typeof body.label!=='string'||body.label.trim().length<1||body.label.length>60)return res.status(400).json({error:'Invalid device details.'});
         if(body.transport==='web'){
           if(!configuration.web)return res.status(503).json({error:'Browser push is not configured yet.'});
           if(!validWebSubscription(body.subscription))return res.status(400).json({error:'This browser push subscription is not supported.'});
           const {endpoint,keys:{p256dh,auth}}=body.subscription;
-          return res.status(200).json(await manage('subscribe',{...installation,restore:body.restore===true,transport:'web',payload:{endpoint,keys:{p256dh,auth}},label:body.label.trim()}));
+          return res.status(200).json(await manage('subscribe',{...installation,...intent,restore:body.restore===true,transport:'web',payload:{endpoint,keys:{p256dh,auth}},label:body.label.trim()}));
         }
         if(body.transport==='apns'){
           if(!configuration.apns)return res.status(503).json({error:'iPhone push is not configured yet.'});
           if(!validApnsToken(body.token))return res.status(400).json({error:'Invalid iPhone device registration.'});
-          return res.status(200).json(await manage('subscribe',{...installation,restore:body.restore===true,transport:'apns',payload:{token:body.token.toLowerCase()},label:body.label.trim()}));
+          return res.status(200).json(await manage('subscribe',{...installation,...intent,restore:body.restore===true,transport:'apns',payload:{token:body.token.toLowerCase()},label:body.label.trim()}));
         }
       }
       return res.status(400).json({error:'Unknown push action.'});
     }catch(error:any){
       // Database and provider exceptions may contain secret endpoints. Never log/return them.
       const code=String(error?.code||'');
+      if(code==='BK002')return res.status(409).json({error:'Device settings changed while this request was in progress. Check this device and try again.',code:'push_state_changed'});
       if(code==='BK001')return res.status(409).json({error:'Push was disabled for this installation. Enable it again to receive alerts.',code:'push_reenable_required'});
       if(code==='28000')return res.status(401).json({error:'This session has ended. Sign in again.'});
       if(code==='42501')return res.status(403).json({error:'This installation belongs to another account or device.'});

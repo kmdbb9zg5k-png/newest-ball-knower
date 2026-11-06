@@ -67,11 +67,18 @@ export async function runRealServices(statusPath, outputDirectory, cleanupPath) 
   receipt.featureOverlays = overlays;
   const originalFetch = globalThis.fetch;
   const inFlight = new Set();
+  const backgroundTasks = new Set();
   let stopped = false;
+  let scenarioStopped = false;
   globalThis.fetch = (input, init) => {
     const target = new URL(input instanceof Request ? input.url : String(input));
     if (target.origin !== config.url || !/^\/(?:auth|rest|storage)\/v1(?:\/|$)/.test(target.pathname)) throw new Error('non_isolated_http_request_refused');
     if (stopped) throw new Error('qa_run_is_quiescent');
+    if (scenarioStopped) {
+      const headers = new Headers(input instanceof Request ? input.headers : undefined);
+      new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
+      if (headers.get('apikey') !== config.serviceKey) throw new Error('qa_scenario_is_quiescent');
+    }
     // Observe the actual create payload before forwarding it. No response is
     // mocked or substituted. This closes the lost-create-response cleanup gap.
     if (target.pathname === '/rest/v1/ball_knower_leagues' && init?.method === 'POST') {
@@ -140,17 +147,27 @@ export async function runRealServices(statusPath, outputDirectory, cleanupPath) 
       await a.app.updateCloudLeague(league.id, { status: 'completed', seasonResult: { draftOrder: members.map((member, index) => ({ memberId: member.id, memberName: member.userName, pickNumber: index + 1 })), games: [] } });
       draft = await a.app.startCloudLiveFantasyDraft(league.id);
       assert.equal(draft.pickIndex, 0);
-      let aCallbacks = 0, bCallbacks = 0, reloadedIndex = -1;
+      let aCallbacks = 0, bCallbacks = 0, reloadedIndex = -1, evidenceSubscribed = false, observedPickIndex = -1;
+      const evidenceChannel = a.app.supabase.channel(`qa-draft-evidence-${manifest.runId}`)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'ball_knower_live_drafts', filter: `league_id=eq.${league.id}` }, payload => { observedPickIndex = payload.new.pick_index; })
+        .subscribe(status => { evidenceSubscribed = status === 'SUBSCRIBED'; });
+      unsubscribers.push(() => { void a.app.supabase.removeChannel(evidenceChannel); });
       unsubscribers.push(a.app.subscribeToCloudLeague(league.id, () => { aCallbacks++; }));
-      unsubscribers.push(b.app.subscribeToCloudLeague(league.id, () => { bCallbacks++; void b.app.fetchCloudLeague(league.id).then(value => { reloadedIndex = value?.liveDraft?.pickIndex ?? -1; }).catch(() => {}); }));
-      await until(() => aCallbacks > 0 && bCallbacks > 0, 'realtime_initial_subscription_failed');
-      b.app.supabase.realtime.disconnect();
+      unsubscribers.push(b.app.subscribeToCloudLeague(league.id, () => {
+        bCallbacks++;
+        const pending = b.app.fetchCloudLeague(league.id).then(value => { reloadedIndex = value?.liveDraft?.pickIndex ?? -1; }).catch(() => {});
+        backgroundTasks.add(pending); void pending.finally(() => backgroundTasks.delete(pending));
+      }));
+      await until(() => aCallbacks > 0 && bCallbacks > 0 && evidenceSubscribed, 'realtime_initial_subscription_failed');
+      await b.app.supabase.realtime.disconnect();
+      assert.equal(b.app.supabase.realtime.isConnected(), false);
       const missedAt = bCallbacks;
       const firstQb = requireOk(await admin.from('ball_knower_fantasy_player_groups').select('player_id').eq('draft_group', 'QB').order('player_id').limit(1))[0];
       const player = a.app.PLAYERS_DATABASE.find(player => player.id === firstQb.player_id);
       draft = await a.app.makeCloudLiveFantasyDraftPick(league.id, player.id, 'QB');
       assert.equal(draft.pickIndex, 1);
-      await until(() => aCallbacks > 1, 'real_postgres_change_not_delivered');
+      await until(() => aCallbacks > 1 && observedPickIndex === 1, 'real_postgres_change_not_delivered');
+      assert.equal(bCallbacks, missedAt, 'disconnected client must actually miss the pick event');
       b.app.supabase.realtime.connect();
       await until(() => bCallbacks > missedAt && reloadedIndex === 1, 'realtime_rejoin_did_not_reload_ledger');
       await rejects(() => a.app.makeCloudLiveFantasyDraftPick(league.id, player.id, 'QB'));
@@ -206,6 +223,14 @@ export async function runRealServices(statusPath, outputDirectory, cleanupPath) 
       return { savedWeek: 18, schedule: 'synthetic_pregame_fixture', otherManagerLineupUnchanged: true, kickoffLockLifecycleVerified: false };
     });
     if (scoringOverlay) await check('fantasy.real_schema_atomic_scoring_overlay', async () => {
+      for (const person of fixture) {
+        const claim = await person.app.supabase.rpc('claim_ball_knower_fantasy_scoring_work', { p_contract_id: 'qa-unapproved-contract' });
+        assert.equal(claim.error?.code, '42501');
+        const commit = await person.app.supabase.rpc('commit_ball_knower_fantasy_scoring_snapshot', { p_snapshot: {}, p_content_hash: 'a'.repeat(64) });
+        assert.equal(commit.error?.code, '42501');
+      }
+      const unapproved = await admin.rpc('claim_ball_knower_fantasy_scoring_work', { p_contract_id: 'qa-unapproved-contract' });
+      assert.equal(unapproved.error?.code, 'P0001'); assert.match(unapproved.error.message, /not approved/i);
       const filename = 'scripts/qa/fantasy-scoring-overlay.sql';
       const sql = readFileSync(resolve(filename), 'utf8');
       assert.match(sql, /\bbegin\s*;/i); assert.match(sql, /\brollback\s*;/i);
@@ -217,7 +242,7 @@ export async function runRealServices(statusPath, outputDirectory, cleanupPath) 
       const result = localSql(config.databaseUrl, settings + '\n' + sql, 'scoring_overlay');
       assert.match(result, /real-schema scoring overlay passed/);
       assert.equal(localSql(config.databaseUrl, stateSql), before, 'transactional scoring fixture must preserve submitted lineups');
-      return { fixture: filename, sha256: sha256(sql), actualProductionSchemaLegacyTriggerAndForeignKeys: true, managers: 2, syntheticApprovedContractOnly: true, noProviderCalls: true, fixtureTransactionRolledBack: true, currentProviderContractVerified: false };
+      return { fixture: filename, sha256: sha256(sql), actualProductionSchemaLegacyTriggerAndForeignKeys: true, managers: 2, realAuthenticatedRpcCallsDenied: 4, unapprovedServiceContractRejected: true, syntheticApprovedContractOnly: true, noProviderCalls: true, fixtureTransactionRolledBack: true, currentProviderContractVerified: false };
     });
     if (secureLineupOverlay) await check('fantasy.real_auth_direct_lineup_dml_denied_and_kickoff_rpc_guard', async () => {
       for (let index = 0; index < 2; index++) {
@@ -248,18 +273,23 @@ export async function runRealServices(statusPath, outputDirectory, cleanupPath) 
         const saved = requireOk(await a.app.supabase.from('ball_knower_weekly_lineups').select('starters').eq('league_id', league.id).eq('member_id', members[0].id).eq('week_number', 18).single());
         assert.deepEqual(saved.starters, lineups[0].starters);
         const startedTeams = new Set([game[0].home, game[0].away]);
-        const wrSlot = ['WR1', 'WR2'].find(slot => !startedTeams.has(members[0].roster.find(player => player.id === lineups[0].starters[slot]).team));
-        const benchWr = members[0].roster.find(player => player.position === 'WR' && lineups[0].bench.includes(player.id) && !startedTeams.has(player.team));
-        assert.ok(wrSlot && benchWr, 'fixture must contain an unstarted starter and bench WR');
+        const schedule = JSON.parse(localSql(config.databaseUrl, "select json_agg(json_build_object('id',provider_game_id,'home',home_team,'away',away_team)) from public.ball_knower_nfl_games where provider_game_id like 'qa-synthetic-week18-%' and season=2026 and season_type='reg' and week_number=18;"));
+        const receiverPair = ['WR1', 'WR2'].flatMap(slot => {
+          const starter = members[0].roster.find(player => player.id === lineups[0].starters[slot]);
+          if (startedTeams.has(starter.team)) return [];
+          return members[0].roster.filter(player => player.position === 'WR' && lineups[0].bench.includes(player.id) && !startedTeams.has(player.team))
+            .map(player => ({ slot, player, game: schedule.find(game => [game.home, game.away].includes(player.team)) }))
+            .filter(pair => ![pair.game.home, pair.game.away].includes(starter.team));
+        })[0];
+        assert.ok(receiverPair, 'fixture must have starter and bench WRs in separate unstarted games');
+        const wrSlot = receiverPair.slot, benchWr = receiverPair.player;
         const oldWr = lineups[0].starters[wrSlot];
         const unlockedStarters = { ...lineups[0].starters, [wrSlot]: benchWr.id };
         const unlockedBench = lineups[0].bench.map(id => id === benchWr.id ? oldWr : id);
-        const benchGame = JSON.parse(localSql(config.databaseUrl, `select coalesce(json_agg(json_build_object('id',provider_game_id)),'[]'::json) from public.ball_knower_nfl_games where provider_game_id like 'qa-synthetic-week18-%' and season=2026 and season_type='reg' and week_number=18 and ${sqlLiteral(benchWr.team)} in(home_team,away_team);`));
-        assert.equal(benchGame.length, 1);
-        localSql(config.databaseUrl, `update public.ball_knower_nfl_games set kickoff_at=now()-interval '1 minute' where provider_game_id=${sqlLiteral(benchGame[0].id)};`);
+        localSql(config.databaseUrl, `update public.ball_knower_nfl_games set kickoff_at=now()-interval '1 minute' where provider_game_id=${sqlLiteral(receiverPair.game.id)};`);
         try {
           await rejects(() => a.app.saveMyWeeklyLineup(league.id, 18, unlockedStarters, unlockedBench));
-        } finally { localSql(config.databaseUrl, `update public.ball_knower_nfl_games set kickoff_at=now()+interval '7 days' where provider_game_id=${sqlLiteral(benchGame[0].id)};`); }
+        } finally { localSql(config.databaseUrl, `update public.ball_knower_nfl_games set kickoff_at=now()+interval '7 days' where provider_game_id=${sqlLiteral(receiverPair.game.id)};`); }
         await a.app.saveMyWeeklyLineup(league.id, 18, unlockedStarters, unlockedBench);
         const changed = requireOk(await a.app.supabase.from('ball_knower_weekly_lineups').select('starters').eq('league_id', league.id).eq('member_id', members[0].id).eq('week_number', 18).single());
         assert.equal(changed.starters.QB, qb.id); assert.equal(changed.starters[wrSlot], benchWr.id);
@@ -340,8 +370,17 @@ export async function runRealServices(statusPath, outputDirectory, cleanupPath) 
   } finally {
     // Quiesce every transport before deleting fixtures. The worker never emits
     // credentials or resumes scenario work after this barrier.
-    for (const unsubscribe of unsubscribers) unsubscribe();
-    for (const person of fixture) { await person.app.supabase.removeAllChannels(); person.app.supabase.auth.stopAutoRefresh(); }
+    let quiescedTransports = true;
+    for (const unsubscribe of unsubscribers) try { unsubscribe(); } catch { quiescedTransports = false; }
+    scenarioStopped = true;
+    const closed = await Promise.allSettled(fixture.map(async person => {
+      try {
+        const statuses = await person.app.supabase.removeAllChannels();
+        if (statuses.some(status => status !== 'ok')) quiescedTransports = false;
+      } finally { await person.app.supabase.auth.stopAutoRefresh(); }
+    }));
+    if (closed.some(result => result.status === 'rejected')) quiescedTransports = false;
+    await Promise.allSettled([...backgroundTasks]);
     await Promise.allSettled([...inFlight]);
     try {
       currentStep = 'cleanup'; manifest.phase = 'cleanup'; saveManifest();
@@ -376,10 +415,12 @@ export async function runRealServices(statusPath, outputDirectory, cleanupPath) 
         'mini_attempts',(select count(*) from bk_minigames_private.attempts where user_id in(${ids})),
         'notifications',(select count(*) from public.ball_knower_notifications where auth_user_id in(${ids}))${pushOverlay ? `,
         'push_settings',(select count(*) from ball_knower_private.push_settings where auth_user_id in(${ids})),
+        'push_intents',(select count(*) from ball_knower_private.push_installation_intents where auth_user_id in(${ids})),
         'push_devices',(select count(*) from ball_knower_private.push_devices where auth_user_id in(${ids})),
         'push_deliveries',(select count(*) from ball_knower_private.push_deliveries where auth_user_id in(${ids}))` : ''});`));
       assert.ok(Object.values(counts).every(count => count === 0));
-      receipt.cleanup = { status: 'verified', remainingOwnedRows: counts, quiescedTransports: true, refreshSessionsRevoked: true, accessTokensNeverExported: true, canonicalSeedRemovedByStackTeardown: true };
+      receipt.cleanup = { status: 'verified', remainingOwnedRows: counts, quiescedTransports, refreshSessionsRevoked: true, accessTokensNeverExported: true, canonicalSeedRemovedByStackTeardown: true };
+      if (!quiescedTransports) { receipt.ok = false; receipt.checks.push({ name: 'cleanup.transport_quiescence', status: 'failed', code: 'transport_close_failed' }); }
     } catch (error) {
       receipt.ok = false; receipt.cleanup = { status: 'blocked', code: safeCode(error), cleanupOnlyCommandAvailable: true };
     }

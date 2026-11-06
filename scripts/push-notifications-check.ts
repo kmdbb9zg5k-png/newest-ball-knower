@@ -67,10 +67,13 @@ assert.equal((await invoke(handler,{query:{resource:'settings'},authorization:''
 assert.equal((await invoke(handler,{query:{resource:'settings'},authorization:`Bearer ${token(randomUUID())}`})).statusCode,401,'JWT sub must match verified user');
 assert.equal((await invoke(handler,{query:{resource:'settings'},authorization:'synthetic.bad.verified'})).statusCode,401);
 anonymous=true;assert.equal((await invoke(handler,{query:{resource:'settings'}})).statusCode,403);anonymous=false;
-const subscribe={action:'subscribe',installationId,installationSecret:Buffer.alloc(32,4).toString('base64url'),transport:'web',subscription,label:'Synthetic browser'};
+const subscribe={action:'subscribe',installationId,intentRevision:1,intentId:randomUUID(),expectedEpoch:null,installationSecret:Buffer.alloc(32,4).toString('base64url'),transport:'web',subscription,label:'Synthetic browser'};
 assert.equal((await invoke(handler,{method:'POST',body:subscribe})).statusCode,200);
 assert.equal(calls.at(-1).args.p_owner,owner);assert.equal(calls.at(-1).args.p_data.sessionId,sessionId);assert.equal(calls.at(-1).args.p_data.installationSecret,undefined,'raw installation secret never enters RPC');
 assert.equal((await invoke(handler,{method:'POST',body:{...subscribe,auth_user_id:randomUUID()}})).statusCode,400,'owner injection rejected');
+for(const intentRevision of [0,-1,1.5,Number.MAX_SAFE_INTEGER+1])assert.equal((await invoke(handler,{method:'POST',body:{...subscribe,intentRevision}})).statusCode,400,'unsafe intent revision rejected');
+assert.equal((await invoke(handler,{method:'POST',body:{...subscribe,intentId:'not-a-uuid'}})).statusCode,400);
+assert.equal((await invoke(handler,{method:'POST',body:{...subscribe,expectedEpoch:'not-a-uuid'}})).statusCode,400);
 assert.equal((await invoke(handler,{method:'POST',body:{...subscribe,subscription:{...subscription,endpoint:'http://127.0.0.1/'}}})).statusCode,400);
 activeSession=false;assert.equal((await invoke(handler,{method:'POST',body:subscribe})).statusCode,401,'revoked session cannot register');assert.equal((await invoke(handler,{method:'POST',body:{action:'settings',...DEFAULT_PUSH_SETTINGS}})).statusCode,401);activeSession=true;
 const target=await invoke(handler,{query:{resource:'notification',id:randomUUID()}});assert.equal(target.body.destination,'waivers');assert.equal(target.body.leagueId,'joined-league');
