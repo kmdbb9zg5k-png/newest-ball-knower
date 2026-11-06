@@ -1,0 +1,73 @@
+name: Push notification delivery
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'App.tsx'
+      - 'LeagueLobby.tsx'
+      - 'FantasyLeague*.tsx'
+      - 'FantasyNotification*.tsx'
+      - 'fantasyNotificationRouting.ts'
+      - 'usePushDestination.ts'
+      - 'api/push*.ts'
+      - 'server/push*.ts'
+      - 'push*.ts'
+      - 'PushNotification*.tsx'
+      - 'public/push-worker.js'
+      - 'supabase/migrations/*fantasy_push_delivery.sql'
+      - 'scripts/*push*'
+      - '.github/workflows/push-notifications.yml'
+      - 'package*.json'
+concurrency:
+  group: push-notifications-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  push-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: 22}
+      - run: npm ci --no-audit --no-fund
+      - run: npm run check:push
+      - name: Verify PostgreSQL queue and account lifecycle
+        env: {PGPASSWORD: postgres}
+        run: psql -h 127.0.0.1 -U postgres -d postgres -f scripts/postgres-push-integration.sql
+  browser-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: 22}
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Render settings and exercise actual App push taps
+        run: node scripts/push-browser-check.mjs
+      - name: Preserve screenshots and exact fixture scope
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: push-notifications-browser
+          path: artifacts/push-notifications
+          if-no-files-found: ignore
+          retention-days: 7

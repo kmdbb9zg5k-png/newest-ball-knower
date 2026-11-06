@@ -39,7 +39,7 @@ assert.ok(controls.includes('role="switch"')&&controls.includes('aria-checked={c
 assert.ok(controls.includes('disabled={Boolean(busy)||!ready}')&&controls.includes('Loading alert preferences'),'preference controls must not overwrite saved choices before loading completes');
 assert.ok(controls.includes('userIdRef.current!==requestedUserId'),'identity changes must discard stale preference mutations');
 assert.ok(controls.includes('if(!isCloudConfigured||!userId)return null'),'cloud-only preference controls must not pretend to persist in local leagues');
-assert.ok(controls.includes('this version does not deliver push notifications'),'push controls must clearly explain that native delivery is unavailable');
+assert.ok(controls.includes('<PushNotificationControls userId={userId}/>'),'settings must expose actual device controls and truthful transport readiness');
 assert.ok(cloud.includes("supabase.rpc('get_my_ball_knower_notification_preferences')")&&cloud.includes("supabase.rpc('save_my_ball_knower_notification_preference'"),'the client must use authenticated preference RPCs');
 assert.ok(cloud.includes(".eq('in_app_visible',true)"),'in-app history must filter out events disabled for that channel');
 assert.ok(cloud.includes("supabase.rpc('mark_ball_knower_notification_read'"),'single notification acknowledgements must use the narrow owner-derived RPC');
