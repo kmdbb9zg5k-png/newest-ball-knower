@@ -113,6 +113,11 @@ export async function verifyRealPushSessions({ admin, fixture, leagueId, databas
     assert.equal(olderFirstEnable.status, 409); assert.equal(olderFirstEnable.payload.code, 'push_state_changed');
     assert.equal(Number(localSql(databaseUrl, `select count(*) from ball_knower_private.push_devices where installation_id=${literal(neverEnabled.installationId)}::uuid;`)), 0);
 
+    // Exercise quiet-hour settings above, then make this queue authorization
+    // fixture independent of the wall clock. Quiet deferral is covered by the
+    // separate SQL behavioral fixture, not inferred from a daytime CI run.
+    const deliverySettings = await invoke(handler, second.access_token, 'POST', {}, { action: 'settings', quietEnabled: false, timeZone: 'America/New_York', startMinute: 1320, endMinute: 420 });
+    assert.equal(deliverySettings.status, 200); assert.equal(deliverySettings.payload.quietEnabled, false);
     const notificationId = randomUUID();
     requireOk(await a.app.supabase.from('ball_knower_notifications').insert({ id: notificationId, league_id: leagueId, auth_user_id: a.item.id, title: `QA ${runId}`, body: 'Synthetic isolated queue fixture', kind: 'roster_submitted', category: 'roster', push_eligible: true }));
     const destination = await invoke(handler, a.tokens.at(-1), 'GET', { resource: 'notification', id: notificationId });

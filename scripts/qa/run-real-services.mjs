@@ -54,7 +54,7 @@ export async function runRealServices(statusPath, outputDirectory, cleanupPath) 
   const receipt = {
     version: 1, runId: manifest.runId, sourceCommit: manifest.sourceCommit,
     startedAt: new Date().toISOString(), mode: 'isolated_real_supabase_services',
-    realAuthAccounts: false, separateAuthSessions: false, mockedHttp: false,
+    realAuthAccounts: false, authAccountsCreated: 0, initialPasswordSessionsCreated: 0, separateAuthSessions: false, mockedHttp: false,
     humanOpponents: false, physicalDeviceVerified: false, productionWrites: 0,
     realNflScoringVerified: false, gameplayReplayVerified: false,
     schemaParityFile: 'schema-parity.json', checks: [], cleanup: { status: 'pending' },
@@ -123,16 +123,18 @@ export async function runRealServices(statusPath, outputDirectory, cleanupPath) 
         const label = `QA ${manifest.runId.slice(0, 8)} ${item.slot.toUpperCase()}`;
         const created = requireOk(await admin.auth.admin.createUser({ id: item.id, email, password, email_confirm: true, app_metadata: { bk_launch_qa: { owner: QA_OWNER, runId: manifest.runId, slot: item.slot, expiresAt: manifest.expiresAt } }, user_metadata: { name: label } }));
         assert.ok(ownsUser(created.user, manifest, item));
+        receipt.realAuthAccounts = true; receipt.authAccountsCreated++;
         item.created = true; saveManifest();
         const session = requireOk(await app.supabase.auth.signInWithPassword({ email, password })).session;
         assert.equal(session.user.id, item.id); assert.equal(session.user.is_anonymous, false);
         assert.equal(requireOk(await app.supabase.auth.getUser()).user.id, item.id);
+        receipt.initialPasswordSessionsCreated++;
         fixture.push({ item, app, email, password, label, tokens: [session.access_token] });
       }
       assert.notEqual(fixture[0].tokens[0], fixture[1].tokens[0]);
       assert.notEqual(fixture[0].item.id, fixture[1].item.id);
       receipt.realAuthAccounts = true; receipt.separateAuthSessions = true;
-      return { accounts: 2, confirmationEmailsRequested: 0, adminUsedForScenarioMutations: false };
+      return { accounts: 2, confirmationEmailsRequested: 0, adapterClientsUsePublicKeyAndUserJwt: true, usersCreatedThroughActualAuthAdminApi: true };
     });
     const [a, b] = fixture;
     let league, draft, members;
