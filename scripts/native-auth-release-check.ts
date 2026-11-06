@@ -8,6 +8,7 @@ const identity=fs.readFileSync('accountIdentity.ts','utf8');
 const deletion=fs.readFileSync('api/account-delete.ts','utf8');
 const launch=fs.readFileSync('LaunchCenter.tsx','utf8');
 const codemagic=fs.readFileSync('codemagic.yaml','utf8');
+const iosSetup=fs.readFileSync('scripts/configure-ios-project.py','utf8');
 const envExample=fs.readFileSync('.env.example','utf8');
 
 assert.match(nativeAuth,/ballknower:\/\/auth\/callback/);
@@ -36,9 +37,11 @@ assert.match(identity,/prepareGuestAccountMerge/,'existing guest-to-account owne
 assert.match(identity,/signInWithOAuth/);
 assert.match(identity,/skipBrowserRedirect/);
 
-assert.match(codemagic,/com\.apple\.developer\.applesignin/,'signed iOS project must request the Sign in with Apple entitlement');
-assert.match(codemagic,/CODE_SIGN_ENTITLEMENTS = App\/App\.entitlements/);
-assert.match(codemagic,/CFBundleURLSchemes:0 string ballknower/);
+assert.match(codemagic,/python3 scripts\/configure-ios-project\.py/,'signed build must configure the generated iOS project');
+assert.match(iosSetup,/com\.apple\.developer\.applesignin/,'signed iOS project must request the Sign in with Apple entitlement');
+assert.match(iosSetup,/settings\["CODE_SIGN_ENTITLEMENTS"\] = "App\/App\.entitlements"/);
+assert.match(iosSetup,/CFBundleURLSchemes/);
+assert.match(iosSetup,/schemes\.append\("ballknower"\)/);
 
 assert.match(deletion,/appleid\.apple\.com\/auth\/revoke/,'Apple authorization must be attempted before deleting an Apple-backed account when a provider token exists');
 assert.match(deletion,/manualAppleRevokeRequired/,'deletion response must identify when Apple authorization needs manual revocation');

@@ -1,4 +1,4 @@
-import PlayerGameGear from './PlayerGameGear';
+import PlayerGameGear from './PlayerGameGear.tsx';
 import {lockerAction,readLockerState,subscribeLocker} from './lockerCommerceClient';
 import React,{useEffect,useRef,useState,useSyncExternalStore} from 'react';
 import {Shirt,Footprints,Check,ShoppingBag} from 'lucide-react';
