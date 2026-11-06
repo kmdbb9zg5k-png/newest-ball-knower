@@ -1,3 +1,4 @@
+import './fantasy-canonical-scoring-check';
 import './fantasy-scoring-read-recovery-check';
 import './fantasy-data-state-check';
 import './fantasy-realtime-reconnect-check';

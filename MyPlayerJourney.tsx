@@ -1,8 +1,8 @@
 import {CareerSection} from './CareerTabs';
-import {CareerDialogue,CareerPortrait} from './MyPlayerCareer';
+import {CareerDialogue,CareerPortrait} from './MyPlayerCareer.tsx';
 import React,{useEffect,useRef,useState} from 'react';
 import {CheckCircle2,ChevronRight,Phone,Radio,Shield,Star} from 'lucide-react';
-import {MyPlayerDraftCombine} from './MyPlayerDraftCombine';
+import {MyPlayerDraftCombine} from './MyPlayerDraftCombine.tsx';
 import {calculatePlayedCombine,type DraftCombinePerformance,type DraftDrill} from './myPlayerDraftCombine';
 import {JOURNEY_ORDER,careerTeamInterest,cleanJourney,journeyGrade,journeyMetrics,journeyOptions,nextJourneyChapter,teamStyle,journeyVisitTeams,type JourneyChapter,type JourneyProfile,type JourneyState,type JourneyDraft} from './myPlayerJourney';
 import {SOLO_TEAM_THEMES,soloTeamLogoUrl} from './soloUniverse';

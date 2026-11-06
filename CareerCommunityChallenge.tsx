@@ -1,6 +1,6 @@
 import {readAthletePassport} from './athletePassport';
 import React,{useEffect,useRef,useState} from 'react';
-import {CareerMoment} from './MyPlayerCareer';
+import {CareerMoment} from './MyPlayerCareer.tsx';
 import {CHALLENGE_PREP,challengeFilm,challengeEvaluation,careerChallengeStats,cleanChallengeSession,type CareerChallengeSession} from './careerChallenge';
 import type {MiniStats} from './miniChallenges';
 import './myPlayerArc.css';

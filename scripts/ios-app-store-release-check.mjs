@@ -17,15 +17,24 @@ if(capacitor.plugins?.CapacitorHttp?.enabled!==true)failures.push('CapacitorHttp
 requireText('codemagic.yaml',[
   'BUNDLE_ID: "com.ballknower.ios"',
   'MARKETING_VERSION: "1.0.0"',
-  'NSCameraUsageDescription',
-  'NSPhotoLibraryUsageDescription',
-  'CFBundleURLSchemes:0 string ballknower',
-  'com.apple.developer.applesignin',
-  'CODE_SIGN_ENTITLEMENTS = App/App.entitlements;',
+  'python3 scripts/configure-ios-project.py',
+  'npx --no-install cap add ios --packagemanager SPM',
+  'python3 scripts/verify-ios-ipa.py',
+  'BK_APPROVED_UPLOAD_SHA',
   'Build signed IPA',
   'submit_to_testflight: false',
   'submit_to_app_store: false',
 ]);
+requireText('scripts/configure-ios-project.py',[
+  'NSCameraUsageDescription','NSPhotoLibraryUsageDescription','CFBundleURLSchemes','ballknower',
+  'com.apple.developer.applesignin','CODE_SIGN_ENTITLEMENTS','App/App.entitlements',
+  'aps-environment','$(APS_ENVIRONMENT)','"development" if config["name"] == "Debug" else "production"',
+  '.capacitorDidRegisterForRemoteNotifications','.capacitorDidFailToRegisterForRemoteNotifications',
+]);
+const codemagic=read('codemagic.yaml');
+if(/npm install --no-save|--create\b/.test(codemagic))failures.push('Native builds must use locked dependencies and existing signing credentials');
+const buildOnlyWorkflow=codemagic.split('\n  ios-app-store:\n')[1]?.split('\n  ios-app-store-upload:\n')[0];
+if(!buildOnlyWorkflow||/\n    publishing:/.test(buildOnlyWorkflow))failures.push('The default signed-candidate workflow must not distribute or notify');
 requireText('nativeRuntime.ts',['https://ballknowerofficial.com','/api/','Capacitor.isNativePlatform','nativeApiUrl']);
 requireText('nativeAuth.ts',['ballknower://auth/callback','appUrlOpen','getLaunchUrl','exchangeCodeForSession','browserFinished','authorizeAppleForDeletion']);
 if(read('nativeAuth.ts').includes('auth.setSession'))failures.push('Native callbacks must not accept unbound implicit-token sessions');

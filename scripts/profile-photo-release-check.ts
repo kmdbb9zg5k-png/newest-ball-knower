@@ -15,7 +15,8 @@ const client = read('profilePhoto.ts');
 const editor = read('ProfilePhotoEditor.tsx');
 const context = read('BallKnowerContext.tsx');
 const media = read('api/media.ts');
-const ios = read('codemagic.yaml');
+const ios = read('scripts/configure-ios-project.py');
+assert.match(read('codemagic.yaml'), /python3 scripts\/configure-ios-project\.py/);
 
 assert.match(migration, /file_size_limit=excluded\.file_size_limit/);
 assert.match(migration, /allowed_mime_types=excluded\.allowed_mime_types/);
