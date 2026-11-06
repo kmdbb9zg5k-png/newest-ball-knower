@@ -93,6 +93,8 @@ jobs:
         run: npm run check:dst-rankings
       - name: Fantasy transactions
         run: npm run check:fantasy-transactions
+      - name: Bounded production scoring readiness
+        run: node --import tsx scripts/fantasy-scoring-readiness-check.ts
       - name: Fantasy live scoring
         run: npm run check:fantasy-live-scoring
       - name: Fantasy security
