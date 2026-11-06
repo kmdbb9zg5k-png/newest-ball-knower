@@ -56,11 +56,53 @@
 .arena-stats span,.arena-stats small {display:block;font-size:11px;color:#aaaebb;line-height:1.5}
 .arena-stats span {font-weight:800;text-transform:uppercase;letter-spacing:.05em}
 .arena-stats strong {display:block;font-size:32px;line-height:1.4;font-weight:900;color:var(--arena-gold);font-variant-numeric:tabular-nums}
-.arena-feature {position:relative;overflow:hidden}
-.arena-feature>.arena-kicker {margin:18px 0 8px}
-.arena-feature:hover {border-color:#d9b43b77;background-color:#111924}
+.arena-feature-grid {display:grid;grid-template-columns:minmax(0,1fr);gap:16px;min-width:0}
+.arena-feature {position:relative;min-width:0;overflow:hidden;border:1px solid #d9b43b88;border-radius:20px;background:#090d12;box-shadow:0 14px 36px #0003;text-align:left;color:#f4f4f5}
+.arena-feature h2 {margin:9px 0 0;font-family:'Barlow Condensed','Arial Narrow',Impact,sans-serif;font-size:clamp(34px,8vw,46px);font-style:italic;font-weight:800;line-height:1.02;letter-spacing:-.01em;text-transform:uppercase}
+.arena-feature .arena-kicker {font-size:9px;letter-spacing:.18em}
+.arena-rankings-card {display:flex;flex-direction:column;width:100%;padding:0}
+.arena-rankings-card:hover {border-color:#edcb63}
+.arena-rankings-hero {position:relative;isolation:isolate;display:flex;align-items:center;width:100%;min-height:210px;padding:24px 20px 26px}
+.arena-rankings-hero>img {position:absolute;inset:0;z-index:-2;display:block;width:100%;height:100%;object-fit:cover;object-position:right center}
+.arena-rankings-hero::after {content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#090d12d9,#090d1299 35%,#090d1200 72%),linear-gradient(0deg,#090d12,transparent 22%);pointer-events:none}
+.arena-rankings-copy {width:59%;min-width:0}
+.arena-rankings-copy h2 {font-size:clamp(40px,9.6vw,54px)}
+.arena-rankings-copy p {max-width:200px;margin:10px 0 0;font-size:12px;line-height:1.5;color:#c6cad4}
 .arena-leader {display:flex;gap:12px;align-items:center;margin-top:22px;padding-top:16px;border-top:1px solid #ffffff18}
 .arena-avatar {display:grid;place-items:center;flex-shrink:0;width:42px;height:42px;border:1px solid #d9b43b44;border-radius:13px;background:linear-gradient(135deg,#d9b43b22,#090d15);font-weight:900;font-size:13px;color:var(--arena-gold)}
+.arena-feature-leader {align-self:stretch;gap:10px;margin:0 12px;padding:12px;border:1px solid #ffffff14;border-radius:15px;background:linear-gradient(110deg,#161d25,#0c1117);font-variant-numeric:tabular-nums}
+.arena-feature-leader .arena-avatar {width:38px;height:42px;font-size:13px}
+.arena-leader-initials {display:grid;place-items:center;flex-shrink:0;width:34px;height:34px;border:1px solid #d9b43b66;border-radius:50%;background:#d9b43b16;color:#ecd67d;font-size:11px;font-weight:900}
+.arena-leader-name {flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:800}
+.arena-feature-leader>strong {flex-shrink:0;font-size:25px;line-height:1.2;font-weight:900;color:#ecd67d}
+.arena-feature-leader small {margin-left:4px;font-size:10px}
+.arena-feature-empty {margin:0 20px;padding:16px 0;border-top:1px solid #ffffff18;font-size:12px;line-height:1.6;color:#c6cad4}
+.arena-leaderboard-action {display:flex;align-items:center;gap:10px;min-height:60px;margin-top:auto;padding:16px 20px;color:#ecd67d;font-size:11px;line-height:1.5;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
+.arena-leaderboard-action svg {flex-shrink:0;width:19px;height:19px}
+.arena-circle-card {display:flex;flex-direction:column}
+.arena-circle-photo {position:relative;aspect-ratio:1.85;overflow:hidden;background:#10151b}
+.arena-circle-photo>img {display:block;width:100%;height:100%;object-fit:cover;object-position:center 30%}
+.arena-circle-photo::after {content:'';position:absolute;inset:auto 0 0;height:36%;background:linear-gradient(0deg,#090d12,transparent);pointer-events:none}
+.arena-circle-content {position:relative;flex:1;margin-top:-14px;padding:0 20px 20px}
+.arena-circle-content p {margin:10px 0 16px;font-size:12px;line-height:1.6;color:#c6cad4}
+.arena-circle-actions {display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.arena-find-friends {display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:46px;padding:10px 13px;border:1px solid #f1d57f;border-radius:12px;background:linear-gradient(110deg,#efcd64,#e7bd4c);color:#101113;font-size:11px;font-weight:900;line-height:1.5;text-transform:uppercase;letter-spacing:.025em}
+.arena-find-friends:hover {background:#f3d778}
+.arena-find-friends svg {width:19px;height:19px;flex-shrink:0}
+.arena-invite-friends {min-height:46px;padding:10px 4px;color:#c6cad4;font-size:12px;font-weight:700;line-height:1.5}
+.arena-invite-friends:hover {color:#ecd67d}
+.arena-invite-friends:disabled {opacity:.5;cursor:wait}
+.arena-invite-fallback {margin-top:12px;padding-top:12px;border-top:1px solid #ffffff18}
+.arena-invite-fallback label {display:block;font-size:11px;line-height:1.5;color:#c6cad4}
+.arena-invite-fallback input {width:100%;min-width:0;min-height:44px;margin-top:6px;padding:8px 10px;border:1px solid #d9b43b66;border-radius:10px;background:#05080c;color:#ecd67d}
+.arena-solo-tile {display:flex;align-items:center;gap:14px;width:100%;min-height:78px;padding:16px;border:1px solid #ffffff24;border-radius:17px;background:linear-gradient(110deg,#10151b,#090d12);color:#f4f4f5;text-align:left}
+.arena-solo-tile>svg {width:26px;height:26px;flex-shrink:0;color:#ecd67d}
+.arena-solo-tile>svg:last-child {width:21px;height:21px;color:#f4f4f5}
+.arena-solo-tile>span {flex:1;min-width:0}
+.arena-solo-tile strong {display:block;font-size:13px;font-weight:900;line-height:1.5;letter-spacing:.03em;text-transform:uppercase}
+.arena-solo-tile span>span {display:block;margin-top:3px;font-size:11px;line-height:1.5;color:#b7bbc5}
+@media(min-width:900px){.arena-feature-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.arena-rankings-hero{flex:1;min-height:260px}.arena-feature h2{font-size:42px}.arena-rankings-copy h2{font-size:54px}}
+@media(max-width:359px){.arena-rankings-hero{padding-inline:16px;min-height:196px}.arena-feature-leader{gap:7px;margin-inline:10px;padding:10px}.arena-feature-leader .arena-avatar{width:32px;height:38px}.arena-leader-initials{width:29px;height:29px;font-size:10px}.arena-leader-name{font-size:13px}.arena-feature-leader>strong{font-size:22px}.arena-circle-content{padding-inline:16px}.arena-feature h2{font-size:32px}.arena-rankings-copy h2{font-size:38px}.arena-circle-actions{gap:4px 12px}}
 .arena-conversation {display:flex;flex-direction:column;min-width:0;height:min(760px,80dvh);min-height:440px}
 .arena-message-scroll {min-height:0;flex:1;overflow-y:auto;overscroll-behavior:contain;padding:16px;scrollbar-color:#66572d transparent}
 .arena-bubble {max-width:88%;width:fit-content;margin-bottom:12px;padding:12px 14px;border:1px solid #ffffff18;border-radius:4px 18px 18px 18px;background:#ffffff06}
