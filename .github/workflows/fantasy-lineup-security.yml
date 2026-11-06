@@ -1,0 +1,34 @@
+name: Fantasy lineup write security
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/fantasy-lineup-security.yml'
+      - 'migrations/*secure_fantasy_lineup_writes.sql'
+      - 'scripts/postgres-fantasy-lineup-writes-integration.sql'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lineup-write-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - name: Enforce authoritative lineup writes and per-player kickoff locks
+        env: {PGPASSWORD: postgres}
+        run: psql -h 127.0.0.1 -U postgres -d postgres -f scripts/postgres-fantasy-lineup-writes-integration.sql
