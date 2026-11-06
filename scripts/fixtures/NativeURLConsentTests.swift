@@ -9,9 +9,9 @@ final class NativeURLConsentTests: XCTestCase {
         expectStatus("Native QA ready", in: app)
         keepScreenshot("initial-bridge", app: app)
 
-        // Apple's public UI-testing URL API preserves the actual native URL
-        // dispatch. Consent is handled normally if this OS displays a dialog.
-        app.open(URL(string: "ballknower://auth/callback#access_token=native-qa-only&refresh_token=native-qa-warm")!)
+        // XCUIApplication.open relaunches the target. The device's OS-level URL
+        // route preserves the existing process for a real warm callback.
+        XCUIDevice.shared.system.open(URL(string: "ballknower://auth/callback#access_token=native-qa-only&refresh_token=native-qa-warm")!)
         approveKnownOpenDialog(app: app)
         expectStatus("Warm callback rejected", in: app)
         keepScreenshot("warm-callback", app: app)
