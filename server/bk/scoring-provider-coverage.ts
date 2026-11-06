@@ -81,4 +81,3 @@ export function summarizeProviderCoverage(boxValue:unknown,projectionValue:unkno
  projections:{playerRows:projected.length,defenseRows:defenseProjected.length,fields:coverage(projected,projectionFormats),defenseNumericPoints:defenseProjected.filter(row=>number(row.fantasyPointsDefault)!==undefined).length,identities:identitiesSummary(projected,identities),
   reportedSeasonPresent:projection.season!==undefined,reportedSeasonMatches:Number(projection.season)===SEASON,reportedWeekPresent:projection.week!==undefined,reportedWeekMatches:Number(projection.week)===choice.week}};
 }
-
