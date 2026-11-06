@@ -2,9 +2,10 @@ import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {CalendarDays,Check,ChevronDown,RefreshCw,Search,Target,X} from 'lucide-react';
 import {ModeGuide} from './ModeGuide';
+import {MODE_HELP} from './modeHelpContent';
 import {gradePick,isPicksGameLocked,normalizeSavedPick,normalizeSpread,SavedPick,spreadLabel} from './picksEngine';
 import {deleteVerifiedPredictionPick,gradeVerifiedPredictionPicks,loadVerifiedPredictionPicks,saveVerifiedPredictionPick,VerifiedPredictionPick} from './modeProgressionCloud';
-import {BoardGame,gamePhase,hasKickoff,initialSlate,nextPicksKickoffDelay,parsePicksBoard,PicksFilter,slateKey,slateLabel,visiblePicksGames} from './picksBoard';
+import {BoardGame,gamePhase,hasKickoff,initialSlate,nextPicksKickoffDelay,parsePicksBoard,picksFeedIsStale,PICKS_RETRIEVAL_MAX_AGE_MS,PicksFilter,slateKey,slateLabel,visiblePicksGames} from './picksBoard';
 import {withPicksDeadline} from './picksRequest';
 import {createPredictionGameResolver,indexPredictionPicks,predictionTeam,samePredictionChoice} from './server/predictionIdentity.js';
 import './picksScreen.css';
@@ -45,6 +46,7 @@ export const SportsbookHub:React.FC=()=>{
   const [slate,setSlate]=useState('');
   const [filter,setFilter]=useState<PicksFilter>('all');
   const [updated,setUpdated]=useState<Date|null>(null);
+  const [sourceUpdated,setSourceUpdated]=useState<Date|null>(null);
   const [feedSource,setFeedSource]=useState('');
   const [busyGame,setBusyGame]=useState('');
   const [now,setNow]=useState(Date.now);
@@ -84,11 +86,12 @@ export const SportsbookHub:React.FC=()=>{
       const next=parsePicksBoard(data);
       if(!mounted.current||controller.signal.aborted)return;
       setGames(next);setUpdated(typeof data.fetchedAt==='string'&&Number.isFinite(Date.parse(data.fetchedAt))?new Date(data.fetchedAt):null);setFeedSource(data.source==='nflverse'?'nflverse':'');setNow(Date.now());
+      setSourceUpdated(typeof data.sourceUpdatedAt==='string'&&Number.isFinite(Date.parse(data.sourceUpdatedAt))?new Date(data.sourceUpdatedAt):null);
       setSlate(current=>next.some(game=>slateKey(game)===current)?current:initialSlate(next));
       if(next.length&&data?.linesAvailable===false)setNotice(LINES_PENDING);
     }catch(err){
       if(!mounted.current||controller.signal.aborted)return;
-      console.warn('Picks feed unavailable',err);setGames([]);setUpdated(null);setFeedSource('');setNotice('');setFeedError(FEED_ERROR);
+      console.warn('Picks feed unavailable',err);setGames([]);setUpdated(null);setSourceUpdated(null);setFeedSource('');setNotice('');setFeedError(FEED_ERROR);
     }finally{if(mounted.current&&feedController.current===controller)setLoading(false)}
   },[]);
 
@@ -111,9 +114,11 @@ export const SportsbookHub:React.FC=()=>{
     const resolve=createPredictionGameResolver(games);
     commitPicks(current=>{const index=indexPredictionPicks(current,games);return current.map(pick=>{const game=resolve(pick).game;return game&&!index.get(game.id)?.ambiguous?gradePick(pick,game):pick});});
     let timer:ReturnType<typeof setTimeout>|undefined;
-    const tick=()=>{clearTimeout(timer);const current=Date.now();setNow(current);const delay=nextPicksKickoffDelay(games,current);if(delay!==null&&!document.hidden)timer=setTimeout(tick,delay)};
+    const tick=()=>{clearTimeout(timer);const current=Date.now();setNow(current);const delays=[nextPicksKickoffDelay(games,current),updated?updated.getTime()+PICKS_RETRIEVAL_MAX_AGE_MS-current+1:null].filter((delay):delay is number=>delay!==null&&delay>0);const delay=delays.length?Math.min(...delays,2_147_483_647):null;if(delay!==null&&!document.hidden)timer=setTimeout(tick,delay)};
     tick();document.addEventListener('visibilitychange',tick);return()=>{clearTimeout(timer);document.removeEventListener('visibilitychange',tick)};
-  },[games,commitPicks]);
+  },[games,commitPicks,updated]);
+
+  const feedStale=picksFeedIsStale(updated,now);
 
   const effectivePicks=useMemo(()=>{
     const byGame=new Map(picks.map(pick=>[pick.gameId,pick]));
@@ -138,6 +143,7 @@ export const SportsbookHub:React.FC=()=>{
   },[visible]);
   const choose=(game:Game,pick:DraftPick)=>{
     if(loading||feedError||!hasKickoff(game)||gamePhase(game,Date.now())!=='upcoming'||isPicksGameLocked(game,Date.now())||saving.current)return;
+    if(picksFeedIsStale(updated,Date.now()))return;
     const attached=(effectivePickIndex.get(game.id)||{picks:[],ambiguous:false});if(attached.ambiguous)return;
     const current=attached.picks[0];
     const original=(savedPickIndex.get(game.id)||{picks:[],ambiguous:false});if(original.ambiguous)return;
@@ -150,7 +156,7 @@ export const SportsbookHub:React.FC=()=>{
   };
   const submitPicks=async()=>{
     const entries=Object.entries(draftByGame);
-    if(!entries.length||saving.current||loading||feedError)return;
+    if(!entries.length||saving.current||loading||feedError||picksFeedIsStale(updated,Date.now()))return;
     saving.current=true;revision.current++;setBusyGame('submit');setError('');setSubmitNotice('');
     const completed:string[]=[];
     let latestVerified:VerifiedPredictionPick[]|null=null;
@@ -176,6 +182,9 @@ export const SportsbookHub:React.FC=()=>{
       }
     }catch(err){
       if(mounted.current){
+        // Preserve already-confirmed server receipts even if the following
+        // submission and recovery read both fail.
+        if(latestVerified)commitPicks(existing=>mergeVerifiedPicks(existing,latestVerified!));
         if(completed.length)setDraftByGame(current=>Object.fromEntries(Object.entries(current).filter(([gameId])=>!completed.includes(gameId))));
         try{const verified=await loadVerifiedPredictionPicks();if(mounted.current)commitPicks(existing=>mergeVerifiedPicks(existing,verified))}catch{}
         setError(err instanceof Error&&err.message==='locked'?PICK_LOCKED_ERROR:PICK_SAVE_ERROR);
@@ -199,14 +208,16 @@ export const SportsbookHub:React.FC=()=>{
 
     <section className="bk-picks-summary" aria-label="Your picks and record">
       <div className="bk-picks-summary-heading"><strong><Target size={17}/>Your Picks</strong><span>{draftCount?`${pendingCount} selected · ${draftCount} unsent`:`${pendingCount} submitted`} · {wins}-{losses}</span></div>
-      {effectivePicks.length?<div className="bk-picks-saved">{effectivePicks.map(pick=>{const game=resolveGame(pick).game;const locked=Boolean(pick.result)||Boolean(pick.kickoffAt&&Date.parse(pick.kickoffAt)<=now)||!game||(effectivePickIndex.get(game.id)||{picks:[],ambiguous:false}).ambiguous||!hasKickoff(game)||gamePhase(game,now)!=='upcoming'||isPicksGameLocked(game,now);const changed=Object.prototype.hasOwnProperty.call(draftByGame,pick.gameId);return <button type="button" key={pick.id} disabled={locked||Boolean(busyGame)||loading} onClick={()=>game&&choose(game,pick)} aria-label={`${pick.label}${locked?' · Locked':changed?' · Unsubmitted change · Remove pick':' · Submitted · Remove pick'}`}><Check size={14}/><span>{pick.label}</span>{pick.result?<b data-result={pick.result}>{pick.result.toUpperCase()}</b>:locked?<small>LOCKED</small>:changed?<small>READY</small>:<small>SUBMITTED</small>}</button>})}</div>:<p>Tap a team to make a pick. Your choices are not submitted until you press Submit Picks.</p>}
-      <div className="bk-picks-submit-row"><span>{draftCount?`${draftCount} change${draftCount===1?'':'s'} ready to submit.`:pendingCount?'Your current picks are submitted. Change any pick to create a new submission.':'Choose your picks, then submit them together.'}</span><button type="button" onClick={()=>void submitPicks()} disabled={!draftCount||Boolean(busyGame)||loading||Boolean(feedError)}>{busyGame==='submit'?<><RefreshCw size={16} className="bk-picks-spin"/>Submitting…</>:draftCount?<><Check size={16}/>Submit Picks ({draftCount})</>:pendingCount?<><Check size={16}/>Picks Submitted</>:<>Submit Picks</>}</button></div>
+      {effectivePicks.length?<div className="bk-picks-saved">{effectivePicks.map(pick=>{const game=resolveGame(pick).game;const locked=Boolean(pick.result)||Boolean(pick.kickoffAt&&Date.parse(pick.kickoffAt)<=now)||!game||(effectivePickIndex.get(game.id)||{picks:[],ambiguous:false}).ambiguous||!hasKickoff(game)||gamePhase(game,now)!=='upcoming'||isPicksGameLocked(game,now);const changed=Object.prototype.hasOwnProperty.call(draftByGame,pick.gameId);return <button type="button" key={pick.id} disabled={locked||Boolean(busyGame)||loading||feedStale} onClick={()=>game&&choose(game,pick)} aria-label={`${pick.label}${locked?' · Locked':changed?' · Unsubmitted change · Remove pick':' · Submitted · Remove pick'}`}><Check size={14}/><span>{pick.label}</span>{pick.result?<b data-result={pick.result}>{pick.result.toUpperCase()}</b>:locked?<small>LOCKED</small>:changed?<small>READY</small>:<small>SUBMITTED</small>}</button>})}</div>:<p>Tap a team to make a pick. Your choices are not submitted until you press Submit Picks.</p>}
+      <div className="bk-picks-submit-row"><span>{draftCount?`${draftCount} change${draftCount===1?'':'s'} ready to submit.`:pendingCount?'Your current picks are submitted. Change any pick to create a new submission.':'Choose your picks, then submit them together.'}</span><button type="button" onClick={()=>void submitPicks()} disabled={!draftCount||Boolean(busyGame)||loading||Boolean(feedError)||feedStale}>{busyGame==='submit'?<><RefreshCw size={16} className="bk-picks-spin"/>Submitting…</>:draftCount?<><Check size={16}/>Submit Picks ({draftCount})</>:pendingCount?<><Check size={16}/>Picks Submitted</>:<>Submit Picks</>}</button></div>
       {submitNotice&&<p className="bk-picks-submit-note" role="status">{submitNotice}</p>}
       {syncNotice&&<p className="bk-picks-sync" role="status">{syncNotice}</p>}
     </section>
 
-    <div className="bk-picks-refreshline"><span>{loading?'Updating matchups…':updated?`Data retrieved ${updated.toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}`:'Retrieval time unavailable'}</span><button type="button" onClick={refresh} disabled={loading} className="bk-picks-refresh" aria-label="Refresh picks"><RefreshCw size={15} className={loading?'bk-picks-spin':''}/>Refresh</button><ModeGuide storageKey="bk-guide-picks-v3" title="Picks" summary="Choose one football outcome per game, review your card, then submit your picks before kickoff." steps={["Tap a team to add or change a pick.","Review the picks marked Ready in Your Picks.","Press Submit Picks to save the card. You can change and resubmit any unlocked game before kickoff."]}/></div>
+    <div className="bk-picks-refreshline"><span>{loading?'Updating matchups…':updated?`Data retrieved ${updated.toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}`:'Retrieval time unavailable'}</span><button type="button" onClick={refresh} disabled={loading} className="bk-picks-refresh" aria-label="Refresh picks"><RefreshCw size={15} className={loading?'bk-picks-spin':''}/>Refresh</button><ModeGuide storageKey="bk-guide-picks-v3" {...MODE_HELP.picks}/></div>
     {feedSource==='nflverse'&&<p className="mb-3 text-xs leading-5 text-zinc-400"><a href="https://github.com/nflverse/nfldata" target="_blank" rel="noreferrer noopener" className="underline">nflverse published lines</a> · Periodic updates. These are published snapshots, not live prices.</p>}
+    {feedSource&&<p className="mb-3 text-xs leading-5 text-zinc-400">Source last updated: {sourceUpdated?sourceUpdated.toLocaleString(): 'unavailable'}. Retrieval time above records when Ball Knower fetched this snapshot.</p>}
+    {feedStale&&<div role="status" className="bk-picks-notice">This matchup snapshot needs a refresh before you can change or submit picks. Your choices are preserved.</div>}
     {error&&<div role="alert" className="bk-picks-alert">{error}</div>}
     {notice&&<div role="status" className="bk-picks-notice">{notice}</div>}
 
@@ -222,7 +233,7 @@ export const SportsbookHub:React.FC=()=>{
         const attached=(effectivePickIndex.get(game.id)||{picks:[],ambiguous:false});const saved=attached.picks[0];
         const original=(savedPickIndex.get(game.id)||{picks:[],ambiguous:false}).picks[0];
         const lockReference=saved||original;
-        const pickDisabled=locked||pendingTime||attached.ambiguous||Boolean(lockReference&&(lockReference.result||(lockReference.kickoffAt&&Date.parse(lockReference.kickoffAt)<=now)))||Boolean(busyGame)||loading;
+        const pickDisabled=locked||pendingTime||attached.ambiguous||Boolean(lockReference&&(lockReference.result||(lockReference.kickoffAt&&Date.parse(lockReference.kickoffAt)<=now)))||Boolean(busyGame)||loading||feedStale;
         return <article key={game.id} className="bk-picks-game" data-game-id={game.id}>
           <div className="bk-picks-teams">
             <div className="bk-picks-team"><span>{game.away}</span></div>

@@ -4,6 +4,9 @@ export type BoardGame=PicksGame&{scheduleDate?:string|null;season?:number|null;w
 export const hasKickoff=(game:BoardGame)=>Boolean(game.date&&/T\d{2}:\d{2}/.test(game.date)&&Number.isFinite(Date.parse(game.date)));
 // A kickoff locks picks, but does not prove the provider is reporting a live game.
 export const PICKS_LIVE_WINDOW_MS=12*60*60*1000;
+export const PICKS_RETRIEVAL_MAX_AGE_MS=15*60*1000;
+export const picksFeedIsStale=(retrieved:Date|null,now=Date.now())=>Boolean(retrieved&&
+  (retrieved.getTime()>now+60_000||now-retrieved.getTime()>PICKS_RETRIEVAL_MAX_AGE_MS));
 const nflDay=(now:number)=>{
   const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(now));
   const calendar=Object.fromEntries(parts.map(part=>[part.type,part.value]));

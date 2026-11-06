@@ -4,7 +4,7 @@ import { MINI_SELECTOR_ART } from './miniSelectorArt';
 import { MiniTeamCarousel } from './MiniTeamCarousel';
 import { MINI_TEAMS, miniMatchup } from './public/play-moment-3d/mini-teams.js';
 
-export function HomeMiniGamesFeature({onOpenFootball=()=>location.assign('/?footballH2H=1')}:{onOpenFootball?:()=>void}={}) {
+export function HomeMiniGamesFeature({onOpenFootball=()=>location.assign('/?footballH2H=1'),compact=false}:{onOpenFootball?:()=>void;compact?:boolean}={}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [level, setLevel] = useState(() => { try { return miniLevel(localStorage.getItem('bk-mini-level-v1')).id; } catch { return 'rookie'; } });
   const difficulty = miniLevel(level);
@@ -38,8 +38,8 @@ export function HomeMiniGamesFeature({onOpenFootball=()=>location.assign('/?foot
   };
   const chooseLevel = (id: typeof level) => { setLevel(id); try { localStorage.setItem('bk-mini-level-v1', id); } catch { /* Still playable when storage is unavailable. */ } };
   return <section className="bk-home-mini-games" aria-label="Mini Games">
-    <button type="button" className="bk-mini-games-cover" aria-label="Explore Mini Games" onClick={openMenu}>
-      <img src="/mini-games-home-cover.webp" alt="Mini Games. Big plays. Quick games." width="1254" height="1254" loading="lazy" decoding="async" draggable={false}/>
+    <button type="button" className={`bk-mini-games-cover${compact?' bk-mini-games-compact':''}`} aria-label="Explore Mini Games" onClick={openMenu}>
+      {compact ? <><img src="/profile/cinematic/player-hero.webp" alt="" width="1536" height="1024" loading="lazy" decoding="async" draggable={false}/><span className="bk-mini-games-compact-copy"><small>QUICK GAMES &amp; DRILLS</small><strong>Mini Games.<br/>Big plays.</strong><span>Two-minute warning, full games and the Combine.</span><b>Choose a game <span aria-hidden="true">→</span></b></span></> : <img src="/mini-games-home-cover.webp" alt="Mini Games. Big plays. Quick games." width="1254" height="1254" loading="lazy" decoding="async" draggable={false}/> }
     </button>
     <dialog ref={dialog} className="bk-mini-games-dialog" aria-labelledby="mini-games-heading" aria-describedby="mini-games-description" onClose={() => setMenuOpen(false)} onClick={event => { if (event.target === dialog.current) dialog.current?.close(); }}>
       <div className="bk-mini-games-content">

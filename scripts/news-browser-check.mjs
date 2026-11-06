@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {spawn} from 'node:child_process';
 import {chromium} from 'playwright';
+import {navigateFromExplore} from './assert-app-navigation.mjs';
 import {verifyNews} from './release-backend-preflight.mjs';
 const live=process.argv.includes('--live');
 assert.ok(live||process.argv.includes('--fixture'),'Choose --fixture for regression CI or --live for a production-provider check');
@@ -44,7 +45,7 @@ try{
     await page.goto(base,{waitUntil:'domcontentloaded'});
     await page.locator('.bk-app-shell[data-tab="home"]').waitFor();
     if(news.provider==='Currents'){const tickerAttribution=page.getByRole('region',{name:'NFL headlines',exact:true}).getByRole('link',{name:'Powered by Currents News API',exact:true});await tickerAttribution.waitFor();assert.equal(await tickerAttribution.getAttribute('href'),'https://currentsapi.services/');}
-    await page.getByRole('button',{name:'NFL News',exact:true}).click();
+    await navigateFromExplore(page,'NFL news','news');
     await page.locator('article').first().waitFor();
     assert.equal(await page.locator('article').count(),news.articles.length);
     if(news.provider==='Currents'){const attribution=page.locator('[data-page="news"]').getByRole('link',{name:'Powered by Currents News API',exact:true});await attribution.waitFor();assert.equal(await attribution.getAttribute('href'),'https://currentsapi.services/');}

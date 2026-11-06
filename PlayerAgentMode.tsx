@@ -1,3 +1,5 @@
+import { ModeHelp } from "./ModeHelp";
+import { agentDealForSeason, canNegotiateAgentDeal, evaluateAgentCounter, normalizeAgentDeal, type AgentFutureDeal, type AgentSeasonCheckpoint } from './agentContractNegotiation';
 import {advanceAgentCalendar} from "./agentSeasonCalendar";
 import {agentTradeWindowMessage,canResolveAgentTradeRequest,isAgentTradeWindowOpen,TRADE_DEADLINE_WEEK,type SeasonPhase} from './agentTradeRules';
 export {agentTradeWindowMessage,canResolveAgentTradeRequest,isAgentTradeWindowOpen} from './agentTradeRules';
@@ -19,7 +21,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { Player } from "./types";
-import { SOLO_KNOWN_PLAYERS_DATABASE, SOLO_PLAYERS_DATABASE, SOLO_UNIVERSE_VERSION, simulatedPlayerForLegacyId } from "./soloUniverse";
+import { SOLO_KNOWN_PLAYERS_DATABASE, SOLO_PLAYERS_DATABASE, SOLO_TEAM_THEMES, SOLO_UNIVERSE_VERSION, simulatedPlayerForLegacyId } from "./soloUniverse";
 import { AGENT_PORTRAITS, staffPortraitPlayer, staffPortraitProfile } from "./solo/staffPortraits";
 import { playerPortraitFallbackUrl } from "./playerPortraits";
 import { ModalPortal } from "./ModalPortal";
@@ -99,13 +101,7 @@ const buildAgentTargetBoard = (players: Player[], limit = 50) => {
 
 type Pitch = RecruitingPitch;
 type AgentProfile = { name: string; age: number; location: string; portraitId: string };
-type FutureDeal = {
-  totalM: number;
-  annualM: number;
-  guaranteedM: number;
-  years: number;
-  negotiatedAt: string;
-};
+type FutureDeal = AgentFutureDeal;
 type NegotiationState = {
   playerId: string;
   round: number;
@@ -115,6 +111,7 @@ type NegotiationState = {
   gmPatience: number;
   message: string;
   strategy: ContractStrategy;
+  teamOffer: { years: number; annualM: number; guaranteedPct: number };
 };
 type TradeRequest = {
   requestedWeek: number;
@@ -130,6 +127,7 @@ type Client = {
   trust: number;
   currentTeam?: string;
   futureDeal?: FutureDeal;
+  activeDeal?: FutureDeal;
   signedAt: string;
   tradeRequest?: TradeRequest;
   career: ClientCareer;
@@ -160,6 +158,7 @@ type AgencyState = {
   dealHistory: FutureDeal[];
   promisesKept: number;
   promisesBroken: number;
+  seasonHistory?: AgentSeasonCheckpoint[];
 };
 type RecruitState = {
   playerId: string;
@@ -324,8 +323,9 @@ const restore = (includePendingRecruitAction = true): AgencyState => {
               trust: Number.isFinite(Number(c.trust))
                 ? clamp(Number(c.trust), 0, 100)
                 : 72,
-              currentTeam: simulated.team,
-              futureDeal: c.futureDeal,
+              currentTeam: !legacyUniverse && SOLO_TEAM_THEMES.some(team => team.abbr === c.currentTeam) ? c.currentTeam : simulated.team,
+              futureDeal: normalizeAgentDeal(c.futureDeal, Number(v?.seasonYear) || 2026),
+              activeDeal: normalizeAgentDeal(c.activeDeal, Number(v?.seasonYear) || 2026),
               signedAt: c.signedAt || new Date().toISOString(),
               tradeRequest: legacyUniverse ? undefined : c.tradeRequest,
               career:
@@ -362,6 +362,7 @@ const restore = (includePendingRecruitAction = true): AgencyState => {
       signedClients: Number.isFinite(Number(v?.signedClients))
         ? Math.max(Number(v.signedClients), Array.isArray(v?.clients) ? v.clients.length : 0)
         : Array.isArray(v?.clients) ? v.clients.length : 0,
+      seasonHistory: !legacyUniverse && Array.isArray(v?.seasonHistory) ? v.seasonHistory.filter((entry: AgentSeasonCheckpoint) => entry && Number.isInteger(entry.year) && [entry.clients, entry.deals, entry.reputation, entry.cashK, entry.promisesKept, entry.promisesBroken].every(Number.isFinite)).slice(-50) : [],
       dealHistory: Array.isArray(v?.dealHistory)
         ? v.dealHistory
         : Array.isArray(v?.clients)
@@ -915,8 +916,8 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
         .filter((x): x is { client: Client; player: Player } =>
           Boolean(x.player),
         )
-        .map(({client,player}) => ({client,player:playerOnSoloTeam(player,client.currentTeam)})),
-    [agency.clients],
+        .map(({client,player}) => ({client,player:playerOnSoloTeam(player,client.currentTeam),activeDeal:agentDealForSeason(client,agency.dealHistory,agency.seasonYear)})),
+    [agency.clients,agency.dealHistory,agency.seasonYear],
   );
 
   const unlockedOvr = maxUnlockedOverall(agency.reputation);
@@ -1057,6 +1058,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     const next: AgencyState = {
       ...agency,
       clients: updatedClients,
+      seasonHistory: nextYear > agency.seasonYear ? [...(agency.seasonHistory ?? []).filter(entry => entry.year !== agency.seasonYear), { year: agency.seasonYear, clients: agency.clients.length, deals: agency.dealHistory.length, reputation: agency.reputation, cashK: agency.cashK, promisesKept: agency.promisesKept, promisesBroken: agency.promisesBroken }].slice(-50) : agency.seasonHistory,
       seasonYear: nextYear,
       seasonWeek: nextWeek,
       phase: nextPhase,
@@ -1501,7 +1503,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
   };
 
   const openNegotiation = (p: Player, c: Client) => {
-    if (c.futureDeal) return;
+    if (!canNegotiateAgentDeal(c.futureDeal, agency.seasonYear)) return;
     const actionAgency = spendAction("opening another negotiation");
     if (!actionAgency) return;
     setAgency(actionAgency);
@@ -1515,41 +1517,45 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       guaranteedPct: 42,
       gmPatience: clamp(62 + Math.round(agency.negotiation / 5), 62, 82),
       strategy: "long_term",
+      teamOffer: { years: (p.age ?? 27) >= 30 ? 2 : 3, annualM: Number((market * .78).toFixed(1)), guaranteedPct: 42 },
       message: `The GM opens below market at ${moneyM(market * 0.78)} per year. Your client expects you to fight.`,
     });
   };
 
-  const counterNegotiation = () => {
+  const counterNegotiation = (acceptClubOffer = false) => {
     if (!negotiationRoom) return;
-    const p = SOLO_KNOWN_PLAYERS_DATABASE.find((x) => x.id === negotiationRoom.playerId);
+    const basePlayer = SOLO_KNOWN_PLAYERS_DATABASE.find((x) => x.id === negotiationRoom.playerId);
     const client = agency.clients.find(
       (x) => x.playerId === negotiationRoom.playerId,
     );
-    if (!p || !client) return;
+    if (!basePlayer || !client || !canNegotiateAgentDeal(client.futureDeal, agency.seasonYear)) return;
+    const p = playerOnSoloTeam(basePlayer, client.currentTeam);
+    const terms = acceptClubOffer ? { ...negotiationRoom, ...negotiationRoom.teamOffer } : negotiationRoom;
     const market = marketProjection(p);
     const strategy = contractStrategyModifiers(
       negotiationRoom.strategy,
       p,
       client.career,
     );
-    const askScore =
-      (negotiationRoom.annualM / (market * strategy.annualMultiplier)) * 55 +
-      (negotiationRoom.guaranteedPct - strategy.guaranteeDelta) * 0.35 +
-      (negotiationRoom.years - strategy.yearsDelta) * 2;
-    const leverage = agency.negotiation * 0.23 + agency.reputation * 0.09;
-    const accepted = askScore <= 69 + leverage || negotiationRoom.round >= 3;
+    const assessment = evaluateAgentCounter(terms, market, p, client.career, agency);
+    const accepted = acceptClubOffer || assessment.accepted;
     if (accepted) {
       const totalM = Number(
-        (negotiationRoom.annualM * negotiationRoom.years).toFixed(1),
+        (terms.annualM * terms.years).toFixed(1),
       );
       const deal: FutureDeal = {
         totalM,
-        annualM: negotiationRoom.annualM,
+        annualM: terms.annualM,
         guaranteedM: Number(
-          ((totalM * negotiationRoom.guaranteedPct) / 100).toFixed(1),
+          ((totalM * terms.guaranteedPct) / 100).toFixed(1),
         ),
-        years: negotiationRoom.years,
-        negotiatedAt: new Date().toISOString(),
+        years: terms.years,
+        negotiatedAt: agency.simulatedDate,
+        signingYear: agency.seasonYear,
+        startYear: agency.seasonYear + 1,
+        endYear: agency.seasonYear + terms.years,
+        playerId: p.id,
+        team: client.currentTeam || p.team,
       };
       const next: AgencyState = {
         ...agency,
@@ -1561,6 +1567,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           x.playerId === p.id
             ? {
                 ...x,
+                activeDeal: agentDealForSeason(x, agency.dealHistory, agency.seasonYear),
                 futureDeal: deal,
                 trust: clamp(x.trust + strategy.trustOnDeal, 0, 100),
                 career: {
@@ -1571,7 +1578,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
             : x,
         ),
         timeline: [
-          `DEAL: ${p.name} signed for ${negotiationRoom.years} years, ${moneyM(totalM)} total and ${moneyM(deal.guaranteedM)} guaranteed.`,
+          `DEAL: ${p.name} signed for ${terms.years} years, ${moneyM(totalM)} total and ${moneyM(deal.guaranteedM)} guaranteed.`,
           ...agency.timeline,
         ].slice(0, 20),
       };
@@ -1580,10 +1587,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       setNegotiationRoom(null);
       return;
     }
-    const nextPatience =
-      negotiationRoom.gmPatience +
-      strategy.patienceDelta -
-      Math.max(12, Math.round(askScore - 54));
+    const nextPatience = assessment.nextPatience;
     if (nextPatience <= 0) {
       const next: AgencyState = {
         ...agency,
@@ -1620,6 +1624,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       ...negotiationRoom,
       round: negotiationRoom.round + 1,
       annualM: gmAnnual,
+      teamOffer: { years: negotiationRoom.years, annualM: gmAnnual, guaranteedPct: Math.min(62, negotiationRoom.guaranteedPct + 5) },
       guaranteedPct: Math.min(62, negotiationRoom.guaranteedPct + 5),
       gmPatience: nextPatience,
       message: `The GM counters at ${moneyM(gmAnnual)} per year with ${Math.min(62, negotiationRoom.guaranteedPct + 5)}% guaranteed. Push again or protect the relationship.`,
@@ -1844,6 +1849,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           </div>
         </div>
 
+        <div className="mb-4"><ModeHelp mode="agent" /></div>
         {agentSigningError && (
           <div className="mb-4 rounded-2xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm font-bold text-amber-100">
             {agentSigningError}
@@ -1886,6 +1892,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           </div>
         </section>
 
+        <section aria-label="Agency weekly briefing" className="mt-4 rounded-2xl border border-violet-300/20 bg-[#0c1018] p-4"><h2 className="text-sm font-black text-violet-200">THIS WEEK’S DESK</h2><p className="mt-2 text-xs leading-5 text-zinc-300">{actionsRemaining} actions left · {clients.filter(({ client }) => client.career.pendingEvent).length} client decisions · {clients.filter(({ client }) => client.tradeRequest?.status === 'open').length} open trade requests · {clients.filter(({ client }) => canNegotiateAgentDeal(client.futureDeal, agency.seasonYear)).length} contract windows. Pending client decisions stay open when you advance; you can return to them.</p>{clients.filter(({ client }) => client.career.pendingEvent).slice(0, 2).map(({ client, player }) => <p className="mt-2 text-xs text-amber-200" key={player.id}>{player.name} · {client.career.pendingEvent!.title} · trust {Math.round(client.career.trust)}/100</p>)}<details className="mt-3"><summary className="min-h-8 cursor-pointer text-xs font-black text-zinc-300">Season checkpoints · {agency.seasonHistory?.length ?? 0}</summary><p className="mt-1 text-[10px] leading-4 text-zinc-500">Agency snapshots at each new league year. Deals and promises are career totals at that boundary.</p>{agency.seasonHistory?.length ? agency.seasonHistory.slice().reverse().map(entry => <p key={entry.year} className="mt-2 text-xs leading-5 text-zinc-300">{entry.year} · {entry.clients} clients · {entry.deals} career deals · {entry.reputation} reputation · ${entry.cashK}K cash · {entry.promisesKept} promises kept / {entry.promisesBroken} broken</p>) : <p className="mt-2 text-xs text-zinc-400">Your first year-end checkpoint will appear when the next league year opens.</p>}</details></section>
         {agency.timeline.length > 0 && (
           <details className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4">
             <summary className="cursor-pointer text-[10px] font-black tracking-[.2em] text-zinc-400">
@@ -1999,7 +2006,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
               <h2 className="text-2xl font-black">YOUR CLIENTS</h2>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
-              {clients.map(({ client, player }) => (
+              {clients.map(({ client, player, activeDeal }) => (
                 <div
                   key={player.id}
                   className="rounded-2xl border border-white/10 bg-black/25 p-4"
@@ -2125,21 +2132,22 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                         {client.tradeRequest.outcome}
                       </div>
                     )}
-                  <div className="mt-3 rounded-xl bg-white/5 p-3 text-xs">
+                  <div data-testid="agent-current-deal" className="mt-3 rounded-xl bg-white/5 p-3 text-xs">
                     <div className="text-zinc-500">Current deal baseline</div>
                     <div className="mt-1 font-black">
-                      {moneyM(player.salary)} · final contract year
+                      {moneyM(activeDeal?.annualM ?? player.salary)} · {activeDeal ? `${activeDeal.inferredTiming ? "estimated contract" : "contract"} through ${activeDeal.endYear}` : "baseline final-year salary"}
                     </div>
                   </div>
-                  {client.futureDeal ? (
+                  {client.futureDeal && !canNegotiateAgentDeal(client.futureDeal, agency.seasonYear) ? (
                     <div className="mt-3 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-xs">
                       <div className="font-black text-emerald-300">
-                        YOU GOT HIM PAID
+                        {agency.seasonYear < (client.futureDeal.startYear ?? 0) ? "NEXT CONTRACT SECURED" : "CONTRACT ACTIVE"}
                       </div>
                       <div className="mt-1 text-zinc-300">
                         {client.futureDeal.years} years ·{" "}
                         {moneyM(client.futureDeal.totalM)} total ·{" "}
                         {moneyM(client.futureDeal.guaranteedM || 0)} guaranteed
+                        <span className="mt-1 block text-[10px] text-emerald-200">{client.futureDeal.inferredTiming ? "Estimated term: " : ""}{client.futureDeal.startYear}–{client.futureDeal.endYear} · talks reopen in {client.futureDeal.endYear}{client.futureDeal.inferredTiming ? ". Dates inferred from the first saved season with this deal." : ""}</span>
                       </div>
                     </div>
                   ) : (
@@ -2314,11 +2322,12 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
         )}
         {negotiationRoom &&
           (() => {
-            const p = SOLO_KNOWN_PLAYERS_DATABASE.find(
-              (x) => x.id === negotiationRoom.playerId,
-            );
+            const basePlayer = SOLO_KNOWN_PLAYERS_DATABASE.find((x) => x.id === negotiationRoom.playerId);
+            const client = agency.clients.find(x => x.playerId === negotiationRoom.playerId);
+            const p = basePlayer ? playerOnSoloTeam(basePlayer, client?.currentTeam) : undefined;
             if (!p) return null;
             const market = marketProjection(p);
+            const preview = client ? evaluateAgentCounter(negotiationRoom, market, p, client.career, agency) : null;
             return (
               <ModalPortal>
                 <div
@@ -2453,8 +2462,10 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                         {negotiationRoom.gmPatience}/100
                       </span>
                     </div>
+                    {preview && <section aria-label="Contract impact preview" className="mt-4 rounded-2xl border border-violet-300/20 bg-violet-300/5 p-4"><h4 className="text-xs font-black text-violet-200">YOUR REQUEST · CONTRACT IMPACT</h4><p className="mt-2 text-sm font-bold">{moneyM(preview.totalM)} total · {moneyM(preview.guaranteedM)} guaranteed · ${preview.feeK}K agency fee</p><p className="mt-2 text-xs leading-5 text-zinc-400">{agency.seasonYear + 1}–{agency.seasonYear + negotiationRoom.years}. {preview.accepted ? 'This request fits the club’s current range.' : `Above the club’s range. Another counter leaves ${Math.max(0, preview.nextPatience)} patience${preview.nextPatience <= 0 ? ' and ends the talks' : ''}.`} Each request is evaluated on its terms; later rounds do not guarantee acceptance.</p></section>}
+                    <button onClick={() => counterNegotiation(true)} className="mt-4 min-h-12 w-full rounded-2xl border border-emerald-300/30 px-4 text-xs font-black text-emerald-200">ACCEPT CLUB OFFER · {moneyM(negotiationRoom.teamOffer.annualM)}/YR · {negotiationRoom.teamOffer.years} YEARS · {negotiationRoom.teamOffer.guaranteedPct}% GUARANTEED</button>
                     <button
-                      onClick={counterNegotiation}
+                      onClick={() => counterNegotiation()}
                       className="mt-4 min-h-12 w-full rounded-2xl bg-violet-400 px-5 font-black text-black"
                     >
                       SEND COUNTEROFFER ·{" "}

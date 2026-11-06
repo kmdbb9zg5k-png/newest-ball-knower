@@ -7,6 +7,7 @@ import {MAN_REPS,newManSession,newManRep,stepMan,readManScores,saveManScore} fro
 import HoldPauseButton from './HoldPauseButton';
 import ControlSettings,{useDrillControls} from './ControlSettings';
 import {controlPulse,createPresentationGate} from './controlPreferences';
+import {drillMovementKey,drillMovement} from './drill-input.js';
 import './combine.css';import './skills.css';import './routes.css';
 import type {CareerFieldConfig} from '../myPlayerField';
 type Player={id:string;name:string;position:string;[key:string]:any};
@@ -29,7 +30,7 @@ export default function RouteExperience({players,onClose,onResult,man=false,care
  const drawDelta=present(now,document.hidden,controlRef.current.frames);if(drawDelta!==null)s.draw(run.current,drawDelta);if(run.current.phase==='result'&&!recorded.current){recorded.current=true;const next=[...completed.current,run.current.result];completed.current=next;setResults(next);if(next.length===total){if(!career){reportDrillSession(next);setSaved(saveScore(run.current.athlete,next));setRecords(readScores());}onResult?.(drillSessionStats(next));}}if(drawDelta!==null)flushSync(()=>setView({...run.current}));};raf=requestAnimationFrame(frame);
  }).catch(error=>{if(!gone){scene.current?.dispose();scene.current=null;setReady(false);setError(combineStartupMessage(error));}});
  const hide=()=>{release();if(document.hidden&&['preview','running','flight'].includes(run.current.phase))pause();};const blur=()=>release();
- const key=(e:KeyboardEvent,down:boolean)=>{if(e.target instanceof Element&&e.target.closest('input,select,textarea,.bk-control-settings'))return;if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d'].includes(e.key))return;e.preventDefault();if(down)keys.current.add(e.key);else keys.current.delete(e.key);const k=keys.current;input.current={x:Number(k.has('ArrowRight')||k.has('d'))-Number(k.has('ArrowLeft')||k.has('a')),y:Number(k.has('ArrowDown')||k.has('s'))-Number(k.has('ArrowUp')||k.has('w'))};};const kd=(e:KeyboardEvent)=>key(e,true),ku=(e:KeyboardEvent)=>key(e,false);
+ const key=(e:KeyboardEvent,down:boolean)=>{if(down&&e.target instanceof Element&&e.target.closest('input,select,textarea,.bk-control-settings'))return;const movement=drillMovementKey(e);if(!movement)return;e.preventDefault();if(down)keys.current.add(movement);else keys.current.delete(movement);input.current=drillMovement(keys.current);};const kd=(e:KeyboardEvent)=>key(e,true),ku=(e:KeyboardEvent)=>key(e,false);
  window.addEventListener('keydown',kd);window.addEventListener('keyup',ku);window.addEventListener('blur',blur);document.addEventListener('visibilitychange',hide);
  return()=>{gone=true;cancelAnimationFrame(raf);scene.current?.dispose();scene.current=null;window.removeEventListener('keydown',kd);window.removeEventListener('keyup',ku);window.removeEventListener('blur',blur);document.removeEventListener('visibilitychange',hide);};
  },[sceneAttempt]);

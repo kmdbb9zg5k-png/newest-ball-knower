@@ -14,6 +14,7 @@ import {ballKnowerAuthRedirect,isNativeBallKnower,openNativeAuthUrl} from './nat
 import {
   loadGauntletProgressEvents,
   loadUserState,
+  assertUserStateAccount,
   flushPendingUserStateWrites,
   saveGauntletProgressEvents,
   saveUserState,
@@ -68,11 +69,13 @@ export async function prepareGuestAccountMerge(): Promise<PendingGuestMerge | nu
   await flushAllCloudStateBeforeIdentityChange();
   await flushPendingUserStateWrites();
   const local = loadGauntletProgress(guest.id);
-  await saveGauntletProgressEvents(Object.values(local.sync?.events || {}));
-  await saveUserState('gauntlet_progress_v2', compactGauntletProgressForCloud(local));
+  await saveGauntletProgressEvents(Object.values(local.sync?.events || {}), guest.id);
+  await saveUserState('gauntlet_progress_v2', compactGauntletProgressForCloud(local), guest.id);
 
-  const response = await supabase.rpc('prepare_ball_knower_guest_merge');
+  const session = await assertUserStateAccount(guest.id);
+  const response = await supabase.rpc('prepare_ball_knower_guest_merge').setHeader('Authorization', `Bearer ${session.access_token}`);
   if (response.error) throw response.error;
+  await assertUserStateAccount(guest.id);
   const token = String(response.data || '');
   if (!token) throw new Error('Could not prepare guest progress for account sign-in.');
   const pending = { token, guestUserId: guest.id, preparedAt: Date.now() };
@@ -109,7 +112,8 @@ export async function claimPendingGuestAccountMerge(user?: User): Promise<Claime
   const permanent = user || await ensureOnlineSession();
   if (permanent.is_anonymous || permanent.id === pending.guestUserId) return null;
 
-  const response = await supabase.rpc('claim_ball_knower_guest_merge', { p_token: pending.token });
+  const session = await assertUserStateAccount(permanent.id);
+  const response = await supabase.rpc('claim_ball_knower_guest_merge', { p_token: pending.token }).setHeader('Authorization', `Bearer ${session.access_token}`);
   if (response.error) {
     recoverTerminalGuestMerge(response.error, () => writePendingGuestMerge(null));
     throw response.error;
@@ -119,17 +123,19 @@ export async function claimPendingGuestAccountMerge(user?: User): Promise<Claime
 
   const guestLocal = loadGauntletProgress(receipt.guest_user_id);
   const [targetV2, targetV1, targetEvents] = await Promise.all([
-    loadUserState<GauntletProgress>('gauntlet_progress_v2'),
-    loadUserState<GauntletProgress>('gauntlet_progress_v1'),
-    loadGauntletProgressEvents(),
+    loadUserState<GauntletProgress>('gauntlet_progress_v2', permanent.id),
+    loadUserState<GauntletProgress>('gauntlet_progress_v1', permanent.id),
+    loadGauntletProgressEvents(permanent.id),
   ]);
   let merged = targetV2 || targetV1 || loadGauntletProgress(permanent.id);
   for (const guest of [receipt.guest_gauntlet_v2, receipt.guest_gauntlet_v1, guestLocal]) {
     if (guest) merged = mergeGauntletProgress(merged, guest);
   }
   merged = mergeGauntletProgressEvents(merged, targetEvents);
+  await assertUserStateAccount(permanent.id);
   saveGauntletProgress(merged, permanent.id);
-  await saveUserState('gauntlet_progress_v2', compactGauntletProgressForCloud(merged));
+  await saveUserState('gauntlet_progress_v2', compactGauntletProgressForCloud(merged), permanent.id);
+  await assertUserStateAccount(permanent.id);
   writePendingGuestMerge(null);
 
   return {

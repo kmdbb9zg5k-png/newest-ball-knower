@@ -3,12 +3,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Bird, Brain, CalendarDays, CheckCircle2, ChevronRight, Film, Flame, Loader2, Medal, MessageSquare, Play, RotateCcw, ShieldCheck, Sparkles, Star, Target, Trophy, WifiOff, X, XCircle } from 'lucide-react';
 import { beginTriviaSession, fetchTriviaQuestion, submitTriviaAnswer, TriviaAnswerResult, TriviaQuestion, TriviaSession } from './progressionCloud';
 import { ModeGuide } from './ModeGuide';
+import { MODE_HELP } from './modeHelpContent';
 import { ModalPortal } from './ModalPortal';
 import { trackBallKnowerEvent } from './analytics';
 import { useBallKnower } from './BallKnowerContext';
 import { GauntletPlayModal } from './GauntletPlayModal';
 import { buildDailyGauntlet,buildGauntletRound,compactGauntletProgressForCloud,GauntletMode,GauntletProgress,GauntletTier,loadGauntletProgress,mergeGauntletProgress,mergeGauntletProgressEvents,recordGauntletAnswer,recordGauntletRun,saveGauntletProgress,utcDateKey } from './gauntletEngine';
-import { loadGauntletProgressEvents,loadUserState,saveGauntletProgressEvents,saveUserState } from './userStateCloud';
+import { assertUserStateAccount,loadGauntletProgressEvents,loadUserState,saveGauntletProgressEvents,saveUserState } from './userStateCloud';
 import './gauntlet.css';
 
 type TriviaTier = GauntletTier;
@@ -54,6 +55,8 @@ export const ChallengesHub: React.FC = () => {
   const serverSessionRef = useRef<TriviaSession | null>(null);
   const practiceRoundRef = useRef(false);
   const progressCloudQueueRef=useRef<Promise<void>>(Promise.resolve());
+  const progressOwnerRef=useRef(userId);
+  progressOwnerRef.current=userId;
   const dailyDate=utcDateKey();
   const levelFloor=Math.max(0,(progress.level-1)*250);
   const levelProgress=Math.max(0,Math.min(100,((progress.xp-levelFloor)/250)*100));
@@ -63,19 +66,24 @@ export const ChallengesHub: React.FC = () => {
   const applyProgress=useCallback((next:GauntletProgress)=>{
     const local=mergeGauntletProgress(loadGauntletProgress(userId),next);
     setProgress(local);saveGauntletProgress(local,userId);
+    if(!userId)return;
     progressCloudQueueRef.current=progressCloudQueueRef.current.then(async()=>{
+      if(progressOwnerRef.current!==userId)return;
+      await assertUserStateAccount(userId);
       const latestLocal=loadGauntletProgress(userId);
       const localEvents=Object.values(latestLocal.sync?.events||{});
-      await saveGauntletProgressEvents(localEvents);
+      await saveGauntletProgressEvents(localEvents,userId);
       const [v2,legacy,remoteEvents]=await Promise.all([
-        loadUserState<GauntletProgress>('gauntlet_progress_v2'),
-        loadUserState<GauntletProgress>('gauntlet_progress_v1'),
-        loadGauntletProgressEvents(),
+        loadUserState<GauntletProgress>('gauntlet_progress_v2',userId),
+        loadUserState<GauntletProgress>('gauntlet_progress_v1',userId),
+        loadGauntletProgressEvents(userId),
       ]);
       const cloud=v2||legacy;const withCloud=cloud?mergeGauntletProgress(latestLocal,cloud):latestLocal;
       const merged=mergeGauntletProgressEvents(withCloud,remoteEvents);
+      await assertUserStateAccount(userId);
+      if(progressOwnerRef.current!==userId)return;
       saveGauntletProgress(merged,userId);setProgress(merged);
-      await saveUserState('gauntlet_progress_v2',compactGauntletProgressForCloud(merged));
+      await saveUserState('gauntlet_progress_v2',compactGauntletProgressForCloud(merged),userId);
     }).catch(error=>console.warn('Gauntlet cloud merge failed',error));
   },[userId]);
   useEffect(()=>{const local=loadGauntletProgress(userId);setProgress(local);applyProgress(local);},[applyProgress,userId]);
@@ -251,7 +259,7 @@ export const ChallengesHub: React.FC = () => {
           <img src="/atmosphere/home-stadium.webp" alt="" aria-hidden="true"/>
           <div className="bk-gauntlet-hero-shade" aria-hidden="true"/>
           <div className="bk-gauntlet-arena-label">Football IQ Arena</div>
-          <ModeGuide storageKey="bk-guide-the-gauntlet-v4" title="The Gauntlet" summary="Choose a challenge, select a difficulty, and build verified football IQ." steps={["Pick one of five challenge modes.","Choose Rookie, Pro, All-Pro, or Hall of Fame for challenge modes.","Predictions opens real NFL picks that lock before kickoff and grade after games finish."]}/>
+          <ModeGuide storageKey="bk-guide-the-gauntlet-v4" title="The Gauntlet" summary="Choose a challenge, select a difficulty, and build verified football IQ." steps={["Pick one of five challenge modes.","Choose Rookie, Pro, All-Pro, or Hall of Fame for challenge modes.","Predictions opens real NFL picks that lock before kickoff and grade after games finish."]} sections={MODE_HELP.trivia.sections}/>
           <div className="bk-gauntlet-crest" aria-hidden="true">
             <span className="bk-gauntlet-wing bk-gauntlet-wing-left"/><span className="bk-gauntlet-wing bk-gauntlet-wing-right"/>
             <div className="bk-gauntlet-eagle"><Bird/></div>

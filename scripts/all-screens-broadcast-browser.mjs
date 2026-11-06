@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {mkdir,writeFile,readFile} from 'node:fs/promises';
 import {spawn} from 'node:child_process';
 import {chromium} from 'playwright';
+import {assertAppNavigation,navigateFromExplore} from './assert-app-navigation.mjs';
 const live=process.argv.includes('--live'),out='artifacts/all-screens',base='http://127.0.0.1:4180';
 let news={available:true,provider:'Currents',fetchedAt:new Date().toISOString(),articles:[{id:'https://publisher.example/story1',url:'https://publisher.example/story1',headline:'Example NFL headline for regression testing',source:'Test publisher',published:null,image:null,description:''},{id:'https://publisher.example/story2',url:'https://publisher.example/story2',headline:'Second example tests shared headline rotation',source:'Test publisher',published:null,image:null,description:''}]};
 let picks={available:false,games:[]};
@@ -28,7 +29,7 @@ try{
   });
   await page.goto(base,{waitUntil:'domcontentloaded'});await page.locator('.bk-home-stadium').waitFor();
   const home=async()=>{const creator=page.getByRole('dialog',{name:'Create your career player',exact:true});if(await creator.isVisible())await creator.getByRole('button',{name:'Back to Solo Franchise Hub',exact:true}).click();await page.getByRole('button',{name:'Ball Knower home',exact:true}).click();await page.locator('.bk-home-stadium').waitFor()};
-  const primary=async name=>{await page.getByRole('button',{name,exact:true}).filter({visible:true}).first().click()};
+  const primary=async name=>{await page.getByRole('navigation',{name:width<768?'Primary navigation':'Desktop primary navigation',exact:true}).getByRole('button',{name,exact:true}).click()};
   const capture=async(name,scene,label=name)=>{
    const stage=page.locator(`.bk-screen[data-page="${name}"]`).first();await stage.waitFor({state:name==='my-player'?'attached':'visible'});
    if(name==='my-player'){await page.getByRole('dialog',{name:'Create your career player',exact:true}).waitFor();await page.locator('[data-athlete-live-preview][data-render-state="ready"]').waitFor();}
@@ -39,7 +40,7 @@ try{
    assert.ok(geometry.scroll<=width+1,`${name} overflow at ${width}: ${geometry.scroll}`);
    if(name!=='my-player')assert.ok(geometry.stageTop>=geometry.headerBottom-1,`${name} covered by fixed header`);
    if(name==='my-player'){const creator=page.getByRole('dialog',{name:'Create your career player',exact:true});assert(await creator.isVisible());const bounds=await creator.boundingBox();assert(bounds.y===0&&bounds.width===width,'Career creator fills the visible screen');assert.equal(await creator.getByRole('tab').count(),5);assert(await creator.getByRole('button',{name:'Save & enter the Combine',exact:true}).isVisible());}
-   else if(width<768)assert.equal(await page.getByRole('navigation',{name:'Primary navigation'}).locator('button').count(),7);
+   else await assertAppNavigation(page,{mobile:width<768});
    console.log('Captured',name,width);
    await page.screenshot({path:`${out}/${label}-${width}.png`,fullPage:false});results.push({screen:label,scene,width,...geometry});
   };
@@ -58,9 +59,9 @@ try{
    await page.waitForFunction(()=>document.querySelector('.bk-screen[data-page="news"]')?.getAttribute('data-motion')==='on');
   }
 
-  await primary('Picks');await capture('picks','studio');
+  await navigateFromExplore(page,'NFL picks','sportsbook');await capture('picks','studio');
   if(width<768){await primary('Community');await capture('arena','studio');await page.getByRole('button',{name:'Play solo trivia instead',exact:true}).click();}
-  else await primary('Trivia');
+  else await navigateFromExplore(page,'Trivia','challenges');
   await capture('trivia','studio');
   await page.getByTestId('gauntlet-mode-grid').getByRole('button',{name:/Classic Trivia/i}).click();
   const difficulty=page.getByRole('dialog',{name:'TRIVIA difficulty',exact:true});
@@ -72,7 +73,7 @@ try{
   await page.getByRole('dialog',{name:'ROOKIE Trivia',exact:true}).waitFor();
   assert.equal(await page.locator('.bk-screen[data-page="trivia"]').getAttribute('data-motion'),'off');assert.equal(await page.locator('.bk-home-news-strip').count(),0);
   await page.getByRole('button',{name:'Exit',exact:true}).click();await page.getByRole('region',{name:'NFL headlines'}).waitFor();
-  await primary('Ask BK');await page.getByRole('heading',{name:'Ask BK',exact:true}).waitFor();
+  await navigateFromExplore(page,'Ask BK','ask');await page.getByRole('heading',{name:'Ask BK',exact:true}).waitFor();
   const askGeometry=await page.evaluate(()=>{const rect=selector=>{const box=document.querySelector(selector)?.getBoundingClientRect();return box?{top:box.top,bottom:box.bottom,left:box.left,right:box.right}:null};return{width:innerWidth,scroll:document.documentElement.scrollWidth,headerBottom:document.querySelector('body>header')?.getBoundingClientRect().bottom??0,stageTop:document.querySelector('main section')?.getBoundingClientRect().top??0,composer:rect('[data-testid="ask-bk-composer"]'),nav:rect('nav[aria-label="Primary navigation"]')}});
   assert.ok(askGeometry.scroll<=width+1,`Ask BK overflow at ${width}: ${askGeometry.scroll}`);
   assert.ok(askGeometry.stageTop>=askGeometry.headerBottom-1,'Ask BK covered by fixed header');
@@ -115,8 +116,7 @@ try{
   await page.getByRole('button',{name:'Open league activity',exact:true}).click();
   await capture('league','tunnel');assert.equal(await page.locator('.bk-home-news-strip').count(),0);
   await home();
-  const avatar=page.locator('body>header button').filter({has:page.locator('img[alt="Ball Knower Guest"]')});
-  await avatar.click();await page.getByRole('button',{name:'Hall of Fame',exact:true}).click();await capture('legacy','legacy');
+  await navigateFromExplore(page,'Hall of Fame','legacy');await capture('legacy','legacy');
   await home();await page.getByRole('button',{name:'View All Partners',exact:true}).click();await capture('partners','studio');
   await home();await page.getByRole('button',{name:'Play Solo Mode',exact:true}).click();
   await page.locator('.bk-mode-card').filter({hasText:'FANTASY DRAFT'}).click();await capture('fantasy-franchise','tunnel','fantasy-franchise-creator');assert.equal(await page.locator('.bk-home-news-strip').count(),0);

@@ -11,15 +11,18 @@ const CHANGE_EVENT = 'ball-knower-community-safety-changed';
 async function safetyRequest(expectedUserId: string, operation: string, args: Record<string, unknown>) {
   if (!supabase) throw new Error('Safety controls require an online connection.');
   const { data: session } = await supabase.auth.getSession();
+  if (!expectedUserId || session.session?.user.is_anonymous) throw new Error('Sign in to report content or block a manager.');
   if (session.session?.user.id !== expectedUserId) throw new Error('Your account changed. Reopen this screen.');
   const { data, error } = await supabase.rpc(operation, { ...args, p_expected_user_id: expectedUserId }).abortSignal(AbortSignal.timeout(8000));
+  const current = await supabase.auth.getSession();
+  if (current.data.session?.user.id !== expectedUserId) throw new Error('Your account changed. Reopen this screen.');
   if (error) throw new Error(error.message || 'The safety request could not be saved.');
   return data;
 }
 
 export function useCommunitySafety() {
   const { currentUser } = useBallKnower();
-  const userId = currentUser?.id || '';
+  const userId = currentUser && !currentUser.isAnonymous ? currentUser.id : '';
   const [snapshot, setSnapshot] = useState<{ userId: string; ids: string[] }>({ userId: '', ids: [] });
   const [error, setError] = useState('');
   const generation = useRef(0);
@@ -27,7 +30,7 @@ export function useCommunitySafety() {
   identityRef.current = userId;
   const reload = useCallback(async () => {
     const version = ++generation.current;
-    if (!supabase || !userId) { setSnapshot({ userId, ids: [] }); return; }
+    if (!supabase || !userId) { setSnapshot({ userId, ids: [] }); setError(''); return; }
     try {
       const { data, error: queryError } = await supabase.from('ball_knower_user_blocks')
         .select('blocked_id').eq('blocker_id', userId).abortSignal(AbortSignal.timeout(8000));
@@ -68,18 +71,20 @@ export function MessageSafety({ contentType, contentId, authorId, safety }: {
   const [details, setDetails] = useState('');
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
+  const actionLock = useRef(false);
   const scope = `${currentUser?.id}:${contentType}:${contentId}`;
   const scopeRef = useRef(scope);
   scopeRef.current = scope;
-  useEffect(() => { setOpen(false); setStatus(''); setDetails(''); setBusy(false); }, [scope]);
-  if (!currentUser || !authorId || authorId === currentUser.id) return null;
+  useEffect(() => { actionLock.current = false; setOpen(false); setStatus(''); setDetails(''); setBusy(false); }, [scope]);
+  if (!currentUser || currentUser.isAnonymous || !authorId || authorId === currentUser.id) return null;
   const submit = async (work: () => Promise<unknown>, success: string) => {
-    if (busy) return;
+    if (actionLock.current) return;
+    actionLock.current = true;
     const expectedScope = scope;
     setBusy(true); setStatus('');
     try { await work(); if (scopeRef.current === expectedScope) setStatus(success); }
     catch (error) { if (scopeRef.current === expectedScope) setStatus(error instanceof Error ? error.message : 'Unable to save. Contact support.'); }
-    finally { if (scopeRef.current === expectedScope) setBusy(false); }
+    finally { if (scopeRef.current === expectedScope) { actionLock.current = false; setBusy(false); } }
   };
   const reportOperation = contentType === 'global_message' || contentType === 'community_dm'
     ? 'report_ball_knower_community_content'

@@ -40,7 +40,7 @@ assert.match(home,/activePartners\.length\s*>\s*1\s*&&\s*<button/, 'the Home scr
 assert.ok(page.includes('partnerSections.map') && app.includes("currentTab==='partners'"), 'the generic grouped Partners page must be reachable');
 assert.ok(page.includes('section.partners.map'), 'each partner category must render from shared partner data');
 assert.ok(page.includes('title="Partners & Data Sources"') && page.includes('published data sources used by Ball Knower'), 'directory wording must distinguish data sources from partnerships');
-assert.ok(navbar.includes("setCurrentTab('partners')") && footer.includes('onOpenPartners'), 'Partners must be available from account and footer information areas');
+assert.ok(read('appNavigation.ts').includes("tab: 'partners'") && navbar.includes('SECONDARY_DESTINATIONS.filter') && footer.includes('onOpenPartners'), 'Partners must remain available to everyone from Explore and footer information areas');
 assert.ok(page.includes('env(safe-area-inset-left)') && page.includes('env(safe-area-inset-bottom)'), 'the Partners page must respect iPhone safe areas');
 
 console.log('Partner checks passed: preserved media partner, historical Tank01 hidden, truthful linked NFL data sources, local logo, safe external links, and mobile-safe surfaces.');

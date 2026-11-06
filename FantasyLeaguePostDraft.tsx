@@ -79,7 +79,7 @@ import {
   playerAvailabilityKey,
 } from "./fantasyPlayerAvailability";
 import { ModalPortal } from "./ModalPortal";
-import { movePlayerIntoLineupSlot, resolveWeeklyProjection } from "./fantasyLineup";
+import { lockedWeeklyLineupPlayers, movePlayerIntoLineupSlot, reconcileWeeklyLineupDraft, resolveWeeklyProjection } from "./fantasyLineup";
 import {
   buildFantasyPowerRankings,
   fantasyGameHasStarted,
@@ -97,6 +97,10 @@ import {
 } from "./simulation";
 import { resolveMyLeagueMember } from "./leagueMemberDisplay";
 import { ManagerAvatar } from "./ManagerAvatar";
+import { ModeHelp } from "./ModeHelp";
+import { FantasyNotificationInbox } from "./FantasyNotificationInbox";
+import { visibleLeagueNotifications, type FantasyNotificationDestination } from "./fantasyNotificationRouting";
+import { fetchMyNotifications, markNotificationRead, type LeagueNotification } from "./leagueCloud";
 
 type Tab = "team" | "matchup" | "players" | "league";
 type LeagueView = "standings" | "playoffs" | "power" | "trades" | "activity" | "settings";
@@ -108,6 +112,7 @@ type IntelView = "awards" | "allbk";
 type Props = {
   league: League;
   onBack: () => void;
+  onGoToDraft: () => void;
   onGoToSimulation: () => void;
   onViewMemberLocker: (member: LeagueMember) => void;
 };
@@ -147,6 +152,7 @@ const buildFantasyLineup = (
 export const FantasyLeaguePostDraft: React.FC<Props> = ({
   league,
   onBack,
+  onGoToDraft,
   onGoToSimulation,
   onViewMemberLocker,
 }) => {
@@ -234,6 +240,14 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [syncIssues, setSyncIssues] = useState<string[]>([]);
+  const notificationScope = `${league.id}:${currentUser?.id || ""}`;
+  const [notificationState, setNotificationState] = useState<{scope:string;items:LeagueNotification[];loading:boolean;error:string}>({scope:"",items:[],loading:false,error:""});
+  const notificationRequestRef = useRef(0);
+  const notificationScopeRef = useRef(notificationScope);
+  notificationScopeRef.current = notificationScope;
+  const notifications = notificationState.scope === notificationScope ? notificationState.items : [];
+  const lineupDraftRef = useRef<{key:string;starters:Record<string,string>}>({key:"",starters:{}});
   const [detailPlayer, setDetailPlayer] = useState<Player | null>(null);
   const [detailOwnerName, setDetailOwnerName] = useState<string | undefined>();
   const [detailOwnerId, setDetailOwnerId] = useState<string | undefined>();
@@ -274,6 +288,40 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const seasonFinalizeRef = useRef("");
   const parityRequestRef = useRef(0);
   const parityViewCacheRef = useRef(new Map<string, any>());
+
+  const refreshNotifications = async () => {
+    if (!isCloudConfigured || !currentUser?.id || !me) return;
+    const request = ++notificationRequestRef.current;
+    const scope = notificationScope;
+    setNotificationState(previous => ({scope,items:previous.scope === scope ? previous.items : [],loading:true,error:""}));
+    try {
+      const items = await fetchMyNotifications();
+      if (request === notificationRequestRef.current && notificationScopeRef.current === scope) setNotificationState({scope,items,loading:false,error:""});
+    } catch (err: any) {
+      if (request === notificationRequestRef.current && notificationScopeRef.current === scope) setNotificationState(previous => ({...previous,loading:false,error:err?.message || "Notifications could not refresh. Try again."}));
+    }
+  };
+  useEffect(() => {
+    setNotificationState({scope:notificationScope,items:[],loading:false,error:""});
+    void refreshNotifications();
+    return () => { notificationRequestRef.current++; };
+  }, [league.id, currentUser?.id, me?.id]);
+
+  const openNotification = (destination: FantasyNotificationDestination) => {
+    if (destination === "draft") { onGoToDraft(); return; }
+    if (destination === "results") { onGoToSimulation(); return; }
+    if (destination === "roster") { openTab("team"); return; }
+    if (destination === "matchup") { openTab("matchup"); return; }
+    if (destination === "waivers") { setPlayerPoolView("waivers"); setWeek(currentTransactionWeek); openTab("players"); return; }
+    openTab("league");
+    setLeagueView(destination === "trades" ? "trades" : destination === "league" ? "standings" : "activity");
+    setActivityView(destination === "trades" ? "trades" : destination === "messages" ? "messages" : "moves");
+  };
+  const readNotification = async (id: string) => {
+    const scope = notificationScope;
+    await markNotificationRead(id);
+    if (notificationScopeRef.current === scope) setNotificationState(previous => previous.scope === scope ? {...previous,items:previous.items.map(item => item.id === id ? {...item,readAt:new Date().toISOString()} : item)} : previous);
+  };
 
   const rankingsByName = useMemo(() => {
     const map = new Map<string, FantasyRanking>();
@@ -356,6 +404,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
     if (requestId !== parityRequestRef.current) return;
     if (parityResult.status === "fulfilled") {
       const parity = parityResult.value;
+      setSyncIssues([...parity.syncIssues]);
       setLineups([...parity.lineups]);
       setScores([...parity.scores]);
       setMemberMeta([...parity.members]);
@@ -475,24 +524,34 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   );
   const liveAvailabilityFor = (player?: Player) => availabilityForPlayer(player, availabilityByPlayerKey);
 
-  const myLineup = lineups.find((item) => item.memberId === me?.id);
-  const lockedPlayerIds = new Set(myLineup?.lockedPlayerIds || []);
+  const myLineup = lineups.find((item) => item.memberId === me?.id && item.week === week);
+  const savedLockedPlayerIds = new Set(myLineup?.lockedPlayerIds || []);
+  const lineupLocksAt = (now = Date.now()) => lockedWeeklyLineupPlayers(roster, nflGames, myLineup?.lockedPlayerIds || [], now);
+  const lockedPlayerIds = lineupLocksAt(marketNow);
+  const lineupLockSignature = [...lockedPlayerIds].sort().join("|");
   const rosterSignature = roster
     .map((player) => player.id)
     .sort()
     .join("|");
   useEffect(() => {
-    setStarters(
-      myLineup?.starters && Object.keys(myLineup.starters).length
-        ? { ...myLineup.starters }
-        : buildFantasyLineup(roster, comparePlayers),
-    );
+    const key = `${league.id}:${me?.id || ""}:${week}`;
+    const latest = myLineup?.starters && Object.keys(myLineup.starters).length
+      ? { ...myLineup.starters }
+      : buildFantasyLineup(roster, comparePlayers);
+    const previous = lineupDraftRef.current;
+    const next = previous.key === key
+      ? reconcileWeeklyLineupDraft(roster, starters, previous.starters, latest, lockedPlayerIds)
+      : latest;
+    lineupDraftRef.current = {key, starters:latest};
+    setStarters(next);
   }, [
     league.id,
+    me?.id,
     week,
     myLineup?.id,
     myLineup?.updatedAt,
     rosterSignature,
+    lineupLockSignature,
     rankingsByName,
   ]);
 
@@ -745,6 +804,12 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
     run(async () => {
       if (!me) throw new Error("League membership not found.");
       if (lineupErrors.length) throw new Error(lineupErrors[0]);
+      const saved = myLineup?.starters || lineupDraftRef.current.starters;
+      const safe = reconcileWeeklyLineupDraft(roster, starters, saved, saved, lineupLocksAt());
+      if (lineupChangeCount(safe, starters)) {
+        setStarters(safe);
+        throw new Error("A game has started. Locked players were restored; review your remaining changes.");
+      }
       await saveMyWeeklyLineup(
         league.id,
         week,
@@ -968,7 +1033,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
       (score) => score.week === week && score.memberId === member.id,
     );
     if (authoritative?.players.length) return authoritative;
-    const saved = lineups.find((lineup) => lineup.memberId === member.id);
+    const saved = lineups.find((lineup) => lineup.memberId === member.id && lineup.week === week);
     const starters = saved?.starters && Object.keys(saved.starters).length
       ? saved.starters
       : buildFantasyLineup(member.roster || [], compareWeeklyLineupPlayers);
@@ -994,6 +1059,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
         isHome: game ? game.homeTeam === player.team : undefined,
         isBye: !game && isVerifiedBye(player.team),
         points: 0,
+        pointsAvailable: false,
         projectedPoints: weeklyProjection || 0,
         projectionAvailable: weeklyProjection !== null,
         status: game?.gameStatus || (isVerifiedBye(player.team) ? "Bye" : "Opponent unavailable"),
@@ -1003,7 +1069,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
         locked: Boolean(saved?.lockedPlayerIds.includes(player.id)),
       }];
     });
-    const hasProjectedTotal = players.length > 0 && players.every(
+    const hasProjectedTotal = players.length === LINEUP_SLOTS.length && players.every(
       (player) => player.projectionAvailable !== false,
     );
     return {
@@ -1011,6 +1077,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
       memberId: member.id,
       week,
       livePoints: 0,
+      hasActualTotal: false,
       projectedPoints: players.reduce((total, player) => total + player.projectedPoints, 0),
       hasProjectedTotal,
       source: "deterministic_projection",
@@ -1061,7 +1128,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
   const selectedPlayerAvailability = moveAvailabilityFor(selectedFreeAgent);
   const dropRequired = activeRosterCount >= fantasyRosterSize;
   const dropLockedFor = (player: Player) =>
-    (lockedPlayerIds.has(player.id) || starterIds.has(player.id)) && gameLockedFor(player);
+    (savedLockedPlayerIds.has(player.id) || starterIds.has(player.id)) && gameLockedFor(player);
   const dropGroups = [
     { label: "Offense", players: roster.filter((player) => !irIds.includes(player.id) && player.position !== "K" && player.position !== "DST") },
     { label: "Kickers", players: roster.filter((player) => !irIds.includes(player.id) && player.position === "K") },
@@ -1185,7 +1252,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
       starters,
       swapSlot,
       player.id,
-      lockedPlayerIds,
+      lineupLocksAt(),
     );
     if (!result.changed && result.reason) {
       showToast(result.reason);
@@ -1195,11 +1262,12 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
     setSwapSlot("");
   };
   const optimizeLineup = () => {
+    const locks = lineupLocksAt();
     const chosen = new Set<string>();
     const next: Record<string, string> = {};
     LINEUP_SLOTS.forEach((slot) => {
       const currentId = starters[slot.id];
-      if (currentId && lockedPlayerIds.has(currentId)) {
+      if (currentId && locks.has(currentId)) {
         next[slot.id] = currentId;
         chosen.add(currentId);
       }
@@ -1207,7 +1275,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
     LINEUP_SLOTS.forEach((slot) => {
       if (next[slot.id]) return;
       const candidate = roster
-        .filter((player) => !chosen.has(player.id) && !irIds.includes(player.id) && slot.accept(player))
+        .filter((player) => !chosen.has(player.id) && !locks.has(player.id) && !irIds.includes(player.id) && slot.accept(player))
         .sort(compareWeeklyLineupPlayers)[0];
       if (!candidate) return;
       next[slot.id] = candidate.id;
@@ -1216,9 +1284,10 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
     setStarters(next);
   };
   const startBenchPlayer = (player: Player) => {
+    const locks = lineupLocksAt();
     const eligible = LINEUP_SLOTS
       .filter((slot) => slot.accept(player))
-      .filter((slot) => !lockedPlayerIds.has(starters[slot.id]))
+      .filter((slot) => !locks.has(starters[slot.id]))
       .sort((a, b) => {
         const aPlayer = roster.find((item) => item.id === starters[a.id]);
         const bPlayer = roster.find((item) => item.id === starters[b.id]);
@@ -1231,7 +1300,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
       showToast("No eligible unlocked starter slot is available.");
       return;
     }
-    const result = movePlayerIntoLineupSlot(roster, starters, slot.id, player.id, lockedPlayerIds);
+    const result = movePlayerIntoLineupSlot(roster, starters, slot.id, player.id, locks);
     if (!result.changed && result.reason) {
       showToast(result.reason);
       return;
@@ -1440,7 +1509,20 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
 
       <p role="status" data-testid="fantasy-scoring-paused" className="rounded-xl border border-amber-300/20 bg-amber-300/5 px-3 py-2 text-xs leading-relaxed text-amber-100">
         Live scoring paused. Saved scores are preserved.
+        {scores.some(score => Number.isFinite(Date.parse(score.updatedAt))) && <span className="mt-1 block text-[11px] text-amber-100/75">Latest saved score: {new Date(Math.max(...scores.map(score => Date.parse(score.updatedAt)).filter(Number.isFinite))).toLocaleString()}. Refreshing this page does not update NFL statistics.</span>}
       </p>
+      <ModeHelp mode="fantasy" />
+
+      <details className="rounded-xl border border-white/10 bg-black/20 px-3" onToggle={event => { if (event.currentTarget.open) void refreshNotifications(); }}>
+        <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-xs font-bold"><Bell className="h-4 w-4 text-[var(--bk-team-accent)]" />Notifications{visibleLeagueNotifications(notifications,league.id).some(item => !item.readAt) && <span className="text-[var(--bk-team-accent)]">({visibleLeagueNotifications(notifications,league.id).filter(item => !item.readAt).length} unread)</span>}</summary>
+        <div className="pb-3">
+          <button type="button" disabled={notificationState.loading || !isCloudConfigured || !me} onClick={() => void refreshNotifications()} className="mb-2 min-h-11 text-xs font-bold text-[var(--bk-team-accent)] disabled:opacity-50">{notificationState.loading ? "Refreshing notifications…" : "Refresh notifications"}</button>
+          {notificationState.error && <p role="status" className="mb-2 text-xs text-amber-200">{notificationState.error}</p>}
+          <FantasyNotificationInbox leagueId={league.id} notifications={notifications} onMarkRead={readNotification} onOpenDestination={openNotification} onError={message => showToast(message)} />
+        </div>
+      </details>
+
+      {syncIssues.length > 0 && <p role="status" className="rounded-xl border border-amber-300/20 bg-amber-300/5 px-3 py-2 text-xs leading-relaxed text-amber-100">Some league data could not refresh ({syncIssues.join(", ")}). Showing the last saved data where available.</p>}
 
       {error && (
         <div className="rounded-xl border border-red-500/25 bg-red-500/5 p-3 text-xs text-red-300">
@@ -1499,6 +1581,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
                     valueLabel={valueLabel}
                     weekContext={weeklyContextFor(player)}
                     availability={liveAvailabilityFor(player)}
+                    locked={lockedPlayerIds.has(player.id)}
                     onOpen={() => openPlayerDetail(player, me)}
                     onAction={() => startBenchPlayer(player)}
                   />
@@ -3131,6 +3214,7 @@ const PlayerRow = ({
   valueLabel,
   weekContext,
   availability,
+  locked = false,
   onOpen,
   onAction,
 }: {
@@ -3139,6 +3223,7 @@ const PlayerRow = ({
   valueLabel: (player: Player) => string;
   weekContext?: WeeklyRowContext;
   availability?: FantasyPlayerAvailability;
+  locked?: boolean;
   onOpen: () => void;
   onAction: () => void;
 }) => (
@@ -3155,7 +3240,7 @@ const PlayerRow = ({
       <div className="truncate text-[7px] font-black uppercase text-zinc-600 sm:text-[8px]">{weekContext?.kickoffText || "Kickoff unavailable"} · {weekContext?.status || "Scheduled"}</div>
     </button>
     <div className="text-right"><div className="text-xs font-black sm:text-sm">{weekContext?.projection === null || weekContext?.projection === undefined ? "—" : weekContext.projection.toFixed(1)}</div><div className="text-[7px] font-black uppercase text-zinc-600">Proj</div></div>
-    <button type="button" onClick={onAction} aria-label={`Start ${player.name}`} title="Move to starting lineup" className="bk-fantasy-icon-button grid place-items-center border border-[var(--bk-team-accent)]/30 bg-[var(--bk-team-accent)]/8 text-[var(--bk-team-accent)] sm:w-auto sm:px-2 sm:text-[9px]"><ArrowUp className="h-3.5 w-3.5 sm:hidden"/><span className="hidden sm:inline">Start</span></button>
+    <button type="button" disabled={locked} onClick={onAction} aria-label={locked ? `${player.name} is locked` : `Start ${player.name}`} title={locked ? "Game started — player locked" : "Move to starting lineup"} className="bk-fantasy-icon-button grid place-items-center border border-[var(--bk-team-accent)]/30 bg-[var(--bk-team-accent)]/8 text-[var(--bk-team-accent)] disabled:border-white/10 disabled:text-zinc-500 sm:w-auto sm:px-2 sm:text-[9px]">{locked ? <Clock3 className="h-3.5 w-3.5"/> : <><ArrowUp className="h-3.5 w-3.5 sm:hidden"/><span className="hidden sm:inline">Start</span></>}</button>
   </div>
 );
 
@@ -3245,7 +3330,7 @@ const scoreIndicatesStarted = (score?: WeeklyScore) => Boolean(
 
 const matchupTotal = (score: WeeklyScore | undefined, status: "Scheduled" | "Live" | "Final") => {
   return {
-    value: score ? score.livePoints.toFixed(2) : "—",
+    value: score && score.hasActualTotal !== false ? score.livePoints.toFixed(2) : "—",
     label: status === "Final" ? "Final" : status === "Live" ? "Saved score" : "Current",
     projection: score?.hasProjectedTotal === true ? score.projectedPoints.toFixed(2) : "—",
     projectionLabel: score?.hasProjectedTotal === true ? "Projected" : "Projection unavailable",
@@ -3413,7 +3498,7 @@ const MatchupPlayerSide = ({
     : player.opponent
       ? `${player.isHome === false ? "@" : "vs"} ${player.opponent}`
       : "Opponent unavailable";
-  const currentScore = player.isLive || player.isFinal
+  const currentScore = player.pointsAvailable !== false && (player.isLive || player.isFinal)
     ? player.points.toFixed(1)
     : "—";
   const projectedScore = player.projectionAvailable === true

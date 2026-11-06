@@ -239,6 +239,7 @@ export type FantasyWeeklyScoreRecord = {
   memberId:string;
   week:number;
   livePoints:number;
+  hasActualTotal?:boolean;
   isFinal:boolean;
 };
 
@@ -252,7 +253,8 @@ export type ScoredFantasyPostseason = {
 };
 
 const scoreFor = (scores: FantasyWeeklyScoreRecord[], memberId: string, week: number) =>
-  scores.find(score => score.memberId === memberId && score.week === week && score.isFinal);
+  scores.find(score => score.memberId === memberId && score.week === week && score.isFinal
+    && score.hasActualTotal !== false && Number.isFinite(score.livePoints));
 
 function scoredPlayoffGame(
   homeMemberId: string,
@@ -407,6 +409,7 @@ export function buildScoredFantasyGames(
     const home=scores.find(score=>score.week===pairing.week&&score.memberId===pairing.homeMemberId);
     const away=scores.find(score=>score.week===pairing.week&&score.memberId===pairing.awayMemberId);
     if(!home?.isFinal||!away?.isFinal)return [];
+    if(home.hasActualTotal===false||away.hasActualTotal===false||!Number.isFinite(home.livePoints)||!Number.isFinite(away.livePoints))return [];
     const homeScore=Number(home.livePoints)||0;
     const awayScore=Number(away.livePoints)||0;
     const isTie=homeScore===awayScore;

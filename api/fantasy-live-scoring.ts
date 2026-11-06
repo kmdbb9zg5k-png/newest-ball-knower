@@ -216,7 +216,12 @@ function normalizePlayerName(value:unknown):string{
 
 function isFinalGameStatus(value:unknown):boolean{
   const status=String(value||'').trim().toLowerCase();
-  return status==='final'||status==='completed'||status.includes('game over');
+  return /^final(?:\s*(?:[/:\-]\s*)?(?:\d*ot|overtime))?$/.test(status)
+    ||status==='completed'||status==='closed'||status==='game over';
+}
+
+export function acceptsFantasyScoreSnapshot(wasFinal:boolean,reportedStatus:unknown):boolean{
+  return !wasFinal||isFinalGameStatus(reportedStatus);
 }
 
 function isLiveGameStatus(value:unknown):boolean{
@@ -703,7 +708,9 @@ async function legacyTank01ScoringHandler(req:any,res:any){
       const existing=existingGameMap.get(pollProviderGameId)
         ||existingGameByMatchup.get(matchupKey(awayTeam,homeTeam));
       const providerGameId=existing?.provider_game_id||pollProviderGameId;
-      const status=String(game.gameStatus||'Scheduled');
+      const status=existing?.is_final&&!isFinalGameStatus(game.gameStatus)
+        ? (isFinalGameStatus(existing.game_status)?existing.game_status:'Final')
+        : String(game.gameStatus||'Scheduled');
       pollProviderGameIdByCanonical.set(providerGameId,pollProviderGameId);
       scheduleRowsById.set(providerGameId,{
         provider_game_id:providerGameId,
@@ -759,8 +766,8 @@ async function legacyTank01ScoringHandler(req:any,res:any){
     const projectionByAppPlayer=new Map<string,Record<FantasyScoringFormat,number>>();
     for(const player of appPlayerById.values()){
       if(player.position==='DST'){
-        const points=numeric(defenseProjectionByTeam.get(teamForPlayer(player))?.fantasyPointsDefault);
-        projectionByAppPlayer.set(player.id,{standard:points,half_ppr:points,ppr:points});
+        const points=optionalFirstNumber(defenseProjectionByTeam.get(teamForPlayer(player))?.fantasyPointsDefault);
+        if(points!==undefined)projectionByAppPlayer.set(player.id,{standard:points,half_ppr:points,ppr:points});
       }else{
         const projection=providerProjectionByKey.get(playerKey(player.name,player.team));
         if(projection) projectionByAppPlayer.set(player.id,projectionScores(projection));
@@ -791,7 +798,8 @@ async function legacyTank01ScoringHandler(req:any,res:any){
     for(const [team,projection] of defenseProjectionByTeam){
       const game=scheduleRows.find(item=>item.home_team===team||item.away_team===team);
       if(!game||Date.parse(game.kickoff_at)<=projectionsRetrievedAt.getTime()) continue;
-      const value=numeric(projection.fantasyPointsDefault);
+      const value=optionalFirstNumber(projection.fantasyPointsDefault);
+      if(value===undefined)continue;
       const snapshot={standard:value,half_ppr:value,ppr:value};
       const matchup=matchupForTeam(game,team);
       scheduledProjectionRows.push({
@@ -833,6 +841,11 @@ async function legacyTank01ScoringHandler(req:any,res:any){
         fantasyPoints:true,
       }) as Json;
       const status=String(box.gameStatus||game.game_status||'Scheduled');
+      if(!acceptsFantasyScoreSnapshot(game.is_final,box.gameStatus)){
+        const {error}=await db.from('ball_knower_nfl_games').update({last_polled_at:now.toISOString()}).eq('provider_game_id',game.provider_game_id);
+        if(error)throw error;
+        return;
+      }
       // Once a game is final, a delayed or stale provider response must never
       // reopen it. Final rows stay pollable during the correction window, so
       // corrected stats still propagate without regressing matchup state.
@@ -841,7 +854,7 @@ async function legacyTank01ScoringHandler(req:any,res:any){
         game_status:status,
         game_period:String(box.currentPeriod||box.lineScore?.period||''),
         game_clock:String(box.gameClock||box.lineScore?.gameClock||''),
-        is_live:isLiveGameStatus(status),
+        is_live:!isFinal&&isLiveGameStatus(status),
         is_final:isFinal,
         final_at:isFinal?(game.final_at||now.toISOString()):null,
         last_polled_at:now.toISOString(),

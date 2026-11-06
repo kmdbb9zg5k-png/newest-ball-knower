@@ -15,10 +15,11 @@ export function resolveWeeklyProjection(
   playsThisWeek=true,
 ):number|null{
   if(hasCustomScoring) return null;
-  const value=Number(projections.find(item=>item.playerId===playerId)?.projectedPoints[format]);
+  const raw=projections.find(item=>item.playerId===playerId)?.projectedPoints[format];
+  const value=(typeof raw==='number'||typeof raw==='string')&&String(raw).trim()!==''?Number(raw):NaN;
   if(Number.isFinite(value)) return value;
   if(seasonProjection===null) return null;
-  const seasonValue=Number(seasonProjection);
+  const seasonValue=String(seasonProjection).trim()===''?NaN:Number(seasonProjection);
   if(verifiedSeasonGames!==17||!Number.isFinite(seasonValue)||seasonValue<0) return null;
   return playsThisWeek?seasonValue/17:0;
 }
@@ -93,7 +94,7 @@ export function movePlayerIntoLineupSlot(
 
   const sourceEntry=Object.entries(starters).find(([slotId,id])=>slotId!==targetSlotId&&id===playerId);
   const sourceSlotId=sourceEntry?.[0];
-  if(sourceSlotId&&locked.has(playerId))return{starters:{...starters},changed:false,reason:`${player.name} is locked because the game has started.`};
+  if(locked.has(playerId))return{starters:{...starters},changed:false,reason:`${player.name} is locked because the game has started.`};
 
   const next={...starters};
   // Defensive de-duplication: the selected player may occupy only the requested slot.
@@ -113,6 +114,59 @@ export function movePlayerIntoLineupSlot(
     return{starters:{...starters},changed:false,reason:'That move would assign a player to more than one starter slot.'};
   }
   return{starters:next,changed:true};
+}
+
+/** Refreshes keep local edits, while server assignments for locked players win. */
+export function reconcileWeeklyLineupDraft(
+  roster:Player[],
+  current:Record<string,string>,
+  previousSaved:Record<string,string>,
+  latestSaved:Record<string,string>,
+  lockedPlayerIds:Iterable<string>=[],
+):Record<string,string>{
+  const locked=new Set(lockedPlayerIds);
+  const next={...latestSaved};
+  const edited=new Set<string>();
+  for(const slot of LINEUP_SLOTS){
+    const id=current[slot.id]||'';
+    if(id===(previousSaved[slot.id]||''))continue;
+    if(locked.has(id)||locked.has(latestSaved[slot.id]))continue;
+    const player=roster.find(item=>item.id===id);
+    if(id&&(!player||!slot.accept(player)))continue;
+    edited.add(slot.id);
+    if(id)next[slot.id]=id;else delete next[slot.id];
+  }
+  // An edited slot may consume a player in an unedited server slot. Leave the
+  // latter empty for normal lineup validation instead of duplicating a starter.
+  const used=new Set<string>();
+  const priority=[...LINEUP_SLOTS].sort((a,b)=>
+    Number(locked.has(latestSaved[b.id]))-Number(locked.has(latestSaved[a.id]))||
+    Number(edited.has(b.id))-Number(edited.has(a.id)));
+  for(const slot of priority){
+    const id=next[slot.id];
+    if(!id)continue;
+    const player=roster.find(item=>item.id===id);
+    if(used.has(id)||!player||!slot.accept(player))delete next[slot.id];
+    else used.add(id);
+  }
+  return next;
+}
+
+/** Kickoff locks apply to bench players too, even between worker updates. */
+export function lockedWeeklyLineupPlayers(
+  roster:Player[],
+  games:{homeTeam:string;awayTeam:string;kickoffAt:string;isLive:boolean;isFinal:boolean}[],
+  savedLocks:Iterable<string>=[],
+  now=Date.now(),
+):Set<string>{
+  const aliases:Record<string,string>={LA:'LAR',JAC:'JAX',WSH:'WAS'};
+  const team=(value:string)=>aliases[value.toUpperCase()]||value.toUpperCase();
+  const locked=new Set(savedLocks);
+  for(const player of roster){
+    const game=games.find(item=>team(item.homeTeam)===team(player.team)||team(item.awayTeam)===team(player.team));
+    if(game&&(game.isFinal||game.isLive||Date.parse(game.kickoffAt)<=now))locked.add(player.id);
+  }
+  return locked;
 }
 
 export function optimizeWeeklyLineup(

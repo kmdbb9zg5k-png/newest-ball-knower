@@ -19,6 +19,7 @@ import {
 import { League, Player } from "./types";
 import { useBallKnower } from "./BallKnowerContext";
 import { ModeGuide } from "./ModeGuide";
+import { MODE_HELP } from "./modeHelpContent";
 import { loadUserState, saveUserState } from "./userStateCloud";
 import { ModalPortal } from "./ModalPortal";
 import { loadFantasyRankings } from "./fantasyRankingsCloud";
@@ -115,13 +116,17 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
     }
   });
   const watchlistValue = useRef(watchlist);
+  const watchlistOwner = useRef(localStorage.getItem('ballknower_cloud_owner_v1') || currentUser?.id);
   const watchlistReady = useRef(false);
   const pendingWatchEdits = useRef(new Map<string, boolean>());
   const storeWatchlist = (next: string[], save = false) => {
+    const owner=watchlistOwner.current;
+    const currentOwner=localStorage.getItem('ballknower_cloud_owner_v1');
+    if(owner && currentOwner && currentOwner!==owner)return;
     watchlistValue.current = next;
     setWatchlist(next);
     try { localStorage.setItem("bk-fantasy-watchlist-v1", JSON.stringify(next)); } catch {}
-    if (save) void saveUserState("fantasy_watchlist", next).catch(error =>
+    if (save && owner) void saveUserState("fantasy_watchlist", next, owner).catch(error =>
       console.warn("Fantasy watchlist cloud save failed", error));
   };
   const fantasyPositions = ["QB", "RB", "WR", "TE", "K", "DST"];
@@ -165,7 +170,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
   }, []);
   useEffect(() => {
     let active = true;
-    void loadUserState<string[]>("fantasy_watchlist")
+    void loadUserState<string[]>("fantasy_watchlist",watchlistOwner.current || undefined)
       .then(cloud => {
         if (!active) return;
         // Replay choices made while this read was in flight over the restored
@@ -281,6 +286,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
           <ModeGuide
             triggerRef={guideTriggerRef}
             storageKey="bk-guide-fantasy-hq-v3"
+            sections={MODE_HELP.fantasy.sections}
             title="Fantasy"
             summary="League HQ is where you create, join, resume, and manage leagues. The Cheat Sheet keeps your full-PPR player board close by."
             steps={[

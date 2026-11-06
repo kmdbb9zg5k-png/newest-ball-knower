@@ -27,6 +27,7 @@ export const FantasyNotificationPreferences: React.FC<{userId?:string}> = ({user
 
   const load=async()=>{
     const requestId=++requestRef.current;
+    setReady(false);setError("");
     try{
       const next=await fetchMyNotificationPreferences();
       if(requestId!==requestRef.current)return;
@@ -66,7 +67,7 @@ export const FantasyNotificationPreferences: React.FC<{userId?:string}> = ({user
   return <section className="space-y-3 border-t border-white/10 pt-4">
     <div>
       <div className="text-xs font-black uppercase text-white">Your Alert Preferences</div>
-      <p className="mt-1 text-[10px] leading-4 text-zinc-500">These choices follow your account across fantasy leagues. Push delivery begins only after notifications are enabled on a supported Ball Knower mobile app.</p>
+      <p className="mt-1 text-xs leading-5 text-zinc-400">In-app alert preferences follow your account across fantasy leagues. You can save push preferences, but this version does not deliver push notifications.</p>
     </div>
     {error&&<div role="alert" className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/25 bg-amber-500/5 p-3 text-[10px] font-bold text-amber-200"><span>{error}</span><button type="button" onClick={()=>void load()} className="min-h-9 shrink-0 rounded-lg border border-amber-400/25 px-3 font-black uppercase">Retry</button></div>}
     {!ready&&!error&&<div aria-live="polite" className="rounded-xl border border-white/10 bg-black/20 p-3 text-[10px] font-bold text-zinc-500">Loading alert preferences…</div>}

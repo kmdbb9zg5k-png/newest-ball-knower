@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {spawn} from 'node:child_process';
 import {chromium} from 'playwright';
+import {navigateFromExplore} from './assert-app-navigation.mjs';
 const out='artifacts/solo-art-browser',base='http://127.0.0.1:4187';
 const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port','4187','--strictPort'],{stdio:'ignore'});
 let browser;const results=[];
@@ -31,7 +32,7 @@ try{
    const hub=async()=>{
     await page.getByRole('button',{name:'Ball Knower home',exact:true}).click();
     await page.locator('.bk-home-stadium').waitFor();
-    await page.getByRole('button',{name:'Solo Mode',exact:true}).click();
+    await navigateFromExplore(page,'Solo careers','solo');
     await page.locator('.bk-mode-card').first().waitFor();
    };
    const shot=async name=>{

@@ -1,6 +1,10 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { BellRing, ChevronRight, X } from 'lucide-react';
 import { ModalPortal } from './ModalPortal';
+import { SoloPortrait } from './solo/SoloPresentation';
+import type { Player } from './types';
+import { pulseGmEvent } from './gmEventHaptics';
+export { pulseGmEvent } from './gmEventHaptics';
 import './gmEventAlerts.css';
 
 export type GmImportantEvent = {
@@ -8,6 +12,9 @@ export type GmImportantEvent = {
   eyebrow: string;
   title: string;
   detail: string;
+  tone?: 'trade' | 'injury' | 'relationship' | 'development';
+  people?: Array<{ player: Player; label: string }>;
+  facts?: Array<{ label: string; value: string }>;
   choices: Array<{ id: string; label: string; detail: string; onSelect: () => void }>;
 };
 
@@ -16,10 +23,6 @@ function readPresented(key: string): Set<string> {
     const saved: unknown = JSON.parse(localStorage.getItem(key) || '[]');
     return new Set(Array.isArray(saved) ? saved.filter((id): id is string => typeof id === 'string') : []);
   } catch { return new Set(); }
-}
-
-export function pulseGmEvent() {
-  try { navigator.vibrate?.([80, 60, 120]); } catch { /* Haptics are optional on unsupported devices. */ }
 }
 
 /** One interruption at a time. Closing preserves the decision and its review button. */
@@ -80,9 +83,12 @@ export function GmEventAlerts({ events, scopeKey }: { events: GmImportantEvent[]
       <div className="bk-gm-alert-inbox-heading"><BellRing size={18} /> Front office · {events.length} pending</div>
       {events.map(item => <button type="button" key={item.id} onClick={() => review(item.id)} aria-label={`Review ${item.title}`}><span><small>{item.eyebrow}</small><strong>{item.title}</strong></span><ChevronRight size={20} /></button>)}
     </section>}
-    {event && <ModalPortal><section className="bk-gm-event-screen" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={detailId}>
+    {event && <ModalPortal><section className="bk-gm-event-screen" data-tone={event.tone} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={detailId}>
       <header><span><BellRing size={20} /> GM OFFICE</span><button type="button" onClick={close} aria-label="Close GM alert"><X size={22} /><span>Close</span></button></header>
-      <div className="bk-gm-event-content"><p className="bk-gm-event-eyebrow">{event.eyebrow}</p><h1 id={titleId}>{event.title}</h1><p id={detailId} className="bk-gm-event-detail">{event.detail}</p>
+      <div className="bk-gm-event-content"><p className="bk-gm-event-eyebrow">{event.eyebrow}</p><h1 id={titleId}>{event.title}</h1>
+        {event.people?.length ? <div className="bk-gm-event-people">{event.people.map(({ player, label }) => <article key={player.id}><SoloPortrait player={player} size="card" className="!h-24 !w-20 !rounded-xl"/><div><strong>{player.name}</strong><small>{label}</small></div></article>)}</div> : null}
+        {event.facts?.length ? <dl className="bk-gm-event-facts">{event.facts.map(fact => <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}</dl> : null}
+        <p id={detailId} className="bk-gm-event-detail">{event.detail}</p>
         <div className="bk-gm-event-rule" /><h2>Make the call</h2>
         <div className="bk-gm-event-choices">{event.choices.map(choice => <button type="button" key={choice.id} onClick={() => choose(choice)}><span><strong>{choice.label}</strong><small>{choice.detail}</small></span><ChevronRight size={22} /></button>)}</div>
         {error && <p role="alert" className="bk-gm-event-error">{error}</p>}

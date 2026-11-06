@@ -3,8 +3,9 @@ import { Brain, BriefcaseBusiness, Check, ClipboardList, ChevronLeft, ChevronRig
 import type { Achievement, ProgressEvent, ProgressProfile } from './progressionCloud';
 import type { VerifiedPredictionPick } from './modeProgressionCloud';
 import { LockerTrophyBadge, LockerReceiptScene, LockerRatingNumeral } from './ProfileLockerArt';
-import { profileDate, profileNumber, profileXpProgress, signedProfileDelta } from './profileLockerState';
+import { filterProfileTrophies, profileDate, profileNumber, profileXpProgress, signedProfileDelta, type TrophyFilter } from './profileLockerState';
 import './profileLocker.css';
+import './profilePolish.css';
 
 const CATEGORIES = [
   { key: 'footballIq', label: 'Football IQ', Icon: Brain, description: 'Your server-recorded Football IQ rating. Only verified progression changes this score.' },
@@ -20,6 +21,7 @@ type Props = { profile: ProgressProfile | null; events: ProgressEvent[]; achieve
 export function ProfileLockerView({ profile, events, achievements, predictionPicks, profileOwnerName, loading, error, onRefresh, identity }: Props) {
   const [category, setCategory] = useState<string | null>(null);
   const [selectedTrophy, setSelectedTrophy] = useState<string | null>(null);
+  const [trophyFilter, setTrophyFilter] = useState<TrophyFilter>('all');
   const [predictionHistoryOpen, setPredictionHistoryOpen] = useState(false);
   const [showAllReceipts, setShowAllReceipts] = useState(false);
   const trophyRail = useRef<HTMLUListElement>(null);
@@ -33,7 +35,9 @@ export function ProfileLockerView({ profile, events, achievements, predictionPic
   const pushes = predictionPicks.filter(item => item.result === 'push').length;
   const pendingPicks = predictionPicks.filter(item => !item.result).length;
   const predictionHistory = [...predictionPicks].sort((a, b) => Date.parse(b.lockedAt || '') - Date.parse(a.lockedAt || ''));
-  const visibleTrophyCount = achievements.length + (predictionPicks.length > 0 ? 1 : 0);
+  const visibleAchievements = filterProfileTrophies(achievements, trophyFilter);
+  const showPickRecord = predictionPicks.length > 0 && trophyFilter !== 'locked';
+  const visibleTrophyCount = visibleAchievements.length + (showPickRecord ? 1 : 0);
   const scrollTrophies = (direction: number) => {
     const rail = trophyRail.current;
     if (!rail) return;
@@ -41,7 +45,7 @@ export function ProfileLockerView({ profile, events, achievements, predictionPic
     rail.scrollBy({ left: direction * Math.max(140, rail.clientWidth * .7), behavior: reducedMotion ? 'auto' : 'smooth' });
   };
   const ownerPossessive = profileOwnerName ? `${profileOwnerName}${profileOwnerName.toLowerCase().endsWith('s') ? "'" : "'s"}` : 'your';
-  const status = loading ? `Syncing ${ownerPossessive} profile…` : error ? (profile ? `Showing ${ownerPossessive} last synced profile.` : 'Profile data is unavailable.') : 'Server verified';
+  const status = loading ? `Syncing ${ownerPossessive} profile…` : error ? (profile ? `Showing ${ownerPossessive} last synced profile.` : 'Profile data is unavailable.') : profile ? 'Server verified' : 'Awaiting profile data';
 
   return <div className="bk-locker-profile" data-testid="locker-profile" aria-busy={loading}>
     <section className="bk-profile-hero" aria-label="Build your legacy">
@@ -51,10 +55,12 @@ export function ProfileLockerView({ profile, events, achievements, predictionPic
       <div className="bk-profile-hero-progress">
       {progress ? <div className="bk-locker-xp" role="progressbar" aria-label="Progress to next profile level" aria-valuemin={0} aria-valuemax={progress.required} aria-valuenow={progress.earned} aria-valuetext={`${profile!.xp} total XP. ${progress.earned} of ${progress.required} XP toward level ${progress.nextLevel}.`}><span style={{ width: `${progress.percent}%` }}/></div> : <div className="bk-locker-xp bk-locker-xp-unavailable" aria-hidden="true"/>}
       <div className="bk-locker-levels"><strong>Level {profileNumber(profile?.level)}</strong><span>{profileNumber(profile?.xp)} XP</span><span>{progress ? `Level ${progress.nextLevel} at ${profileNumber(progress.nextTotal)} XP` : 'Verified XP progression'}</span></div>
+      <div className="bk-profile-xp-summary"><strong>{progress ? `${profileNumber(progress.required - progress.earned)} XP to level ${progress.nextLevel}` : loading ? 'Syncing your progress…' : 'Progress unavailable'}</strong>{progress && <span>{profileNumber(progress.earned)} / {profileNumber(progress.required)} XP this level</span>}</div>
       </div>
     </section>
     <section className="bk-locker-overview" aria-label="Universal Ball Knower Profile">
       <div className="bk-locker-progress-heading"><h2>{profileOwnerName ? "Progression" : "Your progression"}</h2><div className="bk-locker-championships"><Trophy aria-hidden="true"/><span>Championships <strong>{profileNumber(profile?.championships)}</strong></span></div></div>
+      <p className="bk-profile-section-note">Six ratings. One legacy. Tap a rating to see what it measures.</p>
       <div className="bk-locker-xp-scale" aria-hidden="true">{[0,20,40,60,80,100].map(value => <span key={value}>{value}%</span>)}</div>
       <div className="bk-locker-ratings-layout">
         <div className="bk-locker-hex-grid" aria-label="Profile ratings">{CATEGORIES.map(({ key, label, Icon }) => <button type="button" key={key} className="bk-locker-hex" aria-label={`${label} rating: ${profileNumber(profile?.[key])}. Show details`} aria-expanded={category === key} aria-controls={`${id}-category`} onClick={() => setCategory(category === key ? null : key)}>
@@ -65,16 +71,18 @@ export function ProfileLockerView({ profile, events, achievements, predictionPic
       </div>
       {selectedCategory && <div id={`${id}-category`} className="bk-locker-detail"><strong>{selectedCategory.label} · {profileNumber(profile?.[selectedCategory.key])}/99</strong><p>{profileOwnerName ? selectedCategory.description.replace(/^Your/, ownerPossessive) : selectedCategory.description}</p></div>}
       <div className="bk-locker-sync"><span role="status">{status}{!loading && !error && profileDate(profile?.updatedAt) ? ` · ${profileDate(profile?.updatedAt)}` : ''}</span><button type="button" onClick={onRefresh} disabled={loading} aria-label="Refresh profile"><RefreshCcw aria-hidden="true"/></button></div>
-      {error && <div className="bk-locker-error" role="alert"><span>{error}</span><button type="button" disabled={loading} onClick={onRefresh}>Retry</button></div>}
+      {error && <div className="bk-locker-error" role="alert"><span>Profile sync is temporarily unavailable. Try again to load the latest progress.</span><button type="button" disabled={loading} onClick={onRefresh}>Retry</button></div>}
     </section>
 
     <section className="bk-locker-trophies" aria-labelledby={`${id}-trophies`}>
       <div className="bk-locker-section-heading"><h2 id={`${id}-trophies`}><Trophy aria-hidden="true"/>Trophy case</h2><span>{correctPicks} correct picks · {profile ? `${unlocked}/${achievements.length} unlocked` : 'Awaiting sync'}</span>{visibleTrophyCount > 6 && <div className="bk-locker-trophy-arrows"><button type="button" aria-label="Previous trophies" onClick={() => scrollTrophies(-1)}><ChevronLeft aria-hidden="true"/></button><button type="button" aria-label="Next trophies" onClick={() => scrollTrophies(1)}><ChevronRight aria-hidden="true"/></button></div>}</div>
+      <div className="bk-profile-trophy-tools"><div role="group" aria-label="Filter trophies">{([{ key: 'all', label: 'All' }, { key: 'earned', label: 'Earned' }, { key: 'locked', label: 'Locked' }] as const).map(filter => <button type="button" key={filter.key} aria-pressed={trophyFilter === filter.key} onClick={() => { setTrophyFilter(filter.key); setSelectedTrophy(null); setPredictionHistoryOpen(false); trophyRail.current?.scrollTo({ left: 0 }); }}>{filter.label}</button>)}</div><p>Tap a trophy for its requirement and XP reward.</p></div>
       <div className="bk-locker-trophy-case">
         <ul ref={trophyRail} className="bk-locker-trophy-rail" data-extended={visibleTrophyCount > 6} aria-label="Trophies">
-          {predictionPicks.length > 0 && <li><button type="button" className="bk-locker-trophy" data-unlocked="true" aria-label={`Prediction record: ${correctPicks} correct picks. Show pick history`} aria-expanded={predictionHistoryOpen} aria-controls={`${id}-prediction-history`} onClick={() => { setPredictionHistoryOpen(value => !value); setSelectedTrophy(null); }}><LockerTrophyBadge tier="gold" unlocked/><strong>Pick Record</strong><span className="bk-locker-trophy-description">{correctPicks} correct NFL {correctPicks === 1 ? 'pick' : 'picks'} all time</span><small><Check aria-hidden="true"/>Verified history</small></button></li>}
-          {achievements.map(item => <li key={item.key}><button type="button" className="bk-locker-trophy" data-unlocked={Boolean(item.unlockedAt)} aria-label={`${item.title}: ${item.unlockedAt ? 'Unlocked' : 'Locked'}. ${item.description}`} aria-expanded={selectedTrophy === item.key} aria-controls={`${id}-trophy-detail`} onClick={() => { setPredictionHistoryOpen(false); setSelectedTrophy(selectedTrophy === item.key ? null : item.key); }}><LockerTrophyBadge tier={item.tier} unlocked={Boolean(item.unlockedAt)}/><strong>{item.title}</strong><span className="bk-locker-trophy-description">{item.description}</span><small>{item.unlockedAt ? <><Check aria-hidden="true"/>Unlocked</> : 'Locked'}</small></button></li>)}
+          {showPickRecord && <li><button type="button" className="bk-locker-trophy" data-unlocked="true" aria-label={`Prediction record: ${correctPicks} correct picks. Show pick history`} aria-expanded={predictionHistoryOpen} aria-controls={`${id}-prediction-history`} onClick={() => { setPredictionHistoryOpen(value => !value); setSelectedTrophy(null); }}><LockerTrophyBadge tier="gold" unlocked/><strong>Pick Record</strong><span className="bk-locker-trophy-description">{correctPicks} correct NFL {correctPicks === 1 ? 'pick' : 'picks'} all time</span><small><Check aria-hidden="true"/>Verified history</small></button></li>}
+          {visibleAchievements.map(item => <li key={item.key}><button type="button" className="bk-locker-trophy" data-unlocked={Boolean(item.unlockedAt)} aria-label={`${item.title}: ${item.unlockedAt ? 'Unlocked' : 'Locked'}. ${item.description}`} aria-expanded={selectedTrophy === item.key} aria-controls={`${id}-trophy-detail`} onClick={() => { setPredictionHistoryOpen(false); setSelectedTrophy(selectedTrophy === item.key ? null : item.key); }}><LockerTrophyBadge tier={item.tier} unlocked={Boolean(item.unlockedAt)}/><strong>{item.title}</strong><span className="bk-locker-trophy-description">{item.description}</span><small>{item.unlockedAt ? <><Check aria-hidden="true"/>Unlocked</> : 'Locked'}</small></button></li>)}
         </ul>
+        {visibleTrophyCount === 0 && <div className="bk-profile-trophies-empty" role="status"><Trophy aria-hidden="true"/><strong>{loading ? 'Syncing your trophy case…' : error ? 'Trophies are temporarily unavailable' : trophyFilter === 'earned' ? 'Your first trophy is ahead.' : trophyFilter === 'locked' ? 'No locked trophies to show.' : 'Your trophy case is ready.'}</strong><p>{trophyFilter === 'earned' ? 'View All to find the next milestone to work toward.' : 'Verified milestones and earned rewards appear here.'}</p></div>}
         {predictionHistoryOpen && <div className="bk-locker-detail" id={`${id}-prediction-history`}>
           <strong>Pick Record · {correctPicks} correct</strong>
           <p>{correctPicks}-{missedPicks}{pushes ? `-${pushes} pushes` : ''}{pendingPicks ? ` · ${pendingPicks} pending` : ''}. Every entry below is a server-saved NFL prediction.</p>
@@ -100,7 +108,7 @@ export function ProfileLockerView({ profile, events, achievements, predictionPic
     </section>
       <div className="bk-profile-h2h mt-4 grid grid-cols-[1fr_auto] items-center gap-4 rounded-2xl border border-[#d9b43b]/25 bg-black/25 p-4" aria-label="Head-to-head trivia record">
         <div><div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[.16em] text-[#e4c77f]"><Swords className="h-4 w-4" aria-hidden="true"/>H2H Trivia</div><strong className="mt-2 block text-2xl text-white">{profileNumber(profile?.h2hWins)}-{profileNumber(profile?.h2hLosses)}{profile?.h2hTies ? `-${profileNumber(profile.h2hTies)}` : ''}</strong><span className="text-[9px] font-bold uppercase text-zinc-500">Best win streak {profileNumber(profile?.h2hBestStreak)}</span></div>
-        <div className="text-right"><strong className="block text-3xl text-[#ecd67d]">{profile?.h2hRating ?? 1000}</strong><span className="text-[9px] font-black uppercase text-zinc-500">H2H rating</span></div>
+        <div className="text-right"><strong className="block text-3xl text-[#ecd67d]">{profileNumber(profile?.h2hRating)}</strong><span className="text-[9px] font-black uppercase text-zinc-500">H2H rating</span></div>
       </div>
   </div>;
 }

@@ -28,6 +28,7 @@ export type PlayerScoreDetail = {
   isHome?:boolean;
   isBye?:boolean;
   points:number;
+  pointsAvailable?:boolean;
   projectedPoints:number;
   projectionAvailable?:boolean;
   status:string;
@@ -42,6 +43,7 @@ export type WeeklyScore = {
   memberId:string;
   week:number;
   livePoints:number;
+  hasActualTotal?:boolean;
   projectedPoints:number;
   hasProjectedTotal?:boolean;
   source:string;
@@ -99,24 +101,30 @@ const mapLineup=(row:any):WeeklyLineup=>({
   finalizedAt:row.finalized_at||undefined,
 });
 
-const mapScore=(row:any):WeeklyScore=>({
+const availableScoreNumber=(value:unknown)=>
+  (typeof value==='number'||typeof value==='string'&&value.trim()!=='')&&Number.isFinite(Number(value));
+
+export const mapScore=(row:any):WeeklyScore=>({
   leagueId:row.league_id,
   memberId:row.member_id,
   week:Number(row.week_number),
   livePoints:Number(row.live_points)||0,
+  hasActualTotal:row.score_details?.hasActualTotal!==false&&availableScoreNumber(row.live_points)&&
+    (!Array.isArray(row.score_details?.players)||row.score_details.players.every((player:any)=>
+      player.pointsAvailable!==false&&availableScoreNumber(player.points))),
   projectedPoints:Number(row.projected_points)||0,
   source:row.source||'ball_knower',
   isFinal:Boolean(row.is_final),
   scoreRevision:Number(row.score_revision)||1,
-  hasProjectedTotal:typeof row.score_details?.hasProjectedTotal==='boolean'
-    ? row.score_details.hasProjectedTotal
-    : Array.isArray(row.score_details?.players)&&row.score_details.players.length>0&&row.score_details.players.every((player:any)=>
-        player.projectionAvailable===true||(player.projectionAvailable===undefined&&Number(player.projectedPoints)>0)),
+  hasProjectedTotal:row.score_details?.hasProjectedTotal!==false&&availableScoreNumber(row.projected_points)&&
+    Array.isArray(row.score_details?.players)&&row.score_details.players.length>0&&row.score_details.players.every((player:any)=>
+      availableScoreNumber(player.projectedPoints)&&(player.projectionAvailable===true||(player.projectionAvailable===undefined&&Number(player.projectedPoints)>0))),
   players:Array.isArray(row.score_details?.players)?row.score_details.players.map((player:any)=>({
     ...player,
     points:Number(player.points)||0,
+    pointsAvailable:player.pointsAvailable!==false&&availableScoreNumber(player.points),
     projectedPoints:Number(player.projectedPoints)||0,
-    projectionAvailable:player.projectionAvailable===true||(player.projectionAvailable===undefined&&Number(player.projectedPoints)>0),
+    projectionAvailable:availableScoreNumber(player.projectedPoints)&&(player.projectionAvailable===true||(player.projectionAvailable===undefined&&Number(player.projectedPoints)>0)),
     isHome:typeof player.isHome==='boolean'?player.isHome:undefined,
     isBye:Boolean(player.isBye),
     isLive:Boolean(player.isLive),

@@ -22,6 +22,7 @@ export const SoundtrackControl: React.FC = () => {
 
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const panelButtonRef = useRef<HTMLButtonElement>(null);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -30,11 +31,14 @@ export const SoundtrackControl: React.FC = () => {
         setIsOpen(false);
       }
     };
+    const handleEscape=(event:KeyboardEvent)=>{if(event.key==='Escape'){setIsOpen(false);panelButtonRef.current?.focus();}};
     if (isOpen) {
       document.addEventListener('pointerdown', handleOutsidePress);
+      document.addEventListener('keydown',handleEscape);
     }
     return () => {
       document.removeEventListener('pointerdown', handleOutsidePress);
+      document.removeEventListener('keydown',handleEscape);
     };
   }, [isOpen]);
 
@@ -47,6 +51,9 @@ export const SoundtrackControl: React.FC = () => {
         {/* Direct Mute / Unmute Button */}
         <button
           id="soundtrack-mute-toggle-btn"
+          type="button"
+          aria-label={isMuted ? 'Unmute soundtrack' : 'Mute soundtrack'}
+          aria-pressed={isMuted}
           onClick={toggleMute}
           className={`flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-full transition-all cursor-pointer ${
             isMuted
@@ -69,6 +76,7 @@ export const SoundtrackControl: React.FC = () => {
         {/* Mini Waveform & Menu Trigger */}
         <button
           id="soundtrack-panel-toggle-btn"
+          ref={panelButtonRef}
           type="button"
           onClick={() => setIsOpen(open => !open)}
           aria-expanded={isOpen}
@@ -111,6 +119,8 @@ export const SoundtrackControl: React.FC = () => {
               </div>
             </div>
             <button
+              type="button"
+              aria-label="Close soundtrack settings"
               onClick={() => setIsOpen(false)}
               className="text-zinc-500 hover:text-white text-xs font-bold px-1"
             >
@@ -122,7 +132,7 @@ export const SoundtrackControl: React.FC = () => {
           <div className="my-3 rounded-md bg-[#1A1A1A] border border-white/5 p-2.5">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-[9px] font-mono uppercase tracking-widest text-[#D4AF37] font-black">
-                TRACK {currentTrackIndex + 1} OF {allTracks.length}
+                {allTracks.length?`TRACK ${currentTrackIndex + 1} OF ${allTracks.length}`:'SOUNDTRACK UNAVAILABLE'}
               </span>
               <span className="text-[8px] font-bold uppercase px-1.5 py-0.2 bg-zinc-800 text-zinc-400 rounded-xs">
                 {currentTrack.mood}
@@ -139,6 +149,7 @@ export const SoundtrackControl: React.FC = () => {
             <div className="flex items-center justify-center gap-3 pt-1 border-t border-white/5">
               <button
                 onClick={prevTrack}
+                disabled={!allTracks.length||isIntroActive}
                 className="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
                 title="Previous Track"
               >
@@ -156,6 +167,7 @@ export const SoundtrackControl: React.FC = () => {
               ) : (
                 <button
                   onClick={play}
+                  disabled={!allTracks.length||isIntroActive}
                   className="flex items-center justify-center h-8 w-8 rounded-full bg-[#D4AF37] text-black hover:bg-white transition-colors cursor-pointer shadow-md font-bold"
                   title="Play"
                 >
@@ -165,6 +177,7 @@ export const SoundtrackControl: React.FC = () => {
 
               <button
                 onClick={nextTrack}
+                disabled={!allTracks.length||isIntroActive}
                 className="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
                 title="Next Track"
               >
@@ -185,6 +198,7 @@ export const SoundtrackControl: React.FC = () => {
             <div className="flex items-center gap-2">
               <input
                 type="range"
+                aria-label="Soundtrack volume"
                 min="0"
                 max="100"
                 value={isMuted ? 0 : volumePct}

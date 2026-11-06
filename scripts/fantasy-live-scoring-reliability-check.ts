@@ -1,4 +1,7 @@
 import './fantasy-scoring-read-recovery-check';
+import './fantasy-data-state-check';
+import './fantasy-realtime-reconnect-check';
+import './fantasy-postgame-shadow-check';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {

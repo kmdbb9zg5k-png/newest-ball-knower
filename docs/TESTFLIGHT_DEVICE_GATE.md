@@ -14,8 +14,17 @@ Run this checklist against the exact build number intended for App Review. A reb
 - Apple sign-in returns to Ball Knower and restores the correct identity.
 - Google sign-in returns to Ball Knower and restores the correct identity.
 - Email magic link opens Ball Knower even from a cold launch.
+- New PKCE email links work; old token-only links show a retry error without switching accounts.
+- Duplicate warm/cold callback delivery performs one sign-in and preserves guest progress.
 - Guest-to-permanent-account merge preserves leagues/progress.
 - Logout returns to the expected guest/account state.
+
+## GM alert feedback
+
+- Install the updated native plugin in the exact signed build; a web deployment alone does not add native haptics to older binaries.
+- On a real iPhone, a new important GM alert requests one UIKit warning pulse. Reopening the same alert does not repeat it; the next new event can pulse.
+- Close, review and save a decision while feedback is unavailable; every control remains usable. Inactive/background delivery stays silent.
+- Record device/OS and feedback settings. JavaScript mocks and source checks do not establish a physical pulse.
 
 ## Native networking
 
@@ -41,6 +50,11 @@ Use a disposable test account.
 - Privacy → Delete my account is easy to find.
 - First tap does not delete anything.
 - Second confirmation clearly says deletion is permanent.
+- Switch accounts during the confirmation/save flush: the previous confirmation cannot delete the newly signed-in account.
+- On the signed iOS build, an Apple-backed disposable account requests fresh Apple authorization, matches the linked subject and confirms token revocation before deletion.
+- Cancel native Apple authorization and retry; the account remains intact after cancellation. Choosing a different Apple account cannot revoke it or delete the linked Ball Knower account.
+- Simulate an Apple verification/revocation failure in a test environment: the native flow retains the account and can retry.
+- Missing Apple server configuration/provider-token fallback clearly retains a manual-removal notice after the intentional sign-out/reload; do not count that result as a passed automatic-revocation gate.
 - Account disappears and cannot be reused as the prior authenticated identity.
 - Avatar object is removed.
 - User-linked records are removed.

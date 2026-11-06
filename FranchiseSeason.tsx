@@ -29,6 +29,7 @@ import { FranchiseInteractionCenter } from './FranchiseInteractionCenter';
 import { GmEventAlerts, type GmImportantEvent } from './GmEventAlerts';
 import {
   createFranchiseInteractions,
+  advanceFranchiseInteractionSeason,
   applyFranchiseOpportunities,
   ensureFranchiseWeek,
   isFranchiseInteractionState,
@@ -215,9 +216,9 @@ export const FranchiseSeason: React.FC<Props> = ({
   const [seasonRoster, setSeasonRoster] = useState<Player[]>(() => seedRoster);
   const [interactionState, setInteractionState] = useState<FranchiseInteractionState>(() => {
     const restoredInteractions = restored?.interactions;
-    return isFranchiseInteractionState(restoredInteractions)
-      ? syncFranchiseInteractions(restoredInteractions, seedRoster)
-      : createFranchiseInteractions(seedRoster, (restored?.weeks?.length ?? 0) + 1, myPlayerId, (restored?.stage ?? 'regular') === 'regular' && (restored?.weeks?.length ?? 0) < 17);
+    if (isFranchiseInteractionState(restoredInteractions)) return syncFranchiseInteractions({ ...restoredInteractions, season: restoredYear }, seedRoster);
+    if (careerStartYear && savedSeason?.year === careerStartYear - 1 && savedSeason?.teamAbbr === userTeam.abbr && isFranchiseInteractionState(savedSeason?.interactions)) return advanceFranchiseInteractionSeason(savedSeason.interactions, seedRoster, careerStartYear, myPlayerId);
+    return { ...createFranchiseInteractions(seedRoster, (restored?.weeks?.length ?? 0) + 1, myPlayerId, (restored?.stage ?? 'regular') === 'regular' && (restored?.weeks?.length ?? 0) < 17), season: restoredYear };
   });
   const [playoffField, setPlayoffField] = useState<PlayoffSeed[]>(() => isValidFranchisePlayoffField(restored?.playoffField) ? restored.playoffField : []);
   const [year, setYear] = useState<number>(restoredYear);
@@ -447,7 +448,7 @@ export const FranchiseSeason: React.FC<Props> = ({
     setInjuries([]);
     setMessage('Week 1 is ready.');
     setPlayoffField([]);
-    setInteractionState(createFranchiseInteractions(roster, 1, myPlayerId));
+    setInteractionState({ ...createFranchiseInteractions(roster, 1, myPlayerId), season: year });
     try { localStorage.removeItem(seasonKey); } catch (error) { console.warn('Unable to clear franchise season', error); }
   };
 
@@ -473,8 +474,7 @@ export const FranchiseSeason: React.FC<Props> = ({
     setInjuries([]);
     setPlayoffField([]);
     setYear(nextYear);
-    const carriedInteractions = syncFranchiseInteractions({ ...interactionState, pendingScenario: null, promises: [], decisions: [] }, nextRoster);
-    setInteractionState(ensureFranchiseWeek(carriedInteractions, nextRoster, 1, myPlayerId));
+    setInteractionState(advanceFranchiseInteractionSeason(interactionState, nextRoster, nextYear, myPlayerId));
     onSeasonYearChange?.(nextYear);
     if (draftPickAssets !== undefined) onDraftPickAssetsChange?.(ensureFranchiseDraftYear(draftPickAssets, nextYear + 1, SOLO_TEAM_THEMES.map(team => team.abbr)));
     setStage('regular');
@@ -516,7 +516,10 @@ export const FranchiseSeason: React.FC<Props> = ({
     const player = activeRoster.find(item => item.id === pendingMeeting.playerId)!;
     gmDecisionEvents.push({
       id: `meeting:${pendingMeeting.id}`,
-      eyebrow: `Player meeting · Week ${pendingMeeting.week}`,
+      eyebrow: `${pendingMeeting.relatedTo ? 'Follow-up' : 'Player meeting'} · Week ${pendingMeeting.week}`,
+      tone: pendingMeeting.kind === 'breakout' || pendingMeeting.kind === 'mentor' ? 'development' : 'relationship',
+      people: [{ player, label: `${player.position} · ${player.ovr} OVR` }],
+      facts: [{ label: 'Trust', value: `${interactionState.relationships?.[player.id]?.trust ?? 65}/100` }, { label: 'Morale', value: `${interactionState.development[player.id]?.morale ?? 75}/99` }, ...(pendingMeeting.goal ? [{ label: 'This week’s goal', value: pendingMeeting.goal.description }] : [])],
       title: pendingMeeting.title,
       detail: `${pendingMeeting.message}\n\n${player.name} · ${player.position} · ${player.ovr} OVR · Morale ${interactionState.development[player.id]?.morale ?? 75}`,
       choices: pendingMeeting.choices.map(choice => ({ ...choice, onSelect: () => respondToScenario(choice.id) })),
@@ -528,6 +531,7 @@ export const FranchiseSeason: React.FC<Props> = ({
       id: `notice:${notice.id}`,
       eyebrow: `${notice.kind === 'injury' ? 'Medical update' : 'Locker room update'} · Week ${notice.week}`,
       title: notice.title,
+      tone: notice.kind === 'injury' ? 'injury' : 'relationship',
       detail: notice.body,
       choices: [{ id: 'acknowledge', label: 'Acknowledge update', detail: 'Keep this report in your team inbox.', onSelect: () => setInteractionState(current => ({ ...current, notifications: current.notifications.map(item => item.id === notice.id ? { ...item, read: true } : item) })) }],
     });

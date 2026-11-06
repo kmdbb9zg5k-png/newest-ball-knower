@@ -21,7 +21,7 @@ const loadMyCloudDraftPreferences=(league:string,member:string)=>new Promise((re
 const saveMyCloudDraftPreferences=async(league:string,member:string,value:any)=>{w.saves.push({key:league,value});};
 type DraftPreferences={queue:string[],favorites:string[],doNotDraft:string[],preRankings:string[]};
 const EMPTY_PREFERENCES:DraftPreferences={queue:[],favorites:[],doNotDraft:[],preRankings:[]};
-function Watch(){
+function Watch(){const currentUser={id:'fixture-user'};
 ${section(hub,'  const [watchlist, setWatchlist]','  const fantasyPositions')}
 ${watchEffect}
 ${section(hub,'  const toggleWatch =','  const enterPublicLeague')}

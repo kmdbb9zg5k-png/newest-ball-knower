@@ -1,7 +1,14 @@
 // Display-only helpers. Awards, ratings, achievements and levels remain server owned.
 // Verified against ball_knower_private.apply_progress_event on 2026-09-08:
 // level = greatest(1, 1 + floor((xp + awarded_xp) / 1000.0)).
+import type { Achievement } from './progressionCloud';
+
 export const PROFILE_XP_PER_LEVEL = 1000;
+
+export type TrophyFilter = 'all' | 'earned' | 'locked';
+export function filterProfileTrophies(achievements: readonly Achievement[], filter: TrophyFilter) {
+  return achievements.filter(item => filter === 'all' || (filter === 'earned' ? Boolean(item.unlockedAt) : !item.unlockedAt));
+}
 
 export function profileXpProgress(xp: number, level: number) {
   if (!Number.isFinite(xp) || !Number.isInteger(level) || level < 1 || xp < 0) return null;

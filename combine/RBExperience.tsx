@@ -7,6 +7,7 @@ import {routeFrameDelta} from './routes.js';
 import HoldPauseButton from './HoldPauseButton';
 import ControlSettings,{useDrillControls} from './ControlSettings';
 import {controlPulse,createPresentationGate} from './controlPreferences';
+import {drillMovementKey,drillMovement} from './drill-input.js';
 import './combine.css';import './skills.css';import './routes.css';
 import type {CareerFieldConfig} from '../myPlayerField';
 type Player={id:string;name:string;position:string;[key:string]:any};
@@ -33,7 +34,7 @@ export default function RBExperience({players,onClose,onResult,career}:{players:
   const te=(e:TouchEvent)=>{if(touch.current&&Array.from(e.changedTouches).some(t=>t.identifier===touch.current?.id))release();};
   const tc=(e:TouchEvent)=>{if(touch.current&&Array.from(e.changedTouches).some(t=>t.identifier===touch.current?.id))pause();};
   const blur=()=>{if(usable())pause();else release();},hide=()=>{if(document.hidden)blur();};
-  const key=(e:KeyboardEvent,down:boolean)=>{if(e.target instanceof Element&&e.target.closest('input,select,textarea,.bk-control-settings'))return;if(['j','k','l'].includes(e.key.toLowerCase())&&down&&!e.repeat){e.preventDefault();playMove(({j:'juke',k:'spin',l:'stiff'} as any)[e.key.toLowerCase()]);return;}if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d'].includes(e.key))return;e.preventDefault();if(down)keys.current.add(e.key);else keys.current.delete(e.key);const k=keys.current;input.current={x:Number(k.has('ArrowRight')||k.has('d'))-Number(k.has('ArrowLeft')||k.has('a')),y:Number(k.has('ArrowDown')||k.has('s'))-Number(k.has('ArrowUp')||k.has('w'))};};
+  const key=(e:KeyboardEvent,down:boolean)=>{if(down&&e.target instanceof Element&&e.target.closest('input,select,textarea,.bk-control-settings'))return;if(['j','k','l'].includes(e.key.toLowerCase())&&down&&!e.repeat){e.preventDefault();playMove(({j:'juke',k:'spin',l:'stiff'} as any)[e.key.toLowerCase()]);return;}const movement=drillMovementKey(e);if(!movement)return;e.preventDefault();if(down)keys.current.add(movement);else keys.current.delete(movement);input.current=drillMovement(keys.current);};
   const kd=(e:KeyboardEvent)=>key(e,true),ku=(e:KeyboardEvent)=>key(e,false);
   document.addEventListener('touchstart',ts,{passive:false});document.addEventListener('touchmove',tm,{passive:false});document.addEventListener('touchend',te);document.addEventListener('touchcancel',tc);document.addEventListener('visibilitychange',hide);window.addEventListener('blur',blur);window.addEventListener('keydown',kd);window.addEventListener('keyup',ku);
   return()=>{gone=true;cancelAnimationFrame(raf);scene.current?.dispose();scene.current=null;document.removeEventListener('touchstart',ts);document.removeEventListener('touchmove',tm);document.removeEventListener('touchend',te);document.removeEventListener('touchcancel',tc);document.removeEventListener('visibilitychange',hide);window.removeEventListener('blur',blur);window.removeEventListener('keydown',kd);window.removeEventListener('keyup',ku);};
