@@ -8,6 +8,8 @@ import { build } from 'esbuild';
 import { createClient } from '@supabase/supabase-js';
 import { makeManifest, ownsUser, readStackConfig, QA_OWNER } from './real-service-config.mjs';
 import { localSql } from './bootstrap-real-services.ts';
+import { verifyRealPushSessions } from './push-real-services.ts';
+import { sha256 } from './schema-contract.mjs';
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const safeCode = error => error?.qaCode || (/^[A-Z0-9_]{4,12}$/.test(error?.code || '') ? `database_${error.code}` : 'real_service_step_failed');
@@ -57,6 +59,12 @@ export async function runRealServices(statusPath, outputDirectory, cleanupPath) 
     realNflScoringVerified: false, gameplayReplayVerified: false,
     schemaParityFile: 'schema-parity.json', checks: [], cleanup: { status: 'pending' },
   };
+  const overlays = cleanupPath ? manifest.featureOverlays || [] : JSON.parse(readFileSync(resolve(outputDirectory, 'feature-overlays.json'), 'utf8')).appliedOverlays || [];
+  manifest.featureOverlays = overlays; saveManifest();
+  const secureLineupOverlay = overlays.some(overlay => /\/(?:20261106021753_atomic_validated_fantasy_scoring|20261106023523_secure_fantasy_lineup_writes)\.sql$/.test(overlay.filename));
+  const pushOverlay = overlays.some(overlay => /\/20261106021520_fantasy_push_delivery\.sql$/.test(overlay.filename));
+  const scoringOverlay = overlays.some(overlay => /\/20261106021753_atomic_validated_fantasy_scoring\.sql$/.test(overlay.filename));
+  receipt.featureOverlays = overlays;
   const originalFetch = globalThis.fetch;
   const inFlight = new Set();
   let stopped = false;
@@ -197,6 +205,75 @@ export async function runRealServices(statusPath, outputDirectory, cleanupPath) 
       for (let index = 0; index < 2; index++) assert.deepEqual(rows.find(row => row.member_id === members[index].id).starters, lineups[index].starters);
       return { savedWeek: 18, schedule: 'synthetic_pregame_fixture', otherManagerLineupUnchanged: true, kickoffLockLifecycleVerified: false };
     });
+    if (scoringOverlay) await check('fantasy.real_schema_atomic_scoring_overlay', async () => {
+      const filename = 'scripts/qa/fantasy-scoring-overlay.sql';
+      const sql = readFileSync(resolve(filename), 'utf8');
+      assert.match(sql, /\bbegin\s*;/i); assert.match(sql, /\brollback\s*;/i);
+      assert.doesNotMatch(sql, /(?:insert\s+into|update|delete\s+from)\s+auth\.|(?:drop|create)\s+table\s+(?:public|auth)\.|net\.http_|cron\.schedule|vault\./i);
+      const stateSql = `select coalesce(jsonb_agg(to_jsonb(l) order by member_id),'[]'::jsonb) from public.ball_knower_weekly_lineups l where league_id=${sqlLiteral(league.id)};`;
+      const before = localSql(config.databaseUrl, stateSql);
+      const context = { league: league.id, user_a: a.item.id, user_b: b.item.id, member_a: members[0].id, member_b: members[1].id };
+      const settings = Object.entries(context).map(([key, value]) => `select set_config('bk.launch_qa_${key}',${sqlLiteral(value)},false);`).join('\n');
+      const result = localSql(config.databaseUrl, settings + '\n' + sql, 'scoring_overlay');
+      assert.match(result, /real-schema scoring overlay passed/);
+      assert.equal(localSql(config.databaseUrl, stateSql), before, 'transactional scoring fixture must preserve submitted lineups');
+      return { fixture: filename, sha256: sha256(sql), actualProductionSchemaLegacyTriggerAndForeignKeys: true, managers: 2, syntheticApprovedContractOnly: true, noProviderCalls: true, fixtureTransactionRolledBack: true, currentProviderContractVerified: false };
+    });
+    if (secureLineupOverlay) await check('fantasy.real_auth_direct_lineup_dml_denied_and_kickoff_rpc_guard', async () => {
+      for (let index = 0; index < 2; index++) {
+        const client = fixture[index].app.supabase;
+        const row = { league_id: league.id, member_id: members[index].id, week_number: 17, starters: lineups[index].starters, bench: lineups[index].bench };
+        const attempts = [
+          () => client.from('ball_knower_weekly_lineups').insert(row),
+          () => client.from('ball_knower_weekly_lineups').update({ locked_player_ids: [] }).eq('league_id', league.id).eq('member_id', members[index].id),
+          () => client.from('ball_knower_weekly_lineups').upsert(row, { onConflict: 'league_id,member_id,week_number' }),
+          () => client.from('ball_knower_weekly_lineups').delete().eq('league_id', league.id).eq('member_id', members[index].id),
+        ];
+        for (const attempt of attempts) assert.equal((await attempt()).error?.code, '42501');
+        await fixture[index].app.saveMyWeeklyLineup(league.id, 18, lineups[index].starters, lineups[index].bench);
+      }
+      const qb = members[0].roster.find(player => player.id === lineups[0].starters.QB);
+      const benchQb = members[0].roster.find(player => player.position === 'QB' && lineups[0].bench.includes(player.id));
+      assert.ok(qb && benchQb);
+      const game = JSON.parse(localSql(config.databaseUrl, `select coalesce(json_agg(json_build_object('id',provider_game_id,'home',home_team,'away',away_team)),'[]'::json) from public.ball_knower_nfl_games where provider_game_id like 'qa-synthetic-week18-%' and season=2026 and week_number=18 and ${sqlLiteral(qb.team)} in(home_team,away_team);`));
+      assert.equal(game.length, 1);
+      localSql(config.databaseUrl, `update public.ball_knower_nfl_games set kickoff_at=now()-interval '1 minute' where provider_game_id=${sqlLiteral(game[0].id)};`);
+      try {
+        const starters = { ...lineups[0].starters, QB: benchQb.id };
+        const bench = lineups[0].bench.map(id => id === benchQb.id ? qb.id : id);
+        let locked = false;
+        try { await a.app.saveMyWeeklyLineup(league.id, 18, starters, bench); }
+        catch (error) { assert.match(String(error.message), /kickoff|locked|started/i); locked = true; }
+        assert.equal(locked, true);
+        const saved = requireOk(await a.app.supabase.from('ball_knower_weekly_lineups').select('starters').eq('league_id', league.id).eq('member_id', members[0].id).eq('week_number', 18).single());
+        assert.deepEqual(saved.starters, lineups[0].starters);
+        const startedTeams = new Set([game[0].home, game[0].away]);
+        const wrSlot = ['WR1', 'WR2'].find(slot => !startedTeams.has(members[0].roster.find(player => player.id === lineups[0].starters[slot]).team));
+        const benchWr = members[0].roster.find(player => player.position === 'WR' && lineups[0].bench.includes(player.id) && !startedTeams.has(player.team));
+        assert.ok(wrSlot && benchWr, 'fixture must contain an unstarted starter and bench WR');
+        const oldWr = lineups[0].starters[wrSlot];
+        const unlockedStarters = { ...lineups[0].starters, [wrSlot]: benchWr.id };
+        const unlockedBench = lineups[0].bench.map(id => id === benchWr.id ? oldWr : id);
+        const benchGame = JSON.parse(localSql(config.databaseUrl, `select coalesce(json_agg(json_build_object('id',provider_game_id)),'[]'::json) from public.ball_knower_nfl_games where provider_game_id like 'qa-synthetic-week18-%' and season=2026 and season_type='reg' and week_number=18 and ${sqlLiteral(benchWr.team)} in(home_team,away_team);`));
+        assert.equal(benchGame.length, 1);
+        localSql(config.databaseUrl, `update public.ball_knower_nfl_games set kickoff_at=now()-interval '1 minute' where provider_game_id=${sqlLiteral(benchGame[0].id)};`);
+        try {
+          await rejects(() => a.app.saveMyWeeklyLineup(league.id, 18, unlockedStarters, unlockedBench));
+        } finally { localSql(config.databaseUrl, `update public.ball_knower_nfl_games set kickoff_at=now()+interval '7 days' where provider_game_id=${sqlLiteral(benchGame[0].id)};`); }
+        await a.app.saveMyWeeklyLineup(league.id, 18, unlockedStarters, unlockedBench);
+        const changed = requireOk(await a.app.supabase.from('ball_knower_weekly_lineups').select('starters').eq('league_id', league.id).eq('member_id', members[0].id).eq('week_number', 18).single());
+        assert.equal(changed.starters.QB, qb.id); assert.equal(changed.starters[wrSlot], benchWr.id);
+        lineups[0] = { starters: unlockedStarters, bench: unlockedBench };
+        localSql(config.databaseUrl, `update public.ball_knower_weekly_lineups set locked=true where league_id=${sqlLiteral(league.id)} and member_id=${sqlLiteral(members[0].id)} and week_number=18;`);
+        try {
+          await a.app.saveMyWeeklyLineup(league.id, 18, unlockedStarters, unlockedBench);
+          const same = requireOk(await a.app.supabase.from('ball_knower_weekly_lineups').select('locked').eq('league_id', league.id).eq('member_id', members[0].id).eq('week_number', 18).single());
+          assert.equal(same.locked, true, 'an identical RPC save must preserve an explicit full lock');
+          await rejects(() => a.app.saveMyWeeklyLineup(league.id, 18, { ...unlockedStarters, [wrSlot]: oldWr }, lineups[0].bench.map(id => id === oldWr ? benchWr.id : id)));
+        } finally { localSql(config.databaseUrl, `update public.ball_knower_weekly_lineups set locked=false where league_id=${sqlLiteral(league.id)} and member_id=${sqlLiteral(members[0].id)} and week_number=18;`); }
+      } finally { localSql(config.databaseUrl, `update public.ball_knower_nfl_games set kickoff_at=now()+interval '7 days' where provider_game_id=${sqlLiteral(game[0].id)};`); }
+      return { actualAuthenticatedSessions: 2, directDmlDenied: ['INSERT', 'UPDATE', 'UPSERT', 'DELETE'], validPreKickoffRpc: true, postKickoffSwapRejected: true, startedBenchPlayerCannotEnter: true, priorSavedLineupUnchangedAfterRejection: true, unlockedReceiverSwapAfterAnotherGameStarts: true, explicitFullLockPreservedAcrossIdenticalSave: true, schedule: 'isolated_fixture_clock_transition' };
+    });
     await check('fantasy.concurrent_acquisition_has_one_winner', async () => {
       const drafted = new Set(draft.picks.map(pick => pick.playerId));
       const seededIds = new Set(requireOk(await admin.from('ball_knower_fantasy_player_groups').select('player_id')).map(row => row.player_id));
@@ -255,10 +332,11 @@ export async function runRealServices(statusPath, outputDirectory, cleanupPath) 
       assert.equal(home.standings.find(row => row.user_id === b.item.id).losses, 1);
       return { completedDrives: 6, storedScore: [10, 3], winnerComputedByServer: true, immutableRetry: true, scoreSource: 'synthetic_device_reported_fixture', authoritativeGameplay: false };
     });
+    if (pushOverlay) await check('push.real_auth_session_revocation_api_and_queue_guards', () => verifyRealPushSessions({ admin, fixture, leagueId: league.id, databaseUrl: config.databaseUrl, runId: manifest.runId }));
     receipt.ok = true;
   } catch (error) {
     receipt.ok = false;
-    receipt.checks.push({ name: currentStep, status: 'failed', code: safeCode(error) });
+    receipt.checks.push({ name: currentStep, status: 'failed', code: safeCode(error), location: String(error?.stack || '').match(/scripts\/qa\/[a-z0-9.-]+:\d+:\d+/i)?.[0] });
   } finally {
     // Quiesce every transport before deleting fixtures. The worker never emits
     // credentials or resumes scenario work after this barrier.
@@ -274,9 +352,9 @@ export async function runRealServices(statusPath, outputDirectory, cleanupPath) 
         if (found.error) throw found.error;
         if (!ownsUser(found.data.user, manifest, item)) throw Object.assign(new Error('cleanup_ownership_mismatch'), { qaCode: 'cleanup_ownership_mismatch' });
         users.push(item);
-        requireOk(await admin.auth.admin.updateUserById(item.id, { ban_duration: '876000h' }));
         const person = fixture.find(person => person.item.id === item.id);
-        if (person) requireOk(await admin.auth.admin.signOut(person.tokens.at(-1), 'global'));
+        if (person && !person.sessionsGloballyRevoked) requireOk(await admin.auth.admin.signOut(person.tokens.at(-1), 'global'));
+        requireOk(await admin.auth.admin.updateUserById(item.id, { ban_duration: '876000h' }));
       }
       const league = requireOk(await admin.from('ball_knower_leagues').select('id,commissioner_auth_id,settings').eq('id', manifest.leagueId).maybeSingle());
       if (league) {
@@ -296,7 +374,10 @@ export async function runRealServices(statusPath, outputDirectory, cleanupPath) 
         'football_drives',(select count(*) from bk_football_private.drives where user_id in(${ids})),
         'mini_challenges',(select count(*) from bk_minigames_private.challenges where challenger_id in(${ids}) or opponent_id in(${ids})),
         'mini_attempts',(select count(*) from bk_minigames_private.attempts where user_id in(${ids})),
-        'notifications',(select count(*) from public.ball_knower_notifications where auth_user_id in(${ids})));`));
+        'notifications',(select count(*) from public.ball_knower_notifications where auth_user_id in(${ids}))${pushOverlay ? `,
+        'push_settings',(select count(*) from ball_knower_private.push_settings where auth_user_id in(${ids})),
+        'push_devices',(select count(*) from ball_knower_private.push_devices where auth_user_id in(${ids})),
+        'push_deliveries',(select count(*) from ball_knower_private.push_deliveries where auth_user_id in(${ids}))` : ''});`));
       assert.ok(Object.values(counts).every(count => count === 0));
       receipt.cleanup = { status: 'verified', remainingOwnedRows: counts, quiescedTransports: true, refreshSessionsRevoked: true, accessTokensNeverExported: true, canonicalSeedRemovedByStackTeardown: true };
     } catch (error) {

@@ -28,6 +28,10 @@ assert.equal(compareSchema(snapshot, structuredClone(snapshot)).matched, true);
 const widened = structuredClone(snapshot);
 widened.tables.find(table => table.name === 'ball_knower_leagues').policies[0].using = 'true';
 assert.equal(compareSchema(snapshot, widened).matched, false, 'RLS policy drift must fail parity');
+const missingPublication = structuredClone(snapshot); missingPublication.realtime = [];
+assert.equal(compareSchema(snapshot, missingPublication).matched, false, 'realtime publication drift must fail parity');
+const changedSchemaGrant = structuredClone(snapshot); changedSchemaGrant.schemaAcl = [];
+assert.equal(compareSchema(snapshot, changedSchemaGrant).matched, false, 'private schema grant drift must fail parity');
 for (const material of ['https://example.test', 'net.http_post', 'cron.schedule', 'vault.decrypted_secrets', 'sb_secret_1234567890123456']) {
   const unsafe = structuredClone(snapshot); unsafe.functions[0].definition += `\n-- ${material}`;
   assert.throws(() => validateSnapshot(unsafe));

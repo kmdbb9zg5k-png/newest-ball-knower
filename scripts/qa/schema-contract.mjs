@@ -82,5 +82,10 @@ export function compareSchema(expected, actual) {
     const counterpart = actual[kind]?.find(row => key(row) === key(object));
     if (!counterpart || sha256(canonical(object, kind)) !== sha256(canonical(counterpart, kind))) differences.push(key(object));
   }
+  const schemas = new Set(expected.tables.map(table => table.schema));
+  if (sha256(sorted(expected.schemaAcl.filter(entry => schemas.has(entry.schema)))) !== sha256(sorted(actual.schemaAcl?.filter(entry => schemas.has(entry.schema))))) differences.push('scoped_schema_grants');
+  const tables = new Set(expected.tables.map(table => `${table.schema}.${table.name}`));
+  const realtime = values => sorted(values?.filter(entry => tables.has(`${entry.schema}.${entry.table}`)));
+  if (sha256(realtime(expected.realtime)) !== sha256(realtime(actual.realtime))) differences.push('scoped_realtime_publication');
   return { matched: differences.length === 0, expectedTables: expected.tables.length, expectedFunctions: expected.functions.length, differences, snapshotSha256: sha256(expected) };
 }

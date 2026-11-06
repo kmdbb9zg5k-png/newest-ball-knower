@@ -20,6 +20,7 @@ import {ManagerAvatar} from './ManagerAvatar';
 import { resolveSeasonChampion } from './simulation';
 import { FantasyNotificationPreferences } from './FantasyNotificationPreferences';
 import { FantasyNotificationInbox } from './FantasyNotificationInbox';
+import {usePushDestination} from './usePushDestination';
 
 type Tab = 'overview'|'commissioner'|'activity'|'history'|'notifications'|'results';
 
@@ -67,6 +68,8 @@ export const FantasyLeagueCommandCenter: React.FC<Props> = ({league,onGoToDraft,
   const [settingsOpen,setSettingsOpen]=useState(false);
   const liveDraftComplete=league.liveDraft?.status==='completed';
   const scheduledDraftLabel=formatDraftSchedule(league);
+
+  usePushDestination(league.id,currentUser?.id,Boolean(myMember),destination=>{if(destination==='draft'||destination==='roster')onGoToDraft();else setTab(destination==='results'?'results':'activity');});
 
   useEffect(()=>setCap(league.salaryCap),[league.salaryCap]);
   useEffect(()=>setInviteCode(league.code),[league.id,league.code]);

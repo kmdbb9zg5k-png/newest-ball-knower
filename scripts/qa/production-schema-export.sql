@@ -24,5 +24,8 @@ select jsonb_build_object(
   'functions',(select jsonb_agg(jsonb_build_object('schema',f.nspname,'name',f.proname,'arguments',pg_catalog.pg_get_function_identity_arguments(f.oid),'definition',pg_catalog.pg_get_functiondef(f.oid),'acl',(select jsonb_agg(jsonb_build_object('grantee',case when a.grantee=0 then 'PUBLIC' else pg_catalog.pg_get_userbyid(a.grantee) end,'privilege',a.privilege_type,'grantable',a.is_grantable) order by a.grantee,a.privilege_type) from pg_catalog.aclexplode(coalesce(f.proacl,pg_catalog.acldefault('f',f.proowner))) a)) order by f.nspname,f.proname,pg_catalog.pg_get_function_identity_arguments(f.oid)) from app_functions f),
   'schemaAcl',(select jsonb_agg(jsonb_build_object('schema',n.nspname,'grantee',case when a.grantee=0 then 'PUBLIC' else pg_catalog.pg_get_userbyid(a.grantee) end,'privilege',a.privilege_type) order by n.nspname,a.grantee,a.privilege_type) from pg_catalog.pg_namespace n cross join lateral pg_catalog.aclexplode(coalesce(n.nspacl,pg_catalog.acldefault('n',n.nspowner))) a where n.nspname in ('ball_knower_private','bk_minigames_private','bk_football_private')),
   'realtime',(select jsonb_agg(jsonb_build_object('schema',schemaname,'table',tablename) order by schemaname,tablename) from pg_catalog.pg_publication_tables where pubname='supabase_realtime' and schemaname='public'),
-  'migrations',(select jsonb_agg(jsonb_build_object('version',version,'name',name,'sha256',encode(sha256(convert_to(array_to_string(statements,E'\n'),'UTF8')),'hex')) order by version) from supabase_migrations.schema_migrations)
+  'migrations',
+  -- BEGIN SOURCE MIGRATION METADATA
+  (select jsonb_agg(jsonb_build_object('version',version,'name',name,'sha256',encode(sha256(convert_to(array_to_string(statements,E'\n'),'UTF8')),'hex')) order by version) from supabase_migrations.schema_migrations)
+  -- END SOURCE MIGRATION METADATA
 ) as snapshot;

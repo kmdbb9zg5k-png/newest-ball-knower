@@ -118,6 +118,7 @@ export async function sendEmailMagicLink(email: string, displayName?: string): P
 export async function signOutOnline(): Promise<void> {
   if (!supabase) return;
   await flushAllCloudStateBeforeIdentityChange();
+  await (await import('./pushClient')).beforePushSignOut();
   const { error } = await supabase.auth.signOut();
   if (error) throw new Error(error.message || 'Could not sign out.');
 }

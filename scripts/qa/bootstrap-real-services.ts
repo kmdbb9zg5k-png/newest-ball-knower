@@ -12,7 +12,7 @@ export function localSql(databaseUrl: string, sql: string, stage = 'fixture') {
   // SQL errors can contain fixture payloads. Keep stderr out of CI output.
   if (result.error || result.status !== 0) {
     const sqlState = result.stderr?.match(/ERROR:\s+([A-Z0-9]{5})\b/)?.[1] || 'unknown';
-    throw new Error(`isolated_sql_failed:${stage}:${sqlState}`);
+    throw Object.assign(new Error(`isolated_sql_failed:${stage}:${sqlState}`), { qaCode: `isolated_sql_${stage}_${sqlState}` });
   }
   return result.stdout.trim();
 }
@@ -31,11 +31,17 @@ export function bootstrap(statusPath: string, outputDirectory: string) {
   localSql(config.databaseUrl, renderSchema(snapshot), 'restore_schema');
   // psql returns the selected JSON value directly; the hosted connector wraps
   // the same column in a row object during the read-only snapshot capture.
-  const local = JSON.parse(localSql(config.databaseUrl, readFileSync(new URL('./production-schema-export.sql', import.meta.url), 'utf8'), 'export_local_metadata'));
+  const sourceExportSql = readFileSync(new URL('./production-schema-export.sql', import.meta.url), 'utf8');
+  // Local application definitions are restored without a historical migration
+  // replay. Do not require, populate, or compare a fabricated migration ledger.
+  const localExportSql = sourceExportSql.replace(/-- BEGIN SOURCE MIGRATION METADATA[\s\S]*?-- END SOURCE MIGRATION METADATA/, "'[]'::jsonb");
+  if (localExportSql === sourceExportSql) throw new Error('source_migration_metadata_marker_required');
+  const local = JSON.parse(localSql(config.databaseUrl, localExportSql, 'export_local_metadata'));
   const parity = compareSchema(snapshot, local);
   writeFileSync(resolve(outputDirectory, 'schema-parity.json'), JSON.stringify({ ...parity, source: snapshot.source, appliedMigrationMetadata: snapshot.migrations, historicalReplay: false }, null, 2));
   if (!parity.matched) throw new Error('production_schema_parity_failed');
-  const overlays = String(process.env.BK_QA_EXTRA_MIGRATIONS || '').split(',').map(value => value.trim()).filter(Boolean);
+  const overlayInput = String(process.env.BK_QA_EXTRA_MIGRATIONS || '').trim();
+  const overlays = overlayInput === 'none' ? [] : overlayInput.split(',').map(value => value.trim()).filter(Boolean);
   const appliedOverlays = [];
   for (const filename of overlays) {
     if (!/^(?:migrations|supabase\/migrations)\/[a-z0-9_]+\.sql$/.test(filename)) throw new Error('invalid_isolated_overlay_path');

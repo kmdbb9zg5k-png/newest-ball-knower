@@ -34,6 +34,7 @@ import { useBallKnower } from "./BallKnowerContext";
 import { FantasyAdvancedLeagueSettings } from "./FantasyAdvancedLeagueSettings";
 import { FantasyLeagueCommunications } from "./FantasyLeagueCommunications";
 import { FantasyNotificationPreferences } from "./FantasyNotificationPreferences";
+import {usePushDestination} from "./usePushDestination";
 import { isCloudConfigured } from "./supabase";
 import {
   fetchSeasonOperations,
@@ -317,6 +318,7 @@ export const FantasyLeaguePostDraft: React.FC<Props> = ({
     setLeagueView(destination === "trades" ? "trades" : destination === "league" ? "standings" : "activity");
     setActivityView(destination === "trades" ? "trades" : destination === "messages" ? "messages" : "moves");
   };
+  usePushDestination(league.id,currentUser?.id,Boolean(me),openNotification);
   const readNotification = async (id: string) => {
     const scope = notificationScope;
     await markNotificationRead(id);

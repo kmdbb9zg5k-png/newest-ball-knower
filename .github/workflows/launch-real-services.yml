@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       extra_migrations:
-        description: Comma-separated reviewed repository SQL feature migrations to apply after base parity
+        description: Comma-separated reviewed SQL feature paths after base parity, or none for the base schema only
         type: string
         required: false
-        default: ''
+        default: 'migrations/20261106021753_atomic_validated_fantasy_scoring.sql,migrations/20261106023523_secure_fantasy_lineup_writes.sql,supabase/migrations/20261106021520_fantasy_push_delivery.sql'
   pull_request:
     branches: [main]
     paths:
@@ -19,9 +19,19 @@ on:
       - 'fantasyLeagueParityCloud.ts'
       - 'supabase.ts'
       - 'resilientFetch.ts'
+      - 'migrations/*fantasy*.sql'
+      - 'supabase/migrations/*fantasy_push_delivery.sql'
+      - 'api/push*.ts'
+      - 'server/push*.ts'
+      - 'pushContracts.ts'
+      - 'package*.json'
 
 permissions:
   contents: read
+
+concurrency:
+  group: launch-real-services-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   two-account-real-services:
@@ -29,7 +39,7 @@ jobs:
     timeout-minutes: 25
     env:
       BK_QA_OUTPUT: artifacts/launch-real-services
-      BK_QA_EXTRA_MIGRATIONS: ${{ inputs.extra_migrations || '' }}
+      BK_QA_EXTRA_MIGRATIONS: ${{ inputs.extra_migrations || 'migrations/20261106021753_atomic_validated_fantasy_scoring.sql,migrations/20261106023523_secure_fantasy_lineup_writes.sql,supabase/migrations/20261106021520_fantasy_push_delivery.sql' }}
     steps:
       - name: Set private runner status path
         shell: bash
