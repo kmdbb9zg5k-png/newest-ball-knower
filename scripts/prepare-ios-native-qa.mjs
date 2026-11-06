@@ -15,6 +15,12 @@ await fs.writeFile(configPath,JSON.stringify(config,null,2)+'\n');
 const app='ios/App/App';
 const qaController=await fs.readFile('scripts/fixtures/NativeQAViewController.swift','utf8');
 await fs.appendFile(`${app}/AppDelegate.swift`,'\n'+qaController);
+// Capacitor 8.5 creates its root controller in SceneDelegate rather than loading
+// Main.storyboard. Both entry points must select the fixture-only subclass.
+const sceneDelegatePath=`${app}/SceneDelegate.swift`;
+const sceneDelegate=await fs.readFile(sceneDelegatePath,'utf8');
+if(!sceneDelegate.includes('rootViewController = CAPBridgeViewController()'))throw new Error('Expected the locked Capacitor SceneDelegate root controller');
+await fs.writeFile(sceneDelegatePath,sceneDelegate.replace('rootViewController = CAPBridgeViewController()','rootViewController = NativeQAViewController()'));
 const storyboardPath=`${app}/Base.lproj/Main.storyboard`;
 const storyboard=await fs.readFile(storyboardPath,'utf8');
 if(!storyboard.includes('customClass="CAPBridgeViewController"'))throw new Error('Expected the generated Capacitor storyboard');
