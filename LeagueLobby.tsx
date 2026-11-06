@@ -6,6 +6,8 @@ import { LockedDraftOrderView } from './LockedDraftOrderView';
 import { OwnerCareerSync } from './OwnerCareerSync';
 import { FantasyLeagueEssentials } from './FantasyLeagueEssentials';
 import { FantasyLeaguePostDraft } from './FantasyLeaguePostDraft';
+import {useBallKnower} from './BallKnowerContext';
+import {PUSH_DESTINATION_EVENT,type PushTarget} from './pushContracts';
 const loadLeagueIntelligenceHub = () => import('./LeagueIntelligenceHub').then(module => ({ default: module.LeagueIntelligenceHub }));
 const loadIntelligenceExtras = () => import('./IntelligenceExtras').then(module => ({ default: module.IntelligenceExtras }));
 
@@ -55,6 +57,8 @@ class ModeErrorBoundary extends React.Component<ModeErrorBoundaryProps, ModeErro
 }
 
 export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onBack, onGoToDraft, onGoToSimulation, onViewMemberLocker }) => {
+  const {currentUser}=useBallKnower();
+  const [pushHqOverride,setPushHqOverride]=useState(false);
   const draftComplete = league.liveDraft?.status === 'completed';
   const [mode, setMode] = useState<'command' | 'season' | 'intelligence'>(draftComplete ? 'season' : 'command');
   const [lazyVersion, setLazyVersion] = useState(0);
@@ -63,6 +67,17 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onBack, onGoTo
   const retryMode = () => setLazyVersion(version => version + 1);
   const result = league.seasonResult;
   const hasLockedDraftOrder = league.status === 'completed' && Boolean(result?.draftOrder?.length);
+  useEffect(()=>{
+    setPushHqOverride(false);
+    const open=(target:PushTarget&{ownerId:string})=>{
+      if(target?.leagueId!==league.id||target.ownerId!==currentUser?.id||!league.members.some(member=>member.userId===currentUser.id&&!member.isAi))return;
+      if(target.destination!=='draft'&&target.destination!=='results'){setMode('command');setPushHqOverride(true);}
+    };
+    const listener=(event:Event)=>open((event as CustomEvent).detail);
+    window.addEventListener(PUSH_DESTINATION_EVENT,listener);
+    try{const stored=sessionStorage.getItem('ballknower_push_destination_v1');if(stored)open(JSON.parse(stored));}catch{}
+    return()=>window.removeEventListener(PUSH_DESTINATION_EVENT,listener);
+  },[league.id,currentUser?.id]);
 
   // Draft Order Game results are deliberately retained until the real fantasy
   // season launches, but they are not fantasy-season matchups/records. Live
@@ -103,7 +118,7 @@ export const LeagueLobby: React.FC<LeagueLobbyProps> = ({ league, onBack, onGoTo
         </div>
       </div>
       {mode === 'command' ? (
-        hasLockedDraftOrder ? <LockedDraftOrderView league={league} onGoToDraft={onGoToDraft} onViewResults={onGoToSimulation} /> : <FantasyLeagueCommandCenter league={league} onGoToDraft={onGoToDraft} onGoToSimulation={onGoToSimulation} />
+        hasLockedDraftOrder&&!pushHqOverride ? <LockedDraftOrderView league={league} onGoToDraft={onGoToDraft} onViewResults={onGoToSimulation} /> : <>{hasLockedDraftOrder&&<button type="button" onClick={()=>setPushHqOverride(false)} className="mx-3 mt-3 min-h-11 rounded-xl border border-white/15 px-4 text-xs font-bold text-zinc-300">Back to draft order</button>}<FantasyLeagueCommandCenter league={league} onGoToDraft={onGoToDraft} onGoToSimulation={onGoToSimulation} /></>
       ) : mode === 'season' ? (
         <div className="mx-auto max-w-6xl px-3 py-5 sm:px-6">
           <ModeErrorBoundary key={`season-${lazyVersion}`} onRetry={retryMode}>

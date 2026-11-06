@@ -6,6 +6,7 @@ import {
   saveMyNotificationPreference,
 } from "./leagueCloud";
 import { isCloudConfigured } from "./supabase";
+import PushNotificationControls from "./PushNotificationControls";
 
 const CATEGORY_COPY: Record<FantasyNotificationCategory, {label:string; detail:string}> = {
   draft: {label:"Draft", detail:"Reminders, started, on deck, on clock and autopicks"},
@@ -67,10 +68,11 @@ export const FantasyNotificationPreferences: React.FC<{userId?:string}> = ({user
   return <section className="space-y-3 border-t border-white/10 pt-4">
     <div>
       <div className="text-xs font-black uppercase text-white">Your Alert Preferences</div>
-      <p className="mt-1 text-xs leading-5 text-zinc-400">In-app alert preferences follow your account across fantasy leagues. You can save push preferences, but this version does not deliver push notifications.</p>
+      <p className="mt-1 text-xs leading-5 text-zinc-400">Choose in-app and push alerts independently for each fantasy category. Device permission and quiet hours control when push alerts arrive.</p>
     </div>
     {error&&<div role="alert" className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/25 bg-amber-500/5 p-3 text-[10px] font-bold text-amber-200"><span>{error}</span><button type="button" onClick={()=>void load()} className="min-h-9 shrink-0 rounded-lg border border-amber-400/25 px-3 font-black uppercase">Retry</button></div>}
     {!ready&&!error&&<div aria-live="polite" className="rounded-xl border border-white/10 bg-black/20 p-3 text-[10px] font-bold text-zinc-500">Loading alert preferences…</div>}
+    <PushNotificationControls userId={userId}/>
     <div className="divide-y divide-white/5 overflow-hidden rounded-xl border border-white/10 bg-black/20">
       <div className="grid grid-cols-[minmax(0,1fr)_54px_54px] items-center gap-2 px-3 py-2 text-center text-[8px] font-black uppercase tracking-wider text-zinc-600"><span className="text-left">Category</span><span>In App</span><span>Push</span></div>
       {ORDER.map(category=>{
