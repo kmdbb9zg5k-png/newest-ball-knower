@@ -7,6 +7,19 @@ export const READINESS_GAME={id:'2026_08_CHI_SEA',providerGameId:'20261102_CHI@S
 const MAX_WINDOW_MS=60*60_000;
 type Dependencies={identities:ProbeIdentity[];env?:NodeJS.ProcessEnv;fetchImpl?:typeof fetch;now?:()=>number;log?:(event:Record<string,unknown>)=>void};
 const object=(value:unknown):Record<string,unknown>=>value&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:{};
+type AuthenticationFailure='not_subscribed'|'invalid_api_key'|'forbidden_or_restricted'|'unknown';
+// Read only known error strings, return a fixed enum, and never retain text.
+function classifyAuthenticationFailure(payload:Record<string,unknown>):AuthenticationFailure{
+ const nested=object(payload.error);
+ const text=[payload.message,payload.error,payload.code,nested.message,nested.code]
+  .filter((value):value is string=>typeof value==='string'&&value.length<=2_000).join(' ').toLowerCase().replace(/[_-]/g,' ');
+ const subscription=/\b(?:not subscribed|no active subscription|subscription (?:is )?(?:required|missing|inactive)|subscribe to (?:this|the) api)\b/.test(text);
+ const key=/\b(?:invalid|missing|incorrect|expired|revoked)\s+(?:(?:x )?rapidapi |api )?key\b/.test(text);
+ if(subscription&&key)return 'unknown';
+ if(subscription)return 'not_subscribed';
+ if(key)return 'invalid_api_key';
+ return /\b(?:forbidden|access denied|not authorized|unauthorized|restricted|blocked|not permitted)\b/.test(text)?'forbidden_or_restricted':'unknown';
+}
 
 async function requestProvider(path:'/getNFLBoxScore'|'/getNFLProjections',params:Record<string,string>,key:string,fetcher:typeof fetch){
  let status:number|null=null;
@@ -17,13 +30,17 @@ async function requestProvider(path:'/getNFLBoxScore'|'/getNFLProjections',param
    // No redirects: credentials may only be sent to this fixed provider origin.
    if(new URL(String(input)).origin!==`https://${TANK01_HOST}`)throw Error('invalid_provider_origin');
    const response=await fetcher(input,{...init,headers:{Accept:'application/json','x-rapidapi-key':key,'x-rapidapi-host':TANK01_HOST}});
-   status=response.status;return response;
+   status=response.status;
+   // The shared reader rejects non-2xx before reading. Consume only 401/403
+   // through its existing deadline/stream cap; retain the original status.
+   return status===401||status===403?new Response(response.body,{status:200,headers:response.headers}):response;
   }});
   const payload=object(JSON.parse(result.text));
-  if(payload.error||Number(payload.statusCode)>=400)return {ok:false,status,reason:'provider_payload_error',body:null,sourceUpdatedAt:result.sourceUpdatedAt};
-  return {ok:true,status,reason:null,body:payload.body??payload,sourceUpdatedAt:result.sourceUpdatedAt};
+  if(status===401||status===403)return {ok:false,status,reason:'provider_authentication_failed',authenticationFailure:classifyAuthenticationFailure(payload),body:null,sourceUpdatedAt:null};
+  if(payload.error||Number(payload.statusCode)>=400)return {ok:false,status,reason:'provider_payload_error',authenticationFailure:null,body:null,sourceUpdatedAt:result.sourceUpdatedAt};
+  return {ok:true,status,reason:null,authenticationFailure:null,body:payload.body??payload,sourceUpdatedAt:result.sourceUpdatedAt};
  }catch{
-  return {ok:false,status,reason:status===401||status===403?'provider_authentication_failed':status===429?'provider_rate_limited':'provider_response_unavailable_or_invalid',body:null,sourceUpdatedAt:null};
+  return {ok:false,status,reason:status===401||status===403?'provider_authentication_failed':status===429?'provider_rate_limited':'provider_response_unavailable_or_invalid',authenticationFailure:status===401||status===403?'unknown':null,body:null,sourceUpdatedAt:null};
  }
 }
 
@@ -47,8 +64,8 @@ export function createScoringReadinessHandler(deps:Dependencies){
    requestProvider('/getNFLProjections',{week:String(READINESS_GAME.week)},key,fetcher),
   ]);
   const event={...base,enabled:true,providerRequests:2,capturedAt:new Date(clock()).toISOString(),game:READINESS_GAME,
-   boxRequest:{ok:box.ok,status:box.status,reason:box.reason,sourceUpdatedAt:box.sourceUpdatedAt},
-   projectionRequest:{ok:projection.ok,status:projection.status,reason:projection.reason,sourceUpdatedAt:projection.sourceUpdatedAt},
+   boxRequest:{ok:box.ok,status:box.status,reason:box.reason,authenticationFailure:box.authenticationFailure,sourceUpdatedAt:box.sourceUpdatedAt},
+   projectionRequest:{ok:projection.ok,status:projection.status,reason:projection.reason,authenticationFailure:projection.authenticationFailure,sourceUpdatedAt:projection.sourceUpdatedAt},
    coverage:summarizeProviderCoverage(box.body,projection.body,deps.identities,READINESS_GAME)};
   // Only this constructed aggregate is logged. No provider bodies, raw errors,
   // credentials, names, identifiers or raw player stat values enter the log.

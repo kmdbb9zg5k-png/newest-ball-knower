@@ -38,3 +38,20 @@ game; it does not certify live cadence, rare-event semantics, corrections,
 identity namespace, projection week metadata or activation.
 
 Validation: `node --import tsx scripts/fantasy-scoring-readiness-check.ts`.
+
+For HTTP 401/403 only, the existing bounded reader consumes the JSON error body
+and emits a fixed `authenticationFailure` enum: `not_subscribed`,
+`invalid_api_key`, `forbidden_or_restricted`, or `unknown`. Raw messages, request
+IDs, links and credentials are neither returned nor logged. These bodies never
+enter stat/identity coverage. Unknown, contradictory, non-JSON or over-limit
+errors remain `unknown`; a 403 alone does not prove a subscription/key problem.
+The classifier reports the provider's stated category, not an account diagnosis.
+
+The request uses the published RapidAPI Tank01 NFL host with `X-RapidAPI-Key`
+and `X-RapidAPI-Host`, GET `/getNFLBoxScore?gameID=YYYYMMDD_AWAY@HOME`, and
+GET `/getNFLProjections?week=8`. Header names are case-insensitive. Primary
+references rechecked November 6, 2026:
+
+- https://docs.rapidapi.com/v2/docs/configuring-api-authentication
+- https://rapidapi.com/tank01/api/tank01-nfl-live-in-game-real-time-statistics-nfl/playground/apiendpoint_2b51b742-93f5-4185-ac4c-81729bf096c2
+- https://rapidapi.com/tank01/api/tank01-nfl-live-in-game-real-time-statistics-nfl/playground/apiendpoint_244b2b2c-ab39-4f48-91f0-a6f01546dc06
