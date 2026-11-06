@@ -3,7 +3,7 @@
 import hashlib
 import importlib.util
 import json
-import os
+from ios_build_number import verify_ios_build_number
 import subprocess
 import tempfile
 import zipfile
@@ -27,8 +27,7 @@ with tempfile.TemporaryDirectory(prefix="ball-knower-ipa-") as directory:
 manifest.update({"commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(),
                  "ipaSHA256": hashlib.sha256(ipa.read_bytes()).hexdigest(),
                  "distribution": "artifact-only; device QA and upload are separate gates"})
-if manifest["buildNumber"] != os.environ.get("BUILD_NUMBER"):
-    raise RuntimeError("The exported IPA build number does not match the CI build")
+verify_ios_build_number(manifest["buildNumber"])
 artifacts = root / "artifacts/release"
 artifacts.mkdir(parents=True, exist_ok=True)
 (artifacts / "signed-ipa-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")

@@ -63,3 +63,31 @@ with tempfile.TemporaryDirectory() as directory:
     assert scheme.find("TestAction/Testables/TestableReference/BuildableReference").get("BlueprintIdentifier") == target_id
 print("iOS project setup passed: repeatability, preserved settings, permissions, URL types, capabilities and profile-specific APNs.")
 print("Native QA UI-test target and shared scheme passed: fixture-only product, references and repeatability.")
+
+
+# A newly selected workflow can start at BUILD_NUMBER=1 after the app already
+# has many store builds. Versioning and exported-IPA verification must share the
+# project counter, and missing project data must never fall back to that reset.
+from ios_build_number import ios_build_number, verify_ios_build_number
+
+for project_number, workflow_number in [("42", "1"), ("103", "17")]:
+    environment = {"PROJECT_BUILD_NUMBER": project_number, "BUILD_NUMBER": workflow_number}
+    assert ios_build_number(environment) == project_number
+    assert verify_ios_build_number(project_number, environment) == project_number
+    try:
+        verify_ios_build_number(workflow_number, environment)
+        raise AssertionError("An IPA using the restarted workflow counter was accepted")
+    except ValueError as error:
+        assert "PROJECT_BUILD_NUMBER" in str(error)
+
+for environment in [{"BUILD_NUMBER": "99"}] + [
+    {"PROJECT_BUILD_NUMBER": value, "BUILD_NUMBER": "99"}
+    for value in [None, "", "0", "-1", "1.0", "01", " 7", "7 ", "abc", "１２"]
+]:
+    try:
+        ios_build_number(environment)
+        raise AssertionError("Missing or invalid project counter was accepted")
+    except ValueError as error:
+        assert "PROJECT_BUILD_NUMBER" in str(error)
+
+print("iOS build numbering passed: shared project counter, restarted workflow, mismatched IPA and missing/invalid counter.")
