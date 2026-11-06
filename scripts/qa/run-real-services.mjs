@@ -107,6 +107,14 @@ export async function runRealServices(statusPath, outputDirectory, cleanupPath) 
   }
   try {
     if (cleanupPath) { receipt.ok = true; return receipt; }
+    await check('auth.email_provider_enabled_and_public_signup_disabled', async () => {
+      const response = await fetch(`${config.url}/auth/v1/settings`, { headers: { apikey: config.publicKey } });
+      assert.equal(response.ok, true);
+      const settings = await response.json();
+      assert.equal(settings.external.email, true, 'password provider must be enabled for Admin-created fixtures');
+      assert.equal(settings.disable_signup, true, 'ordinary signup must remain disabled');
+      return { observedRealAuthSettings: true, emailProviderEnabled: true, publicSignupDisabled: true };
+    });
     await check('auth.two_distinct_admin_created_password_sessions', async () => {
       for (const item of manifest.users) {
         const password = randomBytes(32).toString('base64url') + 'aA9!';
