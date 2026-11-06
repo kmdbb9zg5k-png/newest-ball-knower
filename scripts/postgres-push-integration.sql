@@ -24,12 +24,12 @@ insert into public.ball_knower_notifications(auth_user_id,league_id) values('000
 -- Only fixture mutations get broad privileges. The migration itself grants no client auth access.
 grant usage on schema auth to service_role;
 grant all on public.ball_knower_notifications,public.ball_knower_league_members,public.ball_knower_leagues,public.ball_knower_live_drafts,public.ball_knower_notification_preferences to service_role;
-grant delete on auth.sessions to service_role;
+grant delete on auth.sessions,auth.users to service_role;
 set local role service_role;
 do $test$
 declare
  u1 uuid:='00000000-0000-4000-8000-000000000001'; u2 uuid:='00000000-0000-4000-8000-000000000002'; s1 uuid:='00000000-0000-4000-8000-000000000011'; s2 uuid:='00000000-0000-4000-8000-000000000012';
- install uuid:='00000000-0000-4000-8000-000000000021'; device uuid; n uuid; q record; c record; response jsonb; original_token uuid; original_time timestamptz; data jsonb; instant timestamptz:=clock_timestamp();
+ install uuid:='00000000-0000-4000-8000-000000000021'; device uuid; n uuid; q record; c record; response jsonb; original_token uuid; original_time timestamptz; data jsonb; step integer; attempt_time timestamptz; instant timestamptz:=clock_timestamp();
 begin
  data:=jsonb_build_object('sessionId',s1,'installationId',install,'installationSecretHash',repeat('a',64),'transport','web','payload',jsonb_build_object('endpoint','https://fcm.googleapis.com/fcm/send/synthetic-token','keys',jsonb_build_object('p256dh','synthetic','auth','synthetic')),'label','Synthetic browser');
  device:=(public.manage_ball_knower_push(u1,'subscribe',data)->>'id')::uuid;
@@ -132,6 +132,41 @@ begin
  if (select outcome_code from ball_knower_private.push_deliveries where notification_id=n)<>'expired' then raise exception 'expired source remained eligible'; end if;
  insert into public.ball_knower_notifications(auth_user_id,league_id,push_eligible) values(u1,'league-a',false) returning id into n;
  if exists(select 1 from ball_knower_private.push_deliveries where notification_id=n) then raise exception 'persisted push opt-out queued'; end if;
+
+ -- Notification links are owner-bound and require current league membership, including push-only events.
+ insert into public.ball_knower_notifications(auth_user_id,league_id,in_app_visible) values(u1,'league-a',false) returning id into n;
+ if public.manage_ball_knower_push(u1,'notification',jsonb_build_object('sessionId',s1,'id',n))->>'leagueId'<>'league-a' then raise exception 'owner push-only link unavailable'; end if;
+ if public.manage_ball_knower_push(u2,'notification',jsonb_build_object('sessionId',s2,'id',n)) is not null then raise exception 'foreign notification link exposed'; end if;
+ delete from public.ball_knower_league_members where id='member-a';
+ if public.manage_ball_knower_push(u1,'notification',jsonb_build_object('sessionId',s1,'id',n)) is not null then raise exception 'ended membership link exposed'; end if;
+ insert into public.ball_knower_league_members values('member-a','league-a',u1,false);
+ update ball_knower_private.push_deliveries set state='suppressed' where notification_id=n;
+
+ -- Quiet intervals extending beyond an event expiry suppress rather than retry.
+ insert into public.ball_knower_notifications(auth_user_id,league_id) values(u1,'league-a') returning id into n;
+ update ball_knower_private.push_deliveries set expires_at=instant+interval '10 minutes' where notification_id=n;
+ select * into q from public.claim_ball_knower_push(1,array['web'],instant+interval '21 seconds');
+ perform public.prepare_ball_knower_push(q.id,q.claim_token,instant+interval '22 seconds');
+ perform public.finish_ball_knower_push(q.id,q.claim_token,jsonb_build_object('state','deferred','code','quiet_hours','availableAt',instant+interval '12 hours'),instant+interval '23 seconds');
+ if (select outcome_code from ball_knower_private.push_deliveries where id=q.id)<>'expired_in_quiet_hours' then raise exception 'event survived quiet interval beyond expiry'; end if;
+
+ -- Five actual attempts exhaust retries; deferred intervals above do not count.
+ insert into public.ball_knower_notifications(auth_user_id,league_id) values(u1,'league-a') returning id into n;
+ for step in 1..5 loop
+   attempt_time:=instant+make_interval(mins=>step*20);
+   select * into q from public.claim_ball_knower_push(1,array['web'],attempt_time);
+   if q.id is null then raise exception 'retry attempt % missing',step; end if;
+   perform public.prepare_ball_knower_push(q.id,q.claim_token,attempt_time+interval '1 second');
+   perform public.finish_ball_knower_push(q.id,q.claim_token,'{"state":"retry","code":"provider_unavailable"}',attempt_time+interval '2 seconds');
+ end loop;
+ if not exists(select 1 from ball_knower_private.push_deliveries where notification_id=n and state='failed' and attempts=5) then raise exception 'five-attempt retry limit not enforced'; end if;
+
+ -- Account deletion cascades private settings, devices and pending receipts.
+ perform public.manage_ball_knower_push(u2,'subscribe',data||jsonb_build_object('sessionId',s2,'installationId',gen_random_uuid(),'transport','apns','payload',jsonb_build_object('token',repeat('f',64))));
+ perform public.manage_ball_knower_push(u2,'save-settings',jsonb_build_object('sessionId',s2,'quietEnabled',true,'timeZone','UTC','startMinute',1320,'endMinute',420));
+ insert into public.ball_knower_notifications(auth_user_id,league_id) values(u2,'league-a');
+ delete from auth.users where id=u2;
+ if exists(select 1 from ball_knower_private.push_devices where auth_user_id=u2) or exists(select 1 from ball_knower_private.push_settings where auth_user_id=u2) or exists(select 1 from ball_knower_private.push_deliveries where auth_user_id=u2) then raise exception 'deleted account retained private push data'; end if;
 
  -- Invalid providers revoke devices; sign-out removes device and pending queue via active session FK.
  insert into public.ball_knower_notifications(auth_user_id,league_id) values(u1,'league-a');

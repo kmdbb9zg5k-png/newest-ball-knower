@@ -12,6 +12,11 @@ let clientStarted=false;
 let explicitGeneration=0;
 let authGeneration=0;
 let nativeRegistration:Promise<string>|null=null;
+let localTransportOperations:Promise<unknown>=Promise.resolve();
+function withLocalTransport<T>(operation:()=>Promise<T>):Promise<T>{
+  const result=localTransportOperations.catch(()=>undefined).then(operation);
+  localTransportOperations=result.catch(()=>undefined);return result;
+}
 const changed=()=>window.dispatchEvent(new Event(PUSH_STATE_EVENT));
 function installation(create=false):Installation|null{
   try{
@@ -109,10 +114,11 @@ export async function enablePush(owner:string,readiness:PushReadiness){
     const {PushNotifications}=await import('@capacitor/push-notifications');
     const permission=await PushNotifications.requestPermissions();
     if(permission.receive!=='granted'){changed();throw new Error('Notifications are not allowed. You can change this in iPhone Settings.');}
-    const token=await registerNative();
+    const token=await withLocalTransport(registerNative);
     await request('',{action:'subscribe',installationId:device.installationId,installationSecret:device.installationSecret,transport:'apns',token,label:deviceLabel()},owner);
   }else{
     if(browserPermission&&await browserPermission!=='granted'){changed();throw new Error('Notifications are not allowed. You can change this in browser settings.');}
+    const subscription=await withLocalTransport(async()=>{
     const registration=await worker();
     let subscription=await registration.pushManager.getSubscription();
     const key=readiness.web.publicKey!;
@@ -122,12 +128,14 @@ export async function enablePush(owner:string,readiness:PushReadiness){
       if(old&&BufferlessBase64(old)!==key){await subscription.unsubscribe();subscription=null;}
     }
     if(!subscription)subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:keyBytes});
+    return subscription;
+    });
     await request('',{action:'subscribe',installationId:device.installationId,installationSecret:device.installationSecret,transport:'web',subscription:subscription.toJSON(),label:deviceLabel()},owner);
   }
   await session(current.user.id);
   if(generation===explicitGeneration)save({...device,ownerId:owner,enabled:true});
   }catch(error){
-    await Promise.allSettled([request('',{action:'unsubscribe',installationId:device.installationId,installationSecret:device.installationSecret},owner,current.access_token),...(generation===explicitGeneration?[unsubscribeLocal()]:[])]);
+    if(generation===explicitGeneration)await Promise.allSettled([request('',{action:'unsubscribe',installationId:device.installationId,installationSecret:device.installationSecret},owner,current.access_token),withLocalTransport(unsubscribeLocal)]);
     throw error;
   }
 }
@@ -142,12 +150,13 @@ async function unsubscribeLocal(){
   }
 }
 export async function disablePush(owner:string,accessToken?:string){
-  explicitGeneration++;
+  const generation=++explicitGeneration;
   const device=installation();if(!device||device.ownerId!==owner||!device.enabled)return;
   const outcomes=await Promise.allSettled([
     request('',{action:'unsubscribe',installationId:device.installationId,installationSecret:device.installationSecret},owner,accessToken),
-    unsubscribeLocal(),
+    withLocalTransport(unsubscribeLocal),
   ]);
+  if(generation!==explicitGeneration)return;
   if(outcomes.every(result=>result.status==='rejected'))throw new Error('Push could not be disabled. Try again before changing accounts.');
   save({...device,ownerId:undefined,enabled:false});
 }
@@ -169,7 +178,7 @@ export async function initializePushClient(){
   const synchronize=async(accessToken:string,owner:string,anonymous=false)=>{
     const device=installation();
     if(device?.enabled&&device.ownerId&&(device.ownerId!==owner||anonymous)){
-      await disablePush(device.ownerId,previousOwner===device.ownerId?previousToken:undefined).catch(()=>unsubscribeLocal().catch(()=>undefined));
+      await disablePush(device.ownerId,previousOwner===device.ownerId?previousToken:undefined).catch(()=>withLocalTransport(unsubscribeLocal).catch(()=>undefined));
     }
     previousToken=accessToken;previousOwner=owner;
     if(!device?.enabled||device.ownerId!==owner||anonymous)return;
@@ -177,7 +186,7 @@ export async function initializePushClient(){
     if(state.permission!=='granted'){await disablePush(owner,accessToken);return;}
     const readiness=await getPushReadiness();
     if(state.native&&readiness.apns.ready){
-      const token=await registerNative();
+      const token=await withLocalTransport(registerNative);
       await request('',{action:'subscribe',restore:true,installationId:device.installationId,installationSecret:device.installationSecret,transport:'apns',token,label:deviceLabel()},owner,accessToken);
     }else if(!state.native&&readiness.web.ready){
       const registration=await worker(),subscription=await registration.pushManager.getSubscription();

@@ -4,6 +4,12 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'App.tsx'
+      - 'LeagueLobby.tsx'
+      - 'FantasyLeague*.tsx'
+      - 'FantasyNotification*.tsx'
+      - 'fantasyNotificationRouting.ts'
+      - 'usePushDestination.ts'
       - 'api/push*.ts'
       - 'server/push*.ts'
       - 'push*.ts'
