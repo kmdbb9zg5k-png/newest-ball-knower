@@ -23,5 +23,5 @@ BK_NATIVE_QA=1 node scripts/prepare-ios-native-qa.mjs
 xcodebuild -project ios/App/App.xcodeproj -scheme App \
   -configuration Debug -destination 'generic/platform=iOS Simulator' \
   -derivedDataPath "$PWD/artifacts/native/qa" \
-  CODE_SIGNING_ALLOWED=NO build 2>&1 | tee artifacts/native/qa-build.log
+  CODE_SIGNING_ALLOWED=NO build-for-testing 2>&1 | tee artifacts/native/qa-build.log
 python3 scripts/ios-simulator-qa.py

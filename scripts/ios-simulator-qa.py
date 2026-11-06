@@ -23,7 +23,7 @@ def run_native_ui_test(device_id):
     # One UI-test session owns launch and both URL deliveries, so deployment does
     # not reinstall/replace the app while an external URL is waiting for consent.
     with (ARTIFACTS / "native-url-ui-test.log").open("w") as log:
-        run("xcodebuild", "test", "-project", "ios/App/App.xcodeproj", "-scheme", "App",
+        run("xcodebuild", "test-without-building", "-project", "ios/App/App.xcodeproj", "-scheme", "App",
             "-configuration", "Debug", "-destination", f"id={device_id}",
             "-parallel-testing-enabled", "NO",
             "-derivedDataPath", str(ARTIFACTS / "qa"),
