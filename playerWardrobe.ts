@@ -1,4 +1,4 @@
-import {careerJersey,type CareerJersey} from './careerJersey';
+import {careerJersey,type CareerJersey} from './careerJersey.js';
 export type ClothingSlot='top'|'shorts'|'shoes'|'wrist';
 export type ClothingItem={id:string;name:string;slot:ClothingSlot;color:string;style?:'jersey'|'tee'|'long-sleeve'|'hoodie'|'jeans'|'sweats';jersey?:CareerJersey;accent?:string;pattern?:boolean;premium?:boolean;description:string};
 export const CLOTHING:ClothingItem[]=[
