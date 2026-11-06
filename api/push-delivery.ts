@@ -1,8 +1,8 @@
 import type {Request,Response} from 'express';
 import {timingSafeEqual} from 'node:crypto';
-import {quietUntil,quietHoursRuntimeReady,type PushSettings} from '../pushContracts';
-import {createPushDatabase,pushRpc,type PushDatabase} from '../server/pushDatabase';
-import {readTransportConfiguration,sendApns,sendWebPush,type DeliveryResult,type PushPayload,type TransportConfiguration,type WebSubscription} from '../server/pushTransport';
+import {quietUntil,quietHoursRuntimeReady,type PushSettings} from '../pushContracts.js';
+import {createPushDatabase,pushRpc,type PushDatabase} from '../server/pushDatabase.js';
+import {readTransportConfiguration,sendApns,sendWebPush,type DeliveryResult,type PushPayload,type TransportConfiguration,type WebSubscription} from '../server/pushTransport.js';
 
 export const maxDuration=60;
 type Prepared={state:string;transport:'web'|'apns';subscription:WebSubscription&{token:string};payload:PushPayload;quietHours:PushSettings};
