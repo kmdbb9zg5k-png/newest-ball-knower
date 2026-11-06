@@ -1,0 +1,67 @@
+name: Native iOS app and Simulator QA
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/native-app-simulator.yml'
+      - 'capacitor.config.json'
+      - 'codemagic.yaml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'packages/native-auth-session/**'
+      - 'nativeAuth.ts'
+      - 'nativeRuntime.ts'
+      - 'profilePhoto.ts'
+      - 'ProfilePhotoEditor.tsx'
+      - 'scripts/*ios*'
+      - 'scripts/fixtures/native-ios-qa.ts'
+      - 'scripts/fixtures/NativeQAViewController.swift'
+  push:
+    branches: [codex/launch-native-20261105]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: native-app-simulator-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  full-wrapper-and-native-qa:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - name: Install exactly the locked web and native dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Native auth, deletion, photo and feedback regression gates
+        run: |
+          node scripts/ios-app-store-release-check.mjs
+          python3 scripts/ios-project-setup-check.py
+          node scripts/native-auth-session-check.mjs
+          node scripts/account-deletion-client-check.mjs
+          node scripts/account-deletion-recovery-check.mjs
+          node --import tsx scripts/native-auth-release-check.ts
+          node --import tsx scripts/profile-photo-crop-save-check.ts
+          node scripts/gm-event-haptics-check.mjs
+      - name: Build the full web app and generate the iOS wrapper
+        run: |
+          npm run build
+          npx --no-install cap add ios --packagemanager SPM
+          npx --no-install cap sync ios
+          python3 scripts/configure-ios-project.py
+          node scripts/generate-ios-icon.mjs
+      - name: Compile the full production wrapper and run real Simulator bridge checks
+        run: bash scripts/build-ios-simulator.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-app-simulator-${{ github.sha }}
+          path: |
+            artifacts/native/*.txt
+            artifacts/native/*.sha256
+            artifacts/native/*.log
+            artifacts/native/*.json
+            artifacts/native/*.png
+          retention-days: 14

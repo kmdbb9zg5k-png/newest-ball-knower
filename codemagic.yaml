@@ -1,145 +1,125 @@
+# The default workflow produces a signed artifact only. Uploading to App Store
+# Connect is a separate manual workflow and requires the exact approved SHA.
+definitions:
+  ios_environment: &ios_environment
+    groups:
+      - code-signing
+    xcode: 26.6
+    node: 22
+    vars:
+      BUNDLE_ID: "com.ballknower.ios"
+      XCODE_PROJECT: "ios/App/App.xcodeproj"
+      XCODE_SCHEME: "App"
+      MARKETING_VERSION: "1.0.0"
+
+  ios_scripts: &ios_scripts
+    - name: Verify the requested distribution stage
+      script: |
+        if [ "$CM_WORKFLOW_ID" = "ios-app-store-upload" ]; then
+          test -n "${BK_APPROVED_UPLOAD_SHA:-}" || { echo 'An exact owner-approved upload SHA is required.'; exit 1; }
+          test "$BK_APPROVED_UPLOAD_SHA" = "$(git rev-parse HEAD)" || { echo 'The approved SHA does not match this build.'; exit 1; }
+        fi
+
+    - name: Install exactly the locked web and Capacitor dependencies
+      script: npm ci --no-audit --no-fund
+
+    - name: Run native release gates
+      script: |
+        node scripts/ios-app-store-release-check.mjs
+        python3 scripts/ios-project-setup-check.py
+        node scripts/native-auth-session-check.mjs
+        node scripts/gm-event-haptics-check.mjs
+
+    - name: Verify full web regression suite and football backend
+      script: |
+        npm run check:hardening
+        node --import tsx scripts/independent-sources-check.ts
+        node scripts/release-backend-preflight.mjs
+
+    - name: Build Ball Knower web app
+      script: npm run build
+
+    - name: Generate and configure the production iOS wrapper
+      script: |
+        test ! -d ios || { echo 'Use a clean checkout for a native release candidate.'; exit 1; }
+        npx --no-install cap add ios --packagemanager SPM
+        npx --no-install cap sync ios
+        python3 scripts/configure-ios-project.py
+        node scripts/generate-ios-icon.mjs
+        test -d "$CM_BUILD_DIR/$XCODE_PROJECT"
+
+    - name: Set up iOS signing keychain
+      script: keychain initialize
+
+    - name: Fetch existing Apple signing files without creating credentials
+      script: |
+        test -n "${CERTIFICATE_PRIVATE_KEY:-}" || { echo 'The existing code-signing group needs CERTIFICATE_PRIVATE_KEY.'; exit 1; }
+        app-store-connect fetch-signing-files "$BUNDLE_ID" \
+          --type IOS_APP_STORE \
+          --certificate-key @env:CERTIFICATE_PRIVATE_KEY
+
+    - name: Install existing Apple distribution certificate
+      script: keychain add-certificates
+
+    - name: Apply existing App Store provisioning profile
+      script: xcode-project use-profiles --project "$CM_BUILD_DIR/$XCODE_PROJECT"
+
+    - name: Set iOS version and build number
+      script: |
+        cd ios/App
+        test -n "$BUILD_NUMBER"
+        case "$BUILD_NUMBER" in *[!0-9]*|0) echo 'Invalid iOS build number'; exit 1;; esac
+        xcrun agvtool new-marketing-version "$MARKETING_VERSION"
+        xcrun agvtool new-version -all "$BUILD_NUMBER"
+
+    - name: Build signed IPA
+      script: |
+        cd "$CM_BUILD_DIR"
+        xcode-project build-ipa \
+          --project "$CM_BUILD_DIR/$XCODE_PROJECT" \
+          --scheme "$XCODE_SCHEME"
+
+    - name: Verify actual exported signing and record the exact release source
+      script: python3 scripts/verify-ios-ipa.py
+
+  ios_artifacts: &ios_artifacts
+    - artifacts/release/*
+    - build/ios/ipa/*.ipa
+    - ios/App/build/ios/ipa/*.ipa
+    - /tmp/xcodebuild_logs/*.log
+    - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+
 workflows:
   ios-app-store:
-    name: Ball Knower iOS App Store
+    name: Ball Knower signed iOS candidate (build only)
     instance_type: mac_mini_m2
     max_build_duration: 60
-
-    # A single release branch requests a build; routine main pushes stay manual.
-    # Requires the existing Codemagic repository webhook to be configured.
+    # This existing release branch requests a build; main stays manual.
     triggering:
-      events:
-        - push
+      events: [push]
       branch_patterns:
         - pattern: 'release/ios-candidate-2026-09-06'
           include: true
           source: true
       cancel_previous_builds: false
-
     integrations:
       app_store_connect: BallKnowerApple
+    environment: *ios_environment
+    scripts: *ios_scripts
+    artifacts: *ios_artifacts
+    # No publisher or email step: running this workflow does not distribute it.
 
-    environment:
-      groups:
-        - code-signing
-      xcode: 26.6
-      node: 22
-      cocoapods: default
-      vars:
-        BUNDLE_ID: "com.ballknower.ios"
-        XCODE_PROJECT: "ios/App/App.xcodeproj"
-        XCODE_SCHEME: "App"
-        MARKETING_VERSION: "1.0.0"
-
-    scripts:
-      - name: Install web and Capacitor dependencies
-        script: |
-          npm ci --no-audit --no-fund
-          npm install --no-save @capacitor/cli@^8.0.0 @capacitor/ios@^8.0.0
-
-      - name: Run App Store release gate
-        script: node scripts/ios-app-store-release-check.mjs
-
-      - name: Verify full web regression suite and football backend
-        script: |
-          npm run check:hardening
-          node --import tsx scripts/independent-sources-check.ts
-          node scripts/release-backend-preflight.mjs
-
-      - name: Build Ball Knower web app
-        script: npm run build
-
-      - name: Generate and sync Capacitor iOS project
-        script: |
-          rm -rf ios
-          npx cap add ios
-          npx cap sync ios
-          test -d "$CM_BUILD_DIR/$XCODE_PROJECT"
-
-      - name: Generate production iOS app icon
-        script: |
-          mkdir -p assets
-          npm install --no-save sharp@^0.34.0 @capacitor/assets@^3.0.0
-          node --input-type=module -e "import sharp from 'sharp'; await sharp('public/ball-knower-icon.svg').resize(1024,1024).flatten({background:'#050608'}).png().toFile('assets/icon-only.png')"
-          npx capacitor-assets generate --ios
-          test -d "$CM_BUILD_DIR/ios/App/App/Assets.xcassets/AppIcon.appiconset"
-
-      - name: Add iOS privacy permissions, auth callback and Apple entitlement
-        script: |
-          PLIST="$CM_BUILD_DIR/ios/App/App/Info.plist"
-          ENTITLEMENTS="$CM_BUILD_DIR/ios/App/App/App.entitlements"
-          PBXPROJ="$CM_BUILD_DIR/ios/App/App.xcodeproj/project.pbxproj"
-          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string Ball Knower uses the camera only when you choose to take a profile photo." "$PLIST" || \
-            /usr/libexec/PlistBuddy -c "Set :NSCameraUsageDescription Ball Knower uses the camera only when you choose to take a profile photo." "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string Ball Knower uses your photo library only when you choose a profile photo." "$PLIST" || \
-            /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryUsageDescription Ball Knower uses your photo library only when you choose a profile photo." "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes array" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0 dict" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLName string com.ballknower.ios" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string ballknower" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :com.apple.developer.applesignin array" "$ENTITLEMENTS"
-          /usr/libexec/PlistBuddy -c "Add :com.apple.developer.applesignin:0 string Default" "$ENTITLEMENTS"
-          python3 - <<'PY'
-          from pathlib import Path
-          import os
-          path=Path(os.environ['CM_BUILD_DIR'])/'ios/App/App.xcodeproj/project.pbxproj'
-          text=path.read_text()
-          needle='PRODUCT_BUNDLE_IDENTIFIER = com.ballknower.ios;'
-          setting='CODE_SIGN_ENTITLEMENTS = App/App.entitlements;'
-          if setting not in text:
-              text=text.replace(needle,setting+'\n\t\t\t\t'+needle)
-          path.write_text(text)
-          PY
-          grep -q "CODE_SIGN_ENTITLEMENTS = App/App.entitlements;" "$PBXPROJ"
-
-      - name: Set up iOS signing keychain
-        script: keychain initialize
-
-      - name: Fetch or create Apple signing files
-        script: |
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --certificate-key @env:CERTIFICATE_PRIVATE_KEY \
-            --create
-
-      - name: Install Apple distribution certificate
-        script: keychain add-certificates
-
-      - name: Apply App Store provisioning profile
-        script: |
-          xcode-project use-profiles \
-            --project "$CM_BUILD_DIR/$XCODE_PROJECT"
-
-      - name: Set iOS version and build number
-        script: |
-          cd ios/App
-          test -n "$BUILD_NUMBER"
-          case "$BUILD_NUMBER" in *[!0-9]*|0) echo "Invalid iOS build number"; exit 1;; esac
-          xcrun agvtool new-marketing-version "$MARKETING_VERSION"
-          xcrun agvtool new-version -all "$BUILD_NUMBER"
-
-      - name: Build signed IPA
-        script: |
-          cd "$CM_BUILD_DIR"
-          xcode-project build-ipa \
-            --project "$CM_BUILD_DIR/$XCODE_PROJECT" \
-            --scheme "$XCODE_SCHEME"
-          echo "Generated IPA files:"
-          find "$CM_BUILD_DIR" -type f -name "*.ipa" -print
-
-      - name: Record exact tested release source
-        script: |
-          mkdir -p artifacts/release
-          git rev-parse HEAD > artifacts/release/commit.txt
-          printf '%s\n' "$BUILD_NUMBER" > artifacts/release/ios-build-number.txt
-
-    artifacts:
-      - artifacts/release/*
-      - build/ios/ipa/*.ipa
-      - ios/App/build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
-
+  ios-app-store-upload:
+    name: Ball Knower owner-approved App Store Connect upload
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    # Manual only. Set BK_APPROVED_UPLOAD_SHA to the full, specifically approved
+    # commit when starting this stage. It is not an App Store review approval.
+    integrations:
+      app_store_connect: BallKnowerApple
+    environment: *ios_environment
+    scripts: *ios_scripts
+    artifacts: *ios_artifacts
     publishing:
       email:
         recipients:
@@ -149,7 +129,6 @@ workflows:
           failure: true
       app_store_connect:
         auth: integration
-        # auth: integration uploads the IPA; these flags keep beta/public REVIEW manual.
-        # Do not request public review until this exact build has passed device QA and rights checks.
+        # Uploads the IPA, but beta/public review remain manual.
         submit_to_testflight: false
         submit_to_app_store: false
