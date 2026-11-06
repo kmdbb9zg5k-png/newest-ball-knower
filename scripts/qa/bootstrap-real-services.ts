@@ -29,7 +29,9 @@ export function bootstrap(statusPath: string, outputDirectory: string) {
   const snapshot = JSON.parse(readFileSync(new URL('./production-schema.snapshot.json', import.meta.url), 'utf8'));
   mkdirSync(outputDirectory, { recursive: true });
   localSql(config.databaseUrl, renderSchema(snapshot), 'restore_schema');
-  const local = JSON.parse(localSql(config.databaseUrl, readFileSync(new URL('./production-schema-export.sql', import.meta.url), 'utf8'), 'export_local_metadata')).snapshot;
+  // psql returns the selected JSON value directly; the hosted connector wraps
+  // the same column in a row object during the read-only snapshot capture.
+  const local = JSON.parse(localSql(config.databaseUrl, readFileSync(new URL('./production-schema-export.sql', import.meta.url), 'utf8'), 'export_local_metadata'));
   const parity = compareSchema(snapshot, local);
   writeFileSync(resolve(outputDirectory, 'schema-parity.json'), JSON.stringify({ ...parity, source: snapshot.source, appliedMigrationMetadata: snapshot.migrations, historicalReplay: false }, null, 2));
   if (!parity.matched) throw new Error('production_schema_parity_failed');
