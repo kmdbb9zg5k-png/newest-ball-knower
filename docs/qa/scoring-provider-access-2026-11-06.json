@@ -1,0 +1,74 @@
+{
+  "observations": [
+    {
+      "observedAt": "2026-11-06T03:00:42.994Z",
+      "deployment": "dpl_HCH5yHvDBXcCik8L9aTjC5p19NrQ",
+      "commit": "b8252251454757928f6d58c93c9f57214ddee859",
+      "mode": "read_only_tank01_readiness",
+      "scoringAvailable": false,
+      "activationCertified": false,
+      "writes": 0,
+      "enabled": true,
+      "providerRequests": 2,
+      "capturedAt": "2026-11-06T03:00:42.994Z",
+      "game": {
+        "id": "2026_08_CHI_SEA",
+        "providerGameId": "20261102_CHI@SEA",
+        "week": 8,
+        "away": "CHI",
+        "home": "SEA",
+        "date": "2026-11-02"
+      },
+      "boxRequest": {
+        "ok": false,
+        "status": 403,
+        "reason": "provider_authentication_failed",
+        "sourceUpdatedAt": null
+      },
+      "projectionRequest": {
+        "ok": false,
+        "status": 403,
+        "reason": "provider_authentication_failed",
+        "sourceUpdatedAt": null
+      },
+      "interpretation": "Provider denied both requests. HTTP 403 alone does not distinguish subscription, credential or application restrictions. No scoring activation is certified."
+    },
+    {
+      "deployment": "dpl_9Tiv5CM2EDL1DS3FjuQrkLNdN1sb",
+      "commit": "41d16695452f805cf8555d0bf97d14f883b11122",
+      "mode": "read_only_tank01_readiness",
+      "scoringAvailable": false,
+      "activationCertified": false,
+      "writes": 0,
+      "enabled": true,
+      "providerRequests": 2,
+      "capturedAt": "2026-11-06T03:15:46.787Z",
+      "game": {
+        "id": "2026_08_CHI_SEA",
+        "providerGameId": "20261102_CHI@SEA",
+        "week": 8,
+        "away": "CHI",
+        "home": "SEA",
+        "date": "2026-11-02"
+      },
+      "boxRequest": {
+        "ok": false,
+        "status": 403,
+        "reason": "provider_authentication_failed",
+        "authenticationFailure": "not_subscribed",
+        "sourceUpdatedAt": null
+      },
+      "projectionRequest": {
+        "ok": false,
+        "status": 429,
+        "reason": "provider_rate_limited",
+        "authenticationFailure": null,
+        "sourceUpdatedAt": null
+      }
+    }
+  ],
+  "observedProviderRequests": 4,
+  "observedDatabaseWrites": 0,
+  "scoringAvailable": false,
+  "conclusion": "The configured key reported no subscription to this NFL API; the projection request also encountered rate limiting. Validate the existing RapidAPI account/project key and entitlement before considering any purchase or score activation. No source fields, scoring semantics or live/correction lifecycle were certified."
+}
