@@ -41,7 +41,9 @@ export function renderSchema(snapshot) {
     if (table.rls) lines.push(`alter table ${qualified(table)} enable row level security;`);
     if (table.forceRls) lines.push(`alter table ${qualified(table)} force row level security;`);
   }
-  for (const fn of snapshot.functions) lines.push(fn.definition);
+  // pg_get_functiondef returns a complete CREATE statement without its SQL
+  // terminator. Each definition must terminate before the next CREATE.
+  for (const fn of snapshot.functions) lines.push(`${fn.definition.trimEnd()};`);
   for (const foreign of [false, true]) for (const table of snapshot.tables) for (const constraint of table.constraints || []) {
     if ((constraint.kind === 'f') === foreign) lines.push(`alter table ${qualified(table)} add constraint ${identifier(constraint.name)} ${constraint.definition};`);
   }

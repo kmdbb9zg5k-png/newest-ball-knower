@@ -20,6 +20,7 @@ const snapshot = JSON.parse(readFileSync(new URL('./production-schema.snapshot.j
 validateSnapshot(snapshot);
 const sql = renderSchema(snapshot);
 assert.ok(sql.includes('revoke all on function') && sql.includes('enable row level security'));
+for (const fn of snapshot.functions) assert.ok(sql.includes(`${fn.definition.trimEnd()};`), 'every exported function must terminate as its own SQL statement');
 assert.equal(snapshot.source.userRows, 0);
 assert.equal(snapshot.source.authRows, 0);
 assert.equal(snapshot.source.providerRows, 0);

@@ -6,11 +6,14 @@ import { getLiveFantasyDraftGroup } from '../../liveFantasyRules';
 import { readStackConfig, assertLoopbackDatabase } from './real-service-config.mjs';
 import { compareSchema, renderSchema, sha256 } from './schema-contract.mjs';
 
-export function localSql(databaseUrl: string, sql: string) {
+export function localSql(databaseUrl: string, sql: string, stage = 'fixture') {
   assertLoopbackDatabase(databaseUrl);
-  const result = spawnSync('psql', [databaseUrl, '--no-psqlrc', '--quiet', '--tuples-only', '--no-align', '--set=ON_ERROR_STOP=1'], { input: sql, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
+  const result = spawnSync('psql', [databaseUrl, '--no-psqlrc', '--quiet', '--tuples-only', '--no-align', '--set=ON_ERROR_STOP=1', '--set=VERBOSITY=sqlstate'], { input: sql, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
   // SQL errors can contain fixture payloads. Keep stderr out of CI output.
-  if (result.error || result.status !== 0) throw new Error('isolated_sql_failed');
+  if (result.error || result.status !== 0) {
+    const sqlState = result.stderr?.match(/ERROR:\s+([A-Z0-9]{5})\b/)?.[1] || 'unknown';
+    throw new Error(`isolated_sql_failed:${stage}:${sqlState}`);
+  }
   return result.stdout.trim();
 }
 const literal = (value: string) => `'${value.replaceAll("'", "''")}'`;
@@ -25,8 +28,8 @@ export function bootstrap(statusPath: string, outputDirectory: string) {
   const config = readStackConfig(JSON.parse(readFileSync(statusPath, 'utf8')));
   const snapshot = JSON.parse(readFileSync(new URL('./production-schema.snapshot.json', import.meta.url), 'utf8'));
   mkdirSync(outputDirectory, { recursive: true });
-  localSql(config.databaseUrl, renderSchema(snapshot));
-  const local = JSON.parse(localSql(config.databaseUrl, readFileSync(new URL('./production-schema-export.sql', import.meta.url), 'utf8'))).snapshot;
+  localSql(config.databaseUrl, renderSchema(snapshot), 'restore_schema');
+  const local = JSON.parse(localSql(config.databaseUrl, readFileSync(new URL('./production-schema-export.sql', import.meta.url), 'utf8'), 'export_local_metadata')).snapshot;
   const parity = compareSchema(snapshot, local);
   writeFileSync(resolve(outputDirectory, 'schema-parity.json'), JSON.stringify({ ...parity, source: snapshot.source, appliedMigrationMetadata: snapshot.migrations, historicalReplay: false }, null, 2));
   if (!parity.matched) throw new Error('production_schema_parity_failed');
