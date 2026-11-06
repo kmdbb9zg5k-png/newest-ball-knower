@@ -40,6 +40,11 @@ assert.match(cloud, /pregame_projected_points/);
 assert.match(cloud, /row\.pregame_projection_captured_at \? \(row\.pregame_projected_points \|\| \{\}\) : \{\}/);
 assert.match(detail, /Why this projection/);
 assert.match(detail, /Ball Knower Full PPR season pace until a provider weekly projection publishes/);
-assert.equal(vercel.crons.length, 2, 'History backfill must reuse the existing cron instead of exceeding the two-job cap.');
+// Vercel raised every plan to 100 jobs/project on January 20, 2026.
+// https://vercel.com/changelog/cron-jobs-now-support-100-per-project-on-every-plan
+assert.ok(vercel.crons.length <= 100, 'Scheduled jobs must stay within the current project limit.');
+assert.equal(new Set(vercel.crons.map((job:any)=>job.path)).size, vercel.crons.length, 'Each scheduled worker must have one cron.');
+assert.equal(vercel.crons.filter((job:any)=>job.path === '/api/fantasy-live-scoring').length, 1, 'History backfill must reuse the scoring worker.');
+assert.ok(!vercel.crons.some((job:any)=>/history|backfill/i.test(job.path)), 'Historical ingestion must not add a separate polling job.');
 
 console.log('Phase 2 history snapshot checks passed.');

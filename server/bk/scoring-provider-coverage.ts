@@ -15,6 +15,11 @@ const number=(value:unknown):number|undefined=>{
  if(!/^-?\d+(?:\.\d+)?$/.test(String(value).trim()))return undefined;
  const parsed=Number(value);return Number.isFinite(parsed)&&Math.abs(parsed)<=10_000?parsed:undefined;
 };
+const safeFields=(rows:Json[])=>[...new Set(rows.flatMap(row=>Object.keys(row)))].filter(key=>/^[A-Za-z][A-Za-z0-9_]{0,47}$/.test(key)&&!/(?:secret|token|password|credential|authorization|apikey|api_key)/i.test(key)).sort().slice(0,100);
+const timestampMetadata=(row:Json)=>Object.fromEntries(['updatedAt','lastUpdated','lastUpdatedAt','timestamp','providerUpdatedAt'].filter(key=>row[key]!==undefined).map(key=>{
+ const value=row[key],parsed=typeof value==='string'&&/^\d{4}-\d{2}-\d{2}T/.test(value)?Date.parse(value):NaN;
+ return [key,{present:true,validIso:Number.isFinite(parsed),iso:Number.isFinite(parsed)?new Date(parsed).toISOString():null}];
+}));
 const at=(row:Json,path:string)=>path.split('.').reduce<any>((value,key)=>object(value)[key],row);
 const first=(row:Json,paths:string[])=>paths.map(path=>at(row,path)).find(value=>value!==undefined&&value!==null&&value!=='');
 const paths=(category:string,names:string[])=>names.flatMap(name=>[`${category}.${name}`,`${category.toLowerCase()}.${name}`,name]);
@@ -71,11 +76,11 @@ export function summarizeProviderCoverage(boxValue:unknown,projectionValue:unkno
  const projected=list(projection.playerProjections||projection.players),defenseProjected=list(projection.teamDefenseProjections||projection.defenses);
  const byPosition=Object.fromEntries(['QB','RB','WR','TE','K','OTHER'].map(group=>{
   const rows=players.filter(row=>{const pos=position(row.pos||row.position);return group==='OTHER'?!['QB','RB','WR','TE','K'].includes(pos):pos===group;});
-  return [group,{rows:rows.length,fields:coverage(rows,PLAYER_FIELDS)}];
+  return [group,{rows:rows.length,fields:coverage(rows,PLAYER_FIELDS),fieldInventory:{direct:safeFields(rows),...Object.fromEntries(['Passing','Rushing','Receiving','Kicking','Defense','Returning','Scoring'].map(category=>[category,safeFields(rows.map(row=>object(row[category]??row[category.toLowerCase()])))]))}}];
  }));
  const projectionFormats={standard:['fantasyPointsDefault.standard','fantasyPoints.standard'],half_ppr:['fantasyPointsDefault.halfPPR','fantasyPointsDefault.half_ppr','fantasyPoints.halfPPR','fantasyPoints.half_ppr'],ppr:['fantasyPointsDefault.PPR','fantasyPointsDefault.ppr','fantasyPoints.PPR','fantasyPoints.ppr']};
  return {box:{playerRows:players.length,defenseRows:defenses.length,byPosition,defenseFields:coverage(defenses,DEFENSE_FIELDS),identities:identitiesSummary(players,identities),
-  statusPresent:typeof box.gameStatus==='string',reportedFinal:/^final(?:\s*(?:[/:-]\s*)?(?:\d*ot|overtime))?$|^(?:completed|closed|game over)$/i.test(String(box.gameStatus||'')),
+  topLevelFields:safeFields([box]),defenseFieldInventory:safeFields(defenses),timestamps:timestampMetadata(box),statusPresent:typeof box.gameStatus==='string',reportedFinal:/^final(?:\s*(?:[/:-]\s*)?(?:\d*ot|overtime))?$|^(?:completed|closed|game over)$/i.test(String(box.gameStatus||'')),
   gameIdentityPresent:Boolean(box.gameID||box.gameId),gameIdentityMatches:[box.gameID,box.gameId].some(value=>value===choice.providerGameId),
   upstreamTimestampFieldPresent:['updatedAt','lastUpdated','lastUpdatedAt','timestamp','providerUpdatedAt'].some(key=>box[key]!==undefined)},
  projections:{playerRows:projected.length,defenseRows:defenseProjected.length,fields:coverage(projected,projectionFormats),defenseNumericPoints:defenseProjected.filter(row=>number(row.fantasyPointsDefault)!==undefined).length,identities:identitiesSummary(projected,identities),
