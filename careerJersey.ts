@@ -1,4 +1,4 @@
-import {SOLO_TEAM_THEMES} from './soloUniverse';
+import {SOLO_TEAM_THEMES} from './soloUniverse.js';
 export type CareerJersey={team:string;teamName:string;color:string;accent:string;playerName:string;number:number};
 export function careerJersey(raw?:unknown):CareerJersey {
  if(raw===undefined){try{raw=JSON.parse(localStorage.getItem('ballknower_solo_my_player_v2')||'null');}catch{raw=null;}}

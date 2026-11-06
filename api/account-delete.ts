@@ -1,7 +1,7 @@
 import {createPrivateKey,sign} from 'node:crypto';
 import {createClient} from '@supabase/supabase-js';
-import {verifyAppleDeletionIdentity} from '../server/appleDeletionIdentity';
-import {createResilientFetch} from '../resilientFetch';
+import {verifyAppleDeletionIdentity} from '../server/appleDeletionIdentity.js';
+import {createResilientFetch} from '../resilientFetch.js';
 
 const url=process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL||'https://gpnboygoosrmeydwjpvk.supabase.co';
 const serviceKey=process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY||'';

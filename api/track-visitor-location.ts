@@ -1,7 +1,7 @@
 import {
   BALL_KNOWER_SUPABASE_PUBLISHABLE_KEY,
   BALL_KNOWER_SUPABASE_URL,
-} from '../supabaseDefaults';
+} from '../supabaseDefaults.js';
 
 export const config = { runtime: 'edge' };
 

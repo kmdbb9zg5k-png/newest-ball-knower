@@ -1,0 +1,36 @@
+name: API emitted runtime
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'api/**'
+      - 'server/**'
+      - 'playerWardrobe.ts'
+      - 'careerJersey.ts'
+      - 'soloUniverse.ts'
+      - 'resilientFetch.ts'
+      - 'supabaseDefaults.ts'
+      - 'scripts/api-emitted-runtime-check.mjs'
+      - '.github/workflows/api-emitted-runtime.yml'
+      - 'package*.json'
+jobs:
+  emitted-node-esm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node scripts/api-emitted-runtime-check.mjs
+      - run: npm run lint
+      - run: node --import tsx scripts/player-wardrobe-check.ts
+      - run: node --import tsx scripts/career-jersey-check.ts
+      - run: node --import tsx scripts/locker-commerce-check.ts
+      - run: npm run check:solo-fictional
+      - run: npm run check:solo-fantasy
+      - run: npm run build
