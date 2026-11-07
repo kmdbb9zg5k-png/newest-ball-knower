@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import {SectionArtwork} from './SectionArtwork';
 import { ArrowLeft, ArrowRight, Bell, BookOpen, Crown, Eye, LayoutList, Settings, Shield, Trophy, X } from 'lucide-react';
 import { useBallKnower } from './BallKnowerContext';
 import { CommunitySafetySettings, useCommunitySafety } from './CommunitySafety';
@@ -65,6 +66,7 @@ export function FantasySettingsHub({ isOpen, onClose, onOpenLeague, onManageLeag
       </nav>}
 
       <div className="bk-settings-body">
+        {!selectedLeague && section === 'leagues' && <SectionArtwork kind="helmet" compact />}
         {selectedLeague ? <LeaguePanel league={selectedLeague} userId={currentUser?.id} onOpen={() => onOpenLeague(selectedLeague)} onManage={() => onManageLeague(selectedLeague)}/>
           : section === 'leagues' ? <section><Heading title="All My Leagues" detail={`${leagues.length} total · choose one to manage`}/>
             <label className="bk-settings-order">League order<select value={preferences.leagueOrder} onChange={event => savePreferences({ leagueOrder: event.target.value as FantasyDisplayPreferences['leagueOrder'] })}><option value="recent">Recently created</option><option value="alphabetical">Alphabetical</option></select></label>

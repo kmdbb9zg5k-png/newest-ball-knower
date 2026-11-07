@@ -1,4 +1,5 @@
 import {BroadcastStage} from './BroadcastScene';
+import {SectionArtwork} from './SectionArtwork';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
@@ -399,6 +400,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
         )}
         {view === "cheatsheet" && (
           <section className="bk-cheatsheet-panel rounded-[2rem] border border-[#D4AF37]/35 bg-[#0b0e12] p-4 sm:p-6">
+            <SectionArtwork kind="film" compact />
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <div className="text-[10px] font-black uppercase tracking-[.25em] text-[#D4AF37]">

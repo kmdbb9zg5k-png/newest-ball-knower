@@ -1,4 +1,5 @@
 import React,{useEffect,useMemo,useState} from 'react';
+import {SectionArtwork} from './SectionArtwork';
 import {Activity,ArrowRightLeft,Bandage,BarChart3,ChevronRight,Clock,Crown,History,MessageCircle,Shield,Trophy,User,Users} from 'lucide-react';
 import {League} from './types';
 import {PLAYERS_DATABASE,KNOWN_PLAYERS_DATABASE} from './players';
@@ -37,6 +38,7 @@ export const FantasySeasonHub:React.FC<{league:League}>=({league})=>{
 
   return <section className="space-y-4">
     <div className="flex gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-[#0b0e12] p-2 no-scrollbar">{views.map(v=><button key={v.id} onClick={()=>setView(v.id)} className={`flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-4 text-[10px] font-black uppercase tracking-wider ${view===v.id?'bg-white text-black':'text-zinc-400 hover:bg-white/5'}`}>{v.icon}{v.label}</button>)}</div>
+    <SectionArtwork kind={view==='playoffs'||view==='legacy'?'trophy':view==='teams'||view==='chat'?'players':view==='weekly'?'field':'film'} compact />
     {error&&<div className="rounded-xl border border-red-500/25 bg-red-500/5 p-3 text-xs font-bold text-red-300">{error} <button onClick={()=>void refresh()} className="ml-2 underline">Retry</button></div>}
     {loading&&<div className="text-xs font-black uppercase tracking-widest text-zinc-600">Syncing league operations…</div>}
 

@@ -1,0 +1,8 @@
+/* Complete the existing Play photography without changing its destinations. */
+.bk-play-online::before{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#09111bef 12%,#09111bb8 60%,#09111b50)}
+.bk-play-choices>.bk-play-online>img{width:100%;opacity:.75;object-position:70% center}
+.bk-play-knowledge>button:has(>img){position:relative;isolation:isolate;overflow:hidden;min-height:98px}
+.bk-play-knowledge>button>img{position:absolute;inset:0 0 0 auto;z-index:-2;width:65%;height:100%;object-fit:cover;object-position:center 35%;opacity:.65;pointer-events:none}
+.bk-play-knowledge>button:has(>img)::before{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#0c1521 5%,#0c1521e3 55%,#0c15215e);pointer-events:none}
+.bk-play-knowledge>button>span{min-width:0}
+.bk-play-knowledge>button:has(>img) small{color:#c1cbd8}

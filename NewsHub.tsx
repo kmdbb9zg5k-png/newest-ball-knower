@@ -1,3 +1,4 @@
+import {SectionArtwork} from './SectionArtwork';
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import React,{useEffect,useRef,useState}from'react';
 import{ExternalLink,Newspaper,RefreshCw}from'lucide-react';
@@ -41,6 +42,7 @@ export const NewsHub:React.FC=()=>{
   useEffect(()=>{void load();return()=>activeRequest.current?.abort()},[]);
 
   return <BroadcastStage scene="studio" page="news" className="min-h-[calc(100dvh-7rem)] px-4 pb-8 pt-0 sm:px-8"><div className="mx-auto max-w-6xl">
+    <SectionArtwork kind="field" eyebrow="AROUND THE LEAGUE" compact/>
     <BroadcastMasthead eyebrow="Around the league" title="NFL News" subtitle="Read each headline at its publisher." compact actions={<div className="flex flex-wrap items-center gap-2"><ModeHelp mode="news"/><button type="button" onClick={()=>void load()} aria-label="Refresh" disabled={loading} className="bk-news-refresh disabled:opacity-50"><RefreshCw size={15} className={loading?'animate-spin':''}/><span>{loading?'Refreshing…':'Refresh'}</span></button></div>}/>
 
     {feed&&<p role="status" className="mb-4 break-words text-xs leading-relaxed text-zinc-400">{feed.provider==='Currents'?<><a href="https://currentsapi.services/" target="_blank" rel="noreferrer noopener" className="text-amber-200 underline underline-offset-2">Powered by Currents News API</a>. </>:<>Headlines supplied by {feed.provider}. </>}{feed.fetchedAt?<>Feed retrieved <time dateTime={feed.fetchedAt}>{new Date(feed.fetchedAt).toLocaleString()}</time>.</>:'Feed retrieval time unavailable.'} {feed.stale?'This feed may be out of date. ':''}Publication times appear below.</p>}

@@ -1,3 +1,4 @@
+import './sectionArtwork.css';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {AlertCircle,Camera,Check,Clipboard,ImagePlus,Loader2,LockKeyhole,Send,ShieldCheck,Sparkles,Trash2,X} from 'lucide-react';
 import {useBallKnower} from './BallKnowerContext';
@@ -109,7 +110,8 @@ export function AskBkHub(){
 
   return <section className="bk-ask-hub mx-auto flex h-[calc(100dvh-9rem)] min-h-0 w-full max-w-5xl flex-col px-3 pb-5 pt-4 sm:px-5 md:h-[calc(100dvh-8rem)] md:pt-6">
     <div className="bk-glass flex min-h-0 flex-1 flex-col overflow-hidden border-[var(--bk-team-accent)]/20">
-      <div className="relative max-h-[30dvh] shrink-0 overflow-y-auto border-b border-white/10 px-4 py-3 sm:px-6 sm:py-5">
+      <div className="bk-ask-art-header relative max-h-[30dvh] shrink-0 overflow-y-auto border-b border-white/10 px-4 py-3 sm:px-6 sm:py-5">
+        <img className="bk-ask-header-art" src="/community/arena-film-room-v1.webp" alt="" width={1280} height={853} decoding="async"/>
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_90%_10%,rgb(var(--bk-team-accent-rgb)/.2),transparent_42%)]" aria-hidden="true"/>
         <div className="bk-ask-header relative flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1"><div className="flex items-center gap-2.5"><div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-[var(--bk-team-accent)]/35 bg-[var(--bk-team-accent)]/10 sm:h-11 sm:w-11"><Sparkles className="h-4.5 w-4.5 text-[var(--bk-team-accent)] sm:h-5 sm:w-5"/></div><div><div className="bk-overline text-[8px] sm:text-[11px]">Football-first sports intelligence</div><h2 className="font-display text-[1.7rem] font-black uppercase leading-none tracking-tight sm:text-3xl">Ask <span className="text-[var(--bk-team-accent)]">BK</span></h2></div></div><p className="mt-1.5 max-w-xl text-xs font-semibold leading-4 text-zinc-400 sm:mt-2 sm:text-xs sm:leading-5">Fantasy decisions, injuries, matchups, news and screenshot breakdowns.</p></div>

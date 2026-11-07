@@ -1,3 +1,4 @@
+import { SectionArtwork } from './SectionArtwork';
 import { ModeHelp } from "./ModeHelp";
 import { agentDealForSeason, canNegotiateAgentDeal, evaluateAgentCounter, normalizeAgentDeal, type AgentFutureDeal, type AgentSeasonCheckpoint } from './agentContractNegotiation';
 import {advanceAgentCalendar} from "./agentSeasonCalendar";
@@ -1678,6 +1679,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
             <div className="w-full max-w-3xl">
               {introStep < 2 && (
                 <div className="mx-auto max-w-2xl rounded-[2rem] border border-violet-300/25 bg-[#0b0f17]/95 p-6 sm:p-8">
+                  <SectionArtwork kind="film" compact eyebrow="Behind every career"/>
                   <div className="mb-5 flex items-center gap-3">
                     <div className="grid h-12 w-12 place-items-center rounded-2xl bg-violet-400 text-black">
                       <MessageCircle />
@@ -1905,6 +1907,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
         )}
 
         <section className="mt-5 overflow-hidden rounded-[2rem] border border-violet-300/20 bg-[#0c1018] p-5 sm:p-7">
+          <SectionArtwork kind="players" compact eyebrow="Represent the next generation"/>
           <div className="grid gap-5 lg:grid-cols-[1.2fr_.8fr]">
             <div>
               <div className="text-[10px] font-black tracking-[.26em] text-violet-300">
