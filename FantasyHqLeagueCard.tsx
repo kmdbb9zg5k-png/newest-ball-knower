@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Copy, Crown, Settings2, Trophy } from 'lucide-react';
+import { ArrowRight, Copy, Crown, Settings2, Trophy, Users, ClipboardList } from 'lucide-react';
 import type { League } from './types';
 import { fantasyHqSummary } from './fantasyHqData';
 
@@ -11,33 +11,39 @@ export function LeagueDestinationCard({league,currentUserId,featured,onSelect,on
 }) {
   const facts=fantasyHqSummary(league,currentUserId);
   const format=league.settings?.scoringFormat==='half_ppr'?'Half PPR':league.settings?.scoringFormat==='standard'?'Standard':'PPR';
+  const step = league.liveDraft?.status==='completed' || league.settings?.fantasySeasonStarted || league.settings?.fantasySeasonComplete ? 2
+    : league.liveDraft?.status==='active' || facts.mine?.status==='ready' ? 1 : 0;
   return <div className="bk-fantasy-league-pair" data-league-id={league.id}>
     <article className={`bk-fantasy-league-card${featured?' bk-fantasy-league-card--featured':''}`} aria-label={league.name}>
       <div className="bk-fantasy-league-summary">
+        <img className="bk-hq-league-photo" src="/fantasy/hq-sideline-v2.webp" alt="" loading="lazy" decoding="async"/>
         <div className="bk-fantasy-league-crest" aria-hidden="true"><span>{league.name.trim().slice(0,1).toUpperCase()||'F'}</span>{league.commissionerId===currentUserId&&<Crown/>}</div>
-        <div className="bk-fantasy-league-copy"><h4>{league.name}</h4><p className="bk-hq-commissioner">Commissioner: <b>{league.commissionerName || 'Not available'}</b></p><small>Status</small><div className="bk-fantasy-league-status"><i aria-hidden="true"/>{facts.phase}</div></div>
+        <div className="bk-fantasy-league-copy"><h4>{league.name}</h4><p>{league.members.length} teams · {format}</p><p className="bk-hq-commissioner">Commissioner: <b>{league.commissionerName || 'Not available'}</b></p></div>
       </div>
-      <div className="bk-fantasy-league-code" aria-label={`${league.name} join code ${league.code}`}>
-        <span><small>Join code</small><strong>{league.code}</strong></span>
-        <button type="button" onClick={()=>onCopyCode(league)} aria-label={`Copy join code ${league.code}`}><Copy aria-hidden="true"/>Copy</button>
-        <button type="button" onClick={()=>onManage(league)} aria-label={`Manage ${league.name}`}><Settings2 aria-hidden="true"/>Manage</button>
-      </div>
-      <div className="bk-fantasy-league-facts" aria-label={`${league.name} status`}>
-        <span><strong>{facts.ready}/{league.members.length} ready</strong><small>{league.members.length}/{league.maxMembers} teams · {format}</small></span>
-        <span><strong>Players</strong><small>{facts.players === null ? 'Not drafted yet' : `${facts.players} ${facts.playersLabel}`}</small></span>
-      </div>
-      <div className="bk-fantasy-league-actions">
-        <button type="button" className="bk-fantasy-league-actions-primary" onClick={()=>onSelect(league,facts.primaryTab)}>{facts.primaryLabel}<ArrowRight aria-hidden="true"/></button>
-        <button type="button" onClick={()=>onSelect(league,facts.resultTab)}>{facts.resultTab==='simulation'?<><Trophy aria-hidden="true"/>Order results</>:'League HQ'}</button>
+      <div className="bk-hq-card-body">
+        <div className="bk-fantasy-league-status"><i aria-hidden="true"/>{facts.phase}</div>
+        <ol className="bk-hq-progress" aria-label="League progress">
+          {[{label:facts.mine?'Build team':'Join team',Icon:Users},{label:'Draft',Icon:ClipboardList},{label:'Compete',Icon:Trophy}].map(({label,Icon},index)=><li key={index} aria-current={step===index?'step':undefined} data-complete={index<step||undefined}><Icon aria-hidden="true"/><span>{label}</span>{index<2&&<ArrowRight className="bk-hq-progress-arrow" aria-hidden="true"/>}</li>)}
+        </ol>
+        <div className="bk-fantasy-league-facts" aria-label={`${league.name} status`}>
+          <span><small>Teams</small><strong>{league.members.length}/{league.maxMembers}</strong></span>
+          <span><small>Ready</small><strong>{facts.ready}/{league.members.length}</strong></span>
+          <span><small>Draft pick</small><strong>{facts.pick===null?'Not set':`#${facts.pick}`}</strong></span>
+        </div>
+        <aside className="bk-hq-league-status-panel" aria-label={`${league.name} league status`}>
+          <span>Roster <strong>{facts.roster}</strong></span>
+          <span>Players <strong>{facts.players===null?'Not drafted yet':`${facts.players} ${facts.playersLabel}`}</strong></span>
+        </aside>
+        <div className="bk-fantasy-league-actions">
+          <button type="button" className="bk-fantasy-league-actions-primary" onClick={()=>onSelect(league,facts.primaryTab)}>{facts.primaryLabel}<ArrowRight aria-hidden="true"/></button>
+          <button type="button" onClick={()=>onManage(league)} aria-label={`Manage ${league.name}`}><Settings2 aria-hidden="true"/>Manage</button>
+        </div>
+        <div className="bk-fantasy-league-code" aria-label={`${league.name} join code ${league.code}`}>
+          <span><small>Join code</small><strong>{league.code}</strong></span>
+          <button type="button" onClick={()=>onCopyCode(league)} aria-label={`Copy join code ${league.code}`}><Copy aria-hidden="true"/>Copy</button>
+          <button type="button" onClick={()=>onSelect(league,facts.resultTab)}>{facts.resultTab==='simulation'?'Order results':'League HQ'}<ArrowRight aria-hidden="true"/></button>
+        </div>
       </div>
     </article>
-    <aside className="bk-hq-league-status-panel" aria-label={`${league.name} league status`}>
-      <h3>League status</h3><p>{league.name}</p>
-      <div className="bk-hq-status-hexes">
-        <div><small>Draft pick</small><strong>{facts.pick===null?'Not set':`#${facts.pick}`}</strong></div>
-        <div><small>Roster</small><strong>{facts.roster}</strong></div>
-        <div><small>Players</small><strong>{facts.players===null?'—':facts.players}</strong><small>{facts.playersLabel}</small></div>
-      </div>
-    </aside>
   </div>;
 }

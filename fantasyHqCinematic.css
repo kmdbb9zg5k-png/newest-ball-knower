@@ -1,0 +1,89 @@
+/* Approved cinematic Fantasy HQ. Scoped so Cheat Sheet and league workspaces keep their layouts. */
+.bk-hq-premium.bk-fantasy-hq-screen{background:radial-gradient(ellipse at 90% 35%,#9b753a0c,transparent 55%),#0b0e12}
+.bk-hq-premium .bk-fantasy-hq-hero{aspect-ratio:auto;height:auto;min-height:218px;max-height:none;border-radius:15px;margin-top:12px}
+.bk-hq-premium .bk-fantasy-hq-stadium>img{object-position:66% top;filter:none;transform:none}
+.bk-hq-premium .bk-fantasy-hq-shade{background:linear-gradient(90deg,#030506c9,#03050666 45%,transparent 80%),linear-gradient(0deg,#02040680,transparent 60%)}
+.bk-hq-premium .bk-fantasy-hq-hero-copy{position:relative;inset:auto;min-height:218px;padding:25px 15px 18px;align-items:flex-start;text-align:left}
+.bk-hq-premium .bk-fantasy-hq-hero-copy>p{font-size:9px;letter-spacing:.17em;margin-bottom:10px;max-width:65%}
+.bk-hq-premium .bk-fantasy-hq-hero-copy h1{font-size:clamp(42px,12.5vw,76px);font-style:italic;letter-spacing:-.025em;white-space:nowrap;margin:0 0 10px}
+.bk-hq-premium .bk-hq-hero-tagline{font-size:12px;line-height:1.4;max-width:60%;margin:0;color:#f3eee3}
+.bk-hq-premium .bk-fantasy-hq-hero-copy>.bk-hq-hero-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px;text-shadow:none}
+.bk-hq-hero-actions button{min-height:44px;padding:10px 13px;border:1px solid #e7c780;border-radius:8px;background:linear-gradient(125deg,#f4d68c,#cda04b);color:#161209;font:800 15px/1 'Barlow Condensed',sans-serif;text-transform:uppercase;box-shadow:inset 0 1px #fff5}
+.bk-hq-hero-actions button+button{background:#090d11d9;color:#f0ecdf;border-color:#c9c6b680}
+.bk-hq-premium .bk-fantasy-section-heading{margin-top:8px;min-height:46px}
+.bk-hq-premium .bk-fantasy-league-grid{gap:14px;align-items:flex-start;padding:2px 2px 9px}
+.bk-hq-premium .bk-fantasy-league-pair{display:block;flex:0 0 100%;min-width:0}
+.bk-hq-premium .bk-fantasy-league-card{display:block;width:100%;padding:0;overflow:hidden;border-radius:15px;background:linear-gradient(125deg,#202426,#111719);box-shadow:0 4px 12px #0007,inset 0 0 0 1px #d8bf7920}
+.bk-hq-premium .bk-fantasy-league-summary{position:relative;isolation:isolate;overflow:hidden;display:grid;grid-template-columns:52px minmax(0,1fr);align-items:end;gap:11px;min-height:125px;padding:38px 14px 14px;background:#11171a}
+.bk-hq-league-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;z-index:-2}
+.bk-hq-premium .bk-fantasy-league-summary::after{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(0deg,#030609f2, #03060944 80%)}
+.bk-hq-premium .bk-fantasy-league-crest{width:52px;height:60px;font-size:37px;border:1px solid #dabe72aa;background:linear-gradient(140deg,#22282c,#0a1015);border-radius:12px 12px 18px 18px;box-shadow:0 3px 6px #0008}
+.bk-hq-premium .bk-fantasy-league-copy h4{font:750 17px/1.2 Arial,sans-serif;margin:0 0 5px;color:#f8f3e8;overflow-wrap:anywhere}
+.bk-hq-premium .bk-fantasy-league-copy p{font:500 12px/1.35 Arial,sans-serif;color:#d6d4cd;margin:2px 0 0}
+.bk-hq-premium .bk-fantasy-league-copy .bk-hq-commissioner{font-size:10px;color:#c1bdb3}
+.bk-hq-card-body{padding:12px 13px 0}
+.bk-hq-premium .bk-fantasy-league-status{display:flex;align-items:center;gap:8px;margin:0;font:700 13px/1.3 Arial,sans-serif;color:#85dfac}
+.bk-hq-premium .bk-fantasy-league-status i{width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:#30cf81;box-shadow:0 0 12px #30cf813d}
+.bk-hq-progress{display:flex;gap:14px;list-style:none;margin:12px 0;padding:0}
+.bk-hq-progress li{position:relative;display:flex;align-items:center;justify-content:center;gap:5px;flex:1;min-width:0;padding:9px 3px;border:1px solid #c4bca14d;border-radius:30px;background:#ffffff06;color:#ddd9cf;font:650 11px/1.2 Arial,sans-serif}
+.bk-hq-progress li[aria-current=step]{background:linear-gradient(120deg,#f1d28b,#cea54e);border-color:#eacd8c;color:#17130c}
+.bk-hq-progress li[data-complete]{border-color:#d6b8768c;color:#e9ce93}
+.bk-hq-progress svg{width:15px;height:15px;flex:none}
+.bk-hq-progress .bk-hq-progress-arrow{position:absolute;right:-14px;width:12px;color:#d6c6a5}
+.bk-hq-premium .bk-fantasy-league-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:0;padding:11px 0;border-block:1px solid #c6ad6d33;text-align:center}
+.bk-hq-premium .bk-fantasy-league-facts>span{padding:0 5px}
+.bk-hq-premium .bk-fantasy-league-facts small{font:500 12px/1.2 Arial,sans-serif;color:#d9c493;text-transform:none;letter-spacing:0}
+.bk-hq-premium .bk-fantasy-league-facts strong{font:800 20px/1.2 Arial,sans-serif;color:#f1ede3;margin-top:4px;text-transform:none;white-space:normal;overflow-wrap:anywhere}
+.bk-hq-premium .bk-hq-league-status-panel{display:flex;justify-content:space-between;gap:12px;margin:0;padding:10px 0;text-align:left;border:0;border-radius:0;background:none;box-shadow:none;font:400 10px/1.5 Arial,sans-serif;color:#afb6b6}
+.bk-hq-league-status-panel strong{font-weight:650;color:#dedbd1;margin-left:4px}
+.bk-hq-premium .bk-fantasy-league-actions{display:grid;grid-template-columns:1.45fr 1fr;padding:0 0 10px;gap:9px;margin:0}
+.bk-hq-premium .bk-fantasy-league-actions>button{min-height:46px;font:800 15px/1.1 'Barlow Condensed',Arial,sans-serif;text-transform:uppercase;border-radius:8px;padding:8px;gap:6px}
+.bk-hq-premium .bk-fantasy-league-actions>.bk-fantasy-league-actions-primary{font-size:16px;box-shadow:inset 0 1px #fff5;background:linear-gradient(125deg,#f1d58e,#cba050)}
+.bk-hq-premium .bk-fantasy-league-actions svg{width:16px;height:16px}
+.bk-hq-premium .bk-fantasy-league-code{display:flex;align-items:center;gap:6px;margin:0;padding:5px 0;border-bottom:0;min-height:48px}
+.bk-hq-premium .bk-fantasy-league-code>span{display:flex;flex:1;min-width:0;flex-wrap:wrap;justify-content:flex-start;gap:5px}
+.bk-hq-premium .bk-fantasy-league-code small{font-size:10px;letter-spacing:0;text-transform:none}
+.bk-hq-premium .bk-fantasy-league-code strong{font-size:13px;letter-spacing:.03em;white-space:normal;overflow-wrap:anywhere}
+.bk-hq-premium .bk-fantasy-league-code button{flex:none;min-height:44px;padding:5px 7px;border:0;background:transparent;font-size:10px;gap:4px}
+.bk-hq-premium .bk-fantasy-tool-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.bk-hq-premium .bk-fantasy-tool-grid>button:not(.bk-hq-public-tool){position:relative;isolation:isolate;overflow:hidden;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;min-height:150px;padding:12px 10px;text-align:left;border-radius:13px;gap:5px;background:linear-gradient(140deg,#22282d,#0e141a);box-shadow:0 3px 8px #0008}
+.bk-hq-premium .bk-fantasy-tool-grid>button:not(.bk-hq-public-tool)::before{display:none}
+.bk-hq-premium .bk-fantasy-tool-grid>button>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2}
+.bk-hq-premium .bk-fantasy-tool-grid>button:has(>img)::after{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(0deg,#020507f2,transparent 85%)}
+.bk-hq-premium .bk-fantasy-tool-grid>button>strong{font:800 22px/1.1 'Barlow Condensed',Impact,sans-serif;text-transform:uppercase;letter-spacing:0;color:#f3eee3;margin:0}
+.bk-hq-premium .bk-fantasy-tool-grid>button>span{display:flex;justify-content:flex-start;gap:5px;border:0;border-radius:0;padding:0;margin:0;background:none;box-shadow:none;min-height:0;font:500 10px/1.3 Arial,sans-serif;color:#d6c391;text-transform:none}
+.bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-create,.bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-join{order:2;min-height:66px;justify-content:center;padding-left:42px}
+.bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-create>svg:first-child,.bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-join>svg:first-child{display:block;position:absolute;left:12px;top:23px;width:21px;height:21px}
+.bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-create>strong,.bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-join>strong{font-size:18px}
+.bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-public-tool{max-width:48%}
+.bk-hq-premium .bk-hq-public-tool>strong{font:700 11px/1.2 Arial,sans-serif;text-transform:none;color:#dabe85}
+.bk-hq-premium .bk-hq-public-tool>span{display:none}
+@media(min-width:640px){
+ .bk-hq-premium .bk-fantasy-hq-hero-copy{min-height:330px;padding:35px}
+ .bk-hq-premium .bk-fantasy-hq-hero-copy>p{font-size:13px}
+ .bk-hq-premium .bk-fantasy-hq-hero-copy h1{font-size:86px}
+ .bk-hq-premium .bk-hq-hero-tagline{font-size:16px}
+ .bk-hq-hero-actions button{padding:14px 24px;font-size:19px;min-height:48px}
+ .bk-hq-premium .bk-fantasy-league-pair{flex-basis:min(100%,570px)}
+ .bk-hq-premium .bk-fantasy-league-summary{min-height:160px;grid-template-columns:64px 1fr;padding:42px 20px 18px}
+ .bk-hq-premium .bk-fantasy-league-crest{width:64px;height:74px;font-size:46px}
+ .bk-hq-premium .bk-fantasy-league-copy h4{font-size:22px}
+ .bk-hq-card-body{padding:16px 20px 0}
+ .bk-hq-progress li{font-size:13px}
+ .bk-hq-premium .bk-fantasy-tool-grid>button:not(.bk-hq-public-tool){min-height:230px;padding:20px}
+ .bk-hq-premium .bk-fantasy-tool-grid>button>strong{font-size:32px}
+ .bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-create,.bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-join{min-height:75px;padding-left:50px}
+ .bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-create>svg:first-child,.bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-join>svg:first-child{top:27px;left:18px}
+}
+@media(max-width:359px){
+ .bk-hq-premium .bk-fantasy-hq-hero-copy{padding-inline:12px}
+ .bk-hq-premium .bk-fantasy-hq-hero-copy>p{font-size:8px;max-width:72%}
+ .bk-hq-premium .bk-hq-hero-tagline{font-size:11px}
+ .bk-hq-hero-actions button{padding-inline:10px;font-size:13px}
+ .bk-hq-premium .bk-fantasy-league-copy h4{font-size:15px}
+ .bk-hq-card-body{padding-inline:10px}
+ .bk-hq-progress li{font-size:10px;gap:3px}
+ .bk-hq-premium .bk-fantasy-league-code button{font-size:9px;padding-inline:4px}
+ .bk-hq-premium .bk-fantasy-tool-grid>button>strong{font-size:20px}
+ .bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-create>strong,.bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-join>strong{font-size:16px}
+}

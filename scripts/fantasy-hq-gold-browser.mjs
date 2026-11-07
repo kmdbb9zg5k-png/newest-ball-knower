@@ -95,12 +95,15 @@ try{
    const go=async name=>{for(const b of await page.getByRole('button',{name,exact:true}).all())if(await b.isVisible()){await b.click();return;}throw Error(`Missing ${name}`);};
    await go('Fantasy');await page.locator('.bk-hq-premium').waitFor();await page.getByText('Draft complete',{exact:true}).first().waitFor();await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(300);
    assert.equal(await page.getByTestId('fantasy-tool-grid').locator('button').count(),5);
+   assert.equal(await page.locator('.bk-hq-progress [aria-current=step]').first().innerText(),'Compete');
+   assert.equal(await page.locator('.bk-fantasy-hq-hero .bk-hq-hero-actions button').count(),2);
+   await page.locator('.bk-fantasy-hq-hero img').evaluate(async img=>{await img.decode();if(!img.naturalWidth)throw Error('Hero artwork missing');});
    assert.equal(await page.locator('.bk-fantasy-league-pair').count(),2);
    assert.equal(await page.locator('.bk-fantasy-league-code strong').filter({hasText:'BK-QATEST'}).count(),1,'Join code must be prominent on the league card');
-   assert.match(await page.locator('.bk-hq-league-status-panel').first().innerText(),/#3/);
-   assert.equal(await page.locator('.bk-fantasy-league-facts').first().getByText('15 drafted',{exact:true}).count(),1);
+   assert.equal(await page.locator('.bk-fantasy-league-facts').first().getByText('#3',{exact:true}).count(),1);
+   assert.equal(await page.locator('.bk-hq-league-status-panel').first().getByText('15 drafted',{exact:true}).count(),1);
    const bounds=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,hero:document.querySelector('.bk-fantasy-hq-hero').getBoundingClientRect().height,tools:[...document.querySelectorAll('[data-testid="fantasy-tool-grid"] button')].map(e=>{const r=e.getBoundingClientRect();return {left:r.left,right:r.right,height:r.height,width:r.width};})}));
-   assert.ok(bounds.scroll<=width+1);assert.ok(bounds.tools.every(b=>b.left>=0&&b.right<=width+1&&b.height>=44&&b.width>=44));if(width<640)assert.ok(bounds.hero<=210);
+   assert.ok(bounds.scroll<=width+1);assert.ok(bounds.tools.every(b=>b.left>=0&&b.right<=width+1&&b.height>=44&&b.width>=44));if(width<640)assert.ok(bounds.hero<=280);
    await writeFile(`${out}/${engine}-${width}-geometry.json`,JSON.stringify(bounds,null,2));await page.screenshot({path:`${out}/${engine}-${width}-hq.png`});await page.screenshot({path:`${out}/${engine}-${width}-full.png`,fullPage:true});
    await page.getByRole('button',{name:'Manage Golden Arm League',exact:true}).click();let manage=page.getByRole('dialog',{name:'Golden Arm League',exact:true});await manage.waitFor();assert.match(await manage.innerText(),/JOIN CODE[\s\S]*BK-QATEST/);await manage.getByLabel('Custom code').fill('SUNDAY CREW');await manage.getByRole('button',{name:'Save custom code',exact:true}).click();await manage.getByText('SUNDAY-CREW',{exact:true}).waitFor();await manage.getByRole('button',{name:'Delete league',exact:true}).click();await manage.getByText('This deletes the league for all 10 members.',{exact:false}).waitFor();const permanentDelete=manage.getByRole('button',{name:'Permanently delete',exact:true});assert.equal(await permanentDelete.isDisabled(),true,'League deletion must stay disabled until the exact name is entered');await manage.getByLabel('Type league name to confirm deletion').fill('Golden Arm League');assert.equal(await permanentDelete.isEnabled(),true,'Exact league name must unlock the final delete action');await manage.getByRole('button',{name:'Cancel',exact:true}).click();await manage.getByRole('button',{name:'Close league management',exact:true}).click();
    await page.getByRole('button',{name:'My team',exact:true}).first().click();

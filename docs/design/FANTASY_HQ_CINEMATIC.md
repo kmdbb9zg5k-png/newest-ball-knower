@@ -1,0 +1,9 @@
+# Cinematic Fantasy HQ
+
+Implements the November 6 approved black/gold mockup with real React controls. FantasyHub now has a fictional-player hero with Create/Join actions, one full-width league card instead of the narrow card/status pair, a state-derived Build/Join → Draft → Compete indicator, and photographic Draft Room/Matchup Center tiles. Create, join-code, public matchmaking, roster/draft/results, management, copy code, activity and Cheat Sheet remain connected to existing handlers. League data is unchanged.
+
+Four text-free generated WebP assets total 208,760 bytes. Built-in image generation produced: (1) three fictional black/ivory/gold athletes at right of a dark stadium tunnel with empty left space; (2) helmeted sideline profiles; (3) black/gold helmet on a locker-room desk with draft board; (4) black/ivory helmeted rivals facing off. All prompts requested cinematic photorealism, no text/logos/UI/watermarks. Images are decorative; all readable labels are HTML. Hero loads eagerly and remaining images lazily. Existing missing-image backgrounds retain readable controls.
+
+Asset paths: public/fantasy/hq-{hero,sideline,draft,matchup}-v2.webp. Layout rules: fantasyHqCinematic.css (scoped to League HQ). No database/API/schema changes and no shared navigation/provider changes.
+
+Validation: TypeScript, fantasy UI checks, Fantasy HQ data/regression checks, production Vite build and initial bundle budget passed locally. Existing GitHub browser matrix updated for the new locations of draft pick/player counts, taller cinematic hero, progress and artwork decoding. Matrix exercises Chromium 320/390/430/1280 and WebKit390, management, league destinations, practice draft, matchups, API-error recovery, Create/Join and public matchmaking with isolated fixtures; no production league mutations. Local browser review covers the real app guest layout. Physical iPhone performance is not certified by emulation.

@@ -32,14 +32,13 @@ import { FantasyAvailabilityBadge } from "./FantasyAvailabilityBadge";
 import { availabilityForPlayer, FantasyPlayerAvailability, loadFantasyPlayerAvailability, playerAvailabilityKey } from "./fantasyPlayerAvailability";
 import "./fantasyHub.css";
 import "./fantasyHqPremium.css";
+import "./fantasyHqCinematic.css";
 import { LeagueDestinationCard } from './FantasyHqLeagueCard';
 import { FantasyHqActivity, FantasyHqWorkspace } from './FantasyHqTools';
 import { ClipboardList, Flag, Swords } from 'lucide-react';
 import { LeagueManagementModal } from './LeagueManagementModal';
 
 const RANKINGS_PAGE_SIZE = 75;
-const STADIUM_LIGHTS = Array.from({ length: 6 }, (_, index) => index);
-const STADIUM_BANK_BULBS = Array.from({ length: 18 }, (_, index) => index);
 const normalizePlayerName = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
 const fantasyPlayerFromRanking = (ranking?: FantasyRanking): Player | null => {
   if (!ranking) return null;
@@ -301,24 +300,17 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
           <>
             <section className="bk-fantasy-hq-hero" aria-labelledby="fantasy-hq-title" data-testid="fantasy-hq-hero">
               <div className="bk-fantasy-hq-stadium" aria-hidden="true">
-                <img src="/atmosphere/home-stadium.webp" alt="" />
-                <div className="bk-fantasy-hq-tint" />
-                <div className="bk-home-floodlights bk-fantasy-hq-floodlights">
-                  {STADIUM_LIGHTS.map(index => <i className="bk-home-floodlight" key={index} />)}
-                </div>
-                <div className="bk-fantasy-hq-light-bank bk-fantasy-hq-light-bank--left">
-                  {STADIUM_BANK_BULBS.map(index => <i key={index} />)}
-                </div>
-                <div className="bk-fantasy-hq-light-bank bk-fantasy-hq-light-bank--right">
-                  {STADIUM_BANK_BULBS.map(index => <i key={index} />)}
-                </div>
-                <div className="bk-home-haze bk-fantasy-hq-haze" />
+                <img src="/fantasy/hq-hero-v2.webp" alt="" fetchPriority="high" decoding="async" />
                 <div className="bk-fantasy-hq-shade" />
               </div>
               <div className="bk-fantasy-hq-hero-copy">
                 <p>Your league. Your legacy.</p>
                 <h1 id="fantasy-hq-title">Fantasy <span>HQ</span></h1>
-                <div>Create, join, and manage your leagues.<br />Build the team everyone has to beat.</div>
+                <div className="bk-hq-hero-tagline">Build your roster. Chase the crown.</div>
+                <div className="bk-hq-hero-actions">
+                  <button type="button" onClick={onOpenCreateLeague}>Create League</button>
+                  <button type="button" onClick={onOpenJoinLeague}>Join League</button>
+                </div>
               </div>
             </section>
 
@@ -358,23 +350,25 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
                 <h2 id="fantasy-tools-title">League Tools</h2>
               </div>
               <div className="bk-fantasy-tool-grid" data-testid="fantasy-tool-grid">
-                <button type="button" onClick={onOpenCreateLeague}>
+                <button className="bk-hq-tool-create" type="button" onClick={onOpenCreateLeague}>
                   <Shield />
                   <strong>Create League</strong>
                   <span>Create league <ArrowRight aria-hidden="true"/></span>
                   <ChevronRight />
                 </button>
-                <button type="button" onClick={onOpenJoinLeague}>
+                <button className="bk-hq-tool-join" type="button" onClick={onOpenJoinLeague}>
                   <Users />
                   <strong>Join Code</strong>
                   <span>Join code <ArrowRight aria-hidden="true"/></span>
                   <ChevronRight />
                 </button>
-                <button type="button" onClick={()=>setWorkspace('draft')}>
-                  <Flag aria-hidden="true"/><strong>Draft Simulation</strong><span>Practice draft <ArrowRight aria-hidden="true"/></span><ChevronRight aria-hidden="true"/>
+                <button className="bk-hq-tool-draft" type="button" onClick={()=>setWorkspace('draft')} aria-label="Draft Room — Draft Simulation">
+                  <img src="/fantasy/hq-draft-v2.webp" alt="" loading="lazy" decoding="async"/>
+                  <Flag aria-hidden="true"/><strong>Draft Room</strong><span>Practice draft <ArrowRight aria-hidden="true"/></span><ChevronRight aria-hidden="true"/>
                 </button>
-                <button type="button" onClick={()=>setWorkspace('matchup')}>
-                  <Swords aria-hidden="true"/><strong>Matchup Analyzer</strong><span>View matchups <ArrowRight aria-hidden="true"/></span><ChevronRight aria-hidden="true"/>
+                <button className="bk-hq-tool-matchup" type="button" onClick={()=>setWorkspace('matchup')} aria-label="Matchup Center — Matchup Analyzer">
+                  <img src="/fantasy/hq-matchup-v2.webp" alt="" loading="lazy" decoding="async"/>
+                  <Swords aria-hidden="true"/><strong>Matchup Center</strong><span>View matchups <ArrowRight aria-hidden="true"/></span><ChevronRight aria-hidden="true"/>
                 </button>
                 <button className="bk-hq-public-tool" type="button" onClick={() => void enterPublicLeague()} disabled={publicMatchBusy}>
                   {publicMatchBusy ? <LoaderCircle className="bk-fantasy-tool-spinner" /> : <Globe2 />}
