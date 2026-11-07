@@ -1,0 +1,5 @@
+.bk-agent-art{position:relative;isolation:isolate;overflow:hidden;width:100%;min-width:0;aspect-ratio:16/9;max-height:320px;margin:0 0 18px;border:1px solid #d9b43b44;border-radius:18px;background:#101318}
+.bk-agent-art>img{display:block;width:100%;height:100%;object-fit:cover;object-position:center 36%}
+.bk-agent-art>span{position:absolute;inset:auto 0 0;padding:26px 16px 14px;background:linear-gradient(transparent,#080c13ed);color:#efd586;font-size:10px;font-weight:900;line-height:1.5;letter-spacing:.14em;text-transform:uppercase}
+.bk-agent-art--compact{max-height:180px;margin:14px 0;border-radius:12px}
+@media(max-width:359px){.bk-agent-art>span{font-size:9px;padding:22px 12px 12px}}
