@@ -5,6 +5,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {HomeMatchups} from '../HomeMatchups';
 import {PrimaryNavigation} from '../PrimaryNavigation';
 import {PRIMARY_DESTINATIONS, SECONDARY_DESTINATIONS, primaryDestinationForTab} from '../appNavigation';
+import {SOLO_MODE_META} from '../soloCareerUniverse';
 import type {League, UserProfile} from '../types';
 
 const read=(path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),'utf8');
@@ -78,7 +79,9 @@ assert.ok(home.includes("<HomeStadiumHero/>")&&home.includes('<HomeSoloFeature o
 assert.ok(!home.includes('(!primaryLeague?.settings?.fantasySeasonStarted || primaryLeague.settings?.fantasySeasonComplete) &&'), 'Continue and Change League must stay available during an active fantasy season');
 assert.ok(soloFeature.includes('/solo-mode-home-cover.webp?v=2')&&soloFeature.includes('aria-label="Play Solo Mode"'), 'the compact Home Solo promo must remain a working, cache-busted navigation target');
 assert.ok(soloHub.includes('/solo-universe-edition.jpg?v=2')&&!soloHub.includes('eli-rodriguez'), 'the Solo hub must use the cache-busted, Safari-safe Universe Edition artwork');
-assert.ok(soloHub.includes('YOUR FOOTBALL CAREER')&&soloHub.includes('AGENT MODE')&&soloHub.includes('OWNER OFFICE')&&soloHub.includes('CAP CHALLENGE')&&soloHub.includes('FANTASY DRAFT'), 'the Universe artwork and approved career cards must live inside the Solo Mode page');
+assert.ok(soloHub.includes('YOUR FOOTBALL CAREER')&&soloHub.includes('Choose your career')&&soloHub.includes('SOLO_MODE_META[mode].title'), 'the Universe artwork and career chooser must live inside Solo Mode');
+for (const mode of ['player','real','owner','agent'] as const) assert.ok(soloHub.includes(`mode: '${mode}'`)&&SOLO_MODE_META[mode].title, `${mode} must remain available in the shared career chooser`);
+assert.ok(soloHub.includes("const OTHER_MODES = ['cap', 'fantasy']")&&soloHub.includes('...OTHER_MODES'), 'Cap Challenge and Fantasy Draft must remain available alongside the career tiles');
 assert.ok(styles.includes('-webkit-text-size-adjust: 100%')&&home.includes('min-w-0 overflow-hidden')&&!home.includes('className="whitespace-nowrap">{label}'), 'iPhone text autosizing must not make quick-link labels overlap their columns');
 assert.ok(locker.includes("type Tab='locker'|'collections'")&&!locker.includes("['store','Store']")&&!locker.includes("['pass','Pass']")&&!locker.includes("['plus','BK+']"), 'unfinished Store, Season Pass, and BK+ surfaces must stay hidden from launch navigation');
 assert.ok(locker.includes("ownedItems.filter(x=>x.category==='collectible')")&&locker.includes('Anything you earn will appear here.'), 'Collections must show owned rewards only instead of leaking disabled purchase cards');
