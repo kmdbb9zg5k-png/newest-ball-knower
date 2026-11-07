@@ -1,3 +1,4 @@
+import type { DraftSchedule } from './draftSchedule';
 import { League, LeagueMember, LeagueSettings, LiveFantasyDraft, Player, TeamRatings, SeasonResult } from './types';
 import { ensureOnlineSession, isCloudConfigured, supabase } from './supabase';
 import type { LiveDraftRosterAssignment } from './liveDraftRosters';
@@ -232,7 +233,7 @@ export async function createCloudLeague(
   maxMembers:number,
   salaryCap:number,
   user:UserLike,
-  draftSchedule:{draftScheduledAt:string;draftTimezone:string},
+  draftSchedule:DraftSchedule,
   initialSettings:LeagueSettings={},
 ):Promise<League> {
   if(!supabase) throw new Error('Online multiplayer is not configured.');

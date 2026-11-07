@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useBallKnower } from './BallKnowerContext';
-import { X, Copy, Check, Shield, ArrowRight, CalendarClock, SlidersHorizontal } from 'lucide-react';
+import { X, Copy, Check, Shield, ArrowRight, CalendarClock, SlidersHorizontal, Play } from 'lucide-react';
 import { League, LeagueSettings } from './types';
-import { formatDraftSchedule } from './draftSchedule';
+import { buildDraftCreationSchedule, formatDraftSchedule, type DraftSchedule, type DraftStartChoice } from './draftSchedule';
 
 interface CreateLeagueModalProps {
   isOpen: boolean;
@@ -29,6 +29,7 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
     };
   };
   const initialDraft = defaultDraft();
+  const [draftStartChoice, setDraftStartChoice] = useState<DraftStartChoice>('scheduled');
   const [draftDay, setDraftDay] = useState(initialDraft.day);
   const [draftTime, setDraftTime] = useState(initialDraft.time);
   const [createdLeague, setCreatedLeague] = useState<League | null>(null);
@@ -47,6 +48,7 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isCreating) return;
     if (!leagueName.trim()) {
       showToast('Please enter a league name');
       return;
@@ -55,20 +57,19 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
       showToast('Autopick-only drafts require online league services.');
       return;
     }
-    const scheduledDate = new Date(`${draftDay}T${draftTime}`);
-    if (!draftDay || !draftTime || !Number.isFinite(scheduledDate.getTime()) || scheduledDate.getTime() <= Date.now()) {
-      showToast('Choose a draft date and time in the future');
+    let draftSchedule: DraftSchedule;
+    try {
+      draftSchedule = buildDraftCreationSchedule(draftStartChoice, draftDay, draftTime);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Choose a valid draft time');
       return;
     }
     setIsCreating(true);
     setCreateError(null);
     try {
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-      const newLeague = await createLeague(leagueName.trim(), memberSize, {
-        draftScheduledAt: scheduledDate.toISOString(),
-        draftTimezone: timezone,
-      }, undefined, advanced);
-      setCreatedLeague(newLeague);
+      const newLeague = await createLeague(leagueName.trim(), memberSize, draftSchedule, undefined, advanced);
+      if (draftStartChoice === 'now') enterCreatedLeague(newLeague);
+      else setCreatedLeague(newLeague);
     } catch (err:any) {
       setCreateError(err?.message || 'Could not create league');
     } finally {
@@ -93,17 +94,19 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
+  const enterCreatedLeague = (league: League) => {
+    onLeagueCreated(league);
+    onClose();
+    setCreatedLeague(null);
+    setLeagueName('');
+    setDraftStartChoice('scheduled');
+    const nextDefault = defaultDraft();
+    setDraftDay(nextDefault.day);
+    setDraftTime(nextDefault.time);
+  };
+
   const handleFinishAndEnter = () => {
-    if (createdLeague) {
-      onLeagueCreated(createdLeague);
-      onClose();
-      // Reset state for next time
-      setCreatedLeague(null);
-      setLeagueName('');
-      const nextDefault = defaultDraft();
-      setDraftDay(nextDefault.day);
-      setDraftTime(nextDefault.time);
-    }
+    if (createdLeague) enterCreatedLeague(createdLeague);
   };
 
   const LEAGUE_SIZES = [6, 8, 10, 12, 14, 16];
@@ -114,6 +117,8 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
         {/* Close Button */}
         <button
           id="close-create-league-modal-btn"
+          type="button"
+          aria-label="Close create league"
           onClick={() => {
             onClose();
             setCreatedLeague(null);
@@ -167,10 +172,11 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
               {(createError || cloudSyncError) && <div className="text-xs text-red-400">{createError || cloudSyncError}</div>}
               {/* League Name */}
               <div>
-                <label className="block text-xs font-black uppercase tracking-wider text-zinc-300 mb-1.5">
+                <label htmlFor="create-league-name" className="block text-xs font-black uppercase tracking-wider text-zinc-300 mb-1.5">
                   League Name
                 </label>
                 <input
+                  id="create-league-name"
                   type="text"
                   required
                   placeholder="e.g. Sunday Gridiron Champions"
@@ -204,11 +210,28 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
                 </div>
               </div>
 
-              <div>
+              <fieldset disabled={isCreating}>
+                <legend className="mb-2 text-xs font-black uppercase tracking-wider text-zinc-300">When do you want to draft?</legend>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    { value: 'scheduled', label: 'Schedule Draft', detail: 'Choose a date & time', Icon: CalendarClock },
+                    { value: 'now', label: 'Draft Now', detail: 'Open your draft lobby', Icon: Play },
+                  ] as const).map(({ value, label, detail, Icon }) => (
+                    <label key={value} className={`relative flex min-h-20 min-w-0 cursor-pointer flex-col gap-1 rounded-lg border p-3 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-[#D4AF37] ${draftStartChoice === value ? 'border-[#D4AF37] bg-[#D4AF37]/10 text-[#E8CB80]' : 'border-white/15 bg-[#1A1A1A] text-zinc-300'}`}>
+                      <input type="radio" name="draft-start-choice" value={value} checked={draftStartChoice === value} onChange={() => setDraftStartChoice(value)} aria-label={label} className="sr-only"/>
+                      <span className="flex items-center gap-2 text-sm font-bold"><Icon aria-hidden="true" className="h-4 w-4 shrink-0"/>{label}</span>
+                      <span className="text-[11px] leading-4 text-zinc-400">{detail}</span>
+                    </label>
+                  ))}
+                </div>
+                {draftStartChoice === 'now' && <p className="mt-2 text-xs leading-5 text-zinc-400">Enter the lobby now. Invite your managers or fill open spots, then lock your draft order and get ready to draft.</p>}
+              </fieldset>
+
+              {draftStartChoice === 'scheduled' && <div>
                 <label className="block text-xs font-black uppercase tracking-wider text-zinc-300 mb-2">
                   Draft Date & Time
                 </label>
-                <div className="grid grid-cols-1 gap-2 min-[390px]:grid-cols-2">
+                <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
                   <input
                     aria-label="Draft date"
                     type="date"
@@ -216,7 +239,7 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
                     min={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`}
                     value={draftDay}
                     onChange={event => setDraftDay(event.target.value)}
-                    className="min-h-12 w-full rounded-sm border border-white/10 bg-[#1A1A1A] px-3 text-sm text-white [color-scheme:dark] focus:border-[#D4AF37] focus:outline-none"
+                    className="min-h-12 min-w-0 max-w-full w-full rounded-sm border border-white/10 bg-[#1A1A1A] px-3 text-sm text-white [color-scheme:dark] focus:border-[#D4AF37] focus:outline-none"
                   />
                   <input
                     aria-label="Draft time"
@@ -224,13 +247,13 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
                     required
                     value={draftTime}
                     onChange={event => setDraftTime(event.target.value)}
-                    className="min-h-12 w-full rounded-sm border border-white/10 bg-[#1A1A1A] px-3 text-sm text-white [color-scheme:dark] focus:border-[#D4AF37] focus:outline-none"
+                    className="min-h-12 min-w-0 max-w-full w-full rounded-sm border border-white/10 bg-[#1A1A1A] px-3 text-sm text-white [color-scheme:dark] focus:border-[#D4AF37] focus:outline-none"
                   />
                 </div>
                 <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
                   Time zone: {Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'}
                 </p>
-              </div>
+              </div>}
 
               {/* Submit */}
               <button
@@ -239,7 +262,7 @@ export const CreateLeagueModal: React.FC<CreateLeagueModalProps> = ({
                 disabled={isCreating}
                 className="w-full flex items-center justify-center gap-2 rounded-sm bg-[#D4AF37] py-3.5 text-xs font-black uppercase tracking-wider text-black shadow-lg hover:bg-amber-300 transition-all cursor-pointer"
               >
-                <span>{isCreating ? "CREATING ONLINE LEAGUE..." : "CREATE LEAGUE"}</span>
+                <span>{isCreating ? "CREATING LEAGUE..." : draftStartChoice === 'now' ? "CREATE & ENTER DRAFT LOBBY" : "CREATE LEAGUE"}</span>
                 <ArrowRight className="h-4 w-4" />
               </button>
             </form>

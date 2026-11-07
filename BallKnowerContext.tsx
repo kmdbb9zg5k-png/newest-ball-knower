@@ -1,3 +1,4 @@
+import type { DraftSchedule } from './draftSchedule';
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   UserProfile,
@@ -39,7 +40,7 @@ interface BallKnowerContextType {
   leagues: League[];
   activeLeague: League | null;
   setActiveLeagueId: (id: string | null) => void;
-  createLeague: (name: string, maxMembers: number, draftSchedule: { draftScheduledAt: string; draftTimezone: string }, salaryCap?: number, initialSettings?: import('./types').LeagueSettings) => Promise<League>;
+  createLeague: (name: string, maxMembers: number, draftSchedule: DraftSchedule, salaryCap?: number, initialSettings?: import('./types').LeagueSettings) => Promise<League>;
   joinLeague: (code: string, options?: { activate?: boolean }) => Promise<{ success: boolean; message: string; league?: League }>;
   joinPublicLeague: () => Promise<{ success: boolean; message: string; league?: League }>;
   currentRoster: Player[];
@@ -590,7 +591,7 @@ export const BallKnowerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const createLeague = async (
     name: string,
     maxMembers: number,
-    draftSchedule: { draftScheduledAt: string; draftTimezone: string },
+    draftSchedule: DraftSchedule,
     customCap = DEFAULT_SALARY_CAP,
     initialSettings: import('./types').LeagueSettings = {},
   ): Promise<League> => {
