@@ -17,7 +17,7 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "check:integrity": "node --import tsx scripts/integrity-check.ts",
-    "check:draft-reliability": "node --import tsx scripts/draft-reliability-check.ts",
+    "check:draft-reliability": "node --import tsx scripts/draft-reliability-check.ts && npm run check:draft-timing",
     "check:draft-order-game": "node --import tsx scripts/draft-order-game-regression-check.ts",
     "check:trivia": "node --import tsx scripts/gauntlet-trivia-check.ts",
     "check:trivia-visual": "node --import tsx scripts/trivia-visual-fidelity-check.ts",
@@ -83,7 +83,8 @@
     "check:gameplay-report": "node scripts/check-play-moment-replay.mjs",
     "check:native-auth-session": "node scripts/native-auth-session-check.mjs",
     "check:issue-report-privacy": "node --import tsx scripts/issue-report-privacy-check.ts",
-    "check:push": "node scripts/push-emitted-runtime-check.mjs && node --import tsx scripts/push-notifications-check.ts && node --import tsx scripts/push-client-lifecycle-check.mjs"
+    "check:push": "node scripts/push-emitted-runtime-check.mjs && node --import tsx scripts/push-notifications-check.ts && node --import tsx scripts/push-client-lifecycle-check.mjs",
+    "check:draft-timing": "node --import tsx scripts/draft-creation-timing-check.ts"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.191",

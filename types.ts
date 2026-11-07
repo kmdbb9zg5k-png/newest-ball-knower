@@ -344,8 +344,8 @@ export interface LeagueSettings {
   autoFillCpu?: boolean;
   matchmakingOpen?: boolean;
   draftOrderMethod?: DraftOrderMethod;
-  /** Absolute draft start instant. Legacy leagues without this value can start immediately. */
-  draftScheduledAt?: string;
+  /** Absolute scheduled start. Null or absent uses the ready-to-draft flow without a date gate. */
+  draftScheduledAt?: string | null;
   /** IANA timezone selected when the commissioner scheduled the draft. */
   draftTimezone?: string;
   currentWeek?: number;
