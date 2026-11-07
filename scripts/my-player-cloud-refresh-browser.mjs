@@ -40,7 +40,7 @@ return reply([]);});
  const nextPull=async()=>{const before=pulls;for(let i=0;i<100&&pulls===before;i++)await page.waitForTimeout(100);assert(pulls>before,'Cloud pull should occur');await page.waitForTimeout(150);};
  await page.goto(base);
  await page.getByRole('button',{name:'Play Solo Mode',exact:true}).click();
- await page.locator('.bk-mode-card').filter({hasText:/My Player/i}).click();
+ await page.getByRole('button',{name:'Choose Career',exact:true}).click();await page.getByRole('region',{name:'Choose your career',exact:true}).getByRole('button',{name:/^My Player/}).click();
  const continueButton=page.getByRole('button',{name:'CONTINUE',exact:true});
  await continueButton.or(page.getByRole('main',{name:'Training camp career',exact:true})).first().waitFor();
  if(await continueButton.isVisible())await continueButton.click();

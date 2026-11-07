@@ -69,7 +69,7 @@ try{
    assert.equal(await dialog.getByRole('group',{name:'Tattoo coverage',exact:true}).getByRole('button',{name:'both arms',exact:true}).getAttribute('aria-pressed'),'true');
    await dialog.getByRole('button',{name:'Close player profile',exact:true}).click();
    for(const [mode,pageId] of [['Agent Mode','agent'],['Owner Office','owner'],['FRANCHISE COMMAND','franchise'],['MY PLAYER','my-player'],['FANTASY DRAFT','fantasy-franchise']]){
-    await hub();await page.locator('.bk-mode-card').filter({hasText:mode}).click();
+    await hub();if(pageId==='my-player'){await page.getByRole('button',{name:'Choose Career',exact:true}).click();await page.getByRole('region',{name:'Choose your career',exact:true}).getByRole('button',{name:/^My Player/}).click();}else await page.locator('.bk-mode-card').filter({hasText:mode}).click();
     await page.locator(`[data-page="${pageId}"]`).first().waitFor();await shot(pageId);
    }
    assert.deepEqual(errors,[]);assert.deepEqual(generationCalls,[]);
