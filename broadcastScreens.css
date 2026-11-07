@@ -52,15 +52,6 @@
 .bk-screen[data-page="fantasy"] .bk-fantasy-actions>button:nth-child(2) { background:linear-gradient(120deg,#b5893e,#dfc384); color:#18140b; }
 .bk-screen[data-page="fantasy"] .bk-fantasy-actions>button:nth-child(2) svg,.bk-screen[data-page="fantasy"] .bk-fantasy-actions>button:nth-child(2)>div>div:nth-child(2) { color:#30291b; }
 .bk-screen[data-page="fantasy"] .bk-cheatsheet-panel { border-radius:10px; background:#090f14ed; }
-.bk-news-list { display:grid; gap:8px; }
-.bk-news-story { display:grid; grid-template-columns:40px minmax(0,1fr) 24px; align-items:start; gap:12px; padding:14px 12px; border:1px solid #394047; border-radius:8px; background:linear-gradient(110deg,#151e28e8,#0a111aed); }
-.bk-news-story .bk-story-mark { display:grid; place-items:center; width:40px; height:44px; border:1px solid #b79b5440; color:#d8bb73; background:#141b21; border-radius:6px; }
-.bk-news-story h3 { font-family:'Barlow Condensed','Arial Narrow',sans-serif; font-size:22px; font-weight:700; line-height:1.1; color:#e9e8e3; margin:0; text-wrap:wrap; }
-.bk-news-story p { font-size:10px; line-height:1.5; margin:7px 0 0; color:#a1afbd; }
-.bk-news-story>a { display:grid; place-items:center; align-self:stretch; color:#d4bd83; min-width:24px; }
-.bk-news-story a:hover { color:#f1d999; }
-.bk-news-story h3>a { color:inherit; }
-.bk-news-refresh { min-height:40px; min-width:40px; padding:0 10px; display:flex; align-items:center; gap:6px; border:1px solid #9a864449; border-radius:6px; background:#071017e8; font-size:10px; color:#dcc48f; }
 .bk-screen[data-page="picks"] .bk-picks-toolbar { top:var(--bk-nav-offset,124px); }
 .bk-screen[data-page="picks"] article { background:linear-gradient(115deg,#121c25,#090e15); border-bottom:1px solid #a68d3c33; }
 .bk-screen[data-page="picks"] article:last-child { border-bottom:none; }
@@ -101,7 +92,7 @@
 /* Keep competition chrome unchanged in size. No moving layer in drafts/results. */
 .bk-app-shell:is([data-tab="draft"],[data-tab="simulation"]) { background:linear-gradient(150deg,#0f1820,#060a0e); }
 @media(min-width:768px){.bk-scene-backdrop { height:760px; }.bk-scene-masthead { min-height:260px; }.bk-scene-masthead-compact { min-height:175px; }.bk-scene-title h1 { font-size:60px; }.bk-mode-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.bk-solo-universe-hero img { max-height:760px; aspect-ratio:16/10; object-position:center 20%; }.bk-solo-universe-heading,.bk-solo-universe-grid { padding-left:32px; padding-right:32px; }.bk-news-list { grid-template-columns:repeat(2,minmax(0,1fr)); }.bk-screen[data-scene="office"] .bk-scene-art,.bk-screen[data-scene="suite"] .bk-scene-art { background-size:cover; background-position:center 35%; filter:brightness(.7); }}
-@media(max-width:359px){.bk-scene-eyebrow { font-size:8px; letter-spacing:.08em; }.bk-scene-toolbar { gap:5px; }.bk-news-story { padding:12px 10px; gap:9px; grid-template-columns:30px minmax(0,1fr) 20px; }.bk-news-story .bk-story-mark { width:30px; }.bk-news-story h3 { font-size:20px; }}
+@media(max-width:359px){.bk-scene-eyebrow { font-size:8px; letter-spacing:.08em; }.bk-scene-toolbar { gap:5px; }}
 @media(prefers-reduced-motion:reduce){.bk-screen :is(.bk-scene-beam,.bk-scene-haze) { animation:none!important; }}
 @keyframes bk-screen-light { from{transform:rotate(-9deg);opacity:.45}to{transform:rotate(13deg);opacity:.9} }
 @keyframes bk-screen-drift { from{transform:translateX(-5%);opacity:.45}to{transform:translateX(9%);opacity:.85} }
@@ -113,7 +104,6 @@
 .bk-scene-actions>.bk-mode-guide-button { font-size:0; padding-inline:0; min-width:40px; }
 .bk-scene-actions>.bk-mode-guide-button svg { width:17px; height:17px; }
 .bk-scene-title :is(h1,p) { position:relative; }
-@media(max-width:359px){.bk-news-refresh span { display:none; }}
 @media(min-width:768px){.bk-screen[data-scene="office"] .bk-scene-art,.bk-screen[data-scene="suite"] .bk-scene-art { background-size:cover; }}
 
 /* Keep help controls compact despite the base button font reset. */
