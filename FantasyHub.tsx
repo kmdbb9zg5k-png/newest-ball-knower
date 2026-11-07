@@ -266,7 +266,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
   };
 
   const hasActiveLeagues = leagues.some(league => !league.settings?.fantasySeasonComplete);
-  const yourLeaguesSection = (
+  const yourLeaguesSection = view === "leagues" ? (
     <section aria-labelledby="fantasy-leagues-title" data-testid="fantasy-your-leagues">
       <div className="bk-fantasy-section-heading">
         <h2 id="fantasy-leagues-title">Your Leagues</h2>
@@ -299,7 +299,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
         </div>
       )}
     </section>
-  );
+  ) : null;
 
   return (
     <BroadcastStage scene="tunnel" page="fantasy" quiet={view==='cheatsheet'} className={`bk-fantasy-hq-screen ${view === "leagues" ? "bk-hq-premium" : ""} min-h-[calc(100dvh-7rem)] text-white`}>
