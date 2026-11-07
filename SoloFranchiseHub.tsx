@@ -255,7 +255,11 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
   const activeSave = activeSoloCareer(universe);
   const activeEvent = activeSave ? soloCareerEvent(activeSave) : null;
   const eventResolved = Boolean(activeSave && activeEvent && isSoloCareerEventResolved(activeSave, activeEvent));
-  const featuredMode = activeSave?.mode ?? 'real';
+  const franchiseSave = universe.saves.find(save => save.mode === 'real');
+  const featuredCareers = [
+    { mode: 'real' as const, save: franchiseSave },
+    ...(activeSave && activeSave.mode !== 'real' ? [{ mode: activeSave.mode, save: activeSave }] : []),
+  ];
   const isGamePlan = activeSave?.mode === 'real' && activeEvent?.character === 'Coach meeting';
   const sortedSaves = useMemo(
     () => [...universe.saves].sort((first, second) => second.lastPlayedAt - first.lastPlayedAt),
@@ -336,31 +340,33 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
           <h1>YOUR FOOTBALL CAREER</h1>
           <span>Every mode now lives in one career universe. Your decisions, seasons and legacy follow you.</span>
         </header>
-        <section className="bk-career-feature" aria-labelledby="bk-career-feature-title">
-          {featuredMode === 'real' ? (
-            <img className="bk-career-feature-art" src="/solo-mode-scenes/franchise-coach.webp" alt="" loading="lazy" decoding="async" />
-          ) : (
-            <ModeSceneArt seed={featuredMode} />
-          )}
-          <div className="bk-career-feature-copy">
-            <h2 id="bk-career-feature-title">{activeSave?.title ?? SOLO_MODE_META.real.title}</h2>
-            {activeSave ? (
-              <p className="bk-career-feature-meta">
-                {activeSave.subtitle} · {activeSave.season} · {progressLabel(activeSave.week, activeSave.stage)} · {activeSave.wins}–{activeSave.losses}
-                {activeSave.championships > 0 && <span> · {activeSave.championships} {activeSave.championships === 1 ? 'title' : 'titles'}</span>}
-              </p>
+        {featuredCareers.map(({ mode, save }) => (
+          <section className="bk-career-feature" key={mode} aria-labelledby={`bk-career-feature-${mode}`}>
+            {mode === 'real' ? (
+              <img className="bk-career-feature-art" src="/solo-mode-scenes/franchise-coach.webp" alt="" loading="lazy" decoding="async" />
             ) : (
-              <p className="bk-career-feature-meta">{SOLO_MODE_META.real.subtitle}</p>
+              <ModeSceneArt seed={mode} />
             )}
-            <button
-              type="button"
-              onClick={() => activeSave ? continueSave(activeSave.id) : openMode('real')}
-              className="bk-career-feature-action"
-            >
-              <Play size={16} fill="currentColor" aria-hidden="true" /> {activeSave ? 'Continue Career' : 'Start Franchise Command'}
-            </button>
-          </div>
-        </section>
+            <div className="bk-career-feature-copy">
+              <h2 id={`bk-career-feature-${mode}`}>{save?.title ?? SOLO_MODE_META.real.title}</h2>
+              {save ? (
+                <p className="bk-career-feature-meta">
+                  {save.subtitle} · {save.season} · {progressLabel(save.week, save.stage)} · {save.wins}–{save.losses}
+                  {save.championships > 0 && <span> · {save.championships} {save.championships === 1 ? 'title' : 'titles'}</span>}
+                </p>
+              ) : (
+                <p className="bk-career-feature-meta">{SOLO_MODE_META.real.subtitle}</p>
+              )}
+              <button
+                type="button"
+                onClick={() => save ? continueSave(save.id) : openMode(mode)}
+                className="bk-career-feature-action"
+              >
+                <Play size={16} fill="currentColor" aria-hidden="true" /> {save ? `Continue ${SOLO_MODE_META[mode].title}` : 'Start Franchise Command'}
+              </button>
+            </div>
+          </section>
+        ))}
 
         {activeSave && activeEvent && (
           <section key={activeEvent.id} className="mb-4 overflow-hidden rounded-[22px] border border-white/15 bg-[#0a0d13] shadow-xl">
