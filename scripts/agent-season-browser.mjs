@@ -47,11 +47,16 @@ try{
   const open=async()=>{if(width>=600){await page.getByRole('button',{name:'Explore Ball Knower',exact:true}).click();await page.getByRole('dialog',{name:'Explore Ball Knower',exact:true}).getByRole('button',{name:/^Solo careers/}).click();}else await page.getByRole('button',{name:'Play Solo Mode',exact:true}).click();await page.getByRole('button',{name:'Choose Career',exact:true}).click();await page.getByRole('region',{name:'Choose your career',exact:true}).getByRole('button',{name:/^Agent/}).click();await page.locator('[data-page="agent"]').waitFor();await page.waitForTimeout(120);assert.equal(await page.evaluate(()=>scrollY),0,'Agent entry resets prior screen scroll');};
   await page.goto('http://127.0.0.1:4193',{waitUntil:'domcontentloaded'});await open();
   await page.getByRole('button',{name:'CONTINUE',exact:true}).click();await page.getByRole('button',{name:'CREATE YOUR AGENT',exact:true}).click();await page.getByLabel('Agent name',{exact:true}).fill('Season QA');await page.getByLabel('Home city',{exact:true}).fill('Whitehall');await page.getByRole('button',{name:'BEGIN MY CAREER',exact:true}).click();await page.getByRole('navigation',{name:'Agent career sections'}).waitFor();await page.waitForTimeout(100);assert.equal(await page.evaluate(()=>scrollY),0,'Creating an agent opens at the top');await shot('entry');
+  if(process.env.BK_QA_ART==='1'){
+   for(const scene of ['headquarters','growth','recruiting']){const art=page.locator(`[data-agent-scene="${scene}"]`).first();await art.scrollIntoViewIfNeeded();await art.locator('img').evaluate(img=>img.decode());assert(await art.locator('img').evaluate(img=>img.naturalWidth>0));await shot(`art-${scene}`);}
+   assert.equal(await page.locator('[data-page="agent"] img[src^="/community/"]').count(),0);
+  }
   const advance=async()=>{await page.getByRole('button',{name:/^(ADVANCE ONE WEEK|BEGIN NEXT SEASON)$/}).click();};
   const dismissLevel=async()=>{const level=page.getByRole('dialog',{name:'Reputation level up'});if(await level.count())await level.getByRole('button').click();};
   const meeting=page.getByRole('dialog',{name:/Private meeting/});
   async function recruit(index=0, poorPitch=false){
    await page.locator('#agent-prospects .bk-solo-selection > button:first-child:enabled').nth(index).click();
+   if(process.env.BK_QA_ART==='1'){const art=meeting.locator('[data-agent-scene="recruiting"] img');await art.evaluate(img=>img.decode());await shot('art-meeting');}
    for(let round=0;round<2;round++){
     const choices=meeting.locator('button').filter({hasNotText:'CLOSE'});
     await (poorPitch ? choices.nth(round===0?3:2) : choices.first()).click();await page.waitForTimeout(200);
@@ -94,6 +99,7 @@ try{
    for(const client of state.clients){
     if((await read()).weeklyActionsUsed>=2)break;
     if(client.career.pendingEvent){
+     if(process.env.BK_QA_ART==='1'){const scene={playing_time:'role',trade:'trade',injury:'injury',family:'family',contract:'contract',brand:'brand'}[client.career.pendingEvent.kind];const art=page.locator(`#agent-clients [data-agent-scene="${scene}"]`).first();await art.scrollIntoViewIfNeeded();await art.locator('img').evaluate(img=>img.decode());assert(await art.locator('img').evaluate(img=>img.naturalWidth>0));await shot(`event-${scene}`);}
      const choice={playing_time:'FIGHT FOR HIM',trade:'FIGHT FOR HIM',injury:'SUPPORT HIM',family:'SUPPORT HIM',contract:'MAKE A BUSINESS MOVE',brand:'MAKE A BUSINESS MOVE'}[client.career.pendingEvent.kind];
      await available().filter({hasText:choice}).first().click();decisions++;
     }

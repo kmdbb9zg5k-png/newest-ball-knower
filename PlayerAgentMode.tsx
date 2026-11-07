@@ -1,5 +1,5 @@
 import { SoloCareerDecision } from './SoloCareerDecision';
-import { SectionArtwork } from './SectionArtwork';
+import { AgentArtwork, AGENT_EVENT_SCENES } from './AgentArtwork';
 import { ModeHelp } from "./ModeHelp";
 import { agentDealForSeason, canNegotiateAgentDeal, evaluateAgentCounter, normalizeAgentDeal, type AgentFutureDeal, type AgentSeasonCheckpoint } from './agentContractNegotiation';
 import {advanceAgentCalendar} from "./agentSeasonCalendar";
@@ -1694,7 +1694,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
             <div className="w-full max-w-3xl">
               {introStep < 2 && (
                 <div className="mx-auto max-w-2xl rounded-[2rem] border border-violet-300/25 bg-[#0b0f17]/95 p-6 sm:p-8">
-                  <SectionArtwork kind="film" compact eyebrow="Behind every career"/>
+                  <AgentArtwork scene="headquarters" caption="Behind every career"/>
                   <div className="mb-5 flex items-center gap-3">
                     <div className="grid h-12 w-12 place-items-center rounded-2xl bg-violet-400 text-black">
                       <MessageCircle />
@@ -1929,7 +1929,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
         )}
 
         <section className="mt-5 overflow-hidden rounded-[2rem] border border-violet-300/20 bg-[#0c1018] p-5 sm:p-7">
-          <SectionArtwork kind="players" compact eyebrow="Represent the next generation"/>
+          <AgentArtwork scene="headquarters" caption="Your agency. Their future."/>
           <div className="grid gap-5 lg:grid-cols-[1.2fr_.8fr]">
             <div>
               <div className="text-[10px] font-black tracking-[.26em] text-violet-300">
@@ -1980,6 +1980,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
         </section>
 
         <section id="agent-growth" className="scroll-mt-[calc(204px+env(safe-area-inset-top))] md:scroll-mt-[calc(248px+env(safe-area-inset-top))] mt-5 rounded-[2rem] border border-white/10 bg-[#0d121b] p-5 sm:p-6">
+          <AgentArtwork scene="growth" compact />
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="text-[10px] font-black tracking-[.22em] text-violet-300">AGENCY GROWTH</div>
@@ -2074,6 +2075,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                   </div>
                   {client.career.pendingEvent && (
                     <div className="mt-3 rounded-xl border border-cyan-300/25 bg-cyan-300/10 p-3">
+                      <AgentArtwork scene={AGENT_EVENT_SCENES[client.career.pendingEvent.kind]} compact />
                       <div className="text-[10px] font-black tracking-wider text-cyan-200">
                         {client.career.pendingEvent.title}
                       </div>
@@ -2111,6 +2113,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                   )}
                   {client.tradeRequest?.status === "open" && (
                     <div className="mt-3 rounded-xl border border-amber-300/25 bg-amber-300/10 p-3">
+                      <AgentArtwork scene="trade" compact />
                       <div className="flex items-center gap-2 text-xs font-black text-amber-200">
                         <AlertTriangle size={14} /> TRADE REQUEST · WEEK{" "}
                         {client.tradeRequest.requestedWeek}
@@ -2199,6 +2202,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
         {clients.length > 0 && <SoloCareerDecision mode="agent" timing={{ season: agency.seasonYear, week: agency.seasonWeek }} />}
         </section>
         <section id="agent-prospects" className="scroll-mt-[calc(204px+env(safe-area-inset-top))] md:scroll-mt-[calc(248px+env(safe-area-inset-top))] mt-5 rounded-[2rem] border border-white/10 bg-[#0d121b] p-5 sm:p-6">
+          <AgentArtwork scene="recruiting" compact />
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="text-[10px] font-black tracking-[.22em] text-violet-300">
@@ -2312,6 +2316,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                     CLOSE
                   </button>
                 </div>
+                <AgentArtwork scene="recruiting" compact />
                 <div className="mt-5 rounded-2xl border border-white/10 bg-black/35 p-4">
                   <div className="text-[10px] font-black text-zinc-500">
                     PLAYER
@@ -2390,6 +2395,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                         LEAVE
                       </button>
                     </div>
+                    <AgentArtwork scene="contract" compact />
                     <div className="mt-5 rounded-2xl border border-white/10 bg-black/35 p-4">
                       <div className="text-[10px] font-black text-zinc-500">
                         GENERAL MANAGER

@@ -1,3 +1,4 @@
+import { AgentArtwork } from './AgentArtwork';
 import { useState } from 'react';
 import { ArrowRight, Clock3, Flame } from 'lucide-react';
 import {
@@ -86,6 +87,7 @@ export function SoloCareerDecision({ mode, timing }: Props) {
         </details>
       ) : (
         <div className="p-4 sm:p-5">
+          {mode === 'agent' && !eventResolved && <AgentArtwork scene={activeEvent.character === 'Media strategy' ? 'media' : activeEvent.character === 'Agency war room' ? 'growth' : 'role'} compact />}
           <div className="flex items-start gap-3">
             <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-300/20 bg-orange-400/10 text-orange-300">
               <Flame size={19} />
