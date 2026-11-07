@@ -22,7 +22,7 @@ try{
   await page.route('**/api/**',r=>{const path=new URL(r.request().url()).pathname;const data=path==='/api/media'?{tracks:[],introUrl:null}:path==='/api/nfl-news'?{available:true,articles:[]}:{available:false,ok:true,games:[]};return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});});
   await page.addInitScript(()=>{
    localStorage.setItem('ball-knower-team-setup-v2','complete');
-   localStorage.setItem('ball-knower-intro-completed-v1','1');
+   localStorage.setItem('ball-knower-intro-completed-v1','2');
    localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');
    localStorage.setItem('ball-knower-intro-sound-v1','off');
    localStorage.setItem('bk-guide-franchise-command-v1','seen');

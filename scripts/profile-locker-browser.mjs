@@ -85,7 +85,7 @@ try {
         localStorage.setItem('sb-gpnboygoosrmeydwjpvk-auth-token', JSON.stringify(session));
         localStorage.setItem('ballknower_user_v1', JSON.stringify({ id: user.id, name: user.user_metadata.name, email: user.email || '', isAnonymous: user.is_anonymous, avatarUrl: '', createdAt: user.created_at }));
         localStorage.setItem('ball-knower-team-setup-v2', 'complete');
-        localStorage.setItem('ball-knower-intro-completed-v1', '1');
+        localStorage.setItem('ball-knower-intro-completed-v1', '2');
         localStorage.setItem('ball-knower-favorite-team', 'Philadelphia Eagles');
         localStorage.setItem('ball-knower-intro-sound-v1', 'off');
       }, { session, user });

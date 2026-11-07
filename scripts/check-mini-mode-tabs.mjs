@@ -12,7 +12,7 @@ try {
   const page=await browser.newPage({viewport:{width,height:844},hasTouch:true});page.setDefaultTimeout(45000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.route('**/*.supabase.co/**',route=>{const rpc=new URL(route.request().url()).pathname.split('/rpc/')[1];return route.fulfill({status:rpc==='get_ball_knower_community_preview'?200:403,json:rpc==='get_ball_knower_community_preview'?{leaderboard:[],friends:[],matches:[],messages:[]}:{message:'Guest navigation test'}});});
   await page.route('**/api/**',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({tracks:[],introUrl:null,available:false,articles:[],games:[]})}));
-  await page.addInitScript(()=>{localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','1');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off');});
+  await page.addInitScript(()=>{localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','2');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off');});
   await page.goto('http://127.0.0.1:4212');await page.getByRole('button',{name:'Explore Mini Games'}).click();const menu=page.getByRole('dialog');
   assert.equal(await menu.getByRole('tab').count(),0);
   assert.equal(await menu.locator('.bk-mini-mode-card').count(),4);

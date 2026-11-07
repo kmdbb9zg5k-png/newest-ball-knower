@@ -7,7 +7,9 @@ const soundtrack=fs.readFileSync('SoundtrackContext.tsx','utf8');
 
 assert.match(app,/ball-knower-intro-completed-v1/,'intro completion must be persisted');
 assert.match(app,/useState\(introEligible\)/,'fresh storage must control intro eligibility');
-assert.match(app,/localStorage\.setItem\(INTRO_COMPLETED_KEY,'1'\)/,'skip/completion must remember the intro');
+assert.match(app,/getIntroCompletion\(\)!==INTRO_COMPLETED_VERSION/,'returning installs must see the restored intro once');
+assert.match(app,/if\(finished\)localStorage\.setItem\(INTRO_COMPLETED_KEY,INTRO_COMPLETED_VERSION\)/,'only skip or completion must mark the restored intro seen');
+assert.match(app,/shouldLaunchAuthAfterIntroRef=useRef\(!getIntroCompletion\(\)\)/,'returning installs must keep first-launch sign-in dismissed');
 assert.match(app,/const openIntro=\(\)=>\{setIntroActive\(true\);setIsIntroOpen\(true\)\}/,'Replay Intro must remain available even after completion');
 
 assert.match(intro,/playsInline/);

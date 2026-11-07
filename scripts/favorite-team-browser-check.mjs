@@ -45,7 +45,7 @@ try {
       return route.fulfill({ status: 200, contentType: 'image/svg+xml', body: `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><circle cx="128" cy="128" r="100" fill="#a5acaf"/><text x="128" y="140" text-anchor="middle" font-size="40">${code.toUpperCase()}</text></svg>` });
     });
     await page.addInitScript(() => {
-      localStorage.setItem('ball-knower-intro-completed-v1', '1');
+      localStorage.setItem('ball-knower-intro-completed-v1', '2');
       localStorage.setItem('ball-knower-intro-sound-v1', 'off');
     });
     await page.goto(`${baseURL}/?teamsetup=1`, { waitUntil:'domcontentloaded' });
