@@ -88,7 +88,7 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
     openMode(save.mode);
   };
 
-  if (ownerOpen) return <><div className="mx-auto max-w-5xl px-4"><SoloCareerDecision mode="owner" /></div><OwnerBusinessMode onBack={() => { setOwnerOpen(false); refreshUniverse(); }} /></>;
+  if (ownerOpen) return <OwnerBusinessMode onBack={() => { setOwnerOpen(false); refreshUniverse(); }} />;
   if (agentOpen) return <PlayerAgentMode onBack={() => { setAgentOpen(false); refreshUniverse(); }} />;
 
   return (
