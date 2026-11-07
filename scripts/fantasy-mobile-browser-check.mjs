@@ -74,8 +74,8 @@ const layoutSnapshot=page=>page.evaluate(()=>{
     fantasyLightAnimation:getComputedStyle(document.querySelector('.bk-fantasy-hq-light-bank i')||document.documentElement).animationName,
     gauntletRect:gauntletRect&&{left:gauntletRect.left,right:gauntletRect.right,top:gauntletRect.top,bottom:gauntletRect.bottom},
     gauntletStats:document.querySelectorAll('.bk-gauntlet-stat').length,
-    gauntletModes:document.querySelectorAll('[data-testid="gauntlet-mode-grid"] button.bk-gauntlet-mode-card').length,
-    gauntletModeNames:[...document.querySelectorAll('[data-testid="gauntlet-mode-grid"] button.bk-gauntlet-mode-card strong')].map(element=>element.textContent.trim()),
+    gauntletModes:document.querySelectorAll('[data-testid="gauntlet-mode-grid"] button:is(.bk-gauntlet-mode-card,.bk-gauntlet-survivor-card)').length,
+    gauntletModeNames:[...document.querySelectorAll('[data-testid="gauntlet-mode-grid"] button:is(.bk-gauntlet-mode-card,.bk-gauntlet-survivor-card) strong')].map(element=>element.textContent.trim()),
     gauntletGridButtons:document.querySelectorAll('[data-testid="gauntlet-mode-grid"] button').length,
     gauntletDailyInGrid:document.querySelectorAll('[data-testid="gauntlet-mode-grid"] [data-testid="gauntlet-daily-cta"]').length,
     gauntletDailyButtons:document.querySelectorAll('[data-testid="gauntlet-daily-cta"]').length,
@@ -118,7 +118,7 @@ const assertGauntlet=(snapshot,label)=>{
   assert.ok(snapshot.gauntletRect.left>=-1&&snapshot.gauntletRect.right<=width+1,`${label}: arena frame is clipped horizontally`);
   assert.equal(snapshot.gauntletStats,5,`${label}: Gauntlet must show five live progress stats`);
   assert.equal(snapshot.gauntletModes,5,`${label}: Gauntlet must preserve all five challenge modes`);
-  assert.deepEqual(snapshot.gauntletModeNames,['Classic Trivia','FILM ROOM','PREDICTIONS','DEBATES','SURVIVOR'],`${label}: challenge identities changed`);
+  assert.deepEqual(snapshot.gauntletModeNames,['Classic Trivia','FILM ROOM','PREDICTIONS','DEBATES','Survivor'],`${label}: challenge identities changed`);
   assert.equal(snapshot.gauntletGridButtons,6,`${label}: grid must contain five modes plus the daily challenge`);
   assert.equal(snapshot.gauntletDailyInGrid,1,`${label}: daily challenge must occupy its grid tile`);
   assert.equal(snapshot.gauntletDailyButtons,1,`${label}: daily challenge CTA is missing or duplicated`);
