@@ -1,6 +1,6 @@
 import {BroadcastStage} from './BroadcastScene';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Bird, Brain, CalendarDays, CheckCircle2, ChevronRight, Film, Flame, Loader2, Medal, MessageSquare, Play, RotateCcw, ShieldCheck, Sparkles, Star, Target, Trophy, WifiOff, X, XCircle } from 'lucide-react';
+import { ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Flame, Loader2, Medal, Play, RotateCcw, ShieldCheck, Sparkles, Target, Trophy, WifiOff, X, XCircle } from 'lucide-react';
 import { beginTriviaSession, fetchTriviaQuestion, submitTriviaAnswer, TriviaAnswerResult, TriviaQuestion, TriviaSession } from './progressionCloud';
 import { ModeGuide } from './ModeGuide';
 import { MODE_HELP } from './modeHelpContent';
@@ -22,15 +22,15 @@ const triviaTiers: { name: TriviaTier; desc: string; xp: string }[] = [
 ];
 
 type GauntletModeName='TRIVIA'|GauntletMode;
-const gauntletModes:{name:GauntletModeName;description:string;icon:typeof Brain}[] = [
-  {name:'TRIVIA',description:'Four difficulty levels with verified XP.',icon:Brain},
-  {name:'FILM ROOM',description:'Read coverages and diagnose the play.',icon:Film},
-  {name:'PREDICTIONS',description:'Submit real NFL picks. Correct calls build your Trophy Case.',icon:Target},
-  {name:'DEBATES',description:'Choose the evidence that wins the argument.',icon:MessageSquare},
-  {name:'SURVIVOR',description:'One wrong pick ends the run.',icon:ShieldCheck},
+const gauntletModes:{name:GauntletModeName;description:string}[] = [
+  {name:'TRIVIA',description:'Test your football knowledge.'},
+  {name:'FILM ROOM',description:'Read the play. Make the call.'},
+  {name:'PREDICTIONS',description:'Make your NFL picks.'},
+  {name:'DEBATES',description:'Back your take with evidence.'},
+  {name:'SURVIVOR',description:'One wrong pick ends the run.'},
 ];
 
-export const ChallengesHub: React.FC = () => {
+export const ChallengesHub: React.FC<{onOpenPicks:()=>void}> = ({onOpenPicks}) => {
   const {currentUser}=useBallKnower();
   const userId=currentUser?.id;
   const [tier, setTier] = useState<TriviaTier>('ROOKIE');
@@ -58,6 +58,7 @@ export const ChallengesHub: React.FC = () => {
   const progressOwnerRef=useRef(userId);
   progressOwnerRef.current=userId;
   const dailyDate=utcDateKey();
+  const dailyLabel=new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',timeZone:'UTC'}).format(new Date(`${dailyDate}T12:00:00Z`));
   const levelFloor=Math.max(0,(progress.level-1)*250);
   const levelProgress=Math.max(0,Math.min(100,((progress.xp-levelFloor)/250)*100));
   const accuracy=progress.totalAnswered?Math.round(progress.totalCorrect/progress.totalAnswered*100):0;
@@ -87,12 +88,6 @@ export const ChallengesHub: React.FC = () => {
     }).catch(error=>console.warn('Gauntlet cloud merge failed',error));
   },[userId]);
   useEffect(()=>{const local=loadGauntletProgress(userId);setProgress(local);applyProgress(local);},[applyProgress,userId]);
-
-  const openVerifiedPicks=useCallback(()=>{
-    const picksTab=document.getElementById('nav-tab-sportsbook') as HTMLButtonElement|null;
-    if(picksTab){picksTab.click();return;}
-    window.dispatchEvent(new CustomEvent('ball-knower:navigate',{detail:{tab:'sportsbook'}}));
-  },[]);
 
   const loadQuestion = useCallback(async (nextTier: TriviaTier, session?: TriviaSession | null) => {
     const requestId = ++questionRequestRef.current;
@@ -252,45 +247,57 @@ export const ChallengesHub: React.FC = () => {
   }, [tierPickerMode]);
 
   return (
-    <BroadcastStage scene="studio" page="trivia" quiet={Boolean(triviaOpen||activeRun||dailyRun||tierPickerMode)} className="bk-gauntlet-screen mx-auto max-w-6xl px-2 pb-24 pt-2 sm:px-6 sm:pt-5">
+    <BroadcastStage scene="studio" page="trivia" quiet={Boolean(triviaOpen||activeRun||dailyRun||tierPickerMode)} className="bk-gauntlet-screen mx-auto max-w-6xl">
       <section className="bk-gauntlet-frame" aria-labelledby="gauntlet-title" data-testid="gauntlet-arena">
-        <div className="bk-gauntlet-date"><CalendarDays aria-hidden="true"/> Daily <span>•</span> {dailyDate}</div>
         <div className="bk-gauntlet-hero">
-          <img src="/atmosphere/home-stadium.webp" alt="" aria-hidden="true"/>
+          <img src="/gauntlet-scenes/tunnel.webp" alt="" aria-hidden="true" width="1600" height="667" fetchPriority="high"/>
           <div className="bk-gauntlet-hero-shade" aria-hidden="true"/>
-          <div className="bk-gauntlet-arena-label">Football IQ Arena</div>
-          <ModeGuide storageKey="bk-guide-the-gauntlet-v4" title="The Gauntlet" summary="Choose a challenge, select a difficulty, and build verified football IQ." steps={["Pick one of five challenge modes.","Choose Rookie, Pro, All-Pro, or Hall of Fame for challenge modes.","Predictions opens real NFL picks that lock before kickoff and grade after games finish."]} sections={MODE_HELP.trivia.sections}/>
-          <div className="bk-gauntlet-crest" aria-hidden="true">
-            <span className="bk-gauntlet-wing bk-gauntlet-wing-left"/><span className="bk-gauntlet-wing bk-gauntlet-wing-right"/>
-            <div className="bk-gauntlet-eagle"><Bird/></div>
-            <div className="bk-gauntlet-shield"><ShieldCheck/><span><Star/><Star/><Star/></span></div>
-          </div>
+          <ModeGuide storageKey="bk-guide-the-gauntlet-v4" title="The Gauntlet" summary="Choose a challenge, select a difficulty, and build verified football IQ." steps={["Pick a challenge, or scroll down for Survivor and the daily run.","Choose Rookie, Pro, All-Pro, or Hall of Fame for challenge modes.","Predictions opens real NFL picks that lock before kickoff and grade after games finish."]} sections={MODE_HELP.trivia.sections}/>
           <div className="bk-gauntlet-title-lockup">
-            <h1 id="gauntlet-title">The Gauntlet</h1>
-            <p>Trivia. Decisions. Football IQ. Prove you know ball.</p>
+            <div className="bk-gauntlet-arena-label">Football IQ Arena</div>
+            <h1 id="gauntlet-title"><span>The</span> Gauntlet</h1>
+            <p>Prove you know ball.</p>
+            <div className="bk-gauntlet-date"><CalendarDays aria-hidden="true"/> Daily <span>•</span> <time dateTime={dailyDate}>{dailyLabel}</time></div>
           </div>
         </div>
 
-        <section className="bk-gauntlet-stats" aria-label="Your Gauntlet progress">
-          <ProgressStat label="Level" value={String(progress.level)} detail="UP-LEVELING" progress={levelProgress} icon={<Sparkles/>}/>
-          <ProgressStat label="XP" value={String(progress.xp)} detail={`TO LVL ${progress.level+1}`} progress={levelProgress}/>
-          <ProgressStat label="Current streak" value={String(progress.currentStreak)} detail={`MAX: ${progress.longestStreak}`} progress={progress.longestStreak?progress.currentStreak/progress.longestStreak*100:0} icon={<Flame/>}/>
-          <ProgressStat label="Longest streak" value={String(progress.longestStreak)} detail="PERSONAL BEST" progress={Math.min(100,progress.longestStreak*10)} icon={<Medal/>}/>
-          <ProgressStat label="Accuracy" value={progress.totalAnswered?`${accuracy}%`:'—'} detail={`${progress.totalAnswered} ANSWERED`} progress={accuracy}/>
+        <section className="bk-gauntlet-progress" aria-label="Your Gauntlet progress">
+          <div className="bk-gauntlet-progress-main">
+            <div className="bk-gauntlet-level" aria-label={`Level ${progress.level}`}><ShieldCheck aria-hidden="true"/><strong>{progress.level}</strong></div>
+            <div className="bk-gauntlet-progress-copy"><strong>{progress.level===1?'Rookie':`Level ${progress.level}`}</strong><span>{progress.xp.toLocaleString()} XP</span></div>
+            <progress className="bk-gauntlet-xp-bar" value={levelProgress} max={100} aria-label={`Progress to level ${progress.level+1}`}/>
+          </div>
+          <div className="bk-gauntlet-progress-summary">
+            <span><Flame aria-hidden="true"/><span><b>{progress.currentStreak}</b> answer streak</span></span>
+            <span><Target aria-hidden="true"/><span>Accuracy <b>{progress.totalAnswered?`${accuracy}%`:'—'}</b></span></span>
+          </div>
+          <details className="bk-gauntlet-progress-details">
+            <summary>View stats <ChevronRight aria-hidden="true"/></summary>
+            <div className="bk-gauntlet-stats">
+              <ProgressStat label="Level" value={String(progress.level)} detail={`${Math.max(0,250-(progress.xp-levelFloor))} XP TO LEVEL ${progress.level+1}`} icon={<Sparkles/>}/>
+              <ProgressStat label="XP" value={progress.xp.toLocaleString()} detail="TOTAL EARNED"/>
+              <ProgressStat label="Current streak" value={String(progress.currentStreak)} detail="CORRECT ANSWERS" icon={<Flame/>}/>
+              <ProgressStat label="Longest streak" value={String(progress.longestStreak)} detail="PERSONAL BEST" icon={<Medal/>}/>
+              <ProgressStat label="Accuracy" value={progress.totalAnswered?`${accuracy}%`:'—'} detail={`${progress.totalAnswered} ANSWERED`}/>
+            </div>
+            <div className="bk-gauntlet-personal-bests"><h3>Your best rounds</h3>{gauntletModes.filter(mode=>mode.name!=='PREDICTIONS').map(mode=><div key={mode.name}><span>{mode.name==='TRIVIA'?'Classic Trivia':mode.name}</span><strong>{Math.max(0,...triviaTiers.map(item=>progress.highScores[`${mode.name}:${item.name}`]||0))}/10</strong></div>)}</div>
+          </details>
         </section>
 
+        <header className="bk-gauntlet-board-heading"><h2>Choose your challenge</h2><p>Four ways to prove it.</p></header>
         <section className="bk-gauntlet-board" aria-label="Gauntlet challenge modes" data-testid="gauntlet-mode-grid">
-          {gauntletModes.map(mode=>{
-            const Icon=mode.icon;
+          {gauntletModes.filter(mode=>mode.name!=='SURVIVOR').map((mode,index)=>{
             const predictionMode=mode.name==='PREDICTIONS';
-            const best=Math.max(0,...triviaTiers.map(item=>progress.highScores[`${mode.name}:${item.name}`]||0));
-            return <button type="button" key={mode.name} onClick={()=>predictionMode?openVerifiedPicks():setTierPickerMode(mode.name)} className="bk-gauntlet-mode-card">
-              <span className="bk-gauntlet-mode-top"><Icon/><span>{predictionMode?'VERIFIED PICKS':`Best ${best}/10`}</span></span>
-              <strong>{mode.name==='TRIVIA'?'Classic Trivia':mode.name}</strong>
-              <small>{mode.description}</small>
-              <span className="bk-gauntlet-mode-action">{predictionMode?'Make picks':'Difficulty select'} <ChevronRight/></span>
+            return <button type="button" key={mode.name} onClick={()=>predictionMode?onOpenPicks():setTierPickerMode(mode.name)} className="bk-gauntlet-mode-card">
+              <span className={`bk-gauntlet-mode-art bk-gauntlet-mode-art-${index}`} aria-hidden="true"><img src="/gauntlet-scenes/challenges.webp" alt="" width="1254" height="1254" loading="lazy" decoding="async"/></span>
+              <span className="bk-gauntlet-mode-copy"><strong>{mode.name==='TRIVIA'?'Classic Trivia':mode.name}</strong><small>{mode.description}</small><span className="bk-gauntlet-mode-action">{predictionMode?'Make picks':mode.name==='DEBATES'?'Enter debate':'4 difficulties'} <ChevronRight aria-hidden="true"/></span></span>
             </button>;
           })}
+        </section>
+        <section className="bk-gauntlet-bonus" aria-label="More Gauntlet challenges">
+          <button type="button" onClick={()=>setTierPickerMode('SURVIVOR')} className="bk-gauntlet-survivor-card">
+            <ShieldCheck aria-hidden="true"/><span><strong>Survivor</strong><small>One wrong pick ends the run.</small><span className="bk-gauntlet-mode-action">Take the challenge <ChevronRight aria-hidden="true"/></span></span>
+          </button>
           <button type="button" onClick={()=>setDailyRun(true)} disabled={Boolean(progress.daily[dailyDate]?.completed)} className="bk-gauntlet-daily-card" data-testid="gauntlet-daily-cta">
             <span className="bk-gauntlet-daily-card-top"><CalendarDays/><span>Daily · {dailyDate}</span></span>
             <strong>Daily Challenges</strong>
@@ -380,4 +387,4 @@ export const ChallengesHub: React.FC = () => {
   );
 };
 
-const ProgressStat=({label,value,detail,progress,icon}:{label:string;value:string;detail:string;progress?:number;icon?:React.ReactNode})=><div className="bk-gauntlet-stat"><span className="bk-gauntlet-stat-label">{label}{icon}</span><strong className="bk-gauntlet-stat-value">{value}</strong>{progress!==undefined&&<span className="bk-gauntlet-stat-bar" aria-hidden="true"><i style={{width:`${Math.max(3,progress)}%`}}/></span>}<small className="bk-gauntlet-stat-detail">{detail}</small></div>;
+const ProgressStat=({label,value,detail,icon}:{label:string;value:string;detail:string;icon?:React.ReactNode})=><div className="bk-gauntlet-stat"><span className="bk-gauntlet-stat-label">{label}{icon}</span><strong className="bk-gauntlet-stat-value">{value}</strong><small className="bk-gauntlet-stat-detail">{detail}</small></div>;

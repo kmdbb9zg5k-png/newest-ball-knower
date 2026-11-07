@@ -21,7 +21,8 @@ for (const selector of ['.bk-gauntlet-frame', '.bk-gauntlet-hero', '.bk-gauntlet
   assert.ok(styles.includes(selector), `Missing approved Trivia visual primitive ${selector}.`);
 }
 
-assert.ok(styles.includes('grid-template-columns: repeat(5, minmax(0, 1fr))'), 'Five progress stats must remain in one compact mobile row.');
+assert.ok(hub.includes('<details className="bk-gauntlet-progress-details">') && hub.includes('View stats'), 'Detailed progress must remain available from the compact progress panel.');
+assert.ok(hub.includes('/gauntlet-scenes/tunnel.webp') && hub.includes('/gauntlet-scenes/challenges.webp'), 'Approved cinematic hero and challenge art must be connected.');
 assert.ok(styles.includes('grid-template-columns: repeat(2, minmax(0, 1fr))'), 'Challenge modes must retain the approved two-column composition.');
 assert.ok(styles.includes('padding: 18px 15px calc(82px + env(safe-area-inset-bottom))'), 'Difficulty controls must clear the mobile bottom navigation and safe area.');
 assert.ok(styles.includes('@media (max-width: 359px)') && styles.includes('@media (min-width: 640px)'), 'Trivia must include narrow-phone and desktop adaptations.');
