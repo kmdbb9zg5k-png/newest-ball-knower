@@ -1,6 +1,7 @@
 import { BroadcastStage } from './BroadcastScene';
 import React, { useMemo, useState } from 'react';
 import {
+  ArrowRight,
   BadgeDollarSign,
   BriefcaseBusiness,
   Building2,
@@ -254,6 +255,8 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
   const activeSave = activeSoloCareer(universe);
   const activeEvent = activeSave ? soloCareerEvent(activeSave) : null;
   const eventResolved = Boolean(activeSave && activeEvent && isSoloCareerEventResolved(activeSave, activeEvent));
+  const featuredMode = activeSave?.mode ?? 'real';
+  const isGamePlan = activeSave?.mode === 'real' && activeEvent?.character === 'Coach meeting';
   const sortedSaves = useMemo(
     () => [...universe.saves].sort((first, second) => second.lastPlayedAt - first.lastPlayedAt),
     [universe.saves],
@@ -301,6 +304,18 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
   if (ownerOpen) return <OwnerBusinessMode onBack={() => { setOwnerOpen(false); refreshUniverse(); }} />;
   if (agentOpen) return <PlayerAgentMode onBack={() => { setAgentOpen(false); refreshUniverse(); }} />;
 
+  const eventChoices = activeEvent && (
+    <div className="mt-4 grid gap-2 md:grid-cols-3">
+      {activeEvent.choices.map(choice => (
+        <button key={choice.id} type="button" onClick={() => chooseEvent(choice.id)} className="bk-career-choice">
+          <strong>{choice.label}</strong>
+          <span>{choice.detail}</span>
+          <small>+{choice.xp} XP</small>
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <BroadcastStage scene="field" page="solo" className="min-h-[100dvh] bg-transparent pb-12 text-white">
       <div className="mx-auto max-w-6xl px-3 sm:px-5">
@@ -321,68 +336,67 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
           <h1>YOUR FOOTBALL CAREER</h1>
           <span>Every mode now lives in one career universe. Your decisions, seasons and legacy follow you.</span>
         </header>
-
-
-
-        {activeSave && (
-          <section className="mb-4 overflow-hidden rounded-[30px] border border-amber-300/25 bg-[#070a0f]/96 shadow-[0_24px_70px_rgba(0,0,0,.48)]">
-            <div className="relative min-h-[220px] p-5 sm:p-6">
-              <ModeSceneArt seed={activeSave.mode} />
-              <div className="relative z-[2] max-w-2xl">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border border-amber-300/30 bg-black/70 px-2.5 py-1 text-[9px] font-black uppercase tracking-[.18em] text-amber-200">Continue Career</span>
-                  <span className="rounded-full border border-white/10 bg-black/60 px-2.5 py-1 text-[9px] font-black uppercase tracking-[.14em] text-zinc-300">Season {activeSave.season}</span>
-                </div>
-                <h2 className="mt-4 text-3xl font-black uppercase tracking-tight text-white sm:text-4xl">{activeSave.title}</h2>
-                <p className="mt-1 text-sm font-bold text-zinc-300">{activeSave.subtitle}</p>
-                <div className="mt-4 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-wider">
-                  <span className="rounded-lg bg-white/8 px-2.5 py-1.5 text-white">{progressLabel(activeSave.week, activeSave.stage)}</span>
-                  <span className="rounded-lg bg-white/8 px-2.5 py-1.5 text-white">{activeSave.wins}-{activeSave.losses}</span>
-                  {activeSave.championships > 0 && <span className="inline-flex items-center gap-1 rounded-lg bg-amber-300/12 px-2.5 py-1.5 text-amber-200"><Trophy size={12} /> {activeSave.championships} title{activeSave.championships === 1 ? '' : 's'}</span>}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => continueSave(activeSave.id)}
-                  className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-amber-300 px-5 text-[11px] font-black uppercase tracking-wider text-black shadow-lg shadow-amber-300/10"
-                >
-                  <Play size={16} fill="currentColor" /> Continue {SOLO_MODE_META[activeSave.mode].title}
-                </button>
-              </div>
-            </div>
-          </section>
-        )}
+        <section className="bk-career-feature" aria-labelledby="bk-career-feature-title">
+          {featuredMode === 'real' ? (
+            <img className="bk-career-feature-art" src="/solo-mode-scenes/franchise-coach.webp" alt="" loading="lazy" decoding="async" />
+          ) : (
+            <ModeSceneArt seed={featuredMode} />
+          )}
+          <div className="bk-career-feature-copy">
+            <h2 id="bk-career-feature-title">{activeSave?.title ?? SOLO_MODE_META.real.title}</h2>
+            {activeSave ? (
+              <p className="bk-career-feature-meta">
+                {activeSave.subtitle} · {activeSave.season} · {progressLabel(activeSave.week, activeSave.stage)} · {activeSave.wins}–{activeSave.losses}
+                {activeSave.championships > 0 && <span> · {activeSave.championships} {activeSave.championships === 1 ? 'title' : 'titles'}</span>}
+              </p>
+            ) : (
+              <p className="bk-career-feature-meta">{SOLO_MODE_META.real.subtitle}</p>
+            )}
+            <button
+              type="button"
+              onClick={() => activeSave ? continueSave(activeSave.id) : openMode('real')}
+              className="bk-career-feature-action"
+            >
+              <Play size={16} fill="currentColor" aria-hidden="true" /> {activeSave ? 'Continue Career' : 'Start Franchise Command'}
+            </button>
+          </div>
+        </section>
 
         {activeSave && activeEvent && (
-          <section className="mb-4 rounded-[28px] border border-white/10 bg-[#0a0d13]/96 p-4 shadow-xl sm:p-5">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-300/20 bg-orange-400/10 text-orange-300">
-                <Flame size={19} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[9px] font-black uppercase tracking-[.2em] text-orange-300">{activeEvent.eyebrow} · {progressLabel(activeSave.week, activeSave.stage)}</div>
-                <h3 className="mt-1 text-xl font-black uppercase text-white">{activeEvent.title}</h3>
-                <p className="mt-1 max-w-3xl text-sm leading-6 text-zinc-400">{activeEvent.description}</p>
-                <div className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500"><Clock3 size={12} /> {activeEvent.character}</div>
-              </div>
-            </div>
-            {eventResolved ? (
-              <div className="mt-4 rounded-2xl border border-emerald-400/15 bg-emerald-400/8 px-4 py-3 text-xs font-bold text-emerald-200">
-                Decision locked for this week. Your choice is now part of this career's history.
-              </div>
+          <section key={activeEvent.id} className="mb-4 overflow-hidden rounded-[22px] border border-white/15 bg-[#0a0d13] shadow-xl">
+            {isGamePlan && !eventResolved ? (
+              <details className="bk-career-game-plan">
+                <summary>
+                  <img src="/solo-mode-scenes/coaches-game-plan.webp" alt="" loading="lazy" decoding="async" />
+                  <span className="bk-career-game-plan-copy">
+                    <span>{progressLabel(activeSave.week, activeSave.stage)} · Game Plan</span>
+                    <strong>Two ways to win</strong>
+                    <span className="bk-career-game-plan-action">Review Game Plan <ArrowRight size={15} aria-hidden="true" /></span>
+                  </span>
+                </summary>
+                <div className="p-4 sm:p-5">
+                  <p className="text-sm leading-6 text-zinc-300">{activeEvent.description}</p>
+                  {eventChoices}
+                </div>
+              </details>
             ) : (
-              <div className="mt-4 grid gap-2 md:grid-cols-3">
-                {activeEvent.choices.map(choice => (
-                  <button
-                    key={choice.id}
-                    type="button"
-                    onClick={() => chooseEvent(choice.id)}
-                    className="rounded-2xl border border-white/10 bg-white/[.035] p-3 text-left transition hover:border-amber-300/30 hover:bg-amber-300/[.05]"
-                  >
-                    <strong className="block text-xs font-black uppercase text-white">{choice.label}</strong>
-                    <span className="mt-1 block text-[11px] leading-5 text-zinc-400">{choice.detail}</span>
-                    <span className="mt-2 block text-[9px] font-black uppercase tracking-wider text-amber-300">+{choice.xp} XP</span>
-                  </button>
-                ))}
+              <div className="p-4 sm:p-5">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-orange-300/20 bg-orange-400/10 text-orange-300">
+                    <Flame size={19} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[9px] font-black uppercase tracking-[.2em] text-orange-300">{activeEvent.eyebrow} · {progressLabel(activeSave.week, activeSave.stage)}</div>
+                    <h3 className="mt-1 text-xl font-black uppercase text-white">{activeEvent.title}</h3>
+                    <p className="mt-1 max-w-3xl text-sm leading-6 text-zinc-400">{activeEvent.description}</p>
+                    <div className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500"><Clock3 size={12} /> {activeEvent.character}</div>
+                  </div>
+                </div>
+                {eventResolved ? (
+                  <div className="mt-4 rounded-2xl border border-emerald-400/15 bg-emerald-400/8 px-4 py-3 text-xs font-bold text-emerald-200">
+                    Decision locked for this week. Your choice is now part of this career's history.
+                  </div>
+                ) : eventChoices}
               </div>
             )}
           </section>

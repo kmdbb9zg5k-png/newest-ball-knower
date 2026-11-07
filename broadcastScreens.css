@@ -64,6 +64,30 @@
 .bk-solo-universe-heading p { margin:0 0 9px; color:#d5b66d; font:800 8px/1.2 Arial,sans-serif; letter-spacing:.28em; }
 .bk-solo-universe-heading h1 { margin:0; color:#fff9e9; font:900 clamp(34px,10vw,48px)/.95 'Barlow Condensed','Arial Narrow',sans-serif; letter-spacing:-.015em; }
 .bk-solo-universe-heading span { display:block; margin-top:10px; color:#b7bdc5; font:500 13px/1.45 Arial,sans-serif; }
+.bk-career-feature { position:relative; isolation:isolate; overflow:hidden; display:flex; align-items:end; min-height:clamp(250px,72vw,365px); margin:10px 0 14px; border:1px solid #b894465e; border-radius:24px; background:#080b10; }
+.bk-career-feature::after { content:''; position:absolute; inset:0; pointer-events:none; background:linear-gradient(0deg,#06080bf5,transparent 83%),linear-gradient(90deg,#06080bc9,transparent 78%); }
+.bk-career-feature-art { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:76% 22%; }
+.bk-career-feature-copy { position:relative; z-index:1; padding:clamp(16px,4vw,32px); }
+.bk-career-feature-copy h2 { width:min-content; max-width:100%; color:#fff8e9; font:900 clamp(38px,10vw,78px)/.89 'Barlow Condensed','Arial Narrow',sans-serif; text-transform:uppercase; text-shadow:0 2px 16px #000c; overflow-wrap:break-word; }
+.bk-career-feature-meta { margin-top:11px; color:#e1e2e6; font-size:clamp(10px,2.75vw,14px); font-weight:800; letter-spacing:.075em; text-transform:uppercase; }
+.bk-career-feature .bk-career-feature-action { display:inline-flex; align-items:center; gap:8px; min-height:44px; margin-top:14px; padding:8px 15px; border-radius:10px; background:#ffd344; color:#151005; font-size:13px; font-weight:900; }
+.bk-career-game-plan summary { position:relative; isolation:isolate; display:flex; align-items:center; min-height:126px; padding:16px; cursor:pointer; list-style:none; }
+.bk-career-game-plan summary::-webkit-details-marker { display:none; }
+.bk-career-game-plan summary:focus-visible { outline-offset:-4px; }
+.bk-career-game-plan summary::after { content:''; position:absolute; inset:0; pointer-events:none; background:linear-gradient(90deg,#0a0d13 29%,#0a0d13cf 47%,#0a0d1326 100%); }
+.bk-career-game-plan summary img { position:absolute; inset:0 0 0 auto; width:68%; height:100%; object-fit:cover; object-position:72% 34%; }
+.bk-career-game-plan-copy { position:relative; z-index:1; display:grid; justify-items:start; gap:4px; }
+.bk-career-game-plan-copy>span:first-child { color:#f3c973; font-size:10px; font-weight:900; letter-spacing:.1em; text-transform:uppercase; }
+.bk-career-game-plan-copy strong { color:#fff8e9; font:800 clamp(25px,6vw,37px)/1 'Barlow Condensed','Arial Narrow',sans-serif; }
+.bk-career-game-plan-action { display:flex; align-items:center; gap:6px; margin-top:4px; color:#ffd66d; font-size:12px; font-weight:800; }
+.bk-career-game-plan[open] .bk-career-game-plan-action svg { transform:rotate(90deg); }
+.bk-career-choice { display:block; min-height:44px; padding:12px; border:1px solid #ffffff1a; border-radius:14px; background:#ffffff09; text-align:left; }
+.bk-career-choice:hover { border-color:#e7ba575e; }
+.bk-career-choice strong,.bk-career-choice span,.bk-career-choice small { display:block; }
+.bk-career-choice strong { color:#fff; font-size:12px; font-weight:900; }
+.bk-career-choice span { margin-top:4px; color:#b7bdc5; font-size:11px; line-height:1.5; }
+.bk-career-choice small { margin-top:6px; color:#ffd66d; font-size:10px; font-weight:800; }
+@media (min-width:768px) { .bk-career-feature-art { width:78%; inset-inline-start:auto; object-position:75% 18%; } .bk-career-game-plan summary { padding-inline:24px; } .bk-career-game-plan summary img { width:54%; } }
 .bk-solo-universe-grid { padding:14px 16px 0; }
 .bk-mode-card { position:relative; display:flex; align-items:center; gap:14px; width:100%; min-height:103px; padding:17px; text-align:left; border:1px solid #b5a06a55; border-radius:9px; background:linear-gradient(125deg,#182026e8,#0a1017f5); color:#e6ddc9; }
 .bk-mode-card>svg { flex:none; width:29px; height:29px; color:#d2b36e; }
