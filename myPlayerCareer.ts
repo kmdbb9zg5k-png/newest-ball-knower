@@ -2,12 +2,14 @@ import type {Position,TeamRatings} from './types';
 import type {JourneyState,JourneyProfile} from './myPlayerJourney';
 import {journeyHash,journeyMetrics} from './myPlayerJourney';
 import type {MyPlayerRole} from './myPlayerOpportunity';
-export type CareerPerson='agent'|'coach'|'rival'|'teammate';
-export const CAREER_CAST:Record<CareerPerson,{name:string;role:string;initials:string;color:string}>={
- agent:{name:'Jordan Ellis',role:'Your agent',initials:'JE',color:'#ad96ef'},
- coach:{name:'Coach Marcus Reed',role:'Position coach',initials:'MR',color:'#e7be65'},
- rival:{name:'Dante Cross',role:'Your depth-chart rival',initials:'DC',color:'#f29379'},
- teammate:{name:'Andre Brooks',role:'Locker-room captain',initials:'AB',color:'#79c9b1'},
+export type CareerPerson='agent'|'headCoach'|'coach'|'trainer'|'rival'|'teammate';
+export const CAREER_CAST:Record<CareerPerson,{name:string;role:string;portrait:string}>={
+ agent:{name:'Jordan Ellis',role:'Your agent',portrait:'/career-cast/jordan-ellis.webp'},
+ headCoach:{name:'Coach Wade Mercer',role:'Head coach',portrait:'/career-cast/wade-mercer.webp'},
+ coach:{name:'Coach Marcus Reed',role:'Position coach',portrait:'/career-cast/marcus-reed.webp'},
+ trainer:{name:'Elena Torres',role:'Athletic trainer',portrait:'/career-cast/elena-torres.webp'},
+ rival:{name:'Dante Cross',role:'Your depth-chart rival',portrait:'/solo-characters/v2/qa/solo-slc-38/portrait.webp'},
+ teammate:{name:'Andre Brooks',role:'Locker-room captain',portrait:'/solo-characters/v2/qa/solo-brk-30/portrait.webp'},
 };
 export type Prep='extra'|'film'|'recovery';
 export type Response='team'|'bet'|'business';

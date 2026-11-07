@@ -68,6 +68,7 @@
 .bk-mode-card { position:relative; display:flex; align-items:center; gap:14px; width:100%; min-height:103px; padding:17px; text-align:left; border:1px solid #b5a06a55; border-radius:9px; background:linear-gradient(125deg,#182026e8,#0a1017f5); color:#e6ddc9; }
 .bk-mode-card>svg { flex:none; width:29px; height:29px; color:#d2b36e; }
 .bk-mode-card>div { min-width:0; flex:1; }
+.bk-mode-role-icon { display:block; width:24px; height:24px; margin-bottom:8px; color:#d9b55a; }
 .bk-mode-card small { display:block; font-size:8px; line-height:1.5; letter-spacing:.15em; color:#b1a27e; }
 .bk-mode-card strong { display:block; margin-top:3px; font-family:'Barlow Condensed','Arial Narrow',sans-serif; font-size:26px; font-weight:700; line-height:1; }
 .bk-mode-card p { margin:7px 0 0; color:#b4bcbf; font-size:11px; line-height:1.55; }
