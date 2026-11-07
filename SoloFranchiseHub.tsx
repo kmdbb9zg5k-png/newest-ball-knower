@@ -2,19 +2,12 @@ import { BroadcastStage } from './BroadcastScene';
 import React, { useMemo, useState } from 'react';
 import {
   ArrowRight,
-  BadgeDollarSign,
-  BriefcaseBusiness,
-  Building2,
   ChevronRight,
   Clock3,
   Flame,
   Play,
-  Shuffle,
-  Sparkles,
   Trophy,
-  Users,
 } from 'lucide-react';
-import { SOLO_FRANCHISE_SAVE_KEYS } from './soloFranchiseEngine';
 import { OwnerBusinessMode } from './OwnerBusinessMode';
 import { PlayerAgentMode } from './PlayerAgentMode';
 import {
@@ -25,7 +18,6 @@ import {
   ensureSoloCareerSave,
   isSoloCareerEventResolved,
   loadSoloUniverse,
-  nativeSoloModeHasSave,
   persistSoloUniverse,
   SOLO_MODE_META,
   SoloCareerMode,
@@ -87,38 +79,6 @@ const MODE_SCENES: Record<SceneKey, SceneArt> = {
   },
 };
 
-const MODE_EYEBROW_STYLE: React.CSSProperties = {
-  display: 'inline-block',
-  width: 'fit-content',
-  maxWidth: '100%',
-  padding: '4px 7px',
-  marginBottom: '7px',
-  borderRadius: '999px',
-  border: '1px solid rgba(223,185,84,.28)',
-  background: 'rgba(5,8,12,.86)',
-  color: '#f1f5fa',
-  fontWeight: 900,
-  lineHeight: 1.25,
-  textShadow: '0 1px 3px rgba(0,0,0,.9)',
-  boxShadow: '0 2px 8px rgba(0,0,0,.45)',
-};
-
-const MODE_TITLE_STYLE: React.CSSProperties = {
-  color: '#fff6dc',
-  textShadow: '0 2px 8px rgba(0,0,0,.95)',
-};
-
-const MODE_DESCRIPTION_STYLE: React.CSSProperties = {
-  color: '#dce3ed',
-  fontWeight: 600,
-  textShadow: '0 1px 6px rgba(0,0,0,.9)',
-};
-
-const MODE_CONTINUE_STYLE: React.CSSProperties = {
-  color: '#f0c96a',
-  textShadow: '0 1px 4px rgba(0,0,0,.9)',
-};
-
 function ModeSceneArt({ seed }: { seed: SceneKey }) {
   const art = MODE_SCENES[seed];
 
@@ -162,73 +122,14 @@ function ModeSceneArt({ seed }: { seed: SceneKey }) {
   );
 }
 
-const MODES = [
-  {
-    id: 'agent' as const,
-    eyebrow: 'PLAYER REPRESENTATION',
-    title: 'AGENT MODE',
-    description: 'Recruit clients, negotiate contracts, handle trade demands and build a powerhouse agency.',
-    icon: BriefcaseBusiness,
-  },
-  {
-    id: 'owner' as const,
-    eyebrow: 'FRONT OFFICE / BUSINESS',
-    title: 'OWNER OFFICE',
-    description: 'Hire staff, manage money, protect fan trust and make decisions that shape the organization.',
-    icon: Building2,
-  },
-  {
-    id: 'cap' as const,
-    eyebrow: 'THE ORIGINAL',
-    title: 'CAP CHALLENGE',
-    description: 'Draft your 20-player superteam under the cap, then survive 17 games and the playoffs.',
-    icon: BadgeDollarSign,
-  },
-  {
-    id: 'fantasy' as const,
-    eyebrow: 'CREATE YOUR LEAGUE',
-    title: 'FANTASY DRAFT',
-    description: 'Create a custom football team, draft a full 53-man roster, then play through the Legacy Bowl.',
-    icon: Shuffle,
-  },
-  {
-    id: 'real' as const,
-    eyebrow: 'FLAGSHIP CAREER',
-    title: 'FRANCHISE COMMAND',
-    description: 'Run football operations: weekly game plans, roster pressure, trades, development and championships.',
-    icon: Users,
-  },
-  {
-    id: 'player' as const,
-    eyebrow: 'STORY MODE',
-    title: 'MY PLAYER',
-    description: 'Create yourself, earn your role, hit weekly goals, upgrade ratings and build a career legacy.',
-    icon: Sparkles,
-  },
-];
+const CAREER_TILES = [
+  { mode: 'player', label: 'My Player', portrait: '/solo-mode-scenes/career-my-player.webp' },
+  { mode: 'real', label: 'GM', portrait: '/solo-mode-scenes/career-gm.webp' },
+  { mode: 'owner', label: 'Owner', portrait: '/solo-mode-scenes/career-owner.webp' },
+  { mode: 'agent', label: 'Agent', portrait: '/solo-mode-scenes/career-agent.webp' },
+] as const;
 
-function modeHasSave(mode: SoloCareerMode) {
-  try {
-    if (mode === 'cap') return Boolean(localStorage.getItem(SOLO_FRANCHISE_SAVE_KEYS.cap));
-    if (mode === 'fantasy') return Boolean(localStorage.getItem(SOLO_FRANCHISE_SAVE_KEYS.fantasy));
-    if (mode === 'real') return Boolean(localStorage.getItem(SOLO_FRANCHISE_SAVE_KEYS.real));
-    if (mode === 'player') {
-      const raw = localStorage.getItem(SOLO_FRANCHISE_SAVE_KEYS.player);
-      if (!raw) return false;
-      const profile = JSON.parse(raw);
-      if (profile?.stage !== 'creator') return true;
-      return Boolean(
-        profile?.name || profile?.faceImage || profile?.renderImage || profile?.appearancePrompt ||
-        profile?.position !== 'WR' || profile?.number !== 17 || profile?.heightInches !== 72 ||
-        profile?.weightLbs !== 205 || profile?.bodyBuild !== 48 || profile?.shoulderWidth !== 52 ||
-        profile?.armSize !== 46 || profile?.legSize !== 50 || profile?.viewRotation !== 0
-      );
-    }
-    return nativeSoloModeHasSave(mode);
-  } catch {
-    return false;
-  }
-}
+const OTHER_MODES = ['cap', 'fantasy'] as const;
 
 function progressLabel(week: number, stage: string) {
   if (stage.toLowerCase().includes('finished')) return 'Season complete';
@@ -408,16 +309,41 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
           </section>
         )}
 
+        <section className="bk-career-modes" aria-labelledby="bk-career-modes-title">
+          <h2 id="bk-career-modes-title">Career Modes</h2>
+          <div className="bk-career-portrait-grid">
+            {CAREER_TILES.map(({ mode, label, portrait }) => (
+              <button
+                key={mode}
+                type="button"
+                className="bk-mode-card bk-career-portrait"
+                aria-label={mode === 'real' ? 'GM · Franchise Command' : SOLO_MODE_META[mode].title}
+                onClick={() => openMode(mode)}
+              >
+                <img src={portrait} alt="" width={280} height={280} loading="lazy" decoding="async" />
+                <strong>{label}</strong>
+                {label !== SOLO_MODE_META[mode].title && <span className="sr-only">{SOLO_MODE_META[mode].title}</span>}
+              </button>
+            ))}
+          </div>
+          <div className="bk-career-extra-modes">
+            {OTHER_MODES.map(mode => (
+              <button key={mode} type="button" className="bk-mode-card bk-career-extra-mode" onClick={() => openMode(mode)}>
+                <span>{SOLO_MODE_META[mode].title}</span>
+                <ChevronRight size={16} aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+        </section>
+
         {sortedSaves.length > 0 && (
-          <section className="mb-6">
-            <div className="mb-3 flex items-end justify-between">
-              <div>
-                <div className="text-[9px] font-black uppercase tracking-[.22em] text-zinc-500">Persistent Careers</div>
-                <h2 className="mt-1 text-xl font-black uppercase">Your Saves</h2>
-              </div>
-              <span className="text-[10px] font-bold uppercase text-zinc-600">{sortedSaves.length}/6 modes started</span>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <details className="bk-career-saves">
+            <summary>
+              <strong>Your Saves</strong>
+              <span>{sortedSaves.length}/6 modes started</span>
+              <ChevronRight size={16} aria-hidden="true" />
+            </summary>
+            <div className="grid gap-2 px-3 pb-3 sm:grid-cols-2 lg:grid-cols-3">
               {sortedSaves.map(save => (
                 <button
                   key={save.id}
@@ -439,7 +365,7 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
                 </button>
               ))}
             </div>
-          </section>
+          </details>
         )}
 
         {universe.history.length > 0 && (
@@ -456,39 +382,6 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
           </section>
         )}
 
-        <section className="pt-5">
-          <div className="mb-3">
-            <div className="text-[9px] font-black uppercase tracking-[.22em] text-zinc-500">Choose Your Road</div>
-            <h2 className="mt-1 text-xl font-black uppercase">{sortedSaves.length ? 'Start Or Enter A Mode' : 'Start Your First Career'}</h2>
-          </div>
-          <div className="bk-mode-grid bk-solo-universe-grid">
-            {MODES.map(mode => {
-              const Icon = mode.icon;
-              const saved = modeHasSave(mode.id) || universe.saves.some(save => save.mode === mode.id);
-
-              return (
-                <button
-                  key={mode.id}
-                  type="button"
-                  className="bk-mode-card"
-                  onClick={() => openMode(mode.id)}
-                >
-                  <ModeSceneArt seed={mode.id} />
-                  <div>
-                    <Icon className="bk-mode-role-icon" aria-hidden="true" />
-                    <small style={MODE_EYEBROW_STYLE}>{mode.eyebrow}</small>
-                    <strong style={MODE_TITLE_STYLE}>{mode.title}</strong>
-                    <p style={MODE_DESCRIPTION_STYLE}>{mode.description}</p>
-                    <span className="bk-mode-continue" style={MODE_CONTINUE_STYLE}>
-                      {saved ? 'CONTINUE CAREER' : 'NEW CAREER'}
-                    </span>
-                  </div>
-                  <ChevronRight size={17} style={{ zIndex: 2 }} />
-                </button>
-              );
-            })}
-          </div>
-        </section>
       </div>
     </BroadcastStage>
   );
