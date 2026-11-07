@@ -16,7 +16,7 @@ page=await browser.newPage({viewport:{width,height:844},isMobile:width<600,hasTo
 const shot=async name=>page.screenshot({path:`${out}/${width}-${name}.png`,animations:'disabled'});
 const tab=async name=>page.getByRole('tab',{name,exact:true}).click();
 const read=()=>page.evaluate(k=>({p:JSON.parse(localStorage.getItem(k)),s:JSON.parse(localStorage.getItem(k+':season'))}),key);
-const layout=async()=>{assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'No horizontal overflow');const y=await page.evaluate(()=>scrollY);for(const img of await page.locator('[data-player-scene]:visible img').all()){await img.scrollIntoViewIfNeeded();await img.evaluate(i=>i.decode());}await page.evaluate(y=>window.scrollTo({top:y,behavior:'instant'}),y);};
+const layout=async()=>{assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'No horizontal overflow');const y=await page.evaluate(()=>scrollY);for(const img of await page.locator('[data-player-scene]:visible img').all()){await img.scrollIntoViewIfNeeded();await img.evaluate(i=>Promise.race([i.decode(),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Image decode timeout: '+i.src)),10000))]));}await page.evaluate(y=>window.scrollTo({top:y,behavior:'instant'}),y);};
 const open=async()=>{if(width>=600){await page.getByRole('button',{name:'Explore Ball Knower',exact:true}).click();await page.getByRole('dialog',{name:'Explore Ball Knower',exact:true}).getByRole('button',{name:/^Solo careers/}).click();}else await page.getByRole('button',{name:'Play Solo Mode',exact:true}).click();await page.getByRole('button',{name:'Choose Career',exact:true}).click();await page.getByRole('region',{name:'Choose your career',exact:true}).getByRole('button',{name:/^My Player/}).click();await page.getByRole('region',{name:'Weekly career story',exact:true}).waitFor();};
 const rows=new Map();const user={id:'00000000-0000-4000-8000-000000000401',is_anonymous:true,aud:'authenticated',role:'authenticated',user_metadata:{},app_metadata:{},created_at:new Date().toISOString()};
 const token='eyJhbGciOiJIUzI1NiJ9.'+Buffer.from(JSON.stringify({sub:user.id,exp:Math.floor(Date.now()/1000)+86400,role:'authenticated'})).toString('base64url')+'.qa';
@@ -37,18 +37,18 @@ async function moment(){
  await page.getByRole('button',{name:'PLAY MY MOMENT',exact:true}).click();const dialog=page.getByRole('dialog',{name:'Playable career moment',exact:true});await dialog.waitFor();
  for(let rep=0;rep<5;rep++){
   await dialog.getByRole('button',{name:`START REP ${rep+1}`,exact:true}).click();
-  await page.evaluate(()=>new Promise(resolve=>{function tick(){const d=document.querySelector('.life-moment');if(d.dataset.phase==='result'){resolve();return;}const p=Number(d.querySelector('progress').value),f=d.querySelector('.life-field'),lane=Number(f.dataset.target);if(p>=.55&&Number(f.dataset.lane)!==lane)d.querySelectorAll('.life-lanes button')[lane].click();if(p>=.72)d.querySelector('.life-moment-actions .career-primary')?.click();requestAnimationFrame(tick);}requestAnimationFrame(tick);}));
+  await page.evaluate(()=>new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(new Error('Moment timed out: '+document.querySelector('.life-moment')?.dataset.phase)),20000);function tick(){const d=document.querySelector('.life-moment');if(d.dataset.phase==='result'){clearTimeout(timeout);resolve();return;}const p=Number(d.querySelector('progress').value),f=d.querySelector('.life-field'),lane=Number(f.dataset.target);if(p>=.55&&Number(f.dataset.lane)!==lane)d.querySelectorAll('.life-lanes button')[lane].click();if(p>=.72)d.querySelector('.life-moment-actions .career-primary')?.click();requestAnimationFrame(tick);}requestAnimationFrame(tick);}));
   await dialog.getByRole('button',{name:rep===4?'SAVE MY PERFORMANCE':'NEXT REP',exact:true}).click();
  }
  await dialog.waitFor({state:'hidden'});
 }
 let games=0;const scenes=new Set();
 for(let turn=0;turn<23;turn++){
- let state=await read();if(state.s.stage==='finished')break;
+ let state=await read();console.log('Starting turn',turn,state.s.stage);if(state.s.stage==='finished')break;
  if(state.s.stage==='regular'&&state.s.weeks.length===17){await tab('Career');await page.getByRole('button',{name:'SELECTION SUNDAY',exact:true}).click();continue;}
  await tab('Story');await choose('Protect your recovery day','preparation');await layout();const art=await page.locator('[data-player-scene]:visible').first().getAttribute('data-player-scene');scenes.add(art);if(turn<4)await shot(`conversation-${art}`);await choose('Put the room first','response');await moment();
  state=await read();assert(state.p.careerLife.turn.score>=0);await tab('Career');const pending=state.s.interactions?.pendingScenario;if(pending)await page.getByText(pending.choices[0].label,{exact:true}).click();
- const before=state.p.careerLife.games;const action=page.getByRole('button',{name:/^(RESOLVE WEEK \d+|PLAY (WILD CARD|DIVISIONAL|CONFERENCE CHAMPIONSHIP|LEGACY BOWL))$/});await action.click();await page.waitForFunction(({key,before})=>JSON.parse(localStorage.getItem(key)).careerLife.games>before,{key,before});games++;await layout();console.log('My Player game',games,(await read()).s.stage);
+ const before=state.p.careerLife.games;const action=page.getByRole('button',{name:/^(RESOLVE WEEK \d+|PLAY (WILD CARD|DIVISIONAL|CONFERENCE CHAMPIONSHIP|LEGACY BOWL))$/});await action.click();await page.waitForFunction(({key,before})=>JSON.parse(localStorage.getItem(key)).careerLife.games>before,{key,before});games++;console.log('Resolved game',games);await layout();console.log('My Player game',games,(await read()).s.stage);
  if(process.env.BK_QA_LAYOUT_ONLY==='1')break;
  if(games===6){await page.reload({waitUntil:'domcontentloaded'});await open();assert.equal((await read()).p.careerLife.games,6);}
 }
