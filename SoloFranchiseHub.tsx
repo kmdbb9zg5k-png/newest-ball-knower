@@ -436,7 +436,7 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
           </section>
         )}
 
-        <section>
+        <section className="pt-5">
           <div className="mb-3">
             <div className="text-[9px] font-black uppercase tracking-[.22em] text-zinc-500">Choose Your Road</div>
             <h2 className="mt-1 text-xl font-black uppercase">{sortedSaves.length ? 'Start Or Enter A Mode' : 'Start Your First Career'}</h2>
@@ -453,9 +453,9 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
                   className="bk-mode-card"
                   onClick={() => openMode(mode.id)}
                 >
-                  <Icon style={{ zIndex: 2 }} />
                   <ModeSceneArt seed={mode.id} />
                   <div>
+                    <Icon className="bk-mode-role-icon" aria-hidden="true" />
                     <small style={MODE_EYEBROW_STYLE}>{mode.eyebrow}</small>
                     <strong style={MODE_TITLE_STYLE}>{mode.title}</strong>
                     <p style={MODE_DESCRIPTION_STYLE}>{mode.description}</p>
