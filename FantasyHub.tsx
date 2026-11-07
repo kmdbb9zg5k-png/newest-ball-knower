@@ -265,6 +265,42 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
     }catch{showToast(`Join code: ${league.code}`);}
   };
 
+  const hasActiveLeagues = leagues.some(league => !league.settings?.fantasySeasonComplete);
+  const yourLeaguesSection = (
+    <section aria-labelledby="fantasy-leagues-title" data-testid="fantasy-your-leagues">
+      <div className="bk-fantasy-section-heading">
+        <h2 id="fantasy-leagues-title">Your Leagues</h2>
+        <button type="button" onClick={()=>setWorkspace("leagues")} aria-label={`My Leagues (${leagues.length})`}>My Leagues ({leagues.length}) <ChevronRight aria-hidden="true"/></button>
+      </div>
+
+      {leagues.length === 0 ? (
+        <div className="bk-fantasy-leagues-empty">
+          <Trophy />
+          <div>
+            Your trophy case is empty
+          </div>
+          <p>
+            Create your first league or join your friends with a code.
+          </p>
+        </div>
+      ) : (
+        <div ref={leagueRailRef} className="bk-fantasy-league-grid" data-testid="fantasy-league-grid" aria-label="Your leagues" tabIndex={0}>
+          {displayLeagues.map((league, leagueIndex) => (
+            <LeagueDestinationCard
+              key={league.id}
+              league={league}
+              currentUserId={currentUser?.id}
+              featured={leagueIndex === 0}
+              onSelect={onSelectLeague}
+              onCopyCode={league=>void copyJoinCode(league)}
+              onManage={league=>setManagedLeagueId(league.id)}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+
   return (
     <BroadcastStage scene="tunnel" page="fantasy" quiet={view==='cheatsheet'} className={`bk-fantasy-hq-screen ${view === "leagues" ? "bk-hq-premium" : ""} min-h-[calc(100dvh-7rem)] text-white`}>
       <div className="bk-fantasy-hq-shell mx-auto max-w-6xl">
@@ -314,36 +350,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
               </div>
             </section>
 
-            <div className="bk-fantasy-section-heading">
-              <h2>Your Leagues</h2>
-              <button type="button" onClick={()=>setWorkspace("leagues")} aria-label={`My Leagues (${leagues.length})`}>My Leagues ({leagues.length}) <ChevronRight aria-hidden="true"/></button>
-            </div>
-
-            {leagues.length === 0 ? (
-              <div className="bk-fantasy-leagues-empty">
-                <Trophy />
-                <div>
-                  Your trophy case is empty
-                </div>
-                <p>
-                  Create your first league or join your friends with a code.
-                </p>
-              </div>
-            ) : (
-              <div ref={leagueRailRef} className="bk-fantasy-league-grid" data-testid="fantasy-league-grid" aria-label="Your leagues" tabIndex={0}>
-                {displayLeagues.map((league, leagueIndex) => (
-                  <LeagueDestinationCard
-                    key={league.id}
-                    league={league}
-                    currentUserId={currentUser?.id}
-                    featured={leagueIndex === 0}
-                    onSelect={onSelectLeague}
-                    onCopyCode={league=>void copyJoinCode(league)}
-                    onManage={league=>setManagedLeagueId(league.id)}
-                  />
-                ))}
-              </div>
-            )}
+            {hasActiveLeagues && yourLeaguesSection}
 
             <section className="bk-fantasy-tools" aria-labelledby="fantasy-tools-title">
               <div className="bk-fantasy-section-heading">
@@ -390,6 +397,7 @@ export const FantasyHub: React.FC<FantasyHubProps> = ({
               <span><strong>Need help getting started?</strong><small>Learn how Ball Knower Fantasy works.</small></span>
               <ChevronRight />
             </button>
+            {!hasActiveLeagues && yourLeaguesSection}
           </>
         )}
         {view === "cheatsheet" && (
