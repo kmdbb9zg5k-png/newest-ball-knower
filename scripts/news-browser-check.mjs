@@ -11,7 +11,11 @@ if(live){
   const response=await fetch('https://ballknowerofficial.com/api/nfl-news',{redirect:'error',cache:'no-store',signal:AbortSignal.timeout(12000)});
   news=await response.json();verifyNews(response,news);
 }else{
-  news={available:true,provider:'Currents',fetchedAt:new Date().toISOString(),articles:[{id:'https://publisher.example/story',url:'https://publisher.example/story',headline:'Example headline used only in automated testing',source:'Test publisher',published:null,image:null,description:''}]};
+  news={available:true,provider:'Currents',fetchedAt:new Date().toISOString(),articles:[
+    {id:'https://publisher.example/story',url:'https://publisher.example/story',headline:'What to watch in the next round of divisional games',source:'Test publisher',published:new Date().toISOString(),image:null,description:''},
+    {id:'https://publisher.example/notes',url:'https://publisher.example/notes',headline:'Film room notes on defending the deep pass',source:'Fixture Sports',published:null,image:null,description:''},
+    {id:'https://publisher.example/preview',url:'https://publisher.example/preview',headline:'A closer look at the weekend matchup slate',source:'Fixture Sports',published:null,image:null,description:''},
+  ]};
 }
 const base='http://127.0.0.1:4175';
 const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port','4175','--strictPort'],{stdio:'inherit'});
@@ -54,6 +58,19 @@ try{
     assert.ok(links.every(link=>link.rel.includes('noopener')&&link.rel.includes('noreferrer')));
     assert.equal(await page.locator('article img').count(),0);
     await page.screenshot({path:`artifacts/news-release/news-${live?'live':'fixture'}-${width}.png`,fullPage:false});
+    if(!live){
+      const search=page.getByRole('searchbox',{name:'Search headlines'});
+      await search.fill('TEST PUBLISHER');
+      await page.getByRole('heading',{name:'Search results',exact:true}).waitFor();
+      assert.equal(await page.locator('article').count(),1,'Publisher searches should find the story regardless of case');
+      await search.fill('no matching story');
+      await page.getByText('No matching headlines.',{exact:true}).waitFor();
+      assert.equal(await page.locator('article').count(),0);
+      await page.getByRole('button',{name:'Clear search',exact:true}).click();
+      await page.getByRole('heading',{name:'Top headline',exact:true}).waitFor();
+      assert.equal(await search.inputValue(),'');
+      assert.equal(await page.locator('article').count(),news.articles.length);
+    }
     outage=true;await page.getByRole('button',{name:'Refresh',exact:true}).click();
     await page.getByText('NFL news is temporarily unavailable. Use Refresh to try again.').waitFor();
     assert.equal(await page.locator('article').count(),0,'Outage must clear stale articles');
