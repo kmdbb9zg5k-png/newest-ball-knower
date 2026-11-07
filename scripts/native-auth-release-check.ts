@@ -28,8 +28,8 @@ assert.match(supabase,/detectSessionInUrl:\s*true/);
 assert.match(supabase,/google:\s*null,\s*apple:\s*null/,'settings lookup failures must be unknown rather than falsely disabled');
 assert.match(supabase,/providerRefreshToken/,'account deletion must send a server-side revocation token when Supabase provides one');
 
-assert.match(modal,/SETUP REQUIRED/);
-assert.match(modal,/TRY SIGN-IN/,'unknown provider state must not be mislabeled setup-required');
+assert.match(modal,/currently unavailable/,'explicitly disabled providers must have a user-facing explanation');
+assert.match(modal,/providerAvailability===null\|\|providerState\(provider\)===false/,'only a pending check or an explicitly disabled provider should block sign-in');
 assert.match(modal,/NATIVE_AUTH_RESULT_EVENT/);
 assert.doesNotMatch(modal,/setErrorMessage\([^\n]*(err|error)\?\.message[^\n]*(Google|Apple)/i,'native OAuth must not render raw provider exceptions');
 

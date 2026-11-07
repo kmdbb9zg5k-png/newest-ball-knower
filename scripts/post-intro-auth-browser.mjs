@@ -26,7 +26,7 @@ try{
     assert.equal(await page.locator('#close-auth-modal-btn').count(),0,'first-launch auth must use the intentional guest button instead of a floating close icon');
     assert.ok(await page.getByRole('button',{name:'Continue with Apple'}).isVisible());
     assert.ok(await page.getByRole('button',{name:'Continue with Email'}).isVisible());
-    const guest=page.getByRole('button',{name:'Keep Playing As Guest'});
+    const guest=page.getByRole('button',{name:'Continue as Guest'});
     assert.ok(await guest.isVisible());
     const touchBox=await guest.boundingBox();
     assert.ok(touchBox&&touchBox.height>=44,'guest option must remain a practical mobile touch target');

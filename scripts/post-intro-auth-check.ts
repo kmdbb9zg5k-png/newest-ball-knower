@@ -12,8 +12,8 @@ assert.match(app,/presentation=\{isLaunchAuth\?'launch':'modal'\}/,'automatic an
 assert.match(auth,/Continue with Google/);
 assert.match(auth,/Continue with Apple/);
 assert.match(auth,/Continue with Email/);
-assert.match(auth,/Keep Playing As Guest/);
-assert.match(auth,/Signing in is optional/);
+assert.match(auth,/Continue as Guest/);
+assert.match(auth,/You can create an account later/);
 assert.match(styles,/min-height: 100dvh/,'launch auth must use the dynamic mobile viewport');
 assert.match(styles,/env\(safe-area-inset-top\)/,'launch auth must respect the iPhone top safe area');
 assert.match(styles,/env\(safe-area-inset-bottom\)/,'launch auth must respect the iPhone bottom safe area');

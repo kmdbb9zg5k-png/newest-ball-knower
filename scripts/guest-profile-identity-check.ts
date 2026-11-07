@@ -44,7 +44,7 @@ assert.match(migration, /create or replace function public\.set_ball_knower_prof
 assert.match(migration, /where auth_user_id=v_user_id/);
 assert.match(migration, /commissioner_auth_id=v_user_id/);
 assert.doesNotMatch(migration, /A permanent account is required/);
-assert.match(authModal, /Keep Playing As Guest/);
+assert.match(authModal, /Continue as Guest/);
 assert.match(authModal, /EMAIL MY CONFIRMATION LINK/);
 assert.match(authModal, /saveProfileDisplayName\(name\)/);
 assert.match(profileEditor, /Edit Name &amp; Photo/);
