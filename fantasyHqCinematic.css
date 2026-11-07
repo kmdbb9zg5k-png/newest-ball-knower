@@ -52,9 +52,9 @@
 .bk-hq-premium .bk-fantasy-tool-grid>button:has(>img)::after{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(0deg,#020507f2,transparent 85%)}
 .bk-hq-premium .bk-fantasy-tool-grid>button>strong{font:800 22px/1.1 'Barlow Condensed',Impact,sans-serif;text-transform:uppercase;letter-spacing:0;color:#f3eee3;margin:0}
 .bk-hq-premium .bk-fantasy-tool-grid>button>span{display:flex;justify-content:flex-start;gap:5px;border:0;border-radius:0;padding:0;margin:0;background:none;box-shadow:none;min-height:0;font:500 10px/1.3 Arial,sans-serif;color:#d6c391;text-transform:none}
-.bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-create,.bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-join{order:2;min-height:66px;justify-content:center;padding-left:42px}
-.bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-create>svg:first-child,.bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-join>svg:first-child{display:block;position:absolute;left:12px;top:23px;width:21px;height:21px}
-.bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-create>strong,.bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-join>strong{font-size:18px}
+.bk-hq-premium .bk-fantasy-tool-grid>button.bk-hq-tool-create,.bk-hq-premium .bk-fantasy-tool-grid>button.bk-hq-tool-join{order:2;min-height:66px;justify-content:center;padding-left:42px}
+.bk-hq-premium .bk-fantasy-tool-grid>button.bk-hq-tool-create>svg:first-child,.bk-hq-premium .bk-fantasy-tool-grid>button.bk-hq-tool-join>svg:first-child{display:block;position:absolute;left:12px;top:23px;width:21px;height:21px}
+.bk-hq-premium .bk-fantasy-tool-grid>button.bk-hq-tool-create>strong,.bk-hq-premium .bk-fantasy-tool-grid>button.bk-hq-tool-join>strong{font-size:18px}
 .bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-public-tool{max-width:48%}
 .bk-hq-premium .bk-hq-public-tool>strong{font:700 11px/1.2 Arial,sans-serif;text-transform:none;color:#dabe85}
 .bk-hq-premium .bk-hq-public-tool>span{display:none}
@@ -72,8 +72,8 @@
  .bk-hq-progress li{font-size:13px}
  .bk-hq-premium .bk-fantasy-tool-grid>button:not(.bk-hq-public-tool){min-height:230px;padding:20px}
  .bk-hq-premium .bk-fantasy-tool-grid>button>strong{font-size:32px}
- .bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-create,.bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-join{min-height:75px;padding-left:50px}
- .bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-create>svg:first-child,.bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-join>svg:first-child{top:27px;left:18px}
+ .bk-hq-premium .bk-fantasy-tool-grid>button.bk-hq-tool-create,.bk-hq-premium .bk-fantasy-tool-grid>button.bk-hq-tool-join{min-height:75px;padding-left:50px}
+ .bk-hq-premium .bk-fantasy-tool-grid>button.bk-hq-tool-create>svg:first-child,.bk-hq-premium .bk-fantasy-tool-grid>button.bk-hq-tool-join>svg:first-child{top:27px;left:18px}
 }
 @media(max-width:359px){
  .bk-hq-premium .bk-fantasy-hq-hero-copy{padding-inline:12px}
@@ -85,5 +85,5 @@
  .bk-hq-progress li{font-size:10px;gap:3px}
  .bk-hq-premium .bk-fantasy-league-code button{font-size:9px;padding-inline:4px}
  .bk-hq-premium .bk-fantasy-tool-grid>button>strong{font-size:20px}
- .bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-create>strong,.bk-hq-premium .bk-fantasy-tool-grid>.bk-hq-tool-join>strong{font-size:16px}
+ .bk-hq-premium .bk-fantasy-tool-grid>button.bk-hq-tool-create>strong,.bk-hq-premium .bk-fantasy-tool-grid>button.bk-hq-tool-join>strong{font-size:16px}
 }
