@@ -44,7 +44,7 @@ try{
   await page.addInitScript(()=>{localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','2');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off')});
   const read=()=>page.evaluate(k=>JSON.parse(localStorage.getItem(k)),key);
   const shot=async name=>process.env.BK_QA_SKIP_SHOTS==='1'?undefined:page.screenshot({path:`${out}/${width}-${name}.png`,animations:'disabled',timeout:30000});
-  const open=async()=>{await page.getByRole('button',{name:'Play Solo Mode',exact:true}).click();await page.getByRole('button',{name:'Choose Career',exact:true}).click();await page.getByRole('region',{name:'Choose your career',exact:true}).getByRole('button',{name:/^Agent/}).click();await page.locator('[data-page="agent"]').waitFor();await page.waitForTimeout(120);assert.equal(await page.evaluate(()=>scrollY),0,'Agent entry resets prior screen scroll');};
+  const open=async()=>{if(width>=600){await page.getByRole('button',{name:'Explore Ball Knower',exact:true}).click();await page.getByRole('dialog',{name:'Explore Ball Knower',exact:true}).getByRole('button',{name:/^Solo careers/}).click();}else await page.getByRole('button',{name:'Play Solo Mode',exact:true}).click();await page.getByRole('button',{name:'Choose Career',exact:true}).click();await page.getByRole('region',{name:'Choose your career',exact:true}).getByRole('button',{name:/^Agent/}).click();await page.locator('[data-page="agent"]').waitFor();await page.waitForTimeout(120);assert.equal(await page.evaluate(()=>scrollY),0,'Agent entry resets prior screen scroll');};
   await page.goto('http://127.0.0.1:4193',{waitUntil:'domcontentloaded'});await open();
   await page.getByRole('button',{name:'CONTINUE',exact:true}).click();await page.getByRole('button',{name:'CREATE YOUR AGENT',exact:true}).click();await page.getByLabel('Agent name',{exact:true}).fill('Season QA');await page.getByLabel('Home city',{exact:true}).fill('Whitehall');await page.getByRole('button',{name:'BEGIN MY CAREER',exact:true}).click();await page.getByRole('navigation',{name:'Agent career sections'}).waitFor();await page.waitForTimeout(100);assert.equal(await page.evaluate(()=>scrollY),0,'Creating an agent opens at the top');await shot('entry');
   const advance=async()=>{await page.getByRole('button',{name:/^(ADVANCE ONE WEEK|BEGIN NEXT SEASON)$/}).click();};
@@ -105,7 +105,7 @@ try{
     assert.equal(await page.locator('#agent-prospects .bk-solo-selection > button:first-child:enabled').count(),0,'No recruiting beyond weekly budget');
     assert.equal(await page.getByRole('button',{name:'ENTER NEGOTIATION ROOM',exact:true}).and(page.locator(':enabled')).count(),0);
    }
-   if(state.phase==='regular'&&state.seasonWeek===6){await shot('week-six');await page.reload({waitUntil:'domcontentloaded'});await open();assert.equal((await read()).seasonWeek,6);await page.evaluate(()=>{Math.random=()=>0.01;});}
+   if(state.phase==='regular'&&state.seasonWeek===6&&process.env.BK_QA_SKIP_RELOADS!=='1'){await shot('week-six');await page.reload({waitUntil:'domcontentloaded'});await open();assert.equal((await read()).seasonWeek,6);await page.evaluate(()=>{Math.random=()=>0.01;});}
    if(state.phase==='regular'&&state.seasonWeek===10){const blocked=page.getByRole('button',{name:/^(WORK THE PHONES|PUSH AGAIN)$/});for(let i=0;i<await blocked.count();i++)assert(await blocked.nth(i).isDisabled());}
    if(state.phase==='offseason'&&state.seasonWeek===4)await shot('season-end');
    await advance();state=await read();console.log('Agent week',width,state.seasonYear,state.phase,state.seasonWeek,'clients',state.clients.length);
@@ -113,10 +113,11 @@ try{
   }
   state=await read();assert.equal(state.seasonYear,2027);assert.equal(state.simulatedDate,'2027-09-03');assert.equal(state.profile.age,23);assert.equal(state.seasonHistory.length,1);assert(decisions>=5);assert(trades>0);assert(phases.has('postseason')&&phases.has('offseason'));assert.equal(state.clients.length,2);assert.equal(state.dealHistory.length,1);
   await page.getByText('Season checkpoints · 1',{exact:true}).click();await shot('next-season');
-  await page.reload({waitUntil:'domcontentloaded'});await open();assert.equal((await read()).seasonYear,2027);assert.equal((await read()).clients.length,2);assert.deepEqual(errors,[]);
+  if(process.env.BK_QA_SKIP_RELOADS!=='1'){await page.reload({waitUntil:'domcontentloaded'});await open();}
+  assert.equal((await read()).seasonYear,2027);assert.equal((await read()).clients.length,2);assert.deepEqual(errors,[]);
   await page.getByRole('button',{name:'SOLO',exact:true}).click();await page.waitForTimeout(100);assert.equal(await page.evaluate(()=>scrollY),0);
   await page.locator('.bk-mode-card').filter({hasText:'Agent Mode'}).click();await page.locator('[data-page="agent"]').waitFor();await page.waitForTimeout(100);assert.equal(await page.evaluate(()=>scrollY),0,'Direct Agent shortcut also starts at the top');
-  results.push({width,decisions,trades,signings,year:state.seasonYear,clients:state.clients.length,deal:state.clients[0].futureDeal,errors});
+  results.push({width,reloads:process.env.BK_QA_SKIP_RELOADS!=='1',decisions,trades,signings,year:state.seasonYear,clients:state.clients.length,deal:state.clients[0].futureDeal,errors});
   await writeFile(`${out}/results.json`,JSON.stringify(results,null,2));
   await context.close();await browser.close();console.log('PASS Agent full season',width);
  }
