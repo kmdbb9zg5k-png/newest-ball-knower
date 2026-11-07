@@ -1,5 +1,5 @@
 import { BroadcastStage } from './BroadcastScene';
-import React, { useMemo, useState } from 'react';
+import React, { useLayoutEffect, useMemo, useState } from 'react';
 import {
   ChevronRight,
   Play,
@@ -47,6 +47,14 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
     }
   });
 
+  // These careers stay inside the hub instead of changing SoloMode.experience.
+  useLayoutEffect(() => {
+    const reset = () => window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    reset();
+    const frame = window.requestAnimationFrame(reset);
+    return () => window.cancelAnimationFrame(frame);
+  }, [agentOpen, ownerOpen]);
+
   const sortedSaves = useMemo(
     () => [...universe.saves].sort((first, second) => second.lastPlayedAt - first.lastPlayedAt),
     [universe.saves],
@@ -81,7 +89,7 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
   };
 
   if (ownerOpen) return <><div className="mx-auto max-w-5xl px-4"><SoloCareerDecision mode="owner" /></div><OwnerBusinessMode onBack={() => { setOwnerOpen(false); refreshUniverse(); }} /></>;
-  if (agentOpen) return <><div className="mx-auto max-w-5xl px-4"><SoloCareerDecision mode="agent" /></div><PlayerAgentMode onBack={() => { setAgentOpen(false); refreshUniverse(); }} /></>;
+  if (agentOpen) return <PlayerAgentMode onBack={() => { setAgentOpen(false); refreshUniverse(); }} />;
 
   return (
     <BroadcastStage scene="field" page="solo" className="min-h-[100dvh] bg-transparent pb-12 text-white">

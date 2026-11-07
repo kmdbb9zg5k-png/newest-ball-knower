@@ -146,3 +146,10 @@
 /* Seven primary destinations keep full touch targets on narrow phones. */
 @media(max-width:380px){body nav.bk-broadcast-nav button{font-size:8px!important;letter-spacing:0!important;white-space:nowrap;padding-inline:0}}
 @media(max-width:430px){.bk-broadcast-nav .bk-community-nav-label{transform:scaleX(.75);transform-origin:center;white-space:nowrap}}
+
+/* Agent meetings render in a body portal, outside the mode's theme scope. */
+.bk-agent-dialog :is(.text-violet-200,.text-violet-300) { color:#e6cb8a; }
+.bk-agent-dialog :is(.bg-violet-400,.bg-violet-300) { background:linear-gradient(110deg,#b88a39,#e9ce8c); color:#17130b; }
+.bk-agent-dialog [class*="bg-violet-400/"] { background-color:#c6a55c16; }
+.bk-agent-dialog [class*="border-violet-"] { border-color:#c0a56c40; }
+.bk-agent-dialog input[type="range"] { accent-color:#dfbd70; }
