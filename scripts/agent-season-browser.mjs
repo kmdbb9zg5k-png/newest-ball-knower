@@ -12,7 +12,7 @@ const results=[];let browser;
 try{
  for(const width of (process.env.BK_QA_WIDTHS||'390,320,1280').split(',').map(Number)){
   browser=await launchBrowser();
-  const context=await browser.newContext({viewport:{width,height:844},isMobile:width<600,hasTouch:width<600});
+  const context=await browser.newContext({viewport:{width,height:844},isMobile:width<600,hasTouch:width<600,reducedMotion:'reduce'});
   const page=await context.newPage();page.setDefaultTimeout(20000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const cloud=new Map();let signings=0;
   const user={id:'11111111-1111-4111-8111-111111111111',aud:'authenticated',role:'authenticated',is_anonymous:true,created_at:'2026-01-01T00:00:00Z',app_metadata:{provider:'anonymous',providers:['anonymous']},user_metadata:{}};
@@ -43,7 +43,7 @@ try{
   });
   await page.addInitScript(()=>{localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','2');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off')});
   const read=()=>page.evaluate(k=>JSON.parse(localStorage.getItem(k)),key);
-  const shot=async name=>page.screenshot({path:`${out}/${width}-${name}.png`,timeout:12000});
+  const shot=async name=>page.screenshot({path:`${out}/${width}-${name}.png`,animations:'disabled',timeout:30000});
   const open=async()=>{await page.getByRole('button',{name:'Play Solo Mode',exact:true}).click();await page.getByRole('button',{name:'Choose Career',exact:true}).click();await page.getByRole('region',{name:'Choose your career',exact:true}).getByRole('button',{name:/^Agent/}).click();await page.locator('[data-page="agent"]').waitFor();await page.waitForTimeout(120);assert.equal(await page.evaluate(()=>scrollY),0,'Agent entry resets prior screen scroll');};
   await page.goto('http://127.0.0.1:4193',{waitUntil:'domcontentloaded'});await open();
   await page.getByRole('button',{name:'CONTINUE',exact:true}).click();await page.getByRole('button',{name:'CREATE YOUR AGENT',exact:true}).click();await page.getByLabel('Agent name',{exact:true}).fill('Season QA');await page.getByLabel('Home city',{exact:true}).fill('Whitehall');await page.getByRole('button',{name:'BEGIN MY CAREER',exact:true}).click();await page.getByRole('navigation',{name:'Agent career sections'}).waitFor();await page.waitForTimeout(100);assert.equal(await page.evaluate(()=>scrollY),0,'Creating an agent opens at the top');await shot('entry');
@@ -73,6 +73,13 @@ try{
   if((await read()).weeklyActionsUsed>=2)await advance();
   await page.getByRole('button',{name:'ENTER NEGOTIATION ROOM',exact:true}).first().click();
   const room=page.getByRole('dialog',{name:/Negotiation room/});await shot('contract');
+  assert(await room.evaluate(el=>el.scrollWidth<=el.clientWidth),'Contract room must not overflow horizontally');
+  const leave=await room.getByRole('button',{name:'LEAVE',exact:true}).boundingBox();assert(leave&&leave.x>=0&&leave.x+leave.width<=width,'Contract exit stays visible on narrow screens');
+  if(process.env.BK_QA_LAYOUT_ONLY==='1'){
+   await room.getByRole('button',{name:'LEAVE',exact:true}).click();assert.equal(await room.count(),0);
+   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.deepEqual(errors,[]);
+   results.push({width,layout:'pass',exitReachable:true,errors});await context.close();await browser.close();console.log('PASS Agent layout and contract exit',width);continue;
+  }
   await room.getByRole('button',{name:'GUARANTEES',exact:true}).click();await room.getByRole('button',{name:/ACCEPT CLUB OFFER/}).click();
   let state=await read();assert.equal(state.dealHistory.length,1);assert(state.cashK>150);assert.equal(state.clients[0].futureDeal.startYear,2027);
   await page.getByRole('button',{name:/RECRUITING DIRECTOR/}).click();assert.equal((await read()).staff.length,1);
@@ -110,7 +117,8 @@ try{
   await page.getByRole('button',{name:'SOLO',exact:true}).click();await page.waitForTimeout(100);assert.equal(await page.evaluate(()=>scrollY),0);
   await page.locator('.bk-mode-card').filter({hasText:'Agent Mode'}).click();await page.locator('[data-page="agent"]').waitFor();await page.waitForTimeout(100);assert.equal(await page.evaluate(()=>scrollY),0,'Direct Agent shortcut also starts at the top');
   results.push({width,decisions,trades,signings,year:state.seasonYear,clients:state.clients.length,deal:state.clients[0].futureDeal,errors});
+  await writeFile(`${out}/results.json`,JSON.stringify(results,null,2));
   await context.close();await browser.close();console.log('PASS Agent full season',width);
  }
- await writeFile(`${out}/results.json`,JSON.stringify(results,null,2));
+ await writeFile(`${out}/${process.env.BK_QA_LAYOUT_ONLY==='1'?'layout-results':'results'}.json`,JSON.stringify(results,null,2));
 }finally{await browser?.close();await new Promise(resolve=>server.httpServer.close(resolve));}

@@ -153,3 +153,5 @@
 .bk-agent-dialog [class*="bg-violet-400/"] { background-color:#c6a55c16; }
 .bk-agent-dialog [class*="border-violet-"] { border-color:#c0a56c40; }
 .bk-agent-dialog input[type="range"] { accent-color:#dfbd70; }
+
+.bk-agent-dialog .bk-solo-player-name { white-space:normal; overflow-wrap:anywhere; }

@@ -1852,17 +1852,17 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           >
             <ArrowLeft size={16} /> SOLO
           </button>
-          <div className="flex items-center gap-3 text-right">
+          <div className="flex min-w-0 items-center gap-3 text-right">
             <SoloPortrait
               player={staffPortraitPlayer(agentPortrait, agency.profile.name)}
               size="avatar"
               className="!h-12 !w-12 !rounded-xl"
             />
-            <div>
+            <div className="min-w-0">
               <div className="text-[10px] font-black tracking-[.25em] text-violet-300">
                 AGENT CAREER
               </div>
-              <div className="text-lg font-black">{agency.profile.name}</div>
+              <div className="break-words text-lg font-black">{agency.profile.name}</div>
             </div>
           </div>
         </div>
@@ -2374,18 +2374,18 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                 >
                   <div className="mx-auto my-auto max-w-xl rounded-[2rem] border border-violet-300/25 bg-[#0c1018] p-5 sm:p-7">
                     <div className="flex items-start justify-between gap-3">
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <div className="text-[10px] font-black tracking-[.22em] text-violet-300">
                           NEGOTIATION ROOM · ROUND {negotiationRoom.round}
                         </div>
-                        <h3 className="mt-1 text-3xl font-black"><SoloPlayerIdentity player={p}/></h3>
+                        <h3 className="mt-1 text-xl font-black sm:text-3xl"><SoloPlayerIdentity player={p}/></h3>
                         <div className="text-xs text-zinc-500">
                           {p.team} GM · Market estimate {moneyM(market)}/yr
                         </div>
                       </div>
                       <button
                         onClick={() => setNegotiationRoom(null)}
-                        className="min-h-11 rounded-xl bg-white/5 px-3 text-xs font-black"
+                        className="min-h-11 shrink-0 rounded-xl bg-white/5 px-3 text-xs font-black"
                       >
                         LEAVE
                       </button>
