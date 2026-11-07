@@ -43,7 +43,7 @@ try{
   });
   await page.addInitScript(()=>{localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','2');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off')});
   const read=()=>page.evaluate(k=>JSON.parse(localStorage.getItem(k)),key);
-  const shot=async name=>page.screenshot({path:`${out}/${width}-${name}.png`,animations:'disabled',timeout:30000});
+  const shot=async name=>process.env.BK_QA_SKIP_SHOTS==='1'?undefined:page.screenshot({path:`${out}/${width}-${name}.png`,animations:'disabled',timeout:30000});
   const open=async()=>{await page.getByRole('button',{name:'Play Solo Mode',exact:true}).click();await page.getByRole('button',{name:'Choose Career',exact:true}).click();await page.getByRole('region',{name:'Choose your career',exact:true}).getByRole('button',{name:/^Agent/}).click();await page.locator('[data-page="agent"]').waitFor();await page.waitForTimeout(120);assert.equal(await page.evaluate(()=>scrollY),0,'Agent entry resets prior screen scroll');};
   await page.goto('http://127.0.0.1:4193',{waitUntil:'domcontentloaded'});await open();
   await page.getByRole('button',{name:'CONTINUE',exact:true}).click();await page.getByRole('button',{name:'CREATE YOUR AGENT',exact:true}).click();await page.getByLabel('Agent name',{exact:true}).fill('Season QA');await page.getByLabel('Home city',{exact:true}).fill('Whitehall');await page.getByRole('button',{name:'BEGIN MY CAREER',exact:true}).click();await page.getByRole('navigation',{name:'Agent career sections'}).waitFor();await page.waitForTimeout(100);assert.equal(await page.evaluate(()=>scrollY),0,'Creating an agent opens at the top');await shot('entry');
