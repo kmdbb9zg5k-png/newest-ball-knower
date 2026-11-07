@@ -116,7 +116,7 @@ try{
   assert.equal(await page.locator('.bk-scene-beam-left').evaluate(e=>getComputedStyle(e).animationName),'none');
   await page.emulateMedia({reducedMotion:'no-preference'});
   await page.getByRole('button',{name:'BACK',exact:true}).click();await page.locator('.bk-mode-card').filter({hasText:'FRANCHISE COMMAND'}).click();await capture('franchise','suite');
-  await page.getByRole('button',{name:'Back to Solo Franchise Hub',exact:true}).click();await page.locator('.bk-mode-card').filter({hasText:'MY PLAYER'}).click();await capture('my-player','locker');
+  await page.getByRole('button',{name:'Back to Solo Franchise Hub',exact:true}).click();await page.getByRole('button',{name:'Choose Career',exact:true}).click();await page.getByRole('region',{name:'Choose your career',exact:true}).getByRole('button',{name:/^My Player/}).click();await capture('my-player','locker');
   await home();
   // Reach secondary pages through the existing product controls; no test-only routes.
   await page.getByRole('button',{name:'Open league activity',exact:true}).click();

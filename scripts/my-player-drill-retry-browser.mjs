@@ -41,7 +41,7 @@ return reply([]);});
  let navigations=0;page.on('framenavigated',f=>{if(f===page.mainFrame())navigations++;});
  await page.goto(base);
  await page.getByRole('button',{name:'Play Solo Mode',exact:true}).click();
- await page.locator('.bk-mode-card').filter({hasText:/My Player/i}).click();
+ await page.getByRole('button',{name:'Choose Career',exact:true}).click();await page.getByRole('region',{name:'Choose your career',exact:true}).getByRole('button',{name:/^My Player/}).click();
  const continueButton=page.getByRole('button',{name:'CONTINUE',exact:true});
  await continueButton.or(page.getByRole('main',{name:'Training camp career',exact:true})).first().waitFor();
  if(await continueButton.isVisible())await continueButton.click();

@@ -13,6 +13,7 @@ import { useBallKnower } from './BallKnowerContext';
 import { publishCareer } from './leaderboardCloud';
 import { playerPortraitFallbackUrl } from './playerPortraits';
 import { SoloExperience, SoloFranchiseHub } from './SoloFranchiseHub';
+import { SoloCareerDecision } from './SoloCareerDecision';
 import { SOLO_PLAYERS_DATABASE, SOLO_PLAYER_BY_ID, getSoloTeamByName, soloTeamLogoUrl } from './soloUniverse';
 import { SOLO_FRANCHISE_SAVE_KEYS } from './soloFranchiseEngine';
 import {
@@ -132,6 +133,7 @@ export const SoloMode:React.FC<{initialExperience?:SoloExperience}>=withSoloPres
   >
    <ArrowLeft size={17} aria-hidden="true"/> Back
   </button>
+  {experience==='cap'&&<div className="mx-auto max-w-5xl px-4"><SoloCareerDecision mode="cap" /></div>}
   <Suspense fallback={<SoloModeLoading/>}>{experience==='cap'?<CapChallenge onBack={back}/>:experience==='fantasy'?<FantasyFranchiseMode onBack={back}/>:experience==='real'?<RealTeamFranchiseMode onBack={back}/>:<MyPlayerStoryMode onBack={back}/>}</Suspense>
  </div>;
 });

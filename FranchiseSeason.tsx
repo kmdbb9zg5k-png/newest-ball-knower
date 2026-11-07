@@ -1,3 +1,4 @@
+import { SoloCareerDecision } from './SoloCareerDecision';
 import { SectionArtwork } from './SectionArtwork';
 import {CareerSection,CareerTabLink} from './CareerTabs';
 import {syncMyPlayerRole} from './myPlayerOpportunity';
@@ -21,7 +22,7 @@ import {
   SoloDifficulty,
   SoloWeek,
 } from './soloSeasonEngine';
-import { buildFranchiseRookieClass, buildSoloTeamRoster, franchisePlayoffHomeField, isValidFranchisePlayoffField, FranchiseRookieProspect, franchiseSchedule, makeFranchiseOpponent, replaceFranchisePlayersWithRookies } from './soloFranchiseEngine';
+import { buildFranchiseRookieClass, buildSoloTeamRoster, franchisePlayoffHomeField, isValidFranchisePlayoffField, FranchiseRookieProspect, franchiseSchedule, makeFranchiseOpponent, replaceFranchisePlayersWithRookies, SOLO_FRANCHISE_SAVE_KEYS } from './soloFranchiseEngine';
 import { TeamTheme } from './teamTheme';
 import { SOLO_TEAM_THEMES, soloTeamLogoUrl } from './soloUniverse';
 import { LeagueMember, Player, TeamRatings } from './types';
@@ -198,6 +199,9 @@ export const FranchiseSeason: React.FC<Props> = ({
   onGmWeekChange,
 }) => {
   const seasonKey = `${saveKey}:season`;
+  const decisionMode = saveKey === SOLO_FRANCHISE_SAVE_KEYS.player ? 'player'
+    : saveKey === SOLO_FRANCHISE_SAVE_KEYS.real ? 'real'
+    : saveKey === SOLO_FRANCHISE_SAVE_KEYS.fantasy ? 'fantasy' : null;
   const savedSeason=useMemo(()=>restoreSeason(seasonKey),[seasonKey,careerStartYear,userTeam.abbr]);
   const restored=careerStartYear&&((savedSeason?.year||2026)!==careerStartYear||savedSeason?.teamAbbr&&savedSeason.teamAbbr!==userTeam.abbr)?null:savedSeason;
   const carriedRoster=careerStartYear&&savedSeason?.year===careerStartYear-1&&savedSeason?.teamAbbr===userTeam.abbr?savedSeason.roster:undefined;
@@ -570,7 +574,11 @@ export const FranchiseSeason: React.FC<Props> = ({
         </CareerSection>{careerPanel&&((stage==='regular'&&weeks.length<17)||(stage==='playoffs'&&round))?careerPanel({key:careerKey,label:stage==='playoffs'?String(round):`Week ${weeks.length+1}`,week:stage==='playoffs'?18+playoffs.length:weeks.length+1,opponentAbbr:stage==='playoffs'?nextPlayoffMatchup?.opponentAbbr:currentOpponent.abbr,opponent:stage==='playoffs'?(SOLO_TEAM_THEMES.find(t=>t.abbr===nextPlayoffMatchup?.opponentAbbr)?.name||'Playoff opponent'):currentOpponent.name}):null}
         {careerTabbed&&<CareerSection tab="story">{(!careerBlocked||stage==='finished'||stage==='draft'||(stage==='regular'&&weeks.length>=17)||(stage==='playoffs'&&!round))&&<div className="career-scene"><h3>{stage==='finished'?'Season complete':stage==='regular'?`Week ${Math.min(weeks.length+1,17)} · Game day`:'Playoff game day'}</h3><p>Your next team game, conversations and season results are in the Career tab.</p><CareerTabLink tab="career">CONTINUE TO CAREER</CareerTabLink></div>}</CareerSection>}
         {gmAlertsEnabled && <GmEventAlerts scopeKey={`${gmAlertScopeKey ?? `${saveKey}:${userTeam.abbr}`}:${year}`} events={gmDecisionEvents} />}
-        <CareerSection tab="career">{stage === 'regular' || stage === 'playoffs' ? <FranchiseInteractionCenter state={interactionState} roster={activeRoster} onRespond={respondToScenario} onUpgrade={applyUpgrade} onReadAll={readAllNotifications} fullScreenDecisions={gmAlertsEnabled} /> : null}
+        <CareerSection tab="career">
+          {decisionMode && ((stage === 'regular' && weeks.length < 17) || (stage === 'playoffs' && round)) && (
+            <SoloCareerDecision key={careerKey} mode={decisionMode} timing={{ season: year, week: weeks.length + 1 }} />
+          )}
+          {stage === 'regular' || stage === 'playoffs' ? <FranchiseInteractionCenter state={interactionState} roster={activeRoster} onRespond={respondToScenario} onUpgrade={applyUpgrade} onReadAll={readAllNotifications} fullScreenDecisions={gmAlertsEnabled} /> : null}
 
         {stage === 'regular' ? (
           <div className="grid gap-5 lg:grid-cols-[1.35fr_.65fr]">
