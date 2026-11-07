@@ -56,7 +56,6 @@
 .bk-screen[data-page="picks"] article { background:linear-gradient(115deg,#121c25,#090e15); border-bottom:1px solid #a68d3c33; }
 .bk-screen[data-page="picks"] article:last-child { border-bottom:none; }
 .bk-screen[data-page="solo"] .bk-scene-backdrop { display:none; }
-.bk-screen[data-page="solo"] .bk-mode-grid { display:grid; gap:10px; }
 .bk-solo-universe-hero { overflow:hidden; border-bottom:1px solid #b28d3f88; background:#05070a; }
 .bk-solo-universe-hero img { display:block; width:100%; height:auto; aspect-ratio:4/5; object-fit:cover; object-position:center top; user-select:none; filter:saturate(.93) contrast(1.03); }
 .bk-solo-universe-heading { position:relative; padding:18px 16px 17px; background:linear-gradient(180deg,#090c10,#060909); }
@@ -87,16 +86,25 @@
 .bk-career-choice strong { color:#fff; font-size:12px; font-weight:900; }
 .bk-career-choice span { margin-top:4px; color:#b7bdc5; font-size:11px; line-height:1.5; }
 .bk-career-choice small { margin-top:6px; color:#ffd66d; font-size:10px; font-weight:800; }
+.bk-career-modes { margin:20px 0 16px; }
+.bk-career-modes h2 { margin:0 0 12px; color:#fff8e9; font-size:clamp(20px,5vw,32px); font-weight:900; }
+.bk-career-portrait-grid,.bk-career-extra-modes { display:grid; gap:clamp(6px,1.7vw,14px); }
+.bk-career-portrait-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.bk-career-extra-modes { grid-template-columns:repeat(2,minmax(0,1fr)); margin-top:10px; }
+.bk-screen[data-page="solo"] .bk-career-modes .bk-mode-card { width:100%; min-width:0; min-height:44px; overflow:hidden; padding:0; border:1px solid #ffffff35; border-radius:10px; background:#15171a; color:#fff8e9; }
+.bk-screen[data-page="solo"] .bk-career-modes .bk-career-portrait { display:grid; grid-template-rows:auto 1fr; align-items:stretch; gap:0; text-align:center; }
+.bk-career-portrait img { display:block; width:100%; height:auto; aspect-ratio:1; object-fit:cover; }
+.bk-screen[data-page="solo"] .bk-career-portrait strong { display:grid; place-items:center; min-height:32px; margin:0; padding:4px 2px; color:#fff8e9; font-family:inherit; line-height:1.15; font-size:clamp(11px,3.25vw,20px); font-weight:900; letter-spacing:-.015em; text-transform:none; }
+.bk-screen[data-page="solo"] .bk-career-modes .bk-career-extra-mode { display:flex; justify-content:space-between; align-items:center; gap:4px; padding:8px 10px; font-size:clamp(11px,3vw,15px); font-weight:800; }
+.bk-screen[data-page="solo"] .bk-career-extra-mode>svg { position:static; width:16px; height:16px; color:#e7c574; }
+.bk-career-saves { margin-bottom:14px; border:1px solid #ffffff24; border-radius:12px; background:#0d1014; }
+.bk-career-saves summary { display:flex; align-items:center; gap:8px; min-height:44px; padding:8px 12px; cursor:pointer; list-style:none; }
+.bk-career-saves summary::-webkit-details-marker { display:none; }
+.bk-career-saves summary strong { margin-right:auto; color:#fff8e9; font-size:13px; }
+.bk-career-saves summary span { color:#b7bdc5; font-size:11px; }
+.bk-career-saves summary svg { color:#e7c574; }
+.bk-career-saves[open] summary svg { transform:rotate(90deg); }
 @media (min-width:768px) { .bk-career-feature-art { width:78%; inset-inline-start:auto; object-position:75% 18%; } .bk-career-game-plan summary { padding-inline:24px; } .bk-career-game-plan summary img { width:54%; } }
-.bk-solo-universe-grid { padding:14px 16px 0; }
-.bk-mode-card { position:relative; display:flex; align-items:center; gap:14px; width:100%; min-height:103px; padding:17px; text-align:left; border:1px solid #b5a06a55; border-radius:9px; background:linear-gradient(125deg,#182026e8,#0a1017f5); color:#e6ddc9; }
-.bk-mode-card>svg { flex:none; width:29px; height:29px; color:#d2b36e; }
-.bk-mode-card>div { min-width:0; flex:1; }
-.bk-mode-role-icon { display:block; width:24px; height:24px; margin-bottom:8px; color:#d9b55a; }
-.bk-mode-card small { display:block; font-size:8px; line-height:1.5; letter-spacing:.15em; color:#b1a27e; }
-.bk-mode-card strong { display:block; margin-top:3px; font-family:'Barlow Condensed','Arial Narrow',sans-serif; font-size:26px; font-weight:700; line-height:1; }
-.bk-mode-card p { margin:7px 0 0; color:#b4bcbf; font-size:11px; line-height:1.55; }
-.bk-mode-card .bk-mode-continue { margin-top:7px; color:#d9c07c; font-size:9px; font-weight:800; }
 .bk-screen[data-page="agent"] :is(section.border,div.border).rounded-\[2rem\],.bk-screen[data-page="owner"] section.border,.bk-screen[data-page="franchise"] .bk-franchise-panel { border-radius:11px; border-color:#c0a56c40; background:linear-gradient(130deg,#171e25f5,#091119f5); }
 .bk-screen[data-page="agent"] .text-violet-300,.bk-screen[data-page="owner"] .text-amber-300 { color:#d9bc79; }
 .bk-screen[data-page="agent"] :is(button.bg-violet-400,button.bg-violet-300) { background:linear-gradient(110deg,#b88a39,#e9ce8c); color:#17130b; }
@@ -116,7 +124,7 @@
 .bk-app-shell:not([data-tab="home"])::before,.bk-app-shell:not([data-tab="home"])::after { animation:none!important; }
 /* Keep competition chrome unchanged in size. No moving layer in drafts/results. */
 .bk-app-shell:is([data-tab="draft"],[data-tab="simulation"]) { background:linear-gradient(150deg,#0f1820,#060a0e); }
-@media(min-width:768px){.bk-scene-backdrop { height:760px; }.bk-scene-masthead { min-height:260px; }.bk-scene-masthead-compact { min-height:175px; }.bk-scene-title h1 { font-size:60px; }.bk-mode-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.bk-solo-universe-hero img { max-height:760px; aspect-ratio:16/10; object-position:center 20%; }.bk-solo-universe-heading,.bk-solo-universe-grid { padding-left:32px; padding-right:32px; }.bk-news-list { grid-template-columns:repeat(2,minmax(0,1fr)); }.bk-screen[data-scene="office"] .bk-scene-art,.bk-screen[data-scene="suite"] .bk-scene-art { background-size:cover; background-position:center 35%; filter:brightness(.7); }}
+@media(min-width:768px){.bk-scene-backdrop { height:760px; }.bk-scene-masthead { min-height:260px; }.bk-scene-masthead-compact { min-height:175px; }.bk-scene-title h1 { font-size:60px; }.bk-mode-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.bk-solo-universe-hero img { max-height:760px; aspect-ratio:16/10; object-position:center 20%; }.bk-solo-universe-heading { padding-left:32px; padding-right:32px; }.bk-news-list { grid-template-columns:repeat(2,minmax(0,1fr)); }.bk-screen[data-scene="office"] .bk-scene-art,.bk-screen[data-scene="suite"] .bk-scene-art { background-size:cover; background-position:center 35%; filter:brightness(.7); }}
 @media(max-width:359px){.bk-scene-eyebrow { font-size:8px; letter-spacing:.08em; }.bk-scene-toolbar { gap:5px; }}
 @media(prefers-reduced-motion:reduce){.bk-screen :is(.bk-scene-beam,.bk-scene-haze) { animation:none!important; }}
 @keyframes bk-screen-light { from{transform:rotate(-9deg);opacity:.45}to{transform:rotate(13deg);opacity:.9} }
