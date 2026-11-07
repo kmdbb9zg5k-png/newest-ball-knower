@@ -10,7 +10,7 @@ try{
  for(const width of [320,390,1280]){
   const page=await browser.newPage({viewport:{width,height:844},hasTouch:true});const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.route('**/api/**',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({tracks:[],introUrl:null,available:false,articles:[],games:[]})}));
-  await page.addInitScript(()=>{localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','1');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off');});
+  await page.addInitScript(()=>{localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','2');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off');});
   await page.goto('http://127.0.0.1:4203');await page.getByRole('button',{name:'Explore Mini Games'}).click();
   const menu=page.getByRole('dialog');const selector=()=>menu.locator('.bk-mini-carousel');
   assert.equal((await selector().locator('h4').textContent()),'Oklahoma City Bison');

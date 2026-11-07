@@ -42,7 +42,7 @@ async function contextFor(engine,width,{hungSync=false,legacyPick=false,historyC
   });
   await page.addInitScript(initialSaved=>{
     localStorage.setItem('ball-knower-weekly-picks-v3',JSON.stringify(initialSaved));
-    localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','1');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off');localStorage.setItem('bk-guide-picks-v3','seen');
+    localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','2');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off');localStorage.setItem('bk-guide-picks-v3','seen');
     const user={id:'00000000-0000-4000-8000-000000000001',aud:'authenticated',role:'authenticated',is_anonymous:true,app_metadata:{provider:'anonymous'},user_metadata:{},created_at:'2026-01-01T00:00:00Z'};
     localStorage.setItem('sb-gpnboygoosrmeydwjpvk-auth-token',JSON.stringify({access_token:'isolated-browser-fixture',refresh_token:'isolated-refresh-fixture',token_type:'bearer',expires_at:Math.floor(Date.now()/1000)+86400,expires_in:86400,user}));
   },saved);

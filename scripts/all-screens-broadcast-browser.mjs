@@ -23,7 +23,7 @@ try{
   await page.route('**/_vercel/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:''}));
   await page.route('**/api/**',r=>{const path=new URL(r.request().url()).pathname;if(path==='/api/nfl-news')calls++;const data=path==='/api/nfl-news'?news:path==='/api/nfl-sportsbook'?picks:path==='/api/media'?{tracks:[],introUrl:null}:{ok:true};return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)})});
   await page.addInitScript(()=>{
-   localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','1');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off');
+   localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','2');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off');
    // Existing first-visit guides have separate coverage; don't cover screenshot content.
    for(const key of ['bk-guide-profile-v1','bk-guide-fantasy-hq-v3','bk-guide-picks-v3','bk-guide-the-gauntlet-v4','bk-guide-franchise-command-v1'])localStorage.setItem(key,'seen');
   });

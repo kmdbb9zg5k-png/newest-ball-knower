@@ -7,7 +7,7 @@ const browser=await chromium.launch({headless:true,executablePath:process.env.BR
 try{
 const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});page.setDefaultTimeout(30000);
 await page.route('**/*.supabase.co/**',r=>r.fulfill({status:403,contentType:'application/json',body:'{}'}));await page.route('**/api/**',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(new URL(r.request().url()).pathname==='/api/media'?{tracks:[],introUrl:null}:{available:false,ok:true,games:[]})}));
-await page.addInitScript(()=>{localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','1');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off')});
+await page.addInitScript(()=>{localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','2');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off')});
 await page.goto('http://127.0.0.1:4193',{waitUntil:'domcontentloaded'});await page.getByRole('button',{name:'Play Solo Mode',exact:true}).click();await page.locator('.bk-mode-card').filter({hasText:'Agent Mode'}).click();
 await page.getByRole('button',{name:'CONTINUE',exact:true}).click();await page.getByRole('button',{name:'CREATE YOUR AGENT',exact:true}).click();await page.getByLabel('Agent name',{exact:true}).fill('Career QA');await page.getByLabel('Home city',{exact:true}).fill('Allentown');await page.getByRole('button',{name:'BEGIN MY CAREER',exact:true}).click();
 const read=key=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)),key);

@@ -35,7 +35,7 @@ return reply([]);});
  await page.addInitScript(({key,profile})=>{
  const original=setInterval;window.setInterval=((callback,delay,...args)=>original(callback,delay===30000?1000:delay,...args));
  if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify(profile));
- localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','1');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off');
+ localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','2');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off');
  },{key,profile});
  const nextPull=async()=>{const before=pulls;for(let i=0;i<100&&pulls===before;i++)await page.waitForTimeout(100);assert(pulls>before,'Cloud pull should occur');await page.waitForTimeout(150);};
  await page.goto(base);

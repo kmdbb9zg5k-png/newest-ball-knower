@@ -37,7 +37,7 @@ async function newPage(viewport,{permission='default',configured=true,anonymous=
    localStorage.setItem('sb-gpnboygoosrmeydwjpvk-auth-token',JSON.stringify({access_token:token,refresh_token:'synthetic-refresh',token_type:'bearer',expires_in:7200,expires_at:Math.floor(Date.now()/1000)+7200,user}));
    localStorage.setItem('ballknower_user_v1',JSON.stringify({id:user.id,name:user.user_metadata.name,email:user.email,isAnonymous:user.is_anonymous,createdAt:user.created_at}));
    localStorage.setItem('ballknower_leagues_v1',JSON.stringify([league]));localStorage.setItem('ballknower_active_league_id_v1',league.id);
-   localStorage.setItem('ball-knower-intro-completed-v1','1');localStorage.setItem('ball-knower-team-setup-v2','1');localStorage.setItem('ball-knower-intro-sound-v1','off');
+   localStorage.setItem('ball-knower-intro-completed-v1','2');localStorage.setItem('ball-knower-team-setup-v2','1');localStorage.setItem('ball-knower-intro-sound-v1','off');
    window.__pushPermissionRequests=0;window.__pushNavigationMarker='same-page';
    if('Notification' in window){Object.defineProperty(Notification,'permission',{get:()=>permission,configurable:true});Notification.requestPermission=async()=>{window.__pushPermissionRequests++;return 'denied';};}
  },{token,user:fixtureUser,league:appLeague,permission});

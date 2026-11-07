@@ -45,7 +45,7 @@ const titleKey=(title:string)=>title.toLowerCase().replace(/[^a-z0-9]+/g,'');
 export default async function handler(_req: any, res: any) {
   try {
     const { blobs } = await list({ limit: 1000 });
-    const video = blobs.find(b => /\.(mp4|mov|webm)$/i.test(b.pathname));
+    const video = blobs.find(b => b.pathname === 'Creating_football_intro_video_202608160231.mp4');
     const audio = blobs.filter(b => /\.(mp3|m4a|wav|aac|ogg)$/i.test(b.pathname));
 
     // Deduplicate by cleaned title. Prefer a remastered upload when both exist.

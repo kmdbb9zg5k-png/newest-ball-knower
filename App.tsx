@@ -48,7 +48,10 @@ const CommunityHub=lazy(()=>import('./CommunityHub').then(module=>({default:modu
 export type AppTab='play'|'football'|'home'|'solo'|'news'|'fantasy'|'sportsbook'|'legacy'|'challenges'|'community'|'ask'|'locker'|'wardrobe'|'partners'|'lobby'|'draft'|'simulation';
 
 const INTRO_COMPLETED_KEY='ball-knower-intro-completed-v1';
-const introEligible=()=>{try{return !localStorage.getItem(INTRO_COMPLETED_KEY)}catch{return true}};
+// Version 1 completed onboarding. Version 2 also acknowledges the restored opening.
+const INTRO_COMPLETED_VERSION='2';
+const getIntroCompletion=()=>{try{return localStorage.getItem(INTRO_COMPLETED_KEY)}catch{return null}};
+const introEligible=()=>getIntroCompletion()!==INTRO_COMPLETED_VERSION;
 const detectMobileDraftViewport=()=>{try{return window.matchMedia('(max-width: 767px)').matches}catch{return false}};
 const ScreenFallback=()=><div className="mx-auto flex min-h-[45dvh] max-w-5xl items-center justify-center px-4 text-center"><div><div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[var(--bk-team-accent)]"/><div className="mt-3 text-[10px] font-black uppercase tracking-[.22em] text-zinc-500">Loading Ball Knower</div></div></div>;
 
@@ -74,7 +77,7 @@ function BallKnowerApp(){
   const [viewedLockerMember,setViewedLockerMember]=useState<LeagueMember|null>(null);
   const [lockerReturnTab,setLockerReturnTab]=useState<AppTab>('home');
   const [isIntroOpen,setIsIntroOpen]=useState(introEligible);
-  const shouldLaunchAuthAfterIntroRef=useRef(introEligible());
+  const shouldLaunchAuthAfterIntroRef=useRef(!getIntroCompletion());
   const [isMobileDraftViewport,setIsMobileDraftViewport]=useState(detectMobileDraftViewport);
   const [favoriteTheme,setFavoriteTheme]=useState<TeamTheme>(()=>FAVORITE_NFL_TEAM_BRANDING_ENABLED?getSavedTeamTheme():BALL_KNOWER_THEME);
   const [showFavoriteTeam,setShowFavoriteTeam]=useState(()=>{if(!FAVORITE_NFL_TEAM_BRANDING_ENABLED)return false;try{const params=new URLSearchParams(window.location.search);return params.get('teamsetup')==='1'||!localStorage.getItem('ball-knower-team-setup-v2')}catch{return false}});
@@ -97,8 +100,11 @@ function BallKnowerApp(){
   useEffect(()=>{trackBallKnowerEvent('Mode Opened',{mode:currentTab,active_league:Boolean(activeLeague)})},[currentTab]);
 
   const openIntro=()=>{setIntroActive(true);setIsIntroOpen(true)};
-  const closeIntro=useCallback(()=>{
-    try{localStorage.setItem(INTRO_COMPLETED_KEY,'1')}catch{}
+  const closeIntro=useCallback((finished:boolean)=>{
+    try{
+      if(finished)localStorage.setItem(INTRO_COMPLETED_KEY,INTRO_COMPLETED_VERSION);
+      else if(!getIntroCompletion())localStorage.setItem(INTRO_COMPLETED_KEY,'1');
+    }catch{}
     setIsIntroOpen(false);
     const shouldOfferSignIn=shouldLaunchAuthAfterIntroRef.current&&currentUser?.isAnonymous!==false;
     shouldLaunchAuthAfterIntroRef.current=false;
@@ -149,7 +155,7 @@ function BallKnowerApp(){
 
     {showProductChrome&&currentTab!=='draft'&&<LaunchFooter onOpen={setLaunchPanel} onOpenPartners={()=>setCurrentTab('partners')}/>}
 
-    <CinematicIntro isOpen={isIntroOpen} onClose={closeIntro}/>
+    {isIntroOpen&&<CinematicIntro onClose={closeIntro}/>}
     {FAVORITE_NFL_TEAM_BRANDING_ENABLED&&showFavoriteTeam&&!isIntroOpen&&!isLaunchAuth&&<FavoriteTeamExperience onDone={finishFavoriteTeamSetup}/>}
     {isAuthOpen&&<Suspense fallback={null}><AuthModal isOpen presentation={isLaunchAuth?'launch':'modal'} onClose={closeAuth} onOpenLegal={panel=>{closeAuth();setLaunchPanel(panel)}}/></Suspense>}
     <CreateLeagueModal isOpen={isCreateLeagueOpen} onClose={()=>setIsCreateLeagueOpen(false)} onLeagueCreated={handleLeagueCreated}/>
