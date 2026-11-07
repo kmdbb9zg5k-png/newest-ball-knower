@@ -139,7 +139,7 @@ function BallKnowerApp(){
         {currentTab==='fantasy'&&<FantasyHub view={fantasyView} onViewChange={setFantasyView} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague}/>}
         {currentTab==='sportsbook'&&<SportsbookHub/>}
         {currentTab==='legacy'&&<HallOfFame/>}
-        {currentTab==='challenges'&&<ChallengesHub/>}
+        {currentTab==='challenges'&&<ChallengesHub onOpenPicks={()=>goToTab('sportsbook')}/>}
         {currentTab==='football'&&<FootballArenaScreen onOpenAuth={()=>setIsAuthOpen(true)} onBack={returnToGameModes}/>}
         {currentTab==='community'&&<CommunityHub onOpenAuth={()=>setIsAuthOpen(true)} onOpenTrivia={()=>goToTab('challenges')} onViewLocker={openCommunityLocker}/>}
         {currentTab==='ask'&&<AskBkHub/>}
