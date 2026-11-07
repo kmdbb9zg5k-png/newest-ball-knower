@@ -1,3 +1,4 @@
+import {MyPlayerArtwork} from './MyPlayerArtwork';
 import { OwnerArtwork } from './OwnerArtwork';
 import { AgentArtwork } from './AgentArtwork';
 import { useState } from 'react';
@@ -88,6 +89,7 @@ export function SoloCareerDecision({ mode, timing }: Props) {
         </details>
       ) : (
         <div className="p-4 sm:p-5">
+          {mode === 'player' && !eventResolved && <MyPlayerArtwork scene={activeEvent.character === 'Player podium' ? 'media' : activeEvent.character === 'Player development' ? 'training' : 'coach'} />}
           {mode === 'owner' && !eventResolved && <OwnerArtwork scene={activeEvent.character === 'Owner podium' ? 'podium' : activeEvent.character === 'Coach / GM meeting' ? 'staff' : 'business'} />}
           {mode === 'agent' && !eventResolved && <AgentArtwork scene={activeEvent.character === 'Media strategy' ? 'media' : activeEvent.character === 'Agency war room' ? 'growth' : 'role'} compact />}
           <div className="flex items-start gap-3">
