@@ -1,3 +1,4 @@
+import { SoloCareerDecision } from './SoloCareerDecision';
 import { SectionArtwork } from './SectionArtwork';
 import { ModeHelp } from "./ModeHelp";
 import { agentDealForSeason, canNegotiateAgentDeal, evaluateAgentCounter, normalizeAgentDeal, type AgentFutureDeal, type AgentSeasonCheckpoint } from './agentContractNegotiation';
@@ -7,7 +8,7 @@ export {agentTradeWindowMessage,canResolveAgentTradeRequest,isAgentTradeWindowOp
 import {SoloPlayerIdentity,SoloPlayerLink,SoloPortrait,SoloQuickView} from './solo/SoloPresentation';
 import {playerOnSoloTeam} from './solo/presentationPlayer';
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -767,6 +768,13 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
 }) => {
   const [agency, setAgency] = useState<AgencyState>(restore);
   const [introStep, setIntroStep] = useState(0);
+  const hasProfile = Boolean(agency.profile);
+  useLayoutEffect(() => {
+    const reset = () => window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    reset();
+    const frame = window.requestAnimationFrame(reset);
+    return () => window.cancelAnimationFrame(frame);
+  }, [introStep, hasProfile]);
   const [draftName, setDraftName] = useState(agency.profile?.name || "");
   const [draftAge, setDraftAge] = useState(String(agency.profile?.age || 22));
   const [draftLocation, setDraftLocation] = useState(
@@ -970,7 +978,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
     if (
       !draftName.trim() ||
       !draftLocation.trim() ||
-      !Number.isFinite(age) ||
+      !Number.isInteger(age) ||
       age < 18
     )
       return;
@@ -1060,6 +1068,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       ...agency,
       clients: updatedClients,
       seasonHistory: nextYear > agency.seasonYear ? [...(agency.seasonHistory ?? []).filter(entry => entry.year !== agency.seasonYear), { year: agency.seasonYear, clients: agency.clients.length, deals: agency.dealHistory.length, reputation: agency.reputation, cashK: agency.cashK, promisesKept: agency.promisesKept, promisesBroken: agency.promisesBroken }].slice(-50) : agency.seasonHistory,
+      profile: agency.profile ? { ...agency.profile, age: agency.profile.age + (nextYear - agency.seasonYear) } : undefined,
       seasonYear: nextYear,
       seasonWeek: nextWeek,
       phase: nextPhase,
@@ -1129,7 +1138,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
   ) => {
     const p = SOLO_KNOWN_PLAYERS_DATABASE.find((x) => x.id === playerId);
     const client = agency.clients.find((c) => c.playerId === playerId);
-    if (!p || !client?.tradeRequest) return;
+    if (!p || client?.tradeRequest?.status !== "open") return;
     if (!canResolveAgentTradeRequest(status, agency.phase, agency.seasonWeek)) {
       const outcome = `${agentTradeWindowMessage(agency.phase)} ${p.name}'s request cannot be worked now.`;
       const next = {
@@ -1140,6 +1149,8 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       persist(next);
       return;
     }
+    const actionAgency = spendAction("handling a trade request");
+    if (!actionAgency) return;
     const currentTeam = client.currentTeam || p.team;
     const teams = [
       ...new Set(
@@ -1168,7 +1179,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           ? `You created a market and moved ${p.name} to ${destination}.`
           : `No acceptable offer surfaced. The request stays open and ${p.name} expects another push.`;
     const next: AgencyState = {
-      ...agency,
+      ...actionAgency,
       reputation: clamp(
         agency.reputation + (worked ? 3 : status === "denied" ? -2 : 0),
         0,
@@ -1270,16 +1281,20 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
       55,
     );
     const scenario = scenarioFor(p);
-    // Normalize the exact pre-meeting CAS baseline before CloudSync flushes it.
+    // Use the same normalized shape as restore() for both sides of the local
+    // conflict check. New saves and clients can gain defaults/key ordering on
+    // restore; those changes must not masquerade as another tab's move.
     persist(agency);
-    setAgency(actionAgency);
-    // Keep the consumed action durable across reloads without exposing the
-    // verifier's pre-meeting baseline to generic cloud sync.
-    persistRecruitAction(actionAgency);
+    const beforeState = restore(false);
+    const meetingAgency = { ...beforeState, weeklyActionsUsed: actionAgency.weeklyActionsUsed };
+    persist(beforeState);
+    setAgency(meetingAgency);
+    // Keep the consumed action durable without replacing the cloud CAS baseline.
+    persistRecruitAction(meetingAgency);
     setSelectedId(p.id);
     setRecruit({
       playerId: p.id,
-      beforeState: agency,
+      beforeState,
       baseInterest: Math.round(base),
       interest: Math.round(base),
       round: 1,
@@ -1674,7 +1689,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           >
             <ArrowLeft size={16} /> BACK
           </button>
-          <BroadcastMasthead eyebrow="Player representation" title="Agent Mode" subtitle="Build your legacy. Every relationship starts with you."/>
+          <BroadcastMasthead compact eyebrow="Player representation" title="Agent Mode" subtitle="Build your legacy. Every relationship starts with you."/>
           <div className="bk-agent-intro-copy flex flex-1 items-center justify-center py-8">
             <div className="w-full max-w-3xl">
               {introStep < 2 && (
@@ -1807,6 +1822,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                     onClick={createAgent}
                     disabled={
                       !draftName.trim() ||
+                      !Number.isInteger(Number(draftAge)) ||
                       Number(draftAge) < 18 ||
                       !draftLocation.trim()
                     }
@@ -1828,7 +1844,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
   return (
     <BroadcastStage scene="office" page="agent" quiet={Boolean(recruit||negotiationRoom||verifyingAgentSigning)} className="min-h-[100dvh] bg-[#06080d] px-4 py-5 text-white sm:px-8">
       <div className="mx-auto max-w-6xl">
-        <BroadcastMasthead eyebrow="Player representation" title="Agent Mode" subtitle={`${agency.profile.name} · Build your agency. Shape their future.`}/>
+        <BroadcastMasthead compact eyebrow="Player representation" title="Agent Mode" subtitle={`${agency.profile.name} · Build your agency. Shape their future.`}/>
         <div className="mb-5 flex items-center justify-between gap-4">
           <button
             onClick={handleBack}
@@ -1836,17 +1852,17 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           >
             <ArrowLeft size={16} /> SOLO
           </button>
-          <div className="flex items-center gap-3 text-right">
+          <div className="flex min-w-0 items-center gap-3 text-right">
             <SoloPortrait
               player={staffPortraitPlayer(agentPortrait, agency.profile.name)}
               size="avatar"
               className="!h-12 !w-12 !rounded-xl"
             />
-            <div>
+            <div className="min-w-0">
               <div className="text-[10px] font-black tracking-[.25em] text-violet-300">
                 AGENT CAREER
               </div>
-              <div className="text-lg font-black">{agency.profile.name}</div>
+              <div className="break-words text-lg font-black">{agency.profile.name}</div>
             </div>
           </div>
         </div>
@@ -1858,7 +1874,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           </div>
         )}
 
-        <section className="rounded-[2rem] border border-violet-300/20 bg-[#0c1018] p-5 sm:p-6">
+        <section id="agent-calendar" className="scroll-mt-[calc(204px+env(safe-area-inset-top))] md:scroll-mt-[calc(248px+env(safe-area-inset-top))] rounded-[2rem] border border-violet-300/20 bg-[#0c1018] p-5 sm:p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="flex items-center gap-2 text-violet-300">
@@ -1894,11 +1910,17 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           </div>
         </section>
 
-        <section aria-label="Agency weekly briefing" className="mt-4 rounded-2xl border border-violet-300/20 bg-[#0c1018] p-4"><h2 className="text-sm font-black text-violet-200">THIS WEEK’S DESK</h2><p className="mt-2 text-xs leading-5 text-zinc-300">{actionsRemaining} actions left · {clients.filter(({ client }) => client.career.pendingEvent).length} client decisions · {clients.filter(({ client }) => client.tradeRequest?.status === 'open').length} open trade requests · {clients.filter(({ client }) => canNegotiateAgentDeal(client.futureDeal, agency.seasonYear)).length} contract windows. Pending client decisions stay open when you advance; you can return to them.</p>{clients.filter(({ client }) => client.career.pendingEvent).slice(0, 2).map(({ client, player }) => <p className="mt-2 text-xs text-amber-200" key={player.id}>{player.name} · {client.career.pendingEvent!.title} · trust {Math.round(client.career.trust)}/100</p>)}<details className="mt-3"><summary className="min-h-8 cursor-pointer text-xs font-black text-zinc-300">Season checkpoints · {agency.seasonHistory?.length ?? 0}</summary><p className="mt-1 text-[10px] leading-4 text-zinc-500">Agency snapshots at each new league year. Deals and promises are career totals at that boundary.</p>{agency.seasonHistory?.length ? agency.seasonHistory.slice().reverse().map(entry => <p key={entry.year} className="mt-2 text-xs leading-5 text-zinc-300">{entry.year} · {entry.clients} clients · {entry.deals} career deals · {entry.reputation} reputation · ${entry.cashK}K cash · {entry.promisesKept} promises kept / {entry.promisesBroken} broken</p>) : <p className="mt-2 text-xs text-zinc-400">Your first year-end checkpoint will appear when the next league year opens.</p>}</details></section>
+        <nav aria-label="Agent career sections" className="sticky top-[calc(124px+env(safe-area-inset-top))] z-20 mt-4 grid grid-cols-4 gap-1 rounded-2xl bg-[#0c1018]/95 p-2 backdrop-blur-md md:top-[calc(168px+env(safe-area-inset-top))]">
+          {[["agent-calendar", "Calendar"], ["agent-clients", `Clients (${clients.length})`], ["agent-prospects", "Recruit"], ["agent-growth", "Agency"]].map(([id, label]) => (
+            <a key={id} href={`#${id}`} onClick={event => { event.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: 'instant', block: 'start' }); }} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-white/15 bg-white/5 px-1 text-[10px] font-black">{label}</a>
+          ))}
+        </nav>
+        <section aria-label="Agency weekly briefing" className="mt-4 rounded-2xl border border-violet-300/20 bg-[#0c1018] p-4"><h2 className="text-sm font-black text-violet-200">THIS WEEK’S DESK</h2><p className="mt-2 text-xs leading-5 text-zinc-300">{actionsRemaining} actions left · {clients.filter(({ client }) => client.career.pendingEvent).length} client decisions · {clients.filter(({ client }) => client.tradeRequest?.status === 'open').length} open trade requests · {clients.filter(({ client }) => canNegotiateAgentDeal(client.futureDeal, agency.seasonYear)).length} contract windows. Recruiting meetings, negotiations, client decisions and trade responses each use one action. Pending decisions stay open when you advance.</p>{clients.filter(({ client }) => client.career.pendingEvent).slice(0, 2).map(({ client, player }) => <p className="mt-2 text-xs text-amber-200" key={player.id}>{player.name} · {client.career.pendingEvent!.title} · trust {Math.round(client.career.trust)}/100</p>)}<details className="mt-3"><summary className="min-h-8 cursor-pointer text-xs font-black text-zinc-300">Season checkpoints · {agency.seasonHistory?.length ?? 0}</summary><p className="mt-1 text-[10px] leading-4 text-zinc-500">Agency snapshots at each new league year. Deals and promises are career totals at that boundary.</p>{agency.seasonHistory?.length ? agency.seasonHistory.slice().reverse().map(entry => <p key={entry.year} className="mt-2 text-xs leading-5 text-zinc-300">{entry.year} · {entry.clients} clients · {entry.deals} career deals · {entry.reputation} reputation · ${entry.cashK}K cash · {entry.promisesKept} promises kept / {entry.promisesBroken} broken</p>) : <p className="mt-2 text-xs text-zinc-400">Your first year-end checkpoint will appear when the next league year opens.</p>}</details></section>
+        {actionsRemaining === 0 && <p role="status" className="mt-3 rounded-xl border border-amber-300/25 bg-amber-300/10 p-3 text-sm font-bold text-amber-200">All actions used. Advance the calendar to continue client work.</p>}
         {agency.timeline.length > 0 && (
-          <details className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4">
+          <details open className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4">
             <summary className="cursor-pointer text-[10px] font-black tracking-[.2em] text-zinc-400">
-              LATEST LEAGUE EVENT · TAP TO OPEN
+              LATEST LEAGUE EVENT
             </summary>
             <div className="mt-2 text-sm font-bold text-zinc-200">
               {agency.timeline[0]}
@@ -1957,7 +1979,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           </div>
         </section>
 
-        <section className="mt-5 rounded-[2rem] border border-white/10 bg-[#0d121b] p-5 sm:p-6">
+        <section id="agent-growth" className="scroll-mt-[calc(204px+env(safe-area-inset-top))] md:scroll-mt-[calc(248px+env(safe-area-inset-top))] mt-5 rounded-[2rem] border border-white/10 bg-[#0d121b] p-5 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="text-[10px] font-black tracking-[.22em] text-violet-300">AGENCY GROWTH</div>
@@ -2002,6 +2024,8 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           </div>
         </section>
 
+        <section id="agent-clients" aria-label="Your agency clients" className="scroll-mt-[calc(204px+env(safe-area-inset-top))] md:scroll-mt-[calc(248px+env(safe-area-inset-top))]">
+        {clients.length === 0 && <div className="mt-5 rounded-2xl border border-white/10 bg-[#0d121b] p-5"><h2 className="text-xl font-black">YOUR FIRST CLIENT STARTS HERE</h2><p className="mt-2 text-sm text-zinc-400">Open the recruiting board, meet a prospect and choose two pitches that fit his priorities.</p><a href="#agent-prospects" className="mt-3 inline-flex min-h-11 items-center font-black text-amber-200">Find your first client →</a></div>}
         {clients.length > 0 && (
           <section className="mt-5 rounded-[2rem] border border-white/10 bg-[#0d121b] p-5 sm:p-6">
             <div className="mb-4 flex items-center gap-2">
@@ -2058,24 +2082,27 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                       </p>
                       <div className="mt-3 grid gap-2 sm:grid-cols-3">
                         <button
+                          disabled={actionsRemaining === 0}
                           onClick={() => handleClientEvent(player.id, "fight")}
-                          className="min-h-11 rounded-xl bg-violet-400 px-2 text-[10px] font-black text-black"
+                          className="disabled:cursor-not-allowed disabled:opacity-35 min-h-11 rounded-xl bg-violet-400 px-2 text-[10px] font-black text-black"
                         >
                           FIGHT FOR HIM
                         </button>
                         <button
+                          disabled={actionsRemaining === 0}
                           onClick={() =>
                             handleClientEvent(player.id, "support")
                           }
-                          className="min-h-11 rounded-xl bg-white/10 px-2 text-[10px] font-black"
+                          className="disabled:cursor-not-allowed disabled:opacity-35 min-h-11 rounded-xl bg-white/10 px-2 text-[10px] font-black"
                         >
                           SUPPORT HIM
                         </button>
                         <button
+                          disabled={actionsRemaining === 0}
                           onClick={() =>
                             handleClientEvent(player.id, "business")
                           }
-                          className="min-h-11 rounded-xl bg-white/10 px-2 text-[10px] font-black"
+                          className="disabled:cursor-not-allowed disabled:opacity-35 min-h-11 rounded-xl bg-white/10 px-2 text-[10px] font-black"
                         >
                           MAKE A BUSINESS MOVE
                         </button>
@@ -2107,21 +2134,22 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                       )}
                       <div className="mt-3 grid grid-cols-2 gap-2">
                         <button
-                          disabled={!deadlineOpen}
+                          disabled={!deadlineOpen || actionsRemaining === 0}
                           onClick={() =>
                             resolveTradeRequest(player.id, "resolved")
                           }
-                          className="min-h-11 rounded-xl bg-violet-400 px-3 text-xs font-black text-black disabled:cursor-not-allowed disabled:opacity-35"
+                          className="disabled:cursor-not-allowed disabled:opacity-35 min-h-11 rounded-xl bg-violet-400 px-3 text-xs font-black text-black"
                         >
                           {client.tradeRequest.attempts
                             ? "PUSH AGAIN"
                             : "WORK THE PHONES"}
                         </button>
                         <button
+                          disabled={actionsRemaining === 0}
                           onClick={() =>
                             resolveTradeRequest(player.id, "denied")
                           }
-                          className="min-h-11 rounded-xl bg-white/10 px-3 text-xs font-black"
+                          className="disabled:cursor-not-allowed disabled:opacity-35 min-h-11 rounded-xl bg-white/10 px-3 text-xs font-black"
                         >
                           TELL HIM NO
                         </button>
@@ -2155,8 +2183,9 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                     </div>
                   ) : (
                     <button
+                      disabled={actionsRemaining === 0}
                       onClick={() => openNegotiation(player, client)}
-                      className="mt-3 min-h-11 w-full rounded-xl bg-violet-400 px-4 text-xs font-black text-black"
+                      className="disabled:cursor-not-allowed disabled:opacity-35 mt-3 min-h-11 w-full rounded-xl bg-violet-400 px-4 text-xs font-black text-black"
                     >
                       ENTER NEGOTIATION ROOM
                     </button>
@@ -2167,11 +2196,13 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
           </section>
         )}
 
-        <section className="mt-5 rounded-[2rem] border border-white/10 bg-[#0d121b] p-5 sm:p-6">
+        {clients.length > 0 && <SoloCareerDecision mode="agent" timing={{ season: agency.seasonYear, week: agency.seasonWeek }} />}
+        </section>
+        <section id="agent-prospects" className="scroll-mt-[calc(204px+env(safe-area-inset-top))] md:scroll-mt-[calc(248px+env(safe-area-inset-top))] mt-5 rounded-[2rem] border border-white/10 bg-[#0d121b] p-5 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="text-[10px] font-black tracking-[.22em] text-violet-300">
-                FIRST CLIENT BOARD
+                RECRUITING BOARD
               </div>
               <h2 className="mt-1 text-3xl font-black">
                 WHO WILL YOU REPRESENT?
@@ -2179,7 +2210,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
               <p className="mt-2 text-xs font-semibold text-zinc-500">
                 {clients.length >= clientCapacity
                   ? `Agency full · ${clients.length}/${clientCapacity} clients`
-                  : `${availableTargets.length} available targets · current unlock: ${unlockedOvr} OVR and below`}
+                  : `${availableTargets.length} prospects · current unlock: ${unlockedOvr} OVR and below`}
               </p>
             </div>
             <select
@@ -2200,6 +2231,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
               ))}
             </select>
           </div>
+          {prospects.length === 0 && <p className="mt-4 text-sm text-zinc-400">No prospects at this position are available at your current reputation. Try another position.</p>}
           <div className="mt-5 grid gap-3 md:grid-cols-2">
             {prospects.map((p) => {
               const [low, high] = salaryRange(p);
@@ -2207,11 +2239,12 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                 agency.recruitCooldowns[p.id],
                 agency.simulatedDate,
               );
+              const lockedOut = agency.recruitLockouts[p.id] === agency.seasonYear;
               return (
                 <div className="bk-solo-selection" key={p.id}><button
                   key={p.id}
                   onClick={() => beginRecruit(p)}
-                  disabled={clients.length >= clientCapacity}
+                  disabled={clients.length >= clientCapacity || actionsRemaining === 0 || lockedOut || days > 0}
                   className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/25 p-3 text-left disabled:opacity-35"
                 >
                   <SoloPortrait player={p}/>
@@ -2230,7 +2263,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                       {p.ovr}
                     </div>
                     <div className="text-[9px] font-black text-zinc-500">
-                      {days > 0 ? `${days}D WAIT` : "OVR"}
+                      {lockedOut ? "SIGNED ELSEWHERE" : days > 0 ? `${days}D WAIT` : "OVR"}
                     </div>
                   </div>
                 </button><SoloQuickView player={p}/></div>
@@ -2245,7 +2278,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
               role="dialog"
               aria-modal="true"
               aria-label={`Private meeting with ${selected.name}`}
-              className="fixed inset-0 z-[9999] overflow-y-auto overscroll-contain bg-black/85 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-md [-webkit-overflow-scrolling:touch]"
+              className="bk-agent-dialog fixed inset-0 z-[9999] overflow-y-auto overscroll-contain bg-black/85 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-md [-webkit-overflow-scrolling:touch]"
             >
               <div className="mx-auto my-auto max-w-xl rounded-[2rem] border border-violet-300/25 bg-[#0c1018] p-5 sm:p-7">
                 <div className="flex items-start gap-4">
@@ -2337,22 +2370,22 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
                   role="dialog"
                   aria-modal="true"
                   aria-label={`Negotiation room with ${p.name}`}
-                  className="fixed inset-0 z-[9999] overflow-y-auto overscroll-contain bg-black/90 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-md [-webkit-overflow-scrolling:touch]"
+                  className="bk-agent-dialog fixed inset-0 z-[9999] overflow-y-auto overscroll-contain bg-black/90 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-md [-webkit-overflow-scrolling:touch]"
                 >
                   <div className="mx-auto my-auto max-w-xl rounded-[2rem] border border-violet-300/25 bg-[#0c1018] p-5 sm:p-7">
                     <div className="flex items-start justify-between gap-3">
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <div className="text-[10px] font-black tracking-[.22em] text-violet-300">
                           NEGOTIATION ROOM · ROUND {negotiationRoom.round}
                         </div>
-                        <h3 className="mt-1 text-3xl font-black"><SoloPlayerIdentity player={p}/></h3>
+                        <h3 className="mt-1 text-xl font-black sm:text-3xl"><SoloPlayerIdentity player={p}/></h3>
                         <div className="text-xs text-zinc-500">
                           {p.team} GM · Market estimate {moneyM(market)}/yr
                         </div>
                       </div>
                       <button
                         onClick={() => setNegotiationRoom(null)}
-                        className="min-h-11 rounded-xl bg-white/5 px-3 text-xs font-black"
+                        className="min-h-11 shrink-0 rounded-xl bg-white/5 px-3 text-xs font-black"
                       >
                         LEAVE
                       </button>
@@ -2486,7 +2519,7 @@ export const PlayerAgentMode: React.FC<{ onBack: () => void }> = ({
               role="dialog"
               aria-modal="true"
               aria-label="Reputation level up"
-              className="fixed inset-0 z-[10000] grid place-items-center overflow-y-auto overscroll-contain bg-black/90 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur"
+              className="bk-agent-dialog fixed inset-0 z-[10000] grid place-items-center overflow-y-auto overscroll-contain bg-black/90 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur"
             >
               <div className="w-full max-w-sm rounded-[2rem] border border-violet-300/30 bg-[#111525] p-6 text-center shadow-2xl">
                 <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-violet-400 text-black">
