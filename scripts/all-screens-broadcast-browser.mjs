@@ -36,6 +36,12 @@ try{
    assert.equal(await stage.getAttribute('data-scene'),scene);
    assert.equal(await stage.locator('.bk-scene-motion').count(),0,`${name} must not render a motion button`);
    await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(200);
+   const artwork=stage.locator('.bk-section-art img');
+   for(const photo of await artwork.all()){
+    await photo.scrollIntoViewIfNeeded();await photo.evaluate(image=>image.decode());
+    assert.ok(await photo.evaluate(image=>image.complete&&image.naturalWidth>0),`${name} section artwork must load at ${width}`);
+   }
+   await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
    const geometry=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,headerBottom:document.querySelector('body>header')?.getBoundingClientRect().bottom??0,stageTop:document.querySelector('.bk-screen')?.getBoundingClientRect().top}));
    assert.ok(geometry.scroll<=width+1,`${name} overflow at ${width}: ${geometry.scroll}`);
    if(name!=='my-player')assert.ok(geometry.stageTop>=geometry.headerBottom-1,`${name} covered by fixed header`);

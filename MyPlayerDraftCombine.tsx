@@ -1,3 +1,4 @@
+import {SectionArtwork} from './SectionArtwork';
 import {dressMyAthlete} from './athleteWardrobe';
 import {usePlayerOutfit} from './usePlayerOutfit';
 import OfficialCombineResults,{type OfficialCombineEntry} from './OfficialCombineResults';
@@ -34,6 +35,7 @@ export function MyPlayerDraftCombine({profile,onResult,onDraft,storyMode=false,o
  const result=calculatePlayedCombine(profile.position,profile.combinePerformance);
  const athlete=useMemo(()=>{const identity=careerAthleteIdentity(profile);return dressMyAthlete({...combineAthlete({id:'my-player-user',name:profile.name,position:profile.position,speed:profile.speed,grade:profile.overall}),...identity.build,jerseyNumber:profile.number,cosmeticIdentityId:`my-player-${identity.id}`,athleteAppearance:identity.appearance,careerStrength:profile.power},'workout',outfit);},[profile,outfit]);
  return <section className="rounded-[2rem] border border-white/10 bg-[#10151d] p-4 sm:p-7" aria-label="My Player draft Combine">
+  <SectionArtwork kind="field" eyebrow="MY PLAYER / THE PROVING GROUND" compact/>
   <div className="flex items-center gap-3 text-[var(--bk-team-accent)]"><Dumbbell/><span className="text-[10px] font-black tracking-[.25em]">PLAYABLE DRAFT COMBINE</span></div>
   <h2 className="mt-3 text-3xl font-black sm:text-4xl">PROVE YOU BELONG</h2><p className="mt-3 text-sm leading-6 text-zinc-400">{profile.name} · {profile.position}. Complete your drills, then enter the draft. Your performance determines draft stock and can raise or lower your starting overall.</p>
   <p className="mt-4 text-xs font-black text-[var(--bk-team-accent)]" role="status">{complete} / {required.length} EVENTS COMPLETE</p><progress aria-label="Combine completion" max={required.length} value={complete} className="mt-2 h-2 w-full accent-[var(--bk-team-accent)]"/>

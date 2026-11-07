@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { SectionArtwork } from './SectionArtwork';
 import { League, TeamReportAnalysis } from './types';
 import { useBallKnower } from './BallKnowerContext';
 import { generateTeamReport } from './evaluation';
@@ -61,6 +62,7 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
   if (!seasonResult) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-16 text-center">
+        <SectionArtwork kind="trophy" compact />
         <Trophy className="mx-auto h-12 w-12 text-gray-600 mb-3" />
         <h2 className="text-xl font-bold text-white mb-2">No Simulation Data Available</h2>
         <p className="text-xs text-gray-400 mb-6">
@@ -123,6 +125,7 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
     const commissionerName=getLeagueCommissionerName(league);
     return <div className="min-h-[calc(100dvh-7rem)] bg-[#0A0A0A] px-3 py-4 text-white sm:px-8 sm:py-8"><div className="mx-auto max-w-4xl">
       <div className="mb-3 flex items-center justify-between gap-3"><button onClick={onBackToLobby} className="min-h-10 rounded-xl border border-white/10 px-3 text-[10px] font-black uppercase">← League HQ</button><div className="truncate text-right text-[9px] font-black uppercase tracking-wider text-[#D4AF37]">{league.name}</div></div>
+      <SectionArtwork kind="trophy" compact />
       <section className="rounded-2xl border border-[#D4AF37]/35 bg-[radial-gradient(circle_at_85%_10%,rgba(212,175,55,.18),transparent_30%),#101318] p-4 sm:p-7"><div className="flex items-start gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#D4AF37] text-black">{random?<RotateCcw className="h-5 w-5"/>:<Award className="h-5 w-5"/>}</div><div><div className="text-[9px] font-black uppercase tracking-[.2em] text-[#D4AF37]">Official Fantasy Draft Order</div><h1 className="mt-1 font-display text-3xl font-black uppercase sm:text-5xl">{random?'Random Draw Complete':'Commissioner Order Locked'}</h1><p className="mt-2 text-xs leading-5 text-zinc-400 sm:text-sm">{random?'Every team received one equal chance. This locked order determines where each manager drafts NFL players.':'The commissioner assigned every team exactly one slot. This locked order determines where each manager drafts NFL players.'}</p></div></div>
         <div className="mt-4 grid grid-cols-1 gap-2 min-[390px]:grid-cols-2">{seasonResult.draftOrder.map((pick,index)=>{const member=league.members.find(item=>item.id===pick.memberId);const mine=member?.id===myMember?.id;const role=mine?(member?.isCommissioner?'You · Commissioner':'You'):member?.isAi?'CPU':member?.isCommissioner?'Commissioner':'Manager';const displayName=displayLeagueMemberName(member,mine,currentUser,index);return <div key={pick.memberId} className={`flex min-w-0 items-center gap-2 rounded-xl border p-2.5 ${pick.pickNumber===1?'border-[#D4AF37] bg-[#D4AF37]/10':mine?'border-[#D4AF37]/40 bg-[#D4AF37]/5':'border-white/10 bg-black/30'}`}><div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg text-xs font-black ${pick.pickNumber===1?'bg-[#D4AF37] text-black':'border border-white/10 bg-[#0A0A0A]'}`}>#{pick.pickNumber}</div><div className="min-w-0"><div className="truncate text-xs font-black uppercase">{displayName}</div><div className="text-[9px] font-bold uppercase text-zinc-500">{role}</div></div></div>})}</div>
         {scheduledDraftLabel&&<div className="mt-4 flex items-center gap-3 rounded-xl border border-[#D4AF37]/25 bg-[#D4AF37]/[.06] p-3"><Calendar className="h-5 w-5 shrink-0 text-[#D4AF37]"/><div><div className="text-[8px] font-black uppercase tracking-widest text-zinc-500">Scheduled Draft</div><div className="mt-1 text-xs font-black text-white">{scheduledDraftLabel}</div></div></div>}
@@ -158,6 +161,7 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ league, onBackTo
       </div>
 
       {/* 1. WINNER BANNER & PODIUM */}
+      <SectionArtwork kind="trophy" compact />
       <div className="relative mb-4 overflow-hidden rounded-xl border border-[var(--bk-team-accent)]/40 bg-[#121212] p-4 shadow-2xl sm:mb-8 sm:p-8">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
           <div className="text-center md:text-left">

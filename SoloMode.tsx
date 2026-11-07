@@ -1,3 +1,4 @@
+import {SectionArtwork} from './SectionArtwork';
 import {SoloPlayerLink,SoloPortrait,useSoloRecords,withSoloPresentation} from './solo/SoloPresentation';
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import {restoreSoloPlayer} from './legacySoloRestore';
@@ -287,6 +288,7 @@ const CapChallenge:React.FC<{onBack:()=>void}>=({onBack})=>{
 
  return <BroadcastStage scene="tunnel" page="cap" quiet={true} className="min-h-[100dvh] bg-transparent text-white px-4 sm:px-8 pt-4 pb-8"><div className="mx-auto max-w-7xl" data-bk-moment-season={RUN_KEY} data-bk-moment-user="solo-user" data-bk-moment-year="cap">
   <button type="button" onClick={onBack} aria-label="Back to Solo Franchise Hub" className="mb-3 grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#111]"><ArrowLeft size={19}/></button>
+  <SectionArtwork kind={stage==='draft'?'film':stage==='finished'||stage==='playoffs'?'trophy':'field'} eyebrow={stage==='draft'?'DRAFT ROOM / BUILD YOUR 20':stage==='finished'?'YOUR SEASON / YOUR LEGACY':'ROAD TO THE LEGACY BOWL'} compact/>
   <div className="flex items-center justify-between gap-3 mb-4"><div className="min-w-0"><div className="text-[var(--bk-team-accent)] text-[10px] font-black tracking-[.28em]">SOLO MODE</div><h2 className="text-2xl sm:text-4xl font-black leading-none mt-1">{stage==='draft'?'BUILD YOUR ROSTER':<>ROAD TO THE <span className="text-[var(--bk-team-accent)]">LEGACY BOWL</span></>}</h2></div><div className="flex shrink-0 gap-2"><button onClick={share} aria-label="Share Solo Mode" className="flex gap-2 items-center justify-center min-h-11 min-w-11 border border-white/10 px-3 sm:px-4 bg-[#151515]"><Share2 size={16}/><span className="hidden sm:inline">Share</span></button><button onClick={reset} disabled={isAutoDrafting} aria-label="Start a new Solo run" className="flex gap-2 items-center justify-center min-h-11 min-w-11 border border-white/10 px-3 sm:px-4 bg-[#151515] disabled:cursor-wait disabled:opacity-40"><RotateCcw size={16}/><span className="hidden sm:inline">New Run</span></button></div></div>
   {message&&<div className="mb-5 border border-[var(--bk-team-accent)]/30 bg-[var(--bk-team-accent)]/10 text-[var(--bk-team-accent)] px-4 py-3 font-bold">{message}</div>}
 

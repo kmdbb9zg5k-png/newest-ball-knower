@@ -5,6 +5,7 @@ import { HomeMiniGamesFeature } from './HomeMiniGamesFeature';
 import { ModeHelp } from './ModeHelp';
 import './homeLayout.css';
 import './playHub.css';
+import './playSectionArt.css';
 
 export function PlayHub({ onNavigate }: { onNavigate: (tab: AppTab) => void }) {
   return <div className="bk-play-hub" data-testid="play-hub">
@@ -16,13 +17,14 @@ export function PlayHub({ onNavigate }: { onNavigate: (tab: AppTab) => void }) {
         <span className="bk-play-card-copy"><Flag aria-hidden="true"/><small>Solo Mode</small><strong>Build your legacy.</strong><span>Manage a franchise, run an agency or create your player. Your saved careers continue in Solo.</span><b>Open Solo careers <ArrowRight aria-hidden="true"/></b></span>
       </button>
       <button type="button" className="bk-play-online" onClick={() => onNavigate('football')}>
+        <img src="/community/arena-h2h-v1.webp" alt="" width="640" height="427" loading="lazy" decoding="async"/>
         <span className="bk-play-card-copy"><Shield aria-hidden="true"/><small>Online football</small><strong>Meet on the field.</strong><span>Challenge a friend or find an opponent. Play three drives against their CPU defense.</span><b>Enter online arena <ArrowRight aria-hidden="true"/></b></span>
       </button>
     </section>
     <section className="bk-play-knowledge" aria-label="Prove you know ball">
       <div><p>Prove you know ball</p><h2>Every decision counts.</h2></div>
-      <button type="button" onClick={() => onNavigate('challenges')}><Brain aria-hidden="true"/><span><strong>Trivia</strong><small>Answer questions. Climb the rankings.</small></span><ArrowRight aria-hidden="true"/></button>
-      <button type="button" onClick={() => onNavigate('sportsbook')}><Target aria-hidden="true"/><span><strong>NFL picks</strong><small>Call the winners. Build your record.</small></span><ArrowRight aria-hidden="true"/></button>
+      <button type="button" className="bk-play-trivia-art" onClick={() => onNavigate('challenges')}><img src="/community/arena-film-room-mobile-v1.webp" width="768" height="512" alt="" loading="lazy" decoding="async"/><Brain aria-hidden="true"/><span><strong>Trivia</strong><small>Answer questions. Climb the rankings.</small></span><ArrowRight aria-hidden="true"/></button>
+      <button type="button" className="bk-play-picks-art" onClick={() => onNavigate('sportsbook')}><img src="/community/arena-mini-games-v1.webp" width="640" height="427" alt="" loading="lazy" decoding="async"/><Target aria-hidden="true"/><span><strong>NFL picks</strong><small>Call the winners. Build your record.</small></span><ArrowRight aria-hidden="true"/></button>
     </section>
   </div>;
 }

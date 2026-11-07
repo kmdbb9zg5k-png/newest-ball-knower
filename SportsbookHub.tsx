@@ -1,3 +1,4 @@
+import {SectionArtwork} from './SectionArtwork';
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {CalendarDays,Check,ChevronDown,RefreshCw,Search,Target,X} from 'lucide-react';
@@ -194,6 +195,7 @@ export const SportsbookHub:React.FC=()=>{
   const selected=(game:Game,team:string)=>{const attached=(effectivePickIndex.get(game.id)||{picks:[],ambiguous:false});return !attached.ambiguous&&attached.picks.some(pick=>pick.market==='spread'&&predictionTeam(pick.selection)===predictionTeam(team));};
 
   return <BroadcastStage scene="studio" page="picks" className="bk-picks-screen min-h-[calc(100dvh-7rem)] px-3 py-4 sm:px-6 sm:py-6"><div className="mx-auto max-w-5xl">
+    <SectionArtwork kind="helmet" eyebrow="MAKE THE CALL" compact/>
     <div className="bk-picks-headrow">
       <BroadcastMasthead eyebrow="Make the call" title="Daily Picks" subtitle="One outcome per NFL game. No wagering. Just football knowledge." compact/>
       <div className="bk-picks-week-select-wrap"><CalendarDays size={17}/><select aria-label="NFL week" value={slate} onChange={event=>{setSlate(event.target.value);setFilter('all')}}>{slates.map(game=><option key={slateKey(game)} value={slateKey(game)}>{slateLabel(game)}</option>)}</select><ChevronDown size={15}/></div>

@@ -1,3 +1,4 @@
+import { SectionArtwork } from './SectionArtwork';
 import {CareerSection,CareerTabLink} from './CareerTabs';
 import {syncMyPlayerRole} from './myPlayerOpportunity';
 import {applyCareerRatings} from './myPlayerCareer';
@@ -643,6 +644,7 @@ export const FranchiseSeason: React.FC<Props> = ({
 
         {stage === 'playoffs' ? (
           <div className="rounded-[2rem] border border-white/10 bg-[#10151d] p-5 text-center sm:p-8">
+            <SectionArtwork kind="trophy" compact eyebrow="The postseason"/>
             <Trophy className="mx-auto text-[var(--bk-team-accent)]" size={58} />
             <h3 className="mt-3 text-4xl font-black">BK LEAGUE PLAYOFFS</h3>
             <div className="mt-6 grid gap-2 sm:grid-cols-4">
@@ -661,6 +663,7 @@ export const FranchiseSeason: React.FC<Props> = ({
 
         {stage === 'finished' ? (careerOffseason?careerOffseason(year,wins,message.includes('WORLD CHAMPION')):
           <div className="rounded-[2rem] border border-[var(--bk-team-accent)]/30 bg-[#10151d] p-7 text-center">
+            <SectionArtwork kind="trophy" compact eyebrow="Your season legacy"/>
             <Trophy className="mx-auto text-[var(--bk-team-accent)]" size={64} />
             <h3 className="mt-4 text-4xl font-black">{message.includes('WORLD CHAMPION') ? 'LEGACY BOWL CHAMPION' : 'SEASON COMPLETE'}</h3>
             <p className="mx-auto mt-3 max-w-xl text-zinc-400">{message}</p>

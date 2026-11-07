@@ -1,3 +1,4 @@
+import { SectionArtwork } from './SectionArtwork';
 import {SoloPlayerIdentity,SoloPlayerLink} from './solo/SoloPresentation';
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -513,6 +514,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
             <ModeHelp mode="gm" />
           </div>
           <section className="mt-4 overflow-hidden rounded-[2rem] border border-emerald-300/20 bg-[#0c1117] p-5 sm:p-7">
+            <SectionArtwork kind="film" compact eyebrow="The front office"/>
             <div className="flex items-center gap-4">
               <img
                 src={soloTeamLogoUrl(team.abbr)}
@@ -846,6 +848,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
         </button>
         <div className="mt-3"><ModeHelp mode="gm" /></div>
         <div className="bk-franchise-panel mt-5 rounded-[2rem] border border-white/10 bg-[#10151d] p-5 sm:p-8">
+          <SectionArtwork kind="trophy" compact eyebrow="Build a lasting contender"/>
           <div className="text-[10px] font-black tracking-[.25em] text-[var(--bk-team-accent)]">
             BALL KNOWER LEAGUE ROSTERS
           </div>

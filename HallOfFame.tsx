@@ -1,3 +1,4 @@
+import {SectionArtwork} from './SectionArtwork';
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
 import React, { useEffect, useState } from 'react';
 import { Bot, Crown, Trophy } from 'lucide-react';
@@ -42,6 +43,7 @@ export const HallOfFame:React.FC=()=>{
   return()=>{active=false};
  },[cloudStatus,currentUser?.id,currentUser?.name]);
  return <BroadcastStage scene="legacy" page="legacy" className="min-h-[100dvh] bg-[#090909] text-white px-4 sm:px-8 py-10"><div className="max-w-5xl mx-auto">
+    <SectionArtwork kind="trophy" eyebrow="THE LEGACY VAULT" compact/>
   <BroadcastMasthead eyebrow="Ball Knower legacy" title="Hall of Fame" subtitle="Championships. Career wins. The names that earned their place."/>
 
   <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-8">
