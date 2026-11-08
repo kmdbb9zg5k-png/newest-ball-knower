@@ -53,7 +53,7 @@ for (const seasonRequirement of ['SELECTION SUNDAY', 'BK LEAGUE PLAYOFFS', 'LEGA
   assert.ok(season.includes(seasonRequirement), 'Madden-style season is missing ' + seasonRequirement + '.');
 }
 assert.ok(season.includes('SIMULATE WEEK') || /careerPanel\s*\?\s*['"]RESOLVE['"]\s*:\s*['"]SIMULATE['"]\s*}\s*WEEK/.test(season), 'Normal Solo mode must retain the simulate-week action alongside career resolve-week wording.');
-assert.ok(cloudSync.includes("localKey: 'ballknower_solo_fantasy_v2', cloudKey: 'solo_fantasy'"), 'The current Solo Fantasy save must be included in cloud sync.');
-assert.ok(cloudSync.includes("localKey: 'ballknower_solo_fantasy_v2:season', cloudKey: 'solo_fantasy_season'"), 'The Madden-style season must be included in cloud sync.');
+assert.ok(cloudSync.includes("localKey: SOLO_FRANCHISE_SAVE_KEYS.fantasy, cloudKey: 'solo_fantasy'"), 'Cloud sync must use the same draft save key as the mode.');
+assert.ok(cloudSync.includes("localKey: `${SOLO_FRANCHISE_SAVE_KEYS.fantasy}:season`, cloudKey: 'solo_fantasy_season'"), 'The franchise season must be included in cloud sync.');
 
 console.log('Solo Madden Fantasy Franchise checks passed: custom team identity, 32-team 53-round draft, complete simulated rosters, 17-game season, playoffs, Legacy Bowl, persistence, and offseason.');

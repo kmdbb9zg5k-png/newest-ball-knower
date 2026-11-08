@@ -81,7 +81,7 @@ try{
   const meeting=page.getByRole('dialog',{name:/Private meeting/});
   async function recruit(index=0, poorPitch=false){
    await page.locator('#agent-prospects .bk-solo-selection > button:first-child:enabled').nth(index).click();
-   if(process.env.BK_QA_ART==='1'){const art=meeting.locator('[data-agent-scene="recruiting"] img');await art.evaluate(img=>img.decode());await shot('art-meeting');}
+   if(process.env.BK_QA_ART==='1'){const art=meeting.locator('[data-agent-scene="recruiting"] img');await art.scrollIntoViewIfNeeded();await art.evaluate(img=>img.decode());await shot('art-meeting');}
    for(let round=0;round<2;round++){
     const choices=meeting.locator('button').filter({hasNotText:'CLOSE'});
     await (poorPitch ? choices.nth(round===0?3:2) : choices.first()).click();await page.waitForTimeout(200);

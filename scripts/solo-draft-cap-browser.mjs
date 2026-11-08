@@ -162,9 +162,25 @@ try {
       await page.getByRole('heading', {name:"YOU'RE ON THE CLOCK"}).locator('..').getByRole('button').first().click();
     }
     await page.waitForFunction(key => JSON.parse(localStorage.getItem(key))?.year === 2027, seasonKey);
+    const rolled = await read(seasonKey);
+    assert.equal(rolled.roster.length, 53);
+    assert(rolled.roster.some(player => player.id.startsWith('franchise-rookie-2027-')));
+    assert.equal(rolled.completedSeasons.length, 1);
+    assert.equal(rolled.completedSeasons[0].year, 2026);
+    assert.equal(rolled.completedSeasons[0].wins, result.weeks.filter(week => week.won).length);
+    assert.equal(rolled.completedSeasons[0].leaders.length, 3);
     await open('FANTASY DRAFT');
     await button('SIMULATE WEEK 1').or(button('RESPOND TO TEAM FIRST')).waitFor();
-    assert.equal((await read(seasonKey)).year, 2027);
+    const reopened = await read(seasonKey);
+    assert.equal(reopened.year, 2027);
+    assert.deepEqual(reopened.roster.map(player => player.id), rolled.roster.map(player => player.id));
+    assert.deepEqual(reopened.completedSeasons, rolled.completedSeasons);
+    await page.getByText('Season history', {exact:true}).click();
+    await page.getByText(new RegExp(`^2026 · ${rolled.completedSeasons[0].wins}–`)).waitFor();
+    await page.getByRole('button', {name:'Back to Solo Mode choices',exact:true}).click();
+    await page.locator('.bk-mode-card').filter({hasText:'FANTASY DRAFT'}).click();
+    await button('SIMULATE WEEK 1').or(button('RESPOND TO TEAM FIRST')).waitFor();
+    assert.deepEqual((await read(seasonKey)).roster.map(player => player.id), rolled.roster.map(player => player.id));
     await checkPlayoffEntry(seasonKey, 'FANTASY DRAFT', result);
     page.once('dialog', dialog => dialog.dismiss());
     await button('NEW LEAGUE').click();

@@ -101,6 +101,16 @@ state = awardSoloChampionships(state);
 assert(state.profile.championships === 1, 'Championships from native careers should feed the universal profile.');
 assert(state.profile.achievements.includes('Champion'), 'Winning a title should unlock a universal achievement.');
 
+const rollingSave = memoryStorage({
+  'ballknower_solo_franchise_v2:season': JSON.stringify({year:2027,weeks:[],completedSeasons:[{year:2026,champion:true}],playoffs:[{round:'LEGACY BOWL',won:true}]}),
+});
+const twoTitles = awardSoloChampionships(syncSoloUniverseFromStorage(createSoloUniverseState(), rollingSave));
+assert(twoTitles.profile.championships === 2, 'An archived championship counts alongside the current title.');
+rollingSave.setItem('ballknower_solo_franchise_v2:season', JSON.stringify({year:2028,weeks:[],playoffs:[],completedSeasons:[{year:2026,champion:true},{year:2027,champion:true}]}));
+const rolledTitles = awardSoloChampionships(syncSoloUniverseFromStorage(twoTitles, rollingSave));
+assert(rolledTitles.saves.find(save => save.mode === 'real')?.championships === 2, 'Both titles survive rollover.');
+assert(rolledTitles.profile.xp === twoTitles.profile.xp, 'Archiving a title must not award it again.');
+
 const repaired = normalizeSoloUniverseState({
   version: 1,
   profile: { level: -4, xp: -20, reputation: 1000 },

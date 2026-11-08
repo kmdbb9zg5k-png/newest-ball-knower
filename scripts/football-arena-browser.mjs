@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {createServer} from 'vite';
-import {chromium} from 'playwright';
+import {chromium,webkit} from 'playwright';
 import {mkdir,writeFile} from 'node:fs/promises';
 const fixture=`import React from 'react';import{createRoot}from'react-dom/client';import Arena from '/CommunityFootballArena.tsx';import '/index.css';createRoot(document.getElementById('root')).render(React.createElement(Arena,{me:location.search.includes('guest')?'':'me',friends:[{userId:'friend',displayName:'Fourth Down Club'}],onOpenAuth:()=>{document.body.dataset.auth='requested'}}));`;
 const port = Number(process.env.BK_QA_PORT || 3059);
@@ -14,12 +14,15 @@ const consoleErrors=[],networkFailures=[];
 const widths=process.env.WIDTHS?JSON.parse(process.env.WIDTHS):[320,390,1280];
 try{
  for(const width of widths){
-  browser = await chromium.launch({
+  browser = process.env.BK_QA_BROWSER === 'webkit' ? await webkit.launch({executablePath:process.env.BROWSER_PATH}) : await chromium.launch({
     executablePath: chromiumModule ? await chromiumModule.executablePath() : process.env.BROWSER_PATH || undefined,
     args: chromiumModule ? chromiumModule.args : ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-angle=swiftshader'],
   });
 
   const page=await browser.newPage({viewport:{width,height:844},hasTouch:width<768,isMobile:width<768});page.setDefaultTimeout(120000);const errors=[];page.on('pageerror',e=>errors.push(e.message));let matches=[],calls=[],fail=!handoffOnly,interruptAfterSubmit=false,loseScoreRefresh=false,opponentFinished=true,releaseQuickMatch;
+  await page.addInitScript(()=>{
+    if(window===window.top)Object.defineProperty(document,'hidden',{get:()=>window.bkQaBackgrounded===true});
+  });
   currentPage=page;currentWidth=width;currentCalls=calls;currentErrors=errors;
   page.on('console',message=>{if(message.type()==='error')consoleErrors.push({width,text:message.text()});});
   page.on('requestfailed',request=>networkFailures.push({width,url:request.url(),failure:request.failure()}));
@@ -89,8 +92,21 @@ try{
   await page.screenshot({path:`artifacts/football-arena/lobby-${width}.png`,fullPage:true});
   if(width===390||handoffOnly){
     if(!handoffOnly){
-    await page.setViewportSize({width:1000,height:500});
+    let failBoot=true;
+    await page.route('**/play-moment-3d/game.js?**',route=>{
+      if(failBoot){failBoot=false;return route.abort('failed');}
+      return route.continue();
+    });
     await page.getByRole('button',{name:'Play drive 1 of 3'}).click();
+    await page.getByRole('heading',{name:'Kickoff didn’t load'}).waitFor();
+    await page.getByRole('button',{name:'Retry kickoff',exact:true}).click();
+    await page.locator('.football-session-frame:not([inert])').waitFor();
+    const firstFrame=await page.locator('.football-session-frame').elementHandle().then(e=>e.contentFrame());
+    await firstFrame.locator('#rotate').waitFor({state:'visible'});
+    const clockBeforeRotate=await firstFrame.locator('#clock').textContent();
+    await page.waitForTimeout(1800);
+    assert.equal(await firstFrame.locator('#clock').textContent(),clockBeforeRotate,'The return waits while the phone is upright');
+    await page.setViewportSize({width:844,height:390});
     for(let n=1;n<=3;n++){
       console.log(`Playing automatically launched official drive ${n} through kickoff and normal spike controls`);
       const iframe=page.locator(`iframe[src*="drive=${n}"]`);await iframe.waitFor();
@@ -101,8 +117,15 @@ try{
       await frame.waitForFunction(()=>window.bkObservedKickoffs?.length>0,{},{timeout:30000});
       assert.deepEqual(await frame.evaluate(()=>window.bkObservedKickoffs.map(({loadingVisible,unitVisible})=>({loadingVisible,unitVisible}))),[{loadingVisible:false,unitVisible:true}],'Every drive visibly presents its kickoff after loading');
       assert.equal(await frame.locator('#unitTouchback').isVisible(),false,'Opening kickoff cannot be skipped');
-      // Software rendering may take longer than 45 wall seconds to show a complete return.
-      await frame.locator('#breakHuddle').waitFor({state:'visible',timeout:120000});
+      // Steer the returner with the shipped control. An idle return can take
+      // much longer on a software renderer than on a phone.
+      const huddle=frame.locator('#breakHuddle'),stick=frame.locator('#stick');
+      await frame.locator('#breakHuddle:visible, #stick:visible').first().waitFor({timeout:120000});
+      if(await stick.isVisible()&&!await huddle.isVisible()){
+        await stick.focus();await page.keyboard.down('ArrowRight');
+        try{await huddle.waitFor({timeout:120000});}finally{await page.keyboard.up('ArrowRight');}
+      }
+      await huddle.waitFor({timeout:120000});
       assert.match(await frame.locator('.club.away').getAttribute('aria-label'),/Brooklyn/);
       assert.doesNotMatch(await frame.locator('#hud').innerText(),/CPU|simulated/i);
       const before=calls.filter(c=>c.action==='submit').length;
@@ -133,13 +156,19 @@ try{
     assert.deepEqual(calls.filter(c=>c.action==='begin').map(c=>c.args.drive),[1,2,3],'All drives start once and advance automatically');
     }
     // A lightweight iframe isolates session orchestration from the separately tested engine.
-    await page.route('**/play-moment-3d-preview.html?**',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html><body>Bridge fixture</body></html>'}));
-    const sendResult=async (n,stats)=>{
+    let frameFault='';
+    await page.route('**/play-moment-3d-preview.html?**',route=>{
+      const fault=frameFault;frameFault='';
+      const startup=fault==='stall'?'':`<script type="module">import{reportArenaField}from'/football-arena-bridge.js';reportArenaField('${fault==='boot'?'failed':'ready'}')</script>`;
+      return route.fulfill({contentType:'text/html',body:`<!doctype html><html><body>Bridge fixture${startup}</body></html>`});
+    });
+    const sendFrameMessage=async (n,type,stats)=>{
       const iframe=page.locator(`iframe[src*="drive=${n}"]`);await iframe.waitFor();
       const handle=await iframe.elementHandle(),frame=await handle.contentFrame();
       await frame.waitForLoadState('domcontentloaded');
-      await frame.evaluate(stats=>{const p=new URLSearchParams(location.search);parent.postMessage({type:'bk-arena-result',matchId:p.get('bkArena'),token:p.get('token'),drive:Number(p.get('drive')),stats},location.origin);},stats);
+      await frame.evaluate(({type,stats})=>{const p=new URLSearchParams(location.search);parent.postMessage({type,matchId:p.get('bkArena'),token:p.get('token'),drive:Number(p.get('drive')),stats},location.origin);},{type,stats});
     };
+    const sendResult=(n,stats)=>sendFrameMessage(n,'bk-arena-result',stats);
     // Opponent totals must not become a fabricated victory before their drives arrive.
     opponentFinished=false;matches=[];
     await page.goto(base+'/football-qa.html');
@@ -168,6 +197,51 @@ try{
     pending.status='completed';pending.winner_id='friend';
     await page.getByRole('heading',{name:'You lose',exact:true}).waitFor({timeout:30000});
     await page.getByRole('button',{name:'Back to main screen',exact:true}).last().click();
+    // Another match exercises startup, backgrounding, reconnect and reopening a saved result.
+    matches=[];await page.goto(base+'/football-qa.html');
+    await page.getByLabel('Opponent',{exact:true}).selectOption('friend');await page.getByRole('button',{name:'Challenge friend'}).click();
+    const beforeRecovery=calls.length;
+    if(width===390)await page.clock.install();
+    frameFault=width===390?'stall':'boot';await page.getByRole('button',{name:'Play drive 1 of 3'}).click();
+    if(width===390){
+      await page.locator('.football-session-frame').waitFor();
+      await page.clock.fastForward(46000);
+    }
+    await page.getByRole('heading',{name:'Kickoff didn’t load'}).waitFor();
+    const originalSrc=await page.locator('iframe').getAttribute('src');
+    await page.getByRole('button',{name:'Retry kickoff'}).click();
+    await page.locator('.football-session-frame:not([inert])').waitFor();
+    assert.equal(await page.locator('iframe').getAttribute('src'),originalSrc,'Retry keeps the same issued attempt');
+    assert.equal(calls.slice(beforeRecovery).filter(c=>c.action==='begin').length,1);
+    await page.evaluate(()=>{window.bkQaBackgrounded=true;document.dispatchEvent(new Event('visibilitychange'));});
+    fail=true;await sendResult(1,{points:7,yards:75,plays:8});
+    await page.getByRole('button',{name:'Retry saving result'}).waitFor();
+    const offlineSubmit=calls.filter(c=>c.action==='submit').at(-1);
+    await page.evaluate(()=>window.dispatchEvent(new Event('online')));
+    await page.getByRole('heading',{name:'Drive complete',exact:true}).waitFor();
+    assert.deepEqual(calls.filter(c=>c.action==='submit').at(-1),offlineSubmit);
+    await page.waitForTimeout(1500);
+    assert.equal(await page.locator('iframe').count(),0,'No new field launches in the background');
+    assert.equal(calls.slice(beforeRecovery).filter(c=>c.action==='begin').length,1);
+    await page.evaluate(()=>{window.bkQaBackgrounded=false;document.dispatchEvent(new Event('visibilitychange'));});
+    await page.locator('.football-session-frame:not([inert])[src*="drive=2"]').waitFor();
+    await sendFrameMessage(2,'bk-arena-failed');
+    await page.getByRole('heading',{name:'The drive was interrupted'}).waitFor();
+    assert.equal(await page.getByRole('button',{name:'Retry kickoff'}).count(),0,'A live drive cannot restart');
+    await page.getByRole('button',{name:'Record 0 and continue'}).click();
+    await page.locator('.football-session-frame:not([inert])[src*="drive=3"]').waitFor();
+    assert.equal(matches[0].drives.filter(d=>d.user_id==='me'&&d.forfeited).length,1);
+    fail=true;await sendResult(3,{points:3,yards:52,plays:5});
+    await page.getByRole('button',{name:'Retry saving result'}).waitFor();
+    const reloadSubmit=calls.filter(c=>c.action==='submit').at(-1);
+    await page.reload();
+    await page.getByRole('button',{name:'Retry saved drive 3'}).click();
+    await page.getByRole('heading',{name:'Waiting for your opponent'}).waitFor();
+    assert.deepEqual(calls.filter(c=>c.action==='submit').at(-1),reloadSubmit);
+    assert.deepEqual(calls.slice(beforeRecovery).filter(c=>c.action==='begin').map(c=>c.args.drive),[1,2,3]);
+    assert.deepEqual(matches[0].drives.filter(d=>d.user_id==='me').map(d=>d.points),[7,0,3]);
+    await page.getByRole('button',{name:'Back to main screen',exact:true}).last().click();
+    await page.getByRole('button',{name:'View saved scorecard',exact:true}).waitFor();
     // Cancel before the quick-match response arrives: the late queue row must still close.
     matches=[];await page.goto(base+'/football-qa.html');
     await page.getByRole('button',{name:'Pick your team',exact:true}).click();

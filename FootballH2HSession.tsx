@@ -7,6 +7,7 @@ import './footballH2HSession.css';
 import {readFootballResult,saveFootballResult,clearFootballResult} from './footballResultRecovery';
 
 type Phase='team'|'search'|'intro'|'loading'|'game'|'intermission'|'results';
+type FieldStatus='loading'|'ready'|'kickoff-failed'|'play-interrupted';
 type DetailStats=FootballStats;
 type Rival={id:string;team:string;name:string;simulated:boolean;seed:number};
 const teamInfo=(id:string)=>FOOTBALL_ARENA_TEAMS.find(t=>t.abbr===id)||FOOTBALL_ARENA_TEAMS[11];
@@ -31,7 +32,9 @@ export default function FootballH2HSession({me,initialTeam='JCY',initialMatch,fr
  const [elapsed,setElapsed]=useState(0),[rival,setRival]=useState<Rival|null>(null),[match,setMatch]=useState<FootballMatch|null>(initialMatch||null);
  const [ours,setOurs]=useState<DetailStats[]>([]),[theirs,setTheirs]=useState<DetailStats[]>([]);
  const [attempt,setAttempt]=useState<FootballAttempt|null>(null),[error,setError]=useState(''),[leaving,setLeaving]=useState(false),[busy,setBusy]=useState(false),[rematchSent,setRematchSent]=useState(false);
+ const [fieldStatus,setFieldStatus]=useState<FieldStatus>('loading'),[fieldVersion,setFieldVersion]=useState(0);
  const dialog=useRef<HTMLDialogElement>(null),frame=useRef<HTMLIFrameElement>(null),mounted=useRef(true),generation=useRef(0),pendingSearch=useRef<string|null>(null);
+ const fieldStarted=useRef(false);
  const currentMatch=useRef<FootballMatch|null>(initialMatch||null),currentAttempt=useRef<FootballAttempt|null>(null),currentRival=useRef<Rival|null>(null),currentTeam=useRef(team);
  const accepted=useRef(false),saving=useRef(false),pendingResult=useRef<DetailStats|null>(null),launches=useRef(new Map<string,string>()),timers=useRef<ReturnType<typeof setTimeout>[]>([]);
  const pendingExpired=useRef(false),resultRetained=useRef(false),rematchLock=useRef(false);
@@ -39,18 +42,21 @@ export default function FootballH2HSession({me,initialTeam='JCY',initialMatch,fr
  const leavingRef=useRef(false),deferred=useRef<(()=>void)|null>(null),starting=useRef(false);
  currentTeam.current=team;
  function requestExit(){leavingRef.current=true;setLeaving(true);}
- function resume(){leavingRef.current=false;setLeaving(false);const next=deferred.current;deferred.current=null;if(next)next();}
- function transition(fn:()=>void){if(leavingRef.current)deferred.current=fn;else fn();}
+ function continueTransition(){if(leavingRef.current||document.hidden)return;const next=deferred.current;deferred.current=null;next?.();}
+ function resume(){leavingRef.current=false;setLeaving(false);continueTransition();}
+ function transition(fn:()=>void){if(leavingRef.current||document.hidden)deferred.current=fn;else fn();}
  const later=(fn:()=>void,delay:number)=>{const run=generation.current;const id=setTimeout(()=>{if(mounted.current&&run===generation.current)transition(fn);},delay);timers.current.push(id);};
  const updateMatch=(m:FootballMatch)=>{currentMatch.current=m;setMatch(m);setOurs(matchRows(m,me));setTheirs(matchRows(m,m.challenger_id===me?m.opponent_id||'':m.challenger_id));};
  useEffect(()=>{
   mounted.current=true;const prior=document.activeElement as HTMLElement|null,overflow=document.body.style.overflow;
   dialog.current?.showModal();document.body.style.overflow='hidden';
-  return()=>{mounted.current=false;generation.current++;timers.current.forEach(clearTimeout);document.body.style.overflow=overflow;prior?.focus();const id=pendingSearch.current;if(id)void footballArenaAction('cancel',{id}).catch(()=>{});};
+  document.addEventListener('visibilitychange',continueTransition);
+  window.addEventListener('ballknower:resume',continueTransition);
+  return()=>{mounted.current=false;generation.current++;timers.current.forEach(clearTimeout);document.removeEventListener('visibilitychange',continueTransition);window.removeEventListener('ballknower:resume',continueTransition);document.body.style.overflow=overflow;prior?.focus();const id=pendingSearch.current;if(id)void footballArenaAction('cancel',{id}).catch(()=>{});};
  },[]);
  async function readMatch(id:string){const home=await footballArenaAction<FootballHome>('home');const m=home.matches.find(m=>m.id===id);if(!m)throw Error('Could not load this match. Retry to reconnect.');return m;}
  async function beginDrive(m:FootballMatch|null,r:Rival,ordinal:number){
-  if(!mounted.current||starting.current)return;if(leavingRef.current){deferred.current=()=>void beginDrive(m,r,ordinal);return;}const run=generation.current;starting.current=true;setBusy(true);setPhase('loading');setError('');accepted.current=false;pendingResult.current=null;currentAttempt.current=null;setAttempt(null);
+  if(!mounted.current||starting.current)return;if(leavingRef.current||document.hidden){deferred.current=()=>void beginDrive(m,r,ordinal);return;}const run=generation.current;starting.current=true;setBusy(true);setPhase('loading');setError('');accepted.current=false;pendingResult.current=null;currentAttempt.current=null;setAttempt(null);
   try{
    let next:FootballAttempt;
    if(r.simulated)next={token:crypto.randomUUID(),drive:ordinal,seed:r.seed+ordinal,team:currentTeam.current,opponent:r.team,deadline:new Date(Date.now()+720000).toISOString()};
@@ -62,13 +68,14 @@ export default function FootballH2HSession({me,initialTeam='JCY',initialMatch,fr
     const key=`${m.id}:${ordinal}`;if(!launches.current.has(key))launches.current.set(key,crypto.randomUUID());
     next=await footballArenaAction<FootballAttempt>('begin',{id:m.id,drive:ordinal,launch:launches.current.get(key)});
    }
-   if(!mounted.current||run!==generation.current){if(!r.simulated)void footballArenaAction('forfeit',{id:r.id,drive:next.drive,token:next.token}).catch(()=>{});return;}currentAttempt.current=next;setAttempt(next);transition(()=>setPhase('game'));
+   if(!mounted.current||run!==generation.current){if(!r.simulated)void footballArenaAction('forfeit',{id:r.id,drive:next.drive,token:next.token}).catch(()=>{});return;}
+   fieldStarted.current=false;setFieldStatus('loading');currentAttempt.current=next;setAttempt(next);transition(()=>setPhase('game'));
   }catch(e){if(mounted.current&&run===generation.current)setError(e instanceof Error?e.message:'Could not start the next drive.');}finally{starting.current=false;if(mounted.current)setBusy(false);}
  }
  function introduce(m:FootballMatch|null,r:Rival){
   currentRival.current=r;setRival(r);if(m){const ownTeam=m.challenger_id===me?m.challenger_team:m.opponent_team!;currentTeam.current=ownTeam;setTeam(ownTeam);updateMatch(m);
    const cached=readFootballResult(me,m.id);
-   if(cached&&!m.drives.some(d=>d.user_id===me&&d.ordinal===cached.attempt.drive&&d.finished_at)){
+   if(cached&&m.status==='active'&&m.drives.some(d=>d.user_id===me&&d.ordinal===cached.attempt.drive&&!d.finished_at)){
     currentAttempt.current=cached.attempt;setAttempt(cached.attempt);accepted.current=true;void finishDrive(cached.stats,cached.expired);return;
    }
    clearFootballResult(me,m.id);
@@ -126,7 +133,7 @@ export default function FootballH2HSession({me,initialTeam='JCY',initialMatch,fr
  }
  async function finishDrive(stats:DetailStats,expired=false){
   if(saving.current)return;const a=currentAttempt.current,r=currentRival.current;if(!a||!r)return;
-  saving.current=true;pendingResult.current=stats;pendingExpired.current=expired;setBusy(true);setError('');setPhase('intermission');
+  saving.current=true;pendingResult.current=stats;pendingExpired.current=expired;deferred.current=null;setBusy(true);setError('');setPhase('intermission');
   if(!r.simulated&&currentMatch.current)resultRetained.current=saveFootballResult(me,r.id,{attempt:a,stats,expired,expiresAt:new Date(Math.max(Date.now(),Date.parse(currentMatch.current.expires_at))+86400000).toISOString()});
   try{
    let m=currentMatch.current;
@@ -141,10 +148,26 @@ export default function FootballH2HSession({me,initialTeam='JCY',initialMatch,fr
  const finishCurrent=useRef(finishDrive);finishCurrent.current=finishDrive;
  useEffect(()=>{
   const listener=(event:MessageEvent)=>{const a=currentAttempt.current,r=currentRival.current,d=event.data;if(!a||!r||event.origin!==location.origin||event.source!==frame.current?.contentWindow||d?.matchId!==r.id||d?.token!==a.token||d?.drive!==a.drive)return;
+   if(d.type==='bk-arena-ready'&&!accepted.current){fieldStarted.current=true;setFieldStatus('ready');}
+   if(d.type==='bk-arena-failed'&&!accepted.current)setFieldStatus(fieldStarted.current?'play-interrupted':'kickoff-failed');
    if(d.type==='bk-arena-result'&&!accepted.current&&validFootballStats(d.stats)){accepted.current=true;void finishCurrent.current(d.stats);}
    if(d.type==='bk-arena-exit'&&!accepted.current)requestExit();
-  };window.addEventListener('message',listener);return()=>window.removeEventListener('message',listener);
+  };
+  const reconnect=()=>{if(pendingResult.current&&!leavingRef.current)void finishCurrent.current(pendingResult.current,pendingExpired.current);};
+  window.addEventListener('message',listener);window.addEventListener('online',reconnect);
+  return()=>{window.removeEventListener('message',listener);window.removeEventListener('online',reconnect);};
  },[]);
+ // An iframe network error can still fire a load event. Wait for the field itself.
+ useEffect(()=>{
+  if(phase!=='game'||fieldStatus!=='loading')return;
+  let timeout:number|undefined;
+  const watch=()=>{
+   window.clearTimeout(timeout);
+   if(!document.hidden)timeout=window.setTimeout(()=>setFieldStatus(status=>status==='loading'?'kickoff-failed':status),45000);
+  };
+  watch();document.addEventListener('visibilitychange',watch);
+  return()=>{window.clearTimeout(timeout);document.removeEventListener('visibilitychange',watch);};
+ },[phase,fieldStatus,fieldVersion]);
  // Resolve an abandoned or expired iframe drive, even when it never sends a result.
  useEffect(()=>{
   if(!attempt)return;const tick=()=>{if(Date.now()>=Date.parse(attempt.deadline)&&!accepted.current&&!saving.current){accepted.current=true;void finishDrive({points:0,yards:0,plays:0},true);}};
@@ -154,7 +177,9 @@ export default function FootballH2HSession({me,initialTeam='JCY',initialMatch,fr
  useEffect(()=>{
   if(phase!=='results'||!match||['completed','expired','cancelled','declined'].includes(match.status)||rival?.simulated)return;
   let stopped=false,inFlight=false;const refresh=async()=>{if(inFlight)return;inFlight=true;try{const next=await readMatch(match.id);if(!stopped&&mounted.current){updateMatch(next);setError('');}}catch(e){if(!stopped)setError(e instanceof Error?e.message:'Could not refresh opponent results.');}finally{inFlight=false;}};
-  void refresh();const timer=setInterval(()=>void refresh(),5000);return()=>{stopped=true;clearInterval(timer);};
+  const visible=()=>{if(!document.hidden)void refresh();};
+  visible();const timer=setInterval(visible,5000);document.addEventListener('visibilitychange',visible);window.addEventListener('online',visible);
+  return()=>{stopped=true;clearInterval(timer);document.removeEventListener('visibilitychange',visible);window.removeEventListener('online',visible);};
  },[phase,match?.id,match?.status,rival?.simulated]);
  async function refreshResults(){
   const m=currentMatch.current;if(!m||busy)return;setBusy(true);setError('');
@@ -171,6 +196,8 @@ export default function FootballH2HSession({me,initialTeam='JCY',initialMatch,fr
  const ourScore=scoreSum(ours),theirScore=scoreSum(theirs);
  const outcome=closed?'Match closed':pending?'Waiting for your opponent':ourScore>theirScore?'You win!':ourScore<theirScore?'You lose':'Tie game';
  const retry=()=>{if(pendingResult.current)void finishDrive(pendingResult.current,pendingExpired.current);else if(currentRival.current)void beginDrive(currentMatch.current,currentRival.current,ours.length+1);};
+ function retryKickoff(){if(fieldStarted.current)return;setFieldStatus('loading');setFieldVersion(version=>version+1);}
+ function recordInterruptedDrive(){if(accepted.current)return;accepted.current=true;void finishDrive({points:0,yards:0,plays:0},true);}
  const otherId=match?(match.challenger_id===me?match.opponent_id:match.challenger_id):null;
  async function rematch(){if(!otherId||rematchLock.current)return;rematchLock.current=true;setBusy(true);setError('');try{await footballArenaAction('create',{team:currentTeam.current,opponent:otherId});if(mounted.current)setRematchSent(true);}catch(e){if(mounted.current)setError(e instanceof Error?e.message:'Could not send the rematch challenge.');}finally{rematchLock.current=false;if(mounted.current)setBusy(false);}}
  return createPortal(<dialog ref={dialog} className="football-session" data-phase={phase} aria-label="Football match" onCancel={e=>{e.preventDefault();close();}}>
@@ -179,7 +206,19 @@ export default function FootballH2HSession({me,initialTeam='JCY',initialMatch,fr
   {phase==='search'&&<section className="football-session-stage" aria-label="Matchmaking"><span className="football-eyebrow">{me?'ONLINE PLAYER SEARCH':'AUTOMATED PRACTICE COUNTDOWN'} · {teamInfo(team).name}</span><h1>{error?'Search interrupted':me?'Finding an online player':'Preparing automated practice'}</h1><div className="football-search-clock" role="timer" aria-label="Matchmaking seconds">{elapsed}<small>/ 30 seconds</small></div><p>{me?'Looking for a real player. If nobody joins within 30 seconds, a clearly labelled CPU practice match starts automatically. Online players complete their drives at their own pace.':'Guest quick matches use a CPU opponent. Automated practice starts after this 30-second countdown. Sign in from the Arena to find real players and keep online records.'}</p>{error&&<><p role="alert">{error}</p><div className="football-session-actions"><button type="button" disabled={busy} onClick={()=>void cancelSearch('search')}>Retry online search</button><button type="button" className="secondary" disabled={busy} onClick={()=>void cancelSearch('practice')}>Play automated practice</button></div></>}<button type="button" className="secondary" disabled={busy} onClick={()=>void cancelSearch()}>{busy?'Closing search…':'Cancel search'}</button></section>}
   {phase==='intro'&&rival&&<section className="football-session-stage" role="status"><span className="football-eyebrow">{rival.simulated?'AUTOMATED PRACTICE':'ONLINE PLAYER MATCHED'}</span><h1>{teamInfo(team).name}<em>VS</em>{teamInfo(rival.team).name}</h1><p>{rival.name}{rival.simulated?' · computer-controlled scorecard':''}</p><p>Three drives. Each begins with a kickoff.</p></section>}
   {phase==='loading'&&<section className="football-session-stage"><h1>Preparing kickoff</h1>{error?<><p role="alert">{error}</p><button type="button" disabled={busy||!rival} onClick={retry}>Retry next drive</button></>:<p role="status">Loading your next drive…</p>}</section>}
-  {(phase==='game'||phase==='intermission')&&rival&&<><div className="football-session-score"><span>You <b>{ourScore}</b></span><small>{rival.simulated?'CPU · automated practice':rival.name} · {theirs.length}/3 opponent drives</small><span><b>{theirScore}</b> {teamInfo(rival.team).abbr}</span></div>{phase==='game'&&attempt&&<iframe ref={frame} key={`${rival.id}:${attempt.drive}`} title={`Football H2H offensive drive ${attempt.drive}`} src={footballDriveUrl(rival.id,attempt)} allow="fullscreen" className={leaving?'football-session-frame hidden-frame':'football-session-frame'}/>}</>}
+  {(phase==='game'||phase==='intermission')&&rival&&<><div className="football-session-score"><span>You <b>{ourScore}</b></span><small>{rival.simulated?'CPU · automated practice':rival.name} · {theirs.length}/3 opponent drives</small><span><b>{theirScore}</b> {teamInfo(rival.team).abbr}</span></div>
+   {phase==='game'&&attempt&&<div className="football-session-field">
+    <iframe ref={frame} key={`${rival.id}:${attempt.drive}:${fieldVersion}`} title={`Football H2H offensive drive ${attempt.drive}`} src={footballDriveUrl(rival.id,attempt)} allow="fullscreen" inert={leaving||fieldStatus!=='ready'} className="football-session-frame"/>
+    {fieldStatus!=='ready'&&<section className="football-session-stage football-field-status" aria-live="polite">
+     {fieldStatus==='loading'?<><h1>Loading the field</h1><p>Drive {attempt.drive} of 3</p></>:<>
+      <h1>{fieldStatus==='kickoff-failed'?'Kickoff didn’t load':'The drive was interrupted'}</h1>
+      <p>Your completed drives are saved. {fieldStatus==='kickoff-failed'?'You can reload this kickoff.':'You can record 0 for this drive and continue the match.'}</p>
+      {fieldStatus==='kickoff-failed'&&<button type="button" onClick={retryKickoff}>Retry kickoff</button>}
+      <button type="button" className={fieldStatus==='kickoff-failed'?'secondary':undefined} onClick={recordInterruptedDrive}>{attempt.drive<3?'Record 0 and continue':'Record 0 and view results'}</button>
+     </>}
+    </section>}
+   </div>}
+  </>}
   {phase==='intermission'&&<section className="football-session-stage" aria-live="polite"><h1>{busy?'Saving drive…':error?'Save interrupted':'Drive complete'}</h1>{error?<><p role="alert">{error}</p><button type="button" disabled={busy} onClick={retry}>Retry saving result</button></>:<p>{(attempt?.drive||ours.length)<3?'The next kickoff starts automatically.':'Preparing your scoreboard…'}</p>}</section>}
   {phase==='results'&&rival&&<section className="football-session-results"><span className="football-eyebrow">{closed?'MATCH CLOSED':pending?'YOUR DRIVES ARE COMPLETE':'FINAL SCORE'}</span><h1>{outcome}</h1><div className="football-final-score"><div><strong>You</strong><span>{teamInfo(team).name}</span><b>{ourScore}</b></div><em>—</em><div><strong>{rival.name}</strong><span>{teamInfo(rival.team).name}</span><b>{theirScore}</b></div></div>{closed&&<p role="status">This match expired or closed before both players finished. Completed drive totals are shown below.</p>}{pending&&<p role="status">Your score is saved. Your opponent has finished {theirs.length} of 3 drives. This screen updates automatically. You can return later from Football H2H in the Arena.</p>}{error&&<p role="alert">{error}{pending&&<button type="button" className="secondary" disabled={busy} onClick={()=>void refreshResults()}>Retry opponent score</button>}</p>}<OffensiveComparison ours={ours} theirs={theirs}/><p className="football-session-fine">{rival.simulated?'Automated practice · CPU scores are simulated · does not affect online standings.':'Online player · device-reported results · final after both players finish.'}</p><div className="football-session-actions">{rival.simulated?<button type="button" onClick={()=>practice(true)}>Play automated rematch</button>:!pending&&!closed&&otherId&&friendIds.includes(otherId)&&<button type="button" disabled={busy||rematchSent} onClick={()=>void rematch()}>{rematchSent?'Rematch challenge sent':'Challenge to rematch'}</button>}<button type="button" className="secondary" disabled={busy} onClick={nextMatch}>{rival.simulated?'Choose another matchup':'Find another opponent'}</button><button type="button" className="secondary" disabled={busy} onClick={onClose}>Back to main screen</button></div>{rematchSent&&<p role="status">Your completed match is saved. The new rematch challenge is in your Football H2H matches.</p>}</section>}
   {leaving&&<section className="football-session-exit" role="alertdialog" aria-modal="true" aria-label="Leave match?"><h2>Leave this match?</h2><p>{rival?.simulated?'Automated practice is kept only while this match is open. Leaving ends this practice match.':pendingResult.current?resultRetained.current?'Your finished drive is waiting to save on this device. Return to this match in Football H2H to retry.':'Your result has not saved and browser storage is unavailable. Leaving now discards it. Keep this screen open and retry to preserve this drive.':phase==='game'?'The current drive will be recorded as zero. Completed drives stay saved.':'Completed drives stay recorded. You can return to online matches from the lobby.'}</p>{error&&<p role="alert">{error}</p>}<button type="button" disabled={busy} onClick={()=>void leaveGame()}>{pendingResult.current&&!rival?.simulated&&!resultRetained.current?'Leave without saving':'Leave match'}</button><button type="button" className="secondary" disabled={busy} onClick={resume}>Keep playing</button></section>}

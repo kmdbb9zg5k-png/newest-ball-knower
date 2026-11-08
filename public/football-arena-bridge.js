@@ -7,3 +7,4 @@ function post(type, stats) {
 }
 export function reportArenaDrive(stats) { if(sent)return; sent=true; post('bk-arena-result',stats); }
 export function exitArenaDrive() { post('bk-arena-exit'); }
+export function reportArenaField(status) { post(status === 'ready' ? 'bk-arena-ready' : 'bk-arena-failed'); }

@@ -22,12 +22,7 @@ export const FANTASY_DRAFT_ROUNDS = Object.values(FANTASY_ROSTER_REQUIREMENTS)
   .reduce((total, required) => total + required, 0);
 const LEGACY_FANTASY_DRAFT_ROUNDS = Object.values(ROSTER_REQUIREMENTS)
   .reduce((total, required) => total + required, 0);
-export const SOLO_FRANCHISE_SAVE_KEYS = {
-  cap: 'ballknower_solo_run_v2',
-  fantasy: 'ballknower_solo_fantasy_v2',
-  real: 'ballknower_solo_franchise_v2',
-  player: 'ballknower_solo_my_player_v2',
-} as const;
+export { SOLO_FRANCHISE_SAVE_KEYS } from './soloSaveKeys';
 
 const PLAYER_BY_ID = SOLO_PLAYER_BY_ID;
 const STANDARD_REQUIRED_GROUPS = Object.entries(ROSTER_REQUIREMENTS) as Array<[keyof RosterRequirements, number]>;

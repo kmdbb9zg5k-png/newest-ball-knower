@@ -11,6 +11,7 @@ import {
   awardSoloChampionships,
   ensureSoloCareerSave,
   loadSoloUniverse,
+  nativeSoloModeHasSave,
   persistSoloUniverse,
   SOLO_MODE_META,
   SoloCareerMode,
@@ -56,7 +57,7 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
   }, [agentOpen, ownerOpen]);
 
   const sortedSaves = useMemo(
-    () => [...universe.saves].sort((first, second) => second.lastPlayedAt - first.lastPlayedAt),
+    () => universe.saves.filter(save => nativeSoloModeHasSave(save.mode)).sort((first, second) => second.lastPlayedAt - first.lastPlayedAt),
     [universe.saves],
   );
 
@@ -127,7 +128,7 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
             {[...CAREER_TILES.map(tile => tile.mode), ...OTHER_MODES].map(mode => (
               <button key={mode} type="button" className="bk-career-choice" onClick={() => openMode(mode)}>
                 <strong>{mode === 'real' ? 'GM · Franchise Command' : SOLO_MODE_META[mode].title}</strong>
-                <span>{universe.saves.some(save => save.mode === mode) ? 'Continue career' : 'Start career'}</span>
+                <span>{sortedSaves.some(save => save.mode === mode) ? 'Continue career' : 'Start career'}</span>
               </button>
             ))}
           </div>
@@ -180,11 +181,11 @@ export const SoloFranchiseHub: React.FC<Props> = ({ onOpen }) => {
                     <ChevronRight size={15} className="text-zinc-600" />
                   </div>
                   <div className="mt-1 truncate text-[11px] text-zinc-400">{save.subtitle}</div>
-                  <div className="mt-3 flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-zinc-500">
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-wider text-zinc-400">
                     <span>{progressLabel(save.week, save.stage)}</span>
                     <span>•</span>
                     <span>{save.wins}-{save.losses}</span>
-                    {save.championships > 0 && <><span>•</span><span className="text-amber-300">{save.championships} title</span></>}
+                    {save.championships > 0 && <><span>•</span><span className="text-amber-300">{save.championships} {save.championships === 1 ? 'title' : 'titles'}</span></>}
                   </div>
                 </button>
               ))}

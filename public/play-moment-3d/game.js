@@ -1050,9 +1050,10 @@ function coverage(dt){
   try{camera(dt);lastPresentationTime=previousPresentationTime+(simTime-previousPresentationTime)*clamp(alpha,0,1);scene(dt,lastPresentationTime*1000)}finally{actors=authoritative;carrier=holder;exchange=liveExchange;flight=liveFlight}
  }
  let lastDraw=NaN;
+ const arenaNeedsLandscape=miniConfig?.mode==='arena'?matchMedia('(orientation:portrait) and (max-width:699px)'):null;
  function loop(now){
   raf=requestAnimationFrame(loop);const dt=Math.min(.25,Math.max(0,(now-last)/1000)||.016);last=now;
-  if(document.hidden||r.lost||(paused&&!activeContact&&!replaying))return;
+  if(document.hidden||arenaNeedsLandscape?.matches||r.lost||(paused&&!activeContact&&!replaying))return;
   if(replaying)advanceReplay(dt);else if((!paused||activeContact)&&!qaStepping){accumulator+=dt;let steps=0;while(accumulator>=1/60&&steps++<15){simulate(1/60);accumulator-=1/60;if(paused&&!activeContact)break}}
   // Full games follow display callbacks; a near-60Hz threshold skipped jittered frames.
   // An open playbook has no live action. Keep its background alive at 8 Hz,
