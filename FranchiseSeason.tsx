@@ -656,7 +656,7 @@ export const FranchiseSeason: React.FC<Props> = ({
 
         {stage === 'playoffs' ? (
           <div className="rounded-[2rem] border border-white/10 bg-[#10151d] p-5 text-center sm:p-8">
-            {gmAlertsEnabled ? <GmArtwork scene="playoffs" /> : <SectionArtwork kind="trophy" compact eyebrow="The postseason"/>}
+            {gmAlertsEnabled ? <GmArtwork scene="playoffs" /> : <SectionArtwork kind={decisionMode === 'fantasy' ? "soloPlayoffs" : "trophy"} compact eyebrow="The postseason"/>}
             <Trophy className="mx-auto text-[var(--bk-team-accent)]" size={58} />
             <h3 className="mt-3 text-4xl font-black">BK LEAGUE PLAYOFFS</h3>
             <div className="mt-6 grid gap-2 sm:grid-cols-4">
@@ -683,7 +683,7 @@ export const FranchiseSeason: React.FC<Props> = ({
           </div>
         ) : null}
 
-        {stage === 'draft' ? <>{gmAlertsEnabled && <GmArtwork scene="draft" />}<OffseasonDraft year={year + 1} round={draftRound} wins={wins} selected={draftedProspects} ownedRounds={ownedDraftRounds} onSelect={selectProspect} /></> : null}
+        {stage === 'draft' ? <>{gmAlertsEnabled && <GmArtwork scene="draft" />}{decisionMode === 'fantasy' && <SectionArtwork kind="draftNight" compact eyebrow="Offseason rookie draft" />}<OffseasonDraft year={year + 1} round={draftRound} wins={wins} selected={draftedProspects} ownedRounds={ownedDraftRounds} onSelect={selectProspect} /></> : null}
       </CareerSection></div>
     </BroadcastStage>
   );

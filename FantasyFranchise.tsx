@@ -1,7 +1,7 @@
 import {SectionArtwork} from './SectionArtwork';
 import {SoloPlayerIdentity,SoloPlayerLink,SoloPortrait,SoloQuickView} from './solo/SoloPresentation';
 import { BroadcastStage } from './BroadcastScene';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, MapPin, Play, RotateCcw, Search, Shuffle, Upload } from 'lucide-react';
 import { FranchiseSeason } from './FranchiseSeason';
 import { playerPortraitFallbackUrl } from './playerPortraits';
@@ -106,7 +106,7 @@ function LeagueCreator({ onBack, onCreate }: { onBack: () => void; onCreate: (id
   return <BroadcastStage scene="tunnel" page="fantasy-franchise" quiet={true} className="min-h-[100dvh] bg-transparent px-4 pb-12 pt-4 text-white sm:px-8"><div className="mx-auto max-w-3xl">
     <button type="button" onClick={onBack} aria-label="Back to Solo Franchise Hub" className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#111]"><ArrowLeft size={19} /></button>
     <section className="mt-4 overflow-hidden rounded-[2rem] border border-[#D4AF37]/25 bg-[#0c1016]">
-      <SectionArtwork kind="helmet" eyebrow="FANTASY FRANCHISE / BUILD YOUR TEAM" compact/>
+      <SectionArtwork kind="draftNight" eyebrow="FANTASY FRANCHISE / BUILD YOUR TEAM" compact/>
       <div className="border-b border-white/10 p-5 sm:p-8"><div className="flex items-center gap-2 text-[#D4AF37]"><Shuffle size={18} /><span className="text-[10px] font-black tracking-[.22em]">MADDEN-STYLE FANTASY FRANCHISE</span></div><h1 className="mt-3 text-4xl font-black uppercase">Create Your League</h1><p className="mt-3 text-sm font-semibold leading-6 text-zinc-400">Build a custom football team, draft a complete 53-man roster from the simulated player universe, then play the full season.</p></div>
       <div className="space-y-6 p-5 sm:p-8">
         <div className="grid gap-4 sm:grid-cols-2"><Field label="League name"><input value={leagueName} onChange={event => setLeagueName(event.target.value)} maxLength={40} placeholder="Lehigh Valley Football League" className="w-full border border-white/10 bg-black/30 px-3 py-3 font-bold outline-none" /></Field><Field label="Your team name"><input value={teamName} onChange={event => setTeamName(event.target.value)} maxLength={32} placeholder="Iron" className="w-full border border-white/10 bg-black/30 px-3 py-3 font-bold outline-none" /></Field><Field label="Team location"><div className="relative"><MapPin className="absolute left-3 top-3.5 h-4 w-4 text-[#D4AF37]" /><input value={location} onChange={event => setLocation(event.target.value)} maxLength={40} placeholder="Allentown, PA" className="w-full border border-white/10 bg-black/30 py-3 pl-10 pr-3 font-bold outline-none" /></div></Field><div className="rounded-xl border border-white/10 bg-black/30 p-3"><div className="text-[9px] font-black uppercase text-zinc-500">League format</div><div className="mt-1 font-black">32 teams · 53 rounds</div></div></div>
@@ -131,16 +131,22 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
   const [position, setPosition] = useState('ALL');
   const [isPicking, setIsPicking] = useState(false);
   const [message, setMessage] = useState('');
+  const pickLocked = useRef(false);
+  const draftComplete = draft !== null && fantasyDraftComplete(draft);
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [identity, seasonStarted, draftComplete]);
+
+  const legalPlayers = useMemo(() => draft && !draftComplete ? fantasyAvailablePlayers(draft) : [], [draft, draftComplete]);
 
   const userRoster = useMemo(() => draft ? fantasyRosterPlayers(draft, draft.userTeamAbbr) : [], [draft]);
   const available = useMemo(() => {
-    if (!draft) return [];
-    return fantasyAvailablePlayers(draft).filter(player => {
+    return legalPlayers.filter(player => {
       if (position !== 'ALL' && getDraftPositionGroup(player) !== position && player.position !== position) return false;
       if (query && !`${player.name} ${player.team} ${player.position}`.toLowerCase().includes(query.toLowerCase())) return false;
       return true;
     }).slice(0, 80);
-  }, [draft, position, query]);
+  }, [legalPlayers, position, query]);
 
   const startDraft = (nextIdentity: FantasyIdentity) => {
     const next = createFantasyDraft(selectedAbbr);
@@ -154,27 +160,36 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
   };
 
   const selectPlayer = async (player: Player) => {
-    if (!draft || isPicking || fantasyDraftTeamAt(draft) !== draft.userTeamAbbr) return;
+    if (!draft || !identity || pickLocked.current || fantasyDraftTeamAt(draft) !== draft.userTeamAbbr) return;
+    pickLocked.current = true;
     setIsPicking(true);
     setMessage(`${player.name} selected. CPU teams are drafting…`);
     await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
     try {
       const next = makeFantasyUserPick(draft, player.id);
+      if (next === draft) {
+        setMessage('That player is unavailable. Choose another player.');
+        return;
+      }
       setDraft(next);
-      const saved = saveFantasy({ version: 3, draft: next, seasonStarted: false, identity: identity! });
-      setMessage(!saved ? 'Pick completed, but Safari could not save it. Keep this page open.' : fantasyDraftComplete(next) ? 'Fantasy Draft complete. Your franchise is ready.' : `Round ${Math.floor(next.pickIndex / 32) + 1}: you are back on the clock.`);
+      setQuery('');
+      setPosition('ALL');
+      const saved = saveFantasy({ version: 3, draft: next, seasonStarted: false, identity });
+      setMessage(!saved ? 'Pick completed, but Safari could not save it. Keep this page open.' : fantasyDraftComplete(next) ? 'Fantasy Draft complete. Your franchise is ready.' : `${player.name} drafted.`);
     } finally {
+      pickLocked.current = false;
       setIsPicking(false);
     }
   };
 
   const beginSeason = () => {
-    if (!draft || !fantasyDraftComplete(draft)) return;
+    if (!identity || !draft || !draftComplete) return;
     setSeasonStarted(true);
-    if (!saveFantasy({ version: 3, draft, seasonStarted: true, identity: identity! })) setMessage('Season started, but Safari could not save it. Keep this page open.');
+    if (!saveFantasy({ version: 3, draft, seasonStarted: true, identity })) setMessage('Season started, but Safari could not save it. Keep this page open.');
   };
 
   const newCareer = () => {
+    if (pickLocked.current || !window.confirm('Start a new Fantasy Draft? This replaces your current draft and season.')) return;
     removeFantasySave(SOLO_FRANCHISE_SAVE_KEYS.fantasy);
     removeFantasySave(`${SOLO_FRANCHISE_SAVE_KEYS.fantasy}:season`);
     setIdentity(null);
@@ -188,7 +203,7 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
     const customTeam = { ...fantasyTeam(draft.userTeamAbbr), name: identity.teamName };
     return (
       <BroadcastStage scene="tunnel" page="fantasy-franchise" quiet={true} className="relative">
-        <button type="button" onClick={newCareer} className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-30 flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/90 px-4 text-xs font-black shadow-xl"><RotateCcw size={15} /> NEW LEAGUE</button>
+        <button type="button" onClick={newCareer} className="ml-auto mr-4 mt-4 flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/90 px-4 text-xs font-black"><RotateCcw size={15} /> NEW LEAGUE</button>
         <FranchiseSeason title={identity.leagueName} userTeam={customTeam} userLogoUrl={identity.logoUrl} userLocation={identity.location} roster={userRoster} opponentRosters={opponentRosters} saveKey={SOLO_FRANCHISE_SAVE_KEYS.fantasy} onBack={onBack} />
       </BroadcastStage>
     );
@@ -198,7 +213,7 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
     return <LeagueCreator onBack={onBack} onCreate={startDraft} />;
   }
 
-  const complete = fantasyDraftComplete(draft);
+  const complete = draftComplete;
   const round = Math.min(FANTASY_DRAFT_ROUNDS, Math.floor(draft.pickIndex / 32) + 1);
   const userSlot = draft.teamOrder.indexOf(draft.userTeamAbbr) + 1;
   const counts = userRoster.reduce<Record<string, number>>((result, player) => {
@@ -212,14 +227,15 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
       <div className="mx-auto min-w-0 max-w-7xl">
         <div className="flex min-w-0 items-center gap-3">
           <button type="button" onClick={onBack} className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Back to Solo Franchise Hub"><ArrowLeft size={19} /></button>
-          <div className="min-w-0 flex-1"><div className="text-[10px] font-black tracking-[.2em] text-[var(--bk-team-accent)]">FANTASY DRAFT • ROUND {round}/{FANTASY_DRAFT_ROUNDS}</div><div className="truncate text-xl font-black">{identity.teamName} • PICK SLOT #{userSlot}</div></div>
+          <div className="min-w-0 flex-1"><div className="text-[10px] font-black tracking-[.2em] text-[var(--bk-team-accent)]">FANTASY DRAFT • ROUND {round}/{FANTASY_DRAFT_ROUNDS}</div><div className="truncate text-xl font-black">{identity.teamName}</div></div>
           <button type="button" onClick={newCareer} className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Start a new Fantasy Draft"><RotateCcw size={17} /></button>
         </div>
 
-        {message ? <div className="mt-4 rounded-2xl border border-[var(--bk-team-accent)]/25 bg-[var(--bk-team-accent)]/10 px-4 py-3 text-sm font-bold text-[var(--bk-team-accent)]">{message}</div> : null}
+        {message ? <div role="status" className="mt-4 rounded-2xl border border-[var(--bk-team-accent)]/25 bg-[var(--bk-team-accent)]/10 px-4 py-3 text-sm font-bold text-[var(--bk-team-accent)]">{message}</div> : null}
 
         {complete ? (
           <div className="mt-5 rounded-[2rem] border border-white/10 bg-[#10151d] p-6 text-center">
+            <SectionArtwork kind="draftNight" compact eyebrow="Draft night" />
             <img src={identity.logoUrl} alt={`${identity.teamName} logo`} className="mx-auto h-24 w-24 rounded-3xl bg-white object-contain p-1" />
             <h2 className="mt-3 text-4xl font-black">DRAFT COMPLETE</h2>
             <p className="mt-2 text-zinc-400">Your full 53-man football roster is ready for a 17-game season.</p>
@@ -228,12 +244,37 @@ export const FantasyFranchise: React.FC<Props> = ({ onBack }) => {
         ) : (
           <div className="mt-5 grid min-w-0 gap-5 lg:grid-cols-[1.45fr_.55fr]">
             <div className="min-w-0">
+              <section aria-label="Draft progress" className="mb-3 rounded-2xl border border-white/10 bg-[#111] p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-black">
+                  <span className="text-[var(--bk-team-accent)]">{isPicking ? 'Draft in progress' : `On the clock · Pick #${draft.pickIndex + 1}`}</span>
+                  <span>{userRoster.length}/{FANTASY_DRAFT_ROUNDS} drafted</span>
+                </div>
+                <p className="mt-1 text-xs text-zinc-400">Draft slot #{userSlot} · Roster needs</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <button type="button" aria-pressed={position === 'ALL'} onClick={() => { setQuery(''); setPosition('ALL'); }}
+                    className="min-h-11 rounded-lg border border-white/15 px-2 text-xs font-bold aria-pressed:border-[var(--bk-team-accent)] aria-pressed:text-[var(--bk-team-accent)]">
+                    All
+                  </button>
+                  {Object.entries(FANTASY_ROSTER_REQUIREMENTS).filter(([group, required]) => (counts[group] ?? 0) < required).map(([group, required]) => (
+                    <button key={group} type="button" onClick={() => { setQuery(''); setPosition(group); }}
+                      aria-pressed={position === group}
+                      className="min-h-11 rounded-lg border border-white/15 px-2 text-xs font-bold aria-pressed:border-[var(--bk-team-accent)] aria-pressed:text-[var(--bk-team-accent)]">
+                      {group === 'DL_EDGE' ? 'DL' : group} +{required - (counts[group] ?? 0)}
+                    </button>
+                  ))}
+                </div>
+              </section>
               <div className="mb-3 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
                 <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-white/10 bg-[#111] px-3"><Search size={16} className="shrink-0" /><input value={query} onChange={event => setQuery(event.target.value)} aria-label="Search fantasy draft players" placeholder="Search draft pool…" className="min-w-0 flex-1 bg-transparent py-3 outline-none" /></div>
-                <button type="button" disabled={isPicking || !available[0]} onClick={() => available[0] && selectPlayer(available[0])} className="shrink-0 rounded-2xl bg-[var(--bk-team-accent)] px-3 text-[10px] font-black text-[var(--bk-on-accent)] disabled:opacity-40 sm:px-4 sm:text-xs">AUTO PICK</button>
+                <button type="button" disabled={isPicking || !legalPlayers[0]} onClick={() => legalPlayers[0] && selectPlayer(legalPlayers[0])} className="shrink-0 rounded-2xl bg-[var(--bk-team-accent)] px-3 text-[10px] font-black text-[var(--bk-on-accent)] disabled:opacity-40 sm:px-4 sm:text-xs" title="Draft the best available player across open positions">AUTO PICK</button>
               </div>
-              <div className="-mx-4 mb-3 overflow-x-auto px-4 sm:mx-0 sm:px-0"><div className="flex w-max gap-2">{['ALL', ...Object.keys(FANTASY_ROSTER_REQUIREMENTS)].map(group => <button key={group} type="button" aria-pressed={position===group} onClick={() => setPosition(group)} className={`min-h-10 rounded-xl border px-3 text-xs font-black ${position === group ? 'border-[var(--bk-team-accent)] bg-[var(--bk-team-accent)]/10 text-[var(--bk-team-accent)]' : 'border-white/10 bg-[#111] text-zinc-400'}`}>{group}</button>)}</div></div>
               <div className="max-h-[65dvh] min-w-0 space-y-2 overflow-y-auto overscroll-contain">
+                {available.length === 0 && (
+                  <div className="rounded-xl border border-white/10 p-4 text-sm text-zinc-300">
+                    No eligible players match these filters.
+                    <button type="button" onClick={() => { setQuery(''); setPosition('ALL'); }} className="ml-2 min-h-11 font-bold underline">Clear filters</button>
+                  </div>
+                )}
                 {available.map(player => <DraftPlayer key={player.id} player={player} disabled={isPicking} onSelect={() => selectPlayer(player)} />)}
               </div>
             </div>
