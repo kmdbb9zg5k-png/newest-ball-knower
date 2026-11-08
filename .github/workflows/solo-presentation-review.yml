@@ -4,7 +4,7 @@ on:
     branches: [solo-player-universe-reference-fidelity]
   pull_request:
     branches: [main]
-    paths: ['solo/**', 'public/solo-characters/**', '*Franchise*.tsx', 'SoloMode.tsx', 'MyPlayerStory.tsx', 'PlayerAgentMode.tsx', 'OwnerBusinessMode.tsx', 'main.tsx', 'scripts/*solo*', '.github/workflows/solo-presentation-review.yml']
+    paths: ['solo/**', 'public/solo-characters/**', '*Franchise*.tsx', 'SoloMode.tsx', 'MyPlayerStory.tsx', 'PlayerAgentMode.tsx', 'OwnerBusinessMode.tsx', 'main.tsx', 'scripts/*solo*', 'scripts/agent-season-browser.mjs', '.github/workflows/solo-presentation-review.yml']
 permissions:
   contents: read
 concurrency:
@@ -40,6 +40,12 @@ jobs:
           npm run check:root-bundle
       - name: Browser setup
         run: npx playwright install --with-deps chromium
+      - name: Agent signing retry and reload across two tabs
+        env:
+          BK_QA_WIDTHS: '390'
+          BK_QA_SIGNING_ONLY: '1'
+          BK_QA_SKIP_SHOTS: '1'
+        run: node scripts/agent-season-browser.mjs
       - name: Actual Solo screen verification
         run: node scripts/solo-ui-browser.mjs
       - uses: actions/upload-artifact@v4

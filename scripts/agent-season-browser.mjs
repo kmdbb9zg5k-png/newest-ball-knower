@@ -1,5 +1,6 @@
 // Full Agent year through visible controls. All account/API traffic is isolated.
 import assert from 'node:assert/strict';
+import {isDeepStrictEqual} from 'node:util';
 import {mkdir, writeFile} from 'node:fs/promises';
 import {preview} from 'vite';
 import {chromium} from 'playwright';
@@ -8,16 +9,19 @@ const server=await preview({preview:{host:'127.0.0.1',port:4193,strictPort:true}
 const launch=process.env.BK_CHROMIUM_MODULE ? await import(process.env.BK_CHROMIUM_MODULE) : null;
 const launchBrowser=async()=>chromium.launch(launch ? {headless:true,executablePath:await launch.default.executablePath(),args:launch.default.args} : {headless:true,executablePath:process.env.BROWSER_PATH||undefined,args:['--no-sandbox']});
 const key='ballknower_player_agent_v4';
+const pendingKey='ballknower_player_agent_signing_pending_v1';
+const recruitActionKey='ballknower_player_agent_recruit_action_v1';
+const signingOnly=process.env.BK_QA_SIGNING_ONLY==='1';
 const results=[];let browser;
 try{
  for(const width of (process.env.BK_QA_WIDTHS||'390,320,1280').split(',').map(Number)){
   browser=await launchBrowser();
   const context=await browser.newContext({viewport:{width,height:844},isMobile:width<600,hasTouch:width<600,reducedMotion:'reduce'});
   const page=await context.newPage();page.setDefaultTimeout(20000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  const cloud=new Map();let signings=0;
+  const cloud=new Map();let signings=0, signingRequests=0, loseSigningResponse=signingOnly;
   const user={id:'11111111-1111-4111-8111-111111111111',aud:'authenticated',role:'authenticated',is_anonymous:true,created_at:'2026-01-01T00:00:00Z',app_metadata:{provider:'anonymous',providers:['anonymous']},user_metadata:{}};
   const session={access_token:'qa-local-token',refresh_token:'qa-local-refresh',token_type:'bearer',expires_in:36000,expires_at:Math.floor(Date.now()/1000)+36000,user};
-  await page.route('**/*',async r=>{
+  await context.route('**/*',async r=>{
    const url=new URL(r.request().url());const path=url.pathname;
    if(url.hostname==='127.0.0.1'&&!path.startsWith('/api/'))return r.continue();
    if(url.hostname.endsWith('.supabase.co')){
@@ -25,7 +29,19 @@ try{
     if(path==='/auth/v1/user')return r.fulfill({json:user});
     if(path==='/auth/v1/settings')return r.fulfill({json:{external:{}}});
     if(path.endsWith('/rpc/commit_ball_knower_expected_agent_signing')){
-      const data=r.request().postDataJSON();assert.equal(data.p_expected_user_id,user.id);cloud.set('player_agent_career',data.p_after_value);signings++;return r.fulfill({json:null});
+      const data=r.request().postDataJSON();
+      signingRequests++;
+      assert.equal(data.p_expected_user_id,user.id);
+      const current=cloud.get('player_agent_career');
+      if(!isDeepStrictEqual(current,data.p_after_value)){
+        if(!isDeepStrictEqual(current,data.p_before_value)){
+          return r.fulfill({status:409,json:{message:'Agent career changed before signing'}});
+        }
+        cloud.set('player_agent_career',data.p_after_value);
+        signings++;
+      }
+      if(loseSigningResponse)return r.fulfill({status:503,json:{message:'Signing saved but acknowledgement was lost'}});
+      return r.fulfill({json:null});
     }
     if(path.endsWith('/ball_knower_user_state')){
      if(r.request().method()==='POST'){
@@ -41,10 +57,19 @@ try{
    if(path.startsWith('/api/'))return r.fulfill({json:{available:false,tracks:[],introUrl:null,ok:true,games:[],articles:[]}});
    return r.abort();
   });
-  await page.addInitScript(()=>{localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','2');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off')});
+  await context.addInitScript(()=>{localStorage.setItem('ball-knower-team-setup-v2','complete');localStorage.setItem('ball-knower-intro-completed-v1','2');localStorage.setItem('ball-knower-favorite-team','Philadelphia Eagles');localStorage.setItem('ball-knower-intro-sound-v1','off')});
   const read=()=>page.evaluate(k=>JSON.parse(localStorage.getItem(k)),key);
   const shot=async name=>process.env.BK_QA_SKIP_SHOTS==='1'?undefined:page.screenshot({path:`${out}/${width}-${name}.png`,animations:'disabled',timeout:30000});
-  const open=async()=>{if(width>=600){await page.getByRole('button',{name:'Explore Ball Knower',exact:true}).click();await page.getByRole('dialog',{name:'Explore Ball Knower',exact:true}).getByRole('button',{name:/^Solo careers/}).click();}else await page.getByRole('button',{name:'Play Solo Mode',exact:true}).click();await page.getByRole('button',{name:'Choose Career',exact:true}).click();await page.getByRole('region',{name:'Choose your career',exact:true}).getByRole('button',{name:/^Agent/}).click();await page.locator('[data-page="agent"]').waitFor();await page.waitForTimeout(120);assert.equal(await page.evaluate(()=>scrollY),0,'Agent entry resets prior screen scroll');};
+  const open=async(target=page)=>{
+   await target.locator('.bk-home-stadium').waitFor();
+   await target.getByRole('button',{name:'Explore Ball Knower',exact:true}).click();
+   await target.getByRole('dialog',{name:'Explore Ball Knower',exact:true}).getByRole('button',{name:/^Solo careers/}).click();
+   await target.getByRole('button',{name:'Choose Career',exact:true}).click();
+   await target.getByRole('region',{name:'Choose your career',exact:true}).getByRole('button',{name:/^Agent/}).click();
+   await target.locator('[data-page="agent"]').waitFor();
+   await target.waitForTimeout(120);
+   assert.equal(await target.evaluate(()=>scrollY),0,'Agent entry resets prior screen scroll');
+  };
   await page.goto('http://127.0.0.1:4193',{waitUntil:'domcontentloaded'});await open();
   await page.getByRole('button',{name:'CONTINUE',exact:true}).click();await page.getByRole('button',{name:'CREATE YOUR AGENT',exact:true}).click();await page.getByLabel('Agent name',{exact:true}).fill('Season QA');await page.getByLabel('Home city',{exact:true}).fill('Whitehall');await page.getByRole('button',{name:'BEGIN MY CAREER',exact:true}).click();await page.getByRole('navigation',{name:'Agent career sections'}).waitFor();await page.waitForTimeout(100);assert.equal(await page.evaluate(()=>scrollY),0,'Creating an agent opens at the top');await shot('entry');
   if(process.env.BK_QA_ART==='1'){
@@ -66,6 +91,51 @@ try{
    if(await meeting.count()){const copy=await meeting.innerText();assert(!copy.includes('Another Agent tab changed'),'One-tab recruiting must not report a false save conflict');console.log('Meeting result',width,copy.slice(-400));await meeting.getByRole('button',{name:'Close private meeting'}).click();}
   }
   await page.getByRole('navigation',{name:'Agent career sections'}).getByRole('link',{name:'Recruit',exact:true}).click();
+  if(signingOnly){
+   const second=await context.newPage();second.setDefaultTimeout(20000);
+   second.on('pageerror',e=>errors.push(e.message));
+   const url='http://127.0.0.1:4193';
+   await second.goto(url,{waitUntil:'domcontentloaded'});await open(second);
+   const before=await read();
+   await page.locator('#agent-prospects .bk-solo-selection > button:first-child:enabled').first().click();
+   const stagedAction=await page.evaluate(k=>JSON.parse(localStorage.getItem(k)),recruitActionKey);
+   assert.equal(stagedAction.state.weeklyActionsUsed,before.weeklyActionsUsed+1);
+   assert.equal((await read()).weeklyActionsUsed,before.weeklyActionsUsed,'Recruit action must stay outside the cloud baseline');
+   const choices=meeting.locator('button').filter({hasNotText:'CLOSE'});
+   await choices.first().click();
+   // Two taps queued together must not create two signings.
+   await choices.first().evaluate(button=>{button.click();button.click();});
+   const retry=target=>target.getByRole('button',{name:'RETRY CLOUD VERIFICATION',exact:true});
+   await retry(page).waitFor();await retry(second).waitFor();
+   await retry(page).click();
+   await retry(page).waitFor();
+   const pending=await page.evaluate(k=>JSON.parse(localStorage.getItem(k)),pendingKey);
+   assert.equal(pending.userId,user.id);
+   assert.equal(pending.state.clients.length,1);
+   assert.equal(pending.state.weeklyActionsUsed,pending.beforeState.weeklyActionsUsed+1);
+   assert.equal(signings,1,'The server committed once despite multiple lost acknowledgements');
+   assert.equal(await page.getByRole('button',{name:'ADVANCE ONE WEEK',exact:true}).count(),0);
+   await page.reload({waitUntil:'domcontentloaded'});await open();
+   await retry(page).waitFor();
+   assert.equal(await page.evaluate(k=>JSON.parse(localStorage.getItem(k)).state.clients.length,pendingKey),1);
+   loseSigningResponse=false;
+   await Promise.all([retry(page).click(),retry(second).click()]);
+   await page.getByRole('navigation',{name:'Agent career sections'}).waitFor();
+   await second.getByRole('navigation',{name:'Agent career sections'}).waitFor();
+   assert.equal(await page.evaluate(k=>localStorage.getItem(k),pendingKey),null);
+   assert.equal(signings,1);
+   assert(signingRequests>=2);
+   const after=await read();
+   assert.deepEqual(after.clients,pending.state.clients);
+   assert.equal(after.signedClients,1);
+   assert.equal(after.weeklyActionsUsed,before.weeklyActionsUsed+1);
+   await page.reload({waitUntil:'domcontentloaded'});await open();
+   await page.getByRole('navigation',{name:'Agent career sections'}).waitFor();
+   assert.deepEqual((await read()).clients,after.clients);
+   assert.deepEqual(errors,[]);
+   console.log('PASS Agent signing',width,{signingRequests,signings,clients:after.clients.length});
+   await context.close();await browser.close();continue;
+  }
   await page.getByLabel('Filter prospects by position').selectOption('P');await shot('empty-position');
   await page.getByLabel('Filter prospects by position').selectOption('ALL');
   await recruit(0,true);
