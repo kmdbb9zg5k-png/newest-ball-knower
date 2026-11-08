@@ -133,11 +133,11 @@ export const SoloMode:React.FC<{initialExperience?:SoloExperience}>=withSoloPres
   >
    <ArrowLeft size={17} aria-hidden="true"/> Back
   </button>
-  <Suspense fallback={<SoloModeLoading/>}>{experience==='cap'?<CapChallenge onBack={back}/>:experience==='fantasy'?<FantasyFranchiseMode onBack={back}/>:experience==='real'?<RealTeamFranchiseMode onBack={back}/>:<MyPlayerStoryMode onBack={back}/>}</Suspense>
+  <Suspense fallback={<SoloModeLoading/>}>{experience==='cap'?<CapChallenge/>:experience==='fantasy'?<FantasyFranchiseMode onBack={back}/>:experience==='real'?<RealTeamFranchiseMode onBack={back}/>:<MyPlayerStoryMode onBack={back}/>}</Suspense>
  </div>;
 });
 
-const CapChallenge:React.FC<{onBack:()=>void}>=({onBack})=>{
+const CapChallenge:React.FC=()=>{
  const { currentUser } = useBallKnower();
  const [stage,setStage]=useState<Stage>('draft');
  const [roster,setRoster]=useState<Player[]>([]);
@@ -296,13 +296,12 @@ const CapChallenge:React.FC<{onBack:()=>void}>=({onBack})=>{
  };
 
  return <BroadcastStage scene="tunnel" page="cap" quiet={true} className="min-h-[100dvh] bg-transparent text-white px-4 sm:px-8 pt-4 pb-8"><div className="mx-auto max-w-7xl" data-bk-moment-season={RUN_KEY} data-bk-moment-user="solo-user" data-bk-moment-year="cap">
-  <button type="button" onClick={onBack} aria-label="Back to Solo Franchise Hub" className="mb-3 grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#111]"><ArrowLeft size={19}/></button>
   <SectionArtwork kind={stage==='draft'?'capScouting':stage==='playoffs'?'soloPlayoffs':stage==='finished'&&message.includes('WORLD CHAMPION')?'trophy':'field'} eyebrow={stage==='draft'?'DRAFT ROOM / BUILD YOUR 20':stage==='finished'?'YOUR SEASON / YOUR LEGACY':'ROAD TO THE LEGACY BOWL'} compact/>
   <div className="flex items-center justify-between gap-3 mb-4"><div className="min-w-0"><div className="text-[var(--bk-team-accent)] text-[10px] font-black tracking-[.28em]">SOLO MODE</div><h2 className="text-2xl sm:text-4xl font-black leading-none mt-1">{stage==='draft'?'BUILD YOUR ROSTER':<>ROAD TO THE <span className="text-[var(--bk-team-accent)]">LEGACY BOWL</span></>}</h2></div><div className="flex shrink-0 gap-2"><button onClick={share} aria-label="Share Solo Mode" className="flex gap-2 items-center justify-center min-h-11 min-w-11 border border-white/10 px-3 sm:px-4 bg-[#151515]"><Share2 size={16}/><span className="hidden sm:inline">Share</span></button><button onClick={reset} disabled={isAutoDrafting} aria-label="Start a new Solo run" className="flex gap-2 items-center justify-center min-h-11 min-w-11 border border-white/10 px-3 sm:px-4 bg-[#151515] disabled:cursor-wait disabled:opacity-40"><RotateCcw size={16}/><span className="hidden sm:inline">New Run</span></button></div></div>
   {shareStatus&&<p role="status" className="mb-3 text-sm text-zinc-300">{shareStatus}</p>}
   {message&&stage!=='finished'&&<div role="status" className="mb-5 border border-[var(--bk-team-accent)]/30 bg-[var(--bk-team-accent)]/10 text-[var(--bk-team-accent)] px-4 py-3 font-bold">{message}</div>}
 
-  {stage==='draft'&&<><div className="grid grid-cols-3 gap-2 mb-2"><DraftStat label="CAP LEFT" value={`$${remaining.toFixed(1)}M`}/><DraftStat label="ROSTER" value={`${roster.length}/20`} detail={`+ ${bench.length}/2 BENCH`}/><DraftStat label="TEAM OVR" value={`${ratings.overall}`}/></div>
+  {stage==='draft'&&<><div className="grid grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_minmax(0,1fr)] gap-2 mb-2 sm:grid-cols-3"><DraftStat label="CAP LEFT" value={`$${remaining.toFixed(1)}M`}/><DraftStat label="ROSTER" value={`${roster.length}/20`} detail={`+ ${bench.length}/2 BENCH`}/><DraftStat label="TEAM OVR" value={`${ratings.overall}`}/></div>
    <div className="grid grid-cols-2 gap-2 mb-3"><div className="flex items-center justify-between border border-white/10 bg-[#121212] px-3 py-2 text-[10px] font-black tracking-wider text-zinc-500"><span>DRAFT GRADE</span><b className="text-base text-white">{grade.letter}</b></div><div className="flex items-center justify-between border border-white/10 bg-[#121212] px-3 py-2 text-[10px] font-black tracking-wider text-zinc-500"><span>BALL KNOWER</span><b className="text-base text-white">{grade.score}/100</b></div></div>
    <div className="mb-3 rounded-xl border border-white/10 bg-[#111] p-3 text-xs text-zinc-300">
     <p className="font-black text-[var(--bk-team-accent)]">ROSTER NEEDS</p>
@@ -338,7 +337,7 @@ const CapChallenge:React.FC<{onBack:()=>void}>=({onBack})=>{
  </div></BroadcastStage>
 };
 
-const DraftStat=({label,value,detail}:{label:string,value:string,detail?:string})=><div className="min-w-0 border border-white/10 bg-[#121212] p-3"><div className="text-[9px] font-black tracking-widest text-zinc-500">{label}</div><div className="truncate text-lg sm:text-2xl font-black leading-tight mt-1">{value}</div>{detail&&<div className="truncate text-[9px] font-black text-zinc-500">{detail}</div>}</div>;
+const DraftStat=({label,value,detail}:{label:string,value:string,detail?:string})=><div className="min-w-0 border border-white/10 bg-[#121212] p-2.5 sm:p-3"><div className="text-[9px] font-black tracking-widest text-zinc-400">{label}</div><div className="mt-1 text-base font-black leading-tight tabular-nums sm:text-2xl">{value}</div>{detail&&<div className="text-[9px] font-black text-zinc-400">{detail}</div>}</div>;
 const SoloModeLoading=()=> <div className="grid min-h-[60dvh] place-items-center px-6 text-center text-sm font-black tracking-widest text-[var(--bk-team-accent)]">LOADING FRANCHISE…</div>;
 const Stat=({label,value}:{label:string,value:string})=><div className="bg-[#121212] border border-white/10 p-4"><div className="text-[10px] text-zinc-500 font-black tracking-widest">{label}</div><div className="text-2xl font-black mt-1">{value}</div></div>;
 const PlayerPhoto=({player}:{player:Player})=><SoloPortrait player={player} className="bk-solo-cap-portrait"/>;

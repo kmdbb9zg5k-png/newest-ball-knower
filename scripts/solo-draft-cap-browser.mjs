@@ -190,6 +190,8 @@ try {
   if (process.env.BK_QA_MODE !== 'fantasy') {
     await open('CAP CHALLENGE');
     await page.getByRole('heading', {name:'BUILD YOUR ROSTER'}).waitFor();
+    const capAmount = page.getByText('CAP LEFT', {exact:true}).locator('..').getByText(/^\$[\d.]+M$/);
+    assert(await capAmount.evaluate(el => el.scrollWidth <= el.clientWidth), 'The full remaining cap fits in the mobile stat card');
     assert.equal(await page.getByText('A STAR WANTS AN EXPENSIVE EXTENSION', {exact:true}).count(), 0);
     await shot('cap-entry');
     assert(await button('START SEASON').isDisabled());
