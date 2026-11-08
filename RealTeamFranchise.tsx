@@ -1,7 +1,7 @@
-import { SectionArtwork } from './SectionArtwork';
+import { GmArtwork } from './GmArtwork';
 import {SoloPlayerIdentity,SoloPlayerLink} from './solo/SoloPresentation';
 import {BroadcastStage,BroadcastMasthead} from './BroadcastScene';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRightLeft,
@@ -143,6 +143,11 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
   const [message, setMessage] = useState("");
   const [careerId, setCareerId] = useState(restored?.careerId ?? "");
   const [seasonOpen, setSeasonOpen] = useState(false);
+  // Internal screens share one Solo route, so the outer route reset cannot handle them.
+  // Reset before an incoming alert locks the document and captures its scroll position.
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [seasonOpen, teamAbbr]);
   const [confirmNewCareer, setConfirmNewCareer] = useState(false);
   useEffect(() => {
     if (!confirmNewCareer) return;
@@ -361,13 +366,15 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
     return (
       <BroadcastStage scene="suite" page="franchise" quiet={seasonOpen} className="relative">
         {resetConfirmation}
+        <div className="mx-auto flex max-w-6xl justify-end px-4 pt-4">
         <button
           type="button"
           onClick={() => setConfirmNewCareer(true)}
-          className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-30 flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/90 px-4 text-xs font-black shadow-xl"
+          className="flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-black/90 px-4 text-xs font-black"
         >
           <RotateCcw size={15} /> NEW TEAM
         </button>
+        </div>
         <FranchiseSeason
           title="FRANCHISE COMMAND"
           userTeam={team}
@@ -501,7 +508,6 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
         <div className="mx-auto max-w-6xl">
           {resetConfirmation}
           <GmEventAlerts events={tradeTarget ? [] : gmEvents} scopeKey={`${SOLO_FRANCHISE_SAVE_KEYS.real}:${team.abbr}:${careerId}:${franchiseYear}`} />
-          <BroadcastMasthead eyebrow="Football operations" title="Franchise Command" subtitle="Build the roster. Set your game plan. Make the next move."/>
           <div className="flex items-center justify-between gap-3">
             <button
               type="button"
@@ -514,7 +520,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
             <ModeHelp mode="gm" />
           </div>
           <section className="mt-4 overflow-hidden rounded-[2rem] border border-emerald-300/20 bg-[#0c1117] p-5 sm:p-7">
-            <SectionArtwork kind="film" compact eyebrow="The front office"/>
+            <GmArtwork scene={commandTab === "trade" ? "trade" : commandTab === "week" ? "gameplan" : "office"} />
             <div className="flex items-center gap-4">
               <img
                 src={soloTeamLogoUrl(team.abbr)}
@@ -534,7 +540,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
               </div>
             </div>
           </section>
-          <nav className="sticky top-0 z-20 mt-3 grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-black/90 p-2 backdrop-blur">
+          <nav aria-label="GM career sections" className="bk-gm-tabs sticky top-0 z-20 mt-3 grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-black/90 p-2 backdrop-blur">
             {(
               [
                 ["week", "THIS WEEK", ClipboardList],
@@ -598,7 +604,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
                 className="mt-4 min-h-14 w-full rounded-2xl bg-emerald-300 font-black text-black"
               >
                 <Play className="mr-2 inline h-5 w-5" />
-                START SEASON
+                {gmWeek > 1 ? "CONTINUE SEASON" : "START SEASON"}
               </button>
             </section>
           )}
@@ -837,7 +843,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
   return (
     <BroadcastStage scene="suite" page="franchise" quiet={seasonOpen} className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
       <div className="mx-auto max-w-5xl">
-        <BroadcastMasthead eyebrow="Football operations" title="Franchise Command" subtitle="Choose your team. Build a contender."/>
+        <BroadcastMasthead compact eyebrow="Football operations" title="Franchise Command" subtitle="Choose your team. Build a contender."/>
         <button
           type="button"
           onClick={onBack}
@@ -848,7 +854,7 @@ export const RealTeamFranchise: React.FC<Props> = ({ onBack }) => {
         </button>
         <div className="mt-3"><ModeHelp mode="gm" /></div>
         <div className="bk-franchise-panel mt-5 rounded-[2rem] border border-white/10 bg-[#10151d] p-5 sm:p-8">
-          <SectionArtwork kind="trophy" compact eyebrow="Build a lasting contender"/>
+          <GmArtwork scene="office" />
           <div className="text-[10px] font-black tracking-[.25em] text-[var(--bk-team-accent)]">
             BALL KNOWER LEAGUE ROSTERS
           </div>

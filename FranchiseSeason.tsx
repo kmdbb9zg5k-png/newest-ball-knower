@@ -1,3 +1,5 @@
+import { GmArtwork } from './GmArtwork';
+import { GM_MEETING_SCENES } from './gmSceneArtwork';
 import { SoloCareerDecision } from './SoloCareerDecision';
 import { SectionArtwork } from './SectionArtwork';
 import {CareerSection,CareerTabLink} from './CareerTabs';
@@ -521,6 +523,7 @@ export const FranchiseSeason: React.FC<Props> = ({
     const player = activeRoster.find(item => item.id === pendingMeeting.playerId)!;
     gmDecisionEvents.push({
       id: `meeting:${pendingMeeting.id}`,
+      scene: GM_MEETING_SCENES[pendingMeeting.kind],
       eyebrow: `${pendingMeeting.relatedTo ? 'Follow-up' : 'Player meeting'} · Week ${pendingMeeting.week}`,
       tone: pendingMeeting.kind === 'breakout' || pendingMeeting.kind === 'mentor' ? 'development' : 'relationship',
       people: [{ player, label: `${player.position} · ${player.ovr} OVR` }],
@@ -534,6 +537,7 @@ export const FranchiseSeason: React.FC<Props> = ({
     if (notice.read || !(notice.kind === 'injury' || (notice.kind === 'morale' && notice.id.startsWith('promise-')))) continue;
     gmDecisionEvents.push({
       id: `notice:${notice.id}`,
+      scene: notice.kind === 'injury' ? 'medical' : 'trust',
       eyebrow: `${notice.kind === 'injury' ? 'Medical update' : 'Locker room update'} · Week ${notice.week}`,
       title: notice.title,
       tone: notice.kind === 'injury' ? 'injury' : 'relationship',
@@ -652,7 +656,7 @@ export const FranchiseSeason: React.FC<Props> = ({
 
         {stage === 'playoffs' ? (
           <div className="rounded-[2rem] border border-white/10 bg-[#10151d] p-5 text-center sm:p-8">
-            <SectionArtwork kind="trophy" compact eyebrow="The postseason"/>
+            {gmAlertsEnabled ? <GmArtwork scene="playoffs" /> : <SectionArtwork kind="trophy" compact eyebrow="The postseason"/>}
             <Trophy className="mx-auto text-[var(--bk-team-accent)]" size={58} />
             <h3 className="mt-3 text-4xl font-black">BK LEAGUE PLAYOFFS</h3>
             <div className="mt-6 grid gap-2 sm:grid-cols-4">
@@ -671,7 +675,7 @@ export const FranchiseSeason: React.FC<Props> = ({
 
         {stage === 'finished' ? (careerOffseason?careerOffseason(year,wins,message.includes('WORLD CHAMPION')):
           <div className="rounded-[2rem] border border-[var(--bk-team-accent)]/30 bg-[#10151d] p-7 text-center">
-            <SectionArtwork kind="trophy" compact eyebrow="Your season legacy"/>
+            {gmAlertsEnabled ? <GmArtwork scene={message.includes('WORLD CHAMPION') ? 'champion' : 'review'} /> : <SectionArtwork kind="trophy" compact eyebrow="Your season legacy"/>}
             <Trophy className="mx-auto text-[var(--bk-team-accent)]" size={64} />
             <h3 className="mt-4 text-4xl font-black">{message.includes('WORLD CHAMPION') ? 'LEGACY BOWL CHAMPION' : 'SEASON COMPLETE'}</h3>
             <p className="mx-auto mt-3 max-w-xl text-zinc-400">{message}</p>
@@ -679,7 +683,7 @@ export const FranchiseSeason: React.FC<Props> = ({
           </div>
         ) : null}
 
-        {stage === 'draft' ? <OffseasonDraft year={year + 1} round={draftRound} wins={wins} selected={draftedProspects} ownedRounds={ownedDraftRounds} onSelect={selectProspect} /> : null}
+        {stage === 'draft' ? <>{gmAlertsEnabled && <GmArtwork scene="draft" />}<OffseasonDraft year={year + 1} round={draftRound} wins={wins} selected={draftedProspects} ownedRounds={ownedDraftRounds} onSelect={selectProspect} /></> : null}
       </CareerSection></div>
     </BroadcastStage>
   );

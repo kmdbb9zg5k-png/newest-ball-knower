@@ -1,0 +1,4 @@
+.bk-gm-artwork{display:block;width:100%;max-width:560px;height:auto;aspect-ratio:16/9;object-fit:contain;margin:0 auto 22px;border:1px solid #cfb36d55;border-radius:18px;background:#10151d}
+.bk-gm-event-content .bk-gm-artwork{max-width:480px}
+.bk-gm-tabs{top:calc(124px + env(safe-area-inset-top))}
+@media(min-width:768px){.bk-gm-tabs{top:calc(168px + env(safe-area-inset-top))}}
