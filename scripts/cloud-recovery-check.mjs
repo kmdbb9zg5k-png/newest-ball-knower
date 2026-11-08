@@ -5,7 +5,7 @@ const key='ballknower_solo_my_player_v2',ownerKey='ballknower_cloud_owner_v1',ow
 const userA={id:'account-a',is_anonymous:false},userB={id:'account-b',is_anonymous:false};
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b});return{promise,resolve,reject}};
 const settle=async()=>{for(let i=0;i<12;i++)await new Promise(resolve=>setImmediate(resolve));};
-const bundled=await build({entryPoints:['CloudSyncProvider.tsx'],bundle:true,write:false,format:'cjs',platform:'node',jsx:'transform',plugins:[{name:'cloud-boundaries',setup(b){
+const bundled=await build({entryPoints:['CloudSyncProvider.tsx'],bundle:true,write:false,format:'cjs',platform:'browser',jsx:'transform',plugins:[{name:'cloud-boundaries',setup(b){
  b.onResolve({filter:/^(react(?:\/jsx-runtime)?|lucide-react|\.\/supabase|\.\/accountIdentity|\.\/cloudSyncCoordinator|\.\/userStateCloud|\.\/AccountDeletionRecoveryNotice)$/},args=>({path:args.path,namespace:'cloud-test'}));
  b.onLoad({filter:/.*/,namespace:'cloud-test'},({path})=>({loader:'js',contents:`const s=globalThis.__cloudRecovery; ${
  path==='react'?`export const Fragment='fragment'; export const createElement=(type,props,...children)=>({type,props:{...props,children}}); export const createContext=value=>({Provider:'provider',value});export const useContext=c=>c.value;export const useState=initial=>{const i=s.cursor++;if(!(i in s.hooks))s.hooks[i]=typeof initial==='function'?initial():initial;return[s.hooks[i],value=>{s.hooks[i]=typeof value==='function'?value(s.hooks[i]):value}]};export const useRef=value=>{const i=s.cursor++;return s.hooks[i]??(s.hooks[i]={current:value})};export const useEffect=effect=>{const i=s.cursor++;if(!(i in s.hooks)){s.hooks[i]=true;s.effects.push(effect)}};export default {createElement,Fragment};`:
@@ -119,6 +119,24 @@ function fixture(initial={},overrides={}){
 {
  const f=fixture({[ownerKey]:userA.id});await settle();f.save=async()=>[];f.storage.set(key,'{"score":3}');
  await assert.rejects(f.flush(),/not confirmed/);assert.equal(f.storage.get(key),'{"score":3}');f.cleanup();
+}
+// Current career keys use account-owned rows. A large save still round-trips.
+{
+ const gm='ballknower_solo_franchise_v2', gmSeason=`${gm}:season`, cap='ballknower_solo_run_v2';
+ const season=JSON.stringify({year:2027,completedSeasons:[{year:2026,champion:true}],weeks:Array.from({length:17},(_,week)=>({week,players:Array.from({length:53},(_,number)=>({number,stats:'é'.repeat(150)}))}))});
+ assert(Buffer.byteLength(season)>220000);
+ const values={[gm]:'{"teamAbbr":"JCY"}',[gmSeason]:season,[cap]:'{"stage":"playoffs"}'};
+ const f=fixture({[ownerKey]:userA.id,...values});await settle();
+ const rows=f.writes[0].rows;
+ const saved=rows.find(row=>row.stateKey==='solo_franchise_season_v2');
+ assert(typeof saved.value.gzip==='string'&&Buffer.byteLength(JSON.stringify(saved.value))<=220000);
+ assert(rows.some(row=>row.stateKey==='solo_cap_run_v2'));
+ f.auth('SIGNED_IN',{user:userB});f.tick();await settle();
+ for(const localKey of Object.keys(values))assert.equal(f.storage.has(localKey),false);
+ f.cleanup();
+ const returning=fixture({}, {load:async()=>rows.map(row=>({state_key:row.stateKey,value:row.value,updated_at:new Date().toISOString()}))});await settle();
+ for(const [localKey,raw] of Object.entries(values))assert.equal(returning.storage.get(localKey),raw);
+ assert.equal(returning.writes.length,0);returning.cleanup();
 }
 // StrictMode/unmount cleanup prevents delayed bootstrap work from writing.
 {

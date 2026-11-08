@@ -47,6 +47,7 @@ import {
 } from './franchiseInteractions';
 
 type PlayoffResult = { round: string; opponent: string; you: number; them: number; won: boolean };
+type CompletedSeason = { year: number; wins: number; losses: number; finish: string; champion: boolean; leaders: ReturnType<typeof buildAwards> };
 type SeasonStage = 'regular' | 'playoffs' | 'finished' | 'draft';
 type RookieProspect = FranchiseRookieProspect;
 type Conference = 'AFC' | 'NFC';
@@ -207,7 +208,11 @@ export const FranchiseSeason: React.FC<Props> = ({
   const savedSeason=useMemo(()=>restoreSeason(seasonKey),[seasonKey,careerStartYear,userTeam.abbr]);
   const restored=careerStartYear&&((savedSeason?.year||2026)!==careerStartYear||savedSeason?.teamAbbr&&savedSeason.teamAbbr!==userTeam.abbr)?null:savedSeason;
   const carriedRoster=careerStartYear&&savedSeason?.year===careerStartYear-1&&savedSeason?.teamAbbr===userTeam.abbr?savedSeason.roster:undefined;
-  const seedRosterRaw=Array.isArray(restored?.roster)&&restored.roster.length?restored.roster:Array.isArray(carriedRoster)&&carriedRoster.length?carriedRoster:roster;
+  const savedRoster: Player[] = Array.isArray(restored?.roster)&&restored.roster.length?restored.roster:Array.isArray(carriedRoster)&&carriedRoster.length?carriedRoster:roster;
+  // Older Fantasy saves could append rookies to the original draft roster on reload.
+  const seedRosterRaw = decisionMode === 'fantasy' && savedRoster.length > roster.length
+    ? replaceFranchisePlayersWithRookies(roster.map(player => savedRoster.find(saved => saved.id === player.id) ?? player), savedRoster.filter(player => player.id.startsWith('franchise-rookie-')))
+    : savedRoster;
   const seedRoster=careerStartYear?seedRosterRaw.map(p=>p.id===myPlayerId?{...p,salary:roster.find(r=>r.id===myPlayerId)?.salary??p.salary,ratingSeason:careerStartYear}:p):seedRosterRaw;
   const restoredYear = Number.isInteger(restored?.year) && restored.year >= 2026 ? restored.year : careerStartYear||2026;
   const restoredClassIds = new Set(buildFranchiseRookieClass(restoredYear + 1).map(prospect => prospect.id));
@@ -216,6 +221,13 @@ export const FranchiseSeason: React.FC<Props> = ({
   const [stage, setStage] = useState<SeasonStage>(() => restored?.stage ?? 'regular');
   const [weeks, setWeeks] = useState<SoloWeek[]>(() => restored?.weeks ?? []);
   const [playoffs, setPlayoffs] = useState<PlayoffResult[]>(() => restored?.playoffs ?? []);
+  const [completedSeasons, setCompletedSeasons] = useState<CompletedSeason[]>(() =>
+    Array.isArray(restored?.completedSeasons) ? restored.completedSeasons.filter((season: CompletedSeason) =>
+      season && Number.isInteger(season.year) && season.year < restoredYear && season.wins + season.losses === 17 &&
+      typeof season.finish === 'string' && typeof season.champion === 'boolean' && Array.isArray(season.leaders) &&
+      season.leaders.every(leader => leader && typeof leader.award === 'string' && typeof leader.winner === 'string'),
+    ) : [],
+  );
   const [injuries, setInjuries] = useState<InjuryEvent[]>(() => restored?.injuries ?? []);
   const [message, setMessage] = useState(() => restored?.message ?? 'Week 1 is ready.');
   const [draftRound, setDraftRound] = useState<number>(() => restoredDraftIsCurrent ? restored?.draftRound ?? 1 : 1);
@@ -239,6 +251,8 @@ export const FranchiseSeason: React.FC<Props> = ({
     return [...base.slice(offset), ...base.slice(0, offset)];
   }, [userTeam.abbr, year]);
   useEffect(() => {
+    // After the draft, the saved season owns the Fantasy roster and its cuts.
+    if (decisionMode === 'fantasy') return;
     setSeasonRoster(current => {
       const rookies = current.filter(player => player.id.startsWith('franchise-rookie-'));
       if(careerPanel&&rookies.length)return current.length===roster.length?current:replaceFranchisePlayersWithRookies(roster.map(p=>current.find(c=>c.id===p.id)||p),rookies);
@@ -246,7 +260,7 @@ export const FranchiseSeason: React.FC<Props> = ({
       const sameMembers=next.length===current.length&&next.every(player=>current.some(saved=>saved.id===player.id));
       return (careerPanel?sameMembers:JSON.stringify(next.map(player => player.id)) === JSON.stringify(current.map(player => player.id))) ? current : next;
     });
-  }, [roster]);
+  }, [decisionMode, roster]);
   const livingCareer=Boolean(careerPanel);
   const activeRoster = useMemo(()=>{const roster=mergeMyPlayerProgress(seasonRoster,myPlayerId,myPlayerProgress);return livingCareer?syncMyPlayerRole(roster,myPlayerId,myPlayerRole):roster;},[seasonRoster,myPlayerId,myPlayerProgress,myPlayerRole,livingCareer]);
   const gmAlertsEnabled = gmEvents !== undefined;
@@ -284,11 +298,11 @@ export const FranchiseSeason: React.FC<Props> = ({
 
   useEffect(() => {
     try {
-      localStorage.setItem(seasonKey, JSON.stringify({ version: 2, teamAbbr:userTeam.abbr, stage, weeks, playoffs, injuries, message, draftRound, draftedProspects, roster: seasonRoster, playoffField, year, interactions: interactionState }));
+      localStorage.setItem(seasonKey, JSON.stringify({ version: 2, teamAbbr:userTeam.abbr, stage, weeks, playoffs, completedSeasons, injuries, message, draftRound, draftedProspects, roster: seasonRoster, playoffField, year, interactions: interactionState }));
     } catch (error) {
       console.warn('Unable to save franchise season', error);
     }
-  }, [seasonKey, stage, weeks, playoffs, injuries, message, draftRound, draftedProspects, seasonRoster, playoffField, year, interactionState]);
+  }, [seasonKey, stage, weeks, playoffs, completedSeasons, injuries, message, draftRound, draftedProspects, seasonRoster, playoffField, year, interactionState]);
 
   useEffect(() => {
     const applyMoment = (event: Event) => {
@@ -449,6 +463,7 @@ export const FranchiseSeason: React.FC<Props> = ({
   };
 
   const resetSeason = () => {
+    if (simulationLock.current || (weeks.length > 0 && !window.confirm(`Restart the ${year} season? This clears its games and playoff results.`))) return;
     setStage('regular');
     setWeeks([]);
     setPlayoffs([]);
@@ -456,7 +471,6 @@ export const FranchiseSeason: React.FC<Props> = ({
     setMessage('Week 1 is ready.');
     setPlayoffField([]);
     setInteractionState({ ...createFranchiseInteractions(roster, 1, myPlayerId), season: year });
-    try { localStorage.removeItem(seasonKey); } catch (error) { console.warn('Unable to clear franchise season', error); }
   };
 
   const startDraft = () => {
@@ -474,6 +488,12 @@ export const FranchiseSeason: React.FC<Props> = ({
     const nextYear = year + 1;
     const rookies = selected.map((player, index) => rookieToPlayer(player, userTeam, ownedDraftRounds[index] ?? index + 1, nextYear));
     const nextRoster = replaceFranchisePlayersWithRookies(seasonRoster, rookies);
+    if (weeks.length === 17) {
+      const lastRound = playoffs.at(-1);
+      const champion = lastRound?.round === 'LEGACY BOWL' && lastRound.won;
+      const finish = champion ? 'Legacy Bowl champion' : lastRound ? `${lastRound.round} · ${lastRound.you}–${lastRound.them} vs ${lastRound.opponent}` : 'Missed the playoffs';
+      setCompletedSeasons(current => [{ year, wins, losses, finish, champion, leaders: awards }, ...current.filter(season => season.year !== year)]);
+    }
     setSeasonRoster(nextRoster);
     onRosterChange?.(nextRoster);
     setWeeks([]);
@@ -684,6 +704,18 @@ export const FranchiseSeason: React.FC<Props> = ({
         ) : null}
 
         {stage === 'draft' ? <>{gmAlertsEnabled && <GmArtwork scene="draft" />}{decisionMode === 'fantasy' && <SectionArtwork kind="draftNight" compact eyebrow="Offseason rookie draft" />}<OffseasonDraft year={year + 1} round={draftRound} wins={wins} selected={draftedProspects} ownedRounds={ownedDraftRounds} onSelect={selectProspect} /></> : null}
+        {completedSeasons.length > 0 && <details className="mt-5 rounded-2xl border border-white/10 bg-[#10151d] px-4">
+          <summary className="min-h-12 cursor-pointer py-3.5 font-black">Season history</summary>
+          <ul className="space-y-3 pb-4">
+            {completedSeasons.map(season => <li key={season.year} className="rounded-xl border border-white/10 p-3">
+              <strong className="text-sm">{season.year} · {season.wins}–{season.losses}</strong>
+              <p className={`mt-1 text-sm ${season.champion ? 'text-[var(--bk-team-accent)]' : 'text-zinc-300'}`}>{season.finish}</p>
+              <dl className="mt-2 space-y-1 text-xs text-zinc-300">
+                {season.leaders.map(leader => <div key={leader.award} className="flex flex-wrap gap-x-2"><dt>{leader.award}</dt><dd className="font-bold text-white">{leader.winner}</dd></div>)}
+              </dl>
+            </li>)}
+          </ul>
+        </details>}
       </CareerSection></div>
     </BroadcastStage>
   );

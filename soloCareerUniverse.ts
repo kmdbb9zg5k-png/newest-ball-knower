@@ -241,14 +241,16 @@ function nativeSnapshot(mode: SoloCareerMode, storage: Storage) {
   }
 
   if (!save && !seasonSave) return null;
-  const source = seasonSave ?? save ?? {};
+  const playerArc = mode === 'player' ? save?.careerArc : null;
+  const currentSeasonSave = playerArc && seasonSave?.year !== playerArc.year ? null : seasonSave;
+  const source = currentSeasonSave ?? save ?? {};
   const weeks = Array.isArray(source.weeks) ? source.weeks : Array.isArray(save?.weeks) ? save.weeks : [];
   const winsFromWeeks = weeks.filter((week: any) => week?.won === true).length;
   const lossesFromWeeks = weeks.filter((week: any) => week?.won === false).length;
   const playoffs = Array.isArray(source.playoffs) ? source.playoffs : [];
   const wonTitle = playoffs.some((result: any) => result?.won && String(result?.round || '').toUpperCase().includes('BOWL'));
   const season = Math.max(1, Math.round(asNumber(
-    mode === 'agent' ? save?.seasonYear : mode === 'owner' ? save?.season : source?.year,
+    mode === 'agent' ? save?.seasonYear : mode === 'owner' ? save?.season : playerArc?.year ?? source?.year,
     2026,
   )));
   const week = Math.max(0, Math.round(asNumber(
@@ -257,7 +259,11 @@ function nativeSnapshot(mode: SoloCareerMode, storage: Storage) {
   )));
   const wins = Math.max(0, Math.round(asNumber(save?.wins ?? source?.wins, winsFromWeeks)));
   const losses = Math.max(0, Math.round(asNumber(save?.losses ?? source?.losses, lossesFromWeeks)));
-  const championships = Math.max(0, Math.round(asNumber(save?.championships, wonTitle ? 1 : 0)));
+  const history = playerArc ? playerArc.seasons : currentSeasonSave?.completedSeasons;
+  const titleYears = new Set(Array.isArray(history) ? history.filter(entry => entry?.champion === true && Number.isInteger(entry.year)).map(entry => entry.year) : []);
+  if (wonTitle) titleYears.add(season);
+  const capCareer = mode === 'cap' ? safeParse(storage, 'ballknower_solo_career_v1') : null;
+  const championships = Math.max(0, Math.round(asNumber(save?.championships ?? capCareer?.championships, titleYears.size)));
   const stage = stageLabel(
     mode === 'agent' ? save?.phase : mode === 'owner' ? save?.stage : source?.stage,
     week > 0 ? 'Regular Season' : 'Preseason',

@@ -19,7 +19,7 @@ export async function footballArenaAction<T>(action:string,args:Record<string,un
 }
 export const footballTotal=(match:FootballMatch,user:string)=>match.drives.filter(d=>d.user_id===user).reduce((sum,d)=>sum+(d.points??0),0);
 export function footballDriveUrl(id:string,attempt:FootballAttempt){
-  return '/play-moment-3d-preview.html?'+new URLSearchParams({mode:'arena',bkArena:id,token:attempt.token,drive:String(attempt.drive),seed:String(attempt.seed),team:attempt.team,opponent:attempt.opponent});
+  return '/play-moment-3d-preview.html?'+new URLSearchParams({mode:'arena',bkArena:id,token:attempt.token,drive:String(attempt.drive),seed:String(attempt.seed),team:attempt.team,opponent:attempt.opponent,v:'field-status-1'});
 }
 export function validFootballStats(value:unknown):value is FootballStats{
   if(!value||typeof value!=='object')return false;

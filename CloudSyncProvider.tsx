@@ -1,19 +1,22 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { Cloud, CloudOff, Loader2 } from 'lucide-react';
+import { gzipSync, gunzipSync, strFromU8, strToU8 } from 'fflate';
 import { ensureOnlineSession, isCloudConfigured, supabase } from './supabase';
 import { claimPendingGuestAccountMerge, hasPendingGuestAccountMerge } from './accountIdentity';
 import { cloudStateFingerprint, registerCloudStateCommitted, registerFullCloudStateFlush } from './cloudSyncCoordinator';
 import { AGENT_PENDING_RECRUIT_ACTION_KEY, AGENT_PENDING_SIGNING_KEY, loadUserStates, saveUserStates, UserStateRow } from './userStateCloud';
 import { AccountDeletionRecoveryNotice } from './AccountDeletionRecoveryNotice';
+import { SOLO_FRANCHISE_SAVE_KEYS } from './soloSaveKeys';
 
 type CloudSyncStatus = 'connecting' | 'online' | 'error' | 'unconfigured';
-type CloudEnvelope = { raw: string | null };
+type CloudEnvelope = { raw?: string | null; gzip?: string };
 type StorageEntry = {
   localKey: string;
   cloudKey: string;
   privateImages?: boolean;
   directJson?: boolean;
+  compress?: boolean;
 };
 
 const META_KEY = 'ballknower_cloud_meta_v1';
@@ -23,19 +26,23 @@ const AGENT_LOCAL_KEY = 'ballknower_player_agent_v4';
 export const OWNER_CLOUD_SYNC_EVENT = 'ballknower:owner-cloud-saved';
 export const OWNER_CLOUD_CONFLICT_EVENT = 'ballknower:owner-cloud-conflict';
 const MAX_CLOUD_RAW_LENGTH = 220_000;
+const MAX_CAREER_SAVE_BYTES = 5 * 1024 * 1024;
 const CLOUD_STORAGE: StorageEntry[] = [
   { localKey: 'ball-knower-favorite-team', cloudKey: 'favorite_team' },
   { localKey: 'ball-knower-team-setup-v2', cloudKey: 'favorite_team_setup' },
   { localKey: 'ballknower_solo_career_v1', cloudKey: 'solo_career' },
   { localKey: 'ballknower_solo_run_v1', cloudKey: 'solo_cap_run' },
-  { localKey: 'ballknower_solo_fantasy_v2', cloudKey: 'solo_fantasy' },
-  { localKey: 'ballknower_solo_fantasy_v2:season', cloudKey: 'solo_fantasy_season' },
+  { localKey: SOLO_FRANCHISE_SAVE_KEYS.cap, cloudKey: 'solo_cap_run_v2', compress: true },
+  { localKey: SOLO_FRANCHISE_SAVE_KEYS.fantasy, cloudKey: 'solo_fantasy', compress: true },
+  { localKey: `${SOLO_FRANCHISE_SAVE_KEYS.fantasy}:season`, cloudKey: 'solo_fantasy_season', compress: true },
   { localKey: 'ballknower_solo_real_team_v1', cloudKey: 'solo_real_team' },
   { localKey: 'ballknower_solo_real_team_v1:season', cloudKey: 'solo_real_team_season' },
+  { localKey: SOLO_FRANCHISE_SAVE_KEYS.real, cloudKey: 'solo_franchise_v2', compress: true },
+  { localKey: `${SOLO_FRANCHISE_SAVE_KEYS.real}:season`, cloudKey: 'solo_franchise_season_v2', compress: true },
   { localKey: 'ballknower_solo_my_player_v1', cloudKey: 'solo_my_player', privateImages: true },
   { localKey: 'ballknower_solo_my_player_v1:season', cloudKey: 'solo_my_player_season' },
   { localKey: 'ballknower_solo_my_player_v2', cloudKey: 'solo_my_player_v2', privateImages: true },
-  { localKey: 'ballknower_solo_my_player_v2:season', cloudKey: 'solo_my_player_season_v2' },
+  { localKey: 'ballknower_solo_my_player_v2:season', cloudKey: 'solo_my_player_season_v2', compress: true },
   { localKey: AGENT_LOCAL_KEY, cloudKey: 'player_agent_career' },
   { localKey: 'ballknower_owner_career_v3', cloudKey: 'owner_business_career_v1', directJson: true },
 ];
@@ -104,6 +111,29 @@ function isCloudUploadBlocked(entry: StorageEntry): boolean {
   return entry.localKey === AGENT_LOCAL_KEY && localStorage.getItem(AGENT_PENDING_SIGNING_KEY) !== null;
 }
 
+function compressCareerSave(raw: string): CloudEnvelope | undefined {
+  try {
+    const bytes = strToU8(raw);
+    if (bytes.length > MAX_CAREER_SAVE_BYTES) return undefined;
+    const gzip = btoa(strFromU8(gzipSync(bytes, { level: 5 }), true));
+    if (gzip.length + 11 <= MAX_CLOUD_RAW_LENGTH) return { gzip };
+  } catch {
+    // Keep the device save if the compressed backup cannot be created.
+  }
+}
+
+function readCompressedCareerSave(gzip: string): string {
+  if (gzip.length > MAX_CLOUD_RAW_LENGTH) throw new Error('Career backup is too large');
+  const bytes = strToU8(atob(gzip), true);
+  if (bytes.length < 18) throw new Error('Invalid career backup');
+  // The gzip footer declares the uncompressed size. Bound the allocation first.
+  const size = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(bytes.length - 4, true);
+  if (size === 0 || size > MAX_CAREER_SAVE_BYTES) throw new Error('Invalid career backup size');
+  const raw = strFromU8(gunzipSync(bytes, { out: new Uint8Array(size) }));
+  JSON.parse(raw);
+  return raw;
+}
+
 function cloudValue(entry: StorageEntry, raw: string | null): unknown {
   if (entry.directJson) {
     if (raw === null) return null;
@@ -128,7 +158,10 @@ function cloudValue(entry: StorageEntry, raw: string | null): unknown {
   }
 
   const envelope = { raw: safeRaw };
-  if (JSON.stringify(envelope).length > MAX_CLOUD_RAW_LENGTH) {
+  const serialized = JSON.stringify(envelope);
+  if ((entry.compress ? strToU8(serialized).length : serialized.length) > MAX_CLOUD_RAW_LENGTH) {
+    const compressed = entry.compress ? compressCareerSave(safeRaw) : undefined;
+    if (compressed) return compressed;
     console.warn(`Cloud save skipped for ${entry.localKey}: state is too large.`);
     return undefined;
   }
@@ -142,6 +175,7 @@ function sameCloudState(entry: StorageEntry, before: string | null, after: strin
   if (before === null || after === null) return false;
   try {
     const payload = (raw: string) => {
+      if (entry.compress) return JSON.parse(raw);
       const value = cloudValue(entry, raw);
       return entry.directJson ? value : JSON.parse((value as CloudEnvelope).raw!);
     };
@@ -160,6 +194,7 @@ function applyRemote(entry: StorageEntry, value: unknown, preview = false): bool
     } else {
       const envelope = value as CloudEnvelope;
       if (envelope?.raw === null) restored = null;
+      else if (entry.compress && typeof envelope?.gzip === 'string') restored = readCompressedCareerSave(envelope.gzip);
       else if (typeof envelope?.raw === 'string') {
         restored = envelope.raw;
         if (entry.privateImages && before) {
