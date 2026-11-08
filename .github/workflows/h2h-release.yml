@@ -1,0 +1,28 @@
+name: Football H2H release
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+permissions:
+  contents: read
+jobs:
+  h2h-release:
+    name: Football H2H release gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/football-arena-check.mjs
+      - run: node scripts/football-arena-stats-check.mjs
+      - run: node scripts/football-arena-browser.mjs
+        env:
+          BK_QA_HANDOFF_ONLY: '1'
+          WIDTHS: '[390]'

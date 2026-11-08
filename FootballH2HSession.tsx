@@ -1,3 +1,4 @@
+import {trackBallKnowerEvent} from './analytics';
 import React,{useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {footballArenaAction,footballDriveUrl,validFootballStats,type FootballAttempt,type FootballMatch,type FootballHome,type FootballStats} from './footballArena';
@@ -135,21 +136,26 @@ export default function FootballH2HSession({me,initialTeam='JCY',initialMatch,fr
   if(saving.current)return;const a=currentAttempt.current,r=currentRival.current;if(!a||!r)return;
   saving.current=true;pendingResult.current=stats;pendingExpired.current=expired;deferred.current=null;setBusy(true);setError('');setPhase('intermission');
   if(!r.simulated&&currentMatch.current)resultRetained.current=saveFootballResult(me,r.id,{attempt:a,stats,expired,expiresAt:new Date(Math.max(Date.now(),Date.parse(currentMatch.current.expires_at))+86400000).toISOString()});
+  let step:'save'|'refresh'='save';
   try{
    let m=currentMatch.current;
    if(r.simulated){setOurs(rows=>[...rows,stats]);setTheirs(rows=>[...rows,simulateDrive(r.team)]);}
-   else{if(!m)throw Error('Match unavailable.');await footballArenaAction(expired?'forfeit':'submit',{id:m.id,drive:a.drive,token:a.token,...(expired?{}:{stats})});m=await readMatch(m.id);if(!mounted.current)return;updateMatch(m);}
+   else{if(!m)throw Error('Match unavailable.');await footballArenaAction(expired?'forfeit':'submit',{id:m.id,drive:a.drive,token:a.token,...(expired?{}:{stats})});step='refresh';m=await readMatch(m.id);if(!mounted.current)return;updateMatch(m);}
    if(!r.simulated)clearFootballResult(me,r.id);pendingResult.current=null;currentAttempt.current=null;setAttempt(null);
    if(!mounted.current)return;
    later(()=>{if(m&&['completed','expired','cancelled','declined'].includes(m.status))setPhase('results');else if(a.drive<3)void beginDrive(m,r,a.drive+1);else setPhase('results');},1300);
-  }catch(e){if(mounted.current)setError(e instanceof Error?e.message:'Could not save your drive. Retry to continue.');}
+  }catch(e){trackBallKnowerEvent('H2H Score Interrupted',{step,drive:a.drive,online:navigator.onLine});if(mounted.current)setError(e instanceof Error?e.message:'Could not save your drive. Retry to continue.');}
   finally{saving.current=false;if(mounted.current)setBusy(false);}
  }
  const finishCurrent=useRef(finishDrive);finishCurrent.current=finishDrive;
  useEffect(()=>{
   const listener=(event:MessageEvent)=>{const a=currentAttempt.current,r=currentRival.current,d=event.data;if(!a||!r||event.origin!==location.origin||event.source!==frame.current?.contentWindow||d?.matchId!==r.id||d?.token!==a.token||d?.drive!==a.drive)return;
    if(d.type==='bk-arena-ready'&&!accepted.current){fieldStarted.current=true;setFieldStatus('ready');}
-   if(d.type==='bk-arena-failed'&&!accepted.current)setFieldStatus(fieldStarted.current?'play-interrupted':'kickoff-failed');
+   if(d.type==='bk-arena-failed'&&!accepted.current){
+    const step=fieldStarted.current?'play':'kickoff';
+    trackBallKnowerEvent('H2H Field Interrupted',{step,reason:'renderer',drive:a.drive,practice:r.simulated});
+    setFieldStatus(fieldStarted.current?'play-interrupted':'kickoff-failed');
+   }
    if(d.type==='bk-arena-result'&&!accepted.current&&validFootballStats(d.stats)){accepted.current=true;void finishCurrent.current(d.stats);}
    if(d.type==='bk-arena-exit'&&!accepted.current)requestExit();
   };
@@ -163,7 +169,11 @@ export default function FootballH2HSession({me,initialTeam='JCY',initialMatch,fr
   let timeout:number|undefined;
   const watch=()=>{
    window.clearTimeout(timeout);
-   if(!document.hidden)timeout=window.setTimeout(()=>setFieldStatus(status=>status==='loading'?'kickoff-failed':status),45000);
+   if(!document.hidden)timeout=window.setTimeout(()=>{
+    if(fieldStarted.current||accepted.current)return;
+    trackBallKnowerEvent('H2H Field Interrupted',{step:'kickoff',reason:'timeout',drive:attempt?.drive??null,practice:rival?.simulated??false});
+    setFieldStatus('kickoff-failed');
+   },45000);
   };
   watch();document.addEventListener('visibilitychange',watch);
   return()=>{window.clearTimeout(timeout);document.removeEventListener('visibilitychange',watch);};
