@@ -7,11 +7,13 @@ import {prepareGmEventsFixture,out} from './gm-events-fixture.mjs';
 const html=await prepareGmEventsFixture();
 const server=createServer(async(req,res)=>{const path=new URL(req.url,'http://local').pathname;if(path==='/'){res.setHeader('Content-Type','text/html');res.end(html);return;}const file=resolve(path.startsWith('/artifacts/')||path.startsWith('/dist/')?'.':'public','.'+path);try{res.setHeader('Content-Type',({'.js':'text/javascript','.css':'text/css','.png':'image/png','.webp':'image/webp'})[extname(file)]||'application/octet-stream');res.end(await readFile(file));}catch{res.writeHead(404).end();}});
 await new Promise(r=>server.listen(4188,'127.0.0.1',r));
+const launchOptions=process.env.BK_CHROMIUM_MODULE?await (async()=>{const {default:c}=await import(process.env.BK_CHROMIUM_MODULE);return{headless:true,executablePath:await c.executablePath(),args:c.args}})():{headless:true};
 let browser;
 try{
  for(const [name,engine,widths] of [['chromium',chromium,[320,390,1280]],['webkit',webkit,[390]]]){
-  browser=await engine.launch({headless:true});
-  for(const width of widths){
+  if(process.env.BK_QA_ENGINE && process.env.BK_QA_ENGINE!==name)continue;
+  browser=await engine.launch(name==='chromium'?launchOptions:{headless:true});
+  for(const width of process.env.BK_QA_WIDTHS?process.env.BK_QA_WIDTHS.split(',').map(Number):widths){
    const context=await browser.newContext({viewport:{width,height:844}});const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.route('**/api/**',r=>r.fulfill({json:{available:false}}));
    await page.addInitScript(()=>{window.qaPulses=[];Object.defineProperty(navigator,'vibrate',{configurable:true,value:pattern=>{window.qaPulses.push(pattern);return true}})});
@@ -42,7 +44,7 @@ try{
   }
   await browser.close();browser=null;
  }
- browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:390,height:844}});await page.route('**/api/**',r=>r.fulfill({json:{available:false}}));
+ browser=await chromium.launch(launchOptions);const page=await browser.newPage({viewport:{width:390,height:844}});await page.route('**/api/**',r=>r.fulfill({json:{available:false}}));
  await page.addInitScript(()=>{Object.defineProperty(navigator,'vibrate',{configurable:true,value:()=>{throw Error('Unsupported haptics')}})});
  await page.goto('http://127.0.0.1:4188/?real=1');await page.getByRole('button',{name:'START SEASON',exact:true}).click();
  for(let week=1;week<=2;week++){

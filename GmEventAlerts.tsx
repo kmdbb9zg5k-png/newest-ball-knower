@@ -1,3 +1,5 @@
+import { GmArtwork } from './GmArtwork';
+import { GM_ALERT_SCENES, type GmScene } from './gmSceneArtwork';
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { BellRing, ChevronRight, X } from 'lucide-react';
 import { ModalPortal } from './ModalPortal';
@@ -13,6 +15,7 @@ export type GmImportantEvent = {
   title: string;
   detail: string;
   tone?: 'trade' | 'injury' | 'relationship' | 'development';
+  scene?: GmScene;
   people?: Array<{ player: Player; label: string }>;
   facts?: Array<{ label: string; value: string }>;
   choices: Array<{ id: string; label: string; detail: string; onSelect: () => void }>;
@@ -86,6 +89,7 @@ export function GmEventAlerts({ events, scopeKey }: { events: GmImportantEvent[]
     {event && <ModalPortal><section className="bk-gm-event-screen" data-tone={event.tone} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={detailId}>
       <header><span><BellRing size={20} /> GM OFFICE</span><button type="button" onClick={close} aria-label="Close GM alert"><X size={22} /><span>Close</span></button></header>
       <div className="bk-gm-event-content"><p className="bk-gm-event-eyebrow">{event.eyebrow}</p><h1 id={titleId}>{event.title}</h1>
+        <GmArtwork scene={event.scene ?? GM_ALERT_SCENES[event.tone ?? 'relationship']} />
         {event.people?.length ? <div className="bk-gm-event-people">{event.people.map(({ player, label }) => <article key={player.id}><SoloPortrait player={player} size="card" className="!h-24 !w-20 !rounded-xl"/><div><strong>{player.name}</strong><small>{label}</small></div></article>)}</div> : null}
         {event.facts?.length ? <dl className="bk-gm-event-facts">{event.facts.map(fact => <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}</dl> : null}
         <p id={detailId} className="bk-gm-event-detail">{event.detail}</p>
