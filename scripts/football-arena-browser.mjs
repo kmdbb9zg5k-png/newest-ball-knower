@@ -3,16 +3,23 @@ import {createServer} from 'vite';
 import {chromium} from 'playwright';
 import {mkdir,writeFile} from 'node:fs/promises';
 const fixture=`import React from 'react';import{createRoot}from'react-dom/client';import Arena from '/CommunityFootballArena.tsx';import '/index.css';createRoot(document.getElementById('root')).render(React.createElement(Arena,{me:location.search.includes('guest')?'':'me',friends:[{userId:'friend',displayName:'Fourth Down Club'}],onOpenAuth:()=>{document.body.dataset.auth='requested'}}));`;
-const server=await createServer({cacheDir:'/tmp/bk-football-vite',server:{host:'127.0.0.1',port:3059,strictPort:true,watch:null,hmr:false},plugins:[{name:'football-fixture',enforce:'pre',transform(code,id){if(id.endsWith('/footballArena.ts')){const a=code.indexOf('export async function footballArenaAction'),b=code.indexOf('export const footballTotal');return code.slice(0,a)+`export async function footballArenaAction(action,args={}){const r=await fetch('/__arena-rpc',{method:'POST',body:JSON.stringify({action,args})});const data=await r.json();if(!r.ok)throw new Error(data.message);return data;}\n`+code.slice(b);}},configureServer(s){s.middlewares.use(async(req,res,next)=>{if(req.url?.startsWith('/football-qa.html')){res.setHeader('Content-Type','text/html');res.end(await s.transformIndexHtml(req.url,'<html><head><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body style="margin:0;background:#06090d;color:white"><div id="root"></div><script type="module" src="/football-qa.tsx"></script></body></html>'));}else next();});},resolveId(id){if(id==='/football-qa.tsx')return '\0football-qa.tsx';},load(id){if(id==='\0football-qa.tsx')return fixture;}}]});
+const port = Number(process.env.BK_QA_PORT || 3059);
+const base = `http://127.0.0.1:${port}`;
+const handoffOnly = process.env.BK_QA_HANDOFF_ONLY === '1';
+const server=await createServer({cacheDir:`/tmp/bk-football-vite-${port}`,server:{host:'127.0.0.1',port,strictPort:true,watch:null,hmr:false},plugins:[{name:'football-fixture',enforce:'pre',transform(code,id){if(id.endsWith('/footballArena.ts')){const a=code.indexOf('export async function footballArenaAction'),b=code.indexOf('export const footballTotal');return code.slice(0,a)+`export async function footballArenaAction(action,args={}){const r=await fetch('/__arena-rpc',{method:'POST',body:JSON.stringify({action,args})});const data=await r.json();if(!r.ok)throw new Error(data.message);return data;}\n`+code.slice(b);}},configureServer(s){s.middlewares.use(async(req,res,next)=>{if(req.url?.startsWith('/football-qa.html')){res.setHeader('Content-Type','text/html');res.end(await s.transformIndexHtml(req.url,'<html><head><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body style="margin:0;background:#06090d;color:white"><div id="root"></div><script type="module" src="/football-qa.tsx"></script></body></html>'));}else next();});},resolveId(id){if(id==='/football-qa.tsx')return '\0football-qa.tsx';},load(id){if(id==='\0football-qa.tsx')return fixture;}}]});
 await server.listen();await mkdir('artifacts/football-arena',{recursive:true});
+const chromiumModule = process.env.BK_CHROMIUM_MODULE ? (await import(process.env.BK_CHROMIUM_MODULE)).default : null;
 let browser,currentPage,currentWidth,currentCalls,currentErrors;
 const consoleErrors=[],networkFailures=[];
 const widths=process.env.WIDTHS?JSON.parse(process.env.WIDTHS):[320,390,1280];
 try{
  for(const width of widths){
-  browser=await chromium.launch({executablePath:process.env.BROWSER_PATH||undefined,args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
+  browser = await chromium.launch({
+    executablePath: chromiumModule ? await chromiumModule.executablePath() : process.env.BROWSER_PATH || undefined,
+    args: chromiumModule ? chromiumModule.args : ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-angle=swiftshader'],
+  });
 
-  const page=await browser.newPage({viewport:{width,height:844},hasTouch:width<768,isMobile:width<768});page.setDefaultTimeout(120000);const errors=[];page.on('pageerror',e=>errors.push(e.message));let matches=[],calls=[],fail=true,opponentFinished=true,releaseQuickMatch;
+  const page=await browser.newPage({viewport:{width,height:844},hasTouch:width<768,isMobile:width<768});page.setDefaultTimeout(120000);const errors=[];page.on('pageerror',e=>errors.push(e.message));let matches=[],calls=[],fail=!handoffOnly,interruptAfterSubmit=false,loseScoreRefresh=false,opponentFinished=true,releaseQuickMatch;
   currentPage=page;currentWidth=width;currentCalls=calls;currentErrors=errors;
   page.on('console',message=>{if(message.type()==='error')consoleErrors.push({width,text:message.text()});});
   page.on('requestfailed',request=>networkFailures.push({width,url:request.url(),failure:request.failure()}));
@@ -41,6 +48,10 @@ try{
   await page.route('**/*.supabase.co/**',r=>r.abort());
   await page.route('**/__arena-rpc',async route=>{
     const {action,args}=route.request().postDataJSON();calls.push({action,args});let result={};const m=matches.find(m=>m.id===args.id);
+    if(action==='home'&&loseScoreRefresh){
+      loseScoreRefresh=false;
+      return route.fulfill({status:503,json:{message:'Score saved. Refresh interrupted.'}});
+    }
     if(action==='home')result={matches,standings:matches.some(m=>m.status==='completed')?[{user_id:'friend',name:'Fourth Down Club',games:1,wins:1,losses:0,ties:0,rating:3},{user_id:'me',name:'You',games:1,wins:0,losses:1,ties:0,rating:0}]:[]};
     if(action==='create')matches=[{id:'football-test',challenger_id:'me',opponent_id:'friend',challenger_team:args.team,opponent_team:'BRK',challenger_name:'My very long player display name',opponent_name:'Fourth Down Club',status:'active',winner_id:null,created_at:new Date().toISOString(),expires_at:new Date(Date.now()+86400000).toISOString(),drives:(opponentFinished?[1,2,3]:[]).map(ordinal=>({user_id:'friend',ordinal,points:3,yards:50,plays:6,finished_at:new Date().toISOString(),forfeited:false}))}];
     if(action==='quick_match'){
@@ -52,11 +63,12 @@ try{
     if(action==='submit'||action==='forfeit'){
       if(action==='submit'&&fail){fail=false;await route.fulfill({status:503,json:{message:'Connection interrupted. Retry saving this result.'}});return;}
       const drive=m.drives.find(d=>d.user_id==='me'&&d.ordinal===args.drive);Object.assign(drive,action==='submit'?args.stats:{points:0,yards:0,plays:0},{finished_at:new Date().toISOString(),forfeited:action==='forfeit'});
+      if(action==='submit'&&interruptAfterSubmit){interruptAfterSubmit=false;loseScoreRefresh=true;}
       if(m.drives.filter(d=>d.finished_at).length===6){m.status='completed';m.winner_id='friend';}result={saved:true,points:drive.points};
     }
     await route.fulfill({json:result});
   });
-  await page.goto('http://127.0.0.1:3059/football-qa.html?guest');
+  await page.goto(base+'/football-qa.html?guest');
   await page.getByRole('button',{name:'Pick your team',exact:true}).waitFor();
   assert.match(await page.getByRole('region',{name:'Football H2H',exact:true}).innerText(),/AUTOMATED PRACTICE/,'Guests are told their quick match uses a CPU');
   await page.getByRole('button',{name:'Pick your team',exact:true}).click();
@@ -72,10 +84,11 @@ try{
   await selection.getByRole('button',{name:'‹ Back',exact:true}).click();
   assert.equal(calls.length,0,'Guest selection does not call online RPC');
   await page.getByRole('button',{name:'Keep records'}).click();assert.equal(await page.locator('body').getAttribute('data-auth'),'requested');
-  await page.goto('http://127.0.0.1:3059/football-qa.html');await page.getByLabel('Your team',{exact:true}).selectOption('MIL');await page.getByLabel('Opponent',{exact:true}).selectOption('friend');await page.getByRole('button',{name:'Challenge friend'}).click();await page.getByRole('button',{name:'Play drive 1 of 3'}).waitFor();
+  await page.goto(base+'/football-qa.html');await page.getByLabel('Your team',{exact:true}).selectOption('MIL');await page.getByLabel('Opponent',{exact:true}).selectOption('friend');await page.getByRole('button',{name:'Challenge friend'}).click();await page.getByRole('button',{name:'Play drive 1 of 3'}).waitFor();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'No overflow '+width);
   await page.screenshot({path:`artifacts/football-arena/lobby-${width}.png`,fullPage:true});
-  if(width===390){
+  if(width===390||handoffOnly){
+    if(!handoffOnly){
     await page.setViewportSize({width:1000,height:500});
     await page.getByRole('button',{name:'Play drive 1 of 3'}).click();
     for(let n=1;n<=3;n++){
@@ -118,6 +131,7 @@ try{
     assert.deepEqual(submitted[0].args,submitted[1].args,'Failed save retries exact stats/token');
     assert(submitted.every(c=>c.args.stats.points===0&&c.args.stats.plays===4),'Real game bridge sent four-spike turnovers');
     assert.deepEqual(calls.filter(c=>c.action==='begin').map(c=>c.args.drive),[1,2,3],'All drives start once and advance automatically');
+    }
     // A lightweight iframe isolates session orchestration from the separately tested engine.
     await page.route('**/play-moment-3d-preview.html?**',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><html><body>Bridge fixture</body></html>'}));
     const sendResult=async (n,stats)=>{
@@ -128,10 +142,19 @@ try{
     };
     // Opponent totals must not become a fabricated victory before their drives arrive.
     opponentFinished=false;matches=[];
-    await page.goto('http://127.0.0.1:3059/football-qa.html');
+    await page.goto(base+'/football-qa.html');
     await page.getByLabel('Opponent',{exact:true}).selectOption('friend');await page.getByRole('button',{name:'Challenge friend'}).click();
     await page.getByRole('button',{name:'Play drive 1 of 3'}).click();
+    interruptAfterSubmit=true;
     await sendResult(1,{points:3,yards:35,plays:6});
+    await page.getByRole('alert').filter({hasText:'Refresh interrupted'}).waitFor();
+    assert.equal(await page.locator('iframe').count(),0,'The finished 3D drive is released while saving or retrying');
+    assert.equal(matches[0].drives.filter(d=>d.user_id==='me'&&d.finished_at).length,1);
+    const savedRequest=calls.filter(c=>c.action==='submit').at(-1);
+    await page.getByRole('button',{name:'Retry saving result'}).click();
+    await page.getByRole('heading',{name:'Drive complete',exact:true}).waitFor();
+    assert.deepEqual(calls.filter(c=>c.action==='submit').at(-1),savedRequest,'Retry uses the original drive token and stats');
+    assert.equal(matches[0].drives.filter(d=>d.user_id==='me'&&d.finished_at).length,1);
     await page.getByRole('button',{name:'Exit',exact:true}).click();
     await page.getByRole('alertdialog',{name:'Leave match?'}).waitFor();
     await page.waitForTimeout(2100);
@@ -146,7 +169,7 @@ try{
     await page.getByRole('heading',{name:'You lose',exact:true}).waitFor({timeout:30000});
     await page.getByRole('button',{name:'Back to main screen',exact:true}).last().click();
     // Cancel before the quick-match response arrives: the late queue row must still close.
-    matches=[];await page.goto('http://127.0.0.1:3059/football-qa.html');
+    matches=[];await page.goto(base+'/football-qa.html');
     await page.getByRole('button',{name:'Pick your team',exact:true}).click();
     const queued=page.waitForRequest(r=>r.url().endsWith('/__arena-rpc')&&r.postDataJSON().action==='quick_match');
     await page.getByRole('button',{name:'Find online player',exact:true}).click();await queued;
@@ -157,7 +180,7 @@ try{
     assert.equal(await page.locator('iframe').count(),0,'Late matchmaking response cannot launch a cancelled session');
     await page.getByRole('dialog').getByRole('button',{name:'‹ Back',exact:true}).click();
     // Guest matchmaking really lasts 30 seconds and then automatically starts all drives.
-    await page.goto('http://127.0.0.1:3059/football-qa.html?guest');
+    await page.goto(base+'/football-qa.html?guest');
     const beforeGuest=calls.length;
     await page.getByRole('button',{name:'Pick your team',exact:true}).click();
     const started=Date.now();await page.getByRole('button',{name:'Start quick practice',exact:true}).click();
@@ -179,7 +202,7 @@ try{
   }
   assert.deepEqual(errors,[]);await browser.close();
  }
- console.log(JSON.stringify({status:'PASS',widths,officialDrives:widths.includes(390)?3:0,coverage:widths.includes(390)?'Selection, all 32 teams, three automatic official kickoffs/drives, bridge source/token validation, save retry, comparison, history, standings, guest matchmaking and pending-result/cancel fixtures':'Team selection and lobby mobile layouts'}));
+ console.log(JSON.stringify({status:'PASS',widths,officialDrives:!handoffOnly&&widths.includes(390)?3:0,coverage:handoffOnly?'Drive handoff, score refresh retry, exit and resume, guest practice and match results':widths.includes(390)?'Selection, all 32 teams, three automatic official kickoffs/drives, bridge source/token validation, save retry, comparison, history, standings, guest matchmaking and pending-result/cancel fixtures':'Team selection and lobby mobile layouts'}));
 }catch(error){
  const prefix=`artifacts/football-arena/failure-${currentWidth||'startup'}`;
  if(currentPage&&!currentPage.isClosed()){

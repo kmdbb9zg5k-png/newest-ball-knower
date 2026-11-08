@@ -68,9 +68,9 @@ assert.ok(
   agent.includes('commitAgentSigningForExpectedUser(')&&
   agent.includes('pending.beforeState')&&
   agent.includes('beforeState,')&&
-  agent.includes('setAgency(actionAgency);')&&
-  agent.includes('persistRecruitAction(actionAgency);')&&
-  agent.includes('playerId: p.id,\n      beforeState: agency,')&&
+  /const beforeState = restore\(false\);\s+const meetingAgency = \{ \.\.\.beforeState, weeklyActionsUsed: actionAgency.weeklyActionsUsed \};\s+persist\(beforeState\);\s+setAgency\(meetingAgency\);/.test(agent)&&
+  agent.includes('persistRecruitAction(meetingAgency);')&&
+  agent.includes('playerId: p.id,\n      beforeState,')&&
   agent.includes('persist(agency);\n                      setRecruit(null);')&&
   agent.includes('stagePendingAgentSigning(signingUserId, signingBeforeState, next)')&&
   agent.includes('retryAgentSigningVerification()')&&
@@ -310,7 +310,7 @@ assert.ok(
   agent.includes('const readPendingRecruitAction = ()')&&
   agent.includes('pending.ownerId !== ownerId')&&
   agent.includes('JSON.stringify({ ownerId: localStorage.getItem(CLOUD_OWNER_KEY), state })')&&
-  agent.includes('persistRecruitAction(actionAgency);')&&
+  agent.includes('persistRecruitAction(meetingAgency);')&&
   agent.includes('const sharedAgency = restore();')&&
   agent.includes('JSON.stringify(sharedAgency) !== JSON.stringify(agency)')&&
   agent.includes('JSON.stringify(restore()) !== JSON.stringify(agency)')&&
@@ -322,8 +322,8 @@ assert.ok(
   agent.includes('localStorage.removeItem(PENDING_RECRUIT_ACTION_KEY);'),
   'a consumed recruiting action must survive reloads, stay account-bound, and remain separate from the CAS baseline',
 );
-const agentNormalizedBaselinePersist=agent.indexOf('persist(agency);\n    setAgency(actionAgency);');
-const agentRecruitActionPersist=agent.indexOf('persistRecruitAction(actionAgency);',agentNormalizedBaselinePersist);
+const agentNormalizedBaselinePersist=agent.indexOf('persist(beforeState);\n    setAgency(meetingAgency);');
+const agentRecruitActionPersist=agent.indexOf('persistRecruitAction(meetingAgency);',agentNormalizedBaselinePersist);
 assert.ok(
   agentNormalizedBaselinePersist>=0&&agentRecruitActionPersist>agentNormalizedBaselinePersist,
   'the normalized Agent career must be persisted as the exact CAS baseline before the consumed recruiting action is staged',
