@@ -16,7 +16,7 @@ try {
     await page.goto(`${origin}/navigation-review/index.html?scenario=active`);
     const primary = page.getByRole('navigation', { name: width < 768 ? 'Primary navigation' : 'Desktop primary navigation', exact: true });
     await primary.getByRole('button', { name: 'Play', exact: true }).waitFor();
-    assert.equal(await primary.getByRole('button').count(), 5);
+    assert.equal(await primary.getByRole('button').count(), 6);
     assert.ok(await page.locator('.bk-header-brand').evaluate(element => {
       const wordmark = element.querySelector('h1');
       const controls = element.parentElement.querySelector('.bk-header-controls');

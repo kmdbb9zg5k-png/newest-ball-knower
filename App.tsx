@@ -20,6 +20,7 @@ import type {SoloExperience} from './SoloFranchiseHub';
 import {LaunchCenter,LaunchFooter,type LaunchPanel} from './LaunchCenter';
 import type {CommunityPerson} from './communityCloud';
 import {pushTargetTab,type PushTarget} from './pushContracts';
+import type {StoreCategory} from './storeCatalog';
 
 const PushNotificationBridge=lazy(()=>import('./PushNotificationBridge'));
 const AuthModal=lazy(()=>import('./AuthModal').then(module=>({default:module.AuthModal})));
@@ -40,12 +41,13 @@ const MobileRosterBrowser=lazy(()=>import('./MobileRosterBrowser').then(module=>
 const ChallengesHub=lazy(()=>import('./ChallengesHub').then(module=>({default:module.ChallengesHub})));
 const AskBkHub=lazy(()=>import('./AskBkHub').then(module=>({default:module.AskBkHub})));
 const PlayerClothingLocker=lazy(()=>import('./PlayerClothingLocker'));
+const StoreHub=lazy(()=>import('./StoreHub'));
 const LockerHub=lazy(()=>import('./LockerHub').then(module=>({default:module.LockerHub})));
 const PartnersPage=lazy(()=>import('./PartnersPage').then(module=>({default:module.PartnersPage})));
 const FootballArenaScreen=lazy(()=>import('./FootballArenaScreen'));
 const CommunityHub=lazy(()=>import('./CommunityHub').then(module=>({default:module.CommunityHub})));
 
-export type AppTab='play'|'football'|'home'|'solo'|'news'|'fantasy'|'sportsbook'|'legacy'|'challenges'|'community'|'ask'|'locker'|'wardrobe'|'partners'|'lobby'|'draft'|'simulation';
+export type AppTab='play'|'football'|'home'|'solo'|'news'|'fantasy'|'sportsbook'|'legacy'|'challenges'|'community'|'ask'|'store'|'locker'|'wardrobe'|'partners'|'lobby'|'draft'|'simulation';
 
 const INTRO_COMPLETED_KEY='ball-knower-intro-completed-v1';
 // Version 1 completed onboarding. Version 2 also acknowledges the restored opening.
@@ -68,6 +70,7 @@ function BallKnowerApp(){
   const goBack=useCallback(()=>{setCurrentTab(current=>{let previous=tabHistory.current.pop();while(previous===current)previous=tabHistory.current.pop();return previous||'home'})},[]);
   const [fantasyView,setFantasyView]=useState<'leagues'|'cheatsheet'>('leagues');
   const [soloExperience,setSoloExperience]=useState<SoloExperience>('hub');
+  const [storeEntry,setStoreEntry]=useState<{category?:StoreCategory;revision:number}>({revision:0});
   const [isAuthOpen,setIsAuthOpen]=useState(false);
   const [isLaunchAuth,setIsLaunchAuth]=useState(false);
   const [isCreateLeagueOpen,setIsCreateLeagueOpen]=useState(false);
@@ -116,7 +119,12 @@ function BallKnowerApp(){
   const handleSelectLeague=(league:League,tab:'lobby'|'draft'|'simulation')=>{setActiveLeagueId(league.id);goToTab(tab)};
   const handleLeagueCreated=(league:League)=>{setActiveLeagueId(league.id);goToTab('lobby')};
   const handleLeagueJoined=(league:League)=>{setActiveLeagueId(league.id);goToTab('lobby')};
-  const navigateToTab=useCallback((tab:AppTab)=>{if(tab==='fantasy')setFantasyView('leagues');if(tab==='solo')setSoloExperience('hub');if(tab==='locker')setViewedLockerMember(null);goToTab(tab)},[goToTab]);
+  const openStore=useCallback((category?:StoreCategory)=>{
+    setStoreEntry(entry=>({category,revision:entry.revision+1}));
+    goToTab('store');
+  },[goToTab]);
+  const openGearStore=useCallback(()=>openStore('game-gear'),[openStore]);
+  const navigateToTab=useCallback((tab:AppTab)=>{if(tab==='store'){openStore();return}if(tab==='fantasy')setFantasyView('leagues');if(tab==='solo')setSoloExperience('hub');if(tab==='locker')setViewedLockerMember(null);goToTab(tab)},[goToTab,openStore]);
   const openMemberLocker=useCallback((member:LeagueMember)=>{if(member.isAi||!member.userId)return;setLockerReturnTab(currentTab);setViewedLockerMember(member.userId===currentUser?.id?null:member);goToTab('locker')},[currentTab,currentUser?.id,goToTab]);
   const openCommunityLocker=useCallback((person:CommunityPerson)=>openMemberLocker({id:`community-${person.userId}`,userId:person.userId,userName:person.displayName,isCommissioner:false,status:'ready'}),[openMemberLocker]);
   const closeMemberLocker=useCallback(()=>{setViewedLockerMember(null);setCurrentTab(lockerReturnTab)},[lockerReturnTab]);
@@ -134,7 +142,7 @@ function BallKnowerApp(){
       {currentTab==='home'&&<Suspense fallback={<ScreenFallback/>}><HomeDashboard teamTheme={favoriteTheme} onNavigate={navigateToTab} onOpenCheatSheet={openCheatSheet} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague} onViewMemberLocker={openMemberLocker}/></Suspense>}
       <Suspense fallback={<ScreenFallback/>}>
         {currentTab==='play'&&<PlayHub onNavigate={navigateToTab}/>}
-        {currentTab==='solo'&&<SoloMode initialExperience={soloExperience}/>}
+        {currentTab==='solo'&&<SoloMode initialExperience={soloExperience} onShopGear={openGearStore}/>}
         {currentTab==='news'&&<NewsHub/>}
         {currentTab==='fantasy'&&<FantasyHub view={fantasyView} onViewChange={setFantasyView} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague}/>}
         {currentTab==='sportsbook'&&<SportsbookHub/>}
@@ -143,7 +151,8 @@ function BallKnowerApp(){
         {currentTab==='football'&&<FootballArenaScreen onOpenAuth={()=>setIsAuthOpen(true)} onBack={returnToGameModes}/>}
         {currentTab==='community'&&<CommunityHub onOpenAuth={()=>setIsAuthOpen(true)} onOpenTrivia={()=>goToTab('challenges')} onViewLocker={openCommunityLocker}/>}
         {currentTab==='ask'&&<AskBkHub/>}
-        {currentTab==='wardrobe'&&<PlayerClothingLocker onCreatePlayer={()=>{setSoloExperience('player');goToTab('solo');}}/>}
+        {currentTab==='store'&&<StoreHub key={storeEntry.revision} initialCategory={storeEntry.category} onOpenLocker={()=>goToTab('wardrobe')} onOpenGauntlet={()=>goToTab('challenges')}/>}
+        {currentTab==='wardrobe'&&<PlayerClothingLocker onCreatePlayer={()=>{setSoloExperience('player');goToTab('solo');}} onShopGear={openGearStore}/>}
         {currentTab==='locker'&&<LockerHub onOpenAuth={()=>setIsAuthOpen(true)} viewedMember={viewedLockerMember} onBack={viewedLockerMember?closeMemberLocker:undefined}/>}
         {currentTab==='partners'&&<PartnersPage onBack={()=>setCurrentTab('home')}/>}
         {(currentTab==='lobby'||currentTab==='simulation')&&!activeLeague&&<div className="mx-auto flex min-h-[50dvh] max-w-xl items-center justify-center px-4 text-center"><div className="rounded-2xl border border-white/10 bg-[#0d141f] p-6"><h2 className="text-2xl font-black">Choose a league to continue</h2><p className="mt-3 text-sm leading-6 text-zinc-400">Your league lobby and results are available inside Fantasy.</p><button type="button" onClick={()=>navigateToTab('fantasy')} className="mt-5 min-h-12 w-full rounded-xl bg-[#D9B43B] px-5 text-sm font-bold text-black">Open Fantasy</button></div></div>}

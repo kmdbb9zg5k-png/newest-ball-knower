@@ -33,7 +33,7 @@ import CareerCreatorDialog from './CareerCreatorDialog';
 import {ATHLETE_POSITIONS,feetAndInches,sanitizeAthleteBuild} from './athleteBuild';
 import {DEFAULT_ATHLETE_APPEARANCE,sanitizeAthleteAppearance,type AthleteAppearance} from './athleteAppearance';
 
-type Props = { onBack: () => void };
+type Props = { onBack: () => void; onShopGear?: () => void };
 type StoryStage = 'creator' | 'combine' | 'drafted' | 'camp' | 'season';
 type UpgradeAttribute = 'speed' | 'power' | 'awareness';
 type BodySliderKey = 'viewRotation';
@@ -209,7 +209,7 @@ function rosterWithMyPlayer(profile: MyPlayerProfile) {
   return profile.careerLife||profile.rookieRole&&created.starter?[created,...roster.filter(player=>player.id!==created.id)]:roster;
 }
 
-export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
+export const MyPlayerStory: React.FC<Props> = ({ onBack, onShopGear }) => {
   const [profile, setProfile] = useState<MyPlayerProfile>(restoreProfile);
   useEffect(()=>{const syncGear=()=>{const athlete=readAthletePassport();setProfile(current=>athlete&&athlete.id===(current.combineId||`legacy:${current.name}:${current.position}`)?{...current,gameGear:athlete.gameGear}:current);};window.addEventListener(GAME_GEAR_CHANGED,syncGear);return()=>window.removeEventListener(GAME_GEAR_CHANGED,syncGear);},[]);
   const previousStage=useRef(profile.stage);
@@ -414,7 +414,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
   const storyStep=JSON.stringify([profile.stage,campLife.camp.plan,campLife.camp.response,campLife.camp.scores.length,campLife.turn?.key,campLife.turn?.prep,campLife.turn?.response,campLife.turn?.score,profile.draftJourney?.choices]);
   const playerStats=<section className="life-metrics" aria-label="Player attributes">{[['Overall',profile.overall],['Speed',profile.speed],['Power',profile.power],['Awareness',profile.awareness],['Height',feetAndInches(profile.heightInches)],['Weight',`${profile.weightLbs} lb`],['XP',profile.xp],['Upgrade points',profile.upgradePoints]].map(([label,value])=><div key={label}><span>{label}</span><b>{value}</b></div>)}</section>;
   const relationshipMetrics:[string,number][]=[['Coach trust',campLife.trust],['Chemistry',campLife.chemistry],['Agent',campLife.agent],['Fatigue',campLife.fatigue]];
-  if(profile.stage==='camp')return <BroadcastStage scene="locker" page="my-player" quiet>{saveError&&<p role="alert">{saveError}</p>}<CareerTabs stats={<MyPlayerCareerStats/>} stepKey={storyStep} title="Training camp" onBack={onBack} metrics={relationshipMetrics}><CareerSection tab="player">{playerStats}<PlayerRender profile={profile} onPortrait={savePortrait} compact/><AthleteLocker profile={profile}/></CareerSection><CareerCamp life={campLife} profile={profile} onChoice={commitCamp} onScore={recordCamp} onFinish={enterRookie} onBack={onBack}/></CareerTabs></BroadcastStage>;
+  if(profile.stage==='camp')return <BroadcastStage scene="locker" page="my-player" quiet>{saveError&&<p role="alert">{saveError}</p>}<CareerTabs stats={<MyPlayerCareerStats/>} stepKey={storyStep} title="Training camp" onBack={onBack} metrics={relationshipMetrics}><CareerSection tab="player">{playerStats}<PlayerRender profile={profile} onPortrait={savePortrait} compact/><AthleteLocker profile={profile} onShopGear={onShopGear}/></CareerSection><CareerCamp life={campLife} profile={profile} onChoice={commitCamp} onScore={recordCamp} onFinish={enterRookie} onBack={onBack}/></CareerTabs></BroadcastStage>;
 
   if (profile.stage === 'season' && draftedTeam) {
     const roster = rosterWithMyPlayer(profile);
@@ -435,7 +435,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
           </div>
         </div>
         {!profile.careerLife&&<div className="mx-auto max-w-5xl p-4"><button className="career-primary" onClick={()=>setProfile(current=>{if(current.careerLife)return current;const life=createCareerLife(current,current.draftJourney,current.rookieRole?currentCareerRole(current.rookieRole,current.overall,current.gamesPlayed):'starter');const ids=new Set(rosterWithMyPlayer(current).map(p=>p.id));const rosterSlotId=buildSoloTeamRoster(current.teamAbbr).find(p=>!ids.has(p.id))?.id;return {...current,careerLife:{...life,rosterSlotId,camp:{scores:[],complete:true,legacy:true},games:current.gamesPlayed}};})}>ENABLE LIVING CAREER</button><p className="career-note">Keep your season and add weekly conversations, playable moments and evolving relationships. No training-camp replay required.</p></div>}
-        <AthleteLocker profile={profile}/>
+        <AthleteLocker profile={profile} onShopGear={onShopGear}/>
         </CareerSection><FranchiseSeason careerTabbed key={profile.careerLife?`${arc.year}:${profile.teamAbbr}`:'legacy'} careerStartYear={profile.careerLife?arc.year:undefined} onCareerSeasonYearChange={profile.careerLife?year=>setProfile(current=>{if(!current.careerLife||current.careerArc&&current.careerArc.year>=year)return current;const previous=current.careerArc||createCareerArc(current,year-1);return {...current,careerArc:{...previous,year,seasonOwn:0,seasonRival:0,seasonGames:0}};}):undefined} careerOffseason={profile.careerLife?(year,wins,champion)=><CareerOffseason arc={arc} life={profile.careerLife!} profile={profile} year={year} wins={wins} champion={champion} onAdvance={advanceCareer} onCounter={commitCounter}/>:undefined} title="MY PLAYER STORY" userTeam={draftedTeam} roster={roster} saveKey={SOLO_FRANCHISE_SAVE_KEYS.player} onBack={onBack} myPlayerId="my-player-user" myPlayerProgress={profile.rookieRole?{ovr:profile.overall,speed:profile.speed,strength:profile.power,awareness:profile.awareness}:undefined} myPlayerRole={profile.careerLife?.role||(profile.rookieRole?currentCareerRole(profile.rookieRole,profile.overall,profile.gamesPlayed):undefined)} careerPanel={profile.careerLife?context=><><CareerSection tab="career"><CareerLegacy arc={arc} profile={profile}/><CareerScheme arc={arc} life={profile.careerLife!} profile={profile} onChoice={commitCoach}/><CareerRivalry arc={arc} life={profile.careerLife!} name={profile.name} context={context} onChoice={commitRival}/></CareerSection><CareerWeek life={profile.careerLife!} profile={profile} context={context} onChoice={commitWeek} onMoment={recordMoment} filmRoom={<CareerFilm arc={arc} life={profile.careerLife!} position={profile.position} weekKey={context.key} onAnswer={answer=>commitFilm(context.key,answer)}/>}/></>:undefined} careerReady={profile.careerLife?key=>weekReady(profile.careerLife,key):undefined} careerBoost={profile.careerLife?key=>careerGameBoost(profile.careerLife,key):undefined} onMyPlayerGame={awardXp} />
         <CareerSection tab="player"><button type="button" onClick={newCareer} style={{ bottom: 'calc(max(1rem, env(safe-area-inset-bottom)) + 4.5rem)' }} className="my-player-restart fixed right-4 z-30 flex min-h-10 items-center gap-2 rounded-full border border-white/10 bg-black/95 px-3 text-[10px] font-black shadow-xl"><RotateCcw size={14} /> NEW PLAYER</button>
         <div className="my-player-upgrades fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-xl items-center gap-2 rounded-2xl border border-white/10 bg-black/95 p-2 shadow-2xl">
@@ -469,7 +469,7 @@ export const MyPlayerStory: React.FC<Props> = ({ onBack }) => {
   return (
     <BroadcastStage scene="locker" page="my-player" quiet className="min-h-[100dvh] bg-transparent px-4 pb-10 pt-4 text-white sm:px-8">
       <CareerTabs stats={<MyPlayerCareerStats/>} stepKey={storyStep} title={stageTitle} onBack={onBack} metrics={[["Coach trust",draftMetrics.trust],["Preparation",draftMetrics.readiness],["Exposure",draftMetrics.visibility],["Recovery",draftMetrics.medical]]}><div className="mx-auto max-w-5xl">
-        <CareerSection tab="player">{playerStats}<AthleteLocker profile={profile}/>
+        <CareerSection tab="player">{playerStats}<AthleteLocker profile={profile} onShopGear={onShopGear}/>
         </CareerSection><CareerSection tab="career"><BroadcastMasthead eyebrow="My Player story" title="Your Career Starts Here" subtitle="Create your player. Earn your place." compact/>
         <div className="flex items-center justify-between">
           <button type="button" onClick={onBack} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#111]" aria-label="Back to Solo Franchise Hub"><ArrowLeft size={19} /></button>

@@ -1,9 +1,9 @@
 import React from 'react';
-import { Home, Play, Trophy, User, Users } from 'lucide-react';
+import { Home, Play, ShoppingBag, Trophy, User, Users } from 'lucide-react';
 import type { AppTab } from './App';
 import { PRIMARY_DESTINATIONS, primaryDestinationForTab } from './appNavigation';
 
-const ICONS = { home: Home, play: Play, fantasy: Trophy, community: Users, locker: User };
+const ICONS = { home: Home, play: Play, fantasy: Trophy, community: Users, store: ShoppingBag, locker: User };
 
 export function PrimaryNavigation({ currentTab, onNavigate, mobile = false }: {
   currentTab: AppTab; onNavigate: (tab: AppTab) => void; mobile?: boolean;

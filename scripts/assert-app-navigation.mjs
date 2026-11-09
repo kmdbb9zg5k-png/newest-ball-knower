@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 
-const PRIMARY_LABELS = ['Home', 'Play', 'Fantasy', 'Community', 'Profile'];
+const PRIMARY_LABELS = ['Home', 'Play', 'Fantasy', 'Community', 'Store', 'Profile'];
 const SECONDARY_LABELS = ['Solo careers', 'Online football', 'Trivia', 'NFL picks', 'NFL news', 'Ask BK', 'Hall of Fame', 'Partners', 'Player locker', 'Create League', 'Join League', 'Roster Database', 'Replay Opening'];
 
-/** Shared browser contract: five primary choices and every retained destination. */
+/** Shared browser contract: six primary choices and every retained destination. */
 export async function assertAppNavigation(page, { mobile }) {
   const primary = page.getByRole('navigation', { name: mobile ? 'Primary navigation' : 'Desktop primary navigation', exact: true });
   assert.deepEqual((await primary.getByRole('button').allTextContents()).map(text => text.trim()), PRIMARY_LABELS);

@@ -1,6 +1,6 @@
 import {careerJersey,type CareerJersey} from './careerJersey.js';
 export type ClothingSlot='top'|'shorts'|'shoes'|'wrist';
-export type ClothingItem={id:string;name:string;slot:ClothingSlot;color:string;style?:'jersey'|'tee'|'long-sleeve'|'hoodie'|'jeans'|'sweats';jersey?:CareerJersey;accent?:string;pattern?:boolean;premium?:boolean;description:string};
+export type ClothingItem={id:string;name:string;slot:ClothingSlot;color:string;style?:'jersey'|'tee'|'long-sleeve'|'hoodie'|'jeans'|'sweats';jersey?:CareerJersey;accent?:string;pattern?:boolean;premium?:boolean;retailPreview?:boolean;reward?:boolean;description:string};
 export const CLOTHING:ClothingItem[]=[
  {id:'top-standard',name:'BK Original',slot:'top',color:'#242a30',description:'The original charcoal training top.'},
  {id:'top-bone',name:'Bone Training Top',slot:'top',color:'#e4dfd2',description:'A clean, warm-white training essential.'},
@@ -72,11 +72,31 @@ export const CLOTHING:ClothingItem[]=[
  {id:'top-electric',name:'Electric Blue',slot:'top',color:'#163866',accent:'#65d3ed',pattern:true,premium:true,description:'Bright blue striping for the spotlight.'},
  {id:'shoes-gold',name:'Gold Rush Trainers',slot:'shoes',color:'#c6a04d',premium:true,description:'A gold colorway for your training shoes.'},
  {id:'wrist-gold',name:'Gold Wristbands',slot:'wrist',color:'#c6a04d',premium:true,description:'Gold fabric bands to finish your outfit.'},
+ {id:'top-tunnel-fit',name:'Tunnel Hoodie',slot:'top',style:'hoodie',color:'#272a2c',accent:'#ad8a4d',pattern:true,premium:true,retailPreview:true,description:'Graphite hoodie with warm gold striping.'},
+ {id:'shorts-tunnel-fit',name:'Tunnel Sweats',slot:'shorts',style:'sweats',color:'#333538',premium:true,retailPreview:true,description:'Matching relaxed graphite sweats.'},
+ {id:'shoes-tunnel-fit',name:'Tunnel Trainers',slot:'shoes',color:'#555d64',premium:true,retailPreview:true,description:'Slate trainers for the tunnel and the Combine.'},
+ {id:'top-combine-reward',name:'Combine Practice Top',slot:'top',color:'#1a2740',accent:'#c6a35d',pattern:true,reward:true,description:'Midnight navy and gold, earned by completing a Combine drill.'},
+ {id:'wrist-gauntlet-reward',name:'Gauntlet Wristbands',slot:'wrist',color:'#9d713e',reward:true,description:'Bronze wristbands earned by completing a Daily Gauntlet.'},
 ];
 export const CLOTHING_SLOTS:ClothingSlot[]=['top','shorts','shoes','wrist'];
 export type Outfit=Record<ClothingSlot,string>;
 export const DEFAULT_OUTFIT:Outfit={top:'top-standard',shorts:'shorts-standard',shoes:'shoes-standard',wrist:'wrist-none'};
 export const WARDROBE_KEY='ballknower_player_wardrobe_v1',WARDROBE_CHANGED='ballknower:wardrobe-changed';
+export const WARDROBE_REWARDS_KEY='ballknower_wardrobe_rewards_v1';
+export function readWardrobeRewards(): Set<string>{
+ try{
+  const ids=JSON.parse(localStorage.getItem(WARDROBE_REWARDS_KEY)||'[]');
+  return new Set(CLOTHING.filter(item=>item.reward&&Array.isArray(ids)&&ids.includes(item.id)).map(item=>item.id));
+ }catch{return new Set();}
+}
+export function claimWardrobeReward(id:string): Set<string>{
+ if(!CLOTHING.some(item=>item.id===id&&item.reward&&!item.premium))throw new Error('This gear reward is unavailable.');
+ const rewards=readWardrobeRewards();
+ rewards.add(id);
+ localStorage.setItem(WARDROBE_REWARDS_KEY,JSON.stringify([...rewards]));
+ window.dispatchEvent(new Event(WARDROBE_CHANGED));
+ return rewards;
+}
 // Device saves are free-only. Paid ownership comes from the authenticated server.
 let verified:{owned:string[];outfit:Outfit|null;expires:number}|null=null;
 let expiry:ReturnType<typeof setTimeout>|undefined;
