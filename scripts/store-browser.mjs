@@ -31,6 +31,9 @@ try {
     page.setDefaultTimeout(45000);
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
+    page.on('console', message => {
+      if (message.type() === 'error' && /WebGL|THREE|shader/i.test(message.text())) errors.push(message.text());
+    });
     await page.route('**/*.supabase.co/**', route => route.abort());
     await page.route('**/api/**', route => route.fulfill({ json: { available: false, tracks: [] } }));
     await page.addInitScript(() => {
@@ -111,7 +114,7 @@ try {
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: artifacts + '/catalog-' + width + '.png' });
 
-    if (width === 390 || width === 1280) {
+    {
       await categories.getByRole('button', { name: 'Tunnel Fits', exact: true }).click();
       await catalog.getByRole('button', { name: /^Tunnel Fit Hoodie/ }).click();
       const tunnel = page.getByRole('dialog', { name: 'Tunnel Fit', exact: true });
@@ -126,6 +129,25 @@ try {
           && Math.abs(canvas.height - stage.height) < 2 && footer.top >= stage.bottom - 1;
       }), 'Tunnel Fit canvas must fit its stage and clear the controls');
       await tunnel.screenshot({ path: artifacts + '/tunnel-fit-' + width + '.png' });
+      const detailViews = preview.getByRole('group', { name: 'Outfit detail views' });
+      assert.equal(await detailViews.getByRole('button', { name: 'Full outfit' }).getAttribute('aria-pressed'), 'true');
+      const canvas = preview.locator('canvas');
+      let previousFrame = await canvas.screenshot();
+      for (const [label, view] of [['Hoodie','hoodie'], ['Sweats','sweats'], ['Trainers','trainers']]) {
+        const button = detailViews.getByRole('button', { name: label, exact: true });
+        await button.click();
+        assert.equal(await button.getAttribute('aria-pressed'), 'true');
+        assert.equal(await preview.getAttribute('data-view'), view);
+        const frame = await canvas.screenshot({ path: artifacts + '/tunnel-' + view + '-' + width + '.png' });
+        assert.notDeepEqual(frame, previousFrame, label + ' must reframe the model');
+        previousFrame = frame;
+      }
+      const rotate = preview.getByRole('slider', { name: 'Rotate athlete' });
+      await rotate.fill('90');
+      assert.equal(await rotate.inputValue(), '90');
+      assert.notDeepEqual(await canvas.screenshot(), previousFrame, 'Rotation must redraw the trainer detail view');
+      await detailViews.getByRole('button', { name: 'Full outfit' }).click();
+      assert.equal(await preview.getAttribute('data-view'), 'body');
       await tunnel.getByRole('button', { name: 'Close product', exact: true }).click();
       assert.equal(await categories.getByRole('button', { name: 'Tunnel Fits', exact: true }).getAttribute('aria-pressed'), 'true');
       assert.deepEqual(await readSave(), before, 'Tunnel Fit preview must not save premium clothing');

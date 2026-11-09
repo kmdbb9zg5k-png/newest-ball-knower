@@ -281,6 +281,19 @@
 .bk-store-try-on .bk-athlete-preview-footer label { display: grid; gap: 2px; }
 .bk-store-try-on .bk-athlete-preview-footer input { width: 100%; min-height: 32px; accent-color: var(--store-gold); }
 .bk-store-try-on .bk-athlete-preview-message { position: absolute; inset: 28px 0 72px; display: grid; place-content: center; padding: 12px; text-align: center; }
+.bk-store-try-on .bk-athlete-showroom figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 3px 10px; border-top: 1px solid var(--store-border); color: var(--store-gold); font-weight: 800; letter-spacing: .08em; }
+.bk-store-try-on .bk-athlete-showroom figcaption span { margin-left: 0; color: var(--store-muted); font-weight: 600; letter-spacing: 0; }
+.bk-store-try-on .bk-athlete-showroom .bk-athlete-3d-stage {
+  height: clamp(215px, 36dvh, 370px);
+  background: radial-gradient(ellipse at 50% 44%, #29323b 0, #171d24 51%, #0b0e12 88%);
+  cursor: grab;
+}
+.bk-store-try-on .bk-athlete-showroom .bk-athlete-3d-stage:active { cursor: grabbing; }
+.bk-showroom-views { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 7px 8px; border-block: 1px solid var(--store-border); background: #101419; }
+.bk-showroom-views button { min-height: 44px; padding: 4px 2px; border: 1px solid var(--store-border); border-radius: 5px; background: #151a20; color: #d6d5d1; font-size: 11px; font-weight: 750; }
+.bk-showroom-views button[aria-pressed=true] { border-color: var(--store-gold); background: #30281a; color: #f3d995; }
+.bk-showroom-views button:focus-visible { outline: 2px solid var(--store-gold); outline-offset: -3px; }
+.bk-store-try-on .bk-athlete-showroom .bk-athlete-preview-footer input { min-height: 44px; }
 
 @media (min-width: 720px) {
   .bk-store { padding: 20px 20px 36px; }

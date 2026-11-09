@@ -71,7 +71,7 @@ function hairMaterial(color,density=1){
   };material.customProgramCacheKey=()=> 'combine-hair-strands-v4-'+density;return material;
 }
 
-export function createPlayerAppearance(body,bones) {
+export function createPlayerAppearance(body,bones,showroom=false) {
   const head=bones.Head,group=new T.Group();group.name='CombineHair';
   body.updateMatrixWorld(true);
   const headInverse=head.matrixWorld.clone().invert(),triangles=[],skinUniforms=[];
@@ -157,6 +157,31 @@ export function createPlayerAppearance(body,bones) {
             float lace=shoeMask*bkKit_trainerSole*smoothstep(3.2,4.1,y)*(1.-smoothstep(6.4,7.1,y))*smoothstep(1.7,3.2,bkTattooPosition.z);
             float tread=1.-smoothstep(.18,.34,abs(sin((y+bkTattooPosition.z*.27)*5.2)));
             diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.22,.23,.23)*shade,lace*tread*.45);
+            ${showroom?`
+            // The source trainers share the athlete mesh. Shade their details in
+            // bind space so both shoes keep their panels and laces as they turn.
+            vec3 shoe=bkTattooPosition;
+            float shoeDetail=shoeMask*bkKit_trainerSole;
+            float upper=smoothstep(2.6,3.15,y);
+            float toe=smoothstep(3.9,6.4,shoe.z);
+            float meshKnit=sin(shoe.x*7.5+shoe.z*3.5)*sin(shoe.z*8.5-y*4.);
+            float meshAA=1.-smoothstep(.5,2.,max(fwidth(shoe.x*7.5),fwidth(shoe.z*8.5)));
+            diffuseColor.rgb*=1.+shoeDetail*upper*toe*(.19+meshKnit*.29*meshAA);
+            float heel=smoothstep(3.8,6.4,-shoe.z)*upper;
+            diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.06,.082,.10)*shade,shoeDetail*heel*.68);
+            float midsoleEdge=1.-smoothstep(.11,.28,abs(y-(2.48+toe*.22)));
+            float outsole=1.-smoothstep(1.02,1.45,y);
+            diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.16,.19,.21)*shade,shoeDetail*(outsole*.76+midsoleEdge*.34));
+            float laceCenter=9.05+.32*max(0.,shoe.z);
+            float laceSide=abs(abs(shoe.x)-laceCenter);
+            float lacePanel=(1.-smoothstep(1.65,2.03,laceSide))*smoothstep(.35,1.35,shoe.z)*smoothstep(3.35,4.1,y);
+            float laceTrack=shoe.z*.65+y*.58;
+            float crossLace=max(1.-smoothstep(.06,.14,abs(fract(laceTrack+laceSide*.27)-.5)),1.-smoothstep(.05,.13,abs(fract(laceTrack-laceSide*.27)-.5)));
+            diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.34,.38,.40)*shade,shoeDetail*lacePanel*crossLace*.8);
+            float sideAccent=smoothstep(2.1,3.25,abs(abs(shoe.x)-9.4))*(1.-smoothstep(1.7,2.45,abs(shoe.z+.7)));
+            float sideStripe=1.-smoothstep(.1,.26,abs(y-3.85+.36*shoe.z));
+            diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.26,.23,.16)*shade,shoeDetail*sideAccent*sideStripe*.88);
+            `:''}
             float band=bkArmMask*smoothstep(33.8,34.1,along)*(1.-smoothstep(36.,36.3,along))*bkKit_bands;
             diffuseColor.rgb=mix(diffuseColor.rgb,bkKit_wrist*.85,band);
           }`).replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
@@ -170,10 +195,10 @@ export function createPlayerAppearance(body,bones) {
           diffuseColor.rgb*=1.+.025*weave*weaveAA*(1.-skinMask);
           #endif
         `);
-      };material.customProgramCacheKey=()=> 'combine-custom-skin-wardrobe-arms-v2';material.needsUpdate=true;
+      };material.customProgramCacheKey=()=> `combine-custom-skin-wardrobe-arms-v2-${showroom}`;material.needsUpdate=true;
     }
   });
-  const garments=createAthleteGarments(body);
+  const garments=createAthleteGarments(body,showroom);
   head.add(group);
   let currentHairKey='';
   function clear(){group.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});group.clear();}

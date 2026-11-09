@@ -4,7 +4,7 @@ import {bodyMass,createBodyShape} from './body-shape.js';
 
 // Garments reuse the athlete's bind-space skin weights so sleeves and trouser
 // legs bend with the existing animation rig, including customized body builds.
-export function createAthleteGarments(body) {
+export function createAthleteGarments(body,showroom=false) {
   const sources=[];
   body.traverse(mesh=>{if(mesh.isSkinnedMesh)sources.push(mesh);});
   let key='',parts=[];
@@ -13,6 +13,7 @@ export function createAthleteGarments(body) {
     const style=item.style;if(!style)return;
     const top=item.slot==='top',hood=style==='hoodie',short=style==='tee'||style==='jersey',denim=style==='jeans';
     const tunnel=item.id==='top-tunnel-fit'||item.id==='shorts-tunnel-fit';
+    const detail=showroom&&tunnel;
     const length=short?21:34;
     const base=top?topGeometry():trouserGeometry();
     // Shape the fabric in bind space before clipping the hems, so the folds
@@ -46,6 +47,11 @@ export function createAthleteGarments(body) {
         const fold=tunnel
           ?.15*gather*Math.sin(along*.95+z*.67+Math.abs(x)*.51)
           :.36*gather*(.5+.5*Math.sin(along*1.65+z*.36+x*.24));
+        if(detail&&hood){
+          const pocketTop=66.4-Math.max(0,Math.abs(x)-3.7)*1.02;
+          const pocket=(1-T.MathUtils.smoothstep(Math.abs(x),6.9,7.6))*T.MathUtils.smoothstep(y,58.5,59.6)*(1-T.MathUtils.smoothstep(y,pocketTop-.7,pocketTop));
+          z+=.36*pocket*T.MathUtils.smoothstep(z,3,5.2);
+        }
         position.setXYZ(i,x+normal.getX(i)*fold,y+normal.getY(i)*fold,z+normal.getZ(i)*fold);
       }
       base.computeVertexNormals();
@@ -53,7 +59,7 @@ export function createAthleteGarments(body) {
     const g=top?clipGarment(base,[p=>length-p.x,p=>length+p.x]):base;
     if(top)base.dispose();
     const p=g.attributes.position;
-    const material=new T.MeshStandardMaterial({color:item.color,roughness:denim?.93:.88,side:T.DoubleSide});
+    const material=new T.MeshStandardMaterial({color:item.color,roughness:detail?.81:denim?.93:.88,side:T.DoubleSide});
     let jerseyTexture=null;
     if(item.jersey){
       const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=512;
@@ -77,6 +83,15 @@ export function createAthleteGarments(body) {
         float fabricAA=1.-smoothstep(.3,1.,fwidth(garmentPosition.x*9.));
         float weave=sin((garmentPosition.x+garmentPosition.y)*55.)*sin(garmentPosition.y*43.);
         diffuseColor.rgb*=1.+${denim?'.12':'.035'}*weave*fabricAA;
+        ${detail?`
+        // Triplanar yarn grain keeps the fabric detailed on the side as well as the front.
+        vec3 knitCoord=garmentPosition*${hood?'vec3(7.4,9.2,6.7)':'vec3(5.8,11.8,8.1)'};
+        vec3 knitAA=1.-smoothstep(vec3(.55),vec3(1.95),fwidth(knitCoord));
+        vec3 yarn=sin(knitCoord+.6*sin(knitCoord.yzx*.19))*knitAA;
+        float knit=(yarn.x*yarn.y+yarn.y*yarn.z+yarn.z*yarn.x)*${hood?'.075':'.053'};
+        float slub=sin(garmentPosition.y*1.9+garmentPosition.z*.64)*sin(garmentPosition.x*2.1-garmentPosition.z*.8);
+        diffuseColor.rgb*=1.07+knit+.052*slub;
+        `:''}
         ${hood?`
         vec2 panel=vec2(abs(garmentPosition.x),garmentPosition.y);
         float front=smoothstep(3.0,6.0,garmentPosition.z);
@@ -90,19 +105,54 @@ export function createAthleteGarments(body) {
         diffuseColor.rgb=mix(diffuseColor.rgb,drawcordColor*.67,cord*.89);
         float rib=max(1.-smoothstep(55.3,57.6,panel.y),smoothstep(30.5,32.1,panel.x));
         diffuseColor.rgb*=1.-rib*(.12+.09*sin((panel.x+garmentPosition.z)*14.)*fabricAA);
+        ${detail?`
+        float pocketEdge=min(min(abs(panel.y-pocketTop),abs(panel.y-59.1)),abs(panel.x-7.15));
+        float topstitch=pocket*(1.-smoothstep(.09,.24,pocketEdge))*smoothstep(-.3,.5,sin((panel.x+panel.y)*9.5));
+        float pocketLip=front*smoothstep(4.1,4.7,panel.x)*(1.-smoothstep(7.15,7.5,panel.x))*(1.-smoothstep(.1,.58,abs(panel.y-pocketTop)));
+        diffuseColor.rgb*=1.+topstitch*.68-pocketLip*.42;
+        float eyeletRadius=length(vec2(panel.x-(1.65+.36*sin(79.*.48)),(panel.y-78.8)*1.06));
+        float eyelet=front*(1.-smoothstep(.43,.6,eyeletRadius));
+        float eyeletRing=eyelet*smoothstep(.2,.34,eyeletRadius);
+        diffuseColor.rgb=mix(diffuseColor.rgb,drawcordColor*(.27+eyeletRing*.65),eyelet);
+        float tip=cord*(1.-smoothstep(69.85,70.6,panel.y));
+        diffuseColor.rgb=mix(diffuseColor.rgb,drawcordColor*1.45,tip);
+        float shoulderY=panel.y-74.;
+        float shoulderSeam=(1.-smoothstep(.1,.48,abs(panel.x-(14.+.065*shoulderY*shoulderY))))*smoothstep(69.,72.,panel.y);
+        diffuseColor.rgb*=1.-shoulderSeam*.2+shoulderSeam*.39*smoothstep(.1,.85,sin((panel.y+garmentPosition.z)*8.));
+        float ribColumns=mix(panel.x,garmentPosition.z,smoothstep(21.,27.,panel.x));
+        float ribDetail=sin(ribColumns*8.)*(1.-smoothstep(.5,2.,fwidth(ribColumns*8.)));
+        diffuseColor.rgb*=1.+rib*.23*ribDetail;
+        // Small double-bar embroidery on the left chest, away from the cords.
+        vec2 mark=vec2(garmentPosition.x-5.15+.38*(panel.y-73.4),panel.y-73.4);
+        float embroidery=(1.-smoothstep(.55,.69,abs(mark.y)))*(1.-smoothstep(.13,.22,abs(abs(mark.x)-.4)))*front;
+        diffuseColor.rgb=mix(diffuseColor.rgb,drawcordColor*(.85+.21*sin(mark.y*31.)),embroidery*.9);
+        `:''}
         `:''}
         ${style==='sweats'?`
         float outside=smoothstep(.54,.82,abs(garmentPosition.x)/max(length(garmentPosition.xz),.1));
         float stitch=(1.-smoothstep(.13,.43,abs(garmentPosition.z+2.4)))*outside;
         float knitCuff=1.-smoothstep(11.6,13.8,garmentPosition.y);
         diffuseColor.rgb*=1.+.21*stitch-knitCuff*(.17+.08*sin(garmentPosition.z*14.)*fabricAA);
+        ${detail?`
+        vec3 cloth=garmentPosition;
+        float outerPanel=smoothstep(8.8,10.9,abs(cloth.x));
+        float pipedEdge=1.-smoothstep(.11,.36,abs(cloth.z+1.9+.035*(cloth.y-28.)));
+        float seamLight=outerPanel*pipedEdge*smoothstep(12.,16.,cloth.y)*(1.-smoothstep(49.,54.,cloth.y));
+        float dash=smoothstep(-.4,.7,sin(cloth.y*10.));
+        diffuseColor.rgb*=1.+seamLight*(.2+.42*dash);
+        float opening=smoothstep(1.6,3.6,cloth.z)*smoothstep(43.,45.,cloth.y)*(1.-smoothstep(50.,51.,cloth.y))
+          *(1.-smoothstep(.12,.4,abs(abs(cloth.x)-(7.7+.38*(cloth.y-47.)))));
+        diffuseColor.rgb*=1.-.43*opening;
+        float ankleYarn=sin((cloth.x*.65+cloth.z)*8.5);
+        diffuseColor.rgb*=1.+knitCuff*.19*ankleYarn*(1.-smoothstep(.5,2.,fwidth((cloth.x*.65+cloth.z)*8.5)));
+        `:''}
         `:''}
         ${!top?`float seam=1.-smoothstep(.10,.26,abs(abs(garmentPosition.x)-7.));
         diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*${denim?'1.6':'.7'},seam*.4);
         float cuff=1.-smoothstep(11.,12.,garmentPosition.y);diffuseColor.rgb*=1.-cuff*.18;`:''}
       `);
     };
-    material.customProgramCacheKey=()=>`garment-${style}`;
+    material.customProgramCacheKey=()=>`garment-${style}-${detail}`;
     const mesh=new T.SkinnedMesh(g,material);mesh.name=`Wardrobe ${style}`;mesh.position.copy(source.position);mesh.quaternion.copy(source.quaternion);mesh.scale.copy(source.scale);mesh.bindMode=source.bindMode;mesh.bind(source.skeleton,source.bindMatrix);createBodyShape(mesh)(player);mesh.castShadow=true;mesh.frustumCulled=false;source.parent.add(mesh);parts.push(mesh);
     if(hood){
       // An open, folded hood behind the neck; a separate skinned piece gives
@@ -116,7 +166,9 @@ export function createAthleteGarments(body) {
         for(let k=0;k<4;k++){skinIndex.push(g.attributes.skinIndex.getComponent(best,k));skinWeight.push(g.attributes.skinWeight.getComponent(best,k));}
       }
       hoodGeometry.setAttribute('skinIndex',new T.Uint16BufferAttribute(skinIndex,4));hoodGeometry.setAttribute('skinWeight',new T.Float32BufferAttribute(skinWeight,4));
-      const hoodMesh=new T.SkinnedMesh(hoodGeometry,material.clone());hoodMesh.name='Wardrobe folded hood';hoodMesh.position.copy(source.position);hoodMesh.quaternion.copy(source.quaternion);hoodMesh.scale.copy(source.scale);hoodMesh.bindMode=source.bindMode;hoodMesh.bind(source.skeleton,source.bindMatrix);hoodMesh.castShadow=true;hoodMesh.frustumCulled=false;source.parent.add(hoodMesh);parts.push(hoodMesh);
+      const hoodMaterial=material.clone();
+      if(detail){hoodMaterial.onBeforeCompile=material.onBeforeCompile;hoodMaterial.customProgramCacheKey=material.customProgramCacheKey;}
+      const hoodMesh=new T.SkinnedMesh(hoodGeometry,hoodMaterial);hoodMesh.name='Wardrobe folded hood';hoodMesh.position.copy(source.position);hoodMesh.quaternion.copy(source.quaternion);hoodMesh.scale.copy(source.scale);hoodMesh.bindMode=source.bindMode;hoodMesh.bind(source.skeleton,source.bindMatrix);hoodMesh.castShadow=true;hoodMesh.frustumCulled=false;source.parent.add(hoodMesh);parts.push(hoodMesh);
     }
   }
   return {apply(outfit,player){const next=outfit?[outfit.top.id,outfit.shorts.id,JSON.stringify(outfit.top.jersey),bodyMass(player)].join('|'):'';if(next===key)return;key=next;clear();if(outfit)for(const source of sources)for(const item of [outfit.top,outfit.shorts])garment(source,item,player);},dispose:clear};
