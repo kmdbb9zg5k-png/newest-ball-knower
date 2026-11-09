@@ -83,7 +83,7 @@ try {
       const product = page.getByRole('dialog', { name: 'Blackout Gear Kit', exact: true });
       await product.getByText('Store Test Athlete', { exact: true }).waitFor();
       const frame = product.frameLocator('iframe[title="Game gear 3D preview"]');
-      await frame.locator('canvas').waitFor();
+      await frame.locator('canvas[data-uniform=blackout]').waitFor();
       await frame.locator('#status').waitFor({ state: 'hidden' });
       await product.getByRole('slider', { name: 'Rotate player', exact: true }).press('ArrowRight');
       await page.screenshot({ path: artifacts + '/try-on-' + width + '.png' });
@@ -111,12 +111,20 @@ try {
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: artifacts + '/catalog-' + width + '.png' });
 
-    if (width === 1280) {
+    if (width === 390 || width === 1280) {
       await categories.getByRole('button', { name: 'Tunnel Fits', exact: true }).click();
       await catalog.getByRole('button', { name: /^Tunnel Fit Hoodie/ }).click();
       const tunnel = page.getByRole('dialog', { name: 'Tunnel Fit', exact: true });
       await tunnel.getByRole('button', { name: 'Try on', exact: true }).click();
       await tunnel.locator('[data-athlete-live-preview][data-render-state="ready"]').waitFor();
+      const preview = tunnel.locator('.bk-athlete-3d-preview');
+      assert.ok(await preview.evaluate(element => {
+        const stage = element.querySelector('.bk-athlete-3d-stage').getBoundingClientRect();
+        const canvas = element.querySelector('canvas').getBoundingClientRect();
+        const footer = element.querySelector('.bk-athlete-preview-footer').getBoundingClientRect();
+        return Math.abs(canvas.left - stage.left) < 2 && Math.abs(canvas.width - stage.width) < 2
+          && Math.abs(canvas.height - stage.height) < 2 && footer.top >= stage.bottom - 1;
+      }), 'Tunnel Fit canvas must fit its stage and clear the controls');
       await tunnel.getByRole('button', { name: 'Close product', exact: true }).click();
       assert.equal(await categories.getByRole('button', { name: 'Tunnel Fits', exact: true }).getAttribute('aria-pressed'), 'true');
       assert.deepEqual(await readSave(), before, 'Tunnel Fit preview must not save premium clothing');

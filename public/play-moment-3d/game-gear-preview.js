@@ -10,8 +10,10 @@ try{
  const player={index:5,team:0,role:'QB',x:0,z:0,heading:0,vx:0,vz:0,distance:0,hasBall:false,number:1,lastName:'MY PLAYER',gameGear:sanitizeGameGear(null)};
  let angle=.35,dirty=true,loaded=false;
  function update(data){
-  const team=miniTeam(data.team);
-  Object.assign(player,{gameGear:sanitizeGameGear(data.gear),kitPrimary:team.primary,kitJersey:team.primary,kitTrim:team.secondary,kitInk:'#fff5dc',number:Math.max(0,Math.min(99,Math.floor(Number.isFinite(Number(data.number))?Number(data.number):1))),lastName:String(data.name||'MY PLAYER').trim().split(/\s+/).at(-1).slice(0,24)});
+  const blackout=data.blackout===true;
+  const team=blackout?{primary:'#18191d',secondary:'#24262b'}:miniTeam(data.team);
+  canvas.dataset.uniform=blackout?'blackout':'team';
+  Object.assign(player,{gameGear:sanitizeGameGear(blackout?{...data.gear,facemask:'black'}:data.gear),kitPrimary:team.primary,kitJersey:team.primary,kitTrim:team.secondary,kitInk:'#fff5dc',number:Math.max(0,Math.min(99,Math.floor(Number.isFinite(Number(data.number))?Number(data.number):1))),lastName:String(data.name||'MY PLAYER').trim().split(/\s+/).at(-1).slice(0,24)});
   angle=Number.isFinite(data.rotation)?data.rotation*Math.PI/180:.35;
   prepareJerseys(renderer,[player]);dirty=true;
  }

@@ -271,7 +271,17 @@
 .bk-store-game-preview label { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 5px 10px; font-size: 12px; }
 .bk-store-game-preview input { flex: 1; min-width: 0; accent-color: var(--store-gold); }
 .bk-store-preview-loading { padding: 16px; }
-.bk-store-try-on .bk-athlete-3d-stage { height: min(34dvh, 325px); min-height: 205px; }
+/* The Store can open before any screen that loads the athlete studio CSS. */
+.bk-store-try-on .bk-athlete-3d-preview { position: relative; display: grid; grid-template-rows: auto auto auto; width: 100%; height: auto; min-height: 0; margin: 0; overflow: hidden; }
+.bk-store-try-on .bk-athlete-3d-preview figcaption { position: static; padding: 6px 10px; font-size: 11px; color: var(--store-muted); }
+.bk-store-try-on .bk-athlete-3d-preview figcaption span { margin-left: 6px; }
+.bk-store-try-on .bk-athlete-3d-stage { position: relative; inset: auto; width: 100%; height: clamp(185px, 32dvh, 325px); min-height: 0; overflow: hidden; touch-action: pan-y; }
+.bk-store-try-on .bk-athlete-3d-stage canvas { display: block; width: 100%; height: 100%; }
+.bk-store-try-on .bk-athlete-preview-footer { position: static; display: grid; gap: 4px; padding: 8px 10px; font-size: 12px; }
+.bk-store-try-on .bk-athlete-preview-footer label { display: grid; gap: 2px; }
+.bk-store-try-on .bk-athlete-preview-footer input { width: 100%; min-height: 32px; accent-color: var(--store-gold); }
+.bk-store-try-on .bk-athlete-preview-message { position: absolute; inset: 28px 0 72px; display: grid; place-content: center; padding: 12px; text-align: center; }
+.bk-store-visor-note { margin: 0; padding: 0 10px 8px; font-size: 11px; color: var(--store-muted); }
 
 @media (min-width: 720px) {
   .bk-store { padding: 20px 20px 36px; }

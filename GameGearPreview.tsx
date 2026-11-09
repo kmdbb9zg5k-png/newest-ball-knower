@@ -2,10 +2,11 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { AthletePassport } from './athletePassport';
 import type { GameGear } from './playerGameGear';
 
-export default function GameGearPreview({ athlete, gear, rotation }: {
+export default function GameGearPreview({ athlete, gear, rotation, blackout = false }: {
   athlete: AthletePassport | null;
   gear: GameGear;
   rotation: number;
+  blackout?: boolean;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const send = useCallback(() => {
@@ -13,11 +14,12 @@ export default function GameGearPreview({ athlete, gear, rotation }: {
       type: 'bk-game-gear-preview',
       gear,
       rotation,
+      blackout,
       name: athlete?.name,
       number: athlete?.number,
       team: athlete?.team,
     }, location.origin);
-  }, [athlete, gear, rotation]);
+  }, [athlete, gear, rotation, blackout]);
 
   useEffect(() => {
     const onReady = (event: MessageEvent) => {
@@ -29,5 +31,5 @@ export default function GameGearPreview({ athlete, gear, rotation }: {
     return () => window.removeEventListener('message', onReady);
   }, [send]);
 
-  return <iframe ref={frame} title="Game gear 3D preview" src="/game-gear-preview.html" onLoad={send}/>;
+  return <iframe ref={frame} title="Game gear 3D preview" src="/game-gear-preview.html?v=2" onLoad={send}/>;
 }
