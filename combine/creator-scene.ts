@@ -34,11 +34,11 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
     key.shadow.normalBias=.02;key.target.position.y=.85;scene.add(key.target);
     floor.receiveShadow=true;
   }
-  const head = showroom && initial.showroomSample ? await import('./showroom-head').then(module=>module.loadShowroomHead()) : null;
+  const sample = showroom && initial.showroomSample ? await import('./showroom-head').then(module=>module.loadShowroomAthlete()) : null;
   let runner:Awaited<ReturnType<typeof loadCombineRunner>>;
-  try{runner=await loadCombineRunner(initial,showroom,Boolean(head));}catch(error){releaseDrillRenderer(renderer);floor.geometry.dispose();floor.material.dispose();trim?.geometry.dispose();trim?.material.dispose();throw error;}
+  try{runner=await loadCombineRunner(initial,showroom,Boolean(sample));}catch(error){releaseDrillRenderer(renderer);floor.geometry.dispose();floor.material.dispose();trim?.geometry.dispose();trim?.material.dispose();sample?.dispose();throw error;}
   scene.add(runner.root);
-  if(head){runner.root.add(head);renderer.domElement.dataset.showroomModel='high-detail';}
+  if(sample){runner.root.add(sample.head,...sample.forearms.map(arm=>arm.mesh));renderer.domElement.dataset.showroomModel='high-detail';}
   let angle=.16,disposed=false,view:CreatorView='body',athleteHeight=initial.heightInches||72;
   function draw(){if(!disposed)renderer.render(scene,camera);}
   function resize(){
@@ -55,7 +55,7 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
     else{camera.position.set(0,1.07,Math.max(3.9,1.9/camera.aspect));camera.lookAt(0,1.02,0);}
     camera.updateProjectionMatrix();draw();
   }
-  function update(profile:any){athleteHeight=profile.heightInches||72;runner.setAthlete(profile);runner.poseCreator(profile);runner.root.rotation.y=angle;resize();}
+  function update(profile:any){athleteHeight=profile.heightInches||72;runner.setAthlete(profile);runner.poseCreator(profile);sample?.fitHands(runner.root);runner.root.rotation.y=angle;resize();}
   function rotate(value:number){angle=value;runner.root.rotation.y=angle;draw();}
   update(initial);
   const observer=new ResizeObserver(resize);observer.observe(host);resize();

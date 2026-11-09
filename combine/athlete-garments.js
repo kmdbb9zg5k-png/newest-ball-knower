@@ -1,6 +1,8 @@
 import * as T from 'three';
 import {mergeVertices} from 'three/addons/utils/BufferGeometryUtils.js';
 import {clipGarment,trouserGeometry,topGeometry} from './garment-geometry.js';
+import {createShowroomTrainer} from './showroom-trainers.js';
+import {showroomHoodGeometry,showroomJoggerPosition,smoothShowroomHips} from './showroom-cloth.js';
 import {bodyMass,createBodyShape} from './body-shape.js';
 
 // Garments reuse the athlete's bind-space skin weights so sleeves and trouser
@@ -9,7 +11,7 @@ export function createAthleteGarments(body,showroom=false) {
   const sources=[];
   body.traverse(mesh=>{if(mesh.isSkinnedMesh)sources.push(mesh);});
   let key='',parts=[];
-  function clear(){for(const mesh of parts){mesh.removeFromParent();mesh.geometry.dispose();mesh.material.userData.jerseyTexture?.dispose();mesh.material.dispose();}parts=[];}
+  function clear(){for(const mesh of parts){mesh.removeFromParent();mesh.geometry.dispose();for(const material of Array.isArray(mesh.material)?mesh.material:[mesh.material]){material.userData.jerseyTexture?.dispose();material.dispose();}}parts=[];}
   function garment(source,item,player){
     const style=item.style;if(!style)return;
     const top=item.slot==='top',hood=style==='hoodie',short=style==='tee'||style==='jersey',denim=style==='jeans';
@@ -37,6 +39,8 @@ export function createAthleteGarments(body,showroom=false) {
           y=T.MathUtils.lerp(y,74.8,.23*sleeve);
           z=T.MathUtils.lerp(z,-1,.22*waist);
           z=T.MathUtils.lerp(z,sleeveDepth,.23*sleeve);
+        }else if(detail){
+          [x,y,z]=showroomJoggerPosition(x,y,z);
         }else if(tunnel){
           const hips=T.MathUtils.smoothstep(y,33,41)*(1-T.MathUtils.smoothstep(y,47,56.5));
           const leg=1-T.MathUtils.smoothstep(y,33,42);
@@ -45,9 +49,13 @@ export function createAthleteGarments(body,showroom=false) {
           x=T.MathUtils.lerp(x,legCenter,.23*leg)*(1-.16*hips);
           z=T.MathUtils.lerp(z,-2.3+2.3*legProgress,.21*leg)*(1-.15*hips);
         }
-        const fold=tunnel
+        let fold=tunnel
           ?.15*gather*Math.sin(along*.95+z*.67+Math.abs(x)*.51)
           :.36*gather*(.5+.5*Math.sin(along*1.65+z*.36+x*.24));
+        if(detail&&!hood){
+          const ankle=Math.exp(-((y-13)**2)/15),knee=Math.exp(-((y-24)**2)/18);
+          fold+=.19*(ankle+knee*.72)*Math.sin(y*1.65+z*.69+x*.22);
+        }
         if(detail&&hood){
           const pocketTop=66.4-Math.max(0,Math.abs(x)-3.7)*1.02;
           const pocket=(1-T.MathUtils.smoothstep(Math.abs(x),6.2,7.6))*T.MathUtils.smoothstep(y,58.5,60.2)*(1-T.MathUtils.smoothstep(y,pocketTop-1.6,pocketTop));
@@ -55,6 +63,7 @@ export function createAthleteGarments(body,showroom=false) {
         }
         position.setXYZ(i,x+normal.getX(i)*fold,y+normal.getY(i)*fold,z+normal.getZ(i)*fold);
       }
+      if(detail&&!hood)smoothShowroomHips(base);
       base.computeVertexNormals();
     }
     let g=top?clipGarment(base,[p=>length-p.x,p=>length+p.x]):base;
@@ -165,8 +174,8 @@ export function createAthleteGarments(body,showroom=false) {
     if(hood){
       // An open, folded hood behind the neck; a separate skinned piece gives
       // the hoodie an actual silhouette rather than a painted-on collar.
-      const hoodGeometry=new T.SphereGeometry(1,24,16,0,Math.PI*2,Math.PI*.25,Math.PI*.65);
-      hoodGeometry.scale(6.5,tunnel?5:6,tunnel?3.7:4.5);hoodGeometry.rotateX(-.8);hoodGeometry.translate(0,79,-5);
+      const hoodGeometry=detail?showroomHoodGeometry():new T.SphereGeometry(1,24,16,0,Math.PI*2,Math.PI*.25,Math.PI*.65);
+      if(!detail){hoodGeometry.scale(6.5,tunnel?5:6,tunnel?3.7:4.5);hoodGeometry.rotateX(-.8);hoodGeometry.translate(0,79,-5);}
       const hp=hoodGeometry.attributes.position,skinIndex=[],skinWeight=[];
       for(let i=0;i<hp.count;i++){
         let best=0,distance=Infinity;
@@ -179,5 +188,14 @@ export function createAthleteGarments(body,showroom=false) {
       const hoodMesh=new T.SkinnedMesh(hoodGeometry,hoodMaterial);hoodMesh.name='Wardrobe folded hood';hoodMesh.position.copy(source.position);hoodMesh.quaternion.copy(source.quaternion);hoodMesh.scale.copy(source.scale);hoodMesh.bindMode=source.bindMode;hoodMesh.bind(source.skeleton,source.bindMatrix);hoodMesh.castShadow=true;hoodMesh.frustumCulled=false;source.parent.add(hoodMesh);parts.push(hoodMesh);
     }
   }
-  return {apply(outfit,player){const next=outfit?[outfit.top.id,outfit.shorts.id,JSON.stringify(outfit.top.jersey),bodyMass(player)].join('|'):'';if(next===key)return;key=next;clear();if(outfit)for(const source of sources)for(const item of [outfit.top,outfit.shorts])garment(source,item,player);},dispose:clear};
+  function trainers(source,item){
+    for(const side of ['Left','Right']){
+      const shoe=createShowroomTrainer(source,side,item.color);
+      if(shoe){source.parent.add(shoe);parts.push(shoe);}
+    }
+  }
+  return {apply(outfit,player){const next=outfit?[outfit.top.id,outfit.shorts.id,showroom?outfit.shoes.id:'',JSON.stringify(outfit.top.jersey),bodyMass(player)].join('|'):'';if(next===key)return;key=next;clear();if(outfit)for(const source of sources){
+    for(const item of [outfit.top,outfit.shorts])garment(source,item,player);
+    if(showroom&&outfit.shoes.id==='shoes-tunnel-fit')trainers(source,outfit.shoes);
+  }},dispose:clear};
 }
