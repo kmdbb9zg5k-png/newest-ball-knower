@@ -143,9 +143,11 @@ try {
       await page.waitForFunction(() => document.querySelector('[aria-label="Hoodie detail"]')?.getAttribute('aria-pressed') === 'true');
       assert.equal(await hoodiePhoto.getAttribute('aria-pressed'), 'true', 'Horizontal gallery navigation follows the visible photo');
       const tryOn = tunnel.getByRole('button', { name: 'Try on in 3D', exact: true });
+      const modelResponse = page.waitForResponse('**/store/tunnel-fit-athlete-v1.glb');
       await tryOn.click();
       const showroom = page.getByRole('dialog', { name: 'Tunnel Fit', exact: true });
       await showroom.locator('[data-athlete-live-preview][data-render-state="ready"]').waitFor();
+      assert.ok((await modelResponse).ok(), 'The full athlete model must load from the Store asset path');
       await showroom.getByText('$2.99', { exact: true }).waitFor();
       assert.equal(await showroom.getByRole('button', { name: '3D try-on' }).getAttribute('aria-pressed'), 'true');
       const preview = showroom.locator('.bk-athlete-3d-preview');
@@ -163,7 +165,7 @@ try {
       const detailViews = preview.getByRole('group', { name: 'Outfit detail views' });
       assert.equal(await detailViews.getByRole('button', { name: 'Full outfit' }).getAttribute('aria-pressed'), 'true');
       const canvas = preview.locator('canvas');
-      assert.equal(await canvas.getAttribute('data-showroom-model'), width === 320 ? 'high-detail' : null);
+      assert.equal(await canvas.getAttribute('data-showroom-model'), 'tunnel-fit-athlete');
       const fullFit = await canvas.screenshot();
       let previousFrame = fullFit;
       for (const [label, view] of [['Face','head'], ['Hoodie','hoodie'], ['Sweats','sweats'], ['Trainers','trainers']]) {
@@ -187,6 +189,18 @@ try {
         await page.mouse.move(box.x + box.width * .72, box.y + box.height * .5, { steps: 3 });
         await page.mouse.up();
         assert.notDeepEqual(await canvas.screenshot(), fullFit, 'Dragging the stage rotates the athlete');
+        await preview.getByRole('button', { name: 'Reset view' }).click();
+        for (let turn = 0; turn < 12; turn++) {
+          await preview.getByRole('button', { name: 'Rotate right' }).click();
+          if (turn === 5) assert.notDeepEqual(await canvas.screenshot(), fullFit, 'The full model renders from the back');
+        }
+        assert.deepEqual(await canvas.screenshot(), fullFit, 'The full model can rotate all the way around');
+        await preview.getByRole('button', { name: 'Try my athlete' }).click();
+        await preview.getByText('Store Test Athlete', { exact: true }).waitFor();
+        await showroom.locator('[data-athlete-live-preview][data-render-state="ready"]').waitFor();
+        assert.equal(await canvas.getAttribute('data-showroom-model'), null, 'Personal try-on uses the saved athlete');
+        await preview.getByRole('button', { name: 'See sample athlete' }).click();
+        await preview.locator('canvas[data-showroom-model="tunnel-fit-athlete"]').waitFor();
       }
       await showroom.getByRole('button', { name: 'Product photos' }).click();
       await showroom.waitFor({ state: 'hidden' });

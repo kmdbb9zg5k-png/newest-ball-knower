@@ -497,6 +497,20 @@ body:has(.bk-tunnel-showroom[open]) { overflow: hidden; }
   pointer-events: none;
 }
 .bk-tunnel-showroom .bk-showroom-identity span { color: #fff0d8; }
+.bk-tunnel-showroom .bk-showroom-athlete-toggle {
+  width: max-content;
+  min-height: 44px;
+  margin-top: 2px;
+  padding: 0 9px;
+  border: 1px solid #e6cda77a;
+  border-radius: 7px;
+  background: #0e0b08b8;
+  color: #fff0d8;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: auto;
+}
 .bk-tunnel-showroom .bk-showroom-reset {
   position: absolute;
   z-index: 2;

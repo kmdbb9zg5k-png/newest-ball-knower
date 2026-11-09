@@ -36,7 +36,7 @@ function ProductCard({ product, onOpen }: { product: StoreProduct; onOpen: (prod
   </button>;
 }
 
-function TryOnPreview({ athlete, preview }: { athlete: AthletePassport | null; preview: NonNullable<StoreProduct['tryOn']> }) {
+function TryOnPreview({ athlete, preview, onSwitchAthlete }: { athlete: AthletePassport | null; preview: NonNullable<StoreProduct['tryOn']>; onSwitchAthlete?: () => void }) {
   const [rotation, setRotation] = useState(20);
 
   if ('gear' in preview) {
@@ -57,7 +57,8 @@ function TryOnPreview({ athlete, preview }: { athlete: AthletePassport | null; p
     showroomSample: !athlete,
   };
   return <Suspense fallback={<p className="bk-store-preview-loading" role="status">Preparing your athlete…</p>}>
-    <AthleteLivePreview profile={profile} previewOutfit={outfit} showroom={preview.outfit.top === 'top-tunnel-fit'}/>
+    <AthleteLivePreview profile={profile} previewOutfit={outfit} showroom={preview.outfit.top === 'top-tunnel-fit'}
+      showroomAthleteToggle={onSwitchAthlete ? { label: athlete ? 'See sample athlete' : 'Try my athlete', onClick: onSwitchAthlete } : undefined}/>
   </Suspense>;
 }
 
@@ -101,6 +102,7 @@ function ProductDialog({ selection, onClose }: { selection: Selection; onClose: 
 function TunnelShowroom({ product, athlete, onExit }: { product: StoreProduct; athlete: AthletePassport | null; onExit: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const title = useRef<HTMLHeadingElement>(null);
+  const [useSavedAthlete, setUseSavedAthlete] = useState(false);
   useEffect(() => {
     const element = dialog.current;
     if (element && !element.open) {
@@ -121,7 +123,10 @@ function TunnelShowroom({ product, athlete, onExit }: { product: StoreProduct; a
         <button type="button" aria-pressed="false" onClick={close}>Product photos</button>
         <button type="button" aria-pressed="true">3D try-on</button>
       </div>
-      {product.tryOn && <div className="bk-tunnel-showroom-preview"><TryOnPreview athlete={athlete} preview={product.tryOn}/></div>}
+      {product.tryOn && <div className="bk-tunnel-showroom-preview">
+        <TryOnPreview athlete={useSavedAthlete ? athlete : null} preview={product.tryOn}
+          onSwitchAthlete={athlete ? () => setUseSavedAthlete(value => !value) : undefined}/>
+      </div>}
       <footer className="bk-tunnel-showroom-footer">
         <strong>{product.name}</strong>
         <div className="bk-store-price-status"><strong>{storePrice(product)}</strong><span>Planned price</span></div>
