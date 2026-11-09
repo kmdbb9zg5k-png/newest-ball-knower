@@ -125,6 +125,7 @@ try {
         return Math.abs(canvas.left - stage.left) < 2 && Math.abs(canvas.width - stage.width) < 2
           && Math.abs(canvas.height - stage.height) < 2 && footer.top >= stage.bottom - 1;
       }), 'Tunnel Fit canvas must fit its stage and clear the controls');
+      await tunnel.screenshot({ path: artifacts + '/tunnel-fit-' + width + '.png' });
       await tunnel.getByRole('button', { name: 'Close product', exact: true }).click();
       assert.equal(await categories.getByRole('button', { name: 'Tunnel Fits', exact: true }).getAttribute('aria-pressed'), 'true');
       assert.deepEqual(await readSave(), before, 'Tunnel Fit preview must not save premium clothing');

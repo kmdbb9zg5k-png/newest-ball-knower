@@ -281,7 +281,6 @@
 .bk-store-try-on .bk-athlete-preview-footer label { display: grid; gap: 2px; }
 .bk-store-try-on .bk-athlete-preview-footer input { width: 100%; min-height: 32px; accent-color: var(--store-gold); }
 .bk-store-try-on .bk-athlete-preview-message { position: absolute; inset: 28px 0 72px; display: grid; place-content: center; padding: 12px; text-align: center; }
-.bk-store-visor-note { margin: 0; padding: 0 10px 8px; font-size: 11px; color: var(--store-muted); }
 
 @media (min-width: 720px) {
   .bk-store { padding: 20px 20px 36px; }

@@ -14,6 +14,19 @@ export function createAthleteGarments(body) {
     const top=item.slot==='top',hood=style==='hoodie',short=style==='tee'||style==='jersey',denim=style==='jeans';
     const length=short?21:34;
     const base=top?topGeometry():trouserGeometry();
+    // Shape the fabric in bind space before clipping the hems, so the folds
+    // follow the same skin weights as the surrounding cloth.
+    if(hood||style==='sweats'){
+      const {position,normal}=base.attributes;
+      for(let i=0;i<position.count;i++){
+        const x=position.getX(i),y=position.getY(i),z=position.getZ(i);
+        const along=hood&&Math.abs(x)>18?Math.abs(x):y;
+        const gather=hood?Math.max(Math.exp(-((y-57)**2)/11),Math.exp(-((Math.abs(x)-29)**2)/14)):Math.max(Math.exp(-((y-14)**2)/18),Math.exp(-((y-29)**2)/32));
+        const fold=.36*gather*(.5+.5*Math.sin(along*1.65+z*.36+x*.24));
+        position.setXYZ(i,x+normal.getX(i)*fold,y+normal.getY(i)*fold,z+normal.getZ(i)*fold);
+      }
+      base.computeVertexNormals();
+    }
     const g=top?clipGarment(base,[p=>length-p.x,p=>length+p.x]):base;
     if(top)base.dispose();
     const p=g.attributes.position;
@@ -29,10 +42,11 @@ export function createAthleteGarments(body) {
       jerseyTexture=new T.CanvasTexture(canvas);material.userData.jerseyTexture=jerseyTexture;
     }
     material.onBeforeCompile=shader=>{
+      if(hood)shader.uniforms.drawcordColor={value:new T.Color(item.accent||'#96948e')};
       if(jerseyTexture){shader.uniforms.jerseyPrint={value:jerseyTexture};shader.uniforms.jerseyAccent={value:new T.Color(item.accent)};}
 
       shader.vertexShader='varying vec3 garmentPosition;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\ngarmentPosition=position;');
-      shader.fragmentShader=(jerseyTexture?'uniform sampler2D jerseyPrint; uniform vec3 jerseyAccent;\n':'')+'varying vec3 garmentPosition;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+      shader.fragmentShader=(jerseyTexture?'uniform sampler2D jerseyPrint; uniform vec3 jerseyAccent;\n':'')+(hood?'uniform vec3 drawcordColor;\n':'')+'varying vec3 garmentPosition;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
         ${jerseyTexture?`float back=step(garmentPosition.z,-2.0);
         vec2 printUV=vec2((mix(garmentPosition.x,-garmentPosition.x,back)+9.)/18.,(garmentPosition.y-58.)/21.);
         if(printUV.x>=0.&&printUV.x<=1.&&printUV.y>=0.&&printUV.y<=1.){vec4 ink=texture2D(jerseyPrint,vec2(printUV.x*.5+back*.5,printUV.y));diffuseColor.rgb=mix(diffuseColor.rgb,ink.rgb,ink.a);}
@@ -40,6 +54,26 @@ export function createAthleteGarments(body) {
         float fabricAA=1.-smoothstep(.3,1.,fwidth(garmentPosition.x*9.));
         float weave=sin((garmentPosition.x+garmentPosition.y)*55.)*sin(garmentPosition.y*43.);
         diffuseColor.rgb*=1.+${denim?'.12':'.035'}*weave*fabricAA;
+        ${hood?`
+        vec2 panel=vec2(abs(garmentPosition.x),garmentPosition.y);
+        float front=smoothstep(3.0,6.0,garmentPosition.z);
+        // Symmetric kangaroo pocket, angled openings, and two hanging cords.
+        float pocketTop=66.4-max(0.,panel.x-3.7)*1.02;
+        float pocket=front*(1.-smoothstep(7.2,7.6,panel.x))*smoothstep(58.5,59.0,panel.y)*(1.-smoothstep(pocketTop,pocketTop+.35,panel.y));
+        float pocketStitch=pocket*(1.-smoothstep(.14,.40,min(pocketTop-panel.y,panel.y-59.0)));
+        diffuseColor.rgb*=1.-pocket*.13+pocketStitch*.37;
+        float cordX=1.65+.36*sin(panel.y*.48)+.05*(79.-panel.y);
+        float cord=front*(1.-smoothstep(.16,.32,abs(panel.x-cordX)))*smoothstep(69.1,69.8,panel.y)*(1.-smoothstep(79.,79.6,panel.y));
+        diffuseColor.rgb=mix(diffuseColor.rgb,drawcordColor*.67,cord*.89);
+        float rib=max(1.-smoothstep(55.3,57.6,panel.y),smoothstep(30.5,32.1,panel.x));
+        diffuseColor.rgb*=1.-rib*(.12+.09*sin((panel.x+garmentPosition.z)*14.)*fabricAA);
+        `:''}
+        ${style==='sweats'?`
+        float outside=smoothstep(.54,.82,abs(garmentPosition.x)/max(length(garmentPosition.xz),.1));
+        float stitch=(1.-smoothstep(.13,.43,abs(garmentPosition.z+2.4)))*outside;
+        float knitCuff=1.-smoothstep(11.6,13.8,garmentPosition.y);
+        diffuseColor.rgb*=1.+.21*stitch-knitCuff*(.17+.08*sin(garmentPosition.z*14.)*fabricAA);
+        `:''}
         ${!top?`float seam=1.-smoothstep(.10,.26,abs(abs(garmentPosition.x)-7.));
         diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*${denim?'1.6':'.7'},seam*.4);
         float cuff=1.-smoothstep(11.,12.,garmentPosition.y);diffuseColor.rgb*=1.-cuff*.18;`:''}

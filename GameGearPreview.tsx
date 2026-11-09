@@ -31,5 +31,5 @@ export default function GameGearPreview({ athlete, gear, rotation, blackout = fa
     return () => window.removeEventListener('message', onReady);
   }, [send]);
 
-  return <iframe ref={frame} title="Game gear 3D preview" src="/game-gear-preview.html?v=2" onLoad={send}/>;
+  return <iframe ref={frame} title="Game gear 3D preview" src="/game-gear-preview.html?v=3" onLoad={send}/>;
 }

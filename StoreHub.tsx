@@ -37,7 +37,6 @@ function TryOnPreview({ athlete, preview }: { athlete: AthletePassport | null; p
     return <div className="bk-store-game-preview">
       <GameGearPreview athlete={athlete} gear={gear} rotation={rotation} blackout/>
       <label>Rotate player<input type="range" min={-180} max={180} value={rotation} onChange={event => setRotation(Number(event.target.value))}/></label>
-      <p className="bk-store-visor-note">See the smoked visor in the product art.</p>
     </div>;
   }
 
