@@ -136,7 +136,7 @@ try {
         localStorage.setItem('bk-combine-forty-v1', JSON.stringify([
           { context: 'standalone', playerId: 'store-check-athlete', name: 'Store Test Athlete', position: 'WR', splits: [1.6, 2.8, 4.6], date: Date.now() },
         ]));
-        localStorage.setItem('ballknower_gauntlet_progress_v2:guest', JSON.stringify({
+        localStorage.setItem('ballknower_gauntlet_progress_v2:user-default-1', JSON.stringify({
           daily: { '2026-11-08': { score: 7, completed: true } },
         }));
       });
