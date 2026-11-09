@@ -1,4 +1,5 @@
 import * as T from 'three';
+import {mergeVertices} from 'three/addons/utils/BufferGeometryUtils.js';
 import {clipGarment,trouserGeometry,topGeometry} from './garment-geometry.js';
 import {bodyMass,createBodyShape} from './body-shape.js';
 
@@ -49,15 +50,22 @@ export function createAthleteGarments(body,showroom=false) {
           :.36*gather*(.5+.5*Math.sin(along*1.65+z*.36+x*.24));
         if(detail&&hood){
           const pocketTop=66.4-Math.max(0,Math.abs(x)-3.7)*1.02;
-          const pocket=(1-T.MathUtils.smoothstep(Math.abs(x),6.9,7.6))*T.MathUtils.smoothstep(y,58.5,59.6)*(1-T.MathUtils.smoothstep(y,pocketTop-.7,pocketTop));
-          z+=.36*pocket*T.MathUtils.smoothstep(z,3,5.2);
+          const pocket=(1-T.MathUtils.smoothstep(Math.abs(x),6.2,7.6))*T.MathUtils.smoothstep(y,58.5,60.2)*(1-T.MathUtils.smoothstep(y,pocketTop-1.6,pocketTop));
+          z+=.25*pocket*T.MathUtils.smoothstep(z,3,5.2);
         }
         position.setXYZ(i,x+normal.getX(i)*fold,y+normal.getY(i)*fold,z+normal.getZ(i)*fold);
       }
       base.computeVertexNormals();
     }
-    const g=top?clipGarment(base,[p=>length-p.x,p=>length+p.x]):base;
+    let g=top?clipGarment(base,[p=>length-p.x,p=>length+p.x]):base;
     if(top)base.dispose();
+    if(detail&&top){
+      // The clipped triangles share vertices again so reshaping the preview
+      // can compute smooth lighting across the pocket and shoulder panels.
+      const clipped=g;
+      g=mergeVertices(clipped);
+      clipped.dispose();
+    }
     const p=g.attributes.position;
     const material=new T.MeshStandardMaterial({color:item.color,roughness:detail?.81:denim?.93:.88,side:T.DoubleSide});
     let jerseyTexture=null;
