@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Archive, ArrowLeft, ChevronRight, Shirt, Trophy, X } from 'lucide-react';
 import { DEFAULT_ATHLETE_APPEARANCE } from './athleteAppearance';
 import { recommendedAthleteBuild } from './athleteBuild';
@@ -7,7 +7,7 @@ import GameGearPreview from './GameGearPreview';
 import { sanitizeGameGear } from './playerGameGear';
 import { readOutfit } from './playerWardrobe';
 import {
-  BLACKOUT_KIT, FEATURED_PACKS, STORE_CATEGORIES, STORE_PRODUCTS,
+  BLACKOUT_KIT, STORE_CATEGORIES, STORE_PRODUCTS,
   storeImage, storePrice, type StoreCategory, type StoreFilter, type StoreProduct,
 } from './storeCatalog';
 import './store.css';
@@ -16,11 +16,18 @@ const AthleteLivePreview = lazy(() => import('./AthleteLivePreview'));
 const StoreRewards = lazy(() => import('./StoreRewards'));
 
 type StorePage = 'featured' | 'catalog' | 'rewards';
-type Selection = { product: StoreProduct; tryOn?: boolean };
+type Selection = { product: StoreProduct };
+const campaignCards = ['tunnel-fit', 'chrome-grip'].map(id => STORE_PRODUCTS.find(product => product.id === id)!);
+const tunnelPhotos = [
+  { file: 'tunnel-look', label: 'Full outfit', alt: 'Athlete wearing the graphite Tunnel Fit in a stadium tunnel' },
+  { file: 'tunnel-hoodie', label: 'Hoodie detail', alt: 'Graphite fleece, warm gold drawcord tips and chest embroidery' },
+  { file: 'tunnel-sweats', label: 'Sweats detail', alt: 'Graphite jogger pocket and stitching' },
+  { file: 'tunnel-trainers', label: 'Trainer detail', alt: 'Slate trainer with a mesh upper and layered sole' },
+] as const;
 
 function ProductCard({ product, onOpen }: { product: StoreProduct; onOpen: (product: StoreProduct) => void }) {
-  return <button className="bk-store-product" type="button" onClick={() => onOpen(product)}>
-    <img src={storeImage(product.id)} alt="" loading="lazy" decoding="async"/>
+  return <button className="bk-store-product" type="button" data-store-product={product.id} onClick={() => onOpen(product)}>
+    <img src={storeImage(product.id === 'tunnel-fit' ? 'tunnel-kit' : product.id)} alt="" loading="lazy" decoding="async"/>
     <span className="bk-store-product-text">
       <strong>{product.name}</strong>
       <span>{product.summary}</span>
@@ -58,7 +65,7 @@ function ProductDialog({ selection, onClose }: { selection: Selection; onClose: 
   const { product } = selection;
   const dialog = useRef<HTMLDialogElement>(null);
   const [athlete] = useState(readAthletePassport);
-  const [trying, setTrying] = useState(Boolean(selection.tryOn));
+  const [trying, setTrying] = useState(false);
 
   useEffect(() => {
     if (dialog.current && !dialog.current.open) dialog.current.showModal();
@@ -91,6 +98,93 @@ function ProductDialog({ selection, onClose }: { selection: Selection; onClose: 
   </dialog>;
 }
 
+function TunnelProductPage({ product, onBack }: { product: StoreProduct; onBack: () => void }) {
+  const [athlete] = useState(readAthletePassport);
+  const [trying, setTrying] = useState(false);
+  const [activePhoto, setActivePhoto] = useState(0);
+  const title = useRef<HTMLHeadingElement>(null);
+  const showcase = useRef<HTMLDivElement>(null);
+  const track = useRef<HTMLDivElement | null>(null);
+  const photoIndex = useRef(0);
+  const modes = useRef<HTMLDivElement>(null);
+
+  const attachGallery = useCallback((element: HTMLDivElement | null) => {
+    track.current = element;
+    if (element) element.scrollLeft = element.clientWidth * photoIndex.current;
+  }, []);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    title.current?.focus({ preventScroll: true });
+  }, []);
+
+  function switchMode(next: boolean, fromAction = false) {
+    setTrying(next);
+    if (fromAction) {
+      showcase.current?.scrollIntoView({ block: 'start', behavior: 'instant' });
+      modes.current?.querySelector<HTMLButtonElement>('[data-try-on-mode]')?.focus({ preventScroll: true });
+    }
+  }
+
+  function selectPhoto(index: number) {
+    const rail = track.current;
+    if (!rail) return;
+    photoIndex.current = index;
+    setActivePhoto(index);
+    rail.scrollTo({ left: rail.clientWidth * index, behavior: 'instant' });
+  }
+
+  return <section className="bk-store bk-store-product-page" aria-labelledby="bk-tunnel-title">
+    <header className="bk-store-product-header">
+      <button className="bk-store-product-back" type="button" onClick={onBack} aria-label="Back to shop"><ArrowLeft size={22} aria-hidden="true"/></button>
+      <h1 id="bk-tunnel-title" ref={title} tabIndex={-1}>{product.name}</h1>
+    </header>
+    <div className="bk-tunnel-layout">
+      <div className="bk-tunnel-showcase" ref={showcase}>
+        {trying && product.tryOn
+          ? <div className="bk-store-try-on">
+              <div className="bk-store-try-on-label"><Shirt size={15} aria-hidden="true"/><strong>{athlete ? athlete.name : 'Sample athlete'}</strong><span>Try-on preview</span></div>
+              <TryOnPreview athlete={athlete} preview={product.tryOn}/>
+            </div>
+          : <>
+              <div className="bk-tunnel-gallery" ref={attachGallery} onScroll={event => {
+                const rail = event.currentTarget;
+                if (!rail.clientWidth) return;
+                const index = Math.min(tunnelPhotos.length - 1, Math.max(0, Math.round(rail.scrollLeft / rail.clientWidth)));
+                photoIndex.current = index;
+                setActivePhoto(index);
+              }}>
+                {tunnelPhotos.map(({ file, alt }, index) =>
+                  <img key={file} src={storeImage(file)} alt={alt} aria-hidden={activePhoto !== index} loading={index === 0 ? 'eager' : 'lazy'} decoding="async"/>)}
+              </div>
+              <div className="bk-tunnel-thumbnails" role="group" aria-label="Product photo gallery">
+                {tunnelPhotos.map(({ file, label }, index) =>
+                  <button key={file} type="button" aria-label={label} aria-pressed={activePhoto === index} onClick={() => selectPhoto(index)}>
+                    <img src={storeImage(file)} alt="" loading="lazy" decoding="async"/>
+                  </button>)}
+              </div>
+            </>}
+        <div className="bk-tunnel-modes" role="group" aria-label="Product view" ref={modes}>
+          <button type="button" aria-pressed={!trying} onClick={() => switchMode(false)}>Product photos</button>
+          <button type="button" aria-pressed={trying} data-try-on-mode onClick={() => switchMode(true)}>3D try-on</button>
+        </div>
+      </div>
+      <div className="bk-tunnel-product-info">
+        <div className="bk-tunnel-product-heading">
+          <div><h2>{product.name}</h2><p>Graphite hoodie, sweats &amp; slate trainers</p></div>
+          <div className="bk-store-price-status"><strong>{storePrice(product)}</strong><span>Planned price</span></div>
+        </div>
+        {!trying && <button className="bk-store-button bk-store-button-gold bk-tunnel-try-on" type="button" onClick={() => switchMode(true, true)}>Try on in 3D</button>}
+        <details className="bk-tunnel-details">
+          <summary>What’s included</summary>
+          <p>{product.description}</p>
+          <ul className="bk-store-includes">{product.includes.map(item => <li key={item}>{item}</li>)}</ul>
+        </details>
+      </div>
+    </div>
+  </section>;
+}
+
 export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet }: {
   initialCategory?: StoreCategory;
   onOpenLocker: () => void;
@@ -99,6 +193,9 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
   const [page, setPage] = useState<StorePage>(initialCategory ? 'catalog' : 'featured');
   const [filter, setFilter] = useState<StoreFilter>(initialCategory ?? 'all');
   const [selection, setSelection] = useState<Selection | null>(null);
+  const [tunnelProduct, setTunnelProduct] = useState<StoreProduct | null>(null);
+  const store = useRef<HTMLElement>(null);
+  const returnToCard = useRef<{ id: string; top: number } | null>(null);
   const title = useRef<HTMLHeadingElement>(null);
   const viewAll = useRef<HTMLButtonElement>(null);
   const navigated = useRef(false);
@@ -114,11 +211,33 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
     (page === 'featured' ? viewAll.current : title.current)?.focus({ preventScroll: true });
   }, [page]);
 
-  const showProduct = (product: StoreProduct) => setSelection({ product });
+  useEffect(() => {
+    if (tunnelProduct || !returnToCard.current) return;
+    const { id, top } = returnToCard.current;
+    returnToCard.current = null;
+    window.scrollTo({ top, behavior: 'instant' });
+    store.current?.querySelector<HTMLButtonElement>('[data-store-product="' + id + '"]')?.focus({ preventScroll: true });
+  }, [tunnelProduct]);
+
+  const showProduct = (product: StoreProduct) => {
+    if (product.id === 'tunnel-fit') {
+      returnToCard.current = { id: product.id, top: window.scrollY };
+      setTunnelProduct(product);
+    } else {
+      setSelection({ product });
+    }
+  };
   const matchingProducts = filter === 'all' ? STORE_PRODUCTS : STORE_PRODUCTS.filter(product => product.categories.includes(filter));
   const heading = page === 'featured' ? 'Store' : page === 'catalog' ? 'Shop the Store' : 'Earn Free Gear';
 
-  return <section className="bk-store" aria-labelledby="bk-store-title">
+  const categoryButtons = <div className="bk-store-filters" role="group" aria-label="Shop categories">
+    {[{ id: 'all', label: 'All' } as const, ...STORE_CATEGORIES].map(category =>
+      <button type="button" key={category.id} aria-pressed={filter === category.id} onClick={() => setFilter(category.id)}>{category.label}</button>)}
+  </div>;
+
+  if (tunnelProduct) return <TunnelProductPage product={tunnelProduct} onBack={() => setTunnelProduct(null)}/>;
+
+  return <section className="bk-store" ref={store} aria-labelledby="bk-store-title">
     {page !== 'featured' && <button className="bk-store-back" type="button" onClick={() => openPage('featured')}><ArrowLeft size={17} aria-hidden="true"/> Back to Store</button>}
     <header className="bk-store-header">
       <h1 id="bk-store-title" ref={title} tabIndex={-1}>{heading}</h1>
@@ -127,25 +246,24 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
 
     {page === 'featured' && <>
       <section className="bk-store-featured" aria-labelledby="bk-store-featured-title">
-        <img className="bk-store-hero-art" src={storeImage(BLACKOUT_KIT.id)} alt="" fetchPriority="high"/>
+        <img className="bk-store-hero-art" src={storeImage('campaign-blackout')} alt="" fetchPriority="high"/>
         <div className="bk-store-featured-copy">
           <span className="bk-store-kicker">Featured Drop</span>
           <h2 id="bk-store-featured-title">Blackout<br/>Gear Kit</h2>
-          <p>{BLACKOUT_KIT.summary}</p>
           <div className="bk-store-featured-actions">
-            <button className="bk-store-button" type="button" onClick={() => setSelection({ product: BLACKOUT_KIT, tryOn: true })}>Try On</button>
-            <button className="bk-store-button bk-store-button-gold" type="button" onClick={() => showProduct(BLACKOUT_KIT)}>View Kit · {storePrice(BLACKOUT_KIT)}</button>
+            <button className="bk-store-button bk-store-button-gold" type="button" onClick={() => showProduct(BLACKOUT_KIT)}>Explore Drop</button>
           </div>
         </div>
       </section>
+      {categoryButtons}
       <section aria-labelledby="bk-store-shop-title" className="bk-store-shop">
         <header className="bk-store-shop-header">
           <h2 id="bk-store-shop-title">Shop the Store</h2>
-          <button ref={viewAll} className="bk-store-button bk-store-view-all" type="button" onClick={() => { setFilter('all'); openPage('catalog'); }}>
+          <button ref={viewAll} className="bk-store-button bk-store-view-all" type="button" onClick={() => openPage('catalog')}>
             View All <ChevronRight size={17} aria-hidden="true"/>
           </button>
         </header>
-        <div className="bk-store-grid">{FEATURED_PACKS.map(product => <ProductCard key={product.id} product={product} onOpen={showProduct}/>)}</div>
+        <div className="bk-store-grid">{(filter === 'all' ? campaignCards : matchingProducts).map(product => <ProductCard key={product.id} product={product} onOpen={showProduct}/>)}</div>
       </section>
       <button className="bk-store-reward-link" type="button" onClick={() => openPage('rewards')}>
         <Trophy size={25} aria-hidden="true"/><span><strong>Earn Free Gear</strong><small>Combine &amp; Gauntlet rewards</small></span><ChevronRight size={20} aria-hidden="true"/>
@@ -154,10 +272,7 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
 
     {page === 'catalog' && <div className="bk-store-catalog">
       <p className="bk-store-intro">Find game-day gear, tunnel outfits, profile packs, and more. Pick an item to see what comes with it.</p>
-      <div className="bk-store-filters" role="group" aria-label="Shop categories">
-        {[{ id: 'all', label: 'All' } as const, ...STORE_CATEGORIES].map(category =>
-          <button type="button" key={category.id} aria-pressed={filter === category.id} onClick={() => setFilter(category.id)}>{category.label}</button>)}
-      </div>
+      {categoryButtons}
       <p className="bk-store-count" role="status">{matchingProducts.length} {matchingProducts.length === 1 ? 'item' : 'items'} · Catalog preview</p>
       <div className="bk-store-grid bk-store-catalog-grid" aria-label="Catalog products">
         {matchingProducts.map(product => <ProductCard key={product.id} product={product} onOpen={showProduct}/>)}

@@ -65,16 +65,12 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
     await page.screenshot({ path: artifacts + '/featured-' + width + '.png' });
 
-    for (const [label, price] of [['Profile Pack', '$1.99'], ['Founder’s Pack', '$7.99']]) {
-      const card = store.getByRole('button', { name: new RegExp(label) });
-      await card.click();
-      const product = page.getByRole('dialog', { name: label, exact: true });
-      await product.getByText(price, { exact: true }).waitFor();
-      await product.getByText('Planned price', { exact: true }).waitFor();
-      await page.keyboard.press('Escape');
-      await product.waitFor({ state: 'hidden' });
-      assert.ok(await card.evaluate(element => element === document.activeElement), 'Closing the product returns focus to its card');
-    }
+    assert.equal(await store.locator('.bk-store-product').count(), 2, 'Store opens on the featured campaign cards');
+    await store.getByRole('button', { name: /Chrome Grip Gloves/ }).getByText('$0.99', { exact: true }).waitFor();
+    const landingCategories = store.getByRole('group', { name: 'Shop categories', exact: true });
+    await landingCategories.getByRole('button', { name: 'Tunnel Fits', exact: true }).click();
+    assert.equal(await store.locator('.bk-store-product').count(), 2);
+    await landingCategories.getByRole('button', { name: 'All', exact: true }).click();
 
     const readSave = () => page.evaluate(() => ({
       athlete: localStorage.getItem('ballknower_solo_my_player_v2'),
@@ -82,8 +78,9 @@ try {
     }));
     const before = await readSave();
     if (width === 390) {
-      await store.getByRole('button', { name: 'Try On', exact: true }).click();
+      await store.getByRole('button', { name: 'Explore Drop', exact: true }).click();
       const product = page.getByRole('dialog', { name: 'Blackout Gear Kit', exact: true });
+      await product.getByRole('button', { name: 'Try on', exact: true }).click();
       await product.getByText('Store Test Athlete', { exact: true }).waitFor();
       const frame = product.frameLocator('iframe[title="Game gear 3D preview"]');
       await frame.locator('canvas[data-uniform=blackout]').waitFor();
@@ -98,6 +95,17 @@ try {
     await store.getByRole('button', { name: 'View All', exact: true }).click();
     const catalog = page.getByRole('region', { name: 'Shop the Store', exact: true });
     const categories = catalog.getByRole('group', { name: 'Shop categories', exact: true });
+    for (const [label, price] of [['Profile Pack', '$1.99'], ['Founder’s Pack', '$7.99']]) {
+      const card = catalog.getByRole('button', { name: new RegExp(label) });
+      await card.click();
+      const product = page.getByRole('dialog', { name: label, exact: true });
+      await product.getByText(price, { exact: true }).waitFor();
+      await product.getByText('Planned price', { exact: true }).waitFor();
+      await page.keyboard.press('Escape');
+      await product.waitFor({ state: 'hidden' });
+      assert.ok(await card.evaluate(element => element === document.activeElement), 'Closing the product returns focus to its card');
+    }
+
     const cards = catalog.locator('.bk-store-product');
     const counts = { All: 8, 'Game Gear': 3, 'Tunnel Fits': 2, Profile: 2, Celebrations: 1, Franchise: 1, Bundles: 5 };
     for (const [category, count] of Object.entries(counts)) {
@@ -117,8 +125,24 @@ try {
     {
       await categories.getByRole('button', { name: 'Tunnel Fits', exact: true }).click();
       await catalog.getByRole('button', { name: /^Tunnel Fit Hoodie/ }).click();
-      const tunnel = page.getByRole('dialog', { name: 'Tunnel Fit', exact: true });
-      await tunnel.getByRole('button', { name: 'Try on', exact: true }).click();
+      const tunnel = page.getByRole('region', { name: 'Tunnel Fit', exact: true });
+      await tunnel.getByText('$2.99', { exact: true }).waitFor();
+      await tunnel.getByText('Planned price', { exact: true }).waitFor();
+      assert.equal(await tunnel.locator('canvas').count(), 0, 'Product photos do not load the 3D canvas');
+      const photos = tunnel.getByRole('group', { name: 'Product photo gallery' });
+      const mode = tunnel.getByRole('group', { name: 'Product view' });
+      assert.equal(await mode.getByRole('button', { name: 'Product photos' }).getAttribute('aria-pressed'), 'true');
+      await tunnel.locator('.bk-tunnel-gallery img').first().evaluate(image => image.decode());
+      await page.screenshot({ path: artifacts + '/tunnel-photos-' + width + '.png' });
+      const trainerPhoto = photos.getByRole('button', { name: 'Trainer detail' });
+      await trainerPhoto.click();
+      assert.equal(await trainerPhoto.getAttribute('aria-pressed'), 'true');
+      const gallery = tunnel.locator('.bk-tunnel-gallery');
+      await gallery.evaluate(element => element.scrollTo({ left: element.clientWidth, behavior: 'instant' }));
+      const hoodiePhoto = photos.getByRole('button', { name: 'Hoodie detail' });
+      await page.waitForFunction(() => document.querySelector('[aria-label="Hoodie detail"]')?.getAttribute('aria-pressed') === 'true');
+      assert.equal(await hoodiePhoto.getAttribute('aria-pressed'), 'true', 'Horizontal gallery navigation follows the visible photo');
+      await tunnel.getByRole('button', { name: 'Try on in 3D', exact: true }).click();
       await tunnel.locator('[data-athlete-live-preview][data-render-state="ready"]').waitFor();
       const preview = tunnel.locator('.bk-athlete-3d-preview');
       assert.ok(await preview.evaluate(element => {
@@ -149,7 +173,10 @@ try {
       assert.notDeepEqual(await canvas.screenshot(), previousFrame, 'Rotation must redraw the trainer detail view');
       await detailViews.getByRole('button', { name: 'Full outfit' }).click();
       assert.equal(await preview.getAttribute('data-view'), 'body');
-      await tunnel.getByRole('button', { name: 'Close product', exact: true }).click();
+      await mode.getByRole('button', { name: 'Product photos' }).click();
+      assert.equal(await hoodiePhoto.getAttribute('aria-pressed'), 'true', 'Returning to photos restores the selected detail');
+      await tunnel.getByRole('button', { name: 'Back to shop', exact: true }).click();
+      assert.ok(await catalog.getByRole('button', { name: /^Tunnel Fit Hoodie/ }).evaluate(element => element === document.activeElement));
       assert.equal(await categories.getByRole('button', { name: 'Tunnel Fits', exact: true }).getAttribute('aria-pressed'), 'true');
       assert.deepEqual(await readSave(), before, 'Tunnel Fit preview must not save premium clothing');
     }
