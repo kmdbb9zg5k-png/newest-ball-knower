@@ -14,19 +14,30 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
   renderer.setPixelRatio(Math.min(devicePixelRatio||1,showroom?2.5:2));
   renderer.outputColorSpace=T.SRGBColorSpace;
   renderer.toneMapping=T.ACESFilmicToneMapping;
-  renderer.toneMappingExposure=1.35;
+  renderer.toneMappingExposure=showroom?1.17:1.35;
   renderer.domElement.setAttribute('aria-label','Interactive 3D athlete');
   host.appendChild(renderer.domElement);
   const scene=new T.Scene(),camera=new T.PerspectiveCamera(32,1,.05,30);
-  scene.add(new T.HemisphereLight(0xe4efff,0x26322c,showroom?2.0:2.4));
-  const key=new T.DirectionalLight(0xffead0,showroom?4.3:3);key.position.set(3,4,5);scene.add(key);
-  const rim=new T.DirectionalLight(0x9dcfff,showroom?3.8:3);rim.position.set(-3,2,-3);scene.add(rim);
+  scene.add(new T.HemisphereLight(showroom?0xffebd4:0xe4efff,showroom?0x443024:0x26322c,showroom?1.75:2.4));
+  const key=new T.DirectionalLight(showroom?0xffd1a2:0xffead0,showroom?3.8:3);key.position.set(showroom?2:3,showroom?5:4,showroom?3:5);scene.add(key);
+  const rim=new T.DirectionalLight(showroom?0xffbd79:0x9dcfff,showroom?3.35:3);rim.position.set(-3,2,-3);scene.add(rim);
   const fill=new T.DirectionalLight(0xffffff,showroom?1.35:1);fill.position.set(-3,1,4);scene.add(fill);
-  const floor=new T.Mesh(new T.CylinderGeometry(.7,.72,showroom?.065:.035,64),new T.MeshStandardMaterial({color:showroom?0x222a2d:0x19242b,roughness:.7,metalness:.25}));
-  floor.position.y=showroom?-.058:-.045;scene.add(floor);
-  const trim=showroom?new T.Mesh(new T.RingGeometry(.653,.658,96),new T.MeshStandardMaterial({color:0x786343,roughness:.55,metalness:.35,side:T.DoubleSide})):null;
+  const floor=showroom
+    ?new T.Mesh(new T.PlaneGeometry(6,6),new T.ShadowMaterial({opacity:.37,depthWrite:false}))
+    :new T.Mesh(new T.CylinderGeometry(.7,.72,.035,64),new T.MeshStandardMaterial({color:0x19242b,roughness:.7,metalness:.25}));
+  floor.position.y=showroom?-.014:-.045;scene.add(floor);
+  const trim=showroom?new T.Mesh(new T.RingGeometry(.52,.525,96),new T.MeshBasicMaterial({color:0xd0a767,transparent:true,opacity:.66,depthWrite:false,side:T.DoubleSide})):null;
+  let ticks:T.LineSegments<T.BufferGeometry,T.LineBasicMaterial>|undefined;
   if(trim){
-    trim.rotation.x=-Math.PI/2;trim.position.y=-.024;scene.add(trim);
+    floor.rotation.x=-Math.PI/2;
+    trim.rotation.x=-Math.PI/2;trim.position.y=-.01;scene.add(trim);
+    const points=[];
+    for(let i=0;i<12;i++){
+      const angle=i*Math.PI/6;
+      for(const radius of [.525,i%3===0?.558:.54])points.push(new T.Vector3(Math.cos(angle)*radius,-.009,Math.sin(angle)*radius));
+    }
+    ticks=new T.LineSegments(new T.BufferGeometry().setFromPoints(points),new T.LineBasicMaterial({color:0xc6a36c,transparent:true,opacity:.66,depthWrite:false}));
+    scene.add(ticks);
     renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFShadowMap;
     key.castShadow=true;key.shadow.mapSize.set(1024,1024);
     key.shadow.camera.left=key.shadow.camera.bottom=-1.3;
@@ -36,7 +47,7 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
   }
   const sample = showroom && initial.showroomSample ? await import('./showroom-head').then(module=>module.loadShowroomAthlete()) : null;
   let runner:Awaited<ReturnType<typeof loadCombineRunner>>;
-  try{runner=await loadCombineRunner(initial,showroom,Boolean(sample));}catch(error){releaseDrillRenderer(renderer);floor.geometry.dispose();floor.material.dispose();trim?.geometry.dispose();trim?.material.dispose();sample?.dispose();throw error;}
+  try{runner=await loadCombineRunner(initial,showroom,Boolean(sample));}catch(error){releaseDrillRenderer(renderer);floor.geometry.dispose();floor.material.dispose();trim?.geometry.dispose();trim?.material.dispose();ticks?.geometry.dispose();ticks?.material.dispose();sample?.dispose();throw error;}
   scene.add(runner.root);
   if(sample){runner.root.add(sample.head,...sample.forearms.map(arm=>arm.mesh));renderer.domElement.dataset.showroomModel='high-detail';}
   let angle=.16,disposed=false,view:CreatorView='body',athleteHeight=initial.heightInches||72;
@@ -51,7 +62,7 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
       camera.position.set(0,(target+lift)*scale,Math.max(distance,width/camera.aspect)*scale);
       camera.lookAt(0,target*scale,0);
     }
-    else if(showroom){camera.position.set(0,1.04*scale,Math.max(3.62,1.84/camera.aspect)*scale);camera.lookAt(0,.96*scale,0);}
+    else if(showroom){camera.position.set(0,1.23*scale,Math.max(3.58,1.74/camera.aspect)*scale);camera.lookAt(0,.96*scale,0);}
     else{camera.position.set(0,1.07,Math.max(3.9,1.9/camera.aspect));camera.lookAt(0,1.02,0);}
     camera.updateProjectionMatrix();draw();
   }

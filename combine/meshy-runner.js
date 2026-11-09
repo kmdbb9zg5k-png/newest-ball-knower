@@ -281,8 +281,8 @@ export async function loadCombineRunner(player,showroom=false,showroomSkin=false
     body.updateMatrixWorld(true);
     const height=T.MathUtils.clamp((build.heightInches||72)/72,.91,1.12);
     for(const [side,sign]of [['Left',1],['Right',-1]]){
-      solve([side+'UpLeg',side+'Leg',side+'Foot'],v(sign*.14,footHeight*height,.015),v(sign*.16,.5*height,.4),true);
-      solve([side+'Arm',side+'ForeArm',side+'Hand'],v(sign*(.29+(build.shoulderWidth??50)*.0006+bodyMass(build)*.15),.88*height,.05),v(sign*(.47+bodyMass(build)*.12),1.12*height,-.08));
+      solve([side+'UpLeg',side+'Leg',side+'Foot'],v(sign*(showroom?.13:.14),footHeight*height,showroom?(side==='Left'?.078:-.045):.015),v(sign*.16,.5*height,.4),true);
+      solve([side+'Arm',side+'ForeArm',side+'Hand'],v(sign*(.29+(build.shoulderWidth??50)*.0006+bodyMass(build)*.15),.88*height,showroom?(side==='Left'?.065:.019):.05),v(sign*(.47+bodyMass(build)*.12),1.12*height,-.08));
     }
     root.updateMatrixWorld(true);
   }

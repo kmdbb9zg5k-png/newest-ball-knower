@@ -142,22 +142,30 @@ try {
       const hoodiePhoto = photos.getByRole('button', { name: 'Hoodie detail' });
       await page.waitForFunction(() => document.querySelector('[aria-label="Hoodie detail"]')?.getAttribute('aria-pressed') === 'true');
       assert.equal(await hoodiePhoto.getAttribute('aria-pressed'), 'true', 'Horizontal gallery navigation follows the visible photo');
-      await tunnel.getByRole('button', { name: 'Try on in 3D', exact: true }).click();
-      await tunnel.locator('[data-athlete-live-preview][data-render-state="ready"]').waitFor();
-      const preview = tunnel.locator('.bk-athlete-3d-preview');
+      const tryOn = tunnel.getByRole('button', { name: 'Try on in 3D', exact: true });
+      await tryOn.click();
+      const showroom = page.getByRole('dialog', { name: 'Tunnel Fit', exact: true });
+      await showroom.locator('[data-athlete-live-preview][data-render-state="ready"]').waitFor();
+      await showroom.getByText('$2.99', { exact: true }).waitFor();
+      assert.equal(await showroom.getByRole('button', { name: '3D try-on' }).getAttribute('aria-pressed'), 'true');
+      const preview = showroom.locator('.bk-athlete-3d-preview');
       assert.ok(await preview.evaluate(element => {
         const stage = element.querySelector('.bk-athlete-3d-stage').getBoundingClientRect();
         const canvas = element.querySelector('canvas').getBoundingClientRect();
-        const footer = element.querySelector('.bk-athlete-preview-footer').getBoundingClientRect();
+        const controls = element.querySelector('.bk-showroom-orbit').getBoundingClientRect();
+        const footer = element.closest('dialog').querySelector('.bk-tunnel-showroom-footer').getBoundingClientRect();
         return Math.abs(canvas.left - stage.left) < 2 && Math.abs(canvas.width - stage.width) < 2
-          && Math.abs(canvas.height - stage.height) < 2 && footer.top >= stage.bottom - 1;
-      }), 'Tunnel Fit canvas must fit its stage and clear the controls');
-      await tunnel.screenshot({ path: artifacts + '/tunnel-fit-' + width + '.png' });
+          && Math.abs(canvas.height - stage.height) < 2 && controls.top >= stage.bottom - 1
+          && stage.height > innerHeight * .54 && footer.bottom <= innerHeight;
+      }), 'The showroom stage must dominate the viewport and leave room for the controls and price');
+      await page.evaluate(async () => { const image = new Image(); image.src = '/store/tunnel-showroom.webp'; await image.decode(); });
+      await showroom.screenshot({ path: artifacts + '/tunnel-fit-' + width + '.png' });
       const detailViews = preview.getByRole('group', { name: 'Outfit detail views' });
       assert.equal(await detailViews.getByRole('button', { name: 'Full outfit' }).getAttribute('aria-pressed'), 'true');
       const canvas = preview.locator('canvas');
       assert.equal(await canvas.getAttribute('data-showroom-model'), width === 320 ? 'high-detail' : null);
-      let previousFrame = await canvas.screenshot();
+      const fullFit = await canvas.screenshot();
+      let previousFrame = fullFit;
       for (const [label, view] of [['Face','head'], ['Hoodie','hoodie'], ['Sweats','sweats'], ['Trainers','trainers']]) {
         const button = detailViews.getByRole('button', { name: label, exact: true });
         await button.click();
@@ -167,14 +175,28 @@ try {
         assert.notDeepEqual(frame, previousFrame, label + ' must reframe the model');
         previousFrame = frame;
       }
-      const rotate = preview.getByRole('slider', { name: 'Rotate athlete' });
-      await rotate.fill('90');
-      assert.equal(await rotate.inputValue(), '90');
+      await preview.getByRole('button', { name: 'Rotate right' }).click();
       assert.notDeepEqual(await canvas.screenshot(), previousFrame, 'Rotation must redraw the trainer detail view');
-      await detailViews.getByRole('button', { name: 'Full outfit' }).click();
+      await preview.getByRole('button', { name: 'Reset view' }).click();
       assert.equal(await preview.getAttribute('data-view'), 'body');
-      await mode.getByRole('button', { name: 'Product photos' }).click();
+      assert.deepEqual(await canvas.screenshot(), fullFit, 'Reset restores the original view and angle');
+      if (width === 390) {
+        const box = await canvas.boundingBox();
+        await page.mouse.move(box.x + box.width * .38, box.y + box.height * .5);
+        await page.mouse.down();
+        await page.mouse.move(box.x + box.width * .72, box.y + box.height * .5, { steps: 3 });
+        await page.mouse.up();
+        assert.notDeepEqual(await canvas.screenshot(), fullFit, 'Dragging the stage rotates the athlete');
+      }
+      await showroom.getByRole('button', { name: 'Product photos' }).click();
+      await showroom.waitFor({ state: 'hidden' });
+      assert.ok(await tryOn.evaluate(element => element === document.activeElement), 'Closing the showroom restores focus');
       assert.equal(await hoodiePhoto.getAttribute('aria-pressed'), 'true', 'Returning to photos restores the selected detail');
+      if (width === 390) {
+        await mode.getByRole('button', { name: '3D try-on', exact: true }).click();
+        await showroom.getByRole('button', { name: 'Back to product' }).click();
+        await showroom.waitFor({ state: 'hidden' });
+      }
       await tunnel.getByRole('button', { name: 'Back to shop', exact: true }).click();
       assert.ok(await catalog.getByRole('button', { name: /^Tunnel Fit Hoodie/ }).evaluate(element => element === document.activeElement));
       assert.equal(await categories.getByRole('button', { name: 'Tunnel Fits', exact: true }).getAttribute('aria-pressed'), 'true');

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Archive, ArrowLeft, ChevronRight, Shirt, Trophy, X } from 'lucide-react';
 import { DEFAULT_ATHLETE_APPEARANCE } from './athleteAppearance';
 import { recommendedAthleteBuild } from './athleteBuild';
@@ -98,38 +98,53 @@ function ProductDialog({ selection, onClose }: { selection: Selection; onClose: 
   </dialog>;
 }
 
+function TunnelShowroom({ product, athlete, onExit }: { product: StoreProduct; athlete: AthletePassport | null; onExit: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const title = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    const element = dialog.current;
+    if (element && !element.open) {
+      element.showModal();
+      title.current?.focus({ preventScroll: true });
+    }
+  }, []);
+
+  const close = () => dialog.current?.close();
+
+  return <dialog className="bk-store-dialog bk-tunnel-showroom" ref={dialog} aria-labelledby="bk-showroom-title" onClose={onExit}>
+    <div className="bk-tunnel-showroom-layout">
+      <header className="bk-tunnel-showroom-header">
+        <button type="button" className="bk-store-product-back" aria-label="Back to product" onClick={close}><ArrowLeft size={23} aria-hidden="true"/></button>
+        <div><h2 id="bk-showroom-title" ref={title} tabIndex={-1}>{product.name}</h2><p>3D showroom</p></div>
+      </header>
+      <div className="bk-tunnel-modes bk-tunnel-showroom-modes" role="group" aria-label="Product view">
+        <button type="button" aria-pressed="false" onClick={close}>Product photos</button>
+        <button type="button" aria-pressed="true">3D try-on</button>
+      </div>
+      {product.tryOn && <div className="bk-tunnel-showroom-preview"><TryOnPreview athlete={athlete} preview={product.tryOn}/></div>}
+      <footer className="bk-tunnel-showroom-footer">
+        <strong>{product.name}</strong>
+        <div className="bk-store-price-status"><strong>{storePrice(product)}</strong><span>Planned price</span></div>
+      </footer>
+    </div>
+  </dialog>;
+}
+
 function TunnelProductPage({ product, onBack }: { product: StoreProduct; onBack: () => void }) {
   const [athlete] = useState(readAthletePassport);
   const [trying, setTrying] = useState(false);
   const [activePhoto, setActivePhoto] = useState(0);
   const title = useRef<HTMLHeadingElement>(null);
-  const showcase = useRef<HTMLDivElement>(null);
-  const track = useRef<HTMLDivElement | null>(null);
-  const photoIndex = useRef(0);
-  const modes = useRef<HTMLDivElement>(null);
-
-  const attachGallery = useCallback((element: HTMLDivElement | null) => {
-    track.current = element;
-    if (element) element.scrollLeft = element.clientWidth * photoIndex.current;
-  }, []);
+  const track = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
     title.current?.focus({ preventScroll: true });
   }, []);
 
-  function switchMode(next: boolean, fromAction = false) {
-    setTrying(next);
-    if (fromAction) {
-      showcase.current?.scrollIntoView({ block: 'start', behavior: 'instant' });
-      modes.current?.querySelector<HTMLButtonElement>('[data-try-on-mode]')?.focus({ preventScroll: true });
-    }
-  }
-
   function selectPhoto(index: number) {
     const rail = track.current;
     if (!rail) return;
-    photoIndex.current = index;
     setActivePhoto(index);
     rail.scrollTo({ left: rail.clientWidth * index, behavior: 'instant' });
   }
@@ -140,33 +155,25 @@ function TunnelProductPage({ product, onBack }: { product: StoreProduct; onBack:
       <h1 id="bk-tunnel-title" ref={title} tabIndex={-1}>{product.name}</h1>
     </header>
     <div className="bk-tunnel-layout">
-      <div className="bk-tunnel-showcase" ref={showcase}>
-        {trying && product.tryOn
-          ? <div className="bk-store-try-on">
-              <div className="bk-store-try-on-label"><Shirt size={15} aria-hidden="true"/><strong>{athlete ? athlete.name : 'Sample athlete'}</strong><span>Try-on preview</span></div>
-              <TryOnPreview athlete={athlete} preview={product.tryOn}/>
-            </div>
-          : <>
-              <div className="bk-tunnel-gallery" ref={attachGallery} onScroll={event => {
-                const rail = event.currentTarget;
-                if (!rail.clientWidth) return;
-                const index = Math.min(tunnelPhotos.length - 1, Math.max(0, Math.round(rail.scrollLeft / rail.clientWidth)));
-                photoIndex.current = index;
-                setActivePhoto(index);
-              }}>
-                {tunnelPhotos.map(({ file, alt }, index) =>
-                  <img key={file} src={storeImage(file)} alt={alt} aria-hidden={activePhoto !== index} loading={index === 0 ? 'eager' : 'lazy'} decoding="async"/>)}
-              </div>
-              <div className="bk-tunnel-thumbnails" role="group" aria-label="Product photo gallery">
-                {tunnelPhotos.map(({ file, label }, index) =>
-                  <button key={file} type="button" aria-label={label} aria-pressed={activePhoto === index} onClick={() => selectPhoto(index)}>
-                    <img src={storeImage(file)} alt="" loading="lazy" decoding="async"/>
-                  </button>)}
-              </div>
-            </>}
-        <div className="bk-tunnel-modes" role="group" aria-label="Product view" ref={modes}>
-          <button type="button" aria-pressed={!trying} onClick={() => switchMode(false)}>Product photos</button>
-          <button type="button" aria-pressed={trying} data-try-on-mode onClick={() => switchMode(true)}>3D try-on</button>
+      <div className="bk-tunnel-showcase">
+        <div className="bk-tunnel-gallery" ref={track} onScroll={event => {
+          const rail = event.currentTarget;
+          if (!rail.clientWidth) return;
+          const index = Math.min(tunnelPhotos.length - 1, Math.max(0, Math.round(rail.scrollLeft / rail.clientWidth)));
+          setActivePhoto(index);
+        }}>
+          {tunnelPhotos.map(({ file, alt }, index) =>
+            <img key={file} src={storeImage(file)} alt={alt} aria-hidden={activePhoto !== index} loading={index === 0 ? 'eager' : 'lazy'} decoding="async"/>)}
+        </div>
+        <div className="bk-tunnel-thumbnails" role="group" aria-label="Product photo gallery">
+          {tunnelPhotos.map(({ file, label }, index) =>
+            <button key={file} type="button" aria-label={label} aria-pressed={activePhoto === index} onClick={() => selectPhoto(index)}>
+              <img src={storeImage(file)} alt="" loading="lazy" decoding="async"/>
+            </button>)}
+        </div>
+        <div className="bk-tunnel-modes" role="group" aria-label="Product view">
+          <button type="button" aria-pressed="true">Product photos</button>
+          <button type="button" aria-pressed="false" onClick={() => setTrying(true)}>3D try-on</button>
         </div>
       </div>
       <div className="bk-tunnel-product-info">
@@ -174,7 +181,7 @@ function TunnelProductPage({ product, onBack }: { product: StoreProduct; onBack:
           <div><h2>{product.name}</h2><p>Graphite hoodie, sweats &amp; slate trainers</p></div>
           <div className="bk-store-price-status"><strong>{storePrice(product)}</strong><span>Planned price</span></div>
         </div>
-        {!trying && <button className="bk-store-button bk-store-button-gold bk-tunnel-try-on" type="button" onClick={() => switchMode(true, true)}>Try on in 3D</button>}
+        <button className="bk-store-button bk-store-button-gold bk-tunnel-try-on" type="button" onClick={() => setTrying(true)}>Try on in 3D</button>
         <details className="bk-tunnel-details">
           <summary>What’s included</summary>
           <p>{product.description}</p>
@@ -182,6 +189,7 @@ function TunnelProductPage({ product, onBack }: { product: StoreProduct; onBack:
         </details>
       </div>
     </div>
+    {trying && <TunnelShowroom product={product} athlete={athlete} onExit={() => setTrying(false)}/>}
   </section>;
 }
 

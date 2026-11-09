@@ -1,6 +1,7 @@
 import {usePlayerOutfit} from './usePlayerOutfit';
 import {type Outfit} from './playerWardrobe';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
+import {ChevronLeft,ChevronRight,Footprints,PersonStanding,RotateCcw,ScanFace,Shirt} from 'lucide-react';
 import {careerAthleteIdentity} from './athletePassport';
 import type {AthleteBuild} from './athleteBuild';
 import {sanitizeAthleteAppearance,type AthleteAppearance} from './athleteAppearance';
@@ -9,20 +10,25 @@ import type {CreatorView} from './combine/creator-scene';
 type Profile=AthleteBuild&AthleteAppearance&{name:string;number:number;combineId?:string;athletePortrait?:string;wardrobe?:Outfit;showroomSample?:boolean};
 type Scene=Awaited<ReturnType<typeof import('./combine/creator-scene').createCreatorScene>>;
 const asPlayer=(profile:Profile)=>({...profile,id:'my-player-user',cosmeticIdentityId:`my-player-${careerAthleteIdentity(profile).id}`,jerseyNumber:profile.number,athleteAppearance:sanitizeAthleteAppearance(profile),wardrobe:profile.wardrobe});
+const SHOWROOM_ANGLE=18;
 const showroomViews=[
-  {id:'body',label:'Full outfit',detail:'360° look at the complete fit'},
-  {id:'head',label:'Face',detail:'Close-up of the face and hair'},
-  {id:'hoodie',label:'Hoodie',detail:'Knit fleece · gold cords · stitched pocket'},
-  {id:'sweats',label:'Sweats',detail:'Tapered legs · side seams · ribbed cuffs'},
-  {id:'trainers',label:'Trainers',detail:'Mesh panels · contrast laces · molded soles'},
+  {id:'body',label:'Full outfit',Icon:PersonStanding},
+  {id:'head',label:'Face',Icon:ScanFace},
+  {id:'hoodie',label:'Hoodie',Icon:Shirt},
+  {id:'sweats',label:'Sweats',Icon:SweatsIcon},
+  {id:'trainers',label:'Trainers',Icon:Footprints},
 ] as const;
+
+function SweatsIcon({size=20}:{size?:number}){
+  return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12l2 18h-5l-3-12-3 12H4L6 3Z"/><path d="M6 6h12"/></svg>;
+}
 
 export default function AthleteLivePreview({profile:inputProfile,view='body',onViewChange,onPortrait,previewOutfit,showroom=false}:{profile:Profile;previewOutfit?:Outfit;view?:'body'|'head';onViewChange?:(view:'body'|'head')=>void;onPortrait?:(portrait:string)=>void;showroom?:boolean}){
   const equipped=usePlayerOutfit();
   const profile=useMemo(()=>({...inputProfile,wardrobe:previewOutfit||equipped}),[inputProfile,previewOutfit,equipped]);
   const [showroomView,setShowroomView]=useState<(typeof showroomViews)[number]>(showroomViews[0]);
   const activeView=showroom?showroomView.id:view;
-  const host=useRef<HTMLDivElement>(null),scene=useRef<Scene|null>(null),latest=useRef(profile),latestView=useRef<CreatorView>(activeView),angle=useRef(9),drag=useRef<{id:number;x:number;start:number}|null>(null);
+  const host=useRef<HTMLDivElement>(null),scene=useRef<Scene|null>(null),latest=useRef(profile),latestView=useRef<CreatorView>(activeView),angle=useRef(showroom?SHOWROOM_ANGLE:9),drag=useRef<{id:number;x:number;start:number}|null>(null);
   const capturedKey=useRef('');
   const portraitCallback=useRef(onPortrait);portraitCallback.current=onPortrait;
   const appearanceKey=JSON.stringify([profile.name,profile.number,profile.combineId,profile.position,profile.heightInches,profile.weightLbs,profile.bodyBuild,profile.shoulderWidth,profile.armSize,profile.legSize,sanitizeAthleteAppearance(profile),profile.wardrobe]);
@@ -43,16 +49,29 @@ export default function AthleteLivePreview({profile:inputProfile,view='body',onV
   useEffect(()=>{scene.current?.update(asPlayer(profile));},[profile]);
   useEffect(()=>{scene.current?.setView(activeView);},[activeView]);
   useEffect(()=>{if(state!=='ready'||!portraitCallback.current||(capturedKey.current===appearanceKey&&profile.athletePortrait))return;const timer=setTimeout(()=>{try{const portrait=scene.current?.capturePortrait();if(portrait){capturedKey.current=appearanceKey;portraitCallback.current?.(portrait);}}catch{/* Preview and controls remain usable if image export is unavailable. */}},180);return()=>clearTimeout(timer);},[state,appearanceKey,Boolean(profile.athletePortrait)]);
-  const rotate=(value:number)=>{const normalized=((value+180)%360+360)%360-180;angle.current=normalized;setRotation(normalized);scene.current?.rotate(normalized*Math.PI/180);};
+  const rotate=(value:number)=>{const normalized=((value+180)%360+360)%360-180;angle.current=normalized;if(!showroom)setRotation(normalized);scene.current?.rotate(normalized*Math.PI/180);};
+  const dimensions=<>{Math.floor(profile.heightInches/12)}′{profile.heightInches%12}″ <span>· {profile.weightLbs} lb</span></>;
+  function resetShowroom(){
+    setShowroomView(showroomViews[0]);
+    rotate(SHOWROOM_ANGLE);
+  }
   return <figure className={`bk-athlete-live-preview bk-athlete-3d-preview${showroom?' bk-athlete-showroom':''}`} aria-label={`${profile.name||'Created athlete'} ${showroom?showroomView.label.toLowerCase():view==='head'?'close-up':'full-body'} live preview`} data-athlete-live-preview="true" data-render-state={state} data-view={activeView} data-arm-size={profile.armSize} data-skin-tone={profile.skinTone} data-hair-style={profile.hairStyle} data-tattoo-coverage={profile.tattooCoverage}>
-    {showroom ? <figcaption>3D SHOWROOM <span>{showroomView.detail}</span></figcaption> : <figcaption>YOUR ATHLETE <span>3D PREVIEW</span></figcaption>}
+    {showroom ? <figcaption className="bk-showroom-identity"><strong>{profile.name || 'Sample athlete'}</strong><span>{dimensions}</span></figcaption> : <figcaption>YOUR ATHLETE <span>3D PREVIEW</span></figcaption>}
     <div className="bk-athlete-3d-stage" ref={host} onPointerDown={event=>{if(state!=='ready'||(event.pointerType==='mouse'&&event.button!==0))return;drag.current={id:event.pointerId,x:event.clientX,start:angle.current};event.currentTarget.setPointerCapture(event.pointerId);}} onPointerMove={event=>{const active=drag.current;if(active?.id===event.pointerId)rotate(active.start+(event.clientX-active.x)*.65);}} onPointerUp={()=>{drag.current=null;}} onPointerCancel={()=>{drag.current=null;}} onLostPointerCapture={()=>{drag.current=null;}}/>
     {onViewChange&&<div className="bk-athlete-view-toggle" aria-label="Preview framing"><button type="button" aria-pressed={view==='body'} onClick={()=>onViewChange('body')}>Full body</button><button type="button" aria-pressed={view==='head'} onClick={()=>onViewChange('head')}>Close-up</button></div>}
-    {showroom&&<div className="bk-showroom-views" role="group" aria-label="Outfit detail views">
-      {showroomViews.map(option=><button key={option.id} type="button" aria-pressed={activeView===option.id} onClick={()=>setShowroomView(option)}>{option.label}</button>)}
-    </div>}
+    {showroom&&<>
+      <button className="bk-showroom-reset" type="button" aria-label="Reset view" disabled={state!=='ready'} onClick={resetShowroom}><RotateCcw size={20} aria-hidden="true"/></button>
+      <div className="bk-showroom-orbit" role="group" aria-label="Rotate athlete">
+        <button type="button" aria-label="Rotate left" disabled={state!=='ready'} onClick={()=>rotate(angle.current-30)}><ChevronLeft size={20} aria-hidden="true"/></button>
+        <span>Drag to rotate · 360°</span>
+        <button type="button" aria-label="Rotate right" disabled={state!=='ready'} onClick={()=>rotate(angle.current+30)}><ChevronRight size={20} aria-hidden="true"/></button>
+      </div>
+      <div className="bk-showroom-views" role="group" aria-label="Outfit detail views">
+        {showroomViews.map(option=><button key={option.id} type="button" aria-pressed={activeView===option.id} onClick={()=>setShowroomView(option)}><option.Icon size={21} aria-hidden="true"/><span>{option.label}</span></button>)}
+      </div>
+    </>}
     {state==='loading'?<div className="bk-athlete-preview-message" role="status">Preparing your athlete…</div>:null}
     {state==='error'?<div className="bk-athlete-preview-message" role="status"><strong>The 3D preview couldn’t load.</strong><p>Your customization controls still work.</p><button type="button" onClick={()=>setAttempt(value=>value+1)}>Retry preview</button></div>:null}
-    <div className="bk-athlete-preview-footer"><strong>{Math.floor(profile.heightInches/12)}′{profile.heightInches%12}″ <span>· {profile.weightLbs} LB</span></strong><label><span>{showroom?'Drag the model or use the slider':'Drag to rotate · Rotate athlete'}</span><input aria-label="Rotate athlete" type="range" min={-180} max={180} value={rotation} disabled={state!=='ready'} onChange={event=>{rotate(Number(event.target.value));}}/></label></div>
+    {!showroom&&<div className="bk-athlete-preview-footer"><strong>{dimensions}</strong><label><span>Drag to rotate · Rotate athlete</span><input aria-label="Rotate athlete" type="range" min={-180} max={180} value={rotation} disabled={state!=='ready'} onChange={event=>{rotate(Number(event.target.value));}}/></label></div>}
   </figure>;
 }
