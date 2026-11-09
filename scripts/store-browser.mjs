@@ -36,17 +36,17 @@ try {
     });
     await page.route('**/*.supabase.co/**', route => route.abort());
     await page.route('**/api/**', route => route.fulfill({ json: { available: false, tracks: [] } }));
-    await page.addInitScript(() => {
+    await page.addInitScript((width) => {
       localStorage.setItem('ball-knower-team-setup-v2', 'complete');
       localStorage.setItem('ball-knower-intro-completed-v1', '2');
       localStorage.setItem('bk-guide-the-gauntlet-v4', 'seen');
-      if (!localStorage.getItem('ballknower_solo_my_player_v2')) {
+      if (width !== 320 && !localStorage.getItem('ballknower_solo_my_player_v2')) {
         localStorage.setItem('ballknower_solo_my_player_v2', JSON.stringify({
           version: 1, stage: 'combine', name: 'Store Test Athlete', position: 'WR',
           number: 21, combineId: 'store-check-athlete', overall: 68,
         }));
       }
-    });
+    }, width);
     await page.goto(origin);
     const nav = page.getByRole('navigation', { name: mobile ? 'Primary navigation' : 'Desktop primary navigation', exact: true });
     const storeTab = nav.getByRole('button', { name: 'Store', exact: true });
@@ -132,8 +132,9 @@ try {
       const detailViews = preview.getByRole('group', { name: 'Outfit detail views' });
       assert.equal(await detailViews.getByRole('button', { name: 'Full outfit' }).getAttribute('aria-pressed'), 'true');
       const canvas = preview.locator('canvas');
+      assert.equal(await canvas.getAttribute('data-showroom-model'), width === 320 ? 'high-detail' : null);
       let previousFrame = await canvas.screenshot();
-      for (const [label, view] of [['Hoodie','hoodie'], ['Sweats','sweats'], ['Trainers','trainers']]) {
+      for (const [label, view] of [['Face','head'], ['Hoodie','hoodie'], ['Sweats','sweats'], ['Trainers','trainers']]) {
         const button = detailViews.getByRole('button', { name: label, exact: true });
         await button.click();
         assert.equal(await button.getAttribute('aria-pressed'), 'true');

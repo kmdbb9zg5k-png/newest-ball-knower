@@ -289,7 +289,7 @@
   cursor: grab;
 }
 .bk-store-try-on .bk-athlete-showroom .bk-athlete-3d-stage:active { cursor: grabbing; }
-.bk-showroom-views { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 7px 8px; border-block: 1px solid var(--store-border); background: #101419; }
+.bk-showroom-views { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; padding: 7px 8px; border-block: 1px solid var(--store-border); background: #101419; }
 .bk-showroom-views button { min-height: 44px; padding: 4px 2px; border: 1px solid var(--store-border); border-radius: 5px; background: #151a20; color: #d6d5d1; font-size: 11px; font-weight: 750; }
 .bk-showroom-views button[aria-pressed=true] { border-color: var(--store-gold); background: #30281a; color: #f3d995; }
 .bk-showroom-views button:focus-visible { outline: 2px solid var(--store-gold); outline-offset: -3px; }

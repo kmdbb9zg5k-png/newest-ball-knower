@@ -34,16 +34,18 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
     key.shadow.normalBias=.02;key.target.position.y=.85;scene.add(key.target);
     floor.receiveShadow=true;
   }
+  const head = showroom && initial.showroomSample ? await import('./showroom-head').then(module=>module.loadShowroomHead()) : null;
   let runner:Awaited<ReturnType<typeof loadCombineRunner>>;
-  try{runner=await loadCombineRunner(initial,showroom);}catch(error){releaseDrillRenderer(renderer);floor.geometry.dispose();floor.material.dispose();trim?.geometry.dispose();trim?.material.dispose();throw error;}
+  try{runner=await loadCombineRunner(initial,showroom,Boolean(head));}catch(error){releaseDrillRenderer(renderer);floor.geometry.dispose();floor.material.dispose();trim?.geometry.dispose();trim?.material.dispose();throw error;}
   scene.add(runner.root);
+  if(head){runner.root.add(head);renderer.domElement.dataset.showroomModel='high-detail';}
   let angle=.16,disposed=false,view:CreatorView='body',athleteHeight=initial.heightInches||72;
   function draw(){if(!disposed)renderer.render(scene,camera);}
   function resize(){
     const width=host.clientWidth,height=host.clientHeight;if(!width||!height)return;
     renderer.setSize(width,height,false);camera.aspect=width/height;
     const scale=athleteHeight/72,head=1.72*scale;
-    if(view==='head'){camera.position.set(0,head+.06*scale,Math.max(1.18,.72/camera.aspect)*scale);camera.lookAt(0,head-.06*scale,0);}
+    if(view==='head'){camera.position.set(0,head+.06*scale,Math.max(showroom?.78:1.18,.72/camera.aspect)*scale);camera.lookAt(0,head-.06*scale,0);}
     else if(view!=='body'){
       const {target,distance,width,lift}=detailFrames[view];
       camera.position.set(0,(target+lift)*scale,Math.max(distance,width/camera.aspect)*scale);

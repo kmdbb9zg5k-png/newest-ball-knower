@@ -47,6 +47,7 @@ function TryOnPreview({ athlete, preview }: { athlete: AthletePassport | null; p
     name: athlete?.name ?? 'Sample athlete',
     number: athlete?.number ?? 1,
     combineId: athlete?.id ?? 'store-sample',
+    showroomSample: !athlete,
   };
   return <Suspense fallback={<p className="bk-store-preview-loading" role="status">Preparing your athlete…</p>}>
     <AthleteLivePreview profile={profile} previewOutfit={outfit} showroom={preview.outfit.top === 'top-tunnel-fit'}/>

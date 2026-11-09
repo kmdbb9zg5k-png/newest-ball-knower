@@ -6,11 +6,12 @@ import type {AthleteBuild} from './athleteBuild';
 import {sanitizeAthleteAppearance,type AthleteAppearance} from './athleteAppearance';
 import type {CreatorView} from './combine/creator-scene';
 
-type Profile=AthleteBuild&AthleteAppearance&{name:string;number:number;combineId?:string;athletePortrait?:string;wardrobe?:Outfit};
+type Profile=AthleteBuild&AthleteAppearance&{name:string;number:number;combineId?:string;athletePortrait?:string;wardrobe?:Outfit;showroomSample?:boolean};
 type Scene=Awaited<ReturnType<typeof import('./combine/creator-scene').createCreatorScene>>;
 const asPlayer=(profile:Profile)=>({...profile,id:'my-player-user',cosmeticIdentityId:`my-player-${careerAthleteIdentity(profile).id}`,jerseyNumber:profile.number,athleteAppearance:sanitizeAthleteAppearance(profile),wardrobe:profile.wardrobe});
 const showroomViews=[
   {id:'body',label:'Full outfit',detail:'360° look at the complete fit'},
+  {id:'head',label:'Face',detail:'Close-up of the face and hair'},
   {id:'hoodie',label:'Hoodie',detail:'Knit fleece · gold cords · stitched pocket'},
   {id:'sweats',label:'Sweats',detail:'Tapered legs · side seams · ribbed cuffs'},
   {id:'trainers',label:'Trainers',detail:'Mesh panels · contrast laces · molded soles'},

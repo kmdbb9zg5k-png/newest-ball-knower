@@ -10,7 +10,7 @@ const v=(x=0,y=0,z=0)=>new T.Vector3(x,y,z);
 const position=o=>o.getWorldPosition(v());
 const rotation=o=>o.getWorldQuaternion(new T.Quaternion());
 
-export async function loadCombineRunner(player,showroom=false) {
+export async function loadCombineRunner(player,showroom=false,showroomHead=false) {
   const bytes=await loadCombineAsset(COMBINE_CHARACTER_URL);
   let gltf;
   try { gltf=await new GLTFLoader().parseAsync(bytes.slice(0),'/play-moment-3d/assets/'); }
@@ -25,7 +25,7 @@ export async function loadCombineRunner(player,showroom=false) {
   const bones={};body.traverse(o=>{if(o.isBone)bones[o.name.replace('mixamorig','').replace(':','')]=o;if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;for(const m of(Array.isArray(o.material)?o.material:[o.material])){if(m.map)m.map.anisotropy=4;}}});
   const required=['Hips','Spine','Spine1','Spine2','Neck','Head','LeftUpLeg','LeftLeg','LeftFoot','RightUpLeg','RightLeg','RightFoot','LeftArm','LeftForeArm','LeftHand','RightArm','RightForeArm','RightHand'];
   if(required.some(name=>!bones[name]))throw new Error('The Combine character rig is incomplete.');
-  const appearance=createPlayerAppearance(body,bones,showroom);
+  const appearance=createPlayerAppearance(body,bones,showroom,showroomHead);
   const shape=createBodyShape(body);
   const bind=Object.fromEntries(Object.entries(bones).map(([name,b])=>[name,{p:b.position.clone(),q:b.quaternion.clone()}]));
   body.updateMatrixWorld(true);

@@ -71,7 +71,7 @@ function hairMaterial(color,density=1){
   };material.customProgramCacheKey=()=> 'combine-hair-strands-v4-'+density;return material;
 }
 
-export function createPlayerAppearance(body,bones,showroom=false) {
+export function createPlayerAppearance(body,bones,showroom=false,showroomHead=false) {
   const head=bones.Head,group=new T.Group();group.name='CombineHair';
   body.updateMatrixWorld(true);
   const headInverse=head.matrixWorld.clone().invert(),triangles=[],skinUniforms=[];
@@ -102,6 +102,7 @@ export function createPlayerAppearance(body,bones,showroom=false) {
           // The supplied model has permanent sleeve ink in its albedo. Replace
           // only exposed arm skin before applying optional ink. Bind-space
           // coordinates keep the selected pattern attached during animation.
+          ${showroomHead?'if(bkTattooPosition.y>=81.25)discard;':''}
           if(bkKit_enabled>.5&&bkKit_trousers>.5&&bkTattooPosition.y>10.2&&bkTattooPosition.y<56.3)discard;
           if(bkKit_enabled>.5&&bkKit_sleeve>.5&&bkTattooPosition.y>53.6&&bkTattooPosition.y<82.9&&abs(bkTattooPosition.x)<bkKit_sleeve-.1)discard;
           vec3 sourceSkin=diffuseColor.rgb;
@@ -115,6 +116,7 @@ export function createPlayerAppearance(body,bones,showroom=false) {
             *smoothstep(.018,.065,max(diffuseColor.r,max(diffuseColor.g,diffuseColor.b)));
           skinMask=max(skinMask,bkArmMask);
           diffuseColor.rgb*=mix(vec3(1.0),bkSkinTint,skinMask);
+          ${showroomHead?'diffuseColor.rgb*=mix(vec3(1.),vec3(.82,.71,.61),bkArmMask);':''}
           float along=abs(bkTattooPosition.x);
           float arm=bkArmMask*(1.0-smoothstep(36.0,39.0,along));
           float right=step(bkTattooPosition.x,0.0);
@@ -195,7 +197,7 @@ export function createPlayerAppearance(body,bones,showroom=false) {
           diffuseColor.rgb*=1.+.025*weave*weaveAA*(1.-skinMask);
           #endif
         `);
-      };material.customProgramCacheKey=()=> `combine-custom-skin-wardrobe-arms-v2-${showroom}`;material.needsUpdate=true;
+      };material.customProgramCacheKey=()=> `combine-custom-skin-wardrobe-arms-v2-${showroom}-${showroomHead}`;material.needsUpdate=true;
     }
   });
   const garments=createAthleteGarments(body,showroom);
@@ -215,6 +217,7 @@ export function createPlayerAppearance(body,bones,showroom=false) {
     for(const u of skinUniforms){u.tint.value.set(color.r/reference.r,color.g/reference.g,color.b/reference.b);u.tattooCoverage.value=coverageCodes[coverage]??0;u.tattooStyle.value=styleCodes[look.tattooStyle]??4;u.tattooArms.value=look.tattooArms==='both'||!look.tattooArms&&coverage==='both-arms'?2:look.tattooArms==='left'?1:0;}
     // Strands are seeded by immutable identity. Skin and ink are uniforms and
     // must not rebuild thousands of unchanged hair vertices on every edit.
+    if(showroomHead)return;
     const hairKey=[look.identitySeed,look.hairStyle,look.hairColor,look.facialHair].join('|');
     if(currentHairKey===hairKey)return;currentHairKey=hairKey;
     clear();const material=hairMaterial(HAIR[look.hairColor]);
