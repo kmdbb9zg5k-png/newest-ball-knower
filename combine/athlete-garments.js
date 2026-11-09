@@ -12,6 +12,7 @@ export function createAthleteGarments(body) {
   function garment(source,item,player){
     const style=item.style;if(!style)return;
     const top=item.slot==='top',hood=style==='hoodie',short=style==='tee'||style==='jersey',denim=style==='jeans';
+    const tunnel=item.id==='top-tunnel-fit'||item.id==='shorts-tunnel-fit';
     const length=short?21:34;
     const base=top?topGeometry():trouserGeometry();
     // Shape the fabric in bind space before clipping the hems, so the folds
@@ -19,10 +20,31 @@ export function createAthleteGarments(body) {
     if(hood||style==='sweats'){
       const {position,normal}=base.attributes;
       for(let i=0;i<position.count;i++){
-        const x=position.getX(i),y=position.getY(i),z=position.getZ(i);
+        let x=position.getX(i),y=position.getY(i),z=position.getZ(i);
         const along=hood&&Math.abs(x)>18?Math.abs(x):y;
         const gather=hood?Math.max(Math.exp(-((y-57)**2)/11),Math.exp(-((Math.abs(x)-29)**2)/14)):Math.max(Math.exp(-((y-14)**2)/18),Math.exp(-((y-29)**2)/32));
-        const fold=.36*gather*(.5+.5*Math.sin(along*1.65+z*.36+x*.24));
+        // Tailor the Tunnel Fit shell before applying the player's body build.
+        // Taper around each limb's bind-space center to preserve cuff alignment.
+        if(tunnel&&hood){
+          const span=Math.abs(x);
+          const waist=(1-T.MathUtils.smoothstep(y,60,74))*(1-T.MathUtils.smoothstep(span,13,18));
+          const sleeve=T.MathUtils.smoothstep(span,17,31);
+          const sleeveDepth=T.MathUtils.lerp(-3.5,-1.5,T.MathUtils.clamp((span-10)/24,0,1));
+          x*=1-.14*waist;
+          y=T.MathUtils.lerp(y,74.8,.23*sleeve);
+          z=T.MathUtils.lerp(z,-1,.22*waist);
+          z=T.MathUtils.lerp(z,sleeveDepth,.23*sleeve);
+        }else if(tunnel){
+          const hips=T.MathUtils.smoothstep(y,33,41)*(1-T.MathUtils.smoothstep(y,47,56.5));
+          const leg=1-T.MathUtils.smoothstep(y,33,42);
+          const legProgress=T.MathUtils.clamp((y-10)/29,0,1);
+          const legCenter=Math.sign(x)*(8.6-2.3*legProgress);
+          x=T.MathUtils.lerp(x,legCenter,.23*leg)*(1-.16*hips);
+          z=T.MathUtils.lerp(z,-2.3+2.3*legProgress,.21*leg)*(1-.15*hips);
+        }
+        const fold=tunnel
+          ?.15*gather*Math.sin(along*.95+z*.67+Math.abs(x)*.51)
+          :.36*gather*(.5+.5*Math.sin(along*1.65+z*.36+x*.24));
         position.setXYZ(i,x+normal.getX(i)*fold,y+normal.getY(i)*fold,z+normal.getZ(i)*fold);
       }
       base.computeVertexNormals();
@@ -85,7 +107,7 @@ export function createAthleteGarments(body) {
       // An open, folded hood behind the neck; a separate skinned piece gives
       // the hoodie an actual silhouette rather than a painted-on collar.
       const hoodGeometry=new T.SphereGeometry(1,24,16,0,Math.PI*2,Math.PI*.25,Math.PI*.65);
-      hoodGeometry.scale(6.5,6,4.5);hoodGeometry.rotateX(-.8);hoodGeometry.translate(0,79,-5);
+      hoodGeometry.scale(6.5,tunnel?5:6,tunnel?3.7:4.5);hoodGeometry.rotateX(-.8);hoodGeometry.translate(0,79,-5);
       const hp=hoodGeometry.attributes.position,skinIndex=[],skinWeight=[];
       for(let i=0;i<hp.count;i++){
         let best=0,distance=Infinity;
