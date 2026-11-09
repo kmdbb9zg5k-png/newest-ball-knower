@@ -27,7 +27,8 @@ export function createAthleteGarments(body) {
         // Taper around each limb's bind-space center to preserve cuff alignment.
         if(tunnel&&hood){
           const span=Math.abs(x);
-          const waist=(1-T.MathUtils.smoothstep(y,60,74))*(1-T.MathUtils.smoothstep(span,13,18));
+          const hemEase=T.MathUtils.lerp(.46,1,T.MathUtils.smoothstep(y,54,60));
+          const waist=hemEase*(1-T.MathUtils.smoothstep(y,60,74))*(1-T.MathUtils.smoothstep(span,13,18));
           const sleeve=T.MathUtils.smoothstep(span,17,31);
           const sleeveDepth=T.MathUtils.lerp(-3.5,-1.5,T.MathUtils.clamp((span-10)/24,0,1));
           x*=1-.14*waist;
