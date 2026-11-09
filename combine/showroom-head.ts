@@ -1,4 +1,4 @@
-import { BufferGeometry, Matrix4, Mesh, MeshStandardMaterial, Object3D, Texture, Vector3 } from 'three';
+import { BufferGeometry, Matrix4, Mesh, MeshStandardMaterial, Object3D, Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { invalidateCombineAsset, loadCombineAsset } from './asset-loading.js';
 
@@ -84,7 +84,7 @@ export async function loadShowroomAthlete() {
       },
       dispose() {
         for (const mesh of [head, ...forearms.map(arm => arm.mesh)]) mesh.geometry.dispose();
-        for (const value of Object.values(material)) if (value instanceof Texture) value.dispose();
+        for (const texture of new Set([material.map, material.normalMap, material.roughnessMap, material.metalnessMap])) texture?.dispose();
         material.dispose();
       },
     };
