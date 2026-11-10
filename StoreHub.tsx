@@ -103,7 +103,7 @@ function BKFYoungBoyDialog({ product, onClose }: { product: StoreProduct; onClos
         <ul>{product.includes.map(item=><li key={item}>{item}</li>)}</ul>
       </div>
       <footer className="bkf-drop-footer">
-        <button type="button" className="bkf-drop-cta" onClick={() => {setView(view === 'photos' ? '3d' : 'photos');}}><BoxIcon size={21} aria-hidden="true"/>{view === 'photos' ? 'Preview 3D crouch' : 'View cover art'}</button>
+        <button type="button" className="bkf-drop-cta" onClick={() => {setView(view === 'photos' ? '3d' : 'photos');}}><BoxIcon size={21} aria-hidden="true"/>{view === 'photos' ? 'Preview in 3D' : 'View cover art'}</button>
         <div><strong>Coming Soon</strong><span>Concept Collection</span></div>
       </footer>
       <p className="bkf-drop-disclaimer">3D is a prototype. Wearable items and checkout are not available yet.</p>
@@ -129,7 +129,7 @@ function ProductDialog({ selection, onClose }: { selection: Selection; onClose: 
         <button className="bk-store-icon-button" type="button" aria-label="Close product" onClick={() => dialog.current?.close()}><X size={20} aria-hidden="true"/></button>
       </header>
       {trying && product.id === 'bkf-youngboy'
-        ? <Suspense fallback={<p role="status">Preparing YoungBoy's 3D pose…</p>}><BKFYoungBoyPose/></Suspense>
+        ? <Suspense fallback={<p role="status">Preparing YoungBoy's 3D preview…</p>}><BKFYoungBoyPose/></Suspense>
         : trying && product.tryOn
         ? <div className="bk-store-try-on">
             <div className="bk-store-try-on-label"><Shirt size={15} aria-hidden="true"/> <strong>{athlete ? athlete.name : 'Sample athlete'}</strong> <span>Try-on preview</span></div>
@@ -140,7 +140,7 @@ function ProductDialog({ selection, onClose }: { selection: Selection; onClose: 
       <h3>Included</h3>
       <ul className="bk-store-includes">{product.includes.map(item => <li key={item}>{item}</li>)}</ul>
       <div className="bk-store-dialog-actions">
-        {(product.tryOn || product.id === 'bkf-youngboy') && <button type="button" className="bk-store-button" onClick={() => setTrying(value => !value)}>{trying ? 'View product art' : product.id === 'bkf-youngboy' ? 'Preview 3D crouch' : 'Try on'}</button>}
+        {(product.tryOn || product.id === 'bkf-youngboy') && <button type="button" className="bk-store-button" onClick={() => setTrying(value => !value)}>{trying ? 'View product art' : product.id === 'bkf-youngboy' ? 'Preview in 3D' : 'Try on'}</button>}
         <div className="bk-store-price-status">
           <strong>{storePrice(product)}</strong><span>{product.id === 'bkf-youngboy' ? 'Concept collection' : 'Planned price'}</span>
         </div>
