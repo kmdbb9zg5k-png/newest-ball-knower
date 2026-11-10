@@ -149,7 +149,11 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
   },
 ];
 
-export const storeImage = (id: string) => id === 'bkf-youngboy'
+export const storeImage = (id: string) => id === 'gold-standard'
+  ? 'https://v3b.fal.media/files/b/0ab1ee44/enaihGc_oxFoSOBQfobNp_gold_standard_outfit_pack.png'
+  : id === 'gold-standard-realistic'
+  ? 'https://v3b.fal.media/files/b/0ab1ee44/Ko9rmQPklzzMtX5q6LNRn_golden_bk_tracksuit_athlete.png'
+  : id === 'bkf-youngboy'
   ? '/store/bkf-youngboy-cover.webp'
   : id === 'bkf-youngboy-look'
   ? 'https://v3b.fal.media/files/b/0ab1ea94/Xh-J82kvc_xaAQT6S_pUO_USEo0H0r.png'
