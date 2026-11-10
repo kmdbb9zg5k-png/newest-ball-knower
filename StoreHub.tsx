@@ -68,7 +68,7 @@ function TryOnPreview({ athlete, preview }: { athlete: AthletePassport | null; p
   </Suspense>;
 }
 
-const BKF_YOUNGBOY_COVER='https://v3b.fal.media/files/b/0ab1ebc0/SZy6LAJC6FgehcJ-RAMXp_44F09112-7643-4AB6-85FC-39F97383ADE3.jpeg';
+const BKF_YOUNGBOY_COVER='/store/bkf-youngboy-cover.webp';
 
 function BKFYoungBoyDialog({ product, onClose }: { product: StoreProduct; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -94,7 +94,7 @@ function BKFYoungBoyDialog({ product, onClose }: { product: StoreProduct; onClos
         <button type="button" aria-pressed={view === '3d'} onClick={() => setView('3d')}><BoxIcon size={18} aria-hidden="true"/> 3D try-on</button>
       </div>
       <div className="bkf-drop-hero" data-bkf-display={view}>
-        {view === 'photos' ? <img src={art} alt="BKF YoungBoy original luxury black-and-gold artwork: masked athlete crouching in a black hoodie, gold chain and watch, baggy brown cargos and tan boots" onError={() => { if (art !== storeImage(product.id)) setArt(storeImage(product.id)); }}/> :
+        {view === 'photos' ? <img src={art} alt="BKF YoungBoy original luxury black-and-gold artwork: masked athlete crouching in a black hoodie, gold chain and watch, baggy brown cargos and tan boots" onError={() => { if (art !== '/store/bkf-youngboy.svg') setArt('/store/bkf-youngboy.svg'); }}/> :
           <Suspense fallback={<div className="bkf-drop-load" role="status">Preparing YoungBoy's 3D showroom…</div>}><BKFYoungBoyPose/></Suspense>}
       </div>
       <p className="bkf-drop-description">Black shiesty mask. Heavy gold chain. Diamond-style watch. Oversized black hoodie, baggy brown cargos and tan boots. One signature streetwear look.</p>
