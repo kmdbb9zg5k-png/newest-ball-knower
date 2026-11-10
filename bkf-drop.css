@@ -136,3 +136,16 @@
   .bkf-drop-modal--character .bkf-drop-footer>div{text-align:center;}
   .bkf-drop-modal--character .bkf-drop-cta{white-space:normal;}
 }
+
+
+/* The Phantom: midnight-black streetwear capsule with restrained chrome accents. */
+.bk-store-product[data-store-product="bkf-phantom"]{border-color:#b3b5bc88;}
+.bk-store-product[data-store-product="bkf-phantom"] .bk-store-concept-poster.bk-store-character-poster{aspect-ratio:4/5;background:#101011;}
+.bk-store-dialog.bkf-drop-modal--phantom{--store-gold:#d7bb85;border-color:#9d9fa9;box-shadow:0 0 0 1px #555d67,0 0 35px #8892a02d,inset 0 0 30px #91969c10;}
+.bkf-drop-modal--phantom .bkf-drop-shell{background:radial-gradient(ellipse at 55% 0%,#a0a6af20,transparent 38%),#090a0c;}
+.bkf-drop-modal--phantom .bkf-drop-heading p,.bkf-drop-modal--phantom .bkf-drop-brand{color:#ddd5c3;}
+.bkf-drop-modal--phantom .bkf-drop-title{color:#f4f2ed;text-shadow:0 0 20px #b7c3d23d;}
+.bkf-drop-modal--phantom .bkf-drop-tabs button[aria-pressed="true"],.bkf-drop-modal--phantom .bkf-drop-cta{background:linear-gradient(120deg,#f8e4b4,#acb0b6);color:#151618;}
+.bkf-drop-modal--phantom .bkf-drop-hero[data-bkf-photo="poster"]{aspect-ratio:4/5;}
+.bkf-drop-modal--phantom .bkf-drop-hero[data-bkf-photo="realistic"]{aspect-ratio:3/4;background:#98948c;}
+.bkf-drop-modal--phantom .bkf-drop-hero[data-bkf-display="3d"]{background:#151619;}
