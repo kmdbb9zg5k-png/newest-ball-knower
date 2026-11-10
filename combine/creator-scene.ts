@@ -72,7 +72,7 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
     }
     if(fullSample){
       root=fullSample;
-      renderer.domElement.dataset.showroomModel=gold?'gold-standard-athlete':'tunnel-fit-athlete';
+      renderer.domElement.dataset.showroomModel=gold?'gold-standard-athlete-natural-head':'tunnel-fit-athlete';
     }else{
       runner=await loadCombineRunner(initial,showroom,Boolean(fallback));
       root=runner.root;
