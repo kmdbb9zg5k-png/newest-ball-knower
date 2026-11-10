@@ -13,6 +13,7 @@ import { HomeStadiumHero } from './HomeStadiumHero';
 import { HomeMatchups } from './HomeMatchups';
 import { HomeSoloFeature } from './HomeSoloFeature';
 import { HomeMiniGamesFeature } from './HomeMiniGamesFeature';
+import { HomeJourneyFeature } from './HomeJourneyFeature';
 import { buildHomeActivity, homeFeaturedActivity, homeLeagueAction, homeLeaguePhase, homeRatingTier, type HomeActivity } from './homeDashboardState';
 import './homeBroadcast.css';
 import './homeLayout.css';
@@ -155,6 +156,7 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
     <div className="bk-home-discover-heading"><div><p>Make your next play</p><h2>A whole football world.</h2></div><button type="button" onClick={() => onNavigate('play')}>Explore Play<ArrowRight size={16} aria-hidden="true"/></button></div>
     <div className="bk-home-play-promos"><HomeSoloFeature onOpen={() => onNavigate('solo')}/>
     <HomeMiniGamesFeature onOpenFootball={()=>onNavigate('football')}/></div>
+    <HomeJourneyFeature onNavigate={onNavigate}/>
     {!primaryLeague && nextAction}
 
     {featured && <section className="bk-home-featured" aria-labelledby="home-featured-heading">
