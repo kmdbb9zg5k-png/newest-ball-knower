@@ -28,7 +28,7 @@ try {
     await page.getByRole('navigation',{name:width<768?'Primary navigation':'Desktop primary navigation',exact:true}).getByRole('button',{name:'Store',exact:true}).click();
     const store=page.getByRole('region',{name:'Store',exact:true});await store.waitFor();
     const before=await page.evaluate(()=>localStorage.getItem('ballknower_solo_my_player_v2'));
-    for(const id of ['bkf-outlaw','bkf-kickflip']){
+    for(const id of ['bkf-outlaw','bkf-kickflip','bkf-lowrider']){
       checkpoint(`${width}px ${id}: opening product`);
       const card=store.locator(`[data-store-product="${id}"]`);await card.scrollIntoViewIfNeeded();await card.locator('img').evaluate(i=>i.decode());await card.click();
       const dialog=page.locator(`[data-bkf-collection="${id}"]`);await dialog.waitFor();
@@ -63,7 +63,7 @@ try {
     }
     assert.equal(await page.evaluate(()=>localStorage.getItem('ballknower_solo_my_player_v2')),before,'Saved athlete preserved');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
-    assert.deepEqual(errors,[]);console.log(`PASS ${width}px: both posters, photos, 3D rotation, disposal, saved athlete isolation`);
+    assert.deepEqual(errors,[]);console.log(`PASS ${width}px: all character posters, photos, 3D rotation, disposal, saved athlete isolation`);
     checkpoint(`${width}px: closing context`);
     await context.close();
   }

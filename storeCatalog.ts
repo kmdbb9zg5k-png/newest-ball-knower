@@ -137,6 +137,15 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     showcase: { model: '/store/bkf-kickflip-athlete-v1.glb', look: '/store/bkf-kickflip-look.webp', collection: 'Skate Collection', theme: 'kickflip' },
   },
   {
+    id: 'bkf-lowrider', name: 'BKF Lowrider',
+    summary: 'Plaid, baggy khakis & clean white kicks',
+    description: 'Charcoal plaid over a white tank. A black paisley bandana, baggy khakis and crisp white sneakers, finished with a silver chain. Classic lowrider-inspired streetwear on its own showcase character.',
+    priceCents: 0, categories: ['tunnel-fits', 'bundles'],
+    includes: ['Black paisley bandana', 'Plaid short-sleeve shirt', 'White ribbed tank', 'Baggy khaki pants', 'Silver chain', 'White low-top sneakers'],
+    use: 'Lowrider collection',
+    showcase: { model: '/store/bkf-lowrider-athlete-v1.glb', look: '/store/bkf-lowrider-look.webp', collection: 'Lowrider Collection', theme: 'lowrider' },
+  },
+  {
     id: 'ink-pack',
     name: 'Ink Pack',
     summary: 'Three original tattoo designs',
