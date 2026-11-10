@@ -98,6 +98,16 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     tryOn: { outfit: { top: 'top-gold-standard', shorts: 'shorts-gold-standard', shoes: 'shoes-gold-standard' } },
   },
   {
+    id: 'bkf-youngboy',
+    name: 'BKF YoungBoy',
+    summary: 'Shiesty mask, black hoodie, cargos, gold & boots',
+    description: 'Street-luxury concept pack inspired by the approved crouched pose: black ski mask, oversized black BK hoodie, baggy brown cargo trousers, rugged tan boots, Cuban-link gold chain and diamond-style watch. The artwork is a concept preview. Detailed wearable 3D assets, ownership and purchasing are not available yet.',
+    priceCents: 0,
+    categories: ['tunnel-fits', 'bundles'],
+    includes: ['Black BK hoodie', 'Brown baggy cargo pants', 'Black shiesty mask', 'Gold Cuban-link chain', 'Diamond-style watch', 'Tan boots'],
+    use: 'Streetwear concept collection',
+  },
+  {
     id: 'ink-pack',
     name: 'Ink Pack',
     summary: 'Three original tattoo designs',
@@ -129,6 +139,6 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
   },
 ];
 
-export const storeImage = (id: string) => '/store/' + id + '.webp';
+export const storeImage = (id: string) => '/store/' + id + (id === 'bkf-youngboy' ? '.svg' : '.webp');
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
-export const storePrice = (product: StoreProduct) => usd.format(product.priceCents / 100);
+export const storePrice = (product: StoreProduct) => product.id === 'bkf-youngboy' ? 'Coming soon' : usd.format(product.priceCents / 100);
