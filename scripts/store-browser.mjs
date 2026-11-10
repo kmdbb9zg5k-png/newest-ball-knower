@@ -93,7 +93,7 @@ try {
       const goldLive=gold.locator('[data-athlete-live-preview]');
       const goldCanvas=goldLive.locator('canvas[data-showroom-model="gold-standard-athlete"]');
       await goldCanvas.waitFor({timeout:30000});
-      await goldLive.locator('[data-render-state="ready"]').waitFor();
+      await gold.locator('[data-athlete-live-preview][data-render-state="ready"]').waitFor();
       const pixelRatio = await goldCanvas.evaluate(canvas => {
         const rect = canvas.getBoundingClientRect();
         return rect.width ? canvas.width / rect.width : Infinity;
