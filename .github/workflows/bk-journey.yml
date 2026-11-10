@@ -1,0 +1,40 @@
+name: BK Journey rewards
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'HomeDashboard.tsx'
+      - 'HomeJourneyFeature.tsx'
+      - 'BKJourney.tsx'
+      - 'bkJourney.css'
+      - 'migrations/20261110201500_bk_journey_coin_rewards.sql'
+      - 'scripts/bk-journey-*'
+      - 'package.json'
+      - '.github/workflows/bk-journey.yml'
+permissions:
+  contents: read
+jobs:
+  journey:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run check:bk-journey
+      - name: Select browser
+        run: |
+          browser_path="$(command -v google-chrome || command -v google-chrome-stable || true)"
+          if [ -z "$browser_path" ]; then
+            npx playwright install --with-deps chromium
+            browser_path="$(node --input-type=module -e "import {chromium} from 'playwright'; console.log(chromium.executablePath())")"
+          fi
+          echo "BROWSER_PATH=$browser_path" >> "$GITHUB_ENV"
+      - run: node scripts/bk-journey-browser.mjs
