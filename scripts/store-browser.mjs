@@ -90,6 +90,28 @@ try {
       await product.getByRole('button', { name: 'Close product', exact: true }).click();
       await product.waitFor({ state: 'hidden' });
       assert.deepEqual(await readSave(), before, 'Try On must never save an outfit or alter the career');
+
+      // BKF YoungBoy now has its own premium collection page instead of the old generic card modal.
+      await store.locator('[data-store-product="bkf-youngboy"]').click();
+      const youngBoy=page.getByRole('dialog',{name:'BKF YoungBoy',exact:true});
+      await youngBoy.getByRole('heading',{name:'BKF YoungBoy'}).waitFor();
+      const photos=youngBoy.getByRole('button',{name:'Product photos',exact:true});
+      const tryOn=youngBoy.getByRole('button',{name:'3D try-on',exact:true});
+      assert.equal(await photos.getAttribute('aria-pressed'),'true');
+      assert.equal(await tryOn.getAttribute('aria-pressed'),'false');
+      assert.equal(await youngBoy.locator('.bkf-drop-includes li').count(),6);
+      assert.equal(await youngBoy.getByText('Coming Soon',{exact:true}).count(),1);
+      const cover=youngBoy.locator('.bkf-drop-hero > img');
+      await cover.evaluate(img=>img.decode());
+      assert.ok(await cover.evaluate(img=>img.naturalWidth>100),'Approved BKF YoungBoy cover art loads');
+      await tryOn.click();
+      await youngBoy.locator('[data-bkf-rig-preview="youngboy"] canvas').waitFor();
+      assert.equal(await tryOn.getAttribute('aria-pressed'),'true');
+      await youngBoy.getByRole('button',{name:'Product photos',exact:true}).click();
+      assert.equal(await photos.getAttribute('aria-pressed'),'true');
+      await youngBoy.getByRole('button',{name:'Close product'}).click();
+      await youngBoy.waitFor({state:'hidden'});
+      assert.deepEqual(await readSave(),before,'Previewing YoungBoy never purchases or equips items');
     }
 
     await store.getByRole('button', { name: 'View All', exact: true }).click();
