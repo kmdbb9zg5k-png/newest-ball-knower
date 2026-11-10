@@ -9,6 +9,8 @@ on:
       - 'bkf-drop.css'
       - 'store.css'
       - 'public/store/bkf-*'
+      - 'public/store/black-tie*'
+      - 'public/store/ivory-standard*'
       - 'scripts/store-characters-browser.mjs'
       - '.github/workflows/store-characters.yml'
 permissions:

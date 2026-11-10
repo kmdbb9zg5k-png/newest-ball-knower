@@ -27,7 +27,7 @@ const departments = [
   { id: 'clothing', label: 'Clothing' }, { id: 'accessories', label: 'Accessories' },
   { id: 'all', label: 'All Items' },
 ] as const;
-const isCharacter = (product: StoreProduct) => Boolean(product.showcase) || ['bkf-youngboy', 'frostbite'].includes(product.id);
+const isCharacter = (product: StoreProduct) => product.department !== 'clothing' && (Boolean(product.showcase) || ['bkf-youngboy', 'frostbite'].includes(product.id));
 const characterProducts = STORE_PRODUCTS.filter(isCharacter);
 const clothingProducts = STORE_PRODUCTS.filter(product => product.categories.includes('tunnel-fits') && !isCharacter(product) && product.id !== 'ink-pack');
 const accessoryProducts = STORE_PRODUCTS.filter(product => product.id === 'chrome-grip' || product.id === 'ink-pack');
@@ -46,7 +46,7 @@ const goldPhotos = [
 
 function ProductCard({ product, onOpen }: { product: StoreProduct; onOpen: (product: StoreProduct) => void }) {
   return <button className="bk-store-product" type="button" data-store-product={product.id} onClick={() => onOpen(product)}>
-    <span className={"bk-store-card-art" + (isCharacter(product) || product.id === 'gold-standard' || product.id === 'tunnel-fit' ? ' bk-store-card-art--portrait' : '')}>
+    <span className={"bk-store-card-art" + (product.showcase || isCharacter(product) || product.id === 'gold-standard' || product.id === 'tunnel-fit' ? ' bk-store-card-art--portrait' : '')}>
       <img src={storeImage(product.id === 'tunnel-fit' ? 'tunnel-look' : product.id === 'gold-standard' ? 'gold-standard-realistic' : product.id)} alt="" loading="lazy" decoding="async"
         onError={event => { const fallback = product.showcase?.look ?? storeImage(product.id); if (event.currentTarget.getAttribute('src') !== fallback) event.currentTarget.src = fallback; }}/>
     </span>
