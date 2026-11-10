@@ -64,7 +64,7 @@ try {
     await screen.getByText('50',{exact:true}).first().waitFor();
     assert.equal(await screen.locator('.bk-journey-mission').count(),3);
     assert.equal(await screen.getByText('1 / 3', {exact:true}).count(),1,'Only the verified trivia activity is completed');
-    await screen.getByRole('button',{name:'BK Journey'}).click();
+    await screen.getByRole('button',{name:'BK Journey',exact:true}).click();
     assert.equal(await screen.locator('.bk-journey-checkpoint').count(),5);
     const claim=screen.getByRole('button',{name:'Claim reward'});
     assert.equal(await claim.count(),1,'The 100 XP checkpoint is eligible for a single claim');
