@@ -101,7 +101,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     id: 'bkf-youngboy',
     name: 'BKF YoungBoy',
     summary: 'Shiesty mask, black hoodie, cargos, gold & boots',
-    description: 'Street-luxury concept pack inspired by the approved crouched pose: black ski mask, oversized black BK hoodie, baggy brown cargo trousers, rugged tan boots, Cuban-link gold chain and diamond-style watch. The artwork is a concept preview. Detailed wearable 3D assets, ownership and purchasing are not available yet.',
+    description: 'Street-luxury concept pack featuring an upright 3D athlete: black ski mask, oversized black BK hoodie, baggy brown cargo trousers, rugged tan boots, Cuban-link gold chain and diamond-style watch. The artwork is a concept preview. Detailed wearable 3D assets, ownership and purchasing are not available yet.',
     priceCents: 0,
     categories: ['tunnel-fits', 'bundles'],
     includes: ['Black BK hoodie', 'Brown baggy cargo pants', 'Black shiesty mask', 'Gold Cuban-link chain', 'Diamond-style watch', 'Tan boots'],
