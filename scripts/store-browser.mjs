@@ -72,6 +72,35 @@ try {
     assert.equal(await store.locator('.bk-store-product').count(), 5, 'Tunnel Fits includes YoungBoy and Frostbite');
     await landingCategories.getByRole('button', { name: 'All', exact: true }).click();
 
+
+    {
+      const goldCard=store.locator('[data-store-product="gold-standard"]');
+      assert.equal(await goldCard.locator('.bk-store-gold-poster img').count(),1,'Gold Standard card has full portrait cover');
+      assert.ok((await goldCard.locator('img').getAttribute('src')).includes('gold_standard_outfit_pack.png'),'Updated Gold Standard cover is on Store card');
+      await goldCard.click();
+      const gold=page.getByRole('dialog',{name:'Gold Standard',exact:true});
+      await gold.getByRole('heading',{name:'Gold Standard',exact:true}).waitFor();
+      const tabs=gold.getByRole('group',{name:'Product view'});
+      assert.equal(await tabs.getByRole('button').count(),3,'Gold Standard has exactly three views');
+      const posterTab=tabs.getByRole('button',{name:'Full poster'});
+      const realTab=tabs.getByRole('button',{name:'Realistic view'});
+      const modelTab=tabs.getByRole('button',{name:'3D preview'});
+      assert.equal(await posterTab.getAttribute('aria-pressed'),'true');
+      assert.ok((await gold.locator('.bkf-drop-hero img').getAttribute('src')).includes('gold_standard_outfit_pack.png'),'Gold Standard opens on full poster');
+      await realTab.click();
+      assert.ok((await gold.locator('.bkf-drop-hero img').getAttribute('src')).includes('golden_bk_tracksuit_athlete.png'),'Realistic full-body view is the second tab');
+      await modelTab.click();
+      const goldLive=gold.locator('[data-athlete-live-preview]');
+      await goldLive.locator('canvas[data-showroom-model="gold-standard-athlete"]').waitFor({timeout:30000});
+      assert.equal(await gold.getByText('Standard showcase character · Not your saved player').count(),1);
+      assert.equal(await gold.getByText('My Player',{exact:true}).count(),0);
+      assert.equal(await goldLive.getByRole('group',{name:'Outfit detail views'}).getByRole('button').count(),5);
+      await goldLive.getByRole('button',{name:'Rotate right'}).click();
+      await gold.getByText('$2.99',{exact:true}).waitFor();
+      await gold.getByRole('button',{name:'Close product'}).click();
+      await gold.waitFor({state:'hidden'});
+    }
+
     const readSave = () => page.evaluate(() => ({
       athlete: localStorage.getItem('ballknower_solo_my_player_v2'),
       outfit: localStorage.getItem('ballknower_player_wardrobe_v1'),
