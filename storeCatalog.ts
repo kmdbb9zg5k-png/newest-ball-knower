@@ -26,6 +26,8 @@ export type StoreProduct = {
   use: string;
   tryOn?: TryOn;
   department?: 'clothing';
+  posterOnly?: boolean;
+  proposedCoins?: number;
   showcase?: { model: string; look: string; collection: string; theme: string };
 };
 
@@ -67,6 +69,14 @@ export const FEATURED_PACKS: readonly StoreProduct[] = [
 export const STORE_PRODUCTS: readonly StoreProduct[] = [
   BLACKOUT_KIT,
   ...FEATURED_PACKS,
+  {
+    id: 'bk-femme', name: 'BK Femme', posterOnly: true, proposedCoins: 1500,
+    summary: 'Leather jacket, crop top, cargos & silver accessories',
+    description: 'The original BK Femme outfit pack artwork: a black leather jacket, white crop top, black cargo pants, black-and-white sneakers, BK necklace and earrings. Proposed pack price: 1,500 BK Coins. The pictured buttons and in-game views are promotional artwork; interactive 3D, wearable items, purchasing and gifting are not available yet.',
+    priceCents: 0, categories: ['tunnel-fits', 'bundles'],
+    includes: ['Leather jacket', 'White crop top', 'Black cargo pants', 'Black-and-white sneakers', 'BK necklace', 'Earrings'],
+    use: 'BK Femme outfit pack · Artwork preview',
+  },
   {
     id: 'chrome-grip',
     name: 'Chrome Grip Gloves',
@@ -214,7 +224,9 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
   },
 ];
 
-export const storeImage = (id: string) => id === 'bkf-phantom'
+export const storeImage = (id: string) => id === 'bk-femme'
+  ? '/store/bk-femme.jpeg'
+  : id === 'bkf-phantom'
   ? 'https://v3b.fal.media/files/b/0ab1f22f/ZV1i2C4x_u3pGyWgsReKS_7OOQNTpM.png'
   : id === 'gold-standard'
   ? 'https://v3b.fal.media/files/b/0ab1ee44/enaihGc_oxFoSOBQfobNp_gold_standard_outfit_pack.png'
@@ -230,4 +242,4 @@ export const storeImage = (id: string) => id === 'bkf-phantom'
   ? 'https://v3b.fal.media/files/b/0ab1ea94/hSYeTuHMXg21r6ipNqX7c_ByU6fl61.png'
   : '/store/' + id + '.webp';
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
-export const storePrice = (product: StoreProduct) => (product.showcase || product.id === 'bkf-youngboy' || product.id === 'frostbite') ? 'Coming soon' : usd.format(product.priceCents / 100);
+export const storePrice = (product: StoreProduct) => product.proposedCoins ? `${product.proposedCoins.toLocaleString('en-US')} BK Coins` : (product.showcase || product.id === 'bkf-youngboy' || product.id === 'frostbite') ? 'Coming soon' : usd.format(product.priceCents / 100);
