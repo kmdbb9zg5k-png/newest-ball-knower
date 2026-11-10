@@ -74,8 +74,8 @@ const FROSTBITE_PREVIEW_FALLBACK = 'https://v3b.fal.media/files/b/0ab1eab2/PuPh4
 function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const isFrostbite = product.id === 'frostbite';
-  const [view, setView] = useState<'photos' | '3d'>('photos');
-  const [art, setArt] = useState(() => storeImage(isFrostbite ? 'frostbite-look' : product.id));
+  const [view, setView] = useState<'photos' | 'poster' | 'realistic' | '3d'>(isFrostbite ? 'poster' : 'photos');
+  const [art, setArt] = useState(() => storeImage(product.id));
   useEffect(() => {
     const node = dialog.current;
     if (node && !node.open) node.showModal();
@@ -92,14 +92,23 @@ function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose
         <p>{isFrostbite ? 'Icebound Concept Collection' : 'Streetwear Concept Collection'}</p>
         <h2 id="bkf-drop-title" className="bkf-drop-title"><span>BKF</span> {isFrostbite ? 'Frostbite' : 'YoungBoy'}</h2>
       </div>
-      <div className="bkf-drop-tabs" role="group" aria-label="Product view">
-        <button type="button" aria-pressed={view === 'photos'} onClick={() => setView('photos')}><ImageIcon size={18} aria-hidden="true"/> Product photos</button>
-        <button type="button" aria-pressed={view === '3d'} onClick={() => setView('3d')}><BoxIcon size={18} aria-hidden="true"/> 3D try-on</button>
+
+      <div className={'bkf-drop-tabs' + (isFrostbite ? ' bkf-drop-tabs--triple' : '')} role="group" aria-label="Product view">
+        {isFrostbite ? <>
+          <button type="button" aria-pressed={view === 'poster'} onClick={() => { setArt(storeImage('frostbite')); setView('poster'); }}>Full poster</button>
+          <button type="button" aria-pressed={view === 'realistic'} onClick={() => { setArt(storeImage('frostbite-look')); setView('realistic'); }}>Realistic view</button>
+          <button type="button" aria-pressed={view === '3d'} onClick={() => setView('3d')}><BoxIcon size={16} aria-hidden="true"/> 3D preview</button>
+        </> : <>
+          <button type="button" aria-pressed={view === 'photos'} onClick={() => setView('photos')}><ImageIcon size={18} aria-hidden="true"/> Product photos</button>
+          <button type="button" aria-pressed={view === '3d'} onClick={() => setView('3d')}><BoxIcon size={18} aria-hidden="true"/> 3D try-on</button>
+        </>}
       </div>
-      <div className="bkf-drop-hero" data-bkf-display={view}>
-        {view === 'photos'
+      <div className="bkf-drop-hero" data-bkf-display={view === 'poster' || view === 'realistic' ? 'photos' : view} data-bkf-photo={isFrostbite && view !== '3d' ? view : undefined}>
+        {view !== '3d'
           ? <img src={art} alt={isFrostbite
-            ? 'Frostbite realistic full-body look wearing a silver-white puffer jacket, white mask, chain, cargo pants and boots'
+            ? view === 'poster'
+              ? 'Full Frostbite promotional poster with icy outfit and collection details'
+              : 'Realistic standing Frostbite showroom model in silver puffer, white mask, cargo pants and boots'
             : 'BKF YoungBoy original luxury black-and-gold artwork: masked athlete crouching in a black hoodie, gold chain and watch, baggy brown cargos and tan boots'}
             onError={() => {
               const fallback = isFrostbite ? FROSTBITE_PREVIEW_FALLBACK : '/store/bkf-youngboy.svg';
@@ -109,6 +118,7 @@ function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose
               {isFrostbite ? <BKFFrostbitePose/> : <BKFYoungBoyPose/>}
             </Suspense>}
       </div>
+      {isFrostbite && view === '3d' && <p className="bkf-showroom-model-note">Standard showcase character · Not your saved player</p>}
       <p className="bkf-drop-description">{isFrostbite
         ? 'Glacier-white puffer. White knit shiesty mask. Iced silver chain and watch. Loose ice-gray cargos and white high-top boots. One seriously cold streetwear look.'
         : 'Black shiesty mask. Heavy gold chain. Diamond-style watch. Oversized black hoodie, baggy brown cargos and tan boots. One signature streetwear look.'}</p>
@@ -117,8 +127,13 @@ function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose
         <ul>{product.includes.map(item=><li key={item}>{item}</li>)}</ul>
       </div>
       <footer className="bkf-drop-footer">
-        <button type="button" className="bkf-drop-cta" onClick={() => setView(view === 'photos' ? '3d' : 'photos')}>
-          <BoxIcon size={21} aria-hidden="true"/>{view === 'photos' ? 'Preview in 3D' : isFrostbite ? 'View product photos' : 'View cover art'}
+        <button type="button" className="bkf-drop-cta" onClick={() => {
+          if (isFrostbite) {
+            if (view === '3d') { setArt(storeImage('frostbite')); setView('poster'); }
+            else setView('3d');
+          } else setView(view === 'photos' ? '3d' : 'photos');
+        }}>
+          <BoxIcon size={21} aria-hidden="true"/>{isFrostbite ? (view === '3d' ? 'View full poster' : 'Preview in 3D') : (view === 'photos' ? 'Preview in 3D' : 'View cover art')}
         </button>
         <div><strong>Coming Soon</strong><span>Concept Collection</span></div>
       </footer>

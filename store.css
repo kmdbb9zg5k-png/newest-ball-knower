@@ -169,8 +169,10 @@
 .bk-store-product img { width: 100%; aspect-ratio: 1.72; object-fit: cover; }
 
 /* Frostbite poster is the Store card, framed in ice rather than cropped. */
-.bk-store-product .bk-store-frostbite-poster{display:block;position:relative;overflow:hidden;width:100%;aspect-ratio:1.72;background:radial-gradient(ellipse at 50% 45%,#376989 0%,#10283d 58%,#06111f 100%);}
-.bk-store-shop .bk-store-product .bk-store-frostbite-poster{aspect-ratio:1.42;}
+.bk-store-product .bk-store-frostbite-poster{display:block;position:relative;overflow:hidden;width:100%;aspect-ratio:4/5;background:radial-gradient(ellipse at 50% 45%,#376989 0%,#10283d 58%,#06111f 100%);}
+.bk-store-shop .bk-store-product .bk-store-frostbite-poster{aspect-ratio:4/5;}
+.bk-store-product[data-store-product="bkf-youngboy"] > img,
+.bk-store-shop .bk-store-product[data-store-product="bkf-youngboy"] > img{aspect-ratio:4/5;object-fit:contain;background:#0a0807;}
 .bk-store-product .bk-store-frostbite-poster::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#83d7fa22,transparent 28%,transparent 72%,#83d7fa22);pointer-events:none;}
 .bk-store-product .bk-store-frostbite-poster img,.bk-store-shop .bk-store-product .bk-store-frostbite-poster img{position:relative;display:block;width:100%;height:100%;aspect-ratio:auto;object-fit:contain;object-position:center;}
 .bk-store-product[data-store-product="frostbite"]{border-color:#7fcdec70;}
