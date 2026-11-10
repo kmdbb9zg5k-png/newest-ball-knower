@@ -125,8 +125,19 @@ export async function loadTunnelFitAthlete(gold = false) {
               object.material.normalScale.set(.52, .52);
               object.material.color.multiplyScalar(.88);
             } else {
-              object.material.metalness = Math.min(object.material.metalness, .42);
-              object.material.roughness = Math.max(object.material.roughness, .36);
+              // The recovered Gold Standard GLB has a glossy metallic-roughness
+              // texture: its green roughness channel averages ~0.46, which is
+              // multiplied by the material's roughnessFactor. It makes even
+              // high-roughness hoodie fabric look wet and plastic.
+              //
+              // Keep its base-color/normal textures, UVs and geometry intact,
+              // but disable metallic-roughness maps on the clothing surface.
+              // The resulting soft sheen reads as athletic tracksuit fabric.
+              object.material.roughnessMap = null;
+              object.material.metalnessMap = null;
+              object.material.roughness = .86;
+              object.material.metalness = .035;
+              object.material.envMapIntensity = .18;
             }
             object.material.needsUpdate = true;
           }
