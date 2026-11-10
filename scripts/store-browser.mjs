@@ -65,11 +65,11 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
     await page.screenshot({ path: artifacts + '/featured-' + width + '.png' });
 
-    assert.equal(await store.locator('.bk-store-product').count(), 4, 'Store opens with the BKF concept alongside existing featured cards');
+    assert.equal(await store.locator('.bk-store-product').count(), 5, 'Store opens with YoungBoy and Frostbite among featured cards');
     await store.getByRole('button', { name: /Chrome Grip Gloves/ }).getByText('$0.99', { exact: true }).waitFor();
     const landingCategories = store.getByRole('group', { name: 'Shop categories', exact: true });
     await landingCategories.getByRole('button', { name: 'Tunnel Fits', exact: true }).click();
-    assert.equal(await store.locator('.bk-store-product').count(), 3, 'Tunnel Fits includes the new BKF concept');
+    assert.equal(await store.locator('.bk-store-product').count(), 5, 'Tunnel Fits includes YoungBoy and Frostbite');
     await landingCategories.getByRole('button', { name: 'All', exact: true }).click();
 
     const readSave = () => page.evaluate(() => ({
@@ -117,6 +117,20 @@ try {
       await youngBoy.getByRole('button',{name:'Close product'}).click();
       await youngBoy.waitFor({state:'hidden'});
       assert.deepEqual(await readSave(),before,'Previewing YoungBoy never purchases or equips items');
+      await store.locator('[data-store-product="frostbite"]').click();
+      const frostbite = page.getByRole('dialog', { name: 'BKF Frostbite', exact: true });
+      await frostbite.getByRole('heading', { name: 'BKF Frostbite', exact: true }).waitFor();
+      assert.equal(await frostbite.getByText('Coming Soon', { exact: true }).count(), 1);
+      const frostbiteTryOn = frostbite.getByRole('button', { name: '3D try-on', exact: true });
+      await frostbiteTryOn.click();
+      const frostbiteRig = frostbite.locator('[data-bkf-rig-preview="frostbite"]');
+      await frostbiteRig.locator('canvas').waitFor();
+      assert.equal(await frostbiteRig.getAttribute('data-bkf-pose'), 'a-pose');
+      assert.equal(await frostbiteRig.getByRole('group', { name: 'Select stance' }).count(), 0);
+      assert.equal(await frostbiteRig.getByRole('button', { name: 'Rotate right' }).count(), 1);
+      await frostbite.getByRole('button', { name: 'Close product' }).click();
+      await frostbite.waitFor({ state: 'hidden' });
+      assert.deepEqual(await readSave(), before, 'Frostbite preview never changes a player or purchases an item');
     }
 
     await store.getByRole('button', { name: 'View All', exact: true }).click();
@@ -134,7 +148,7 @@ try {
     }
 
     const cards = catalog.locator('.bk-store-product');
-    const counts = { All: 10, 'Game Gear': 3, 'Tunnel Fits': 4, Profile: 2, Celebrations: 1, Franchise: 1, Bundles: 7 };
+    const counts = { All: 11, 'Game Gear': 3, 'Tunnel Fits': 5, Profile: 2, Celebrations: 1, Franchise: 1, Bundles: 8 };
     for (const [category, count] of Object.entries(counts)) {
       const filter = categories.getByRole('button', { name: category, exact: true });
       await filter.click();
