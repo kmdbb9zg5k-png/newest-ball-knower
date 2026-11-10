@@ -45,6 +45,7 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
     key.shadow.normalBias=.02;key.target.position.y=.85;scene.add(key.target);
     floor.receiveShadow=true;
   }
+  const gold = initial.wardrobe?.top === 'top-gold-standard';
   const isSample = showroom && initial.showroomSample;
   let fullSample:Awaited<ReturnType<typeof import('./tunnel-fit-athlete').loadTunnelFitAthlete>> = null;
   let fallback:Awaited<ReturnType<typeof import('./showroom-head').loadShowroomAthlete>> = null;
@@ -52,12 +53,12 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
   let root:T.Object3D;
   try{
     if(isSample){
-      fullSample=await import('./tunnel-fit-athlete').then(module=>module.loadTunnelFitAthlete());
-      if(!fullSample)fallback=await import('./showroom-head').then(module=>module.loadShowroomAthlete());
+      fullSample=await import('./tunnel-fit-athlete').then(module=>module.loadTunnelFitAthlete(gold));
+      if(!fullSample)throw new Error('The detailed showroom athlete could not load. Please retry.');
     }
     if(fullSample){
       root=fullSample;
-      renderer.domElement.dataset.showroomModel='tunnel-fit-athlete';
+      renderer.domElement.dataset.showroomModel=gold?'gold-standard-athlete':'tunnel-fit-athlete';
     }else{
       runner=await loadCombineRunner(initial,showroom,Boolean(fallback));
       root=runner.root;

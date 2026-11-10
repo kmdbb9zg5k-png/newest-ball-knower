@@ -15,7 +15,7 @@ export function createAthleteGarments(body,showroom=false) {
   function garment(source,item,player){
     const style=item.style;if(!style)return;
     const top=item.slot==='top',hood=style==='hoodie',short=style==='tee'||style==='jersey',denim=style==='jeans';
-    const tunnel=item.id==='top-tunnel-fit'||item.id==='shorts-tunnel-fit';
+    const tunnel=['top-tunnel-fit','shorts-tunnel-fit','top-gold-standard','shorts-gold-standard'].includes(item.id);
     const detail=showroom&&tunnel;
     const length=short?21:34;
     const base=top?topGeometry():trouserGeometry();
@@ -196,6 +196,6 @@ export function createAthleteGarments(body,showroom=false) {
   }
   return {apply(outfit,player){const next=outfit?[outfit.top.id,outfit.shorts.id,showroom?outfit.shoes.id:'',JSON.stringify(outfit.top.jersey),bodyMass(player)].join('|'):'';if(next===key)return;key=next;clear();if(outfit)for(const source of sources){
     for(const item of [outfit.top,outfit.shorts])garment(source,item,player);
-    if(showroom&&outfit.shoes.id==='shoes-tunnel-fit')trainers(source,outfit.shoes);
+    if(showroom&&['shoes-tunnel-fit','shoes-gold-standard'].includes(outfit.shoes.id))trainers(source,outfit.shoes);
   }},dispose:clear};
 }

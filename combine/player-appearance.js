@@ -182,7 +182,7 @@ export function createPlayerAppearance(body,bones,showroom=false,showroomSkin=fa
   function apply(player){
     const outfit=player.wardrobe?outfitLook(player.wardrobe):null;
     garments.apply(outfit,player);
-    for(const u of skinUniforms){u.kit.enabled.value=outfit?1:0;u.kit.sleeve.value=outfit?.top.style?(['tee','jersey'].includes(outfit.top.style)?21:34):0;u.kit.trousers.value=outfit?.shorts.style?1:0;if(outfit){for(const slot of ['top','shorts','shoes','wrist'])u.kit[slot].value.set(outfit[slot].color);u.kit.trainerSole.value=outfit.shoes.id==='shoes-tunnel-fit'?1:0;u.kit.bands.value=outfit.wrist.id==='wrist-none'?0:1;u.kit.pattern.value=outfit.top.pattern?1:0;u.kit.accent.value.set(outfit.top.accent||outfit.top.color);}}
+    for(const u of skinUniforms){u.kit.enabled.value=outfit?1:0;u.kit.sleeve.value=outfit?.top.style?(['tee','jersey'].includes(outfit.top.style)?21:34):0;u.kit.trousers.value=outfit?.shorts.style?1:0;if(outfit){for(const slot of ['top','shorts','shoes','wrist'])u.kit[slot].value.set(outfit[slot].color);u.kit.trainerSole.value=['shoes-tunnel-fit','shoes-gold-standard'].includes(outfit.shoes.id)?1:0;u.kit.bands.value=outfit.wrist.id==='wrist-none'?0:1;u.kit.pattern.value=outfit.top.pattern?1:0;u.kit.accent.value.set(outfit.top.accent||outfit.top.color);}}
     const look=combineAppearance(player);
     body.userData.playerId=player.id;body.userData.playerName=player.name;body.userData.appearance=look;
     const reference=new T.Color('#b17b4b'),color=new T.Color(SKIN[look.skinTone]);
