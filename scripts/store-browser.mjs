@@ -91,7 +91,14 @@ try {
       assert.ok((await gold.locator('.bkf-drop-hero img').getAttribute('src')).includes('golden_bk_tracksuit_athlete.png'),'Realistic full-body view is the second tab');
       await modelTab.click();
       const goldLive=gold.locator('[data-athlete-live-preview]');
-      await goldLive.locator('canvas[data-showroom-model="gold-standard-athlete"]').waitFor({timeout:30000});
+      const goldCanvas=goldLive.locator('canvas[data-showroom-model="gold-standard-athlete"]');
+      await goldCanvas.waitFor({timeout:30000});
+      await goldLive.locator('[data-render-state="ready"]').waitFor();
+      const pixelRatio = await goldCanvas.evaluate(canvas => {
+        const rect = canvas.getBoundingClientRect();
+        return rect.width ? canvas.width / rect.width : Infinity;
+      });
+      assert.ok(pixelRatio <= (mobile ? 1.12 : 1.6), 'Gold Standard showroom limits GPU framebuffer resolution');
       assert.equal(await gold.getByText('Standard showcase character · Not your saved player').count(),1);
       assert.equal(await gold.getByText('My Player',{exact:true}).count(),0);
       assert.equal(await goldLive.getByRole('group',{name:'Outfit detail views'}).getByRole('button').count(),5);
