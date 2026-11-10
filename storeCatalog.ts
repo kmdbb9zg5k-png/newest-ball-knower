@@ -108,6 +108,16 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     use: 'Streetwear concept collection',
   },
   {
+    id: 'frostbite',
+    name: 'Frostbite',
+    summary: 'Ice-silver puffer, white mask & glacier cargos',
+    description: 'An icy streetwear concept featuring a glossy silver-white quilted puffer, white knit balaclava, pale-gray cargo trousers, silver Cuban-link chain, diamond-style watch and icy white boots. The complete rigged 3D character is available to preview; individual wearable clothing, ownership and checkout are not available yet.',
+    priceCents: 0,
+    categories: ['tunnel-fits', 'bundles'],
+    includes: ['Ice-silver quilted puffer', 'White knit balaclava', 'Ice-gray cargo pants', 'Silver Cuban-link chain', 'Diamond-style watch', 'Icy white high-top boots'],
+    use: 'Streetwear concept collection',
+  },
+  {
     id: 'ink-pack',
     name: 'Ink Pack',
     summary: 'Three original tattoo designs',
@@ -139,6 +149,10 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
   },
 ];
 
-export const storeImage = (id: string) => id === 'bkf-youngboy' ? '/store/bkf-youngboy-cover.webp' : '/store/' + id + '.webp';
+export const storeImage = (id: string) => id === 'bkf-youngboy'
+  ? '/store/bkf-youngboy-cover.webp'
+  : id === 'frostbite'
+  ? 'https://v3b.fal.media/files/b/0ab1ea94/hSYeTuHMXg21r6ipNqX7c_ByU6fl61.png'
+  : '/store/' + id + '.webp';
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
-export const storePrice = (product: StoreProduct) => product.id === 'bkf-youngboy' ? 'Coming soon' : usd.format(product.priceCents / 100);
+export const storePrice = (product: StoreProduct) => (product.id === 'bkf-youngboy' || product.id === 'frostbite') ? 'Coming soon' : usd.format(product.priceCents / 100);
