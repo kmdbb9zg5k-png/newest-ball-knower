@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { Archive, ArrowLeft, ChevronRight, Shirt, Trophy, X } from 'lucide-react';
+import { Archive, ArrowLeft, Box as BoxIcon, ChevronRight, Crown, Image as ImageIcon, Shirt, Trophy, X } from 'lucide-react';
 import { DEFAULT_ATHLETE_APPEARANCE } from './athleteAppearance';
 import { recommendedAthleteBuild } from './athleteBuild';
 import { readAthletePassport, type AthletePassport } from './athletePassport';
@@ -65,6 +65,49 @@ function TryOnPreview({ athlete, preview }: { athlete: AthletePassport | null; p
     <AthleteLivePreview profile={profile} previewOutfit={outfit} showroom={preview.outfit.top === 'top-tunnel-fit' || preview.outfit.top === 'top-gold-standard'}
       />
   </Suspense>;
+}
+
+const BKF_YOUNGBOY_COVER='https://v3b.fal.media/files/b/0ab1ebc0/SZy6LAJC6FgehcJ-RAMXp_44F09112-7643-4AB6-85FC-39F97383ADE3.jpeg';
+
+function BKFYoungBoyDialog({ product, onClose }: { product: StoreProduct; onClose: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [view, setView] = useState<'photos' | '3d'>('photos');
+  const [art, setArt] = useState(BKF_YOUNGBOY_COVER);
+  useEffect(() => {
+    const node = dialog.current;
+    if (node && !node.open) node.showModal();
+  }, []);
+  return <dialog ref={dialog} className="bk-store-dialog bkf-drop-modal" aria-labelledby="bkf-drop-title"
+    onClose={onClose} onClick={event => { if (event.target === event.currentTarget) event.currentTarget.close(); }}>
+    <div className="bkf-drop-shell">
+      <header className="bkf-drop-header">
+        <div className="bkf-drop-brand"><Crown size={23} aria-hidden="true"/><span><strong>Ball Knower</strong><small>Clothing Package</small></span></div>
+        <button type="button" className="bkf-drop-close" aria-label="Close product" onClick={() => dialog.current?.close()}><X size={25} aria-hidden="true"/></button>
+      </header>
+      <div className="bkf-drop-heading">
+        <p>Streetwear Concept Collection</p>
+        <h2 id="bkf-drop-title" className="bkf-drop-title"><span>BKF</span> YoungBoy</h2>
+      </div>
+      <div className="bkf-drop-tabs" role="group" aria-label="Product view">
+        <button type="button" aria-pressed={view === 'photos'} onClick={() => setView('photos')}><ImageIcon size={18} aria-hidden="true"/> Product photos</button>
+        <button type="button" aria-pressed={view === '3d'} onClick={() => setView('3d')}><BoxIcon size={18} aria-hidden="true"/> 3D try-on</button>
+      </div>
+      <div className="bkf-drop-hero" data-bkf-display={view}>
+        {view === 'photos' ? <img src={art} alt="BKF YoungBoy original luxury black-and-gold artwork: masked athlete crouching in a black hoodie, gold chain and watch, baggy brown cargos and tan boots" onError={() => { if (art !== storeImage(product.id)) setArt(storeImage(product.id)); }}/> :
+          <Suspense fallback={<div className="bkf-drop-load" role="status">Preparing YoungBoy's 3D showroom…</div>}><BKFYoungBoyPose/></Suspense>}
+      </div>
+      <p className="bkf-drop-description">Black shiesty mask. Heavy gold chain. Diamond-style watch. Oversized black hoodie, baggy brown cargos and tan boots. One signature streetwear look.</p>
+      <div className="bkf-drop-includes">
+        <h3><span>Included</span></h3>
+        <ul>{product.includes.map(item=><li key={item}>{item}</li>)}</ul>
+      </div>
+      <footer className="bkf-drop-footer">
+        <button type="button" className="bkf-drop-cta" onClick={() => {setView(view === 'photos' ? '3d' : 'photos');}}><BoxIcon size={21} aria-hidden="true"/>{view === 'photos' ? 'Preview 3D crouch' : 'View cover art'}</button>
+        <div><strong>Coming Soon</strong><span>Concept Collection</span></div>
+      </footer>
+      <p className="bkf-drop-disclaimer">3D is a prototype. Wearable items and checkout are not available yet.</p>
+    </div>
+  </dialog>;
 }
 
 function ProductDialog({ selection, onClose }: { selection: Selection; onClose: () => void }) {
@@ -302,6 +345,6 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
       <StoreRewards onOpenLocker={onOpenLocker} onOpenGauntlet={onOpenGauntlet}/>
     </Suspense>}
 
-    {selection && <ProductDialog selection={selection} onClose={() => setSelection(null)}/>}
+    {selection && (selection.product.id === 'bkf-youngboy' ? <BKFYoungBoyDialog product={selection.product} onClose={() => setSelection(null)}/> : <ProductDialog selection={selection} onClose={() => setSelection(null)}/>)}
   </section>;
 }
