@@ -21,7 +21,7 @@ const BKFFrostbitePose = lazy(() => import('./BKFFrostbitePose'));
 
 type StorePage = 'featured' | 'catalog' | 'rewards';
 type Selection = { product: StoreProduct };
-const campaignCards = ['tunnel-fit', 'gold-standard', 'bkf-youngboy', 'frostbite', 'bkf-outlaw', 'bkf-kickflip', 'chrome-grip'].map(id => STORE_PRODUCTS.find(product => product.id === id)!);
+const campaignCards = ['tunnel-fit', 'gold-standard', 'bkf-youngboy', 'frostbite', 'bkf-outlaw', 'bkf-kickflip', 'bkf-lowrider', 'chrome-grip'].map(id => STORE_PRODUCTS.find(product => product.id === id)!);
 const tunnelPhotos = [
   { file: 'tunnel-look', label: 'Full outfit', alt: 'Athlete wearing the graphite Tunnel Fit in a stadium tunnel' },
   { file: 'tunnel-hoodie', label: 'Hoodie detail', alt: 'Graphite fleece, warm gold drawcord tips and chest embroidery' },
