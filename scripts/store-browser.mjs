@@ -121,19 +121,13 @@ try {
       const frostbite = page.getByRole('dialog', { name: 'BKF Frostbite', exact: true });
       await frostbite.getByRole('heading', { name: 'BKF Frostbite', exact: true }).waitFor();
       assert.equal(await frostbite.getByText('Coming Soon', { exact: true }).count(), 1);
-      const gallery = frostbite.getByRole('group', { name: 'Frostbite product photos' });
+
+      const storePoster = store.locator('[data-store-product="frostbite"] .bk-store-frostbite-poster img');
+      assert.ok((await storePoster.getAttribute('src')).includes('3CD98264-BD29-4D30-9FAE-8EE444BB6E92.jpeg'), 'The Store features Frostbite poster artwork');
       const hero = frostbite.locator('.bkf-drop-hero');
-      const realisticLook = gallery.getByRole('button', { name: 'Realistic look' });
-      const coverArt = gallery.getByRole('button', { name: 'Cover art' });
-      assert.equal(await realisticLook.getAttribute('aria-pressed'), 'true', 'Realistic Frostbite photo is the default');
-      assert.equal(await hero.getAttribute('data-bkf-photo'), 'look');
-      await coverArt.click();
-      assert.equal(await coverArt.getAttribute('aria-pressed'), 'true');
-      assert.equal(await hero.getAttribute('data-bkf-photo'), 'cover');
-      assert.ok((await hero.locator('img').getAttribute('src')).includes('3CD98264-BD29-4D30-9FAE-8EE444BB6E92.jpeg'), 'Uploaded Frostbite poster is used');
-      await realisticLook.click();
-      assert.equal(await realisticLook.getAttribute('aria-pressed'), 'true', 'Photoreal product look remains available');
-      assert.equal(await hero.getAttribute('data-bkf-photo'), 'look');
+      assert.ok((await hero.locator('img').getAttribute('src')).includes('ByU6fl61.png'), 'Frostbite detail still shows the realistic full-body look');
+      assert.equal(await frostbite.getByRole('group', { name: 'Frostbite product photos' }).count(), 0, 'Bulky photo gallery removed');
+      assert.equal(await frostbite.getByText('Cover art', { exact: true }).count(), 0, 'No cover art label');
       const frostbiteTryOn = frostbite.getByRole('button', { name: '3D try-on', exact: true });
       await frostbiteTryOn.click();
       const frostbiteRig = frostbite.locator('[data-bkf-rig-preview="frostbite"]');

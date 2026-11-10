@@ -34,7 +34,7 @@ const goldPhotos = [
 
 function ProductCard({ product, onOpen }: { product: StoreProduct; onOpen: (product: StoreProduct) => void }) {
   return <button className="bk-store-product" type="button" data-store-product={product.id} onClick={() => onOpen(product)}>
-    <img src={storeImage(product.id === 'tunnel-fit' ? 'tunnel-kit' : product.id)} alt="" loading="lazy" decoding="async"/>
+    {product.id === 'frostbite' ? <span className="bk-store-frostbite-poster"><img src={storeImage('frostbite')} alt="" loading="lazy" decoding="async"/></span> : <img src={storeImage(product.id === 'tunnel-fit' ? 'tunnel-kit' : product.id)} alt="" loading="lazy" decoding="async"/>}
     <span className="bk-store-product-text">
       <strong>{product.name}</strong>
       <span>{product.summary}</span>
@@ -70,14 +70,12 @@ function TryOnPreview({ athlete, preview }: { athlete: AthletePassport | null; p
 }
 
 const FROSTBITE_PREVIEW_FALLBACK = 'https://v3b.fal.media/files/b/0ab1eab2/PuPh4vtWpnfEVTwvd_xXM_preview.png';
-const FROSTBITE_COVER_ART = 'https://v3b.fal.media/files/b/0ab1ed77/_WCyDW9OAkL4xAehcl2KE_3CD98264-BD29-4D30-9FAE-8EE444BB6E92.jpeg';
 
 function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const isFrostbite = product.id === 'frostbite';
   const [view, setView] = useState<'photos' | '3d'>('photos');
-  const [art, setArt] = useState(() => storeImage(product.id));
-  const [frostbitePhoto, setFrostbitePhoto] = useState<'look' | 'cover'>('look');
+  const [art, setArt] = useState(() => storeImage(isFrostbite ? 'frostbite-look' : product.id));
   useEffect(() => {
     const node = dialog.current;
     if (node && !node.open) node.showModal();
@@ -98,12 +96,10 @@ function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose
         <button type="button" aria-pressed={view === 'photos'} onClick={() => setView('photos')}><ImageIcon size={18} aria-hidden="true"/> Product photos</button>
         <button type="button" aria-pressed={view === '3d'} onClick={() => setView('3d')}><BoxIcon size={18} aria-hidden="true"/> 3D try-on</button>
       </div>
-      <div className="bkf-drop-hero" data-bkf-display={view} data-bkf-photo={isFrostbite && view === 'photos' ? frostbitePhoto : undefined}>
+      <div className="bkf-drop-hero" data-bkf-display={view}>
         {view === 'photos'
           ? <img src={art} alt={isFrostbite
-            ? frostbitePhoto === 'cover'
-              ? 'BKF Frostbite collector cover art with icy background, crouching model and outfit pack details'
-              : 'Frostbite realistic full-body look wearing a silver-white puffer jacket, white mask, chain, cargo pants and boots'
+            ? 'Frostbite realistic full-body look wearing a silver-white puffer jacket, white mask, chain, cargo pants and boots'
             : 'BKF YoungBoy original luxury black-and-gold artwork: masked athlete crouching in a black hoodie, gold chain and watch, baggy brown cargos and tan boots'}
             onError={() => {
               const fallback = isFrostbite ? FROSTBITE_PREVIEW_FALLBACK : '/store/bkf-youngboy.svg';
@@ -113,14 +109,6 @@ function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose
               {isFrostbite ? <BKFFrostbitePose/> : <BKFYoungBoyPose/>}
             </Suspense>}
       </div>
-      {isFrostbite && view === 'photos' && <div className="bkf-photo-gallery" role="group" aria-label="Frostbite product photos">
-        <button type="button" aria-pressed={frostbitePhoto === 'look'} onClick={() => { setFrostbitePhoto('look'); setArt(storeImage('frostbite')); }}>
-          <img src={storeImage('frostbite')} alt="" loading="lazy"/><span>Realistic look</span>
-        </button>
-        <button type="button" aria-pressed={frostbitePhoto === 'cover'} onClick={() => { setFrostbitePhoto('cover'); setArt(FROSTBITE_COVER_ART); }}>
-          <img src={FROSTBITE_COVER_ART} alt="" loading="lazy"/><span>Cover art</span>
-        </button>
-      </div>}
       <p className="bkf-drop-description">{isFrostbite
         ? 'Glacier-white puffer. White knit shiesty mask. Iced silver chain and watch. Loose ice-gray cargos and white high-top boots. One seriously cold streetwear look.'
         : 'Black shiesty mask. Heavy gold chain. Diamond-style watch. Oversized black hoodie, baggy brown cargos and tan boots. One signature streetwear look.'}</p>
