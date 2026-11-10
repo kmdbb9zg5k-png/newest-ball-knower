@@ -27,6 +27,18 @@ try {
     await page.goto(origin);
     await page.getByRole('navigation',{name:width<768?'Primary navigation':'Desktop primary navigation',exact:true}).getByRole('button',{name:'Store',exact:true}).click();
     const store=page.getByRole('region',{name:'Store',exact:true});await store.waitFor();
+    await store.getByRole('heading',{name:'The Locker',exact:true}).waitFor();
+    const departments=store.getByRole('group',{name:'Shop departments'});
+    await store.screenshot({path:`artifacts/store-characters/locker-${width}.png`});
+    for (const [name, expected, absent] of [['Characters','bkf-lowrider','tunnel-fit'],['Clothing','tunnel-fit','bkf-lowrider'],['Accessories','chrome-grip','bkf-lowrider']]) {
+      await departments.getByRole('button',{name,exact:true}).click();
+      assert.equal(await store.locator(`[data-store-product="${expected}"]`).count(),1);
+      assert.equal(await store.locator(`[data-store-product="${absent}"]`).count(),0);
+    }
+    await departments.getByRole('button',{name:'All Items',exact:true}).click();
+    await store.getByRole('button',{name:'Celebrations',exact:true}).click();
+    assert.equal(await store.locator('[data-store-product="end-zone-backflip"]').count(),1);
+    await departments.getByRole('button',{name:'Featured',exact:true}).click();
     const before=await page.evaluate(()=>localStorage.getItem('ballknower_solo_my_player_v2'));
     for(const id of ['bkf-outlaw','bkf-kickflip','bkf-lowrider']){
       checkpoint(`${width}px ${id}: opening product`);
