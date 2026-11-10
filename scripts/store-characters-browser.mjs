@@ -29,7 +29,13 @@ try {
     const store=page.getByRole('region',{name:'Store',exact:true});await store.waitFor();
     await store.getByRole('heading',{name:'The Locker',exact:true}).waitFor();
     const departments=store.getByRole('group',{name:'Shop departments'});
-    await store.screenshot({path:`artifacts/store-characters/locker-${width}.png`});
+    for (const img of await store.locator('.bk-store-product img').all()) {
+      await img.scrollIntoViewIfNeeded(); await img.evaluate(i=>i.decode());
+    }
+    await page.evaluate(()=>window.scrollTo(0,0));
+    await page.screenshot({path:`artifacts/store-characters/locker-${width}.png`});
+    const headingBox=await store.getByRole('heading',{name:'The Locker',exact:true}).boundingBox();
+    assert.ok(headingBox.y >= (width<768?58:110),'Locker title clears fixed navigation');
     for (const [name, expected, absent] of [['Characters','bkf-lowrider','tunnel-fit'],['Clothing','tunnel-fit','bkf-lowrider'],['Accessories','chrome-grip','bkf-lowrider']]) {
       await departments.getByRole('button',{name,exact:true}).click();
       assert.equal(await store.locator(`[data-store-product="${expected}"]`).count(),1);
