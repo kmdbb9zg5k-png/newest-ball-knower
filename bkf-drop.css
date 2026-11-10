@@ -91,3 +91,24 @@
 
 @media(max-width:380px){.bkf-drop-includes ul{column-gap:8px}.bkf-drop-cta{padding:9px}.bkf-drop-footer strong{font-size:20px}.bkf-drop-brand small{letter-spacing:.18em}}
 @media(prefers-reduced-motion:reduce){.bkf-drop-modal *{scroll-behavior:auto}}
+
+/* Gold Standard: the original 3D athlete displayed within the premium three-tab product modal. */
+.bkf-drop-modal--gold .bkf-drop-title{font-size:clamp(25px,7vw,54px);white-space:nowrap;}
+.bkf-drop-modal--gold .bkf-drop-title span{color:#f6cc76;}
+.bkf-drop-modal--gold .bkf-drop-hero[data-bkf-photo="realistic"]{background:#342418;}
+.bkf-drop-modal--gold .bkf-drop-hero[data-bkf-display="3d"]{background:#17110b;}
+.bkf-gold-showroom-3d{height:min(68dvh,610px);min-height:400px;overflow:hidden;}
+.bkf-gold-showroom-3d>.bk-athlete-showroom{position:relative;top:auto;display:grid;grid-template-rows:minmax(250px,1fr) auto auto;width:100%;height:100%;margin:0;border:0;border-radius:0;background:#16100a;box-shadow:none;isolation:isolate;}
+.bkf-gold-showroom-3d .bk-athlete-3d-stage{position:relative;inset:auto;width:100%;height:100%;min-height:240px;overflow:hidden;background:linear-gradient(180deg,#ffdb9933,#25160916 48%,#09070462),url('/store/tunnel-showroom.webp') center 63%/cover,#2b1b10;cursor:grab;touch-action:pan-y;}
+.bkf-gold-showroom-3d .bk-athlete-3d-stage canvas{display:block;width:100%;height:100%;}
+.bkf-gold-showroom-3d .bk-showroom-identity{position:absolute;z-index:2;top:10px;left:12px;display:grid;gap:2px;padding:0;color:#fff4d9;font-size:12px;text-align:left;text-shadow:0 2px 9px #000;pointer-events:none;}
+.bkf-gold-showroom-3d .bk-showroom-reset{position:absolute;top:9px;right:9px;z-index:2;display:grid;place-items:center;width:42px;height:42px;border:1px solid #eac67b99;border-radius:50%;background:#130d08c9;}
+.bkf-gold-showroom-3d .bk-showroom-orbit{display:flex;align-items:center;justify-content:space-between;background:#17110b;color:#eac988;font-size:12px;font-style:italic;}
+.bkf-gold-showroom-3d .bk-showroom-orbit button{display:grid;place-items:center;width:40px;height:40px;}
+.bkf-gold-showroom-3d .bk-showroom-views{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;padding:5px 4px 8px;background:#17110b;border:0;}
+.bkf-gold-showroom-3d .bk-showroom-views button{display:grid;align-content:center;justify-items:center;gap:3px;min-width:0;min-height:58px;padding:3px 0;border:1px solid #bfa36969;border-radius:7px;background:#231a10;color:#f5e7c8;font-size:clamp(9px,2.6vw,12px);}
+.bkf-gold-showroom-3d .bk-showroom-views button[aria-pressed="true"]{border-color:#f5c976;background:#433016;color:#ffe29d;}
+.bkf-gold-showroom-3d .bk-showroom-views button svg{display:block;min-height:0;}
+.bkf-gold-showroom-3d .bk-athlete-preview-message{position:absolute;z-index:3;inset:0;display:grid;place-items:center;text-align:center;color:#fff0d4;background:#0f0b0db0;pointer-events:none;}
+.bkf-gold-showroom-3d .bk-athlete-preview-message button{pointer-events:auto;}
+@media(max-width:380px){.bkf-drop-modal--gold .bkf-drop-title{font-size:clamp(23px,6.7vw,44px);}}
