@@ -40,7 +40,7 @@ function ProductCard({ product, onOpen }: { product: StoreProduct; onOpen: (prod
   </button>;
 }
 
-function TryOnPreview({ athlete, preview, onSwitchAthlete }: { athlete: AthletePassport | null; preview: NonNullable<StoreProduct['tryOn']>; onSwitchAthlete?: () => void }) {
+function TryOnPreview({ athlete, preview }: { athlete: AthletePassport | null; preview: NonNullable<StoreProduct['tryOn']> }) {
   const [rotation, setRotation] = useState(20);
 
   if ('gear' in preview) {
@@ -62,7 +62,7 @@ function TryOnPreview({ athlete, preview, onSwitchAthlete }: { athlete: AthleteP
   };
   return <Suspense fallback={<p className="bk-store-preview-loading" role="status">Preparing your athlete…</p>}>
     <AthleteLivePreview profile={profile} previewOutfit={outfit} showroom={preview.outfit.top === 'top-tunnel-fit' || preview.outfit.top === 'top-gold-standard'}
-      showroomAthleteToggle={onSwitchAthlete ? { label: athlete ? 'See sample athlete' : 'Try my athlete', onClick: onSwitchAthlete } : undefined}/>
+      />
   </Suspense>;
 }
 
@@ -103,10 +103,9 @@ function ProductDialog({ selection, onClose }: { selection: Selection; onClose: 
   </dialog>;
 }
 
-function TunnelShowroom({ product, athlete, onExit }: { product: StoreProduct; athlete: AthletePassport | null; onExit: () => void }) {
+function TunnelShowroom({ product, onExit }: { product: StoreProduct; onExit: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const title = useRef<HTMLHeadingElement>(null);
-  const [useSavedAthlete, setUseSavedAthlete] = useState(false);
   useEffect(() => {
     const element = dialog.current;
     if (element && !element.open) {
@@ -128,8 +127,7 @@ function TunnelShowroom({ product, athlete, onExit }: { product: StoreProduct; a
         <button type="button" aria-pressed="true">3D try-on</button>
       </div>
       {product.tryOn && <div className="bk-tunnel-showroom-preview">
-        <TryOnPreview athlete={useSavedAthlete ? athlete : null} preview={product.tryOn}
-          onSwitchAthlete={product.id !== 'gold-standard' && athlete ? () => setUseSavedAthlete(value => !value) : undefined}/>
+        <TryOnPreview athlete={null} preview={product.tryOn}/>
       </div>}
       <footer className="bk-tunnel-showroom-footer">
         <strong>{product.name}</strong>
@@ -140,7 +138,6 @@ function TunnelShowroom({ product, athlete, onExit }: { product: StoreProduct; a
 }
 
 function TunnelProductPage({ product, onBack }: { product: StoreProduct; onBack: () => void }) {
-  const [athlete] = useState(readAthletePassport);
   const [trying, setTrying] = useState(false);
   const [activePhoto, setActivePhoto] = useState(0);
   const photos = product.id === 'gold-standard' ? goldPhotos : tunnelPhotos;
@@ -200,7 +197,7 @@ function TunnelProductPage({ product, onBack }: { product: StoreProduct; onBack:
         </details>
       </div>
     </div>
-    {trying && <TunnelShowroom product={product} athlete={athlete} onExit={() => setTrying(false)}/>}
+    {trying && <TunnelShowroom product={product} onExit={() => setTrying(false)}/>}
   </section>;
 }
 
