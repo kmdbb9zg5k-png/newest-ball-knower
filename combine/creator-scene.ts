@@ -19,7 +19,7 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
   renderer.outputColorSpace=T.SRGBColorSpace;
   renderer.toneMapping=T.ACESFilmicToneMapping;
   const goldShowroom = showroom && initial.wardrobe?.top === 'top-gold-standard';
-  renderer.toneMappingExposure=goldShowroom?1.8:showroom?1.17:1.35;
+  renderer.toneMappingExposure=goldShowroom?1.42:showroom?1.17:1.35;
   renderer.domElement.setAttribute('aria-label','Interactive 3D athlete');
   host.appendChild(renderer.domElement);
   const scene=new T.Scene(),camera=new T.PerspectiveCamera(32,1,.05,30);
@@ -28,8 +28,10 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
   const rim=new T.DirectionalLight(showroom?0xffbd79:0x9dcfff,showroom?3.35:3);rim.position.set(-3,2,-3);scene.add(rim);
   const fill=new T.DirectionalLight(0xffffff,showroom?1.35:1);fill.position.set(-3,1,4);scene.add(fill);
   if (goldShowroom) {
-    scene.add(new T.AmbientLight(0xffedcf,1.5));
-    const front=new T.DirectionalLight(0xffffff,3.2);
+    // Softer gold-specific lighting keeps face highlights and irises readable
+    // without changing the original GLB's geometry or clothing textures.
+    scene.add(new T.AmbientLight(0xffedcf,.9));
+    const front=new T.DirectionalLight(0xffffff,2.1);
     front.position.set(0,3,6);scene.add(front);
   }
   const floor=showroom
