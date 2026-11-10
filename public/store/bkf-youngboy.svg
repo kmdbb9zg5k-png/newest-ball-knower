@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 620" role="img" aria-label="BKF YoungBoy concept collection in black and gold">
+<defs><radialGradient id="bg"><stop stop-color="#5b3a1b"/><stop offset=".6" stop-color="#17110d"/><stop offset="1" stop-color="#070707"/></radialGradient><linearGradient id="gold" x2=".8" y2="1"><stop stop-color="#fff0bd"/><stop offset=".36" stop-color="#e6ac44"/><stop offset="1" stop-color="#885018"/></linearGradient><filter id="glow"><feGaussianBlur stdDeviation="14"/></filter></defs>
+<rect width="900" height="620" fill="url(#bg)"/><path d="M10 10H890V610H10Z" fill="none" stroke="url(#gold)" stroke-width="4"/><ellipse cx="470" cy="540" rx="290" ry="55" fill="#cc8e3a" opacity=".24" filter="url(#glow)"/>
+<g transform="translate(300 85)" stroke-linejoin="round">
+<path d="M155 60C98 60 82 117 92 168L105 238 216 245 237 154C244 99 217 66 155 60Z" fill="#111" stroke="#554b41" stroke-width="5"/>
+<path d="M104 165Q166 135 228 164L232 212Q170 226 102 210Z" fill="#111" stroke="#6d5940" stroke-width="3"/>
+<path d="M130 164Q167 146 203 162L195 179Q165 190 139 176Z" fill="#6b4327"/><path d="M138 167q13-10 24 0m15-1q13-10 24 0" fill="none" stroke="#e5d5b7" stroke-width="4"/>
+<path d="M93 227Q167 193 235 226L288 335 255 367 206 285 221 373 112 373 95 290 48 366 18 336Z" fill="#121212" stroke="#7c6144" stroke-width="5"/>
+<path d="M119 250Q164 276 209 249" fill="none" stroke="url(#gold)" stroke-width="12"/><path d="M121 247Q163 282 205 247" fill="none" stroke="#5f360a" stroke-width="3"/>
+<path d="M20 338L-18 402 20 438 66 360" fill="#161616" stroke="#554437" stroke-width="5"/><path d="M257 350L291 398 253 430 224 374" fill="#161616" stroke="#554437" stroke-width="5"/>
+<path d="M111 371L78 477 118 519 167 438 217 517 254 481 220 371Z" fill="#6e4c2e" stroke="#c29a66" stroke-width="6"/><path d="M96 429h41v34H87m142-35h-44v35h53" fill="none" stroke="#c29a66" stroke-width="6"/>
+<path d="M65 484L36 531Q36 551 86 551L132 532 121 493Z" fill="#ad8050" stroke="#2e251a" stroke-width="8"/><path d="M206 495L200 536 252 554Q299 554 302 530L254 483Z" fill="#ad8050" stroke="#2e251a" stroke-width="8"/>
+<circle cx="270" cy="398" r="17" fill="#d9b45b" stroke="#fff2cd" stroke-width="4"/><circle cx="270" cy="398" r="10" fill="#f6f1e7"/>
+</g>
+<text x="56" y="85" font-family="Arial Black,Arial,sans-serif" font-size="32" font-weight="900" fill="#f9e2aa">BALL KNOWER</text>
+<text x="55" y="147" font-family="Arial Black,Arial,sans-serif" font-size="70" font-style="italic" font-weight="900" fill="url(#gold)">BKF</text><text x="53" y="212" font-family="Arial Black,Arial,sans-serif" font-size="55" font-style="italic" fill="#fff0c8">YOUNGBOY</text>
+<text x="57" y="268" font-family="Arial,sans-serif" font-size="20" letter-spacing="5" fill="#edc470">STREET LUXURY DROP</text><path d="M56 286H286" stroke="#c69a55" stroke-width="4"/>
+<rect x="50" y="514" width="250" height="52" rx="10" fill="#c89a4e"/><text x="73" y="547" font-family="Arial,sans-serif" font-size="22" font-weight="900" fill="#211308">CONCEPT COLLECTION</text>
+<text x="820" y="585" font-family="Arial,sans-serif" font-size="15" fill="#dabb87" text-anchor="end">MASK · CHAIN · HOODIE · CARGOS · WATCH · BOOTS</text>
+</svg>
