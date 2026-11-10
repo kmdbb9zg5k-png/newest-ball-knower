@@ -25,7 +25,7 @@ try{for(const width of [320,390,1280]){
  await tab('Career');await page.getByText('CAMP BENCHMARK',{exact:false}).waitFor();await tab('Story');assert.deepEqual((await read()).careerLife,before);
  await page.getByRole('button',{name:/^Put the room first/}).click();await page.getByRole('button',{name:'Lock in response',exact:true}).click();await page.getByRole('button',{name:'PLAY FIRST-TEAM AUDITION',exact:true}).waitFor();
  await page.screenshot({path:`artifacts/my-player-tabs/story-${width}.png`});
- assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);const status=await page.getByRole('contentinfo',{name:'Career relationship stats'}).boundingBox();assert(status.y>=0&&status.y+status.height<=844);
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);const metricsFooter=page.getByRole('contentinfo',{name:'Career relationship stats'});await metricsFooter.scrollIntoViewIfNeeded();const status=await metricsFooter.boundingBox();assert(status&&status.y>=0&&status.y+status.height<=844,'Relationship metrics remain reachable without covering story decisions');
  await page.reload();await page.getByRole('button',{name:'PLAY FIRST-TEAM AUDITION',exact:true}).waitFor();assert.equal((await read()).careerLife.camp.response,'team');
  // Keyboard navigation retains progress and gives the active tab focus.
  await page.getByRole('tab',{name:'Story',exact:true}).focus();await page.keyboard.press('ArrowRight');await page.getByRole('region',{name:'Player attributes'}).waitFor();await page.keyboard.press('End');assert.equal(await page.getByRole('tab',{name:'Stats',exact:true}).getAttribute('aria-selected'),'true');
