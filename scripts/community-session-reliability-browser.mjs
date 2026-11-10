@@ -17,7 +17,7 @@ try{
   const state=()=>page.evaluate(async()=>{const r=await fetch('/__community-reliability/state',{headers:{'x-fixture-id':sessionStorage.getItem('bk-reliability-fixture')}});return r.json();});
   const fresh=async(query='')=>{await page.goto(base+query);await page.evaluate(()=>sessionStorage.removeItem('bk-reliability-fixture'));await page.reload();};
   const fits=async(label)=>assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),label+' fits '+width);
-  const complete=async(n)=>{const handle=await page.locator(`iframe[src*="drive=${n}"]`).elementHandle();assert(handle,'Drive '+n+' frame exists');const frame=await handle.contentFrame();await frame.locator('#fixture-result').click();};
+  const complete=async(n)=>{const iframe=page.locator(`iframe[src*="drive=${n}"]`);await iframe.waitFor();await assert.doesNotReject(()=>iframe.evaluate(el=>new Promise((resolve,reject)=>{const until=Date.now()+10000;const check=()=>{if(!el.inert)return resolve();if(Date.now()>until)return reject(Error('Arena readiness handshake never cleared iframe inert state'));setTimeout(check,50);};check();})));const handle=await iframe.elementHandle();assert(handle,'Drive '+n+' frame exists');const frame=await handle.contentFrame();await frame.locator('#fixture-result').click();};
 
   await fresh();await page.getByRole('button',{name:'Play drive 1 of 3',exact:true}).click();
   await page.locator('iframe[src*="drive=1"]').waitFor();
