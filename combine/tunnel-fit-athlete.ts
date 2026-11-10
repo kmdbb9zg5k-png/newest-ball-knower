@@ -34,11 +34,19 @@ export async function loadTunnelFitAthlete(gold = false) {
             converted.add(value);
             const image = value.image as TexImageSource & { width?: number; height?: number; close?: () => void };
             const width = image?.width ?? 0, height = image?.height ?? 0;
-            if (Math.max(width, height) <= 1024 || !width || !height) continue;
+            const preserveSkinColor = material instanceof MeshStandardMaterial &&
+              material.name === 'Original athlete skin' && value === material.map;
+            if (Math.max(width, height) <= (preserveSkinColor ? 2048 : 1024) || !width || !height) continue;
             try {
               let canvas = resized.get(image);
               if (!canvas) {
-                const scale = 1024 / Math.max(width, height);
+                // Eyes and facial detail are baked into the original skin albedo.
+                // Keep its color map at 2K on phones; 1K blurred the irises,
+                // while all other large maps stay at the 1K mobile memory limit.
+                const skinColor = material instanceof MeshStandardMaterial &&
+                  material.name === 'Original athlete skin' && value === material.map;
+                const edge = skinColor ? 2048 : 1024;
+                const scale = edge / Math.max(width, height);
                 canvas = document.createElement('canvas');
                 canvas.width = Math.max(1, Math.round(width * scale));
                 canvas.height = Math.max(1, Math.round(height * scale));
@@ -77,9 +85,18 @@ export async function loadTunnelFitAthlete(gold = false) {
           if (!gold) object.material.metalness = .12;
           if (!gold) object.material.roughness = .9;
           if (gold) {
-            // Preserve original geometry, UVs and textures while enabling direct-light response.
-            object.material.metalness = Math.min(object.material.metalness, .42);
-            object.material.roughness = Math.max(object.material.roughness, .36);
+            // Gold outfit and facial skin use different primitives in the original GLB.
+            // Skin must stay matte/nonmetallic; otherwise the strong outfit lights
+            // blow out its baked eye texture and make the eyes appear blank.
+            if (object.material.name === 'Original athlete skin') {
+              object.material.metalness = 0;
+              object.material.roughness = .91;
+              object.material.normalScale.set(.52, .52);
+              object.material.color.multiplyScalar(.82);
+            } else {
+              object.material.metalness = Math.min(object.material.metalness, .42);
+              object.material.roughness = Math.max(object.material.roughness, .36);
+            }
             object.material.needsUpdate = true;
           }
         }
