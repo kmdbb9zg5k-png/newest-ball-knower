@@ -10,8 +10,12 @@ const detailFrames={
 };
 
 export async function createCreatorScene(host:HTMLElement,initial:any,showroom=false){
-  const renderer=createDrillRenderer(T.WebGLRenderer,{alpha:true,powerPreference:'low-power'});
-  renderer.setPixelRatio(Math.min(devicePixelRatio||1,showroom?2.5:2));
+  const mobileShowroom = showroom && typeof window !== 'undefined' &&
+    (window.matchMedia('(max-width: 768px)').matches || window.matchMedia('(pointer: coarse)').matches);
+  const renderer=createDrillRenderer(T.WebGLRenderer,{
+    alpha:true, antialias:!mobileShowroom, powerPreference:'low-power'
+  });
+  renderer.setPixelRatio(mobileShowroom ? 1 : Math.min(devicePixelRatio||1,showroom?1.5:2));
   renderer.outputColorSpace=T.SRGBColorSpace;
   renderer.toneMapping=T.ACESFilmicToneMapping;
   const goldShowroom = showroom && initial.wardrobe?.top === 'top-gold-standard';
@@ -44,12 +48,14 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
     }
     ticks=new T.LineSegments(new T.BufferGeometry().setFromPoints(points),new T.LineBasicMaterial({color:0xc6a36c,transparent:true,opacity:.66,depthWrite:false}));
     scene.add(ticks);
-    renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFShadowMap;
-    key.castShadow=true;key.shadow.mapSize.set(1024,1024);
-    key.shadow.camera.left=key.shadow.camera.bottom=-1.3;
-    key.shadow.camera.right=key.shadow.camera.top=1.3;
-    key.shadow.normalBias=.02;key.target.position.y=.85;scene.add(key.target);
-    floor.receiveShadow=true;
+    if (!mobileShowroom) {
+      renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFShadowMap;
+      key.castShadow=true;key.shadow.mapSize.set(1024,1024);
+      key.shadow.camera.left=key.shadow.camera.bottom=-1.3;
+      key.shadow.camera.right=key.shadow.camera.top=1.3;
+      key.shadow.normalBias=.02;key.target.position.y=.85;scene.add(key.target);
+      floor.receiveShadow=true;
+    }
   }
   const gold = initial.wardrobe?.top === 'top-gold-standard';
   const isSample = showroom && initial.showroomSample;
