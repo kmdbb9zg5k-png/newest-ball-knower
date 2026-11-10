@@ -25,6 +25,7 @@ export type StoreProduct = {
   includes: readonly string[];
   use: string;
   tryOn?: TryOn;
+  showcase?: { model: string; look: string; collection: string; theme: string };
 };
 
 export const BLACKOUT_KIT: StoreProduct = {
@@ -118,6 +119,24 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     use: 'Streetwear concept collection',
   },
   {
+    id: 'bkf-outlaw', name: 'BKF Outlaw',
+    summary: 'Country Boy · Plaid, denim & cowboy boots',
+    description: 'Red plaid over a white tank. A weathered cowboy hat, classic denim, engraved belt buckle and stitched leather boots. The original Country Boy showcase character.',
+    priceCents: 0, categories: ['tunnel-fits', 'bundles'],
+    includes: ['Cowboy hat', 'Red plaid shirt', 'White tank top', 'Denim jeans', 'Western belt buckle', 'Cowboy boots'],
+    use: 'Country collection',
+    showcase: { model: '/store/bkf-outlaw-athlete-v1.glb', look: '/store/bkf-outlaw-look.webp', collection: 'Country Collection', theme: 'outlaw' },
+  },
+  {
+    id: 'bkf-kickflip', name: 'BKF Kickflip',
+    summary: 'Skater · Layered BKF tee & baggy denim',
+    description: 'Washed-black BKF tee over cream sleeves. A knit beanie, baggy denim with a wallet chain, and worn skate shoes. The original Kickflip showcase character.',
+    priceCents: 0, categories: ['tunnel-fits', 'bundles'],
+    includes: ['BKF knit beanie', 'Layered BKF tee', 'Cream long sleeves', 'Baggy black denim', 'Wallet chain', 'Skate shoes'],
+    use: 'Skate collection',
+    showcase: { model: '/store/bkf-kickflip-athlete-v1.glb', look: '/store/bkf-kickflip-look.webp', collection: 'Skate Collection', theme: 'kickflip' },
+  },
+  {
     id: 'ink-pack',
     name: 'Ink Pack',
     summary: 'Three original tattoo designs',
@@ -163,4 +182,4 @@ export const storeImage = (id: string) => id === 'gold-standard'
   ? 'https://v3b.fal.media/files/b/0ab1ea94/hSYeTuHMXg21r6ipNqX7c_ByU6fl61.png'
   : '/store/' + id + '.webp';
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
-export const storePrice = (product: StoreProduct) => (product.id === 'bkf-youngboy' || product.id === 'frostbite') ? 'Coming soon' : usd.format(product.priceCents / 100);
+export const storePrice = (product: StoreProduct) => (product.showcase || product.id === 'bkf-youngboy' || product.id === 'frostbite') ? 'Coming soon' : usd.format(product.priceCents / 100);

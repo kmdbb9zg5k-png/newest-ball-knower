@@ -65,11 +65,11 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
     await page.screenshot({ path: artifacts + '/featured-' + width + '.png' });
 
-    assert.equal(await store.locator('.bk-store-product').count(), 5, 'Store opens with YoungBoy and Frostbite among featured cards');
+    assert.equal(await store.locator('.bk-store-product').count(), 7, 'Store opens with YoungBoy and Frostbite among featured cards');
     await store.getByRole('button', { name: /Chrome Grip Gloves/ }).getByText('$0.99', { exact: true }).waitFor();
     const landingCategories = store.getByRole('group', { name: 'Shop categories', exact: true });
     await landingCategories.getByRole('button', { name: 'Tunnel Fits', exact: true }).click();
-    assert.equal(await store.locator('.bk-store-product').count(), 5, 'Tunnel Fits includes YoungBoy and Frostbite');
+    assert.equal(await store.locator('.bk-store-product').count(), 7, 'Tunnel Fits includes YoungBoy and Frostbite');
     await landingCategories.getByRole('button', { name: 'All', exact: true }).click();
 
 
@@ -178,13 +178,13 @@ try {
       const fullPoster = productView.getByRole('button', { name: 'Full poster' });
       const realisticView = productView.getByRole('button', { name: 'Realistic view' });
       const frostbiteTryOn = productView.getByRole('button', { name: '3D preview' });
-      const hero = frostbite.locator('.bkf-drop-hero');
+      const frostbiteHero = frostbite.locator('.bkf-drop-frostbiteHero');
       assert.equal(await fullPoster.getAttribute('aria-pressed'), 'true', 'Poster opens by default');
-      assert.equal(await hero.getAttribute('data-bkf-photo'), 'poster');
-      assert.ok((await hero.locator('img').getAttribute('src')).includes('3CD98264-BD29-4D30-9FAE-8EE444BB6E92.jpeg'), 'Full poster is initially displayed');
+      assert.equal(await frostbiteHero.getAttribute('data-bkf-photo'), 'poster');
+      assert.ok((await frostbiteHero.locator('img').getAttribute('src')).includes('3CD98264-BD29-4D30-9FAE-8EE444BB6E92.jpeg'), 'Full poster is initially displayed');
       await realisticView.click();
       assert.equal(await realisticView.getAttribute('aria-pressed'), 'true');
-      assert.ok((await hero.locator('img').getAttribute('src')).includes('ByU6fl61.png'), 'Realistic view is second');
+      assert.ok((await frostbiteHero.locator('img').getAttribute('src')).includes('ByU6fl61.png'), 'Realistic view is second');
       await frostbiteTryOn.click();
       assert.equal(await frostbiteTryOn.getAttribute('aria-pressed'), 'true');
       assert.equal(await frostbite.getByText('Standard showcase character · Not your saved player').count(), 1, '3D view is clearly a showcase character');

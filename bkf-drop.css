@@ -116,3 +116,16 @@
 .bkf-gold-showroom-3d .bk-athlete-preview-message p{margin:0;max-width:28ch;line-height:1.4;}
 .bkf-gold-showroom-3d .bk-athlete-preview-message button{min-height:42px;padding:8px 16px;border:1px solid #edc66e;border-radius:8px;background:#392914;color:#f9dda5;font-weight:750;}
 @media(max-width:380px){.bkf-drop-modal--gold .bkf-drop-title{font-size:clamp(23px,6.7vw,44px);}}
+
+/* Recovered 2:3 promotional artwork is shown in full, including its outfit panel. */
+.bkf-drop-modal--character .bkf-drop-hero[data-bkf-display="photos"]{aspect-ratio:2/3;}
+.bkf-drop-modal--character .bkf-drop-title{font-size:clamp(29px,8vw,58px);}
+.bkf-drop-modal--kickflip{border-color:#b7ce37!important;}
+.bkf-drop-modal--kickflip .bkf-drop-heading p,.bkf-drop-modal--kickflip .bkf-drop-brand{color:#d2e949;}
+.bkf-drop-modal--kickflip .bkf-drop-tabs button[aria-pressed="true"],.bkf-drop-modal--kickflip .bkf-drop-cta{background:linear-gradient(120deg,#e1ee9c,#b2c935);color:#111;}
+.bkf-character .bkf-pose-controls button{min-width:44px;min-height:44px;}
+.bkf-character-fallback{position:absolute;inset:0 0 65px;background:#171717;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;gap:8px;text-align:center;font-size:13px;}
+.bkf-character-fallback img{height:65%;max-width:100%;object-fit:contain;}
+.bkf-character-fallback button{min-height:44px;padding:8px 18px;border:1px solid #eac67b;border-radius:8px;}
+.bk-store-concept-poster.bk-store-character-poster{aspect-ratio:2/3;background:#111;}
+.bk-store-concept-poster.bk-store-character-poster img{width:100%;height:100%;object-fit:contain;transform:none;}
