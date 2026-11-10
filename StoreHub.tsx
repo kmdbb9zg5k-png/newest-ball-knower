@@ -27,7 +27,7 @@ const departments = [
   { id: 'clothing', label: 'Clothing' }, { id: 'accessories', label: 'Accessories' },
   { id: 'all', label: 'All Items' },
 ] as const;
-const isCharacter = (product: StoreProduct) => product.department !== 'clothing' && (Boolean(product.showcase) || ['bkf-youngboy', 'frostbite'].includes(product.id));
+const isCharacter = (product: StoreProduct) => product.department !== 'clothing' && (product.posterOnly || Boolean(product.showcase) || ['bkf-youngboy', 'frostbite'].includes(product.id));
 const characterProducts = STORE_PRODUCTS.filter(isCharacter);
 const clothingProducts = STORE_PRODUCTS.filter(product => product.categories.includes('tunnel-fits') && !isCharacter(product) && product.id !== 'ink-pack');
 const accessoryProducts = STORE_PRODUCTS.filter(product => product.id === 'chrome-grip' || product.id === 'ink-pack');
@@ -53,7 +53,7 @@ function ProductCard({ product, onOpen }: { product: StoreProduct; onOpen: (prod
     <span className="bk-store-product-text">
       <strong>{product.name}</strong>
       <span>{product.summary}</span>
-      <b>{storePrice(product)}{product.priceCents > 0 && <small> proposed</small>}</b>
+      <b>{storePrice(product)}{(product.priceCents > 0 || product.proposedCoins) && <small> proposed</small>}</b>
     </span>
   </button>;
 }
@@ -182,17 +182,17 @@ function ProductDialog({ selection, onClose }: { selection: Selection; onClose: 
             <div className="bk-store-try-on-label"><Shirt size={15} aria-hidden="true"/> <strong>{athlete ? athlete.name : 'Sample athlete'}</strong> <span>Try-on preview</span></div>
             <TryOnPreview athlete={athlete} preview={product.tryOn}/>
           </div>
-        : <img className="bk-store-detail-art" src={storeImage(product.id)} alt={product.summary}/>}
+        : <img className={"bk-store-detail-art" + (product.posterOnly ? " bk-store-detail-art--poster" : "")} src={storeImage(product.id)} alt={product.summary}/>}
       <p className="bk-store-detail-description">{product.description}</p>
       <h3>Included</h3>
       <ul className="bk-store-includes">{product.includes.map(item => <li key={item}>{item}</li>)}</ul>
       <div className="bk-store-dialog-actions">
         {(product.tryOn || product.id === 'bkf-youngboy') && <button type="button" className="bk-store-button" onClick={() => setTrying(value => !value)}>{trying ? 'View product art' : product.id === 'bkf-youngboy' ? 'Preview in 3D' : 'Try on'}</button>}
         <div className="bk-store-price-status">
-          <strong>{storePrice(product)}</strong><span>{product.id === 'bkf-youngboy' ? 'Concept collection' : 'Planned price'}</span>
+          <strong>{storePrice(product)}</strong><span>{product.posterOnly ? 'Proposed pack price' : product.id === 'bkf-youngboy' ? 'Concept collection' : 'Planned price'}</span>
         </div>
       </div>
-      <p className="bk-store-purchase-status">{product.id === 'bkf-youngboy' ? 'Concept preview · Wearable 3D garments and checkout are not available yet.' : 'Catalog preview · Checkout opens at launch.'}</p>
+      <p className="bk-store-purchase-status">{product.posterOnly ? 'Artwork preview · 3D, wearables, purchases and gifting are not available yet.' : product.id === 'bkf-youngboy' ? 'Concept preview · Wearable 3D garments and checkout are not available yet.' : 'Catalog preview · Checkout opens at launch.'}</p>
     </div>
   </dialog>;
 }

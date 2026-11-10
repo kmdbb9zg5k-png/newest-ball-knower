@@ -623,3 +623,5 @@ body:has(.bk-tunnel-showroom[open]) { overflow: hidden; }
 
 /* Match Gray Standard's full-height portrait framing to Gold Standard. */
 .bk-store-locker-shop [data-store-product="tunnel-fit"] .bk-store-card-art img { object-fit:cover; object-position:50% 50%; }
+
+.bk-store-detail-art--poster { aspect-ratio: auto; height: auto; object-fit: contain; }
