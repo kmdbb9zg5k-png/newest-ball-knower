@@ -46,7 +46,7 @@ try {
     assert.equal(await store.locator('[data-store-product="end-zone-backflip"]').count(),1);
     await departments.getByRole('button',{name:'Featured',exact:true}).click();
     const before=await page.evaluate(()=>localStorage.getItem('ballknower_solo_my_player_v2'));
-    for(const id of ['bkf-outlaw','bkf-kickflip','bkf-lowrider']){
+    for(const id of (process.env.STORE_TEST_CHARACTERS?.split(',') || ['bkf-outlaw','bkf-kickflip','bkf-lowrider','bkf-iron-wolf'])){
       checkpoint(`${width}px ${id}: opening product`);
       const card=store.locator(`[data-store-product="${id}"]`);await card.scrollIntoViewIfNeeded();await card.locator('img').evaluate(i=>i.decode());await card.click();
       const dialog=page.locator(`[data-bkf-collection="${id}"]`);await dialog.waitFor();

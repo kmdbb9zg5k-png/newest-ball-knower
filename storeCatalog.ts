@@ -119,6 +119,15 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     use: 'Streetwear concept collection',
   },
   {
+    id: 'bkf-iron-wolf', name: 'Iron Wolf',
+    summary: 'Charcoal & silver · Wolf character streetwear',
+    description: 'An original wolf character in a washed-charcoal BK hoodie, oversized cargo pants, silver chain and black-and-silver sneakers. Explore the full poster, standing reference and detailed 360° model. This is a static showcase character; wearable items, purchasing and ownership are not available yet.',
+    priceCents: 0, categories: ['tunnel-fits', 'bundles'],
+    includes: ['Iron Wolf character', 'Charcoal BK hoodie', 'Oversized charcoal cargos', 'Silver chain', 'Black-and-silver sneakers'],
+    use: 'Charcoal & Silver collection concept preview',
+    showcase: { model: '/store/bkf-iron-wolf-athlete-v1.glb', look: '/store/bkf-iron-wolf-look.webp', collection: 'Charcoal & Silver Collection', theme: 'iron-wolf' },
+  },
+  {
     id: 'bkf-phantom', name: 'The Phantom',
     summary: 'Shadow kit · Tactical hoodie, chrome mask & boots',
     description: 'The Phantom moves in silence: a matte-black layered tactical streetwear hoodie, dark chrome face mask, technical cargo trousers, silver BK chain, black lace-up boots and a metal watch. An original cinematic masked streetwear character. The 3D preview is a static showcase character that rotates 360°; individual wearable items, purchasing, and ownership are not available yet.',
