@@ -78,7 +78,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
   },
   {
     id: 'tunnel-fit',
-    name: 'Tunnel Fit',
+    name: 'Gray Standard',
     summary: 'Hoodie, sweats & trainers',
     description: 'A coordinated graphite outfit with a warm gold trim for training and tunnel arrivals.',
     priceCents: 299,
