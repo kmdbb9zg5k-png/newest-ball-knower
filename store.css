@@ -172,11 +172,13 @@
 .bk-store-product .bk-store-concept-poster{display:block;position:relative;overflow:hidden;width:100%;aspect-ratio:4/5;}
 .bk-store-product .bk-store-frostbite-poster{background:radial-gradient(ellipse at 50% 45%,#376989 0%,#10283d 58%,#06111f 100%);}
 .bk-store-product .bk-store-youngboy-poster{background:radial-gradient(ellipse at 45% 45%,#533616 0%,#24170e 55%,#090706 100%);}
+.bk-store-product .bk-store-gold-poster{background:radial-gradient(ellipse at 50% 40%,#4a320c,#1b1209 62%,#080706 100%);}
 .bk-store-shop .bk-store-product .bk-store-concept-poster{aspect-ratio:4/5;}
 .bk-store-product .bk-store-frostbite-poster::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#83d7fa22,transparent 28%,transparent 72%,#83d7fa22);pointer-events:none;}
 .bk-store-product .bk-store-concept-poster img,.bk-store-shop .bk-store-product .bk-store-concept-poster img{position:relative;display:block;width:100%;height:100%;aspect-ratio:auto;object-fit:contain;object-position:center;}
 .bk-store-product[data-store-product="frostbite"]{border-color:#7fcdec70;}
 .bk-store-product[data-store-product="bkf-youngboy"]{border-color:#c99d5570;}
+.bk-store-product[data-store-product="gold-standard"]{border-color:#e7c17880;}
 
 .bk-store-product-text { display: grid; gap: 3px; padding: 8px 10px 10px; line-height: 1.25; }
 .bk-store-product strong { font-size: clamp(13px, 3.5vw, 21px); font-weight: 850; }
