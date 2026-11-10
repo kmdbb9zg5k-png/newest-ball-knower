@@ -24,7 +24,7 @@ function SweatsIcon({size=20}:{size?:number}){
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12l2 18h-5l-3-12-3 12H4L6 3Z"/><path d="M6 6h12"/></svg>;
 }
 
-export default function AthleteLivePreview({profile:inputProfile,view='body',onViewChange,onPortrait,previewOutfit,showroom=false,showroomAthleteToggle,fallbackImage}:{profile:Profile;previewOutfit?:Outfit;view?:'body'|'head';onViewChange?:(view:'body'|'head')=>void;onPortrait?:(portrait:string)=>void;showroom?:boolean;showroomAthleteToggle?:ShowroomAthleteToggle;fallbackImage?:string}){
+export default function AthleteLivePreview({profile:inputProfile,view='body',onViewChange,onPortrait,previewOutfit,showroom=false,showroomAthleteToggle,fallbackImage,hideFaceDetail=false}:{profile:Profile;previewOutfit?:Outfit;view?:'body'|'head';onViewChange?:(view:'body'|'head')=>void;onPortrait?:(portrait:string)=>void;showroom?:boolean;showroomAthleteToggle?:ShowroomAthleteToggle;fallbackImage?:string;hideFaceDetail?:boolean}){
   const equipped=usePlayerOutfit();
   const profile=useMemo(()=>({...inputProfile,wardrobe:previewOutfit||equipped}),[inputProfile,previewOutfit,equipped]);
   const [showroomView,setShowroomView]=useState<(typeof showroomViews)[number]>(showroomViews[0]);
@@ -78,7 +78,7 @@ export default function AthleteLivePreview({profile:inputProfile,view='body',onV
         <button type="button" aria-label="Rotate right" disabled={state!=='ready'} onClick={()=>rotate(angle.current+30)}><ChevronRight size={20} aria-hidden="true"/></button>
       </div>
       <div className="bk-showroom-views" role="group" aria-label="Outfit detail views">
-        {showroomViews.map(option=><button key={option.id} type="button" aria-pressed={activeView===option.id} onClick={()=>setShowroomView(option)}><option.Icon size={21} aria-hidden="true"/><span>{option.label}</span></button>)}
+        {showroomViews.filter(option=>!(hideFaceDetail && option.id==='head')).map(option=><button key={option.id} type="button" aria-pressed={activeView===option.id} onClick={()=>setShowroomView(option)}><option.Icon size={21} aria-hidden="true"/><span>{option.label}</span></button>)}
       </div>
     </>}
     {state==='loading'?<div className="bk-athlete-preview-message" role="status">Preparing your athlete…</div>:null}
