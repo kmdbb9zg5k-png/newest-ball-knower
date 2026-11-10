@@ -69,6 +69,7 @@ function TryOnPreview({ athlete, preview }: { athlete: AthletePassport | null; p
   };
   return <Suspense fallback={<p className="bk-store-preview-loading" role="status">Preparing your athlete…</p>}>
     <AthleteLivePreview profile={profile} previewOutfit={outfit} showroom={preview.outfit.top === 'top-tunnel-fit' || preview.outfit.top === 'top-gold-standard'}
+      fallbackImage={preview.outfit.top === 'top-gold-standard' ? storeImage('gold-standard-realistic') : undefined}
       />
   </Suspense>;
 }
