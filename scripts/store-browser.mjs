@@ -106,6 +106,11 @@ try {
       assert.ok(await cover.evaluate(img=>img.naturalWidth>100),'Approved BKF YoungBoy cover art loads');
       await tryOn.click();
       await youngBoy.locator('[data-bkf-rig-preview="youngboy"] canvas').waitFor();
+      const rigPreview = youngBoy.locator('[data-bkf-rig-preview="youngboy"]');
+      assert.equal(await rigPreview.getAttribute('data-bkf-pose'), 'a-pose', 'YoungBoy uses the upright A-pose');
+      assert.equal(await rigPreview.getByRole('group', { name: 'Select stance' }).count(), 0, 'Stance selector is removed');
+      assert.equal(await rigPreview.getByRole('button', { name: /Signature crouch|Original A-pose/ }).count(), 0, 'Old pose buttons are gone');
+      assert.equal(await rigPreview.getByRole('button', { name: 'Rotate left' }).count(), 1, '3D rotation remains available');
       assert.equal(await tryOn.getAttribute('aria-pressed'),'true');
       await youngBoy.getByRole('button',{name:'Product photos',exact:true}).click();
       assert.equal(await photos.getAttribute('aria-pressed'),'true');
