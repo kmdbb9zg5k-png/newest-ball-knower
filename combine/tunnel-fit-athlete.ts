@@ -44,7 +44,7 @@ export async function loadTunnelFitAthlete(gold = false) {
                 canvas.height = Math.max(1, Math.round(height * scale));
                 const context = canvas.getContext('2d', { alpha: true });
                 if (!context) continue;
-                context.drawImage(image, 0, 0, canvas.width, canvas.height);
+                context.drawImage(image as CanvasImageSource, 0, 0, canvas.width, canvas.height);
                 resized.set(image, canvas);
                 if (typeof image.close === 'function') originals.add(image as ImageBitmap);
               }
