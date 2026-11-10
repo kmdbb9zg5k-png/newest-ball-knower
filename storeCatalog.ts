@@ -119,6 +119,15 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     use: 'Streetwear concept collection',
   },
   {
+    id: 'bkf-phantom', name: 'The Phantom',
+    summary: 'Shadow kit · Tactical hoodie, chrome mask & boots',
+    description: 'The Phantom moves in silence: a matte-black layered tactical streetwear hoodie, dark chrome face mask, technical cargo trousers, silver BK chain, black lace-up boots and a metal watch. An original cinematic masked streetwear character. The 3D preview is a static showcase character that rotates 360°; individual wearable items, purchasing, and ownership are not available yet.',
+    priceCents: 0, categories: ['tunnel-fits', 'bundles'],
+    includes: ['Black tactical hoodie-jacket', 'Chrome-trim mask', 'Black technical cargo trousers', 'Black combat boots', 'Silver BK chain', 'Silver wristwatch'],
+    use: 'Shadow collection concept preview',
+    showcase: { model: 'https://v3b.fal.media/files/b/0ab1f248/LwJJTnq5TIJ6S9RsHOcW0_model.glb', look: 'https://v3b.fal.media/files/b/0ab1f21d/aEW__qpU6k2Ik8P7TywbO_lUUJVFfQ.png', collection: 'Shadow Collection', theme: 'phantom' },
+  },
+  {
     id: 'bkf-outlaw', name: 'BKF Outlaw',
     summary: 'Country Boy · Plaid, denim & cowboy boots',
     description: 'Red plaid over a white tank. A weathered cowboy hat, classic denim, engraved belt buckle and stitched leather boots. The original Country Boy showcase character.',
@@ -177,7 +186,9 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
   },
 ];
 
-export const storeImage = (id: string) => id === 'gold-standard'
+export const storeImage = (id: string) => id === 'bkf-phantom'
+  ? 'https://v3b.fal.media/files/b/0ab1f22f/ZV1i2C4x_u3pGyWgsReKS_7OOQNTpM.png'
+  : id === 'gold-standard'
   ? 'https://v3b.fal.media/files/b/0ab1ee44/enaihGc_oxFoSOBQfobNp_gold_standard_outfit_pack.png'
   : id === 'gold-standard-realistic'
   ? 'https://v3b.fal.media/files/b/0ab1ee44/Ko9rmQPklzzMtX5q6LNRn_golden_bk_tracksuit_athlete.png'
