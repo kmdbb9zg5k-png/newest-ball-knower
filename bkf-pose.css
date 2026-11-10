@@ -1,0 +1,12 @@
+.bkf-pose{position:relative;min-width:0;border:1px solid #c69b556b;border-radius:12px;overflow:hidden;background:#15100b;color:#fff}
+.bkf-pose-stage{height:clamp(310px,54dvh,570px);width:100%;touch-action:pan-y;cursor:grab}
+.bkf-pose-stage:active{cursor:grabbing}
+.bkf-pose-stage canvas{display:block;width:100%;height:100%}
+.bkf-pose-loading{position:absolute;inset:24% 10% auto;background:#090807d9;border:1px solid #e9be7755;border-radius:8px;padding:16px;text-align:center;font-size:13px;line-height:1.5}
+.bkf-pose-controls{display:grid;gap:8px;padding:10px;border-top:1px solid #efc86f55}
+.bkf-pose-controls>div{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.bkf-pose-controls button{min-height:42px;padding:8px 12px;border:1px solid #bd9857;border-radius:8px;color:#f5d89a;font-weight:750;background:#120d09;font-size:12px}
+.bkf-pose-controls button[aria-pressed=true]{background:#e6bd6d;color:#181008}
+.bkf-pose-controls button:disabled{opacity:.45;cursor:not-allowed}
+.bkf-pose-controls span{font-size:12px;color:#d5c5ae}
+.bkf-pose-note{margin:0;padding:0 12px 12px;font-size:11px;color:#c7bdab;line-height:1.5}
