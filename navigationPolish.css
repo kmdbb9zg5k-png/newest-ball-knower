@@ -32,7 +32,7 @@
 .bk-destination-menu-actions>button{display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:8px;border:1px solid #d9b43b45;border-radius:10px;background:#d9b43b0b;color:#e5cf94;font-size:12px;font-weight:700}
 .bk-destination-menu-actions>button>svg{width:16px;height:16px;flex:none}
 .bk-header-account-trigger{display:grid;place-items:center;min-width:44px;min-height:44px}
-@media(max-width:389px){.bk-explore-trigger{gap:4px;padding-inline:7px;font-size:10px}.bk-explore-trigger>svg{width:15px}.bk-destination-menu-header{padding:16px}.bk-destination-menu-body{padding-inline:16px}.bk-destination-menu-grid{grid-template-columns:1fr}.bk-primary-mobile>button{font-size:9px}}
+@media(max-width:389px){.bk-explore-trigger{gap:4px;padding-inline:7px;font-size:10px}.bk-explore-trigger>svg{width:15px}.bk-destination-menu-header{padding:16px}.bk-destination-menu-body{padding-inline:16px}.bk-destination-menu-grid{grid-template-columns:1fr}.bk-primary-mobile>button{font-size:9px;letter-spacing:0;padding-inline:0}}
 @media(prefers-reduced-motion:reduce){.bk-primary-destinations>button{transition:none}}
 
 @media(max-width:1023px){.bk-header-brand{flex:0 0 110px}.bk-header-brand h1{display:flex;flex-direction:column;gap:1px;font-size:24px;line-height:.94;letter-spacing:-.06em}.bk-header-controls{gap:6px}}

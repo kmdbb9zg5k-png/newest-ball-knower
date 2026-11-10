@@ -10,7 +10,7 @@ const v=(x=0,y=0,z=0)=>new T.Vector3(x,y,z);
 const position=o=>o.getWorldPosition(v());
 const rotation=o=>o.getWorldQuaternion(new T.Quaternion());
 
-export async function loadCombineRunner(player) {
+export async function loadCombineRunner(player,showroom=false,showroomSkin=false) {
   const bytes=await loadCombineAsset(COMBINE_CHARACTER_URL);
   let gltf;
   try { gltf=await new GLTFLoader().parseAsync(bytes.slice(0),'/play-moment-3d/assets/'); }
@@ -25,7 +25,7 @@ export async function loadCombineRunner(player) {
   const bones={};body.traverse(o=>{if(o.isBone)bones[o.name.replace('mixamorig','').replace(':','')]=o;if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;for(const m of(Array.isArray(o.material)?o.material:[o.material])){if(m.map)m.map.anisotropy=4;}}});
   const required=['Hips','Spine','Spine1','Spine2','Neck','Head','LeftUpLeg','LeftLeg','LeftFoot','RightUpLeg','RightLeg','RightFoot','LeftArm','LeftForeArm','LeftHand','RightArm','RightForeArm','RightHand'];
   if(required.some(name=>!bones[name]))throw new Error('The Combine character rig is incomplete.');
-  const appearance=createPlayerAppearance(body,bones);
+  const appearance=createPlayerAppearance(body,bones,showroom,showroomSkin);
   const shape=createBodyShape(body);
   const bind=Object.fromEntries(Object.entries(bones).map(([name,b])=>[name,{p:b.position.clone(),q:b.quaternion.clone()}]));
   body.updateMatrixWorld(true);
@@ -281,8 +281,8 @@ export async function loadCombineRunner(player) {
     body.updateMatrixWorld(true);
     const height=T.MathUtils.clamp((build.heightInches||72)/72,.91,1.12);
     for(const [side,sign]of [['Left',1],['Right',-1]]){
-      solve([side+'UpLeg',side+'Leg',side+'Foot'],v(sign*.14,footHeight*height,.015),v(sign*.16,.5*height,.4),true);
-      solve([side+'Arm',side+'ForeArm',side+'Hand'],v(sign*(.29+(build.shoulderWidth??50)*.0006+bodyMass(build)*.15),.88*height,.05),v(sign*(.47+bodyMass(build)*.12),1.12*height,-.08));
+      solve([side+'UpLeg',side+'Leg',side+'Foot'],v(sign*(showroom?.13:.14),footHeight*height,showroom?(side==='Left'?.078:-.045):.015),v(sign*.16,.5*height,.4),true);
+      solve([side+'Arm',side+'ForeArm',side+'Hand'],v(sign*(.29+(build.shoulderWidth??50)*.0006+bodyMass(build)*.15),.88*height,showroom?(side==='Left'?.065:.019):.05),v(sign*(.47+bodyMass(build)*.12),1.12*height,-.08));
     }
     root.updateMatrixWorld(true);
   }

@@ -5,6 +5,7 @@ export const PRIMARY_DESTINATIONS = [
   { tab: 'play', label: 'Play' },
   { tab: 'fantasy', label: 'Fantasy' },
   { tab: 'community', label: 'Community' },
+  { tab: 'store', label: 'Store' },
   { tab: 'locker', label: 'Profile' },
 ] as const satisfies readonly { tab: AppTab; label: string }[];
 
@@ -28,5 +29,6 @@ export function primaryDestinationForTab(tab: AppTab): PrimaryDestination {
   if (['play', 'solo', 'football', 'challenges', 'sportsbook'].includes(tab)) return 'play';
   if (['locker', 'wardrobe'].includes(tab)) return 'locker';
   if (tab === 'community') return 'community';
+  if (tab === 'store') return 'store';
   return 'home';
 }

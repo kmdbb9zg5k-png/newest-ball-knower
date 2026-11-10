@@ -109,7 +109,8 @@ const restoreRun=()=>{
  }
 };
 
-export const SoloMode:React.FC<{initialExperience?:SoloExperience}>=withSoloPresentation<{initialExperience?:SoloExperience}>(({initialExperience='hub'})=>{
+type SoloModeProps={initialExperience?:SoloExperience;onShopGear?:()=>void};
+export const SoloMode:React.FC<SoloModeProps>=withSoloPresentation<SoloModeProps>(({initialExperience='hub',onShopGear})=>{
  const [experience,setExperience]=useState<SoloExperience>(initialExperience);
  const openExperience=(next:SoloExperience)=>{trackBallKnowerEvent('Solo Experience Opened',{experience:next});setExperience(next)};
  useLayoutEffect(()=>{
@@ -133,7 +134,7 @@ export const SoloMode:React.FC<{initialExperience?:SoloExperience}>=withSoloPres
   >
    <ArrowLeft size={17} aria-hidden="true"/> Back
   </button>
-  <Suspense fallback={<SoloModeLoading/>}>{experience==='cap'?<CapChallenge/>:experience==='fantasy'?<FantasyFranchiseMode onBack={back}/>:experience==='real'?<RealTeamFranchiseMode onBack={back}/>:<MyPlayerStoryMode onBack={back}/>}</Suspense>
+  <Suspense fallback={<SoloModeLoading/>}>{experience==='cap'?<CapChallenge/>:experience==='fantasy'?<FantasyFranchiseMode onBack={back}/>:experience==='real'?<RealTeamFranchiseMode onBack={back}/>:<MyPlayerStoryMode onBack={back} onShopGear={onShopGear}/>}</Suspense>
  </div>;
 });
 
