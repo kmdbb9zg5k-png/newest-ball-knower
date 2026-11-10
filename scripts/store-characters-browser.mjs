@@ -41,12 +41,14 @@ try {
       assert.equal(await store.locator(`[data-store-product="${expected}"]`).count(),1);
       assert.equal(await store.locator(`[data-store-product="${absent}"]`).count(),0);
     }
+    await departments.getByRole('button',{name:'Clothing',exact:true}).click();
+    for (const id of ['black-tie','ivory-standard']) assert.equal(await store.locator(`[data-store-product="${id}"]`).count(),1);
     await departments.getByRole('button',{name:'All Items',exact:true}).click();
     await store.getByRole('button',{name:'Celebrations',exact:true}).click();
     assert.equal(await store.locator('[data-store-product="end-zone-backflip"]').count(),1);
     await departments.getByRole('button',{name:'Featured',exact:true}).click();
     const before=await page.evaluate(()=>localStorage.getItem('ballknower_solo_my_player_v2'));
-    for(const id of (process.env.STORE_TEST_CHARACTERS?.split(',') || ['bkf-outlaw','bkf-kickflip','bkf-lowrider','bkf-iron-wolf'])){
+    for(const id of (process.env.STORE_TEST_CHARACTERS?.split(',') || ['bkf-outlaw','bkf-kickflip','bkf-lowrider','bkf-iron-wolf','black-tie','ivory-standard'])){
       checkpoint(`${width}px ${id}: opening product`);
       const card=store.locator(`[data-store-product="${id}"]`);await card.scrollIntoViewIfNeeded();await card.locator('img').evaluate(i=>i.decode());await card.click();
       const dialog=page.locator(`[data-bkf-collection="${id}"]`);await dialog.waitFor();

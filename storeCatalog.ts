@@ -25,6 +25,7 @@ export type StoreProduct = {
   includes: readonly string[];
   use: string;
   tryOn?: TryOn;
+  department?: 'clothing';
   showcase?: { model: string; look: string; collection: string; theme: string };
 };
 
@@ -135,6 +136,24 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     includes: ['Black tactical hoodie-jacket', 'Chrome-trim mask', 'Black technical cargo trousers', 'Black combat boots', 'Silver BK chain', 'Silver wristwatch'],
     use: 'Shadow collection concept preview',
     showcase: { model: 'https://v3b.fal.media/files/b/0ab1f248/LwJJTnq5TIJ6S9RsHOcW0_model.glb', look: 'https://v3b.fal.media/files/b/0ab1f21d/aEW__qpU6k2Ik8P7TywbO_lUUJVFfQ.png', collection: 'Shadow Collection', theme: 'phantom' },
+  },
+  {
+    id: 'black-tie', name: 'Black Tie', department: 'clothing',
+    summary: 'Country Boy · Classic black tuxedo',
+    description: 'Country Boy dressed for the spotlight: a tailored black tuxedo, crisp white dress shirt, black bow tie and polished dress shoes. Explore the campaign cover, realistic reference and full 360° showcase. Wearable garments and checkout are not available yet.',
+    priceCents: 0, categories: ['tunnel-fits', 'bundles'],
+    includes: ['Black tuxedo jacket', 'White dress shirt', 'Black bow tie', 'Tailored black trousers', 'Polished black dress shoes'],
+    use: 'Country Boy formalwear collection',
+    showcase: { model: '/store/black-tie-athlete-v1.glb', look: '/store/black-tie-look.webp', collection: 'Country Boy · Formal Collection', theme: 'black-tie' },
+  },
+  {
+    id: 'ivory-standard', name: 'Ivory Standard', department: 'clothing',
+    summary: 'Country Boy · Ivory tunnel fit',
+    description: 'A coordinated ivory tunnel fit on the Country Boy showcase model: a cream hoodie, matching joggers and clean light trainers. Explore the campaign cover, realistic reference and full 360° showcase. Wearable garments and checkout are not available yet.',
+    priceCents: 0, categories: ['tunnel-fits', 'bundles'],
+    includes: ['Ivory hoodie', 'Matching ivory joggers', 'Light trainers'],
+    use: 'Country Boy tunnel collection',
+    showcase: { model: '/store/ivory-standard-athlete-v1.glb', look: '/store/ivory-standard-look.webp', collection: 'Country Boy · Tunnel Collection', theme: 'ivory-standard' },
   },
   {
     id: 'bkf-outlaw', name: 'BKF Outlaw',
