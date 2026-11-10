@@ -47,5 +47,39 @@
 .bkf-drop-footer strong {font-family:var(--store-display);font-style:italic;font-size:clamp(20px,5.4vw,34px);color:#f0ca7c;line-height:1;}
 .bkf-drop-footer span {font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:#e8d0aa;}
 .bkf-drop-disclaimer {margin:13px 0 0;color:#c3b39c;font-size:11px;line-height:1.5;text-align:center;}
+/* Frostbite has its own icy showroom colorway; YoungBoy keeps the original gold theme. */
+.bk-store-dialog.bkf-drop-modal--frostbite {
+  --store-gold:#bce6f4;
+  border-color:#9ed6ed;
+  background:#07121e;
+  color:#effaff;
+  box-shadow:0 0 0 1px #254861,0 0 34px #7bcfff33,inset 0 0 30px #5dbbe01c;
+}
+.bkf-drop-modal--frostbite .bkf-drop-shell {background:radial-gradient(ellipse at 55% 0%,#68c6f53a,transparent 41%),#08131f;}
+.bkf-drop-modal--frostbite .bkf-drop-brand {color:#ccefff;}
+.bkf-drop-modal--frostbite .bkf-drop-brand small {color:#a9cbd9;}
+.bkf-drop-modal--frostbite .bkf-drop-close {border-color:#a8dfec;background:#0d1e2c;}
+.bkf-drop-modal--frostbite .bkf-drop-heading p {color:#b4e2fc;}
+.bkf-drop-modal--frostbite h2.bkf-drop-title {font-size:clamp(29px,8vw,62px);color:#f2fbff;text-shadow:0 0 18px #8cd9fc55;}
+.bkf-drop-modal--frostbite .bkf-drop-title span {color:#9bd9f6;text-shadow:0 0 16px #8fdcff8a;}
+.bkf-drop-modal--frostbite .bkf-drop-tabs {border-color:#8dc8e5a0;background:#101e2b;}
+.bkf-drop-modal--frostbite .bkf-drop-tabs button {color:#e4f6ff;}
+.bkf-drop-modal--frostbite .bkf-drop-tabs button[aria-pressed="true"] {color:#061c2a;background:linear-gradient(120deg,#ecfbff,#83cbe8);box-shadow:inset 0 1px 0 #fff,0 1px 16px #5fc2f24c;}
+.bkf-drop-modal--frostbite .bkf-drop-hero {border-color:#80c7e3;background:radial-gradient(circle at 55% 40%,#213f56,#0b1523 70%);box-shadow:inset 0 0 30px #85d9ff22;}
+.bkf-drop-modal--frostbite .bkf-drop-description {color:#e0f3ff;}
+.bkf-drop-modal--frostbite .bkf-drop-includes h3 span {background:linear-gradient(110deg,#e7faff,#83c2e1);color:#0a2030;}
+.bkf-drop-modal--frostbite .bkf-drop-includes h3::after {background:linear-gradient(90deg,#95d7f2,#24485a22);}
+.bkf-drop-modal--frostbite .bkf-drop-includes li {color:#d9eaf6;}
+.bkf-drop-modal--frostbite .bkf-drop-includes li::before {border-color:#9bd9f6;color:#9bd9f6;}
+.bkf-drop-modal--frostbite .bkf-drop-footer {border-color:#a4d7ee55;}
+.bkf-drop-modal--frostbite .bkf-drop-cta {border-color:#e2f8ff;background:linear-gradient(120deg,#e8faff,#91d0ea);color:#0a2333;box-shadow:0 0 16px #7fdcff43;}
+.bkf-drop-modal--frostbite .bkf-drop-footer strong {color:#d6f2ff;}
+.bkf-drop-modal--frostbite .bkf-drop-footer span,.bkf-drop-modal--frostbite .bkf-drop-disclaimer {color:#b9d2df;}
+.bkf-drop-modal--frostbite .bkf-pose {background:#0b1523;color:#effaff;}
+.bkf-drop-modal--frostbite .bkf-pose-controls {border-top-color:#9dd8ee66;}
+.bkf-drop-modal--frostbite .bkf-pose-controls button {border-color:#93d1ec;color:#d6f3ff;background:#0a1a27;}
+.bkf-drop-modal--frostbite .bkf-pose-controls span {color:#d5eaf7;}
+.bkf-drop-modal--frostbite .bkf-pose-note {color:#b4ccd8;}
+
 @media(max-width:380px){.bkf-drop-includes ul{column-gap:8px}.bkf-drop-cta{padding:9px}.bkf-drop-footer strong{font-size:20px}.bkf-drop-brand small{letter-spacing:.18em}}
 @media(prefers-reduced-motion:reduce){.bkf-drop-modal *{scroll-behavior:auto}}
