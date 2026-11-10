@@ -91,7 +91,7 @@ try {
       assert.ok((await gold.locator('.bkf-drop-hero img').getAttribute('src')).includes('golden_bk_tracksuit_athlete.png'),'Realistic full-body view is the second tab');
       await modelTab.click();
       const goldLive=gold.locator('[data-athlete-live-preview]');
-      const goldCanvas=goldLive.locator('canvas[data-showroom-model="gold-standard-athlete"]');
+      const goldCanvas=goldLive.locator('canvas[data-showroom-model="gold-standard-athlete-natural-head"]');
       await goldCanvas.waitFor({timeout:30000});
       await gold.locator('[data-athlete-live-preview][data-render-state="ready"]').waitFor();
       const pixelRatio = await goldCanvas.evaluate(canvas => {
