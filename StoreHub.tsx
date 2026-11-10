@@ -14,6 +14,7 @@ import './store.css';
 
 const AthleteLivePreview = lazy(() => import('./AthleteLivePreview'));
 const StoreRewards = lazy(() => import('./StoreRewards'));
+const BKFYoungBoyPose = lazy(() => import('./BKFYoungBoyPose'));
 
 type StorePage = 'featured' | 'catalog' | 'rewards';
 type Selection = { product: StoreProduct };
@@ -83,7 +84,9 @@ function ProductDialog({ selection, onClose }: { selection: Selection; onClose: 
         <div><span className="bk-store-kicker">{product.use}</span><h2 id="bk-store-product-title">{product.name}</h2></div>
         <button className="bk-store-icon-button" type="button" aria-label="Close product" onClick={() => dialog.current?.close()}><X size={20} aria-hidden="true"/></button>
       </header>
-      {trying && product.tryOn
+      {trying && product.id === 'bkf-youngboy'
+        ? <Suspense fallback={<p role="status">Preparing YoungBoy's 3D pose…</p>}><BKFYoungBoyPose/></Suspense>
+        : trying && product.tryOn
         ? <div className="bk-store-try-on">
             <div className="bk-store-try-on-label"><Shirt size={15} aria-hidden="true"/> <strong>{athlete ? athlete.name : 'Sample athlete'}</strong> <span>Try-on preview</span></div>
             <TryOnPreview athlete={athlete} preview={product.tryOn}/>
@@ -93,7 +96,7 @@ function ProductDialog({ selection, onClose }: { selection: Selection; onClose: 
       <h3>Included</h3>
       <ul className="bk-store-includes">{product.includes.map(item => <li key={item}>{item}</li>)}</ul>
       <div className="bk-store-dialog-actions">
-        {product.tryOn && <button type="button" className="bk-store-button" onClick={() => setTrying(value => !value)}>{trying ? 'View product art' : 'Try on'}</button>}
+        {(product.tryOn || product.id === 'bkf-youngboy') && <button type="button" className="bk-store-button" onClick={() => setTrying(value => !value)}>{trying ? 'View product art' : product.id === 'bkf-youngboy' ? 'Preview 3D crouch' : 'Try on'}</button>}
         <div className="bk-store-price-status">
           <strong>{storePrice(product)}</strong><span>{product.id === 'bkf-youngboy' ? 'Concept collection' : 'Planned price'}</span>
         </div>
