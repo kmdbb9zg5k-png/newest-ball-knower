@@ -129,3 +129,10 @@
 .bkf-character-fallback button{min-height:44px;padding:8px 18px;border:1px solid #eac67b;border-radius:8px;}
 .bk-store-concept-poster.bk-store-character-poster{aspect-ratio:2/3;background:#111;}
 .bk-store-concept-poster.bk-store-character-poster img{width:100%;height:100%;object-fit:contain;transform:none;}
+
+/* Stack the collection action and availability on narrow phones. */
+@media(max-width:420px){
+  .bkf-drop-modal--character .bkf-drop-footer{flex-direction:column;align-items:stretch;}
+  .bkf-drop-modal--character .bkf-drop-footer>div{text-align:center;}
+  .bkf-drop-modal--character .bkf-drop-cta{white-space:normal;}
+}
