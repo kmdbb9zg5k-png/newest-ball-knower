@@ -16,11 +16,12 @@ import './bkf-drop.css';
 const AthleteLivePreview = lazy(() => import('./AthleteLivePreview'));
 const StoreRewards = lazy(() => import('./StoreRewards'));
 const BKFYoungBoyPose = lazy(() => import('./BKFYoungBoyPose'));
+const StoreCharacterPreview = lazy(() => import('./StoreCharacterPreview'));
 const BKFFrostbitePose = lazy(() => import('./BKFFrostbitePose'));
 
 type StorePage = 'featured' | 'catalog' | 'rewards';
 type Selection = { product: StoreProduct };
-const campaignCards = ['tunnel-fit', 'gold-standard', 'bkf-youngboy', 'frostbite', 'chrome-grip'].map(id => STORE_PRODUCTS.find(product => product.id === id)!);
+const campaignCards = ['tunnel-fit', 'gold-standard', 'bkf-youngboy', 'frostbite', 'bkf-outlaw', 'bkf-kickflip', 'chrome-grip'].map(id => STORE_PRODUCTS.find(product => product.id === id)!);
 const tunnelPhotos = [
   { file: 'tunnel-look', label: 'Full outfit', alt: 'Athlete wearing the graphite Tunnel Fit in a stadium tunnel' },
   { file: 'tunnel-hoodie', label: 'Hoodie detail', alt: 'Graphite fleece, warm gold drawcord tips and chest embroidery' },
@@ -34,8 +35,8 @@ const goldPhotos = [
 
 function ProductCard({ product, onOpen }: { product: StoreProduct; onOpen: (product: StoreProduct) => void }) {
   return <button className="bk-store-product" type="button" data-store-product={product.id} onClick={() => onOpen(product)}>
-    {product.id === 'frostbite' || product.id === 'bkf-youngboy' || product.id === 'gold-standard'
-      ? <span className={'bk-store-concept-poster ' + (product.id === 'frostbite' ? 'bk-store-frostbite-poster' : product.id === 'gold-standard' ? 'bk-store-gold-poster' : 'bk-store-youngboy-poster')}>
+    {product.showcase || product.id === 'frostbite' || product.id === 'bkf-youngboy' || product.id === 'gold-standard'
+      ? <span className={'bk-store-concept-poster ' + (product.showcase ? 'bk-store-character-poster' : product.id === 'frostbite' ? 'bk-store-frostbite-poster' : product.id === 'gold-standard' ? 'bk-store-gold-poster' : 'bk-store-youngboy-poster')}>
           <img src={storeImage(product.id)} alt="" loading="lazy" decoding="async"/>
         </span>
       : <img src={storeImage(product.id === 'tunnel-fit' ? 'tunnel-kit' : product.id)} alt="" loading="lazy" decoding="async"/>}
@@ -79,6 +80,7 @@ const FROSTBITE_PREVIEW_FALLBACK = 'https://v3b.fal.media/files/b/0ab1eab2/PuPh4
 
 function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const showcase = product.showcase;
   const isFrostbite = product.id === 'frostbite';
   const isGold = product.id === 'gold-standard';
   const [view, setView] = useState<'poster' | 'realistic' | '3d'>('poster');
@@ -87,7 +89,7 @@ function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose
     const node = dialog.current;
     if (node && !node.open) node.showModal();
   }, []);
-  return <dialog ref={dialog} className={'bk-store-dialog bkf-drop-modal' + (isFrostbite ? ' bkf-drop-modal--frostbite' : isGold ? ' bkf-drop-modal--gold' : '')}
+  return <dialog ref={dialog} className={'bk-store-dialog bkf-drop-modal' + (showcase ? ' bkf-drop-modal--character bkf-drop-modal--' + showcase.theme : isFrostbite ? ' bkf-drop-modal--frostbite' : isGold ? ' bkf-drop-modal--gold' : '')}
     aria-labelledby="bkf-drop-title" data-bkf-collection={product.id}
     onClose={onClose} onClick={event => { if (event.target === event.currentTarget) event.currentTarget.close(); }}>
     <div className="bkf-drop-shell">
@@ -96,22 +98,22 @@ function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose
         <button type="button" className="bkf-drop-close" aria-label="Close product" onClick={() => dialog.current?.close()}><X size={25} aria-hidden="true"/></button>
       </header>
       <div className="bkf-drop-heading">
-        <p>{isGold ? 'Gold Standard Outfit Collection' : isFrostbite ? 'Icebound Concept Collection' : 'Streetwear Concept Collection'}</p>
-        <h2 id="bkf-drop-title" className="bkf-drop-title">{isGold ? <>Gold <span>Standard</span></> : <><span>BKF</span> {isFrostbite ? 'Frostbite' : 'YoungBoy'}</>}</h2>
+        <p>{showcase ? showcase.collection : isGold ? 'Gold Standard Outfit Collection' : isFrostbite ? 'Icebound Concept Collection' : 'Streetwear Concept Collection'}</p>
+        <h2 id="bkf-drop-title" className="bkf-drop-title">{showcase ? product.name : isGold ? <>Gold <span>Standard</span></> : <><span>BKF</span> {isFrostbite ? 'Frostbite' : 'YoungBoy'}</>}</h2>
       </div>
 
       <div className="bkf-drop-tabs bkf-drop-tabs--triple" role="group" aria-label="Product view">
         <button type="button" aria-pressed={view === 'poster'} onClick={() => { setArt(storeImage(product.id)); setView('poster'); }}>Full poster</button>
-        <button type="button" aria-pressed={view === 'realistic'} onClick={() => { setArt(storeImage(isGold ? 'gold-standard-realistic' : isFrostbite ? 'frostbite-look' : 'bkf-youngboy-look')); setView('realistic'); }}>Realistic view</button>
+        <button type="button" aria-pressed={view === 'realistic'} onClick={() => { setArt(showcase?.look ?? storeImage(isGold ? 'gold-standard-realistic' : isFrostbite ? 'frostbite-look' : 'bkf-youngboy-look')); setView('realistic'); }}>Realistic view</button>
         <button type="button" aria-pressed={view === '3d'} onClick={() => setView('3d')}><BoxIcon size={16} aria-hidden="true"/> 3D preview</button>
       </div>
       <div className="bkf-drop-hero" data-bkf-display={view === '3d' ? '3d' : 'photos'} data-bkf-photo={view === '3d' ? undefined : view}>
         {view !== '3d'
           ? <img src={art} alt={view === 'poster'
-              ? (isGold ? 'Full Gold Standard black-and-gold outfit collection poster' : isFrostbite ? 'Full Frostbite promotional poster with icy outfit and collection details' : 'Full BKF YoungBoy black-and-gold outfit poster')
-              : (isGold ? 'Realistic standing Gold Standard sample athlete in metallic gold jacket and black-gold trainers' : isFrostbite ? 'Realistic standing Frostbite showroom model in silver puffer, white mask, cargo pants and boots' : 'Realistic standing BKF YoungBoy showroom model with black ski mask, hoodie, gold chain, brown cargos and tan work boots')}
+              ? (showcase ? 'Full ' + product.name + ' promotional outfit poster' : isGold ? 'Full Gold Standard black-and-gold outfit collection poster' : isFrostbite ? 'Full Frostbite promotional poster with icy outfit and collection details' : 'Full BKF YoungBoy black-and-gold outfit poster')
+              : (showcase ? 'Realistic full-body ' + product.name + ' showcase character' : isGold ? 'Realistic standing Gold Standard sample athlete in metallic gold jacket and black-gold trainers' : isFrostbite ? 'Realistic standing Frostbite showroom model in silver puffer, white mask, cargo pants and boots' : 'Realistic standing BKF YoungBoy showroom model with black ski mask, hoodie, gold chain, brown cargos and tan work boots')}
               onError={() => {
-                const fallback = isGold
+                const fallback = showcase ? (view === 'realistic' ? storeImage(product.id) : showcase.look) : isGold
                   ? (view === 'realistic' ? '/store/gold-standard.webp' : storeImage('gold-standard-realistic'))
                   : isFrostbite
                     ? (view === 'realistic' ? FROSTBITE_PREVIEW_FALLBACK : storeImage('frostbite-look'))
@@ -119,11 +121,11 @@ function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose
                 if (art !== fallback) setArt(fallback);
               }}/>
           : <Suspense fallback={<div className="bkf-drop-load" role="status">Preparing {product.name}'s 3D showroom…</div>}>
-              {isGold && product.tryOn ? <div className="bkf-gold-showroom-3d"><TryOnPreview athlete={null} preview={product.tryOn}/></div> : isFrostbite ? <BKFFrostbitePose/> : <BKFYoungBoyPose/>}
+              {showcase ? <StoreCharacterPreview name={product.name} model={showcase.model} look={showcase.look}/> : isGold && product.tryOn ? <div className="bkf-gold-showroom-3d"><TryOnPreview athlete={null} preview={product.tryOn}/></div> : isFrostbite ? <BKFFrostbitePose/> : <BKFYoungBoyPose/>}
             </Suspense>}
       </div>
       {view === '3d' && <p className="bkf-showroom-model-note">Standard showcase character · Not your saved player</p>}
-      <p className="bkf-drop-description">{isGold
+      <p className="bkf-drop-description">{showcase ? product.description : isGold
         ? 'A metallic-gold and black tracksuit with matching joggers and black-and-gold trainers. Preview the entire look on our standard showcase athlete.'
         : isFrostbite
         ? 'Glacier-white puffer. White knit shiesty mask. Iced silver chain and watch. Loose ice-gray cargos and white high-top boots. One seriously cold streetwear look.'
@@ -381,6 +383,6 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
       <StoreRewards onOpenLocker={onOpenLocker} onOpenGauntlet={onOpenGauntlet}/>
     </Suspense>}
 
-    {selection && ((selection.product.id === 'bkf-youngboy' || selection.product.id === 'frostbite' || selection.product.id === 'gold-standard') ? <BKFConceptDialog product={selection.product} onClose={() => setSelection(null)}/> : <ProductDialog selection={selection} onClose={() => setSelection(null)}/>)}
+    {selection && ((selection.product.showcase || selection.product.id === 'bkf-youngboy' || selection.product.id === 'frostbite' || selection.product.id === 'gold-standard') ? <BKFConceptDialog product={selection.product} onClose={() => setSelection(null)}/> : <ProductDialog selection={selection} onClose={() => setSelection(null)}/>)}
   </section>;
 }

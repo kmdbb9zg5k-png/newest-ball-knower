@@ -32,7 +32,8 @@ export async function loadTunnelFitAthlete(gold = false) {
           for (const value of Object.values(material)) {
             if (!(value instanceof Texture) || converted.has(value)) continue;
             converted.add(value);
-            const image = value.image as TexImageSource & { width?: number; height?: number; close?: () => void };
+            const texture = value as Texture;
+            const image = texture.image as TexImageSource & { width?: number; height?: number; close?: () => void };
             const width = image?.width ?? 0, height = image?.height ?? 0;
             const preserveSkinColor = material instanceof MeshStandardMaterial &&
               material.name === 'Original athlete skin' && value === material.map;
@@ -56,11 +57,11 @@ export async function loadTunnelFitAthlete(gold = false) {
                 resized.set(image, canvas);
                 if (typeof image.close === 'function') originals.add(image as ImageBitmap);
               }
-              value.image = canvas;
-              value.generateMipmaps = false;
-              value.minFilter = LinearFilter;
-              value.magFilter = LinearFilter;
-              value.needsUpdate = true;
+              texture.image = canvas;
+              texture.generateMipmaps = false;
+              texture.minFilter = LinearFilter;
+              texture.magFilter = LinearFilter;
+              texture.needsUpdate = true;
             } catch {
               // Keep the original texture when mobile canvas allocation fails.
             }

@@ -1,0 +1,43 @@
+name: Store character browser checks
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'StoreCharacterPreview.tsx'
+      - 'StoreHub.tsx'
+      - 'storeCatalog.ts'
+      - 'bkf-drop.css'
+      - 'public/store/bkf-*'
+      - 'scripts/store-characters-browser.mjs'
+      - '.github/workflows/store-characters.yml'
+permissions:
+  contents: read
+jobs:
+  store-characters:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - name: Select browser
+        run: |
+          browser_path="$(command -v google-chrome || command -v google-chrome-stable || true)"
+          if [ -z "$browser_path" ]; then
+            npx playwright install --with-deps chromium
+            browser_path="$(node --input-type=module -e "import {chromium} from 'playwright'; console.log(chromium.executablePath())")"
+          fi
+          echo "BROWSER_PATH=$browser_path" >> "$GITHUB_ENV"
+      - run: node scripts/store-characters-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: store-character-screenshots
+          path: artifacts/store-characters/
+          if-no-files-found: ignore
