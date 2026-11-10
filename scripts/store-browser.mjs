@@ -101,7 +101,8 @@ try {
       assert.ok(pixelRatio <= (mobile ? 1.12 : 1.6), 'Gold Standard showroom limits GPU framebuffer resolution');
       assert.equal(await gold.getByText('Standard showcase character · Not your saved player').count(),1);
       assert.equal(await gold.getByText('My Player',{exact:true}).count(),0);
-      assert.equal(await goldLive.getByRole('group',{name:'Outfit detail views'}).getByRole('button').count(),5);
+      assert.equal(await goldLive.getByRole('group',{name:'Outfit detail views'}).getByRole('button').count(),4,'Gold Standard displays only outfit detail views');
+      assert.equal(await goldLive.getByRole('button',{name:'Face'}).count(),0,'Do not offer the poor-quality face close-up');
       await goldLive.getByRole('button',{name:'Rotate right'}).click();
       await gold.getByText('$2.99',{exact:true}).waitFor();
       await gold.getByRole('button',{name:'Close product'}).click();
