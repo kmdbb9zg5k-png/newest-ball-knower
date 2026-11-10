@@ -113,7 +113,11 @@
  .bk-journey-hero-copy h2{font-size:clamp(35px,9vw,50px);}
  .bk-journey-hero-copy p{font-size:9px;}
  .bk-journey-hero-copy span{font-size:11px;}
- .bk-journey-hero-stat{display:none;}
+ .bk-journey-hero-stat{display:flex;position:absolute;top:10px;right:10px;min-width:96px;margin:0;padding:7px 9px;background:#0c0c0de9;gap:1px;}
+ .bk-journey-hero-stat strong{font-size:18px;}
+ .bk-journey-hero-stat span{font-size:9px;}
+ .bk-journey-hero-stat small{display:none;}
+ .bk-journey-hero-copy{padding-top:38px;}
  .bk-journey-body{padding:13px;gap:19px;}
  .bk-journey-missions{grid-template-columns:1fr;gap:10px;}
  .bk-journey-mission{min-height:90px;grid-template-columns:45px 1fr auto;grid-template-rows:auto;padding:12px;align-items:center;}
