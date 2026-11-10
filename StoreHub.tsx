@@ -34,7 +34,7 @@ const accessoryProducts = STORE_PRODUCTS.filter(product => product.id === 'chrom
 const otherProducts = STORE_PRODUCTS.filter(product => !characterProducts.includes(product) && !clothingProducts.includes(product) && !accessoryProducts.includes(product));
 
 const tunnelPhotos = [
-  { file: 'tunnel-look', label: 'Full outfit', alt: 'Athlete wearing the graphite Tunnel Fit in a stadium tunnel' },
+  { file: 'tunnel-look', label: 'Full outfit', alt: 'Athlete wearing the graphite Gray Standard in a stadium tunnel' },
   { file: 'tunnel-hoodie', label: 'Hoodie detail', alt: 'Graphite fleece, warm gold drawcord tips and chest embroidery' },
   { file: 'tunnel-sweats', label: 'Sweats detail', alt: 'Graphite jogger pocket and stitching' },
   { file: 'tunnel-trainers', label: 'Trainer detail', alt: 'Slate trainer with a mesh upper and layered sole' },
@@ -46,7 +46,7 @@ const goldPhotos = [
 
 function ProductCard({ product, onOpen }: { product: StoreProduct; onOpen: (product: StoreProduct) => void }) {
   return <button className="bk-store-product" type="button" data-store-product={product.id} onClick={() => onOpen(product)}>
-    <span className={"bk-store-card-art" + (isCharacter(product) || product.id === 'gold-standard' ? ' bk-store-card-art--portrait' : '')}>
+    <span className={"bk-store-card-art" + (isCharacter(product) || product.id === 'gold-standard' || product.id === 'tunnel-fit' ? ' bk-store-card-art--portrait' : '')}>
       <img src={storeImage(product.id === 'tunnel-fit' ? 'tunnel-look' : product.id === 'gold-standard' ? 'gold-standard-realistic' : product.id)} alt="" loading="lazy" decoding="async"
         onError={event => { const fallback = product.showcase?.look ?? storeImage(product.id); if (event.currentTarget.getAttribute('src') !== fallback) event.currentTarget.src = fallback; }}/>
     </span>
