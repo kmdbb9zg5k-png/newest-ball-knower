@@ -26,9 +26,11 @@
 .bkf-drop-tabs--triple{grid-template-columns:repeat(3,minmax(0,1fr));}
 .bkf-drop-tabs--triple button{min-width:0;padding:6px 4px;gap:5px;font-size:clamp(10px,2.8vw,14px);white-space:nowrap;}
 .bkf-drop-tabs--triple button svg{flex-shrink:0;}
-.bkf-drop-modal--frostbite .bkf-drop-hero[data-bkf-photo="poster"]{aspect-ratio:4/5;}
+.bkf-drop-hero[data-bkf-photo="poster"]{aspect-ratio:4/5;}
 .bkf-drop-modal--frostbite .bkf-drop-hero[data-bkf-photo="realistic"]{aspect-ratio:4/5;background:#dce4ea;}
-.bkf-showroom-model-note{margin:8px 0 0;color:#c3e3f1;font-size:12px;text-align:center;}
+.bkf-showroom-model-note{margin:8px 0 0;color:#e0d1b1;font-size:12px;text-align:center;}
+.bkf-drop-modal--frostbite .bkf-showroom-model-note{color:#c3e3f1;}
+.bkf-drop-hero[data-bkf-photo="realistic"]{background:#dce0e4;}
 .bkf-drop-tabs button[aria-pressed="true"] {color:#1a1006;background:linear-gradient(120deg,#ffdb8c 0%,#cd9238 100%);box-shadow:inset 0 1px 0 #ffebb5,0 1px 16px #bd7b3659;}
 .bkf-drop-hero {position:relative;overflow:hidden;min-height:320px;height:clamp(340px,48dvh,520px);border:1px solid #cb9647;border-radius:17px;background:radial-gradient(circle at 60% 40%,#593415,#160f09 70%);box-shadow:inset 0 0 26px #e9ae4b16;}
 /* Match the source cover's 4:5 poster ratio instead of zooming and cropping it. */
