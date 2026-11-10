@@ -30,3 +30,11 @@ This release adds a retail catalog preview, not live checkout. Production has no
 - Current phase: recovery checkpoint; build, browser QA, checkout regressions and deployment verification pending. Earlier validation above describes the interrupted session, not a new production certification.
 - Rechecked production environment variable names: STRIPE_SECRET_KEY and LOCKER_TEST_BUYERS absent; STRIPE_WEBHOOK_SECRET, LOCKER_COMMERCE_MODE and SUPABASE_SERVICE_ROLE_KEY present. No secret values retrieved.
 - Resume by checking this branch and this document before generating or rebuilding assets. Inspect GitHub/Vercel state before publishing.
+
+## Follow-up verification checkpoint
+
+- Recovery source branch PR #589 preserves both separate 3D outfit assets, and the Vercel preview for `3b8ea833` reached READY. Production is still on `a0c2be5` until release gates pass.
+- GitHub Actions for `3b8ea833`: Ball Knower Hardening, Combine startup recovery, App Store remediation, All-screen broadcast, Football H2H, Fantasy reconciliation and several others passed. Failed: Home broadcast (legacy five-tab assertion with new sixth Store tab), Full app polish browser (football-session-stage intercepts pointer events in community reliability fixture), Community mini-game browser (my-player-tabs viewport assertion at line 28). Profile locker fidelity was cancelled. Do not claim the entire suite is green.
+- Corrected the stale Home broadcast assertion on the recovery branch; targeted CI was automatically relaunched for commit `97ef4423`. The remaining failures require separate fixes or validation before production release.
+- This inspection cannot certify interactive WebGL rendering on a real device. Preview deployment availability is not proof of correct face/detail/360-degree behavior.
+- Live payment checkout remains disabled and must not be represented as active or ready for customers.
