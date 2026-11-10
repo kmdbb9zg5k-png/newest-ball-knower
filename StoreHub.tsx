@@ -129,7 +129,7 @@ function TunnelShowroom({ product, athlete, onExit }: { product: StoreProduct; a
       </div>
       {product.tryOn && <div className="bk-tunnel-showroom-preview">
         <TryOnPreview athlete={useSavedAthlete ? athlete : null} preview={product.tryOn}
-          onSwitchAthlete={athlete ? () => setUseSavedAthlete(value => !value) : undefined}/>
+          onSwitchAthlete={product.id !== 'gold-standard' && athlete ? () => setUseSavedAthlete(value => !value) : undefined}/>
       </div>}
       <footer className="bk-tunnel-showroom-footer">
         <strong>{product.name}</strong>
