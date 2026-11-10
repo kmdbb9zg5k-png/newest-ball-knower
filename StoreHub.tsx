@@ -17,7 +17,7 @@ const StoreRewards = lazy(() => import('./StoreRewards'));
 
 type StorePage = 'featured' | 'catalog' | 'rewards';
 type Selection = { product: StoreProduct };
-const campaignCards = ['tunnel-fit', 'gold-standard', 'chrome-grip'].map(id => STORE_PRODUCTS.find(product => product.id === id)!);
+const campaignCards = ['tunnel-fit', 'gold-standard', 'bkf-youngboy', 'chrome-grip'].map(id => STORE_PRODUCTS.find(product => product.id === id)!);
 const tunnelPhotos = [
   { file: 'tunnel-look', label: 'Full outfit', alt: 'Athlete wearing the graphite Tunnel Fit in a stadium tunnel' },
   { file: 'tunnel-hoodie', label: 'Hoodie detail', alt: 'Graphite fleece, warm gold drawcord tips and chest embroidery' },
@@ -95,10 +95,10 @@ function ProductDialog({ selection, onClose }: { selection: Selection; onClose: 
       <div className="bk-store-dialog-actions">
         {product.tryOn && <button type="button" className="bk-store-button" onClick={() => setTrying(value => !value)}>{trying ? 'View product art' : 'Try on'}</button>}
         <div className="bk-store-price-status">
-          <strong>{storePrice(product)}</strong><span>Planned price</span>
+          <strong>{storePrice(product)}</strong><span>{product.id === 'bkf-youngboy' ? 'Concept collection' : 'Planned price'}</span>
         </div>
       </div>
-      <p className="bk-store-purchase-status">Catalog preview · Checkout opens at launch.</p>
+      <p className="bk-store-purchase-status">{product.id === 'bkf-youngboy' ? 'Concept preview · Wearable 3D garments and checkout are not available yet.' : 'Catalog preview · Checkout opens at launch.'}</p>
     </div>
   </dialog>;
 }
