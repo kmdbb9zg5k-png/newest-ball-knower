@@ -590,3 +590,17 @@ body:has(.bk-tunnel-showroom[open]) { overflow: hidden; }
   .bk-tunnel-showroom-layout { height: auto; }
   .bk-tunnel-showroom .bk-athlete-3d-stage { min-height: 235px; }
 }
+
+/* Cart stays reachable on small screens and inside the full product page. */
+.bk-store-header { flex-wrap: wrap; gap: 12px; }
+.bk-cart-dialog { width: min(580px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; }
+.bk-cart-dialog .bk-store-dialog-content { padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+.bk-cart-dialog h2 { display: flex; gap: 10px; align-items: center; }
+.bk-cart-item { display: flex; gap: 12px; align-items: center; padding: 16px 0; border-bottom: 1px solid #ffffff24; }
+.bk-cart-item img { width: 64px; height: 80px; object-fit: cover; border-radius: 8px; }
+.bk-cart-item div { flex: 1; min-width: 0; display: grid; gap: 8px; }
+.bk-cart-total { display: flex; justify-content: space-between; padding: 24px 0; font-size: 20px; }
+.bk-cart-payment-actions { display: grid; gap: 12px; margin: 16px 0; }
+.bk-cart-dialog button { min-height: 44px; white-space: normal; }
+.bk-cart-dialog button:disabled { opacity: .45; cursor: not-allowed; }
+.bk-cart-empty { padding: 24px 0; }

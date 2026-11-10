@@ -10,6 +10,7 @@ import {
   BLACKOUT_KIT, STORE_CATEGORIES, STORE_PRODUCTS,
   storeImage, storePrice, type StoreCategory, type StoreFilter, type StoreProduct,
 } from './storeCatalog';
+import StoreCart, { useStoreCart } from './StoreCart';
 import './store.css';
 import './bkf-drop.css';
 
@@ -200,7 +201,7 @@ function TunnelShowroom({ product, onExit }: { product: StoreProduct; onExit: ()
   </dialog>;
 }
 
-function TunnelProductPage({ product, onBack }: { product: StoreProduct; onBack: () => void }) {
+function TunnelProductPage({ product, onBack, inCart, onAdd, onCart }: { product: StoreProduct; onBack: () => void; inCart: boolean; onAdd: () => void; onCart: () => void }) {
   const [trying, setTrying] = useState(false);
   const [activePhoto, setActivePhoto] = useState(0);
   const photos = product.id === 'gold-standard' ? goldPhotos : tunnelPhotos;
@@ -222,7 +223,7 @@ function TunnelProductPage({ product, onBack }: { product: StoreProduct; onBack:
   return <section className="bk-store bk-store-product-page" aria-labelledby="bk-tunnel-title">
     <header className="bk-store-product-header">
       <button className="bk-store-product-back" type="button" onClick={onBack} aria-label="Back to shop"><ArrowLeft size={22} aria-hidden="true"/></button>
-      <h1 id="bk-tunnel-title" ref={title} tabIndex={-1}>{product.name}</h1>
+      <h1 id="bk-tunnel-title" ref={title} tabIndex={-1}>{product.name}</h1><button className="bk-store-button" type="button" onClick={onCart}>Cart</button>
     </header>
     <div className="bk-tunnel-layout">
       <div className="bk-tunnel-showcase">
@@ -252,7 +253,7 @@ function TunnelProductPage({ product, onBack }: { product: StoreProduct; onBack:
           <div className="bk-store-price-status"><strong>{storePrice(product)}</strong><span>Planned price</span></div>
         </div>
         <button className="bk-store-button bk-store-button-gold bk-tunnel-try-on" type="button" onClick={() => setTrying(true)}>Try on in 3D</button>
-        <p className="bk-store-purchase-status">Catalog preview · Purchases are not available yet.</p>
+        <button className="bk-store-button bk-store-button-gold bk-tunnel-try-on" type="button" onClick={inCart ? onCart : onAdd}>{inCart ? "View cart" : "Add to cart"}</button><p className="bk-store-purchase-status" role="status">{inCart ? "Added to your cart" : "Digital outfit · One per account"}</p>
         <details className="bk-tunnel-details">
           <summary>What’s included</summary>
           <p>{product.description}</p>
@@ -269,6 +270,9 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
   onOpenLocker: () => void;
   onOpenGauntlet: () => void;
 }) {
+  const cart = useStoreCart();
+  const [cartOpen, setCartOpen] = useState(() => new URLSearchParams(window.location.search).has('store_checkout'));
+  const cartDialog = cartOpen ? <StoreCart cart={cart} onClose={() => setCartOpen(false)}/> : null;
   const [page, setPage] = useState<StorePage>(initialCategory ? 'catalog' : 'featured');
   const [filter, setFilter] = useState<StoreFilter>(initialCategory ?? 'all');
   const [selection, setSelection] = useState<Selection | null>(null);
@@ -314,12 +318,13 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
       <button type="button" key={category.id} aria-pressed={filter === category.id} onClick={() => setFilter(category.id)}>{category.label}</button>)}
   </div>;
 
-  if (tunnelProduct) return <TunnelProductPage product={tunnelProduct} onBack={() => setTunnelProduct(null)}/>;
+  if (tunnelProduct) return <><TunnelProductPage product={tunnelProduct} onBack={() => setTunnelProduct(null)} inCart={cart.ids.includes(tunnelProduct.id)} onAdd={() => cart.add(tunnelProduct.id)} onCart={() => setCartOpen(true)}/>{cartDialog}</>;
 
   return <section className="bk-store" ref={store} aria-labelledby="bk-store-title">
     {page !== 'featured' && <button className="bk-store-back" type="button" onClick={() => openPage('featured')}><ArrowLeft size={17} aria-hidden="true"/> Back to Store</button>}
     <header className="bk-store-header">
       <h1 id="bk-store-title" ref={title} tabIndex={-1}>{heading}</h1>
+      <button type="button" className="bk-store-button" onClick={() => setCartOpen(true)}>Cart ({cart.ids.length})</button>
       <button type="button" className="bk-store-button bk-store-locker" onClick={onOpenLocker}><Archive size={17} aria-hidden="true"/> My Locker</button>
     </header>
 
@@ -362,6 +367,7 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
       <StoreRewards onOpenLocker={onOpenLocker} onOpenGauntlet={onOpenGauntlet}/>
     </Suspense>}
 
+    {cartDialog}
     {selection && ((selection.product.id === 'bkf-youngboy' || selection.product.id === 'frostbite') ? <BKFConceptDialog product={selection.product} onClose={() => setSelection(null)}/> : <ProductDialog selection={selection} onClose={() => setSelection(null)}/>)}
   </section>;
 }

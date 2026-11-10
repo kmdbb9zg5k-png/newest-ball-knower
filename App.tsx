@@ -61,7 +61,7 @@ function BallKnowerApp(){
   const {activeLeague,currentUser,setActiveLeagueId,toastMessage,joinLeague}=useBallKnower();
   const {setIntroActive}=useSoundtrack();
   const setIntroActiveRef=useRef(setIntroActive);
-  const [currentTab,setCurrentTabState]=useState<AppTab>(()=>new URLSearchParams(window.location.search).has('locker_checkout')?'wardrobe':new URLSearchParams(window.location.search).get('footballH2H')==='1'?'football':'home');
+  const [currentTab,setCurrentTabState]=useState<AppTab>(()=>new URLSearchParams(window.location.search).has('store_checkout')?'store':new URLSearchParams(window.location.search).has('locker_checkout')?'wardrobe':new URLSearchParams(window.location.search).get('footballH2H')==='1'?'football':'home');
   const navigationRevision=useRef(0);
   const setCurrentTab=useCallback((next:React.SetStateAction<AppTab>)=>{navigationRevision.current++;setCurrentTabState(next);},[]);
   useEffect(()=>{const url=new URL(location.href);if(url.searchParams.has('footballH2H')){url.searchParams.delete('footballH2H');history.replaceState(history.state,'',url.pathname+url.search+url.hash);}},[]);
