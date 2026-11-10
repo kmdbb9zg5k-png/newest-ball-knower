@@ -111,4 +111,8 @@
 .bkf-gold-showroom-3d .bk-showroom-views button svg{display:block;min-height:0;}
 .bkf-gold-showroom-3d .bk-athlete-preview-message{position:absolute;z-index:3;inset:0;display:grid;place-items:center;text-align:center;color:#fff0d4;background:#0f0b0db0;pointer-events:none;}
 .bkf-gold-showroom-3d .bk-athlete-preview-message button{pointer-events:auto;}
+.bkf-gold-showroom-3d .bk-athlete-preview-message{inset:0;gap:8px;padding:12px;background:#100d0bf0;color:#f7e4c8;text-shadow:none;}
+.bkf-gold-showroom-3d .bk-showroom-error-fallback{display:block;width:min(100%,220px);max-height:210px;object-fit:contain;border:1px solid #edc66e77;border-radius:8px;}
+.bkf-gold-showroom-3d .bk-athlete-preview-message p{margin:0;max-width:28ch;line-height:1.4;}
+.bkf-gold-showroom-3d .bk-athlete-preview-message button{min-height:42px;padding:8px 16px;border:1px solid #edc66e;border-radius:8px;background:#392914;color:#f9dda5;font-weight:750;}
 @media(max-width:380px){.bkf-drop-modal--gold .bkf-drop-title{font-size:clamp(23px,6.7vw,44px);}}
