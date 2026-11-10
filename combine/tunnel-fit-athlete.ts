@@ -27,6 +27,12 @@ export async function loadTunnelFitAthlete(gold = false) {
         if (object.material instanceof MeshStandardMaterial) {
           if (!gold) object.material.metalness = .12;
           if (!gold) object.material.roughness = .9;
+          if (gold) {
+            // Preserve original geometry, UVs and textures while enabling direct-light response.
+            object.material.metalness = Math.min(object.material.metalness, .42);
+            object.material.roughness = Math.max(object.material.roughness, .36);
+            object.material.needsUpdate = true;
+          }
         }
       }
     });
