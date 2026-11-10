@@ -28,7 +28,7 @@ try {
     await page.getByRole('navigation',{name:width<768?'Primary navigation':'Desktop primary navigation',exact:true}).getByRole('button',{name:'Store',exact:true}).click();
     const store=page.getByRole('region',{name:'Store',exact:true});await store.waitFor();
     const before=await page.evaluate(()=>localStorage.getItem('ballknower_solo_my_player_v2'));
-    for(const id of ['bkf-outlaw','bkf-kickflip','bkf-lowrider']){
+    for(const id of (width===390 ? ['bkf-outlaw','bkf-kickflip','bkf-lowrider','bkf-phantom'] : ['bkf-outlaw','bkf-kickflip','bkf-lowrider'])){
       checkpoint(`${width}px ${id}: opening product`);
       const card=store.locator(`[data-store-product="${id}"]`);await card.scrollIntoViewIfNeeded();await card.locator('img').evaluate(i=>i.decode());await card.click();
       const dialog=page.locator(`[data-bkf-collection="${id}"]`);await dialog.waitFor();
@@ -37,7 +37,8 @@ try {
       assert.equal(await dialog.locator('.bkf-drop-hero img').evaluate(i=>getComputedStyle(i).objectFit),'contain');
       await dialog.screenshot({path:`artifacts/store-characters/${id}-${width}-poster.png`});
       await tabs.getByRole('button',{name:'Realistic view'}).click();await dialog.locator('.bkf-drop-hero img').evaluate(i=>i.decode());
-      assert.ok((await dialog.locator('.bkf-drop-hero img').getAttribute('src')).includes(id+'-look'));
+      const lookSrc=await dialog.locator('.bkf-drop-hero img').getAttribute('src');
+      assert.ok(lookSrc.includes(id==='bkf-phantom' ? 'aEW__qpU6k2Ik8P7TywbO_lUUJVFfQ.png' : id+'-look'), 'Correct full-body realistic photo');
       checkpoint(`${width}px ${id}: loading 3D`);
       await tabs.getByRole('button',{name:'3D preview'}).click();
       const preview=dialog.locator('[data-character-model]');await preview.locator('canvas').waitFor();
