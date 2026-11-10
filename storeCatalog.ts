@@ -139,6 +139,6 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
   },
 ];
 
-export const storeImage = (id: string) => '/store/' + id + (id === 'bkf-youngboy' ? '.svg' : '.webp');
+export const storeImage = (id: string) => id === 'bkf-youngboy' ? '/store/bkf-youngboy-cover.webp' : '/store/' + id + '.webp';
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 export const storePrice = (product: StoreProduct) => product.id === 'bkf-youngboy' ? 'Coming soon' : usd.format(product.priceCents / 100);
