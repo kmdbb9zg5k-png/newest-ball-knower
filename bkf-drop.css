@@ -149,3 +149,7 @@
 .bkf-drop-modal--phantom .bkf-drop-hero[data-bkf-photo="poster"]{aspect-ratio:4/5;}
 .bkf-drop-modal--phantom .bkf-drop-hero[data-bkf-photo="realistic"]{aspect-ratio:3/4;background:#98948c;}
 .bkf-drop-modal--phantom .bkf-drop-hero[data-bkf-display="3d"]{background:#151619;}
+
+.bkf-drop-modal--iron-wolf { --store-gold:#d6dce4; border-color:#bcc7d5; }
+.bkf-drop-modal--iron-wolf .bkf-drop-shell { background:linear-gradient(145deg,#1a1d22,#090b0e 65%); }
+.bkf-drop-modal--iron-wolf .bkf-drop-title { color:#eef2f7; text-shadow:0 2px 18px #9eb8d733; }
