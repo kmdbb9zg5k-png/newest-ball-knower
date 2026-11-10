@@ -65,7 +65,7 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
     await page.screenshot({ path: artifacts + '/featured-' + width + '.png' });
 
-    assert.equal(await store.locator('.bk-store-product').count(), 3, 'Store opens on the featured campaign cards');
+    assert.equal(await store.locator('.bk-store-product').count(), 4, 'Store opens with the BKF concept alongside existing featured cards');
     await store.getByRole('button', { name: /Chrome Grip Gloves/ }).getByText('$0.99', { exact: true }).waitFor();
     const landingCategories = store.getByRole('group', { name: 'Shop categories', exact: true });
     await landingCategories.getByRole('button', { name: 'Tunnel Fits', exact: true }).click();
@@ -107,7 +107,7 @@ try {
     }
 
     const cards = catalog.locator('.bk-store-product');
-    const counts = { All: 9, 'Game Gear': 3, 'Tunnel Fits': 3, Profile: 2, Celebrations: 1, Franchise: 1, Bundles: 6 };
+    const counts = { All: 10, 'Game Gear': 3, 'Tunnel Fits': 4, Profile: 2, Celebrations: 1, Franchise: 1, Bundles: 7 };
     for (const [category, count] of Object.entries(counts)) {
       const filter = categories.getByRole('button', { name: category, exact: true });
       await filter.click();
@@ -195,12 +195,7 @@ try {
           if (turn === 5) assert.notDeepEqual(await canvas.screenshot(), fullFit, 'The full model renders from the back');
         }
         assert.deepEqual(await canvas.screenshot(), fullFit, 'The full model can rotate all the way around');
-        await preview.getByRole('button', { name: 'Try my athlete' }).click();
-        await preview.getByText('Store Test Athlete', { exact: true }).waitFor();
-        await showroom.locator('[data-athlete-live-preview][data-render-state="ready"]').waitFor();
-        assert.equal(await canvas.getAttribute('data-showroom-model'), null, 'Personal try-on uses the saved athlete');
-        await preview.getByRole('button', { name: 'See sample athlete' }).click();
-        await preview.locator('canvas[data-showroom-model="tunnel-fit-athlete"]').waitFor();
+        assert.equal(await preview.getByRole('button', { name: 'Try my athlete' }).count(), 0, 'Outfit showrooms only show the detailed sample athlete');
       }
       await showroom.getByRole('button', { name: 'Product photos' }).click();
       await showroom.waitFor({ state: 'hidden' });
