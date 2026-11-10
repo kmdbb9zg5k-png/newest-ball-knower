@@ -42,6 +42,7 @@
     "check:fantasy-ui": "node --import tsx scripts/fantasy-ui-system-check.ts",
     "check:fantasy-mobile-browser": "node scripts/fantasy-mobile-browser-check.mjs",
     "check:root-bundle": "node scripts/root-bundle-budget-check.mjs",
+    "check:bk-journey": "node --import tsx scripts/bk-journey-check.ts",
     "check:home-dashboard": "node --import tsx scripts/home-dashboard-check.ts",
     "check:partners": "node --import tsx scripts/partners-check.ts",
     "check:profile-photo": "node --import tsx scripts/profile-photo-release-check.ts",
