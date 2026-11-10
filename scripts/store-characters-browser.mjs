@@ -30,7 +30,7 @@ try {
     const before=await page.evaluate(()=>localStorage.getItem('ballknower_solo_my_player_v2'));
     for(const id of ['bkf-outlaw','bkf-kickflip']){
       checkpoint(`${width}px ${id}: opening product`);
-      const card=store.locator(`[data-store-product="${id}"]`);await card.locator('img').evaluate(i=>i.decode());await card.click();
+      const card=store.locator(`[data-store-product="${id}"]`);await card.scrollIntoViewIfNeeded();await card.locator('img').evaluate(i=>i.decode());await card.click();
       const dialog=page.locator(`[data-bkf-collection="${id}"]`);await dialog.waitFor();
       const tabs=dialog.getByRole('group',{name:'Product view'});assert.equal(await tabs.getByRole('button').count(),3);
       await dialog.locator('.bkf-drop-hero img').evaluate(i=>i.decode());
