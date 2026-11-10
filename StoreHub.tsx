@@ -70,12 +70,14 @@ function TryOnPreview({ athlete, preview }: { athlete: AthletePassport | null; p
 }
 
 const FROSTBITE_PREVIEW_FALLBACK = 'https://v3b.fal.media/files/b/0ab1eab2/PuPh4vtWpnfEVTwvd_xXM_preview.png';
+const FROSTBITE_COVER_ART = 'https://v3b.fal.media/files/b/0ab1ed77/_WCyDW9OAkL4xAehcl2KE_3CD98264-BD29-4D30-9FAE-8EE444BB6E92.jpeg';
 
 function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const isFrostbite = product.id === 'frostbite';
   const [view, setView] = useState<'photos' | '3d'>('photos');
   const [art, setArt] = useState(() => storeImage(product.id));
+  const [frostbitePhoto, setFrostbitePhoto] = useState<'look' | 'cover'>('look');
   useEffect(() => {
     const node = dialog.current;
     if (node && !node.open) node.showModal();
@@ -96,10 +98,12 @@ function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose
         <button type="button" aria-pressed={view === 'photos'} onClick={() => setView('photos')}><ImageIcon size={18} aria-hidden="true"/> Product photos</button>
         <button type="button" aria-pressed={view === '3d'} onClick={() => setView('3d')}><BoxIcon size={18} aria-hidden="true"/> 3D try-on</button>
       </div>
-      <div className="bkf-drop-hero" data-bkf-display={view}>
+      <div className="bkf-drop-hero" data-bkf-display={view} data-bkf-photo={isFrostbite && view === 'photos' ? frostbitePhoto : undefined}>
         {view === 'photos'
           ? <img src={art} alt={isFrostbite
-            ? 'Frostbite icy-white puffer jacket, white face mask, silver chain, glacier cargo pants and white boots'
+            ? frostbitePhoto === 'cover'
+              ? 'BKF Frostbite collector cover art with icy background, crouching model and outfit pack details'
+              : 'Frostbite realistic full-body look wearing a silver-white puffer jacket, white mask, chain, cargo pants and boots'
             : 'BKF YoungBoy original luxury black-and-gold artwork: masked athlete crouching in a black hoodie, gold chain and watch, baggy brown cargos and tan boots'}
             onError={() => {
               const fallback = isFrostbite ? FROSTBITE_PREVIEW_FALLBACK : '/store/bkf-youngboy.svg';
@@ -109,6 +113,14 @@ function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose
               {isFrostbite ? <BKFFrostbitePose/> : <BKFYoungBoyPose/>}
             </Suspense>}
       </div>
+      {isFrostbite && view === 'photos' && <div className="bkf-photo-gallery" role="group" aria-label="Frostbite product photos">
+        <button type="button" aria-pressed={frostbitePhoto === 'look'} onClick={() => { setFrostbitePhoto('look'); setArt(storeImage('frostbite')); }}>
+          <img src={storeImage('frostbite')} alt="" loading="lazy"/><span>Realistic look</span>
+        </button>
+        <button type="button" aria-pressed={frostbitePhoto === 'cover'} onClick={() => { setFrostbitePhoto('cover'); setArt(FROSTBITE_COVER_ART); }}>
+          <img src={FROSTBITE_COVER_ART} alt="" loading="lazy"/><span>Cover art</span>
+        </button>
+      </div>}
       <p className="bkf-drop-description">{isFrostbite
         ? 'Glacier-white puffer. White knit shiesty mask. Iced silver chain and watch. Loose ice-gray cargos and white high-top boots. One seriously cold streetwear look.'
         : 'Black shiesty mask. Heavy gold chain. Diamond-style watch. Oversized black hoodie, baggy brown cargos and tan boots. One signature streetwear look.'}</p>
@@ -118,7 +130,7 @@ function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose
       </div>
       <footer className="bkf-drop-footer">
         <button type="button" className="bkf-drop-cta" onClick={() => setView(view === 'photos' ? '3d' : 'photos')}>
-          <BoxIcon size={21} aria-hidden="true"/>{view === 'photos' ? 'Preview in 3D' : 'View cover art'}
+          <BoxIcon size={21} aria-hidden="true"/>{view === 'photos' ? 'Preview in 3D' : isFrostbite ? 'View product photos' : 'View cover art'}
         </button>
         <div><strong>Coming Soon</strong><span>Concept Collection</span></div>
       </footer>
