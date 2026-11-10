@@ -15,8 +15,8 @@ const SHOWROOM_ANGLE=18;
 const showroomViews=[
   {id:'body',label:'Full outfit',Icon:PersonStanding},
   {id:'head',label:'Face',Icon:ScanFace},
-  {id:'hoodie',label:'Hoodie',Icon:Shirt},
-  {id:'sweats',label:'Sweats',Icon:SweatsIcon},
+  {id:'hoodie',label:'Top',Icon:Shirt},
+  {id:'sweats',label:'Pants',Icon:SweatsIcon},
   {id:'trainers',label:'Trainers',Icon:Footprints},
 ] as const;
 
@@ -36,6 +36,7 @@ export default function AthleteLivePreview({profile:inputProfile,view='body',onV
   latestView.current=activeView;
   latest.current=profile;
   const useShowroomSample=showroom&&Boolean(profile.showroomSample);
+  const goldShowroomSample=useShowroomSample&&profile.wardrobe?.top==='top-gold-standard';
   const [state,setState]=useState<'loading'|'ready'|'error'>('loading'),[attempt,setAttempt]=useState(0),[rotation,setRotation]=useState(9);
   useEffect(()=>{
     let cancelled=false,owned:Scene|null=null;
@@ -47,7 +48,7 @@ export default function AthleteLivePreview({profile:inputProfile,view='body',onV
       owned=created;scene.current=created;created.update(asPlayer(latest.current));created.setView(latestView.current);created.rotate(angle.current*Math.PI/180);setState('ready');
     }).catch(()=>{if(!cancelled)setState('error');});
     return()=>{cancelled=true;owned?.dispose();if(scene.current===owned)scene.current=null;};
-  },[attempt,showroom,useShowroomSample]);
+  },[attempt,showroom,useShowroomSample,goldShowroomSample]);
   useEffect(()=>{scene.current?.update(asPlayer(profile));},[profile]);
   useEffect(()=>{scene.current?.setView(activeView);},[activeView]);
   useEffect(()=>{if(state!=='ready'||!portraitCallback.current||(capturedKey.current===appearanceKey&&profile.athletePortrait))return;const timer=setTimeout(()=>{try{const portrait=scene.current?.capturePortrait();if(portrait){capturedKey.current=appearanceKey;portraitCallback.current?.(portrait);}}catch{/* Preview and controls remain usable if image export is unavailable. */}},180);return()=>clearTimeout(timer);},[state,appearanceKey,Boolean(profile.athletePortrait)]);

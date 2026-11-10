@@ -3,10 +3,11 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { invalidateCombineAsset, loadCombineAsset } from './asset-loading.js';
 
-const url = '/store/tunnel-fit-athlete-v1.glb';
+export const showroomModelUrl = (gold = false) => gold ? '/store/gold-standard-athlete-v1.glb' : '/store/tunnel-fit-athlete-v1.glb';
 const sampleHeight = 1.83;
 
-export async function loadTunnelFitAthlete() {
+export async function loadTunnelFitAthlete(gold = false) {
+  const url = showroomModelUrl(gold);
   try {
     const bytes = await loadCombineAsset(url);
     const { scene: model } = await new GLTFLoader()
@@ -24,8 +25,8 @@ export async function loadTunnelFitAthlete() {
         // The baked normal map provides the cloth relief. Keep reflected
         // light soft on the skin and graphite fleece.
         if (object.material instanceof MeshStandardMaterial) {
-          object.material.metalness = .12;
-          object.material.roughness = .9;
+          if (!gold) object.material.metalness = .12;
+          if (!gold) object.material.roughness = .9;
         }
       }
     });

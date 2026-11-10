@@ -17,12 +17,16 @@ const StoreRewards = lazy(() => import('./StoreRewards'));
 
 type StorePage = 'featured' | 'catalog' | 'rewards';
 type Selection = { product: StoreProduct };
-const campaignCards = ['tunnel-fit', 'chrome-grip'].map(id => STORE_PRODUCTS.find(product => product.id === id)!);
+const campaignCards = ['tunnel-fit', 'gold-standard', 'chrome-grip'].map(id => STORE_PRODUCTS.find(product => product.id === id)!);
 const tunnelPhotos = [
   { file: 'tunnel-look', label: 'Full outfit', alt: 'Athlete wearing the graphite Tunnel Fit in a stadium tunnel' },
   { file: 'tunnel-hoodie', label: 'Hoodie detail', alt: 'Graphite fleece, warm gold drawcord tips and chest embroidery' },
   { file: 'tunnel-sweats', label: 'Sweats detail', alt: 'Graphite jogger pocket and stitching' },
   { file: 'tunnel-trainers', label: 'Trainer detail', alt: 'Slate trainer with a mesh upper and layered sole' },
+] as const;
+
+const goldPhotos = [
+  { file: 'gold-standard', label: 'Full outfit', alt: 'Gold Standard tracksuit on the detailed showroom athlete' },
 ] as const;
 
 function ProductCard({ product, onOpen }: { product: StoreProduct; onOpen: (product: StoreProduct) => void }) {
@@ -57,7 +61,7 @@ function TryOnPreview({ athlete, preview, onSwitchAthlete }: { athlete: AthleteP
     showroomSample: !athlete,
   };
   return <Suspense fallback={<p className="bk-store-preview-loading" role="status">Preparing your athlete…</p>}>
-    <AthleteLivePreview profile={profile} previewOutfit={outfit} showroom={preview.outfit.top === 'top-tunnel-fit'}
+    <AthleteLivePreview profile={profile} previewOutfit={outfit} showroom={preview.outfit.top === 'top-tunnel-fit' || preview.outfit.top === 'top-gold-standard'}
       showroomAthleteToggle={onSwitchAthlete ? { label: athlete ? 'See sample athlete' : 'Try my athlete', onClick: onSwitchAthlete } : undefined}/>
   </Suspense>;
 }
@@ -139,6 +143,7 @@ function TunnelProductPage({ product, onBack }: { product: StoreProduct; onBack:
   const [athlete] = useState(readAthletePassport);
   const [trying, setTrying] = useState(false);
   const [activePhoto, setActivePhoto] = useState(0);
+  const photos = product.id === 'gold-standard' ? goldPhotos : tunnelPhotos;
   const title = useRef<HTMLHeadingElement>(null);
   const track = useRef<HTMLDivElement>(null);
 
@@ -164,14 +169,14 @@ function TunnelProductPage({ product, onBack }: { product: StoreProduct; onBack:
         <div className="bk-tunnel-gallery" ref={track} onScroll={event => {
           const rail = event.currentTarget;
           if (!rail.clientWidth) return;
-          const index = Math.min(tunnelPhotos.length - 1, Math.max(0, Math.round(rail.scrollLeft / rail.clientWidth)));
+          const index = Math.min(photos.length - 1, Math.max(0, Math.round(rail.scrollLeft / rail.clientWidth)));
           setActivePhoto(index);
         }}>
-          {tunnelPhotos.map(({ file, alt }, index) =>
+          {photos.map(({ file, alt }, index) =>
             <img key={file} src={storeImage(file)} alt={alt} aria-hidden={activePhoto !== index} loading={index === 0 ? 'eager' : 'lazy'} decoding="async"/>)}
         </div>
         <div className="bk-tunnel-thumbnails" role="group" aria-label="Product photo gallery">
-          {tunnelPhotos.map(({ file, label }, index) =>
+          {photos.map(({ file, label }, index) =>
             <button key={file} type="button" aria-label={label} aria-pressed={activePhoto === index} onClick={() => selectPhoto(index)}>
               <img src={storeImage(file)} alt="" loading="lazy" decoding="async"/>
             </button>)}
@@ -183,10 +188,11 @@ function TunnelProductPage({ product, onBack }: { product: StoreProduct; onBack:
       </div>
       <div className="bk-tunnel-product-info">
         <div className="bk-tunnel-product-heading">
-          <div><h2>{product.name}</h2><p>Graphite hoodie, sweats &amp; slate trainers</p></div>
+          <div><h2>{product.name}</h2><p>{product.summary}</p></div>
           <div className="bk-store-price-status"><strong>{storePrice(product)}</strong><span>Planned price</span></div>
         </div>
         <button className="bk-store-button bk-store-button-gold bk-tunnel-try-on" type="button" onClick={() => setTrying(true)}>Try on in 3D</button>
+        <p className="bk-store-purchase-status">Catalog preview · Purchases are not available yet.</p>
         <details className="bk-tunnel-details">
           <summary>What’s included</summary>
           <p>{product.description}</p>
@@ -233,7 +239,7 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
   }, [tunnelProduct]);
 
   const showProduct = (product: StoreProduct) => {
-    if (product.id === 'tunnel-fit') {
+    if (product.id === 'tunnel-fit' || product.id === 'gold-standard') {
       returnToCard.current = { id: product.id, top: window.scrollY };
       setTunnelProduct(product);
     } else {

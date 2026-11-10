@@ -65,7 +65,7 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
     await page.screenshot({ path: artifacts + '/featured-' + width + '.png' });
 
-    assert.equal(await store.locator('.bk-store-product').count(), 2, 'Store opens on the featured campaign cards');
+    assert.equal(await store.locator('.bk-store-product').count(), 3, 'Store opens on the featured campaign cards');
     await store.getByRole('button', { name: /Chrome Grip Gloves/ }).getByText('$0.99', { exact: true }).waitFor();
     const landingCategories = store.getByRole('group', { name: 'Shop categories', exact: true });
     await landingCategories.getByRole('button', { name: 'Tunnel Fits', exact: true }).click();
@@ -107,7 +107,7 @@ try {
     }
 
     const cards = catalog.locator('.bk-store-product');
-    const counts = { All: 8, 'Game Gear': 3, 'Tunnel Fits': 2, Profile: 2, Celebrations: 1, Franchise: 1, Bundles: 5 };
+    const counts = { All: 9, 'Game Gear': 3, 'Tunnel Fits': 3, Profile: 2, Celebrations: 1, Franchise: 1, Bundles: 6 };
     for (const [category, count] of Object.entries(counts)) {
       const filter = categories.getByRole('button', { name: category, exact: true });
       await filter.click();
@@ -168,7 +168,7 @@ try {
       assert.equal(await canvas.getAttribute('data-showroom-model'), 'tunnel-fit-athlete');
       const fullFit = await canvas.screenshot();
       let previousFrame = fullFit;
-      for (const [label, view] of [['Face','head'], ['Hoodie','hoodie'], ['Sweats','sweats'], ['Trainers','trainers']]) {
+      for (const [label, view] of [['Face','head'], ['Top','hoodie'], ['Pants','sweats'], ['Trainers','trainers']]) {
         const button = detailViews.getByRole('button', { name: label, exact: true });
         await button.click();
         assert.equal(await button.getAttribute('aria-pressed'), 'true');

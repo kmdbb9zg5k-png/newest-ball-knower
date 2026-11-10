@@ -87,6 +87,17 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     tryOn: { outfit: { top: 'top-tunnel-fit', shorts: 'shorts-tunnel-fit', shoes: 'shoes-tunnel-fit' } },
   },
   {
+    id: 'gold-standard',
+    name: 'Gold Standard',
+    summary: 'Gold tracksuit & black-gold trainers',
+    description: 'The Gold Standard tunnel collection pairs champagne-gold performance fabric with black panels, cuffs and matching trainers.',
+    priceCents: 299,
+    categories: ['tunnel-fits', 'bundles'],
+    includes: ['Gold Standard track top', 'Gold Standard joggers', 'Black-and-gold trainers'],
+    use: 'My Player Locker and Combine',
+    tryOn: { outfit: { top: 'top-gold-standard', shorts: 'shorts-gold-standard', shoes: 'shoes-gold-standard' } },
+  },
+  {
     id: 'ink-pack',
     name: 'Ink Pack',
     summary: 'Three original tattoo designs',
