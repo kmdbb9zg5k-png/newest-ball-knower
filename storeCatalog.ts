@@ -151,6 +151,8 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
 
 export const storeImage = (id: string) => id === 'bkf-youngboy'
   ? '/store/bkf-youngboy-cover.webp'
+  : id === 'bkf-youngboy-look'
+  ? 'https://v3b.fal.media/files/b/0ab1ea94/Xh-J82kvc_xaAQT6S_pUO_USEo0H0r.png'
   : id === 'frostbite'
   ? 'https://v3b.fal.media/files/b/0ab1ed77/_WCyDW9OAkL4xAehcl2KE_3CD98264-BD29-4D30-9FAE-8EE444BB6E92.jpeg'
   : id === 'frostbite-look'
