@@ -65,11 +65,11 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
     await page.screenshot({ path: artifacts + '/featured-' + width + '.png' });
 
-    assert.equal(await store.locator('.bk-store-product').count(), 7, 'Store opens with YoungBoy and Frostbite among featured cards');
+    assert.equal(await store.locator('.bk-store-product').count(), 8, 'Store features The Phantom, YoungBoy, Frostbite and existing drops');
     await store.getByRole('button', { name: /Chrome Grip Gloves/ }).getByText('$0.99', { exact: true }).waitFor();
     const landingCategories = store.getByRole('group', { name: 'Shop categories', exact: true });
     await landingCategories.getByRole('button', { name: 'Tunnel Fits', exact: true }).click();
-    assert.equal(await store.locator('.bk-store-product').count(), 7, 'Tunnel Fits includes YoungBoy and Frostbite');
+    assert.equal(await store.locator('.bk-store-product').count(), 8, 'Tunnel Fits includes Phantom, Outlaw, Kickflip and existing collections');
     await landingCategories.getByRole('button', { name: 'All', exact: true }).click();
 
 
@@ -198,6 +198,38 @@ try {
       assert.deepEqual(await readSave(), before, 'Frostbite preview never changes a player or purchases an item');
     }
 
+    // Phantom: poster, realistic catalog photo and independent 360-degree model.
+    {
+      const phantomCard=store.locator('[data-store-product="bkf-phantom"]');
+      assert.equal(await phantomCard.count(),1,'The Phantom is a featured Store character');
+      assert.ok((await phantomCard.locator('img').getAttribute('src')).includes('ZV1i2C4x_u3pGyWgsReKS_7OOQNTpM.png'));
+      await phantomCard.click();
+      const phantom=page.getByRole('dialog',{name:'The Phantom',exact:true});
+      await phantom.getByRole('heading',{name:'The Phantom',exact:true}).waitFor();
+      const views=phantom.getByRole('group',{name:'Product view'});
+      assert.equal(await views.getByRole('button').count(),3,'The Phantom offers full poster, realistic photo and 3D preview');
+      assert.equal(await views.getByRole('button',{name:'Full poster'}).getAttribute('aria-pressed'),'true');
+      const artwork=phantom.locator('.bkf-drop-hero img');
+      assert.ok((await artwork.getAttribute('src')).includes('ZV1i2C4x_u3pGyWgsReKS_7OOQNTpM.png'));
+      await artwork.evaluate(image=>image.decode());
+      await views.getByRole('button',{name:'Realistic view'}).click();
+      assert.ok((await artwork.getAttribute('src')).includes('aEW__qpU6k2Ik8P7TywbO_lUUJVFfQ.png'));
+      await artwork.evaluate(image=>image.decode());
+      assert.equal(await phantom.getByText('Coming Soon',{exact:true}).count(),1,'Phantom cannot be bought before equip/ownership is ready');
+      assert.equal(await phantom.locator('.bkf-drop-includes li').count(),6);
+      if(width===390){
+        await views.getByRole('button',{name:'3D preview'}).click();
+        const character=phantom.locator('[data-character-model*="LwJJTnq5TIJ6S9RsHOcW0_model.glb"]');
+        await character.waitFor();
+        await character.locator('canvas').waitFor({timeout:90000});
+        await phantom.locator('[data-character-model][data-render-state="ready"]').waitFor({timeout:90000});
+        await character.getByRole('button',{name:'Rotate right'}).click();
+        await phantom.getByText('Standard showcase character · Not your saved player').waitFor();
+      }
+      await phantom.getByRole('button',{name:'Close product'}).click();
+      await phantom.waitFor({state:'hidden'});
+    }
+
     await store.getByRole('button', { name: 'View All', exact: true }).click();
     const catalog = page.getByRole('region', { name: 'Shop the Store', exact: true });
     const categories = catalog.getByRole('group', { name: 'Shop categories', exact: true });
@@ -213,7 +245,7 @@ try {
     }
 
     const cards = catalog.locator('.bk-store-product');
-    const counts = { All: 11, 'Game Gear': 3, 'Tunnel Fits': 5, Profile: 2, Celebrations: 1, Franchise: 1, Bundles: 8 };
+    const counts = { All: 14, 'Game Gear': 3, 'Tunnel Fits': 8, Profile: 2, Celebrations: 1, Franchise: 1, Bundles: 11 };
     for (const [category, count] of Object.entries(counts)) {
       const filter = categories.getByRole('button', { name: category, exact: true });
       await filter.click();
