@@ -14,7 +14,8 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
   renderer.setPixelRatio(Math.min(devicePixelRatio||1,showroom?2.5:2));
   renderer.outputColorSpace=T.SRGBColorSpace;
   renderer.toneMapping=T.ACESFilmicToneMapping;
-  renderer.toneMappingExposure=showroom?1.17:1.35;
+  const goldShowroom = showroom && initial.wardrobe?.top === 'top-gold-standard';
+  renderer.toneMappingExposure=goldShowroom?1.8:showroom?1.17:1.35;
   renderer.domElement.setAttribute('aria-label','Interactive 3D athlete');
   host.appendChild(renderer.domElement);
   const scene=new T.Scene(),camera=new T.PerspectiveCamera(32,1,.05,30);
@@ -22,6 +23,11 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
   const key=new T.DirectionalLight(showroom?0xffd1a2:0xffead0,showroom?3.8:3);key.position.set(showroom?2:3,showroom?5:4,showroom?3:5);scene.add(key);
   const rim=new T.DirectionalLight(showroom?0xffbd79:0x9dcfff,showroom?3.35:3);rim.position.set(-3,2,-3);scene.add(rim);
   const fill=new T.DirectionalLight(0xffffff,showroom?1.35:1);fill.position.set(-3,1,4);scene.add(fill);
+  if (goldShowroom) {
+    scene.add(new T.AmbientLight(0xffedcf,1.5));
+    const front=new T.DirectionalLight(0xffffff,3.2);
+    front.position.set(0,3,6);scene.add(front);
+  }
   const floor=showroom
     ?new T.Mesh(new T.PlaneGeometry(6,6),new T.ShadowMaterial({opacity:.37,depthWrite:false}))
     :new T.Mesh(new T.CylinderGeometry(.7,.72,.035,64),new T.MeshStandardMaterial({color:0x19242b,roughness:.7,metalness:.25}));
