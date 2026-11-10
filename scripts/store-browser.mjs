@@ -69,7 +69,7 @@ try {
     await store.getByRole('button', { name: /Chrome Grip Gloves/ }).getByText('$0.99', { exact: true }).waitFor();
     const landingCategories = store.getByRole('group', { name: 'Shop categories', exact: true });
     await landingCategories.getByRole('button', { name: 'Tunnel Fits', exact: true }).click();
-    assert.equal(await store.locator('.bk-store-product').count(), 2);
+    assert.equal(await store.locator('.bk-store-product').count(), 3, 'Tunnel Fits includes the new BKF concept');
     await landingCategories.getByRole('button', { name: 'All', exact: true }).click();
 
     const readSave = () => page.evaluate(() => ({
