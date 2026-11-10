@@ -625,3 +625,8 @@ body:has(.bk-tunnel-showroom[open]) { overflow: hidden; }
 .bk-store-locker-shop [data-store-product="tunnel-fit"] .bk-store-card-art img { object-fit:cover; object-position:50% 50%; }
 
 .bk-store-detail-art--poster { aspect-ratio: auto; height: auto; object-fit: contain; }
+
+/* Preserve the complete BK Femme poster without the tall portrait letterbox. */
+.bk-store-locker-shop [data-store-product="bk-femme"] .bk-store-card-art {
+  aspect-ratio: 1199 / 1312;
+}
