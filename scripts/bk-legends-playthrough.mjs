@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
+import { CAMPAIGN } from '../bkLegends.ts';
 
 const base = 'http://127.0.0.1:4335';
 const out = 'artifacts/bk-legends-playthrough';
@@ -11,6 +12,8 @@ let browser;
 let page;
 let context;
 const report = { rounds: [], errors: [], controls: [], captureWarnings: [] };
+const requestedRounds = Number(process.env.BK_LEGENDS_ROUNDS ?? 3);
+assert.ok(Number.isInteger(requestedRounds) && requestedRounds >= 1 && requestedRounds < CAMPAIGN.length, 'Invalid campaign round limit');
 async function capture(name) {
   if (!page) return;
   try {
@@ -70,7 +73,7 @@ try {
   }
   await page.setViewportSize({ width: 844, height: 470 });
 
-  async function playChallenge({ title, ball, clock, passTarget = 0, rushTarget = 0 }) {
+  async function playChallenge({ title, ball, clock, passTarget = 0, rushTarget = 0 }, retry = false) {
     console.log('Starting', title);
     const slug = title.toLowerCase().replaceAll(/[^a-z]+/g, '-');
     await legends.getByRole('button', { name: 'Play challenge', exact: true }).click();
@@ -100,12 +103,14 @@ try {
     const initial = await state();
     assert.equal(initial.drive.clock, clock);
     assert.equal(initial.drive.ball, ball);
+    const roundStarted = Date.now();
     assert.equal(initial.players[5].teamAbbr, 'BKL');
     await field.evaluate(() => window.bkSetGraphicsQualityForQA('eco'));
     let kicked = false, liveDefense = 0;
     await capture(slug + '-playbook');
     try {
       for (let action = 0; action < 200; action++) {
+        assert.ok(Date.now() - roundStarted < 9 * 60_000, title + ' exceeded its playthrough time budget');
         if (await page.getByRole('heading', { name: /Challenge cleared|Objective incomplete/ }).isVisible()) return;
         if (field.isDetached()) return;
         const current = await state();
@@ -137,10 +142,10 @@ try {
           } else {
             if (current.mini.stats.home.passYards < passTarget) {
               await click('filterPass');
-              await click('call-pass-1');
+              await click(retry ? 'call-pass-2' : 'call-pass-1');
             } else if (current.mini.stats.home.rushYards < rushTarget) {
               await click('filterRun');
-              await click('call-run-1');
+              await click(retry ? 'call-run-3' : 'call-run-1');
             }
             await click('breakHuddle');
           }
@@ -181,17 +186,29 @@ try {
     throw new Error(title + ' did not reach a result within the control budget');
   }
 
-  const rounds = [
-    { title: 'First Snap', ball: 90, clock: 45, next: 'Find Your Receiver' },
-    { title: 'Find Your Receiver', ball: 25, clock: 77, passTarget: 14, next: 'Set the Edge' },
-    { title: 'Set the Edge', ball: 30, clock: 82, rushTarget: 16, next: 'Camp Scrimmage' },
-  ];
+  const rounds = CAMPAIGN.slice(0, requestedRounds).map((scenario, index) => ({
+    title: scenario.title,
+    ball: scenario.defending ? 25 : scenario.ball,
+    clock: scenario.clock,
+    passTarget: scenario.goal === 'pass' ? scenario.target : 0,
+    rushTarget: scenario.goal === 'rush' ? scenario.target : 0,
+    next: CAMPAIGN[index + 1].title,
+  }));
   for (const [index, round] of rounds.entries()) {
     await playChallenge(round);
     const result = page.getByRole('dialog', { name: round.title });
     await result.getByRole('heading', { name: /Challenge cleared|Objective incomplete/ }).waitFor();
+    const cleared = result.getByRole('heading', { name: 'Challenge cleared', exact: true });
+    if (!await cleared.isVisible()) {
+      report.rounds.push({ challenge: round.title, attempt: 1, result: await result.innerText() });
+      await capture('round-' + (index + 1) + '-retry');
+      await result.getByRole('button', { name: 'Back to BK Legends' }).click();
+      await playChallenge(round, true);
+      await result.getByRole('heading', { name: /Challenge cleared|Objective incomplete/ }).waitFor();
+    }
     const text = await result.innerText();
     report.rounds.push({ challenge: round.title, result: text });
+    await writeFile(out + '/report.json', JSON.stringify(report, null, 2));
     console.log(text);
     await capture('round-' + (index + 1) + '-result');
     await result.getByRole('heading', { name: 'Challenge cleared', exact: true }).waitFor({ timeout: 1500 });
@@ -205,6 +222,14 @@ try {
     await legends.getByText((index + 1) + ' / 80 complete', { exact: true }).waitFor();
     assert.match(await legends.locator('.bkl-header').innerText(), new RegExp((index + 1) + ',000'));
     await legends.getByRole('heading', { name: round.next, exact: true }).waitFor();
+  }
+  if (requestedRounds >= 10) {
+    await legends.getByRole('button', { name: /Training Camp/ }).click();
+    const chapter = legends.getByRole('heading', { name: 'Chapter Pack', exact: true });
+    await chapter.waitFor();
+    await legends.getByRole('button', { name: 'Claim', exact: true }).first().click();
+    await legends.getByText('Chapter Pack claimed.', { exact: true }).waitFor();
+    report.chapterPackClaimed = true;
   }
   assert.deepEqual(report.errors, []);
   console.log(JSON.stringify(report));
