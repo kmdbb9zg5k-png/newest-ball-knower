@@ -88,7 +88,7 @@ document.getElementById('game').addEventListener('webglcontextlost', () => {
   reportLegendsFailure();
 });
 try {
-  const {start}=await import('/play-moment-3d/game.js?v=bk-legends-1');
+  const {start}=await import('/play-moment-3d/game.js?v=bk-legends-2');
   await start();
   if (!graphicsLost) reportArenaField('ready');
 } catch(error) {

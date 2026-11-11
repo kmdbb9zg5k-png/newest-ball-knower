@@ -1,4 +1,4 @@
-import { createFullGameUI } from './five-minute-ui.js?v=football-arena-4';
+import { createFullGameUI } from './five-minute-ui.js?v=bk-legends-1';
 import { miniClock, saveMiniBest } from './mini-games.js?v=football-arena-4';
 
 export function createMiniGamesUI(config, actions) {

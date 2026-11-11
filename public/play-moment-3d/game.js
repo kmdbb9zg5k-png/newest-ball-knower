@@ -19,7 +19,7 @@ import{createMeshyAthletes as createReferenceAthletes}from'./reference-athlete.j
 import{makeStadium}from'./stadium.js?v=contact-camera-11';
 import{createGameplayReplayRecorder}from'./replay.js';
 import {miniClock,miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=football-arena-4';
-import {createMiniGamesUI} from './mini-games-ui.js?v=football-arena-4';
+import {createMiniGamesUI} from './mini-games-ui.js?v=bk-legends-1';
 import{QB_THROW_RELEASE,quarterbackThrowDuration}from'./quarterback.js?v=football-finish-21';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
 const setHudText=(node,value)=>{const text=String(value);if(node.textContent!==text)node.textContent=text};
@@ -466,9 +466,7 @@ export async function start(){
  }):location.search);
  if(legends){
   miniConfig.matchup.home=legends.squad;
-  document.querySelector('#paused .eyebrow').textContent='BK LEGENDS';
-  document.querySelector('#paused a').hidden=true;
-  document.querySelector('#rotate a').hidden=true;
+  miniConfig.legendsTitle=legends.scenario.title;
  }
  const fullGame=Boolean(miniConfig);
  const newFullSession=()=>{
