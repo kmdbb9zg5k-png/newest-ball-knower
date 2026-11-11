@@ -1,6 +1,19 @@
 .bk-arena {--arena-gold:#ecd67d; color:#f4f4f5}
-/* Community's photography supplies the scene; keep the header clean and quiet. */
-.bk-arena[data-page="arena"] {background:#07090c}
+.bk-arena[data-page="arena"] {
+  --arena-backdrop-height: clamp(300px, 36vw, 480px);
+  background: #07090c;
+}
+.bk-arena[data-page="arena"]::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: var(--arena-backdrop-height);
+  background:
+    linear-gradient(90deg, #07090c91, #07090c16 78%),
+    linear-gradient(180deg, #07090c18, #07090c36 60%, #07090c),
+    url('/community/arena-stadium-night-v1.webp') right 36% / cover no-repeat;
+  pointer-events: none;
+}
 .bk-arena[data-page="arena"]>.bk-scene-backdrop {display:none}
 .arena-masthead {display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 10px;margin:0 0 16px}
 .arena-eyebrow {grid-column:1/-1;margin:0;font-size:9px;line-height:1.6;font-weight:800;letter-spacing:.23em;text-transform:uppercase;color:var(--arena-gold)}
