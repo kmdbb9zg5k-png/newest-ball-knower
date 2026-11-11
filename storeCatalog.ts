@@ -225,7 +225,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
 ];
 
 export const storeImage = (id: string) => id === 'bk-femme'
-  ? '/store/bkf-nicki.jpeg'
+  ? '/store/bkf-nicki-v2.webp'
   : id === 'bkf-phantom'
   ? 'https://v3b.fal.media/files/b/0ab1f22f/ZV1i2C4x_u3pGyWgsReKS_7OOQNTpM.png'
   : id === 'gold-standard'
