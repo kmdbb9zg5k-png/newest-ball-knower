@@ -153,3 +153,33 @@
 .bkf-drop-modal--iron-wolf { --store-gold:#d6dce4; border-color:#bcc7d5; }
 .bkf-drop-modal--iron-wolf .bkf-drop-shell { background:linear-gradient(145deg,#1a1d22,#090b0e 65%); }
 .bkf-drop-modal--iron-wolf .bkf-drop-title { color:#eef2f7; text-shadow:0 2px 18px #9eb8d733; }
+
+/* BKF Dee: burgundy and chrome, with squared framing and silver details. */
+.bk-store-dialog.bkf-drop-modal--dee {
+  --store-gold: #f0cbd6;
+  border-color: #b8becb;
+  border-radius: 6px;
+  color: #f7eef2;
+  background: #160c13;
+  box-shadow: 0 0 0 2px #681f38, 0 0 36px #9c295233, inset 0 0 28px #b2bac214;
+}
+.bkf-drop-modal--dee .bkf-drop-shell { background: radial-gradient(ellipse at 55% 0%, #8c234544, transparent 42%), #160c13; }
+.bkf-drop-modal--dee .bkf-drop-brand,
+.bkf-drop-modal--dee .bkf-drop-heading p { color: #e9c8d4; }
+.bkf-drop-modal--dee .bkf-drop-brand small { color: #c5bdcb; }
+.bkf-drop-modal--dee .bkf-drop-close { border-color: #b8becb; border-radius: 4px; background: #32121f; box-shadow: 0 0 10px #9b315030; }
+.bkf-drop-modal--dee h2.bkf-drop-title { color: #edf0f6; text-shadow: 0 2px 16px #b5305840; }
+.bkf-drop-modal--dee .bkf-drop-tabs { border-color: #a8aebb; border-radius: 5px; background: #27101b; }
+.bkf-drop-modal--dee .bkf-drop-tabs button { color: #f0e5ec; border-radius: 3px; }
+.bkf-drop-modal--dee .bkf-drop-tabs button[aria-pressed="true"] { color: #fff6fa; background: linear-gradient(120deg, #8a294a, #58182f); box-shadow: inset 0 1px 0 #d79aaf, 0 1px 14px #87233d40; }
+.bkf-drop-modal--dee .bkf-drop-hero { border-color: #b8becb; border-radius: 4px; box-shadow: inset 0 0 18px #a3adbc18; }
+.bkf-drop-modal--dee .bkf-drop-description,
+.bkf-drop-modal--dee .bkf-drop-includes li { color: #eaddE5; }
+.bkf-drop-modal--dee .bkf-drop-includes h3 span { color: #1d1018; background: linear-gradient(110deg, #edf0f6, #b7becb); }
+.bkf-drop-modal--dee .bkf-drop-includes h3::after { background: linear-gradient(90deg, #bd879c, #77284022); }
+.bkf-drop-modal--dee .bkf-drop-includes li::before { border-color: #d4a2b4; color: #edc9d6; }
+.bkf-drop-modal--dee .bkf-drop-footer { border-color: #a26c824f; }
+.bkf-drop-modal--dee .bkf-drop-cta { border-color: #d3a3b5; border-radius: 4px; color: #fff4f8; background: linear-gradient(120deg, #872747, #59172f); box-shadow: 0 0 14px #a7325733; }
+.bkf-drop-modal--dee .bkf-drop-footer strong { color: #e6d3df; }
+.bkf-drop-modal--dee .bkf-drop-footer span,
+.bkf-drop-modal--dee .bkf-drop-disclaimer { color: #cbb6c3; }

@@ -638,3 +638,19 @@ body:has(.bk-tunnel-showroom[open]) { overflow: hidden; }
 .bk-store-locker-shop [data-store-product="bfk-dee"] .bk-store-card-art { aspect-ratio: 1122 / 1402; }
 .bkf-drop-modal.bkf-drop-modal--dee .bkf-drop-hero[data-bkf-photo="poster"] { aspect-ratio: 1122 / 1402; }
 .bkf-drop-modal.bkf-drop-modal--dee .bkf-drop-hero[data-bkf-photo="realistic"] { aspect-ratio: 1312 / 1199; }
+
+/* Dee's burgundy and chrome card is distinct from Nicki's gold collection. */
+.bk-store-locker-shop .bk-store-product[data-store-product="bfk-dee"] {
+  --store-gold: #f0cbd6;
+  border: 1px solid #b8becb;
+  border-radius: 5px;
+  background: linear-gradient(155deg, #421725, #1d111a 65%);
+  box-shadow: inset 0 0 0 3px #681f38, 0 4px 18px #310c2040;
+}
+.bk-store-locker-shop [data-store-product="bfk-dee"] .bk-store-card-art {
+  border: 1px solid #b4bac6;
+  border-radius: 3px;
+  background: #180e15;
+}
+.bk-store-locker-shop [data-store-product="bfk-dee"] .bk-store-product-text > span { color: #e2ced6; }
+.bk-store-locker-shop [data-store-product="bfk-dee"] b { color: #efc5d3; }
