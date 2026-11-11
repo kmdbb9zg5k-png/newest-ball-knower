@@ -118,7 +118,7 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
 
   return <div className="bkl" data-testid="bk-legends">
     <header className="bkl-header">
-      <button type="button" onClick={onBack}><ArrowLeft aria-hidden="true"/> Play</button>
+      <button type="button" onClick={onBack}><ArrowLeft aria-hidden="true"/> Back</button>
       <strong>BK Legends</strong>
       <span title="BK Legends campaign balance on this device"><Coins aria-hidden="true"/> {format.format(save.coins)} <small>BK Coins</small></span>
     </header>

@@ -73,6 +73,9 @@ try {
   }
   await homeCover.click();
   await legends.waitFor();
+  await legends.locator('.bkl-header').getByRole('button', { name: 'Back', exact: true }).click();
+  await homeCover.click();
+  await legends.waitFor();
   await legends.getByRole('button', { name: /Open free Starter Pack/ }).click();
   await legends.getByText('0 / 80 complete', { exact: true }).waitFor();
   for (const width of [320, 390]) {
