@@ -69,3 +69,20 @@
 @media(max-width:830px){.bk-cinema-hero-cast{left:20%}.bk-cinema-hero-person{flex-basis:105px}}
 @media(max-width:480px){.bk-cinema-hero-cast{left:12%;padding:10px 7px 11px 20px;gap:4px}.bk-cinema-hero-person{flex-basis:90px;border-radius:8px}.bk-cinema-hero-person span{font-size:10px}.bk-cinema-hero::after{background:linear-gradient(90deg,#070709fc 0%,#070709ec 27%,#07070994 48%,#07070906 81%),linear-gradient(0deg,#070709d9,transparent 38%)}.bk-cinema-hero-copy{max-width:73%}.bk-cinema-hero-feature{max-width:45%;right:7px;bottom:12px}.bk-cinema-hero-feature strong{font-size:18px}.bk-cinema-hero-feature small{font-size:7px}.bk-cinema-hero-feature button{font-size:8px}}
 @media(prefers-reduced-motion:reduce){.bk-cinema-hero-person{transition:none}}
+
+/* Mobile correction: collage-style overlapping cast, not boxed product covers.
+   Use only the existing source artwork. Crop out cover frames and baked-in titles
+   where possible, feathering each portrait into the shared black/gold scene. */
+.bk-cinema-hero{min-height:335px;background:radial-gradient(ellipse at 69% 30%,#b27a2d 0%,#493018 35%,#0b090d 75%)}
+.bk-cinema-hero-cast{inset:0 0 0 26%;padding:0;gap:0;overflow:hidden;display:block;scroll-snap-type:none;touch-action:auto;mask-image:none;-webkit-mask-image:none;pointer-events:none}
+.bk-cinema-hero-person,.bk-cinema-hero-person:nth-child(3n+2),.bk-cinema-hero-person:nth-child(4n+3){position:absolute;display:block;margin:0;height:95%;width:36%;min-width:0;max-width:none;top:4%;border:0;border-radius:0;overflow:hidden;background:transparent;box-shadow:none;transform:none!important;pointer-events:auto;clip-path:polygon(7% 0,93% 0,100% 100%,0 100%);-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 18%,#000 82%,transparent 100%);mask-image:linear-gradient(90deg,transparent 0%,#000 18%,#000 82%,transparent 100%)}
+.bk-cinema-hero-person img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 30%;filter:saturate(1.08) contrast(1.1);transform:scale(1.38);transform-origin:center 40%}
+.bk-cinema-hero-person::after{inset:50% 0 0;background:linear-gradient(0deg,#0b080de0,transparent)}
+.bk-cinema-hero-person-label{display:none}
+.bk-cinema-hero-person-0{left:-8%;z-index:2}.bk-cinema-hero-person-1{left:10%;z-index:4;top:11%;height:89%}.bk-cinema-hero-person-2{left:29%;z-index:6;top:3%;height:97%}.bk-cinema-hero-person-3{left:50%;z-index:5;top:10%;height:90%}.bk-cinema-hero-person-4{left:69%;z-index:3}.bk-cinema-hero-person-5{left:86%;z-index:2}
+.bk-cinema-hero-person:nth-child(n+7){display:none}
+.bk-cinema-hero::after{z-index:7;background:linear-gradient(90deg,#08080dfc 0%,#08080df2 22%,#08080d7a 40%,transparent 69%),linear-gradient(0deg,#08080de9 0%,transparent 39%);pointer-events:none}
+.bk-cinema-hero-copy{z-index:8;max-width:53%;pointer-events:none}.bk-cinema-hero-copy button{pointer-events:auto}
+.bk-cinema-hero-feature{z-index:8;pointer-events:none}.bk-cinema-hero-feature button{pointer-events:auto}
+@media(max-width:830px){.bk-cinema-hero-cast{left:19%}.bk-cinema-hero-person{width:44%}.bk-cinema-hero-person-0{left:-13%}.bk-cinema-hero-person-1{left:7%}.bk-cinema-hero-person-2{left:29%}.bk-cinema-hero-person-3{left:51%}.bk-cinema-hero-person-4{left:73%}.bk-cinema-hero-person-5{left:93%}}
+@media(max-width:480px){.bk-cinema-hero{min-height:300px}.bk-cinema-hero-cast{left:13%}.bk-cinema-hero-person{width:58%;top:5%;height:93%}.bk-cinema-hero-person-0{left:-22%;z-index:2}.bk-cinema-hero-person-1{left:4%;top:12%;height:86%;z-index:5}.bk-cinema-hero-person-2{left:32%;top:2%;height:96%;z-index:6}.bk-cinema-hero-person-3{left:63%;top:12%;height:86%;z-index:4}.bk-cinema-hero-person-4{left:90%;z-index:3}.bk-cinema-hero-person-5{display:none}.bk-cinema-hero-person img{transform:scale(1.55)}.bk-cinema-hero::after{background:linear-gradient(90deg,#08080dfc 0%,#08080df1 26%,#08080d7c 47%,transparent 80%),linear-gradient(0deg,#08080de9 0%,transparent 42%)}.bk-cinema-hero-copy{max-width:72%;padding-top:23px}.bk-cinema-hero-feature{right:9px;bottom:12px;max-width:48%}.bk-cinema-hero-feature strong{font-size:20px}.bk-cinema-hero-feature small{font-size:7px}}
