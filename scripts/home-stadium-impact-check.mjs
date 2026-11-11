@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const root = new URL('../', import.meta.url);
+const read = name => readFileSync(new URL(name, root), 'utf8');
+const home = read('HomeDashboard.tsx');
+const css = read('homeStadiumImpact.css');
+const visual = read('HomeStadiumHero.tsx');
+
+assert.ok(home.includes("import './homeStadiumImpact.css';"), 'Home must load approved background styles');
+assert.ok(home.includes('bk-home-stadium-impact mx-auto'), 'Home background class must be mounted');
+assert.ok(home.includes('<HomeStadiumHero/>') && visual.includes('ball-knower-legacy-hero.webp'), 'Approved hero artwork must remain intact');
+assert.ok(home.includes('<HomeMiniGamesFeature') && home.includes('<HomeJourneyFeature'), 'Existing navigable feature tiles must remain');
+assert.ok(home.includes("onNavigate('fantasy')") && home.includes("onNavigate('sportsbook')"), 'Home navigation must stay wired');
+const match = css.match(/data:image\\/webp;base64,([a-zA-Z0-9+/=]+)/);
+assert.ok(match, 'The approved stadium artwork must be included as a data WebP, not a temporary external URL');
+const bytes = Buffer.from(match[1], 'base64');
+assert.ok(bytes.length >= 4000 && bytes.length <= 15000, 'Background should be lightweight for mobile');
+assert.equal(bytes.toString('ascii',0,4),'RIFF','Background bytes must have a valid WebP RIFF header');
+assert.equal(bytes.toString('ascii',8,12),'WEBP','Background must actually decode as WebP');
+assert.equal(bytes.readUInt32LE(4)+8,bytes.length, 'Embedded image must not be truncated');
+assert.ok(css.includes('pointer-events:none') && css.includes('z-index:-1'), 'Decorative art must not block taps');
+assert.ok(css.includes('background-size:100% 100%,cover') && css.includes('@media(max-width:500px)'), 'Background must be responsive');
+assert.ok(!css.includes('sandbox:/') && !css.includes('fal.media'), 'Home artwork must be self-contained and stable');
+console.log('PASS Home impact: real WebP asset, responsive styling, live buttons and original hero preserved.');
