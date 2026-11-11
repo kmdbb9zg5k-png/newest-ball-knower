@@ -78,7 +78,21 @@ try {
   await legends.locator('.bkl-header').getByRole('button', { name: 'Back', exact: true }).click();
   await homeCover.click();
   await legends.waitFor();
+  await legends.getByRole('button', { name: 'My Squad', exact: true }).click();
+  await legends.getByRole('heading', { name: 'Depth Chart', exact: true }).waitFor();
+  const offense = legends.getByRole('list', { name: 'Offense starters' });
+  assert.equal(await offense.getByRole('listitem').count(), 12);
+  assert.equal(await offense.getByRole('button').count(), 0);
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Depth chart overflows on mobile');
+  await legends.getByRole('button', { name: 'Defense', exact: true }).click();
+  assert.equal(await legends.getByRole('list', { name: 'Defense starters' }).getByRole('listitem').count(), 11);
+  await legends.getByRole('button', { name: 'Special teams', exact: true }).click();
+  assert.equal(await legends.getByRole('list', { name: 'Special teams starters' }).getByRole('listitem').count(), 2);
   await legends.getByRole('button', { name: /Open free Starter Pack/ }).click();
+  await legends.getByRole('button', { name: 'Offense', exact: true }).click();
+  await offense.getByRole('button', { name: /^WR2 / }).click();
+  await legends.getByRole('heading', { name: 'Manage WR2', exact: true }).waitFor();
+  await legends.getByRole('button', { name: 'Campaign', exact: true }).click();
   await legends.getByText('0 / 80 complete', { exact: true }).waitFor();
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });

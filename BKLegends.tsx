@@ -11,6 +11,14 @@ import './bkLegends.css';
 const format = new Intl.NumberFormat('en-US');
 const sections = ['Campaign', 'My Squad', 'Packs', 'Training', 'Exchange'] as const;
 const groups = ['Offense', 'Defense', 'Special teams'] as const;
+const starterPreview = openStarter(initialLegends());
+const depthSlots = POSITIONS.map((position, index) => ({
+  position,
+  group: index < 11 || position === 'FB' ? 'Offense' : index < 22 ? 'Defense' : 'Special teams',
+  label: POSITIONS.filter(value => value === position).length > 1
+    ? position + (POSITIONS.slice(0, index).filter(value => value === position).length + 1)
+    : position,
+}));
 type Attempt = { token: string; scenario: Scenario; lineup: string[] };
 const attemptKey = (token: string) => 'bk-legends-attempt:' + token;
 const fieldUrl = (attempt: Attempt) => '/play-moment-3d-preview.html?' + new URLSearchParams({ bkLegends: attempt.token });
@@ -103,6 +111,7 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
     setSection(next);
   }
   const next = CAMPAIGN[save.complete];
+  const depthChart = save.starterOpened ? save : starterPreview;
   const currentCard = save.lineup[slot];
   const owned = save.owned[currentCard];
   const cost = currentCard ? trainingCost(save, currentCard) : null;
@@ -125,7 +134,7 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
     <nav className="bkl-tabs" aria-label="BK Legends sections">{sections.map(item =>
       <button key={item} type="button" aria-pressed={section === item} onClick={() => selectSection(item)}>{item}</button>)}</nav>
     {notice && <p className="bkl-notice" role="status">{notice}</p>}
-    {!save.starterOpened ? <section className="bkl-hero">
+    {!save.starterOpened && section !== 'My Squad' ? <section className="bkl-hero">
       <p>BK Legends</p><h1>Road to<br/><em>Legend</em></h1>
       <span>Build a squad and take it through 80 challenges.</span>
       <button className="bkl-gold" onClick={() => change(openStarter, 'Your starting lineup is ready.')}>Open free Starter Pack <ArrowRight aria-hidden="true"/></button>
@@ -158,14 +167,20 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
         })}</div>
       </>}
       {section === 'My Squad' && <section className="bkl-panel">
-        <p className="bkl-kicker"><Users aria-hidden="true"/> {squadOverall(save)} team OVR</p><h1>My Squad</h1>
+        <p className="bkl-kicker"><Users aria-hidden="true"/> {squadOverall(depthChart)} team OVR</p><h1>Depth Chart</h1>
+        {!save.starterOpened && <p>Preview your starter lineup. Open the free pack to claim it and manage your squad.</p>}
         <div className="bkl-tabs bkl-subtabs" aria-label="Lineup groups">{groups.map((item, n) => <button key={item} aria-pressed={item === group} onClick={() => { setGroup(item); setSlot([5, 17, 23][n]); }}>{item}</button>)}</div>
-        <div className="bkl-lineup">{save.lineup.map((id, index) => {
-          const side = index < 11 ? 'Offense' : index < 22 ? 'Defense' : 'Special teams';
-          if (side !== group) return null;
-          return <button key={index} aria-pressed={slot === index} onClick={() => setSlot(index)}><small>{POSITIONS[index]} · {playerOverall(save, id)} OVR</small><strong>{CARD_BY_ID.get(id)?.name}</strong></button>;
-        })}</div>
-        <h2>Manage {POSITIONS[slot]}</h2>
+        <div className="bkl-depth-heading" aria-hidden="true"><span>POS</span><span>Starter</span><span>OVR</span></div>
+        <ul className="bkl-depth-chart" aria-label={group + ' starters'}>{depthChart.lineup.map((id, index) => {
+          const entry = depthSlots[index];
+          if (entry.group !== group) return null;
+          const row = <><small>{entry.label}</small><strong>{CARD_BY_ID.get(id)?.name}</strong><span>{playerOverall(depthChart, id)}</span></>;
+          return <li key={index}>{save.starterOpened
+            ? <button type="button" aria-pressed={slot === index} onClick={() => setSlot(index)}>{row}</button>
+            : <div>{row}</div>}</li>;
+        })}</ul>
+        {!save.starterOpened && <button className="bkl-gold" onClick={() => change(openStarter, 'Your starting lineup is ready.')}>Open free Starter Pack <ArrowRight aria-hidden="true"/></button>}
+        {save.starterOpened && <h2>Manage {depthSlots[slot].label}</h2>}
         {owned && <div className="bkl-upgrade">
           <strong>{CARD_BY_ID.get(currentCard)?.name} · Level {owned.level + 1}</strong>
           <span>{format.format(save.training)} Training Points</span>
