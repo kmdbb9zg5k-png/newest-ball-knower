@@ -75,8 +75,8 @@ export default function StoreLandingShowcase({onNavigate,onProduct,onCatalog,onR
   </section>
   <div className="bk-cinema-promos">
    <section className="bk-cinema-promo bk-cinema-characters">
-    <div className="bk-cinema-character-art" aria-hidden="true"><img src="/store/bkf-street-boss-cover.webp" alt="" loading="lazy"/><img src="/store/bkf-youngboy-cover.webp" alt="" loading="lazy"/><img src="/store/bkf-outlaw-look.webp" alt="" loading="lazy"/></div>
-    <div className="bk-cinema-promo-copy"><h2>CHARACTER PACKS</h2><p>Unique styles. Real personality.<br/> BK originals.</p><button type="button" onClick={()=>onNavigate('characters')}>BROWSE CHARACTERS <ChevronRight size={15}/></button></div>
+    <div className="bk-cinema-character-art" aria-label="Street Boss, BKF Youngboy, and BKF Dee character covers" role="img"><img src="/store/bkf-street-boss-cover.webp" alt="" loading="lazy"/><img src="/store/bkf-youngboy-cover.webp" alt="" loading="lazy"/><img src="/store/bkf-dee-cover-v2.webp" alt="" loading="lazy"/></div>
+    <div className="bk-cinema-promo-copy"><h2>CHARACTER PACKS</h2><p>Original characters. Signature personalities.<br/> BK exclusives.</p><button type="button" onClick={()=>onNavigate('characters')}>BROWSE CHARACTERS <ChevronRight size={15}/></button></div>
    </section>
    <section className="bk-cinema-promo bk-cinema-uniforms">
     <img src="/store/bk-jersey-gold-standard.webp" alt="" loading="lazy"/>
