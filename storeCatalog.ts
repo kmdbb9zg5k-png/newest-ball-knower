@@ -235,7 +235,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
 ];
 
 export const storeImage = (id: string) => id === 'bfk-dee'
-  ? '/store/bfk-dee-cover-v1.webp'
+  ? '/store/bkf-dee-cover-v2.webp'
   : id === 'bk-femme'
   ? '/store/bkf-nicki-cover-v3.webp'
   : id === 'bkf-phantom'
