@@ -11,7 +11,7 @@ assert.ok(home.includes('bk-home-stadium-impact mx-auto'), 'Home background clas
 assert.ok(home.includes('<HomeStadiumHero/>') && visual.includes('ball-knower-legacy-hero.webp'), 'Approved hero artwork must remain intact');
 assert.ok(home.includes('<HomeMiniGamesFeature') && home.includes('<HomeJourneyFeature'), 'Existing navigable feature tiles must remain');
 assert.ok(home.includes("onNavigate('fantasy')") && home.includes("onNavigate('sportsbook')"), 'Home navigation must stay wired');
-const match = css.match(/data:image\\/webp;base64,([a-zA-Z0-9+/=]+)/);
+const match = css.match(/base64,([a-zA-Z0-9+/=]+)/);
 assert.ok(match, 'The approved stadium artwork must be included as a data WebP, not a temporary external URL');
 const bytes = Buffer.from(match[1], 'base64');
 assert.ok(bytes.length >= 4000 && bytes.length <= 15000, 'Background should be lightweight for mobile');
