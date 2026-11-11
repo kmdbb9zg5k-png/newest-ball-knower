@@ -633,3 +633,8 @@ body:has(.bk-tunnel-showroom[open]) { overflow: hidden; }
 
 .bkf-drop-modal--nicki .bkf-drop-hero[data-bkf-photo="poster"] { aspect-ratio: 3 / 4; }
 .bkf-drop-modal--nicki .bkf-drop-hero[data-bkf-photo="realistic"] { aspect-ratio: 1696 / 2528; }
+
+/* Dee's photo-only collection retains the complete supplied cover and A-pose. */
+.bk-store-locker-shop [data-store-product="bfk-dee"] .bk-store-card-art { aspect-ratio: 1122 / 1402; }
+.bkf-drop-modal.bkf-drop-modal--dee .bkf-drop-hero[data-bkf-photo="poster"] { aspect-ratio: 1122 / 1402; }
+.bkf-drop-modal.bkf-drop-modal--dee .bkf-drop-hero[data-bkf-photo="realistic"] { aspect-ratio: 1312 / 1199; }

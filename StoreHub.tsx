@@ -91,6 +91,7 @@ const FROSTBITE_PREVIEW_FALLBACK = 'https://v3b.fal.media/files/b/0ab1eab2/PuPh4
 function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const showcase = product.showcase;
+  const has3d = !showcase || Boolean(showcase.model);
   const isFrostbite = product.id === 'frostbite';
   const isGold = product.id === 'gold-standard';
   const [view, setView] = useState<'poster' | 'realistic' | '3d'>('poster');
@@ -112,10 +113,10 @@ function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose
         <h2 id="bkf-drop-title" className="bkf-drop-title">{showcase ? product.name : isGold ? <>Gold <span>Standard</span></> : <><span>BKF</span> {isFrostbite ? 'Frostbite' : 'YoungBoy'}</>}</h2>
       </div>
 
-      <div className="bkf-drop-tabs bkf-drop-tabs--triple" role="group" aria-label="Product view">
+      <div className={"bkf-drop-tabs" + (has3d ? " bkf-drop-tabs--triple" : "")} role="group" aria-label="Product view">
         <button type="button" aria-pressed={view === 'poster'} onClick={() => { setArt(storeImage(product.id)); setView('poster'); }}>Full poster</button>
-        <button type="button" aria-pressed={view === 'realistic'} onClick={() => { setArt(showcase?.look ?? storeImage(isGold ? 'gold-standard-realistic' : isFrostbite ? 'frostbite-look' : 'bkf-youngboy-look')); setView('realistic'); }}>{product.id === 'bk-femme' ? 'A-pose' : 'Realistic view'}</button>
-        <button type="button" aria-pressed={view === '3d'} onClick={() => setView('3d')}><BoxIcon size={16} aria-hidden="true"/> 3D preview</button>
+        <button type="button" aria-pressed={view === 'realistic'} onClick={() => { setArt(showcase?.look ?? storeImage(isGold ? 'gold-standard-realistic' : isFrostbite ? 'frostbite-look' : 'bkf-youngboy-look')); setView('realistic'); }}>{showcase?.pose ?? (product.id === 'bk-femme' ? 'A-pose' : 'Realistic view')}</button>
+        {has3d && <button type="button" aria-pressed={view === '3d'} onClick={() => setView('3d')}><BoxIcon size={16} aria-hidden="true"/> 3D preview</button>}
       </div>
       <div className="bkf-drop-hero" data-bkf-display={view === '3d' ? '3d' : 'photos'} data-bkf-photo={view === '3d' ? undefined : view}>
         {view !== '3d'
@@ -131,7 +132,7 @@ function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose
                 if (art !== fallback) setArt(fallback);
               }}/>
           : <Suspense fallback={<div className="bkf-drop-load" role="status">Preparing {product.name}'s 3D showroom…</div>}>
-              {showcase ? <StoreCharacterPreview name={product.name} model={showcase.model} look={showcase.look}/> : isGold && product.tryOn ? <div className="bkf-gold-showroom-3d"><TryOnPreview athlete={null} preview={product.tryOn}/></div> : isFrostbite ? <BKFFrostbitePose/> : <BKFYoungBoyPose/>}
+              {showcase ? (showcase.model ? <StoreCharacterPreview name={product.name} model={showcase.model} look={showcase.look}/> : null) : isGold && product.tryOn ? <div className="bkf-gold-showroom-3d"><TryOnPreview athlete={null} preview={product.tryOn}/></div> : isFrostbite ? <BKFFrostbitePose/> : <BKFYoungBoyPose/>}
             </Suspense>}
       </div>
       {view === '3d' && <p className="bkf-showroom-model-note">Standard showcase character · Not your saved player</p>}
@@ -146,14 +147,17 @@ function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose
       </div>
       <footer className="bkf-drop-footer">
         <button type="button" className="bkf-drop-cta" onClick={() => {
-          if (view === '3d') { setArt(storeImage(product.id)); setView('poster'); }
+          if (!has3d && showcase) {
+            const next = view === 'poster' ? 'realistic' : 'poster';
+            setArt(next === 'poster' ? storeImage(product.id) : showcase.look); setView(next);
+          } else if (view === '3d') { setArt(storeImage(product.id)); setView('poster'); }
           else setView('3d');
         }}>
-          <BoxIcon size={21} aria-hidden="true"/>{view === '3d' ? 'View full poster' : 'Preview in 3D'}
+          {has3d ? <BoxIcon size={21} aria-hidden="true"/> : <ImageIcon size={21} aria-hidden="true"/>}{!has3d ? (view === 'poster' ? 'View A-pose' : 'View full poster') : view === '3d' ? 'View full poster' : 'Preview in 3D'}
         </button>
         <div><strong>{isGold ? storePrice(product) : 'Coming Soon'}</strong><span>{isGold ? 'Planned price' : 'Concept Collection'}</span></div>
       </footer>
-      <p className="bkf-drop-disclaimer">{isGold ? '3D uses the standard showcase athlete, not your saved player. Checkout is not available yet.' : '3D is a prototype. Wearable items and checkout are not available yet.'}</p>
+      <p className="bkf-drop-disclaimer">{!has3d ? 'Photo collection · Wearable items and checkout are not available yet.' : isGold ? '3D uses the standard showcase athlete, not your saved player. Checkout is not available yet.' : '3D is a prototype. Wearable items and checkout are not available yet.'}</p>
     </div>
   </dialog>;
 }
