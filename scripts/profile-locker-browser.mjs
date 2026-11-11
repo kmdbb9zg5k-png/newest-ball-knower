@@ -277,7 +277,7 @@ try {
         for (const button of profileButtons) { if (await button.isVisible()) { await button.click(); break; } }
         const showcase = page.getByRole('region', { name: 'Player showcase' });
         await showcase.locator('[data-render-state="ready"]').waitFor({ timeout: 30000 });
-        await showcase.getByRole('button', { name: 'Walkout', exact: true }).click();
+        assert.equal(await showcase.getByRole('button', { name: 'Walkout', exact: true }).count(), 0);
         await showcase.getByRole('button', { name: 'Rotate athlete right' }).click();
         await showcase.getByRole('button', { name: 'Close-up', exact: true }).click();
         await showcase.locator('[data-view="head"]').waitFor();
@@ -288,7 +288,8 @@ try {
         await showcase.getByText('Your fit is now private.', { exact: true }).waitFor();
         assert.equal(sharedFit, null);
         await page.emulateMedia({ reducedMotion: 'reduce' });
-        await showcase.getByRole('button', { name: 'Walkout', exact: true }).waitFor({ state: 'hidden' });
+        await showcase.getByRole('group', { name: 'Athlete details' }).getByRole('button', { name: 'Trainers', exact: true }).click();
+        await showcase.locator('[data-view="trainers"]').waitFor();
         await showcase.screenshot({ path: `${output}/chromium-430-athlete-showcase.png` });
       }
       assert.deepEqual(crashes, []);

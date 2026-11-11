@@ -1,5 +1,5 @@
 import React, { useId, useRef, useState } from 'react';
-import { Brain, BriefcaseBusiness, Check, ClipboardList, ChevronLeft, ChevronRight, Crown, RefreshCcw, ShieldCheck, Swords, Target, Trophy } from 'lucide-react';
+import { Brain, BriefcaseBusiness, ChartNoAxesColumnIncreasing, Check, ClipboardList, ChevronLeft, ChevronRight, Coins, Crown, Star, RefreshCcw, ShieldCheck, Swords, Target, Trophy } from 'lucide-react';
 import type { Achievement, ProgressEvent, ProgressProfile } from './progressionCloud';
 import type { VerifiedPredictionPick } from './modeProgressionCloud';
 import { LockerTrophyBadge, LockerReceiptScene, LockerRatingNumeral } from './ProfileLockerArt';
@@ -16,9 +16,9 @@ const CATEGORIES = [
   { key: 'ownerRating', label: 'Owner', Icon: Crown, description: 'Your server-recorded Owner rating. Verified career milestones contribute to this score.' },
 ] as const;
 
-type Props = { profile: ProgressProfile | null; events: ProgressEvent[]; achievements: Achievement[]; predictionPicks: VerifiedPredictionPick[]; profileOwnerName?: string; loading: boolean; error: string; onRefresh: () => void; identity?: React.ReactNode; showcase?: React.ReactNode };
+type Props = { profile: ProgressProfile | null; events: ProgressEvent[]; achievements: Achievement[]; predictionPicks: VerifiedPredictionPick[]; profileOwnerName?: string; loading: boolean; error: string; onRefresh: () => void; identity?: React.ReactNode; showcase?: React.ReactNode; showcaseStats?: { overall?: number; coins?: number } };
 
-export function ProfileLockerView({ profile, events, achievements, predictionPicks, profileOwnerName, loading, error, onRefresh, identity, showcase }: Props) {
+export function ProfileLockerView({ profile, events, achievements, predictionPicks, profileOwnerName, loading, error, onRefresh, identity, showcase, showcaseStats }: Props) {
   const [category, setCategory] = useState<string | null>(null);
   const [selectedTrophy, setSelectedTrophy] = useState<string | null>(null);
   const [trophyFilter, setTrophyFilter] = useState<TrophyFilter>('all');
@@ -50,9 +50,17 @@ export function ProfileLockerView({ profile, events, achievements, predictionPic
   return <div className="bk-locker-profile" data-testid="locker-profile" aria-busy={loading}>
     <section className="bk-profile-hero" aria-label="Build your legacy">
       <img className="bk-profile-hero-art" src="/profile/cinematic/player-hero.webp" alt="" width="1536" height="1024" fetchPriority="high"/>
-      <div className="bk-profile-hero-title"><h2>Build<br/> your<br/> legacy.</h2><span aria-hidden="true"/></div>
+      <div className="bk-profile-hero-title"><h2>Build<br/> your<br/> <em>legacy.</em></h2><span aria-hidden="true"/></div>
       {showcase}
       {identity}
+      {showcaseStats && <dl className="bk-profile-showcase-stats" aria-label="Athlete profile stats">
+        {[
+          { label: 'OVR', Icon: Star, value: showcaseStats.overall },
+          { label: 'LVL', Icon: ChartNoAxesColumnIncreasing, value: profile?.level },
+          { label: 'XP', Icon: Crown, value: profile?.xp },
+          { label: 'BK Coins', Icon: Coins, value: showcaseStats.coins },
+        ].map(({ label, Icon, value }) => <div key={label}><dt><Icon aria-hidden="true"/>{label}</dt><dd>{profileNumber(value)}</dd></div>)}
+      </dl>}
       <div className="bk-profile-hero-progress">
       {progress ? <div className="bk-locker-xp" role="progressbar" aria-label="Progress to next profile level" aria-valuemin={0} aria-valuemax={progress.required} aria-valuenow={progress.earned} aria-valuetext={`${profile!.xp} total XP. ${progress.earned} of ${progress.required} XP toward level ${progress.nextLevel}.`}><span style={{ width: `${progress.percent}%` }}/></div> : <div className="bk-locker-xp bk-locker-xp-unavailable" aria-hidden="true"/>}
       <div className="bk-locker-levels"><strong>Level {profileNumber(profile?.level)}</strong><span>{profileNumber(profile?.xp)} XP</span><span>{progress ? `Level ${progress.nextLevel} at ${profileNumber(progress.nextTotal)} XP` : 'Verified XP progression'}</span></div>

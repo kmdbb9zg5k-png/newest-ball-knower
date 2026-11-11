@@ -93,20 +93,14 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
   let angle=.16,disposed=false,view:CreatorView='body',athleteHeight=initial.heightInches||72;
   function draw(){if(!disposed)renderer.render(scene,camera);}
   const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
-  let visible=false,frame=0,previousFrame=0,walkRemaining=0,walkDistance=0;
+  let visible=false,frame=0,previousFrame=0;
   function animate(time:number){
     frame=0;
     if(disposed||!visible||document.hidden||reducedMotion.matches||!runner||renderer.getContext().isContextLost())return;
     if(previousFrame&&time-previousFrame<30){frame=requestAnimationFrame(animate);return;}
     const dt=previousFrame?Math.min(.06,(time-previousFrame)/1000):.04;
     previousFrame=time;
-    if(walkRemaining>0){
-      const distance=Math.min(walkRemaining,dt*.75);
-      walkRemaining-=distance;
-      walkDistance+=distance;
-      root.position.z=-walkRemaining;
-      runner.pose(walkDistance,.75,false,1,0,true,dt);
-    }else runner.pose(walkDistance,0,false,1,0,true,dt);
+    runner.pose(0,0,false,1,0,true,dt);
     draw();
     frame=requestAnimationFrame(animate);
   }
@@ -114,7 +108,6 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
     if(!profileMotion)return;
     cancelAnimationFrame(frame);frame=0;previousFrame=0;
     if(reducedMotion.matches){
-      walkRemaining=0;root.position.z=0;
       if(runner)runner.poseCreator(currentProfile);
       root.rotation.y=angle;draw();
       return;
@@ -122,19 +115,16 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
     if(visible&&!document.hidden)frame=requestAnimationFrame(animate);
   }
   let currentProfile=initial;
-  function walkout(){
-    if(!profileMotion||!runner||reducedMotion.matches)return;
-    walkRemaining=1.25;walkDistance=0;root.position.z=-walkRemaining;angle=0;root.rotation.y=angle;
-    syncAnimation();draw();
-  }
-
   function resize(){
     const width=host.clientWidth,height=host.clientHeight;if(!width||!height)return;
     if(profileMotion){
       const ratio=Math.min(devicePixelRatio||1,2,Math.sqrt(800_000/(width*height)));
       if(renderer.getPixelRatio()!==ratio)renderer.setPixelRatio(ratio);
     }
-    renderer.setSize(width,height,false);camera.aspect=width/height;
+    renderer.setSize(width,height,false);frameCamera(width,height);
+  }
+  function frameCamera(width:number,height:number){
+    camera.aspect=width/height;
     const scale=athleteHeight/72,head=1.72*scale;
     if(profileMotion&&view==='head'){
       camera.position.set(0,head+.07*scale,Math.max(1.22,.77/camera.aspect)*scale);
@@ -158,7 +148,7 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
     currentProfile=profile;
     athleteHeight=profile.heightInches||72;
     if(runner){runner.setAthlete(profile);runner.poseCreator(profile);fallback?.fitHands(root);}
-    root.rotation.y=angle;if(profileMotion)root.position.z=-walkRemaining;resize();
+    root.rotation.y=angle;resize();
   }
   function rotate(value:number){angle=value;root.rotation.y=angle;draw();}
   update(initial);
@@ -175,7 +165,14 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
     reducedMotion.addEventListener('change',syncAnimation);
   }
   visibility.observe(host);
-  return {update,rotate,walkout,capturePortrait(){
+  return {update,rotate,captureDetail(next:CreatorView){
+    const previousView=view,previousAngle=angle,ratio=renderer.getPixelRatio();
+    try{
+      view=next;root.rotation.y=.16;
+      renderer.setPixelRatio(1);renderer.setSize(100,100,false);frameCamera(100,100);
+      return renderer.domElement.toDataURL('image/png');
+    }finally{view=previousView;root.rotation.y=previousAngle;renderer.setPixelRatio(ratio);resize();}
+  },capturePortrait(){
     const previousView=view,previousAngle=angle,ratio=renderer.getPixelRatio();
     try{
       view='head';angle=.16;root.rotation.y=angle;
@@ -184,7 +181,6 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
       return renderer.domElement.toDataURL('image/png');
     }finally{view=previousView;angle=previousAngle;root.rotation.y=angle;renderer.setPixelRatio(ratio);resize();}
   },setView(next:CreatorView){
-    if(profileMotion&&next==='head'){walkRemaining=0;root.position.z=0;}
     view=next;resize();
   },dispose(){
     if(disposed)return;disposed=true;observer.disconnect();visibility.disconnect();cancelAnimationFrame(frame);
