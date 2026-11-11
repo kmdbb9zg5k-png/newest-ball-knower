@@ -18,6 +18,7 @@ import { buildHomeActivity, homeFeaturedActivity, homeLeagueAction, homeLeaguePh
 import './homeBroadcast.css';
 import './homeLayout.css';
 import './homePolish.css';
+import './homeStadiumImpact.css';
 import { ModeHelp } from './ModeHelp';
 
 const FantasySettingsHub = lazy(() => import('./FantasySettingsHub').then(module => ({ default: module.FantasySettingsHub })));
@@ -133,7 +134,7 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
       </> : <div className="bk-home-league-empty"><h2>Your game starts here.</h2><p>Play a quick game, build a career or run a league with friends.</p><button type="button" className="bk-home-league-cta" onClick={() => onNavigate('play')}>Explore Play<ArrowRight size={18} aria-hidden="true"/></button><div><button type="button" onClick={onOpenCreateLeague}>Create League</button><button type="button" onClick={onOpenJoinLeague}>Join League</button></div></div>}
     </section>;
 
-  return <div className="bk-home-dashboard bk-home-broadcast bk-home-clean mx-auto max-w-5xl pb-5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pb-8 sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
+  return <div className="bk-home-dashboard bk-home-broadcast bk-home-clean bk-home-stadium-impact mx-auto max-w-5xl pb-5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pb-8 sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
     <div className="bk-home-introduction"><div><p>Your game. Your legacy.</p><h1>{primaryLeague ? 'Welcome back.' : 'Welcome to Ball Knower.'}</h1></div><ModeHelp mode="home" autoOpen={false}/></div>
     <div className={`bk-home-opening${primaryLeague ? '' : ' bk-home-opening--single'}`}>
     <HomeStadiumHero/>
