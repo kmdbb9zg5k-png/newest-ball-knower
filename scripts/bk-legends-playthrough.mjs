@@ -62,7 +62,7 @@ try {
   }
   await page.setViewportSize({ width: 844, height: 470 });
 
-  async function playChallenge({ title, ball, clock, passing = false }) {
+  async function playChallenge({ title, ball, clock, passTarget = 0, rushTarget = 0 }) {
     console.log('Starting', title);
     const slug = title.toLowerCase().replaceAll(/[^a-z]+/g, '-');
     await legends.getByRole('button', { name: 'Play challenge', exact: true }).click();
@@ -81,7 +81,11 @@ try {
       await control.waitFor({ state: 'visible', timeout: 20_000 });
       assert.equal(await control.isEnabled(), true, id + ' is disabled');
       // Activate the same in-game button without waiting for a software-rendered pointer frame.
-      await control.dispatchEvent('click', {}, { timeout: 30_000 });
+      await field.evaluate(id => {
+        const button = document.getElementById(id);
+        if (!button || button.disabled) throw new Error('Unavailable control: ' + id);
+        button.click();
+      }, id);
       report.controls.push(id);
     };
     const visible = id => field.locator('#' + id).isVisible();
@@ -119,20 +123,27 @@ try {
         await step(3);
       } else if (current.playbook.open) {
         if (current.mini.conversion === 'home') await click('breakHuddle');
-        else if ((!kicked || current.mini.overtime) && await visible('fullFieldGoal') && await field.locator('#fullFieldGoal').isEnabled()) {
+        else if ((!kicked || current.mini.overtime) && current.mini.stats.home.passYards >= passTarget && current.mini.stats.home.rushYards >= rushTarget && await visible('fullFieldGoal') && await field.locator('#fullFieldGoal').isEnabled()) {
           await click('fullFieldGoal');
           kicked = true;
         } else {
-          if (passing && current.mini.stats.home.passYards < 14) {
+          if (current.mini.stats.home.passYards < passTarget) {
             await click('filterPass');
             await click('call-pass-1');
+          } else if (current.mini.stats.home.rushYards < rushTarget) {
+            await click('filterRun');
+            await click('call-run-1');
           }
           await click('breakHuddle');
         }
       } else if (current.phase === 'pre') {
         await field.locator('#snap').dispatchEvent('pointerdown', { pointerId: 1, pointerType: 'touch', button: 0, isPrimary: true });
         report.controls.push('snap');
-        await step(current.mode === 'pass' ? 1.45 : 5);
+        if (current.mode === 'run') {
+          await field.locator('#game').dispatchEvent('keydown', { key: 'ArrowUp', code: 'ArrowUp', bubbles: true });
+          await step(5);
+          if (!field.isDetached()) await field.locator('#game').dispatchEvent('keyup', { key: 'ArrowUp', code: 'ArrowUp', bubbles: true });
+        } else await step(1.45);
       } else if (current.phase === 'pass' && !current.throwing) {
         const targets = current.players.filter((player, index) => [7, 8, 9, 10, 6].includes(index) && !player.fallen);
         const defense = current.players.filter(player => player.team === 1 && !player.fallen);
@@ -157,13 +168,16 @@ try {
 
   const rounds = [
     { title: 'First Snap', ball: 90, clock: 45, next: 'Find Your Receiver' },
-    { title: 'Find Your Receiver', ball: 25, clock: 77, passing: true, next: 'Set the Edge' },
+    { title: 'Find Your Receiver', ball: 25, clock: 77, passTarget: 14, next: 'Set the Edge' },
+    { title: 'Set the Edge', ball: 30, clock: 82, rushTarget: 16, next: 'Camp Scrimmage' },
   ];
   for (const [index, round] of rounds.entries()) {
     await playChallenge(round);
     const result = page.getByRole('dialog', { name: round.title });
     await result.getByRole('heading', { name: /Challenge cleared|Objective incomplete/ }).waitFor();
-    report.rounds.push({ challenge: round.title, result: await result.innerText() });
+    const text = await result.innerText();
+    report.rounds.push({ challenge: round.title, result: text });
+    console.log(text);
     await page.screenshot({ path: out + '/round-' + (index + 1) + '-result.png' });
     await result.getByRole('heading', { name: 'Challenge cleared', exact: true }).waitFor({ timeout: 1500 });
     await result.getByText('+1,000 BK Coins', { exact: true }).waitFor();
