@@ -46,6 +46,11 @@ const titleKey=(title:string)=>title.toLowerCase().replace(/[^a-z0-9]+/g,'');
 const approvedDisplayTitles: Record<string,string> = {
   focusbelongstome: 'Focus Belongs to Me',
   youlethimin: 'You Let Him In',
+  thehandover: 'The Handover',
+};
+
+const approvedTrackArtists: Record<string,string> = {
+  thehandover: 'elifromthesouth',
 };
 
 export default async function handler(_req: any, res: any) {
@@ -71,7 +76,7 @@ export default async function handler(_req: any, res: any) {
     const tracks = Array.from(byTitle.values()).map(({title,blob}) => ({
       id: `blob-${titleKey(title)}`,
       title,
-      subtitle: 'Ball Knower Original Soundtrack',
+      subtitle: approvedTrackArtists[titleKey(title)] || 'Ball Knower Original Soundtrack',
       tempoBpm: 0,
       mood: 'Ball Knower',
       durationSec: 0,
