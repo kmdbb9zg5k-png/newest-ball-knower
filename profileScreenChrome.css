@@ -6,15 +6,11 @@ header[data-profile-chrome="true"] {
 }
 header[data-profile-chrome="true"]>div:first-child {min-height:calc(80px + env(safe-area-inset-top))}
 header[data-profile-chrome="true"] .bk-header-brand {
-  display:grid;justify-items:start;align-content:center;gap:3px;flex:0 0 clamp(106px,32vw,154px);
+  display:grid;justify-items:start;align-content:center;gap:3px;flex:0 0 clamp(106px,34vw,160px);
 }
-header[data-profile-chrome="true"] .bk-header-brand h1 {
-  display:block;margin:0;white-space:normal;font-style:italic;font-size:clamp(22px,5.9vw,36px);
-  line-height:.81;letter-spacing:-.045em;color:#fff8e8;text-shadow:0 2px 3px #000;
-}
-header[data-profile-chrome="true"] .bk-header-brand h1 span {display:block;color:#f0c466}
-.bk-profile-brand-crown {width:15px;height:15px;color:#f1c76c;margin-left:25%;filter:drop-shadow(0 1px 4px #ba862e)}
-.bk-profile-brand-line {font-size:clamp(5px,1.5vw,7px);font-weight:800;line-height:1.2;letter-spacing:.04em;color:#f5e7c7;text-transform:uppercase;white-space:nowrap}
+header[data-profile-chrome="true"] .bk-header-brand h1 {position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.bk-profile-brand-art {display:block;width:clamp(102px,31vw,150px);height:auto;mix-blend-mode:screen}
+.bk-profile-brand-line {font-size:clamp(5px,1.38vw,7px);font-weight:800;line-height:1.2;letter-spacing:.04em;color:#f5e7c7;text-transform:uppercase;white-space:nowrap}
 header[data-profile-chrome="true"] .bk-explore-trigger {background:linear-gradient(145deg,#242424,#0b0d13);border-color:#a7834999;box-shadow:inset 0 1px #f8d58b28}
 header[data-profile-chrome="true"] .bk-header-account-trigger {border-color:#edc164;box-shadow:0 0 0 2px #d9ac5729,0 0 12px #efbd5854}
 header[data-profile-chrome="true"] .bk-home-news-strip {
@@ -34,6 +30,6 @@ nav[data-profile-chrome="true"] .bk-primary-mobile>button[aria-current="page"] {
 }
 nav[data-profile-chrome="true"] .bk-primary-mobile>button[aria-current="page"]::after {background:#f4c971;box-shadow:0 0 8px #ffdb80}
 @media(max-width:359px){
-  header[data-profile-chrome="true"] .bk-header-brand{flex-basis:95px}
+  header[data-profile-chrome="true"] .bk-header-brand{flex-basis:99px}
   .bk-profile-brand-line{letter-spacing:0}
 }

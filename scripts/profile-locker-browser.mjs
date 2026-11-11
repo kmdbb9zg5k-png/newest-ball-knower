@@ -112,6 +112,7 @@ try {
       const profile = page.getByTestId('locker-profile');
       await profile.waitFor();
       assert.equal(await page.locator('header[data-profile-chrome="true"]').count(), 1);
+      await page.locator('.bk-profile-brand-art').evaluate(image => image.decode());
       assert.equal(await page.locator('nav[aria-label="Primary navigation"]').getAttribute('data-profile-chrome'), 'true');
       const guide = page.getByRole('dialog', { name: 'Make every game count.', exact: true });
       await guide.waitFor();
@@ -280,6 +281,10 @@ try {
         for (const button of profileButtons) { if (await button.isVisible()) { await button.click(); break; } }
         const showcase = page.getByRole('region', { name: 'Player showcase' });
         await showcase.locator('[data-render-state="ready"]').waitFor({ timeout: 30000 });
+        assert.match(await page.locator('.bk-profile-hero-title').evaluate(el => getComputedStyle(el).backgroundImage), /profile-legacy-lockup/);
+        const stageBox = await showcase.locator('.bk-athlete-profile-showcase').boundingBox();
+        assert.ok(stageBox && Math.abs(stageBox.width / stageBox.height - 1.3) < .06);
+        await page.screenshot({ path: `${output}/chromium-430-profile-reference.png`, fullPage: true });
         assert.equal(await showcase.getByRole('button', { name: 'Walkout', exact: true }).count(), 0);
         await showcase.getByRole('button', { name: 'Rotate athlete right' }).click();
         await showcase.getByRole('button', { name: 'Close-up', exact: true }).click();
