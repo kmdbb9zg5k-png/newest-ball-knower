@@ -1,3 +1,7 @@
+# Updated A-pose ready
+
+The user requested creating the A-pose with built-in image generation instead of fal. This succeeded. Use public/store/bfk-dee-apose-v2.webp as the final 3D input. It shows the same character in a wide symmetric A-pose with separated arms, straight elbows and visible hands, head to soles. Visually verified. Do NOT retry the blocked fal pose-correction request below; it is superseded. Fal balance exhaustion still blocks actual 3D generation. After the user adds credits, check readiness, then submit a NEW image-to-3D job using this corrected image. No 3D job exists yet. Original cover/reference remain preserved.
+
 # BFK Dee store pack — prepared assets and resume plan
 
 Status: blocked by fal account balance exhaustion. No 3D model has been submitted. Do not represent the standing reference as a finished A-pose or 3D model.
