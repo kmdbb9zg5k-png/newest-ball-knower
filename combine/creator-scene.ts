@@ -13,13 +13,13 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
   const mobileShowroom = showroom && typeof window !== 'undefined' &&
     (window.matchMedia('(max-width: 768px)').matches || window.matchMedia('(pointer: coarse)').matches);
   const renderer=createDrillRenderer(T.WebGLRenderer,{
-    alpha:true, antialias:!mobileShowroom&&!profileMotion, powerPreference:'low-power'
+    alpha:true, antialias:!mobileShowroom, powerPreference:'low-power'
   });
   renderer.setPixelRatio(mobileShowroom || profileMotion ? 1 : Math.min(devicePixelRatio||1,showroom?1.5:2));
   renderer.outputColorSpace=T.SRGBColorSpace;
   renderer.toneMapping=T.ACESFilmicToneMapping;
   const goldShowroom = showroom && initial.wardrobe?.top === 'top-gold-standard';
-  renderer.toneMappingExposure=goldShowroom?1.42:showroom?1.17:1.35;
+  renderer.toneMappingExposure=goldShowroom?1.42:profileMotion?1.15:showroom?1.17:1.35;
   renderer.domElement.setAttribute('aria-label','Interactive 3D athlete');
   host.appendChild(renderer.domElement);
   const scene=new T.Scene(),camera=new T.PerspectiveCamera(32,1,.05,30);
@@ -27,6 +27,11 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
   const key=new T.DirectionalLight(showroom?0xffd1a2:0xffead0,showroom?3.8:3);key.position.set(showroom?2:3,showroom?5:4,showroom?3:5);scene.add(key);
   const rim=new T.DirectionalLight(showroom?0xffbd79:0x9dcfff,showroom?3.35:3);rim.position.set(-3,2,-3);scene.add(rim);
   const fill=new T.DirectionalLight(0xffffff,showroom?1.35:1);fill.position.set(-3,1,4);scene.add(fill);
+  if(profileMotion){
+    key.position.set(2,3,5);key.intensity=3.4;key.color.set(0xffead3);
+    rim.position.set(-2,3,-2);rim.intensity=2.8;rim.color.set(0xffbd70);
+    fill.position.set(-2,1.6,4);fill.intensity=1.65;
+  }
   if (goldShowroom) {
     // Softer gold-specific lighting keeps face highlights and irises readable
     // without changing the original GLB's geometry or clothing textures.
@@ -125,13 +130,25 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
 
   function resize(){
     const width=host.clientWidth,height=host.clientHeight;if(!width||!height)return;
+    if(profileMotion){
+      const ratio=Math.min(devicePixelRatio||1,2,Math.sqrt(800_000/(width*height)));
+      if(renderer.getPixelRatio()!==ratio)renderer.setPixelRatio(ratio);
+    }
     renderer.setSize(width,height,false);camera.aspect=width/height;
     const scale=athleteHeight/72,head=1.72*scale;
-    if(view==='head'){camera.position.set(0,head+.06*scale,Math.max(showroom?.78:1.18,.72/camera.aspect)*scale);camera.lookAt(0,head-.06*scale,0);}
+    if(profileMotion&&view==='head'){
+      camera.position.set(0,head+.07*scale,Math.max(1.22,.77/camera.aspect)*scale);
+      camera.lookAt(0,head-.14*scale,0);
+    }
+    else if(view==='head'){camera.position.set(0,head+.06*scale,Math.max(showroom?.78:1.18,.72/camera.aspect)*scale);camera.lookAt(0,head-.06*scale,0);}
     else if(view!=='body'){
       const {target,distance,width,lift}=detailFrames[view];
       camera.position.set(0,(target+lift)*scale,Math.max(distance,width/camera.aspect)*scale);
       camera.lookAt(0,target*scale,0);
+    }
+    else if(profileMotion){
+      camera.position.set(0,1.14*scale,Math.max(3.42,1.58/camera.aspect)*scale);
+      camera.lookAt(0,.94*scale,0);
     }
     else if(showroom){camera.position.set(0,1.23*scale,Math.max(3.58,1.74/camera.aspect)*scale);camera.lookAt(0,.96*scale,0);}
     else{camera.position.set(0,1.07,Math.max(3.9,1.9/camera.aspect));camera.lookAt(0,1.02,0);}
@@ -166,7 +183,10 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
       const scale=athleteHeight/72;camera.position.set(0,1.78*scale,1.3*scale);camera.lookAt(0,1.60*scale,0);camera.updateProjectionMatrix();draw();
       return renderer.domElement.toDataURL('image/png');
     }finally{view=previousView;angle=previousAngle;root.rotation.y=angle;renderer.setPixelRatio(ratio);resize();}
-  },setView(next:CreatorView){view=next;resize();},dispose(){
+  },setView(next:CreatorView){
+    if(profileMotion&&next==='head'){walkRemaining=0;root.position.z=0;}
+    view=next;resize();
+  },dispose(){
     if(disposed)return;disposed=true;observer.disconnect();visibility.disconnect();cancelAnimationFrame(frame);
     document.removeEventListener('visibilitychange',syncAnimation);reducedMotion.removeEventListener('change',syncAnimation);
     const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>(),textures=new Set<T.Texture>();

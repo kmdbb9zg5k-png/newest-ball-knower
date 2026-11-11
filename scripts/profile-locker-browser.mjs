@@ -279,6 +279,10 @@ try {
         await showcase.locator('[data-render-state="ready"]').waitFor({ timeout: 30000 });
         await showcase.getByRole('button', { name: 'Walkout', exact: true }).click();
         await showcase.getByRole('button', { name: 'Rotate athlete right' }).click();
+        await showcase.getByRole('button', { name: 'Close-up', exact: true }).click();
+        await showcase.locator('[data-view="head"]').waitFor();
+        await showcase.getByRole('button', { name: 'Full body', exact: true }).click();
+        await showcase.locator('[data-view="body"]').waitFor();
         await showcase.getByRole('button', { name: 'Show equipped fit' }).click();
         await showcase.getByRole('button', { name: 'Hide shared fit' }).click();
         await showcase.getByText('Your fit is now private.', { exact: true }).waitFor();
