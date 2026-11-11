@@ -39,8 +39,6 @@ const departments = [
 const isCharacter = (product: StoreProduct) => product.department !== 'clothing' && (product.posterOnly || Boolean(product.showcase) || ['bkf-youngboy', 'frostbite'].includes(product.id));
 const characterProducts = STORE_PRODUCTS.filter(isCharacter);
 const clothingProducts = STORE_PRODUCTS.filter(product => product.categories.includes('tunnel-fits') && !isCharacter(product) && product.id !== 'ink-pack');
-const accessoryProducts = STORE_PRODUCTS.filter(product => product.id === 'chrome-grip' || product.id === 'ink-pack');
-const otherProducts = STORE_PRODUCTS.filter(product => !characterProducts.includes(product) && !clothingProducts.includes(product) && !accessoryProducts.includes(product));
 
 const tunnelPhotos = [
   { file: 'tunnel-look', label: 'Full outfit', alt: 'Athlete wearing the graphite Gray Standard in a stadium tunnel' },
