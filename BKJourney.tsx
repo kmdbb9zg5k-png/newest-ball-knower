@@ -108,7 +108,7 @@ export default function BKJourney({ onClose, onNavigate }: Props) {
       <div className="bk-journey-stadium-lights" aria-hidden="true"/>
       <div className="bk-journey-hero-copy">
         <p><Sparkles size={19} aria-hidden="true"/> PLAY · EARN · UNLOCK</p>
-        <h2 id="bk-journey-title">{view === 'daily' ? <><span>DAILY</span><em>CHALLENGES</em></> : view === 'journey' ? <><span>BK</span><em>JOURNEY</em></> : <><span>MY</span><em>REWARDS</em></>}</h2>
+        <h2 id="bk-journey-title">{view === 'daily' ? <><span>DAILY</span>{' '}<em>CHALLENGES</em></> : view === 'journey' ? <><span>BK</span><em>JOURNEY</em></> : <><span>MY</span><em>REWARDS</em></>}</h2>
         <span>{view === 'daily' ? 'Complete challenges to earn verified XP and unlock rewards.' : view === 'journey' ? 'Every verified play puts your next reward closer.' : 'Every claimed reward stays in your BK collection.'}</span>
       </div>
       <div className="bk-journey-hero-prize" aria-label="Next BK Journey reward"><span>{nextClaimable ? 'READY TO CLAIM' : 'NEXT REWARD'}</span><div><Coins aria-hidden="true"/><strong>{data ? nextPrize.coins ? number(nextPrize.coins) : 'GIFT' : '—'}</strong></div><small>{nextPrize.coins ? 'BK COINS' : nextPrize.gift || 'BK JOURNEY'}</small></div>
