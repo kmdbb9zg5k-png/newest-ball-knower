@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, CalendarDays, Check, CheckCircle2, Coins, Crown,
 import type { AppTab } from './App';
 import { ensureOnlineSession, supabase } from './supabase';
 import './bkJourney.css';
+import './bkJourneyVisual.css';
 
 type Claim = { checkpoint: number; coins: number; gift: string | null; claimedAt: string };
 type State = { xp: number; level: number; coins: number; claims: Claim[]; today: { trivia: number; prediction: number; h2h: number }; todayDate: string; source: 'verified' };
