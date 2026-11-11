@@ -88,6 +88,15 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
     showcase: { model: 'https://v3b.fal.media/files/b/0ab1f89e/7V-fQltpUHPX18nf2I0aG_model.glb', look: '/store/bkf-nicki-apose-v1.webp', collection: 'BKF Nicki · Leather Collection', theme: 'nicki' },
   },
   {
+    id: 'bkf-street-boss', name: 'Street Boss',
+    summary: 'Black hoodie, cargo pants, iced chain & high-tops',
+    description: 'An original, tough female streetwear character with braids, an oversized black zip hoodie over a white tee, baggy black cargos, black-and-white high-top sneakers and silver accessories. View the original campaign poster and the separate full-body A-pose photograph. A 3D model, wearable items and checkout are not available yet.',
+    priceCents: 0, categories: ['tunnel-fits', 'bundles'],
+    includes: ['Oversized black zip hoodie', 'White tee', 'Baggy black cargo pants', 'Black-and-white high-top sneakers', 'Silver chain', 'Watch'],
+    use: 'Street Boss outfit pack · Photo collection',
+    showcase: { look: '/store/bkf-street-boss-apose.webp', collection: 'Street Boss · Blacktop Collection', theme: 'street-boss', pose: 'A-pose' },
+  },
+  {
     id: 'chrome-grip',
     name: 'Chrome Grip Gloves',
     summary: 'Metallic receiver gloves',
@@ -234,7 +243,9 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
   },
 ];
 
-export const storeImage = (id: string) => id === 'bfk-dee'
+export const storeImage = (id: string) => id === 'bkf-street-boss'
+  ? '/store/bkf-street-boss-cover.webp'
+  : id === 'bfk-dee'
   ? '/store/bkf-dee-cover-v2.webp'
   : id === 'bk-femme'
   ? '/store/bkf-nicki-cover-v3.webp'
