@@ -41,12 +41,33 @@
 .bkl-chapter-body svg{color:var(--bkl-gold)}
 .bkl-chapter-body>p{margin-top:10px}
 .bkl-reward{display:grid;gap:9px;padding-top:10px}
-.bkl-cards,.bkl-lineup{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(140px,100%),1fr));gap:8px}
+.bkl-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(140px,100%),1fr));gap:8px}
 .bkl-player,.bkl-upgrade{border:1px solid #62502c;background:linear-gradient(150deg,#3a301e,#18191f 60%);border-radius:12px;padding:11px;display:grid;align-content:start;gap:8px;min-width:0}
-.bkl-player span,.bkl-lineup small{color:#f1ca76}
+.bkl-player span{color:#f1ca76}
 .bkl-player span b{font-size:1.6rem}
 .bkl-player h3{font-size:1rem;overflow-wrap:anywhere}
-.bkl-lineup button{display:grid;gap:2px;text-align:left;overflow-wrap:anywhere}
+.bkl-squad-board{display:grid;gap:12px;padding:0 8px 12px;border:1px solid var(--bkl-border);border-radius:16px;background:#0e0f13;overflow:hidden}
+.bkl-depth-banner{display:grid;justify-items:center;gap:10px;margin:0 -8px;padding:20px 8px 16px;text-align:center;background:linear-gradient(#0b0c1088,#0e0f13),url('/atmosphere/home-stadium.webp') center 38%/cover}
+.bkl-depth-banner h1{font-style:italic}
+.bkl-depth-banner p{padding:3px 12px;border:1px solid var(--bkl-border);color:#f3ddad;text-transform:uppercase;font-size:.8rem;font-weight:800}
+.bkl-depth-banner strong{font-size:1.35rem;color:var(--bkl-gold);margin-right:4px}
+.bkl-depth-tabs{margin:0;padding:0;gap:2px}
+.bkl-depth-tabs button{flex:1 1 0;padding-inline:4px;font-size:clamp(.69rem,2.7vw,.9rem)}
+.bkl-depth-tabs button[aria-pressed=true]{background:linear-gradient(105deg,#ffe090,#e7b644);color:#171008}
+.bkl-depth-field{margin:0;padding:12px 4px;list-style:none;display:grid;gap:10px;background:repeating-linear-gradient(0deg,transparent 0 47px,#ffebbc24 48px,transparent 49px),radial-gradient(ellipse at center,#24252a,#101114)}
+.bkl-depth-row{display:flex;justify-content:center;gap:clamp(4px,1.6vw,14px);min-width:0}
+.bkl-depth-row button{display:grid;flex:0 1 22%;max-width:128px;min-width:0;padding:0;overflow:hidden;border-color:#8b784f;background:#16171b;text-align:left;border-radius:7px}
+.bkl-depth-row button[aria-pressed=true]{border-color:#ffe5a0;box-shadow:0 0 8px #f8cb6680;background:#2a2417}
+.bkl-depth-portrait{display:block;width:100%;aspect-ratio:24/25;background-image:url('/images/bk-legends-portraits.webp');background-size:400% 300%;background-repeat:no-repeat}
+.bkl-depth-name{display:block;padding:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-transform:uppercase;font-size:clamp(.56rem,2.2vw,.83rem);font-weight:800}
+.bkl-depth-rating{display:flex;justify-content:space-between;align-items:center;gap:2px;border-top:1px solid #a17d3d55;padding:2px 3px;font-size:clamp(.64rem,2.8vw,1rem)}
+.bkl-depth-rating strong,.bkl-depth-selected>strong{color:var(--bkl-gold)}
+.bkl-depth-selected,.bkl-depth-reserve{display:grid;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:9px;padding:8px;border:1px solid #6d5a35;border-radius:9px;background:linear-gradient(110deg,#33291b,#15161c 65%)}
+.bkl-depth-selected h2{font-size:clamp(1rem,4vw,1.5rem)}
+.bkl-depth-selected p,.bkl-depth-reserves p{color:var(--bkl-muted);font-size:.8rem}
+.bkl-depth-selected small{font-size:.65rem}
+.bkl-depth-reserves{display:grid;gap:8px}
+.bkl-depth-reserve{border-color:#414049}
 .bkl-position,.bkl-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .bkl-drills{display:grid;gap:10px}
 .bkl-drills>div{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #47454a;padding-top:10px}
