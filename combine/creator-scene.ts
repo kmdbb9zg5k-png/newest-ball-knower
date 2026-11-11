@@ -9,13 +9,13 @@ const detailFrames={
   trainers:{target:.125,distance:1.02,width:1.1,lift:.25},
 };
 
-export async function createCreatorScene(host:HTMLElement,initial:any,showroom=false){
+export async function createCreatorScene(host:HTMLElement,initial:any,showroom=false,profileMotion=false){
   const mobileShowroom = showroom && typeof window !== 'undefined' &&
     (window.matchMedia('(max-width: 768px)').matches || window.matchMedia('(pointer: coarse)').matches);
   const renderer=createDrillRenderer(T.WebGLRenderer,{
-    alpha:true, antialias:!mobileShowroom, powerPreference:'low-power'
+    alpha:true, antialias:!mobileShowroom&&!profileMotion, powerPreference:'low-power'
   });
-  renderer.setPixelRatio(mobileShowroom ? 1 : Math.min(devicePixelRatio||1,showroom?1.5:2));
+  renderer.setPixelRatio(mobileShowroom || profileMotion ? 1 : Math.min(devicePixelRatio||1,showroom?1.5:2));
   renderer.outputColorSpace=T.SRGBColorSpace;
   renderer.toneMapping=T.ACESFilmicToneMapping;
   const goldShowroom = showroom && initial.wardrobe?.top === 'top-gold-standard';
@@ -37,7 +37,7 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
   const floor=showroom
     ?new T.Mesh(new T.PlaneGeometry(6,6),new T.ShadowMaterial({opacity:.37,depthWrite:false}))
     :new T.Mesh(new T.CylinderGeometry(.7,.72,.035,64),new T.MeshStandardMaterial({color:0x19242b,roughness:.7,metalness:.25}));
-  floor.position.y=showroom?-.014:-.045;scene.add(floor);
+  floor.position.y=showroom?-.014:-.045;floor.visible=!profileMotion;scene.add(floor);
   const trim=showroom?new T.Mesh(new T.RingGeometry(.52,.525,96),new T.MeshBasicMaterial({color:0xd0a767,transparent:true,opacity:.66,depthWrite:false,side:T.DoubleSide})):null;
   let ticks:T.LineSegments<T.BufferGeometry,T.LineBasicMaterial>|undefined;
   if(trim){
@@ -87,6 +87,42 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
   scene.add(root);
   let angle=.16,disposed=false,view:CreatorView='body',athleteHeight=initial.heightInches||72;
   function draw(){if(!disposed)renderer.render(scene,camera);}
+  const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
+  let visible=false,frame=0,previousFrame=0,walkRemaining=0,walkDistance=0;
+  function animate(time:number){
+    frame=0;
+    if(disposed||!visible||document.hidden||reducedMotion.matches||!runner||renderer.getContext().isContextLost())return;
+    if(previousFrame&&time-previousFrame<30){frame=requestAnimationFrame(animate);return;}
+    const dt=previousFrame?Math.min(.06,(time-previousFrame)/1000):.04;
+    previousFrame=time;
+    if(walkRemaining>0){
+      const distance=Math.min(walkRemaining,dt*.75);
+      walkRemaining-=distance;
+      walkDistance+=distance;
+      root.position.z=-walkRemaining;
+      runner.pose(walkDistance,.75,false,1,0,true,dt);
+    }else runner.pose(walkDistance,0,false,1,0,true,dt);
+    draw();
+    frame=requestAnimationFrame(animate);
+  }
+  function syncAnimation(){
+    if(!profileMotion)return;
+    cancelAnimationFrame(frame);frame=0;previousFrame=0;
+    if(reducedMotion.matches){
+      walkRemaining=0;root.position.z=0;
+      if(runner)runner.poseCreator(currentProfile);
+      root.rotation.y=angle;draw();
+      return;
+    }
+    if(visible&&!document.hidden)frame=requestAnimationFrame(animate);
+  }
+  let currentProfile=initial;
+  function walkout(){
+    if(!profileMotion||!runner||reducedMotion.matches)return;
+    walkRemaining=1.25;walkDistance=0;root.position.z=-walkRemaining;angle=0;root.rotation.y=angle;
+    syncAnimation();draw();
+  }
+
   function resize(){
     const width=host.clientWidth,height=host.clientHeight;if(!width||!height)return;
     renderer.setSize(width,height,false);camera.aspect=width/height;
@@ -102,18 +138,27 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
     camera.updateProjectionMatrix();draw();
   }
   function update(profile:any){
+    currentProfile=profile;
     athleteHeight=profile.heightInches||72;
     if(runner){runner.setAthlete(profile);runner.poseCreator(profile);fallback?.fitHands(root);}
-    root.rotation.y=angle;resize();
+    root.rotation.y=angle;if(profileMotion)root.position.z=-walkRemaining;resize();
   }
   function rotate(value:number){angle=value;root.rotation.y=angle;draw();}
   update(initial);
   const observer=new ResizeObserver(resize);observer.observe(host);resize();
   // Mobile appearance controls scroll the canvas out of view. Redraw when it
   // returns, including browsers that discard offscreen WebGL compositor tiles.
-  const visibility=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting))requestAnimationFrame(draw);});
+  const visibility=new IntersectionObserver(([entry])=>{
+    visible=Boolean(entry?.isIntersecting);
+    if(visible)draw();
+    syncAnimation();
+  });
+  if(profileMotion){
+    document.addEventListener('visibilitychange',syncAnimation);
+    reducedMotion.addEventListener('change',syncAnimation);
+  }
   visibility.observe(host);
-  return {update,rotate,capturePortrait(){
+  return {update,rotate,walkout,capturePortrait(){
     const previousView=view,previousAngle=angle,ratio=renderer.getPixelRatio();
     try{
       view='head';angle=.16;root.rotation.y=angle;
@@ -122,7 +167,8 @@ export async function createCreatorScene(host:HTMLElement,initial:any,showroom=f
       return renderer.domElement.toDataURL('image/png');
     }finally{view=previousView;angle=previousAngle;root.rotation.y=angle;renderer.setPixelRatio(ratio);resize();}
   },setView(next:CreatorView){view=next;resize();},dispose(){
-    if(disposed)return;disposed=true;observer.disconnect();visibility.disconnect();
+    if(disposed)return;disposed=true;observer.disconnect();visibility.disconnect();cancelAnimationFrame(frame);
+    document.removeEventListener('visibilitychange',syncAnimation);reducedMotion.removeEventListener('change',syncAnimation);
     const geometries=new Set<T.BufferGeometry>(),materials=new Set<T.Material>(),textures=new Set<T.Texture>();
     scene.traverse(object=>{const mesh=object as T.Mesh;if(mesh.geometry)geometries.add(mesh.geometry);for(const material of Array.isArray(mesh.material)?mesh.material:[mesh.material])if(material){materials.add(material);for(const value of Object.values(material))if(value instanceof T.Texture)textures.add(value);}});
     runner?.dispose();for(const geometry of geometries)geometry.dispose();for(const material of materials)material.dispose();for(const texture of textures)texture.dispose();key.shadow.dispose();releaseDrillRenderer(renderer);

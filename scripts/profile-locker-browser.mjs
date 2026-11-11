@@ -30,14 +30,14 @@ try {
   assert.ok(ready, 'Production preview must start');
   await mkdir(output, { recursive: true });
   for (const engine of process.env.PROFILE_CHROMIUM_ONLY ? ['chromium'] : ['chromium', 'webkit']) {
-    browser = await (engine === 'chromium' ? chromium : webkit).launch({ headless: true, ...(engine === 'chromium' && process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}) });
+    browser = await (engine === 'chromium' ? chromium : webkit).launch({ headless: true, ...(engine === 'chromium' && process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}), ...(engine === 'chromium' ? { args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] } : {}) });
     for (const width of engine === 'chromium' ? [390, 430, 320, 1280] : [390]) {
       const context = await browser.newContext({ viewport: { width, height: 844 }, deviceScaleFactor: 1, isMobile: width < 768, hasTouch: width < 768, reducedMotion: 'reduce' });
       const page = await context.newPage();
       activePage = page;
       const crashes = [];
       page.on('pageerror', error => crashes.push(error.message));
-      let mode = 'initial', failProfile = false, equipped = null, equipCalls = 0;
+      let mode = 'initial', failProfile = false, equipped = null, equipCalls = 0, sharedFit = null;
       const isGuest = width === 390;
       const user = { id: userId, aud: 'authenticated', role: 'authenticated', email: isGuest ? undefined : 'profile-fixture@example.invalid', is_anonymous: isGuest, app_metadata: { provider: isGuest ? 'anonymous' : 'email', providers: [isGuest ? 'anonymous' : 'email'] }, user_metadata: isGuest ? {} : { name: width === 320 ? 'A Very Long Profile Display Name' : 'Profile Fixture GM', full_name: width === 320 ? 'A Very Long Profile Display Name' : 'Profile Fixture GM' }, created_at: timestamp };
       const token = [Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url'), Buffer.from(JSON.stringify({ sub: userId, aud: 'authenticated', role: 'authenticated', exp: Math.floor(Date.now()/1000)+86400, is_anonymous: isGuest })).toString('base64url'), 'test-fixture-only'].join('.');
@@ -60,6 +60,18 @@ try {
         if (path.endsWith('/rpc/ensure_ball_knower_progress_profile')) {
           if (failProfile) return respond({ message: 'Profile fixture outage', code: 'TEST_OUTAGE' }, 503);
           return respond([{ user_id: userId, display_name: user.user_metadata.name, bk_rating: mode === 'earned' ? 61 : 50, xp: mode === 'earned' ? 1450 : mode === 'zero' ? 0 : 550, level: mode === 'earned' ? 2 : 1, football_iq: 50, gm_rating: 52, prediction_rating: 48, trivia_rating: 50, agent_rating: 51, owner_rating: 49, championships: mode === 'earned' ? 3 : 0, current_streak: 0, longest_streak: 2, updated_at: timestamp }]);
+        }
+        if (path.endsWith('/ball_knower_profile_showcases')) {
+          if (route.request().method() === 'POST') {
+            const payload = route.request().postDataJSON();
+            assert.equal(payload.user_id, userId);
+            assert.equal(payload.fit.number, 7);
+            assert.ok(!('portrait' in payload.fit) && !('faceImage' in payload.fit));
+            sharedFit = payload.fit;
+            return respond(null, 201);
+          }
+          if (route.request().method() === 'DELETE') { sharedFit = null; return respond(null); }
+          return respond(sharedFit ? [{ fit: sharedFit }] : []);
         }
         if (path.endsWith('/ball_knower_progress_events')) return respond(mode === 'earned' ? Array.from({ length: 7 }, (_, index) => ({ id: index+1, event_type: index === 0 ? 'prediction_wrong' : 'trivia_correct', category: index === 0 ? 'prediction' : 'trivia', xp_awarded: index === 0 ? 2 : 20, rating_delta: index === 0 ? -1 : 1, occurred_at: timestamp, metadata: {} })) : []);
         if (path.endsWith('/ball_knower_achievement_catalog')) return respond(mode === 'extended' ? [...catalog, { achievement_key: 'seventh', title: 'Seventh Milestone', description: 'Additional verified catalog entry.', tier: 'gold', category: 'gm', xp_reward: 125 }] : catalog);
@@ -256,6 +268,25 @@ try {
       assert.equal(await page.getByRole('button', { name: 'Ball Knower home', exact: true }).locator('h1').evaluate(element => getComputedStyle(element).fontSize), homeBrandSize, 'Profile cosmetics must not leak into Home');
       assert.equal(await page.getByRole('button',{name:'Ball Knower home',exact:true}).locator('h1').evaluate(el=>getComputedStyle(el).backgroundImage),'none','Profile atlas must not leak into Home');
       console.log('PASS restored Home header',engine,width,homeBrandSize);
+      if (engine === 'chromium' && width === 430) {
+        await page.evaluate(() => localStorage.setItem('ballknower_solo_my_player_v2', JSON.stringify({
+          version: 1, stage: 'creator', position: 'WR', name: 'Showcase Fixture', number: 7,
+        })));
+        await page.emulateMedia({ reducedMotion: 'no-preference' });
+        const profileButtons = await page.getByRole('button', { name: 'Profile', exact: true }).all();
+        for (const button of profileButtons) { if (await button.isVisible()) { await button.click(); break; } }
+        const showcase = page.getByRole('region', { name: 'Player showcase' });
+        await showcase.locator('[data-render-state="ready"]').waitFor({ timeout: 30000 });
+        await showcase.getByRole('button', { name: 'Walkout', exact: true }).click();
+        await showcase.getByRole('button', { name: 'Rotate athlete right' }).click();
+        await showcase.getByRole('button', { name: 'Show equipped fit' }).click();
+        await showcase.getByRole('button', { name: 'Hide shared fit' }).click();
+        await showcase.getByText('Your fit is now private.', { exact: true }).waitFor();
+        assert.equal(sharedFit, null);
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+        await showcase.getByRole('button', { name: 'Walkout', exact: true }).waitFor({ state: 'hidden' });
+        await showcase.screenshot({ path: `${output}/chromium-430-athlete-showcase.png` });
+      }
       assert.deepEqual(crashes, []);
       results.push({ engine, width, geometry, visual, ratings: 6, initialTrophies: 6, extendedTrophies: 7, photoCrop: 'passed', xpZeroAndRollover: 'passed', refreshRecovery: 'passed', collectionAndEquip: 'passed', source: 'isolated network fixtures', physicalIphone: false });
       await context.close();
