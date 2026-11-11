@@ -1,92 +1,95 @@
-import { ArrowRight, ChevronRight, Crown, Hand, Sparkles } from 'lucide-react';
+import { useRef } from 'react';
 import type { CSSProperties } from 'react';
+import { ArrowRight, ChevronLeft, ChevronRight, Coins, Crown, Footprints, Hand, HardHat, Home, Package, Shield, Shirt, Star, UserRound } from 'lucide-react';
+import { STORE_PRODUCTS, storeImage, storePrice, type StoreFilter, type StoreProduct } from './storeCatalog';
 import './storeLandingShowcase.css';
-
-export type PremiumDepartment = 'game-fits' | 'helmets' | 'jerseys' | 'pants' | 'cleats' | 'accessories';
-
-const collections: {
-  id: PremiumDepartment;
-  number: string;
-  label: string;
-  tagline: string;
-  image: string;
-  accent: string;
-}[] = [
-  { id: 'helmets', number: '01', label: 'Helmets', tagline: 'Make your entrance', image: '/store/bk-helmet-gold-standard.webp', accent: '#dfae47' },
-  { id: 'jerseys', number: '02', label: 'Jerseys', tagline: 'Own every snap', image: '/store/bk-jersey-gold-standard.webp', accent: '#dca13e' },
-  { id: 'pants', number: '03', label: 'Pants', tagline: 'Style in motion', image: '/store/bk-pants-gold-standard.webp', accent: '#d8a94c' },
-  { id: 'cleats', number: '04', label: 'Cleats', tagline: 'Leave your mark', image: '/store/bk-cleat-gold-standard.webp', accent: '#edc66e' },
-  { id: 'accessories', number: '05', label: 'Accessories', tagline: 'The final touch', image: '/store/bk-accessory-gold-standard.webp', accent: '#e2b458' },
+type Dest = 'featured'|'game-fits'|'clothing'|'characters'|'helmets'|'jerseys'|'pants'|'cleats'|'accessories';
+const find=(id:string)=>STORE_PRODUCTS.find(p=>p.id===id);
+const equipment=[
+ {id:'helmets' as const,title:'Helmets',desc:'Build your look',img:'/store/bk-helmet-gold-standard.webp'},
+ {id:'jerseys' as const,title:'Jerseys',desc:'Game ready',img:'/store/bk-jersey-gold-standard.webp'},
+ {id:'pants' as const,title:'Pants',desc:'Custom fits',img:'/store/bk-pants-gold-standard.webp'},
+ {id:'cleats' as const,title:'Cleats',desc:'On-field edge',img:'/store/bk-cleat-gold-standard.webp'},
+ {id:'accessories' as const,title:'Accessories',desc:'Gloves & more',img:'/store/bk-accessory-gold-standard.webp'}
 ];
-
-const spotlight: {
-  id: PremiumDepartment;
-  label: string;
-  image: string;
-}[] = [
-  { id: 'helmets', label: 'Helmet', image: '/store/bk-helmet-gold-standard.webp' },
-  { id: 'jerseys', label: 'Jersey', image: '/store/bk-jersey-gold-standard.webp' },
-  { id: 'pants', label: 'Pants', image: '/store/bk-pants-gold-standard.webp' },
-  { id: 'cleats', label: 'Cleats', image: '/store/bk-cleat-gold-standard.webp' },
+const tunnel=[
+ {id:'gold-standard',name:'Gold Standard',rarity:'Legendary',color:'#e8b94c',img:storeImage('gold-standard-realistic')},
+ {id:'tunnel-fit',name:'Gray Standard',rarity:'Epic',color:'#d18aff',img:storeImage('tunnel-look')},
+ {id:'ivory-standard',name:'Ivory Standard',rarity:'Epic',color:'#d18aff',img:storeImage('ivory-standard-look')},
+ {id:'bkf-lowrider',name:'BKF Lowrider',rarity:'Rare',color:'#73d4ff',img:storeImage('bkf-lowrider-look')},
+ {id:'bkf-kickflip',name:'BKF Kickflip',rarity:'Rare',color:'#73d4ff',img:storeImage('bkf-kickflip-look')},
+ {id:'frostbite',name:'Frostbite',rarity:'Epic',color:'#d18aff',img:storeImage('frostbite-look')}
 ];
-
-export default function StoreLandingShowcase({
-  onNavigate,
-  onTunnelFits,
-}: {
-  onNavigate: (id: PremiumDepartment) => void;
-  onTunnelFits: () => void;
-}) {
-  return <div className="bk-vault-landing">
-    <section className="bk-vault-hero" aria-labelledby="bk-vault-hero-title">
-      <img className="bk-vault-hero-athlete" src="/store/bk-accessory-gold-player.webp" alt="Football player wearing premium gold-and-black Ball Knower equipment" fetchPriority="high" />
-      <div className="bk-vault-hero-content">
-        <span className="bk-vault-eyebrow"><Crown size={16} aria-hidden="true"/> Welcome to the BK vault</span>
-        <h2 id="bk-vault-hero-title">YOUR GAME.<br/><em>YOUR LOOK.</em></h2>
-        <p>The gear hits different when it's yours. Build a full BK game-day fit, piece by piece.</p>
-        <div className="bk-vault-hero-actions">
-          <button type="button" className="bk-vault-gold-action" onClick={() => onNavigate('game-fits')}>Explore game gear <ArrowRight size={17} aria-hidden="true"/></button>
-          <button type="button" className="bk-vault-outline-action" onClick={onTunnelFits}>Tunnel fits <ChevronRight size={16} aria-hidden="true"/></button>
-        </div>
-      </div>
-      <div className="bk-vault-hero-footer"><Sparkles size={14} aria-hidden="true"/> Five collections · 50 individual styles · Preview only</div>
-    </section>
-
-    <section className="bk-vault-collections" id="bk-store-premium-categories" aria-labelledby="bk-vault-collections-title">
-      <div className="bk-vault-heading">
-        <div><span className="bk-vault-overline">The equipment vault</span><h2 id="bk-vault-collections-title">BUILD YOUR LOADOUT</h2></div>
-        <span className="bk-vault-collection-count">05 collections</span>
-      </div>
-      <div className="bk-vault-category-grid">
-        {collections.map(collection => <button
-          type="button"
-          className="bk-vault-category-card"
-          key={collection.id}
-          style={{'--bk-vault-accent': collection.accent} as CSSProperties}
-          onClick={() => onNavigate(collection.id)}
-          aria-label={`Shop ${collection.label}, 10 designs`}
-        >
-          <span className="bk-vault-category-count">{collection.number} / 05</span>
-          <img src={collection.image} alt="" loading="lazy" decoding="async"/>
-          <span className="bk-vault-category-content">
-            <span className="bk-vault-category-tag">10 premium designs</span>
-            <strong>{collection.label}</strong>
-            <span className="bk-vault-category-bottom"><span>{collection.tagline}</span><span className="bk-vault-category-arrow"><ArrowRight size={16} aria-hidden="true"/></span></span>
-          </span>
-        </button>)}
-      </div>
-    </section>
-
-    <section className="bk-vault-spotlight" aria-labelledby="bk-vault-spotlight-title">
-      <div className="bk-vault-spotlight-head"><span className="bk-vault-spotlight-crown"><Crown size={24} aria-hidden="true"/></span><div><span className="bk-vault-overline">Signature set</span><h2 id="bk-vault-spotlight-title">GOLD STANDARD</h2></div></div>
-      <p>Four matching pieces. One complete look. Explore each collection and build your own set.</p>
-      <div className="bk-vault-spotlight-grid">
-        {spotlight.map(item => <button key={item.id} type="button" onClick={() => onNavigate(item.id)} aria-label={`Explore Gold Standard ${item.label.toLowerCase()} collection`}>
-          <img src={item.image} alt="" loading="lazy" decoding="async"/>
-          <span>{item.label}<ChevronRight size={13} aria-hidden="true"/></span>
-        </button>)}
-      </div>
-      <button type="button" className="bk-vault-accessory-cta" onClick={() => onNavigate('accessories')}><Hand size={18} aria-hidden="true"/><span>Finish the look with accessories</span><ArrowRight size={18} aria-hidden="true"/></button>
-    </section>
-  </div>;
+const extras=['chrome-grip','ink-pack','blackout','profile-pack','founders-pack','end-zone-backflip'];
+const nav=[
+ {id:'featured' as const,title:'Store Home',Icon:Home},
+ {id:'game-fits' as const,title:'Game Fits',Icon:Shield},
+ {id:'clothing' as const,title:'Tunnel Fits',Icon:Shirt},
+ {id:'characters' as const,title:'Characters',Icon:UserRound},
+ {id:'helmets' as const,title:'Equipment',Icon:HardHat},
+ {id:'accessories' as const,title:'Accessories',Icon:Hand}
+];
+export default function StoreLandingShowcase({onNavigate,onProduct,onCatalog,onRewards}:{
+ onNavigate:(dest:Dest)=>void;
+ onProduct:(item:StoreProduct)=>void;
+ onCatalog:(filter?:StoreFilter)=>void;
+ onRewards:()=>void;
+}){
+ const rail=useRef<HTMLDivElement>(null);
+ const open=(id:string)=>{const item=find(id);if(item)onProduct(item)};
+ return <div className="bk-cinema">
+ <aside className="bk-cinema-sidebar" aria-label="Store navigation">
+  <span className="bk-cinema-brand"><Crown size={25}/> BK <strong>STORE</strong></span>
+  {nav.map(({id,title,Icon})=><button type="button" key={id} className={id==='featured'?'is-active':''} onClick={()=>onNavigate(id)}><Icon size={17}/>{title}</button>)}
+  <button type="button" onClick={()=>onCatalog('bundles')}><Package size={17}/>Bundles</button>
+  <button type="button" onClick={onRewards}><Coins size={17}/>BK Coins & Rewards</button>
+ </aside>
+ <div className="bk-cinema-main">
+  <section className="bk-cinema-hero" aria-labelledby="bk-cinema-hero-title">
+   <img className="bk-cinema-hero-photo" src={storeImage('gold-standard-realistic')} alt="Gold Standard premium gold tunnel tracksuit" fetchPriority="high" onError={e=>{e.currentTarget.onerror=null;e.currentTarget.src='/store/gold-standard.webp'}}/>
+   <div className="bk-cinema-hero-copy">
+    <small>B A L L &nbsp; K N O W E R</small>
+    <h2 id="bk-cinema-hero-title"><em>BK</em> STORE</h2>
+    <p>TUNNEL FITS <b>•</b> GAME GEAR <b>•</b> CHARACTERS <b>•</b> EXTRAS</p>
+    <button type="button" className="bk-cinema-cta" onClick={()=>open('gold-standard')}>Shop Gold Standard <ArrowRight size={16}/></button>
+   </div>
+   <div className="bk-cinema-hero-feature"><strong>GOLD<br/>STANDARD</strong><small>PREMIUM TUNNEL FIT</small><button type="button" onClick={()=>open('gold-standard')}>SHOP NOW <ChevronRight size={15}/></button></div>
+  </section>
+  <nav className="bk-cinema-equipment" aria-label="Browse equipment">
+   {equipment.map(item=><button type="button" key={item.id} onClick={()=>onNavigate(item.id)}>
+    <img src={item.img} alt="" loading="lazy"/><span><strong>{item.title}</strong><small>{item.desc}</small></span>
+   </button>)}
+  </nav>
+  <section className="bk-cinema-tunnel" aria-labelledby="bk-cinema-tunnel-title">
+   <header className="bk-cinema-section-head"><div><h2 id="bk-cinema-tunnel-title"><Crown size={24}/> TUNNEL FITS <b>///</b></h2><p>PRE-GAME FASHION. GAME-DAY ENERGY.</p></div><button type="button" className="bk-cinema-ghost" onClick={()=>onNavigate('clothing')}>VIEW ALL TUNNEL FITS <ChevronRight size={16}/></button></header>
+   <div className="bk-cinema-rail-wrap">
+    <button type="button" className="bk-cinema-scroll-button" onClick={()=>rail.current?.scrollBy({left:-300,behavior:'smooth'})} aria-label="Scroll tunnel outfits left"><ChevronLeft size={23}/></button>
+    <div className="bk-cinema-rail" ref={rail}>
+     {tunnel.map(fit=>{const p=find(fit.id);return <button key={fit.id} type="button" className="bk-cinema-fit" style={{'--rarity':fit.color} as CSSProperties} onClick={()=>open(fit.id)}>
+      <span className="bk-cinema-rarity"><Crown size={10}/>{fit.rarity}</span><img loading="lazy" alt={fit.name+' tunnel outfit'} src={fit.img} onError={e=>{e.currentTarget.onerror=null;e.currentTarget.src=storeImage(fit.id)}}/>
+      <span className="bk-cinema-fit-info"><strong>{fit.name}</strong><small>{p?storePrice(p):'Coming Soon'} <em>preview</em></small></span>
+     </button>})}
+    </div><button type="button" className="bk-cinema-scroll-button" onClick={()=>rail.current?.scrollBy({left:300,behavior:'smooth'})} aria-label="Scroll tunnel outfits right"><ChevronRight size={23}/></button>
+   </div>
+   <span className="bk-cinema-swipe">SWIPE TO EXPLORE <ArrowRight size={12}/></span>
+  </section>
+  <div className="bk-cinema-promos">
+   <section className="bk-cinema-promo bk-cinema-characters">
+    <div className="bk-cinema-character-art" aria-hidden="true"><img src="/store/bkf-street-boss-cover.webp" alt="" loading="lazy"/><img src="/store/bkf-youngboy-cover.webp" alt="" loading="lazy"/><img src="/store/bkf-outlaw-look.webp" alt="" loading="lazy"/></div>
+    <div className="bk-cinema-promo-copy"><h2>CHARACTER PACKS</h2><p>Unique styles. Real personality.<br/> BK originals.</p><button type="button" onClick={()=>onNavigate('characters')}>BROWSE CHARACTERS <ChevronRight size={15}/></button></div>
+   </section>
+   <section className="bk-cinema-promo bk-cinema-uniforms">
+    <img src="/store/bk-jersey-gold-standard.webp" alt="" loading="lazy"/>
+    <div className="bk-cinema-promo-copy"><h2>GAME FITS <b>///</b></h2><p>Complete on-field uniform sets<br/> with matching gear.</p><button type="button" onClick={()=>onNavigate('game-fits')}>SHOP GAME FITS <ChevronRight size={15}/></button></div>
+   </section>
+  </div>
+  <section className="bk-cinema-extras" aria-labelledby="bk-cinema-extras-title">
+   <header className="bk-cinema-section-head"><div><h2 id="bk-cinema-extras-title">GEAR &amp; EXTRAS</h2><p>CUSTOMIZE. FLEX. STAND OUT.</p></div><button type="button" className="bk-cinema-ghost" onClick={()=>onCatalog()}>VIEW ALL EXTRAS <ChevronRight size={16}/></button></header>
+   <div className="bk-cinema-extra-grid">{extras.map(id=>{const p=find(id);if(!p)return null;return <button type="button" key={id} onClick={()=>onProduct(p)}>
+    <img src={storeImage(id)} alt="" loading="lazy"/><span><strong>{p.name}</strong><small>{storePrice(p)} <em>proposed</em></small></span>
+   </button>})}</div>
+  </section>
+  <p className="bk-cinema-note"><Star size={13}/> Store artwork and prices are previews. No purchase, BK Coin debit or new 3D outfit ownership is enabled.</p>
+ </div>
+ </div>
 }

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { Archive, ArrowLeft, Box as BoxIcon, ChevronRight, Crown, Image as ImageIcon, Shirt, Trophy, X } from 'lucide-react';
+import { Archive, ArrowLeft, Box as BoxIcon, ChevronRight, Crown, Image as ImageIcon, Shirt, X } from 'lucide-react';
 import { DEFAULT_ATHLETE_APPEARANCE } from './athleteAppearance';
 import { recommendedAthleteBuild } from './athleteBuild';
 import { readAthletePassport, type AthletePassport } from './athletePassport';
@@ -7,7 +7,7 @@ import GameGearPreview from './GameGearPreview';
 import { sanitizeGameGear } from './playerGameGear';
 import { readOutfit } from './playerWardrobe';
 import {
-  BLACKOUT_KIT, STORE_CATEGORIES, STORE_PRODUCTS,
+  STORE_CATEGORIES, STORE_PRODUCTS,
   storeImage, storePrice, type StoreCategory, type StoreFilter, type StoreProduct,
 } from './storeCatalog';
 import './store.css';
@@ -22,7 +22,7 @@ const CleatShop = lazy(() => import('./CleatShop'));
 const AccessoriesShop = lazy(() => import('./AccessoriesShop'));
 const StoreLandingShowcase = lazy(() => import('./StoreLandingShowcase'));
 const GameFitsShop = lazy(() => import('./GameFitsShop'));
-const GameFitsPreview = lazy(() => import('./GameFitsShop').then(module => ({default: module.GameFitsPreview})));
+
 
 const BKFYoungBoyPose = lazy(() => import('./BKFYoungBoyPose'));
 const StoreCharacterPreview = lazy(() => import('./StoreCharacterPreview'));
@@ -39,8 +39,6 @@ const departments = [
 const isCharacter = (product: StoreProduct) => product.department !== 'clothing' && (product.posterOnly || Boolean(product.showcase) || ['bkf-youngboy', 'frostbite'].includes(product.id));
 const characterProducts = STORE_PRODUCTS.filter(isCharacter);
 const clothingProducts = STORE_PRODUCTS.filter(product => product.categories.includes('tunnel-fits') && !isCharacter(product) && product.id !== 'ink-pack');
-const accessoryProducts = STORE_PRODUCTS.filter(product => product.id === 'chrome-grip' || product.id === 'ink-pack');
-const otherProducts = STORE_PRODUCTS.filter(product => !characterProducts.includes(product) && !clothingProducts.includes(product) && !accessoryProducts.includes(product));
 
 const tunnelPhotos = [
   { file: 'tunnel-look', label: 'Full outfit', alt: 'Athlete wearing the graphite Gray Standard in a stadium tunnel' },
@@ -432,44 +430,25 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
       {departments.map(item => <button key={item.id} type="button" aria-pressed={department === item.id}
         onClick={() => { setDepartment(item.id); setFilter('all'); setPage(item.id === 'all' ? 'catalog' : 'featured'); }}>{item.label}</button>)}
     </div>}
-    {page === 'featured' && <>
-      {department === 'featured' && <>
-        <Suspense fallback={<div className="bk-store-featured" role="status">Loading BK premium collections…</div>}>
-          <StoreLandingShowcase
-            onNavigate={next => { setDepartment(next); setFilter('all'); openPage('featured'); }}
-            onTunnelFits={() => document.getElementById('bk-store-clothing-title')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-          />
-        </Suspense>
-        <section className="bk-store-featured bk-store-featured--secondary" aria-labelledby="bk-store-featured-title">
-          <img className="bk-store-hero-art" src={storeImage('campaign-blackout')} alt="" loading="lazy"/>
-          <div className="bk-store-featured-copy">
-            <span className="bk-store-kicker">The signature drop</span>
-            <h2 id="bk-store-featured-title">Blackout<br/>Gear Kit</h2>
-            <p>For those who play different.</p>
-            <div className="bk-store-featured-actions"><button className="bk-store-button bk-store-button-gold" type="button" onClick={() => showProduct(BLACKOUT_KIT)}>Explore Drop <ChevronRight size={16} aria-hidden="true"/></button></div>
-          </div>
-        </section>
-      </>}
-      {department === 'featured' && <Suspense fallback={<p role="status">Loading game-day fits…</p>}>
-        <GameFitsPreview onExplore={() => { setDepartment('game-fits'); setFilter('all'); openPage('featured'); }}/>
-      </Suspense>}
-      {[
-        { id: 'clothing', title: 'Build your tunnel fit', kicker: 'Off-field style', products: clothingProducts },
-        { id: 'characters', title: 'Meet the characters', kicker: 'Character drops', products: shuffledCharacters },
-        { id: 'accessories', title: 'More ways to customize', kicker: 'Classic extras', products: accessoryProducts },
-        { id: 'more', title: 'More for your game', kicker: 'Gear & extras', products: otherProducts },
-      ].filter(group => department === 'featured' || department === group.id).map(group => <section key={group.id} aria-labelledby={'bk-store-' + group.id + '-title'} className="bk-store-shop">
-        <span className="bk-store-kicker">{group.kicker}</span>
-        <header className="bk-store-shop-header"><h2 id={'bk-store-' + group.id + '-title'}>{group.title}</h2></header>
-        <div className="bk-store-grid">{group.products.map(product => <ProductCard key={product.id} product={product} onOpen={showProduct}/>)}</div>
-      </section>)}
-      <button ref={viewAll} className="bk-store-button bk-store-view-all" type="button" onClick={() => { setDepartment('all'); setFilter('all'); openPage('catalog'); }}>View All Items <ChevronRight size={17} aria-hidden="true"/></button>
-      <button className="bk-store-reward-link" type="button" onClick={() => openPage('rewards')}>
-        <Trophy size={25} aria-hidden="true"/><span><strong>Earn Free Gear</strong><small>Combine &amp; Gauntlet rewards</small></span><ChevronRight size={20} aria-hidden="true"/>
-      </button>
-    </>}
+    {page === 'featured' && department === 'featured' && <Suspense fallback={<p role="status">Loading cinematic BK Store…</p>}>
+      <StoreLandingShowcase
+        onNavigate={next => { setDepartment(next); setFilter('all'); openPage('featured'); }}
+        onProduct={showProduct}
+        onCatalog={nextFilter => { setDepartment('all'); setFilter(nextFilter ?? 'all'); openPage('catalog'); }}
+        onRewards={() => { setDepartment('featured'); openPage('rewards'); }}
+      />
+    </Suspense>}
+    {page === 'featured' && department !== 'featured' && [
+      { id: 'clothing', title: 'Build your tunnel fit', kicker: 'Off-field style', products: clothingProducts },
+      { id: 'characters', title: 'Meet the characters', kicker: 'Character drops', products: shuffledCharacters },
+    ].filter(group => department === group.id).map(group => <section key={group.id} aria-labelledby={'bk-store-' + group.id + '-title'} className="bk-store-shop">
+      <span className="bk-store-kicker">{group.kicker}</span>
+      <header className="bk-store-shop-header"><h2 id={'bk-store-' + group.id + '-title'}>{group.title}</h2></header>
+      <div className="bk-store-grid">{group.products.map(product => <ProductCard key={product.id} product={product} onOpen={showProduct}/>)}</div>
+    </section>)}
+    {page === 'featured' && department !== 'featured' && <button ref={viewAll} className="bk-store-button bk-store-view-all" type="button" onClick={() => { setDepartment('all'); setFilter('all'); openPage('catalog'); }}>View All Items <ChevronRight size={17} aria-hidden="true"/></button>}
 
-    {page === 'catalog' && <div className="bk-store-catalog">
+        {page === 'catalog' && <div className="bk-store-catalog">
       <p className="bk-store-intro">Find game-day gear, tunnel outfits, profile packs, and more. Pick an item to see what comes with it.</p>
       {categoryButtons}
       <p className="bk-store-count" role="status">{matchingProducts.length} {matchingProducts.length === 1 ? 'item' : 'items'} · Catalog preview</p>

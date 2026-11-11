@@ -665,3 +665,8 @@ body:has(.bk-tunnel-showroom[open]) { overflow: hidden; }
 .bk-store-locker-shop[data-store-department="featured"] .bk-store-product:hover{border-color:#f0ca78a6;transform:translateY(-2px)}
 .bk-store-locker-shop[data-store-department="featured"] .bk-store-product b{color:#f3c774}
 @media(max-width:520px){.bk-store-locker-shop[data-store-department="featured"] .bk-store-shop{margin:20px 0 24px}.bk-store-locker-shop[data-store-department="featured"] .bk-store-product{border-radius:12px;padding:5px}.bk-store-locker-shop[data-store-department="featured"] .bk-store-card-art{border-radius:9px}.bk-store-locker-shop[data-store-department="featured"] .bk-store-product-text{padding:10px 4px 7px}.bk-store-locker-shop[data-store-department="featured"] .bk-store-product strong{font-size:clamp(13px,4vw,17px)}.bk-store-locker-shop[data-store-department="featured"] .bk-store-featured--secondary{min-height:200px}}
+
+/* Dedicated cinematic Store Home takes over the approved first fold. */
+.bk-store-locker-shop[data-store-page="featured"][data-store-department="featured"]{width:min(100%,1320px);padding:8px max(8px,env(safe-area-inset-right)) 28px max(8px,env(safe-area-inset-left));background:#08090e}
+.bk-store-locker-shop[data-store-page="featured"][data-store-department="featured"]>.bk-store-header,
+.bk-store-locker-shop[data-store-page="featured"][data-store-department="featured"]>.bk-store-departments{display:none}
