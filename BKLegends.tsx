@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, Check, ChevronDown, Coins, Dumbbell, Gift, Lock,
 import {
   CAMPAIGN, CARD_BY_ID, CHAPTERS, FIRST_CLEAR_COINS, PACK_POSITIONS, PACK_PRICE, POSITIONS, PREMIUM_PRICE, TRAINING,
   boostPack, buyPack, chapterChoices, claimChapter, claimPack, cleared, duplicates, equip, exchangeCard, exchangeCardId,
-  gameSquad, goalText, initialLegends, loadLegends, openStarter, opponentName, packFloor, playerOverall, recordClear,
+  gameSquad, goalText, initialLegends, isLegendsResult, loadLegends, openStarter, opponentName, packFloor, playerOverall, recordClear,
   revealPack, squadOverall, trainCard, trainingCost, type LegendsResult, type LegendsState, type Position, type Scenario,
 } from './bkLegends';
 import './bkLegends.css';
@@ -66,7 +66,7 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
       if (event.origin !== location.origin || event.source !== field.current?.contentWindow ||
           event.data?.token !== token) return;
       if (event.data.type === 'bk-legends-field-failed') { setFieldFailed(true); return; }
-      if (event.data.type !== 'bk-legends-result' || gotResult.current || !event.data.result || typeof event.data.result !== 'object') return;
+      if (event.data.type !== 'bk-legends-result' || gotResult.current || !isLegendsResult(event.data.result)) return;
       gotResult.current = true;
       const result: LegendsResult = event.data.result;
       const passed = cleared(attempt!.scenario, result);
@@ -209,6 +209,11 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
         <button aria-label="Leave challenge" onClick={() => setAttempt(null)}><X aria-hidden="true"/></button></header>
       {outcome ? <div className="bkl-field-result"><h2>{outcome.passed ? 'Challenge cleared' : 'Objective incomplete'}</h2>
         <p>Final score · BK Legends {outcome.result.homeScore}–{outcome.result.awayScore} {opponentName(attempt.scenario)}</p>
+        <dl className="bkl-field-stats" aria-label="Challenge stats">
+          <div><dt>Passing yards</dt><dd>{outcome.result.passYards}{attempt.scenario.goal === 'pass' ? ` / ${attempt.scenario.target}` : ''}</dd></div>
+          <div><dt>Rushing yards</dt><dd>{outcome.result.rushYards}{attempt.scenario.goal === 'rush' ? ` / ${attempt.scenario.target}` : ''}</dd></div>
+          <div><dt>{attempt.scenario.goal === 'shutout' ? 'Points allowed' : 'Plays'}</dt><dd>{attempt.scenario.goal === 'shutout' ? outcome.result.awayScore - attempt.scenario.awayScore : outcome.result.plays}</dd></div>
+        </dl>
         {outcome.persisted ? <strong>{attempt.scenario.id < 0 ? '+100 Training Points' : '+1,000 BK Coins'}</strong> : outcome.passed ? <p>This attempt did not add a reward. Check your campaign progress and device storage.</p> : <p>{goalText(attempt.scenario)}</p>}
         {!outcome.passed && <button onClick={() => launch(attempt.scenario)}>Try again</button>}
         <button className="bkl-gold" onClick={() => setAttempt(null)}>Back to BK Legends</button>

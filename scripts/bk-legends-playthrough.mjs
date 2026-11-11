@@ -10,7 +10,15 @@ const preview = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'previ
 let browser;
 let page;
 let context;
-const report = { rounds: [], errors: [], controls: [] };
+const report = { rounds: [], errors: [], controls: [], captureWarnings: [] };
+async function capture(name) {
+  if (!page) return;
+  try {
+    await page.screenshot({ path: out + '/' + name + '.png', timeout: 6000 });
+  } catch (error) {
+    report.captureWarnings.push({ name, reason: error.message.split('\n')[0] });
+  }
+}
 
 try {
   for (let tries = 0; tries < 80; tries++) {
@@ -22,7 +30,7 @@ try {
     args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] });
   context = await browser.newContext({
     viewport: { width: 844, height: 470 }, hasTouch: true,
-    recordVideo: { dir: out, size: { width: 844, height: 470 } },
+    recordVideo: { dir: out, size: { width: 640, height: 356 } },
   });
   page = await context.newPage();
   page.on('pageerror', error => report.errors.push(error.message));
@@ -58,7 +66,7 @@ try {
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Campaign overflows at ' + width);
-    await page.screenshot({ path: out + '/campaign-' + width + '.png' });
+    await capture('campaign-' + width);
   }
   await page.setViewportSize({ width: 844, height: 470 });
 
@@ -95,7 +103,7 @@ try {
     assert.equal(initial.players[5].teamAbbr, 'BKL');
     await field.evaluate(() => window.bkSetGraphicsQualityForQA('eco'));
     let kicked = false, liveDefense = 0;
-    await page.screenshot({ path: out + '/' + slug + '-playbook.png' });
+    await capture(slug + '-playbook');
     for (let action = 0; action < 200; action++) {
       if (await page.getByRole('heading', { name: /Challenge cleared|Objective incomplete/ }).isVisible()) return;
       if (field.isDetached()) return;
@@ -114,7 +122,6 @@ try {
           await click('unitCallDefense');
           await click('defenseReady');
           await step(.8);
-          await page.screenshot({ path: out + '/' + slug + '-defense.png' });
           liveDefense++;
         } else {
           await click('unitSimBook');
@@ -178,9 +185,10 @@ try {
     const text = await result.innerText();
     report.rounds.push({ challenge: round.title, result: text });
     console.log(text);
-    await page.screenshot({ path: out + '/round-' + (index + 1) + '-result.png' });
+    await capture('round-' + (index + 1) + '-result');
     await result.getByRole('heading', { name: 'Challenge cleared', exact: true }).waitFor({ timeout: 1500 });
     await result.getByText('+1,000 BK Coins', { exact: true }).waitFor();
+    await result.getByLabel('Challenge stats', { exact: true }).waitFor();
     await result.getByRole('button', { name: 'Back to BK Legends' }).click();
     await legends.getByText((index + 1) + ' / 80 complete', { exact: true }).waitFor();
     await legends.getByRole('heading', { name: round.next, exact: true }).waitFor();
@@ -195,7 +203,7 @@ try {
 } catch (error) {
   report.failure = String(error);
   console.error(JSON.stringify(report));
-  await page?.screenshot({ path: out + '/failure.png', timeout: 12_000 }).catch(() => {});
+  await capture('failure');
   throw error;
 } finally {
   await writeFile(out + '/report.json', JSON.stringify(report, null, 2));

@@ -66,6 +66,12 @@ export type LegendsState = {
   starterOpened: boolean; legacyClaimed: boolean; pack?: Pack;
 };
 export type LegendsResult = { homeScore: number; awayScore: number; passYards: number; rushYards: number; plays: number };
+export function isLegendsResult(value: unknown): value is LegendsResult {
+  if (!value || typeof value !== 'object') return false;
+  const result = value as Partial<LegendsResult>;
+  return [result.homeScore, result.awayScore, result.passYards, result.rushYards, result.plays].every(Number.isSafeInteger)
+    && result.homeScore! >= 0 && result.awayScore! >= 0 && result.plays! >= 0;
+}
 export const initialLegends = (): LegendsState => ({
   version: 1, coins: 0, training: 0, complete: 0, owned: {}, lineup: [], chapterClaims: [], starterOpened: false, legacyClaimed: false,
 });
@@ -116,8 +122,7 @@ export function gameSquad(state: LegendsState) {
     lineup: players.slice(0,22), fullback: players[22], kicker: players[23], punter: players[24] };
 }
 export function cleared(scenario: Scenario, result: LegendsResult) {
-  if (![result.homeScore, result.awayScore, result.passYards, result.rushYards, result.plays].every(Number.isInteger) ||
-      result.plays < 1 || result.homeScore <= result.awayScore) return false;
+  if (!isLegendsResult(result) || result.plays < 1 || result.homeScore <= result.awayScore) return false;
   if (scenario.goal === 'pass') return result.passYards >= scenario.target;
   if (scenario.goal === 'rush') return result.rushYards >= scenario.target;
   if (scenario.goal === 'shutout') return result.awayScore === scenario.awayScore;

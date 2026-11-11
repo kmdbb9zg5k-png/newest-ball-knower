@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   CAMPAIGN, CARD_BY_ID, CHAPTERS, PACK_POSITIONS, POSITIONS, TRAINING, boostPack, buyPack, chapterChoices, claimChapter,
-  claimPack, cleared, duplicates, equip, exchangeCard, exchangeCardId, gameSquad, initialLegends, openStarter,
+  claimPack, cleared, duplicates, equip, exchangeCard, exchangeCardId, gameSquad, initialLegends, isLegendsResult, openStarter,
   playerOverall, recordClear, revealPack, trainCard, trainingCost,
 } from '../bkLegends';
 import { readLegendsField, setLegendsStart } from '../public/play-moment-3d/legends-field.js';
@@ -15,6 +15,9 @@ assert.equal(openStarter(state), state);
 assert.equal(CAMPAIGN.length, 80);
 assert.equal(new Set(CAMPAIGN.map(scenario => scenario.title)).size, 80);
 const passing = { homeScore: 30, awayScore: 21, passYards: 70, rushYards: 70, plays: 6 };
+assert.equal(isLegendsResult(passing), true);
+assert.equal(isLegendsResult({ ...passing, passYards: '70' }), false);
+assert.equal(isLegendsResult({ ...passing, plays: -1 }), false);
 assert.equal(recordClear(state, CAMPAIGN[1], passing, state.lineup), state);
 assert.equal(recordClear(state, CAMPAIGN[0], { ...passing, homeScore: 17 }, state.lineup), state);
 assert.equal(cleared(CAMPAIGN[30], { ...passing, awayScore: 22 }), false);
