@@ -12,7 +12,7 @@ import {PrimaryNavigation} from './PrimaryNavigation';
 import {SECONDARY_DESTINATIONS} from './appNavigation';
 import './navigationPolish.css';
 
-const DESTINATION_ICONS={solo:Play,football:Shield,challenges:Brain,sportsbook:Target,news:Newspaper,ask:Sparkles,legacy:Award,partners:Handshake,wardrobe:Shirt};
+const DESTINATION_ICONS={legends:Trophy,solo:Play,football:Shield,challenges:Brain,sportsbook:Target,news:Newspaper,ask:Sparkles,legacy:Award,partners:Handshake,wardrobe:Shirt} satisfies Record<(typeof SECONDARY_DESTINATIONS)[number]['tab'], typeof Trophy>;
 
 const HomeNewsTicker=lazy(()=>import('./HomeNewsTicker').then(module=>({default:module.HomeNewsTicker})));
 

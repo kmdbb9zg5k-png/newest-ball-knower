@@ -8,7 +8,7 @@ const spot = ball => ball < 50 ? `OWN ${ball}` : ball === 50 ? 'MIDFIELD' : `OPP
 const node = (tag, text, className) => { const el = document.createElement(tag); if (text != null) el.textContent = text; if (className) el.className = className; return el; };
 export function createFullGameUI(config, actions) {
   const arena = config.mode === 'arena';
-  const name = arena ? `Football H2H · Drive ${config.driveNumber}/3` : config.mode === 'two-minute' ? 'Two-Minute Warning' : 'Five-Minute Game';
+  const name = config.legendsTitle || (arena ? `Football H2H · Drive ${config.driveNumber}/3` : config.mode === 'two-minute' ? 'Two-Minute Warning' : 'Five-Minute Game');
   document.body.classList.add('mini-game', 'full-game');
   document.title = 'Ball Knower | '+name;
   $('game').setAttribute('aria-label', name+' football field');
@@ -24,6 +24,12 @@ export function createFullGameUI(config, actions) {
     club.setAttribute('aria-label', team.name); club.style.borderBottomColor = team.secondary;
   }
   for (const link of document.querySelectorAll('a[href="/"]')) { link.href = '/?miniGames=1'; link.setAttribute('aria-label','Back to Mini Games'); if (!link.classList.contains('icon')) link.textContent = 'Pick New Teams'; }
+  if (config.legendsTitle) {
+    for (const link of document.querySelectorAll('a[href="/?miniGames=1"]')) {
+      link.removeAttribute('href');
+      link.style.display = 'none';
+    }
+  }
   if(arena) for(const link of document.querySelectorAll('a[href="/?miniGames=1"]')) { if(!link.classList.contains('icon')) link.textContent = 'Back to match'; link.setAttribute('aria-label', 'Back to match'); link.onclick = event => {event.preventDefault();exitArenaDrive();}; }
   const toolbar = node('div'); toolbar.id = 'miniActions';
   toolbar.innerHTML = '<span></span><div><button id="miniTimeout" type="button">TIMEOUT · 3</button><button id="miniSpike" type="button">SPIKE</button></div>';
@@ -51,7 +57,7 @@ export function createFullGameUI(config, actions) {
       $('miniSpike').disabled = phase !== 'pre' || motion;
       setHudText(toolbar.querySelector('span'),`${config.level.name.toUpperCase()} · PLAY :${String(Math.ceil(s.playClock)).padStart(2,'0')}`);
       setHudText($('clock'),s.overtime ? 'OT' + s.overtime : miniClock(d.clock));
-      setHudText(document.querySelector('.game-state>span'),arena ? `DRIVE ${config.driveNumber}/3` : ended ? 'FINAL' : s.overtime ? 'EQUAL POSSESSIONS' : config.mode === 'two-minute' ? '2 MIN WARNING' : '5 MIN GAME');
+      setHudText(document.querySelector('.game-state>span'),arena ? `DRIVE ${config.driveNumber}/3` : ended ? 'FINAL' : s.overtime ? 'EQUAL POSSESSIONS' : config.legendsTitle ? 'BK LEGENDS' : config.mode === 'two-minute' ? '2 MIN WARNING' : '5 MIN GAME');
       setHudText(document.querySelector('.away strong'),arena?'—':s.awayScore);
       document.querySelector('.club.home').classList.toggle('has-possession',s.possession === 'home');
       document.querySelector('.club.away').classList.toggle('has-possession',s.possession === 'away');

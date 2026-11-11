@@ -1,3 +1,4 @@
+import {readLegendsField,setLegendsStart,reportLegendsResult} from './legends-field.js';
 import {readGameGearProfile,sanitizeGameGear,gameGearRosterId} from './game-gear.js';
 import {installControlSettings} from './control-settings.js';
 import {snapExchange} from './snap-motion.js?v=motion-contact-55';
@@ -18,7 +19,7 @@ import{createMeshyAthletes as createReferenceAthletes}from'./reference-athlete.j
 import{makeStadium}from'./stadium.js?v=contact-camera-11';
 import{createGameplayReplayRecorder}from'./replay.js';
 import {miniClock,miniGameFromSearch,miniInitialDrive,miniSession,miniRatings,miniSnap,miniWhistle,miniBetweenPlays,miniTimeout,miniSpike,miniFinish} from './mini-games.js?v=football-arena-4';
-import {createMiniGamesUI} from './mini-games-ui.js?v=football-arena-4';
+import {createMiniGamesUI} from './mini-games-ui.js?v=bk-legends-1';
 import{QB_THROW_RELEASE,quarterbackThrowDuration}from'./quarterback.js?v=football-finish-21';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
 const setHudText=(node,value)=>{const text=String(value);if(node.textContent!==text)node.textContent=text};
@@ -457,18 +458,38 @@ function travel(path,distance){return routePoint(path,distance)}
 export function runConceptDirection(runIndex,seconds,runnerX,runnerZ,scrimmageZ,direction=1,keep=false){const concept=RUNS[clamp(Math.trunc(runIndex)||0,0,RUNS.length-1)],point=travel(keep&&concept.keepPath?concept.keepPath:concept.path,Math.max(0,seconds)*concept.pathSpeed+concept.pathLead),side=Math.sign(direction)||1,targetX=point[0]*side,dx=targetX-runnerX,dz=scrimmageZ+point[1]-runnerZ,length=Math.hypot(dx,dz)||1;return{x:dx/length,z:dz/length,targetX,targetZ:scrimmageZ+point[1]}}
 export function predictPassDestination(path,startX,startZ,elapsed,duration,speed){const p=travel(path,Math.max(0,elapsed+duration)*speed);return[clamp(startX+p[0],-26.3,26.3),1.6,startZ+p[1]]}
 export async function start(){
- const miniConfig=miniGameFromSearch(location.search),fullGame=Boolean(miniConfig);let mini=fullGame?fullSession(miniConfig.mode,true):miniConfig?miniSession():null;
+ const params=new URLSearchParams(location.search);
+ const legends=params.has('bkLegends')?readLegendsField(location.search,sessionStorage,window.parent!==window):null;
+ if(params.has('bkLegends')&&!legends)throw new Error('BK Legends attempt is unavailable');
+ const miniConfig=miniGameFromSearch(legends?'?'+new URLSearchParams({
+   mode:'five-minute',difficulty:legends.scenario.difficulty,opponent:legends.scenario.opponent
+ }):location.search);
+ if(legends){
+  miniConfig.matchup.home=legends.squad;
+  miniConfig.legendsTitle=legends.scenario.title;
+ }
+ const fullGame=Boolean(miniConfig);
+ const newFullSession=()=>{
+  const session=fullSession(miniConfig.mode,true);
+  if(legends)setLegendsStart(session,legends.scenario);
+  return session;
+ };
+ let mini=fullGame?newFullSession():null;
  function fieldCamera(eye,target){const shot=safeFieldCamera(eye,target);r.camera(shot.eye,shot.target);}
  const r=new Renderer($('game'));
  const controlSettings=installControlSettings($('controlSettings'));
  // Keep the detailed mesh/materials while bounding phone pixel and shadow work.
  if(fullGame&&matchMedia('(pointer: coarse)').matches)r.setQuality('balanced');
- const gearProfile=readGameGearProfile(),gearPlayerId=gameGearRosterId(gearProfile,miniConfig?.matchup.home),savedGameGear=sanitizeGameGear(gearProfile?.gameGear);
+ const gearProfile=readGameGearProfile(),gearPlayerId=legends?null:gameGearRosterId(gearProfile,miniConfig?.matchup.home),savedGameGear=sanitizeGameGear(gearProfile?.gameGear);
  const stadium=makeStadium(r),meshy=fullGame?createReferenceAthletes(r):createMeshyAthletes(r);let actors=[],frameId=0,elapsed=0,last=0,raf=0,messageUntil=0,recoveryLeft=0,postPlayElapsed=0,deadBallFocus=null,exchange=null,transitionFade=0,activeContact=null,pendingWhistle=null,pendingPlayMessage=null,pendingDriveEnd=null,soundContext=null,highlightFrames=[],lastHighlight=[],highlightSampleAt=-1,replaying=false,replayCursor=0,replayEndPhase='dead';
  let playbookOpen=true,bookFilter='all',bookFormation='all',optionChoice='give',bookChoice={mode:'run',index:0};
  let mode='run',selected=0,assist=initialAssistMode(location.search),phase='pre',paused=false,ended=false,flight=null,lastFlightEnd=null,looseBall=null,carrier=null,jukeUntil=0,jukeReady=0,simTime=0,lastSkill=null,lastSkillAt=-10,impactShake=0,catchStyle='rac',runDirection=1,mikeIndex=16,motioned=false,receiverMotion=null,prePanel=null,playArtVisible=false,plantReady=0,turfFx=[],nextTurfFx=0,contactFx=null;
  const redZone=new URLSearchParams(location.search).get('scenario')==='redzone';
- const initialDrive=fullGame?fullInitialDrive(miniConfig.mode):miniConfig?miniInitialDrive():{ball:redZone?85:25,down:1,toGo:10,clock:redZone?63:78,score:24,plays:0};
+ const initialDrive=legends?{
+  ball:legends.scenario.defending?25:legends.scenario.ball,down:1,
+  toGo:legends.scenario.defending?10:Math.min(10,100-legends.scenario.ball),
+  clock:legends.scenario.clock,score:legends.scenario.score,plays:0,
+ }:fullGame?fullInitialDrive(miniConfig.mode):miniConfig?miniInitialDrive():{ball:redZone?85:25,down:1,toGo:10,clock:redZone?63:78,score:24,plays:0};
  let drive={...initialDrive},snapZ=10+initialDrive.ball,snapGainZ=10+lineToGain(initialDrive),stamina=1;
  let input={x:0,z:0,sprint:false,pointer:null,sprintPointer:null},snapDirection={x:0,z:0},snapDirectionUntil=0,camEye=[14,16,10],camTarget=[0,0,40],cameraReset=true,runCameraBlend=0,runCameraStart=null,flightCameraStart=null,deadCameraStart=null,defensiveCallIndex=0,defensiveCall=DEFENSIVE_CALLS[0],lastTackler=null;const keys=new Set();
  // QA recordings may freeze the first frame before a fast opening return finishes.
@@ -1083,7 +1104,7 @@ function coverage(dt){
    const hits=actors.filter(p=>liveUnit.canSelect(p.index)).map(p=>{const head=r.project([p.x,2.1,p.z]),foot=r.project([p.x,0,p.z]);const cx=(head.x+foot.x)/2,cy=(head.y+foot.y)/2;return {p,head,foot,cx,cy,radius:Math.max(22,Math.abs(foot.y-head.y)/2+8)};}).filter(h=>h.head.visible&&h.foot.visible&&Math.abs(x-h.cx)<=Math.max(22,h.radius*.55)&&Math.abs(y-h.cy)<=h.radius).sort((a,b)=>Math.hypot(x-a.cx,y-a.cy)-Math.hypot(x-b.cx,y-b.cy));
    if(hits[0]){liveUnit.selectPlayer(hits[0].p.index);controlSettings.pulse(7);}
   });
-  $('restart').onclick=()=>{if(miniConfig?.mode==='arena')return;liveUnit?.stop();conversionDrive=null;if(currentPlay().fake){mode='run';selected=0;bookFormation='all';}replay.event('restart');drive={...initialDrive};if(mini){mini=fullGame?fullSession(miniConfig.mode,true):miniSession();miniUI.reset();document.querySelector('.away strong').textContent=miniConfig?.mode==='two-minute'?'27':'0'}paused=false;ended=false;$('paused').hidden=true;setup()};
+  $('restart').onclick=()=>{if(miniConfig?.mode==='arena')return;liveUnit?.stop();conversionDrive=null;if(currentPlay().fake){mode='run';selected=0;bookFormation='all';}replay.event('restart');drive={...initialDrive};if(mini){mini=fullGame?newFullSession():miniSession();miniUI.reset();document.querySelector('.away strong').textContent=miniConfig?.mode==='two-minute'?'27':'0'}paused=false;ended=false;$('paused').hidden=true;if(legends?.scenario.defending)showFullState();else setup()};
   $('sendReport').onclick=async()=>{const button=$('sendReport'),status=$('reportStatus'),receipt=$('reportReceipt');if(button.disabled)return;button.disabled=true;button.textContent='SENDING…';status.className='';status.textContent='Uploading gameplay state only…';try{const result=await replay.submit($('reportNote').value);$('reportCode').textContent=result.id;receipt.hidden=false;button.hidden=true;status.className='sent';status.textContent='Upload complete. Codex can locate this report automatically.';button.dataset.reviewUrl=result.reviewUrl||'';receipt.scrollIntoView({block:'nearest',behavior:'smooth'});replay.event('report-sent',{id:result.id})}catch(error){button.disabled=false;button.textContent='SEND FAILED · RETRY';status.className='error';status.textContent=(error?.message||'The gameplay report could not be sent.')+' Your report is still saved on this screen.'}};
   $('copyReportCode').onclick=async()=>{const code=$('reportCode').textContent;if(!code)return;try{await navigator.clipboard.writeText(code);$('copyReportCode').textContent='COPIED ✓'}catch{$('copyReportCode').textContent='PRESS AND HOLD CODE'}};
  function joy(e){const box=$('stick').getBoundingClientRect(),dx=e.clientX-box.left-box.width/2,dy=e.clientY-box.top-box.height/2,max=box.width*.32,len=Math.hypot(dx,dy)||1,s=Math.min(1,max/len);input.x=dx*s/max;input.z=-dy*s/max;if((phase==='pre'||phase==='snap'||phase==='handoff')&&Math.hypot(input.x,input.z)>=.12)snapDirection={x:input.x,z:input.z};$('knob').classList.add('held');$('knob').style.transform=`translate(${dx*s}px,${dy*s}px)`;$('stick').setAttribute('aria-valuenow',input.x.toFixed(2))}
@@ -1100,7 +1121,7 @@ function coverage(dt){
  function showFullState(){
   pendingThrow=null;flight=null;activeContact=null;pendingWhistle=null;pendingDriveEnd=null;pendingPlayMessage=null;input.x=input.z=0;input.sprint=false;input.pointer=input.sprintPointer=null;keys.clear();playbookOpen=false;prePanel=null;receiverMotion=null;setPlayArt(false);actors.forEach(releasePostPlay);
   phase='cpu';mini.running=false;
-  if(mini.result){ended=true;paused=true;$('dialogTitle').textContent=mini.result.reason;$('dialogBody').textContent=(mini.overtime?'Final after overtime. ':'Final whistle. ')+(mini.log.at(-1)?.reason||'');$('resume').hidden=true;miniUI.result(mini,drive);$('paused').hidden=false;}
+  if(mini.result){if(legends&&!ended)reportLegendsResult(legends,mini,drive);ended=true;paused=true;$('dialogTitle').textContent=mini.result.reason;$('dialogBody').textContent=(mini.overtime?'Final after overtime. ':'Final whistle. ')+(mini.log.at(-1)?.reason||'');$('resume').hidden=true;miniUI.result(mini,drive);$('paused').hidden=false;}
   if(mini.conversion==='home'&&!mini.result){openConversionPlaybook();return;}
   if(mini.conversion==='away'&&!mini.result){startUnit('extra-point');return;}
   if(!mini.result){
@@ -1167,7 +1188,7 @@ function coverage(dt){
  if(miniConfig?.mode==='arena')await meshy.loadPromise;
  last=performance.now();accumulator=0;
  // Each arena iframe is one drive: receive the opening kick before choosing offense.
- if(mini?.kickoff)showFullState();else{setup();camera(1);}scene(.016,0);$('loading').hidden=true;raf=requestAnimationFrame(loop);
+ if(mini?.kickoff||legends?.scenario.defending)showFullState();else{setup();camera(1);}scene(.016,0);$('loading').hidden=true;raf=requestAnimationFrame(loop);
  // Test controls exist only on an explicitly requested QA URL. This isolated
  // practice renderer never reads or writes career saves or result payloads.
  if(new URLSearchParams(location.search).has('qa')&&!new URLSearchParams(location.search).has('bkArena')){window.bk3dTest={unitAction(action){liveUnit?.action(action)},unitSwitch(){liveUnit?.switchPlayer()},touchdown(){if(phase!=='run')return false;const delta=110-carrier.z;for(const p of actors)p.z+=delta;camEye[2]+=delta;camTarget[2]+=delta;carrier.z=110;endPlay('TOUCHDOWN',100);return true},throwTo,seed(value){numSeed=Number(value)||1},manualFrames(){qaStepping=true;accumulator=0;cancelAnimationFrame(raf)},resumeFrames(){if(!qaStepping)return;qaStepping=false;accumulator=0;last=performance.now();lastDraw=NaN;raf=requestAnimationFrame(loop)},step(seconds){const n=Math.ceil(clamp(seconds,0,10)*60);for(let i=0;i<n;i++){if(replaying)advanceReplay(1/60);else if(!paused||activeContact)simulate(1/60);if(i<n-1)camera(1/60)}present(1/60,1);updateSkillButtons()},setSnapNumber(value){if(phase!=='pre')return false;drive.plays=Math.max(0,Math.trunc(Number(value)||0));setup(playbookOpen);camera(1);scene(.016,simTime*1000);return true},forceContact,flipPlay,motionReceiver,identifyMike,watchReplay};window.bk3dDiagnostics=()=>{const qb=actors[5],nearest=Math.min(...actors.filter(p=>p.team===1&&!p.engaged&&!p.fallen&&(p.role==='DL'||defensiveCall.blitzers.includes(p.index))).map(p=>Math.hypot(p.x-qb.x,p.z-qb.z)),8);return({unit:liveUnit?.state?{...liveUnit.state}:null,mini:mini?{...mini,level:miniConfig.level.id}:null,phase,mode,selected,assist,playbook:{open:playbookOpen,filter:bookFilter,formation:bookFormation,choice:{...bookChoice}},formation:currentPlay().formation,playId:currentPlay().id,optionChoice,throwing:pendingThrow?{releaseAt:pendingThrow.releaseAt}:null,camera:{eye:[...r.eye],target:[...r.target]},exchange:exchange?{kind:exchange.kind,ball:[...exchange.ball]}:null,transitionFade,elapsed,simTime,presentationTime:lastPresentationTime,paused,ended,lastSkill,lastTackler,catchStyle,preSnap:{runDirection,mikeIndex,motioned,moving:Boolean(receiverMotion),panel:prePanel,playArt:playArtVisible},replay:{available:lastHighlight.length,replaying},defense:{index:defensiveCallIndex,id:defensiveCall.id,name:defensiveCall.name,coverage:defensiveCall.coverage,blitzers:[...defensiveCall.blitzers]},contact:activeContact?{type:activeContact.type,elapsed:activeContact.elapsed,duration:activeContact.duration,tackler:activeContact.tackler,helper:activeContact.helper}:null,effects:{turf:turfFx.length,contact:Boolean(contactFx)},throwKind:flight?.kind||null,protectionAge:simTime-(qb.protectionStartedAt??simTime),pocketPressure:phase==='pass'?pocketThreat(qb,actors.filter(p=>p.team===1),elapsed):0,frames:frameId,drawCalls:r.drawCalls,glError:r.gl.getError(),athletes:meshy.diagnostics(),players:actors.map(p=>({role:p.role,lastName:p.lastName,number:p.number,playerId:p.playerId,teamAbbr:p.teamAbbr,overall:p.overall,kitJersey:p.kitJersey,team:p.team,ratings:p.ratings,x:p.x,z:p.z,startX:p.startX,startZ:p.startZ,vx:p.vx,vz:p.vz,distance:p.distance,heading:p.heading,hasBall:p.hasBall,engaged:p.engaged,engagedWith:p.engagedWith,blockStyle:p.blockStyle,blockResult:p.blockResult,routeStyle:p.routeStyle,coverageStyle:p.coverageStyle,fallen:p.fallen,action:p.action,actionT:p.actionT,actionSide:p.actionSide,fallHeading:p.fallHeading,contactWith:p.contactWith,contactRole:p.contactRole,contactVariant:p.contactVariant,ballTarget:p.ballTarget,lookTarget:p.lookTarget,receiving:p.receiving,catchStyle:p.catchStyle,throwT:p.throwT,throwStyle:p.throwStyle,topSpeed:playerTopSpeed(p),pose:p.motion?{speed:p.motion.speed,run:p.motion.run,ready:p.motion.ready,block:p.motion.block,turn:p.motion.turn,gait:p.motion.gait,fall:p.motion.fall}:null,head:r.project([p.x,2.1,p.z]),foot:r.project([p.x,0,p.z])})),drive:{...drive},field:{scrimmage:snapZ,lineToGain:snapGainZ},stamina,worldObjects:stadium.parts})};}

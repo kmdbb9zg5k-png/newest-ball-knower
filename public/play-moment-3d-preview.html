@@ -77,13 +77,18 @@
 <div id="rotate"><div><b>TURN THE FIELD SIDEWAYS</b><p>Rotate your phone for the 3D practice preview.</p><a href="/">Back to Ball Knower</a></div></div>
 <script type="module">
 import {reportArenaField} from '/football-arena-bridge.js?v=field-status-1';
+const legendsToken=new URLSearchParams(location.search).get('bkLegends');
+function reportLegendsFailure(){
+  if(legendsToken&&window.parent!==window)window.parent.postMessage({type:'bk-legends-field-failed',token:legendsToken},location.origin);
+}
 let graphicsLost = false;
 document.getElementById('game').addEventListener('webglcontextlost', () => {
   graphicsLost = true;
   reportArenaField('failed');
+  reportLegendsFailure();
 });
 try {
-  const {start}=await import('/play-moment-3d/game.js?v=arena-mobile-recovery-1');
+  const {start}=await import('/play-moment-3d/game.js?v=bk-legends-2');
   await start();
   if (!graphicsLost) reportArenaField('ready');
 } catch(error) {
@@ -91,6 +96,7 @@ try {
   document.getElementById('error').hidden=false;
   document.getElementById('errorText').textContent='The 3D preview could not start. Your saved career is unchanged.';
   reportArenaField('failed');
+  reportLegendsFailure();
   console.error(error);
 }
 </script>
