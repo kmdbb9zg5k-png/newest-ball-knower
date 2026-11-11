@@ -108,3 +108,42 @@
 .bkl-pack-choice h3{font-size:.85rem;overflow-wrap:anywhere}
 .bkl-pack-choice strong{color:var(--bkl-gold)}
 .bkl-pack-choice button{padding-inline:3px}
+
+.bkl .bkl-campaign-art {
+  background: linear-gradient(90deg,#07080bed,#07080b70 58%,#07080b08),url('/images/bk-legends-campaign.webp') right 32%/cover;
+  border-color:#95743b;
+}
+.bkl-depth-banner {
+  min-height:clamp(144px,38vw,235px);
+  align-content:center;
+  justify-items:start;
+  padding-inline:clamp(16px,4vw,30px);
+  text-align:left;
+  background:linear-gradient(90deg,#08090ced,#08090b50 68%),url('/images/bk-legends-squad.webp') right 28%/cover;
+}
+.bkl-art-panel {overflow:hidden;--bkl-art-inset:clamp(14px,3vw,23px)}
+.bkl-tab-art {
+  display:grid;
+  align-content:end;
+  justify-items:start;
+  gap:9px;
+  min-height:clamp(174px,45vw,265px);
+  margin:calc(-1 * var(--bkl-art-inset)) calc(-1 * var(--bkl-art-inset)) 0;
+  padding:clamp(16px,4vw,30px);
+  border-bottom:1px solid #8d6b36;
+  background:linear-gradient(90deg,#08090ce8,#08090c54 65%),var(--bkl-tab-photo) right 36%/cover;
+}
+.bkl-training-art {--bkl-tab-photo:url('/images/bk-legends-training.webp')}
+.bkl-exchange-art {--bkl-tab-photo:url('/images/bk-legends-exchange.webp')}
+.bkl-tab-art h1 {max-width:10ch;font-style:italic}
+.bkl-tab-art .bkl-kicker {color:var(--bkl-gold);text-shadow:0 1px 3px #000}
+.bkl-art-panel .bkl-drills>div {
+  padding:12px;
+  border:1px solid #695433;
+  border-radius:10px;
+  background:linear-gradient(115deg,#2c2317,#14151b 65%);
+}
+.bkl-art-panel .bkl-player {
+  background:linear-gradient(140deg,#49351b,#19171a 60%);
+  border-color:#8d6b36;
+}

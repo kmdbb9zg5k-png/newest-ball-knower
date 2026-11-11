@@ -146,13 +146,13 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
     <nav className="bkl-tabs" aria-label="BK Legends sections">{sections.map(item =>
       <button key={item} type="button" aria-pressed={section === item} onClick={() => selectSection(item)}>{item}</button>)}</nav>
     {notice && <p className="bkl-notice" role="status">{notice}</p>}
-    {!save.starterOpened && section !== 'My Squad' ? <section className="bkl-hero">
+    {!save.starterOpened && section !== 'My Squad' ? <section className="bkl-hero bkl-campaign-art">
       <p>BK Legends</p><h1>Road to<br/><em>Legend</em></h1>
       <span>Build a squad and take it through 80 challenges.</span>
       <button className="bkl-gold" onClick={() => change(openStarter, 'Your starting lineup is ready.')}>Open free Starter Pack <ArrowRight aria-hidden="true"/></button>
     </section> : <>
       {section === 'Campaign' && <>
-        <section className="bkl-hero">
+        <section className="bkl-hero bkl-campaign-art">
           <p>BK Legends campaign</p><h1>Road to<br/><em>Legend</em></h1>
           <span>{save.complete} / {CAMPAIGN.length} complete</span>
           <progress max={CAMPAIGN.length} value={save.complete} aria-label="Campaign progress"/>
@@ -266,13 +266,19 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
           </>}
         </>}
       </section>}
-      {section === 'Training' && <section className="bkl-panel">
-        <p className="bkl-kicker"><Dumbbell aria-hidden="true"/> {format.format(save.training)} Training Points</p><h1>Training Ground</h1>
+      {section === 'Training' && <section className="bkl-panel bkl-art-panel">
+        <header className="bkl-tab-art bkl-training-art">
+          <p className="bkl-kicker"><Dumbbell aria-hidden="true"/> {format.format(save.training)} Training Points</p>
+          <h1>Training Ground</h1>
+        </header>
         <p>Win a drill to earn 100 Training Points. Spend them in My Squad to upgrade a starter.</p>
         <div className="bkl-drills">{TRAINING.map(drill => <div key={drill.id}><div><h2>{drill.title}</h2><p>{goalText(drill)}</p></div><button onClick={() => launch(drill)}>Play drill</button></div>)}</div>
       </section>}
-      {section === 'Exchange' && <section className="bkl-panel">
-        <p className="bkl-kicker"><Shield aria-hidden="true"/> {duplicates(save)} spare copies</p><h1>Player Exchange</h1>
+      {section === 'Exchange' && <section className="bkl-panel bkl-art-panel">
+        <header className="bkl-tab-art bkl-exchange-art">
+          <p className="bkl-kicker"><Shield aria-hidden="true"/> {duplicates(save)} spare copies</p>
+          <h1>Player Exchange</h1>
+        </header>
         <p>Trade any 3 spare copies for the player shown. Your first copy of every card stays in your collection.</p>
         <PositionPicker position={position} onChange={setPosition}/>
         {exchangeTarget && <PlayerCard id={exchangeTarget} action={save.owned[exchangeTarget] ? 'Already owned' : 'Exchange 3 spare copies'} disabled={Boolean(save.owned[exchangeTarget]) || duplicates(save) < 3} onAction={() => change(state => exchangeCard(state, position), 'Exchange complete. Player added to your collection.')}/>}
