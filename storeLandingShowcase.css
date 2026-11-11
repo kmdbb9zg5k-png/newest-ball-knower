@@ -86,3 +86,11 @@
 .bk-cinema-hero-feature{z-index:8;pointer-events:none}.bk-cinema-hero-feature button{pointer-events:auto}
 @media(max-width:830px){.bk-cinema-hero-cast{left:19%}.bk-cinema-hero-person{width:44%}.bk-cinema-hero-person-0{left:-13%}.bk-cinema-hero-person-1{left:7%}.bk-cinema-hero-person-2{left:29%}.bk-cinema-hero-person-3{left:51%}.bk-cinema-hero-person-4{left:73%}.bk-cinema-hero-person-5{left:93%}}
 @media(max-width:480px){.bk-cinema-hero{min-height:300px}.bk-cinema-hero-cast{left:13%}.bk-cinema-hero-person{width:58%;top:5%;height:93%}.bk-cinema-hero-person-0{left:-22%;z-index:2}.bk-cinema-hero-person-1{left:4%;top:12%;height:86%;z-index:5}.bk-cinema-hero-person-2{left:32%;top:2%;height:96%;z-index:6}.bk-cinema-hero-person-3{left:63%;top:12%;height:86%;z-index:4}.bk-cinema-hero-person-4{left:90%;z-index:3}.bk-cinema-hero-person-5{display:none}.bk-cinema-hero-person img{transform:scale(1.55)}.bk-cinema-hero::after{background:linear-gradient(90deg,#08080dfc 0%,#08080df1 26%,#08080d7c 47%,transparent 80%),linear-gradient(0deg,#08080de9 0%,transparent 42%)}.bk-cinema-hero-copy{max-width:72%;padding-top:23px}.bk-cinema-hero-feature{right:9px;bottom:12px;max-width:48%}.bk-cinema-hero-feature strong{font-size:20px}.bk-cinema-hero-feature small{font-size:7px}}
+
+/* Prevent the baked-in promotional poster lettering from dominating the hero.
+   Original studio portraits for Nicki and Dee, original concept for YoungBoy. */
+.bk-cinema-hero-person-1 img,.bk-cinema-hero-person-2 img{object-position:center 32%;transform:scale(1.12);filter:contrast(1.15) saturate(1.04)}
+.bk-cinema-hero-person-3 img{object-position:50% 45%;transform:scale(1.15)}
+.bk-cinema-hero-person-1,.bk-cinema-hero-person-2{mix-blend-mode:normal}
+.bk-cinema-hero-person-1::before,.bk-cinema-hero-person-2::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#1b140f,#51351d,#171113)}
+@media(max-width:480px){.bk-cinema-hero-person-1 img,.bk-cinema-hero-person-2 img{transform:scale(1.22)}.bk-cinema-hero-person-3 img{transform:scale(1.2)}}
