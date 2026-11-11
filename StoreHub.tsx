@@ -360,7 +360,7 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
   </div>;
 
   if (department === 'helmets' && page !== 'rewards') return <Suspense fallback={<p role="status">Loading helmet collection…</p>}>
-    <HelmetShop onOpenLocker={onOpenLocker} onNavigate={next => {
+    <HelmetShop onNavigate={next => {
       if (next === 'coins') { setDepartment('featured'); openPage('rewards'); }
       else if (next === 'cleats' || next === 'bundles') { setDepartment('all'); setFilter(next === 'cleats' ? 'game-gear' : 'bundles'); openPage('catalog'); }
       else { setDepartment(next); setFilter('all'); openPage('featured'); }

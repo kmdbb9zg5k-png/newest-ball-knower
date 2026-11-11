@@ -59,7 +59,7 @@
 .bk-h-matching{margin-top:22px}.bk-h-matching h3{font-size:18px;text-transform:uppercase;margin:0 0 10px;padding-bottom:9px;border-bottom:1px solid #ffffff22}
 .bk-h-matching-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
 .bk-h-matching-grid button{display:grid;justify-items:center;gap:7px;background:#101217;border:1px solid #ffffff29;border-radius:6px;padding:10px 2px}
-.bk-h-matching-pic{height:38px;display:grid;place-items:center;color:#d6ab55}
+.bk-h-matching-pic{width:100%;height:48px;display:block;background-image:url("/store/bk-helmet-accessories.webp");background-size:400% 100%;background-repeat:no-repeat}
 .bk-h-mini-price{font-size:10px;gap:2px}.bk-h-mini-price .bk-h-coin{width:17px;height:17px;font-size:7px}
 .bk-h-locker{width:100%;min-height:42px;margin-top:15px;border:1px solid #b8a26a;border-radius:8px;background:#1b1a16;text-transform:uppercase;font-size:13px}
 .bk-h-disclaimer{font:11px/1.35 Arial,sans-serif;color:#9e9ca1;text-align:center;margin:14px 0 0}
@@ -68,3 +68,4 @@
 @media (max-width:850px) { .bk-h-shell{grid-template-columns:1fr;gap:10px}.bk-h-side{padding:0}.bk-h-brand,.bk-h-promo{display:none}.bk-h-side-nav{display:flex;gap:7px;overflow-x:auto;scrollbar-width:thin;padding:2px 2px 8px}.bk-h-side-nav button{width:auto;flex:none;padding:10px 12px}.bk-h-mobile-back{display:flex!important;gap:6px;align-items:center;border:0;background:none;margin:6px 0 10px;font-size:14px}.bk-h-toolbar{flex-wrap:wrap}.bk-h-detail{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,1fr);align-items:start}.bk-h-detail-image > img{aspect-ratio:1.03/1}.bk-h-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:9px}.bk-h-item strong{font-size:12px}.bk-h-item .bk-h-tier{font-size:10px}}
 @media (max-width:620px) { .bk-h-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.bk-h-item-image{aspect-ratio:1.1/1}.bk-h-item strong{font-size:16px;min-height:0}.bk-h-cost{font-size:15px}.bk-h-item .bk-h-tier{font-size:11px}.bk-h-detail{display:block}.bk-h-detail-image > img{max-height:390px;object-fit:contain}.bk-h-hero{aspect-ratio:2.2/1}.bk-h-hero img{object-fit:cover}.bk-h-filters button{font-size:12px}.bk-h-sort select{font-size:12px}.bk-h-detail-image{min-height:200px}.bk-h-matching-grid button{min-height:74px}}
 @media (prefers-reduced-motion:reduce){.bk-h-item,.bk-h-side-nav button{transition:none}}
+.bk-h-detail-image[data-gold="true"] .bk-h-360, .bk-h-detail-image[data-gold="true"] .bk-h-step{opacity:0;}

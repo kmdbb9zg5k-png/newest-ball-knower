@@ -39,7 +39,7 @@ const matchingGear = [
   { name: 'Gold Visor', price: 500, icon: Glasses },
 ] as const;
 
-export default function HelmetShop({ onNavigate, onOpenLocker }: { onNavigate: (destination: HelmetNavigation) => void; onOpenLocker: () => void }) {
+export default function HelmetShop({ onNavigate }: { onNavigate: (destination: HelmetNavigation) => void }) {
   const [filter, setFilter] = useState<Filter>('all');
   const [sort, setSort] = useState<Sort>('newest');
   const [selectedId, setSelectedId] = useState('gold-standard');
@@ -90,9 +90,9 @@ export default function HelmetShop({ onNavigate, onOpenLocker }: { onNavigate: (
       </div>
 
       <aside className="bk-h-detail" style={styleFor(selected)} aria-label={`${selected.name} helmet details`}>
-        <div className="bk-h-detail-image">
+        <div className="bk-h-detail-image" data-gold={selected.id === 'gold-standard' ? 'true' : undefined}>
           <button type="button" className="bk-h-360" onClick={() => setNotice('three-d')} aria-label="360-degree preview status"><RotateCcw size={22}/><span>360°</span></button>
-          <img key={selected.id} src={helmetImage(selected.id)} alt={`${selected.name} helmet concept artwork`}/>
+          <img key={selected.id} src={selected.id === 'gold-standard' ? '/store/bk-helmet-gold-preview.webp' : helmetImage(selected.id)} alt={`${selected.name} helmet concept artwork`}/>
           <button type="button" className="bk-h-step bk-h-step-left" onClick={() => move(-1)} aria-label="Previous helmet"><ChevronLeft size={29}/></button>
           <button type="button" className="bk-h-step bk-h-step-right" onClick={() => move(1)} aria-label="Next helmet"><ChevronRight size={29}/></button>
         </div>
@@ -103,9 +103,8 @@ export default function HelmetShop({ onNavigate, onOpenLocker }: { onNavigate: (
           <button type="button" className="bk-h-buy" onClick={() => setNotice('buy')}><span className="bk-h-price"><span className="bk-h-coin">BK</span>{formatCoins(selected.price)}</span><span>Buy Now</span><ShoppingCart size={20} aria-hidden="true"/></button>
           {notice && <p className="bk-h-notice" role="status">{notice === 'three-d' ? '360° model is not available yet. This is the approved helmet artwork.' : notice === 'gear' ? 'Matching gear is a visual preview. Accessories are not for sale yet.' : 'Preview price only. BK Coin checkout is not enabled, and no coins have been deducted.'}</p>}
           <div className="bk-h-matching"><h3>Complete the Look</h3><div className="bk-h-matching-grid">
-            {matchingGear.map(({ name, price, icon: Icon }) => <button type="button" key={name} onClick={() => setNotice('gear')} aria-label={`${name}, ${formatCoins(price)} proposed BK Coins`}><span className="bk-h-matching-pic"><Icon size={30} strokeWidth={1.5} aria-hidden="true"/></span><span className="bk-h-mini-price"><span className="bk-h-coin">BK</span>{formatCoins(price)}</span></button>)}
+            {matchingGear.map(({ name, price }, index) => <button type="button" key={name} onClick={() => setNotice('gear')} aria-label={`${name}, ${formatCoins(price)} proposed BK Coins`}><span className="bk-h-matching-pic" style={{ backgroundPosition: `${index * 100 / 3}% center` }} aria-hidden="true"/><span className="bk-h-mini-price"><span className="bk-h-coin">BK</span>{formatCoins(price)}</span></button>)}
           </div></div>
-          <button type="button" className="bk-h-locker" onClick={onOpenLocker}>Open My Locker</button>
           <p className="bk-h-disclaimer">Helmet artwork is a store concept. 3D wearables and coin purchases are not active yet.</p>
         </div>
       </aside>
