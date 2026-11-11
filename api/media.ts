@@ -41,6 +41,12 @@ function cleanTitle(pathname: string) {
 }
 
 const titleKey=(title:string)=>title.toLowerCase().replace(/[^a-z0-9]+/g,'');
+// Song-specific display titles only; files remain discoverable from Vercel Blob,
+// and are never advertised as playable before their actual uploads exist.
+const approvedDisplayTitles: Record<string,string> = {
+  focusbelongstome: 'Focus Belongs to Me',
+  youlethimin: 'You Let Him In',
+};
 
 export default async function handler(_req: any, res: any) {
   try {
@@ -52,7 +58,8 @@ export default async function handler(_req: any, res: any) {
     // Some tracks can stay safely archived in Blob while being hidden from the app playlist.
     const byTitle = new Map<string, any>();
     for (const blob of audio) {
-      const title = cleanTitle(blob.pathname);
+      const cleanedTitle = cleanTitle(blob.pathname);
+      const title = approvedDisplayTitles[titleKey(cleanedTitle)] || cleanedTitle;
       if (!title || HIDDEN_TRACK_TITLES.has(title.toLowerCase()) || isRetiredSoundtrackTrack(`${title} ${blob.pathname}`)) continue;
 
       const key=titleKey(title),prev = byTitle.get(key)?.blob;
