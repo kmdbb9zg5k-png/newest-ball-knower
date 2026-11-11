@@ -5,6 +5,8 @@ import { globalSoundtrackEngine, SoundtrackTrack } from './soundtrackEngine';
 import { loadUserState, saveUserState } from './userStateCloud';
 import { keepActiveSoundtrackTrack, soundtrackVolume } from './soundtrackPolicy';
 
+type PlaybackPosition = { elapsed: number; duration: number };
+
 type MediaTrack = SoundtrackTrack & { url?: string; manualOnly?: boolean };
 
 interface SoundtrackContextType {
@@ -15,7 +17,13 @@ interface SoundtrackContextType {
   currentTrackIndex: number;
   allTracks: MediaTrack[];
   toggleMute: () => void;
-  setVolume: (vol: number) => void;
+  setVolume: (vol: number, unmute?: boolean) => void;
+  shuffle: boolean;
+  repeat: boolean;
+  toggleShuffle: () => void;
+  toggleRepeat: () => void;
+  observePosition: (listener: (position: PlaybackPosition) => void) => () => void;
+  seek: (seconds: number) => void;
   nextTrack: () => void;
   prevTrack: () => void;
   selectTrack: (index: number) => void;
@@ -69,8 +77,39 @@ const adjacentTrackIndex = (tracks: MediaTrack[], currentIndex: number, directio
 
 const absoluteTrackUrl = (url: string) => new URL(url, window.location.href).href;
 
+function soundtrackGain(audio: HTMLAudioElement) {
+  // iOS can accept assignments to media volume without attenuating the sound.
+  const iOS = /iPhone|iPad|iPod/.test(window.navigator?.userAgent ?? '') ||
+    (window.navigator?.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1);
+  audio.volume = .5;
+  const needsGain = iOS || audio.volume !== .5;
+  audio.volume = 1;
+  const AudioContextClass = window.AudioContext ||
+    (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!needsGain || !AudioContextClass) return null;
+
+  let context: AudioContext | undefined;
+  try {
+    context = new AudioContextClass();
+    const gain = context.createGain();
+    gain.connect(context.destination);
+    context.createMediaElementSource(audio).connect(gain);
+    // Set before assigning a source. The public soundtrack store permits CORS.
+    audio.crossOrigin = 'anonymous';
+    return { context, gain };
+  } catch {
+    void context?.close().catch(() => {});
+    return null;
+  }
+}
+
 export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const gainRef = useRef<ReturnType<typeof soundtrackGain>>(null);
+  const resumeGain = useCallback(() => {
+    const context = gainRef.current?.context;
+    if (context && context.state !== 'running') void context.resume().catch(() => {});
+  }, []);
   const tracksRef = useRef<MediaTrack[]>([]);
   const shouldPlayRef = useRef(false);
   const introActiveRef = useRef(true);
@@ -96,6 +135,9 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [volume, setVolumeState] = useState<number>(() => { try { const v=localStorage.getItem(STORAGE_KEY_VOLUME); return v!==null ? soundtrackVolume(v) : .22; } catch { return .22; } });
   const [currentTrackIndex, setCurrentTrackIndex] = useState<number>(() => { try { return parseInt(localStorage.getItem(STORAGE_KEY_TRACK)||'0',10)||0; } catch { return 0; } });
   const [isPlaying, setIsPlaying] = useState(false);
+  const [shuffle, setShuffle] = useState(true);
+  const shuffleRef = useRef(true);
+  const [repeat, setRepeat] = useState(false);
   const [isIntroActive, setIsIntroActiveState] = useState(true);
   const preferencesOwner = useRef<string | null>((()=>{try{return localStorage.getItem('ballknower_cloud_owner_v1');}catch{return null;}})());
 
@@ -138,10 +180,14 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!audioRef.current) {
       const audio = new Audio();
       audio.preload = 'metadata';
+      gainRef.current = soundtrackGain(audio);
       const handlePlay = () => setIsPlaying(true);
       const handlePause = () => setIsPlaying(false);
       const advance = () => {
-        const loaded=tracksRef.current,nextIndex=takeShuffledTrackIndex(loaded,currentTrackIndexRef.current),track=loaded[nextIndex];
+        const loaded = tracksRef.current;
+        const index = currentTrackIndexRef.current;
+        const nextIndex = shuffleRef.current ? takeShuffledTrackIndex(loaded, index) : adjacentTrackIndex(loaded, index, 1);
+        const track = loaded[nextIndex];
         currentTrackIndexRef.current=nextIndex;setCurrentTrackIndex(nextIndex);playbackVersionRef.current+=1;
         // Browsers may emit pause before ended. Start the next track from the
         // user's playback intent instead of the transient isPlaying state.
@@ -197,6 +243,8 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         audio.removeEventListener('ended', handleEnded);
         audio.pause();
         audioRef.current=null;playbackVersionRef.current+=1;
+        void gainRef.current?.context.close().catch(() => {});
+        gainRef.current = null;
         recoveredTrackUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
         recoveredTrackUrlsRef.current.clear();
       };
@@ -205,8 +253,12 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   useEffect(() => {
     const a = audioRef.current; if (!a) return;
-    a.volume = Math.max(0,Math.min(1,volume));
-    a.muted = isMuted;
+    const graph = gainRef.current;
+    if (graph) graph.gain.gain.value = isMuted ? 0 : volume;
+    else {
+      a.volume = volume;
+      a.muted = isMuted || volume === 0;
+    }
     try {
       localStorage.setItem(STORAGE_KEY_MUTED, JSON.stringify(isMuted));
       localStorage.setItem(STORAGE_KEY_VOLUME, String(volume));
@@ -230,6 +282,30 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return () => window.clearTimeout(timer);
   }, [isMuted, volume, preferencesReady]);
 
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.loop = repeat;
+  }, [repeat]);
+
+  const observePosition = useCallback((listener: (position: PlaybackPosition) => void) => {
+    const audio = audioRef.current;
+    if (!audio) return () => {};
+    const update = () => listener({
+      elapsed: audio.currentTime || 0,
+      duration: Number.isFinite(audio.duration) ? audio.duration : 0,
+    });
+    const events = ['timeupdate', 'durationchange', 'emptied', 'seeked'];
+    events.forEach(event => audio.addEventListener(event, update));
+    update();
+    return () => events.forEach(event => audio.removeEventListener(event, update));
+  }, []);
+
+  const seek = useCallback((seconds: number) => {
+    const audio = audioRef.current;
+    if (audio && Number.isFinite(audio.duration) && Number.isFinite(seconds)) {
+      audio.currentTime = Math.min(audio.duration, Math.max(0, seconds));
+    }
+  }, []);
+
   const startIndex = useCallback((idx:number) => {
     shouldPlayRef.current = true;
     if (introActiveRef.current || !appActiveRef.current || !tracks.length) return;
@@ -242,9 +318,9 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setCurrentTrackIndex(normalized);
     const nextUrl = recoveredTrackUrlsRef.current.get(track.url)||absoluteTrackUrl(track.url);
     if (a.src !== nextUrl) a.src = nextUrl;
-    a.volume = volume; a.muted = isMuted;
+    resumeGain();
     a.play().then(()=>setIsPlaying(true)).catch(()=>setIsPlaying(false));
-  }, [tracks,volume,isMuted]);
+  }, [tracks,resumeGain]);
 
   useEffect(() => {
     if (!tracks.length || introActiveRef.current || !shouldPlayRef.current) return;
@@ -266,13 +342,26 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const play = useCallback(() => startIndex(currentTrackIndex), [startIndex,currentTrackIndex]);
   const pause = useCallback(() => { shouldPlayRef.current = false; audioRef.current?.pause(); setIsPlaying(false); }, []);
   const toggleMute = useCallback(() => {preferencesEditedRef.current=true;setIsMuted(v=>!v);}, []);
-  const setVolume = useCallback((v:number) => {preferencesEditedRef.current=true;setVolumeState(soundtrackVolume(v));}, []);
+  const setVolume = useCallback((value: number, unmute = false) => {
+    preferencesEditedRef.current = true;
+    const nextVolume = soundtrackVolume(value);
+    setVolumeState(nextVolume);
+    if (unmute && nextVolume > 0) setIsMuted(false);
+  }, []);
+  const toggleShuffle = useCallback(() => {
+    shuffleRef.current = !shuffleRef.current;
+    shuffleQueueRef.current = [];
+    setShuffle(shuffleRef.current);
+  }, []);
+  const toggleRepeat = useCallback(() => setRepeat(value => !value), []);
   const selectTrack = useCallback((i:number) => {
     // Explicit selection counts as hearing this song in the current shuffle.
     shuffleQueueRef.current = shuffleQueueRef.current.filter(index => index !== i);
     startIndex(i);
   }, [startIndex]);
-  const nextTrack = useCallback(() => startIndex(takeShuffledTrackIndex(tracks, currentTrackIndex)), [startIndex,tracks,currentTrackIndex]);
+  const nextTrack = useCallback(() => startIndex(shuffleRef.current
+    ? takeShuffledTrackIndex(tracks, currentTrackIndex)
+    : adjacentTrackIndex(tracks, currentTrackIndex, 1)), [startIndex,tracks,currentTrackIndex]);
   const prevTrack = useCallback(() => startIndex(adjacentTrackIndex(tracks, currentTrackIndex, -1)), [startIndex,tracks,currentTrackIndex]);
 
   const setIntroActive = useCallback((active:boolean) => {
@@ -293,9 +382,9 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   useEffect(() => {
     const resume = () => {
       const audio = audioRef.current;
-      if (!introActiveRef.current && appActiveRef.current && shouldPlayRef.current && audio?.paused && tracksRef.current.length) {
-        audio.play().then(()=>setIsPlaying(true)).catch(()=>setIsPlaying(false));
-      }
+      if (introActiveRef.current || !appActiveRef.current || !shouldPlayRef.current || !audio || !tracksRef.current.length) return;
+      resumeGain();
+      if (audio.paused) audio.play().then(()=>setIsPlaying(true)).catch(()=>setIsPlaying(false));
     };
     const resumeWhenVisible = () => {
       appActiveRef.current = nativeActiveRef.current && document.visibilityState === 'visible';
@@ -332,7 +421,7 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       document.removeEventListener('visibilitychange', resumeWhenVisible);
       void removeNativeListener?.();
     };
-  }, []);
+  }, [resumeGain]);
 
   const playDraftPickSfx = useCallback(()=>globalSoundtrackEngine.playDraftPickSound(),[]);
   const playRemoveSfx = useCallback(()=>globalSoundtrackEngine.playRemovePlayerSound(),[]);
@@ -340,7 +429,7 @@ export const SoundtrackProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const playWarningSfx = useCallback(()=>globalSoundtrackEngine.playWarningSound(),[]);
   const currentTrack = tracks[currentTrackIndex % Math.max(1,tracks.length)] || FALLBACK_TRACK;
 
-  return <SoundtrackContext.Provider value={{isPlaying,isMuted,volume,currentTrack,currentTrackIndex,allTracks:tracks,toggleMute,setVolume,nextTrack,prevTrack,selectTrack,play,pause,playDraftPickSfx,playRemoveSfx,playLockSfx,playWarningSfx,setIntroActive,isIntroActive}}>{children}</SoundtrackContext.Provider>;
+  return <SoundtrackContext.Provider value={{isPlaying,isMuted,volume,currentTrack,currentTrackIndex,allTracks:tracks,toggleMute,setVolume,shuffle,repeat,toggleShuffle,toggleRepeat,observePosition,seek,nextTrack,prevTrack,selectTrack,play,pause,playDraftPickSfx,playRemoveSfx,playLockSfx,playWarningSfx,setIntroActive,isIntroActive}}>{children}</SoundtrackContext.Provider>;
 };
 
 export const useSoundtrack = () => {
