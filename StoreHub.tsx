@@ -19,6 +19,7 @@ const HelmetShop = lazy(() => import('./HelmetShop'));
 const JerseyShop = lazy(() => import('./JerseyShop'));
 const PantsShop = lazy(() => import('./PantsShop'));
 const CleatShop = lazy(() => import('./CleatShop'));
+const AccessoriesShop = lazy(() => import('./AccessoriesShop'));
 const BKFYoungBoyPose = lazy(() => import('./BKFYoungBoyPose'));
 const StoreCharacterPreview = lazy(() => import('./StoreCharacterPreview'));
 const BKFFrostbitePose = lazy(() => import('./BKFFrostbitePose'));
@@ -388,6 +389,13 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
   </Suspense>;
   if (department === 'cleats' && page !== 'rewards') return <Suspense fallback={<p role="status">Loading cleat collection…</p>}>
     <CleatShop onNavigate={next => {
+      if (next === 'coins') { setDepartment('featured'); openPage('rewards'); }
+      else if (next === 'bundles') { setDepartment('all'); setFilter('bundles'); openPage('catalog'); }
+      else { setDepartment(next); setFilter('all'); openPage('featured'); }
+    }}/>
+  </Suspense>;
+  if (department === 'accessories' && page !== 'rewards') return <Suspense fallback={<p role="status">Loading accessory collection…</p>}>
+    <AccessoriesShop onNavigate={next => {
       if (next === 'coins') { setDepartment('featured'); openPage('rewards'); }
       else if (next === 'bundles') { setDepartment('all'); setFilter('bundles'); openPage('catalog'); }
       else { setDepartment(next); setFilter('all'); openPage('featured'); }
