@@ -1,5 +1,5 @@
 .bk-profile-athlete{display:grid;gap:8px;min-width:0;margin:0 0 10px;position:relative}
-.bk-profile-athlete .bk-athlete-profile-showcase{position:relative;top:auto;isolation:isolate;margin:0;width:100%;height:clamp(260px,68vw,370px);min-height:0;border:1px solid #b68c49;border-radius:14px;overflow:hidden;background:linear-gradient(0deg,#08090ee0,#0b0b121a 67%),url('/atmosphere/play-stadium-tunnel-v1.webp') center 58%/cover}
+.bk-profile-athlete .bk-athlete-profile-showcase{position:relative;top:auto;isolation:isolate;margin:0;width:100%;height:clamp(260px,68vw,370px);min-height:0;border:1px solid #b68c49;border-radius:14px;overflow:hidden;background:linear-gradient(0deg,#08090ee8,transparent 30%,transparent 76%,#08090e95),url('/profile/cinematic/athlete-showcase-foil.webp') center/cover}
 .bk-athlete-profile-showcase figcaption{position:absolute;top:12px;left:12px;z-index:1;color:#ffdc89;font-size:.75rem;font-weight:800;letter-spacing:.06em}
 .bk-athlete-profile-showcase figcaption span{margin-left:8px;color:#fff4df}
 .bk-profile-athlete .bk-athlete-3d-stage{position:absolute;inset:24px 0 42px;overflow:hidden;touch-action:pan-y}
