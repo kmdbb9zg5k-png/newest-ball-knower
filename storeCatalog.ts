@@ -70,13 +70,13 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
   BLACKOUT_KIT,
   ...FEATURED_PACKS,
   {
-    id: 'bfk-dee', name: 'BFK Dee',
+    id: 'bfk-dee', name: 'BKF Dee',
     summary: 'Black leather, burgundy top & matching high-tops',
-    description: 'BFK Dee pairs a black leather jacket with a burgundy crop top, loose leather cargo pants and burgundy, black and white sneakers. Explore the full poster and full-body A-pose photo. Wearable items, purchasing and gifting are not available yet.',
+    description: 'BKF Dee pairs a black leather jacket with a burgundy crop top, loose leather cargo pants and burgundy, black and white sneakers. Explore the full poster and full-body A-pose photo. Wearable items, purchasing and gifting are not available yet.',
     priceCents: 0, categories: ['tunnel-fits', 'bundles'],
     includes: ['Black leather jacket', 'Burgundy crop top', 'Black leather cargo pants', 'Burgundy, black and white sneakers', 'BK necklace', 'Earrings'],
-    use: 'BFK Dee outfit pack · Photo collection',
-    showcase: { look: '/store/bfk-dee-apose-v2.webp', collection: 'BFK Dee · Burgundy & Leather Collection', theme: 'dee', pose: 'A-pose' },
+    use: 'BKF Dee outfit pack · Photo collection',
+    showcase: { look: '/store/bfk-dee-apose-v2.webp', collection: 'BKF Dee · Burgundy & Chrome Collection', theme: 'dee', pose: 'A-pose' },
   },
   {
     id: 'bk-femme', name: 'BKF Nicki', proposedCoins: 1500,
