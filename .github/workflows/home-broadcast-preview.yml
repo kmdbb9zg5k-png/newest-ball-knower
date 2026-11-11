@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: 22
       - run: npm ci --no-audit --no-fund
-      - run: npm run lint && npm run check:home-dashboard && node --import tsx scripts/home-broadcast-check.ts
+      - run: npm run lint && npm run check:home-dashboard && node --import tsx scripts/home-broadcast-check.ts && node scripts/home-stadium-impact-check.mjs
       - run: npx playwright install --with-deps chromium
       - run: npm run build && npm run check:root-bundle
       - name: Verify Home navigation, motion, headlines and narrow-screen layout
