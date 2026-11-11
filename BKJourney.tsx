@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, CalendarDays, Check, CheckCircle2, CircleHelp, Coins, Crown, Flame, Gift, LockKeyhole, RefreshCw, ShieldCheck, Sparkles, Target, Trophy, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, Check, CheckCircle2, Coins, Crown, Flame, Gift, LockKeyhole, RefreshCw, ShieldCheck, Sparkles, TrendingUp, Trophy, Gamepad2, BrainCircuit, Shirt, X } from 'lucide-react';
 import type { AppTab } from './App';
 import { ensureOnlineSession, supabase } from './supabase';
 import './bkJourney.css';
@@ -18,9 +18,11 @@ const milestones = [
 ] as const;
 
 const missions = [
-  { id: 'trivia', title: 'NFL TRIVIA', caption: 'Answer a verified trivia question correctly', category: 'challenges', label: 'Play Trivia', xp: 'Verified XP', coin: 'XP progress', icon: CircleHelp },
-  { id: 'prediction', title: 'MAKE A PREDICTION', caption: 'Get a completed NFL pick graded', category: 'sportsbook', label: 'Make Picks', xp: 'Verified XP', coin: 'XP progress', icon: Target },
-  { id: 'h2h', title: 'PLAY HEAD-TO-HEAD', caption: 'Finish a verified H2H game', category: 'football', label: 'Play H2H', xp: 'Verified XP', coin: 'XP progress', icon: Trophy },
+  { id: 'trivia', title: 'NFL TRIVIA', caption: 'Test your football knowledge. Answer 3 questions correctly.', category: 'challenges', label: 'Play Trivia', goal: 3, accent: 'purple', icon: BrainCircuit },
+  { id: 'prediction', title: 'MAKE A PREDICTION', caption: 'Make a pick and see how you do when the game is graded.', category: 'sportsbook', label: 'Make Picks', goal: 1, accent: 'green', icon: TrendingUp },
+  // Only H2H matches have an authoritative verified finish record today.
+  // Other Mini Games can join this mission once server-side results are available.
+  { id: 'h2h', title: 'PLAY A MINI GAME', caption: 'Complete an online Head-to-Head mini game.', category: 'football', label: 'Play H2H', goal: 1, accent: 'blue', icon: Gamepad2 },
 ] as const;
 
 const number = (n: number) => Math.max(0, Math.floor(Number(n) || 0)).toLocaleString('en-US');
@@ -72,15 +74,25 @@ export default function BKJourney({ onClose, onNavigate }: Props) {
     finally { setClaiming(null); }
   };
   const owned = useMemo(() => new Set(data?.claims.map(c => c.checkpoint) || []), [data]);
-  const completed = data ? missions.filter(m => data.today[m.id] > 0).length : 0;
+  const completed = data ? missions.filter(m => data.today[m.id] >= m.goal).length : 0;
   const xp = data?.xp || 0;
   const nextMilestone = milestones.find(m => xp < m.xp) || milestones[milestones.length - 1];
+  const previousMilestone = [...milestones].reverse().find(m => xp >= m.xp);
+  const milestoneFloor = previousMilestone?.xp ?? 0;
+  const milestoneTarget = xp >= milestones[milestones.length - 1].xp ? xp : nextMilestone.xp;
+  const progressPercent = Math.round(Math.max(0,Math.min(100,100*(xp-milestoneFloor)/Math.max(1,milestoneTarget-milestoneFloor))));
+  const nextClaimable = milestones.find(m => xp>=m.xp && !owned.has(m.id));
+  const nextPrize = nextClaimable ?? nextMilestone;
   const quest = (tab: AppTab) => { onClose(); onNavigate(tab); };
 
-  return <div className="bk-journey" aria-label="BK Journey rewards" data-bk-journey>
+  return <div className="bk-journey bk-journey-showcase" aria-label="BK Journey rewards" data-bk-journey>
     <header className="bk-journey-header">
       <div className="bk-journey-brand"><Crown aria-hidden="true"/><span>BALL<br/>KNOWER</span></div>
-      <div className="bk-journey-wallet" aria-label={data ? number(data.coins) + ' BK Coins' : 'Coin balance loading'}><Coins aria-hidden="true"/><span>BK COINS<strong>{data ? number(data.coins) : '—'}</strong></span></div>
+      <div className="bk-journey-level" aria-label={data ? `Level ${data.level}, ${number(xp)} verified XP` : 'Loading level and XP'}>
+        <span className="bk-journey-level-badge"><Crown aria-hidden="true"/><b>BK</b></span>
+        <div className="bk-journey-level-main"><span>LV {data?.level ?? '—'}</span><div className="bk-journey-level-track"><div className="bk-journey-level-fill" style={{ width: data ? progressPercent+'%' : '0%' }}/></div><small>{data ? number(xp)+' / '+number(milestoneTarget)+' XP' : 'VERIFIED XP'}</small></div>
+      </div>
+      <div className="bk-journey-wallet" aria-label={data ? number(data.coins) + ' BK Coins' : 'Coin balance loading'}><span className="bk-journey-coin-emblem"><Coins aria-hidden="true"/></span><span>BK COINS<strong>{data ? number(data.coins) : '—'}</strong></span><button type="button" className="bk-journey-wallet-more" aria-label="View BK coin rewards" onClick={() => setView('rewards')}>+</button></div>
       <button type="button" className="bk-journey-dismiss" aria-label="Close BK Journey" onClick={onClose}><X aria-hidden="true"/></button>
     </header>
     <nav aria-label="BK Journey views" className="bk-journey-tabs">
@@ -92,8 +104,13 @@ export default function BKJourney({ onClose, onNavigate }: Props) {
 
     <section className="bk-journey-hero" aria-labelledby="bk-journey-title">
       <img src="/profile/cinematic/player-hero.webp" alt="" loading="lazy"/>
-      <div className="bk-journey-hero-copy"><p><Sparkles size={15} aria-hidden="true"/> PLAY · EARN · UNLOCK</p><h2 id="bk-journey-title">{view === 'daily' ? 'DAILY CHALLENGES' : view === 'journey' ? 'BK JOURNEY' : 'YOUR REWARDS'}</h2><span>{view === 'daily' ? 'Complete real football challenges. Make every play count.' : view === 'journey' ? 'Your verified XP unlocks a path of coins and gifts.' : 'Every claimed reward stays in your BK collection.'}</span></div>
-      <div className="bk-journey-hero-stat"><span>LEVEL {data?.level ?? '—'}</span><strong>{data ? number(xp) : '—'} XP</strong><small>{data ? number(nextMilestone.xp) + ' XP next milestone' : 'Verified progression'}</small></div>
+      <div className="bk-journey-stadium-lights" aria-hidden="true"/>
+      <div className="bk-journey-hero-copy">
+        <p><Sparkles size={19} aria-hidden="true"/> PLAY · EARN · UNLOCK</p>
+        <h2 id="bk-journey-title">{view === 'daily' ? <><span>DAILY</span><em>CHALLENGES</em></> : view === 'journey' ? <><span>BK</span><em>JOURNEY</em></> : <><span>MY</span><em>REWARDS</em></>}</h2>
+        <span>{view === 'daily' ? 'Complete challenges to earn verified XP and unlock rewards.' : view === 'journey' ? 'Every verified play puts your next reward closer.' : 'Every claimed reward stays in your BK collection.'}</span>
+      </div>
+      <div className="bk-journey-hero-prize" aria-label="Next BK Journey reward"><span>{nextClaimable ? 'READY TO CLAIM' : 'NEXT REWARD'}</span><div><Coins aria-hidden="true"/><strong>{data ? nextPrize.coins ? number(nextPrize.coins) : 'GIFT' : '—'}</strong></div><small>{nextPrize.coins ? 'BK COINS' : nextPrize.gift || 'BK JOURNEY'}</small></div>
     </section>
 
     <div className="bk-journey-body">
@@ -103,28 +120,38 @@ export default function BKJourney({ onClose, onNavigate }: Props) {
       {data && view === 'daily' && <>
         <div className="bk-journey-intro"><div><span>YOUR DAILY MISSIONS · UTC {data.todayDate}</span><h3>MAKE TODAY COUNT.</h3></div><div className="bk-journey-completed"><Flame aria-hidden="true"/><strong>{completed} / 3</strong><small>verified</small></div></div>
         <div className="bk-journey-missions">
-          {missions.map(m => { const count = data.today[m.id]; const Icon=m.icon; return <article key={m.id} className="bk-journey-mission" data-mission={m.id}>
+          {missions.map(m => { const count=data.today[m.id]; const Icon=m.icon; const done=count>=m.goal; const percent=Math.min(100,100*count/m.goal); return <article key={m.id} className={'bk-journey-mission bk-journey-mission--'+m.accent+(done?' is-completed':'')} data-mission={m.id}>
             <div className="bk-journey-mission-icon"><Icon aria-hidden="true"/></div>
-            <div className="bk-journey-mission-copy"><h4>{m.title}</h4><p>{m.caption}</p><small><ShieldCheck size={13} aria-hidden="true"/> {m.xp} · {count > 0 ? 'Completed' : 'Not yet recorded'}</small></div>
-            <button type="button" onClick={() => quest(m.category)} aria-label={count > 0 ? 'Replay ' + m.title : m.label}>{count > 0 ? <Check aria-hidden="true"/> : <ArrowRight aria-hidden="true"/>}<span>{count > 0 ? 'Done' : 'Play'}</span></button>
+            <div className="bk-journey-mission-copy">
+              <h4>{m.title}</h4><p>{m.caption}</p>
+              <div className="bk-journey-mission-reward"><span><Sparkles size={15} aria-hidden="true"/> VERIFIED XP</span><i aria-hidden="true"/><span><Coins size={15} aria-hidden="true"/> BK JOURNEY COINS</span></div>
+              <div className="bk-journey-progress-row"><div className="bk-journey-mission-track" role="progressbar" aria-label={m.title+' daily completion'} aria-valuenow={Math.min(count,m.goal)} aria-valuemin={0} aria-valuemax={m.goal}><div className="bk-journey-mission-progress" style={{width:percent+'%'}}/></div><b>{Math.min(count,m.goal)} / {m.goal}</b></div>
+              <small className="bk-journey-verified"><ShieldCheck size={12} aria-hidden="true"/> {done ? 'VERIFIED COMPLETE' : 'Finish for mission completion. Coins unlock through XP milestones.'}</small>
+            </div>
+            <button type="button" className="bk-journey-play" onClick={() => quest(m.category)} aria-label={done ? 'Replay ' + m.title : m.label}>{done ? 'DONE' : 'PLAY'}<ArrowRight aria-hidden="true"/></button>
           </article>; })}
         </div>
-        <div className="bk-journey-next"><div><b>REWARDS COME FROM VERIFIED XP</b><span>Milestone coins and gifts unlock as your account XP increases. Claims are recorded once per account.</span></div><button type="button" onClick={() => setView('journey')}>View Journey <ArrowRight size={17} aria-hidden="true"/></button></div>
       </>}
 
       {data && (view === 'journey' || view === 'daily') && <section className="bk-journey-milestones" aria-label="BK Journey reward path">
-        <div className="bk-journey-section-title"><div><span>{view === 'daily' ? 'YOUR NEXT REWARDS' : 'PERMANENT PROGRESSION'}</span><h3>THE REWARD JOURNEY</h3></div><span><ShieldCheck size={15} aria-hidden="true"/> Server-verified XP</span></div>
+        <div className="bk-journey-section-title"><div><span>{view === 'daily' ? 'PLAY · EARN · CLAIM' : 'PERMANENT PROGRESSION'}</span><h3>YOUR REWARD JOURNEY</h3></div><span><ShieldCheck size={15} aria-hidden="true"/> Server-verified XP</span></div>
+        <div className="bk-journey-rail-intro"><span>KEEP PLAYING<br/><b>UNLOCK REWARDS</b></span><small>Five permanent XP milestones</small></div>
         <div className="bk-journey-rail">
-          {milestones.map(m => { const Icon = m.icon; const claimed=owned.has(m.id); const eligible=xp>=m.xp; return <article key={m.id} className={'bk-journey-checkpoint' + (claimed?' is-claimed':eligible?' is-unlocked':' is-locked')}>
-            <div className="bk-journey-checkpoint-medal">{claimed?<Check aria-label="Claimed"/>:eligible?<Icon aria-label="Unlocked"/>:<LockKeyhole aria-label="Locked"/>}</div>
-            <strong>{m.title}</strong><small>{number(m.xp)} XP</small>
-            <span>{m.coins ? '+' + number(m.coins) + ' BK Coins' : m.gift}</span>
+          {milestones.map(m => { const Icon=m.id===4?Shirt:m.icon; const claimed=owned.has(m.id); const eligible=xp>=m.xp; return <article key={m.id} className={'bk-journey-checkpoint' + (claimed?' is-claimed':eligible?' is-unlocked':' is-locked')}>
+            <div className="bk-journey-checkpoint-medal">{claimed?<Check aria-label="Claimed"/>:<Icon aria-label={eligible?'Unlocked':'Locked'}/>}</div>
+            <strong>{m.coins ? '+' + number(m.coins) + ' BK COINS' : m.gift}</strong><small>{number(m.xp)} XP · {m.title}</small>
             <button type="button" disabled={!eligible || claimed || claiming !== null} onClick={() => { void claim(m.id); }}>{claiming === m.id ? 'Claiming…' : claimed ? 'Claimed' : eligible ? 'Claim reward' : 'Locked'}</button>
           </article>; })}
         </div>
-        <p className="bk-journey-legal">No purchase required. These rewards use verified account XP, not unverified local game scores. BK Coins have no cash value and cannot be redeemed for money.</p>
+        <p className="bk-journey-legal">No purchase required. Milestone coins and gifts use verified account XP, not unverified local scores. BK Coins have no cash value and cannot be redeemed for money.</p>
       </section>}
 
+      {data && view === 'daily' && <div className="bk-journey-momentum">
+        <span className="bk-journey-momentum-label"><Flame aria-hidden="true"/> DAILY MOMENTUM</span>
+        <span className="bk-journey-momentum-fires" aria-label={completed+' of 3 daily missions completed'}>{missions.map((m,i)=><Flame key={m.id} className={data.today[m.id]>=m.goal?'is-lit':''} aria-hidden="true"/>)}</span>
+        <div><strong>{completed} / 3 COMPLETED TODAY</strong><small>Come back for fresh challenges. Missing a day won't erase your permanent XP.</small></div>
+        <button type="button" aria-label="See BK Journey rewards" onClick={() => setView('journey')}><ArrowRight aria-hidden="true"/></button>
+      </div>}
       {data && view === 'rewards' && <section className="bk-journey-collection" aria-label="My claimed gifts">
         <div className="bk-journey-section-title"><div><span>OWNED REWARDS</span><h3>THE BK COLLECTION</h3></div><div className="bk-journey-owned-count">{data.claims.length} / {milestones.length} milestones</div></div>
         <div className="bk-journey-coin-total"><Coins aria-hidden="true"/><div><strong>{number(data.coins)} BK Coins</strong><p>Earned through verified milestone claims. Store spending is not enabled yet.</p></div></div>
