@@ -2,7 +2,7 @@ import { ArrowRight, ChevronRight, Crown, Hand, Sparkles } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import './storeLandingShowcase.css';
 
-export type PremiumDepartment = 'helmets' | 'jerseys' | 'pants' | 'cleats' | 'accessories';
+export type PremiumDepartment = 'game-fits' | 'helmets' | 'jerseys' | 'pants' | 'cleats' | 'accessories';
 
 const collections: {
   id: PremiumDepartment;
@@ -45,7 +45,7 @@ export default function StoreLandingShowcase({
         <h2 id="bk-vault-hero-title">YOUR GAME.<br/><em>YOUR LOOK.</em></h2>
         <p>The gear hits different when it's yours. Build a full BK game-day fit, piece by piece.</p>
         <div className="bk-vault-hero-actions">
-          <button type="button" className="bk-vault-gold-action" onClick={() => onNavigate('helmets')}>Explore game gear <ArrowRight size={17} aria-hidden="true"/></button>
+          <button type="button" className="bk-vault-gold-action" onClick={() => onNavigate('game-fits')}>Explore game gear <ArrowRight size={17} aria-hidden="true"/></button>
           <button type="button" className="bk-vault-outline-action" onClick={onTunnelFits}>Tunnel fits <ChevronRight size={16} aria-hidden="true"/></button>
         </div>
       </div>

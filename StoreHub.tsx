@@ -21,6 +21,8 @@ const PantsShop = lazy(() => import('./PantsShop'));
 const CleatShop = lazy(() => import('./CleatShop'));
 const AccessoriesShop = lazy(() => import('./AccessoriesShop'));
 const StoreLandingShowcase = lazy(() => import('./StoreLandingShowcase'));
+const GameFitsShop = lazy(() => import('./GameFitsShop'));
+const GameFitsPreview = lazy(() => import('./GameFitsShop').then(module => ({default: module.GameFitsPreview})));
 
 const BKFYoungBoyPose = lazy(() => import('./BKFYoungBoyPose'));
 const StoreCharacterPreview = lazy(() => import('./StoreCharacterPreview'));
@@ -28,9 +30,9 @@ const BKFFrostbitePose = lazy(() => import('./BKFFrostbitePose'));
 
 type StorePage = 'featured' | 'catalog' | 'rewards';
 type Selection = { product: StoreProduct };
-type ShopDepartment = 'featured' | 'characters' | 'clothing' | 'helmets' | 'jerseys' | 'pants' | 'cleats' | 'accessories' | 'all';
+type ShopDepartment = 'featured' | 'game-fits' | 'characters' | 'clothing' | 'helmets' | 'jerseys' | 'pants' | 'cleats' | 'accessories' | 'all';
 const departments = [
-  { id: 'featured', label: 'Featured' }, { id: 'characters', label: 'Characters' },
+  { id: 'featured', label: 'Featured' }, { id: 'game-fits', label: 'Game Fits' }, { id: 'characters', label: 'Characters' },
   { id: 'clothing', label: 'Clothing' }, { id: 'helmets', label: 'Helmets' }, { id: 'jerseys', label: 'Jerseys' }, { id: 'pants', label: 'Pants' }, { id: 'cleats', label: 'Cleats' }, { id: 'accessories', label: 'Accessories' },
   { id: 'all', label: 'All Items' },
 ] as const;
@@ -372,6 +374,13 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
       <button type="button" key={category.id} aria-pressed={filter === category.id} onClick={() => setFilter(category.id)}>{category.label}</button>)}
   </div>;
 
+  if (department === 'game-fits' && page !== 'rewards') return <Suspense fallback={<p role="status">Loading game fits…</p>}>
+    <GameFitsShop onNavigate={next => {
+      if (next === 'coins') { setDepartment('featured'); openPage('rewards'); }
+      else if (next === 'bundles') { setDepartment('all'); setFilter('bundles'); openPage('catalog'); }
+      else { setDepartment(next); setFilter('all'); openPage('featured'); }
+    }}/>
+  </Suspense>;
   if (department === 'helmets' && page !== 'rewards') return <Suspense fallback={<p role="status">Loading helmet collection…</p>}>
     <HelmetShop onNavigate={next => {
       if (next === 'coins') { setDepartment('featured'); openPage('rewards'); }
@@ -441,6 +450,9 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
           </div>
         </section>
       </>}
+      {department === 'featured' && <Suspense fallback={<p role="status">Loading game-day fits…</p>}>
+        <GameFitsPreview onExplore={() => { setDepartment('game-fits'); setFilter('all'); openPage('featured'); }}/>
+      </Suspense>}
       {[
         { id: 'clothing', title: 'Build your tunnel fit', kicker: 'Off-field style', products: clothingProducts },
         { id: 'characters', title: 'Meet the characters', kicker: 'Character drops', products: shuffledCharacters },
