@@ -6,7 +6,7 @@ type Rarity = 'legendary' | 'elite' | 'rare';
 type Helmet = { id: string; name: string; rarity: Rarity; price: number; accent: string; description: string };
 type Filter = 'all' | Rarity | 'common';
 type Sort = 'newest' | 'low' | 'high' | 'name';
-export type HelmetNavigation = 'featured' | 'characters' | 'clothing' | 'helmets' | 'accessories' | 'cleats' | 'bundles' | 'coins';
+export type HelmetNavigation = 'featured' | 'characters' | 'clothing' | 'helmets' | 'jerseys' | 'accessories' | 'cleats' | 'bundles' | 'coins';
 
 const HELMETS: readonly Helmet[] = [
   { id: 'gold-standard', name: 'Gold Standard', rarity: 'legendary', price: 2500, accent: '#f5bd36', description: 'A signature BK look. Premium mirrored gold finish, elite detail, and game-day dominance.' },
@@ -27,6 +27,7 @@ const sideLinks: { id: HelmetNavigation; label: string; icon: typeof Star }[] = 
   { id: 'characters', label: 'Characters', icon: UserRound },
   { id: 'clothing', label: 'Active Wear', icon: Shirt },
   { id: 'helmets', label: 'Helmets', icon: HardHat },
+  { id: 'jerseys', label: 'Jerseys', icon: Shirt },
   { id: 'accessories', label: 'Accessories', icon: Glasses },
   { id: 'cleats', label: 'Cleats', icon: Footprints },
   { id: 'bundles', label: 'Bundles', icon: Package },
