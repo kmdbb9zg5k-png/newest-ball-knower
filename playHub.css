@@ -1,3 +1,19 @@
+/* The tunnel frames the Play header and fades behind the game cards. */
+.bk-app-shell[data-tab="play"] > main {
+  background: #080a0d;
+}
+.bk-app-shell[data-tab="play"] > main::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: -1;
+  height: clamp(285px, 36vw, 500px);
+  background:
+    linear-gradient(90deg, #080a0da8, #080a0d26 82%),
+    linear-gradient(180deg, #080a0d0d 0%, #080a0d26 56%, #080a0d 100%),
+    url('/atmosphere/play-stadium-tunnel-v1.webp') right 40% / cover no-repeat;
+  pointer-events: none;
+}
 .bk-play-hub{max-width:1024px;margin-inline:auto;padding:24px max(16px,env(safe-area-inset-right)) 32px max(16px,env(safe-area-inset-left));color:#f3f0e7;font-family:var(--bk-font-body,"Plus Jakarta Sans",sans-serif)}
 .bk-play-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:24px}
 .bk-play-heading p,.bk-play-knowledge>div>p{margin:0 0 7px;color:#d9bc6e;font-size:10px;font-weight:750;letter-spacing:.16em;text-transform:uppercase}
