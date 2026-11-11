@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {
-  CAMPAIGN, CARD_BY_ID, CHAPTERS, PACK_POSITIONS, POSITIONS, TRAINING, boostPack, buyPack, chapterChoices, claimChapter,
+  CAMPAIGN, CARD_BY_ID, CHAPTERS, FIRST_CLEAR_COINS, PACK_POSITIONS, POSITIONS, TRAINING, boostPack, buyPack, chapterChoices, claimChapter,
   claimPack, cleared, duplicates, equip, exchangeCard, exchangeCardId, gameSquad, initialLegends, isLegendsResult, openStarter,
   playerOverall, recordClear, revealPack, trainCard, trainingCost,
 } from '../bkLegends';
@@ -48,6 +48,18 @@ const first = recordClear(state, CAMPAIGN[0], passing, state.lineup);
 assert.equal(first.coins, 1000);
 assert.equal(recordClear(first, CAMPAIGN[0], passing, first.lineup), first);
 assert.equal(buyPack(first, 'WR'), first);
+let packBudget = openStarter(initialLegends());
+for (const scenario of CAMPAIGN.slice(0, 7)) packBudget = recordClear(packBudget, scenario, passing, packBudget.lineup);
+assert.equal(buyPack(packBudget, 'WR'), packBudget);
+packBudget = recordClear(packBudget, CAMPAIGN[7], passing, packBudget.lineup);
+const goodPack = buyPack(packBudget, 'WR');
+assert.equal(goodPack.coins, 0);
+const shortUpgrade = { ...goodPack, coins: 5 * FIRST_CLEAR_COINS };
+assert.equal(boostPack(shortUpgrade), shortUpgrade);
+const elitePack = boostPack({ ...goodPack, coins: 6 * FIRST_CLEAR_COINS });
+assert.equal(elitePack.pack?.premium, true);
+assert.equal(elitePack.coins, 0);
+
 assert.equal(claimChapter(first, 0, chapterChoices(0)[0]), first);
 for (const scenario of CAMPAIGN) state = recordClear(state, scenario, passing, state.lineup);
 assert.equal(state.complete, 80);

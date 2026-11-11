@@ -2,8 +2,8 @@ import { MINI_TEAMS } from './public/play-moment-3d/mini-teams-data.js';
 
 export const FIRST_CLEAR_COINS = 1000;
 const STARTER_MAX_OVERALL = 80;
-export const PACK_PRICE = 1500;
-export const PREMIUM_PRICE = 800;
+export const PACK_PRICE = 8 * FIRST_CLEAR_COINS;
+export const PREMIUM_PRICE = 6 * FIRST_CLEAR_COINS;
 export const CHAPTERS = ['Training Camp', 'Move the Chains', 'Red Zone', 'Lockdown', 'Against the Clock', 'Underdogs', 'The Playoff Run', 'Legacy Game'];
 export const POSITIONS = ['LT','LG','C','RG','RT','QB','HB','WR','WR','WR','TE','EDGE','DT','DT','EDGE','LB','LB','LB','CB','S','CB','S','FB','K','P'] as const;
 export type Position = typeof POSITIONS[number];
