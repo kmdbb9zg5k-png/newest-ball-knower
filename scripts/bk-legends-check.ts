@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import {
-  CAMPAIGN, CARD_BY_ID, CHAPTERS, PACK_POSITIONS, POSITIONS, TRAINING, boostPack, buyPack, chapterChoices, claimChapter,
+  CAMPAIGN, CARD_BY_ID, CHAPTERS, FIRST_CLEAR_COINS, PACK_POSITIONS, POSITIONS, TRAINING, boostPack, buyPack, chapterChoices, claimChapter,
   claimPack, cleared, duplicates, equip, exchangeCard, exchangeCardId, gameSquad, initialLegends, isLegendsResult, openStarter,
-  playerOverall, recordClear, revealPack, trainCard, trainingCost,
+  packOptionCount, packTier, playerOverall, recordClear, revealPack, trainCard, trainingCost,
 } from '../bkLegends';
 import { readLegendsField, setLegendsStart } from '../public/play-moment-3d/legends-field.js';
 import { fullSession } from '../public/play-moment-3d/five-minute.js';
@@ -12,6 +12,16 @@ assert.equal(state.lineup.length, 25);
 assert.equal(new Set(state.lineup).size, 25);
 assert.deepEqual(state.lineup.map(id => CARD_BY_ID.get(id)?.position), [...POSITIONS]);
 assert.equal(openStarter(state), state);
+assert.ok(state.lineup.every(id => playerOverall(state, id) <= 80));
+const starterSquad = gameSquad(state);
+assert.ok([...starterSquad.lineup, starterSquad.fullback, starterSquad.kicker, starterSquad.punter].every(player => player.overall <= 80));
+const starterQB = state.lineup[5];
+const qbCard = CARD_BY_ID.get(starterQB)!;
+assert.equal(starterSquad.lineup[5].attributes.passing, qbCard.attributes.passing! + 80 - qbCard.overall);
+assert.equal(playerOverall(trainCard({ ...state, training: 200 }, starterQB), starterQB), 84);
+const earnedQB = claimPack({ ...state, pack: { position: 'QB', premium: true, choices: [starterQB] } }, starterQB);
+assert.equal(playerOverall(earnedQB, starterQB), qbCard.overall);
+
 assert.equal(CAMPAIGN.length, 80);
 const openingChallenges = CHAPTERS.map((_, index) => CAMPAIGN[index * 10]);
 assert.deepEqual(openingChallenges.map(scenario => scenario.difficulty),
@@ -38,6 +48,35 @@ const first = recordClear(state, CAMPAIGN[0], passing, state.lineup);
 assert.equal(first.coins, 1000);
 assert.equal(recordClear(first, CAMPAIGN[0], passing, first.lineup), first);
 assert.equal(buyPack(first, 'WR'), first);
+let packBudget = openStarter(initialLegends());
+for (const scenario of CAMPAIGN.slice(0, 7)) packBudget = recordClear(packBudget, scenario, passing, packBudget.lineup);
+assert.equal(buyPack(packBudget, 'WR'), packBudget);
+packBudget = recordClear(packBudget, CAMPAIGN[7], passing, packBudget.lineup);
+const goodPack = buyPack(packBudget, 'WR');
+assert.equal(goodPack.coins, 0);
+const shortUpgrade = { ...goodPack, coins: 5 * FIRST_CLEAR_COINS };
+assert.equal(boostPack(shortUpgrade), shortUpgrade);
+const elitePack = boostPack({ ...goodPack, coins: 6 * FIRST_CLEAR_COINS });
+assert.equal(elitePack.pack?.premium, true);
+assert.equal(elitePack.coins, 0);
+const testBudget = { ...packBudget, coins: 24_000 };
+const directElite = buyPack(testBudget, 'QB', 'elite');
+assert.equal(directElite.coins, 10_000);
+assert.equal(packTier(directElite.pack!), 'elite');
+assert.equal(packTier({ position: 'QB', premium: true }), 'elite');
+assert.equal(buyPack(testBudget, 'QB', 'legendary'), testBudget);
+const shortLegendary = { ...testBudget, coins: 23_999 };
+assert.equal(buyPack(shortLegendary, 'WR', 'legendary'), shortLegendary);
+const legendary = buyPack(testBudget, 'WR', 'legendary');
+assert.equal(legendary.coins, 0);
+assert.equal(packTier(legendary.pack!), 'legendary');
+assert.equal(boostPack(legendary), legendary);
+const revealedLegendary = revealPack(legendary, () => 0);
+assert.equal(new Set(revealedLegendary.pack?.choices).size, 3);
+assert.ok(revealedLegendary.pack?.choices?.every(id => CARD_BY_ID.get(id)!.overall >= 90));
+assert.ok(packOptionCount('QB', 'legendary') < 3);
+
+
 assert.equal(claimChapter(first, 0, chapterChoices(0)[0]), first);
 for (const scenario of CAMPAIGN) state = recordClear(state, scenario, passing, state.lineup);
 assert.equal(state.complete, 80);

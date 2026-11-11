@@ -1,8 +1,16 @@
 import { MINI_TEAMS } from './public/play-moment-3d/mini-teams-data.js';
 
 export const FIRST_CLEAR_COINS = 1000;
-export const PACK_PRICE = 1500;
-export const PREMIUM_PRICE = 800;
+const STARTER_MAX_OVERALL = 80;
+export const PACK_PRICE = 8 * FIRST_CLEAR_COINS;
+export const PREMIUM_PRICE = 6 * FIRST_CLEAR_COINS;
+export const PACK_TIERS = {
+  good: { label: 'Good', floor: 78, coins: PACK_PRICE, usdCents: 399 },
+  elite: { label: 'Elite', floor: 84, coins: PACK_PRICE + PREMIUM_PRICE, usdCents: 799 },
+  legendary: { label: 'Legendary', floor: 90, coins: 24 * FIRST_CLEAR_COINS, usdCents: 1199 },
+} as const;
+export type PackTier = keyof typeof PACK_TIERS;
+export const PACK_TIER_IDS = ['good', 'elite', 'legendary'] as const;
 export const CHAPTERS = ['Training Camp', 'Move the Chains', 'Red Zone', 'Lockdown', 'Against the Clock', 'Underdogs', 'The Playoff Run', 'Legacy Game'];
 export const POSITIONS = ['LT','LG','C','RG','RT','QB','HB','WR','WR','WR','TE','EDGE','DT','DT','EDGE','LB','LB','LB','CB','S','CB','S','FB','K','P'] as const;
 export type Position = typeof POSITIONS[number];
@@ -72,8 +80,8 @@ export function opponentName(scenario: Scenario) {
   return MINI_TEAMS.find(team => team.abbr === scenario.opponent)?.name ?? 'BK Rivals';
 }
 
-type OwnedCard = { copies: number; level: number; clears: number };
-type Pack = { position: Position; premium: boolean; choices?: string[] };
+type OwnedCard = { copies: number; level: number; clears: number; starter?: boolean };
+type Pack = { position: Position; premium: boolean; tier?: PackTier; choices?: string[] };
 export type LegendsState = {
   version: 1; coins: number; training: number; complete: number;
   owned: Record<string, OwnedCard>; lineup: string[]; chapterClaims: number[];
@@ -99,13 +107,13 @@ export function loadLegends(storage: Storage, key: string): LegendsState {
   } catch { /* A missing or unreadable save starts a new squad. */ }
   return initialLegends();
 }
-function addCard(state: LegendsState, id: string): LegendsState {
+function addCard(state: LegendsState, id: string, starter = false): LegendsState {
   const owned = state.owned[id] ?? { copies: 0, level: 0, clears: 0 };
-  return { ...state, owned: { ...state.owned, [id]: { ...owned, copies: owned.copies + 1 } } };
+  return { ...state, owned: { ...state.owned, [id]: { ...owned, copies: owned.copies + 1, starter } } };
 }
 export function openStarter(state: LegendsState) {
   if (state.starterOpened) return state;
-  return starterIds.reduce(addCard, { ...state, starterOpened: true, lineup: starterIds });
+  return starterIds.reduce((roster, id) => addCard(roster, id, true), { ...state, starterOpened: true, lineup: starterIds });
 }
 export function equip(state: LegendsState, index: number, id: string) {
   if (!state.owned[id] || !state.lineup[index] || CARD_BY_ID.get(id)?.position !== POSITIONS[index]) return state;
@@ -115,8 +123,12 @@ export function equip(state: LegendsState, index: number, id: string) {
   lineup[index] = id;
   return { ...state, lineup };
 }
+function baseOverall(state: LegendsState, id: string) {
+  const overall = CARD_BY_ID.get(id)?.overall ?? 0;
+  return state.owned[id]?.starter ? Math.min(overall, STARTER_MAX_OVERALL) : overall;
+}
 export function playerOverall(state: LegendsState, id: string) {
-  return Math.min(99, (CARD_BY_ID.get(id)?.overall ?? 0) + 4 * (state.owned[id]?.level ?? 0));
+  return Math.min(99, baseOverall(state, id) + 4 * (state.owned[id]?.level ?? 0));
 }
 export function squadOverall(state: LegendsState) {
   return state.lineup.length ? Math.round(state.lineup.reduce((sum, id) => sum + playerOverall(state, id), 0) / state.lineup.length) : 0;
@@ -155,7 +167,7 @@ export function recordClear(state: LegendsState, scenario: Scenario, result: Leg
 export function trainingCost(state: LegendsState, id: string) {
   const owned = state.owned[id];
   if (!owned || playerOverall(state, id) >= 99) return null;
-  const ceiling = CARD_BY_ID.get(id)!.overall >= 90 ? 3 : 2;
+  const ceiling = baseOverall(state, id) >= 90 ? 3 : 2;
   return owned.level < ceiling ? 200 + owned.level * 200 : null;
 }
 export function trainCard(state: LegendsState, id: string) {
@@ -163,22 +175,30 @@ export function trainCard(state: LegendsState, id: string) {
   if (cost === null || state.training < cost || (card.level >= 1 && card.clears < 3)) return state;
   return { ...state, training: state.training - cost, owned: { ...state.owned, [id]: { ...card, level: card.level + 1 } } };
 }
-export function packFloor(premium: boolean) { return premium ? 84 : 78; }
-function packPool(position: Position, premium: boolean) {
-  return cards.filter(card => card.position === position && card.overall >= packFloor(premium)).sort(cardOrder);
+export function packFloor(premium: boolean) { return PACK_TIERS[premium ? 'elite' : 'good'].floor; }
+export function packTier(pack: Pack): PackTier { return pack.tier ?? (pack.premium ? 'elite' : 'good'); }
+function packPool(position: Position, tier: PackTier) {
+  return cards.filter(card => card.position === position && card.overall >= PACK_TIERS[tier].floor).sort(cardOrder);
 }
-export function buyPack(state: LegendsState, position: Position) {
-  if (!state.starterOpened || state.pack || !PACK_POSITIONS.includes(position) || state.coins < PACK_PRICE) return state;
-  return { ...state, coins: state.coins - PACK_PRICE, pack: { position, premium: false } };
+export function packOptionCount(position: Position, tier: PackTier) {
+  return packPool(position, tier).length;
 }
-export function boostPack(state: LegendsState) {
-  if (!state.pack || state.pack.choices || state.pack.premium || state.coins < PREMIUM_PRICE) return state;
-  return { ...state, coins: state.coins - PREMIUM_PRICE, pack: { ...state.pack, premium: true } };
+export function buyPack(state: LegendsState, position: Position, tier: PackTier = 'good') {
+  const offer = PACK_TIERS[tier];
+  if (!offer || !state.starterOpened || state.pack || !PACK_POSITIONS.includes(position) ||
+      state.coins < offer.coins || packOptionCount(position, tier) < 3) return state;
+  return { ...state, coins: state.coins - offer.coins, pack: { position, premium: tier !== 'good', tier } };
+}
+export function boostPack(state: LegendsState): LegendsState {
+  if (!state.pack || state.pack.choices || packTier(state.pack) !== 'good' || state.coins < PREMIUM_PRICE ||
+      packOptionCount(state.pack.position, 'elite') < 3) return state;
+  return { ...state, coins: state.coins - PREMIUM_PRICE, pack: { ...state.pack, premium: true, tier: 'elite' } };
 }
 export function revealPack(state: LegendsState, random = Math.random) {
   if (!state.pack || state.pack.choices) return state;
-  const pool = packPool(state.pack.position, state.pack.premium), choices: string[] = [];
-  for (let i = 0; i < 3 && pool.length; i++) choices.push(pool.splice(Math.floor(random() * pool.length), 1)[0].id);
+  const pool = packPool(state.pack.position, packTier(state.pack));
+  if (pool.length < 3) return state;
+  const choices = Array.from({ length: 3 }, () => pool.splice(Math.floor(random() * pool.length), 1)[0].id);
   return { ...state, pack: { ...state.pack, choices } };
 }
 export function claimPack(state: LegendsState, id: string) {
@@ -201,7 +221,7 @@ export function claimChapter(state: LegendsState, chapter: number, id: string) {
 export function duplicates(state: LegendsState) {
   return Object.values(state.owned).reduce((sum, card) => sum + card.copies - 1, 0);
 }
-export function exchangeCardId(position: Position) { return packPool(position, true).at(-1)?.id; }
+export function exchangeCardId(position: Position) { return packPool(position, 'elite').at(-1)?.id; }
 export function exchangeCard(state: LegendsState, position: Position) {
   const id = exchangeCardId(position);
   if (!id || state.owned[id] || duplicates(state) < 3) return state;

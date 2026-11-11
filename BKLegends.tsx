@@ -1,14 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, ChevronDown, Coins, Dumbbell, Gift, Lock, Shield, Trophy, X } from 'lucide-react';
 import {
-  CAMPAIGN, CARD_BY_ID, CHAPTERS, FIRST_CLEAR_COINS, PACK_POSITIONS, PACK_PRICE, POSITIONS, PREMIUM_PRICE, TRAINING,
+  CAMPAIGN, CARD_BY_ID, CHAPTERS, FIRST_CLEAR_COINS, PACK_POSITIONS, PACK_TIERS, PACK_TIER_IDS, POSITIONS, PREMIUM_PRICE, TRAINING,
   boostPack, buyPack, chapterChoices, claimChapter, claimPack, cleared, duplicates, equip, exchangeCard, exchangeCardId,
-  gameSquad, goalText, initialLegends, isLegendsResult, loadLegends, openStarter, opponentName, packFloor, playerOverall, recordClear,
-  revealPack, squadOverall, trainCard, trainingCost, type LegendsResult, type LegendsState, type Position, type Scenario,
+  gameSquad, goalText, initialLegends, isLegendsResult, loadLegends, openStarter, opponentName, packOptionCount, packTier, playerOverall, recordClear,
+  revealPack, squadOverall, trainCard, trainingCost, type LegendsResult, type LegendsState, type PackTier, type Position, type Scenario,
 } from './bkLegends';
 import './bkLegends.css';
 
 const format = new Intl.NumberFormat('en-US');
+const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 const sections = ['Campaign', 'My Squad', 'Packs', 'Training', 'Exchange'] as const;
 const groups = ['Offense', 'Defense', 'Special teams'] as const;
 const starterPreview = openStarter(initialLegends());
@@ -45,6 +46,8 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
   const [group, setGroup] = useState<typeof groups[number]>('Offense');
   const [slot, setSlot] = useState(5);
   const [position, setPosition] = useState<Position>('WR');
+  const [selectedTier, setSelectedTier] = useState<PackTier>('good');
+  const [payment, setPayment] = useState<'coins' | 'usd'>('coins');
   const [notice, setNotice] = useState('');
   const [attempt, setAttempt] = useState<Attempt | null>(null);
   const [outcome, setOutcome] = useState<{ result: LegendsResult; passed: boolean; persisted: boolean } | null>(null);
@@ -130,6 +133,12 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
   const candidateIds = Object.keys(save.owned).filter(id => CARD_BY_ID.get(id)?.position === POSITIONS[slot])
     .sort((a, b) => playerOverall(save, b) - playerOverall(save, a) || a.localeCompare(b));
   const exchangeTarget = exchangeCardId(position);
+  const offer = PACK_TIERS[selectedTier];
+  const available = packOptionCount(position, selectedTier) >= 3;
+  const pendingTier = save.pack ? packTier(save.pack) : null;
+  const priceLabel = (tier: PackTier) => payment === 'coins'
+    ? format.format(PACK_TIERS[tier].coins) + ' BK Coins'
+    : usd.format(PACK_TIERS[tier].usdCents / 100);
   const chapterReward = (n: number) => <div className="bkl-reward">
     <h3><Gift aria-hidden="true"/> {n === CHAPTERS.length ? 'Legacy Pack' : 'Chapter Pack'}</h3>
     <p>Choose one player for your squad.</p>
@@ -146,13 +155,13 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
     <nav className="bkl-tabs" aria-label="BK Legends sections">{sections.map(item =>
       <button key={item} type="button" aria-pressed={section === item} onClick={() => selectSection(item)}>{item}</button>)}</nav>
     {notice && <p className="bkl-notice" role="status">{notice}</p>}
-    {!save.starterOpened && section !== 'My Squad' ? <section className="bkl-hero">
+    {!save.starterOpened && section !== 'My Squad' ? <section className="bkl-hero bkl-campaign-art">
       <p>BK Legends</p><h1>Road to<br/><em>Legend</em></h1>
       <span>Build a squad and take it through 80 challenges.</span>
       <button className="bkl-gold" onClick={() => change(openStarter, 'Your starting lineup is ready.')}>Open free Starter Pack <ArrowRight aria-hidden="true"/></button>
     </section> : <>
       {section === 'Campaign' && <>
-        <section className="bkl-hero">
+        <section className="bkl-hero bkl-campaign-art">
           <p>BK Legends campaign</p><h1>Road to<br/><em>Legend</em></h1>
           <span>{save.complete} / {CAMPAIGN.length} complete</span>
           <progress max={CAMPAIGN.length} value={save.complete} aria-label="Campaign progress"/>
@@ -224,30 +233,75 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
           })}
         </section>}
       </section>}
-      {section === 'Packs' && <section className="bkl-panel">
-        <p className="bkl-kicker"><Gift aria-hidden="true"/> Player collection</p><h1>Player Packs</h1>
-        <p>Use the BK Coins you earn in Road to Legend. Each position pack lets you choose one of three players.</p>
-        {save.pack ? <>
-          <h2>{save.pack.position} {save.pack.premium ? 'Premium' : 'Standard'} Pack</h2>
-          <p>{packFloor(save.pack.premium)} OVR minimum</p>
-          {save.pack.choices ? <div className="bkl-cards">{save.pack.choices.map(id => <PlayerCard key={id} id={id} action="Claim" onAction={() => change(state => claimPack(state, id), 'Player added to your collection.')}/>)}</div> :
-            <div className="bkl-actions">
-              {!save.pack.premium && <button disabled={save.coins < PREMIUM_PRICE} onClick={() => change(boostPack, 'Premium Pack ready to open.')}>Upgrade to {packFloor(true)}+ OVR · {PREMIUM_PRICE} BK Coins</button>}
-              <button className="bkl-gold" onClick={() => change(state => revealPack(state))}>Open pack</button>
-            </div>}
-        </> : <>
-          <PositionPicker position={position} onChange={setPosition}/>
-          <p>{packFloor(false)} OVR minimum · optional premium upgrade before opening</p>
-          <button className="bkl-gold" disabled={save.coins < PACK_PRICE} onClick={() => change(state => buyPack(state, position), 'Pack added. Open it or upgrade it first.')}>Get {position} Pack · {format.format(PACK_PRICE)} BK Coins</button>
+      {section === 'Packs' && <section className="bkl-panel bkl-pack-showcase">
+        <header className="bkl-pack-heading">
+          <p className="bkl-kicker"><Gift aria-hidden="true"/> BK Legends</p>
+          <h1>{pendingTier ? 'Player Packs' : 'Choose Your Pack'}</h1>
+          <p>{save.pack?.position ?? position} only · Pick 1 of 3 players</p>
+        </header>
+        {!save.pack && <>
+          <div className="bkl-tabs bkl-pack-positions" aria-label="Pack positions">
+            {PACK_POSITIONS.map(item => <button key={item} type="button" aria-pressed={position === item} onClick={() => setPosition(item)}>{item}</button>)}
+          </div>
+          <div className="bkl-pack-payment" role="group" aria-label="Payment method">
+            <button type="button" aria-pressed={payment === 'coins'} onClick={() => setPayment('coins')}>BK Coins</button>
+            <button type="button" aria-pressed={payment === 'usd'} onClick={() => setPayment('usd')}>USD</button>
+          </div>
+          <div className="bkl-pack-options" role="group" aria-label="Pack tiers">
+            {PACK_TIER_IDS.map(tier => <button key={tier} type="button" aria-pressed={selectedTier === tier} onClick={() => setSelectedTier(tier)}>
+              <img src={'/images/bk-legends-pack-' + tier + '.webp'} alt="" width={240} height={400}/>
+              <strong>{PACK_TIERS[tier].label}</strong>
+              <span>{PACK_TIERS[tier].floor}+ OVR</span>
+              <span className="bkl-pack-cost">{priceLabel(tier)}</span>
+              {packOptionCount(position, tier) < 3 && <small>Unavailable at {position}</small>}
+            </button>)}
+          </div>
+          <dl className="bkl-pack-summary">
+            {payment === 'coins' && <div><dt>Your balance</dt><dd>{format.format(save.coins)} BK Coins</dd></div>}
+            <div><dt>{offer.label} {position} Pack</dt><dd>{priceLabel(selectedTier)}</dd></div>
+            {payment === 'coins' && available && save.coins >= offer.coins && <div><dt>Balance after purchase</dt><dd>{format.format(save.coins - offer.coins)} BK Coins</dd></div>}
+          </dl>
+          {!available && <p className="bkl-pack-note">Choose a different position or tier. This pack needs three eligible players.</p>}
+          {payment === 'usd' ? <>
+            <button type="button" className="bkl-gold" disabled>Continue to payment</button>
+            <p className="bkl-pack-note">USD checkout is unavailable. Switch to BK Coins to buy a pack.</p>
+          </> : <>
+            <button type="button" className="bkl-gold" disabled={!available || save.coins < offer.coins}
+              onClick={() => change(state => buyPack(state, position, selectedTier), 'Pack added. Open it when you’re ready.')}>Buy {offer.label} {position} Pack <ArrowRight aria-hidden="true"/></button>
+            {available && save.coins < offer.coins && <p className="bkl-pack-note">Earn {format.format(offer.coins - save.coins)} more BK Coins in Road to Legend.</p>}
+          </>}
+        </>}
+        {save.pack?.choices ? <section className="bkl-pack-reveal" aria-label="Choose your player">
+          <h2>Choose your player</h2>
+          <div className="bkl-pack-player-grid">{save.pack.choices.map(id => {
+            const card = CARD_BY_ID.get(id)!;
+            return <article className="bkl-pack-choice" key={id}>
+              <DepthPortrait id={id}/>
+              <strong>{card.overall} OVR</strong><h3>{card.name}</h3>
+              <button type="button" onClick={() => change(state => claimPack(state, id), 'Player added to your collection.')}>Claim</button>
+            </article>;
+          })}</div>
+        </section> : save.pack && pendingTier && <>
+          <img className="bkl-pack-sealed" src={'/images/bk-legends-pack-' + pendingTier + '.webp'} alt="" width={240} height={400}/>
+          <h2>{save.pack.position} {PACK_TIERS[pendingTier].label} Pack</h2>
+          {pendingTier === 'good' && packOptionCount(save.pack.position, 'elite') >= 3 &&
+            <button type="button" disabled={save.coins < PREMIUM_PRICE} onClick={() => change(boostPack, 'Elite Pack ready to open.')}>Upgrade to Elite · {format.format(PREMIUM_PRICE)} BK Coins</button>}
+          <button type="button" className="bkl-gold" onClick={() => change(state => revealPack(state))}>Open pack <ArrowRight aria-hidden="true"/></button>
         </>}
       </section>}
-      {section === 'Training' && <section className="bkl-panel">
-        <p className="bkl-kicker"><Dumbbell aria-hidden="true"/> {format.format(save.training)} Training Points</p><h1>Training Ground</h1>
+      {section === 'Training' && <section className="bkl-panel bkl-art-panel">
+        <header className="bkl-tab-art bkl-training-art">
+          <p className="bkl-kicker"><Dumbbell aria-hidden="true"/> {format.format(save.training)} Training Points</p>
+          <h1>Training Ground</h1>
+        </header>
         <p>Win a drill to earn 100 Training Points. Spend them in My Squad to upgrade a starter.</p>
         <div className="bkl-drills">{TRAINING.map(drill => <div key={drill.id}><div><h2>{drill.title}</h2><p>{goalText(drill)}</p></div><button onClick={() => launch(drill)}>Play drill</button></div>)}</div>
       </section>}
-      {section === 'Exchange' && <section className="bkl-panel">
-        <p className="bkl-kicker"><Shield aria-hidden="true"/> {duplicates(save)} spare copies</p><h1>Player Exchange</h1>
+      {section === 'Exchange' && <section className="bkl-panel bkl-art-panel">
+        <header className="bkl-tab-art bkl-exchange-art">
+          <p className="bkl-kicker"><Shield aria-hidden="true"/> {duplicates(save)} spare copies</p>
+          <h1>Player Exchange</h1>
+        </header>
         <p>Trade any 3 spare copies for the player shown. Your first copy of every card stays in your collection.</p>
         <PositionPicker position={position} onChange={setPosition}/>
         {exchangeTarget && <PlayerCard id={exchangeTarget} action={save.owned[exchangeTarget] ? 'Already owned' : 'Exchange 3 spare copies'} disabled={Boolean(save.owned[exchangeTarget]) || duplicates(save) < 3} onAction={() => change(state => exchangeCard(state, position), 'Exchange complete. Player added to your collection.')}/>}
