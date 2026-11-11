@@ -94,9 +94,16 @@ try {
   await legends.getByRole('button', { name: 'Campaign', exact: true }).click();
   await legends.getByText('0 / 80 complete', { exact: true }).waitFor();
   await legends.getByRole('button', { name: 'Packs', exact: true }).click();
-  await legends.getByRole('img', { name: 'Good and Elite football pack boxes' }).evaluate(image => image.decode());
+  const tiers = legends.getByRole('group', { name: 'Pack tiers' });
+  await tiers.locator('img').evaluateAll(images => Promise.all(images.map(image => image.decode())));
   await legends.getByRole('button', { name: 'QB', exact: true }).click();
-  assert.equal(await legends.getByRole('button', { name: 'Get QB Pack', exact: true }).isEnabled(), false);
+  assert.equal(await legends.getByRole('button', { name: 'Buy Good QB Pack', exact: true }).isEnabled(), false);
+  await tiers.getByRole('button', { name: /Legendary/ }).click();
+  await legends.getByText('Unavailable at QB', { exact: true }).waitFor();
+  await legends.getByRole('button', { name: 'WR', exact: true }).click();
+  await legends.getByRole('button', { name: 'USD', exact: true }).click();
+  await tiers.getByText('$11.99', { exact: true }).waitFor();
+  assert.equal(await legends.getByRole('button', { name: 'Continue to payment', exact: true }).isEnabled(), false);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Pack showcase overflows on mobile');
   await legends.getByRole('button', { name: 'Campaign', exact: true }).click();
   for (const width of [320, 390]) {

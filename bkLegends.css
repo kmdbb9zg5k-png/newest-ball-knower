@@ -92,13 +92,21 @@
 .bkl-pack-heading h1,.bkl-pack-reveal h2{font-style:italic}
 .bkl-pack-heading .bkl-kicker{color:var(--bkl-gold)}
 .bkl-pack-positions{margin:0}
-.bkl-pack-shelf{display:grid;width:min(100%,760px);justify-self:center}
-.bkl-pack-shelf img{display:block;width:100%;height:auto;border-radius:12px 12px 0 0}
-.bkl-pack-tiers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:-2px}
-.bkl-pack-tiers>div{display:grid;min-width:0;text-align:center;overflow:hidden;border:1px solid #8f7240;border-radius:10px;background:#181820}
-.bkl-pack-tiers strong{padding:4px;font-size:clamp(1rem,4vw,1.5rem)}
-.bkl-pack-tiers span{display:flex;gap:5px;align-items:center;justify-content:center;padding:6px 4px;background:linear-gradient(105deg,#ffe090,#d4a341);color:#171008;font-size:clamp(.67rem,2.65vw,.9rem);font-weight:850}
-.bkl-pack-tiers svg{width:13px;height:13px}
+.bkl-pack-payment,.bkl-pack-options{display:grid;gap:6px}
+.bkl-pack-payment{grid-template-columns:repeat(2,minmax(0,1fr))}
+.bkl-pack-payment button[aria-pressed=true]{background:linear-gradient(105deg,#ffe090,#e7b644);color:#171008}
+.bkl-pack-options{grid-template-columns:repeat(3,minmax(0,1fr));width:min(100%,700px);justify-self:center}
+.bkl-pack-options button{display:grid;align-content:start;gap:4px;padding:4px;min-width:0;text-align:center;background:#13141a}
+.bkl-pack-options button[aria-pressed=true]{box-shadow:0 0 10px #e7b64466;background:#271e13}
+.bkl-pack-options img{display:block;width:100%;height:auto;border-radius:5px}
+.bkl-pack-options strong{font-size:clamp(.68rem,3.1vw,1.1rem);overflow-wrap:anywhere}
+.bkl-pack-options span,.bkl-pack-options small{font-size:clamp(.62rem,2.55vw,.85rem)}
+.bkl-pack-options small{color:#d8c8ad}
+.bkl-pack-cost{color:#ffdc81;font-weight:800}
+.bkl-pack-summary{display:grid;gap:7px;margin:0;padding:10px;border:1px solid #8f7240;border-radius:10px;background:#14141a}
+.bkl-pack-summary>div{display:flex;justify-content:space-between;gap:7px;font-size:.83rem}
+.bkl-pack-summary dd{margin:0;text-align:right;color:#ffdc81;font-weight:800}
+.bkl-pack-sealed{width:min(48%,200px);height:auto;justify-self:center;border-radius:8px}
 .bkl-pack-note{text-align:center;font-size:.8rem}
 .bkl-pack-reveal{display:grid;gap:8px;border:1px solid #6d552d;border-radius:12px;padding:10px;text-align:center;background:#0c0d12}
 .bkl-pack-reveal p{font-size:.78rem}
