@@ -360,7 +360,7 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
 
   if (tunnelProduct) return <TunnelProductPage product={tunnelProduct} onBack={() => setTunnelProduct(null)}/>;
 
-  return <section className="bk-store bk-store-locker-shop" ref={store} aria-label="Store">
+  return <section className="bk-store bk-store-locker-shop" data-store-page={page} ref={store} aria-label="Store">
     {page !== 'featured' && <button className="bk-store-back" type="button" onClick={() => { setDepartment('featured'); openPage('featured'); }}><ArrowLeft size={17} aria-hidden="true"/> Back to Store</button>}
     <header className="bk-store-header">
       <div><span className="bk-store-brand">Ball Knower</span><h1 id="bk-store-title" ref={title} tabIndex={-1}>{heading}</h1></div>
