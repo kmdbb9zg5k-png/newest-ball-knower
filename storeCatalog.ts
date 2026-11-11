@@ -70,12 +70,12 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
   BLACKOUT_KIT,
   ...FEATURED_PACKS,
   {
-    id: 'bk-femme', name: 'BK Femme', posterOnly: true, proposedCoins: 1500,
+    id: 'bk-femme', name: 'BKF Nicki', posterOnly: true, proposedCoins: 1500,
     summary: 'Leather jacket, crop top, cargos & silver accessories',
-    description: 'The original BK Femme outfit pack artwork: a black leather jacket, white crop top, black cargo pants, black-and-white sneakers, BK necklace and earrings. Proposed pack price: 1,500 BK Coins. The pictured buttons and in-game views are promotional artwork; interactive 3D, wearable items, purchasing and gifting are not available yet.',
+    description: 'The original BKF Nicki outfit pack artwork: a black leather jacket, white crop top, black cargo pants, black-and-white sneakers, BK necklace and earrings. Proposed pack price: 1,500 BK Coins. The pictured buttons and in-game views are promotional artwork; interactive 3D, wearable items, purchasing and gifting are not available yet.',
     priceCents: 0, categories: ['tunnel-fits', 'bundles'],
     includes: ['Leather jacket', 'White crop top', 'Black cargo pants', 'Black-and-white sneakers', 'BK necklace', 'Earrings'],
-    use: 'BK Femme outfit pack · Artwork preview',
+    use: 'BKF Nicki outfit pack · Artwork preview',
   },
   {
     id: 'chrome-grip',
@@ -225,7 +225,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
 ];
 
 export const storeImage = (id: string) => id === 'bk-femme'
-  ? '/store/bk-femme.jpeg'
+  ? '/store/bkf-nicki.jpeg'
   : id === 'bkf-phantom'
   ? 'https://v3b.fal.media/files/b/0ab1f22f/ZV1i2C4x_u3pGyWgsReKS_7OOQNTpM.png'
   : id === 'gold-standard'
