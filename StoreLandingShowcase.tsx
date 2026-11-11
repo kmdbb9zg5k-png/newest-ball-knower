@@ -62,9 +62,9 @@ export default function StoreLandingShowcase({onNavigate,onProduct,onCatalog,onR
  <div className="bk-cinema-main">
   <section className="bk-cinema-hero" aria-labelledby="bk-cinema-hero-title">
    <div className="bk-cinema-hero-cast" aria-label="Original Ball Knower character collection">
-    {heroCast.map((character,i)=><button key={character.id} type="button" className="bk-cinema-hero-person" title={`See ${character.name}`} onClick={()=>open(character.id)}>
+    {heroCast.map((character,i)=><button key={character.id} type="button" className={`bk-cinema-hero-person bk-cinema-hero-person-${i}`} title={`See ${character.name}`} onClick={()=>open(character.id)}>
      <img src={character.img} alt={character.name+' original character artwork'} loading={i<4?'eager':'lazy'} draggable={false} onError={e=>{e.currentTarget.style.opacity='0'}}/>
-     <span>{character.name}</span>
+     <span className="bk-cinema-hero-person-label">{character.name}</span>
     </button>)}
    </div>
    <div className="bk-cinema-hero-copy">
@@ -73,7 +73,7 @@ export default function StoreLandingShowcase({onNavigate,onProduct,onCatalog,onR
     <p>TUNNEL FITS <b>•</b> GAME GEAR <b>•</b> CHARACTERS <b>•</b> EXTRAS</p>
     <button type="button" className="bk-cinema-cta" onClick={()=>open('gold-standard')}>Shop Gold Standard <ArrowRight size={16}/></button>
    </div>
-   <div className="bk-cinema-hero-feature"><strong>THE BKF<br/>LINEUP</strong><small>11 ORIGINAL CHARACTER LOOKS</small><button type="button" onClick={()=>onNavigate('characters')}>SHOP CHARACTERS <ChevronRight size={15}/></button></div>
+   <div className="bk-cinema-hero-feature"><strong>THE BKF<br/>LINEUP</strong><small>ORIGINAL BKF CHARACTERS</small><button type="button" onClick={()=>onNavigate('characters')}>SHOP CHARACTERS <ChevronRight size={15}/></button></div>
   </section>
   <nav className="bk-cinema-equipment" aria-label="Browse equipment">
    {equipment.map(item=><button type="button" key={item.id} onClick={()=>onNavigate(item.id)}>
