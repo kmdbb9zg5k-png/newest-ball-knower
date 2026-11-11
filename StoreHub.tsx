@@ -15,16 +15,17 @@ import './bkf-drop.css';
 
 const AthleteLivePreview = lazy(() => import('./AthleteLivePreview'));
 const StoreRewards = lazy(() => import('./StoreRewards'));
+const HelmetShop = lazy(() => import('./HelmetShop'));
 const BKFYoungBoyPose = lazy(() => import('./BKFYoungBoyPose'));
 const StoreCharacterPreview = lazy(() => import('./StoreCharacterPreview'));
 const BKFFrostbitePose = lazy(() => import('./BKFFrostbitePose'));
 
 type StorePage = 'featured' | 'catalog' | 'rewards';
 type Selection = { product: StoreProduct };
-type ShopDepartment = 'featured' | 'characters' | 'clothing' | 'accessories' | 'all';
+type ShopDepartment = 'featured' | 'characters' | 'clothing' | 'helmets' | 'accessories' | 'all';
 const departments = [
   { id: 'featured', label: 'Featured' }, { id: 'characters', label: 'Characters' },
-  { id: 'clothing', label: 'Clothing' }, { id: 'accessories', label: 'Accessories' },
+  { id: 'clothing', label: 'Clothing' }, { id: 'helmets', label: 'Helmets' }, { id: 'accessories', label: 'Accessories' },
   { id: 'all', label: 'All Items' },
 ] as const;
 const isCharacter = (product: StoreProduct) => product.department !== 'clothing' && (product.posterOnly || Boolean(product.showcase) || ['bkf-youngboy', 'frostbite'].includes(product.id));
@@ -358,6 +359,13 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
       <button type="button" key={category.id} aria-pressed={filter === category.id} onClick={() => setFilter(category.id)}>{category.label}</button>)}
   </div>;
 
+  if (department === 'helmets' && page !== 'rewards') return <Suspense fallback={<p role="status">Loading helmet collection…</p>}>
+    <HelmetShop onOpenLocker={onOpenLocker} onNavigate={next => {
+      if (next === 'coins') { setDepartment('featured'); openPage('rewards'); }
+      else if (next === 'cleats' || next === 'bundles') { setDepartment('all'); setFilter(next === 'cleats' ? 'game-gear' : 'bundles'); openPage('catalog'); }
+      else { setDepartment(next); setFilter('all'); openPage('featured'); }
+    }}/>
+  </Suspense>;
   if (tunnelProduct) return <TunnelProductPage product={tunnelProduct} onBack={() => setTunnelProduct(null)}/>;
 
   return <section className="bk-store bk-store-locker-shop" data-store-page={page} ref={store} aria-label="Store">
