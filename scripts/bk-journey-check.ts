@@ -11,7 +11,7 @@ assert.ok(home.includes('<HomeJourneyFeature onNavigate={onNavigate}/>'), 'The B
 assert.ok(home.indexOf('<HomeJourneyFeature onNavigate={onNavigate}/>') > home.indexOf('<HomeMiniGamesFeature'), 'Daily Challenges must be below Mini Games.');
 assert.match(entry, /showModal\(\)/, 'The rewards experience must open as an interactive modal.');
 assert.match(entry, /aria-label="Open Daily Challenges and BK Journey rewards"/, 'The card must be accessible.');
-for (const label of ['DAILY CHALLENGES', 'BK JOURNEY', 'YOUR REWARDS', 'BK COINS', 'CLAIM']) {
+for (const label of ['DAILY CHALLENGES', 'BK JOURNEY', 'MY REWARDS', 'BK COINS', 'CLAIM']) {
   assert.ok((journey + entry).toUpperCase().includes(label), 'Missing approved journey feature: ' + label);
 }
 assert.ok(journey.includes("supabase.rpc('bk_journey_state')"), 'Progress must come from the authenticated server.');

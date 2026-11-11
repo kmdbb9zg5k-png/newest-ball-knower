@@ -60,10 +60,12 @@ try {
     await dialog.waitFor();
     await dialog.getByRole('heading',{name:'DAILY CHALLENGES'}).waitFor();
     const screen=dialog.locator('[data-bk-journey]');
-    await screen.getByText('133 XP').waitFor();
+    await screen.getByText('133 / 250 XP').waitFor();
     await screen.getByText('50',{exact:true}).first().waitFor();
     assert.equal(await screen.locator('.bk-journey-mission').count(),3);
-    assert.equal(await screen.getByText('1 / 3', {exact:true}).count(),1,'Only the verified trivia activity is completed');
+    assert.equal(await screen.getByText('0 / 3', {exact:true}).count(),1,'Two of three verified trivia answers are not yet a completed daily mission');
+    await screen.locator('[data-mission="trivia"] [role="progressbar"]').waitFor();
+    assert.equal(await screen.locator('[data-mission="trivia"] [role="progressbar"]').getAttribute('aria-valuenow'),'2');
     await screen.getByRole('button',{name:'BK Journey',exact:true}).click();
     assert.equal(await screen.locator('.bk-journey-checkpoint').count(),5);
     const claim=screen.getByRole('button',{name:'Claim reward'});
