@@ -73,7 +73,7 @@ try {
   }
   await page.setViewportSize({ width: 844, height: 470 });
 
-  async function playChallenge({ title, ball, clock, passTarget = 0, rushTarget = 0 }, retry = false) {
+  async function playChallenge({ title, ball, clock, attackEndZone, passTarget = 0, rushTarget = 0 }, retry = false) {
     console.log('Starting', title);
     const slug = title.toLowerCase().replaceAll(/[^a-z]+/g, '-');
     await legends.getByRole('button', { name: 'Play challenge', exact: true }).click();
@@ -144,11 +144,11 @@ try {
           await step(3);
         } else if (current.playbook.open) {
           if (current.mini.conversion === 'home') await click('breakHuddle');
-          else if ((!kicked || current.mini.overtime) && current.mini.stats.home.passYards >= passTarget && current.mini.stats.home.rushYards >= rushTarget && await visible('fullFieldGoal') && await field.locator('#fullFieldGoal').isEnabled()) {
+          else if ((!attackEndZone || current.mini.overtime) && (!kicked || current.mini.overtime) && current.mini.stats.home.passYards >= passTarget && current.mini.stats.home.rushYards >= rushTarget && await visible('fullFieldGoal') && await field.locator('#fullFieldGoal').isEnabled()) {
             await click('fullFieldGoal');
             kicked = true;
           } else {
-            if (current.mini.stats.home.passYards < passTarget) {
+            if (current.mini.stats.home.passYards < passTarget || (attackEndZone && current.mini.stats.home.rushYards >= rushTarget)) {
               await click('filterPass');
               await click(retry ? 'call-pass-2' : 'call-pass-1');
             } else if (current.mini.stats.home.rushYards < rushTarget) {
@@ -198,6 +198,7 @@ try {
     title: scenario.title,
     ball: scenario.defending ? 25 : scenario.ball,
     clock: scenario.clock,
+    attackEndZone: scenario.goal === 'win' && scenario.id !== 0,
     passTarget: scenario.goal === 'pass' ? scenario.target : 0,
     rushTarget: scenario.goal === 'rush' ? scenario.target : 0,
     next: CAMPAIGN[index + 1].title,
