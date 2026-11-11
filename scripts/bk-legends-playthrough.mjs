@@ -63,7 +63,9 @@ try {
     await page.getByRole('button', { name: 'BK Legends Build a squad and play Road to Legend' }).click();
     await legends.waitFor();
   }
-  const homeCover = page.getByRole('button', { name: 'Play BK Legends', exact: true });
+  const homeCover = page.locator('.bk-journey-dialog + .bk-home-legends-cover')
+    .and(page.getByRole('button', { name: 'Play BK Legends', exact: true }));
+  assert.equal(await page.getByRole('heading', { name: 'Your game starts here.', exact: true }).count(), 0);
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
     await homeCover.scrollIntoViewIfNeeded();
