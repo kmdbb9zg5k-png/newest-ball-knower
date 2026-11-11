@@ -111,6 +111,8 @@ try {
       for (const button of await page.getByRole('button', { name: 'Profile', exact: true }).all()) { if (await button.isVisible()) { await button.click(); break; } }
       const profile = page.getByTestId('locker-profile');
       await profile.waitFor();
+      assert.equal(await page.locator('header[data-profile-chrome="true"]').count(), 1);
+      assert.equal(await page.locator('nav[aria-label="Primary navigation"]').getAttribute('data-profile-chrome'), 'true');
       const guide = page.getByRole('dialog', { name: 'Make every game count.', exact: true });
       await guide.waitFor();
       assert.equal(await guide.getByRole('navigation', { name: 'Profile guide topics' }).getByRole('button').count(), 9);
@@ -268,6 +270,7 @@ try {
       assert.equal(await page.getByRole('button', { name: 'Ball Knower home', exact: true }).locator('h1').evaluate(element => getComputedStyle(element).fontSize), homeBrandSize, 'Profile cosmetics must not leak into Home');
       assert.equal(await page.getByRole('button',{name:'Ball Knower home',exact:true}).locator('h1').evaluate(el=>getComputedStyle(el).backgroundImage),'none','Profile atlas must not leak into Home');
       console.log('PASS restored Home header',engine,width,homeBrandSize);
+      assert.equal(await page.locator('header[data-profile-chrome="true"]').count(), 0);
       if (engine === 'chromium' && width === 430) {
         await page.evaluate(() => localStorage.setItem('ballknower_solo_my_player_v2', JSON.stringify({
           version: 1, stage: 'creator', position: 'WR', name: 'Showcase Fixture', number: 7,
@@ -277,7 +280,7 @@ try {
         for (const button of profileButtons) { if (await button.isVisible()) { await button.click(); break; } }
         const showcase = page.getByRole('region', { name: 'Player showcase' });
         await showcase.locator('[data-render-state="ready"]').waitFor({ timeout: 30000 });
-        await showcase.getByRole('button', { name: 'Walkout', exact: true }).click();
+        assert.equal(await showcase.getByRole('button', { name: 'Walkout', exact: true }).count(), 0);
         await showcase.getByRole('button', { name: 'Rotate athlete right' }).click();
         await showcase.getByRole('button', { name: 'Close-up', exact: true }).click();
         await showcase.locator('[data-view="head"]').waitFor();
@@ -288,7 +291,8 @@ try {
         await showcase.getByText('Your fit is now private.', { exact: true }).waitFor();
         assert.equal(sharedFit, null);
         await page.emulateMedia({ reducedMotion: 'reduce' });
-        await showcase.getByRole('button', { name: 'Walkout', exact: true }).waitFor({ state: 'hidden' });
+        await showcase.getByRole('group', { name: 'Athlete details' }).getByRole('button', { name: 'Trainers', exact: true }).click();
+        await showcase.locator('[data-view="trainers"]').waitFor();
         await showcase.screenshot({ path: `${output}/chromium-430-athlete-showcase.png` });
       }
       assert.deepEqual(crashes, []);

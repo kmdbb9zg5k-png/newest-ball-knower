@@ -14,7 +14,6 @@ export function ProfileAthleteShowcase({ userId, visitor, canShare, displayName,
 }) {
   const [athlete, setAthlete] = useState(() => visitor ? null : readAthletePassport());
   const outfit = usePlayerOutfit();
-  const [view, setView] = useState<'body' | 'head'>('body');
   const [shared, setShared] = useState<ShowcaseFit | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -75,7 +74,7 @@ export function ProfileAthleteShowcase({ userId, visitor, canShare, displayName,
   return <section className="bk-profile-athlete" aria-label="Player showcase">
     {fit && <Suspense fallback={<img className="bk-profile-athlete-poster" src={poster} alt="" />}>
       <AthleteLivePreview profile={{ ...fit, name: visitor ? displayName || 'Featured athlete' : athlete?.name || 'Your athlete',
-        combineId: visitor ? userId : athlete?.id }} previewOutfit={visitor ? fit.wardrobe : outfit} profileShowcase view={view} onViewChange={setView}
+        combineId: visitor ? userId : athlete?.id }} previewOutfit={visitor ? fit.wardrobe : outfit} profileShowcase
         fallbackImage={visitor ? poster : athlete?.portrait || poster}/>
     </Suspense>}
     {!visitor && canShare && <div className="bk-profile-athlete-sharing">
