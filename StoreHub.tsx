@@ -341,6 +341,13 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
     (page === 'featured' ? viewAll.current : title.current)?.focus({ preventScroll: true });
   }, [page]);
 
+  // Department navigation can keep the same page state, so also reset the
+  // scroll position when opening a premium collection from deep in the Store.
+  useEffect(() => {
+    if (!navigated.current) return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [department]);
+
   useEffect(() => {
     if (tunnelProduct || !returnToCard.current) return;
     const { id, top } = returnToCard.current;
