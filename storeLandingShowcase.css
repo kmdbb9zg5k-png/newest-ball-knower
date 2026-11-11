@@ -37,7 +37,12 @@
 .bk-cinema-promos{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:11px 0}
 .bk-cinema-promo{position:relative;isolation:isolate;min-height:178px;overflow:hidden;border:1px solid #b89356;border-radius:12px;background:radial-gradient(at right,#564123,#0a0b0e 78%)}
 .bk-cinema-promo::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#07080af9,#07080ad4 48%,transparent)}
-.bk-cinema-character-art{position:absolute;right:0;top:0;bottom:0;display:flex;width:65%;z-index:-2}.bk-cinema-character-art img{height:100%;width:50%;object-fit:cover;margin-left:-16%}.bk-cinema-character-art img:first-child{margin-left:0}
+/* Each panel here is an actual approved Character Pack cover, never a tunnel reference photo. */
+.bk-cinema-character-art{position:absolute;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:flex-end;width:67%;padding-right:4px;z-index:-2;overflow:hidden}
+.bk-cinema-character-art img{display:block;flex:none;width:36%;height:94%;object-fit:cover;object-position:center 25%;border:1px solid #e5b95e;border-radius:7px;box-shadow:0 0 10px #000e,0 0 14px #bb8c4b55;background:#0d0e12;transform:rotate(0deg)}
+.bk-cinema-character-art img:nth-child(1){margin-right:-7%;transform:rotate(-7deg) translateY(4px);z-index:1}
+.bk-cinema-character-art img:nth-child(2){margin-right:-7%;transform:rotate(-1deg) translateY(-2px);z-index:2}
+.bk-cinema-character-art img:nth-child(3){transform:rotate(6deg) translateY(3px);z-index:3}
 .bk-cinema-uniforms>img{position:absolute;right:0;top:0;height:100%;width:59%;object-fit:contain;z-index:-2}
 .bk-cinema-promo-copy{position:relative;max-width:70%;height:100%;display:flex;flex-direction:column;align-items:flex-start;padding:17px 14px}
 .bk-cinema-promo-copy h2{font-size:clamp(22px,3vw,32px)}.bk-cinema-promo-copy p{font-size:clamp(11px,1.3vw,14px);line-height:1.38;margin:9px 0 13px}.bk-cinema-promo-copy button{margin-top:auto;font-size:10px;padding:7px 8px;min-height:29px}
