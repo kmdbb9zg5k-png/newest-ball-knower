@@ -10,7 +10,7 @@ const deferred=()=>{let resolve;const promise=new Promise(done=>resolve=done);re
 const tracks=[{id:'one',title:'One',url:'/audio/one.mp3'},{id:'two',title:'Two',url:'/audio/two.mp3'},{id:'manual',title:'Manual',url:'/audio/manual.mp3',manualOnly:true}];
 const OWNER_A='11111111-1111-4111-8111-111111111111',OWNER_B='22222222-2222-4222-8222-222222222222';
 
-function harness(stored={},native=false,library=tracks,random=()=>0){
+function harness(stored={},native=false,library=tracks,random=()=>0, iOS=false){
  const slots=[],effects=[],timers=new Map(),storage=new Map(Object.entries({ballknower_cloud_owner_v1:OWNER_A,...stored})),cloud=deferred(),recovery=deferred();
  const nativeListener=deferred();let nativeCallback,nativeRemovals=0;
  let cursor=0,dirty=true,output,unmounted=false,timerId=0,blobCount=0;
@@ -33,6 +33,17 @@ function harness(stored={},native=false,library=tracks,random=()=>0){
  }
  class TestURL extends URL{static createObjectURL(){return 'blob:recovered-'+(++blobCount)}static revokeObjectURL(url){revoked.push(url)}}
  Object.assign(browser,{location:{href:'https://ballknower.test/'},setTimeout:fn=>{timers.set(++timerId,fn);return timerId;},clearTimeout:id=>timers.delete(id)});
+ const gain = { gain: { value: 1 }, connect() {} };
+ if (iOS) Object.assign(browser, {
+  navigator: { userAgent: 'iPhone' },
+  AudioContext: class {
+   state = 'suspended';
+   createGain() { return gain; }
+   createMediaElementSource() { return { connect() {} }; }
+   async resume() { this.state = 'running'; }
+   async close() { this.state = 'closed'; }
+  },
+ });
  const module={exports:{}};
  const context={module,exports:module.exports,console,URL:TestURL,Audio:Media,document,window:browser,localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value)},fetch:async url=>url==='/api/media'?{ok:true,json:async()=>({tracks:library})}:recovery.promise,Math:Object.assign(Object.create(Math),{random}),require:name=>{
   if(name==='react')return {...hooks,default:hooks,__esModule:true};
@@ -47,7 +58,7 @@ function harness(stored={},native=false,library=tracks,random=()=>0){
  const render=()=>{cursor=0;dirty=false;output=module.exports.SoundtrackProvider({children:null});for(const effect of effects.splice(0))effect();};
  const flush=async()=>{for(let turn=0;turn<12;turn++){if(dirty&&!unmounted)render();await Promise.resolve();}};
  const visibility=async hidden=>{document.hidden=hidden;document.visibilityState=hidden?'hidden':'visible';document.dispatchEvent(new Event('visibilitychange'));await flush();};
- return{flush,cloud,recovery,loads,saves,audios,storage,revoked,visibility,nativeListener,get nativeRemovals(){return nativeRemovals},registerNative:()=>nativeListener.resolve({remove:async()=>{nativeRemovals++}}),appState:async isActive=>{nativeCallback?.({isActive});await flush();},get value(){return output.props.value},get audio(){return audios[0]},get blobs(){return blobCount},pointer:async()=>{browser.dispatchEvent(new Event('pointerdown'));await flush();},timers:async()=>{for(const [id,fn]of [...timers]){timers.delete(id);fn();}await flush();},unmount(){unmounted=true;for(const slot of slots)slot?.cleanup?.();}};
+ return{flush,cloud,recovery,loads,saves,audios,storage,revoked,visibility,nativeListener,gain,get nativeRemovals(){return nativeRemovals},registerNative:()=>nativeListener.resolve({remove:async()=>{nativeRemovals++}}),appState:async isActive=>{nativeCallback?.({isActive});await flush();},get value(){return output.props.value},get audio(){return audios[0]},get blobs(){return blobCount},pointer:async()=>{browser.dispatchEvent(new Event('pointerdown'));await flush();},timers:async()=>{for(const [id,fn]of [...timers]){timers.delete(id);fn();}await flush();},unmount(){unmounted=true;for(const slot of slots)slot?.cleanup?.();}};
 }
 
 {
@@ -104,3 +115,26 @@ console.log('PASS real soundtrack provider with fake media: intro ownership, sin
 }
 
 console.log('PASS owner/offline preferences: no cloud bootstrap, no untouched default writes, scoped hydration and originating-owner debounce');
+
+{
+ const h = harness({bk_soundtrack_muted:'true'}, false, tracks, () => 0, true);
+ await h.flush();
+ h.value.setIntroActive(false);
+ await h.flush();
+ assert.equal(h.audio.crossOrigin, 'anonymous');
+ assert.equal(h.gain.gain.value, 0, 'The iOS audio graph starts muted');
+ const playCalls = h.audio.playCalls;
+ h.audio.currentTime = 37;
+ h.value.setVolume(.55, true);
+ await h.flush();
+ assert.equal(h.value.isMuted, false);
+ assert.equal(h.gain.gain.value, .55, 'The slider changes audible gain on iOS');
+ assert.equal(h.audio.volume, 1, 'The HTML volume must not attenuate the signal twice');
+ assert.equal(h.audio.playCalls, playCalls, 'Changing volume must not restart playback');
+ assert.equal(h.audio.currentTime, 37);
+ h.value.setVolume(0, true);
+ await h.flush();
+ assert.equal(h.gain.gain.value, 0);
+ h.unmount();
+}
+console.log('PASS iOS gain, slider unmute, silence at zero, and playback continuity');
