@@ -21,8 +21,8 @@ try {
   browser = await chromium.launch({ headless: true, executablePath: process.env.BROWSER_PATH || undefined,
     args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] });
   context = await browser.newContext({
-    viewport: { width: 1040, height: 525 }, hasTouch: true,
-    recordVideo: { dir: out, size: { width: 1040, height: 525 } },
+    viewport: { width: 844, height: 470 }, hasTouch: true,
+    recordVideo: { dir: out, size: { width: 844, height: 470 } },
   });
   page = await context.newPage();
   page.on('pageerror', error => report.errors.push(error.message));
@@ -60,9 +60,11 @@ try {
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Campaign overflows at ' + width);
     await page.screenshot({ path: out + '/campaign-' + width + '.png' });
   }
-  await page.setViewportSize({ width: 1040, height: 525 });
+  await page.setViewportSize({ width: 844, height: 470 });
 
-  async function playFirstSnap() {
+  async function playChallenge({ title, ball, clock, passing = false }) {
+    console.log('Starting', title);
+    const slug = title.toLowerCase().replaceAll(/[^a-z]+/g, '-');
     await legends.getByRole('button', { name: 'Play challenge', exact: true }).click();
     const iframe = page.locator('iframe[title="BK Legends 3D football field"]');
     await iframe.waitFor();
@@ -70,18 +72,26 @@ try {
     const field = await handle.contentFrame();
     await field.waitForFunction(() => window.bk3dDiagnostics?.().athletes.ready, null, { timeout: 60_000 });
     const state = () => field.evaluate(() => window.bk3dDiagnostics());
-    const step = seconds => field.evaluate(s => window.bk3dTest.step(s), seconds);
+    const step = async seconds => {
+      try { await field.evaluate(s => window.bk3dTest.step(s), seconds); }
+      catch (error) { if (!field.isDetached()) throw error; }
+    };
     const click = async id => {
-      await field.locator('#' + id).click({ timeout: 8000 });
+      const control = field.locator('#' + id);
+      await control.waitFor({ state: 'visible', timeout: 20_000 });
+      assert.equal(await control.isEnabled(), true, id + ' is disabled');
+      // Activate the same in-game button without waiting for a software-rendered pointer frame.
+      await control.dispatchEvent('click', {}, { timeout: 30_000 });
       report.controls.push(id);
     };
     const visible = id => field.locator('#' + id).isVisible();
     const initial = await state();
-    assert.equal(initial.drive.clock, 45);
-    assert.equal(initial.drive.ball, 90);
+    assert.equal(initial.drive.clock, clock);
+    assert.equal(initial.drive.ball, ball);
     assert.equal(initial.players[5].teamAbbr, 'BKL');
+    await field.evaluate(() => window.bkSetGraphicsQualityForQA('eco'));
     let kicked = false, liveDefense = 0;
-    await page.screenshot({ path: out + '/first-snap-playbook.png' });
+    await page.screenshot({ path: out + '/' + slug + '-playbook.png' });
     for (let action = 0; action < 200; action++) {
       if (await page.getByRole('heading', { name: /Challenge cleared|Objective incomplete/ }).isVisible()) return;
       if (field.isDetached()) return;
@@ -100,7 +110,7 @@ try {
           await click('unitCallDefense');
           await click('defenseReady');
           await step(.8);
-          await page.screenshot({ path: out + '/first-snap-defense.png' });
+          await page.screenshot({ path: out + '/' + slug + '-defense.png' });
           liveDefense++;
         } else {
           await click('unitSimBook');
@@ -112,40 +122,66 @@ try {
         else if ((!kicked || current.mini.overtime) && await visible('fullFieldGoal') && await field.locator('#fullFieldGoal').isEnabled()) {
           await click('fullFieldGoal');
           kicked = true;
-        } else await click('breakHuddle');
+        } else {
+          if (passing && current.mini.stats.home.passYards < 14) {
+            await click('filterPass');
+            await click('call-pass-1');
+          }
+          await click('breakHuddle');
+        }
       } else if (current.phase === 'pre') {
         await field.locator('#snap').dispatchEvent('pointerdown', { pointerId: 1, pointerType: 'touch', button: 0, isPrimary: true });
         report.controls.push('snap');
-        await step(5);
+        await step(current.mode === 'pass' ? 1.45 : 5);
+      } else if (current.phase === 'pass' && !current.throwing) {
+        const targets = current.players.filter((player, index) => [7, 8, 9, 10, 6].includes(index) && !player.fallen);
+        const defense = current.players.filter(player => player.team === 1 && !player.fallen);
+        const score = player => Math.min(...defense.map(d => Math.hypot(d.x - player.x, d.z - player.z))) +
+          .25 * Math.max(0, player.z - current.field.scrimmage);
+        targets.sort((a, b) => score(b) - score(a));
+        const target = current.players.indexOf(targets[0]);
+        const input = field.locator('#target-' + target);
+        if (await input.isVisible()) {
+          await input.dispatchEvent('click');
+          report.controls.push('pass:' + target);
+        }
+        await step(3);
       } else if (current.phase === 'cpu' && await visible('fullNext')) {
         await click('fullNext');
       } else {
         await step(5);
       }
     }
-    throw new Error('First Snap did not reach a result within the control budget');
+    throw new Error(title + ' did not reach a result within the control budget');
   }
 
-  await playFirstSnap();
-  const result = page.getByRole('dialog', { name: 'First Snap' });
-  await result.getByRole('heading', { name: /Challenge cleared|Objective incomplete/ }).waitFor();
-  report.rounds.push({ challenge: 'First Snap', result: await result.innerText() });
-  await page.screenshot({ path: out + '/first-snap-result.png' });
-  await result.getByRole('heading', { name: 'Challenge cleared', exact: true }).waitFor({ timeout: 1500 });
-  await result.getByText('+1,000 BK Coins', { exact: true }).waitFor();
-  await result.getByRole('button', { name: 'Back to BK Legends' }).click();
-  await legends.getByText('1 / 80 complete', { exact: true }).waitFor();
-  await legends.getByRole('heading', { name: 'Find Your Receiver', exact: true }).waitFor();
-  await page.reload();
-  await enterLegends();
-  await legends.getByText('1 / 80 complete', { exact: true }).waitFor();
-  assert.match(await legends.locator('.bkl-header').innerText(), /1,000/);
-  await legends.getByRole('heading', { name: 'Find Your Receiver', exact: true }).waitFor();
+  const rounds = [
+    { title: 'First Snap', ball: 90, clock: 45, next: 'Find Your Receiver' },
+    { title: 'Find Your Receiver', ball: 25, clock: 77, passing: true, next: 'Set the Edge' },
+  ];
+  for (const [index, round] of rounds.entries()) {
+    await playChallenge(round);
+    const result = page.getByRole('dialog', { name: round.title });
+    await result.getByRole('heading', { name: /Challenge cleared|Objective incomplete/ }).waitFor();
+    report.rounds.push({ challenge: round.title, result: await result.innerText() });
+    await page.screenshot({ path: out + '/round-' + (index + 1) + '-result.png' });
+    await result.getByRole('heading', { name: 'Challenge cleared', exact: true }).waitFor({ timeout: 1500 });
+    await result.getByText('+1,000 BK Coins', { exact: true }).waitFor();
+    await result.getByRole('button', { name: 'Back to BK Legends' }).click();
+    await legends.getByText((index + 1) + ' / 80 complete', { exact: true }).waitFor();
+    await legends.getByRole('heading', { name: round.next, exact: true }).waitFor();
+    await page.reload();
+    await enterLegends();
+    await legends.getByText((index + 1) + ' / 80 complete', { exact: true }).waitFor();
+    assert.match(await legends.locator('.bkl-header').innerText(), new RegExp((index + 1) + ',000'));
+    await legends.getByRole('heading', { name: round.next, exact: true }).waitFor();
+  }
   assert.deepEqual(report.errors, []);
   console.log(JSON.stringify(report));
 } catch (error) {
   report.failure = String(error);
-  await page?.screenshot({ path: out + '/failure.png' }).catch(() => {});
+  console.error(JSON.stringify(report));
+  await page?.screenshot({ path: out + '/failure.png', timeout: 12_000 }).catch(() => {});
   throw error;
 } finally {
   await writeFile(out + '/report.json', JSON.stringify(report, null, 2));
