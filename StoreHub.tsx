@@ -16,16 +16,17 @@ import './bkf-drop.css';
 const AthleteLivePreview = lazy(() => import('./AthleteLivePreview'));
 const StoreRewards = lazy(() => import('./StoreRewards'));
 const HelmetShop = lazy(() => import('./HelmetShop'));
+const JerseyShop = lazy(() => import('./JerseyShop'));
 const BKFYoungBoyPose = lazy(() => import('./BKFYoungBoyPose'));
 const StoreCharacterPreview = lazy(() => import('./StoreCharacterPreview'));
 const BKFFrostbitePose = lazy(() => import('./BKFFrostbitePose'));
 
 type StorePage = 'featured' | 'catalog' | 'rewards';
 type Selection = { product: StoreProduct };
-type ShopDepartment = 'featured' | 'characters' | 'clothing' | 'helmets' | 'accessories' | 'all';
+type ShopDepartment = 'featured' | 'characters' | 'clothing' | 'helmets' | 'jerseys' | 'accessories' | 'all';
 const departments = [
   { id: 'featured', label: 'Featured' }, { id: 'characters', label: 'Characters' },
-  { id: 'clothing', label: 'Clothing' }, { id: 'helmets', label: 'Helmets' }, { id: 'accessories', label: 'Accessories' },
+  { id: 'clothing', label: 'Clothing' }, { id: 'helmets', label: 'Helmets' }, { id: 'jerseys', label: 'Jerseys' }, { id: 'accessories', label: 'Accessories' },
   { id: 'all', label: 'All Items' },
 ] as const;
 const isCharacter = (product: StoreProduct) => product.department !== 'clothing' && (product.posterOnly || Boolean(product.showcase) || ['bkf-youngboy', 'frostbite'].includes(product.id));
@@ -361,6 +362,13 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
 
   if (department === 'helmets' && page !== 'rewards') return <Suspense fallback={<p role="status">Loading helmet collection…</p>}>
     <HelmetShop onNavigate={next => {
+      if (next === 'coins') { setDepartment('featured'); openPage('rewards'); }
+      else if (next === 'cleats' || next === 'bundles') { setDepartment('all'); setFilter(next === 'cleats' ? 'game-gear' : 'bundles'); openPage('catalog'); }
+      else { setDepartment(next); setFilter('all'); openPage('featured'); }
+    }}/>
+  </Suspense>;
+  if (department === 'jerseys' && page !== 'rewards') return <Suspense fallback={<p role="status">Loading jersey collection…</p>}>
+    <JerseyShop onNavigate={next => {
       if (next === 'coins') { setDepartment('featured'); openPage('rewards'); }
       else if (next === 'cleats' || next === 'bundles') { setDepartment('all'); setFilter(next === 'cleats' ? 'game-gear' : 'bundles'); openPage('catalog'); }
       else { setDepartment(next); setFilter('all'); openPage('featured'); }
