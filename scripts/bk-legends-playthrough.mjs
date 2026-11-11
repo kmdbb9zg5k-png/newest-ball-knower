@@ -63,7 +63,16 @@ try {
     await page.getByRole('button', { name: 'BK Legends Build a squad and play Road to Legend' }).click();
     await legends.waitFor();
   }
-  await enterLegends();
+  const homeCover = page.getByRole('button', { name: 'Play BK Legends', exact: true });
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await homeCover.scrollIntoViewIfNeeded();
+    await homeCover.locator('img').evaluate(image => image.decode());
+    const bounds = await homeCover.boundingBox();
+    assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= width + 1, 'Home cover overflows at ' + width);
+  }
+  await homeCover.click();
+  await legends.waitFor();
   await legends.getByRole('button', { name: /Open free Starter Pack/ }).click();
   await legends.getByText('0 / 80 complete', { exact: true }).waitFor();
   for (const width of [320, 390]) {

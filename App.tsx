@@ -143,7 +143,7 @@ function BallKnowerApp(){
       {currentTab==='home'&&<Suspense fallback={<ScreenFallback/>}><HomeDashboard teamTheme={favoriteTheme} onNavigate={navigateToTab} onOpenCheatSheet={openCheatSheet} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague} onViewMemberLocker={openMemberLocker}/></Suspense>}
       <Suspense fallback={<ScreenFallback/>}>
         {currentTab==='play'&&<PlayHub onNavigate={navigateToTab}/>}
-        {currentTab==='legends'&&<BKLegends key={currentUser?.id??'guest'} owner={currentUser?.id??'guest'} onBack={()=>goToTab('play')}/>}
+        {currentTab==='legends'&&<BKLegends key={currentUser?.id??'guest'} owner={currentUser?.id??'guest'} onBack={goBack}/>}
         {currentTab==='solo'&&<SoloMode initialExperience={soloExperience} onShopGear={openGearStore}/>}
         {currentTab==='news'&&<NewsHub/>}
         {currentTab==='fantasy'&&<FantasyHub view={fantasyView} onViewChange={setFantasyView} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague}/>}

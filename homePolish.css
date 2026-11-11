@@ -32,3 +32,34 @@
   .bk-home-clean .bk-home-play-promos .bk-home-solo-feature img{height:100%;object-fit:contain}
 }
 @media(max-width:359px){.bk-home-clean .bk-home-introduction h1{font-size:29px}.bk-home-clean .bk-home-discover-heading{align-items:flex-start;flex-direction:column}.bk-home-clean .bk-home-opening .bk-home-league-name{flex-direction:column}.bk-home-clean .bk-home-opening .bk-home-league-name>span{max-width:100%}}
+
+.bk-home-clean .bk-home-legends-cover {
+  display: block;
+  width: 100%;
+  margin: 0 0 20px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #a17d3d;
+  border-radius: 18px;
+  background: #14110d;
+  color: #ffe1a0;
+  text-align: left;
+}
+.bk-home-legends-cover img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.bk-home-legends-cover span {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border-top: 1px solid #6f532c;
+  font-weight: 800;
+}
+.bk-home-legends-cover:focus-visible {
+  outline: 2px solid #ffe1a0;
+  outline-offset: 3px;
+}

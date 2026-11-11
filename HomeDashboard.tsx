@@ -140,6 +140,10 @@ function HomeSession({ onOpenCreateLeague, onOpenJoinLeague, onSelectLeague, onN
     <HomeStadiumHero/>
     {primaryLeague && nextAction}
     </div>
+    <button type="button" className="bk-home-legends-cover" onClick={() => onNavigate('legends')}>
+      <img src="/images/bk-legends-cover.webp" width={1440} height={810} alt="" decoding="async"/>
+      <span>Play BK Legends <ArrowRight size={18} aria-hidden="true"/></span>
+    </button>
     <HomeMatchups leagues={leagues} currentUser={currentUser} onSelectLeague={onSelectLeague} onViewMemberLocker={onViewMemberLocker} onOpenSettings={() => setSettingsOpen(true)}/>
 
     <section id="home-primary-destinations" aria-label="Primary destinations" className="bk-home-primary-modes">
