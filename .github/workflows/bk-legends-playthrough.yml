@@ -1,7 +1,7 @@
 name: BK Legends playthrough
 on:
-  push:
-    branches: [codex/bk-legends]
+  pull_request:
+    branches: [main]
     paths:
       - '.github/workflows/bk-legends-playthrough.yml'
       - 'scripts/bk-legends-playthrough.mjs'
