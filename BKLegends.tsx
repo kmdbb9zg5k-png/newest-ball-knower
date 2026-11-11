@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, ChevronDown, Coins, Dumbbell, Gift, Lock, Shield, Trophy, Users, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ChevronDown, Coins, Dumbbell, Gift, Lock, Shield, Trophy, X } from 'lucide-react';
 import {
   CAMPAIGN, CARD_BY_ID, CHAPTERS, FIRST_CLEAR_COINS, PACK_POSITIONS, PACK_PRICE, POSITIONS, PREMIUM_PRICE, TRAINING,
   boostPack, buyPack, chapterChoices, claimChapter, claimPack, cleared, duplicates, equip, exchangeCard, exchangeCardId,
@@ -12,13 +12,24 @@ const format = new Intl.NumberFormat('en-US');
 const sections = ['Campaign', 'My Squad', 'Packs', 'Training', 'Exchange'] as const;
 const groups = ['Offense', 'Defense', 'Special teams'] as const;
 const starterPreview = openStarter(initialLegends());
-const depthSlots = POSITIONS.map((position, index) => ({
-  position,
-  group: index < 11 || position === 'FB' ? 'Offense' : index < 22 ? 'Defense' : 'Special teams',
-  label: POSITIONS.filter(value => value === position).length > 1
-    ? position + (POSITIONS.slice(0, index).filter(value => value === position).length + 1)
-    : position,
-}));
+const formation = {
+  Offense: [[0, 1, 2, 3, 4], [7, 8, 9, 10], [5, 6, 22]],
+  Defense: [[11, 12, 13, 14], [15, 16, 17], [18, 19, 20, 21]],
+  'Special teams': [[23, 24]],
+};
+const depthLabels = POSITIONS.map((position, index) => POSITIONS.filter(value => value === position).length > 1
+  ? position + (POSITIONS.slice(0, index).filter(value => value === position).length + 1)
+  : position);
+const portraitOrder = formation.Offense.flat();
+function DepthPortrait({ id }: { id: string }) {
+  const starterIndex = starterPreview.lineup.indexOf(id);
+  const offenseIndex = portraitOrder.indexOf(starterIndex);
+  const frame = offenseIndex >= 0 ? offenseIndex : starterIndex >= 0 ? starterIndex % 12
+    : Array.from(id).reduce((hash, letter) => (hash * 31 + letter.charCodeAt(0)) % 12, 0);
+  return <span className="bkl-depth-portrait" aria-hidden="true" style={{
+    backgroundPosition: (frame % 4 * 100 / 3) + '% ' + (Math.floor(frame / 4) * 50) + '%',
+  }}/>;
+}
 type Attempt = { token: string; scenario: Scenario; lineup: string[] };
 const attemptKey = (token: string) => 'bk-legends-attempt:' + token;
 const fieldUrl = (attempt: Attempt) => '/play-moment-3d-preview.html?' + new URLSearchParams({ bkLegends: attempt.token });
@@ -112,6 +123,7 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
   }
   const next = CAMPAIGN[save.complete];
   const depthChart = save.starterOpened ? save : starterPreview;
+  const selectedStarter = CARD_BY_ID.get(depthChart.lineup[slot])!;
   const currentCard = save.lineup[slot];
   const owned = save.owned[currentCard];
   const cost = currentCard ? trainingCost(save, currentCard) : null;
@@ -166,28 +178,51 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
           </section>;
         })}</div>
       </>}
-      {section === 'My Squad' && <section className="bkl-panel">
-        <p className="bkl-kicker"><Users aria-hidden="true"/> {squadOverall(depthChart)} team OVR</p><h1>Depth Chart</h1>
-        {!save.starterOpened && <p>Preview your starter lineup. Open the free pack to claim it and manage your squad.</p>}
-        <div className="bkl-tabs bkl-subtabs" aria-label="Lineup groups">{groups.map((item, n) => <button key={item} aria-pressed={item === group} onClick={() => { setGroup(item); setSlot([5, 17, 23][n]); }}>{item}</button>)}</div>
-        <div className="bkl-depth-heading" aria-hidden="true"><span>POS</span><span>Starter</span><span>OVR</span></div>
-        <ul className="bkl-depth-chart" aria-label={group + ' starters'}>{depthChart.lineup.map((id, index) => {
-          const entry = depthSlots[index];
-          if (entry.group !== group) return null;
-          const row = <><small>{entry.label}</small><strong>{CARD_BY_ID.get(id)?.name}</strong><span>{playerOverall(depthChart, id)}</span></>;
-          return <li key={index}>{save.starterOpened
-            ? <button type="button" aria-pressed={slot === index} onClick={() => setSlot(index)}>{row}</button>
-            : <div>{row}</div>}</li>;
-        })}</ul>
+      {section === 'My Squad' && <section className="bkl-squad-board">
+        <header className="bkl-depth-banner">
+          <h1>Depth Chart</h1>
+          <p><strong>{squadOverall(depthChart)}</strong> Team OVR</p>
+        </header>
+        <div className="bkl-tabs bkl-depth-tabs" aria-label="Lineup groups">{groups.map((item, n) => <button key={item} aria-pressed={item === group} onClick={() => { setGroup(item); setSlot([5, 17, 23][n]); }}>{item}</button>)}</div>
+        <ul className="bkl-depth-field" aria-label={group + ' starters'}>{formation[group].map((row, rowIndex) =>
+          <li key={rowIndex} className="bkl-depth-row">
+            {row.map(index => {
+              const id = depthChart.lineup[index];
+              const card = CARD_BY_ID.get(id)!;
+              const overall = playerOverall(depthChart, id);
+              return <button type="button" key={index} aria-pressed={slot === index}
+                aria-label={depthLabels[index] + ' ' + card.name + ', ' + overall + ' overall'} onClick={() => setSlot(index)}>
+                <DepthPortrait id={id}/>
+                <span className="bkl-depth-name">{card.name[0]}. {card.lastName}</span>
+                <span className="bkl-depth-rating"><b>{depthLabels[index]}</b><strong>{overall}</strong></span>
+              </button>;
+            })}
+          </li>
+        )}</ul>
+        <div className="bkl-depth-selected">
+          <DepthPortrait id={selectedStarter.id}/>
+          <div><h2>{depthLabels[slot]} · {selectedStarter.name}</h2><p>{save.starterOpened ? 'Starter' : 'Projected starter'} · #{selectedStarter.number}</p></div>
+          <strong>{playerOverall(depthChart, selectedStarter.id)} <small>OVR</small></strong>
+        </div>
         {!save.starterOpened && <button className="bkl-gold" onClick={() => change(openStarter, 'Your starting lineup is ready.')}>Open free Starter Pack <ArrowRight aria-hidden="true"/></button>}
-        {save.starterOpened && <h2>Manage {depthSlots[slot].label}</h2>}
         {owned && <div className="bkl-upgrade">
           <strong>{CARD_BY_ID.get(currentCard)?.name} · Level {owned.level + 1}</strong>
           <span>{format.format(save.training)} Training Points</span>
           {cost === null ? <span>Max level</span> : <><span>{owned.level >= 1 && owned.clears < 3 ? `Clear 3 challenges or drills with this player starting · ${owned.clears}/3` : '+4 OVR, up to 99'}</span>
             <button className="bkl-gold" disabled={save.training < cost || (owned.level >= 1 && owned.clears < 3)} onClick={() => change(state => trainCard(state, currentCard), 'Player upgraded.')}>Upgrade · {cost} Training Points</button></>}
         </div>}
-        <div className="bkl-cards">{candidateIds.map(id => <PlayerCard key={id} id={id} overall={playerOverall(save, id)} action={currentCard === id ? 'Starting' : 'Start player'} disabled={currentCard === id} onAction={() => change(state => equip(state, slot, id), 'Starting lineup updated.')}/>)}</div>
+        {save.starterOpened && <section className="bkl-depth-reserves" aria-label={depthLabels[slot] + ' depth'}>
+          <h3>Available depth</h3>
+          {candidateIds.length === 1 ? <p>No other players at this position yet.</p> : candidateIds.filter(id => id !== currentCard).map(id => {
+            const card = CARD_BY_ID.get(id)!;
+            const startingSlot = save.lineup.indexOf(id);
+            return <div key={id} className="bkl-depth-reserve">
+              <DepthPortrait id={id}/>
+              <div><strong>{card.name}</strong><p>{startingSlot >= 0 ? 'Starting at ' + depthLabels[startingSlot] : 'Backup'} · {playerOverall(save, id)} OVR</p></div>
+              <button type="button" onClick={() => change(state => equip(state, slot, id), 'Starting lineup updated.')}>Start</button>
+            </div>;
+          })}
+        </section>}
       </section>}
       {section === 'Packs' && <section className="bkl-panel">
         <p className="bkl-kicker"><Gift aria-hidden="true"/> Player collection</p><h1>Player Packs</h1>
