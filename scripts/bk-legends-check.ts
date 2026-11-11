@@ -13,6 +13,16 @@ assert.equal(new Set(state.lineup).size, 25);
 assert.deepEqual(state.lineup.map(id => CARD_BY_ID.get(id)?.position), [...POSITIONS]);
 assert.equal(openStarter(state), state);
 assert.equal(CAMPAIGN.length, 80);
+const openingChallenges = CHAPTERS.map((_, index) => CAMPAIGN[index * 10]);
+assert.deepEqual(openingChallenges.map(scenario => scenario.difficulty),
+  ['rookie', 'rookie', 'pro', 'pro', 'pro', 'all-pro', 'all-pro', 'all-pro']);
+const roadToTitle = openingChallenges.slice(-3);
+assert.deepEqual(roadToTitle.map(scenario => scenario.awayScore - scenario.score), [7, 10, 13]);
+assert.ok(roadToTitle[0].clock > roadToTitle[1].clock && roadToTitle[1].clock > roadToTitle[2].clock);
+assert.equal(openingChallenges[3].goal, 'shutout');
+assert.equal(CAMPAIGN[41].timeouts, 0);
+assert.equal(CAMPAIGN[79].awayScore - CAMPAIGN[79].score, 14);
+
 assert.equal(new Set(CAMPAIGN.map(scenario => scenario.title)).size, 80);
 const passing = { homeScore: 30, awayScore: 21, passYards: 70, rushYards: 70, plays: 6 };
 assert.equal(isLegendsResult(passing), true);
