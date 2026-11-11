@@ -70,12 +70,13 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
   BLACKOUT_KIT,
   ...FEATURED_PACKS,
   {
-    id: 'bk-femme', name: 'BKF Nicki', posterOnly: true, proposedCoins: 1500,
+    id: 'bk-femme', name: 'BKF Nicki', proposedCoins: 1500,
     summary: 'Leather jacket, crop top, cargos & silver accessories',
-    description: 'The original BKF Nicki outfit pack artwork: a black leather jacket, white crop top, black cargo pants, black-and-white sneakers, BK necklace and earrings. Proposed pack price: 1,500 BK Coins. The pictured buttons and in-game views are promotional artwork; interactive 3D, wearable items, purchasing and gifting are not available yet.',
+    description: 'BKF Nicki pairs a black leather jacket and white crop top with loose leather cargos, black-and-white sneakers and silver accessories. Explore the campaign poster, full-body A-pose and detailed rotating 3D showcase. Proposed pack price: 1,500 BK Coins. Wearable items, purchasing and gifting are not available yet.',
     priceCents: 0, categories: ['tunnel-fits', 'bundles'],
     includes: ['Leather jacket', 'White crop top', 'Black cargo pants', 'Black-and-white sneakers', 'BK necklace', 'Earrings'],
-    use: 'BKF Nicki outfit pack · Artwork preview',
+    use: 'BKF Nicki outfit pack · Character showcase',
+    showcase: { model: 'https://v3b.fal.media/files/b/0ab1f89e/7V-fQltpUHPX18nf2I0aG_model.glb', look: '/store/bkf-nicki-apose-v1.webp', collection: 'BKF Nicki · Leather Collection', theme: 'nicki' },
   },
   {
     id: 'chrome-grip',
@@ -225,7 +226,7 @@ export const STORE_PRODUCTS: readonly StoreProduct[] = [
 ];
 
 export const storeImage = (id: string) => id === 'bk-femme'
-  ? '/store/bkf-nicki-v2.webp'
+  ? '/store/bkf-nicki-cover-v3.webp'
   : id === 'bkf-phantom'
   ? 'https://v3b.fal.media/files/b/0ab1f22f/ZV1i2C4x_u3pGyWgsReKS_7OOQNTpM.png'
   : id === 'gold-standard'

@@ -114,7 +114,7 @@ function BKFConceptDialog({ product, onClose }: { product: StoreProduct; onClose
 
       <div className="bkf-drop-tabs bkf-drop-tabs--triple" role="group" aria-label="Product view">
         <button type="button" aria-pressed={view === 'poster'} onClick={() => { setArt(storeImage(product.id)); setView('poster'); }}>Full poster</button>
-        <button type="button" aria-pressed={view === 'realistic'} onClick={() => { setArt(showcase?.look ?? storeImage(isGold ? 'gold-standard-realistic' : isFrostbite ? 'frostbite-look' : 'bkf-youngboy-look')); setView('realistic'); }}>Realistic view</button>
+        <button type="button" aria-pressed={view === 'realistic'} onClick={() => { setArt(showcase?.look ?? storeImage(isGold ? 'gold-standard-realistic' : isFrostbite ? 'frostbite-look' : 'bkf-youngboy-look')); setView('realistic'); }}>{product.id === 'bk-femme' ? 'A-pose' : 'Realistic view'}</button>
         <button type="button" aria-pressed={view === '3d'} onClick={() => setView('3d')}><BoxIcon size={16} aria-hidden="true"/> 3D preview</button>
       </div>
       <div className="bkf-drop-hero" data-bkf-display={view === '3d' ? '3d' : 'photos'} data-bkf-photo={view === '3d' ? undefined : view}>

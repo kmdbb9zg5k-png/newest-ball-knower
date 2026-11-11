@@ -626,7 +626,10 @@ body:has(.bk-tunnel-showroom[open]) { overflow: hidden; }
 
 .bk-store-detail-art--poster { aspect-ratio: auto; height: auto; object-fit: contain; }
 
-/* Fit the complete BKF Nicki cover to its original portrait proportions. */
+/* Match Nicki's clean cover framing to the other character packs. */
 .bk-store-locker-shop [data-store-product="bk-femme"] .bk-store-card-art {
-  aspect-ratio: 2 / 3;
+  aspect-ratio: 3 / 4;
 }
+
+.bkf-drop-modal--nicki .bkf-drop-hero[data-bkf-photo="poster"] { aspect-ratio: 3 / 4; }
+.bkf-drop-modal--nicki .bkf-drop-hero[data-bkf-photo="realistic"] { aspect-ratio: 1696 / 2528; }
