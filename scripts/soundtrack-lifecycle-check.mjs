@@ -10,7 +10,7 @@ const deferred=()=>{let resolve;const promise=new Promise(done=>resolve=done);re
 const tracks=[{id:'one',title:'One',url:'/audio/one.mp3'},{id:'two',title:'Two',url:'/audio/two.mp3'},{id:'manual',title:'Manual',url:'/audio/manual.mp3',manualOnly:true}];
 const OWNER_A='11111111-1111-4111-8111-111111111111',OWNER_B='22222222-2222-4222-8222-222222222222';
 
-function harness(stored={},native=false){
+function harness(stored={},native=false,library=tracks,random=()=>0){
  const slots=[],effects=[],timers=new Map(),storage=new Map(Object.entries({ballknower_cloud_owner_v1:OWNER_A,...stored})),cloud=deferred(),recovery=deferred();
  const nativeListener=deferred();let nativeCallback,nativeRemovals=0;
  let cursor=0,dirty=true,output,unmounted=false,timerId=0,blobCount=0;
@@ -34,7 +34,7 @@ function harness(stored={},native=false){
  class TestURL extends URL{static createObjectURL(){return 'blob:recovered-'+(++blobCount)}static revokeObjectURL(url){revoked.push(url)}}
  Object.assign(browser,{location:{href:'https://ballknower.test/'},setTimeout:fn=>{timers.set(++timerId,fn);return timerId;},clearTimeout:id=>timers.delete(id)});
  const module={exports:{}};
- const context={module,exports:module.exports,console,URL:TestURL,Audio:Media,document,window:browser,localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value)},fetch:async url=>url==='/api/media'?{ok:true,json:async()=>({tracks})}:recovery.promise,Math:Object.assign(Object.create(Math),{random:()=>0}),require:name=>{
+ const context={module,exports:module.exports,console,URL:TestURL,Audio:Media,document,window:browser,localStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value)},fetch:async url=>url==='/api/media'?{ok:true,json:async()=>({tracks:library})}:recovery.promise,Math:Object.assign(Object.create(Math),{random}),require:name=>{
   if(name==='react')return {...hooks,default:hooks,__esModule:true};
   if(name==='@capacitor/core')return{Capacitor:{isNativePlatform:()=>native}};
   if(name==='@capacitor/app')return{App:{addListener(_name,callback){nativeCallback=callback;return nativeListener.promise;}}};
@@ -83,4 +83,24 @@ function harness(stored={},native=false){
  const h=harness();await h.flush();assert.equal(h.loads[0].owner,OWNER_A,'Hydration uses the originating expected owner');h.cloud.resolve(null);await h.flush();await h.timers();assert.equal(h.saves.length,0,'Untouched hydration never uploads defaults');h.value.setVolume(.65);await h.flush();h.storage.set('ballknower_cloud_owner_v1',OWNER_B);await h.timers();assert.equal(h.saves.at(-1).owner,OWNER_A,'A delayed save retains its originating expected owner');h.unmount();
 }
 console.log('PASS real soundtrack provider with fake media: intro ownership, single audio, mute/volume restore, ended auto-advance, foreground intent, bounded/race-safe recovery, unmount cleanup and cloud-restore ordering');
+{
+ const full=[...tracks.filter(x=>!x.manualOnly),{id:'three',title:'Three',url:'/audio/three.mp3'},{id:'four',title:'Four',url:'/audio/four.mp3'},tracks.find(x=>x.manualOnly)];
+ const h=harness({},false,full);await h.flush();h.value.setIntroActive(false);await h.flush();
+ const heard=[h.value.currentTrack.id];
+ for(let i=0;i<3;i++){h.audio.end(180);await h.flush();heard.push(h.value.currentTrack.id);}
+ assert.equal(new Set(heard).size,4,'Each automatic song must play exactly once per shuffle cycle before repeating');
+ assert(!heard.includes('manual'),'Manually excluded tracks stay out of the automatic playlist');
+ const previous=heard.at(-1);
+ h.audio.end(180);await h.flush();
+ assert.notEqual(h.value.currentTrack.id,previous,'A new shuffle cycle must not start with the same track that just ended');
+ h.unmount();
+}
+{
+ const library=tracks.filter(x=>!x.manualOnly);
+ const h=harness({bk_soundtrack_last_track_id:'one'},false,library,()=>0);
+ await h.flush();
+ assert.equal(h.value.currentTrack.id,'two','Reopening the app must avoid the previously played song when possible');
+ h.unmount();
+}
+
 console.log('PASS owner/offline preferences: no cloud bootstrap, no untouched default writes, scoped hydration and originating-owner debounce');
