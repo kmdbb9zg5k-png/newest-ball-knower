@@ -189,7 +189,7 @@ export function buyPack(state: LegendsState, position: Position, tier: PackTier 
       state.coins < offer.coins || packOptionCount(position, tier) < 3) return state;
   return { ...state, coins: state.coins - offer.coins, pack: { position, premium: tier !== 'good', tier } };
 }
-export function boostPack(state: LegendsState) {
+export function boostPack(state: LegendsState): LegendsState {
   if (!state.pack || state.pack.choices || packTier(state.pack) !== 'good' || state.coins < PREMIUM_PRICE ||
       packOptionCount(state.pack.position, 'elite') < 3) return state;
   return { ...state, coins: state.coins - PREMIUM_PRICE, pack: { ...state.pack, premium: true, tier: 'elite' } };
