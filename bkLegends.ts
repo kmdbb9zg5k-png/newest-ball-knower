@@ -1,6 +1,7 @@
 import { MINI_TEAMS } from './public/play-moment-3d/mini-teams-data.js';
 
 export const FIRST_CLEAR_COINS = 1000;
+const STARTER_MAX_OVERALL = 80;
 export const PACK_PRICE = 1500;
 export const PREMIUM_PRICE = 800;
 export const CHAPTERS = ['Training Camp', 'Move the Chains', 'Red Zone', 'Lockdown', 'Against the Clock', 'Underdogs', 'The Playoff Run', 'Legacy Game'];
@@ -72,7 +73,7 @@ export function opponentName(scenario: Scenario) {
   return MINI_TEAMS.find(team => team.abbr === scenario.opponent)?.name ?? 'BK Rivals';
 }
 
-type OwnedCard = { copies: number; level: number; clears: number };
+type OwnedCard = { copies: number; level: number; clears: number; starter?: boolean };
 type Pack = { position: Position; premium: boolean; choices?: string[] };
 export type LegendsState = {
   version: 1; coins: number; training: number; complete: number;
@@ -99,13 +100,13 @@ export function loadLegends(storage: Storage, key: string): LegendsState {
   } catch { /* A missing or unreadable save starts a new squad. */ }
   return initialLegends();
 }
-function addCard(state: LegendsState, id: string): LegendsState {
+function addCard(state: LegendsState, id: string, starter = false): LegendsState {
   const owned = state.owned[id] ?? { copies: 0, level: 0, clears: 0 };
-  return { ...state, owned: { ...state.owned, [id]: { ...owned, copies: owned.copies + 1 } } };
+  return { ...state, owned: { ...state.owned, [id]: { ...owned, copies: owned.copies + 1, starter } } };
 }
 export function openStarter(state: LegendsState) {
   if (state.starterOpened) return state;
-  return starterIds.reduce(addCard, { ...state, starterOpened: true, lineup: starterIds });
+  return starterIds.reduce((roster, id) => addCard(roster, id, true), { ...state, starterOpened: true, lineup: starterIds });
 }
 export function equip(state: LegendsState, index: number, id: string) {
   if (!state.owned[id] || !state.lineup[index] || CARD_BY_ID.get(id)?.position !== POSITIONS[index]) return state;
@@ -115,8 +116,12 @@ export function equip(state: LegendsState, index: number, id: string) {
   lineup[index] = id;
   return { ...state, lineup };
 }
+function baseOverall(state: LegendsState, id: string) {
+  const overall = CARD_BY_ID.get(id)?.overall ?? 0;
+  return state.owned[id]?.starter ? Math.min(overall, STARTER_MAX_OVERALL) : overall;
+}
 export function playerOverall(state: LegendsState, id: string) {
-  return Math.min(99, (CARD_BY_ID.get(id)?.overall ?? 0) + 4 * (state.owned[id]?.level ?? 0));
+  return Math.min(99, baseOverall(state, id) + 4 * (state.owned[id]?.level ?? 0));
 }
 export function squadOverall(state: LegendsState) {
   return state.lineup.length ? Math.round(state.lineup.reduce((sum, id) => sum + playerOverall(state, id), 0) / state.lineup.length) : 0;
@@ -155,7 +160,7 @@ export function recordClear(state: LegendsState, scenario: Scenario, result: Leg
 export function trainingCost(state: LegendsState, id: string) {
   const owned = state.owned[id];
   if (!owned || playerOverall(state, id) >= 99) return null;
-  const ceiling = CARD_BY_ID.get(id)!.overall >= 90 ? 3 : 2;
+  const ceiling = baseOverall(state, id) >= 90 ? 3 : 2;
   return owned.level < ceiling ? 200 + owned.level * 200 : null;
 }
 export function trainCard(state: LegendsState, id: string) {

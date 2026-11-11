@@ -12,6 +12,16 @@ assert.equal(state.lineup.length, 25);
 assert.equal(new Set(state.lineup).size, 25);
 assert.deepEqual(state.lineup.map(id => CARD_BY_ID.get(id)?.position), [...POSITIONS]);
 assert.equal(openStarter(state), state);
+assert.ok(state.lineup.every(id => playerOverall(state, id) <= 80));
+const starterSquad = gameSquad(state);
+assert.ok([...starterSquad.lineup, starterSquad.fullback, starterSquad.kicker, starterSquad.punter].every(player => player.overall <= 80));
+const starterQB = state.lineup[5];
+const qbCard = CARD_BY_ID.get(starterQB)!;
+assert.equal(starterSquad.lineup[5].attributes.passing, qbCard.attributes.passing! + 80 - qbCard.overall);
+assert.equal(playerOverall(trainCard({ ...state, training: 200 }, starterQB), starterQB), 84);
+const earnedQB = claimPack({ ...state, pack: { position: 'QB', premium: true, choices: [starterQB] } }, starterQB);
+assert.equal(playerOverall(earnedQB, starterQB), qbCard.overall);
+
 assert.equal(CAMPAIGN.length, 80);
 const openingChallenges = CHAPTERS.map((_, index) => CAMPAIGN[index * 10]);
 assert.deepEqual(openingChallenges.map(scenario => scenario.difficulty),
