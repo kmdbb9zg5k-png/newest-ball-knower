@@ -86,3 +86,25 @@
 .bkl-field-stats dt{font-size:.72rem;color:var(--bkl-muted)}
 .bkl-field-stats dd{margin:0;font-size:1rem;font-weight:800}
 @media(max-width:380px){.bkl-header span small{display:none}.bkl-header{gap:5px}.bkl-hero{min-height:250px}}
+
+.bkl-pack-showcase{background:linear-gradient(#111218c9,#101116 42%),url('/atmosphere/home-stadium.webp') center top/100% auto no-repeat,#101116}
+.bkl-pack-heading{text-align:center;display:grid;justify-items:center;gap:6px}
+.bkl-pack-heading h1,.bkl-pack-reveal h2{font-style:italic}
+.bkl-pack-heading .bkl-kicker{color:var(--bkl-gold)}
+.bkl-pack-positions{margin:0}
+.bkl-pack-shelf{display:grid;width:min(100%,760px);justify-self:center}
+.bkl-pack-shelf img{display:block;width:100%;height:auto;border-radius:12px 12px 0 0}
+.bkl-pack-tiers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:-2px}
+.bkl-pack-tiers>div{display:grid;min-width:0;text-align:center;overflow:hidden;border:1px solid #8f7240;border-radius:10px;background:#181820}
+.bkl-pack-tiers strong{padding:4px;font-size:clamp(1rem,4vw,1.5rem)}
+.bkl-pack-tiers span{display:flex;gap:5px;align-items:center;justify-content:center;padding:6px 4px;background:linear-gradient(105deg,#ffe090,#d4a341);color:#171008;font-size:clamp(.67rem,2.65vw,.9rem);font-weight:850}
+.bkl-pack-tiers svg{width:13px;height:13px}
+.bkl-pack-note{text-align:center;font-size:.8rem}
+.bkl-pack-reveal{display:grid;gap:8px;border:1px solid #6d552d;border-radius:12px;padding:10px;text-align:center;background:#0c0d12}
+.bkl-pack-reveal p{font-size:.78rem}
+.bkl-pack-player-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:min(100%,520px);justify-self:center}
+.bkl-pack-player-grid .bkl-depth-portrait{border:1px solid #c79d51;border-radius:8px}
+.bkl-pack-choice{display:grid;align-content:start;gap:5px;min-width:0}
+.bkl-pack-choice h3{font-size:.85rem;overflow-wrap:anywhere}
+.bkl-pack-choice strong{color:var(--bkl-gold)}
+.bkl-pack-choice button{padding-inline:3px}

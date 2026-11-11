@@ -93,6 +93,12 @@ try {
   await legends.getByRole('heading', { name: /^WR2 · / }).waitFor();
   await legends.getByRole('button', { name: 'Campaign', exact: true }).click();
   await legends.getByText('0 / 80 complete', { exact: true }).waitFor();
+  await legends.getByRole('button', { name: 'Packs', exact: true }).click();
+  await legends.getByRole('img', { name: 'Good and Elite football pack boxes' }).evaluate(image => image.decode());
+  await legends.getByRole('button', { name: 'QB', exact: true }).click();
+  assert.equal(await legends.getByRole('button', { name: 'Get QB Pack', exact: true }).isEnabled(), false);
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Pack showcase overflows on mobile');
+  await legends.getByRole('button', { name: 'Campaign', exact: true }).click();
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Campaign overflows at ' + width);

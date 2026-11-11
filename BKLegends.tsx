@@ -224,21 +224,46 @@ export default function BKLegends({ onBack, owner }: { onBack: () => void; owner
           })}
         </section>}
       </section>}
-      {section === 'Packs' && <section className="bkl-panel">
-        <p className="bkl-kicker"><Gift aria-hidden="true"/> Player collection</p><h1>Player Packs</h1>
-        <p>Use the BK Coins you earn in Road to Legend. Each position pack lets you choose one of three players.</p>
-        {save.pack ? <>
-          <h2>{save.pack.position} {save.pack.premium ? 'Premium' : 'Standard'} Pack</h2>
-          <p>{packFloor(save.pack.premium)} OVR minimum</p>
-          {save.pack.choices ? <div className="bkl-cards">{save.pack.choices.map(id => <PlayerCard key={id} id={id} action="Claim" onAction={() => change(state => claimPack(state, id), 'Player added to your collection.')}/>)}</div> :
-            <div className="bkl-actions">
-              {!save.pack.premium && <button disabled={save.coins < PREMIUM_PRICE} onClick={() => change(boostPack, 'Premium Pack ready to open.')}>Upgrade to {packFloor(true)}+ OVR · {PREMIUM_PRICE} BK Coins</button>}
-              <button className="bkl-gold" onClick={() => change(state => revealPack(state))}>Open pack</button>
-            </div>}
-        </> : <>
-          <PositionPicker position={position} onChange={setPosition}/>
-          <p>{packFloor(false)} OVR minimum · optional premium upgrade before opening</p>
-          <button className="bkl-gold" disabled={save.coins < PACK_PRICE} onClick={() => change(state => buyPack(state, position), 'Pack added. Open it or upgrade it first.')}>Get {position} Pack · {format.format(PACK_PRICE)} BK Coins</button>
+      {section === 'Packs' && <section className="bkl-panel bkl-pack-showcase">
+        <header className="bkl-pack-heading">
+          <p className="bkl-kicker"><Gift aria-hidden="true"/> BK Legends</p>
+          <h1>Player Packs</h1>
+          <p>Pick 1 of 3 players</p>
+        </header>
+        {!save.pack && <div className="bkl-tabs bkl-pack-positions" aria-label="Pack positions">
+          {PACK_POSITIONS.map(item => <button key={item} type="button" aria-pressed={position === item} onClick={() => setPosition(item)}>{item}</button>)}
+        </div>}
+        <div className="bkl-pack-shelf">
+          <img src="/images/bk-legends-pack-shelf.webp" alt="Good and Elite football pack boxes" width={760} height={374}/>
+          <div className="bkl-pack-tiers">
+            <div><strong>{packFloor(false)}+ OVR</strong><span><Coins aria-hidden="true"/> {format.format(PACK_PRICE)} BK Coins</span></div>
+            <div><strong>{packFloor(true)}+ OVR</strong><span><Coins aria-hidden="true"/> {format.format(PREMIUM_PRICE)} BK Coins to upgrade</span></div>
+          </div>
+        </div>
+        <p className="bkl-pack-note">Upgrade a Good pack to Elite before opening.</p>
+        {save.pack?.choices ? <section className="bkl-pack-reveal" aria-label="Choose your player">
+          <h2>Choose your player</h2>
+          <div className="bkl-pack-player-grid">{save.pack.choices.map(id => {
+            const card = CARD_BY_ID.get(id)!;
+            return <article className="bkl-pack-choice" key={id}>
+              <DepthPortrait id={id}/>
+              <strong>{card.overall} OVR</strong><h3>{card.name}</h3>
+              <button type="button" onClick={() => change(state => claimPack(state, id), 'Player added to your collection.')}>Claim</button>
+            </article>;
+          })}</div>
+        </section> : <>
+          {!save.pack && <section className="bkl-pack-reveal">
+            <h2>Choose your player</h2><p>Example cards</p>
+            <div className="bkl-pack-player-grid">{[5, 7, 22].map(index => <DepthPortrait key={index} id={starterPreview.lineup[index]}/>)}</div>
+          </section>}
+          {save.pack ? <>
+            <h2>{save.pack.position} {save.pack.premium ? 'Elite' : 'Good'} Pack</h2>
+            {!save.pack.premium && <button type="button" disabled={save.coins < PREMIUM_PRICE} onClick={() => change(boostPack, 'Elite Pack ready to open.')}>Upgrade to Elite · {format.format(PREMIUM_PRICE)} BK Coins</button>}
+            <button type="button" className="bkl-gold" onClick={() => change(state => revealPack(state))}>Open pack <ArrowRight aria-hidden="true"/></button>
+          </> : <>
+            <button type="button" className="bkl-gold" disabled={save.coins < PACK_PRICE} onClick={() => change(state => buyPack(state, position), 'Pack added. Open it or upgrade it first.')}>Get {position} Pack <ArrowRight aria-hidden="true"/></button>
+            {save.coins < PACK_PRICE && <p className="bkl-pack-note">Earn {format.format(PACK_PRICE - save.coins)} more BK Coins in Road to Legend.</p>}
+          </>}
         </>}
       </section>}
       {section === 'Training' && <section className="bkl-panel">
