@@ -82,7 +82,15 @@ try {
     const handle = await iframe.elementHandle();
     const field = await handle.contentFrame();
     await field.waitForFunction(() => window.bk3dDiagnostics?.().athletes.ready, null, { timeout: 60_000 });
+    const resultHeading = page.getByRole('dialog', { name: title }).getByRole('heading', { name: /Challenge cleared|Objective incomplete/ });
     const state = () => field.evaluate(() => window.bk3dDiagnostics());
+    const fieldInput = async (id, event, init) => {
+      await field.evaluate(({ id, event, init }) => {
+        const target = document.getElementById(id);
+        if (!target) throw new Error('Missing field control: ' + id);
+        target.dispatchEvent(event.startsWith('key') ? new KeyboardEvent(event, { ...init, bubbles: true }) : new PointerEvent(event, { ...init, bubbles: true }));
+      }, { id, event, init });
+    };
     const step = async seconds => {
       try { await field.evaluate(s => window.bk3dTest.step(s), seconds); }
       catch (error) { if (!field.isDetached()) throw error; }
@@ -111,7 +119,7 @@ try {
     try {
       for (let action = 0; action < 200; action++) {
         assert.ok(Date.now() - roundStarted < 9 * 60_000, title + ' exceeded its playthrough time budget');
-        if (await page.getByRole('heading', { name: /Challenge cleared|Objective incomplete/ }).isVisible()) return;
+        if (await resultHeading.isVisible()) return;
         if (field.isDetached()) return;
         const current = await state();
         assert.equal(current.glError, 0);
@@ -150,12 +158,12 @@ try {
             await click('breakHuddle');
           }
         } else if (current.phase === 'pre') {
-          await field.locator('#snap').dispatchEvent('pointerdown', { pointerId: 1, pointerType: 'touch', button: 0, isPrimary: true });
+          await fieldInput('snap', 'pointerdown', { pointerId: 1, pointerType: 'touch', button: 0, isPrimary: true });
           report.controls.push('snap');
           if (current.mode === 'run') {
-            await field.locator('#game').dispatchEvent('keydown', { key: 'ArrowUp', code: 'ArrowUp', bubbles: true });
+            await fieldInput('game', 'keydown', { key: 'ArrowUp', code: 'ArrowUp' });
             await step(5);
-            if (!field.isDetached()) await field.locator('#game').dispatchEvent('keyup', { key: 'ArrowUp', code: 'ArrowUp', bubbles: true });
+            if (!field.isDetached() && !await resultHeading.isVisible()) await fieldInput('game', 'keyup', { key: 'ArrowUp', code: 'ArrowUp' });
           } else await step(1.45);
         } else if (current.phase === 'pass' && !current.throwing) {
           const targets = current.players.filter((player, index) => [7, 8, 9, 10, 6].includes(index) && !player.fallen);
@@ -166,7 +174,7 @@ try {
           const target = current.players.indexOf(targets[0]);
           const input = field.locator('#target-' + target);
           if (await input.isVisible()) {
-            await input.dispatchEvent('click');
+            await field.evaluate(index => document.getElementById('target-' + index)?.click(), target);
             report.controls.push('pass:' + target);
           }
           await step(3);
@@ -179,8 +187,8 @@ try {
     } catch (error) {
       // The app replaces the field with the real result as soon as the game posts it.
       // A browser request already in flight can see that removal before its reply arrives.
-      if (!field.isDetached()) throw error;
-      await page.getByRole('dialog', { name: title }).getByRole('heading', { name: /Challenge cleared|Objective incomplete/ }).waitFor({ timeout: 5000 });
+      if (!field.isDetached() && !await resultHeading.isVisible()) throw error;
+      await resultHeading.waitFor({ timeout: 5000 });
       return;
     }
     throw new Error(title + ' did not reach a result within the control budget');
