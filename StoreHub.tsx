@@ -304,6 +304,14 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
   onOpenLocker: () => void;
   onOpenGauntlet: () => void;
 }) {
+  const [shuffledCharacters] = useState(() => {
+    const products = [...characterProducts];
+    for (let index = products.length - 1; index > 0; index--) {
+      const target = Math.floor(Math.random() * (index + 1));
+      [products[index], products[target]] = [products[target], products[index]];
+    }
+    return products;
+  });
   const [department, setDepartment] = useState<ShopDepartment>(initialCategory ? 'all' : 'featured');
   const [page, setPage] = useState<StorePage>(initialCategory ? 'catalog' : 'featured');
   const [filter, setFilter] = useState<StoreFilter>(initialCategory ?? 'all');
@@ -373,7 +381,7 @@ export default function StoreHub({ initialCategory, onOpenLocker, onOpenGauntlet
         </div>
       </section>}
       {[
-        { id: 'characters', title: 'New character collections', kicker: 'Featured drop', products: characterProducts },
+        { id: 'characters', title: 'New character collections', kicker: 'Featured drop', products: shuffledCharacters },
         { id: 'clothing', title: 'Build your tunnel fit', kicker: 'Clothing', products: clothingProducts },
         { id: 'accessories', title: 'Make it your own', kicker: 'Accessories', products: accessoryProducts },
         { id: 'more', title: 'More for your game', kicker: 'Gear & extras', products: otherProducts },
