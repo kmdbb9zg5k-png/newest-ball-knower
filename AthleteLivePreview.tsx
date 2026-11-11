@@ -24,7 +24,7 @@ function SweatsIcon({size=20}:{size?:number}){
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12l2 18h-5l-3-12-3 12H4L6 3Z"/><path d="M6 6h12"/></svg>;
 }
 
-export default function AthleteLivePreview({profile:inputProfile,view='body',onViewChange,onPortrait,previewOutfit,showroom=false,showroomAthleteToggle,fallbackImage,hideFaceDetail=false}:{profile:Profile;previewOutfit?:Outfit;view?:'body'|'head';onViewChange?:(view:'body'|'head')=>void;onPortrait?:(portrait:string)=>void;showroom?:boolean;showroomAthleteToggle?:ShowroomAthleteToggle;fallbackImage?:string;hideFaceDetail?:boolean}){
+export default function AthleteLivePreview({profile:inputProfile,view='body',onViewChange,onPortrait,previewOutfit,showroom=false,showroomAthleteToggle,fallbackImage,hideFaceDetail=false,profileShowcase=false}:{profile:Profile;previewOutfit?:Outfit;view?:'body'|'head';onViewChange?:(view:'body'|'head')=>void;onPortrait?:(portrait:string)=>void;showroom?:boolean;showroomAthleteToggle?:ShowroomAthleteToggle;fallbackImage?:string;hideFaceDetail?:boolean;profileShowcase?:boolean}){
   const equipped=usePlayerOutfit();
   const profile=useMemo(()=>({...inputProfile,wardrobe:previewOutfit||equipped}),[inputProfile,previewOutfit,equipped]);
   const [showroomView,setShowroomView]=useState<(typeof showroomViews)[number]>(showroomViews[0]);
@@ -47,13 +47,13 @@ export default function AthleteLivePreview({profile:inputProfile,view='body',onV
     };
     container.addEventListener('webglcontextlost',onContextLost,true);
     setState('loading');
-    import('./combine/creator-scene').then(module=>{if(cancelled)return null;return module.createCreatorScene(container,asPlayer({...latest.current,showroomSample:useShowroomSample}),showroom);}).then(created=>{
+    import('./combine/creator-scene').then(module=>{if(cancelled)return null;return module.createCreatorScene(container,asPlayer({...latest.current,showroomSample:useShowroomSample}),showroom,profileShowcase);}).then(created=>{
       if(!created)return;
       if(cancelled){created.dispose();return;}
       owned=created;scene.current=created;created.update(asPlayer(latest.current));created.setView(latestView.current);created.rotate(angle.current*Math.PI/180);setState('ready');
     }).catch(()=>{if(!cancelled)setState('error');});
     return()=>{cancelled=true;container.removeEventListener('webglcontextlost',onContextLost,true);owned?.dispose();if(scene.current===owned)scene.current=null;};
-  },[attempt,showroom,useShowroomSample,goldShowroomSample]);
+  },[attempt,showroom,useShowroomSample,goldShowroomSample,profileShowcase]);
   useEffect(()=>{try{scene.current?.update(asPlayer(profile));}catch{setState('error');}},[profile]);
   useEffect(()=>{try{scene.current?.setView(activeView);}catch{setState('error');}},[activeView]);
   useEffect(()=>{if(state!=='ready'||!portraitCallback.current||(capturedKey.current===appearanceKey&&profile.athletePortrait))return;const timer=setTimeout(()=>{try{const portrait=scene.current?.capturePortrait();if(portrait){capturedKey.current=appearanceKey;portraitCallback.current?.(portrait);}}catch{/* Preview and controls remain usable if image export is unavailable. */}},180);return()=>clearTimeout(timer);},[state,appearanceKey,Boolean(profile.athletePortrait)]);
@@ -63,7 +63,7 @@ export default function AthleteLivePreview({profile:inputProfile,view='body',onV
     setShowroomView(showroomViews[0]);
     rotate(SHOWROOM_ANGLE);
   }
-  return <figure className={`bk-athlete-live-preview bk-athlete-3d-preview${showroom?' bk-athlete-showroom':''}`} aria-label={`${profile.name||'Created athlete'} ${showroom?showroomView.label.toLowerCase():view==='head'?'close-up':'full-body'} live preview`} data-athlete-live-preview="true" data-render-state={state} data-view={activeView} data-arm-size={profile.armSize} data-skin-tone={profile.skinTone} data-hair-style={profile.hairStyle} data-tattoo-coverage={profile.tattooCoverage}>
+  return <figure className={`bk-athlete-live-preview bk-athlete-3d-preview${showroom?' bk-athlete-showroom':''}${profileShowcase?' bk-athlete-profile-showcase':''}`} aria-label={`${profile.name||'Created athlete'} ${showroom?showroomView.label.toLowerCase():view==='head'?'close-up':'full-body'} live preview`} data-athlete-live-preview="true" data-render-state={state} data-view={activeView} data-arm-size={profile.armSize} data-skin-tone={profile.skinTone} data-hair-style={profile.hairStyle} data-tattoo-coverage={profile.tattooCoverage}>
     {showroom ? <figcaption className="bk-showroom-identity">
       <strong>{profile.name || 'Sample athlete'}</strong><span>{dimensions}</span>
       {showroomAthleteToggle&&<button className="bk-showroom-athlete-toggle" type="button" onClick={showroomAthleteToggle.onClick}>{showroomAthleteToggle.label}</button>}
@@ -83,11 +83,16 @@ export default function AthleteLivePreview({profile:inputProfile,view='body',onV
     </>}
     {state==='loading'?<div className="bk-athlete-preview-message" role="status">Preparing your athlete…</div>:null}
     {state==='error'?<div className="bk-athlete-preview-message" role="status">
-      {fallbackImage && <img className="bk-showroom-error-fallback" src={fallbackImage} alt="Full-body outfit photo while 3D graphics are unavailable"/>}
+      {fallbackImage && <img className="bk-showroom-error-fallback" src={fallbackImage} alt={profileShowcase ? "Athlete portrait while 3D graphics are unavailable" : "Full-body outfit photo while 3D graphics are unavailable"}/>}
       <strong>The 3D viewer could not start on this device.</strong>
       <p>Try again, or open Ball Knower in Safari instead of an in-app browser.</p>
       <button type="button" onClick={()=>setAttempt(value=>value+1)}>Retry 3D preview</button>
     </div>:null}
-    {!showroom&&<div className="bk-athlete-preview-footer"><strong>{dimensions}</strong><label><span>Drag to rotate · Rotate athlete</span><input aria-label="Rotate athlete" type="range" min={-180} max={180} value={rotation} disabled={state!=='ready'} onChange={event=>{rotate(Number(event.target.value));}}/></label></div>}
+    {profileShowcase&&<div className="bk-profile-athlete-controls">
+      <button type="button" aria-label="Rotate athlete left" disabled={state!=='ready'} onClick={()=>rotate(angle.current-30)}><ChevronLeft aria-hidden="true"/></button>
+      <button className="bk-profile-walkout" type="button" disabled={state!=='ready'} onClick={()=>{rotate(0);scene.current?.walkout();}}><Footprints aria-hidden="true"/> Walkout</button>
+      <button type="button" aria-label="Rotate athlete right" disabled={state!=='ready'} onClick={()=>rotate(angle.current+30)}><ChevronRight aria-hidden="true"/></button>
+    </div>}
+    {!showroom&&!profileShowcase&&<div className="bk-athlete-preview-footer"><strong>{dimensions}</strong><label><span>Drag to rotate · Rotate athlete</span><input aria-label="Rotate athlete" type="range" min={-180} max={180} value={rotation} disabled={state!=='ready'} onChange={event=>{rotate(Number(event.target.value));}}/></label></div>}
   </figure>;
 }
