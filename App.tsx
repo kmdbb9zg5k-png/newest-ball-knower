@@ -24,6 +24,7 @@ import type {StoreCategory} from './storeCatalog';
 
 const PushNotificationBridge=lazy(()=>import('./PushNotificationBridge'));
 const AuthModal=lazy(()=>import('./AuthModal').then(module=>({default:module.AuthModal})));
+const BKLegends=lazy(()=>import('./BKLegends'));
 const PlayHub=lazy(()=>import('./PlayHub').then(module=>({default:module.PlayHub})));
 const HomeDashboard=lazy(()=>import('./HomeDashboard').then(module=>({default:module.HomeDashboard})));
 const SoloMode=lazy(()=>import('./SoloMode').then(module=>({default:module.SoloMode})));
@@ -47,7 +48,7 @@ const PartnersPage=lazy(()=>import('./PartnersPage').then(module=>({default:modu
 const FootballArenaScreen=lazy(()=>import('./FootballArenaScreen'));
 const CommunityHub=lazy(()=>import('./CommunityHub').then(module=>({default:module.CommunityHub})));
 
-export type AppTab='play'|'football'|'home'|'solo'|'news'|'fantasy'|'sportsbook'|'legacy'|'challenges'|'community'|'ask'|'store'|'locker'|'wardrobe'|'partners'|'lobby'|'draft'|'simulation';
+export type AppTab='play'|'legends'|'football'|'home'|'solo'|'news'|'fantasy'|'sportsbook'|'legacy'|'challenges'|'community'|'ask'|'store'|'locker'|'wardrobe'|'partners'|'lobby'|'draft'|'simulation';
 
 const INTRO_COMPLETED_KEY='ball-knower-intro-completed-v1';
 // Version 1 completed onboarding. Version 2 also acknowledges the restored opening.
@@ -142,6 +143,7 @@ function BallKnowerApp(){
       {currentTab==='home'&&<Suspense fallback={<ScreenFallback/>}><HomeDashboard teamTheme={favoriteTheme} onNavigate={navigateToTab} onOpenCheatSheet={openCheatSheet} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague} onViewMemberLocker={openMemberLocker}/></Suspense>}
       <Suspense fallback={<ScreenFallback/>}>
         {currentTab==='play'&&<PlayHub onNavigate={navigateToTab}/>}
+        {currentTab==='legends'&&<BKLegends key={currentUser?.id??'guest'} owner={currentUser?.id??'guest'} onBack={()=>goToTab('play')}/>}
         {currentTab==='solo'&&<SoloMode initialExperience={soloExperience} onShopGear={openGearStore}/>}
         {currentTab==='news'&&<NewsHub/>}
         {currentTab==='fantasy'&&<FantasyHub view={fantasyView} onViewChange={setFantasyView} onOpenCreateLeague={()=>setIsCreateLeagueOpen(true)} onOpenJoinLeague={()=>setIsJoinLeagueOpen(true)} onSelectLeague={handleSelectLeague}/>}
