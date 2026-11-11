@@ -5,7 +5,7 @@
 .bkl button:focus-visible,.bkl select:focus-visible{outline:2px solid #fff;outline-offset:2px}
 .bkl svg{width:18px;height:18px;flex:none;vertical-align:middle}
 .bkl h1,.bkl h2,.bkl h3,.bkl p{margin:0}
-.bkl h1,.bkl h2,.bkl-header strong{font-family:Impact,'Arial Narrow',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:.015em}
+.bkl h1,.bkl h2,.bkl-header strong{font-family:'Barlow Condensed','Arial Narrow',Impact,sans-serif;font-weight:900;text-transform:uppercase;letter-spacing:.015em}
 .bkl h1{font-size:clamp(2.1rem,8vw,4rem);line-height:.98}
 .bkl h2{font-size:clamp(1.35rem,5vw,2rem);line-height:1.12}
 .bkl-header{display:flex;align-items:center;gap:10px;justify-content:space-between;margin:0 0 12px}
@@ -17,7 +17,7 @@
 .bkl-tabs{display:flex;gap:6px;overflow-x:auto;padding:3px 3px 7px;scrollbar-width:thin;margin-bottom:12px}
 .bkl-tabs button{flex:1 0 auto;white-space:nowrap;font-size:.85rem}
 .bkl [aria-pressed=true]{border-color:var(--bkl-gold);color:#ffdc81;background:#2a2417}
-.bkl-hero{display:grid;align-content:end;justify-items:start;gap:10px;isolation:isolate;position:relative;min-height:300px;border:1px solid var(--bkl-border);border-radius:18px;overflow:hidden;padding:clamp(18px,5vw,36px);background:linear-gradient(90deg,#060608 0%,#060608da 30%,#06060849 70%),url('/atmosphere/ball-knower-legacy-hero.webp') center 45%/cover,#101115}
+.bkl-hero{display:grid;align-content:end;justify-items:start;gap:10px;isolation:isolate;position:relative;min-height:300px;border:1px solid var(--bkl-border);border-radius:18px;overflow:hidden;padding:clamp(18px,5vw,36px);background:linear-gradient(90deg,#060608 0%,#060608da 30%,#06060849 70%),url('/gauntlet-scenes/tunnel.webp') 66% center/cover,#101115}
 .bkl-hero h1{font-size:clamp(3rem,12vw,7rem);font-style:italic}
 .bkl-hero em,.bkl-kicker,.bkl-prize{color:var(--bkl-gold)}
 .bkl-hero p,.bkl-kicker{font-size:.77rem;text-transform:uppercase;letter-spacing:.13em;font-weight:850}

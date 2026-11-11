@@ -52,9 +52,9 @@
 @media(min-width:640px){.bk-play-hub{padding:32px 24px 44px}.bk-play-hub .bk-mini-games-compact{min-height:360px;padding:36px}.bk-mini-games-compact-copy>small{font-size:11px}.bk-mini-games-compact-copy>span{font-size:14px}.bk-play-card-copy{min-height:280px;padding:26px}.bk-play-card-copy>strong{font-size:36px}.bk-play-card-copy>span{max-width:300px;font-size:13px}.bk-play-card-copy>b{font-size:12px}.bk-play-knowledge{grid-template-columns:repeat(2,minmax(0,1fr))}.bk-play-knowledge>div{grid-column:1/-1}}
 @media(max-width:359px){.bk-play-choices{grid-template-columns:1fr}.bk-play-card-copy{min-height:240px}.bk-mini-games-compact-copy{max-width:75%}.bk-play-hub .bk-mini-games-compact{padding-inline:18px}}
 
-.bk-play-legends{display:flex;align-items:center;gap:14px;width:100%;min-height:88px;padding:14px 18px;margin:0 0 14px;border:1px solid #9c7940;border-radius:15px;text-align:left;color:#fff;background:linear-gradient(90deg,#11131a 12%,#11131ae8 50%,#11131a49),url('/atmosphere/ball-knower-legacy-hero.webp') center/cover}
+.bk-play-legends{display:flex;align-items:center;gap:14px;width:100%;min-height:88px;padding:14px 18px;margin:0 0 14px;border:1px solid #9c7940;border-radius:15px;text-align:left;color:#fff;background:linear-gradient(90deg,#11131a 12%,#11131ae8 50%,#11131a49),url('/gauntlet-scenes/tunnel.webp') center/cover}
 .bk-play-legends>svg{flex:none;color:#e8be56}
 .bk-play-legends>span{display:grid;flex:1;gap:2px;min-width:0}
 .bk-play-legends small{color:#e8be56;text-transform:uppercase;font-weight:800;letter-spacing:.1em}
-.bk-play-legends strong{font:italic 1.75rem Impact,'Arial Narrow',sans-serif;text-transform:uppercase}
+.bk-play-legends strong{font:italic 900 1.75rem 'Barlow Condensed','Arial Narrow',Impact,sans-serif;text-transform:uppercase}
 .bk-play-legends span span{font-size:.86rem;color:#e0e0e3}
