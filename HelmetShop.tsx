@@ -28,6 +28,8 @@ const sideLinks: { id: HelmetNavigation; label: string; icon: typeof Star }[] = 
   { id: 'clothing', label: 'Active Wear', icon: Shirt },
   { id: 'helmets', label: 'Helmets', icon: HardHat },
   { id: 'jerseys', label: 'Jerseys', icon: Shirt },
+  { id: 'pants', label: 'Pants', icon: Shirt },
+  { id: 'jerseys', label: 'Jerseys', icon: Shirt },
   { id: 'accessories', label: 'Accessories', icon: Glasses },
   { id: 'cleats', label: 'Cleats', icon: Footprints },
   { id: 'bundles', label: 'Bundles', icon: Package },
