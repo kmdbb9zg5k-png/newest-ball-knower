@@ -104,71 +104,79 @@ try {
     await field.evaluate(() => window.bkSetGraphicsQualityForQA('eco'));
     let kicked = false, liveDefense = 0;
     await capture(slug + '-playbook');
-    for (let action = 0; action < 200; action++) {
-      if (await page.getByRole('heading', { name: /Challenge cleared|Objective incomplete/ }).isVisible()) return;
-      if (field.isDetached()) return;
-      const current = await state();
-      assert.equal(current.glError, 0);
-      if (current.ended) return;
-      if (current.paused) {
-        await click('resume');
-      } else if (current.unit?.stage === 'kick' && current.unit.kicking === 'home') {
-        if (!current.unit.timing) await click('unitKickButton');
-        await step(.75);
-        await click('unitKickButton');
-        await step(2);
-      } else if (current.unit?.kind === 'defense' && current.unit.book) {
-        if (liveDefense === 0) {
-          await click('unitCallDefense');
-          await click('defenseReady');
-          await step(.8);
-          liveDefense++;
-        } else {
-          await click('unitSimBook');
-        }
-      } else if (current.unit) {
-        await step(3);
-      } else if (current.playbook.open) {
-        if (current.mini.conversion === 'home') await click('breakHuddle');
-        else if ((!kicked || current.mini.overtime) && current.mini.stats.home.passYards >= passTarget && current.mini.stats.home.rushYards >= rushTarget && await visible('fullFieldGoal') && await field.locator('#fullFieldGoal').isEnabled()) {
-          await click('fullFieldGoal');
-          kicked = true;
-        } else {
-          if (current.mini.stats.home.passYards < passTarget) {
-            await click('filterPass');
-            await click('call-pass-1');
-          } else if (current.mini.stats.home.rushYards < rushTarget) {
-            await click('filterRun');
-            await click('call-run-1');
+    try {
+      for (let action = 0; action < 200; action++) {
+        if (await page.getByRole('heading', { name: /Challenge cleared|Objective incomplete/ }).isVisible()) return;
+        if (field.isDetached()) return;
+        const current = await state();
+        assert.equal(current.glError, 0);
+        if (current.ended) return;
+        if (current.paused) {
+          await click('resume');
+        } else if (current.unit?.stage === 'kick' && current.unit.kicking === 'home') {
+          if (!current.unit.timing) await click('unitKickButton');
+          await step(.75);
+          await click('unitKickButton');
+          await step(2);
+        } else if (current.unit?.kind === 'defense' && current.unit.book) {
+          if (liveDefense === 0) {
+            await click('unitCallDefense');
+            await click('defenseReady');
+            await step(.8);
+            liveDefense++;
+          } else {
+            await click('unitSimBook');
           }
-          await click('breakHuddle');
-        }
-      } else if (current.phase === 'pre') {
-        await field.locator('#snap').dispatchEvent('pointerdown', { pointerId: 1, pointerType: 'touch', button: 0, isPrimary: true });
-        report.controls.push('snap');
-        if (current.mode === 'run') {
-          await field.locator('#game').dispatchEvent('keydown', { key: 'ArrowUp', code: 'ArrowUp', bubbles: true });
+        } else if (current.unit) {
+          await step(3);
+        } else if (current.playbook.open) {
+          if (current.mini.conversion === 'home') await click('breakHuddle');
+          else if ((!kicked || current.mini.overtime) && current.mini.stats.home.passYards >= passTarget && current.mini.stats.home.rushYards >= rushTarget && await visible('fullFieldGoal') && await field.locator('#fullFieldGoal').isEnabled()) {
+            await click('fullFieldGoal');
+            kicked = true;
+          } else {
+            if (current.mini.stats.home.passYards < passTarget) {
+              await click('filterPass');
+              await click('call-pass-1');
+            } else if (current.mini.stats.home.rushYards < rushTarget) {
+              await click('filterRun');
+              await click('call-run-1');
+            }
+            await click('breakHuddle');
+          }
+        } else if (current.phase === 'pre') {
+          await field.locator('#snap').dispatchEvent('pointerdown', { pointerId: 1, pointerType: 'touch', button: 0, isPrimary: true });
+          report.controls.push('snap');
+          if (current.mode === 'run') {
+            await field.locator('#game').dispatchEvent('keydown', { key: 'ArrowUp', code: 'ArrowUp', bubbles: true });
+            await step(5);
+            if (!field.isDetached()) await field.locator('#game').dispatchEvent('keyup', { key: 'ArrowUp', code: 'ArrowUp', bubbles: true });
+          } else await step(1.45);
+        } else if (current.phase === 'pass' && !current.throwing) {
+          const targets = current.players.filter((player, index) => [7, 8, 9, 10, 6].includes(index) && !player.fallen);
+          const defense = current.players.filter(player => player.team === 1 && !player.fallen);
+          const score = player => Math.min(...defense.map(d => Math.hypot(d.x - player.x, d.z - player.z))) +
+            .25 * Math.max(0, player.z - current.field.scrimmage);
+          targets.sort((a, b) => score(b) - score(a));
+          const target = current.players.indexOf(targets[0]);
+          const input = field.locator('#target-' + target);
+          if (await input.isVisible()) {
+            await input.dispatchEvent('click');
+            report.controls.push('pass:' + target);
+          }
+          await step(3);
+        } else if (current.phase === 'cpu' && await visible('fullNext')) {
+          await click('fullNext');
+        } else {
           await step(5);
-          if (!field.isDetached()) await field.locator('#game').dispatchEvent('keyup', { key: 'ArrowUp', code: 'ArrowUp', bubbles: true });
-        } else await step(1.45);
-      } else if (current.phase === 'pass' && !current.throwing) {
-        const targets = current.players.filter((player, index) => [7, 8, 9, 10, 6].includes(index) && !player.fallen);
-        const defense = current.players.filter(player => player.team === 1 && !player.fallen);
-        const score = player => Math.min(...defense.map(d => Math.hypot(d.x - player.x, d.z - player.z))) +
-          .25 * Math.max(0, player.z - current.field.scrimmage);
-        targets.sort((a, b) => score(b) - score(a));
-        const target = current.players.indexOf(targets[0]);
-        const input = field.locator('#target-' + target);
-        if (await input.isVisible()) {
-          await input.dispatchEvent('click');
-          report.controls.push('pass:' + target);
         }
-        await step(3);
-      } else if (current.phase === 'cpu' && await visible('fullNext')) {
-        await click('fullNext');
-      } else {
-        await step(5);
       }
+    } catch (error) {
+      // The app replaces the field with the real result as soon as the game posts it.
+      // A browser request already in flight can see that removal before its reply arrives.
+      if (!field.isDetached()) throw error;
+      await page.getByRole('dialog', { name: title }).getByRole('heading', { name: /Challenge cleared|Objective incomplete/ }).waitFor({ timeout: 5000 });
+      return;
     }
     throw new Error(title + ' did not reach a result within the control budget');
   }
